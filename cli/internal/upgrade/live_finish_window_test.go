@@ -98,6 +98,9 @@ func TestLiveRollbackFinishing_ExternalWritesReopen(t *testing.T) {
 	if err := d.writeUpgradeFlag(id, sha, nil, "live-probe", "test", false); err != nil {
 		t.Fatal(err)
 	}
+	if err := d.mutateHeldFlag(func(flag *UpgradeFlag) { flag.Phase = PhaseRollbackFinishing }); err != nil {
+		t.Fatalf("stamp rollback finishing phase: %v", err)
+	}
 	d.releaseUpgradeFlagLockKeepingFile()
 
 	// Engage the real window (the pre-snapshot state a crashed rollback leaves).

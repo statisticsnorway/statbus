@@ -35,7 +35,7 @@ func TestLiveReattemptRestore_DelayedSecondInstallCannotRestoreAgain(t *testing.
 printf '%s\n' "$*" >> "$STATBUS_TEST_DOCKER_LOG"
 case "$*" in
   *"compose exec db pg_isready"*|*"compose exec"*"pg_isready"*) echo "accepting connections"; exit 0 ;;
-  *"compose ps"*) echo "[]"; exit 0 ;;
+	  *"compose ps"*) echo '[{"Service":"proxy"}]'; exit 0 ;;
   *) echo "shim: $*"; exit 0 ;;
 esac
 `), 0o755); err != nil {
@@ -52,6 +52,28 @@ esac
 	t.Setenv("PATH", shimDir+string(os.PathListSeparator)+os.Getenv("PATH"))
 	t.Setenv("STATBUS_TEST_DOCKER_LOG", dockerLog)
 	t.Setenv("STATBUS_TEST_GIT_SHA", "1111111111111111111111111111111111111111")
+	// Phase 3 requires the restored source binary explicitly for config generate,
+	// while the target ./sb remains recovery authority until cleanup commits.
+	// Preserve the real development binary because the final publish deliberately
+	// replaces it with this source fixture.
+	sbPath := filepath.Join(projDir, "sb")
+	sbBytes, err := os.ReadFile(sbPath)
+	if err != nil {
+		t.Fatalf("read target sb fixture: %v", err)
+	}
+	sbInfo, err := os.Stat(sbPath)
+	if err != nil {
+		t.Fatalf("stat target sb fixture: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(projDir, "sb.old"), []byte("#!/bin/sh\nexit 0\n"), 0o755); err != nil {
+		t.Fatalf("write source sb fixture: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := os.WriteFile(sbPath, sbBytes, sbInfo.Mode().Perm()); err != nil {
+			t.Errorf("restore target sb after source publish fixture: %v", err)
+		}
+		_ = os.Remove(filepath.Join(projDir, "sb.old"))
+	})
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 	defer cancel()

@@ -60,9 +60,9 @@ func TestLiveRecoverFromFlag_PendingRollbackNeverRestores(t *testing.T) {
 		_ = os.Remove(flagFilePath(projDir))
 	})
 
-	// A PreSwap (empty phase) service-held marker with a FREE flock: the exact
+	// A cleanup-only service-held marker with a FREE flock: the exact
 	// on-disk shape after the finisher crashed between restore and unlink.
-	marker, _ := json.Marshal(UpgradeFlag{ID: id, CommitSHA: sha, StartedAt: time.Now(), InvokedBy: "probe", Trigger: "test", Holder: HolderService})
+	marker, _ := json.Marshal(UpgradeFlag{ID: id, CommitSHA: sha, StartedAt: time.Now(), InvokedBy: "probe", Trigger: "test", Holder: HolderService, Phase: PhaseRollbackFinishing})
 	if err := os.WriteFile(flagFilePath(projDir), marker, 0644); err != nil {
 		t.Fatal(err)
 	}

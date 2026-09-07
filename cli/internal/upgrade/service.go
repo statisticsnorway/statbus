@@ -1599,8 +1599,16 @@ func (d *Service) recoverFromFlag(ctx context.Context) (err error) {
 	// rollback_finishing is routed before observed/destructive recovery. Its held
 	// phase authorizes cleanup only, never another snapshot restore.
 	if flag.Phase == PhaseRollbackFinishing {
+		finishLock, heldFlag, lockErr := acquireRecoveryFlock(d.projDir, flag)
+		if lockErr != nil {
+			return fmt.Errorf("acquire and revalidate rollback finishing marker: %w", lockErr)
+		}
+		d.flagLock = finishLock
+		flag = heldFlag
+		logRecover("Rollback for upgrade %d (%s) already restored the previous version; continuing cleanup-only under the held rollback_finishing marker. The snapshot will not be restored again.", flag.ID, flag.Label())
 		rollbackFinishPending, pendingErr := d.isRollbackFinishPending(ctx, flag.ID)
 		if pendingErr != nil {
+			d.releaseUpgradeFlagLockKeepingFile()
 			return fmt.Errorf("check rollback finishing state for upgrade %d: %w", flag.ID, pendingErr)
 		}
 		if rollbackFinishPending {
@@ -1609,11 +1617,13 @@ func (d *Service) recoverFromFlag(ctx context.Context) (err error) {
 			if checkErr != nil || stillPending {
 				return fmt.Errorf("rollback cleanup for upgrade %d remains pending: %v", flag.ID, checkErr)
 			}
+			logRecover("Rollback finishing cleanup for upgrade %d completed without restoring the snapshot again.", flag.ID)
 			return nil
 		}
 		if err := d.clearRollbackFinishFlag(flag.ID); err != nil {
 			return fmt.Errorf("clear terminal rollback finishing marker for upgrade %d: %w", flag.ID, err)
 		}
+		logRecover("Rollback finishing cleanup for upgrade %d completed without restoring the snapshot again.", flag.ID)
 		return nil
 	}
 
@@ -10243,11 +10253,16 @@ func (d *Service) restoreAndFinalize(ctx context.Context, id int, version string
 	// STATBUS-354 Phase 2: retain the target worktree and target ./sb while the
 	// snapshot is restored, start only its existing DB container, then reapply the
 	// checked-in daemon floor through the ordinary migration engine/ledger.
-	dbRestoreErr := d.restoreRollbackSnapshotWithTargetAssets(progress, backupPath)
-	if dbRestoreErr == nil {
+	var dbRestoreErr error
+	if backupPath != "" {
+		dbRestoreErr = d.restoreRollbackSnapshotWithTargetAssets(progress, backupPath)
+	} else {
+		progress.Write("Checking for this upgrade's database snapshot ... ok (none recorded; leaving the live volume unchanged)")
+	}
+	if backupPath != "" && dbRestoreErr == nil {
 		dbRestoreErr = d.startRollbackDatabaseOnly(ctx, progress)
 	}
-	if dbRestoreErr == nil {
+	if backupPath != "" && dbRestoreErr == nil {
 		if floorErr := d.reapplyRollbackDaemonSchemaFloor(progress); floorErr != nil {
 			_ = d.mutateHeldFlag(func(flag *UpgradeFlag) {
 				flag.Phase = PhaseRollbackSchemaFloorFailed
@@ -10268,7 +10283,7 @@ func (d *Service) restoreAndFinalize(ctx context.Context, id int, version string
 	if dbRestoreErr == nil && backupPath != "" {
 		sourceRestoreErr = d.restoreGitState("", progress)
 	}
-	if dbRestoreErr == nil && sourceRestoreErr == nil {
+	if backupPath != "" && dbRestoreErr == nil && sourceRestoreErr == nil {
 		configGenerateErr = runCommandToLog(projDir, 2*time.Minute, progress.File(), "rollback-config-generate", nil,
 			filepath.Join(projDir, "sb.old"), "config", "generate")
 		if configGenerateErr != nil {

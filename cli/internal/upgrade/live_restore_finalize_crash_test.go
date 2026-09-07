@@ -13,9 +13,8 @@ import (
 // TestLiveRestoreAndFinalize_UnlinkFailureThenRecovery is the crash-shaped
 // twin: the real restoreAndFinalize succeeds at every boundary EXCEPT the
 // final marker unlink (injected through the removeFile seam), so it must NOT
-// claim completion. Expected: the row stays failed with rollback_finish_pending_at set, SQL and
-// HTTP are already reopened (the window was lifted before finishing, and it
-// is safe: no path may restore again), the flock is released while the
+// claim completion. Expected: the row is already durably rolled_back with the
+// pending discriminator cleared, SQL and HTTP are reopened, the flock is released while the
 // marker survives on disk (the crashed-recovery shape), and a later
 // RecoverFromFlag — the real entrypoint, unlink working again — finishes
 // cleanup-only. Docker is a PATH shim; everything else is real.
@@ -110,14 +109,16 @@ func TestLiveRestoreAndFinalize_UnlinkFailureThenRecovery(t *testing.T) {
 	if !strings.Contains(logText, "finishing did not complete; cleanup will retry without restoring the database again") {
 		t.Error("the unlink failure was not narrated as cleanup-only finishing")
 	}
-	// Half-open by design: SQL and HTTP are reopened (safe: the pending row forbids any restore).
+	// Half-open by design: SQL and HTTP are reopened and the terminal row is
+	// committed before unlink, so the surviving finishing marker can authorize
+	// cleanup only without relying on a pending database discriminator.
 	var state, errText string
 	var pendingAt *time.Time
 	if err := d.queryConn.QueryRow(ctx, "SELECT state::text, error, rollback_finish_pending_at FROM public.upgrade WHERE id = $1", id).Scan(&state, &errText, &pendingAt); err != nil {
 		t.Fatal(err)
 	}
-	if state != "failed" || pendingAt == nil {
-		t.Fatalf("row after unlink failure: state=%s pending=%v error=%q; want failed with rollback_finish_pending_at set", state, pendingAt, errText)
+	if state != "rolled_back" || pendingAt != nil {
+		t.Fatalf("row after unlink failure: state=%s pending=%v error=%q; want rolled_back with rollback_finish_pending_at cleared", state, pendingAt, errText)
 	}
 	if _, err := os.Stat(flagFilePath(projDir)); err != nil {
 		t.Fatalf("marker must survive the failed unlink: %v", err)

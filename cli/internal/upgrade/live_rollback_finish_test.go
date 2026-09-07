@@ -76,6 +76,9 @@ func TestLiveRollbackFinishing(t *testing.T) {
 	if err := d.writeUpgradeFlag(pendingID, pendingSHA, nil, "live-probe", "test", false); err != nil {
 		t.Fatalf("write marker: %v", err)
 	}
+	if err := d.mutateHeldFlag(func(flag *UpgradeFlag) { flag.Phase = PhaseRollbackFinishing }); err != nil {
+		t.Fatalf("stamp rollback finishing phase: %v", err)
+	}
 	d.releaseUpgradeFlagLockKeepingFile()
 
 	// 1. Every new claim is refused while the pending row exists.
