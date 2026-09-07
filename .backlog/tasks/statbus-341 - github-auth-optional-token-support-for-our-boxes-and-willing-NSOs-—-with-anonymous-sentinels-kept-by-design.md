@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-09-02 12:21'
-updated_date: '2026-09-03 13:15'
+updated_date: '2026-09-07 13:12'
 labels:
   - ops
   - upgrade
@@ -49,3 +49,21 @@ KING'S RULING (2026-09-03), design amended and APPROVED for this build wave — 
 Context for urgency: 36h of GitHub 401-challenges on anonymous git-over-HTTPS from Hetzner IP space (authenticated paths: zero failures in the same windows) cost ~7 RC iterations and 3 arc false-reds. Queued alongside 344 for the post-promotion wave.
 ---
 <!-- COMMENTS:END -->
+
+## Ruling (owner, 2026-09-07): sentinels are the manually driven boxes
+
+The split follows HOW a box is driven, not what it is for:
+
+| box | driven | GitHub auth | why |
+|---|---|---|---|
+| `no` (Norway, rune) | manually: a person installs each candidate | **anonymous sentinel** | lives the customer path at customer volume |
+| `demo` | today: upgrade service on `stable`, `UPGRADE_AUTO_DOWNLOAD=true` (automated). If it is turned manual it joins the sentinel set. | token unless made manual | automation at 5-min ticks is what the rate limit bites |
+| `dev` | automatically: orchestrator canary, 5-min ticks | **token** | the real victim of the anonymous limit |
+| `et`, `jo`, `ma`, `ug`, other country slots | automated channel-followers, low frequency | token allowed, not issued | low volume is fine anonymous; a token is an allowed `.env.config` entry, never installed by us on a customer-shaped box |
+| harness happy smokes (`install-works`, `upgrade-works`) | anonymous | they ARE the customer-experience test |
+| harness recovery arcs | token from the workflow | anonymous 401 noise there is pure false red |
+
+The sentinel set is DATA in the fleet registry (`cloud.sh`), shown by
+`./cloud.sh status` as `auth: anon|token`, and a test asserts `no` is in the
+anonymous set. Open question the owner will settle when 341 is built: whether
+`demo` becomes manual (then sentinel) or stays automated (then token).
