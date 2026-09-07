@@ -66,8 +66,8 @@ func stubWorkflowCheck(t *testing.T, status release.WorkflowCheckStatus) {
 	t.Helper()
 	old := checkWorkflowAtCommit
 	checkWorkflowAtCommit = func(workflow, commit string) release.WorkflowCheckResult {
-		if workflow != release.WorkflowPgRegress {
-			t.Errorf("escape consulted the wrong workflow: got %q, want %q", workflow, release.WorkflowPgRegress)
+		if workflow != release.WorkflowFastTests {
+			t.Errorf("escape consulted the wrong workflow: got %q, want %q", workflow, release.WorkflowFastTests)
 		}
 		if commit == "" {
 			t.Error("escape consulted CI with an empty commit — it must ask about a real HEAD")
@@ -98,14 +98,14 @@ func TestDriftEscapeFiresOnlyOnGreen(t *testing.T) {
 
 			got, ciResult := driftCoveredByCIGreen(dir, "test expected file drift", "test/expected/a.out", false)
 			if got != tc.want {
-				t.Fatalf("pg_regress %s: escape returned %v, want %v", tc.status, got, tc.want)
+				t.Fatalf("Fast Tests %s: escape returned %v, want %v", tc.status, got, tc.want)
 			}
 			// STATBUS-277: the caller prints ciResult on refusal, so the
 			// escape must hand back the actual status it saw rather than a
 			// zero value — a refusal with an empty Status would read as
 			// "CI was never consulted" when it plainly was.
 			if ciResult.Status != tc.status {
-				t.Fatalf("pg_regress %s: returned result status = %q, want %q", tc.status, ciResult.Status, tc.status)
+				t.Fatalf("Fast Tests %s: returned result status = %q, want %q", tc.status, ciResult.Status, tc.status)
 			}
 
 			// A refusal must also leave no stamp behind: writing one would
@@ -113,7 +113,7 @@ func TestDriftEscapeFiresOnlyOnGreen(t *testing.T) {
 			_, err := os.Stat(fastTestStampPath(dir))
 			stampExists := err == nil
 			if stampExists != tc.want {
-				t.Fatalf("pg_regress %s: stamp exists = %v, want %v", tc.status, stampExists, tc.want)
+				t.Fatalf("Fast Tests %s: stamp exists = %v, want %v", tc.status, stampExists, tc.want)
 			}
 		})
 	}
@@ -204,7 +204,7 @@ func TestPrintDriftEitherOrRefusal(t *testing.T) {
 			})
 		})
 		for _, want := range []string{
-			"pg_regress is not green at HEAD",
+			"Fast Tests is not green at HEAD",
 			"status: pending",
 			"run: https://example.invalid/run/9",
 			"either a green CI run at this commit or the local run below satisfies this check",
@@ -348,17 +348,16 @@ func TestStaleTemplateBranchConsultsFastTests(t *testing.T) {
 		})
 	}
 
-	// The siblings must still ask pg_regress — the split is deliberate, not a
-	// migration of every call site to fast-tests.
-	t.Run("the file-drift siblings still ask pg_regress", func(t *testing.T) {
+	// Every fast-suite drift escape must ask the same per-commit runner oracle.
+	t.Run("the file-drift siblings also ask fast-tests", func(t *testing.T) {
 		dir := newDriftRepo(t)
 		stubWorkflowCheckPerWorkflow(t, map[string]release.WorkflowCheckStatus{
-			release.WorkflowPgRegress: release.WorkflowCheckGreen,
+			release.WorkflowFastTests: release.WorkflowCheckGreen,
 		})
 
 		covered, _ := driftCoveredByCIGreen(dir, "test expected file drift", "test/expected/a.out", false)
 		if !covered {
-			t.Fatal("the file-drift escape must still be satisfied by a pg_regress green")
+			t.Fatal("the file-drift escape must be satisfied by a Fast Tests green")
 		}
 	})
 

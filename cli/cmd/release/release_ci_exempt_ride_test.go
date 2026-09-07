@@ -116,7 +116,7 @@ func TestCIExemptPathsFile_IsNotItselfExempt(t *testing.T) {
 	// Neither may the workflows or the release code that implement the gates.
 	for _, mustNot := range []string{
 		"cli/cmd/release/release.go",
-		".github/workflows/pg_regress.yaml",
+		".github/workflows/fast-tests.yaml",
 		"migrations/20260101000000_x.up.sql",
 		"app/src/app/page.tsx",
 		"test/expected/foo.out",

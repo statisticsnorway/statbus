@@ -28,7 +28,7 @@ func fastTestStampPath(projDir string) string {
 //
 // The local stamp answers "did the fast suite run at this SHA, on this
 // machine". When it is stale, the drift checks correctly say the operator's
-// last local run does not cover what changed since. But a green pg_regress
+// last local run does not cover what changed since. But a green Fast Tests
 // run at HEAD answers a strictly stronger question: CI checked out THIS
 // COMMITTED TREE and ran the suite against it. Whatever drifted between the
 // stamp's SHA and HEAD was therefore already exercised — not by inference,
@@ -42,8 +42,8 @@ func fastTestStampPath(projDir string) string {
 //
 // WHAT THIS DOES NOT DO. It does not lift, weaken, or stand in for any test
 // gate. It applies only where a gate has ALREADY been satisfied — a green
-// pg_regress run — and only to the question of whether a stale local stamp
-// still forces a re-run. A red or missing pg_regress is untouched by this
+// Fast Tests run — and only to the question of whether a stale local stamp
+// still forces a re-run. A red or missing Fast Tests run is untouched by this
 // path: it refuses here exactly as it refuses everywhere else. Nothing here
 // lets a failing test through.
 //
@@ -95,7 +95,7 @@ func driftCoveredByWorkflowGreen(projDir, workflow, what, drifted string, stampF
 		return false, result
 	}
 
-	fmt.Printf("  ✓ Fast tests cover %s (pg_regress green in CI at %s)\n", what, headShort)
+	fmt.Printf("  ✓ Fast tests cover %s (Fast Tests green in CI at %s)\n", what, headShort)
 	for _, f := range strings.Split(drifted, "\n") {
 		if f != "" {
 			fmt.Printf("      %s\n", f)
@@ -127,7 +127,7 @@ func driftCoveredByWorkflowGreen(projDir, workflow, what, drifted string, stampF
 // before the site's own unchanged refusal, when driftCoveredByCIGreen has
 // just declined (STATBUS-277). Without it, the refusal below reads as if the
 // local stamp were the ONLY acceptable proof, when the gate is actually
-// either/or: a green pg_regress run at HEAD satisfies it exactly as well as
+// either/or: a green Fast Tests run at HEAD satisfies it exactly as well as
 // a fresh local run. This says which half is missing and, when CI was
 // actually consulted, exactly what it saw there — status, and a run URL or
 // API-error detail — so the operator does not have to guess whether waiting
@@ -137,7 +137,7 @@ func printDriftEitherOrRefusal(ciResult release.WorkflowCheckResult) {
 		// CI was never consulted — driftCoveredByCIGreen could not resolve a
 		// HEAD to ask about (see its own doc comment). Say so plainly rather
 		// than implying an answer that was never sought.
-		fmt.Println("    Local stamp is stale, and pg_regress could not be consulted (no resolvable HEAD).")
+		fmt.Println("    Local stamp is stale, and Fast Tests could not be consulted (no resolvable HEAD).")
 		fmt.Println("    Either a green CI run at this commit or the local run below satisfies this check.")
 		return
 	}
@@ -148,15 +148,15 @@ func printDriftEitherOrRefusal(ciResult release.WorkflowCheckResult) {
 	case ciResult.Detail != "":
 		detail += ", detail: " + ciResult.Detail
 	}
-	fmt.Printf("    Local stamp is stale AND pg_regress is not green at HEAD (status: %s);\n", detail)
+	fmt.Printf("    Local stamp is stale AND Fast Tests is not green at HEAD (status: %s);\n", detail)
 	fmt.Println("    either a green CI run at this commit or the local run below satisfies this check.")
 }
 
 // driftCoveredByCIGreen is the entry point for the two file-drift refusals:
 // new-migrations and test-expected drift. Their question is "was this tree's
-// suite exercised", and pg_regress is the workflow that answers it.
+// suite exercised", and the Fast Tests runner workflow answers it.
 func driftCoveredByCIGreen(projDir, what, drifted string, stampFromRide bool) (bool, release.WorkflowCheckResult) {
-	return driftCoveredByWorkflowGreen(projDir, release.WorkflowPgRegress, what, drifted, stampFromRide)
+	return driftCoveredByWorkflowGreen(projDir, release.WorkflowFastTests, what, drifted, stampFromRide)
 }
 
 // staleTemplateCoveredByFastTestsGreen is the entry point for the STALE-TEMPLATE

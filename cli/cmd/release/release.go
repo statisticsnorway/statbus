@@ -147,7 +147,7 @@ func preflightChecks(projDir string) bool {
 	// Both checked below. Legacy single-line stamps FAIL with re-run guidance.
 	//
 	// CI fallback (task #129): when no local stamp exists, query GitHub
-	// Actions for the pg_regress workflow run at HEAD via the standard
+	// Actions for the Fast Tests runner workflow at HEAD via the standard
 	// WorkflowCheck pattern (same shape as images / test-hardening /
 	// test-install gates — Green/Pending/Failed/Missing/Unknown each
 	// with URL + run-id + actionable next-step). On Green a fresh local
@@ -174,20 +174,20 @@ func preflightChecks(projDir string) bool {
 		if len(headShort) > 12 {
 			headShort = headShort[:12]
 		}
-		pgRegressResult := checkWorkflowAtCommit(release.WorkflowPgRegress, headFull)
+		pgRegressResult := checkWorkflowAtCommit(release.WorkflowFastTests, headFull)
 
-		// STATBUS-219: pg_regress is a verdict about content, so it may ride an
+		// STATBUS-219: the pg_regress fast suite is a verdict about content, so it may ride an
 		// exempt-only ancestor's green (same reasoning as
 		// checkPrereleaseWorkflowGate; Unknown excluded there and here).
 		var pgRide *exemptRide
 		var pgBlocker *ancestorVerdict
 		pgRideNote := ""
 		if pgRegressResult.Status != release.WorkflowCheckGreen && pgRegressResult.Status != release.WorkflowCheckUnknown {
-			pgRide, pgRideNote, pgBlocker = findExemptRide(projDir, release.WorkflowPgRegress, headFull)
+			pgRide, pgRideNote, pgBlocker = findExemptRide(projDir, release.WorkflowFastTests, headFull)
 		}
 		switch {
 		case pgRide != nil:
-			printExemptRide("pg_regress", pgRide)
+			printExemptRide("Fast Tests", pgRide)
 			// Feed the stamp-driven checks below with the RIDE TARGET's SHA, not
 			// HEAD's: the truthful claim is "the suite passed at that commit", and
 			// the migration/test-expected drift checks then verify ACROSS the ride
@@ -215,45 +215,26 @@ func preflightChecks(projDir string) bool {
 			stampContent := headFull + "\n" + latestMig + "\n"
 			_ = os.WriteFile(stampPath, []byte(stampContent), 0644) // best-effort local stamp; a write failure just means the fast path re-checks next time
 			stampBytes = []byte(stampContent)
-		case pgRegressResult.Status == release.WorkflowCheckPending:
-			fmt.Printf("  ✗ pg_regress is still pending at %s (no local stamp)\n", headShort)
-			fmt.Printf("    Watch: gh run watch %d\n", pgRegressResult.RunID)
-			fmt.Printf("    URL:   %s\n", pgRegressResult.RunURL)
-			fmt.Println("    Fix: wait for the run to complete, then re-run prerelease")
-			fmt.Println("    Or:  ./dev.sh migrate-and-test fast   (write local stamp from your machine)")
-			allPassed = false
-		case pgRegressResult.Status == release.WorkflowCheckFailed:
-			fmt.Printf("  ✗ pg_regress failed at %s (conclusion: %s; no local stamp)\n", headShort, pgRegressResult.Detail)
-			fmt.Printf("    See: gh run view %d --log-failed\n", pgRegressResult.RunID)
-			fmt.Printf("    URL: %s\n", pgRegressResult.RunURL)
-			fmt.Println("    Fix:")
-			fmt.Printf("      Retry the failed jobs (if transient): gh run rerun --failed %d\n", pgRegressResult.RunID)
-			fmt.Println("      Or push a fix to master, then re-run prerelease")
-			fmt.Println("      Or run locally: ./dev.sh migrate-and-test fast   (write local stamp)")
+		case pgRegressResult.Status == release.WorkflowCheckPending,
+			pgRegressResult.Status == release.WorkflowCheckFailed:
+			printFastSuiteWorkflowFailure(pgRegressResult, headShort, headFull)
 			allPassed = false
 		case pgRegressResult.Status == release.WorkflowCheckMissing && pgBlocker != nil:
 			// STATBUS-256: an ancestor carrying this exact code has already
 			// returned a verdict — red, or still running. Reporting the tip's
 			// absence instead sends the operator to dispatch a run that either
 			// already failed or is already going.
-			printAncestorVerdict("pg_regress", headShort, pgBlocker)
+			printAncestorVerdict("Fast Tests", headShort, pgBlocker)
 			if pgRideNote != "" {
 				fmt.Printf("    Why no ride: %s\n", pgRideNote)
 			}
 			fmt.Println("    Or:  ./dev.sh migrate-and-test fast   (write local stamp from your machine)")
 			allPassed = false
 		case pgRegressResult.Status == release.WorkflowCheckMissing:
-			fmt.Printf("  ✗ pg_regress has not run for %s (no local stamp)\n", headShort)
-			fmt.Printf("    Trigger: %s\n", release.WorkflowTriggerCommand(release.WorkflowPgRegress, headFull))
-			fmt.Printf("    Watch:   %s\n", release.WorkflowURL(release.WorkflowPgRegress))
-			fmt.Println("    Fix: run the trigger command above, wait for green, re-run prerelease")
-			fmt.Println("    Or:  ./dev.sh migrate-and-test fast   (write local stamp from your machine)")
+			printFastSuiteWorkflowFailure(pgRegressResult, headShort, headFull)
 			allPassed = false
 		case pgRegressResult.Status == release.WorkflowCheckUnknown:
-			fmt.Printf("  ✗ pg_regress status check failed (GitHub API error; no local stamp)\n")
-			fmt.Printf("    Detail: %s\n", pgRegressResult.Detail)
-			fmt.Println("    Fix: check network connectivity / GITHUB_TOKEN; or re-run later")
-			fmt.Println("    Or:  ./dev.sh migrate-and-test fast   (write local stamp from your machine)")
+			printFastSuiteWorkflowFailure(pgRegressResult, headShort, headFull)
 			allPassed = false
 		}
 		if pgRide == nil && pgRideNote != "" {
@@ -587,7 +568,6 @@ func preflightChecks(projDir string) bool {
 	// (checkStableWorkflowGate).
 	allPassed = checkPrereleaseWorkflowGate(projDir, release.WorkflowGoTest, "go-test", "SKIP_GO_TEST") && allPassed
 	allPassed = checkPrereleaseWorkflowGate(projDir, release.WorkflowAppBuildLint, "app-build-lint", "SKIP_APP_BUILD_LINT") && allPassed
-	allPassed = checkPrereleaseWorkflowGate(projDir, release.WorkflowFastTests, "fast-tests", "SKIP_FAST_TESTS") && allPassed
 
 	// 16. The fleet's inbound-command policy is the reviewed one (STATBUS-259).
 	//
@@ -612,6 +592,33 @@ func preflightChecks(projDir string) bool {
 	}
 
 	return allPassed
+}
+
+func printFastSuiteWorkflowFailure(result release.WorkflowCheckResult, headShort, headFull string) {
+	switch result.Status {
+	case release.WorkflowCheckPending:
+		fmt.Printf("  ✗ Fast Tests is still pending at %s (no local stamp)\n", headShort)
+		fmt.Printf("    Watch: gh run watch %d\n", result.RunID)
+		fmt.Printf("    URL:   %s\n", result.RunURL)
+		fmt.Println("    Fix: wait for the Fast Tests runner job to complete, then re-run prerelease")
+	case release.WorkflowCheckFailed:
+		fmt.Printf("  ✗ Fast Tests failed at %s (conclusion: %s; no local stamp)\n", headShort, result.Detail)
+		fmt.Printf("    See: gh run view %d --log-failed\n", result.RunID)
+		fmt.Printf("    URL: %s\n", result.RunURL)
+		fmt.Println("    Fix:")
+		fmt.Printf("      Retry the failed Fast Tests jobs (if transient): gh run rerun --failed %d\n", result.RunID)
+		fmt.Println("      Or push a fix to master, then re-run prerelease")
+	case release.WorkflowCheckMissing:
+		fmt.Printf("  ✗ Fast Tests has not run for %s (no local stamp)\n", headShort)
+		fmt.Printf("    Trigger: %s\n", release.WorkflowTriggerCommand(release.WorkflowFastTests, headFull))
+		fmt.Printf("    Watch:   %s\n", release.WorkflowURL(release.WorkflowFastTests))
+		fmt.Println("    Fix: run the trigger command above, wait for Fast Tests green, re-run prerelease")
+	case release.WorkflowCheckUnknown:
+		fmt.Println("  ✗ Fast Tests status check failed (GitHub API error; no local stamp)")
+		fmt.Printf("    Detail: %s\n", result.Detail)
+		fmt.Println("    Fix: check network connectivity / GITHUB_TOKEN; or re-run later")
+	}
+	fmt.Println("    Or:  ./dev.sh migrate-and-test fast   (write local stamp from your machine)")
 }
 
 // checkPrereleaseWorkflowGate runs one of the HEAD-targeted commit-scope
@@ -1064,11 +1071,10 @@ var releasePrereleaseCmd = &cobra.Command{
 Includes the commit-scope workflow oracles (STATBUS-199 D1: "gate obvious
 things as early as possible" — these need only the commit, not a cut RC
 tag, so they belong here rather than at stable promotion):
-  - pg_regress (fast pg_regress suite; local-stamp fast path + CI fallback)
+  - pg_regress fast suite: local stamp, else the Fast Tests runner job at HEAD
   - images (Docker artifacts build)
   - go-test (go vet + go test ./...)
   - app-build-lint (app/ build + lint)
-  - fast-tests
 
 test-hardening and test-install are NOT gated here (STATBUS-205): both
 fire only on the RC tag push itself, so demanding them pre-tag would be
@@ -1083,7 +1089,6 @@ Operator bypasses (use sparingly — each one is an admission that a gate's
 invariant has NOT been verified for the SHA):
   SKIP_GO_TEST=1
   SKIP_APP_BUILD_LINT=1
-  SKIP_FAST_TESTS=1
 (No SKIP for pg_regress or images by design — see their own checks' comments.)
 
 release stable then RIDES this gating rather than re-checking it — see
@@ -1234,7 +1239,7 @@ gate's invariant has NOT been verified for the SHA):
   SKIP_INSTALL_RECOVERY=1  (no recovery regression net was exercised)
   STATBUS_SKIP_CANARY=<label>[,<label>...]  (per-slot canary bypass)
 
-Commit-scope bypasses (SKIP_IMAGES, SKIP_FAST_TESTS, SKIP_GO_TEST,
+Commit-scope bypasses (SKIP_IMAGES, SKIP_GO_TEST,
 SKIP_APP_BUILD_LINT) apply at the prerelease cut — see
 ` + "`./sb release prerelease --help`" + `.
 `,

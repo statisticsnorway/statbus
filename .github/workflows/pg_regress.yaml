@@ -1,4 +1,4 @@
-name: pg_regress
+name: pg_regress (self-hosted fallback)
 
 # run-name — MACHINE-READ (STATBUS-285). NOT cosmetic, unlike the label on
 # install-recovery-harness.yaml.

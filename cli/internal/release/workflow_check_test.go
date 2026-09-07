@@ -581,7 +581,7 @@ func TestCheckWorkflowByMarker_STATBUS285(t *testing.T) {
 			}))
 			defer server.Close()
 
-			got := checkWorkflowByMarkerAt(server.URL, WorkflowPgRegress, target)
+			got := checkWorkflowByMarkerAt(server.URL, WorkflowFastTests, target)
 			if got.Status != c.want {
 				t.Errorf("status = %q, want %q (detail=%q)", got.Status, c.want, got.Detail)
 			}
