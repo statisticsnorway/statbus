@@ -425,8 +425,9 @@ cmd_migrate_up() {
 # upgrade so stale recovery log lines for previous versions don't cause
 # a premature exit.
 cmd_tail_one() {
-    local server="$1"
+    local server="$1" instance
     local target_version="${2:-}"
+    instance=$(service_instance "$server")
     # Build the awk exit pattern locally before SSH so we avoid nested-quote
     # hell. The pattern is embedded in the remote awk /.../ regex via double-
     # quote expansion of the outer SSH string. Version strings (sha-*, v*.*)
