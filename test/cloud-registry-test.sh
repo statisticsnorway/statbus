@@ -129,6 +129,10 @@ assert_malformed_metadata_fails_closed 'not-delimited' 'no delimiter'
 assert_malformed_metadata_fails_closed 'sb version test|weekly|dev name' 'unknown channel'
 assert_malformed_metadata_fails_closed '|prerelease|dev name' 'empty version'
 assert_malformed_metadata_fails_closed $'Welcome to dev\nsb version test|prerelease|dev name' 'MOTD before the line'
+assert_malformed_metadata_fails_closed $'sb version test|prerelease|dev name\r' 'trailing CR'
+assert_malformed_metadata_fails_closed 'sb version test|prerelease|dev name|extra' 'fourth field'
+assert_malformed_metadata_fails_closed 'sb version test| prerelease |dev name' 'channel with whitespace'
+assert_malformed_metadata_fails_closed '' 'empty stdout with exit 0'
 # ...and a box that is correctly formed is still a member (control).
 output=$(SSH_MALFORMED_CODE=dev SSH_MALFORMED_TEXT='sb version test (commit local)|prerelease|dev name' run_cloud status prerelease 2>&1) || fail "well-formed metadata must resolve: $output"
 assert_contains "$output" "dev " "well-formed metadata keeps the box on its channel"

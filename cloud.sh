@@ -145,9 +145,13 @@ read_server_metadata() {
     # with anything else (a MOTD, a shell warning, an old script) is unreadable,
     # not a non-member: every channel-targeted verb would otherwise silently
     # drop this box. Validate here so every consumer inherits the same contract.
+    # Exactly one line, exactly two delimiters, printable characters only (a
+    # trailing CR from a Windows-configured shell must not ride into a field).
+    [ "$(printf '%s\n' "$metadata" | wc -l)" -eq 1 ] || return 1
+    [ "$(tr -cd '|' <<< "$metadata" | wc -c)" -eq 2 ] || return 1
+    [ "$(printf '%s' "$metadata" | tr -d '[:print:]' | wc -c)" -eq 0 ] || return 1
     IFS='|' read -r version channel name <<< "$metadata"
     [ -n "$version" ] && is_channel "$channel" && [ -n "$name" ] || return 1
-    [ "$(printf '%s\n' "$metadata" | wc -l)" -eq 1 ] || return 1
     printf '%s\n' "$metadata"
 }
 
