@@ -82,3 +82,11 @@ and its output nowhere tells the operator to wait for niue.
 ## Coordination checkpoint: 2026-09-07 16:31
 
 Implementation landed as `938df6891`. At `f2862bd47`, runner Fast Tests succeeded while niue fallback failed. Runner is the per-commit pg_regress oracle, niue is not a gate. Final evidence/acceptance and exact new HEAD CI remain before Done.
+
+## Evidence: independent Sol review, 2026-09-07 16:43
+
+- Squid ACCEPT for `938df6891`. Focused STATBUS360/workflow/oracle tests and full `./cmd/release ./internal/release` Go packages passed. Report: `tmp/STATBUS-360-review.md`.
+- Negative oracle proves niue-green alone does not satisfy check 7. Failure prose names Fast Tests and help lists the suite once. Whole prerelease command was not executed by reviewer.
+- At `f2862bd47`, runner run 34141738192 succeeded while fallback 34141738170 failed, demonstrating the distinct signals.
+- Fallback failed before tests: duplicate column 42701 applying re-timestamped migration 20260907120000 against stale cached state. This is a test-cache repair issue, not a release gate or evidence of a fleet orphan. Read-only repair scoping delegated, no remote rebuild authorized.
+- At `081d7e4ec`, Images succeeded and runner Fast Tests remains in progress. Done remains pending final CI verification.
