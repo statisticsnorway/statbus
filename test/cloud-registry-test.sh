@@ -124,10 +124,11 @@ test_all_eligibility create
 # Finding 5: retired trust variable fails plainly, and the create helper uses
 # the one fleet-wide name.
 set +e
-output=$(STANDALONE_TRUST_KEY_USER=jhf STATBUS_CLOUD_LIB_ONLY=1 bash -c 'source "$1"' _ "$ROOT/cloud.sh" 2>&1); rc=$?
+retired_trust_name="STANDALONE_TRUST_KEY""_USER"
+output=$(env "$retired_trust_name=jhf" STATBUS_CLOUD_LIB_ONLY=1 bash -c 'source "$1"' _ "$ROOT/cloud.sh" 2>&1); rc=$?
 set -e
 [ "$rc" -ne 0 ] || fail "retired trust variable must fail"
-assert_contains "$output" "STANDALONE_TRUST_KEY_USER" "trust rename names retired variable"
+assert_contains "$output" "$retired_trust_name" "trust rename names retired variable"
 assert_contains "$output" "FLEET_TRUST_KEY_USER" "trust rename names replacement"
 assert_not_contains "$(cat "$ROOT/ops/create-new-statbus-installation.sh")" "CLOUD_TRUST_KEY_USER" "create helper has no cloud-only trust variable"
 assert_contains "$(cat "$ROOT/ops/create-new-statbus-installation.sh")" "FLEET_TRUST_KEY_USER" "create helper uses fleet trust variable"

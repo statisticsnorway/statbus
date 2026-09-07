@@ -56,7 +56,11 @@ FLEET_REGISTRY=(
 INSTALL_URL="https://statbus.org/install.sh"
 # Unified trust-key setting, passed as --trust-github-user to ./sb install.
 # No default. Example: FLEET_TRUST_KEY_USER=jhf ./cloud.sh install all
-[ -z "${STANDALONE_TRUST_KEY_USER+x}" ] || { echo "Error: STANDALONE_TRUST_KEY_USER was retired; set FLEET_TRUST_KEY_USER instead." >&2; return 2 2>/dev/null || exit 2; }
+if [ -n "${STANDALONE_TRUST_KEY_USER+x}" ]; then
+    echo "Error: STANDALONE_TRUST_KEY_USER was retired; set FLEET_TRUST_KEY_USER instead." >&2
+    if [ "${BASH_SOURCE[0]}" != "$0" ]; then return 2; fi
+    exit 2
+fi
 FLEET_TRUST_KEY_USER="${FLEET_TRUST_KEY_USER:-}"
 
 usage() {
