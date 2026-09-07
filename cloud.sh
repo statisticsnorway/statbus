@@ -135,7 +135,7 @@ is_channel() { [ "$1" = stable ] || [ "$1" = prerelease ]; }
 is_group() { [ "$1" = cloud ] || [ "$1" = standalone ]; }
 
 resolve_target_codes() {
-    local target="$1" code metadata channel matches=""
+    local target="$1" code metadata channel matches="" unreadable=""
     if [ "$target" = all ]; then all_codes; return; fi
     if is_group "$target"; then
         registry_entries_for_group "$target" | cut -d'|' -f1
@@ -144,11 +144,16 @@ resolve_target_codes() {
     if ! is_channel "$target"; then validate_code "$target"; echo "$target"; return; fi
     for code in $(all_codes); do
         if ! metadata=$(read_server_metadata "$code" 2>/dev/null); then
-            echo "  $code: channel read failed; skipping" >&2; continue
+            unreadable="${unreadable:+$unreadable }$code"
+            continue
         fi
         IFS='|' read -r _ channel _ <<< "$metadata"
         [ "$channel" = "$target" ] && matches="${matches:+$matches }$code"
     done
+    if [ -n "$unreadable" ]; then
+        echo "Error: cannot resolve channel '$target'; metadata unreadable for: $unreadable" >&2
+        return 1
+    fi
     [ -n "$matches" ] || { echo "Error: no readable boxes found on channel '$target'" >&2; return 1; }
     tr ' ' '\n' <<< "$matches"
 }
