@@ -1573,6 +1573,26 @@ func (d *Service) recoverFromFlag(ctx context.Context) (err error) {
 		return nil
 	}
 
+	// STATBUS-354 Phase 1: StepRollback is durable direction, not merely the
+	// last operation attempted. recoveryRollback acquires the existing marker
+	// without O_CREATE and revalidates its identity and phase/step from the held
+	// descriptor before rollback can touch anything. Route this BEFORE observed
+	// state: a later rollback-floor replay deliberately makes db.migration look
+	// current, but must never turn an already-committed rollback back forward.
+	if flag.Step == StepRollback {
+		logRecover("Upgrade %d (%s) has a durable rollback marker; continuing rollback before observed-state routing.", flag.ID, flag.Label())
+		if appendLog != nil {
+			appendLog.Close()
+			appendLog = nil
+		}
+		reason := preSwapRecoveryReason(flag)
+		if flag.Phase != PhaseOldSbUpgrading && strings.TrimSpace(flag.OriginalError) == "" {
+			reason = ErrResumeDied + ": continuing the rollback selected by the previous recovery pass"
+		}
+		d.recoveryRollback(ctx, flag, flag.Label(), logRelPath, reason)
+		return nil
+	}
+
 	// Resuming-phase flag → the planned post-swap resume began (resumeNewSb
 	// re-acquired the flock and stamped Resuming) and THAT process died before
 	// completing applyNewSbUpgrading (watchdog SIGABRT on a hung step, OOM, reboot,
@@ -3600,15 +3620,6 @@ func (d *Service) recoveryRollback(ctx context.Context, flag UpgradeFlag, displa
 		})
 		return
 	}
-	// COMMIT to the rollback: ROLL the death history — PriorDeathStep←(current
-	// flag.Step), Step←StepRollback (recordRollbackCommit). On the forward→rollback
-	// handoff PriorDeathStep naturally receives the FORWARD step (never
-	// StepRollback), so the first rollback resume is free BY CONSTRUCTION and the
-	// rollback gets its designed idempotent re-run (architect (a), no special
-	// case). Only after TWO consecutive mid-rollback deaths does PriorDeathStep
-	// also become StepRollback → the next resume terminals to restore-broke.
-	d.recordRollbackCommit()
-
 	// STATBUS-077: single source of truth = the pinned `pre-upgrade` branch
 	// (executeUpgrade pins it before destructive steps). Resolve unconditionally
 	// via restoreTargetSHA="" -> restoreGitStateFn's pre-upgrade fallback. NEVER
@@ -3871,7 +3882,6 @@ func (d *Service) completeInProgressUpgrade(ctx context.Context) {
 		if _, attemptErr := d.countRecoveryAttemptOnce(ctx, id); attemptErr != nil {
 			log.Printf("completeInProgressUpgrade: could not increment recovery_attempts for %d (%v) — continuing", id, attemptErr)
 		}
-		d.recordRollbackCommit()
 		rollbackLog := AppendProgressLog(d.projDir, logRelPath)
 		if rollbackLog == nil {
 			rollbackLog = NewUpgradeLog(d.projDir, int64(id), displayName, time.Now().UTC())
@@ -10532,6 +10542,13 @@ func (d *Service) rollbackRecoveryAttempts(ctx context.Context, id int) int {
 }
 
 func (d *Service) rollback(ctx context.Context, id int, version, restoreTargetSHA string, failureCode *UpgradeFailureCode, reason string, backupPath string, progress *ProgressLog) {
+	// STATBUS-354 Phase 1: every actual rollback attempt, including the
+	// in-process newSbUpgradingFailure route, commits its direction exactly once
+	// at the common entry before service stop, git restore, or snapshot restore.
+	// Recovery wrappers must not stamp separately. Rolling prior←step before
+	// step←rollback preserves the existing two-consecutive-rollback-deaths bound.
+	d.recordRollbackCommit()
+
 	// WATCHDOG COVER (STATBUS-031). rollback()'s body runs the two DB-size-scaled,
 	// heartbeat-SILENT steps an upgrade has: restoreDatabase's whole-volume rsync
 	// (exec.go, onAdvance=nil → output bypasses the heartbeat) and the rollback
