@@ -164,6 +164,13 @@ var classes = map[string]Kind{
 	"killed-by-system-between-migrations":                    KindKill,
 	"killed-by-system-during-container-restart":              KindKill,
 	"killed-by-system-during-builtin-rollback":               KindKill,
+	// STATBUS-354 — crash after the rollback schema floor is recorded in
+	// db.migration and before rollback_finish_pending_at is written: the
+	// ledger looks at-floor, only the held StepRollback marker says rollback.
+	"killed-after-rollback-floor-before-pending": KindKill,
+	// STATBUS-354 Arc B — make ONLY the rollback-time floor re-application
+	// fail (after the snapshot restore, original forward application intact).
+	"rollback-floor-reapply": KindError,
 	// STATBUS-071 P5 — the CONVERGED resume-crash producer: fires after healthCheck
 	// success + setMaintenance(false), before the completed write; the box serves at
 	// target and only the ledger write is unlanded (the live rune class), so the next

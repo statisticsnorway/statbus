@@ -10278,6 +10278,12 @@ func (d *Service) restoreAndFinalize(ctx context.Context, id int, version string
 			progress.Write("Do not replace ./sb, check out another commit, or start the application services.")
 			return true
 		}
+		// Harness-only crash boundary (STATBUS-354 live twin 2 / crash matrix):
+		// the floor is recorded in db.migration, the source tree is NOT yet
+		// restored, and rollback_finish_pending_at is NOT yet written. Recovery
+		// must route on the held StepRollback marker, not on the (now at-floor)
+		// ledger. Inert unless the injection env names it.
+		inject.KillHere("killed-after-rollback-floor-before-pending")
 	}
 	var sourceRestoreErr, configGenerateErr error
 	if dbRestoreErr == nil && backupPath != "" {
@@ -10528,6 +10534,12 @@ func (d *Service) startRollbackDatabaseOnly(ctx context.Context, progress *Progr
 func (d *Service) reapplyRollbackDaemonSchemaFloor(progress *ProgressLog) error {
 	floor := strconv.FormatInt(migrate.DaemonSchemaFloor, 10)
 	progress.Write("  Re-applying rollback daemon schema floor through db.migration: %s", floor)
+	// Harness-only seam (STATBUS-354 Arc B): make ONLY the rollback-time floor
+	// re-application fail, after the snapshot restore and without touching the
+	// original forward application. Inert unless the injection env names it.
+	if err := inject.ErrorHere("rollback-floor-reapply"); err != nil {
+		return err
+	}
 	return runCommandToLog(d.projDir, MigrateUpTimeout, progress.File(), "rollback-daemon-schema-floor", nil,
 		filepath.Join(d.projDir, "sb"), "migrate", "up", "--to", floor, "--verbose")
 }
