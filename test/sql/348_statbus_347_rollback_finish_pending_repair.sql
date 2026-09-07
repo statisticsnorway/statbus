@@ -9,7 +9,7 @@
 -- Exercise the migration's shipped down/up files rather than a copied repair.
 
 \echo -- Return to the exact pre-migration schema.
-\i migrations/20260903205636_statbus_347_rollback_finish_pending_column.down.sql
+\i migrations/20260907120000_statbus_347_rollback_finish_pending_column.down.sql
 
 DELETE FROM public.upgrade_state_log WHERE upgrade_id = 9347001;
 DELETE FROM public.upgrade WHERE id = 9347001 OR commit_sha = '3470000000000000000000000000000000000099';
@@ -37,7 +37,7 @@ INSERT INTO public.upgrade_state_log (
   (9347001, 'in_progress', 'failed', 'statbus-347-repair-test-new', '2026-09-03 21:34:56+00');
 
 \echo -- Apply the edited forward migration, including trigger installation before repair.
-\i migrations/20260903205636_statbus_347_rollback_finish_pending_column.up.sql
+\i migrations/20260907120000_statbus_347_rollback_finish_pending_column.up.sql
 
 \echo -- The repair uses the most recent failed-transition logged_at and strips the prefix.
 SELECT rollback_finish_pending_at = '2026-09-03 21:34:56+00'::timestamptz AS pending_at_from_latest_failed_log,

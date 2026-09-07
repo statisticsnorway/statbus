@@ -28,7 +28,7 @@ King's ruling: NO inline DDL outside the migration table. NO idempotent-migratio
 Run the existing bounded migration command after the database snapshot has been restored and before any SQL names `rollback_finish_pending_at`:
 
 ```text
-./sb migrate up --to 20260903205636 --verbose
+./sb migrate up --to 20260907120000 --verbose
 ```
 
 The target-version `./sb` must run this command while the target git tree is still checked out. It therefore reads the ordinary migration file from the target tree's `migrations/` directory and records success through the ordinary `db.migration` ledger. Do not inline DDL, do not make the migration idempotent, and do not invent a second migration recorder.
@@ -50,7 +50,7 @@ Two recovery-direction details are required. Reapplying the floor makes the rest
 
 ## Why a floor command alone is not sufficient
 
-The immediate SQL defect is simple: `restoreDatabase` rewinds the volume to a snapshot that predates migration `20260903205636`, then the live target process writes `rollback_finish_pending_at`. PostgreSQL returns `42703` because the column is gone.
+The immediate SQL defect is simple: `restoreDatabase` rewinds the volume to a snapshot that predates migration `20260907120000`, then the live target process writes `rollback_finish_pending_at`. PostgreSQL returns `42703` because the column is gone.
 
 Merely inserting a migrate command at the current location does not work:
 
@@ -121,7 +121,7 @@ with:
 - captured output in the rollback progress log
 - the rollback watchdog ticker still feeding systemd
 
-The subprocess reads `migrations/20260903205636_statbus_347_rollback_finish_pending_column.up.sql` from the target worktree. It applies every ledger-missing migration at or below the floor and writes each normal `db.migration` row, including content hash. No special SQL or alternate ledger write is permitted.
+The subprocess reads `migrations/20260907120000_statbus_347_rollback_finish_pending_column.up.sql` from the target worktree. It applies every ledger-missing migration at or below the floor and writes each normal `db.migration` row, including content hash. No special SQL or alternate ledger write is permitted.
 
 On the ordinary first adoption rollback, the migration ran once before the rollback, but the snapshot restore erased both its schema effects and its `db.migration` row. Running the unchanged migration again is therefore a clean application to the restored state, not an idempotence workaround.
 
@@ -236,7 +236,7 @@ Because the target tree and target `./sb` were deliberately retained, the next `
 
 If it fails again, it returns nonzero with the same closed-box state and updated diagnostics. There is no inline repair and no migration-file mutation.
 
-A deterministic failure of migration `20260903205636` itself is a real adoption blocker. The first candidate must prove this rollback floor on dev before Norway is attempted. If Norway-specific data makes the migration fail, Norway stays closed and human-gated. It must not escape through the old binary's vulnerable rollback order.
+A deterministic failure of migration `20260907120000` itself is a real adoption blocker. The first candidate must prove this rollback floor on dev before Norway is attempted. If Norway-specific data makes the migration fail, Norway stays closed and human-gated. It must not escape through the old binary's vulnerable rollback order.
 
 ## Crash boundary matrix
 
@@ -263,7 +263,7 @@ A deterministic failure of migration `20260903205636` itself is a real adoption 
 
 ## What the source binary can and cannot do
 
-Migration `20260903205636` is forward-compatible with the source application after the new recovery process has finalized:
+Migration `20260907120000` is forward-compatible with the source application after the new recovery process has finalized:
 
 - `public.upgrade.rollback_finish_pending_at` is nullable.
 - The two audit columns added to `public.upgrade_state_log` are nullable.
@@ -284,14 +284,14 @@ The source binary is not a valid recovery authority for an in-flight pending rol
 
 Therefore the design must not publish or self-heal to the source binary while a rollback marker or pending row remains. The additive SQL shape permits steady-state source operation. It does not make old recovery semantics safe.
 
-## First RC carrying migration 20260903205636
+## First RC carrying migration 20260907120000
 
 ### Dev
 
 The candidate first migrates dev normally. If a later target step forces rollback:
 
 1. The pre-candidate dev snapshot is restored.
-2. The candidate's target `./sb` applies migration `20260903205636` again through the ordinary ledger because the restore erased its first application.
+2. The candidate's target `./sb` applies migration `20260907120000` again through the ordinary ledger because the restore erased its first application.
 3. The source git tree and source services are restored.
 4. The target recovery process writes pending, reopens dev, finalizes `rolled_back`, and only then publishes the source binary.
 5. Dev serves the previous application version with its database intentionally one additive daemon-floor migration ahead.
@@ -304,7 +304,7 @@ If the floor migration itself fails, dev remains maintenance/read-only with targ
 
 Norway follows the same state machine. The only expected difference is duration: restoring the large Norway volume dominates, while the nullable-column/trigger floor migration should be comparatively small. The rollback watchdog must cover both the restore and floor subprocess.
 
-During the candidate's own rollback, Norway's pre-candidate snapshot also lacks `rollback_finish_pending_at`. The target binary reapplies and records migration `20260903205636` before any pending write. Norway then returns to the previous application version while retaining the additive floor in the database.
+During the candidate's own rollback, Norway's pre-candidate snapshot also lacks `rollback_finish_pending_at`. The target binary reapplies and records migration `20260907120000` before any pending write. Norway then returns to the previous application version while retaining the additive floor in the database.
 
 If Norway-specific data or environment causes that floor migration to fail, the box remains closed with target tree/binary and marker intact. The operator runs `./sb install` only after investigating the captured migration failure. The source binary must not be restored as an escape hatch.
 
@@ -316,7 +316,7 @@ If Norway-specific data or environment causes that floor migration to fail, the 
 4. Recovery test that `StepRollback` overrides an apparently at-target observed state after floor replay.
 5. Crash tests for the migration commit-to-ledger gap, proving the snapshot is restored before the non-idempotent migration is retried.
 6. Cleanup-phase tests for both `pending + rollback_finishing marker` and `rolled_back + rollback_finishing marker`.
-7. A live twin with a real non-empty snapshot whose schema predates `20260903205636`. It must restore the volume, run the floor through `sb migrate`, record `db.migration`, write pending, reopen, and finalize.
+7. A live twin with a real non-empty snapshot whose schema predates `20260907120000`. It must restore the volume, run the floor through `sb migrate`, record `db.migration`, write pending, reopen, and finalize.
 8. A live kill twin after floor success but before pending. Restart must choose rollback, not forward, despite DB max being at the target floor.
 9. A live kill twin in finalization's filesystem/database boundary. Restart must stay on the target recovery binary and perform cleanup only.
 10. Install-recovery VM arcs on dev before promotion. One healthy adoption rollback and one injected floor failure are minimum. Norway remains a deliberate human-canary run with the same observations.
@@ -346,7 +346,7 @@ Status: ready to implement after the prefix-only RC is cut
 
 ## Goal and non-negotiable mechanism
 
-Land migration `20260903205636_statbus_347_rollback_finish_pending_column` and close finding 3 in the same RC. A rollback that restores a pre-column snapshot must re-apply `migrate.DaemonSchemaFloor` through the ordinary migration engine before the running target process writes `rollback_finish_pending_at`.
+Land migration `20260907120000_statbus_347_rollback_finish_pending_column` and close finding 3 in the same RC. A rollback that restores a pre-column snapshot must re-apply `migrate.DaemonSchemaFloor` through the ordinary migration engine before the running target process writes `rollback_finish_pending_at`.
 
 The only schema repair is:
 
@@ -360,7 +360,7 @@ The target binary runs it from the still-target worktree, reads the unchanged mi
 
 1. Keep `wip/347-column-protocol` immutable as the exact pre-sequencing snapshot.
 2. After the prefix RC is published, create the implementation branch from the then-current `master` so it includes any release-cut follow-up.
-3. Restore the column protocol as an explicit forward commit using the preserved WIP branch as the source. The intended diff is the inverse of `8e021550e`, excluding any unrelated later master changes. Verify it reproduces migration `20260903205636`, its pg_regress repair coverage, `DaemonSchemaFloor = 20260903205636`, column readers, generated artifacts, and the column-form live twins while retaining S1, S2, `pgtype.Text`, and `execObserved`.
+3. Restore the column protocol as an explicit forward commit using the preserved WIP branch as the source. The intended diff is the inverse of `8e021550e`, excluding any unrelated later master changes. Verify it reproduces migration `20260907120000`, its pg_regress repair coverage, `DaemonSchemaFloor = 20260907120000`, column readers, generated artifacts, and the column-form live twins while retaining S1, S2, `pgtype.Text`, and `execObserved`.
 4. Implement S3 on top in reviewable phases below. Do not combine the protocol restoration and the rollback reorder into an opaque commit.
 
 ## Phase 1: make rollback direction durable before any destructive action
@@ -520,7 +520,7 @@ Pin these facts in tests and review notes:
 - Old named-column UPDATEs do not clear or corrupt them.
 - `RETURNING to_jsonb(upgrade.*)` remains one JSON value despite the additive key.
 - The widened trigger is server-side and accepts old callers.
-- The old binary never migrates down, so migration `20260903205636` remains recorded.
+- The old binary never migrates down, so migration `20260907120000` remains recorded.
 - Old recovery code is not allowed to own an in-flight pending row because it neither recognizes nor clears the column.
 
 ## Phase 5: crash-boundary live twins
@@ -534,7 +534,7 @@ All Docker-reaching tests run only from the root checkout, never from a git work
    - move to target column tree/binary
    - restore the real volume
    - assert column absent immediately after restore
-   - start DB only and run target `sb migrate up --to 20260903205636`
+   - start DB only and run target `sb migrate up --to 20260907120000`
    - assert schema column exists and `db.migration` has the exact version/hash
    - write pending, lift barriers, finalize
    - assert `rolled_back`, pending NULL, marker absent, data byte/row fingerprint unchanged, source services healthy, source binary canonical
@@ -589,11 +589,11 @@ These cannot be substituted by local reasoning or live twins. Follow `doc/instal
 Create `test/install-recovery/arcs/rollback-schema-floor-adoption-arc.sh` or the catalogue-consistent equivalent.
 
 - Install source A whose schema max is `20260901212308` and load non-empty sentinel data.
-- Register and schedule target B, the first candidate carrying migration `20260903205636` and S3.
+- Register and schedule target B, the first candidate carrying migration `20260907120000` and S3.
 - Let B apply and record the migration, then inject a deterministic post-migration failure that enters built-in rollback.
 - Observe the pre-B snapshot restore erase the column and ledger row.
 - Assert the target recovery process starts DB only and re-applies the floor from B's worktree with B's `sb`.
-- Assert final state `rolled_back`, migration `20260903205636` recorded with correct hash, pending NULL, marker absent, source A app healthy, source A binary canonical, no automatic restart loop, sentinel fingerprint intact.
+- Assert final state `rolled_back`, migration `20260907120000` recorded with correct hash, pending NULL, marker absent, source A app healthy, source A binary canonical, no automatic restart loop, sentinel fingerprint intact.
 - Assert logs show the exact order: `StepRollback`, restore, DB-only start, floor migrate, source checkout/config/start, pending/finalize, binary publish.
 
 ### Arc B: injected rollback floor failure, closed hold, install recovery

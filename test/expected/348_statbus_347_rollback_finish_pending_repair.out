@@ -12,8 +12,8 @@
 -- Exercise the migration's shipped down/up files rather than a copied repair.
 \echo -- Return to the exact pre-migration schema.
 -- Return to the exact pre-migration schema.
-\i migrations/20260903205636_statbus_347_rollback_finish_pending_column.down.sql
--- Migration 20260903205636: statbus_347_rollback_finish_pending_column (down)
+\i migrations/20260907120000_statbus_347_rollback_finish_pending_column.down.sql
+-- Migration 20260907120000: statbus_347_rollback_finish_pending_column (down)
 BEGIN;
 DROP TRIGGER IF EXISTS upgrade_state_log_trigger ON public.upgrade;
 CREATE TRIGGER upgrade_state_log_trigger
@@ -103,8 +103,8 @@ INSERT INTO public.upgrade_state_log (
   (9347001, 'in_progress', 'failed', 'statbus-347-repair-test-new', '2026-09-03 21:34:56+00');
 \echo -- Apply the edited forward migration, including trigger installation before repair.
 -- Apply the edited forward migration, including trigger installation before repair.
-\i migrations/20260903205636_statbus_347_rollback_finish_pending_column.up.sql
--- Migration 20260903205636: statbus_347_rollback_finish_pending_column
+\i migrations/20260907120000_statbus_347_rollback_finish_pending_column.up.sql
+-- Migration 20260907120000: statbus_347_rollback_finish_pending_column
 --
 -- STATBUS-347: the cleanup-only rollback state becomes a constrained column.
 --
@@ -151,7 +151,7 @@ BEGIN
   GET DIAGNOSTICS _repaired = ROW_COUNT;
   RAISE NOTICE 'STATBUS-347: % legacy ROLLBACK_FINISH_PENDING row(s) carried into rollback_finish_pending_at', _repaired;
 END $$;
-psql:migrations/20260903205636_statbus_347_rollback_finish_pending_column.up.sql:51: NOTICE:  STATBUS-347: 1 legacy ROLLBACK_FINISH_PENDING row(s) carried into rollback_finish_pending_at
+psql:migrations/20260907120000_statbus_347_rollback_finish_pending_column.up.sql:51: NOTICE:  STATBUS-347: 1 legacy ROLLBACK_FINISH_PENDING row(s) carried into rollback_finish_pending_at
 -- The audit trail must see the transition (STATBUS-154's log fires on state or
 -- park changes; this is a third held sub-state and it is just as load-bearing).
 ALTER TABLE public.upgrade_state_log

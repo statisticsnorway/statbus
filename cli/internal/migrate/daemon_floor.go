@@ -18,9 +18,14 @@ package migrate
 // the floor impossible: any migration NEWER than the floor that touches a daemon
 // relation fails the test until the floor is bumped in the same commit.
 //
-// VALUE: today 20260906173739 (STATBUS-349's public.upgrade.failure_code
-// column), bumped from 20260904111126 in the same change set that lands it.
-// The daemon writes and reads this column, so the boot schema must include it.
+// VALUE: today 20260907120000 (STATBUS-347's rollback_finish_pending_at
+// column), retimestamped after STATBUS-349 so full replay and incrementally
+// migrated databases assign the same public.upgrade column order. The daemon
+// reads and writes this column, so the boot schema must include it.
+//
+// Prior value: 20260906173739 (STATBUS-349's public.upgrade.failure_code
+// column), bumped from 20260904111126 in the same change set that landed it.
+// The daemon writes and reads this column, so the boot schema had to include it.
 //
 // Prior value: 20260904111126 (STATBUS-355's public.running_identity read
 // model), bumped from 20260901212308 in the same commit that lands it. This is
@@ -68,12 +73,11 @@ package migrate
 // a column, and no legitimate daemon write performs that transition (pipeline
 // completions are in_progress→completed), so the daemon operated cleanly at that
 // floor too.
-// Prior value 20260903205636 added STATBUS-347's rollback_finish_pending_at
-// column, CHECK, and widened state-log trigger. The daemon reads and writes that
-// column at claim, recovery, and finishing. STATBUS-349 subsequently raised the
-// floor to the current failure_code migration, so restoring the column does not
-// lower this constant.
-const DaemonSchemaFloor int64 = 20260906173739
+// STATBUS-347's original timestamp was retired because the migration entered
+// the tree after STATBUS-349 and therefore sorted differently
+// on full replay than on incremental databases. Its replacement above the 349
+// migration is now the floor because the daemon requires the column.
+const DaemonSchemaFloor int64 = 20260907120000
 
 // DaemonRelationNames is the schema surface the daemon's OWN SQL touches — the
 // set whose shape the floor must satisfy. The bump guard flags any migration

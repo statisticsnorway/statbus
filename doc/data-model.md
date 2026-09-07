@@ -158,7 +158,7 @@ Enumerated types used across the schema, with their possible values.
 - **`public.statistical_unit_type`**: `establishment`, `legal_unit`, `enterprise`, `power_group`
 - **`public.time_context_type`**: `relative_period`, `tag`, `year`
 - **`public.upgrade_actor_source`**: `verified`, `self-reported`, `absent`
-- **`public.upgrade_failure_code`**: `MIGRATION_FAILED`, `BACKUP_FAILED`, `DOCKER_UP_FAILED`, `HEALTHCHECK_REST_DOWN`, `HEALTHCHECK_APP_DOWN`, `HEALTHCHECK_DB_DOWN`, `ROLLBACK_FAILED_GIT_CORRUPT`, `ROLLBACK_FAILED_DB_RESTORE`, `UPGRADE_STOPPED_NOTHING_CHANGED`, `ROLLBACK_FAILED_SERVICES_UP`, `ROLLBACK_FAILED_SERVICES_NOT_STOPPED`, `ROLLBACK_FAILED_BINARY_CORRUPT`, `BINARY_REPLACE_FAILED`, `BINARY_BUILD_FAILED`, `INSTALL_FIXUP_FAILED`, `GIT_FETCH_FAILED_RETRYABLE`, `INSTALL_PRECONDITION_FAILED`
+- **`public.upgrade_failure_code`**: `MIGRATION_FAILED`, `BACKUP_FAILED`, `DOCKER_UP_FAILED`, `HEALTHCHECK_REST_DOWN`, `HEALTHCHECK_APP_DOWN`, `HEALTHCHECK_DB_DOWN`, `ROLLBACK_FAILED_GIT_CORRUPT`, `ROLLBACK_FAILED_DB_RESTORE`, `UPGRADE_STOPPED_NOTHING_CHANGED`, `ROLLBACK_FAILED_SERVICES_UP`, `ROLLBACK_FAILED_SERVICES_NOT_STOPPED`, `ROLLBACK_FAILED_BINARY_CORRUPT`, `BINARY_REPLACE_FAILED`, `BINARY_BUILD_FAILED`, `INSTALL_FIXUP_FAILED`, `GIT_FETCH_FAILED_RETRYABLE`, `INSTALL_PRECONDITION_FAILED`, `ROLLBACK_SCHEMA_FLOOR_FAILED`
 - **`public.upgrade_state`**: `available`, `scheduled`, `in_progress`, `completed`, `failed`, `rolled_back`, `dismissed`, `skipped`, `superseded`
 - **`worker.child_mode`**: `concurrent`, `serial`
 - **`worker.process_mode`**: `serial`, `concurrent`

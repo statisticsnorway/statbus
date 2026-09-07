@@ -38,7 +38,7 @@ func TestOldBinaryAdditiveRollbackSchemaCompatibilityIsPinned(t *testing.T) {
 		"rollback_finish_pending_at",
 		"RETURNING to_jsonb(upgrade.*)",
 		"PhaseRollbackFinishing",
-		"20260903205636",
+		"20260907120000",
 	} {
 		if !strings.Contains(source, fact) {
 			t.Errorf("old-binary additive-schema compatibility assertion missing %q", fact)

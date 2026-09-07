@@ -8518,7 +8518,7 @@ func preSwapRecoveryReason(flag UpgradeFlag) string {
 }
 
 // The cleanup-only rollback state is the COLUMN public.upgrade.rollback_finish_pending_at
-// (STATBUS-347, migration 20260903205636), never a prefix on `error`. The schema
+// (STATBUS-347, migration 20260907120000), never a prefix on `error`. The schema
 // enforces its shape (chk_upgrade_rollback_finish_pending_requires_failed), the
 // install ladder excludes it from restore replay by column, and every reader in
 // this file selects on the column. `error` carries only the human cause.
@@ -11264,7 +11264,7 @@ func (d *Service) deleteRollbackBinaryOnCompletion() {
 
 func (d *Service) restoreBinary(progress *ProgressLog) {
 	// SQL compatibility boundary for the source binary (STATBUS-354): migration
-	// 20260903205636 is additive. rollback_finish_pending_at and both audit
+	// 20260907120000 is additive. rollback_finish_pending_at and both audit
 	// columns are nullable; old named-column INSERT/UPDATE statements omit them;
 	// RETURNING to_jsonb(upgrade.*) remains one JSON value; the widened trigger is
 	// server-side; and the old binary never migrates the recorded floor down.
