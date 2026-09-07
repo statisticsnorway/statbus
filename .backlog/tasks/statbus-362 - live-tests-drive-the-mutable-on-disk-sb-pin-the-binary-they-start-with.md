@@ -92,6 +92,22 @@ Guard tests:
 - After the live suite: `git status --porcelain` in the real tree is empty
   and `.env` is byte-identical to before.
 
-Follow-up for a later ruling, not this ticket: run the live tier on the
-niue runner as a Fast Tests job so it becomes a per-commit oracle (today it
-has no trigger at all; see `doc/DEVELOPMENT.md` ~620).
+## Workflow integration (owner-approved 2026-09-07 21:35): part of this ticket
+
+Fast Tests (`fast-tests.yaml`, GitHub runner `ubuntu-24.04`) already has
+services up, a migrated DB, and one Go test against that live DB (the daemon
+floor oracle). Add one step after it:
+
+    STATBUS_LIVE_DB=1 go test -C cli -count=1 -run 'TestLive' \
+      ./internal/upgrade ./internal/install
+
+Runtime ~2-4 min on top of the run. No change to `release prerelease`:
+check 7 already reads Fast Tests green at HEAD, so the live tier joins that
+single oracle. The worktree fixture above is the prerequisite (the runner's
+checkout is the project dir too). `TestLiveStablePreflight` stays manual: it
+needs a real RC tag and a token. Update `doc/DEVELOPMENT.md` ~620 to say the
+tier now runs per commit and how to run it locally.
+
+Done when, in addition to the above: a Fast Tests run at HEAD shows the live
+step green with the 24 tests listed, and a deliberately red live test on a
+branch turns Fast Tests red.
