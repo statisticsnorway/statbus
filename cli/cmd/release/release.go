@@ -268,31 +268,39 @@ func preflightChecks(projDir string) bool {
 		if lastMigration == "" {
 			// No migrations at all — tests are fine
 			fmt.Println("  ✓ Fast tests cover latest migrations (no migrations found)")
-		} else if covered, ciResult := staleTemplateCoveredByFastTestsGreen(projDir, "latest migrations",
-			fmt.Sprintf("stamp's source-DB version %s is behind HEAD's on-disk max %s", stampVersion, latestOnDisk),
-			stampFromRide); !covered {
-			// STATBUS-288: the third drift-refusal site. Wired to the same
-			// MECHANISM as its siblings at :338 and :356 but deliberately to a
-			// DIFFERENT WORKFLOW — fast-tests, not pg_regress. A staleness
-			// check cannot be satisfied by a run that rode an ancestor's stamp
-			// without executing; see staleTemplateCoveredByFastTestsGreen.
-			//
-			// This branch fires when the stamp's SOURCE-DB version is behind
-			// HEAD's on-disk max — the local suite ran against a stale
-			// template. That is a real gap in the LOCAL evidence, and it was
-			// refusing on that basis alone. But a green pg_regress at HEAD
-			// answers the stronger question: CI built its database from this
-			// committed tree, so its template cannot be stale by construction.
-			// Refusing while holding that answer asks the operator to
-			// reproduce locally what CI already proved.
-			//
-			// Refusal text below is unchanged, preceded by the either/or line.
-			fmt.Println("  ✗ Fast tests do not cover latest migrations")
-			printDriftEitherOrRefusal(ciResult)
-			fmt.Printf("    Stamp's source-DB version %s != HEAD's on-disk max %s.\n", stampVersion, latestOnDisk)
-			fmt.Printf("    The tests ran against a stale template even though the SHA is current.\n")
-			fmt.Println("    Fix: ./dev.sh migrate-and-test fast")
-			allPassed = false
+		} else if stampVersion != latestOnDisk {
+			// Stale template: the stamp's line-2 version is behind HEAD's
+			// on-disk max. Ask CI once, here; a green answer covers the
+			// migration/expected drift below as well (same tree, same run),
+			// so this branch is terminal either way. Without the guard the
+			// escape was consulted on every run and, when green, the sibling
+			// branch printed a second ✓ for the same run (seen at rc.01).
+			if covered, ciResult := staleTemplateCoveredByFastTestsGreen(projDir, "latest migrations",
+				fmt.Sprintf("stamp's source-DB version %s is behind HEAD's on-disk max %s", stampVersion, latestOnDisk),
+				stampFromRide); !covered {
+				// STATBUS-288: the third drift-refusal site. Wired to the same
+				// MECHANISM as its siblings at :338 and :356 but deliberately to a
+				// DIFFERENT WORKFLOW — fast-tests, not pg_regress. A staleness
+				// check cannot be satisfied by a run that rode an ancestor's stamp
+				// without executing; see staleTemplateCoveredByFastTestsGreen.
+				//
+				// This branch fires when the stamp's SOURCE-DB version is behind
+				// HEAD's on-disk max — the local suite ran against a stale
+				// template. That is a real gap in the LOCAL evidence, and it was
+				// refusing on that basis alone. But a green pg_regress at HEAD
+				// answers the stronger question: CI built its database from this
+				// committed tree, so its template cannot be stale by construction.
+				// Refusing while holding that answer asks the operator to
+				// reproduce locally what CI already proved.
+				//
+				// Refusal text below is unchanged, preceded by the either/or line.
+				fmt.Println("  ✗ Fast tests do not cover latest migrations")
+				printDriftEitherOrRefusal(ciResult)
+				fmt.Printf("    Stamp's source-DB version %s != HEAD's on-disk max %s.\n", stampVersion, latestOnDisk)
+				fmt.Printf("    The tests ran against a stale template even though the SHA is current.\n")
+				fmt.Println("    Fix: ./dev.sh migrate-and-test fast")
+				allPassed = false
+			}
 		} else {
 			// Check if any new migration files exist between stamp and HEAD.
 			// Only match *.up.sql / *.up.psql — post_restore.sql and other
