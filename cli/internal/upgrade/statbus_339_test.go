@@ -105,15 +105,27 @@ esac
 				t.Fatalf("production no-op did not return fetch seam error: %v", err)
 			}
 
-			var state string
+			var state, storedError string
 			var failureCode *string
+			var scheduledAtIsNull bool
 			if err := d.queryConn.QueryRow(ctx,
-				"SELECT state::text, failure_code::text FROM public.upgrade WHERE id = $1", id,
-			).Scan(&state, &failureCode); err != nil {
+				"SELECT state::text, failure_code::text, error, scheduled_at IS NULL FROM public.upgrade WHERE id = $1", id,
+			).Scan(&state, &failureCode, &storedError, &scheduledAtIsNull); err != nil {
 				t.Fatalf("read terminal row: %v", err)
 			}
 			if state != "failed" || failureCode == nil || *failureCode != string(ErrGitFetchRetryable) {
 				t.Fatalf("terminal row = state %q failure_code %v, want failed/%s", state, failureCode, ErrGitFetchRetryable)
+			}
+			if tc.inject {
+				const wantError = "injected failure: preswap-fetch-returns-error"
+				if storedError != wantError {
+					t.Fatalf("terminal error = %q, want exact %q", storedError, wantError)
+				}
+			} else if !strings.Contains(storedError, fetchSentinel.Error()) {
+				t.Fatalf("terminal error = %q, want fetch seam error %q", storedError, fetchSentinel.Error())
+			}
+			if !scheduledAtIsNull {
+				t.Fatal("terminal failed row retained scheduled_at; want NULL")
 			}
 		})
 	}
