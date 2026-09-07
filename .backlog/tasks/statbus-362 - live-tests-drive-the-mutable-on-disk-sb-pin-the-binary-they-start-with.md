@@ -5,7 +5,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-09-07 17:26'
-updated_date: '2026-09-07 17:26'
+updated_date: '2026-09-07 21:34'
 labels:
   - testing
   - upgrade
@@ -52,3 +52,46 @@ pull seed image `statbus-seed:1111…`. Owner ruling: unprincipled. Rule: a
 live test gets a scratch project dir (copy of the tree, own `.env`) or it
 does not exercise config generation. Same family as the stale-`./sb`
 problem this ticket already covers; fix together.
+
+## Design (owner-approved 2026-09-07 21:33): git worktree per test package
+
+Root cause of both symptoms: live tests use the developer's checkout as the
+daemon's project directory, so the daemon's ordinary behaviour (execute
+`./sb`, `config generate` writing `.env`, publish `sb.old` over `sb`)
+mutates the tree the developer is working in.
+
+The daemon's project-dir surface is small and known (`grep filepath.Join
+(projDir` in non-test code): `tmp/`, `.env`, `.env.config`,
+`.env.credentials`, `sb`, `sb.old`, `migrations/`, `ops/`, `caddy/`,
+`.db-seed/`, `dbdumps/`.
+
+Per package, once, in `TestMain` when `STATBUS_LIVE_DB=1`:
+
+1. `git worktree add --detach $tmp HEAD` (exactly one commit; uncommitted
+   edits excluded by construction).
+2. Copy `.env.credentials` from the real tree; run `sb config generate` in
+   the worktree so the worktree's `.env` is written by real `git`, no fake
+   SHAs. The generated `.env` points at the same local database as today.
+3. `go build` with the ldflags dev.sh uses (`cmd.commit`, version) to
+   `$tmp/sb`. Every test drives that path; the real `./sb` is never executed
+   by a test again.
+4. `findProjDir` returns `$tmp`; cleanup is `git worktree remove --force`.
+
+Unchanged: `docker compose` stays shimmed on PATH (tests never touch the
+developer's containers); the shared local DB and the cross-package flock
+stay. Containerising the daemon was considered and rejected: it buys nothing
+the worktree does not and makes the shims harder.
+
+Consequences: `live_reattempt_race_test.go` drops its fake `git` entirely
+(the version it wants is the worktree's real HEAD). The freshness guard on
+`./sb` is untouched.
+
+Guard tests:
+- Replace the real `./sb` with `exit 99` while a live test runs; the test's
+  binary is unaffected.
+- After the live suite: `git status --porcelain` in the real tree is empty
+  and `.env` is byte-identical to before.
+
+Follow-up for a later ruling, not this ticket: run the live tier on the
+niue runner as a Fast Tests job so it becomes a per-commit oracle (today it
+has no trigger at all; see `doc/DEVELOPMENT.md` ~620).
