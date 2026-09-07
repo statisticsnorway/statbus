@@ -3,7 +3,7 @@ id: STATBUS-337
 title: >-
   unify-fleet-tool: merge standalone.sh into cloud.sh — one registry, two
   groups, group/channel/server targeting
-status: To Do
+status: Done
 assignee: []
 created_date: '2026-09-02 10:37'
 labels: []
