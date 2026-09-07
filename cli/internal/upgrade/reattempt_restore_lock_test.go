@@ -46,24 +46,25 @@ func TestReattemptRestore_AuthorizesUnderBothLocksBeforeStoppingServices(t *test
 	begin := strings.Index(body, "d.queryConn.Begin(ctx)")
 	advisory := strings.Index(body, "pg_try_advisory_xact_lock(hashtext('upgrade_daemon'))")
 	rowLock := strings.Index(body, "FOR UPDATE")
-	gitRestore := strings.Index(body, "d.restoreGitState(")
 	serviceStop := strings.Index(body, `runCommand(d.projDir, "docker"`)
 	for name, idx := range map[string]int{
 		"fresh replay flock":        freshFlock,
 		"authorization transaction": begin,
 		"daemon advisory lock":      advisory,
 		"row FOR UPDATE":            rowLock,
-		"git restore":               gitRestore,
 		"data-plane service stop":   serviceStop,
 	} {
 		if idx < 0 {
 			t.Fatalf("ReattemptRestore is missing %s", name)
 		}
 	}
-	ordered := freshFlock < begin && begin < advisory && advisory < rowLock && rowLock < gitRestore && gitRestore < serviceStop
+	ordered := freshFlock < begin && begin < advisory && advisory < rowLock && rowLock < serviceStop
 	if !ordered {
-		t.Fatalf("ReattemptRestore authorization order drifted: flock=%d begin=%d advisory=%d row=%d git=%d stop=%d",
-			freshFlock, begin, advisory, rowLock, gitRestore, serviceStop)
+		t.Fatalf("ReattemptRestore authorization order drifted: flock=%d begin=%d advisory=%d row=%d stop=%d",
+			freshFlock, begin, advisory, rowLock, serviceStop)
+	}
+	if strings.Contains(body, "d.restoreGitState(") {
+		t.Fatal("ReattemptRestore must retain the target worktree through snapshot restore and daemon-floor replay")
 	}
 	for _, predicate := range []string{
 		"state = 'failed'",

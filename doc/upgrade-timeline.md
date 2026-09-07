@@ -900,3 +900,14 @@ STATBUS-040/-041.)
 - [`doc/CLOUD.md`](CLOUD.md) — fleet-level deployment flow via GitHub Actions.
 - [`doc/DEPLOYMENT.md`](DEPLOYMENT.md) — single-instance install and service management.
 - [`doc/upgrades.md`](upgrades.md) — operator runbook: troubleshooting, log locations, manual triggers.
+### Rollback schema-floor and cleanup phases
+
+`rollback-schema-floor-failed` retains the target tree, target binary, snapshot
+identity, maintenance barrier, and SQL read-only barrier. Automatic service
+starts hold alive-idle; `./sb install` deliberately re-restores the snapshot and
+retries the ordinary daemon-floor migration.
+
+`rollback_finishing` means the pending row is already durable. Recovery is
+cleanup-only: commit `rolled_back`, clear pending, remove the held marker, then
+publish `sb.old` last. Observed migration state may never route either phase
+back into forward recovery.

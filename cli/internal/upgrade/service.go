@@ -302,15 +302,26 @@ const (
 	// rollback to THIS upgrade's own snapshot. See upgrade-timeline.md
 	// § Binary-swap restart + resume.
 	PhaseNewSbUpgrading = "new-sb-upgrading"
+	// PhaseRollbackSchemaFloorFailed holds the box closed after the restored
+	// snapshot could not be brought back to the target daemon schema floor.
+	// Automatic service starts stay alive-idle on this phase. The exported
+	// RecoverFromFlag entry used by ./sb install deliberately retries it.
+	PhaseRollbackSchemaFloorFailed = "rollback-schema-floor-failed"
+	// PhaseRollbackFinishing is cleanup-only. The snapshot and source services
+	// are already restored and the pending column is durable. Recovery may only
+	// finish the row, remove this marker, and publish sb.old.
+	PhaseRollbackFinishing = "rollback_finishing"
 )
 
 // canonicalPhaseBytes is the set of wire values THIS build writes (the empty
 // string included — PhaseOldSbUpgrading is canonical-by-absence). The decode
 // chokepoint passes these through unchanged.
 var canonicalPhaseBytes = map[string]struct{}{
-	PhaseOldSbUpgrading: {},
-	PhaseNewSbSwapped:   {},
-	PhaseNewSbUpgrading: {},
+	PhaseOldSbUpgrading:            {},
+	PhaseNewSbSwapped:              {},
+	PhaseNewSbUpgrading:            {},
+	PhaseRollbackSchemaFloorFailed: {},
+	PhaseRollbackFinishing:         {},
 }
 
 // LEGACY-PHASE-BYTES: legacyPhaseByteAliases maps the two historical wire
@@ -484,7 +495,7 @@ func (f *UpgradeFlag) IsServiceNewSbRecovery() bool {
 	return f != nil &&
 		f.Holder == HolderService &&
 		f.CommitSHA != "" &&
-		(f.Phase == PhaseNewSbSwapped || f.Phase == PhaseNewSbUpgrading)
+		(f.Phase == PhaseNewSbSwapped || f.Phase == PhaseNewSbUpgrading || f.Phase == PhaseRollbackFinishing)
 }
 
 // flagFilePath returns the canonical flag file location under projDir.
@@ -1573,6 +1584,36 @@ func (d *Service) recoverFromFlag(ctx context.Context) (err error) {
 		// nothing wedges, and no decision is taken on the stale artifact
 		// in between.
 		_ = os.Remove(d.flagPath())
+		return nil
+	}
+
+	// A known rollback-floor failure is a closed, human-gated hold. The daemon
+	// stays alive-idle instead of consuming its restart budget by repeating the
+	// same deterministic migration. ./sb install constructs a one-shot Service
+	// (runningAsService=false) and is the only deliberate retry entry.
+	if flag.Phase == PhaseRollbackSchemaFloorFailed && d.runningAsService {
+		logRecover("ROLLBACK_SCHEMA_FLOOR_FAILED: upgrade %d remains closed with target recovery assets retained. Fix the recorded migration/database cause, then run ./sb install.", flag.ID)
+		return nil
+	}
+
+	// rollback_finishing is routed before observed/destructive recovery. Its held
+	// phase authorizes cleanup only, never another snapshot restore.
+	if flag.Phase == PhaseRollbackFinishing {
+		rollbackFinishPending, pendingErr := d.isRollbackFinishPending(ctx, flag.ID)
+		if pendingErr != nil {
+			return fmt.Errorf("check rollback finishing state for upgrade %d: %w", flag.ID, pendingErr)
+		}
+		if rollbackFinishPending {
+			d.finalizePendingRollbacks(ctx)
+			stillPending, checkErr := d.isRollbackFinishPending(ctx, flag.ID)
+			if checkErr != nil || stillPending {
+				return fmt.Errorf("rollback cleanup for upgrade %d remains pending: %v", flag.ID, checkErr)
+			}
+			return nil
+		}
+		if err := d.clearRollbackFinishFlag(flag.ID); err != nil {
+			return fmt.Errorf("clear terminal rollback finishing marker for upgrade %d: %w", flag.ID, err)
+		}
 		return nil
 	}
 
@@ -8531,6 +8572,9 @@ func (d *Service) clearRollbackFinishFlag(id int) error {
 		if holder != HolderService {
 			return fmt.Errorf("upgrade %d rollback finishing found a %q-held marker; refusing to remove it", id, holder)
 		}
+		if flag.Phase != PhaseRollbackFinishing {
+			return fmt.Errorf("upgrade %d rollback finishing expected phase %q, found %q; refusing to remove it", id, PhaseRollbackFinishing, flag.Phase)
+		}
 		return d.removeUpgradeFlag()
 	}
 
@@ -8558,6 +8602,9 @@ func (d *Service) clearRollbackFinishFlag(id int) error {
 	}
 	if holder != HolderService {
 		return fmt.Errorf("upgrade %d rollback finishing found a %q-held marker; refusing to remove it", id, holder)
+	}
+	if flag.Phase != PhaseRollbackFinishing {
+		return fmt.Errorf("upgrade %d rollback finishing expected phase %q, found %q; refusing to remove it", id, PhaseRollbackFinishing, flag.Phase)
 	}
 	const consequence = "rollback finishing remains cleanup-only and will retry without restoring the database"
 	removeErr := d.removePath(path)
@@ -8650,10 +8697,6 @@ func (d *Service) finalizePendingRollback(ctx context.Context, id int, label str
 	if err != nil {
 		return false, fmt.Errorf("lock rollback finishing row: %w", err)
 	}
-	if cleanupErr := d.clearRollbackFinishFlag(id); cleanupErr != nil {
-		return false, fmt.Errorf("remove stale rollback marker: %w", cleanupErr)
-	}
-
 	var failureCode *UpgradeFailureCode
 	if failureCodeText.Valid {
 		parsed, parseErr := ParseUpgradeFailureCode(failureCodeText.String)
@@ -8671,6 +8714,9 @@ func (d *Service) finalizePendingRollback(ctx context.Context, id int, label str
 	}
 	if err := tx.Commit(ctx); err != nil {
 		return false, fmt.Errorf("commit final rolled_back row: %w", err)
+	}
+	if cleanupErr := d.clearRollbackFinishFlag(id); cleanupErr != nil {
+		return false, fmt.Errorf("remove stale rollback marker after final row commit: %w", cleanupErr)
 	}
 
 	logUpgradeRow(label, rowJSON)
@@ -10182,35 +10228,43 @@ func (d *Service) writeRollbackTerminal(id int, updateSQL string, failureCode *U
 // audit-trail value the row had at the moment this restore began.
 func (d *Service) restoreAndFinalize(ctx context.Context, id int, version string, failureCode *UpgradeFailureCode, reason, backupPath string, attemptsAtCall int, progress *ProgressLog) bool {
 	projDir := d.projDir
-	// Restore ./sb to match the restored git era BEFORE running config
-	// generate (rc.67 trifecta). The current ./sb is the NEW binary; its
-	// PersistentPreRun staleness guard (rc.65 freshness check) compares
-	// the binary's compile-time COMMIT against git HEAD, which is now at
-	// restoreTargetSHA. The guard fires exit-2 → "Warning: config generate
-	// during rollback failed" (jo's 2026-04-28 deploy log line 105).
-	// Restoring the binary first puts ./sb back at the same era as the
-	// rolled-back git tree, so the staleness guard sees a match and
-	// config generate runs cleanly. Best-effort; ErrRollbackBinaryCorrupt
-	// is logged (non-fatal) if the rename fails.
-	// STATBUS-197 C2: skip when this attempt committed no snapshot — nothing swapped (the swap
-	// sits after backupDatabase), so ./sb.old (if any) belongs to a PRIOR attempt and restoring
-	// it would install the wrong binary. The empty-path rollback skipped the git restore too;
-	// the box is untouched at the source, so leave ./sb alone.
-	if backupPath != "" {
-		d.restoreBinary(progress)
+	// STATBUS-354 Phase 2: retain the target worktree and target ./sb while the
+	// snapshot is restored, start only its existing DB container, then reapply the
+	// checked-in daemon floor through the ordinary migration engine/ledger.
+	dbRestoreErr := d.restoreRollbackSnapshotWithTargetAssets(progress, backupPath)
+	if dbRestoreErr == nil {
+		dbRestoreErr = d.startRollbackDatabaseOnly(ctx, progress)
 	}
-
-	if err := runCommandToLog(projDir, 2*time.Minute, progress.File(), "rollback-config-generate", nil, filepath.Join(projDir, "sb"), "config", "generate"); err != nil {
-		progress.Write("  Regenerating configuration for the previous version ... failed (continuing): %v", err)
-	} else {
-		progress.Write("  Regenerating configuration for the previous version ... ok")
+	if dbRestoreErr == nil {
+		if floorErr := d.reapplyRollbackDaemonSchemaFloor(progress); floorErr != nil {
+			_ = d.mutateHeldFlag(func(flag *UpgradeFlag) {
+				flag.Phase = PhaseRollbackSchemaFloorFailed
+				flag.Step = StepRollback
+			})
+			d.releaseUpgradeFlagLockKeepingFile()
+			d.markTerminal("ROLLBACK_SCHEMA_FLOOR_FAILED", fmt.Sprintf("id=%d; backup=%s; floor=%d; progress=%s; error=%v", id, backupPath, migrate.DaemonSchemaFloor, progress.RelPath(), floorErr))
+			progress.Write("ROLLBACK_SCHEMA_FLOOR_FAILED")
+			progress.Write("The database snapshot was restored, but the recovery schema floor could not be re-applied: %v", floorErr)
+			progress.Write("Application services remain stopped. HTTP maintenance and SQL read-only remain active.")
+			progress.Write("The target recovery binary and migration files were preserved.")
+			progress.Write("Fix the reported migration/database error, then run: ./sb install")
+			progress.Write("Do not replace ./sb, check out another commit, or start the application services.")
+			return true
+		}
 	}
-
-	// Restore database backup. Now safe — git state matches the DB era. A
-	// non-nil error means the rsync restore was attempted and FAILED, leaving
-	// the volume inconsistent → the terminal row must record `failed` (degraded),
-	// not `rolled_back`.
-	dbRestoreErr := d.restoreDatabase(progress, backupPath)
+	var sourceRestoreErr, configGenerateErr error
+	if dbRestoreErr == nil && backupPath != "" {
+		sourceRestoreErr = d.restoreGitState("", progress)
+	}
+	if dbRestoreErr == nil && sourceRestoreErr == nil {
+		configGenerateErr = runCommandToLog(projDir, 2*time.Minute, progress.File(), "rollback-config-generate", nil,
+			filepath.Join(projDir, "sb.old"), "config", "generate")
+		if configGenerateErr != nil {
+			progress.Write("  Regenerating source-version configuration with ./sb.old ... failed: %v", configGenerateErr)
+		} else {
+			progress.Write("  Regenerating source-version configuration with ./sb.old ... ok")
+		}
+	}
 
 	// Harness-only kill site (C9): simulates the OS / orchestrator killing
 	// the process MID-ROLLBACK — specifically, after the destructive
@@ -10246,7 +10300,13 @@ func (d *Service) restoreAndFinalize(ctx context.Context, id int, version string
 	// here means the old-version services would not come back up → degraded,
 	// recorded as `failed` below.
 	servicesStart := time.Now()
-	servicesUpErr := runCommandToLog(projDir, 5*time.Minute, progress.File(), "rollback-docker-up", nil, "docker", "compose", "--profile", "all", "up", "-d", "--remove-orphans")
+	servicesUpErr := sourceRestoreErr
+	if servicesUpErr == nil {
+		servicesUpErr = configGenerateErr
+	}
+	if servicesUpErr == nil {
+		servicesUpErr = runCommandToLog(projDir, 5*time.Minute, progress.File(), "rollback-docker-up", nil, "docker", "compose", "--profile", "all", "up", "-d", "--remove-orphans")
+	}
 	if servicesUpErr != nil {
 		progress.Write("  Starting services for the previous version ... failed: %v", servicesUpErr)
 	} else {
@@ -10297,6 +10357,8 @@ func (d *Service) restoreAndFinalize(ctx context.Context, id int, version string
 	// containers serve old code from the restored git tree, so it stays healthy.)
 	restoreErrors := rollbackCompletionErrors{
 		databaseRestore: dbRestoreErr,
+		sourceRestore:   sourceRestoreErr,
+		configGenerate:  configGenerateErr,
 		servicesStart:   servicesUpErr,
 		databaseHealth:  dbHealthErr,
 		reconnect:       reconnectErr,
@@ -10349,6 +10411,14 @@ func (d *Service) restoreAndFinalize(ctx context.Context, id int, version string
 		progress.Write("Recording rollback finishing state ... failed; maintenance and SQL read-only remain active, and the free recovery marker is kept for reconciliation.")
 		return true
 	}
+	if err := d.mutateHeldFlag(func(flag *UpgradeFlag) {
+		flag.Phase = PhaseRollbackFinishing
+		flag.Step = StepRollback
+	}); err != nil {
+		d.releaseUpgradeFlagLockKeepingFile()
+		progress.Write("Recording rollback cleanup authority ... failed: %v", err)
+		return true
+	}
 
 	reportFinishingPending := func(detail string) {
 		d.releaseUpgradeFlagLockKeepingFile()
@@ -10396,6 +10466,9 @@ func (d *Service) restoreAndFinalize(ctx context.Context, id int, version string
 		reportFinishingPending("rollback finishing row changed before finalization; refusing to claim healthy completion")
 		return true
 	}
+	if backupPath != "" {
+		d.restoreBinary(progress)
+	}
 	progress.Write("Rollback to the previous version complete.")
 	return false
 }
@@ -10406,6 +10479,31 @@ func (d *Service) restoreAndFinalize(ctx context.Context, id int, version string
 // stop` args and the compose.VerifyStopped call at each site, so the two
 // sets cannot drift apart (STATBUS-187 fix unit #2).
 var preRestoreStopServices = []string{"app", "worker", "rest", "db"}
+
+func (d *Service) restoreRollbackSnapshotWithTargetAssets(progress *ProgressLog, backupPath string) error {
+	return d.restoreDatabase(progress, backupPath)
+}
+
+func (d *Service) startRollbackDatabaseOnly(ctx context.Context, progress *ProgressLog) error {
+	if err := d.StartDBForRecovery(ctx); err != nil {
+		return fmt.Errorf("start existing restored database: %w", err)
+	}
+	if err := d.EnsureDBReachable(ctx); err != nil {
+		return fmt.Errorf("wait for restored database: %w", err)
+	}
+	if err := d.reconnect(ctx); err != nil {
+		return fmt.Errorf("reconnect target recovery process: %w", err)
+	}
+	progress.Write("  Starting only the restored database for schema-floor replay ... healthy")
+	return nil
+}
+
+func (d *Service) reapplyRollbackDaemonSchemaFloor(progress *ProgressLog) error {
+	floor := strconv.FormatInt(migrate.DaemonSchemaFloor, 10)
+	progress.Write("  Re-applying rollback daemon schema floor through db.migration: %s", floor)
+	return runCommandToLog(d.projDir, MigrateUpTimeout, progress.File(), "rollback-daemon-schema-floor", nil,
+		filepath.Join(d.projDir, "sb"), "migrate", "up", "--to", floor, "--verbose")
+}
 
 // preRestoreStopVerifyBudget bounds compose.VerifyStopped's re-check
 // polling: covers `docker compose stop`'s default 10s SIGTERM grace with
@@ -10550,7 +10648,9 @@ func (d *Service) ReattemptRestore(ctx context.Context, rowID int64) error {
 		func() { sdNotify("WATCHDOG=1") }, tickerDone)
 	defer func() { tickerCancel(); <-tickerDone }()
 
-	// Restore git state FIRST (architect review of STATBUS-111). The re-attempt
+	// The target tree and target ./sb are intentionally retained through the
+	// snapshot restore and floor replay. Source checkout now happens inside
+	// restoreAndFinalize only after the floor command succeeds.
 	// probe also matches the git-restore ABORT row (LabelFailedAbort — the tree
 	// is corrupt), and restoreAndFinalize only touches binary + DB. Without this,
 	// an abort-row re-attempt would restore binary + DB to the old era while the
@@ -10561,11 +10661,6 @@ func (d *Service) ReattemptRestore(ctx context.Context, rowID int64) error {
 	// idempotent no-op; on an ABORT row this either genuinely cures the original
 	// failure (e.g. transient disk pressure since cleared) or hard-fails
 	// ACTIONABLY here — BEFORE any destructive stop/restore, never mixed-era.
-	if err := d.restoreGitState("", progress); err != nil {
-		return fmt.Errorf("%s: cannot restore the working tree before the database re-attempt (%w) — the git tree is corrupt; do NOT proceed. Manual recovery required: contact SSB support and involve your IT staff%s",
-			ErrRollbackGitCorrupt, err, contactSuffix(readAdministratorContact(d.projDir)))
-	}
-
 	// Stop clients + db before rsyncing the volume (restoreAndFinalize's
 	// docker-up brings them back). Mirrors rollback()'s pre-restore stop.
 	//
@@ -10760,7 +10855,7 @@ func (d *Service) rollback(ctx context.Context, id int, version, restoreTargetSH
 	// restore the DB first to keep on-disk state consistent, then ABORT before docker compose up.
 	if backupPath == "" {
 		progress.Write("  Checking for a committed snapshot ... ok (none recorded; source code and ./sb remain unchanged)")
-	} else if err := d.restoreGitState(restoreTargetSHA, progress); err != nil {
+	} else if err := error(nil); err != nil {
 		progress.Write("  Restoring source code ... failed: %v", err)
 		// STATBUS-187 fix unit #1 (second wave, architect-ruled: "fix =
 		// capture + fold into the ABORT error string"): capture the ABORT
@@ -11266,6 +11361,11 @@ func (d *Service) deleteRollbackBinaryOnCompletion() {
 }
 
 func (d *Service) restoreBinary(progress *ProgressLog) {
+	// SQL compatibility boundary for the source binary (STATBUS-354): migration
+	// 20260903205636 is additive. rollback_finish_pending_at and both audit
+	// columns are nullable; old named-column INSERT/UPDATE statements omit them;
+	// RETURNING to_jsonb(upgrade.*) remains one JSON value; the widened trigger is
+	// server-side; and the old binary never migrates the recorded floor down.
 	sbPath := filepath.Join(d.projDir, "sb")
 	sbOldPath := sbPath + ".old"
 	if _, err := os.Stat(sbOldPath); err != nil {

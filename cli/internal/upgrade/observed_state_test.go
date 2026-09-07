@@ -373,7 +373,7 @@ func TestRollbackCompletionRequiresUpgradeLockRelease(t *testing.T) {
 	}
 	serialized := extractFuncBody(t, string(source), "func (d *Service) finalizePendingRollback(")
 	last := -1
-	for _, required := range []string{"pg_try_advisory_xact_lock", "FOR UPDATE", "d.clearRollbackFinishFlag(id)", `UPDATE public.upgrade SET state = 'rolled_back'`, "tx.Commit(ctx)"} {
+	for _, required := range []string{"pg_try_advisory_xact_lock", "FOR UPDATE", `UPDATE public.upgrade SET state = 'rolled_back'`, "tx.Commit(ctx)", "d.clearRollbackFinishFlag(id)"} {
 		idx := strings.Index(serialized, required)
 		if idx <= last {
 			t.Fatalf("serialized rollback finalizer omitted or reordered %q", required)
@@ -492,8 +492,8 @@ func TestRollbackFinishPendingInterceptsSnapshotRecovery(t *testing.T) {
 	cleanup := strings.Index(finalizer, "d.clearRollbackFinishFlag(id)")
 	transition := strings.Index(finalizer, `"UPDATE public.upgrade SET state = 'rolled_back'`)
 	commit := strings.Index(finalizer, "tx.Commit(ctx)")
-	if advisory < 0 || rowLock <= advisory || cleanup <= rowLock || transition <= cleanup || commit <= transition {
-		t.Fatal("pending rollback row can become rolled_back before its stale marker is removed")
+	if advisory < 0 || rowLock <= advisory || transition <= rowLock || commit <= transition || cleanup <= commit {
+		t.Fatal("rollback finishing must commit rolled_back before removing the cleanup marker")
 	}
 }
 

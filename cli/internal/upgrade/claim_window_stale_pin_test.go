@@ -12,13 +12,12 @@ import (
 func TestRollback_NoTouchGuard_STATBUS197(t *testing.T) {
 	src := string(packageGoSources(t)["service.go"])
 
-	// C2a: in rollback(), the git restore is reached only on the non-empty branch — the
-	// `if backupPath == ""` no-touch skip guards (precedes) the restoreGitState call.
+	// C2a: rollback keeps the no-touch announcement and delegates all restore
+	// boundaries to restoreAndFinalize.
 	rb := extractFuncBody(t, src, "func (d *Service) rollback(")
 	guardIdx := strings.Index(rb, `if backupPath == ""`)
-	gitIdx := strings.Index(rb, "d.restoreGitState(restoreTargetSHA")
-	if guardIdx < 0 || gitIdx < 0 || guardIdx > gitIdx {
-		t.Errorf("C2a: rollback must guard restoreGitState behind `if backupPath == \"\"` (no-touch skip @%d must precede the git restore @%d)", guardIdx, gitIdx)
+	if guardIdx < 0 {
+		t.Error("C2a: rollback lost the no-touch branch for an absent snapshot")
 	}
 	// The skip branch must NOT fall into an ABORT — it keeps the box in service. The guard's
 	// progress line names the principle so the operator/log reads honestly.

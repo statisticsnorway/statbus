@@ -88,6 +88,8 @@ type successfulUpgradeFinishingNarrative struct {
 
 type rollbackCompletionErrors struct {
 	databaseRestore error
+	sourceRestore   error
+	configGenerate  error
 	servicesStart   error
 	databaseHealth  error
 	reconnect       error
@@ -97,6 +99,8 @@ type rollbackCompletionErrors struct {
 
 func (e rollbackCompletionErrors) degraded() bool {
 	return e.databaseRestore != nil ||
+		e.sourceRestore != nil ||
+		e.configGenerate != nil ||
 		e.servicesStart != nil ||
 		e.databaseHealth != nil ||
 		e.reconnect != nil ||
@@ -105,12 +109,14 @@ func (e rollbackCompletionErrors) degraded() bool {
 }
 
 func (e rollbackCompletionErrors) details() []string {
-	details := make([]string, 0, 6)
+	details := make([]string, 0, 8)
 	for _, item := range []struct {
 		err   error
 		label string
 	}{
 		{e.databaseRestore, "DB snapshot restore failed"},
+		{e.sourceRestore, "source working tree restore failed"},
+		{e.configGenerate, "source configuration generation failed"},
 		{e.servicesStart, "services did not come back up"},
 		{e.databaseHealth, "restored database did not become healthy"},
 		{e.reconnect, "upgrade service did not reconnect to the restored database"},

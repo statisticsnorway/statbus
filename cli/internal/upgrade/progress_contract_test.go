@@ -49,6 +49,9 @@ func TestReleaseUpgradeFlagLockKeepingFile(t *testing.T) {
 	if err := d.writeUpgradeFlag(347, strings.Repeat("a", 40), []string{"vtest"}, "test", "test", false); err != nil {
 		t.Fatalf("writeUpgradeFlag: %v", err)
 	}
+	if err := d.mutateHeldFlag(func(flag *UpgradeFlag) { flag.Phase = PhaseRollbackFinishing }); err != nil {
+		t.Fatalf("stamp rollback finishing phase: %v", err)
+	}
 
 	d.releaseUpgradeFlagLockKeepingFile()
 	if d.flagLock != nil {
@@ -73,6 +76,9 @@ func TestRollbackFinishFlagUnlinkFailureStaysCleanupOnly(t *testing.T) {
 	d := &Service{projDir: projDir}
 	if err := d.writeUpgradeFlag(347, strings.Repeat("a", 40), []string{"vtest"}, "test", "test", false); err != nil {
 		t.Fatalf("writeUpgradeFlag: %v", err)
+	}
+	if err := d.mutateHeldFlag(func(flag *UpgradeFlag) { flag.Phase = PhaseRollbackFinishing }); err != nil {
+		t.Fatalf("stamp rollback finishing phase: %v", err)
 	}
 
 	unlinkErr := errors.New("injected unlink failure")

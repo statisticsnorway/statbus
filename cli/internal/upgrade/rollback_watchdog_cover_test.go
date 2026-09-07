@@ -61,8 +61,8 @@ func TestRollbackWatchdogCover_SourceOrder(t *testing.T) {
 	}
 
 	// (2) The extracted tail holds the two silent steps.
-	if !strings.Contains(raf, "d.restoreDatabase(") {
-		t.Error("restoreAndFinalize must contain the restoreDatabase rsync (the silent step it was extracted with)")
+	if !strings.Contains(raf, "d.restoreRollbackSnapshotWithTargetAssets(") {
+		t.Error("restoreAndFinalize must contain the target-asset snapshot helper (the silent restore step)")
 	}
 	if !strings.Contains(raf, `"rollback-docker-up"`) {
 		t.Error("restoreAndFinalize must contain the rollback-docker-up (also onAdvance=nil silent)")
@@ -84,20 +84,10 @@ func TestRollbackWatchdogCover_SourceOrder(t *testing.T) {
 		t.Errorf("ReattemptRestore must arm the watchdog BEFORE calling restoreAndFinalize (ticker=%d call=%d)", rarTickerIdx, rarCallIdx)
 	}
 
-	// (4) STATBUS-111 (architect review): the re-attempt probe also matches the
-	// git-restore ABORT row (tree corrupt). ReattemptRestore MUST restore git
-	// state FIRST — before the destructive stop + restoreAndFinalize — or an
-	// abort-row re-attempt restores binary+DB onto a wreckage tree → mixed-era.
-	rarGitIdx := strings.Index(rar, "d.restoreGitState(")
-	rarStopIdx := strings.Index(rar, `"stop", "app", "worker", "rest", "db"`)
-	if rarGitIdx < 0 {
-		t.Fatal("ReattemptRestore must call restoreGitState (the abort-row mixed-era guard) before the DB re-attempt")
-	}
-	if rarGitIdx > rarCallIdx {
-		t.Errorf("ReattemptRestore must restore git state BEFORE restoreAndFinalize (git=%d restoreAndFinalize=%d) — else an abort-row re-attempt comes up mixed-era", rarGitIdx, rarCallIdx)
-	}
-	if rarStopIdx >= 0 && rarGitIdx > rarStopIdx {
-		t.Errorf("ReattemptRestore must restore git state BEFORE the destructive db stop (git=%d stop=%d)", rarGitIdx, rarStopIdx)
+	// STATBUS-354: the target worktree is one of the recovery assets needed by
+	// the ordinary floor migrate, so reattempt must not restore source git first.
+	if strings.Contains(rar, "d.restoreGitState(") {
+		t.Fatal("ReattemptRestore must retain target git state until restoreAndFinalize reapplies the daemon floor")
 	}
 
 	// The restore rsync must use the shared RestoreDBTimeout, not a site-local

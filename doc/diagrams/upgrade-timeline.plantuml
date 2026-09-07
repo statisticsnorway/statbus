@@ -57,7 +57,10 @@ service -> service : recoverFromFlag — reconcile a flag left on disk (flag-DRI
 service -> db : completeInProgressUpgrade — reconcile an in_progress row with NO flag\n(flag-INDEPENDENT belt; the SOLE recovery for a pre-flight kill)
 note over service, db
   Two-layer boot recovery. recoverFromFlag handles a kill AFTER the flag exists (Phase
-  ladder: old-sb-upgrading / new-sb-swapped / new-sb-upgrading). completeInProgressUpgrade handles a kill BEFORE
+  ladder: old-sb-upgrading / new-sb-swapped / new-sb-upgrading /
+  rollback-schema-floor-failed / rollback_finishing). The floor-failed arm is
+  daemon alive-idle; rollback_finishing is cleanup-only before observed state.
+  completeInProgressUpgrade handles a kill BEFORE
   the flag exists — the claim -> writeUpgradeFlag window (see § old-sb-upgrading).
   It rolls such an orphan to a named terminal state via verifyUpgradeGroundTruth.
 end note
