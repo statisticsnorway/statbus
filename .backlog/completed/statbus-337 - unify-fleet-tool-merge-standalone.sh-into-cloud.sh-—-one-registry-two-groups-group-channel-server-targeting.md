@@ -128,6 +128,7 @@ Acceptance: one command shows the whole fleet (10 boxes) with version, channel, 
 | malformed metadata (exit 0, wrong shape) is unreadable, never a silent non-member | `344a45a82` (three fields, known channel), `1698e456f` (one line, exactly two pipes, printable only); Luna rounds 3 and 4 |
 | live read-only check | `./cloud.sh status dev`, `status no`, `status prerelease`: only the targets printed, exit 0, after every round |
 | Go Test guard that hard-required `standalone.sh` | `02f938627`: guard reads `cloud.sh`. Go Test on master was red from the deletion until this commit, unnoticed through four review rounds |
-| Luna round 5 | pending (bear session) on the last two porous shapes |
+| Luna round 5 | ACCEPT at 1698e456f; policy question (UTF-8 names under LC_ALL=C) ruled: names may be UTF-8, control bytes rejected locale-independently, `557ec46a1` |
+| CI at HEAD | Go Test, lint, Images, Fast Tests green at 02f938627; pg_regress green at c804b2d3b; 557ec46a1 pending at Done time (shell + test only) |
 
 Review trail: `tmp/STATBUS-337-review/REPORT.md`.
