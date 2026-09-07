@@ -15892,7 +15892,7 @@ export type Database = {
           | "failed",
       time_context_type: "relative_period" | "tag" | "year",
       upgrade_actor_source: "verified" | "self-reported" | "absent",
-      upgrade_failure_code:
+      upgrade_failure_code: 
           | "MIGRATION_FAILED"
           | "BACKUP_FAILED"
           | "DOCKER_UP_FAILED"

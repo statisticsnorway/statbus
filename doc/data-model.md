@@ -158,6 +158,7 @@ Enumerated types used across the schema, with their possible values.
 - **`public.statistical_unit_type`**: `establishment`, `legal_unit`, `enterprise`, `power_group`
 - **`public.time_context_type`**: `relative_period`, `tag`, `year`
 - **`public.upgrade_actor_source`**: `verified`, `self-reported`, `absent`
+- **`public.upgrade_failure_code`**: `MIGRATION_FAILED`, `BACKUP_FAILED`, `DOCKER_UP_FAILED`, `HEALTHCHECK_REST_DOWN`, `HEALTHCHECK_APP_DOWN`, `HEALTHCHECK_DB_DOWN`, `ROLLBACK_FAILED_GIT_CORRUPT`, `ROLLBACK_FAILED_DB_RESTORE`, `UPGRADE_STOPPED_NOTHING_CHANGED`, `ROLLBACK_FAILED_SERVICES_UP`, `ROLLBACK_FAILED_SERVICES_NOT_STOPPED`, `ROLLBACK_FAILED_BINARY_CORRUPT`, `BINARY_REPLACE_FAILED`, `BINARY_BUILD_FAILED`, `INSTALL_FIXUP_FAILED`, `GIT_FETCH_FAILED_RETRYABLE`, `INSTALL_PRECONDITION_FAILED`
 - **`public.upgrade_state`**: `available`, `scheduled`, `in_progress`, `completed`, `failed`, `rolled_back`, `dismissed`, `skipped`, `superseded`
 - **`worker.child_mode`**: `concurrent`, `serial`
 - **`worker.process_mode`**: `serial`, `concurrent`
@@ -265,8 +266,8 @@ Handles background processing. A long-running worker process calls `worker.proce
 - `activity_category_access(id, user_id, activity_category_id)` — **infrastructure**
   - Key FKs: activity_category_id, user_id.
 - `system_info(value, updated_at, key)` — **infrastructure**
-- `upgrade(id, backup_path, log_relative_file_path, committed_at, discovered_at, scheduled_at, started_at, completed_at, rolled_back_at, skipped_at, superseded_at, dismissed_at, recovery_parked_at, commit_sha, commit_tags, release_status, summary, changes, release_url, has_migrations, error, from_commit_version, docker_images_downloaded, state, commit_version, docker_images_status, release_builds_status, recreate, recovery_attempts, recovery_parked_reason)` — **infrastructure**
-  - Enums: `docker_images_status` (`public.docker_images_status_type`), `release_builds_status` (`public.release_builds_status_type`), `release_status` (`public.release_status_type`), `state` (`public.upgrade_state`).
+- `upgrade(id, backup_path, log_relative_file_path, failure_code, committed_at, discovered_at, scheduled_at, started_at, completed_at, rolled_back_at, skipped_at, superseded_at, dismissed_at, recovery_parked_at, commit_sha, commit_tags, release_status, summary, changes, release_url, has_migrations, error, from_commit_version, docker_images_downloaded, state, commit_version, docker_images_status, release_builds_status, recreate, recovery_attempts, recovery_parked_reason)` — **infrastructure**
+  - Enums: `docker_images_status` (`public.docker_images_status_type`), `failure_code` (`public.upgrade_failure_code`), `release_builds_status` (`public.release_builds_status_type`), `release_status` (`public.release_status_type`), `state` (`public.upgrade_state`).
 - `upgrade_state_log(id, application_name, old_log_relative_file_path, old_backup_path, upgrade_id, old_parked_at, new_parked_at, logged_at, old_state, new_state, query, backend_pid, actor, actor_source, old_error, old_recovery_parked_reason, old_recovery_attempts)` — **infrastructure**
   - Enums: `actor_source` (`public.upgrade_actor_source`), `new_state` (`public.upgrade_state`), `old_state` (`public.upgrade_state`).
 - `upgrade_retention_caps(release_status, state, time_cap, count_cap, install_purge)` — **infrastructure**
