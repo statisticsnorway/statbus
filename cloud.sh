@@ -63,6 +63,7 @@ usage() {
     echo "Usage: $0 <command> [args]"
     echo "Targets: all | <code> | stable | prerelease | cloud | standalone"
     echo "Commands: status, health, notify, upgrade, install, rescue, tail, create, wipe, inspect, import, reimport, ssh"
+    echo "For group-only verbs, target 'all' runs eligible entries and prints one skip line for each ineligible entry."
     exit 1
 }
 
@@ -183,6 +184,7 @@ verb_group() {
 assert_verb_target_group() {
     local verb="$1" target="$2" eligible actual code
     eligible=$(verb_group "$verb"); [ "$eligible" = all ] && return 0
+    [ "$target" = all ] && return 0
     # A group selector is eligible only when it names the declared group. Other
     # selectors are expanded and every registry entry decides independently.
     if is_group "$target"; then
@@ -678,11 +680,29 @@ cmd_wipe() {
     echo "--- $target wipe complete ---"
 }
 
-cmd_create() {
+cmd_create_one() {
     local code="$1"
     local name="$2"
     local version="$3"
-    exec "$SCRIPT_DIR/ops/create-new-statbus-installation.sh" "$code" "$name" "$version"
+    "$SCRIPT_DIR/ops/create-new-statbus-installation.sh" "$code" "$name" "$version"
+}
+
+cmd_create() {
+    local target="$1" name="$2" version="$3" code group ran=0
+    if [ "$target" != all ]; then
+        cmd_create_one "$target" "$name" "$version"
+        return
+    fi
+    for code in $(all_codes); do
+        group=$(entry_group "$code")
+        if [ "$group" != cloud ]; then
+            echo "$code: skipped (create is only available for cloud targets)"
+            continue
+        fi
+        cmd_create_one "$code" "$name" "$version"
+        ran=1
+    done
+    [ "$ran" -eq 1 ]
 }
 
 cmd_inspect() {
@@ -809,15 +829,11 @@ resolve_user_email() {
 # Variant is REQUIRED, not defaulted — the two scripts have different
 # correctness implications and an operator running the wrong one is a
 # real failure mode. Fail loud on missing or unknown variant.
-cmd_import() {
+cmd_import_one() {
     local target="$1"
     local variant="${2:-}"
     local email_flag="${3:-}"
 
-    if [ "$target" = "all" ]; then
-        echo "ERROR: import all is not supported. Import deployments one at a time." >&2
-        exit 1
-    fi
     local resolved_target
     resolved_target=$(resolve_single_target "$target")
 
@@ -846,6 +862,24 @@ cmd_import() {
         ${script}" 2>&1
     echo "--- $resolved_target $variant import scheduled. Worker will process asynchronously."
     echo "    Watch progress: ./cloud.sh ssh $resolved_target  → ./sb psql -c \"SELECT slug, state FROM public.import_job ORDER BY slug\""
+}
+
+cmd_import() {
+    local target="$1" variant="${2:-}" email_flag="${3:-}" code group ran=0
+    if [ "$target" != all ]; then
+        cmd_import_one "$target" "$variant" "$email_flag"
+        return
+    fi
+    for code in $(all_codes); do
+        group=$(entry_group "$code")
+        if [ "$group" != standalone ]; then
+            echo "$code: skipped (import is only available for standalone targets)"
+            continue
+        fi
+        cmd_import_one "$code" "$variant" "$email_flag"
+        ran=1
+    done
+    [ "$ran" -eq 1 ]
 }
 
 # cmd_reimport is shorthand for `wipe <name>` + `import <name>

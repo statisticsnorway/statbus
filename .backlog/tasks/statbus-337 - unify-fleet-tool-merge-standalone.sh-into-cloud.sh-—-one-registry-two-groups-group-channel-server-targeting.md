@@ -66,7 +66,9 @@ cloud-group-only: targeting a standalone box prints one line saying so and
 exits 2. The Norway BRREG verbs (`import`, `reimport`) and `ssh` are
 standalone-group-only today; keep them, mark them the same way, and let the
 registry entry (not the verb) decide eligibility so a second standalone box
-inherits them.
+inherits them. When the target is `all`, the registry-per-entry rule applies:
+the command processes every eligible entry, prints one skip line for each
+ineligible entry, and exits 0 when at least one eligible entry ran.
 
 ### M4. Clean break
 
