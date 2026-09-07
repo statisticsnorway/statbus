@@ -1,4 +1,5 @@
 #!/bin/bash
+# shellcheck disable=SC1091,SC2329 # Dynamic production-helper source and indirect overrides are intentional.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -6,6 +7,7 @@ TMP=$(mktemp -d)
 trap 'rm -rf "$TMP"' EXIT
 cp "$ROOT/cloud.sh" "$TMP/cloud.sh"
 cp "$ROOT/sb" "$TMP/sb"
+mkdir -p "$TMP/ops"
 
 fail() { echo "FAIL: $*" >&2; exit 1; }
 assert_eq() { [ "$1" = "$2" ] || fail "$3: expected '$1', got '$2'"; }
@@ -20,6 +22,13 @@ SB_LOG="$TMP/sb.log"
 cat >"$BIN/ssh" <<'STUB'
 #!/bin/bash
 printf '%s\n' "$*" >>"$SSH_LOG"
+[ -n "${SSH_FAIL_CODE:-}" ] && [[ "$*" = *"statbus_${SSH_FAIL_CODE}@"* || ( "$SSH_FAIL_CODE" = no && "$*" = *"statbus@rune.statbus.org"* ) ]] && exit 255
+if [[ "$*" = *"config show"* ]]; then
+    case "$*" in *statbus_dev@*|*statbus@rune*) channel=prerelease ;; *) channel=stable ;; esac
+    code=$(sed -n 's/.*statbus_\([^@ ]*\)@.*/\1/p' <<<"$*")
+    [ -n "$code" ] || code=no
+    printf 'sb version test (commit local)|%s|%s name\n' "$channel" "$code"
+fi
 exit "${SSH_EXIT:-0}"
 STUB
 chmod +x "$BIN/ssh"
@@ -32,10 +41,20 @@ case "$1 $2" in
 esac
 STUB
 chmod +x "$TMP/sb"
+cat >"$TMP/ops/create-new-statbus-installation.sh" <<'STUB'
+#!/bin/bash
+printf 'create %s\n' "$1" >>"$OPS_LOG"
+STUB
+cat >"$TMP/ops/inspect-cloud-installations.sh" <<'STUB'
+#!/bin/bash
+printf 'inspect\n' >>"$OPS_LOG"
+STUB
+chmod +x "$TMP/ops/"*.sh
+OPS_LOG="$TMP/ops.log"
 
 run_cloud() {
-    : >"$SSH_LOG"; : >"$SB_LOG"
-    PATH="$BIN:$PATH" SSH_LOG="$SSH_LOG" SB_LOG="$SB_LOG" bash "$TMP/cloud.sh" "$@"
+    : >"$SSH_LOG"; : >"$SB_LOG"; : >"$OPS_LOG"
+    PATH="$BIN:$PATH" SSH_LOG="$SSH_LOG" SB_LOG="$SB_LOG" OPS_LOG="$OPS_LOG" bash "$TMP/cloud.sh" "$@"
 }
 run_cloud_closed() { run_cloud "$@" </dev/null; }
 
@@ -58,6 +77,8 @@ assert_words "no" "$(resolve_target_codes standalone)" "standalone group"
 # Finding 1: tail reaches the real transport with the deployment-user unit suffix.
 output=$(run_cloud tail no 2>&1) || fail "tail no should succeed: $output"
 assert_contains "$(cat "$SSH_LOG")" "statbus-upgrade@statbus.service" "tail uses standalone unit"
+output=$(run_cloud tail dev 2>&1) || fail "tail dev should succeed: $output"
+assert_contains "$(cat "$SSH_LOG")" "statbus-upgrade@statbus_dev.service" "tail uses cloud unit"
 
 # Finding 2: a channel target fails closed if even one registry box is unreadable.
 read_server_metadata() {
@@ -69,6 +90,32 @@ output=$(resolve_target_codes prerelease 2>&1); rc=$?
 set -e
 [ "$rc" -ne 0 ] || fail "unreadable channel member must fail the whole resolution"
 assert_contains "$output" "no" "channel failure names unreadable box"
+
+# Fail-closed channel resolution must be reached through every executable verb.
+assert_channel_dispatch_fails_closed() {
+    local verb="$1"; shift
+    set +e
+    output=$(SSH_FAIL_CODE=no run_cloud "$verb" prerelease "$@" 2>&1); rc=$?
+    set -e
+    [ "$rc" -ne 0 ] || fail "$verb prerelease must fail closed"
+    assert_contains "$output" "no" "$verb channel failure names unreadable box"
+}
+assert_channel_dispatch_fails_closed status
+assert_not_contains "$output" "demo " "status prerelease excludes stable row"
+assert_channel_dispatch_fails_closed health
+assert_channel_dispatch_fails_closed install vX
+assert_channel_dispatch_fails_closed upgrade --yes
+assert_channel_dispatch_fails_closed notify
+assert_channel_dispatch_fails_closed tail
+
+# Unqualified status renders all rows, but partial output is still failure.
+set +e
+output=$(SSH_FAIL_CODE=no run_cloud status 2>&1); rc=$?
+set -e
+[ "$rc" -ne 0 ] || fail "status with unreadable box must fail"
+assert_contains "$output" "dev " "status shows readable rows"
+assert_contains "$output" "no " "status shows unreadable row"
+assert_contains "$output" "METADATA READ FAILED" "status marks unreadable row"
 
 # Finding 3: preserve the retired standalone install/upgrade command contract.
 output=$(run_cloud install no --version vX 2>&1) || fail "pinned install should succeed: $output"
@@ -94,37 +141,67 @@ set -e
 assert_eq "" "$(cat "$SSH_LOG")" "refused upgrade must not connect"
 assert_contains "$output" "Aborted" "upgrade confirmation refusal"
 
-# Finding 4: all processes eligible registry entries and explicitly skips each
-# ineligible entry. Import has one eligible standalone entry. Create has nine
-# eligible cloud entries. Stub their per-entry operations after real selection.
-test_all_eligibility() {
-    STATBUS_CLOUD_LIB_ONLY=1 source "$ROOT/cloud.sh"
-    local log="$TMP/all-$1.log" output rc
-    : >"$log"
-    case "$1" in
-      import)
-        cmd_import_one() { echo "ran:$1" >>"$log"; }
-        set +e; output=$(cmd_import all selection test@example.com 2>&1); rc=$?; set -e
-        assert_eq "0" "$rc" "import all exit"
-        assert_eq "ran:no" "$(cat "$log")" "import all eligible entry"
-        for code in dev demo et jo ma mw ug ua gh; do assert_contains "$output" "$code: skipped" "import all skip $code"; done
-        ;;
-      create)
-        cmd_create_one() { echo "ran:$1" >>"$log"; }
-        set +e; output=$(cmd_create all "Test" vX 2>&1); rc=$?; set -e
-        assert_eq "0" "$rc" "create all exit"
-        assert_eq "9" "$(wc -l <"$log" | xargs)" "create all eligible count"
-        assert_contains "$output" "no: skipped" "create all skip no"
-        ;;
+# Finding 4: executable `all` behavior for every group-only verb. Interactive
+# ssh and fleet-wide inspect refuse; the other four process eligible entries.
+test_all_entrypoint() {
+    local verb="$1" output rc
+    case "$verb" in
+        create)
+            output=$(run_cloud create all "Test" vX 2>&1); rc=$?
+            assert_eq "0" "$rc" "create all exit"
+            assert_eq "9" "$(wc -l <"$OPS_LOG" | xargs)" "create all eligible count"
+            assert_not_contains "$(cat "$OPS_LOG")" "create no" "create all never runs standalone"
+            assert_contains "$output" "no: skipped" "create all skip no"
+            ;;
+        wipe)
+            set +e
+            output=$(printf 'dev\ndemo\net\njo\nma\nmw\nug\nua\ngh\n' | run_cloud wipe all 2>&1); rc=$?
+            set -e
+            assert_eq "0" "$rc" "wipe all exit"
+            assert_eq "9" "$(wc -l <"$SSH_LOG" | xargs)" "wipe all eligible count"
+            assert_not_contains "$(cat "$SSH_LOG")" "statbus@rune.statbus.org" "wipe all never contacts standalone"
+            assert_contains "$output" "no: skipped" "wipe all skip no"
+            ;;
+        import)
+            output=$(run_cloud import all selection test@example.com 2>&1); rc=$?
+            assert_eq "0" "$rc" "import all exit"
+            assert_contains "$(cat "$SSH_LOG")" "statbus@rune.statbus.org" "import all eligible entry"
+            assert_not_contains "$(cat "$SSH_LOG")" "niue.statbus.org" "import all never contacts cloud"
+            for code in dev demo et jo ma mw ug ua gh; do assert_contains "$output" "$code: skipped" "import all skip $code"; done
+            ;;
+        reimport)
+            set +e
+            output=$(printf 'no\n' | run_cloud reimport all selection test@example.com 2>&1); rc=$?
+            set -e
+            assert_eq "0" "$rc" "reimport all exit"
+            assert_contains "$(cat "$SSH_LOG")" "statbus@rune.statbus.org" "reimport all contacts standalone"
+            assert_not_contains "$(cat "$SSH_LOG")" "niue.statbus.org" "reimport all never contacts cloud"
+            for code in dev demo et jo ma mw ug ua gh; do assert_contains "$output" "$code: skipped" "reimport all skip $code"; done
+            ;;
+        inspect|ssh)
+            set +e
+            output=$(run_cloud "$verb" all 2>&1); rc=$?
+            set -e
+            [ "$rc" -ne 0 ] || fail "$verb all must refuse"
+            assert_contains "$output" "$verb all is not supported" "$verb all refusal"
+            assert_eq "" "$(cat "$SSH_LOG")" "$verb all no transport"
+            ;;
     esac
 }
-test_all_eligibility import
-test_all_eligibility create
+for verb in create wipe inspect import reimport ssh; do test_all_entrypoint "$verb"; done
+
+set +e
+output=$(run_cloud 2>&1); rc=$?
+set -e
+[ "$rc" -ne 0 ] || fail "usage without a command must fail"
+assert_contains "$output" "accepting 'all': create, wipe, import, reimport" "help lists all-capable group verbs"
+assert_contains "$output" "refusing 'all': inspect, ssh" "help lists single-target group verbs"
 
 # Finding 5: retired trust variable fails plainly, and the create helper uses
 # the one fleet-wide name.
 set +e
 retired_trust_name="STANDALONE_TRUST_KEY""_USER"
+# shellcheck disable=SC2016 # $1 is intentionally expanded by the inner bash.
 output=$(env "$retired_trust_name=jhf" STATBUS_CLOUD_LIB_ONLY=1 bash -c 'source "$1"' _ "$ROOT/cloud.sh" 2>&1); rc=$?
 set -e
 [ "$rc" -ne 0 ] || fail "retired trust variable must fail"

@@ -732,6 +732,14 @@ One fleet-level entry point is available from the repo root:
 ./cloud.sh ssh no                  # interactive shell as statbus@rune.statbus.org
 ```
 
+For group-only verbs, `all` has an explicit contract. `create all` and `wipe all`
+run each cloud entry and print one skip line for every standalone entry. `import
+all` and `reimport all` run each standalone entry and print one skip line for
+every cloud entry. These commands exit successfully when at least one eligible
+entry ran. `inspect all` is refused because inspection is one fleet-wide cloud
+report, so use `inspect cloud`. `ssh all` is refused because an interactive shell
+requires one box code.
+
 The unified `FLEET_REGISTRY=()` near the top of `cloud.sh` has one `code|group|ssh_target|public_domain` entry per box. Add a new host by appending one entry; channel and display name are always read from the box.
 
 **Direct `./sb`** — when you want to run a specific operation on the host itself. Log in as the `statbus` service account (created by Stage 7 of `setup-ubuntu-lts-24.sh`):

@@ -67,7 +67,8 @@ usage() {
     echo "Usage: $0 <command> [args]"
     echo "Targets: all | <code> | stable | prerelease | cloud | standalone"
     echo "Commands: status, health, notify, upgrade, install, rescue, tail, create, wipe, inspect, import, reimport, ssh"
-    echo "For group-only verbs, target 'all' runs eligible entries and prints one skip line for each ineligible entry."
+    echo "Group-only verbs accepting 'all': create, wipe, import, reimport (run eligible entries; print one skip per ineligible entry)."
+    echo "Group-only verbs refusing 'all': inspect, ssh (these operations require a single scope or box)."
     exit 1
 }
 
@@ -236,14 +237,17 @@ ensure_service_started() {
 }
 
 cmd_status() {
+    local target="${1:-all}" targets failed=0
+    targets=$(resolve_target_codes "$target")
     echo "StatBus Fleet Status"
     echo "===================="
     printf "  %-8s %-12s %-31s %-12s %s\n" "CODE" "GROUP" "VERSION" "CHANNEL" "NAME"
-    for server in $(all_codes); do
+    for server in $targets; do
         local metadata version channel name group
         group=$(entry_group "$server")
         if ! metadata=$(read_server_metadata "$server" 2>/dev/null); then
             printf "  %-8s %-12s METADATA READ FAILED\n" "$server" "$group"
+            failed=1
             continue
         fi
         IFS='|' read -r version channel name <<< "$metadata"
@@ -251,6 +255,7 @@ cmd_status() {
         version="${version/ (commit / (}"
         printf "  %-8s %-12s %-31s %-12s %s\n" "$server" "$group" "$version" "$channel" "$name"
     done
+    [ "$failed" -eq 0 ]
 }
 
 # cmd_health_one gathers upgrade-subsystem health for one server in a single
@@ -662,15 +667,8 @@ cmd_install_one() {
     echo "--- $server install complete ---"
 }
 
-cmd_wipe() {
-    local target="$1"
-    validate_code "$target"
-
-    if [ "$target" = "all" ]; then
-        echo "ERROR: wipe all is not supported. Wipe servers one at a time."
-        exit 1
-    fi
-
+cmd_wipe_one() {
+    local target="$1" confirm
     echo "WARNING: This will DELETE the database on $target and recreate from scratch."
     echo "ALL DATA WILL BE LOST."
     read -r -p "Type the server name to confirm: " confirm
@@ -682,6 +680,25 @@ cmd_wipe() {
     echo "Wiping $target..."
     ssh_entry "$target" "cd statbus && ./dev.sh recreate-database && ./sb start all" 2>&1
     echo "--- $target wipe complete ---"
+}
+
+cmd_wipe() {
+    local target="$1" code group ran=0
+    if [ "$target" != all ]; then
+        validate_code "$target"
+        cmd_wipe_one "$target"
+        return
+    fi
+    for code in $(all_codes); do
+        group=$(entry_group "$code")
+        if [ "$group" != cloud ]; then
+            echo "$code: skipped (wipe is only available for cloud targets)"
+            continue
+        fi
+        cmd_wipe_one "$code"
+        ran=1
+    done
+    [ "$ran" -eq 1 ]
 }
 
 cmd_create_one() {
@@ -710,11 +727,19 @@ cmd_create() {
 }
 
 cmd_inspect() {
+    if [ "${1:-cloud}" = all ]; then
+        echo "inspect all is not supported; use 'inspect cloud'." >&2
+        return 2
+    fi
     exec "$SCRIPT_DIR/ops/inspect-cloud-installations.sh"
 }
 
 cmd_ssh() {
     local target
+    if [ "$1" = all ]; then
+        echo "ssh all is not supported; specify one standalone box." >&2
+        return 2
+    fi
     target=$(resolve_single_target "$1")
     echo "Connecting to $(entry_ssh_target "$target") ..."
     ssh_entry "$target"
@@ -761,7 +786,7 @@ cmd_standalone_wipe() {
     fi
 
     echo "Wiping $resolved_target..."
-    ssh_host "$resolved_target" "set -e
+    ssh_entry "$resolved_target" "set -e
         cd statbus
         echo '--- stopping services ---'
         ./sb stop all
@@ -895,9 +920,19 @@ cmd_reimport() {
     local target="$1"
     local variant="${2:-}"
     local email_flag="${3:-}"
-    if [ "$target" = "all" ]; then
-        echo "ERROR: reimport all is not supported. Reimport deployments one at a time." >&2
-        exit 1
+    if [ "$target" = all ]; then
+        local code group ran=0
+        for code in $(all_codes); do
+            group=$(entry_group "$code")
+            if [ "$group" != standalone ]; then
+                echo "$code: skipped (reimport is only available for standalone targets)"
+                continue
+            fi
+            cmd_reimport "$code" "$variant" "$email_flag"
+            ran=1
+        done
+        [ "$ran" -eq 1 ]
+        return
     fi
     local resolved_target
     resolved_target=$(resolve_single_target "$target")
@@ -929,7 +964,7 @@ fi
 
 case "$1" in
     status)
-        cmd_status
+        cmd_status "${2:-all}"
         ;;
     health)
         cmd_health "${2:-all}"
@@ -979,7 +1014,7 @@ case "$1" in
     inspect)
         target="${2:-cloud}"
         assert_verb_target_group inspect "$target" || exit $?
-        cmd_inspect
+        cmd_inspect "$target"
         ;;
     wipe)
         [ $# -lt 2 ] && { echo "Error: wipe requires a box code"; usage; }
