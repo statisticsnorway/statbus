@@ -1023,6 +1023,19 @@ func (e *RollbackDirectionStampError) Error() string {
 
 func (e *RollbackDirectionStampError) Unwrap() error { return e.Err }
 
+// RollbackSchemaFloorMarkerWriteError means the restored database could not be
+// migrated to the daemon floor and the held marker could not be durably changed
+// to the recognized alive-idle phase. The process must retain its flock. If it
+// released the old StepRollback marker, the next boot could repeat destructive
+// rollback and consume the rollback-death budget.
+type RollbackSchemaFloorMarkerWriteError struct{ Err error }
+
+func (e *RollbackSchemaFloorMarkerWriteError) Error() string {
+	return fmt.Sprintf("ROLLBACK_SCHEMA_FLOOR_MARKER_WRITE_FAILED: keep the service-held flock alive-idle because the floor-failure marker could not be written: %v", e.Err)
+}
+
+func (e *RollbackSchemaFloorMarkerWriteError) Unwrap() error { return e.Err }
+
 type recoveryRoute uint8
 
 const (
@@ -10248,7 +10261,7 @@ func (d *Service) writeRollbackTerminal(id int, updateSQL string, failureCode *U
 // upgrade's recovery passes ran — typically 0). Re-imposed onto the terminal
 // row alongside state/error so the volume rewind doesn't silently erase the
 // audit-trail value the row had at the moment this restore began.
-func (d *Service) restoreAndFinalize(ctx context.Context, id int, version string, failureCode *UpgradeFailureCode, reason, backupPath string, attemptsAtCall int, progress *ProgressLog) bool {
+func (d *Service) restoreAndFinalize(ctx context.Context, id int, version string, failureCode *UpgradeFailureCode, reason, backupPath string, attemptsAtCall int, progress *ProgressLog) (bool, error) {
 	projDir := d.projDir
 	// STATBUS-354 Phase 2: retain the target worktree and target ./sb while the
 	// snapshot is restored, start only its existing DB container, then reapply the
@@ -10264,19 +10277,16 @@ func (d *Service) restoreAndFinalize(ctx context.Context, id int, version string
 	}
 	if backupPath != "" && dbRestoreErr == nil {
 		if floorErr := d.reapplyRollbackDaemonSchemaFloor(progress); floorErr != nil {
-			_ = d.mutateHeldFlag(func(flag *UpgradeFlag) {
-				flag.Phase = PhaseRollbackSchemaFloorFailed
-				flag.Step = StepRollback
-			})
-			d.releaseUpgradeFlagLockKeepingFile()
-			d.markTerminal("ROLLBACK_SCHEMA_FLOOR_FAILED", fmt.Sprintf("id=%d; backup=%s; floor=%d; progress=%s; error=%v", id, backupPath, migrate.DaemonSchemaFloor, progress.RelPath(), floorErr))
+			if holdErr := d.holdRollbackSchemaFloorFailure(id, backupPath, progress, floorErr); holdErr != nil {
+				return true, holdErr
+			}
 			progress.Write("ROLLBACK_SCHEMA_FLOOR_FAILED")
 			progress.Write("The database snapshot was restored, but the recovery schema floor could not be re-applied: %v", floorErr)
 			progress.Write("Application services remain stopped. HTTP maintenance and SQL read-only remain active.")
 			progress.Write("The target recovery binary and migration files were preserved.")
 			progress.Write("Fix the reported migration/database error, then run: ./sb install")
 			progress.Write("Do not replace ./sb, check out another commit, or start the application services.")
-			return true
+			return true, nil
 		}
 		// Harness-only crash boundary (STATBUS-354 live twin 2 / crash matrix):
 		// the floor is recorded in db.migration, the source tree is NOT yet
@@ -10430,7 +10440,7 @@ func (d *Service) restoreAndFinalize(ctx context.Context, id int, version string
 			"STATBUS_RECOVERY_CMD":    fmt.Sprintf(`ssh %s "cd statbus && ./sb install"`, hostname),
 		})
 		progress.Write("Recording rollback completion ... failed; the system remains degraded and requires manual recovery.")
-		return true
+		return true, nil
 	}
 
 	// The snapshot restore and service health boundaries are now confirmed. Write
@@ -10442,7 +10452,7 @@ func (d *Service) restoreAndFinalize(ctx context.Context, id int, version string
 		failureCode, errMsg, LabelFailedRollbackPendingFinish, attemptsAtCall) {
 		d.releaseUpgradeFlagLockKeepingFile()
 		progress.Write("Recording rollback finishing state ... failed; maintenance and SQL read-only remain active, and the free recovery marker is kept for reconciliation.")
-		return true
+		return true, nil
 	}
 	if err := d.mutateHeldFlag(func(flag *UpgradeFlag) {
 		flag.Phase = PhaseRollbackFinishing
@@ -10450,7 +10460,7 @@ func (d *Service) restoreAndFinalize(ctx context.Context, id int, version string
 	}); err != nil {
 		d.releaseUpgradeFlagLockKeepingFile()
 		progress.Write("Recording rollback cleanup authority ... failed: %v", err)
-		return true
+		return true, nil
 	}
 
 	reportFinishingPending := func(detail string) {
@@ -10475,7 +10485,7 @@ func (d *Service) restoreAndFinalize(ctx context.Context, id int, version string
 			fmt.Sprintf("window OFF flip failed after rollback after retries: %v; maintenance remains active; cleanup-only retry required", readOnlyErr))
 		progress.Write("  Unblocking SQL writes ... failed: %v", readOnlyErr)
 		reportFinishingPending(fmt.Sprintf("rollback restored the previous version, but SQL writes remain blocked (%v)", readOnlyErr))
-		return true
+		return true, nil
 	}
 	progress.Write("  Unblocking SQL writes ... ok")
 	progress.Write("    ran: %s", readOnlyStatement)
@@ -10484,7 +10494,7 @@ func (d *Service) restoreAndFinalize(ctx context.Context, id int, version string
 	if maintenanceErr != nil {
 		progress.Write("  Lifting maintenance mode ... failed: %v", maintenanceErr)
 		reportFinishingPending(fmt.Sprintf("rollback restored the previous version and SQL writes are enabled, but HTTP maintenance did not lift (%v)", maintenanceErr))
-		return true
+		return true, nil
 	}
 	progress.Write("  Lifting maintenance mode ... ok")
 	progress.Write("    removed: %s", homeRelativePath(maintenanceFlagHostPath()))
@@ -10493,17 +10503,36 @@ func (d *Service) restoreAndFinalize(ctx context.Context, id int, version string
 	if finalErr != nil {
 		progress.Write("  Releasing the upgrade marker and recording completed rollback guidance ... failed: %v", finalErr)
 		reportFinishingPending(fmt.Sprintf("rollback restored the previous version, but marker/database finalization failed (%v)", finalErr))
-		return true
+		return true, nil
 	}
 	if !finalized {
 		reportFinishingPending("rollback finishing row changed before finalization; refusing to claim healthy completion")
-		return true
+		return true, nil
 	}
 	if backupPath != "" {
 		d.restoreBinary(progress)
 	}
 	progress.Write("Rollback to the previous version complete.")
-	return false
+	return false, nil
+}
+
+func (d *Service) holdRollbackSchemaFloorFailure(id int, backupPath string, progress *ProgressLog, floorErr error) error {
+	if injectErr := inject.ErrorHere("rollback-floor-failure-marker-write"); injectErr != nil {
+		return &RollbackSchemaFloorMarkerWriteError{Err: injectErr}
+	}
+	if err := d.mutateHeldFlag(func(flag *UpgradeFlag) {
+		flag.Phase = PhaseRollbackSchemaFloorFailed
+		flag.Step = StepRollback
+	}); err != nil {
+		return &RollbackSchemaFloorMarkerWriteError{Err: err}
+	}
+	d.releaseUpgradeFlagLockKeepingFile()
+	progressPath := ""
+	if progress != nil {
+		progressPath = progress.RelPath()
+	}
+	d.markTerminal("ROLLBACK_SCHEMA_FLOOR_FAILED", fmt.Sprintf("id=%d; backup=%s; floor=%d; progress=%s; error=%v", id, backupPath, migrate.DaemonSchemaFloor, progressPath, floorErr))
+	return nil
 }
 
 // preRestoreStopServices is the service set both pre-restore stop sites
@@ -10719,7 +10748,11 @@ func (d *Service) ReattemptRestore(ctx context.Context, rowID int64) error {
 	// or deliberately keeps it for recovery if that durable write fails.
 	removeTentativeMarker = false
 	reason := fmt.Sprintf("operator re-attempt of the interrupted restore for %s", displayName)
-	if degraded := d.restoreAndFinalize(ctx, int(rowID), displayName, nil, reason, backupPath, attemptsAtCall, progress); degraded {
+	degraded, restoreErr := d.restoreAndFinalize(ctx, int(rowID), displayName, nil, reason, backupPath, attemptsAtCall, progress)
+	if restoreErr != nil {
+		return restoreErr
+	}
+	if degraded {
 		return fmt.Errorf("%s: the database restore did not complete — the system remains degraded; contact SSB support and involve your IT staff", ErrRollbackDBRestore)
 	}
 	return nil
@@ -10899,7 +10932,10 @@ func (d *Service) rollback(ctx context.Context, id int, version, restoreTargetSH
 	// install-driven restore re-attempt via restoreAndFinalize. Process-lifecycle
 	// (os.Exit below) stays HERE per the extraction boundary — restoreAndFinalize
 	// only restores and writes the terminal, then returns.
-	d.restoreAndFinalize(ctx, id, version, failureCode, reason, backupPath, attemptsAtCall, progress)
+	_, restoreErr := d.restoreAndFinalize(ctx, id, version, failureCode, reason, backupPath, attemptsAtCall, progress)
+	if restoreErr != nil {
+		return restoreErr
+	}
 
 	// Exit 75 (sysexits EX_TEMPFAIL: "temporary failure, retry later")
 	// per the rc.67 trifecta. Distinct from:

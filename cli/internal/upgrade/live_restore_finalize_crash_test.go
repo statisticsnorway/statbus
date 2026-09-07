@@ -92,9 +92,13 @@ func TestLiveRestoreAndFinalize_UnlinkFailureThenRecovery(t *testing.T) {
 
 	progress := NewUpgradeLog(projDir, int64(id), "live-probe", time.Now().UTC())
 	var degraded bool
+	var restoreErr error
 	captureStdoutUpgrade(t, func() {
-		degraded = d.restoreAndFinalize(ctx, id, "live-probe", ptrFailureCode(ErrGitFetchRetryable), "live unlink-failure probe", "", 0, progress)
+		degraded, restoreErr = d.restoreAndFinalize(ctx, id, "live-probe", ptrFailureCode(ErrGitFetchRetryable), "live unlink-failure probe", "", 0, progress)
 	})
+	if restoreErr != nil {
+		t.Fatalf("restoreAndFinalize returned unexpected typed error: %v", restoreErr)
+	}
 	progress.Close()
 	logBytes, _ := os.ReadFile(progress.AbsPath())
 	logText := string(logBytes)

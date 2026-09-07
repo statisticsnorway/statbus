@@ -171,6 +171,9 @@ var classes = map[string]Kind{
 	// STATBUS-354 Arc B — make ONLY the rollback-time floor re-application
 	// fail (after the snapshot restore, original forward application intact).
 	"rollback-floor-reapply": KindError,
+	// STATBUS-354 Sol P0 — simulate failure to durably change the held marker
+	// from the destructive StepRollback route to the daemon alive-idle phase.
+	"rollback-floor-failure-marker-write": KindError,
 	// STATBUS-071 P5 — the CONVERGED resume-crash producer: fires after healthCheck
 	// success + setMaintenance(false), before the completed write; the box serves at
 	// target and only the ledger write is unlanded (the live rune class), so the next

@@ -34,6 +34,14 @@ func TestLiveReattemptRestore_DelayedSecondInstallCannotRestoreAgain(t *testing.
 	if err := os.WriteFile(filepath.Join(shimDir, "docker"), []byte(`#!/bin/sh
 printf '%s\n' "$*" >> "$STATBUS_TEST_DOCKER_LOG"
 case "$*" in
+  *"run --rm"*"rsync"*)
+    if [ -f "$STATBUS_TEST_FLOOR_REWIND_ARM" ]; then
+      rm -f "$STATBUS_TEST_FLOOR_REWIND_ARM"
+      eval "$("$STATBUS_TEST_TARGET_SB" config show --postgres)"
+      psql -v ON_ERROR_STOP=1 < "$STATBUS_TEST_FLOOR_DOWN"
+      psql -v ON_ERROR_STOP=1 -c 'DELETE FROM db.migration WHERE version = 20260907120000'
+    fi
+    echo "shim: $*"; exit 0 ;;
   *"compose exec db pg_isready"*|*"compose exec"*"pg_isready"*) echo "accepting connections"; exit 0 ;;
 	  *"compose ps"*) echo '[{"Service":"proxy"}]'; exit 0 ;;
   *) echo "shim: $*"; exit 0 ;;
@@ -46,12 +54,32 @@ case "$*" in
   *"rev-parse"*) echo "$STATBUS_TEST_GIT_SHA"; exit 0 ;;
   *) echo "shim git: $*"; exit 0 ;;
 esac
+	`), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(shimDir, "rsync"), []byte(`#!/bin/sh
+set -eu
+if [ -f "$STATBUS_TEST_FLOOR_REWIND_ARM" ]; then
+  rm -f "$STATBUS_TEST_FLOOR_REWIND_ARM"
+  eval "$("$STATBUS_TEST_TARGET_SB" config show --postgres)"
+  psql -v ON_ERROR_STOP=1 < "$STATBUS_TEST_FLOOR_DOWN"
+  psql -v ON_ERROR_STOP=1 -c 'DELETE FROM db.migration WHERE version = 20260907120000'
+fi
+printf 'shim rsync: %s\n' "$*"
+exit 0
 `), 0o755); err != nil {
 		t.Fatal(err)
 	}
 	t.Setenv("PATH", shimDir+string(os.PathListSeparator)+os.Getenv("PATH"))
 	t.Setenv("STATBUS_TEST_DOCKER_LOG", dockerLog)
 	t.Setenv("STATBUS_TEST_GIT_SHA", "1111111111111111111111111111111111111111")
+	t.Setenv("STATBUS_TEST_TARGET_SB", filepath.Join(projDir, "sb"))
+	t.Setenv("STATBUS_TEST_FLOOR_DOWN", filepath.Join(projDir, "migrations", "20260907120000_statbus_347_rollback_finish_pending_column.down.sql"))
+	floorRewindArm := filepath.Join(shimDir, "floor-rewind.arm")
+	if err := os.WriteFile(floorRewindArm, []byte("armed\n"), 0o600); err != nil {
+		t.Fatalf("arm pre-floor volume fixture rewind: %v", err)
+	}
+	t.Setenv("STATBUS_TEST_FLOOR_REWIND_ARM", floorRewindArm)
 	// Phase 3 requires the restored source binary explicitly for config generate,
 	// while the target ./sb remains recovery authority until cleanup commits.
 	// Preserve the real development binary because the final publish deliberately

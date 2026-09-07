@@ -107,9 +107,13 @@ esac
 	progress := NewUpgradeLog(projDir, int64(id), "live-probe", time.Now().UTC())
 	reason := "live restoreAndFinalize probe"
 	var degraded bool
+	var restoreErr error
 	out := captureStdoutUpgrade(t, func() {
-		degraded = d.restoreAndFinalize(ctx, id, "live-probe", ptrFailureCode(ErrGitFetchRetryable), reason, "", 0, progress)
+		degraded, restoreErr = d.restoreAndFinalize(ctx, id, "live-probe", ptrFailureCode(ErrGitFetchRetryable), reason, "", 0, progress)
 	})
+	if restoreErr != nil {
+		t.Fatalf("restoreAndFinalize returned unexpected typed error: %v", restoreErr)
+	}
 	progress.Close()
 	logBytes, _ := os.ReadFile(progress.AbsPath())
 	logText := string(logBytes)

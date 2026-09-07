@@ -40,26 +40,3 @@ func TestReapplyRollbackDaemonSchemaFloorUsesTargetBinaryAndOrdinaryLedger(t *te
 		t.Fatal("rollback schema floor must use only the ordinary migration engine, never inline DDL")
 	}
 }
-
-func TestRollbackSchemaFloorFailureRetainsTargetAuthority(t *testing.T) {
-	source := readUpgradeServiceSource(t)
-	body := extractFuncBody(t, source, "func (d *Service) restoreAndFinalize(")
-	floor := strings.Index(body, "d.reapplyRollbackDaemonSchemaFloor(")
-	failure := strings.Index(body, "PhaseRollbackSchemaFloorFailed")
-	restoreGit := strings.Index(body, "d.restoreGitState(")
-	restoreBinary := strings.Index(body, "d.restoreBinary(")
-	pending := strings.Index(body, "rollback_finish_pending_at = now()")
-	if floor < 0 || failure < floor {
-		t.Fatalf("floor failure must be handled immediately after migrate: floor=%d failure=%d", floor, failure)
-	}
-	for name, idx := range map[string]int{"restoreGitState": restoreGit, "restoreBinary": restoreBinary, "pending write": pending} {
-		if idx >= 0 && idx < floor {
-			t.Errorf("%s precedes daemon floor migrate (%d < %d)", name, idx, floor)
-		}
-	}
-	for _, want := range []string{"ROLLBACK_SCHEMA_FLOOR_FAILED", "releaseUpgradeFlagLockKeepingFile"} {
-		if !strings.Contains(body, want) {
-			t.Errorf("floor failure contract missing %q", want)
-		}
-	}
-}

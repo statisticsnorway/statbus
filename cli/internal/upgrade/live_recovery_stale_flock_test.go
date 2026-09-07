@@ -99,7 +99,10 @@ esac
 	}
 
 	progress := NewUpgradeLog(projDir, int64(id), "live-probe", time.Now().UTC())
-	degraded := d.restoreAndFinalize(ctx, id, "live-probe", ptrFailureCode(ErrGitFetchRetryable), "actor A", "", 0, progress)
+	degraded, restoreErr := d.restoreAndFinalize(ctx, id, "live-probe", ptrFailureCode(ErrGitFetchRetryable), "actor A", "", 0, progress)
+	if restoreErr != nil {
+		t.Fatalf("restoreAndFinalize returned unexpected typed error: %v", restoreErr)
+	}
 	progress.Close()
 	if degraded {
 		t.Fatal("actor A did not finish the healthy restore tail")
