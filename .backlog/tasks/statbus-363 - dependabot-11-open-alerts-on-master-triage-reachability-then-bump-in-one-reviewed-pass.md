@@ -3,10 +3,9 @@ id: STATBUS-363
 title: >-
   dependabot: 11 open alerts on master (9 high): triage reachability, then bump in one reviewed pass
 status: In Progress
-assignee:
-  - hare (deepseek-v4-pro, triage)
+assignee: []
 created_date: '2026-09-07 19:46'
-updated_date: '2026-09-07 19:46'
+updated_date: '2026-09-07 20:05'
 labels:
   - security
   - dependencies
@@ -49,3 +48,18 @@ matches the triage table. CI green at HEAD.
 This is not part of the current batch candidate (035/339/337/341/354). It
 lands after that RC unless triage finds something exploitable in the deployed
 app, in which case the coordinator asks the owner.
+
+## Triage result (2026-09-07 20:05, `tmp/dependabot-triage.md`)
+
+All 11 alerts are npm, all in `app/pnpm-lock.yaml`, all transitive. No Go, no Actions. No major-version jumps anywhere.
+
+| reachability | alerts | action |
+|---|---|---|
+| exploitable here | sharp 0.34.5 (GHSA-f88m-g3jw-g9cj), pulled in by `next@16.2.11`; `next/image` is used in 6 source files and loads sharp at runtime | `pnpm.overrides` `sharp: ^0.35.0` (the direct dep is already ^0.35.0). Own commit, own image-optimization smoke before an RC |
+| dev/build-time only | browserslist x2, js-yaml x4, brace-expansion x3, @babel/core | one `app/` commit: overrides/`pnpm up`, then `tsc && lint && build && test` |
+
+Not in the current batch RC. The sharp override touches the production image path, so it goes into the release after, with its own smoke.
+
+## Next
+
+Step 2 (bump) unassigned until the batch RC is cut. Then: one builder, one adversarial reviewer, sharp separate from the rest.
