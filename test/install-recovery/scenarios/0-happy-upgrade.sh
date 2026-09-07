@@ -1,7 +1,7 @@
 #!/bin/bash
 # Scenario: 0-happy-upgrade  (baseline — no failure injection)
 # judge = <baseline release binary>, judged = <tagged candidate>
-# Shape: standalone + prerelease by default, matching rune and the Norway hop.
+# Shape: development mode + prerelease channel by default (the Norway hop; see below for why not standalone).
 # Optional failure axis: HARNESS_PRESWAP_FETCH_ERROR=1 adds
 # STATBUS_INJECT_AT=preswap-fetch-returns-error to the upgrade service unit, so
 # the real preswap fetch returns an error rather than killing the process.
@@ -53,7 +53,15 @@
 set -euo pipefail
 
 VM_NAME="${1:-statbus-recovery-0-happy-upgrade}"
-HARNESS_DEPLOYMENT_MODE="${HARNESS_DEPLOYMENT_MODE:-standalone}"
+# Shape: development mode, prerelease channel. The channel is the Norway hop
+# (a released binary judging a prerelease candidate) and is what this scenario
+# exists to prove. Deployment mode stays development on purpose: standalone
+# means real ports 80/443 and an automatic public ACME certificate, and an
+# ephemeral harness VM named statbus-test.local has neither public DNS nor a
+# way to obtain one, so the very first health probe would fail before the
+# upgrade ran (STATBUS-339 review, 2026-09-06). Certificate and HTTPS-only
+# fidelity are separate work with their own scenarios; see the 339 ticket.
+HARNESS_DEPLOYMENT_MODE="${HARNESS_DEPLOYMENT_MODE:-development}"
 HARNESS_UPGRADE_CHANNEL="${HARNESS_UPGRADE_CHANNEL:-prerelease}"
 UPGRADE_BUDGET_S="${UPGRADE_BUDGET_S:-900}"
 # > tick interval (60s) + slack, times enough ticks to ride out a registry
