@@ -437,12 +437,21 @@ func preflightChecks(projDir string) bool {
 	//    via app/scripts/stamp-if-clean.sh. Preflight refuses to tag if
 	//    any file in app/ changed since the stamped SHA — avoids tagging
 	//    a release whose TypeScript doesn't type-check.
+	// `pnpm run build` writes BOTH stamps (build then tsc, see app/package.json),
+	// so the tsc check's Fix must say so; otherwise an operator runs tsc, then
+	// sees the build check and runs build, and the first command was wasted.
+	appStampFix := func(cmd string) string {
+		if cmd == "tsc" {
+			return "cd app && pnpm run build   (writes the tsc stamp too; `pnpm run tsc` alone satisfies only this check)"
+		}
+		return "cd app && pnpm run build"
+	}
 	checkAppStamp := func(stampFile, cmd, label string) {
 		stampPath := filepath.Join(projDir, "tmp", stampFile)
 		b, err := os.ReadFile(stampPath)
 		if err != nil {
 			fmt.Printf("  ✗ %s (tmp/%s not found)\n", label, stampFile)
-			fmt.Printf("    Fix: cd app && pnpm run %s\n", cmd)
+			fmt.Printf("    Fix: %s\n", appStampFix(cmd))
 			allPassed = false
 			return
 		}
@@ -466,7 +475,7 @@ func preflightChecks(projDir string) bool {
 				fmt.Printf("      %s\n", f)
 			}
 		}
-		fmt.Printf("    Fix: cd app && pnpm run %s\n", cmd)
+		fmt.Printf("    Fix: %s\n", appStampFix(cmd))
 		allPassed = false
 	}
 	checkAppStamp("app-tsc-passed-sha", "tsc", "App tsc covers latest app changes")
