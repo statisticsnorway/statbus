@@ -469,55 +469,6 @@ func TestRestoreDatabase_IdentityKeyed_NoRecencyScan(t *testing.T) {
 	}
 }
 
-// TestRecoveryRollback_FlockGateBeforeDestructiveWork is the structural
-// guard for STATBUS-039 review finding 3 (fleet-wide corruption fix):
-// recoveryRollback must acquire and revalidate the EXISTING upgrade marker
-// BEFORE any destructive work — install's inline recovery holds neither the
-// install flag nor the daemon advisory lock when it reaches here, and a
-// concurrently respawned service's recovery is equally lock-free. The acquire
-// may not O_CREATE/rewrite stale caller metadata: a delayed actor must refuse
-// after the winner removed or changed the marker. rollback() itself must stay
-// acquire-free: its in-process callers (resumeNewSb →
-// applyNewSbUpgrading → newSbUpgradingFailure) already hold the flock, and a second
-// flock on the same file fails even within one process.
-func TestRecoveryRollback_FlockGateBeforeDestructiveWork(t *testing.T) {
-	src, err := os.ReadFile(thisRepoFile(t, "cli/internal/upgrade/service.go"))
-	if err != nil {
-		t.Fatalf("read service.go: %v", err)
-	}
-	s := string(src)
-
-	rr := extractFuncBody(t, s, "func (d *Service) recoveryRollback(")
-	gateIdx := strings.Index(rr, "acquireRecoveryFlock")
-	workIdx := strings.Index(rr, "d.rollback(")
-	if gateIdx < 0 {
-		t.Fatal("recoveryRollback must acquire and revalidate the existing recovery marker before destructive work")
-	}
-	if workIdx < 0 {
-		t.Fatal("recoveryRollback must invoke d.rollback")
-	}
-	if gateIdx > workIdx {
-		t.Errorf("the flock gate must come BEFORE d.rollback in recoveryRollback (gate=%d, rollback=%d)", gateIdx, workIdx)
-	}
-	// The loser must yield: a return on acquire failure, before rollback.
-	if !strings.Contains(rr, "yield") && !strings.Contains(rr, "Yield") {
-		t.Error("recoveryRollback's acquire-failure branch must YIELD (return without destructive work)")
-	}
-	if strings.Contains(rr, "acquireFlock(d.projDir, flag)") {
-		t.Error("recoveryRollback must not use the creating/rewrite acquire on pre-classified recovery intent")
-	}
-	// The in-process path's guard: already-held flock fails fast.
-	if !strings.Contains(rr, "d.flagLock != nil") {
-		t.Error("recoveryRollback must fail fast when the flock is already held in-process (mis-wiring guard)")
-	}
-
-	// rollback() itself stays acquire-free.
-	rb := extractFuncBody(t, s, "func (d *Service) rollback(")
-	if strings.Contains(rb, "acquireFlock") {
-		t.Error("rollback() must NOT acquire the flock — its in-process callers already hold it; the gate lives in recoveryRollback only")
-	}
-}
-
 // TestRemoveUpgradeFlag_AtomicDispositions pins the F4 TOCTOU hardening
 // (STATBUS-039): every branch of removeUpgradeFlag unlinks the flag file
 // only WHILE HOLDING its flock, so a concurrent acquirer's fresh mutex

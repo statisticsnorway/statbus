@@ -2,6 +2,7 @@ package upgrade
 
 import (
 	"os"
+	"reflect"
 	"strings"
 	"testing"
 )
@@ -10,7 +11,7 @@ func TestAcquireRecoveryFlock_MissingMarkerDoesNotCreate(t *testing.T) {
 	dir := t.TempDir()
 	classified := UpgradeFlag{ID: 41, Phase: PhaseNewSbUpgrading}
 
-	lock, err := acquireRecoveryFlock(dir, classified)
+	lock, _, err := acquireRecoveryFlock(dir, classified)
 	if err == nil || lock != nil {
 		t.Fatalf("missing marker acquire = (%v, %v), want loud refusal", lock, err)
 	}
@@ -40,15 +41,15 @@ func TestAcquireRecoveryFlock_ReauthorizesIDAndPhaseFromHeldDescriptor(t *testin
 		name       string
 		classified UpgradeFlag
 	}{
-		{name: "id changed", classified: UpgradeFlag{ID: actual.ID + 1, Phase: actual.Phase}},
-		{name: "phase changed", classified: UpgradeFlag{ID: actual.ID, Phase: PhaseNewSbSwapped}},
+		{name: "id changed", classified: UpgradeFlag{ID: actual.ID + 1, Holder: actual.Holder, Phase: actual.Phase}},
+		{name: "phase changed", classified: UpgradeFlag{ID: actual.ID, Holder: actual.Holder, Phase: PhaseNewSbSwapped}},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			lock, err := acquireRecoveryFlock(dir, tc.classified)
+			lock, _, err := acquireRecoveryFlock(dir, tc.classified)
 			if err == nil || lock != nil {
 				t.Fatalf("mismatched marker acquire = (%v, %v), want refusal", lock, err)
 			}
-			if !strings.Contains(err.Error(), "held marker is upgrade 42 phase \"new-sb-upgrading\"") {
+			if !strings.Contains(err.Error(), "held marker is upgrade 42 holder \"service\" phase \"new-sb-upgrading\"") {
 				t.Fatalf("mismatch error does not report held durable state: %v", err)
 			}
 			held, readErr := ReadFlagFile(dir)
@@ -61,9 +62,12 @@ func TestAcquireRecoveryFlock_ReauthorizesIDAndPhaseFromHeldDescriptor(t *testin
 		})
 	}
 
-	lock, err := acquireRecoveryFlock(dir, actual)
+	lock, held, err := acquireRecoveryFlock(dir, actual)
 	if err != nil {
 		t.Fatalf("matching durable marker refused: %v", err)
+	}
+	if !reflect.DeepEqual(held, actual) {
+		t.Fatalf("held marker = %#v, want %#v", held, actual)
 	}
 	lock.Close()
 }

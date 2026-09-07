@@ -1,74 +1,59 @@
 package upgrade
 
 import (
+	"context"
+	"errors"
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 )
 
-func TestRollbackDirectionStampIsAtCommonEntryBeforeDestructiveWork(t *testing.T) {
-	source, err := os.ReadFile(thisRepoFile(t, "cli/internal/upgrade/service.go"))
-	if err != nil {
+func TestRollbackAbortsBeforeDestructiveWorkWhenDirectionStampFails(t *testing.T) {
+	dir := t.TempDir()
+	record := filepath.Join(dir, "commands")
+	bin := filepath.Join(dir, "bin")
+	if err := os.Mkdir(bin, 0o755); err != nil {
 		t.Fatal(err)
 	}
-	body := extractFuncBody(t, string(source), "func (d *Service) rollback(")
-	stamp := strings.Index(body, "d.recordRollbackCommit()")
-	stop := strings.Index(body, `runCommand(projDir, "docker"`)
-	restore := strings.Index(body, "d.restoreDatabase(")
-	if stamp < 0 || stop < 0 || restore < 0 {
-		t.Fatalf("rollback structural anchors missing: stamp=%d stop=%d restore=%d", stamp, stop, restore)
-	}
-	if stamp > stop || stamp > restore {
-		t.Fatalf("rollback direction must be durable before destructive work: stamp=%d stop=%d restore=%d", stamp, stop, restore)
-	}
-}
-
-func TestEveryRollbackEntryUsesExactlyOneCommonStamp(t *testing.T) {
-	source, err := os.ReadFile(thisRepoFile(t, "cli/internal/upgrade/service.go"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	src := string(source)
-	tests := []struct {
-		name string
-		sig  string
-		want int
-	}{
-		{name: "common rollback entry including in-process failure", sig: "func (d *Service) rollback(", want: 1},
-		{name: "recovery wrapper does not double stamp", sig: "func (d *Service) recoveryRollback(", want: 0},
-		{name: "flagless observed-state route does not double stamp", sig: "func (d *Service) completeInProgressUpgrade(", want: 0},
-		{name: "in-process failure routes through common rollback", sig: "func (d *Service) newSbUpgradingFailure(", want: 0},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			body := extractFuncBody(t, src, tt.sig)
-			if got := strings.Count(body, "d.recordRollbackCommit()"); got != tt.want {
-				t.Fatalf("%s has %d rollback stamps, want %d", tt.sig, got, tt.want)
-			}
-			if tt.sig == "func (d *Service) newSbUpgradingFailure(" && !strings.Contains(body, "d.rollback(") {
-				t.Fatal("in-process newSbUpgradingFailure no longer reaches the common rollback entry")
-			}
-		})
-	}
-}
-
-func TestRecoverFromFlagRollbackMarkerWinsBeforeObservedState(t *testing.T) {
-	source, err := os.ReadFile(thisRepoFile(t, "cli/internal/upgrade/service.go"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	src := string(source)
-	body := extractFuncBody(t, src, "func (d *Service) recoverFromFlag(")
-	durable := strings.Index(body, "flag.Step == StepRollback")
-	observed := strings.Index(body, "d.verifyUpgradeObservedStateEx(")
-	if durable < 0 || observed < 0 || durable > observed {
-		t.Fatalf("durable rollback routing must precede observed-state routing: rollback=%d observed=%d", durable, observed)
-	}
-	wrapper := extractFuncBody(t, src, "func (d *Service) recoveryRollback(")
-	for _, required := range []string{"acquireRecoveryFlock(d.projDir, flag)", "rollbackResumeIsTerminal(flag.Step, flag.PriorDeathStep)", "d.rollback("} {
-		if !strings.Contains(wrapper, required) {
-			t.Fatalf("held/revalidated rollback route lost %q", required)
+	for _, name := range []string{"docker", "git", "rsync"} {
+		script := "#!/bin/sh\nprintf '%s\\n' \"$0 $*\" >> " + record + "\n"
+		if err := os.WriteFile(filepath.Join(bin, name), []byte(script), 0o755); err != nil {
+			t.Fatal(err)
 		}
+	}
+	t.Setenv("PATH", bin+string(os.PathListSeparator)+os.Getenv("PATH"))
+
+	seed := UpgradeFlag{ID: 354, Holder: HolderService, Phase: PhaseNewSbUpgrading, Step: StepMigrateUp}
+	lock, err := acquireFlock(dir, seed)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Keep the service's nominal held-lock object but invalidate its descriptor.
+	// This exercises the real mutateHeldFlag failure at the common rollback entry.
+	lock.file = nil
+	d := &Service{projDir: dir, flagLock: lock}
+
+	err = d.rollback(context.Background(), seed.ID, "rc.test", "", nil, "original failure", "snapshot", nil)
+	var stampErr *RollbackDirectionStampError
+	if !errors.As(err, &stampErr) {
+		t.Fatalf("rollback error = %T %v, want *RollbackDirectionStampError", err, err)
+	}
+	const want = "rollback aborted before destructive work: durably stamp StepRollback: mutate held upgrade flag: no flag file held"
+	if err.Error() != want {
+		t.Fatalf("abort error = %q, want %q", err, want)
+	}
+	if data, readErr := os.ReadFile(record); readErr == nil {
+		t.Fatalf("destructive command ran after stamp failure: %s", data)
+	} else if !os.IsNotExist(readErr) {
+		t.Fatal(readErr)
+	}
+	got, readErr := ReadFlagFile(dir)
+	if readErr != nil || got == nil {
+		t.Fatalf("read retained marker: flag=%v err=%v", got, readErr)
+	}
+	if got.Step != StepMigrateUp || got.PriorDeathStep != "" {
+		t.Fatalf("failed stamp changed durable history: step=%q prior=%q", got.Step, got.PriorDeathStep)
 	}
 }
 
@@ -80,7 +65,9 @@ func TestRecordRollbackCommitRollsHistoryExactlyOnce(t *testing.T) {
 		t.Fatal(err)
 	}
 	d := &Service{projDir: dir, flagLock: lock}
-	d.recordRollbackCommit()
+	if err := d.recordRollbackCommit(); err != nil {
+		t.Fatal(err)
+	}
 	d.flagLock = nil
 	lock.Close()
 	got, err := ReadFlagFile(dir)
@@ -89,5 +76,57 @@ func TestRecordRollbackCommitRollsHistoryExactlyOnce(t *testing.T) {
 	}
 	if got.Step != StepRollback || got.PriorDeathStep != StepMigrateUp {
 		t.Fatalf("rollback history did not roll exactly once: step=%q prior=%q", got.Step, got.PriorDeathStep)
+	}
+}
+
+func TestHeldRollbackStepWinsRaceOverForwardClassification(t *testing.T) {
+	testHeldMarkerRaceRoute(t, StepMigrateUp, StepRollback, recoveryRouteRollback)
+}
+
+func TestStaleRollbackStepCannotAuthorizeRollbackAfterHeldStepChanges(t *testing.T) {
+	testHeldMarkerRaceRoute(t, StepRollback, StepMigrateUp, recoveryRouteObservedState)
+}
+
+func testHeldMarkerRaceRoute(t *testing.T, classifiedStep, heldStep string, want recoveryRoute) {
+	t.Helper()
+	dir := t.TempDir()
+	classified := UpgradeFlag{ID: 354, CommitSHA: strings.Repeat("a", 40), Holder: HolderService, Phase: PhaseNewSbUpgrading, Step: classifiedStep}
+	owner, err := acquireFlock(dir, classified)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ownerReady := make(chan struct{})
+	releaseOwner := make(chan struct{})
+	ownerDone := make(chan error, 1)
+	go func() {
+		close(ownerReady)
+		<-releaseOwner
+		ownerService := &Service{projDir: dir, flagLock: owner}
+		if err := ownerService.mutateHeldFlag(func(flag *UpgradeFlag) { flag.Step = heldStep }); err != nil {
+			ownerDone <- err
+			return
+		}
+		owner.Close()
+		ownerDone <- nil
+	}()
+	<-ownerReady
+	close(releaseOwner)
+	if err := <-ownerDone; err != nil {
+		t.Fatal(err)
+	}
+
+	lock, held, err := acquireRecoveryFlock(dir, classified)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer lock.Close()
+	if held.Step != heldStep {
+		t.Fatalf("held step = %q, want %q", held.Step, heldStep)
+	}
+	// An at-target-looking ledger is intentionally irrelevant when the held
+	// marker says rollback. Conversely, stale pre-lock rollback is irrelevant
+	// when the held marker no longer says rollback.
+	if got := routeHeldRecoveryFlag(held); got != want {
+		t.Fatalf("route for classified=%q held=%q = %v, want %v", classifiedStep, heldStep, got, want)
 	}
 }

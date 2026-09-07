@@ -689,35 +689,36 @@ func acquireFreshFlock(projDir string, flag UpgradeFlag) (*FlagLock, error) {
 // The post-lock checks close both stale-intent windows:
 //   - the path must still exist and name the inode whose flock we hold; an
 //     unlinked/replaced inode is no longer durable recovery intent,
-//   - the marker is re-read from the HELD descriptor and its ID + phase must
-//     still match the values the caller classified.
+//   - the marker is re-read from the HELD descriptor and its ID + holder +
+//     phase must still match the values the caller classified; Step is returned
+//     from those held bytes because it is the mutable recovery direction.
 //
 // Unlike acquireFlock, this function deliberately uses no O_CREATE and writes
 // no caller-supplied metadata. Fresh claims continue to create their marker via
 // writeUpgradeFlag -> acquireFlock.
-func acquireRecoveryFlock(projDir string, classified UpgradeFlag) (*FlagLock, error) {
+func acquireRecoveryFlock(projDir string, classified UpgradeFlag) (*FlagLock, UpgradeFlag, error) {
 	path := flagFilePath(projDir)
 	f, err := os.OpenFile(path, os.O_RDWR, 0)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return nil, fmt.Errorf("recovery marker %s is gone; someone already finished this recovery — refusing stale intent for upgrade %d phase %q", path, classified.ID, classified.Phase)
+			return nil, UpgradeFlag{}, fmt.Errorf("recovery marker %s is gone; someone already finished this recovery — refusing stale intent for upgrade %d phase %q", path, classified.ID, classified.Phase)
 		}
-		return nil, fmt.Errorf("open existing recovery marker: %w", err)
+		return nil, UpgradeFlag{}, fmt.Errorf("open existing recovery marker: %w", err)
 	}
-	closeWithError := func(format string, args ...interface{}) (*FlagLock, error) {
+	closeWithError := func(format string, args ...interface{}) (*FlagLock, UpgradeFlag, error) {
 		_ = f.Close()
-		return nil, fmt.Errorf(format, args...)
+		return nil, UpgradeFlag{}, fmt.Errorf(format, args...)
 	}
 	if lerr := syscall.Flock(int(f.Fd()), syscall.LOCK_EX|syscall.LOCK_NB); lerr != nil {
 		_ = f.Close()
 		existing, readErr := ReadFlagFile(projDir)
 		if readErr != nil {
-			return nil, fmt.Errorf("recovery marker unreadable while locked: %w\n  Investigate %s manually", readErr, path)
+			return nil, UpgradeFlag{}, fmt.Errorf("recovery marker unreadable while locked: %w\n  Investigate %s manually", readErr, path)
 		}
 		if existing == nil {
-			return nil, fmt.Errorf("recovery marker at %s is locked by another process (metadata disappeared)", path)
+			return nil, UpgradeFlag{}, fmt.Errorf("recovery marker at %s is locked by another process (metadata disappeared)", path)
 		}
-		return nil, formatContentionError(existing)
+		return nil, UpgradeFlag{}, formatContentionError(existing)
 	}
 
 	heldInfo, statErr := f.Stat()
@@ -746,12 +747,12 @@ func acquireRecoveryFlock(projDir string, classified UpgradeFlag) (*FlagLock, er
 	if err := json.Unmarshal(data, &held); err != nil {
 		return closeWithError("parse held recovery marker: %v", err)
 	}
-	if held.ID != classified.ID || held.Phase != classified.Phase {
+	if held.ID != classified.ID || held.Holder != classified.Holder || held.Phase != classified.Phase {
 		return closeWithError(
-			"recovery marker changed after classification: classified upgrade %d phase %q, held marker is upgrade %d phase %q — refusing stale intent",
-			classified.ID, classified.Phase, held.ID, held.Phase)
+			"recovery marker changed after classification: classified upgrade %d holder %q phase %q, held marker is upgrade %d holder %q phase %q — refusing stale intent",
+			classified.ID, classified.Holder, classified.Phase, held.ID, held.Holder, held.Phase)
 	}
-	return &FlagLock{file: f}, nil
+	return &FlagLock{file: f}, held, nil
 }
 
 // acquireFlockVerbatim acquires the upgrade flag's flock WITHOUT changing what the
@@ -776,7 +777,8 @@ func acquireFlockVerbatim(projDir string) (*FlagLock, error) {
 	if existing == nil {
 		return nil, nil
 	}
-	return acquireRecoveryFlock(projDir, *existing)
+	lock, _, err := acquireRecoveryFlock(projDir, *existing)
+	return lock, err
 }
 
 // adoptOrAcquireFlagHold gives its caller a HELD flag lock for the duration of its
@@ -990,14 +992,38 @@ func (d *Service) recordOriginalError(reason string) error {
 // the forward→rollback handoff PriorDeathStep receives the FORWARD step (never
 // StepRollback), so the first rollback resume is free by construction. Order
 // matters: prior←Step BEFORE Step←StepRollback. Best-effort like markStep — a
-// failure only degrades same-step-twice detection, never aborts the rollback.
-func (d *Service) recordRollbackCommit() {
-	if err := d.mutateHeldFlag(func(f *UpgradeFlag) {
+// Failure aborts rollback before watchdog setup, service stop, git restore, or
+// snapshot restore because destructive rollback without this durable direction
+// stamp is unauthorized.
+func (d *Service) recordRollbackCommit() error {
+	return d.mutateHeldFlag(func(f *UpgradeFlag) {
 		f.PriorDeathStep = f.Step
 		f.Step = StepRollback
-	}); err != nil {
-		log.Printf("recordRollbackCommit: %v — same-step-twice detection degraded for this rollback", err)
+	})
+}
+
+// RollbackDirectionStampError means rollback stopped before its first
+// destructive action because its durable direction marker could not be written.
+type RollbackDirectionStampError struct{ Err error }
+
+func (e *RollbackDirectionStampError) Error() string {
+	return fmt.Sprintf("rollback aborted before destructive work: durably stamp StepRollback: %v", e.Err)
+}
+
+func (e *RollbackDirectionStampError) Unwrap() error { return e.Err }
+
+type recoveryRoute uint8
+
+const (
+	recoveryRouteObservedState recoveryRoute = iota
+	recoveryRouteRollback
+)
+
+func routeHeldRecoveryFlag(flag UpgradeFlag) recoveryRoute {
+	if flag.Step == StepRollback {
+		return recoveryRouteRollback
 	}
+	return recoveryRouteObservedState
 }
 
 // markStep records the current Phase-3 step on the held flag (best-effort). A
@@ -1573,13 +1599,22 @@ func (d *Service) recoverFromFlag(ctx context.Context) (err error) {
 		return nil
 	}
 
+	// S2 authorization is taken from the descriptor whose flock we actually hold,
+	// never from the pre-lock classification. Step is deliberately not compared:
+	// it is mutable recovery direction, and the held value must win either race.
+	routeLock, heldFlag, lockErr := acquireRecoveryFlock(d.projDir, flag)
+	if lockErr != nil {
+		return fmt.Errorf("acquire and revalidate recovery marker before routing: %w", lockErr)
+	}
+	flag = heldFlag
+
 	// STATBUS-354 Phase 1: StepRollback is durable direction, not merely the
 	// last operation attempted. recoveryRollback acquires the existing marker
 	// without O_CREATE and revalidates its identity and phase/step from the held
 	// descriptor before rollback can touch anything. Route this BEFORE observed
 	// state: a later rollback-floor replay deliberately makes db.migration look
 	// current, but must never turn an already-committed rollback back forward.
-	if flag.Step == StepRollback {
+	if routeHeldRecoveryFlag(flag) == recoveryRouteRollback {
 		logRecover("Upgrade %d (%s) has a durable rollback marker; continuing rollback before observed-state routing.", flag.ID, flag.Label())
 		if appendLog != nil {
 			appendLog.Close()
@@ -1589,9 +1624,11 @@ func (d *Service) recoverFromFlag(ctx context.Context) (err error) {
 		if flag.Phase != PhaseOldSbUpgrading && strings.TrimSpace(flag.OriginalError) == "" {
 			reason = ErrResumeDied + ": continuing the rollback selected by the previous recovery pass"
 		}
+		d.flagLock = routeLock
 		d.recoveryRollback(ctx, flag, flag.Label(), logRelPath, reason)
 		return nil
 	}
+	routeLock.Close()
 
 	// Resuming-phase flag → the planned post-swap resume began (resumeNewSb
 	// re-acquired the flock and stamped Resuming) and THAT process died before
@@ -3503,22 +3540,21 @@ func (d *Service) verifyUpgradeObservedStateEx(ctx context.Context, rowCommitSHA
 func (d *Service) recoveryRollback(ctx context.Context, flag UpgradeFlag, displayName, logRelPath, reason string) {
 	id := flag.ID
 
-	if d.flagLock != nil {
-		// Mis-wiring: recoveryRollback is the PRE-ACQUIRE recovery wrapper;
-		// an in-process caller that already holds the flock must call
-		// d.rollback directly (newSbUpgradingFailure does). Proceeding would
-		// self-deadlock on the second flock — fail loud instead.
-		fmt.Fprintf(os.Stderr,
-			"recoveryRollback: called while already holding the upgrade flock (id=%d) — in-process failures must route via newSbUpgradingFailure/rollback, not recoveryRollback; refusing to proceed\n", id)
-		return
-	}
-	lock, lerr := acquireRecoveryFlock(d.projDir, flag)
-	if lerr != nil {
-		// Contention, a disappeared marker, a replaced inode, or changed
-		// ID/phase all revoke this caller's pre-lock authorization. Yield and
-		// touch nothing; the durable state owns the decision, not `flag`.
-		fmt.Printf("recoveryRollback: could not acquire and revalidate the existing recovery marker — yielding without rollback (id=%d): %v\n", id, lerr)
-		return
+	lock := d.flagLock
+	if lock == nil {
+		var held UpgradeFlag
+		var lerr error
+		lock, held, lerr = acquireRecoveryFlock(d.projDir, flag)
+		if lerr == nil {
+			flag = held
+		}
+		if lerr != nil {
+			// Contention, a disappeared marker, a replaced inode, or changed
+			// ID/phase all revoke this caller's pre-lock authorization. Yield and
+			// touch nothing; the durable state owns the decision, not `flag`.
+			fmt.Printf("recoveryRollback: could not acquire and revalidate the existing recovery marker — yielding without rollback (id=%d): %v\n", id, lerr)
+			return
+		}
 	}
 	// Hand the lock to the Service so rollback()'s existing terminal
 	// machinery (removeUpgradeFlag on success / keep-flag on failed write)
@@ -7347,8 +7383,10 @@ func (d *Service) newSbUpgradingFailure(ctx context.Context, id int, displayName
 			ErrInstallPreconditionFailed, stepClass, verdict, reason)
 	}
 	progress.Write("Checking the failed upgrade's position ... confirmed behind the target (%s); restoring this upgrade's snapshot.", obsReason)
-	d.rollback(ctx, id, displayName, restoreTargetSHA, failureCode,
-		fmt.Sprintf("forward failed: %s; auto-restored from snapshot", reason), backupPath, progress)
+	if rollbackErr := d.rollback(ctx, id, displayName, restoreTargetSHA, failureCode,
+		fmt.Sprintf("forward failed: %s; auto-restored from snapshot", reason), backupPath, progress); rollbackErr != nil {
+		return rollbackErr
+	}
 	return fmt.Errorf("%s: failure after booting the new binary auto-restored: %s",
 		ErrInstallPreconditionFailed, reason)
 }
@@ -7367,8 +7405,10 @@ func (d *Service) parkForDeterministicFailure(ctx context.Context, id int, displ
 	obsState, _, obsReason := d.verifyUpgradeObservedStateEx(ctx, commitSHA)
 	if obsState == ObservedCannotReachNew {
 		progress.Write("Checking the failed upgrade's position ... confirmed behind the target (%s); restoring this upgrade's snapshot.", obsReason)
-		d.rollback(ctx, id, displayName, restoreTargetSHA, nil,
-			fmt.Sprintf("deterministic forward failure: %s; auto-restored from snapshot", reason), backupPath, progress)
+		if rollbackErr := d.rollback(ctx, id, displayName, restoreTargetSHA, nil,
+			fmt.Sprintf("deterministic forward failure: %s; auto-restored from snapshot", reason), backupPath, progress); rollbackErr != nil {
+			return rollbackErr
+		}
 		return fmt.Errorf("%s: deterministic failure after booting the new binary auto-restored: %s", ErrInstallPreconditionFailed, reason)
 	}
 	// The narrative now rides parkUpgrade's SINGLE immune write (STATBUS-071): today's
@@ -10568,13 +10608,15 @@ func (d *Service) rollbackRecoveryAttempts(ctx context.Context, id int) int {
 	return attempts
 }
 
-func (d *Service) rollback(ctx context.Context, id int, version, restoreTargetSHA string, failureCode *UpgradeFailureCode, reason string, backupPath string, progress *ProgressLog) {
+func (d *Service) rollback(ctx context.Context, id int, version, restoreTargetSHA string, failureCode *UpgradeFailureCode, reason string, backupPath string, progress *ProgressLog) error {
 	// STATBUS-354 Phase 1: every actual rollback attempt, including the
 	// in-process newSbUpgradingFailure route, commits its direction exactly once
 	// at the common entry before service stop, git restore, or snapshot restore.
 	// Recovery wrappers must not stamp separately. Rolling prior←step before
 	// step←rollback preserves the existing two-consecutive-rollback-deaths bound.
-	d.recordRollbackCommit()
+	if err := d.recordRollbackCommit(); err != nil {
+		return &RollbackDirectionStampError{Err: fmt.Errorf("mutate held upgrade flag: %w", err)}
+	}
 
 	// WATCHDOG COVER (STATBUS-031). rollback()'s body runs the two DB-size-scaled,
 	// heartbeat-SILENT steps an upgrade has: restoreDatabase's whole-volume rsync
@@ -10868,6 +10910,7 @@ func (d *Service) rollback(ctx context.Context, id int, version, restoreTargetSH
 	// structurally wrong that warrants stopping the unit.
 	progress.Close()
 	os.Exit(75)
+	return nil
 }
 
 // restoreGitState is the *Service-bound wrapper around restoreGitStateFn,
