@@ -65,8 +65,8 @@ run_cloud_closed() { run_cloud "$@" </dev/null; }
 
 # Registry parsing and normal target resolution still use the production helpers.
 STATBUS_CLOUD_LIB_ONLY=1 source "$ROOT/cloud.sh"
-assert_eq "dev|cloud|statbus_dev@niue.statbus.org|dev.statbus.org" "$(registry_entry dev)" "cloud registry entry"
-assert_eq "no|standalone|statbus@rune.statbus.org|no.statbus.org" "$(registry_entry no)" "standalone registry entry"
+assert_eq "dev|cloud|statbus_dev@niue.statbus.org|dev.statbus.org|token" "$(registry_entry dev)" "cloud registry entry"
+assert_eq "no|standalone|statbus@rune.statbus.org|no.statbus.org|anon" "$(registry_entry no)" "standalone registry entry"
 assert_eq "9" "$(registry_entries_for_group cloud | wc -l | xargs)" "cloud group count"
 assert_eq "1" "$(registry_entries_for_group standalone | wc -l | xargs)" "standalone group count"
 read_server_metadata() {
@@ -78,6 +78,20 @@ assert_words "demo et jo ma mw ug ua gh" "$(resolve_target_codes stable)" "stabl
 assert_words "dev no" "$(resolve_target_codes prerelease)" "prerelease channel"
 assert_words "dev demo et jo ma mw ug ua gh" "$(resolve_target_codes cloud)" "cloud group"
 assert_words "no" "$(resolve_target_codes standalone)" "standalone group"
+
+# STATBUS-341 owner ruling: manually driven no+demo are anonymous sentinels;
+# automated dev may use a token; every country-shaped slot stays anonymous.
+assert_eq "anon" "$(entry_auth no)" "Norway sentinel auth"
+assert_eq "anon" "$(entry_auth demo)" "demo sentinel auth"
+assert_eq "token" "$(entry_auth dev)" "automated dev auth"
+for code in et jo ma mw ug ua gh; do
+    assert_eq "anon" "$(entry_auth "$code")" "$code country auth"
+done
+output=$(run_cloud status all 2>&1) || fail "status all should succeed: $output"
+assert_contains "$output" "AUTH" "status auth column"
+assert_contains "$output" "dev      cloud        token" "status shows dev token policy"
+assert_contains "$output" "demo     cloud        anon" "status shows demo sentinel"
+assert_contains "$output" "no       standalone   anon" "status shows Norway sentinel"
 
 # Finding 1: tail reaches the real transport with the deployment-user unit suffix.
 output=$(run_cloud tail no 2>&1) || fail "tail no should succeed: $output"

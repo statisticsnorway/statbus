@@ -724,6 +724,13 @@ ENVCONFIG
         "$env_config_file"
     rm -f "$env_config_file.bak"
 
+    # Recovery arcs opt into authenticated GitHub access by exporting
+    # GITHUB_TOKEN in their workflow step. Happy install/upgrade proofs do not,
+    # so their rendered VM configuration remains anonymous by construction.
+    if [ -n "${GITHUB_TOKEN:-}" ]; then
+        printf 'GITHUB_TOKEN=%s\n' "$GITHUB_TOKEN" >> "$env_config_file"
+    fi
+
     # STATBUS-297 (fixture-era-accuracy ruling): a harness must construct
     # states history could have produced. UPGRADE_ROLE is a STATBUS-254
     # (733b0df4d) concept — writing it onto a box about to install a

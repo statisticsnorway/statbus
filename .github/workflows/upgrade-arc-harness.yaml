@@ -804,6 +804,10 @@ jobs:
         # statbus-recovery-* so neither harness's sweep touches the other's VMs.
         env:
           HCLOUD_TOKEN: ${{ secrets.HCLOUD_TOKEN }}
+          # Recovery machinery is the subject of these arcs; avoid anonymous
+          # GitHub rate-limit noise inside their VMs. The happy-proof workflow
+          # deliberately does not export this and remains customer-path anon.
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           HCLOUD_SSH_KEY: statbus-ci
           # The shared _check_name_safety guard (vm-bootstrap.sh) keys on
           # HCLOUD_NAME_PREFIX (default 'statbus-recovery-') and REFUSES any other

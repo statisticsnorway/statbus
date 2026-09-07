@@ -54,6 +54,8 @@ Edit `.env.config` and run `./sb config generate` to apply changes.
 
 Create an optional token at <https://github.com/settings/personal-access-tokens/new>. Without it, the GitHub API allows 60 requests/hour; with it, 5000 requests/hour. The release gate's anonymous deployability probes intentionally ignore this token so customer-path deployability remains tested.
 
+SSB fleet policy records authentication in `cloud.sh` rather than relying on convention. The manually driven Norway and demo boxes are anonymous sentinels, as are country-shaped slots. Automated dev may use a token. Harness happy install/upgrade proofs stay anonymous, while recovery arcs receive the workflow token because they test recovery behavior rather than anonymous transport.
+
 ## Running a specific commit (the edge channel is retired)
 
 The `edge` channel tracked every commit pushed to `master` and auto-scheduled

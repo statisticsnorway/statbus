@@ -38,20 +38,23 @@ fi
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # Unified SSB-operated fleet registry (STATBUS-337 history: standalone.sh was
-# merged here and deleted). Fields: code|group|ssh target|public domain.
-# Display name and channel are deliberately absent: they are read live from each
-# box via ./sb config show so this registry never becomes configuration truth.
+# merged here and deleted). Display name and channel are deliberately absent:
+# they are read live from each box via ./sb config show so this registry never
+# becomes configuration truth.
+# Auth is fleet-policy DATA: token means the box may be configured with the
+# optional GITHUB_TOKEN; anon means it deliberately exercises customer HTTPS.
+# Fields: code|group|ssh target|public domain|auth.
 FLEET_REGISTRY=(
-    "dev|cloud|statbus_dev@niue.statbus.org|dev.statbus.org"
-    "demo|cloud|statbus_demo@niue.statbus.org|demo.statbus.org"
-    "et|cloud|statbus_et@niue.statbus.org|et.statbus.org"
-    "jo|cloud|statbus_jo@niue.statbus.org|jo.statbus.org"
-    "ma|cloud|statbus_ma@niue.statbus.org|ma.statbus.org"
-    "mw|cloud|statbus_mw@niue.statbus.org|mw.statbus.org"
-    "ug|cloud|statbus_ug@niue.statbus.org|ug.statbus.org"
-    "ua|cloud|statbus_ua@niue.statbus.org|ua.statbus.org"
-    "gh|cloud|statbus_gh@niue.statbus.org|gh.statbus.org"
-    "no|standalone|statbus@rune.statbus.org|no.statbus.org"
+    "dev|cloud|statbus_dev@niue.statbus.org|dev.statbus.org|token"
+    "demo|cloud|statbus_demo@niue.statbus.org|demo.statbus.org|anon"
+    "et|cloud|statbus_et@niue.statbus.org|et.statbus.org|anon"
+    "jo|cloud|statbus_jo@niue.statbus.org|jo.statbus.org|anon"
+    "ma|cloud|statbus_ma@niue.statbus.org|ma.statbus.org|anon"
+    "mw|cloud|statbus_mw@niue.statbus.org|mw.statbus.org|anon"
+    "ug|cloud|statbus_ug@niue.statbus.org|ug.statbus.org|anon"
+    "ua|cloud|statbus_ua@niue.statbus.org|ua.statbus.org|anon"
+    "gh|cloud|statbus_gh@niue.statbus.org|gh.statbus.org|anon"
+    "no|standalone|statbus@rune.statbus.org|no.statbus.org|anon"
 )
 INSTALL_URL="https://statbus.org/install.sh"
 # Unified trust-key setting, passed as --trust-github-user to ./sb install.
@@ -121,6 +124,7 @@ ssh_entry() {
 entry_group() { entry_field "$1" 2; }
 entry_domain() { entry_field "$1" 4; }
 entry_ssh_target() { entry_field "$1" 3; }
+entry_auth() { entry_field "$1" 5; }
 service_instance() { entry_ssh_target "$1" | cut -d@ -f1; }
 
 validate_code() {
@@ -256,19 +260,20 @@ cmd_status() {
     targets=$(resolve_target_codes "$target")
     echo "StatBus Fleet Status"
     echo "===================="
-    printf "  %-8s %-12s %-31s %-12s %s\n" "CODE" "GROUP" "VERSION" "CHANNEL" "NAME"
+    printf "  %-8s %-12s %-7s %-31s %-12s %s\n" "CODE" "GROUP" "AUTH" "VERSION" "CHANNEL" "NAME"
     for server in $targets; do
-        local metadata version channel name group
+        local metadata version channel name group auth
         group=$(entry_group "$server")
+        auth=$(entry_auth "$server")
         if ! metadata=$(read_server_metadata "$server" 2>/dev/null); then
-            printf "  %-8s %-12s METADATA READ FAILED\n" "$server" "$group"
+            printf "  %-8s %-12s %-7s METADATA READ FAILED\n" "$server" "$group" "$auth"
             failed=1
             continue
         fi
         IFS='|' read -r version channel name <<< "$metadata"
         version="${version#sb version }"
         version="${version/ (commit / (}"
-        printf "  %-8s %-12s %-31s %-12s %s\n" "$server" "$group" "$version" "$channel" "$name"
+        printf "  %-8s %-12s %-7s %-31s %-12s %s\n" "$server" "$group" "$auth" "$version" "$channel" "$name"
     done
     [ "$failed" -eq 0 ]
 }
