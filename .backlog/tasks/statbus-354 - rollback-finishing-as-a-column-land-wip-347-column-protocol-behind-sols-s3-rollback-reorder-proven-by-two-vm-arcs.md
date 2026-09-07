@@ -5,7 +5,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-09-04 10:26'
-updated_date: '2026-09-07 17:10'
+updated_date: '2026-09-07 17:20'
 labels:
   - upgrade
   - fail-fast
@@ -104,3 +104,11 @@ This is the ONE remaining piece of 347. 347 is Done for everything else (S1 `539
 ## Coordination checkpoint: 2026-09-07 16:31
 
 Live twins committed by snake at `6e421c2f0`. Independent whole-ticket Sol review delegated to spider, report pending at `tmp/STATBUS-354-review/FINAL-REVIEW.md`. Snake assigned publication and exact-HEAD CI monitoring. Read-only blast-radius report: all ten fleet boxes returned zero orphan rows. Only named candidates reach installations. No final acceptance yet: review, exact-HEAD CI and owner-approved batch RC paid ladder remain.
+
+## Whole-ticket review (spider, Sol, 2026-09-07 17:17): ACCEPT for the RC ladder
+
+Report: `tmp/STATBUS-354-review/FINAL-REVIEW.md`. No P0/P1 left at `6e421c2f0`. Prior P0s confirmed fixed by behavioral oracles (`TestRollbackSchemaFloorFailureMarkerWriteFailureKeepsFlockAndOriginalRoute`, `TestRollbackSchemaFloorFailureDurablyRoutesDaemonAliveIdle`, `TestReleasedOldBinarySQLPreparesAgainstRollbackSchemaFloor` preparing 72 rc.14 statements). Full Go suite green; both arcs `bash -n`, discovery 35; full seed replay from zero green (397 migrations incl. `20260907120000` and `20260907154645`).
+
+Caveat, stated plainly: the reviewer's OWN full live rerun did not complete. It was blocked by Docker Desktop wedging on `statbus-local-db` start (twice, incl. after a backend restart). The green live run on record is the builder's (`tmp/statbus354-live-full.log`). Root cause of the reviewer's earlier 42703 fixture is now exact and is not the old timestamp: a backlog-only HEAD advance made `./sb` stale mid-test, twin 1's real down migration ran, and the reapply refused (exit 69), leaving `statbus_local` below the floor. Lesson: no pushes to master while a live suite runs in the shared tree.
+
+Still required for Done: named RC, both paid arcs green with logs inspected, owner installs on Norway.
