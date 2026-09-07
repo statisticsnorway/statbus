@@ -6,7 +6,7 @@ title: >-
 status: Done
 assignee: []
 created_date: '2026-09-03 22:01'
-updated_date: '2026-09-06 18:56'
+updated_date: '2026-09-07 12:15'
 labels:
   - upgrade
   - release
@@ -428,3 +428,15 @@ Proposed handling: cleanup helper that records `t.Errorf`/`t.Logf` on rollback f
 
 <!-- COMMENTS:BEGIN -->
 <!-- COMMENTS:END -->
+
+## Post-Done correction (2026-09-07)
+
+Done was marked on local psql diffs and Go tests while CI pg_regress was
+already red at `410620e62`: the migration commit shipped the enum and column
+but not the three generated files pg_regress compares (002 ER diagram,
+`doc/data-model.md`, `database.types.ts`), and its test number 331 collided
+with `331_running_identity`. Fixed in `c804b2d3b` (artifacts regenerated
+from the live schema, test renumbered to 500, expected file taken from a real
+pg_regress run). Lesson recorded in `tmp/journal.md`: Done requires every
+cut oracle green at the exact HEAD, read from `gh run list`, not local
+substitutes.

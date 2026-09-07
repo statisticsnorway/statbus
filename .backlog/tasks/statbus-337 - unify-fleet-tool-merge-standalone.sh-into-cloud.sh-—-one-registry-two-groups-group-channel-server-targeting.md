@@ -118,3 +118,16 @@ Clean break per the internal-code rule: standalone.sh deleted in the same commit
 
 Acceptance: one command shows the whole fleet (10 boxes) with version, channel, name; ./cloud.sh install stable <version> spans both groups; standalone.sh is gone with zero dangling references; read-only verification against the live fleet.
 <!-- SECTION:DESCRIPTION:END -->
+
+## Evidence (2026-09-07, HEAD 02f938627)
+
+| item | evidence |
+|---|---|
+| one registry, one script, `standalone.sh` deleted | `bear`'s four commits; Luna round 1 six findings fixed by `ram` (`e018ff5ce..8af6fc113`) |
+| `status <channel>` through the resolver, fail closed; `all` rule per verb or honest refusal (inspect, ssh) | `f8e450bd3`; Luna round 2 findings closed |
+| malformed metadata (exit 0, wrong shape) is unreadable, never a silent non-member | `344a45a82` (three fields, known channel), `1698e456f` (one line, exactly two pipes, printable only); Luna rounds 3 and 4 |
+| live read-only check | `./cloud.sh status dev`, `status no`, `status prerelease`: only the targets printed, exit 0, after every round |
+| Go Test guard that hard-required `standalone.sh` | `02f938627`: guard reads `cloud.sh`. Go Test on master was red from the deletion until this commit, unnoticed through four review rounds |
+| Luna round 5 | pending (bear session) on the last two porous shapes |
+
+Review trail: `tmp/STATBUS-337-review/REPORT.md`.
