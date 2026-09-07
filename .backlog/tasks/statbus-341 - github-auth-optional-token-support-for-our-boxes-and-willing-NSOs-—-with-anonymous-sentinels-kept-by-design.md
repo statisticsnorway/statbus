@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-09-02 12:21'
-updated_date: '2026-09-07 13:12'
+updated_date: '2026-09-07 13:16'
 labels:
   - ops
   - upgrade
@@ -52,18 +52,25 @@ Context for urgency: 36h of GitHub 401-challenges on anonymous git-over-HTTPS fr
 
 ## Ruling (owner, 2026-09-07): sentinels are the manually driven boxes
 
-The split follows HOW a box is driven, not what it is for:
+Ground truth first (doc/upgrades.md, config.go): the upgrade service on
+every box polls GitHub on `UPGRADE_CHECK_INTERVAL`, DISCOVERS releases on its
+channel into `public.upgrade` as `available`, and pre-pulls images
+(`UPGRADE_AUTO_DOWNLOAD`, default true, images only). It never schedules by
+itself; scheduling is a human act (admin UI or `./sb upgrade schedule`). The
+automatic scheduler (`edge`) was retired 2026-08-19. `dev` is automated only
+because `deploy-to-dev.yaml` schedules the candidate from outside.
+
+The split follows HOW a box is driven:
 
 | box | driven | GitHub auth | why |
 |---|---|---|---|
 | `no` (Norway, rune) | manually: a person installs each candidate | **anonymous sentinel** | lives the customer path at customer volume |
-| `demo` | today: upgrade service on `stable`, `UPGRADE_AUTO_DOWNLOAD=true` (automated). If it is turned manual it joins the sentinel set. | token unless made manual | automation at 5-min ticks is what the rate limit bites |
-| `dev` | automatically: orchestrator canary, 5-min ticks | **token** | the real victim of the anonymous limit |
-| `et`, `jo`, `ma`, `ug`, other country slots | automated channel-followers, low frequency | token allowed, not issued | low volume is fine anonymous; a token is an allowed `.env.config` entry, never installed by us on a customer-shaped box |
-| harness happy smokes (`install-works`, `upgrade-works`) | anonymous | they ARE the customer-experience test |
-| harness recovery arcs | token from the workflow | anonymous 401 noise there is pure false red |
+| `demo` | manually: `stable`, no external scheduler | **anonymous sentinel** | same |
+| `dev` | automatically: orchestrator canary schedules every candidate; 5-min ticks | **token** | the real victim of the anonymous limit |
+| `et`, `jo`, `ma`, `ug`, other country slots | manually, low frequency | anonymous; a token is an allowed `.env.config` entry, never installed by us on a customer-shaped box | low volume is fine anonymous |
+| harness happy proofs (`install-works`, `upgrade-works`) | anonymous | they ARE the customer-experience test |
+| harness recovery proofs | token from the workflow | anonymous 401 noise there is pure false red |
 
 The sentinel set is DATA in the fleet registry (`cloud.sh`), shown by
-`./cloud.sh status` as `auth: anon|token`, and a test asserts `no` is in the
-anonymous set. Open question the owner will settle when 341 is built: whether
-`demo` becomes manual (then sentinel) or stays automated (then token).
+`./cloud.sh status` as `auth: anon|token`, and a test asserts `no` and
+`demo` are in the anonymous set and `dev` is not.
