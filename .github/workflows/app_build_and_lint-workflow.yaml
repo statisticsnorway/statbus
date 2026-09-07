@@ -24,6 +24,14 @@ on:
     branches-ignore:
       - 'ops/**'  # Ignore any branch prefixed with ops/
 
+# STATBUS-364: one run in flight on master, newest push wins. PR runs keep
+# per-ref groups (cancel superseded commits); non-PR push and manual dispatch
+# share a FIXED group, so a newer push cancels the in-flight run and GitHub
+# keeps at most one pending run.
+concurrency:
+  group: ${{ github.event_name == 'pull_request' && format('app-build-lint-{0}', github.ref) || 'app-build-lint-master' }}
+  cancel-in-progress: true
+
 jobs:
   build-app:
     runs-on: ubuntu-latest

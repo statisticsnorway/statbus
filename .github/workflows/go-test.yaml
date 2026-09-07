@@ -48,11 +48,13 @@ on:
       - 'ops/**'
   workflow_dispatch:
 
-# Per-commit groups on master (each commit's run is its own verdict, never
-# cancelled); per-ref groups on PRs (cancel superseded runs).
+# STATBUS-364: one run in flight on master, newest push wins. PR runs keep
+# per-ref groups (cancel superseded commits); master push and manual dispatch
+# share a FIXED group, so a newer push cancels the in-flight run and GitHub
+# keeps at most one pending run.
 concurrency:
-  group: go-test-${{ github.event_name == 'pull_request' && github.ref || github.sha }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+  group: ${{ github.event_name == 'pull_request' && format('go-test-{0}', github.ref) || 'go-test-master' }}
+  cancel-in-progress: true
 
 permissions:
   contents: read

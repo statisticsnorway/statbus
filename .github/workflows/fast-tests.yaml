@@ -74,11 +74,15 @@ on:
     branches-ignore:
       - 'ops/**'
 
-# Per-commit (workflow_run) / per-ref (PR) groups. Never cancel a master result
-# (each commit's run is the stamped verdict); cancel superseded PR runs.
+# STATBUS-364: one run in flight on master, newest push wins. PR runs keep
+# per-ref groups (cancel superseded commits). The workflow_run path (master,
+# fired once Images completes) and manual dispatch share a FIXED group, so a
+# newer push cancels the in-flight run and GitHub keeps at most one pending run.
+# The discriminator is "is this a PR" rather than "is this a push" because this
+# workflow's master trigger is workflow_run, not push.
 concurrency:
-  group: fast-tests-${{ github.event.workflow_run.head_sha || github.ref }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+  group: ${{ github.event_name == 'pull_request' && format('fast-tests-{0}', github.ref) || 'fast-tests-master' }}
+  cancel-in-progress: true
 
 permissions:
   contents: read
