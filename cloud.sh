@@ -66,6 +66,12 @@ usage() {
     exit 1
 }
 
+upgrade_usage() {
+    echo "Usage: $0 upgrade [target] [--yes|--force|-y]"
+    echo "Force target boxes to apply latest. Prompts for confirmation unless a confirmation flag is supplied."
+    echo "Targets: all | <code> | stable | prerelease | cloud | standalone"
+}
+
 registry_entry() {
     local code="$1" entry
     for entry in "${FLEET_REGISTRY[@]}"; do
@@ -325,8 +331,18 @@ cmd_notify() {
 }
 
 cmd_upgrade() {
-    local target="${1:-all}" server targets
+    local target="${1:-all}" confirmed="${2:-0}" server targets confirm=""
     targets=$(resolve_target_codes "$target")
+    if [ "$confirmed" != 1 ]; then
+        echo "WARNING: This will force the selected boxes to apply the latest release immediately."
+        echo "Boxes to upgrade: $(tr '\n' ' ' <<< "$targets" | xargs)"
+        echo "Use './cloud.sh status' for a read-only version overview first."
+        if ! read -r -p "Type 'upgrade' to confirm (or Ctrl-C to abort): " confirm </dev/tty 2>/dev/null \
+            || [ "$confirm" != upgrade ]; then
+            echo "Aborted."
+            return 1
+        fi
+    fi
     echo "Forcing $target boxes to apply latest..."
     for server in $targets; do
         printf "  %-16s " "$server:"
@@ -884,11 +900,38 @@ case "$1" in
         cmd_notify "${2:-all}"
         ;;
     upgrade)
-        cmd_upgrade "${2:-all}"
+        shift
+        target=all
+        confirmed=0
+        for arg in "$@"; do
+            case "$arg" in
+                help|-h|--help) upgrade_usage; exit 0 ;;
+                --yes|--force|-y) confirmed=1 ;;
+                -*) echo "Unknown argument for upgrade: $arg" >&2; upgrade_usage >&2; exit 1 ;;
+                *)
+                    [ "$target" = all ] || { echo "Unknown argument for upgrade: $arg" >&2; upgrade_usage >&2; exit 1; }
+                    target="$arg"
+                    ;;
+            esac
+        done
+        cmd_upgrade "$target" "$confirmed"
         ;;
     install|rescue)
-        [ $# -lt 2 ] && { echo "Error: $1 requires a server name or 'all'"; usage; }
-        cmd_install "$2" "${3:-}"
+        sub="$1"; shift
+        [ $# -lt 1 ] && { echo "Error: $sub requires a server name or 'all'"; usage; }
+        target="$1"; shift
+        version=""
+        while [ $# -gt 0 ]; do
+            case "$1" in
+                --version)
+                    [ $# -ge 2 ] || { echo "Error: --version requires a value" >&2; exit 1; }
+                    version="$2"; shift 2
+                    ;;
+                --version=*) version="${1#*=}"; shift ;;
+                *) version="$1"; shift ;;
+            esac
+        done
+        cmd_install "$target" "$version"
         ;;
     create)
         [ $# -lt 4 ] && { echo "Error: create requires <code>, <name>, and <version>"; exit 1; }
