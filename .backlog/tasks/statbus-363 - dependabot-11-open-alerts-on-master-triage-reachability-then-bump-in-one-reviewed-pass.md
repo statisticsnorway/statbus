@@ -5,7 +5,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-09-07 19:46'
-updated_date: '2026-09-07 20:05'
+updated_date: '2026-09-14 12:59'
 labels:
   - security
   - dependencies
@@ -63,3 +63,17 @@ Not in the current batch RC. The sharp override touches the production image pat
 ## Next
 
 Step 2 (bump) unassigned until the batch RC is cut. Then: one builder, one adversarial reviewer, sharp separate from the rest.
+
+## Step 2 built (kikazaru, 2026-09-14 12:58), held in scratch until rc.05 is cut
+
+Scratch `$JCODE_SCRATCH_DIR/statbus-363`, branch `statbus-363`, commit
+`ce9de0f65` (signed): `app/package.json` overrides only, lockfile regenerated,
+sharp/next untouched. browserslist 4.28.1->4.28.9, js-yaml 3.14.2/4.3.0->
+3.15.1/4.3.1, brace-expansion 5.0.6->5.0.9, @babel/core 7.28.6->7.29.7; no
+major bumps. Alerts addressed: 677 676 670 669 642 626 657 656 640 609.
+`pnpm install --frozen-lockfile`, tsc, lint (0 errors), build, test (28 pass)
+all green. Open alerts on master now 17 (was 11 at triage; new ones arrived,
+retriage after this lands). sharp 644 stays for its own commit + next/image smoke.
+
+Next: Sol review of ce9de0f65, cherry-pick after the cut, then retriage the
+six new alerts, then sharp.
