@@ -2409,6 +2409,16 @@ func checkSignersDone(dir string) bool {
 }
 
 func runTrustSigners(dir string) error {
+	// Fresh configuration is created by the step table, after the existing-box
+	// pre-dispatch trust handling. Consume the same explicit answer here once
+	// configuration exists; otherwise --non-interactive would refuse despite it.
+	if trustGitHubUser != "" {
+		f, err := dotenv.Load(filepath.Join(dir, ".env.config"))
+		if err != nil {
+			return fmt.Errorf("load .env.config: %w", err)
+		}
+		return trustSignerNonInteractive(trustGitHubUser, f)
+	}
 	if nonInteractive {
 		return fmt.Errorf("no trusted signers configured (non-interactive mode cannot prompt).\n" +
 			"  The upgrade service requires at least one trusted signer to verify release signatures.\n" +
