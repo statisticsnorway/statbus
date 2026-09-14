@@ -5,7 +5,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-09-07 19:46'
-updated_date: '2026-09-14 13:27'
+updated_date: '2026-09-14 13:30'
 labels:
   - security
   - dependencies
@@ -91,3 +91,10 @@ smoke, after rc.05. Retriage table in scratch `tmp/review.md`.
 
 Pending: Sol round 2 on 7e7b9186c, cherry-pick after the cut, then the
 next/sharp commit.
+
+## Step 2 accepted (2026-09-14 13:29)
+
+Sol round 2 ACCEPT on `7e7b9186c` (with `ce9de0f65`): no findings; frozen
+install clean, tsc/lint/build/test green (28/28). Ready to cherry-pick onto
+master after rc.05 is cut. Remaining: the Next >= 16.3.3 + sharp >= 0.35.4
+commit with a next/image smoke, then retriage to zero.
