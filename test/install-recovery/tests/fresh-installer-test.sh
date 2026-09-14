@@ -6,6 +6,7 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
 TMP_ROOT=$(mktemp -d "${TMPDIR:-/tmp}/statbus-fresh.XXXXXX")
 trap 'rm -rf "$TMP_ROOT"' EXIT
 mkdir -p "$TMP_ROOT/bin" "$TMP_ROOT/home" "$TMP_ROOT/inputs with spaces"
+unset STATBUS_INSTALL_VERSION
 export HOME="$TMP_ROOT/home" TRACE="$TMP_ROOT/trace"
 cat > "$TMP_ROOT/bin/git" <<'MOCK'
 #!/bin/bash
@@ -21,6 +22,9 @@ cat > "$TMP_ROOT/bin/curl" <<'MOCK'
 #!/bin/bash
 set -eu
 printf 'curl:%s\n' "$*" >> "$TRACE"
+case "$*" in
+    *'/releases/latest'*) printf '{"tag_name": "v2026.09.0"}\n'; exit 0 ;;
+esac
 while [ "$1" != -o ]; do shift; done
 cat > "$2" <<'SB'
 #!/bin/bash
@@ -66,4 +70,38 @@ rc=$?
 set -e
 [ "$rc" = 47 ] || { echo "FAIL: sb failure became $rc"; exit 1; }
 echo 'PASS: sb validation/installation failure propagates'
+# Exercise real parser/resolver, with fixture transports only. Nothing reaches
+# GitHub, Docker or a database. Each successful case starts from an empty home.
+for shape in env matching default; do
+    export HOME="$TMP_ROOT/version-$shape"
+    mkdir -p "$HOME"
+    : > "$TRACE"
+    args=(--non-interactive)
+    case "$shape" in
+        env) export STATBUS_INSTALL_VERSION=v2026.09.0-rc.02 ;;
+        matching) export STATBUS_INSTALL_VERSION=v2026.09.0-rc.02; args+=(--version "$STATBUS_INSTALL_VERSION") ;;
+        default) unset STATBUS_INSTALL_VERSION ;;
+    esac
+    bash "$ROOT/install.sh" "${args[@]}" > "$TMP_ROOT/output"
+    expected=${STATBUS_INSTALL_VERSION:-v2026.09.0}
+    grep -Fq "git:clone --depth 1 --branch $expected" "$TRACE"
+    if [ "$shape" = default ]; then grep -Fq '/releases/latest' "$TRACE"; fi
+    echo "PASS: version $shape resolves $expected"
+done
+export STATBUS_INSTALL_VERSION=v2026.09.0-rc.02
+for shape in version channel commit; do
+    : > "$TRACE"
+    case "$shape" in
+        version) args=(--version v2026.09.0) ;;
+        channel) args=(--channel stable) ;;
+        commit) args=(--commit 1111111111111111111111111111111111111111) ;;
+    esac
+    if bash "$ROOT/install.sh" "${args[@]}" > "$TMP_ROOT/output" 2>&1; then
+        echo "FAIL: version env conflict with $shape accepted"; exit 1
+    fi
+    grep -Eq 'conflicts|mutually exclusive' "$TMP_ROOT/output"
+    [ ! -s "$TRACE" ] || { echo 'FAIL: conflict reached network/clone'; exit 1; }
+    echo "PASS: version environment conflict with $shape refuses before side effects"
+done
+unset STATBUS_INSTALL_VERSION
 echo 'fresh-installer tests: PASS'

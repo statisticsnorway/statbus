@@ -36,6 +36,7 @@ elif args[:2]==['config','generate']:
     write('.env',values)
 elif args[:2]==['restart','all']:
     if fault=='restart': sys.exit(41)
+    if fault!='daemon-not-restarted': Path(os.environ['INVOCATION_FILE']).write_text('new\n')
 else: sys.exit(99)
 MOCK
 cat > "$TMP_ROOT/bin/systemctl" <<'MOCK'
@@ -76,6 +77,9 @@ CONFIG
     echo old > "$INVOCATION_FILE"
     : > "$TRACE"
 }
+if grep -Eq 'systemctl.*(restart|stop|start) ' "$TMP_ROOT/operator.sh"; then
+    echo 'FAIL: harness performs lifecycle work outside sb'; exit 1
+fi
 reset_fixture
 bash "$TMP_ROOT/operator.sh" > "$TMP_ROOT/output"
 grep -Fxq UPGRADE_TRUSTED_SIGNER_jhf=preserve-this "$HOME/statbus/.env.config"
@@ -84,7 +88,7 @@ config_line=$(grep -n '^sb:config generate' "$TRACE" | cut -d: -f1)
 restart_line=$(grep -n '^sb:restart all' "$TRACE" | cut -d: -f1)
 [ "$config_line" -lt "$restart_line" ]
 echo 'PASS: operator tuning preserves signer state and default channel, generates before restart, and checks consumers'
-for fault in persisted generated restart runtime daemon; do
+for fault in persisted generated restart runtime daemon daemon-not-restarted; do
     reset_fixture
     if FAULT="$fault" bash "$TMP_ROOT/operator.sh" > "$TMP_ROOT/output" 2>&1; then
         echo "FAIL: accepted $fault fault"; exit 1

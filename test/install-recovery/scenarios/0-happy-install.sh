@@ -8,7 +8,7 @@
 # Proves release-ladder.md rung 4, not a baseline hop.
 # This is "install-works" in STATBUS-359's pending naming scheme.
 # Assert the installed binary identity, newest public.upgrade row, and health
-# on the box. Explicit four-key unattended input preserves an absent ~/statbus until
+# on the box. Explicit deployment/trust input preserves an absent ~/statbus until
 # install.sh itself clones it through FRESH. No pre-clone or custom procurement.
 #
 # Usage:
@@ -61,7 +61,7 @@ echo "  Scenario: 0-happy-install"
 echo "  Release selected for clean install: $INSTALL_TARGET_TAG"
 echo "════════════════════════════════════════════════════════════════"
 
-# Phase 1: four-key NSO first install, before any operator tuning.
+# Phase 1: NSO first install with explicit answers, before any operator tuning.
 echo "Phase 1: fresh NSO install with explicit questionnaire input"
 # 1. Bootstrap VM
 bootstrap_install_test_vm "$VM_NAME" "$INSTALL_TARGET_TAG"

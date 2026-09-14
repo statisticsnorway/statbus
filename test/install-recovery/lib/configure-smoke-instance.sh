@@ -18,11 +18,10 @@ for key in STATBUS_URL BROWSER_REST_URL SERVER_REST_URL DEBUG PUBLIC_DEBUG; do
     actual=$(./sb dotenv -f .env get "$generated_key")
     [ "$actual" = "$expected" ] || { echo "generated configuration mismatch for $generated_key: expected='$expected' actual='$actual'"; exit 1; }
 done
-# sb restart recreates containers, so changed app environment takes effect.
-./sb restart all
+# Inspect daemon identity, but product commands own ALL lifecycle actions.
 unit=statbus-upgrade@statbus.service
 previous_invocation=$(systemctl --user show "$unit" -p InvocationID --value)
-systemctl --user restart "$unit"
+./sb restart all
 invocation=$(systemctl --user show "$unit" -p InvocationID --value)
 [ -n "$invocation" ] && [ "$invocation" != "$previous_invocation" ] || { echo 'upgrade service did not start a new invocation'; exit 1; }
 expected_channel=$(./sb dotenv -f .env get UPGRADE_CHANNEL)

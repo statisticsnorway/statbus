@@ -66,14 +66,16 @@ set -euo pipefail
 [ ! -e "$HOME/statbus" ]
 [ "$STATBUS_ENV_CONFIG" = "$HOME/install-input.env" ]
 grep -Fxq 'CADDY_DEPLOYMENT_MODE=private' "$STATBUS_ENV_CONFIG"
-[ "$(wc -l < "$STATBUS_ENV_CONFIG" | tr -d ' ')" = 4 ]
+[ "$(wc -l < "$STATBUS_ENV_CONFIG" | tr -d ' ')" = 5 ]
 [ "$(cat "$STATBUS_USERS_FILE")" = users-fixture ]
+grep -Fxq 'TRUST_GITHUB_USER=jhf' "$STATBUS_ENV_CONFIG"
+[ "$STATBUS_INSTALL_VERSION" = v2026.09.0-rc.02 ]
 echo "candidate-install.sh:$*" >> "$TRACE"
 exit "${INSTALL_EXIT:-0}"
 MOCK
 install_statbus_at_sha statbus-recovery-fixture "$SHA" "$TAG"
 if grep -Eq "git:(clone|checkout|fetch)" "$TRACE"; then echo "FAIL: pre-clone"; exit 1; fi
-grep -Fxq "candidate-install.sh:--version $TAG --trust-github-user jhf --non-interactive" "$TRACE"
+grep -Fxq "candidate-install.sh:--non-interactive" "$TRACE"
 if grep -q FORBIDDEN "$TRACE"; then echo "FAIL: unexpected procurement"; exit 1; fi
 echo 'PASS: shipped candidate installer invoked with tag and explicit input paths while repo absent'
 # Run outside an if-condition so Bash errexit semantics match the real caller.

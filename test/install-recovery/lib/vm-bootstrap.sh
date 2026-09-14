@@ -1360,7 +1360,7 @@ SCRIPT
 # no-version install_statbus_in_vm: ./sb install rc=75 (rollback) → install exits
 # 0; callers decide success from the upgrade/install row state, not the exit code.
 # Optional third argument: release tag resolving to sha. This mode runs the
-# candidate runner's install.sh --version through FRESH, with explicit inputs.
+# candidate runner's install.sh through FRESH, with explicit input/version env vars.
 # install.sh --commit is also toolchain-free, but extracts the image binary and
 # skips the release asset, so it cannot substitute for this tagged-install proof.
 install_statbus_at_sha() {
@@ -1405,7 +1405,7 @@ install_statbus_at_sha() {
 set -e
 # This wrapper runs AS statbus. Refuse rather than disguise an existing install.
 [ ! -e "\$HOME/statbus" ] || { echo "harness: FRESH requires absent ~/statbus"; exit 70; }
-# Supply only the installation questionnaire, never the legacy fixture's
+# Supply deployment answers and explicit signer consent, never the legacy fixture's
 # full .env.config (whose tuning keys are deliberately rejected as input).
 umask 077
 cat > "\$HOME/install-input.env" <<'CONFIG'
@@ -1413,10 +1413,12 @@ CADDY_DEPLOYMENT_MODE=${HARNESS_DEPLOYMENT_MODE:-development}
 SITE_DOMAIN=statbus-test.local
 DEPLOYMENT_SLOT_NAME=Install Test
 DEPLOYMENT_SLOT_CODE=test
+TRUST_GITHUB_USER=jhf
 CONFIG
 export STATBUS_ENV_CONFIG="\$HOME/install-input.env"
 export STATBUS_USERS_FILE=/tmp/users.yml
-STATBUS_MIN_DISK_GB=5 bash /tmp/statbus-install.sh --version ${release_tag} --trust-github-user jhf --non-interactive
+export STATBUS_INSTALL_VERSION=${release_tag}
+STATBUS_MIN_DISK_GB=5 bash /tmp/statbus-install.sh --non-interactive
 SCRIPT
     else
         cat > "$install_script" << SCRIPT
