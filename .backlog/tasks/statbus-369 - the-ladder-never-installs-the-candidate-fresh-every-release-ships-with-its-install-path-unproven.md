@@ -5,7 +5,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-09-14 12:36'
-updated_date: '2026-09-14 15:32'
+updated_date: '2026-09-14 15:45'
 labels:
   - release
   - install
@@ -180,3 +180,25 @@ generated config the DB rejects, or a cold CX23 needing >50s for first
 Postgres start + seed restore. Certain fix regardless: the support bundle
 includes `docker compose logs db` on a step-8 failure, and the harness
 copies the bundle off the box before reaping.
+
+## rc.05 step 8 cause, observed on one VM (sunflower, 15:36; `tmp/rc05-step8-investigation.md`)
+
+Neither hypothesis. PostgreSQL crash-looped from the first start:
+`could not open configuration file "/etc/postgresql/postgresql.conf":
+Permission denied`. On the box every tracked file was 0600/0700
+(`postgres/postgresql.conf`, `pg_hba.conf`, `start-postgres.sh`, ...):
+the fresh wrapper in vm-bootstrap.sh set a bare `umask 077` for the
+answer-file write and never reset it, so the product's own `git clone`
+inherited it. An NSO's shell is umask 022; the harness imposed its hygiene
+on the product. pg_isready never succeeded in 190 s.
+
+Fix `d888ea443`: umask scoped to the answer file in a subshell, and the
+wrapper asserts umask 022 before invoking install.sh (fails loud, exit 70).
+Same commit: asset download retries 8x20s (rc.05 baseline hop lost to five
+504s), and the fail-loud `ls -l` diagnostics carry `|| true` so `set -e`
+cannot kill the message (rc=2 at :1284 in rc.05). Support-bundle capture of
+`docker compose logs db` + copy-off before reap: hibiscus, in flight.
+
+Same family as the 0600 env-config bug that started this ticket: the
+harness sets a permission for its own secret and the next reader cannot
+read. Both now pinned by assertions in the wrapper.
