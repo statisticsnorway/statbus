@@ -1773,6 +1773,55 @@ REMOTE
     echo "──────── end stage logs ────────"
 }
 
+# dump_failure_support_bundle — before reaping, pull the newest support bundle
+# and live docker-compose state off the VM so a failed install (e.g. step-8
+# "db unhealthy" leaving only /home/statbus/statbus/support-bundle-*.txt behind)
+# still lands diagnostic evidence in $HARNESS_ROOT/tmp after the box is deleted.
+#
+# Called from cleanup_vm on BOTH success and failure, before the VM is reaped.
+# Best-effort throughout: a missing bundle or an unreachable VM must never mask
+# the original failure or slow cleanup beyond a couple of SSH round-trips, and
+# must never return non-zero (set -e in the caller's EXIT trap would otherwise
+# replace the real exit status). Output is both printed to the job log and
+# saved into $HARNESS_ROOT/tmp.
+dump_failure_support_bundle() {
+    local vm_name="$1"
+    local ip
+    ip=$(hcloud server ip "$vm_name" 2>/dev/null) || return 0
+    [ -n "$ip" ] && [ "$ip" != "?" ] || return 0
+
+    local out_dir="${HARNESS_ROOT}/tmp"
+    mkdir -p "$out_dir"
+
+    echo "──────── support bundle (newest on $vm_name) ────────"
+    local newest
+    newest=$(ssh "${SSH_OPTS[@]}" root@"$ip" \
+        'ls -1t /home/statbus/statbus/support-bundle-*.txt 2>/dev/null | head -1') || true
+    if [ -n "$newest" ]; then
+        if scp -O "${SSH_OPTS[@]}" "root@$ip:$newest" "$out_dir/" 2>/dev/null; then
+            echo "  saved $out_dir/$(basename "$newest")"
+        else
+            echo "  (could not scp support bundle $newest — VM unreachable?)"
+        fi
+    else
+        echo "  (no /home/statbus/statbus/support-bundle-*.txt on VM)"
+    fi
+
+    echo "──────── docker compose --profile all ps -a (as statbus) ────────"
+    ssh "${SSH_OPTS[@]}" root@"$ip" \
+        "sudo -i -u statbus -- bash -c 'cd ~/statbus && docker compose --profile all ps -a'" 2>/dev/null \
+        | tee "$out_dir/docker-compose-ps-${vm_name}.txt" \
+        || echo "  (could not capture docker compose ps — VM unreachable?)"
+
+    echo "──────── docker compose logs db --tail 200 (as statbus) ────────"
+    ssh "${SSH_OPTS[@]}" root@"$ip" \
+        "sudo -i -u statbus -- bash -c 'cd ~/statbus && docker compose logs db --tail 200'" 2>/dev/null \
+        | tee "$out_dir/docker-compose-db-log-${vm_name}.txt" \
+        || echo "  (could not capture docker compose logs db — VM unreachable?)"
+
+    echo "──────── end support bundle / docker compose capture ────────"
+}
+
 # _dump_unit_diagnostics UNIT
 # Capture journal + status + sb-version for UNIT to stderr while the VM is
 # still alive. Called by vm_restart_unit on failure so diagnostics land in the
@@ -1849,6 +1898,11 @@ cleanup_vm() {
     # Surface detached-tmux stage logs (success OR failure) BEFORE reaping/leaving
     # the VM. Best-effort; a no-op for scenarios that never used a tmux install.
     dump_stage_tmux_logs "$vm_name"
+
+    # Pull the support bundle + live docker-compose state (success OR failure)
+    # BEFORE reaping, so a failed install leaves evidence in $HARNESS_ROOT/tmp
+    # even after the VM is deleted. Best-effort; never masks the real exit.
+    dump_failure_support_bundle "$vm_name"
 
     if [ "${KEEP_VM:-0}" = "1" ] || [ "${KEEP_VM_ON_FAILURE:-0}" = "1" ]; then
         local ip

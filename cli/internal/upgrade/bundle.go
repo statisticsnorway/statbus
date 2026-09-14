@@ -184,6 +184,7 @@ func WriteBundleSections(ctx context.Context, w io.Writer, projDir string, id in
 		fmt.Sprintf("log tail (last %d lines from %s)", bundleLogTailLines, filepath.Base(logAbsPath)),
 		bundleLogTailBody(logAbsPath, bundleLogTailLines))
 	bundleSection(w, "docker compose ps", bundleCommandBody(ctx, projDir, "docker", "compose", "ps"))
+	bundleSection(w, "docker compose logs db (tail 200)", bundleCommandBody(ctx, projDir, "docker", "compose", "logs", "db", "--tail", "200"))
 	bundleSection(w, "container log snapshot (pre-rollback capture)", bundleContainerLogsBody(projDir, logAbsPath))
 	if body, ok := bundleJournalctlBody(ctx); ok {
 		bundleSection(w,
