@@ -22,6 +22,7 @@ import (
 	"github.com/statisticsnorway/statbus/cli/internal/config"
 	"github.com/statisticsnorway/statbus/cli/internal/dotenv"
 	"github.com/statisticsnorway/statbus/cli/internal/install"
+	"github.com/statisticsnorway/statbus/cli/internal/installinput"
 	"github.com/statisticsnorway/statbus/cli/internal/invariants"
 	"github.com/statisticsnorway/statbus/cli/internal/migrate"
 	"github.com/statisticsnorway/statbus/cli/internal/unitfloor"
@@ -126,8 +127,7 @@ Example first install (interactive):
   ./sb install
 
 Example scripted install (non-interactive):
-  # Pre-create .env.config, then:
-  ./sb install --non-interactive
+  STATBUS_ENV_CONFIG=/path/to/install.env ./sb install --non-interactive
 
 Example with statbus.nso.eu domain:
   ./sb install
@@ -139,7 +139,7 @@ Example with statbus.nso.eu domain:
 
 func init() {
 	installCmd.Flags().BoolVar(&nonInteractive, "non-interactive", false,
-		"Run without prompts (requires .env.config to exist)")
+		"Run without prompts (fresh installs require STATBUS_ENV_CONFIG)")
 	installCmd.Flags().StringVar(&trustGitHubUser, "trust-github-user", "",
 		"Auto-trust this GitHub user's signing key (non-interactive, for scripted installs)")
 	installCmd.Flags().BoolVar(&postUpgradeFixup, "post-upgrade-fixup", false,
@@ -278,6 +278,13 @@ func runInstall() (installErr error) {
 		return fmt.Errorf("cannot determine home directory (HOME unset?): %w", err)
 	}
 	installDir := filepath.Join(home, "statbus")
+
+	// Validate first-install input before any services, signer network requests,
+	// state probing or filesystem writes. Repair and internal fixup preserve their
+	// already-installed configuration rather than re-importing questionnaire input.
+	if err := validateFreshInstallInput(installDir, bypass); err != nil {
+		return err
+	}
 
 	// STATBUS-298: surface a config-refusal marker if the last daemon start
 	// (or a prior ./sb install) refused with a deterministic, non-retriable
@@ -1204,32 +1211,49 @@ func runInstallBinary(dir string) error {
 	return os.Chmod(sbDst, 0755)
 }
 
-func runCreateConfig(dir string) error {
-	cfgPath := filepath.Join(dir, ".env.config")
-
-	if nonInteractive {
-		return fmt.Errorf(".env.config not found\n\n" +
-			"  Create .env.config with at minimum:\n" +
-			"    DEPLOYMENT_SLOT_CODE=xx\n" +
-			"    CADDY_DEPLOYMENT_MODE=standalone\n" +
-			"    SITE_DOMAIN=statbus.nso.eu\n" +
-			"\n  Then re-run: ./sb install --non-interactive")
+func validateFreshInstallInput(dir string, bypass bool) error {
+	if bypass || checkConfigDone(dir) {
+		return nil
 	}
+	if nonInteractive || os.Getenv(installinput.EnvConfig) != "" {
+		if _, err := installinput.Read(os.Getenv(installinput.EnvConfig)); err != nil {
+			return err
+		}
+	}
+	if path := os.Getenv(installinput.UsersFile); path != "" {
+		if _, err := os.ReadFile(path); err != nil {
+			return fmt.Errorf("read STATBUS_USERS_FILE %q: %w", path, err)
+		}
+	}
+	return nil
+}
 
-	fmt.Println()
-	mode := prompt("  Deployment mode (development/standalone/private)", "standalone")
-	domain := prompt("  Domain name", "statbus.nso.eu")
-	name := prompt("  Display name", "StatBus")
-	code := prompt("  Deployment code (short, lowercase)", "local")
-
-	cfgContent := fmt.Sprintf(`DEPLOYMENT_SLOT_NAME=%s
-DEPLOYMENT_SLOT_CODE=%s
-DEPLOYMENT_SLOT_PORT_OFFSET=1
-CADDY_DEPLOYMENT_MODE=%s
-SITE_DOMAIN=%s
-`, name, code, mode, domain)
-
-	return os.WriteFile(cfgPath, []byte(cfgContent), 0644)
+func runCreateConfig(dir string) error {
+	var content string
+	var err error
+	if nonInteractive || os.Getenv(installinput.EnvConfig) != "" {
+		content, err = installinput.Read(os.Getenv(installinput.EnvConfig))
+	} else {
+		fmt.Println()
+		content, err = installinput.Validate(installinput.Ask(prompt))
+	}
+	if err != nil {
+		return err
+	}
+	// The harness needs a user to verify the resulting installation. The file is
+	// explicit and optional, never discovered by a hidden home-directory name.
+	if path := os.Getenv(installinput.UsersFile); path != "" {
+		users, err := os.ReadFile(path)
+		if err != nil {
+			return fmt.Errorf("read STATBUS_USERS_FILE %q: %w", path, err)
+		}
+		if err := os.WriteFile(filepath.Join(dir, ".users.yml"), users, 0600); err != nil {
+			return err
+		}
+	}
+	// Slot spacing is an NSO default, not a questionnaire input.
+	content += "DEPLOYMENT_SLOT_PORT_OFFSET=1\n"
+	return os.WriteFile(filepath.Join(dir, ".env.config"), []byte(content), 0600)
 }
 
 func runCreateCreds(dir string) error {

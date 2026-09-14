@@ -101,6 +101,20 @@ while [ $# -gt 0 ]; do
     esac
 done
 
+# Explicit unattended input paths are relative to the caller, not the clone.
+# Preserve them through cd and pass them to the Go installer. Validation and
+# importing belong to ./sb install, which also serves direct CLI invocations.
+for input_name in STATBUS_ENV_CONFIG STATBUS_USERS_FILE; do
+    input_path="${!input_name:-}"
+    if [ -n "$input_path" ]; then
+        case "$input_path" in
+            /*) ;;
+            *) printf -v "$input_name" '%s/%s' "$PWD" "$input_path" ;;
+        esac
+        export "${input_name?}"
+    fi
+done
+
 # STATBUS-082: --commit <full-40-hex-sha> names one exact commit — mutually exclusive
 # with --version and --channel (any combination refuses), full lowercase hex only
 # (commit-is-authoritative doctrine: artifacts are named by full SHA). Its audience
@@ -633,14 +647,6 @@ if [ -z "${SKIP_BINARY_DOWNLOAD:-}" ]; then
         git -C "$STATBUS_DIR" checkout -B current "$VERSION"
         mv "${HOME}/sb.tmp" "${STATBUS_DIR}/sb"
         cd "$STATBUS_DIR"
-        # Unattended fresh install: inputs live outside the clone destination.
-        # Never import these on RESCUE, where configuration is already live.
-        for config_name in env.config users.yml; do
-            config_source="$HOME/.statbus.$config_name"
-            if [ -e "$config_source" ]; then
-                install -m 0600 "$config_source" "$STATBUS_DIR/.$config_name"
-            fi
-        done
         echo "Binary: $(./sb --version)"
         echo ""
     fi

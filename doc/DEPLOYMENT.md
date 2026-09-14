@@ -172,24 +172,61 @@ curl -fsSL https://statbus.org/install.sh | bash
 
 #### Unattended install
 
-On a fresh box, as the service account, pre-place your configuration in
-`$HOME/.statbus.env.config` and your user definitions in `$HOME/.statbus.users.yml`
-with mode `0600`. Keep these outside `~/statbus`: the installer creates that
-repository itself. Then run:
+As the service account, create a file with **exactly these four keys**, the same
+questions asked by the interactive installer:
+
+```dotenv
+CADDY_DEPLOYMENT_MODE=standalone
+SITE_DOMAIN=statbus.nso.eu
+DEPLOYMENT_SLOT_NAME=StatBus
+DEPLOYMENT_SLOT_CODE=nso
+```
+
+| Key | Interactive prompt |
+|---|---|
+| `CADDY_DEPLOYMENT_MODE` | Deployment mode (development/standalone/private) |
+| `SITE_DOMAIN` | Domain name |
+| `DEPLOYMENT_SLOT_NAME` | Display name |
+| `DEPLOYMENT_SLOT_CODE` | Deployment code (short, lowercase) |
+
+Keep this input outside `~/statbus`, which the installer clones itself. Protect
+it with mode `0600` and explicitly export its path before running the installer:
 
 ```bash
+chmod 0600 "$HOME/install-input.env"
+export STATBUS_ENV_CONFIG="$HOME/install-input.env"
+# Optional: explicitly provide your existing user definitions for first install.
+export STATBUS_USERS_FILE="$HOME/initial-users.yml"
 curl -fsSL https://statbus.org/install.sh | bash -s -- --non-interactive --trust-github-user jhf
 ```
 
 For a candidate, append `--version <candidate-tag>` and use that candidate's
-`install.sh` file if the hosted script does not yet carry this feature. The
-FRESH release path copies each input if present to `~/statbus/.env.config` and
-`~/statbus/.users.yml` with mode `0600`, before running `./sb install`.
-A copy failure stops installation. Inputs are retained in your home directory,
-so protect or remove them after installation, especially user passwords.
-RESCUE never imports these files or overwrites existing configuration.
-`--non-interactive` is forwarded to `./sb install`, which still requires valid
-configuration. This seam first ships after v2026.09.0.
+`install.sh` file if the hosted script does not yet carry this feature. Relative
+paths resolve from the invoking directory, before the script changes directory.
+No well-known home filename is searched. The shell passes these paths through;
+`./sb install` validates and imports them, so direct CLI installs have the same
+contract. A missing key names both the key and its prompt. Extra keys, duplicate
+keys, empty values and malformed declarations are refused. With no input path,
+a fresh `--non-interactive` install prints the complete key/prompt list.
+
+`DEPLOYMENT_SLOT_PORT_OFFSET=1` is a fixed installer output, **not an input key**.
+Other tuning such as REST URLs, debug flags or a nondefault upgrade channel is
+applied **after** the first installation, just as with interactive installation:
+
+```bash
+cd "$HOME/statbus"
+./sb dotenv -f .env.config set UPGRADE_CHANNEL prerelease
+./sb config generate
+./sb restart all
+systemctl --user restart statbus-upgrade@statbus.service
+```
+
+Only first-time configuration creation requires the input file. Existing
+configuration belongs to the box: repair, rescue and internal upgrade fixups
+neither demand this file nor re-import it. Inputs are retained, so protect or
+remove credential-bearing files after installation. This seam first ships after
+v2026.09.0. The default upgrade channel is derived from the chosen deployment
+mode, not from the presence of unattended inputs.
 
 For a specific version (e.g. a release candidate, or downgrading):
 ```bash
