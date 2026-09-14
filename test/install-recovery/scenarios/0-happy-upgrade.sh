@@ -147,7 +147,7 @@ echo "  baseline NRestarts: $NRESTARTS_BASELINE"
 # ─────────────────────────────────────────────────────────────────────────
 # Phase 3 — keep the installed release binary in place
 #
-# judge = the baseline release binary installed by install.sh.
+# judge = the baseline release binary installed by the temporary legacy helper.
 # judged = the tagged candidate at HEAD. No upload_sb_to_vm or checkout occurs:
 # the released daemon performs the genuine preswap fetch, verification, and swap.
 # ─────────────────────────────────────────────────────────────────────────
