@@ -16,7 +16,7 @@ TAG=v2026.09.0-rc.02
 SSH_OPTS=(-o BatchMode=yes)
 # Source ONLY the production helper, not the credential/bootstrap entrypoints.
 sed -n '/^install_statbus_at_sha() {$/,/^}$/p' "$TEST_DIR/../lib/vm-bootstrap.sh" > "$TMP_ROOT/helper.sh"
-# shellcheck disable=SC1090
+# shellcheck disable=SC1090,SC1091 # generated production helper
 source "$TMP_ROOT/helper.sh"
 _check_name_safety() { :; }
 _hcloud_server_ip() { echo lookup >> "$TRACE"; echo 192.0.2.1; }

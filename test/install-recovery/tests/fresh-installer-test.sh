@@ -48,7 +48,7 @@ grep -Fxq 'sb:install --non-interactive --trust-github-user jhf' "$TRACE"
 grep -Fq 'git:clone --depth 1 --branch v2026.09.0-rc.02' "$TRACE"
 [ -f "$HOME/.statbus.env.config" ] && [ -f "$HOME/.statbus.users.yml" ]
 for config in "$HOME/statbus/.env.config" "$HOME/statbus/.users.yml"; do
-    [ "$(ls -l "$config" | cut -c1-10)" = '-rw-------' ]
+    [ "$(find "$config" -perm 0600)" = "$config" ]
 done
 echo 'PASS: full fresh installer clones, imports home config, forwards supported flags'
 # Rescue must not overwrite the configuration with stale unattended inputs.
