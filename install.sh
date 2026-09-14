@@ -68,7 +68,7 @@ exec 2>&1
 trap 'rc=$?; echo "" >&2; echo "install.sh FAILED at line $LINENO: $BASH_COMMAND (exit $rc)" >&2' ERR
 
 # Parse arguments — install.sh-specific flags are consumed here;
-# anything else is forwarded to ./sb install (e.g. --trust-github-user).
+# --trust-github-user and --non-interactive are forwarded to ./sb install.
 #
 # --version vX.Y.Z   install the explicit tag
 # --channel <name>   resolve version from channel. Valid names:
@@ -95,6 +95,7 @@ while [ $# -gt 0 ]; do
             echo "Error: --prerelease was renamed. Use --channel prerelease instead." >&2
             exit 1
             ;;
+        --non-interactive) SB_INSTALL_ARGS="$SB_INSTALL_ARGS --non-interactive"; shift ;;
         --trust-github-user) SB_INSTALL_ARGS="$SB_INSTALL_ARGS --trust-github-user $2"; shift 2 ;;
         *) echo "Unknown option: $1"; exit 1 ;;
     esac
@@ -632,6 +633,14 @@ if [ -z "${SKIP_BINARY_DOWNLOAD:-}" ]; then
         git -C "$STATBUS_DIR" checkout -B current "$VERSION"
         mv "${HOME}/sb.tmp" "${STATBUS_DIR}/sb"
         cd "$STATBUS_DIR"
+        # Unattended fresh install: inputs live outside the clone destination.
+        # Never import these on RESCUE, where configuration is already live.
+        for config_name in env.config users.yml; do
+            config_source="$HOME/.statbus.$config_name"
+            if [ -e "$config_source" ]; then
+                install -m 0600 "$config_source" "$STATBUS_DIR/.$config_name"
+            fi
+        done
         echo "Binary: $(./sb --version)"
         echo ""
     fi
