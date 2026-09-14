@@ -44,6 +44,11 @@ var restartCmd = &cobra.Command{
 	Use:   "restart [profile]",
 	Short: "Restart services (default: all)",
 	Long: `Restart StatBus services (stop then start).
+All-stack profiles also reload an active upgrade daemon. Existing upgrade/install
+markers refuse before any disruption. An intentionally inactive daemon stays inactive.
+Waits for stack health and daemon readiness under the upgrade mutex.
+Failed or interrupted restarts retain a barrier: fix the cause and retry this
+same command and profile. No manual systemctl operation is needed.
 
 Profiles: all, all_except_app, app`,
 	Args: cobra.MaximumNArgs(1),
@@ -52,8 +57,7 @@ Profiles: all, all_except_app, app`,
 		if len(args) > 0 {
 			profile = args[0]
 		}
-		build := compose.IsDevelopmentMode()
-		return compose.Restart(profile, build)
+		return restartServices(profile)
 	},
 }
 

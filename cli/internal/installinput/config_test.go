@@ -17,10 +17,21 @@ func TestPromptsAndRequiredKeysAreSameSet(t *testing.T) {
 		t.Fatal(err)
 	}
 	keys := dotenv.FromString(canonical).Keys()
-	if len(keys) != len(asked) || len(keys) != len(fields) {
+	if len(keys) != len(asked) || len(keys) != len(fields)-1 {
 		t.Fatalf("keys=%v prompts=%v", keys, asked)
 	}
 	for _, f := range fields {
+		if f.installationOnly {
+			label, fallback := TrustQuestion()
+			if label != f.prompt || fallback != f.fallback {
+				t.Fatal("trust question drift")
+			}
+			err := MissingTrust()
+			if !strings.Contains(err.Error(), f.key) || !strings.Contains(err.Error(), f.prompt) {
+				t.Fatal(err)
+			}
+			continue
+		}
 		if !asked[f.prompt] {
 			t.Errorf("key %s has no prompt %q", f.key, f.prompt)
 		}
@@ -60,7 +71,7 @@ func TestExplicitInputRefusals(t *testing.T) {
 		t.Fatalf("missing env: %v", err)
 	}
 	for _, f := range fields {
-		if !strings.Contains(err.Error(), f.key+"=<"+f.prompt+">") {
+		if !strings.Contains(err.Error(), f.key+"="+f.fallback+"  # "+f.prompt) {
 			t.Errorf("missing help for %s", f.key)
 		}
 	}
@@ -101,6 +112,35 @@ func TestDeploymentDocumentationUsesExactQuestionnaire(t *testing.T) {
 	for _, f := range fields {
 		if !strings.Contains(section[1], "| `"+f.key+"` | "+f.prompt+" |") {
 			t.Errorf("missing documented prompt for %s", f.key)
+		}
+	}
+}
+
+func TestTrustAnswersAndConflicts(t *testing.T) {
+	for _, tc := range []struct {
+		flag, file, want string
+		bad              bool
+	}{
+		{"", "", "", false}, {"jhf", "", "jhf", false}, {"", "jhf", "jhf", false}, {"jhf", "jhf", "jhf", false},
+		{"jhf", "other", "", true}, {"", "not a username", "", true}, {"../jhf", "", "", true},
+	} {
+		got, err := ResolveTrust(tc.flag, tc.file)
+		if (err != nil) != tc.bad || got != tc.want {
+			t.Fatalf("%+v: %q %v", tc, got, err)
+		}
+	}
+	content := Ask(func(_ string, defaultValue string) string { return defaultValue }) + "TRUST_GITHUB_USER=jhf\n"
+	a, err := parse(content, "")
+	if err != nil || a.Trust != "jhf" || strings.Contains(a.Config, TrustKey) {
+		t.Fatalf("trust input not consumed separately: %+v %v", a, err)
+	}
+	if _, err := parse(content, "other"); err == nil || !strings.Contains(err.Error(), "conflicts") {
+		t.Fatalf("conflict: %v", err)
+	}
+	help := Requirement()
+	for _, text := range []string{"TRUST_GITHUB_USER=jhf", "https://github.com/jhf", "STATBUS_INSTALL_VERSION", "STATBUS_USERS_FILE", "--non-interactive", "never approves"} {
+		if !strings.Contains(help, text) {
+			t.Errorf("help missing %s", text)
 		}
 	}
 }

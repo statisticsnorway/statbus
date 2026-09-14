@@ -68,6 +68,22 @@ func Restart(profile string, build bool) error {
 	return Start(profile, build)
 }
 
+// RestartAndWait keeps the caller's restart mutex until containers report
+// running/healthy, including boxes with no active upgrade daemon to signal READY.
+func RestartAndWait(profile string, build bool) error {
+	if err := Stop(profile); err != nil {
+		return fmt.Errorf("stop: %w", err)
+	}
+	args := []string{"up", "-d", "--wait", "--wait-timeout", "120"}
+	if build {
+		args = append(args, "--build")
+	}
+	if profile == "app" {
+		return Run(append(args, "app")...)
+	}
+	return RunWithProfile(profile, args...)
+}
+
 // Ps shows running containers.
 func Ps() error {
 	return Run("ps")

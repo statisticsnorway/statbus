@@ -137,7 +137,7 @@ func TestLockIsReleasedBeforeTheGoInstaller(t *testing.T) {
 	if !ok {
 		t.Fatal("install.sh never releases the mutex — the Go installer would EWOULDBLOCK against it")
 	}
-	installLine, ok := lineOf(body, "sb install $SB_INSTALL_ARGS")
+	installLine, ok := lineOf(body, `./sb install "${SB_INSTALL_ARGS[@]}"`)
 	if !ok {
 		t.Fatal("could not find the Go installer invocation")
 	}

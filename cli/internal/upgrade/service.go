@@ -398,6 +398,9 @@ type UpgradeFlag struct {
 	Phase      string    `json:"phase,omitempty"`       // PhaseOldSbUpgrading (default) or PhaseNewSbSwapped
 	Recreate   bool      `json:"recreate,omitempty"`    // durable recreate intent (from public.upgrade.recreate) so resumeNewSb can replay --recreate
 	BackupPath string    `json:"backup_path,omitempty"` // finalized backup dir, populated at Phase=PhaseNewSbSwapped so resumeNewSb can roll back without DB
+
+	Restart *RestartIntent `json:"restart,omitempty"`
+
 	// OriginalError is the failure text captured before rollback begins. The flag
 	// lives outside the database volume, so it survives exactly the process-death
 	// gap that hid Norway rc.02's returned git error behind a nil-queryConn panic
@@ -622,6 +625,18 @@ func acquireFlock(projDir string, flag UpgradeFlag) (*FlagLock, error) {
 		}
 		return nil, formatContentionError(existing)
 	}
+	// Restart intent is a closed operator gate, never ordinary stale install
+	// intent. Check under the held descriptor so a pre-detect race cannot erase it.
+	prior, readErr := io.ReadAll(f)
+	if readErr != nil {
+		_ = f.Close()
+		return nil, fmt.Errorf("read held flag: %w", readErr)
+	}
+	var previous UpgradeFlag
+	if json.Unmarshal(prior, &previous) == nil && previous.Trigger == "restart" {
+		_ = f.Close()
+		return nil, restartRefusal(previous.Restart)
+	}
 	// We hold the lock. Truncate existing content and write ours.
 	if _, err := f.Seek(0, 0); err != nil {
 		_ = f.Close() // best-effort; already erroring out
@@ -671,6 +686,12 @@ func acquireFreshFlock(projDir string, flag UpgradeFlag) (*FlagLock, error) {
 		}
 		return nil, fmt.Errorf("create fresh flag: %w", err)
 	}
+	return finishFreshFlock(f, data)
+}
+
+// Split at creation so the create-to-flock contender can be exercised directly.
+func finishFreshFlock(f *os.File, data []byte) (*FlagLock, error) {
+	path := f.Name()
 	removeOnError := func(cause error) (*FlagLock, error) {
 		// Unlink while our fd still holds the flock. Closing first would open a
 		// check-then-remove window where another actor could replace the path and
@@ -680,7 +701,10 @@ func acquireFreshFlock(projDir string, flag UpgradeFlag) (*FlagLock, error) {
 		return nil, cause
 	}
 	if lerr := syscall.Flock(int(f.Fd()), syscall.LOCK_EX|syscall.LOCK_NB); lerr != nil {
-		return removeOnError(fmt.Errorf("lock fresh flag: %w", lerr))
+		// O_EXCL owns creation, NOT the flock. A daemon may have opened this
+		// inode and won the lock first. Never unlink that actor's live mutex.
+		_ = f.Close()
+		return nil, fmt.Errorf("lock fresh flag: %w", lerr)
 	}
 	if _, err := f.Write(data); err != nil {
 		return removeOnError(fmt.Errorf("write fresh flag: %w", err))
@@ -1518,6 +1542,14 @@ func (d *Service) recoverFromFlag(ctx context.Context) (err error) {
 		// artifact in the meantime, so no lie follows the failure. The
 		// FLAG_CORRUPT print above already names the event.
 		_ = os.Remove(d.flagPath())
+		return nil
+	}
+
+	// A restart owns this marker until its stack and daemon readiness boundary.
+	// Never unlink a live restart mutex or reinterpret a failed restart as an
+	// interrupted install. Only the explicit restart retry may consume it.
+	if flag.Trigger == "restart" {
+		fmt.Printf("%v\n", restartRefusal(flag.Restart))
 		return nil
 	}
 

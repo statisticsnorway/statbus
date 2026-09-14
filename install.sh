@@ -85,7 +85,7 @@ trap 'rc=$?; echo "" >&2; echo "install.sh FAILED at line $LINENO: $BASH_COMMAND
 VERSION=""
 CHANNEL=""
 COMMIT_SHA=""
-SB_INSTALL_ARGS=""
+SB_INSTALL_ARGS=()
 while [ $# -gt 0 ]; do
     case "$1" in
         --version) VERSION="$2"; shift 2 ;;
@@ -95,11 +95,25 @@ while [ $# -gt 0 ]; do
             echo "Error: --prerelease was renamed. Use --channel prerelease instead." >&2
             exit 1
             ;;
-        --non-interactive) SB_INSTALL_ARGS="$SB_INSTALL_ARGS --non-interactive"; shift ;;
-        --trust-github-user) SB_INSTALL_ARGS="$SB_INSTALL_ARGS --trust-github-user $2"; shift 2 ;;
+        --non-interactive) SB_INSTALL_ARGS+=(--non-interactive); shift ;;
+        --trust-github-user) SB_INSTALL_ARGS+=(--trust-github-user "$2"); shift 2 ;;
         *) echo "Unknown option: $1"; exit 1 ;;
     esac
 done
+
+# A version is optional in both interfaces. Never silently prefer one explicit
+# answer over another; resolve before prerequisites, downloads or cloning.
+if [ -n "${STATBUS_INSTALL_VERSION:-}" ]; then
+    if [ -n "$VERSION" ] && [ "$VERSION" != "$STATBUS_INSTALL_VERSION" ]; then
+        echo "Error: --version '$VERSION' conflicts with STATBUS_INSTALL_VERSION='$STATBUS_INSTALL_VERSION'. Supply one version or matching values." >&2
+        exit 1
+    fi
+    VERSION="$STATBUS_INSTALL_VERSION"
+fi
+if [ -n "$VERSION" ] && [ -n "$CHANNEL" ]; then
+    echo "Error: an explicit version (--version or STATBUS_INSTALL_VERSION) conflicts with --channel '$CHANNEL'." >&2
+    exit 1
+fi
 
 # Explicit unattended input paths are relative to the caller, not the clone.
 # Preserve them through cd and pass them to the Go installer. Validation and
@@ -666,7 +680,7 @@ statbus_repo_lock_release
 # exits and write a named-invariant banner + support bundle so operators
 # have something actionable when they come back to "what happened".
 set +e
-./sb install $SB_INSTALL_ARGS
+./sb install "${SB_INSTALL_ARGS[@]}"
 sb_rc=$?
 set -e
 # Sentinel: we reached here, so every bash-level step above succeeded.

@@ -235,6 +235,14 @@ func acquireOrBypass(installDir string, bypass bool) (release func(), err error)
 // to signal "I am the upgrade service's own post-completion fixup, not a
 // conflicting actor."
 func runInstall() (installErr error) {
+	// Resolve once, before fresh setup or existing-install recovery dispatch.
+	effectiveTrust, err := installinput.ResolveTrust(trustGitHubUser, "")
+	if err != nil {
+		return err
+	}
+	previousTrust := trustGitHubUser
+	trustGitHubUser = effectiveTrust
+	defer func() { trustGitHubUser = previousTrust }()
 	// The upgrade service spawns `./sb install` as its post-completion fixup
 	// with --post-upgrade-fixup + STATBUS_POST_UPGRADE_FIXUP=1. Either signal
 	// marks this a fixup child: it bypasses the install↔upgrade mutex (the
@@ -278,6 +286,12 @@ func runInstall() (installErr error) {
 		return fmt.Errorf("cannot determine home directory (HOME unset?): %w", err)
 	}
 	installDir := filepath.Join(home, "statbus")
+
+	if !bypass {
+		if err := upgrade.CheckRestartBarrier(installDir); err != nil {
+			return err
+		}
+	}
 
 	// Validate first-install input before any services, signer network requests,
 	// state probing or filesystem writes. Repair and internal fixup preserve their
@@ -1216,9 +1230,14 @@ func validateFreshInstallInput(dir string, bypass bool) error {
 		return nil
 	}
 	if nonInteractive || os.Getenv(installinput.EnvConfig) != "" {
-		if _, err := installinput.Read(os.Getenv(installinput.EnvConfig)); err != nil {
+		answers, err := installinput.ReadAnswers(os.Getenv(installinput.EnvConfig), trustGitHubUser)
+		if err != nil {
 			return err
 		}
+		trustGitHubUser = answers.Trust
+	}
+	if nonInteractive && trustGitHubUser == "" {
+		return installinput.MissingTrust()
 	}
 	if path := os.Getenv(installinput.UsersFile); path != "" {
 		if _, err := os.ReadFile(path); err != nil {
@@ -2434,9 +2453,10 @@ func runTrustSigners(dir string) error {
 	}
 
 	reader := bufio.NewReader(os.Stdin)
-	defaultSigner := "jhf"
+	trustPrompt, defaultSigner := installinput.TrustQuestion()
 
 	fmt.Println()
+	fmt.Println("  " + trustPrompt)
 	fmt.Println("  StatBus recommends trusting the following release signer:")
 	fmt.Printf("    %s (Jorgen H. Fjeld) -- https://github.com/%s\n", defaultSigner, defaultSigner)
 

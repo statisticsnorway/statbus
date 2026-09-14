@@ -11,6 +11,9 @@ import (
 
 func unattendedFixture(t *testing.T) (string, string) {
 	t.Helper()
+	oldTrust := trustGitHubUser
+	trustGitHubUser = ""
+	t.Cleanup(func() { trustGitHubUser = oldTrust })
 	old := nonInteractive
 	nonInteractive = true
 	t.Cleanup(func() { nonInteractive = old })
@@ -24,7 +27,7 @@ func unattendedFixture(t *testing.T) (string, string) {
 func TestUnattendedConfigImport(t *testing.T) {
 	dir, content := unattendedFixture(t)
 	input := filepath.Join(t.TempDir(), "input.env")
-	if err := os.WriteFile(input, []byte(content), 0600); err != nil {
+	if err := os.WriteFile(input, []byte(content+"TRUST_GITHUB_USER=jhf\n"), 0600); err != nil {
 		t.Fatal(err)
 	}
 	users := filepath.Join(t.TempDir(), "users.yml")
@@ -76,7 +79,7 @@ func TestUnattendedConfigFailFast(t *testing.T) {
 	if _, err := os.Stat(filepath.Join(dir, ".env.config")); !os.IsNotExist(err) {
 		t.Fatalf("invalid input wrote config: %v", err)
 	}
-	if err := os.WriteFile(input, []byte(content), 0600); err != nil {
+	if err := os.WriteFile(input, []byte(content+"TRUST_GITHUB_USER=jhf\n"), 0600); err != nil {
 		t.Fatal(err)
 	}
 	t.Setenv(installinput.UsersFile, filepath.Join(dir, "missing-users"))
