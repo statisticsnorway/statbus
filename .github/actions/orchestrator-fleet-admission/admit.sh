@@ -1,13 +1,5 @@
 #!/usr/bin/env bash
 set -euo pipefail
-# STATBUS-365 diagnosis pass: rc.01 and rc.02 both exited 1 within a second
-# WITHOUT reaching the guarded `gh api` block below (no ::error, no stderr),
-# so the failure is in the handful of lines before it. Trace every line and
-# the tool versions so the runner log names the failing command. Removed
-# once the cause is known.
-set -x
-echo "admit.sh reached: bash=$BASH_VERSION gh=$(command -v gh || echo MISSING) jq=$(command -v jq || echo MISSING)"
-gh --version 2>&1 | head -1 || echo "gh --version failed rc=$?"
 
 if [ -z "$ORCHESTRATOR_RUN_ID" ]; then
   echo "Direct manual paid-fleet dispatch: orchestrator admission is not applicable."
@@ -74,7 +66,16 @@ if [ "${STATBUS_ADMISSION_TEST_MODE:-}" = "parent" ]; then
   exit 0
 fi
 
-git fetch --tags --quiet origin
+# STATBUS-365 root cause (rc.03 trace, 2026-09-14): this fetch was the line
+# that killed rc.01, rc.02 and rc.03. Under `set -e` with `--quiet` it exited
+# non-zero without a word, before the newest-tag check below could speak.
+# The checkout is a detached tag ref with fetch-depth 0, so the tags this
+# check needs are already present; a refresh is worth having but must not
+# be able to abort admission. Print git's reason if it fails, then decide on
+# the tags we have — exactly what the orchestrator's own joints do.
+if ! fetch_err="$(git fetch --tags origin 2>&1)"; then
+  echo "::warning title=Tag refresh failed::git fetch --tags origin exited non-zero; deciding on the tags already checked out. git said: ${fetch_err}"
+fi
 newest="$(git tag --sort=-version:refname | grep -- '-rc\.' | sed -n '1p' || true)"
 if [ -z "$newest" ] || [ "$CANDIDATE_REF" != "$newest" ]; then
   echo "::error title=Superseded queued fleet run::candidate ${CANDIDATE_REF} is no longer the newest RC (${newest:-none}); refusing before VM or fixture side effects"
