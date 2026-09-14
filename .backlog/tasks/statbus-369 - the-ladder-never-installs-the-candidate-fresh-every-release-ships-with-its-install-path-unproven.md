@@ -5,7 +5,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-09-14 12:36'
-updated_date: '2026-09-14 12:36'
+updated_date: '2026-09-14 12:38'
 labels:
   - release
   - install
@@ -77,3 +77,27 @@ v2026.09.0 then upgrading to the candidate and passing. Both observed in
 run logs and recorded here. A fresh `install.sh` of the resulting stable on
 a clean box works (the next ladder's baseline hop confirms it, and so does
 step 2 at that time).
+
+## Cause (observed on one VM by hatchling, 2026-09-14 12:36; `tmp/v20260900-fresh-install-investigation.md`)
+
+**Harness, not v2026.09.0. Production is not exposed.** `cf6e30c6f` (09-07,
+STATBUS-341 review fix "token-bearing file must be 0600") changed the upload
+from `chmod 0644 /tmp/env-config` to `chmod 0600`. The file is uploaded as
+root; the generated install script runs as `statbus` and does
+`cp /tmp/env-config .env.config 2>/dev/null || true`. A root:root 0600 file
+is unreadable to `statbus`, the copy failed silently, and v2026.09.0's
+install correctly reported "fresh, no .env.config". Reproduced with a direct
+probe on the box; VM deleted. rc.14 (09-04) predates the chmod change,
+which is why it was green.
+
+Two process lessons, both now pinned by `tests/release-baseline-test.sh`:
+the reviewer asked for 0600 and nobody asked who reads the file next; and
+the one line that delivers the box's config was allowed to fail silently.
+
+Fix `01ab18349`: `chmod 0600 && chown statbus:statbus` in one remote
+command (both properties or neither), and the two copies in the generated
+install script fail loud with the reason (exit 70). Test forbids the silent
+form.
+
+Remaining in this ticket: step 2 (0-happy-install installs the candidate,
+wyvern, in flight), steps 3-4, review, rc.05.
