@@ -1268,8 +1268,8 @@ if [ ! -d ~/statbus/.git ]; then
 fi
 # Pre-place config files: ./sb install (called by install.sh) needs .env.config.
 # For RESCUE mode these survive install.sh's 'git checkout -B current origin/master'.
-cp /tmp/env-config ~/statbus/.env.config || { echo "harness: cannot copy /tmp/env-config as $(id -un): $(ls -l /tmp/env-config 2>&1)"; exit 70; }
-cp /tmp/users.yml ~/statbus/.users.yml || { echo "harness: cannot copy /tmp/users.yml as $(id -un): $(ls -l /tmp/users.yml 2>&1)"; exit 70; }
+cp /tmp/env-config ~/statbus/.env.config || { echo "harness: cannot copy /tmp/env-config as $(id -un): $(ls -l /tmp/env-config 2>&1 || true)"; exit 70; }
+cp /tmp/users.yml ~/statbus/.users.yml || { echo "harness: cannot copy /tmp/users.yml as $(id -un): $(ls -l /tmp/users.yml 2>&1 || true)"; exit 70; }
 # Run the real install.sh (uploaded as /tmp/statbus-install.sh to avoid a naming
 # conflict with the harness wrapper at /tmp/install.sh). Always in RESCUE mode
 # (~/statbus/.git guaranteed above). --commit <sha>: fetches the EXACT commit,
@@ -1290,7 +1290,9 @@ case "\$VM_ARCH" in
     *)             echo "Unsupported: \$VM_ARCH"; exit 1 ;;
 esac
 SB_URL="https://github.com/statisticsnorway/statbus/releases/download/${install_version}/sb-linux-\${GOARCH}"
-curl --retry 5 --retry-delay 5 --retry-all-errors -fsSL "\$SB_URL" -o ~/sb.tmp
+# rc.05: five 504s in a row on the release asset. 8 x 20s (~3 min) is the
+# window the GitHub storms have needed; the same shape the git retries use.
+curl --retry 8 --retry-delay 20 --retry-all-errors -fsSL "\$SB_URL" -o ~/sb.tmp
 chmod +x ~/sb.tmp
 if [ ! -d ~/statbus/.git ]; then
     # Runner-staged repo (STATBUS-345 night run): the runner has the full
@@ -1305,8 +1307,8 @@ cd ~/statbus
 # used to be `2>/dev/null || true`, which hid a permission failure (root:root
 # 0600 upload, copied as statbus) for three RCs and made the released binary
 # report "fresh, no .env.config". A missing config must fail here, by name.
-cp /tmp/env-config .env.config || { echo "harness: cannot copy /tmp/env-config to ~/statbus/.env.config as $(id -un): $(ls -l /tmp/env-config 2>&1)"; exit 70; }
-cp /tmp/users.yml .users.yml || { echo "harness: cannot copy /tmp/users.yml as $(id -un): $(ls -l /tmp/users.yml 2>&1)"; exit 70; }
+cp /tmp/env-config .env.config || { echo "harness: cannot copy /tmp/env-config to ~/statbus/.env.config as $(id -un): $(ls -l /tmp/env-config 2>&1 || true)"; exit 70; }
+cp /tmp/users.yml .users.yml || { echo "harness: cannot copy /tmp/users.yml as $(id -un): $(ls -l /tmp/users.yml 2>&1 || true)"; exit 70; }
 STATBUS_MIN_DISK_GB=5 ./sb install --non-interactive --trust-github-user jhf $extra_args
 SCRIPT
         # Runner-side repo staging (STATBUS-345 night run): build the baseline
@@ -1407,14 +1409,20 @@ set -e
 [ ! -e "\$HOME/statbus" ] || { echo "harness: FRESH requires absent ~/statbus"; exit 70; }
 # Supply deployment answers and explicit signer consent, never the legacy fixture's
 # full .env.config (whose tuning keys are deliberately rejected as input).
-umask 077
-cat > "\$HOME/install-input.env" <<'CONFIG'
+# STATBUS-369 rc.05 step 8: a bare `umask 077` here leaked into the product's
+# own checkout of the repo, so every tracked file on the box was 0600/0700
+# and the postgres container could not read postgres/postgresql.conf (crash
+# loop, db unhealthy). An NSO's shell has umask 022; the harness must not
+# impose its answer-file hygiene on the product. Scope it to the one file.
+( umask 077; cat > "\$HOME/install-input.env" <<'CONFIG'
 CADDY_DEPLOYMENT_MODE=${HARNESS_DEPLOYMENT_MODE:-development}
 SITE_DOMAIN=statbus-test.local
 DEPLOYMENT_SLOT_NAME=Install Test
 DEPLOYMENT_SLOT_CODE=test
 TRUST_GITHUB_USER=jhf
 CONFIG
+)
+[ "\$(umask)" = "0022" ] || [ "\$(umask)" = "022" ] || { echo "harness: umask is \$(umask), expected 022 before install.sh (STATBUS-369)"; exit 70; }
 export STATBUS_ENV_CONFIG="\$HOME/install-input.env"
 export STATBUS_USERS_FILE=/tmp/users.yml
 export STATBUS_INSTALL_VERSION=${release_tag}
@@ -1441,8 +1449,8 @@ docker cp "\$cid":/sb ./sb
 docker rm "\$cid"
 chmod +x ./sb
 # Pre-place config: ./sb install needs .env.config + .users.yml.
-cp /tmp/env-config .env.config || { echo "harness: cannot copy /tmp/env-config as $(id -un): $(ls -l /tmp/env-config 2>&1)"; exit 70; }
-cp /tmp/users.yml .users.yml || { echo "harness: cannot copy /tmp/users.yml as $(id -un): $(ls -l /tmp/users.yml 2>&1)"; exit 70; }
+cp /tmp/env-config .env.config || { echo "harness: cannot copy /tmp/env-config as $(id -un): $(ls -l /tmp/env-config 2>&1 || true)"; exit 70; }
+cp /tmp/users.yml .users.yml || { echo "harness: cannot copy /tmp/users.yml as $(id -un): $(ls -l /tmp/users.yml 2>&1 || true)"; exit 70; }
 ${install_command}
 SCRIPT
     fi
