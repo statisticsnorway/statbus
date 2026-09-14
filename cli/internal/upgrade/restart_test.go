@@ -102,7 +102,7 @@ func TestFreshCreatorMustNotUnlinkWinningContender(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer rival.Close()
+	t.Cleanup(func() { _ = rival.Close() })
 	if err := syscall.Flock(int(rival.Fd()), syscall.LOCK_EX|syscall.LOCK_NB); err != nil {
 		t.Fatal(err)
 	}
@@ -125,7 +125,7 @@ func TestFreshCreatorMustNotUnlinkWinningContender(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer third.Close()
+	t.Cleanup(func() { _ = third.Close() })
 	if err := syscall.Flock(int(third.Fd()), syscall.LOCK_EX|syscall.LOCK_NB); err == nil {
 		t.Fatal("third actor acquired replacement mutex")
 	}
