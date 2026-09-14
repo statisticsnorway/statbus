@@ -5,7 +5,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-09-07 21:03'
-updated_date: '2026-09-14 11:41'
+updated_date: '2026-09-14 11:52'
 labels:
   - ci
   - release
@@ -90,3 +90,30 @@ limit; the gate then reported every workflow as "GitHub API error HTTP 403".
 `githubAuthHeader()` (`cli/internal/release/check.go:332`) reads only
 `GITHUB_TOKEN`; it does not fall back to `gh auth token`. Workaround used:
 `GITHUB_TOKEN=$(gh auth token) ./sb release check`. Filed as STATBUS-368.
+
+## Root cause (rc.03 trace + rc.04 warning, 2026-09-14)
+
+The line was `git fetch --tags --quiet origin` in admit.sh, after the
+`gh api` block. git's reason, printed by the rc.04 fix:
+
+    ! [rejected] v2026.09.1-rc.04 -> v2026.09.1-rc.04  (would clobber existing tag)
+
+actions/checkout (fetch-depth 0) already fetched every tag with
+`+refs/tags/*:refs/tags/*`. A second `git fetch --tags` then asks git to
+write the candidate's own tag again; git refuses to overwrite an existing
+tag ref, exits 1, and `--quiet` + `set -e` discarded the message. It was
+never auth, network, or the runner image; it failed deterministically on
+every RC since the guard was added (`4284eeca2`, 09-04) and would have
+failed forever. The orchestrator's own joints never hit it: its decide job
+does not fetch, and its later joints fetch with `|| true`.
+
+Fix `c1b8d4dab`: the trace is removed; the fetch is guarded, prints git's
+reason as a `::warning`, and admission decides on the tags the checkout
+already holds (a complete set at fetch-depth 0). rc.04 (`c1b8d4dab`):
+Test Smoke 34840110574 printed `Admitted orchestrated paid run: parent=
+34840001592 candidate=v2026.09.1-rc.04` and dispatched both smoke VMs.
+
+Done-when for this ticket is met at rc.04 admission. Ticket closes with the
+batch when the ladder is green.
+
+Cost of the silent line: rc.01, rc.02, rc.03 (three cuts, no VM time).
