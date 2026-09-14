@@ -5,7 +5,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-09-07 19:46'
-updated_date: '2026-09-14 12:59'
+updated_date: '2026-09-14 13:27'
 labels:
   - security
   - dependencies
@@ -77,3 +77,17 @@ retriage after this lands). sharp 644 stays for its own commit + next/image smok
 
 Next: Sol review of ce9de0f65, cherry-pick after the cut, then retriage the
 six new alerts, then sharp.
+
+## Review round 1 and fix (2026-09-14 13:26)
+
+Sol (retriever) REJECT on one P1: alerts #682/#683 (published after the
+triage) require js-yaml above 3.15.1/4.3.1. Fixed in `7e7b9186c` (js-yaml
+3.15.2/4.3.2; baseline-browser-mapping resolves 2.11.20, closing #678);
+gate reran green. Sol also classified the six alerts new since triage:
+#678 addressed by regeneration; #679 sharp needs >= 0.35.4; **#680/#681
+next, critical, need next >= 16.3.3** (Image Optimization API). So the
+"sharp commit" is now a Next minor bump + sharp, with its own next/image
+smoke, after rc.05. Retriage table in scratch `tmp/review.md`.
+
+Pending: Sol round 2 on 7e7b9186c, cherry-pick after the cut, then the
+next/sharp commit.
