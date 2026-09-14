@@ -161,7 +161,23 @@ jobs:
         # pin, the download failed hash verification and this lane sat red from
         # 2026-07-29 (checksum mismatch, not a product failure). Pinning both
         # sides to one tag removes the version skew by construction.
-        run: curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/v2.12.2/install.sh | sh -s -- -b "$(go env GOPATH)/bin" v2.12.2
+        # 2026-09-14: the release download answered HTTP 504 once and turned
+        # Go Test red at a green tree (run 34857431281). A tool download is
+        # not a verdict about the code; bound it with retries and fail with
+        # the attempt count if it still cannot be fetched.
+        run: |
+          set -euo pipefail
+          for attempt in 1 2 3 4 5; do
+            if curl -sSfL --retry 3 --retry-delay 5 --retry-all-errors \
+                 https://raw.githubusercontent.com/golangci/golangci-lint/v2.12.2/install.sh \
+               | sh -s -- -b "$(go env GOPATH)/bin" v2.12.2; then
+              exit 0
+            fi
+            echo "golangci-lint install attempt ${attempt}/5 failed; retrying in $((attempt * 10))s" >&2
+            sleep $((attempt * 10))
+          done
+          echo "::error title=golangci-lint install failed::5 attempts; GitHub release download unavailable, not a code finding" >&2
+          exit 1
 
       - name: gofmt (strict)
         # STATBUS-290. Its own named step, BEFORE golangci-lint: gofmt has
