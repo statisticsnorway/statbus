@@ -2,10 +2,10 @@
 id: STATBUS-366
 title: >-
   release check: run every prerelease gate, tag nothing, write nothing; prerelease = check + tag
-status: In Progress
+status: Done
 assignee: []
 created_date: '2026-09-14 10:14'
-updated_date: '2026-09-14 11:09'
+updated_date: '2026-09-14 12:56'
 labels:
   - release
   - cli
@@ -68,3 +68,17 @@ Done-when adds: `./sb release verify-artifacts --tag v2026.09.1-rc.01`
 prints the same table the old `check` printed on 2026-09-14 10:53;
 `./cloud.sh` status/observe paths that call it still work (run
 `test/cloud-registry-test.sh`).
+
+## Evidence and completion (2026-09-14 12:56)
+
+Landed `f51f2510c` (check + verify-artifacts rename) and `2b3cf5ed2` (stale-template escape consulted only when stale). Independent Luna review (mizaru) ACCEPT, no findings: `tmp/STATBUS-366-review.md`.
+
+| done-when | evidence |
+|---|---|
+| check runs the full table, exits 0 on green, tags nothing, writes nothing | two consecutive `./sb release check` runs with `ls -la tmp/` diffed: no new file; `git tag` count unchanged (232) |
+| check and prerelease share one preflight | same function, `checkOnly` flag; reviewer confirmed no check exists in one only |
+| red HEAD: same diagnosis as prerelease, exit 1 | observed 2026-09-14 11:15 (three pending workflows) and 11:39 (403) |
+| verify-artifacts byte-identical to old check | run on `--tag v2026.09.1-rc.01`, reviewer compared |
+| callers updated | cloud.sh, root.go allowlist, hint text, comments; `test/cloud-registry-test.sh` PASS |
+
+Used in anger the same day: rc.02, rc.03 and rc.04 were cut by the coordinator's poller on `release check` green, and the gate found the anonymous-auth 403 (STATBUS-368).
