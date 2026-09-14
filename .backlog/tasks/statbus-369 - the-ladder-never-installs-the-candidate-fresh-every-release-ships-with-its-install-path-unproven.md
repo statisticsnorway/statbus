@@ -5,7 +5,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-09-14 12:36'
-updated_date: '2026-09-14 13:04'
+updated_date: '2026-09-14 14:12'
 labels:
   - release
   - install
@@ -131,3 +131,27 @@ Owner rulings, in order asked:
 For this candidate `0-happy-upgrade`'s baseline hop stays hand-rolled
 (v2026.09.0 has no seam); it switches to install.sh from the first stable
 carrying the seam. Documented in the scenario header.
+
+## Scope grew into product correctness (2026-09-14 13:45-14:12, owner + tigress + Luna)
+
+Owner-console review of the seam surfaced and ruled, in order: the trust
+username belongs in the answer file (`TRUST_GITHUB_USER` as a fifth key,
+persisted as `UPGRADE_TRUSTED_SIGNER_<user>`; the flag stays a compatibility
+input with conflict refusal); optional `STATBUS_INSTALL_VERSION`; and a
+product `sb service restart` for the post-install config change, because
+the unattended path had nothing to restart with.
+
+The restart went through Luna (bonehound) on the dirty scratch tree:
+REJECT on a P1 (releasing the mutex before starting the daemon left a window
+where a concurrent `sb install` could probe a DB still coming up after
+compose down/up), then ACCEPT after: daemon started under the held mutex
+(`Type=notify` returns only after DB connect/LISTEN, so no admission
+window); an explicit retained restart marker on start failure with install
+refusing before Detect and `sb restart all` as the retry; restart markers
+exempted from `recoverFromFlag`'s automatic unlink (a real daemon defect
+found on the way); a cross-process lock-contention test. All shell suites,
+discovery and ShellCheck green against `df6727be4`.
+
+Consequence for the ladder: rc.05 carries a new daemon-adjacent code path
+no VM has run. Watch the smoke logs for the restart step specifically.
+Commits pending tigress's final green run.
