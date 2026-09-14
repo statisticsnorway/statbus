@@ -5,7 +5,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-09-14 12:36'
-updated_date: '2026-09-14 14:12'
+updated_date: '2026-09-14 15:32'
 labels:
   - release
   - install
@@ -155,3 +155,28 @@ discovery and ShellCheck green against `df6727be4`.
 Consequence for the ladder: rc.05 carries a new daemon-adjacent code path
 no VM has run. Watch the smoke logs for the restart step specifically.
 Commits pending tigress's final green run.
+
+## rc.05 (2026-09-14 15:09, `13074fdd8`): admitted, both smoke cells red, different causes
+
+Run 34860298572. Cut unattended under the owner's 14:25 authorization after
+Luna whole-branch ACCEPT (`tmp/STATBUS-369-review/whole-branch-review-r2.md`)
+and two CI reds fixed on the way (errcheck in the new restart test;
+golangci-lint download 504, now retried).
+
+`0-happy-upgrade` (baseline hop, hand-rolled v2026.09.0 install): never
+reached the product. `curl -fsSL` of the release asset got HTTP 504 five
+times. Also a harness defect from `df6727be4`: the fail-loud diagnostic
+`$(ls -l /tmp/env-config 2>&1)` exits 2 when the file is absent and `set -e`
+kills the script before the message prints (`rc=2 at vm-bootstrap.sh:1284`).
+Fix: retry/backoff on the asset download; `|| true` inside the diagnostic.
+
+`0-happy-install` (candidate, REAL install.sh --version on the fresh path,
+private mode): admitted, steps 1-7 green (first time any RC has passed
+step 4 on a harness box), step 8 `docker compose up -d` failed:
+`container statbus-test-db is unhealthy` (healthcheck pg_isready, 5s x 10).
+No DB log captured: the support bundle stays on the VM and the harness
+reaps it. Cause open; two hypotheses, not guessed between: private-mode
+generated config the DB rejects, or a cold CX23 needing >50s for first
+Postgres start + seed restore. Certain fix regardless: the support bundle
+includes `docker compose logs db` on a step-8 failure, and the harness
+copies the bundle off the box before reaping.
