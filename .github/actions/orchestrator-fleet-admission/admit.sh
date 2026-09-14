@@ -1,5 +1,13 @@
 #!/usr/bin/env bash
 set -euo pipefail
+# STATBUS-365 diagnosis pass: rc.01 and rc.02 both exited 1 within a second
+# WITHOUT reaching the guarded `gh api` block below (no ::error, no stderr),
+# so the failure is in the handful of lines before it. Trace every line and
+# the tool versions so the runner log names the failing command. Removed
+# once the cause is known.
+set -x
+echo "admit.sh reached: bash=$BASH_VERSION gh=$(command -v gh || echo MISSING) jq=$(command -v jq || echo MISSING)"
+gh --version 2>&1 | head -1 || echo "gh --version failed rc=$?"
 
 if [ -z "$ORCHESTRATOR_RUN_ID" ]; then
   echo "Direct manual paid-fleet dispatch: orchestrator admission is not applicable."
