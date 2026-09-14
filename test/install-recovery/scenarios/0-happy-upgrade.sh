@@ -28,7 +28,12 @@
 # Trigger logic:
 #   1. Require INSTALL_TARGET_TAG or select a release-shaped tag at HEAD.
 #      An untagged HEAD refuses because this cross-version proof needs a tag.
-#   2. Install the newest release baseline below that target via install.sh.
+#   2. Install the newest release baseline below that target via the legacy helper.
+#      STATBUS-369 temporary exception: v2026.09.0 install.sh has no home-level
+#      unattended config seam. Switch this baseline leg to install.sh FRESH
+#      starting with the first stable release carrying .statbus.env.config /
+#      .statbus.users.yml support (its release tag is not assigned yet).
+#      This cell does NOT yet prove autonomous /releases/latest selection.
 #   3. Populate demo data and snapshot counts. The installed release binary stays
 #      in place: it is the judge, and the tagged candidate is the judged target.
 #   4. Register and schedule INSTALL_TARGET_TAG through the released binary.

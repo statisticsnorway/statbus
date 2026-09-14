@@ -6,7 +6,8 @@
 # images at its commit. Proves release-ladder.md rung 4, not a baseline hop.
 # This is "install-works" in STATBUS-359's pending naming scheme.
 # Assert the installed binary identity, newest public.upgrade row, and health
-# on the box. Config/users are pre-placed by the harness as before.
+# on the box. Home-level unattended inputs preserve an absent ~/statbus until
+# install.sh itself clones it through FRESH. No pre-clone or custom procurement.
 #
 # Usage:
 #   ./test/install-recovery/scenarios/0-happy-install.sh <vm_name>

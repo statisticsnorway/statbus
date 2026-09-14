@@ -1360,7 +1360,7 @@ SCRIPT
 # no-version install_statbus_in_vm: ./sb install rc=75 (rollback) → install exits
 # 0; callers decide success from the upgrade/install row state, not the exit code.
 # Optional third argument: release tag resolving to sha. This mode runs the
-# checked-out candidate's install.sh --version after the SAME config placement.
+# candidate runner's install.sh --version through FRESH, with home-level inputs.
 # install.sh --commit is also toolchain-free, but extracts the image binary and
 # skips the release asset, so it cannot substitute for this tagged-install proof.
 install_statbus_at_sha() {
@@ -1378,7 +1378,6 @@ install_statbus_at_sha() {
             echo "ERROR: release tag '$release_tag' must identify commit '$sha'" >&2
             return 1
         fi
-        install_command="STATBUS_MIN_DISK_GB=5 bash ./install.sh --version $release_tag --trust-github-user jhf"
     fi
     _check_name_safety "$vm_name" || return 1
     [ -n "$sha" ] || { echo "ERROR: install_statbus_at_sha requires a commit SHA" >&2; return 1; }
@@ -1397,7 +1396,21 @@ install_statbus_at_sha() {
 
     local install_script
     install_script=$(mktemp)
-    cat > "$install_script" << SCRIPT
+    if [ -n "$release_tag" ]; then
+        # Ship the candidate script itself, not statbus.org's moving master.
+        _wait_for_ssh "$ip" 30
+        scp -O "${SSH_OPTS[@]}" "$HARNESS_ROOT/install.sh" root@"$ip":/tmp/statbus-install.sh || return $?
+        ssh "${SSH_OPTS[@]}" root@"$ip" 'chmod 0644 /tmp/statbus-install.sh' || return $?
+        cat > "$install_script" << SCRIPT
+set -e
+# This wrapper runs AS statbus. Refuse rather than disguise an existing install.
+[ ! -e "\$HOME/statbus" ] || { echo "harness: FRESH requires absent ~/statbus"; exit 70; }
+install -m 0600 /tmp/env-config "\$HOME/.statbus.env.config"
+install -m 0600 /tmp/users.yml "\$HOME/.statbus.users.yml"
+STATBUS_MIN_DISK_GB=5 bash /tmp/statbus-install.sh --version ${release_tag} --trust-github-user jhf --non-interactive
+SCRIPT
+    else
+        cat > "$install_script" << SCRIPT
 set -e
 # Blobless full-history clone so ANY commit is checkoutable (a --depth clone could
 # miss base_sha if master advanced); fast — blobs are fetched on demand only.
@@ -1409,9 +1422,6 @@ cd ~/statbus
 # belt-and-suspenders net (the blobless clone already has the full commit graph).
 git fetch --filter=blob:none origin ${sha} 2>/dev/null || true
 git checkout -q ${sha}
-# A tagged proof leaves binary procurement to the candidate's install.sh.
-# The existing two-argument arc path keeps its published-image procurement.
-if [ -z "${release_tag}" ]; then
 # Toolchain-free binary procurement for A (mirrors install.sh edge /
 # sbimage.ProcureShort): pull the per-commit sb image, copy /sb out.
 docker pull ghcr.io/statisticsnorway/statbus-sb:${short}
@@ -1419,12 +1429,12 @@ cid=\$(docker create ghcr.io/statisticsnorway/statbus-sb:${short})
 docker cp "\$cid":/sb ./sb
 docker rm "\$cid"
 chmod +x ./sb
-fi
 # Pre-place config: ./sb install needs .env.config + .users.yml.
 cp /tmp/env-config .env.config || { echo "harness: cannot copy /tmp/env-config as $(id -un): $(ls -l /tmp/env-config 2>&1)"; exit 70; }
 cp /tmp/users.yml .users.yml || { echo "harness: cannot copy /tmp/users.yml as $(id -un): $(ls -l /tmp/users.yml 2>&1)"; exit 70; }
 ${install_command}
 SCRIPT
+    fi
 
     _wait_for_ssh "$ip" 30
     scp -O "${SSH_OPTS[@]}" "$install_script" root@"$ip":/tmp/install.sh
