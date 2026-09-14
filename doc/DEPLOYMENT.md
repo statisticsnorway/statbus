@@ -170,6 +170,27 @@ ssh statbus@<your-host>
 curl -fsSL https://statbus.org/install.sh | bash
 ```
 
+#### Unattended install
+
+On a fresh box, as the service account, pre-place your configuration in
+`$HOME/.statbus.env.config` and your user definitions in `$HOME/.statbus.users.yml`
+with mode `0600`. Keep these outside `~/statbus`: the installer creates that
+repository itself. Then run:
+
+```bash
+curl -fsSL https://statbus.org/install.sh | bash -s -- --non-interactive --trust-github-user jhf
+```
+
+For a candidate, append `--version <candidate-tag>` and use that candidate's
+`install.sh` file if the hosted script does not yet carry this feature. The
+FRESH release path copies each input if present to `~/statbus/.env.config` and
+`~/statbus/.users.yml` with mode `0600`, before running `./sb install`.
+A copy failure stops installation. Inputs are retained in your home directory,
+so protect or remove them after installation, especially user passwords.
+RESCUE never imports these files or overwrites existing configuration.
+`--non-interactive` is forwarded to `./sb install`, which still requires valid
+configuration. This seam first ships after v2026.09.0.
+
 For a specific version (e.g. a release candidate, or downgrading):
 ```bash
 ssh statbus@<your-host>
