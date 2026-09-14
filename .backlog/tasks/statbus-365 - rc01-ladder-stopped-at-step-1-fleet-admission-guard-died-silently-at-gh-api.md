@@ -5,7 +5,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-09-07 21:03'
-updated_date: '2026-09-14 09:46'
+updated_date: '2026-09-14 11:41'
 labels:
   - ci
   - release
@@ -64,3 +64,29 @@ Fix landed `9ced4480f` (guppy). What is certain: admit.sh now prints gh exit cod
 What is not known: the actual cause of rc.01's `gh api` failure. The old script discarded the response; guppy verified GH_TOKEN injection and `actions: read` are correct on paper. Only a real run tells.
 
 Owner ruling 2026-09-14: skip the full adversarial review; the ladder is the test. Coordinator checked the one bypass risk: the two test seams (`STATBUS_ADMISSION_PARENT_JSON_FILE`, `STATBUS_ADMISSION_TEST_MODE`) are referenced only by admit.sh and the Go test, no workflow sets them. Header/body split verified by hand on a sample response. Done when rc.02's Test Smoke prints `Admitted orchestrated paid run`, or refuses with a printed reason that we then fix.
+
+## rc.02 (2026-09-14 11:21, `f51f2510c`): refused again, same shape
+
+Test Smoke run 34837856470: admit.sh exited 1 after 0.8 s with NO output,
+even though the tag carries the loud version (`9ced4480f`). So the failure is
+in the lines BEFORE the guarded `gh api` block: run-id empty check, regex
+check, `mktemp`. The `env:` block in the log shows both `ORCHESTRATOR_RUN_ID`
+and `GH_TOKEN` arriving. Locally under the runner's exact shell flags
+(`bash --noprofile --norc -e -o pipefail`) with a user token the script reaches
+`gh api`, gets 200, and refuses only because the parent is now completed.
+
+Half of 365 is proven: the orchestrator's verdict job (34837756831) said
+"Fleet verdict — superseded or failed: failure", not SUPERSEDED.
+
+Diagnosis pass: `5115d9714` adds `set -x` plus a "reached" echo with tool
+paths and `gh --version` at the top of admit.sh. rc.03 is cut from it purely
+to read that trace; admission runs before any VM, so it costs nothing. The
+trace comes out again with the real fix (rc.04).
+
+## Side finding (11:39): `release check` is unauthenticated unless GITHUB_TOKEN is set
+
+Polling `./sb release check` every 30 s exhausted GitHub's anonymous 60/h
+limit; the gate then reported every workflow as "GitHub API error HTTP 403".
+`githubAuthHeader()` (`cli/internal/release/check.go:332`) reads only
+`GITHUB_TOKEN`; it does not fall back to `gh auth token`. Workaround used:
+`GITHUB_TOKEN=$(gh auth token) ./sb release check`. Filed as STATBUS-368.
