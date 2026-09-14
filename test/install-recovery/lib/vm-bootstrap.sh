@@ -811,7 +811,7 @@ ENVCONFIG
             printf 'GITHUB_TOKEN=%s\n' "$GITHUB_TOKEN" >> "$env_config_file"
         fi \
         && scp -O "${SSH_OPTS[@]}" "$env_config_file" root@"$ip":/tmp/env-config \
-        && ssh "${SSH_OPTS[@]}" root@"$ip" 'chmod 0600 /tmp/env-config && chown statbus:statbus /tmp/env-config'
+        && ssh "${SSH_OPTS[@]}" root@"$ip" 'chmod 0600 /tmp/env-config'
     } || transfer_rc=$?
     rm -f "$env_config_file" "$env_config_file.bak"
     [ "$transfer_rc" -eq 0 ] || return "$transfer_rc"
@@ -880,6 +880,15 @@ EOF'
         grep -q XDG_RUNTIME_DIR /home/statbus/.profile 2>/dev/null \
             || echo "export XDG_RUNTIME_DIR=/run/user/\$(id -u)" >> /home/statbus/.profile
     '
+    # STATBUS-369: /tmp/env-config was uploaded root:root 0600 (STATBUS-341: it
+    # may carry a token) BEFORE this user existed. Every consumer copies it AS
+    # statbus, so it must be owned by statbus; keep 0600 so nobody else on the
+    # box can read it. This is the earliest point the owner exists. Fail loud:
+    # a box whose config the installer cannot read is not a box worth testing.
+    ssh "${SSH_OPTS[@]}" root@"$ip" 'chown statbus:statbus /tmp/env-config && chmod 0600 /tmp/env-config && sudo -u statbus test -r /tmp/env-config' || {
+        echo "  ERROR: /tmp/env-config is not readable by statbus after chown (STATBUS-369)" >&2
+        return 1
+    }
 
     echo "  fetching personal SSH keys from GitHub (ed25519 only)..."
     ssh "${SSH_OPTS[@]}" root@"$ip" '
@@ -1259,8 +1268,8 @@ if [ ! -d ~/statbus/.git ]; then
 fi
 # Pre-place config files: ./sb install (called by install.sh) needs .env.config.
 # For RESCUE mode these survive install.sh's 'git checkout -B current origin/master'.
-cp /tmp/env-config ~/statbus/.env.config
-cp /tmp/users.yml ~/statbus/.users.yml
+cp /tmp/env-config ~/statbus/.env.config || { echo "harness: cannot copy /tmp/env-config as $(id -un): $(ls -l /tmp/env-config 2>&1)"; exit 70; }
+cp /tmp/users.yml ~/statbus/.users.yml || { echo "harness: cannot copy /tmp/users.yml as $(id -un): $(ls -l /tmp/users.yml 2>&1)"; exit 70; }
 # Run the real install.sh (uploaded as /tmp/statbus-install.sh to avoid a naming
 # conflict with the harness wrapper at /tmp/install.sh). Always in RESCUE mode
 # (~/statbus/.git guaranteed above). --commit <sha>: fetches the EXACT commit,
@@ -1396,8 +1405,8 @@ docker cp "\$cid":/sb ./sb
 docker rm "\$cid"
 chmod +x ./sb
 # Pre-place config: ./sb install needs .env.config + .users.yml.
-cp /tmp/env-config .env.config
-cp /tmp/users.yml .users.yml
+cp /tmp/env-config .env.config || { echo "harness: cannot copy /tmp/env-config as $(id -un): $(ls -l /tmp/env-config 2>&1)"; exit 70; }
+cp /tmp/users.yml .users.yml || { echo "harness: cannot copy /tmp/users.yml as $(id -un): $(ls -l /tmp/users.yml 2>&1)"; exit 70; }
 STATBUS_MIN_DISK_GB=5 ./sb install --non-interactive --trust-github-user jhf
 SCRIPT
 
