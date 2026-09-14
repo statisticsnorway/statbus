@@ -686,8 +686,8 @@ _apply_hardening() {
     local upgrade_channel="${HARNESS_UPGRADE_CHANNEL:-stable}"
 
     case "$deployment_mode" in
-        development|standalone) ;;
-        *) echo "ERROR: HARNESS_DEPLOYMENT_MODE must be development or standalone (got '$deployment_mode')" >&2; return 1 ;;
+        development|standalone|private) ;;
+        *) echo "ERROR: HARNESS_DEPLOYMENT_MODE must be development, standalone or private (got '$deployment_mode')" >&2; return 1 ;;
     esac
     case "$upgrade_channel" in
         stable|prerelease) ;;
@@ -1360,7 +1360,7 @@ SCRIPT
 # no-version install_statbus_in_vm: ./sb install rc=75 (rollback) → install exits
 # 0; callers decide success from the upgrade/install row state, not the exit code.
 # Optional third argument: release tag resolving to sha. This mode runs the
-# candidate runner's install.sh --version through FRESH, with home-level inputs.
+# candidate runner's install.sh --version through FRESH, with explicit inputs.
 # install.sh --commit is also toolchain-free, but extracts the image binary and
 # skips the release asset, so it cannot substitute for this tagged-install proof.
 install_statbus_at_sha() {
@@ -1405,8 +1405,17 @@ install_statbus_at_sha() {
 set -e
 # This wrapper runs AS statbus. Refuse rather than disguise an existing install.
 [ ! -e "\$HOME/statbus" ] || { echo "harness: FRESH requires absent ~/statbus"; exit 70; }
-install -m 0600 /tmp/env-config "\$HOME/.statbus.env.config"
-install -m 0600 /tmp/users.yml "\$HOME/.statbus.users.yml"
+# Supply only the installation questionnaire, never the legacy fixture's
+# full .env.config (whose tuning keys are deliberately rejected as input).
+umask 077
+cat > "\$HOME/install-input.env" <<'CONFIG'
+CADDY_DEPLOYMENT_MODE=${HARNESS_DEPLOYMENT_MODE:-development}
+SITE_DOMAIN=statbus-test.local
+DEPLOYMENT_SLOT_NAME=Install Test
+DEPLOYMENT_SLOT_CODE=test
+CONFIG
+export STATBUS_ENV_CONFIG="\$HOME/install-input.env"
+export STATBUS_USERS_FILE=/tmp/users.yml
 STATBUS_MIN_DISK_GB=5 bash /tmp/statbus-install.sh --version ${release_tag} --trust-github-user jhf --non-interactive
 SCRIPT
     else

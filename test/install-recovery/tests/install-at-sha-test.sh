@@ -10,6 +10,8 @@ export TRACE="$TMP_ROOT/trace" HOME="$TMP_ROOT/home"
 # Used by the sourced production function below.
 # shellcheck disable=SC2034
 HARNESS_ROOT="$TMP_ROOT"
+# shellcheck disable=SC2034 # consumed by extracted production helper
+HARNESS_DEPLOYMENT_MODE=private
 SHA=0123456789abcdef0123456789abcdef01234567
 TAG=v2026.09.0-rc.02
 # shellcheck disable=SC2034
@@ -62,8 +64,10 @@ cat > "$HARNESS_ROOT/install.sh" <<'MOCK'
 #!/bin/bash
 set -euo pipefail
 [ ! -e "$HOME/statbus" ]
-[ "$(cat "$HOME/.statbus.env.config")" = config-fixture ]
-[ "$(cat "$HOME/.statbus.users.yml")" = users-fixture ]
+[ "$STATBUS_ENV_CONFIG" = "$HOME/install-input.env" ]
+grep -Fxq 'CADDY_DEPLOYMENT_MODE=private' "$STATBUS_ENV_CONFIG"
+[ "$(wc -l < "$STATBUS_ENV_CONFIG" | tr -d ' ')" = 4 ]
+[ "$(cat "$STATBUS_USERS_FILE")" = users-fixture ]
 echo "candidate-install.sh:$*" >> "$TRACE"
 exit "${INSTALL_EXIT:-0}"
 MOCK
@@ -71,7 +75,7 @@ install_statbus_at_sha statbus-recovery-fixture "$SHA" "$TAG"
 if grep -Eq "git:(clone|checkout|fetch)" "$TRACE"; then echo "FAIL: pre-clone"; exit 1; fi
 grep -Fxq "candidate-install.sh:--version $TAG --trust-github-user jhf --non-interactive" "$TRACE"
 if grep -q FORBIDDEN "$TRACE"; then echo "FAIL: unexpected procurement"; exit 1; fi
-echo 'PASS: shipped candidate installer invoked with tag and home inputs while repo absent'
+echo 'PASS: shipped candidate installer invoked with tag and explicit input paths while repo absent'
 # Run outside an if-condition so Bash errexit semantics match the real caller.
 set +e
 (export INSTALL_EXIT=47; set -e; install_statbus_at_sha statbus-recovery-fixture "$SHA" "$TAG")
@@ -87,14 +91,14 @@ rc=$?
 set -e
 [ "$rc" = 70 ] || { echo 'FAIL: accepted existing repo'; exit 1; }
 rmdir "$HOME/statbus/.git" "$HOME/statbus"
-mv "$TMP_ROOT/env-config" "$TMP_ROOT/saved-config"
+mv "$TMP_ROOT/users.yml" "$TMP_ROOT/saved-users"
 set +e
 (set -e; install_statbus_at_sha statbus-recovery-fixture "$SHA" "$TAG")
 rc=$?
 set -e
 [ "$rc" != 0 ] || { echo 'FAIL: accepted missing input'; exit 1; }
-mv "$TMP_ROOT/saved-config" "$TMP_ROOT/env-config"
-echo 'PASS: existing repository and missing config refused'
+mv "$TMP_ROOT/saved-users" "$TMP_ROOT/users.yml"
+echo 'PASS: existing repository and missing users input refused'
 : > "$TRACE"
 if RESOLVED_SHA=deadbeef install_statbus_at_sha statbus-recovery-fixture "$SHA" "$TAG"; then
     echo 'FAIL: mismatched tag accepted'; exit 1

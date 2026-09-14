@@ -13,9 +13,12 @@ bootstrap_install_test_vm() { echo "bootstrap:$*" >> "$TRACE"; }
 install_statbus_in_vm() { echo "WRONG:baseline-install:$*" >> "$TRACE"; }
 install_statbus_at_sha() { echo "candidate-install:$*" >> "$TRACE"; }
 cleanup_vm() { echo cleanup >> "$TRACE"; }
+VM_SCRIPT() { echo operator-settings >> "$TRACE"; [ "${FAULT:-}" != operator-settings ]; }
 VM_EXEC() {
     echo "query:$*" >> "$TRACE"
     case "$*" in
+        *CADDY_DEPLOYMENT_MODE*) echo "${INSTALLED_MODE:-private}" ;;
+        *UPGRADE_CHANNEL*) [ "${FAULT:-}" != channel-transport ] || return 44; echo "${INSTALLED_CHANNEL:-stable}" ;;
         *--version*) [ "${FAULT:-}" != transport ] || return 42
             echo "sb version ${BINARY_VERSION:-v2026.09.0-rc.02} (commit ${TARGET_SHA:0:8})" ;;
         *'SELECT '*public.upgrade*)
@@ -50,8 +53,13 @@ if ! grep -Fxq "candidate-install:statbus-recovery-0-happy-install $TARGET_SHA v
 fi
 grep -Fq 'ORDER BY id DESC LIMIT 1' "$TRACE"
 grep -Fxq health "$TRACE"
+grep -Fxq operator-settings "$TRACE"
+# Operator tuning must follow the on-box identity checks and initial health.
+identity_line=$(grep -n 'ORDER BY id DESC LIMIT 1' "$TRACE" | cut -d: -f1)
+operator_line=$(grep -n '^operator-settings$' "$TRACE" | cut -d: -f1)
+[ "$identity_line" -lt "$operator_line" ]
 echo 'PASS: candidate selected, installed, binary/ledger/health checked'
-for assignment in BINARY_VERSION=v2026.08.1 ROW_VERSION=v2026.08.1 ROW_SHA=deadbeef ROW_STATE=failed FAULT=transport FAULT=sql FAULT=empty-row FAULT=health INSTALL_TARGET_TAG=v2026.08.1 INSTALL_TARGET_TAG=not-a-release; do
+for assignment in BINARY_VERSION=v2026.08.1 ROW_VERSION=v2026.08.1 ROW_SHA=deadbeef ROW_STATE=failed FAULT=transport FAULT=sql FAULT=empty-row FAULT=health FAULT=operator-settings FAULT=channel-transport INSTALLED_MODE=development INSTALLED_CHANNEL=local HARNESS_DEPLOYMENT_MODE=development HARNESS_UPGRADE_CHANNEL=prerelease INSTALL_TARGET_TAG=v2026.08.1 INSTALL_TARGET_TAG=not-a-release; do
     : > "$TRACE"
     if env "$assignment" bash "$SCENARIO" > "$TMP_ROOT/output" 2>&1; then
         echo "FAIL: accepted $assignment" >&2; exit 1

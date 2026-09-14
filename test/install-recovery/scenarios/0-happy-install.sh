@@ -3,10 +3,12 @@
 #
 # Fresh Ubuntu VM → the candidate's real install.sh → a healthy StatBus at
 # the candidate, using its tagged sb-linux-<arch> release asset and published
-# images at its commit. Proves release-ladder.md rung 4, not a baseline hop.
+# images at its commit, in private mode with the derived stable channel.
+# Then apply operator tuning in a labelled second phase and verify consumers.
+# Proves release-ladder.md rung 4, not a baseline hop.
 # This is "install-works" in STATBUS-359's pending naming scheme.
 # Assert the installed binary identity, newest public.upgrade row, and health
-# on the box. Home-level unattended inputs preserve an absent ~/statbus until
+# on the box. Explicit four-key unattended input preserves an absent ~/statbus until
 # install.sh itself clones it through FRESH. No pre-clone or custom procurement.
 #
 # Usage:
@@ -19,6 +21,15 @@
 set -euo pipefail
 
 VM_NAME="${1:-statbus-recovery-0-happy-install}"
+# Private is an NSO mode without ACME or public DNS. Its untouched product
+# default resolves to stable, unlike development (local). No channel seeding.
+HARNESS_DEPLOYMENT_MODE="${HARNESS_DEPLOYMENT_MODE:-private}"
+HARNESS_UPGRADE_CHANNEL="${HARNESS_UPGRADE_CHANNEL:-stable}"
+if [ "$HARNESS_DEPLOYMENT_MODE" != private ] || [ "$HARNESS_UPGRADE_CHANNEL" != stable ]; then
+    echo "ERROR: 0-happy-install requires private mode and the default stable channel" >&2
+    exit 1
+fi
+
 
 LIB_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/lib"
 REPO_ROOT="$(cd "$LIB_DIR/../../.." && pwd)"
@@ -50,6 +61,8 @@ echo "  Scenario: 0-happy-install"
 echo "  Release selected for clean install: $INSTALL_TARGET_TAG"
 echo "════════════════════════════════════════════════════════════════"
 
+# Phase 1: four-key NSO first install, before any operator tuning.
+echo "Phase 1: fresh NSO install with explicit questionnaire input"
 # 1. Bootstrap VM
 bootstrap_install_test_vm "$VM_NAME" "$INSTALL_TARGET_TAG"
 
@@ -57,6 +70,13 @@ bootstrap_install_test_vm "$VM_NAME" "$INSTALL_TARGET_TAG"
 install_statbus_at_sha "$VM_NAME" "$TARGET_SHA" "$INSTALL_TARGET_TAG"
 
 # 3. Assertions against the box, never inferred from installer exit status.
+MODE=$(VM_EXEC bash -c "cd ~/statbus && ./sb dotenv -f .env.config get CADDY_DEPLOYMENT_MODE")
+[ "$MODE" = private ] || { echo "unexpected installed mode: '$MODE' (expected private)" >&2; exit 1; }
+# The daemon's loadConfig reads this generated key with the same dotenv parser.
+# Require it explicitly: never accept the daemon's missing-key fallback.
+CHANNEL=$(VM_EXEC bash -c "cd ~/statbus && ./sb dotenv -f .env get UPGRADE_CHANNEL")
+[ "$CHANNEL" = stable ] || { echo "unexpected resolved channel: '$CHANNEL' (expected stable)" >&2; exit 1; }
+
 BINARY_IDENTITY=$(VM_EXEC bash -c "cd ~/statbus && ./sb --version")
 EXPECTED_BINARY="sb version $INSTALL_TARGET_TAG (commit ${TARGET_SHA:0:8})"
 if [ "$BINARY_IDENTITY" != "$EXPECTED_BINARY" ]; then
@@ -78,6 +98,14 @@ echo "  ✓ newest public.upgrade row: $UPGRADE_IDENTITY"
 assert_health_passes "$VM_NAME"
 assert_step9_completed "$VM_NAME"
 assert_step_upgrade_service_completed "$VM_NAME"
+assert_systemd_active "$VM_NAME"
+
+# Phase 2 is deliberately separate and visible: the installed product owns its
+# config now. Apply tuning as an operator would, then prove generated and live
+# consumers picked it up. The helper never participates in first installation.
+echo "Phase 2: operator edits, config generate, restart, effective-setting assertions"
+VM_SCRIPT "$LIB_DIR/configure-smoke-instance.sh"
+assert_health_passes "$VM_NAME"
 assert_systemd_active "$VM_NAME"
 
 echo ""
