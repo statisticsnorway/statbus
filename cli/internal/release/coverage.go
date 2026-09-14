@@ -65,6 +65,10 @@ type CoverageVerdict struct {
 	SensitiveChanges []SensitiveChange
 	CandidatesSeen   int
 
+	// MustRunReason explains an identity-bound proof that cannot inherit,
+	// independently of file sensitivity. No prior-candidate walk is needed.
+	MustRunReason string
+
 	// EvidenceErrors records candidates that could not be evaluated (resolve
 	// failures, API errors). They are NOT silently dropped: a walk that skipped
 	// half its candidates because of errors and then reported "no evidence
@@ -170,6 +174,16 @@ func DecideCoverage(scenario Scenario, targetCommit string, deps CoverageDeps) (
 	if found {
 		v.Kind = CoverageProvenHere
 		v.AnchorDetail = detail
+		return v, nil
+	}
+
+	// STATBUS-369: fresh-install evidence names the candidate's shipped release
+	// assets. A different commit cannot be the same immutable release version,
+	// even when its diff contains only exempt paths. Require direct evidence,
+	// conservatively also for an untagged target; never infer artifact identity
+	// from source equivalence. Both paid homes execute this same scenario.
+	if scenario.Name == "0-happy-install" && (scenario.Home == WorkflowSmoke || scenario.Home == WorkflowFleet) {
+		v.MustRunReason = "fresh install must prove this candidate version; evidence at another commit cannot cover its release assets"
 		return v, nil
 	}
 

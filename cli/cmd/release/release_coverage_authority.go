@@ -216,6 +216,8 @@ func runCoverageAuthority(projDir, rcTag, rcCommit, rcShort string, domain relea
 			}
 		case targetPending != nil:
 			fmt.Printf("    … %s: a run is IN PROGRESS at %s — WAIT for it, do not trigger another\n", r.Scenario, rcShort)
+		case r.Verdict.MustRunReason != "":
+			fmt.Printf("    ✗ %s: NOT COVERED — %s\n", r.Scenario, r.Verdict.MustRunReason)
 		default:
 			fmt.Printf("    ✗ %s: NOT COVERED — no evidence found within %d candidate(s) walked\n", r.Scenario, r.Verdict.CandidatesSeen)
 		}

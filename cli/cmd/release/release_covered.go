@@ -43,7 +43,8 @@ var releaseCoveredCmd = &cobra.Command{
 	Use:   "covered <scenario> <commit>",
 	Short: "Report whether a scenario is already proven at a commit (exit 0 covered, 1 must-run, 2 undecidable)",
 	Long: "Report whether <scenario> is already proven at <commit>, either because it ran there\n" +
-		"or because it is covered by an earlier code-state with nothing relevant changed since.\n\n" +
+		"or because it is covered by an earlier code-state with nothing relevant changed since.\n" +
+		"Fresh-install evidence is candidate-specific and cannot inherit across versions.\n\n" +
 		"Uses the same decision evaluator as the promotion gate and covered-subset.\n\n" +
 		"Exit codes: 0 = covered (may skip), 1 = not covered (must run), 2 = could not decide.",
 	Args: cobra.ExactArgs(2),
@@ -72,7 +73,9 @@ var releaseCoveredCmd = &cobra.Command{
 				fmt.Printf("  evidence: %s\n", verdict.AnchorDetail)
 			}
 		case release.CoverageNotCovered:
-			if verdict.BlockedBy != "" {
+			if verdict.MustRunReason != "" {
+				fmt.Printf("  %s\n", verdict.MustRunReason)
+			} else if verdict.BlockedBy != "" {
 				fmt.Printf("  %s is proven, but %d file(s) that this scenario covers changed since then:\n",
 					verdict.BlockedBy, len(verdict.SensitiveChanges))
 				for _, change := range verdict.SensitiveChanges {
@@ -223,6 +226,9 @@ func coveredSubsetDetail(result workflowCoverageResult) string {
 		return detail
 	}
 	detail := fmt.Sprintf("- **%s**: TO RUN — %s.", result.Scenario.Name, result.Verdict.Summary())
+	if result.Verdict.MustRunReason != "" {
+		detail += fmt.Sprintf("\n  > %s", result.Verdict.MustRunReason)
+	}
 	if result.Verdict.BlockedBy != "" {
 		detail += fmt.Sprintf("\n  > Blocked by %s because:", result.Verdict.BlockedBy)
 		for _, change := range result.Verdict.SensitiveChanges {

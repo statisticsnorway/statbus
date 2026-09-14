@@ -33,7 +33,13 @@ func TestCoverageAuthority_StructuralViolationIsUndecidable_STATBUS352(t *testin
 		runGitInCmd(t, dir, "commit", "-q", "-m", "excluded sibling")
 		target := runGitInCmd(t, dir, "rev-parse", "HEAD")
 		for _, name := range []string{"a", "b", "0-happy-install", "0-happy-upgrade"} {
-			markScenarioAt(t, dir, release.Scenario{Name: name, Home: release.WorkflowFleet}, anchor)
+			evidenceCommit := anchor
+			// Fresh-install cannot inherit (STATBUS-369). Direct evidence must
+			// still be rejected when the structural domain is invalid.
+			if name == "0-happy-install" {
+				evidenceCommit = target
+			}
+			markScenarioAt(t, dir, release.Scenario{Name: name, Home: release.WorkflowFleet}, evidenceCommit)
 		}
 		return dir, anchor, buildSBForCoverageInterface(t, target)
 	}

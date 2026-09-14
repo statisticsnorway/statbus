@@ -194,7 +194,7 @@ func TestBuiltReleaseCoveredAndSubset_ScenarioAwareSensitivity_STATBUS352(t *tes
 
 		details := filepath.Join(dir, "tmp", "details.md")
 		subset := runBuiltCoverage(t, binary, dir, api.URL, "release", "covered-subset", "--details-file", details, release.WorkflowFleet.String(), "HEAD")
-		if subset.exit != exitCovered || strings.TrimSpace(subset.stdout) != "a" {
+		if subset.exit != exitCovered || strings.TrimSpace(subset.stdout) != "0-happy-install\na" {
 			t.Fatalf("subset exit=%d stdout=%q stderr=%q", subset.exit, subset.stdout, subset.stderr)
 		}
 		body, err := os.ReadFile(details)
@@ -205,11 +205,10 @@ func TestBuiltReleaseCoveredAndSubset_ScenarioAwareSensitivity_STATBUS352(t *tes
 
 	t.Run("same-name fleet and smoke use different wrappers", func(t *testing.T) {
 		dir, anchor, binary := newFixture(t, ".github/workflows/upgrade-arc-harness.yaml")
-		fleetHappy := release.Scenario{Name: "0-happy-install", Home: release.WorkflowFleet}
-		smokeHappy := release.Scenario{Name: "0-happy-install", Home: release.WorkflowSmoke}
+		fleetHappy := release.Scenario{Name: "0-happy-upgrade", Home: release.WorkflowFleet}
+		smokeHappy := release.Scenario{Name: "0-happy-upgrade", Home: release.WorkflowSmoke}
 		markScenarioAt(t, dir, fleetHappy, anchor)
 		markScenarioAt(t, dir, smokeHappy, anchor)
-		markScenarioAt(t, dir, release.Scenario{Name: "0-happy-upgrade", Home: release.WorkflowSmoke}, anchor)
 
 		// An arc wrapper change is outside both happy-path homes: both stay covered.
 		fleetResult := runBuiltCoverage(t, binary, dir, api.URL, "release", "covered", "--workflow", release.WorkflowFleet.String(), fleetHappy.Name, "HEAD")
@@ -221,7 +220,7 @@ func TestBuiltReleaseCoveredAndSubset_ScenarioAwareSensitivity_STATBUS352(t *tes
 			t.Fatalf("smoke result exit=%d stdout=%q stderr=%q", smokeResult.exit, smokeResult.stdout, smokeResult.stderr)
 		}
 		smokeSubset := runBuiltCoverage(t, binary, dir, api.URL, "release", "covered-subset", release.WorkflowSmoke.String(), "HEAD")
-		if smokeSubset.exit != exitCovered || smokeSubset.stdout != "" {
+		if smokeSubset.exit != exitCovered || smokeSubset.stdout != "0-happy-install\n" {
 			t.Fatalf("smoke subset exit=%d stdout=%q stderr=%q", smokeSubset.exit, smokeSubset.stdout, smokeSubset.stderr)
 		}
 		ambiguous := runBuiltCoverage(t, binary, dir, api.URL, "release", "covered", smokeHappy.Name, "HEAD")
@@ -230,22 +229,23 @@ func TestBuiltReleaseCoveredAndSubset_ScenarioAwareSensitivity_STATBUS352(t *tes
 		}
 	})
 
+	// STATBUS-369: use the inheritable baseline hop for wrapper sensitivity.
 	// STATBUS-350 compatibility: a happy-path mark may have been produced by
 	// the smoke workflow, a deleted legacy smoke workflow, or the harness. So a
 	// change to ANY of those wrappers must invalidate the slug in BOTH homes,
 	// while an ordinary fleet scenario ignores the smoke wrapper.
 	t.Run("happy-path producer wrapper invalidates both homes", func(t *testing.T) {
-		for _, wrapper := range []string{".github/workflows/install-recovery-harness.yaml", ".github/workflows/test-smoke.yaml", ".github/workflows/test-install.yaml"} {
+		for _, wrapper := range []string{".github/workflows/install-recovery-harness.yaml", ".github/workflows/test-smoke.yaml", ".github/workflows/test-upgrade.yaml"} {
 			dir, anchor, binary := newFixture(t, wrapper)
 			for _, scenario := range []release.Scenario{
-				{Name: "0-happy-install", Home: release.WorkflowFleet},
-				{Name: "0-happy-install", Home: release.WorkflowSmoke},
+				{Name: "0-happy-upgrade", Home: release.WorkflowFleet},
+				{Name: "0-happy-upgrade", Home: release.WorkflowSmoke},
 				{Name: "b", Home: release.WorkflowFleet},
 			} {
 				markScenarioAt(t, dir, scenario, anchor)
 			}
 			for _, home := range []release.Workflow{release.WorkflowFleet, release.WorkflowSmoke} {
-				result := runBuiltCoverage(t, binary, dir, api.URL, "release", "covered", "--workflow", home.String(), "0-happy-install", "HEAD")
+				result := runBuiltCoverage(t, binary, dir, api.URL, "release", "covered", "--workflow", home.String(), "0-happy-upgrade", "HEAD")
 				if result.exit != exitMustRun || !strings.Contains(result.stdout, wrapper+" — shared controller") {
 					t.Fatalf("%s %s: exit=%d stdout=%q stderr=%q", wrapper, home, result.exit, result.stdout, result.stderr)
 				}
@@ -320,4 +320,29 @@ func TestBuiltReleaseCoveredAndSubset_ScenarioAwareSensitivity_STATBUS352(t *tes
 			t.Fatalf("subset exit=%d stdout=%q stderr=%q", subset.exit, subset.stdout, subset.stderr)
 		}
 	})
+}
+
+func TestBuiltFreshInstallCoverage_STATBUS369(t *testing.T) {
+	api := emptyEvidenceServer(t)
+	dir, anchor, target := realCoverageFixture(t, "doc/readme.md")
+	runGitInCmd(t, dir, "tag", "v2026.09.0-rc.02")
+	binary := buildSBForCoverageInterface(t, target)
+	for _, home := range []release.Workflow{release.WorkflowSmoke, release.WorkflowFleet} {
+		install := release.Scenario{Name: "0-happy-install", Home: home}
+		markScenarioAt(t, dir, install, anchor)
+		markScenarioAt(t, dir, release.Scenario{Name: "0-happy-upgrade", Home: home}, anchor)
+		result := runBuiltCoverage(t, binary, dir, api.URL, "release", "covered", "--workflow", home.String(), install.Name, "HEAD")
+		if result.exit != exitMustRun || !strings.Contains(result.stdout, "candidate version") {
+			t.Fatalf("%s: exit=%d stdout=%q stderr=%q", home, result.exit, result.stdout, result.stderr)
+		}
+		subset := runBuiltCoverage(t, binary, dir, api.URL, "release", "covered-subset", home.String(), "HEAD")
+		if subset.exit != exitCovered || !strings.Contains(subset.stdout, "0-happy-install\n") || strings.Contains(subset.stdout, "0-happy-upgrade") {
+			t.Fatalf("%s subset: exit=%d stdout=%q stderr=%q", home, subset.exit, subset.stdout, subset.stderr)
+		}
+		markScenarioAt(t, dir, install, target)
+		direct := runBuiltCoverage(t, binary, dir, api.URL, "release", "covered", "--workflow", home.String(), install.Name, "HEAD")
+		if direct.exit != exitCovered || !strings.Contains(direct.stdout, "ran and passed") {
+			t.Fatalf("%s direct: exit=%d stdout=%q stderr=%q", home, direct.exit, direct.stdout, direct.stderr)
+		}
+	}
 }

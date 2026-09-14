@@ -34,7 +34,12 @@ expensive rung is rented.
 
 Rung 6 never skips: the product is proven on a real slot every time.
 
-Rungs 4, 5, 7 and 8 exist to prove install, upgrade and recovery. Those only
+Fresh-install `0-happy-install` (rung 4 and its fleet cell) is candidate-specific:
+it installs that version's release assets and requires evidence at the exact
+candidate commit. A green install of an earlier version cannot be inherited,
+even across an `app/`-only or `doc/`-only diff (STATBUS-369).
+
+The other cells in rungs 5, 7 and 8 prove upgrade and recovery. Those only
 change when files the box executes change. So a scenario proven at an
 earlier candidate still holds for a later one if nothing it exercises
 changed in between. That decision is ONE algorithm in ONE place:
@@ -71,7 +76,8 @@ Fleet owns exactly `scenarios/<name>.sh`; arcs own exactly
 workflow wrapper. Sibling scenario contents do not invalidate each other.
 
 `app/` and `doc/` are absent on purpose. A candidate that changes only the
-product skips every VM rung and is proven by rung 6. `cli/cmd/sensitive_paths_list_test.go`
+product may skip the inheritable VM cells, but still proves its fresh install
+and rung 6. `cli/cmd/sensitive_paths_list_test.go`
 pins the real list against every artefact the box executes, so an entry
 cannot be lost silently.
 

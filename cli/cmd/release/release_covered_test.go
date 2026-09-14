@@ -134,3 +134,41 @@ func TestCoveredSubsetDetail_NamesCoveredAnchor_STATBUS351(t *testing.T) {
 		t.Fatalf("covered summary must name SKIPPED and its anchor; got %q", got)
 	}
 }
+
+// A fresh install is a claim about the candidate artifact, not only its
+// sensitive source paths. A doc-only rc.02 still has to install rc.02.
+func TestFreshInstallCoverageIsCandidateSpecific_STATBUS369(t *testing.T) {
+	dir, anchor, target := realCoverageFixture(t, "doc/readme.md")
+	runGitInCmd(t, dir, "tag", "v2026.09.0-rc.02")
+	old := scenarioEvidence
+	t.Cleanup(func() { scenarioEvidence = old })
+	for _, home := range []release.Workflow{release.WorkflowSmoke, release.WorkflowFleet} {
+		t.Run(home.String(), func(t *testing.T) {
+			for _, direct := range []bool{false, true} {
+				scenarioEvidence = func(_ string, _ release.Scenario) release.EvidenceAt {
+					return func(commit string) (bool, string, error) {
+						return commit == anchor || (direct && commit == target), "green fixture", nil
+					}
+				}
+				for _, name := range []string{"0-happy-install", "0-happy-upgrade"} {
+					v, err := decideScenarioCoverageInWorkflow(dir, name, home, target)
+					if err != nil {
+						t.Fatal(err)
+					}
+					want := release.CoverageCoveredBy
+					if direct {
+						want = release.CoverageProvenHere
+					} else if name == "0-happy-install" {
+						want = release.CoverageNotCovered
+					}
+					if !direct && name == "0-happy-install" && !strings.Contains(v.MustRunReason, "candidate version") {
+						t.Fatalf("missing version-identity refusal: %+v", v)
+					}
+					if v.Kind != want {
+						t.Fatalf("%s direct=%v: got %s, want %s", name, direct, v.Kind, want)
+					}
+				}
+			}
+		})
+	}
+}
