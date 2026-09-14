@@ -1290,9 +1290,21 @@ case "\$VM_ARCH" in
     *)             echo "Unsupported: \$VM_ARCH"; exit 1 ;;
 esac
 SB_URL="https://github.com/statisticsnorway/statbus/releases/download/${install_version}/sb-linux-\${GOARCH}"
-# rc.05: five 504s in a row on the release asset. 8 x 20s (~3 min) is the
-# window the GitHub storms have needed; the same shape the git retries use.
-curl --retry 8 --retry-delay 20 --retry-all-errors -fsSL "\$SB_URL" -o ~/sb.tmp
+# STATBUS-369: GitHub release fetches hit 504 storms that outlive curl's own
+# 5x5s --retry defaults (rc.05 lost the baseline hop to five 504s). Bounded
+# retry (~6min) matches the RESCUE path's 8x45s clone window above: print
+# every attempt, then fail with the attempt count and the last curl rc.
+for attempt in 1 2 3 4 5 6 7 8; do
+    if curl -fsSL "\$SB_URL" -o ~/sb.tmp; then
+        break
+    else
+        rc=\$?
+    fi
+    echo "GitHub sb-linux download retry [sb-download] \${attempt}/8 (rc=\$rc)" >&2
+    [ "\$attempt" -eq 8 ] && exit "\$rc"
+    rm -f ~/sb.tmp
+    sleep 45
+done
 chmod +x ~/sb.tmp
 if [ ! -d ~/statbus/.git ]; then
     # Runner-staged repo (STATBUS-345 night run): the runner has the full

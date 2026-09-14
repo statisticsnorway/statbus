@@ -217,6 +217,32 @@ docker_pull_published_image() {
     done
 }
 
+# curl_release_binary URL OUTPUT
+# Bounded retry-with-backoff for the sb release-asset download. GitHub release
+# fetches hit 504 storms that outlive a single curl attempt (rc.05 lost the
+# baseline hop to five 504s), so the download retries for up to ~6 minutes by
+# default — the same 8x45s window the RESCUE git-clone path uses. Every attempt
+# is printed; the final attempt's rc is preserved for the caller.
+curl_release_binary() {
+    local url="$1" output="$2"
+    local max_attempts="${CURL_NETWORK_MAX_ATTEMPTS:-8}"
+    local retry_delay_s="${CURL_NETWORK_RETRY_DELAY_S:-45}"
+    local attempt rc
+    for ((attempt = 1; attempt <= max_attempts; attempt++)); do
+        if curl -fsSL "$url" -o "$output"; then
+            return 0
+        else
+            rc=$?
+        fi
+        echo "GitHub release download attempt ${attempt}/${max_attempts} failed (rc=$rc)" >&2
+        if [ "$attempt" -eq "$max_attempts" ]; then
+            return "$rc"
+        fi
+        echo "  bounded GitHub retry [release-binary] in ${retry_delay_s}s" >&2
+        sleep "$retry_delay_s"
+    done
+}
+
 print_sb_pull_failure() {
     local image="$1" version="$2" class="${DOCKER_PULL_FAILURE_CLASS:-unknown}"
     echo "Error: published statbus-sb image pull failed [$class] for commit ${version}: ${image}" >&2
@@ -603,7 +629,7 @@ BINARY_URL="https://github.com/statisticsnorway/statbus/releases/download/${VERS
 if [ -z "${SKIP_BINARY_DOWNLOAD:-}" ]; then
     # Download binary to temp file (avoids conflict with running daemon)
     echo "Downloading StatBus $VERSION for ${OS}/${ARCH}..."
-    curl -fsSL "$BINARY_URL" -o "${HOME}/sb.tmp"
+    curl_release_binary "$BINARY_URL" "${HOME}/sb.tmp"
     chmod +x "${HOME}/sb.tmp"
 
     if [ -d "$STATBUS_DIR/.git" ]; then
