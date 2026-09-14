@@ -230,7 +230,7 @@ func FetchManifest(version string) (*Manifest, error) {
 // (STATBUS-255).
 //
 // This is the sole resolution site used by install.sh (via `./sb install`),
-// `./sb install` itself, and `./sb release check --channel`. Keeping it sole is
+// `./sb install` itself, and `./sb release verify-artifacts --channel`. Keeping it sole is
 // what keeps those three aligned; a second resolver would let them disagree
 // about what "the stable channel" points at.
 //

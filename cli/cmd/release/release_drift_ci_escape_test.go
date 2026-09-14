@@ -96,7 +96,7 @@ func TestDriftEscapeFiresOnlyOnGreen(t *testing.T) {
 			dir := newDriftRepo(t)
 			stubWorkflowCheck(t, tc.status)
 
-			got, ciResult := driftCoveredByCIGreen(dir, "test expected file drift", "test/expected/a.out", false)
+			got, ciResult := driftCoveredByCIGreen(dir, "test expected file drift", "test/expected/a.out", false, false)
 			if got != tc.want {
 				t.Fatalf("Fast Tests %s: escape returned %v, want %v", tc.status, got, tc.want)
 			}
@@ -127,7 +127,7 @@ func TestDriftEscapeRefreshesStampOnEscapePath(t *testing.T) {
 	dir := newDriftRepo(t)
 	stubWorkflowCheck(t, release.WorkflowCheckGreen)
 
-	covered, _ := driftCoveredByCIGreen(dir, "latest migrations", "migrations/20260101000000_seed.up.sql", false)
+	covered, _ := driftCoveredByCIGreen(dir, "latest migrations", "migrations/20260101000000_seed.up.sql", false, false)
 	if !covered {
 		t.Fatal("escape did not fire on green")
 	}
@@ -154,7 +154,7 @@ func TestDriftEscapeNeverWritesStampOnRidePath(t *testing.T) {
 	dir := newDriftRepo(t)
 	stubWorkflowCheck(t, release.WorkflowCheckGreen)
 
-	covered, _ := driftCoveredByCIGreen(dir, "latest migrations", "migrations/20260101000000_seed.up.sql", true)
+	covered, _ := driftCoveredByCIGreen(dir, "latest migrations", "migrations/20260101000000_seed.up.sql", true, false)
 	if !covered {
 		t.Fatal("escape must still pass on green when the stamp came from a ride")
 	}
@@ -178,7 +178,7 @@ func TestDriftEscapeRefusesWithoutAHead(t *testing.T) {
 	}
 	t.Cleanup(func() { checkWorkflowAtCommit = old })
 
-	covered, ciResult := driftCoveredByCIGreen(dir, "latest migrations", "migrations/x.up.sql", false)
+	covered, ciResult := driftCoveredByCIGreen(dir, "latest migrations", "migrations/x.up.sql", false, false)
 	if covered {
 		t.Fatal("escape passed with no HEAD — a check that examines nothing must refuse")
 	}
@@ -287,7 +287,7 @@ func TestStaleTemplateBranchConsultsFastTests(t *testing.T) {
 			release.WorkflowFastTests: release.WorkflowCheckGreen,
 		})
 
-		covered, ciResult := staleTemplateCoveredByFastTestsGreen(dir, what, drifted, false)
+		covered, ciResult := staleTemplateCoveredByFastTestsGreen(dir, what, drifted, false, false)
 		if !covered {
 			t.Fatal("a green fast-tests run at HEAD must cover a stale local template")
 		}
@@ -309,7 +309,7 @@ func TestStaleTemplateBranchConsultsFastTests(t *testing.T) {
 			release.WorkflowPgRegress: release.WorkflowCheckGreen,
 		})
 
-		covered, _ := staleTemplateCoveredByFastTestsGreen(dir, what, drifted, false)
+		covered, _ := staleTemplateCoveredByFastTestsGreen(dir, what, drifted, false, false)
 		if covered {
 			t.Fatal("a pg_regress green must NOT satisfy the stale-template check — it can be a stamp-ride")
 		}
@@ -332,7 +332,7 @@ func TestStaleTemplateBranchConsultsFastTests(t *testing.T) {
 				release.WorkflowFastTests: status,
 			})
 
-			covered, ciResult := staleTemplateCoveredByFastTestsGreen(dir, what, drifted, false)
+			covered, ciResult := staleTemplateCoveredByFastTestsGreen(dir, what, drifted, false, false)
 			if covered {
 				t.Fatalf("fast-tests %s must NOT cover a stale local template", status)
 			}
@@ -355,7 +355,7 @@ func TestStaleTemplateBranchConsultsFastTests(t *testing.T) {
 			release.WorkflowFastTests: release.WorkflowCheckGreen,
 		})
 
-		covered, _ := driftCoveredByCIGreen(dir, "test expected file drift", "test/expected/a.out", false)
+		covered, _ := driftCoveredByCIGreen(dir, "test expected file drift", "test/expected/a.out", false, false)
 		if !covered {
 			t.Fatal("the file-drift escape must be satisfied by a Fast Tests green")
 		}
@@ -367,7 +367,7 @@ func TestStaleTemplateBranchConsultsFastTests(t *testing.T) {
 			release.WorkflowFastTests: release.WorkflowCheckGreen,
 		})
 
-		covered, _ := staleTemplateCoveredByFastTestsGreen(dir, what, drifted, true)
+		covered, _ := staleTemplateCoveredByFastTestsGreen(dir, what, drifted, true, false)
 		if !covered {
 			t.Fatal("green must still cover when the stamp came from a ride")
 		}

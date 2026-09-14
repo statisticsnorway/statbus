@@ -87,6 +87,14 @@ earlier tag, or the exact run to look at. "15/15 proven here, 0 inherited"
 means every scenario ran at this commit; "covered by v2026.09.0-rc.13"
 means it rode an earlier proof and names it.
 
+Before asking the owner to cut, run `./sb release check`: it runs every
+prerelease preflight gate exactly as `prerelease` does, prints the same
+table, and exits 1 on any red — but it tags nothing, pushes nothing, and
+writes no file under `tmp/`. So the coordinator or a worker can see and fix
+a red gate without also being the person who cuts. `prerelease` is
+`check` plus the tag; one code path, so what `check` says is what
+`prerelease` decides.
+
 ## Known gaps (tickets)
 
 - STATBUS-350 Option A is implemented: one selector-driven smoke matrix, native

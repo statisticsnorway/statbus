@@ -66,7 +66,7 @@ func fastTestStampPath(projDir string) string {
 // only acceptable proof. Its Status is the zero value ("") in the one case
 // where CI was never even asked — no resolvable HEAD — so the caller can
 // tell "declined" from "not consulted" apart.
-func driftCoveredByWorkflowGreen(projDir, workflow, what, drifted string, stampFromRide bool) (bool, release.WorkflowCheckResult) {
+func driftCoveredByWorkflowGreen(projDir, workflow, what, drifted string, stampFromRide, checkOnly bool) (bool, release.WorkflowCheckResult) {
 	headOut, headErr := upgrade.RunCommandOutput(projDir, "git", "rev-parse", "HEAD")
 	headFull := strings.TrimSpace(headOut)
 	// A check that examines nothing must refuse, not pass. With no HEAD there
@@ -115,11 +115,18 @@ func driftCoveredByWorkflowGreen(projDir, workflow, what, drifted string, stampF
 	// the fast path instead of paying for this GitHub read again. Same
 	// two-line content and best-effort handling as the CI-green branch in
 	// checkPrerelease: a write failure only costs a re-check next time.
+	//
+	// Under `release check` the write is skipped and the line says so: check
+	// must leave no file under tmp/. The verdict (true) is unchanged either way.
 	latestMig, _ := migrate.LatestOnDiskMigrationVersion(projDir)
-	stampPath := fastTestStampPath(projDir)
-	_ = os.MkdirAll(filepath.Dir(stampPath), 0755)
-	_ = os.WriteFile(stampPath, []byte(headFull+"\n"+latestMig+"\n"), 0644)
-	fmt.Printf("    Local stamp refreshed to %s (source version %s)\n", headShort, latestMig)
+	if checkOnly {
+		fmt.Println("    Local stamp not written (release check)")
+	} else {
+		stampPath := fastTestStampPath(projDir)
+		_ = os.MkdirAll(filepath.Dir(stampPath), 0755)
+		_ = os.WriteFile(stampPath, []byte(headFull+"\n"+latestMig+"\n"), 0644)
+		fmt.Printf("    Local stamp refreshed to %s (source version %s)\n", headShort, latestMig)
+	}
 	return true, result
 }
 
@@ -155,8 +162,8 @@ func printDriftEitherOrRefusal(ciResult release.WorkflowCheckResult) {
 // driftCoveredByCIGreen is the entry point for the two file-drift refusals:
 // new-migrations and test-expected drift. Their question is "was this tree's
 // suite exercised", and the Fast Tests runner workflow answers it.
-func driftCoveredByCIGreen(projDir, what, drifted string, stampFromRide bool) (bool, release.WorkflowCheckResult) {
-	return driftCoveredByWorkflowGreen(projDir, release.WorkflowFastTests, what, drifted, stampFromRide)
+func driftCoveredByCIGreen(projDir, what, drifted string, stampFromRide, checkOnly bool) (bool, release.WorkflowCheckResult) {
+	return driftCoveredByWorkflowGreen(projDir, release.WorkflowFastTests, what, drifted, stampFromRide, checkOnly)
 }
 
 // staleTemplateCoveredByFastTestsGreen is the entry point for the STALE-TEMPLATE
@@ -189,6 +196,6 @@ func driftCoveredByCIGreen(projDir, what, drifted string, stampFromRide bool) (b
 //
 // So this asks fast-tests.yaml, whose green at HEAD is direct execution evidence
 // of the property the branch guards.
-func staleTemplateCoveredByFastTestsGreen(projDir, what, drifted string, stampFromRide bool) (bool, release.WorkflowCheckResult) {
-	return driftCoveredByWorkflowGreen(projDir, release.WorkflowFastTests, what, drifted, stampFromRide)
+func staleTemplateCoveredByFastTestsGreen(projDir, what, drifted string, stampFromRide, checkOnly bool) (bool, release.WorkflowCheckResult) {
+	return driftCoveredByWorkflowGreen(projDir, release.WorkflowFastTests, what, drifted, stampFromRide, checkOnly)
 }

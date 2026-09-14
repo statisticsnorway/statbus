@@ -1,6 +1,6 @@
 // Package releasecmd owns the `sb release ...` command family: the release
 // engine's operator surface (prerelease, stable, list, check, covered,
-// covered-subset, verify-tag, verify-images).
+// covered-subset, verify-tag, verify-images, verify-artifacts).
 //
 // It is composed onto the root command explicitly by main.go through
 // cmd.Mount; this package has NO init() and registers nothing as a side
@@ -39,11 +39,12 @@ func Command() *cobra.Command {
 	releaseCmd.AddCommand(releaseVerifyTagCmd)
 	releaseCmd.AddCommand(releaseVerifyImagesCmd)
 
-	releaseCheckCmd.Flags().StringVar(&releaseCheckTag, "tag", "", "specific tag to check (mutually exclusive with --channel)")
-	releaseCheckCmd.Flags().StringVar(&releaseCheckChannel, "channel", "", "channel to check: stable | prerelease | edge (mutually exclusive with --tag)")
+	releaseVerifyArtifactsCmd.Flags().StringVar(&releaseVerifyArtifactsTag, "tag", "", "specific tag to check (mutually exclusive with --channel)")
+	releaseVerifyArtifactsCmd.Flags().StringVar(&releaseVerifyArtifactsChannel, "channel", "", "channel to check: stable | prerelease | edge (mutually exclusive with --tag)")
 	releaseCmd.AddCommand(releasePrereleaseCmd)
 	releaseCmd.AddCommand(releaseStableCmd)
 	releaseCmd.AddCommand(releaseListCmd)
 	releaseCmd.AddCommand(releaseCheckCmd)
+	releaseCmd.AddCommand(releaseVerifyArtifactsCmd)
 	return releaseCmd
 }

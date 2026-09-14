@@ -31,7 +31,15 @@ Subcommands:
 }
 
 // preflightChecks runs all pre-release validations. Returns true if all pass.
-func preflightChecks(projDir string) bool {
+//
+// checkOnly is `./sb release check` mode: the gates run exactly as they do for
+// prerelease (same order, same verdicts, same output), but every on-disk write
+// is skipped — no stamp file under tmp/, no last-preflight-result — so the check
+// is safe to run repeatedly by anyone, including the person who is NOT the one
+// cutting. Where a write is skipped the line says "(not written: release
+// check)". prerelease passes false and then tags on success (see
+// releasePrereleaseCmd); check passes true and tags nothing.
+func preflightChecks(projDir string, checkOnly bool) bool {
 	allPassed := true
 
 	// 1. Git working tree is clean (excluding explain/performance baselines which drift per environment)
@@ -208,12 +216,23 @@ func preflightChecks(projDir string) bool {
 			// by-construction at HEAD's max migration version. Write a
 			// fresh H1 two-line stamp so subsequent invocations
 			// short-circuit through the local-stamp fast path.
+			//
+			// Under `release check` the write is skipped and the line says so:
+			// check must leave no file under tmp/ (the ticket's done-when). The
+			// in-memory stampBytes still carries the CI-green evidence so the
+			// drift checks below run against this tree exactly as prerelease's do.
 			latestMig, _ := migrate.LatestOnDiskMigrationVersion(projDir)
-			fmt.Printf("  ✓ Fast tests passed in CI for %s (writing local stamp, source version %s)\n", headShort, latestMig)
+			if checkOnly {
+				fmt.Printf("  ✓ Fast tests passed in CI for %s (not written: release check)\n", headShort)
+			} else {
+				fmt.Printf("  ✓ Fast tests passed in CI for %s (writing local stamp, source version %s)\n", headShort, latestMig)
+			}
 			fmt.Printf("    Run: %s\n", pgRegressResult.RunURL)
-			_ = os.MkdirAll(filepath.Join(projDir, "tmp"), 0755) // best-effort; the WriteFile right after surfaces any real failure
 			stampContent := headFull + "\n" + latestMig + "\n"
-			_ = os.WriteFile(stampPath, []byte(stampContent), 0644) // best-effort local stamp; a write failure just means the fast path re-checks next time
+			if !checkOnly {
+				_ = os.MkdirAll(filepath.Join(projDir, "tmp"), 0755)    // best-effort; the WriteFile right after surfaces any real failure
+				_ = os.WriteFile(stampPath, []byte(stampContent), 0644) // best-effort local stamp; a write failure just means the fast path re-checks next time
+			}
 			stampBytes = []byte(stampContent)
 		case pgRegressResult.Status == release.WorkflowCheckPending,
 			pgRegressResult.Status == release.WorkflowCheckFailed:
@@ -277,7 +296,7 @@ func preflightChecks(projDir string) bool {
 			// branch printed a second ✓ for the same run (seen at rc.01).
 			if covered, ciResult := staleTemplateCoveredByFastTestsGreen(projDir, "latest migrations",
 				fmt.Sprintf("stamp's source-DB version %s is behind HEAD's on-disk max %s", stampVersion, latestOnDisk),
-				stampFromRide); !covered {
+				stampFromRide, checkOnly); !covered {
 				// STATBUS-288: the third drift-refusal site. Wired to the same
 				// MECHANISM as its siblings at :338 and :356 but deliberately to a
 				// DIFFERENT WORKFLOW — fast-tests, not pg_regress. A staleness
@@ -325,7 +344,7 @@ func preflightChecks(projDir string) bool {
 						shortMig = shortMig[:12]
 					}
 					fmt.Printf("  ✓ Fast tests cover latest migrations (stamp: %s, source version: %s, last migration: %s)\n", shortStamp, stampVersion, shortMig)
-				} else if covered, ciResult := driftCoveredByCIGreen(projDir, "test expected file drift", testExpectedDrift, stampFromRide); !covered {
+				} else if covered, ciResult := driftCoveredByCIGreen(projDir, "test expected file drift", testExpectedDrift, stampFromRide, checkOnly); !covered {
 					// Not covered by a green pg_regress at HEAD — see
 					// driftCoveredByCIGreen for the argument it makes when it
 					// IS green. Refusal below is unchanged except for the
@@ -343,7 +362,7 @@ func preflightChecks(projDir string) bool {
 					fmt.Println("    Fix: ./dev.sh migrate-and-test fast")
 					allPassed = false
 				}
-			} else if covered, ciResult := driftCoveredByCIGreen(projDir, "latest migrations", newMigrations, stampFromRide); !covered {
+			} else if covered, ciResult := driftCoveredByCIGreen(projDir, "latest migrations", newMigrations, stampFromRide, checkOnly); !covered {
 				// Not covered by a green pg_regress at HEAD — see
 				// driftCoveredByCIGreen for the argument it makes when it IS
 				// green. Refusal below is unchanged except for the STATBUS-277
@@ -600,12 +619,17 @@ func preflightChecks(projDir string) bool {
 	// facing signal; this file is the programmatic one). No echo banner —
 	// the per-gate ✗/Fix lines above plus cobra's `Error:` line on stderr
 	// already say "failed" once each. Stating it three times was noise.
-	resultPath := filepath.Join(projDir, "tmp", "last-preflight-result")
-	_ = os.MkdirAll(filepath.Dir(resultPath), 0755)
-	if allPassed {
-		_ = os.WriteFile(resultPath, []byte("PASS\n"), 0644)
-	} else {
-		_ = os.WriteFile(resultPath, []byte("FAIL\n"), 0644)
+	//
+	// Under `release check` this write is skipped too: check must leave no
+	// file under tmp/, and the exit code is the whole contract for a check.
+	if !checkOnly {
+		resultPath := filepath.Join(projDir, "tmp", "last-preflight-result")
+		_ = os.MkdirAll(filepath.Dir(resultPath), 0755)
+		if allPassed {
+			_ = os.WriteFile(resultPath, []byte("PASS\n"), 0644)
+		} else {
+			_ = os.WriteFile(resultPath, []byte("FAIL\n"), 0644)
+		}
 	}
 
 	return allPassed
@@ -1080,6 +1104,37 @@ func dedupeInt64Sorted(in []int64) []int64 {
 	return out
 }
 
+// releaseCheckCmd runs exactly the preflight `prerelease` runs, then stops.
+// It never tags, never pushes, and never writes a stamp file: it is the same
+// gate runner as prerelease with checkOnly=true, so what `check` prints is
+// what `prerelease` would decide, minus the tag. This lets the person who can
+// FIX a red gate run the gates without also being the person who cuts
+// (STATBUS-366 — the round-trips that motivated it are in the ticket's Why).
+var releaseCheckCmd = &cobra.Command{
+	Use:   "check",
+	Short: "Run the prerelease preflight gates; tag nothing, write nothing",
+	Long: `Run every prerelease preflight gate exactly as ` + "`./sb release prerelease`" + ` does,
+then stop: no tag is created, nothing is pushed, and no stamp file is written
+under tmp/. Exit 0 when every gate is green; exit 1 when any gate is red, with
+the same diagnosis prerelease would print.
+
+This is the step to run BEFORE asking the owner to cut: the coordinator or a
+worker can see and fix a red gate without also cutting the release.
+
+prerelease is ` + "`check`" + ` plus the tag: it runs this same preflight with
+checkOnly=false and then tags and pushes on success. One code path, so what
+check prints is what prerelease decides.`,
+	RunE: func(cmd *cobra.Command, args []string) error {
+		projDir := config.ProjectDir()
+
+		fmt.Println("Pre-flight checks:")
+		if !preflightChecks(projDir, true) {
+			return fmt.Errorf("pre-flight checks failed")
+		}
+		return nil
+	},
+}
+
 var releasePrereleaseCmd = &cobra.Command{
 	Use:   "prerelease",
 	Short: "Tag a new release candidate (vYYYY.MM.PATCH-rc.N)",
@@ -1116,7 +1171,7 @@ release stable then RIDES this gating rather than re-checking it — see
 		projDir := config.ProjectDir()
 
 		fmt.Println("Pre-flight checks:")
-		if !preflightChecks(projDir) {
+		if !preflightChecks(projDir, false) {
 			return fmt.Errorf("pre-flight checks failed")
 		}
 		if err := noSameKindTagAtHEAD(projDir, true); err != nil {
@@ -1939,7 +1994,7 @@ func checkRCArtifactGate(rcTag string) bool {
 			fmt.Println(f)
 		}
 		fmt.Println("    Fix: retry in ~5 minutes (eventual-consistency on GHCR/Releases),")
-		fmt.Println("         then if still missing, inspect: ./sb release check --tag " + rcTag)
+		fmt.Println("         then if still missing, inspect: ./sb release verify-artifacts --tag " + rcTag)
 		return false
 	case release.ReleaseWorkflowPending:
 		fmt.Printf("  ✗ RC %s release.yaml is still running\n", rcTag)
@@ -2005,24 +2060,29 @@ var releaseListCmd = &cobra.Command{
 	},
 }
 
-// Release check accepts either --tag (explicit tag to check) or
+// verify-artifacts accepts either --tag (explicit tag to check) or
 // --channel (resolve channel → latest tag, then check). Exactly one
 // must be set; neither defaults to --channel prerelease for
-// backward-compat with pre-rc.63 callers that used the bare `check`
-// form.
+// backward-compat with pre-rc.63 callers that used the bare form.
+//
+// NOTE on the name: this command used to be `release check`. STATBUS-366
+// reclaimed `check` for the pre-tag gate runner (run every prerelease gate,
+// tag nothing, write nothing). This command verifies that a tag's artifacts
+// are published, so it is now `release verify-artifacts` (sibling of
+// verify-tag / verify-images).
 var (
-	releaseCheckTag     string
-	releaseCheckChannel string
+	releaseVerifyArtifactsTag     string
+	releaseVerifyArtifactsChannel string
 )
 
-// releaseCheckCmd verifies that all release artifacts (GitHub assets including
+// releaseVerifyArtifactsCmd verifies that all release artifacts (GitHub assets including
 // seed, Docker images) exist for a given tag. Intended as a gate in
 // cloud.sh and in CI to avoid installing a release that is still being published.
 //
 // Exit 0: all checks passed.
 // Exit 1: one or more checks failed (with "Retry in ~5 minutes" guidance).
-var releaseCheckCmd = &cobra.Command{
-	Use:   "check",
+var releaseVerifyArtifactsCmd = &cobra.Command{
+	Use:   "verify-artifacts",
 	Short: "Verify release artifacts are fully published",
 	Long: `Check that all artifacts for a release are ready:
   - GitHub Release assets (binaries, checksums, manifest, seed)
@@ -2035,7 +2095,7 @@ Input forms:
 
 Exit 0 when all checks pass; exit 1 with retry advice when any check fails.`,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		if releaseCheckTag != "" && releaseCheckChannel != "" {
+		if releaseVerifyArtifactsTag != "" && releaseVerifyArtifactsChannel != "" {
 			return fmt.Errorf("--tag and --channel are mutually exclusive")
 		}
 
@@ -2047,11 +2107,11 @@ Exit 0 when all checks pass; exit 1 with retry advice when any check fails.`,
 		// no longer resolves at all, so the channel resolution below now refuses
 		// it by name instead of quietly returning green.)
 
-		tag := releaseCheckTag
+		tag := releaseVerifyArtifactsTag
 		if tag == "" {
 			// Resolve from channel (defaults to prerelease for
 			// backward-compat with pre-rc.63 callers).
-			channel := releaseCheckChannel
+			channel := releaseVerifyArtifactsChannel
 			if channel == "" {
 				channel = "prerelease"
 			}

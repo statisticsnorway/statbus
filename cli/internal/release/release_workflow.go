@@ -9,7 +9,7 @@ import (
 // releaseWorkflow is the GitHub Actions workflow file that publishes the
 // `gh release` assets (binaries, checksums, manifest, seed) on every tag
 // push. Its green/red state for a given tag IS the "are the release
-// artifacts published" signal that `./sb release check` reports against.
+// artifacts published" signal that `./sb release verify-artifacts` reports against.
 //
 // Distinct from images.yaml: that workflow's tag-push trigger was
 // dropped (master-push runs are authoritative for Docker artifacts).

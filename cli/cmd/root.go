@@ -295,18 +295,23 @@ var readOnlyCommandPaths = map[string]bool{
 	// the staleness guard hard-fails this command in the normal mid-rescue state
 	// (new binary in place, tree not yet checked out to match), which is exactly
 	// when install.sh calls it.
-	"sb repo-fetch":            true,
-	"sb dotenv get":            true,
-	"sb dotenv list":           true,
-	"sb config show":           true,
-	"sb release list":          true,
-	"sb release check":         true,
-	"sb release verify-tag":    true, // local repo + GitHub API only; no state mutation
-	"sb release verify-images": true, // GitHub API only; no state mutation
-	"sb upgrade list":          true,
-	"sb upgrade check":         true,
-	"sb ps":                    true,
-	"sb logs":                  true,
+	"sb repo-fetch":   true,
+	"sb dotenv get":   true,
+	"sb dotenv list":  true,
+	"sb config show":  true,
+	"sb release list": true,
+	// STATBUS-366: `release check` runs the prerelease preflight with checkOnly,
+	// so it writes nothing under tmp/ and never tags — read-only in the sense
+	// that matters (it may git fetch refs, like repo-fetch above, but never
+	// mutates the working tree or product state).
+	"sb release check":            true,
+	"sb release verify-tag":       true, // local repo + GitHub API only; no state mutation
+	"sb release verify-images":    true, // GitHub API only; no state mutation
+	"sb release verify-artifacts": true, // GitHub API only; no state mutation
+	"sb upgrade list":             true,
+	"sb upgrade check":            true,
+	"sb ps":                       true,
+	"sb logs":                     true,
 }
 
 func isMutatingCommand(c *cobra.Command) bool {

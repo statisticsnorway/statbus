@@ -42,7 +42,7 @@ cat >"$TMP/sb" <<'STUB'
 printf '%s\n' "$*" >>"$SB_LOG"
 case "$1 $2" in
   "--version ") echo "sb version test (commit local)" ;;
-  "release check") exit 0 ;;
+  "release verify-artifacts") exit 0 ;;
 esac
 STUB
 chmod +x "$TMP/sb"
@@ -166,7 +166,7 @@ assert_contains "$output" "METADATA READ FAILED" "status marks unreadable row"
 
 # Finding 3: preserve the retired standalone install/upgrade command contract.
 output=$(run_cloud install no --version vX 2>&1) || fail "pinned install should succeed: $output"
-assert_eq "release check --tag vX" "$(cat "$SB_LOG")" "install --version value reaches release check"
+assert_eq "release verify-artifacts --tag vX" "$(cat "$SB_LOG")" "install --version value reaches release verify-artifacts"
 assert_contains "$(cat "$SSH_LOG")" "bash -s -- --version vX" "install --version value reaches transport"
 
 for help_arg in help -h --help; do

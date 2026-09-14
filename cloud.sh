@@ -621,7 +621,7 @@ cmd_install_one() {
     if [ -n "$version" ]; then
         # Pinned: verify artifacts for the specific version before touching the server.
         echo "Checking release artifacts for $version are ready..."
-        if ! "$SCRIPT_DIR/sb" release check --tag "$version"; then
+        if ! "$SCRIPT_DIR/sb" release verify-artifacts --tag "$version"; then
             echo "--- Release artifacts for $version not ready. Retry later. ---"
             return 1
         fi
@@ -637,7 +637,7 @@ cmd_install_one() {
         # current latest RC instead of treating "prerelease" as a
         # literal tag.
         echo "Checking release artifacts for channel prerelease are ready..."
-        if ! "$SCRIPT_DIR/sb" release check --channel prerelease; then
+        if ! "$SCRIPT_DIR/sb" release verify-artifacts --channel prerelease; then
             echo "--- Release artifacts not ready. Retry in ~5 minutes. ---"
             return 1
         fi

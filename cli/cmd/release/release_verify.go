@@ -417,7 +417,7 @@ stable not at the latest RC's commit, modified migrations.
 
 Pure tag-shape validation (no GitHub API calls beyond signature
 verification). Artifact readiness — GitHub Release assets, ghcr
-manifests — is verified separately by ./sb release check <tag>.
+manifests — is verified separately by ./sb release verify-artifacts <tag>.
 
 Exit 0 on success, 1 with diagnostic on failure. No side effects.`,
 	Args: cobra.ExactArgs(1),
