@@ -172,7 +172,7 @@ curl -fsSL https://statbus.org/install.sh | bash
 
 #### Unattended install
 
-As the service account, create a file with **exactly these four keys**, the same
+As the service account, create a file with **these deployment answers and explicit trust choice**, the same
 questions asked by the interactive installer:
 
 ```dotenv
@@ -180,6 +180,7 @@ CADDY_DEPLOYMENT_MODE=standalone
 SITE_DOMAIN=statbus.nso.eu
 DEPLOYMENT_SLOT_NAME=StatBus
 DEPLOYMENT_SLOT_CODE=nso
+TRUST_GITHUB_USER=jhf
 ```
 
 | Key | Interactive prompt |
@@ -188,6 +189,7 @@ DEPLOYMENT_SLOT_CODE=nso
 | `SITE_DOMAIN` | Domain name |
 | `DEPLOYMENT_SLOT_NAME` | Display name |
 | `DEPLOYMENT_SLOT_CODE` | Deployment code (short, lowercase) |
+| `TRUST_GITHUB_USER` | Release signer to trust (GitHub username) |
 
 Keep this input outside `~/statbus`, which the installer clones itself. Protect
 it with mode `0600` and explicitly export its path before running the installer:
@@ -197,17 +199,31 @@ chmod 0600 "$HOME/install-input.env"
 export STATBUS_ENV_CONFIG="$HOME/install-input.env"
 # Optional: explicitly provide your existing user definitions for first install.
 export STATBUS_USERS_FILE="$HOME/initial-users.yml"
-curl -fsSL https://statbus.org/install.sh | bash -s -- --non-interactive --trust-github-user jhf
+# Optional: choose a release instead of latest stable.
+export STATBUS_INSTALL_VERSION='<release-tag>'
+curl -fsSL https://statbus.org/install.sh | bash -s -- --non-interactive
 ```
 
-For a candidate, append `--version <candidate-tag>` and use that candidate's
-`install.sh` file if the hosted script does not yet carry this feature. Relative
+For a candidate, set `STATBUS_INSTALL_VERSION=<candidate-tag>` (or use the
+compatible `--version <candidate-tag>` flag) and use that candidate's `install.sh`
+file if the hosted script does not yet carry this feature. Different explicit
+version answers refuse before downloads; matching values are accepted. Relative
 paths resolve from the invoking directory, before the script changes directory.
 No well-known home filename is searched. The shell passes these paths through;
 `./sb install` validates and imports them, so direct CLI installs have the same
 contract. A missing key names both the key and its prompt. Extra keys, duplicate
 keys, empty values and malformed declarations are refused. With no input path,
-a fresh `--non-interactive` install prints the complete key/prompt list.
+a fresh `--non-interactive` install prints a complete recipe with the input keys,
+recommended signer, environment variables and rerun instruction.
+
+`TRUST_GITHUB_USER=jhf` is explicit consent to trust the recommended signer
+(Jorgen H. Fjeld, https://github.com/jhf), not an automatic consequence of
+non-interactive mode. The installer fetches and persists the actual signing key
+through the existing trust step, never copies this input username into runtime
+`.env.config`. Interactive installation asks at that step and displays key
+fingerprints. The legacy `--trust-github-user` flag may supply the answer instead;
+if both file and flag provide it, they must agree. No separate trust environment
+variable is required. Version selection remains a bootstrap input, not a file key.
 
 `DEPLOYMENT_SLOT_PORT_OFFSET=1` is a fixed installer output, **not an input key**.
 Other tuning such as REST URLs, debug flags or a nondefault upgrade channel is
@@ -218,8 +234,19 @@ cd "$HOME/statbus"
 ./sb dotenv -f .env.config set UPGRADE_CHANNEL prerelease
 ./sb config generate
 ./sb restart all
-systemctl --user restart statbus-upgrade@statbus.service
 ```
+
+`sb restart all` (also `all_except_app`) safely stops an active upgrade daemon,
+waits for the application stack to be healthy, then starts the daemon with the new settings.
+The upgrade mutex remains held until the daemon reports database connection and
+LISTEN readiness. A failed or interrupted restart retains an explicit restart
+barrier. Fix the reported cause and retry the same `sb restart <profile>` command.
+`sb install` refuses that barrier before probing the database, and no operator
+`systemctl` command is needed.
+An upgrade/install marker causes refusal before any service disruption, including
+stale recovery markers: finish the operation or use `sb install` to recover.
+An intentionally inactive daemon stays inactive. `sb restart app` remains narrow.
+No systemd lifecycle command is required from the operator.
 
 Only first-time configuration creation requires the input file. Existing
 configuration belongs to the box: repair, rescue and internal upgrade fixups
