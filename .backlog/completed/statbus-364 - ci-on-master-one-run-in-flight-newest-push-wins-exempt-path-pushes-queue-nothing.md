@@ -2,10 +2,10 @@
 id: STATBUS-364
 title: >-
   CI on master: one run in flight, newest push wins, exempt-path pushes queue nothing; Fast Tests gets the same diff-since-green coverage as go-test
-status: In Progress
+status: Done
 assignee: []
 created_date: '2026-09-07 20:25'
-updated_date: '2026-09-07 20:25'
+updated_date: '2026-09-14 09:46'
 labels:
   - ci
   - release
@@ -59,3 +59,7 @@ the RC cut by ~50 minutes, twice.
 ## Not this ticket
 
 Making the suite itself faster than 10 min.
+
+## Status (2026-09-14 09:46): Done
+
+Landed `04cdaa312` + `f114a1461` (cherry-picked from humpback's scratch branch). Live proof on 2026-09-07: Fast Tests runs at `290b51f57` (21:06) and `f114a1461` (21:07) were cancelled by GitHub when newer pushes arrived; the tip run at `e897e69d2` completed green. Check 7's exempt-path ride was already on master (`938df6891`), pinned by `TestCheck7CoveragePath_NamesTheCoveringRun_STATBUS364`. actionlint clean. Adversarial review: coordinator diff read only (three workflow concurrency blocks and one test); accepted on the live cancellation evidence.

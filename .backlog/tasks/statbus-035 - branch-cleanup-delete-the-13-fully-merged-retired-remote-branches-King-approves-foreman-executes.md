@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-06-12 07:57'
-updated_date: '2026-09-07 19:41'
+updated_date: '2026-09-14 09:46'
 labels:
   - git-hygiene
   - not-install-upgrade
@@ -214,3 +214,7 @@ LOCAL-CLONE APPENDIX (2026-07-27, King ruling: 'keep for now'): the King's clone
 ## Status (2026-09-07 19:41): In Progress
 
 Code landed and Sol-accepted (`e5d392a22`). Waiting on: the batch RC ladder green (owner-gated), then R3 branch deletion.
+
+## Status (2026-09-14 09:46): In Progress
+
+rc.01 (`b6d810493`) was cut 2026-09-07 20:47 and carried this ticket, but the ladder stopped at step 1 (admission guard, STATBUS-365, not a finding against the candidate). rc.02 is cut from HEAD after the 365 fix; this ticket's remaining gate is that ladder.

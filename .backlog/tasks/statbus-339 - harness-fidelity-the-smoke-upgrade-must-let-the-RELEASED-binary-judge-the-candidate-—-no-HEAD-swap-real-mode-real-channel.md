@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-09-02 11:20'
-updated_date: '2026-09-07 19:41'
+updated_date: '2026-09-14 09:46'
 labels:
   - test-harness
   - release
@@ -181,3 +181,7 @@ King ratifies the fan design with N=3 (2026-09-02): the harness proves each of t
 ## Status (2026-09-07 19:41): In Progress
 
 Code landed and Sol-accepted (`e5d392a22`). Waiting on: the batch RC ladder green on a real RC tag (owner-gated).
+
+## Status (2026-09-14 09:46): In Progress
+
+rc.01 (`b6d810493`) was cut 2026-09-07 20:47 and carried this ticket, but the ladder stopped at step 1 (admission guard, STATBUS-365, not a finding against the candidate). rc.02 is cut from HEAD after the 365 fix; this ticket's remaining gate is that ladder.

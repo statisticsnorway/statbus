@@ -5,7 +5,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-09-07 21:03'
-updated_date: '2026-09-07 21:03'
+updated_date: '2026-09-14 09:46'
 labels:
   - ci
   - release
@@ -56,3 +56,11 @@ in the runner's context.
 Test Smoke for the next RC passes admission and prints
 `Admitted orchestrated paid run: ...`; the orchestrator's summary names the
 real outcome. Both observed in `gh run view` output, recorded here.
+
+## Status (2026-09-14 09:46): In Progress
+
+Fix landed `9ced4480f` (guppy). What is certain: admit.sh now prints gh exit code, HTTP status and stderr before refusing; the orchestrator verdict job only says SUPERSEDED when it observed a newer tag, otherwise FAILED at step N with the child URL and exits 1. Tests run the script against recorded parent JSON.
+
+What is not known: the actual cause of rc.01's `gh api` failure. The old script discarded the response; guppy verified GH_TOKEN injection and `actions: read` are correct on paper. Only a real run tells.
+
+Owner ruling 2026-09-14: skip the full adversarial review; the ladder is the test. Coordinator checked the one bypass risk: the two test seams (`STATBUS_ADMISSION_PARENT_JSON_FILE`, `STATBUS_ADMISSION_TEST_MODE`) are referenced only by admit.sh and the Go test, no workflow sets them. Header/body split verified by hand on a sample response. Done when rc.02's Test Smoke prints `Admitted orchestrated paid run`, or refuses with a printed reason that we then fix.

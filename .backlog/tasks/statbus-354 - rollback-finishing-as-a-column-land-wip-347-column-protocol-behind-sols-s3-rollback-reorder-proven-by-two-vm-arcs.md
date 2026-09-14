@@ -5,7 +5,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-09-04 10:26'
-updated_date: '2026-09-07 19:41'
+updated_date: '2026-09-14 09:46'
 labels:
   - upgrade
   - fail-fast
@@ -116,3 +116,7 @@ Still required for Done: named RC, both paid arcs green with logs inspected, own
 ## Status (2026-09-07 19:41): In Progress
 
 Code landed and Sol-accepted for the RC ladder (`6e421c2f0`, review `3a68093c7`). Waiting on: batch RC with both rollback-floor arcs green, then Norway install by the owner.
+
+## Status (2026-09-14 09:46): In Progress
+
+rc.01 (`b6d810493`) was cut 2026-09-07 20:47 and carried this ticket, but the ladder stopped at step 1 (admission guard, STATBUS-365, not a finding against the candidate). rc.02 is cut from HEAD after the 365 fix; this ticket's remaining gate is that ladder.
