@@ -5,7 +5,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-09-14 10:14'
-updated_date: '2026-09-14 10:14'
+updated_date: '2026-09-14 11:09'
 labels:
   - release
   - cli
@@ -44,3 +44,27 @@ output, the coordinator fixed, the owner ran again.
 no new tag and no new file under `tmp/`; at a red HEAD exits 1 with the same
 diagnosis `prerelease` would print. Adversarial review by a different
 session.
+
+## Ruling (owner, 2026-09-14 11:08): the word `check` means "can I cut"
+
+`release check` already exists: it verifies a CUT tag's artifacts are all
+published (binaries, images, workflow). That is a `verify-*` job and moves
+next to `verify-tag` and `verify-images`:
+
+- existing `release check` -> `release verify-artifacts`, same flags
+  (`--tag`, `--channel`), same output. No alias kept: an alias would leave
+  the old meaning reachable under the new word.
+- new `release check` = the pre-cut gate described above.
+
+Callers of the old name that must follow the rename (grep `release check`):
+`cloud.sh:624,640`, `cli/cmd/root.go:303` (the read-only allowlist),
+`cli/cmd/release/release.go:1942` (hint text),
+`cli/cmd/release/release_verify.go:420` (doc comment),
+`cli/internal/upgrade/github.go:233`, `cli/internal/release/release_workflow.go:12`
+(comments), `test/cloud-registry-test.sh:45,169`. The go-test.yaml comment
+"release checker" is fine as prose.
+
+Done-when adds: `./sb release verify-artifacts --tag v2026.09.1-rc.01`
+prints the same table the old `check` printed on 2026-09-14 10:53;
+`./cloud.sh` status/observe paths that call it still work (run
+`test/cloud-registry-test.sh`).
