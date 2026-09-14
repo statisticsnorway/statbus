@@ -2,7 +2,8 @@
 
 Status: **Historical finding, resolved on this branch after owner approval.**
 
-The follow-up implements home-level unattended inputs and flag forwarding.
+The final follow-up replaces the initial home-filename prototype with explicit
+STATBUS_ENV_CONFIG / STATBUS_USERS_FILE inputs and Go-owned strict validation.
 The line references and checks below describe the pre-fix investigation, not
 the current installer. Happy-upgrade retains the approved v2026.09.0 baseline
 exception until the first stable carrying the new seam.
