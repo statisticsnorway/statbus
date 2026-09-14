@@ -5,7 +5,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-09-14 10:14'
-updated_date: '2026-09-14 10:14'
+updated_date: '2026-09-14 10:44'
 labels:
   - ci
   - dx
@@ -31,20 +31,42 @@ The image is `FROM busybox` carrying `seed.pg_dump` and `seed.json`. The
 content has no architecture. It is only ever `docker create` + `docker cp`,
 never run.
 
-## Fix (pick one, prefer the first)
+## Ruling (owner, 2026-09-14 10:43): data-only image, one build, multi-arch manifest
 
-- Pull-side pin: `sb db seed fetch` passes `--platform linux/amd64` on
-  create/pull, since the image is data. One line in `cli/cmd/seed.go`.
-- Or build-side: `platforms: linux/amd64,linux/arm64` on the seed job.
-  Builds the same bytes twice; only worth it if `docker create` with a
-  foreign platform proves awkward.
+Correction to the ground truth above: `seed.go:184` already pins
+`docker create --platform linux/amd64` with a correct comment; the
+`docker pull` at `seed.go:124` before it has no pin, so on arm64 the pull
+fails and `create` is never reached. That one-line gap is what arm64
+developers hit.
 
-Either way: the fetch failure message must distinguish "manifest unknown"
-(not built yet) from any other error, so the note in `dev.sh` and
-`install.go` stops claiming the image does not exist when it does.
+Ruled design:
+
+1. `postgres/Dockerfile` seed stage becomes `FROM scratch`, copying only
+   `/seed.pg_dump` and `/seed.json`. No busybox, no binary, no
+   architecture-specific byte in the image. Keep the `LABEL` description;
+   the `CMD` usage text goes (nothing can execute from scratch), so the
+   `doc`/`sb db seed` help must carry the "not runnable, use fetch" line.
+2. `images.yaml` seed job builds ONCE (`platforms: linux/amd64`, as today),
+   then publishes a multi-arch manifest referencing that single digest for
+   both `linux/amd64` and `linux/arm64` via `docker buildx imagetools
+   create` (the tree already uses it for tag aliasing). No second replay.
+3. `seed.go`: the `--platform` pins on pull and create are removed; the
+   manifest resolves on every platform. The fetch-failure message
+   distinguishes "manifest unknown" (not built yet) from any other error.
+
+Why not busybox multi-arch: two replays for identical payload. Why not the
+pin alone: it makes arm64 a special case in code for an artifact that has
+no platform.
 
 ## Done when
 
-`./dev.sh build-sb` on an arm64 Mac at a commit whose Images run is green
-restores the seed (create-db logs one pg_restore, not 397 migrations). A
-fetch at an unbuilt commit still prints the not-built note.
+- `docker manifest inspect ghcr.io/statisticsnorway/statbus-seed:<short>`
+  at a post-fix commit lists both amd64 and arm64 pointing at ONE image
+  digest, and `docker image inspect` of it shows no layers beyond the two
+  files.
+- `./dev.sh build-sb` on an arm64 Mac at that commit restores the seed
+  (create-db logs one pg_restore, not a full replay), with no `--platform`
+  anywhere in `cli/cmd/seed.go`.
+- A fetch at an unbuilt commit prints the not-built note; a fetch that
+  fails for another reason prints that reason.
+- Adversarial review by a different session. After the batch RC.
