@@ -2,10 +2,10 @@
 id: STATBUS-367
 title: >-
   statbus-seed image is amd64-only: arm64 developers never get the seed cache and are told the image does not exist
-status: To Do
+status: In Progress
 assignee: []
 created_date: '2026-09-14 10:14'
-updated_date: '2026-09-14 10:44'
+updated_date: '2026-09-14 13:47'
 labels:
   - ci
   - dx
@@ -70,3 +70,25 @@ no platform.
 - A fetch at an unbuilt commit prints the not-built note; a fetch that
   fails for another reason prints that reason.
 - Adversarial review by a different session. After the batch RC.
+
+## Built and accepted, held in scratch until rc.05 is cut (2026-09-14 13:46)
+
+Scratch `$JCODE_SCRATCH_DIR/statbus-367`, branch `statbus-367`, commits
+`9c34ebea4` (FROM scratch seed stage, two files, LABEL kept, CMD gone; pins
+removed from seed.go; manifest-unknown vs other error distinguished; help
+carries the "not runnable, use fetch" line), `bfbf037e8`, `2fe06f637`
+(images.yaml: build step `id: seed-build`, `provenance: false`; publish
+step builds the OCI index from `steps.seed-build.outputs.digest` with
+amd64 and arm64 entries at that one digest and PUTs it to ghcr with the
+token mint pattern from ops/release/image-cleanup.yaml).
+
+Finding on the way (duckling): `docker buildx imagetools create` de-
+duplicates sources by digest (`util/imagetools/create.go addDesc`), so it
+cannot express one digest under two platforms; verified against a local
+registry:2. Hence the raw index push. Local proof: the index lists both
+platforms at one digest and `docker create` resolves it on arm64.
+
+Luna (pawprint) round 1 REJECT (digest taken by inspecting the tag), round
+2 ACCEPT: `tmp/STATBUS-368-367-review.md`. Only a real Images run proves
+the ghcr publish and the arm64 `build-sb` single pg_restore; that is the
+first master push after landing.
