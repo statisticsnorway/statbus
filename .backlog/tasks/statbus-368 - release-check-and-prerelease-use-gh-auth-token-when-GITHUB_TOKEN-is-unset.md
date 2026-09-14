@@ -2,10 +2,10 @@
 id: STATBUS-368
 title: >-
   release check / prerelease: use `gh auth token` when GITHUB_TOKEN is unset, and say which identity the gate is reading GitHub as
-status: To Do
+status: In Progress
 assignee: []
 created_date: '2026-09-14 11:41'
-updated_date: '2026-09-14 11:41'
+updated_date: '2026-09-14 13:38'
 labels:
   - release
   - cli
@@ -40,3 +40,17 @@ after ~20 minutes and the gate reported all three workflow checks as
 
 `./sb release check` on a machine with only `gh auth login` reports
 "via gh auth" and stays green through 100 consecutive runs (no 403).
+
+## Built and accepted, held in scratch until rc.05 is cut (2026-09-14 13:37)
+
+Scratch `$JCODE_SCRATCH_DIR/statbus-368`, branch `statbus-368`, commits
+`f6d4ae2f7` (one `GitHubAuth()` helper, GITHUB_TOKEN -> `gh auth token` ->
+anonymous; preflight prints the mode once; anonymous 403 says `gh auth
+login`) and `1fe04e1a9` (every git ls-remote/fetch of GitHub in the release
+code carries the resolved token via STATBUS-341's GIT_CONFIG_* extraheader
+env; anonymous inherits the env byte-for-byte; stub-git test proves env not
+argv). Luna (pawprint) round 1 REJECT (git reads bypassed the helper), round
+2 ACCEPT: `tmp/STATBUS-368-367-review.md`. `upgrade.gitFetchEnv()` stays
+env-only on purpose: boxes have no `gh`.
+
+Done-when's 100-run test is the coordinator's poller on the next cut.
