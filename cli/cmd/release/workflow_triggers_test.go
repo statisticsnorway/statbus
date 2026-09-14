@@ -415,9 +415,14 @@ func TestSupersededVerdictRunsLastAndAsksForItself_STATBUS246(t *testing.T) {
 		t.Fatalf("parse %s: %v", rel, err)
 	}
 
-	verdict, ok := doc.Jobs["superseded"]
+	// STATBUS-365 renamed the job from `superseded` to `fleet-verdict`: it now
+	// states BOTH outcomes (superseded, or failed at step N) and only says
+	// SUPERSEDED when it observed a newer tag itself. The three structural
+	// properties below are unchanged and still pinned.
+	const verdictJob = "fleet-verdict"
+	verdict, ok := doc.Jobs[verdictJob]
 	if !ok {
-		t.Fatal("the orchestrator must carry a `superseded` job — the third verdict is named, not approximated (STATBUS-246 AC#4)")
+		t.Fatalf("the orchestrator must carry a %q job — the verdict is named, not approximated (STATBUS-246 AC#4, STATBUS-365)", verdictJob)
 	}
 
 	// 1. RUNS LAST: every other job that can precede it must be in needs, or a
@@ -427,7 +432,7 @@ func TestSupersededVerdictRunsLastAndAsksForItself_STATBUS246(t *testing.T) {
 		needed[n] = true
 	}
 	for name := range doc.Jobs {
-		if name == "superseded" || name == "coverage-question-health" {
+		if name == verdictJob || name == "coverage-question-health" {
 			continue
 		}
 		if !needed[name] {
