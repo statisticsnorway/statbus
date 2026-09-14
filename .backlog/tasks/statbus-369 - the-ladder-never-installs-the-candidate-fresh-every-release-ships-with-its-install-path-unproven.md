@@ -5,7 +5,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-09-14 12:36'
-updated_date: '2026-09-14 12:38'
+updated_date: '2026-09-14 13:04'
 labels:
   - release
   - install
@@ -101,3 +101,33 @@ form.
 
 Remaining in this ticket: step 2 (0-happy-install installs the candidate,
 wyvern, in flight), steps 3-4, review, rc.05.
+
+## Product gap and rulings (2026-09-14 12:53-13:03)
+
+Rebuilding the cell on install.sh's real fresh path hit a product gap
+(tigress, stop-and-report): `install.sh:497-500` deletes a non-git
+`~/statbus` before cloning, so nothing can be pre-placed; a pre-clone makes
+line 580 take the RESCUE branch; `--non-interactive` is rejected. The fresh
+path could only ever be driven by a human at the four prompts. That is why
+the harness hand-rolled its own install in May.
+
+Owner rulings, in order asked:
+1. Unattended seam = ONE env var `STATBUS_ENV_CONFIG=<path>`, read by
+   install.sh, passed through to `./sb install`; `--non-interactive` passes
+   through.
+2. Actionable fail-fast: the file must contain exactly the keys the
+   interactive prompts ask, all of them, nothing extra; missing/extra keys
+   named with the prompt text; `--non-interactive` without the var lists the
+   required keys. One table feeds prompts and validation; a test asserts they
+   are the same set.
+3. Refusal applies only when a fresh `.env.config` would be created;
+   existing configs are never questioned (recovery/fixup unaffected).
+4. Exact prompt keys only (mode, domain, display name, slot code);
+   `DEPLOYMENT_SLOT_PORT_OFFSET` stays fixed output. Defaults are the NSO's
+   sensible answers and are not asked. Channel, role, URLs, debug are set
+   after install via the operator path (edit, `config generate`, restart);
+   the harness does the same, as a second labelled phase.
+
+For this candidate `0-happy-upgrade`'s baseline hop stays hand-rolled
+(v2026.09.0 has no seam); it switches to install.sh from the first stable
+carrying the seam. Documented in the scenario header.
