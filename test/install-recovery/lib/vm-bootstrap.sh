@@ -1350,24 +1350,36 @@ SCRIPT
 #
 # The upgrade-arc harness (STATBUS-071) needs the baseline A = base_sha EXACTLY:
 # the defect branch B is committed off base_sha, so the box must start AT base_sha
-# for A→B to be a clean single-migration forward. install_statbus_in_vm cannot do
-# this — its empty-version path installs master HEAD (drifts between fire and
-# install) and its tag path downloads a release binary (no release is post-086,
-# which the register/schedule arc requires). This helper is install.sh --channel
-# edge pinned to <sha>: blobless full clone → checkout <sha> → toolchain-free
-# binary procurement of statbus-sb:<short> (mirrors sbimage.ProcureShort:
-# docker pull → create → cp /sb → rm → chmod) → ./sb install. The per-commit sb
-# image was built by the master-push images.yaml run for <short> (the arc's
-# image-wait gates on it).
+# for A→B to be a clean single-migration forward. The two-argument arc mode
+# uses a blobless full clone → checkout <sha> → published statbus-sb:<short>
+# extraction → ./sb install. It does not invoke install.sh. The arc's image-wait
+# gates on the per-commit image, and no source-build fallback is permitted.
 #
 # Relies on bootstrap_install_test_vm having already uploaded /tmp/env-config +
 # /tmp/users.yml and applied OS setup (docker present). Same EXIT CONTRACT as the
 # no-version install_statbus_in_vm: ./sb install rc=75 (rollback) → install exits
 # 0; callers decide success from the upgrade/install row state, not the exit code.
+# Optional third argument: release tag resolving to sha. This mode runs the
+# checked-out candidate's install.sh --version after the SAME config placement.
+# install.sh --commit is also toolchain-free, but extracts the image binary and
+# skips the release asset, so it cannot substitute for this tagged-install proof.
 install_statbus_at_sha() {
     local vm_name="$1"
     local sha="$2"
     local short="${sha:0:8}"
+    local release_tag="${3:-}"
+    local install_command='STATBUS_MIN_DISK_GB=5 ./sb install --non-interactive --trust-github-user jhf'
+    if [ -n "$release_tag" ]; then
+        # STATBUS-369: a tagged fresh-install proof uses the candidate's REAL
+        # install.sh and sb-linux-<arch> release asset, not the image's /sb.
+        # Refuse a mismatched tag before any VM interaction.
+        if [[ ! "$release_tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-rc\.[0-9]+)?$ ]] ||
+            [ "$(git -C "$HARNESS_ROOT" rev-parse "${release_tag}^{commit}")" != "$sha" ]; then
+            echo "ERROR: release tag '$release_tag' must identify commit '$sha'" >&2
+            return 1
+        fi
+        install_command="STATBUS_MIN_DISK_GB=5 bash ./install.sh --version $release_tag --trust-github-user jhf"
+    fi
     _check_name_safety "$vm_name" || return 1
     [ -n "$sha" ] || { echo "ERROR: install_statbus_at_sha requires a commit SHA" >&2; return 1; }
 
@@ -1397,6 +1409,9 @@ cd ~/statbus
 # belt-and-suspenders net (the blobless clone already has the full commit graph).
 git fetch --filter=blob:none origin ${sha} 2>/dev/null || true
 git checkout -q ${sha}
+# A tagged proof leaves binary procurement to the candidate's install.sh.
+# The existing two-argument arc path keeps its published-image procurement.
+if [ -z "${release_tag}" ]; then
 # Toolchain-free binary procurement for A (mirrors install.sh edge /
 # sbimage.ProcureShort): pull the per-commit sb image, copy /sb out.
 docker pull ghcr.io/statisticsnorway/statbus-sb:${short}
@@ -1404,10 +1419,11 @@ cid=\$(docker create ghcr.io/statisticsnorway/statbus-sb:${short})
 docker cp "\$cid":/sb ./sb
 docker rm "\$cid"
 chmod +x ./sb
+fi
 # Pre-place config: ./sb install needs .env.config + .users.yml.
 cp /tmp/env-config .env.config || { echo "harness: cannot copy /tmp/env-config as $(id -un): $(ls -l /tmp/env-config 2>&1)"; exit 70; }
 cp /tmp/users.yml .users.yml || { echo "harness: cannot copy /tmp/users.yml as $(id -un): $(ls -l /tmp/users.yml 2>&1)"; exit 70; }
-STATBUS_MIN_DISK_GB=5 ./sb install --non-interactive --trust-github-user jhf
+${install_command}
 SCRIPT
 
     _wait_for_ssh "$ip" 30

@@ -61,7 +61,7 @@ Every entry leads with its **plain goal** — read it as **die HERE → the oper
 
 | Scenario | What it proves | Grounding |
 |---|---|---|
-| `0-happy-install` | A fresh install just works — the harness baseline. | No wedge; harness skeleton |
+| `0-happy-install` | A fresh VM installs the candidate via its real `install.sh`, tagged binary asset and published commit images. Binary version, newest `public.upgrade` row and health must match the candidate. | No wedge; `install-works` (STATBUS-359), release-ladder rung 4 |
 | `0-happy-upgrade` | A normal unattended upgrade (v2026.05.2 → HEAD via the upgrade service) completes, data intact, with no watchdog or unexpected restart firing. | Supervised unit notify path (READY=1 / WATCHDOG=1) the inline scenarios miss; load-bearing: state=`completed`, NRestarts delta ≤ 2 |
 
 ### 1-boot — pre-READY / startup
