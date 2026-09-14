@@ -1434,7 +1434,13 @@ DEPLOYMENT_SLOT_CODE=test
 TRUST_GITHUB_USER=jhf
 CONFIG
 )
-[ "\$(umask)" = "0022" ] || [ "\$(umask)" = "022" ] || { echo "harness: umask is \$(umask), expected 022 before install.sh (STATBUS-369)"; exit 70; }
+# The product's checkout must stay world-readable (the postgres container reads
+# postgres/*.conf through a bind mount as a different uid). Ubuntu's default for
+# a user is 0002, a hardened root shell 0022; both keep o+r. Refuse anything
+# that strips other-read (o+r is bit 4 of the last octal digit).
+case "\$(umask)" in
+    *[4567]) echo "harness: umask \$(umask) strips other-read; the product checkout would be unreadable to the postgres container (STATBUS-369)"; exit 70 ;;
+esac
 export STATBUS_ENV_CONFIG="\$HOME/install-input.env"
 export STATBUS_USERS_FILE=/tmp/users.yml
 export STATBUS_INSTALL_VERSION=${release_tag}
