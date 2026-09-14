@@ -811,7 +811,7 @@ ENVCONFIG
             printf 'GITHUB_TOKEN=%s\n' "$GITHUB_TOKEN" >> "$env_config_file"
         fi \
         && scp -O "${SSH_OPTS[@]}" "$env_config_file" root@"$ip":/tmp/env-config \
-        && ssh "${SSH_OPTS[@]}" root@"$ip" 'chmod 0600 /tmp/env-config'
+        && ssh "${SSH_OPTS[@]}" root@"$ip" 'chmod 0600 /tmp/env-config && chown statbus:statbus /tmp/env-config'
     } || transfer_rc=$?
     rm -f "$env_config_file" "$env_config_file.bak"
     [ "$transfer_rc" -eq 0 ] || return "$transfer_rc"
@@ -1292,8 +1292,12 @@ if [ ! -d ~/statbus/.git ]; then
 fi
 mv ~/sb.tmp ~/statbus/sb
 cd ~/statbus
-cp /tmp/env-config .env.config 2>/dev/null || true
-cp /tmp/users.yml .users.yml 2>/dev/null || true
+# STATBUS-369: these two copies are the ONLY way the box gets its config. They
+# used to be `2>/dev/null || true`, which hid a permission failure (root:root
+# 0600 upload, copied as statbus) for three RCs and made the released binary
+# report "fresh, no .env.config". A missing config must fail here, by name.
+cp /tmp/env-config .env.config || { echo "harness: cannot copy /tmp/env-config to ~/statbus/.env.config as $(id -un): $(ls -l /tmp/env-config 2>&1)"; exit 70; }
+cp /tmp/users.yml .users.yml || { echo "harness: cannot copy /tmp/users.yml as $(id -un): $(ls -l /tmp/users.yml 2>&1)"; exit 70; }
 STATBUS_MIN_DISK_GB=5 ./sb install --non-interactive --trust-github-user jhf $extra_args
 SCRIPT
         # Runner-side repo staging (STATBUS-345 night run): build the baseline

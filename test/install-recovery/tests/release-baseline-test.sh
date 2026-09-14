@@ -49,10 +49,18 @@ grep -Fq 'env_config_file=$(umask 077; mktemp)' "$BOOTSTRAP" || {
     echo "FAIL: vm env-config must be created under umask 077" >&2
     exit 1
 }
-grep -Fq "'chmod 0600 /tmp/env-config'" "$BOOTSTRAP" || {
-    echo "FAIL: uploaded /tmp/env-config must remain mode 0600" >&2
+# STATBUS-341 asked for 0600 on the token-bearing file; STATBUS-369 found that
+# a root:root 0600 file is unreadable by the statbus user that copies it, and
+# the copy failed silently for three RCs. Both must hold: 0600 AND owned by
+# the reader, in the same remote command so neither can land without the other.
+grep -Fq "'chmod 0600 /tmp/env-config && chown statbus:statbus /tmp/env-config'" "$BOOTSTRAP" || {
+    echo "FAIL: uploaded /tmp/env-config must be mode 0600 AND chowned to statbus in one command (STATBUS-341 + STATBUS-369)" >&2
     exit 1
 }
+if grep -Fq 'cp /tmp/env-config .env.config 2>/dev/null || true' "$BOOTSTRAP"; then
+    echo "FAIL: the env-config copy into ~/statbus must fail loud, never '2>/dev/null || true' (STATBUS-369)" >&2
+    exit 1
+fi
 if grep -Fq "'chmod 0644 /tmp/env-config'" "$BOOTSTRAP"; then
     echo "FAIL: vm env-config permissions must never be widened to 0644" >&2
     exit 1
