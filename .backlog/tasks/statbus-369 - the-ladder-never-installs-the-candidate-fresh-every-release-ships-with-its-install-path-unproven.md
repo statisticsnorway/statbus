@@ -551,3 +551,27 @@ STATBUS-354/347 schema-floor consequences, three distinct root causes:
 Fix work in progress overnight. No blind assertion swaps; #1 is a genuine
 product bug to fix in the recovery path, #2/#3/#4 need the correct pre-column
 released baseline with a published image plus the intended abort exit code.
+
+## rc.11 root-cause refinement: two product regressions (2026-09-15 22:16 UTC)
+
+Deeper triage shows the restore-broke-reattempt red is NOT a stale harness
+assertion but a product regression, and it joins boot-migrate's false
+convergence as a second genuine defect, both from STATBUS-354 (66c9d61b6
+"reapply daemon floor after snapshot restore"):
+
+- boot-migrate-churn-alive-idle: flagless recovery false-converges the row to
+  'completed' when the box is genuinely behind (floor-bound broken migration
+  pending). (crocodile triage tmp/rc11-arc-red/handoff.md)
+- restore-broke-reattempt: the git-corrupt abort + refusal was lost.
+  ErrRollbackGitCorrupt ("ROLLBACK_FAILED_GIT_CORRUPT") is now dead code
+  (defined in failure_code.go, zero non-test usage); the "do NOT proceed" /
+  "the git tree is corrupt" refusal was removed in 66c9d61b6. The git-corrupt
+  case now falls into the generic degraded "ROLLBACK INCOMPLETE" path (exit 75,
+  failure_code=null) with no specific actionable refusal.
+- rollback-schema-floor-adoption/-failure: SCHEMA_FLOOR_BASE_SHA=56559fa7 has
+  no published statbus-sb image; the last pre-column release with a retained
+  image is v2026.09.0 (60cb46c2).
+
+All four are STATBUS-354 recovery-safety consequences, not ordinary harness
+drift. Fixes must restore the false-convergence guard and the git-corrupt
+refusal in the product, and point the floor arcs at a published pre-column base.
