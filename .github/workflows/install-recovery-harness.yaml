@@ -151,12 +151,6 @@ jobs:
           ref: ${{ github.sha }}
           fetch-depth: 0
 
-      - name: Test concurrent observation and failure-artifact contracts
-        run: |
-          bash test/install-recovery/tests/inject-stall-probe-test.sh
-          bash test/install-recovery/tests/concurrent-install-observation-test.sh
-          bash test/install-recovery/tests/recovery-artifact-path-test.sh
-
       - name: Revalidate orchestrated admission before paid side effects
         uses: ./.github/actions/orchestrator-fleet-admission
         with:
@@ -164,6 +158,12 @@ jobs:
           candidate-ref: ${{ github.ref_name }}
           candidate-sha: ${{ github.sha }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Test concurrent observation and failure-artifact contracts
+        run: |
+          bash test/install-recovery/tests/inject-stall-probe-test.sh
+          bash test/install-recovery/tests/concurrent-install-observation-test.sh
+          bash test/install-recovery/tests/recovery-artifact-path-test.sh
 
       - name: Set up Go
         # go-version-file pins to cli/go.mod's `go` directive — single
