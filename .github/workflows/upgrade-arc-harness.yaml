@@ -739,13 +739,18 @@ jobs:
               echo "B_BRANCH=${FAILING_B_BRANCH}"
               echo "C_BRANCH=${FAILING_C_BRANCH}"
               # STATBUS-354 adoption needs a snapshot whose schema predates the
-              # rollback finishing column. 56559fa7 is the exact parent of the
-              # first column migration (012ca22da). B remains the ordinary
-              # failing fixture off this candidate, so it carries current recovery
-              # code + migration 20260907120000 + the final synthetic V_fail.
+              # rollback finishing column migration 20260907120000 (added in
+              # f6d249b62). v2026.09.0 (60cb46c2) is the last released commit
+              # before that migration and the only pre-column baseline with a
+              # retained statbus-sb image (install_statbus_at_sha pulls
+              # statbus-sb:<short-sha>, so an arbitrary mid-series SHA like the
+              # earlier 56559fa7 is not built and fails "not found"). B remains
+              # the ordinary failing fixture off this candidate, so it carries
+              # current recovery code + migration 20260907120000 + the final
+              # synthetic V_fail.
               case "$SCENARIO" in
                 rollback-schema-floor-adoption|rollback-schema-floor-failure)
-                  echo "SCHEMA_FLOOR_BASE_SHA=56559fa7a6683b0d7e2f8727091ed5bb7eb678cf"
+                  echo "SCHEMA_FLOOR_BASE_SHA=60cb46c265b1cce708c7d203148ef9be6f7c2823"
                   ;;
               esac
             } >> "$GITHUB_ENV"
