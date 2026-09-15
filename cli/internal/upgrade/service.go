@@ -790,6 +790,35 @@ func acquireRecoveryFlock(projDir string, classified UpgradeFlag) (*FlagLock, Up
 	return &FlagLock{file: f}, held, nil
 }
 
+// removeRecoveredInstallFlag consumes only the install marker whose inode and
+// metadata recovery holds. In particular, a restart marker that replaced an
+// earlier classification must survive even when its flock is now free.
+func removeRecoveredInstallFlag(lock *FlagLock, held UpgradeFlag) (bool, error) {
+	if held.Trigger == "restart" {
+		fmt.Printf("%v\n", restartRefusal(held.Restart))
+		return false, nil
+	}
+	if held.Holder != HolderInstall {
+		return false, fmt.Errorf("refusing install cleanup for holder %q", held.Holder)
+	}
+	heldInfo, err := lock.file.Stat()
+	if err != nil {
+		return false, fmt.Errorf("stat held install marker: %w", err)
+	}
+	path := lock.file.Name()
+	pathInfo, err := os.Stat(path)
+	if err != nil {
+		return false, fmt.Errorf("stat install marker before cleanup: %w", err)
+	}
+	if !os.SameFile(heldInfo, pathInfo) {
+		return false, fmt.Errorf("install marker replaced before cleanup; refusing to unlink %s", path)
+	}
+	if err := os.Remove(path); err != nil {
+		return false, fmt.Errorf("remove recovered install marker: %w", err)
+	}
+	return true, nil
+}
+
 // acquireFlockVerbatim acquires the upgrade flag's flock WITHOUT changing what the
 // flag says (STATBUS-212). It reads the current marker, then delegates to
 // acquireRecoveryFlock, which opens without O_CREATE and revalidates the ID + phase
@@ -1606,29 +1635,29 @@ func (d *Service) recoverFromFlag(ctx context.Context) (err error) {
 		logRecover("%s", opening)
 	}
 
-	// Guard removed: DetectState's flock-try is now authoritative for
-	// distinguishing ghost flags from live upgrades. If we reach here, the
-	// caller (DetectState → StateCrashedUpgrade, or service startup) has
-	// already confirmed the flock is NOT held. A stored PID was unreliable:
-	// the service survives SHA upgrades, so the PID stayed alive after the
-	// upgrade completed — a ghost flag a PID check couldn't detect. The flock
-	// has no such hole; STATBUS-111 removed the PID entirely.
-
-	// Install-held flag from a crashed install. The flock was released by
-	// the kernel when the install's fd closed; the on-disk JSON is pure
-	// audit now. Install never writes public.upgrade, so there's no DB
-	// state to reconcile — delete the stale file so tmp/ stays tidy and
-	// inspecting the directory doesn't suggest something is in flight.
-	// (If install ever grows DB-write semantics, add reconciliation here.)
+	// Service startup can reach recovery while an inline install still owns
+	// the marker (install's config step restarts the service). A previous
+	// classification is not permission to unlink another actor's live mutex.
 	if holder == HolderInstall {
-		logRecover("A previous install exited without finishing cleanup; clearing its leftover marker and continuing. (detail: stale install flag, invoked_by=%s)", flag.InvokedBy)
-		// STATBUS-187 #10 (architect ruling, ticket comment #9):
-		// ACCEPT-BOUNDED, formal. A failed Remove here re-enters this SAME
-		// branch next boot by construction — every subsequent boot just
-		// re-logs and re-attempts this same removal; tmp/ stays untidy but
-		// nothing wedges, and no decision is taken on the stale artifact
-		// in between.
-		_ = os.Remove(d.flagPath())
+		if IsFlockHeld(d.projDir) {
+			logRecover("An install still holds the upgrade mutex; leaving its marker intact.")
+			return nil
+		}
+		// The early check only avoids restart churn for ordinary contention.
+		// Authorization comes from acquiring/revalidating the actual inode,
+		// not from the check: another holder may have arrived in between.
+		lock, held, lockErr := acquireRecoveryFlock(d.projDir, flag)
+		if lockErr != nil {
+			return fmt.Errorf("acquire install marker for recovery cleanup: %w", lockErr)
+		}
+		defer lock.Close()
+		removed, removeErr := removeRecoveredInstallFlag(lock, held)
+		if removeErr != nil {
+			return removeErr
+		}
+		if removed {
+			logRecover("A previous install exited without finishing cleanup; cleared its leftover marker. (detail: stale install flag, invoked_by=%s)", held.InvokedBy)
+		}
 		return nil
 	}
 
