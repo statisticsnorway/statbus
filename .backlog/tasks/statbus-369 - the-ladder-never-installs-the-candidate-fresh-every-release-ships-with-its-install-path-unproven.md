@@ -428,3 +428,15 @@ across the original run and retry, without rerunning the 12 passed scenarios.
 Parent upgrade-arc stage is in progress; no arc child was visible at the
 14:27:52 snapshot yet. Full ladder green and Norway handoff remain pending.
 Bounded watcher `4786353mw6` tracks dispatch and verdict.
+
+## Two arc failures under investigation (2026-09-15 14:51 UTC)
+
+Arc run `34981937538` has failed jobs `104426200815`
+(boot-migrate-churn-alive-idle) and `104426200884` (c-rollback-resurrection).
+After-commit-before-recorded-kill passed. Other arcs continue. Root delegated
+exact completed-job log triage to Palmtree, without main edits or cloud
+operations. No cause or product-clean claim yet, no blind retry or new cut.
+Bounded watcher `8812411r50` continues collecting outcomes.
+Evergreen separately ACCEPTED the partial-allocation scratch cleanup repair:
+15/15 mocked controls pass, original code fails four expected controls.
+That fix remains isolated, not landed into this active candidate.
