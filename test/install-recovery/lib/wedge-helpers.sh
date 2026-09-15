@@ -372,8 +372,8 @@ wait_for_inject_stall_ready() {
     local stable_since=""
     local elapsed=0
 
-    echo "  [wedge] waiting for inject.StallHere to be active on $vm_name"
-    echo "          release_file=$release_file, max_wait=${max_wait_s}s"
+    echo "  [wedge] waiting for inject.StallHere to be active on $vm_name" >&2
+    echo "          release_file=$release_file, max_wait=${max_wait_s}s" >&2
 
     while [ "$elapsed" -lt "$max_wait_s" ]; do
         # Bundle the three checks into one ssh round-trip so a flaky link
@@ -397,16 +397,16 @@ wait_for_inject_stall_ready() {
         if [ "$rel_present" = "1" ] && [ -n "$migrate_pid" ]; then
             if [ -z "$stable_since" ]; then
                 stable_since="$elapsed"
-                echo "  [wedge] migrate subprocess detected (PID=$migrate_pid) — confirming stall stability"
+                echo "  [wedge] migrate subprocess detected (PID=$migrate_pid) — confirming stall stability" >&2
             elif [ $((elapsed - stable_since)) -ge "$stable_s" ]; then
-                echo "  [wedge] stall confirmed: migrate PID=$migrate_pid alive for $((elapsed - stable_since))s with release file present"
+                echo "  [wedge] stall confirmed: migrate PID=$migrate_pid alive for $((elapsed - stable_since))s with release file present" >&2
                 # Echo the PID on stdout for the caller to capture.
                 echo "$migrate_pid"
                 return 0
             fi
         else
             if [ -n "$stable_since" ]; then
-                echo "  [wedge] stall stability broken (rel=$rel_present pid=$migrate_pid) — resetting"
+                echo "  [wedge] stall stability broken (rel=$rel_present pid=$migrate_pid) — resetting" >&2
             fi
             stable_since=""
         fi

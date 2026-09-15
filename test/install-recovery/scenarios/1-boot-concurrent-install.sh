@@ -149,8 +149,13 @@ echo "── waiting for first install's stall to engage ──"
 # `if [ -z "$MIGRATE_PID" ]` diagnostic can run, hiding WHY the stall never
 # engaged. The set +e/set -e fence lets the timeout fall through to the
 # diagnostic (install exit code + log tail) below.
+# The helper's progress goes to stderr and its ONE result line to stdout; on
+# timeout it prints nothing to stdout and returns 1. Never tee stderr into the
+# substitution: the lib's ERR trap also writes to stderr, and rc.07's run got
+# the trap text INTO MIGRATE_PID, skipped the diagnostic below, and failed on
+# the next check with the first install's log still on the box.
 set +e
-MIGRATE_PID=$(wait_for_inject_stall_ready "$VM_NAME" "$RELEASE_FILE" "$STALL_MAX_WAIT_S" | tee /dev/stderr | tail -1)
+MIGRATE_PID=$(wait_for_inject_stall_ready "$VM_NAME" "$RELEASE_FILE" "$STALL_MAX_WAIT_S")
 set -e
 if [ -z "$MIGRATE_PID" ]; then
     echo "✗ stall never activated within ${STALL_MAX_WAIT_S}s" >&2

@@ -130,7 +130,7 @@ _add_selected() {
 }
 
 # Parse flags (anything starting with --) and positional args.
-KEEP_VM=0
+KEEP_VM="${KEEP_VM:-0}"   # env or --keep-vm; both mean: leave a failed VM for inspection
 LIST_ONLY=0
 PRINT_SELECTED=0
 EXACT_MODE=0
