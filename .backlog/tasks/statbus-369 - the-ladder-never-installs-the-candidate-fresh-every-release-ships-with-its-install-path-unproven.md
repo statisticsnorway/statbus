@@ -7,7 +7,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-09-14 12:36'
-updated_date: '2026-09-15 13:10'
+updated_date: '2026-09-15 13:33'
 labels:
   - release
   - install
@@ -355,3 +355,33 @@ watcher `844501zbx2` is bounded and wakes on completion; no foreground wait.
 Current files: `tmp/rc10-target-sha.txt`, `tmp/rc10-release-check.log`,
 `tmp/rc10-cut.log`, `tmp/rc10-published-tag.txt`, `tmp/rc10-orch-id.txt`,
 `tmp/rc10-orchestrator.json`, and `tmp/rc10-ladder-watch.log`.
+
+## rc.10 recovery underway; provisioning failure (2026-09-15 13:33 UTC)
+
+Live checks confirmed both smoke cells (`34973357020`), hardening
+(`34973239251`), and dev canary passed. Recovery `34975170231` is running.
+Its advisory job `104401335484` failed before installation: Hetzner created
+server `166053156` but returned `server_error` during start. Workflow cleanup
+then deleted that exact server. Saved API job log:
+`tmp/rc10-advisory-failed.log`. This is an observed provisioning failure,
+not a failed product assertion or a reason by itself to cut another RC.
+
+Concurrent-install job `104401335537` is still running. Seedling is checking
+the safe same-candidate retry and orchestrator-continuation path, preserving
+admission/fleet ownership and the ongoing matrix. No retry dispatched yet,
+no code change, no new candidate. Plan artifact:
+`tmp/rc10-provisioning-retry-plan.md` (worker to write). Read-only watcher
+`1948400iv2` checks for the concurrent-install verdict without a foreground wait.
+
+Owner instruction (13:33 UTC): let the current run finish, inspect all of
+its failures, then restart through the coverage-aware path so passed
+scenarios are reused and missing proof runs. If another substantive defect
+is exposed, fix it before rerunning. Seedling verified the entrypoint:
+wait for BOTH recovery `34975170231` and parent `34973239226` to be terminal,
+review all failures, then run
+`gh run rerun 34973239226 --failed -R statisticsnorway/statbus`.
+The parent recomputes `covered-subset`, retaining successful scenario marks
+from the completed failed recovery run. Its fresh child revalidates admission
+and the fleet lease, then the parent can proceed to arcs. Do NOT rerun the
+child first: failed-only child rerun skips successful discovery/admission.
+No overlapping retry or new RC merely for this cloud-start failure.
