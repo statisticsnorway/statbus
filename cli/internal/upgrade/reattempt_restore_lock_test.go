@@ -2,6 +2,7 @@ package upgrade
 
 import (
 	"os"
+	"os/exec"
 	"strings"
 	"testing"
 )
@@ -35,6 +36,66 @@ func TestAcquireFreshFlock_RefusesExistingMarkerWithoutRewrite(t *testing.T) {
 	}
 	if _, statErr := os.Stat(flagFilePath(dir)); statErr != nil {
 		t.Fatalf("existing marker disappeared after refusal: %v", statErr)
+	}
+}
+
+// Regression proof for STATBUS-134/-136/-181, lost in 66c9d61b6. The old code
+// fails this test because ReattemptRestore has no non-mutating git preflight and
+// no refusal UPDATE carrying ROLLBACK_FAILED_GIT_CORRUPT. The ordering assertion
+// is the safety property: corruption is detected and recorded before marker
+// authorization, docker stop, snapshot restore, or daemon-floor replay.
+func TestReattemptRestore_GitCorruptRefusesBeforeDestructiveWorkAndRecordsFailureCode(t *testing.T) {
+	fix := newGitRepoFixture(t)
+	if out, err := exec.Command("git", "-C", fix.dir, "branch", "-D", fix.branchOnOld).CombinedOutput(); err != nil {
+		t.Fatalf("delete pre-upgrade branch: %v\n%s", err, out)
+	}
+
+	before, err := exec.Command("git", "-C", fix.dir, "rev-parse", "HEAD").Output()
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, _, err = resolveGitRestoreTarget(fix.dir, "")
+	if err == nil || !strings.Contains(err.Error(), "pre-upgrade resolves") {
+		t.Fatalf("git-corrupt preflight error = %v, want missing pre-upgrade refusal", err)
+	}
+	after, err := exec.Command("git", "-C", fix.dir, "rev-parse", "HEAD").Output()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(after) != string(before) {
+		t.Fatalf("non-mutating preflight changed HEAD: before=%q after=%q", before, after)
+	}
+
+	src := string(packageGoSources(t)["service.go"])
+	body := extractFuncBody(t, src, "func (d *Service) ReattemptRestore(")
+	preflight := strings.Index(body, `resolveGitRestoreTarget(d.projDir, "")`)
+	failureUpdate := strings.Index(body, "SET failure_code = $1")
+	authorizeMarker := strings.Index(body, "d.mutateHeldFlag")
+	serviceStop := strings.Index(body, `runCommand(d.projDir, "docker"`)
+	restore := strings.Index(body, "d.restoreAndFinalize(")
+	for name, idx := range map[string]int{
+		"git restore-target preflight":    preflight,
+		"git-corrupt failure-code update": failureUpdate,
+		"authorized marker mutation":      authorizeMarker,
+		"service stop":                    serviceStop,
+		"snapshot restore tail":           restore,
+	} {
+		if idx < 0 {
+			t.Fatalf("ReattemptRestore is missing %s", name)
+		}
+	}
+	if !(preflight < failureUpdate && failureUpdate < authorizeMarker && authorizeMarker < serviceStop && serviceStop < restore) {
+		t.Fatalf("git-corrupt refusal order drifted: preflight=%d update=%d marker=%d stop=%d restore=%d",
+			preflight, failureUpdate, authorizeMarker, serviceStop, restore)
+	}
+	for _, want := range []string{
+		"ErrRollbackGitCorrupt",
+		"the git tree is corrupt",
+		"do NOT proceed",
+	} {
+		if !strings.Contains(body, want) {
+			t.Errorf("git-corrupt refusal is missing %q", want)
+		}
 	}
 }
 

@@ -10758,6 +10758,29 @@ func (d *Service) ReattemptRestore(ctx context.Context, rowID int64) error {
 		displayName = renderDisplayName(CommitSHA(commitSHA.String), nil)
 	}
 
+	// STATBUS-134/-136/-181: prove the source restore target still exists before
+	// authorizing any destructive replay. STATBUS-354 requires keeping the target
+	// worktree checked out through snapshot restore + daemon-floor replay, so this
+	// is deliberately a non-mutating rev-parse preflight rather than the old early
+	// restoreGitState checkout. A missing pre-upgrade pin is an actionable safety
+	// refusal, not permission to stop services and discover the corruption after
+	// the database has already been rewound.
+	if _, _, err := resolveGitRestoreTarget(d.projDir, ""); err != nil {
+		refusal := fmt.Sprintf("%s: cannot resolve the source working tree before the database re-attempt (%v) — the git tree is corrupt; do NOT proceed. Manual recovery required: contact SSB support and involve your IT staff%s",
+			ErrRollbackGitCorrupt, err, contactSuffix(readAdministratorContact(d.projDir)))
+		if _, updateErr := tx.Exec(ctx, `
+			UPDATE public.upgrade
+			   SET failure_code = $1,
+			       error = $2
+			 WHERE id = $3`, ErrRollbackGitCorrupt, refusal, rowID); updateErr != nil {
+			return fmt.Errorf("ReattemptRestore: record git-corrupt refusal for row %d: %w", rowID, updateErr)
+		}
+		if commitErr := tx.Commit(ctx); commitErr != nil {
+			return fmt.Errorf("ReattemptRestore: commit git-corrupt refusal for row %d: %w", rowID, commitErr)
+		}
+		return errors.New(refusal)
+	}
+
 	// Authorization succeeded. Rewrite the held tentative marker in place to a
 	// service recovery marker carrying the durable row identity.
 	// PhaseNewSbUpgrading is intentional: a crash after this point has an actual
@@ -11082,21 +11105,17 @@ func restoreGitStateFn(projDir, previousVersion string, log func(format string, 
 	// Pre-validate: refuse to checkout a ref we can't resolve. If the
 	// requested ref is gone, fall back to the persistent `pre-upgrade`
 	// branch before erroring out.
-	expectedOut, err := runCommandOutput(projDir, "git", "rev-parse", "--verify", previousVersion+"^{commit}")
+	resolvedVersion, expectedSHA, err := resolveGitRestoreTarget(projDir, previousVersion)
 	if err != nil {
-		if previousVersion != "" {
-			log("    Requested revision %s is unavailable; using the pinned pre-upgrade revision", previousVersion)
-		}
-		fallbackOut, fallbackErr := runCommandOutput(projDir, "git", "rev-parse", "--verify", "pre-upgrade^{commit}")
-		if fallbackErr != nil {
-			return fmt.Errorf("neither %s nor pre-upgrade resolves: %v / %v", previousVersion, err, fallbackErr)
-		}
-		expectedOut = fallbackOut
-		previousVersion = "pre-upgrade"
+		return err
 	}
-	expectedSHA := strings.TrimSpace(expectedOut)
-	if expectedSHA == "" {
-		return fmt.Errorf("ref %s resolved to empty SHA", previousVersion)
+	if previousVersion != "" && resolvedVersion == "pre-upgrade" {
+		log("    Requested revision %s is unavailable; using the pinned pre-upgrade revision", previousVersion)
+	}
+	if resolvedVersion == "pre-upgrade" {
+		previousVersion = "pre-upgrade"
+	} else {
+		previousVersion = resolvedVersion
 	}
 
 	// Force checkout — discards any local changes. We're rolling back from
@@ -11121,6 +11140,28 @@ func restoreGitStateFn(projDir, previousVersion string, log func(format string, 
 	log("    Restoring the working tree to %s ... ok", previousVersion)
 	log("      HEAD: %s", ShortForDisplay(headSHA))
 	return nil
+}
+
+// resolveGitRestoreTarget proves which commit restoreGitStateFn would check
+// out without changing HEAD or the working tree. Recovery re-attempts use this
+// as their pre-destructive safety gate while retaining the target worktree for
+// STATBUS-354's snapshot restore and daemon-floor replay.
+func resolveGitRestoreTarget(projDir, previousVersion string) (resolvedVersion, expectedSHA string, err error) {
+	expectedOut, primaryErr := runCommandOutput(projDir, "git", "rev-parse", "--verify", previousVersion+"^{commit}")
+	resolvedVersion = previousVersion
+	if primaryErr != nil {
+		fallbackOut, fallbackErr := runCommandOutput(projDir, "git", "rev-parse", "--verify", "pre-upgrade^{commit}")
+		if fallbackErr != nil {
+			return "", "", fmt.Errorf("neither %s nor pre-upgrade resolves: %v / %v", previousVersion, primaryErr, fallbackErr)
+		}
+		expectedOut = fallbackOut
+		resolvedVersion = "pre-upgrade"
+	}
+	expectedSHA = strings.TrimSpace(expectedOut)
+	if expectedSHA == "" {
+		return "", "", fmt.Errorf("ref %s resolved to empty SHA", resolvedVersion)
+	}
+	return resolvedVersion, expectedSHA, nil
 }
 
 // replaceBinaryOnDisk swaps ./sb for the release binary matching `version`.

@@ -157,6 +157,12 @@ var rewindAudit = map[siteKey]rewindDisposition{
 		Class: classSupersededByTerminal, Count: 1,
 		Why: "Claim-window failure write: sets its own state+error, and clears scheduled_at deliberately.",
 	},
+	{"cli/internal/upgrade/service.go", "UPDATE", "error,failure_code"}: {
+		Class: classSuccessPathOnly, Count: 1,
+		Why: "The restore re-attempt's git-corrupt refusal is itself the terminal action for that invocation. " +
+			"It runs before replay authorization, service stop, snapshot restore, or daemon-floor replay, then returns. " +
+			"No database rewind can follow this write on the refusal path.",
+	},
 
 	// ── C. OUTSIDE THE WINDOW — written before the snapshot, so it contains them ──
 	{"cli/internal/upgrade/service.go", "UPDATE", "from_commit_version,started_at,state"}: {
