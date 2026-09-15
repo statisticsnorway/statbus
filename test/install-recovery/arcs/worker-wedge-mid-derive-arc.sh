@@ -240,6 +240,7 @@ chmod 0755 /tmp/arc-279-hold-lock-inner.sh
 setsid nohup bash /tmp/arc-279-hold-lock-inner.sh "$release_file" > "$log_file" 2>&1 < /dev/null &
 echo holder-started
 HOLDER
+harness_register_log arc-279-hold-lock "$HOLD_LOG"
 
 # Confirm the lock is actually HELD before triggering work — otherwise the
 # trigger could race ahead of the holder and the derive would simply complete.

@@ -173,6 +173,7 @@ _start_install_bg() {
         rm -f /tmp/$session.exit /tmp/$session.log
         sudo -u statbus tmux new-session -d -s $session 'bash -lc \"cd ~/statbus && $env_prefix STATBUS_MIN_DISK_GB=5 ./sb install --non-interactive --trust-github-user jhf > /tmp/$session.log 2>&1; echo \\\$? > /tmp/$session.exit\"'
     "
+    harness_register_log "$session" "/tmp/$session.log"
 }
 
 # pg_terminate_backend the parked migrate backend (application_name
@@ -300,6 +301,7 @@ echo ""
 echo "── recovery: ./sb install (clean re-apply attempt, NO inject) ──"
 _ensure_daemon_stopped "the recovery dispatch"
 REC_RC=0
+harness_register_log midtx-recovery /tmp/midtx-recovery.log
 VM_EXEC bash -c "cd ~/statbus && STATBUS_MIN_DISK_GB=5 timeout ${INSTALL_BUDGET_S} ./sb install --non-interactive --trust-github-user jhf > /tmp/midtx-recovery.log 2>&1" || REC_RC=$?
 VM_EXEC bash -c "cat /tmp/midtx-recovery.log" || true
 echo "  recovery ./sb install exit: $REC_RC"

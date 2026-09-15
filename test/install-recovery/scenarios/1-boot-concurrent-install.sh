@@ -136,6 +136,7 @@ ssh "${SSH_OPTS[@]}" statbus@"$ip" "
     rm -f /tmp/install-c10-first.exit /tmp/install-c10-first.log
     tmux new-session -d -s install-c10-first 'bash -lc \"( bash /tmp/install-c10-first.sh ) > /tmp/install-c10-first.log 2>&1; echo \\\$? > /tmp/install-c10-first.exit\"'
 "
+harness_register_log install-c10-first /tmp/install-c10-first.log "$ip"
 
 # ─────────────────────────────────────────────────────────────────────────
 # Phase 3 — wait for the stall to engage
@@ -176,6 +177,7 @@ echo ""
 echo "── running SECOND install (no env vars) — expecting probe 2 refusal ──"
 
 SECOND_LOG="/tmp/install-c10-second.log"
+harness_register_log install-c10-second "$SECOND_LOG"
 SECOND_EXIT=$(VM_EXEC bash -c "cd ~/statbus && ./sb install --non-interactive --trust-github-user jhf > $SECOND_LOG 2>&1; echo \$?" 2>/dev/null | tr -d ' \r\n' || echo "?")
 
 echo "  second install exited: $SECOND_EXIT"

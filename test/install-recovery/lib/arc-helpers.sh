@@ -346,6 +346,7 @@ arc_install_dispatch_with_inject() {
     echo ""
     echo "── ./sb install dispatch with STATBUS_INJECT_AT=${inject_class}${kill_marker:+ (one-shot marker ${kill_marker})} (budget ${budget}s) ──"
     local rc=0
+    harness_register_log arc-install-dispatch "$ARC_DISPATCH_LOG"
     # Capture the dispatch stdout+stderr to ARC_DISPATCH_LOG on the VM so callers can
     # grep the product's own path markers (e.g. the STATBUS-017 defer line that pins
     # in-process forward recovery); still streamed to the run log via the cat below.
@@ -521,4 +522,3 @@ arc_kill_confirmed() {
         sleep 2
     done
 }
-

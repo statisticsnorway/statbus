@@ -447,6 +447,20 @@ _dump_long_stage_diagnostics() {
 #   timeout, 251 for provider-confirmed VM loss.
 #
 # Tunable: LONG_CMD_MAX_MIN (default 45) — overall time budget in minutes.
+harness_register_log() {
+    local label="$1" path="$2" ip="${3:-${VM_IP:-}}"
+    [ -n "$ip" ] || { echo "harness_register_log: VM IP is unavailable for $label $path" >&2; return 1; }
+    case "$label" in
+        ''|*[!A-Za-z0-9_.-]*) echo "harness_register_log: invalid label '$label'" >&2; return 1 ;;
+    esac
+    case "$path" in
+        /*) ;;
+        *) echo "harness_register_log: path must be absolute: $path" >&2; return 1 ;;
+    esac
+    printf '%s\t%s\n' "$label" "$path" | timeout 30 ssh "${SSH_OPTS[@]}" root@"$ip" \
+        'install -d -m 0755 /var/tmp/statbus-harness && cat >> /var/tmp/statbus-harness/logs.manifest'
+}
+
 _run_long_via_tmux() {
     local ip="$1" session="$2" cmd="$3" vm_name="${4:-}"
     local max_min="${LONG_CMD_MAX_MIN:-45}"
@@ -478,6 +492,7 @@ _run_long_via_tmux() {
         echo "  ERROR: could not start tmux session ${session} on $ip" >&2
         return 254
     }
+    harness_register_log "$session" "/tmp/${session}.log" "$ip" || return 254
 
     # Poll for completion. STATBUS-345 named the component that failed the
     # actionable-fail-fast test: this CONTROLLER's synchronous `cur_lines=$(ssh
@@ -846,6 +861,7 @@ EOF'
         rm -f /tmp/harden.exit /tmp/harden.log
         tmux new-session -d -s harden 'bash /tmp/setup.sh --non-interactive --skip-stages=4 > /tmp/harden.log 2>&1; echo \$? > /tmp/harden.exit'
     "
+    harness_register_log harden /tmp/harden.log "$ip"
     local max_iter=$(( ${LONG_CMD_MAX_MIN:-45} * 60 / 15 )) i=0 seen=0
     for ((i=0; i<max_iter; i++)); do
         if ssh "${SSH_OPTS[@]}" root@"$ip" 'test -f /tmp/harden.exit' 2>/dev/null; then
@@ -1784,48 +1800,101 @@ REMOTE
 # "db unhealthy" leaving only /home/statbus/statbus/support-bundle-*.txt behind)
 # still lands diagnostic evidence in $HARNESS_ROOT/tmp after the box is deleted.
 #
-# Called from cleanup_vm on BOTH success and failure, before the VM is reaped.
+# Called from cleanup_vm on failure, before the VM is reaped or retained.
 # Best-effort throughout: a missing bundle or an unreachable VM must never mask
 # the original failure or slow cleanup beyond a couple of SSH round-trips, and
 # must never return non-zero (set -e in the caller's EXIT trap would otherwise
 # replace the real exit status). Output is both printed to the job log and
 # saved into $HARNESS_ROOT/tmp.
-dump_failure_support_bundle() {
+capture_failure_artifacts() {
     local vm_name="$1"
     local ip
     ip=$(hcloud server ip "$vm_name" 2>/dev/null) || return 0
     [ -n "$ip" ] && [ "$ip" != "?" ] || return 0
 
-    local out_dir="${HARNESS_ROOT}/tmp"
+    local out_dir="${HARNESS_ROOT}/tmp/${vm_name}"
     mkdir -p "$out_dir"
+    find "$out_dir" -mindepth 1 -maxdepth 1 -exec rm -rf -- {} +
 
-    echo "──────── support bundle (newest on $vm_name) ────────"
-    local newest
-    newest=$(ssh "${SSH_OPTS[@]}" root@"$ip" \
-        'ls -1t /home/statbus/statbus/support-bundle-*.txt 2>/dev/null | head -1') || true
-    if [ -n "$newest" ]; then
-        if scp -O "${SSH_OPTS[@]}" "root@$ip:$newest" "$out_dir/" 2>/dev/null; then
-            echo "  saved $out_dir/$(basename "$newest")"
+    echo "──────── systematic failure capture ($vm_name) ────────"
+    local remote_dir=/var/tmp/statbus-harness/failure-capture
+    if ! ssh "${SSH_OPTS[@]}" root@"$ip" bash -s -- "$remote_dir" <<'REMOTE'
+set +e
+capture_dir="$1"
+manifest=/var/tmp/statbus-harness/logs.manifest
+rm -rf "$capture_dir"
+mkdir -p "$capture_dir/registered" "$capture_dir/statbus-tmp"
+index="$capture_dir/index.tsv"
+: > "$index"
+
+capture_file() {
+    label="$1" source="$2" destination="$3"
+    if [ -f "$source" ]; then
+        if cp -- "$source" "$destination" 2>/dev/null; then
+            size=$(wc -c < "$destination" | tr -d ' ')
+            printf 'captured\t%s\t%s\t%s\n' "$label" "$source" "$size" >> "$index"
         else
-            echo "  (could not scp support bundle $newest — VM unreachable?)"
+            printf 'missing\t%s\t%s\tcopy-failed\n' "$label" "$source" >> "$index"
         fi
     else
-        echo "  (no /home/statbus/statbus/support-bundle-*.txt on VM)"
+        printf 'missing\t%s\t%s\tnot-found\n' "$label" "$source" >> "$index"
+    fi
+}
+
+if [ -f "$manifest" ]; then
+    while IFS=$'\t' read -r label path; do
+        [ -n "$label" ] && [ -n "$path" ] || continue
+        safe_label=$(printf '%s' "$label" | tr -c 'A-Za-z0-9_.-' '_')
+        capture_file "$label" "$path" "$capture_dir/registered/${safe_label}--$(basename "$path")"
+    done < "$manifest"
+else
+    printf 'missing\tmanifest\t%s\tnot-found\n' "$manifest" >> "$index"
+fi
+
+newest=$(ls -1t /home/statbus/statbus/support-bundle-*.txt 2>/dev/null | head -1)
+if [ -n "$newest" ]; then
+    capture_file support-bundle "$newest" "$capture_dir/$(basename "$newest")"
+else
+    printf 'missing\tsupport-bundle\t/home/statbus/statbus/support-bundle-*.txt\tnot-found\n' >> "$index"
+fi
+
+sudo -i -u statbus -- bash -c 'cd ~/statbus && docker compose --profile all ps -a' > "$capture_dir/docker-compose-ps.txt" 2>&1
+printf 'captured\tdocker-compose-ps\tdocker compose --profile all ps -a\t%s\n' "$(wc -c < "$capture_dir/docker-compose-ps.txt" | tr -d ' ')" >> "$index"
+sudo -i -u statbus -- bash -c 'cd ~/statbus && docker compose logs --tail 300' > "$capture_dir/docker-compose-logs.txt" 2>&1
+printf 'captured\tdocker-compose-logs\tdocker compose logs --tail 300\t%s\n' "$(wc -c < "$capture_dir/docker-compose-logs.txt" | tr -d ' ')" >> "$index"
+journalctl --user -M statbus@ --no-pager -n 300 -u statbus-upgrade@statbus.service > "$capture_dir/upgrade-unit-journal.txt" 2>&1
+printf 'captured\tupgrade-unit-journal\tjournalctl --user -M statbus@ --no-pager -n 300\t%s\n' "$(wc -c < "$capture_dir/upgrade-unit-journal.txt" | tr -d ' ')" >> "$index"
+
+found_tmp=0
+for path in /home/statbus/statbus/tmp/*.log; do
+    [ -f "$path" ] || continue
+    found_tmp=1
+    capture_file "statbus-tmp-$(basename "$path")" "$path" "$capture_dir/statbus-tmp/$(basename "$path")"
+done
+[ "$found_tmp" = 1 ] || printf 'missing\tstatbus-tmp-logs\t/home/statbus/statbus/tmp/*.log\tnot-found\n' >> "$index"
+capture_file upgrade-in-progress /home/statbus/statbus/tmp/upgrade-in-progress.json "$capture_dir/statbus-tmp/upgrade-in-progress.json"
+exit 0
+REMOTE
+    then
+        echo "  (could not prepare failure capture — VM unreachable?)"
+        return 0
     fi
 
-    echo "──────── docker compose --profile all ps -a (as statbus) ────────"
-    ssh "${SSH_OPTS[@]}" root@"$ip" \
-        "sudo -i -u statbus -- bash -c 'cd ~/statbus && docker compose --profile all ps -a'" 2>/dev/null \
-        | tee "$out_dir/docker-compose-ps-${vm_name}.txt" \
-        || echo "  (could not capture docker compose ps — VM unreachable?)"
-
-    echo "──────── docker compose logs db --tail 200 (as statbus) ────────"
-    ssh "${SSH_OPTS[@]}" root@"$ip" \
-        "sudo -i -u statbus -- bash -c 'cd ~/statbus && docker compose logs db --tail 200'" 2>/dev/null \
-        | tee "$out_dir/docker-compose-db-log-${vm_name}.txt" \
-        || echo "  (could not capture docker compose logs db — VM unreachable?)"
-
-    echo "──────── end support bundle / docker compose capture ────────"
+    if ! scp -O -r "${SSH_OPTS[@]}" "root@$ip:$remote_dir/." "$out_dir/" 2>/dev/null; then
+        echo "  (could not scp failure capture — VM unreachable?)"
+        return 0
+    fi
+    echo "  capture directory: $out_dir"
+    if [ -f "$out_dir/index.tsv" ]; then
+        while IFS=$'\t' read -r status label source size; do
+            if [ "$status" = captured ]; then
+                printf '  captured  %-32s %10s bytes  %s\n' "$label" "$size" "$source"
+            else
+                printf '  missing   %-32s %s (%s)\n' "$label" "$source" "$size"
+            fi
+        done < "$out_dir/index.tsv"
+    fi
+    echo "──────── end systematic failure capture ────────"
 }
 
 # _dump_unit_diagnostics UNIT
@@ -1883,6 +1952,7 @@ vm_start_unit() { _vm_unit_op start "$@"; }
 
 cleanup_vm() {
     local vm_name="$1"
+    local scenario_rc="${2:-${rc:-${RC:-0}}}"
     _check_name_safety "$vm_name" || return 1
 
     # STATBUS-207/208 ownership guard: refuse to act on a VM this run did
@@ -1905,10 +1975,12 @@ cleanup_vm() {
     # the VM. Best-effort; a no-op for scenarios that never used a tmux install.
     dump_stage_tmux_logs "$vm_name"
 
-    # Pull the support bundle + live docker-compose state (success OR failure)
-    # BEFORE reaping, so a failed install leaves evidence in $HARNESS_ROOT/tmp
-    # even after the VM is deleted. Best-effort; never masks the real exit.
-    dump_failure_support_bundle "$vm_name"
+    # A failed scenario gets one systematic capture before KEEP_VM handling or
+    # reaping. The manifest makes scenario-owned background logs part of the
+    # same mechanism as the standard support, compose, journal and tmp set.
+    if [ "$scenario_rc" -ne 0 ]; then
+        capture_failure_artifacts "$vm_name"
+    fi
 
     if [ "${KEEP_VM:-0}" = "1" ] || [ "${KEEP_VM_ON_FAILURE:-0}" = "1" ]; then
         local ip

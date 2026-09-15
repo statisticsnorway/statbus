@@ -91,12 +91,13 @@ echo "  captured advisory-holder backend PID: ${HOLDER_PID:-<none>}"
 #     in-container backend orphans.
 echo ""
 echo "── synthesizing statistical_* psql subprocess orphan ──"
+harness_register_log stage-a-orphan-psql /tmp/stage-a-orphan-psql.log
 # ssh-STDIN transport (see simulate_pool_exhaustion): VM_EXEC's printf %q collapses
 # this multi-line if/then (dash $'...\n...') → "syntax error near unexpected token 'then'".
 # Riding the script over stdin preserves the newlines.
 _orphan_wedge=$(mktemp)
 cat > "$_orphan_wedge" <<'WEDGE'
-./sb psql -c "INSERT INTO public.statistical_history SELECT * FROM public.statistical_history WHERE pg_sleep(600) IS NULL OR true;" >/dev/null 2>&1 &
+./sb psql -c "INSERT INTO public.statistical_history SELECT * FROM public.statistical_history WHERE pg_sleep(600) IS NULL OR true;" > /tmp/stage-a-orphan-psql.log 2>&1 &
 sleep 3
 PSQL_PID=$(pgrep -f "psql.*statistical_history" | head -1)
 if [ -n "$PSQL_PID" ]; then

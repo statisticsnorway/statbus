@@ -57,6 +57,7 @@ simulate_pool_exhaustion() {
     local vm_name="$1"
     local n="${2:-28}"  # max_connections=30 by default; leave 2 for the killer + docker exec
     echo "  [wedge] opening $n idle psql sessions on $vm_name to saturate pool"
+    harness_register_log pool-exhaustion /tmp/pool-exhaustion.log
 
     # ssh-STDIN transport, NOT VM_EXEC's printf %q: the multi-line script rides
     # stdin so its newlines/quotes/$() survive every quoting layer untouched; only
@@ -86,7 +87,7 @@ set -a
 [ -f .env.credentials ] && source .env.credentials 2>/dev/null || true
 set +a
 for i in $(seq 1 $N); do
-    (docker compose exec -T -e "PGPASSWORD=$POSTGRES_APP_PASSWORD" db psql -U "$POSTGRES_APP_USER" -d "$POSTGRES_APP_DB" -c 'SELECT pg_sleep(3600);' >/dev/null 2>&1) &
+    (docker compose exec -T -e "PGPASSWORD=$POSTGRES_APP_PASSWORD" db psql -U "$POSTGRES_APP_USER" -d "$POSTGRES_APP_DB" -c 'SELECT pg_sleep(3600);' >> /tmp/pool-exhaustion.log 2>&1) &
 done
 sleep 2  # let connections establish
 ACTIVE=$(./sb psql -t -A -c 'SELECT count(*) FROM pg_stat_activity WHERE datname = current_database();' 2>/dev/null || echo 0)
@@ -145,6 +146,7 @@ WEDGE
 simulate_advisory_zombie_empty_app() {
     local vm_name="$1"
     echo "  [wedge] creating empty-app-name advisory-lock zombie on $vm_name"
+    harness_register_log advisory-zombie /tmp/advisory-zombie.log
 
     # ssh-STDIN transport (see simulate_pool_exhaustion): VM_EXEC's printf %q would collapse
     # the multi-line script (dash $'...\n...') and mangle it. Riding stdin also lets the SQL
@@ -153,7 +155,7 @@ simulate_advisory_zombie_empty_app() {
     local _wedge
     _wedge=$(mktemp)
     cat > "$_wedge" <<'WEDGE'
-./sb psql -c "SET application_name = ''; SELECT pg_advisory_lock(hashtext('migrate_up')); SELECT pg_sleep(3600);" >/dev/null 2>&1 &
+./sb psql -c "SET application_name = ''; SELECT pg_advisory_lock(hashtext('migrate_up')); SELECT pg_sleep(3600);" > /tmp/advisory-zombie.log 2>&1 &
 SCRIPT_PID=$!
 sleep 5  # let lock be acquired
 kill -9 $SCRIPT_PID 2>/dev/null || true
@@ -241,7 +243,7 @@ insert_interval_s="$2"
 cd ~/statbus
 # Marker file the loop polls for. The stop primitive removes it.
 # Placed under /tmp so a VM rebuild wipes it.
-rm -f /tmp/continuous-workload.run /tmp/continuous-workload.exit
+rm -f /tmp/continuous-workload.run /tmp/continuous-workload.exit /tmp/continuous-workload.log
 touch /tmp/continuous-workload.run
 # The loop body, materialized remotely; the UNQUOTED heredoc delimiter is
 # deliberate — $duration_s/$insert_interval_s interpolate HERE (remote), while
@@ -263,12 +265,13 @@ chmod 0755 /tmp/continuous-workload-loop.sh
 # poll for completion without ssh-port-hopping.
 command -v tmux >/dev/null 2>&1 || sudo apt-get install -y tmux >/dev/null 2>&1 || true
 tmux kill-session -t continuous-workload 2>/dev/null || true
-tmux new-session -d -s continuous-workload /tmp/continuous-workload-loop.sh
+tmux new-session -d -s continuous-workload 'bash /tmp/continuous-workload-loop.sh > /tmp/continuous-workload.log 2>&1'
 # Give the loop one cycle to enqueue something measurable before the caller
 # proceeds to whatever wedge it is setting up.
 sleep $((insert_interval_s + 1))
 ./sb psql -t -A -c "SELECT count(*) FROM worker.tasks WHERE state IN ('pending','processing');" 2>/dev/null | xargs -I{} echo "  [wedge] continuous workload running: queue depth {}"
 SCRIPT
+    harness_register_log continuous-workload /tmp/continuous-workload.log
 }
 
 stop_continuous_worker_workload() {
