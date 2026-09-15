@@ -5,7 +5,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-09-07 17:26'
-updated_date: '2026-09-07 21:34'
+updated_date: '2026-09-15 07:15'
 labels:
   - testing
   - upgrade
@@ -112,11 +112,66 @@ Done when, in addition to the above: a Fast Tests run at HEAD shows the live
 step green with the 24 tests listed, and a deliberately red live test on a
 branch turns Fast Tests red.
 
-## Open ruling (2026-09-07 22:08): the tier's name and the test names
+## Names, final table (coordinator draft 2026-09-14, Terra pristine judgment applied)
 
-Owner: `TestLive` is sub-par by the 359 rule (name the claim, not the
-mechanism) and the proposal was not concrete enough. Sleeping on it. Next
-session brings a concrete before/after: the full list of 25 current names
-next to proposed names, plus the exact selector (build tag vs env var) and
-the exact `-run`/`-tags` line the workflow step would use. No renaming
-before that ruling.
+Rule: a name states the claim the assertions prove, nothing more or less.
+Provenance (ticket numbers) goes in a comment. `_Helper` marks a subprocess
+entry point, not a claim. Terra (pristine) judged the draft against each
+test body: 15 accurate, 6 underclaim, 3 overclaim, 1 wrong subject; the
+eight corrected names below are Terra's (`tmp/STATBUS-362-naming-judgment.md`).
+
+| # | today | final | |
+|---|---|---|---|
+| 1 | `TestLiveAbortFailedPreBackupStop` | `TestUpgradeAbortBeforeBackupLeavesRowFailedWithNoBackupPath` |  |
+| 2 | `TestLiveCleanupActorRaceStaleLoserCannotMutate_STATBUS354` | `TestCleanupRaceStaleLoserCannotMutate` |  |
+| 3 | `TestLiveCompleteInProgressUpgrade_FlaglessBehindClaimsAndRollsBack` | `TestUpgradeFlaglessBehindRowRollsBack` | Terra-corrected |
+| 4 | `TestLiveCompleteInProgressUpgrade_FlaglessBehindHelper` | `TestUpgradeFlaglessBehindRow_Helper` |  |
+| 5 | `TestLiveDetect_PendingRollbackIsCrashedNotReattempt` | `TestInstallDetectsPendingRollbackAsCrashedNotReattempt` |  |
+| 6 | `TestLiveEnumTwins` | `TestUpgradeFailureCodeEnumMatchesGoConstants` |  |
+| 7 | `TestLiveExecObserved_ConstraintRejectionIsOnTheJournal` | `TestUpgradeConstraintRejectionAndZeroRowUpdateAreJournaled` | Terra-corrected |
+| 8 | `TestLiveFloorFailureHoldAndHumanRetry_STATBUS354` | `TestRollbackFloorFailureHoldsUntilHumanRetryThenRecovers` | Terra-corrected |
+| 9 | `TestLiveFloorSuccessBeforePendingStepRollbackWins_STATBUS354` | `TestRollbackStepWinsOverAtFloorLedger` | Terra-corrected |
+| 10 | `TestLiveMaintenanceFile_ExtractorCommandRunsAgainstTheRealRow` | `TestMaintenanceFileExtractorReadsTheLiveRow` |  |
+| 11 | `TestLiveMigrationCommitBeforeLedgerRestoreRetry_STATBUS354` | `TestMigrationFloorReapplyAfterPreColumnSnapshotRecordsOneLedgerRow` | Terra-corrected |
+| 12 | `TestLivePendingCleanupMarkerPreservesSentinel_STATBUS354` | `TestCleanupMarkerPreservesSentinelData` |  |
+| 13 | `TestLivePreColumnSnapshotAdoptionRollback_STATBUS354` | `TestRollbackFromPreColumnSnapshotReappliesFloor` |  |
+| 14 | `TestLivePreswapFetchReturnedErrorRealSite_STATBUS339` | `TestUpgradePreswapFetchErrorMarksUpgradeFailed` | Terra-corrected |
+| 15 | `TestLivePruneDeletedTags_AllPrunedRowLands` | `TestPruneDeletedTagsRecordsAllPrunedRow` |  |
+| 16 | `TestLiveReattemptRestore_DelayedSecondInstallCannotRestoreAgain` | `TestRestoreReattemptSecondActorCannotRestoreAgain` |  |
+| 17 | `TestLiveRecoverFromFlag_PendingRollbackNeverRestores` | `TestRecoveryWithPendingRollbackNeverRestoresSnapshot` |  |
+| 18 | `TestLiveRecoveryRollback_StaleActorCannotRecreateMarker` | `TestRecoveryStaleActorCannotRecreateMarker` |  |
+| 19 | `TestLiveRecoveryRollback_StaleActorHelper` | `TestRecoveryStaleActor_Helper` |  |
+| 20 | `TestLiveRestoreAndFinalize_HealthyTail` | `TestRollbackFinalizeHealthyTailCommitsAndUnlinks` |  |
+| 21 | `TestLiveRestoreAndFinalize_UnlinkFailureThenRecovery` | `TestRollbackFinalizeUnlinkFailureRecoversCleanupOnly` |  |
+| 22 | `TestLiveRollbackFinishing` | `TestRollbackFinishBlocksClaimsThenFinalizesAndAllowsClaims` | Terra-corrected |
+| 23 | `TestLiveRollbackFinishing_ExternalWritesReopen` | `TestRollbackFinishReopensExternalWrites` |  |
+| 24 | `TestLiveStablePreflight` | `TestReleaseStablePreflightGates` |  |
+| 25 | `TestLiveTerminalRowCleanupMarkerPublishesSourceBinary_STATBUS354` | `TestCleanupAfterTerminalRowRemovesMarkerAndRetainsRow` | Terra-corrected |
+
+## Selector and tier name (Terra-corrected)
+
+- Selector: build tag named for the MECHANISM, `//go:build livedb`. `go test
+  ./...` compiles the tier out; `go test -tags livedb ./internal/upgrade
+  ./internal/install` runs it. The `STATBUS_LIVE_DB` env var and every
+  `t.Skip` guard go. `TestReleaseStablePreflightGates` (row 24) needs a real
+  tag and a token and stays manual under its own tag `release_live`.
+- Tier name in docs and the Fast Tests step: **live-database tests**. Terra:
+  "recovery" is the majority subject, not the set's property; what the 25
+  share is a real local database. STATBUS-359's four-cell rule (install/
+  upgrade x works/recovers) does not transfer as a family label here; only
+  its per-test "name the claim" discipline does.
+- Workflow step (fast-tests.yaml, after the daemon floor oracle):
+  `go test -tags livedb -count=1 ./internal/upgrade ./internal/install`.
+
+## Why not in the current batch
+
+Owner rule from 2026-09-07: no renaming before the ruling, and the ruling
+was deferred. It also touches 19 test files under cli/internal/upgrade
+while that package is the one the ladder is proving; landing it mid-ladder
+would move the code under the candidate. It is the first item after the
+batch RC is green and the owner has ruled Q1 (build tag `livedb`).
+
+## Ruling needed, one question
+
+Q1: selector = build tag `livedb`, tier name "live-database tests", names as
+in the table above. Yes, or name what to change.
