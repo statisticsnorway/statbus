@@ -539,14 +539,22 @@ echo "── 6th dispatch: ./sb install (no inject) → crash recovery starts th
 ABORT_RC=0
 VM_EXEC bash -c "cd ~/statbus && STATBUS_MIN_DISK_GB=5 ./sb install --non-interactive --trust-github-user jhf" || ABORT_RC=$?
 echo "[OBSERVE] 6th dispatch (abort) exit: $ABORT_RC"
-[ "$ABORT_RC" = "1" ] || { echo "✗ the ABORT dispatch exited $ABORT_RC, expected 1 (rollback()'s git-corrupt ABORT branch, catastrophic exit code per service.go)" >&2; exit 1; }
+# STATBUS-354 changed the git-corrupt abort from the old catastrophic os.Exit(1)
+# to the degraded "ROLLBACK INCOMPLETE" terminal (restoreAndFinalize records
+# state='failed' + ROLLBACK INCOMPLETE and returns, then rollback() exits 75 =
+# EX_TEMPFAIL). The safety property the arc proves is unchanged: state stays
+# 'failed' (never rolled_back), backup_path retained, recovery_attempts=1, and
+# the re-attempt refuses before destructive work. NOTE for the architect: exit
+# 75 is documented as "clean rollback / retry later", which is arguably wrong
+# for a degraded box; if that contract is tightened later, revert this line.
+[ "$ABORT_RC" = "75" ] || { echo "✗ the ABORT dispatch exited $ABORT_RC, expected 75 (STATBUS-354 degraded ROLLBACK INCOMPLETE, EX_TEMPFAIL)" >&2; exit 1; }
 
 FINAL_STATE_B=$(row_state_for "$B_FULL")
 FINAL_ERROR_B=$(row_error_for "$B_FULL")
 FINAL_ATTEMPTS_B=$(row_attempts_for "$B_FULL")
 echo "[OBSERVE] B's row after the ABORT: state=$FINAL_STATE_B attempts=$FINAL_ATTEMPTS_B error=${FINAL_ERROR_B:0:120}..."
 [ "$FINAL_STATE_B" = "failed" ] || { echo "✗ expected B's row 'failed' (ABORT terminal) after the git-corrupt rollback, got '$FINAL_STATE_B'" >&2; exit 1; }
-echo "$FINAL_ERROR_B" | grep -E "ROLLBACK_FAILED_GIT_CORRUPT" >/dev/null || { echo "✗ B's row error does not match ROLLBACK_FAILED_GIT_CORRUPT: $FINAL_ERROR_B" >&2; exit 1; }
+echo "$FINAL_ERROR_B" | grep -E "ROLLBACK INCOMPLETE" >/dev/null || { echo "✗ B's row error does not match ROLLBACK INCOMPLETE: $FINAL_ERROR_B" >&2; exit 1; }
 # STATBUS-181's second consumer path: this row's ONLY recovery pass is the
 # ONE crash-resume that just ran (RecoveryBudgetGuard's own increment, since
 # the row never crashed before the C9 kill) — recovery_attempts=1 must
@@ -576,7 +584,7 @@ assert_flag_file_absent "$VM_NAME"
 # rc.03, where the count stuck at 1. Escalate; do not "fix" this line.
 [ "$(row_has_backup_path_for "$B_FULL")" = "t" ] || { echo "✗ B's row has NO retained backup_path after the ABORT — the STATBUS-111 probe would not match it, and the abort-hold guard (service.go:3841) reads zero and FAILS OPEN, stripping the read-only hold on a broken volume. See the STATBUS-228 note above this line before changing anything: the likely cause is the ABORT branch's own restoreDatabase rewinding the row, with no terminal write re-imposing the column" >&2; exit 1; }
 [ "$(pre_upgrade_branch_present)" = "no" ] || { echo "✗ 'pre-upgrade' branch reappeared after the ABORT — the tree should still be corrupt (nothing restores it)" >&2; exit 1; }
-echo "  ✓ ABORT terminal landed in ONE pass (STATBUS-136): state='failed' + ROLLBACK_FAILED_GIT_CORRUPT together, flag removed, backup_path retained, tree still corrupt"
+echo "  ✓ ABORT terminal landed in ONE pass (STATBUS-136): state='failed' + ROLLBACK INCOMPLETE together, flag removed, backup_path retained, tree still corrupt"
 
 # "V_fail never committed" — moved HERE from the dead window (run 3 finding,
 # 29340418176): the DB is unreadable right after the C9 kill (down or

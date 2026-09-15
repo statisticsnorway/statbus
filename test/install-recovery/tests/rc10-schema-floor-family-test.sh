@@ -6,7 +6,7 @@ WORKFLOW="$ROOT/.github/workflows/upgrade-arc-harness.yaml"
 RESTORE_ARC="$ROOT/test/install-recovery/arcs/restore-broke-reattempt-arc.sh"
 ADOPTION_ARC="$ROOT/test/install-recovery/arcs/rollback-schema-floor-adoption-arc.sh"
 FAILURE_ARC="$ROOT/test/install-recovery/arcs/rollback-schema-floor-failure-arc.sh"
-PRE_COLUMN=56559fa7a6683b0d7e2f8727091ed5bb7eb678cf
+PRE_COLUMN=d53731ec539b03b9378ff8828bb2be938d9e2e0f
 FLOOR_MIGRATION=migrations/20260907120000_statbus_347_rollback_finish_pending_column.up.sql
 
 die() { echo "FAIL: $*" >&2; exit 1; }
@@ -53,7 +53,7 @@ for arc in "$ADOPTION_ARC" "$FAILURE_ARC"; do
   grep -q 'BASE_SHA="${SCHEMA_FLOOR_BASE_SHA:-${BASE_SHA:-}}"' "$arc" || die "$(basename "$arc") does not consume floor baseline"
 done
 git -C "$ROOT" cat-file -e "$PRE_COLUMN^{commit}"
-[ "$(git -C "$ROOT" rev-parse 012ca22da^)" = "$PRE_COLUMN" ] || die 'floor baseline is not the parent of the first column migration'
+[ "$(git -C "$ROOT" rev-parse 'v2026.09.0^{commit}')" = "$PRE_COLUMN" ] || die 'floor baseline is not the released v2026.09.0 (a pre-column release with a retained image)'
 ! git -C "$ROOT" cat-file -e "$PRE_COLUMN:$FLOOR_MIGRATION" 2>/dev/null || die 'floor baseline already contains the floor migration'
 git -C "$ROOT" cat-file -e "HEAD:$FLOOR_MIGRATION" || die 'candidate tree lacks the floor migration required in failing B'
 grep -q 'construct_upgrade_target "$base_sha" failing' "$WORKFLOW" || die 'failing B is not constructed from the candidate base'
