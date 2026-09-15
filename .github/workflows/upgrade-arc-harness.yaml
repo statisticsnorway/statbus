@@ -669,8 +669,12 @@ jobs:
 
       - name: Resolve fixture lineage for the scenario
         # §7 shared-fixture: each arc rides ONE of the 5 shared lineages. The
-        # failing + rollback-restore + restore-broke-reattempt arcs need the
-        # FAILING pair (RAISE → rollback; restore-broke-reattempt rides BOTH
+        # failing + rollback-restore + restore-broke-reattempt + rollback-
+        # schema-floor arcs need the FAILING pair (RAISE → rollback; the floor
+        # arcs additionally install the fixed pre-column A exported below, while
+        # failing B branches from this candidate and therefore carries both the
+        # rollback finishing column/floor machinery and its final V_fail);
+        # restore-broke-reattempt rides BOTH
         # B and C — content is irrelevant to either of its kill sites, which
         # both fire before the migration ever runs, but a distinct SECOND
         # commit is required since commit_sha is UNIQUE and phase (i) leaves
@@ -718,7 +722,7 @@ jobs:
         run: |
           set -euo pipefail
           case "$SCENARIO" in
-            failing|postswap-rollback-restore-watchdog|restore-broke-reattempt|deploy-status-proof|boot-migrate-churn-alive-idle) lineage=failing ;;
+            failing|postswap-rollback-restore-watchdog|restore-broke-reattempt|deploy-status-proof|boot-migrate-churn-alive-idle|rollback-schema-floor-adoption|rollback-schema-floor-failure) lineage=failing ;;
             postswap-migration-oom)                     lineage=oom ;;
             postswap-migration-ceiling)                 lineage=ceiling ;;
             postswap-health-park)                        lineage=healthpark ;;
@@ -734,6 +738,16 @@ jobs:
               echo "C_FULL=${FAILING_C_FULL}"
               echo "B_BRANCH=${FAILING_B_BRANCH}"
               echo "C_BRANCH=${FAILING_C_BRANCH}"
+              # STATBUS-354 adoption needs a snapshot whose schema predates the
+              # rollback finishing column. 56559fa7 is the exact parent of the
+              # first column migration (012ca22da). B remains the ordinary
+              # failing fixture off this candidate, so it carries current recovery
+              # code + migration 20260907120000 + the final synthetic V_fail.
+              case "$SCENARIO" in
+                rollback-schema-floor-adoption|rollback-schema-floor-failure)
+                  echo "SCHEMA_FLOOR_BASE_SHA=56559fa7a6683b0d7e2f8727091ed5bb7eb678cf"
+                  ;;
+              esac
             } >> "$GITHUB_ENV"
           elif [ "$lineage" = oom ]; then
             {

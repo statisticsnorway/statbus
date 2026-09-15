@@ -8,7 +8,13 @@ TICK_WAIT_S="${TICK_WAIT_S:-120}"
 FLOOR=20260907120000
 INJECT_CLASS=rollback-floor-reapply
 UPGRADE_UNIT=statbus-upgrade@statbus.service
-: "${BASE_SHA:?BASE_SHA required}"
+# The workflow exports this only for the schema-floor family. Keep BASE_SHA as
+# the public arc input, but replace the ordinary candidate base with the exact
+# pre-column snapshot baseline. B still comes from the candidate-based failing
+# lineage and therefore carries current STATBUS-354 code, the floor migration,
+# and the final V_fail that enters rollback.
+BASE_SHA="${SCHEMA_FLOOR_BASE_SHA:-${BASE_SHA:-}}"
+: "${BASE_SHA:?BASE_SHA or SCHEMA_FLOOR_BASE_SHA required}"
 : "${B_FULL:?B_FULL required}"
 : "${B_BRANCH:?B_BRANCH required}"
 LIB_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/lib"

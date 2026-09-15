@@ -437,13 +437,11 @@ echo "  ✓ phase (i) COMPLETE: pair-terminal constructed and STOPPED there (the
 #      recovery_attempts=0 (this row has never crashed before — the FIRST
 #      RecoveryBudgetGuard increment only happens on the NEXT dispatch's
 #      crash-recovery pass, not this one).
-#      NB — flag.Step is NOT "rollback" here: neither newSbUpgradingFailure
-#      nor d.rollback() itself stamps Step (only recoveryRollback's
-#      recordRollbackCommit does that, and this direct-call path never
-#      reaches recoveryRollback). Step is frozen at whatever the forward
-#      pass last marked — StepMigrateUp ("migrate-up", markStep at
-#      service.go:5653, immediately before the delta migrate call) — verified
-#      by reading the code, not assumed from the ticket's prose.
+#      STATBUS-354 now stamps rollback direction at d.rollback()'s common
+#      entry, including this direct newSbUpgradingFailure path. The C9 window
+#      therefore carries Step="rollback" and PriorDeathStep="migrate-up": the
+#      first rollback death is durable, while the non-rollback prior step keeps
+#      the next rollback resume below the two-consecutive-deaths terminal.
 #   3. In the window: delete the `pre-upgrade` branch. (No explicit C9
 #      "disarm" step: this construction arms C9 via a single per-dispatch
 #      env-prefixed `STATBUS_INJECT_AT`, not a persistent systemd dropin — the
@@ -454,19 +452,12 @@ echo "  ✓ phase (i) COMPLETE: pair-terminal constructed and STOPPED there (the
 #   4. Next dispatch (./sb install, clean): crashed-upgrade → runCrashRecovery
 #      → EnsureDBReachable fails (db stopped by the killed rollback) →
 #      StartDBForRecovery (existing container, install_upgrade.go:262-269) →
-#      RecoveryBudgetGuard: flag.Step="migrate-up" != StepRollback, so its
-#      STATBUS-134 defer does NOT engage — it takes the plain forward-budget
-#      path instead: attempts 0→1, resumeEscalation(attempts=1, deaths=0) =
-#      continue, stamps Step=StepBootMigrate (PriorDeathStep←"migrate-up"),
-#      boot migrate runs (a no-op — the volume is already fully restored to
-#      the old, already-caught-up state) → RecoverFromFlag → observed state
-#      on the restored OLD volume = confirmed-behind → recoveryRollback:
-#      countRecoveryAttemptOnce returns the cached 1 (no double-increment),
-#      rollbackResumeIsTerminal(Step="boot-migrate", PriorDeathStep=
-#      "migrate-up") is FALSE (neither is "rollback" — this row's Step has
-#      never actually reached "rollback" yet, so the check is trivially
-#      non-terminal, not because of the "first-resume-is-free" special case)
-#      → recordRollbackCommit rolls Step→"rollback" → d.rollback() runs a
+#      RecoveryBudgetGuard sees the durable StepRollback and leaves the
+#      rollback route authoritative; recoveryRollback increments the row once
+#      (0→1). rollbackResumeIsTerminal(Step="rollback", PriorDeathStep=
+#      "migrate-up") is FALSE because this is the first rollback death, not two
+#      consecutive rollback deaths. d.rollback() then rolls the marker to
+#      Step="rollback", PriorDeathStep="rollback" and runs a
 #      SECOND time: attemptsAtCall captured fresh = 1 → restoreGitState FAILS
 #      (branch gone) → the ABORT branch fires (which itself also calls
 #      restoreDatabase again, a same-snapshot no-op — service.go:7482;
@@ -503,7 +494,7 @@ PHASE_AFTER_D5=$(read_flag_field "phase")
 STEP_AFTER_D5=$(read_flag_field "step")
 echo "[OBSERVE] C9 wedge: exit 137, flag.phase=\"$PHASE_AFTER_D5\" flag.step=\"$STEP_AFTER_D5\""
 [ "$PHASE_AFTER_D5" = "new-sb-upgrading" ] || { echo "✗ expected flag.phase=\"new-sb-upgrading\" after the C9 kill (resumeNewSb already committed to applyNewSbUpgrading), got \"$PHASE_AFTER_D5\"" >&2; exit 1; }
-[ "$STEP_AFTER_D5" = "migrate-up" ] || { echo "✗ expected flag.step=\"migrate-up\" after the C9 kill (the direct rollback() call never stamps Step=\"rollback\" itself — only recoveryRollback's recordRollbackCommit does, and this path never reaches it), got \"$STEP_AFTER_D5\"" >&2; exit 1; }
+[ "$STEP_AFTER_D5" = "rollback" ] || { echo "✗ expected flag.step=\"rollback\" after the C9 kill (STATBUS-354 stamps rollback direction at rollback() common entry before restore and C9), got \"$STEP_AFTER_D5\"" >&2; exit 1; }
 # NO DB READ HERE (run 3 finding, 29340418176): C9 fires in/around
 # restoreDatabase — d.rollback() has already run `docker compose stop … db`
 # and restoreDatabase may still be mid-rsync when the kill lands, so the DB
