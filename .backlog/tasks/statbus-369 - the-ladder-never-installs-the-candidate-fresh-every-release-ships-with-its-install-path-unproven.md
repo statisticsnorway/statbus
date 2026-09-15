@@ -401,3 +401,20 @@ The separate partial-allocation cleanup gap is reproduced in Seedling's
 isolated `rc10-partial-allocation-fix` scratch clone. Mocked prototype tests
 are passing, with final controls/review pending. No main product edits,
 cloud operations, or change to rc.10 were made for this investigation.
+
+## Same-candidate parent retry launched (2026-09-15 14:12 UTC)
+
+Both original recovery and parent concluded failure. All 12 other scenario
+jobs passed, and the final orphan sweep passed. Only advisory-too-early
+failed, at the previously captured provider start error before installation.
+Verified exact rc.10 SHA/ref/events and newest remote tag, empty fleet group
+(documented HTTP404), and authenticated covered-subset exit0 selecting ONLY
+`1-boot-advisory-too-early`. Root executed the owner-authorized parent-only
+`gh run rerun 34973239226 --failed -R statisticsnorway/statbus` at14:12.
+GitHub accepted and parent became queued. No child rerun, source push, or
+new candidate. Fresh child admission and actual outcome remain to observe,
+then upgrade arcs. Bounded watcher `530775l30k` is active.
+Evidence: `tmp/rc10-parent-before-retry.json`,
+`tmp/rc10-recovery-before-retry.json`,
+`tmp/rc10-recovery-retry-coverage.md`,
+`tmp/rc10-recovery-retry-uncovered.txt`, `tmp/rc10-parent-retry-watch.log`.
