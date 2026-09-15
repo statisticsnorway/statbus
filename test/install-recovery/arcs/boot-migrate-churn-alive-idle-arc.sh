@@ -81,6 +81,7 @@ source "$LIB_DIR/data-helpers.sh"
 source "$LIB_DIR/wedge-helpers.sh"
 source "$LIB_DIR/assertions.sh"
 source "$LIB_DIR/arc-helpers.sh"
+source "$LIB_DIR/arc-state-assertions.sh"
 
 UPGRADE_UNIT="statbus-upgrade@statbus.service"
 FLAG_PATH="tmp/upgrade-in-progress.json"
@@ -106,9 +107,10 @@ echo "════════════════════════�
 # moment — so the assert silently starts reporting on a row the scenario
 # never touched. Mirrors this arc's own diagnostic query.
 row_state()    { VM_EXEC bash -c "cd ~/statbus && echo \"SELECT state FROM public.upgrade WHERE commit_sha = '$B_FULL' ORDER BY id DESC LIMIT 1;\" | ./sb psql -t -A" 2>/dev/null | tr -d ' \r\n' || echo "(db-down/?)"; }
+row_nonterminal_signature() { VM_EXEC bash -c "cd ~/statbus && echo \"SELECT state, completed_at IS NULL, rolled_back_at IS NULL FROM public.upgrade WHERE commit_sha = '$B_FULL' ORDER BY id DESC LIMIT 1;\" | ./sb psql -t -A -F'|'" 2>/dev/null | tr -d ' \r\n' || echo "?|?|?"; }
 flag_present() { VM_EXEC bash -c "test -f ~/statbus/$FLAG_PATH && echo yes || echo no" 2>/dev/null | tr -d ' \r\n' || echo "no"; }
-# DB-INDEPENDENT crash-signature probes (readable while the DB is down): the git tree the rollback
-# rewound to, and the db container's compose state (evidence genre: 'service "db" is not running').
+# Crash-signature probes: the rewound git tree and compose state remain DB-independent.
+# Schema-floor replay makes the restored DB and the still-nonterminal B row readable at C9.
 box_head()          { VM_EXEC bash -c "cd ~/statbus && git rev-parse HEAD" 2>/dev/null | tr -d ' \r\n' || echo "?"; }
 db_container_state() { VM_EXEC bash -c "cd ~/statbus && docker compose ps db --format '{{.State}}' 2>/dev/null" 2>/dev/null | tr -d ' \r\n' || echo "unknown"; }
 migration_recorded() { VM_EXEC bash -c "cd ~/statbus && echo \"SELECT count(*) FROM db.migration WHERE version = $1;\" | ./sb psql -t -A" 2>/dev/null | tr -d ' \r\n'; }
@@ -136,22 +138,22 @@ echo "── dispatch B with the C9 mid-rollback kill (migrate fails → d.rollb
 arc_install_dispatch_with_inject "killed-by-system-during-builtin-rollback"
 [ "$ARC_DISPATCH_RC" = "137" ] || { echo "✗ dispatch exit was $ARC_DISPATCH_RC, expected 137 — the C9 mid-rollback kill did not fire (failing migrate must route newSbUpgradingFailure → Behind → d.rollback → :7665)" >&2; exit 1; }
 [ "$(flag_present)" = "yes" ] || { echo "✗ no flag file after the C9 kill — the mid-rollback crash must leave a service-held flag" >&2; exit 1; }
-# The C9 kill lands MID-d.rollback: AFTER restoreGitState/Binary/Database rewound the box to A,
-# but BEFORE the rollback's docker-compose-up (service.go:7670) and terminal write. By CONSTRUCTION
-# the DB is DOWN and STAYS down here — not a transient: the caller stopped the db container before
-# restoreAndFinalize (service.go:7603-05), the compose-up that would restart it sits AFTER the C9
-# site (service.go:7665), and the crash killed the ./sb-install process that was the rollback's
-# ONLY driver (the daemon is down via arc_schedule_daemon_down). So the row is UNREADABLE here —
-# and no row read is needed for the proof: a DB that is down cannot have accepted the rollback's
-# terminal write, so "db container DOWN" IS the terminal-write-never-landed proof by construction
-# (run 30365866483 confirmed it stays down, not a startup window). Validate the crash signature
-# with DB-INDEPENDENT observables only; the row's settled value is proven later, after the recovery
-# boot's EnsureDBUp brings the DB up (assert C).
+# The C9 kill lands MID-d.rollback: AFTER restoreGitState/Binary/Database rewound the box to A
+# AND after rollback schema-floor replay intentionally started the restored DB, but BEFORE the
+# later full compose-up/reconnect and terminal write. The readable B row is therefore part of the
+# crash signature: it must still be in_progress with neither terminal timestamp populated.
 HEAD_NOW=$(box_head)
 [ "$HEAD_NOW" = "$BASE_SHA" ] || { echo "✗ git HEAD=$HEAD_NOW, expected A ($BASE_SHA) — restoreGitState must have rewound the tree to A at the mid-rollback kill" >&2; exit 1; }
 DB_STATE=$(db_container_state)
-[ "$DB_STATE" != "running" ] || { echo "✗ the db container is 'running' after the C9 kill — the mid-rollback crash must leave it stopped (the rollback's compose-up is AFTER the C9 site); a running DB here means the terminal write could have landed and the kill did not land where intended" >&2; exit 1; }
-echo "  ✓ real mid-rollback crash: exit 137, flag present, tree rewound to A (HEAD==BASE_SHA), db container down ('$DB_STATE') — the rollback terminal write cannot have landed"
+C9_ROW=$(row_nonterminal_signature)
+C9_STATE=$(echo "$C9_ROW" | cut -d'|' -f1)
+C9_COMPLETED_NULL=$(echo "$C9_ROW" | cut -d'|' -f2)
+C9_ROLLED_BACK_NULL=$(echo "$C9_ROW" | cut -d'|' -f3)
+arc_c9_signature_is_nonterminal "$DB_STATE" "$C9_STATE" "$C9_COMPLETED_NULL" "$C9_ROLLED_BACK_NULL" || {
+    echo "✗ invalid C9 crash signature: db='$DB_STATE' B-row='$C9_ROW'; expected running DB after schema-floor replay and B still in_progress with completed_at/rolled_back_at NULL" >&2
+    exit 1
+}
+echo "  ✓ real mid-rollback crash: exit 137, flag present, tree rewound to A, db running after schema-floor replay, B still non-terminal ($C9_ROW)"
 
 # ── MANIPULATION 2: file-drop a deterministically-failing ≤-floor migration ──
 echo ""

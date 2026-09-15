@@ -124,6 +124,7 @@ source "$LIB_DIR/data-helpers.sh"
 source "$LIB_DIR/wedge-helpers.sh"
 source "$LIB_DIR/assertions.sh"
 source "$LIB_DIR/arc-helpers.sh"
+source "$LIB_DIR/arc-state-assertions.sh"
 
 # _dump_health_park_failure_diagnostics — STATBUS-148 AC#4 harness rider: on
 # ANY non-zero exit, pull B's own upgrade progress log (the per-upgrade file
@@ -188,6 +189,10 @@ echo "════════════════════════�
 row_cols_for() {
     local sha="$1"
     VM_EXEC bash -c "cd ~/statbus && echo \"SELECT state, recovery_attempts, recovery_parked_at IS NOT NULL, COALESCE(recovery_parked_reason,'') FROM public.upgrade WHERE commit_sha = '$sha' ORDER BY id DESC LIMIT 1;\" | ./sb psql -t -A -F'|'" 2>/dev/null | tr -d '\r' || echo "?|?|?|(db-down)"
+}
+row_failure_code_for() {
+    local sha="$1"
+    VM_EXEC bash -c "cd ~/statbus && echo \"SELECT COALESCE(failure_code::text,'') FROM public.upgrade WHERE commit_sha = '$sha' ORDER BY id DESC LIMIT 1;\" | ./sb psql -t -A" 2>/dev/null | tr -d ' \r\n' || echo "?"
 }
 daemon_pid() {
     VM_EXEC bash -c 'pgrep -f "sb upgrade service" 2>/dev/null | head -1' 2>/dev/null | tr -d ' \r\n'
@@ -335,11 +340,13 @@ ROW=$(row_cols_for "$B_FULL")
 ROW_STATE=$(echo "$ROW" | cut -d'|' -f1)
 ROW_ATTEMPTS=$(echo "$ROW" | cut -d'|' -f2)
 ROW_REASON=$(echo "$ROW" | cut -d'|' -f4)
-echo "  state=$ROW_STATE attempts=$ROW_ATTEMPTS reason=$ROW_REASON"
+ROW_FAILURE_CODE=$(row_failure_code_for "$B_FULL")
+echo "  state=$ROW_STATE attempts=$ROW_ATTEMPTS failure_code=$ROW_FAILURE_CODE reason=$ROW_REASON"
 [ "$ROW_STATE" = "in_progress" ] || { echo "✗ expected state='in_progress' while parked, got '$ROW_STATE'" >&2; exit 1; }
-echo "$ROW_REASON" | grep -qE "HEALTHCHECK_REST_DOWN: the application cannot serve at ${B_SHORT} past warmup" || {
-    echo "✗ recovery_parked_reason does not match the health-past-warmup pattern for ${B_SHORT}" >&2
-    echo "  actual: $ROW_REASON" >&2
+arc_health_park_fields_match "$ROW_FAILURE_CODE" "$ROW_REASON" "$B_SHORT" || {
+    echo "✗ typed health failure/prose mismatch for ${B_SHORT}" >&2
+    echo "  failure_code: $ROW_FAILURE_CODE" >&2
+    echo "  reason: $ROW_REASON" >&2
     exit 1
 }
 echo "  ✓ reason matches health-past-warmup, names ${B_SHORT}"
@@ -469,10 +476,11 @@ ROW_STATE=$(echo "$ROW" | cut -d'|' -f1)
 ROW_ATTEMPTS=$(echo "$ROW" | cut -d'|' -f2)
 ROW_PARKED=$(echo "$ROW" | cut -d'|' -f3)
 ROW_REASON=$(echo "$ROW" | cut -d'|' -f4)
-echo "  post-unpark row: $ROW"
+ROW_FAILURE_CODE=$(row_failure_code_for "$B_FULL")
+echo "  post-unpark row: $ROW failure_code=$ROW_FAILURE_CODE"
 [ "$ROW_PARKED" = "t" ] || { echo "✗ expected recovery_parked_at IS NOT NULL after the fresh attempt re-parks, got parked=$ROW_PARKED" >&2; exit 1; }
 [ "$ROW_ATTEMPTS" = "1" ] || { echo "✗ expected recovery_attempts==1 after the fresh un-parked attempt (UnparkByID resets to 0, then the fresh consult increments to 1), got $ROW_ATTEMPTS" >&2; exit 1; }
-echo "$ROW_REASON" | grep -qE "HEALTHCHECK_REST_DOWN: the application cannot serve at ${B_SHORT} past warmup" || { echo "✗ re-park reason does not match the health-past-warmup pattern: $ROW_REASON" >&2; exit 1; }
+arc_health_park_fields_match "$ROW_FAILURE_CODE" "$ROW_REASON" "$B_SHORT" || { echo "✗ re-park typed health failure/prose mismatch: failure_code='$ROW_FAILURE_CODE' reason='$ROW_REASON'" >&2; exit 1; }
 echo "  ✓ recovery_attempts==1, still parked, reason matches health-past-warmup"
 CALLBACK_COUNT_2=$(VM_EXEC bash -c "wc -l < $CALLBACK_LOG 2>/dev/null" | tr -d ' \r\n' || echo "0")
 [ "$CALLBACK_COUNT_2" = "2" ] || { echo "✗ expected exactly 2 callback lines after the re-park (fires-once-PER-EVENT), got $CALLBACK_COUNT_2" >&2; VM_EXEC bash -c "cat $CALLBACK_LOG" >&2 || true; exit 1; }

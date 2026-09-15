@@ -72,6 +72,7 @@ source "$LIB_DIR/data-helpers.sh"
 source "$LIB_DIR/wedge-helpers.sh"
 source "$LIB_DIR/assertions.sh"
 source "$LIB_DIR/arc-helpers.sh"
+source "$LIB_DIR/arc-state-assertions.sh"
 
 UPGRADE_UNIT="statbus-upgrade@statbus.service"
 
@@ -200,15 +201,16 @@ ROW=$(row_cols_for "$B_FULL")
 B_ROW_ID=$(echo "$ROW" | cut -d'|' -f1)
 B_PARK_STATE=$(echo "$ROW" | cut -d'|' -f2)
 B_PARK_REASON=$(echo "$ROW" | cut -d'|' -f4)
+B_FAILURE_CODE=$(psql_scalar "SELECT COALESCE(failure_code::text,'') FROM public.upgrade WHERE commit_sha = '$B_FULL' ORDER BY id DESC LIMIT 1;")
 [[ "$B_ROW_ID" =~ ^[0-9]+$ ]] || { echo "✗ could not read B's row id (got '$B_ROW_ID')" >&2; exit 1; }
 [ "$B_PARK_STATE" = "in_progress" ] || { echo "✗ expected B state='in_progress' while parked, got '$B_PARK_STATE'" >&2; exit 1; }
-echo "$B_PARK_REASON" | grep -qE "HEALTHCHECK_REST_DOWN: the application cannot serve at ${B_SHORT} past warmup" || { echo "✗ B's park reason is not the health-past-warmup reason naming ${B_SHORT}: $B_PARK_REASON" >&2; exit 1; }
+arc_health_park_fields_match "$B_FAILURE_CODE" "$B_PARK_REASON" "$B_SHORT" || { echo "✗ B's typed health failure/prose mismatch: failure_code='$B_FAILURE_CODE' reason='$B_PARK_REASON' expected target ${B_SHORT} past warmup" >&2; exit 1; }
 # Anti-vacuity: V1+V2 genuinely applied → B is genuinely AT-TARGET (the whole
 # premise: a delta-carrying-but-at-target box, so the later fix release's rollback
 # lands the box back on a real B state, not a no-op).
 B_DBMAX=$(psql_scalar "SELECT max(version) FROM db.migration;")
 [ "$B_DBMAX" = "${V_VERSION_2}" ] || { echo "✗ B is not at-target: db.migration max=$B_DBMAX, expected V2=${V_VERSION_2} (V1+V2 both applied)" >&2; exit 1; }
-echo "  B parked (id=$B_ROW_ID), health reason names ${B_SHORT}, db.migration max=$B_DBMAX (V2)"
+echo "  B parked (id=$B_ROW_ID), failure_code=$B_FAILURE_CODE, health reason names ${B_SHORT}, db.migration max=$B_DBMAX (V2)"
 echo "  ✓ B at-target park landed (V1+V2 applied)"
 
 # ── C: register + schedule while B sits parked. C displaces B at claim (STATBUS-159
