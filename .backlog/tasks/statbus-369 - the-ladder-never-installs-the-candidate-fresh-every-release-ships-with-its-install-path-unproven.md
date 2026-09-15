@@ -498,3 +498,23 @@ implementing in scratch (read doc/upgrade-rollback-floor.md, product service.go,
 workflow lineage resolver) rather than a one-line swap. Parent orchestrator
 34973239226 remains in_progress awaiting arc teardown and verdict. Next
 candidate is cut once all six fixes are on master.
+
+## All six rc.10 arc failures addressed on master (2026-09-15 18:13 UTC)
+
+Final fix `d3b0c4dea` landed and pushed. It routes rollback-schema-floor-
+adoption/failure to the failing lineage with SCHEMA_FLOOR_BASE_SHA=56559fa7
+(the exact pre-column parent of 012ca22da), and corrects restore-broke-
+reattempt's C9 step assertion from migrate-up to rollback to match the
+STATBUS-354 durable StepRollback stamped in restoreAndFinalize (service.go
+10520/10586). Downstream recovery_attempts=1 + git-corrupt ABORT oracle
+re-derived from product code; no kill boundary or recovery assertion weakened.
+
+Two independent reviewers ACCEPTed (chick authored, cow reviewed). Offline
+regression, bash -n, diff check, go ./internal/upgrade, and targeted cmd
+tests pass. Master now at d3b0c4dea with all six rc.10 arc failures fixed:
+
+- 01f1cc404 (3 assertion drifts) + 614e22914 (partial-allocation reap)
+- d3b0c4dea (schema-floor family: 1 step drift + 2 lineage wirings)
+
+Real VM proof of the two schema-floor arcs is deferred to the next candidate
+ladder by design. Ready to cut rc.11 from master d3b0c4dea.
