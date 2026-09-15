@@ -454,3 +454,14 @@ Scratch: `/Users/jhf/ssb/.jcode/scratch/rc10-arc-assertion-fix`.
 No landing/push yet. VM acceptance requires the next published candidate.
 Current arc run has seven scenario passes, the same two failures, three
 running and 23 queued. Let remaining evidence accumulate before the next cut.
+
+## Third red verified as covered assertion drift (2026-09-15 15:52 UTC)
+
+Arc job `104426200927` postswap-health-park failed at its obsolete
+HEALTHCHECK_REST_DOWN prose-prefix assertion. Bird verified the exact first
+failure against the completed job log and accepted scratch commit67cc2ba30:
+this is the same structured-code/prose split already repaired, not a new
+mechanism. Evidence: `tmp/rc10-arc-red/postswap-health-park-HANDOFF.md`
+and `job.clean.log:4435-4437`. Current35-arc status:15 passed,3 failed,
+3 running,14 queued. Reviewed harness fix remains in scratch; no source push
+or new candidate until remaining failures are assessed. Monitor545760de6e active.
