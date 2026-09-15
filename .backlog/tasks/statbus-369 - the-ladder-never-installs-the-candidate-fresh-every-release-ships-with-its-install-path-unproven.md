@@ -5,7 +5,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-09-14 12:36'
-updated_date: '2026-09-14 15:45'
+updated_date: '2026-09-15 06:56'
 labels:
   - release
   - install
@@ -202,3 +202,44 @@ cannot kill the message (rc=2 at :1284 in rc.05). Support-bundle capture of
 Same family as the 0600 env-config bug that started this ticket: the
 harness sets a permission for its own secret and the next reader cannot
 read. Both now pinned by assertions in the wrapper.
+
+## rc.06 and rc.07 (2026-09-14 15:51 and 20:05; overnight under the owner's authorization)
+
+rc.06 (`59c4a179b`): `0-happy-upgrade` PASS (v2026.09.0 installed, upgrade
+service took the box to the candidate in 109 s, data intact). `0-happy-install`
+red on the coordinator's own guard: it asserted umask value `022`; Ubuntu's
+user default is `0002`. Fixed `61ff72845` (guard checks the property
+"other-read kept", refuses only `*[4567]`).
+
+rc.07 (`61ff72845`), orchestrator 34890758645: **both smoke cells PASS**
+(`0-happy-install`: candidate installed on a fresh box via the real
+`install.sh --version`, private mode, all steps, version/row/health asserted)
+and **dev canary PASS**. Install Recovery Harness (run 34892634113): 8 of 10
+scenarios pass, 2 red:
+
+- `3-postswap-worker-ddl-deadlock`: `rc=127` at line 200,
+  `quiesce_upgrade_service` undefined. Harness debt: b04204b1c (09-06) deleted
+  ~250 lines of wedge-helpers incl. this function but left this caller. Bash
+  resolves function names at call time, so no static check caught it; it
+  surfaced an hour into a VM run. Fixed `518831ff7` (rose): helper restored
+  with its invariant, plus a test that sources every lib and every scenario
+  and `declare -F`-resolves every lib call, so a deleted helper fails offline.
+- `1-boot-concurrent-install`: the first `./sb install` (with the migrate-up
+  stall injection) did not reach the stall in 300 s; `upgrade-in-progress.json`
+  never appeared. Its own output (`/tmp/install-c10-first.log`) stayed on the
+  reaped VM. Cause open: maple on one VM with KEEP_VM=1 capturing that log.
+  Passed at rc.14; since then the candidate's install path changed (369 seam,
+  restart marker, pre-Detect refusal), so product is a live suspect.
+
+Owner correction recorded: v2026.09.0's ladder was green on 09-04; what was
+wrong then was ONE cell's claim (the smoke installed the previous stable, not
+the candidate). "Green for the first time" is false; "the candidate cell now
+proves what the doc always said" is the accurate statement.
+
+Owner requirement (2026-09-15 06:55): log capture on failure must be
+systematic across every scenario, not per-scenario addenda. Every process
+the harness starts on a VM writes to a known path; on ANY failure the
+harness copies every such log off the box before reaping, and the job log
+names them. Filed as the next item under this ticket.
+
+Upgrade Arc Harness was skipped (chain stopped at 4/5).
