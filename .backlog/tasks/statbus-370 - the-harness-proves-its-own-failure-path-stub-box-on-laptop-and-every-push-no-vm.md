@@ -5,7 +5,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-09-15 07:48'
-updated_date: '2026-09-15 07:55'
+updated_date: '2026-09-15 08:04'
 labels:
   - testing
   - harness
@@ -98,3 +98,13 @@ purpose, run when the failure machinery changes (not per candidate),
 
 ## Not this ticket
 Renaming the proofs (STATBUS-359). Making the ladder faster.
+
+## Batch sequencing (owner ruling 2026-09-15)
+
+This ticket lands in the ONE batch after the current release: it does not
+touch master until v2026.09.1-rc.08 (or the first later rc that goes fully
+green) has been installed on Norway and promoted to stable. Then all batch
+tickets land in one push, one candidate, one ladder. Position in that push:
+**1 of 8**. harness self-test on a stub box; lands first so the batch ladder itself is protected by it
+
+Batch order: 370 -> 368 -> 367 -> 363 -> 357 -> 361 -> 362 -> 359.

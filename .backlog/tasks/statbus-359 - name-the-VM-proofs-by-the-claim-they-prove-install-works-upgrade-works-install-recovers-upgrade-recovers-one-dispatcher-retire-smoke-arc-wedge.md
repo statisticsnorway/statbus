@@ -5,7 +5,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-09-07 07:56'
-updated_date: '2026-09-07 13:07'
+updated_date: '2026-09-15 08:04'
 labels:
   - harness
   - release
@@ -161,3 +161,13 @@ paths move, so `DecideCoverage` sees every home changed). So:
 3. Counts preserved and named per cell in `--list`.
 4. Coverage, gates, ladder doc, and orchestrator use the cell names.
 5. The first full ladder on the next RC is green with the new names.
+
+## Batch sequencing (owner ruling 2026-09-15)
+
+This ticket lands in the ONE batch after the current release: it does not
+touch master until v2026.09.1-rc.08 (or the first later rc that goes fully
+green) has been installed on Norway and promoted to stable. Then all batch
+tickets land in one push, one candidate, one ladder. Position in that push:
+**8 of 8**. rename the VM proofs and move to test/vm/; LAST because it moves ~50 files and invalidates coverage by design; needs the two rulings
+
+Batch order: 370 -> 368 -> 367 -> 363 -> 357 -> 361 -> 362 -> 359.

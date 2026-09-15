@@ -5,7 +5,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-09-07 07:02'
-updated_date: '2026-09-07 07:02'
+updated_date: '2026-09-15 08:04'
 labels:
   - harness
   - install
@@ -87,3 +87,13 @@ Certificates and TLS for the box's OWN listeners (that is STATBUS-358).
 Standalone deployment mode on a harness VM (needs a harness-safe
 certificate first; also STATBUS-358).
 <!-- SECTION:DESCRIPTION:END -->
+
+## Batch sequencing (owner ruling 2026-09-15)
+
+This ticket lands in the ONE batch after the current release: it does not
+touch master until v2026.09.1-rc.08 (or the first later rc that goes fully
+green) has been installed on Norway and promoted to stable. Then all batch
+tickets land in one push, one candidate, one ladder. Position in that push:
+**5 of 8**. https-only egress scenario; being built by palmtree (Astra) in scratch; joins --print-selected so the batch ladder runs it
+
+Batch order: 370 -> 368 -> 367 -> 363 -> 357 -> 361 -> 362 -> 359.

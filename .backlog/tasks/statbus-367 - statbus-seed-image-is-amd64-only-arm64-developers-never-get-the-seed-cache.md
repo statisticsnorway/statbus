@@ -5,7 +5,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-09-14 10:14'
-updated_date: '2026-09-14 13:47'
+updated_date: '2026-09-15 08:04'
 labels:
   - ci
   - dx
@@ -92,3 +92,13 @@ Luna (pawprint) round 1 REJECT (digest taken by inspecting the tag), round
 2 ACCEPT: `tmp/STATBUS-368-367-review.md`. Only a real Images run proves
 the ghcr publish and the arm64 `build-sb` single pg_restore; that is the
 first master push after landing.
+
+## Batch sequencing (owner ruling 2026-09-15)
+
+This ticket lands in the ONE batch after the current release: it does not
+touch master until v2026.09.1-rc.08 (or the first later rc that goes fully
+green) has been installed on Norway and promoted to stable. Then all batch
+tickets land in one push, one candidate, one ladder. Position in that push:
+**3 of 8**. seed image FROM scratch + multi-arch manifest; built and Luna-accepted in scratch (9c34ebea4, bfbf037e8, 2fe06f637); the batch push is its ghcr proof
+
+Batch order: 370 -> 368 -> 367 -> 363 -> 357 -> 361 -> 362 -> 359.

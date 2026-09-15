@@ -5,7 +5,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-09-07 17:26'
-updated_date: '2026-09-15 07:15'
+updated_date: '2026-09-15 08:04'
 labels:
   - testing
   - upgrade
@@ -175,3 +175,13 @@ batch RC is green and the owner has ruled Q1 (build tag `livedb`).
 
 Q1: selector = build tag `livedb`, tier name "live-database tests", names as
 in the table above. Yes, or name what to change.
+
+## Batch sequencing (owner ruling 2026-09-15)
+
+This ticket lands in the ONE batch after the current release: it does not
+touch master until v2026.09.1-rc.08 (or the first later rc that goes fully
+green) has been installed on Norway and promoted to stable. Then all batch
+tickets land in one push, one candidate, one ladder. Position in that push:
+**7 of 8**. live-database tests: worktree sandbox, livedb build tag, Fast Tests step, 25 renames; needs owner Q1 ruling first
+
+Batch order: 370 -> 368 -> 367 -> 363 -> 357 -> 361 -> 362 -> 359.

@@ -5,7 +5,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-09-07 13:48'
-updated_date: '2026-09-07 13:48'
+updated_date: '2026-09-15 08:04'
 labels:
   - ops
   - security
@@ -86,3 +86,13 @@ protect) exceeds the benefit for a handful of values.
 4. dev's upgrade service logs authenticated GitHub calls (rate-limit header
    shows 5000/h) after step 4; `no` and `demo` remain anonymous per
    `./cloud.sh status`.
+
+## Batch sequencing (owner ruling 2026-09-15)
+
+This ticket lands in the ONE batch after the current release: it does not
+touch master until v2026.09.1-rc.08 (or the first later rc that goes fully
+green) has been installed on Norway and promoted to stable. Then all batch
+tickets land in one push, one candidate, one ladder. Position in that push:
+**6 of 8**. secrets in .env.credentials; no open ruling; build in scratch once the owner says go
+
+Batch order: 370 -> 368 -> 367 -> 363 -> 357 -> 361 -> 362 -> 359.

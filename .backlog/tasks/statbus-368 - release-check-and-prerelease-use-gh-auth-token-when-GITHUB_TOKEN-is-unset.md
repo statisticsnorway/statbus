@@ -5,7 +5,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-09-14 11:41'
-updated_date: '2026-09-14 13:38'
+updated_date: '2026-09-15 08:04'
 labels:
   - release
   - cli
@@ -54,3 +54,13 @@ argv). Luna (pawprint) round 1 REJECT (git reads bypassed the helper), round
 env-only on purpose: boxes have no `gh`.
 
 Done-when's 100-run test is the coordinator's poller on the next cut.
+
+## Batch sequencing (owner ruling 2026-09-15)
+
+This ticket lands in the ONE batch after the current release: it does not
+touch master until v2026.09.1-rc.08 (or the first later rc that goes fully
+green) has been installed on Norway and promoted to stable. Then all batch
+tickets land in one push, one candidate, one ladder. Position in that push:
+**2 of 8**. release gate uses gh auth token; built and Luna-accepted in scratch (f6d4ae2f7 + 1fe04e1a9)
+
+Batch order: 370 -> 368 -> 367 -> 363 -> 357 -> 361 -> 362 -> 359.

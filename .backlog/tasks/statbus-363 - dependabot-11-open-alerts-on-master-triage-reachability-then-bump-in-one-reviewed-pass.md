@@ -5,7 +5,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-09-07 19:46'
-updated_date: '2026-09-14 13:30'
+updated_date: '2026-09-15 08:04'
 labels:
   - security
   - dependencies
@@ -98,3 +98,13 @@ Sol round 2 ACCEPT on `7e7b9186c` (with `ce9de0f65`): no findings; frozen
 install clean, tsc/lint/build/test green (28/28). Ready to cherry-pick onto
 master after rc.05 is cut. Remaining: the Next >= 16.3.3 + sharp >= 0.35.4
 commit with a next/image smoke, then retriage to zero.
+
+## Batch sequencing (owner ruling 2026-09-15)
+
+This ticket lands in the ONE batch after the current release: it does not
+touch master until v2026.09.1-rc.08 (or the first later rc that goes fully
+green) has been installed on Norway and promoted to stable. Then all batch
+tickets land in one push, one candidate, one ladder. Position in that push:
+**4 of 8**. dependabot: ten build-time bumps, Sol-accepted in scratch (ce9de0f65 + 7e7b9186c); the Next >= 16.3.3 + sharp commit with its next/image smoke is ALSO in this batch, built and reviewed before the push
+
+Batch order: 370 -> 368 -> 367 -> 363 -> 357 -> 361 -> 362 -> 359.
