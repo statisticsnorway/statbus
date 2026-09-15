@@ -10,13 +10,13 @@
 # Expected principled behavior:
 #   The install state machine's probe 2 (live-upgrade) detects an
 #   in-flight install via tmp/upgrade-in-progress.json + the holder
-#   PID being alive. A SECOND ./sb install run while the first is
-#   in its migrate phase MUST refuse with a clear diagnostic naming
-#   the holder PID. Only ONE upgrade row is created in
+#   flock being held. A SECOND ./sb install run while the first is
+#   in its migrate phase MUST refuse with a clear diagnostic identifying
+#   the install holder. Only ONE upgrade row is created in
 #   public.upgrade; the second install does not produce a row.
 #
 # Validates fixes already on master:
-#   - tmp/upgrade-in-progress.json mutex with flock (LOCK_EX) + PID
+#   - tmp/upgrade-in-progress.json mutex with flock (LOCK_EX)
 #   - probe 2 (live-upgrade) state in install.Detect
 #   - the install state ladder's refuse-with-diagnostic path
 #
@@ -31,7 +31,7 @@
 #      + the migrate subprocess being alive).
 #   4. Run a SECOND ./sb install without any inject env vars.
 #   5. Assert: the second install refuses with a diagnostic that
-#      mentions "live-upgrade" (or the holder PID). Exit non-zero.
+#      mentions "live-upgrade" and the lock inspection hint. Exit non-zero.
 #   6. Remove release file → first install proceeds → completes.
 #   7. Assert: exactly ONE upgrade row exists in public.upgrade.
 #
@@ -63,8 +63,16 @@ source "$LIB_DIR/assertions.sh"
 RELEASE_FILE="/tmp/stall-release-c10"
 trap '
     rc=$?
+    if [ "$rc" -ne 0 ] && [ "${VM_OWNED_BY_THIS_RUN:-0}" = 1 ]; then
+        capture_failure_artifacts "$VM_NAME" || true
+        # cleanup_vm also captures failures. Preserve this pre-release snapshot
+        # separately so post-release capture cannot overwrite the live evidence.
+        if [ -d "$HARNESS_ROOT/tmp/$VM_NAME" ]; then
+            cp -R "$HARNESS_ROOT/tmp/$VM_NAME" "$HARNESS_ROOT/tmp/$VM_NAME-pre-release-$(date +%s)" || true
+        fi
+    fi
     remove_release_file_in_vm "$VM_NAME" "$RELEASE_FILE" 2>/dev/null || true
-    cleanup_vm "$VM_NAME"
+    cleanup_vm "$VM_NAME" "$rc" || true
     exit $rc
 ' EXIT
 
@@ -105,7 +113,7 @@ assert_demo_data_present "$VM_NAME"
 # existing inject.StallHere("concurrent-install-attempted-during-
 # migrate-up") at the top of runUp (cli/internal/migrate/migrate.go)
 # blocks. While blocked, the install holds the upgrade-in-progress
-# flag with its PID — the live-upgrade signal probe 2 detects.
+# flag with its flock — the live-upgrade signal probe 2 detects.
 # ─────────────────────────────────────────────────────────────────────────
 echo ""
 echo "── creating release file + starting FIRST install at HEAD with C10 injection ──"
@@ -124,7 +132,8 @@ fi
 git checkout $HEAD_LOCAL
 cp /tmp/env-config .env.config
 cp /tmp/users.yml .users.yml
-STATBUS_INJECT_AT=concurrent-install-attempted-during-migrate-up \
+echo \$\$ > /tmp/install-c10-first.pid
+exec env STATBUS_INJECT_AT=concurrent-install-attempted-during-migrate-up \
 STATBUS_INJECT_STALL_UNTIL_REMOVED_FILE=$RELEASE_FILE \
 STATBUS_MIN_DISK_GB=5 \
     ./sb install --non-interactive --trust-github-user jhf
@@ -143,25 +152,12 @@ harness_register_log install-c10-first /tmp/install-c10-first.log "$ip"
 # ─────────────────────────────────────────────────────────────────────────
 echo ""
 echo "── waiting for first install's stall to engage ──"
-# UNMASK: wait_for_inject_stall_ready returns 1 on timeout. Under `set -euo
-# pipefail` the `| tee | tail` pipeline propagates that non-zero to the
-# assignment → the ERR trap fires "harness failure: rc=1 at tail -1" BEFORE the
-# `if [ -z "$MIGRATE_PID" ]` diagnostic can run, hiding WHY the stall never
-# engaged. The set +e/set -e fence lets the timeout fall through to the
-# diagnostic (install exit code + log tail) below.
-# The helper's progress goes to stderr and its ONE result line to stdout; on
-# timeout it prints nothing to stdout and returns 1. Never tee stderr into the
-# substitution: the lib's ERR trap also writes to stderr, and rc.07's run got
-# the trap text INTO MIGRATE_PID, skipped the diagnostic below, and failed on
-# the next check with the first install's log still on the box.
-# The stall fires inside step 11 (Migrations). Steps 7 (Images) and 8
-# (Services) precede it and on a cold box pull ~400 MB of HEAD images, which on
-# rc.07 (2026-09-14) and the r3 diagnosis run consumed the whole 300 s budget:
-# the product printed the INJECT stall marker AT the deadline and the harness
-# had already given up. The budget is for the stall, not for the download, so
-# start it when the install reports step 7 done (the last slow step before
-# the stall site). If step 7 never completes, that is its own failure with its
-# own timeout, and the first install's log tail says which step it was in.
+# Keep readiness status separate from stdout. Even a failed transport that
+# prints a plausible PID must reach the diagnostic below, not the next phase.
+# Progress remains on stderr, and success emits only the numeric PID.
+# Image pulls precede migrations. Give that phase its own budget, then
+# observe the actual migrate process. Earlier CI tails contained an INJECT
+# marker only AFTER timeout; they did not timestamp when the stall began.
 echo "── waiting for first install to finish pulling images (step 7) ──"
 IMAGES_MAX_WAIT_S="${IMAGES_MAX_WAIT_S:-900}"
 _deadline=$(( $(date +%s) + IMAGES_MAX_WAIT_S ))
@@ -175,10 +171,7 @@ until ssh "${SSH_OPTS[@]}" root@"$ip" "grep -qE '^\[7/[0-9]+\] Images +(OK|SKIP|
     sleep 10
 done
 echo "  images pulled; stall budget starts now (${STALL_MAX_WAIT_S}s)"
-set +e
-MIGRATE_PID=$(wait_for_inject_stall_ready "$VM_NAME" "$RELEASE_FILE" "$STALL_MAX_WAIT_S")
-set -e
-if [ -z "$MIGRATE_PID" ]; then
+if ! MIGRATE_PID=$(wait_for_inject_stall_ready "$VM_NAME" "$RELEASE_FILE" "$STALL_MAX_WAIT_S" /tmp/install-c10-first.log /tmp/install-c10-first.pid concurrent-install-attempted-during-migrate-up); then
     echo "✗ stall never activated within ${STALL_MAX_WAIT_S}s" >&2
     echo "  first install exit (if any): $(ssh "${SSH_OPTS[@]}" root@"$ip" "cat /tmp/install-c10-first.exit 2>/dev/null" || echo '(not exited yet)')" >&2
     echo "  last 30 lines of /tmp/install-c10-first.log:" >&2
@@ -186,15 +179,14 @@ if [ -z "$MIGRATE_PID" ]; then
     exit 1
 fi
 
-# Confirm the flag file exists and capture the holder PID for later
-# comparison against the second install's refuse diagnostic.
-FIRST_HOLDER=$(VM_EXEC bash -c 'cat ~/statbus/tmp/upgrade-in-progress.json 2>/dev/null' || echo "")
-if [ -z "$FIRST_HOLDER" ]; then
-    echo "✗ first install did not create upgrade-in-progress.json" >&2
+# The flag no longer stores a PID (STATBUS-111). Validate its real holder
+# field; the second install's live-upgrade classification proves flock liveness.
+FIRST_HOLDER=$(VM_EXEC bash -c 'cat ~/statbus/tmp/upgrade-in-progress.json')
+if ! printf '%s\n' "$FIRST_HOLDER" | python3 -c 'import json, sys; sys.exit(json.load(sys.stdin).get("holder") != "install")'; then
+    echo "✗ first install did not create an install-held upgrade flag" >&2
     exit 1
 fi
-FIRST_PID=$(echo "$FIRST_HOLDER" | grep -oE '"PID":\s*[0-9]+' | head -1 | grep -oE '[0-9]+' || echo "")
-echo "  first install holds flag with PID=$FIRST_PID"
+echo "  first install has an install-held upgrade flag"
 
 # ─────────────────────────────────────────────────────────────────────────
 # Phase 4 — run SECOND install (no env vars); expect refusal
@@ -204,7 +196,21 @@ echo "── running SECOND install (no env vars) — expecting probe 2 refusal 
 
 SECOND_LOG="/tmp/install-c10-second.log"
 harness_register_log install-c10-second "$SECOND_LOG"
-SECOND_EXIT=$(VM_EXEC bash -c "cd ~/statbus && ./sb install --non-interactive --trust-github-user jhf > $SECOND_LOG 2>&1; echo \$?" 2>/dev/null | tr -d ' \r\n' || echo "?")
+if ! SECOND_EXIT=$(VM_SCRIPT_INLINE concurrent-second-install "$SECOND_LOG" <<'SCRIPT'
+#!/bin/bash
+cd ~/statbus || exit 1
+./sb install --non-interactive --trust-github-user jhf > "$1" 2>&1
+rc=$?
+printf '%s\n' "$rc"
+SCRIPT
+); then
+    echo "✗ second install transport failed" >&2
+    exit 1
+fi
+if [[ ! "$SECOND_EXIT" =~ ^[0-9]+$ ]] || [ "$SECOND_EXIT" -gt 255 ]; then
+    echo "✗ invalid second install exit status: '$SECOND_EXIT'" >&2
+    exit 1
+fi
 
 echo "  second install exited: $SECOND_EXIT"
 SECOND_OUTPUT=$(VM_EXEC bash -c "cat $SECOND_LOG 2>/dev/null" || echo "")
@@ -218,11 +224,15 @@ if [ "$SECOND_EXIT" = "0" ]; then
 fi
 echo "  ✓ second install refused with non-zero exit"
 
-# Assertion: refuse diagnostic mentions live-upgrade or the holder PID.
-if echo "$SECOND_OUTPUT" | grep -qiE "live-?upgrade|in.progress|PID=$FIRST_PID|holder"; then
-    echo "  ✓ second install diagnostic names the live-upgrade / holder PID"
+# The current product identifies the holder by label, not a stored PID, and
+# directs the operator to lsof for process identity. Do not accept generic
+# 'holder' text or an empty PID= alternative as evidence of live-upgrade refusal.
+if printf '%s\n' "$SECOND_OUTPUT" | grep -Fq 'Detected install state: live-upgrade' &&
+   printf '%s\n' "$SECOND_OUTPUT" | grep -Fq 'Upgrade in progress (install)' &&
+   printf '%s\n' "$SECOND_OUTPUT" | grep -Fq 'lsof tmp/upgrade-in-progress.json'; then
+    echo "  ✓ second install identifies the live install holder and lock inspection command"
 else
-    echo "✗ second install diagnostic does NOT mention live-upgrade / holder PID:"
+    echo "✗ second install diagnostic does not identify the live install holder:"
     echo "$SECOND_OUTPUT" | tail -20 | sed 's/^/    /'
     exit 1
 fi
@@ -254,6 +264,10 @@ if [ -z "$FIRST_EXIT" ]; then
     exit 1
 fi
 echo "  first install exited: $FIRST_EXIT"
+if [ "$FIRST_EXIT" != "0" ]; then
+    echo "✗ first install did not exit successfully" >&2
+    exit 1
+fi
 
 # ─────────────────────────────────────────────────────────────────────────
 # Phase 6 — assertions
@@ -285,7 +299,24 @@ if [ "$STUCK" != "0" ]; then
     echo "✗ expected 0 in_progress/failed rows; got $STUCK"; exit 1
 fi
 echo "  ✓ no upgrade row stuck in_progress/failed"
-assert_flag_file_absent "$VM_NAME"
+# Observe absence positively; unreadable directories and transport failure
+# must not become an all-clear via the generic best-effort helper.
+if ! VM_SCRIPT_INLINE concurrent-flag-absent <<'SCRIPT'
+#!/bin/bash
+set -eu
+cd ~/statbus/tmp
+python3 - <<'PY_ABSENT'
+from pathlib import Path
+names = [p.name for p in Path('.').iterdir()]
+if 'upgrade-in-progress.json' in names:
+    raise SystemExit('upgrade flag is still present')
+print('  ✓ upgrade flag file absent (directory read succeeded)')
+PY_ABSENT
+SCRIPT
+then
+    echo "✗ could not prove upgrade flag absence" >&2
+    exit 1
+fi
 assert_health_passes "$VM_NAME"
 assert_systemd_restart_counter_bounded "$VM_NAME" "statbus-upgrade@statbus.service" 2
 

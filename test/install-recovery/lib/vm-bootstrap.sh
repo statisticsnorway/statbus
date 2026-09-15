@@ -1862,8 +1862,31 @@ sudo -i -u statbus -- bash -c 'cd ~/statbus && docker compose --profile all ps -
 printf 'captured\tdocker-compose-ps\tdocker compose --profile all ps -a\t%s\n' "$(wc -c < "$capture_dir/docker-compose-ps.txt" | tr -d ' ')" >> "$index"
 sudo -i -u statbus -- bash -c 'cd ~/statbus && docker compose logs --tail 300' > "$capture_dir/docker-compose-logs.txt" 2>&1
 printf 'captured\tdocker-compose-logs\tdocker compose logs --tail 300\t%s\n' "$(wc -c < "$capture_dir/docker-compose-logs.txt" | tr -d ' ')" >> "$index"
-journalctl --user -M statbus@ --no-pager -n 300 -u statbus-upgrade@statbus.service > "$capture_dir/upgrade-unit-journal.txt" 2>&1
-printf 'captured\tupgrade-unit-journal\tjournalctl --user -M statbus@ --no-pager -n 300\t%s\n' "$(wc -c < "$capture_dir/upgrade-unit-journal.txt" | tr -d ' ')" >> "$index"
+statbus_uid=$(id -u statbus)
+if sudo -u statbus env XDG_RUNTIME_DIR="/run/user/$statbus_uid" DBUS_SESSION_BUS_ADDRESS="unix:path=/run/user/$statbus_uid/bus" journalctl --user --no-pager -n 300 -u statbus-upgrade@statbus.service > "$capture_dir/upgrade-unit-journal.txt" 2>&1; then
+    printf 'captured\tupgrade-unit-journal\tstatbus user journal\t%s\n' "$(wc -c < "$capture_dir/upgrade-unit-journal.txt" | tr -d ' ')" >> "$index"
+else
+    printf 'missing\tupgrade-unit-journal\tstatbus user journal\tcommand-failed (see upgrade-unit-journal.txt)\n' >> "$index"
+fi
+# Read-only concurrency evidence, collected before a C10 failure releases its
+# stall. Keep read/stat errors instead of treating them as proof of absence.
+{
+    date -u +%FT%TZ
+    id statbus
+    stat /home/statbus/statbus/tmp /home/statbus/statbus/tmp/upgrade-in-progress.json
+    cat /home/statbus/statbus/tmp/upgrade-in-progress.json
+    cat /tmp/install-c10-first.pid /tmp/install-c10-first.exit
+    ps -eo pid,ppid,lstart,args | grep -E '/sb (install|migrate u[p])'
+    cat /proc/locks
+    lsof /home/statbus/statbus/tmp/upgrade-in-progress.json
+    for pid in $(pgrep -f '/sb (install|migrate u[p])'); do
+        echo "PROCESS=$pid"
+        readlink "/proc/$pid/cwd"
+        tr '\0' '\n' < "/proc/$pid/environ" | grep -E '^(STATBUS_INJECT_|STATBUS_POST_UPGRADE_FIXUP=)'
+        ls -li "/proc/$pid/fd/"
+    done
+} > "$capture_dir/concurrent-process-state.txt" 2>&1
+printf 'captured\tconcurrent-process-state\tread-only process/flag/lock observations including errors\t%s\n' "$(wc -c < "$capture_dir/concurrent-process-state.txt" | tr -d ' ')" >> "$index"
 
 found_tmp=0
 for path in /home/statbus/statbus/tmp/*.log; do

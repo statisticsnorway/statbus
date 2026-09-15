@@ -372,43 +372,111 @@ wait_for_inject_stall_ready() {
     local poll_s=3
     local stable_s=10
     local stable_since=""
-    local elapsed=0
+    local started_at deadline now identity stable_identity=""
+    deadline=$(( $(date +%s) + max_wait_s ))
 
     echo "  [wedge] waiting for inject.StallHere to be active on $vm_name" >&2
     echo "          release_file=$release_file, max_wait=${max_wait_s}s" >&2
 
-    while [ "$elapsed" -lt "$max_wait_s" ]; do
-        # Bundle the three checks into one ssh round-trip so a flaky link
-        # doesn't make us miss the window.
+    while [ "$(date +%s)" -lt "$deadline" ]; do
         local probe
-        # shellcheck disable=SC2016  # variables expand in the remote bash -c, not locally
-        if ! probe=$(VM_EXEC bash -c 'REL=$1; REL_PRESENT=0; [ -f "$REL" ] && REL_PRESENT=1; MIGRATE_PID=$(pgrep -f "/sb migrate u[p]" 2>/dev/null | head -1 || echo ""); STARTED_AT=""; if [ -n "$MIGRATE_PID" ]; then STARTED_AT=$(ps -o lstart= -p "$MIGRATE_PID" 2>/dev/null || echo ""); fi; echo "REL_PRESENT=$REL_PRESENT MIGRATE_PID=$MIGRATE_PID STARTED_AT=$STARTED_AT"' bash "$release_file"); then
+        # A bash -c body is NOT safe even on one line: sudo -i expands its
+        # dollar references before bash evaluates assignments (rc.09). Ship
+        # literal bytes via the documented file transport instead.
+        if ! probe=$(VM_SCRIPT_INLINE inject-stall-probe "$release_file" "${4:-}" "${5:-}" "${6:-}" <<'SCRIPT'
+#!/bin/bash
+set -eu
+rel_present=0
+[ ! -f "$1" ] || rel_present=1
+if [ -n "${2:-}" ]; then
+    pid=$(python3 - "$2" "$3" "$4" "$1" <<'PY_IDENTITY'
+from pathlib import Path
+import subprocess
+import sys
+
+def select_pid(log, pid_file, inject, release, proc=Path('/proc'), candidates=None):
+    marker = f'INJECT: stalling at "{inject}" until {release} is removed'
+    try:
+        if marker not in Path(log).read_text():
+            return ''
+        parent = int(Path(pid_file).read_text().strip())
+        if not (proc / str(parent) / 'stat').is_file():
+            return ''
+    except (OSError, ValueError):
+        return ''
+    if candidates is None:
+        result = subprocess.run(['pgrep', '-f', '/sb migrate u[p]'], capture_output=True, text=True)
+        candidates = result.stdout.split()
+    for candidate in candidates:
+        try:
+            pid = int(candidate)
+            base = proc / str(pid)
+            argv = (base / 'cmdline').read_bytes().split(b'\0')
+            if not argv[0].endswith(b'/sb') or argv[1:3] != [b'migrate', b'up']:
+                continue
+            env = (base / 'environ').read_bytes().split(b'\0')
+            if f'STATBUS_INJECT_AT={inject}'.encode() not in env or f'STATBUS_INJECT_STALL_UNTIL_REMOVED_FILE={release}'.encode() not in env:
+                continue
+            ancestor = pid
+            seen = set()
+            while ancestor > 1 and ancestor not in seen:
+                if ancestor == parent:
+                    return str(pid)
+                seen.add(ancestor)
+                stat = (proc / str(ancestor) / 'stat').read_text()
+                ancestor = int(stat.rsplit(') ', 1)[1].split()[1])
+        except (OSError, ValueError, IndexError):
+            continue
+    return ''
+
+if __name__ == '__main__':
+    print(select_pid(*sys.argv[1:5]))
+PY_IDENTITY
+    )
+else
+    pid=$(pgrep -f '/sb migrate u[p]' | head -1 || true)
+fi
+started=""
+if [ -n "$pid" ]; then
+    started=$(ps -o lstart= -p "$pid" 2>/dev/null | sed 's/^[[:space:]]*//' || true)
+fi
+printf 'REL_PRESENT=%s MIGRATE_PID=%s STARTED_AT=%s\n' "$rel_present" "$pid" "$started"
+SCRIPT
+        ); then
             echo "  [wedge] ERROR: stall probe transport failed" >&2
             return 1
         fi
 
         local rel_present migrate_pid
-        rel_present=$(echo "$probe" | sed -n 's/.*REL_PRESENT=\([^ ]*\).*/\1/p')
-        migrate_pid=$(echo "$probe" | sed -n 's/.*MIGRATE_PID=\([^ ]*\).*/\1/p')
-
-        if [ "$rel_present" = "1" ] && [ -n "$migrate_pid" ]; then
-            if [ -z "$stable_since" ]; then
-                stable_since="$elapsed"
-                echo "  [wedge] migrate subprocess detected (PID=$migrate_pid) — confirming stall stability" >&2
-            elif [ $((elapsed - stable_since)) -ge "$stable_s" ]; then
-                echo "  [wedge] stall confirmed: migrate PID=$migrate_pid alive for $((elapsed - stable_since))s with release file present" >&2
-                # Echo the PID on stdout for the caller to capture.
+        if [[ ! "$probe" =~ ^REL_PRESENT=([01])\ MIGRATE_PID=([0-9]*)\ STARTED_AT=(.*)$ ]]; then
+            echo "  [wedge] ERROR: malformed stall probe: $probe" >&2
+            return 1
+        fi
+        rel_present="${BASH_REMATCH[1]}"
+        migrate_pid="${BASH_REMATCH[2]}"
+        started_at="${BASH_REMATCH[3]}"
+        now=$(date +%s)
+        # Probe/SSH time counts towards the wall-clock budget too.
+        [ "$now" -lt "$deadline" ] || break
+        identity="$migrate_pid:$started_at"
+        if [ "$rel_present" = "1" ] && [[ "$migrate_pid" =~ ^[1-9][0-9]*$ ]] && [ -n "$started_at" ]; then
+            if [ "$identity" != "$stable_identity" ]; then
+                stable_identity="$identity"
+                stable_since="$now"
+                echo "  [wedge] $(date -u +%FT%TZ) migrate subprocess detected (PID=$migrate_pid started=$started_at) — confirming stall stability" >&2
+            elif [ $((now - stable_since)) -ge "$stable_s" ]; then
+                echo "  [wedge] $(date -u +%FT%TZ) stall confirmed: migrate PID=$migrate_pid alive for $((now - stable_since))s with release file present" >&2
                 echo "$migrate_pid"
                 return 0
             fi
         else
-            if [ -n "$stable_since" ]; then
+            if [ -n "$stable_identity" ]; then
                 echo "  [wedge] stall stability broken (rel=$rel_present pid=$migrate_pid) — resetting" >&2
             fi
+            stable_identity=""
             stable_since=""
         fi
         sleep "$poll_s"
-        elapsed=$((elapsed + poll_s))
     done
 
     echo "  [wedge] timed out after ${max_wait_s}s waiting for stall" >&2

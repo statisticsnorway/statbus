@@ -151,6 +151,12 @@ jobs:
           ref: ${{ github.sha }}
           fetch-depth: 0
 
+      - name: Test concurrent observation and failure-artifact contracts
+        run: |
+          bash test/install-recovery/tests/inject-stall-probe-test.sh
+          bash test/install-recovery/tests/concurrent-install-observation-test.sh
+          bash test/install-recovery/tests/recovery-artifact-path-test.sh
+
       - name: Revalidate orchestrated admission before paid side effects
         uses: ./.github/actions/orchestrator-fleet-admission
         with:
@@ -541,7 +547,9 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: install-recovery-log-${{ matrix.scenario }}
-          path: tmp/install-recovery-${{ matrix.scenario }}*.log
+          path: |
+            tmp/install-recovery-${{ matrix.scenario }}*.log
+            tmp/statbus-recovery-${{ matrix.scenario }}-*/**
           retention-days: 14
           if-no-files-found: ignore
 
