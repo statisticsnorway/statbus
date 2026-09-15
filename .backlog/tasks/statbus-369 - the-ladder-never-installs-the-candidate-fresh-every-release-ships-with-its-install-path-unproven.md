@@ -385,3 +385,19 @@ from the completed failed recovery run. Its fresh child revalidates admission
 and the fleet lease, then the parent can proceed to arcs. Do NOT rerun the
 child first: failed-only child rerun skips successful discovery/admission.
 No overlapping retry or new RC merely for this cloud-start failure.
+
+## rc.10 concurrent-install proof passed (2026-09-15 13:48 UTC)
+
+Published-candidate job `104401335537` PASSED. Captured log
+`tmp/rc10-concurrent-install-pass.log` shows the install-held flag, second
+invocation refusing with the live-install/lsof diagnostic, first exit 0,
+completed HEAD upgrade row, and confirmed absent flag. This establishes the
+actual VM concurrency acceptance path, not merely the offline regression.
+Stale-flag handoff, startup-timeout, and bool-text regression also passed.
+Recovery still has running/queued siblings; parent remains in progress.
+No retry dispatched and no full-ladder green claimed.
+
+The separate partial-allocation cleanup gap is reproduced in Seedling's
+isolated `rc10-partial-allocation-fix` scratch clone. Mocked prototype tests
+are passing, with final controls/review pending. No main product edits,
+cloud operations, or change to rc.10 were made for this investigation.
