@@ -1,18 +1,19 @@
 ---
 id: STATBUS-357
 title: >-
-  https-only egress scenario: a box whose network blocks outbound HTTP must install and upgrade (the Albania shape)
+  https-only egress scenario: a box whose network blocks outbound HTTP must
+  install and upgrade (the Albania shape)
 status: To Do
 assignee: []
 created_date: '2026-09-07 07:02'
-updated_date: '2026-09-15 08:04'
+updated_date: '2026-09-15 08:15'
 labels:
   - harness
   - install
   - upgrade
   - fidelity
 dependencies:
-  - STATBUS-339
+  - STATBUS-363
 references:
   - install.sh
   - test/install-recovery/lib/vm-bootstrap.sh
@@ -21,7 +22,7 @@ references:
   - cli/internal/upgrade/ghcr.go
 priority: medium
 type: task
-ordinal: 350000
+ordinal: 50
 ---
 
 ## Description

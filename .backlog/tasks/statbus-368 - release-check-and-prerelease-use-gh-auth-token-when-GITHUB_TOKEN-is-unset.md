@@ -1,17 +1,20 @@
 ---
 id: STATBUS-368
 title: >-
-  release check / prerelease: use `gh auth token` when GITHUB_TOKEN is unset, and say which identity the gate is reading GitHub as
+  release check / prerelease: use `gh auth token` when GITHUB_TOKEN is unset,
+  and say which identity the gate is reading GitHub as
 status: In Progress
 assignee: []
 created_date: '2026-09-14 11:41'
-updated_date: '2026-09-15 08:04'
+updated_date: '2026-09-15 08:15'
 labels:
   - release
   - cli
-dependencies: []
+dependencies:
+  - STATBUS-370
 priority: medium
 type: bug
+ordinal: 20
 ---
 
 ## Ground truth

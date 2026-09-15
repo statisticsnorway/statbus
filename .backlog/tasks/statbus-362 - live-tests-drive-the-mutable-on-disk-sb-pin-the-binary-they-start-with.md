@@ -1,17 +1,18 @@
 ---
 id: STATBUS-362
-title: >-
-  live tests drive the mutable on-disk ./sb: pin the binary they start with
+title: 'live tests drive the mutable on-disk ./sb: pin the binary they start with'
 status: To Do
 assignee: []
 created_date: '2026-09-07 17:26'
-updated_date: '2026-09-15 08:04'
+updated_date: '2026-09-15 08:15'
 labels:
   - testing
   - upgrade
-dependencies: []
+dependencies:
+  - STATBUS-361
 priority: medium
 type: task
+ordinal: 70
 ---
 
 ## Ground truth (2026-09-07)

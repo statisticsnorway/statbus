@@ -1,17 +1,20 @@
 ---
 id: STATBUS-361
 title: >-
-  One location for SSB-shared operator credentials: GITHUB_TOKEN first, in .env.credentials, reachable by the fleet script over SSH; SOPS deferred with named triggers
+  One location for SSB-shared operator credentials: GITHUB_TOKEN first, in
+  .env.credentials, reachable by the fleet script over SSH; SOPS deferred with
+  named triggers
 status: To Do
 assignee: []
 created_date: '2026-09-07 13:48'
-updated_date: '2026-09-15 08:04'
+updated_date: '2026-09-15 08:15'
 labels:
   - ops
   - security
   - fleet
 dependencies:
-  - STATBUS-341
+  - STATBUS-357
+ordinal: 60
 ---
 
 ## Ruling (owner, 2026-09-07)

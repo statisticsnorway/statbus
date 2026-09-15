@@ -1,16 +1,19 @@
 ---
 id: STATBUS-359
 title: >-
-  Name the VM proofs by the claim they prove: install-works, upgrade-works, install-recovers, upgrade-recovers; one dispatcher; retire smoke, arc, wedge
+  Name the VM proofs by the claim they prove: install-works, upgrade-works,
+  install-recovers, upgrade-recovers; one dispatcher; retire smoke, arc, wedge
 status: To Do
 assignee: []
 created_date: '2026-09-07 07:56'
-updated_date: '2026-09-15 08:04'
+updated_date: '2026-09-15 08:15'
 labels:
   - harness
   - release
   - naming
-dependencies: []
+dependencies:
+  - STATBUS-362
+ordinal: 80
 ---
 
 ## Ruling (owner, 2026-09-07)

@@ -1,17 +1,20 @@
 ---
 id: STATBUS-367
 title: >-
-  statbus-seed image is amd64-only: arm64 developers never get the seed cache and are told the image does not exist
+  statbus-seed image is amd64-only: arm64 developers never get the seed cache
+  and are told the image does not exist
 status: In Progress
 assignee: []
 created_date: '2026-09-14 10:14'
-updated_date: '2026-09-15 08:04'
+updated_date: '2026-09-15 08:15'
 labels:
   - ci
   - dx
-dependencies: []
+dependencies:
+  - STATBUS-368
 priority: medium
 type: bug
+ordinal: 30
 ---
 
 ## Ground truth

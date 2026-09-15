@@ -1,18 +1,21 @@
 ---
 id: STATBUS-363
 title: >-
-  dependabot: 11 open alerts on master (9 high): triage reachability, then bump in one reviewed pass
+  dependabot: 11 open alerts on master (9 high): triage reachability, then bump
+  in one reviewed pass
 status: In Progress
 assignee: []
 created_date: '2026-09-07 19:46'
-updated_date: '2026-09-15 08:04'
+updated_date: '2026-09-15 08:15'
 labels:
   - security
   - dependencies
   - app
-dependencies: []
+dependencies:
+  - STATBUS-367
 priority: high
 type: task
+ordinal: 40
 ---
 
 ## Description

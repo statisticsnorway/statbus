@@ -1,7 +1,8 @@
 ---
 id: STATBUS-370
 title: >-
-  the harness proves its own failure path: every diagnostic, capture and keep branch is exercised on a stub box, on the laptop and on every push, with no VM
+  the harness proves its own failure path: every diagnostic, capture and keep
+  branch is exercised on a stub box, on the laptop and on every push, with no VM
 status: In Progress
 assignee: []
 created_date: '2026-09-15 07:48'
@@ -13,6 +14,7 @@ labels:
 dependencies: []
 priority: high
 type: task
+ordinal: 10
 ---
 
 ## Why
