@@ -7,7 +7,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-09-14 12:36'
-updated_date: '2026-09-15 06:56'
+updated_date: '2026-09-15 12:11'
 labels:
   - release
   - install
@@ -246,3 +246,48 @@ harness copies every such log off the box before reaping, and the job log
 names them. Filed as the next item under this ticket.
 
 Upgrade Arc Harness was skipped (chain stopped at 4/5).
+
+## rc.08 and rc.09: concurrent-install proof still blocked (2026-09-15 12:11 UTC)
+
+rc.08 (`d4ef99c32`), orchestrator `34944448612`: smoke and dev canary
+passed. Recovery run `34945893389` passed 13 of 14 scenarios, including
+`3-postswap-worker-ddl-deadlock`. Only `1-boot-concurrent-install` failed.
+The stall-readiness helper passed a multiline command to `VM_EXEC`, whose
+guard rejects that transport; the helper discarded the diagnostic. The
+previously green rc.14 job also logged a readiness timeout, then continued
+to the second-install refusal and first-install convergence assertions.
+
+Changes `058a776c8` and `476876eb3` attempted to repair the probe with a
+single-line command, visible transport errors, and a non-self-matching
+`pgrep` pattern. They also changed two other multiline helpers to
+`VM_SCRIPT_INLINE` and repaired the failure-capture scp source form.
+rc.09 was cut at `476876eb3` after the pre-cut checks passed.
+
+Live check at 12:08 UTC: rc.09 orchestrator `34962753280` has passed smoke
+and dev canary. Recovery run `34964519724` is still running, but concurrent
+job `104366119867` has failed before launching the second install. No full
+ladder acceptance and no Norway-ready candidate are established.
+
+Independent review identified two remaining issues to reproduce and fix:
+
+- `VM_EXEC` warns that even single-line shell bodies containing variable
+  expansion can be changed by its `sudo -i` transport. Replacing multiline
+  syntax alone was insufficient evidence of a working remote probe. Use
+  the documented file-based transport and prove old-fails/new-passes.
+- The full failure-capture directory was fetched onto the runner, but the
+  workflow's artifact upload glob omits that directory. Capture must survive
+  runner disposal, not merely VM disposal.
+
+Evidence correction: `runMigrations` actually spawns the absolute-path
+`sb migrate up --verbose` subprocess. A stale comment suggesting otherwise
+is not the running implementation. An INJECT marker read in a post-timeout
+log tail does not establish when the stall began. A flag absent after EXIT
+cleanup does not establish that it was absent during install. Prior claims
+about the stall occupying the whole wait window or the product being clean
+were unsupported. Product concurrency remains unproved by this candidate
+until the scenario reaches and passes its actual concurrent-install checks.
+
+Crocodile owns reproduction, a focused regression test, and the narrow fix.
+Cricket independently reviews transport, PID identity/stability, and artifact
+upload. Next candidate only after review and the applicable pre-cut gates.
+The deferred eight-ticket batch remains deferred until Norway and promotion.
