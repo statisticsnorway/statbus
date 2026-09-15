@@ -84,7 +84,8 @@ func TestReattemptRestore_GitCorruptRefusesBeforeDestructiveWorkAndRecordsFailur
 			t.Fatalf("ReattemptRestore is missing %s", name)
 		}
 	}
-	if !(preflight < failureUpdate && failureUpdate < authorizeMarker && authorizeMarker < serviceStop && serviceStop < restore) {
+	if preflight >= failureUpdate || failureUpdate >= authorizeMarker ||
+		authorizeMarker >= serviceStop || serviceStop >= restore {
 		t.Fatalf("git-corrupt refusal order drifted: preflight=%d update=%d marker=%d stop=%d restore=%d",
 			preflight, failureUpdate, authorizeMarker, serviceStop, restore)
 	}
