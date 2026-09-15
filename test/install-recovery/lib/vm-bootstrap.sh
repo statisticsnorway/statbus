@@ -1057,6 +1057,28 @@ VM_SCRIPT_INLINE() {
     return $rc
 }
 
+# A failed CLI create can still have allocated a server: hcloud waits for both
+# create_server and start_server before returning. A fresh random create label,
+# NOT the name or human-readable stderr, proves that allocation belongs to us.
+# Keep the immutable ID for cleanup so a later same-name replacement is safe.
+_record_partial_vm_allocation() {
+    local vm_name="$1" create_token="$2" allocation id token name extra
+    if ! allocation=$(hcloud server describe "$vm_name" \
+        -o 'format={{.ID}} {{index .Labels "statbus-create-token"}} {{.Name}}'); then
+        echo "Could not establish ownership of any partial allocation for '$vm_name'; no cleanup authority acquired." >&2
+        return 1
+    fi
+    read -r id token name extra <<< "$allocation"
+    if ! [[ "$id" =~ ^[1-9][0-9]*$ ]] || [ "$token" != "$create_token" ] || \
+        [ "$name" != "$vm_name" ] || [ -n "$extra" ] || [[ "$allocation" == *$'\n'* ]]; then
+        echo "No matching create token and server identity for '$vm_name'; refusing partial-allocation cleanup." >&2
+        return 1
+    fi
+    VM_PARTIAL_CREATE_ID="$id"
+    VM_PARTIAL_CREATE_NAME="$vm_name"
+    echo "Recorded owned partial allocation: $vm_name (server $id)." >&2
+}
+
 bootstrap_install_test_vm() {
     local vm_name="$1"
     local install_version="${2:-}"
@@ -1123,11 +1145,14 @@ bootstrap_install_test_vm() {
     # Any OTHER create failure (bad image name, quota for a different
     # resource, auth) fails immediately — retrying those would just burn
     # 5 minutes before reporting the same permanent error.
-    local create_attempt max_create_attempts=5 create_backoff_s=60 create_stderr create_err
+    local create_attempt max_create_attempts=5 create_backoff_s=60 create_stderr create_err create_token
+    create_token=$(od -An -N16 -tx1 /dev/urandom | tr -d ' \n') || return 1
+    [[ "$create_token" =~ ^[0-9a-f]{32}$ ]] || { echo "ERROR: could not generate create ownership token" >&2; return 1; }
     for ((create_attempt = 1; create_attempt <= max_create_attempts; create_attempt++)); do
         create_stderr=$(mktemp)
         if hcloud server create \
             --name "$vm_name" \
+            --label "statbus-create-token=$create_token" \
             --type "$HCLOUD_SERVER_TYPE" \
             --image "$HCLOUD_IMAGE" \
             --location "$HCLOUD_LOCATION" \
@@ -1138,6 +1163,12 @@ bootstrap_install_test_vm() {
         fi
         create_err=$(cat "$create_stderr")
         rm -f "$create_stderr"
+        if _record_partial_vm_allocation "$vm_name" "$create_token"; then
+            # Never retry create into an allocated resource, even when the
+            # provider error text also resembles a retriable capacity failure.
+            echo "ERROR: hcloud create failed after allocating our server: $create_err" >&2
+            return 1
+        fi
         if ! printf '%s' "$create_err" | grep -E "resource_limit_exceeded|resource_unavailable" >/dev/null; then
             echo "ERROR: hcloud server create failed for '$vm_name': $create_err" >&2
             return 1
@@ -1981,6 +2012,21 @@ cleanup_vm() {
     local vm_name="$1"
     local scenario_rc="${2:-${rc:-${RC:-0}}}"
     _check_name_safety "$vm_name" || return 1
+
+    # Allocation was proven by a per-create token, but bootstrap never reached
+    # SSH. Do not collect guest logs from a server whose start action failed.
+    if [ "${VM_PARTIAL_CREATE_NAME:-}" = "$vm_name" ] && \
+        [[ "${VM_PARTIAL_CREATE_ID:-}" =~ ^[1-9][0-9]*$ ]]; then
+        if [ "${KEEP_VM:-0}" = "1" ] || [ "${KEEP_VM_ON_FAILURE:-0}" = "1" ]; then
+            echo "KEEP_VM/KEEP_VM_ON_FAILURE: retaining partial allocation $vm_name (server $VM_PARTIAL_CREATE_ID; still billable)."
+            echo "  Delete when done: hcloud server delete $VM_PARTIAL_CREATE_ID"
+        elif hcloud server delete "$VM_PARTIAL_CREATE_ID"; then
+            unset VM_PARTIAL_CREATE_NAME VM_PARTIAL_CREATE_ID
+        else
+            echo "WARNING: could not delete owned partial allocation $vm_name (server $VM_PARTIAL_CREATE_ID); manual cleanup required." >&2
+        fi
+        return 0 # Preserve the original provisioning failure from the EXIT trap.
+    fi
 
     # STATBUS-207/208 ownership guard: refuse to act on a VM this run did
     # not create — a cross-run name collision (two workflows deriving the
