@@ -518,3 +518,12 @@ tests pass. Master now at d3b0c4dea with all six rc.10 arc failures fixed:
 
 Real VM proof of the two schema-floor arcs is deferred to the next candidate
 ladder by design. Ready to cut rc.11 from master d3b0c4dea.
+
+## rc.11 cut and ladder running (2026-09-15 18:23 UTC)
+
+Owner cut `v2026.09.1-rc.11` at `5e51741d12f43033eb3f06376f001714145d9b48`
+(all six rc.10 arc failures fixed on master). Release
+`35007156214`, Test Hardening `35007156279`, and Fleet Orchestrator
+`35007156333` started. Monitoring the published-candidate ladder; the
+schema-floor arcs now run against the corrected lineage/assertions. No
+green-ladder claim yet.

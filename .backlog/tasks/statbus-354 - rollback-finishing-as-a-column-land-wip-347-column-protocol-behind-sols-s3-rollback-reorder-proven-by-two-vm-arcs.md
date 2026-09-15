@@ -121,3 +121,17 @@ Code landed and Sol-accepted for the RC ladder (`6e421c2f0`, review `3a68093c7`)
 ## Status (2026-09-14 09:46): In Progress
 
 rc.01 (`b6d810493`) was cut 2026-09-07 20:47 and carried this ticket, but the ladder stopped at step 1 (admission guard, STATBUS-365, not a finding against the candidate). rc.02 is cut from HEAD after the 365 fix; this ticket's remaining gate is that ladder.
+
+## Status (2026-09-15 18:24): In Progress — harness drift fixed, awaiting rc.11 proof
+
+rc.10's arc run surfaced three harness defects in this ticket's own arcs, not
+product findings: restore-broke-reattempt asserted `flag.step="migrate-up"` but
+STATBUS-354 now stamps durable `StepRollback` at `restoreAndFinalize`
+(service.go 10520/10586); rollback-schema-floor-adoption and
+rollback-schema-floor-failure fell through to the `working` lineage instead of
+`failing`, so neither entered rollback. Fix `d3b0c4dea` routes both floor arcs
+to `failing` with `SCHEMA_FLOOR_BASE_SHA=56559fa7` (exact pre-column parent of
+`012ca22da`) and corrects the step assertion; recovery_attempts=1 + git-corrupt
+ABORT oracle re-derived from code. Two independent reviewers ACCEPTed. rc.11
+(`5e51741d1`) now carries the fix; the two paid floor arcs remain the
+acceptance gate.
