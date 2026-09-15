@@ -7,7 +7,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-09-14 12:36'
-updated_date: '2026-09-15 12:11'
+updated_date: '2026-09-15 13:05'
 labels:
   - release
   - install
@@ -291,3 +291,48 @@ Crocodile owns reproduction, a focused regression test, and the narrow fix.
 Cricket independently reviews transport, PID identity/stability, and artifact
 upload. Next candidate only after review and the applicable pre-cut gates.
 The deferred eight-ticket batch remains deferred until Norway and promotion.
+
+## Product defect reproduced and repaired; next cut pending (2026-09-15 13:05 UTC)
+
+The corrected scratch harness detected a migration process on a fresh VM,
+then failed reading the install flag before launching the second installer.
+This was a failed exploratory run, not an accepted concurrency proof.
+
+An actual DB-free API regression then established a product defect, without
+relying on the ambiguous flag-read failure: hold `AcquireInstallFlag`, call
+`RecoverFromFlag`, and observe recovery unlink the live marker. A second
+`AcquireInstallFlag` then succeeds while the original flock is still held.
+The two descriptors lock different inodes. The stale/free control passed.
+Evidence: scratch `tmp/install-flag-red.log`, test
+`cli/internal/upgrade/install_flag_recovery_test.go`.
+
+Product repair `510c76e4c` preserves active install ownership and uses locked,
+revalidated metadata/inode cleanup for stale flags. Independent real-API
+tests cover active exclusion, stale cleanup, restart intent, changed held
+metadata and replacement inodes. The focused race suite passed. Harness
+repair `1271dc98d` uses file-based observation, intended injection/process
+identity, current flock-based holder semantics, checked refusal/completion
+and absence assertions, pre-release failure capture and retained artifacts.
+All 12 offline harness scripts passed. Cricket approved the nine-file
+snapshot; root verified file hashes before and after landing both commits.
+These are local/code-review results, not published-candidate VM acceptance.
+
+Go CI `34970946642` then caught an admission-order regression in the new
+workflow test step, so rc.10 was NOT cut. Reviewed scratch follow-up
+`1c0bbe83e488205bd4ca7cf1b0fa0d92852a628e` moves only that unchanged step
+after shared admission, before build and paid operations. The original
+STATBUS-350 test reproduces red then green unchanged; full `go test
+./cmd/release -count=1 -v` and affected harness tests passed. Cricket's
+approved workflow SHA256 is
+`e9e985ceb4863a5a8e75fda2ff6f8a1dee84a4c23f3fb5c683c52d8565fe916e`.
+
+Current next step: root lands the reviewed follow-up, pushes, observes
+exact-commit CI, runs authenticated `./sb release check`, then cuts rc.10
+and drives its actual published-artifact ladder. Do not require that ladder
+to pass before publishing the candidate it needs. Prior rc.09 results do
+not prove this repaired product. No Norway deployment or promotion yet.
+
+Current handoff and review: `tmp/rc09-crocodile-status.md`,
+`tmp/rc09-cricket-review.md`. Both worker-owned exploratory VMs were deleted;
+their logs are retained. The earlier cut watcher `491893y2ei` stopped at
+12:49 on the Go failure and is not still waiting or publishing anything.

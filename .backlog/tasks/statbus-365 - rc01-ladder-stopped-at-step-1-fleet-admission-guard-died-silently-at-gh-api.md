@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-09-07 21:03'
-updated_date: '2026-09-14 11:52'
+updated_date: '2026-09-15 13:05'
 labels:
   - ci
   - release
@@ -119,3 +119,25 @@ Done-when for this ticket is met at rc.04 admission. Ticket closes with the
 batch when the ladder is green.
 
 Cost of the silent line: rc.01, rc.02, rc.03 (three cuts, no VM time).
+
+## Release checkpoint: 2026-09-15 13:05 UTC
+
+The original admission defect is repaired and admission passed on rc.08 and
+rc.09. This ticket remains In Progress only for the agreed whole-ladder
+closeout, not because its original defect remains unfixed.
+
+rc.09's concurrent-install recovery proof failed. The resulting product
+lock-lifetime repair and harness repairs are on master at `510c76e4c` and
+`1271dc98d`; details and evidence are in STATBUS-369. The attempted rc.10
+pre-cut Go run `34970946642` failed before any tag was created: the new
+offline-test step interrupted required checkout-to-admission adjacency.
+
+Cricket independently approved scratch follow-up `1c0bbe83e488205bd4ca7cf1b0fa0d92852a628e`:
+move the unchanged test step after admission, still before Go setup/build
+and paid resources. The existing STATBUS-350 guard fails old and passes new;
+the full release Go package and affected harness suites passed. No guard
+was weakened. Root is landing this follow-up with this checkpoint, then
+pushing and observing exact-commit CI and authenticated `release check`
+before cutting rc.10. The published-candidate ladder supplies acceptance;
+a manual VM pass is not a pre-cut prerequisite. Norway/promotion remain
+the owner's, and the post-release batch remains deferred.
