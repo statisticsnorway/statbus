@@ -575,3 +575,14 @@ convergence as a second genuine defect, both from STATBUS-354 (66c9d61b6
 All four are STATBUS-354 recovery-safety consequences, not ordinary harness
 drift. Fixes must restore the false-convergence guard and the git-corrupt
 refusal in the product, and point the floor arcs at a published pre-column base.
+
+## Fix progress (2026-09-15 22:18 UTC)
+
+- Floor-arc image fix ready (scratch 39ba3c3b4): SCHEMA_FLOOR_BASE_SHA → v2026.09.0
+  (60cb46c2), the last released pre-column commit. De-risked: cross-version-
+  rename-handoff passed in rc.11 using install_statbus_at_sha at 730b5001c
+  (rc.05), proving old release images are retained (56559fa7 failed only because
+  it is a mid-series commit, not a release).
+- false-convergence regression: cricket investigating (product fix).
+- git-corrupt regression: dog investigating (product fix).
+No cut until both product fixes are reviewed and landed with the floor-image fix.
