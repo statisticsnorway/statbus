@@ -3500,10 +3500,9 @@ func (d *Service) verifyBinaryObservedState(rowCommitSHA string) (ObservedState,
 //     means the binary was never actually swapped — the upgrade crashed
 //     before replaceBinaryOnDisk, or the swap silently rolled back.
 //
-//  2. The DB's max applied migration (db.migration.version) is ≥ the max
-//     on-disk migration version (migrations/*.up.sql). A gap means new
-//     migrations shipped with the target version but never ran — the
-//     upgrade crashed between git checkout and migrate up.
+//  2. Every on-disk migration version has a db.migration ledger row. A
+//     missing version means a migration shipped with the current tree but
+//     never ran, even when a later rollback-floor migration is recorded.
 //
 // Returns (ok, reason). `reason` is a descriptive string suitable for
 // surfacing as the row's `error` column when ok == false.
@@ -3554,7 +3553,7 @@ func (d *Service) verifyUpgradeObservedStateEx(ctx context.Context, rowCommitSHA
 		return binObs, bcause, reason
 	}
 
-	// Check 2: migration max version — DB vs on-disk
+	// Check 2: migration coverage — DB ledger vs on-disk
 	// STATBUS-190: bound the read with the shared classify-path timeout. A paused/
 	// frozen DB makes this query HANG on the live-but-unanswering conn; the timeout
 	// turns that hang into a DeadlineExceeded error that classifies as
@@ -3562,9 +3561,8 @@ func (d *Service) verifyUpgradeObservedStateEx(ctx context.Context, rowCommitSHA
 	// class at the classifier, both routed to the in-process backoff.
 	readCtx, cancel := context.WithTimeout(ctx, recoveryReadTimeout)
 	defer cancel()
-	var dbMaxVersion int64
-	queryErr := d.queryConn.QueryRow(readCtx,
-		`SELECT COALESCE(MAX(version), 0) FROM db.migration`).Scan(&dbMaxVersion)
+	rows, queryErr := d.queryConn.Query(readCtx,
+		`SELECT version FROM db.migration ORDER BY version`)
 	if queryErr != nil {
 		// Cannot verify — DB unreachable (mid-restart). Loud, never silent (the
 		// pre-task-#49 shape returned ok=true here and silently marked rows
@@ -3575,8 +3573,22 @@ func (d *Service) verifyUpgradeObservedStateEx(ctx context.Context, rowCommitSHA
 			"DB migration-version query failed: %v (cannot verify migrations applied)",
 			queryErr)
 	}
+	defer rows.Close()
+	var appliedVersions []int64
+	for rows.Next() {
+		var version int64
+		if err := rows.Scan(&version); err != nil {
+			return ObservedPositionUnreadable, CauseDBUnreachable, fmt.Sprintf(
+				"DB migration-version query failed: %v (cannot verify migrations applied)", err)
+		}
+		appliedVersions = append(appliedVersions, version)
+	}
+	if err := rows.Err(); err != nil {
+		return ObservedPositionUnreadable, CauseDBUnreachable, fmt.Sprintf(
+			"DB migration-version query failed: %v (cannot verify migrations applied)", err)
+	}
 
-	// STATBUS-138: the on-disk max comes from migrate.MaxDiskVersion — the SAME
+	// STATBUS-138: the on-disk versions come from migrate.DiskVersions — the SAME
 	// shared lister the applier (migrate.Up) uses — so an invalid-named file
 	// (skipped + warned there) is invisible here too. The comparator can no longer
 	// read a version migrate would refuse (the r17 permanent-false-Behind that
@@ -3584,26 +3596,34 @@ func (d *Service) verifyUpgradeObservedStateEx(ctx context.Context, rowCommitSHA
 	// inverse false-AtNew). The old service-local latestDiskMigrationVersion —
 	// which globbed .up.sql only and accepted any numeric prefix (99999999999999
 	// passed) — is deleted; this reader and the applier cannot disagree anymore.
-	diskMaxVersion, diskErr := migrate.MaxDiskVersion(d.projDir)
+	diskVersions, diskErr := migrate.DiskVersions(d.projDir)
 	if diskErr != nil {
 		// A real migrations-dir defect (e.g. a duplicate migration version) —
 		// unverifiable; never silently assume AtNew. Unrecognized → stop for a
 		// human, not a destructive auto-action.
 		return ObservedPositionUnreadable, CauseUnrecognized, fmt.Sprintf(
-			"cannot compute on-disk migration max: %v (cannot verify migrations applied)", diskErr)
+			"cannot list on-disk migrations: %v (cannot verify migrations applied)", diskErr)
 	}
-	if diskMaxVersion == 0 {
+	if len(diskVersions) == 0 {
 		// No valid on-disk migrations found (odd but non-fatal); skip check.
 		fmt.Printf("Ground-truth: no on-disk migrations found; skipping migration check.\n")
 		return ObservedAlreadyAtNew, CauseNone, ""
 	}
 
-	if dbMaxVersion < diskMaxVersion {
-		return ObservedCannotReachNew, CauseNone, fmt.Sprintf(
-			"db.migration max version %d < on-disk max %d (migrations did not run)",
-			dbMaxVersion, diskMaxVersion)
-	}
+	return migrationObservedStateFromVersions(appliedVersions, diskVersions)
+}
 
+func migrationObservedStateFromVersions(appliedVersions, diskVersions []int64) (ObservedState, UnknownCause, string) {
+	applied := make(map[int64]struct{}, len(appliedVersions))
+	for _, version := range appliedVersions {
+		applied[version] = struct{}{}
+	}
+	for _, version := range diskVersions {
+		if _, ok := applied[version]; !ok {
+			return ObservedCannotReachNew, CauseNone, fmt.Sprintf(
+				"on-disk migration %d is absent from db.migration (migration did not run)", version)
+		}
+	}
 	return ObservedAlreadyAtNew, CauseNone, ""
 }
 
@@ -3941,8 +3961,9 @@ func (d *Service) completeInProgressUpgrade(ctx context.Context) {
 	// Two checks:
 	//   1. Binary SHA == row.commit_sha — the running binary IS the one
 	//      the upgrade was supposed to deliver.
-	//   2. db.migration's max version >= on-disk max migration — all
-	//      migrations that the current tree expects are applied.
+	//   2. Every on-disk migration has a db.migration ledger row — all
+	//      migrations that the current tree expects are applied, including
+	//      versions below a later rollback-floor replay.
 	//
 	// Tri-state disposition (STATBUS-039, the transactional model):
 	//   - Behind (positively verified): invoke d.rollback() — restores

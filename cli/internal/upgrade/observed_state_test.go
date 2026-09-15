@@ -11,6 +11,32 @@ import (
 	"testing"
 )
 
+// TestCompleteInProgressUpgrade_FlaglessFloorReplayDoesNotFalseConverge pins
+// the rc.11 failure at completeInProgressUpgrade's migration oracle. Rollback
+// restored the source snapshot, then STATBUS-354 replayed daemonFloor into the
+// ledger. After the flag was corrupted and removed, boot-migrate encountered a
+// deterministic brokenLower file. The flagless reconciler must classify that
+// missing ledger row as Behind, not let the later floor row make the upgrade
+// look current and self-heal its in_progress row to completed.
+func TestCompleteInProgressUpgrade_FlaglessFloorReplayDoesNotFalseConverge(t *testing.T) {
+	const (
+		brokenLower = int64(20260906173740)
+		daemonFloor = int64(20260907120000)
+	)
+
+	obsState, _, reason := migrationObservedStateFromVersions(
+		[]int64{daemonFloor},
+		[]int64{brokenLower, daemonFloor},
+	)
+	if obsState != ObservedCannotReachNew {
+		t.Fatalf("floor replay hid pending migration %d below applied floor %d: got state=%v reason=%q, want Behind",
+			brokenLower, daemonFloor, obsState, reason)
+	}
+	if !strings.Contains(reason, "20260906173740") {
+		t.Fatalf("Behind reason must name the missing migration, got %q", reason)
+	}
+}
+
 // TestVerifyUpgradeObservedState_BinarySHAmismatch is the core #49 contract:
 // when the running binary's compile-time commit (Service.binaryCommit) is
 // POSITIVELY behind the in_progress row's target commit_sha (both commits

@@ -816,6 +816,21 @@ func HasPending(projDir string) (bool, error) {
 	return false, nil
 }
 
+// DiskVersions returns every valid on-disk migration version in application
+// order. It uses the same lister as Up, MaxDiskVersion, and HasPending so
+// callers cannot disagree with the migration engine about which files exist.
+func DiskVersions(projDir string) ([]int64, error) {
+	migrations, err := listMigrationFiles(projDir)
+	if err != nil {
+		return nil, err
+	}
+	versions := make([]int64, 0, len(migrations))
+	for _, migration := range migrations {
+		versions = append(versions, migration.Version)
+	}
+	return versions, nil
+}
+
 // acquireAdvisoryLock opens a pgx connection and takes a session-scoped
 // pg_advisory_lock keyed on `migrate_up`. Holds the lock for the duration
 // the returned *pgx.Conn is kept open — callers MUST close it (typically
