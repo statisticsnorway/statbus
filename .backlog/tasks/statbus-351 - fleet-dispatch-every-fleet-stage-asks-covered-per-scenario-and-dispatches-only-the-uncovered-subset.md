@@ -1,7 +1,8 @@
 ---
 id: STATBUS-351
 title: >-
-  fleet dispatch: every fleet stage asks `covered` per scenario and dispatches only the uncovered subset
+  fleet dispatch: every fleet stage asks `covered` per scenario and dispatches
+  only the uncovered subset
 status: In Progress
 assignee: []
 created_date: '2026-09-04 07:18'
@@ -14,7 +15,7 @@ dependencies:
   - STATBUS-350
 priority: medium
 type: task
-ordinal: 344000
+ordinal: 8
 ---
 
 ## Description

@@ -19,7 +19,7 @@ references:
   - doc/CLOUD.md
 priority: high
 type: enhancement
-ordinal: 241000
+ordinal: 6
 ---
 
 ## Description

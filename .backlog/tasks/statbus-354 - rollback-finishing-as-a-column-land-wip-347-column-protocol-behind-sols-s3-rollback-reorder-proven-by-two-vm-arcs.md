@@ -1,7 +1,8 @@
 ---
 id: STATBUS-354
 title: >-
-  rollback finishing as a column: land wip/347-column-protocol behind Sol's S3 rollback reorder, proven by two VM arcs
+  rollback finishing as a column: land wip/347-column-protocol behind Sol's S3
+  rollback reorder, proven by two VM arcs
 status: In Progress
 assignee: []
 created_date: '2026-09-04 10:26'
@@ -13,7 +14,7 @@ labels:
 dependencies: []
 priority: high
 type: task
-ordinal: 347000
+ordinal: 5
 ---
 
 ## Description

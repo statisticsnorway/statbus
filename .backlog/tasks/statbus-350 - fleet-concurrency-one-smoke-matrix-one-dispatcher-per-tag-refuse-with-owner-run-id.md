@@ -1,7 +1,8 @@
 ---
 id: STATBUS-350
 title: >-
-  fleet concurrency: one smoke matrix, native bounded queue, and owner-aware dispatch
+  fleet concurrency: one smoke matrix, native bounded queue, and owner-aware
+  dispatch
 status: In Progress
 assignee: []
 created_date: '2026-09-04 06:40'
@@ -13,7 +14,7 @@ labels:
 dependencies: []
 priority: high
 type: bug
-ordinal: 343000
+ordinal: 7
 ---
 
 ## Description

@@ -1,7 +1,8 @@
 ---
 id: STATBUS-365
 title: >-
-  rc.01 ladder stopped at step 1: fleet admission guard (admit.sh) died silently at gh api on its first real run, orchestrator mislabelled it SUPERSEDED
+  rc.01 ladder stopped at step 1: fleet admission guard (admit.sh) died silently
+  at gh api on its first real run, orchestrator mislabelled it SUPERSEDED
 status: In Progress
 assignee: []
 created_date: '2026-09-07 21:03'
@@ -13,6 +14,7 @@ labels:
 dependencies: []
 priority: high
 type: bug
+ordinal: 2
 ---
 
 ## What happened

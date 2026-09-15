@@ -1,7 +1,9 @@
 ---
 id: STATBUS-369
 title: >-
-  the ladder never installs the candidate fresh: 0-happy-install installs the previous stable, so every release ships with its own install path unproven (v2026.09.0 fresh install fails)
+  the ladder never installs the candidate fresh: 0-happy-install installs the
+  previous stable, so every release ships with its own install path unproven
+  (v2026.09.0 fresh install fails)
 status: In Progress
 assignee: []
 created_date: '2026-09-14 12:36'
@@ -13,6 +15,7 @@ labels:
 dependencies: []
 priority: high
 type: bug
+ordinal: 1
 ---
 
 ## The finding (observation, 2026-09-14)

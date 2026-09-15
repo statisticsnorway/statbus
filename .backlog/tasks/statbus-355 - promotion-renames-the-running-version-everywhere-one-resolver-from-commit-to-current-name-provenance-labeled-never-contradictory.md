@@ -1,7 +1,8 @@
 ---
 id: STATBUS-355
 title: >-
-  promotion renames the running version everywhere: one resolver from commit to current name; provenance labeled, never contradictory
+  promotion renames the running version everywhere: one resolver from commit to
+  current name; provenance labeled, never contradictory
 status: In Progress
 assignee: []
 created_date: '2026-09-04 11:07'
@@ -13,7 +14,7 @@ labels:
 dependencies: []
 priority: high
 type: bug
-ordinal: 348000
+ordinal: 9
 ---
 
 ## Description

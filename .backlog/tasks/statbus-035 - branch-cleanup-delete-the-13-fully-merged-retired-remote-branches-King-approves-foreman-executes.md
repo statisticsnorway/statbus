@@ -15,7 +15,7 @@ references:
   - .github/workflows/
   - cli/cmd/seed.go
   - test/install-recovery/lib/vm-bootstrap.sh
-ordinal: 35000
+ordinal: 3
 ---
 
 ## Description
