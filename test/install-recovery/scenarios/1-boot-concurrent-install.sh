@@ -154,6 +154,27 @@ echo "── waiting for first install's stall to engage ──"
 # substitution: the lib's ERR trap also writes to stderr, and rc.07's run got
 # the trap text INTO MIGRATE_PID, skipped the diagnostic below, and failed on
 # the next check with the first install's log still on the box.
+# The stall fires inside step 11 (Migrations). Steps 7 (Images) and 8
+# (Services) precede it and on a cold box pull ~400 MB of HEAD images, which on
+# rc.07 (2026-09-14) and the r3 diagnosis run consumed the whole 300 s budget:
+# the product printed the INJECT stall marker AT the deadline and the harness
+# had already given up. The budget is for the stall, not for the download, so
+# start it when the install reports step 7 done (the last slow step before
+# the stall site). If step 7 never completes, that is its own failure with its
+# own timeout, and the first install's log tail says which step it was in.
+echo "── waiting for first install to finish pulling images (step 7) ──"
+IMAGES_MAX_WAIT_S="${IMAGES_MAX_WAIT_S:-900}"
+_deadline=$(( $(date +%s) + IMAGES_MAX_WAIT_S ))
+until ssh "${SSH_OPTS[@]}" root@"$ip" "grep -qE '^\[7/[0-9]+\] Images +(OK|SKIP|DONE)' /tmp/install-c10-first.log 2>/dev/null"; do
+    if [ "$(date +%s)" -ge "$_deadline" ]; then
+        echo "✗ first install did not finish step 7 (Images) within ${IMAGES_MAX_WAIT_S}s" >&2
+        echo "  first install exit (if any): $(ssh "${SSH_OPTS[@]}" root@"$ip" "cat /tmp/install-c10-first.exit 2>/dev/null" || echo '(not exited yet)')" >&2
+        ssh "${SSH_OPTS[@]}" root@"$ip" "tail -30 /tmp/install-c10-first.log 2>/dev/null" >&2 || true
+        exit 1
+    fi
+    sleep 10
+done
+echo "  images pulled; stall budget starts now (${STALL_MAX_WAIT_S}s)"
 set +e
 MIGRATE_PID=$(wait_for_inject_stall_ready "$VM_NAME" "$RELEASE_FILE" "$STALL_MAX_WAIT_S")
 set -e
