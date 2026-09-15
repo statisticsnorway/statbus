@@ -37,6 +37,25 @@ func TestCompleteInProgressUpgrade_FlaglessFloorReplayDoesNotFalseConverge(t *te
 	}
 }
 
+// TestMigrationObservedState_NoHoleReturnsAtNew is the opposite-state control:
+// when every on-disk migration has a ledger row (including the replayed floor
+// below the current max), the oracle must return AtNew, never a false Behind.
+// Without this control the hole test alone could pass against a helper that
+// always returns Behind, silently breaking the converge path.
+func TestMigrationObservedState_NoHoleReturnsAtNew(t *testing.T) {
+	const (
+		brokenLower = int64(20260906173740)
+		daemonFloor = int64(20260907120000)
+	)
+	obsState, _, reason := migrationObservedStateFromVersions(
+		[]int64{brokenLower, daemonFloor},
+		[]int64{brokenLower, daemonFloor},
+	)
+	if obsState != ObservedAlreadyAtNew {
+		t.Fatalf("no migration hole: got state=%v reason=%q, want AtNew", obsState, reason)
+	}
+}
+
 // TestVerifyUpgradeObservedState_BinarySHAmismatch is the core #49 contract:
 // when the running binary's compile-time commit (Service.binaryCommit) is
 // POSITIVELY behind the in_progress row's target commit_sha (both commits
