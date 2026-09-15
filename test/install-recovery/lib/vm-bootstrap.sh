@@ -1880,7 +1880,11 @@ REMOTE
         return 0
     fi
 
-    if ! scp -O -r "${SSH_OPTS[@]}" "root@$ip:$remote_dir/." "$out_dir/" 2>/dev/null; then
+    # Legacy scp (-O) rejects a recursive source ending in `/.` during its
+    # filename-safety validation. Copy the directory's visible contents instead;
+    # the capture always contains index.tsv plus the standard diagnostics.
+    # Keep stderr visible so a transport refusal is diagnosable in the job log.
+    if ! scp -O -r "${SSH_OPTS[@]}" "root@$ip:$remote_dir/*" "$out_dir/"; then
         echo "  (could not scp failure capture — VM unreachable?)"
         return 0
     fi

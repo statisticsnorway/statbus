@@ -30,19 +30,20 @@ simulate_killed_migrate_subprocess() {
     # Find the running psql subprocess that's a child of migrate.
     # It's launched via: cli/internal/migrate/migrate.go's runPsqlFile.
     # The OS process is `psql` with file-input.
-    VM_EXEC bash -c '
-        for i in $(seq 1 30); do
-            PID=$(pgrep -f "psql.*-f.*\.up\.sql" 2>/dev/null | head -1)
-            if [ -n "$PID" ]; then
-                echo "[wedge] killing psql migrate-subprocess PID=$PID"
-                kill -9 "$PID" 2>/dev/null || true
-                exit 0
-            fi
-            sleep 1
-        done
-        echo "[wedge] no migrate psql subprocess found within 30s — wedge not triggered" >&2
-        exit 1
-    '
+    VM_SCRIPT_INLINE kill-migrate-subprocess <<'SCRIPT'
+#!/bin/bash
+for i in $(seq 1 30); do
+    PID=$(pgrep -f "psql.*-f.*\.up\.sql" 2>/dev/null | head -1)
+    if [ -n "$PID" ]; then
+        echo "[wedge] killing psql migrate-subprocess PID=$PID"
+        kill -9 "$PID" 2>/dev/null || true
+        exit 0
+    fi
+    sleep 1
+done
+echo "[wedge] no migrate psql subprocess found within 30s — wedge not triggered" >&2
+exit 1
+SCRIPT
 }
 
 # ─────────────────────────────────────────────────────────────────────────
@@ -320,20 +321,21 @@ simulate_sigkill_upgrade_service() {
     local vm_name="$1"
     echo "  [wedge] SIGKILL'ing upgrade-service Go process on $vm_name"
 
-    VM_EXEC bash -c '
-        # Find the upgrade-service Go process and kill -9 it.
-        for i in $(seq 1 30); do
-            PID=$(pgrep -f "sb upgrade service" 2>/dev/null | head -1)
-            if [ -n "$PID" ]; then
-                echo "[wedge] killing upgrade-service PID=$PID"
-                kill -9 "$PID" 2>/dev/null || true
-                exit 0
-            fi
-            sleep 1
-        done
-        echo "[wedge] no upgrade-service process found within 30s" >&2
-        exit 1
-    '
+    VM_SCRIPT_INLINE kill-upgrade-service <<'SCRIPT'
+#!/bin/bash
+# Find the upgrade-service Go process and kill -9 it.
+for i in $(seq 1 30); do
+    PID=$(pgrep -f "sb upgrade service" 2>/dev/null | head -1)
+    if [ -n "$PID" ]; then
+        echo "[wedge] killing upgrade-service PID=$PID"
+        kill -9 "$PID" 2>/dev/null || true
+        exit 0
+    fi
+    sleep 1
+done
+echo "[wedge] no upgrade-service process found within 30s" >&2
+exit 1
+SCRIPT
 }
 
 # ─────────────────────────────────────────────────────────────────────────
@@ -379,16 +381,11 @@ wait_for_inject_stall_ready() {
         # Bundle the three checks into one ssh round-trip so a flaky link
         # doesn't make us miss the window.
         local probe
-        probe=$(VM_EXEC bash -c "
-            REL='$release_file'
-            REL_PRESENT=0; [ -f \"\$REL\" ] && REL_PRESENT=1
-            MIGRATE_PID=\$(pgrep -f '/sb migrate up' 2>/dev/null | head -1 || echo '')
-            STARTED_AT=''
-            if [ -n \"\$MIGRATE_PID\" ]; then
-                STARTED_AT=\$(ps -o lstart= -p \"\$MIGRATE_PID\" 2>/dev/null || echo '')
-            fi
-            echo \"REL_PRESENT=\$REL_PRESENT MIGRATE_PID=\$MIGRATE_PID STARTED_AT=\$STARTED_AT\"
-        " 2>/dev/null || echo "REL_PRESENT=? MIGRATE_PID= STARTED_AT=")
+        # shellcheck disable=SC2016  # variables expand in the remote bash -c, not locally
+        if ! probe=$(VM_EXEC bash -c 'REL=$1; REL_PRESENT=0; [ -f "$REL" ] && REL_PRESENT=1; MIGRATE_PID=$(pgrep -f "/sb migrate up" 2>/dev/null | head -1 || echo ""); STARTED_AT=""; if [ -n "$MIGRATE_PID" ]; then STARTED_AT=$(ps -o lstart= -p "$MIGRATE_PID" 2>/dev/null || echo ""); fi; echo "REL_PRESENT=$REL_PRESENT MIGRATE_PID=$MIGRATE_PID STARTED_AT=$STARTED_AT"' bash "$release_file"); then
+            echo "  [wedge] ERROR: stall probe transport failed" >&2
+            return 1
+        fi
 
         local rel_present migrate_pid
         rel_present=$(echo "$probe" | sed -n 's/.*REL_PRESENT=\([^ ]*\).*/\1/p')
