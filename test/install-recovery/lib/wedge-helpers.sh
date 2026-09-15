@@ -382,7 +382,7 @@ wait_for_inject_stall_ready() {
         # doesn't make us miss the window.
         local probe
         # shellcheck disable=SC2016  # variables expand in the remote bash -c, not locally
-        if ! probe=$(VM_EXEC bash -c 'REL=$1; REL_PRESENT=0; [ -f "$REL" ] && REL_PRESENT=1; MIGRATE_PID=$(pgrep -f "/sb migrate up" 2>/dev/null | head -1 || echo ""); STARTED_AT=""; if [ -n "$MIGRATE_PID" ]; then STARTED_AT=$(ps -o lstart= -p "$MIGRATE_PID" 2>/dev/null || echo ""); fi; echo "REL_PRESENT=$REL_PRESENT MIGRATE_PID=$MIGRATE_PID STARTED_AT=$STARTED_AT"' bash "$release_file"); then
+        if ! probe=$(VM_EXEC bash -c 'REL=$1; REL_PRESENT=0; [ -f "$REL" ] && REL_PRESENT=1; MIGRATE_PID=$(pgrep -f "/sb migrate u[p]" 2>/dev/null | head -1 || echo ""); STARTED_AT=""; if [ -n "$MIGRATE_PID" ]; then STARTED_AT=$(ps -o lstart= -p "$MIGRATE_PID" 2>/dev/null || echo ""); fi; echo "REL_PRESENT=$REL_PRESENT MIGRATE_PID=$MIGRATE_PID STARTED_AT=$STARTED_AT"' bash "$release_file"); then
             echo "  [wedge] ERROR: stall probe transport failed" >&2
             return 1
         fi
