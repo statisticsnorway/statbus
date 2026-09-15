@@ -524,3 +524,73 @@ remove_release_file_in_vm() {
     local release_file="$2"
     VM_EXEC bash -c "rm -f '$release_file' 2>&1 || true"
 }
+
+# ─────────────────────────────────────────────────────────────────────────
+# quiesce_upgrade_service <vm_name>
+#
+# Stop both the upgrade service AND its timer so neither a NOTIFY-driven
+# nor a poll/timer-driven claim can race the row's transition to 'scheduled'.
+# Call this immediately BEFORE `./sb upgrade schedule` in every scenario that
+# has a running upgrade service and needs the row to survive for its own
+# dispatch (`./sb install`) instead of the live daemon.
+#
+# Why this matters: `./sb upgrade schedule`'s own UPDATE to state='scheduled'
+# fires the upgrade_notify_daemon_trigger (AFTER UPDATE), which pg_notify's the
+# running service.  The service calls executeScheduled → claims the row
+# (started_at = now()) → QueryScheduledUpgrade returns nil (started_at IS NOT
+# NULL filtered) → ./sb install sees StateNothingScheduled → step-table →
+# completeInstallUpgradeRow.  The inject never fires.  Quiescing first
+# eliminates the listener: the NOTIFY goes unheard, the row stays 'scheduled'
+# for ./sb install or the restarted service to pick up with the inject in place.
+# (Formerly documented against fabricate_scheduled_upgrade_row's identical
+# ON CONFLICT DO UPDATE race — that helper is deleted, STATBUS-071 P3; the
+# real `./sb upgrade schedule` producer hits the same trigger the same way.)
+#
+# The timer (statbus-upgrade@statbus.timer) may be absent on some VMs;
+# the || true makes the stop idempotent whether or not the unit exists.
+# The service quiesce is SIGKILL-class (NOT a bare stop/SIGTERM — see the body
+# comment): a SIGTERM fires the upgrade daemon's rollback handler. That is the
+# critical gate.
+#
+# Recovery: the step-table's `systemctl --user enable --now <instance>`
+# (install.go:1806) re-enables AND starts the service even from a fully
+# stopped state, so quiescing pre-inject does NOT break the later recovery
+# phase.
+#
+# INVARIANT — call quiesce_upgrade_service before EVERY
+# `./sb upgrade schedule` EXCEPT the scenarios/arcs whose POINT is the
+# service-DISPATCHED path (the running service must claim + dispatch the row):
+#   - 0-happy-upgrade                    (unattended service dispatch IS the test)
+#   - postswap-migration-timeout-arc     (service dispatches, then hits the
+#                                          startup-timeout inject on its restart)
+# Every other caller drives recovery via `./sb install` and carries a
+# claim race the running service would otherwise win — quiesce it.
+# ─────────────────────────────────────────────────────────────────────────
+quiesce_upgrade_service() {
+    local vm_name="$1"
+    echo "  [quiesce] SIGKILL-class quiescing upgrade timer + service on $vm_name (pre-schedule claim-race prevention)"
+    # NEVER `systemctl --user stop <service>`: that sends SIGTERM, which the upgrade
+    # daemon catches (signal.NotifyContext(ctx, …SIGTERM), service.go:1460) → cancels
+    # the upgrade context → deferred rollback() fires (pg_restore + restoreGitState),
+    # even on an idle / auto-discovered upgrade. That corrupted DB+git state and routed
+    # the inject install to the step-table (db-unreachable) — the RUN-A 13/14 gate
+    # failure. Mirror the product's SIGKILL-class quiesce (cli/cmd/install_upgrade.go:316
+    # stopRestartUpgradeUnit): mask → SIGKILL → stop → reset-failed → unmask.
+    #  - mask --runtime: a masked unit cannot start, so Restart=always (RestartSec=30)
+    #    cannot respawn between the kill and the stop (race-free).
+    #  - kill --signal=SIGKILL: whole-cgroup kill, NO handlers run → no rollback.
+    #  - stop: nothing alive to signal → only cancels any pending auto-restart, lands inactive.
+    #  - reset-failed: clears the SIGKILL (137) failure state + NRestarts counter.
+    #  - unmask --runtime: clears the runtime-scoped mask set above (a PLAIN `unmask` does
+    #    NOT clear a --runtime mask — the scopes must pair) so the unit is startable again:
+    #    both the step-table's `systemctl --user enable --now` (install.go:1806) in recovery
+    #    AND a scenario's direct `systemctl --user start` succeed. (unmask ≠ enable: the unit
+    #    keeps its prior enabled state, nothing starts it until recovery/the scenario does.)
+    VM_EXEC systemctl --user stop "statbus-upgrade@statbus.timer" 2>/dev/null || true
+    VM_EXEC systemctl --user mask --runtime "statbus-upgrade@statbus.service" 2>/dev/null || true
+    VM_EXEC systemctl --user kill --signal=SIGKILL "statbus-upgrade@statbus.service" 2>/dev/null || true
+    VM_EXEC systemctl --user stop "statbus-upgrade@statbus.service" 2>/dev/null || true
+    VM_EXEC systemctl --user reset-failed "statbus-upgrade@statbus.service" 2>/dev/null || true
+    VM_EXEC systemctl --user unmask --runtime "statbus-upgrade@statbus.service" 2>/dev/null || true
+    echo "  [quiesce] ✓ upgrade service SIGKILL-class quiesced (rollback handler NOT triggered; unit re-enableable)"
+}
