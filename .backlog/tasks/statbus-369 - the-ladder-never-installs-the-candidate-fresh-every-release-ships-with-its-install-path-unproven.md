@@ -480,3 +480,21 @@ arc-state regression PASS, 15/15 partial-allocation controls PASS, adjacent
 harness tests (happy-install, fresh-installer, scenario-helper-resolution,
 run-boundary) PASS, bash -n and diff checks clean. Next candidate is cut
 only after the rc.10 35-arc run is terminal and every failure assessed.
+
+## rc.10 arc run final tally (2026-09-15 17:05 UTC)
+
+Run34981937538 complete:33 passed,6 failed,1 skipped. The six are the full
+set; no additional mechanism emerged:
+
+- boot-migrate-churn-alive-idle  — C9 DB-state drift        (fixed 01f1cc404)
+- c-rollback-resurrection        — failure_code prose-prefix (fixed 01f1cc404)
+- postswap-health-park           — failure_code prose-prefix (fixed 01f1cc404)
+- restore-broke-reattempt        — flag.step schema-floor drift (fix in progress)
+- rollback-schema-floor-failure  — lineage wiring             (fix in progress)
+- rollback-schema-floor-adoption — lineage wiring             (fix in progress)
+
+The three remaining are the STATBUS-354 schema-floor family; specialist is
+implementing in scratch (read doc/upgrade-rollback-floor.md, product service.go,
+workflow lineage resolver) rather than a one-line swap. Parent orchestrator
+34973239226 remains in_progress awaiting arc teardown and verdict. Next
+candidate is cut once all six fixes are on master.
