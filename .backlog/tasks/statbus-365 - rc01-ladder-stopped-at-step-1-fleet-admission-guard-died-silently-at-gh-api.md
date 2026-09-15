@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-09-07 21:03'
-updated_date: '2026-09-15 13:05'
+updated_date: '2026-09-15 13:10'
 labels:
   - ci
   - release
@@ -141,3 +141,14 @@ pushing and observing exact-commit CI and authenticated `release check`
 before cutting rc.10. The published-candidate ladder supplies acceptance;
 a manual VM pass is not a pre-cut prerequisite. Norway/promotion remain
 the owner's, and the post-release batch remains deferred.
+
+## rc.10 published (2026-09-15 13:09 UTC)
+
+The reviewed workflow correction landed as `bd45f25ce`. Its Images
+`34972873710`, Go Test `34972873773`, and app `34972873755` runs passed;
+authenticated `release check` and `release prerelease` then passed.
+`v2026.09.1-rc.10` was pushed at exact commit
+`bd45f25ce309ac7c40e758ec17ecd73ba6f661af`. The release ladder is now running
+under orchestrator `34973239226`. This is publication, not a green-ladder
+claim. Next: observe the actual candidate rungs and fix only observed reds.
+Publication evidence is in `tmp/rc10-cut.log` and `tmp/rc10-published-tag.txt`.

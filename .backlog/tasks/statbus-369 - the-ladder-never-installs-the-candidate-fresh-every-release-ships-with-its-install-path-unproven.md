@@ -7,7 +7,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-09-14 12:36'
-updated_date: '2026-09-15 13:05'
+updated_date: '2026-09-15 13:10'
 labels:
   - release
   - install
@@ -336,3 +336,22 @@ Current handoff and review: `tmp/rc09-crocodile-status.md`,
 `tmp/rc09-cricket-review.md`. Both worker-owned exploratory VMs were deleted;
 their logs are retained. The earlier cut watcher `491893y2ei` stopped at
 12:49 on the Go failure and is not still waiting or publishing anything.
+
+## rc.10 published; real acceptance now running (2026-09-15 13:09 UTC)
+
+Workflow follow-up landed as `bd45f25ce`; exact-commit Images, Go Test and
+app CI all passed. Authenticated preflight passed, and
+`v2026.09.1-rc.10` was published at
+`bd45f25ce309ac7c40e758ec17ecd73ba6f661af`. Root verified both the tag's
+commit and its remote ref. The candidate includes the reviewed product
+split-lock repair and the corrected fail-closed concurrency proof.
+
+Orchestrator `34973239226` is running. Next required evidence is its real
+published-artifact ladder, especially actual second-install refusal and
+first-install completion in the recovery scenario, followed by the arcs.
+No full-ladder success or Norway readiness is claimed yet. Root read-only
+watcher `844501zbx2` is bounded and wakes on completion; no foreground wait.
+
+Current files: `tmp/rc10-target-sha.txt`, `tmp/rc10-release-check.log`,
+`tmp/rc10-cut.log`, `tmp/rc10-published-tag.txt`, `tmp/rc10-orch-id.txt`,
+`tmp/rc10-orchestrator.json`, and `tmp/rc10-ladder-watch.log`.
