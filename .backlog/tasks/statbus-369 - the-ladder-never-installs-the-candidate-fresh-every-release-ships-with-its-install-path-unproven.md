@@ -440,3 +440,17 @@ Bounded watcher `8812411r50` continues collecting outcomes.
 Evergreen separately ACCEPTED the partial-allocation scratch cleanup repair:
 15/15 mocked controls pass, original code fails four expected controls.
 That fix remains isolated, not landed into this active candidate.
+
+## Arc harness fix independently accepted (2026-09-15 15:14 UTC)
+
+Lead and independent log review attributed the two reds to obsolete harness
+expectations: DB-down before C9 despite intentional rollback floor replay,
+and a failure-code prefix inside human prose instead of structured failure_code.
+Scratch commit `67cc2ba30915ee504a23769902853e0425c47574` corrects those
+assertions plus the analogous postswap-health-park assertions. Bat ACCEPTED
+actual scenario wiring, fail-closed query/control behavior, preserved C9
+boundary and later checks. Regression, syntax, ShellCheck and diff checks pass.
+Scratch: `/Users/jhf/ssb/.jcode/scratch/rc10-arc-assertion-fix`.
+No landing/push yet. VM acceptance requires the next published candidate.
+Current arc run has seven scenario passes, the same two failures, three
+running and 23 queued. Let remaining evidence accumulate before the next cut.
