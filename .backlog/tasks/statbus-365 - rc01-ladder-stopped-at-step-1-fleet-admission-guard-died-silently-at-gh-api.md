@@ -152,3 +152,14 @@ authenticated `release check` and `release prerelease` then passed.
 under orchestrator `34973239226`. This is publication, not a green-ladder
 claim. Next: observe the actual candidate rungs and fix only observed reds.
 Publication evidence is in `tmp/rc10-cut.log` and `tmp/rc10-published-tag.txt`.
+
+## rc.11 cut (2026-09-15 18:24 UTC)
+
+rc.10's recovery ladder completed with the coverage-aware parent-only retry
+(`gh run rerun 34973239226 --failed`) dispatching exactly the one cloud-failed
+scenario, preserving the 12 passed proofs — direct observed validation of the
+admission guard + covered-subset path. Its 35-arc run then produced six harness
+failures (3 assertion drifts, 1 STATBUS-354 step drift, 2 floor-arc lineage
+wirings), all fixed on master; rc.11 (`5e51741d1`) now carries them and is
+running the ladder. The admission-guard root cause from this ticket has not
+recurred.

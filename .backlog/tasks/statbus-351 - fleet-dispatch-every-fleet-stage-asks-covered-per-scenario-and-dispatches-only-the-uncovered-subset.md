@@ -68,3 +68,14 @@ reports the evidence channel honestly. STATBUS-350 changes the smoke pair to
 use the same one-dispatch selector shape and is therefore part of that batch
 proof.
 <!-- SECTION:DESCRIPTION:END -->
+
+## Observed validation (2026-09-15 18:24)
+
+The rc.10 recovery ladder exercised the per-scenario subset path for real:
+after one scenario failed at cloud provisioning, authenticated
+`./sb release covered-subset` selected only that scenario, and the parent-only
+`gh run rerun 34973239226 --failed` dispatched a fresh child containing only it,
+reusing the 12 already-proven scenario marks. Fresh admission and fleet lease
+were revalidated, and the parent resumed the dependent arc stage. This is live
+confirmation of the subset/coverage path; final close still awaits the batch RC
+per the Remaining note.
