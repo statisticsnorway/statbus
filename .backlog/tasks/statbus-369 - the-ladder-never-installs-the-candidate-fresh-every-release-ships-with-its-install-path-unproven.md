@@ -527,3 +527,27 @@ Owner cut `v2026.09.1-rc.11` at `5e51741d12f43033eb3f06376f001714145d9b48`
 `35007156333` started. Monitoring the published-candidate ladder; the
 schema-floor arcs now run against the corrected lineage/assertions. No
 green-ladder claim yet.
+
+## rc.11 ladder terminal: 36 pass / 4 fail (2026-09-15 22:07 UTC)
+
+rc.11 (5e51741d1) full ladder: Release/Smoke/Hardening/dev/recovery all
+green; 35-arc harness 36 pass, 4 fail. c-rollback-resurrection and
+postswap-health-park now PASS (01f1cc404 correct). Four still fail, all
+STATBUS-354/347 schema-floor consequences, three distinct root causes:
+
+1. boot-migrate-churn-alive-idle (104534517094) — PRODUCT regression: the C9
+   gate now passes (DB running, flag, B row in_progress), but the later
+   false-convergence oracle caught the product self-healing the row to
+   'completed' after flagless recovery despite the floor-bound broken migration
+   being genuinely pending. See tmp/rc11-arc-red/handoff.md (crocodile triage).
+2. restore-broke-reattempt (104534520372) — behavior change: the C9 step
+   (flag.step="rollback") now passes, but the 6th ABORT dispatch exited 75
+   (ROLLBACK INCOMPLETE / degraded, manual recovery) instead of the asserted
+   exit 1 (catastrophic git-corrupt ABORT). Needs ruling whether 75 is intended.
+3. rollback-schema-floor-adoption (104534520490) — INFRA: SCHEMA_FLOOR_BASE_SHA
+   56559fa7 has no published statbus-sb image; install A fails "not found".
+4. rollback-schema-floor-failure (104534520572) — same missing-image infra.
+
+Fix work in progress overnight. No blind assertion swaps; #1 is a genuine
+product bug to fix in the recovery path, #2/#3/#4 need the correct pre-column
+released baseline with a published image plus the intended abort exit code.
