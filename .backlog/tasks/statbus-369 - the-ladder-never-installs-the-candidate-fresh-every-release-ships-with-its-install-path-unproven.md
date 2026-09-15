@@ -586,3 +586,19 @@ refusal in the product, and point the floor arcs at a published pre-column base.
 - false-convergence regression: cricket investigating (product fix).
 - git-corrupt regression: dog investigating (product fix).
 No cut until both product fixes are reviewed and landed with the floor-image fix.
+
+## Two product fixes ready (2026-09-15 22:32 UTC)
+
+Both STATBUS-354 regressions fixed in scratch, awaiting independent review:
+
+- false convergence: cricket commit 5a59a3cd7 — observed-state migration oracle
+  now checks coverage (every on-disk version has a ledger row) not just MAX, so
+  a replayed floor cannot conceal a missing lower migration.
+- git-corrupt refusal: dog commit 4bd6d1e8b — restores ReattemptRestore's
+  pre-destructive resolveGitRestoreTarget guard; a missing pre-upgrade pin now
+  refuses with ErrRollbackGitCorrupt + "git tree is corrupt; do NOT proceed"
+  and persists failure_code=ROLLBACK_FAILED_GIT_CORRUPT before any destructive
+  step, preserving STATBUS-354 target-worktree retention.
+
+Plus floor-arc image fix 39ba3c3b4 (SCHEMA_FLOOR_BASE_SHA → v2026.09.0).
+Dove is independently reviewing A+B. Land all three, then cut rc.12.
