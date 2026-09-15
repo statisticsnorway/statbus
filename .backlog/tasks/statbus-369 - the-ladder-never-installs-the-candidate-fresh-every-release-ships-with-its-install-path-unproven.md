@@ -465,3 +465,18 @@ mechanism. Evidence: `tmp/rc10-arc-red/postswap-health-park-HANDOFF.md`
 and `job.clean.log:4435-4437`. Current35-arc status:15 passed,3 failed,
 3 running,14 queued. Reviewed harness fix remains in scratch; no source push
 or new candidate until remaining failures are assessed. Monitor545760de6e active.
+
+## Fixes landed on master ahead of next cut (2026-09-15 16:14 UTC)
+
+Owner clarified: land reviewed fixes immediately; only the next candidate
+cut waits for full assessment of the previous ladder's failures.
+
+- `01f1cc404` test: fix rc10 arc state assertions (all three arc reds).
+- `614e22914` ci: reap own partially created VM when create succeeds but
+  start fails (partial-allocation ownership gap).
+
+Both pushed to master at `614e22914`. Offline verification on master:
+arc-state regression PASS, 15/15 partial-allocation controls PASS, adjacent
+harness tests (happy-install, fresh-installer, scenario-helper-resolution,
+run-boundary) PASS, bash -n and diff checks clean. Next candidate is cut
+only after the rc.10 35-arc run is terminal and every failure assessed.
