@@ -418,3 +418,13 @@ Evidence: `tmp/rc10-parent-before-retry.json`,
 `tmp/rc10-recovery-before-retry.json`,
 `tmp/rc10-recovery-retry-coverage.md`,
 `tmp/rc10-recovery-retry-uncovered.txt`, `tmp/rc10-parent-retry-watch.log`.
+
+## Recovery retry passed; arc stage active (2026-09-15 14:28 UTC)
+
+Fresh child `34980128355` passed admission, its sole advisory-too-early
+scenario, and final orphan cleanup. Parent attempt2 now records the recovery
+stage successful. All 13 selected recovery scenarios have successful proof
+across the original run and retry, without rerunning the 12 passed scenarios.
+Parent upgrade-arc stage is in progress; no arc child was visible at the
+14:27:52 snapshot yet. Full ladder green and Norway handoff remain pending.
+Bounded watcher `4786353mw6` tracks dispatch and verdict.
