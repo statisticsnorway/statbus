@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-09-04 10:26'
-updated_date: '2026-09-14 09:46'
+updated_date: '2026-09-16 22:34'
 labels:
   - upgrade
   - fail-fast
@@ -135,3 +135,17 @@ to `failing` with `SCHEMA_FLOOR_BASE_SHA=56559fa7` (exact pre-column parent of
 ABORT oracle re-derived from code. Two independent reviewers ACCEPTed. rc.11
 (`5e51741d1`) now carries the fix; the two paid floor arcs remain the
 acceptance gate.
+
+## Evidence update (2026-09-16): rc.12 to rc.14
+
+rc.12 (`88a8d8ee2`) arc run `35038249248` found four failures. Repairs
+`e3c589034` and `5307ec378` led to rc.13. rc.13 run `35079590161` passed
+38/40; only rollback-schema-floor-adoption and rollback-schema-floor-failure
+remained. Product/harness repair `e3ceafe4b` led to rc.14, which again passed
+38/40 with the same two failures.
+
+`900cf9d66` resolved both remaining reds as harness assertions that contradicted
+this ticket's recovery contract, not product defects: retained backup state is
+intentional, and the marker phase is the hyphenated form. Independent review
+ACCEPTed the correction. Real-VM acceptance remains pending because rc.15 arc
+run `35128438594` failed in fixture/image construction before any scenario.
