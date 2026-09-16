@@ -657,3 +657,10 @@ Smoke `35157807530`, Test Hardening `35157700421`, and dev canary
 `35159028395` are green. Fleet Orchestrator `35157700377` is running and has
 dispatched Upgrade Arc Harness run `35159276681`; the arc run is in progress.
 No scenario tally yet.
+
+## rc.16 recovery stage entered scenarios (2026-09-16 22:51 UTC)
+
+Install Recovery run `35159276681` completed discovery and entered its matrix:
+3 scenarios running, 10 queued, 0 terminal. Fleet Orchestrator `35157700377`
+remains in stage 4/5. Upgrade Arc has not been dispatched, so its scenario tally
+is still unavailable.
