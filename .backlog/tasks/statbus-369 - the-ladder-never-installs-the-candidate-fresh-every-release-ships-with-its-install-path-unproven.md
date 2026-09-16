@@ -664,3 +664,12 @@ Install Recovery run `35159276681` completed discovery and entered its matrix:
 3 scenarios running, 10 queued, 0 terminal. Fleet Orchestrator `35157700377`
 remains in stage 4/5. Upgrade Arc has not been dispatched, so its scenario tally
 is still unavailable.
+
+## rc.16 recovery matrix running scenarios (2026-09-16 23:33 UTC)
+
+Install Recovery run `35159276681` has reached and run scenarios: 11 pass,
+0 fail, 2 running (`5-install-stage-d-advisory-zombie` and
+`5-install-stage-e-worker-busy`). This is the first rc.16 evidence that the
+`1eccca23e` + `ec8eb39a7` + `81a9e39f4` harness path gets past discovery and
+fixture/image construction. Fleet Orchestrator `35157700377` remains in stage
+4/5; Upgrade Arc has not yet been dispatched.
