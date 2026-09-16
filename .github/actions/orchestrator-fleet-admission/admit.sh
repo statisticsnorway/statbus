@@ -56,8 +56,9 @@ if ! jq -e \
     .path == ".github/workflows/release-fleet-orchestrator.yaml" and
     (.html_url | type == "string" and test("^https://[^[:space:]]+$"))
   ' <<<"$parent" >/dev/null; then
-  echo "::notice title=Admission refused: re-dispatch the orchestrator::run ${ORCHESTRATOR_RUN_ID} is no longer the in-progress tag-push Release Fleet Orchestrator for child SHA ${CANDIDATE_SHA}. This is not a product arc failure. Re-dispatch the Release Fleet Orchestrator for ${CANDIDATE_REF}; do not re-run this arc child."
-  echo "::error title=Admission refused before product testing::run ${ORCHESTRATOR_RUN_ID} is not the in-progress tag-push Release Fleet Orchestrator for child SHA ${CANDIDATE_SHA}"
+  candidate_retry_target="${CANDIDATE_REF:-the candidate tag}"
+  echo "::notice title=Admission refused: re-dispatch the orchestrator::run ${ORCHESTRATOR_RUN_ID} is no longer the in-progress tag-push Release Fleet Orchestrator for child SHA ${CANDIDATE_SHA}. This is not a product arc failure. Re-dispatch the Release Fleet Orchestrator for ${candidate_retry_target}; do not re-run this arc child."
+  echo "::error title=Stale or invalid orchestrator parent: admission refused before product testing::run ${ORCHESTRATOR_RUN_ID} is not the in-progress tag-push Release Fleet Orchestrator for child SHA ${CANDIDATE_SHA}"
   jq '{id,status,event,head_sha,path,html_url}' <<<"$parent" >&2 || true
   exit 1
 fi

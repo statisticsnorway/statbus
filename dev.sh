@@ -104,14 +104,14 @@ if [ "$sb_needs_rebuild" = true ]; then
             # `docker pull` can wait for minutes before saying so. Discovery jobs
             # get a 15s existence decision, then keep the source-build fallback.
             if run_bounded 15 "$_SB_IMAGE_LOG" docker manifest inspect "$_SB_IMAGE"; then
-                echo "Procuring sb from image ${_SB_IMAGE} (no host toolchain)..."
+                echo "Procuring sb from image ${_SB_IMAGE} (no host toolchain)..." >&2
                 if ! run_bounded 120 "$_SB_IMAGE_LOG" docker pull "$_SB_IMAGE"; then
                     cat "$_SB_IMAGE_LOG" >&2
                     rm -f "$_SB_IMAGE_LOG"
                     echo "::error title=Infrastructure: sb image pull failed::manifest exists for ${_SB_IMAGE}, but its bounded pull failed. Retry after GHCR/CDN recovers; refusing a host-Go fallback for a published artifact." >&2
                     exit 1
                 fi
-                cat "$_SB_IMAGE_LOG"
+                cat "$_SB_IMAGE_LOG" >&2
                 _SB_CID=$(docker create "$_SB_IMAGE")
                 _SB_TMP=$(mktemp "$WORKSPACE/.sb.procure.XXXXXX")
                 if docker cp "${_SB_CID}:/sb" "$_SB_TMP" && chmod +x "$_SB_TMP" && mv "$_SB_TMP" ./sb; then
@@ -126,16 +126,16 @@ if [ "$sb_needs_rebuild" = true ]; then
                 docker rm "$_SB_CID" >/dev/null
             else
                 cat "$_SB_IMAGE_LOG" >&2
-                echo "No published sb image confirmed for ${_SB_SHORT} within 15s; falling back to a local source build."
+                echo "No published sb image confirmed for ${_SB_SHORT} within 15s; falling back to a local source build." >&2
             fi
         fi
         rm -f "$_SB_IMAGE_LOG"
     elif [ "$sb_has_dirty_cli" = true ]; then
-        echo "Uncommitted cli/ changes detected; building sb from source instead of procuring clean HEAD."
+        echo "Uncommitted cli/ changes detected; building sb from source instead of procuring clean HEAD." >&2
     fi
 
     if [ "$sb_procured" = false ] && command -v go >/dev/null 2>&1; then
-        echo "Building sb from source..."
+        echo "Building sb from source..." >&2
         # Inject version from git describe verbatim — it carries the leading "v"
         # (the canonical CommitVersion form stored in public.upgrade.commit_version
         # and printed by ./sb --version). No strip/re-prepend dance (STATBUS-064).
@@ -151,7 +151,7 @@ if [ "$sb_needs_rebuild" = true ]; then
         _SB_LDFLAGS="-X 'github.com/statisticsnorway/statbus/cli/cmd.version=${_SB_VERSION}' -X 'github.com/statisticsnorway/statbus/cli/cmd.commit=${_SB_COMMIT}'"
         (cd cli && go build -ldflags "$_SB_LDFLAGS" -o ../sb .)
     elif [ "$sb_procured" = false ]; then
-        echo "Error: ./sb binary not found or out of date. Build it with: cd cli && go build -o ../sb ."
+        echo "Error: ./sb binary not found or out of date. Build it with: cd cli && go build -o ../sb ." >&2
         exit 1
     fi
 fi
@@ -171,7 +171,7 @@ fi
 # install.go's runSeedRestore: warn and proceed; create-db just replays all
 # migrations instead of restoring the seed.
 if [ ! -f "$WORKSPACE/.db-seed/seed.pg_dump" ] && [ -x ./sb ]; then
-    ./sb db seed fetch || echo "Note: no seed image for this commit — proceeding without the seed cache (create-db will replay all migrations)."
+    ./sb db seed fetch || echo "Note: no seed image for this commit — proceeding without the seed cache (create-db will replay all migrations)." >&2
 fi
 
 # Set TTY_INPUT to /dev/tty if available (interactive), otherwise /dev/null
