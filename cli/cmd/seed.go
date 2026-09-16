@@ -283,6 +283,9 @@ func runSeedRestoreCmd(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
+	if err := validateCachedSeedForRestore(projDir, meta); err != nil {
+		return fmt.Errorf("cached seed is incompatible with this checkout; refusing to touch database %s: %w", dbName, err)
+	}
 
 	// Pipe the dump file into pg_restore via docker compose.
 	// We use --clean --if-exists to drop existing objects first (safe for
