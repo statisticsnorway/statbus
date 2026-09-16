@@ -18,13 +18,24 @@ func stepIndexByName(t *testing.T, steps []map[string]any, name string) int {
 	return -1
 }
 
+func stepIndexByRunContains(t *testing.T, steps []map[string]any, command string) int {
+	t.Helper()
+	for i, step := range steps {
+		if run, _ := step["run"].(string); strings.Contains(run, command) {
+			return i
+		}
+	}
+	t.Fatalf("no workflow step runs %q", command)
+	return -1
+}
+
 func TestHarnessDomainValidationPrecedesCoverageAndPaidEligibility_STATBUS352(t *testing.T) {
 	t.Run("orchestrator validates both target domains before coverage", func(t *testing.T) {
 		// Every paid joint, including the FIRST one (smoke): an all-covered
 		// answer that dispatches nothing must still have passed validation.
 		for _, job := range []string{"smoke", "install-recovery-harness", "upgrade-arc-harness"} {
 			steps := jobSteps(t, ".github/workflows/release-fleet-orchestrator.yaml", job)
-			validation := stepIndexByName(t, steps, "Validate install-recovery and upgrade-arc domains")
+			validation := stepIndexByRunContains(t, steps, authoritativeHarnessDomainValidation)
 			coverage := stepIndexByName(t, steps, "Decision point: which scenarios are uncovered?")
 			if validation >= coverage {
 				t.Fatalf("%s validates the scenario/arc domain at step %d, not before covered-subset at step %d", job, validation, coverage)
@@ -47,7 +58,7 @@ func TestHarnessDomainValidationPrecedesCoverageAndPaidEligibility_STATBUS352(t 
 		if admission < 0 {
 			t.Fatal("test-smoke select must revalidate orchestrated admission")
 		}
-		validation := stepIndexByName(t, steps, "Validate install-recovery and upgrade-arc domains")
+		validation := stepIndexByRunContains(t, steps, authoritativeHarnessDomainValidation)
 		matrix := stepIndexByName(t, steps, "Validate selectors and build matrix")
 		if admission >= validation || validation >= matrix {
 			t.Fatalf("test-smoke select order must be admission (%d) < domain validation (%d) < matrix (%d)", admission, validation, matrix)
@@ -86,7 +97,7 @@ func TestHarnessDomainValidationPrecedesCoverageAndPaidEligibility_STATBUS352(t 
 
 	t.Run("upgrade arc discovery validates before matrix enumeration", func(t *testing.T) {
 		steps := jobSteps(t, ".github/workflows/upgrade-arc-harness.yaml", "discover")
-		validation := stepIndexByName(t, steps, "Validate install-recovery and upgrade-arc domains")
+		validation := stepIndexByRunContains(t, steps, authoritativeHarnessDomainValidation)
 		enumeration := stepIndexByName(t, steps, "Enumerate arc scenarios into the matrix")
 		if validation >= enumeration {
 			t.Fatalf("upgrade-arc discover validates at step %d, not before matrix enumeration at step %d", validation, enumeration)
