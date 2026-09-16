@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-09-04 07:18'
-updated_date: '2026-09-04 20:20'
+updated_date: '2026-09-16 22:34'
 labels:
   - release
   - ci
@@ -79,3 +79,15 @@ reusing the 12 already-proven scenario marks. Fresh admission and fleet lease
 were revalidated, and the parent resumed the dependent arc stage. This is live
 confirmation of the subset/coverage path; final close still awaits the batch RC
 per the Remaining note.
+
+## Same-tag re-dispatch evidence (2026-09-16)
+
+After rc.15 arc run `35128438594` failed before scenarios, direct child rerun
+was correctly refused by admission. The orchestrator re-dispatch
+`35141712346` then stopped at dev-canary `35141864469`: the same-tag re-offer
+was interpreted as superseded even though it was the deliberate retry path.
+
+Fix `1eccca23e` makes `ops/ci-deploy-status.sh` idempotent when `completed_at`
+is already present, while preserving distinct infra/admission classification.
+Independent review ACCEPTed it with mutation control. rc.16 must prove the
+orchestrator can re-enter the ladder and reach the arc scenarios.
