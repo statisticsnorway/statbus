@@ -20,6 +20,8 @@ fi
 WORKSPACE="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 cd "$WORKSPACE"
 
+source "$WORKSPACE/ops/dev-seed-restore.sh"
+
 # Activate repo git hooks. `.githooks/pre-push` blocks hand-rolled release
 # tags and guards the postgres/Dockerfile pgrx-builder stages. A fresh
 # clone has core.hooksPath unset (defaults to .git/hooks, which is empty
@@ -1928,18 +1930,9 @@ EOF
     'create-db-structure' )
         eval $(./dev.sh postgres-variables)
 
-        # Restore seed if available — delegates to ./sb which handles
-        # exit code semantics (code 1 = warnings, code 2+ = real failure).
-        # Intent: pg_restore is ~2 seconds vs running 294 migrations from scratch.
-        if [ -f "$WORKSPACE/.db-seed/seed.pg_dump" ]; then
-            ./sb db seed restore || {
-                echo "Error: Seed restore failed. Consider running:"
-                echo "  ./dev.sh recreate-database"
-                exit 1
-            }
-        else
-            echo "No seed found in .db-seed/, running all migrations..."
-        fi
+        # Restore is only a fast path. Incompatible caches are deleted; genuine
+        # atomic pg_restore failures are loud. Both continue to the full replay.
+        restore_dev_seed_or_fallback "$WORKSPACE"
 
         # Run migrations
         ./sb migrate up

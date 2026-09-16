@@ -3,9 +3,24 @@ package cmd
 import (
 	"errors"
 	"fmt"
+	"os/exec"
 	"strings"
 	"testing"
 )
+
+func TestClassifySeedRestoreErrorFallsBackForIncompatibleCache(t *testing.T) {
+	cmd := exec.Command("sh", "-c", fmt.Sprintf("exit %d", ExitSeedIncompatible))
+	err := cmd.Run()
+	if err == nil {
+		t.Fatal("expected synthetic incompatible-cache subprocess failure")
+	}
+	if got := classifySeedRestoreError(err); !errors.Is(got, errSeedFallback) {
+		t.Fatalf("incompatible cache must map to full migration fallback, got %v", got)
+	}
+	if got := classifySeedRestoreError(errors.New("pg_restore failed")); !errors.Is(got, errSeedFallback) {
+		t.Fatalf("genuine restore failure must also map to full migration fallback, got %v", got)
+	}
+}
 
 // TestInterpretAppliedMigrationsProbe pins the STATBUS-018 probe matrix for the
 // applied-migrations gate (dbHasAppliedMigrations). The pure verdict is factored

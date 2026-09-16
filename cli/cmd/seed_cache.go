@@ -8,6 +8,16 @@ import (
 	"github.com/statisticsnorway/statbus/cli/internal/migrate"
 )
 
+// seedCacheIncompatibleError is a read-only preflight refusal. It has a
+// dedicated process exit code so shell callers can discard only an incompatible
+// cache, without confusing it with a pg_restore or other operational failure.
+type seedCacheIncompatibleError struct {
+	err error
+}
+
+func (e *seedCacheIncompatibleError) Error() string { return e.err.Error() }
+func (e *seedCacheIncompatibleError) Unwrap() error { return e.err }
+
 // validateCachedSeedForRestore is the fail-closed, read-only gate immediately
 // before pg_restore. A cached seed may be restored only when its metadata proves
 // that every migration baked into it is byte-for-byte identical to this

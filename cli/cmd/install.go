@@ -2343,10 +2343,21 @@ func runSeedRestore(dir string) error {
 		fmt.Println("     Falling back to FULL MIGRATIONS (~10x slower).")
 		fmt.Println("     Unexpected on a fresh database — worth investigating.")
 		fmt.Println("  ============================================================")
-		return errSeedFallback
+		return classifySeedRestoreError(err)
 	}
 
 	return nil
+}
+
+// classifySeedRestoreError pins the install-side subprocess boundary: every
+// restore failure, including the dedicated incompatible-cache exit, is a loud
+// but non-fatal loss of the fast path. The database is still safe for the next
+// step, which runs all migrations.
+func classifySeedRestoreError(err error) error {
+	if err == nil {
+		return nil
+	}
+	return errSeedFallback
 }
 
 func runMigrations(dir string) error {

@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -9,6 +10,16 @@ import (
 
 	"github.com/statisticsnorway/statbus/cli/internal/migrate"
 )
+
+func TestSeedCacheIncompatibleHasDedicatedExitCode(t *testing.T) {
+	err := &commandExecutionError{err: &seedCacheIncompatibleError{err: errors.New("stale cache")}}
+	if got := ExitCode(err); got != ExitSeedIncompatible {
+		t.Fatalf("ExitCode(incompatible seed) = %d, want %d", got, ExitSeedIncompatible)
+	}
+	if got := ExitCode(&commandExecutionError{err: errors.New("pg_restore failed")}); got == ExitSeedIncompatible {
+		t.Fatalf("generic restore failure must not use incompatible-cache exit %d", got)
+	}
+}
 
 func cachedSeedProject(t *testing.T) (string, seedMeta) {
 	t.Helper()

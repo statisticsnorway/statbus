@@ -10,8 +10,9 @@ import (
 // Keep them together: the release-covered verdicts must never collide with a
 // pre-dispatch refusal that means the command did not run.
 const (
-	exitUsage          = 64 // EX_USAGE, sysexits.h
-	exitBinaryUnusable = 69 // EX_UNAVAILABLE, sysexits.h
+	exitUsage            = 64 // EX_USAGE, sysexits.h
+	exitBinaryUnusable   = 69 // EX_UNAVAILABLE, sysexits.h
+	exitSeedIncompatible = 22 // cached seed is incompatible; caller may discard it and replay migrations
 )
 
 // ExitBinaryUnusable and ExitUsage are exported READ-ONLY so cmd/release's
@@ -19,8 +20,9 @@ const (
 // there) never collide with these pre-dispatch refusals. cmd never imports
 // cmd/release, so the proof has to live on the release side.
 const (
-	ExitUsage          = exitUsage
-	ExitBinaryUnusable = exitBinaryUnusable
+	ExitUsage            = exitUsage
+	ExitBinaryUnusable   = exitBinaryUnusable
+	ExitSeedIncompatible = exitSeedIncompatible
 )
 
 // commandExecutionError distinguishes an error returned by a Cobra run hook
@@ -74,6 +76,10 @@ func prepareCobraExitContract(command *cobra.Command) {
 // that own a more specific os.Exit contract. An unwrapped Cobra error is a
 // command-line refusal and therefore EX_USAGE (64).
 func ExitCode(err error) int {
+	var seedErr *seedCacheIncompatibleError
+	if errors.As(err, &seedErr) {
+		return exitSeedIncompatible
+	}
 	var executionErr *commandExecutionError
 	if errors.As(err, &executionErr) {
 		return 1
