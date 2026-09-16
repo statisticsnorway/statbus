@@ -1,0 +1,6 @@
+Upgrade-arc CODE-ONLY (no-delta) fixture (STATBUS-071 arm ii).
+B = A + this non-migration change; NO migration is written, so B is
+AT-TARGET at the post-swap pre-pull disk pre-check → a resource failure
+there PARKS (forward possible) rather than rolling back (which needs a
+positively-Behind ledger). Represents a normal code-only / app-or-CLI-only
+release. This file's content is never asserted by the running box.
