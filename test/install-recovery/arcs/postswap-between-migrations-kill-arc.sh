@@ -52,11 +52,12 @@
 #      first read ObservedPositionUnreadable, needing a second live pass).
 #      postSwapFailure's own line (service.go:5070) fires: "Failure after
 #      booting the new binary [...]: ... — observed state confirms it's
-#      behind the new version (db.migration max version <V1> < on-disk max
-#      <V2> (migrations did not run)); auto-restoring from this upgrade's
-#      snapshot" — the exact numbers in that parenthetical are THIS arc's own
-#      mechanism-true marker, distinguishing it from mid-migration-kill's
-#      "max version <baseline> < ..." (neither migration recorded there).
+#      behind the new version (...); auto-restoring from this upgrade's
+#      snapshot". The coverage oracle (STATBUS-354) names the FIRST on-disk
+#      migration absent from db.migration: here that is V2, which is THIS arc's
+#      mechanism-true marker — distinguishing it from mid-migration-kill's
+#      gap, where the first absent version is V1 (neither migration recorded
+#      there).
 #   4. d.rollback() (called from postSwapFailure) ALWAYS terminates via
 #      os.Exit(75) (the rc.67 trifecta) — REGARDLESS of caller context
 #      (daemon service or, as here, the one-shot inline `./sb install`
@@ -86,11 +87,12 @@
 #                  → ./sb install WITH STATBUS_INJECT_AT + the marker → KillHere fires
 #                  ONCE in the migrate subprocess between migration 1 and migration 2.
 #   in-dispatch    the dispatch SURVIVES the subprocess death but the SAME process's
-#   rollback       applyPostSwap reads observed state positively Behind (V2 missing,
-#                  db.migration max version < on-disk max) → one-shot rollback →
-#                  os.Exit(75) — all within the same ./sb install.
+#   rollback       applyPostSwap reads observed state positively Behind (V2 absent
+#                  from db.migration) → one-shot rollback → os.Exit(75) — all
+#                  within the same ./sb install.
 #   GREEN          kill landed (marker consumed) + rc=75 + postSwapFailure's
-#                  "confirms it's behind" line naming the exact V1/V2 gap; row
+#                  "confirms it's behind" line naming V2 as the exact first
+#                  absent on-disk migration (V1 recorded, V2 pending); row
 #                  rolled_back; db.migration max == baseline; clean-slate
 #                  fingerprint matches A; data intact; flag absent; healthy.
 #
@@ -199,13 +201,13 @@ echo "── verifying the kill landed and the SAME dispatch rolled back (postSw
 echo "  ✓ one-shot kill landed (marker consumed)"
 [ "$ARC_DISPATCH_RC" = "75" ] || { echo "✗ dispatch exited $ARC_DISPATCH_RC, expected 75 — d.rollback() always terminates via os.Exit(75) regardless of caller context (MECHANICS point 4)" >&2; exit 1; }
 echo "  ✓ dispatch exited 75 — in-process rollback terminal, not a dead/hung dispatch"
-# Mechanism-true marker: postSwapFailure's own "confirms it's behind" line,
-# naming the EXACT V1/V2 gap this arc's kill window produces (distinct from
-# mid-migration-kill's baseline-vs-V2 gap — see that arc's own marker).
-# Product proof at HEAD: cli/internal/upgrade/service.go:7354-7356 emits this
-# sentence and immediately calls d.rollback with the same backupPath; STATBUS-347
-# changed the narration, not the Behind → restore disposition.
-EXPECT_REASON_SUBSTR="db.migration max version ${V_VERSION} < on-disk max ${V_VERSION_2}"
+# Mechanism-true marker: the coverage oracle names the FIRST on-disk migration
+# absent from db.migration. This arc records V1 then kills before V2, so the
+# first absent version is V2 — distinct from mid-migration-kill, where V1 is
+# the first absent (neither recorded). STATBUS-354 changed the narration from
+# the old "max version < on-disk max" form to the coverage form, not the
+# Behind → restore disposition.
+EXPECT_REASON_SUBSTR="on-disk migration ${V_VERSION_2} is absent from db.migration (migration did not run)"
 [ "$(arc_dispatch_log_has "restoring this upgrade's snapshot.")" = "yes" ] || { echo "✗ dispatch output missing postSwapFailure's rollback line" >&2; exit 1; }
 [ "$(arc_dispatch_log_has "$EXPECT_REASON_SUBSTR")" = "yes" ] || { echo "✗ dispatch output missing the expected observed-state gap ('$EXPECT_REASON_SUBSTR') — wrong kill window, or V1 was not actually recorded before the kill" >&2; exit 1; }
 echo "  ✓ path pinned: postSwapFailure's rollback line + the exact V1-recorded/V2-pending gap ($EXPECT_REASON_SUBSTR)"
