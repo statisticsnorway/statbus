@@ -647,3 +647,13 @@ No rc.16 tag exists. The repaired head `81a9e39f4` completed all named pre-cut
 checks: Go `35150754066`, Fast Tests `35151057099`, pg_regress `35151057030`,
 Images `35150753957`, and app `35150754001` are green. Arc scenarios have not
 started because no candidate has been cut.
+
+## rc.16 cut and ladder running (2026-09-16 22:47 UTC)
+
+Owner cut `v2026.09.1-rc.16` at `b8bdf090f` at 22:26 UTC, two
+backlog-only commits past green product head `81a9e39f4`. The cut used current
+master after verifying an empty non-`.backlog` diff. Release `35157700398`, Test
+Smoke `35157807530`, Test Hardening `35157700421`, and dev canary
+`35159028395` are green. Fleet Orchestrator `35157700377` is running and has
+dispatched Upgrade Arc Harness run `35159276681`; the arc run is in progress.
+No scenario tally yet.
