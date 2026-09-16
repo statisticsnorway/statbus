@@ -10359,7 +10359,7 @@ func (d *Service) restoreAndFinalize(ctx context.Context, id int, version string
 	}
 	if backupPath != "" && dbRestoreErr == nil {
 		if floorErr := d.reapplyRollbackDaemonSchemaFloor(progress); floorErr != nil {
-			if holdErr := d.holdRollbackSchemaFloorFailure(id, backupPath, progress, floorErr); holdErr != nil {
+			if holdErr := d.holdRollbackSchemaFloorFailure(ctx, id, backupPath, progress, floorErr); holdErr != nil {
 				return true, holdErr
 			}
 			progress.Write("ROLLBACK_SCHEMA_FLOOR_FAILED")
@@ -10598,7 +10598,7 @@ func (d *Service) restoreAndFinalize(ctx context.Context, id int, version string
 	return false, nil
 }
 
-func (d *Service) holdRollbackSchemaFloorFailure(id int, backupPath string, progress *ProgressLog, floorErr error) error {
+func (d *Service) holdRollbackSchemaFloorFailure(ctx context.Context, id int, backupPath string, progress *ProgressLog, floorErr error) error {
 	if injectErr := inject.ErrorHere("rollback-floor-failure-marker-write"); injectErr != nil {
 		return &RollbackSchemaFloorMarkerWriteError{Err: injectErr}
 	}
@@ -10607,6 +10607,17 @@ func (d *Service) holdRollbackSchemaFloorFailure(id int, backupPath string, prog
 		flag.Step = StepRollback
 	}); err != nil {
 		return &RollbackSchemaFloorMarkerWriteError{Err: err}
+	}
+	// Durable classification: the row stays in_progress (held closed), but its
+	// failure_code must name the cause so a rebooted box re-reads the SAME reason
+	// from the database, not just the transient flag file. Only failure_code is
+	// written — state remains in_progress and error keeps its original narrative.
+	// queryConn is nil only in flag-focused unit tests; every live path reaches
+	// here after startRollbackDatabaseOnly has reconnected.
+	if d.queryConn != nil {
+		if _, updateErr := d.queryConn.Exec(ctx, `UPDATE public.upgrade SET failure_code = $1 WHERE id = $2`, ErrRollbackSchemaFloorFailed, id); updateErr != nil {
+			return &RollbackSchemaFloorMarkerWriteError{Err: updateErr}
+		}
 	}
 	d.releaseUpgradeFlagLockKeepingFile()
 	progressPath := ""

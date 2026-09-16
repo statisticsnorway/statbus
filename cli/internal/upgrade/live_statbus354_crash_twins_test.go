@@ -234,7 +234,7 @@ func TestLiveFloorFailureHoldAndHumanRetry_STATBUS354(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Setenv("STATBUS_INJECT_AT", "rollback-floor-reapply")
-	if err := d.holdRollbackSchemaFloorFailure(id, backup, nil, fmt.Errorf("injected floor failure")); err != nil {
+	if err := d.holdRollbackSchemaFloorFailure(ctx, id, backup, nil, fmt.Errorf("injected floor failure")); err != nil {
 		t.Fatal(err)
 	}
 	flag, err := ReadFlagFile(projDir)

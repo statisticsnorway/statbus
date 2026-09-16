@@ -49,7 +49,13 @@ EXPECTED_HASH=$(git show "$B_FULL:$FLOOR_MIGRATION_FILE" | sha256sum | awk '{pri
 assert_flag_file_absent "$VM_NAME"
 assert_health_passes "$VM_NAME"
 assert_demo_data_counts_match_snapshot "$VM_NAME" "$DATA_SNAPSHOT"
-assert_fingerprint_matches "post-rollback == post-A data" "$BASELINE_FP" baseline
+# The full 3-dim fingerprint is the wrong tool here: this scenario intentionally
+# re-applies the daemon floor during rollback, so SCHEMA and LEDGER legitimately
+# advance past A (failure_code enum, rollback_finish_pending_at, the floor ledger
+# row). The clean-slate guarantee that matters is the DATA dim — compare that only.
+BASELINE_DATA=$(echo "$BASELINE_FP" | awk '{print $3}')
+RECHECK_DATA=$(capture_db_fingerprint rollback-recheck | awk '{print $3}')
+[ "$RECHECK_DATA" = "$BASELINE_DATA" ] || { echo "✗ DATA clean-slate mismatch (post-rollback != post-A base data)" >&2; exit 1; }
 [ "$(VM_EXEC bash -c 'cd ~/statbus && git rev-parse HEAD')" = "$BASE_SHA" ] || { echo '✗ source A worktree not restored' >&2; exit 1; }
 [ "$(VM_EXEC bash -c 'cd ~/statbus && ./sb --version 2>/dev/null | head -1')" = "$BASE_SB" ] || { echo '✗ source A binary not canonical' >&2; exit 1; }
 BACKUPS_AFTER=$(backup_listing)

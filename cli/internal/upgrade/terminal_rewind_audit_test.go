@@ -158,13 +158,14 @@ var rewindAudit = map[siteKey]rewindDisposition{
 		Why: "Claim-window failure write: sets its own state+error, and clears scheduled_at deliberately.",
 	},
 	{"cli/internal/upgrade/service.go", "UPDATE", "failure_code"}: {
-		Class: classSuccessPathOnly, Count: 1,
-		Why: "The restore re-attempt's git-corrupt refusal records ONLY the failure-code " +
-			"classification. The row's error narrative stays untouched (a refusal must not " +
-			"rewrite the durable failure record; restore-broke-reattempt-arc asserts this). " +
-			"It runs before replay authorization, service stop, snapshot restore, or " +
-			"daemon-floor replay, then returns. No database rewind can follow this write " +
-			"on the refusal path.",
+		Class: classSuccessPathOnly, Count: 2,
+		Why: "Two failure-code-only writes, neither inside the rewind window. (1) The restore " +
+			"re-attempt's git-corrupt refusal records the classification while leaving the " +
+			"row's error narrative untouched (a refusal must not rewrite the durable failure " +
+			"record; restore-broke-reattempt-arc asserts this); it runs before replay " +
+			"authorization and no rewind follows. (2) The rollback floor-reapply failure hold " +
+			"records the classification after the snapshot restore has already rewound the " +
+			"volume; state stays in_progress and no further rewind follows.",
 	},
 
 	// ── C. OUTSIDE THE WINDOW — written before the snapshot, so it contains them ──

@@ -1,6 +1,7 @@
 package upgrade
 
 import (
+	"context"
 	"errors"
 	"os"
 	"testing"
@@ -21,7 +22,7 @@ func TestRollbackSchemaFloorFailureMarkerWriteFailureKeepsFlockAndOriginalRoute(
 	}
 
 	t.Setenv("STATBUS_INJECT_AT", "rollback-floor-failure-marker-write")
-	err := d.holdRollbackSchemaFloorFailure(354, "/backup/354", nil, errors.New("floor failed"))
+	err := d.holdRollbackSchemaFloorFailure(context.Background(), 354, "/backup/354", nil, errors.New("floor failed"))
 	var markerErr *RollbackSchemaFloorMarkerWriteError
 	if !errors.As(err, &markerErr) {
 		t.Fatalf("error = %T %v, want RollbackSchemaFloorMarkerWriteError", err, err)
@@ -65,7 +66,7 @@ func TestRollbackSchemaFloorFailureDurablyRoutesDaemonAliveIdle(t *testing.T) {
 	if err := d.mutateHeldFlag(func(flag *UpgradeFlag) { flag.Step = StepRollback }); err != nil {
 		t.Fatalf("seed rollback route: %v", err)
 	}
-	if err := d.holdRollbackSchemaFloorFailure(355, "/backup/355", nil, errors.New("floor failed")); err != nil {
+	if err := d.holdRollbackSchemaFloorFailure(context.Background(), 355, "/backup/355", nil, errors.New("floor failed")); err != nil {
 		t.Fatalf("persist floor failure hold: %v", err)
 	}
 	if IsFlockHeld(projDir) {
