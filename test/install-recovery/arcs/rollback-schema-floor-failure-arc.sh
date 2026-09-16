@@ -44,7 +44,8 @@ arc_install_dispatch_with_inject "$INJECT_CLASS" || true
 [ "$(row_field state)" = in_progress ] || { echo '✗ floor failure did not retain in_progress' >&2; exit 1; }
 [ "$(row_field failure_code)" = ROLLBACK_SCHEMA_FLOOR_FAILED ] || { echo '✗ durable failure code absent' >&2; exit 1; }
 [ "$(flag_field step)" = rollback ] || { echo '✗ marker is not StepRollback' >&2; exit 1; }
-[ "$(flag_field phase)" = rollback_schema_floor_failed ] || { echo '✗ marker is not floor-failure phase' >&2; exit 1; }
+MARKER_PHASE=$(flag_field phase)
+[ "$MARKER_PHASE" = rollback-schema-floor-failed ] || { echo "✗ marker is not floor-failure phase: actual='$MARKER_PHASE'" >&2; exit 1; }
 [ "$(VM_EXEC bash -c 'cd ~/statbus && git rev-parse HEAD')" = "$B_FULL" ] || { echo '✗ target tree not retained' >&2; exit 1; }
 [ "$(VM_EXEC bash -c 'cd ~/statbus && ./sb --version 2>/dev/null | head -1')" != "$BASE_SB" ] || { echo '✗ target sb not retained' >&2; exit 1; }
 for svc in app worker rest; do VM_EXEC bash -c "cd ~/statbus && ! docker compose ps --status running --services | grep -qx '$svc'" || { echo "✗ $svc is running" >&2; exit 1; }; done

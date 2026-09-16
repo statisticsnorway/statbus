@@ -28,11 +28,9 @@ source "$LIB_DIR/arc-helpers.sh"
 trap 'RC=$?; cleanup_vm "$VM_NAME"; exit $RC' EXIT
 row_field() { VM_EXEC bash -c "cd ~/statbus && echo \"SELECT $1 FROM public.upgrade WHERE commit_sha = '$B_FULL' ORDER BY id DESC LIMIT 1;\" | ./sb psql -t -A" 2>/dev/null | tr -d ' \r\n'; }
 ledger_field() { VM_EXEC bash -c "cd ~/statbus && echo \"SELECT $1 FROM db.migration WHERE version = $FLOOR;\" | ./sb psql -t -A" 2>/dev/null | tr -d ' \r\n'; }
-backup_listing() { VM_EXEC bash -c "if [ -d ~/statbus-backups ]; then find ~/statbus-backups -mindepth 1 -maxdepth 1 -printf '%f\\n' | LC_ALL=C sort; fi"; }
 arc_prepare_box
 DATA_SNAPSHOT=$(snapshot_demo_data_counts "$VM_NAME")
 BASELINE_FP=$(capture_db_fingerprint baseline)
-BACKUPS_BEFORE=$(backup_listing)
 BASE_SB=$(VM_EXEC bash -c 'cd ~/statbus && ./sb --version 2>/dev/null | head -1')
 arc_to "$B_FULL" "$B_BRANCH" "B (column adoption then deterministic failure)" "rolled_back"
 [ "$(row_field state)" = rolled_back ] || { echo '✗ B is not rolled_back' >&2; exit 1; }
@@ -58,8 +56,10 @@ RECHECK_DATA=$(capture_db_fingerprint rollback-recheck | awk '{print $3}')
 [ "$RECHECK_DATA" = "$BASELINE_DATA" ] || { echo "✗ DATA clean-slate mismatch (post-rollback != post-A base data)" >&2; exit 1; }
 [ "$(VM_EXEC bash -c 'cd ~/statbus && git rev-parse HEAD')" = "$BASE_SHA" ] || { echo '✗ source A worktree not restored' >&2; exit 1; }
 [ "$(VM_EXEC bash -c 'cd ~/statbus && ./sb --version 2>/dev/null | head -1')" = "$BASE_SB" ] || { echo '✗ source A binary not canonical' >&2; exit 1; }
-BACKUPS_AFTER=$(backup_listing)
-[ "$BACKUPS_AFTER" = "$BACKUPS_BEFORE" ] || { printf '✗ backup root listing changed\n%s\n---\n%s\n' "$BACKUPS_BEFORE" "$BACKUPS_AFTER" >&2; exit 1; }
+VM_EXEC bash -c 'test -d ~/statbus-backups/pre-upgrade-active' || { echo '✗ committed persistent backup absent after rollback' >&2; exit 1; }
+! VM_EXEC bash -c 'test -e ~/statbus-backups/pre-upgrade-syncing' || { echo '✗ incomplete syncing backup remains after rollback' >&2; exit 1; }
+assert_no_orphan_backup "$VM_NAME"
+VM_EXEC bash -c "find ~/statbus-backups -mindepth 2 -maxdepth 2 -type f -path '*/upgrade-logs-*/*.log' -print -quit | grep -q ." || { echo '✗ expected forensic upgrade logs absent beside backup' >&2; exit 1; }
 LOG_REL=$(row_field "COALESCE(log_relative_file_path,'')")
 LOG=$(VM_EXEC bash -c "cat ~/statbus/tmp/upgrade-logs/'$LOG_REL'")
 for needle in 'rollback' 'Restoring database' 'database container' "migrate up --to $FLOOR" 'Restoring git' 'sb.old' 'Starting services' 'rollback finishing' 'rolled_back' 'Publishing'; do
