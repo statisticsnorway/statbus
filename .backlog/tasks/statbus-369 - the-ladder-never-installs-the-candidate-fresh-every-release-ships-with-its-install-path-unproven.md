@@ -602,3 +602,30 @@ Both STATBUS-354 regressions fixed in scratch, awaiting independent review:
 
 Plus floor-arc image fix 39ba3c3b4 (SCHEMA_FLOOR_BASE_SHA → v2026.09.0).
 Dove is independently reviewing A+B. Land all three, then cut rc.12.
+
+## rc.12 through rc.15 ladder evidence (2026-09-16)
+
+- rc.12 (`88a8d8ee2`), arc run `35038249248`: 36 passed, 4 failed.
+  `e3c589034` fixed the coverage-oracle narration; `5307ec378` fixed refusal
+  row semantics, floor hash sourcing, and floor-failure lineage. rc.13 followed.
+- rc.13 arc run `35079590161`: 38 passed, 2 failed, both schema-floor arcs.
+  `e3ceafe4b` fixed the adoption data fingerprint and durable floor-failure
+  code. rc.14 followed.
+- rc.14 repeated 38/40 with the same two schema-floor reds. `900cf9d66`
+  established that both were harness assertions contradicting the recovery
+  contract: backup retention is deliberate, and the marker phase is
+  hyphenated. Independent review ACCEPTed the change.
+- rc.15 (`23b3993ad`) was cut after seed-cache recovery work. Arc run
+  `35128438594` died before scenarios: Discover succeeded, then fixture/image
+  construction hit a Go toolchain CDN TLS timeout because `dev.sh` ignored the
+  prebuilt `sb` image. A direct arc-child rerun was then refused by admission,
+  correctly, because it bypassed the orchestrator. Orchestrator re-dispatch
+  `35141712346` stopped at dev-canary run `35141864469`: re-offering the same
+  tag was read as superseded.
+- Harness hardening `1eccca23e` makes `sb` procurement git-gated, labels
+  infra/admission outcomes, and makes `ops/ci-deploy-status.sh` idempotent on
+  `completed_at`. Independent review ACCEPTed it, including mutation control.
+  rc.16 is to be cut from this commit by worker whale.
+
+No rc.15 scenario result exists. The next acceptance evidence is rc.16 reaching
+its arc matrix and proving the two schema-floor scenarios under `900cf9d66`.
