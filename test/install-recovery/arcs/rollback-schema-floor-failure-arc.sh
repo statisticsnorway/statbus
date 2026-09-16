@@ -2,17 +2,24 @@
 # Arc: rollback-schema-floor-failure (STATBUS-354 Phase 7 Arc B)
 # The injected error exists only in rollback-time floor reapplication. Forward
 # migration remains genuine. A final V_fail enters built-in rollback.
+#
+# BASE is the ORDINARY candidate base (NOT the pre-column SCHEMA_FLOOR_BASE_SHA):
+# this arc exercises the floor-reapply FAILURE HANDLING, not the column adoption
+# (that is the adoption arc). The inject class rollback-floor-reapply only exists
+# in the candidate's binary, so the base binary must carry STATBUS-354 code for
+# inject.Validate to accept it at dispatch time.
 set -euo pipefail
 VM_NAME="${1:-statbus-arc-rollback-floor-failure}"
 TICK_WAIT_S="${TICK_WAIT_S:-120}"
 FLOOR=20260907120000
 INJECT_CLASS=rollback-floor-reapply
 UPGRADE_UNIT=statbus-upgrade@statbus.service
-# The workflow exports this only for the schema-floor family. Keep BASE_SHA as
-# the public arc input, but replace the ordinary candidate base with the exact
-# pre-column snapshot baseline. B still comes from the candidate-based failing
-# lineage and therefore carries current STATBUS-354 code, the floor migration,
-# and the final V_fail that enters rollback.
+# This arc rides the ORDINARY candidate base: BASE_SHA is the standard arc input
+# and SCHEMA_FLOOR_BASE_SHA is not exported for it (only the adoption arc takes
+# the pre-column baseline). B comes from the candidate-based failing lineage and
+# therefore carries current STATBUS-354 code, the floor migration, and the final
+# V_fail that enters rollback. The rollback-floor-reapply inject class must be
+# recognized by the base binary, so the base must carry STATBUS-354 code.
 BASE_SHA="${SCHEMA_FLOOR_BASE_SHA:-${BASE_SHA:-}}"
 : "${BASE_SHA:?BASE_SHA or SCHEMA_FLOOR_BASE_SHA required}"
 : "${B_FULL:?B_FULL required}"

@@ -748,8 +748,15 @@ jobs:
               # the ordinary failing fixture off this candidate, so it carries
               # current recovery code + migration 20260907120000 + the final
               # synthetic V_fail.
+              #
+              # ONLY the adoption arc takes the pre-column baseline. The failure
+              # arc rides the ordinary candidate base: its assertions exercise the
+              # floor-reapply FAILURE HANDLING (hold closed, then human retry), not
+              # the column adoption, and its inject class rollback-floor-reapply
+              # only exists in the candidate's binary (added by STATBUS-354), so a
+              # pre-column base binary would reject it as unknown.
               case "$SCENARIO" in
-                rollback-schema-floor-adoption|rollback-schema-floor-failure)
+                rollback-schema-floor-adoption)
                   echo "SCHEMA_FLOOR_BASE_SHA=d53731ec539b03b9378ff8828bb2be938d9e2e0f"
                   ;;
               esac

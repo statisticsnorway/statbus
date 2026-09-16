@@ -10770,9 +10770,8 @@ func (d *Service) ReattemptRestore(ctx context.Context, rowID int64) error {
 			ErrRollbackGitCorrupt, err, contactSuffix(readAdministratorContact(d.projDir)))
 		if _, updateErr := tx.Exec(ctx, `
 			UPDATE public.upgrade
-			   SET failure_code = $1,
-			       error = $2
-			 WHERE id = $3`, ErrRollbackGitCorrupt, refusal, rowID); updateErr != nil {
+			   SET failure_code = $1
+			 WHERE id = $2`, ErrRollbackGitCorrupt, rowID); updateErr != nil {
 			return fmt.Errorf("ReattemptRestore: record git-corrupt refusal for row %d: %w", rowID, updateErr)
 		}
 		if commitErr := tx.Commit(ctx); commitErr != nil {

@@ -38,7 +38,13 @@ arc_to "$B_FULL" "$B_BRANCH" "B (column adoption then deterministic failure)" "r
 [ "$(row_field state)" = rolled_back ] || { echo '✗ B is not rolled_back' >&2; exit 1; }
 [ "$(row_field 'rollback_finish_pending_at IS NULL')" = t ] || { echo '✗ pending discriminator not cleared' >&2; exit 1; }
 [ "$(ledger_field 'count(*)')" = 1 ] || { echo '✗ floor migration not recorded exactly once' >&2; exit 1; }
-EXPECTED_HASH=$(VM_EXEC bash -c "cd ~/statbus && sha256sum migrations/${FLOOR}_*.up.sql | awk '{print \$1}'")
+# The floor migration file lives in B's tree. After the rollback the worktree is
+# restored to A (pre-column), where that file does not exist, so hash the bytes
+# from B's commit object instead of the current checkout. The runner has the full
+# fixture history (fetch-depth: 0), so git show resolves B_FULL without the VM.
+FLOOR_MIGRATION_FILE=$(git ls-tree --name-only "$B_FULL" -- migrations/ | grep "^migrations/${FLOOR}_" | grep '\.up\.sql$' | head -1)
+[ -n "$FLOOR_MIGRATION_FILE" ] || { echo "✗ could not resolve B's floor migration file" >&2; exit 1; }
+EXPECTED_HASH=$(git show "$B_FULL:$FLOOR_MIGRATION_FILE" | sha256sum | awk '{print $1}')
 [ "$(ledger_field content_hash)" = "$EXPECTED_HASH" ] || { echo '✗ floor ledger hash differs from migration bytes' >&2; exit 1; }
 assert_flag_file_absent "$VM_NAME"
 assert_health_passes "$VM_NAME"
