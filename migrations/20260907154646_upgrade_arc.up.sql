@@ -1,3 +1,4 @@
+-- amended in place (STATBUS-102 channel-bless re-stamp; result-preserving)
 -- Upgrade-arc fixture migration 1 (STATBUS-071). Observable + reversible;
 -- the arc asserts public.upgrade_arc_fixture exists with its row.
 CREATE TABLE public.upgrade_arc_fixture (
