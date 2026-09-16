@@ -673,3 +673,10 @@ Install Recovery run `35159276681` has reached and run scenarios: 11 pass,
 `1eccca23e` + `ec8eb39a7` + `81a9e39f4` harness path gets past discovery and
 fixture/image construction. Fleet Orchestrator `35157700377` remains in stage
 4/5; Upgrade Arc has not yet been dispatched.
+
+## rc.16 recovery green; Upgrade Arc started (2026-09-16 23:36 UTC)
+
+Install Recovery run `35159276681` completed 13/13 scenarios green. Fleet
+Orchestrator `35157700377` advanced to stage 5/5 and dispatched Upgrade Arc run
+`35162992033`. Arc discovery passed and fixture/image construction is running;
+no arc scenario has started, so the arc tally is 0 terminal.
