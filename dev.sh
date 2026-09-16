@@ -46,7 +46,14 @@ fi
 #     (or if it cannot confirm freshness). It is guard-exempt, so it never warns
 #     into this check.
 sb_needs_rebuild=false
-if ! test -x ./sb; then
+sb_has_dirty_cli=false
+if [ -n "$(git status --porcelain --untracked-files=all -- cli/ 2>/dev/null)" ]; then
+    # Git, not mtimes, is the authority for unpublished source bytes. This must
+    # precede the missing-binary case: a fresh clone with a dirty cli/ and no sb
+    # must build those bytes, never procure clean HEAD and silently ignore them.
+    sb_needs_rebuild=true
+    sb_has_dirty_cli=true
+elif ! test -x ./sb; then
     sb_needs_rebuild=true
 elif [ -n "$(find cli -name '*.go' -newer ./sb -print -quit 2>/dev/null)" ]; then
     sb_needs_rebuild=true
@@ -54,7 +61,80 @@ elif ! ./sb committed-drift; then
     sb_needs_rebuild=true
 fi
 if [ "$sb_needs_rebuild" = true ]; then
-    if command -v go >/dev/null 2>&1; then
+    sb_procured=false
+
+    run_bounded() {
+        local seconds="$1" log="$2"
+        shift 2
+        "$@" >"$log" 2>&1 &
+        local command_pid=$!
+        (
+            sleep "$seconds"
+            if kill -0 "$command_pid" 2>/dev/null; then
+                echo "Timed out after ${seconds}s: $*" >>"$log"
+                # Shell-script test doubles and some CLIs spawn a child process;
+                # terminate children first so the deadline cannot leave an
+                # orphan holding pipes or network connections open.
+                pkill -TERM -P "$command_pid" 2>/dev/null || true
+                kill -TERM "$command_pid" 2>/dev/null || true
+                sleep 1
+                pkill -KILL -P "$command_pid" 2>/dev/null || true
+                kill -KILL "$command_pid" 2>/dev/null || true
+            fi
+        ) &
+        local timer_pid=$!
+        local command_rc=0
+        wait "$command_pid" || command_rc=$?
+        kill "$timer_pid" 2>/dev/null || true
+        wait "$timer_pid" 2>/dev/null || true
+        return "$command_rc"
+    }
+
+    # A clean checkout should consume the exact per-commit binary Images already
+    # published, not ask GOTOOLCHAIN=auto to download go.mod's toolchain merely
+    # to enumerate tests. This is the shell bootstrap equivalent of
+    # cli/internal/sbimage. Any git-visible cli/ edit deliberately bypasses it:
+    # only a source build can include bytes that are not in HEAD's image.
+    if [ "$sb_has_dirty_cli" = false ] && command -v docker >/dev/null 2>&1; then
+        _SB_SHORT=$(git rev-parse --short=8 HEAD 2>/dev/null || true)
+        _SB_IMAGE="ghcr.io/statisticsnorway/statbus-sb:${_SB_SHORT}"
+        _SB_IMAGE_LOG=$(mktemp)
+        if [ -n "$_SB_SHORT" ]; then
+            # Probe before pull. Unpushed/non-master commits have no image, and
+            # `docker pull` can wait for minutes before saying so. Discovery jobs
+            # get a 15s existence decision, then keep the source-build fallback.
+            if run_bounded 15 "$_SB_IMAGE_LOG" docker manifest inspect "$_SB_IMAGE"; then
+                echo "Procuring sb from image ${_SB_IMAGE} (no host toolchain)..."
+                if ! run_bounded 120 "$_SB_IMAGE_LOG" docker pull "$_SB_IMAGE"; then
+                    cat "$_SB_IMAGE_LOG" >&2
+                    rm -f "$_SB_IMAGE_LOG"
+                    echo "::error title=Infrastructure: sb image pull failed::manifest exists for ${_SB_IMAGE}, but its bounded pull failed. Retry after GHCR/CDN recovers; refusing a host-Go fallback for a published artifact." >&2
+                    exit 1
+                fi
+                cat "$_SB_IMAGE_LOG"
+                _SB_CID=$(docker create "$_SB_IMAGE")
+                _SB_TMP=$(mktemp "$WORKSPACE/.sb.procure.XXXXXX")
+                if docker cp "${_SB_CID}:/sb" "$_SB_TMP" && chmod +x "$_SB_TMP" && mv "$_SB_TMP" ./sb; then
+                    sb_procured=true
+                else
+                    rm -f "$_SB_TMP"
+                    docker rm -f "$_SB_CID" >/dev/null 2>&1 || true
+                    rm -f "$_SB_IMAGE_LOG"
+                    echo "::error title=Infrastructure: sb image extraction failed::pulled ${_SB_IMAGE}, but could not extract /sb. Refusing to invoke Go for a published commit artifact." >&2
+                    exit 1
+                fi
+                docker rm "$_SB_CID" >/dev/null
+            else
+                cat "$_SB_IMAGE_LOG" >&2
+                echo "No published sb image confirmed for ${_SB_SHORT} within 15s; falling back to a local source build."
+            fi
+        fi
+        rm -f "$_SB_IMAGE_LOG"
+    elif [ "$sb_has_dirty_cli" = true ]; then
+        echo "Uncommitted cli/ changes detected; building sb from source instead of procuring clean HEAD."
+    fi
+
+    if [ "$sb_procured" = false ] && command -v go >/dev/null 2>&1; then
         echo "Building sb from source..."
         # Inject version from git describe verbatim — it carries the leading "v"
         # (the canonical CommitVersion form stored in public.upgrade.commit_version
@@ -70,7 +150,7 @@ if [ "$sb_needs_rebuild" = true ]; then
         _SB_COMMIT=$(git rev-parse HEAD 2>/dev/null || echo "unknown")
         _SB_LDFLAGS="-X 'github.com/statisticsnorway/statbus/cli/cmd.version=${_SB_VERSION}' -X 'github.com/statisticsnorway/statbus/cli/cmd.commit=${_SB_COMMIT}'"
         (cd cli && go build -ldflags "$_SB_LDFLAGS" -o ../sb .)
-    else
+    elif [ "$sb_procured" = false ]; then
         echo "Error: ./sb binary not found or out of date. Build it with: cd cli && go build -o ../sb ."
         exit 1
     fi

@@ -393,13 +393,36 @@ func TestOrchestratorFleetAdmissionExecutesProvenanceAndSupersessionChecks_STATB
 		t.Fatalf("valid parent and newest candidate rejected: %v\n%s", err, out)
 	}
 	completedParent := strings.Replace(parent, `"status":"in_progress"`, `"status":"completed"`, 1)
-	if out, err := runAdmission(completedParent); err == nil || !strings.Contains(string(out), "Stale or invalid orchestrator parent") {
-		t.Fatalf("completed parent must refuse before side effects: err=%v\n%s", err, out)
+	if out, err := runAdmission(completedParent); err == nil || !strings.Contains(string(out), "Admission refused: re-dispatch the orchestrator") || !strings.Contains(string(out), "not a product arc failure") {
+		t.Fatalf("completed parent refusal must name the infrastructure outcome and retry lever: err=%v\n%s", err, out)
 	}
 	runGit(repo, "tag", "v2026.09.1-rc.2")
 	runGit(repo, "push", "origin", "v2026.09.1-rc.2")
 	if out, err := runAdmission(parent); err == nil || !strings.Contains(string(out), "Superseded queued fleet run") {
 		t.Fatalf("superseded queued candidate must refuse before side effects: err=%v\n%s", err, out)
+	}
+}
+
+func TestDevDeployStatusTreatsOnlyPreviouslyCompletedSupersededTargetAsConverged(t *testing.T) {
+	status, err := os.ReadFile(thisRepoFile(t, "ops/ci-deploy-status.sh"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	s := string(status)
+	if !strings.Contains(s, "CASE WHEN completed_at IS NOT NULL THEN 'completed' ELSE state::text END") {
+		t.Fatal("commit-addressed dev convergence must preserve proof that this exact target completed before a redundant same-tag offer was superseded")
+	}
+	if !strings.Contains(s, "superseded|skipped|dismissed)") || !strings.Contains(s, `emit "$STATE" "$PARKED" "$REASON" "$EX_FAILED"`) {
+		t.Fatal("an untried superseded candidate must remain a red terminal; a newer candidate must still stop the chain")
+	}
+
+	workflow, err := os.ReadFile(thisRepoFile(t, ".github/workflows/deploy-to-dev.yaml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	w := string(workflow)
+	if !strings.Contains(w, "an untried candidate superseded by a NEWER") || !strings.Contains(w, "green that reported on no examination at all") {
+		t.Fatal("deploy-to-dev must document both the same-commit idempotency exception and the unchanged no-unverified-green guard")
 	}
 }
 

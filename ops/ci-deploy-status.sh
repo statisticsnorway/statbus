@@ -21,7 +21,8 @@
 #             three fields always parse.
 #
 # EXIT CODE (the verdict the workflow branches on):
-#     0   CONVERGED  state=completed                                  → deploy GREEN, stop
+#     0   CONVERGED  state=completed, including a row later marked     → deploy GREEN, stop
+#                    superseded after this exact commit completed
 #    10   FAILED     failed | rolled_back | superseded | skipped |    → deploy RED, stop
 #               dismissed, or parked (in_progress + recovery_parked_at)
 #    20   PENDING    available | scheduled | in_progress(not parked)  → keep polling
@@ -75,7 +76,15 @@ fi
 
 # --- read the commit-addressed row (single SELECT; SHA is regex-validated) ----
 # stderr is discarded so ./sb's stale-binary WARN banner never pollutes the value.
-SQL="SELECT state::text
+# `completed_at` is the durable proof that THIS EXACT commit was installed. A
+# same-tag orchestrator re-dispatch can re-offer the already-installed row and
+# then retire that redundant offer as `superseded`, leaving completed_at intact
+# (observed rc.15 runs 35141712346 / 35141864469). Report that history as
+# completed to this commit-addressed convergence probe. A genuinely untried
+# candidate superseded by a NEWER candidate has completed_at NULL and remains a
+# red terminal below, so this does not recreate the old "green verified nothing"
+# defect in deploy-to-dev.yaml.
+SQL="SELECT CASE WHEN completed_at IS NOT NULL THEN 'completed' ELSE state::text END
           || '|' || (recovery_parked_at IS NOT NULL)::text
           || '|' || COALESCE(split_part(COALESCE(recovery_parked_reason, error), chr(10), 1), '')
        FROM public.upgrade

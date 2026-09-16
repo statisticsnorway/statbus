@@ -299,11 +299,15 @@ jobs:
             # not reasoned — the reasoning said otherwise and was wrong.
             [ -n "$out" ] && last="$out"
             case "$rc" in
-              0)   # CONVERGED — state=completed
+              0)   # CONVERGED — state=completed, including this exact commit's
+                   # completed history after a redundant same-tag offer was
+                   # retired as superseded. ci-deploy-status.sh owns that
+                   # distinction; an untried candidate superseded by a NEWER
+                   # commit still returns 10 and stops the chain.
                 echo "::notice::deploy converged: $out"
                 echo "GREEN — $SHA reached 'completed' on dev."
                 exit 0 ;;
-              10)  # FAILED / rolled_back / superseded / skipped / dismissed / parked
+              10)  # FAILED / rolled_back / untried superseded / skipped / dismissed / parked
                 echo "::error::deploy did NOT converge (terminal): $out"
                 echo "RED — terminal non-converged state for $SHA (state|parked|reason above)."
                 echo "Full detail on the box: journalctl -u 'statbus-upgrade@*' / the admin UI."
