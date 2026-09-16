@@ -149,3 +149,17 @@ this ticket's recovery contract, not product defects: retained backup state is
 intentional, and the marker phase is the hyphenated form. Independent review
 ACCEPTed the correction. Real-VM acceptance remains pending because rc.15 arc
 run `35128438594` failed in fixture/image construction before any scenario.
+
+## Retimestamp consequence and cache recovery (2026-09-16)
+
+The pg_regress job had failed every commit since rc.11 with
+`column rollback_finish_pending_at already exists`. Root cause was this
+migration's retimestamp `20260903205636` to `20260907120000` in `f6d249b62`,
+baked into niue's stale seed cache. The old ledger version became a file-less
+orphan; the eager content-hash check skipped it, restore retained the column,
+and the renumbered migration collided on replay.
+
+`aaaaee881` added fail-closed cache preflight before `pg_restore`; `23b3993ad`
+added fallback to full replay. Niue run `35116209731` observed rejection, full
+replay, and all 100 pg_regress tests green. The preventive prerelease invariant
+is tracked separately in STATBUS-371.
