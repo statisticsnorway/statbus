@@ -629,3 +629,14 @@ Dove is independently reviewing A+B. Land all three, then cut rc.12.
 
 No rc.15 scenario result exists. The next acceptance evidence is rc.16 reaching
 its arc matrix and proving the two schema-floor scenarios under `900cf9d66`.
+
+## rc.16 pre-cut gate repairs (2026-09-16 21:20 UTC)
+
+No rc.16 tag exists yet. Exact-commit validation of `1eccca23e` exposed two
+pre-cut defects: admission read absent `CANDIDATE_REF` under `set -u`, and `sb`
+procurement/build status polluted stdout consumed by niue's postgres-variable
+`eval`. Fix `ec8eb39a7` repaired both. Its Go run `35149786323` then found a
+deterministic label-coupled harness validation test; `81a9e39f4` made that test
+locate the authoritative step by runner command. Go run `35150754066` is green;
+Fast Tests `35151057099` and pg_regress `35151057030` remain in progress. No
+candidate cut and no arc scenario evidence yet.
