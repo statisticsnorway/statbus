@@ -640,3 +640,10 @@ deterministic label-coupled harness validation test; `81a9e39f4` made that test
 locate the authoritative step by runner command. Go run `35150754066` is green;
 Fast Tests `35151057099` and pg_regress `35151057030` remain in progress. No
 candidate cut and no arc scenario evidence yet.
+
+## rc.16 pre-cut validation green (2026-09-16 22:05 UTC)
+
+No rc.16 tag exists. The repaired head `81a9e39f4` completed all named pre-cut
+checks: Go `35150754066`, Fast Tests `35151057099`, pg_regress `35151057030`,
+Images `35150753957`, and app `35150754001` are green. Arc scenarios have not
+started because no candidate has been cut.
