@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-09-07 21:03'
-updated_date: '2026-09-15 13:10'
+updated_date: '2026-09-16 22:34'
 labels:
   - ci
   - release
@@ -163,3 +163,15 @@ failures (3 assertion drifts, 1 STATBUS-354 step drift, 2 floor-arc lineage
 wirings), all fixed on master; rc.11 (`5e51741d1`) now carries them and is
 running the ladder. The admission-guard root cause from this ticket has not
 recurred.
+
+## rc.15 admission evidence (2026-09-16)
+
+rc.15 arc run `35128438594` failed before scenarios on infrastructure: Go
+procurement used the CDN despite a prebuilt `sb` image and hit a TLS timeout.
+A direct rerun of the arc child was then refused by admission. That refusal was
+correct: the child was not dispatched by its orchestrator, so rerunning it was
+the wrong recovery lever.
+
+Hardening `1eccca23e` gives infrastructure and admission distinct labels and
+git-gates `sb` procurement. Independent review ACCEPTed the change with a
+mutation check. rc.16 is the next live admission proof.
