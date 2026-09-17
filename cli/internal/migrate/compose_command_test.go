@@ -9,8 +9,8 @@ import (
 func TestCommandContextRejectsDynamicComposeUp(t *testing.T) {
 	verb := "u" + "p"
 	_, err := CommandContext(context.Background(), t.TempDir(), "docker", "compose", verb, "-d", "db")
-	if err == nil || !strings.Contains(err.Error(), "requires an explicit capability") {
-		t.Fatalf("dynamic docker compose up = %v, want explicit capability refusal", err)
+	if err == nil || !strings.Contains(err.Error(), "must be constructed with compose.Up") {
+		t.Fatalf("dynamic docker compose up = %v, want compose.Up refusal", err)
 	}
 }
 

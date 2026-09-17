@@ -39,30 +39,36 @@ func CheckRestartBarrier(dir string) error {
 
 // AcquireRestartFlag claims idle state atomically or re-acquires ONLY matching
 // restart intent verbatim. All unrelated recovery markers remain untouched.
-func AcquireRestartFlag(dir, profile string) (*FlagLock, *RestartIntent, error) {
+func AcquireRestartFlag(dir, profile string) (*FlagLock, *RestartIntent, bool, error) {
 	flag, err := ReadFlagFile(dir)
 	if err != nil {
-		return nil, nil, fmt.Errorf("restart refused: %w. No services were stopped", err)
+		return nil, nil, false, fmt.Errorf("restart refused: %w. No services were stopped", err)
 	}
 	if flag != nil {
 		if flag.Trigger != "restart" || flag.Holder != HolderInstall {
-			return nil, nil, fmt.Errorf("restart refused: an upgrade/install marker already exists. No services were stopped; wait or run ./sb install to recover")
+			lock, _, err := acquireRecoveryFlock(dir, *flag)
+			if err != nil {
+				return nil, nil, false, fmt.Errorf("restart refused while recovery is live; no services were stopped; wait or run ./sb install for diagnosis: %w", err)
+			}
+			// A free parked/crashed marker must not block an operator restart.
+			// Hold it verbatim for serialization and preserve it on release.
+			return lock, nil, true, nil
 		}
 		lock, held, err := acquireRecoveryFlock(dir, *flag)
 		if err != nil {
-			return nil, nil, err
+			return nil, nil, false, err
 		}
 		if held.Trigger != "restart" || held.Restart == nil || held.Restart.Profile != profile {
 			lock.Close()
-			return nil, nil, restartRefusal(held.Restart)
+			return nil, nil, false, restartRefusal(held.Restart)
 		}
 		if !held.Restart.Prepared {
-			return lock, nil, nil
+			return lock, nil, false, nil
 		}
-		return lock, held.Restart, nil
+		return lock, held.Restart, false, nil
 	}
 	lock, err := acquireFreshFlock(dir, UpgradeFlag{StartedAt: time.Now(), InvokedBy: "operator:restart", Trigger: "restart", Holder: HolderInstall, Restart: &RestartIntent{Profile: profile}})
-	return lock, nil, err
+	return lock, nil, false, err
 }
 
 // PrepareRestart stores the exact restoration intent before the first stop via

@@ -795,8 +795,8 @@ func runInstall() (installErr error) {
 	// AccessExclusiveLock on those same tables, and Postgres lock
 	// manager parks the DDL indefinitely behind the worker's lock —
 	// the wedge tcc had to manually break. compose.QuiesceClients stops
-	// the running clients before we enter the DDL window; compose.
-	// ResumeClients restarts exactly the ones we stopped after the
+	// the running clients before we enter the DDL window. Restart exactly
+	// the clients we stopped after the
 	// window closes. db / proxy / caddy stay up throughout (db is the
 	// DDL target; proxy + caddy serve maintenance views).
 	//
@@ -810,12 +810,19 @@ func runInstall() (installErr error) {
 			return
 		}
 		quiesced = false
-		if err := compose.ResumeClients(installDir, quiescedServices); err != nil {
+		args := append([]string{"-d", "--no-build"}, quiescedServices...)
+		resumeCmd, buildErr := compose.Up(context.Background(), installDir, args...)
+		if buildErr == nil {
+			resumeCmd.Stdout = os.Stdout
+			resumeCmd.Stderr = os.Stderr
+			buildErr = resumeCmd.Run()
+		}
+		if buildErr != nil {
 			// Don't fail the install — DB is correct, the DDL window has
 			// closed, and the operator can restart services manually if
 			// the Resume itself errored. Surface as a clear warning so
 			// it's not silent.
-			fmt.Printf("  ⚠ resume clients failed: %v — restart manually: ./sb start all_except_db\n", err)
+			fmt.Printf("  ⚠ resume clients failed: %v — restart manually: ./sb start all_except_db\n", buildErr)
 		}
 		quiescedServices = nil
 	}
@@ -1350,7 +1357,13 @@ func runPullImages(dir string) error {
 }
 
 func runStartServices(dir string) error {
-	return runComposeUpCmdDir(dir, compose.MintUpCapability(), "--profile", "all", "up", "-d")
+	cmd, err := compose.Up(context.Background(), dir, "--profile", "all", "-d")
+	if err != nil {
+		return err
+	}
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	return cmd.Run()
 }
 
 // diffEnvKeys returns every key whose value differs between oldContent and
@@ -1446,7 +1459,13 @@ func restartClassesForKeys(keys []string, classesByKey map[string][]config.Resta
 // and that NONE are when nothing changed (AC#2), without a live docker
 // daemon. Production never reassigns it.
 func composeApplyServiceDefault(dir, service string) error {
-	return runComposeUpCmdDir(dir, compose.MintUpCapability(), "up", "-d", "--no-deps", service)
+	cmd, err := compose.Up(context.Background(), dir, "-d", "--no-deps", service)
+	if err != nil {
+		return err
+	}
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	return cmd.Run()
 }
 
 var composeApplyService = composeApplyServiceDefault
@@ -1602,10 +1621,13 @@ func healBackupOwnership(_ string) error {
 			"-exec chown -R %d:%d {} + -exec chmod -R u=rwX,go=rX {} +",
 		deployUID, deployGID,
 	)
-	cmd := exec.Command("docker", "run", "--rm",
+	cmd, buildErr := compose.DockerCommandContext(context.Background(), "", "run", "--rm",
 		"-v", root+":/backup",
 		"alpine", "sh", "-c", shellCmd,
 	)
+	if buildErr != nil {
+		return fmt.Errorf("construct docker ownership repair: %w", buildErr)
+	}
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("docker chown of %s failed: %w\n%s", root, err, out)
@@ -3125,7 +3147,7 @@ func prompt(label, defaultVal string) string {
 }
 
 func runCmd(name string, args ...string) error {
-	cmd, err := commandContextDir(context.Background(), "", nil, name, args...)
+	cmd, err := commandContextDir(context.Background(), "", name, args...)
 	if err != nil {
 		return err
 	}
@@ -3135,17 +3157,7 @@ func runCmd(name string, args ...string) error {
 }
 
 func runCmdDir(dir, name string, args ...string) error {
-	cmd, err := commandContextDir(context.Background(), dir, nil, name, args...)
-	if err != nil {
-		return err
-	}
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	return cmd.Run()
-}
-
-func runComposeUpCmdDir(dir string, capability compose.UpCapability, args ...string) error {
-	cmd, err := composeUpCommand(dir, capability, args...)
+	cmd, err := commandContextDir(context.Background(), dir, name, args...)
 	if err != nil {
 		return err
 	}
@@ -3155,21 +3167,27 @@ func runComposeUpCmdDir(dir string, capability compose.UpCapability, args ...str
 }
 
 func composeCommand(dir string, args ...string) (*exec.Cmd, error) {
-	return commandContextDir(context.Background(), dir, nil, "docker", append([]string{"compose"}, args...)...)
+	return commandContextDir(context.Background(), dir, "docker", append([]string{"compose"}, args...)...)
 }
 
-func composeUpCommand(dir string, capability compose.UpCapability, args ...string) (*exec.Cmd, error) {
-	return commandContextDir(context.Background(), dir, capability, "docker", append([]string{"compose"}, args...)...)
-}
-
-func commandContextDir(ctx context.Context, dir string, capability compose.UpCapability, name string, args ...string) (*exec.Cmd, error) {
-	if name == "docker" && len(args) > 0 && args[0] == "compose" {
-		if capability != nil {
-			return compose.CommandContextWithUp(ctx, dir, capability, args[1:]...)
-		}
-		return compose.CommandContext(ctx, dir, args[1:]...)
+func commandContextDir(ctx context.Context, dir string, name string, args ...string) (*exec.Cmd, error) {
+	if name == "docker" {
+		return compose.DockerCommandContext(ctx, dir, args...)
 	}
-	cmd := exec.CommandContext(ctx, name, args...)
+	var cmd *exec.Cmd
+	switch name {
+	case "git":
+		cmd = exec.CommandContext(ctx, "git", args...)
+	case "systemctl":
+		cmd = exec.CommandContext(ctx, "systemctl", args...)
+	case "loginctl":
+		cmd = exec.CommandContext(ctx, "loginctl", args...)
+	default:
+		if filepath.Base(name) != "sb" {
+			return nil, fmt.Errorf("unsupported command executable %q", name)
+		}
+		cmd = exec.CommandContext(ctx, "/usr/bin/env", append([]string{name}, args...)...)
+	}
 	cmd.Dir = dir
 	return cmd, nil
 }
@@ -3181,7 +3199,7 @@ func commandContextDir(ctx context.Context, dir string, capability compose.UpCap
 func runCmdDirTimeout(dir string, timeout time.Duration, name string, args ...string) error {
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
-	cmd, buildErr := commandContextDir(ctx, dir, nil, name, args...)
+	cmd, buildErr := commandContextDir(ctx, dir, name, args...)
 	if buildErr != nil {
 		return buildErr
 	}

@@ -70,17 +70,22 @@ func gitArgs(name string, args []string) []string {
 }
 
 func commandContext(ctx context.Context, dir, name string, args ...string) (*exec.Cmd, error) {
-	return commandContextWithComposeUp(ctx, dir, nil, name, args...)
-}
-
-func commandContextWithComposeUp(ctx context.Context, dir string, capability compose.UpCapability, name string, args ...string) (*exec.Cmd, error) {
-	if name == "docker" && len(args) > 0 && args[0] == "compose" {
-		if capability != nil {
-			return compose.CommandContextWithUp(ctx, dir, capability, args[1:]...)
-		}
-		return compose.CommandContext(ctx, dir, args[1:]...)
+	if name == "docker" {
+		return compose.DockerCommandContext(ctx, dir, args...)
 	}
-	cmd := exec.CommandContext(ctx, name, gitArgs(name, args)...)
+	var cmd *exec.Cmd
+	switch name {
+	case "git":
+		cmd = exec.CommandContext(ctx, "git", gitArgs(name, args)...)
+	case "rsync":
+		cmd = exec.CommandContext(ctx, "rsync", args...)
+	default:
+		base := filepath.Base(name)
+		if base != "sb" && base != "dev.sh" {
+			return nil, fmt.Errorf("unsupported upgrade executable %q", name)
+		}
+		cmd = exec.CommandContext(ctx, "/usr/bin/env", append([]string{name}, args...)...)
+	}
 	cmd.Dir = dir
 	return cmd, nil
 }
@@ -109,7 +114,7 @@ func runInstallFixup(projDir string) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 	defer cancel()
 	cmd := exec.CommandContext(ctx,
-		filepath.Join(projDir, "sb"),
+		"/usr/bin/env", filepath.Join(projDir, "sb"),
 		"install", "--non-interactive", "--post-upgrade-fixup",
 	)
 	cmd.Dir = projDir
@@ -127,13 +132,9 @@ func runInstallFixup(projDir string) error {
 // runCommandWithTimeout executes a command with a specific timeout.
 // Uses process groups and WaitDelay to prevent hangs from orphaned subprocesses.
 func runCommandWithTimeout(dir string, timeout time.Duration, name string, args ...string) error {
-	return runCommandWithTimeoutCapability(dir, timeout, nil, name, args...)
-}
-
-func runCommandWithTimeoutCapability(dir string, timeout time.Duration, capability compose.UpCapability, name string, args ...string) error {
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
-	cmd, err := commandContextWithComposeUp(ctx, dir, capability, name, args...)
+	cmd, err := commandContext(ctx, dir, name, args...)
 	if err != nil {
 		return err
 	}
@@ -170,13 +171,9 @@ var ErrCommandTimeout = errors.New("command timed out")
 
 // callback covers the output-emitting steps.
 func runCommandToLog(dir string, timeout time.Duration, logWriter io.Writer, source string, onAdvance func(), name string, args ...string) error {
-	return runCommandToLogCapability(dir, timeout, logWriter, source, onAdvance, nil, name, args...)
-}
-
-func runCommandToLogCapability(dir string, timeout time.Duration, logWriter io.Writer, source string, onAdvance func(), capability compose.UpCapability, name string, args ...string) error {
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
-	err := runCommandToLogCtxCapability(ctx, dir, logWriter, source, onAdvance, capability, name, args...)
+	err := runCommandToLogCtx(ctx, dir, logWriter, source, onAdvance, name, args...)
 	if ctx.Err() == context.DeadlineExceeded {
 		return fmt.Errorf("%s %v after %s: %w", name, args, timeout, ErrCommandTimeout)
 	}
@@ -216,17 +213,17 @@ func (t *tailBuffer) String() string {
 // stall-heartbeat behaviour: the tail buffer is just teed into the existing
 // stderr MultiWriter, so the log + os.Stderr + onAdvance feed are unchanged.
 func runCommandToLogCapture(dir string, timeout time.Duration, logWriter io.Writer, source string, onAdvance func(), name string, args ...string) (string, error) {
-	return runCommandToLogCaptureCapability(dir, timeout, logWriter, source, onAdvance, nil, name, args...)
-}
-
-func runCommandToLogCaptureCapability(dir string, timeout time.Duration, logWriter io.Writer, source string, onAdvance func(), capability compose.UpCapability, name string, args ...string) (string, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
-	tail := &tailBuffer{max: 4096}
-	cmd, buildErr := commandContextWithComposeUp(ctx, dir, capability, name, args...)
+	cmd, buildErr := commandContext(ctx, dir, name, args...)
 	if buildErr != nil {
 		return "", buildErr
 	}
+	return runPreparedCommandToLogCapture(ctx, cmd, timeout, logWriter, source, onAdvance, name, args)
+}
+
+func runPreparedCommandToLogCapture(ctx context.Context, cmd *exec.Cmd, timeout time.Duration, logWriter io.Writer, source string, onAdvance func(), name string, args []string) (string, error) {
+	tail := &tailBuffer{max: 4096}
 	outW := NewPrefixWriter("O", source, logWriter, onAdvance)
 	errW := NewPrefixWriter("E", source, logWriter, onAdvance)
 	cmd.Stdout = io.MultiWriter(os.Stdout, outW)
@@ -251,20 +248,20 @@ func runCommandToLogCaptureCapability(dir string, timeout time.Duration, logWrit
 // output line (via NewPrefixWriter) — the stall detector uses it as its
 // progress feed AND its systemd-heartbeat pump.
 func runCommandToLogCtx(ctx context.Context, dir string, logWriter io.Writer, source string, onAdvance func(), name string, args ...string) error {
-	return runCommandToLogCtxCapability(ctx, dir, logWriter, source, onAdvance, nil, name, args...)
-}
-
-func runCommandToLogCtxCapability(ctx context.Context, dir string, logWriter io.Writer, source string, onAdvance func(), capability compose.UpCapability, name string, args ...string) error {
-	cmd, err := commandContextWithComposeUp(ctx, dir, capability, name, args...)
+	cmd, err := commandContext(ctx, dir, name, args...)
 	if err != nil {
 		return err
 	}
+	return runPreparedCommandToLogCtx(ctx, cmd, logWriter, source, onAdvance)
+}
+
+func runPreparedCommandToLogCtx(ctx context.Context, cmd *exec.Cmd, logWriter io.Writer, source string, onAdvance func()) error {
 	outW := NewPrefixWriter("O", source, logWriter, onAdvance)
 	errW := NewPrefixWriter("E", source, logWriter, onAdvance)
 	cmd.Stdout = io.MultiWriter(os.Stdout, outW)
 	cmd.Stderr = io.MultiWriter(os.Stderr, errW)
 	prepareCmd(cmd)
-	err = cmd.Run()
+	err := cmd.Run()
 	outW.Flush()
 	errW.Flush()
 	return err
@@ -285,13 +282,9 @@ func runCommandOutputTimeout(dir string, timeout time.Duration, name string, arg
 }
 
 func runCommandOutputTimeoutEnv(dir string, timeout time.Duration, env []string, name string, args ...string) (string, error) {
-	return runCommandOutputTimeoutEnvCapability(dir, timeout, env, nil, name, args...)
-}
-
-func runCommandOutputTimeoutEnvCapability(dir string, timeout time.Duration, env []string, capability compose.UpCapability, name string, args ...string) (string, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
-	cmd, buildErr := commandContextWithComposeUp(ctx, dir, capability, name, args...)
+	cmd, buildErr := commandContext(ctx, dir, name, args...)
 	if buildErr != nil {
 		return "", buildErr
 	}
@@ -304,20 +297,24 @@ func runCommandOutputTimeoutEnvCapability(dir string, timeout time.Duration, env
 	return string(out), explainGitFailure(name, string(out), err)
 }
 
-func runComposeCommand(dir string, capability compose.UpCapability, args ...string) error {
-	return runCommandWithTimeoutCapability(dir, 5*time.Minute, capability, "docker", append([]string{"compose"}, args...)...)
+func runPreparedCommandOutput(ctx context.Context, cmd *exec.Cmd, timeout time.Duration, name string, args []string) (string, error) {
+	prepareCmd(cmd)
+	out, err := cmd.CombinedOutput()
+	if ctx.Err() == context.DeadlineExceeded {
+		return string(out), fmt.Errorf("command timed out after %s: %s %v", timeout, name, args)
+	}
+	return string(out), err
 }
 
-func runComposeCommandOutput(dir string, capability compose.UpCapability, args ...string) (string, error) {
-	return runCommandOutputTimeoutEnvCapability(dir, 2*time.Minute, nil, capability, "docker", append([]string{"compose"}, args...)...)
-}
-
-func runComposeCommandToLog(dir string, timeout time.Duration, logWriter io.Writer, source string, onAdvance func(), capability compose.UpCapability, args ...string) error {
-	return runCommandToLogCapability(dir, timeout, logWriter, source, onAdvance, capability, "docker", append([]string{"compose"}, args...)...)
-}
-
-func runComposeCommandToLogCapture(dir string, timeout time.Duration, logWriter io.Writer, source string, onAdvance func(), capability compose.UpCapability, args ...string) (string, error) {
-	return runCommandToLogCaptureCapability(dir, timeout, logWriter, source, onAdvance, capability, "docker", append([]string{"compose"}, args...)...)
+func runPreparedCommandWithTimeout(ctx context.Context, cmd *exec.Cmd, timeout time.Duration, name string, args []string) error {
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	prepareCmd(cmd)
+	err := cmd.Run()
+	if ctx.Err() == context.DeadlineExceeded {
+		return fmt.Errorf("%s %v after %s: %w", name, args, timeout, ErrCommandTimeout)
+	}
+	return err
 }
 
 // explainGitFailure re-reports a git credential demand as what it actually is:
@@ -1335,7 +1332,14 @@ func (d *Service) waitForDBHealth(timeout time.Duration) error {
 // containersAtFlagTarget self-heal precondition. That caller uses
 // EnsureDBReachable below.
 func (d *Service) EnsureDBUp(ctx context.Context) error {
-	if out, err := runComposeCommandOutput(d.projDir, compose.MintUpCapability(), "up", "-d", "db"); err != nil {
+	commandCtx, cancel := context.WithTimeout(ctx, 2*time.Minute)
+	defer cancel()
+	args := []string{"-d", "db"}
+	cmd, buildErr := compose.Up(commandCtx, d.projDir, args...)
+	if buildErr != nil {
+		return buildErr
+	}
+	if out, err := runPreparedCommandOutput(commandCtx, cmd, 2*time.Minute, "docker compose up", args); err != nil {
 		return fmt.Errorf("docker compose up -d db: %w (%s)", err, strings.TrimSpace(out))
 	}
 	if err := d.waitForDBHealth(60 * time.Second); err != nil {
@@ -1399,6 +1403,20 @@ func (d *Service) StartDatabaseRouteServingMayRun(ctx context.Context) error {
 // after starting db+proxy as a belt-and-braces race check before waiting for DB
 // health. Unknown serving-service states remain rejected exactly as before.
 func (d *Service) StartDatabaseRouteServingMustBeStopped(ctx context.Context) error {
+	if d.flagLock == nil || d.flagLock.file == nil {
+		return fmt.Errorf("held-closed database route start requires the recovery marker flock")
+	}
+	heldInfo, err := d.flagLock.file.Stat()
+	if err != nil {
+		return fmt.Errorf("stat held recovery marker before database route start: %w", err)
+	}
+	pathInfo, err := os.Stat(d.flagLock.canonicalPath())
+	if err != nil {
+		return fmt.Errorf("stat canonical recovery marker before database route start: %w", err)
+	}
+	if !os.SameFile(heldInfo, pathInfo) {
+		return fmt.Errorf("held recovery marker is no longer canonical before database route start")
+	}
 	if err := d.verifyRecoveryClientsStopped(ctx); err != nil {
 		return err
 	}

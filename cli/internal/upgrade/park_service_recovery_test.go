@@ -111,10 +111,10 @@ func TestParkServiceRecovery_StructuralContracts(t *testing.T) {
 	// ERA-AWARE source convergence: exact Source containers start in place; a
 	// coherently-derived Target tier is recreated only after the restored source
 	// tree/config proves the desired image identity. Missing or mixed identity refuses.
-	if !strings.Contains(stack, `"compose", "start"`) {
+	if !strings.Contains(stack, `composeArgs = append([]string{"start"}`) || !strings.Contains(stack, "compose.CommandContext(") {
 		t.Error("restoreSourceServices must resume already-source-era serving containers in place")
 	}
-	if !strings.Contains(stack, `"compose", "up", "-d", "--no-build"`) {
+	if !strings.Contains(stack, `composeArgs = append([]string{"-d", "--no-build", "--no-deps"}`) || !strings.Contains(stack, "compose.Up(") {
 		t.Error("restoreSourceServices must authoritatively recreate a coherently-derived Target tier from the proven source-era template")
 	}
 	for _, required := range []string{"sourceServingExpectedImages", "deriveServingEra", "ServingEraSource", "ServingEraTarget", "sourceServingEraUnknownError"} {

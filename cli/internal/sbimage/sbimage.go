@@ -35,6 +35,8 @@ import (
 	"strings"
 	"syscall"
 	"time"
+
+	"github.com/statisticsnorway/statbus/cli/internal/compose"
 )
 
 // ImageRepo is the GHCR repository carrying the commit-tagged sb binary images.
@@ -182,7 +184,19 @@ func run(dir string, toStderr bool, name string, args ...string) (string, error)
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), perCommandTimeout)
 	defer cancel()
-	cmd := exec.CommandContext(ctx, name, args...)
+	var cmd *exec.Cmd
+	var buildErr error
+	switch name {
+	case "docker":
+		cmd, buildErr = compose.DockerCommandContext(ctx, dir, args...)
+	case "git":
+		cmd = exec.CommandContext(ctx, "git", args...)
+	default:
+		return "", fmt.Errorf("unsupported sbimage executable %q", name)
+	}
+	if buildErr != nil {
+		return "", buildErr
+	}
 	cmd.Dir = dir
 
 	var buf bytes.Buffer

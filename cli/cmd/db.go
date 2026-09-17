@@ -3,6 +3,8 @@ package cmd
 import (
 	"bufio"
 	"bytes"
+	"context"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -20,6 +22,7 @@ import (
 	"github.com/statisticsnorway/statbus/cli/internal/config"
 	"github.com/statisticsnorway/statbus/cli/internal/dbdump"
 	"github.com/statisticsnorway/statbus/cli/internal/dotenv"
+	"github.com/statisticsnorway/statbus/cli/internal/upgrade"
 )
 
 // runPgRestoreAtomic executes a pg_restore command and fails loudly on
@@ -531,7 +534,7 @@ The restore uses a 4-phase process to handle cross-schema CHECK constraints:
 	},
 }
 
-func restoreLocal(projDir string, dumpFile string) error {
+func restoreLocal(projDir string, dumpFile string) (result error) {
 	dbName, err := loadDbName(projDir)
 	if err != nil {
 		return err
@@ -549,6 +552,11 @@ func restoreLocal(projDir string, dumpFile string) error {
 		fmt.Println("Aborted")
 		return nil
 	}
+	guard, err := upgrade.AcquireOperatorStartGuard(projDir, "operator:db-restore")
+	if err != nil {
+		return err
+	}
+	defer func() { result = errors.Join(result, guard.Release()) }()
 
 	// Stop worker and rest
 	fmt.Println("Stopping worker and rest ...")
@@ -1011,7 +1019,9 @@ docker compose exec -T db psql -U postgres -c \
     "ALTER DATABASE %[4]s SET app.settings.deployment_slot_code TO '%[3]s';"
 
 echo "Restarting worker and rest ..."
-docker compose start worker rest || true
+if ! ./sb start all_except_app; then
+    echo "WARNING: services remain stopped; run ./sb install for recovery diagnosis before retrying ./sb start all_except_app" >&2
+fi
 
 echo "Cleaning up uploaded dump ..."
 rm -f dbdumps/%[2]s
@@ -1084,13 +1094,22 @@ func dockerComposeStop(projDir string, profileOrService string) error {
 }
 
 // dockerComposeStart starts a docker compose profile.
-func dockerComposeStart(projDir string, profileOrService string) error {
+func dockerComposeStart(projDir string, profileOrService string) (result error) {
+	var guard *upgrade.OperatorStartGuard
+	if profileOrService != "db" {
+		var err error
+		guard, err = upgrade.AcquireOperatorStartGuard(projDir, "operator:db-start")
+		if err != nil {
+			return err
+		}
+		defer func() { result = errors.Join(result, guard.Release()) }()
+	}
 	var cmd *exec.Cmd
 	var err error
 	if profileOrService == "db" || profileOrService == "worker" || profileOrService == "rest" || profileOrService == "app" {
 		cmd, err = composeCommand(projDir, "start", profileOrService)
 	} else {
-		cmd, err = composeUpCommand(projDir, compose.MintUpCapability(), "--profile", profileOrService, "up", "-d")
+		cmd, err = compose.Up(context.Background(), projDir, "--profile", profileOrService, "-d")
 	}
 	if err != nil {
 		return err
@@ -1153,12 +1172,15 @@ The database will be briefly unavailable during the rsync.`,
 
 		// Step 2: rsync from Docker volume to staging directory
 		fmt.Printf("Copying volume %s to staging ...\n", volumeName)
-		rsyncCmd := exec.Command("docker", "run", "--rm",
+		rsyncCmd, buildErr := compose.DockerCommandContext(context.Background(), projDir, "run", "--rm",
 			"-v", volumeName+":/source:ro",
 			"-v", stagingDir+":/backup",
 			"alpine", "sh", "-c",
 			"apk add --no-cache rsync >/dev/null 2>&1 && rsync -a --delete /source/ /backup/",
 		)
+		if buildErr != nil {
+			return fmt.Errorf("construct backup rsync container: %w", buildErr)
+		}
 		rsyncCmd.Dir = projDir
 		rsyncCmd.Stdout = os.Stdout
 		rsyncCmd.Stderr = os.Stderr
@@ -1258,12 +1280,15 @@ a basename without extension, or just the timestamp portion.`,
 
 		// Step 3: rsync from staging to Docker volume
 		fmt.Printf("Restoring to volume %s ...\n", volumeName)
-		rsyncCmd := exec.Command("docker", "run", "--rm",
+		rsyncCmd, buildErr := compose.DockerCommandContext(context.Background(), projDir, "run", "--rm",
 			"-v", stagingDir+":/source:ro",
 			"-v", volumeName+":/dest",
 			"alpine", "sh", "-c",
 			"apk add --no-cache rsync >/dev/null 2>&1 && rsync -a --delete /source/ /dest/",
 		)
+		if buildErr != nil {
+			return fmt.Errorf("construct restore rsync container: %w", buildErr)
+		}
 		rsyncCmd.Dir = projDir
 		rsyncCmd.Stdout = os.Stdout
 		rsyncCmd.Stderr = os.Stderr

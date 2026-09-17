@@ -623,7 +623,28 @@ const flagLockIdentityRetryLimit = 4
 
 type flagOpenHook func(attempt int, file *os.File) error
 
-func scavengeAtomicFlagTemps(path string) error {
+// scavengeAtomicFlagTemps runs only while the caller holds and revalidates the
+// canonical marker flock. Every in-tree marker writer must acquire that same
+// flock before creating a replacement temp, except fresh creation while no
+// canonical path exists. This serializes validation and pathname unlink against
+// all in-tree writers. A same-user local process deliberately replacing temp
+// paths without following this protocol is outside the recovery threat model.
+func scavengeAtomicFlagTemps(lock *FlagLock) error {
+	if lock == nil || lock.file == nil {
+		return fmt.Errorf("atomic flag temp scavenging requires the canonical flock")
+	}
+	path := lock.canonicalPath()
+	heldInfo, err := lock.file.Stat()
+	if err != nil {
+		return fmt.Errorf("stat held canonical marker before temp scavenging: %w", err)
+	}
+	pathInfo, err := os.Stat(path)
+	if err != nil {
+		return fmt.Errorf("stat canonical marker before temp scavenging: %w", err)
+	}
+	if !os.SameFile(heldInfo, pathInfo) {
+		return fmt.Errorf("canonical marker changed inode before temp scavenging")
+	}
 	matches, err := filepath.Glob(filepath.Join(filepath.Dir(path), "."+filepath.Base(path)+".tmp-*"))
 	if err != nil {
 		return fmt.Errorf("glob atomic flag temps: %w", err)
@@ -670,9 +691,6 @@ func scavengeAtomicFlagTemps(path string) error {
 // every successful flock, require the held descriptor and canonical path to name
 // the same inode; otherwise close and retry from open, bounded and fail-closed.
 func openCanonicalFlagLocked(path string, hook flagOpenHook) (*os.File, error) {
-	if err := scavengeAtomicFlagTemps(path); err != nil {
-		log.Printf("WARNING: atomic recovery-marker temp scavenging was incomplete: %v", err)
-	}
 	for attempt := 0; attempt < flagLockIdentityRetryLimit; attempt++ {
 		file, err := os.OpenFile(path, os.O_RDWR, 0)
 		if err != nil {
@@ -691,6 +709,10 @@ func openCanonicalFlagLocked(path string, hook flagOpenHook) (*os.File, error) {
 		heldInfo, heldErr := file.Stat()
 		pathInfo, pathErr := os.Stat(path)
 		if heldErr == nil && pathErr == nil && os.SameFile(heldInfo, pathInfo) {
+			lock := &FlagLock{file: file, markerPath: path}
+			if err := scavengeAtomicFlagTemps(lock); err != nil {
+				log.Printf("WARNING: atomic recovery-marker temp scavenging was incomplete: %v", err)
+			}
 			return file, nil
 		}
 		_ = file.Close()
@@ -795,14 +817,16 @@ func acquireFreshFlock(projDir string, flag UpgradeFlag) (*FlagLock, error) {
 
 func createFreshFlagAtomically(projDir string, data []byte) (*FlagLock, error) {
 	path := flagFilePath(projDir)
-	if err := scavengeAtomicFlagTemps(path); err != nil {
-		log.Printf("WARNING: atomic recovery-marker temp scavenging was incomplete: %v", err)
-	}
 	lock, err := writeFlagAtomically(nil, path, data, false, nil)
 	if err != nil && lock != nil {
 		_ = os.Remove(path)
 		lock.Close()
 		return nil, err
+	}
+	if err == nil {
+		if cleanupErr := scavengeAtomicFlagTemps(lock); cleanupErr != nil {
+			log.Printf("WARNING: atomic recovery-marker temp scavenging was incomplete: %v", cleanupErr)
+		}
 	}
 	return lock, err
 }
@@ -4332,8 +4356,18 @@ func (d *Service) completeInProgressUpgrade(ctx context.Context) error {
 		return nil
 	}
 	logRecover("At-target verified; starting application services to prove %s serves...", displayName)
-	composeArgs := append([]string{"compose", "up", "-d", "--no-build"}, step11RestartServices...)
-	if stderrTail, cerr := runCommandToLogCaptureCapability(d.projDir, 5*time.Minute, appendLog.File(), "docker-compose", appendLog.bump, compose.MintUpCapability(), "docker", composeArgs...); cerr != nil {
+	upArgs := append([]string{"-d", "--no-build"}, step11RestartServices...)
+	upCtx, upCancel := context.WithTimeout(ctx, 5*time.Minute)
+	upCmd, upBuildErr := compose.Up(upCtx, d.projDir, upArgs...)
+	var stderrTail string
+	var cerr error
+	if upBuildErr != nil {
+		cerr = upBuildErr
+	} else {
+		stderrTail, cerr = runPreparedCommandToLogCapture(upCtx, upCmd, 5*time.Minute, appendLog.File(), "docker-compose", appendLog.bump, "docker compose up", upArgs)
+	}
+	upCancel()
+	if cerr != nil {
 		// STATBUS-192 refinement 3: mirror applyNewSbUpgrading's three-way
 		// (service.go:6074-6093). ENOSPC (classResource) → park; anything else →
 		// newSbUpgradingFailure, which AT-TARGET reduces to recordInProgressFailure (row
@@ -8373,20 +8407,18 @@ func (d *Service) startSourceApplicationStack(ctx context.Context, progress *Pro
 		return err
 	}
 	var composeArgs []string
-	var upCapability compose.UpCapability
 	var operation string
 	recreated := false
 	switch era {
 	case ServingEraSource:
-		composeArgs = append([]string{"compose", "start"}, sourceServingServices...)
+		composeArgs = append([]string{"start"}, sourceServingServices...)
 		operation = "start verified source serving containers"
 	case ServingEraTarget:
 		recreated = true
-		upCapability = compose.MintUpCapability()
 		// DB is already restored and healthy on this path. --no-deps confines
 		// authoritative recreation to the serving tier and cannot rewrite the
 		// database container as a side effect of a source compose-model change.
-		composeArgs = append([]string{"compose", "up", "-d", "--no-build", "--no-deps"}, sourceServingServices...)
+		composeArgs = append([]string{"-d", "--no-build", "--no-deps"}, sourceServingServices...)
 		operation = "recreate source serving containers"
 		if progress != nil {
 			progress.Write("Serving container era is %s; converging app/worker/rest/proxy to restored source %s.", era, sourceTag)
@@ -8395,20 +8427,48 @@ func (d *Service) startSourceApplicationStack(ctx context.Context, progress *Pro
 		return &sourceServingEraUnknownError{Detail: fmt.Sprintf("derived unsupported serving era %q", era)}
 	}
 
+	buildCommand := func(commandCtx context.Context) (*exec.Cmd, error) {
+		if recreated {
+			return compose.Up(commandCtx, d.projDir, composeArgs...)
+		}
+		return compose.CommandContext(commandCtx, d.projDir, composeArgs...)
+	}
 	if progress != nil {
-		if stderrTail, err := runCommandToLogCaptureCapability(d.projDir, 5*time.Minute, progress.File(), "source-docker-compose", progress.bump, upCapability, "docker", composeArgs...); err != nil {
-			operationErr := fmt.Errorf("%s: %w (%s)", operation, err, strings.TrimSpace(stderrTail))
+		commandCtx, cancel := context.WithTimeout(ctx, 5*time.Minute)
+		command, buildErr := buildCommand(commandCtx)
+		var stderrTail string
+		var commandErr error
+		if buildErr != nil {
+			commandErr = buildErr
+		} else {
+			stderrTail, commandErr = runPreparedCommandToLogCapture(commandCtx, command, 5*time.Minute, progress.File(), "source-docker-compose", progress.bump, "docker compose", composeArgs)
+		}
+		cancel()
+		if commandErr != nil {
+			operationErr := fmt.Errorf("%s: %w (%s)", operation, commandErr, strings.TrimSpace(stderrTail))
 			if recreated {
 				return d.containFailedSourceRecreate(ctx, progress, operationErr)
 			}
 			return operationErr
 		}
-	} else if out, err := runCommandOutputTimeoutEnvCapability(d.projDir, 2*time.Minute, nil, upCapability, "docker", composeArgs...); err != nil {
-		operationErr := fmt.Errorf("%s: %w (%s)", operation, err, strings.TrimSpace(out))
-		if recreated {
-			return d.containFailedSourceRecreate(ctx, progress, operationErr)
+	} else {
+		commandCtx, cancel := context.WithTimeout(ctx, 2*time.Minute)
+		command, buildErr := buildCommand(commandCtx)
+		var out string
+		var commandErr error
+		if buildErr != nil {
+			commandErr = buildErr
+		} else {
+			out, commandErr = runPreparedCommandOutput(commandCtx, command, 2*time.Minute, "docker compose", composeArgs)
 		}
-		return operationErr
+		cancel()
+		if commandErr != nil {
+			operationErr := fmt.Errorf("%s: %w (%s)", operation, commandErr, strings.TrimSpace(out))
+			if recreated {
+				return d.containFailedSourceRecreate(ctx, progress, operationErr)
+			}
+			return operationErr
+		}
 	}
 
 	postEntries, err := d.sourceServingContainerEntries(ctx)
@@ -8681,7 +8741,17 @@ func (d *Service) applyNewSbUpgrading(ctx context.Context, id int, commitSHA, di
 	// built it. Tell the operator to wait for images.yaml and retry.
 	d.markStep(StepDBUp)
 	dbStart := time.Now()
-	if err := runComposeCommandToLog(projDir, 5*time.Minute, progress.File(), "docker-compose", progress.bump, compose.MintUpCapability(), "up", "-d", "--no-build", "db"); err != nil {
+	dbUpArgs := []string{"-d", "--no-build", "db"}
+	dbUpCtx, dbUpCancel := context.WithTimeout(ctx, 5*time.Minute)
+	dbUpCmd, dbUpBuildErr := compose.Up(dbUpCtx, projDir, dbUpArgs...)
+	var dbUpErr error
+	if dbUpBuildErr != nil {
+		dbUpErr = dbUpBuildErr
+	} else {
+		dbUpErr = runPreparedCommandToLogCtx(dbUpCtx, dbUpCmd, progress.File(), "docker-compose", progress.bump)
+	}
+	dbUpCancel()
+	if dbUpErr != nil {
 		reason := fmt.Sprintf(
 			"docker compose up -d db: %v\n\n"+
 				"The db image for %s is not available locally or in the registry. "+
@@ -8689,7 +8759,7 @@ func (d *Service) applyNewSbUpgrading(ctx context.Context, id int, commitSHA, di
 				"images take a few minutes to land. Wait for that workflow to finish, "+
 				"then retry the upgrade. Check status: "+
 				"gh run list --workflow=images.yaml",
-			err, displayName)
+			dbUpErr, displayName)
 		return d.newSbUpgradingFailure(ctx, id, displayName, restoreTargetSHA, commitSHA, backupPath, ptrFailureCode(ErrDockerUpFailed), reason, progress)
 	}
 
@@ -8960,11 +9030,21 @@ func (d *Service) applyNewSbUpgrading(ctx context.Context, id int, commitSHA, di
 	if reason := d.diskPrecheckReason(StepStartServices); reason != "" {
 		return d.parkForDeterministicFailure(ctx, id, displayName, restoreTargetSHA, commitSHA, backupPath, nil, reason, progress)
 	}
-	composeArgs := append([]string{"compose", "up", "-d", "--no-build"}, step11RestartServices...)
+	composeArgs := append([]string{"-d", "--no-build"}, step11RestartServices...)
 	servicesStart := time.Now()
-	if stderrTail, err := runCommandToLogCaptureCapability(projDir, 5*time.Minute, progress.File(), "docker-compose", progress.bump, compose.MintUpCapability(), "docker", composeArgs...); err != nil {
+	servicesCtx, servicesCancel := context.WithTimeout(ctx, 5*time.Minute)
+	servicesCmd, servicesBuildErr := compose.Up(servicesCtx, projDir, composeArgs...)
+	var stderrTail string
+	var servicesErr error
+	if servicesBuildErr != nil {
+		servicesErr = servicesBuildErr
+	} else {
+		stderrTail, servicesErr = runPreparedCommandToLogCapture(servicesCtx, servicesCmd, 5*time.Minute, progress.File(), "docker-compose", progress.bump, "docker compose up", composeArgs)
+	}
+	servicesCancel()
+	if servicesErr != nil {
 		// ENOSPC backstop: disk filled DURING start (past the pre-check) → C park.
-		if classifyDockerFailure(err, stderrTail) == classResource {
+		if classifyDockerFailure(servicesErr, stderrTail) == classResource {
 			return d.parkForDeterministicFailure(ctx, id, displayName, restoreTargetSHA, commitSHA, backupPath, nil,
 				fmt.Sprintf("disk full starting services at %s (no space left on device) — free disk space, then re-trigger the upgrade", displayName), progress)
 		}
@@ -8974,7 +9054,7 @@ func (d *Service) applyNewSbUpgrading(ctx context.Context, id int, commitSHA, di
 				"CI builds images on every master push (images.yaml). "+
 				"Wait for that workflow to finish, then retry the upgrade. Check status: "+
 				"gh run list --workflow=images.yaml",
-			strings.Join(step11RestartServices, " "), err, displayName)
+			strings.Join(step11RestartServices, " "), servicesErr, displayName)
 		return d.newSbUpgradingFailure(ctx, id, displayName, restoreTargetSHA, commitSHA, backupPath, ptrFailureCode(ErrDockerUpFailed), reason, progress)
 	}
 	progress.Write("Starting services (app, worker, proxy, rest) ... ok (%s)", formatProgressDuration(time.Since(servicesStart), false))
@@ -10507,8 +10587,17 @@ func (d *Service) failUpgradeKeepingFlag(ctx context.Context, id int, errMsg str
 // leaves a free recovery marker for ./sb install or the daemon to reconcile.
 func (d *Service) abortFailedPreBackupStop(ctx context.Context, id int, boundary, errMsg string, restartServices []string, progress *ProgressLog) string {
 	needsRecovery := false
-	restartArgs := append([]string{"compose", "up", "-d"}, restartServices...)
-	if restartErr := runCommandWithTimeoutCapability(d.projDir, 5*time.Minute, compose.MintUpCapability(), "docker", restartArgs...); restartErr != nil {
+	restartArgs := append([]string{"-d"}, restartServices...)
+	restartCtx, restartCancel := context.WithTimeout(ctx, 5*time.Minute)
+	restartCmd, restartBuildErr := compose.Up(restartCtx, d.projDir, restartArgs...)
+	var restartErr error
+	if restartBuildErr != nil {
+		restartErr = restartBuildErr
+	} else {
+		restartErr = runPreparedCommandWithTimeout(restartCtx, restartCmd, 5*time.Minute, "docker compose up", restartArgs)
+	}
+	restartCancel()
+	if restartErr != nil {
 		needsRecovery = true
 		progress.Write("  Restarting services after the %s failure ... failed: %v", boundary, restartErr)
 		errMsg += fmt.Sprintf("; services also did not restart cleanly: %v", restartErr)

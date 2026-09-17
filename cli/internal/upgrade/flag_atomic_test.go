@@ -215,3 +215,37 @@ func TestAcquireFreshFlockScavengesOnlyUnlockedAtomicTemps(t *testing.T) {
 		t.Fatalf("live locked atomic temp was removed: %v", err)
 	}
 }
+
+func TestScavengeAtomicFlagTempsRequiresCanonicalFlock(t *testing.T) {
+	if err := scavengeAtomicFlagTemps(nil); err == nil || !strings.Contains(err.Error(), "requires the canonical flock") {
+		t.Fatalf("scavenge without canonical flock = %v, want refusal", err)
+	}
+}
+
+func TestContendingMarkerWriterCreatesNoTempBeforeCanonicalFlock(t *testing.T) {
+	projDir := t.TempDir()
+	owner, err := acquireFreshFlock(projDir, UpgradeFlag{ID: 17, Holder: HolderService, Phase: PhaseOldSbUpgrading})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		_ = os.Remove(flagFilePath(projDir))
+		owner.Close()
+	}()
+
+	contender, err := acquireFlock(projDir, UpgradeFlag{ID: 18, Holder: HolderService, Phase: PhaseOldSbUpgrading})
+	if contender != nil {
+		contender.Close()
+		t.Fatal("contending marker writer unexpectedly acquired the canonical flock")
+	}
+	if err == nil {
+		t.Fatal("contending marker writer did not fail behind canonical flock")
+	}
+	matches, globErr := filepath.Glob(filepath.Join(projDir, "tmp", ".upgrade-in-progress.json.tmp-*"))
+	if globErr != nil {
+		t.Fatal(globErr)
+	}
+	if len(matches) != 0 {
+		t.Fatalf("contending writer created temps before canonical flock acquisition: %v", matches)
+	}
+}

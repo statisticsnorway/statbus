@@ -108,7 +108,7 @@ func ReplaceBinaryOnDisk(currentPath, downloadURL, expectedSHA256, expectCommit 
 	if expectCommit != "" {
 		verifyArgs = append(verifyArgs, "--expect-commit", expectCommit)
 	}
-	cmd := exec.Command(newPath, verifyArgs...)
+	cmd := exec.Command("/usr/bin/env", append([]string{newPath}, verifyArgs...)...)
 	cmd.Dir = filepath.Dir(currentPath)
 	if out, err := cmd.CombinedOutput(); err != nil {
 		_ = os.Remove(newPath) // best-effort cleanup of the unverified binary

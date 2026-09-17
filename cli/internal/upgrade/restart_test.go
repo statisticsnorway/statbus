@@ -13,7 +13,7 @@ import (
 func TestRestartMarkerSurvivesDaemonRecovery(t *testing.T) {
 	for _, live := range []bool{true, false} {
 		dir := t.TempDir()
-		lock, _, err := AcquireRestartFlag(dir, "all")
+		lock, _, _, err := AcquireRestartFlag(dir, "all")
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -51,22 +51,52 @@ func TestRestartRefusesMissingPayload(t *testing.T) {
 		t.Fatal(err)
 	}
 	lock.Close()
-	if retry, _, err := AcquireRestartFlag(dir, "all"); err == nil {
+	if retry, _, _, err := AcquireRestartFlag(dir, "all"); err == nil {
 		retry.Close()
 		t.Fatal("missing payload accepted")
 	}
 }
 
+func TestRestartBorrowsFreeRecoveryMarkerWithoutOverwritingIt(t *testing.T) {
+	dir := t.TempDir()
+	seed := UpgradeFlag{ID: 17, Holder: HolderService, Trigger: "recovery", Phase: PhaseNewSbSwapped, CommitSHA: "0123456789abcdef"}
+	owner, err := acquireFreshFlock(dir, seed)
+	if err != nil {
+		t.Fatal(err)
+	}
+	owner.Close()
+	before, err := os.ReadFile(flagFilePath(dir))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	lock, prior, preserve, err := AcquireRestartFlag(dir, "all")
+	if err != nil {
+		t.Fatalf("free parked marker blocked restart: %v", err)
+	}
+	if prior != nil || !preserve {
+		t.Fatalf("restart acquisition = prior %#v preserve=%v, want borrowed recovery marker", prior, preserve)
+	}
+	lock.Close()
+	after, err := os.ReadFile(flagFilePath(dir))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(after) != string(before) {
+		t.Fatalf("restart overwrote borrowed recovery marker\nbefore: %s\nafter: %s", before, after)
+	}
+}
+
 func TestRestartRetryContentionAcrossProcesses(t *testing.T) {
 	if dir := os.Getenv("STATBUS_TEST_RESTART_CHILD"); dir != "" {
-		if lock, _, err := AcquireRestartFlag(dir, "all"); err == nil {
+		if lock, _, _, err := AcquireRestartFlag(dir, "all"); err == nil {
 			lock.Close()
 			t.Fatal("child acquired parent restart lock")
 		}
 		return
 	}
 	dir := t.TempDir()
-	lock, _, err := AcquireRestartFlag(dir, "all")
+	lock, _, _, err := AcquireRestartFlag(dir, "all")
 	if err != nil {
 		t.Fatal(err)
 	}

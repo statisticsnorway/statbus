@@ -1,8 +1,10 @@
 package cmd
 
 import (
+	"context"
 	"errors"
 	"fmt"
+	"os"
 	"os/exec"
 	"runtime"
 	"strings"
@@ -28,7 +30,28 @@ func restartServices(profile string) error {
 			out, err := exec.Command("systemctl", append([]string{"--user"}, args...)...).CombinedOutput()
 			return string(out), err
 		},
-		stack: func(p string) error { return compose.RestartAndWait(p, compose.IsDevelopmentMode()) },
+		stack: func(p string) error {
+			if err := compose.Stop(p); err != nil {
+				return fmt.Errorf("stop: %w", err)
+			}
+			args := []string{"-d", "--wait", "--wait-timeout", "120"}
+			if compose.IsDevelopmentMode() {
+				args = append(args, "--build")
+			}
+			if p == "app" {
+				args = append(args, "app")
+			} else {
+				args = append([]string{"--profile", p}, args...)
+			}
+			start, err := compose.Up(context.Background(), config.ProjectDir(), args...)
+			if err != nil {
+				return err
+			}
+			start.Stdin = os.Stdin
+			start.Stdout = os.Stdout
+			start.Stderr = os.Stderr
+			return start.Run()
+		},
 	}
 	// Linux development environments without systemd have no host daemon to
 	// manage. A present but inaccessible user bus is an error, not an inactive unit.
@@ -46,7 +69,7 @@ func restartServicesWith(dir, profile string, ops restartOperations) (result err
 	default:
 		return fmt.Errorf("unknown restart profile %q; expected all, all_except_app or app", profile)
 	}
-	lock, prior, err := upgrade.AcquireRestartFlag(dir, profile)
+	lock, prior, preserveRecoveryMarker, err := upgrade.AcquireRestartFlag(dir, profile)
 	if err != nil {
 		return err
 	}
@@ -67,7 +90,9 @@ func restartServicesWith(dir, profile string, ops restartOperations) (result err
 				result = errors.Join(result, fmt.Errorf("start upgrade service %s: %w: %s", unit, err, strings.TrimSpace(out)))
 			}
 		}
-		if prepared && result != nil {
+		if preserveRecoveryMarker {
+			lock.Close()
+		} else if prepared && result != nil {
 			lock.Close() // retain restart intent, never expose ordinary repair
 			result = errors.Join(result, fmt.Errorf("restart incomplete; fix the reported cause, then retry ./sb restart %s; the restart barrier was retained", profile))
 		} else {
@@ -103,11 +128,13 @@ func restartServicesWith(dir, profile string, ops restartOperations) (result err
 			return fmt.Errorf("cannot restart with upgrade service %s load state %q; no services were stopped", ops.unit, values["LoadState"])
 		}
 	}
-	intent := upgrade.RestartIntent{Profile: profile, Unit: unit, Daemon: startDaemon}
-	if err := upgrade.PrepareRestart(lock, intent); err != nil {
-		return fmt.Errorf("persist restart intent: %w", err)
+	if !preserveRecoveryMarker {
+		intent := upgrade.RestartIntent{Profile: profile, Unit: unit, Daemon: startDaemon}
+		if err := upgrade.PrepareRestart(lock, intent); err != nil {
+			return fmt.Errorf("persist restart intent: %w", err)
+		}
+		prepared = true
 	}
-	prepared = true
 	if startDaemon {
 		out, err := ops.systemctl("stop", unit)
 		if err != nil {

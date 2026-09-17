@@ -88,7 +88,16 @@ exit 0
 			t.Setenv("STATBUS_TEST_LIVE_SERVICE", tc.liveService)
 			t.Setenv("STATBUS_TEST_SERVICE_STATE", tc.serviceState)
 
-			d := &Service{projDir: t.TempDir()}
+			projDir := t.TempDir()
+			lock, lockErr := acquireFreshFlock(projDir, UpgradeFlag{ID: 17, Holder: HolderService, Trigger: "recovery", Phase: PhaseNewSbSwapped})
+			if lockErr != nil {
+				t.Fatal(lockErr)
+			}
+			t.Cleanup(func() {
+				_ = os.Remove(flagFilePath(projDir))
+				lock.Close()
+			})
+			d := &Service{projDir: projDir, flagLock: lock}
 			err := d.StartDatabaseRouteServingMustBeStopped(context.Background())
 			if tc.wantErr == "" && err != nil {
 				t.Fatalf("StartDatabaseRouteServingMustBeStopped: %v", err)
@@ -111,6 +120,14 @@ exit 0
 				t.Fatalf("held-closed serving-tier failure must not issue full-stack compose up:\n%s", log)
 			}
 		})
+	}
+}
+
+func TestStartDatabaseRouteServingMustBeStoppedRequiresCanonicalRecoveryFlock(t *testing.T) {
+	d := &Service{projDir: t.TempDir()}
+	err := d.StartDatabaseRouteServingMustBeStopped(context.Background())
+	if err == nil || !strings.Contains(err.Error(), "requires the recovery marker flock") {
+		t.Fatalf("held-closed start without recovery flock = %v, want refusal", err)
 	}
 }
 

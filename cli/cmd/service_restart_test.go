@@ -84,7 +84,7 @@ func TestRestartOwnsCompleteWorkflow(t *testing.T) {
 	}
 }
 
-func TestRestartRefusesLiveAndStaleIntentBeforeDisruption(t *testing.T) {
+func TestRestartRefusesLiveButBorrowsFreeRecoveryIntent(t *testing.T) {
 	for _, kind := range []string{"live", "stale-service", "stale-install", "malformed"} {
 		t.Run(kind, func(t *testing.T) {
 			dir := t.TempDir()
@@ -114,10 +114,25 @@ func TestRestartRefusesLiveAndStaleIntentBeforeDisruption(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			ops := restartOperations{systemd: true, unit: "unit", systemctl: func(...string) (string, error) { t.Fatal("systemd reached on refusal"); return "", nil }, stack: func(string) error { t.Fatal("stack reached on refusal"); return nil }}
+			var stackCalls int
+			ops := restartOperations{systemd: false, unit: "unit", systemctl: func(...string) (string, error) {
+				t.Fatal("systemd unexpectedly reached")
+				return "", nil
+			}, stack: func(string) error {
+				stackCalls++
+				if !upgrade.IsFlockHeld(dir) {
+					t.Fatal("free recovery marker was not held during restart")
+				}
+				return nil
+			}}
 			err = restartServicesWith(dir, "all", ops)
-			if err == nil || !strings.Contains(err.Error(), "No services were stopped") {
-				t.Fatalf("refusal: %v", err)
+			wantProceed := kind == "stale-service" || kind == "stale-install"
+			if wantProceed {
+				if err != nil || stackCalls != 1 {
+					t.Fatalf("free recovery marker restart = err %v stackCalls %d, want success", err, stackCalls)
+				}
+			} else if err == nil || !strings.Contains(strings.ToLower(err.Error()), "no services were stopped") || stackCalls != 0 {
+				t.Fatalf("live/malformed refusal = %v stackCalls=%d", err, stackCalls)
 			}
 			after, _ := os.ReadFile(path)
 			if string(before) != string(after) {
@@ -168,7 +183,7 @@ func TestRestartRetryPreservesIntentAndExcludesInstall(t *testing.T) {
 				if !upgrade.IsFlockHeld(dir) {
 					t.Fatal("unprotected stack")
 				}
-				if lock, _, err := upgrade.AcquireRestartFlag(dir, "all"); err == nil {
+				if lock, _, _, err := upgrade.AcquireRestartFlag(dir, "all"); err == nil {
 					lock.Close()
 					t.Fatal("concurrent retry entered")
 				}
@@ -212,7 +227,7 @@ func TestInstallRefusesRestartBeforeProbes(t *testing.T) {
 	t.Setenv("HOME", home)
 	t.Setenv("STATBUS_POST_UPGRADE_FIXUP", "")
 	dir := filepath.Join(home, "statbus")
-	lock, _, err := upgrade.AcquireRestartFlag(dir, "all")
+	lock, _, _, err := upgrade.AcquireRestartFlag(dir, "all")
 	if err != nil {
 		t.Fatal(err)
 	}

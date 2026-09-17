@@ -82,7 +82,7 @@ Examples:
 
 		// Run the wrapped command. Stdin/stdout/stderr passthrough so
 		// the operator sees normal interactive output, errors, etc.
-		wrapped := exec.Command(args[0], args[1:]...)
+		wrapped := exec.Command("/usr/bin/env", args...)
 		wrapped.Stdin = os.Stdin
 		wrapped.Stdout = os.Stdout
 		wrapped.Stderr = os.Stderr

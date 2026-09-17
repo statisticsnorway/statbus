@@ -1,9 +1,42 @@
 package cmd
 
 import (
+	"context"
+	"errors"
+	"os"
+
 	"github.com/spf13/cobra"
 	"github.com/statisticsnorway/statbus/cli/internal/compose"
+	"github.com/statisticsnorway/statbus/cli/internal/config"
+	"github.com/statisticsnorway/statbus/cli/internal/upgrade"
 )
+
+func startServices(profile string, build bool) (result error) {
+	projDir := config.ProjectDir()
+	guard, err := upgrade.AcquireOperatorStartGuard(projDir, "operator:start")
+	if err != nil {
+		return err
+	}
+	defer func() { result = errors.Join(result, guard.Release()) }()
+
+	args := []string{"-d"}
+	if build {
+		args = append(args, "--build")
+	}
+	if profile == "app" {
+		args = append(args, "app")
+	} else {
+		args = append([]string{"--profile", profile}, args...)
+	}
+	start, err := compose.Up(context.Background(), projDir, args...)
+	if err != nil {
+		return err
+	}
+	start.Stdin = os.Stdin
+	start.Stdout = os.Stdout
+	start.Stderr = os.Stderr
+	return start.Run()
+}
 
 var startCmd = &cobra.Command{
 	Use:   "start [profile]",
@@ -20,7 +53,7 @@ In standalone/private mode, uses pre-pulled images.`,
 			profile = args[0]
 		}
 		build := compose.IsDevelopmentMode()
-		return compose.Start(profile, build)
+		return startServices(profile, build)
 	},
 }
 

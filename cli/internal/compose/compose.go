@@ -4,61 +4,73 @@ package compose
 import (
 	"bytes"
 	"context"
-	"crypto/rand"
-	"encoding/binary"
 	"encoding/json"
 	"fmt"
 	"os"
 	"os/exec"
 	"strings"
-	"sync/atomic"
 	"time"
 
 	"github.com/statisticsnorway/statbus/cli/internal/config"
 )
 
-// UpCapability is implemented only by this package's unexported token. Callers
-// can pass a token returned by MintUpCapability but cannot forge one. Every mint
-// is structurally allowlisted by the upgrade recovery tests.
-type UpCapability interface {
-	composeUpCapability()
+// These are the Compose global options whose placement precedes the subcommand.
+var composeGlobalValueFlags = map[string]struct{}{
+	"-f": {}, "--file": {},
+	"-p": {}, "--project-name": {},
+	"--profile": {}, "--env-file": {}, "--project-directory": {},
+	"--ansi": {}, "--parallel": {}, "--progress": {},
 }
 
-type upCapability struct {
-	nonce uint64
+var composeGlobalBoolFlags = map[string]struct{}{
+	"--compatibility": {},
+	"--dry-run":       {},
 }
 
-func (upCapability) composeUpCapability() {}
-
-var upCapabilityNonceFallback atomic.Uint64
-
-var upCapabilityNonce = func() uint64 {
-	var raw [8]byte
-	if _, err := rand.Read(raw[:]); err == nil {
-		if nonce := binary.LittleEndian.Uint64(raw[:]); nonce != 0 {
-			return nonce
+// composeSubcommandIndex returns the first non-global-option token. It is a
+// deliberately strict parser for the Docker Compose global option grammar: an
+// unknown leading option fails closed instead of letting a hidden subcommand
+// bypass policy. Value options accept both separate and --flag=value forms.
+func composeSubcommandIndex(args []string) (int, error) {
+	for i := 0; i < len(args); {
+		arg := args[i]
+		if !strings.HasPrefix(arg, "-") || arg == "-" {
+			return i, nil
 		}
-	}
-	return upCapabilityNonceFallback.Add(1)
-}()
-
-// MintUpCapability authorizes one docker-compose invocation whose FINAL argv may
-// contain the exact verb "up". Keep calls at explicit, structurally allowlisted
-// sites; dynamic argv never bypasses dockerComposeCommand's runtime check.
-func MintUpCapability() UpCapability { return upCapability{nonce: upCapabilityNonce} }
-
-// dockerComposeCommand is the one docker-compose construction chokepoint for the
-// CLI. It checks the final compose argv, after every append and concatenation,
-// before constructing exec.Cmd.
-func dockerComposeCommand(ctx context.Context, projDir string, capability UpCapability, args ...string) (*exec.Cmd, error) {
-	for _, arg := range args {
-		if arg != "up" {
+		name, _, hasEquals := strings.Cut(arg, "=")
+		if _, ok := composeGlobalBoolFlags[name]; ok {
+			if hasEquals {
+				return 0, fmt.Errorf("docker compose global flag %s does not take a value", name)
+			}
+			i++
 			continue
 		}
-		token, ok := capability.(upCapability)
-		if !ok || token.nonce != upCapabilityNonce {
-			return nil, fmt.Errorf("docker compose up requires an explicit capability")
+		if _, ok := composeGlobalValueFlags[name]; ok {
+			if hasEquals {
+				i++
+				continue
+			}
+			if i+1 >= len(args) {
+				return 0, fmt.Errorf("docker compose global flag %s requires a value", name)
+			}
+			i += 2
+			continue
 		}
+		return 0, fmt.Errorf("unrecognized docker compose global flag %q", arg)
+	}
+	return len(args), nil
+}
+
+// dockerComposeCommand is the one generic Docker Compose construction
+// chokepoint for the CLI. It refuses the up subcommand unconditionally. Only Up
+// may inject that subcommand, so there is no transferable bearer authority.
+func dockerComposeCommand(ctx context.Context, projDir string, args ...string) (*exec.Cmd, error) {
+	subcommandIndex, err := composeSubcommandIndex(args)
+	if err != nil {
+		return nil, err
+	}
+	if subcommandIndex < len(args) && args[subcommandIndex] == "up" {
+		return nil, fmt.Errorf("docker compose up must be constructed with compose.Up")
 	}
 	finalArgs := append([]string{"compose"}, args...)
 	cmd := exec.CommandContext(ctx, "docker", finalArgs...)
@@ -68,17 +80,72 @@ func dockerComposeCommand(ctx context.Context, projDir string, capability UpCapa
 
 // CommandContext constructs a non-up docker-compose command.
 func CommandContext(ctx context.Context, projDir string, args ...string) (*exec.Cmd, error) {
-	return dockerComposeCommand(ctx, projDir, nil, args...)
+	return dockerComposeCommand(ctx, projDir, args...)
 }
 
-// CommandContextWithUp constructs a docker-compose command with an opaque up
-// capability minted at an allowlisted call site.
-func CommandContextWithUp(ctx context.Context, projDir string, capability UpCapability, args ...string) (*exec.Cmd, error) {
-	return dockerComposeCommand(ctx, projDir, capability, args...)
+// DockerCommandContext centralizes raw Docker construction as well as Compose.
+// A compose argv is always delegated to the generic subcommand parser, so callers
+// cannot smuggle `docker compose up` through this lower-level entrypoint.
+func DockerCommandContext(ctx context.Context, projDir string, args ...string) (*exec.Cmd, error) {
+	if len(args) > 0 && args[0] == "compose" {
+		return CommandContext(ctx, projDir, args[1:]...)
+	}
+	if len(args) > 1 {
+		for _, arg := range args[1:] {
+			if arg == "compose" {
+				return nil, fmt.Errorf("docker global options before compose are unsupported; use compose.CommandContext so the subcommand policy sees the final argv")
+			}
+		}
+	}
+	cmd := exec.CommandContext(ctx, "docker", args...)
+	cmd.Dir = projDir
+	return cmd, nil
 }
 
-func runWithCapability(projDir string, capability UpCapability, args ...string) error {
-	cmd, err := dockerComposeCommand(context.Background(), projDir, capability, args...)
+// Up is the only Docker Compose up constructor. Callers omit the subcommand;
+// this function inserts it after any recognized Compose global options. The
+// whole-CLI type-resolved authority test permits this function object only as
+// the callee of direct calls at named sites.
+func Up(ctx context.Context, projDir string, args ...string) (*exec.Cmd, error) {
+	insertAt := 0
+	for insertAt < len(args) {
+		arg := args[insertAt]
+		name, _, hasEquals := strings.Cut(arg, "=")
+		if _, ok := composeGlobalBoolFlags[name]; ok {
+			if hasEquals {
+				return nil, fmt.Errorf("docker compose global flag %s does not take a value", name)
+			}
+			insertAt++
+			continue
+		}
+		if _, ok := composeGlobalValueFlags[name]; ok {
+			if hasEquals {
+				insertAt++
+				continue
+			}
+			if insertAt+1 >= len(args) {
+				return nil, fmt.Errorf("docker compose global flag %s requires a value", name)
+			}
+			insertAt += 2
+			continue
+		}
+		break
+	}
+	if insertAt < len(args) && args[insertAt] == "up" {
+		return nil, fmt.Errorf("compose.Up callers must omit the up subcommand")
+	}
+	finalArgs := make([]string, 0, len(args)+2)
+	finalArgs = append(finalArgs, "compose")
+	finalArgs = append(finalArgs, args[:insertAt]...)
+	finalArgs = append(finalArgs, "up")
+	finalArgs = append(finalArgs, args[insertAt:]...)
+	cmd := exec.CommandContext(ctx, "docker", finalArgs...)
+	cmd.Dir = projDir
+	return cmd, nil
+}
+
+func run(projDir string, args ...string) error {
+	cmd, err := dockerComposeCommand(context.Background(), projDir, args...)
 	if err != nil {
 		return err
 	}
@@ -91,33 +158,13 @@ func runWithCapability(projDir string, capability UpCapability, args ...string) 
 // Run executes a docker compose command with the given args.
 // Inherits stdin/stdout/stderr for interactive use.
 func Run(args ...string) error {
-	return runWithCapability(config.ProjectDir(), nil, args...)
+	return run(config.ProjectDir(), args...)
 }
 
 // RunWithProfile executes docker compose with a --profile flag.
 func RunWithProfile(profile string, args ...string) error {
-	return runWithProfileCapability(config.ProjectDir(), nil, profile, args...)
-}
-
-func runWithProfileCapability(projDir string, capability UpCapability, profile string, args ...string) error {
 	fullArgs := append([]string{"--profile", profile}, args...)
-	return runWithCapability(projDir, capability, fullArgs...)
-}
-
-// Start brings up services. In development mode, uses --build.
-// profile is one of: "all", "all_except_app", "app", or a service name.
-func Start(profile string, build bool) error {
-	capability := MintUpCapability()
-	args := []string{"up", "-d"}
-	if build {
-		args = append(args, "--build")
-	}
-
-	// "app" is a service name, not a profile
-	if profile == "app" {
-		return runWithCapability(config.ProjectDir(), capability, append(args, "app")...)
-	}
-	return runWithProfileCapability(config.ProjectDir(), capability, profile, args...)
+	return run(config.ProjectDir(), fullArgs...)
 }
 
 // Stop brings down services.
@@ -127,31 +174,6 @@ func Stop(profile string) error {
 		return Run(append(args, "app")...)
 	}
 	return RunWithProfile(profile, args...)
-}
-
-// Restart stops then starts services.
-func Restart(profile string, build bool) error {
-	if err := Stop(profile); err != nil {
-		return fmt.Errorf("stop: %w", err)
-	}
-	return Start(profile, build)
-}
-
-// RestartAndWait keeps the caller's restart mutex until containers report
-// running/healthy, including boxes with no active upgrade daemon to signal READY.
-func RestartAndWait(profile string, build bool) error {
-	if err := Stop(profile); err != nil {
-		return fmt.Errorf("stop: %w", err)
-	}
-	args := []string{"up", "-d", "--wait", "--wait-timeout", "120"}
-	capability := MintUpCapability()
-	if build {
-		args = append(args, "--build")
-	}
-	if profile == "app" {
-		return runWithCapability(config.ProjectDir(), capability, append(args, "app")...)
-	}
-	return runWithProfileCapability(config.ProjectDir(), capability, profile, args...)
 }
 
 // Ps shows running containers.
@@ -247,23 +269,6 @@ func QuiesceClients(projDir string) ([]string, error) {
 // step 7 / Images). Containers that are NOT in the slice are left
 // alone, including ones already up — Resume is additive, not
 // authoritative.
-func ResumeClients(projDir string, services []string) error {
-	if len(services) == 0 {
-		return nil
-	}
-	args := append([]string{"up", "-d", "--no-build"}, services...)
-	cmd, err := CommandContextWithUp(context.Background(), projDir, MintUpCapability(), args...)
-	if err != nil {
-		return err
-	}
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("docker compose up %v: %w", services, err)
-	}
-	return nil
-}
-
 // PsEntry mirrors the fields of `docker compose ps --format json` we care
 // about. The JSON keys are upper-camel as Compose v2 emits them.
 type PsEntry struct {

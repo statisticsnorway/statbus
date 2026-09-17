@@ -32,10 +32,20 @@ import (
 // PgDumpCommand, and PgRestoreCommand. Docker compose mode must pass through the
 // CLI-wide compose authority chokepoint; host-tool mode remains a direct exec.
 func CommandContext(ctx context.Context, projDir, name string, args ...string) (*exec.Cmd, error) {
-	if name == "docker" && len(args) > 0 && args[0] == "compose" {
-		return compose.CommandContext(ctx, projDir, args[1:]...)
+	if name == "docker" {
+		return compose.DockerCommandContext(ctx, projDir, args...)
 	}
-	cmd := exec.CommandContext(ctx, name, args...)
+	var cmd *exec.Cmd
+	switch filepath.Base(name) {
+	case "psql":
+		cmd = exec.CommandContext(ctx, "psql", args...)
+	case "pg_dump":
+		cmd = exec.CommandContext(ctx, "pg_dump", args...)
+	case "pg_restore":
+		cmd = exec.CommandContext(ctx, "pg_restore", args...)
+	default:
+		return nil, fmt.Errorf("unsupported database-tool executable %q", name)
+	}
 	cmd.Dir = projDir
 	return cmd, nil
 }
@@ -1310,7 +1320,7 @@ func maybeRebuildTestTemplate(projDir string) {
 	fmt.Printf("Recreating stale test template %s...\n", templateName)
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
 	defer cancel()
-	cmd := exec.CommandContext(ctx, devsh, "create-test-template")
+	cmd := exec.CommandContext(ctx, "bash", devsh, "create-test-template")
 	cmd.Dir = projDir
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
