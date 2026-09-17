@@ -701,3 +701,8 @@ scenario has failed.
 Run `35162992033` now has 17 pass, 0 fail, 3 running, 15 queued. Both
 schema-floor scenarios remain queued. Fleet Orchestrator `35157700377` remains
 in stage 5/5; no failure or triage commit exists.
+
+## rc.16 Upgrade Arc progress (2026-09-17 01:07 UTC)
+
+Run `35162992033` has 20 pass, 0 fail, 3 running, 12 queued. Both schema-floor
+scenarios remain queued. No failure or triage commit exists.
