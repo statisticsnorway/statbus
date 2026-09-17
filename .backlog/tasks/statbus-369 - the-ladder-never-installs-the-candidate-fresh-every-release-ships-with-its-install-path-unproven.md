@@ -706,3 +706,9 @@ in stage 5/5; no failure or triage commit exists.
 
 Run `35162992033` has 20 pass, 0 fail, 3 running, 12 queued. Both schema-floor
 scenarios remain queued. No failure or triage commit exists.
+
+## rc.16 Upgrade Arc progress (2026-09-17 01:49 UTC)
+
+Run `35162992033` has 29 pass, 0 fail, 3 running, 3 queued. Both
+`rollback-schema-floor-adoption` and `rollback-schema-floor-failure` are now
+running. No failure or triage commit exists.
