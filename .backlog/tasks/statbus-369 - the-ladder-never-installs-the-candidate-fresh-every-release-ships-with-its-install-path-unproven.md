@@ -814,3 +814,11 @@ Run `35183316509` has 20 pass, 1 fail, 3 running, 11 queued.
 is not terminal and its job log is not yet available through `gh run view`.
 Both schema-floor scenarios remain queued. No root-cause classification or
 triage commit exists yet.
+
+## rc.17 Upgrade Arc has five reds (2026-09-17 07:12 UTC)
+
+Run `35183316509` now has 26 pass, 5 fail, 3 running, 1 queued. Reds are
+`postswap-stopped-proxy-recovery`, `restore-broke-reattempt`,
+`rollback-pair-terminal`, `rollback-schema-floor-adoption`, and
+`rollback-schema-floor-failure`. GitHub withholds completed-job logs until the
+whole run is terminal, so no failure is classified and no triage commit exists.
