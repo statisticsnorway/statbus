@@ -952,3 +952,11 @@ Decision: do **not** push `34aad3dc2` alone. The two P0s and the P1s on the
 recovery path are being repaired on top, followed by dual review, one push, and
 then rc.18. The accepted commit and this backlog commit remain local meanwhile;
 `origin/master` is still `f569813e4`.
+
+## rc.17 fix validation checkpoint (2026-09-17 08:44 UTC)
+
+The combined `6b41a64bc` + `83c4b01d7` head has green Go `35197214303`, app
+`35197214320`, Images `35197214338`, and Fast Tests `35197595956` through the
+following backlog-only commits. pg_regress `35197596006` is pending. No rc.18
+tag exists. A separate worker has uncommitted source/doc changes in the shared
+checkout; this backlog update does not stage or modify them.
