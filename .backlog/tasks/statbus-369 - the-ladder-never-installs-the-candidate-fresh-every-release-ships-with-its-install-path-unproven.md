@@ -795,3 +795,9 @@ Install Recovery run `35180198706` completed all 13 scenarios green. Fleet
 Orchestrator `35178846600` advanced to stage 5/5 and dispatched Upgrade Arc run
 `35183316509`. Arc scenario discovery and setup are in progress; no arc scenario
 has started and the scenario tally is unavailable.
+
+## rc.17 Upgrade Arc reached scenarios (2026-09-17 04:54 UTC)
+
+Upgrade Arc run `35183316509` passed discovery, fixture construction, and the
+A/B/C image wait, then entered its 35-scenario matrix. Current scenario tally:
+0 pass, 0 fail, 3 running, 32 queued. Both schema-floor scenarios are queued.
