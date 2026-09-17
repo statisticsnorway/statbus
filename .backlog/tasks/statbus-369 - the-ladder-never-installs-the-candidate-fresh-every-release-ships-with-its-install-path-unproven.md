@@ -783,3 +783,8 @@ started.
 Dev canary run `35180048644` is green. Fleet Orchestrator `35178846600`
 advanced to stage 4/5 and dispatched Install Recovery run `35180198706`, which
 is in progress. Upgrade Arc has not started.
+
+## rc.17 Recovery reached scenarios (2026-09-17 04:10 UTC)
+
+Install Recovery run `35180198706` passed discovery and entered its matrix:
+3 scenarios running, 10 queued, 0 terminal. Upgrade Arc has not started.
