@@ -907,6 +907,12 @@ identity, maintenance barrier, and SQL read-only barrier. Automatic service
 starts hold alive-idle; `./sb install` deliberately re-restores the snapshot and
 retries the ordinary daemon-floor migration.
 
+`rollback-clients-live` retains the same recovery assets and barriers when the
+database-only rollback start observes `app`, `worker`, or `rest` alive. It records
+`ROLLBACK_FAILED_SERVICES_NOT_STOPPED`, returns before source restoration or any
+full-stack Compose start, and stays daemon alive-idle. Stop those clients, then
+run `./sb install` for the deliberate retry.
+
 `rollback_finishing` means the pending row is already durable. Recovery is
 cleanup-only: commit `rolled_back`, clear pending, remove the held marker, then
 publish `sb.old` last. Observed migration state may never route either phase

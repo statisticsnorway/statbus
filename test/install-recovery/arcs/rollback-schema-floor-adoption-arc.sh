@@ -62,7 +62,7 @@ assert_no_orphan_backup "$VM_NAME"
 VM_EXEC bash -c "find ~/statbus-backups -mindepth 2 -maxdepth 2 -type f -path '*/upgrade-logs-*/*.log' -print -quit | grep -q ." || { echo '✗ expected forensic upgrade logs absent beside backup' >&2; exit 1; }
 LOG_REL=$(row_field "COALESCE(log_relative_file_path,'')")
 LOG=$(VM_EXEC bash -c "cat ~/statbus/tmp/upgrade-logs/'$LOG_REL'")
-for needle in 'rollback' 'Restoring database' 'database container' "migrate up --to $FLOOR" 'Restoring git' 'sb.old' 'Starting services' 'rollback finishing' 'rolled_back' 'Publishing'; do
+for needle in 'rollback' 'Restoring database' 'Starting only the restored database for schema-floor replay ... healthy' "migrate up --to $FLOOR" 'Restoring git' 'sb.old' 'Starting services' 'rollback finishing' 'rolled_back' 'Publishing'; do
   printf '%s' "$LOG" | grep -qi "$needle" || { echo "✗ progress log missing: $needle" >&2; exit 1; }
 done
 printf '%s' "$LOG" | awk -v a='Restoring database' -v b='migrate up --to' -v c='Restoring git' 'index($0,a){x=NR} index($0,b){y=NR} index($0,c){z=NR} END{exit !(x&&y&&z&&x<y&&y<z)}' || { echo '✗ restore/floor/source log order wrong' >&2; exit 1; }

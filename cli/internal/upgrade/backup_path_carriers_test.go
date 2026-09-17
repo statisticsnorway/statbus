@@ -199,6 +199,7 @@ func TestFlagInvariant_EveryPhaseAndBackupPathWriterIsAccountedFor_STATBUS232(t 
 		"flag.Phase = PhaseNewSbSwapped":              "updateFlagNewSbSwapped — the swap stamp again, POST-swap by definition; this is the write that legitimises carrying the identity",
 		"flag.Phase = PhaseNewSbUpgrading":            "ReattemptRestore — paired in the same held-marker rewrite with authorizedBackupPath; a human-authorized snapshot replay is already in rollback/resume territory, never PreSwap",
 		"flag.Phase = PhaseRollbackSchemaFloorFailed": "rollback floor failure — preserves the already-authorized snapshot identity after that exact snapshot was restored; retry re-restores it before migration",
+		"flag.Phase = PhaseRollbackClientsLive":       "rollback live-client hold — preserves the already-authorized snapshot identity after that exact snapshot was restored; retry re-restores it only after app/worker/rest are stopped",
 		"flag.Phase = PhaseRollbackFinishing":         "cleanup-only handoff — pending is durable and snapshot restore is permanently forbidden; the identity remains audit-only until marker removal",
 		"Phase:      PhaseNewSbSwapped":               "parkAtTarget's persisted flag — a post-swap phase, the at-target truth; carrying the identity there is the legal shape",
 		"Phase:          PhaseNewSbUpgrading":         "resumeNewSb's reacquire — post-swap, resume-began",

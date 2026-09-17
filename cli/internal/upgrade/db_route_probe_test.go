@@ -98,9 +98,9 @@ func TestRecoveryDSNSingleSource(t *testing.T) {
 }
 
 // TestStartDBForRecoveryStartsTheWholeRoute pins AC#2's start-extension: the
-// asymmetric-safe start covers db AND proxy (not just the engine) and refuses a
-// truly-missing proxy. The behavioral stopped-proxy green is the mechanic's
-// scenario leg; this pins the product shape.
+// asymmetric-safe start covers db AND proxy (not just the engine), without
+// naming proxy to Compose start (which recursively starts proxy's rest
+// dependency), and refuses a truly-missing proxy.
 func TestStartDBForRecoveryStartsTheWholeRoute(t *testing.T) {
 	src, err := os.ReadFile(thisRepoFile(t, "cli/internal/upgrade/exec.go"))
 	if err != nil {
@@ -108,8 +108,19 @@ func TestStartDBForRecoveryStartsTheWholeRoute(t *testing.T) {
 	}
 	body := extractFuncBody(t, string(src), "func (d *Service) StartDBForRecovery(")
 
-	if !strings.Contains(body, `"start", "db", "proxy"`) {
-		t.Error("StartDBForRecovery must `docker compose start db proxy` — the route, not just the engine (STATBUS-143 AC#2)")
+	if !strings.Contains(body, `"compose", "start", "db"`) {
+		t.Error("StartDBForRecovery must use the exact dependency-safe compose argv `docker compose start db`")
+	}
+	// Negative control: this was the rc.16 product bug. If proxy is named to
+	// Compose start, Compose honours proxy->rest depends_on and opens the app.
+	if strings.Contains(body, `"compose", "start", "db", "proxy"`) || strings.Contains(body, `"compose", "start", "proxy"`) {
+		t.Error("StartDBForRecovery must not name proxy to `docker compose start`; that recursively starts rest")
+	}
+	if !strings.Contains(body, `"docker", "start", proxyID`) {
+		t.Error("StartDBForRecovery must start the already-resolved proxy container directly so Compose cannot follow dependencies")
+	}
+	if !strings.Contains(body, "verifyRecoveryClientsStopped") {
+		t.Error("StartDBForRecovery must positively verify app/worker/rest remain stopped after starting db+proxy")
 	}
 	if !strings.Contains(body, "proxyContainerMissing") {
 		t.Error("StartDBForRecovery must detect a missing proxy and refuse precisely (newProxyRouteMissingError), not emit an opaque docker error (AC#3)")

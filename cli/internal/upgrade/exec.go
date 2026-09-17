@@ -1291,9 +1291,17 @@ func (d *Service) EnsureDBUp(ctx context.Context) error {
 // containers that recovery must restart to continue.
 //
 // STATBUS-143: the service reaches PostgreSQL THROUGH the Caddy layer4 proxy, so
-// the asymmetric-safe start must cover the whole ROUTE — `docker compose start
-// db proxy`, not just the engine. A stopped proxy now resumes and recovery
-// proceeds (previously a severed proxy dead-ended every install re-run).
+// the asymmetric-safe start must cover the whole ROUTE, not just the engine. A
+// stopped proxy now resumes and recovery proceeds (previously a severed proxy
+// dead-ended every install re-run).
+//
+// The two containers are deliberately NOT named in one `docker compose start`:
+// Compose start follows depends_on, and proxy depends on rest. Starting proxy by
+// service name would therefore open the application while rollback schema-floor
+// replay promises it is held closed. Compose start has no --no-deps option, so
+// start db through Compose, resolve proxy's existing container ID, and start that
+// exact container through Docker. Then positively verify app/worker/rest remain
+// stopped before waiting for DB health.
 //
 // `docker compose start` ONLY starts existing stopped containers; it NEVER
 // recreates them with the current binary's compose-template image tag. That's
@@ -1317,11 +1325,80 @@ func (d *Service) StartDBForRecovery(ctx context.Context) error {
 	if missing, perr := d.proxyContainerMissing(ctx); perr == nil && missing {
 		return newProxyRouteMissingError()
 	}
-	if out, err := runCommandOutput(d.projDir, "docker", "compose", "start", "db", "proxy"); err != nil {
-		return fmt.Errorf("docker compose start db proxy: %w (%s)", err, strings.TrimSpace(out))
+	if out, err := runCommandOutput(d.projDir, "docker", "compose", "start", "db"); err != nil {
+		return fmt.Errorf("docker compose start db: %w (%s)", err, strings.TrimSpace(out))
+	}
+	proxyID, err := d.proxyContainerID(ctx)
+	if err != nil {
+		return err
+	}
+	if out, err := runCommandOutput(d.projDir, "docker", "start", proxyID); err != nil {
+		return fmt.Errorf("docker start existing proxy container %s: %w (%s)", proxyID, err, strings.TrimSpace(out))
+	}
+	if err := d.verifyRecoveryClientsStopped(ctx); err != nil {
+		return err
 	}
 	if err := d.waitForDBHealth(60 * time.Second); err != nil {
 		return fmt.Errorf("db did not become healthy after compose start: %w", err)
+	}
+	return nil
+}
+
+func (d *Service) proxyContainerID(ctx context.Context) (string, error) {
+	cmd := exec.CommandContext(ctx, "docker", "compose", "ps", "-a", "-q", "proxy")
+	cmd.Dir = d.projDir
+	out, err := cmd.Output()
+	if err != nil {
+		return "", fmt.Errorf("docker compose ps -a -q proxy: %w", err)
+	}
+	id := strings.TrimSpace(string(out))
+	if id == "" {
+		return "", newProxyRouteMissingError()
+	}
+	return id, nil
+}
+
+var recoveryHeldClosedServices = map[string]bool{"app": true, "worker": true, "rest": true}
+
+// RecoveryClientsLiveError is a product-invariant failure, not an ordinary
+// database-start failure. rollback must route it to a durable held-closed marker
+// before any source restore or full-stack startup can run.
+type RecoveryClientsLiveError struct {
+	Services []string
+}
+
+func (e *RecoveryClientsLiveError) Error() string {
+	return fmt.Sprintf("held-closed recovery invariant violated: application services must remain stopped while only db+proxy are started; still running: %s", strings.Join(e.Services, ", "))
+}
+
+// verifyRecoveryClientsStopped makes StartDBForRecovery's held-closed promise a
+// checked product invariant. Absence and Docker's terminal/non-running states are
+// safe; every live or unknown state fails closed and names the offending service.
+func (d *Service) verifyRecoveryClientsStopped(ctx context.Context) error {
+	cmd := exec.CommandContext(ctx, "docker", "compose", "ps", "-a", "--format", "json")
+	cmd.Dir = d.projDir
+	out, err := cmd.Output()
+	if err != nil {
+		return fmt.Errorf("verify application services remain stopped during recovery: docker compose ps -a: %w", err)
+	}
+	entries, err := compose.ParsePsJSON(out)
+	if err != nil {
+		return fmt.Errorf("verify application services remain stopped during recovery: %w", err)
+	}
+	var live []string
+	for _, entry := range entries {
+		if !recoveryHeldClosedServices[entry.Service] {
+			continue
+		}
+		switch entry.State {
+		case "exited", "created", "dead":
+			continue
+		default:
+			live = append(live, fmt.Sprintf("%s (%s)", entry.Service, entry.State))
+		}
+	}
+	if len(live) != 0 {
+		return &RecoveryClientsLiveError{Services: live}
 	}
 	return nil
 }

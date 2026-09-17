@@ -307,6 +307,11 @@ const (
 	// Automatic service starts stay alive-idle on this phase. The exported
 	// RecoverFromFlag entry used by ./sb install deliberately retries it.
 	PhaseRollbackSchemaFloorFailed = "rollback-schema-floor-failed"
+	// PhaseRollbackClientsLive holds the box closed when the database route was
+	// restarted for schema-floor replay but app/worker/rest was observed live.
+	// Automatic recovery must never widen that violation by starting the full
+	// stack; ./sb install is the deliberate retry entry after the clients stop.
+	PhaseRollbackClientsLive = "rollback-clients-live"
 	// PhaseRollbackFinishing is cleanup-only. The snapshot and source services
 	// are already restored and the pending column is durable. Recovery may only
 	// finish the row, remove this marker, and publish sb.old.
@@ -321,6 +326,7 @@ var canonicalPhaseBytes = map[string]struct{}{
 	PhaseNewSbSwapped:              {},
 	PhaseNewSbUpgrading:            {},
 	PhaseRollbackSchemaFloorFailed: {},
+	PhaseRollbackClientsLive:       {},
 	PhaseRollbackFinishing:         {},
 }
 
@@ -1665,7 +1671,11 @@ func (d *Service) recoverFromFlag(ctx context.Context) (err error) {
 	// stays alive-idle instead of consuming its restart budget by repeating the
 	// same deterministic migration. ./sb install constructs a one-shot Service
 	// (runningAsService=false) and is the only deliberate retry entry.
-	if flag.Phase == PhaseRollbackSchemaFloorFailed && d.runningAsService {
+	if (flag.Phase == PhaseRollbackSchemaFloorFailed || flag.Phase == PhaseRollbackClientsLive) && d.runningAsService {
+		if flag.Phase == PhaseRollbackClientsLive {
+			logRecover("ROLLBACK_FAILED_SERVICES_NOT_STOPPED: upgrade %d remains closed because app/worker/rest was observed live during database-only rollback recovery. Stop those services, then run ./sb install.", flag.ID)
+			return nil
+		}
 		logRecover("ROLLBACK_SCHEMA_FLOOR_FAILED: upgrade %d remains closed with target recovery assets retained. Fix the recorded migration/database cause, then run ./sb install.", flag.ID)
 		return nil
 	}
@@ -10357,6 +10367,19 @@ func (d *Service) restoreAndFinalize(ctx context.Context, id int, version string
 	if backupPath != "" && dbRestoreErr == nil {
 		dbRestoreErr = d.startRollbackDatabaseOnly(ctx, progress)
 	}
+	if dbRestoreErr != nil {
+		var clientsLiveErr *RecoveryClientsLiveError
+		if errors.As(dbRestoreErr, &clientsLiveErr) {
+			if holdErr := d.holdRollbackClientsLive(ctx, id, backupPath, progress, clientsLiveErr); holdErr != nil {
+				return true, holdErr
+			}
+			progress.Write("ROLLBACK_FAILED_SERVICES_NOT_STOPPED")
+			progress.Write("The database snapshot was restored, but application clients were observed live during held-closed schema-floor recovery: %v", clientsLiveErr)
+			progress.Write("The restored database and proxy remain up. Application services must remain stopped; HTTP maintenance and SQL read-only remain active.")
+			progress.Write("Stop app, worker, and rest, then run: ./sb install")
+			return true, nil
+		}
+	}
 	if backupPath != "" && dbRestoreErr == nil {
 		if floorErr := d.reapplyRollbackDaemonSchemaFloor(progress); floorErr != nil {
 			if holdErr := d.holdRollbackSchemaFloorFailure(ctx, id, backupPath, progress, floorErr); holdErr != nil {
@@ -10625,6 +10648,27 @@ func (d *Service) holdRollbackSchemaFloorFailure(ctx context.Context, id int, ba
 		progressPath = progress.RelPath()
 	}
 	d.markTerminal("ROLLBACK_SCHEMA_FLOOR_FAILED", fmt.Sprintf("id=%d; backup=%s; floor=%d; progress=%s; error=%v", id, backupPath, migrate.DaemonSchemaFloor, progressPath, floorErr))
+	return nil
+}
+
+func (d *Service) holdRollbackClientsLive(ctx context.Context, id int, backupPath string, progress *ProgressLog, clientsLiveErr error) error {
+	if err := d.mutateHeldFlag(func(flag *UpgradeFlag) {
+		flag.Phase = PhaseRollbackClientsLive
+		flag.Step = StepRollback
+	}); err != nil {
+		return &RollbackSchemaFloorMarkerWriteError{Err: err}
+	}
+	if d.queryConn != nil {
+		if _, updateErr := d.queryConn.Exec(ctx, `UPDATE public.upgrade SET failure_code = $1 WHERE id = $2`, ErrRollbackServicesNotStopped, id); updateErr != nil {
+			return &RollbackSchemaFloorMarkerWriteError{Err: updateErr}
+		}
+	}
+	d.releaseUpgradeFlagLockKeepingFile()
+	progressPath := ""
+	if progress != nil {
+		progressPath = progress.RelPath()
+	}
+	d.markTerminal("ROLLBACK_FAILED_SERVICES_NOT_STOPPED", fmt.Sprintf("id=%d; backup=%s; progress=%s; error=%v", id, backupPath, progressPath, clientsLiveErr))
 	return nil
 }
 
