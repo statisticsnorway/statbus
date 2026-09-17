@@ -7,7 +7,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-09-14 12:36'
-updated_date: '2026-09-17 10:10'
+updated_date: '2026-09-17 10:44'
 labels:
   - release
   - install
@@ -927,3 +927,28 @@ matrix over previously green scenarios, executed tests, mutation checks that
 prove the tests bind the changed production and arc paths, and high reasoning
 effort. This follows two reviews that said ACCEPT and were later disproved by CI
 gates and regressions in green scenarios.
+
+## Accepted fix held for surrounding rollback P0s (2026-09-17 08:44 UTC)
+
+Sol **ACCEPTED** consolidated fix commit `34aad3dc2`. Four mutations are caught,
+and the strict held-closed verifier is byte-identical to its `5dbc8d243` form;
+the repair changes caller scope rather than weakening the invariant.
+
+An independent Codex review of the same set found five defects in surrounding
+rollback code that `34aad3dc2` did not touch:
+
+- **P0:** `restoreAndFinalize` lets a generic `dbRestoreErr` fall through to
+  `docker compose --profile all up -d --remove-orphans` at `service.go:10568`,
+  recreating the serving tier while a rollback marker remains.
+- **P0:** `holdRollbackClientsLive` records a held-closed terminal without
+  actually stopping live app/worker/rest, and loses `failure_code` when
+  `queryConn` is nil.
+- **P1:** `rolled_back` can be written without a functional health pass.
+- **P1:** failure to write `RetreatedToSourceAt` is swallowed, leaving a stale
+  marker that a later `./sb install` can act on.
+- **P1:** `recoveryRollback` discards errors returned by `d.rollback`.
+
+Decision: do **not** push `34aad3dc2` alone. The two P0s and the P1s on the
+recovery path are being repaired on top, followed by dual review, one push, and
+then rc.18. The accepted commit and this backlog commit remain local meanwhile;
+`origin/master` is still `f569813e4`.
