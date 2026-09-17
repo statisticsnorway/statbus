@@ -163,3 +163,21 @@ and the renumbered migration collided on replay.
 added fallback to full replay. Niue run `35116209731` observed rejection, full
 replay, and all 100 pg_regress tests green. The preventive prerelease invariant
 is tracked separately in STATBUS-371.
+
+## rc.16 paid arc verdict and triage (2026-09-17)
+
+Upgrade Arc run `35162992033` finished 33 pass / 2 fail. The two failures were
+this ticket's mandatory schema-floor scenarios:
+
+- adoption: product state was rolled back and healthy with data/queue/backup
+  checks green; only the literal progress-log needle was stale.
+- failure: `ROLLBACK_SCHEMA_FLOOR_FAILED` and maintenance/read-only hold were
+  recorded, but exact container inspection found `rest` running. Compose had
+  pulled it through `depends_on`, violating the closed-hold contract.
+
+Fix `5dbc8d243` updates the adoption needle, starts the existing proxy directly
+without Compose dependency activation, verifies app/worker/rest remain stopped,
+and persists live-client violations as `rollback-clients-live` /
+`ROLLBACK_FAILED_SERVICES_NOT_STOPPED` before source restore or full-stack
+startup. Exact-commit CI is running. Both paid arcs remain unaccepted until a
+new candidate proves this fix.
