@@ -181,3 +181,12 @@ and persists live-client violations as `rollback-clients-live` /
 `ROLLBACK_FAILED_SERVICES_NOT_STOPPED` before source restore or full-stack
 startup. Exact-commit CI is running. Both paid arcs remain unaccepted until a
 new candidate proves this fix.
+
+## rc.17 schema-floor rerun red, classification pending (2026-09-17 07:12 UTC)
+
+Both mandatory scenarios are red in Upgrade Arc run `35183316509`:
+`rollback-schema-floor-adoption` job `105080855872` and
+`rollback-schema-floor-failure` job `105080855986`. The parent run is still in
+progress, so GitHub has not exposed completed-job logs. Do not infer whether
+`5dbc8d243` failed, the assertions drifted, or a separate mechanism appeared;
+classification and triage commit are pending terminal logs.
