@@ -736,3 +736,13 @@ teardown all succeeded, so this was not an infrastructure death and no retry was
 dispatched. Fleet Orchestrator `35157700377` concluded failure solely at stage
 5/5 because the arc child failed; smoke, dev canary, and Install Recovery (13/13)
 were green.
+
+## rc.16 two-red triage landed (2026-09-17 02:38 UTC)
+
+Triage fix `5dbc8d243` landed for both rc.16 reds. It updates the adoption arc to
+the exact emitted progress line. For the product red, it starts the existing
+proxy container directly so Compose cannot pull `rest` through `depends_on`,
+verifies app/worker/rest remain stopped, and durably routes any live-client
+violation to `rollback-clients-live` with
+`ROLLBACK_FAILED_SERVICES_NOT_STOPPED` before source restore or full-stack
+startup. Exact-commit CI is running; no next candidate has been cut.
