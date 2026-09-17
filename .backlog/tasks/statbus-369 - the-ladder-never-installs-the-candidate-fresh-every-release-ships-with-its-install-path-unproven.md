@@ -996,3 +996,14 @@ rc.18 was cut at that commit at 20:50:55 UTC. Initial exact-commit gates started
 Go `35273252175`, app `35273252270`, Images `35273252167`, and push/orchestrator
 entry `35273242225`. No Recovery or Upgrade Arc scenario run had started at this
 checkpoint; scenario reach and tally remain pending.
+
+## rc.18 cut correction: tag was local-only (2026-09-17 21:36 UTC)
+
+The apparent rc.18 cut above did not publish. The transient annotated tag was
+local-only and is now absent both locally and from `origin`; GitHub has no rc.18
+release and no Release/Recovery/Upgrade Arc workflow dispatched. Treat rc.18 as
+**not cut**. The published recovery head `b73c89652` is green in Go
+`35273252175`, app `35273252270`, Images `35273252167`, and pg_regress
+`35273557287`; backlog head `88e79c7e5` is also green in Fast Tests
+`35273609238` and pg_regress `35273609256`. A real named candidate and ladder
+remain pending.
