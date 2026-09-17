@@ -7,7 +7,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-09-14 12:36'
-updated_date: '2026-09-15 13:33'
+updated_date: '2026-09-17 10:10'
 labels:
   - release
   - install
@@ -879,3 +879,51 @@ Two triage commits cover all five terminal reds from run `35183316509`:
   every durable-state assertion. Offline negative controls cover both fixes.
 
 Exact-commit CI/review and a new named candidate remain pending.
+
+## rc.17 RCA, fix review, and recovery-review ruling (2026-09-17 08:10 UTC)
+
+The consolidated RCA in `tmp/rc17-rca.md`, against Upgrade Arc run
+`35183316509`, classifies the final tally as **three regressions from
+`5dbc8d243` plus two harness drifts**. `StartDBForRecovery` served four callers
+under two incompatible contracts. Its new fail-closed serving-tier verifier was
+correct for the park-era verdict and rollback schema-floor replay, but was
+wrongly applied to the route-only callers at `install_upgrade.go:309` and the
+rollback stop-verification ABORT writer. That broke
+`postswap-stopped-proxy-recovery`, where app/rest/worker may legitimately already
+be running. The same commit's raw `docker start <proxy-id>` was correct: it
+stopped Compose from following proxy dependencies and dragging `rest` up. That
+change exposed a separate missing invariant in the PreSwap STOPPED-UNCHANGED
+pair terminal: it never explicitly restored and health-proved the source stack,
+yet wrote that the source was “serving normally”. This broke
+`restore-broke-reattempt` and `rollback-pair-terminal`. The other two reds were
+harness drift: `rollback-schema-floor-adoption` grepped CLI argv the product
+never emits, and `rollback-schema-floor-failure` let documented rollback exit 75
+abort the arc under `set -e` before its assertions.
+
+The local fix is three commits: `6b41a64bc` split
+`StartDatabaseRouteServingMayRun` and `StartDatabaseRouteServingMustBeStopped`
+over shared `startDatabaseAndItsProxy`, kept the verifier rules unchanged, and
+scoped the strict wrapper to `parkEraVerdict` and
+`startRollbackDatabaseOnly` only. The PreSwap terminal now starts and
+health-gates the source stack before claiming normal serving; failure records a
+truthful degraded terminal instead. The ABORT log is likewise truthful.
+`83c4b01d7` repaired both arcs. `b4183be83` applied the owner-approved contract
+names.
+
+The first adversarial review **REJECTED** the change because the exit-75 harness
+test checked the helper but did not pin that the paid arc actually called it; a
+mutation removing the guard escaped. After amendment, all three targeted
+mutations are caught: removing the exit-75 guard fails the floor-family test,
+misrouting the route-only caller fails `TestRecoveryRouteCallersSplitByContract`,
+and returning proxy startup to Compose fails `TestRecoveryRouteStartContracts`.
+Reviewer reruns of the schema-floor family and required Go packages are green.
+Final review remains pending. `6b41a64bc` and `83c4b01d7` are now on
+`origin/master` beneath backlog commits `f064a0614` and `f569813e4`;
+owner-naming follow-up `b4183be83` remains local.
+
+Process ruling after this arc: reviews own the outcome, not merely the diff.
+Recovery-code review now requires a caller and blast-radius audit, a regression
+matrix over previously green scenarios, executed tests, mutation checks that
+prove the tests bind the changed production and arc paths, and high reasoning
+effort. This follows two reviews that said ACCEPT and were later disproved by CI
+gates and regressions in green scenarios.
