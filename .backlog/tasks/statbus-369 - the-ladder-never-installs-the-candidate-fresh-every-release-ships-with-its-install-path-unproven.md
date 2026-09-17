@@ -864,3 +864,18 @@ Every failed job artifact and live job log is under `tmp/rc17-arc-red/`:
 
 No infrastructure death occurred, so no Fleet Orchestrator redispatch was made.
 No product or harness source was edited or pushed.
+
+## rc.17 five-red fixes landed (2026-09-17 07:58 UTC)
+
+Two triage commits cover all five terminal reds from run `35183316509`:
+
+- `6b41a64bc` repairs the three product regressions. It keeps the strict
+  held-closed verifier for park-era verdict and schema-floor replay, routes
+  install crash recovery and rollback stop-ABORT through existing-route startup
+  that permits legitimately live clients, and health-gates the unchanged source
+  stack before a PreSwap STOPPED-UNCHANGED row claims normal serving.
+- `83c4b01d7` repairs both schema-floor harness failures: assert the stable
+  product progress message, and accept documented EX_TEMPFAIL 75 before running
+  every durable-state assertion. Offline negative controls cover both fixes.
+
+Exact-commit CI/review and a new named candidate remain pending.

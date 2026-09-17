@@ -210,3 +210,11 @@ product hold:
 
 No schema-floor triage commit exists yet. Both paid acceptance scenarios remain
 red until the harness fixes run on another named candidate.
+
+## rc.17 schema-floor harness fix landed (2026-09-17 07:58 UTC)
+
+Fix `83c4b01d7` addresses both classified harness reds: it asserts the stable
+schema-floor progress message instead of internal CLI argv, accepts the
+rollback contract's EX_TEMPFAIL 75 control exit, then continues through every
+post-retry durable-state assertion. Offline family tests execute both predicates
+and negative controls. A new named candidate must still prove both paid arcs.
