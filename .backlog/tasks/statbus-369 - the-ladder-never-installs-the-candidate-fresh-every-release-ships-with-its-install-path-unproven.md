@@ -788,3 +788,10 @@ is in progress. Upgrade Arc has not started.
 
 Install Recovery run `35180198706` passed discovery and entered its matrix:
 3 scenarios running, 10 queued, 0 terminal. Upgrade Arc has not started.
+
+## rc.17 Recovery green; Upgrade Arc started (2026-09-17 04:48 UTC)
+
+Install Recovery run `35180198706` completed all 13 scenarios green. Fleet
+Orchestrator `35178846600` advanced to stage 5/5 and dispatched Upgrade Arc run
+`35183316509`. Arc scenario discovery and setup are in progress; no arc scenario
+has started and the scenario tally is unavailable.
