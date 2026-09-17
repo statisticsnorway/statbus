@@ -689,3 +689,9 @@ pass, 0 fail, 3 running, 25 queued. This is the evidence rc.15 never produced:
 the hardened harness reached and ran paid arc scenarios rather than dying in
 pre-scenario infrastructure. Fleet Orchestrator `35157700377` remains in stage
 5/5 pending the arc result.
+
+## rc.16 Upgrade Arc progress (2026-09-17 00:22 UTC)
+
+Run `35162992033` now has 8 pass, 0 fail, 3 running, 24 queued. Both
+schema-floor scenarios remain queued; no triage commit exists because no
+scenario has failed.
