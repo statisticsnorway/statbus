@@ -52,6 +52,7 @@ func RebuildAndReexec(projDir string) error {
 	}
 
 	env := append(os.Environ(), SelfHealAttemptEnv+"=1")
+	// authority:pinned-reexec
 	return syscall.Exec(sbPath, os.Args, env)
 }
 

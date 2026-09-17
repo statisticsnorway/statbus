@@ -7687,6 +7687,7 @@ func (d *Service) executeUpgrade(ctx context.Context, claim upgradeClaimSnapshot
 	// with the new ./sb in-place. argv/env preserved; the new binary
 	// hits recoverFromFlag at startup and resumes at applyNewSbUpgrading.
 	sbPath := filepath.Join(d.projDir, "sb")
+	// authority:pinned-reexec
 	if err := syscall.Exec(sbPath, os.Args, os.Environ()); err != nil {
 		// exec is rare-fail (ENOEXEC on a corrupted just-built binary,
 		// EACCES on a perm bug). Surface rather than fall back to the

@@ -32,6 +32,7 @@ var psqlCmd = &cobra.Command{
 
 		if isTerminal() && env != nil {
 			// Host psql + terminal: exec into psql (replace this process)
+			// authority:pinned-reexec
 			return syscall.Exec(resolvedPath, fullArgs, env)
 		}
 

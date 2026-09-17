@@ -9,12 +9,14 @@
 // Reviewers evaluate this gate against that contract. The resolved launcher set
 // is os/exec.Command, os/exec.CommandContext, os.StartProcess, syscall.Exec,
 // syscall.ForkExec, and os/exec.Cmd composite literals. Launcher function values
-// are forbidden; construction is exact-site allowlisted; executables are
-// compile-time constants except three pinned existing syscall.Exec handoffs; and
-// raw docker/docker-compose constants are confined to internal/compose. Shell
-// executables require constant, docker/compose-free arguments. The only dynamic
-// shell calls are the exact-count-pinned pre-existing user/configuration command
-// facilities named below, never generic recovery command construction.
+// are forbidden; construction is exact-site allowlisted; and every constant
+// executable must belong to the closed tool/mediator table below. Tools may
+// receive dynamic path/SHA arguments, but no constant argument may carry a
+// docker/docker-compose/podman/compose token. Mediators require constant,
+// authority-free arguments except the exact-count-pinned pre-existing
+// user/configuration facilities below. Docker itself is confined to the Compose
+// wrapper. The three dynamic syscall.Exec handoffs are adjacent-marker and
+// exact-count pinned; every other covered launcher requires a constant executable.
 package upgrade
 
 import (
@@ -127,22 +129,58 @@ var allowedProcessLaunchFunctions = map[string]bool{
 	"internal/freshness/rebuild.go:RebuildAndReexec":                  true,
 }
 
+type authorityExecutableClass string
+
+const (
+	authorityTool     authorityExecutableClass = "tool"
+	authorityMediator authorityExecutableClass = "mediator"
+)
+
+// This is the complete type-resolved production executable inventory. Entries
+// are semantic classes, not a blocklist: an unknown executable fails closed, and
+// every entry must retain at least one production use so stale authority cannot
+// silently accumulate.
+var allowedProcessExecutables = map[string]authorityExecutableClass{
+	"./dev.sh":     authorityTool,
+	"./sb":         authorityTool,
+	"/usr/bin/env": authorityMediator,
+	"bash":         authorityMediator,
+	"docker":       authorityTool,
+	"git":          authorityTool,
+	"go":           authorityTool,
+	"journalctl":   authorityTool,
+	"loginctl":     authorityTool,
+	"node":         authorityTool,
+	"pg_dump":      authorityTool,
+	"pg_restore":   authorityTool,
+	"psql":         authorityTool,
+	"rsync":        authorityTool,
+	"scp":          authorityTool,
+	"sh":           authorityMediator,
+	"ssh":          authorityTool,
+	"ssh-keygen":   authorityTool,
+	"systemctl":    authorityTool,
+	"tar":          authorityTool,
+}
+
+const pinnedReexecMarker = "authority:pinned-reexec"
+
 // These existing syscall.Exec handoffs replace the current process with a path
-// resolved from the already-selected psql or sb binary. Their dynamic paths are
-// public behavior, so the exception is exact by launcher and enclosing site.
-// Every other covered launcher still requires a compile-time executable.
-var allowedDynamicSyscallExecHandoffs = map[string]bool{
-	"cmd/psql.go:psqlCmd.RunE":                       true,
-	"internal/freshness/rebuild.go:RebuildAndReexec": true,
-	"internal/upgrade/service.go:executeUpgrade":     true,
+// resolved from the already-selected psql or sb binary. Each exception requires
+// the marker on the immediately preceding line and exactly one call in the named
+// file/function. A second call in the function does not inherit the exception.
+var allowedDynamicSyscallExecHandoffs = map[string]int{
+	"cmd/psql.go:psqlCmd.RunE":                       1,
+	"internal/freshness/rebuild.go:RebuildAndReexec": 1,
+	"internal/upgrade/service.go:executeUpgrade":     1,
 }
 
 // These are pre-existing, explicit user/configuration command facilities rather
-// than source-authored recovery commands. Their exact shell executable and site
-// are pinned so an added dynamic shell call, even in the same function, changes
-// the inventory and fails. All other shell arguments must be compile-time
-// constants and must not contain docker/compose tokens.
-var allowedIntentionalDynamicShellCalls = map[string]int{
+// than source-authored recovery commands. Their exact mediator executable and
+// site are pinned so an added dynamic mediator call, even in the same function,
+// changes the inventory and fails. All other mediator arguments must be
+// compile-time constants and must not contain authority tokens.
+var allowedIntentionalDynamicMediatorCalls = map[string]int{
 	"cmd/db_with_seed_lock.go:withSeedLockCmd.RunE|/usr/bin/env":         1,
 	"cmd/dotenv.go:dotenvGenerateCmd.RunE|sh":                            1,
 	"cmd/install.go:runInstallCallback|sh":                               1,
@@ -252,45 +290,56 @@ func authorityConstantString(info *types.Info, expression ast.Expr) (string, boo
 	return constant.StringVal(value), true
 }
 
-func authorityShellExecutable(executable string) bool {
-	switch executable {
-	case "sh", "bash", "zsh", "dash", "/bin/sh", "/usr/bin/env":
-		return true
-	default:
-		return false
-	}
-}
-
-func authorityContainsDockerComposeToken(argument string) bool {
+func authorityContainsComposeAuthorityToken(argument string) bool {
 	tokens := strings.FieldsFunc(argument, func(r rune) bool {
 		return !unicode.IsLetter(r) && !unicode.IsDigit(r) && r != '_'
 	})
 	for _, token := range tokens {
-		if strings.EqualFold(token, "docker") || strings.EqualFold(token, "compose") {
+		switch strings.ToLower(token) {
+		case "docker", "docker-compose", "podman", "compose":
 			return true
 		}
 	}
 	return false
 }
 
-func authorityProcessLaunchViolations(launch authorityProcessLaunch, key, packagePath string, line int, info *types.Info, gotIntentionalDynamicShellCalls map[string]int) []string {
+func authorityPinnedReexecMarkerLines(file *ast.File, fset *token.FileSet) map[int]bool {
+	markers := make(map[int]bool)
+	for _, group := range file.Comments {
+		for _, comment := range group.List {
+			text := strings.TrimSpace(strings.TrimPrefix(comment.Text, "//"))
+			if text == pinnedReexecMarker {
+				markers[fset.Position(comment.End()).Line] = true
+			}
+		}
+	}
+	return markers
+}
+
+func authorityProcessLaunchViolations(launch authorityProcessLaunch, key, packagePath string, line int, info *types.Info, pinnedReexec bool, gotPinnedReexecHandoffs, gotIntentionalDynamicMediatorCalls, gotExecutableUses map[string]int) []string {
 	var violations []string
 	if !allowedProcessLaunchFunctions[key] {
 		violations = append(violations, fmt.Sprintf("unallowlisted %s construction at %s:%d", launch.kind, key, line))
 	}
 	executable, executableConstant := authorityConstantString(info, launch.executable)
-	dynamicHandoff := launch.kind == "syscall.Exec" && allowedDynamicSyscallExecHandoffs[key]
+	_, handoffAllowed := allowedDynamicSyscallExecHandoffs[key]
+	dynamicHandoff := launch.kind == "syscall.Exec" && handoffAllowed && pinnedReexec
 	if !executableConstant {
-		if !dynamicHandoff {
+		if dynamicHandoff {
+			gotPinnedReexecHandoffs[key]++
+		} else {
 			violations = append(violations, fmt.Sprintf("dynamic %s executable at %s:%d", launch.kind, key, line))
 		}
 		return violations
 	}
+	class, executableAllowed := allowedProcessExecutables[executable]
+	if !executableAllowed {
+		violations = append(violations, fmt.Sprintf("unknown %s executable %q at %s:%d", launch.kind, executable, key, line))
+		return violations
+	}
+	gotExecutableUses[executable]++
 	if (executable == "docker" || executable == "docker-compose") && packagePath != composePackagePath {
 		violations = append(violations, fmt.Sprintf("raw %s process launch outside compose wrapper at %s:%d", executable, key, line))
-	}
-	if !authorityShellExecutable(executable) {
-		return violations
 	}
 	hasDynamicArgument := !launch.argsKnown
 	for _, argumentExpression := range launch.arguments {
@@ -299,16 +348,16 @@ func authorityProcessLaunchViolations(launch authorityProcessLaunch, key, packag
 			hasDynamicArgument = true
 			continue
 		}
-		if authorityContainsDockerComposeToken(argument) {
-			violations = append(violations, fmt.Sprintf("shell argument contains docker/compose authority for %s at %s:%d", executable, key, line))
+		if authorityContainsComposeAuthorityToken(argument) {
+			violations = append(violations, fmt.Sprintf("%s argument contains docker/docker-compose/podman/compose authority for %s at %s:%d", class, executable, key, line))
 		}
 	}
-	if hasDynamicArgument {
+	if class == authorityMediator && hasDynamicArgument {
 		allowanceKey := key + "|" + executable
-		if _, allowed := allowedIntentionalDynamicShellCalls[allowanceKey]; allowed {
-			gotIntentionalDynamicShellCalls[allowanceKey]++
+		if _, allowed := allowedIntentionalDynamicMediatorCalls[allowanceKey]; allowed {
+			gotIntentionalDynamicMediatorCalls[allowanceKey]++
 		} else {
-			violations = append(violations, fmt.Sprintf("dynamic shell argument for %s at %s:%d", executable, key, line))
+			violations = append(violations, fmt.Sprintf("dynamic mediator argument for %s at %s:%d", executable, key, line))
 		}
 	}
 	return violations
@@ -485,7 +534,11 @@ func typedAuthorityViolation(cliDir string, overlay map[string][]byte) error {
 	gotUpCalls := make(map[string]int)
 	seenUpUse := make(map[string]bool)
 	seenProcessLaunch := make(map[string]bool)
-	gotIntentionalDynamicShellCalls := make(map[string]int)
+	seenPinnedReexecMarkers := make(map[string]bool)
+	usedPinnedReexecMarkers := make(map[string]bool)
+	gotPinnedReexecHandoffs := make(map[string]int)
+	gotIntentionalDynamicMediatorCalls := make(map[string]int)
+	gotExecutableUses := make(map[string]int)
 	var violations []string
 
 	for _, goos := range gooses {
@@ -496,6 +549,10 @@ func typedAuthorityViolation(cliDir string, overlay map[string][]byte) error {
 		for _, typedFile := range files {
 			loadedFiles[typedFile.path] = true
 			parents := authorityParents(typedFile.file)
+			pinnedReexecMarkers := authorityPinnedReexecMarkerLines(typedFile.file, typedFile.pkg.Fset)
+			for markerLine := range pinnedReexecMarkers {
+				seenPinnedReexecMarkers[fmt.Sprintf("%s:%d", typedFile.path, markerLine)] = true
+			}
 			info := typedFile.pkg.TypesInfo
 			ast.Inspect(typedFile.file, func(node ast.Node) bool {
 				if ident, ok := node.(*ast.Ident); ok {
@@ -538,14 +595,26 @@ func typedAuthorityViolation(cliDir string, overlay map[string][]byte) error {
 				}
 				position := typedFile.pkg.Fset.Position(launcherNode.Pos())
 				location := fmt.Sprintf("%s:%d:%d:%s", typedFile.path, position.Line, position.Column, launch.kind)
+				key := authorityEnclosingFunction(typedFile.path, launcherNode, parents)
+				markerLine := position.Line - 1
+				pinnedReexec := pinnedReexecMarkers[markerLine]
+				_, allowedPinnedFunction := allowedDynamicSyscallExecHandoffs[key]
+				_, executableConstant := authorityConstantString(info, launch.executable)
+				if pinnedReexec && launch.kind == "syscall.Exec" && allowedPinnedFunction && !executableConstant {
+					usedPinnedReexecMarkers[fmt.Sprintf("%s:%d", typedFile.path, markerLine)] = true
+				}
 				if seenProcessLaunch[location] {
 					return true
 				}
 				seenProcessLaunch[location] = true
-				key := authorityEnclosingFunction(typedFile.path, launcherNode, parents)
-				violations = append(violations, authorityProcessLaunchViolations(launch, key, typedFile.pkg.PkgPath, position.Line, info, gotIntentionalDynamicShellCalls)...)
+				violations = append(violations, authorityProcessLaunchViolations(launch, key, typedFile.pkg.PkgPath, position.Line, info, pinnedReexec, gotPinnedReexecHandoffs, gotIntentionalDynamicMediatorCalls, gotExecutableUses)...)
 				return true
 			})
+		}
+	}
+	for markerLocation := range seenPinnedReexecMarkers {
+		if !usedPinnedReexecMarkers[markerLocation] {
+			violations = append(violations, fmt.Sprintf("%s marker at %s is not adjacent to an allowed dynamic syscall.Exec handoff", pinnedReexecMarker, markerLocation))
 		}
 	}
 
@@ -563,9 +632,22 @@ func typedAuthorityViolation(cliDir string, overlay map[string][]byte) error {
 			violations = append(violations, fmt.Sprintf("compose.Up call inventory at %s = %d, want %d", key, gotUpCalls[key], want))
 		}
 	}
-	for key, want := range allowedIntentionalDynamicShellCalls {
-		if gotIntentionalDynamicShellCalls[key] != want {
-			violations = append(violations, fmt.Sprintf("intentional dynamic shell call inventory at %s = %d, want %d", key, gotIntentionalDynamicShellCalls[key], want))
+	for key, want := range allowedIntentionalDynamicMediatorCalls {
+		if gotIntentionalDynamicMediatorCalls[key] != want {
+			violations = append(violations, fmt.Sprintf("intentional dynamic mediator call inventory at %s = %d, want %d", key, gotIntentionalDynamicMediatorCalls[key], want))
+		}
+	}
+	for key, want := range allowedDynamicSyscallExecHandoffs {
+		if gotPinnedReexecHandoffs[key] != want {
+			violations = append(violations, fmt.Sprintf("pinned dynamic syscall.Exec inventory at %s = %d, want %d", key, gotPinnedReexecHandoffs[key], want))
+		}
+	}
+	for executable, class := range allowedProcessExecutables {
+		if class != authorityTool && class != authorityMediator {
+			violations = append(violations, fmt.Sprintf("invalid executable class %q for allowlist entry %q", class, executable))
+		}
+		if gotExecutableUses[executable] == 0 {
+			violations = append(violations, fmt.Sprintf("stale executable allowlist entry %q has zero production uses", executable))
 		}
 	}
 	if len(violations) != 0 {
@@ -683,7 +765,7 @@ func TestTypedComposeAuthorityRejectsShellPayloadInComposeWrapper(t *testing.T) 
 		return strings.Replace(source, anchor, anchor+"\t_ = exec.Command(\"sh\", \"-c\", \"docker compose up\")\n", 1)
 	})
 	err := typedAuthorityViolation(cliDir, overlay)
-	if err == nil || !strings.Contains(err.Error(), "shell argument contains docker/compose authority") {
+	if err == nil || !strings.Contains(err.Error(), "argument contains docker/docker-compose/podman/compose authority") {
 		t.Fatalf("compose-wrapper shell mutation survived: %v", err)
 	}
 }
@@ -695,7 +777,7 @@ func TestTypedComposeAuthorityRejectsShellPayloadInInstallCommand(t *testing.T) 
 		return strings.Replace(source, anchor, anchor+"\t_ = exec.Command(\"sh\", \"-c\", \"docker compose up\")\n", 1)
 	})
 	err := typedAuthorityViolation(cliDir, overlay)
-	if err == nil || !strings.Contains(err.Error(), "shell argument contains docker/compose authority") {
+	if err == nil || !strings.Contains(err.Error(), "argument contains docker/docker-compose/podman/compose authority") {
 		t.Fatalf("install shell mutation survived: %v", err)
 	}
 }
@@ -752,15 +834,128 @@ func Run() *exec.Cmd {
 	})
 }
 
-func TestTypedComposeAuthorityRejectsDynamicShellArgument(t *testing.T) {
+func TestTypedComposeAuthorityRejectsDynamicMediatorArgumentInComposeWrapper(t *testing.T) {
 	cliDir := thisRepoFile(t, "cli")
 	overlay := authorityOverlay(t, cliDir, "internal/compose/compose.go", func(source string) string {
 		anchor := "func dockerComposeCommand(ctx context.Context, projDir string, args ...string) (*exec.Cmd, error) {\n"
 		return strings.Replace(source, anchor, anchor+"\t_ = exec.Command(\"sh\", \"-c\", os.Getenv(\"PAYLOAD\"))\n", 1)
 	})
 	err := typedAuthorityViolation(cliDir, overlay)
-	if err == nil || !strings.Contains(err.Error(), "dynamic shell argument") {
-		t.Fatalf("dynamic shell argument mutation survived: %v", err)
+	if err == nil || !strings.Contains(err.Error(), "dynamic mediator argument") {
+		t.Fatalf("dynamic mediator argument mutation survived: %v", err)
+	}
+}
+
+func TestTypedComposeAuthorityRejectsUnknownExecutableMediators(t *testing.T) {
+	cliDir := thisRepoFile(t, "cli")
+	tests := []struct {
+		name       string
+		executable string
+		arguments  string
+	}{
+		{name: "env", executable: "env", arguments: `"docker", "compose", "up"`},
+		{name: "xargs", executable: "xargs", arguments: `"docker", "compose", "up"`},
+		{name: "nohup", executable: "nohup", arguments: `"docker", "compose", "up"`},
+		{name: "sudo", executable: "sudo", arguments: `"docker", "compose", "up"`},
+		{name: "podman", executable: "podman", arguments: `"compose", "up"`},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			overlay := authorityOverlay(t, cliDir, "cmd/install.go", func(source string) string {
+				anchor := "func commandContextDir(ctx context.Context, dir string, name string, args ...string) (*exec.Cmd, error) {\n"
+				mutation := fmt.Sprintf("\t_ = exec.Command(%q, %s)\n", test.executable, test.arguments)
+				return strings.Replace(source, anchor, anchor+mutation, 1)
+			})
+			err := typedAuthorityViolation(cliDir, overlay)
+			want := fmt.Sprintf("unknown os/exec executable %q", test.executable)
+			if err == nil || !strings.Contains(err.Error(), want) {
+				t.Fatalf("%s mediator mutation survived: %v", test.executable, err)
+			}
+		})
+	}
+}
+
+func TestTypedComposeAuthorityRejectsUnknownExecutable(t *testing.T) {
+	cliDir := thisRepoFile(t, "cli")
+	overlay := authorityOverlay(t, cliDir, "cmd/install.go", func(source string) string {
+		anchor := "func commandContextDir(ctx context.Context, dir string, name string, args ...string) (*exec.Cmd, error) {\n"
+		return strings.Replace(source, anchor, anchor+"\t_ = exec.Command(\"frobnicate\", \"status\")\n", 1)
+	})
+	err := typedAuthorityViolation(cliDir, overlay)
+	if err == nil || !strings.Contains(err.Error(), `unknown os/exec executable "frobnicate"`) {
+		t.Fatalf("unknown executable mutation survived: %v", err)
+	}
+}
+
+func TestTypedComposeAuthorityRejectsToolAuthorityArgument(t *testing.T) {
+	cliDir := thisRepoFile(t, "cli")
+	overlay := authorityOverlay(t, cliDir, "cmd/install.go", func(source string) string {
+		anchor := "func commandContextDir(ctx context.Context, dir string, name string, args ...string) (*exec.Cmd, error) {\n"
+		return strings.Replace(source, anchor, anchor+"\t_ = exec.Command(\"git\", \"docker\")\n", 1)
+	})
+	err := typedAuthorityViolation(cliDir, overlay)
+	if err == nil || !strings.Contains(err.Error(), "tool argument contains docker/docker-compose/podman/compose authority for git") {
+		t.Fatalf("tool authority-argument mutation survived: %v", err)
+	}
+}
+
+func TestTypedComposeAuthorityRejectsDynamicMediatorArgument(t *testing.T) {
+	cliDir := thisRepoFile(t, "cli")
+	overlay := authorityOverlay(t, cliDir, "cmd/install.go", func(source string) string {
+		anchor := "func commandContextDir(ctx context.Context, dir string, name string, args ...string) (*exec.Cmd, error) {\n"
+		return strings.Replace(source, anchor, anchor+"\t_ = exec.Command(\"bash\", \"-c\", os.Getenv(\"PAYLOAD\"))\n", 1)
+	})
+	err := typedAuthorityViolation(cliDir, overlay)
+	if err == nil || !strings.Contains(err.Error(), "dynamic mediator argument for bash") {
+		t.Fatalf("dynamic mediator mutation survived: %v", err)
+	}
+}
+
+func TestTypedComposeAuthorityRejectsStaleExecutableAllowlistEntry(t *testing.T) {
+	cliDir := thisRepoFile(t, "cli")
+	const staleExecutable = "stale-authority-tool"
+	allowedProcessExecutables[staleExecutable] = authorityTool
+	t.Cleanup(func() { delete(allowedProcessExecutables, staleExecutable) })
+	err := typedAuthorityViolation(cliDir, nil)
+	if err == nil || !strings.Contains(err.Error(), `stale executable allowlist entry "stale-authority-tool" has zero production uses`) {
+		t.Fatalf("stale executable allowlist mutation survived: %v", err)
+	}
+}
+
+func TestTypedComposeAuthorityRejectsSecondDynamicSyscallExecInPinnedFunction(t *testing.T) {
+	cliDir := thisRepoFile(t, "cli")
+	overlay := authorityOverlay(t, cliDir, "internal/upgrade/service.go", func(source string) string {
+		anchor := "\t// authority:pinned-reexec\n\tif err := syscall.Exec(sbPath, os.Args, os.Environ()); err != nil {\n"
+		mutation := "\t_ = syscall.Exec(sbPath, os.Args, os.Environ())\n"
+		return strings.Replace(source, anchor, mutation+anchor, 1)
+	})
+	err := typedAuthorityViolation(cliDir, overlay)
+	if err == nil || !strings.Contains(err.Error(), "dynamic syscall.Exec executable at internal/upgrade/service.go:executeUpgrade") {
+		t.Fatalf("second dynamic syscall.Exec mutation survived: %v", err)
+	}
+}
+
+func TestTypedComposeAuthorityRejectsMissingPinnedReexecMarker(t *testing.T) {
+	cliDir := thisRepoFile(t, "cli")
+	overlay := authorityOverlay(t, cliDir, "cmd/psql.go", func(source string) string {
+		return strings.Replace(source, "\t\t\t// authority:pinned-reexec\n", "", 1)
+	})
+	err := typedAuthorityViolation(cliDir, overlay)
+	if err == nil || !strings.Contains(err.Error(), "dynamic syscall.Exec executable at cmd/psql.go:psqlCmd.RunE") || !strings.Contains(err.Error(), "pinned dynamic syscall.Exec inventory at cmd/psql.go:psqlCmd.RunE = 0, want 1") {
+		t.Fatalf("missing pinned re-exec marker mutation survived: %v", err)
+	}
+}
+
+func TestTypedComposeAuthorityRejectsPinnedMarkerOnRogueCall(t *testing.T) {
+	cliDir := thisRepoFile(t, "cli")
+	overlay := authorityOverlay(t, cliDir, "internal/upgrade/service.go", func(source string) string {
+		anchor := "\t// authority:pinned-reexec\n\tif err := syscall.Exec(sbPath, os.Args, os.Environ()); err != nil {\n"
+		mutation := "\t// authority:pinned-reexec\n\t_ = syscall.Exec(\"git\", []string{\"git\", \"status\"}, os.Environ())\n"
+		return strings.Replace(source, anchor, mutation+anchor, 1)
+	})
+	err := typedAuthorityViolation(cliDir, overlay)
+	if err == nil || !strings.Contains(err.Error(), "marker at internal/upgrade/service.go") || !strings.Contains(err.Error(), "is not adjacent to an allowed dynamic syscall.Exec handoff") {
+		t.Fatalf("rogue pinned re-exec marker mutation survived: %v", err)
 	}
 }
 
