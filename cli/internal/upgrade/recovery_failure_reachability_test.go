@@ -5,6 +5,8 @@ import (
 	"go/ast"
 	"go/parser"
 	"go/token"
+	"os"
+	"path/filepath"
 	"sort"
 	"strconv"
 	"strings"
@@ -17,6 +19,163 @@ type serviceMethodInfo struct {
 	calls            []string
 	composeUp        bool
 	composeUpOffsets []int
+}
+
+type composeUpConstruction struct {
+	file     string
+	function string
+	line     int
+}
+
+func composeUpProductionSources(t *testing.T) map[string][]byte {
+	t.Helper()
+	sources := make(map[string][]byte)
+	for name, source := range packageGoSources(t) {
+		sources[filepath.ToSlash(filepath.Join("upgrade", name))] = source
+	}
+	composeDir := thisRepoFile(t, "cli/internal/compose")
+	entries, err := os.ReadDir(composeDir)
+	if err != nil {
+		t.Fatalf("list compose production sources: %v", err)
+	}
+	for _, entry := range entries {
+		name := entry.Name()
+		if entry.IsDir() || !strings.HasSuffix(name, ".go") || strings.HasSuffix(name, "_test.go") {
+			continue
+		}
+		source, err := os.ReadFile(filepath.Join(composeDir, name))
+		if err != nil {
+			t.Fatalf("read compose production source %s: %v", name, err)
+		}
+		sources[filepath.ToSlash(filepath.Join("compose", name))] = source
+	}
+	return sources
+}
+
+func exactStringLiteral(node ast.Node, want string) bool {
+	found := false
+	ast.Inspect(node, func(child ast.Node) bool {
+		literal, ok := child.(*ast.BasicLit)
+		if !ok || literal.Kind != token.STRING {
+			return true
+		}
+		value, err := strconv.Unquote(literal.Value)
+		if err == nil && value == want {
+			found = true
+			return false
+		}
+		return true
+	})
+	return found
+}
+
+// composeUpConstructionsFromSources is deliberately independent of Service
+// call-graph reachability. It inventories the "up" literal at its construction
+// site, including slice elements and variables later invoked through a function
+// value. That second layer prevents interface/alias/data-flow dispatch from
+// hiding a newly introduced compose-up from the recovery closure walker.
+func composeUpConstructionsFromSources(t *testing.T, sources map[string][]byte) []composeUpConstruction {
+	t.Helper()
+	var constructions []composeUpConstruction
+	for file, source := range sources {
+		fset := token.NewFileSet()
+		parsed, err := parser.ParseFile(fset, file, source, 0)
+		if err != nil {
+			t.Fatalf("parse %s: %v", file, err)
+		}
+		isComposePackage := strings.HasPrefix(file, "compose/")
+		for _, decl := range parsed.Decls {
+			fn, ok := decl.(*ast.FuncDecl)
+			if !ok || fn.Body == nil {
+				continue
+			}
+			fnHasCompose := exactStringLiteral(fn.Body, "compose")
+			var ancestors []ast.Node
+			ast.Inspect(fn.Body, func(node ast.Node) bool {
+				if node == nil {
+					ancestors = ancestors[:len(ancestors)-1]
+					return true
+				}
+				literal, isLiteral := node.(*ast.BasicLit)
+				if isLiteral && literal.Kind == token.STRING {
+					value, unquoteErr := strconv.Unquote(literal.Value)
+					if unquoteErr == nil && value == "up" {
+						isComposeUp := isComposePackage
+						variableBuilt := false
+						directVariableValue := true
+						for i := len(ancestors) - 1; !isComposeUp && i >= 0; i-- {
+							switch ancestor := ancestors[i].(type) {
+							case *ast.CallExpr:
+								if ident, ok := ancestor.Fun.(*ast.Ident); ok && ident.Name == "append" {
+									variableBuilt = true
+								} else {
+									directVariableValue = false
+								}
+								isComposeUp = exactStringLiteral(ancestor, "compose")
+							case *ast.CompositeLit:
+								variableBuilt = true
+								isComposeUp = exactStringLiteral(ancestor, "compose")
+							case *ast.AssignStmt, *ast.ValueSpec:
+								// Variable-built args may add "compose" in a separate
+								// assignment and reach execution through an interface,
+								// receiver alias, or function value. Deliberately do not
+								// depend on the executor's identifier.
+								isComposeUp = exactStringLiteral(ancestor, "compose") || ((variableBuilt || directVariableValue) && fnHasCompose)
+							}
+						}
+						if isComposeUp {
+							constructions = append(constructions, composeUpConstruction{
+								file:     file,
+								function: fn.Name.Name,
+								line:     fset.Position(literal.Pos()).Line,
+							})
+						}
+					}
+				}
+				ancestors = append(ancestors, node)
+				return true
+			})
+		}
+	}
+	sort.Slice(constructions, func(i, j int) bool {
+		if constructions[i].file != constructions[j].file {
+			return constructions[i].file < constructions[j].file
+		}
+		if constructions[i].function != constructions[j].function {
+			return constructions[i].function < constructions[j].function
+		}
+		return constructions[i].line < constructions[j].line
+	})
+	return constructions
+}
+
+func composeUpConstructionViolation(constructions []composeUpConstruction) error {
+	// This inventory covers every production construction site. The separate
+	// recovery reachability gate below proves that only startSourceApplicationStack
+	// is failure-reachable, and that its recreate is era-verified. Exact counts keep
+	// a second construction inside an otherwise legitimate function from hiding.
+	want := map[string]int{
+		"compose/compose.go:RestartAndWait":              1,
+		"compose/compose.go:ResumeClients":               1,
+		"compose/compose.go:Start":                       1,
+		"upgrade/exec.go:EnsureDBUp":                     1,
+		"upgrade/service.go:abortFailedPreBackupStop":    1,
+		"upgrade/service.go:applyNewSbUpgrading":         2,
+		"upgrade/service.go:completeInProgressUpgrade":   1,
+		"upgrade/service.go:startSourceApplicationStack": 1,
+	}
+	got := make(map[string]int)
+	for _, construction := range constructions {
+		key := construction.file + ":" + construction.function
+		got[key]++
+		if _, ok := want[key]; !ok {
+			return fmt.Errorf("unallowlisted compose-up construction at %s:%d (%s)", construction.file, construction.line, construction.function)
+		}
+	}
+	if fmt.Sprint(got) != fmt.Sprint(want) {
+		return fmt.Errorf("compose-up construction inventory = %v, want %v", got, want)
+	}
+	return nil
 }
 
 func upgradeServiceMethodBodies(t *testing.T) map[string]serviceMethodInfo {
@@ -251,5 +410,32 @@ func TestRecoveryFailureReachabilityMutationsCatchNewEntryRoots(t *testing.T) {
 				t.Fatalf("mutation survived recovery reachability gate: err=%v, want %q", err, tc.wantErrSub)
 			}
 		})
+	}
+}
+
+func TestEveryComposeUpConstructionIsSyntacticallyAllowlisted(t *testing.T) {
+	constructions := composeUpConstructionsFromSources(t, composeUpProductionSources(t))
+	if err := composeUpConstructionViolation(constructions); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestComposeUpConstructionInventoryCatchesFuncValueMutation(t *testing.T) {
+	sources := composeUpProductionSources(t)
+	serviceKey := "upgrade/service.go"
+	mutation := `
+
+func composeUpViaFuncValueMutation(d *Service) error {
+	verb := "up"
+	args := []string{"compose", verb, "-d", "app"}
+	runner := runCommand
+	return runner(d.projDir, "docker", args...)
+}
+`
+	sources[serviceKey] = append(append([]byte(nil), sources[serviceKey]...), []byte(mutation)...)
+	constructions := composeUpConstructionsFromSources(t, sources)
+	err := composeUpConstructionViolation(constructions)
+	if err == nil || !strings.Contains(err.Error(), "unallowlisted compose-up construction") || !strings.Contains(err.Error(), "composeUpViaFuncValueMutation") {
+		t.Fatalf("func-value compose-up mutation survived syntactic inventory: %v", err)
 	}
 }

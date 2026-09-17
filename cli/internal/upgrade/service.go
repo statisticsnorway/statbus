@@ -606,8 +606,8 @@ func ReadConfigRefusalMarker(projDir string) (*ConfigRefusalMarker, error) {
 }
 
 // acquireFlock opens the flag file with O_CREAT|O_RDWR, takes an
-// exclusive kernel-level flock (LOCK_EX|LOCK_NB), then truncates and
-// writes the given metadata. Caller keeps the returned *os.File open for
+// exclusive kernel-level flock (LOCK_EX|LOCK_NB), then atomically replaces
+// its metadata. Caller keeps the returned *os.File open for
 // the full duration of the work — closing it releases the flock. On
 // crash the kernel closes fds automatically, so stale locks are
 // impossible.
@@ -661,24 +661,12 @@ func acquireFlock(projDir string, flag UpgradeFlag) (*FlagLock, error) {
 		_ = f.Close()
 		return nil, restartRefusal(previous.Restart)
 	}
-	// We hold the lock. Truncate existing content and write ours.
-	if _, err := f.Seek(0, 0); err != nil {
-		_ = f.Close() // best-effort; already erroring out
-		return nil, fmt.Errorf("seek flag: %w", err)
+	lock := &FlagLock{file: f, markerPath: path}
+	if err := replaceHeldFlagAtomically(lock, data, nil); err != nil {
+		lock.Close()
+		return nil, fmt.Errorf("replace claimed flag: %w", err)
 	}
-	if err := f.Truncate(0); err != nil {
-		_ = f.Close() // best-effort; already erroring out
-		return nil, fmt.Errorf("truncate flag: %w", err)
-	}
-	if _, err := f.Write(data); err != nil {
-		_ = f.Close() // best-effort; already erroring out
-		return nil, fmt.Errorf("write flag: %w", err)
-	}
-	if err := f.Sync(); err != nil {
-		_ = f.Close() // best-effort; already erroring out
-		return nil, fmt.Errorf("sync flag: %w", err)
-	}
-	return &FlagLock{file: f}, nil
+	return lock, nil
 }
 
 // acquireFreshFlock creates and locks a NEW marker, refusing to overwrite any
@@ -736,7 +724,7 @@ func finishFreshFlock(f *os.File, data []byte) (*FlagLock, error) {
 	if err := f.Sync(); err != nil {
 		return removeOnError(fmt.Errorf("sync fresh flag: %w", err))
 	}
-	return &FlagLock{file: f}, nil
+	return &FlagLock{file: f, markerPath: path}, nil
 }
 
 // acquireRecoveryFlock acquires an EXISTING recovery marker without ever
@@ -811,7 +799,7 @@ func acquireRecoveryFlock(projDir string, classified UpgradeFlag) (*FlagLock, Up
 			"recovery marker changed after classification: classified upgrade %d holder %q phase %q, held marker is upgrade %d holder %q phase %q — refusing stale intent",
 			classified.ID, classified.Holder, classified.Phase, held.ID, held.Holder, held.Phase)
 	}
-	return &FlagLock{file: f}, held, nil
+	return &FlagLock{file: f, markerPath: path}, held, nil
 }
 
 // removeRecoveredInstallFlag consumes only the install marker whose inode and
@@ -829,7 +817,7 @@ func removeRecoveredInstallFlag(lock *FlagLock, held UpgradeFlag) (bool, error) 
 	if err != nil {
 		return false, fmt.Errorf("stat held install marker: %w", err)
 	}
-	path := lock.file.Name()
+	path := lock.canonicalPath()
 	pathInfo, err := os.Stat(path)
 	if err != nil {
 		return false, fmt.Errorf("stat install marker before cleanup: %w", err)
@@ -911,7 +899,21 @@ func (d *Service) adoptOrAcquireFlagHold() (release func(), err error) {
 // marker. Close releases the lock; fd death via crash also releases the
 // lock automatically via kernel fd teardown.
 type FlagLock struct {
-	file *os.File
+	file       *os.File
+	markerPath string
+}
+
+func (l *FlagLock) canonicalPath() string {
+	if l == nil {
+		return ""
+	}
+	if l.markerPath != "" {
+		return l.markerPath
+	}
+	if l.file != nil {
+		return l.file.Name()
+	}
+	return ""
 }
 
 // Close releases the flock by closing the fd. Safe to call multiple
@@ -953,70 +955,45 @@ func (d *Service) writeUpgradeFlag(id int, commitSHA string, commitTags []string
 	return nil
 }
 
-// updateFlagNewSbSwapped rewrites the on-disk flag JSON without releasing the
-// flock: sets Phase=PhaseNewSbSwapped and stores backupPath so the new
+// updateFlagNewSbSwapped atomically replaces the on-disk flag JSON while
+// preserving the flock: sets Phase=PhaseNewSbSwapped and stores backupPath so the new
 // binary's recoverFromFlag → resumeNewSb can resume without a live DB
 // connection (queryConn is closed mid-flow for the consistent backup).
 //
 // Preconditions: d.flagLock holds the flock (set by writeUpgradeFlag).
-// Uses the already-open fd so the flock is preserved across the rewrite.
+// Uses mutateHeldFlag so every recovery-critical marker mutation shares the
+// temp-write, fsync, rename, and replacement-inode flock transfer.
 func (d *Service) updateFlagNewSbSwapped(backupPath string) error {
-	if d.flagLock == nil || d.flagLock.file == nil {
-		return fmt.Errorf("updateFlagNewSbSwapped: no flag file held")
-	}
-	f := d.flagLock.file
-	if _, err := f.Seek(0, 0); err != nil {
-		return fmt.Errorf("seek flag for read: %w", err)
-	}
-	data, err := io.ReadAll(f)
-	if err != nil {
-		return fmt.Errorf("read flag: %w", err)
-	}
-	var flag UpgradeFlag
-	if err := json.Unmarshal(data, &flag); err != nil {
-		return fmt.Errorf("unmarshal flag: %w", err)
-	}
-	// LOAD-BEARING COUPLING (STATBUS-228): these two assignments must stay in
-	// the SAME write. This function is the ONLY writer of flag.BackupPath, and
-	// it flips the phase away from PreSwap in the same breath — that is what
-	// enforces "a PreSwap flag carries an empty BackupPath by construction"
-	// (:1300-1353's safety argument) structurally rather than by convention.
-	// Splitting these for tidiness reopens STATBUS-197's defect: a PreSwap
-	// flag carrying a snapshot identity turns the PreSwap rollback no-op into
-	// a destructive restore that rewinds recovery_attempts.
-	flag.Phase = PhaseNewSbSwapped
-	flag.BackupPath = backupPath
-	newData, err := json.MarshalIndent(flag, "", "  ")
-	if err != nil {
-		return fmt.Errorf("marshal flag: %w", err)
-	}
-	if _, err := f.Seek(0, 0); err != nil {
-		return fmt.Errorf("seek flag for write: %w", err)
-	}
-	if err := f.Truncate(0); err != nil {
-		return fmt.Errorf("truncate flag: %w", err)
-	}
-	if _, err := f.Write(newData); err != nil {
-		return fmt.Errorf("write flag: %w", err)
-	}
-	if err := f.Sync(); err != nil {
-		return fmt.Errorf("sync flag: %w", err)
-	}
-	return nil
+	return d.mutateHeldFlag(func(flag *UpgradeFlag) {
+		// LOAD-BEARING COUPLING (STATBUS-228): these two assignments must stay in
+		// the SAME write. This function is the ONLY writer of flag.BackupPath, and
+		// it flips the phase away from PreSwap in the same breath — that is what
+		// enforces "a PreSwap flag carries an empty BackupPath by construction"
+		// (:1300-1353's safety argument) structurally rather than by convention.
+		// Splitting these for tidiness reopens STATBUS-197's defect: a PreSwap
+		// flag carrying a snapshot identity turns the PreSwap rollback no-op into
+		// a destructive restore that rewinds recovery_attempts.
+		flag.Phase = PhaseNewSbSwapped
+		flag.BackupPath = backupPath
+	})
 }
 
 // recordFlagStep (STATBUS-046 doc-021) rewrites the held flag's Step field to
 // the currently-executing Phase-3 step as each step BEGINS, so a crash/kill
 // freezes the step it died at. resumeNewSb reads it on the next resume to
-// detect same-step-twice (deterministic hang → park early). Same in-place
-// seek/truncate/rewrite pattern as updateFlagNewSbSwapped (flock held throughout).
+// detect same-step-twice (deterministic hang → park early).
 // Best-effort: a failure to persist the step name must not abort the upgrade —
 // it only degrades same-step-twice detection to the plain attempt budget — so
 // callers log and continue rather than fail the step.
-// mutateHeldFlag reads the held on-disk flag, applies fn, and rewrites it in
-// place (seek/truncate/rewrite under the held flock) — the shared core of
-// recordFlagStep + recordRollbackCommit so the flag-rewrite pattern lives once.
+// mutateHeldFlag reads the held on-disk flag, applies fn, and atomically replaces
+// it under a flock already acquired on the replacement inode. A crash before
+// rename leaves the old complete marker; after rename the new complete marker is
+// both durable and locked. This is the shared core of every held marker mutation.
 func (d *Service) mutateHeldFlag(fn func(*UpgradeFlag)) error {
+	return d.mutateHeldFlagBeforeRename(fn, nil)
+}
+
+func (d *Service) mutateHeldFlagBeforeRename(fn func(*UpgradeFlag), beforeRename func() error) error {
 	if d.flagLock == nil || d.flagLock.file == nil {
 		return fmt.Errorf("no flag file held")
 	}
@@ -1037,17 +1014,69 @@ func (d *Service) mutateHeldFlag(fn func(*UpgradeFlag)) error {
 	if err != nil {
 		return fmt.Errorf("marshal flag: %w", err)
 	}
-	if _, err := f.Seek(0, 0); err != nil {
-		return fmt.Errorf("seek flag for write: %w", err)
+	return replaceHeldFlagAtomically(d.flagLock, newData, beforeRename)
+}
+
+// replaceHeldFlagAtomically installs complete marker bytes without ever exposing
+// a truncated marker or an unlocked replacement path. The temp inode is locked
+// before rename, then becomes the canonical marker while still locked. Only then
+// is the superseded inode closed. The directory fsync makes the rename durable.
+func replaceHeldFlagAtomically(lock *FlagLock, data []byte, beforeRename func() error) error {
+	if lock == nil || lock.file == nil {
+		return fmt.Errorf("no flag file held")
 	}
-	if err := f.Truncate(0); err != nil {
-		return fmt.Errorf("truncate flag: %w", err)
+	path := lock.canonicalPath()
+	if path == "" {
+		return fmt.Errorf("held flag has no canonical path")
 	}
-	if _, err := f.Write(newData); err != nil {
-		return fmt.Errorf("write flag: %w", err)
+	dir := filepath.Dir(path)
+	tmp, err := os.CreateTemp(dir, "."+filepath.Base(path)+".tmp-*")
+	if err != nil {
+		return fmt.Errorf("create temporary flag: %w", err)
 	}
-	if err := f.Sync(); err != nil {
-		return fmt.Errorf("sync flag: %w", err)
+	tmpPath := tmp.Name()
+	installed := false
+	defer func() {
+		if installed {
+			return
+		}
+		_ = tmp.Close()
+		_ = os.Remove(tmpPath)
+	}()
+	if err := tmp.Chmod(0o644); err != nil {
+		return fmt.Errorf("chmod temporary flag: %w", err)
+	}
+	if err := syscall.Flock(int(tmp.Fd()), syscall.LOCK_EX|syscall.LOCK_NB); err != nil {
+		return fmt.Errorf("lock temporary flag: %w", err)
+	}
+	if _, err := tmp.Write(data); err != nil {
+		return fmt.Errorf("write temporary flag: %w", err)
+	}
+	if err := tmp.Sync(); err != nil {
+		return fmt.Errorf("sync temporary flag: %w", err)
+	}
+	if beforeRename != nil {
+		if err := beforeRename(); err != nil {
+			return fmt.Errorf("before atomic flag rename: %w", err)
+		}
+	}
+	if err := os.Rename(tmpPath, path); err != nil {
+		return fmt.Errorf("rename temporary flag: %w", err)
+	}
+
+	old := lock.file
+	lock.file = tmp
+	lock.markerPath = path
+	installed = true
+	_ = old.Close()
+
+	dirFile, err := os.Open(dir)
+	if err != nil {
+		return fmt.Errorf("open flag directory for sync: %w", err)
+	}
+	defer func() { _ = dirFile.Close() }()
+	if err := dirFile.Sync(); err != nil {
+		return fmt.Errorf("sync flag directory: %w", err)
 	}
 	return nil
 }
@@ -1163,7 +1192,7 @@ func (d *Service) ClearFlagStepHistory() error {
 	}
 	flag.Step = ""
 	flag.PriorDeathStep = ""
-	lock, lerr := acquireFlock(d.projDir, *flag) // truncate-rewrites the flag with the cleared fields
+	lock, lerr := acquireFlock(d.projDir, *flag) // atomically replaces the flag with the cleared fields
 	if lerr != nil {
 		return lerr
 	}
@@ -1419,7 +1448,7 @@ func ReleaseInstallFlag(lock *FlagLock) {
 	if lock != nil && lock.file != nil {
 		// STATBUS-187 AC#3 (architect ruling, ticket comment #7): uniform
 		// stale-flag-class treatment — see warnOnStaleFlagRemoveFailure.
-		path := lock.file.Name()
+		path := lock.canonicalPath()
 		warnOnStaleFlagRemoveFailure(path, os.Remove(path),
 			"a later `./sb install` run will read this stale flag and misdetect a crashed install (an availability wedge, not corruption; that path re-attempts this same removal every boot)")
 		lock.Close()
@@ -8123,24 +8152,24 @@ func (d *Service) sourceServingContainerEntries(ctx context.Context) ([]compose.
 		if !serving[entry.Service] {
 			continue
 		}
-		if strings.TrimSpace(entry.ImageID) != "" {
-			imageID, normalizeErr := normalizedDockerImageID(entry.ImageID)
-			if normalizeErr != nil {
-				return nil, &sourceServingEraUnknownError{Detail: fmt.Sprintf("inspect %s container immutable identity: %v", entry.Service, normalizeErr)}
-			}
-			entry.ImageID = imageID
-			servingEntries = append(servingEntries, entry)
-			continue
-		}
 		containerID := strings.TrimSpace(entry.ID)
 		if containerID == "" {
-			return nil, &sourceServingEraUnknownError{Detail: fmt.Sprintf("%s container has no container ID or immutable image ID", entry.Service)}
+			return nil, &sourceServingEraUnknownError{Detail: fmt.Sprintf("%s container has no container ID, so its immutable image identity cannot be verified against the Docker daemon", entry.Service)}
 		}
-		imageID, inspectErr := d.dockerContainerImageID(ctx, containerID)
+		daemonImageID, inspectErr := d.dockerContainerImageID(ctx, containerID)
 		if inspectErr != nil {
 			return nil, &sourceServingEraUnknownError{Detail: fmt.Sprintf("inspect %s container immutable identity: %v", entry.Service, inspectErr)}
 		}
-		entry.ImageID = imageID
+		if strings.TrimSpace(entry.ImageID) != "" {
+			composeImageID, normalizeErr := normalizedDockerImageID(entry.ImageID)
+			if normalizeErr != nil {
+				return nil, &sourceServingEraUnknownError{Detail: fmt.Sprintf("inspect %s container immutable identity: %v", entry.Service, normalizeErr)}
+			}
+			if composeImageID != daemonImageID {
+				return nil, &sourceServingEraUnknownError{Detail: fmt.Sprintf("%s container immutable identity disagrees: Docker Compose reported %s, but the Docker daemon reported %s", entry.Service, composeImageID, daemonImageID)}
+			}
+		}
+		entry.ImageID = daemonImageID
 		servingEntries = append(servingEntries, entry)
 	}
 	return servingEntries, nil

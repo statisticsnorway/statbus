@@ -64,7 +64,8 @@ const sourceStackImageInspectCases = `
 	"image inspect --format {{.Id}} "*statbus-worker*) printf '%s\n' "$STATBUS_TEST_WORKER_SOURCE_ID" ;;
 	"image inspect --format {{.Id}} "*postgrest*) printf '%s\n' "$STATBUS_TEST_REST_SOURCE_ID" ;;
 	"image inspect --format {{.Id}} "*statbus-proxy*) printf '%s\n' "$STATBUS_TEST_PROXY_SOURCE_ID" ;;
-`
+	"inspect --format {{.Image}} "*) printf '%s\n' "$4" ;;
+	`
 
 func TestStartSourceApplicationStackStartsOnlyVerifiedSourceEraContainers(t *testing.T) {
 	setSourceStackImageIdentityEnv(t)
@@ -83,10 +84,10 @@ case "$*" in
 		printf '%s\n' '{"services":{"app":{"image":"ghcr.io/statisticsnorway/statbus-app:'"$STATBUS_TEST_SOURCE_TAG"'"},"worker":{"image":"ghcr.io/statisticsnorway/statbus-worker:'"$STATBUS_TEST_SOURCE_TAG"'"},"rest":{"image":"postgrest/postgrest:v12.2.8"},"proxy":{"image":"ghcr.io/statisticsnorway/statbus-proxy:'"$STATBUS_TEST_SOURCE_TAG"'"}}}'
 		;;
 	  "compose ps -a --format json")
-		    printf '%s\n' '{"Service":"app","State":"exited","Image":"ghcr.io/statisticsnorway/statbus-app:'"$STATBUS_TEST_SOURCE_TAG"'","ImageID":"'"$STATBUS_TEST_APP_SOURCE_ID"'"}'
-		    printf '%s\n' '{"Service":"worker","State":"exited","Image":"ghcr.io/statisticsnorway/statbus-worker:'"$STATBUS_TEST_SOURCE_TAG"'","ImageID":"'"$STATBUS_TEST_WORKER_SOURCE_ID"'"}'
-		    printf '%s\n' '{"Service":"rest","State":"exited","Image":"postgrest/postgrest:v12.2.8","ImageID":"'"$STATBUS_TEST_REST_SOURCE_ID"'"}'
-		    printf '%s\n' '{"Service":"proxy","State":"exited","Image":"ghcr.io/statisticsnorway/statbus-proxy:'"$STATBUS_TEST_SOURCE_TAG"'","ImageID":"'"$STATBUS_TEST_PROXY_SOURCE_ID"'"}'
+		    printf '%s\n' '{"ID":"'"$STATBUS_TEST_APP_SOURCE_ID"'","Service":"app","State":"exited","Image":"ghcr.io/statisticsnorway/statbus-app:'"$STATBUS_TEST_SOURCE_TAG"'","ImageID":"'"$STATBUS_TEST_APP_SOURCE_ID"'"}'
+		    printf '%s\n' '{"ID":"'"$STATBUS_TEST_WORKER_SOURCE_ID"'","Service":"worker","State":"exited","Image":"ghcr.io/statisticsnorway/statbus-worker:'"$STATBUS_TEST_SOURCE_TAG"'","ImageID":"'"$STATBUS_TEST_WORKER_SOURCE_ID"'"}'
+		    printf '%s\n' '{"ID":"'"$STATBUS_TEST_REST_SOURCE_ID"'","Service":"rest","State":"exited","Image":"postgrest/postgrest:v12.2.8","ImageID":"'"$STATBUS_TEST_REST_SOURCE_ID"'"}'
+		    printf '%s\n' '{"ID":"'"$STATBUS_TEST_PROXY_SOURCE_ID"'","Service":"proxy","State":"exited","Image":"ghcr.io/statisticsnorway/statbus-proxy:'"$STATBUS_TEST_SOURCE_TAG"'","ImageID":"'"$STATBUS_TEST_PROXY_SOURCE_ID"'"}'
 	    ;;
 esac
 exit 0
@@ -115,6 +116,36 @@ exit 0
 	}
 	if strings.Contains(log, "compose up") {
 		t.Fatalf("already-source-era containers must not be recreated:\n%s", logBytes)
+	}
+}
+
+func TestSourceServingContainerEntriesRejectsComposeImageIDDisagreement(t *testing.T) {
+	setSourceStackImageIdentityEnv(t)
+	projDir := t.TempDir()
+	shimDir := t.TempDir()
+	shim := `#!/bin/sh
+case "$*" in
+	"compose ps -a --format json")
+		printf '%s\n' '{"ID":"app-container","Service":"app","State":"running","Image":"ghcr.io/statisticsnorway/statbus-app:source","ImageID":"'"$STATBUS_TEST_APP_TARGET_ID"'"}'
+		;;
+	"inspect --format {{.Image}} app-container") printf '%s\n' "$STATBUS_TEST_APP_SOURCE_ID" ;;
+esac
+exit 0
+`
+	if err := os.WriteFile(filepath.Join(shimDir, "docker"), []byte(shim), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("PATH", shimDir+string(os.PathListSeparator)+os.Getenv("PATH"))
+
+	d := &Service{projDir: projDir}
+	_, err := d.sourceServingContainerEntries(context.Background())
+	var eraErr *sourceServingEraUnknownError
+	if !errors.As(err, &eraErr) {
+		t.Fatalf("error = %v, want sourceServingEraUnknownError", err)
+	}
+	if !strings.Contains(err.Error(), "Docker Compose reported "+servingEraTestImageID('a')) ||
+		!strings.Contains(err.Error(), "Docker daemon reported "+servingEraTestImageID('1')) {
+		t.Fatalf("disagreement error must name both immutable identities: %v", err)
 	}
 }
 
@@ -192,15 +223,15 @@ case "$*" in
 		;;
   "compose ps -a --format json")
 		if [ -f "$STATBUS_TEST_CONVERGED" ]; then
-					printf '%s\n' '{"Service":"app","State":"running","Image":"ghcr.io/statisticsnorway/statbus-app:'"$STATBUS_TEST_SOURCE_TAG"'","ImageID":"'"$STATBUS_TEST_APP_SOURCE_ID"'"}'
-					printf '%s\n' '{"Service":"worker","State":"running","Image":"ghcr.io/statisticsnorway/statbus-worker:'"$STATBUS_TEST_SOURCE_TAG"'","ImageID":"'"$STATBUS_TEST_WORKER_SOURCE_ID"'"}'
-					printf '%s\n' '{"Service":"rest","State":"running","Image":"postgrest/postgrest:v12.2.8","ImageID":"'"$STATBUS_TEST_REST_SOURCE_ID"'"}'
-					printf '%s\n' '{"Service":"proxy","State":"running","Image":"ghcr.io/statisticsnorway/statbus-proxy:'"$STATBUS_TEST_SOURCE_TAG"'","ImageID":"'"$STATBUS_TEST_PROXY_SOURCE_ID"'"}'
+					printf '%s\n' '{"ID":"'"$STATBUS_TEST_APP_SOURCE_ID"'","Service":"app","State":"running","Image":"ghcr.io/statisticsnorway/statbus-app:'"$STATBUS_TEST_SOURCE_TAG"'","ImageID":"'"$STATBUS_TEST_APP_SOURCE_ID"'"}'
+					printf '%s\n' '{"ID":"'"$STATBUS_TEST_WORKER_SOURCE_ID"'","Service":"worker","State":"running","Image":"ghcr.io/statisticsnorway/statbus-worker:'"$STATBUS_TEST_SOURCE_TAG"'","ImageID":"'"$STATBUS_TEST_WORKER_SOURCE_ID"'"}'
+					printf '%s\n' '{"ID":"'"$STATBUS_TEST_REST_SOURCE_ID"'","Service":"rest","State":"running","Image":"postgrest/postgrest:v12.2.8","ImageID":"'"$STATBUS_TEST_REST_SOURCE_ID"'"}'
+					printf '%s\n' '{"ID":"'"$STATBUS_TEST_PROXY_SOURCE_ID"'","Service":"proxy","State":"running","Image":"ghcr.io/statisticsnorway/statbus-proxy:'"$STATBUS_TEST_SOURCE_TAG"'","ImageID":"'"$STATBUS_TEST_PROXY_SOURCE_ID"'"}'
 				else
-					printf '%s\n' '{"Service":"app","State":"exited","Image":"ghcr.io/statisticsnorway/statbus-app:target999","ImageID":"'"$STATBUS_TEST_APP_TARGET_ID"'"}'
-					printf '%s\n' '{"Service":"worker","State":"exited","Image":"ghcr.io/statisticsnorway/statbus-worker:target999","ImageID":"'"$STATBUS_TEST_WORKER_TARGET_ID"'"}'
-					printf '%s\n' '{"Service":"rest","State":"exited","Image":"postgrest/postgrest:v13","ImageID":"'"$STATBUS_TEST_REST_TARGET_ID"'"}'
-					printf '%s\n' '{"Service":"proxy","State":"exited","Image":"ghcr.io/statisticsnorway/statbus-proxy:target999","ImageID":"'"$STATBUS_TEST_PROXY_TARGET_ID"'"}'
+					printf '%s\n' '{"ID":"'"$STATBUS_TEST_APP_TARGET_ID"'","Service":"app","State":"exited","Image":"ghcr.io/statisticsnorway/statbus-app:target999","ImageID":"'"$STATBUS_TEST_APP_TARGET_ID"'"}'
+					printf '%s\n' '{"ID":"'"$STATBUS_TEST_WORKER_TARGET_ID"'","Service":"worker","State":"exited","Image":"ghcr.io/statisticsnorway/statbus-worker:target999","ImageID":"'"$STATBUS_TEST_WORKER_TARGET_ID"'"}'
+					printf '%s\n' '{"ID":"'"$STATBUS_TEST_REST_TARGET_ID"'","Service":"rest","State":"exited","Image":"postgrest/postgrest:v13","ImageID":"'"$STATBUS_TEST_REST_TARGET_ID"'"}'
+					printf '%s\n' '{"ID":"'"$STATBUS_TEST_PROXY_TARGET_ID"'","Service":"proxy","State":"exited","Image":"ghcr.io/statisticsnorway/statbus-proxy:target999","ImageID":"'"$STATBUS_TEST_PROXY_TARGET_ID"'"}'
 			fi
 	    ;;
 	"compose up -d --no-build --no-deps app worker rest proxy") touch "$STATBUS_TEST_CONVERGED" ;;
@@ -250,9 +281,9 @@ case "$*" in
 		printf '%s\n' '{"services":{"app":{"image":"ghcr.io/statisticsnorway/statbus-app:'"$STATBUS_TEST_SOURCE_TAG"'"},"worker":{"image":"ghcr.io/statisticsnorway/statbus-worker:'"$STATBUS_TEST_SOURCE_TAG"'"},"rest":{"image":"postgrest/postgrest:v12.2.8"},"proxy":{"image":"ghcr.io/statisticsnorway/statbus-proxy:'"$STATBUS_TEST_SOURCE_TAG"'"}}}'
 		;;
 	"compose ps -a --format json")
-		printf '%s\n' '{"Service":"app","State":"exited","Image":"ghcr.io/statisticsnorway/statbus-app:target999","ImageID":"'"$STATBUS_TEST_APP_TARGET_ID"'"}'
-		printf '%s\n' '{"Service":"worker","State":"exited","Image":"ghcr.io/statisticsnorway/statbus-worker:target999","ImageID":"'"$STATBUS_TEST_WORKER_TARGET_ID"'"}'
-		printf '%s\n' '{"Service":"proxy","State":"exited","Image":"ghcr.io/statisticsnorway/statbus-proxy:target999","ImageID":"'"$STATBUS_TEST_PROXY_TARGET_ID"'"}'
+		printf '%s\n' '{"ID":"'"$STATBUS_TEST_APP_TARGET_ID"'","Service":"app","State":"exited","Image":"ghcr.io/statisticsnorway/statbus-app:target999","ImageID":"'"$STATBUS_TEST_APP_TARGET_ID"'"}'
+		printf '%s\n' '{"ID":"'"$STATBUS_TEST_WORKER_TARGET_ID"'","Service":"worker","State":"exited","Image":"ghcr.io/statisticsnorway/statbus-worker:target999","ImageID":"'"$STATBUS_TEST_WORKER_TARGET_ID"'"}'
+		printf '%s\n' '{"ID":"'"$STATBUS_TEST_PROXY_TARGET_ID"'","Service":"proxy","State":"exited","Image":"ghcr.io/statisticsnorway/statbus-proxy:target999","ImageID":"'"$STATBUS_TEST_PROXY_TARGET_ID"'"}'
 		# rest deliberately missing: no caller may call this "target" by assertion.
 		;;
 esac
@@ -336,10 +367,10 @@ case "$*" in
 		"compose ps -a --format json")
 			state=running
 			if [ -f "$STATBUS_TEST_STOPPED" ]; then state=exited; fi
-			printf '%s\n' '{"Service":"app","State":"'"$state"'","Image":"ghcr.io/statisticsnorway/statbus-app:target999","ImageID":"'"$STATBUS_TEST_APP_TARGET_ID"'"}'
-			printf '%s\n' '{"Service":"worker","State":"'"$state"'","Image":"ghcr.io/statisticsnorway/statbus-worker:target999","ImageID":"'"$STATBUS_TEST_WORKER_TARGET_ID"'"}'
-			printf '%s\n' '{"Service":"rest","State":"'"$state"'","Image":"postgrest/postgrest:v13","ImageID":"'"$STATBUS_TEST_REST_TARGET_ID"'"}'
-			printf '%s\n' '{"Service":"proxy","State":"running","Image":"ghcr.io/statisticsnorway/statbus-proxy:target999","ImageID":"'"$STATBUS_TEST_PROXY_TARGET_ID"'"}'
+			printf '%s\n' '{"ID":"'"$STATBUS_TEST_APP_TARGET_ID"'","Service":"app","State":"'"$state"'","Image":"ghcr.io/statisticsnorway/statbus-app:target999","ImageID":"'"$STATBUS_TEST_APP_TARGET_ID"'"}'
+			printf '%s\n' '{"ID":"'"$STATBUS_TEST_WORKER_TARGET_ID"'","Service":"worker","State":"'"$state"'","Image":"ghcr.io/statisticsnorway/statbus-worker:target999","ImageID":"'"$STATBUS_TEST_WORKER_TARGET_ID"'"}'
+			printf '%s\n' '{"ID":"'"$STATBUS_TEST_REST_TARGET_ID"'","Service":"rest","State":"'"$state"'","Image":"postgrest/postgrest:v13","ImageID":"'"$STATBUS_TEST_REST_TARGET_ID"'"}'
+			printf '%s\n' '{"ID":"'"$STATBUS_TEST_PROXY_TARGET_ID"'","Service":"proxy","State":"running","Image":"ghcr.io/statisticsnorway/statbus-proxy:target999","ImageID":"'"$STATBUS_TEST_PROXY_TARGET_ID"'"}'
 			;;
 		"compose stop app worker rest") touch "$STATBUS_TEST_STOPPED" ;;
 esac
@@ -386,16 +417,17 @@ func TestStartSourceApplicationStackContainsPartialRecreateFailure(t *testing.T)
 	shim := `#!/bin/sh
 printf '%s\n' "$*" >> "$STATBUS_TEST_DOCKER_LOG"
 case "$*" in
+	` + sourceStackImageInspectCases + `
 	"compose config --format json")
 		printf '%s\n' '{"services":{"app":{"image":"ghcr.io/statisticsnorway/statbus-app:'"$STATBUS_TEST_SOURCE_TAG"'"},"worker":{"image":"ghcr.io/statisticsnorway/statbus-worker:'"$STATBUS_TEST_SOURCE_TAG"'"},"rest":{"image":"postgrest/postgrest:v12.2.8"},"proxy":{"image":"ghcr.io/statisticsnorway/statbus-proxy:'"$STATBUS_TEST_SOURCE_TAG"'"}}}'
 		;;
 	"compose ps -a --format json")
 		state=running
 		if [ -f "$STATBUS_TEST_STOPPED" ]; then state=exited; fi
-		printf '%s\n' '{"Service":"app","State":"'"$state"'","Image":"ghcr.io/statisticsnorway/statbus-app:target999","ImageID":"'"$STATBUS_TEST_APP_TARGET_ID"'"}'
-		printf '%s\n' '{"Service":"worker","State":"'"$state"'","Image":"ghcr.io/statisticsnorway/statbus-worker:target999","ImageID":"'"$STATBUS_TEST_WORKER_TARGET_ID"'"}'
-		printf '%s\n' '{"Service":"rest","State":"'"$state"'","Image":"postgrest/postgrest:v13","ImageID":"'"$STATBUS_TEST_REST_TARGET_ID"'"}'
-		printf '%s\n' '{"Service":"proxy","State":"running","Image":"ghcr.io/statisticsnorway/statbus-proxy:target999","ImageID":"'"$STATBUS_TEST_PROXY_TARGET_ID"'"}'
+		printf '%s\n' '{"ID":"'"$STATBUS_TEST_APP_TARGET_ID"'","Service":"app","State":"'"$state"'","Image":"ghcr.io/statisticsnorway/statbus-app:target999","ImageID":"'"$STATBUS_TEST_APP_TARGET_ID"'"}'
+		printf '%s\n' '{"ID":"'"$STATBUS_TEST_WORKER_TARGET_ID"'","Service":"worker","State":"'"$state"'","Image":"ghcr.io/statisticsnorway/statbus-worker:target999","ImageID":"'"$STATBUS_TEST_WORKER_TARGET_ID"'"}'
+		printf '%s\n' '{"ID":"'"$STATBUS_TEST_REST_TARGET_ID"'","Service":"rest","State":"'"$state"'","Image":"postgrest/postgrest:v13","ImageID":"'"$STATBUS_TEST_REST_TARGET_ID"'"}'
+		printf '%s\n' '{"ID":"'"$STATBUS_TEST_PROXY_TARGET_ID"'","Service":"proxy","State":"running","Image":"ghcr.io/statisticsnorway/statbus-proxy:target999","ImageID":"'"$STATBUS_TEST_PROXY_TARGET_ID"'"}'
 		;;
 	"compose up -d --no-build --no-deps app worker rest proxy")
 		# Model Compose starting part of the tier and then returning an error.

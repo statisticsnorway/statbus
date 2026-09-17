@@ -198,8 +198,8 @@ type PsEntry struct {
 	State   string `json:"State"`
 	Image   string `json:"Image"`
 	// ImageID is emitted by some Compose versions. Callers that require an
-	// immutable identity must fall back to `docker inspect <ID>` when it is
-	// absent rather than treating the mutable Image reference as identity.
+	// immutable identity must always cross-check it with `docker inspect <ID>`;
+	// when absent, the daemon's inspected identity governs by itself.
 	ImageID string `json:"ImageID"`
 }
 
