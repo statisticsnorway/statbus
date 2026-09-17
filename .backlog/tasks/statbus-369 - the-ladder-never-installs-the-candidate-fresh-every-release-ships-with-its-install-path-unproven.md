@@ -822,3 +822,45 @@ Run `35183316509` now has 26 pass, 5 fail, 3 running, 1 queued. Reds are
 `rollback-pair-terminal`, `rollback-schema-floor-adoption`, and
 `rollback-schema-floor-failure`. GitHub withholds completed-job logs until the
 whole run is terminal, so no failure is classified and no triage commit exists.
+
+## rc.17 Upgrade Arc terminal: 30 pass / 5 fail / 0 skipped (2026-09-17 07:34 UTC)
+
+Upgrade Arc run `35183316509` reached all 35 scenarios and completed **30 pass,
+5 fail, 0 skipped**. Final global VM sweep and fixture-branch teardown passed.
+Fleet Orchestrator `35178846600` failed only at stage 5/5. Release, Smoke,
+Hardening, dev canary, and Install Recovery (13/13) were green.
+
+Every failed job artifact and live job log is under `tmp/rc17-arc-red/`:
+
+- `postswap-stopped-proxy-recovery` — **product regression**. Exact assertions:
+  `✗ harness failure: rc=1 at postswap-stopped-proxy-recovery-arc.sh:220` and
+  `✗ install did not exit 0 — a stopped-but-present proxy must recover autonomously`.
+  The scenario proved a real interrupted final service start with all containers
+  up, then stopped only proxy. Recovery refused because app/rest/worker were
+  still running, reporting the new held-closed invariant instead of quiescing
+  them and autonomously resuming.
+- `restore-broke-reattempt` — **product regression**. Exact assertion:
+  `✗ health check FAILED after 60 attempts (5 min budget exhausted)`. The fourth
+  dispatch returned 0, cleared the flag, retained the expected pair-terminal
+  failed row with recovery_attempts=3, and printed `Installation complete!`, but
+  for five minutes only db+proxy ran; app/rest/worker never restarted.
+- `rollback-pair-terminal` — **product regression**, same terminal-service defect.
+  Exact assertion: `✗ health check FAILED after 60 attempts (5 min budget exhausted)`.
+  The row reached the expected terminal failed state and flag was absent, but
+  diagnostics again showed only db+proxy running while the product narration
+  said the old version was serving normally.
+- `rollback-schema-floor-adoption` — **harness assertion drift**. Exact assertion:
+  `✗ progress log missing: migrate up --to 20260907120000`. Product behavior
+  passed: rolled_back, flag absent, HTTP 200, demo counts restored, worker queue
+  drained, and no orphan backups. The product now narrates floor replay as
+  `Re-applying rollback daemon schema floor through db.migration: 20260907120000`
+  rather than exposing the obsolete raw CLI command needle.
+- `rollback-schema-floor-failure` — **harness control-flow bug**. Exact assertion:
+  `✗ harness failure: rc=75 at vm-bootstrap.sh:1013`. Product behavior before
+  that line was correct: `ROLLBACK_SCHEMA_FLOOR_FAILED`, app/rest/worker stopped,
+  maintenance and read-only retained, target binary/tree retained, and exit 75.
+  The expected nonzero injected dispatch escaped through `VM_EXEC` before the
+  scenario's explicit durable-state assertions could run.
+
+No infrastructure death occurred, so no Fleet Orchestrator redispatch was made.
+No product or harness source was edited or pushed.
