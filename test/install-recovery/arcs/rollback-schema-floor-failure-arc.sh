@@ -30,6 +30,7 @@ source "$LIB_DIR/data-helpers.sh"
 source "$LIB_DIR/wedge-helpers.sh"
 source "$LIB_DIR/assertions.sh"
 source "$LIB_DIR/arc-helpers.sh"
+source "$LIB_DIR/schema-floor-assertions.sh"
 trap 'RC=$?; cleanup_vm "$VM_NAME"; exit $RC' EXIT
 row_field() { VM_EXEC bash -c "cd ~/statbus && echo \"SELECT $1 FROM public.upgrade WHERE commit_sha = '$B_FULL' ORDER BY id DESC LIMIT 1;\" | ./sb psql -t -A" 2>/dev/null | tr -d ' \r\n'; }
 flag_field() { VM_EXEC bash -c "python3 -c \"import json; print(json.load(open('/home/statbus/statbus/tmp/upgrade-in-progress.json'))['$1'])\"" 2>/dev/null | tr -d '\r\n'; }
@@ -60,7 +61,12 @@ printf '%s' "$LOG" | grep -q ROLLBACK_SCHEMA_FLOOR_FAILED || { echo '✗ failure
 for forbidden in 'Rollback to the previous version complete' 'rolled_back' 'Publishing source binary'; do ! printf '%s' "$LOG" | grep -q "$forbidden" || { echo "✗ forbidden success log: $forbidden" >&2; exit 1; }; done
 # Human-gated retry. Removing injection and running plain install must restore the
 # snapshot again before ordinary floor migration, finish, and publish A last.
-VM_EXEC bash -c "rm -f ~/.config/systemd/user/${UPGRADE_UNIT}.d/90-statbus-inject.conf; systemctl --user daemon-reload; cd ~/statbus && ./sb install"
+run_accepting_rollback_control_exit VM_EXEC bash -c "rm -f ~/.config/systemd/user/${UPGRADE_UNIT}.d/90-statbus-inject.conf; systemctl --user daemon-reload; cd ~/statbus && ./sb install" || {
+  RC=$?
+  echo "✗ human retry exited $RC (expected 0 or rollback control exit 75)" >&2
+  exit "$RC"
+}
+echo "  human retry ./sb install exit: $ROLLBACK_CONTROL_EXIT_RC (0 or 75=rolled-back both OK)"
 [ "$(row_field state)" = rolled_back ] || { echo '✗ human retry did not roll back' >&2; exit 1; }
 [ "$(row_field 'rollback_finish_pending_at IS NULL')" = t ] || { echo '✗ pending not cleared after retry' >&2; exit 1; }
 [ "$(VM_EXEC bash -c "cd ~/statbus && echo 'SELECT count(*) FROM db.migration WHERE version=$FLOOR;' | ./sb psql -t -A" 2>/dev/null | tr -d ' \r\n')" = 1 ] || { echo '✗ ordinary floor migration not recorded once' >&2; exit 1; }
@@ -71,5 +77,5 @@ assert_fingerprint_matches "post-retry == post-A data" "$BASELINE_FP" baseline
 [ "$(VM_EXEC bash -c 'cd ~/statbus && git rev-parse HEAD')" = "$BASE_SHA" ] || { echo '✗ source tree not restored after retry' >&2; exit 1; }
 [ "$(VM_EXEC bash -c 'cd ~/statbus && ./sb --version 2>/dev/null | head -1')" = "$BASE_SB" ] || { echo '✗ source binary not published last' >&2; exit 1; }
 LOG=$(VM_EXEC bash -c "cat ~/statbus/tmp/upgrade-logs/'$LOG_REL'")
-printf '%s' "$LOG" | awk '/Restoring database/{r=NR} /migrate up --to/{m=NR} /Publishing/{p=NR} END{exit !(r&&m&&p&&r<m&&m<p)}' || { echo '✗ retry log order is not restore < migrate < publish' >&2; exit 1; }
+assert_schema_floor_retry_order "$LOG" "$FLOOR"
 echo 'PASS: rollback floor failure held closed and plain install converged'

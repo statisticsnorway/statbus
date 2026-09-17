@@ -25,6 +25,7 @@ source "$LIB_DIR/data-helpers.sh"
 source "$LIB_DIR/wedge-helpers.sh"
 source "$LIB_DIR/assertions.sh"
 source "$LIB_DIR/arc-helpers.sh"
+source "$LIB_DIR/schema-floor-assertions.sh"
 trap 'RC=$?; cleanup_vm "$VM_NAME"; exit $RC' EXIT
 row_field() { VM_EXEC bash -c "cd ~/statbus && echo \"SELECT $1 FROM public.upgrade WHERE commit_sha = '$B_FULL' ORDER BY id DESC LIMIT 1;\" | ./sb psql -t -A" 2>/dev/null | tr -d ' \r\n'; }
 ledger_field() { VM_EXEC bash -c "cd ~/statbus && echo \"SELECT $1 FROM db.migration WHERE version = $FLOOR;\" | ./sb psql -t -A" 2>/dev/null | tr -d ' \r\n'; }
@@ -62,9 +63,6 @@ assert_no_orphan_backup "$VM_NAME"
 VM_EXEC bash -c "find ~/statbus-backups -mindepth 2 -maxdepth 2 -type f -path '*/upgrade-logs-*/*.log' -print -quit | grep -q ." || { echo '✗ expected forensic upgrade logs absent beside backup' >&2; exit 1; }
 LOG_REL=$(row_field "COALESCE(log_relative_file_path,'')")
 LOG=$(VM_EXEC bash -c "cat ~/statbus/tmp/upgrade-logs/'$LOG_REL'")
-for needle in 'rollback' 'Restoring database' 'Starting only the restored database for schema-floor replay ... healthy' "migrate up --to $FLOOR" 'Restoring git' 'sb.old' 'Starting services' 'rollback finishing' 'rolled_back' 'Publishing'; do
-  printf '%s' "$LOG" | grep -qi "$needle" || { echo "✗ progress log missing: $needle" >&2; exit 1; }
-done
-printf '%s' "$LOG" | awk -v a='Restoring database' -v b='migrate up --to' -v c='Restoring git' 'index($0,a){x=NR} index($0,b){y=NR} index($0,c){z=NR} END{exit !(x&&y&&z&&x<y&&y<z)}' || { echo '✗ restore/floor/source log order wrong' >&2; exit 1; }
+assert_schema_floor_adoption_progress "$LOG" "$FLOOR"
 NR0=$(arc_nrestarts); sleep 5; NR1=$(arc_nrestarts); [ "$NR0" = "$NR1" ] || { echo '✗ automatic restart loop after rollback' >&2; exit 1; }
 echo 'PASS: rollback schema floor adoption replayed and returned byte-identically to A'
