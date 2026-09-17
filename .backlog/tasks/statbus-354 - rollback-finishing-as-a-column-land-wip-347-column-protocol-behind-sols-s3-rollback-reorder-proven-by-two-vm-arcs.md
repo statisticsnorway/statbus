@@ -190,3 +190,23 @@ Both mandatory scenarios are red in Upgrade Arc run `35183316509`:
 progress, so GitHub has not exposed completed-job logs. Do not infer whether
 `5dbc8d243` failed, the assertions drifted, or a separate mechanism appeared;
 classification and triage commit are pending terminal logs.
+
+## rc.17 schema-floor classifications (2026-09-17 07:58 UTC)
+
+Terminal run `35183316509` shows neither red is a failure of the repaired
+product hold:
+
+- adoption job `105080855872`: **harness assertion drift**. Exact red:
+  `progress log missing: migrate up --to 20260907120000`. Product state was
+  rolled_back and healthy with restored data, drained queue, absent flag, and
+  no orphan backups. Current narration is `Re-applying rollback daemon schema
+  floor through db.migration: 20260907120000`.
+- failure job `105080855986`: **harness control-flow bug**. The deliberate floor
+  migration failed and product correctly held
+  `ROLLBACK_SCHEMA_FLOOR_FAILED`, app/rest/worker stopped, maintenance and
+  read-only active, target assets retained, exit 75. That expected nonzero
+  escaped through `VM_EXEC` at `vm-bootstrap.sh:1013` before durable-state
+  assertions ran.
+
+No schema-floor triage commit exists yet. Both paid acceptance scenarios remain
+red until the harness fixes run on another named candidate.
