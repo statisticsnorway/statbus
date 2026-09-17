@@ -801,3 +801,8 @@ has started and the scenario tally is unavailable.
 Upgrade Arc run `35183316509` passed discovery, fixture construction, and the
 A/B/C image wait, then entered its 35-scenario matrix. Current scenario tally:
 0 pass, 0 fail, 3 running, 32 queued. Both schema-floor scenarios are queued.
+
+## rc.17 Upgrade Arc progress (2026-09-17 05:41 UTC)
+
+Upgrade Arc run `35183316509` has 10 pass, 0 fail, 2 running, 23 queued.
+Both schema-floor scenarios remain queued; no failure or triage commit exists.
