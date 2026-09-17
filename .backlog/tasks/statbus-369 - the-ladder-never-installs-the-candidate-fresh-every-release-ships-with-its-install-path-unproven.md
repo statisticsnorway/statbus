@@ -770,3 +770,10 @@ triggered Images run `35178601773` passed, then the release pre-flight passed
 and pushed the tag. Release `35178846674`, Test Hardening `35178846602`, and
 Fleet Orchestrator `35178846600` are queued. Smoke, dev canary, Recovery, and
 Upgrade Arc have not started.
+
+## rc.17 Release, Smoke, and Hardening green (2026-09-17 03:56 UTC)
+
+Release `35178846674`, Test Smoke `35178929396`, and Test Hardening
+`35178846602` are green. Fleet Orchestrator `35178846600` completed stage 1/4
+smoke green and entered stage 2/4 dev canary. Recovery and Upgrade Arc have not
+started.
