@@ -752,3 +752,11 @@ startup. Exact-commit CI is running; no next candidate has been cut.
 Fix `5dbc8d243` has green Go `35175163025`, app `35175162990`, Images
 `35175162978`, and Fast Tests `35175404663`. pg_regress `35175404641` remains
 in progress. No rc.17 tag exists and no new paid ladder has started.
+
+## rc.17 pre-cut validation green (2026-09-17 03:32 UTC)
+
+Fix `5dbc8d243` completed every named pre-cut gate green: Images
+`35175162978`, Go `35175163025`, app build & lint `35175162990`, Fast Tests
+`35175404663`, and niue pg_regress `35175404641`. The Fast Tests and
+pg_regress children were concurrency-cancelled once and their single permitted
+reruns both passed. No rc.17 tag exists and no new paid ladder has started.
