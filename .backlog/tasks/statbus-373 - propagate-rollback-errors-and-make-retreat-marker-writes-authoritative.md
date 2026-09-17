@@ -1,11 +1,11 @@
 ---
 id: STATBUS-373
 title: >-
-  propagate rollback errors and make retreat-marker writes authoritative
+  make RetreatedToSourceAt marker writes authoritative
 status: To Do
 assignee: []
 created_date: '2026-09-17 10:44'
-updated_date: '2026-09-17 10:44'
+updated_date: '2026-09-17 11:16'
 labels:
   - upgrade
   - recovery
@@ -18,21 +18,17 @@ ordinal: 1
 
 ## Finding (independent review, 2026-09-17)
 
-Review of the rc.17 recovery fix found two P1 error-authority defects in
-surrounding rollback code. A failed `RetreatedToSourceAt` write is swallowed,
-which can leave a stale recovery marker for a later `./sb install` to act on.
-Separately, `recoveryRollback` discards errors returned by `d.rollback`, so the
-caller can proceed without owning the rollback outcome.
+Review of the rc.17 recovery fix found that a failed `RetreatedToSourceAt` write
+is swallowed, which can leave a stale recovery marker for a later
+`./sb install` to act on.
 
-These findings are outside the narrow caller-scope repair in `34aad3dc2`. If
-either is not landed in the rc.18 P0 repair stack, it remains release-blocking
-work here rather than disappearing from the review record.
+The companion finding that `recoveryRollback` discarded errors from
+`d.rollback` is fixed in accepted local commit `3ed01b5d7`. The marker-write
+finding remains tracked here unless it lands in the rc.18 repair stack.
 
 ## Done when
 
 1. A failed `RetreatedToSourceAt` persistence step is returned and terminally
    narrated; no stale marker is left as valid recovery authority.
-2. `recoveryRollback` propagates or explicitly terminalizes every `d.rollback`
-   error; no returned error is discarded.
-3. Tests execute both failure branches, assert the durable marker/row state, and
-   mutation checks prove that removing either error path makes the tests fail.
+2. Tests execute the failure branch, assert the durable marker/row state, and a
+   mutation check proves that removing the error path makes the test fail.

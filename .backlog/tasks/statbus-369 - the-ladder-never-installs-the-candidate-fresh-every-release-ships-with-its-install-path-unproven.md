@@ -7,7 +7,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-09-14 12:36'
-updated_date: '2026-09-17 10:44'
+updated_date: '2026-09-17 11:16'
 labels:
   - release
   - install
@@ -952,6 +952,34 @@ Decision: do **not** push `34aad3dc2` alone. The two P0s and the P1s on the
 recovery path are being repaired on top, followed by dual review, one push, and
 then rc.18. The accepted commit and this backlog commit remain local meanwhile;
 `origin/master` is still `f569813e4`.
+
+## Second accepted stack held for mixed-era P0 (2026-09-17 09:16 UTC)
+
+Commit `3ed01b5d7` fixes both preceding P0s plus the P1 health-authority and
+`recoveryRollback` error-propagation findings. Sol **ACCEPTED** it with seven
+mutations caught. The prior accepted fix and backlog record have meanwhile been
+pushed through `42d02b4bf`; `3ed01b5d7` itself remains local.
+
+A second independent Codex review found a new **P0 introduced by the
+resume-only policy**. After a post-swap failure, the existing app/worker/rest
+containers are target-image containers. Rollback restores the source database,
+then `startSourceApplicationStack` uses `compose start` on those same containers.
+It checks only that they exist, not which image era they contain. Target code can
+therefore serve the restored source DB, pass health, and be recorded
+`rolled_back`: mixed-era serving disguised as success.
+
+The design constraint is now explicit: `up -d` recreates from the **current
+binary's** era, which is wrong when that binary belongs to the other era;
+`start` resumes **whatever container exists**, which is wrong when the retained
+container belongs to the other era. Source-stack recovery must choose and prove
+the intended era, not choose a lifecycle verb globally.
+
+The same review found two P1s: `completeInProgressUpgrade` swallows
+`d.rollback` errors while its defer removes the marker, and
+`StartDatabaseRouteServingMustBeStopped` starts DB plus proxy before verifying
+that the serving tier is stopped, creating a fail-closed ordering window.
+Decision remains **do not push**. Era-aware source-stack recovery is being built
+on `3ed01b5d7`, then the full stack receives dual review again before rc.18.
 
 ## rc.17 fix validation checkpoint (2026-09-17 08:44 UTC)
 
