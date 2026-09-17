@@ -712,3 +712,27 @@ scenarios remain queued. No failure or triage commit exists.
 Run `35162992033` has 29 pass, 0 fail, 3 running, 3 queued. Both
 `rollback-schema-floor-adoption` and `rollback-schema-floor-failure` are now
 running. No failure or triage commit exists.
+
+## rc.16 Upgrade Arc terminal: 33 pass / 2 fail / 0 skipped (2026-09-17 02:22 UTC)
+
+Upgrade Arc run `35162992033` completed its 35-scenario matrix: **33 passed,
+2 failed, 0 skipped**. Failed scenarios:
+
+- `rollback-schema-floor-adoption` — **harness assertion drift**. Exact failure:
+  `✗ progress log missing: database container`. The same job had already observed
+  `state='rolled_back'`, absent upgrade flag, HTTP 200 health, matching demo-data
+  counts, drained worker queue, and no orphan backups. Product log wording is now
+  `Starting only the restored database for schema-floor replay ... healthy`, so
+  the assertion's literal `database container` needle is stale.
+- `rollback-schema-floor-failure` — **product bug**. Exact failure:
+  `✗ rest is running`. Immediately beforehand the product correctly recorded
+  `ROLLBACK_SCHEMA_FLOOR_FAILED`, said application services remain stopped, kept
+  maintenance/read-only active, and exited 75. Nevertheless the scenario's exact
+  `docker compose ps --status running --services` check found `rest` running.
+  This contradicts the held-closed contract and the product's own diagnostic.
+
+Discovery, fixture construction, image wait, final orphan-VM sweep, and branch
+teardown all succeeded, so this was not an infrastructure death and no retry was
+dispatched. Fleet Orchestrator `35157700377` concluded failure solely at stage
+5/5 because the arc child failed; smoke, dev canary, and Install Recovery (13/13)
+were green.
