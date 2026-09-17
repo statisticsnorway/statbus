@@ -680,3 +680,12 @@ Install Recovery run `35159276681` completed 13/13 scenarios green. Fleet
 Orchestrator `35157700377` advanced to stage 5/5 and dispatched Upgrade Arc run
 `35162992033`. Arc discovery passed and fixture/image construction is running;
 no arc scenario has started, so the arc tally is 0 terminal.
+
+## rc.16 Upgrade Arc reached and running scenarios (2026-09-17 00:18 UTC)
+
+Upgrade Arc run `35162992033` passed discovery, fixture construction, and the
+A/B/C image wait, then entered its 35-scenario matrix. Current job tally: 7
+pass, 0 fail, 3 running, 25 queued. This is the evidence rc.15 never produced:
+the hardened harness reached and ran paid arc scenarios rather than dying in
+pre-scenario infrastructure. Fleet Orchestrator `35157700377` remains in stage
+5/5 pending the arc result.
