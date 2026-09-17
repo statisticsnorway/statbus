@@ -933,7 +933,11 @@ func runInstall() (installErr error) {
 func checkPrereqDone(_ string) bool {
 	_, dockerErr := exec.LookPath("docker")
 	_, gitErr := exec.LookPath("git")
-	composeErr := exec.Command("docker", "compose", "version").Run()
+	composeCmd, buildErr := compose.CommandContext(context.Background(), "", "version")
+	if buildErr != nil {
+		return false
+	}
+	composeErr := composeCmd.Run()
 	return dockerErr == nil && gitErr == nil && composeErr == nil
 }
 
@@ -966,14 +970,18 @@ func checkEnvDone(dir string) bool {
 }
 
 func checkImagesDone(dir string) bool {
-	servicesCmd := exec.Command("docker", "compose", "--profile", "all", "config", "--services")
-	servicesCmd.Dir = dir
+	servicesCmd, buildErr := compose.CommandContext(context.Background(), dir, "--profile", "all", "config", "--services")
+	if buildErr != nil {
+		return false
+	}
 	servicesOut, err := servicesCmd.Output()
 	if err != nil {
 		return false
 	}
-	imagesCmd := exec.Command("docker", "compose", "--profile", "all", "images", "--format", "json")
-	imagesCmd.Dir = dir
+	imagesCmd, buildErr := compose.CommandContext(context.Background(), dir, "--profile", "all", "images", "--format", "json")
+	if buildErr != nil {
+		return false
+	}
 	imagesOut, err := imagesCmd.Output()
 	return err == nil && composeServicesHaveImages(string(servicesOut), imagesOut)
 }
@@ -1036,8 +1044,10 @@ func checkServicesDone(dir string) bool {
 	// container, docker-compose Plugin 2025+). Positional service-name is
 	// the supported invocation; the legacy filter-style only worked on
 	// older lenient builds that silently accepted unknown filters.
-	cmd := exec.Command("docker", "compose", "ps", "db", "--format", "{{.Health}}")
-	cmd.Dir = dir
+	cmd, buildErr := compose.CommandContext(context.Background(), dir, "ps", "db", "--format", "{{.Health}}")
+	if buildErr != nil {
+		return false
+	}
 	out, err := cmd.Output()
 	if err != nil {
 		return false
@@ -1074,8 +1084,10 @@ func checkJWTDone(dir string) bool {
 	}
 	args := append(prefix, "-t", "-A", "-c",
 		"SELECT COUNT(*) FROM auth.secrets WHERE key = 'jwt_secret' AND value != '';")
-	cmd := exec.Command(psqlPath, args...)
-	cmd.Dir = dir
+	cmd, buildErr := migrate.Command(dir, psqlPath, args...)
+	if buildErr != nil {
+		return false
+	}
 	cmd.Env = env
 	out, err := cmd.Output()
 	return err == nil && strings.TrimSpace(string(out)) == "1"
@@ -1088,8 +1100,10 @@ func checkUsersDone(dir string) bool {
 	}
 	args := append(prefix, "-t", "-A", "-c",
 		"SELECT COUNT(*) FROM auth.\"user\";")
-	cmd := exec.Command(psqlPath, args...)
-	cmd.Dir = dir
+	cmd, buildErr := migrate.Command(dir, psqlPath, args...)
+	if buildErr != nil {
+		return false
+	}
 	cmd.Env = env
 	out, err := cmd.Output()
 	if err != nil {
@@ -1336,7 +1350,7 @@ func runPullImages(dir string) error {
 }
 
 func runStartServices(dir string) error {
-	return runCmdDir(dir, "docker", "compose", "--profile", "all", "up", "-d")
+	return runComposeUpCmdDir(dir, compose.MintUpCapability(), "--profile", "all", "up", "-d")
 }
 
 // diffEnvKeys returns every key whose value differs between oldContent and
@@ -1431,9 +1445,11 @@ func restartClassesForKeys(keys []string, classesByKey map[string][]config.Resta
 // assert EXACTLY which services are recreated (AC#1: per-class, isolated)
 // and that NONE are when nothing changed (AC#2), without a live docker
 // daemon. Production never reassigns it.
-var composeApplyService = func(dir, service string) error {
-	return runCmdDir(dir, "docker", "compose", "up", "-d", "--no-deps", service)
+func composeApplyServiceDefault(dir, service string) error {
+	return runComposeUpCmdDir(dir, compose.MintUpCapability(), "up", "-d", "--no-deps", service)
 }
+
+var composeApplyService = composeApplyServiceDefault
 
 // applyPendingRestarts executes exactly the restart classes STATBUS-332's
 // diff step decided are needed — never more. Order is fixed for
@@ -1696,7 +1712,7 @@ func zombieAdvisoryHolders(dir string) ([]zombieHolder, error) {
 	if v, ok := envFile.Get("POSTGRES_ADMIN_USER"); ok && v != "" {
 		adminUser = v
 	}
-	q := exec.Command("docker", "compose", "exec", "-T", "db",
+	q, buildErr := compose.CommandContext(context.Background(), dir, "exec", "-T", "db",
 		"psql", "-U", adminUser, "-d", dbName, "-t", "-A", "-F", "|", "-c", `
 		SELECT a.pid, COALESCE(a.application_name, '')
 		  FROM pg_stat_activity a
@@ -1706,7 +1722,9 @@ func zombieAdvisoryHolders(dir string) ([]zombieHolder, error) {
 		   AND a.datname = current_database()
 		   AND a.pid <> pg_backend_pid()
 		 ORDER BY a.pid;`)
-	q.Dir = dir
+	if buildErr != nil {
+		return nil, fmt.Errorf("construct advisory-lock holder query: %w", buildErr)
+	}
 	out, err := q.Output()
 	if err != nil {
 		return nil, fmt.Errorf("query advisory-lock holders: %w", err)
@@ -1815,7 +1833,7 @@ func countLeakedOrphans(dir string) (int, error) {
 	if v, ok := envFile.Get("POSTGRES_ADMIN_USER"); ok && v != "" {
 		adminUser = v
 	}
-	q := exec.Command("docker", "compose", "exec", "-T", "db",
+	q, buildErr := compose.CommandContext(context.Background(), dir, "exec", "-T", "db",
 		"psql", "-U", adminUser, "-d", dbName, "-t", "-A", "-c", `
 		SELECT count(*) FROM pg_stat_activity
 		  WHERE datname = current_database()
@@ -1825,7 +1843,9 @@ func countLeakedOrphans(dir string) (int, error) {
 		    AND (query ILIKE '%TRUNCATE %statistical_%'
 		         OR query ILIKE '%INSERT INTO %statistical_%'
 		         OR query ILIKE '%CALL %statistical_%');`)
-	q.Dir = dir
+	if buildErr != nil {
+		return 0, fmt.Errorf("construct leaked-backend query: %w", buildErr)
+	}
 	out, err := q.Output()
 	if err != nil {
 		return 0, fmt.Errorf("query leaked migrate backends (docker-exec): %w", err)
@@ -1971,9 +1991,11 @@ func terminateZombieAdvisoryHolders(dir, adminUser, dbName string, zombies []zom
 	}
 	killSQL := fmt.Sprintf(`SELECT pg_terminate_backend(pid), pid FROM pg_stat_activity WHERE pid IN (%s);`,
 		strings.Join(sqlPids, ","))
-	killCmd := exec.Command("docker", "compose", "exec", "-T", "db",
+	killCmd, buildErr := compose.CommandContext(context.Background(), dir, "exec", "-T", "db",
 		"psql", "-U", adminUser, "-d", dbName, "-c", killSQL)
-	killCmd.Dir = dir
+	if buildErr != nil {
+		return 0, fmt.Errorf("construct pg_terminate_backend command: %w", buildErr)
+	}
 	killCmd.Stdout = os.Stdout
 	killCmd.Stderr = os.Stderr
 	if err := killCmd.Run(); err != nil {
@@ -2028,7 +2050,7 @@ func cleanOrphanSessions(dir string) error {
 	// tagged statbus-migrate-sql-<pid> (task #14, via PGAPPNAME); pre-#14
 	// binaries left the libpq default 'psql'. Match BOTH so we still clean a
 	// SIGKILL'd migrate zombie regardless of which binary started it.
-	phase1 := exec.Command("docker", "compose", "exec", "-T", "db",
+	phase1, buildErr := compose.CommandContext(context.Background(), dir, "exec", "-T", "db",
 		"psql", "-U", adminUser, "-d", dbName, "-c", `
 		SELECT pg_terminate_backend(pid), pid, query_start, left(query, 80) AS query
 		  FROM pg_stat_activity
@@ -2041,7 +2063,9 @@ func cleanOrphanSessions(dir string) error {
 			   OR
 			   query ILIKE '%statistical_history%'
 		   );`)
-	phase1.Dir = dir
+	if buildErr != nil {
+		return fmt.Errorf("construct orphan-session cleanup command: %w", buildErr)
+	}
 	phase1.Stdout = os.Stdout
 	phase1.Stderr = os.Stderr
 	if err := phase1.Run(); err != nil {
@@ -2213,8 +2237,10 @@ SELECT EXISTS (
 );`
 	args := append([]string{}, prefix...)
 	args = append(args, "-t", "-A", "-v", "ON_ERROR_STOP=on", "-c", probe)
-	cmd := exec.Command(psqlPath, args...)
-	cmd.Dir = dir
+	cmd, buildErr := migrate.Command(dir, psqlPath, args...)
+	if buildErr != nil {
+		return false
+	}
 	cmd.Env = env
 	out, err := cmd.Output()
 	if err != nil {
@@ -2250,8 +2276,10 @@ func dbHasAppliedMigrations(dir string) bool {
 	const probe = `SELECT EXISTS (SELECT 1 FROM db.migration LIMIT 1);`
 	args := append([]string{}, prefix...)
 	args = append(args, "-t", "-A", "-v", "ON_ERROR_STOP=on", "-c", probe)
-	cmd := exec.Command(psqlPath, args...)
-	cmd.Dir = dir
+	cmd, buildErr := migrate.Command(dir, psqlPath, args...)
+	if buildErr != nil {
+		return false
+	}
 	cmd.Env = env
 	out, err := cmd.Output()
 	return interpretAppliedMigrationsProbe(string(out), err)
@@ -2677,8 +2705,10 @@ func runInstallSQL(dir, sql string) (string, error) {
 		return "", err
 	}
 	args := append(append([]string{}, prefix...), "-v", "ON_ERROR_STOP=on", "-X", "-A", "-t")
-	cmd := exec.Command(psqlPath, args...)
-	cmd.Dir = dir
+	cmd, buildErr := migrate.Command(dir, psqlPath, args...)
+	if buildErr != nil {
+		return "", fmt.Errorf("construct install psql command: %w", buildErr)
+	}
 	cmd.Env = env
 	cmd.Stdin = strings.NewReader(sql)
 	out, err := cmd.CombinedOutput()
@@ -3095,18 +3125,53 @@ func prompt(label, defaultVal string) string {
 }
 
 func runCmd(name string, args ...string) error {
-	cmd := exec.Command(name, args...)
+	cmd, err := commandContextDir(context.Background(), "", nil, name, args...)
+	if err != nil {
+		return err
+	}
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	return cmd.Run()
 }
 
 func runCmdDir(dir, name string, args ...string) error {
-	cmd := exec.Command(name, args...)
-	cmd.Dir = dir
+	cmd, err := commandContextDir(context.Background(), dir, nil, name, args...)
+	if err != nil {
+		return err
+	}
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	return cmd.Run()
+}
+
+func runComposeUpCmdDir(dir string, capability compose.UpCapability, args ...string) error {
+	cmd, err := composeUpCommand(dir, capability, args...)
+	if err != nil {
+		return err
+	}
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	return cmd.Run()
+}
+
+func composeCommand(dir string, args ...string) (*exec.Cmd, error) {
+	return commandContextDir(context.Background(), dir, nil, "docker", append([]string{"compose"}, args...)...)
+}
+
+func composeUpCommand(dir string, capability compose.UpCapability, args ...string) (*exec.Cmd, error) {
+	return commandContextDir(context.Background(), dir, capability, "docker", append([]string{"compose"}, args...)...)
+}
+
+func commandContextDir(ctx context.Context, dir string, capability compose.UpCapability, name string, args ...string) (*exec.Cmd, error) {
+	if name == "docker" && len(args) > 0 && args[0] == "compose" {
+		if capability != nil {
+			return compose.CommandContextWithUp(ctx, dir, capability, args[1:]...)
+		}
+		return compose.CommandContext(ctx, dir, args[1:]...)
+	}
+	cmd := exec.CommandContext(ctx, name, args...)
+	cmd.Dir = dir
+	return cmd, nil
 }
 
 // runCmdDirTimeout is runCmdDir with a hard deadline. For steps that are
@@ -3116,8 +3181,10 @@ func runCmdDir(dir, name string, args ...string) error {
 func runCmdDirTimeout(dir string, timeout time.Duration, name string, args ...string) error {
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
-	cmd := exec.CommandContext(ctx, name, args...)
-	cmd.Dir = dir
+	cmd, buildErr := commandContextDir(ctx, dir, nil, name, args...)
+	if buildErr != nil {
+		return buildErr
+	}
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	err := cmd.Run()

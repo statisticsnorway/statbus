@@ -179,3 +179,39 @@ func TestRecoverFromFlagDoesNotUnlinkCorruptLiveMarker(t *testing.T) {
 		t.Fatalf("live corrupt marker was removed: %v", statErr)
 	}
 }
+
+func TestAcquireFreshFlockScavengesOnlyUnlockedAtomicTemps(t *testing.T) {
+	projDir := t.TempDir()
+	tmpDir := filepath.Join(projDir, "tmp")
+	if err := os.MkdirAll(tmpDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	stalePath := filepath.Join(tmpDir, ".upgrade-in-progress.json.tmp-stale")
+	activePath := filepath.Join(tmpDir, ".upgrade-in-progress.json.tmp-active")
+	if err := os.WriteFile(stalePath, []byte("stale"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	active, err := os.OpenFile(activePath, os.O_CREATE|os.O_RDWR, 0o644)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = active.Close() }()
+	if err := syscall.Flock(int(active.Fd()), syscall.LOCK_EX|syscall.LOCK_NB); err != nil {
+		t.Fatal(err)
+	}
+
+	lock, err := acquireFreshFlock(projDir, UpgradeFlag{ID: 17, Holder: HolderService, Phase: PhaseOldSbUpgrading})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		_ = os.Remove(flagFilePath(projDir))
+		lock.Close()
+	}()
+	if _, err := os.Stat(stalePath); !os.IsNotExist(err) {
+		t.Fatalf("unlocked stale atomic temp remains: %v", err)
+	}
+	if _, err := os.Stat(activePath); err != nil {
+		t.Fatalf("live locked atomic temp was removed: %v", err)
+	}
+}

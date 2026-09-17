@@ -27,7 +27,6 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -366,8 +365,10 @@ func runQuery(projDir string, timeout time.Duration, sql string) (string, error)
 		"-c", sql)
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
-	cmd := exec.CommandContext(ctx, psqlPath, args...)
-	cmd.Dir = projDir
+	cmd, buildErr := migrate.CommandContext(ctx, projDir, psqlPath, args...)
+	if buildErr != nil {
+		return "", fmt.Errorf("construct psql query: %w", buildErr)
+	}
 	cmd.Env = env
 	out, err := cmd.CombinedOutput()
 	if err != nil {

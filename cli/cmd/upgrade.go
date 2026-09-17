@@ -59,9 +59,11 @@ func runUpgradePsql(sql string, extraArgs ...string) ([]byte, error) {
 	// SQL goes via stdin so psql's variable-substitution preprocessor runs.
 	// `-c` bypasses the preprocessor and sends the string literally to the
 	// server, which fails on :'var' with "syntax error at or near ':'".
-	c := exec.Command(psqlPath, args...)
+	c, buildErr := migrate.Command(projDir, psqlPath, args...)
+	if buildErr != nil {
+		return nil, fmt.Errorf("construct upgrade psql command: %w", buildErr)
+	}
 	c.Env = env
-	c.Dir = projDir
 	c.Stdin = strings.NewReader(sql)
 	return c.CombinedOutput()
 }

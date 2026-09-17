@@ -22,10 +22,27 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/statisticsnorway/statbus/cli/internal/compose"
 	"github.com/statisticsnorway/statbus/cli/internal/config"
 	"github.com/statisticsnorway/statbus/cli/internal/dotenv"
 	"github.com/statisticsnorway/statbus/cli/internal/inject"
 )
+
+// CommandContext constructs database-tool commands returned by PsqlCommand,
+// PgDumpCommand, and PgRestoreCommand. Docker compose mode must pass through the
+// CLI-wide compose authority chokepoint; host-tool mode remains a direct exec.
+func CommandContext(ctx context.Context, projDir, name string, args ...string) (*exec.Cmd, error) {
+	if name == "docker" && len(args) > 0 && args[0] == "compose" {
+		return compose.CommandContext(ctx, projDir, args[1:]...)
+	}
+	cmd := exec.CommandContext(ctx, name, args...)
+	cmd.Dir = projDir
+	return cmd, nil
+}
+
+func Command(projDir, name string, args ...string) (*exec.Cmd, error) {
+	return CommandContext(context.Background(), projDir, name, args...)
+}
 
 // MigrationFile represents a parsed migration filename.
 type MigrationFile struct {
@@ -247,8 +264,10 @@ func runPsql(projDir string, sql string, extraArgs ...string) (string, error) {
 	// STATBUS-110: exempt migrate's write sessions (ensureMigrationTable, the
 	// db.migration bookkeeping INSERT) from the read-only upgrade window.
 	args, env = injectReadOnlyExempt(psqlPath, args, env)
-	cmd := exec.Command(psqlPath, args...)
-	cmd.Dir = projDir
+	cmd, buildErr := Command(projDir, psqlPath, args...)
+	if buildErr != nil {
+		return "", fmt.Errorf("construct psql command: %w", buildErr)
+	}
 	cmd.Env = env
 	cmd.Stdin = strings.NewReader(sql)
 
@@ -638,8 +657,10 @@ func runPsqlFile(projDir string, filePath string) (string, error) {
 	// unwrapped CLI invocation. (plan upgrade-resume-structural-whole.md)
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Minute)
 	defer cancel()
-	cmd := exec.CommandContext(ctx, psqlPath, args...)
-	cmd.Dir = projDir
+	cmd, buildErr := CommandContext(ctx, projDir, psqlPath, args...)
+	if buildErr != nil {
+		return "", fmt.Errorf("construct migration psql command: %w", buildErr)
+	}
 	cmd.Env = env
 
 	// Mid-transaction inject (cell b — the GREEN control for the commit↔record

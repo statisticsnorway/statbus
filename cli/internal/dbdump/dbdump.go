@@ -15,15 +15,16 @@
 package dbdump
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"sort"
 	"strings"
 	"time"
 
+	"github.com/statisticsnorway/statbus/cli/internal/compose"
 	"github.com/statisticsnorway/statbus/cli/internal/dotenv"
 )
 
@@ -68,11 +69,13 @@ func DumpDatabase(projDir string) (string, error) {
 	finalPath := filepath.Join(dumpsDir, fmt.Sprintf("%s_%s.pg_dump", slotCode, dumpTimestamp()))
 
 	return finalPath, writeAtomic(finalPath, func(w io.Writer) error {
-		c := exec.Command("docker", "compose", "exec", "-T", "db",
+		c, buildErr := compose.CommandContext(context.Background(), projDir, "exec", "-T", "db",
 			"pg_dump", "-Fc", "--no-owner",
 			"--exclude-table-data=auth.secrets",
 			"-U", "postgres", dbName)
-		c.Dir = projDir
+		if buildErr != nil {
+			return fmt.Errorf("construct pg_dump command: %w", buildErr)
+		}
 		c.Stdout = w
 		c.Stderr = os.Stderr
 		if err := c.Run(); err != nil {

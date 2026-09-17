@@ -623,12 +623,56 @@ const flagLockIdentityRetryLimit = 4
 
 type flagOpenHook func(attempt int, file *os.File) error
 
+func scavengeAtomicFlagTemps(path string) error {
+	matches, err := filepath.Glob(filepath.Join(filepath.Dir(path), "."+filepath.Base(path)+".tmp-*"))
+	if err != nil {
+		return fmt.Errorf("glob atomic flag temps: %w", err)
+	}
+	var cleanupErrs []error
+	for _, tempPath := range matches {
+		file, openErr := os.OpenFile(tempPath, os.O_RDWR, 0)
+		if openErr != nil {
+			if !os.IsNotExist(openErr) {
+				cleanupErrs = append(cleanupErrs, fmt.Errorf("open stale atomic flag temp %s: %w", tempPath, openErr))
+			}
+			continue
+		}
+		if flockErr := syscall.Flock(int(file.Fd()), syscall.LOCK_EX|syscall.LOCK_NB); flockErr != nil {
+			_ = file.Close()
+			if !errors.Is(flockErr, syscall.EWOULDBLOCK) && !errors.Is(flockErr, syscall.EAGAIN) {
+				cleanupErrs = append(cleanupErrs, fmt.Errorf("lock stale atomic flag temp %s: %w", tempPath, flockErr))
+			}
+			continue
+		}
+		heldInfo, heldErr := file.Stat()
+		pathInfo, pathErr := os.Stat(tempPath)
+		if heldErr != nil || pathErr != nil || !os.SameFile(heldInfo, pathInfo) {
+			_ = file.Close()
+			if heldErr != nil {
+				cleanupErrs = append(cleanupErrs, fmt.Errorf("stat held atomic flag temp %s: %w", tempPath, heldErr))
+			} else if pathErr != nil && !os.IsNotExist(pathErr) {
+				cleanupErrs = append(cleanupErrs, fmt.Errorf("stat atomic flag temp path %s: %w", tempPath, pathErr))
+			}
+			continue
+		}
+		removeErr := os.Remove(tempPath)
+		_ = file.Close()
+		if removeErr != nil && !os.IsNotExist(removeErr) {
+			cleanupErrs = append(cleanupErrs, fmt.Errorf("remove stale atomic flag temp %s: %w", tempPath, removeErr))
+		}
+	}
+	return errors.Join(cleanupErrs...)
+}
+
 // openCanonicalFlagLocked closes the open→flock rename race. A descriptor may
 // have opened the old marker immediately before an atomic replacement renamed a
 // new inode over the path. Flocking that orphan is not mutual exclusion. After
 // every successful flock, require the held descriptor and canonical path to name
 // the same inode; otherwise close and retry from open, bounded and fail-closed.
 func openCanonicalFlagLocked(path string, hook flagOpenHook) (*os.File, error) {
+	if err := scavengeAtomicFlagTemps(path); err != nil {
+		log.Printf("WARNING: atomic recovery-marker temp scavenging was incomplete: %v", err)
+	}
 	for attempt := 0; attempt < flagLockIdentityRetryLimit; attempt++ {
 		file, err := os.OpenFile(path, os.O_RDWR, 0)
 		if err != nil {
@@ -751,6 +795,9 @@ func acquireFreshFlock(projDir string, flag UpgradeFlag) (*FlagLock, error) {
 
 func createFreshFlagAtomically(projDir string, data []byte) (*FlagLock, error) {
 	path := flagFilePath(projDir)
+	if err := scavengeAtomicFlagTemps(path); err != nil {
+		log.Printf("WARNING: atomic recovery-marker temp scavenging was incomplete: %v", err)
+	}
 	lock, err := writeFlagAtomically(nil, path, data, false, nil)
 	if err != nil && lock != nil {
 		_ = os.Remove(path)

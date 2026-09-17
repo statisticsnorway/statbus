@@ -214,8 +214,205 @@ func composeUpConstructionViolation(constructions []composeUpConstruction) error
 	return nil
 }
 
+func astParents(root ast.Node) map[ast.Node]ast.Node {
+	parents := make(map[ast.Node]ast.Node)
+	var stack []ast.Node
+	ast.Inspect(root, func(node ast.Node) bool {
+		if node == nil {
+			stack = stack[:len(stack)-1]
+			return true
+		}
+		if len(stack) != 0 {
+			parents[node] = stack[len(stack)-1]
+		}
+		stack = append(stack, node)
+		return true
+	})
+	return parents
+}
+
+func enclosingFunctionKey(file string, node ast.Node, parents map[ast.Node]ast.Node) string {
+	for current := node; current != nil; current = parents[current] {
+		if fn, ok := current.(*ast.FuncDecl); ok {
+			return file + ":" + fn.Name.Name
+		}
+	}
+	return file + ":<package>"
+}
+
+func namesType(expr ast.Expr, name string) bool {
+	switch typed := expr.(type) {
+	case *ast.Ident:
+		return typed.Name == name
+	case *ast.SelectorExpr:
+		return typed.Sel.Name == name
+	case *ast.StarExpr:
+		return namesType(typed.X, name)
+	default:
+		return false
+	}
+}
+
+func directCallForIdentifier(ident *ast.Ident, parents map[ast.Node]ast.Node) (*ast.CallExpr, bool) {
+	parent := parents[ident]
+	if call, ok := parent.(*ast.CallExpr); ok && call.Fun == ident {
+		return call, true
+	}
+	selector, ok := parent.(*ast.SelectorExpr)
+	if !ok || selector.Sel != ident {
+		return nil, false
+	}
+	call, ok := parents[selector].(*ast.CallExpr)
+	return call, ok && call.Fun == selector
+}
+
+func staticStringExpr(expr ast.Expr, values map[string]string) (string, bool) {
+	switch value := expr.(type) {
+	case *ast.BasicLit:
+		if value.Kind != token.STRING {
+			return "", false
+		}
+		unquoted, err := strconv.Unquote(value.Value)
+		return unquoted, err == nil
+	case *ast.Ident:
+		resolved, ok := values[value.Name]
+		return resolved, ok
+	case *ast.ParenExpr:
+		return staticStringExpr(value.X, values)
+	case *ast.BinaryExpr:
+		if value.Op != token.ADD {
+			return "", false
+		}
+		left, leftOK := staticStringExpr(value.X, values)
+		right, rightOK := staticStringExpr(value.Y, values)
+		return left + right, leftOK && rightOK
+	default:
+		return "", false
+	}
+}
+
+func functionStaticStrings(fn *ast.FuncDecl) map[string]string {
+	values := make(map[string]string)
+	ast.Inspect(fn.Body, func(node ast.Node) bool {
+		switch assignment := node.(type) {
+		case *ast.AssignStmt:
+			for i, lhs := range assignment.Lhs {
+				if i >= len(assignment.Rhs) {
+					continue
+				}
+				ident, ok := lhs.(*ast.Ident)
+				if !ok {
+					continue
+				}
+				if value, ok := staticStringExpr(assignment.Rhs[i], values); ok {
+					values[ident.Name] = value
+				} else {
+					delete(values, ident.Name)
+				}
+			}
+		case *ast.ValueSpec:
+			for i, ident := range assignment.Names {
+				if i >= len(assignment.Values) {
+					continue
+				}
+				if value, ok := staticStringExpr(assignment.Values[i], values); ok {
+					values[ident.Name] = value
+				}
+			}
+		}
+		return true
+	})
+	return values
+}
+
+func firstStaticString(expr ast.Expr, stringsByName map[string]string, slicesByName map[string]string) (string, bool) {
+	if value, ok := staticStringExpr(expr, stringsByName); ok {
+		return value, true
+	}
+	switch value := expr.(type) {
+	case *ast.Ident:
+		first, ok := slicesByName[value.Name]
+		return first, ok
+	case *ast.CompositeLit:
+		if len(value.Elts) == 0 {
+			return "", false
+		}
+		return staticStringExpr(value.Elts[0], stringsByName)
+	case *ast.CallExpr:
+		ident, ok := value.Fun.(*ast.Ident)
+		if !ok || ident.Name != "append" || len(value.Args) == 0 {
+			return "", false
+		}
+		if first, ok := firstStaticString(value.Args[0], stringsByName, slicesByName); ok {
+			return first, true
+		}
+		if len(value.Args) > 1 {
+			return staticStringExpr(value.Args[1], stringsByName)
+		}
+	}
+	return "", false
+}
+
+func functionStaticSliceFirsts(fn *ast.FuncDecl, stringsByName map[string]string) map[string]string {
+	values := make(map[string]string)
+	ast.Inspect(fn.Body, func(node ast.Node) bool {
+		switch assignment := node.(type) {
+		case *ast.AssignStmt:
+			for i, lhs := range assignment.Lhs {
+				if i >= len(assignment.Rhs) {
+					continue
+				}
+				ident, ok := lhs.(*ast.Ident)
+				if !ok {
+					continue
+				}
+				if value, ok := firstStaticString(assignment.Rhs[i], stringsByName, values); ok {
+					values[ident.Name] = value
+				} else {
+					delete(values, ident.Name)
+				}
+			}
+		case *ast.ValueSpec:
+			for i, ident := range assignment.Names {
+				if i >= len(assignment.Values) {
+					continue
+				}
+				if value, ok := firstStaticString(assignment.Values[i], stringsByName, values); ok {
+					values[ident.Name] = value
+				}
+			}
+		}
+		return true
+	})
+	return values
+}
+
+func callsComposeCommand(node ast.Node) bool {
+	found := false
+	ast.Inspect(node, func(child ast.Node) bool {
+		call, ok := child.(*ast.CallExpr)
+		if !ok {
+			return true
+		}
+		selector, ok := call.Fun.(*ast.SelectorExpr)
+		if !ok || (selector.Sel.Name != "CommandContext" && selector.Sel.Name != "CommandContextWithUp") {
+			return true
+		}
+		receiver, ok := selector.X.(*ast.Ident)
+		if ok && receiver.Name == "compose" {
+			found = true
+			return false
+		}
+		return true
+	})
+	return found
+}
+
 func composeRuntimeGuardViolation(sources map[string][]byte) error {
 	wantMints := map[string]int{
+		"cmd/db.go:dockerComposeStart":                            1,
+		"cmd/install.go:composeApplyServiceDefault":               1,
+		"cmd/install.go:runStartServices":                         1,
 		"internal/compose/compose.go:RestartAndWait":              1,
 		"internal/compose/compose.go:ResumeClients":               1,
 		"internal/compose/compose.go:Start":                       1,
@@ -226,65 +423,126 @@ func composeRuntimeGuardViolation(sources map[string][]byte) error {
 		"internal/upgrade/service.go:startSourceApplicationStack": 1,
 	}
 	gotMints := make(map[string]int)
-	tokenLiterals := 0
+	capabilityConstructions := 0
+	nonceReferences := make(map[string]int)
+
 	for file, source := range sources {
 		fset := token.NewFileSet()
 		parsed, err := parser.ParseFile(fset, file, source, 0)
 		if err != nil {
 			return fmt.Errorf("parse %s: %w", file, err)
 		}
+		parents := astParents(parsed)
+
+		ast.Inspect(parsed, func(node ast.Node) bool {
+			if err != nil || node == nil {
+				return err == nil
+			}
+			key := enclosingFunctionKey(file, node, parents)
+			switch typed := node.(type) {
+			case *ast.CompositeLit:
+				if namesType(typed.Type, "upCapability") {
+					capabilityConstructions++
+					if key != "internal/compose/compose.go:MintUpCapability" {
+						err = fmt.Errorf("unallowlisted upCapability composite construction at %s:%d (%s)", file, fset.Position(typed.Pos()).Line, key)
+						return false
+					}
+				}
+			case *ast.ValueSpec:
+				if typed.Type != nil && namesType(typed.Type, "upCapability") {
+					err = fmt.Errorf("upCapability var declaration bypasses minting at %s:%d (%s)", file, fset.Position(typed.Pos()).Line, key)
+					return false
+				}
+			case *ast.CallExpr:
+				if ident, ok := typed.Fun.(*ast.Ident); ok && ident.Name == "new" && len(typed.Args) == 1 && namesType(typed.Args[0], "upCapability") {
+					err = fmt.Errorf("upCapability new() construction bypasses minting at %s:%d (%s)", file, fset.Position(typed.Pos()).Line, key)
+					return false
+				}
+				if selector, ok := typed.Fun.(*ast.SelectorExpr); ok {
+					receiver, receiverOK := selector.X.(*ast.Ident)
+					if receiverOK && receiver.Name == "exec" && (selector.Sel.Name == "Command" || selector.Sel.Name == "CommandContext") {
+						commandArg := 0
+						if selector.Sel.Name == "CommandContext" {
+							commandArg = 1
+						}
+						if len(typed.Args) > commandArg+1 {
+							executable, executableKnown := staticStringExpr(typed.Args[commandArg], nil)
+							firstArg, firstKnown := staticStringExpr(typed.Args[commandArg+1], nil)
+							if executableKnown && executable == "docker" && firstKnown && firstArg == "compose" && key != "internal/compose/compose.go:dockerComposeCommand" {
+								err = fmt.Errorf("raw docker compose exec bypasses shared wrapper at %s:%d (%s)", file, fset.Position(typed.Pos()).Line, key)
+								return false
+							}
+						}
+					}
+				}
+			case *ast.Ident:
+				if typed.Name == "MintUpCapability" {
+					if fn, ok := parents[typed].(*ast.FuncDecl); ok && fn.Name == typed && key == "internal/compose/compose.go:MintUpCapability" {
+						return true
+					}
+					call, direct := directCallForIdentifier(typed, parents)
+					if !direct {
+						err = fmt.Errorf("MintUpCapability is referenced outside a direct call at %s:%d (%s)", file, fset.Position(typed.Pos()).Line, key)
+						return false
+					}
+					gotMints[key]++
+					if _, allowed := wantMints[key]; !allowed {
+						err = fmt.Errorf("unallowlisted compose-up capability mint at %s:%d (%s)", file, fset.Position(call.Pos()).Line, key)
+						return false
+					}
+				}
+				if typed.Name == "upCapabilityNonce" {
+					if valueSpec, ok := parents[typed].(*ast.ValueSpec); ok {
+						for _, name := range valueSpec.Names {
+							if name == typed {
+								return true
+							}
+						}
+					}
+					if key != "internal/compose/compose.go:MintUpCapability" && key != "internal/compose/compose.go:dockerComposeCommand" {
+						err = fmt.Errorf("upCapabilityNonce referenced outside mint/check boundary at %s:%d (%s)", file, fset.Position(typed.Pos()).Line, key)
+						return false
+					}
+					nonceReferences[key]++
+				}
+			case *ast.SelectorExpr:
+				receiver, receiverOK := typed.X.(*ast.Ident)
+				if receiverOK && receiver.Name == "exec" && (typed.Sel.Name == "Command" || typed.Sel.Name == "CommandContext") {
+					if call, ok := parents[typed].(*ast.CallExpr); !ok || call.Fun != typed {
+						err = fmt.Errorf("raw exec constructor is aliased instead of called directly at %s:%d (%s)", file, fset.Position(typed.Pos()).Line, key)
+						return false
+					}
+				}
+			}
+			return err == nil
+		})
+		if err != nil {
+			return err
+		}
+
 		for _, decl := range parsed.Decls {
 			fn, ok := decl.(*ast.FuncDecl)
 			if !ok || fn.Body == nil {
 				continue
 			}
 			key := file + ":" + fn.Name.Name
+			stringsByName := functionStaticStrings(fn)
+			slicesByName := functionStaticSliceFirsts(fn, stringsByName)
 			ast.Inspect(fn.Body, func(node ast.Node) bool {
-				if composite, ok := node.(*ast.CompositeLit); ok {
-					if ident, ok := composite.Type.(*ast.Ident); ok && ident.Name == "upCapability" {
-						tokenLiterals++
-						if key != "internal/compose/compose.go:MintUpCapability" {
-							err = fmt.Errorf("unallowlisted upCapability token construction at %s:%d (%s)", file, fset.Position(composite.Pos()).Line, fn.Name.Name)
-							return false
-						}
-					}
+				if err != nil {
+					return false
 				}
 				call, ok := node.(*ast.CallExpr)
 				if !ok {
-					return err == nil
+					return true
 				}
-				mint := false
-				switch callee := call.Fun.(type) {
-				case *ast.Ident:
-					mint = callee.Name == "MintUpCapability"
-				case *ast.SelectorExpr:
-					mint = callee.Sel.Name == "MintUpCapability"
-				}
-				if mint {
-					gotMints[key]++
-					if _, allowed := wantMints[key]; !allowed {
-						err = fmt.Errorf("unallowlisted compose-up capability mint at %s:%d (%s)", file, fset.Position(call.Pos()).Line, fn.Name.Name)
-						return false
-					}
-				}
-
 				selector, ok := call.Fun.(*ast.SelectorExpr)
 				if !ok || (selector.Sel.Name != "Command" && selector.Sel.Name != "CommandContext") {
-					return err == nil
+					return true
 				}
 				receiver, ok := selector.X.(*ast.Ident)
 				if !ok || receiver.Name != "exec" {
-					return err == nil
-				}
-				if strings.HasPrefix(file, "internal/compose/") {
-					if fn.Name.Name != "dockerComposeCommand" {
-						err = fmt.Errorf("raw exec bypasses dockerComposeCommand at %s:%d (%s)", file, fset.Position(call.Pos()).Line, fn.Name.Name)
-						return false
-					}
 					return true
-				}
-				if !strings.HasPrefix(file, "internal/upgrade/") {
-					return err == nil
 				}
 				commandArg := 0
 				if selector.Sel.Name == "CommandContext" {
@@ -293,41 +551,72 @@ func composeRuntimeGuardViolation(sources map[string][]byte) error {
 				if len(call.Args) <= commandArg {
 					return true
 				}
-				if literal, ok := call.Args[commandArg].(*ast.BasicLit); ok {
-					value, _ := strconv.Unquote(literal.Value)
-					if value == "docker" {
-						err = fmt.Errorf("raw docker exec bypasses compose-aware command factory at %s:%d (%s)", file, fset.Position(call.Pos()).Line, fn.Name.Name)
-						return false
+
+				if key == "internal/compose/compose.go:dockerComposeCommand" {
+					if executable, ok := staticStringExpr(call.Args[commandArg], stringsByName); !ok || executable != "docker" {
+						err = fmt.Errorf("dockerComposeCommand no longer constructs docker directly at %s:%d", file, fset.Position(call.Pos()).Line)
 					}
-					return true
+					return false
 				}
-				if fn.Name.Name == "commandContextWithComposeUp" {
+				if key == "internal/upgrade/exec.go:commandContextWithComposeUp" {
 					if ident, ok := call.Args[commandArg].(*ast.Ident); !ok || ident.Name != "name" {
-						err = fmt.Errorf("compose-aware command factory raw executable is no longer its inspected name parameter at %s:%d", file, fset.Position(call.Pos()).Line)
-						return false
+						err = fmt.Errorf("upgrade compose-aware command factory raw executable is no longer its inspected name parameter at %s:%d", file, fset.Position(call.Pos()).Line)
+					} else if !callsComposeCommand(fn.Body) || !exactStringLiteral(fn.Body, "docker") || !exactStringLiteral(fn.Body, "compose") {
+						err = fmt.Errorf("upgrade command factory lost docker-compose wrapper delegation at %s:%d", file, fset.Position(fn.Pos()).Line)
 					}
+					return false
+				}
+				if key == "cmd/install.go:commandContextDir" {
+					if ident, ok := call.Args[commandArg].(*ast.Ident); !ok || ident.Name != "name" {
+						err = fmt.Errorf("cmd compose-aware command factory raw executable is no longer its inspected name parameter at %s:%d", file, fset.Position(call.Pos()).Line)
+					} else if !callsComposeCommand(fn.Body) || !exactStringLiteral(fn.Body, "docker") || !exactStringLiteral(fn.Body, "compose") {
+						err = fmt.Errorf("cmd command factory lost docker-compose wrapper delegation at %s:%d", file, fset.Position(fn.Pos()).Line)
+					}
+					return false
+				}
+				if key == "internal/migrate/migrate.go:CommandContext" {
+					if ident, ok := call.Args[commandArg].(*ast.Ident); !ok || ident.Name != "name" {
+						err = fmt.Errorf("migrate compose-aware command factory raw executable is no longer its inspected name parameter at %s:%d", file, fset.Position(call.Pos()).Line)
+					} else if !callsComposeCommand(fn.Body) || !exactStringLiteral(fn.Body, "docker") || !exactStringLiteral(fn.Body, "compose") {
+						err = fmt.Errorf("migrate command factory lost docker-compose wrapper delegation at %s:%d", file, fset.Position(fn.Pos()).Line)
+					}
+					return false
+				}
+
+				executable, executableKnown := staticStringExpr(call.Args[commandArg], stringsByName)
+				if !executableKnown || executable != "docker" {
 					return true
 				}
-				if fn.Name.Name == "runInstallFixup" {
-					join, ok := call.Args[commandArg].(*ast.CallExpr)
-					if ok {
-						selector, selectorOK := join.Fun.(*ast.SelectorExpr)
-						lastIsSB := len(join.Args) > 0 && exactStringLiteral(join.Args[len(join.Args)-1], "sb")
-						if selectorOK && selector.Sel.Name == "Join" && lastIsSB {
-							return true
-						}
-					}
+				if len(call.Args) <= commandArg+1 {
+					err = fmt.Errorf("raw docker exec has unverifiable argv at %s:%d (%s)", file, fset.Position(call.Pos()).Line, key)
+					return false
 				}
-				err = fmt.Errorf("dynamic raw exec bypasses compose-aware command factory at %s:%d (%s)", file, fset.Position(call.Pos()).Line, fn.Name.Name)
-				return false
+				firstArg, firstKnown := firstStaticString(call.Args[commandArg+1], stringsByName, slicesByName)
+				if !firstKnown {
+					err = fmt.Errorf("raw docker exec has dynamically unverifiable first argv at %s:%d (%s)", file, fset.Position(call.Pos()).Line, key)
+					return false
+				}
+				if firstArg == "compose" {
+					err = fmt.Errorf("raw docker compose exec bypasses shared wrapper at %s:%d (%s)", file, fset.Position(call.Pos()).Line, key)
+					return false
+				}
+				return true
 			})
 			if err != nil {
 				return err
 			}
 		}
 	}
-	if tokenLiterals != 1 {
-		return fmt.Errorf("upCapability token literal count = %d, want constructor-only 1", tokenLiterals)
+
+	if capabilityConstructions != 1 {
+		return fmt.Errorf("upCapability construction count = %d, want constructor-only 1", capabilityConstructions)
+	}
+	wantNonceReferences := map[string]int{
+		"internal/compose/compose.go:MintUpCapability":     1,
+		"internal/compose/compose.go:dockerComposeCommand": 1,
+	}
+	if fmt.Sprint(nonceReferences) != fmt.Sprint(wantNonceReferences) {
+		return fmt.Errorf("upCapabilityNonce reference inventory = %v, want %v", nonceReferences, wantNonceReferences)
 	}
 	if fmt.Sprint(gotMints) != fmt.Sprint(wantMints) {
 		return fmt.Errorf("compose-up capability mint inventory = %v, want %v", gotMints, wantMints)
@@ -640,7 +929,106 @@ func unauthorizedDynamicComposeExecMutation(ctx context.Context) *exec.Cmd {
 `
 	sources[serviceKey] = append(append([]byte(nil), sources[serviceKey]...), []byte(mutation)...)
 	err := composeRuntimeGuardViolation(sources)
-	if err == nil || !strings.Contains(err.Error(), "dynamic raw exec bypasses compose-aware command factory") || !strings.Contains(err.Error(), "unauthorizedDynamicComposeExecMutation") {
+	if err == nil || !strings.Contains(err.Error(), "raw docker compose exec bypasses shared wrapper") || !strings.Contains(err.Error(), "unauthorizedDynamicComposeExecMutation") {
 		t.Fatalf("expression-built raw compose exec mutation survived AST chokepoint guard: %v", err)
+	}
+}
+
+func TestComposeCapabilityConstructionMutationIsRejected(t *testing.T) {
+	sources := cliProductionSources(t)
+	composeKey := "internal/compose/compose.go"
+	mutation := `
+
+func forgedZeroValueUpCapabilityMutation() UpCapability {
+	return upCapability{}
+}
+`
+	sources[composeKey] = append(append([]byte(nil), sources[composeKey]...), []byte(mutation)...)
+	err := composeRuntimeGuardViolation(sources)
+	if err == nil || !strings.Contains(err.Error(), "unallowlisted upCapability composite construction") || !strings.Contains(err.Error(), "forgedZeroValueUpCapabilityMutation") {
+		t.Fatalf("zero-value capability construction mutation survived AST guard: %v", err)
+	}
+}
+
+func TestComposeCapabilityMintAliasMutationIsRejected(t *testing.T) {
+	sources := cliProductionSources(t)
+	serviceKey := "internal/upgrade/service.go"
+	mutation := `
+
+func aliasedComposeUpMintMutation() {
+	mint := compose.MintUpCapability
+	_ = mint
+}
+`
+	sources[serviceKey] = append(append([]byte(nil), sources[serviceKey]...), []byte(mutation)...)
+	err := composeRuntimeGuardViolation(sources)
+	if err == nil || !strings.Contains(err.Error(), "MintUpCapability is referenced outside a direct call") || !strings.Contains(err.Error(), "aliasedComposeUpMintMutation") {
+		t.Fatalf("capability mint alias mutation survived AST guard: %v", err)
+	}
+}
+
+func TestComposeCapabilityNonceLeakMutationIsRejected(t *testing.T) {
+	sources := cliProductionSources(t)
+	composeKey := "internal/compose/compose.go"
+	mutation := `
+
+func leakedComposeUpNonceMutation() uint64 {
+	return upCapabilityNonce
+}
+`
+	sources[composeKey] = append(append([]byte(nil), sources[composeKey]...), []byte(mutation)...)
+	err := composeRuntimeGuardViolation(sources)
+	if err == nil || !strings.Contains(err.Error(), "upCapabilityNonce referenced outside mint/check boundary") || !strings.Contains(err.Error(), "leakedComposeUpNonceMutation") {
+		t.Fatalf("capability nonce leak mutation survived AST guard: %v", err)
+	}
+}
+
+func TestInstallRawComposeBypassMutationIsRejected(t *testing.T) {
+	sources := cliProductionSources(t)
+	installKey := "cmd/install.go"
+	mutation := `
+
+func rawInstallComposeUpMutation() *exec.Cmd {
+	return exec.Command("docker", "compose", "up", "-d", "app")
+}
+`
+	sources[installKey] = append(append([]byte(nil), sources[installKey]...), []byte(mutation)...)
+	err := composeRuntimeGuardViolation(sources)
+	if err == nil || !strings.Contains(err.Error(), "raw docker compose exec bypasses shared wrapper") || !strings.Contains(err.Error(), "rawInstallComposeUpMutation") {
+		t.Fatalf("install raw compose bypass mutation survived AST guard: %v", err)
+	}
+}
+
+func TestNewHelperPackageRawComposeBypassMutationIsRejected(t *testing.T) {
+	sources := cliProductionSources(t)
+	sources["internal/rawcompose/raw.go"] = []byte(`package rawcompose
+
+import "os/exec"
+
+func Run() *exec.Cmd {
+	binary := "dock" + "er"
+	verb := "com" + "pose"
+	return exec.Command(binary, verb, "up", "-d", "app")
+}
+`)
+	err := composeRuntimeGuardViolation(sources)
+	if err == nil || !strings.Contains(err.Error(), "raw docker compose exec bypasses shared wrapper") || !strings.Contains(err.Error(), "internal/rawcompose/raw.go:Run") {
+		t.Fatalf("new helper-package raw compose bypass mutation survived AST guard: %v", err)
+	}
+}
+
+func TestMigrateCommandFactoryWrapperBypassMutationIsRejected(t *testing.T) {
+	sources := cliProductionSources(t)
+	migrateKey := "internal/migrate/migrate.go"
+	original := string(sources[migrateKey])
+	needle := "return compose.CommandContext(ctx, projDir, args[1:]...)"
+	mutation := "return exec.CommandContext(ctx, name, args...), nil"
+	if !strings.Contains(original, needle) {
+		t.Fatalf("migrate command factory mutation needle is stale: %q", needle)
+	}
+	sources[migrateKey] = []byte(strings.Replace(original, needle, mutation, 1))
+	err := composeRuntimeGuardViolation(sources)
+	if err == nil || !strings.Contains(err.Error(), "migrate command factory lost docker-compose wrapper delegation") {
+		t.Fatalf("migrate command factory bypass mutation survived AST guard: %v", err)
 	}
 }

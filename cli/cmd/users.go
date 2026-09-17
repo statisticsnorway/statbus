@@ -194,13 +194,14 @@ func trimString(s string) string {
 
 func runPsqlSQL(projDir string, psqlArgs []string, env []string, sql string) error {
 	// psqlArgs[0] is the command name (psql or docker), rest are prefix args
-	psqlPath, err := exec.LookPath(psqlArgs[0])
-	if err != nil {
+	if _, err := exec.LookPath(psqlArgs[0]); err != nil {
 		return fmt.Errorf("%s not found: %w", psqlArgs[0], err)
 	}
 	args := append(psqlArgs[1:], "-v", "ON_ERROR_STOP=on")
-	cmd := exec.Command(psqlPath, args...)
-	cmd.Dir = projDir
+	cmd, buildErr := migrate.Command(projDir, psqlArgs[0], args...)
+	if buildErr != nil {
+		return fmt.Errorf("construct users psql command: %w", buildErr)
+	}
 	cmd.Env = env
 	cmd.Stdin = strings.NewReader(sql)
 	cmd.Stdout = os.Stdout

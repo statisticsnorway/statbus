@@ -16,6 +16,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/spf13/cobra"
+	"github.com/statisticsnorway/statbus/cli/internal/compose"
 	"github.com/statisticsnorway/statbus/cli/internal/config"
 	"github.com/statisticsnorway/statbus/cli/internal/dbdump"
 	"github.com/statisticsnorway/statbus/cli/internal/dotenv"
@@ -92,9 +93,11 @@ func validateIdentifier(name, label string) error {
 
 // dbIsRunning checks whether the database container is healthy.
 func dbIsRunning(projDir string) bool {
-	cmd := exec.Command("docker", "compose", "exec", "-T", "db",
+	cmd, err := composeCommand(projDir, "exec", "-T", "db",
 		"pg_isready", "-U", "postgres")
-	cmd.Dir = projDir
+	if err != nil {
+		return false
+	}
 	return cmd.Run() == nil
 }
 
@@ -549,8 +552,10 @@ func restoreLocal(projDir string, dumpFile string) error {
 
 	// Stop worker and rest
 	fmt.Println("Stopping worker and rest ...")
-	stopServices := exec.Command("docker", "compose", "stop", "worker", "rest")
-	stopServices.Dir = projDir
+	stopServices, buildErr := composeCommand(projDir, "stop", "worker", "rest")
+	if buildErr != nil {
+		return fmt.Errorf("construct service stop: %w", buildErr)
+	}
 	stopServices.Stdout = os.Stdout
 	stopServices.Stderr = os.Stderr
 	if err := stopServices.Run(); err != nil {
@@ -574,18 +579,22 @@ WHERE datname = '%s' AND pid <> pg_backend_pid();
 	dropSQL := fmt.Sprintf(`DROP DATABASE IF EXISTS %s;`, qDbName)
 	createSQL := fmt.Sprintf(`CREATE DATABASE %s;`, qDbName)
 
-	terminateCmd := exec.Command("docker", "compose", "exec", "-T", "db",
+	terminateCmd, buildErr := composeCommand(projDir, "exec", "-T", "db",
 		"psql", "-U", "postgres", "-c", terminateSQL)
-	terminateCmd.Dir = projDir
+	if buildErr != nil {
+		return fmt.Errorf("construct connection termination: %w", buildErr)
+	}
 	terminateCmd.Stdout = os.Stdout
 	terminateCmd.Stderr = os.Stderr
 	_ = terminateCmd.Run() // Ignore error — no connections is fine
 
 	// Use separate -c flags: DROP/CREATE DATABASE cannot run inside a transaction,
 	// and a single -c with multiple statements is wrapped in a transaction by psql.
-	dropCreateCmd := exec.Command("docker", "compose", "exec", "-T", "db",
+	dropCreateCmd, buildErr := composeCommand(projDir, "exec", "-T", "db",
 		"psql", "-U", "postgres", "-c", dropSQL, "-c", createSQL)
-	dropCreateCmd.Dir = projDir
+	if buildErr != nil {
+		return fmt.Errorf("construct database recreation: %w", buildErr)
+	}
 	dropCreateCmd.Stdout = os.Stdout
 	dropCreateCmd.Stderr = os.Stderr
 	if err := dropCreateCmd.Run(); err != nil {
@@ -615,15 +624,17 @@ WHERE datname = '%s' AND pid <> pg_backend_pid();
 	// back but roles persist (cluster-level). On retry, Phase 2.6 is idempotent
 	// (IF NOT EXISTS guard), so the second run is clean.
 	fmt.Println("Copying dump into container and building TOC lists ...")
-	cpCmd := exec.Command("docker", "compose", "cp", dumpFile, "db:/tmp/restore.pg_dump")
-	cpCmd.Dir = projDir
+	cpCmd, buildErr := composeCommand(projDir, "cp", dumpFile, "db:/tmp/restore.pg_dump")
+	if buildErr != nil {
+		return fmt.Errorf("construct dump copy: %w", buildErr)
+	}
 	cpCmd.Stdout = os.Stdout
 	cpCmd.Stderr = os.Stderr
 	if err := cpCmd.Run(); err != nil {
 		return fmt.Errorf("copy dump into container: %w", err)
 	}
 	defer func() {
-		rm := exec.Command("docker", "compose", "exec", "-T", "db",
+		rm, buildErr := composeCommand(projDir, "exec", "-T", "db",
 			"rm", "-f",
 			"/tmp/restore.pg_dump",
 			"/tmp/restore-data.list",
@@ -632,11 +643,13 @@ WHERE datname = '%s' AND pid <> pg_backend_pid();
 			"/tmp/restore-post.list",
 			"/tmp/restore-acl.list",
 			"/tmp/restore-phase3.list")
-		rm.Dir = projDir
+		if buildErr != nil {
+			return
+		}
 		_ = rm.Run() // best-effort temp-file cleanup inside the container
 	}()
 
-	buildList := exec.Command("docker", "compose", "exec", "-T", "db", "sh", "-c",
+	buildList, buildErr := composeCommand(projDir, "exec", "-T", "db", "sh", "-c",
 		`set -e
 pg_restore -l --section=data      /tmp/restore.pg_dump | grep -E '^[0-9]+;'        > /tmp/restore-data.list
 pg_restore -l --section=post-data /tmp/restore.pg_dump | grep -E '^[0-9]+;'        > /tmp/restore-post.list
@@ -650,7 +663,9 @@ grep    ' TABLE DATA auth user ' /tmp/restore-data.list > /tmp/restore-auth-user
 grep -v ' TABLE DATA auth user ' /tmp/restore-data.list > /tmp/restore-data-other.list
 
 cat /tmp/restore-data-other.list /tmp/restore-post.list /tmp/restore-acl.list > /tmp/restore-phase3.list`)
-	buildList.Dir = projDir
+	if buildErr != nil {
+		return fmt.Errorf("construct TOC list builder: %w", buildErr)
+	}
 	buildList.Stdout = os.Stdout
 	buildList.Stderr = os.Stderr
 	if err := buildList.Run(); err != nil {
@@ -659,21 +674,25 @@ cat /tmp/restore-data-other.list /tmp/restore-post.list /tmp/restore-acl.list > 
 
 	// Phase 1: pre-data WITHOUT ACLs (deferred to Phase 3).
 	fmt.Println("Phase 1: Restoring schema (pre-data, no ACLs) ...")
-	phase1 := exec.Command("docker", "compose", "exec", "-T", "db",
+	phase1, buildErr := composeCommand(projDir, "exec", "-T", "db",
 		"pg_restore", "-U", "postgres", "-d", dbName,
 		"--no-owner", "--no-acl", "--single-transaction",
 		"--section=pre-data",
 		"/tmp/restore.pg_dump")
-	phase1.Dir = projDir
+	if buildErr != nil {
+		return fmt.Errorf("construct phase 1 restore: %w", buildErr)
+	}
 	if err := runPgRestoreAtomic(phase1, "phase 1 (pre-data)"); err != nil {
 		return err
 	}
 
 	// Phase 2: save and drop cross-schema CHECK constraints
 	fmt.Println("Phase 2: Deferring cross-schema CHECK constraints ...")
-	deferCmd := exec.Command("docker", "compose", "exec", "-T", "db",
+	deferCmd, buildErr := composeCommand(projDir, "exec", "-T", "db",
 		"psql", "-U", "postgres", "-d", dbName, "-c", deferCheckConstraintsSQL)
-	deferCmd.Dir = projDir
+	if buildErr != nil {
+		return fmt.Errorf("construct phase 2 constraint deferral: %w", buildErr)
+	}
 	deferCmd.Stdout = os.Stdout
 	deferCmd.Stderr = os.Stderr
 	if err := deferCmd.Run(); err != nil {
@@ -684,12 +703,14 @@ cat /tmp/restore-data-other.list /tmp/restore-post.list /tmp/restore-acl.list > 
 	// (created in post-data), so no side effects from BEFORE/AFTER triggers
 	// fire during this targeted COPY.
 	fmt.Println("Phase 2.5: Loading auth.user data ...")
-	phase25 := exec.Command("docker", "compose", "exec", "-T", "db",
+	phase25, buildErr := composeCommand(projDir, "exec", "-T", "db",
 		"pg_restore", "-U", "postgres", "-d", dbName,
 		"--no-owner", "--single-transaction",
 		"-L", "/tmp/restore-auth-user.list",
 		"/tmp/restore.pg_dump")
-	phase25.Dir = projDir
+	if buildErr != nil {
+		return fmt.Errorf("construct phase 2.5 restore: %w", buildErr)
+	}
 	if err := runPgRestoreAtomic(phase25, "phase 2.5 (auth.user data)"); err != nil {
 		return err
 	}
@@ -700,11 +721,13 @@ cat /tmp/restore-data-other.list /tmp/restore-post.list /tmp/restore-acl.list > 
 	// Idempotent (IF NOT EXISTS guard) so re-runs after a Phase 3 failure are
 	// safe. Drift risk is low — the trigger's role block changes rarely.
 	fmt.Println("Phase 2.6: Materializing PG roles from auth.user ...")
-	materializeCmd := exec.Command("docker", "compose", "exec", "-T", "db",
+	materializeCmd, buildErr := composeCommand(projDir, "exec", "-T", "db",
 		"psql", "-U", "postgres", "-d", dbName,
 		"-v", "ON_ERROR_STOP=1",
 		"-c", materializeUserRolesSQL)
-	materializeCmd.Dir = projDir
+	if buildErr != nil {
+		return fmt.Errorf("construct phase 2.6 role materialization: %w", buildErr)
+	}
 	materializeCmd.Stdout = os.Stdout
 	materializeCmd.Stderr = os.Stderr
 	if err := materializeCmd.Run(); err != nil {
@@ -714,21 +737,25 @@ cat /tmp/restore-data-other.list /tmp/restore-post.list /tmp/restore-acl.list > 
 	// Phase 3: remaining data + post-data + ACLs in one transaction. ACLs run
 	// last in the TOC list order, after every grantee role has been created.
 	fmt.Println("Phase 3: Restoring remaining data + post-data + ACLs (single transaction) ...")
-	phase3 := exec.Command("docker", "compose", "exec", "-T", "db",
+	phase3, buildErr := composeCommand(projDir, "exec", "-T", "db",
 		"pg_restore", "-U", "postgres", "-d", dbName,
 		"--no-owner", "--single-transaction",
 		"-L", "/tmp/restore-phase3.list",
 		"/tmp/restore.pg_dump")
-	phase3.Dir = projDir
+	if buildErr != nil {
+		return fmt.Errorf("construct phase 3 restore: %w", buildErr)
+	}
 	if err := runPgRestoreAtomic(phase3, "phase 3 (data + post-data + ACLs)"); err != nil {
 		return err
 	}
 
 	// Phase 4: re-add CHECK constraints
 	fmt.Println("Phase 4: Re-adding cross-schema CHECK constraints ...")
-	reAddCmd := exec.Command("docker", "compose", "exec", "-T", "db",
+	reAddCmd, buildErr := composeCommand(projDir, "exec", "-T", "db",
 		"psql", "-U", "postgres", "-d", dbName, "-c", reAddCheckConstraintsSQL)
-	reAddCmd.Dir = projDir
+	if buildErr != nil {
+		return fmt.Errorf("construct phase 4 constraint restore: %w", buildErr)
+	}
 	reAddCmd.Stdout = os.Stdout
 	reAddCmd.Stderr = os.Stderr
 	if err := reAddCmd.Run(); err != nil {
@@ -747,9 +774,11 @@ DO $$ BEGIN
   END IF;
 END $$;
 `, strings.ReplaceAll(jwtSecret, "'", "''"))
-			jwtCmd := exec.Command("docker", "compose", "exec", "-T", "db",
+			jwtCmd, buildErr := composeCommand(projDir, "exec", "-T", "db",
 				"psql", "-U", "postgres", "-d", dbName, "-c", jwtSQL)
-			jwtCmd.Dir = projDir
+			if buildErr != nil {
+				return fmt.Errorf("construct JWT secret reload: %w", buildErr)
+			}
 			jwtCmd.Stdout = os.Stdout
 			jwtCmd.Stderr = os.Stderr
 			// STATBUS-185: hard-fail. The restored dump carries ITS OWN
@@ -780,9 +809,11 @@ END $$;
 		// wrapping is safe; qDbName is already sanitized as an identifier.
 		slotSQL := fmt.Sprintf(`ALTER DATABASE %s SET app.settings.deployment_slot_code TO '%s';`,
 			qDbName, slotCode)
-		slotCmd := exec.Command("docker", "compose", "exec", "-T", "db",
+		slotCmd, buildErr := composeCommand(projDir, "exec", "-T", "db",
 			"psql", "-U", "postgres", "-c", slotSQL)
-		slotCmd.Dir = projDir
+		if buildErr != nil {
+			return fmt.Errorf("construct deployment slot update: %w", buildErr)
+		}
 		slotCmd.Stdout = os.Stdout
 		slotCmd.Stderr = os.Stderr
 		if err := slotCmd.Run(); err != nil {
@@ -815,8 +846,10 @@ END $$;
 
 	// Restart worker and rest
 	fmt.Println("Restarting worker and rest ...")
-	startServices := exec.Command("docker", "compose", "start", "worker", "rest")
-	startServices.Dir = projDir
+	startServices, buildErr := composeCommand(projDir, "start", "worker", "rest")
+	if buildErr != nil {
+		return fmt.Errorf("construct service restart: %w", buildErr)
+	}
 	startServices.Stdout = os.Stdout
 	startServices.Stderr = os.Stderr
 	if err := startServices.Run(); err != nil {
@@ -1036,12 +1069,15 @@ func backupsDir() (string, error) {
 // dockerComposeStop stops a docker compose profile (e.g., "all" or specific service).
 func dockerComposeStop(projDir string, profileOrService string) error {
 	var cmd *exec.Cmd
+	var err error
 	if profileOrService == "db" || profileOrService == "worker" || profileOrService == "rest" || profileOrService == "app" {
-		cmd = exec.Command("docker", "compose", "stop", profileOrService)
+		cmd, err = composeCommand(projDir, "stop", profileOrService)
 	} else {
-		cmd = exec.Command("docker", "compose", "--profile", profileOrService, "down", "--remove-orphans")
+		cmd, err = composeCommand(projDir, "--profile", profileOrService, "down", "--remove-orphans")
 	}
-	cmd.Dir = projDir
+	if err != nil {
+		return err
+	}
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	return cmd.Run()
@@ -1050,12 +1086,15 @@ func dockerComposeStop(projDir string, profileOrService string) error {
 // dockerComposeStart starts a docker compose profile.
 func dockerComposeStart(projDir string, profileOrService string) error {
 	var cmd *exec.Cmd
+	var err error
 	if profileOrService == "db" || profileOrService == "worker" || profileOrService == "rest" || profileOrService == "app" {
-		cmd = exec.Command("docker", "compose", "start", profileOrService)
+		cmd, err = composeCommand(projDir, "start", profileOrService)
 	} else {
-		cmd = exec.Command("docker", "compose", "--profile", profileOrService, "up", "-d")
+		cmd, err = composeUpCommand(projDir, compose.MintUpCapability(), "--profile", profileOrService, "up", "-d")
 	}
-	cmd.Dir = projDir
+	if err != nil {
+		return err
+	}
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	return cmd.Run()

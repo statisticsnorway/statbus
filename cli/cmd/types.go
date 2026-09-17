@@ -3,7 +3,6 @@ package cmd
 import (
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 
@@ -95,8 +94,10 @@ Requires the database to be running.`,
 		// set it explicitly rather than relying on the generator's own
 		// default (which exists only as a safety net for a bare `\i`).
 		psqlArgs := append(append([]string(nil), prefix...), "-v", "output_path=app/src/lib/database.types.ts")
-		c := exec.Command(psqlPath, psqlArgs...)
-		c.Dir = projDir
+		c, buildErr := migrate.Command(projDir, psqlPath, psqlArgs...)
+		if buildErr != nil {
+			return fmt.Errorf("construct type generation psql command: %w", buildErr)
+		}
 		c.Env = env
 		c.Stdin = sqlFile
 		c.Stdout = os.Stdout

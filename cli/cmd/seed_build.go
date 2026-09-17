@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 
 	"github.com/spf13/cobra"
@@ -204,8 +203,10 @@ func restoreSeedDump(projDir, dbName, dumpPath string) error {
 	args := append(append([]string{}, prefix...),
 		"-U", "postgres", "--clean", "--if-exists", "--no-owner", "--disable-triggers",
 		"--single-transaction", "-d", dbName)
-	cmd := exec.Command(pgRestorePath, args...)
-	cmd.Dir = projDir
+	cmd, buildErr := migrate.Command(projDir, pgRestorePath, args...)
+	if buildErr != nil {
+		return fmt.Errorf("construct seed build restore: %w", buildErr)
+	}
 	cmd.Env = env
 	cmd.Stdin = f
 	if err := runPgRestoreAtomic(cmd, "seed build restore prior"); err != nil {

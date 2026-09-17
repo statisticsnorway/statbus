@@ -3,7 +3,6 @@ package migrate
 import (
 	"context"
 	"fmt"
-	"os/exec"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -75,8 +74,10 @@ func AssertDBAtHead(projDir, dbName, caller string) (string, error) {
 	tmplArgs := append([]string(nil), prefix...)
 	tmplArgs = append(tmplArgs, "-d", "postgres", "-t", "-A", "-c",
 		fmt.Sprintf("SELECT datistemplate FROM pg_database WHERE datname = '%s'", dbName))
-	tmplCmd := exec.Command(psqlPath, tmplArgs...)
-	tmplCmd.Dir = projDir
+	tmplCmd, buildErr := Command(projDir, psqlPath, tmplArgs...)
+	if buildErr != nil {
+		return "", fmt.Errorf("construct template migration query: %w", buildErr)
+	}
 	tmplCmd.Env = env
 	tmplOut, tmplErr := tmplCmd.Output()
 	if tmplErr == nil && strings.TrimSpace(string(tmplOut)) == "t" {
@@ -90,8 +91,10 @@ func AssertDBAtHead(projDir, dbName, caller string) (string, error) {
 	args := append([]string(nil), prefix...)
 	args = append(args, "-d", dbName, "-t", "-A", "-c",
 		"SELECT version FROM db.migration ORDER BY version")
-	cmd := exec.Command(psqlPath, args...)
-	cmd.Dir = projDir
+	cmd, buildErr := Command(projDir, psqlPath, args...)
+	if buildErr != nil {
+		return "", fmt.Errorf("construct app migration query: %w", buildErr)
+	}
 	cmd.Env = env
 	out, err := cmd.Output()
 	if err != nil {

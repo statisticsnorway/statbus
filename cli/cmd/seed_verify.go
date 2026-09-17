@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"regexp"
 	"sort"
@@ -357,8 +356,10 @@ func pgDumpSchemaOnly(projDir, dbName string) (string, error) {
 		return "", fmt.Errorf("resolve pg_dump: %w", err)
 	}
 	args := append(append([]string{}, prefix...), "-U", "postgres", "--schema-only", "--no-owner", dbName)
-	cmd := exec.Command(pgDumpPath, args...)
-	cmd.Dir = projDir
+	cmd, buildErr := migrate.Command(projDir, pgDumpPath, args...)
+	if buildErr != nil {
+		return "", fmt.Errorf("construct seed verification dump: %w", buildErr)
+	}
 	cmd.Env = env
 	var out bytes.Buffer
 	cmd.Stdout = &out
@@ -456,8 +457,10 @@ func dumpVerifyDB(projDir, dbName, outPath string) error {
 	defer func() { _ = f.Close() }()
 	args := append(append([]string{}, prefix...),
 		"-U", "postgres", "-Fc", "--no-owner", "--exclude-table-data=auth.secrets", dbName)
-	cmd := exec.Command(pgDumpPath, args...)
-	cmd.Dir = projDir
+	cmd, buildErr := migrate.Command(projDir, pgDumpPath, args...)
+	if buildErr != nil {
+		return fmt.Errorf("construct seed verification archive: %w", buildErr)
+	}
 	cmd.Env = env
 	cmd.Stdout = f
 	cmd.Stderr = os.Stderr
@@ -476,11 +479,13 @@ func restoreVerifyDB(projDir, dbName, dumpPath string) error {
 		return fmt.Errorf("open %s: %w", dumpPath, err)
 	}
 	defer func() { _ = f.Close() }()
-	cmd := exec.Command("docker", "compose", "exec", "-T", "db",
+	cmd, buildErr := composeCommand(projDir, "exec", "-T", "db",
 		"pg_restore", "-U", "postgres",
 		"--clean", "--if-exists", "--no-owner", "--disable-triggers",
 		"--single-transaction", "-d", dbName)
-	cmd.Dir = projDir
+	if buildErr != nil {
+		return fmt.Errorf("construct seed-verify restore: %w", buildErr)
+	}
 	cmd.Stdin = f
 	if err := runPgRestoreAtomic(cmd, "seed-verify restore"); err != nil {
 		return err

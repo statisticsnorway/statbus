@@ -74,7 +74,7 @@ func TestRunSeedRestoreCmd_ValidatesCacheBeforeRestoreMutation(t *testing.T) {
 	body := source[start : start+end]
 	validateAt := strings.Index(body, "validateCachedSeedForRestore(")
 	openAt := strings.Index(body, "os.Open(dumpPath)")
-	execAt := strings.Index(body, `exec.Command("docker", "compose", "exec"`)
+	execAt := strings.Index(body, `composeCommand(projDir, "exec"`)
 	if validateAt < 0 || openAt < 0 || execAt < 0 {
 		t.Fatalf("restore safety landmarks missing: validate=%d open=%d exec=%d", validateAt, openAt, execAt)
 	}

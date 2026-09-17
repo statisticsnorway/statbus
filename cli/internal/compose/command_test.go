@@ -28,3 +28,10 @@ func TestDockerComposeCommandChecksFinalDynamicArgvForUpCapability(t *testing.T)
 		t.Fatalf("command dir = %q, want %q", cmd.Dir, filepath.Clean(projDir))
 	}
 }
+
+func TestDockerComposeCommandRejectsZeroValueUpCapability(t *testing.T) {
+	args := []string{"up", "-d", "app"}
+	if _, err := dockerComposeCommand(context.Background(), t.TempDir(), upCapability{}, args...); err == nil || !strings.Contains(err.Error(), "requires an explicit capability") {
+		t.Fatalf("zero-value compose-up capability = %v, want refusal", err)
+	}
+}

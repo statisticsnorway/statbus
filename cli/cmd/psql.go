@@ -36,12 +36,14 @@ var psqlCmd = &cobra.Command{
 		}
 
 		// Non-interactive or docker mode: run as child
-		child := exec.Command(resolvedPath, fullArgs[1:]...)
+		child, buildErr := migrate.Command(projDir, psqlPath, fullArgs[1:]...)
+		if buildErr != nil {
+			return buildErr
+		}
 		child.Env = env
 		child.Stdin = os.Stdin
 		child.Stdout = os.Stdout
 		child.Stderr = os.Stderr
-		child.Dir = projDir
 		return child.Run()
 	},
 }

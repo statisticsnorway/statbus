@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"regexp"
 	"sort"
@@ -300,13 +299,15 @@ func runSeedRestoreCmd(cmd *cobra.Command, args []string) error {
 	}
 	defer func() { _ = dumpFile.Close() }()
 
-	restoreCmd := exec.Command("docker", "compose", "exec", "-T", "db",
+	restoreCmd, buildErr := composeCommand(projDir, "exec", "-T", "db",
 		"pg_restore", "-U", "postgres",
 		"--clean", "--if-exists",
 		"--no-owner", "--disable-triggers",
 		"--single-transaction",
 		"-d", dbName)
-	restoreCmd.Dir = projDir
+	if buildErr != nil {
+		return fmt.Errorf("construct seed restore command: %w", buildErr)
+	}
 	restoreCmd.Stdin = dumpFile
 
 	// Atomic-restore failure contract. With --single-transaction set
@@ -558,8 +559,12 @@ func DumpSeed(projDir, commitOverride string, incrementalDepth int) (seedMeta, e
 		"-U", "postgres", "-Fc", "--no-owner",
 		"--exclude-table-data=auth.secrets",
 		dbName)
-	dumpCmd := exec.Command(pgDumpPath, dumpArgs...)
-	dumpCmd.Dir = projDir
+	dumpCmd, buildErr := migrate.Command(projDir, pgDumpPath, dumpArgs...)
+	if buildErr != nil {
+		_ = dumpFile.Close()
+		_ = os.Remove(dumpPath)
+		return seedMeta{}, fmt.Errorf("construct seed dump command: %w", buildErr)
+	}
 	dumpCmd.Env = pgDumpEnv
 	dumpCmd.Stdout = dumpFile
 	dumpCmd.Stderr = os.Stderr

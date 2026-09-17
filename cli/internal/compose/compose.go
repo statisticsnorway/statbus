@@ -4,11 +4,14 @@ package compose
 import (
 	"bytes"
 	"context"
+	"crypto/rand"
+	"encoding/binary"
 	"encoding/json"
 	"fmt"
 	"os"
 	"os/exec"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	"github.com/statisticsnorway/statbus/cli/internal/config"
@@ -21,24 +24,39 @@ type UpCapability interface {
 	composeUpCapability()
 }
 
-type upCapability struct{}
+type upCapability struct {
+	nonce uint64
+}
 
 func (upCapability) composeUpCapability() {}
+
+var upCapabilityNonceFallback atomic.Uint64
+
+var upCapabilityNonce = func() uint64 {
+	var raw [8]byte
+	if _, err := rand.Read(raw[:]); err == nil {
+		if nonce := binary.LittleEndian.Uint64(raw[:]); nonce != 0 {
+			return nonce
+		}
+	}
+	return upCapabilityNonceFallback.Add(1)
+}()
 
 // MintUpCapability authorizes one docker-compose invocation whose FINAL argv may
 // contain the exact verb "up". Keep calls at explicit, structurally allowlisted
 // sites; dynamic argv never bypasses dockerComposeCommand's runtime check.
-func MintUpCapability() UpCapability { return upCapability{} }
+func MintUpCapability() UpCapability { return upCapability{nonce: upCapabilityNonce} }
 
-// dockerComposeCommand is the one construction chokepoint for this package and
-// cli/internal/upgrade. It checks the final compose argv, after every append and
-// concatenation, before constructing exec.Cmd.
+// dockerComposeCommand is the one docker-compose construction chokepoint for the
+// CLI. It checks the final compose argv, after every append and concatenation,
+// before constructing exec.Cmd.
 func dockerComposeCommand(ctx context.Context, projDir string, capability UpCapability, args ...string) (*exec.Cmd, error) {
 	for _, arg := range args {
 		if arg != "up" {
 			continue
 		}
-		if _, ok := capability.(upCapability); !ok {
+		token, ok := capability.(upCapability)
+		if !ok || token.nonce != upCapabilityNonce {
 			return nil, fmt.Errorf("docker compose up requires an explicit capability")
 		}
 	}
