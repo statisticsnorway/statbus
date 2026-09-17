@@ -1320,7 +1320,7 @@ func maybeRebuildTestTemplate(projDir string) {
 	fmt.Printf("Recreating stale test template %s...\n", templateName)
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
 	defer cancel()
-	cmd := exec.CommandContext(ctx, "bash", devsh, "create-test-template")
+	cmd := exec.CommandContext(ctx, "./dev.sh", "create-test-template")
 	cmd.Dir = projDir
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr

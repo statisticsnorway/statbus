@@ -81,10 +81,14 @@ func commandContext(ctx context.Context, dir, name string, args ...string) (*exe
 		cmd = exec.CommandContext(ctx, "rsync", args...)
 	default:
 		base := filepath.Base(name)
-		if base != "sb" && base != "dev.sh" {
+		switch base {
+		case "sb":
+			cmd = exec.CommandContext(ctx, "./sb", args...)
+		case "dev.sh":
+			cmd = exec.CommandContext(ctx, "./dev.sh", args...)
+		default:
 			return nil, fmt.Errorf("unsupported upgrade executable %q", name)
 		}
-		cmd = exec.CommandContext(ctx, "/usr/bin/env", append([]string{name}, args...)...)
 	}
 	cmd.Dir = dir
 	return cmd, nil
@@ -114,7 +118,7 @@ func runInstallFixup(projDir string) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 	defer cancel()
 	cmd := exec.CommandContext(ctx,
-		"/usr/bin/env", filepath.Join(projDir, "sb"),
+		"./sb",
 		"install", "--non-interactive", "--post-upgrade-fixup",
 	)
 	cmd.Dir = projDir

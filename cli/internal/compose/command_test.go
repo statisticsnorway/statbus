@@ -48,6 +48,24 @@ func TestGenericComposeCommandRejectsUnknownGlobalFlag(t *testing.T) {
 	}
 }
 
+func TestGenericComposeCommandAcceptsAllResourcesForNonUpSubcommand(t *testing.T) {
+	cmd, err := CommandContext(context.Background(), t.TempDir(), "--all-resources", "ps")
+	if err != nil {
+		t.Fatalf("--all-resources ps: %v", err)
+	}
+	wantArgs := []string{"docker", "compose", "--all-resources", "ps"}
+	if strings.Join(cmd.Args, "\x00") != strings.Join(wantArgs, "\x00") {
+		t.Fatalf("command args = %q, want %q", cmd.Args, wantArgs)
+	}
+}
+
+func TestGenericComposeCommandRejectsUpAfterAllResources(t *testing.T) {
+	_, err := CommandContext(context.Background(), t.TempDir(), "--all-resources", "up")
+	if err == nil || !strings.Contains(err.Error(), "must be constructed with compose.Up") {
+		t.Fatalf("--all-resources up error = %v, want compose.Up refusal", err)
+	}
+}
+
 func TestDockerCommandContextCannotHideComposeBehindDockerGlobalOptions(t *testing.T) {
 	verb := strings.Join([]string{"u", "p"}, "")
 	_, err := DockerCommandContext(context.Background(), t.TempDir(), "--context", "remote", "compose", verb, "-d", "app")
@@ -72,7 +90,7 @@ func TestComposeSubcommandParserRecognizesDocumentedGlobalFlags(t *testing.T) {
 			}
 		})
 	}
-	for _, flag := range []string{"--compatibility", "--dry-run"} {
+	for _, flag := range []string{"--all-resources", "--compatibility", "--dry-run"} {
 		t.Run(flag, func(t *testing.T) {
 			index, err := composeSubcommandIndex([]string{flag, "ps"})
 			if err != nil || index != 1 {

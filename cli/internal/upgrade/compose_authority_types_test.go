@@ -6,13 +6,22 @@
 // defend against deliberate in-module subversion through unsafe, go:linkname,
 // or reflection over process-local state. Such code is equivalent to editing the
 // wrapper itself, and Go provides no in-process capability-security boundary.
-// Reviewers evaluate this gate against that contract.
+// Reviewers evaluate this gate against that contract. The resolved launcher set
+// is os/exec.Command, os/exec.CommandContext, os.StartProcess, syscall.Exec,
+// syscall.ForkExec, and os/exec.Cmd composite literals. Launcher function values
+// are forbidden; construction is exact-site allowlisted; executables are
+// compile-time constants except three pinned existing syscall.Exec handoffs; and
+// raw docker/docker-compose constants are confined to internal/compose. Shell
+// executables require constant, docker/compose-free arguments. The only dynamic
+// shell calls are the exact-count-pinned pre-existing user/configuration command
+// facilities named below, never generic recovery command construction.
 package upgrade
 
 import (
 	"fmt"
 	"go/ast"
 	"go/constant"
+	"go/token"
 	"go/types"
 	"os"
 	"path/filepath"
@@ -20,6 +29,7 @@ import (
 	"sort"
 	"strings"
 	"testing"
+	"unicode"
 
 	"golang.org/x/tools/go/packages"
 )
@@ -27,6 +37,8 @@ import (
 const (
 	composePackagePath = "github.com/statisticsnorway/statbus/cli/internal/compose"
 	execPackagePath    = "os/exec"
+	osPackagePath      = "os"
+	syscallPackagePath = "syscall"
 )
 
 type typedAuthorityPackage struct {
@@ -49,9 +61,9 @@ var allowedComposeUpCalls = map[string]int{
 	"internal/upgrade/service.go:startSourceApplicationStack": 1,
 }
 
-// Filled with the exact existing non-Compose process-construction functions.
-// A new os/exec construction site must be reviewed and added deliberately.
-var allowedExecFunctions = map[string]bool{
+// Filled with the exact existing process-construction functions. A new process
+// launcher of any covered kind must be reviewed and added deliberately.
+var allowedProcessLaunchFunctions = map[string]bool{
 	"cmd/db.go:backupCreateCmd.RunE":                                  true,
 	"cmd/db.go:backupRestoreCmd.RunE":                                 true,
 	"cmd/db.go:dbDownloadCmd.RunE":                                    true,
@@ -111,6 +123,195 @@ var allowedExecFunctions = map[string]bool{
 	"internal/upgrade/service.go:executeUpgrade":                      true,
 	"internal/upgrade/service.go:loadTrustedSigners":                  true,
 	"internal/upgrade/service.go:runCallback":                         true,
+	"cmd/psql.go:psqlCmd.RunE":                                        true,
+	"internal/freshness/rebuild.go:RebuildAndReexec":                  true,
+}
+
+// These existing syscall.Exec handoffs replace the current process with a path
+// resolved from the already-selected psql or sb binary. Their dynamic paths are
+// public behavior, so the exception is exact by launcher and enclosing site.
+// Every other covered launcher still requires a compile-time executable.
+var allowedDynamicSyscallExecHandoffs = map[string]bool{
+	"cmd/psql.go:psqlCmd.RunE":                       true,
+	"internal/freshness/rebuild.go:RebuildAndReexec": true,
+	"internal/upgrade/service.go:executeUpgrade":     true,
+}
+
+// These are pre-existing, explicit user/configuration command facilities rather
+// than source-authored recovery commands. Their exact shell executable and site
+// are pinned so an added dynamic shell call, even in the same function, changes
+// the inventory and fails. All other shell arguments must be compile-time
+// constants and must not contain docker/compose tokens.
+var allowedIntentionalDynamicShellCalls = map[string]int{
+	"cmd/db_with_seed_lock.go:withSeedLockCmd.RunE|/usr/bin/env":         1,
+	"cmd/dotenv.go:dotenvGenerateCmd.RunE|sh":                            1,
+	"cmd/install.go:runInstallCallback|sh":                               1,
+	"internal/selfupdate/selfupdate.go:ReplaceBinaryOnDisk|/usr/bin/env": 1,
+	"internal/upgrade/service.go:runCallback|sh":                         1,
+}
+
+type authorityProcessLaunch struct {
+	kind       string
+	executable ast.Expr
+	arguments  []ast.Expr
+	argsKnown  bool
+}
+
+func authorityCallProcessLaunch(call *ast.CallExpr, info *types.Info) (authorityProcessLaunch, bool) {
+	function := calledFunctionObject(call, info)
+	if function == nil || function.Pkg() == nil {
+		return authorityProcessLaunch{}, false
+	}
+	argumentSlice := func(index int) ([]ast.Expr, bool) {
+		if len(call.Args) <= index {
+			return nil, false
+		}
+		literal, ok := call.Args[index].(*ast.CompositeLit)
+		if !ok {
+			return nil, false
+		}
+		arguments := append([]ast.Expr(nil), literal.Elts...)
+		return arguments, true
+	}
+
+	switch function.Pkg().Path() {
+	case execPackagePath:
+		switch function.Name() {
+		case "Command":
+			if len(call.Args) == 0 {
+				return authorityProcessLaunch{kind: "os/exec", argsKnown: true}, true
+			}
+			return authorityProcessLaunch{kind: "os/exec", executable: call.Args[0], arguments: call.Args[1:], argsKnown: call.Ellipsis == token.NoPos}, true
+		case "CommandContext":
+			if len(call.Args) <= 1 {
+				return authorityProcessLaunch{kind: "os/exec", argsKnown: true}, true
+			}
+			return authorityProcessLaunch{kind: "os/exec", executable: call.Args[1], arguments: call.Args[2:], argsKnown: call.Ellipsis == token.NoPos}, true
+		}
+	case osPackagePath:
+		if function.Name() == "StartProcess" {
+			launch := authorityProcessLaunch{kind: "os.StartProcess"}
+			if len(call.Args) != 0 {
+				launch.executable = call.Args[0]
+			}
+			launch.arguments, launch.argsKnown = argumentSlice(1)
+			return launch, true
+		}
+	case syscallPackagePath:
+		if function.Name() == "Exec" || function.Name() == "ForkExec" {
+			launch := authorityProcessLaunch{kind: "syscall." + function.Name()}
+			if len(call.Args) != 0 {
+				launch.executable = call.Args[0]
+			}
+			launch.arguments, launch.argsKnown = argumentSlice(1)
+			return launch, true
+		}
+	}
+	return authorityProcessLaunch{}, false
+}
+
+func authorityExecCmdLiteral(literal *ast.CompositeLit, info *types.Info) (authorityProcessLaunch, bool) {
+	typeOf := info.TypeOf(literal.Type)
+	named, ok := typeOf.(*types.Named)
+	if !ok || named.Obj().Pkg() == nil || named.Obj().Pkg().Path() != execPackagePath || named.Obj().Name() != "Cmd" {
+		return authorityProcessLaunch{}, false
+	}
+	launch := authorityProcessLaunch{kind: "os/exec.Cmd literal"}
+	for _, element := range literal.Elts {
+		field, ok := element.(*ast.KeyValueExpr)
+		if !ok {
+			continue
+		}
+		name, ok := field.Key.(*ast.Ident)
+		if !ok {
+			continue
+		}
+		switch name.Name {
+		case "Path":
+			launch.executable = field.Value
+		case "Args":
+			arguments, ok := field.Value.(*ast.CompositeLit)
+			if !ok {
+				continue
+			}
+			launch.argsKnown = true
+			launch.arguments = append(launch.arguments, arguments.Elts...)
+		}
+	}
+	return launch, true
+}
+
+func authorityConstantString(info *types.Info, expression ast.Expr) (string, bool) {
+	if expression == nil {
+		return "", false
+	}
+	value := info.Types[expression].Value
+	if value == nil || value.Kind() != constant.String {
+		return "", false
+	}
+	return constant.StringVal(value), true
+}
+
+func authorityShellExecutable(executable string) bool {
+	switch executable {
+	case "sh", "bash", "zsh", "dash", "/bin/sh", "/usr/bin/env":
+		return true
+	default:
+		return false
+	}
+}
+
+func authorityContainsDockerComposeToken(argument string) bool {
+	tokens := strings.FieldsFunc(argument, func(r rune) bool {
+		return !unicode.IsLetter(r) && !unicode.IsDigit(r) && r != '_'
+	})
+	for _, token := range tokens {
+		if strings.EqualFold(token, "docker") || strings.EqualFold(token, "compose") {
+			return true
+		}
+	}
+	return false
+}
+
+func authorityProcessLaunchViolations(launch authorityProcessLaunch, key, packagePath string, line int, info *types.Info, gotIntentionalDynamicShellCalls map[string]int) []string {
+	var violations []string
+	if !allowedProcessLaunchFunctions[key] {
+		violations = append(violations, fmt.Sprintf("unallowlisted %s construction at %s:%d", launch.kind, key, line))
+	}
+	executable, executableConstant := authorityConstantString(info, launch.executable)
+	dynamicHandoff := launch.kind == "syscall.Exec" && allowedDynamicSyscallExecHandoffs[key]
+	if !executableConstant {
+		if !dynamicHandoff {
+			violations = append(violations, fmt.Sprintf("dynamic %s executable at %s:%d", launch.kind, key, line))
+		}
+		return violations
+	}
+	if (executable == "docker" || executable == "docker-compose") && packagePath != composePackagePath {
+		violations = append(violations, fmt.Sprintf("raw %s process launch outside compose wrapper at %s:%d", executable, key, line))
+	}
+	if !authorityShellExecutable(executable) {
+		return violations
+	}
+	hasDynamicArgument := !launch.argsKnown
+	for _, argumentExpression := range launch.arguments {
+		argument, ok := authorityConstantString(info, argumentExpression)
+		if !ok {
+			hasDynamicArgument = true
+			continue
+		}
+		if authorityContainsDockerComposeToken(argument) {
+			violations = append(violations, fmt.Sprintf("shell argument contains docker/compose authority for %s at %s:%d", executable, key, line))
+		}
+	}
+	if hasDynamicArgument {
+		allowanceKey := key + "|" + executable
+		if _, allowed := allowedIntentionalDynamicShellCalls[allowanceKey]; allowed {
+			gotIntentionalDynamicShellCalls[allowanceKey]++
+		} else {
+			violations = append(violations, fmt.Sprintf("dynamic shell argument for %s at %s:%d", executable, key, line))
+		}
+	}
+	return violations
 }
 
 func authorityParents(root ast.Node) map[ast.Node]ast.Node {
@@ -178,6 +379,27 @@ func directCallForObjectUse(ident *ast.Ident, parents map[ast.Node]ast.Node) (*a
 	}
 	call, ok := parents[selector].(*ast.CallExpr)
 	return call, ok && call.Fun == selector
+}
+
+func authorityProcessFunctionKind(function *types.Func) (string, bool) {
+	if function == nil || function.Pkg() == nil {
+		return "", false
+	}
+	switch function.Pkg().Path() {
+	case execPackagePath:
+		if function.Name() == "Command" || function.Name() == "CommandContext" {
+			return "os/exec." + function.Name(), true
+		}
+	case osPackagePath:
+		if function.Name() == "StartProcess" {
+			return "os.StartProcess", true
+		}
+	case syscallPackagePath:
+		if function.Name() == "Exec" || function.Name() == "ForkExec" {
+			return "syscall." + function.Name(), true
+		}
+	}
+	return "", false
 }
 
 func collectPackageErrors(pkgs []*packages.Package) []string {
@@ -262,7 +484,8 @@ func typedAuthorityViolation(cliDir string, overlay map[string][]byte) error {
 	loadedFiles := make(map[string]bool)
 	gotUpCalls := make(map[string]int)
 	seenUpUse := make(map[string]bool)
-	seenExecCall := make(map[string]bool)
+	seenProcessLaunch := make(map[string]bool)
+	gotIntentionalDynamicShellCalls := make(map[string]int)
 	var violations []string
 
 	for _, goos := range gooses {
@@ -291,43 +514,36 @@ func typedAuthorityViolation(cliDir string, overlay map[string][]byte) error {
 							gotUpCalls[key]++
 						}
 					}
+					if kind, launcher := authorityProcessFunctionKind(object); launcher {
+						if _, direct := directCallForObjectUse(ident, parents); !direct {
+							key := authorityEnclosingFunction(typedFile.path, ident, parents)
+							violations = append(violations, fmt.Sprintf("%s used as a value at %s", kind, key))
+						}
+					}
 				}
 
-				call, ok := node.(*ast.CallExpr)
-				if !ok {
+				var launch authorityProcessLaunch
+				var launcherNode ast.Node
+				var found bool
+				switch typedNode := node.(type) {
+				case *ast.CallExpr:
+					launch, found = authorityCallProcessLaunch(typedNode, info)
+					launcherNode = typedNode
+				case *ast.CompositeLit:
+					launch, found = authorityExecCmdLiteral(typedNode, info)
+					launcherNode = typedNode
+				}
+				if !found {
 					return true
 				}
-				function := calledFunctionObject(call, info)
-				if function == nil || function.Pkg() == nil || function.Pkg().Path() != execPackagePath || (function.Name() != "Command" && function.Name() != "CommandContext") {
+				position := typedFile.pkg.Fset.Position(launcherNode.Pos())
+				location := fmt.Sprintf("%s:%d:%d:%s", typedFile.path, position.Line, position.Column, launch.kind)
+				if seenProcessLaunch[location] {
 					return true
 				}
-				position := typedFile.pkg.Fset.Position(call.Pos())
-				location := fmt.Sprintf("%s:%d:%d", typedFile.path, position.Line, position.Column)
-				if seenExecCall[location] {
-					return true
-				}
-				seenExecCall[location] = true
-				key := authorityEnclosingFunction(typedFile.path, call, parents)
-				if !allowedExecFunctions[key] {
-					violations = append(violations, fmt.Sprintf("unallowlisted os/exec construction at %s:%d", key, typedFile.pkg.Fset.Position(call.Pos()).Line))
-				}
-				argIndex := 0
-				if function.Name() == "CommandContext" {
-					argIndex = 1
-				}
-				if len(call.Args) <= argIndex {
-					violations = append(violations, fmt.Sprintf("os/exec construction has no executable at %s:%d", key, typedFile.pkg.Fset.Position(call.Pos()).Line))
-					return true
-				}
-				executable := info.Types[call.Args[argIndex]].Value
-				if executable == nil || executable.Kind() != constant.String {
-					violations = append(violations, fmt.Sprintf("dynamic os/exec executable at %s:%d", key, typedFile.pkg.Fset.Position(call.Pos()).Line))
-					return true
-				}
-				name := constant.StringVal(executable)
-				if (name == "docker" || name == "docker-compose") && typedFile.pkg.PkgPath != composePackagePath {
-					violations = append(violations, fmt.Sprintf("raw %s exec outside compose wrapper at %s:%d", name, key, typedFile.pkg.Fset.Position(call.Pos()).Line))
-				}
+				seenProcessLaunch[location] = true
+				key := authorityEnclosingFunction(typedFile.path, launcherNode, parents)
+				violations = append(violations, authorityProcessLaunchViolations(launch, key, typedFile.pkg.PkgPath, position.Line, info, gotIntentionalDynamicShellCalls)...)
 				return true
 			})
 		}
@@ -345,6 +561,11 @@ func typedAuthorityViolation(cliDir string, overlay map[string][]byte) error {
 	for key, want := range allowedComposeUpCalls {
 		if gotUpCalls[key] != want {
 			violations = append(violations, fmt.Sprintf("compose.Up call inventory at %s = %d, want %d", key, gotUpCalls[key], want))
+		}
+	}
+	for key, want := range allowedIntentionalDynamicShellCalls {
+		if gotIntentionalDynamicShellCalls[key] != want {
+			violations = append(violations, fmt.Sprintf("intentional dynamic shell call inventory at %s = %d, want %d", key, gotIntentionalDynamicShellCalls[key], want))
 		}
 	}
 	if len(violations) != 0 {
@@ -418,7 +639,7 @@ func Run(ctx context.Context) *e.Cmd {
     return e.CommandContext(ctx, "docker", "compose", "up", "-d", "app")
 }
 `, func(err error) {
-		if err == nil || !strings.Contains(err.Error(), "unallowlisted os/exec construction") || !strings.Contains(err.Error(), "raw docker exec outside compose wrapper") {
+		if err == nil || !strings.Contains(err.Error(), "unallowlisted os/exec construction") || !strings.Contains(err.Error(), "raw docker process launch outside compose wrapper") {
 			t.Fatalf("aliased os/exec mutation survived: %v", err)
 		}
 	})
@@ -432,7 +653,7 @@ func Run() *Cmd {
     return Command("docker", "compose", "up", "-d", "app")
 }
 `, func(err error) {
-		if err == nil || !strings.Contains(err.Error(), "unallowlisted os/exec construction") || !strings.Contains(err.Error(), "raw docker exec outside compose wrapper") {
+		if err == nil || !strings.Contains(err.Error(), "unallowlisted os/exec construction") || !strings.Contains(err.Error(), "raw docker process launch outside compose wrapper") {
 			t.Fatalf("dot-imported os/exec mutation survived: %v", err)
 		}
 	})
@@ -451,6 +672,106 @@ func Run() *exec.Cmd {
 `, func(err error) {
 		if err == nil || !strings.Contains(err.Error(), "dynamic os/exec executable") {
 			t.Fatalf("dynamic executable mutation survived: %v", err)
+		}
+	})
+}
+
+func TestTypedComposeAuthorityRejectsShellPayloadInComposeWrapper(t *testing.T) {
+	cliDir := thisRepoFile(t, "cli")
+	overlay := authorityOverlay(t, cliDir, "internal/compose/compose.go", func(source string) string {
+		anchor := "func dockerComposeCommand(ctx context.Context, projDir string, args ...string) (*exec.Cmd, error) {\n"
+		return strings.Replace(source, anchor, anchor+"\t_ = exec.Command(\"sh\", \"-c\", \"docker compose up\")\n", 1)
+	})
+	err := typedAuthorityViolation(cliDir, overlay)
+	if err == nil || !strings.Contains(err.Error(), "shell argument contains docker/compose authority") {
+		t.Fatalf("compose-wrapper shell mutation survived: %v", err)
+	}
+}
+
+func TestTypedComposeAuthorityRejectsShellPayloadInInstallCommand(t *testing.T) {
+	cliDir := thisRepoFile(t, "cli")
+	overlay := authorityOverlay(t, cliDir, "cmd/install.go", func(source string) string {
+		anchor := "func commandContextDir(ctx context.Context, dir string, name string, args ...string) (*exec.Cmd, error) {\n"
+		return strings.Replace(source, anchor, anchor+"\t_ = exec.Command(\"sh\", \"-c\", \"docker compose up\")\n", 1)
+	})
+	err := typedAuthorityViolation(cliDir, overlay)
+	if err == nil || !strings.Contains(err.Error(), "shell argument contains docker/compose authority") {
+		t.Fatalf("install shell mutation survived: %v", err)
+	}
+}
+
+func TestTypedComposeAuthorityRejectsOSStartProcessDocker(t *testing.T) {
+	cliDir := thisRepoFile(t, "cli")
+	overlay := authorityOverlay(t, cliDir, "cmd/install.go", func(source string) string {
+		anchor := "func commandContextDir(ctx context.Context, dir string, name string, args ...string) (*exec.Cmd, error) {\n"
+		return strings.Replace(source, anchor, anchor+"\t_, _ = os.StartProcess(\"docker\", []string{\"docker\", \"compose\", \"up\"}, &os.ProcAttr{})\n", 1)
+	})
+	err := typedAuthorityViolation(cliDir, overlay)
+	if err == nil || !strings.Contains(err.Error(), "raw docker process launch outside compose wrapper") {
+		t.Fatalf("os.StartProcess docker mutation survived: %v", err)
+	}
+}
+
+func TestTypedComposeAuthorityRejectsSyscallExecDocker(t *testing.T) {
+	cliDir := thisRepoFile(t, "cli")
+	overlay := authorityOverlay(t, cliDir, "cmd/install.go", func(source string) string {
+		anchor := "func commandContextDir(ctx context.Context, dir string, name string, args ...string) (*exec.Cmd, error) {\n"
+		return strings.Replace(source, anchor, anchor+"\t_ = syscall.Exec(\"docker\", []string{\"docker\", \"compose\", \"up\"}, os.Environ())\n", 1)
+	})
+	err := typedAuthorityViolation(cliDir, overlay)
+	if err == nil || !strings.Contains(err.Error(), "raw docker process launch outside compose wrapper") {
+		t.Fatalf("syscall.Exec docker mutation survived: %v", err)
+	}
+}
+
+func TestTypedComposeAuthorityRejectsSyscallForkExecDocker(t *testing.T) {
+	cliDir := thisRepoFile(t, "cli")
+	withAuthorityMutationPackage(t, cliDir, `package authoritymutation
+import "syscall"
+func Run() (int, error) {
+    return syscall.ForkExec("docker", []string{"docker", "compose", "up"}, &syscall.ProcAttr{})
+}
+`, func(err error) {
+		if err == nil || !strings.Contains(err.Error(), "unallowlisted syscall.ForkExec construction") || !strings.Contains(err.Error(), "raw docker process launch outside compose wrapper") {
+			t.Fatalf("syscall.ForkExec docker mutation survived: %v", err)
+		}
+	})
+}
+
+func TestTypedComposeAuthorityRejectsExecCmdLiteralDocker(t *testing.T) {
+	cliDir := thisRepoFile(t, "cli")
+	withAuthorityMutationPackage(t, cliDir, `package authoritymutation
+import "os/exec"
+func Run() *exec.Cmd {
+    return &exec.Cmd{Path: "docker", Args: []string{"docker", "compose", "up"}}
+}
+`, func(err error) {
+		if err == nil || !strings.Contains(err.Error(), "unallowlisted os/exec.Cmd literal") || !strings.Contains(err.Error(), "raw docker process launch outside compose wrapper") {
+			t.Fatalf("os/exec.Cmd literal docker mutation survived: %v", err)
+		}
+	})
+}
+
+func TestTypedComposeAuthorityRejectsDynamicShellArgument(t *testing.T) {
+	cliDir := thisRepoFile(t, "cli")
+	overlay := authorityOverlay(t, cliDir, "internal/compose/compose.go", func(source string) string {
+		anchor := "func dockerComposeCommand(ctx context.Context, projDir string, args ...string) (*exec.Cmd, error) {\n"
+		return strings.Replace(source, anchor, anchor+"\t_ = exec.Command(\"sh\", \"-c\", os.Getenv(\"PAYLOAD\"))\n", 1)
+	})
+	err := typedAuthorityViolation(cliDir, overlay)
+	if err == nil || !strings.Contains(err.Error(), "dynamic shell argument") {
+		t.Fatalf("dynamic shell argument mutation survived: %v", err)
+	}
+}
+
+func TestTypedComposeAuthorityRejectsAssignedProcessLauncher(t *testing.T) {
+	cliDir := thisRepoFile(t, "cli")
+	withAuthorityMutationPackage(t, cliDir, `package authoritymutation
+import "os"
+var launch = os.StartProcess
+`, func(err error) {
+		if err == nil || !strings.Contains(err.Error(), "os.StartProcess used as a value") {
+			t.Fatalf("assigned process launcher mutation survived: %v", err)
 		}
 	})
 }

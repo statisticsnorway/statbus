@@ -3,7 +3,6 @@ package cmd
 import (
 	"os"
 	"os/exec"
-	"path/filepath"
 
 	"github.com/spf13/cobra"
 	"github.com/statisticsnorway/statbus/cli/internal/config"
@@ -16,10 +15,7 @@ var testCmd = &cobra.Command{
 	DisableFlagParsing: true,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		projDir := config.ProjectDir()
-		script := filepath.Join(projDir, "dev.sh")
-
-		fullArgs := append([]string{script, "test"}, args...)
-		c := exec.Command("bash", fullArgs...)
+		c := exec.Command("./dev.sh", append([]string{"test"}, args...)...)
 		c.Dir = projDir
 		c.Stdin = os.Stdin
 		c.Stdout = os.Stdout

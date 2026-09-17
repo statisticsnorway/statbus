@@ -64,7 +64,7 @@ func ValidateHarnessDomainAt(projDir, commit string) error {
 		return fmt.Errorf("%s has no %s/run.sh to validate the harness domain with: %v", shortSHA(commit), harnessTreePath, statErr)
 	}
 
-	cmd := exec.Command("bash", runner, "--print-selected")
+	cmd := exec.Command("bash", "./"+harnessTreePath+"/run.sh", "--print-selected")
 	cmd.Dir = tmp
 	cmd.Env = append(os.Environ(), "GIT_TERMINAL_PROMPT=0")
 	var stdout, stderr bytes.Buffer

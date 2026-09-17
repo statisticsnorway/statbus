@@ -3186,7 +3186,7 @@ func commandContextDir(ctx context.Context, dir string, name string, args ...str
 		if filepath.Base(name) != "sb" {
 			return nil, fmt.Errorf("unsupported command executable %q", name)
 		}
-		cmd = exec.CommandContext(ctx, "/usr/bin/env", append([]string{name}, args...)...)
+		cmd = exec.CommandContext(ctx, "./sb", args...)
 	}
 	cmd.Dir = dir
 	return cmd, nil

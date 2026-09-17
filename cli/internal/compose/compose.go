@@ -23,6 +23,7 @@ var composeGlobalValueFlags = map[string]struct{}{
 }
 
 var composeGlobalBoolFlags = map[string]struct{}{
+	"--all-resources": {},
 	"--compatibility": {},
 	"--dry-run":       {},
 }
