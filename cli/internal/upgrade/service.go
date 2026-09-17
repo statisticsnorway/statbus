@@ -3035,8 +3035,12 @@ func (d *Service) Run(ctx context.Context) error {
 	d.finalizePendingRollbacks(ctx)
 
 	// Complete any in-progress upgrade from a previous service instance
-	// (e.g., after self-update restart via exit code 42)
-	d.completeInProgressUpgrade(ctx)
+	// (e.g., after self-update restart via exit code 42). A reconciliation
+	// failure is category-3 divergence just like recoverFromFlag: stop this
+	// pass with the durable marker intact rather than scheduling new work.
+	if err := d.completeInProgressUpgrade(ctx); err != nil {
+		return fmt.Errorf("complete in-progress upgrade: %w", err)
+	}
 
 	// Sync UPGRADE_* config from .env to system_info table
 	d.syncConfigToSystemInfo(ctx)
@@ -3168,7 +3172,9 @@ func (d *Service) Run(ctx context.Context) error {
 				// Belt: reconcile any in_progress row whose final UPDATE was
 				// lost (e.g. stale DB connection during executeUpgrade). Low-
 				// cost — returns immediately when no orphan row exists.
-				d.completeInProgressUpgrade(ctx)
+				if err := d.completeInProgressUpgrade(ctx); err != nil {
+					return fmt.Errorf("complete in-progress upgrade on poll: %w", err)
+				}
 				d.discover(ctx)
 				d.executeScheduled(ctx)
 				if d.listenCancel == nil { // restart if executeUpgrade stopped the loop
@@ -3863,7 +3869,7 @@ func (d *Service) recoveryRollback(ctx context.Context, flag UpgradeFlag, displa
 // completed (e.g., service restarted after self-update). If found, verifies
 // health and marks completed_at. This ensures "completed" truly means
 // the new version is running and verified.
-func (d *Service) completeInProgressUpgrade(ctx context.Context) {
+func (d *Service) completeInProgressUpgrade(ctx context.Context) error {
 	var id int
 	var commitSHA string
 	var displayName string
@@ -3876,7 +3882,7 @@ func (d *Service) completeInProgressUpgrade(ctx context.Context) {
 		 WHERE state = 'in_progress'
 		 LIMIT 1`).Scan(&id, &commitSHA, &displayName, &rowBackupPath)
 	if err != nil {
-		return // no in-progress upgrade
+		return nil // no in-progress upgrade
 	}
 
 	// STATBUS-135 — PARKED-SKIP, before the defer arms. A parked row is
@@ -3903,7 +3909,7 @@ func (d *Service) completeInProgressUpgrade(ctx context.Context) {
 	}
 	if parked {
 		log.Printf("completeInProgressUpgrade: upgrade %d is PARKED (%s) — skipping reconciliation; the flag stays on disk and the row stays parked/in_progress. Re-trigger the upgrade or run ./sb install to make a fresh deliberate attempt.", id, parkReason)
-		return
+		return nil
 	}
 
 	// Guarantee flag cleanup on every exit path of this recovery routine.
@@ -3920,12 +3926,14 @@ func (d *Service) completeInProgressUpgrade(ctx context.Context) {
 	//
 	// STATBUS-192: the serve-proof start/health-fail PARK path (below) materializes a
 	// faithful flag so `./sb install` can un-park it — that flag MUST survive this
-	// defer. parkedExit is set true on that path and is the truth of THIS pass; do NOT
+	// defer. keepFlagExit is set true on every path where durable recovery intent
+	// must survive this pass: a faithful park, or a rollback failure that still
+	// requires another recovery attempt. It is the truth of THIS pass; do NOT
 	// re-read park state here (a failed read would default wrong). 135's principle:
 	// parked rows keep their flag.
-	parkedExit := false
+	keepFlagExit := false
 	defer func() {
-		if !parkedExit {
+		if !keepFlagExit {
 			_ = d.removeUpgradeFlag()
 		}
 	}()
@@ -3984,7 +3992,7 @@ func (d *Service) completeInProgressUpgrade(ctx context.Context) {
 			d.writeDiagnosticBundle(ctx, int(id), nil)
 			break
 		}
-		return
+		return nil
 	}
 
 	// Observed-state verification (task #49). The row is about to be marked
@@ -4015,7 +4023,7 @@ func (d *Service) completeInProgressUpgrade(ctx context.Context) {
 	obsState, _, reason := d.verifyUpgradeObservedStateEx(ctx, commitSHA)
 	if obsState == ObservedPositionUnreadable {
 		logRecover("Ground-truth UNVERIFIABLE for %s: %s — leaving row in_progress (no restore under uncertainty); next recovery pass re-checks.", displayName, reason)
-		return
+		return nil
 	}
 	if obsState == ObservedCannotReachNew {
 		logRecover("Ground-truth verification FAILED for %s: %s", displayName, reason)
@@ -4042,7 +4050,7 @@ func (d *Service) completeInProgressUpgrade(ctx context.Context) {
 		lock, lockErr := acquireFreshFlock(d.projDir, tentative)
 		if lockErr != nil {
 			logRecover("Flagless rollback claim for %s lost the fresh-marker race; yielding without rollback: %v", displayName, lockErr)
-			return
+			return nil
 		}
 		d.flagLock = lock
 
@@ -4078,7 +4086,7 @@ func (d *Service) completeInProgressUpgrade(ctx context.Context) {
 			if removeErr := d.removeUpgradeFlag(); removeErr != nil {
 				log.Printf("completeInProgressUpgrade: could not remove revoked tentative marker for upgrade %d: %v", id, removeErr)
 			}
-			return
+			return nil
 		}
 
 		// Authorization succeeded. Turn the held tentative record into a faithful
@@ -4097,7 +4105,7 @@ func (d *Service) completeInProgressUpgrade(ctx context.Context) {
 			if removeErr := d.removeUpgradeFlag(); removeErr != nil {
 				log.Printf("completeInProgressUpgrade: could not remove uncommitted marker for upgrade %d: %v", id, removeErr)
 			}
-			return
+			return nil
 		}
 
 		if _, attemptErr := d.countRecoveryAttemptOnce(ctx, id); attemptErr != nil {
@@ -4110,9 +4118,12 @@ func (d *Service) completeInProgressUpgrade(ctx context.Context) {
 		defer rollbackLog.Close()
 		if rollbackErr := d.rollback(ctx, id, displayName, "", ptrFailureCode(ErrInstallPreconditionFailed), fmt.Sprintf(
 			"observed-state check after service restart failed: %s", reason), authorizedBackupPath, rollbackLog); rollbackErr != nil {
-			log.Printf("completeInProgressUpgrade: rollback for upgrade %d aborted before destructive work: %v", id, rollbackErr)
+			keepFlagExit = true
+			d.markTerminal("FLAGLESS_ROLLBACK_FAILED",
+				fmt.Sprintf("id=%d; authorized backup=%s; rollback error=%v; marker retained for next recovery", id, authorizedBackupPath, rollbackErr))
+			return fmt.Errorf("completeInProgressUpgrade: rollback for upgrade %d aborted; durable recovery marker retained: %w", id, rollbackErr)
 		}
-		return
+		return nil
 	}
 
 	// STATBUS-192 — SERVE-PROVEN completed. At-target (binary + migrations, verified
@@ -4168,7 +4179,7 @@ func (d *Service) completeInProgressUpgrade(ctx context.Context) {
 		} else if werr := os.WriteFile(d.flagPath(), data, 0644); werr != nil {
 			logRecover("WARNING: could not write the recovery flag before parking %s (%v) — `./sb install` un-park is UNAVAILABLE for this park; schedule a fix release to retrigger. Parking anyway.", displayName, werr)
 		} else {
-			parkedExit = true // the defer must NOT strip this flag (STATBUS-192/135)
+			keepFlagExit = true // the defer must NOT strip this flag (STATBUS-192/135)
 		}
 		_ = d.parkForDeterministicFailure(ctx, id, displayName, restoreTargetSHA, commitSHA, rowBackupPath.String, failureCode, reason, appendLog)
 	}
@@ -4197,7 +4208,7 @@ func (d *Service) completeInProgressUpgrade(ctx context.Context) {
 
 	if reason := d.diskPrecheckReason(StepStartServices); reason != "" {
 		parkAtTarget(nil, reason)
-		return
+		return nil
 	}
 	logRecover("At-target verified; starting application services to prove %s serves...", displayName)
 	composeArgs := append([]string{"compose", "up", "-d", "--no-build"}, step11RestartServices...)
@@ -4210,19 +4221,19 @@ func (d *Service) completeInProgressUpgrade(ctx context.Context) {
 		// class-C primary; this is the in-flight ENOSPC backstop.)
 		if classifyDockerFailure(cerr, stderrTail) == classResource {
 			parkAtTarget(nil, fmt.Sprintf("disk full starting services at %s (no space left on device) — free disk space, then re-trigger the upgrade", displayName))
-			return
+			return nil
 		}
 		_ = d.newSbUpgradingFailure(ctx, id, displayName, restoreTargetSHA, commitSHA, rowBackupPath.String,
 			ptrFailureCode(ErrDockerUpFailed), fmt.Sprintf("could not start the application at %s during flagless recovery: %v", displayName, cerr), appendLog)
-		return
+		return nil
 	}
 	if hcErr := d.healthCheck(appendLog, 5, 5*time.Second); hcErr != nil {
 		parkAtTarget(ptrFailureCode(ErrHealthcheckRESTDown), fmt.Sprintf("the application cannot serve at %s past warmup after flagless recovery — %v; fix the cause, then re-trigger the upgrade", displayName, hcErr))
-		return
+		return nil
 	}
 	if err := d.setMaintenance(false, ""); err != nil {
 		parkAtTarget(nil, fmt.Sprintf("maintenance mode could not be lifted after %s passed its serving health check: %v; fix the maintenance flag path or permissions, then re-trigger the upgrade", displayName, err))
-		return
+		return nil
 	}
 
 	// error = NULL: chk_upgrade_state_attributes forbids a non-NULL error on
@@ -4297,6 +4308,7 @@ func (d *Service) completeInProgressUpgrade(ctx context.Context) {
 	} else {
 		logRecover("Upgrade to %s was not recorded as complete; automatic reconciliation will retry the database transition.", displayName)
 	}
+	return nil
 }
 
 // syncConfigToSystemInfo writes UPGRADE_* values from .env to system_info.
@@ -7842,8 +7854,8 @@ func migrationMaxInGitTree(projDir, sha string) (int64, error) {
 
 // restoreSourceServices brings the SOURCE version's application services back on a parked box
 // (STATBUS-200, ruling Q2): the rollback restore tail MINUS restoreDatabase — restore the git
-// tree + binary + config to the source, then start the EXISTING app/worker/rest containers
-// in place (never compose up/recreate), a bounded health
+// tree + binary + config to the source, then converge app/worker/rest to the exact
+// images rendered by that restored source compose model, followed by a bounded health
 // gate, and maintenance OFF + the read-only window LIFT ONLY on a passing health check
 // (serve-proven — never claim serving without proving it). restoreDatabase is DELIBERATELY
 // skipped: the era guard already proved the DB is at the source version, so there is nothing to
@@ -7875,67 +7887,216 @@ func (d *Service) restoreSourceServices(ctx context.Context, restoreTargetSHA st
 	return nil
 }
 
-var sourceServingServices = []string{"app", "worker", "rest"}
+// sourceServingServices is the complete HTTP/application serving tier that must
+// converge to the restored source compose model before rollback or park recovery
+// may lift maintenance. sourceServingClientServices excludes proxy because the
+// database route deliberately keeps that container running during held-closed
+// schema inspection.
+var sourceServingServices = []string{"app", "worker", "rest", "proxy"}
+var sourceServingClientServices = []string{"app", "worker", "rest"}
+var sourceVersionTaggedServingServices = []string{"app", "worker", "proxy"}
 
-// sourceServingContainersMissingError is the named recovery refusal for source
-// serving containers that were removed rather than stopped. Recovery must not
-// recreate them from the currently running binary's compose-template image.
-type sourceServingContainersMissingError struct {
-	Services []string
+// ServingEra is observed container identity, never caller intent. Recovery must
+// derive it from docker's actual image references at the source-stack boundary.
+// There is deliberately no constructor that accepts "source" from a caller.
+type ServingEra string
+
+const (
+	ServingEraSource ServingEra = "source"
+	ServingEraTarget ServingEra = "target"
+)
+
+// sourceServingEraUnknownError is the named fail-closed recovery refusal when
+// the restored source tree/config or the resulting container identities cannot
+// be proved. Callers persist their own durable rollback/park terminal while the
+// serving tier remains closed.
+type sourceServingEraUnknownError struct {
+	Detail string
 }
 
-func (e *sourceServingContainersMissingError) Error() string {
-	noun := "containers are"
-	if len(e.Services) == 1 {
-		noun = "container is"
+func (e *sourceServingEraUnknownError) Error() string {
+	return fmt.Sprintf("source serving era cannot be established: %s; application services remain closed", e.Detail)
+}
+
+type sourceComposeService struct {
+	Image string `json:"image"`
+}
+
+type sourceComposeConfig struct {
+	Services map[string]sourceComposeService `json:"services"`
+}
+
+// sourceServingExpectedImages renders the compose model from the CURRENT
+// working tree and proves that app/worker/proxy point at that tree's source commit.
+// Recovery calls this only after source git/config restoration, or on the
+// PreSwap path where source assets never moved. The fixed-tag rest image is
+// still captured exactly so a target compose change cannot slip through.
+func (d *Service) sourceServingExpectedImages(ctx context.Context) (map[string]string, string, error) {
+	shaOut, err := runCommandOutput(d.projDir, "git", "rev-parse", "--short=8", "HEAD")
+	if err != nil {
+		return nil, "", &sourceServingEraUnknownError{Detail: fmt.Sprintf("read restored source commit: %v (%s)", err, strings.TrimSpace(shaOut))}
 	}
-	return fmt.Sprintf("source serving %s missing: %s; recovery will not recreate in-flight containers with docker compose up", noun, strings.Join(e.Services, ", "))
+	sourceTag := strings.TrimSpace(shaOut)
+	if !regexp.MustCompile(`^[0-9a-f]{8}$`).MatchString(sourceTag) {
+		return nil, "", &sourceServingEraUnknownError{Detail: fmt.Sprintf("restored source commit tag %q is not an eight-character git SHA", sourceTag)}
+	}
+
+	cmd := exec.CommandContext(ctx, "docker", "compose", "config", "--format", "json")
+	cmd.Dir = d.projDir
+	prepareCmd(cmd)
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		return nil, "", &sourceServingEraUnknownError{Detail: fmt.Sprintf("render restored source compose config: %v (%s)", err, strings.TrimSpace(string(out)))}
+	}
+	var rendered sourceComposeConfig
+	if err := json.Unmarshal(out, &rendered); err != nil {
+		return nil, "", &sourceServingEraUnknownError{Detail: fmt.Sprintf("parse restored source compose config: %v", err)}
+	}
+	expected := make(map[string]string, len(sourceServingServices))
+	for _, service := range sourceServingServices {
+		image := strings.TrimSpace(rendered.Services[service].Image)
+		if image == "" {
+			return nil, "", &sourceServingEraUnknownError{Detail: fmt.Sprintf("restored source compose config has no image for %s", service)}
+		}
+		expected[service] = image
+	}
+	for _, service := range sourceVersionTaggedServingServices {
+		if tag := extractImageTag(expected[service]); tag != sourceTag {
+			return nil, "", &sourceServingEraUnknownError{Detail: fmt.Sprintf("restored source compose image for %s is %q (tag %q), want source commit %s", service, expected[service], tag, sourceTag)}
+		}
+	}
+	return expected, sourceTag, nil
+}
+
+func (d *Service) sourceServingContainerEntries(ctx context.Context) ([]compose.PsEntry, error) {
+	cmd := exec.CommandContext(ctx, "docker", "compose", "ps", "-a", "--format", "json")
+	cmd.Dir = d.projDir
+	prepareCmd(cmd)
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		return nil, &sourceServingEraUnknownError{Detail: fmt.Sprintf("inspect serving containers: docker compose ps -a: %v (%s)", err, strings.TrimSpace(string(out)))}
+	}
+	entries, err := compose.ParsePsJSON(out)
+	if err != nil {
+		return nil, &sourceServingEraUnknownError{Detail: fmt.Sprintf("parse serving container identities: %v", err)}
+	}
+	return entries, nil
+}
+
+// deriveServingEra establishes one coherent observed era from every serving
+// container. Version-tagged app/worker/proxy vote Source only on an exact source
+// image reference and Target only when all three carry the same non-source tag.
+// The fixed-tag rest image must exist; on Source it must exactly match the source
+// compose model. Missing, mixed, tagless, or ambiguous identities are not an era.
+func deriveServingEra(entries []compose.PsEntry, expected map[string]string, sourceCommitShort string) (ServingEra, error) {
+	actual := make(map[string]string, len(entries))
+	for _, entry := range entries {
+		actual[entry.Service] = strings.TrimSpace(entry.Image)
+	}
+	for _, service := range sourceServingServices {
+		if actual[service] == "" {
+			return "", &sourceServingEraUnknownError{Detail: fmt.Sprintf("%s container is missing or has no image identity", service)}
+		}
+	}
+
+	sourceVotes := 0
+	targetTag := ""
+	for _, service := range sourceVersionTaggedServingServices {
+		image := actual[service]
+		if image == expected[service] {
+			sourceVotes++
+			continue
+		}
+		tag := extractImageTag(image)
+		if tag == "" {
+			return "", &sourceServingEraUnknownError{Detail: fmt.Sprintf("%s image %q has no derivable version tag", service, image)}
+		}
+		if tag == sourceCommitShort {
+			return "", &sourceServingEraUnknownError{Detail: fmt.Sprintf("%s image %q carries the source tag %s but is not the source image %q", service, image, sourceCommitShort, expected[service])}
+		}
+		if targetTag == "" {
+			targetTag = tag
+		} else if tag != targetTag {
+			return "", &sourceServingEraUnknownError{Detail: fmt.Sprintf("mixed non-source serving tags: %s has %s, want coherent target tag %s", service, tag, targetTag)}
+		}
+	}
+
+	switch {
+	case sourceVotes == len(sourceVersionTaggedServingServices):
+		if actual["rest"] != expected["rest"] {
+			return "", &sourceServingEraUnknownError{Detail: fmt.Sprintf("version-tagged services are source era but rest image is %q, want source image %q", actual["rest"], expected["rest"])}
+		}
+		return ServingEraSource, nil
+	case sourceVotes == 0 && targetTag != "":
+		return ServingEraTarget, nil
+	default:
+		return "", &sourceServingEraUnknownError{Detail: fmt.Sprintf("mixed source/target serving identities: %d of %d version-tagged services match source %s", sourceVotes, len(sourceVersionTaggedServingServices), sourceCommitShort)}
+	}
 }
 
 // startSourceApplicationStack is the shared source-era serving gate. Both park
 // recovery (after restoring source git/binary/config) and the PreSwap
 // STOPPED-UNCHANGED terminal (where those assets never moved) use this exact
 // primitive so neither path can claim normal serving based on container start
-// alone. executeUpgrade stops app/worker/rest with `docker compose stop`, which
-// leaves their containers present; a park reached before that stop may find them
-// already running, where `start` is a no-op. Missing containers are a named
-// refusal, never a reason to use `up -d`: the currently running binary may render
-// a different image tag and silently rewrite the in-flight upgrade (rc.66 -> rc.67).
+// alone. The era rule is source-authoritative: start in place only when every
+// existing image exactly matches the restored source compose model; otherwise
+// recreate app/worker/rest/proxy from that proven source model, then inspect again.
+// rc.66 -> rc.67 forbids recreation from a WRONG-era tree/config. It does not
+// forbid controlled recreation after source git/config restoration is proved.
 func (d *Service) startSourceApplicationStack(ctx context.Context, progress *ProgressLog) error {
 	if err := ctx.Err(); err != nil {
 		return err
 	}
-	cmd := exec.CommandContext(ctx, "docker", "compose", "ps", "-a", "--format", "json")
-	cmd.Dir = d.projDir
-	out, err := cmd.Output()
+	expected, sourceTag, err := d.sourceServingExpectedImages(ctx)
 	if err != nil {
-		return fmt.Errorf("inspect existing source serving containers: docker compose ps -a: %w", err)
+		return err
 	}
-	entries, err := compose.ParsePsJSON(out)
+	entries, err := d.sourceServingContainerEntries(ctx)
 	if err != nil {
-		return fmt.Errorf("inspect existing source serving containers: %w", err)
-	}
-	existing := make(map[string]bool, len(entries))
-	for _, entry := range entries {
-		existing[entry.Service] = true
-	}
-	var missing []string
-	for _, service := range sourceServingServices {
-		if !existing[service] {
-			missing = append(missing, service)
-		}
-	}
-	if len(missing) != 0 {
-		return &sourceServingContainersMissingError{Services: missing}
+		return err
 	}
 
-	composeArgs := append([]string{"compose", "start"}, sourceServingServices...)
+	era, err := deriveServingEra(entries, expected, sourceTag)
+	if err != nil {
+		return err
+	}
+	var composeArgs []string
+	var operation string
+	switch era {
+	case ServingEraSource:
+		composeArgs = append([]string{"compose", "start"}, sourceServingServices...)
+		operation = "start verified source serving containers"
+	case ServingEraTarget:
+		// DB is already restored and healthy on this path. --no-deps confines
+		// authoritative recreation to the serving tier and cannot rewrite the
+		// database container as a side effect of a source compose-model change.
+		composeArgs = append([]string{"compose", "up", "-d", "--no-build", "--no-deps"}, sourceServingServices...)
+		operation = "recreate source serving containers"
+		if progress != nil {
+			progress.Write("Serving container era is %s; converging app/worker/rest/proxy to restored source %s.", era, sourceTag)
+		}
+	default:
+		return &sourceServingEraUnknownError{Detail: fmt.Sprintf("derived unsupported serving era %q", era)}
+	}
+
 	if progress != nil {
-		if stderrTail, err := runCommandToLogCapture(d.projDir, 5*time.Minute, progress.File(), "source-docker-compose-start", progress.bump, "docker", composeArgs...); err != nil {
-			return fmt.Errorf("start existing source serving containers: %w (%s)", err, strings.TrimSpace(stderrTail))
+		if stderrTail, err := runCommandToLogCapture(d.projDir, 5*time.Minute, progress.File(), "source-docker-compose", progress.bump, "docker", composeArgs...); err != nil {
+			return fmt.Errorf("%s: %w (%s)", operation, err, strings.TrimSpace(stderrTail))
 		}
 	} else if out, err := runCommandOutput(d.projDir, "docker", composeArgs...); err != nil {
-		return fmt.Errorf("start existing source serving containers: %w (%s)", err, strings.TrimSpace(out))
+		return fmt.Errorf("%s: %w (%s)", operation, err, strings.TrimSpace(out))
+	}
+
+	postEntries, err := d.sourceServingContainerEntries(ctx)
+	if err != nil {
+		return err
+	}
+	postEra, err := deriveServingEra(postEntries, expected, sourceTag)
+	if err != nil {
+		return err
+	}
+	if postEra != ServingEraSource {
+		return &sourceServingEraUnknownError{Detail: fmt.Sprintf("serving containers remained %s after %s; want source %s", postEra, operation, sourceTag)}
 	}
 	if err := d.healthCheck(progress, 5, 5*time.Second); err != nil {
 		return fmt.Errorf("source services did not pass the health gate: %w", err)
@@ -7946,8 +8107,8 @@ func (d *Service) startSourceApplicationStack(ctx context.Context, progress *Pro
 // convergeUnchangedSourceServices makes the PreSwap pair terminal's reassurance
 // true before it is written. No git, binary, or database restore is legal here:
 // an empty backup identity proves none of them moved. Regenerate current source
-// config, explicitly start the existing source serving containers, health-prove them, then and
-// only then lift the operator-facing gates. Any failure is returned so the caller
+// config, source-authoritatively converge the serving containers, health-prove them,
+// and only then lift the operator-facing gates. Any failure is returned so the caller
 // records a degraded human-stop terminal instead of "serving normally".
 func (d *Service) convergeUnchangedSourceServices(ctx context.Context, progress *ProgressLog) error {
 	progress.bump()
@@ -10503,23 +10664,33 @@ func (d *Service) restoreAndFinalize(ctx context.Context, id int, version string
 			progress.Write("Inspect docker compose ps -a, stop any remaining clients, then run: ./sb install")
 			return true, nil
 		}
-		if holdErr := d.holdRollbackRestoreFailure(id, backupPath, attemptsAtCall, progress, dbRestoreErr); holdErr != nil {
+		clientsStoppedErr := d.ensureRecoveryClientsStopped(ctx, progress)
+		if holdErr := d.holdRollbackRestoreFailure(id, backupPath, attemptsAtCall, progress, dbRestoreErr, clientsStoppedErr); holdErr != nil {
 			return true, holdErr
 		}
 		progress.Write("ROLLBACK_FAILED_DB_RESTORE")
 		progress.Write("The database snapshot restore or restored database route failed: %v", dbRestoreErr)
-		progress.Write("No source application services were started. HTTP maintenance and SQL read-only remain active.")
+		if clientsStoppedErr != nil {
+			progress.Write("Application client containment is NOT VERIFIED: %v. HTTP maintenance and SQL read-only remain active.", clientsStoppedErr)
+		} else {
+			progress.Write("Application clients are stopped and positively verified. HTTP maintenance and SQL read-only remain active.")
+		}
 		progress.Write("Repair the restore/database route cause, then run: ./sb install")
 		return true, nil
 	}
 	if backupPath != "" {
 		if floorErr := d.reapplyRollbackDaemonSchemaFloor(progress); floorErr != nil {
-			if holdErr := d.holdRollbackSchemaFloorFailure(ctx, id, backupPath, progress, floorErr); holdErr != nil {
+			clientsStoppedErr := d.ensureRecoveryClientsStopped(ctx, progress)
+			if holdErr := d.holdRollbackSchemaFloorFailure(ctx, id, backupPath, progress, floorErr, clientsStoppedErr); holdErr != nil {
 				return true, holdErr
 			}
 			progress.Write("ROLLBACK_SCHEMA_FLOOR_FAILED")
 			progress.Write("The database snapshot was restored, but the recovery schema floor could not be re-applied: %v", floorErr)
-			progress.Write("Application services remain stopped. HTTP maintenance and SQL read-only remain active.")
+			if clientsStoppedErr != nil {
+				progress.Write("Application client containment is NOT VERIFIED: %v. HTTP maintenance and SQL read-only remain active.", clientsStoppedErr)
+			} else {
+				progress.Write("Application clients are stopped and positively verified. HTTP maintenance and SQL read-only remain active.")
+			}
 			progress.Write("The target recovery binary and migration files were preserved.")
 			progress.Write("Fix the reported migration/database error, then run: ./sb install")
 			progress.Write("Do not replace ./sb, check out another commit, or start the application services.")
@@ -10549,7 +10720,7 @@ func (d *Service) restoreAndFinalize(ctx context.Context, id int, version string
 	// Harness-only kill site (C9): simulates the OS / orchestrator killing
 	// the process MID-ROLLBACK — specifically, after the destructive
 	// restore steps (restoreGitState, restoreBinary, restoreDatabase) have
-	// run but BEFORE the resume-only source serving start + reconnect + setMaintenance
+	// run but BEFORE source-authoritative serving convergence + reconnect + setMaintenance
 	// + state='rolled_back' UPDATE land. At kill time the on-disk state
 	// is consistent (OLD git tree, OLD binary, OLD DB volume) but the
 	// services are still stopped, maintenance is still ON, and the
@@ -10576,10 +10747,14 @@ func (d *Service) restoreAndFinalize(ctx context.Context, id int, version string
 	// No-op in production. Drives scenario 4-rollback-kill.
 	inject.KillHere("killed-by-system-during-builtin-rollback")
 
-	// Start only the EXISTING source serving containers, after every restore
-	// boundary above succeeded. startSourceApplicationStack is the sole rollback
-	// serving reopen: it never recreates containers and it includes the functional
-	// REST/application health gate before rollback can approach rolled_back.
+	// Converge only to SOURCE-era serving containers after every restore boundary
+	// above succeeded. The daemon executing this code may still be the target binary,
+	// but restoreGitState has checked out the source tree and ./sb.old generated the
+	// source .env. startSourceApplicationStack therefore treats that on-disk source
+	// compose model as authoritative: exact Source containers start in place; a
+	// coherently-derived Target tier is recreated from source and re-inspected.
+	// Missing, mixed, or ambiguous identities refuse before rollback can approach
+	// rolled_back.
 	servicesStart := time.Now()
 	servicesUpErr := sourceRestoreErr
 	if servicesUpErr == nil {
@@ -10754,7 +10929,11 @@ func (d *Service) restoreAndFinalize(ctx context.Context, id int, version string
 	return false, nil
 }
 
-func (d *Service) holdRollbackSchemaFloorFailure(ctx context.Context, id int, backupPath string, progress *ProgressLog, floorErr error) error {
+func (d *Service) holdRollbackSchemaFloorFailure(ctx context.Context, id int, backupPath string, progress *ProgressLog, floorErr, clientsStoppedErr error) error {
+	failureDetail := floorErr.Error() + "; application clients stopped and positively verified"
+	if clientsStoppedErr != nil {
+		failureDetail = fmt.Sprintf("%v; application client containment NOT VERIFIED: %v", floorErr, clientsStoppedErr)
+	}
 	if injectErr := inject.ErrorHere("rollback-floor-failure-marker-write"); injectErr != nil {
 		return &RollbackSchemaFloorMarkerWriteError{Err: injectErr}
 	}
@@ -10762,7 +10941,7 @@ func (d *Service) holdRollbackSchemaFloorFailure(ctx context.Context, id int, ba
 		flag.Phase = PhaseRollbackSchemaFloorFailed
 		flag.Step = StepRollback
 		flag.RollbackFailureCode = ErrRollbackSchemaFloorFailed
-		flag.RollbackFailure = floorErr.Error()
+		flag.RollbackFailure = failureDetail
 	}); err != nil {
 		return &RollbackSchemaFloorMarkerWriteError{Err: err}
 	}
@@ -10782,7 +10961,7 @@ func (d *Service) holdRollbackSchemaFloorFailure(ctx context.Context, id int, ba
 	if progress != nil {
 		progressPath = progress.RelPath()
 	}
-	d.markTerminal("ROLLBACK_SCHEMA_FLOOR_FAILED", fmt.Sprintf("id=%d; backup=%s; floor=%d; progress=%s; error=%v", id, backupPath, migrate.DaemonSchemaFloor, progressPath, floorErr))
+	d.markTerminal("ROLLBACK_SCHEMA_FLOOR_FAILED", fmt.Sprintf("id=%d; backup=%s; floor=%d; progress=%s; error=%s", id, backupPath, migrate.DaemonSchemaFloor, progressPath, failureDetail))
 	return nil
 }
 
@@ -10820,19 +10999,55 @@ func (d *Service) persistRollbackHold(id int, backupPath string, attempts int, p
 	return nil
 }
 
-func (d *Service) holdRollbackRestoreFailure(id int, backupPath string, attempts int, progress *ProgressLog, restoreErr error) error {
-	detail := fmt.Sprintf("rollback snapshot restore or restored database route failed while the serving tier remained closed: %v", restoreErr)
+func (d *Service) holdRollbackRestoreFailure(id int, backupPath string, attempts int, progress *ProgressLog, restoreErr, clientsStoppedErr error) error {
+	detail := fmt.Sprintf("rollback snapshot restore or restored database route failed; application clients stopped and positively verified: %v", restoreErr)
+	if clientsStoppedErr != nil {
+		detail = fmt.Sprintf("rollback snapshot restore or restored database route failed; application client containment NOT VERIFIED (%v): %v", clientsStoppedErr, restoreErr)
+	}
 	return d.persistRollbackHold(id, backupPath, attempts, PhaseRollbackRestoreFailed, ErrRollbackDBRestore, detail, "failed", LabelFailedRollbackIncomplete, progress)
+}
+
+// ensureRecoveryClientsStopped turns every stopped-service claim into an
+// observation. It verifies first; on a real or unknown violation it performs
+// the narrow containment action and verifies again. A nil result therefore
+// means app/worker/rest are positively observed stopped, never merely assumed.
+func (d *Service) ensureRecoveryClientsStopped(ctx context.Context, progress *ProgressLog) error {
+	if err := d.verifyRecoveryClientsStopped(ctx); err == nil {
+		if progress != nil {
+			progress.Write("  Verifying application clients are stopped ... stopped and verified")
+		}
+		return nil
+	} else if progress != nil {
+		progress.Write("  Verifying application clients are stopped ... violation observed: %v", err)
+	}
+	return d.stopAndVerifyRecoveryClients(progress)
+}
+
+func (d *Service) stopAndVerifyRecoveryClients(progress *ProgressLog) error {
+	stopErr := runCommand(d.projDir, "docker", append([]string{"compose", "stop"}, sourceServingClientServices...)...)
+	if stopErr == nil {
+		stopErr = compose.VerifyStopped(d.projDir, sourceServingClientServices, preRestoreStopVerifyBudget)
+	}
+	if stopErr != nil {
+		if progress != nil {
+			progress.Write("  Containing application clients with docker compose stop ... failed or unverified: %v", stopErr)
+		}
+		return stopErr
+	}
+	if progress != nil {
+		progress.Write("  Containing application clients with docker compose stop ... stopped and verified")
+	}
+	return nil
 }
 
 func (d *Service) holdRollbackClientsLive(id int, backupPath string, attempts int, progress *ProgressLog, clientsLiveErr error) error {
 	// The held-closed verifier found a real violation after the snapshot restore.
-	// Contain it with stop, never down/up: compose stop preserves the exact source
-	// containers for the later resume-only startSourceApplicationStack retry.
-	containmentErr := runCommand(d.projDir, "docker", append([]string{"compose", "stop"}, sourceServingServices...)...)
-	if containmentErr == nil {
-		containmentErr = compose.VerifyStopped(d.projDir, sourceServingServices, preRestoreStopVerifyBudget)
-	}
+	// Contain it with stop, never down/up: compose stop preserves inspectable
+	// containers for the later source-authoritative startSourceApplicationStack retry.
+	// clientsLiveErr is already a positive observation from the strict route
+	// boundary. Always issue the narrow stop before re-verifying, even if a race
+	// made a fresh ps look stopped by the time durable handling begins.
+	containmentErr := d.stopAndVerifyRecoveryClients(progress)
 	detail := fmt.Sprintf("application clients were live during held-closed rollback recovery (%v)", clientsLiveErr)
 	if containmentErr != nil {
 		detail += fmt.Sprintf("; containment could not confirm app/worker/rest stopped: %v", containmentErr)
@@ -11182,10 +11397,10 @@ func (d *Service) rollback(ctx context.Context, id int, version, restoreTargetSH
 	attemptsAtCall := d.rollbackRecoveryAttempts(ctx, id)
 
 	// Capture failure-time container logs BEFORE docker compose stop freezes the
-	// failure state. The rollback later resumes those exact source containers in
-	// place, but this snapshot preserves the REST 5xx body, db
-	// startup output, and app connection-attempt logs that explain
-	// the failure are gone forever.
+	// failure state. Rollback later converges the serving tier to source-authoritative
+	// images, which may replace target-era containers. This snapshot preserves the
+	// REST 5xx body, DB startup output, and app connection-attempt logs that explain
+	// the failure before those containers and logs can disappear.
 	captureContainerLogs(projDir, progress, []string{"rest", "app", "worker", "db"})
 
 	// Stop everything before we touch the git tree or restore the DB.
@@ -11253,7 +11468,7 @@ func (d *Service) rollback(ctx context.Context, id int, version, restoreTargetSH
 	// `pre-upgrade` pin and install ./sb.old — both belong to a PRIOR attempt (one version
 	// back) — moving the box to a version no one asked for while the DB stays current: the
 	// mixed-era class. So skip BOTH the git restore and the binary restore (the DB leg already
-	// refuses on "" — restoreDatabase, exec.go). Keep the full tail (resume existing containers,
+	// refuses on "" — restoreDatabase, exec.go). Keep the full tail (source-authoritative container convergence,
 	// reconnect, terminal write, maintenance off, window lift) so the box returns to service at the
 	// untouched source and 'rolled_back' lands honestly. This one identity key covers W1
 	// (claim→commit stale pin, flagless heal), W2 (commit-window PreSwap recovery), AND the

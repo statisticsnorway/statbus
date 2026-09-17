@@ -133,12 +133,13 @@ func TestRecoveryRouteStartContracts(t *testing.T) {
 	}
 	startIdx := strings.Index(heldBody, "d.startDatabaseAndItsProxy(ctx)")
 	verifyIdx := strings.Index(heldBody, "d.verifyRecoveryClientsStopped(ctx)")
+	reverifyIdx := strings.LastIndex(heldBody, "d.verifyRecoveryClientsStopped(ctx)")
 	healthIdx := strings.Index(heldBody, "d.waitForDBHealth(")
-	if startIdx < 0 || verifyIdx < 0 || healthIdx < 0 || startIdx >= verifyIdx || verifyIdx >= healthIdx {
-		t.Errorf("StartDatabaseRouteServingMustBeStopped must start dependency-safe containers, immediately run the unchanged fail-closed verifier, then wait for DB health; start@%d verify@%d health@%d", startIdx, verifyIdx, healthIdx)
+	if verifyIdx < 0 || startIdx < 0 || reverifyIdx < 0 || healthIdx < 0 || verifyIdx >= startIdx || startIdx >= reverifyIdx || reverifyIdx >= healthIdx {
+		t.Errorf("StartDatabaseRouteServingMustBeStopped must verify stopped BEFORE route startup, re-verify immediately after startup, then wait for DB health; verify@%d start@%d reverify@%d health@%d", verifyIdx, startIdx, reverifyIdx, healthIdx)
 	}
-	if got := strings.Count(string(src), "d.verifyRecoveryClientsStopped(ctx)"); got != 1 {
-		t.Fatalf("the held-closed verifier must be invoked only by StartDatabaseRouteServingMustBeStopped; got %d production calls", got)
+	if got := strings.Count(string(src), "d.verifyRecoveryClientsStopped(ctx)"); got != 2 {
+		t.Fatalf("the held-closed verifier must be invoked exactly twice by StartDatabaseRouteServingMustBeStopped (pre-start and post-start); got %d production calls", got)
 	}
 }
 

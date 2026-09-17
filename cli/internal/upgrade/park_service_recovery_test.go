@@ -108,13 +108,19 @@ func TestParkServiceRecovery_StructuralContracts(t *testing.T) {
 	if strings.Contains(rs, "restoreDatabase(") {
 		t.Error("restoreSourceServices must NOT call restoreDatabase — the era guard proves the DB is at source, so a DB restore is unnecessary and its absence is the mixed-era safeguard (ruling Q2)")
 	}
-	// EXISTING containers only: recovery must start in place, never `up`, which can
-	// recreate against the currently running binary's compose-template image.
+	// ERA-AWARE source convergence: exact Source containers start in place; a
+	// coherently-derived Target tier is recreated only after the restored source
+	// tree/config proves the desired image identity. Missing or mixed identity refuses.
 	if !strings.Contains(stack, `"compose", "start"`) {
-		t.Error("restoreSourceServices must start the existing source serving containers")
+		t.Error("restoreSourceServices must resume already-source-era serving containers in place")
 	}
-	if strings.Contains(stack, `"compose", "up"`) {
-		t.Error("restoreSourceServices must never use compose up because recovery may not recreate in-flight containers")
+	if !strings.Contains(stack, `"compose", "up", "-d", "--no-build"`) {
+		t.Error("restoreSourceServices must authoritatively recreate a coherently-derived Target tier from the proven source-era template")
+	}
+	for _, required := range []string{"sourceServingExpectedImages", "deriveServingEra", "ServingEraSource", "ServingEraTarget", "sourceServingEraUnknownError"} {
+		if !strings.Contains(stack, required) {
+			t.Errorf("restoreSourceServices source-era proof missing %q", required)
+		}
 	}
 
 	// appendParkNarrative SINGLE-CALLER PIN: every call site is inside parkServiceRecovery.

@@ -102,7 +102,11 @@ exit 0
 				t.Fatal(readErr)
 			}
 			log := string(logBytes)
-			assertDependencySafeRecoveryRouteArgv(t, log)
+			if tc.wantErr == "" {
+				assertDependencySafeRecoveryRouteArgv(t, log)
+			} else if strings.Contains(log, "compose start db") || strings.Contains(log, "start proxy-container-id") {
+				t.Fatalf("held-closed pre-start verifier must refuse before opening the database route:\n%s", log)
+			}
 			if strings.Contains(log, "compose --profile all up") {
 				t.Fatalf("held-closed serving-tier failure must not issue full-stack compose up:\n%s", log)
 			}

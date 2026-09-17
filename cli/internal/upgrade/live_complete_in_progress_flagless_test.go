@@ -139,5 +139,7 @@ func TestLiveCompleteInProgressUpgrade_FlaglessBehindHelper(t *testing.T) {
 	// Keep the real database configuration and connection, but isolate every
 	// filesystem, git, progress-log, and flock effect in the synthetic repo.
 	d.projDir = os.Getenv("STATBUS_FLAGLESS_BEHIND_PROJ_DIR")
-	d.completeInProgressUpgrade(ctx)
+	if err := d.completeInProgressUpgrade(ctx); err != nil {
+		t.Fatalf("completeInProgressUpgrade: %v", err)
+	}
 }

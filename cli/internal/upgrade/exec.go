@@ -1332,11 +1332,14 @@ func (d *Service) StartDatabaseRouteServingMayRun(ctx context.Context) error {
 // StartDatabaseRouteServingMustBeStopped starts the EXISTING database and its proxy
 // without recreating them only while the serving tier must be stopped. It is the
 // strictly narrower recovery contract used only by the park-era schema verdict and
-// rollback schema-floor replay, and it preserves
-// 5dbc8d243's fail-closed ordering: start only the existing db+proxy containers,
-// immediately prove app/worker/rest are absent or terminal, then wait for DB
+// rollback schema-floor replay. It proves app/worker/rest are absent or terminal
+// BEFORE opening the restored database route, then repeats that proof immediately
+// after starting db+proxy as a belt-and-braces race check before waiting for DB
 // health. Unknown serving-service states remain rejected exactly as before.
 func (d *Service) StartDatabaseRouteServingMustBeStopped(ctx context.Context) error {
+	if err := d.verifyRecoveryClientsStopped(ctx); err != nil {
+		return err
+	}
 	if err := d.startDatabaseAndItsProxy(ctx); err != nil {
 		return err
 	}

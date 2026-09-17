@@ -65,7 +65,7 @@ func TestRollbackWatchdogCover_SourceOrder(t *testing.T) {
 		t.Error("restoreAndFinalize must contain the target-asset snapshot helper (the silent restore step)")
 	}
 	if !strings.Contains(raf, "d.startSourceApplicationStack(ctx, progress)") {
-		t.Error("restoreAndFinalize must contain the resume-only source serving start and functional health gate")
+		t.Error("restoreAndFinalize must contain source-authoritative serving convergence and the functional health gate")
 	}
 	if strings.Contains(raf, `"docker", "compose", "--profile", "all", "up"`) {
 		t.Error("restoreAndFinalize must not recreate rollback services with compose up")

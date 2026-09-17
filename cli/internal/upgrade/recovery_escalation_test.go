@@ -292,7 +292,7 @@ func TestRecoveryBudgetGuard_DefersOnRollbackStep(t *testing.T) {
 // the defer (its `return` fires before the defer arms). Source-order guard —
 // completeInProgressUpgrade needs a live DB to exercise behaviorally.
 //
-// STATBUS-192: the flag-cleanup defer is now GUARDED (`defer func(){ if !parkedExit
+// STATBUS-192: the flag-cleanup defer is now GUARDED (`defer func(){ if !keepFlagExit
 // { d.removeUpgradeFlag() } }()`), so the serve-proof start/health-fail PARK path can
 // materialize + KEEP a faithful flag (`./sb install` un-park). This test anchors on
 // that guard and still asserts the parked-skip precedes it.
@@ -303,20 +303,52 @@ func TestCompleteInProgressUpgrade_ParkedSkipPrecedesFlagStrip(t *testing.T) {
 	}
 	body := extractFuncBody(t, string(src), "func (d *Service) completeInProgressUpgrade(")
 	parkedIdx := strings.Index(body, "d.upgradeParkedReason(ctx, id)")
-	// The guarded flag-cleanup defer (STATBUS-192): `if !parkedExit {` is its unique,
+	// The guarded flag-cleanup defer (STATBUS-192): `if !keepFlagExit {` is its unique,
 	// stable anchor — the conditional strip that replaced the bare defer.
-	deferIdx := strings.Index(body, "if !parkedExit {")
+	deferIdx := strings.Index(body, "if !keepFlagExit {")
 	for name, idx := range map[string]int{
-		"d.upgradeParkedReason(ctx, id)":                             parkedIdx,
-		"if !parkedExit { (guarded flag-cleanup defer, STATBUS-192)": deferIdx,
+		"d.upgradeParkedReason(ctx, id)":                               parkedIdx,
+		"if !keepFlagExit { (guarded flag-cleanup defer, STATBUS-192)": deferIdx,
 	} {
 		if idx < 0 {
 			t.Fatalf("completeInProgressUpgrade missing %s — test is stale (STATBUS-135 parked-skip / STATBUS-192 guarded defer removed?)", name)
 		}
 	}
 	if parkedIdx > deferIdx {
-		t.Errorf("STATBUS-135: the parked-skip (upgradeParkedReason, idx=%d) must PRECEDE the guarded flag-cleanup defer (if !parkedExit, idx=%d) — otherwise the defer strips a parked row's flag on the skip's return.",
+		t.Errorf("STATBUS-135: the parked-skip (upgradeParkedReason, idx=%d) must PRECEDE the guarded flag-cleanup defer (if !keepFlagExit, idx=%d) — otherwise the defer strips a parked row's flag on the skip's return.",
 			parkedIdx, deferIdx)
+	}
+}
+
+func TestCompleteInProgressUpgrade_RollbackFailureKeepsMarkerAndReturnsNamedTerminal(t *testing.T) {
+	src, err := os.ReadFile(thisRepoFile(t, "cli/internal/upgrade/service.go"))
+	if err != nil {
+		t.Fatalf("read service.go: %v", err)
+	}
+	body := extractFuncBody(t, string(src), "func (d *Service) completeInProgressUpgrade(")
+	deferGuardIdx := strings.Index(body, "if !keepFlagExit {")
+	rollbackIdx := strings.Index(body, "if rollbackErr := d.rollback(")
+	keepIdx := strings.Index(body, "keepFlagExit = true")
+	terminalIdx := strings.Index(body, `d.markTerminal("FLAGLESS_ROLLBACK_FAILED"`)
+	returnIdx := strings.Index(body, "return fmt.Errorf(\"completeInProgressUpgrade: rollback for upgrade")
+	for name, idx := range map[string]int{
+		"guarded marker cleanup": deferGuardIdx,
+		"rollback call":          rollbackIdx,
+		"marker preservation":    keepIdx,
+		"durable classification": terminalIdx,
+		"error propagation":      returnIdx,
+	} {
+		if idx < 0 {
+			t.Fatalf("flagless rollback failure contract missing %s", name)
+		}
+	}
+	if deferGuardIdx >= rollbackIdx || rollbackIdx >= keepIdx || keepIdx >= terminalIdx || terminalIdx >= returnIdx {
+		t.Fatalf("flagless rollback error must preserve marker, classify durably, and propagate: defer=%d rollback=%d keep=%d terminal=%d return=%d", deferGuardIdx, rollbackIdx, keepIdx, terminalIdx, returnIdx)
+	}
+
+	runBody := extractFuncBody(t, string(src), "func (d *Service) Run(")
+	if got := strings.Count(runBody, "if err := d.completeInProgressUpgrade(ctx); err != nil {"); got != 2 {
+		t.Fatalf("both completeInProgressUpgrade callers must propagate reconciliation failure; got %d checked calls", got)
 	}
 }
 

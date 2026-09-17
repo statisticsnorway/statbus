@@ -25,7 +25,7 @@ func TestRollbackSchemaFloorFailureMarkerWriteFailureKeepsFlockAndOriginalRoute(
 	}
 
 	t.Setenv("STATBUS_INJECT_AT", "rollback-floor-failure-marker-write")
-	err := d.holdRollbackSchemaFloorFailure(context.Background(), 354, "/backup/354", nil, errors.New("floor failed"))
+	err := d.holdRollbackSchemaFloorFailure(context.Background(), 354, "/backup/354", nil, errors.New("floor failed"), nil)
 	var markerErr *RollbackSchemaFloorMarkerWriteError
 	if !errors.As(err, &markerErr) {
 		t.Fatalf("error = %T %v, want RollbackSchemaFloorMarkerWriteError", err, err)
@@ -127,7 +127,7 @@ func TestRestoreAndFinalizeClientsLiveReturnsBeforeFullStackStartup(t *testing.T
 	}
 	body := extractFuncBody(t, string(src), "func (d *Service) restoreAndFinalize(")
 	if strings.Contains(body, `"docker", "compose", "--profile", "all", "up"`) {
-		t.Fatal("restoreAndFinalize must never recreate the serving tier with compose up")
+		t.Fatal("restoreAndFinalize must never use an unscoped full-profile compose up; source-tier convergence belongs only in startSourceApplicationStack")
 	}
 	startIdx := strings.Index(body, "d.startRollbackDatabaseOnly(ctx, progress)")
 	holdIdx := strings.Index(body, "d.holdRollbackClientsLive(id, backupPath, attemptsAtCall, progress, clientsLiveErr)")
@@ -191,8 +191,11 @@ exit 0
 	if !strings.Contains(flag.RollbackFailure, "injected failure: rollback-snapshot-restore") {
 		t.Fatalf("marker lost restore failure detail: %q", flag.RollbackFailure)
 	}
-	if dockerBytes, readErr := os.ReadFile(dockerLog); readErr == nil && len(strings.TrimSpace(string(dockerBytes))) != 0 {
-		t.Fatalf("snapshot failure started or recreated containers:\n%s", dockerBytes)
+	if dockerBytes, readErr := os.ReadFile(dockerLog); readErr == nil {
+		log := string(dockerBytes)
+		if strings.Contains(log, "compose start") || strings.Contains(log, "compose up") || strings.Contains(log, "docker start") {
+			t.Fatalf("snapshot failure started or recreated containers:\n%s", dockerBytes)
+		}
 	}
 }
 
@@ -206,7 +209,7 @@ func TestRollbackSchemaFloorFailureDurablyRoutesDaemonAliveIdle(t *testing.T) {
 	if err := d.mutateHeldFlag(func(flag *UpgradeFlag) { flag.Step = StepRollback }); err != nil {
 		t.Fatalf("seed rollback route: %v", err)
 	}
-	if err := d.holdRollbackSchemaFloorFailure(context.Background(), 355, "/backup/355", nil, errors.New("floor failed")); err != nil {
+	if err := d.holdRollbackSchemaFloorFailure(context.Background(), 355, "/backup/355", nil, errors.New("floor failed"), nil); err != nil {
 		t.Fatalf("persist floor failure hold: %v", err)
 	}
 	if IsFlockHeld(projDir) {
