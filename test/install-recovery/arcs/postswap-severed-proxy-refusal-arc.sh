@@ -21,7 +21,7 @@
 #
 # Fix shipped 06cf8415f: proxyContainerMissing (exec.go) distinguishes
 # MISSING (docker compose ps -a has NO record — severed route) from STOPPED
-# (record exists, not running — the sibling arc's case). StartDBForRecovery
+# (record exists, not running — the sibling arc's case). StartDBRouteClientsMayRun
 # refuses to auto-recreate a missing proxy (`up -d proxy` under the
 # operator's binary can image-mismatch the flag target — the rc.66 → rc.67
 # lesson) and instead returns newProxyRouteMissingError(): a category-3

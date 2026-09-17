@@ -27,9 +27,9 @@
 # resume the proxy too. Fix shipped 06cf8415f: EnsureDBReachable now dials
 # the SAME route the connection uses (recoveryDSN(), TCP via
 # CADDY_DB_BIND_ADDRESS:CADDY_DB_PORT), so the probe correctly FAILS on a
-# stopped proxy, and StartDBForRecovery's asymmetric-safe start now covers
-# the whole route (`docker compose start db proxy` — starts existing
-# containers only, never recreates).
+# stopped proxy, and StartDBRouteClientsMayRun's asymmetric-safe start now covers
+# the whole route (`docker compose start db` plus raw `docker start <proxy-id>`
+# resumes existing containers without following proxy -> rest dependencies).
 #
 # STATE-ARRIVAL SHAPE (the only part this rebuild changed)
 #   1. arc_prepare_box: install A (BASE_SHA) → health → daemon active →
@@ -240,7 +240,7 @@ echo "  ✓ EnsureDBReachable correctly failed on the real route (proxy stopped)
 echo ""
 echo "── assert 2: the proxy is RUNNING again post-recovery (AC#2: start-existing extended to the proxy) ──"
 PROXY_AFTER=$(proxy_state)
-[ "$PROXY_AFTER" = "running" ] || { echo "✗ expected proxy running after recovery, got '$PROXY_AFTER' — StartDBForRecovery must resume the whole route, not just the db" >&2; exit 1; }
+[ "$PROXY_AFTER" = "running" ] || { echo "✗ expected proxy running after recovery, got '$PROXY_AFTER' — StartDBRouteClientsMayRun must resume the whole route, not just the db" >&2; exit 1; }
 echo "  ✓ proxy running again ($PROXY_BEFORE → stopped → $PROXY_AFTER)"
 
 echo ""

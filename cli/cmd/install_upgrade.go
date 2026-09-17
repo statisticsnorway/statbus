@@ -306,7 +306,7 @@ func runCrashRecovery(projDir string, restartIfRecovered *func()) error {
 	// category-3 refusal — the real operator-investigate path.
 	if err := svc.EnsureDBReachable(ctx); err != nil {
 		fmt.Printf("crash recovery: DB not reachable, attempting `docker compose start db` (existing container, no recreate)…\n")
-		if startErr := svc.StartDBForRecovery(ctx); startErr != nil {
+		if startErr := svc.StartDBRouteClientsMayRun(ctx); startErr != nil {
 			return fmt.Errorf("crash recovery: %w (start fallback: %v)", err, startErr)
 		}
 		if err := svc.EnsureDBReachable(ctx); err != nil {

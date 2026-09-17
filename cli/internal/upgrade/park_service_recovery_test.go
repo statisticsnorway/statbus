@@ -74,7 +74,11 @@ func TestParkServiceRecovery_StructuralContracts(t *testing.T) {
 
 	// HELPER NEVER STOPS ANYTHING (ruling Q4 hard rule): neither the helper nor the restore
 	// tail may stop/down services or re-engage maintenance / read-only — they only ever START.
-	for _, fn := range []string{"func (d *Service) parkServiceRecovery(", "func (d *Service) restoreSourceServices("} {
+	for _, fn := range []string{
+		"func (d *Service) parkServiceRecovery(",
+		"func (d *Service) restoreSourceServices(",
+		"func (d *Service) startSourceApplicationStack(",
+	} {
 		body := extractFuncBody(t, src, fn)
 		for _, forbidden := range []string{`"stop"`, `"down"`, "QuiesceClients", "setMaintenance(true)", "setDatabaseReadOnly(ctx, true)"} {
 			if strings.Contains(body, forbidden) {
@@ -83,24 +87,29 @@ func TestParkServiceRecovery_StructuralContracts(t *testing.T) {
 		}
 	}
 
-	// SERVE-PROVEN: in restoreSourceServices the read-only window lift comes AFTER the health
-	// gate — maintenance/window drop only on a proven-serving box.
+	// SERVE-PROVEN: restoreSourceServices delegates start + health to the shared
+	// source-stack primitive, then lifts the read-only window only after that
+	// helper succeeds. The helper itself must contain the real health gate.
 	rs := extractFuncBody(t, src, "func (d *Service) restoreSourceServices(")
-	hcIdx := strings.Index(rs, "d.healthCheck(")
+	stackIdx := strings.Index(rs, "d.startSourceApplicationStack(ctx, progress)")
 	// RETARGETED, NOT WEAKENED (STATBUS-266): the terminal OFF now flips through
 	// d.liftReadOnlyWindow(), a one-line wrapper that runs the SAME
 	// terminalExec(windowOffSQL) and additionally announces success. The property
 	// below is unchanged; only the call's spelling moved.
 	winIdx := strings.Index(rs, "liftReadOnlyWindow(")
-	if hcIdx < 0 || winIdx < 0 || winIdx < hcIdx {
-		t.Errorf("serve-proven: the read-only window lift must come AFTER the health gate in restoreSourceServices — healthCheck@%d, windowLift@%d", hcIdx, winIdx)
+	if stackIdx < 0 || winIdx < 0 || winIdx < stackIdx {
+		t.Errorf("serve-proven: the read-only window lift must come AFTER the shared source stack gate in restoreSourceServices — stackGate@%d, windowLift@%d", stackIdx, winIdx)
+	}
+	stack := extractFuncBody(t, src, "func (d *Service) startSourceApplicationStack(")
+	if !strings.Contains(stack, "d.healthCheck(") {
+		t.Error("startSourceApplicationStack must execute the ordinary functional health gate before returning success")
 	}
 	// restoreDatabase is DELIBERATELY skipped (ruling Q2 — the era guard makes it unnecessary).
 	if strings.Contains(rs, "restoreDatabase(") {
 		t.Error("restoreSourceServices must NOT call restoreDatabase — the era guard proves the DB is at source, so a DB restore is unnecessary and its absence is the mixed-era safeguard (ruling Q2)")
 	}
 	// LOCAL images only: the compose up must be --no-build (no pull; the disk is full).
-	if !strings.Contains(rs, "--no-build") {
+	if !strings.Contains(stack, "--no-build") {
 		t.Error("restoreSourceServices must start services with --no-build (LOCAL source images, no pull — the disk is full)")
 	}
 
@@ -163,7 +172,7 @@ func TestBudgetParks_RouteThroughHelper_STATBUS204(t *testing.T) {
 
 // TestParkServiceRecovery_SelfCoveringWatchdog_STATBUS204 (cover pin, source-parsing family):
 // parkServiceRecovery owns its watchdog cover — a gated ticker wraps its slow span and PRECEDES
-// the parkEraVerdict call (so StartDBForRecovery's DB-health wait is inside the cover). A
+// the parkEraVerdict call (so StartDBRouteClientsMustBeStopped's DB-health wait is inside the cover). A
 // refactor that drops or mis-places the ticker fails here.
 func TestParkServiceRecovery_SelfCoveringWatchdog_STATBUS204(t *testing.T) {
 	src := string(packageGoSources(t)["service.go"])
@@ -175,7 +184,7 @@ func TestParkServiceRecovery_SelfCoveringWatchdog_STATBUS204(t *testing.T) {
 	}
 	verdictIdx := strings.Index(psr, "d.parkEraVerdict(")
 	if verdictIdx < 0 || tickIdx > verdictIdx {
-		t.Errorf("STATBUS-204: the watchdog ticker must PRECEDE parkEraVerdict — StartDBForRecovery's ~60s DB-health wait is inside the danger window (ticker@%d must be before verdict@%d)", tickIdx, verdictIdx)
+		t.Errorf("STATBUS-204: the watchdog ticker must PRECEDE parkEraVerdict — StartDBRouteClientsMustBeStopped's ~60s DB-health wait is inside the danger window (ticker@%d must be before verdict@%d)", tickIdx, verdictIdx)
 	}
 	// The cover must be released (cancel + join) so it never outlives the helper.
 	if !strings.Contains(psr, "tickerCancel()") || !strings.Contains(psr, "<-tickerDone") {

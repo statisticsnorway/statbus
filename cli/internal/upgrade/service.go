@@ -3786,13 +3786,28 @@ func (d *Service) recoveryRollback(ctx context.Context, flag UpgradeFlag, displa
 		// every other site already uses to tell "the binary was swapped" from
 		// "nothing moved", and the flag is the authoritative carrier across
 		// exactly this gap.
-		msg := preSwapStoppedMessage(attempts)
-		label := "STOPPED-UNCHANGED"
-		failureCode := ErrUpgradeStoppedUnchanged
+		var msg, label string
+		var failureCode UpgradeFailureCode
 		if flag.IsServiceNewSbRecovery() {
 			failureCode = ErrRollbackDBRestore
 			msg = fmt.Sprintf("rollback could not complete — two consecutive crash-deaths during rollback (recovery attempt %d). The system is in a degraded state; manual CLI recovery is required (%s); contact SSB support and involve your IT staff.", attempts, INSTALL_CMD)
 			label = "RESTORE-BROKE"
+		} else {
+			pairLog := AppendProgressLog(d.projDir, logRelPath)
+			if pairLog == nil {
+				pairLog = NewUpgradeLog(d.projDir, int64(id), displayName, time.Now().UTC())
+			}
+			convergeErr := d.convergeUnchangedSourceServices(ctx, pairLog)
+			pairLog.Close()
+			if convergeErr != nil {
+				failureCode = ErrRollbackServicesUp
+				label = "STOPPED-DEGRADED"
+				msg = fmt.Sprintf("The upgrade stopped before it changed data, code, or the database, but the unchanged source application stack could not be restored to normal service: %v. The system is in a degraded state; manual CLI recovery is required (%s); contact SSB support and involve your IT staff.", convergeErr, INSTALL_CMD)
+			} else {
+				failureCode = ErrUpgradeStoppedUnchanged
+				label = "STOPPED-UNCHANGED"
+				msg = preSwapStoppedMessage(attempts)
+			}
 		}
 		log.Printf("recoveryRollback: %s upgrade %d after %d attempt(s) — two consecutive rollback deaths", label, id, attempts)
 		if d.writeRollbackTerminal(id,
@@ -7616,14 +7631,14 @@ func (d *Service) parkForDeterministicFailure(ctx context.Context, id int, displ
 // failure it stops NOTHING and changes nothing but the park narrative (appendParkNarrative).
 func (d *Service) parkServiceRecovery(ctx context.Context, id int, restoreTargetSHA string, progress *ProgressLog) {
 	// STATBUS-204: this helper OWNS its own watchdog cover. Its slow span — parkEraVerdict's
-	// StartDBForRecovery (waits up to ~60s for DB health) plus restoreSourceServices (compose up
+	// StartDBRouteClientsMustBeStopped (waits up to ~60s for DB health) plus restoreSourceServices (compose up
 	// + bounded health + the restores) — can exceed WatchdogSec=120s on a cold box. The
 	// deterministic park callers run under an outer gated ticker, but the budget-park callers
 	// (RecoveryBudgetGuard, resumeNewSb) run post-READY in the ACTIVE phase with NONE, so without
 	// this a SIGABRT would crash-loop the very park the fix makes operable. The ticker sits at
 	// the TOP, spanning verdict + restoration together (the DB-health wait is inside the danger
 	// window and precedes the restore). ALWAYS-PING is correct here (nil gate): every covered
-	// sub-step is itself time-bounded (StartDBForRecovery's health wait, compose-up's command
+	// sub-step is itself time-bounded (StartDBRouteClientsMustBeStopped's health wait, compose-up's command
 	// timeout, healthCheck's bounded attempts), so a genuine hang cannot outlive the bounds' sum
 	// — cover-with-bounds is hang-detection by construction (the boot-migrate always-ping
 	// precedent). Owning the cover at this chokepoint covers every caller — deterministic,
@@ -7728,9 +7743,9 @@ func (d *Service) parkServiceRecovery(ctx context.Context, id int, restoreTarget
 func (d *Service) parkEraVerdict(ctx context.Context, id int) (permit bool, refusalNarrative string) {
 	const held = "services held down"
 	// The DB may be stopped at a pre-start park (StepImagePull is before StepDBUp). Bring the
-	// EXISTING db+proxy up (start, never recreate — StartDBForRecovery) so the applied-max read
+	// EXISTING db+proxy up (start, never recreate — StartDBRouteClientsMustBeStopped) so the applied-max read
 	// can run; a running DB under the still-engaged read-only window is harmless (ruling Q1).
-	if err := d.StartDBForRecovery(ctx); err != nil {
+	if err := d.StartDBRouteClientsMustBeStopped(ctx); err != nil {
 		return false, fmt.Sprintf("%s: the database could not be started to verify source-version identity (%v)", held, err)
 	}
 	// Reads ride the teardown-immune fresh-conn primitive (terminalUpdate), so they do not
@@ -7834,13 +7849,8 @@ func (d *Service) restoreSourceServices(ctx context.Context, restoreTargetSHA st
 	if err := runCommandToLog(d.projDir, 2*time.Minute, progress.File(), "park-config-generate", progress.bump, filepath.Join(d.projDir, "sb"), "config", "generate"); err != nil {
 		return fmt.Errorf("config generate at source: %w", err)
 	}
-	// LOCAL source images only (--no-build, no pull): the whole point is that the disk is full.
-	composeArgs := append([]string{"compose", "up", "-d", "--no-build"}, step11RestartServices...)
-	if out, err := runCommandOutput(d.projDir, "docker", composeArgs...); err != nil {
-		return fmt.Errorf("start source services (compose up --no-build): %w (%s)", err, strings.TrimSpace(out))
-	}
-	if err := d.healthCheck(progress, 5, 5*time.Second); err != nil {
-		return fmt.Errorf("source services did not pass the health gate: %w", err)
+	if err := d.startSourceApplicationStack(ctx, progress); err != nil {
+		return err
 	}
 	// Serve-proven: health passed, so lift the operator-facing gates. maintenance OFF first
 	// (mirrors the completion sites), then the read-only window via the teardown-immune flip.
@@ -7849,6 +7859,64 @@ func (d *Service) restoreSourceServices(ctx context.Context, restoreTargetSHA st
 	}
 	if _, err := d.liftReadOnlyWindow("serve-proven health check"); err != nil {
 		return fmt.Errorf("source services are up and healthy but the read-only window did not lift (%v) — reads serve, writes are refused until `./sb install` or the next boot clears it", err)
+	}
+	return nil
+}
+
+// startSourceApplicationStack is the shared source-era serving gate. Both park
+// recovery (after restoring source git/binary/config) and the PreSwap
+// STOPPED-UNCHANGED terminal (where those assets never moved) use this exact
+// primitive so neither path can claim normal serving based on container start
+// alone. LOCAL images only: --no-build means no pull while recovering a box that
+// may have parked because disk is exhausted.
+func (d *Service) startSourceApplicationStack(ctx context.Context, progress *ProgressLog) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	composeArgs := append([]string{"compose", "up", "-d", "--no-build"}, step11RestartServices...)
+	if progress != nil {
+		if stderrTail, err := runCommandToLogCapture(d.projDir, 5*time.Minute, progress.File(), "source-docker-compose", progress.bump, "docker", composeArgs...); err != nil {
+			return fmt.Errorf("start source services (compose up --no-build): %w (%s)", err, strings.TrimSpace(stderrTail))
+		}
+	} else if out, err := runCommandOutput(d.projDir, "docker", composeArgs...); err != nil {
+		return fmt.Errorf("start source services (compose up --no-build): %w (%s)", err, strings.TrimSpace(out))
+	}
+	if err := d.healthCheck(progress, 5, 5*time.Second); err != nil {
+		return fmt.Errorf("source services did not pass the health gate: %w", err)
+	}
+	return nil
+}
+
+// convergeUnchangedSourceServices makes the PreSwap pair terminal's reassurance
+// true before it is written. No git, binary, or database restore is legal here:
+// an empty backup identity proves none of them moved. Regenerate current source
+// config, explicitly start the whole source app stack, health-prove it, then and
+// only then lift the operator-facing gates. Any failure is returned so the caller
+// records a degraded human-stop terminal instead of "serving normally".
+func (d *Service) convergeUnchangedSourceServices(ctx context.Context, progress *ProgressLog) error {
+	progress.bump()
+	tickerCtx, tickerCancel := context.WithCancel(ctx)
+	tickerDone := make(chan struct{})
+	go runGatedWatchdogTicker(tickerCtx, progress,
+		applyNewSbUpgradingStallThreshold, applyNewSbUpgradingWatchdogCadence,
+		func() { sdNotify("WATCHDOG=1") }, tickerDone)
+	defer func() {
+		tickerCancel()
+		<-tickerDone
+	}()
+
+	if err := runCommandToLog(d.projDir, 2*time.Minute, progress.File(), "preswap-terminal-config-generate", progress.bump,
+		filepath.Join(d.projDir, "sb"), "config", "generate"); err != nil {
+		return fmt.Errorf("regenerate unchanged source configuration: %w", err)
+	}
+	if err := d.startSourceApplicationStack(ctx, progress); err != nil {
+		return err
+	}
+	if err := d.setMaintenance(false, ""); err != nil {
+		return fmt.Errorf("source services are healthy but maintenance mode did not lift: %w", err)
+	}
+	if _, err := d.liftReadOnlyWindow("PreSwap stopped-unchanged serve proof"); err != nil {
+		return fmt.Errorf("source services are healthy but the read-only window did not lift: %w", err)
 	}
 	return nil
 }
@@ -10684,7 +10752,7 @@ func (d *Service) restoreRollbackSnapshotWithTargetAssets(progress *ProgressLog,
 }
 
 func (d *Service) startRollbackDatabaseOnly(ctx context.Context, progress *ProgressLog) error {
-	if err := d.StartDBForRecovery(ctx); err != nil {
+	if err := d.StartDBRouteClientsMustBeStopped(ctx); err != nil {
 		return fmt.Errorf("start existing restored database: %w", err)
 	}
 	if err := d.EnsureDBReachable(ctx); err != nil {
@@ -11044,7 +11112,7 @@ func (d *Service) rollback(ctx context.Context, id int, version, restoreTargetSH
 		// in stopErr are confirmed still running), so the terminal write can
 		// still hit a stopped DB.
 		if err := d.EnsureDBReachable(ctx); err != nil {
-			if startErr := d.StartDBForRecovery(ctx); startErr != nil {
+			if startErr := d.StartDBRouteClientsMayRun(ctx); startErr != nil {
 				progress.Write("  Starting the existing database to record the rollback outcome ... failed: %v", startErr)
 			} else if reachErr := d.EnsureDBReachable(ctx); reachErr != nil {
 				progress.Write("  Starting the existing database to record the rollback outcome ... failed health check: %v", reachErr)
@@ -11055,7 +11123,7 @@ func (d *Service) rollback(ctx context.Context, id int, version, restoreTargetSH
 		progress.Write("Manual recovery required:")
 		progress.Write("    1. Investigate why `docker compose stop` did not stop every service: docker compose ps -a")
 		progress.Write("    2. Stop the remaining service(s) manually, then decide whether to retry: ./sb install")
-		progress.Write("CATASTROPHIC FAILURE [%s]. Services stopped. Contact your administrator%s.",
+		progress.Write("CATASTROPHIC FAILURE [%s]. One or more services were not confirmed stopped. Contact your administrator%s.",
 			ErrRollbackServicesNotStopped, contactSuffix(readAdministratorContact(d.projDir)))
 		if d.writeRollbackTerminal(id,
 			"UPDATE public.upgrade SET state = 'failed', error = $1, recovery_attempts = $2"+terminalBackupPathSQL+", failure_code = $5 WHERE id = $3"+upgradeRowReturning,

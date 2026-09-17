@@ -1282,13 +1282,12 @@ func (d *Service) EnsureDBUp(ctx context.Context) error {
 	return nil
 }
 
-// StartDBForRecovery starts the EXISTING db+proxy containers (without recreating
-// them) and waits for the DB to become healthy. Used by install.runCrashRecovery
-// before falling back to EnsureDBReachable's refusal — when the prior in-flight
-// upgrade legitimately stopped the DB container (preswap backup window: rsync
-// from the named volume requires pg to be stopped; post-swap intermediate state
-// before the new binary brings it back), the crash leaves stopped-but-present
-// containers that recovery must restart to continue.
+// StartDBRouteClientsMayRun resumes the EXISTING db+proxy containers without
+// recreating them while application clients may already be running. It waits
+// for the DB to become healthy through the restored route.
+// install.runCrashRecovery uses it before falling back to EnsureDBReachable's
+// refusal, and rollback's stop-verification ABORT uses it only to land a truthful
+// terminal row when one of those clients may be the service that failed to stop.
 //
 // STATBUS-143: the service reaches PostgreSQL THROUGH the Caddy layer4 proxy, so
 // the asymmetric-safe start must cover the whole ROUTE, not just the engine. A
@@ -1300,8 +1299,7 @@ func (d *Service) EnsureDBUp(ctx context.Context) error {
 // service name would therefore open the application while rollback schema-floor
 // replay promises it is held closed. Compose start has no --no-deps option, so
 // start db through Compose, resolve proxy's existing container ID, and start that
-// exact container through Docker. Then positively verify app/worker/rest remain
-// stopped before waiting for DB health.
+// exact container through Docker.
 //
 // `docker compose start` ONLY starts existing stopped containers; it NEVER
 // recreates them with the current binary's compose-template image tag. That's
@@ -1321,7 +1319,37 @@ func (d *Service) EnsureDBUp(ctx context.Context) error {
 //
 // Returns nil on success (containers started + DB healthy) or a wrapped/named
 // error describing the failure mode (proxy gone, start failed, health timeout).
-func (d *Service) StartDBForRecovery(ctx context.Context) error {
+func (d *Service) StartDBRouteClientsMayRun(ctx context.Context) error {
+	if err := d.resumeDBRouteContainers(ctx); err != nil {
+		return err
+	}
+	if err := d.waitForDBHealth(60 * time.Second); err != nil {
+		return fmt.Errorf("db did not become healthy after compose start: %w", err)
+	}
+	return nil
+}
+
+// StartDBRouteClientsMustBeStopped resumes the EXISTING db+proxy containers only
+// while application clients must be stopped. It is the strictly narrower
+// recovery contract used only by the park-era schema verdict and rollback
+// schema-floor replay, and it preserves
+// 5dbc8d243's fail-closed ordering: start only the existing db+proxy containers,
+// immediately prove app/worker/rest are absent or terminal, then wait for DB
+// health. Unknown client states remain rejected exactly as before.
+func (d *Service) StartDBRouteClientsMustBeStopped(ctx context.Context) error {
+	if err := d.resumeDBRouteContainers(ctx); err != nil {
+		return err
+	}
+	if err := d.verifyRecoveryClientsStopped(ctx); err != nil {
+		return err
+	}
+	if err := d.waitForDBHealth(60 * time.Second); err != nil {
+		return fmt.Errorf("db did not become healthy after compose start: %w", err)
+	}
+	return nil
+}
+
+func (d *Service) resumeDBRouteContainers(ctx context.Context) error {
 	if missing, perr := d.proxyContainerMissing(ctx); perr == nil && missing {
 		return newProxyRouteMissingError()
 	}
@@ -1334,12 +1362,6 @@ func (d *Service) StartDBForRecovery(ctx context.Context) error {
 	}
 	if out, err := runCommandOutput(d.projDir, "docker", "start", proxyID); err != nil {
 		return fmt.Errorf("docker start existing proxy container %s: %w (%s)", proxyID, err, strings.TrimSpace(out))
-	}
-	if err := d.verifyRecoveryClientsStopped(ctx); err != nil {
-		return err
-	}
-	if err := d.waitForDBHealth(60 * time.Second); err != nil {
-		return fmt.Errorf("db did not become healthy after compose start: %w", err)
 	}
 	return nil
 }
@@ -1371,7 +1393,7 @@ func (e *RecoveryClientsLiveError) Error() string {
 	return fmt.Sprintf("held-closed recovery invariant violated: application services must remain stopped while only db+proxy are started; still running: %s", strings.Join(e.Services, ", "))
 }
 
-// verifyRecoveryClientsStopped makes StartDBForRecovery's held-closed promise a
+// verifyRecoveryClientsStopped makes StartDBRouteClientsMustBeStopped's promise a
 // checked product invariant. Absence and Docker's terminal/non-running states are
 // safe; every live or unknown state fails closed and names the offending service.
 func (d *Service) verifyRecoveryClientsStopped(ctx context.Context) error {
@@ -1406,7 +1428,7 @@ func (d *Service) verifyRecoveryClientsStopped(ctx context.Context) error {
 // proxyContainerMissing reports whether the proxy service has NO container at
 // all — removed, not merely stopped (the STATBUS-143 severed-route case). Uses
 // `docker compose ps -a` (includes stopped containers) so a STOPPED proxy is NOT
-// reported missing — StartDBForRecovery resumes that one. A ps error (docker
+// reported missing — either recovery route starter resumes that one. A ps error (docker
 // down, no project) returns (false, err): inconclusive, so the caller proceeds
 // to the start attempt rather than falsely refusing.
 func (d *Service) proxyContainerMissing(ctx context.Context) (bool, error) {

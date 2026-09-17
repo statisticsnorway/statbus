@@ -97,33 +97,48 @@ func TestRecoveryDSNSingleSource(t *testing.T) {
 	}
 }
 
-// TestStartDBForRecoveryStartsTheWholeRoute pins AC#2's start-extension: the
+// TestRecoveryRouteStartContracts pins AC#2's start-extension: the
 // asymmetric-safe start covers db AND proxy (not just the engine), without
 // naming proxy to Compose start (which recursively starts proxy's rest
-// dependency), and refuses a truly-missing proxy.
-func TestStartDBForRecoveryStartsTheWholeRoute(t *testing.T) {
+// dependency), and refuses a truly-missing proxy. Held-closed verification is
+// a separate, strictly narrower contract with exactly two production callers.
+func TestRecoveryRouteStartContracts(t *testing.T) {
 	src, err := os.ReadFile(thisRepoFile(t, "cli/internal/upgrade/exec.go"))
 	if err != nil {
 		t.Fatalf("read exec.go: %v", err)
 	}
-	body := extractFuncBody(t, string(src), "func (d *Service) StartDBForRecovery(")
+	routeBody := extractFuncBody(t, string(src), "func (d *Service) StartDBRouteClientsMayRun(")
+	heldBody := extractFuncBody(t, string(src), "func (d *Service) StartDBRouteClientsMustBeStopped(")
+	containersBody := extractFuncBody(t, string(src), "func (d *Service) resumeDBRouteContainers(")
 
-	if !strings.Contains(body, `"compose", "start", "db"`) {
-		t.Error("StartDBForRecovery must use the exact dependency-safe compose argv `docker compose start db`")
+	if !strings.Contains(routeBody, "d.resumeDBRouteContainers(ctx)") {
+		t.Error("StartDBRouteClientsMayRun must delegate only to dependency-safe existing-container startup before its DB-health wait")
+	}
+	if !strings.Contains(containersBody, `"compose", "start", "db"`) {
+		t.Error("StartDBRouteClientsMayRun must use the exact dependency-safe compose argv `docker compose start db`")
 	}
 	// Negative control: this was the rc.16 product bug. If proxy is named to
 	// Compose start, Compose honours proxy->rest depends_on and opens the app.
-	if strings.Contains(body, `"compose", "start", "db", "proxy"`) || strings.Contains(body, `"compose", "start", "proxy"`) {
-		t.Error("StartDBForRecovery must not name proxy to `docker compose start`; that recursively starts rest")
+	if strings.Contains(containersBody, `"compose", "start", "db", "proxy"`) || strings.Contains(containersBody, `"compose", "start", "proxy"`) {
+		t.Error("StartDBRouteClientsMayRun must not name proxy to `docker compose start`; that recursively starts rest")
 	}
-	if !strings.Contains(body, `"docker", "start", proxyID`) {
-		t.Error("StartDBForRecovery must start the already-resolved proxy container directly so Compose cannot follow dependencies")
+	if !strings.Contains(containersBody, `"docker", "start", proxyID`) {
+		t.Error("StartDBRouteClientsMayRun must start the already-resolved proxy container directly so Compose cannot follow dependencies")
 	}
-	if !strings.Contains(body, "verifyRecoveryClientsStopped") {
-		t.Error("StartDBForRecovery must positively verify app/worker/rest remain stopped after starting db+proxy")
+	if strings.Contains(routeBody, "verifyRecoveryClientsStopped") {
+		t.Error("route-only StartDBRouteClientsMayRun must not reject legitimate live application clients")
 	}
-	if !strings.Contains(body, "proxyContainerMissing") {
-		t.Error("StartDBForRecovery must detect a missing proxy and refuse precisely (newProxyRouteMissingError), not emit an opaque docker error (AC#3)")
+	if !strings.Contains(containersBody, "proxyContainerMissing") {
+		t.Error("StartDBRouteClientsMayRun must detect a missing proxy and refuse precisely (newProxyRouteMissingError), not emit an opaque docker error (AC#3)")
+	}
+	startIdx := strings.Index(heldBody, "d.resumeDBRouteContainers(ctx)")
+	verifyIdx := strings.Index(heldBody, "d.verifyRecoveryClientsStopped(ctx)")
+	healthIdx := strings.Index(heldBody, "d.waitForDBHealth(")
+	if startIdx < 0 || verifyIdx < 0 || healthIdx < 0 || startIdx >= verifyIdx || verifyIdx >= healthIdx {
+		t.Errorf("StartDBRouteClientsMustBeStopped must start dependency-safe containers, immediately run the unchanged fail-closed verifier, then wait for DB health; start@%d verify@%d health@%d", startIdx, verifyIdx, healthIdx)
+	}
+	if got := strings.Count(string(src), "d.verifyRecoveryClientsStopped(ctx)"); got != 1 {
+		t.Fatalf("the held-closed verifier must be invoked only by StartDBRouteClientsMustBeStopped; got %d production calls", got)
 	}
 }
 
