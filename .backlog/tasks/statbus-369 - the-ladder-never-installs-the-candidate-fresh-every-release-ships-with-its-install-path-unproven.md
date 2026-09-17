@@ -988,3 +988,11 @@ The combined `6b41a64bc` + `83c4b01d7` head has green Go `35197214303`, app
 following backlog-only commits. pg_regress `35197596006` is pending. No rc.18
 tag exists. A separate worker has uncommitted source/doc changes in the shared
 checkout; this backlog update does not stage or modify them.
+
+## rc.18 cut after recovery authority review (2026-09-17 20:50 UTC)
+
+The held recovery stack was intentionally published through `b73c89652` and
+rc.18 was cut at that commit at 20:50:55 UTC. Initial exact-commit gates started:
+Go `35273252175`, app `35273252270`, Images `35273252167`, and push/orchestrator
+entry `35273242225`. No Recovery or Upgrade Arc scenario run had started at this
+checkpoint; scenario reach and tally remain pending.
