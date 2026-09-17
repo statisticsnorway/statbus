@@ -746,3 +746,9 @@ verifies app/worker/rest remain stopped, and durably routes any live-client
 violation to `rollback-clients-live` with
 `ROLLBACK_FAILED_SERVICES_NOT_STOPPED` before source restore or full-stack
 startup. Exact-commit CI is running; no next candidate has been cut.
+
+## schema-floor fix validation checkpoint (2026-09-17 03:24 UTC)
+
+Fix `5dbc8d243` has green Go `35175163025`, app `35175162990`, Images
+`35175162978`, and Fast Tests `35175404663`. pg_regress `35175404641` remains
+in progress. No rc.17 tag exists and no new paid ladder has started.
