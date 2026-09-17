@@ -760,3 +760,13 @@ Fix `5dbc8d243` completed every named pre-cut gate green: Images
 `35175404663`, and niue pg_regress `35175404641`. The Fast Tests and
 pg_regress children were concurrency-cancelled once and their single permitted
 reruns both passed. No rc.17 tag exists and no new paid ladder has started.
+
+## rc.17 cut; release ladder started (2026-09-17 03:37 UTC)
+
+Cut exact tag `v2026.09.1-rc.17` at `0cefa2fd7913fb3d0fb2b2cd4706d67786ed5451`,
+four backlog-only commits past product fix `5dbc8d243`. The first release attempt
+had the exact gate refusal `✗ images has not run for 0cefa2fd7913`; manually
+triggered Images run `35178601773` passed, then the release pre-flight passed
+and pushed the tag. Release `35178846674`, Test Hardening `35178846602`, and
+Fleet Orchestrator `35178846600` are queued. Smoke, dev canary, Recovery, and
+Upgrade Arc have not started.
