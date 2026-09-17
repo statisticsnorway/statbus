@@ -777,3 +777,9 @@ Release `35178846674`, Test Smoke `35178929396`, and Test Hardening
 `35178846602` are green. Fleet Orchestrator `35178846600` completed stage 1/4
 smoke green and entered stage 2/4 dev canary. Recovery and Upgrade Arc have not
 started.
+
+## rc.17 dev canary green; Recovery started (2026-09-17 04:01 UTC)
+
+Dev canary run `35180048644` is green. Fleet Orchestrator `35178846600`
+advanced to stage 4/5 and dispatched Install Recovery run `35180198706`, which
+is in progress. Upgrade Arc has not started.
