@@ -17,7 +17,7 @@ import (
 // systemd re-ran the whole abort → a guaranteed death loop on a path that had
 // already concluded (observed live in r17, ×3).
 //
-// The fix starts the EXISTING db route (StartDBRouteClientsMayRun = the
+// The fix starts the EXISTING db route (StartDatabaseRouteServingMayRun = the
 // asymmetric-safe `docker compose start db`, never `up -d`) BEFORE the terminal
 // write, so the write can land and the box ends in a named `failed` state
 // instead of restarting forever.
@@ -35,9 +35,9 @@ func TestRollbackAbort_StartsDBBeforeTerminalWrite(t *testing.T) {
 	// comment (which names these very tokens) cannot create a false match.
 	body := extractFuncBody(t, string(src), "func (d *Service) rollback(")
 
-	startIdx := strings.Index(body, "d.StartDBRouteClientsMayRun(ctx)")
+	startIdx := strings.Index(body, "d.StartDatabaseRouteServingMayRun(ctx)")
 	if startIdx < 0 {
-		t.Fatal("rollback() abort branch must call d.StartDBRouteClientsMayRun(ctx) to bring the stopped route back up before recording the failed terminal (STATBUS-136); not found")
+		t.Fatal("rollback() abort branch must call d.StartDatabaseRouteServingMayRun(ctx) to bring the stopped route back up before recording the failed terminal (STATBUS-136); not found")
 	}
 
 	// LabelFailedAbort is unique to the abort branch's terminal write; the
@@ -48,6 +48,6 @@ func TestRollbackAbort_StartsDBBeforeTerminalWrite(t *testing.T) {
 	}
 
 	if startIdx >= abortWriteIdx {
-		t.Fatalf("STATBUS-136 ordering violated: StartDBRouteClientsMayRun (idx %d) must precede the abort terminal write LabelFailedAbort (idx %d) — otherwise the write hits a stopped DB and loops", startIdx, abortWriteIdx)
+		t.Fatalf("STATBUS-136 ordering violated: StartDatabaseRouteServingMayRun (idx %d) must precede the abort terminal write LabelFailedAbort (idx %d) — otherwise the write hits a stopped DB and loops", startIdx, abortWriteIdx)
 	}
 }

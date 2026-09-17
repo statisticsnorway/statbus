@@ -7631,14 +7631,14 @@ func (d *Service) parkForDeterministicFailure(ctx context.Context, id int, displ
 // failure it stops NOTHING and changes nothing but the park narrative (appendParkNarrative).
 func (d *Service) parkServiceRecovery(ctx context.Context, id int, restoreTargetSHA string, progress *ProgressLog) {
 	// STATBUS-204: this helper OWNS its own watchdog cover. Its slow span — parkEraVerdict's
-	// StartDBRouteClientsMustBeStopped (waits up to ~60s for DB health) plus restoreSourceServices (compose up
+	// StartDatabaseRouteServingMustBeStopped (waits up to ~60s for DB health) plus restoreSourceServices (existing-container start
 	// + bounded health + the restores) — can exceed WatchdogSec=120s on a cold box. The
 	// deterministic park callers run under an outer gated ticker, but the budget-park callers
 	// (RecoveryBudgetGuard, resumeNewSb) run post-READY in the ACTIVE phase with NONE, so without
 	// this a SIGABRT would crash-loop the very park the fix makes operable. The ticker sits at
 	// the TOP, spanning verdict + restoration together (the DB-health wait is inside the danger
 	// window and precedes the restore). ALWAYS-PING is correct here (nil gate): every covered
-	// sub-step is itself time-bounded (StartDBRouteClientsMustBeStopped's health wait, compose-up's command
+	// sub-step is itself time-bounded (StartDatabaseRouteServingMustBeStopped's health wait, compose-start's command
 	// timeout, healthCheck's bounded attempts), so a genuine hang cannot outlive the bounds' sum
 	// — cover-with-bounds is hang-detection by construction (the boot-migrate always-ping
 	// precedent). Owning the cover at this chokepoint covers every caller — deterministic,
@@ -7743,9 +7743,9 @@ func (d *Service) parkServiceRecovery(ctx context.Context, id int, restoreTarget
 func (d *Service) parkEraVerdict(ctx context.Context, id int) (permit bool, refusalNarrative string) {
 	const held = "services held down"
 	// The DB may be stopped at a pre-start park (StepImagePull is before StepDBUp). Bring the
-	// EXISTING db+proxy up (start, never recreate — StartDBRouteClientsMustBeStopped) so the applied-max read
+	// EXISTING db+proxy up (start, never recreate — StartDatabaseRouteServingMustBeStopped) so the applied-max read
 	// can run; a running DB under the still-engaged read-only window is harmless (ruling Q1).
-	if err := d.StartDBRouteClientsMustBeStopped(ctx); err != nil {
+	if err := d.StartDatabaseRouteServingMustBeStopped(ctx); err != nil {
 		return false, fmt.Sprintf("%s: the database could not be started to verify source-version identity (%v)", held, err)
 	}
 	// Reads ride the teardown-immune fresh-conn primitive (terminalUpdate), so they do not
@@ -7830,8 +7830,8 @@ func migrationMaxInGitTree(projDir, sha string) (int64, error) {
 
 // restoreSourceServices brings the SOURCE version's application services back on a parked box
 // (STATBUS-200, ruling Q2): the rollback restore tail MINUS restoreDatabase — restore the git
-// tree + binary + config to the source, then start app/worker/rest/proxy from the LOCAL source
-// images (--no-build, NO pull; the disk is full — that is the whole point), a bounded health
+// tree + binary + config to the source, then start the EXISTING app/worker/rest containers
+// in place (never compose up/recreate), a bounded health
 // gate, and maintenance OFF + the read-only window LIFT ONLY on a passing health check
 // (serve-proven — never claim serving without proving it). restoreDatabase is DELIBERATELY
 // skipped: the era guard already proved the DB is at the source version, so there is nothing to
@@ -7863,23 +7863,67 @@ func (d *Service) restoreSourceServices(ctx context.Context, restoreTargetSHA st
 	return nil
 }
 
+var sourceServingServices = []string{"app", "worker", "rest"}
+
+// sourceServingContainersMissingError is the named recovery refusal for source
+// serving containers that were removed rather than stopped. Recovery must not
+// recreate them from the currently running binary's compose-template image.
+type sourceServingContainersMissingError struct {
+	Services []string
+}
+
+func (e *sourceServingContainersMissingError) Error() string {
+	noun := "containers are"
+	if len(e.Services) == 1 {
+		noun = "container is"
+	}
+	return fmt.Sprintf("source serving %s missing: %s; recovery will not recreate in-flight containers with docker compose up", noun, strings.Join(e.Services, ", "))
+}
+
 // startSourceApplicationStack is the shared source-era serving gate. Both park
 // recovery (after restoring source git/binary/config) and the PreSwap
 // STOPPED-UNCHANGED terminal (where those assets never moved) use this exact
 // primitive so neither path can claim normal serving based on container start
-// alone. LOCAL images only: --no-build means no pull while recovering a box that
-// may have parked because disk is exhausted.
+// alone. executeUpgrade stops app/worker/rest with `docker compose stop`, which
+// leaves their containers present; a park reached before that stop may find them
+// already running, where `start` is a no-op. Missing containers are a named
+// refusal, never a reason to use `up -d`: the currently running binary may render
+// a different image tag and silently rewrite the in-flight upgrade (rc.66 -> rc.67).
 func (d *Service) startSourceApplicationStack(ctx context.Context, progress *ProgressLog) error {
 	if err := ctx.Err(); err != nil {
 		return err
 	}
-	composeArgs := append([]string{"compose", "up", "-d", "--no-build"}, step11RestartServices...)
+	cmd := exec.CommandContext(ctx, "docker", "compose", "ps", "-a", "--format", "json")
+	cmd.Dir = d.projDir
+	out, err := cmd.Output()
+	if err != nil {
+		return fmt.Errorf("inspect existing source serving containers: docker compose ps -a: %w", err)
+	}
+	entries, err := compose.ParsePsJSON(out)
+	if err != nil {
+		return fmt.Errorf("inspect existing source serving containers: %w", err)
+	}
+	existing := make(map[string]bool, len(entries))
+	for _, entry := range entries {
+		existing[entry.Service] = true
+	}
+	var missing []string
+	for _, service := range sourceServingServices {
+		if !existing[service] {
+			missing = append(missing, service)
+		}
+	}
+	if len(missing) != 0 {
+		return &sourceServingContainersMissingError{Services: missing}
+	}
+
+	composeArgs := append([]string{"compose", "start"}, sourceServingServices...)
 	if progress != nil {
-		if stderrTail, err := runCommandToLogCapture(d.projDir, 5*time.Minute, progress.File(), "source-docker-compose", progress.bump, "docker", composeArgs...); err != nil {
-			return fmt.Errorf("start source services (compose up --no-build): %w (%s)", err, strings.TrimSpace(stderrTail))
+		if stderrTail, err := runCommandToLogCapture(d.projDir, 5*time.Minute, progress.File(), "source-docker-compose-start", progress.bump, "docker", composeArgs...); err != nil {
+			return fmt.Errorf("start existing source serving containers: %w (%s)", err, strings.TrimSpace(stderrTail))
 		}
 	} else if out, err := runCommandOutput(d.projDir, "docker", composeArgs...); err != nil {
-		return fmt.Errorf("start source services (compose up --no-build): %w (%s)", err, strings.TrimSpace(out))
+		return fmt.Errorf("start existing source serving containers: %w (%s)", err, strings.TrimSpace(out))
 	}
 	if err := d.healthCheck(progress, 5, 5*time.Second); err != nil {
 		return fmt.Errorf("source services did not pass the health gate: %w", err)
@@ -7890,7 +7934,7 @@ func (d *Service) startSourceApplicationStack(ctx context.Context, progress *Pro
 // convergeUnchangedSourceServices makes the PreSwap pair terminal's reassurance
 // true before it is written. No git, binary, or database restore is legal here:
 // an empty backup identity proves none of them moved. Regenerate current source
-// config, explicitly start the whole source app stack, health-prove it, then and
+// config, explicitly start the existing source serving containers, health-prove them, then and
 // only then lift the operator-facing gates. Any failure is returned so the caller
 // records a degraded human-stop terminal instead of "serving normally".
 func (d *Service) convergeUnchangedSourceServices(ctx context.Context, progress *ProgressLog) error {
@@ -10752,7 +10796,7 @@ func (d *Service) restoreRollbackSnapshotWithTargetAssets(progress *ProgressLog,
 }
 
 func (d *Service) startRollbackDatabaseOnly(ctx context.Context, progress *ProgressLog) error {
-	if err := d.StartDBRouteClientsMustBeStopped(ctx); err != nil {
+	if err := d.StartDatabaseRouteServingMustBeStopped(ctx); err != nil {
 		return fmt.Errorf("start existing restored database: %w", err)
 	}
 	if err := d.EnsureDBReachable(ctx); err != nil {
@@ -11112,7 +11156,7 @@ func (d *Service) rollback(ctx context.Context, id int, version, restoreTargetSH
 		// in stopErr are confirmed still running), so the terminal write can
 		// still hit a stopped DB.
 		if err := d.EnsureDBReachable(ctx); err != nil {
-			if startErr := d.StartDBRouteClientsMayRun(ctx); startErr != nil {
+			if startErr := d.StartDatabaseRouteServingMayRun(ctx); startErr != nil {
 				progress.Write("  Starting the existing database to record the rollback outcome ... failed: %v", startErr)
 			} else if reachErr := d.EnsureDBReachable(ctx); reachErr != nil {
 				progress.Write("  Starting the existing database to record the rollback outcome ... failed health check: %v", reachErr)

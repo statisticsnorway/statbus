@@ -11,7 +11,7 @@ package upgrade
 // would actually read.
 //
 // The DB-dependent remainder of parkServiceRecovery (parkEraVerdict →
-// StartDBRouteClientsMustBeStopped, restoreSourceServices) is not unit-reachable; the source pins
+// StartDatabaseRouteServingMustBeStopped, restoreSourceServices) is not unit-reachable; the source pins
 // below cover its ordering, and the VM proof rides whichever suite exercises budget
 // parks.
 

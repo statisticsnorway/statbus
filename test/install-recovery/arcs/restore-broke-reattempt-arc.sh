@@ -451,7 +451,7 @@ echo "  ✓ phase (i) COMPLETE: pair-terminal constructed and STOPPED there (the
 #      construction used, not this one.)
 #   4. Next dispatch (./sb install, clean): crashed-upgrade → runCrashRecovery
 #      → EnsureDBReachable fails (db stopped by the killed rollback) →
-#      StartDBRouteClientsMayRun (existing containers, install_upgrade.go) →
+#      StartDatabaseRouteServingMayRun (existing containers, install_upgrade.go) →
 #      RecoveryBudgetGuard sees the durable StepRollback and leaves the
 #      rollback route authoritative; recoveryRollback increments the row once
 #      (0→1). rollbackResumeIsTerminal(Step="rollback", PriorDeathStep=

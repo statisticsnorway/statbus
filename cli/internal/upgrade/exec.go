@@ -1282,12 +1282,12 @@ func (d *Service) EnsureDBUp(ctx context.Context) error {
 	return nil
 }
 
-// StartDBRouteClientsMayRun resumes the EXISTING db+proxy containers without
-// recreating them while application clients may already be running. It waits
+// StartDatabaseRouteServingMayRun starts the EXISTING database and its proxy
+// without recreating them while the serving tier may already be running. It waits
 // for the DB to become healthy through the restored route.
 // install.runCrashRecovery uses it before falling back to EnsureDBReachable's
 // refusal, and rollback's stop-verification ABORT uses it only to land a truthful
-// terminal row when one of those clients may be the service that failed to stop.
+// terminal row when a serving-tier component may be the one that failed to stop.
 //
 // STATBUS-143: the service reaches PostgreSQL THROUGH the Caddy layer4 proxy, so
 // the asymmetric-safe start must cover the whole ROUTE, not just the engine. A
@@ -1319,8 +1319,8 @@ func (d *Service) EnsureDBUp(ctx context.Context) error {
 //
 // Returns nil on success (containers started + DB healthy) or a wrapped/named
 // error describing the failure mode (proxy gone, start failed, health timeout).
-func (d *Service) StartDBRouteClientsMayRun(ctx context.Context) error {
-	if err := d.resumeDBRouteContainers(ctx); err != nil {
+func (d *Service) StartDatabaseRouteServingMayRun(ctx context.Context) error {
+	if err := d.startDatabaseAndItsProxy(ctx); err != nil {
 		return err
 	}
 	if err := d.waitForDBHealth(60 * time.Second); err != nil {
@@ -1329,15 +1329,15 @@ func (d *Service) StartDBRouteClientsMayRun(ctx context.Context) error {
 	return nil
 }
 
-// StartDBRouteClientsMustBeStopped resumes the EXISTING db+proxy containers only
-// while application clients must be stopped. It is the strictly narrower
-// recovery contract used only by the park-era schema verdict and rollback
-// schema-floor replay, and it preserves
+// StartDatabaseRouteServingMustBeStopped starts the EXISTING database and its proxy
+// without recreating them only while the serving tier must be stopped. It is the
+// strictly narrower recovery contract used only by the park-era schema verdict and
+// rollback schema-floor replay, and it preserves
 // 5dbc8d243's fail-closed ordering: start only the existing db+proxy containers,
 // immediately prove app/worker/rest are absent or terminal, then wait for DB
-// health. Unknown client states remain rejected exactly as before.
-func (d *Service) StartDBRouteClientsMustBeStopped(ctx context.Context) error {
-	if err := d.resumeDBRouteContainers(ctx); err != nil {
+// health. Unknown serving-service states remain rejected exactly as before.
+func (d *Service) StartDatabaseRouteServingMustBeStopped(ctx context.Context) error {
+	if err := d.startDatabaseAndItsProxy(ctx); err != nil {
 		return err
 	}
 	if err := d.verifyRecoveryClientsStopped(ctx); err != nil {
@@ -1349,7 +1349,11 @@ func (d *Service) StartDBRouteClientsMustBeStopped(ctx context.Context) error {
 	return nil
 }
 
-func (d *Service) resumeDBRouteContainers(ctx context.Context) error {
+// startDatabaseAndItsProxy starts the existing database and the Caddy proxy the
+// upgrade service uses to reach it (STATBUS-143), without starting proxy
+// dependencies. It uses start, never up -d, so an in-flight upgrade's containers
+// are not recreated with the current binary's image (the rc.66 -> rc.67 lesson).
+func (d *Service) startDatabaseAndItsProxy(ctx context.Context) error {
 	if missing, perr := d.proxyContainerMissing(ctx); perr == nil && missing {
 		return newProxyRouteMissingError()
 	}
@@ -1393,7 +1397,7 @@ func (e *RecoveryClientsLiveError) Error() string {
 	return fmt.Sprintf("held-closed recovery invariant violated: application services must remain stopped while only db+proxy are started; still running: %s", strings.Join(e.Services, ", "))
 }
 
-// verifyRecoveryClientsStopped makes StartDBRouteClientsMustBeStopped's promise a
+// verifyRecoveryClientsStopped makes StartDatabaseRouteServingMustBeStopped's promise a
 // checked product invariant. Absence and Docker's terminal/non-running states are
 // safe; every live or unknown state fails closed and names the offending service.
 func (d *Service) verifyRecoveryClientsStopped(ctx context.Context) error {

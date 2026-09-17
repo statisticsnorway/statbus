@@ -8,7 +8,7 @@ import (
 	"testing"
 )
 
-func TestStartDBRouteClientsMayRun_DependencySafeArgvAllowsLiveClients(t *testing.T) {
+func TestStartDatabaseRouteServingMayRun_DependencySafeArgvAllowsLiveServingTier(t *testing.T) {
 	shimDir := t.TempDir()
 	logPath := filepath.Join(shimDir, "docker.log")
 	shim := `#!/bin/sh
@@ -33,8 +33,8 @@ exit 0
 	t.Setenv("STATBUS_TEST_DOCKER_LOG", logPath)
 
 	d := &Service{projDir: t.TempDir()}
-	if err := d.StartDBRouteClientsMayRun(context.Background()); err != nil {
-		t.Fatalf("StartDBRouteClientsMayRun must allow already-running application clients: %v", err)
+	if err := d.StartDatabaseRouteServingMayRun(context.Background()); err != nil {
+		t.Fatalf("StartDatabaseRouteServingMayRun must allow an already-running serving tier: %v", err)
 	}
 
 	logBytes, err := os.ReadFile(logPath)
@@ -44,14 +44,14 @@ exit 0
 	assertDependencySafeRecoveryRouteArgv(t, string(logBytes))
 }
 
-func TestStartDBRouteClientsMustBeStopped_DependencySafeArgvAndStrictClientCheck(t *testing.T) {
+func TestStartDatabaseRouteServingMustBeStopped_DependencySafeArgvAndStrictServingCheck(t *testing.T) {
 	for _, tc := range []struct {
 		name         string
 		liveService  string
 		serviceState string
 		wantErr      string
 	}{
-		{name: "clients remain stopped"},
+		{name: "serving tier remains stopped"},
 		{name: "accepted terminal state exited", liveService: "rest", serviceState: "exited"},
 		{name: "accepted terminal state created", liveService: "app", serviceState: "created"},
 		{name: "accepted terminal state dead", liveService: "worker", serviceState: "dead"},
@@ -89,12 +89,12 @@ exit 0
 			t.Setenv("STATBUS_TEST_SERVICE_STATE", tc.serviceState)
 
 			d := &Service{projDir: t.TempDir()}
-			err := d.StartDBRouteClientsMustBeStopped(context.Background())
+			err := d.StartDatabaseRouteServingMustBeStopped(context.Background())
 			if tc.wantErr == "" && err != nil {
-				t.Fatalf("StartDBRouteClientsMustBeStopped: %v", err)
+				t.Fatalf("StartDatabaseRouteServingMustBeStopped: %v", err)
 			}
 			if tc.wantErr != "" && (err == nil || !strings.Contains(err.Error(), tc.wantErr)) {
-				t.Fatalf("StartDBRouteClientsMustBeStopped error = %v, want containing %q", err, tc.wantErr)
+				t.Fatalf("StartDatabaseRouteServingMustBeStopped error = %v, want containing %q", err, tc.wantErr)
 			}
 
 			logBytes, readErr := os.ReadFile(logPath)
@@ -104,7 +104,7 @@ exit 0
 			log := string(logBytes)
 			assertDependencySafeRecoveryRouteArgv(t, log)
 			if strings.Contains(log, "compose --profile all up") {
-				t.Fatalf("held-closed client failure must not issue full-stack compose up:\n%s", log)
+				t.Fatalf("held-closed serving-tier failure must not issue full-stack compose up:\n%s", log)
 			}
 		})
 	}

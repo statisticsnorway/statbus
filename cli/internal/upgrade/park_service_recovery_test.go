@@ -108,9 +108,13 @@ func TestParkServiceRecovery_StructuralContracts(t *testing.T) {
 	if strings.Contains(rs, "restoreDatabase(") {
 		t.Error("restoreSourceServices must NOT call restoreDatabase — the era guard proves the DB is at source, so a DB restore is unnecessary and its absence is the mixed-era safeguard (ruling Q2)")
 	}
-	// LOCAL images only: the compose up must be --no-build (no pull; the disk is full).
-	if !strings.Contains(stack, "--no-build") {
-		t.Error("restoreSourceServices must start services with --no-build (LOCAL source images, no pull — the disk is full)")
+	// EXISTING containers only: recovery must start in place, never `up`, which can
+	// recreate against the currently running binary's compose-template image.
+	if !strings.Contains(stack, `"compose", "start"`) {
+		t.Error("restoreSourceServices must start the existing source serving containers")
+	}
+	if strings.Contains(stack, `"compose", "up"`) {
+		t.Error("restoreSourceServices must never use compose up because recovery may not recreate in-flight containers")
 	}
 
 	// appendParkNarrative SINGLE-CALLER PIN: every call site is inside parkServiceRecovery.
@@ -172,7 +176,7 @@ func TestBudgetParks_RouteThroughHelper_STATBUS204(t *testing.T) {
 
 // TestParkServiceRecovery_SelfCoveringWatchdog_STATBUS204 (cover pin, source-parsing family):
 // parkServiceRecovery owns its watchdog cover — a gated ticker wraps its slow span and PRECEDES
-// the parkEraVerdict call (so StartDBRouteClientsMustBeStopped's DB-health wait is inside the cover). A
+// the parkEraVerdict call (so StartDatabaseRouteServingMustBeStopped's DB-health wait is inside the cover). A
 // refactor that drops or mis-places the ticker fails here.
 func TestParkServiceRecovery_SelfCoveringWatchdog_STATBUS204(t *testing.T) {
 	src := string(packageGoSources(t)["service.go"])
@@ -184,7 +188,7 @@ func TestParkServiceRecovery_SelfCoveringWatchdog_STATBUS204(t *testing.T) {
 	}
 	verdictIdx := strings.Index(psr, "d.parkEraVerdict(")
 	if verdictIdx < 0 || tickIdx > verdictIdx {
-		t.Errorf("STATBUS-204: the watchdog ticker must PRECEDE parkEraVerdict — StartDBRouteClientsMustBeStopped's ~60s DB-health wait is inside the danger window (ticker@%d must be before verdict@%d)", tickIdx, verdictIdx)
+		t.Errorf("STATBUS-204: the watchdog ticker must PRECEDE parkEraVerdict — StartDatabaseRouteServingMustBeStopped's ~60s DB-health wait is inside the danger window (ticker@%d must be before verdict@%d)", tickIdx, verdictIdx)
 	}
 	// The cover must be released (cancel + join) so it never outlives the helper.
 	if !strings.Contains(psr, "tickerCancel()") || !strings.Contains(psr, "<-tickerDone") {
