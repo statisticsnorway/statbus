@@ -806,3 +806,11 @@ A/B/C image wait, then entered its 35-scenario matrix. Current scenario tally:
 
 Upgrade Arc run `35183316509` has 10 pass, 0 fail, 2 running, 23 queued.
 Both schema-floor scenarios remain queued; no failure or triage commit exists.
+
+## rc.17 Upgrade Arc first red (2026-09-17 06:26 UTC)
+
+Run `35183316509` has 20 pass, 1 fail, 3 running, 11 queued.
+`postswap-stopped-proxy-recovery` job `105080855254` is the first red; the run
+is not terminal and its job log is not yet available through `gh run view`.
+Both schema-floor scenarios remain queued. No root-cause classification or
+triage commit exists yet.
