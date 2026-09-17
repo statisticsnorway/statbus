@@ -17,7 +17,7 @@ func TestRollbackSourceServicesStartAfterFloorWithTargetBinaryCanonical(t *testi
 		{"floor migrate", "d.reapplyRollbackDaemonSchemaFloor("},
 		{"source checkout", "d.restoreGitState("},
 		{"source config", "filepath.Join(projDir, \"sb.old\")"},
-		{"source services", "\"rollback-docker-up\""},
+		{"source services", "d.startSourceApplicationStack(ctx, progress)"},
 		{"pending write", "rollback_finish_pending_at = now()"},
 	}
 	last := -1

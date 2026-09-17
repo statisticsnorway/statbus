@@ -58,8 +58,8 @@ service -> db : completeInProgressUpgrade — reconcile an in_progress row with 
 note over service, db
   Two-layer boot recovery. recoverFromFlag handles a kill AFTER the flag exists (Phase
   ladder: old-sb-upgrading / new-sb-swapped / new-sb-upgrading /
-  rollback-schema-floor-failed / rollback-clients-live / rollback_finishing).
-  The floor-failed and clients-live arms are daemon alive-idle;
+  rollback-schema-floor-failed / rollback-clients-live / rollback-restore-failed /
+  rollback_finishing). The three failed/held arms are daemon alive-idle;
   rollback_finishing is cleanup-only before observed state.
   completeInProgressUpgrade handles a kill BEFORE
   the flag exists — the claim -> writeUpgradeFlag window (see § old-sb-upgrading).

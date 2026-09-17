@@ -176,5 +176,5 @@ func TestLiveRecoveryRollback_StaleActorHelper(t *testing.T) {
 	if err := d.LoadConfigAndConnect(ctx); err != nil {
 		t.Fatalf("LoadConfigAndConnect: %v", err)
 	}
-	d.recoveryRollback(ctx, staleFlag, staleFlag.Label(), os.Getenv("STATBUS_STALE_RECOVERY_LOG"), "delayed stale recovery actor")
+	_ = d.recoveryRollback(ctx, staleFlag, staleFlag.Label(), os.Getenv("STATBUS_STALE_RECOVERY_LOG"), "delayed stale recovery actor")
 }

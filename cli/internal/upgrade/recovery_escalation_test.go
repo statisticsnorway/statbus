@@ -182,6 +182,29 @@ func TestRecoveryRollback_ParkedSkipPrecedesRestore(t *testing.T) {
 	}
 }
 
+func TestRecoveryRollbackErrorsPropagateThroughEveryFlagRecoveryCaller(t *testing.T) {
+	source := readUpgradeServiceSource(t)
+	recovery := extractFuncBody(t, source, "func (d *Service) recoveryRollback(")
+	if !strings.Contains(source, "func (d *Service) recoveryRollback(ctx context.Context, flag UpgradeFlag, displayName, logRelPath, reason string) error") {
+		t.Fatal("recoveryRollback must return an error so recoverFromFlag can reach Run's recovery-error exit")
+	}
+	if !strings.Contains(recovery, `return fmt.Errorf("recoveryRollback: rollback for upgrade %d aborted before destructive work: %w"`) {
+		t.Fatal("recoveryRollback still fails to return rollback() errors")
+	}
+	if strings.Contains(recovery, `log.Printf("recoveryRollback: rollback for upgrade %d aborted before destructive work`) {
+		t.Fatal("recoveryRollback still logs and discards rollback() errors")
+	}
+
+	recoverFromFlag := extractFuncBody(t, source, "func (d *Service) recoverFromFlag(")
+	if calls, returned := strings.Count(recoverFromFlag, "d.recoveryRollback(ctx"), strings.Count(recoverFromFlag, "return d.recoveryRollback(ctx"); calls == 0 || calls != returned {
+		t.Fatalf("every recoverFromFlag rollback call must return its error: calls=%d returned=%d", calls, returned)
+	}
+	run := extractFuncBody(t, source, "func (d *Service) Run(")
+	if !strings.Contains(run, "if err := d.recoverFromFlag(ctx); err != nil") || !strings.Contains(run, `return fmt.Errorf("recover from flag: %w", err)`) {
+		t.Fatal("Run must exit through its existing recovery-error path when rollback reconciliation fails")
+	}
+}
+
 // STATBUS-134 — the (rollback, rollback) terminal pair must FORM across
 // guard-interleaved passes. RecoveryBudgetGuard runs before recoverFromFlag routes
 // to recoveryRollback; pre-134 it stamped Step=boot-migrate on EVERY boot, so

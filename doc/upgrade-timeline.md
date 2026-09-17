@@ -909,9 +909,16 @@ retries the ordinary daemon-floor migration.
 
 `rollback-clients-live` retains the same recovery assets and barriers when the
 database-only rollback start observes `app`, `worker`, or `rest` alive. It records
-`ROLLBACK_FAILED_SERVICES_NOT_STOPPED`, returns before source restoration or any
-full-stack Compose start, and stays daemon alive-idle. Stop those clients, then
-run `./sb install` for the deliberate retry.
+`ROLLBACK_FAILED_SERVICES_NOT_STOPPED`, stops the existing clients in place,
+positively verifies them stopped, returns before source restoration or any serving
+start, and stays daemon alive-idle. Inspect any client that could not be confirmed
+stopped, then run `./sb install` for the deliberate retry.
+
+`rollback-restore-failed` is the durable restore/route failure hold. The marker
+records `ROLLBACK_FAILED_DB_RESTORE` plus the exact error outside the database
+volume, so classification survives even when PostgreSQL is unavailable and the
+terminal row cannot be written. No serving container starts from this path. The
+daemon stays alive-idle until a human repairs the cause and runs `./sb install`.
 
 `rollback_finishing` means the pending row is already durable. Recovery is
 cleanup-only: commit `rolled_back`, clear pending, remove the held marker, then

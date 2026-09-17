@@ -312,6 +312,10 @@ const (
 	// Automatic recovery must never widen that violation by starting the full
 	// stack; ./sb install is the deliberate retry entry after the clients stop.
 	PhaseRollbackClientsLive = "rollback-clients-live"
+	// PhaseRollbackRestoreFailed holds the box closed when the snapshot restore
+	// or the restored database route failed. The serving tier must never be
+	// reopened from this phase. ./sb install is the human-gated restore retry.
+	PhaseRollbackRestoreFailed = "rollback-restore-failed"
 	// PhaseRollbackFinishing is cleanup-only. The snapshot and source services
 	// are already restored and the pending column is durable. Recovery may only
 	// finish the row, remove this marker, and publish sb.old.
@@ -327,6 +331,7 @@ var canonicalPhaseBytes = map[string]struct{}{
 	PhaseNewSbUpgrading:            {},
 	PhaseRollbackSchemaFloorFailed: {},
 	PhaseRollbackClientsLive:       {},
+	PhaseRollbackRestoreFailed:     {},
 	PhaseRollbackFinishing:         {},
 }
 
@@ -412,6 +417,13 @@ type UpgradeFlag struct {
 	// gap that hid Norway rc.02's returned git error behind a nil-queryConn panic
 	// and a manufactured INSTALL_PRECONDITION_FAILED on restart (STATBUS-338).
 	OriginalError string `json:"original_error,omitempty"`
+	// RollbackFailureCode and RollbackFailure are the out-of-volume durable
+	// classification for held rollback terminals. The database may be stopped,
+	// unreachable, or only partly restored when these are written, so a row-only
+	// failure_code is insufficient. The marker is written first and is the
+	// authoritative fallback when the best-effort terminal row write cannot land.
+	RollbackFailureCode UpgradeFailureCode `json:"rollback_failure_code,omitempty"`
+	RollbackFailure     string             `json:"rollback_failure,omitempty"`
 	// STATBUS-046 (doc-021): the dying-step fields for the crash-resume attempt
 	// budget. Step is rewritten to the currently-executing Phase-3 step as each
 	// step BEGINS (recordFlagStep), so a crash freezes the step it died at.
@@ -1671,12 +1683,16 @@ func (d *Service) recoverFromFlag(ctx context.Context) (err error) {
 	// stays alive-idle instead of consuming its restart budget by repeating the
 	// same deterministic migration. ./sb install constructs a one-shot Service
 	// (runningAsService=false) and is the only deliberate retry entry.
-	if (flag.Phase == PhaseRollbackSchemaFloorFailed || flag.Phase == PhaseRollbackClientsLive) && d.runningAsService {
+	if (flag.Phase == PhaseRollbackSchemaFloorFailed || flag.Phase == PhaseRollbackClientsLive || flag.Phase == PhaseRollbackRestoreFailed) && d.runningAsService {
 		if flag.Phase == PhaseRollbackClientsLive {
-			logRecover("ROLLBACK_FAILED_SERVICES_NOT_STOPPED: upgrade %d remains closed because app/worker/rest was observed live during database-only rollback recovery. Stop those services, then run ./sb install.", flag.ID)
+			logRecover("ROLLBACK_FAILED_SERVICES_NOT_STOPPED: upgrade %d remains closed because app/worker/rest was observed live during database-only rollback recovery. The recovery pass attempted to stop and verify them; inspect docker compose ps -a, stop any remaining clients, then run ./sb install. (marker classification: %s; detail: %s)", flag.ID, flag.RollbackFailureCode, flag.RollbackFailure)
 			return nil
 		}
-		logRecover("ROLLBACK_SCHEMA_FLOOR_FAILED: upgrade %d remains closed with target recovery assets retained. Fix the recorded migration/database cause, then run ./sb install.", flag.ID)
+		if flag.Phase == PhaseRollbackRestoreFailed {
+			logRecover("ROLLBACK_FAILED_DB_RESTORE: upgrade %d remains closed because the snapshot restore or restored database route failed. No serving containers were started. Repair the recorded restore/route cause, then run ./sb install. (marker classification: %s; detail: %s)", flag.ID, flag.RollbackFailureCode, flag.RollbackFailure)
+			return nil
+		}
+		logRecover("ROLLBACK_SCHEMA_FLOOR_FAILED: upgrade %d remains closed with target recovery assets retained. Fix the recorded migration/database cause, then run ./sb install. (marker classification: %s; detail: %s)", flag.ID, flag.RollbackFailureCode, flag.RollbackFailure)
 		return nil
 	}
 
@@ -1760,8 +1776,7 @@ func (d *Service) recoverFromFlag(ctx context.Context) (err error) {
 			reason = ErrResumeDied + ": continuing the rollback selected by the previous recovery pass"
 		}
 		d.flagLock = routeLock
-		d.recoveryRollback(ctx, flag, flag.Label(), logRelPath, reason)
-		return nil
+		return d.recoveryRollback(ctx, flag, flag.Label(), logRelPath, reason)
 	}
 	routeLock.Close()
 
@@ -1836,10 +1851,9 @@ func (d *Service) recoverFromFlag(ctx context.Context) (err error) {
 				logRecover("Upgrade %d (%s) was interrupted while finishing and the database is confirmed behind the new version; restoring this upgrade's pre-upgrade snapshot (one attempt, no retry). Data is restored to before the upgrade. (detail: new-sb-upgrading, observed-state=cannot-reach-new: %s)",
 					flag.ID, flag.Label(), obsReason)
 				closeAppend()
-				d.recoveryRollback(ctx, flag, flag.Label(), logRelPath, fmt.Sprintf(
+				return d.recoveryRollback(ctx, flag, flag.Label(), logRelPath, fmt.Sprintf(
 					"%s: the upgrade was interrupted while finishing and was rolled back to the previous version (data restored). Re-run with ./sb install once the cause is fixed. (detail: observed-state=cannot-reach-new: %s)",
 					ErrResumeDied, obsReason))
-				return nil
 
 			case ObservedPositionUnreadable:
 				var spec retrySpec
@@ -1876,10 +1890,9 @@ func (d *Service) recoverFromFlag(ctx context.Context) (err error) {
 					logRecover("Upgrade %d (%s): %s recurred after a cleared backoff-retry — treating as exhausted and rolling back to the pre-upgrade snapshot (data restored). (detail: new-sb-upgrading, cause=%s)",
 						flag.ID, flag.Label(), spec.name, cause)
 					closeAppend()
-					d.recoveryRollback(ctx, flag, flag.Label(), logRelPath, fmt.Sprintf(
+					return d.recoveryRollback(ctx, flag, flag.Label(), logRelPath, fmt.Sprintf(
 						"%s: %s recurred after a cleared backoff-retry and was rolled back to the previous version (data restored). Re-run with ./sb install once the cause is fixed. (detail: new-sb-upgrading, cause=%s)",
 						ErrResumeDied, spec.name, cause))
-					return nil
 				}
 				retried[cause] = true
 				logRecover("Upgrade %d (%s) was interrupted while finishing; its position is temporarily unverifiable (%s) — retrying in-process before deciding, not exiting. Your data is safe. (detail: new-sb-upgrading, cause=%s)",
@@ -1889,10 +1902,9 @@ func (d *Service) recoverFromFlag(ctx context.Context) (err error) {
 					logRecover("Upgrade %d (%s): %s did not clear within the retry budget (%v) — rolling back to the pre-upgrade snapshot (data-safe via the read-only window). (detail: new-sb-upgrading, cause=%s)",
 						flag.ID, flag.Label(), spec.name, err, cause)
 					closeAppend()
-					d.recoveryRollback(ctx, flag, flag.Label(), logRelPath, fmt.Sprintf(
+					return d.recoveryRollback(ctx, flag, flag.Label(), logRelPath, fmt.Sprintf(
 						"%s: %s did not clear within the retry budget and was rolled back to the previous version (data restored). Re-run with ./sb install once the cause is fixed. (detail: new-sb-upgrading, cause=%s, %v)",
 						ErrResumeDied, spec.name, cause, err))
-					return nil
 				}
 				// Cleared → loop re-reads the observed state and dispatches the resolved verdict.
 
@@ -1981,8 +1993,7 @@ func (d *Service) recoverFromFlag(ctx context.Context) (err error) {
 		}
 		// flag.BackupPath is empty by construction at PreSwap (stamped only
 		// by updateFlagNewSbSwapped) — restoreDatabase refuses on empty.
-		d.recoveryRollback(ctx, flag, flag.Label(), logRelPath, reason)
-		return nil
+		return d.recoveryRollback(ctx, flag, flag.Label(), logRelPath, reason)
 	}
 
 	// Every flag phase the codebase writes is handled above: install-held,
@@ -3692,7 +3703,7 @@ func migrationObservedStateFromVersions(appliedVersions, diskVersions []int64) (
 // same file fails even within one process (see
 // TestUpdateFlagNewSbSwapped_RewritesInPlace). The d.flagLock != nil guard
 // fails fast if that wiring ever drifts.
-func (d *Service) recoveryRollback(ctx context.Context, flag UpgradeFlag, displayName, logRelPath, reason string) {
+func (d *Service) recoveryRollback(ctx context.Context, flag UpgradeFlag, displayName, logRelPath, reason string) error {
 	id := flag.ID
 
 	lock := d.flagLock
@@ -3708,7 +3719,7 @@ func (d *Service) recoveryRollback(ctx context.Context, flag UpgradeFlag, displa
 			// ID/phase all revoke this caller's pre-lock authorization. Yield and
 			// touch nothing; the durable state owns the decision, not `flag`.
 			fmt.Printf("recoveryRollback: could not acquire and revalidate the existing recovery marker — yielding without rollback (id=%d): %v\n", id, lerr)
-			return
+			return nil
 		}
 	}
 	// Hand the lock to the Service so rollback()'s existing terminal
@@ -3743,7 +3754,7 @@ func (d *Service) recoveryRollback(ctx context.Context, flag UpgradeFlag, displa
 		log.Printf("recoveryRollback: upgrade %d is PARKED (%s) — refusing the automatic rollback; the row stays parked and the unit alive-idle. Re-trigger the upgrade or run ./sb install to make a fresh deliberate attempt.", id, parkReason)
 		d.flagLock = nil
 		lock.Close() // release the flock; leave the flag file on disk (parked rows keep it)
-		return
+		return nil
 	}
 
 	// STATBUS-046 slice 1B — the rollback-pipeline resume budget. A rollback that
@@ -3824,7 +3835,7 @@ func (d *Service) recoveryRollback(ctx context.Context, flag UpgradeFlag, displa
 			"STATBUS_ROLLBACK_ERROR":  msg,
 			"STATBUS_RECOVERY_CMD":    fmt.Sprintf(`ssh %s "cd statbus && ./sb install"`, hostname),
 		})
-		return
+		return nil
 	}
 	// STATBUS-077: single source of truth = the pinned `pre-upgrade` branch
 	// (executeUpgrade pins it before destructive steps). Resolve unconditionally
@@ -3843,8 +3854,9 @@ func (d *Service) recoveryRollback(ctx context.Context, flag UpgradeFlag, displa
 	defer rollbackLog.Close()
 
 	if rollbackErr := d.rollback(ctx, id, displayName, restoreTargetSHA, nil, reason, flag.BackupPath, rollbackLog); rollbackErr != nil {
-		log.Printf("recoveryRollback: rollback for upgrade %d aborted before destructive work: %v", id, rollbackErr)
+		return fmt.Errorf("recoveryRollback: rollback for upgrade %d aborted before destructive work: %w", id, rollbackErr)
 	}
+	return nil
 }
 
 // completeInProgressUpgrade checks for an upgrade that was started but not
@@ -10152,7 +10164,7 @@ func contactSuffix(contact string) string {
 // writeRollbackTerminal records rollback()'s terminal state (the `failed` or
 // `rolled_back` UPDATE) durably, and reports whether the write landed.
 //
-// rollback() restarts the database (docker compose up) and then races its own
+// rollback() resumes the existing database container and then races its own
 // reconnect — the post-rollback reconnect can transiently fail ("connection
 // reset by peer", DB still starting). A single-shot UPDATE on a dead conn used
 // to be silently swallowed, leaving the row stuck in_progress while the caller
@@ -10482,17 +10494,25 @@ func (d *Service) restoreAndFinalize(ctx context.Context, id int, version string
 	if dbRestoreErr != nil {
 		var clientsLiveErr *RecoveryClientsLiveError
 		if errors.As(dbRestoreErr, &clientsLiveErr) {
-			if holdErr := d.holdRollbackClientsLive(ctx, id, backupPath, progress, clientsLiveErr); holdErr != nil {
+			if holdErr := d.holdRollbackClientsLive(id, backupPath, attemptsAtCall, progress, clientsLiveErr); holdErr != nil {
 				return true, holdErr
 			}
 			progress.Write("ROLLBACK_FAILED_SERVICES_NOT_STOPPED")
 			progress.Write("The database snapshot was restored, but application clients were observed live during held-closed schema-floor recovery: %v", clientsLiveErr)
-			progress.Write("The restored database and proxy remain up. Application services must remain stopped; HTTP maintenance and SQL read-only remain active.")
-			progress.Write("Stop app, worker, and rest, then run: ./sb install")
+			progress.Write("The durable rollback marker records whether containment stopped and positively verified app, worker, and rest. HTTP maintenance and SQL read-only remain active.")
+			progress.Write("Inspect docker compose ps -a, stop any remaining clients, then run: ./sb install")
 			return true, nil
 		}
+		if holdErr := d.holdRollbackRestoreFailure(id, backupPath, attemptsAtCall, progress, dbRestoreErr); holdErr != nil {
+			return true, holdErr
+		}
+		progress.Write("ROLLBACK_FAILED_DB_RESTORE")
+		progress.Write("The database snapshot restore or restored database route failed: %v", dbRestoreErr)
+		progress.Write("No source application services were started. HTTP maintenance and SQL read-only remain active.")
+		progress.Write("Repair the restore/database route cause, then run: ./sb install")
+		return true, nil
 	}
-	if backupPath != "" && dbRestoreErr == nil {
+	if backupPath != "" {
 		if floorErr := d.reapplyRollbackDaemonSchemaFloor(progress); floorErr != nil {
 			if holdErr := d.holdRollbackSchemaFloorFailure(ctx, id, backupPath, progress, floorErr); holdErr != nil {
 				return true, holdErr
@@ -10513,10 +10533,10 @@ func (d *Service) restoreAndFinalize(ctx context.Context, id int, version string
 		inject.KillHere("killed-after-rollback-floor-before-pending")
 	}
 	var sourceRestoreErr, configGenerateErr error
-	if dbRestoreErr == nil && backupPath != "" {
+	if backupPath != "" {
 		sourceRestoreErr = d.restoreGitState("", progress)
 	}
-	if backupPath != "" && dbRestoreErr == nil && sourceRestoreErr == nil {
+	if backupPath != "" && sourceRestoreErr == nil {
 		configGenerateErr = runCommandToLog(projDir, 2*time.Minute, progress.File(), "rollback-config-generate", nil,
 			filepath.Join(projDir, "sb.old"), "config", "generate")
 		if configGenerateErr != nil {
@@ -10529,7 +10549,7 @@ func (d *Service) restoreAndFinalize(ctx context.Context, id int, version string
 	// Harness-only kill site (C9): simulates the OS / orchestrator killing
 	// the process MID-ROLLBACK — specifically, after the destructive
 	// restore steps (restoreGitState, restoreBinary, restoreDatabase) have
-	// run but BEFORE the docker compose up + reconnect + setMaintenance
+	// run but BEFORE the resume-only source serving start + reconnect + setMaintenance
 	// + state='rolled_back' UPDATE land. At kill time the on-disk state
 	// is consistent (OLD git tree, OLD binary, OLD DB volume) but the
 	// services are still stopped, maintenance is still ON, and the
@@ -10556,16 +10576,17 @@ func (d *Service) restoreAndFinalize(ctx context.Context, id int, version string
 	// No-op in production. Drives scenario 4-rollback-kill.
 	inject.KillHere("killed-by-system-during-builtin-rollback")
 
-	// Start with old config — git is verified at restoreTargetSHA. A failure
-	// here means the old-version services would not come back up → degraded,
-	// recorded as `failed` below.
+	// Start only the EXISTING source serving containers, after every restore
+	// boundary above succeeded. startSourceApplicationStack is the sole rollback
+	// serving reopen: it never recreates containers and it includes the functional
+	// REST/application health gate before rollback can approach rolled_back.
 	servicesStart := time.Now()
 	servicesUpErr := sourceRestoreErr
 	if servicesUpErr == nil {
 		servicesUpErr = configGenerateErr
 	}
 	if servicesUpErr == nil {
-		servicesUpErr = runCommandToLog(projDir, 5*time.Minute, progress.File(), "rollback-docker-up", nil, "docker", "compose", "--profile", "all", "up", "-d", "--remove-orphans")
+		servicesUpErr = d.startSourceApplicationStack(ctx, progress)
 	}
 	if servicesUpErr != nil {
 		progress.Write("  Starting services for the previous version ... failed: %v", servicesUpErr)
@@ -10740,6 +10761,8 @@ func (d *Service) holdRollbackSchemaFloorFailure(ctx context.Context, id int, ba
 	if err := d.mutateHeldFlag(func(flag *UpgradeFlag) {
 		flag.Phase = PhaseRollbackSchemaFloorFailed
 		flag.Step = StepRollback
+		flag.RollbackFailureCode = ErrRollbackSchemaFloorFailed
+		flag.RollbackFailure = floorErr.Error()
 	}); err != nil {
 		return &RollbackSchemaFloorMarkerWriteError{Err: err}
 	}
@@ -10763,25 +10786,66 @@ func (d *Service) holdRollbackSchemaFloorFailure(ctx context.Context, id int, ba
 	return nil
 }
 
-func (d *Service) holdRollbackClientsLive(ctx context.Context, id int, backupPath string, progress *ProgressLog, clientsLiveErr error) error {
+// persistRollbackHold writes the out-of-volume marker classification first,
+// then mirrors it to public.upgrade through the teardown-immune terminal writer.
+// A stopped or partly-restored database can prevent the row write, but it cannot
+// erase the marker's phase/code/detail. Every caller keeps the marker and releases
+// only the live flock, making the outcome a durable human-gated hold.
+func (d *Service) persistRollbackHold(id int, backupPath string, attempts int, phase string, failureCode UpgradeFailureCode, failureDetail, rowState, label string, progress *ProgressLog) error {
 	if err := d.mutateHeldFlag(func(flag *UpgradeFlag) {
-		flag.Phase = PhaseRollbackClientsLive
+		flag.Phase = phase
 		flag.Step = StepRollback
+		flag.RollbackFailureCode = failureCode
+		flag.RollbackFailure = failureDetail
 	}); err != nil {
 		return &RollbackSchemaFloorMarkerWriteError{Err: err}
 	}
-	if d.queryConn != nil {
-		if _, updateErr := d.queryConn.Exec(ctx, `UPDATE public.upgrade SET failure_code = $1 WHERE id = $2`, ErrRollbackServicesNotStopped, id); updateErr != nil {
-			return &RollbackSchemaFloorMarkerWriteError{Err: updateErr}
-		}
+
+	var rowLanded bool
+	if rowState == "failed" {
+		rowLanded = d.writeRollbackTerminal(id,
+			"UPDATE public.upgrade SET state = 'failed', error = $1, recovery_attempts = $2"+terminalBackupPathSQL+", failure_code = $5 WHERE id = $3"+upgradeRowReturning,
+			&failureCode, failureDetail, label, attempts)
+	} else {
+		rowLanded = d.writeRollbackTerminal(id,
+			"UPDATE public.upgrade SET state = 'in_progress', error = $1, recovery_attempts = $2"+terminalBackupPathSQL+", failure_code = $5 WHERE id = $3"+upgradeRowReturning,
+			&failureCode, failureDetail, label, attempts)
 	}
 	d.releaseUpgradeFlagLockKeepingFile()
 	progressPath := ""
 	if progress != nil {
 		progressPath = progress.RelPath()
 	}
-	d.markTerminal("ROLLBACK_FAILED_SERVICES_NOT_STOPPED", fmt.Sprintf("id=%d; backup=%s; progress=%s; error=%v", id, backupPath, progressPath, clientsLiveErr))
+	d.markTerminal(failureCode.String(), fmt.Sprintf("id=%d; backup=%s; progress=%s; row_landed=%t; error=%s", id, backupPath, progressPath, rowLanded, failureDetail))
 	return nil
+}
+
+func (d *Service) holdRollbackRestoreFailure(id int, backupPath string, attempts int, progress *ProgressLog, restoreErr error) error {
+	detail := fmt.Sprintf("rollback snapshot restore or restored database route failed while the serving tier remained closed: %v", restoreErr)
+	return d.persistRollbackHold(id, backupPath, attempts, PhaseRollbackRestoreFailed, ErrRollbackDBRestore, detail, "failed", LabelFailedRollbackIncomplete, progress)
+}
+
+func (d *Service) holdRollbackClientsLive(id int, backupPath string, attempts int, progress *ProgressLog, clientsLiveErr error) error {
+	// The held-closed verifier found a real violation after the snapshot restore.
+	// Contain it with stop, never down/up: compose stop preserves the exact source
+	// containers for the later resume-only startSourceApplicationStack retry.
+	containmentErr := runCommand(d.projDir, "docker", append([]string{"compose", "stop"}, sourceServingServices...)...)
+	if containmentErr == nil {
+		containmentErr = compose.VerifyStopped(d.projDir, sourceServingServices, preRestoreStopVerifyBudget)
+	}
+	detail := fmt.Sprintf("application clients were live during held-closed rollback recovery (%v)", clientsLiveErr)
+	if containmentErr != nil {
+		detail += fmt.Sprintf("; containment could not confirm app/worker/rest stopped: %v", containmentErr)
+		if progress != nil {
+			progress.Write("  Containing live rollback clients with docker compose stop ... failed or unverified: %v", containmentErr)
+		}
+	} else {
+		detail += "; containment stopped and positively verified app/worker/rest"
+		if progress != nil {
+			progress.Write("  Containing live rollback clients with docker compose stop ... stopped and verified")
+		}
+	}
+	return d.persistRollbackHold(id, backupPath, attempts, PhaseRollbackClientsLive, ErrRollbackServicesNotStopped, detail, "in_progress", LabelFailedAbortServicesLive, progress)
 }
 
 // preRestoreStopServices is the service set both pre-restore stop sites
@@ -10792,6 +10856,11 @@ func (d *Service) holdRollbackClientsLive(ctx context.Context, id int, backupPat
 var preRestoreStopServices = []string{"app", "worker", "rest", "db"}
 
 func (d *Service) restoreRollbackSnapshotWithTargetAssets(progress *ProgressLog, backupPath string) error {
+	// Harness-only seam for the fail-closed restore terminal. It fires before
+	// restoreDatabase touches the volume and is inert unless explicitly named.
+	if err := inject.ErrorHere("rollback-snapshot-restore"); err != nil {
+		return err
+	}
 	return d.restoreDatabase(progress, backupPath)
 }
 
@@ -10978,7 +11047,7 @@ func (d *Service) ReattemptRestore(ctx context.Context, rowID int64) error {
 
 	// Watchdog cover — the SAME always-ping ticker rollback() arms, because
 	// restoreAndFinalize runs the two heartbeat-silent steps (the whole-volume
-	// rsync + the docker-up). restoreAndFinalize arms none itself (PIN 1: the
+	// rsync + bounded source-stack convergence). restoreAndFinalize arms none itself (PIN 1: the
 	// cover is caller-owned), so without this a >120s restore trips WatchdogSec.
 	tickerCtx, tickerCancel := context.WithCancel(ctx)
 	tickerDone := make(chan struct{})
@@ -11000,8 +11069,8 @@ func (d *Service) ReattemptRestore(ctx context.Context, rowID int64) error {
 	// idempotent no-op; on an ABORT row this either genuinely cures the original
 	// failure (e.g. transient disk pressure since cleared) or hard-fails
 	// ACTIONABLY here — BEFORE any destructive stop/restore, never mixed-era.
-	// Stop clients + db before rsyncing the volume (restoreAndFinalize's
-	// docker-up brings them back). Mirrors rollback()'s pre-restore stop.
+	// Stop clients + db before rsyncing the volume (restoreAndFinalize later
+	// resumes only the preserved source containers). Mirrors rollback()'s pre-restore stop.
 	//
 	// STATBUS-187 fix unit #2: capture the stop error AND positively verify
 	// every service is actually down before the rsync — this is STATBUS-111's
@@ -11058,8 +11127,8 @@ func (d *Service) rollback(ctx context.Context, id int, version, restoreTargetSH
 
 	// WATCHDOG COVER (STATBUS-031). rollback()'s body runs the two DB-size-scaled,
 	// heartbeat-SILENT steps an upgrade has: restoreDatabase's whole-volume rsync
-	// (exec.go, onAdvance=nil → output bypasses the heartbeat) and the rollback
-	// docker-up (5m, onAdvance=nil). On the STARTUP recovery path (recoverFromFlag →
+	// (exec.go, onAdvance=nil → output bypasses the heartbeat) and bounded source-stack
+	// resume/health convergence. On the STARTUP recovery path (recoverFromFlag →
 	// recoveryRollback → here) NO watchdog ticker is armed; on the execute path the
 	// applyNewSbUpgrading gated ticker closes its gate after applyNewSbUpgradingStallThreshold of
 	// rsync silence — so either way a >120s restore (Norway 32 GB ⇒ guaranteed) gets
@@ -11069,7 +11138,7 @@ func (d *Service) rollback(ctx context.Context, id int, version, restoreTargetSH
 	// same always-ping bounded ticker the two migrate sites use (nil progress = ping
 	// unconditionally; the stall arg is inert under nil, passed for signature parity).
 	// The hang-bound is each inner command's own timeout (RestoreDBTimeout on the
-	// rsync, 5m on docker-up), NOT WatchdogSec — identical tradeoff to the boot-migrate
+	// rsync and the bounded source-stack health checks), NOT WatchdogSec — identical tradeoff to the boot-migrate
 	// cover: the 120s WatchdogSec was a FALSE kill of a slow-but-progressing restore.
 	// Safe to land now: STATBUS-039's identity-keyed restore means a completing
 	// (covered) restore is always THIS upgrade's own snapshot, never a silent-loss
@@ -11112,10 +11181,9 @@ func (d *Service) rollback(ctx context.Context, id int, version, restoreTargetSH
 	// teardown-immune terminal writer persists `reason` through a fresh connection.
 	attemptsAtCall := d.rollbackRecoveryAttempts(ctx, id)
 
-	// Capture failure-time container logs BEFORE the docker compose stop
-	// destroys the running containers. The rollback later does
-	// `docker compose up -d --remove-orphans` which recreates fresh
-	// containers — without this snapshot, the REST 5xx body, db
+	// Capture failure-time container logs BEFORE docker compose stop freezes the
+	// failure state. The rollback later resumes those exact source containers in
+	// place, but this snapshot preserves the REST 5xx body, db
 	// startup output, and app connection-attempt logs that explain
 	// the failure are gone forever.
 	captureContainerLogs(projDir, progress, []string{"rest", "app", "worker", "db"})
@@ -11185,8 +11253,8 @@ func (d *Service) rollback(ctx context.Context, id int, version, restoreTargetSH
 	// `pre-upgrade` pin and install ./sb.old — both belong to a PRIOR attempt (one version
 	// back) — moving the box to a version no one asked for while the DB stays current: the
 	// mixed-era class. So skip BOTH the git restore and the binary restore (the DB leg already
-	// refuses on "" — restoreDatabase, exec.go). Keep the full tail (compose up, reconnect,
-	// terminal write, maintenance off, window lift) so the box returns to service at the
+	// refuses on "" — restoreDatabase, exec.go). Keep the full tail (resume existing containers,
+	// reconnect, terminal write, maintenance off, window lift) so the box returns to service at the
 	// untouched source and 'rolled_back' lands honestly. This one identity key covers W1
 	// (claim→commit stale pin, flagless heal), W2 (commit-window PreSwap recovery), AND the
 	// first-upgrade no-pin CATASTROPHIC abort (this guard precedes the git-restore error branch).
@@ -11195,7 +11263,7 @@ func (d *Service) rollback(ctx context.Context, id int, version, restoreTargetSH
 	// falls back to the pinned `pre-upgrade` branch inside restoreGitStateFn — which is now
 	// identity-correct because a committed snapshot proves THIS attempt owns that pin. If it
 	// FAILS we MUST NOT bring services up (NEW code on the just-restored OLD DB = corruption);
-	// restore the DB first to keep on-disk state consistent, then ABORT before docker compose up.
+	// restore the DB first to keep on-disk state consistent, then ABORT before any serving start.
 	if backupPath == "" {
 		progress.Write("  Checking for a committed snapshot ... ok (none recorded; source code and ./sb remain unchanged)")
 	}

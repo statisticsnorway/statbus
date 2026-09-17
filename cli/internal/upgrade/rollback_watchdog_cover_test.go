@@ -9,7 +9,7 @@ import (
 // TestRollbackWatchdogCover_SourceOrder is the structural guard for STATBUS-031:
 // rollback()'s body runs the two heartbeat-SILENT, DB-size-scaled steps an upgrade
 // has — restoreDatabase's whole-volume rsync (onAdvance=nil) and the rollback
-// docker-up (onAdvance=nil). On the STARTUP recovery path (recoverFromFlag →
+// source-stack start and health convergence. On the STARTUP recovery path (recoverFromFlag →
 // recoveryRollback → rollback) NO other watchdog ticker is armed, so without an
 // always-ping cover a >120s restore (Norway 32 GB ⇒ guaranteed) trips WatchdogSec
 // mid-restore → flag still present → next boot restores from scratch → killed again
@@ -18,7 +18,7 @@ import (
 // harness pair), that the cover is present and ordered correctly:
 //  1. an ALWAYS-PING ticker (nil progress) arms at the TOP of rollback()
 //  2. it arms BEFORE the first restoreDatabase call (the silent rsync it covers)
-//  3. it arms BEFORE the rollback-docker-up (also silent)
+//  3. it arms BEFORE startSourceApplicationStack's bounded container/health convergence
 //  4. the ticker is cancelled AND joined (deferred — rollback() returns only via
 //     os.Exit today, so the defer is insurance for any future early-return path)
 //  5. restoreDatabase's rsync is bounded by the shared RestoreDBTimeout, not a
@@ -31,7 +31,7 @@ func TestRollbackWatchdogCover_SourceOrder(t *testing.T) {
 	source := string(src)
 	rb := extractFuncBody(t, source, "func (d *Service) rollback(")
 	// STATBUS-111: the two heartbeat-silent steps (restoreDatabase rsync +
-	// rollback-docker-up) were extracted from rollback() into restoreAndFinalize
+	// source-stack convergence) were extracted from rollback() into restoreAndFinalize
 	// (PIN 1). The always-ping cover invariant is UNCHANGED — it now reads:
 	// every caller of restoreAndFinalize arms the ticker BEFORE the call, and the
 	// silent steps live inside restoreAndFinalize.
@@ -60,12 +60,15 @@ func TestRollbackWatchdogCover_SourceOrder(t *testing.T) {
 			tickerArmIdx, rbCallIdx)
 	}
 
-	// (2) The extracted tail holds the two silent steps.
+	// (2) The extracted tail holds the restore plus bounded source-stack convergence.
 	if !strings.Contains(raf, "d.restoreRollbackSnapshotWithTargetAssets(") {
 		t.Error("restoreAndFinalize must contain the target-asset snapshot helper (the silent restore step)")
 	}
-	if !strings.Contains(raf, `"rollback-docker-up"`) {
-		t.Error("restoreAndFinalize must contain the rollback-docker-up (also onAdvance=nil silent)")
+	if !strings.Contains(raf, "d.startSourceApplicationStack(ctx, progress)") {
+		t.Error("restoreAndFinalize must contain the resume-only source serving start and functional health gate")
+	}
+	if strings.Contains(raf, `"docker", "compose", "--profile", "all", "up"`) {
+		t.Error("restoreAndFinalize must not recreate rollback services with compose up")
 	}
 	// It must NOT arm its own ticker — PIN 1: the cover is caller-owned (one
 	// cover per call site; a nested self-cover would double-ping).

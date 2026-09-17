@@ -122,8 +122,8 @@ var rewindAudit = map[siteKey]rewindDisposition{
 
 	// ── B. SUPERSEDED BY THE TERMINAL WRITE ITSELF ──
 	{"cli/internal/upgrade/service.go", "UPDATE", "backup_path,error,failure_code,recovery_attempts,state"}: {
-		Class: classSupersededByTerminal, Count: 3,
-		Why: "THE TERMINAL WRITES THEMSELVES (the three degraded/abort 'failed' tiers). They run AFTER the " +
+		Class: classSupersededByTerminal, Count: 5,
+		Why: "THE TERMINAL WRITES THEMSELVES (the degraded/abort 'failed' tiers plus the two held rollback mirrors). They run AFTER the " +
 			"rewind and are the superseding write — this is the site that re-imposes, not a site " +
 			"needing re-imposition.",
 	},
@@ -158,16 +158,15 @@ var rewindAudit = map[siteKey]rewindDisposition{
 		Why: "Claim-window failure write: sets its own state+error, and clears scheduled_at deliberately.",
 	},
 	{"cli/internal/upgrade/service.go", "UPDATE", "failure_code"}: {
-		Class: classSuccessPathOnly, Count: 3,
-		Why: "Three failure-code-only writes, none followed by another rewind. (1) The restore " +
+		Class: classSuccessPathOnly, Count: 2,
+		Why: "Two failure-code-only writes, neither followed by another rewind. (1) The restore " +
 			"re-attempt's git-corrupt refusal records the classification while leaving the " +
 			"row's error narrative untouched (a refusal must not rewrite the durable failure " +
 			"record; restore-broke-reattempt-arc asserts this); it runs before replay " +
 			"authorization and no rewind follows. (2) The rollback floor-reapply failure hold " +
 			"records the classification after the snapshot restore has already rewound the " +
-			"volume; state stays in_progress and no further rewind follows. (3) The live-client " +
-			"hold does the same immediately after database-only startup detects app/worker/rest " +
-			"alive; it returns held-closed before source restore or full-stack startup.",
+			"volume; state stays in_progress and no further rewind follows. The live-client and " +
+			"restore-route holds now use the full terminal re-imposition shape above.",
 	},
 
 	// ── C. OUTSIDE THE WINDOW — written before the snapshot, so it contains them ──

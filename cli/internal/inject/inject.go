@@ -171,6 +171,10 @@ var classes = map[string]Kind{
 	// STATBUS-354 Arc B — make ONLY the rollback-time floor re-application
 	// fail (after the snapshot restore, original forward application intact).
 	"rollback-floor-reapply": KindError,
+	// Rollback fail-closed regression: fail before the snapshot restore touches
+	// the volume so restoreAndFinalize's held terminal can be exercised without
+	// starting or recreating any serving container.
+	"rollback-snapshot-restore": KindError,
 	// STATBUS-354 Sol P0 — simulate failure to durably change the held marker
 	// from the destructive StepRollback route to the daemon alive-idle phase.
 	"rollback-floor-failure-marker-write": KindError,
