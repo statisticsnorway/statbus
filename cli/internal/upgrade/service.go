@@ -409,6 +409,12 @@ type UpgradeFlag struct {
 	Phase      string    `json:"phase,omitempty"`       // PhaseOldSbUpgrading (default) or PhaseNewSbSwapped
 	Recreate   bool      `json:"recreate,omitempty"`    // durable recreate intent (from public.upgrade.recreate) so resumeNewSb can replay --recreate
 	BackupPath string    `json:"backup_path,omitempty"` // finalized backup dir, populated at Phase=PhaseNewSbSwapped so resumeNewSb can roll back without DB
+	// SourceServingImages records the immutable image IDs behind the source
+	// compose model before any target image pull can move a local tag. Recovery
+	// may render references again from the restored source tree, but Source is
+	// proved only against these pre-upgrade IDs, never against what a mutable tag
+	// happens to resolve to after the crash.
+	SourceServingImages map[string]sourceImageIdentity `json:"source_serving_images,omitempty"`
 
 	Restart *RestartIntent `json:"restart,omitempty"`
 
@@ -7099,6 +7105,15 @@ func (d *Service) executeUpgrade(ctx context.Context, claim upgradeClaimSnapshot
 		return fmt.Errorf("%s", msg)
 	}
 	progress.Write("Writing lock file for exclusive upgrade (%s) ... ok", homeRelativePath(d.flagPath()))
+	// Capture source image IDs before Step 1 pulls target images. Docker tags are
+	// mutable local pointers: a moving tag or same-short rebuild may retarget the
+	// name during the pull, but it cannot rewrite these recorded immutable IDs.
+	if err := d.captureSourceServingImageIdentities(ctx); err != nil {
+		msg := fmt.Sprintf("Could not record immutable source image identities before target pull: %v", err)
+		d.failUpgrade(ctx, id, msg, progress)
+		return fmt.Errorf("%s", msg)
+	}
+	progress.Write("Recording immutable source image identities ... ok")
 
 	// started_at and from_version were already set by executeScheduled() when
 	// it claimed this task. From this point on, the maintenance guard will activate.
@@ -7908,14 +7923,14 @@ const (
 
 // sourceServingEraUnknownError is the named fail-closed recovery refusal when
 // the restored source tree/config or the resulting container identities cannot
-// be proved. Callers persist their own durable rollback/park terminal while the
-// serving tier remains closed.
+// be proved. Callers persist their own durable rollback/park terminal and must
+// independently observe or contain application clients before describing state.
 type sourceServingEraUnknownError struct {
 	Detail string
 }
 
 func (e *sourceServingEraUnknownError) Error() string {
-	return fmt.Sprintf("source serving era cannot be established: %s; application services remain closed", e.Detail)
+	return fmt.Sprintf("source serving era cannot be established: %s", e.Detail)
 }
 
 type sourceComposeService struct {
@@ -7926,12 +7941,50 @@ type sourceComposeConfig struct {
 	Services map[string]sourceComposeService `json:"services"`
 }
 
-// sourceServingExpectedImages renders the compose model from the CURRENT
-// working tree and proves that app/worker/proxy point at that tree's source commit.
-// Recovery calls this only after source git/config restoration, or on the
-// PreSwap path where source assets never moved. The fixed-tag rest image is
-// still captured exactly so a target compose change cannot slip through.
-func (d *Service) sourceServingExpectedImages(ctx context.Context) (map[string]string, string, error) {
+type sourceImageIdentity struct {
+	Reference string `json:"reference"`
+	ImageID   string `json:"image_id"`
+}
+
+var dockerImageIDPattern = regexp.MustCompile(`^sha256:[0-9a-f]{64}$`)
+
+func normalizedDockerImageID(raw string) (string, error) {
+	imageID := strings.TrimSpace(raw)
+	if !dockerImageIDPattern.MatchString(imageID) {
+		return "", fmt.Errorf("invalid immutable image ID %q", imageID)
+	}
+	return imageID, nil
+}
+
+func extractImageDigest(image string) string {
+	at := strings.LastIndex(image, "@")
+	if at < 0 {
+		return ""
+	}
+	digest := image[at+1:]
+	if !dockerImageIDPattern.MatchString(digest) {
+		return ""
+	}
+	return digest
+}
+
+func (d *Service) dockerContainerImageID(ctx context.Context, containerID string) (string, error) {
+	cmd := exec.CommandContext(ctx, "docker", "inspect", "--format", "{{.Image}}", containerID)
+	cmd.Dir = d.projDir
+	prepareCmd(cmd)
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		return "", fmt.Errorf("docker inspect container %q: %w (%s)", containerID, err, strings.TrimSpace(string(out)))
+	}
+	return normalizedDockerImageID(string(out))
+}
+
+// sourceServingExpectedImageReferences renders the compose model from the
+// CURRENT working tree and proves that app/worker/proxy name that tree's source
+// commit, an immutable digest, or the explicit local development sentinel.
+// Immutable image IDs are captured separately before the target pull and kept
+// in the recovery marker. A mutable reference is never itself Source proof.
+func (d *Service) sourceServingExpectedImageReferences(ctx context.Context) (map[string]string, string, error) {
 	shaOut, err := runCommandOutput(d.projDir, "git", "rev-parse", "--short=8", "HEAD")
 	if err != nil {
 		return nil, "", &sourceServingEraUnknownError{Detail: fmt.Sprintf("read restored source commit: %v (%s)", err, strings.TrimSpace(shaOut))}
@@ -7954,16 +8007,97 @@ func (d *Service) sourceServingExpectedImages(ctx context.Context) (map[string]s
 	}
 	expected := make(map[string]string, len(sourceServingServices))
 	for _, service := range sourceServingServices {
-		image := strings.TrimSpace(rendered.Services[service].Image)
-		if image == "" {
+		reference := strings.TrimSpace(rendered.Services[service].Image)
+		if reference == "" {
 			return nil, "", &sourceServingEraUnknownError{Detail: fmt.Sprintf("restored source compose config has no image for %s", service)}
 		}
-		expected[service] = image
+		expected[service] = reference
 	}
 	for _, service := range sourceVersionTaggedServingServices {
-		if tag := extractImageTag(expected[service]); tag != sourceTag {
-			return nil, "", &sourceServingEraUnknownError{Detail: fmt.Sprintf("restored source compose image for %s is %q (tag %q), want source commit %s", service, expected[service], tag, sourceTag)}
+		reference := expected[service]
+		if strings.Contains(reference, "@") {
+			if digest := extractImageDigest(reference); digest == "" {
+				return nil, "", &sourceServingEraUnknownError{Detail: fmt.Sprintf("restored source compose image for %s has malformed digest reference %q", service, reference)}
+			}
+			continue
 		}
+		tag := extractImageTag(reference)
+		if tag != sourceTag && tag != "local" {
+			return nil, "", &sourceServingEraUnknownError{Detail: fmt.Sprintf("restored source compose image for %s is %q (tag %q), want source commit %s, immutable digest, or explicit local image", service, reference, tag, sourceTag)}
+		}
+	}
+	return expected, sourceTag, nil
+}
+
+func (d *Service) resolveSourceServingImageIdentities(ctx context.Context) (map[string]sourceImageIdentity, string, error) {
+	references, sourceTag, err := d.sourceServingExpectedImageReferences(ctx)
+	if err != nil {
+		return nil, "", err
+	}
+	entries, err := d.sourceServingContainerEntries(ctx)
+	if err != nil {
+		return nil, "", err
+	}
+	actual := make(map[string]compose.PsEntry, len(entries))
+	for _, entry := range entries {
+		if _, duplicate := actual[entry.Service]; duplicate {
+			return nil, "", &sourceServingEraUnknownError{Detail: fmt.Sprintf("multiple pre-upgrade containers reported for %s", entry.Service)}
+		}
+		actual[entry.Service] = entry
+	}
+	identities := make(map[string]sourceImageIdentity, len(references))
+	for _, service := range sourceServingServices {
+		entry, ok := actual[service]
+		if !ok {
+			return nil, "", &sourceServingEraUnknownError{Detail: fmt.Sprintf("pre-upgrade source container for %s is missing", service)}
+		}
+		if entry.Image != references[service] {
+			return nil, "", &sourceServingEraUnknownError{Detail: fmt.Sprintf("pre-upgrade %s container image reference is %q, want current source compose reference %q", service, entry.Image, references[service])}
+		}
+		identities[service] = sourceImageIdentity{Reference: references[service], ImageID: entry.ImageID}
+	}
+	return identities, sourceTag, nil
+}
+
+func (d *Service) captureSourceServingImageIdentities(ctx context.Context) error {
+	identities, _, err := d.resolveSourceServingImageIdentities(ctx)
+	if err != nil {
+		return err
+	}
+	if err := d.mutateHeldFlag(func(flag *UpgradeFlag) {
+		flag.SourceServingImages = identities
+	}); err != nil {
+		return fmt.Errorf("persist pre-upgrade source image identities: %w", err)
+	}
+	return nil
+}
+
+func (d *Service) sourceServingExpectedImages(ctx context.Context) (map[string]sourceImageIdentity, string, error) {
+	references, sourceTag, err := d.sourceServingExpectedImageReferences(ctx)
+	if err != nil {
+		return nil, "", err
+	}
+	flag, err := ReadFlagFile(d.projDir)
+	if err != nil {
+		return nil, "", &sourceServingEraUnknownError{Detail: fmt.Sprintf("read pre-upgrade source image identities: %v", err)}
+	}
+	if flag == nil || len(flag.SourceServingImages) == 0 {
+		return nil, "", &sourceServingEraUnknownError{Detail: "recovery marker has no pre-upgrade source image identities"}
+	}
+	expected := make(map[string]sourceImageIdentity, len(sourceServingServices))
+	for _, service := range sourceServingServices {
+		recorded, ok := flag.SourceServingImages[service]
+		if !ok {
+			return nil, "", &sourceServingEraUnknownError{Detail: fmt.Sprintf("recovery marker has no pre-upgrade source image identity for %s", service)}
+		}
+		if recorded.Reference != references[service] {
+			return nil, "", &sourceServingEraUnknownError{Detail: fmt.Sprintf("restored source compose reference for %s is %q, but the pre-upgrade recovery marker recorded %q", service, references[service], recorded.Reference)}
+		}
+		imageID, normalizeErr := normalizedDockerImageID(recorded.ImageID)
+		if normalizeErr != nil {
+			return nil, "", &sourceServingEraUnknownError{Detail: fmt.Sprintf("recovery marker source image identity for %s is unresolvable: %v", service, normalizeErr)}
+		}
+		expected[service] = sourceImageIdentity{Reference: references[service], ImageID: imageID}
 	}
 	return expected, sourceTag, nil
 }
@@ -7980,39 +8114,89 @@ func (d *Service) sourceServingContainerEntries(ctx context.Context) ([]compose.
 	if err != nil {
 		return nil, &sourceServingEraUnknownError{Detail: fmt.Sprintf("parse serving container identities: %v", err)}
 	}
-	return entries, nil
+	serving := make(map[string]bool, len(sourceServingServices))
+	for _, service := range sourceServingServices {
+		serving[service] = true
+	}
+	servingEntries := make([]compose.PsEntry, 0, len(sourceServingServices))
+	for _, entry := range entries {
+		if !serving[entry.Service] {
+			continue
+		}
+		if strings.TrimSpace(entry.ImageID) != "" {
+			imageID, normalizeErr := normalizedDockerImageID(entry.ImageID)
+			if normalizeErr != nil {
+				return nil, &sourceServingEraUnknownError{Detail: fmt.Sprintf("inspect %s container immutable identity: %v", entry.Service, normalizeErr)}
+			}
+			entry.ImageID = imageID
+			servingEntries = append(servingEntries, entry)
+			continue
+		}
+		containerID := strings.TrimSpace(entry.ID)
+		if containerID == "" {
+			return nil, &sourceServingEraUnknownError{Detail: fmt.Sprintf("%s container has no container ID or immutable image ID", entry.Service)}
+		}
+		imageID, inspectErr := d.dockerContainerImageID(ctx, containerID)
+		if inspectErr != nil {
+			return nil, &sourceServingEraUnknownError{Detail: fmt.Sprintf("inspect %s container immutable identity: %v", entry.Service, inspectErr)}
+		}
+		entry.ImageID = imageID
+		servingEntries = append(servingEntries, entry)
+	}
+	return servingEntries, nil
 }
 
 // deriveServingEra establishes one coherent observed era from every serving
-// container. Version-tagged app/worker/proxy vote Source only on an exact source
-// image reference and Target only when all three carry the same non-source tag.
-// The fixed-tag rest image must exist; on Source it must exactly match the source
-// compose model. Missing, mixed, tagless, or ambiguous identities are not an era.
-func deriveServingEra(entries []compose.PsEntry, expected map[string]string, sourceCommitShort string) (ServingEra, error) {
-	actual := make(map[string]string, len(entries))
+// container. App/worker/proxy vote Source only when their immutable image IDs
+// equal the pre-upgrade IDs recorded before the target pull. References and tag
+// suffixes are diagnostic and may establish a coherent Target, but never Source.
+// The fixed-tag rest image must exist; on Source its immutable image ID must also
+// match. Missing, mixed, tagless, same-reference/different-ID, or ambiguous
+// identities are not an era.
+func deriveServingEra(entries []compose.PsEntry, expected map[string]sourceImageIdentity, sourceCommitShort string) (ServingEra, error) {
+	actual := make(map[string]compose.PsEntry, len(entries))
 	for _, entry := range entries {
-		actual[entry.Service] = strings.TrimSpace(entry.Image)
+		if _, duplicate := actual[entry.Service]; duplicate {
+			return "", &sourceServingEraUnknownError{Detail: fmt.Sprintf("multiple containers reported for %s", entry.Service)}
+		}
+		entry.Image = strings.TrimSpace(entry.Image)
+		entry.ImageID = strings.TrimSpace(entry.ImageID)
+		actual[entry.Service] = entry
 	}
 	for _, service := range sourceServingServices {
-		if actual[service] == "" {
-			return "", &sourceServingEraUnknownError{Detail: fmt.Sprintf("%s container is missing or has no image identity", service)}
+		entry, present := actual[service]
+		if !present || entry.Image == "" {
+			return "", &sourceServingEraUnknownError{Detail: fmt.Sprintf("%s container is missing or has no image reference", service)}
+		}
+		if _, err := normalizedDockerImageID(entry.ImageID); err != nil {
+			return "", &sourceServingEraUnknownError{Detail: fmt.Sprintf("%s container has no resolvable immutable image identity: %v", service, err)}
 		}
 	}
 
 	sourceVotes := 0
 	targetTag := ""
 	for _, service := range sourceVersionTaggedServingServices {
-		image := actual[service]
-		if image == expected[service] {
+		entry := actual[service]
+		expectedIdentity := expected[service]
+		if entry.ImageID == expectedIdentity.ImageID {
 			sourceVotes++
 			continue
 		}
-		tag := extractImageTag(image)
-		if tag == "" {
-			return "", &sourceServingEraUnknownError{Detail: fmt.Sprintf("%s image %q has no derivable version tag", service, image)}
+		if entry.Image == expectedIdentity.Reference {
+			return "", &sourceServingEraUnknownError{Detail: fmt.Sprintf("%s image reference %q matches restored source but immutable image ID is %s, want %s (moving tag or same-short rebuild)", service, entry.Image, entry.ImageID, expectedIdentity.ImageID)}
 		}
-		if tag == sourceCommitShort {
-			return "", &sourceServingEraUnknownError{Detail: fmt.Sprintf("%s image %q carries the source tag %s but is not the source image %q", service, image, sourceCommitShort, expected[service])}
+		if strings.Contains(entry.Image, "@") {
+			if digest := extractImageDigest(entry.Image); digest != "" {
+				return "", &sourceServingEraUnknownError{Detail: fmt.Sprintf("%s non-source digest image %q cannot prove a coherent target commit", service, entry.Image)}
+			}
+			return "", &sourceServingEraUnknownError{Detail: fmt.Sprintf("%s image %q has a malformed digest reference", service, entry.Image)}
+		}
+		tag := extractImageTag(entry.Image)
+		if tag == "" {
+			return "", &sourceServingEraUnknownError{Detail: fmt.Sprintf("%s image %q has no derivable version tag", service, entry.Image)}
+		}
+		if tag == sourceCommitShort || tag == "local" {
+			return "", &sourceServingEraUnknownError{Detail: fmt.Sprintf("%s image %q carries source-like tag %s but immutable image ID is %s, want %s", service, entry.Image, tag, entry.ImageID, expectedIdentity.ImageID)}
 		}
 		if targetTag == "" {
 			targetTag = tag
@@ -8023,8 +8207,8 @@ func deriveServingEra(entries []compose.PsEntry, expected map[string]string, sou
 
 	switch {
 	case sourceVotes == len(sourceVersionTaggedServingServices):
-		if actual["rest"] != expected["rest"] {
-			return "", &sourceServingEraUnknownError{Detail: fmt.Sprintf("version-tagged services are source era but rest image is %q, want source image %q", actual["rest"], expected["rest"])}
+		if actual["rest"].ImageID != expected["rest"].ImageID {
+			return "", &sourceServingEraUnknownError{Detail: fmt.Sprintf("version-tagged services are source era but rest immutable image ID is %s, want %s", actual["rest"].ImageID, expected["rest"].ImageID)}
 		}
 		return ServingEraSource, nil
 	case sourceVotes == 0 && targetTag != "":
@@ -8034,13 +8218,20 @@ func deriveServingEra(entries []compose.PsEntry, expected map[string]string, sou
 	}
 }
 
+func (d *Service) containFailedSourceRecreate(ctx context.Context, progress *ProgressLog, cause error) error {
+	if containmentErr := d.ensureRecoveryClientsStopped(ctx, progress); containmentErr != nil {
+		return fmt.Errorf("%w; failed source recreation also left application client containment unverified: %v", cause, containmentErr)
+	}
+	return fmt.Errorf("%w; application clients stopped and positively verified after failed source recreation", cause)
+}
+
 // startSourceApplicationStack is the shared source-era serving gate. Both park
 // recovery (after restoring source git/binary/config) and the PreSwap
 // STOPPED-UNCHANGED terminal (where those assets never moved) use this exact
 // primitive so neither path can claim normal serving based on container start
 // alone. The era rule is source-authoritative: start in place only when every
-// existing image exactly matches the restored source compose model; otherwise
-// recreate app/worker/rest/proxy from that proven source model, then inspect again.
+// existing immutable image ID matches the pre-upgrade source identity; recreate
+// only a coherent Target from the restored source model, then inspect again.
 // rc.66 -> rc.67 forbids recreation from a WRONG-era tree/config. It does not
 // forbid controlled recreation after source git/config restoration is proved.
 func (d *Service) startSourceApplicationStack(ctx context.Context, progress *ProgressLog) error {
@@ -8062,11 +8253,13 @@ func (d *Service) startSourceApplicationStack(ctx context.Context, progress *Pro
 	}
 	var composeArgs []string
 	var operation string
+	recreated := false
 	switch era {
 	case ServingEraSource:
 		composeArgs = append([]string{"compose", "start"}, sourceServingServices...)
 		operation = "start verified source serving containers"
 	case ServingEraTarget:
+		recreated = true
 		// DB is already restored and healthy on this path. --no-deps confines
 		// authoritative recreation to the serving tier and cannot rewrite the
 		// database container as a side effect of a source compose-model change.
@@ -8081,22 +8274,40 @@ func (d *Service) startSourceApplicationStack(ctx context.Context, progress *Pro
 
 	if progress != nil {
 		if stderrTail, err := runCommandToLogCapture(d.projDir, 5*time.Minute, progress.File(), "source-docker-compose", progress.bump, "docker", composeArgs...); err != nil {
-			return fmt.Errorf("%s: %w (%s)", operation, err, strings.TrimSpace(stderrTail))
+			operationErr := fmt.Errorf("%s: %w (%s)", operation, err, strings.TrimSpace(stderrTail))
+			if recreated {
+				return d.containFailedSourceRecreate(ctx, progress, operationErr)
+			}
+			return operationErr
 		}
 	} else if out, err := runCommandOutput(d.projDir, "docker", composeArgs...); err != nil {
-		return fmt.Errorf("%s: %w (%s)", operation, err, strings.TrimSpace(out))
+		operationErr := fmt.Errorf("%s: %w (%s)", operation, err, strings.TrimSpace(out))
+		if recreated {
+			return d.containFailedSourceRecreate(ctx, progress, operationErr)
+		}
+		return operationErr
 	}
 
 	postEntries, err := d.sourceServingContainerEntries(ctx)
 	if err != nil {
+		if recreated {
+			return d.containFailedSourceRecreate(ctx, progress, err)
+		}
 		return err
 	}
 	postEra, err := deriveServingEra(postEntries, expected, sourceTag)
 	if err != nil {
+		if recreated {
+			return d.containFailedSourceRecreate(ctx, progress, err)
+		}
 		return err
 	}
 	if postEra != ServingEraSource {
-		return &sourceServingEraUnknownError{Detail: fmt.Sprintf("serving containers remained %s after %s; want source %s", postEra, operation, sourceTag)}
+		eraErr := &sourceServingEraUnknownError{Detail: fmt.Sprintf("serving containers remained %s after %s; want source %s", postEra, operation, sourceTag)}
+		if recreated {
+			return d.containFailedSourceRecreate(ctx, progress, eraErr)
+		}
+		return eraErr
 	}
 	if err := d.healthCheck(progress, 5, 5*time.Second); err != nil {
 		return fmt.Errorf("source services did not pass the health gate: %w", err)

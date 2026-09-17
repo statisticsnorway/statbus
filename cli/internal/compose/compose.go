@@ -193,9 +193,14 @@ func ResumeClients(projDir string, services []string) error {
 // PsEntry mirrors the fields of `docker compose ps --format json` we care
 // about. The JSON keys are upper-camel as Compose v2 emits them.
 type PsEntry struct {
+	ID      string `json:"ID"`
 	Service string `json:"Service"`
 	State   string `json:"State"`
 	Image   string `json:"Image"`
+	// ImageID is emitted by some Compose versions. Callers that require an
+	// immutable identity must fall back to `docker inspect <ID>` when it is
+	// absent rather than treating the mutable Image reference as identity.
+	ImageID string `json:"ImageID"`
 }
 
 // ParsePsJSON tolerates both forms of `docker compose ps --format json`:

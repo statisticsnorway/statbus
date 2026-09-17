@@ -1,6 +1,7 @@
 package upgrade
 
 import (
+	"fmt"
 	"go/ast"
 	"go/parser"
 	"go/token"
@@ -11,16 +12,23 @@ import (
 )
 
 type serviceMethodInfo struct {
-	body      string
-	calls     []string
-	composeUp bool
+	body             string
+	rawBody          string
+	calls            []string
+	composeUp        bool
+	composeUpOffsets []int
 }
 
 func upgradeServiceMethodBodies(t *testing.T) map[string]serviceMethodInfo {
 	t.Helper()
+	return upgradeServiceMethodBodiesFromSources(t, packageGoSources(t))
+}
+
+func upgradeServiceMethodBodiesFromSources(t *testing.T, sources map[string][]byte) map[string]serviceMethodInfo {
+	t.Helper()
 	bodies := make(map[string]serviceMethodInfo)
 	for _, file := range []string{"service.go", "exec.go"} {
-		sourceBytes := packageGoSources(t)[file]
+		sourceBytes := sources[file]
 		source := string(sourceBytes)
 		fset := token.NewFileSet()
 		parsed, err := parser.ParseFile(fset, file, sourceBytes, 0)
@@ -43,7 +51,9 @@ func upgradeServiceMethodBodies(t *testing.T) map[string]serviceMethodInfo {
 
 			name := fn.Name.Name
 			body := extractFuncBody(t, source, "func (d *Service) "+name+"(")
-			info := serviceMethodInfo{body: body}
+			fnStart := fset.Position(fn.Pos()).Offset
+			fnEnd := fset.Position(fn.End()).Offset
+			info := serviceMethodInfo{body: body, rawBody: source[fnStart:fnEnd]}
 			ast.Inspect(fn.Body, func(node ast.Node) bool {
 				call, ok := node.(*ast.CallExpr)
 				if !ok {
@@ -69,6 +79,7 @@ func upgradeServiceMethodBodies(t *testing.T) map[string]serviceMethodInfo {
 				for i := 0; i+1 < len(literals); i++ {
 					if literals[i] == "compose" && literals[i+1] == "up" {
 						info.composeUp = true
+						info.composeUpOffsets = append(info.composeUpOffsets, fset.Position(call.Pos()).Offset-fnStart)
 					}
 				}
 				return true
@@ -82,8 +93,60 @@ func upgradeServiceMethodBodies(t *testing.T) map[string]serviceMethodInfo {
 	return bodies
 }
 
-func reachableServiceMethods(t *testing.T, bodies map[string]serviceMethodInfo, roots []string) map[string]bool {
-	t.Helper()
+func recoveryComposeUpViolation(bodies map[string]serviceMethodInfo) error {
+	roots := []string{
+		"completeInProgressUpgrade",
+		"recoverFromFlag",
+		"newSbUpgradingFailure",
+		"parkForDeterministicFailure",
+		"recoveryRollback",
+		"rollback",
+		"restoreAndFinalize",
+		"holdRollbackSchemaFloorFailure",
+		"holdRollbackRestoreFailure",
+		"holdRollbackClientsLive",
+	}
+	reachable, reachErr := reachableServiceMethodsWithoutTestFailure(bodies, roots)
+	if reachErr != nil {
+		return reachErr
+	}
+	if len(bodies["recoverFromFlag"].composeUpOffsets) != 0 {
+		return fmt.Errorf("recoverFromFlag contains a direct untyped compose-up")
+	}
+	complete := bodies["completeInProgressUpgrade"]
+	targetTailIdx := strings.Index(complete.rawBody, `restoreTargetSHA := ""`)
+	if targetTailIdx < 0 {
+		return fmt.Errorf("completeInProgressUpgrade has no AtTarget tail marker")
+	}
+	for _, upOffset := range complete.composeUpOffsets {
+		if upOffset < targetTailIdx {
+			return fmt.Errorf("completeInProgressUpgrade has a failure-reachable compose-up before its AtTarget tail")
+		}
+	}
+
+	var reachedUps []string
+	for name := range reachable {
+		if bodies[name].composeUp {
+			reachedUps = append(reachedUps, name)
+		}
+	}
+	sort.Strings(reachedUps)
+	wantReachedUps := []string{"applyNewSbUpgrading", "completeInProgressUpgrade", "startSourceApplicationStack"}
+	if fmt.Sprint(reachedUps) != fmt.Sprint(wantReachedUps) {
+		return fmt.Errorf("recovery entry/failure closure reaches compose-up functions %v; want only forward continuation, flagless AtTarget serve-proof, and era-verified source recreation %v", reachedUps, wantReachedUps)
+	}
+
+	// completeInProgressUpgrade is an entry root with a Behind rollback branch
+	// and a disjoint AtTarget serve-proof tail. Its one direct compose-up is legal
+	// only after the AtTarget tail begins. Any compose-up planted in the rollback
+	// error/success branch is therefore failure-reachable and must fail this gate.
+	if len(complete.composeUpOffsets) != 1 {
+		return fmt.Errorf("completeInProgressUpgrade has %d direct compose-up calls; want exactly its one AtTarget serve-proof call", len(complete.composeUpOffsets))
+	}
+	return nil
+}
+
+func reachableServiceMethodsWithoutTestFailure(bodies map[string]serviceMethodInfo, roots []string) (map[string]bool, error) {
 	reachable := make(map[string]bool)
 	queue := append([]string(nil), roots...)
 	for len(queue) != 0 {
@@ -94,7 +157,7 @@ func reachableServiceMethods(t *testing.T, bodies map[string]serviceMethodInfo, 
 		}
 		info, ok := bodies[name]
 		if !ok {
-			t.Fatalf("recovery reachability root/callee %s has no parsed Service method body", name)
+			return nil, fmt.Errorf("recovery reachability root/callee %s has no parsed Service method body", name)
 		}
 		reachable[name] = true
 		for _, callee := range info.calls {
@@ -103,38 +166,21 @@ func reachableServiceMethods(t *testing.T, bodies map[string]serviceMethodInfo, 
 			}
 		}
 	}
-	return reachable
+	return reachable, nil
 }
 
 // TestRecoveryFailureClosureHasNoUngatedComposeUp is the recovery equivalent of
 // STATBUS-352's workflow-ordering structural gate. It computes the real Service
-// method closure from every rollback/recovery failure disposition and inspects
-// every reachable function body. The sole compose-up exception is the typed
-// source-stack boundary, whose Target era is derived from actual container image
-// identities and whose postcondition is a freshly-derived Source era.
+// method closure from every rollback/recovery failure disposition plus the two
+// top-level recovery entries. Forward continuation and the flagless AtTarget tail
+// retain their existing compose-up calls behind branch-specific gates; the sole
+// failure-disposition exception is the typed source-stack boundary, whose Target
+// era is derived from actual container image identities and whose postcondition is
+// a freshly-derived Source era.
 func TestRecoveryFailureClosureHasNoUngatedComposeUp(t *testing.T) {
 	bodies := upgradeServiceMethodBodies(t)
-	roots := []string{
-		"newSbUpgradingFailure",
-		"parkForDeterministicFailure",
-		"recoveryRollback",
-		"rollback",
-		"restoreAndFinalize",
-		"holdRollbackSchemaFloorFailure",
-		"holdRollbackRestoreFailure",
-		"holdRollbackClientsLive",
-	}
-	reachable := reachableServiceMethods(t, bodies, roots)
-
-	var reachedUps []string
-	for name := range reachable {
-		if bodies[name].composeUp {
-			reachedUps = append(reachedUps, name)
-		}
-	}
-	sort.Strings(reachedUps)
-	if len(reachedUps) != 1 || reachedUps[0] != "startSourceApplicationStack" {
-		t.Fatalf("recovery failure closure reaches untyped compose-up functions %v; only startSourceApplicationStack is permitted", reachedUps)
+	if err := recoveryComposeUpViolation(bodies); err != nil {
+		t.Fatal(err)
 	}
 
 	boundary := bodies["startSourceApplicationStack"].body
@@ -164,5 +210,46 @@ func TestRecoveryFailureClosureHasNoUngatedComposeUp(t *testing.T) {
 	fullStackUpIdx := strings.Index(complete, `composeArgs := append([]string{"compose", "up"`)
 	if rollbackIdx < 0 || failureReturnIdx < rollbackIdx || branchTerminatorIdx < failureReturnIdx || targetTailIdx < branchTerminatorIdx || fullStackUpIdx < targetTailIdx {
 		t.Fatalf("flagless rollback branch must terminate on both failure and success before AtTarget compose up; rollback=%d failureReturn=%d branchTerminator=%d targetTail=%d up=%d", rollbackIdx, failureReturnIdx, branchTerminatorIdx, targetTailIdx, fullStackUpIdx)
+	}
+}
+
+func TestRecoveryFailureReachabilityMutationsCatchNewEntryRoots(t *testing.T) {
+	base := packageGoSources(t)
+	tests := []struct {
+		name       string
+		needle     string
+		mutation   string
+		wantErrSub string
+	}{
+		{
+			name:       "completeInProgressUpgrade rollback-error branch",
+			needle:     `return fmt.Errorf("completeInProgressUpgrade: rollback for upgrade %d aborted; durable recovery marker retained: %w", id, rollbackErr)`,
+			mutation:   `runCommand(d.projDir, "docker", "compose", "up", "-d", "app")` + "\n\t\t\t\t" + `return fmt.Errorf("completeInProgressUpgrade: rollback for upgrade %d aborted; durable recovery marker retained: %w", id, rollbackErr)`,
+			wantErrSub: "failure-reachable compose-up",
+		},
+		{
+			name:       "recoverFromFlag direct recovery-error branch",
+			needle:     `return fmt.Errorf("acquire and revalidate rollback finishing marker: %w", lockErr)`,
+			mutation:   `runCommand(d.projDir, "docker", "compose", "up", "-d", "app")` + "\n\t\t\t" + `return fmt.Errorf("acquire and revalidate rollback finishing marker: %w", lockErr)`,
+			wantErrSub: "recoverFromFlag contains a direct untyped compose-up",
+		},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			mutated := make(map[string][]byte, len(base))
+			for name, source := range base {
+				mutated[name] = append([]byte(nil), source...)
+			}
+			serviceSource := string(mutated["service.go"])
+			if !strings.Contains(serviceSource, tc.needle) {
+				t.Fatalf("mutation needle is stale: %s", tc.needle)
+			}
+			mutated["service.go"] = []byte(strings.Replace(serviceSource, tc.needle, tc.mutation, 1))
+			bodies := upgradeServiceMethodBodiesFromSources(t, mutated)
+			err := recoveryComposeUpViolation(bodies)
+			if err == nil || !strings.Contains(err.Error(), tc.wantErrSub) {
+				t.Fatalf("mutation survived recovery reachability gate: err=%v, want %q", err, tc.wantErrSub)
+			}
+		})
 	}
 }

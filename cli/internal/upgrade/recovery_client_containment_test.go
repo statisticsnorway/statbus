@@ -4,6 +4,8 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"slices"
+	"sort"
 	"strings"
 	"testing"
 )
@@ -89,6 +91,7 @@ func TestRollbackFailureNarrationRequiresContainmentEvidence(t *testing.T) {
 	for _, forbidden := range []string{
 		"No source application services were started.",
 		"Application services remain stopped.",
+		"application services remain closed",
 		"serving tier remained closed",
 	} {
 		if strings.Contains(restore, forbidden) || strings.Contains(source, forbidden) {
@@ -110,5 +113,43 @@ func TestRollbackFailureNarrationRequiresContainmentEvidence(t *testing.T) {
 	postVerifyIdx := strings.Index(contain, "compose.VerifyStopped(")
 	if stopIdx < 0 || postVerifyIdx < stopIdx {
 		t.Fatalf("narrow containment must stop then positively re-verify; stop=%d postVerify=%d", stopIdx, postVerifyIdx)
+	}
+}
+
+func TestFailedSourceRecreateContainmentCoversEverySourceStackCaller(t *testing.T) {
+	bodies := upgradeServiceMethodBodies(t)
+	var callers []string
+	for name, info := range bodies {
+		for _, callee := range info.calls {
+			if callee == "startSourceApplicationStack" {
+				callers = append(callers, name)
+				break
+			}
+		}
+	}
+	sort.Strings(callers)
+	want := []string{"convergeUnchangedSourceServices", "restoreAndFinalize", "restoreSourceServices"}
+	if !slices.Equal(callers, want) {
+		t.Fatalf("startSourceApplicationStack callers = %v, want complete park/rollback/PreSwap set %v", callers, want)
+	}
+
+	boundary := bodies["startSourceApplicationStack"].body
+	if got := strings.Count(boundary, "d.containFailedSourceRecreate(ctx, progress,"); got != 5 {
+		t.Fatalf("source recreation boundary must contain command failure plus every post-reinspection failure; got %d containment calls", got)
+	}
+	contain := bodies["containFailedSourceRecreate"].body
+	if !strings.Contains(contain, "d.ensureRecoveryClientsStopped(ctx, progress)") ||
+		!strings.Contains(contain, "stopped and positively verified after failed source recreation") {
+		t.Fatal("failed source recreation must use the shared stop-and-positive-verification containment shape")
+	}
+
+	if !strings.Contains(bodies["parkServiceRecovery"].body, "d.restoreSourceServices(ctx, restoreTargetSHA, progress)") {
+		t.Fatal("park recovery no longer reaches the contained source-stack boundary")
+	}
+	if !strings.Contains(bodies["recoveryRollback"].body, "d.convergeUnchangedSourceServices(ctx,") {
+		t.Fatal("PreSwap pair-terminal recovery no longer reaches the contained source-stack boundary")
+	}
+	if !strings.Contains(bodies["restoreAndFinalize"].body, "d.startSourceApplicationStack(ctx, progress)") {
+		t.Fatal("snapshot rollback no longer reaches the contained source-stack boundary")
 	}
 }
