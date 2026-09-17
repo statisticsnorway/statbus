@@ -496,7 +496,7 @@ func TestPreBackupStopFailureCleanupPreservesMarkerOnAnyUncertainty(t *testing.T
 	unwind := extractFuncBody(t, string(source), "func (d *Service) abortFailedPreBackupStop(")
 	for _, required := range []string{
 		"needsRecovery := false",
-		`runCommand(d.projDir, "docker", restartArgs...)`,
+		`runCommandWithTimeoutCapability(d.projDir, 5*time.Minute, compose.MintUpCapability(), "docker", restartArgs...)`,
 		`d.setMaintenance(false, "")`,
 		"d.reconnect(ctx)",
 		"d.setDatabaseReadOnly(ctx, false)",

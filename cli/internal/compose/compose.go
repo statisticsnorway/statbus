@@ -14,31 +14,82 @@ import (
 	"github.com/statisticsnorway/statbus/cli/internal/config"
 )
 
-// Run executes a docker compose command with the given args.
-// Inherits stdin/stdout/stderr for interactive use.
-func Run(args ...string) error {
-	cmd := exec.Command("docker", append([]string{"compose"}, args...)...)
-	cmd.Dir = config.ProjectDir()
+// UpCapability is implemented only by this package's unexported token. Callers
+// can pass a token returned by MintUpCapability but cannot forge one. Every mint
+// is structurally allowlisted by the upgrade recovery tests.
+type UpCapability interface {
+	composeUpCapability()
+}
+
+type upCapability struct{}
+
+func (upCapability) composeUpCapability() {}
+
+// MintUpCapability authorizes one docker-compose invocation whose FINAL argv may
+// contain the exact verb "up". Keep calls at explicit, structurally allowlisted
+// sites; dynamic argv never bypasses dockerComposeCommand's runtime check.
+func MintUpCapability() UpCapability { return upCapability{} }
+
+// dockerComposeCommand is the one construction chokepoint for this package and
+// cli/internal/upgrade. It checks the final compose argv, after every append and
+// concatenation, before constructing exec.Cmd.
+func dockerComposeCommand(ctx context.Context, projDir string, capability UpCapability, args ...string) (*exec.Cmd, error) {
+	for _, arg := range args {
+		if arg != "up" {
+			continue
+		}
+		if _, ok := capability.(upCapability); !ok {
+			return nil, fmt.Errorf("docker compose up requires an explicit capability")
+		}
+	}
+	finalArgs := append([]string{"compose"}, args...)
+	cmd := exec.CommandContext(ctx, "docker", finalArgs...)
+	cmd.Dir = projDir
+	return cmd, nil
+}
+
+// CommandContext constructs a non-up docker-compose command.
+func CommandContext(ctx context.Context, projDir string, args ...string) (*exec.Cmd, error) {
+	return dockerComposeCommand(ctx, projDir, nil, args...)
+}
+
+// CommandContextWithUp constructs a docker-compose command with an opaque up
+// capability minted at an allowlisted call site.
+func CommandContextWithUp(ctx context.Context, projDir string, capability UpCapability, args ...string) (*exec.Cmd, error) {
+	return dockerComposeCommand(ctx, projDir, capability, args...)
+}
+
+func runWithCapability(projDir string, capability UpCapability, args ...string) error {
+	cmd, err := dockerComposeCommand(context.Background(), projDir, capability, args...)
+	if err != nil {
+		return err
+	}
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	return cmd.Run()
 }
 
+// Run executes a docker compose command with the given args.
+// Inherits stdin/stdout/stderr for interactive use.
+func Run(args ...string) error {
+	return runWithCapability(config.ProjectDir(), nil, args...)
+}
+
 // RunWithProfile executes docker compose with a --profile flag.
 func RunWithProfile(profile string, args ...string) error {
-	fullArgs := append([]string{"compose", "--profile", profile}, args...)
-	cmd := exec.Command("docker", fullArgs...)
-	cmd.Dir = config.ProjectDir()
-	cmd.Stdin = os.Stdin
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	return cmd.Run()
+	return runWithProfileCapability(config.ProjectDir(), nil, profile, args...)
+}
+
+func runWithProfileCapability(projDir string, capability UpCapability, profile string, args ...string) error {
+	fullArgs := append([]string{"--profile", profile}, args...)
+	return runWithCapability(projDir, capability, fullArgs...)
 }
 
 // Start brings up services. In development mode, uses --build.
 // profile is one of: "all", "all_except_app", "app", or a service name.
 func Start(profile string, build bool) error {
+	capability := MintUpCapability()
 	args := []string{"up", "-d"}
 	if build {
 		args = append(args, "--build")
@@ -46,9 +97,9 @@ func Start(profile string, build bool) error {
 
 	// "app" is a service name, not a profile
 	if profile == "app" {
-		return Run(append(args, "app")...)
+		return runWithCapability(config.ProjectDir(), capability, append(args, "app")...)
 	}
-	return RunWithProfile(profile, args...)
+	return runWithProfileCapability(config.ProjectDir(), capability, profile, args...)
 }
 
 // Stop brings down services.
@@ -75,13 +126,14 @@ func RestartAndWait(profile string, build bool) error {
 		return fmt.Errorf("stop: %w", err)
 	}
 	args := []string{"up", "-d", "--wait", "--wait-timeout", "120"}
+	capability := MintUpCapability()
 	if build {
 		args = append(args, "--build")
 	}
 	if profile == "app" {
-		return Run(append(args, "app")...)
+		return runWithCapability(config.ProjectDir(), capability, append(args, "app")...)
 	}
-	return RunWithProfile(profile, args...)
+	return runWithProfileCapability(config.ProjectDir(), capability, profile, args...)
 }
 
 // Ps shows running containers.
@@ -153,8 +205,10 @@ func QuiesceClients(projDir string) ([]string, error) {
 		if !state.running {
 			continue
 		}
-		cmd := exec.Command("docker", "compose", "stop", svc)
-		cmd.Dir = projDir
+		cmd, err := CommandContext(context.Background(), projDir, "stop", svc)
+		if err != nil {
+			return stopped, err
+		}
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr
 		if err := cmd.Run(); err != nil {
@@ -179,9 +233,11 @@ func ResumeClients(projDir string, services []string) error {
 	if len(services) == 0 {
 		return nil
 	}
-	args := append([]string{"compose", "up", "-d", "--no-build"}, services...)
-	cmd := exec.Command("docker", args...)
-	cmd.Dir = projDir
+	args := append([]string{"up", "-d", "--no-build"}, services...)
+	cmd, err := CommandContextWithUp(context.Background(), projDir, MintUpCapability(), args...)
+	if err != nil {
+		return err
+	}
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	if err := cmd.Run(); err != nil {
@@ -320,8 +376,10 @@ func VerifyStopped(projDir string, services []string, budget time.Duration) erro
 	ctx, cancel := context.WithTimeout(context.Background(), budget)
 	defer cancel()
 	probe := func() ([]PsEntry, error) {
-		cmd := exec.CommandContext(ctx, "docker", "compose", "ps", "-a", "--format", "json")
-		cmd.Dir = projDir
+		cmd, err := CommandContext(ctx, projDir, "ps", "-a", "--format", "json")
+		if err != nil {
+			return nil, err
+		}
 		out, err := cmd.Output()
 		if err != nil {
 			return nil, fmt.Errorf("docker compose ps -a: %w", err)
@@ -342,8 +400,10 @@ type serviceStateView struct {
 // state. Errors propagate from docker itself (binary missing, daemon
 // down) — those are caller-decides territory.
 func probeServiceState(projDir, svc string) (serviceStateView, error) {
-	cmd := exec.Command("docker", "compose", "ps", svc, "--format", "{{.State}}")
-	cmd.Dir = projDir
+	cmd, err := CommandContext(context.Background(), projDir, "ps", svc, "--format", "{{.State}}")
+	if err != nil {
+		return serviceStateView{}, err
+	}
 	out, err := cmd.Output()
 	if err != nil {
 		return serviceStateView{}, err

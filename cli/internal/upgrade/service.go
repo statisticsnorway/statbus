@@ -605,9 +605,9 @@ func ReadConfigRefusalMarker(projDir string) (*ConfigRefusalMarker, error) {
 	return &marker, nil
 }
 
-// acquireFlock opens the flag file with O_CREAT|O_RDWR, takes an
-// exclusive kernel-level flock (LOCK_EX|LOCK_NB), then atomically replaces
-// its metadata. Caller keeps the returned *os.File open for
+// acquireFlock locks the existing canonical marker or atomically creates an
+// already-locked marker when the path is absent, then atomically replaces its
+// metadata. Caller keeps the returned *os.File open for
 // the full duration of the work — closing it releases the flock. On
 // crash the kernel closes fds automatically, so stale locks are
 // impossible.
@@ -619,7 +619,46 @@ func ReadConfigRefusalMarker(projDir string) (*ConfigRefusalMarker, error) {
 // Thread-safety: flock is kernel-enforced across the whole system;
 // multiple processes racing on the same file are serialised by the
 // kernel, no userland synchronisation needed.
+const flagLockIdentityRetryLimit = 4
+
+type flagOpenHook func(attempt int, file *os.File) error
+
+// openCanonicalFlagLocked closes the open→flock rename race. A descriptor may
+// have opened the old marker immediately before an atomic replacement renamed a
+// new inode over the path. Flocking that orphan is not mutual exclusion. After
+// every successful flock, require the held descriptor and canonical path to name
+// the same inode; otherwise close and retry from open, bounded and fail-closed.
+func openCanonicalFlagLocked(path string, hook flagOpenHook) (*os.File, error) {
+	for attempt := 0; attempt < flagLockIdentityRetryLimit; attempt++ {
+		file, err := os.OpenFile(path, os.O_RDWR, 0)
+		if err != nil {
+			return nil, err
+		}
+		if hook != nil {
+			if err := hook(attempt, file); err != nil {
+				_ = file.Close()
+				return nil, err
+			}
+		}
+		if err := syscall.Flock(int(file.Fd()), syscall.LOCK_EX|syscall.LOCK_NB); err != nil {
+			_ = file.Close()
+			return nil, err
+		}
+		heldInfo, heldErr := file.Stat()
+		pathInfo, pathErr := os.Stat(path)
+		if heldErr == nil && pathErr == nil && os.SameFile(heldInfo, pathInfo) {
+			return file, nil
+		}
+		_ = file.Close()
+	}
+	return nil, fmt.Errorf("marker path %s changed inode during %d lock attempts; refusing split-brain acquisition", path, flagLockIdentityRetryLimit)
+}
+
 func acquireFlock(projDir string, flag UpgradeFlag) (*FlagLock, error) {
+	return acquireFlockWithHook(projDir, flag, nil)
+}
+
+func acquireFlockWithHook(projDir string, flag UpgradeFlag, hook flagOpenHook) (*FlagLock, error) {
 	data, err := json.MarshalIndent(flag, "", "  ")
 	if err != nil {
 		return nil, fmt.Errorf("marshal flag: %w", err)
@@ -628,45 +667,54 @@ func acquireFlock(projDir string, flag UpgradeFlag) (*FlagLock, error) {
 		return nil, fmt.Errorf("mkdir tmp: %w", err)
 	}
 	path := flagFilePath(projDir)
-	f, err := os.OpenFile(path, os.O_CREATE|os.O_RDWR, 0644)
-	if err != nil {
-		return nil, fmt.Errorf("open flag: %w", err)
-	}
-	if lerr := syscall.Flock(int(f.Fd()), syscall.LOCK_EX|syscall.LOCK_NB); lerr != nil {
-		// Contention: another LIVE holder has the lock (the flock failing IS
-		// the liveness signal — STATBUS-111). Read what's on disk for
-		// diagnostics, without holding a lock.
-		_ = f.Close() // best-effort; already erroring out
-		existing, readErr := ReadFlagFile(projDir)
+	for attempt := 0; attempt < flagLockIdentityRetryLimit; attempt++ {
+		f, openErr := openCanonicalFlagLocked(path, hook)
+		if os.IsNotExist(openErr) {
+			lock, freshErr := createFreshFlagAtomically(projDir, data)
+			if os.IsExist(freshErr) {
+				continue
+			}
+			return lock, freshErr
+		}
+		if openErr != nil {
+			if !errors.Is(openErr, syscall.EWOULDBLOCK) && !errors.Is(openErr, syscall.EAGAIN) {
+				return nil, fmt.Errorf("acquire canonical flag lock: %w", openErr)
+			}
+			// Contention: another LIVE holder has the lock (the flock failing IS
+			// the liveness signal — STATBUS-111). Read what's on disk for
+			// diagnostics, without holding a lock.
+			existing, readErr := ReadFlagFile(projDir)
+			if readErr != nil {
+				return nil, fmt.Errorf("flag file unreadable while locked: %w\n  Investigate %s manually",
+					readErr, path)
+			}
+			if existing == nil {
+				// Pathological: flock failed but file was removed before we
+				// could read it. Report generically.
+				return nil, fmt.Errorf("flag file at %s is locked by another process (could not read metadata)", path)
+			}
+			return nil, formatContentionError(existing)
+		}
+		// Restart intent is a closed operator gate, never ordinary stale install
+		// intent. Check under the held descriptor so a pre-detect race cannot erase it.
+		prior, readErr := io.ReadAll(f)
 		if readErr != nil {
-			return nil, fmt.Errorf("flag file unreadable while locked: %w\n  Investigate %s manually",
-				readErr, path)
+			_ = f.Close()
+			return nil, fmt.Errorf("read held flag: %w", readErr)
 		}
-		if existing == nil {
-			// Pathological: flock failed but file was removed before we
-			// could read it. Report generically.
-			return nil, fmt.Errorf("flag file at %s is locked by another process (could not read metadata)", path)
+		var previous UpgradeFlag
+		if json.Unmarshal(prior, &previous) == nil && previous.Trigger == "restart" {
+			_ = f.Close()
+			return nil, restartRefusal(previous.Restart)
 		}
-		return nil, formatContentionError(existing)
+		lock := &FlagLock{file: f, markerPath: path}
+		if err := replaceHeldFlagAtomically(lock, data, nil); err != nil {
+			lock.Close()
+			return nil, fmt.Errorf("replace claimed flag: %w", err)
+		}
+		return lock, nil
 	}
-	// Restart intent is a closed operator gate, never ordinary stale install
-	// intent. Check under the held descriptor so a pre-detect race cannot erase it.
-	prior, readErr := io.ReadAll(f)
-	if readErr != nil {
-		_ = f.Close()
-		return nil, fmt.Errorf("read held flag: %w", readErr)
-	}
-	var previous UpgradeFlag
-	if json.Unmarshal(prior, &previous) == nil && previous.Trigger == "restart" {
-		_ = f.Close()
-		return nil, restartRefusal(previous.Restart)
-	}
-	lock := &FlagLock{file: f, markerPath: path}
-	if err := replaceHeldFlagAtomically(lock, data, nil); err != nil {
-		lock.Close()
-		return nil, fmt.Errorf("replace claimed flag: %w", err)
-	}
-	return lock, nil
+	return nil, fmt.Errorf("flag path %s kept appearing during claim; refusing split-brain acquisition", path)
 }
 
 // acquireFreshFlock creates and locks a NEW marker, refusing to overwrite any
@@ -683,10 +731,10 @@ func acquireFreshFlock(projDir string, flag UpgradeFlag) (*FlagLock, error) {
 	if err := os.MkdirAll(filepath.Join(projDir, "tmp"), 0o755); err != nil {
 		return nil, fmt.Errorf("mkdir tmp: %w", err)
 	}
-	path := flagFilePath(projDir)
-	f, err := os.OpenFile(path, os.O_CREATE|os.O_EXCL|os.O_RDWR, 0o644)
+	lock, err := createFreshFlagAtomically(projDir, data)
 	if err != nil {
 		if os.IsExist(err) {
+			path := flagFilePath(projDir)
 			existing, readErr := ReadFlagFile(projDir)
 			if readErr != nil {
 				return nil, fmt.Errorf("refusing fresh marker claim because %s already exists and is unreadable: %w", path, readErr)
@@ -698,33 +746,18 @@ func acquireFreshFlock(projDir string, flag UpgradeFlag) (*FlagLock, error) {
 		}
 		return nil, fmt.Errorf("create fresh flag: %w", err)
 	}
-	return finishFreshFlock(f, data)
+	return lock, nil
 }
 
-// Split at creation so the create-to-flock contender can be exercised directly.
-func finishFreshFlock(f *os.File, data []byte) (*FlagLock, error) {
-	path := f.Name()
-	removeOnError := func(cause error) (*FlagLock, error) {
-		// Unlink while our fd still holds the flock. Closing first would open a
-		// check-then-remove window where another actor could replace the path and
-		// have its new marker removed by this cleanup.
+func createFreshFlagAtomically(projDir string, data []byte) (*FlagLock, error) {
+	path := flagFilePath(projDir)
+	lock, err := writeFlagAtomically(nil, path, data, false, nil)
+	if err != nil && lock != nil {
 		_ = os.Remove(path)
-		_ = f.Close()
-		return nil, cause
+		lock.Close()
+		return nil, err
 	}
-	if lerr := syscall.Flock(int(f.Fd()), syscall.LOCK_EX|syscall.LOCK_NB); lerr != nil {
-		// O_EXCL owns creation, NOT the flock. A daemon may have opened this
-		// inode and won the lock first. Never unlink that actor's live mutex.
-		_ = f.Close()
-		return nil, fmt.Errorf("lock fresh flag: %w", lerr)
-	}
-	if _, err := f.Write(data); err != nil {
-		return removeOnError(fmt.Errorf("write fresh flag: %w", err))
-	}
-	if err := f.Sync(); err != nil {
-		return removeOnError(fmt.Errorf("sync fresh flag: %w", err))
-	}
-	return &FlagLock{file: f, markerPath: path}, nil
+	return lock, err
 }
 
 // acquireRecoveryFlock acquires an EXISTING recovery marker without ever
@@ -745,10 +778,20 @@ func finishFreshFlock(f *os.File, data []byte) (*FlagLock, error) {
 // writeUpgradeFlag -> acquireFlock.
 func acquireRecoveryFlock(projDir string, classified UpgradeFlag) (*FlagLock, UpgradeFlag, error) {
 	path := flagFilePath(projDir)
-	f, err := os.OpenFile(path, os.O_RDWR, 0)
+	f, err := openCanonicalFlagLocked(path, nil)
 	if err != nil {
 		if os.IsNotExist(err) {
 			return nil, UpgradeFlag{}, fmt.Errorf("recovery marker %s is gone; someone already finished this recovery — refusing stale intent for upgrade %d phase %q", path, classified.ID, classified.Phase)
+		}
+		if errors.Is(err, syscall.EWOULDBLOCK) || errors.Is(err, syscall.EAGAIN) {
+			existing, readErr := ReadFlagFile(projDir)
+			if readErr != nil {
+				return nil, UpgradeFlag{}, fmt.Errorf("recovery marker unreadable while locked: %w\n  Investigate %s manually", readErr, path)
+			}
+			if existing == nil {
+				return nil, UpgradeFlag{}, fmt.Errorf("recovery marker at %s is locked by another process (metadata disappeared)", path)
+			}
+			return nil, UpgradeFlag{}, formatContentionError(existing)
 		}
 		return nil, UpgradeFlag{}, fmt.Errorf("open existing recovery marker: %w", err)
 	}
@@ -756,33 +799,6 @@ func acquireRecoveryFlock(projDir string, classified UpgradeFlag) (*FlagLock, Up
 		_ = f.Close()
 		return nil, UpgradeFlag{}, fmt.Errorf(format, args...)
 	}
-	if lerr := syscall.Flock(int(f.Fd()), syscall.LOCK_EX|syscall.LOCK_NB); lerr != nil {
-		_ = f.Close()
-		existing, readErr := ReadFlagFile(projDir)
-		if readErr != nil {
-			return nil, UpgradeFlag{}, fmt.Errorf("recovery marker unreadable while locked: %w\n  Investigate %s manually", readErr, path)
-		}
-		if existing == nil {
-			return nil, UpgradeFlag{}, fmt.Errorf("recovery marker at %s is locked by another process (metadata disappeared)", path)
-		}
-		return nil, UpgradeFlag{}, formatContentionError(existing)
-	}
-
-	heldInfo, statErr := f.Stat()
-	if statErr != nil {
-		return closeWithError("stat held recovery marker: %v", statErr)
-	}
-	pathInfo, statErr := os.Stat(path)
-	if statErr != nil {
-		if os.IsNotExist(statErr) {
-			return closeWithError("recovery marker %s disappeared after lock acquisition; someone already finished this recovery — refusing stale intent for upgrade %d phase %q", path, classified.ID, classified.Phase)
-		}
-		return closeWithError("stat recovery marker after lock acquisition: %v", statErr)
-	}
-	if !os.SameFile(heldInfo, pathInfo) {
-		return closeWithError("recovery marker %s was replaced while acquiring its lock; refusing stale intent for upgrade %d phase %q", path, classified.ID, classified.Phase)
-	}
-
 	if _, err := f.Seek(0, 0); err != nil {
 		return closeWithError("seek held recovery marker: %v", err)
 	}
@@ -1029,10 +1045,24 @@ func replaceHeldFlagAtomically(lock *FlagLock, data []byte, beforeRename func() 
 	if path == "" {
 		return fmt.Errorf("held flag has no canonical path")
 	}
+	_, err := writeFlagAtomically(lock, path, data, true, beforeRename)
+	return err
+}
+
+// writeFlagAtomically is the single recovery-marker writer. It prepares and
+// locks a complete temp inode before making it canonical. Fresh creation uses an
+// atomic hard-link (no replacement if a path raced into existence); mutation
+// uses rename while the superseded canonical inode remains locked. In either
+// mode readers can observe only complete JSON and the canonical inode is already
+// flocked at the instant it appears.
+func writeFlagAtomically(lock *FlagLock, path string, data []byte, replace bool, beforeInstall func() error) (*FlagLock, error) {
+	if replace && (lock == nil || lock.file == nil) {
+		return nil, fmt.Errorf("atomic flag replacement requires held canonical lock")
+	}
 	dir := filepath.Dir(path)
 	tmp, err := os.CreateTemp(dir, "."+filepath.Base(path)+".tmp-*")
 	if err != nil {
-		return fmt.Errorf("create temporary flag: %w", err)
+		return lock, fmt.Errorf("create temporary flag: %w", err)
 	}
 	tmpPath := tmp.Name()
 	installed := false
@@ -1044,41 +1074,56 @@ func replaceHeldFlagAtomically(lock *FlagLock, data []byte, beforeRename func() 
 		_ = os.Remove(tmpPath)
 	}()
 	if err := tmp.Chmod(0o644); err != nil {
-		return fmt.Errorf("chmod temporary flag: %w", err)
+		return lock, fmt.Errorf("chmod temporary flag: %w", err)
 	}
 	if err := syscall.Flock(int(tmp.Fd()), syscall.LOCK_EX|syscall.LOCK_NB); err != nil {
-		return fmt.Errorf("lock temporary flag: %w", err)
+		return lock, fmt.Errorf("lock temporary flag: %w", err)
 	}
 	if _, err := tmp.Write(data); err != nil {
-		return fmt.Errorf("write temporary flag: %w", err)
+		return lock, fmt.Errorf("write temporary flag: %w", err)
 	}
 	if err := tmp.Sync(); err != nil {
-		return fmt.Errorf("sync temporary flag: %w", err)
+		return lock, fmt.Errorf("sync temporary flag: %w", err)
 	}
-	if beforeRename != nil {
-		if err := beforeRename(); err != nil {
-			return fmt.Errorf("before atomic flag rename: %w", err)
+	if beforeInstall != nil {
+		if err := beforeInstall(); err != nil {
+			return lock, fmt.Errorf("before atomic flag install: %w", err)
 		}
 	}
-	if err := os.Rename(tmpPath, path); err != nil {
-		return fmt.Errorf("rename temporary flag: %w", err)
+	if replace {
+		if err := os.Rename(tmpPath, path); err != nil {
+			return lock, fmt.Errorf("rename temporary flag: %w", err)
+		}
+	} else {
+		if err := os.Link(tmpPath, path); err != nil {
+			return nil, fmt.Errorf("link fresh flag: %w", err)
+		}
 	}
 
+	if lock == nil {
+		lock = &FlagLock{}
+	}
 	old := lock.file
-	lock.file = tmp
-	lock.markerPath = path
+	lock.file, lock.markerPath = tmp, path
 	installed = true
-	_ = old.Close()
+	if old != nil {
+		_ = old.Close()
+	}
+	if !replace {
+		if err := os.Remove(tmpPath); err != nil {
+			return lock, fmt.Errorf("remove temporary fresh-flag link: %w", err)
+		}
+	}
 
 	dirFile, err := os.Open(dir)
 	if err != nil {
-		return fmt.Errorf("open flag directory for sync: %w", err)
+		return lock, fmt.Errorf("open flag directory for sync: %w", err)
 	}
 	defer func() { _ = dirFile.Close() }()
 	if err := dirFile.Sync(); err != nil {
-		return fmt.Errorf("sync flag directory: %w", err)
+		return lock, fmt.Errorf("sync flag directory: %w", err)
 	}
-	return nil
+	return lock, nil
 }
 
 func (d *Service) recordFlagStep(step string) error {
@@ -1345,18 +1390,17 @@ func (d *Service) removeUpgradeFlag() error {
 		}
 		return removeErr
 	}
-	f, err := os.OpenFile(path, os.O_RDWR, 0)
+	f, err := openCanonicalFlagLocked(path, nil)
 	if err != nil {
 		if os.IsNotExist(err) {
 			return nil
 		}
+		if errors.Is(err, syscall.EWOULDBLOCK) || errors.Is(err, syscall.EAGAIN) {
+			log.Printf("removeUpgradeFlag: upgrade flock held by another live actor — leaving the flag file in place (not ours to remove)")
+		}
 		return err
 	}
 	defer func() { _ = f.Close() }() // releases the flock (on the unlinked inode after removal)
-	if err := syscall.Flock(int(f.Fd()), syscall.LOCK_EX|syscall.LOCK_NB); err != nil {
-		log.Printf("removeUpgradeFlag: upgrade flock held by another live actor — leaving the flag file in place (not ours to remove)")
-		return err
-	}
 	removeErr := d.removePath(path)
 	warnOnStaleFlagRemoveFailure(path, removeErr, consequence)
 	if os.IsNotExist(removeErr) {
@@ -1555,7 +1599,8 @@ func isConnError(err error) bool {
 // IsFlockHeld tries a non-blocking LOCK_EX on the flag file. Returns true
 // if the flock is held (genuinely active upgrade), false if the flock is
 // free (ghost flag from a completed upgrade whose file wasn't cleaned up).
-// Returns false when the file doesn't exist or can't be opened.
+// Returns false only when the file doesn't exist or its canonical flock is
+// demonstrably free. Unknown open/stat/identity errors fail closed as held.
 //
 // Used by install.defaultProbe.ReadFlag to distinguish a ghost flag
 // (service alive but flock released — completed upgrade) from a live flag
@@ -1563,14 +1608,11 @@ func isConnError(err error) bool {
 // distinguish these because the service survives SHA upgrades.
 func IsFlockHeld(projDir string) bool {
 	path := flagFilePath(projDir)
-	f, err := os.OpenFile(path, os.O_RDWR, 0)
+	f, err := openCanonicalFlagLocked(path, nil)
 	if err != nil {
-		return false
+		return errors.Is(err, syscall.EWOULDBLOCK) || errors.Is(err, syscall.EAGAIN) || !os.IsNotExist(err)
 	}
 	defer func() { _ = f.Close() }()
-	if err := syscall.Flock(int(f.Fd()), syscall.LOCK_EX|syscall.LOCK_NB); err != nil {
-		return true // flock held → genuinely live upgrade
-	}
 	_ = syscall.Flock(int(f.Fd()), syscall.LOCK_UN)
 	return false // flock was free → ghost flag
 }
@@ -1617,13 +1659,12 @@ func (d *Service) recoverFromFlag(ctx context.Context) (err error) {
 	var flag UpgradeFlag
 	if jsonErr := json.Unmarshal(data, &flag); jsonErr != nil {
 		fmt.Printf("FLAG_CORRUPT: upgrade flag file unreadable, removing: %v\n", jsonErr)
-		// STATBUS-187 #10 (architect ruling, ticket comment #9):
-		// ACCEPT-BOUNDED, formal. A failed Remove here re-enters this SAME
-		// branch next boot by construction — the corrupt flag is re-read
-		// as corrupt and re-removed; no decision is taken on the stale
-		// artifact in the meantime, so no lie follows the failure. The
-		// FLAG_CORRUPT print above already names the event.
-		_ = os.Remove(d.flagPath())
+		// A corrupt marker is still the mutex path. Remove it only while holding
+		// the canonical inode's flock; otherwise a live holder would continue on
+		// an orphan while a second actor created a new marker and split the box.
+		if removeErr := d.removeUpgradeFlag(); removeErr != nil {
+			return fmt.Errorf("remove corrupt upgrade marker while holding canonical flock: %w", removeErr)
+		}
 		return nil
 	}
 
@@ -4208,12 +4249,10 @@ func (d *Service) completeInProgressUpgrade(ctx context.Context) error {
 			Phase:      PhaseNewSbSwapped,
 			BackupPath: rowBackupPath.String,
 		}
-		_ = os.MkdirAll(filepath.Dir(d.flagPath()), 0755)
-		if data, merr := json.MarshalIndent(flag, "", "  "); merr != nil {
-			logRecover("WARNING: could not marshal the recovery flag before parking %s (%v) — `./sb install` un-park is UNAVAILABLE for this park; schedule a fix release to retrigger. Parking anyway.", displayName, merr)
-		} else if werr := os.WriteFile(d.flagPath(), data, 0644); werr != nil {
+		if lock, werr := acquireFreshFlock(d.projDir, flag); werr != nil {
 			logRecover("WARNING: could not write the recovery flag before parking %s (%v) — `./sb install` un-park is UNAVAILABLE for this park; schedule a fix release to retrigger. Parking anyway.", displayName, werr)
 		} else {
+			lock.Close()
 			keepFlagExit = true // the defer must NOT strip this flag (STATBUS-192/135)
 		}
 		_ = d.parkForDeterministicFailure(ctx, id, displayName, restoreTargetSHA, commitSHA, rowBackupPath.String, failureCode, reason, appendLog)
@@ -4247,7 +4286,7 @@ func (d *Service) completeInProgressUpgrade(ctx context.Context) error {
 	}
 	logRecover("At-target verified; starting application services to prove %s serves...", displayName)
 	composeArgs := append([]string{"compose", "up", "-d", "--no-build"}, step11RestartServices...)
-	if stderrTail, cerr := runCommandToLogCapture(d.projDir, 5*time.Minute, appendLog.File(), "docker-compose", appendLog.bump, "docker", composeArgs...); cerr != nil {
+	if stderrTail, cerr := runCommandToLogCaptureCapability(d.projDir, 5*time.Minute, appendLog.File(), "docker-compose", appendLog.bump, compose.MintUpCapability(), "docker", composeArgs...); cerr != nil {
 		// STATBUS-192 refinement 3: mirror applyNewSbUpgrading's three-way
 		// (service.go:6074-6093). ENOSPC (classResource) → park; anything else →
 		// newSbUpgradingFailure, which AT-TARGET reduces to recordInProgressFailure (row
@@ -7998,8 +8037,10 @@ func extractImageDigest(image string) string {
 }
 
 func (d *Service) dockerContainerImageID(ctx context.Context, containerID string) (string, error) {
-	cmd := exec.CommandContext(ctx, "docker", "inspect", "--format", "{{.Image}}", containerID)
-	cmd.Dir = d.projDir
+	cmd, buildErr := commandContext(ctx, d.projDir, "docker", "inspect", "--format", "{{.Image}}", containerID)
+	if buildErr != nil {
+		return "", fmt.Errorf("construct docker inspect for container %q: %w", containerID, buildErr)
+	}
 	prepareCmd(cmd)
 	out, err := cmd.CombinedOutput()
 	if err != nil {
@@ -8023,8 +8064,10 @@ func (d *Service) sourceServingExpectedImageReferences(ctx context.Context) (map
 		return nil, "", &sourceServingEraUnknownError{Detail: fmt.Sprintf("restored source commit tag %q is not an eight-character git SHA", sourceTag)}
 	}
 
-	cmd := exec.CommandContext(ctx, "docker", "compose", "config", "--format", "json")
-	cmd.Dir = d.projDir
+	cmd, buildErr := commandContext(ctx, d.projDir, "docker", "compose", "config", "--format", "json")
+	if buildErr != nil {
+		return nil, "", &sourceServingEraUnknownError{Detail: fmt.Sprintf("construct restored source compose config command: %v", buildErr)}
+	}
 	prepareCmd(cmd)
 	out, err := cmd.CombinedOutput()
 	if err != nil {
@@ -8132,8 +8175,10 @@ func (d *Service) sourceServingExpectedImages(ctx context.Context) (map[string]s
 }
 
 func (d *Service) sourceServingContainerEntries(ctx context.Context) ([]compose.PsEntry, error) {
-	cmd := exec.CommandContext(ctx, "docker", "compose", "ps", "-a", "--format", "json")
-	cmd.Dir = d.projDir
+	cmd, buildErr := commandContext(ctx, d.projDir, "docker", "compose", "ps", "-a", "--format", "json")
+	if buildErr != nil {
+		return nil, &sourceServingEraUnknownError{Detail: fmt.Sprintf("construct serving container inspection: %v", buildErr)}
+	}
 	prepareCmd(cmd)
 	out, err := cmd.CombinedOutput()
 	if err != nil {
@@ -8281,6 +8326,7 @@ func (d *Service) startSourceApplicationStack(ctx context.Context, progress *Pro
 		return err
 	}
 	var composeArgs []string
+	var upCapability compose.UpCapability
 	var operation string
 	recreated := false
 	switch era {
@@ -8289,6 +8335,7 @@ func (d *Service) startSourceApplicationStack(ctx context.Context, progress *Pro
 		operation = "start verified source serving containers"
 	case ServingEraTarget:
 		recreated = true
+		upCapability = compose.MintUpCapability()
 		// DB is already restored and healthy on this path. --no-deps confines
 		// authoritative recreation to the serving tier and cannot rewrite the
 		// database container as a side effect of a source compose-model change.
@@ -8302,14 +8349,14 @@ func (d *Service) startSourceApplicationStack(ctx context.Context, progress *Pro
 	}
 
 	if progress != nil {
-		if stderrTail, err := runCommandToLogCapture(d.projDir, 5*time.Minute, progress.File(), "source-docker-compose", progress.bump, "docker", composeArgs...); err != nil {
+		if stderrTail, err := runCommandToLogCaptureCapability(d.projDir, 5*time.Minute, progress.File(), "source-docker-compose", progress.bump, upCapability, "docker", composeArgs...); err != nil {
 			operationErr := fmt.Errorf("%s: %w (%s)", operation, err, strings.TrimSpace(stderrTail))
 			if recreated {
 				return d.containFailedSourceRecreate(ctx, progress, operationErr)
 			}
 			return operationErr
 		}
-	} else if out, err := runCommandOutput(d.projDir, "docker", composeArgs...); err != nil {
+	} else if out, err := runCommandOutputTimeoutEnvCapability(d.projDir, 2*time.Minute, nil, upCapability, "docker", composeArgs...); err != nil {
 		operationErr := fmt.Errorf("%s: %w (%s)", operation, err, strings.TrimSpace(out))
 		if recreated {
 			return d.containFailedSourceRecreate(ctx, progress, operationErr)
@@ -8587,7 +8634,7 @@ func (d *Service) applyNewSbUpgrading(ctx context.Context, id int, commitSHA, di
 	// built it. Tell the operator to wait for images.yaml and retry.
 	d.markStep(StepDBUp)
 	dbStart := time.Now()
-	if err := runCommandToLog(projDir, 5*time.Minute, progress.File(), "docker-compose", progress.bump, "docker", "compose", "up", "-d", "--no-build", "db"); err != nil {
+	if err := runComposeCommandToLog(projDir, 5*time.Minute, progress.File(), "docker-compose", progress.bump, compose.MintUpCapability(), "up", "-d", "--no-build", "db"); err != nil {
 		reason := fmt.Sprintf(
 			"docker compose up -d db: %v\n\n"+
 				"The db image for %s is not available locally or in the registry. "+
@@ -8868,7 +8915,7 @@ func (d *Service) applyNewSbUpgrading(ctx context.Context, id int, commitSHA, di
 	}
 	composeArgs := append([]string{"compose", "up", "-d", "--no-build"}, step11RestartServices...)
 	servicesStart := time.Now()
-	if stderrTail, err := runCommandToLogCapture(projDir, 5*time.Minute, progress.File(), "docker-compose", progress.bump, "docker", composeArgs...); err != nil {
+	if stderrTail, err := runCommandToLogCaptureCapability(projDir, 5*time.Minute, progress.File(), "docker-compose", progress.bump, compose.MintUpCapability(), "docker", composeArgs...); err != nil {
 		// ENOSPC backstop: disk filled DURING start (past the pre-check) → C park.
 		if classifyDockerFailure(err, stderrTail) == classResource {
 			return d.parkForDeterministicFailure(ctx, id, displayName, restoreTargetSHA, commitSHA, backupPath, nil,
@@ -9230,7 +9277,7 @@ func (d *Service) clearRollbackFinishFlag(id int) error {
 		return d.removeUpgradeFlag()
 	}
 
-	file, err := os.OpenFile(path, os.O_RDWR, 0)
+	file, err := openCanonicalFlagLocked(path, nil)
 	if err != nil {
 		if os.IsNotExist(err) {
 			return nil
@@ -9238,9 +9285,6 @@ func (d *Service) clearRollbackFinishFlag(id int) error {
 		return err
 	}
 	defer func() { _ = file.Close() }()
-	if err := syscall.Flock(int(file.Fd()), syscall.LOCK_EX|syscall.LOCK_NB); err != nil {
-		return err
-	}
 	flag, err := readUpgradeFlagFromOpenFile(file)
 	if err != nil {
 		return err
@@ -10417,7 +10461,7 @@ func (d *Service) failUpgradeKeepingFlag(ctx context.Context, id int, errMsg str
 func (d *Service) abortFailedPreBackupStop(ctx context.Context, id int, boundary, errMsg string, restartServices []string, progress *ProgressLog) string {
 	needsRecovery := false
 	restartArgs := append([]string{"compose", "up", "-d"}, restartServices...)
-	if restartErr := runCommand(d.projDir, "docker", restartArgs...); restartErr != nil {
+	if restartErr := runCommandWithTimeoutCapability(d.projDir, 5*time.Minute, compose.MintUpCapability(), "docker", restartArgs...); restartErr != nil {
 		needsRecovery = true
 		progress.Write("  Restarting services after the %s failure ... failed: %v", boundary, restartErr)
 		errMsg += fmt.Sprintf("; services also did not restart cleanly: %v", restartErr)
@@ -10522,9 +10566,13 @@ func captureContainerLogs(projDir string, progress *ProgressLog, services []stri
 
 	for _, svc := range services {
 		ctx, cancel := context.WithTimeout(context.Background(), 8*time.Second)
-		cmd := exec.CommandContext(ctx, "docker", "compose", "logs",
+		cmd, buildErr := commandContext(ctx, projDir, "docker", "compose", "logs",
 			"--tail", "500", "--no-color", svc)
-		cmd.Dir = projDir
+		if buildErr != nil {
+			cancel()
+			progress.Write("Warning: could not construct container log command for %s: %v", svc, buildErr)
+			continue
+		}
 		out, err := cmd.CombinedOutput()
 		cancel()
 		path := filepath.Join(dirAbs, svc+".log")

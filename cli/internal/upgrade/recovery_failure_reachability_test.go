@@ -52,6 +52,42 @@ func composeUpProductionSources(t *testing.T) map[string][]byte {
 	return sources
 }
 
+// cliProductionSources is deliberately broader than the compose-exec scope.
+// UpCapability is opaque but its constructor is exported so the upgrade package
+// can use it. Therefore the mint allowlist must inventory the whole CLI, not just
+// the two packages whose docker-compose process construction is centralized.
+func cliProductionSources(t *testing.T) map[string][]byte {
+	t.Helper()
+	cliDir := thisRepoFile(t, "cli")
+	sources := make(map[string][]byte)
+	err := filepath.WalkDir(cliDir, func(path string, entry os.DirEntry, walkErr error) error {
+		if walkErr != nil {
+			return walkErr
+		}
+		if entry.IsDir() {
+			return nil
+		}
+		name := entry.Name()
+		if !strings.HasSuffix(name, ".go") || strings.HasSuffix(name, "_test.go") {
+			return nil
+		}
+		rel, err := filepath.Rel(cliDir, path)
+		if err != nil {
+			return err
+		}
+		source, err := os.ReadFile(path)
+		if err != nil {
+			return err
+		}
+		sources[filepath.ToSlash(rel)] = source
+		return nil
+	})
+	if err != nil {
+		t.Fatalf("inventory CLI production sources: %v", err)
+	}
+	return sources
+}
+
 func exactStringLiteral(node ast.Node, want string) bool {
 	found := false
 	ast.Inspect(node, func(child ast.Node) bool {
@@ -150,17 +186,17 @@ func composeUpConstructionsFromSources(t *testing.T, sources map[string][]byte) 
 }
 
 func composeUpConstructionViolation(constructions []composeUpConstruction) error {
-	// This inventory covers every production construction site. The separate
-	// recovery reachability gate below proves that only startSourceApplicationStack
-	// is failure-reachable, and that its recreate is era-verified. Exact counts keep
-	// a second construction inside an otherwise legitimate function from hiding.
+	// This literal inventory remains defense in depth for statically visible sites.
+	// Runtime authority lives in dockerComposeCommand's final-argv capability check;
+	// composeRuntimeGuardViolation separately pins every capability mint and exec
+	// chokepoint. Exact counts still make visible drift loud.
 	want := map[string]int{
+		"compose/compose.go:dockerComposeCommand":        1,
 		"compose/compose.go:RestartAndWait":              1,
 		"compose/compose.go:ResumeClients":               1,
 		"compose/compose.go:Start":                       1,
-		"upgrade/exec.go:EnsureDBUp":                     1,
 		"upgrade/service.go:abortFailedPreBackupStop":    1,
-		"upgrade/service.go:applyNewSbUpgrading":         2,
+		"upgrade/service.go:applyNewSbUpgrading":         1,
 		"upgrade/service.go:completeInProgressUpgrade":   1,
 		"upgrade/service.go:startSourceApplicationStack": 1,
 	}
@@ -174,6 +210,127 @@ func composeUpConstructionViolation(constructions []composeUpConstruction) error
 	}
 	if fmt.Sprint(got) != fmt.Sprint(want) {
 		return fmt.Errorf("compose-up construction inventory = %v, want %v", got, want)
+	}
+	return nil
+}
+
+func composeRuntimeGuardViolation(sources map[string][]byte) error {
+	wantMints := map[string]int{
+		"internal/compose/compose.go:RestartAndWait":              1,
+		"internal/compose/compose.go:ResumeClients":               1,
+		"internal/compose/compose.go:Start":                       1,
+		"internal/upgrade/exec.go:EnsureDBUp":                     1,
+		"internal/upgrade/service.go:abortFailedPreBackupStop":    1,
+		"internal/upgrade/service.go:applyNewSbUpgrading":         2,
+		"internal/upgrade/service.go:completeInProgressUpgrade":   1,
+		"internal/upgrade/service.go:startSourceApplicationStack": 1,
+	}
+	gotMints := make(map[string]int)
+	tokenLiterals := 0
+	for file, source := range sources {
+		fset := token.NewFileSet()
+		parsed, err := parser.ParseFile(fset, file, source, 0)
+		if err != nil {
+			return fmt.Errorf("parse %s: %w", file, err)
+		}
+		for _, decl := range parsed.Decls {
+			fn, ok := decl.(*ast.FuncDecl)
+			if !ok || fn.Body == nil {
+				continue
+			}
+			key := file + ":" + fn.Name.Name
+			ast.Inspect(fn.Body, func(node ast.Node) bool {
+				if composite, ok := node.(*ast.CompositeLit); ok {
+					if ident, ok := composite.Type.(*ast.Ident); ok && ident.Name == "upCapability" {
+						tokenLiterals++
+						if key != "internal/compose/compose.go:MintUpCapability" {
+							err = fmt.Errorf("unallowlisted upCapability token construction at %s:%d (%s)", file, fset.Position(composite.Pos()).Line, fn.Name.Name)
+							return false
+						}
+					}
+				}
+				call, ok := node.(*ast.CallExpr)
+				if !ok {
+					return err == nil
+				}
+				mint := false
+				switch callee := call.Fun.(type) {
+				case *ast.Ident:
+					mint = callee.Name == "MintUpCapability"
+				case *ast.SelectorExpr:
+					mint = callee.Sel.Name == "MintUpCapability"
+				}
+				if mint {
+					gotMints[key]++
+					if _, allowed := wantMints[key]; !allowed {
+						err = fmt.Errorf("unallowlisted compose-up capability mint at %s:%d (%s)", file, fset.Position(call.Pos()).Line, fn.Name.Name)
+						return false
+					}
+				}
+
+				selector, ok := call.Fun.(*ast.SelectorExpr)
+				if !ok || (selector.Sel.Name != "Command" && selector.Sel.Name != "CommandContext") {
+					return err == nil
+				}
+				receiver, ok := selector.X.(*ast.Ident)
+				if !ok || receiver.Name != "exec" {
+					return err == nil
+				}
+				if strings.HasPrefix(file, "internal/compose/") {
+					if fn.Name.Name != "dockerComposeCommand" {
+						err = fmt.Errorf("raw exec bypasses dockerComposeCommand at %s:%d (%s)", file, fset.Position(call.Pos()).Line, fn.Name.Name)
+						return false
+					}
+					return true
+				}
+				if !strings.HasPrefix(file, "internal/upgrade/") {
+					return err == nil
+				}
+				commandArg := 0
+				if selector.Sel.Name == "CommandContext" {
+					commandArg = 1
+				}
+				if len(call.Args) <= commandArg {
+					return true
+				}
+				if literal, ok := call.Args[commandArg].(*ast.BasicLit); ok {
+					value, _ := strconv.Unquote(literal.Value)
+					if value == "docker" {
+						err = fmt.Errorf("raw docker exec bypasses compose-aware command factory at %s:%d (%s)", file, fset.Position(call.Pos()).Line, fn.Name.Name)
+						return false
+					}
+					return true
+				}
+				if fn.Name.Name == "commandContextWithComposeUp" {
+					if ident, ok := call.Args[commandArg].(*ast.Ident); !ok || ident.Name != "name" {
+						err = fmt.Errorf("compose-aware command factory raw executable is no longer its inspected name parameter at %s:%d", file, fset.Position(call.Pos()).Line)
+						return false
+					}
+					return true
+				}
+				if fn.Name.Name == "runInstallFixup" {
+					join, ok := call.Args[commandArg].(*ast.CallExpr)
+					if ok {
+						selector, selectorOK := join.Fun.(*ast.SelectorExpr)
+						lastIsSB := len(join.Args) > 0 && exactStringLiteral(join.Args[len(join.Args)-1], "sb")
+						if selectorOK && selector.Sel.Name == "Join" && lastIsSB {
+							return true
+						}
+					}
+				}
+				err = fmt.Errorf("dynamic raw exec bypasses compose-aware command factory at %s:%d (%s)", file, fset.Position(call.Pos()).Line, fn.Name.Name)
+				return false
+			})
+			if err != nil {
+				return err
+			}
+		}
+	}
+	if tokenLiterals != 1 {
+		return fmt.Errorf("upCapability token literal count = %d, want constructor-only 1", tokenLiterals)
+	}
+	if fmt.Sprint(gotMints) != fmt.Sprint(wantMints) {
+		return fmt.Errorf("compose-up capability mint inventory = %v, want %v", gotMints, wantMints)
 	}
 	return nil
 }
@@ -437,5 +594,53 @@ func composeUpViaFuncValueMutation(d *Service) error {
 	err := composeUpConstructionViolation(constructions)
 	if err == nil || !strings.Contains(err.Error(), "unallowlisted compose-up construction") || !strings.Contains(err.Error(), "composeUpViaFuncValueMutation") {
 		t.Fatalf("func-value compose-up mutation survived syntactic inventory: %v", err)
+	}
+}
+
+func TestComposeRuntimeGuardHasNoExecBypassAndOnlyAllowlistedMints(t *testing.T) {
+	if err := composeRuntimeGuardViolation(cliProductionSources(t)); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestDynamicComposeUpThroughFuncValueIsRejectedAtRuntime(t *testing.T) {
+	verb := "u" + "p"
+	args := []string{"compose", verb, "-d", "app"}
+	runner := runCommandOutput
+	_, err := runner(t.TempDir(), "docker", args...)
+	if err == nil || !strings.Contains(err.Error(), "requires an explicit capability") {
+		t.Fatalf("dynamic func-value compose-up = %v, want runtime capability refusal", err)
+	}
+}
+
+func TestComposeCapabilityMintMutationIsRejected(t *testing.T) {
+	sources := cliProductionSources(t)
+	serviceKey := "internal/upgrade/service.go"
+	mutation := `
+
+func unauthorizedComposeUpCapabilityMutation() compose.UpCapability {
+	return compose.MintUpCapability()
+}
+`
+	sources[serviceKey] = append(append([]byte(nil), sources[serviceKey]...), []byte(mutation)...)
+	err := composeRuntimeGuardViolation(sources)
+	if err == nil || !strings.Contains(err.Error(), "unallowlisted compose-up capability mint") || !strings.Contains(err.Error(), "unauthorizedComposeUpCapabilityMutation") {
+		t.Fatalf("capability mint mutation survived AST allowlist: %v", err)
+	}
+}
+
+func TestComposeExecBypassMutationIsRejected(t *testing.T) {
+	sources := cliProductionSources(t)
+	serviceKey := "internal/upgrade/service.go"
+	mutation := `
+
+func unauthorizedDynamicComposeExecMutation(ctx context.Context) *exec.Cmd {
+	return exec.CommandContext(ctx, "dock"+"er", "compose", "u"+"p", "-d", "app")
+}
+`
+	sources[serviceKey] = append(append([]byte(nil), sources[serviceKey]...), []byte(mutation)...)
+	err := composeRuntimeGuardViolation(sources)
+	if err == nil || !strings.Contains(err.Error(), "dynamic raw exec bypasses compose-aware command factory") || !strings.Contains(err.Error(), "unauthorizedDynamicComposeExecMutation") {
+		t.Fatalf("expression-built raw compose exec mutation survived AST chokepoint guard: %v", err)
 	}
 }

@@ -86,18 +86,16 @@ func TestRestartRetryContentionAcrossProcesses(t *testing.T) {
 	}
 }
 
-func TestFreshCreatorMustNotUnlinkWinningContender(t *testing.T) {
+func TestFreshAtomicCreatorMustNotOverwriteWinningContender(t *testing.T) {
 	dir := t.TempDir()
 	if err := os.MkdirAll(filepath.Join(dir, "tmp"), 0755); err != nil {
 		t.Fatal(err)
 	}
 	path := flagFilePath(dir)
-	creator, err := os.OpenFile(path, os.O_CREATE|os.O_EXCL|os.O_RDWR, 0600)
-	if err != nil {
+	metadata := []byte(`{"holder":"service","id":42}`)
+	if err := os.WriteFile(path, metadata, 0o600); err != nil {
 		t.Fatal(err)
 	}
-	// The daemon opens the newly created inode and wins its flock before the
-	// creator reaches flock. Separate descriptors have independent kernel locks.
 	rival, err := os.OpenFile(path, os.O_RDWR, 0)
 	if err != nil {
 		t.Fatal(err)
@@ -106,13 +104,9 @@ func TestFreshCreatorMustNotUnlinkWinningContender(t *testing.T) {
 	if err := syscall.Flock(int(rival.Fd()), syscall.LOCK_EX|syscall.LOCK_NB); err != nil {
 		t.Fatal(err)
 	}
-	metadata := []byte(`{"holder":"service","id":42}`)
-	if _, err := rival.Write(metadata); err != nil {
-		t.Fatal(err)
-	}
-	if lock, err := finishFreshFlock(creator, []byte(`{"holder":"install"}`)); err == nil {
+	if lock, err := acquireFreshFlock(dir, UpgradeFlag{Holder: HolderInstall}); err == nil {
 		lock.Close()
-		t.Fatal("creator won rival's lock")
+		t.Fatal("fresh creator overwrote rival marker")
 	}
 	got, err := os.ReadFile(path)
 	if err != nil || string(got) != string(metadata) {

@@ -335,8 +335,11 @@ func bundleLogTailBody(absPath string, n int) string {
 func bundleCommandBody(parent context.Context, dir, name string, args ...string) string {
 	ctx, cancel := context.WithTimeout(parent, bundleSectionCmdTimeout)
 	defer cancel()
-	cmd := exec.CommandContext(ctx, name, args...)
-	cmd.Dir = dir
+	cmd, buildErr := commandContext(ctx, dir, name, args...)
+	if buildErr != nil {
+		header := fmt.Sprintf("$ %s %s\n", name, strings.Join(args, " "))
+		return header + fmt.Sprintf("(command refused: %v)\n", buildErr)
+	}
 	prepareCmd(cmd)
 	out, err := cmd.CombinedOutput()
 	header := fmt.Sprintf("$ %s %s\n", name, strings.Join(args, " "))

@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"os/exec"
 	"strings"
 	"sync"
 	"time"
@@ -76,8 +75,10 @@ func runMigrateUpToLog(dir string, timeout time.Duration, logWriter io.Writer, o
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 
-	cmd := exec.CommandContext(ctx, name, args...)
-	cmd.Dir = dir
+	cmd, buildErr := commandContext(ctx, dir, name, args...)
+	if buildErr != nil {
+		return 0, buildErr
+	}
 	cmd.Env = envOverride(migrate.PendingCountReportEnv, "1")
 
 	outW := NewPrefixWriter("O", "migrate", logWriter, onAdvance)

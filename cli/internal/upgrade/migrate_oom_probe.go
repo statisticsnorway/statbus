@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"os/exec"
 	"strings"
 	"time"
 )
@@ -92,8 +91,10 @@ func probeMigrateOOMEvidence(ctx context.Context, projDir, displayName string, m
 // container is still found). Returns ok=false on any docker/parse failure.
 func inspectDBContainerState(ctx context.Context, projDir string) (dbContainerState, bool) {
 	var st dbContainerState
-	idCmd := exec.CommandContext(ctx, "docker", "compose", "ps", "--all", "--quiet", "db")
-	idCmd.Dir = projDir
+	idCmd, buildErr := commandContext(ctx, projDir, "docker", "compose", "ps", "--all", "--quiet", "db")
+	if buildErr != nil {
+		return st, false
+	}
 	idOut, err := idCmd.Output()
 	if err != nil {
 		return st, false
@@ -105,8 +106,10 @@ func inspectDBContainerState(ctx context.Context, projDir string) (dbContainerSt
 	if id == "" {
 		return st, false
 	}
-	inspCmd := exec.CommandContext(ctx, "docker", "inspect", "--format", "{{json .State}}", id)
-	inspCmd.Dir = projDir
+	inspCmd, buildErr := commandContext(ctx, projDir, "docker", "inspect", "--format", "{{json .State}}", id)
+	if buildErr != nil {
+		return st, false
+	}
 	inspOut, err := inspCmd.Output()
 	if err != nil {
 		return st, false
@@ -131,9 +134,11 @@ func inspectDBContainerState(ctx context.Context, projDir string) (dbContainerSt
 // dbLogTail returns the last `lines` of the db service's docker logs, or "" on
 // failure (the classifier then finds no log signature → leniency).
 func dbLogTail(ctx context.Context, projDir string, lines int) string {
-	cmd := exec.CommandContext(ctx, "docker", "compose", "logs",
+	cmd, buildErr := commandContext(ctx, projDir, "docker", "compose", "logs",
 		"--tail", fmt.Sprintf("%d", lines), "--no-color", "db")
-	cmd.Dir = projDir
+	if buildErr != nil {
+		return ""
+	}
 	out, err := cmd.CombinedOutput()
 	if err != nil && len(out) == 0 {
 		return ""

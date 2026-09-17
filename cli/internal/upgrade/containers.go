@@ -3,7 +3,6 @@ package upgrade
 import (
 	"context"
 	"fmt"
-	"os/exec"
 	"strings"
 
 	"github.com/statisticsnorway/statbus/cli/internal/compose"
@@ -125,8 +124,10 @@ func (r containerCheckResult) String() string { return fmt.Sprintf("%s: %s", r.S
 // Failure modes are absorbed into the (false, [...]) result — the caller
 // falls through to the existing rollback path when this returns false.
 func (d *Service) containersAtFlagTarget(ctx context.Context, flag UpgradeFlag) (bool, []containerCheckResult) {
-	cmd := exec.CommandContext(ctx, "docker", "compose", "ps", "--format", "json")
-	cmd.Dir = d.projDir
+	cmd, buildErr := commandContext(ctx, d.projDir, "docker", "compose", "ps", "--format", "json")
+	if buildErr != nil {
+		return false, []containerCheckResult{{Service: "docker", Reason: fmt.Sprintf("compose ps refused: %v", buildErr)}}
+	}
 	prepareCmd(cmd)
 	out, err := cmd.Output()
 	if err != nil {

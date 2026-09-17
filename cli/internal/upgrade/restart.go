@@ -65,8 +65,9 @@ func AcquireRestartFlag(dir, profile string) (*FlagLock, *RestartIntent, error) 
 	return lock, nil, err
 }
 
-// PrepareRestart stores the exact restoration intent before the first stop.
-// Writing through the held descriptor preserves the inode used by the flock.
+// PrepareRestart stores the exact restoration intent before the first stop via
+// the single atomic marker writer, transferring the flock to the complete
+// replacement inode before it becomes canonical.
 func PrepareRestart(lock *FlagLock, intent RestartIntent) error {
 	if lock == nil || lock.file == nil {
 		return fmt.Errorf("restart intent requires held mutex")
@@ -77,14 +78,5 @@ func PrepareRestart(lock *FlagLock, intent RestartIntent) error {
 	if err != nil {
 		return err
 	}
-	if _, err = lock.file.Seek(0, 0); err != nil {
-		return err
-	}
-	if err = lock.file.Truncate(0); err != nil {
-		return err
-	}
-	if _, err = lock.file.Write(data); err != nil {
-		return err
-	}
-	return lock.file.Sync()
+	return replaceHeldFlagAtomically(lock, data, nil)
 }
