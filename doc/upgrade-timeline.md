@@ -833,25 +833,22 @@ purpose: a real signal-induced termination (`WIFEXITED=0`, `WTERMSIG=SIGKILL`,
 wedge being validated is the real-signal case. The registry is the single source of truth —
 adding a class name is the only operation that makes a new injection point valid.
 
-## Git branch pointers maintained by install/upgrade
+## Git checkout and rollback pointer maintained by install/upgrade
 
-The machinery keeps two local-only git branches as per-host state pointers — neither is
-pushed to origin. They are complementary: `current` is **time-anchored** ("what is checked
-out right now"), `pre-upgrade` is **event-anchored** ("what was checked out before the most
-recent upgrade started").
+An installed release is checked out at a detached, fixed commit. The release tag names that
+commit, and `git describe --exact-match HEAD` reads it back. `install.sh` does not create a
+local `current` branch because a tag is not a branch to track. The canonical "currently
+running" answer comes from `./sb --version` or `public.upgrade.state='completed'`.
 
-- **`current`** — written by `install.sh` at every checkout (idempotent via
-  `git checkout -B`). Replaces detached-HEAD checkouts so `git status` shows a real branch and
-  `git reflog current` records install history. Always reflects the latest install action;
-  the canonical "currently running" answer comes from `./sb --version` or
-  `public.upgrade.state='completed'`.
+The machinery keeps one local-only per-host state branch, never pushed to origin:
+
 - **`pre-upgrade`** — written by `executeUpgrade` before destructive steps. Freezes "the
   version BEFORE the upgrade started", stays put through the upgrade, advances on the next
   one. Acts as the rollback fallback ref when the explicit `previousVersion` doesn't resolve
   (e.g. upstream tag pruning). See `restoreGitStateFn`.
 
-Both branches are slot-implicit: each multi-tenant slot on niue has its own `~/statbus/.git`,
-so the same name on two slots refers to two independent pointers. They are unrelated to the
+The branch is slot-implicit: each multi-tenant slot on niue has its own `~/statbus/.git`,
+so the same name on two slots refers to two independent pointers. It is unrelated to the
 retired remote deploy-branch transport; candidate delivery now uses named workflow dispatches,
 channel discovery, and operator commands.
 

@@ -15,6 +15,9 @@ const EnvConfig = "STATBUS_ENV_CONFIG"
 const UsersFile = "STATBUS_USERS_FILE"
 const TrustKey = "TRUST_GITHUB_USER"
 const RecommendedSigner = "jhf"
+const TrustExplanation = "Releases are signed; this names the GitHub user whose published signing key the installer verifies release tags against; jhf is the SSB release signer."
+
+const StdinNotTerminalMessage = "stdin is not a terminal (running under a pipe?). Run interactively with a terminal on stdin, or provide STATBUS_ENV_CONFIG for unattended install."
 
 type field struct {
 	key, prompt, fallback string
@@ -55,8 +58,8 @@ func Requirement() string {
 	for _, f := range fields {
 		fmt.Fprintf(&b, "\n  %s=%s  # %s", f.key, f.fallback, f.prompt)
 	}
-	fmt.Fprintf(&b, "\n\nTRUST_GITHUB_USER=%s explicitly approves the recommended release signer\n%s (Jorgen H. Fjeld), https://github.com/%s. Review that trust decision.\n", RecommendedSigner, RecommendedSigner, RecommendedSigner)
-	b.WriteString("\nKeep the file outside ~/statbus, protect it with chmod 0600, then set:\n  export STATBUS_ENV_CONFIG=/path/to/install-input.env\n\nOptional:\n  export STATBUS_INSTALL_VERSION='<release-tag>'  # omit for latest stable\n  export STATBUS_USERS_FILE=/path/to/initial-users.yml\n\nRe-run install.sh --non-interactive (or ./sb install --non-interactive if already bootstrapped).\nNon-interactive mode never approves a signer implicitly.")
+	fmt.Fprintf(&b, "\n\n%s\nTRUST_GITHUB_USER=%s explicitly approves the recommended release signer\n%s (Jorgen H. Fjeld), https://github.com/%s. Review that trust decision.\n", TrustExplanation, RecommendedSigner, RecommendedSigner, RecommendedSigner)
+	b.WriteString("\nKeep the file outside ~/statbus, protect it with chmod 0600, then set:\n  export STATBUS_ENV_CONFIG=/path/to/install-input.env\n\nOptional:\n  export STATBUS_INSTALL_VERSION='<release-tag>'  # omit for latest stable\n  export STATBUS_USERS_FILE=/path/to/initial-users.yml\n\nBecause this run used --non-interactive, signer trust may instead be supplied with:\n  --trust-github-user <github-user>\n\nAfter exporting STATBUS_ENV_CONFIG, re-run the same install command.\nNon-interactive mode never approves a signer implicitly.")
 	return b.String()
 }
 
@@ -79,10 +82,10 @@ func TrustQuestion() (string, string) {
 	panic("trust question missing")
 }
 
-func MissingTrust() error {
+func MissingTrustInConfig(path string) error {
 	for _, f := range fields {
 		if f.key == TrustKey {
-			return fmt.Errorf("STATBUS_ENV_CONFIG: missing key %s (%s); alternatively supply --trust-github-user.\n\n%s", f.key, f.prompt, Requirement())
+			return fmt.Errorf("STATBUS_ENV_CONFIG %q: missing key %s (%s).\nAdd %s=<github-user> to the config file at %q.\n%s", path, f.key, f.prompt, f.key, path, TrustExplanation)
 		}
 	}
 	panic("trust question missing")

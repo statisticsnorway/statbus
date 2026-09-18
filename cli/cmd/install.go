@@ -84,6 +84,26 @@ func capturePanicInvariant(installDir string) {
 
 var nonInteractive bool
 
+// stdinIsTerminal is a seam for the fresh-install input contract. A pipe is
+// not itself a request for unattended mode: install.sh reattaches /dev/tty
+// when one exists, and this check explains the remedy when no terminal exists.
+var stdinIsTerminal = func() bool {
+	fi, err := os.Stdin.Stat()
+	return err == nil && fi.Mode()&os.ModeCharDevice != 0
+}
+
+// installPreflightRefusalError means install refused before taking the mutex or
+// mutating the installation. install.sh maps its dedicated process exit code to
+// a plain refusal instead of the SYSTEM UNUSABLE invariant-breach path.
+type installPreflightRefusalError struct{ err error }
+
+func (e *installPreflightRefusalError) Error() string { return e.err.Error() }
+func (e *installPreflightRefusalError) Unwrap() error { return e.err }
+
+type stdinNotTerminalError struct{}
+
+func (stdinNotTerminalError) Error() string { return installinput.StdinNotTerminalMessage }
+
 // trustGitHubUser is set by --trust-github-user to auto-trust a GitHub user's
 // signing key during install. This runs trust-key add non-interactively before
 // the step table, so cloud.sh can pass it through for fleet-wide key repair.
@@ -271,15 +291,6 @@ func runInstall() (installErr error) {
 	}
 	fmt.Println()
 
-	// Detect non-interactive from stdin if not explicitly set
-	if !nonInteractive {
-		if fi, err := os.Stdin.Stat(); err == nil {
-			if fi.Mode()&os.ModeCharDevice == 0 {
-				nonInteractive = true
-			}
-		}
-	}
-
 	// Resolve project dir early — the upgrade-in-progress flag lives under it.
 	home, err := os.UserHomeDir()
 	if err != nil {
@@ -297,7 +308,7 @@ func runInstall() (installErr error) {
 	// state probing or filesystem writes. Repair and internal fixup preserve their
 	// already-installed configuration rather than re-importing questionnaire input.
 	if err := validateFreshInstallInput(installDir, bypass); err != nil {
-		return err
+		return &installPreflightRefusalError{err: err}
 	}
 
 	// STATBUS-298: surface a config-refusal marker if the last daemon start
@@ -1250,15 +1261,19 @@ func validateFreshInstallInput(dir string, bypass bool) error {
 	if bypass || checkConfigDone(dir) {
 		return nil
 	}
-	if nonInteractive || os.Getenv(installinput.EnvConfig) != "" {
-		answers, err := installinput.ReadAnswers(os.Getenv(installinput.EnvConfig), trustGitHubUser)
+	configPath := os.Getenv(installinput.EnvConfig)
+	if !nonInteractive && configPath == "" && !stdinIsTerminal() {
+		return stdinNotTerminalError{}
+	}
+	if nonInteractive || configPath != "" {
+		answers, err := installinput.ReadAnswers(configPath, trustGitHubUser)
 		if err != nil {
 			return err
 		}
 		trustGitHubUser = answers.Trust
 	}
-	if nonInteractive && trustGitHubUser == "" {
-		return installinput.MissingTrust()
+	if configPath != "" && trustGitHubUser == "" {
+		return installinput.MissingTrustInConfig(configPath)
 	}
 	if path := os.Getenv(installinput.UsersFile); path != "" {
 		if _, err := os.ReadFile(path); err != nil {
@@ -2518,6 +2533,7 @@ func runTrustSigners(dir string) error {
 
 	fmt.Println()
 	fmt.Println("  " + trustPrompt)
+	fmt.Println("  " + installinput.TrustExplanation)
 	fmt.Println("  StatBus recommends trusting the following release signer:")
 	fmt.Printf("    %s (Jorgen H. Fjeld) -- https://github.com/%s\n", defaultSigner, defaultSigner)
 

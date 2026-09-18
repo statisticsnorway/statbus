@@ -279,8 +279,9 @@ ssh $DEPLOYMENT_USER@$HOST bash <<CLONE_STATBUS
     # (and the SSH clone it served) is gone, not just moved.
     if [ ! -d ~/statbus ]; then
         echo "Cloning StatBus repository at $VERSION..."
-        git clone --depth 1 --branch "$VERSION" https://github.com/statisticsnorway/statbus.git ~/statbus
-        git -C ~/statbus checkout -B current "$VERSION"
+        git clone --depth 1 --no-checkout https://github.com/statisticsnorway/statbus.git ~/statbus
+        git -C ~/statbus fetch --depth 1 origin "refs/tags/${VERSION}:refs/tags/${VERSION}"
+        git -C ~/statbus -c advice.detachedHead=false checkout --detach "${VERSION}^{commit}"
         echo "Repository cloned successfully"
     else
         echo "StatBus repository already exists"
@@ -290,7 +291,7 @@ ssh $DEPLOYMENT_USER@$HOST bash <<CLONE_STATBUS
             exit 1
         fi
         git fetch --tags --quiet
-        git checkout -B current "$VERSION"
+        git -c advice.detachedHead=false checkout --detach "${VERSION}^{commit}"
         echo "Checked out \$(git rev-parse --short HEAD) ($VERSION)"
     fi
 CLONE_STATBUS

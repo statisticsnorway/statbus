@@ -170,6 +170,11 @@ ssh statbus@<your-host>
 curl -fsSL https://statbus.org/install.sh | bash
 ```
 
+This is an interactive install. Although `curl` initially supplies the script on
+standard input, the installer reconnects standard input to the controlling
+terminal before asking its questions. If no terminal is available, it refuses
+before making installation changes and points to the unattended form below.
+
 #### Unattended install
 
 As the service account, create a file with **these deployment answers and explicit trust choice**, the same
@@ -189,7 +194,7 @@ TRUST_GITHUB_USER=jhf
 | `SITE_DOMAIN` | Domain name |
 | `DEPLOYMENT_SLOT_NAME` | Display name |
 | `DEPLOYMENT_SLOT_CODE` | Deployment code (short, lowercase) |
-| `TRUST_GITHUB_USER` | Release signer to trust (GitHub username) |
+| `TRUST_GITHUB_USER` | Release signer to trust (GitHub username). Releases are signed; this names the GitHub user whose published signing key the installer verifies release tags against; jhf is the SSB release signer. |
 
 Keep this input outside `~/statbus`, which the installer clones itself. Protect
 it with mode `0600` and explicitly export its path before running the installer:
@@ -218,8 +223,10 @@ recommended signer, environment variables and rerun instruction.
 
 `TRUST_GITHUB_USER=jhf` is explicit consent to trust the recommended signer
 (Jorgen H. Fjeld, https://github.com/jhf), not an automatic consequence of
-non-interactive mode. The installer fetches and persists the actual signing key
-through the existing trust step, never copies this input username into runtime
+non-interactive mode. Releases are signed; this names the GitHub user whose
+published signing key the installer verifies release tags against; jhf is the SSB
+release signer. The installer fetches and persists the actual signing key through
+the existing trust step, never copies this input username into runtime
 `.env.config`. Interactive installation asks at that step and displays key
 fingerprints. The legacy `--trust-github-user` flag may supply the answer instead;
 if both file and flag provide it, they must agree. No separate trust environment

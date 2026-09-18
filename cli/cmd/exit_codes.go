@@ -13,6 +13,7 @@ const (
 	exitUsage            = 64 // EX_USAGE, sysexits.h
 	exitBinaryUnusable   = 69 // EX_UNAVAILABLE, sysexits.h
 	exitSeedIncompatible = 22 // cached seed is incompatible; caller may discard it and replay migrations
+	exitInstallPreflight = 78 // EX_CONFIG; install refused before taking the mutex or mutating state
 )
 
 // ExitBinaryUnusable and ExitUsage are exported READ-ONLY so cmd/release's
@@ -76,6 +77,10 @@ func prepareCobraExitContract(command *cobra.Command) {
 // that own a more specific os.Exit contract. An unwrapped Cobra error is a
 // command-line refusal and therefore EX_USAGE (64).
 func ExitCode(err error) int {
+	var preflightErr *installPreflightRefusalError
+	if errors.As(err, &preflightErr) {
+		return exitInstallPreflight
+	}
 	var seedErr *seedCacheIncompatibleError
 	if errors.As(err, &seedErr) {
 		return exitSeedIncompatible

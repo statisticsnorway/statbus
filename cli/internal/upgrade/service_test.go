@@ -89,11 +89,10 @@ func TestServiceGo_BranchNamesNamespaceFree(t *testing.T) {
 	}
 }
 
-// TestInstallShBranchNamesNamespaceFree mirrors the above for install.sh:
-// the three checkout sites must use `current` (not `statbus/current`)
-// while the legacy-cleanup `git branch -D statbus/current` lines are
-// retained for migrating pre-rc.66 hosts.
-func TestInstallShBranchNamesNamespaceFree(t *testing.T) {
+// TestInstallShChecksOutFixedCommitsDetached mirrors the release contract for
+// install.sh: tags name fixed commits, so no local tracking branch is created.
+// `pre-upgrade` remains a real rollback marker owned by the upgrade service.
+func TestInstallShChecksOutFixedCommitsDetached(t *testing.T) {
 	src, err := os.ReadFile(thisRepoFile(t, "install.sh"))
 	if err != nil {
 		t.Fatalf("read install.sh: %v", err)
@@ -107,9 +106,9 @@ func TestInstallShBranchNamesNamespaceFree(t *testing.T) {
 	// commit path that replaced it is asserted here in its place, so the count
 	// still matches the number of real paths rather than silently shrinking.
 	wantCheckouts := []string{
-		`git checkout -B current "$COMMIT_SHA"`,
-		`git checkout -B current "$VERSION"`,
-		`git -C "$STATBUS_DIR" checkout -B current "$VERSION"`,
+		`git -c advice.detachedHead=false checkout --detach "${COMMIT_SHA}^{commit}"`,
+		`git -c advice.detachedHead=false checkout --detach "${VERSION}^{commit}"`,
+		`git -C "$STATBUS_DIR" -c advice.detachedHead=false checkout --detach "${VERSION}^{commit}"`,
 	}
 	for _, want := range wantCheckouts {
 		if !strings.Contains(body, want) {
@@ -117,14 +116,12 @@ func TestInstallShBranchNamesNamespaceFree(t *testing.T) {
 		}
 	}
 
-	// Both legacy-cleanup lines must be present (idempotent removal of
-	// pre-rc.66 statbus/* branches on existing hosts).
-	for _, want := range []string{
-		`git branch -D statbus/current 2>/dev/null || true`,
-		`git branch -D statbus/pre-upgrade 2>/dev/null || true`,
-	} {
-		if !strings.Contains(body, want) {
-			t.Errorf("install.sh missing legacy-branch cleanup %q (Item M)", want)
+	if !strings.Contains(body, `git branch -D statbus/pre-upgrade 2>/dev/null || true`) {
+		t.Error("install.sh must retain legacy pre-upgrade rollback-branch cleanup")
+	}
+	for _, banned := range []string{"checkout -B current", "branch -D statbus/current"} {
+		if strings.Contains(body, banned) {
+			t.Errorf("install.sh still maintains retired current branch: %q", banned)
 		}
 	}
 

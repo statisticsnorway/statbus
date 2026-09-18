@@ -612,9 +612,8 @@ elif [ -n "$COMMIT_SHA" ]; then
         echo "  --commit checks out an exact origin commit; push it to origin first, then retry." >&2
         exit 1
     fi
-    git checkout -B current "$COMMIT_SHA"
-    # Drop the legacy statbus/ namespace from local-only state branches (mirrors edge).
-    git branch -D statbus/current 2>/dev/null || true
+    git -c advice.detachedHead=false checkout --detach "${COMMIT_SHA}^{commit}"
+    # Drop the legacy statbus/ namespace from the rollback state branch (mirrors edge).
     git branch -D statbus/pre-upgrade 2>/dev/null || true
     # VERSION = bare commit_short (8-char), the rc.63 convention shared with edge.
     VERSION="$(git rev-parse --short=8 HEAD)"
@@ -660,31 +659,33 @@ if [ -z "${SKIP_BINARY_DOWNLOAD:-}" ]; then
         # failures hid rune's rc.59 / rc.60 root causes — let fetch and
         # checkout print their own errors.
         statbus_git_fetch origin --tags
-        # Use a named local branch (`current`) so HEAD is never
-        # detached on a tag. Parallels `pre-upgrade` — see
-        # doc/upgrade-timeline.md#flag-file-mutex-install--service. -B resets the branch on each install,
-        # so this is idempotent across re-runs.
-        git checkout -B current "$VERSION"
-        # Item M (plan-rc.66): drop the legacy statbus/ namespace from
-        # local-only state branches. Idempotent — swallows the "branch
-        # not found" error on hosts that never had the legacy names.
-        git branch -D statbus/current 2>/dev/null || true
+        # An installation is fixed at a commit; the tag names that commit and
+        # `git describe --exact-match HEAD` reads the tag back. A detached HEAD
+        # is therefore the correct release state, not a branch to track.
+        git -c advice.detachedHead=false checkout --detach "${VERSION}^{commit}"
+        # Item M (plan-rc.66): drop the legacy statbus/ namespace from the
+        # rollback state branch. Idempotent — swallows the "branch not found"
+        # error on hosts that never had the legacy name.
         git branch -D statbus/pre-upgrade 2>/dev/null || true
     else
         # FRESH: git clone creates the directory
         echo "Cloning StatBus repository..."
-        statbus_git_clone "$STATBUS_DIR" --depth 1 --branch "$VERSION" \
+        # `git clone --branch <annotated-tag>` itself prints a false
+        # "refs/tags/... is not a commit" warning plus detached-HEAD advice.
+        # Clone without checkout, fetch the named tag explicitly, then detach at
+        # its peeled commit below. The release remains shallow and fixed.
+        statbus_git_clone "$STATBUS_DIR" --depth 1 --no-checkout \
             https://github.com/statisticsnorway/statbus.git "$STATBUS_DIR"
+        statbus_git_with_retry fetch github-fetch-bootstrap \
+            git -C "$STATBUS_DIR" fetch --depth 1 origin \
+            "refs/tags/${VERSION}:refs/tags/${VERSION}"
         # STATBUS-325: the second `set-branches --add` stood here and is GONE for
-        # the same reason as the first. This path's `clone --depth 1 --branch
-        # <tag>` implies --single-branch, so the box is born with ONLY a tag pin
-        # and no wildcard at all — which is why appending one branch was never
-        # enough. `./sb install` now rewrites remote.origin.fetch to canonical,
-        # supplying the wildcard and the seed branch together.
+        # the same reason as the first. This shallow, no-checkout clone is
+        # bootstrap-only; `./sb install` rewrites remote.origin.fetch to
+        # canonical, supplying the wildcard and the seed branch together.
         #
-        # `clone --branch <tag>` leaves HEAD detached on the tag commit;
-        # promote to the same `current` branch the rescue path uses.
-        git -C "$STATBUS_DIR" checkout -B current "$VERSION"
+        # Keep the release at its fixed tag commit without detached-HEAD advice.
+        git -C "$STATBUS_DIR" -c advice.detachedHead=false checkout --detach "${VERSION}^{commit}"
         mv "${HOME}/sb.tmp" "${STATBUS_DIR}/sb"
         cd "$STATBUS_DIR"
         echo "Binary: $(./sb --version)"
@@ -702,11 +703,26 @@ rm -f "$STATBUS_DIR/tmp/install-terminal.txt" 2>/dev/null || true
 # flag-ownership contract explicitly warns about. One holder at a time.
 statbus_repo_lock_release
 
-# Run the Go-side installer. Do NOT `exec` — we need to handle non-zero
+# `curl | bash` uses stdin to carry this script, but the documented quick install
+# is interactive. Reconnect the Go installer's stdin to the caller's controlling
+# terminal when /dev/tty is actually openable. The `exec` runs in a subshell so
+# this parent shell keeps reading the rest of its source from the curl pipe. In
+# true unattended execution there is no controlling terminal, so leave stdin
+# unchanged and let ./sb install print its precise pipe/unattended remedy.
+tty_available=false
+if (: </dev/tty) 2>/dev/null; then
+    tty_available=true
+fi
+
+# Run the Go-side installer. Do NOT replace this parent shell — we need to handle non-zero
 # exits and write a named-invariant banner + support bundle so operators
 # have something actionable when they come back to "what happened".
 set +e
-./sb install "${SB_INSTALL_ARGS[@]}"
+if [ "$tty_available" = true ]; then
+    (exec </dev/tty; ./sb install ${SB_INSTALL_ARGS[@]+"${SB_INSTALL_ARGS[@]}"})
+else
+    ./sb install ${SB_INSTALL_ARGS[@]+"${SB_INSTALL_ARGS[@]}"}
+fi
 sb_rc=$?
 set -e
 # Sentinel: we reached here, so every bash-level step above succeeded.
@@ -724,6 +740,14 @@ statbus_repo_lock_release
 
 if [ "$sb_rc" -eq 0 ]; then
     exit 0
+fi
+
+# Exit 78 (sysexits EX_CONFIG): ./sb refused during read-only preflight, before
+# taking the install mutex or mutating the installation. Its stderr already
+# contains the exact remedy. This is not an invariant breach, so do not claim
+# the system is unusable and do not generate a support bundle.
+if [ "$sb_rc" -eq 78 ]; then
+    exit "$sb_rc"
 fi
 
 # Exit 75 (sysexits EX_TEMPFAIL): the upgrade attempt failed BUT rollback

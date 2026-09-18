@@ -26,8 +26,11 @@ func TestPromptsAndRequiredKeysAreSameSet(t *testing.T) {
 			if label != f.prompt || fallback != f.fallback {
 				t.Fatal("trust question drift")
 			}
-			err := MissingTrust()
+			err := MissingTrustInConfig("/tmp/install-input.env")
 			if !strings.Contains(err.Error(), f.key) || !strings.Contains(err.Error(), f.prompt) {
+				t.Fatal(err)
+			}
+			if strings.Contains(err.Error(), "--trust-github-user") || !strings.Contains(err.Error(), TrustExplanation) {
 				t.Fatal(err)
 			}
 			continue
@@ -70,6 +73,9 @@ func TestExplicitInputRefusals(t *testing.T) {
 	if err == nil || err.Error() != Requirement() {
 		t.Fatalf("missing env: %v", err)
 	}
+	if !strings.Contains(err.Error(), TrustExplanation) {
+		t.Errorf("missing signer trust explanation: %v", err)
+	}
 	for _, f := range fields {
 		if !strings.Contains(err.Error(), f.key+"="+f.fallback+"  # "+f.prompt) {
 			t.Errorf("missing help for %s", f.key)
@@ -111,8 +117,13 @@ func TestDeploymentDocumentationUsesExactQuestionnaire(t *testing.T) {
 	}
 	for _, f := range fields {
 		if !strings.Contains(section[1], "| `"+f.key+"` | "+f.prompt+" |") {
-			t.Errorf("missing documented prompt for %s", f.key)
+			if f.key != TrustKey || !strings.Contains(section[1], "| `"+f.key+"` | "+f.prompt+".") {
+				t.Errorf("missing documented prompt for %s", f.key)
+			}
 		}
+	}
+	if !strings.Contains(section[1], TrustExplanation) {
+		t.Error("deployment documentation is missing the signer trust explanation")
 	}
 }
 
@@ -138,7 +149,7 @@ func TestTrustAnswersAndConflicts(t *testing.T) {
 		t.Fatalf("conflict: %v", err)
 	}
 	help := Requirement()
-	for _, text := range []string{"TRUST_GITHUB_USER=jhf", "https://github.com/jhf", "STATBUS_INSTALL_VERSION", "STATBUS_USERS_FILE", "--non-interactive", "never approves"} {
+	for _, text := range []string{"TRUST_GITHUB_USER=jhf", "https://github.com/jhf", "STATBUS_INSTALL_VERSION", "STATBUS_USERS_FILE", "--trust-github-user <github-user>", "re-run the same install command", "never approves"} {
 		if !strings.Contains(help, text) {
 			t.Errorf("help missing %s", text)
 		}
