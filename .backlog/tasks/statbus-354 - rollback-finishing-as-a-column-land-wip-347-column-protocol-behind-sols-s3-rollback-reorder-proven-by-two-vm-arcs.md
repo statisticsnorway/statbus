@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-09-04 10:26'
-updated_date: '2026-09-16 22:34'
+updated_date: '2026-09-18 17:18'
 labels:
   - upgrade
   - fail-fast
@@ -218,3 +218,25 @@ schema-floor progress message instead of internal CLI argv, accepts the
 rollback contract's EX_TEMPFAIL 75 control exit, then continues through every
 post-retry durable-state assertion. Offline family tests execute both predicates
 and negative controls. A new named candidate must still prove both paid arcs.
+
+## rc.18 schema-floor scenarios preempted by source Compose defect (2026-09-18 17:18 UTC)
+
+Upgrade Arc run `35339336045` finished 3 pass / 34 fail. Both mandatory
+schema-floor scenarios were product-red, but neither reached this ticket's
+schema-floor acceptance assertions. They were preempted by the common
+source-era Compose-model defect: config was rendered without profile `all`, so
+profile-gated `app` was absent (`source serving era cannot be established:
+restored source compose config has no image for app`).
+
+- adoption job `105582874535` reached `failed`, not `rolled_back`, after the
+  deterministic migration failure, auto-restore, and `ROLLBACK INCOMPLETE` when
+  source services could not be re-established.
+- failure job `105582874612` failed before retaining the required `in_progress`
+  hold because immutable source image identities could not be recorded from the
+  incomplete Compose model.
+
+Product fix `a96751064` renders the full profile; parser follow-up `f03f5c0e7`
+keeps Compose diagnostics out of JSON decoding. Both are published. Go
+`35372247298`, app `35372247523`, and Images `35372247917` are green at
+`f03f5c0e7`; Fast `35372597136` and pg_regress `35372597129` are running. Both
+paid schema-floor acceptance scenarios remain pending a new named candidate.

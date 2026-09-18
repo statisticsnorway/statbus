@@ -7,7 +7,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-09-14 12:36'
-updated_date: '2026-09-17 11:16'
+updated_date: '2026-09-18 17:18'
 labels:
   - release
   - install
@@ -1037,3 +1037,18 @@ Upgrade Arc run `35339336045` reached scenarios. Current scenario tally is 1
 pass, 18 fail, 3 running, and 13 queued. Both mandatory schema-floor scenarios
 remain queued. The run is nonterminal, so failure signatures and product / harness
 / infrastructure classifications are pending; no triage commit is identified.
+
+## rc.18 Upgrade Arc terminal classification (2026-09-18 17:18 UTC)
+
+Upgrade Arc run `35339336045` finished 3 pass / 34 fail. The 34 reds shared one
+product defect before their scenario-specific assertions: source-era recovery
+rendered `docker compose config` without profile `all`, so the profile-gated
+`app` service was absent. Exact signature: `source serving era cannot be
+established: restored source compose config has no image for app`.
+
+Fix `a96751064` renders the full source Compose model. It exposed a separate
+test-path parser defect because Compose diagnostics were mixed with JSON;
+follow-up `f03f5c0e7` parses JSON from stdout. Both fixes are published. At
+`f03f5c0e7`, Go `35372247298`, app `35372247523`, and Images `35372247917` are
+green; Fast `35372597136` and pg_regress `35372597129` are running. A new named
+candidate must rerun the paid Arc; rc.18 does not prove the install path.
