@@ -1007,3 +1007,18 @@ release and no Release/Recovery/Upgrade Arc workflow dispatched. Treat rc.18 as
 `35273557287`; backlog head `88e79c7e5` is also green in Fast Tests
 `35273609238` and pg_regress `35273609256`. A real named candidate and ladder
 remain pending.
+
+## rc.18 genuinely published and Recovery running (2026-09-18 11:13 UTC)
+
+rc.18 is now genuinely published at `7244856d5`: the remote annotated tag peels
+to that commit, and GitHub release `v2026.09.1-rc.18` was created at 09:56:28
+UTC and published at 09:58:28 UTC. Exact-candidate Go `35330158687`, app
+`35330158638`, Images `35330158736`, Fast Tests `35330604025`, pg_regress
+`35330604012`, Release `35332140555`, Hardening `35332140588`, and Smoke
+`35332261226` are green.
+
+Orchestrator `35332140554` passed the smoke and automatic-canary stages. Dev
+installed the requested candidate in run `35333670487`. Install Recovery run
+`35335447008` reached scenarios: 10/13 scenario jobs are green and 3 are still
+running, with no red. Upgrade Arc has not yet dispatched; schema-floor outcomes
+remain pending.
