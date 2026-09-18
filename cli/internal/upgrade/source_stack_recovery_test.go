@@ -80,7 +80,7 @@ func TestStartSourceApplicationStackStartsOnlyVerifiedSourceEraContainers(t *tes
 printf '%s\n' "$*" >> "$STATBUS_TEST_DOCKER_LOG"
 case "$*" in
 	` + sourceStackImageInspectCases + `
-	"compose config --format json")
+	"compose --profile all config --format json")
 		printf '%s\n' '{"services":{"app":{"image":"ghcr.io/statisticsnorway/statbus-app:'"$STATBUS_TEST_SOURCE_TAG"'"},"worker":{"image":"ghcr.io/statisticsnorway/statbus-worker:'"$STATBUS_TEST_SOURCE_TAG"'"},"rest":{"image":"postgrest/postgrest:v12.2.8"},"proxy":{"image":"ghcr.io/statisticsnorway/statbus-proxy:'"$STATBUS_TEST_SOURCE_TAG"'"}}}'
 		;;
 	  "compose ps -a --format json")
@@ -157,7 +157,7 @@ func TestCaptureSourceServingImageIdentitiesPersistsBeforeTargetPull(t *testing.
 	shim := `#!/bin/sh
 case "$*" in
 	"image inspect "*) exit 88 ;;
-	"compose config --format json")
+	"compose --profile all config --format json")
 		printf '%s\n' '{"services":{"app":{"image":"ghcr.io/statisticsnorway/statbus-app:'"$STATBUS_TEST_SOURCE_TAG"'"},"worker":{"image":"ghcr.io/statisticsnorway/statbus-worker:'"$STATBUS_TEST_SOURCE_TAG"'"},"rest":{"image":"postgrest/postgrest:v12.2.8"},"proxy":{"image":"ghcr.io/statisticsnorway/statbus-proxy:'"$STATBUS_TEST_SOURCE_TAG"'"}}}'
 		;;
 	"compose ps -a --format json")
@@ -218,7 +218,7 @@ func TestStartSourceApplicationStackRecreatesDerivedTargetEraFromSourceTemplate(
 printf '%s\n' "$*" >> "$STATBUS_TEST_DOCKER_LOG"
 case "$*" in
 	` + sourceStackImageInspectCases + `
-	"compose config --format json")
+	"compose --profile all config --format json")
 		printf '%s\n' '{"services":{"app":{"image":"ghcr.io/statisticsnorway/statbus-app:'"$STATBUS_TEST_SOURCE_TAG"'"},"worker":{"image":"ghcr.io/statisticsnorway/statbus-worker:'"$STATBUS_TEST_SOURCE_TAG"'"},"rest":{"image":"postgrest/postgrest:v12.2.8"},"proxy":{"image":"ghcr.io/statisticsnorway/statbus-proxy:'"$STATBUS_TEST_SOURCE_TAG"'"}}}'
 		;;
   "compose ps -a --format json")
@@ -277,7 +277,7 @@ func TestStartSourceApplicationStackRefusesMissingContainerAsUnknownEra(t *testi
 printf '%s\n' "$*" >> "$STATBUS_TEST_DOCKER_LOG"
 case "$*" in
 	` + sourceStackImageInspectCases + `
-	"compose config --format json")
+	"compose --profile all config --format json")
 		printf '%s\n' '{"services":{"app":{"image":"ghcr.io/statisticsnorway/statbus-app:'"$STATBUS_TEST_SOURCE_TAG"'"},"worker":{"image":"ghcr.io/statisticsnorway/statbus-worker:'"$STATBUS_TEST_SOURCE_TAG"'"},"rest":{"image":"postgrest/postgrest:v12.2.8"},"proxy":{"image":"ghcr.io/statisticsnorway/statbus-proxy:'"$STATBUS_TEST_SOURCE_TAG"'"}}}'
 		;;
 	"compose ps -a --format json")
@@ -322,7 +322,7 @@ func TestStartSourceApplicationStackRefusesWhenSourceEraCannotBeEstablished(t *t
 printf '%s\n' "$*" >> "$STATBUS_TEST_DOCKER_LOG"
 case "$*" in
 	` + sourceStackImageInspectCases + `
-	"compose config --format json") printf '%s\n' '{"services":{"app":{"image":"ghcr.io/statisticsnorway/statbus-app:wrong"}}}' ;;
+	"compose --profile all config --format json") printf '%s\n' '{"services":{"app":{"image":"ghcr.io/statisticsnorway/statbus-app:wrong"}}}' ;;
 esac
 exit 0
 `
@@ -361,7 +361,7 @@ func TestStartSourceApplicationStackRefusesWhenRecreateDoesNotConverge(t *testin
 printf '%s\n' "$*" >> "$STATBUS_TEST_DOCKER_LOG"
 case "$*" in
 	` + sourceStackImageInspectCases + `
-	"compose config --format json")
+	"compose --profile all config --format json")
 		printf '%s\n' '{"services":{"app":{"image":"ghcr.io/statisticsnorway/statbus-app:'"$STATBUS_TEST_SOURCE_TAG"'"},"worker":{"image":"ghcr.io/statisticsnorway/statbus-worker:'"$STATBUS_TEST_SOURCE_TAG"'"},"rest":{"image":"postgrest/postgrest:v12.2.8"},"proxy":{"image":"ghcr.io/statisticsnorway/statbus-proxy:'"$STATBUS_TEST_SOURCE_TAG"'"}}}'
 		;;
 		"compose ps -a --format json")
@@ -418,7 +418,7 @@ func TestStartSourceApplicationStackContainsPartialRecreateFailure(t *testing.T)
 printf '%s\n' "$*" >> "$STATBUS_TEST_DOCKER_LOG"
 case "$*" in
 	` + sourceStackImageInspectCases + `
-	"compose config --format json")
+	"compose --profile all config --format json")
 		printf '%s\n' '{"services":{"app":{"image":"ghcr.io/statisticsnorway/statbus-app:'"$STATBUS_TEST_SOURCE_TAG"'"},"worker":{"image":"ghcr.io/statisticsnorway/statbus-worker:'"$STATBUS_TEST_SOURCE_TAG"'"},"rest":{"image":"postgrest/postgrest:v12.2.8"},"proxy":{"image":"ghcr.io/statisticsnorway/statbus-proxy:'"$STATBUS_TEST_SOURCE_TAG"'"}}}'
 		;;
 	"compose ps -a --format json")

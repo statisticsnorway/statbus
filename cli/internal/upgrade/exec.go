@@ -78,6 +78,10 @@ func commandContext(ctx context.Context, dir, name string, args ...string) (*exe
 	return cmd, nil
 }
 
+// All StatBus services are profile-gated. Any Compose command that must see the
+// complete service model must select this profile explicitly.
+const fullServiceComposeProfile = "all"
+
 // runCommand executes a command with inherited stdout/stderr and a default 5-minute timeout.
 func runCommand(dir string, name string, args ...string) error {
 	return runCommandWithTimeout(dir, 5*time.Minute, name, args...)
@@ -375,7 +379,7 @@ func explainGitFailure(name, out string, err error) error {
 func (d *Service) pullImagesForCommitShort(commitShort string) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
 	defer cancel()
-	cmd, buildErr := commandContext(ctx, d.projDir, "docker", "compose", "--profile", "all", "pull", "--quiet")
+	cmd, buildErr := commandContext(ctx, d.projDir, "docker", "compose", "--profile", fullServiceComposeProfile, "pull", "--quiet")
 	if buildErr != nil {
 		return buildErr
 	}

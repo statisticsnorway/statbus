@@ -2,13 +2,17 @@ package upgrade
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"maps"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/statisticsnorway/statbus/cli/internal/compose"
 )
@@ -223,7 +227,7 @@ func TestSourceServingExpectedImageReferencesHandlesDigestAndLocal(t *testing.T)
 		t.Run(tc.name, func(t *testing.T) {
 			shimDir := t.TempDir()
 			config := fmt.Sprintf(`{"services":{"app":{"image":%q},"worker":{"image":%q},"rest":{"image":"postgrest/postgrest:v12.2.8"},"proxy":{"image":%q}}}`, tc.appRef, tc.workerRef, tc.proxyRef)
-			shim := "#!/bin/sh\ncase \"$*\" in\n  \"compose config --format json\") printf '%s\\n' '" + config + "' ;;\nesac\n"
+			shim := "#!/bin/sh\ncase \"$*\" in\n  \"compose --profile all config --format json\") printf '%s\\n' '" + config + "' ;;\nesac\n"
 			if err := os.WriteFile(filepath.Join(shimDir, "docker"), []byte(shim), 0o755); err != nil {
 				t.Fatal(err)
 			}
@@ -243,6 +247,130 @@ func TestSourceServingExpectedImageReferencesHandlesDigestAndLocal(t *testing.T)
 				t.Fatalf("references = %#v, want app=%q worker=%q proxy=%q", references, tc.appRef, tc.workerRef, tc.proxyRef)
 			}
 		})
+	}
+}
+
+func TestSourceServingExpectedImageReferencesRendersActualRepoComposeModel(t *testing.T) {
+	if _, err := exec.LookPath("docker"); err != nil {
+		t.Skip("docker CLI not available")
+	}
+	repoRoot := filepath.Dir(thisRepoFile(t, "docker-compose.yml"))
+	for key, value := range map[string]string{
+		"ACCESS_JWT_EXPIRY":               "3600",
+		"APP_BIND_ADDRESS":                "127.0.0.1:3912",
+		"CADDY_DB_BIND_ADDRESS":           "127.0.0.1",
+		"CADDY_DB_PORT":                   "3914",
+		"CADDY_DB_TLS_BIND_ADDRESS":       "127.0.0.1",
+		"CADDY_DB_TLS_PORT":               "3915",
+		"CADDY_DEPLOYMENT_MODE":           "development",
+		"CADDY_HTTP_BIND_ADDRESS":         "127.0.0.1:3910",
+		"CADDY_HTTPS_BIND_ADDRESS":        "127.0.0.1:3911",
+		"COMMIT_SHORT":                    "local",
+		"COMPOSE_FILE":                    "docker-compose.yml",
+		"COMPOSE_INSTANCE_NAME":           "statbus-compose-profile-test",
+		"COMPOSE_PROFILES":                "",
+		"DEBUG":                           "0",
+		"DEPLOYMENT_SLOT_CODE":            "test",
+		"DEPLOYMENT_SLOT_NAME":            "Compose profile test",
+		"JWT_SECRET":                      "test-jwt-secret",
+		"POSTGRES_ADMIN_PASSWORD":         "test-admin-password",
+		"POSTGRES_APP_PASSWORD":           "test-app-password",
+		"POSTGRES_AUTHENTICATOR_PASSWORD": "test-authenticator-password",
+		"POSTGRES_NOTIFY_PASSWORD":        "test-notify-password",
+		"POSTGRES_NOTIFY_USER":            "test-notify",
+		"PUBLIC_DEBUG":                    "0",
+		"REFRESH_JWT_EXPIRY":              "2592000",
+		"REST_ADMIN_BIND_ADDRESS":         "127.0.0.1:3916",
+		"REST_BIND_ADDRESS":               "127.0.0.1:3913",
+		"SEQ_API_KEY":                     "test-seq-key",
+		"SITE_URL":                        "http://test.invalid",
+	} {
+		t.Setenv(key, value)
+	}
+
+	// The older source-era tests use synthetic fixtures whose services are not
+	// profile-gated. That is why ten review rounds missed the production model:
+	// this test deliberately renders the actual root Compose files through the
+	// source-image derivation path used immediately before an upgrade pull.
+	d := &Service{projDir: repoRoot}
+	references, _, err := d.sourceServingExpectedImageReferences(context.Background())
+	if err != nil {
+		t.Fatalf("sourceServingExpectedImageReferences(actual repo): %v", err)
+	}
+	for _, service := range []string{"app", "worker", "rest", "proxy"} {
+		if strings.TrimSpace(references[service]) == "" {
+			t.Errorf("actual repo Compose render has no image for %s: %#v", service, references)
+		}
+	}
+
+	cmd, err := commandContext(context.Background(), repoRoot, "docker", "compose", "--profile", fullServiceComposeProfile, "config", "--format", "json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	out, err := cmd.Output()
+	if err != nil {
+		t.Fatalf("render actual repo Compose model: %v", err)
+	}
+	var rendered sourceComposeConfig
+	if err := json.Unmarshal(out, &rendered); err != nil {
+		t.Fatalf("parse actual repo Compose model: %v", err)
+	}
+	for _, service := range []string{"app", "worker", "rest", "proxy", "db"} {
+		if _, ok := rendered.Services[service]; !ok {
+			t.Errorf("actual repo full Compose model is missing %s", service)
+		}
+	}
+}
+
+func TestComposePsListsExistingProfiledContainersWithoutProfileSelection(t *testing.T) {
+	if _, err := exec.LookPath("docker"); err != nil || exec.Command("docker", "info").Run() != nil {
+		t.Skip("docker daemon not available")
+	}
+
+	dir := t.TempDir()
+	project := fmt.Sprintf("statbus-compose-ps-profile-%d", time.Now().UnixNano())
+	image := project + ":local"
+	composePath := filepath.Join(dir, "compose.yaml")
+	if err := os.WriteFile(filepath.Join(dir, "Dockerfile"), []byte("FROM scratch\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	composeYAML := fmt.Sprintf("name: %s\nservices:\n  app:\n    image: %s\n    command: [\"/not-present\"]\n    profiles: [all]\n", project, image)
+	if err := os.WriteFile(composePath, []byte(composeYAML), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		_ = exec.Command("docker", "compose", "-f", composePath, "--profile", "all", "down", "--remove-orphans").Run()
+		_ = exec.Command("docker", "image", "rm", image).Run()
+	})
+	if out, err := exec.Command("docker", "build", "-q", "-t", image, dir).CombinedOutput(); err != nil {
+		t.Fatalf("build scratch image: %v\n%s", err, out)
+	}
+	if out, err := exec.Command("docker", "compose", "-f", composePath, "--profile", "all", "create", "app").CombinedOutput(); err != nil {
+		t.Fatalf("create profile-gated app container: %v\n%s", err, out)
+	}
+
+	psEntries := func(args ...string) []compose.PsEntry {
+		t.Helper()
+		out, err := exec.Command("docker", append([]string{"compose", "-f", composePath}, args...)...).Output()
+		if err != nil {
+			t.Fatalf("docker compose %v: %v", args, err)
+		}
+		entries, err := compose.ParsePsJSON(out)
+		if err != nil {
+			t.Fatalf("parse docker compose %v output: %v", args, err)
+		}
+		return entries
+	}
+	// Unlike config/pull, ps enumerates existing project containers independently
+	// of model profile selection. This executable check protects every audited bare
+	// compose ps call used for recovery state and immutable-identity inspection.
+	bare := psEntries("ps", "-a", "--format", "json")
+	profiled := psEntries("--profile", "all", "ps", "-a", "--format", "json")
+	if len(bare) != 1 || bare[0].Service != "app" {
+		t.Fatalf("bare compose ps did not see the existing profile-gated app container: %#v", bare)
+	}
+	if !reflect.DeepEqual(bare, profiled) {
+		t.Fatalf("compose ps visibility changed with profile selection:\nbare: %#v\nall:  %#v", bare, profiled)
 	}
 }
 

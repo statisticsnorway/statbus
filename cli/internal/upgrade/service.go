@@ -8145,7 +8145,7 @@ func (d *Service) sourceServingExpectedImageReferences(ctx context.Context) (map
 		return nil, "", &sourceServingEraUnknownError{Detail: fmt.Sprintf("restored source commit tag %q is not an eight-character git SHA", sourceTag)}
 	}
 
-	cmd, buildErr := commandContext(ctx, d.projDir, "docker", "compose", "config", "--format", "json")
+	cmd, buildErr := commandContext(ctx, d.projDir, "docker", "compose", "--profile", fullServiceComposeProfile, "config", "--format", "json")
 	if buildErr != nil {
 		return nil, "", &sourceServingEraUnknownError{Detail: fmt.Sprintf("construct restored source compose config command: %v", buildErr)}
 	}
@@ -8722,7 +8722,7 @@ func (d *Service) applyNewSbUpgrading(ctx context.Context, id int, commitSHA, di
 		return d.parkForDeterministicFailure(ctx, id, displayName, restoreTargetSHA, commitSHA, backupPath, nil, reason, progress)
 	}
 	pullStart := time.Now()
-	if stderrTail, err := runCommandToLogCapture(projDir, 5*time.Minute, progress.File(), "docker-compose", progress.bump, "docker", "compose", "--profile", "all", "pull"); err != nil {
+	if stderrTail, err := runCommandToLogCapture(projDir, 5*time.Minute, progress.File(), "docker-compose", progress.bump, "docker", "compose", "--profile", fullServiceComposeProfile, "pull"); err != nil {
 		// ENOSPC backstop: disk filled DURING the pull (past the pre-check) → C park.
 		if classifyDockerFailure(err, stderrTail) == classResource {
 			return d.parkForDeterministicFailure(ctx, id, displayName, restoreTargetSHA, commitSHA, backupPath, nil,
