@@ -1022,3 +1022,11 @@ installed the requested candidate in run `35333670487`. Install Recovery run
 `35335447008` reached scenarios: 10/13 scenario jobs are green and 3 are still
 running, with no red. Upgrade Arc has not yet dispatched; schema-floor outcomes
 remain pending.
+
+## rc.18 Recovery green; Upgrade Arc dispatched (2026-09-18 11:59 UTC)
+
+Install Recovery run `35335447008` completed 13/13 scenario jobs green. The
+orchestrator then dispatched Upgrade Arc run `35339336045`. Discovery reached
+fixture/image construction and its 11 source-image workflows are green; the Arc
+run is queued before scenario jobs. No Arc scenario tally or schema-floor result
+exists yet.
