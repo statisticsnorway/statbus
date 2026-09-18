@@ -26,7 +26,7 @@ func TestReapplyRollbackDaemonSchemaFloorUsesTargetBinaryAndOrdinaryLedger(t *te
 	body := extractFuncBody(t, source, "func (d *Service) reapplyRollbackDaemonSchemaFloor(")
 	for _, want := range []string{
 		"MigrateUpTimeout",
-		"filepath.Join(d.projDir, \"sb\")",
+		"\"./sb\"",
 		"\"migrate\", \"up\", \"--to\"",
 		"strconv.FormatInt(migrate.DaemonSchemaFloor, 10)",
 		"\"--verbose\"",

@@ -16,7 +16,7 @@ func TestRollbackSourceServicesStartAfterFloorWithTargetBinaryCanonical(t *testi
 		{"DB-only start", "d.startRollbackDatabaseOnly("},
 		{"floor migrate", "d.reapplyRollbackDaemonSchemaFloor("},
 		{"source checkout", "d.restoreGitState("},
-		{"source config", "filepath.Join(projDir, \"sb.old\")"},
+		{"source config", "\"./sb.old\""},
 		{"source services", "d.startSourceApplicationStack(ctx, progress)"},
 		{"pending write", "rollback_finish_pending_at = now()"},
 	}
@@ -35,7 +35,7 @@ func TestRollbackSourceServicesStartAfterFloorWithTargetBinaryCanonical(t *testi
 
 func TestRollbackConfigGenerationUsesSourceBinaryExplicitly(t *testing.T) {
 	body := extractFuncBody(t, readUpgradeServiceSource(t), "func (d *Service) restoreAndFinalize(")
-	if !strings.Contains(body, "filepath.Join(projDir, \"sb.old\"), \"config\", \"generate\"") {
+	if !strings.Contains(body, "\"./sb.old\", \"config\", \"generate\"") {
 		t.Fatal("rollback config generation must explicitly use source-era sb.old")
 	}
 	floor := strings.Index(body, "d.reapplyRollbackDaemonSchemaFloor(")

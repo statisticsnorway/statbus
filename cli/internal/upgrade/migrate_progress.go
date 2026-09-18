@@ -71,11 +71,11 @@ func envOverride(key, value string) []string {
 // runMigrateUpToLog is the ordinary streaming migrate subprocess plus one tiny
 // machine-readable datum. The marker is consumed before stdout reaches the O
 // stream, then returned to the parent for the single M-line summary.
-func runMigrateUpToLog(dir string, timeout time.Duration, logWriter io.Writer, onAdvance func(), name string, args ...string) (int, error) {
+func runMigrateUpToLog(dir string, timeout time.Duration, logWriter io.Writer, onAdvance func(), args ...string) (int, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 
-	cmd, buildErr := commandContext(ctx, dir, name, args...)
+	cmd, buildErr := commandContext(ctx, dir, "./sb", args...)
 	if buildErr != nil {
 		return 0, buildErr
 	}
@@ -106,7 +106,7 @@ func runMigrateUpToLog(dir string, timeout time.Duration, logWriter io.Writer, o
 	outW.Flush()
 	errW.Flush()
 	if ctx.Err() == context.DeadlineExceeded {
-		return 0, fmt.Errorf("%s %v after %s: %w", name, args, timeout, ErrCommandTimeout)
+		return 0, fmt.Errorf("./sb %v after %s: %w", args, timeout, ErrCommandTimeout)
 	}
 	if err != nil {
 		return 0, err

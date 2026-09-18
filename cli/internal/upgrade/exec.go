@@ -73,23 +73,7 @@ func commandContext(ctx context.Context, dir, name string, args ...string) (*exe
 	if name == "docker" {
 		return compose.DockerCommandContext(ctx, dir, args...)
 	}
-	var cmd *exec.Cmd
-	switch name {
-	case "git":
-		cmd = exec.CommandContext(ctx, "git", gitArgs(name, args)...)
-	case "rsync":
-		cmd = exec.CommandContext(ctx, "rsync", args...)
-	default:
-		base := filepath.Base(name)
-		switch base {
-		case "sb":
-			cmd = exec.CommandContext(ctx, "./sb", args...)
-		case "dev.sh":
-			cmd = exec.CommandContext(ctx, "./dev.sh", args...)
-		default:
-			return nil, fmt.Errorf("unsupported upgrade executable %q", name)
-		}
-	}
+	cmd := exec.CommandContext(ctx, name, gitArgs(name, args)...)
 	cmd.Dir = dir
 	return cmd, nil
 }

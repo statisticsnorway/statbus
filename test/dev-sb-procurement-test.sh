@@ -83,6 +83,10 @@ case "\$1 \$2" in
   *) exit 97 ;;
 esac
 EOF
+cat >"$fixture/bin/uname" <<'EOF'
+#!/usr/bin/env bash
+echo Linux
+EOF
 cat >"$fixture/bin/go" <<EOF
 #!/usr/bin/env bash
 set -euo pipefail
@@ -99,7 +103,7 @@ exit 0
 SB
 chmod +x "\$out"
 EOF
-chmod +x "$fixture/bin/docker" "$fixture/bin/go"
+chmod +x "$fixture/bin/docker" "$fixture/bin/uname" "$fixture/bin/go"
 (
     cd "$fixture/repo"
     PATH="$fixture/bin:/usr/bin:/bin" ./dev.sh test-install-recovery --print-selected >/dev/null
@@ -108,6 +112,22 @@ grep -q '^manifest inspect ghcr.io/statisticsnorway/statbus-sb:' "$fixture/docke
 test "$(wc -l <"$fixture/docker.log" | tr -d ' ')" -eq 1
 test -s "$fixture/go.log"
 echo "PASS: missing image was manifest-probed once and fell back without docker pull"
+
+cat >"$fixture/bin/uname" <<'EOF'
+#!/usr/bin/env bash
+echo Darwin
+EOF
+chmod -x "$fixture/repo/sb"
+: >"$fixture/docker.log"
+: >"$fixture/go.log"
+(
+    cd "$fixture/repo"
+    PATH="$fixture/bin:/usr/bin:/bin" ./dev.sh test-install-recovery --print-selected >/dev/null 2>"$fixture/darwin.stderr.log"
+)
+test ! -s "$fixture/docker.log"
+test -s "$fixture/go.log"
+grep -q 'Darwin host detected' "$fixture/darwin.stderr.log"
+echo "PASS: Darwin skipped Linux image procurement and built sb from source"
 
 # `postgres-variables` is consumed by eval throughout dev.sh. A successful sb
 # procurement must therefore leave stdout as shell code only; bootstrap status
@@ -150,7 +170,11 @@ SB
   *) exit 97 ;;
 esac
 EOF
-chmod +x "$fixture/bin/docker"
+cat >"$fixture/bin/uname" <<'EOF'
+#!/usr/bin/env bash
+echo Linux
+EOF
+chmod +x "$fixture/bin/docker" "$fixture/bin/uname"
 (
     cd "$fixture/repo"
     stdout=$(PATH="$fixture/bin:/usr/bin:/bin" ./dev.sh postgres-variables 2>"$fixture/stderr.log")

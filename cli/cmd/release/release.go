@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"regexp"
 	"sort"
@@ -40,18 +41,8 @@ Subcommands:
 // check)". prerelease passes false and then tags on success (see
 // releasePrereleaseCmd); check passes true and tags nothing.
 func preflightChecks(projDir string, checkOnly bool) bool {
-	allPassed := true
-
 	// 1. Git working tree is clean (excluding explain/performance baselines which drift per environment)
-	_, err1 := upgrade.RunCommandOutput(projDir, "git", "diff", "--quiet", "--", ":!test/expected/explain/", ":!test/expected/performance/")
-	_, err2 := upgrade.RunCommandOutput(projDir, "git", "diff", "--cached", "--quiet", "--", ":!test/expected/explain/", ":!test/expected/performance/")
-	if err1 != nil || err2 != nil {
-		fmt.Println("  ✗ Working tree is clean")
-		fmt.Println("    Fix: git stash or git commit")
-		allPassed = false
-	} else {
-		fmt.Println("  ✓ Working tree is clean")
-	}
+	allPassed := checkWorkingTreeClean(projDir)
 
 	// 2. On master branch
 	branchOut, err := upgrade.RunCommandOutput(projDir, "git", "symbolic-ref", "--short", "HEAD")
@@ -134,8 +125,7 @@ func preflightChecks(projDir string, checkOnly bool) bool {
 	}
 
 	// 5. Go CLI builds
-	cliDir := filepath.Join(projDir, "cli")
-	buildOut, err := upgrade.RunCommandOutput(cliDir, "go", "build", "-o", "/dev/null", "./...")
+	buildOut, err := runGoCLIBuild(projDir)
 	if err != nil {
 		fmt.Println("  ✗ Go CLI builds")
 		if trimmed := strings.TrimSpace(buildOut); trimmed != "" {
@@ -633,6 +623,36 @@ func preflightChecks(projDir string, checkOnly bool) bool {
 	}
 
 	return allPassed
+}
+
+func checkWorkingTreeClean(projDir string) bool {
+	statusOut, err := upgrade.RunCommandOutput(projDir, "git", "status", "--porcelain", "--untracked-files=all", "--", ".", ":(exclude)test/expected/explain/**", ":(exclude)test/expected/performance/**")
+	status := strings.TrimRight(statusOut, "\r\n")
+	if err != nil {
+		fmt.Println("  ✗ Working tree is clean (git status failed)")
+		if strings.TrimSpace(status) != "" {
+			fmt.Printf("    git output:\n      %s\n", strings.ReplaceAll(status, "\n", "\n      "))
+		}
+		fmt.Println("    Fix: verify the repository and retry")
+		return false
+	}
+	if strings.TrimSpace(status) != "" {
+		fmt.Println("  ✗ Working tree is clean")
+		fmt.Printf("    Dirty paths:\n      %s\n", strings.ReplaceAll(status, "\n", "\n      "))
+		fmt.Println("    Fix: git stash or git commit")
+		return false
+	}
+	fmt.Println("  ✓ Working tree is clean")
+	return true
+}
+
+// runGoCLIBuild invokes the host build tool directly. Release-time compilation
+// is a host-tool concern, not an upgrade or recovery launcher operation.
+func runGoCLIBuild(projDir string) (string, error) {
+	cmd := exec.Command("go", "build", "-o", os.DevNull, "./...")
+	cmd.Dir = filepath.Join(projDir, "cli")
+	out, err := cmd.CombinedOutput()
+	return string(out), err
 }
 
 func printFastSuiteWorkflowFailure(result release.WorkflowCheckResult, headShort, headFull string) {

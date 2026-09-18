@@ -26,7 +26,7 @@ func TestDaemonBootMigrateBoundedToFloor(t *testing.T) {
 	// (2) THE FLIP INVARIANT: the applyNewSbUpgrading migrate step stays apply-all (no
 	// --to) — it is the ONE site that applies the upgrade delta. If this ever
 	// gains --to, the delta would never apply and every upgrade would stall.
-	if !strings.Contains(body, `progress.bump, filepath.Join(projDir, "sb"), "migrate", "up", "--verbose")`) {
+	if !strings.Contains(body, `progress.bump, "migrate", "up", "--verbose")`) {
 		t.Error("the applyNewSbUpgrading migrate step must stay apply-all (`migrate up --verbose`, NO --to) — it is the single delta-application site (STATBUS-145)")
 	}
 	// (3) The flagless loud line names the deferred delta via HasPendingAbove.

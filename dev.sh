@@ -95,7 +95,8 @@ if [ "$sb_needs_rebuild" = true ]; then
     # to enumerate tests. This is the shell bootstrap equivalent of
     # cli/internal/sbimage. Any git-visible cli/ edit deliberately bypasses it:
     # only a source build can include bytes that are not in HEAD's image.
-    if [ "$sb_has_dirty_cli" = false ] && command -v docker >/dev/null 2>&1; then
+    _SB_HOST_OS=$(uname -s)
+    if [ "$sb_has_dirty_cli" = false ] && [ "$_SB_HOST_OS" != "Darwin" ] && command -v docker >/dev/null 2>&1; then
         _SB_SHORT=$(git rev-parse --short=8 HEAD 2>/dev/null || true)
         _SB_IMAGE="ghcr.io/statisticsnorway/statbus-sb:${_SB_SHORT}"
         _SB_IMAGE_LOG=$(mktemp)
@@ -132,6 +133,8 @@ if [ "$sb_needs_rebuild" = true ]; then
         rm -f "$_SB_IMAGE_LOG"
     elif [ "$sb_has_dirty_cli" = true ]; then
         echo "Uncommitted cli/ changes detected; building sb from source instead of procuring clean HEAD." >&2
+    elif [ "$_SB_HOST_OS" = "Darwin" ]; then
+        echo "Darwin host detected; building sb from source instead of extracting the Linux image binary." >&2
     fi
 
     if [ "$sb_procured" = false ] && command -v go >/dev/null 2>&1; then

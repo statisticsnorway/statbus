@@ -2796,7 +2796,6 @@ func (d *Service) Run(ctx context.Context) error {
 			return fmt.Errorf("recovery boot: git checkout target %s: %w (%s)", ShortForDisplay(flag.CommitSHA), err, strings.TrimSpace(out))
 		}
 	}
-	sbBin := filepath.Join(d.projDir, "sb")
 	// KEEP THE OUTPUT (STATBUS-297). This captured CombinedOutput and threw it
 	// away, so a failing config generate reached the journal as bare "exit
 	// status 1" — while the git-checkout call four lines above appends its
@@ -2805,7 +2804,7 @@ func (d *Service) Run(ctx context.Context) error {
 	// fingerprint that carried no cause, because the one byte that named it was
 	// discarded HERE. config generate refuses with a precise, actionable
 	// message; this is the line that decided nobody would read it.
-	if out, err := runCommandOutput(d.projDir, sbBin, "config", "generate"); err != nil {
+	if out, err := runCommandOutput(d.projDir, "./sb", "config", "generate"); err != nil {
 		// STATBUS-298: a principled refusal (config.ErrPrincipledRefusal,
 		// selected as exit 78/EX_CONFIG by configGenerateCmd.RunE in
 		// cli/cmd/config.go — the sentinel cannot cross this subprocess
@@ -3045,7 +3044,7 @@ func (d *Service) Run(ctx context.Context) error {
 		// no migration runs blindly at boot. On the normal single-release upgrade the
 		// floor migrations shipped earlier and are already applied → this is a no-op.
 		bootMigrateTail, bootMigrateErr := runCommandToLogCapture(d.projDir, MigrateUpTimeout, io.Discard, "boot-migrate-up", nil,
-			filepath.Join(d.projDir, "sb"), "migrate", "up", "--to", strconv.FormatInt(migrate.DaemonSchemaFloor, 10), "--verbose")
+			"./sb", "migrate", "up", "--to", strconv.FormatInt(migrate.DaemonSchemaFloor, 10), "--verbose")
 		bootMigrateTickerCancel()
 		<-bootMigrateTickerDone
 		if err := bootMigrateErr; err != nil {
@@ -8035,7 +8034,7 @@ func (d *Service) restoreSourceServices(ctx context.Context, restoreTargetSHA st
 		return fmt.Errorf("restore git tree to source: %w", err)
 	}
 	d.restoreBinary(progress)
-	if err := runCommandToLog(d.projDir, 2*time.Minute, progress.File(), "park-config-generate", progress.bump, filepath.Join(d.projDir, "sb"), "config", "generate"); err != nil {
+	if err := runCommandToLog(d.projDir, 2*time.Minute, progress.File(), "park-config-generate", progress.bump, "./sb", "config", "generate"); err != nil {
 		return fmt.Errorf("config generate at source: %w", err)
 	}
 	if err := d.startSourceApplicationStack(ctx, progress); err != nil {
@@ -8518,7 +8517,7 @@ func (d *Service) convergeUnchangedSourceServices(ctx context.Context, progress 
 	}()
 
 	if err := runCommandToLog(d.projDir, 2*time.Minute, progress.File(), "preswap-terminal-config-generate", progress.bump,
-		filepath.Join(d.projDir, "sb"), "config", "generate"); err != nil {
+		"./sb", "config", "generate"); err != nil {
 		return fmt.Errorf("regenerate unchanged source configuration: %w", err)
 	}
 	if err := d.startSourceApplicationStack(ctx, progress); err != nil {
@@ -8695,7 +8694,7 @@ func (d *Service) applyNewSbUpgrading(ctx context.Context, id int, commitSHA, di
 	// Regenerate config via the NEW binary. VERSION comes from git describe
 	// --tags --always against the just-checked-out HEAD.
 	d.markStep(StepConfigGenerate)
-	if err := runCommandToLog(projDir, 2*time.Minute, progress.File(), "config-generate", progress.bump, filepath.Join(projDir, "sb"), "config", "generate"); err != nil {
+	if err := runCommandToLog(projDir, 2*time.Minute, progress.File(), "config-generate", progress.bump, "./sb", "config", "generate"); err != nil {
 		// STATBUS-046 slice 2: config generate renders templates from .env.config
 		// (no network/DB), so a NON-TIMEOUT failure is deterministic (B) — PARK on
 		// FIRST with a named reason instead of burning three deaths. A timeout is
@@ -8874,7 +8873,7 @@ func (d *Service) applyNewSbUpgrading(ctx context.Context, id int, commitSHA, di
 		err := func() error {
 			progress.setDeferGating(true)
 			defer progress.setDeferGating(false)
-			return runCommandToLog(projDir, 30*time.Minute, progress.File(), "recreate-database", progress.bump, filepath.Join(projDir, "dev.sh"), "recreate-database")
+			return runCommandToLog(projDir, 30*time.Minute, progress.File(), "recreate-database", progress.bump, "./dev.sh", "recreate-database")
 		}()
 		if err != nil {
 			if errors.Is(err, ErrCommandTimeout) {
@@ -8947,7 +8946,7 @@ func (d *Service) applyNewSbUpgrading(ctx context.Context, id int, commitSHA, di
 			// delta-only by construction. No-op in production (env unset).
 			inject.StallHere("upgrade-delta-migration-slower-than-systemd-unit-timeout")
 			var runErr error
-			pendingMigrations, runErr = runMigrateUpToLog(projDir, MigrateUpTimeout, progress.File(), progress.bump, filepath.Join(projDir, "sb"), "migrate", "up", "--verbose")
+			pendingMigrations, runErr = runMigrateUpToLog(projDir, MigrateUpTimeout, progress.File(), progress.bump, "migrate", "up", "--verbose")
 			return runErr
 		}()
 
@@ -11134,7 +11133,7 @@ func (d *Service) restoreAndFinalize(ctx context.Context, id int, version string
 	}
 	if backupPath != "" && sourceRestoreErr == nil {
 		configGenerateErr = runCommandToLog(projDir, 2*time.Minute, progress.File(), "rollback-config-generate", nil,
-			filepath.Join(projDir, "sb.old"), "config", "generate")
+			"./sb.old", "config", "generate")
 		if configGenerateErr != nil {
 			progress.Write("  Regenerating source-version configuration with ./sb.old ... failed: %v", configGenerateErr)
 		} else {
@@ -11528,7 +11527,7 @@ func (d *Service) reapplyRollbackDaemonSchemaFloor(progress *ProgressLog) error 
 		return err
 	}
 	return runCommandToLog(d.projDir, MigrateUpTimeout, progress.File(), "rollback-daemon-schema-floor", nil,
-		filepath.Join(d.projDir, "sb"), "migrate", "up", "--to", floor, "--verbose")
+		"./sb", "migrate", "up", "--to", floor, "--verbose")
 }
 
 // preRestoreStopVerifyBudget bounds compose.VerifyStopped's re-check
@@ -12143,7 +12142,7 @@ func (d *Service) buildBinaryOnDisk(commitSHA, displayName string, progress *Pro
 	sbPath := filepath.Join(d.projDir, "sb")
 	sbOldPath := sbPath + ".old"
 
-	if shortAt, ok := sbAlreadyAtCommit(d.projDir, sbPath, commitSHA, displayName); ok {
+	if shortAt, ok := sbAlreadyAtCommit(d.projDir, commitSHA, displayName); ok {
 		progress.Write("  Verifying the pre-staged ./sb binary at commit %s ... ok", shortAt)
 		return nil
 	}
@@ -12227,12 +12226,12 @@ func (d *Service) procureSbFromImage(commitSHA, displayName, sbPath string, prog
 // local to upgrade.
 var sbVersionCommitRE = regexp.MustCompile(`commit ([0-9a-fA-F]{8})`)
 
-func sbAlreadyAtCommit(projDir, sbPath, commitSHA, displayName string) (string, bool) {
+func sbAlreadyAtCommit(projDir, commitSHA, displayName string) (string, bool) {
 	// Both targets unusable → cannot verify identity, fail-safe to build.
 	if commitSHA == "" && displayName == "" {
 		return "", false
 	}
-	out, err := runCommandOutput(projDir, sbPath, "--version")
+	out, err := runCommandOutput(projDir, "./sb", "--version")
 	if err != nil {
 		return "", false
 	}
