@@ -129,9 +129,9 @@ func (d *Service) containersAtFlagTarget(ctx context.Context, flag UpgradeFlag) 
 		return false, []containerCheckResult{{Service: "docker", Reason: fmt.Sprintf("compose ps refused: %v", buildErr)}}
 	}
 	prepareCmd(cmd)
-	out, err := cmd.Output()
+	out, stderr, err := commandOutputWithStderr(cmd)
 	if err != nil {
-		return false, []containerCheckResult{{Service: "docker", Reason: fmt.Sprintf("compose ps failed: %v", err)}}
+		return false, []containerCheckResult{{Service: "docker", Reason: fmt.Sprintf("compose ps failed: %v (stderr: %s)", err, stderr)}}
 	}
 	statuses, perr := compose.ParsePsJSON(out)
 	if perr != nil {

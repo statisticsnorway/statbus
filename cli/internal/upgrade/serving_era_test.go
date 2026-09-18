@@ -250,11 +250,41 @@ func TestSourceServingExpectedImageReferencesHandlesDigestAndLocal(t *testing.T)
 	}
 }
 
+func TestSourceServingExpectedImageReferencesIgnoresStderrWarnings(t *testing.T) {
+	git := newGitRepoFixture(t)
+	shimDir := t.TempDir()
+	shim := `#!/bin/sh
+case "$*" in
+  "compose --profile all config --format json")
+    printf '%s\n' 'Compose warning: an unrelated variable is not set' >&2
+    printf '%s\n' '{"services":{"app":{"image":"ghcr.io/statisticsnorway/statbus-app:local"},"worker":{"image":"ghcr.io/statisticsnorway/statbus-worker:local"},"rest":{"image":"postgrest/postgrest:v12.2.8"},"proxy":{"image":"ghcr.io/statisticsnorway/statbus-proxy:local"}}}'
+    ;;
+esac
+`
+	if err := os.WriteFile(filepath.Join(shimDir, "docker"), []byte(shim), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("PATH", shimDir+string(os.PathListSeparator)+os.Getenv("PATH"))
+
+	d := &Service{projDir: git.dir}
+	references, _, err := d.sourceServingExpectedImageReferences(context.Background())
+	if err != nil {
+		t.Fatalf("sourceServingExpectedImageReferences with Compose stderr warning: %v", err)
+	}
+	if references["app"] != "ghcr.io/statisticsnorway/statbus-app:local" {
+		t.Fatalf("app reference = %q, want local image after stderr warning", references["app"])
+	}
+}
+
 func TestSourceServingExpectedImageReferencesRendersActualRepoComposeModel(t *testing.T) {
 	if _, err := exec.LookPath("docker"); err != nil {
 		t.Skip("docker CLI not available")
 	}
 	repoRoot := filepath.Dir(thisRepoFile(t, "docker-compose.yml"))
+	noEnvFile := filepath.Join(t.TempDir(), "no-env")
+	if err := os.WriteFile(noEnvFile, nil, 0o644); err != nil {
+		t.Fatal(err)
+	}
 	for key, value := range map[string]string{
 		"ACCESS_JWT_EXPIRY":               "3600",
 		"APP_BIND_ADDRESS":                "127.0.0.1:3912",
@@ -265,25 +295,35 @@ func TestSourceServingExpectedImageReferencesRendersActualRepoComposeModel(t *te
 		"CADDY_DEPLOYMENT_MODE":           "development",
 		"CADDY_HTTP_BIND_ADDRESS":         "127.0.0.1:3910",
 		"CADDY_HTTPS_BIND_ADDRESS":        "127.0.0.1:3911",
+		"CADDY_LOG_PATH":                  "/tmp/statbus-compose-profile-test.log",
 		"COMMIT_SHORT":                    "local",
+		"COMPOSE_ENV_FILES":               noEnvFile,
 		"COMPOSE_FILE":                    "docker-compose.yml",
 		"COMPOSE_INSTANCE_NAME":           "statbus-compose-profile-test",
 		"COMPOSE_PROFILES":                "",
 		"DEBUG":                           "0",
 		"DEPLOYMENT_SLOT_CODE":            "test",
 		"DEPLOYMENT_SLOT_NAME":            "Compose profile test",
+		"HOME":                            t.TempDir(),
 		"JWT_SECRET":                      "test-jwt-secret",
 		"POSTGRES_ADMIN_PASSWORD":         "test-admin-password",
+		"POSTGRES_ADMIN_USER":             "postgres",
+		"POSTGRES_APP_DB":                 "statbus_test",
 		"POSTGRES_APP_PASSWORD":           "test-app-password",
 		"POSTGRES_AUTHENTICATOR_PASSWORD": "test-authenticator-password",
 		"POSTGRES_NOTIFY_PASSWORD":        "test-notify-password",
 		"POSTGRES_NOTIFY_USER":            "test-notify",
+		"PGRST_DB_SCHEMAS":                "public,auth",
+		"PUBLIC_BROWSER_REST_URL":         "http://test.invalid/rest",
 		"PUBLIC_DEBUG":                    "0",
 		"REFRESH_JWT_EXPIRY":              "2592000",
 		"REST_ADMIN_BIND_ADDRESS":         "127.0.0.1:3916",
 		"REST_BIND_ADDRESS":               "127.0.0.1:3913",
 		"SEQ_API_KEY":                     "test-seq-key",
+		"SEQ_SERVER_URL":                  "http://seq.test.invalid",
 		"SITE_URL":                        "http://test.invalid",
+		"VERBOSE":                         "0",
+		"VERSION":                         "test",
 	} {
 		t.Setenv(key, value)
 	}

@@ -1,6 +1,7 @@
 package upgrade
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -22,6 +23,27 @@ import (
 	"github.com/statisticsnorway/statbus/cli/internal/dotenv"
 	"github.com/statisticsnorway/statbus/cli/internal/inject"
 )
+
+const commandStderrTailBytes = 4096
+
+// commandOutputWithStderr keeps a command's machine-readable stdout isolated
+// from its diagnostic stderr. Docker Compose legitimately writes interpolation
+// warnings to stderr even when it successfully returns JSON on stdout; callers
+// must parse stdout only and retain stderr for a failure diagnostic.
+func commandOutputWithStderr(cmd *exec.Cmd) ([]byte, string, error) {
+	var stderr bytes.Buffer
+	cmd.Stderr = &stderr
+	out, err := cmd.Output()
+	return out, commandStderrTail(stderr.String()), err
+}
+
+func commandStderrTail(stderr string) string {
+	stderr = strings.TrimSpace(stderr)
+	if len(stderr) <= commandStderrTailBytes {
+		return stderr
+	}
+	return "..." + stderr[len(stderr)-commandStderrTailBytes:]
+}
 
 // DiskFree returns the free bytes on the filesystem containing the given path.
 func DiskFree(path string) (uint64, error) {
@@ -1450,9 +1472,10 @@ func (d *Service) proxyContainerID(ctx context.Context) (string, error) {
 	if buildErr != nil {
 		return "", buildErr
 	}
-	out, err := cmd.Output()
+	prepareCmd(cmd)
+	out, stderr, err := commandOutputWithStderr(cmd)
 	if err != nil {
-		return "", fmt.Errorf("docker compose ps -a -q proxy: %w", err)
+		return "", fmt.Errorf("docker compose ps -a -q proxy: %w (stderr: %s)", err, stderr)
 	}
 	id := strings.TrimSpace(string(out))
 	if id == "" {
@@ -1482,9 +1505,10 @@ func (d *Service) verifyRecoveryClientsStopped(ctx context.Context) error {
 	if buildErr != nil {
 		return buildErr
 	}
-	out, err := cmd.Output()
+	prepareCmd(cmd)
+	out, stderr, err := commandOutputWithStderr(cmd)
 	if err != nil {
-		return fmt.Errorf("verify application services remain stopped during recovery: docker compose ps -a: %w", err)
+		return fmt.Errorf("verify application services remain stopped during recovery: docker compose ps -a: %w (stderr: %s)", err, stderr)
 	}
 	entries, err := compose.ParsePsJSON(out)
 	if err != nil {
@@ -1519,9 +1543,10 @@ func (d *Service) proxyContainerMissing(ctx context.Context) (bool, error) {
 	if buildErr != nil {
 		return false, buildErr
 	}
-	out, err := cmd.Output()
+	prepareCmd(cmd)
+	out, stderr, err := commandOutputWithStderr(cmd)
 	if err != nil {
-		return false, fmt.Errorf("docker compose ps -a: %w", err)
+		return false, fmt.Errorf("docker compose ps -a: %w (stderr: %s)", err, stderr)
 	}
 	entries, err := compose.ParsePsJSON(out)
 	if err != nil {

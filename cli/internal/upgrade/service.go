@@ -8171,9 +8171,9 @@ func (d *Service) dockerContainerImageID(ctx context.Context, containerID string
 		return "", fmt.Errorf("construct docker inspect for container %q: %w", containerID, buildErr)
 	}
 	prepareCmd(cmd)
-	out, err := cmd.CombinedOutput()
+	out, stderr, err := commandOutputWithStderr(cmd)
 	if err != nil {
-		return "", fmt.Errorf("docker inspect container %q: %w (%s)", containerID, err, strings.TrimSpace(string(out)))
+		return "", fmt.Errorf("docker inspect container %q: %w (stderr: %s)", containerID, err, stderr)
 	}
 	return normalizedDockerImageID(string(out))
 }
@@ -8198,9 +8198,9 @@ func (d *Service) sourceServingExpectedImageReferences(ctx context.Context) (map
 		return nil, "", &sourceServingEraUnknownError{Detail: fmt.Sprintf("construct restored source compose config command: %v", buildErr)}
 	}
 	prepareCmd(cmd)
-	out, err := cmd.CombinedOutput()
+	out, stderr, err := commandOutputWithStderr(cmd)
 	if err != nil {
-		return nil, "", &sourceServingEraUnknownError{Detail: fmt.Sprintf("render restored source compose config: %v (%s)", err, strings.TrimSpace(string(out)))}
+		return nil, "", &sourceServingEraUnknownError{Detail: fmt.Sprintf("render restored source compose config: %v (stderr: %s)", err, stderr)}
 	}
 	var rendered sourceComposeConfig
 	if err := json.Unmarshal(out, &rendered); err != nil {
@@ -8327,9 +8327,9 @@ func (d *Service) sourceServingContainerEntries(ctx context.Context) ([]compose.
 		return nil, &sourceServingEraUnknownError{Detail: fmt.Sprintf("construct serving container inspection: %v", buildErr)}
 	}
 	prepareCmd(cmd)
-	out, err := cmd.CombinedOutput()
+	out, stderr, err := commandOutputWithStderr(cmd)
 	if err != nil {
-		return nil, &sourceServingEraUnknownError{Detail: fmt.Sprintf("inspect serving containers: docker compose ps -a: %v (%s)", err, strings.TrimSpace(string(out)))}
+		return nil, &sourceServingEraUnknownError{Detail: fmt.Sprintf("inspect serving containers: docker compose ps -a: %v (stderr: %s)", err, stderr)}
 	}
 	entries, err := compose.ParsePsJSON(out)
 	if err != nil {
