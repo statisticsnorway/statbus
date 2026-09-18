@@ -1030,3 +1030,10 @@ orchestrator then dispatched Upgrade Arc run `35339336045`. Discovery reached
 fixture/image construction and its 11 source-image workflows are green; the Arc
 run is queued before scenario jobs. No Arc scenario tally or schema-floor result
 exists yet.
+
+## rc.18 Upgrade Arc widespread red checkpoint (2026-09-18 12:44 UTC)
+
+Upgrade Arc run `35339336045` reached scenarios. Current scenario tally is 1
+pass, 18 fail, 3 running, and 13 queued. Both mandatory schema-floor scenarios
+remain queued. The run is nonterminal, so failure signatures and product / harness
+/ infrastructure classifications are pending; no triage commit is identified.
