@@ -257,6 +257,22 @@ func runCrashRecovery(projDir string, restartIfRecovered *func()) error {
 		}
 	}
 
+	// A completed park retreat normally carries RetreatedToSourceAt. If that
+	// final atomic marker write failed after the source stack was restored, the
+	// marker is stale but the serving era is still authoritative. Observe the
+	// stack BEFORE checking out the target tree so the un-park below can recover
+	// that truthful source-era state instead of treating a missing marker as an
+	// era-refused park.
+	sourceEraObserved := false
+	if flag, ferr := upgrade.ReadFlagFile(projDir); ferr == nil && flag != nil && flag.Holder == upgrade.HolderService && flag.ID != 0 && !flag.HasRetreatedToSource() {
+		if era, eraErr := svc.ServingEra(ctx); eraErr == nil && era == upgrade.ServingEraSource {
+			sourceEraObserved = true
+			fmt.Printf("crash recovery: serving stack is positively source-era despite a missing retreat marker; reconciling the stale marker as a completed retreat.\n")
+		} else if eraErr != nil {
+			fmt.Printf("crash recovery: could not prove source-era serving for the unmarked park retreat; retaining ordinary recovery handling: %v\n", eraErr)
+		}
+	}
+
 	// Restore the target working tree before config-generate + boot-migrate,
 	// for FORWARD recovery phases ONLY (post_swap / resuming) — mirror
 	// Service.Run's gate (STATBUS-060 + STATBUS-061 part ii). executeUpgrade
@@ -373,8 +389,14 @@ func runCrashRecovery(projDir string, restartIfRecovered *func()) error {
 			// below. Not earlier — the flag must SURVIVE the park window itself, since a
 			// present flag plus a free flock is how `./sb install` discovers the parked
 			// box and reaches this code at all.
-			if flag.HasRetreatedToSource() {
-				if rerr := svc.RemoveFlagAfterRetreat(); rerr != nil {
+			if flag.HasRetreatedToSource() || sourceEraObserved {
+				removeRetreatErr := error(nil)
+				if flag.HasRetreatedToSource() {
+					removeRetreatErr = svc.RemoveFlagAfterRetreat()
+				} else {
+					removeRetreatErr = svc.RemoveFlagAfterSourceEra()
+				}
+				if rerr := removeRetreatErr; rerr != nil {
 					fmt.Printf("crash recovery: warning — could not remove the completed-retreat flag for upgrade id=%d after un-park: %v (the fresh attempt will be treated as a recovery instead; re-run ./sb install)\n", flag.ID, rerr)
 				} else {
 					// No local bookkeeping to update: `flag` is scoped to this if-statement,

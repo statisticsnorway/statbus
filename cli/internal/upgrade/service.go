@@ -1258,6 +1258,20 @@ func (e *RollbackSchemaFloorMarkerWriteError) Error() string {
 
 func (e *RollbackSchemaFloorMarkerWriteError) Unwrap() error { return e.Err }
 
+// RetreatMarkerWriteError means source services were restored successfully,
+// but the final RetreatedToSourceAt marker could not be persisted. The source
+// stack must stay up; the truthful terminal is to report that the retreat
+// succeeded while its durable marker did not, so an operator can reconcile it
+// from the observed serving era instead of mistaking it for an era-refused
+// park.
+type RetreatMarkerWriteError struct{ Err error }
+
+func (e *RetreatMarkerWriteError) Error() string {
+	return fmt.Sprintf("retreat succeeded but the marker does not record it: %v", e.Err)
+}
+
+func (e *RetreatMarkerWriteError) Unwrap() error { return e.Err }
+
 type recoveryRoute uint8
 
 const (
@@ -1331,6 +1345,21 @@ func (d *Service) ClearFlagStepHistory() error {
 // flock free). It acquires the flock itself so the removal cannot race a live
 // holder, and never touches the row.
 func (d *Service) RemoveFlagAfterRetreat() error {
+	return d.removeFlagAfterRetreat(false)
+}
+
+// RemoveFlagAfterSourceEra removes a service-held upgrade marker after the
+// serving containers have been positively observed in the source era. This is
+// the recovery of last resort for the park-retreat window where source
+// services came back successfully but the final RetreatedToSourceAt atomic
+// marker write failed. The source-era observation is the proof that permits
+// removing an otherwise unmarked flag; an unmarked flag without that proof
+// remains an in-flight upgrade and must be handled by RecoverFromFlag.
+func (d *Service) RemoveFlagAfterSourceEra() error {
+	return d.removeFlagAfterRetreat(true)
+}
+
+func (d *Service) removeFlagAfterRetreat(sourceEraProven bool) error {
 	flag, err := ReadFlagFile(d.projDir)
 	if err != nil {
 		return err
@@ -1341,7 +1370,7 @@ func (d *Service) RemoveFlagAfterRetreat() error {
 	if flag.Holder != HolderService {
 		return fmt.Errorf("refusing to remove a %q-held upgrade flag: only a service-held flag can carry a completed retreat", flag.Holder)
 	}
-	if !flag.HasRetreatedToSource() {
+	if !sourceEraProven && !flag.HasRetreatedToSource() {
 		return fmt.Errorf("refusing to remove the upgrade flag for id=%d: it carries no completed-retreat marker, so it still describes an in-flight upgrade that crash recovery must reconcile (an era-REFUSED park looks exactly like this)", flag.ID)
 	}
 	// Take the flock before unlinking: the caller's contract says the unit is
@@ -4325,7 +4354,9 @@ func (d *Service) completeInProgressUpgrade(ctx context.Context) error {
 			lock.Close()
 			keepFlagExit = true // the defer must NOT strip this flag (STATBUS-192/135)
 		}
-		_ = d.parkForDeterministicFailure(ctx, id, displayName, restoreTargetSHA, commitSHA, rowBackupPath.String, failureCode, reason, appendLog)
+		if parkErr := d.parkForDeterministicFailure(ctx, id, displayName, restoreTargetSHA, commitSHA, rowBackupPath.String, failureCode, reason, appendLog); parkErr != nil {
+			logRecover("Park recovery did not complete cleanly: %v", parkErr)
+		}
 	}
 
 	// STATBUS-192 MUST-FIX 1 — WATCHDOG COVER for the serve-proof tail. This runs in the
@@ -7805,7 +7836,9 @@ func (d *Service) parkForDeterministicFailure(ctx context.Context, id int, displ
 	// permit and never stops anything. Run unconditionally (not gated on freshlyParked) so a
 	// next-boot re-entry safely completes a restoration interrupted by a mid-restore crash —
 	// both restores are idempotent no-ops when nothing moved.
-	d.parkServiceRecovery(ctx, id, restoreTargetSHA, progress)
+	if retreatErr := d.parkServiceRecovery(ctx, id, restoreTargetSHA, progress); retreatErr != nil {
+		return retreatErr
+	}
 	return fmt.Errorf("parked on deterministic forward failure: %s", reason)
 }
 
@@ -7817,7 +7850,7 @@ func (d *Service) parkForDeterministicFailure(ctx context.Context, id int, displ
 // (the safety core): it starts source services ONLY when the DB is provably at the source
 // version's schema. HARD RULE (ruling Q4): it only ever STARTS services on permit; on refuse or
 // failure it stops NOTHING and changes nothing but the park narrative (appendParkNarrative).
-func (d *Service) parkServiceRecovery(ctx context.Context, id int, restoreTargetSHA string, progress *ProgressLog) {
+func (d *Service) parkServiceRecovery(ctx context.Context, id int, restoreTargetSHA string, progress *ProgressLog) error {
 	// STATBUS-204: this helper OWNS its own watchdog cover. Its slow span — parkEraVerdict's
 	// StartDatabaseRouteServingMustBeStopped (waits up to ~60s for DB health) plus restoreSourceServices (existing-container start
 	// + bounded health + the restores) — can exceed WatchdogSec=120s on a cold box. The
@@ -7873,18 +7906,18 @@ func (d *Service) parkServiceRecovery(ctx context.Context, id int, restoreTarget
 		// only realistic contender, ./sb install crash recovery, quiesces this unit
 		// SIGKILL-class before it could hold the lock), but the arm must be correct.
 		d.appendParkNarrative(id, fmt.Sprintf("services held down: the upgrade flag's lock is held by another live actor (%v) — another process owns box mutations right now, so the source version's services are NOT started (starting them underneath a possibly mid-upgrade actor would serve a mixed era). The box stays behind the maintenance page; re-trigger the upgrade or run ./sb install once that actor is done", lerr))
-		return
+		return nil
 	}
 	defer releaseFlagHold()
 
 	permit, refusal := d.parkEraVerdict(ctx, id)
 	if !permit {
 		d.appendParkNarrative(id, refusal)
-		return
+		return nil
 	}
 	if err := d.restoreSourceServices(ctx, restoreTargetSHA, progress); err != nil {
 		d.appendParkNarrative(id, fmt.Sprintf("source-version service restore did not complete (%v) — the box stays behind the maintenance page until the cause is fixed and the upgrade re-triggered", err))
-		return
+		return nil
 	}
 	// STATBUS-210, AS AMENDED BY STATBUS-229 — RECORD THE RETREAT AS ITS OWN FACT.
 	//
@@ -7912,11 +7945,26 @@ func (d *Service) parkServiceRecovery(ctx context.Context, id int, restoreTarget
 	// truthfully describes a mid-upgrade box) and a restoration failure (box state unproven)
 	// both leave the flag byte-untouched via the early returns above. That distinction is
 	// load-bearing — see the un-park's conditional.
-	retreatAt := time.Now()
-	if err := d.mutateHeldFlag(func(f *UpgradeFlag) { f.RetreatedToSourceAt = &retreatAt }); err != nil {
+	if err := d.recordRetreatedToSource(); err != nil {
+		d.appendParkNarrative(id, fmt.Sprintf("%v — source services remain restored; do not treat the missing marker as an era-refused park", err))
 		progress.Write("Recording the restored source state in the upgrade lock file ... failed: %v", err)
+		return err
 	}
 	progress.Write("Restoring source-version services for operator access ... ok (automatic retries remain paused)")
+	return nil
+}
+
+// recordRetreatedToSource is deliberately a separate terminal step. The
+// atomic writer is the existing single marker protocol, and surrounding
+// recovery-critical marker writes propagate its error instead of retrying or
+// swallowing it. If it fails here, source services are already restored and
+// must remain up while callers report this exact partial terminal.
+func (d *Service) recordRetreatedToSource() error {
+	retreatAt := time.Now()
+	if err := d.mutateHeldFlag(func(f *UpgradeFlag) { f.RetreatedToSourceAt = &retreatAt }); err != nil {
+		return &RetreatMarkerWriteError{Err: err}
+	}
+	return nil
 }
 
 // parkEraVerdict is the STATBUS-200 ERA GUARD — the safety core. It permits source-service
@@ -8253,6 +8301,24 @@ func (d *Service) sourceServingExpectedImages(ctx context.Context) (map[string]s
 		expected[service] = sourceImageIdentity{Reference: references[service], ImageID: imageID}
 	}
 	return expected, sourceTag, nil
+}
+
+// ServingEra positively classifies the currently serving application stack
+// using the immutable source identities recorded before the target pull. It is
+// intentionally a read-only wrapper around the same proof used by
+// startSourceApplicationStack, so the un-park path can distinguish a source
+// stack whose final retreat marker is missing from an ordinary era-refused
+// park. Any ambiguity is an error and must not authorize marker removal.
+func (d *Service) ServingEra(ctx context.Context) (ServingEra, error) {
+	expected, sourceTag, err := d.sourceServingExpectedImages(ctx)
+	if err != nil {
+		return "", err
+	}
+	entries, err := d.sourceServingContainerEntries(ctx)
+	if err != nil {
+		return "", err
+	}
+	return deriveServingEra(entries, expected, sourceTag)
 }
 
 func (d *Service) sourceServingContainerEntries(ctx context.Context) ([]compose.PsEntry, error) {
@@ -9810,7 +9876,9 @@ func (d *Service) RecoveryBudgetGuard(ctx context.Context) (skipBootMigrate bool
 		// lose the story, never the box. Liveness does not depend on the log either — the helper's
 		// own always-ping watchdog ticker covers the span (204), not progress.Write's heartbeat.
 		plog := AppendProgressLog(d.projDir, d.loadLogRelPath(ctx, int64(flag.ID)))
-		d.parkServiceRecovery(ctx, flag.ID, "", plog)
+		if retreatErr := d.parkServiceRecovery(ctx, flag.ID, "", plog); retreatErr != nil {
+			log.Printf("RecoveryBudgetGuard: %v — source services remain restored; the park marker needs operator reconciliation", retreatErr)
+		}
 		plog.Close()
 		return true
 	}
@@ -10302,7 +10370,9 @@ func (d *Service) resumeNewSb(ctx context.Context, flag UpgradeFlag) error {
 			// refuse/failure) so a same-step-twice park is alive-idle AND operable, not dark. The
 			// helper owns its watchdog cover. restoreTargetSHA="" falls back to this attempt's
 			// pre-upgrade pin (identity holds post-197).
-			d.parkServiceRecovery(ctx, flag.ID, "", progress)
+			if retreatErr := d.parkServiceRecovery(ctx, flag.ID, "", progress); retreatErr != nil {
+				log.Printf("resumeNewSb: %v — source services remain restored; the park marker needs operator reconciliation", retreatErr)
+			}
 			progress.Close()
 			// Degraded siren — fires EXACTLY ONCE per park EVENT: only when THIS call
 			// is the one that flipped the row into parked (freshlyParked, from the

@@ -220,10 +220,11 @@ func TestParkServiceRecovery_SelfCoveringWatchdog_STATBUS204(t *testing.T) {
 func TestParkServiceRecovery_TruthRestoresFlag_STATBUS210(t *testing.T) {
 	src := string(packageGoSources(t)["service.go"])
 	psr := extractFuncBody(t, src, "func (d *Service) parkServiceRecovery(")
+	markerFn := extractFuncBody(t, src, "func (d *Service) recordRetreatedToSource(")
 
 	// The retreat is recorded in its OWN field, via the held-flag rewrite.
-	rewriteIdx := strings.Index(psr, "f.RetreatedToSourceAt =")
-	if rewriteIdx < 0 || !strings.Contains(psr, "d.mutateHeldFlag(func(f *UpgradeFlag)") {
+	rewriteIdx := strings.Index(markerFn, "f.RetreatedToSourceAt =")
+	if rewriteIdx < 0 || !strings.Contains(markerFn, "d.mutateHeldFlag(func(f *UpgradeFlag)") {
 		t.Fatal("STATBUS-210/229: parkServiceRecovery must record the completed retreat on the held flag (f.RetreatedToSourceAt) via mutateHeldFlag on successful restoration")
 	}
 	// And it must NOT go back to expressing the retreat as a phase: that is the 229 defect.
@@ -240,11 +241,15 @@ func TestParkServiceRecovery_TruthRestoresFlag_STATBUS210(t *testing.T) {
 	// arms leave the flag untouched. Proxy: the rewrite must follow the restoreSourceServices call
 	// (whose err-branch returns before it).
 	restoreIdx := strings.Index(psr, "d.restoreSourceServices(")
+	rewriteCallIdx := strings.Index(psr, "d.recordRetreatedToSource()")
 	verdictReturnIdx := strings.Index(psr, "d.appendParkNarrative(id, refusal)")
-	if restoreIdx < 0 || rewriteIdx < restoreIdx {
-		t.Errorf("STATBUS-210: the flag rewrite must be on the restoration-SUCCESS path (after restoreSourceServices@%d), so refusal/failure arms leave the flag untouched — rewrite@%d", restoreIdx, rewriteIdx)
+	if restoreIdx < 0 || rewriteCallIdx < restoreIdx {
+		t.Errorf("STATBUS-210: the flag rewrite must be on the restoration-SUCCESS path (after restoreSourceServices@%d), so refusal/failure arms leave the flag untouched — rewrite call@%d", restoreIdx, rewriteCallIdx)
 	}
-	if verdictReturnIdx < 0 || rewriteIdx < verdictReturnIdx {
+	if verdictReturnIdx < 0 || rewriteCallIdx < verdictReturnIdx {
 		t.Error("STATBUS-210: the era-refuse arm (appendParkNarrative(id, refusal) → return) must precede the flag rewrite so a refused park leaves the marker truthful/untouched")
+	}
+	if !strings.Contains(src, "retreat succeeded but the marker does not record it") || !strings.Contains(markerFn, "return &RetreatMarkerWriteError") || !strings.Contains(psr, "return err") {
+		t.Error("B-3: parkServiceRecovery must return the truthful retreat-marker failure instead of logging it and reporting success")
 	}
 }

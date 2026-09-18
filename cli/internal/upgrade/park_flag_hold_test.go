@@ -17,6 +17,7 @@ package upgrade
 
 import (
 	"encoding/json"
+	"errors"
 	"io"
 	"os"
 	"path/filepath"
@@ -25,6 +26,35 @@ import (
 	"testing"
 	"time"
 )
+
+func TestParkRetreatMarkerFailureIsTruthful_STATBUS3(t *testing.T) {
+	dir := t.TempDir()
+	d := &Service{projDir: dir}
+	if err := d.writeUpgradeFlag(4242, strings.Repeat("c", 40), nil, "test", "test", false); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = d.removeUpgradeFlag() })
+
+	// Close the held descriptor to inject the real mutateHeldFlag failure while
+	// keeping the marker bytes intact, as a failed atomic rename would do.
+	if err := d.flagLock.file.Close(); err != nil {
+		t.Fatal(err)
+	}
+	err := d.recordRetreatedToSource()
+	if err == nil {
+		t.Fatal("retreat marker failure was swallowed")
+	}
+	var markerErr *RetreatMarkerWriteError
+	if !errors.As(err, &markerErr) {
+		t.Fatalf("error = %T %v, want RetreatMarkerWriteError", err, err)
+	}
+	if !strings.Contains(err.Error(), "retreat succeeded but the marker does not record it") {
+		t.Fatalf("error = %q, want the truthful partial-retreat message", err)
+	}
+	if got := readTestFlag(t, dir); got.HasRetreatedToSource() {
+		t.Fatal("failed marker write changed the on-disk flag")
+	}
+}
 
 // writeTestFlag lays down a post-swap flag file — the state a budget park finds after
 // the binary swap, and the marker that lies once the source services are restored.

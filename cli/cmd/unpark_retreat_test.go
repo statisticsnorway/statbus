@@ -87,6 +87,18 @@ func TestRemoveFlagAfterRetreat_RemovesOnlyAMarkedFlag_STATBUS229(t *testing.T) 
 		}
 	})
 
+	t.Run("unmarked flag: explicit source-era proof permits stale-marker cleanup", func(t *testing.T) {
+		dir := retreatFixture(t, false)
+		svc := upgrade.NewService(dir, false, "", "")
+
+		if err := svc.RemoveFlagAfterSourceEra(); err != nil {
+			t.Fatalf("a positively source-era stack must be able to clear the stale unmarked flag: %v", err)
+		}
+		if flag := flagOnDisk(t, dir); flag != nil {
+			t.Fatal("the stale unmarked flag survived explicit source-era cleanup")
+		}
+	})
+
 	t.Run("UNMARKED flag: refused, because an era-refused park is still mid-upgrade", func(t *testing.T) {
 		dir := retreatFixture(t, false)
 		svc := upgrade.NewService(dir, false, "", "")
@@ -135,6 +147,12 @@ func TestUnparkRemovesFlagOnlyWhenRetreated_STATBUS229(t *testing.T) {
 	// CONDITIONAL, and the guard must be the marker — not something weaker.
 	if !strings.Contains(text, "flag.HasRetreatedToSource()") {
 		t.Error("STATBUS-229: the removal must be guarded by the completed-retreat marker. Unconditional removal strands an era-REFUSED park, whose flag truthfully describes a mid-upgrade box")
+	}
+	if !strings.Contains(text, "sourceEraObserved") || !strings.Contains(text, "svc.ServingEra(ctx)") || !strings.Contains(text, "RemoveFlagAfterSourceEra()") {
+		t.Error("B-3: a missing retreat marker must be reconciled only after a positive source-era observation, not treated as an era-refused park by default")
+	}
+	if strings.Index(text, "svc.ServingEra(ctx)") > strings.Index(text, "git\", \"-c\", \"advice.detachedHead=false\"") {
+		t.Error("B-3: source-era observation must happen before crash recovery checks out the target tree")
 	}
 	// The unmarked branch must still clear the death history (STATBUS-044 #6).
 	if !strings.Contains(text, "ClearFlagStepHistory()") {
