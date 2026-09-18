@@ -117,10 +117,13 @@ var seedFetchCmd = &cobra.Command{
 			return fmt.Errorf("create .db-seed directory: %w", err)
 		}
 
-		// Pull the seed image. Uses the same docker daemon auth context as
-		// `docker compose pull` for the service images — no new auth surface.
+		// Pull the seed image. images.yaml intentionally publishes statbus-seed
+		// amd64-only because its -Fc logical dump is architecture-portable; pin the
+		// platform so an arm64 daemon does not request a nonexistent arm64 manifest.
+		// Uses the same docker daemon auth context as `docker compose pull` for the
+		// service images — no new auth surface.
 		fmt.Printf("Pulling seed image %s...\n", imageRef)
-		if out, err := upgrade.RunCommandOutput(projDir, "docker", "pull", imageRef); err != nil {
+		if out, err := upgrade.RunCommandOutput(projDir, "docker", seedPullDockerArgs(imageRef)...); err != nil {
 			return fmt.Errorf("pull seed image %s: %w\n  %s", imageRef, err, strings.TrimSpace(out))
 		}
 
@@ -180,7 +183,7 @@ func extractSeedFromImage(projDir, imageRef, seedDir string) error {
 	// needed. A no-op on amd64 deployments; on an arm64 dev host it's what lets
 	// `docker create` select the (only) published manifest instead of failing
 	// with "no matching manifest for linux/arm64". Correct pin, not a workaround.
-	out, err := upgrade.RunCommandOutput(projDir, "docker", "create", "--platform", "linux/amd64", imageRef)
+	out, err := upgrade.RunCommandOutput(projDir, "docker", seedCreateDockerArgs(imageRef)...)
 	if err != nil {
 		return fmt.Errorf("docker create %s: %w\n  %s", imageRef, err, strings.TrimSpace(out))
 	}
@@ -211,6 +214,14 @@ func extractSeedFromImage(projDir, imageRef, seedDir string) error {
 		}
 	}
 	return nil
+}
+
+func seedPullDockerArgs(imageRef string) []string {
+	return []string{"pull", "--platform", "linux/amd64", imageRef}
+}
+
+func seedCreateDockerArgs(imageRef string) []string {
+	return []string{"create", "--platform", "linux/amd64", imageRef}
 }
 
 // containerIDRe matches a full 64-char hex docker container id (what `docker

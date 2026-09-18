@@ -6,8 +6,36 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"reflect"
 	"testing"
 )
+
+func TestSeedFetchDockerArgsPinPublishedPlatform(t *testing.T) {
+	const imageRef = "ghcr.io/statisticsnorway/statbus-seed:b73c8965"
+
+	for _, tc := range []struct {
+		name string
+		got  []string
+		want []string
+	}{
+		{
+			name: "pull",
+			got:  seedPullDockerArgs(imageRef),
+			want: []string{"pull", "--platform", "linux/amd64", imageRef},
+		},
+		{
+			name: "create",
+			got:  seedCreateDockerArgs(imageRef),
+			want: []string{"create", "--platform", "linux/amd64", imageRef},
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			if !reflect.DeepEqual(tc.got, tc.want) {
+				t.Fatalf("docker argv = %#v, want %#v", tc.got, tc.want)
+			}
+		})
+	}
+}
 
 // dockerAvailable reports whether a usable docker daemon is reachable.
 // Tests that build/extract images skip when it is not (CI without docker,
