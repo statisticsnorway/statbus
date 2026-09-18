@@ -240,3 +240,10 @@ keeps Compose diagnostics out of JSON decoding. Both are published. Go
 `35372247298`, app `35372247523`, and Images `35372247917` are green at
 `f03f5c0e7`; Fast `35372597136` and pg_regress `35372597129` are running. Both
 paid schema-floor acceptance scenarios remain pending a new named candidate.
+
+## rc.18 schema-floor repair CI terminal (2026-09-18 18:03 UTC)
+
+Published repair head `f03f5c0e7` is green in Go `35372247298`, app
+`35372247523`, Images `35372247917`, Fast Tests `35372597136`, and pg_regress
+`35372597129`. No rc.19 tag or GitHub release exists. Both paid schema-floor
+scenarios remain pending the next named candidate.

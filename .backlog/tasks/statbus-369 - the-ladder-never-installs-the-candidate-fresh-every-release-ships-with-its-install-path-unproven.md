@@ -1052,3 +1052,10 @@ follow-up `f03f5c0e7` parses JSON from stdout. Both fixes are published. At
 `f03f5c0e7`, Go `35372247298`, app `35372247523`, and Images `35372247917` are
 green; Fast `35372597136` and pg_regress `35372597129` are running. A new named
 candidate must rerun the paid Arc; rc.18 does not prove the install path.
+
+## rc.18 Arc repair CI terminal (2026-09-18 18:03 UTC)
+
+Published repair head `f03f5c0e7` is green in Go `35372247298`, app
+`35372247523`, Images `35372247917`, Fast Tests `35372597136`, and pg_regress
+`35372597129`. No rc.19 tag or GitHub release exists. The paid rerun remains
+pending a new named candidate.
