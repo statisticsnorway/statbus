@@ -409,11 +409,12 @@ type UpgradeFlag struct {
 	Phase      string    `json:"phase,omitempty"`       // PhaseOldSbUpgrading (default) or PhaseNewSbSwapped
 	Recreate   bool      `json:"recreate,omitempty"`    // durable recreate intent (from public.upgrade.recreate) so resumeNewSb can replay --recreate
 	BackupPath string    `json:"backup_path,omitempty"` // finalized backup dir, populated at Phase=PhaseNewSbSwapped so resumeNewSb can roll back without DB
-	// SourceServingImages records the immutable image IDs behind the source
-	// compose model before any target image pull can move a local tag. Recovery
-	// may render references again from the restored source tree, but Source is
-	// proved only against these pre-upgrade IDs, never against what a mutable tag
-	// happens to resolve to after the crash.
+	// SourceServingImages records the running source containers' references and
+	// immutable daemon image IDs before any target image pull can move a local
+	// tag. The current tree corroborates capture but does not define Source.
+	// Recovery may render references again from the restored source tree, but
+	// Source is proved only against these pre-upgrade IDs, never against what a
+	// mutable tag happens to resolve to after the crash.
 	SourceServingImages map[string]sourceImageIdentity `json:"source_serving_images,omitempty"`
 
 	Restart *RestartIntent `json:"restart,omitempty"`
@@ -8230,11 +8231,11 @@ func (d *Service) sourceServingExpectedImageReferences(ctx context.Context) (map
 	return expected, sourceTag, nil
 }
 
-func (d *Service) resolveSourceServingImageIdentities(ctx context.Context) (map[string]sourceImageIdentity, string, error) {
-	references, sourceTag, err := d.sourceServingExpectedImageReferences(ctx)
-	if err != nil {
-		return nil, "", err
-	}
+// resolveSourceServingImageIdentities captures source truth from the running
+// serving containers. The current tree is only corroboration because daemon
+// dispatch captures while the tree is still at Source, whereas operator-inline
+// dispatch has already checked out Target before entering this pipeline.
+func (d *Service) resolveSourceServingImageIdentities(ctx context.Context, targetCommitShort string) (map[string]sourceImageIdentity, string, error) {
 	entries, err := d.sourceServingContainerEntries(ctx)
 	if err != nil {
 		return nil, "", err
@@ -8244,24 +8245,87 @@ func (d *Service) resolveSourceServingImageIdentities(ctx context.Context) (map[
 		if _, duplicate := actual[entry.Service]; duplicate {
 			return nil, "", &sourceServingEraUnknownError{Detail: fmt.Sprintf("multiple pre-upgrade containers reported for %s", entry.Service)}
 		}
+		entry.Image = strings.TrimSpace(entry.Image)
 		actual[entry.Service] = entry
 	}
-	identities := make(map[string]sourceImageIdentity, len(references))
+	identities := make(map[string]sourceImageIdentity, len(sourceServingServices))
 	for _, service := range sourceServingServices {
 		entry, ok := actual[service]
 		if !ok {
 			return nil, "", &sourceServingEraUnknownError{Detail: fmt.Sprintf("pre-upgrade source container for %s is missing", service)}
 		}
-		if entry.Image != references[service] {
-			return nil, "", &sourceServingEraUnknownError{Detail: fmt.Sprintf("pre-upgrade %s container image reference is %q, want current source compose reference %q", service, entry.Image, references[service])}
+		entry.State = strings.TrimSpace(entry.State)
+		if entry.State != "running" {
+			return nil, "", &sourceServingEraUnknownError{Detail: fmt.Sprintf("pre-upgrade source container for %s is not running (state %q)", service, entry.State)}
 		}
-		identities[service] = sourceImageIdentity{Reference: references[service], ImageID: entry.ImageID}
+		if entry.Image == "" {
+			return nil, "", &sourceServingEraUnknownError{Detail: fmt.Sprintf("pre-upgrade source container for %s has no image reference", service)}
+		}
+		identities[service] = sourceImageIdentity{Reference: entry.Image, ImageID: entry.ImageID}
 	}
-	return identities, sourceTag, nil
+
+	// app/worker/proxy are built from one source commit. Their references must
+	// therefore carry one common tag. Digest references cannot provide that tag
+	// and fail closed here even though immutable IDs remain the later Source proof.
+	sourceTag := ""
+	for _, service := range sourceVersionTaggedServingServices {
+		reference := identities[service].Reference
+		if strings.Contains(reference, "@") {
+			return nil, "", &sourceServingEraUnknownError{Detail: fmt.Sprintf("pre-upgrade source container for %s uses digest reference %q; capture requires one common source tag", service, reference)}
+		}
+		tag := extractImageTag(reference)
+		if tag == "" {
+			return nil, "", &sourceServingEraUnknownError{Detail: fmt.Sprintf("pre-upgrade source container for %s has tagless image reference %q", service, reference)}
+		}
+		if sourceTag == "" {
+			sourceTag = tag
+			continue
+		}
+		if tag != sourceTag {
+			return nil, "", &sourceServingEraUnknownError{Detail: fmt.Sprintf("pre-upgrade source containers have mixed tags: %s uses %q, want common source tag %q", service, tag, sourceTag)}
+		}
+	}
+
+	treeReferences, treeTag, err := d.sourceServingExpectedImageReferences(ctx)
+	if err != nil {
+		return nil, "", err
+	}
+	treeMatchesContainers := true
+	for _, service := range sourceServingServices {
+		if treeReferences[service] != identities[service].Reference {
+			treeMatchesContainers = false
+			break
+		}
+	}
+	if treeMatchesContainers {
+		return identities, sourceTag, nil
+	}
+	treeRendersTarget := treeTag == targetCommitShort
+	for _, service := range sourceVersionTaggedServingServices {
+		if strings.Contains(treeReferences[service], "@") || extractImageTag(treeReferences[service]) != targetCommitShort {
+			treeRendersTarget = false
+			break
+		}
+	}
+	if treeRendersTarget {
+		return identities, sourceTag, nil
+	}
+	return nil, "", &sourceServingEraUnknownError{Detail: fmt.Sprintf("current tree is neither the running source compose model nor pending target %s: tree commit is %s", targetCommitShort, treeTag)}
 }
 
 func (d *Service) captureSourceServingImageIdentities(ctx context.Context) error {
-	identities, _, err := d.resolveSourceServingImageIdentities(ctx)
+	flag, err := ReadFlagFile(d.projDir)
+	if err != nil {
+		return &sourceServingEraUnknownError{Detail: fmt.Sprintf("read pending target from recovery marker: %v", err)}
+	}
+	if flag == nil {
+		return &sourceServingEraUnknownError{Detail: "recovery marker is missing while capturing pre-upgrade source image identities"}
+	}
+	targetCommitShort := ShortForDisplay(flag.CommitSHA)
+	if !regexp.MustCompile(`^[0-9a-f]{8}$`).MatchString(targetCommitShort) {
+		return &sourceServingEraUnknownError{Detail: fmt.Sprintf("pending target commit %q does not have an eight-character git SHA", flag.CommitSHA)}
+	}
+	identities, _, err := d.resolveSourceServingImageIdentities(ctx, targetCommitShort)
 	if err != nil {
 		return err
 	}

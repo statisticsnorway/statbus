@@ -67,6 +67,45 @@ const sourceStackImageInspectCases = `
 	"inspect --format {{.Image}} "*) printf '%s\n' "$4" ;;
 	`
 
+func installSourceCaptureDockerShim(t *testing.T, treeTag, appTag, workerTag, proxyTag string, states map[string]string) {
+	t.Helper()
+	serviceStates := map[string]string{"app": "running", "worker": "running", "rest": "running", "proxy": "running"}
+	for service, state := range states {
+		serviceStates[service] = state
+	}
+	shimDir := t.TempDir()
+	shim := `#!/bin/sh
+case "$*" in
+	"compose --profile all config --format json")
+		printf '%s\n' '{"services":{"app":{"image":"ghcr.io/statisticsnorway/statbus-app:'"$STATBUS_TEST_TREE_TAG"'"},"worker":{"image":"ghcr.io/statisticsnorway/statbus-worker:'"$STATBUS_TEST_TREE_TAG"'"},"rest":{"image":"postgrest/postgrest:v13"},"proxy":{"image":"ghcr.io/statisticsnorway/statbus-proxy:'"$STATBUS_TEST_TREE_TAG"'"}}}'
+		;;
+	"compose ps -a --format json")
+		printf '%s\n' '{"ID":"app-container","Service":"app","State":"'"$STATBUS_TEST_APP_STATE"'","Image":"ghcr.io/statisticsnorway/statbus-app:'"$STATBUS_TEST_APP_TAG"'"}'
+		printf '%s\n' '{"ID":"worker-container","Service":"worker","State":"'"$STATBUS_TEST_WORKER_STATE"'","Image":"ghcr.io/statisticsnorway/statbus-worker:'"$STATBUS_TEST_WORKER_TAG"'"}'
+		printf '%s\n' '{"ID":"rest-container","Service":"rest","State":"'"$STATBUS_TEST_REST_STATE"'","Image":"postgrest/postgrest:v12.2.8"}'
+		printf '%s\n' '{"ID":"proxy-container","Service":"proxy","State":"'"$STATBUS_TEST_PROXY_STATE"'","Image":"ghcr.io/statisticsnorway/statbus-proxy:'"$STATBUS_TEST_PROXY_TAG"'"}'
+		;;
+	"inspect --format {{.Image}} app-container") printf '%s\n' "$STATBUS_TEST_APP_SOURCE_ID" ;;
+	"inspect --format {{.Image}} worker-container") printf '%s\n' "$STATBUS_TEST_WORKER_SOURCE_ID" ;;
+	"inspect --format {{.Image}} rest-container") printf '%s\n' "$STATBUS_TEST_REST_SOURCE_ID" ;;
+	"inspect --format {{.Image}} proxy-container") printf '%s\n' "$STATBUS_TEST_PROXY_SOURCE_ID" ;;
+esac
+exit 0
+`
+	if err := os.WriteFile(filepath.Join(shimDir, "docker"), []byte(shim), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("PATH", shimDir+string(os.PathListSeparator)+os.Getenv("PATH"))
+	t.Setenv("STATBUS_TEST_TREE_TAG", treeTag)
+	t.Setenv("STATBUS_TEST_APP_TAG", appTag)
+	t.Setenv("STATBUS_TEST_WORKER_TAG", workerTag)
+	t.Setenv("STATBUS_TEST_PROXY_TAG", proxyTag)
+	t.Setenv("STATBUS_TEST_APP_STATE", serviceStates["app"])
+	t.Setenv("STATBUS_TEST_WORKER_STATE", serviceStates["worker"])
+	t.Setenv("STATBUS_TEST_REST_STATE", serviceStates["rest"])
+	t.Setenv("STATBUS_TEST_PROXY_STATE", serviceStates["proxy"])
+}
+
 func TestStartSourceApplicationStackStartsOnlyVerifiedSourceEraContainers(t *testing.T) {
 	setSourceStackImageIdentityEnv(t)
 	git := newGitRepoFixture(t)
@@ -202,6 +241,132 @@ exit 0
 	pullIdx := strings.Index(execute, "d.pullImagesForCommitShort(")
 	if writeIdx < 0 || captureIdx < writeIdx || pullIdx < captureIdx {
 		t.Fatalf("source identity order must be flag -> immutable capture -> target pull; write=%d capture=%d pull=%d", writeIdx, captureIdx, pullIdx)
+	}
+}
+
+func TestCaptureSourceServingImageIdentitiesAcceptsInlineTargetTree(t *testing.T) {
+	setSourceStackImageIdentityEnv(t)
+	git := newGitRepoFixture(t)
+	sourceTag := git.oldSHA[:8]
+	targetTag := git.newSHA[:8]
+	installSourceCaptureDockerShim(t, targetTag, sourceTag, sourceTag, sourceTag, nil)
+
+	d := &Service{projDir: git.dir}
+	if err := d.writeUpgradeFlag(18, git.newSHA, nil, "test", "test", false); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = d.removeUpgradeFlag() })
+	if err := d.captureSourceServingImageIdentities(context.Background()); err != nil {
+		t.Fatalf("captureSourceServingImageIdentities with target tree: %v", err)
+	}
+	flag, err := ReadFlagFile(git.dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := servingEraExpected(sourceTag)
+	if flag == nil || !reflect.DeepEqual(flag.SourceServingImages, want) {
+		t.Fatalf("recorded source identities = %#v, want container-derived %#v", flag, want)
+	}
+}
+
+func TestCaptureSourceServingImageIdentitiesRejectsThirdTree(t *testing.T) {
+	setSourceStackImageIdentityEnv(t)
+	git := newGitRepoFixture(t)
+	sourceTag := git.oldSHA[:8]
+	treeTag := git.newSHA[:8]
+	installSourceCaptureDockerShim(t, treeTag, sourceTag, sourceTag, sourceTag, nil)
+
+	d := &Service{projDir: git.dir}
+	if err := d.writeUpgradeFlag(19, strings.Repeat("f", 40), nil, "test", "test", false); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = d.removeUpgradeFlag() })
+	err := d.captureSourceServingImageIdentities(context.Background())
+	var eraErr *sourceServingEraUnknownError
+	if !errors.As(err, &eraErr) || !strings.Contains(err.Error(), "neither the running source compose model nor pending target ffffffff") {
+		t.Fatalf("capture error = %v, want named third-tree refusal", err)
+	}
+}
+
+func TestCaptureSourceServingImageIdentitiesRejectsMixedContainerTags(t *testing.T) {
+	setSourceStackImageIdentityEnv(t)
+	git := newGitRepoFixture(t)
+	sourceTag := git.oldSHA[:8]
+	targetTag := git.newSHA[:8]
+	installSourceCaptureDockerShim(t, targetTag, sourceTag, "deadbeef", sourceTag, nil)
+
+	d := &Service{projDir: git.dir}
+	if err := d.writeUpgradeFlag(20, git.newSHA, nil, "test", "test", false); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = d.removeUpgradeFlag() })
+	err := d.captureSourceServingImageIdentities(context.Background())
+	var eraErr *sourceServingEraUnknownError
+	if !errors.As(err, &eraErr) || !strings.Contains(err.Error(), "pre-upgrade source containers have mixed tags") {
+		t.Fatalf("capture error = %v, want named mixed-tag refusal", err)
+	}
+}
+
+func TestCaptureSourceServingImageIdentitiesRequiresRunningServingStack(t *testing.T) {
+	tests := []struct {
+		name       string
+		states     map[string]string
+		wantErrSub string
+	}{
+		{name: "all running"},
+		{
+			name: "all exited",
+			states: map[string]string{
+				"app": "exited", "worker": "exited", "rest": "exited", "proxy": "exited",
+			},
+			wantErrSub: `pre-upgrade source container for app is not running (state "exited")`,
+		},
+		{
+			name:       "mixed running and exited",
+			states:     map[string]string{"worker": "exited"},
+			wantErrSub: `pre-upgrade source container for worker is not running (state "exited")`,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			setSourceStackImageIdentityEnv(t)
+			git := newGitRepoFixture(t)
+			sourceTag := git.oldSHA[:8]
+			targetTag := git.newSHA[:8]
+			installSourceCaptureDockerShim(t, targetTag, sourceTag, sourceTag, sourceTag, tc.states)
+
+			d := &Service{projDir: git.dir}
+			if err := d.writeUpgradeFlag(21, git.newSHA, nil, "test", "test", false); err != nil {
+				t.Fatal(err)
+			}
+			t.Cleanup(func() { _ = d.removeUpgradeFlag() })
+			err := d.captureSourceServingImageIdentities(context.Background())
+			if tc.wantErrSub == "" {
+				if err != nil {
+					t.Fatalf("captureSourceServingImageIdentities with running serving stack: %v", err)
+				}
+			} else {
+				var eraErr *sourceServingEraUnknownError
+				if !errors.As(err, &eraErr) || !strings.Contains(err.Error(), tc.wantErrSub) {
+					t.Fatalf("capture error = %v, want named non-running refusal containing %q", err, tc.wantErrSub)
+				}
+			}
+
+			flag, readErr := ReadFlagFile(git.dir)
+			if readErr != nil {
+				t.Fatal(readErr)
+			}
+			if tc.wantErrSub == "" {
+				want := servingEraExpected(sourceTag)
+				if flag == nil || !reflect.DeepEqual(flag.SourceServingImages, want) {
+					t.Fatalf("running capture identities = %#v, want %#v", flag, want)
+				}
+			}
+			if tc.wantErrSub != "" && flag != nil && len(flag.SourceServingImages) != 0 {
+				t.Fatalf("non-running capture mutated SourceServingImages: %#v", flag.SourceServingImages)
+			}
+		})
 	}
 }
 
