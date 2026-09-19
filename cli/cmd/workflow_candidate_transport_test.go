@@ -165,6 +165,53 @@ would recreate a second, ambiguous transport.`)
 	}
 }
 
+// TestDevDeployUsesThePublishedOperatorPath pins the recovery property that the
+// old apply-over-SSH path could not provide: install.sh downloads the NEW binary
+// before it dispatches the upgrade inline. The canary deliberately follows the
+// prerelease channel because that is the operator path we publish and exercise.
+func TestDevDeployUsesThePublishedOperatorPath(t *testing.T) {
+	relPath := ".github/workflows/deploy-to-dev.yaml"
+	script := stepScriptByName(t, relPath, "deploy", "Deploy through operator installer")
+
+	const bootstrap = "curl -fsSL https://statbus.org/install.sh | bash -s -- --channel prerelease --non-interactive"
+	if !strings.Contains(script, bootstrap) {
+		t.Errorf(`the dev canary does not use the published prerelease-channel installer.
+
+The old box may contain the defect that prevents its own binary or daemon from
+pulling the candidate. The served installer must download the new binary first,
+then dispatch inline with it. Missing command: %s`, bootstrap)
+	}
+	if strings.Contains(script, "./sb upgrade apply") {
+		t.Error(`the dev canary still invokes ./sb upgrade apply over SSH.
+
+That asks the OLD binary to schedule and the OLD daemon to execute, so an
+old-binary pre-pull defect can strand the canary before it reaches the fix.`)
+	}
+	if strings.Contains(script, "--version") || strings.Contains(script, "--commit") {
+		t.Error("the automatic canary pins a target instead of exercising the published prerelease-channel operator path")
+	}
+	if !strings.Contains(script, `|| rc=$?`) {
+		t.Error("the operator installer exit is not captured with the STATBUS-261 errexit-safe `|| rc=$?` pattern")
+	}
+	if !strings.Contains(script, `git -C ~/statbus rev-parse HEAD`) {
+		t.Error("the operator path does not report the commit actually left on disk, so requested-vs-installed verification would be self-blind")
+	}
+
+	doc := workflowDoc(t, relPath)
+	env, ok := doc["env"].(map[string]any)
+	if !ok {
+		t.Fatal("deploy-to-dev declares no workflow-level env")
+	}
+	if _, ok := env["REQUESTED_TAG"]; !ok {
+		t.Error("deploy-to-dev does not retain the candidate tag needed to distinguish channel supersession from a wrong-commit install")
+	}
+
+	guard := stepScriptByName(t, relPath, "deploy", "Assert the channel installed")
+	if !strings.Contains(guard, `"$RESOLVED_VERSION" != "$REQUESTED_TAG"`) || !strings.Contains(guard, "supersed") {
+		t.Error("a newer prerelease resolved during the race window is not classified as supersession")
+	}
+}
+
 // TestDevDeployVerifiesTheRequestedCommit_STATBUS260 is the guard, and the
 // deepest part of the fix.
 //
@@ -204,9 +251,9 @@ ticket exists.`)
 	if !strings.Contains(scripts, `"$DEPLOYED_COMMIT" != "$REQUESTED_SHA"`) {
 		t.Error(`nothing compares the requested commit with the one the box installed.
 
-Under a candidate-addressed install they can differ only if something resolved a
-target other than the one asked for — the defect itself — so it must be checked
-rather than assumed.`)
+The prerelease channel can resolve a newer candidate during the dispatch race,
+and a broken install can end on another commit even after resolving this tag.
+Either way the chain must stop rather than claim it tested REQUESTED_SHA.`)
 	}
 	// Read the GUARD STEP'S OWN script, not a concatenation of the job's.
 	//
@@ -216,7 +263,7 @@ rather than assumed.`)
 	// job, and the assertion below was satisfied by an `exit 1` belonging to a
 	// different step. It passed while measuring the wrong thing. Selecting the
 	// step by name removes the possibility.
-	guard := stepScriptByName(t, relPath, "deploy", "Assert the box installed")
+	guard := stepScriptByName(t, relPath, "deploy", "Assert the channel installed")
 	if !strings.Contains(guard, "exit 1") {
 		t.Error("a requested-vs-installed mismatch must FAIL the deploy — a warning would let the chain green-light a box running something else")
 	}

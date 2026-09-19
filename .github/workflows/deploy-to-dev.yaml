@@ -35,6 +35,10 @@ env:
   # below reads this and nothing else, so there is exactly one answer to "which
   # commit is being deployed" instead of one per step.
   REQUESTED_SHA: ${{ inputs.sha || github.sha }}
+  # The orchestrator dispatches this workflow at the candidate tag. Keep that
+  # independent name so a channel race can be reported as supersession rather
+  # than misdiagnosed as "the installer ignored its argument".
+  REQUESTED_TAG: ${{ github.ref_name }}
 
 jobs:
   # STATBUS-069 phase 3: the wait-for-images gate uses `gh` + `jq` — preinstalled
@@ -77,26 +81,24 @@ jobs:
     permissions:
       contents: read
     steps:
-      - name: Deploy via upgrade service
-        # SSH to statbus_dev@niue and trigger the upgrade service through
-        # `./sb upgrade apply <sha>` (STATBUS-259, the named-target verb —
-        # see the block below for why). The server-side sshdo allowlist
-        # constrains what can run over this channel; `./sb upgrade apply
-        # <40-hex-sha>` is explicitly permitted (ops/niue/sshdoers), alongside
-        # apply-latest, which stays allowlisted through the transition and is
-        # not what this step sends.
+      - name: Deploy through operator installer
+        # Use the SAME path operators use: the served installer following the
+        # box's prerelease channel. This is recovery-critical. Asking the box's
+        # installed `sb` to apply a target leaves the OLD binary and OLD daemon
+        # responsible for pulling the fix; a pre-pull defect in that old code can
+        # therefore make the apply path incapable of moving the box at all. The
+        # installer downloads the NEW binary first, then dispatches inline with it.
         #
-        # Refspec self-heal (`CleanStaleRefspecs`) is still covered by unit
-        # tests in `cli/internal/upgrade/refspec_test.go`; the earlier
-        # workflow-level regression test is retired because sshdo
-        # (correctly) blocks the seed step's `git config --add` — the
-        # safer gate is to keep the allowlist tight, not to loosen it for
-        # a CI probe.
+        # The orchestrator's arriving-job decision point proves this tag is the
+        # newest candidate immediately before dispatch. The resolved-version and
+        # deployed-commit checks below close the remaining race: if another RC is
+        # cut before the channel resolves, this run stops as superseded rather
+        # than calling a different candidate a successful test of this one.
         #
-        # Diagnostics kept: `set -x` echoes each local command, SSH
-        # captures both stdout and stderr, and failure paths emit
-        # `::error::` annotations so the root cause shows up in the
-        # GitHub Actions log instead of a bare "exit 1".
+        # `--non-interactive` is required because Actions has no controlling TTY.
+        # Existing installs reuse ~/statbus/.env.config; the Go installer's fresh-
+        # input preflight returns immediately when that file exists, so this path
+        # does not require STATBUS_ENV_CONFIG on dev.
         run: |
           set -x
           install -m 600 /dev/stdin /tmp/key <<< "${{ secrets.SSH_KEY }}"
@@ -111,29 +113,16 @@ jobs:
               statbus_dev@niue.statbus.org "$@" 2>&1
           }
 
-          # ═══ NOW CANDIDATE-ADDRESSED (STATBUS-259) ═══
-          #
-          # This used to install whichever candidate was NEWEST on the box's
-          # channel, not the one the chain named — the general named-target
-          # verb existed in the product (STATBUS-258) but the door only
-          # permitted apply-latest. STATBUS-259 shipped the sshdo allowlist as
-          # code (ops/niue/sshdoers, installed by Stage 8 with a hash the
-          # release preflight verifies), and that allowlist now has a second
-          # statbus_dev entry permitting `./sb upgrade apply <sha>` — the
-          # named-target verb, with a 40-hex argument matched via `match
-          # hexdigits`. So this door now installs exactly the commit the
-          # chain named, not whatever the channel resolves as newest.
-          #
-          # The apply-latest entry stays on the allowlist for now (coexists
-          # deliberately, see ops/niue/sshdoers) so a workflow-file revert
-          # during the transition cannot strand dev without any apply door.
-          # Removing it is a separate, later reviewed commit.
-          #
-          # THE GUARD BELOW STAYS — see its own header comment for why a
-          # mismatch now means something different than it used to.
-          echo "::group::Run apply on statbus_dev"
-          # STATBUS-170: capture apply stdout so the poll step learns the EXACT
-          # deployed commit (it emits `deployed_commit=<40hex>` after resolving the target).
+          echo "::group::Run the served installer on statbus_dev"
+          # The installer reports its resolved prerelease tag. Append the actual
+          # checkout left on disk after it returns, including after install.sh's
+          # clean-rollback exit mapping, so the independent guards below retain
+          # an observable answer to "what did the box end up running?".
+          # ACCESS PRECONDITION: requires ops/niue/sshdoers to permit this exact
+          # command; the allowlist is byte-pinned and hash-reviewed (STATBUS-280),
+          # updated by fleet ops together with the live file on niue.
+          remote='set -o pipefail; install_rc=0; curl -fsSL https://statbus.org/install.sh | bash -s -- --channel prerelease --non-interactive || install_rc=$?; deployed_rc=0; deployed_commit="$(git -C ~/statbus rev-parse HEAD)" || deployed_rc=$?; if [ "$deployed_rc" -eq 0 ]; then printf "deployed_commit=%s\n" "$deployed_commit"; fi; [ "$install_rc" -eq 0 ] || exit "$install_rc"; exit "$deployed_rc"'
+
           # ERREXIT (STATBUS-261): capture with `|| rc=$?`, never a bare
           # assignment. GitHub runs every step under `bash -e {0}`, so
           # `out="$(cmd)"; rc=$?` DIES on the assignment the moment cmd fails —
@@ -143,53 +132,46 @@ jobs:
           # that case could never print. A dead diagnostic is worse than none,
           # because its presence reads as evidence the case is handled.
           rc=0
-          out="$(ssh_dev "cd ~/statbus && ./sb upgrade apply $REQUESTED_SHA")" || rc=$?
+          out="$(ssh_dev "$remote")" || rc=$?
           printf '%s\n' "$out"
           echo "::endgroup::"
-          [ "$rc" -eq 0 ] || { echo "::error::apply failed on remote (exit $rc)"; exit 1; }
-          # STATBUS-260: the emit is now a GUARD, not the poll's source.
-          #
-          # It used to be both: the poll asked "did the box converge on whatever
-          # the box decided to install?" — very nearly self-referential. It
-          # cannot hang, and it cannot fail for the reason we care about: if the
-          # box installs a NEWER candidate, the poll confirms THAT one converged
-          # and this workflow reports SUCCESS while the chain believes dev took
-          # the candidate under test.
-          #
-          # So the poll uses REQUESTED_SHA, and this value now exists only to be
-          # compared against it.
-          echo "DEPLOYED_COMMIT=$(printf '%s\n' "$out" | grep -oE '^deployed_commit=[a-f0-9]{40}$' | head -1 | cut -d= -f2)" >> "$GITHUB_ENV"
+          [ "$rc" -eq 0 ] || { echo "::error::operator installer failed on remote (exit $rc)"; exit "$rc"; }
 
-      - name: Assert the box installed the candidate that was requested
-        # THE GUARD (STATBUS-260) STAYS, its meaning changed by STATBUS-259.
-        # The box now runs the named-target verb (`./sb upgrade apply
-        # $REQUESTED_SHA`), not apply-latest — so a mismatch here can no
-        # longer mean "the box resolved a different candidate than the one
-        # named" (that reading described the old apply-latest gap and is
-        # obsolete: the box cannot choose once it is told exactly what to
-        # install). A mismatch now means the apply verb installed something
-        # OTHER THAN ITS OWN ARGUMENT — a broken mechanism, not divergent
-        # resolution. This step keeps that failure LOUD rather than silent
-        # either way.
+          # These emits are guards, never the convergence poll's source. The poll
+          # remains independently pinned to REQUESTED_SHA.
+          echo "DEPLOYED_COMMIT=$(printf '%s\n' "$out" | grep -oE '^deployed_commit=[a-f0-9]{40}$' | head -1 | cut -d= -f2)" >> "$GITHUB_ENV"
+          echo "RESOLVED_VERSION=$(printf '%s\n' "$out" | grep -oE '^Latest pre-release: v[0-9]{4}\.[0-9]{2}\.[0-9]+-rc\.[0-9]+$' | head -1 | cut -d' ' -f3)" >> "$GITHUB_ENV"
+
+      - name: Assert the channel installed the candidate that was requested
+        # The orchestrator checked that REQUESTED_TAG was newest before it
+        # dispatched this workflow. A mismatch can still have two meanings:
+        # the channel resolved a newly-cut RC in the race window (supersession),
+        # or it resolved the requested tag but the box ended on another commit
+        # (a broken install). Keep those diagnoses distinct and loud.
         run: |
           set -euo pipefail
+          if [ -n "${RESOLVED_VERSION:-}" ] && [ "$RESOLVED_VERSION" != "$REQUESTED_TAG" ]; then
+            echo "::error title=Candidate superseded during prerelease channel resolution::requested ${REQUESTED_TAG} (${REQUESTED_SHA}), channel resolved ${RESOLVED_VERSION} (${DEPLOYED_COMMIT:-unknown})"
+            echo "The orchestrator confirmed ${REQUESTED_TAG} was newest before dispatch, but the"
+            echo "operator installer resolved ${RESOLVED_VERSION}. A newer candidate appeared in"
+            echo "that race window. This is supersession, not a wrong-version installer failure."
+            echo "The release chain must stop rather than report a different candidate as tested."
+            exit 1
+          fi
+
           if [ -z "${DEPLOYED_COMMIT:-}" ]; then
             echo "::warning title=Convergence check unverified::the box emitted no deployed_commit= line, so this run cannot prove it installed ${REQUESTED_SHA}. The poll below still verifies convergence ON THE REQUESTED COMMIT, so a green here is not a claim about a commit nobody checked — but the requested-vs-deployed comparison did not run."
             exit 0
           fi
           if [ "$DEPLOYED_COMMIT" != "$REQUESTED_SHA" ]; then
-            echo "::error title=Apply installed something other than its argument::requested ${REQUESTED_SHA}, box resolved ${DEPLOYED_COMMIT}"
-            echo "The chain named an exact candidate and the box installed a different one."
+            echo "::error title=Channel install did not land on its resolved candidate::requested ${REQUESTED_TAG} (${REQUESTED_SHA}), box ended at ${DEPLOYED_COMMIT}"
+            echo "The prerelease channel resolved the candidate under test, but the box ended on a different commit."
             echo "  requested: ${REQUESTED_SHA}"
             echo "  installed: ${DEPLOYED_COMMIT}"
             echo ""
-            echo "This is NOT the old apply-latest gap (STATBUS-259 closed that): the box"
-            echo "is running the named-target verb, './sb upgrade apply <sha>', which takes"
-            echo "the commit as an explicit argument and has no channel to resolve against."
-            echo "A mismatch here means the apply verb installed something OTHER THAN ITS"
-            echo "OWN ARGUMENT — a broken mechanism on the box or in this workflow, not a"
-            echo "divergent resolution. Investigate ./sb upgrade apply itself before anything"
-            echo "else."
+            echo "This is not channel supersession: the installer did not report a different"
+            echo "resolved prerelease tag. Investigate the installer/rollback result before"
+            echo "anything else."
             echo ""
             echo "Do NOT relax this check to accept a descendant. Accepting 'something"
             echo "newer' as success is a decision to call testing-a-different-thing a pass."
@@ -199,8 +181,9 @@ jobs:
 
       - name: Poll until the upgrade converges
         # STATBUS-170 phase 2 (green-means-converged): a green deploy must mean the box
-        # CONVERGED (row `completed`), not merely that the poke was delivered — the daemon
-        # runs the upgrade asynchronously and can roll back after the poke returns.
+        # CONVERGED (row `completed`), not merely that the operator installer returned.
+        # install.sh deliberately maps a clean rollback to shell success, so this
+        # independent terminal-state check remains load-bearing.
         #
         # POLL THE COMMIT THE CHAIN REQUESTED (STATBUS-260). This used to poll the
         # commit the BOX emitted, which made the check very nearly self-referential:
