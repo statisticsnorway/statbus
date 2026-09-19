@@ -453,42 +453,24 @@ statbus_repo_lock_release() {
 
 statbus_repo_lock_acquire
 
-# ── FETCH THROUGH THE PRODUCT WHEN THE PRODUCT EXISTS (STATBUS-330) ─────────
+# ── FETCH WITHOUT DEPENDING ON THE BOX BINARY (STATBUS-378) ─────────────────
 #
-# THE FAILURE THIS CLOSES was observed HERE, not in Go: gh's bootstrap died at
-# the `git fetch` below with "could not read Username for 'https://github.com'",
-# and raw git text went straight to the operator. STATBUS-324 taught the product
-# to say what that actually means — the repository is PUBLIC, so a credential
-# demand is never an auth failure, only git falling back to auth after the
-# request was refused — but that translator lives in the Go exec path.
+# COMPATIBILITY INVARIANT: install.sh may not use box-binary features newer than
+# the oldest supported installed release. The target binary takes over only
+# AFTER its download/image extraction and atomic placement in $STATBUS_DIR/sb.
+# Before that boundary, an executable already on the box is the OLD product.
 #
-# So this DELEGATES rather than duplicating. A bash reimplementation of the same
-# reasoning would be the second translator the ruling forbids, and the two would
-# drift the first time either changed. One implementation, reached from both
-# sides.
+# OBSERVED on an rc.18 box, 2026-09-19: the served installer called the old
+# binary as `sb repo-fetch --tags`; that binary's command surface rejected the
+# newer flag with EX_USAGE (64), so the rescue bootstrap could not deliver the
+# release that added the capability. Presence is not capability.
 #
-# THE TWO CALL SITES, and what each can actually reach:
-#
-#   Rescue (release/channel, $STATBUS_DIR/.git already present) — the binary is
-#   downloaded and MOVED into $STATBUS_DIR/sb before this fetch runs, so it
-#   delegates. This is the path the observed failure was on.
-#
-#   --commit — the TARGET binary is procured from an image tagged with the
-#   commit_short, which is only known AFTER this fetch and the checkout that
-#   follows it. An existing install may have a PREVIOUS binary, but that binary
-#   may predate repo-fetch and must not be mistaken for the target product. This
-#   path therefore always falls back to raw git.
-#
-# THE FALLBACK IS GENUINE RESIDUE — a consequence of bootstrapping order rather
-# than an oversight — and it is written down here so the next reader recognises
-# it as accepted rather than filing this ticket again. The fresh release install
-# needs no entry at all: it clones, and never fetches.
-#
-# TWO BRANCHES, NOT THREE. A "downloaded but not yet moved into place" branch
-# reaching for ${HOME}/sb.tmp stood here and is GONE: no call site can reach that
-# state. The rescue path moves the binary before it fetches, and the fresh path
-# does not fetch. It was defensive cover for a situation the script cannot be in,
-# and the comment justifying it asserted an ordering the script does not have.
+# Plain git is the compatibility floor. repo-fetch does not add safe.directory,
+# GIT_SSH, or credential setup: it runs git in the project directory under the
+# inherited environment. This script already exports GIT_TERMINAL_PROMPT=0, and
+# -C pins the same directory. The only feature given up here is Go's nicer error
+# translation; accepting raw git text is safer than requiring a newer binary to
+# bootstrap that binary.
 #
 # DEFINED BELOW THE ACQUISITION, deliberately. STATBUS-323's
 # TestRepoLockAcquiredBeforeAnyRepoOperation scans install.sh for a repo
@@ -515,29 +497,27 @@ statbus_git_with_retry() {
         fi
         echo "GitHub ${label} attempt ${attempt}/${max_attempts} failed [$failure_class] (rc=$rc)" >&2
         sed 's/^/  /' "$output_file" >&2
+        if [ "$rc" -eq 64 ]; then
+            echo "  non-transient usage error (rc=64); not retrying [$failure_class]" >&2
+            rm -f "$output_file"
+            return "$rc"
+        fi
         if [ "$attempt" -eq "$max_attempts" ]; then
             rm -f "$output_file"
             return "$rc"
         fi
-        # Do not inspect git's wording here. explainGitFailure in the Go product
-        # owns that translation (STATBUS-330), and matching it again in bash would
-        # create the forbidden second translator. Bootstrap paths without the
-        # target binary therefore get a small bounded retry of the preserved raw
-        # failure instead of pretending bash can classify its cause.
+        # Do not inspect git's wording here. That would create a second, drifting
+        # error translator beside explainGitFailure in the Go product. EX_USAGE
+        # is structured and non-transient; every other failure gets a small
+        # bounded retry with the command's raw diagnostic preserved.
         echo "  bounded GitHub retry [$failure_class] in ${retry_delay_s}s" >&2
         sleep "$retry_delay_s"
     done
 }
 
 statbus_git_fetch() {
-    if [ -z "$COMMIT_SHA" ] && [ -x "$STATBUS_DIR/sb" ]; then
-        statbus_git_with_retry fetch github-fetch "$STATBUS_DIR/sb" repo-fetch "$@"
-    else
-        # GENUINE RESIDUE — the --commit path, where the target product does not
-        # exist yet. Ignore any previous release binary: it may lack repo-fetch.
-        # Raw git means the operator may see git's own misleading credential text.
-        statbus_git_with_retry fetch github-fetch-bootstrap git fetch "$@"
-    fi
+    statbus_git_with_retry fetch github-fetch-bootstrap \
+        git -C "$STATBUS_DIR" fetch "$@"
 }
 
 statbus_git_clone() {
@@ -555,6 +535,20 @@ statbus_git_clone() {
         exec git clone "$@"
     ' bash "$destination" "$@"
 }
+
+# Pure/local regression seams for the compatibility-sensitive fetch wrapper.
+# Production invocations never set this variable.
+case "${STATBUS_INSTALL_TEST_GIT_FETCH:-}" in
+    tags)
+        statbus_git_fetch origin --tags
+        exit 0
+        ;;
+    usage)
+        statbus_git_with_retry fetch github-fetch \
+            statbus-install-test-usage-command
+        exit 0
+        ;;
+esac
 
 if [ -n "$VERSION" ]; then
     echo "Installing specified version: $VERSION"

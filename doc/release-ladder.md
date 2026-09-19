@@ -101,6 +101,29 @@ a red gate without also being the person who cuts. `prerelease` is
 `check` plus the tag; one code path, so what `check` says is what
 `prerelease` decides.
 
+## Served installer compatibility floor
+
+The served `install.sh` is an external compatibility surface. Until it has
+downloaded or extracted the target `sb` and atomically placed that binary in
+`~/statbus/sb`, it may use only commands and behavior available in the oldest
+supported source release. An executable already on the box is the old product,
+not evidence that a newer command or flag exists.
+
+Bootstrap tag and commit fetching therefore uses plain Git under the installer's
+own `GIT_TERMINAL_PROMPT=0` environment. It must not call the box binary's hidden
+`repo-fetch` command. `cli/cmd/bootstrap_fetch_delegation_test.go` inventories
+every executable `./sb` call in the served script, and
+`test/install/install-git-fetch-compatibility-test.sh` supplies the compatibility
+floor fixture: the `v2026.09.1-rc.18` command shape, whose `repo-fetch` rejects
+`--tags` with EX_USAGE (64). The fixture proves plain Git fetches the tag without
+calling that old binary and proves usage errors are not retried as transient
+network failures.
+
+The paid upgrade smoke still chooses the newest stable release below the target
+as its source installation. The rc.18 fixture is the older command-surface floor
+for the served-script bootstrap regression, not a replacement for that real-VM
+previous-stable run.
+
 ## Known gaps (tickets)
 
 - STATBUS-350 Option A is implemented: one selector-driven smoke matrix, native

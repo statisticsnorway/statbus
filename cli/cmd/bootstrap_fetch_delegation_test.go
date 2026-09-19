@@ -6,10 +6,6 @@ import (
 	"testing"
 )
 
-// STATBUS-330. The failure that started STATBUS-324 was observed in install.sh's
-// OWN fetch, which handed git's raw text to the operator. These pin that the
-// bash side now delegates to the product instead of reimplementing it.
-
 func installScript(t *testing.T) string {
 	t.Helper()
 	b, err := os.ReadFile(thisRepoFile(t, "install.sh"))
@@ -19,8 +15,8 @@ func installScript(t *testing.T) string {
 	return string(b)
 }
 
-// executableLines strips comments, which discuss raw git at length precisely
-// because the residue has to be explained. Only what the script DOES counts.
+// executableLines strips comments so compatibility prose does not count as an
+// invocation. Only what the served script can execute belongs in the audit.
 func executableLines(body string) []string {
 	var out []string
 	for _, line := range strings.Split(body, "\n") {
@@ -33,78 +29,27 @@ func executableLines(body string) []string {
 	return out
 }
 
-// AC#1: every fetch goes through the delegation, and raw git survives ONLY
-// inside the fallback.
-func TestEveryFetchDelegatesExceptTheDocumentedFallback(t *testing.T) {
-	lines := executableLines(installScript(t))
-
-	var rawFetches []string
-	for _, line := range lines {
-		trimmed := strings.TrimSpace(line)
-		// A COMMAND, not a mention. install.sh legitimately names `git fetch` in
-		// an operator-facing error message, and flagging that told me the script
-		// still called git directly when it did not. Only a line that INVOKES it
-		// counts: one that begins with the command, optionally behind a negation
-		// or an `if`.
-		invocation := trimmed
-		for _, prefix := range []string{"if ! ", "if ", "! "} {
-			invocation = strings.TrimPrefix(invocation, prefix)
-		}
-		if !strings.HasPrefix(invocation, "git fetch") {
-			continue
-		}
-		// The one permitted raw call is the fallback inside the helper itself.
-		if strings.Contains(line, `git fetch "$@"`) {
-			continue
-		}
-		rawFetches = append(rawFetches, trimmed)
-	}
-	if len(rawFetches) > 0 {
-		t.Errorf(`install.sh still calls git fetch directly:
-
-  %s
-
-Those sites hand git's own text to the operator — including the credential
-demand that reads as an auth failure when the cause was a refused request.
-Route them through statbus_git_fetch so the product's translator applies.`,
-			strings.Join(rawFetches, "\n  "))
-	}
+func shellSBInvocation(line string) bool {
+	trimmed := strings.TrimSpace(line)
+	return strings.Contains(trimmed, "$(./sb ") ||
+		strings.HasPrefix(trimmed, "./sb ") ||
+		strings.Contains(trimmed, "; ./sb ") ||
+		strings.Contains(trimmed, `"$STATBUS_DIR/sb" `) ||
+		strings.Contains(trimmed, `"${STATBUS_DIR}/sb" `) ||
+		strings.HasPrefix(trimmed, "sb ")
 }
 
-// AC#1: the delegation prefers the target product, and raw git remains the
-// pre-target-binary bootstrap residue.
-//
-// The middle branch this test once demanded — reach for ${HOME}/sb.tmp, the
-// downloaded-but-not-yet-moved binary — is deliberately absent. Reading the call
-// sites disproved the premise it rested on: no call site can be in that state.
-// See TestTheRescueFetchIsReachedWithTheBinaryInPlace for the ordering that
-// makes the reachable path delegate.
-func TestDelegationPrefersTheProductOverRawGit(t *testing.T) {
+// STATBUS-378: served install.sh is a compatibility surface. Until the target
+// binary has been placed, the executable already on the box is an old release,
+// not a capability probe. Tag/commit discovery must therefore use plain git.
+func TestBootstrapFetchNeverCallsTheBoxBinary(t *testing.T) {
 	body := installScript(t)
-
-	inPlace := strings.Index(body, `"$STATBUS_DIR/sb" repo-fetch`)
-	fallback := strings.Index(body, `git fetch "$@"`)
-
-	if inPlace == -1 {
-		t.Error("no delegation to the installed binary")
+	for _, line := range executableLines(body) {
+		if strings.Contains(line, "repo-fetch") {
+			t.Errorf("install.sh still executes repo-fetch through the box binary: %s", strings.TrimSpace(line))
+		}
 	}
-	if fallback == -1 {
-		t.Error("no raw-git fallback for the pre-target-binary commit bootstrap")
-	}
-	if inPlace > fallback {
-		t.Error("the delegation must try the product first and fall back last")
-	}
-}
 
-// The --commit path fetches the target commit BEFORE it can derive the image tag
-// and procure that commit's binary. An executable already in ~/statbus is
-// therefore the PREVIOUS release, which may predate the hidden repo-fetch verb.
-// Run 33598974070 proved that treating mere executable presence as capability
-// calls repo-fetch on v2026.05.4, gets "unknown command", and aborts before the
-// target binary or Go installer can run. Commit mode must take the documented
-// raw-git bootstrap residue regardless of whether an older binary is present.
-func TestCommitFetchDoesNotDelegateToPreexistingLegacyBinary(t *testing.T) {
-	body := installScript(t)
 	helperStart := strings.Index(body, "statbus_git_fetch() {")
 	if helperStart == -1 {
 		t.Fatal("no statbus_git_fetch helper")
@@ -115,108 +60,89 @@ func TestCommitFetchDoesNotDelegateToPreexistingLegacyBinary(t *testing.T) {
 		t.Fatal("could not isolate statbus_git_fetch helper")
 	}
 	helper := helperTail[:helperEnd]
-
-	if !strings.Contains(helper, `[ -z "$COMMIT_SHA" ] && [ -x "$STATBUS_DIR/sb" ]`) {
-		t.Error(`statbus_git_fetch delegates based only on executable presence.
-
-In --commit rescue mode that executable is the previous release: the target
-binary cannot be procured until after the fetch supplies the target checkout and
-its image tag. Exclude commit mode from delegation so a legacy sb without the
-hidden repo-fetch verb cannot abort the bootstrap.`)
+	if !strings.Contains(helper, `git -C "$STATBUS_DIR" fetch "$@"`) {
+		t.Error("statbus_git_fetch must use plain git in the installation directory")
+	}
+	if strings.Contains(helper, "$STATBUS_DIR/sb") || strings.Contains(helper, "./sb") {
+		t.Error("statbus_git_fetch must not inspect or invoke the installed box binary")
 	}
 }
 
-// The rescue path is where the observed failure happened, and it is the ONLY
-// fetch that can delegate. What makes it able to is an ordering: the binary is
-// moved into $STATBUS_DIR/sb before the fetch runs. Reorder those two and the
-// delegation silently degrades to raw git on the very path it was built for —
-// with no error anywhere, because the fallback is legitimate elsewhere. So the
-// ordering is pinned here rather than left to be noticed.
-func TestTheRescueFetchIsReachedWithTheBinaryInPlace(t *testing.T) {
+// Inventory every executable ./sb call in install.sh. The only allowed command
+// surfaces are version display after placement, target-binary install, and
+// post-failure support reporting. Adding a new pre-placement dependency must
+// update this explicit compatibility review rather than landing silently.
+func TestAllSBInvocationsFollowTargetBinaryPlacement(t *testing.T) {
 	body := installScript(t)
-
-	move := strings.Index(body, `mv "${HOME}/sb.tmp" "${STATBUS_DIR}/sb"`)
-	fetch := strings.Index(body, "statbus_git_fetch origin --tags")
-
-	if move == -1 {
-		t.Fatal("no move of the downloaded binary into place")
+	want := map[string]int{
+		`echo "Binary: $(./sb --version)"`:                                                           3,
+		`(exec </dev/tty; ./sb install ${SB_INSTALL_ARGS[@]+"${SB_INSTALL_ARGS[@]}"})`:               1,
+		`./sb install ${SB_INSTALL_ARGS[@]+"${SB_INSTALL_ARGS[@]}"}`:                                 1,
+		`if bundle_path=$(./sb support gather --trigger=install 2>/tmp/sb-support-gather.err); then`: 1,
+		`./sb support write-admin-ui-row \`:                                                          1,
 	}
-	if fetch == -1 {
-		t.Fatal("the rescue path no longer delegates its tag fetch")
+	got := make(map[string]int)
+	for _, line := range executableLines(body) {
+		if shellSBInvocation(line) {
+			got[strings.TrimSpace(line)]++
+		}
 	}
-	if move > fetch {
-		t.Error(`the rescue path fetches BEFORE the binary is in place.
-
-The delegation then falls through to raw git on the one path that could have
-used the product, and nothing reports it — the fallback is silent by design.`)
+	if len(got) != len(want) {
+		t.Fatalf("install.sh ./sb invocation inventory changed:\n got: %#v\nwant: %#v", got, want)
 	}
-}
+	for invocation, count := range want {
+		if got[invocation] != count {
+			t.Errorf("install.sh invocation %q count = %d, want %d", invocation, got[invocation], count)
+		}
+	}
 
-// AC#2: NO SECOND TRANSLATOR. The bash side must not match on git's error text —
-// that reasoning lives in explainGitFailure, once.
-func TestBashContainsNoGitErrorTextMatching(t *testing.T) {
-	lines := executableLines(installScript(t))
+	firstPlacement := strings.Index(body, `docker cp "${sb_cid}:/sb" "${STATBUS_DIR}/sb"`)
+	firstInvocation := strings.Index(body, `$(./sb --version)`)
+	if firstPlacement == -1 || firstInvocation == -1 || firstPlacement > firstInvocation {
+		t.Error("the first ./sb invocation appears before the first target-binary placement")
+	}
 
-	// Fragments of git's failure text that a bash-side translator would have to
-	// match on. Their presence in an executable line means a second translator.
-	for _, fragment := range []string{
-		"could not read Username",
-		"Authentication failed",
-		"terminal prompts disabled",
-		"expected flush after ref listing",
+	for _, rescueShape := range []struct {
+		placement  string
+		invocation string
+	}{
+		{`mv "${HOME}/sb.tmp" "${STATBUS_DIR}/sb"`, `echo "Binary: $(./sb --version)"`},
 	} {
-		for _, line := range lines {
-			if strings.Contains(line, fragment) {
-				t.Errorf("install.sh matches git error text (%q) in: %s\n  The translation belongs in explainGitFailure, in one place.", fragment, strings.TrimSpace(line))
-			}
+		placement := strings.Index(body, rescueShape.placement)
+		if placement == -1 {
+			t.Fatalf("missing target-binary placement %q", rescueShape.placement)
+		}
+		invocation := strings.Index(body[placement:], rescueShape.invocation)
+		if invocation == -1 {
+			t.Fatalf("missing post-placement invocation %q", rescueShape.invocation)
 		}
 	}
 }
 
-// AC#3: the residue is documented AT the fallback, with the bootstrapping-order
-// reasoning — otherwise the next reader files this ticket again.
-func TestFallbackDocumentsTheBootstrapResidue(t *testing.T) {
+func TestInstallerStatesTheBoxBinaryCompatibilityInvariant(t *testing.T) {
 	body := installScript(t)
-
-	helper := strings.Index(body, "statbus_git_fetch() {")
-	if helper == -1 {
-		t.Fatal("no delegation helper")
-	}
-	// The explanation sits immediately above the helper.
-	preamble := body[:helper]
 	for _, phrase := range []string{
-		"RESIDUE",
-		"--commit",
-		"commit_short",
+		"may not use box-binary features newer than",
+		"oldest supported installed release",
+		"target binary takes over only",
+		"AFTER its download/image extraction and atomic placement",
 	} {
-		if !strings.Contains(preamble, phrase) {
-			t.Errorf("the residue explanation must name %q — the reader has to learn WHICH path cannot delegate and WHY, not merely that one exists", phrase)
+		if !strings.Contains(body, phrase) {
+			t.Errorf("install.sh compatibility comment must contain %q", phrase)
 		}
-	}
-	if !strings.Contains(body, "GENUINE RESIDUE") {
-		t.Error("the fallback branch itself must be marked as the accepted residue, at the line")
 	}
 }
 
-// The delegation target must be registered read-only. Without it,
-// isMutatingCommand treats it as mutating and the staleness guard hard-fails in
-// the normal mid-rescue state — new binary in place, tree not yet checked out to
-// match — which is exactly when install.sh calls it. The delegation would then
-// break the install it exists to improve.
+// The retained legacy command stays read-only and hidden for compatibility with
+// already-served installers which may still call it.
 func TestRepoFetchIsRegisteredReadOnly(t *testing.T) {
 	if !readOnlyCommandPaths["sb repo-fetch"] {
-		t.Error(`"sb repo-fetch" is not in readOnlyCommandPaths.
-
-install.sh calls it when the binary is newer than the worktree — the normal
-mid-rescue state. As a mutating command the staleness guard exits 2 there, so
-the delegation would fail at exactly the moment it is needed.`)
+		t.Error(`"sb repo-fetch" is not in readOnlyCommandPaths`)
 	}
 }
 
-// It must stay hidden: an internal delegation target, not a command an operator
-// discovers in --help. `git fetch` remains the thing a human runs.
 func TestRepoFetchIsHidden(t *testing.T) {
 	if !repoFetchCmd.Hidden {
-		t.Error("repo-fetch must be Hidden — it exists for install.sh, and advertising it adds the public surface the ruling was protecting")
+		t.Error("repo-fetch must remain hidden")
 	}
 }
