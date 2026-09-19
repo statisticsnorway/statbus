@@ -3,10 +3,10 @@ id: STATBUS-378
 title: >-
   Served install.sh requires a newer sb than the box has (repo-fetch --tags
   chicken-and-egg)
-status: To Do
+status: In Progress
 assignee: []
 created_date: '2026-09-19 10:43'
-updated_date: '2026-09-19 10:43'
+updated_date: '2026-09-19 11:18'
 labels:
   - install
   - recovery
@@ -91,3 +91,10 @@ The scenario should retain enough evidence to identify:
    network, authentication, and missing-tag failures.
 7. Release documentation states the served-script compatibility invariant and
    identifies the oldest supported source release used by the harness.
+
+## Progress (2026-09-19 11:18 CEST)
+
+Status: **in progress / fix pending push**. The compatibility fix is implemented
+in local commit `a3577476f` (`install: fetch bootstrap tags without box binary`),
+stacked behind `7d0e8391e`, with review in flight. At this checkpoint neither
+commit is on `origin/master`; publication and candidate proof remain pending.

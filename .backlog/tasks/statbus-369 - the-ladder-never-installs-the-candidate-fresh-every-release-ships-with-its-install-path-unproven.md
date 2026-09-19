@@ -7,7 +7,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-09-14 12:36'
-updated_date: '2026-09-18 17:18'
+updated_date: '2026-09-19 11:18'
 labels:
   - release
   - install
@@ -1059,3 +1059,11 @@ Published repair head `f03f5c0e7` is green in Go `35372247298`, app
 `35372247523`, Images `35372247917`, Fast Tests `35372597136`, and pg_regress
 `35372597129`. No rc.19 tag or GitHub release exists. The paid rerun remains
 pending a new named candidate.
+
+## rc.18 final and rc.19/rc.20 checkpoint (2026-09-19)
+
+The rc.18 Upgrade Arc final classification is **21/35 red**, all from one root
+cause: profile-empty Compose rendering, fixed in `a96751064`. The rc.19 Arc never
+ran because the dev canary was blocked by old-binary stranding and the release
+chain stopped. rc.19 also carries `f03f5c0e7` and `5e4b9ef3e`. The next
+candidate is rc.20, pending the inline-capture fix.

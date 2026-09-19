@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-09-18 17:48'
-updated_date: '2026-09-18 17:48'
+updated_date: '2026-09-19 11:18'
 labels:
   - install
   - setup
@@ -139,3 +139,10 @@ for both x86 and Arm.
    all rename-impact sites in the implementation inventory are reconciled.
 9. rc.19 carries Workstream B, and the release evidence links this ticket and
    STATBUS-369.
+
+## rc.19 checkpoint and deferral (2026-09-19)
+
+Status remains **open**, deliberately deferred until a green stable exists. The
+rc.19 installer fixes in `9e57c1722` are live on statbus.org, and Finland's
+blocking D8-D11 are fixed. D1-D7, the public/fleet setup split, and the harness
+work remain pending for rc.20 or later.

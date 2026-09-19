@@ -2,10 +2,10 @@
 id: STATBUS-377
 title: >-
   rc.18 boxes cannot self-upgrade: pre-pull capture runs in the OLD binary
-status: To Do
+status: In Progress
 assignee: []
 created_date: '2026-09-19 10:43'
-updated_date: '2026-09-19 10:51'
+updated_date: '2026-09-19 11:18'
 labels:
   - upgrade
   - recovery
@@ -106,3 +106,24 @@ enough that an operator hitting a stranded box finds it without support.
 9. `doc/CLOUD.md`, `doc/DEPLOYMENT.md`, and
    `doc/upgrade-recovery-model.md` prominently direct operators to re-run the
    official installer and do not prescribe a manual binary swap.
+
+## Dev canary evidence and ruling (2026-09-19)
+
+Dev canary rc.19 deployment run `35404014913` failed before pull in the old
+binary. A manually swapped dev attempt was then made before the owner ruling; it
+was a one-off and is not a precedent. That attempt reached the **next** check and
+failed with:
+
+    pre-upgrade app container image reference ... want current source compose reference
+
+This proves source-image capture also assumed `tree == source`. The official
+installer-rerun path violates that assumption by design because `install.sh`
+checks out the target before dispatching the upgrade. A fix deriving the source
+era from the running containers is in flight.
+
+Owner ruling: the **only** approved upgrade path is re-running the official
+installer. It is channel-driven, never version-pinned, and never manual binary
+surgery. Any rare exception requires the owner's personal approval.
+
+New open question: after the container-derived capture lands, does any other
+pre-pull step still assume `tree == source`?
