@@ -66,6 +66,25 @@ if [ -n "${STANDALONE_TRUST_KEY_USER+x}" ]; then
 fi
 FLEET_TRUST_KEY_USER="${FLEET_TRUST_KEY_USER:-}"
 
+finish_cloud_log() {
+    local exit_code=$?
+    if [ "$exit_code" -eq 0 ]; then
+        echo "Log saved to $LOG"
+    else
+        echo "Command failed (exit $exit_code). The log has the full output: $LOG" >&2
+    fi
+}
+
+start_cloud_log() {
+    local verb="$1" target="$2" timestamp
+    timestamp=$(date -u +%Y%m%dT%H%M%SZ)
+    mkdir -p ./tmp
+    LOG="./tmp/cloud-${verb}-${target}-${timestamp}.log"
+    echo "Logging to $LOG"
+    trap finish_cloud_log EXIT
+    exec > >(tee -a "$LOG") 2>&1
+}
+
 usage() {
     echo "Usage: $0 <command> [args]"
     echo "Targets: all | <code> | stable | prerelease | cloud | standalone"
@@ -990,6 +1009,7 @@ case "$1" in
         cmd_health "${2:-all}"
         ;;
     notify)
+        start_cloud_log notify "${2:-all}"
         cmd_notify "${2:-all}"
         ;;
     upgrade)
@@ -1007,6 +1027,7 @@ case "$1" in
                     ;;
             esac
         done
+        start_cloud_log upgrade "$target"
         cmd_upgrade "$target" "$confirmed"
         ;;
     install|rescue)
@@ -1024,10 +1045,12 @@ case "$1" in
                 *) version="$1"; shift ;;
             esac
         done
+        start_cloud_log "$sub" "$target"
         cmd_install "$target" "$version"
         ;;
     create)
         [ $# -lt 4 ] && { echo "Error: create requires <code>, <name>, and <version>"; exit 1; }
+        start_cloud_log create "$2"
         if registry_entry "$2" >/dev/null; then assert_verb_target_group create "$2" || exit $?; fi
         cmd_create "$2" "$3" "$4"
         ;;
@@ -1038,16 +1061,19 @@ case "$1" in
         ;;
     wipe)
         [ $# -lt 2 ] && { echo "Error: wipe requires a box code"; usage; }
+        start_cloud_log wipe "$2"
         assert_verb_target_group wipe "$2" || exit $?
         cmd_wipe "$2"
         ;;
     import)
         [ $# -lt 3 ] && { echo "Error: import requires <target> <selection|downloads>"; usage; }
+        start_cloud_log import "$2"
         assert_verb_target_group import "$2" || exit $?
         cmd_import "$2" "$3" "${4:-}"
         ;;
     reimport)
         [ $# -lt 3 ] && { echo "Error: reimport requires <target> <selection|downloads>"; usage; }
+        start_cloud_log reimport "$2"
         assert_verb_target_group reimport "$2" || exit $?
         cmd_reimport "$2" "$3" "${4:-}"
         ;;
