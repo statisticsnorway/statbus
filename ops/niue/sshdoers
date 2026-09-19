@@ -51,6 +51,16 @@ statbus_demo: cd ~/statbus && ./sb upgrade apply-latest
 statbus_dev: cd ~/statbus && ./sb upgrade apply ########################################
 
 #
+# Prerelease-channel bootstrap — invoked by deploy-to-dev.yaml. This continues
+# the STATBUS-259 byte-pinned CI-door lineage for the channel-bootstrap change
+# in 7d0e8391e: the canary must download the new binary through the served
+# installer before inline dispatch, because asking the installed binary to pull
+# its own fix can strand the box on an old-binary pre-pull defect.
+# Approved by the owner 2026-09-19.
+#
+statbus_dev: set -o pipefail; install_rc=0; curl -fsSL https://statbus.org/install.sh | bash -s -- --channel prerelease --non-interactive || install_rc=$?; deployed_rc=0; deployed_commit="$(git -C ~/statbus rev-parse HEAD)" || deployed_rc=$?; if [ "$deployed_rc" -eq 0 ]; then printf "deployed_commit=%s\n" "$deployed_commit"; fi; [ "$install_rc" -eq 0 ] || exit "$install_rc"; exit "$deployed_rc"
+
+#
 # Notify-all-clouds — invoked by notify-all-clouds.yaml via appleboy ssh-action.
 # Command is the single byte-stable entrypoint line (STATBUS-123): the behavior
 # lives in ~/statbus/ops/ci-notify.sh (evolves via git); only the PATH is pinned.
