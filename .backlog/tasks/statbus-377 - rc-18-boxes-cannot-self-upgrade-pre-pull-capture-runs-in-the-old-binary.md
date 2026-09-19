@@ -5,7 +5,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-09-19 10:43'
-updated_date: '2026-09-19 10:43'
+updated_date: '2026-09-19 10:51'
 labels:
   - upgrade
   - recovery
@@ -54,43 +54,38 @@ installation**. The defect is that successful escape depends on the old
 binary's rendering behavior. Nothing structural currently prevents another
 release from introducing the same class of self-stranding pre-pull bug.
 
-## Proven operator rescue path
+## Remedy (the only approved path)
 
-Document this break-glass inline path in both `doc/CLOUD.md` and
-`doc/DEPLOYMENT.md`:
+Re-run the official installer on the box:
 
-1. Fetch the target tag on the affected box.
-2. Extract the new `sb` from
-   `ghcr.io/statisticsnorway/statbus-sb:<commit_short>` using `docker create`
-   and `docker cp /sb`.
-3. Atomically preserve and swap `sb` and `sb.old`.
-4. Restart `statbus-upgrade@<slot>` so the unit loads the new binary.
-5. Run `./sb upgrade register <version>` and
-   `./sb upgrade schedule <version>`.
+    curl -fsSL https://statbus.org/install.sh | bash
 
-This procedure recovered the 2026-09-19 dev canary. It must be precise about
-ownership, permissions, rollback of the binary swap, slot naming, and how to
-confirm that the restarted unit is actually running the target binary.
+Use the box's channel equivalent where applicable. `install.sh` downloads the
+**new binary first**; `./sb install` (new binary) detects state and dispatches the
+pending upgrade inline, so every phase runs new code.
 
-## Design question
+This is the only upgrade advice given to operators and the only path SSB uses
+itself. It is channel-driven: for example, `--channel prerelease` resolves the
+newest candidate. It is never a version pin; the fleet orchestrator's
+newest-check guards supersession.
 
-Choose and encode a durable boundary:
+Any other path, including manual binary swaps, is a rare exception requiring
+the owner's personal approval. For the record, a manual binary swap was
+performed on dev on 2026-09-19 before this ruling. It is not a precedent.
 
-1. Have `executeUpgrade` verify/capture the current installation with logic from
-   the target tree or target binary, while still reading the current compose
-   configuration and current serving image identities; or
-2. Minimize the pre-pull phase to operations whose correctness cannot depend on
-   features or bug fixes introduced by the target release.
+## Open question
 
-A solution must account for the fact that target code is not yet trusted or
-fully installed, while also ensuring that a defect in an old release cannot
-permanently prevent that release from upgrading to its repair.
+STATBUS-378 (served `install.sh` box-binary compatibility) is the prerequisite
+fix. The remaining question is whether `deploy-to-dev` and any other fleet
+automation invokes the installer by channel everywhere (the `deploy-to-dev` fix
+is in flight), and whether `doc/CLOUD.md`, `doc/DEPLOYMENT.md`, and
+`doc/upgrade-recovery-model.md` state the installer-rerun remedy prominently
+enough that an operator hitting a stranded box finds it without support.
 
 ## Done when
 
-1. `doc/CLOUD.md` and `doc/DEPLOYMENT.md` contain the tested operator rescue
-   procedure, including target-tag fetch, image extraction, safe binary swap,
-   unit restart, registration, scheduling, verification, and rollback guidance.
+1. STATBUS-378 ensures the served `install.sh` downloads a box-compatible new
+   binary before invoking `./sb install`.
 2. The upgrade design states which binary/tree owns every pre-pull operation and
    why an old defect cannot strand the installed release before target code can
    take over.
@@ -106,3 +101,8 @@ permanently prevent that release from upgrading to its repair.
    coherent across interruption and retry.
 7. Release documentation names this compatibility boundary so future changes to
    pre-pull behavior require an old-to-new upgrade proof.
+8. Fleet automation invokes the official installer by channel, never by version
+   pin, and preserves the newest-candidate supersession guard.
+9. `doc/CLOUD.md`, `doc/DEPLOYMENT.md`, and
+   `doc/upgrade-recovery-model.md` prominently direct operators to re-run the
+   official installer and do not prescribe a manual binary swap.
