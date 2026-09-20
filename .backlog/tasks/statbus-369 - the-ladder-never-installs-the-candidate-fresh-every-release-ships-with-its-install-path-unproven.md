@@ -7,7 +7,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-09-14 12:36'
-updated_date: '2026-09-19 11:18'
+updated_date: '2026-09-20 14:36'
 labels:
   - release
   - install
@@ -1067,3 +1067,11 @@ cause: profile-empty Compose rendering, fixed in `a96751064`. The rc.19 Arc neve
 ran because the dev canary was blocked by old-binary stranding and the release
 chain stopped. rc.19 also carries `f03f5c0e7` and `5e4b9ef3e`. The next
 candidate is rc.20, pending the inline-capture fix.
+
+## rc.20 final and rc.21/rc.22 chain (2026-09-20)
+
+The rc.20 Upgrade Arc finished **23 green / 14 red**. Live triage was retained
+in `tmp/rc20-arc-triage-live.md`; every one of the 14 reds was explained and
+fixed. The rc.21 chain was first blocked by the rc.20-arc mutex and was then
+superseded intentionally. rc.22 (`e9cf9d9f4`) is the candidate whose Upgrade
+Arc is now running.

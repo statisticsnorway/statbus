@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-09-18 17:48'
-updated_date: '2026-09-19 11:18'
+updated_date: '2026-09-20 14:36'
 labels:
   - install
   - setup
@@ -146,3 +146,15 @@ Status remains **open**, deliberately deferred until a green stable exists. The
 rc.19 installer fixes in `9e57c1722` are live on statbus.org, and Finland's
 blocking D8-D11 are fixed. D1-D7, the public/fleet setup split, and the harness
 work remain pending for rc.20 or later.
+
+## Current disposition and live installer evidence (2026-09-20)
+
+This ticket remains **OPEN** and is deferred until a green stable exists, per
+the owner's 2026-09-19 ruling.
+
+The rc.19 installer fixes were live-verified by Norway's rc.20 installation.
+The real operator path proved channel resolution, clean detached checkout,
+signer flow, and inline dispatch green. Separately, `cloud.sh` now
+automatically logs mutating verbs (`d032588e5`), as requested by the owner.
+These facts reduce installer-path uncertainty but do not complete the Finland
+Ubuntu 26.04 setup split or its remaining D1-D7 acceptance work.

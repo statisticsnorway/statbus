@@ -5,7 +5,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-09-19 10:43'
-updated_date: '2026-09-19 11:18'
+updated_date: '2026-09-20 14:36'
 labels:
   - upgrade
   - recovery
@@ -17,7 +17,7 @@ dependencies: []
 references:
   - a96751064
   - 7244856d5
-priority: high
+priority: medium
 type: bug
 ordinal: 1
 ---
@@ -127,3 +127,31 @@ surgery. Any rare exception requires the owner's personal approval.
 
 New open question: after the container-derived capture lands, does any other
 pre-pull step still assume `tree == source`?
+
+## 2026-09-20 disposition: incident closed, structural question remains open
+
+The rc.18 old-binary stranding incident is **CLOSED as designed behavior with a
+documented remedy**. The rc.18 boxes could not self-upgrade because pre-pull
+capture runs in the installed old binary; the dev canary demonstrated the
+failure in run `35404014913`. The owner's 2026-09-19 ruling is binding: the
+**only approved recovery path** is to re-run the official channel-driven
+installer, which downloads the new binary first. That path succeeded for
+Norway's rc.20 install and the rc.20 dev canary.
+
+The fixes that make the approved path trustworthy are:
+
+- `a3577476f`: `install.sh` bootstrap no longer depends on the box binary.
+- `7d0e8391e`: `deploy-to-dev` uses the channel installer; its required
+  sshdoers entry is `63b1dabe9`, live on niue on 2026-09-20.
+- `3d393d725` and `e9cf9d9f4`: capture source identities from running
+  containers, guard the route tier as running, and allow the worker to be
+  stopped.
+- `ebbc53a12` and `2cb0ff6d4`: preserve captured marker identity across resume
+  and corrupt-marker recovery.
+- `cc079588b`: admission accepts intentional manual re-dispatch.
+
+This ticket remains **OPEN at P2** only for the structural design question:
+`executeUpgrade`'s pre-pull phase still runs in the old binary by design.
+Consider whether source capture should move post-swap or be delegated to the
+downloaded target binary. The documented installer rerun is the supported
+remedy unless and until that boundary changes.

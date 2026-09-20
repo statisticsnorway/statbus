@@ -3,10 +3,10 @@ id: STATBUS-378
 title: >-
   Served install.sh requires a newer sb than the box has (repo-fetch --tags
   chicken-and-egg)
-status: In Progress
+status: Done
 assignee: []
 created_date: '2026-09-19 10:43'
-updated_date: '2026-09-19 11:18'
+updated_date: '2026-09-20 14:36'
 labels:
   - install
   - recovery
@@ -98,3 +98,11 @@ Status: **in progress / fix pending push**. The compatibility fix is implemented
 in local commit `a3577476f` (`install: fetch bootstrap tags without box binary`),
 stacked behind `7d0e8391e`, with review in flight. At this checkpoint neither
 commit is on `origin/master`; publication and candidate proof remain pending.
+
+## Closed and live-verified (2026-09-20)
+
+**CLOSED.** Fix `a3577476f` removed the served installer's dependency on the
+installed box binary. The corrected bootstrap was exercised by the successful
+rc.20, rc.21, and rc.22 cuts and by the dev-canary bootstrap. The official
+installer can therefore obtain the target release before invoking the box's
+install/upgrade path.
