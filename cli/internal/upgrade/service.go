@@ -409,13 +409,17 @@ type UpgradeFlag struct {
 	Phase      string    `json:"phase,omitempty"`       // PhaseOldSbUpgrading (default) or PhaseNewSbSwapped
 	Recreate   bool      `json:"recreate,omitempty"`    // durable recreate intent (from public.upgrade.recreate) so resumeNewSb can replay --recreate
 	BackupPath string    `json:"backup_path,omitempty"` // finalized backup dir, populated at Phase=PhaseNewSbSwapped so resumeNewSb can roll back without DB
-	// SourceServingImages records the running source containers' references and
-	// immutable daemon image IDs before any target image pull can move a local
-	// tag. The current tree corroborates capture but does not define Source.
+	// SourceServingImages records the source containers' references and immutable
+	// daemon image IDs before any target image pull can move a local tag. The
+	// current tree corroborates capture but does not define Source.
 	// Recovery may render references again from the restored source tree, but
 	// Source is proved only against these pre-upgrade IDs, never against what a
 	// mutable tag happens to resolve to after the crash.
 	SourceServingImages map[string]sourceImageIdentity `json:"source_serving_images,omitempty"`
+	// SourceServingStates records the observed Docker state at the same capture
+	// boundary. State is not Source proof, but retaining it distinguishes a
+	// deliberately stopped pre-upgrade worker from a fully live source stack.
+	SourceServingStates map[string]string `json:"source_serving_states,omitempty"`
 
 	Restart *RestartIntent `json:"restart,omitempty"`
 
@@ -1126,10 +1130,11 @@ func replaceHeldFlagAtomically(lock *FlagLock, data []byte, beforeRename func() 
 
 // requireCapturedSourceServingImagesPreserved makes immutable source-image
 // capture a writer invariant rather than a per-call-site convention. Once a
-// service-held upgrade marker records the pre-pull identities, every atomic
-// replacement for that same upgrade must carry the exact map until the marker
-// is removed after a truthful terminal. A fresh UpgradeFlag literal that omits
-// or changes the map therefore fails before a replacement temp is installed.
+// service-held upgrade marker records the pre-pull identities and observed
+// states, every atomic replacement for that same upgrade must carry the exact
+// maps until the marker is removed after a truthful terminal. A fresh
+// UpgradeFlag literal that omits or changes either map therefore fails before a
+// replacement temp is installed.
 func requireCapturedSourceServingImagesPreserved(lock *FlagLock, replacementData []byte) error {
 	if _, err := lock.file.Seek(0, 0); err != nil {
 		return fmt.Errorf("seek held flag before source-image preservation check: %w", err)
@@ -1157,6 +1162,14 @@ func requireCapturedSourceServingImagesPreserved(lock *FlagLock, replacementData
 	for service, identity := range current.SourceServingImages {
 		if replacement.SourceServingImages[service] != identity {
 			return fmt.Errorf("refusing to discard captured source serving image identities for upgrade %d: %s changed", current.ID, service)
+		}
+	}
+	if len(current.SourceServingStates) != len(replacement.SourceServingStates) {
+		return fmt.Errorf("refusing to discard captured source serving container states for upgrade %d", current.ID)
+	}
+	for service, state := range current.SourceServingStates {
+		if replacement.SourceServingStates[service] != state {
+			return fmt.Errorf("refusing to discard captured source serving container states for upgrade %d: %s changed", current.ID, service)
 		}
 	}
 	return nil
@@ -8208,6 +8221,29 @@ type sourceImageIdentity struct {
 	ImageID   string `json:"image_id"`
 }
 
+type sourceServingCapture struct {
+	Images map[string]sourceImageIdentity
+	States map[string]string
+}
+
+func knownDockerContainerState(state string) bool {
+	switch state {
+	case "running", "exited", "created", "dead", "paused", "restarting":
+		return true
+	default:
+		return false
+	}
+}
+
+func admittedSourceWorkerState(state string) bool {
+	switch state {
+	case "running", "exited", "created", "dead":
+		return true
+	default:
+		return false
+	}
+}
+
 var dockerImageIDPattern = regexp.MustCompile(`^sha256:[0-9a-f]{64}$`)
 
 func normalizedDockerImageID(raw string) (string, error) {
@@ -8295,37 +8331,48 @@ func (d *Service) sourceServingExpectedImageReferences(ctx context.Context) (map
 	return expected, sourceTag, nil
 }
 
-// resolveSourceServingImageIdentities captures source truth from the running
+// resolveSourceServingImageIdentities captures source truth from the existing
 // serving containers. The current tree is only corroboration because daemon
 // dispatch captures while the tree is still at Source, whereas operator-inline
 // dispatch has already checked out Target before entering this pipeline.
-func (d *Service) resolveSourceServingImageIdentities(ctx context.Context, targetCommitShort string) (map[string]sourceImageIdentity, string, error) {
+func (d *Service) resolveSourceServingImageIdentities(ctx context.Context, targetCommitShort string) (*sourceServingCapture, error) {
 	entries, err := d.sourceServingContainerEntries(ctx)
 	if err != nil {
-		return nil, "", err
+		return nil, err
 	}
 	actual := make(map[string]compose.PsEntry, len(entries))
 	for _, entry := range entries {
 		if _, duplicate := actual[entry.Service]; duplicate {
-			return nil, "", &sourceServingEraUnknownError{Detail: fmt.Sprintf("multiple pre-upgrade containers reported for %s", entry.Service)}
+			return nil, &sourceServingEraUnknownError{Detail: fmt.Sprintf("multiple pre-upgrade containers reported for %s", entry.Service)}
 		}
 		entry.Image = strings.TrimSpace(entry.Image)
 		actual[entry.Service] = entry
 	}
 	identities := make(map[string]sourceImageIdentity, len(sourceServingServices))
+	states := make(map[string]string, len(sourceServingServices))
 	for _, service := range sourceServingServices {
 		entry, ok := actual[service]
 		if !ok {
-			return nil, "", &sourceServingEraUnknownError{Detail: fmt.Sprintf("pre-upgrade source container for %s is missing", service)}
+			return nil, &sourceServingEraUnknownError{Detail: fmt.Sprintf("pre-upgrade source container for %s is missing", service)}
 		}
 		entry.State = strings.TrimSpace(entry.State)
-		if entry.State != "running" {
-			return nil, "", &sourceServingEraUnknownError{Detail: fmt.Sprintf("pre-upgrade source container for %s is not running (state %q)", service, entry.State)}
+		if !knownDockerContainerState(entry.State) {
+			return nil, &sourceServingEraUnknownError{Detail: fmt.Sprintf("pre-upgrade source container for %s has empty or unknown state %q", service, entry.State)}
+		}
+		if service == "worker" {
+			if !admittedSourceWorkerState(entry.State) {
+				return nil, &sourceServingEraUnknownError{Detail: fmt.Sprintf("pre-upgrade source worker is neither running nor stably stopped (state %q)", entry.State)}
+			}
+		} else if entry.State != "running" {
+			// app, rest, and proxy form the request-serving route. Their immutable
+			// identities establish the serving baseline only while that route is live.
+			return nil, &sourceServingEraUnknownError{Detail: fmt.Sprintf("pre-upgrade source route container for %s is not running (state %q)", service, entry.State)}
 		}
 		if entry.Image == "" {
-			return nil, "", &sourceServingEraUnknownError{Detail: fmt.Sprintf("pre-upgrade source container for %s has no image reference", service)}
+			return nil, &sourceServingEraUnknownError{Detail: fmt.Sprintf("pre-upgrade source container for %s has no image reference", service)}
 		}
 		identities[service] = sourceImageIdentity{Reference: entry.Image, ImageID: entry.ImageID}
+		states[service] = entry.State
 	}
 
 	// app/worker/proxy are built from one source commit. Their references must
@@ -8335,24 +8382,24 @@ func (d *Service) resolveSourceServingImageIdentities(ctx context.Context, targe
 	for _, service := range sourceVersionTaggedServingServices {
 		reference := identities[service].Reference
 		if strings.Contains(reference, "@") {
-			return nil, "", &sourceServingEraUnknownError{Detail: fmt.Sprintf("pre-upgrade source container for %s uses digest reference %q; capture requires one common source tag", service, reference)}
+			return nil, &sourceServingEraUnknownError{Detail: fmt.Sprintf("pre-upgrade source container for %s uses digest reference %q; capture requires one common source tag", service, reference)}
 		}
 		tag := extractImageTag(reference)
 		if tag == "" {
-			return nil, "", &sourceServingEraUnknownError{Detail: fmt.Sprintf("pre-upgrade source container for %s has tagless image reference %q", service, reference)}
+			return nil, &sourceServingEraUnknownError{Detail: fmt.Sprintf("pre-upgrade source container for %s has tagless image reference %q", service, reference)}
 		}
 		if sourceTag == "" {
 			sourceTag = tag
 			continue
 		}
 		if tag != sourceTag {
-			return nil, "", &sourceServingEraUnknownError{Detail: fmt.Sprintf("pre-upgrade source containers have mixed tags: %s uses %q, want common source tag %q", service, tag, sourceTag)}
+			return nil, &sourceServingEraUnknownError{Detail: fmt.Sprintf("pre-upgrade source containers have mixed tags: %s uses %q, want common source tag %q", service, tag, sourceTag)}
 		}
 	}
 
 	treeReferences, treeTag, err := d.sourceServingExpectedImageReferences(ctx)
 	if err != nil {
-		return nil, "", err
+		return nil, err
 	}
 	treeMatchesContainers := true
 	for _, service := range sourceServingServices {
@@ -8362,7 +8409,7 @@ func (d *Service) resolveSourceServingImageIdentities(ctx context.Context, targe
 		}
 	}
 	if treeMatchesContainers {
-		return identities, sourceTag, nil
+		return &sourceServingCapture{Images: identities, States: states}, nil
 	}
 	treeRendersTarget := treeTag == targetCommitShort
 	for _, service := range sourceVersionTaggedServingServices {
@@ -8372,9 +8419,9 @@ func (d *Service) resolveSourceServingImageIdentities(ctx context.Context, targe
 		}
 	}
 	if treeRendersTarget {
-		return identities, sourceTag, nil
+		return &sourceServingCapture{Images: identities, States: states}, nil
 	}
-	return nil, "", &sourceServingEraUnknownError{Detail: fmt.Sprintf("current tree is neither the running source compose model nor pending target %s: tree commit is %s", targetCommitShort, treeTag)}
+	return nil, &sourceServingEraUnknownError{Detail: fmt.Sprintf("current tree is neither the captured source compose model nor pending target %s: tree commit is %s", targetCommitShort, treeTag)}
 }
 
 func (d *Service) captureSourceServingImageIdentities(ctx context.Context) error {
@@ -8389,17 +8436,18 @@ func (d *Service) captureSourceServingImageIdentities(ctx context.Context) error
 	if !regexp.MustCompile(`^[0-9a-f]{8}$`).MatchString(targetCommitShort) {
 		return &sourceServingEraUnknownError{Detail: fmt.Sprintf("pending target commit %q does not have an eight-character git SHA", flag.CommitSHA)}
 	}
-	identities, _, err := d.resolveSourceServingImageIdentities(ctx, targetCommitShort)
+	capture, err := d.resolveSourceServingImageIdentities(ctx, targetCommitShort)
 	if err != nil {
 		return err
 	}
 	// Write the independent carrier FIRST. If the marker mutation then fails,
 	// recovery still has the pre-pull ground truth and target pulling has not begun.
-	if err := d.writeSourceServingImagesCarrierAtomically(*flag, identities); err != nil {
+	if err := d.writeSourceServingImagesCarrierAtomically(*flag, capture.Images, capture.States); err != nil {
 		return fmt.Errorf("persist independent pre-upgrade source image identities: %w", err)
 	}
 	if err := d.mutateHeldFlag(func(flag *UpgradeFlag) {
-		flag.SourceServingImages = identities
+		flag.SourceServingImages = capture.Images
+		flag.SourceServingStates = capture.States
 	}); err != nil {
 		return fmt.Errorf("persist pre-upgrade source image identities: %w", err)
 	}
@@ -10574,6 +10622,7 @@ func (d *Service) resumeNewSb(ctx context.Context, flag UpgradeFlag) error {
 		Recreate:            flag.Recreate,
 		BackupPath:          flag.BackupPath,
 		SourceServingImages: flag.SourceServingImages,
+		SourceServingStates: flag.SourceServingStates,
 		PriorDeathStep:      priorDeathStep,
 	}
 	lock, lerr := acquireFlock(d.projDir, reacquired)

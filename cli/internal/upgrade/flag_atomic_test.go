@@ -34,8 +34,10 @@ func TestMutateHeldFlagAtomicallyReplacesCompleteMarkerAndRetainsFlock(t *testin
 	wantImages := map[string]sourceImageIdentity{
 		"app": {Reference: "ghcr.io/statisticsnorway/statbus-app:source", ImageID: servingEraTestImageID('1')},
 	}
+	wantStates := map[string]string{"app": "exited"}
 	if err := d.mutateHeldFlag(func(flag *UpgradeFlag) {
 		flag.SourceServingImages = wantImages
+		flag.SourceServingStates = wantStates
 	}); err != nil {
 		t.Fatalf("mutateHeldFlag: %v", err)
 	}
@@ -45,8 +47,8 @@ func TestMutateHeldFlagAtomicallyReplacesCompleteMarkerAndRetainsFlock(t *testin
 	if err != nil {
 		t.Fatalf("parse atomically replaced marker: %v", err)
 	}
-	if flag == nil || !reflect.DeepEqual(flag.SourceServingImages, wantImages) {
-		t.Fatalf("atomically replaced marker = %#v, want SourceServingImages %#v", flag, wantImages)
+	if flag == nil || !reflect.DeepEqual(flag.SourceServingImages, wantImages) || !reflect.DeepEqual(flag.SourceServingStates, wantStates) {
+		t.Fatalf("atomically replaced marker = %#v, want images %#v states %#v", flag, wantImages, wantStates)
 	}
 
 	contender, err := os.OpenFile(d.flagPath(), os.O_RDWR, 0)
@@ -64,12 +66,14 @@ func TestAtomicFlagReplacementRefusesToLoseCapturedSourceServingImages(t *testin
 	wantImages := map[string]sourceImageIdentity{
 		"app": {Reference: "ghcr.io/statisticsnorway/statbus-app:source", ImageID: servingEraTestImageID('1')},
 	}
+	wantStates := map[string]string{"app": "exited"}
 	seed := UpgradeFlag{
 		ID:                  17,
 		CommitSHA:           strings.Repeat("a", 40),
 		Holder:              HolderService,
 		Phase:               PhaseNewSbSwapped,
 		SourceServingImages: wantImages,
+		SourceServingStates: wantStates,
 	}
 	seedLock, err := acquireFreshFlock(projDir, seed)
 	if err != nil {
@@ -95,8 +99,52 @@ func TestAtomicFlagReplacementRefusesToLoseCapturedSourceServingImages(t *testin
 	if readErr != nil {
 		t.Fatal(readErr)
 	}
-	if got == nil || !reflect.DeepEqual(got.SourceServingImages, wantImages) {
-		t.Fatalf("refused replacement changed marker = %#v, want identities %#v retained", got, wantImages)
+	if got == nil || !reflect.DeepEqual(got.SourceServingImages, wantImages) || !reflect.DeepEqual(got.SourceServingStates, wantStates) {
+		t.Fatalf("refused replacement changed marker = %#v, want identities %#v and states %#v retained", got, wantImages, wantStates)
+	}
+}
+
+func TestAtomicFlagReplacementRefusesToLoseCapturedSourceServingStates(t *testing.T) {
+	projDir := t.TempDir()
+	wantImages := map[string]sourceImageIdentity{
+		"worker": {Reference: "ghcr.io/statisticsnorway/statbus-worker:source", ImageID: servingEraTestImageID('2')},
+	}
+	wantStates := map[string]string{"worker": "exited"}
+	seed := UpgradeFlag{
+		ID:                  18,
+		CommitSHA:           strings.Repeat("b", 40),
+		Holder:              HolderService,
+		Phase:               PhaseNewSbSwapped,
+		SourceServingImages: wantImages,
+		SourceServingStates: wantStates,
+	}
+	seedLock, err := acquireFreshFlock(projDir, seed)
+	if err != nil {
+		t.Fatal(err)
+	}
+	seedLock.Close()
+
+	replacement := UpgradeFlag{
+		ID:                  seed.ID,
+		CommitSHA:           seed.CommitSHA,
+		Holder:              HolderService,
+		Phase:               PhaseNewSbUpgrading,
+		SourceServingImages: wantImages,
+	}
+	lock, err := acquireFlock(projDir, replacement)
+	if lock != nil {
+		lock.Close()
+	}
+	if err == nil || !strings.Contains(err.Error(), "refusing to discard captured source serving container states") {
+		t.Fatalf("source-state-dropping replacement error = %v, want fail-closed refusal", err)
+	}
+
+	got, readErr := ReadFlagFile(projDir)
+	if readErr != nil {
+		t.Fatal(readErr)
+	}
+	if got == nil || !reflect.DeepEqual(got.SourceServingImages, wantImages) || !reflect.DeepEqual(got.SourceServingStates, wantStates) {
+		t.Fatalf("refused replacement changed marker = %#v, want identities %#v and states %#v retained", got, wantImages, wantStates)
 	}
 }
 
@@ -117,6 +165,9 @@ func TestResumeNewSbReacquireCopiesCapturedSourceServingImages(t *testing.T) {
 	literal := body[literalStart : literalStart+literalEnd]
 	if !strings.Contains(literal, "SourceServingImages: flag.SourceServingImages") {
 		t.Fatal("resumeNewSb reacquired marker must copy SourceServingImages; deleting this field must fail this mutation guard")
+	}
+	if !strings.Contains(literal, "SourceServingStates: flag.SourceServingStates") {
+		t.Fatal("resumeNewSb reacquired marker must copy SourceServingStates; deleting this field must fail this mutation guard")
 	}
 }
 

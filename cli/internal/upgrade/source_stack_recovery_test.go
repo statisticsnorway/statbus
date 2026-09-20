@@ -68,6 +68,10 @@ const sourceStackImageInspectCases = `
 	`
 
 func installSourceCaptureDockerShim(t *testing.T, treeTag, appTag, workerTag, proxyTag string, states map[string]string) {
+	installSourceCaptureDockerShimWithMissing(t, treeTag, appTag, workerTag, proxyTag, states, nil)
+}
+
+func installSourceCaptureDockerShimWithMissing(t *testing.T, treeTag, appTag, workerTag, proxyTag string, states map[string]string, missing map[string]bool) {
 	t.Helper()
 	serviceStates := map[string]string{"app": "running", "worker": "running", "rest": "running", "proxy": "running"}
 	for service, state := range states {
@@ -81,10 +85,10 @@ case "$*" in
 		printf '%s\n' '{"services":{"app":{"image":"ghcr.io/statisticsnorway/statbus-app:'"$STATBUS_TEST_TREE_TAG"'"},"worker":{"image":"ghcr.io/statisticsnorway/statbus-worker:'"$STATBUS_TEST_TREE_TAG"'"},"rest":{"image":"'"$STATBUS_TEST_TREE_REST_IMAGE"'"},"proxy":{"image":"ghcr.io/statisticsnorway/statbus-proxy:'"$STATBUS_TEST_TREE_TAG"'"}}}'
 		;;
 	"compose ps -a --format json")
-		printf '%s\n' '{"ID":"app-container","Service":"app","State":"'"$STATBUS_TEST_APP_STATE"'","Image":"ghcr.io/statisticsnorway/statbus-app:'"$STATBUS_TEST_APP_TAG"'"}'
-		printf '%s\n' '{"ID":"worker-container","Service":"worker","State":"'"$STATBUS_TEST_WORKER_STATE"'","Image":"ghcr.io/statisticsnorway/statbus-worker:'"$STATBUS_TEST_WORKER_TAG"'"}'
-		printf '%s\n' '{"ID":"rest-container","Service":"rest","State":"'"$STATBUS_TEST_REST_STATE"'","Image":"postgrest/postgrest:v12.2.8"}'
-		printf '%s\n' '{"ID":"proxy-container","Service":"proxy","State":"'"$STATBUS_TEST_PROXY_STATE"'","Image":"ghcr.io/statisticsnorway/statbus-proxy:'"$STATBUS_TEST_PROXY_TAG"'"}'
+		[ "$STATBUS_TEST_APP_PRESENT" = 0 ] || printf '%s\n' '{"ID":"app-container","Service":"app","State":"'"$STATBUS_TEST_APP_STATE"'","Image":"ghcr.io/statisticsnorway/statbus-app:'"$STATBUS_TEST_APP_TAG"'"}'
+		[ "$STATBUS_TEST_WORKER_PRESENT" = 0 ] || printf '%s\n' '{"ID":"worker-container","Service":"worker","State":"'"$STATBUS_TEST_WORKER_STATE"'","Image":"ghcr.io/statisticsnorway/statbus-worker:'"$STATBUS_TEST_WORKER_TAG"'"}'
+		[ "$STATBUS_TEST_REST_PRESENT" = 0 ] || printf '%s\n' '{"ID":"rest-container","Service":"rest","State":"'"$STATBUS_TEST_REST_STATE"'","Image":"postgrest/postgrest:v12.2.8"}'
+		[ "$STATBUS_TEST_PROXY_PRESENT" = 0 ] || printf '%s\n' '{"ID":"proxy-container","Service":"proxy","State":"'"$STATBUS_TEST_PROXY_STATE"'","Image":"ghcr.io/statisticsnorway/statbus-proxy:'"$STATBUS_TEST_PROXY_TAG"'"}'
 		;;
 	"inspect --format {{.Image}} app-container") printf '%s\n' "$STATBUS_TEST_APP_SOURCE_ID" ;;
 	"inspect --format {{.Image}} worker-container") printf '%s\n' "$STATBUS_TEST_WORKER_SOURCE_ID" ;;
@@ -106,6 +110,13 @@ exit 0
 	t.Setenv("STATBUS_TEST_WORKER_STATE", serviceStates["worker"])
 	t.Setenv("STATBUS_TEST_REST_STATE", serviceStates["rest"])
 	t.Setenv("STATBUS_TEST_PROXY_STATE", serviceStates["proxy"])
+	for _, service := range sourceServingServices {
+		present := "1"
+		if missing[service] {
+			present = "0"
+		}
+		t.Setenv("STATBUS_TEST_"+strings.ToUpper(service)+"_PRESENT", present)
+	}
 }
 
 func TestStartSourceApplicationStackStartsOnlyVerifiedSourceEraContainers(t *testing.T) {
@@ -295,12 +306,14 @@ func TestCaptureSourceServingImageIdentitiesWritesIndependentAtomicCarrier(t *te
 		ID        int                            `json:"id"`
 		CommitSHA string                         `json:"commit_sha"`
 		Images    map[string]sourceImageIdentity `json:"source_serving_images"`
+		States    map[string]string              `json:"source_serving_states"`
 	}
 	if err := json.Unmarshal(data, &carrier); err != nil {
 		t.Fatalf("decode independent source-image carrier: %v", err)
 	}
-	if carrier.ID != 181 || carrier.CommitSHA != git.newSHA || !reflect.DeepEqual(carrier.Images, servingEraExpected(sourceTag)) {
-		t.Fatalf("carrier = %#v, want id=181 commit=%s images=%#v", carrier, git.newSHA, servingEraExpected(sourceTag))
+	wantStates := map[string]string{"app": "running", "worker": "running", "rest": "running", "proxy": "running"}
+	if carrier.ID != 181 || carrier.CommitSHA != git.newSHA || !reflect.DeepEqual(carrier.Images, servingEraExpected(sourceTag)) || !reflect.DeepEqual(carrier.States, wantStates) {
+		t.Fatalf("carrier = %#v, want id=181 commit=%s images=%#v states=%#v", carrier, git.newSHA, servingEraExpected(sourceTag), wantStates)
 	}
 	temps, err := filepath.Glob(filepath.Join(git.dir, "tmp", ".upgrade-source-images.json.tmp-*"))
 	if err != nil {
@@ -411,7 +424,7 @@ func TestTruthfulTerminalCleanupRemovesMarkerAndSourceImageCarrier(t *testing.T)
 	}
 	if err := d.writeSourceServingImagesCarrierAtomically(*flag, map[string]sourceImageIdentity{
 		"app": {Reference: "app:source", ImageID: servingEraTestImageID('1')},
-	}); err != nil {
+	}, map[string]string{"app": "running"}); err != nil {
 		t.Fatal(err)
 	}
 	if err := d.removeUpgradeArtifacts(); err != nil {
@@ -465,7 +478,7 @@ func TestCaptureSourceServingImageIdentitiesRejectsThirdTree(t *testing.T) {
 	t.Cleanup(func() { _ = d.removeUpgradeFlag() })
 	err := d.captureSourceServingImageIdentities(context.Background())
 	var eraErr *sourceServingEraUnknownError
-	if !errors.As(err, &eraErr) || !strings.Contains(err.Error(), "neither the running source compose model nor pending target ffffffff") {
+	if !errors.As(err, &eraErr) || !strings.Contains(err.Error(), "neither the captured source compose model nor pending target ffffffff") {
 		t.Fatalf("capture error = %v, want named third-tree refusal", err)
 	}
 }
@@ -489,24 +502,72 @@ func TestCaptureSourceServingImageIdentitiesRejectsMixedContainerTags(t *testing
 	}
 }
 
-func TestCaptureSourceServingImageIdentitiesRequiresRunningServingStack(t *testing.T) {
+func TestCaptureSourceServingImageIdentitiesRequiresRunningRouteAndRecordsWorkerState(t *testing.T) {
 	tests := []struct {
 		name       string
 		states     map[string]string
+		missing    map[string]bool
 		wantErrSub string
 	}{
 		{name: "all running"},
 		{
-			name: "all exited",
+			name: "all exited is ambiguous",
 			states: map[string]string{
 				"app": "exited", "worker": "exited", "rest": "exited", "proxy": "exited",
 			},
-			wantErrSub: `pre-upgrade source container for app is not running (state "exited")`,
+			wantErrSub: `pre-upgrade source route container for app is not running (state "exited")`,
 		},
 		{
-			name:       "mixed running and exited",
-			states:     map[string]string{"worker": "exited"},
-			wantErrSub: `pre-upgrade source container for worker is not running (state "exited")`,
+			name:   "intentionally stopped worker",
+			states: map[string]string{"worker": "exited"},
+		},
+		{
+			name:   "created worker",
+			states: map[string]string{"worker": "created"},
+		},
+		{
+			name:   "dead worker",
+			states: map[string]string{"worker": "dead"},
+		},
+		{
+			name:       "app exited",
+			states:     map[string]string{"app": "exited"},
+			wantErrSub: `pre-upgrade source route container for app is not running (state "exited")`,
+		},
+		{
+			name:       "rest exited",
+			states:     map[string]string{"rest": "exited"},
+			wantErrSub: `pre-upgrade source route container for rest is not running (state "exited")`,
+		},
+		{
+			name:       "proxy exited",
+			states:     map[string]string{"proxy": "exited"},
+			wantErrSub: `pre-upgrade source route container for proxy is not running (state "exited")`,
+		},
+		{
+			name:       "paused worker",
+			states:     map[string]string{"worker": "paused"},
+			wantErrSub: `pre-upgrade source worker is neither running nor stably stopped (state "paused")`,
+		},
+		{
+			name:       "restarting worker",
+			states:     map[string]string{"worker": "restarting"},
+			wantErrSub: `pre-upgrade source worker is neither running nor stably stopped (state "restarting")`,
+		},
+		{
+			name:       "empty state",
+			states:     map[string]string{"worker": ""},
+			wantErrSub: `pre-upgrade source container for worker has empty or unknown state ""`,
+		},
+		{
+			name:       "unknown state",
+			states:     map[string]string{"worker": "removing"},
+			wantErrSub: `pre-upgrade source container for worker has empty or unknown state "removing"`,
+		},
+		{
+			name:       "missing container",
+			missing:    map[string]bool{"worker": true},
+			wantErrSub: "pre-upgrade source container for worker is missing",
 		},
 	}
 
@@ -516,7 +577,7 @@ func TestCaptureSourceServingImageIdentitiesRequiresRunningServingStack(t *testi
 			git := newGitRepoFixture(t)
 			sourceTag := git.oldSHA[:8]
 			targetTag := git.newSHA[:8]
-			installSourceCaptureDockerShim(t, targetTag, sourceTag, sourceTag, sourceTag, tc.states)
+			installSourceCaptureDockerShimWithMissing(t, targetTag, sourceTag, sourceTag, sourceTag, tc.states, tc.missing)
 
 			d := &Service{projDir: git.dir}
 			if err := d.writeUpgradeFlag(21, git.newSHA, nil, "test", "test", false); err != nil {
@@ -526,12 +587,12 @@ func TestCaptureSourceServingImageIdentitiesRequiresRunningServingStack(t *testi
 			err := d.captureSourceServingImageIdentities(context.Background())
 			if tc.wantErrSub == "" {
 				if err != nil {
-					t.Fatalf("captureSourceServingImageIdentities with running serving stack: %v", err)
+					t.Fatalf("captureSourceServingImageIdentities with running route tier and admitted worker state: %v", err)
 				}
 			} else {
 				var eraErr *sourceServingEraUnknownError
 				if !errors.As(err, &eraErr) || !strings.Contains(err.Error(), tc.wantErrSub) {
-					t.Fatalf("capture error = %v, want named non-running refusal containing %q", err, tc.wantErrSub)
+					t.Fatalf("capture error = %v, want named capture refusal containing %q", err, tc.wantErrSub)
 				}
 			}
 
@@ -542,11 +603,23 @@ func TestCaptureSourceServingImageIdentitiesRequiresRunningServingStack(t *testi
 			if tc.wantErrSub == "" {
 				want := servingEraExpected(sourceTag)
 				if flag == nil || !reflect.DeepEqual(flag.SourceServingImages, want) {
-					t.Fatalf("running capture identities = %#v, want %#v", flag, want)
+					t.Fatalf("known-state capture identities = %#v, want %#v", flag, want)
+				}
+				wantStates := map[string]string{"app": "running", "worker": "running", "rest": "running", "proxy": "running"}
+				for service, state := range tc.states {
+					wantStates[service] = state
+				}
+				if !reflect.DeepEqual(flag.SourceServingStates, wantStates) {
+					t.Fatalf("recorded source states = %#v, want %#v", flag.SourceServingStates, wantStates)
 				}
 			}
-			if tc.wantErrSub != "" && flag != nil && len(flag.SourceServingImages) != 0 {
-				t.Fatalf("non-running capture mutated SourceServingImages: %#v", flag.SourceServingImages)
+			if tc.wantErrSub != "" && flag != nil && (len(flag.SourceServingImages) != 0 || len(flag.SourceServingStates) != 0) {
+				t.Fatalf("refused capture mutated marker: images=%#v states=%#v", flag.SourceServingImages, flag.SourceServingStates)
+			}
+			if tc.wantErrSub != "" {
+				if _, statErr := os.Stat(sourceServingImagesCarrierPath(git.dir)); !os.IsNotExist(statErr) {
+					t.Fatalf("refused capture wrote independent carrier: %v", statErr)
+				}
 			}
 		})
 	}

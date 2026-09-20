@@ -13,13 +13,15 @@ const sourceServingImagesCarrierName = "upgrade-source-images.json"
 
 // sourceServingImagesCarrier is the independent pre-pull record used when the
 // recovery marker itself is corrupt or missing. It deliberately contains the
-// upgrade identity as well as the immutable image map so a stale carrier can
-// never silently authorize a different upgrade's rollback.
+// upgrade identity as well as the immutable image map and observed container
+// states so a stale carrier can never silently authorize a different upgrade's
+// rollback and a flagless recovery retains the pre-upgrade stack shape.
 type sourceServingImagesCarrier struct {
 	ID                  int                            `json:"id"`
 	CommitSHA           string                         `json:"commit_sha"`
 	CapturedAt          time.Time                      `json:"captured_at"`
 	SourceServingImages map[string]sourceImageIdentity `json:"source_serving_images"`
+	SourceServingStates map[string]string              `json:"source_serving_states"`
 }
 
 func sourceServingImagesCarrierPath(projDir string) string {
@@ -32,7 +34,7 @@ func sourceServingImagesCarrierPath(projDir string) string {
 // a directory fsync. The canonical recovery-marker flock serializes every
 // in-tree carrier writer and remover. The carrier inode's flock closes the
 // open-before-rename exposure while it becomes canonical.
-func (d *Service) writeSourceServingImagesCarrierAtomically(flag UpgradeFlag, images map[string]sourceImageIdentity) error {
+func (d *Service) writeSourceServingImagesCarrierAtomically(flag UpgradeFlag, images map[string]sourceImageIdentity, states map[string]string) error {
 	if d.flagLock == nil || d.flagLock.file == nil {
 		return fmt.Errorf("source-image carrier write requires the canonical recovery-marker flock")
 	}
@@ -41,6 +43,7 @@ func (d *Service) writeSourceServingImagesCarrierAtomically(flag UpgradeFlag, im
 		CommitSHA:           flag.CommitSHA,
 		CapturedAt:          time.Now().UTC(),
 		SourceServingImages: images,
+		SourceServingStates: states,
 	}
 	data, err := json.MarshalIndent(carrier, "", "  ")
 	if err != nil {
