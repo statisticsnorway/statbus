@@ -190,7 +190,7 @@ func TestFlagInvariant_EveryPhaseAndBackupPathWriterIsAccountedFor_STATBUS232(t 
 		// ── BackupPath writers (the STATBUS-197 door) ──
 		"flag.BackupPath = backupPath":           "updateFlagNewSbSwapped — THE swap stamp; it sets Phase=PhaseNewSbSwapped in the SAME write, which is what makes 'a pre-swap flag carries no snapshot' structural rather than conventional",
 		"flag.BackupPath = authorizedBackupPath": "ReattemptRestore and completeInProgressUpgrade's authorized flagless rollback — each rewrites a held tentative marker in the same callback that sets PhaseNewSbUpgrading; these are actual snapshot replays and therefore deliberately post-swap/resuming",
-		"BackupPath:     flag.BackupPath":        "resumeNewSb's reacquire — carries the identity forward across NewSbSwapped→NewSbUpgrading; both are post-swap phases",
+		"BackupPath:          flag.BackupPath":   "resumeNewSb's reacquire — carries the identity forward across NewSbSwapped→NewSbUpgrading; both are post-swap phases",
 		"BackupPath: rowBackupPath.String":       "parkAtTarget's persisted recovery marker — paired with PhaseNewSbSwapped in the same literal, so the snapshot identity is carried only by a post-swap phase",
 
 		// ── Phase writers (the STATBUS-210 door, the half that was missing) ──
@@ -203,7 +203,7 @@ func TestFlagInvariant_EveryPhaseAndBackupPathWriterIsAccountedFor_STATBUS232(t 
 		"flag.Phase = phase":                          "persistRollbackHold — its two callers pass only rollback-clients-live or rollback-restore-failed after an authorized snapshot attempt; both retain the same snapshot identity for a deliberate restore retry and can never manufacture a PreSwap pair",
 		"flag.Phase = PhaseRollbackFinishing":         "cleanup-only handoff — pending is durable and snapshot restore is permanently forbidden; the identity remains audit-only until marker removal",
 		"Phase:      PhaseNewSbSwapped":               "parkAtTarget's persisted flag — a post-swap phase, the at-target truth; carrying the identity there is the legal shape",
-		"Phase:          PhaseNewSbUpgrading":         "resumeNewSb's reacquire — post-swap, resume-began",
+		"Phase:               PhaseNewSbUpgrading":    "resumeNewSb's reacquire — post-swap, resume-began",
 	}
 
 	var offenders []string

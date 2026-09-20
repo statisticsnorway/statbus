@@ -59,6 +59,67 @@ func TestMutateHeldFlagAtomicallyReplacesCompleteMarkerAndRetainsFlock(t *testin
 	}
 }
 
+func TestAtomicFlagReplacementRefusesToLoseCapturedSourceServingImages(t *testing.T) {
+	projDir := t.TempDir()
+	wantImages := map[string]sourceImageIdentity{
+		"app": {Reference: "ghcr.io/statisticsnorway/statbus-app:source", ImageID: servingEraTestImageID('1')},
+	}
+	seed := UpgradeFlag{
+		ID:                  17,
+		CommitSHA:           strings.Repeat("a", 40),
+		Holder:              HolderService,
+		Phase:               PhaseNewSbSwapped,
+		SourceServingImages: wantImages,
+	}
+	seedLock, err := acquireFreshFlock(projDir, seed)
+	if err != nil {
+		t.Fatal(err)
+	}
+	seedLock.Close()
+
+	replacement := UpgradeFlag{
+		ID:        seed.ID,
+		CommitSHA: seed.CommitSHA,
+		Holder:    HolderService,
+		Phase:     PhaseNewSbUpgrading,
+	}
+	lock, err := acquireFlock(projDir, replacement)
+	if lock != nil {
+		lock.Close()
+	}
+	if err == nil || !strings.Contains(err.Error(), "refusing to discard captured source serving image identities") {
+		t.Fatalf("source-identity-dropping replacement error = %v, want fail-closed refusal", err)
+	}
+
+	got, readErr := ReadFlagFile(projDir)
+	if readErr != nil {
+		t.Fatal(readErr)
+	}
+	if got == nil || !reflect.DeepEqual(got.SourceServingImages, wantImages) {
+		t.Fatalf("refused replacement changed marker = %#v, want identities %#v retained", got, wantImages)
+	}
+}
+
+func TestResumeNewSbReacquireCopiesCapturedSourceServingImages(t *testing.T) {
+	src, err := os.ReadFile(thisRepoFile(t, "cli/internal/upgrade/service.go"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	body := extractFuncBody(t, string(src), "func (d *Service) resumeNewSb(")
+	literalStart := strings.Index(body, "reacquired := UpgradeFlag{")
+	if literalStart < 0 {
+		t.Fatal("resumeNewSb no longer constructs its reacquired recovery marker")
+	}
+	literalEnd := strings.Index(body[literalStart:], "\n\t}")
+	if literalEnd < 0 {
+		t.Fatal("could not delimit resumeNewSb reacquired UpgradeFlag literal")
+	}
+	literal := body[literalStart : literalStart+literalEnd]
+	if !strings.Contains(literal, "SourceServingImages: flag.SourceServingImages") {
+		t.Fatal("resumeNewSb reacquired marker must copy SourceServingImages; deleting this field must fail this mutation guard")
+	}
+}
+
 func TestMutateHeldFlagFailureBeforeRenamePreservesOldMarker(t *testing.T) {
 	projDir := t.TempDir()
 	d := &Service{projDir: projDir}

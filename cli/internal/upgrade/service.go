@@ -1113,12 +1113,53 @@ func replaceHeldFlagAtomically(lock *FlagLock, data []byte, beforeRename func() 
 	if lock == nil || lock.file == nil {
 		return fmt.Errorf("no flag file held")
 	}
+	if err := requireCapturedSourceServingImagesPreserved(lock, data); err != nil {
+		return err
+	}
 	path := lock.canonicalPath()
 	if path == "" {
 		return fmt.Errorf("held flag has no canonical path")
 	}
 	_, err := writeFlagAtomically(lock, path, data, true, beforeRename)
 	return err
+}
+
+// requireCapturedSourceServingImagesPreserved makes immutable source-image
+// capture a writer invariant rather than a per-call-site convention. Once a
+// service-held upgrade marker records the pre-pull identities, every atomic
+// replacement for that same upgrade must carry the exact map until the marker
+// is removed after a truthful terminal. A fresh UpgradeFlag literal that omits
+// or changes the map therefore fails before a replacement temp is installed.
+func requireCapturedSourceServingImagesPreserved(lock *FlagLock, replacementData []byte) error {
+	if _, err := lock.file.Seek(0, 0); err != nil {
+		return fmt.Errorf("seek held flag before source-image preservation check: %w", err)
+	}
+	currentData, err := io.ReadAll(lock.file)
+	if err != nil {
+		return fmt.Errorf("read held flag before source-image preservation check: %w", err)
+	}
+	var current, replacement UpgradeFlag
+	if err := json.Unmarshal(currentData, &current); err != nil {
+		return fmt.Errorf("decode held flag before source-image preservation check: %w", err)
+	}
+	if err := json.Unmarshal(replacementData, &replacement); err != nil {
+		return fmt.Errorf("decode replacement flag before source-image preservation check: %w", err)
+	}
+	if current.Holder != HolderService || len(current.SourceServingImages) == 0 {
+		return nil
+	}
+	if current.ID != replacement.ID || current.CommitSHA != replacement.CommitSHA || replacement.Holder != HolderService {
+		return fmt.Errorf("refusing to discard captured source serving image identities for upgrade %d by replacing its marker with different intent", current.ID)
+	}
+	if len(current.SourceServingImages) != len(replacement.SourceServingImages) {
+		return fmt.Errorf("refusing to discard captured source serving image identities for upgrade %d", current.ID)
+	}
+	for service, identity := range current.SourceServingImages {
+		if replacement.SourceServingImages[service] != identity {
+			return fmt.Errorf("refusing to discard captured source serving image identities for upgrade %d: %s changed", current.ID, service)
+		}
+	}
+	return nil
 }
 
 // writeFlagAtomically is the single recovery-marker writer. It prepares and
@@ -10478,17 +10519,18 @@ func (d *Service) resumeNewSb(ctx context.Context, flag UpgradeFlag) error {
 		priorDeathStep = flag.PriorDeathStep
 	}
 	reacquired := UpgradeFlag{
-		ID:             flag.ID,
-		CommitSHA:      flag.CommitSHA,
-		CommitTags:     flag.CommitTags,
-		StartedAt:      time.Now(),
-		InvokedBy:      flag.InvokedBy,
-		Trigger:        flag.Trigger,
-		Holder:         HolderService,
-		Phase:          PhaseNewSbUpgrading,
-		Recreate:       flag.Recreate,
-		BackupPath:     flag.BackupPath,
-		PriorDeathStep: priorDeathStep,
+		ID:                  flag.ID,
+		CommitSHA:           flag.CommitSHA,
+		CommitTags:          flag.CommitTags,
+		StartedAt:           time.Now(),
+		InvokedBy:           flag.InvokedBy,
+		Trigger:             flag.Trigger,
+		Holder:              HolderService,
+		Phase:               PhaseNewSbUpgrading,
+		Recreate:            flag.Recreate,
+		BackupPath:          flag.BackupPath,
+		SourceServingImages: flag.SourceServingImages,
+		PriorDeathStep:      priorDeathStep,
 	}
 	lock, lerr := acquireFlock(d.projDir, reacquired)
 	if lerr != nil {
