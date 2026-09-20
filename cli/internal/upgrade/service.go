@@ -1520,21 +1520,40 @@ func (d *Service) execObserved(ctx context.Context, purpose, sql string, args ..
 //     File absent → nothing to do (and no O_CREATE — never manufacture a
 //     flag while cleaning one up).
 func (d *Service) removeUpgradeFlag() error {
+	return d.removeUpgradeFlagAndCarrier(false)
+}
+
+// removeUpgradeArtifacts removes both durable source-identity carriers after a
+// truthful completed or rolled_back terminal. Non-terminal marker cleanup must
+// call removeUpgradeFlag instead so corrupt-marker and degraded recovery retain
+// the independent pre-pull record.
+func (d *Service) removeUpgradeArtifacts() error {
+	return d.removeUpgradeFlagAndCarrier(true)
+}
+
+func (d *Service) removeUpgradeFlagAndCarrier(removeCarrier bool) error {
 	const consequence = "a later boot will read this stale flag and route to crash-recovery/ghost-flag reconcile (an availability wedge, not corruption; that path re-attempts this same removal every boot)"
 	path := d.flagPath()
 	if d.flagLock != nil {
+		var carrierErr error
+		if removeCarrier {
+			carrierErr = d.removeSourceServingImagesCarrier()
+		}
 		removeErr := d.removePath(path)
 		warnOnStaleFlagRemoveFailure(path, removeErr, consequence)
 		d.flagLock.Close()
 		d.flagLock = nil
 		if os.IsNotExist(removeErr) {
-			return nil
+			removeErr = nil
 		}
-		return removeErr
+		return errors.Join(carrierErr, removeErr)
 	}
 	f, err := openCanonicalFlagLocked(path, nil)
 	if err != nil {
 		if os.IsNotExist(err) {
+			if removeCarrier {
+				return d.removeSourceServingImagesCarrier()
+			}
 			return nil
 		}
 		if errors.Is(err, syscall.EWOULDBLOCK) || errors.Is(err, syscall.EAGAIN) {
@@ -1543,12 +1562,16 @@ func (d *Service) removeUpgradeFlag() error {
 		return err
 	}
 	defer func() { _ = f.Close() }() // releases the flock (on the unlinked inode after removal)
+	var carrierErr error
+	if removeCarrier {
+		carrierErr = d.removeSourceServingImagesCarrier()
+	}
 	removeErr := d.removePath(path)
 	warnOnStaleFlagRemoveFailure(path, removeErr, consequence)
 	if os.IsNotExist(removeErr) {
-		return nil
+		removeErr = nil
 	}
-	return removeErr
+	return errors.Join(carrierErr, removeErr)
 }
 
 // releaseUpgradeFlagLockKeepingFile turns the current attempt into a genuine
@@ -4515,7 +4538,7 @@ func (d *Service) completeInProgressUpgrade(ctx context.Context) error {
 		logRecover("FATAL: read-only window did NOT lift at completion (%v) — the box rejects external writes until `./sb install` clears it.", werr)
 	}
 
-	if err := d.removeUpgradeFlag(); err != nil {
+	if err := d.removeUpgradeArtifacts(); err != nil {
 		finishingClean = false
 		logRecover("FATAL: the upgrade lock did NOT release at flagless-recovery completion (%v) — run `./sb install` to reconcile it.", err)
 	}
@@ -8370,6 +8393,11 @@ func (d *Service) captureSourceServingImageIdentities(ctx context.Context) error
 	if err != nil {
 		return err
 	}
+	// Write the independent carrier FIRST. If the marker mutation then fails,
+	// recovery still has the pre-pull ground truth and target pulling has not begun.
+	if err := d.writeSourceServingImagesCarrierAtomically(*flag, identities); err != nil {
+		return fmt.Errorf("persist independent pre-upgrade source image identities: %w", err)
+	}
 	if err := d.mutateHeldFlag(func(flag *UpgradeFlag) {
 		flag.SourceServingImages = identities
 	}); err != nil {
@@ -8387,21 +8415,36 @@ func (d *Service) sourceServingExpectedImages(ctx context.Context) (map[string]s
 	if err != nil {
 		return nil, "", &sourceServingEraUnknownError{Detail: fmt.Sprintf("read pre-upgrade source image identities: %v", err)}
 	}
-	if flag == nil || len(flag.SourceServingImages) == 0 {
-		return nil, "", &sourceServingEraUnknownError{Detail: "recovery marker has no pre-upgrade source image identities"}
+	recordedImages := map[string]sourceImageIdentity(nil)
+	recordName := "recovery marker"
+	if flag != nil && len(flag.SourceServingImages) > 0 {
+		recordedImages = flag.SourceServingImages
+	} else {
+		carrier, carrierErr := readSourceServingImagesCarrier(d.projDir)
+		if carrierErr != nil {
+			return nil, "", &sourceServingEraUnknownError{Detail: fmt.Sprintf("read independent pre-upgrade source image identities: %v", carrierErr)}
+		}
+		if carrier == nil || len(carrier.SourceServingImages) == 0 {
+			return nil, "", &sourceServingEraUnknownError{Detail: "neither recovery marker nor source-image carrier has pre-upgrade source image identities, so the source serving era cannot be proved without the pre-pull record. Manual recovery required: keep app, worker, and rest stopped; contact SSB support and involve your IT staff"}
+		}
+		if flag != nil && (carrier.ID != flag.ID || carrier.CommitSHA != flag.CommitSHA) {
+			return nil, "", &sourceServingEraUnknownError{Detail: fmt.Sprintf("source-image carrier belongs to upgrade %d commit %q, but recovery marker names upgrade %d commit %q; refusing stale identity reuse", carrier.ID, carrier.CommitSHA, flag.ID, flag.CommitSHA)}
+		}
+		recordedImages = carrier.SourceServingImages
+		recordName = "source-image carrier"
 	}
 	expected := make(map[string]sourceImageIdentity, len(sourceServingServices))
 	for _, service := range sourceServingServices {
-		recorded, ok := flag.SourceServingImages[service]
+		recorded, ok := recordedImages[service]
 		if !ok {
-			return nil, "", &sourceServingEraUnknownError{Detail: fmt.Sprintf("recovery marker has no pre-upgrade source image identity for %s", service)}
+			return nil, "", &sourceServingEraUnknownError{Detail: fmt.Sprintf("%s has no pre-upgrade source image identity for %s", recordName, service)}
 		}
 		if recorded.Reference != references[service] {
-			return nil, "", &sourceServingEraUnknownError{Detail: fmt.Sprintf("restored source compose reference for %s is %q, but the pre-upgrade recovery marker recorded %q", service, references[service], recorded.Reference)}
+			return nil, "", &sourceServingEraUnknownError{Detail: fmt.Sprintf("restored source compose reference for %s is %q, but the pre-upgrade %s recorded %q", service, references[service], recordName, recorded.Reference)}
 		}
 		imageID, normalizeErr := normalizedDockerImageID(recorded.ImageID)
 		if normalizeErr != nil {
-			return nil, "", &sourceServingEraUnknownError{Detail: fmt.Sprintf("recovery marker source image identity for %s is unresolvable: %v", service, normalizeErr)}
+			return nil, "", &sourceServingEraUnknownError{Detail: fmt.Sprintf("%s source image identity for %s is unresolvable: %v", recordName, service, normalizeErr)}
 		}
 		expected[service] = sourceImageIdentity{Reference: references[service], ImageID: imageID}
 	}
@@ -9381,7 +9424,7 @@ func (d *Service) applyNewSbUpgrading(ctx context.Context, id int, commitSHA, di
 	} else {
 		writeProgressLines(progress, finishing.readOnlyLines(readOnlyStatement)...)
 	}
-	if err := d.removeUpgradeFlag(); err != nil {
+	if err := d.removeUpgradeArtifacts(); err != nil {
 		finishingClean = false
 		finishingErr = errors.Join(finishingErr, fmt.Errorf("release upgrade lock: %w", err))
 		progress.Write("  Releasing upgrade lock ... failed: %v", err)
@@ -9572,7 +9615,7 @@ func (d *Service) clearRollbackFinishFlag(id int) error {
 		if flag.Phase != PhaseRollbackFinishing {
 			return fmt.Errorf("upgrade %d rollback finishing expected phase %q, found %q; refusing to remove it", id, PhaseRollbackFinishing, flag.Phase)
 		}
-		return d.removeUpgradeFlag()
+		return d.removeUpgradeArtifacts()
 	}
 
 	file, err := openCanonicalFlagLocked(path, nil)
@@ -9601,12 +9644,13 @@ func (d *Service) clearRollbackFinishFlag(id int) error {
 		return fmt.Errorf("upgrade %d rollback finishing expected phase %q, found %q; refusing to remove it", id, PhaseRollbackFinishing, flag.Phase)
 	}
 	const consequence = "rollback finishing remains cleanup-only and will retry without restoring the database"
+	carrierErr := d.removeSourceServingImagesCarrier()
 	removeErr := d.removePath(path)
 	warnOnStaleFlagRemoveFailure(path, removeErr, consequence)
 	if os.IsNotExist(removeErr) {
-		return nil
+		removeErr = nil
 	}
-	return removeErr
+	return errors.Join(carrierErr, removeErr)
 }
 
 // finalizePendingRollbacks repairs the only deliberate failed+backup_path
@@ -10292,7 +10336,7 @@ func (d *Service) resumeNewSb(ctx context.Context, flag UpgradeFlag) error {
 				// This site's consequence: the row is now genuinely
 				// 'completed', so a stale flag would make the next boot
 				// misread a HEALTHY upgrade as crashed/in-progress.
-				if removeErr := d.removeUpgradeFlag(); removeErr != nil {
+				if removeErr := d.removeUpgradeArtifacts(); removeErr != nil {
 					finishingClean = false
 					finishingErr = errors.Join(finishingErr, fmt.Errorf("release upgrade lock: %w", removeErr))
 					progress.Write("  Releasing upgrade lock ... failed: %v", removeErr)

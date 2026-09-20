@@ -75,9 +75,10 @@ func installSourceCaptureDockerShim(t *testing.T, treeTag, appTag, workerTag, pr
 	}
 	shimDir := t.TempDir()
 	shim := `#!/bin/sh
+[ -z "${STATBUS_TEST_DOCKER_LOG:-}" ] || printf '%s\n' "$*" >> "$STATBUS_TEST_DOCKER_LOG"
 case "$*" in
 	"compose --profile all config --format json")
-		printf '%s\n' '{"services":{"app":{"image":"ghcr.io/statisticsnorway/statbus-app:'"$STATBUS_TEST_TREE_TAG"'"},"worker":{"image":"ghcr.io/statisticsnorway/statbus-worker:'"$STATBUS_TEST_TREE_TAG"'"},"rest":{"image":"postgrest/postgrest:v13"},"proxy":{"image":"ghcr.io/statisticsnorway/statbus-proxy:'"$STATBUS_TEST_TREE_TAG"'"}}}'
+		printf '%s\n' '{"services":{"app":{"image":"ghcr.io/statisticsnorway/statbus-app:'"$STATBUS_TEST_TREE_TAG"'"},"worker":{"image":"ghcr.io/statisticsnorway/statbus-worker:'"$STATBUS_TEST_TREE_TAG"'"},"rest":{"image":"'"$STATBUS_TEST_TREE_REST_IMAGE"'"},"proxy":{"image":"ghcr.io/statisticsnorway/statbus-proxy:'"$STATBUS_TEST_TREE_TAG"'"}}}'
 		;;
 	"compose ps -a --format json")
 		printf '%s\n' '{"ID":"app-container","Service":"app","State":"'"$STATBUS_TEST_APP_STATE"'","Image":"ghcr.io/statisticsnorway/statbus-app:'"$STATBUS_TEST_APP_TAG"'"}'
@@ -97,6 +98,7 @@ exit 0
 	}
 	t.Setenv("PATH", shimDir+string(os.PathListSeparator)+os.Getenv("PATH"))
 	t.Setenv("STATBUS_TEST_TREE_TAG", treeTag)
+	t.Setenv("STATBUS_TEST_TREE_REST_IMAGE", "postgrest/postgrest:v13")
 	t.Setenv("STATBUS_TEST_APP_TAG", appTag)
 	t.Setenv("STATBUS_TEST_WORKER_TAG", workerTag)
 	t.Setenv("STATBUS_TEST_PROXY_TAG", proxyTag)
@@ -266,6 +268,186 @@ func TestCaptureSourceServingImageIdentitiesAcceptsInlineTargetTree(t *testing.T
 	want := servingEraExpected(sourceTag)
 	if flag == nil || !reflect.DeepEqual(flag.SourceServingImages, want) {
 		t.Fatalf("recorded source identities = %#v, want container-derived %#v", flag, want)
+	}
+}
+
+func TestCaptureSourceServingImageIdentitiesWritesIndependentAtomicCarrier(t *testing.T) {
+	setSourceStackImageIdentityEnv(t)
+	git := newGitRepoFixture(t)
+	sourceTag := git.oldSHA[:8]
+	installSourceCaptureDockerShim(t, git.newSHA[:8], sourceTag, sourceTag, sourceTag, nil)
+
+	d := &Service{projDir: git.dir}
+	if err := d.writeUpgradeFlag(181, git.newSHA, nil, "test", "test", false); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = d.removeUpgradeFlag() })
+	if err := d.captureSourceServingImageIdentities(context.Background()); err != nil {
+		t.Fatalf("captureSourceServingImageIdentities: %v", err)
+	}
+
+	carrierPath := filepath.Join(git.dir, "tmp", "upgrade-source-images.json")
+	data, err := os.ReadFile(carrierPath)
+	if err != nil {
+		t.Fatalf("read independent source-image carrier: %v", err)
+	}
+	var carrier struct {
+		ID        int                            `json:"id"`
+		CommitSHA string                         `json:"commit_sha"`
+		Images    map[string]sourceImageIdentity `json:"source_serving_images"`
+	}
+	if err := json.Unmarshal(data, &carrier); err != nil {
+		t.Fatalf("decode independent source-image carrier: %v", err)
+	}
+	if carrier.ID != 181 || carrier.CommitSHA != git.newSHA || !reflect.DeepEqual(carrier.Images, servingEraExpected(sourceTag)) {
+		t.Fatalf("carrier = %#v, want id=181 commit=%s images=%#v", carrier, git.newSHA, servingEraExpected(sourceTag))
+	}
+	temps, err := filepath.Glob(filepath.Join(git.dir, "tmp", ".upgrade-source-images.json.tmp-*"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(temps) != 0 {
+		t.Fatalf("atomic source-image carrier temps remain: %v", temps)
+	}
+}
+
+func TestCorruptMarkerRemovalRetainsSourceImageCarrierForFlaglessRecovery(t *testing.T) {
+	setSourceStackImageIdentityEnv(t)
+	git := newGitRepoFixture(t)
+	sourceTag := git.oldSHA[:8]
+	installSourceCaptureDockerShim(t, git.newSHA[:8], sourceTag, sourceTag, sourceTag, nil)
+
+	d := &Service{projDir: git.dir}
+	if err := d.writeUpgradeFlag(182, git.newSHA, nil, "test", "test", false); err != nil {
+		t.Fatal(err)
+	}
+	if err := d.captureSourceServingImageIdentities(context.Background()); err != nil {
+		t.Fatalf("captureSourceServingImageIdentities: %v", err)
+	}
+	d.flagLock.Close()
+	d.flagLock = nil
+	if err := os.WriteFile(d.flagPath(), []byte("{truncated"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := d.recoverFromFlag(context.Background()); err != nil {
+		t.Fatalf("recoverFromFlag(corrupt): %v", err)
+	}
+	if _, err := os.Stat(d.flagPath()); !os.IsNotExist(err) {
+		t.Fatalf("corrupt marker still exists or stat failed: %v", err)
+	}
+	carrierPath := filepath.Join(git.dir, "tmp", "upgrade-source-images.json")
+	if _, err := os.Stat(carrierPath); err != nil {
+		t.Fatalf("corrupt-marker removal deleted the independent source-image carrier: %v", err)
+	}
+
+	// Model the restored source tree. Recovery must use the pre-pull carrier,
+	// never derive identity from whatever containers happen to exist now.
+	if out, err := runCommandOutput(git.dir, "git", "checkout", "--detach", git.oldSHA); err != nil {
+		t.Fatalf("restore source checkout: %v\n%s", err, out)
+	}
+	t.Setenv("STATBUS_TEST_TREE_TAG", sourceTag)
+	t.Setenv("STATBUS_TEST_TREE_REST_IMAGE", "postgrest/postgrest:v12.2.8")
+	got, gotTag, err := d.sourceServingExpectedImages(context.Background())
+	if err != nil {
+		t.Fatalf("flagless source-image proof from carrier: %v", err)
+	}
+	if gotTag != sourceTag || !reflect.DeepEqual(got, servingEraExpected(sourceTag)) {
+		t.Fatalf("flagless carrier proof = tag %q images %#v, want tag %q images %#v", gotTag, got, sourceTag, servingEraExpected(sourceTag))
+	}
+
+	logPath := filepath.Join(t.TempDir(), "docker.log")
+	t.Setenv("STATBUS_TEST_DOCKER_LOG", logPath)
+	srv, rpcHits := sourceStackHealthServer(t)
+	d.cachedURL = srv.URL + "/rpc/auth_status"
+	d.cachedReadyURL = srv.URL + "/ready"
+	if err := d.startSourceApplicationStack(context.Background(), nil); err != nil {
+		t.Fatalf("restart source stack from independent carrier: %v", err)
+	}
+	if *rpcHits == 0 {
+		t.Fatal("source stack restart did not reach the functional health gate")
+	}
+	logBytes, err := os.ReadFile(logPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(logBytes), "compose start app worker rest proxy\n") {
+		t.Fatalf("source stack was not restarted in place from the carrier proof:\n%s", logBytes)
+	}
+}
+
+func TestSourceServingExpectedImagesWithoutMarkerOrCarrierFailsClosedWithManualRemedy(t *testing.T) {
+	git := newGitRepoFixture(t)
+	sourceTag := git.newSHA[:8]
+	setSourceStackImageIdentityEnv(t)
+	installSourceCaptureDockerShim(t, sourceTag, sourceTag, sourceTag, sourceTag, nil)
+
+	d := &Service{projDir: git.dir}
+	_, _, err := d.sourceServingExpectedImages(context.Background())
+	var eraErr *sourceServingEraUnknownError
+	if !errors.As(err, &eraErr) {
+		t.Fatalf("missing carrier error = %T %v, want sourceServingEraUnknownError", err, err)
+	}
+	for _, want := range []string{
+		"neither recovery marker nor source-image carrier",
+		"Manual recovery required",
+		"keep app, worker, and rest stopped",
+	} {
+		if !strings.Contains(err.Error(), want) {
+			t.Fatalf("missing-carrier error %q does not contain truthful remedy %q", err, want)
+		}
+	}
+}
+
+func TestTruthfulTerminalCleanupRemovesMarkerAndSourceImageCarrier(t *testing.T) {
+	projDir := t.TempDir()
+	d := &Service{projDir: projDir}
+	commitSHA := strings.Repeat("a", 40)
+	if err := d.writeUpgradeFlag(183, commitSHA, nil, "test", "test", false); err != nil {
+		t.Fatal(err)
+	}
+	flag, err := ReadFlagFile(projDir)
+	if err != nil || flag == nil {
+		t.Fatalf("read marker before carrier write: flag=%#v err=%v", flag, err)
+	}
+	if err := d.writeSourceServingImagesCarrierAtomically(*flag, map[string]sourceImageIdentity{
+		"app": {Reference: "app:source", ImageID: servingEraTestImageID('1')},
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if err := d.removeUpgradeArtifacts(); err != nil {
+		t.Fatalf("removeUpgradeArtifacts: %v", err)
+	}
+	for _, path := range []string{d.flagPath(), sourceServingImagesCarrierPath(projDir)} {
+		if _, err := os.Stat(path); !os.IsNotExist(err) {
+			t.Fatalf("truthful terminal cleanup left %s: %v", path, err)
+		}
+	}
+}
+
+func TestSourceImageCarrierWriterUsesAtomicDurabilityDiscipline(t *testing.T) {
+	srcBytes, err := os.ReadFile(thisRepoFile(t, "cli/internal/upgrade/source_image_carrier.go"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	body := extractFuncBody(t, string(srcBytes), "func (d *Service) writeSourceServingImagesCarrierAtomically(")
+	steps := []string{
+		"os.CreateTemp(",
+		"syscall.Flock(",
+		"tmp.Write(data)",
+		"tmp.Sync()",
+		"os.Rename(tmpPath, path)",
+		"dirFile.Sync()",
+	}
+	last := -1
+	for _, step := range steps {
+		idx := strings.Index(body, step)
+		if idx < 0 || idx <= last {
+			t.Fatalf("source-image carrier atomic order missing/out of order at %q: previous=%d current=%d", step, last, idx)
+		}
+		last = idx
+	}
+	if !strings.Contains(body, "d.flagLock == nil || d.flagLock.file == nil") {
+		t.Fatal("source-image carrier writer must require the canonical recovery-marker flock")
 	}
 }
 

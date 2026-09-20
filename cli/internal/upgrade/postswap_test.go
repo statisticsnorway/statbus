@@ -332,13 +332,13 @@ func TestResumeNewSb_SelfHealContinueOrFailLoud(t *testing.T) {
 	}
 
 	// The self-heal branch must mark state=completed (matching the
-	// existing LabelCompletedSelfHeal pattern) and remove the flag through the
-	// flock-aware helper. Direct os.Remove bypasses live-owner protection and
-	// cannot report a failed release to the finishing contract.
+	// existing LabelCompletedSelfHeal pattern) and remove the flag plus independent
+	// source-image carrier through the flock-aware helper. Direct os.Remove bypasses
+	// live-owner protection and cannot report a failed release to the finishing contract.
 	for _, want := range []string{
 		"state = 'completed'",
 		"LabelCompletedSelfHeal",
-		"d.removeUpgradeFlag()",
+		"d.removeUpgradeArtifacts()",
 	} {
 		if !strings.Contains(fn, want) {
 			t.Errorf("self-heal branch missing required token %q. Body:\n%s", want, fn)

@@ -364,7 +364,7 @@ func TestApplyNewSbUpgrading_FinishingOrder(t *testing.T) {
 		{"completed terminal UPDATE", `normalJSON, cerr = d.terminalUpdate(completedSQL`},
 		{"successful-upgrade row message", `finishing.recordedLine()`},
 		{"read-only lift", `d.liftReadOnlyWindow("upgrade completion")`},
-		{"lock release", `d.removeUpgradeFlag()`},
+		{"marker and source-image carrier release", `d.removeUpgradeArtifacts()`},
 		{"post-upgrade fixup", `runInstallFixup(projDir)`},
 		{"canonical completion line", `progress.Write("%s", finishing.completeLine())`},
 	}
@@ -438,7 +438,7 @@ func TestPostSwapSelfHealCompletionRequiresCleanFinishing(t *testing.T) {
 	body := extractFuncBody(t, string(source), "func (d *Service) resumeNewSb(")
 	for _, required := range []string{
 		`readOnlyStatement, werr := d.liftReadOnlyWindow("post-swap resume completion")`,
-		`if removeErr := d.removeUpgradeFlag(); removeErr != nil {`,
+		`if removeErr := d.removeUpgradeArtifacts(); removeErr != nil {`,
 		`if finishingClean {`,
 		`progress.Write("Upgrade to %s complete.", flag.Label())`,
 		`if finishingErr != nil {`,

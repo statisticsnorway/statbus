@@ -20,6 +20,14 @@ inode, rename it over the canonical marker, fsync the directory, then release th
 superseded inode. A crash before rename leaves the old complete JSON; after
 rename the new complete JSON is already locked. No truncate-in-place window may
 erase recovery-critical fields such as the recorded source image identities.
+Those pre-pull identities are also written first to the independent sibling
+`tmp/upgrade-source-images.json` with the same temp-write, fsync, rename, and
+flock discipline. Corrupt-marker removal deliberately preserves this second
+carrier, and source-era recovery falls back to it only after checking any
+surviving marker names the same upgrade identity. The carrier is never rebuilt
+from current containers because those may already be target-era. A truthful
+`completed` or `rolled_back` terminal removes the carrier with the marker;
+degraded, parked, corrupt-marker, and restore-reattemptable states retain it.
 Fresh marker creation uses the same writer but installs the already-locked temp
 inode with a no-overwrite hard link, so a racing intent can never be replaced.
 Abandoned sibling `.upgrade-in-progress.json.tmp-*` files are scavenged only
