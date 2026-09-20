@@ -18,9 +18,10 @@ run-name: >-
 # THIS workflow validates "install converges to a coherent terminal state
 # from every named failure-injection class."
 #
-# Triggered by release-fleet-orchestrator.yaml at prerelease tag push
-# (`v*-rc.*`, STATBUS-214 — this workflow no longer carries that trigger
-# itself, see the STATBUS-214 comment on the `on:` block below) or by
+# Triggered by release-fleet-orchestrator.yaml for an RC candidate, whether
+# that orchestrator started from the tag push or a manual re-dispatch
+# (`v*-rc.*`, STATBUS-214 — this workflow no longer carries the tag trigger
+# itself, see the STATBUS-214 comment on the `on:` block below), or by direct
 # manual dispatch. The full scenario catalogue lives in
 # `test/install-recovery/scenarios/` — see
 # `test/install-recovery/README.md` for the per-class breakdown and the
@@ -207,9 +208,10 @@ jobs:
         # exclusion and the same selector matching a local run uses, then
         # prints the chosen base names without provisioning anything. We just
         # JSON-encode that list. The `scenarios` dispatch input narrows the set
-        # (single-scenario re-runs); empty input (the tag-push gate) ⇒ the full
-        # default suite. A bad selector makes run.sh exit non-zero ⇒ this step
-        # fails loudly rather than silently producing an empty matrix.
+        # (single-scenario re-runs); empty input (an orchestrated full-suite
+        # run) ⇒ the full default suite. A bad selector makes run.sh exit
+        # non-zero ⇒ this step fails loudly rather than silently producing an
+        # empty matrix.
         env:
           SCENARIOS_INPUT: ${{ github.event.inputs.scenarios }}
         run: |

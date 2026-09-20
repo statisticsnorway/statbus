@@ -46,19 +46,22 @@ else
     parent="$(cat "$response_file")"
   fi
 fi
+# The orchestrator may be the original tag push run or an operator's manual
+# re-dispatch at that same tag. The remaining fields bind either trigger form
+# to the exact live workflow run and candidate commit that created this child.
 if ! jq -e \
   --argjson id "$ORCHESTRATOR_RUN_ID" \
   --arg sha "$CANDIDATE_SHA" '
     .id == $id and
     .status == "in_progress" and
-    .event == "push" and
+    (.event == "push" or .event == "workflow_dispatch") and
     .head_sha == $sha and
     .path == ".github/workflows/release-fleet-orchestrator.yaml" and
     (.html_url | type == "string" and test("^https://[^[:space:]]+$"))
   ' <<<"$parent" >/dev/null; then
   candidate_retry_target="${CANDIDATE_REF:-the candidate tag}"
-  echo "::notice title=Admission refused: re-dispatch the orchestrator::run ${ORCHESTRATOR_RUN_ID} is no longer the in-progress tag-push Release Fleet Orchestrator for child SHA ${CANDIDATE_SHA}. This is not a product arc failure. Re-dispatch the Release Fleet Orchestrator for ${candidate_retry_target}; do not re-run this arc child."
-  echo "::error title=Stale or invalid orchestrator parent: admission refused before product testing::run ${ORCHESTRATOR_RUN_ID} is not the in-progress tag-push Release Fleet Orchestrator for child SHA ${CANDIDATE_SHA}"
+  echo "::notice title=Admission refused: re-dispatch the orchestrator::run ${ORCHESTRATOR_RUN_ID} is no longer the in-progress Release Fleet Orchestrator (tag push or manual re-dispatch) for child SHA ${CANDIDATE_SHA}. This is not a product arc failure. Re-dispatch the Release Fleet Orchestrator for ${candidate_retry_target}; do not re-run this arc child."
+  echo "::error title=Stale or invalid orchestrator parent: admission refused before product testing::run ${ORCHESTRATOR_RUN_ID} is not the in-progress Release Fleet Orchestrator (tag push or manual re-dispatch) for child SHA ${CANDIDATE_SHA}"
   jq '{id,status,event,head_sha,path,html_url}' <<<"$parent" >&2 || true
   exit 1
 fi

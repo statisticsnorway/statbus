@@ -28,14 +28,18 @@ func TestFleetAdmissionRecordedParentDecision_STATBUS365(t *testing.T) {
 	}
 	tests := []struct {
 		name       string
+		event      string
 		mutate     func(map[string]any)
 		wantOK     bool
 		wantReason string
 	}{
-		{name: "in progress", wantOK: true, wantReason: "Admitted orchestrator parent"},
-		{name: "completed", mutate: func(v map[string]any) { v["status"] = "completed" }, wantReason: "Stale or invalid orchestrator parent"},
-		{name: "wrong sha", mutate: func(v map[string]any) { v["head_sha"] = "wrong" }, wantReason: "Stale or invalid orchestrator parent"},
-		{name: "wrong path", mutate: func(v map[string]any) { v["path"] = ".github/workflows/other.yaml" }, wantReason: "Stale or invalid orchestrator parent"},
+		{name: "tag push in progress", event: "push", wantOK: true, wantReason: "Admitted orchestrator parent"},
+		{name: "manual redispatch in progress", event: "workflow_dispatch", wantOK: true, wantReason: "Admitted orchestrator parent"},
+		{name: "manual redispatch completed", event: "workflow_dispatch", mutate: func(v map[string]any) { v["status"] = "completed" }, wantReason: "Stale or invalid orchestrator parent"},
+		{name: "manual redispatch wrong sha", event: "workflow_dispatch", mutate: func(v map[string]any) { v["head_sha"] = "wrong" }, wantReason: "Stale or invalid orchestrator parent"},
+		{name: "wrong path", event: "push", mutate: func(v map[string]any) { v["path"] = ".github/workflows/other.yaml" }, wantReason: "Stale or invalid orchestrator parent"},
+		{name: "scheduled run", event: "schedule", wantReason: "Stale or invalid orchestrator parent"},
+		{name: "other event", event: "repository_dispatch", wantReason: "Stale or invalid orchestrator parent"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -43,6 +47,7 @@ func TestFleetAdmissionRecordedParentDecision_STATBUS365(t *testing.T) {
 			for key, value := range baseline {
 				parent[key] = value
 			}
+			parent["event"] = tt.event
 			if tt.mutate != nil {
 				tt.mutate(parent)
 			}
@@ -332,7 +337,7 @@ func TestPaidFleetSharedAdmissionAndManualCompatibility_STATBUS350(t *testing.T)
 		t.Fatal("dispatcher must add parent run ID to classified paid workflows")
 	}
 	admit, _ := os.ReadFile(thisRepoFile(t, ".github/actions/orchestrator-fleet-admission/admit.sh"))
-	for _, required := range []string{".status == \"in_progress\"", ".event == \"push\"", ".head_sha == $sha", ".path == \".github/workflows/release-fleet-orchestrator.yaml\"", "CANDIDATE_REF", "git rev-parse HEAD"} {
+	for _, required := range []string{".status == \"in_progress\"", "(.event == \"push\" or .event == \"workflow_dispatch\")", ".head_sha == $sha", ".path == \".github/workflows/release-fleet-orchestrator.yaml\"", "tag push or manual re-dispatch", "CANDIDATE_REF", "git rev-parse HEAD"} {
 		if !strings.Contains(string(admit), required) {
 			t.Errorf("shared admission missing %q", required)
 		}
