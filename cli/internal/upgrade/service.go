@@ -8226,6 +8226,38 @@ type sourceServingCapture struct {
 	States map[string]string
 }
 
+type sourceServingIdentityProof string
+
+const (
+	legacySourceEraLabel                                                  = "legacy source era (pre-capture release)"
+	sourceServingIdentityProofRecorded         sourceServingIdentityProof = "recorded pre-pull identities"
+	sourceServingIdentityProofLegacyContainers sourceServingIdentityProof = legacySourceEraLabel + ": daemon-verified existing containers"
+	sourceServingIdentityProofLegacyModel      sourceServingIdentityProof = legacySourceEraLabel + ": restored source model"
+)
+
+type legacySourceEraError struct {
+	Err error
+}
+
+func (e *legacySourceEraError) Error() string {
+	return fmt.Sprintf("%s convergence failed: %v", legacySourceEraLabel, e.Err)
+}
+
+func (e *legacySourceEraError) Unwrap() error {
+	return e.Err
+}
+
+func wrapLegacySourceEraError(err error) error {
+	if err == nil {
+		return nil
+	}
+	var legacyErr *legacySourceEraError
+	if errors.As(err, &legacyErr) {
+		return err
+	}
+	return &legacySourceEraError{Err: err}
+}
+
 func knownDockerContainerState(state string) bool {
 	switch state {
 	case "running", "exited", "created", "dead", "paused", "restarting":
@@ -8275,6 +8307,19 @@ func (d *Service) dockerContainerImageID(ctx context.Context, containerID string
 	out, stderr, err := commandOutputWithStderr(cmd)
 	if err != nil {
 		return "", fmt.Errorf("docker inspect container %q: %w (stderr: %s)", containerID, err, stderr)
+	}
+	return normalizedDockerImageID(string(out))
+}
+
+func (d *Service) dockerImageReferenceID(ctx context.Context, reference string) (string, error) {
+	cmd, buildErr := commandContext(ctx, d.projDir, "docker", "image", "inspect", "--format", "{{.Id}}", reference)
+	if buildErr != nil {
+		return "", fmt.Errorf("construct docker image inspect for %q: %w", reference, buildErr)
+	}
+	prepareCmd(cmd)
+	out, stderr, err := commandOutputWithStderr(cmd)
+	if err != nil {
+		return "", fmt.Errorf("docker image inspect %q: %w (stderr: %s)", reference, err, stderr)
 	}
 	return normalizedDockerImageID(string(out))
 }
@@ -8454,14 +8499,72 @@ func (d *Service) captureSourceServingImageIdentities(ctx context.Context) error
 	return nil
 }
 
-func (d *Service) sourceServingExpectedImages(ctx context.Context) (map[string]sourceImageIdentity, string, error) {
-	references, sourceTag, err := d.sourceServingExpectedImageReferences(ctx)
+func (d *Service) legacySourceServingExpectedImages(ctx context.Context, references map[string]string) (_ map[string]sourceImageIdentity, _ sourceServingIdentityProof, returnErr error) {
+	defer func() {
+		returnErr = wrapLegacySourceEraError(returnErr)
+	}()
+	for _, service := range sourceServingServices {
+		reference := references[service]
+		if strings.Contains(reference, "@") {
+			return nil, "", &sourceServingEraUnknownError{Detail: fmt.Sprintf("%s proof requires a tag-form restored source reference for %s; digest reference %q has no install-time identity record to corroborate", legacySourceEraLabel, service, reference)}
+		}
+		if extractImageTag(reference) == "" {
+			return nil, "", &sourceServingEraUnknownError{Detail: fmt.Sprintf("%s proof requires a tagged restored source reference for %s, got %q", legacySourceEraLabel, service, reference)}
+		}
+	}
+	entries, err := d.sourceServingContainerEntries(ctx)
 	if err != nil {
 		return nil, "", err
 	}
+	actual := make(map[string]compose.PsEntry, len(entries))
+	for _, entry := range entries {
+		if _, duplicate := actual[entry.Service]; duplicate {
+			return nil, "", &sourceServingEraUnknownError{Detail: fmt.Sprintf("legacy source era (pre-capture release) is ambiguous: multiple containers reported for %s", entry.Service)}
+		}
+		actual[entry.Service] = entry
+	}
+
+	if len(actual) == 0 {
+		expected := make(map[string]sourceImageIdentity, len(sourceServingServices))
+		for _, service := range sourceServingServices {
+			imageID, inspectErr := d.dockerImageReferenceID(ctx, references[service])
+			if inspectErr != nil {
+				return nil, "", &sourceServingEraUnknownError{Detail: fmt.Sprintf("legacy source era (pre-capture release) cannot resolve restored source image for %s: %v", service, inspectErr)}
+			}
+			expected[service] = sourceImageIdentity{Reference: references[service], ImageID: imageID}
+		}
+		return expected, sourceServingIdentityProofLegacyModel, nil
+	}
+	if len(actual) != len(sourceServingServices) {
+		return nil, "", &sourceServingEraUnknownError{Detail: fmt.Sprintf("legacy source era (pre-capture release) is ambiguous: partial serving container set has %d of %d services", len(actual), len(sourceServingServices))}
+	}
+
+	expected := make(map[string]sourceImageIdentity, len(sourceServingServices))
+	for _, service := range sourceServingServices {
+		entry, present := actual[service]
+		if !present {
+			return nil, "", &sourceServingEraUnknownError{Detail: fmt.Sprintf("legacy source era (pre-capture release) is ambiguous: %s container is missing", service)}
+		}
+		if entry.Image != references[service] {
+			return nil, "", &sourceServingEraUnknownError{Detail: fmt.Sprintf("legacy source era (pre-capture release) container/model mismatch for %s: container uses %q, restored source model renders %q", service, entry.Image, references[service])}
+		}
+		imageID, normalizeErr := normalizedDockerImageID(entry.ImageID)
+		if normalizeErr != nil {
+			return nil, "", &sourceServingEraUnknownError{Detail: fmt.Sprintf("legacy source era (pre-capture release) daemon identity for %s is unresolvable: %v", service, normalizeErr)}
+		}
+		expected[service] = sourceImageIdentity{Reference: references[service], ImageID: imageID}
+	}
+	return expected, sourceServingIdentityProofLegacyContainers, nil
+}
+
+func (d *Service) sourceServingExpectedImagesWithProof(ctx context.Context) (map[string]sourceImageIdentity, string, sourceServingIdentityProof, error) {
+	references, sourceTag, err := d.sourceServingExpectedImageReferences(ctx)
+	if err != nil {
+		return nil, "", "", err
+	}
 	flag, err := ReadFlagFile(d.projDir)
 	if err != nil {
-		return nil, "", &sourceServingEraUnknownError{Detail: fmt.Sprintf("read pre-upgrade source image identities: %v", err)}
+		return nil, "", "", &sourceServingEraUnknownError{Detail: fmt.Sprintf("read pre-upgrade source image identities: %v", err)}
 	}
 	recordedImages := map[string]sourceImageIdentity(nil)
 	recordName := "recovery marker"
@@ -8470,13 +8573,17 @@ func (d *Service) sourceServingExpectedImages(ctx context.Context) (map[string]s
 	} else {
 		carrier, carrierErr := readSourceServingImagesCarrier(d.projDir)
 		if carrierErr != nil {
-			return nil, "", &sourceServingEraUnknownError{Detail: fmt.Sprintf("read independent pre-upgrade source image identities: %v", carrierErr)}
+			return nil, "", "", &sourceServingEraUnknownError{Detail: fmt.Sprintf("read independent pre-upgrade source image identities: %v", carrierErr)}
 		}
 		if carrier == nil || len(carrier.SourceServingImages) == 0 {
-			return nil, "", &sourceServingEraUnknownError{Detail: "neither recovery marker nor source-image carrier has pre-upgrade source image identities, so the source serving era cannot be proved without the pre-pull record. Manual recovery required: keep app, worker, and rest stopped; contact SSB support and involve your IT staff"}
+			expected, proof, legacyErr := d.legacySourceServingExpectedImages(ctx, references)
+			if legacyErr != nil {
+				return nil, "", "", legacyErr
+			}
+			return expected, sourceTag, proof, nil
 		}
 		if flag != nil && (carrier.ID != flag.ID || carrier.CommitSHA != flag.CommitSHA) {
-			return nil, "", &sourceServingEraUnknownError{Detail: fmt.Sprintf("source-image carrier belongs to upgrade %d commit %q, but recovery marker names upgrade %d commit %q; refusing stale identity reuse", carrier.ID, carrier.CommitSHA, flag.ID, flag.CommitSHA)}
+			return nil, "", "", &sourceServingEraUnknownError{Detail: fmt.Sprintf("source-image carrier belongs to upgrade %d commit %q, but recovery marker names upgrade %d commit %q; refusing stale identity reuse", carrier.ID, carrier.CommitSHA, flag.ID, flag.CommitSHA)}
 		}
 		recordedImages = carrier.SourceServingImages
 		recordName = "source-image carrier"
@@ -8485,26 +8592,32 @@ func (d *Service) sourceServingExpectedImages(ctx context.Context) (map[string]s
 	for _, service := range sourceServingServices {
 		recorded, ok := recordedImages[service]
 		if !ok {
-			return nil, "", &sourceServingEraUnknownError{Detail: fmt.Sprintf("%s has no pre-upgrade source image identity for %s", recordName, service)}
+			return nil, "", "", &sourceServingEraUnknownError{Detail: fmt.Sprintf("%s has no pre-upgrade source image identity for %s", recordName, service)}
 		}
 		if recorded.Reference != references[service] {
-			return nil, "", &sourceServingEraUnknownError{Detail: fmt.Sprintf("restored source compose reference for %s is %q, but the pre-upgrade %s recorded %q", service, references[service], recordName, recorded.Reference)}
+			return nil, "", "", &sourceServingEraUnknownError{Detail: fmt.Sprintf("restored source compose reference for %s is %q, but the pre-upgrade %s recorded %q", service, references[service], recordName, recorded.Reference)}
 		}
 		imageID, normalizeErr := normalizedDockerImageID(recorded.ImageID)
 		if normalizeErr != nil {
-			return nil, "", &sourceServingEraUnknownError{Detail: fmt.Sprintf("%s source image identity for %s is unresolvable: %v", recordName, service, normalizeErr)}
+			return nil, "", "", &sourceServingEraUnknownError{Detail: fmt.Sprintf("%s source image identity for %s is unresolvable: %v", recordName, service, normalizeErr)}
 		}
 		expected[service] = sourceImageIdentity{Reference: references[service], ImageID: imageID}
 	}
-	return expected, sourceTag, nil
+	return expected, sourceTag, sourceServingIdentityProofRecorded, nil
 }
 
-// ServingEra positively classifies the currently serving application stack
-// using the immutable source identities recorded before the target pull. It is
-// intentionally a read-only wrapper around the same proof used by
-// startSourceApplicationStack, so the un-park path can distinguish a source
-// stack whose final retreat marker is missing from an ordinary era-refused
-// park. Any ambiguity is an error and must not authorize marker removal.
+func (d *Service) sourceServingExpectedImages(ctx context.Context) (map[string]sourceImageIdentity, string, error) {
+	expected, sourceTag, _, err := d.sourceServingExpectedImagesWithProof(ctx)
+	return expected, sourceTag, err
+}
+
+// ServingEra positively classifies the currently serving application stack.
+// Recorded pre-pull identities remain primary; a missing record may use only
+// the explicitly labeled pre-capture compatibility proof. This is intentionally
+// a read-only wrapper around the same proof used by startSourceApplicationStack,
+// so the un-park path can distinguish a source stack whose final retreat marker
+// is missing from an ordinary era-refused park. Any ambiguity is an error and
+// must not authorize marker removal.
 func (d *Service) ServingEra(ctx context.Context) (ServingEra, error) {
 	expected, sourceTag, err := d.sourceServingExpectedImages(ctx)
 	if err != nil {
@@ -8647,26 +8760,56 @@ func (d *Service) containFailedSourceRecreate(ctx context.Context, progress *Pro
 // STOPPED-UNCHANGED terminal (where those assets never moved) use this exact
 // primitive so neither path can claim normal serving based on container start
 // alone. The era rule is source-authoritative: start in place only when every
-// existing immutable image ID matches the pre-upgrade source identity; recreate
-// only a coherent Target from the restored source model, then inspect again.
+// existing immutable image ID matches the pre-upgrade source identity, or the
+// absent-record compatibility proof binds all remaining containers to the
+// restored model through daemon IDs. Recreate only a coherent recorded Target,
+// or a completely absent legacy tier whose restored references resolve to
+// daemon IDs, from the restored source model, then inspect again.
 // rc.66 -> rc.67 forbids recreation from a WRONG-era tree/config. It does not
 // forbid controlled recreation after source git/config restoration is proved.
-func (d *Service) startSourceApplicationStack(ctx context.Context, progress *ProgressLog) error {
+func (d *Service) startSourceApplicationStack(ctx context.Context, progress *ProgressLog) (returnErr error) {
 	if err := ctx.Err(); err != nil {
 		return err
 	}
-	expected, sourceTag, err := d.sourceServingExpectedImages(ctx)
+	expected, sourceTag, identityProof, err := d.sourceServingExpectedImagesWithProof(ctx)
 	if err != nil {
 		return err
+	}
+	if identityProof != sourceServingIdentityProofRecorded {
+		defer func() {
+			returnErr = wrapLegacySourceEraError(returnErr)
+		}()
 	}
 	entries, err := d.sourceServingContainerEntries(ctx)
 	if err != nil {
 		return err
 	}
 
-	era, err := deriveServingEra(entries, expected, sourceTag)
-	if err != nil {
-		return err
+	var era ServingEra
+	switch identityProof {
+	case sourceServingIdentityProofLegacyModel:
+		if len(entries) != 0 {
+			return &sourceServingEraUnknownError{Detail: fmt.Sprintf("legacy source era (pre-capture release) changed while proving absent containers: %d serving container entries appeared", len(entries))}
+		}
+		era = ServingEraTarget // Controlled recreation from the restored source model is required.
+	case sourceServingIdentityProofLegacyContainers:
+		era, err = deriveServingEra(entries, expected, sourceTag)
+		if err != nil {
+			return err
+		}
+		if era != ServingEraSource {
+			return &sourceServingEraUnknownError{Detail: fmt.Sprintf("legacy source era (pre-capture release) existing containers changed during proof: derived %s, want source %s", era, sourceTag)}
+		}
+	case sourceServingIdentityProofRecorded:
+		era, err = deriveServingEra(entries, expected, sourceTag)
+		if err != nil {
+			return err
+		}
+	default:
+		return &sourceServingEraUnknownError{Detail: fmt.Sprintf("unsupported source identity proof %q", identityProof)}
+	}
+	if progress != nil && identityProof != sourceServingIdentityProofRecorded {
+		progress.Write("Serving proof is %s.", identityProof)
 	}
 	var composeArgs []string
 	var operation string

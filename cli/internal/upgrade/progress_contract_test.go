@@ -285,3 +285,11 @@ func TestRollbackCompletionErrorsRefuseHealthyTerminalForEveryRequiredBoundary(t
 		t.Fatalf("clean rollback classified degraded: %#v", clean.details())
 	}
 }
+
+func TestRollbackCompletionErrorsDoesNotClassifyLegacyLabelTextWithoutTypedMarker(t *testing.T) {
+	ordinaryErr := errors.New("ordinary service failure mentions " + legacySourceEraLabel)
+	details := rollbackCompletionErrors{servicesStart: ordinaryErr}.details()
+	if got, want := details, []string{"services did not come back up"}; !reflect.DeepEqual(got, want) {
+		t.Fatalf("details = %#v, want %#v", got, want)
+	}
+}

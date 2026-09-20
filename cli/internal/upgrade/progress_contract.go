@@ -2,6 +2,7 @@ package upgrade
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -124,7 +125,14 @@ func (e rollbackCompletionErrors) details() []string {
 		{e.readOnly, "SQL writes remained blocked"},
 	} {
 		if item.err != nil {
-			details = append(details, item.label)
+			detail := item.label
+			var legacyErr *legacySourceEraError
+			if item.label == "services did not come back up" && errors.As(item.err, &legacyErr) {
+				// The row is often the only surviving operator-visible evidence. Keep
+				// the compatibility-path identity and exact cause on one durable line.
+				detail = strings.Join(strings.Fields(item.err.Error()), " ")
+			}
+			details = append(details, detail)
 		}
 	}
 	return details

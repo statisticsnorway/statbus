@@ -388,26 +388,378 @@ func TestCorruptMarkerRemovalRetainsSourceImageCarrierForFlaglessRecovery(t *tes
 	}
 }
 
-func TestSourceServingExpectedImagesWithoutMarkerOrCarrierFailsClosedWithManualRemedy(t *testing.T) {
+func sourceStackTestProgress(t *testing.T, projDir string) (*ProgressLog, string) {
+	t.Helper()
+	path := filepath.Join(t.TempDir(), "progress.log")
+	file, err := os.Create(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = file.Close() })
+	return &ProgressLog{projDir: projDir, absPath: path, file: file}, path
+}
+
+func TestStartSourceApplicationStackLegacyPreCaptureStartsDaemonVerifiedContainers(t *testing.T) {
+	setSourceStackImageIdentityEnv(t)
 	git := newGitRepoFixture(t)
 	sourceTag := git.newSHA[:8]
+	writeSourceStackRecoveryFlag(t, git.dir, sourceTag, map[string]sourceImageIdentity{})
+	srv, rpcHits := sourceStackHealthServer(t)
+	progress, progressPath := sourceStackTestProgress(t, git.dir)
+
+	shimDir := t.TempDir()
+	logPath := filepath.Join(shimDir, "docker.log")
+	shim := `#!/bin/sh
+printf '%s\n' "$*" >> "$STATBUS_TEST_DOCKER_LOG"
+case "$*" in
+	` + sourceStackImageInspectCases + `
+	"compose --profile all config --format json")
+		printf '%s\n' '{"services":{"app":{"image":"ghcr.io/statisticsnorway/statbus-app:'"$STATBUS_TEST_SOURCE_TAG"'"},"worker":{"image":"ghcr.io/statisticsnorway/statbus-worker:'"$STATBUS_TEST_SOURCE_TAG"'"},"rest":{"image":"postgrest/postgrest:v12.2.8"},"proxy":{"image":"ghcr.io/statisticsnorway/statbus-proxy:'"$STATBUS_TEST_SOURCE_TAG"'"}}}'
+		;;
+	"compose ps -a --format json")
+		printf '%s\n' '{"ID":"'"$STATBUS_TEST_APP_SOURCE_ID"'","Service":"app","State":"exited","Image":"ghcr.io/statisticsnorway/statbus-app:'"$STATBUS_TEST_SOURCE_TAG"'"}'
+		printf '%s\n' '{"ID":"'"$STATBUS_TEST_WORKER_SOURCE_ID"'","Service":"worker","State":"exited","Image":"ghcr.io/statisticsnorway/statbus-worker:'"$STATBUS_TEST_SOURCE_TAG"'"}'
+		printf '%s\n' '{"ID":"'"$STATBUS_TEST_REST_SOURCE_ID"'","Service":"rest","State":"exited","Image":"postgrest/postgrest:v12.2.8"}'
+		printf '%s\n' '{"ID":"'"$STATBUS_TEST_PROXY_SOURCE_ID"'","Service":"proxy","State":"exited","Image":"ghcr.io/statisticsnorway/statbus-proxy:'"$STATBUS_TEST_SOURCE_TAG"'"}'
+		;;
+esac
+exit 0
+`
+	if err := os.WriteFile(filepath.Join(shimDir, "docker"), []byte(shim), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("PATH", shimDir+string(os.PathListSeparator)+os.Getenv("PATH"))
+	t.Setenv("STATBUS_TEST_DOCKER_LOG", logPath)
+	t.Setenv("STATBUS_TEST_SOURCE_TAG", sourceTag)
+
+	d := &Service{projDir: git.dir, cachedURL: srv.URL + "/rpc/auth_status", cachedReadyURL: srv.URL + "/ready"}
+	if err := d.startSourceApplicationStack(context.Background(), progress); err != nil {
+		t.Fatalf("legacy source stack start: %v", err)
+	}
+	if *rpcHits != 1 {
+		t.Fatalf("health gate hits = %d, want 1", *rpcHits)
+	}
+	dockerLog, err := os.ReadFile(logPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{
+		"inspect --format {{.Image}} " + servingEraTestImageID('1'),
+		"inspect --format {{.Image}} " + servingEraTestImageID('2'),
+		"inspect --format {{.Image}} " + servingEraTestImageID('3'),
+		"inspect --format {{.Image}} " + servingEraTestImageID('4'),
+		"compose start app worker rest proxy",
+	} {
+		if !strings.Contains(string(dockerLog), want) {
+			t.Fatalf("legacy existing-container proof did not execute %q:\n%s", want, dockerLog)
+		}
+	}
+	progressBytes, err := os.ReadFile(progressPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(progressBytes), "legacy source era (pre-capture release)") {
+		t.Fatalf("legacy proof was not distinctly labeled in progress:\n%s", progressBytes)
+	}
+}
+
+func TestStartSourceApplicationStackLegacyPreCaptureRecreatesWhenContainersAreAbsent(t *testing.T) {
 	setSourceStackImageIdentityEnv(t)
+	git := newGitRepoFixture(t)
+	sourceTag := git.newSHA[:8]
+	writeSourceStackRecoveryFlag(t, git.dir, sourceTag, map[string]sourceImageIdentity{})
+	srv, rpcHits := sourceStackHealthServer(t)
+	progress, progressPath := sourceStackTestProgress(t, git.dir)
+
+	shimDir := t.TempDir()
+	logPath := filepath.Join(shimDir, "docker.log")
+	convergedPath := filepath.Join(shimDir, "converged")
+	shim := `#!/bin/sh
+printf '%s\n' "$*" >> "$STATBUS_TEST_DOCKER_LOG"
+case "$*" in
+	` + sourceStackImageInspectCases + `
+	"compose --profile all config --format json")
+		printf '%s\n' '{"services":{"app":{"image":"ghcr.io/statisticsnorway/statbus-app:'"$STATBUS_TEST_SOURCE_TAG"'"},"worker":{"image":"ghcr.io/statisticsnorway/statbus-worker:'"$STATBUS_TEST_SOURCE_TAG"'"},"rest":{"image":"postgrest/postgrest:v12.2.8"},"proxy":{"image":"ghcr.io/statisticsnorway/statbus-proxy:'"$STATBUS_TEST_SOURCE_TAG"'"}}}'
+		;;
+	"compose ps -a --format json")
+		if [ -f "$STATBUS_TEST_CONVERGED" ]; then
+			printf '%s\n' '{"ID":"'"$STATBUS_TEST_APP_SOURCE_ID"'","Service":"app","State":"running","Image":"ghcr.io/statisticsnorway/statbus-app:'"$STATBUS_TEST_SOURCE_TAG"'"}'
+			printf '%s\n' '{"ID":"'"$STATBUS_TEST_WORKER_SOURCE_ID"'","Service":"worker","State":"running","Image":"ghcr.io/statisticsnorway/statbus-worker:'"$STATBUS_TEST_SOURCE_TAG"'"}'
+			printf '%s\n' '{"ID":"'"$STATBUS_TEST_REST_SOURCE_ID"'","Service":"rest","State":"running","Image":"postgrest/postgrest:v12.2.8"}'
+			printf '%s\n' '{"ID":"'"$STATBUS_TEST_PROXY_SOURCE_ID"'","Service":"proxy","State":"running","Image":"ghcr.io/statisticsnorway/statbus-proxy:'"$STATBUS_TEST_SOURCE_TAG"'"}'
+		fi
+		;;
+	"compose up -d --no-build --no-deps app worker rest proxy") touch "$STATBUS_TEST_CONVERGED" ;;
+esac
+exit 0
+`
+	if err := os.WriteFile(filepath.Join(shimDir, "docker"), []byte(shim), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("PATH", shimDir+string(os.PathListSeparator)+os.Getenv("PATH"))
+	t.Setenv("STATBUS_TEST_DOCKER_LOG", logPath)
+	t.Setenv("STATBUS_TEST_CONVERGED", convergedPath)
+	t.Setenv("STATBUS_TEST_SOURCE_TAG", sourceTag)
+
+	d := &Service{projDir: git.dir, cachedURL: srv.URL + "/rpc/auth_status", cachedReadyURL: srv.URL + "/ready"}
+	if err := d.startSourceApplicationStack(context.Background(), progress); err != nil {
+		t.Fatalf("legacy source stack recreation: %v", err)
+	}
+	if *rpcHits != 1 {
+		t.Fatalf("health gate hits = %d, want 1", *rpcHits)
+	}
+	dockerLog, err := os.ReadFile(logPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{
+		"image inspect --format {{.Id}} ghcr.io/statisticsnorway/statbus-app:" + sourceTag,
+		"image inspect --format {{.Id}} ghcr.io/statisticsnorway/statbus-worker:" + sourceTag,
+		"image inspect --format {{.Id}} postgrest/postgrest:v12.2.8",
+		"image inspect --format {{.Id}} ghcr.io/statisticsnorway/statbus-proxy:" + sourceTag,
+		"compose up -d --no-build --no-deps app worker rest proxy",
+	} {
+		if !strings.Contains(string(dockerLog), want) {
+			t.Fatalf("legacy absent-container proof did not execute %q:\n%s", want, dockerLog)
+		}
+	}
+	progressBytes, err := os.ReadFile(progressPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(progressBytes), "legacy source era (pre-capture release)") {
+		t.Fatalf("legacy recreation was not distinctly labeled in progress:\n%s", progressBytes)
+	}
+}
+
+func TestStartSourceApplicationStackLegacyPreCaptureRejectsDigestModelWithoutContainers(t *testing.T) {
+	setSourceStackImageIdentityEnv(t)
+	git := newGitRepoFixture(t)
+	sourceTag := git.newSHA[:8]
+	writeSourceStackRecoveryFlag(t, git.dir, sourceTag, map[string]sourceImageIdentity{})
+
+	shimDir := t.TempDir()
+	logPath := filepath.Join(shimDir, "docker.log")
+	digest := servingEraTestImageID('9')
+	shim := `#!/bin/sh
+printf '%s\n' "$*" >> "$STATBUS_TEST_DOCKER_LOG"
+case "$*" in
+	` + sourceStackImageInspectCases + `
+	"compose --profile all config --format json")
+		printf '%s\n' '{"services":{"app":{"image":"ghcr.io/statisticsnorway/statbus-app@'"$STATBUS_TEST_DIGEST"'"},"worker":{"image":"ghcr.io/statisticsnorway/statbus-worker:'"$STATBUS_TEST_SOURCE_TAG"'"},"rest":{"image":"postgrest/postgrest:v12.2.8"},"proxy":{"image":"ghcr.io/statisticsnorway/statbus-proxy:'"$STATBUS_TEST_SOURCE_TAG"'"}}}'
+		;;
+	"compose ps -a --format json") ;;
+esac
+exit 0
+`
+	if err := os.WriteFile(filepath.Join(shimDir, "docker"), []byte(shim), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("PATH", shimDir+string(os.PathListSeparator)+os.Getenv("PATH"))
+	t.Setenv("STATBUS_TEST_DOCKER_LOG", logPath)
+	t.Setenv("STATBUS_TEST_SOURCE_TAG", sourceTag)
+	t.Setenv("STATBUS_TEST_DIGEST", digest)
+
+	d := &Service{projDir: git.dir}
+	err := d.startSourceApplicationStack(context.Background(), nil)
+	var eraErr *sourceServingEraUnknownError
+	if !errors.As(err, &eraErr) || !strings.Contains(err.Error(), "legacy source era") || !strings.Contains(err.Error(), "digest") {
+		t.Fatalf("legacy digest-model refusal = %T %v, want named fail-closed legacy digest refusal", err, err)
+	}
+	dockerLog, readErr := os.ReadFile(logPath)
+	if readErr != nil {
+		t.Fatal(readErr)
+	}
+	for _, forbidden := range []string{"image inspect", "compose start", "compose up"} {
+		if strings.Contains(string(dockerLog), forbidden) {
+			t.Fatalf("legacy digest model must refuse before %q:\n%s", forbidden, dockerLog)
+		}
+	}
+}
+
+func TestLegacySourceServingExpectedImagesAcceptsExplicitLocalTags(t *testing.T) {
+	setSourceStackImageIdentityEnv(t)
+	shimDir := t.TempDir()
+	shim := `#!/bin/sh
+case "$*" in
+	` + sourceStackImageInspectCases + `
+	"compose ps -a --format json") ;;
+esac
+exit 0
+`
+	if err := os.WriteFile(filepath.Join(shimDir, "docker"), []byte(shim), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("PATH", shimDir+string(os.PathListSeparator)+os.Getenv("PATH"))
+	references := map[string]string{
+		"app":    "ghcr.io/statisticsnorway/statbus-app:local",
+		"worker": "ghcr.io/statisticsnorway/statbus-worker:local",
+		"rest":   "postgrest/postgrest:v12.2.8",
+		"proxy":  "ghcr.io/statisticsnorway/statbus-proxy:local",
+	}
+	d := &Service{projDir: t.TempDir()}
+	expected, proof, err := d.legacySourceServingExpectedImages(context.Background(), references)
+	if err != nil {
+		t.Fatalf("explicit local legacy references: %v", err)
+	}
+	if proof != sourceServingIdentityProofLegacyModel {
+		t.Fatalf("proof = %q, want %q", proof, sourceServingIdentityProofLegacyModel)
+	}
+	for _, service := range sourceServingServices {
+		if expected[service].Reference != references[service] {
+			t.Fatalf("%s reference = %q, want %q", service, expected[service].Reference, references[service])
+		}
+	}
+}
+
+func TestLegacySourceConvergenceFailureSurvivesInRollbackRowDetail(t *testing.T) {
+	setSourceStackImageIdentityEnv(t)
+	git := newGitRepoFixture(t)
+	sourceTag := git.newSHA[:8]
+	writeSourceStackRecoveryFlag(t, git.dir, sourceTag, map[string]sourceImageIdentity{})
+
+	shimDir := t.TempDir()
+	shim := `#!/bin/sh
+case "$*" in
+	` + sourceStackImageInspectCases + `
+	"compose --profile all config --format json")
+		printf '%s\n' '{"services":{"app":{"image":"ghcr.io/statisticsnorway/statbus-app:'"$STATBUS_TEST_SOURCE_TAG"'"},"worker":{"image":"ghcr.io/statisticsnorway/statbus-worker:'"$STATBUS_TEST_SOURCE_TAG"'"},"rest":{"image":"postgrest/postgrest:v12.2.8"},"proxy":{"image":"ghcr.io/statisticsnorway/statbus-proxy:'"$STATBUS_TEST_SOURCE_TAG"'"}}}'
+		;;
+	"compose ps -a --format json")
+		printf '%s\n' '{"ID":"'"$STATBUS_TEST_APP_SOURCE_ID"'","Service":"app","State":"exited","Image":"ghcr.io/statisticsnorway/statbus-app:'"$STATBUS_TEST_SOURCE_TAG"'"}'
+		printf '%s\n' '{"ID":"'"$STATBUS_TEST_WORKER_SOURCE_ID"'","Service":"worker","State":"exited","Image":"ghcr.io/statisticsnorway/statbus-worker:'"$STATBUS_TEST_SOURCE_TAG"'"}'
+		printf '%s\n' '{"ID":"'"$STATBUS_TEST_REST_SOURCE_ID"'","Service":"rest","State":"exited","Image":"postgrest/postgrest:v12.2.8"}'
+		printf '%s\n' '{"ID":"'"$STATBUS_TEST_PROXY_SOURCE_ID"'","Service":"proxy","State":"exited","Image":"ghcr.io/statisticsnorway/statbus-proxy:'"$STATBUS_TEST_SOURCE_TAG"'"}'
+		;;
+	"compose start app worker rest proxy")
+		echo 'injected legacy source start failure' >&2
+		exit 42
+		;;
+esac
+exit 0
+`
+	if err := os.WriteFile(filepath.Join(shimDir, "docker"), []byte(shim), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("PATH", shimDir+string(os.PathListSeparator)+os.Getenv("PATH"))
+	t.Setenv("STATBUS_TEST_SOURCE_TAG", sourceTag)
+
+	d := &Service{projDir: git.dir}
+	servicesErr := d.startSourceApplicationStack(context.Background(), nil)
+	if servicesErr == nil || !strings.Contains(servicesErr.Error(), "legacy source era (pre-capture release)") || !strings.Contains(servicesErr.Error(), "injected legacy source start failure") {
+		t.Fatalf("legacy convergence error = %v, want path label and exact cause", servicesErr)
+	}
+	var legacyErr *legacySourceEraError
+	if !errors.As(servicesErr, &legacyErr) {
+		t.Fatalf("legacy convergence error = %T %v, want typed legacy marker", servicesErr, servicesErr)
+	}
+	details := rollbackCompletionErrors{servicesStart: servicesErr}.details()
+	rowError := "upgrade failed — ROLLBACK INCOMPLETE; " + strings.Join(details, "; ")
+	for _, want := range []string{"legacy source era (pre-capture release)", "injected legacy source start failure"} {
+		if !strings.Contains(rowError, want) {
+			t.Fatalf("durable rollback row error %q does not retain %q", rowError, want)
+		}
+	}
+}
+
+func TestLegacySourceProofAcquisitionFailureSurvivesInRollbackRowDetail(t *testing.T) {
+	git := newGitRepoFixture(t)
+	sourceTag := git.newSHA[:8]
+	writeSourceStackRecoveryFlag(t, git.dir, sourceTag, map[string]sourceImageIdentity{})
+
+	shimDir := t.TempDir()
+	shim := `#!/bin/sh
+case "$*" in
+	"compose --profile all config --format json")
+		printf '%s\n' '{"services":{"app":{"image":"ghcr.io/statisticsnorway/statbus-app:'"$STATBUS_TEST_SOURCE_TAG"'"},"worker":{"image":"ghcr.io/statisticsnorway/statbus-worker:'"$STATBUS_TEST_SOURCE_TAG"'"},"rest":{"image":"postgrest/postgrest:v12.2.8"},"proxy":{"image":"ghcr.io/statisticsnorway/statbus-proxy:'"$STATBUS_TEST_SOURCE_TAG"'"}}}'
+		;;
+	"compose ps -a --format json")
+		echo 'injected legacy compose ps failure' >&2
+		exit 42
+		;;
+esac
+exit 0
+`
+	if err := os.WriteFile(filepath.Join(shimDir, "docker"), []byte(shim), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("PATH", shimDir+string(os.PathListSeparator)+os.Getenv("PATH"))
+	t.Setenv("STATBUS_TEST_SOURCE_TAG", sourceTag)
+
+	d := &Service{projDir: git.dir}
+	servicesErr := d.startSourceApplicationStack(context.Background(), nil)
+	var legacyErr *legacySourceEraError
+	if !errors.As(servicesErr, &legacyErr) {
+		t.Fatalf("legacy proof acquisition error = %T %v, want typed legacy marker", servicesErr, servicesErr)
+	}
+	details := rollbackCompletionErrors{servicesStart: servicesErr}.details()
+	rowError := "upgrade failed — ROLLBACK INCOMPLETE; " + strings.Join(details, "; ")
+	for _, want := range []string{legacySourceEraLabel, "injected legacy compose ps failure"} {
+		if !strings.Contains(rowError, want) {
+			t.Fatalf("durable rollback row error %q does not retain %q", rowError, want)
+		}
+	}
+}
+
+func TestStartSourceApplicationStackLegacyPreCaptureRejectsAmbiguousPartialContainers(t *testing.T) {
+	setSourceStackImageIdentityEnv(t)
+	git := newGitRepoFixture(t)
+	sourceTag := git.newSHA[:8]
+	writeSourceStackRecoveryFlag(t, git.dir, sourceTag, map[string]sourceImageIdentity{})
+
+	shimDir := t.TempDir()
+	logPath := filepath.Join(shimDir, "docker.log")
+	shim := `#!/bin/sh
+printf '%s\n' "$*" >> "$STATBUS_TEST_DOCKER_LOG"
+case "$*" in
+	` + sourceStackImageInspectCases + `
+	"compose --profile all config --format json")
+		printf '%s\n' '{"services":{"app":{"image":"ghcr.io/statisticsnorway/statbus-app:'"$STATBUS_TEST_SOURCE_TAG"'"},"worker":{"image":"ghcr.io/statisticsnorway/statbus-worker:'"$STATBUS_TEST_SOURCE_TAG"'"},"rest":{"image":"postgrest/postgrest:v12.2.8"},"proxy":{"image":"ghcr.io/statisticsnorway/statbus-proxy:'"$STATBUS_TEST_SOURCE_TAG"'"}}}'
+		;;
+	"compose ps -a --format json")
+		printf '%s\n' '{"ID":"'"$STATBUS_TEST_APP_SOURCE_ID"'","Service":"app","State":"exited","Image":"ghcr.io/statisticsnorway/statbus-app:'"$STATBUS_TEST_SOURCE_TAG"'"}'
+		printf '%s\n' '{"ID":"'"$STATBUS_TEST_WORKER_SOURCE_ID"'","Service":"worker","State":"exited","Image":"ghcr.io/statisticsnorway/statbus-worker:'"$STATBUS_TEST_SOURCE_TAG"'"}'
+		printf '%s\n' '{"ID":"'"$STATBUS_TEST_PROXY_SOURCE_ID"'","Service":"proxy","State":"exited","Image":"ghcr.io/statisticsnorway/statbus-proxy:'"$STATBUS_TEST_SOURCE_TAG"'"}'
+		;;
+esac
+exit 0
+`
+	if err := os.WriteFile(filepath.Join(shimDir, "docker"), []byte(shim), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("PATH", shimDir+string(os.PathListSeparator)+os.Getenv("PATH"))
+	t.Setenv("STATBUS_TEST_DOCKER_LOG", logPath)
+	t.Setenv("STATBUS_TEST_SOURCE_TAG", sourceTag)
+
+	d := &Service{projDir: git.dir}
+	err := d.startSourceApplicationStack(context.Background(), nil)
+	var eraErr *sourceServingEraUnknownError
+	if !errors.As(err, &eraErr) || !strings.Contains(err.Error(), "legacy source era") || !strings.Contains(err.Error(), "partial") {
+		t.Fatalf("legacy partial-container refusal = %T %v, want named fail-closed legacy ambiguity", err, err)
+	}
+	dockerLog, readErr := os.ReadFile(logPath)
+	if readErr != nil {
+		t.Fatal(readErr)
+	}
+	if strings.Contains(string(dockerLog), "compose start") || strings.Contains(string(dockerLog), "compose up") {
+		t.Fatalf("ambiguous legacy source identity must refuse before any serving action:\n%s", dockerLog)
+	}
+}
+
+func TestSourceServingExpectedImagesRecordedPathDoesNotFallBackToLegacy(t *testing.T) {
+	setSourceStackImageIdentityEnv(t)
+	git := newGitRepoFixture(t)
+	sourceTag := git.newSHA[:8]
+	recorded := servingEraExpected(sourceTag)
+	delete(recorded, "worker")
+	writeSourceStackRecoveryFlag(t, git.dir, sourceTag, recorded)
 	installSourceCaptureDockerShim(t, sourceTag, sourceTag, sourceTag, sourceTag, nil)
 
 	d := &Service{projDir: git.dir}
 	_, _, err := d.sourceServingExpectedImages(context.Background())
 	var eraErr *sourceServingEraUnknownError
-	if !errors.As(err, &eraErr) {
-		t.Fatalf("missing carrier error = %T %v, want sourceServingEraUnknownError", err, err)
-	}
-	for _, want := range []string{
-		"neither recovery marker nor source-image carrier",
-		"Manual recovery required",
-		"keep app, worker, and rest stopped",
-	} {
-		if !strings.Contains(err.Error(), want) {
-			t.Fatalf("missing-carrier error %q does not contain truthful remedy %q", err, want)
-		}
+	if !errors.As(err, &eraErr) || !strings.Contains(err.Error(), "recovery marker has no pre-upgrade source image identity for worker") {
+		t.Fatalf("partial recorded proof = %T %v, want marker-specific fail-closed refusal without legacy fallback", err, err)
 	}
 }
 
