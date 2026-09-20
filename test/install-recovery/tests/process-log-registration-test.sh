@@ -72,18 +72,41 @@ sed -n '/^cleanup_vm() {$/,/^}$/p' "$HARNESS_DIR/lib/vm-bootstrap.sh" > "$TMP_RO
 source "$TMP_ROOT/cleanup.sh"
 _check_name_safety() { :; }
 dump_stage_tmux_logs() { :; }
+dump_latest_upgrade_progress_tail() { printf 'progress:%s\n' "$1" >> "$TMP_ROOT/trace"; }
 capture_failure_artifacts() { printf 'capture:%s\n' "$1" >> "$TMP_ROOT/trace"; }
-hcloud() { :; }
+hcloud() { [ "${2:-}" != delete ] || printf 'delete:%s\n' "$3" >> "$TMP_ROOT/trace"; }
 # shellcheck disable=SC2034 # consumed dynamically by extracted cleanup_vm
 VM_OWNED_BY_THIS_RUN=1 KEEP_VM=0 KEEP_VM_ON_FAILURE=0
 
 # shellcheck disable=SC2034 # consumed dynamically by extracted cleanup_vm
 rc=23
 cleanup_vm statbus-recovery-test
-grep -Fxq 'capture:statbus-recovery-test' "$TMP_ROOT/trace"
+cat > "$TMP_ROOT/expected" <<'EOF'
+progress:statbus-recovery-test
+capture:statbus-recovery-test
+delete:statbus-recovery-test
+EOF
+cmp "$TMP_ROOT/expected" "$TMP_ROOT/trace"
 : > "$TMP_ROOT/trace"
 # shellcheck disable=SC2034 # consumed dynamically by extracted cleanup_vm
 rc=0
 cleanup_vm statbus-recovery-test
-[ ! -s "$TMP_ROOT/trace" ]
-echo "PASS: cleanup captures non-zero scenario rc and skips success"
+grep -Fxq 'delete:statbus-recovery-test' "$TMP_ROOT/trace"
+! grep -qE '^(progress|capture):' "$TMP_ROOT/trace"
+echo "PASS: failed cleanup prints progress before capture and deletion; success skips diagnostics"
+
+# Exercise the production visibility helper separately. VM_EXEC is mocked, but
+# the exact remote command must request the newest log and a 200-line tail, and
+# the captured inner cause must be forwarded to stderr.
+sed -n '/^dump_latest_upgrade_progress_tail() {$/,/^}$/p' "$HARNESS_DIR/lib/vm-bootstrap.sh" > "$TMP_ROOT/progress-tail.sh"
+# shellcheck disable=SC1090,SC1091 # extracted production helper
+source "$TMP_ROOT/progress-tail.sh"
+VM_EXEC() {
+    printf '%s\n' "$*" > "$TMP_ROOT/progress-command"
+    echo 'Starting services for the previous version ... failed: inner cause'
+}
+dump_latest_upgrade_progress_tail statbus-recovery-test 2> "$TMP_ROOT/progress.stderr"
+grep -Fq 'ls -1t ~/statbus/tmp/upgrade-logs/*.log ~/statbus/tmp/upgrade-progress.log' "$TMP_ROOT/progress-command"
+grep -Fq 'tail -n 200' "$TMP_ROOT/progress-command"
+grep -Fq 'Starting services for the previous version ... failed: inner cause' "$TMP_ROOT/progress.stderr"
+echo 'PASS: shared failure visibility prints the newest 200-line progress tail'

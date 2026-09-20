@@ -318,6 +318,70 @@ assert_db_migration_max_version_unchanged() {
     return 1
 }
 
+# _retry_db_read <label> <command> [args...]
+#
+# Retry a database read across the rollback handoff where the upgrade daemon
+# intentionally exits 75 and systemd waits RestartSec=30 before the restored
+# source daemon is ready again. Successful stdout is the helper's ONLY stdout;
+# progress and final diagnostics stay on stderr so command-substitution callers
+# keep their existing interfaces. A failed command's stdout is discarded. This
+# is load-bearing for commands that pipe psql into sha256sum: sha256sum can print
+# the empty-input hash even though psql failed.
+_retry_db_read() {
+    local label="$1"
+    shift
+    local timeout_s="${HARNESS_DB_QUERY_RETRY_TIMEOUT_S:-90}"
+    local interval_s="${HARNESS_DB_QUERY_RETRY_INTERVAL_S:-5}"
+    local max_interval_s="${HARNESS_DB_QUERY_RETRY_MAX_INTERVAL_S:-20}"
+    local deadline=$(( $(date +%s) + timeout_s ))
+    local _db_read_attempt=1 output rc reason errfile sleep_s="$interval_s"
+    errfile=$(mktemp)
+
+    while true; do
+        : > "$errfile"
+        rc=0
+        output=$("$@" 2>"$errfile") || rc=$?
+        if [ "$rc" -eq 0 ] && [ -n "$output" ]; then
+            rm -f "$errfile"
+            printf '%s' "$output"
+            return 0
+        fi
+
+        reason="rc=$rc"
+        [ -n "$output" ] || reason="$reason, empty output"
+        if [ "$(date +%s)" -ge "$deadline" ]; then
+            echo "  ✗ $label failed after ${_db_read_attempt} attempt(s) over ${timeout_s}s ($reason)" >&2
+            if [ -s "$errfile" ]; then
+                echo "    stderr from final attempt:" >&2
+                sed 's/^/      /' "$errfile" >&2
+            fi
+            rm -f "$errfile"
+            return 1
+        fi
+
+        echo "  … $label unavailable ($reason); retrying in ${sleep_s}s (attempt ${_db_read_attempt}, deadline ${timeout_s}s)" >&2
+        _db_read_attempt=$((_db_read_attempt + 1))
+        sleep "$sleep_s"
+        if [ "$sleep_s" -lt "$max_interval_s" ]; then
+            sleep_s=$((sleep_s * 2))
+            [ "$sleep_s" -le "$max_interval_s" ] || sleep_s="$max_interval_s"
+        fi
+    done
+}
+
+_snapshot_demo_data_counts_once() {
+    local query raw rc=0
+    query="SELECT 'statistical_unit=' || (SELECT count(*) FROM public.statistical_unit) ||
+    ',legal_unit=' || (SELECT count(*) FROM public.legal_unit) ||
+    ',establishment=' || (SELECT count(*) FROM public.establishment) ||
+    ',statistical_history=' || (SELECT count(*) FROM public.statistical_history);"
+    raw=$(ssh "${SSH_OPTS[@]}" root@"$VM_IP" \
+        "sudo -i -u statbus bash -c 'cd ~/statbus && ./sb psql -t -A'" \
+        <<< "$query") || rc=$?
+    [ "$rc" -eq 0 ] || return "$rc"
+    printf '%s' "$raw" | tr -d ' \r\n'
+}
+
 # snapshot_demo_data_counts <vm_name>
 #
 # Echoes a CSV-shaped snapshot of row counts for the demo-data tables
@@ -333,15 +397,7 @@ assert_db_migration_max_version_unchanged() {
 # data drift across the failure-injection window.
 snapshot_demo_data_counts() {
     local vm_name="$1"
-    ssh "${SSH_OPTS[@]}" root@"$VM_IP" \
-        "sudo -i -u statbus bash -c 'cd ~/statbus && ./sb psql -t -A'" \
-        2>/dev/null \
-        << 'SQL' | tr -d ' \r\n'
-SELECT 'statistical_unit=' || (SELECT count(*) FROM public.statistical_unit) ||
-    ',legal_unit=' || (SELECT count(*) FROM public.legal_unit) ||
-    ',establishment=' || (SELECT count(*) FROM public.establishment) ||
-    ',statistical_history=' || (SELECT count(*) FROM public.statistical_history);
-SQL
+    _retry_db_read "demo-data count query on $vm_name" _snapshot_demo_data_counts_once
 }
 
 # assert_demo_data_present <vm_name>
@@ -359,22 +415,17 @@ SQL
 # would still fail here, surfacing what was lost.
 assert_demo_data_present() {
     local vm_name="$1"
-    local tables=("statistical_unit" "legal_unit" "establishment" "statistical_history")
+    local snapshot entries entry table count
     local failed=0
-    local table count
 
-    local _rc
-    for table in "${tables[@]}"; do
-        # Separate transport RC from assertion data (|| echo "?" would fire on SSH
-        # failure under pipefail, producing "? rows — R5 catastrophic-loss indicator"
-        # when the query simply could not run — not a genuine data-loss finding).
-        _rc=0
-        count=$(ssh "${SSH_OPTS[@]}" root@"$VM_IP" \
-            "sudo -i -u statbus bash -c 'cd ~/statbus && ./sb psql -t -A'" \
-            2>/dev/null <<< "SELECT count(*) FROM public.${table};" | tr -d ' \r\n') || _rc=$?
-        if [ "$_rc" -ne 0 ]; then
-            echo "  ⚠ could not query public.${table} (rc=$_rc) — INFRA error; skipping" >&2
-            continue
+    snapshot=$(snapshot_demo_data_counts "$vm_name") || return 1
+    IFS=',' read -r -a entries <<< "$snapshot"
+    for entry in "${entries[@]}"; do
+        table=${entry%%=*}
+        count=${entry#*=}
+        if ! [[ "$count" =~ ^[0-9]+$ ]]; then
+            echo "  ✗ malformed demo-data count for public.${table}: '$count'" >&2
+            return 1
         fi
         if [ "$count" = "0" ]; then
             echo "  ✗ public.${table} has 0 rows — R5 catastrophic-loss indicator"

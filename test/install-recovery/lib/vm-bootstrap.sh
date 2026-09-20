@@ -1955,6 +1955,19 @@ REMOTE
     echo "──────── end systematic failure capture ────────"
 }
 
+# Print the newest upgrade progress log into the job log before a failed VM is
+# retained or deleted. Artifact uploads remain useful for the full transcript,
+# but this tail makes the inner product cause visible in the failing step itself.
+# Best-effort throughout so diagnostics never replace the scenario's exit code.
+dump_latest_upgrade_progress_tail() {
+    local vm_name="$1"
+    echo "──────── latest upgrade progress tail ($vm_name, last 200 lines) ────────" >&2
+    VM_EXEC bash -c "latest=\$(ls -1t ~/statbus/tmp/upgrade-logs/*.log ~/statbus/tmp/upgrade-progress.log 2>/dev/null | head -1); if [ -n \"\$latest\" ]; then echo \"path: \$latest\"; tail -n 200 \"\$latest\"; else echo '(no upgrade progress log found)'; fi" >&2 \
+        || echo "  (could not read latest upgrade progress log — VM unreachable?)" >&2
+    echo "──────── end latest upgrade progress tail ────────" >&2
+    return 0
+}
+
 # _dump_unit_diagnostics UNIT
 # Capture journal + status + sb-version for UNIT to stderr while the VM is
 # still alive. Called by vm_restart_unit on failure so diagnostics land in the
@@ -2052,6 +2065,7 @@ cleanup_vm() {
     # reaping. The manifest makes scenario-owned background logs part of the
     # same mechanism as the standard support, compose, journal and tmp set.
     if [ "$scenario_rc" -ne 0 ]; then
+        dump_latest_upgrade_progress_tail "$vm_name"
         capture_failure_artifacts "$vm_name"
     fi
 

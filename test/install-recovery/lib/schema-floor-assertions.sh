@@ -6,8 +6,9 @@ schema_floor_progress_line() {
 
 assert_schema_floor_adoption_progress() {
   local log=$1 floor=$2 needle
-  local floor_line
+  local floor_line source_binary_line
   floor_line=$(schema_floor_progress_line "$floor")
+  source_binary_line='Restoring ./sb from ./sb.old ... ok'
   for needle in \
     'rollback' \
     'Restoring database' \
@@ -15,17 +16,17 @@ assert_schema_floor_adoption_progress() {
     "$floor_line" \
     'Restoring git' \
     'sb.old' \
+    "$source_binary_line" \
     'Starting services' \
     'rollback finishing' \
-    'rolled_back' \
-    'Publishing'; do
+    'rolled_back'; do
     grep -qiF "$needle" <<<"$log" || {
       echo "✗ progress log missing: $needle" >&2
       return 1
     }
   done
-  printf '%s' "$log" | awk -v a='Restoring database' -v b="$floor_line" -v c='Restoring git' \
-    'index($0,a){x=NR} index($0,b){y=NR} index($0,c){z=NR} END{exit !(x&&y&&z&&x<y&&y<z)}' || {
+  printf '%s' "$log" | awk -v a='Restoring database' -v b="$floor_line" -v c='Starting services' -v d="$source_binary_line" \
+    'index($0,a){w=NR} index($0,b){x=NR} index($0,c){y=NR} index($0,d){z=NR} END{exit !(w&&x&&y&&z&&w<x&&x<y&&y<z)}' || {
     echo '✗ restore/floor/source log order wrong' >&2
     return 1
   }
@@ -33,11 +34,12 @@ assert_schema_floor_adoption_progress() {
 
 assert_schema_floor_retry_order() {
   local log=$1 floor=$2
-  local floor_line
+  local floor_line source_binary_line
   floor_line=$(schema_floor_progress_line "$floor")
-  printf '%s' "$log" | awk -v a='Restoring database' -v b="$floor_line" -v c='Publishing' \
-    'index($0,a){x=NR} index($0,b){y=NR} index($0,c){z=NR} END{exit !(x&&y&&z&&x<y&&y<z)}' || {
-    echo '✗ retry log order is not restore < floor replay < publish' >&2
+  source_binary_line='Restoring ./sb from ./sb.old ... ok'
+  printf '%s' "$log" | awk -v a='Restoring database' -v b="$floor_line" -v c='Starting services' -v d="$source_binary_line" \
+    'index($0,a){w=NR} index($0,b){x=NR} index($0,c){y=NR} index($0,d){z=NR} END{exit !(w&&x&&y&&z&&w<x&&x<y&&y<z)}' || {
+    echo '✗ retry log order is not database restore < floor replay < service start < source binary restore' >&2
     return 1
   }
 }

@@ -194,6 +194,51 @@ migration_max_version() {
 #            on a CLEAN rollback; base is pure snapshot-restore and derived=f(base),
 #            so base SUFFICES to prove the data clean-slate. (Adding derived +
 #            a worker-quiescence-wait is a noted later enhancement.)
+_capture_db_schema_once() {
+    local fp_user="$1" fp_db="$2"
+    VM_EXEC bash -c "cd ~/statbus && docker compose exec -T db pg_dump --schema-only --no-owner --no-privileges -U ${fp_user} ${fp_db}"
+}
+
+_capture_db_ledger_hash_once() {
+    local raw rc=0
+    raw=$(VM_EXEC bash -c "cd ~/statbus && set -o pipefail && echo \"SELECT version::text || ',' || content_hash FROM db.migration ORDER BY version;\" | ./sb psql -t -A | sha256sum | cut -d' ' -f1") || rc=$?
+    [ "$rc" -eq 0 ] || return "$rc"
+    printf '%s' "$raw" | tr -d ' \r\n'
+}
+
+_capture_db_data_hash_once() {
+    local raw rc=0
+    raw=$(VM_EXEC bash -c "cd ~/statbus && set -o pipefail && echo \"SELECT md5(coalesce(string_agg(t::text, '|' ORDER BY t::text), '')) FROM public.legal_unit t UNION ALL SELECT md5(coalesce(string_agg(t::text, '|' ORDER BY t::text), '')) FROM public.establishment t;\" | ./sb psql -t -A | sha256sum | cut -d' ' -f1") || rc=$?
+    [ "$rc" -eq 0 ] || return "$rc"
+    printf '%s' "$raw" | tr -d ' \r\n'
+}
+
+_assert_fingerprint_hash_usable() {
+    local side="$1" dimension="$2" value="$3"
+    local empty_sha="e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    if [ -z "$value" ] || [ "$value" = "$empty_sha" ]; then
+        echo "✗ INCONCLUSIVE-INFRA: ${side} ${dimension} fingerprint is the empty-input SHA-256; refusing comparison." >&2
+        return 1
+    fi
+    if ! [[ "$value" =~ ^[0-9a-f]{64}$ ]]; then
+        echo "✗ INCONCLUSIVE-INFRA: ${side} ${dimension} fingerprint is malformed: '$value'; refusing comparison." >&2
+        return 1
+    fi
+}
+
+_assert_fingerprint_usable() {
+    local side="$1" fingerprint="$2"
+    local schema_sha ledger_sha data_sha extra
+    read -r schema_sha ledger_sha data_sha extra <<< "$fingerprint"
+    if [ -n "${extra:-}" ] || [ -z "${data_sha:-}" ]; then
+        echo "✗ INCONCLUSIVE-INFRA: ${side} fingerprint does not contain exactly three hashes; refusing comparison." >&2
+        return 1
+    fi
+    _assert_fingerprint_hash_usable "$side" SCHEMA "$schema_sha" || return 1
+    _assert_fingerprint_hash_usable "$side" LEDGER "$ledger_sha" || return 1
+    _assert_fingerprint_hash_usable "$side" DATA "$data_sha" || return 1
+}
+
 capture_db_fingerprint() {
     local label="${1:-fp}"
     local schema_sha ledger_sha data_sha fp_db fp_user schema_file
@@ -233,22 +278,30 @@ capture_db_fingerprint() {
     # line containing "restrict" like 'restricted_user' is untouched). (3) blank
     # lines. Two same-box quiesced dumps are then byte-identical.
     local schema_raw="${schema_file}.raw"
-    VM_EXEC bash -c "cd ~/statbus && docker compose exec -T db pg_dump --schema-only --no-owner --no-privileges -U ${fp_user} ${fp_db} 2>/dev/null" > "$schema_raw" 2>/dev/null
-    grep -v '^--' "$schema_raw" 2>/dev/null | grep -vE '^\\(un)?restrict[[:space:]]' | grep '[^[:space:]]' > "$schema_file"
+    if ! _retry_db_read "capture_db_fingerprint($label) schema pg_dump" \
+        _capture_db_schema_once "$fp_user" "$fp_db" > "$schema_raw"; then
+        rm -f "$schema_raw"
+        return 1
+    fi
+    grep -v '^--' "$schema_raw" 2>/dev/null | grep -vE '^\\(un)?restrict[[:space:]]' | grep '[^[:space:]]' > "$schema_file" || true
     schema_sha=$(sha256sum "$schema_file" 2>/dev/null | cut -d' ' -f1)
     rm -f "$schema_raw"
     # CENTERPIECE GUARD: a silently-failed pg_dump → empty schema → sha256("") on
     # BOTH captures → a VACUOUS clean-slate pass. Fail loud + a SIMPLE diagnostic.
     # return 1 → caller's var=$(...) non-zero under set -e → the arc halts.
-    local empty_sha="e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
-    if [ -z "$schema_sha" ] || [ "$schema_sha" = "$empty_sha" ]; then
-        echo "✗ capture_db_fingerprint($label): SCHEMA dim empty — refusing a vacuous fingerprint." >&2
+    if ! _assert_fingerprint_hash_usable "capture_db_fingerprint($label)" SCHEMA "$schema_sha"; then
         echo "    db=[$fp_db] user=[$fp_user] schema_file=[$schema_file] lines=[$(wc -l <"$schema_file" 2>/dev/null | tr -d ' ')]" >&2
         VM_EXEC bash -c "cd ~/statbus && docker compose exec -T db pg_dump --schema-only --no-owner --no-privileges -U ${fp_user} ${fp_db} 2>&1 | head -5" 2>&1 | sed 's/^/    pgdump: /' >&2 || true
         return 1
     fi
-    ledger_sha=$(VM_EXEC bash -c "cd ~/statbus && echo \"SELECT version::text || ',' || content_hash FROM db.migration ORDER BY version;\" | ./sb psql -t -A 2>/dev/null | sha256sum | cut -d' ' -f1" 2>/dev/null | tr -d ' \r\n')
-    data_sha=$(VM_EXEC bash -c "cd ~/statbus && echo \"SELECT md5(coalesce(string_agg(t::text, '|' ORDER BY t::text), '')) FROM public.legal_unit t UNION ALL SELECT md5(coalesce(string_agg(t::text, '|' ORDER BY t::text), '')) FROM public.establishment t;\" | ./sb psql -t -A 2>/dev/null | sha256sum | cut -d' ' -f1" 2>/dev/null | tr -d ' \r\n')
+    if ! ledger_sha=$(_retry_db_read "capture_db_fingerprint($label) ledger query" _capture_db_ledger_hash_once); then
+        return 1
+    fi
+    if ! data_sha=$(_retry_db_read "capture_db_fingerprint($label) base-data query" _capture_db_data_hash_once); then
+        return 1
+    fi
+    _assert_fingerprint_hash_usable "capture_db_fingerprint($label)" LEDGER "$ledger_sha" || return 1
+    _assert_fingerprint_hash_usable "capture_db_fingerprint($label)" DATA "$data_sha" || return 1
     echo "${schema_sha} ${ledger_sha} ${data_sha}"
 }
 
@@ -256,7 +309,9 @@ capture_db_fingerprint() {
 # report WHICH dim drifted on mismatch (the clean-slate centerpiece, STATBUS-071 d).
 assert_fingerprint_matches() {
     local label="$1" baseline="$2" baseline_schema_label="${3:-baseline}" current
+    _assert_fingerprint_usable "baseline ($label)" "$baseline" || exit 1
     current=$(capture_db_fingerprint "rollback-recheck")
+    _assert_fingerprint_usable "current ($label)" "$current" || exit 1
     if [ "$current" != "$baseline" ]; then
         echo "✗ CLEAN-SLATE FINGERPRINT MISMATCH (${label})" >&2
         local b_s b_l b_d c_s c_l c_d

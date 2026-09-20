@@ -3,8 +3,9 @@
 # postswap-health-park; architect-ruled 2026-07-15, STATBUS-160 package).
 #
 # THE STORY (a fix release fails and rolls back onto the displaced version):
-#   A install → B (healthpark lineage) parks AT-TARGET on the health leg → C (a
-#   fix release) is scheduled → C DISPLACES the parked B at claim (B → superseded,
+#   A install → B (healthpark lineage) parks AT-TARGET on the health leg → the
+#   harness restores only auth_status's canonical body → C is scheduled → C
+#   DISPLACES the parked B at claim (B → superseded,
 #   STATBUS-159) → C swaps in and its migration V3 RAISES → the daemon ROLLS C back
 #   onto B → C terminal 'rolled_back', the box left running B → the operator runs
 #   `./sb install`.
@@ -17,19 +18,18 @@
 # THE DOCTRINE (architect ruling on STATBUS-160, 2026-07-12): 'completed' means
 # THIS VERSION VERIFIABLY SERVES — only serve-proven writers may write it. The
 # running-but-unrecorded version is an OBSERVED FACT, NEVER A LEDGER EDIT. So the
-# ledger honestly does NOT claim B completed (C was B's fix; C failed; the box runs
-# broken B and the remedy is re-dispatching a real fix — the standing healthpark
-# story, proven by run 29171998401). The map's "the refuse names the re-dispatch
+# ledger honestly does NOT claim B completed (C failed; the box runs a healthy B
+# whose synthetic park-only fault was neutralized before C's snapshot). The map's
+# "the refuse names the re-dispatch
 # remedy" = the terminal-resurrection TRIGGER's RAISE; the real path never triggers
 # it (the doors are closed), so this arc observes it via a GUARD-PROBE (below).
 #
-# WHY BROKEN-B IS THE INTENDED END STATE, VERIFIED NO-RED (architect, 2026-07-15):
-# the healthpark break is an app-function RAISE inside auth_status — read by the
-# UPGRADE health gate, NOT by install. `./sb install`'s only health gate is
-# checkServicesDone (cli/cmd/install.go:846), which reads the DB CONTAINER's docker
-# health; postgres is healthy under the healthpark lineage, so install exits 0 on
-# broken-B — refreshing config and papering over NOTHING (it neither fails on nor
-# falsely blesses the broken app). App health stays red as the honest truth.
+# WHY B MUST BE HEALTHY BEFORE C (rc.22 fixture correction): C's rollback restores
+# C's own pre-upgrade snapshot, which is post-B/V2. Leaving V2's synthetic
+# auth_status RAISE in that snapshot makes the required source functional-health
+# gate fail, so C truthfully lands failed rather than rolled_back. The fault exists
+# only to create B's park. After that park is proved, this arc restores the shipped
+# body without touching B's row or V1/V2 ledger and proves HTTP 200 before C claims.
 #
 # THE GUARD-PROBE (architect-sanctioned genre, 2026-07-15): "try the locked handle,
 # assert it's locked" is NOT fabrication — the state (B superseded, C rolled_back)
@@ -113,13 +113,20 @@ psql_scalar() { VM_EXEC bash -c "cd ~/statbus && echo \"$1\" | ./sb psql -t -A" 
 # git HEAD on the box — the observed running version (what the box actually runs).
 box_head() { VM_EXEC bash -c "cd ~/statbus && git rev-parse HEAD" 2>/dev/null | tr -d ' \r\n' || echo "?"; }
 
-# _crollback_instrumentation LABEL — the run-2 UNEXPLAINED-HEAL probes (architect
-# ruling, 2026-07-15). At probe time run 29376442495 read the ledger at V2 (broken
-# fixture) yet auth_status SERVED (200) — a [ledger=V2 + working auth] pair that
-# matches NO reachable state; seven mechanisms were eliminated in code+log. These
-# four probes OBSERVE the end state so a reproduction NAMES the writer; they never
-# gate (the only gate is the ruled 400 assert below). Best-effort — a probe failure
-# prints a note, never fails the arc.
+assert_direct_auth_status_healthy() {
+    local phase="$1"
+    local rest_port=$(( ${HEALTH_PORT:-3010} + 3 ))
+    local auth_out auth_code auth_body
+    auth_out=$(VM_EXEC bash -c "curl -s -m 5 -w '\n__HTTP__%{http_code}' -X POST http://127.0.0.1:${rest_port}/rpc/auth_status -H 'Content-Type: application/json' -d '{}'" 2>/dev/null || echo "__HTTP__000")
+    auth_code=$(echo "$auth_out" | grep -oE '__HTTP__[0-9]+' | grep -oE '[0-9]+$' | tail -1 || true)
+    auth_body=$(echo "$auth_out" | sed 's/__HTTP__[0-9]*$//')
+    [ "$auth_code" = "200" ] || { echo "✗ auth_status (direct rest :${rest_port}) returned HTTP '${auth_code:-<none>}' during $phase, expected 200. Body: $auth_body" >&2; exit 1; }
+    echo "  ✓ auth_status (direct rest :${rest_port}) → HTTP 200 ($phase)"
+}
+
+# _crollback_instrumentation LABEL — best-effort failure probes for the live RPC,
+# function body, migration ledger, and C snapshot. They never gate the scenario;
+# the explicit HTTP 200 assertions above and below C are the health oracles.
 _crollback_instrumentation() {
     local _label="$1"
     local _rest_port=$(( ${HEALTH_PORT:-3010} + 3 ))  # proxy http port +3 = rest port (3010→3013), slot-agnostic
@@ -151,6 +158,14 @@ _crollback_instrumentation() {
 
 # ── A: install + prepare (bootstrap → install A → health → trust arc → populate) ──
 arc_prepare_box
+# Preserve the real source-era definition before V2 installs its synthetic park
+# fault. Restoring this captured definition after B parks avoids duplicating a
+# large function body in the harness and guarantees C snapshots a healthy B.
+AUTH_STATUS_DEFINITION_PATH=tmp/crollback-auth-status-before-b.sql
+VM_EXEC bash -c "cd ~/statbus && ./sb psql -X -q -t -A > '$AUTH_STATUS_DEFINITION_PATH'" <<'CAPTURE_AUTH_STATUS_SQL'
+SELECT pg_get_functiondef('public.auth_status()'::regprocedure);
+CAPTURE_AUTH_STATUS_SQL
+VM_EXEC bash -c "cd ~/statbus && test -s '$AUTH_STATUS_DEFINITION_PATH'" || { echo "✗ failed to capture auth_status before B's synthetic fault" >&2; exit 1; }
 DATA_SNAPSHOT=$(snapshot_demo_data_counts "$VM_NAME")
 echo "  pre-arc data snapshot: $DATA_SNAPSHOT"
 
@@ -206,17 +221,31 @@ B_FAILURE_CODE=$(psql_scalar "SELECT COALESCE(failure_code::text,'') FROM public
 [ "$B_PARK_STATE" = "in_progress" ] || { echo "✗ expected B state='in_progress' while parked, got '$B_PARK_STATE'" >&2; exit 1; }
 arc_health_park_fields_match "$B_FAILURE_CODE" "$B_PARK_REASON" "$B_SHORT" || { echo "✗ B's typed health failure/prose mismatch: failure_code='$B_FAILURE_CODE' reason='$B_PARK_REASON' expected target ${B_SHORT} past warmup" >&2; exit 1; }
 # Anti-vacuity: V1+V2 genuinely applied → B is genuinely AT-TARGET (the whole
-# premise: a delta-carrying-but-at-target box, so the later fix release's rollback
+# premise: a delta-carrying-but-at-target box, so the later replacement's rollback
 # lands the box back on a real B state, not a no-op).
 B_DBMAX=$(psql_scalar "SELECT max(version) FROM db.migration;")
 [ "$B_DBMAX" = "${V_VERSION_2}" ] || { echo "✗ B is not at-target: db.migration max=$B_DBMAX, expected V2=${V_VERSION_2} (V1+V2 both applied)" >&2; exit 1; }
 echo "  B parked (id=$B_ROW_ID), failure_code=$B_FAILURE_CODE, health reason names ${B_SHORT}, db.migration max=$B_DBMAX (V2)"
 echo "  ✓ B at-target park landed (V1+V2 applied)"
 
+# V2's auth_status replacement is a synthetic fault whose only scope is proving
+# B's initial park. C snapshots the live B database, so restore the exact captured
+# source body now while leaving B's parked row and V1/V2 ledger untouched.
+echo ""
+echo "── neutralize B's synthetic auth_status fault before C snapshots B ──"
+B_ROW_BEFORE_NEUTRALIZE=$(row_cols_for "$B_FULL")
+VM_EXEC bash -c "cd ~/statbus && ./sb psql -v ON_ERROR_STOP=1 < \"$AUTH_STATUS_DEFINITION_PATH\""
+B_ROW_AFTER_NEUTRALIZE=$(row_cols_for "$B_FULL")
+[ "$B_ROW_AFTER_NEUTRALIZE" = "$B_ROW_BEFORE_NEUTRALIZE" ] || { echo "✗ restoring auth_status changed B's parked row: before='$B_ROW_BEFORE_NEUTRALIZE' after='$B_ROW_AFTER_NEUTRALIZE'" >&2; exit 1; }
+B_DBMAX_AFTER_NEUTRALIZE=$(psql_scalar "SELECT max(version) FROM db.migration;")
+[ "$B_DBMAX_AFTER_NEUTRALIZE" = "$B_DBMAX" ] || { echo "✗ restoring auth_status changed the migration ledger: before=$B_DBMAX after=$B_DBMAX_AFTER_NEUTRALIZE" >&2; exit 1; }
+assert_direct_auth_status_healthy "after park-only fixture cleanup, before C"
+echo "  ✓ B row and V1/V2 ledger unchanged; C will snapshot a healthy B source"
+
 # ── C: register + schedule while B sits parked. C displaces B at claim (STATBUS-159
 #    → B superseded), swaps in, V3 RAISES, the daemon rolls C back onto B. arc_to
 #    drives C to its ruled terminal 'rolled_back'. ──
-arc_to "$C_FULL" "$C_BRANCH" "C (fix release that DISPLACES B then FAILS post-swap)" rolled_back
+arc_to "$C_FULL" "$C_BRANCH" "C (replacement that DISPLACES B then FAILS post-swap)" rolled_back
 
 # ── assert the displacement (reuses the postswap-health-park STATBUS-159 oracle):
 #    B superseded, park marker cleared, park narrative + displacement note in error,
@@ -251,8 +280,7 @@ HEAD_AFTER_C=$(box_head)
 echo "  ✓ C rolled_back; box's DB at B's V2 (${V_VERSION_2}), C's V3 not applied, git HEAD == B"
 
 # ── operator runs `./sb install` — StateNothingScheduled: config refresh, no row
-#    authored, no upsert of B. Must exit 0 (postgres healthy; broken auth_status is
-#    invisible to install's docker-health gate). ──
+#    authored, no upsert of B. Must exit 0 on the healthy restored B source. ──
 echo ""
 echo "── operator runs ./sb install (StateNothingScheduled; must NOT resurrect B, exit 0) ──"
 INSTALL_OUT=$(mktemp)
@@ -265,7 +293,7 @@ set -e
 cat "$INSTALL_OUT"
 rm -f "$INSTALL_OUT"
 echo "  ./sb install exit: $INSTALL_RC"
-[ "$INSTALL_RC" -eq 0 ] || { echo "✗ ./sb install exited $INSTALL_RC — expected 0 (config refresh on a docker-healthy box; it must not fail on the broken app)" >&2; exit 1; }
+[ "$INSTALL_RC" -eq 0 ] || { echo "✗ ./sb install exited $INSTALL_RC — expected 0 for config refresh on the healthy restored B source" >&2; exit 1; }
 echo "  ✓ install exited 0 (papered over nothing, resurrected nothing)"
 
 # ── REAL-PATH END-STATE ASSERTS (all before the guard-probe). ──
@@ -289,30 +317,12 @@ COMPLETED_B=$(psql_scalar "SELECT count(*) FROM public.upgrade WHERE commit_sha 
 [ "$COMPLETED_B" = "0" ] || { echo "✗ the ledger carries $COMPLETED_B completed-B row(s) — B running must remain an OBSERVED fact, never a ledger 'completed'" >&2; exit 1; }
 echo "  ✓ B superseded, C rolled_back, zero terminal→completed; box runs B (HEAD==B) with NO completed-B ledger row"
 
-# App health still RED — the honest truth. The healthpark break is in auth_status
-# (an app RPC), invisible to install's docker-health gate. PostgREST root (/rest/)
-# is up, but /rest/rpc/auth_status must still surface B's V2 RAISE. That red IS the
-# state (C was the fix; C failed; the remedy is a real re-dispatched fix), not a
-# defect. PostgREST maps a RAISE/P0001 to HTTP 400 (NOT 500 — B's own park reason
-# recorded status=400); assert 400 AND the fixture's own P0001 body — the honest
-# broken signature, never a bare status code (FINDING 1, architect 2026-07-15).
+# C restored the healthy B snapshot prepared above. The mandatory rollback health
+# gate and this independent direct probe must agree that the running source is
+# serve-capable after `./sb install`; no terminal row is resurrected to say so.
 echo ""
-# THE GATE reads the DIRECT rest bind (:3013 = HEALTH_PORT+3), NOT the :3010 proxy.
-# WHY (architect run-3 ruling, 2026-07-15): a POST to the proxy with Host 127.0.0.1
-# matches NONE of the standalone Caddyfile's site keys, and Caddy v2 answers an
-# unmatched host with 200-EMPTY — the exact "heal" fingerprint runs 2-3 saw (a real
-# proxied response would carry JSON). It was never a heal or a bad route — it was the
-# wrong virtual host. The rest bind is the honest read: the same route the product's
-# own health gate polls, and probe (a) proved the DB truth there (400 P0001). The
-# real public domain surface would also 400 (matched host → real proxied RAISE).
-echo "── app health still red (auth_status = the broken healthpark fixture: HTTP 400 + P0001 body, read on the DIRECT rest bind :3013) ──"
-REST_PORT=$(( ${HEALTH_PORT:-3010} + 3 ))
-AUTH_OUT=$(VM_EXEC bash -c "curl -s -m 5 -w '\n__HTTP__%{http_code}' -X POST http://127.0.0.1:${REST_PORT}/rpc/auth_status -H 'Content-Type: application/json' -d '{}'" 2>/dev/null || echo "__HTTP__000")
-AUTH_CODE=$(echo "$AUTH_OUT" | grep -oE '__HTTP__[0-9]+' | grep -oE '[0-9]+$' | tail -1)
-AUTH_BODY=$(echo "$AUTH_OUT" | sed 's/__HTTP__[0-9]*$//')
-[ "$AUTH_CODE" = "400" ] || { echo "✗ auth_status (direct rest :${REST_PORT}) returned HTTP '$AUTH_CODE', expected 400 (PostgREST maps the broken fixture's P0001 RAISE to 400). A 200 here (not the proxy's unmatched-host 200) would be a REAL heal — the diagnostics probes name the writer. Body: $AUTH_BODY" >&2; exit 1; }
-echo "$AUTH_BODY" | grep -q "auth_status intentionally broken" || { echo "✗ auth_status 400'd but the body is NOT the healthpark fixture's P0001 message ('auth_status intentionally broken') — a DIFFERENT 400 (wrong error), not the honest broken-B signature. Body: $AUTH_BODY" >&2; exit 1; }
-echo "  ✓ auth_status (direct rest :${REST_PORT}) → HTTP 400 with the fixture P0001 body — the box honestly runs broken B"
+echo "── source app health remains green after C rollback and install ──"
+assert_direct_auth_status_healthy "after C rolled back and install refused resurrection"
 
 # Data intact throughout.
 assert_demo_data_counts_match_snapshot "$VM_NAME" "$DATA_SNAPSHOT"
@@ -349,4 +359,4 @@ B_FP_AFTER=$(psql_scalar "SELECT state || '|' || (recovery_parked_at IS NOT NULL
 echo "  ✓ GUARD-PROBE: trigger refused naming re-dispatch; B's row byte-unchanged (still superseded, story intact)"
 
 echo ""
-echo "PASS: c-rollback-resurrection — a real fix release C displaced the parked at-target B (superseded, story intact), then FAILED post-swap and rolled back onto B (C rolled_back; box's DB at B's V2, git HEAD==B). The operator's ./sb install exited 0 and resurrected B through NO door: B stayed superseded, C stayed rolled_back, the state log shows zero terminal→completed, and the truth is still told — the box observably runs B with no completed-B ledger row while app health honestly stays red. The GUARD-PROBE confirmed the terminal-resurrection trigger refuses the forbidden write naming the re-dispatch remedy, leaving B's row byte-unchanged. Data intact throughout. (STATBUS-160 non-resurrection proven end-to-end; arm the fix by re-dispatching a real C2 — the standing healthpark completion story, run 29171998401.)"
+echo "PASS: c-rollback-resurrection — replacement C displaced the parked at-target B (superseded, story intact), then FAILED post-swap and rolled back onto B (C rolled_back; box's DB at B's V2, git HEAD==B). The park-only auth_status fault was neutralized without changing B's row or V1/V2 ledger, so C snapshotted and restored a healthy B source. The operator's ./sb install exited 0 and resurrected B through NO door: B stayed superseded, C stayed rolled_back, the state log shows zero terminal→completed, and the box observably runs healthy B with no completed-B ledger row. The GUARD-PROBE confirmed the terminal-resurrection trigger refuses the forbidden write naming the re-dispatch remedy, leaving B's row byte-unchanged. Data intact throughout. (STATBUS-160 non-resurrection proven end-to-end.)"

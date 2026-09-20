@@ -101,13 +101,13 @@ sb.old
 Starting services
 rollback finishing
 rolled_back
-Publishing
+Restoring ./sb from ./sb.old ... ok
 EOF
 )
 assert_schema_floor_adoption_progress "$ADOPTION_LOG" 20260907120000 || die 'stable schema-floor progress line was rejected'
 OLD_ARGV_LOG=${ADOPTION_LOG/$FLOOR_LINE/migrate up --to 20260907120000}
 ! assert_schema_floor_adoption_progress "$OLD_ARGV_LOG" 20260907120000 >/dev/null 2>&1 || die 'stale unlogged migrate argv still satisfies the adoption assertion'
-WRONG_ORDER_LOG=$(printf '%s\n' 'rollback' "$FLOOR_LINE" 'Restoring database' 'Starting only the restored database for schema-floor replay ... healthy' 'Restoring git' 'sb.old' 'Starting services' 'rollback finishing' 'rolled_back' 'Publishing')
+WRONG_ORDER_LOG=$(printf '%s\n' 'rollback' "$FLOOR_LINE" 'Restoring database' 'Starting only the restored database for schema-floor replay ... healthy' 'Restoring git' 'sb.old' 'Starting services' 'rollback finishing' 'rolled_back' 'Restoring ./sb from ./sb.old ... ok')
 ! assert_schema_floor_adoption_progress "$WRONG_ORDER_LOG" 20260907120000 >/dev/null 2>&1 || die 'adoption log order fails open'
 
 continued=no
@@ -119,9 +119,15 @@ run_accepting_rollback_control_exit bash -c 'exit 0' || die 'success exit 0 was 
 ! run_accepting_rollback_control_exit bash -c 'exit 74' || die 'unexpected exit 74 was accepted'
 assert_schema_floor_retry_order "Restoring database
 $FLOOR_LINE
-Publishing" 20260907120000 || die 'retry stable progress order was rejected'
+Starting services for the previous version ... ok
+Restoring ./sb from ./sb.old ... ok" 20260907120000 || die 'retry stable progress order was rejected'
 ! assert_schema_floor_retry_order "$FLOOR_LINE
 Restoring database
-Publishing" 20260907120000 >/dev/null 2>&1 || die 'retry order fails open'
+Starting services for the previous version ... ok
+Restoring ./sb from ./sb.old ... ok" 20260907120000 >/dev/null 2>&1 || die 'retry order fails open'
+! assert_schema_floor_retry_order "Restoring database
+$FLOOR_LINE
+Restoring ./sb from ./sb.old ... ok
+Starting services for the previous version ... ok" 20260907120000 >/dev/null 2>&1 || die 'retry source-binary/service order fails open'
 
 echo 'PASS: rc.10 schema-floor family predicates and executable progress/exit-control paths are correct'
