@@ -7,7 +7,9 @@ End-to-end Hetzner-Cloud regression tests for the install ladder's recovery surf
 
 ## Cost and prerequisites
 
-The harness provisions **paid ephemeral [Hetzner Cloud](https://hetzner.cloud) VMs** (CX23, hel1, ~€0.0072/hr; Hetzner bills hourly with a 1-hour minimum, so a single scenario run costs at least €0.0072). `HCLOUD_TOKEN` must be set in `.env.credentials` before any run.
+The harness provisions **paid ephemeral [Hetzner Cloud](https://hetzner.cloud) VMs** (CX23, ~€0.0072/hr; Hetzner bills hourly with a 1-hour minimum, so a single scenario run costs at least €0.0072). `HCLOUD_TOKEN` must be set in `.env.credentials` before any run.
+
+VM creation defaults to the ordered location fallback list `hel1 fsn1 nbg1`. Set space-separated `HCLOUD_LOCATIONS` to choose another ordered list. The legacy `HCLOUD_LOCATION=fsn1` override remains a single-location pin and is used only when `HCLOUD_LOCATIONS` is unset. A transient capacity failure moves immediately to the next location; after every location fails, the harness waits 60 seconds before the next round. The five-attempt budget applies per location.
 
 ```bash
 ./dev.sh test-install-recovery                    # all scenarios (~90 min)

@@ -7,7 +7,7 @@ from pathlib import Path
 import os, subprocess, sys, tempfile
 root = Path(sys.argv[1])
 script = r'''
-export HCLOUD_TOKEN=offline-test-only GITHUB_RUN_ID=12345678
+export HCLOUD_TOKEN=offline-test-only HCLOUD_LOCATION=hel1 GITHUB_RUN_ID=12345678
 source "${BOOTSTRAP:-$ROOT/test/install-recovery/lib/vm-bootstrap.sh}"
 # Block every non-provider side effect too.
 ssh() { echo 'UNEXPECTED SSH' >&2; return 99; }

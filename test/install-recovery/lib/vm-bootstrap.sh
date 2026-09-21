@@ -79,7 +79,15 @@ if [ -z "${HCLOUD_TOKEN:-}" ]; then
 fi
 
 HCLOUD_SERVER_TYPE="${HCLOUD_SERVER_TYPE:-cx23}"
-HCLOUD_LOCATION="${HCLOUD_LOCATION:-hel1}"
+# HCLOUD_LOCATIONS is the ordered provider-capacity fallback list. Keep the
+# original HCLOUD_LOCATION contract as an explicit single-location pin: callers
+# that set it must not unexpectedly spill into another datacenter.
+if [ -n "${HCLOUD_LOCATION:-}" ] && [ -z "${HCLOUD_LOCATIONS:-}" ]; then
+    HCLOUD_LOCATIONS="$HCLOUD_LOCATION"
+else
+    HCLOUD_LOCATIONS="${HCLOUD_LOCATIONS:-${HCLOUD_LOCATION:-hel1} fsn1 nbg1}"
+fi
+HCLOUD_LOCATION="${HCLOUD_LOCATION:-${HCLOUD_LOCATIONS%% *}}"
 HCLOUD_IMAGE="${HCLOUD_IMAGE:-ubuntu-24.04}"
 HCLOUD_SSH_KEY="${HCLOUD_SSH_KEY:-jorgen@veridit.no}"
 HCLOUD_NAME_PREFIX="${HCLOUD_NAME_PREFIX:-statbus-recovery-}"
@@ -90,7 +98,7 @@ mkdir -p "$HARNESS_ROOT/tmp"
 # explicitly OFF — these VMs live for minutes and Hetzner recycles IPv4s
 # across instances, so accept-new fails the first time an IP gets reused.
 # Threat model: MITM on first connect to a freshly-provisioned Hetzner VM
-# inside Hetzner's hel1 datacenter. Negligible for a test harness whose
+# inside a Hetzner datacenter. Negligible for a test harness whose
 # secrets are confined to a throwaway VM that gets deleted on completion.
 #
 # Keepalives matter: `./sb install` can pull GB of docker images with no
@@ -1126,7 +1134,14 @@ bootstrap_install_test_vm() {
         return 1
     fi
 
-    echo "Provisioning Hetzner $HCLOUD_SERVER_TYPE in $HCLOUD_LOCATION: $vm_name"
+    local -a create_locations
+    read -r -a create_locations <<< "$HCLOUD_LOCATIONS"
+    if [ "${#create_locations[@]}" -eq 0 ]; then
+        echo "ERROR: HCLOUD_LOCATIONS must contain at least one location" >&2
+        return 1
+    fi
+
+    echo "Provisioning Hetzner $HCLOUD_SERVER_TYPE across locations (${create_locations[*]}): $vm_name"
     # STATBUS-208 defect B + STATBUS-231: bounded retry-with-backoff on
     # TRANSIENT hcloud capacity errors only — two known classes so far:
     #   - resource_limit_exceeded: the account-quota error. The shared
@@ -1136,49 +1151,58 @@ bootstrap_install_test_vm() {
     #     when the next group's first create fires; this is defense for
     #     exactly that residual window, not a substitute for the group.
     #   - resource_unavailable ("error during placement"): Hetzner
-    #     momentarily has no capacity to PLACE the VM in this location —
-    #     nothing to do with our account limit, a minutes-long provider-side
-    #     blip that clears on its own. Observed 3x in one day at rc.03
-    #     (both 0-happy install-recovery baselines, then the rc.03
-    #     spot-check's own working arc, run 32131797267) before this
-    #     retry's trigger was widened to cover it.
+    #     momentarily has no capacity to PLACE the VM in this location. Try
+    #     every configured location immediately before backing off. A round is
+    #     one attempt per location, so the existing five-attempt budget is
+    #     preserved PER LOCATION and the 60s wait remains between attempts in
+    #     the same location. Observed repeatedly in hel1 at rc.03 and rc.23/24.
     # Any OTHER create failure (bad image name, quota for a different
     # resource, auth) fails immediately — retrying those would just burn
     # 5 minutes before reporting the same permanent error.
-    local create_attempt max_create_attempts=5 create_backoff_s=60 create_stderr create_err create_token
+    local create_attempt create_location_index create_location
+    local max_create_attempts=5 create_backoff_s=60 create_stderr create_err create_token
     create_token=$(od -An -N16 -tx1 /dev/urandom | tr -d ' \n') || return 1
     [[ "$create_token" =~ ^[0-9a-f]{32}$ ]] || { echo "ERROR: could not generate create ownership token" >&2; return 1; }
     for ((create_attempt = 1; create_attempt <= max_create_attempts; create_attempt++)); do
-        create_stderr=$(mktemp)
-        if hcloud server create \
-            --name "$vm_name" \
-            --label "statbus-create-token=$create_token" \
-            --type "$HCLOUD_SERVER_TYPE" \
-            --image "$HCLOUD_IMAGE" \
-            --location "$HCLOUD_LOCATION" \
-            --ssh-key "$HCLOUD_SSH_KEY" \
-            >/dev/null 2>"$create_stderr"; then
+        for ((create_location_index = 0; create_location_index < ${#create_locations[@]}; create_location_index++)); do
+            create_location="${create_locations[$create_location_index]}"
+            echo "  hcloud server create attempt $create_attempt/$max_create_attempts in $create_location..." >&2
+            create_stderr=$(mktemp)
+            if hcloud server create \
+                --name "$vm_name" \
+                --label "statbus-create-token=$create_token" \
+                --type "$HCLOUD_SERVER_TYPE" \
+                --image "$HCLOUD_IMAGE" \
+                --location "$create_location" \
+                --ssh-key "$HCLOUD_SSH_KEY" \
+                >/dev/null 2>"$create_stderr"; then
+                rm -f "$create_stderr"
+                echo "  hcloud server create succeeded in $create_location (attempt $create_attempt/$max_create_attempts)"
+                break 2
+            fi
+            create_err=$(cat "$create_stderr")
             rm -f "$create_stderr"
-            break
-        fi
-        create_err=$(cat "$create_stderr")
-        rm -f "$create_stderr"
-        if _record_partial_vm_allocation "$vm_name" "$create_token"; then
-            # Never retry create into an allocated resource, even when the
-            # provider error text also resembles a retriable capacity failure.
-            echo "ERROR: hcloud create failed after allocating our server: $create_err" >&2
-            return 1
-        fi
-        if ! printf '%s' "$create_err" | grep -E "resource_limit_exceeded|resource_unavailable" >/dev/null; then
-            echo "ERROR: hcloud server create failed for '$vm_name': $create_err" >&2
-            return 1
-        fi
+            if _record_partial_vm_allocation "$vm_name" "$create_token"; then
+                # Never retry create into an allocated resource, even when the
+                # provider error text also resembles a retriable capacity failure.
+                echo "ERROR: hcloud create in $create_location failed after allocating our server: $create_err" >&2
+                return 1
+            fi
+            if ! printf '%s' "$create_err" | grep -E "resource_limit_exceeded|resource_unavailable" >/dev/null; then
+                echo "ERROR: hcloud server create in $create_location failed for '$vm_name': $create_err" >&2
+                return 1
+            fi
+            echo "  hcloud server create hit a transient capacity error in $create_location (attempt $create_attempt/$max_create_attempts)" >&2
+            echo "    $create_err" >&2
+            if [ "$create_location_index" -lt "$((${#create_locations[@]} - 1))" ]; then
+                echo "  trying the next location immediately..." >&2
+            fi
+        done
         if [ "$create_attempt" -eq "$max_create_attempts" ]; then
-            echo "ERROR: hcloud server create exhausted $max_create_attempts attempts (transient capacity error every time) for '$vm_name': $create_err" >&2
+            echo "ERROR: hcloud server create exhausted $max_create_attempts attempts per location across (${create_locations[*]}) for '$vm_name'; last error from $create_location: $create_err" >&2
             return 1
         fi
-        echo "  hcloud server create hit a transient capacity error (attempt $create_attempt/$max_create_attempts) — retrying in ${create_backoff_s}s..." >&2
-        echo "    $create_err" >&2
+        echo "  all configured locations hit transient capacity errors in round $create_attempt/$max_create_attempts; retrying in ${create_backoff_s}s..." >&2
         sleep "$create_backoff_s"
     done
     # STATBUS-207 ownership guard: only set once `hcloud server create`
