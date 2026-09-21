@@ -105,10 +105,13 @@ func (a recoveryAction) String() string {
 //   - deaths (== attempts-1) >= RecoveryDeathBudget → terminal (budget exhausted).
 //   - otherwise → continue.
 //
-// A terminal outcome routes by canRollBack: true → rollback (data-safe), false
-// → park (already-at-new — can't roll back; the loop-forever regime this ticket
-// kills). The park/rollback split is the ONLY place phase matters, and it is a
-// safety routing, never a direction decision.
+// A terminal outcome routes by canRollBack: true means positively Behind, so
+// snapshot rollback is always data-safe while the window holds. False parks an
+// at-or-past-target deterministic release failure. PARK is primarily the Layer 2
+// anti-loop bound: automatic rollback plus channel re-offer would repeat the same
+// failing release forever with nobody told. Legitimate writes after a serve-proven
+// window lift are only the rare secondary reason not to restore. This split routes
+// a terminal outcome; it never decides forward versus back.
 func resumeEscalation(attempts int, deathStep, priorDeathStep string, canRollBack bool) (action recoveryAction, reason string) {
 	// deaths observed at this resume: the counter increments at attempt START, so
 	// the current attempt hasn't itself died yet — the first attempt (attempts==1)

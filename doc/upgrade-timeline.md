@@ -155,12 +155,14 @@ new binary is booted* (`Phase=new-sb-swapped`) and continues the **same** attemp
 12. Start application services; wait for the **app health gate** (PostgREST `/ready`
     warm-up, then the functional probe). A health failure past warm-up is a
     deterministic B-class failure → **park at target** (see the park lifecycle under
-    [Complete / rollback / park](#complete--rollback--park)) — never a completed lie,
-    never a silent dark box.
+    [Complete / rollback / park](#complete--rollback--park)): the health gate failed
+    before maintenance-off and window-lift, so no legitimate post-lift writes exist;
+    the park bounds a release that deterministically cannot serve — never a completed
+    lie, never a silent dark box.
 13. **Serve-proven completion** (STATBUS-160/192 — `completed` means *this version
-    verifiably serves*, at **every** writer): maintenance off → mark `completed_at`
-    (`state=completed`) → lift the **read-only window** (loud named-invariant
-    escalation if the flip fails) → **removeUpgradeFlag** (mutex released) →
+    verifiably serves*, at **every** writer): maintenance off → lift the **read-only
+    window** (loud named-invariant escalation if the flip fails) → mark `completed_at`
+    (`state=completed`) → **removeUpgradeFlag** (mutex released) →
     supersede older `available` rows; notify the UI; archive the snapshot. The same
     contract binds the flagless heal (`completeInProgressUpgrade`, STATBUS-192) and
     the containers-at-target self-heal (`resumeNewSb`, STATBUS-071) — no completed
@@ -192,21 +194,13 @@ resume that dies at the same step twice — the rune loop-forever class cannot r
 - **Success — serve-proven:** the completed write happens only after the app health gate
   passed, maintenance is off, and the read-only window lifts (step 13 above). Then the
   flag is removed, older rows superseded, the UI notified, the Slack "OK" callback posted.
-- **Deterministic failure at (or unverifiably near) target → PARK (STATBUS-046):** when
-  retrying provably cannot help — the version can't serve past warm-up, disk is full, a
-  resume died at the same step twice, or the attempt budget is exhausted — the box
-  **parks**: the row **stays `in_progress`** with `recovery_parked_at` + a **named
-  `recovery_parked_reason`** and the error narrative (one atomic write, STATBUS-154/071),
-  the flag **stays on disk**, the degraded-siren callback fires **exactly once**, and the
-  unit sits **alive-idle**. Every automatic resume skips a parked row — the boot recovery,
-  the flagless heal, and the containers-at-target self-heal all carry the parked-skip
-  guard (STATBUS-135/193). A park has exactly **two deliberate exits**: scheduling a fix
-  release (its claim atomically displaces the park to `superseded`, STATBUS-159), or
-  `./sb install` (un-parks for **one** fresh attempt). Parking is not a rollback: an
-  at-or-past-target box cannot be restored safely (integrators may have written past
-  maintenance-off), so it holds honestly instead of guessing.
-- **Confirmed-Behind failure (one attempt, no retry):** `rollback()` restores git state,
-  the DB snapshot, and services, then records one of **three terminal tiers**:
+- **Confirmed-Behind failure → automatic rollback, always (one attempt, no retry):**
+  the read-only window still holds every client, nothing new exists beyond the snapshot,
+  and restore is provably data-safe. This includes a bad migration; a missing or failed
+  down migration is **N/A** because rollback restores the snapshot and never runs down
+  migrations; and a stalled or aborted migration with partial changes. `rollback()`
+  restores git state, the DB snapshot, and services, then records one of **three terminal
+  tiers**:
   - `rolled_back` (`rolled_back_at` + `error`) — the snapshot restored cleanly; the
     server is **healthy at the old version**.
   - `failed` (`error`, no `rolled_back_at`) — the restore **also failed**; the server
@@ -225,6 +219,24 @@ resume that dies at the same step twice — the rune loop-forever class cannot r
 
   The flag is removed and a Slack "FAILED" callback carries the exact failing step and
   reason. See [Recovery contract](#recovery-contract--fail-fast-one-shot).
+- **Deterministic failure at-or-past target → PARK (STATBUS-046):** retry cannot change a
+  failure that belongs to the release. Automatic rollback followed by channel re-offer
+  would create an infinite upgrade-fail-rollback loop with nobody told — the Layer 2
+  class the model exists to kill. The park is the bound: the row **stays `in_progress`**
+  with `recovery_parked_at` + a named `recovery_parked_reason` and the error narrative
+  (one atomic write, STATBUS-154/071), the flag stays on disk, the degraded-siren callback
+  fires **exactly once**, and the unit sits **alive-idle**. Every automatic resume skips a
+  parked row (STATBUS-135/193). A human dismisses the bad release or brings a fix through
+  exactly two deliberate exits: a fix release whose claim atomically displaces the park
+  to `superseded` (STATBUS-159), or `./sb install`, which un-parks for **one** fresh
+  attempt. **Secondary, rare rollback risk:** only after a legitimate, serve-proven
+  window lift can legitimate post-lift integrator writes exist that the snapshot predates.
+  An at-target health-leg failure happened before maintenance-off and window-lift, so it
+  has no such writes and parks for the primary anti-loop reason.
+- **Position still unverifiable at the failure chokepoint after a crash → PARK:** the
+  daemon must not assume the window never lifted. STATBUS-110's formal supersession in
+  [`read-only-upgrade-window.md`](read-only-upgrade-window.md#effect-on-recovery--the-formal-supersession-statbus-110-ac3-2026-07-12)
+  governs; do not re-derive it here.
 
 ## Upgrade-row lifecycle (the states)
 
@@ -633,22 +645,30 @@ crashed-upgrade dispatch (state 3). It reconciles any flag on disk:
      detected by the flag's persisted `Step`/`PriorDeathStep`, not a phase): **the
      observed state decides** via the tri-state ground-truth check (binary
      at-or-descendant of the target + migrations at-or-past the on-disk max):
+       - **Behind** (`cannot-reach-new`, confirmed: binary mismatch, or migrations missing
+         with a reachable DB) → **one-shot rollback, always**, to *this upgrade's own*
+         snapshot (`flag.BackupPath`, identity-keyed). The window still holds every
+         client, nothing new exists, and restore is provably data-safe even for bad,
+         stalled, aborted, or partially applied migrations; down migrations are never
+         involved. Mark the row terminal (`rolled_back`, or `failed` if the restore also
+         fails). Backward exists to regain a runnable state to go forward from when the
+         fix ships.
        - **AtTarget** (`already-at-new`) → resume **forward** again, under the
-         **crash-resume attempt budget** (STATBUS-046). Rolling back an at-target box is
-         forbidden — past (or at) the maintenance-off commit point, API integrators may
-         have written data the snapshot predates (the app's upgrade guard only gates
-         browsers). Each retry is loud and heartbeated — but never unbounded: a
-         **deterministic** failure parks on its **first** occurrence, a resume dying at
-         the **same step twice** parks, and **budget exhaustion** parks. A parked box
-         sits alive-idle with its named reason; it never destroys state to escape and
-         never loops forever (the rune class).
-       - **Unknown** (`position-unreadable`, DB unreachable mid-check) → never destroy state under uncertainty:
-         resume forward; the next pass re-checks.
-       - **Behind** (`cannot-reach-new`, confirmed: binary mismatch, or migrations missing with a
-         reachable DB) → **one-shot rollback** to *this upgrade's own* snapshot
-         (`flag.BackupPath`, identity-keyed), mark the row terminal (`rolled_back`, or
-         `failed` if the restore also fails). Backward exists to regain a runnable state to
-         go forward from when the fix ships.
+         **crash-resume attempt budget** (STATBUS-046). Each retry is loud and
+         heartbeated, but never unbounded: a **deterministic** failure parks on its
+         **first** occurrence, a resume dying at the **same step twice** parks, and
+         **budget exhaustion** parks. The primary reason is the anti-loop bound: a
+         release that deterministically cannot serve would otherwise be restored,
+         re-offered by its channel, and fail forever with nobody told. The parked box
+         instead sits alive-idle with its named reason and one siren. Only in the rare
+         case where this version verifiably served and legitimately lifted the window
+         can post-lift integrator writes provide a second reason not to restore; an
+         at-target health-leg failure never lifted the window.
+       - **Unknown** (`position-unreadable`, DB unreachable mid-check) → follow
+         STATBUS-110's formal supersession in `doc/read-only-upgrade-window.md`; the
+         daemon must not assume the window never lifted or re-derive the rule here.
+         Resume forward; the next pass re-checks. If position remains unverifiable at
+         the persistent-failure chokepoint, PARK.
    - **Any other `Phase` value** → state-machine drift; fail loud (`FLAG_PHASE_UNKNOWN`),
      touch nothing.
 
@@ -659,7 +679,7 @@ crashed-upgrade dispatch (state 3). It reconciles any flag on disk:
    version-tracked service already at the flag's target, no pending migrations, health
    passing, row **not parked** — STATBUS-067/104/193 — → serve-proven `completed`) and the
    flagless `completeInProgressUpgrade` (observed-state-verified, then the full serve-proof
-   tail: app up → health gate → maintenance off → `completed` → window lift, STATBUS-192). The
+   tail: app up → health gate → maintenance off → window lift → `completed`, STATBUS-192). The
    binary check is the tri-state `verifyBinaryGroundTruth`: `git merge-base --is-ancestor`
    exit 0 → at/descendant; exit 1 (both commits resolved, ancestry definitively absent) →
    **Behind** — the only verdict that licenses a restore; **any other git error** (exit 128

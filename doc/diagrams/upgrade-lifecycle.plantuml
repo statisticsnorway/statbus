@@ -44,8 +44,8 @@ in_progress --> in_progress : [HUMAN: **unknown**]\nunrecognised phase or unreco
 ' replaces rune's loop-forever (10,229 restarts).
 in_progress --> in_progress : [PARKED — **STATBUS-046**]\nalready-at-new forward: budget (3 process deaths) exhausted, same-step-twice,\nor a B/C failure — PARK (recovery_parked_at + reason).\nService skips resume (alive-idle), siren once.\nUn-park ONLY via a deliberate operator trigger (re-schedule / ./sb install)
 
-' cannot-reach-new → roll back (also: intermittent exhausted backoff-retry, or persistent error)
-in_progress --> rolled_back : **cannot-reach-new** (observed-state) → roll back\nOR intermittent error exhausted **backoff-retry** → roll back\nOR persistent error (zero retries) → roll back\n(rolled_back_at + error)
+' cannot-reach-new → roll back (also: intermittent exhausted backoff-retry while the window holds)
+in_progress --> rolled_back : **cannot-reach-new** (observed-state) → roll back\nOR intermittent error exhausted **backoff-retry** while the window holds → roll back\nPersistent errors branch on observed position first\n(rolled_back_at + error)
 
 ' [HUMAN: restore-broke] — rollback chosen but restore itself failed
 in_progress --> failed : [HUMAN: **restore-broke**]\nrollback chosen; restore itself failed\n(rsync/disk; never substitute another backup)\n(error, no rolled_back_at)
@@ -72,7 +72,18 @@ note right of in_progress
     resolves → continue → completed
     exhausts → no longer transient → roll back → rolled_back
   persistent (same error every time)
-    → roll back, zero retries → rolled_back
+    → zero retries; branch on observed position, in order:
+      Behind → roll back ALWAYS: the window holds every client; snapshot restore is
+        provably data-safe for a bad migration, a stalled/aborted partial migration,
+        or a missing/failed down migration (N/A — restore never runs down migrations)
+      At-or-past target → PARK: the release will fail again, so rollback + channel
+        re-offer would loop forever with nobody told. PARK is the alive-idle bound,
+        one siren; fix-release displacement (STATBUS-159) or ./sb install grants one try.
+        Only after a legitimate serve-proven window lift can post-lift integrator writes
+        be a SECONDARY, rare reason; a health-leg failure never lifted the window.
+      Position still unverifiable at the failure chokepoint after crash → PARK;
+        STATBUS-110 supersession governs —
+        the daemon must not assume the window never lifted; do not re-derive it here.
   unknown (unrecognised)
     → [HUMAN: unknown] self-loop; stays in_progress + loud
 
@@ -82,10 +93,13 @@ note right of in_progress
   failed             — [HUMAN: restore-broke] restore itself broke
   (in_progress loop) — [HUMAN: unknown] waits for a person
 
-  **§5  Park (STATBUS-046 — already-at-new forward, can't roll back)**
-  Forward, after booting the new binary, keeps failing already-at-new
-  (integrators may have written past the maintenance-off point → rollback
-  forbidden). The bound is a crash-resume DEATH BUDGET (3 process deaths;
+  **§5  Park (STATBUS-046 — the anti-loop bound)**
+  Forward, after booting the new binary, keeps failing already-at-new. The failure
+  belongs to the release; automatic restore + channel re-offer would repeat the same
+  upgrade-fail-rollback loop with nobody told. PARK ends it alive-idle with one siren.
+  Only after a legitimate serve-proven window lift can post-lift integrator writes be
+  a secondary, rare rollback risk; the at-target health leg never lifts the window.
+  The mechanical bound is a crash-resume DEATH BUDGET (3 process deaths;
   recovery_attempts counted at attempt START so a death self-counts, deaths =
   attempts-1), plus same-step-twice → deterministic-hang park, plus B/C
   failures → park on first. On terminal:

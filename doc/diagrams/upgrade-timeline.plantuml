@@ -174,26 +174,28 @@ alt **new-sb-swapped** marker (stored: post_swap) — the PLANNED exit-42 handof
         service -> db : **./sb migrate up — apply the FULL delta to HEAD (the ONE delta-application site, STATBUS-145);\nmid-delta death/failure → observed Behind → data-safe one-shot rollback (atomic)**
         service -> service : start app services + health check
         service -> db : maintenance off
+        service -> db : lift read-only window
     end
 else **old-sb-upgrading** marker (stored: "") — died BEFORE the binary swap
     service -> db : recoveryRollback -> roll back (§ roll-back)\nrestore no-ops: old-sb-upgrading carries an empty backup path
 else corrupt/unreadable marker — **discard-and-log** → normal start [auto]
 else unrecognized phase → [HUMAN: **unknown**]
 else **new-sb-upgrading** marker (stored: resuming) — died DURING resume: **observed-state** decides
-    alt **already-at-new** (observed-state)
+    alt **cannot-reach-new / Behind** (binary mismatch / migrations missing, DB reachable)
+        service -> db : recoveryRollback -> one-shot roll back ALWAYS to THIS upgrade's\nOWN **db-snapshot** (flag.BackupPath, identity-keyed; flock-serialized)\nwindow holds every client; restore is provably data-safe
+    else **already-at-new** (observed-state)
         service -> service : continue-upgrade / complete-upgrade — already at the new version\n→ completed
     else **can't-read-position** (db-unreachable / commit-not-fetched) — intermittent error
         service -> service : → error classifier (see lifecycle diagram §3)\n**backoff-retry**: resolves → continue; exhausts → roll back
-    else **cannot-reach-new** (binary mismatch / migrations missing, DB reachable)
-        service -> db : recoveryRollback -> one-shot roll back to THIS upgrade's\nOWN **db-snapshot** (flag.BackupPath, identity-keyed; flock-serialized)
     end
 end
 note over systemd, service
   recoverFromFlag is a phase dispatch: the marker phase decides direction BEFORE anything destructive.
   new-sb-swapped (post_swap) → continue forward; old-sb-upgrading ("") → roll back (nothing changed);
   corrupt/unreadable marker → discard-and-log, normal start; unrecognized phase → [HUMAN: unknown].
-  new-sb-upgrading (resuming) → observed-state decides: already-at-new → complete forward;
-  cannot-reach-new → identity-keyed roll back; can't-read-position (db-unreachable or commit-not-fetched)
+  new-sb-upgrading (resuming) → observed-state decides: cannot-reach-new / Behind →
+  identity-keyed roll back ALWAYS; already-at-new → complete forward; can't-read-position
+  (db-unreachable or commit-not-fetched)
   → error classifier (see lifecycle diagram §3): intermittent → backoff-retry, exhausts → roll back.
   Full decision tree: see upgrade-lifecycle diagram · doc/upgrade-recovery-model.md.
 end note
@@ -202,9 +204,16 @@ note over systemd, service #FFE0B2
   every resumePostSwap entry is one forward ATTEMPT — recovery_attempts++ at attempt START, so a
   death self-counts. resumeEscalation bounds the loop that gave rune 10,229 restarts:
     • budget = 3 PROCESS DEATHS (deaths = attempts−1) exhausted, OR same-step-twice (deterministic hang, from the flag's dying-step) → TERMINAL
-    • already-at-new (can't roll back — integrators wrote past maintenance-off) → PARK:
-      recovery_parked_at + reason; row stays in_progress; service skips resume (alive-idle); siren ONCE
-    • data-safe / cannot-reach-new → roll back (039 owns direction; 110 makes it byte-safe)
+    • cannot-reach-new / Behind → roll back ALWAYS: the window holds every client; snapshot
+      restore is provably data-safe, including bad or partial migrations (down migrations are N/A)
+    • already-at-new + deterministic failure → PARK, PRIMARY reason: the failure belongs to the
+      release; restore + channel re-offer would loop forever with nobody told. PARK bounds it:
+      recovery_parked_at + reason; row stays in_progress; service alive-idle; siren ONCE.
+      SECONDARY, rare: only after a legitimate serve-proven window lift can post-lift integrator
+      writes exist; an at-target health failure never lifted the window.
+    • can't-read-position still unverifiable at the failure chokepoint after crash → PARK:
+      do not assume the window never lifted;
+      STATBUS-110's formal supersession governs — do not re-derive it here
   Class A (readiness) waits IN PLACE (size-scaled) and NEVER consumes an attempt; B (deterministic) +
   C (resource) → park on first. Un-park = the two deliberate operator triggers only, each a
   single fresh attempt with a reset budget.
@@ -266,7 +275,7 @@ note over service, db #FFF9C4
     the deferGating WATCHDOG=1 ticker; a true hang is reaped by connect()'s own ctx, not
     the watchdog.
   TEST postswap-converged-selfheal-arc: a crash in the ~ms window AFTER convergence (delta
-    applied, serving, maintenance off) but BEFORE the completed write lands -> the next
+    applied, serving, maintenance off, window lifted) but BEFORE the completed write lands -> the next
     boot self-heals the row to completed ([completed-self-heal], serve-proven —
     STATBUS-192; the parked-guard skip holds — STATBUS-193).
   TEST cross-version-rename-handoff-arc: a box installed at a PRE-RENAME release hands its
@@ -293,7 +302,7 @@ alt all steps succeeded
         applyPostSwap -> this success branch (state=completed, flag removed) — the baseline the
         failure-after-swap scenarios perturb.
     end note
-else **cannot-reach-new** (observed-state) — or intermittent exhausted or persistent error (see lifecycle §3)\n(already-at-new never reaches here — it completes forward;\ncan't-read-position → backoff-retry; exhausts → reaches here)
+else **cannot-reach-new / Behind** (observed-state) — rollback ALWAYS (see lifecycle §3)\nwindow holds every client; snapshot restore is provably data-safe\npersistent at-or-past-target and unverifiable-crash failures PARK instead
     service -> service : rollback() — restore git + restore **db-snapshot**\n(identity-keyed: ONLY this upgrade's recorded snapshot; missing ⇒ [HUMAN: restore-broke],\nnever another backup; recovery entry is flock-serialized at recoveryRollback)
     service -> db : restart services (docker compose up)
     service -> db : wait for DB health (30s)\nSYMMETRIC with applyPostSwap (service.go:3780) — must NOT reconnect before the DB is ready (the scenario-21 race)
