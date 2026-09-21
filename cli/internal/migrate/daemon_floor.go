@@ -18,10 +18,17 @@ package migrate
 // the floor impossible: any migration NEWER than the floor that touches a daemon
 // relation fails the test until the floor is bumped in the same commit.
 //
-// VALUE: today 20260907120000 (STATBUS-347's rollback_finish_pending_at
+// VALUE: today 20260921223349 (the box-level serving-tree convergence
+// obligation). The daemon's claim and crash-recovery SQL reads and writes
+// public.upgrade.tree_convergence_required, so boot must include the column.
+// The claim still explicitly tolerates a predecessor schema during the narrow
+// binary-before-floor transition, but that compatibility boundary is not a
+// substitute for declaring the schema the steady-state daemon requires.
+//
+// Prior value: 20260907120000 (STATBUS-347's rollback_finish_pending_at
 // column), retimestamped after STATBUS-349 so full replay and incrementally
 // migrated databases assign the same public.upgrade column order. The daemon
-// reads and writes this column, so the boot schema must include it.
+// reads and writes this column, so the boot schema had to include it.
 //
 // Prior value: 20260906173739 (STATBUS-349's public.upgrade.failure_code
 // column), bumped from 20260904111126 in the same change set that landed it.
@@ -77,7 +84,7 @@ package migrate
 // the tree after STATBUS-349 and therefore sorted differently
 // on full replay than on incremental databases. Its replacement above the 349
 // migration is now the floor because the daemon requires the column.
-const DaemonSchemaFloor int64 = 20260907120000
+const DaemonSchemaFloor int64 = 20260921223349
 
 // DaemonRelationNames is the schema surface the daemon's OWN SQL touches — the
 // set whose shape the floor must satisfy. The bump guard flags any migration

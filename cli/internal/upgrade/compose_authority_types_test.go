@@ -63,17 +63,18 @@ type approvedLaunch struct {
 }
 
 var allowedComposeUpCalls = map[string]approvedLaunch{
-	"cmd/db.go:dockerComposeStart":                            {Count: 1, Reason: "operator database workflow starts the requested compose services through compose.Up"},
-	"cmd/install.go:composeApplyServiceDefault":               {Count: 1, Reason: "install applies the configured default service set through compose.Up"},
-	"cmd/install.go:runInstall":                               {Count: 1, Reason: "install starts the full application stack through compose.Up"},
-	"cmd/install.go:runStartServices":                         {Count: 1, Reason: "install step starts its declared services through compose.Up"},
-	"cmd/service.go:startServices":                            {Count: 1, Reason: "operator service start command delegates to the compose.Up chokepoint"},
-	"cmd/service_restart.go:restartServices":                  {Count: 1, Reason: "operator service restart brings services back through compose.Up"},
-	"internal/upgrade/exec.go:EnsureDBUp":                     {Count: 1, Reason: "upgrade database preparation starts only the database services through compose.Up"},
-	"internal/upgrade/service.go:abortFailedPreBackupStop":    {Count: 1, Reason: "pre-backup abort restores the source services through compose.Up"},
-	"internal/upgrade/service.go:applyNewSbUpgrading":         {Count: 2, Reason: "upgrade transition starts the target database and application stacks through compose.Up"},
-	"internal/upgrade/service.go:completeInProgressUpgrade":   {Count: 1, Reason: "successful upgrade completion starts the target application stack through compose.Up"},
-	"internal/upgrade/service.go:startSourceApplicationStack": {Count: 1, Reason: "recovery restores the verified source application stack through compose.Up"},
+	"cmd/db.go:dockerComposeStart":                                       {Count: 1, Reason: "operator database workflow starts the requested compose services through compose.Up"},
+	"cmd/install.go:composeApplyServiceDefault":                          {Count: 1, Reason: "install applies the configured default service set through compose.Up"},
+	"cmd/install.go:runInstall":                                          {Count: 1, Reason: "install starts the full application stack through compose.Up"},
+	"cmd/install.go:runStartServices":                                    {Count: 1, Reason: "install step starts its declared services through compose.Up"},
+	"cmd/service.go:startServices":                                       {Count: 1, Reason: "operator service start command delegates to the compose.Up chokepoint"},
+	"cmd/service_restart.go:restartServices":                             {Count: 1, Reason: "operator service restart brings services back through compose.Up"},
+	"internal/upgrade/exec.go:EnsureDBUp":                                {Count: 1, Reason: "upgrade database preparation starts only the database services through compose.Up"},
+	"internal/upgrade/service.go:abortFailedPreBackupStop":               {Count: 1, Reason: "pre-backup abort restores the source services through compose.Up"},
+	"internal/upgrade/service.go:applyNewSbUpgrading":                    {Count: 2, Reason: "upgrade transition starts the target database and application stacks through compose.Up"},
+	"internal/upgrade/service.go:completeInProgressUpgrade":              {Count: 1, Reason: "successful upgrade completion starts the target application stack through compose.Up"},
+	"internal/upgrade/service.go:convergeParkedServingTierToCurrentTree": {Count: 1, Reason: "a successor claim against a displaced park reconciles the serving tier to the current tree before capturing its source baseline"},
+	"internal/upgrade/service.go:startSourceApplicationStack":            {Count: 1, Reason: "recovery restores the verified source application stack through compose.Up"},
 }
 
 // Filled with the exact production process inventory as
@@ -203,6 +204,7 @@ var allowedProcessLaunches = map[string]approvedLaunch{
 	"internal/upgrade/service.go:Run|upgrade.runCommandOutput|git":                                    {Count: 1, Reason: "upgrade service Run reads repository state used to reconcile scheduled and on-disk versions"},
 	"internal/upgrade/service.go:Run|upgrade.runCommandToLogCapture|./sb":                             {Count: 1, Reason: "upgrade service Run executes the claimed sb upgrade path while capturing its operator diagnostics"},
 	"internal/upgrade/service.go:TagsAtCommit|upgrade.runCommandOutput|git":                           {Count: 1, Reason: "TagsAtCommit lists release tags pointing at a commit to identify its candidate version"},
+	"internal/upgrade/service.go:applyClaimObligationSchemaFloor|upgrade.runCommandToLogCapture|./sb": {Count: 1, Reason: "applyClaimObligationSchemaFloor runs the bounded daemon-floor migrate so a claim can record the convergence obligation before displacing a park on a predecessor schema"},
 	"internal/upgrade/service.go:applyNewSbUpgrading|upgrade.runCommandToLogCapture|docker":           {Count: 1, Reason: "applyNewSbUpgrading captures target image pull and compose preparation output during cutover"},
 	"internal/upgrade/service.go:applyNewSbUpgrading|upgrade.runCommandToLog|./dev.sh":                {Count: 1, Reason: "applyNewSbUpgrading runs the repository database recreation helper when an explicit recreate upgrade requires it"},
 	"internal/upgrade/service.go:applyNewSbUpgrading|upgrade.runCommandToLog|./sb":                    {Count: 1, Reason: "applyNewSbUpgrading runs target migration and configuration commands through the newly installed sb"},

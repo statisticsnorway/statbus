@@ -34,6 +34,7 @@
  recovery_parked_reason     | text                       |           |          |                                        | extended |             |              | 
  failure_code               | upgrade_failure_code       |           |          |                                        | plain    |             |              | 
  rollback_finish_pending_at | timestamp with time zone   |           |          |                                        | plain    |             |              | STATBUS-347: set the instant a rollback's snapshot restore and service health were confirmed, BEFORE its read-only window and maintenance are lifted. While set, the row is cleanup-only: the marker still needs removing and the row still needs the final rolled_back transition. Lifting the window commits recovery to that cleanup-only completion, so the snapshot must NEVER be restored again. Cleared by the same transaction that writes rolled_back. Only ever set on a failed row; backup_path may be NULL for a PreSwap (nothing-moved) rollback.
+ tree_convergence_required  | boolean                    |           | not null | false                                  | plain    |             |              | Crash-safe box-level obligation created when a successor claim displaces a parked upgrade whose serving containers may lag the checked-out tree. Every later candidate inherits any true carrier row across retries and supersession; only a successful serving-tree convergence may clear all carriers.
 Indexes:
     "upgrade_pkey" PRIMARY KEY, btree (id)
     "upgrade_commit_sha_key" UNIQUE CONSTRAINT, btree (commit_sha)
@@ -79,6 +80,7 @@ Not-null constraints:
     "upgrade_release_builds_status_not_null" NOT NULL "release_builds_status"
     "upgrade_recreate_not_null" NOT NULL "recreate"
     "upgrade_recovery_attempts_not_null" NOT NULL "recovery_attempts"
+    "upgrade_tree_convergence_required_not_null" NOT NULL "tree_convergence_required"
 Triggers:
     upgrade_block_obsolete_pending_trigger BEFORE INSERT OR UPDATE OF state, committed_at, release_status ON upgrade FOR EACH ROW EXECUTE FUNCTION upgrade_block_obsolete_pending()
     upgrade_block_terminal_resurrection_trigger BEFORE UPDATE ON upgrade FOR EACH ROW WHEN (new.state = 'completed'::upgrade_state AND (old.state = ANY (ARRAY['superseded'::upgrade_state, 'failed'::upgrade_state, 'rolled_back'::upgrade_state, 'skipped'::upgrade_state, 'dismissed'::upgrade_state]))) EXECUTE FUNCTION upgrade_block_terminal_resurrection()

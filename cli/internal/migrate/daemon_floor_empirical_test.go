@@ -33,6 +33,8 @@ var daemonFloorQueries = []struct {
 		   FROM public.upgrade WHERE false`},
 	{"upgrade claim shape (scheduled → in_progress)", // service.go executeScheduled claim
 		`SELECT id, state, started_at FROM public.upgrade WHERE state = 'scheduled' ORDER BY id LIMIT 1`},
+	{"box serving-tree convergence obligation", // service.go claim + crash recovery
+		`SELECT COALESCE(bool_or(tree_convergence_required), false) FROM public.upgrade`},
 	{"upgrade release_status enum write cast", // service.go:3677
 		`UPDATE public.upgrade SET commit_tags = $1, release_status = $2::public.release_status_type WHERE id = $3`},
 	{"release_builds_status_type enum resolves", // service.go release-build status

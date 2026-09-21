@@ -74,12 +74,12 @@ func TestParkServiceRecovery_StructuralContracts(t *testing.T) {
 	pf := extractFuncBody(t, src, "func (d *Service) parkForDeterministicFailure(")
 	parkIdx := strings.Index(pf, "d.parkUpgrade(")
 	atTargetIdx := strings.Index(pf, "if obsState == ObservedAlreadyAtNew {")
-	recIdx := strings.Index(pf, "d.parkServiceRecovery(ctx, id, restoreTargetSHA, progress, d.StartDatabaseRouteServingMayRun)")
+	recIdx := strings.Index(pf, "d.parkServiceRecovery(ctx, id, restoreTargetSHA, progress, d.StartDatabaseRouteServingMayRun, true)")
 	if parkIdx < 0 || atTargetIdx < 0 || recIdx < 0 || parkIdx >= atTargetIdx || atTargetIdx >= recIdx {
 		t.Fatalf("deterministic park contract must be park write -> at-target return -> unreadable-position MayRun verdict; parkUpgrade@%d atTarget@%d MayRunRecovery@%d", parkIdx, atTargetIdx, recIdx)
 	}
 	atTargetBranch := pf[atTargetIdx:recIdx]
-	ensureIdx := strings.Index(atTargetBranch, "d.ensureParkedAtNewServingTier(ctx, commitSHA, progress)")
+	ensureIdx := strings.Index(atTargetBranch, "d.ensureParkedAtNewServingTier(ctx, id, commitSHA, progress)")
 	appendIdx := strings.Index(atTargetBranch, "d.appendParkNarrative(id, operabilityNote)")
 	returnIdx := strings.Index(atTargetBranch, `return fmt.Errorf("parked on deterministic forward failure: %s", reason)`)
 	if ensureIdx < 0 || appendIdx < ensureIdx || returnIdx < appendIdx {
@@ -100,6 +100,13 @@ func TestParkServiceRecovery_StructuralContracts(t *testing.T) {
 		if strings.Contains(targetOperability, forbidden) || strings.Contains(targetStart, forbidden) || strings.Contains(sourceStart, forbidden) {
 			t.Errorf("at-target operability call graph must not contain source recovery or recreate authority %q", forbidden)
 		}
+	}
+	if !strings.Contains(targetOperability, "d.parkedSourceSchemaVerdict(ctx, id)") {
+		t.Error("source-era operability must separately prove source-schema compatibility")
+	}
+	schemaVerdict := extractFuncBody(t, src, "func (d *Service) parkedSourceSchemaVerdict(")
+	if !strings.Contains(schemaVerdict, "d.parkEraVerdict(ctx, id, d.StartDatabaseRouteServingMayRun)") || strings.Contains(schemaVerdict, "MustBeStopped") {
+		t.Error("at-target source schema proof must reuse parkEraVerdict through the MayRun route, never MustBeStopped")
 	}
 	for name, body := range map[string]string{"target": targetStart, "source": sourceStart} {
 		if !strings.Contains(body, `append([]string{"start"}, sourceServingServices...)`) || !strings.Contains(body, "compose.CommandContext(") {

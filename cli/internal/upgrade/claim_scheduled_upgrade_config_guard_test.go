@@ -32,21 +32,27 @@ func TestClaimScheduledUpgradeChecksConfigRefusalMarkerFirst(t *testing.T) {
 		t.Fatal("claimScheduledUpgrade must check ReadConfigRefusalMarker — test is stale or the STATBUS-307 guard regressed")
 	}
 
-	// FIRST ACT: the guard must precede every other read/mutation in the
-	// function — in particular the standing-park read, which is the first
-	// thing the function did before this guard existed.
-	parkReadIdx := strings.Index(fn, `SELECT id, COALESCE(recovery_parked_reason, '')`)
-	if parkReadIdx < 0 {
-		t.Fatal("expected the standing-park SELECT to still be present — test is stale")
+	// FIRST ACT: the guard must precede every other read/mutation — in
+	// particular the transactional pass, which owns the standing-park read (the
+	// first thing the claim did before this guard existed) and, via the outer
+	// function, the floor migrate that a pre-column park displacement needs.
+	// Gating the pass call gates both.
+	passCallIdx := strings.Index(fn, "d.claimScheduledUpgradePass(ctx, id)")
+	if passCallIdx < 0 {
+		t.Fatal("expected claimScheduledUpgrade to delegate to claimScheduledUpgradePass — test is stale")
 	}
-	if guardIdx > parkReadIdx {
-		t.Error("the config-refusal guard must run BEFORE the standing-park read — it is supposed to be this function's first act, not an afterthought bolted on later")
+	if guardIdx > passCallIdx {
+		t.Error("the config-refusal guard must run BEFORE the transactional pass — it is supposed to be this function's first act, not an afterthought bolted on later")
+	}
+	pass := extractFuncBody(t, string(src), "func (d *Service) claimScheduledUpgradePass(")
+	if !strings.Contains(pass, `SELECT id, COALESCE(recovery_parked_reason, '')`) {
+		t.Fatal("expected the standing-park SELECT to still be present in the transactional pass — test is stale")
 	}
 
 	// FAILS CLOSED both ways: a confirmed marker refuses, AND a read ERROR
 	// refuses too (STATBUS-039/111/159: unverified is not permission) —
 	// neither branch may fall through to the claim.
-	guardWindow := fn[guardIdx:parkReadIdx]
+	guardWindow := fn[guardIdx:passCallIdx]
 	if !strings.Contains(guardWindow, "merr != nil") {
 		t.Error("a marker READ ERROR must also refuse (fail closed) — an unreadable marker is not evidence the box is fine")
 	}
@@ -72,9 +78,9 @@ func TestClaimScheduledUpgradeGuard_NoMarkerFallsThrough(t *testing.T) {
 	if condIdx < 0 {
 		t.Fatal("claimScheduledUpgrade must check ReadConfigRefusalMarker inside an `if marker, merr :=` conditional — test is stale or the STATBUS-307 guard regressed")
 	}
-	parkReadIdx := strings.Index(fn, `SELECT id, COALESCE(recovery_parked_reason, '')`)
-	if parkReadIdx < 0 {
-		t.Fatal("expected the standing-park SELECT to still be present — test is stale")
+	passCallIdx := strings.Index(fn, "d.claimScheduledUpgradePass(ctx, id)")
+	if passCallIdx < 0 {
+		t.Fatal("expected claimScheduledUpgrade to delegate to claimScheduledUpgradePass — test is stale")
 	}
 
 	// The guard must be an if/else-if shape (both nil falls through past
@@ -82,10 +88,10 @@ func TestClaimScheduledUpgradeGuard_NoMarkerFallsThrough(t *testing.T) {
 	// ...; merr != nil` / `else if marker != nil`, so a future edit that
 	// replaced it with an unconditional refusal would fail this exact
 	// string match (there would be no `if ... :=` init-statement left to
-	// find), and the standing-park read below would become unreachable
+	// find), and the transactional pass below would become unreachable
 	// dead code — this test only needs to confirm the conditional form
 	// survives.
-	guardWindow := fn[condIdx:parkReadIdx]
+	guardWindow := fn[condIdx:passCallIdx]
 	if !strings.Contains(guardWindow, "merr != nil") || !strings.Contains(guardWindow, "marker != nil") {
 		t.Error("the guard must branch on BOTH merr != nil and marker != nil as distinct conditions — a bare, unconditional refusal here would block every upgrade dispatch, including on a perfectly healthy box")
 	}
@@ -102,7 +108,7 @@ func TestClaimScheduledUpgrade_ToleratesNullCommitVersion(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	fn := extractFuncBody(t, string(src), "func (d *Service) claimScheduledUpgrade(")
+	fn := extractFuncBody(t, string(src), "func (d *Service) claimScheduledUpgradePass(")
 	for _, want := range []string{
 		"var commitVersion pgtype.Text",
 		"&commitVersion,",

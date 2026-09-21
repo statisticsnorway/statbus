@@ -173,7 +173,19 @@ var rewindAudit = map[siteKey]rewindDisposition{
 	// ── C. OUTSIDE THE WINDOW — written before the snapshot, so it contains them ──
 	{"cli/internal/upgrade/service.go", "UPDATE", "from_commit_version,started_at,state"}: {
 		Class: classOutsideWindow, Count: 2,
-		Why: "The claim and the CI-not-ready return to 'scheduled' both run BEFORE backupDatabase; no restore window has opened.",
+		Why: "Both writes run before backupDatabase, so no restore window has opened: the CI-not-ready return to scheduled, and the predecessor-schema claim fallback that lacks the later convergence column.",
+	},
+	{"cli/internal/upgrade/service.go", "UPDATE", "from_commit_version,started_at,state,tree_convergence_required"}: {
+		Class: classOutsideWindow, Count: 1,
+		Why: "The claim atomically records the displaced-park convergence obligation before flag acquisition and backupDatabase; no restore window has opened.",
+	},
+	{"cli/internal/upgrade/service.go", "UPDATE", "tree_convergence_required"}: {
+		Class: classOutsideWindow, Count: 2,
+		Why: "Both box-level clears follow positive serving-tree convergence before backupDatabase: ordinary execution clears before capture, while crash recovery clears all carrier rows in the same transaction that reschedules the pre-capture attempt.",
+	},
+	{"cli/internal/upgrade/service.go", "UPDATE", "error,failure_code,from_commit_version,scheduled_at,started_at,state"}: {
+		Class: classOutsideWindow, Count: 1,
+		Why: "Crash recovery positively converges and reschedules an attempt that died between claim and source capture, before backupDatabase ever ran; the same transaction's separate box-level clear is accounted for above.",
 	},
 	{"cli/internal/upgrade/service.go", "UPDATE", "log_relative_file_path"}: {
 		Class: classOutsideWindow, Count: 1,

@@ -238,6 +238,16 @@ type Service struct {
 	// failure changes recovery direction. Production leaves it nil and uses
 	// os.Remove through removePath.
 	removeFile func(string) error
+	// Narrow test seams for the at-target parked-source proof. Production leaves
+	// both nil and uses the real database/schema comparison and read-only-window
+	// flip. Tests inject only these external boundaries while exercising the real
+	// identity, flock, start, health, and maintenance paths.
+	parkEraVerdictForTest     func(context.Context, int) (bool, string)
+	liftReadOnlyWindowForTest func(string) (string, error)
+	// Narrow test seam for the predecessor-schema claim boundary. Production
+	// leaves it nil. The concurrency regression test pauses immediately after
+	// the catalog observation while a migration attempts the shared lock.
+	claimSchemaProbeForTest func(bool)
 }
 
 // SetUnitInstance records the systemd unit name for the deployment's
@@ -2012,6 +2022,23 @@ func (d *Service) recoverFromFlag(ctx context.Context) (err error) {
 		return fmt.Errorf("acquire and revalidate recovery marker before routing: %w", lockErr)
 	}
 	flag = heldFlag
+	requiresConvergence, convergenceState, convergenceErr := d.servingTreeConvergenceObligation(ctx, flag.ID)
+	if convergenceErr != nil {
+		routeLock.Close()
+		return fmt.Errorf("read serving-tree convergence obligation for upgrade %d: %w", flag.ID, convergenceErr)
+	}
+	if requiresConvergence {
+		if convergenceState == "failed" && d.runningAsService {
+			routeLock.Close()
+			logRecover("PARKED_SERVING_TREE_CONVERGENCE_FAILED: upgrade %d remains held with app/worker/rest contained after a failed serving-tree convergence. Run ./sb install for one deliberate retry after repairing the recorded image or Compose cause.", flag.ID)
+			return nil
+		}
+		d.flagLock = routeLock
+		if appendLog == nil {
+			appendLog = NewUpgradeLog(d.projDir, int64(flag.ID), flag.Label(), time.Now().UTC())
+		}
+		return d.recoverServingTreeConvergence(ctx, flag.ID, appendLog)
+	}
 
 	// STATBUS-354 Phase 1: StepRollback is durable direction, not merely the
 	// last operation attempted. recoveryRollback acquires the existing marker
@@ -4161,6 +4188,42 @@ func (d *Service) completeInProgressUpgrade(ctx context.Context) error {
 	if parked {
 		log.Printf("completeInProgressUpgrade: upgrade %d is PARKED (%s) — skipping reconciliation; the flag stays on disk and the row stays parked/in_progress. Re-trigger the upgrade or run ./sb install to make a fresh deliberate attempt.", id, parkReason)
 		return nil
+	}
+	requiresServingTreeConvergence, convergenceState, convergenceErr := d.servingTreeConvergenceObligation(ctx, id)
+	if errors.Is(convergenceErr, pgx.ErrNoRows) {
+		return nil // the initially observed in-progress row changed before recovery claimed it
+	}
+	if convergenceErr != nil {
+		return fmt.Errorf("read flagless serving-tree convergence obligation for upgrade %d: %w", id, convergenceErr)
+	}
+	if convergenceState != "" && convergenceState != "in_progress" {
+		return nil // a concurrent actor changed the row after the initial read
+	}
+	if requiresServingTreeConvergence {
+		// The process died after the displacement+claim transaction committed but
+		// before convergence acquired its ordinary service marker. Re-establish the
+		// canonical flock from durable row identity, converge B's tree/tier, and put
+		// the still-unstarted successor back in the scheduled queue.
+		tentative := UpgradeFlag{
+			ID:        id,
+			CommitSHA: commitSHA,
+			StartedAt: time.Now(),
+			InvokedBy: "recovery:serving-tree-convergence",
+			Trigger:   "recovery",
+			Holder:    HolderService,
+		}
+		lock, lockErr := acquireFreshFlock(d.projDir, tentative)
+		if lockErr != nil {
+			return fmt.Errorf("acquire flagless serving-tree convergence marker for upgrade %d: %w", id, lockErr)
+		}
+		d.flagLock = lock
+		logRelPath := d.loadLogRelPath(ctx, int64(id))
+		progress := AppendProgressLog(d.projDir, logRelPath)
+		if progress == nil {
+			progress = NewUpgradeLog(d.projDir, int64(id), displayName, time.Now().UTC())
+		}
+		defer progress.Close()
+		return d.recoverServingTreeConvergence(ctx, id, progress)
 	}
 
 	// Guarantee flag cleanup on every exit path of this recovery routine.
@@ -6849,6 +6912,12 @@ type upgradeClaimSnapshot struct {
 	FromCommitVersion string
 	StartedAt         time.Time
 	ImmutableJSON     string
+	// Durable row state, not a fact recomputed from this claim attempt. A standing
+	// park displacement can leave the checked-out tree one generation ahead of
+	// the containers that park operability kept serving. The obligation survives
+	// preflight reschedules and process death and clears only after convergence is
+	// positively proved.
+	RequiresServingTreeConvergence bool
 }
 
 type scheduledUpgradeClaim struct {
@@ -6902,6 +6971,91 @@ func (d *Service) claimScheduledUpgrade(ctx context.Context, id int) (scheduledU
 	// The daemon's session-level lock is re-entrant on this same connection; an
 	// inline ./sb install gets the transaction lock only when no live service owns
 	// it. This closes the check-then-claim race around rollback-finish-pending.
+	//
+	// A standing park may be displaced ONLY on the schema that can record the
+	// displacement's serving-tree convergence obligation. The transactional pass
+	// therefore refuses (errClaimParkNeedsObligationSchema, nothing written) when a
+	// park stands and the column is absent. That refusal is the ONE case where the
+	// claim brings its own daemon schema floor in before retrying: the floor is the
+	// same bounded `migrate up --to DaemonSchemaFloor` both boot sites run, its
+	// session-scoped migrate_up lock waits for any in-flight migration, and it is a
+	// no-op when the column already landed. A single fresh pass then observes the
+	// column and records the obligation atomically with the displacement. If the
+	// column is still absent after that, the claim refuses loudly: the park stands,
+	// the candidate stays scheduled, and nothing was displaced.
+	claim, err := d.claimScheduledUpgradePass(ctx, id)
+	if !errors.Is(err, errClaimParkNeedsObligationSchema) {
+		return claim, err
+	}
+	fmt.Printf("STATBUS-159: claim of upgrade id=%d must displace a standing park, but public.upgrade.tree_convergence_required is absent — applying the daemon schema floor %d before displacing (a displacement without a durable convergence obligation is never permitted)\n",
+		id, migrate.DaemonSchemaFloor)
+	if floorErr := d.applyClaimObligationSchemaFloor(ctx); floorErr != nil {
+		return scheduledUpgradeClaim{}, fmt.Errorf("refusing to claim upgrade id=%d: the standing park cannot be displaced until the daemon schema floor %d (public.upgrade.tree_convergence_required) is applied, and applying it failed: %w — the park stands and the candidate remains scheduled; resolve the migration, then re-run ./sb install or wait for the service's next tick", id, migrate.DaemonSchemaFloor, floorErr)
+	}
+	claim, err = d.claimScheduledUpgradePass(ctx, id)
+	if errors.Is(err, errClaimParkNeedsObligationSchema) {
+		return scheduledUpgradeClaim{}, fmt.Errorf("refusing to claim upgrade id=%d: public.upgrade.tree_convergence_required is still absent after applying the daemon schema floor %d, so the standing park cannot be displaced with a durable convergence obligation — the park stands and the candidate remains scheduled; check `./sb migrate up --to %d` on this checkout", id, migrate.DaemonSchemaFloor, migrate.DaemonSchemaFloor)
+	}
+	return claim, err
+}
+
+// errClaimParkNeedsObligationSchema is the transactional pass's refusal when a
+// standing park was observed on a schema without tree_convergence_required. The
+// pass has written nothing (no flag removal, no displacement, no claim) and the
+// transaction is rolled back, releasing both advisory keys.
+var errClaimParkNeedsObligationSchema = errors.New("standing park observed on a schema without public.upgrade.tree_convergence_required")
+
+// applyClaimObligationSchemaFloor brings the daemon schema floor in for a claim
+// that must displace a standing park on a predecessor schema. It first proves the
+// floor migration exists in THIS checkout's migration set (migrate.DiskVersions —
+// the same lister the applier and the observed-state comparator use), so a stale
+// or truncated tree fails informatively instead of running a no-op migrate. The
+// migrate subprocess is the exact bounded form of both boot sites, so a
+// deterministic failure returns the same ExitDeterministic classification. The
+// watchdog cover mirrors the boot site: the daemon's main goroutine is parked in
+// this call, so it needs its own always-ping ticker under WatchdogSec.
+func (d *Service) applyClaimObligationSchemaFloor(ctx context.Context) error {
+	versions, listErr := migrate.DiskVersions(d.projDir)
+	if listErr != nil {
+		return fmt.Errorf("list on-disk migrations: %w", listErr)
+	}
+	floorOnDisk := false
+	for _, version := range versions {
+		if version == migrate.DaemonSchemaFloor {
+			floorOnDisk = true
+			break
+		}
+	}
+	if !floorOnDisk {
+		return fmt.Errorf("migration %d is not in this checkout's migrations/ directory — this binary's daemon floor cannot be applied from the current tree", migrate.DaemonSchemaFloor)
+	}
+	tickerCtx, tickerCancel := context.WithCancel(ctx)
+	tickerDone := make(chan struct{})
+	go runGatedWatchdogTicker(tickerCtx, nil,
+		applyNewSbUpgradingStallThreshold, applyNewSbUpgradingWatchdogCadence,
+		func() { sdNotify("WATCHDOG=1") }, tickerDone)
+	tail, runErr := runCommandToLogCapture(d.projDir, MigrateUpTimeout, io.Discard, "claim-floor-migrate-up", nil,
+		"./sb", "migrate", "up", "--to", strconv.FormatInt(migrate.DaemonSchemaFloor, 10), "--verbose")
+	tickerCancel()
+	<-tickerDone
+	if runErr == nil {
+		return nil
+	}
+	if errors.Is(runErr, ErrCommandTimeout) {
+		d.terminateMigrateOrphan(ctx, nil)
+	}
+	if bootMigrateIsDeterministic(runErr) {
+		return fmt.Errorf("floor migration failed deterministically (exit %d): %w\n%s", migrate.ExitDeterministic, runErr, strings.TrimSpace(tail))
+	}
+	return fmt.Errorf("floor migrate up: %w\n%s", runErr, strings.TrimSpace(tail))
+}
+
+// claimScheduledUpgradePass is one transactional displacement+claim attempt. It
+// returns errClaimParkNeedsObligationSchema, having written nothing, when a park
+// stands on a schema that cannot carry the convergence obligation; the caller
+// owns the floor-apply retry. Every other outcome is final for this attempt.
+func (d *Service) claimScheduledUpgradePass(ctx context.Context, id int) (scheduledUpgradeClaim, error) {
+	var claim scheduledUpgradeClaim
 	tx, txErr := d.queryConn.Begin(ctx)
 	if txErr != nil {
 		return scheduledUpgradeClaim{}, fmt.Errorf("claim id=%d: begin tx: %w", id, txErr)
@@ -6913,6 +7067,38 @@ func (d *Service) claimScheduledUpgrade(ctx context.Context, id int) (scheduledU
 	}
 	if !claimLockHeld {
 		return scheduledUpgradeClaim{}, fmt.Errorf("refusing to claim upgrade id=%d: a running upgrade service owns the upgrade lock and claims scheduled rows itself (within its 30s heartbeat); wait for it, or stop the service before dispatching inline with ./sb install", id)
+	}
+
+	// The claim supports one predecessor schema, so its pg_attribute observation
+	// and every subsequent public.upgrade mutation must belong to one migration
+	// era. migrate.Up holds the session-scoped form of this same advisory key for
+	// the complete migration run. Holding its transaction-scoped form through the
+	// claim commit prevents an ADD COLUMN from landing after the compatibility
+	// probe selected legacy SQL but before displacement+claim commits.
+	//
+	// Lock order is upgrade_daemon then migrate_up. Migration code takes only
+	// migrate_up, so there is no reverse-order path. Both forms auto-release on
+	// transaction/session death.
+	if _, lockErr := tx.Exec(ctx, "SELECT pg_advisory_xact_lock(hashtext('migrate_up'))"); lockErr != nil {
+		return scheduledUpgradeClaim{}, fmt.Errorf("claim id=%d: acquire migrate transaction lock: %w", id, lockErr)
+	}
+
+	// A new binary can briefly claim against its predecessor schema before the
+	// daemon floor migration lands. Probe before any park mutation, under the
+	// shared migration lock, so the selected SQL remains valid through commit.
+	var hasTreeConvergenceColumn bool
+	if schemaErr := tx.QueryRow(ctx, `
+		SELECT EXISTS (
+			SELECT 1
+			  FROM pg_catalog.pg_attribute
+			 WHERE attrelid = 'public.upgrade'::regclass
+			   AND attname = 'tree_convergence_required'
+			   AND NOT attisdropped
+		)`).Scan(&hasTreeConvergenceColumn); schemaErr != nil {
+		return scheduledUpgradeClaim{}, fmt.Errorf("claim id=%d: inspect serving-tree convergence schema: %w", id, schemaErr)
+	}
+	if d.claimSchemaProbeForTest != nil {
+		d.claimSchemaProbeForTest(hasTreeConvergenceColumn)
 	}
 
 	// A rollback-finish-pending row means the previous version is already
@@ -6936,6 +7122,20 @@ func (d *Service) claimScheduledUpgrade(ctx context.Context, id int) (scheduledU
 	hasPark := tx.QueryRow(ctx,
 		"SELECT id, COALESCE(recovery_parked_reason, '') FROM public.upgrade WHERE state = 'in_progress' AND recovery_parked_at IS NOT NULL").
 		Scan(&parkedID, &parkedReason) == nil
+
+	// INVARIANT: a park displacement never commits without recording the box's
+	// serving-tree convergence obligation on a schema that can record it. On the
+	// predecessor schema nothing can carry that obligation, so the legacy branch
+	// must not displace at all — regardless of whether the column migration is
+	// merely pending in this checkout or already waiting on the migrate_up key
+	// this transaction holds. Refuse here, before the flag removal below and
+	// before any public.upgrade write; the rollback releases both advisory keys,
+	// the caller applies the floor, and one fresh pass records the obligation
+	// atomically with the displacement. A no-park claim on the predecessor schema
+	// stays on the harmless legacy branch: there is no obligation to lose.
+	if hasPark && !hasTreeConvergenceColumn {
+		return scheduledUpgradeClaim{}, fmt.Errorf("claim id=%d: parked upgrade id=%d (park reason: %q): %w", id, parkedID, parkedReason, errClaimParkNeedsObligationSchema)
+	}
 
 	// step A: a service-held flag pointing at the parked row is dead weight once we
 	// displace it — remove it FIRST (crash-after-A is a safe, resumable state).
@@ -6970,15 +7170,30 @@ func (d *Service) claimScheduledUpgrade(ctx context.Context, id int) (scheduledU
 		displaced = ct.RowsAffected() > 0
 	}
 
-	// The claim itself: mutating SET + WHERE identical to the two former sites;
-	// RETURNING the superset so both callers are served by one helper.
+	// The claim itself persists the convergence obligation in the same transaction
+	// as displacement. The obligation belongs to the BOX, not to the candidate that
+	// first carried it: an ordinary upgrade_schedule(D) may supersede manifest-waiting
+	// C before C converges the serving tier. Every later claim therefore inherits any
+	// still-true carrier row. Only a positive convergence clears all carriers below.
+	// The RETURNING value, not the ephemeral displaced local, authorizes executeUpgrade.
+	//
 	var commitVersion pgtype.Text
-	claimErr := tx.QueryRow(ctx,
-		`WITH claimed AS (
+	var claimErr error
+	if hasTreeConvergenceColumn {
+		claimErr = tx.QueryRow(ctx,
+			`WITH box_obligation AS MATERIALIZED (
+				SELECT COALESCE(bool_or(tree_convergence_required), false) AS required
+				  FROM public.upgrade
+			),
+			claimed AS (
 			UPDATE public.upgrade
-			   SET state = 'in_progress', started_at = now(), from_commit_version = $1
+			   SET state = 'in_progress',
+			       started_at = now(),
+			       from_commit_version = $1,
+			       tree_convergence_required = tree_convergence_required OR $3 OR (SELECT required FROM box_obligation)
 			 WHERE id = $2 AND state = 'scheduled' AND started_at IS NULL
-			 RETURNING commit_tags, recreate, id, commit_version, commit_sha, from_commit_version, started_at
+			 RETURNING commit_tags, recreate, id, commit_version, commit_sha, from_commit_version, started_at,
+			           tree_convergence_required
 		),
 			labelled AS (
 				-- commit_version is NULLABLE (an untagged commit registered by SHA
@@ -6990,9 +7205,10 @@ func (d *Service) claimScheduledUpgrade(ctx context.Context, id int) (scheduledU
 				       c.recreate,
 				       c.id,
 				       c.commit_version,
-			       c.commit_sha,
-			       COALESCE(c.from_commit_version, '') AS from_commit_version,
-			       c.started_at
+				       c.commit_sha,
+				       COALESCE(c.from_commit_version, '') AS from_commit_version,
+				       c.started_at,
+				       c.tree_convergence_required
 			  FROM claimed AS c
 		)
 		SELECT l.commit_tags,
@@ -7002,6 +7218,7 @@ func (d *Service) claimScheduledUpgrade(ctx context.Context, id int) (scheduledU
 		       l.commit_sha,
 		       l.from_commit_version,
 		       l.started_at,
+		       l.tree_convergence_required,
 		       (SELECT to_json(t)::text
 		          FROM (SELECT l.id AS id,
 		                       l.commit_version AS commit_version,
@@ -7009,16 +7226,63 @@ func (d *Service) claimScheduledUpgrade(ctx context.Context, id int) (scheduledU
 		                       l.from_commit_version AS from_commit_version,
 		                       l.started_at AS started_at) AS t)
 		  FROM labelled AS l`,
-		d.version, id).Scan(
-		&claim.CommitTags,
-		&claim.Recreate,
-		&claim.Snapshot.ID,
-		&commitVersion,
-		&claim.Snapshot.CommitSHA,
-		&claim.Snapshot.FromCommitVersion,
-		&claim.Snapshot.StartedAt,
-		&claim.Snapshot.ImmutableJSON,
-	)
+			d.version, id, displaced).Scan(
+			&claim.CommitTags,
+			&claim.Recreate,
+			&claim.Snapshot.ID,
+			&commitVersion,
+			&claim.Snapshot.CommitSHA,
+			&claim.Snapshot.FromCommitVersion,
+			&claim.Snapshot.StartedAt,
+			&claim.Snapshot.RequiresServingTreeConvergence,
+			&claim.Snapshot.ImmutableJSON,
+		)
+	} else {
+		claimErr = tx.QueryRow(ctx,
+			`WITH claimed AS (
+				UPDATE public.upgrade
+				   SET state = 'in_progress',
+				       started_at = now(),
+				       from_commit_version = $1
+				 WHERE id = $2 AND state = 'scheduled' AND started_at IS NULL
+				 RETURNING commit_tags, recreate, id, commit_version, commit_sha, from_commit_version, started_at
+			),
+			labelled AS (
+				SELECT c.commit_tags,
+				       c.recreate,
+				       c.id,
+				       c.commit_version,
+				       c.commit_sha,
+				       COALESCE(c.from_commit_version, '') AS from_commit_version,
+				       c.started_at
+				  FROM claimed AS c
+			)
+			SELECT l.commit_tags,
+			       l.recreate,
+			       l.id,
+			       l.commit_version,
+			       l.commit_sha,
+			       l.from_commit_version,
+			       l.started_at,
+			       (SELECT to_json(t)::text
+			          FROM (SELECT l.id AS id,
+			                       l.commit_version AS commit_version,
+			                       l.commit_sha AS commit_sha,
+			                       l.from_commit_version AS from_commit_version,
+			                       l.started_at AS started_at) AS t)
+			  FROM labelled AS l`,
+			d.version, id).Scan(
+			&claim.CommitTags,
+			&claim.Recreate,
+			&claim.Snapshot.ID,
+			&commitVersion,
+			&claim.Snapshot.CommitSHA,
+			&claim.Snapshot.FromCommitVersion,
+			&claim.Snapshot.StartedAt,
+			&claim.Snapshot.ImmutableJSON,
+		)
+		claim.Snapshot.RequiresServingTreeConvergence = false
+	}
 	if claimErr != nil {
 		return scheduledUpgradeClaim{}, claimErr // includes pgx.ErrNoRows — callers map it to their own message
 	}
@@ -7027,7 +7291,6 @@ func (d *Service) claimScheduledUpgrade(ctx context.Context, id int) (scheduledU
 	} else {
 		claim.Snapshot.CommitVersion = ShortForDisplay(claim.Snapshot.CommitSHA)
 	}
-
 	if commitErr := tx.Commit(ctx); commitErr != nil {
 		return scheduledUpgradeClaim{}, fmt.Errorf("claim id=%d: commit displace+claim: %w", id, commitErr)
 	}
@@ -7360,6 +7623,34 @@ func (d *Service) executeUpgrade(ctx context.Context, claim upgradeClaimSnapshot
 		return fmt.Errorf("%s", msg)
 	}
 	progress.Write("Writing lock file for exclusive upgrade (%s) ... ok", homeRelativePath(d.flagPath()))
+	// A parked box may deliberately be serving the prior source containers while
+	// its tree and binary are already at the parked target. A daemon-dispatched
+	// successor must not capture that A-container/B-tree mixture as C's source.
+	// Reconcile only the serving tier to the CURRENT tree first. This is the same
+	// bounded --no-build/--no-deps authority used by the normal step-11 family,
+	// never permission to record A as C's source or to skip a generation.
+	if claim.RequiresServingTreeConvergence {
+		if err := d.convergeParkedServingTierToCurrentTree(ctx, progress); err != nil {
+			msg := d.terminateServingTreeConvergenceFailure(ctx, id, err, progress)
+			return fmt.Errorf("%s", msg)
+		}
+		result, clearErr := d.queryConn.Exec(ctx, `
+			UPDATE public.upgrade
+			   SET tree_convergence_required = false
+			 WHERE tree_convergence_required
+			   AND EXISTS (
+			       SELECT 1
+			         FROM public.upgrade AS claimant
+			        WHERE claimant.id = $1
+			          AND claimant.state = 'in_progress'
+			   )`, id)
+		if clearErr != nil || result.RowsAffected() < 1 {
+			msg := fmt.Sprintf("PARKED_SERVING_TREE_CONVERGENCE_CLEAR_FAILED: serving tier converged, but its box-level durable obligation did not clear (rows=%d, error=%v)", result.RowsAffected(), clearErr)
+			d.failUpgradeKeepingFlag(ctx, id, msg, progress)
+			return fmt.Errorf("%s", msg)
+		}
+		progress.Write("Converging the displaced park's serving tier to the current tree before source capture ... ok")
+	}
 	// Capture source image IDs before Step 1 pulls target images. Docker tags are
 	// mutable local pointers: a moving tag or same-short rebuild may retarget the
 	// name during the pull, but it cannot rewrite these recorded immutable IDs.
@@ -7910,7 +8201,7 @@ func (d *Service) parkForDeterministicFailure(ctx context.Context, id int, displ
 		// swap. Start only existing containers whose era is independently proved against
 		// the corresponding target or recorded source identities. Never recreate, compose
 		// up, restore the source tree, or enter the source-recovery route.
-		operabilityNote := d.ensureParkedAtNewServingTier(ctx, commitSHA, progress)
+		operabilityNote := d.ensureParkedAtNewServingTier(ctx, id, commitSHA, progress)
 		if operabilityNote != "" {
 			d.appendParkNarrative(id, operabilityNote)
 		}
@@ -7925,7 +8216,7 @@ func (d *Service) parkForDeterministicFailure(ctx context.Context, id int, displ
 	// Era-guarded + narrative-only on refuse/failure; it only ever STARTS services on permit
 	// and never stops anything. Run on every unreadable-position re-entry (not gated on
 	// freshlyParked) so a next boot safely completes an interrupted restoration.
-	if retreatErr := d.parkServiceRecovery(ctx, id, restoreTargetSHA, progress, d.StartDatabaseRouteServingMayRun); retreatErr != nil {
+	if retreatErr := d.parkServiceRecovery(ctx, id, restoreTargetSHA, progress, d.StartDatabaseRouteServingMayRun, true); retreatErr != nil {
 		return retreatErr
 	}
 	return fmt.Errorf("parked on deterministic forward failure: %s", reason)
@@ -7941,7 +8232,7 @@ func (d *Service) parkForDeterministicFailure(ctx context.Context, id int, displ
 // this helper must not infer position from another contract's preconditions. HARD RULE (ruling
 // Q4): it only ever STARTS services on permit; on refuse or failure it stops NOTHING and changes
 // nothing but the park narrative (appendParkNarrative).
-func (d *Service) parkServiceRecovery(ctx context.Context, id int, restoreTargetSHA string, progress *ProgressLog, startDatabaseRoute func(context.Context) error) error {
+func (d *Service) parkServiceRecovery(ctx context.Context, id int, restoreTargetSHA string, progress *ProgressLog, startDatabaseRoute func(context.Context) error, routeMayRun bool) error {
 	// STATBUS-204: this helper OWNS its own watchdog cover. Its slow span — parkEraVerdict's
 	// selected database-route start (which may wait up to ~60s for DB health) plus
 	// restoreSourceServices (existing-container start + bounded health + the restores) — can
@@ -8004,6 +8295,9 @@ func (d *Service) parkServiceRecovery(ctx context.Context, id int, restoreTarget
 
 	permit, refusal := d.parkEraVerdict(ctx, id, startDatabaseRoute)
 	if !permit {
+		if routeMayRun {
+			refusal = mayRunSchemaRefusalNarrative(refusal)
+		}
 		d.appendParkNarrative(id, refusal)
 		return nil
 	}
@@ -8104,6 +8398,36 @@ func (d *Service) parkEraVerdict(ctx context.Context, id int, startDatabaseRoute
 		return false, fmt.Sprintf("%s: the source version's migration set could not be read (%v)", held, serr)
 	}
 	return parkEraDecision(dbMax, srcMax)
+}
+
+func (d *Service) parkedSourceSchemaVerdict(ctx context.Context, id int) (bool, string) {
+	if d.parkEraVerdictForTest != nil {
+		permit, refusal := d.parkEraVerdictForTest(ctx, id)
+		if !permit {
+			refusal = mayRunSchemaRefusalNarrative(refusal)
+		}
+		return permit, refusal
+	}
+	permit, refusal := d.parkEraVerdict(ctx, id, d.StartDatabaseRouteServingMayRun)
+	if !permit {
+		refusal = mayRunSchemaRefusalNarrative(refusal)
+	}
+	return permit, refusal
+}
+
+func mayRunSchemaRefusalNarrative(cause string) string {
+	cause = strings.TrimSpace(strings.TrimPrefix(cause, "services held down:"))
+	if strings.Contains(cause, "database could not be started") {
+		return fmt.Sprintf("source-schema proof could not authorize the source-era start; MayRun attempted route-only db+proxy startup but it did not complete; app/worker/rest serving tier was untouched: %s", cause)
+	}
+	return fmt.Sprintf("source-schema proof refused the source-era start; db+proxy were started route-only by MayRun for that proof; app/worker/rest serving tier was untouched: %s", cause)
+}
+
+func (d *Service) liftParkedSourceReadOnlyWindow(reason string) (string, error) {
+	if d.liftReadOnlyWindowForTest != nil {
+		return d.liftReadOnlyWindowForTest(reason)
+	}
+	return d.liftReadOnlyWindow(reason)
 }
 
 // parkEraDecision is the pure SOURCE-IDENTITY comparison at the heart of the era guard
@@ -8412,6 +8736,9 @@ func (d *Service) startExistingSourceServingTier(ctx context.Context, targetComm
 	if !running {
 		return fmt.Errorf("source serving containers are not all running after docker compose start")
 	}
+	if err := d.healthCheck(progress, 5, 5*time.Second); err != nil {
+		return fmt.Errorf("source services did not pass the parked-box health gate: %w", err)
+	}
 	return nil
 }
 
@@ -8420,9 +8747,18 @@ func (d *Service) startExistingSourceServingTier(ctx context.Context, targetComm
 // leg case and stays byte-for-byte untouched. Proved stopped/unknown target-era
 // containers retain the existing bounded start path. If target identity itself
 // fails, the pre-pull code-only shape may instead start independently recorded
-// source-era containers in place. Every failure is narrative-only because the
+// source-era containers in place, but only after the existing source-schema
+// comparison proves the database is still source-compatible. The helper owns the
+// canonical marker flock across observation, proof, start, health, and postcheck,
+// including the flagless caller. Every failure is narrative-only because the
 // senior park write has already landed and must never be undone or blocked.
-func (d *Service) ensureParkedAtNewServingTier(ctx context.Context, targetCommitSHA string, progress *ProgressLog) string {
+func (d *Service) ensureParkedAtNewServingTier(ctx context.Context, id int, targetCommitSHA string, progress *ProgressLog) string {
+	releaseFlagHold, lockErr := d.adoptOrAcquireFlagHold()
+	if lockErr != nil {
+		return fmt.Sprintf("parked serving-tier operability was skipped because another live actor holds the upgrade marker flock (%v); no containers were started and the park remains landed", lockErr)
+	}
+	defer releaseFlagHold()
+
 	targetEntries, targetIdentityErr := d.targetServingContainerEntries(ctx, targetCommitSHA)
 	if targetIdentityErr == nil {
 		running, observationErr := servingTierRunning(targetEntries)
@@ -8454,16 +8790,164 @@ func (d *Service) ensureParkedAtNewServingTier(ctx context.Context, targetCommit
 	if progress != nil {
 		progress.Write("Existing serving containers are not target-era (%v); checking recorded source-era identities for an in-place operability start.", targetIdentityErr)
 	}
+	permitSource, schemaRefusal := d.parkedSourceSchemaVerdict(ctx, id)
+	if !permitSource {
+		if progress != nil {
+			progress.Write("Starting existing source-version services for parked-box operability ... refused: %s", schemaRefusal)
+		}
+		return fmt.Sprintf("serving containers were not started for parked-box operability: target-era identity proof failed (%v); source-schema compatibility proof refused the source-era start (%s); the park remains landed and no recreate or source-recovery path was attempted", targetIdentityErr, schemaRefusal)
+	}
 	if err := d.startExistingSourceServingTier(ctx, targetCommitSHA, progress); err != nil {
 		if progress != nil {
 			progress.Write("Starting existing source-version services for parked-box operability ... failed: %v", err)
 		}
 		return fmt.Sprintf("serving containers could not be started in place for parked-box operability: target-era identity proof failed (%v); source-era identities could not be proven or started (%v); the park remains landed and no recreate or source-recovery path was attempted", targetIdentityErr, err)
 	}
-	if progress != nil {
-		progress.Write("Starting existing source-version services for parked-box operability ... ok (serving source-era containers; automatic retries remain paused)")
+	// Historical parkServiceRecovery made its "operator remedy lever is up"
+	// promise only after functional health, then used the sanctioned maintenance
+	// marker removal followed by the teardown-immune read-only-window flip. This
+	// start-only path now has the same schema, identity, and health proofs, so it
+	// may restore that same operator boundary without restoring source assets.
+	if err := d.setMaintenance(false, ""); err != nil {
+		return fmt.Sprintf("source-era serving containers are running and healthy, but maintenance mode did not lift (%v); the park remains landed and no recreate or source-recovery path was attempted", err)
 	}
-	return "serving source-era containers for parked-box operability: existing source-version serving containers were started in place; automatic retries remain paused and no recreate or source-recovery path was attempted"
+	if _, err := d.liftParkedSourceReadOnlyWindow("serve-proven parked source health check"); err != nil {
+		return fmt.Sprintf("source-era serving containers are running and healthy and maintenance is off, but the read-only window did not lift (%v); the park remains landed and no recreate or source-recovery path was attempted", err)
+	}
+	if progress != nil {
+		progress.Write("Starting existing source-version services for parked-box operability ... ok (serving source-era containers; operator UI restored; automatic retries remain paused)")
+	}
+	return "serving source-era containers for parked-box operability: existing source-version serving containers were schema-proved, started in place, passed health, and restored operator UI access; automatic retries remain paused and no recreate or source-recovery path was attempted"
+}
+
+// convergeParkedServingTierToCurrentTree repairs the only authorized mixed
+// baseline before a successor capture: a displaced parked row may have kept its
+// source containers serving while the checkout remained at that row's target.
+// The successor must capture the tree generation, never the older containers.
+func (d *Service) convergeParkedServingTierToCurrentTree(ctx context.Context, progress *ProgressLog) error {
+	treeSHA, err := d.RevParse(ctx, "HEAD")
+	if err != nil {
+		return fmt.Errorf("resolve current tree commit: %w", err)
+	}
+	if entries, proofErr := d.targetServingContainerEntries(ctx, string(treeSHA)); proofErr == nil {
+		if running, stateErr := servingTierRunning(entries); stateErr == nil && running {
+			return nil
+		}
+	}
+
+	args := append([]string{"-d", "--no-build", "--no-deps"}, step11RestartServices...)
+	commandCtx, cancel := context.WithTimeout(ctx, 5*time.Minute)
+	command, buildErr := compose.Up(commandCtx, d.projDir, args...)
+	var commandErr error
+	var output string
+	if buildErr != nil {
+		commandErr = buildErr
+	} else if progress != nil {
+		output, commandErr = runPreparedCommandToLogCapture(commandCtx, command, 5*time.Minute, progress.File(), "park-successor-docker-compose", progress.bump, "docker compose up", args)
+	} else {
+		output, commandErr = runPreparedCommandOutput(commandCtx, command, 5*time.Minute, "docker compose up", args)
+	}
+	cancel()
+	if commandErr != nil {
+		return fmt.Errorf("docker compose up -d --no-build --no-deps app worker rest proxy: %w (%s)", commandErr, strings.TrimSpace(output))
+	}
+	entries, err := d.targetServingContainerEntries(ctx, string(treeSHA))
+	if err != nil {
+		return fmt.Errorf("prove serving tier matches current tree after controlled recreate: %w", err)
+	}
+	running, err := servingTierRunning(entries)
+	if err != nil {
+		return fmt.Errorf("verify current-tree serving states after controlled recreate: %w", err)
+	}
+	if !running {
+		return fmt.Errorf("current-tree serving containers are not all running after controlled recreate")
+	}
+	if err := d.healthCheck(progress, 5, 5*time.Second); err != nil {
+		return fmt.Errorf("current-tree serving tier did not pass health after controlled recreate: %w", err)
+	}
+	return nil
+}
+
+func (d *Service) servingTreeConvergenceObligation(ctx context.Context, id int) (required bool, state string, err error) {
+	err = d.queryConn.QueryRow(ctx,
+		`SELECT COALESCE(bool_or(tree_convergence_required), false),
+		        COALESCE((SELECT claimant.state::text FROM public.upgrade AS claimant WHERE claimant.id = $1), '')
+		   FROM public.upgrade`, id).
+		Scan(&required, &state)
+	var pgErr *pgconn.PgError
+	if errors.As(err, &pgErr) && pgErr.Code == "42703" {
+		// A binary can enter crash recovery against the predecessor schema before
+		// this migration has landed. That schema could not have recorded this new
+		// obligation, so absence is authoritative false rather than permission to
+		// fail an unrelated legacy recovery.
+		return false, "", nil
+	}
+	return required, state, err
+}
+
+// recoverServingTreeConvergence is the crash/terminal retry boundary for the
+// durable obligation. The caller owns the canonical marker flock. A successful
+// proof clears the obligation and returns the not-yet-started candidate to the
+// scheduled queue in one transaction. Failure contains clients and retains the marker.
+func (d *Service) recoverServingTreeConvergence(ctx context.Context, id int, progress *ProgressLog) error {
+	progress.Write("Recovering the displaced park's serving tier against the checked-out tree before retrying source capture ...")
+	if err := d.convergeParkedServingTierToCurrentTree(ctx, progress); err != nil {
+		msg := d.terminateServingTreeConvergenceFailure(ctx, id, err, progress)
+		return fmt.Errorf("%s", msg)
+	}
+	tx, txErr := d.queryConn.Begin(ctx)
+	if txErr != nil {
+		msg := fmt.Sprintf("PARKED_SERVING_TREE_CONVERGENCE_CLEAR_FAILED: serving tier converged during recovery, but beginning the box-level clear transaction failed: %v", txErr)
+		d.failUpgradeKeepingFlag(ctx, id, msg, progress)
+		return fmt.Errorf("%s", msg)
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+	failClear := func(msg string) error {
+		// failUpgradeKeepingFlag uses d.queryConn directly. End this transaction
+		// first so the terminal writer never races a still-busy pgx connection.
+		_ = tx.Rollback(ctx)
+		d.failUpgradeKeepingFlag(ctx, id, msg, progress)
+		return fmt.Errorf("%s", msg)
+	}
+	rescheduled, err := tx.Exec(ctx, `
+		UPDATE public.upgrade
+		   SET state = 'scheduled',
+		       scheduled_at = COALESCE(scheduled_at, now()),
+		       started_at = NULL,
+		       from_commit_version = NULL,
+		       error = NULL,
+		       failure_code = NULL
+		 WHERE id = $1
+		   AND state IN ('in_progress', 'failed')`, id)
+	if err != nil || rescheduled.RowsAffected() != 1 {
+		msg := fmt.Sprintf("PARKED_SERVING_TREE_CONVERGENCE_CLEAR_FAILED: serving tier converged during recovery, but the claimant could not be rescheduled exactly once (rows=%d, error=%v)", rescheduled.RowsAffected(), err)
+		return failClear(msg)
+	}
+	cleared, err := tx.Exec(ctx,
+		"UPDATE public.upgrade SET tree_convergence_required = false WHERE tree_convergence_required")
+	if err != nil || cleared.RowsAffected() < 1 {
+		msg := fmt.Sprintf("PARKED_SERVING_TREE_CONVERGENCE_CLEAR_FAILED: serving tier converged during recovery, but the box-level durable obligation did not clear (rows=%d, error=%v)", cleared.RowsAffected(), err)
+		return failClear(msg)
+	}
+	if err := tx.Commit(ctx); err != nil {
+		msg := fmt.Sprintf("PARKED_SERVING_TREE_CONVERGENCE_CLEAR_FAILED: serving tier converged during recovery, but committing the reschedule and box-level clear failed: %v", err)
+		return failClear(msg)
+	}
+	progress.Write("Recovering the displaced park's serving tier against the checked-out tree ... converged and returned to scheduled retry")
+	if err := d.removeUpgradeFlag(); err != nil {
+		return fmt.Errorf("remove serving-tree convergence recovery marker after successful reschedule: %w", err)
+	}
+	return nil
+}
+
+func (d *Service) terminateServingTreeConvergenceFailure(ctx context.Context, id int, convergenceErr error, progress *ProgressLog) string {
+	containmentErr := d.ensureRecoveryClientsStopped(ctx, progress)
+	msg := fmt.Sprintf("PARKED_SERVING_TREE_CONVERGENCE_FAILED: could not converge the displaced park's serving tier to the current tree before source capture: %v; application clients stopped and positively verified", convergenceErr)
+	if containmentErr != nil {
+		msg = fmt.Sprintf("PARKED_SERVING_TREE_CONVERGENCE_FAILED: could not converge the displaced park's serving tier to the current tree before source capture: %v; application client containment NOT VERIFIED: %v", convergenceErr, containmentErr)
+	}
+	d.failUpgradeCodedKeepingFlag(ctx, id, ErrDockerUpFailed, msg, progress)
+	return msg
 }
 
 // ServingEra is observed container identity, never caller intent. Recovery must
@@ -10481,7 +10965,7 @@ func (d *Service) RecoveryBudgetGuard(ctx context.Context) (skipBootMigrate bool
 		// lose the story, never the box. Liveness does not depend on the log either — the helper's
 		// own always-ping watchdog ticker covers the span (204), not progress.Write's heartbeat.
 		plog := AppendProgressLog(d.projDir, d.loadLogRelPath(ctx, int64(flag.ID)))
-		if retreatErr := d.parkServiceRecovery(ctx, flag.ID, "", plog, d.StartDatabaseRouteServingMustBeStopped); retreatErr != nil {
+		if retreatErr := d.parkServiceRecovery(ctx, flag.ID, "", plog, d.StartDatabaseRouteServingMustBeStopped, false); retreatErr != nil {
 			log.Printf("RecoveryBudgetGuard: %v — source services remain restored; the park marker needs operator reconciliation", retreatErr)
 		}
 		plog.Close()
@@ -10975,7 +11459,7 @@ func (d *Service) resumeNewSb(ctx context.Context, flag UpgradeFlag) error {
 			// refuse/failure) so a same-step-twice park is alive-idle AND operable, not dark. The
 			// helper owns its watchdog cover. restoreTargetSHA="" falls back to this attempt's
 			// pre-upgrade pin (identity holds post-197).
-			if retreatErr := d.parkServiceRecovery(ctx, flag.ID, "", progress, d.StartDatabaseRouteServingMustBeStopped); retreatErr != nil {
+			if retreatErr := d.parkServiceRecovery(ctx, flag.ID, "", progress, d.StartDatabaseRouteServingMustBeStopped, false); retreatErr != nil {
 				log.Printf("resumeNewSb: %v — source services remain restored; the park marker needs operator reconciliation", retreatErr)
 			}
 			progress.Close()
@@ -11248,6 +11732,10 @@ func (d *Service) failUpgrade(ctx context.Context, id int, errMsg string, progre
 
 func (d *Service) failUpgradeCoded(ctx context.Context, id int, failureCode UpgradeFailureCode, errMsg string, progress *ProgressLog) {
 	d.failUpgradeWithFlagDisposition(ctx, id, &failureCode, errMsg, progress, false)
+}
+
+func (d *Service) failUpgradeCodedKeepingFlag(ctx context.Context, id int, failureCode UpgradeFailureCode, errMsg string, progress *ProgressLog) {
+	d.failUpgradeWithFlagDisposition(ctx, id, &failureCode, errMsg, progress, true)
 }
 
 // failUpgradeKeepingFlag records the same durable failed row as failUpgrade but

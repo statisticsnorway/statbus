@@ -290,9 +290,9 @@ func recoveryComposeUpViolation(bodies map[string]serviceMethodInfo) error {
 		}
 	}
 	sort.Strings(reachedUps)
-	wantReachedUps := []string{"applyNewSbUpgrading", "completeInProgressUpgrade", "startSourceApplicationStack"}
+	wantReachedUps := []string{"applyNewSbUpgrading", "completeInProgressUpgrade", "convergeParkedServingTierToCurrentTree", "startSourceApplicationStack"}
 	if fmt.Sprint(reachedUps) != fmt.Sprint(wantReachedUps) {
-		return fmt.Errorf("recovery entry/failure closure reaches compose-up functions %v; want only forward continuation, flagless AtTarget serve-proof, and era-verified source recreation %v", reachedUps, wantReachedUps)
+		return fmt.Errorf("recovery entry/failure closure reaches compose-up functions %v; want only forward continuation, durable displaced-park convergence, flagless AtTarget serve-proof, and era-verified source recreation %v", reachedUps, wantReachedUps)
 	}
 
 	// completeInProgressUpgrade is an entry root with a Behind rollback branch
@@ -350,6 +350,12 @@ func TestRecoveryFailureClosureHasNoUngatedComposeUp(t *testing.T) {
 	postSourceIdx := strings.Index(boundary, "postEra != ServingEraSource")
 	if deriveIdx < 0 || targetIdx < deriveIdx || upIdx < targetIdx || postDeriveIdx < upIdx || postSourceIdx < postDeriveIdx {
 		t.Fatalf("typed source convergence order must be derive -> Target case -> compose up -> rederive -> require Source; derive=%d target=%d up=%d postDerive=%d postSource=%d", deriveIdx, targetIdx, upIdx, postDeriveIdx, postSourceIdx)
+	}
+	parkedSuccessor := bodies["convergeParkedServingTierToCurrentTree"].body
+	for _, required := range []string{"--no-build", "--no-deps", "targetServingContainerEntries", "servingTierRunning", "d.healthCheck("} {
+		if !strings.Contains(parkedSuccessor, required) {
+			t.Fatalf("durable displaced-park convergence authority/postcondition is missing %q", required)
+		}
 	}
 
 	// completeInProgressUpgrade contains both a Behind rollback branch and a

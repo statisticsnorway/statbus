@@ -134,6 +134,37 @@ func readParkedTargetDockerLog(t *testing.T, logPath string) string {
 	return string(data)
 }
 
+func parkedSourceOperabilityService(t *testing.T, projDir string) (*Service, string, *bool) {
+	t.Helper()
+	srv, _ := sourceStackHealthServer(t)
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	maintenancePath := maintenanceFlagHostPath()
+	if err := os.MkdirAll(filepath.Dir(maintenancePath), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(maintenancePath, []byte("parked maintenance"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	lifted := false
+	d := &Service{
+		projDir:        projDir,
+		cachedURL:      srv.URL + "/rpc/auth_status",
+		cachedReadyURL: srv.URL + "/ready",
+		parkEraVerdictForTest: func(_ context.Context, _ int) (bool, string) {
+			return parkEraDecision(20260921000000, 20260921000000)
+		},
+		liftReadOnlyWindowForTest: func(reason string) (string, error) {
+			if !strings.Contains(reason, "parked source health") {
+				t.Fatalf("read-only lift reason = %q, want parked source health", reason)
+			}
+			lifted = true
+			return "ALTER DATABASE test SET default_transaction_read_only = off", nil
+		},
+	}
+	return d, maintenancePath, &lifted
+}
+
 // TestParkForDeterministicFailureAtTargetPreStartRoutesToTargetOperability composes
 // the live helper tests below with the real park route. It is the mutation oracle:
 // restoring the old unconditional ObservedAlreadyAtNew return removes the helper
@@ -142,12 +173,12 @@ func TestParkForDeterministicFailureAtTargetPreStartRoutesToTargetOperability(t 
 	src := string(packageGoSources(t)["service.go"])
 	park := extractFuncBody(t, src, "func (d *Service) parkForDeterministicFailure(")
 	atTargetIdx := strings.Index(park, "if obsState == ObservedAlreadyAtNew {")
-	unreadableIdx := strings.Index(park, "d.parkServiceRecovery(ctx, id, restoreTargetSHA, progress, d.StartDatabaseRouteServingMayRun)")
+	unreadableIdx := strings.Index(park, "d.parkServiceRecovery(ctx, id, restoreTargetSHA, progress, d.StartDatabaseRouteServingMayRun, true)")
 	if atTargetIdx < 0 || unreadableIdx <= atTargetIdx {
 		t.Fatalf("could not isolate the at-target park branch: atTarget@%d unreadable@%d", atTargetIdx, unreadableIdx)
 	}
 	branch := park[atTargetIdx:unreadableIdx]
-	ensureIdx := strings.Index(branch, "d.ensureParkedAtNewServingTier(ctx, commitSHA, progress)")
+	ensureIdx := strings.Index(branch, "d.ensureParkedAtNewServingTier(ctx, id, commitSHA, progress)")
 	appendIdx := strings.Index(branch, "d.appendParkNarrative(id, operabilityNote)")
 	returnIdx := strings.Index(branch, `return fmt.Errorf("parked on deterministic forward failure: %s", reason)`)
 	if ensureIdx < 0 || appendIdx < ensureIdx || returnIdx < appendIdx {
@@ -167,7 +198,7 @@ func TestEnsureParkedAtNewServingTierStartsStoppedTargetContainersInPlace(t *tes
 	}, false)
 
 	d := &Service{projDir: git.dir}
-	note := d.ensureParkedAtNewServingTier(context.Background(), git.newSHA, nil)
+	note := d.ensureParkedAtNewServingTier(context.Background(), 1, git.newSHA, nil)
 	if !strings.Contains(note, "started in place for parked-box operability") {
 		t.Fatalf("success narrative = %q, want in-place operability start", note)
 	}
@@ -203,8 +234,8 @@ func TestEnsureParkedAtNewServingTierStartsProvedSourceContainersInPlace(t *test
 			t.Setenv("STATBUS_TEST_PROXY_CONTAINER_ID", servingEraTestImageID('4'))
 			proof.write(t, git.dir, git.newSHA, sourceTag)
 
-			d := &Service{projDir: git.dir}
-			note := d.ensureParkedAtNewServingTier(context.Background(), git.newSHA, nil)
+			d, maintenancePath, lifted := parkedSourceOperabilityService(t, git.dir)
+			note := d.ensureParkedAtNewServingTier(context.Background(), 1, git.newSHA, nil)
 			if !strings.Contains(note, "serving source-era containers for parked-box operability") {
 				t.Fatalf("source-era success narrative = %q, want honest source-era operability label", note)
 			}
@@ -217,7 +248,102 @@ func TestEnsureParkedAtNewServingTierStartsProvedSourceContainersInPlace(t *test
 					t.Fatalf("source-era park operability must not use target-image or recreate action %q:\n%s", forbidden, log)
 				}
 			}
+			if _, err := os.Stat(maintenancePath); !os.IsNotExist(err) {
+				t.Fatalf("successful source operability must remove the sanctioned maintenance marker, stat err=%v", err)
+			}
+			if !*lifted {
+				t.Fatal("successful source operability must lift the read-only window after health")
+			}
 		})
+	}
+}
+
+func TestAstraReviewPostDeltaParkMustNotStartSource(t *testing.T) {
+	// Exact reachable step-11 disk-precheck shape: target migrations committed,
+	// so position is AtNew, but compose up has not run and the stopped serving
+	// containers are still the recorded source era.
+	const sourceMax int64 = 20260921000000
+	const targetMax int64 = 20260922000000
+	observed, _, _ := migrationObservedStateFromVersions([]int64{sourceMax, targetMax}, []int64{sourceMax, targetMax})
+	if observed != ObservedAlreadyAtNew {
+		t.Fatalf("post-migration pre-step-11 fixture position = %v, want AtNew", observed)
+	}
+	git := newGitRepoFixture(t)
+	sourceTag := git.oldSHA[:8]
+	logPath := installParkedTargetDockerShim(t, git.newSHA[:8], map[string]string{
+		"app": "exited", "worker": "exited", "rest": "exited", "proxy": "running",
+	}, false)
+	t.Setenv("STATBUS_TEST_CONTAINER_TAG", sourceTag)
+	t.Setenv("STATBUS_TEST_APP_CONTAINER_ID", servingEraTestImageID('1'))
+	t.Setenv("STATBUS_TEST_WORKER_CONTAINER_ID", servingEraTestImageID('2'))
+	t.Setenv("STATBUS_TEST_REST_CONTAINER_ID", servingEraTestImageID('3'))
+	t.Setenv("STATBUS_TEST_PROXY_CONTAINER_ID", servingEraTestImageID('4'))
+	writeParkedSourceIdentityFlag(t, git.dir, git.newSHA, sourceTag)
+
+	srv, _ := sourceStackHealthServer(t)
+	d := &Service{
+		projDir:        git.dir,
+		cachedURL:      srv.URL + "/rpc/auth_status",
+		cachedReadyURL: srv.URL + "/ready",
+		parkEraVerdictForTest: func(_ context.Context, _ int) (bool, string) {
+			return parkEraDecision(targetMax, sourceMax)
+		},
+		liftReadOnlyWindowForTest: func(string) (string, error) {
+			return "ALTER DATABASE test SET default_transaction_read_only = off", nil
+		},
+	}
+	note := d.ensureParkedAtNewServingTier(context.Background(), 1, git.newSHA, nil)
+	log := readParkedTargetDockerLog(t, logPath)
+	if strings.Contains(log, "compose start") {
+		t.Fatalf("post-migration pre-step-11 park must not start source containers:\n%s", log)
+	}
+	if !strings.Contains(note, "migration delta applied") || !strings.Contains(note, "source-schema compatibility proof refused") {
+		t.Fatalf("post-delta refusal narrative = %q, want real schema-comparator refusal", note)
+	}
+	wantNarrative := "source-schema proof refused the source-era start; db+proxy were started route-only by MayRun for that proof; app/worker/rest serving tier was untouched"
+	if !strings.Contains(note, wantNarrative) {
+		t.Fatalf("post-delta refusal narrative = %q, want precise MayRun route-only wording %q", note, wantNarrative)
+	}
+}
+
+func TestMayRunSchemaRefusalNarrativeDoesNotClaimFailedRouteStarted(t *testing.T) {
+	note := mayRunSchemaRefusalNarrative("services held down: the database could not be started to verify source-version identity (synthetic route failure)")
+	if !strings.Contains(note, "MayRun attempted route-only db+proxy startup but it did not complete") ||
+		!strings.Contains(note, "app/worker/rest serving tier was untouched") {
+		t.Fatalf("failed MayRun route narrative = %q, want truthful attempted-route wording", note)
+	}
+	if strings.Contains(note, "db+proxy were started") {
+		t.Fatalf("failed MayRun route narrative falsely claims route startup succeeded: %q", note)
+	}
+}
+
+func TestAstraReviewFlaglessParkMustRespectOperatorStartLock(t *testing.T) {
+	git := newGitRepoFixture(t)
+	sourceTag := git.oldSHA[:8]
+	logPath := installParkedTargetDockerShim(t, git.newSHA[:8], nil, false)
+	writeParkedSourceIdentityFlag(t, git.dir, git.newSHA, sourceTag)
+	guard, err := AcquireOperatorStartGuard(git.dir, "operator:start:test")
+	if err != nil {
+		t.Fatalf("AcquireOperatorStartGuard: %v", err)
+	}
+	defer func() {
+		if releaseErr := guard.Release(); releaseErr != nil {
+			t.Errorf("release operator start guard: %v", releaseErr)
+		}
+	}()
+
+	d := &Service{projDir: git.dir}
+	note := d.ensureParkedAtNewServingTier(context.Background(), 1, git.newSHA, nil)
+	if !strings.Contains(note, "another live actor holds the upgrade marker flock") || !strings.Contains(note, "no containers were started") {
+		t.Fatalf("flock contention narrative = %q", note)
+	}
+	logBytes, readErr := os.ReadFile(logPath)
+	if readErr != nil && !os.IsNotExist(readErr) {
+		t.Fatal(readErr)
+	}
+	log := string(logBytes)
+	if strings.Contains(log, "compose start") || strings.Contains(log, "compose up") {
+		t.Fatalf("flagless park must not mutate containers while operator start owns the flock:\n%s", log)
 	}
 }
 
@@ -226,7 +352,7 @@ func TestEnsureParkedAtNewServingTierKeepsRunningHealthLegUntouched(t *testing.T
 	logPath := installParkedTargetDockerShim(t, git.newSHA[:8], nil, false)
 
 	d := &Service{projDir: git.dir}
-	note := d.ensureParkedAtNewServingTier(context.Background(), git.newSHA, nil)
+	note := d.ensureParkedAtNewServingTier(context.Background(), 1, git.newSHA, nil)
 	if note != "" {
 		t.Fatalf("running target serving tier narrative = %q, want empty", note)
 	}
@@ -246,7 +372,7 @@ func TestEnsureParkedAtNewServingTierStartFailureIsNarrativeOnly(t *testing.T) {
 	}, true)
 
 	d := &Service{projDir: git.dir}
-	note := d.ensureParkedAtNewServingTier(context.Background(), git.newSHA, nil)
+	note := d.ensureParkedAtNewServingTier(context.Background(), 1, git.newSHA, nil)
 	if !strings.Contains(note, "could not be started in place") || !strings.Contains(note, "synthetic target start failure") {
 		t.Fatalf("failure narrative = %q, want the bounded start failure", note)
 	}
@@ -267,7 +393,7 @@ func TestEnsureParkedAtNewServingTierUnknownStateStillAttemptsTargetStart(t *tes
 	logPath := installParkedTargetDockerShim(t, git.newSHA[:8], map[string]string{"app": "mystery"}, false)
 
 	d := &Service{projDir: git.dir}
-	note := d.ensureParkedAtNewServingTier(context.Background(), git.newSHA, nil)
+	note := d.ensureParkedAtNewServingTier(context.Background(), 1, git.newSHA, nil)
 	if !strings.Contains(note, "started in place for parked-box operability") {
 		t.Fatalf("unknown-state narrative = %q, want the safe target start path", note)
 	}
@@ -288,8 +414,13 @@ func TestEnsureParkedAtNewServingTierLeavesUnprovedSourceContainersDown(t *testi
 	t.Setenv("STATBUS_TEST_REST_CONTAINER_ID", servingEraTestImageID('3'))
 	t.Setenv("STATBUS_TEST_PROXY_CONTAINER_ID", servingEraTestImageID('4'))
 
-	d := &Service{projDir: git.dir}
-	note := d.ensureParkedAtNewServingTier(context.Background(), git.newSHA, nil)
+	d := &Service{
+		projDir: git.dir,
+		parkEraVerdictForTest: func(context.Context, int) (bool, string) {
+			return parkEraDecision(1, 1)
+		},
+	}
+	note := d.ensureParkedAtNewServingTier(context.Background(), 1, git.newSHA, nil)
 	if !strings.Contains(note, "source-era identities could not be proven") ||
 		!strings.Contains(note, "neither the recovery marker nor the source-image carrier") ||
 		!strings.Contains(note, "the park remains landed") {

@@ -8,8 +8,9 @@ import (
 
 // Recovery-route callers serve two incompatible contracts. Position is established
 // once, then selects the route contract: deterministic parks with unreadable position
-// may inspect through the route-only contract, while source-restoration and rollback
-// schema-floor work retain the held-closed contract.
+// may inspect through the route-only contract. The AtNew source-operability arm
+// separately reuses that same source-schema proof through MayRun, while
+// source-restoration and rollback schema-floor work retain held-closed contracts.
 func TestRecoveryRouteCallersSplitByContract(t *testing.T) {
 	serviceSourceBytes, err := os.ReadFile(thisRepoFile(t, "cli/internal/upgrade/service.go"))
 	if err != nil {
@@ -32,6 +33,9 @@ func TestRecoveryRouteCallersSplitByContract(t *testing.T) {
 	if !strings.Contains(deterministicPark, "d.StartDatabaseRouteServingMayRun") {
 		t.Error("unreadable-position deterministic park must use route-only startup because serving clients may legitimately be live")
 	}
+	if !strings.Contains(deterministicPark, "d.StartDatabaseRouteServingMayRun, true") {
+		t.Error("unreadable-position deterministic park must pair the MayRun route with its precise route-only narrative discriminator")
+	}
 	if strings.Contains(deterministicPark, "d.StartDatabaseRouteServingMustBeStopped") {
 		t.Error("held-closed startup must not be reachable from parkForDeterministicFailure after its observed-position verdict")
 	}
@@ -51,8 +55,11 @@ func TestRecoveryRouteCallersSplitByContract(t *testing.T) {
 	if got := strings.Count(serviceSource, "d.StartDatabaseRouteServingMustBeStopped"); got != 3 {
 		t.Fatalf("held-closed startup must have exactly the two park source-restoration selections plus rollback schema-floor replay; got %d", got)
 	}
-	if got := strings.Count(serviceSource, "d.StartDatabaseRouteServingMayRun"); got != 2 {
-		t.Fatalf("service.go route-only startup must appear only in unreadable-position deterministic park and rollback ABORT; got %d", got)
+	if got := strings.Count(serviceSource, "d.StartDatabaseRouteServingMayRun"); got != 3 {
+		t.Fatalf("service.go route-only startup must appear only in unreadable-position deterministic park, AtNew source-schema proof, and rollback ABORT; got %d", got)
+	}
+	if got := strings.Count(serviceSource, "d.StartDatabaseRouteServingMustBeStopped, false"); got != 2 {
+		t.Fatalf("the two held-closed park recovery callers must pair MustBeStopped with the non-MayRun narrative discriminator; got %d", got)
 	}
 	if got := strings.Count(installSource, "svc.StartDatabaseRouteServingMayRun(ctx)"); got != 1 {
 		t.Fatalf("install route-only startup must appear only in runCrashRecovery; got %d", got)

@@ -565,7 +565,7 @@ func TestParkedFlagRemovalFailureRefusesClaim(t *testing.T) {
 	if err != nil {
 		t.Fatalf("read service.go: %v", err)
 	}
-	body := extractFuncBody(t, string(source), "func (d *Service) claimScheduledUpgrade(")
+	body := extractFuncBody(t, string(source), "func (d *Service) claimScheduledUpgradePass(")
 	pattern := regexp.MustCompile(`(?s)if removeErr := d\.removeUpgradeFlag\(\); removeErr != nil \{\s*return scheduledUpgradeClaim\{\}, fmt\.Errorf`)
 	if !pattern.MatchString(body) {
 		t.Fatal("parked flag removal failure does not refuse the replacement claim")
@@ -577,7 +577,7 @@ func TestRollbackFinishingBlocksEveryNewClaim(t *testing.T) {
 	if err != nil {
 		t.Fatalf("read service.go: %v", err)
 	}
-	body := extractFuncBody(t, string(source), "func (d *Service) claimScheduledUpgrade(")
+	body := extractFuncBody(t, string(source), "func (d *Service) claimScheduledUpgradePass(")
 	for _, required := range []string{"pg_try_advisory_xact_lock", "rollbackFinishPendingSQL", "rollbackFinishingID", "refusing to claim upgrade"} {
 		if !strings.Contains(body, required) {
 			t.Fatalf("shared claim path does not block rollback finishing; missing %q", required)

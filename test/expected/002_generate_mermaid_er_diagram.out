@@ -1400,6 +1400,7 @@ erDiagram
 		text recovery_parked_reason
 		upgrade_failure_code failure_code
 		timestamp_with_time_zone rollback_finish_pending_at
+		boolean tree_convergence_required
 	}
 	upgrade_retention_caps["upgrade_retention_caps"] {
 		release_status_type release_status
