@@ -2,6 +2,7 @@ package upgrade
 
 import (
 	"context"
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"strings"
@@ -40,10 +41,10 @@ case "$*" in
 		printf '%s\n' '{"ID":"rest-container","Service":"rest","State":"'"$rest_state"'","Image":"postgrest/postgrest:v12.2.8"}'
 		printf '%s\n' '{"ID":"proxy-container","Service":"proxy","State":"'"$proxy_state"'","Image":"ghcr.io/statisticsnorway/statbus-proxy:'"$STATBUS_TEST_CONTAINER_TAG"'"}'
 		;;
-	"inspect --format {{.Image}} app-container") printf '%s\n' "$STATBUS_TEST_APP_TARGET_ID" ;;
-	"inspect --format {{.Image}} worker-container") printf '%s\n' "$STATBUS_TEST_WORKER_TARGET_ID" ;;
-	"inspect --format {{.Image}} rest-container") printf '%s\n' "$STATBUS_TEST_REST_TARGET_ID" ;;
-	"inspect --format {{.Image}} proxy-container") printf '%s\n' "$STATBUS_TEST_PROXY_TARGET_ID" ;;
+	"inspect --format {{.Image}} app-container") printf '%s\n' "$STATBUS_TEST_APP_CONTAINER_ID" ;;
+	"inspect --format {{.Image}} worker-container") printf '%s\n' "$STATBUS_TEST_WORKER_CONTAINER_ID" ;;
+	"inspect --format {{.Image}} rest-container") printf '%s\n' "$STATBUS_TEST_REST_CONTAINER_ID" ;;
+	"inspect --format {{.Image}} proxy-container") printf '%s\n' "$STATBUS_TEST_PROXY_CONTAINER_ID" ;;
 	"image inspect --format {{.Id}} ghcr.io/statisticsnorway/statbus-app:"*) printf '%s\n' "$STATBUS_TEST_APP_TARGET_ID" ;;
 	"image inspect --format {{.Id}} ghcr.io/statisticsnorway/statbus-worker:"*) printf '%s\n' "$STATBUS_TEST_WORKER_TARGET_ID" ;;
 	"image inspect --format {{.Id}} postgrest/postgrest:v12.2.8") printf '%s\n' "$STATBUS_TEST_REST_TARGET_ID" ;;
@@ -75,7 +76,53 @@ exit 0
 	t.Setenv("STATBUS_TEST_WORKER_TARGET_ID", servingEraTestImageID('b'))
 	t.Setenv("STATBUS_TEST_REST_TARGET_ID", servingEraTestImageID('c'))
 	t.Setenv("STATBUS_TEST_PROXY_TARGET_ID", servingEraTestImageID('d'))
+	t.Setenv("STATBUS_TEST_APP_CONTAINER_ID", servingEraTestImageID('a'))
+	t.Setenv("STATBUS_TEST_WORKER_CONTAINER_ID", servingEraTestImageID('b'))
+	t.Setenv("STATBUS_TEST_REST_CONTAINER_ID", servingEraTestImageID('c'))
+	t.Setenv("STATBUS_TEST_PROXY_CONTAINER_ID", servingEraTestImageID('d'))
 	return logPath
+}
+
+func writeParkedSourceIdentityFlag(t *testing.T, projDir, targetSHA, sourceTag string) {
+	t.Helper()
+	flag := UpgradeFlag{
+		ID:                  1,
+		CommitSHA:           targetSHA,
+		Holder:              HolderService,
+		Phase:               PhaseNewSbSwapped,
+		SourceServingImages: servingEraExpected(sourceTag),
+	}
+	data, err := json.Marshal(flag)
+	if err != nil {
+		t.Fatal(err)
+	}
+	path := filepath.Join(projDir, "tmp", "upgrade-in-progress.json")
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(path, data, 0o644); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func writeParkedSourceIdentityCarrier(t *testing.T, projDir, targetSHA, sourceTag string) {
+	t.Helper()
+	carrier := sourceServingImagesCarrier{
+		ID:                  1,
+		CommitSHA:           targetSHA,
+		SourceServingImages: servingEraExpected(sourceTag),
+	}
+	data, err := json.Marshal(carrier)
+	if err != nil {
+		t.Fatal(err)
+	}
+	path := sourceServingImagesCarrierPath(projDir)
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(path, data, 0o644); err != nil {
+		t.Fatal(err)
+	}
 }
 
 func readParkedTargetDockerLog(t *testing.T, logPath string) string {
@@ -100,7 +147,7 @@ func TestParkForDeterministicFailureAtTargetPreStartRoutesToTargetOperability(t 
 		t.Fatalf("could not isolate the at-target park branch: atTarget@%d unreadable@%d", atTargetIdx, unreadableIdx)
 	}
 	branch := park[atTargetIdx:unreadableIdx]
-	ensureIdx := strings.Index(branch, "d.ensureParkedTargetServingTier(ctx, commitSHA, progress)")
+	ensureIdx := strings.Index(branch, "d.ensureParkedAtNewServingTier(ctx, commitSHA, progress)")
 	appendIdx := strings.Index(branch, "d.appendParkNarrative(id, operabilityNote)")
 	returnIdx := strings.Index(branch, `return fmt.Errorf("parked on deterministic forward failure: %s", reason)`)
 	if ensureIdx < 0 || appendIdx < ensureIdx || returnIdx < appendIdx {
@@ -113,14 +160,14 @@ func TestParkForDeterministicFailureAtTargetPreStartRoutesToTargetOperability(t 
 	}
 }
 
-func TestEnsureParkedTargetServingTierStartsStoppedTargetContainersInPlace(t *testing.T) {
+func TestEnsureParkedAtNewServingTierStartsStoppedTargetContainersInPlace(t *testing.T) {
 	git := newGitRepoFixture(t)
 	logPath := installParkedTargetDockerShim(t, git.newSHA[:8], map[string]string{
 		"app": "exited", "worker": "exited", "rest": "exited", "proxy": "running",
 	}, false)
 
 	d := &Service{projDir: git.dir}
-	note := d.ensureParkedTargetServingTier(context.Background(), git.newSHA, nil)
+	note := d.ensureParkedAtNewServingTier(context.Background(), git.newSHA, nil)
 	if !strings.Contains(note, "started in place for parked-box operability") {
 		t.Fatalf("success narrative = %q, want in-place operability start", note)
 	}
@@ -135,12 +182,51 @@ func TestEnsureParkedTargetServingTierStartsStoppedTargetContainersInPlace(t *te
 	}
 }
 
-func TestEnsureParkedTargetServingTierKeepsRunningHealthLegUntouched(t *testing.T) {
+func TestEnsureParkedAtNewServingTierStartsProvedSourceContainersInPlace(t *testing.T) {
+	for _, proof := range []struct {
+		name  string
+		write func(*testing.T, string, string, string)
+	}{
+		{name: "recovery-marker", write: writeParkedSourceIdentityFlag},
+		{name: "source-image-carrier", write: writeParkedSourceIdentityCarrier},
+	} {
+		t.Run(proof.name, func(t *testing.T) {
+			git := newGitRepoFixture(t)
+			sourceTag := git.oldSHA[:8]
+			logPath := installParkedTargetDockerShim(t, git.newSHA[:8], map[string]string{
+				"app": "exited", "worker": "exited", "rest": "exited", "proxy": "running",
+			}, false)
+			t.Setenv("STATBUS_TEST_CONTAINER_TAG", sourceTag)
+			t.Setenv("STATBUS_TEST_APP_CONTAINER_ID", servingEraTestImageID('1'))
+			t.Setenv("STATBUS_TEST_WORKER_CONTAINER_ID", servingEraTestImageID('2'))
+			t.Setenv("STATBUS_TEST_REST_CONTAINER_ID", servingEraTestImageID('3'))
+			t.Setenv("STATBUS_TEST_PROXY_CONTAINER_ID", servingEraTestImageID('4'))
+			proof.write(t, git.dir, git.newSHA, sourceTag)
+
+			d := &Service{projDir: git.dir}
+			note := d.ensureParkedAtNewServingTier(context.Background(), git.newSHA, nil)
+			if !strings.Contains(note, "serving source-era containers for parked-box operability") {
+				t.Fatalf("source-era success narrative = %q, want honest source-era operability label", note)
+			}
+			log := readParkedTargetDockerLog(t, logPath)
+			if got := strings.Count(log, "compose start app worker rest proxy\n"); got != 1 {
+				t.Fatalf("proved source-era tier must be started exactly once in place, got %d starts:\n%s", got, log)
+			}
+			for _, forbidden := range []string{"compose up", "compose stop", "compose down", "image inspect"} {
+				if strings.Contains(log, forbidden) {
+					t.Fatalf("source-era park operability must not use target-image or recreate action %q:\n%s", forbidden, log)
+				}
+			}
+		})
+	}
+}
+
+func TestEnsureParkedAtNewServingTierKeepsRunningHealthLegUntouched(t *testing.T) {
 	git := newGitRepoFixture(t)
 	logPath := installParkedTargetDockerShim(t, git.newSHA[:8], nil, false)
 
 	d := &Service{projDir: git.dir}
-	note := d.ensureParkedTargetServingTier(context.Background(), git.newSHA, nil)
+	note := d.ensureParkedAtNewServingTier(context.Background(), git.newSHA, nil)
 	if note != "" {
 		t.Fatalf("running target serving tier narrative = %q, want empty", note)
 	}
@@ -153,14 +239,14 @@ func TestEnsureParkedTargetServingTierKeepsRunningHealthLegUntouched(t *testing.
 	}
 }
 
-func TestEnsureParkedTargetServingTierStartFailureIsNarrativeOnly(t *testing.T) {
+func TestEnsureParkedAtNewServingTierStartFailureIsNarrativeOnly(t *testing.T) {
 	git := newGitRepoFixture(t)
 	logPath := installParkedTargetDockerShim(t, git.newSHA[:8], map[string]string{
 		"app": "exited", "worker": "exited", "rest": "exited", "proxy": "running",
 	}, true)
 
 	d := &Service{projDir: git.dir}
-	note := d.ensureParkedTargetServingTier(context.Background(), git.newSHA, nil)
+	note := d.ensureParkedAtNewServingTier(context.Background(), git.newSHA, nil)
 	if !strings.Contains(note, "could not be started in place") || !strings.Contains(note, "synthetic target start failure") {
 		t.Fatalf("failure narrative = %q, want the bounded start failure", note)
 	}
@@ -176,12 +262,12 @@ func TestEnsureParkedTargetServingTierStartFailureIsNarrativeOnly(t *testing.T) 
 	}
 }
 
-func TestEnsureParkedTargetServingTierUnknownStateStillAttemptsTargetStart(t *testing.T) {
+func TestEnsureParkedAtNewServingTierUnknownStateStillAttemptsTargetStart(t *testing.T) {
 	git := newGitRepoFixture(t)
 	logPath := installParkedTargetDockerShim(t, git.newSHA[:8], map[string]string{"app": "mystery"}, false)
 
 	d := &Service{projDir: git.dir}
-	note := d.ensureParkedTargetServingTier(context.Background(), git.newSHA, nil)
+	note := d.ensureParkedAtNewServingTier(context.Background(), git.newSHA, nil)
 	if !strings.Contains(note, "started in place for parked-box operability") {
 		t.Fatalf("unknown-state narrative = %q, want the safe target start path", note)
 	}
@@ -191,20 +277,26 @@ func TestEnsureParkedTargetServingTierUnknownStateStillAttemptsTargetStart(t *te
 	}
 }
 
-func TestEnsureParkedTargetServingTierNeverStartsSourceEraContainers(t *testing.T) {
+func TestEnsureParkedAtNewServingTierLeavesUnprovedSourceContainersDown(t *testing.T) {
 	git := newGitRepoFixture(t)
 	logPath := installParkedTargetDockerShim(t, git.newSHA[:8], map[string]string{
 		"app": "exited", "worker": "exited", "rest": "exited", "proxy": "running",
 	}, false)
 	t.Setenv("STATBUS_TEST_CONTAINER_TAG", git.oldSHA[:8])
+	t.Setenv("STATBUS_TEST_APP_CONTAINER_ID", servingEraTestImageID('1'))
+	t.Setenv("STATBUS_TEST_WORKER_CONTAINER_ID", servingEraTestImageID('2'))
+	t.Setenv("STATBUS_TEST_REST_CONTAINER_ID", servingEraTestImageID('3'))
+	t.Setenv("STATBUS_TEST_PROXY_CONTAINER_ID", servingEraTestImageID('4'))
 
 	d := &Service{projDir: git.dir}
-	note := d.ensureParkedTargetServingTier(context.Background(), git.newSHA, nil)
-	if !strings.Contains(note, "could not be started in place") || !strings.Contains(note, "want target reference") {
-		t.Fatalf("source-era refusal narrative = %q, want target identity refusal", note)
+	note := d.ensureParkedAtNewServingTier(context.Background(), git.newSHA, nil)
+	if !strings.Contains(note, "source-era identities could not be proven") ||
+		!strings.Contains(note, "neither the recovery marker nor the source-image carrier") ||
+		!strings.Contains(note, "the park remains landed") {
+		t.Fatalf("unproved source-era narrative = %q, want narrative-only refusal with landed park", note)
 	}
 	log := readParkedTargetDockerLog(t, logPath)
 	if strings.Contains(log, "compose start") {
-		t.Fatalf("source-era containers must never be started against the target schema:\n%s", log)
+		t.Fatalf("unproved source-era containers must remain down:\n%s", log)
 	}
 }

@@ -7902,13 +7902,15 @@ func (d *Service) parkForDeterministicFailure(ctx context.Context, id int, displ
 		d.runCallback(displayName, map[string]string{"STATBUS_EVENT": "parked", "STATBUS_PARKED": "1", "STATBUS_PARK_REASON": reason})
 	}
 	if obsState == ObservedAlreadyAtNew {
-		// Binary + migration position is target, so source-version recovery is neither
-		// needed nor permitted. Container liveness is a separate observed fact: a
-		// health-leg park already has the target serving tier running and must leave it
-		// untouched, while a pre-start park can reach this point with those containers
-		// stopped. In the latter case, attempt only an in-place start of independently
-		// verified target-era containers. Never recreate and never start source services.
-		operabilityNote := d.ensureParkedTargetServingTier(ctx, commitSHA, progress)
+		// Binary + migration position is target, so rollback/source restoration is neither
+		// needed nor permitted. Container era is a separate observed fact: a health-leg
+		// park already has the target serving tier running and must leave it untouched;
+		// a post-pull pre-start park has stopped target-era containers; and a pre-pull
+		// code-only park still has the stopped source-era containers captured before the
+		// swap. Start only existing containers whose era is independently proved against
+		// the corresponding target or recorded source identities. Never recreate, compose
+		// up, restore the source tree, or enter the source-recovery route.
+		operabilityNote := d.ensureParkedAtNewServingTier(ctx, commitSHA, progress)
 		if operabilityNote != "" {
 			d.appendParkNarrative(id, operabilityNote)
 		}
@@ -8254,10 +8256,14 @@ func (d *Service) targetServingTierRunning(ctx context.Context, targetCommitSHA 
 	if err != nil {
 		return false, err
 	}
+	return servingTierRunning(entries)
+}
+
+func servingTierRunning(entries map[string]compose.PsEntry) (bool, error) {
 	for _, service := range sourceServingServices {
 		state := strings.TrimSpace(entries[service].State)
 		if !knownDockerContainerState(state) {
-			return false, fmt.Errorf("existing target container for %s has empty or unknown state %q", service, state)
+			return false, fmt.Errorf("existing container for %s has empty or unknown state %q", service, state)
 		}
 		if state != "running" {
 			return false, nil
@@ -8300,36 +8306,164 @@ func (d *Service) startExistingTargetServingTier(ctx context.Context, targetComm
 	return nil
 }
 
-// ensureParkedTargetServingTier keeps an at-target PARK operable without ever
-// crossing into source recovery. A verifiably running target tier is the health-
-// leg case and stays byte-for-byte untouched. Every stopped, unknown, or ambiguous
-// observation enters the bounded in-place start path. Failure is narrative-only:
-// the senior park write has already landed and must never be undone or blocked.
-func (d *Service) ensureParkedTargetServingTier(ctx context.Context, targetCommitSHA string, progress *ProgressLog) string {
-	running, observationErr := d.targetServingTierRunning(ctx, targetCommitSHA)
-	if observationErr == nil && running {
-		if progress != nil {
-			progress.Write("Keeping the observed running target-version services in place; source-version recovery is neither needed nor permitted.")
+// recordedSourceServingImages reads only the pre-pull identity record from the
+// recovery marker or its independent carrier. It does not render a compose model,
+// restore the source tree, or use mutable tags as proof. When targetCommitSHA is
+// supplied, the record must belong to that exact pending target before it can
+// authorize an in-place source-era start.
+func (d *Service) recordedSourceServingImages(targetCommitSHA string) (map[string]sourceImageIdentity, string, error) {
+	flag, err := ReadFlagFile(d.projDir)
+	if err != nil {
+		return nil, "", &sourceServingEraUnknownError{Detail: fmt.Sprintf("read pre-upgrade source image identities: %v", err)}
+	}
+	if flag != nil && targetCommitSHA != "" && flag.CommitSHA != targetCommitSHA {
+		return nil, "", &sourceServingEraUnknownError{Detail: fmt.Sprintf("recovery marker names target commit %q, want parked target %q", flag.CommitSHA, targetCommitSHA)}
+	}
+	if flag != nil && len(flag.SourceServingImages) > 0 {
+		return flag.SourceServingImages, "recovery marker", nil
+	}
+
+	carrier, carrierErr := readSourceServingImagesCarrier(d.projDir)
+	if carrierErr != nil {
+		return nil, "", &sourceServingEraUnknownError{Detail: fmt.Sprintf("read independent pre-upgrade source image identities: %v", carrierErr)}
+	}
+	if carrier == nil || len(carrier.SourceServingImages) == 0 {
+		return nil, "", nil
+	}
+	if targetCommitSHA != "" && carrier.CommitSHA != targetCommitSHA {
+		return nil, "", &sourceServingEraUnknownError{Detail: fmt.Sprintf("source-image carrier names target commit %q, want parked target %q", carrier.CommitSHA, targetCommitSHA)}
+	}
+	if flag != nil && (carrier.ID != flag.ID || carrier.CommitSHA != flag.CommitSHA) {
+		return nil, "", &sourceServingEraUnknownError{Detail: fmt.Sprintf("source-image carrier belongs to upgrade %d commit %q, but recovery marker names upgrade %d commit %q; refusing stale identity reuse", carrier.ID, carrier.CommitSHA, flag.ID, flag.CommitSHA)}
+	}
+	return carrier.SourceServingImages, "source-image carrier", nil
+}
+
+// recordedSourceServingContainerEntries proves the EXISTING serving containers
+// are source-era using the same marker/carrier identities and daemon-verified
+// immutable container IDs as the source recovery machinery. The target tree may
+// remain checked out. That is intentional for a pre-pull AtNew park.
+func (d *Service) recordedSourceServingContainerEntries(ctx context.Context, targetCommitSHA string) (map[string]compose.PsEntry, error) {
+	expected, recordName, err := d.recordedSourceServingImages(targetCommitSHA)
+	if err != nil {
+		return nil, err
+	}
+	if len(expected) == 0 {
+		return nil, &sourceServingEraUnknownError{Detail: "neither the recovery marker nor the source-image carrier has pre-pull source identities"}
+	}
+	for _, service := range sourceServingServices {
+		identity, present := expected[service]
+		if !present {
+			return nil, &sourceServingEraUnknownError{Detail: fmt.Sprintf("%s has no pre-upgrade source image identity for %s", recordName, service)}
 		}
-		return ""
+		if _, normalizeErr := normalizedDockerImageID(identity.ImageID); normalizeErr != nil {
+			return nil, &sourceServingEraUnknownError{Detail: fmt.Sprintf("%s source image identity for %s is unresolvable: %v", recordName, service, normalizeErr)}
+		}
+	}
+	entries, err := d.sourceServingContainerEntries(ctx)
+	if err != nil {
+		return nil, err
+	}
+	era, err := deriveServingEra(entries, expected, "")
+	if err != nil {
+		return nil, err
+	}
+	if era != ServingEraSource {
+		return nil, &sourceServingEraUnknownError{Detail: fmt.Sprintf("existing serving containers are %s, want source identities recorded by the %s", era, recordName)}
+	}
+	actual := make(map[string]compose.PsEntry, len(entries))
+	for _, entry := range entries {
+		actual[entry.Service] = entry
+	}
+	return actual, nil
+}
+
+// startExistingSourceServingTier is deliberately narrower than source recovery:
+// it starts only the already-existing source-era containers proved above. It has
+// no git/config/database work and no compose-up or recreation authority.
+func (d *Service) startExistingSourceServingTier(ctx context.Context, targetCommitSHA string, progress *ProgressLog) error {
+	if _, err := d.recordedSourceServingContainerEntries(ctx, targetCommitSHA); err != nil {
+		return fmt.Errorf("prove existing containers are source-era before start: %w", err)
+	}
+	composeArgs := append([]string{"start"}, sourceServingServices...)
+	commandCtx, cancel := context.WithTimeout(ctx, 2*time.Minute)
+	command, buildErr := compose.CommandContext(commandCtx, d.projDir, composeArgs...)
+	var output string
+	var commandErr error
+	if buildErr != nil {
+		commandErr = buildErr
+	} else if progress != nil {
+		output, commandErr = runPreparedCommandToLogCapture(commandCtx, command, 2*time.Minute, progress.File(), "park-source-docker-compose", progress.bump, "docker compose", composeArgs)
+	} else {
+		output, commandErr = runPreparedCommandOutput(commandCtx, command, 2*time.Minute, "docker compose", composeArgs)
+	}
+	cancel()
+	if commandErr != nil {
+		return fmt.Errorf("docker compose start app worker rest proxy: %w (%s)", commandErr, strings.TrimSpace(output))
+	}
+	entries, err := d.recordedSourceServingContainerEntries(ctx, targetCommitSHA)
+	if err != nil {
+		return fmt.Errorf("verify source serving containers after start: %w", err)
+	}
+	running, err := servingTierRunning(entries)
+	if err != nil {
+		return fmt.Errorf("verify source serving container states after start: %w", err)
+	}
+	if !running {
+		return fmt.Errorf("source serving containers are not all running after docker compose start")
+	}
+	return nil
+}
+
+// ensureParkedAtNewServingTier keeps an at-target PARK operable without crossing
+// into rollback/source recovery. A verifiably running target tier is the health-
+// leg case and stays byte-for-byte untouched. Proved stopped/unknown target-era
+// containers retain the existing bounded start path. If target identity itself
+// fails, the pre-pull code-only shape may instead start independently recorded
+// source-era containers in place. Every failure is narrative-only because the
+// senior park write has already landed and must never be undone or blocked.
+func (d *Service) ensureParkedAtNewServingTier(ctx context.Context, targetCommitSHA string, progress *ProgressLog) string {
+	targetEntries, targetIdentityErr := d.targetServingContainerEntries(ctx, targetCommitSHA)
+	if targetIdentityErr == nil {
+		running, observationErr := servingTierRunning(targetEntries)
+		if observationErr == nil && running {
+			if progress != nil {
+				progress.Write("Keeping the observed running target-version services in place; source-version recovery is neither needed nor permitted.")
+			}
+			return ""
+		}
+		if progress != nil {
+			if observationErr != nil {
+				progress.Write("Target serving-tier state is not verifiably running (%v); attempting an in-place start of existing target containers.", observationErr)
+			} else {
+				progress.Write("Target serving tier is not running; attempting an in-place start of existing target containers.")
+			}
+		}
+		if err := d.startExistingTargetServingTier(ctx, targetCommitSHA, progress); err != nil {
+			if progress != nil {
+				progress.Write("Starting existing target-version services for parked-box operability ... failed: %v", err)
+			}
+			return fmt.Sprintf("target-version serving containers could not be started in place for parked-box operability (%v); the park remains landed and source-version recovery was not attempted", err)
+		}
+		if progress != nil {
+			progress.Write("Starting existing target-version services for parked-box operability ... ok (automatic retries remain paused)")
+		}
+		return "target-version serving containers were started in place for parked-box operability; automatic retries remain paused and source-version recovery was not attempted"
+	}
+
+	if progress != nil {
+		progress.Write("Existing serving containers are not target-era (%v); checking recorded source-era identities for an in-place operability start.", targetIdentityErr)
+	}
+	if err := d.startExistingSourceServingTier(ctx, targetCommitSHA, progress); err != nil {
+		if progress != nil {
+			progress.Write("Starting existing source-version services for parked-box operability ... failed: %v", err)
+		}
+		return fmt.Sprintf("serving containers could not be started in place for parked-box operability: target-era identity proof failed (%v); source-era identities could not be proven or started (%v); the park remains landed and no recreate or source-recovery path was attempted", targetIdentityErr, err)
 	}
 	if progress != nil {
-		if observationErr != nil {
-			progress.Write("Target serving-tier state is not verifiably running (%v); attempting an in-place start of existing target containers.", observationErr)
-		} else {
-			progress.Write("Target serving tier is not running; attempting an in-place start of existing target containers.")
-		}
+		progress.Write("Starting existing source-version services for parked-box operability ... ok (serving source-era containers; automatic retries remain paused)")
 	}
-	if err := d.startExistingTargetServingTier(ctx, targetCommitSHA, progress); err != nil {
-		if progress != nil {
-			progress.Write("Starting existing target-version services for parked-box operability ... failed: %v", err)
-		}
-		return fmt.Sprintf("target-version serving containers could not be started in place for parked-box operability (%v); the park remains landed and source-version recovery was not attempted", err)
-	}
-	if progress != nil {
-		progress.Write("Starting existing target-version services for parked-box operability ... ok (automatic retries remain paused)")
-	}
-	return "target-version serving containers were started in place for parked-box operability; automatic retries remain paused and source-version recovery was not attempted"
+	return "serving source-era containers for parked-box operability: existing source-version serving containers were started in place; automatic retries remain paused and no recreate or source-recovery path was attempted"
 }
 
 // ServingEra is observed container identity, never caller intent. Recovery must
@@ -8708,31 +8842,16 @@ func (d *Service) sourceServingExpectedImagesWithProof(ctx context.Context) (map
 	if err != nil {
 		return nil, "", "", err
 	}
-	flag, err := ReadFlagFile(d.projDir)
+	recordedImages, recordName, err := d.recordedSourceServingImages("")
 	if err != nil {
-		return nil, "", "", &sourceServingEraUnknownError{Detail: fmt.Sprintf("read pre-upgrade source image identities: %v", err)}
+		return nil, "", "", err
 	}
-	recordedImages := map[string]sourceImageIdentity(nil)
-	recordName := "recovery marker"
-	if flag != nil && len(flag.SourceServingImages) > 0 {
-		recordedImages = flag.SourceServingImages
-	} else {
-		carrier, carrierErr := readSourceServingImagesCarrier(d.projDir)
-		if carrierErr != nil {
-			return nil, "", "", &sourceServingEraUnknownError{Detail: fmt.Sprintf("read independent pre-upgrade source image identities: %v", carrierErr)}
+	if len(recordedImages) == 0 {
+		expected, proof, legacyErr := d.legacySourceServingExpectedImages(ctx, references)
+		if legacyErr != nil {
+			return nil, "", "", legacyErr
 		}
-		if carrier == nil || len(carrier.SourceServingImages) == 0 {
-			expected, proof, legacyErr := d.legacySourceServingExpectedImages(ctx, references)
-			if legacyErr != nil {
-				return nil, "", "", legacyErr
-			}
-			return expected, sourceTag, proof, nil
-		}
-		if flag != nil && (carrier.ID != flag.ID || carrier.CommitSHA != flag.CommitSHA) {
-			return nil, "", "", &sourceServingEraUnknownError{Detail: fmt.Sprintf("source-image carrier belongs to upgrade %d commit %q, but recovery marker names upgrade %d commit %q; refusing stale identity reuse", carrier.ID, carrier.CommitSHA, flag.ID, flag.CommitSHA)}
-		}
-		recordedImages = carrier.SourceServingImages
-		recordName = "source-image carrier"
+		return expected, sourceTag, proof, nil
 	}
 	expected := make(map[string]sourceImageIdentity, len(sourceServingServices))
 	for _, service := range sourceServingServices {

@@ -64,10 +64,10 @@ func TestParkServiceRecovery_StructuralContracts(t *testing.T) {
 	src := string(packageGoSources(t)["service.go"])
 
 	// ORDERING + POSITION-CONTRACT PIN: the durable park lands first. A position already
-	// established as at-or-past target first proves the target serving tier's observed
-	// container state. A running health-leg tier stays untouched. A stopped/unknown pre-start
-	// tier gets only a bounded in-place target-container start attempt, with a narrative-only
-	// result, before returning. It never asks the source-restoration helper to re-derive
+	// established as at-or-past target first proves the serving tier's observed container
+	// identity. A running target health-leg stays untouched. Stopped target containers and
+	// marker/carrier-proved source containers each get only a bounded in-place start attempt,
+	// with a narrative-only result, before returning. It never asks source restoration to re-derive
 	// position through its held-closed preconditions. Only the remaining unreadable-position
 	// branch may ask for an era verdict, and it must use the route-only contract because target
 	// clients may legitimately be live.
@@ -79,11 +79,11 @@ func TestParkServiceRecovery_StructuralContracts(t *testing.T) {
 		t.Fatalf("deterministic park contract must be park write -> at-target return -> unreadable-position MayRun verdict; parkUpgrade@%d atTarget@%d MayRunRecovery@%d", parkIdx, atTargetIdx, recIdx)
 	}
 	atTargetBranch := pf[atTargetIdx:recIdx]
-	ensureIdx := strings.Index(atTargetBranch, "d.ensureParkedTargetServingTier(ctx, commitSHA, progress)")
+	ensureIdx := strings.Index(atTargetBranch, "d.ensureParkedAtNewServingTier(ctx, commitSHA, progress)")
 	appendIdx := strings.Index(atTargetBranch, "d.appendParkNarrative(id, operabilityNote)")
 	returnIdx := strings.Index(atTargetBranch, `return fmt.Errorf("parked on deterministic forward failure: %s", reason)`)
 	if ensureIdx < 0 || appendIdx < ensureIdx || returnIdx < appendIdx {
-		t.Fatalf("at-target park must observe/start target containers, append a non-empty operability narrative, then return; ensure@%d append@%d return@%d", ensureIdx, appendIdx, returnIdx)
+		t.Fatalf("at-target park must observe/start identity-proved existing containers, append a non-empty operability narrative, then return; ensure@%d append@%d return@%d", ensureIdx, appendIdx, returnIdx)
 	}
 	if !strings.Contains(atTargetBranch, `if operabilityNote != "" {`) {
 		t.Error("the running health-leg branch must keep its narrative untouched; append only a non-empty pre-start operability result")
@@ -93,15 +93,18 @@ func TestParkServiceRecovery_StructuralContracts(t *testing.T) {
 			t.Errorf("at-target park must never reach source-era recovery, held-closed routing, or recreation %q", forbidden)
 		}
 	}
-	targetOperability := extractFuncBody(t, src, "func (d *Service) ensureParkedTargetServingTier(")
+	targetOperability := extractFuncBody(t, src, "func (d *Service) ensureParkedAtNewServingTier(")
 	targetStart := extractFuncBody(t, src, "func (d *Service) startExistingTargetServingTier(")
+	sourceStart := extractFuncBody(t, src, "func (d *Service) startExistingSourceServingTier(")
 	for _, forbidden := range []string{"parkServiceRecovery", "restoreSourceServices", "startSourceApplicationStack", "StartDatabaseRouteServing", "compose.Up("} {
-		if strings.Contains(targetOperability, forbidden) || strings.Contains(targetStart, forbidden) {
+		if strings.Contains(targetOperability, forbidden) || strings.Contains(targetStart, forbidden) || strings.Contains(sourceStart, forbidden) {
 			t.Errorf("at-target operability call graph must not contain source recovery or recreate authority %q", forbidden)
 		}
 	}
-	if !strings.Contains(targetStart, `append([]string{"start"}, sourceServingServices...)`) || !strings.Contains(targetStart, "compose.CommandContext(") {
-		t.Error("at-target operability may only use docker compose start for the existing app/worker/rest/proxy containers")
+	for name, body := range map[string]string{"target": targetStart, "source": sourceStart} {
+		if !strings.Contains(body, `append([]string{"start"}, sourceServingServices...)`) || !strings.Contains(body, "compose.CommandContext(") {
+			t.Errorf("at-target %s-era operability may only use docker compose start for existing app/worker/rest/proxy containers", name)
+		}
 	}
 	if strings.Count(pf, "d.parkServiceRecovery(") != 1 {
 		t.Errorf("parkForDeterministicFailure must contain exactly one service-recovery call, only for unreadable position; got %d", strings.Count(pf, "d.parkServiceRecovery("))
@@ -116,8 +119,9 @@ func TestParkServiceRecovery_StructuralContracts(t *testing.T) {
 		"func (d *Service) parkServiceRecovery(",
 		"func (d *Service) restoreSourceServices(",
 		"func (d *Service) startSourceApplicationStack(",
-		"func (d *Service) ensureParkedTargetServingTier(",
+		"func (d *Service) ensureParkedAtNewServingTier(",
 		"func (d *Service) startExistingTargetServingTier(",
+		"func (d *Service) startExistingSourceServingTier(",
 	} {
 		body := extractFuncBody(t, src, fn)
 		for _, forbidden := range []string{`"stop"`, `"down"`, "QuiesceClients", "setMaintenance(true)", "setDatabaseReadOnly(ctx, true)"} {
