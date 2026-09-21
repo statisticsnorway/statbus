@@ -113,6 +113,19 @@ psql_scalar() { VM_EXEC bash -c "cd ~/statbus && echo \"$1\" | ./sb psql -t -A" 
 # git HEAD on the box — the observed running version (what the box actually runs).
 box_head() { VM_EXEC bash -c "cd ~/statbus && git rev-parse HEAD" 2>/dev/null | tr -d ' \r\n' || echo "?"; }
 
+apply_sql_file_with_migration_write_access() {
+    local sql_file="$1"
+    # B is parked inside the database-wide read-only upgrade window. Ordinary
+    # `./sb psql` is intentionally non-exempt, so use the same libpq startup
+    # option and in-container placement as migrate's write runners. The override
+    # is scoped to this fixture-repair subprocess; external sessions stay frozen.
+    VM_EXEC bash -c "cd ~/statbus &&
+        admin_user=\$(./sb dotenv -f .env get POSTGRES_ADMIN_USER) &&
+        app_db=\$(./sb dotenv -f .env get POSTGRES_APP_DB) &&
+        docker compose exec -T -e \"PGOPTIONS=-c default_transaction_read_only=off\" -w /statbus db \
+            psql -X -U \"\$admin_user\" -d \"\$app_db\" -v ON_ERROR_STOP=1 < \"$sql_file\""
+}
+
 assert_direct_auth_status_healthy() {
     local phase="$1"
     local rest_port=$(( ${HEALTH_PORT:-3010} + 3 ))
@@ -234,7 +247,7 @@ echo "  ✓ B at-target park landed (V1+V2 applied)"
 echo ""
 echo "── neutralize B's synthetic auth_status fault before C snapshots B ──"
 B_ROW_BEFORE_NEUTRALIZE=$(row_cols_for "$B_FULL")
-VM_EXEC bash -c "cd ~/statbus && ./sb psql -v ON_ERROR_STOP=1 < \"$AUTH_STATUS_DEFINITION_PATH\""
+apply_sql_file_with_migration_write_access "$AUTH_STATUS_DEFINITION_PATH"
 B_ROW_AFTER_NEUTRALIZE=$(row_cols_for "$B_FULL")
 [ "$B_ROW_AFTER_NEUTRALIZE" = "$B_ROW_BEFORE_NEUTRALIZE" ] || { echo "✗ restoring auth_status changed B's parked row: before='$B_ROW_BEFORE_NEUTRALIZE' after='$B_ROW_AFTER_NEUTRALIZE'" >&2; exit 1; }
 B_DBMAX_AFTER_NEUTRALIZE=$(psql_scalar "SELECT max(version) FROM db.migration;")

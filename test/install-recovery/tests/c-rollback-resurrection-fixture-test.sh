@@ -16,7 +16,7 @@ text = Path(sys.argv[1]).read_text()
 capture = text.index("pg_get_functiondef('public.auth_status()'::regprocedure)")
 schedule_b = text.index('── schedule B')
 park_proved = text.index('✓ B at-target park landed')
-restore = text.index('./sb psql -v ON_ERROR_STOP=1')
+restore = text.index('apply_sql_file_with_migration_write_access "$AUTH_STATUS_DEFINITION_PATH"')
 pre_c_health = text.index('assert_direct_auth_status_healthy "after park-only fixture cleanup, before C"')
 schedule_c = text.index('arc_to "$C_FULL"')
 
@@ -34,5 +34,15 @@ for required in (
 if "CREATE OR REPLACE FUNCTION public.auth_status()" in text:
     raise SystemExit('arc hard-codes auth_status instead of restoring the captured source definition')
 
-print('PASS: c-rollback fixture repairs only the park fault before C snapshots healthy B')
+for required in (
+    'docker compose exec -T',
+    'PGOPTIONS=-c default_transaction_read_only=off',
+):
+    if required not in text:
+        raise SystemExit(f'fixture cleanup lacks migration-style write access: {required}')
+
+if './sb psql -v ON_ERROR_STOP=1 < "$AUTH_STATUS_DEFINITION_PATH"' in text:
+    raise SystemExit('fixture cleanup still uses an ordinary read-only ./sb psql session')
+
+print('PASS: c-rollback fixture repairs only the park fault with write access before C snapshots healthy B')
 PY

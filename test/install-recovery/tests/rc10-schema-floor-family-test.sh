@@ -91,24 +91,18 @@ sed 's/run_accepting_rollback_control_exit VM_EXEC/VM_EXEC/' "$FAILURE_ARC" > "$
 # than bash -n or grep-only source inspection: it catches set -e control-flow
 # mistakes and validates the stable product progress contract end to end.
 FLOOR_LINE=$(schema_floor_progress_line 20260907120000)
+LEGACY_SOURCE_ERA_LABEL=$(legacy_source_era_progress_label)
 ADOPTION_LOG=$(cat <<EOF
-rollback
-Restoring database
-Starting only the restored database for schema-floor replay ... healthy
+rollback implementation wording may evolve
 $FLOOR_LINE
-Restoring git
-sb.old
-Starting services
-rollback finishing
-rolled_back
-Restoring ./sb from ./sb.old ... ok
+Serving proof is $LEGACY_SOURCE_ERA_LABEL: restored source model.
 EOF
 )
-assert_schema_floor_adoption_progress "$ADOPTION_LOG" 20260907120000 || die 'stable schema-floor progress line was rejected'
+assert_schema_floor_adoption_progress "$ADOPTION_LOG" 20260907120000 || die 'documented adoption semantics were rejected'
 OLD_ARGV_LOG=${ADOPTION_LOG/$FLOOR_LINE/migrate up --to 20260907120000}
 ! assert_schema_floor_adoption_progress "$OLD_ARGV_LOG" 20260907120000 >/dev/null 2>&1 || die 'stale unlogged migrate argv still satisfies the adoption assertion'
-WRONG_ORDER_LOG=$(printf '%s\n' 'rollback' "$FLOOR_LINE" 'Restoring database' 'Starting only the restored database for schema-floor replay ... healthy' 'Restoring git' 'sb.old' 'Starting services' 'rollback finishing' 'rolled_back' 'Restoring ./sb from ./sb.old ... ok')
-! assert_schema_floor_adoption_progress "$WRONG_ORDER_LOG" 20260907120000 >/dev/null 2>&1 || die 'adoption log order fails open'
+UNLABELED_LOG=${ADOPTION_LOG/$LEGACY_SOURCE_ERA_LABEL/recorded pre-pull identities}
+! assert_schema_floor_adoption_progress "$UNLABELED_LOG" 20260907120000 >/dev/null 2>&1 || die 'pre-capture adoption passes without the documented legacy source-era label'
 
 continued=no
 run_accepting_rollback_control_exit bash -c 'exit 75'
