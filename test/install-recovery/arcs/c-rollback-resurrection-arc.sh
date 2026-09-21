@@ -119,11 +119,16 @@ apply_sql_file_with_migration_write_access() {
     # `./sb psql` is intentionally non-exempt, so use the same libpq startup
     # option and in-container placement as migrate's write runners. The override
     # is scoped to this fixture-repair subprocess; external sessions stay frozen.
-    VM_EXEC bash -c "cd ~/statbus &&
-        admin_user=\$(./sb dotenv -f .env get POSTGRES_ADMIN_USER) &&
-        app_db=\$(./sb dotenv -f .env get POSTGRES_APP_DB) &&
-        docker compose exec -T -e \"PGOPTIONS=-c default_transaction_read_only=off\" -w /statbus db \
-            psql -X -U \"\$admin_user\" -d \"\$app_db\" -v ON_ERROR_STOP=1 < \"$sql_file\""
+    VM_SCRIPT_INLINE apply-sql-with-migration-write-access "$sql_file" <<'APPLY_SQL'
+#!/bin/bash
+set -euo pipefail
+sql_file="$1"
+cd ~/statbus
+admin_user=$(./sb dotenv -f .env get POSTGRES_ADMIN_USER)
+app_db=$(./sb dotenv -f .env get POSTGRES_APP_DB)
+docker compose exec -T -e "PGOPTIONS=-c default_transaction_read_only=off" -w /statbus db \
+    psql -X -U "$admin_user" -d "$app_db" -v ON_ERROR_STOP=1 < "$sql_file"
+APPLY_SQL
 }
 
 assert_direct_auth_status_healthy() {
