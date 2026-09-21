@@ -17,7 +17,8 @@
 --
 -- WHY THIS TEST EXISTS. During an upgrade the database default is flipped
 -- read-only (ALTER DATABASE ... SET default_transaction_read_only = on) so
--- external writes FAIL rather than land in a window a rollback would discard.
+-- non-exempt writes FAIL; exempt upgrade writes are intentionally restored past,
+-- so window ON means rollback is lossless by definition.
 -- Norway (STATBUS-262) showed the cost of that guard catching the wrong thing:
 -- the worker's startup crash recovery was refused inside the window, was never
 -- retried, and four derive children stayed 'processing' for a week behind a

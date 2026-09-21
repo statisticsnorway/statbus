@@ -16,7 +16,7 @@ import (
 // read-only default is ON, and accepted again after the real cleanup-only
 // finisher (finalizePendingRollbacks: lift window -> lift maintenance ->
 // marker + rolled_back) has run. This is the property the whole design exists
-// for: writes accepted after the lift are never overwritten by a second
+// for: the lift commits recovery to cleanup-only completion, never another
 // restore, and the lift itself is observable by the sessions it affects.
 //
 // The window flip is a database-level ALTER (persistent), so this test runs

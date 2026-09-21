@@ -1984,8 +1984,8 @@ func (d *Service) recoverFromFlag(ctx context.Context) (err error) {
 	// A healthy rollback can crash or hit an unlink error after restoring the
 	// previous version but before removing its marker and writing rolled_back.
 	// That row carries an explicit cleanup-only discriminator. Intercept it before
-	// phase routing: PhaseOldSbUpgrading would otherwise replay the already-
-	// successful snapshot and overwrite writes made after SQL was unblocked.
+	// phase routing: once SQL/HTTP are lifted, the contract is completion only,
+	// so PhaseOldSbUpgrading must never initiate another snapshot replay.
 	rollbackFinishPending, pendingErr := d.isRollbackFinishPending(ctx, flag.ID)
 	if pendingErr != nil {
 		return fmt.Errorf("check rollback finishing state for upgrade %d: %w", flag.ID, pendingErr)
@@ -2043,23 +2043,21 @@ func (d *Service) recoverFromFlag(ctx context.Context) (err error) {
 	// transactional model): a died attempt is NOT impossibility.
 	//
 	//   - AtTarget (binary at-or-descendant + migrations at-or-past on-disk
-	//     max): forward is logically possible — resume again. Restoring an
-	//     already-at-new box is forbidden: it sits past (or at) the maintenance-
-	//     off commit point, where API integrators may have written data the
-	//     snapshot predates (the app's upgrade guard only gates browsers).
-	//     The pre-039 one-shot latch made ONE transient failure latch the
-	//     NEXT recovery straight into a restore — one failure, no second
-	//     chance, data loss behind it (the rune id=187 shape). Loop-bounding
-	//     is not lost: every attempt is loud (progress log + journal),
+	//     max): forward is logically possible — resume again. Observed position,
+	//     not write preservation, chooses forward. While the window is on, rollback
+	//     would be lossless by definition but would still be the wrong direction;
+	//     once the window is off, health and maintenance-off are proven and the box
+	//     must complete. The pre-039 one-shot latch made ONE transient failure send
+	//     the NEXT recovery in the wrong direction (the rune id=187 shape).
+	//     Loop-bounding is not lost: every attempt is loud (progress log + journal),
 	//     applyNewSbUpgrading heartbeats through its WATCHDOG ticker, and systemd
 	//     StartLimit still catches a thrashing daemon. An already-at-new box that
 	//     keeps failing forward stays in_progress and LOUD — it never
-	//     destroys state to escape (rune sat 18 days already-at-new with zero
-	//     data loss precisely because nothing rolled back).
+	//     takes a contradictory rollback direction to escape.
 	//
-	//   - Unknown (DB unreachable): destroying state under uncertainty is
-	//     forbidden — resume forward; the resume re-attempts db-up and the
-	//     next pass re-checks.
+	//   - Unknown (DB unreachable): direction cannot be named — resume forward;
+	//     the resume re-attempts db-up and the next pass re-checks. This is not a
+	//     write-safety hedge; the window already makes rollback lossless while on.
 	//
 	//   - Behind (positively verified): forward is impossible without new
 	//     code — one-shot rollback to THIS upgrade's own snapshot
@@ -2071,7 +2069,7 @@ func (d *Service) recoverFromFlag(ctx context.Context) (err error) {
 		// A NAMED intermittent cause (db-unreachable / commit-not-fetched) is
 		// retried IN-PROCESS (never exit-spin); it clears → re-read + dispatch the
 		// resolved verdict; it exhausts → data-safe rollback (STATBUS-110's
-		// read-only window makes an exhausted-transient rollback lose no data). An
+		// read-only window makes an exhausted-transient rollback lossless). An
 		// UNRECOGNISED cause STOPS for a human (the STATBUS-039 forward-on-unknown
 		// conservatism is retired now that 110 makes rollback safe).
 		closeAppend := func() {
@@ -3793,10 +3791,10 @@ func (d *Service) verifyBinaryObservedState(rowCommitSHA string) (ObservedState,
 //
 // This two-state form maps ObservedPositionUnreadable (cannot verify — DB
 // unreachable) to ok=false, which is conservative-CORRECT for its callers:
-// both use it as a READ-ONLY gate ("refuse to mark completed"). Destructive
-// dispositions (restore) must use verifyUpgradeObservedStateEx directly and
-// only restore on a POSITIVE ObservedCannotReachNew verdict — destroying state
-// under uncertainty is forbidden (STATBUS-039 rule 1).
+// both use it as a READ-ONLY gate ("refuse to mark completed"). Directional
+// dispositions must use verifyUpgradeObservedStateEx directly. The read-only
+// window makes rollback lossless while it is on, but it does not manufacture a
+// position verdict or authorize the wrong direction (STATBUS-039 rule 1).
 func (d *Service) verifyUpgradeObservedState(ctx context.Context, rowCommitSHA string) (ok bool, reason string) {
 	obsState, _, reason := d.verifyUpgradeObservedStateEx(ctx, rowCommitSHA)
 	return obsState == ObservedAlreadyAtNew, reason
@@ -3817,10 +3815,10 @@ const (
 	// new code/migrations; backward to THIS upgrade's own snapshot regains a
 	// runnable state to go forward from later.
 	ObservedCannotReachNew
-	// ObservedPositionUnreadable — cannot verify (DB unreachable mid-check). NOT a
-	// licence to restore: destructive paths must treat Unknown as "retry
-	// forward, loudly" — the next pass re-checks. Read-only paths (mark
-	// completed) treat Unknown as "refuse to claim success".
+	// ObservedPositionUnreadable — cannot verify (DB unreachable mid-check).
+	// Direction cannot be named, so paths retry forward loudly and re-check on the
+	// next pass. This is not a write-safety hedge: the window already makes rollback
+	// lossless while on. Read-only paths (mark completed) refuse to claim success.
 	ObservedPositionUnreadable
 )
 
@@ -4387,7 +4385,7 @@ func (d *Service) completeInProgressUpgrade(ctx context.Context) error {
 	// binary+migrations sit at target. The old code marked 'completed' on DB-health +
 	// at-target alone, certifying a dark box (and STATBUS-170's poll inherits the lie).
 	// Run the SAME tail applyNewSbUpgrading runs: app set up → app health gate →
-	// maintenance off → completed → read-only-window lift (STATBUS-192 refinement 1).
+	// maintenance off → read-only-window lift → completed (STATBUS-192 refinement 1).
 	restoreTargetSHA := "" // at-target; a Behind rollback (ruled out above) is its only use
 
 	// The tail + its dispositions write to a progress log unconditionally; ensure one
@@ -7817,20 +7815,18 @@ func (d *Service) executeUpgrade(ctx context.Context, claim upgradeClaimSnapshot
 //
 //   - ObservedAlreadyAtNew: the binary and migrations are already at-or-past
 //     the target — the failed step is reconcile/bookkeeping territory and
-//     forward remains logically possible. A restore here is forbidden: the
-//     maintenance-off commit point may already have passed, and snapshot-
-//     restoring an already-at-new box destroys anything written since (browser
-//     users are gated by the app's upgrade guard while the row is
-//     in_progress, but API integrators are not). Record the failure on the
+//     forward remains logically possible. Observed position chooses completion:
+//     while the window is on rollback would be lossless but the wrong direction;
+//     once it is off the box is serve-proven and must complete. Record the failure on the
 //     row (non-terminal — `error` is legal on in_progress per
 //     chk_upgrade_state_attributes), keep the flag on disk, and return: the
 //     next recovery pass (systemd restart or ./sb install) consults observed
 //     state and resumes forward.
 //
 //   - ObservedPositionUnreadable: cannot verify (DB unreachable mid-failure).
-//     Destroying state under uncertainty is forbidden — same disposition as
-//     already-at-new: loud, non-terminal, forward retry on the next pass (which
-//     re-attempts db-up and re-checks).
+//     Direction cannot be named, so use the same disposition as already-at-new:
+//     loud, non-terminal, forward retry on the next pass (which re-attempts db-up
+//     and re-checks). This is not a write-safety hedge.
 //
 //   - ObservedCannotReachNew: confirmed behind (migrations missing with a
 //     reachable DB, or binary mismatch). Forward is impossible without new
@@ -7846,9 +7842,9 @@ func (d *Service) newSbUpgradingFailure(ctx context.Context, id int, displayName
 	// STATBUS-109 (doc-022 §5): NAME the forward-step failure class explicitly.
 	// A recognised deterministic failure is `persistent-error`; anything
 	// unrecognised is `unknown-error` (the default). This is a diagnostic label
-	// only — the DISPOSITION stays observed-state-driven (STATBUS-039): destroying
-	// state under an already-at-new/unknown position is forbidden regardless of the
-	// error class. The label makes the classification visible in the row/log.
+	// only — the DISPOSITION stays observed-state-driven (STATBUS-039). The window
+	// settles rollback safety; observed position still decides direction. The label
+	// makes the classification visible in the row/log.
 	stepClass := classifyStepMessage(reason)
 	obsState, _, obsReason := d.verifyUpgradeObservedStateEx(ctx, commitSHA)
 	if obsState != ObservedCannotReachNew {
@@ -7875,9 +7871,9 @@ func (d *Service) newSbUpgradingFailure(ctx context.Context, id int, displayName
 // step failure at a Phase-3 site: park on the FIRST occurrence instead of letting
 // it burn the death budget over three crash-resumes. Observed state still governs
 // DIRECTION (STATBUS-039), exactly as newSbUpgradingFailure: positively-Behind →
-// data-safe rollback; at-or-past-target OR unverifiable → PARK (retrying a
-// deterministic failure cannot help, and already-at-new can't safely roll back —
-// integrators may have written past maintenance-off). Returns an error so
+// lossless rollback; at-or-past-target OR unverifiable → PARK. Retrying a
+// deterministic release failure cannot help, and automatic rollback plus channel
+// re-offer would loop forever. No write-loss hedge participates. Returns an error so
 // applyNewSbUpgrading stops; the row is now parked, so the next recovery pass's
 // parked-skip keeps the unit alive-idle. Fires the degraded siren exactly once
 // (freshlyParked), consistent with the budget-park path.
@@ -11693,9 +11689,9 @@ func (d *Service) restoreAndFinalize(ctx context.Context, id int, version string
 	}
 
 	// The snapshot restore and service health boundaries are now confirmed. Write
-	// the cleanup-only discriminator BEFORE reopening SQL or HTTP. From this point
-	// forward, every restart/install path is forbidden from restoring the snapshot
-	// again, so writes accepted after the window lifts cannot be overwritten.
+	// the cleanup-only discriminator BEFORE reopening SQL or HTTP. Lifting the window
+	// commits every restart/install path to cleanup-only completion; snapshot replay
+	// is no longer a valid transition.
 	if !d.writeRollbackTerminal(id,
 		"UPDATE public.upgrade SET state = 'failed', error = $1, recovery_attempts = $2"+terminalBackupPathSQL+", failure_code = $5, rollback_finish_pending_at = now() WHERE id = $3"+upgradeRowReturning,
 		failureCode, errMsg, LabelFailedRollbackPendingFinish, attemptsAtCall) {

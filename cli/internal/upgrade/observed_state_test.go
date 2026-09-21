@@ -151,9 +151,10 @@ func TestVerifyBinaryObservedState_BehindIsDefinitive(t *testing.T) {
 // pre-039 NonAncestorRejected expectation, which PINNED the conflation the
 // review flagged: a binary SHA absent from the local clone makes merge-base
 // exit 128 ("unknown revision") — clone-state evidence, not ancestry
-// evidence. The pre-039 code classified it Behind, and the destructive
-// callers RESTORED on it. It must be Unknown: destroy nothing, retry
-// forward, let the next pass re-check (STATBUS-039 rule 1).
+// evidence. The pre-039 code classified it Behind and chose rollback without
+// a position verdict. It must be Unknown: direction cannot be named, so retry
+// forward and let the next pass re-check (STATBUS-039 rule 1). This is not a
+// write-safety hedge; the window already makes rollback lossless while on.
 func TestVerifyBinaryObservedState_UnresolvableBinaryIsUnknown(t *testing.T) {
 	fix := newGitRepoFixture(t)
 	const unknownSHA = "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef"

@@ -483,8 +483,10 @@ func quoteIdent(id string) string {
 
 // setDatabaseReadOnly toggles the app database's default_transaction_read_only
 // via ALTER DATABASE — the STATBUS-110 read-only upgrade window, the accident-
-// guard that makes phase-3 external writes fail so a rollback can lose nothing
-// (see doc/read-only-upgrade-window.md). It is the SQL sibling of setMaintenance;
+// guard that refuses phase-3 non-exempt writes. Exempt writers act for the upgrade
+// and a restore intentionally rewinds their changes; a deliberate override forfeits
+// its write. Window ON therefore means rollback is lossless by definition (see
+// doc/read-only-upgrade-window.md). It is the SQL sibling of setMaintenance;
 // unlike that filesystem-flag toggle it runs a catalog statement, so it needs a
 // live query connection.
 //

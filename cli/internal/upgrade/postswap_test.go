@@ -409,8 +409,9 @@ func stripLineComments(src string) string {
 // verdicts record the failure non-terminally and retry forward on the next
 // recovery pass. Without this ordering, one transient health blip on an
 // already-at-new box (rune id=187: everything at target except a lagging proxy)
-// routes into a snapshot restore — destroying anything written past the
-// maintenance-off commit point.
+// chooses the wrong direction. While the window is on rollback is lossless, but
+// observed at-target state still requires forward completion; after the window is
+// off, the box is serve-proven and completion is the only valid transition.
 func TestNewSbUpgradingFailure_ObservedStateBeforeRollback(t *testing.T) {
 	src, err := os.ReadFile(thisRepoFile(t, "cli/internal/upgrade/service.go"))
 	if err != nil {

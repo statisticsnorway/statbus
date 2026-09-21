@@ -11,9 +11,10 @@ import (
 	"testing"
 )
 
-// STATBUS-242: every write to public.upgrade that lands between the pre-upgrade
-// SNAPSHOT and a possible rollback RESTORE is lost unless a terminal write puts
-// it back. That mechanism has bitten twice — recovery_attempts (observed live at
+// STATBUS-242: every exempt upgrade write to public.upgrade that lands between the
+// pre-upgrade SNAPSHOT and a rollback RESTORE is intentionally rewound. Any state
+// required after restore must be re-imposed by a terminal write. That mechanism
+// has bitten twice — recovery_attempts (observed live at
 // rc.03, STATBUS-181) and backup_path (predicted during the rc.05 arc
 // corrections, STATBUS-241). A third instance should be impossible, not merely
 // unlikely.

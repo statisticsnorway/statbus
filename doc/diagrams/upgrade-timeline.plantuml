@@ -209,11 +209,9 @@ note over systemd, service #FFE0B2
     • already-at-new + deterministic failure → PARK, PRIMARY reason: the failure belongs to the
       release; restore + channel re-offer would loop forever with nobody told. PARK bounds it:
       recovery_parked_at + reason; row stays in_progress; service alive-idle; siren ONCE.
-      SECONDARY, rare: only after a legitimate serve-proven window lift can post-lift integrator
-      writes exist; an at-target health failure never lifted the window.
     • can't-read-position still unverifiable at the failure chokepoint after crash → PARK:
-      do not assume the window never lifted;
-      STATBUS-110's formal supersession governs — do not re-derive it here
+      direction cannot be named. This is not a write-safety hedge: window ON means rollback
+      is lossless; window OFF means serve-proven completion. STATBUS-110 governs.
   Class A (readiness) waits IN PLACE (size-scaled) and NEVER consumes an attempt; B (deterministic) +
   C (resource) → park on first. Un-park = the two deliberate operator triggers only, each a
   single fresh attempt with a reset budget.

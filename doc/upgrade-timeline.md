@@ -155,10 +155,9 @@ new binary is booted* (`Phase=new-sb-swapped`) and continues the **same** attemp
 12. Start application services; wait for the **app health gate** (PostgREST `/ready`
     warm-up, then the functional probe). A health failure past warm-up is a
     deterministic B-class failure → **park at target** (see the park lifecycle under
-    [Complete / rollback / park](#complete--rollback--park)): the health gate failed
-    before maintenance-off and window-lift, so no legitimate post-lift writes exist;
-    the park bounds a release that deterministically cannot serve — never a completed
-    lie, never a silent dark box.
+    [Complete / rollback / park](#complete--rollback--park)): the park bounds a release
+    that deterministically cannot serve and would otherwise loop through rollback and
+    channel re-offer — never a completed lie, never a silent dark box.
 13. **Serve-proven completion** (STATBUS-160/192 — `completed` means *this version
     verifiably serves*, at **every** writer): maintenance off → lift the **read-only
     window** (loud named-invariant escalation if the flip fails) → mark `completed_at`
@@ -195,8 +194,9 @@ resume that dies at the same step twice — the rune loop-forever class cannot r
   passed, maintenance is off, and the read-only window lifts (step 13 above). Then the
   flag is removed, older rows superseded, the UI notified, the Slack "OK" callback posted.
 - **Confirmed-Behind failure → automatic rollback, always (one attempt, no retry):**
-  the read-only window still holds every client, nothing new exists beyond the snapshot,
-  and restore is provably data-safe. This includes a bad migration; a missing or failed
+  the read-only window still holds. Non-exempt writes were refused, exempt writes are
+  intentionally restored past, and a deliberate override forfeited its write by design,
+  so restore is lossless by definition. This includes a bad migration; a missing or failed
   down migration is **N/A** because rollback restores the snapshot and never runs down
   migrations; and a stalled or aborted migration with partial changes. `rollback()`
   restores git state, the DB snapshot, and services, then records one of **three terminal
@@ -229,12 +229,11 @@ resume that dies at the same step twice — the rune loop-forever class cannot r
   parked row (STATBUS-135/193). A human dismisses the bad release or brings a fix through
   exactly two deliberate exits: a fix release whose claim atomically displaces the park
   to `superseded` (STATBUS-159), or `./sb install`, which un-parks for **one** fresh
-  attempt. **Secondary, rare rollback risk:** only after a legitimate, serve-proven
-  window lift can legitimate post-lift integrator writes exist that the snapshot predates.
-  An at-target health-leg failure happened before maintenance-off and window-lift, so it
-  has no such writes and parks for the primary anti-loop reason.
+  attempt. The anti-loop bound is the complete park rationale.
 - **Position still unverifiable at the failure chokepoint after a crash → PARK:** the
-  daemon must not assume the window never lifted. STATBUS-110's formal supersession in
+  daemon cannot name the forward position. This is a direction hold, not a write-safety
+  hedge: while the window is on rollback is lossless, and after the window is off the box
+  is serve-proven and must complete. STATBUS-110's formal supersession in
   [`read-only-upgrade-window.md`](read-only-upgrade-window.md#effect-on-recovery--the-formal-supersession-statbus-110-ac3-2026-07-12)
   governs; do not re-derive it here.
 
@@ -657,18 +656,16 @@ crashed-upgrade dispatch (state 3). It reconciles any flag on disk:
          **crash-resume attempt budget** (STATBUS-046). Each retry is loud and
          heartbeated, but never unbounded: a **deterministic** failure parks on its
          **first** occurrence, a resume dying at the **same step twice** parks, and
-         **budget exhaustion** parks. The primary reason is the anti-loop bound: a
+         **budget exhaustion** parks. The reason is the anti-loop bound: a
          release that deterministically cannot serve would otherwise be restored,
          re-offered by its channel, and fail forever with nobody told. The parked box
-         instead sits alive-idle with its named reason and one siren. Only in the rare
-         case where this version verifiably served and legitimately lifted the window
-         can post-lift integrator writes provide a second reason not to restore; an
-         at-target health-leg failure never lifted the window.
+         instead sits alive-idle with its named reason and one siren.
        - **Unknown** (`position-unreadable`, DB unreachable mid-check) → follow
          STATBUS-110's formal supersession in `doc/read-only-upgrade-window.md`; the
-         daemon must not assume the window never lifted or re-derive the rule here.
-         Resume forward; the next pass re-checks. If position remains unverifiable at
-         the persistent-failure chokepoint, PARK.
+         window makes rollback lossless while it is on, and once it is off the box is
+         serve-proven and must complete. Resume forward; the next pass re-checks. If
+         position remains unverifiable at the persistent-failure chokepoint, PARK because
+         direction cannot be named, not to preserve a write.
    - **Any other `Phase` value** → state-machine drift; fail loud (`FLAG_PHASE_UNKNOWN`),
      touch nothing.
 

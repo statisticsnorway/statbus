@@ -12,13 +12,12 @@
 #     name, this arm tests PERMANENT loss, not a transient one; say so plainly so
 #     the next reader is not misled by "transient-db-backoff" into expecting the
 #     db to come back here too. The budget exhausts, and the daemon PARKS rather
-#     than rolling back — it refuses to restore a backup over a database it
-#     cannot verify is actually gone (vs. merely paused, or a severed proxy, or
-#     a slow start: from outside the db these are indistinguishable, and a
-#     forced restore that guessed wrong would write a backup OVER LIVE DATA,
-#     the corruption pathway wearing a recovery costume). This arm originally
+#     than rolling back because it cannot name the forward position (paused DB,
+#     severed proxy, and slow start are indistinguishable from outside). This is a
+#     direction hold, not a write-safety hedge: window ON makes rollback lossless,
+#     and window OFF means the box is serve-proven and must complete. This arm originally
 #     asserted "rolled_back" — written before the STATBUS-039/111/159 family
-#     settled that PARKING is the data-safe terminal for an unverifiable
+#     settled that PARKING is the named terminal for an unverifiable
 #     database; the assertion below is doctrine catching up with the arc, not
 #     carelessness (STATBUS-305).
 # Both arms: NRestarts BOUNDED (the in-process backoff never burns an exit-restart

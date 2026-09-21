@@ -260,9 +260,9 @@ func (defaultProbe) QueryScheduledUpgrade(projDir string) (*ScheduledRow, error)
 // (STATBUS-347): restoreAndFinalize sets rollback_finish_pending_at after a
 // healthy restore, BEFORE it lifts SQL/HTTP, then removes the marker and writes
 // rolled_back. A crash or marker-unlink failure in that handoff leaves
-// failed+backup_path+pending, and replaying the restore would overwrite writes
-// accepted after the lift. The probe excludes it IN THE QUERY; no text is
-// parsed. The daemon retries marker cleanup and the final UPDATE only.
+// failed+backup_path+pending. The lift commits recovery to cleanup-only completion,
+// so snapshot replay is no longer a valid transition. The probe excludes it IN THE
+// QUERY; no text is parsed. The daemon retries marker cleanup and the final UPDATE only.
 //
 // The two OTHER failed writers cannot produce the combination:
 //   - failUpgrade runs ONLY before the snapshot (pre-backupDatabase) → backup_path NULL.

@@ -12,20 +12,20 @@ An upgrade's timeline, with where the DB is, and where an external write actuall
 |---|---|---|
 | 1. live → read-only ON (`service.go:4799`) → maintenance ON, app/rest stopped (`:4822`) | up | …is committed before the stop → **captured in the snapshot → safe** |
 | 2. stop DB → backup = rsync the stopped volume (`backupDatabase`, `:4878`) | **down** | …is impossible — DB is down. **The snapshot = this moment.** |
-| 3. DB restarted, migrations → swap → post-swap migrate → health check | up | …lands **after the snapshot → LOST on a rollback-restore** |
-| 4. maintenance OFF (`:5596`) + `completed` + read-only OFF (`:5668`) | up | …normal, upgrade done |
+| 3. DB restarted, migrations → swap → post-swap migrate → health check | up | …non-exempt writes are refused by the window; exempt writes are ours and rollback restores past them by design |
+| 4. maintenance OFF (`:5596`) + read-only OFF (`:5668`) + `completed` | up | …the box is serving on purpose; complete it, never start a rollback |
 
 *(Line cites re-verified 2026-07-12 against the shipped STATBUS-145/154/159 geometry; anchor on the function names if they drift again.)*
 
-Rollback restores the snapshot (phase-2 state). So the **only** external writes a rollback can lose are the ones in **phase 3** — DB back up for migrations, but past the snapshot. Phase 1 is in the snapshot; phase 2 has no DB.
+Rollback restores the snapshot (phase-2 state). During phase 3, the read-only window defines every write disposition: non-exempt writes are refused; exempt-writer changes are upgrade machinery state that the restore intentionally rewinds; and a deliberate non-exempt override is the writer's decision to forfeit that write. Phase 1 is captured in the snapshot; phase 2 has no DB.
 
-**That single fact reconciles the two things that looked contradictory:**
-- *"The DB is down for the backup"* — true, so phase 2 carries **zero** write risk. The risk is only phase 3, after the DB restarts for migrations.
-- *"Recovery can't roll back when it can't verify"* (the `GroundTruthUnknown` → hold-for-a-human path) — that conservatism exists for **one reason only**: to protect those phase-3 writes. If a crash lands in phase 3 and recovery can't confirm the state, a blind rollback might erase one.
+**That single contract reconciles the timeline:**
+- *"The DB is down for the backup"* — true, so phase 2 admits no writes.
+- *"The DB is up again after the snapshot"* — also true, but the window already defines those writes as refused or intentionally disregarded by a restore. They are not a rollback hedge.
 
-**The read-only window guards exactly phase 3.** Block external writes there → a rollback can lose nothing → "can't verify" stops meaning "can't roll back" → recovery decides for itself, no human. One narrow risk window, one guard over it, and the conservatism it forced evaporates.
+**The read-only window guards exactly phase 3.** Window ON → rollback is lossless, always. This removes write preservation from the direction decision: recovery may retry, roll back, complete, or park for its named state-machine reason, but never because a during-window write needs protecting.
 
-(Accident-guard, not a lock: a *deliberate* override can still write in phase 3 and is the user's own risk — per the ratified principle "can't go wrong without intent; with intent you're allowed.")
+(Accident-guard, not a lock: a *deliberate* non-exempt override can still write in phase 3, but that act deliberately forfeits the write. A later rollback disregards it by design — per the ratified principle "can't go wrong without intent; with intent you're allowed.")
 
 ## Recommended approach
 **Invariant:** every non-upgrade session is read-only across phase 3 (DB-available-after-snapshot → upgrade resolved), with ONE role exception — `authenticator` (PostgREST), exempted at the role level (item 3 below) because its listener would otherwise crash-loop and 503 the health check; external `/rest` writes stay frozen by the maintenance 503 regardless (doc-023).
@@ -44,7 +44,7 @@ Rollback restores the snapshot (phase-2 state). So the **only** external writes 
 **The read-only-window invariant SUPERSEDES STATBUS-039's "never restore on a guess."** The old doctrine was a categorical prohibition born of one risk: a restore could erase an external write that landed after the snapshot. The window removes the risk instead of prohibiting the action — with phase 3 write-free (against accidents), **a rollback is universally data-safe by construction**, so the *can't-verify → hold → human* branch collapses into safe-rollback / quiet-retry (STATBUS-109), and recovery self-decides with no operator travel. The successor doctrine, as the recovery decision model states it: *classify-then-act, with rollback as the universal safe fallback; the only human stops are "unknown" (unreadable own-state / unrecognized error) and "restore-broke" (the restore mechanism itself failed) — neither is a data-safety hold.* `doc/upgrade-recovery-model.md` is the canonical decision tree; this document is the invariant that makes its autonomy sound.
 
 ## Cost and acceptability
-During an upgrade's destructive window, external writes are blocked while reads keep working. This costs little in practice: browser and REST traffic already stop in this window under maintenance mode, so the only new restriction falls on a direct database connection, which few real users make. Upgrades are infrequent and this window lasts minutes, not hours, so a short write pause is a small price for a statistical registry. The block is a guard against accidents, not a lock: it exists to stop unintentional writes, but any session can deliberately turn it off for itself and write anyway, at its own risk — the ratified rule is that you cannot go wrong without meaning to, and if you mean to, you are allowed. In exchange, the payoff is real: nothing external can be lost during the window, so a rollback is always safe to run on its own — which is what lets a box nobody can reach recover by itself instead of waiting for a human to travel there.
+During an upgrade's destructive window, external writes are blocked while reads keep working. This costs little in practice: browser and REST traffic already stop in this window under maintenance mode, so the only new restriction falls on a direct database connection, which few real users make. Upgrades are infrequent and this window lasts minutes, not hours, so a short write pause is a small price for a statistical registry. The block is a guard against accidents, not a lock: any session can deliberately turn it off for itself, but doing so deliberately forfeits that write if rollback restores the snapshot. The ratified rule is that you cannot go wrong without meaning to, and if you mean to, you are allowed. In exchange, the payoff is categorical: window ON means rollback is lossless by definition, which lets an unreachable box recover by itself instead of waiting for a human to travel there.
 
 ## Critical files (re-verified 2026-07-12)
 - `cli/internal/upgrade/exec.go:341-380` — `setDatabaseReadOnly(bool)` (`ALTER DATABASE …`), the sibling of `setMaintenance`.

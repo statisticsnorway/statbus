@@ -18,8 +18,8 @@ import (
 // cleanup-only shape: a free-flock service marker whose row is
 // rollback_finish_pending_at set with a retained backup_path. The ladder must say
 // StateCrashedUpgrade (route to RecoverFromFlag, which is cleanup-only for this
-// row) and NEVER StateRestoreReattemptable (which would replay the snapshot
-// restore over data accepted after the window lifted).
+// row) and NEVER StateRestoreReattemptable: once the window lifts, the contract is
+// completion only and snapshot replay is no longer a valid transition.
 //
 //	STATBUS_LIVE_DB=1 go test -count=1 -run TestLiveDetect -v ./internal/install
 func TestLiveDetect_PendingRollbackIsCrashedNotReattempt(t *testing.T) {

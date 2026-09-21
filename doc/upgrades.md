@@ -178,7 +178,7 @@ An upgrade runs in two halves split by a binary swap — the OLD binary does the
 3. **Read-only window ON** -- external writes are blocked for the destructive phase (an accident-guard; `doc/read-only-upgrade-window.md`). Maintenance page ON; app/worker/rest stopped; **database stopped**.
 4. **Snapshot** -- the stopped volume is rsync'd to `~/statbus-backups/pre-upgrade-active/` (atomic dir-rename commit; this is the rollback artifact).
 5. **Fetch + binary swap** -- the target's git objects are fetched (no checkout yet), the new `./sb` lands on disk, and the process exits so the NEW binary takes over.
-6. **New binary's pipeline** -- checkout of the exact target, boot migration of the daemon's own small floor only, then the guarded resume: the upgrade's migration delta applies exactly once, services start, the health check must pass, maintenance OFF, the row reaches `completed`, and the read-only window lifts.
+6. **New binary's pipeline** -- checkout of the exact target, boot migration of the daemon's own small floor only, then the guarded resume: the upgrade's migration delta applies exactly once, services start, the health check must pass, maintenance turns OFF, the read-only window lifts, and the row reaches `completed`. Once the window is OFF the box is serving on purpose and recovery completes it, never rolls it back.
 
 There is no post-completion archive step -- the forensic tar was removed (the persistent snapshot dir is the single backup artifact).
 
