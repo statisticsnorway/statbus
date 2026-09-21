@@ -7901,44 +7901,60 @@ func (d *Service) parkForDeterministicFailure(ctx context.Context, id int, displ
 	if freshlyParked {
 		d.runCallback(displayName, map[string]string{"STATBUS_EVENT": "parked", "STATBUS_PARKED": "1", "STATBUS_PARK_REASON": reason})
 	}
+	if obsState == ObservedAlreadyAtNew {
+		// Binary + migration position is target, so source-version recovery is neither
+		// needed nor permitted. Container liveness is a separate observed fact: a
+		// health-leg park already has the target serving tier running and must leave it
+		// untouched, while a pre-start park can reach this point with those containers
+		// stopped. In the latter case, attempt only an in-place start of independently
+		// verified target-era containers. Never recreate and never start source services.
+		operabilityNote := d.ensureParkedTargetServingTier(ctx, commitSHA, progress)
+		if operabilityNote != "" {
+			d.appendParkNarrative(id, operabilityNote)
+		}
+		return fmt.Errorf("parked on deterministic forward failure: %s", reason)
+	}
 	// STATBUS-200: the park write has landed (the ordering pin — park FIRST, restoration
 	// SECOND: a crash inside parkServiceRecovery leaves an already-parked row, so the
-	// parked-skip invariant holds on the next boot and no attempt is consumed). Now bring the
-	// SOURCE version's services back so the parked box stays OPERABLE — the North Star: a park
-	// is alive-idle AND the operator's remedy lever (the web UI) is up, never a silent dark
-	// outage. Era-guarded + narrative-only on refuse/failure; it only ever STARTS services on
-	// permit and never stops anything. Run unconditionally (not gated on freshlyParked) so a
-	// next-boot re-entry safely completes a restoration interrupted by a mid-restore crash —
-	// both restores are idempotent no-ops when nothing moved.
-	if retreatErr := d.parkServiceRecovery(ctx, id, restoreTargetSHA, progress); retreatErr != nil {
+	// parked-skip invariant holds on the next boot and no attempt is consumed). The only
+	// remaining observed verdict is PositionUnreadable. It may still need the source-era
+	// comparison, but it must use route-only startup: unreadable position does not prove the
+	// serving tier is stopped, so the rollback-only held-closed contract is inapplicable.
+	// Era-guarded + narrative-only on refuse/failure; it only ever STARTS services on permit
+	// and never stops anything. Run on every unreadable-position re-entry (not gated on
+	// freshlyParked) so a next boot safely completes an interrupted restoration.
+	if retreatErr := d.parkServiceRecovery(ctx, id, restoreTargetSHA, progress, d.StartDatabaseRouteServingMayRun); retreatErr != nil {
 		return retreatErr
 	}
 	return fmt.Errorf("parked on deterministic forward failure: %s", reason)
 }
 
 // parkServiceRecovery — STATBUS-200. The shared park-service-recovery helper, invoked after
-// EVERY park write via the single chokepoint parkForDeterministicFailure (parkAtTarget
-// delegates here too, so all park sites are covered by this one call). It brings the SOURCE
-// version's services back so a parked box stays OPERABLE — the North Star: a park is alive-idle
-// AND the operator's remedy lever (the web UI) is up, never a silent dark outage. ERA-GUARDED
-// (the safety core): it starts source services ONLY when the DB is provably at the source
-// version's schema. HARD RULE (ruling Q4): it only ever STARTS services on permit; on refuse or
-// failure it stops NOTHING and changes nothing but the park narrative (appendParkNarrative).
-func (d *Service) parkServiceRecovery(ctx context.Context, id int, restoreTargetSHA string, progress *ProgressLog) error {
+// source-restoration-eligible park writes. A known-at-target deterministic park deliberately
+// bypasses it because source restoration is forbidden there. It brings the SOURCE version's
+// services back so a parked box stays OPERABLE — the North Star: a park is alive-idle AND the
+// operator's remedy lever (the web UI) is up, never a silent dark outage. ERA-GUARDED (the
+// safety core): it starts source services ONLY when the DB is provably at the source version's
+// schema. The caller supplies the route contract selected by its already-established position;
+// this helper must not infer position from another contract's preconditions. HARD RULE (ruling
+// Q4): it only ever STARTS services on permit; on refuse or failure it stops NOTHING and changes
+// nothing but the park narrative (appendParkNarrative).
+func (d *Service) parkServiceRecovery(ctx context.Context, id int, restoreTargetSHA string, progress *ProgressLog, startDatabaseRoute func(context.Context) error) error {
 	// STATBUS-204: this helper OWNS its own watchdog cover. Its slow span — parkEraVerdict's
-	// StartDatabaseRouteServingMustBeStopped (waits up to ~60s for DB health) plus restoreSourceServices (existing-container start
-	// + bounded health + the restores) — can exceed WatchdogSec=120s on a cold box. The
-	// deterministic park callers run under an outer gated ticker, but the budget-park callers
-	// (RecoveryBudgetGuard, resumeNewSb) run post-READY in the ACTIVE phase with NONE, so without
-	// this a SIGABRT would crash-loop the very park the fix makes operable. The ticker sits at
-	// the TOP, spanning verdict + restoration together (the DB-health wait is inside the danger
-	// window and precedes the restore). ALWAYS-PING is correct here (nil gate): every covered
-	// sub-step is itself time-bounded (StartDatabaseRouteServingMustBeStopped's health wait, compose-start's command
-	// timeout, healthCheck's bounded attempts), so a genuine hang cannot outlive the bounds' sum
-	// — cover-with-bounds is hang-detection by construction (the boot-migrate always-ping
-	// precedent). Owning the cover at this chokepoint covers every caller — deterministic,
-	// budget, and future — at ONE point (the 200 Q4 / 197 C3 shape); the nested ticker at the
-	// deterministic sites is harmless (both layers just emit WATCHDOG=1).
+	// selected database-route start (which may wait up to ~60s for DB health) plus
+	// restoreSourceServices (existing-container start + bounded health + the restores) — can
+	// exceed WatchdogSec=120s on a cold box. The deterministic park callers run under an
+	// outer gated ticker, but the budget-park callers (RecoveryBudgetGuard, resumeNewSb) run
+	// post-READY in the ACTIVE phase with NONE, so without this a SIGABRT would crash-loop the
+	// very park the fix makes operable. The ticker sits at the TOP, spanning verdict + restoration
+	// together (the DB-health wait is inside the danger window and precedes the restore).
+	// ALWAYS-PING is correct here (nil gate): every covered sub-step is itself time-bounded
+	// (the selected route's health wait, compose-start's command timeout, healthCheck's bounded
+	// attempts), so a genuine hang cannot outlive the bounds' sum — cover-with-bounds is
+	// hang-detection by construction (the boot-migrate always-ping precedent). Owning the cover
+	// at this chokepoint covers every caller — deterministic, budget, and future — at ONE point
+	// (the 200 Q4 / 197 C3 shape); the nested ticker at the deterministic sites is harmless
+	// because both layers only emit WATCHDOG=1.
 	tickerCtx, tickerCancel := context.WithCancel(ctx)
 	tickerDone := make(chan struct{})
 	go runGatedWatchdogTicker(tickerCtx, nil,
@@ -7984,7 +8000,7 @@ func (d *Service) parkServiceRecovery(ctx context.Context, id int, restoreTarget
 	}
 	defer releaseFlagHold()
 
-	permit, refusal := d.parkEraVerdict(ctx, id)
+	permit, refusal := d.parkEraVerdict(ctx, id, startDatabaseRoute)
 	if !permit {
 		d.appendParkNarrative(id, refusal)
 		return nil
@@ -8050,12 +8066,13 @@ func (d *Service) recordRetreatedToSource() error {
 // (git rev-parse → git ls-tree, no checkout, so it works while the tree sits at the target).
 // EVERY anomaly REFUSES with a named narrative: the fail-safe direction is ALWAYS
 // dark-behind-the-maintenance-page, never a guess toward serving mixed-era.
-func (d *Service) parkEraVerdict(ctx context.Context, id int) (permit bool, refusalNarrative string) {
+func (d *Service) parkEraVerdict(ctx context.Context, id int, startDatabaseRoute func(context.Context) error) (permit bool, refusalNarrative string) {
 	const held = "services held down"
 	// The DB may be stopped at a pre-start park (StepImagePull is before StepDBUp). Bring the
-	// EXISTING db+proxy up (start, never recreate — StartDatabaseRouteServingMustBeStopped) so the applied-max read
-	// can run; a running DB under the still-engaged read-only window is harmless (ruling Q1).
-	if err := d.StartDatabaseRouteServingMustBeStopped(ctx); err != nil {
+	// EXISTING db+proxy up through the route contract selected by the caller's observed
+	// position so the applied-max read can run. A running DB under the still-engaged read-only
+	// window is harmless (ruling Q1).
+	if err := startDatabaseRoute(ctx); err != nil {
 		return false, fmt.Sprintf("%s: the database could not be started to verify source-version identity (%v)", held, err)
 	}
 	// Reads ride the teardown-immune fresh-conn primitive (terminalUpdate), so they do not
@@ -8181,6 +8198,139 @@ func (d *Service) restoreSourceServices(ctx context.Context, restoreTargetSHA st
 var sourceServingServices = []string{"app", "worker", "rest", "proxy"}
 var sourceServingClientServices = []string{"app", "worker", "rest"}
 var sourceVersionTaggedServingServices = []string{"app", "worker", "proxy"}
+
+// targetServingContainerEntries proves that the EXISTING serving containers are
+// the exact target-era containers named by the current target tree. The current
+// compose references are not sufficient by themselves because a mutable tag can
+// move; each existing container's daemon image ID must equal the daemon image ID
+// currently resolved by that target reference. State is deliberately not judged
+// here, so an empty/unknown state still reaches the bounded start attempt rather
+// than being mistaken for a running health-leg tier.
+func (d *Service) targetServingContainerEntries(ctx context.Context, targetCommitSHA string) (map[string]compose.PsEntry, error) {
+	targetTag := ShortForDisplay(targetCommitSHA)
+	if !regexp.MustCompile(`^[0-9a-f]{8}$`).MatchString(targetTag) {
+		return nil, fmt.Errorf("target commit %q does not have an eight-character git SHA", targetCommitSHA)
+	}
+	expectedReferences, treeTag, err := d.sourceServingExpectedImageReferences(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("render target serving compose model: %w", err)
+	}
+	if treeTag != targetTag {
+		return nil, fmt.Errorf("current serving compose model is from tree %s, want target %s", treeTag, targetTag)
+	}
+	entries, err := d.sourceServingContainerEntries(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("inspect existing target serving containers: %w", err)
+	}
+	actual := make(map[string]compose.PsEntry, len(entries))
+	for _, entry := range entries {
+		if _, duplicate := actual[entry.Service]; duplicate {
+			return nil, fmt.Errorf("multiple existing containers reported for target service %s", entry.Service)
+		}
+		actual[entry.Service] = entry
+	}
+	for _, service := range sourceServingServices {
+		entry, present := actual[service]
+		if !present {
+			return nil, fmt.Errorf("existing target container for %s is missing", service)
+		}
+		expectedReference := expectedReferences[service]
+		if strings.TrimSpace(entry.Image) != expectedReference {
+			return nil, fmt.Errorf("existing %s container uses %q, want target reference %q", service, entry.Image, expectedReference)
+		}
+		expectedImageID, inspectErr := d.dockerImageReferenceID(ctx, expectedReference)
+		if inspectErr != nil {
+			return nil, fmt.Errorf("resolve target image identity for %s: %w", service, inspectErr)
+		}
+		if entry.ImageID != expectedImageID {
+			return nil, fmt.Errorf("existing %s container image ID is %s, want target image ID %s", service, entry.ImageID, expectedImageID)
+		}
+	}
+	return actual, nil
+}
+
+func (d *Service) targetServingTierRunning(ctx context.Context, targetCommitSHA string) (bool, error) {
+	entries, err := d.targetServingContainerEntries(ctx, targetCommitSHA)
+	if err != nil {
+		return false, err
+	}
+	for _, service := range sourceServingServices {
+		state := strings.TrimSpace(entries[service].State)
+		if !knownDockerContainerState(state) {
+			return false, fmt.Errorf("existing target container for %s has empty or unknown state %q", service, state)
+		}
+		if state != "running" {
+			return false, nil
+		}
+	}
+	return true, nil
+}
+
+// startExistingTargetServingTier is intentionally narrower than the ordinary
+// StepStartServices action. It may only start already-existing, independently
+// proved target-era containers. It has no compose-up authority, cannot recreate,
+// and cannot select the source-restoration route.
+func (d *Service) startExistingTargetServingTier(ctx context.Context, targetCommitSHA string, progress *ProgressLog) error {
+	if _, err := d.targetServingContainerEntries(ctx, targetCommitSHA); err != nil {
+		return fmt.Errorf("prove existing containers are target-era before start: %w", err)
+	}
+	composeArgs := append([]string{"start"}, sourceServingServices...)
+	commandCtx, cancel := context.WithTimeout(ctx, 2*time.Minute)
+	command, buildErr := compose.CommandContext(commandCtx, d.projDir, composeArgs...)
+	var output string
+	var commandErr error
+	if buildErr != nil {
+		commandErr = buildErr
+	} else if progress != nil {
+		output, commandErr = runPreparedCommandToLogCapture(commandCtx, command, 2*time.Minute, progress.File(), "park-target-docker-compose", progress.bump, "docker compose", composeArgs)
+	} else {
+		output, commandErr = runPreparedCommandOutput(commandCtx, command, 2*time.Minute, "docker compose", composeArgs)
+	}
+	cancel()
+	if commandErr != nil {
+		return fmt.Errorf("docker compose start app worker rest proxy: %w (%s)", commandErr, strings.TrimSpace(output))
+	}
+	running, err := d.targetServingTierRunning(ctx, targetCommitSHA)
+	if err != nil {
+		return fmt.Errorf("verify target serving containers after start: %w", err)
+	}
+	if !running {
+		return fmt.Errorf("target serving containers are not all running after docker compose start")
+	}
+	return nil
+}
+
+// ensureParkedTargetServingTier keeps an at-target PARK operable without ever
+// crossing into source recovery. A verifiably running target tier is the health-
+// leg case and stays byte-for-byte untouched. Every stopped, unknown, or ambiguous
+// observation enters the bounded in-place start path. Failure is narrative-only:
+// the senior park write has already landed and must never be undone or blocked.
+func (d *Service) ensureParkedTargetServingTier(ctx context.Context, targetCommitSHA string, progress *ProgressLog) string {
+	running, observationErr := d.targetServingTierRunning(ctx, targetCommitSHA)
+	if observationErr == nil && running {
+		if progress != nil {
+			progress.Write("Keeping the observed running target-version services in place; source-version recovery is neither needed nor permitted.")
+		}
+		return ""
+	}
+	if progress != nil {
+		if observationErr != nil {
+			progress.Write("Target serving-tier state is not verifiably running (%v); attempting an in-place start of existing target containers.", observationErr)
+		} else {
+			progress.Write("Target serving tier is not running; attempting an in-place start of existing target containers.")
+		}
+	}
+	if err := d.startExistingTargetServingTier(ctx, targetCommitSHA, progress); err != nil {
+		if progress != nil {
+			progress.Write("Starting existing target-version services for parked-box operability ... failed: %v", err)
+		}
+		return fmt.Sprintf("target-version serving containers could not be started in place for parked-box operability (%v); the park remains landed and source-version recovery was not attempted", err)
+	}
+	if progress != nil {
+		progress.Write("Starting existing target-version services for parked-box operability ... ok (automatic retries remain paused)")
+	}
+	return "target-version serving containers were started in place for parked-box operability; automatic retries remain paused and source-version recovery was not attempted"
+}
 
 // ServingEra is observed container identity, never caller intent. Recovery must
 // derive it from docker's actual image references at the source-stack boundary.
@@ -8941,8 +9091,8 @@ func (d *Service) convergeUnchangedSourceServices(ctx context.Context, progress 
 // SingleParkWriter drift gate counts the park-timestamp write — the assignment of now() to
 // recovery_parked_at — which this narrative-only append never performs).
 // Best-effort — the park itself (the senior parkUpgrade write) already landed; a failed append
-// only loses the row-level note, never crashes, never a second park write. Single caller:
-// parkServiceRecovery.
+// only loses the row-level note, never crashes, never a second park write. Callers are limited
+// to parkServiceRecovery's source-restoration result and the at-target operability result.
 func (d *Service) appendParkNarrative(id int, note string) {
 	suffix := " — " + note
 	if _, err := d.terminalUpdate(
@@ -10212,7 +10362,7 @@ func (d *Service) RecoveryBudgetGuard(ctx context.Context) (skipBootMigrate bool
 		// lose the story, never the box. Liveness does not depend on the log either — the helper's
 		// own always-ping watchdog ticker covers the span (204), not progress.Write's heartbeat.
 		plog := AppendProgressLog(d.projDir, d.loadLogRelPath(ctx, int64(flag.ID)))
-		if retreatErr := d.parkServiceRecovery(ctx, flag.ID, "", plog); retreatErr != nil {
+		if retreatErr := d.parkServiceRecovery(ctx, flag.ID, "", plog, d.StartDatabaseRouteServingMustBeStopped); retreatErr != nil {
 			log.Printf("RecoveryBudgetGuard: %v — source services remain restored; the park marker needs operator reconciliation", retreatErr)
 		}
 		plog.Close()
@@ -10706,7 +10856,7 @@ func (d *Service) resumeNewSb(ctx context.Context, flag UpgradeFlag) error {
 			// refuse/failure) so a same-step-twice park is alive-idle AND operable, not dark. The
 			// helper owns its watchdog cover. restoreTargetSHA="" falls back to this attempt's
 			// pre-upgrade pin (identity holds post-197).
-			if retreatErr := d.parkServiceRecovery(ctx, flag.ID, "", progress); retreatErr != nil {
+			if retreatErr := d.parkServiceRecovery(ctx, flag.ID, "", progress, d.StartDatabaseRouteServingMustBeStopped); retreatErr != nil {
 				log.Printf("resumeNewSb: %v — source services remain restored; the park marker needs operator reconciliation", retreatErr)
 			}
 			progress.Close()

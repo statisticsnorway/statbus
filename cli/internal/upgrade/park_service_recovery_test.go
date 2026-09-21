@@ -63,13 +63,51 @@ func TestParkMigrationMaxInGitTree_ParsesVersions(t *testing.T) {
 func TestParkServiceRecovery_StructuralContracts(t *testing.T) {
 	src := string(packageGoSources(t)["service.go"])
 
-	// ORDERING PIN (park write FIRST): parkServiceRecovery is invoked AFTER the parkUpgrade
-	// call inside parkForDeterministicFailure — a crash mid-restoration leaves a parked row.
+	// ORDERING + POSITION-CONTRACT PIN: the durable park lands first. A position already
+	// established as at-or-past target first proves the target serving tier's observed
+	// container state. A running health-leg tier stays untouched. A stopped/unknown pre-start
+	// tier gets only a bounded in-place target-container start attempt, with a narrative-only
+	// result, before returning. It never asks the source-restoration helper to re-derive
+	// position through its held-closed preconditions. Only the remaining unreadable-position
+	// branch may ask for an era verdict, and it must use the route-only contract because target
+	// clients may legitimately be live.
 	pf := extractFuncBody(t, src, "func (d *Service) parkForDeterministicFailure(")
 	parkIdx := strings.Index(pf, "d.parkUpgrade(")
-	recIdx := strings.Index(pf, "d.parkServiceRecovery(")
-	if parkIdx < 0 || recIdx < 0 || recIdx < parkIdx {
-		t.Errorf("ordering pin: parkServiceRecovery must be called AFTER parkUpgrade in parkForDeterministicFailure (park write FIRST) — parkUpgrade@%d, parkServiceRecovery@%d", parkIdx, recIdx)
+	atTargetIdx := strings.Index(pf, "if obsState == ObservedAlreadyAtNew {")
+	recIdx := strings.Index(pf, "d.parkServiceRecovery(ctx, id, restoreTargetSHA, progress, d.StartDatabaseRouteServingMayRun)")
+	if parkIdx < 0 || atTargetIdx < 0 || recIdx < 0 || parkIdx >= atTargetIdx || atTargetIdx >= recIdx {
+		t.Fatalf("deterministic park contract must be park write -> at-target return -> unreadable-position MayRun verdict; parkUpgrade@%d atTarget@%d MayRunRecovery@%d", parkIdx, atTargetIdx, recIdx)
+	}
+	atTargetBranch := pf[atTargetIdx:recIdx]
+	ensureIdx := strings.Index(atTargetBranch, "d.ensureParkedTargetServingTier(ctx, commitSHA, progress)")
+	appendIdx := strings.Index(atTargetBranch, "d.appendParkNarrative(id, operabilityNote)")
+	returnIdx := strings.Index(atTargetBranch, `return fmt.Errorf("parked on deterministic forward failure: %s", reason)`)
+	if ensureIdx < 0 || appendIdx < ensureIdx || returnIdx < appendIdx {
+		t.Fatalf("at-target park must observe/start target containers, append a non-empty operability narrative, then return; ensure@%d append@%d return@%d", ensureIdx, appendIdx, returnIdx)
+	}
+	if !strings.Contains(atTargetBranch, `if operabilityNote != "" {`) {
+		t.Error("the running health-leg branch must keep its narrative untouched; append only a non-empty pre-start operability result")
+	}
+	for _, forbidden := range []string{"parkServiceRecovery", "restoreSourceServices", "StartDatabaseRouteServing", "services held down", "held-closed recovery invariant violated", "compose.Up("} {
+		if strings.Contains(atTargetBranch, forbidden) {
+			t.Errorf("at-target park must never reach source-era recovery, held-closed routing, or recreation %q", forbidden)
+		}
+	}
+	targetOperability := extractFuncBody(t, src, "func (d *Service) ensureParkedTargetServingTier(")
+	targetStart := extractFuncBody(t, src, "func (d *Service) startExistingTargetServingTier(")
+	for _, forbidden := range []string{"parkServiceRecovery", "restoreSourceServices", "startSourceApplicationStack", "StartDatabaseRouteServing", "compose.Up("} {
+		if strings.Contains(targetOperability, forbidden) || strings.Contains(targetStart, forbidden) {
+			t.Errorf("at-target operability call graph must not contain source recovery or recreate authority %q", forbidden)
+		}
+	}
+	if !strings.Contains(targetStart, `append([]string{"start"}, sourceServingServices...)`) || !strings.Contains(targetStart, "compose.CommandContext(") {
+		t.Error("at-target operability may only use docker compose start for the existing app/worker/rest/proxy containers")
+	}
+	if strings.Count(pf, "d.parkServiceRecovery(") != 1 {
+		t.Errorf("parkForDeterministicFailure must contain exactly one service-recovery call, only for unreadable position; got %d", strings.Count(pf, "d.parkServiceRecovery("))
+	}
+	if strings.Contains(pf, "StartDatabaseRouteServingMustBeStopped") {
+		t.Error("held-closed route must not be reachable from parkForDeterministicFailure; its source-restoration precondition belongs to rollback-position recovery")
 	}
 
 	// HELPER NEVER STOPS ANYTHING (ruling Q4 hard rule): neither the helper nor the restore
@@ -78,6 +116,8 @@ func TestParkServiceRecovery_StructuralContracts(t *testing.T) {
 		"func (d *Service) parkServiceRecovery(",
 		"func (d *Service) restoreSourceServices(",
 		"func (d *Service) startSourceApplicationStack(",
+		"func (d *Service) ensureParkedTargetServingTier(",
+		"func (d *Service) startExistingTargetServingTier(",
 	} {
 		body := extractFuncBody(t, src, fn)
 		for _, forbidden := range []string{`"stop"`, `"down"`, "QuiesceClients", "setMaintenance(true)", "setDatabaseReadOnly(ctx, true)"} {
@@ -123,12 +163,14 @@ func TestParkServiceRecovery_StructuralContracts(t *testing.T) {
 		}
 	}
 
-	// appendParkNarrative SINGLE-CALLER PIN: every call site is inside parkServiceRecovery.
+	// appendParkNarrative TWO-ROUTE PIN: source restoration owns its existing refusal/failure
+	// notes, while the at-target branch may append only the target operability attempt result.
 	psr := extractFuncBody(t, src, "func (d *Service) parkServiceRecovery(")
 	inHelper := strings.Count(psr, "d.appendParkNarrative(")
+	inTargetBranch := strings.Count(atTargetBranch, "d.appendParkNarrative(")
 	inFile := strings.Count(src, "d.appendParkNarrative(")
-	if inFile == 0 || inFile != inHelper {
-		t.Errorf("appendParkNarrative single-caller pin: all call sites must be inside parkServiceRecovery — found %d in-file, %d in-helper", inFile, inHelper)
+	if inHelper == 0 || inTargetBranch != 1 || inFile != inHelper+inTargetBranch {
+		t.Errorf("appendParkNarrative route pin: calls must be only parkServiceRecovery plus one at-target operability append — found %d in-file, %d source-helper, %d target-branch", inFile, inHelper, inTargetBranch)
 	}
 
 	// appendParkNarrative is NARRATIVE-ONLY: it appends to reason/error, guards on an

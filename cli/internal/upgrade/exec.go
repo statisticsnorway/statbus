@@ -1413,8 +1413,9 @@ func (d *Service) StartDatabaseRouteServingMayRun(ctx context.Context) error {
 
 // StartDatabaseRouteServingMustBeStopped starts the EXISTING database and its proxy
 // without recreating them only while the serving tier must be stopped. It is the
-// strictly narrower recovery contract used only by the park-era schema verdict and
-// rollback schema-floor replay. It proves app/worker/rest are absent or terminal
+// strictly narrower recovery contract selected only for source-restoration park-era
+// verdicts whose callers already require a stopped tier, and for rollback schema-floor
+// replay. It proves app/worker/rest are absent or terminal
 // BEFORE opening the restored database route, then repeats that proof immediately
 // after starting db+proxy as a belt-and-braces race check before waiting for DB
 // health. Unknown serving-service states remain rejected exactly as before.
