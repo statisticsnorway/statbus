@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-09-15 07:48'
-updated_date: '2026-09-15 08:04'
+updated_date: '2026-09-22 17:01'
 labels:
   - testing
   - harness
@@ -110,3 +110,12 @@ tickets land in one push, one candidate, one ladder. Position in that push:
 **1 of 8**. harness self-test on a stub box; lands first so the batch ladder itself is protected by it
 
 Batch order: 370 -> 368 -> 367 -> 363 -> 357 -> 361 -> 362 -> 359.
+
+## Update 2026-09-22
+
+The requested layer-2 stub-box contract is not present on master. Current tests
+cover individual cleanup, process-log registration, partial-allocation, and
+concurrent-install observation paths, but there is no `./dev.sh test-harness`
+verb, no localhost sshd stub-box test that proves capture-before-delete and
+`KEEP_VM=1` ordering, and no recorded negative mutation proof or layer-3 VM run.
+Status remains **In Progress**.

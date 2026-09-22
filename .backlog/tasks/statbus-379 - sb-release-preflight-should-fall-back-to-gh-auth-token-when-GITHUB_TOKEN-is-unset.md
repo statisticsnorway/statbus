@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-09-20 14:36'
-updated_date: '2026-09-20 14:36'
+updated_date: '2026-09-22 17:01'
 labels:
   - release
   - cli
@@ -44,3 +44,11 @@ identity-reporting and Git transport work.
 `./sb release prerelease` succeeds on an operator machine authenticated only by
 `gh auth login`, and tests prove that an explicit `GITHUB_TOKEN` still takes
 precedence over `gh auth token`.
+
+## Update 2026-09-22
+
+**Duplicate:** STATBUS-368 records the same `GITHUB_TOKEN` then `gh auth token`
+fallback defect. STATBUS-379 is the narrower incident record from rc.21;
+STATBUS-368 also covers displayed GitHub identity and authenticated Git
+transport. Keep both files for history. Neither duplicate is deleted or closed
+by this sweep.

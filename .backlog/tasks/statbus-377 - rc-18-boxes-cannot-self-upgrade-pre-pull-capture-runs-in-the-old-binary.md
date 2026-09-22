@@ -5,7 +5,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-09-19 10:43'
-updated_date: '2026-09-20 14:36'
+updated_date: '2026-09-22 17:01'
 labels:
   - upgrade
   - recovery
@@ -155,3 +155,21 @@ This ticket remains **OPEN at P2** only for the structural design question:
 Consider whether source capture should move post-swap or be delegated to the
 downloaded target binary. The documented installer rerun is the supported
 remedy unless and until that boundary changes.
+
+## Update 2026-09-22
+
+Norway supplied the real-world instance of this boundary during the rc.28
+attempt. The checkout, on-disk `sb`, generated environment, and serving
+containers were rc.20, while `statbus-upgrade@statbus.service` still ran a
+deleted rc.18 executable. Rc.18's source capture omitted `--profile all`, so
+`app` disappeared from the Compose render and every rc.28 attempt failed before
+claim/pull. The daemon reclaimed the failed row every 1-2 seconds: 190 attempts
+were observed, followed by 360 attempts per 10 minutes, with
+`recovery_attempts=0` and no park.
+
+The operational remedy taken today was `./cloud.sh install no`, which puts the
+new installer/binary in charge rather than asking the resident rc.18 daemon to
+cross its own defect. The durable daemon/process identity invariant and bounded
+park-class handling for pre-claim failures are tracked in STATBUS-382. Commit
+`a96751064` fixes the profile render in newer binaries but cannot change an
+already resident rc.18 process.

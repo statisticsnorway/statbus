@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-09-14 10:14'
-updated_date: '2026-09-15 08:15'
+updated_date: '2026-09-22 17:01'
 labels:
   - ci
   - dx
@@ -105,3 +105,17 @@ tickets land in one push, one candidate, one ladder. Position in that push:
 **3 of 8**. seed image FROM scratch + multi-arch manifest; built and Luna-accepted in scratch (9c34ebea4, bfbf037e8, 2fe06f637); the batch push is its ghcr proof
 
 Batch order: 370 -> 368 -> 367 -> 363 -> 357 -> 361 -> 362 -> 359.
+
+## Update 2026-09-22
+
+The arm64 fetch failure was fixed on master by `0e07df223` (`seed: pin fetch
+image platform`). Both `docker pull` and `docker create` now use
+`--platform linux/amd64`, with focused argv tests in
+`cli/cmd/seed_image_test.go`.
+
+Status remains **In Progress** under this file's own acceptance criteria. The
+accepted implementation in this file requires a one-digest amd64+arm64
+manifest, a scratch seed image, and no `--platform` in `cli/cmd/seed.go`.
+Master instead retains the amd64 image and explicit platform pins. The shipped
+fix resolves the reported developer failure but does not meet those written
+acceptance bullets.

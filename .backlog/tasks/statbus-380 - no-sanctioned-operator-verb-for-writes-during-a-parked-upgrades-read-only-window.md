@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-09-21 12:03'
-updated_date: '2026-09-21 12:03'
+updated_date: '2026-09-22 17:01'
 labels:
   - upgrade
   - recovery
@@ -70,3 +70,11 @@ The decision must consider:
 The c-rollback-resurrection arc currently sets the precedent. If a verb is
 chosen, migrate the arc to it. This question is related to STATBUS-376, the
 Finland install workstream, and the read-only window documentation.
+
+## Update 2026-09-22
+
+No status change. The product still has no sanctioned, audited repair verb for
+writes during a parked upgrade's read-only window. Raw admin psql with
+`default_transaction_read_only=off` and deliberate un-park/retry through
+`./sb install` remain the two documented mechanisms in this item. Status remains
+**To Do**.

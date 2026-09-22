@@ -7,7 +7,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-09-14 12:36'
-updated_date: '2026-09-20 14:36'
+updated_date: '2026-09-22 17:01'
 labels:
   - release
   - install
@@ -1075,3 +1075,16 @@ in `tmp/rc20-arc-triage-live.md`; every one of the 14 reds was explained and
 fixed. The rc.21 chain was first blocked by the rc.20-arc mutex and was then
 superseded intentionally. rc.22 (`e9cf9d9f4`) is the candidate whose Upgrade
 Arc is now running.
+
+## Update 2026-09-22
+
+`test/install-recovery/scenarios/0-happy-install.sh` now installs the candidate
+itself with `install_statbus_at_sha`, rejects a different `INSTALL_VERSION`, and
+asserts the candidate binary and upgrade row. For rc.28, Test Smoke run
+`35732721734` job `106762247339` ran that candidate-fresh path successfully.
+The paired happy-upgrade job `106762247293` installed `v2026.09.0` and upgraded
+to rc.28 successfully.
+
+Status remains **In Progress** because the file's final acceptance also requires
+the resulting stable's fresh `install.sh` path to be confirmed. rc.28 is a
+candidate, not that stable closeout.

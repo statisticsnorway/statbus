@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-09-14 11:41'
-updated_date: '2026-09-15 08:15'
+updated_date: '2026-09-22 17:01'
 labels:
   - release
   - cli
@@ -67,3 +67,10 @@ tickets land in one push, one candidate, one ladder. Position in that push:
 **2 of 8**. release gate uses gh auth token; built and Luna-accepted in scratch (f6d4ae2f7 + 1fe04e1a9)
 
 Batch order: 370 -> 368 -> 367 -> 363 -> 357 -> 361 -> 362 -> 359.
+
+## Update 2026-09-22
+
+**Duplicate:** STATBUS-379 records the same `GITHUB_TOKEN` then `gh auth token`
+fallback defect for release preflight. Keep both files for history. STATBUS-368
+is the broader form because it also requires identity reporting and authenticated
+Git transport coverage. Neither duplicate is deleted or closed by this sweep.

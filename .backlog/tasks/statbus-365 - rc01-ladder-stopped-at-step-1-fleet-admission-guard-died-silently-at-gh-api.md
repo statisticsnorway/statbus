@@ -3,10 +3,10 @@ id: STATBUS-365
 title: >-
   rc.01 ladder stopped at step 1: fleet admission guard (admit.sh) died silently
   at gh api on its first real run, orchestrator mislabelled it SUPERSEDED
-status: In Progress
+status: Done
 assignee: []
 created_date: '2026-09-07 21:03'
-updated_date: '2026-09-16 22:34'
+updated_date: '2026-09-22 17:01'
 labels:
   - ci
   - release
@@ -175,3 +175,12 @@ the wrong recovery lever.
 Hardening `1eccca23e` gives infrastructure and admission distinct labels and
 git-gates `sb` procurement. Independent review ACCEPTed the change with a
 mutation check. rc.16 is the next live admission proof.
+
+## Update 2026-09-22
+
+The fleet-admission guard's acceptance criterion is recorded as met in this
+file: rc.04 Test Smoke run `34840110574` printed
+`Admitted orchestrated paid run` after fix `c1b8d4dab`, and later rc.08,
+rc.09, rc.10, rc.11, and rc.15 checkpoints continued through or correctly
+refused admission. The orchestrator verdict correction landed in `9ced4480f`.
+Status is now **Done** because the file's own done-when evidence is present.

@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-09-18 17:48'
-updated_date: '2026-09-20 14:36'
+updated_date: '2026-09-22 17:01'
 labels:
   - install
   - setup
@@ -158,3 +158,13 @@ signer flow, and inline dispatch green. Separately, `cloud.sh` now
 automatically logs mutating verbs (`d032588e5`), as requested by the owner.
 These facts reduce installer-path uncertainty but do not complete the Finland
 Ubuntu 26.04 setup split or its remaining D1-D7 acceptance work.
+
+## Update 2026-09-22
+
+The release readiness probe in `cli/cmd/release/release.go`
+(`verify-artifacts` calling `CheckReleaseWorkflowAtTag`) treats an empty GitHub
+API workflow-runs page as `Missing`, the same result used for "workflow not
+started". This was observed at 2026-09-22 14:39Z; the workflow was green three
+minutes later. Add a bounded retry for the `Missing` case before presenting the
+not-started remedy, so a transient empty API page is not classified as durable
+absence.
