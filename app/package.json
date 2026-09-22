@@ -49,7 +49,7 @@
     "clsx": "^2.1.1",
     "cmdk": "^1.1.1",
     "date-fns": "^4.1.0",
-    "highcharts": "^12.5.0",
+    "highcharts": "^12.6.2",
     "jotai": "^2.17.0",
     "jotai-effect": "^2.2.3",
     "jotai-xstate": "^0.6.1",

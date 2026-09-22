@@ -116,8 +116,8 @@ importers:
         specifier: ^4.1.0
         version: 4.1.0
       highcharts:
-        specifier: ^12.5.0
-        version: 12.5.0
+        specifier: ^12.6.2
+        version: 12.6.2
       jotai:
         specifier: ^2.17.0
         version: 2.17.0(@babel/core@7.28.6)(@babel/template@7.28.6)(@types/react@19.2.10)(react@19.2.4)
@@ -3199,11 +3199,11 @@ packages:
   hermes-parser@0.25.1:
     resolution: {integrity: sha512-6pEjquH3rqaI6cYAXYPcz9MS4rY6R4ngRgrgfDshRptUZIc3lw0MCIJIGDj9++mfySOuPTHB4nrSW99BCvOPIA==}
 
-  highcharts@12.5.0:
-    resolution: {integrity: sha512-uNSSv1KqRLNvkyXlf1FbeGWB1mJ/8/IYpVeqYiTIop5Wo8peUvNyzUfLa58vILsmXyz+XrETtgKIEOcSgBBKuQ==}
+  highcharts@12.6.2:
+    resolution: {integrity: sha512-I089uxv6AN2+qIQGhOSzFMjZJFnW+TAuP3WaEj1qRrH7XN3UR8wYzPsoIYX1sDTdQiHl4KJwGd+4bAwhaF1/3w==}
     peerDependencies:
-      jspdf: ^3.0.0
-      svg2pdf.js: ^2.6.0
+      jspdf: ^4.1.0
+      svg2pdf.js: ^2.7.0
     peerDependenciesMeta:
       jspdf:
         optional: true
@@ -8242,7 +8242,7 @@ snapshots:
     dependencies:
       hermes-estree: 0.25.1
 
-  highcharts@12.5.0: {}
+  highcharts@12.6.2: {}
 
   hotscript@1.0.13: {}
 
