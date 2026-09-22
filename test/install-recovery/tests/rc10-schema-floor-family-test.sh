@@ -69,6 +69,13 @@ git -C "$ROOT" cat-file -e "$PRE_COLUMN^{commit}"
 git -C "$ROOT" cat-file -e "HEAD:$FLOOR_MIGRATION" || die 'candidate tree lacks the floor migration required in failing B'
 grep -q 'construct_upgrade_target "$base_sha" failing' "$WORKFLOW" || die 'failing B is not constructed from the candidate base'
 
+# The adoption arc must read the row-addressed live log when present, fall back
+# to the archived forensic copy after rollback, and preserve the exact asserted
+# bytes under the workflow's existing artifact glob.
+grep -q 'live="$HOME/statbus/tmp/upgrade-logs/$rel"' "$ADOPTION_ARC" || die 'adoption arc no longer prefers the row-addressed live log'
+grep -q 'find "$HOME/statbus-backups".*upgrade-logs-' "$ADOPTION_ARC" || die 'adoption arc lacks archived forensic log fallback'
+grep -q 'tmp/install-recovery-rollback-schema-floor-adoption-authoritative.log' "$ADOPTION_ARC" || die 'adoption arc does not preserve the asserted log for artifact upload'
+
 assert_restore_step "$RESTORE_ARC" rollback || die 'C9 predicate does not accept StepRollback'
 ! assert_restore_step "$RESTORE_ARC" migrate-up || die 'C9 predicate still accepts stale migrate-up'
 ! assert_restore_step "$RESTORE_ARC" boot-migrate || die 'C9 predicate fails open on a wrong step'

@@ -62,7 +62,29 @@ VM_EXEC bash -c 'test -d ~/statbus-backups/pre-upgrade-active' || { echo '✗ co
 assert_no_orphan_backup "$VM_NAME"
 VM_EXEC bash -c "find ~/statbus-backups -mindepth 2 -maxdepth 2 -type f -path '*/upgrade-logs-*/*.log' -print -quit | grep -q ." || { echo '✗ expected forensic upgrade logs absent beside backup' >&2; exit 1; }
 LOG_REL=$(row_field "COALESCE(log_relative_file_path,'')")
-LOG=$(VM_EXEC bash -c "cat ~/statbus/tmp/upgrade-logs/'$LOG_REL'")
+[ -n "$LOG_REL" ] || { echo '✗ B row has no log_relative_file_path' >&2; exit 1; }
+# Prefer the row-addressed live file. A completed rollback may have moved the
+# authoritative retained copy beside the persistent backup, so fall back to the
+# newest forensic upgrade-logs-* directory containing that same row basename.
+REMOTE_LOG=$(VM_EXEC bash -c '
+  set -euo pipefail
+  rel=$1
+  live="$HOME/statbus/tmp/upgrade-logs/$rel"
+  if [ -f "$live" ]; then
+    printf "%s\n" "$live"
+    exit 0
+  fi
+  archived=$(find "$HOME/statbus-backups" -mindepth 2 -maxdepth 2 -type f -path "*/upgrade-logs-*/*" -name "$rel" -print | sort | tail -1)
+  [ -n "$archived" ] || { echo "no retained upgrade log found for $rel" >&2; exit 1; }
+  printf "%s\n" "$archived"
+' bash "$LOG_REL")
+echo "  authoritative retained log: $REMOTE_LOG"
+LOCAL_LOG="tmp/install-recovery-rollback-schema-floor-adoption-authoritative.log"
+mkdir -p tmp
+# The workflow already uploads tmp/install-recovery-*.log on every outcome. Save
+# the exact bytes used by the semantic assertion so a failure retains its proof.
+VM_EXEC cat -- "$REMOTE_LOG" > "$LOCAL_LOG"
+LOG=$(cat "$LOCAL_LOG")
 assert_schema_floor_adoption_progress "$LOG" "$FLOOR"
 NR0=$(arc_nrestarts); sleep 5; NR1=$(arc_nrestarts); [ "$NR0" = "$NR1" ] || { echo '✗ automatic restart loop after rollback' >&2; exit 1; }
 echo 'PASS: rollback schema floor adoption replayed and returned byte-identically to A'
