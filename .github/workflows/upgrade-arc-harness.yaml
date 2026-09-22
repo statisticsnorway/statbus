@@ -610,9 +610,11 @@ jobs:
       # fail-fast: false is LOAD-BEARING (STATBUS-025) — a sibling arc failing
       # must NOT cancel the others (lose verdicts + skip cleanup traps → orphan VMs).
       fail-fast: false
-      # max-parallel bounds concurrent VMs to the Hetzner project quota (same
-      # limit install-recovery-harness hit at 8 → 3).
-      max-parallel: 3
+      # Each CX23 consumes 2 shared cores. rc.28 run 35771685548 showed that 3
+      # concurrent CX23s (6 shared cores) exhausted the project quota beside niue,
+      # so 2 concurrent arc VMs cap harness demand at 4 shared cores and leave
+      # headroom for the persistent host and teardown overlap.
+      max-parallel: 2
       matrix:
         scenario: ${{ fromJson(needs.discover.outputs.matrix) }}
     runs-on: ubuntu-24.04

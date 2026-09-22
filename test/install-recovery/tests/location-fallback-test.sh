@@ -13,7 +13,7 @@ root = Path(sys.argv[1])
 script = r'''
 export HCLOUD_TOKEN=offline-test-only GITHUB_RUN_ID=12345678
 source "$ROOT/test/install-recovery/lib/vm-bootstrap.sh"
-sleep() { echo sleep >> "$STATE/events"; }
+sleep() { printf '%s\n' "$1" >> "$STATE/sleeps"; }
 _hcloud_server_ip() { echo '192.0.2.1'; }
 _wait_for_ssh() { :; }
 _apply_hardening() { :; }
@@ -50,7 +50,7 @@ cases = {
         'expected_calls': ['hel1', 'fsn1'],
         'expected_status': 'BOOTSTRAP_SUCCEEDED',
         'required_output': ['attempt 1/5 in hel1', 'attempt 1/5 in fsn1', 'succeeded in fsn1'],
-        'expected_sleeps': 0,
+        'expected_sleeps': [],
     },
     'all-fail': {
         'locations': 'hel1 fsn1 nbg1',
@@ -62,14 +62,14 @@ cases = {
             'attempt 1/5 in nbg1',
             'exhausted 5 attempts per location across (hel1 fsn1 nbg1)',
         ],
-        'expected_sleeps': 4,
+        'expected_sleeps': ['90'] * 4,
     },
     'pin': {
         'location': 'fsn1',
         'expected_calls': ['fsn1'],
         'expected_status': 'BOOTSTRAP_SUCCEEDED',
         'required_output': ['attempt 1/5 in fsn1', 'succeeded in fsn1'],
-        'expected_sleeps': 0,
+        'expected_sleeps': [],
     },
 }
 
@@ -86,13 +86,13 @@ for case, expected in cases.items():
         result = subprocess.run(['bash', '-c', script], env=env, text=True, capture_output=True)
         state = Path(tmp)
         calls = (state / 'locations').read_text().splitlines() if (state / 'locations').exists() else []
-        sleeps = (state / 'events').read_text().splitlines() if (state / 'events').exists() else []
+        sleeps = (state / 'sleeps').read_text().splitlines() if (state / 'sleeps').exists() else []
         output = result.stdout + result.stderr
         good = (
             result.returncode == 0
             and expected['expected_status'] in result.stdout
             and calls == expected['expected_calls']
-            and sleeps == ['sleep'] * expected['expected_sleeps']
+            and sleeps == expected['expected_sleeps']
             and all(text in output for text in expected['required_output'])
         )
         print(('PASS' if good else 'FAIL') + ': ' + case)

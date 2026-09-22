@@ -454,11 +454,12 @@ jobs:
       # server limit" claim (STATBUS-025 AC#3) was FALSE. 8 concurrent cx23 + the
       # niue prod host hit BOTH "server limit reached" AND "Primary IP limit
       # exceeded" (resource_limit_exceeded) — all 28 scenarios failed at VM
-      # creation (vm-bootstrap.sh:402), not in the test. Each VM consumes a server
-      # slot + a primary IPv4/IPv6. Lowered to 3 as a stopgap; the REAL fix is
-      # raising the Hetzner project's server + primary-IP quota (account action),
-      # then this can go back up. STATBUS-025 AC#3 reopened.
-      max-parallel: 3
+      # creation (vm-bootstrap.sh:402), not in the test. Each CX23 consumes 2 shared
+      # cores plus a server slot and primary IPv4/IPv6. rc.28 run 35771685548 showed
+      # that 3 concurrent CX23s (6 shared cores) still exhausted the shared-core
+      # quota beside niue, so cap the harness at 2 (4 shared cores) to leave quota
+      # headroom for the persistent host and teardown overlap.
+      max-parallel: 2
       matrix:
         scenario: ${{ fromJson(needs.discover.outputs.matrix) }}
     steps:

@@ -1160,7 +1160,11 @@ bootstrap_install_test_vm() {
     # resource, auth) fails immediately — retrying those would just burn
     # 5 minutes before reporting the same permanent error.
     local create_attempt create_location_index create_location
-    local max_create_attempts=5 create_backoff_s=60 create_stderr create_err create_token
+    # Five rounds with four sleeps keeps provisioning bounded at six minutes.
+    # rc.28 exhausted the former four-minute window while sibling VMs still held
+    # shared-core quota during teardown, so give that transient pressure longer
+    # to clear without turning quota exhaustion into an unbounded wait.
+    local max_create_attempts=5 create_backoff_s=90 create_stderr create_err create_token
     create_token=$(od -An -N16 -tx1 /dev/urandom | tr -d ' \n') || return 1
     [[ "$create_token" =~ ^[0-9a-f]{32}$ ]] || { echo "ERROR: could not generate create ownership token" >&2; return 1; }
     for ((create_attempt = 1; create_attempt <= max_create_attempts; create_attempt++)); do
