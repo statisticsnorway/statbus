@@ -1941,6 +1941,14 @@ const (
 	sessionsSettleMaxKillAttempts = 5
 )
 
+// The confirmed rollback-resurrection failure overlapped an expected 30-second
+// source-daemon restart. Allow one full extra restart window, while keeping the
+// operator command bounded if PostgreSQL never returns.
+const (
+	phase1TerminateRetryInterval = 2 * time.Second
+	phase1TerminateRetryCap      = 60 * time.Second
+)
+
 // cleanOrphanSessions terminates leaked backends from prior crashed
 // upgrade attempts so the next migrate-up has free connection slots.
 //
@@ -2063,6 +2071,143 @@ func regeneratingZombieError(totalKilled, killAttempts int, last sessionsVerdict
 		totalKilled, killAttempts, last.describe())
 }
 
+const phase1TerminateSQL = `
+	SELECT pg_terminate_backend(pid), pid, query_start, left(query, 80) AS query
+	  FROM pg_stat_activity
+	 WHERE datname = current_database()
+	   AND pid <> pg_backend_pid()
+	   AND (application_name = 'psql' OR application_name LIKE 'statbus-migrate-sql%')
+	   AND (
+		   (state IN ('active', 'idle in transaction')
+		    AND query_start < now() - interval '2 minutes')
+		   OR
+		   query ILIKE '%statistical_history%'
+	   );`
+
+func waitForInstallDBHealth(dir string, deadline time.Time, interval time.Duration) bool {
+	for {
+		// Reuse the install step's existing Docker-health predicate. The database
+		// health check is backed by the container's pg_isready probe, so a
+		// restarting PostgreSQL remains "starting" until it accepts connections.
+		if checkServicesDone(dir) {
+			return true
+		}
+		remaining := time.Until(deadline)
+		if remaining <= 0 {
+			return false
+		}
+		if interval > remaining {
+			interval = remaining
+		}
+		time.Sleep(interval)
+	}
+}
+
+func retryablePhase1DBConnectionFailure(err error, output []byte) bool {
+	var exitErr *exec.ExitError
+	if !errors.As(err, &exitErr) {
+		return false
+	}
+	// PostgreSQL documents psql exit 2 as a bad server connection in a
+	// non-interactive session. Since this command is the fixed docker-exec psql
+	// invocation below, exit 2 is connection-class, not a query result.
+	if exitErr.ExitCode() == 2 {
+		return true
+	}
+	lower := strings.ToLower(string(output))
+	if !strings.Contains(lower, "psql: error:") {
+		return false
+	}
+	// Retain explicit diagnostics too, because wrappers can occasionally map the
+	// inner psql exit to 1 while preserving its connection failure text.
+	for _, marker := range []string{
+		"connection to server", "connection refused", "database system is shutting down",
+		"server closed the connection unexpectedly", "could not connect to server",
+	} {
+		if strings.Contains(lower, marker) {
+			return true
+		}
+	}
+	return false
+}
+
+func phase1BackendTerminationCommand(ctx context.Context, dir, adminUser, dbName string) (*exec.Cmd, error) {
+	return compose.CommandContext(ctx, dir, "exec", "-T", "db",
+		"psql", "-U", adminUser, "-d", dbName, "-c", phase1TerminateSQL)
+}
+
+func phase1FailureDetail(err error, output []byte) string {
+	detail := strings.TrimSpace(string(output))
+	if detail == "" {
+		return err.Error()
+	}
+	return fmt.Sprintf("%v: %s", err, detail)
+}
+
+func phase1DatabaseUnavailableError(started time.Time, detail string) error {
+	return fmt.Errorf(
+		"database remained unavailable for %s; phase 1 pg_terminate_backend could not run: %s",
+		time.Since(started).Round(time.Millisecond), detail)
+}
+
+func runPhase1BackendTerminationWithRetry(dir, adminUser, dbName string, timeout, interval time.Duration) error {
+	started := time.Now()
+	deadline := started.Add(timeout)
+	if !waitForInstallDBHealth(dir, deadline, interval) {
+		return fmt.Errorf(
+			"database remained unavailable for %s; phase 1 pg_terminate_backend could not run because the database health check never became ready",
+			time.Since(started).Round(time.Millisecond))
+	}
+
+	lastConnectionDetail := "database connection did not become available before the retry deadline"
+	for attempt := 1; ; attempt++ {
+		if !time.Now().Before(deadline) {
+			return phase1DatabaseUnavailableError(started, lastConnectionDetail)
+		}
+		ctx, cancel := context.WithDeadline(context.Background(), deadline)
+		phase1, buildErr := phase1BackendTerminationCommand(ctx, dir, adminUser, dbName)
+		if buildErr != nil {
+			cancel()
+			return fmt.Errorf("construct orphan-session cleanup command: %w", buildErr)
+		}
+		output, runErr := phase1.CombinedOutput()
+		deadlineErr := ctx.Err()
+		cancel()
+		if runErr == nil {
+			if len(output) > 0 {
+				_, _ = os.Stdout.Write(output)
+			}
+			return nil
+		}
+		if deadlineErr != nil {
+			return phase1DatabaseUnavailableError(started, lastConnectionDetail)
+		}
+		if !retryablePhase1DBConnectionFailure(runErr, output) {
+			return fmt.Errorf(
+				"phase 1 pg_terminate_backend failed and is not a retryable database connection failure: %s",
+				phase1FailureDetail(runErr, output))
+		}
+		lastConnectionDetail = phase1FailureDetail(runErr, output)
+
+		if time.Now().Before(deadline) {
+			fmt.Fprintf(os.Stderr,
+				"  Database connection unavailable during phase 1 pg_terminate_backend (attempt %d): %s; waiting for database health before retry\n",
+				attempt, phase1FailureDetail(runErr, output))
+			remaining := time.Until(deadline)
+			if interval > remaining {
+				interval = remaining
+			}
+			if interval > 0 {
+				time.Sleep(interval)
+			}
+			if waitForInstallDBHealth(dir, deadline, interval) {
+				continue
+			}
+		}
+		return phase1DatabaseUnavailableError(started, lastConnectionDetail)
+	}
+}
+
 func cleanOrphanSessions(dir string) error {
 	envFile, err := dotenv.Load(filepath.Join(dir, ".env"))
 	if err != nil {
@@ -2087,26 +2232,10 @@ func cleanOrphanSessions(dir string) error {
 	// tagged statbus-migrate-sql-<pid> (task #14, via PGAPPNAME); pre-#14
 	// binaries left the libpq default 'psql'. Match BOTH so we still clean a
 	// SIGKILL'd migrate zombie regardless of which binary started it.
-	phase1, buildErr := compose.CommandContext(context.Background(), dir, "exec", "-T", "db",
-		"psql", "-U", adminUser, "-d", dbName, "-c", `
-		SELECT pg_terminate_backend(pid), pid, query_start, left(query, 80) AS query
-		  FROM pg_stat_activity
-		 WHERE datname = current_database()
-		   AND pid <> pg_backend_pid()
-		   AND (application_name = 'psql' OR application_name LIKE 'statbus-migrate-sql%')
-		   AND (
-			   (state IN ('active', 'idle in transaction')
-			    AND query_start < now() - interval '2 minutes')
-			   OR
-			   query ILIKE '%statistical_history%'
-		   );`)
-	if buildErr != nil {
-		return fmt.Errorf("construct orphan-session cleanup command: %w", buildErr)
-	}
-	phase1.Stdout = os.Stdout
-	phase1.Stderr = os.Stderr
-	if err := phase1.Run(); err != nil {
-		return fmt.Errorf("phase 1 pg_terminate_backend (docker exec): %w", err)
+	if err := runPhase1BackendTerminationWithRetry(
+		dir, adminUser, dbName, phase1TerminateRetryCap, phase1TerminateRetryInterval,
+	); err != nil {
+		return err
 	}
 
 	// Phase 2: reclaim zombie advisory-lock holders (empty-app or dead-PID-tagged

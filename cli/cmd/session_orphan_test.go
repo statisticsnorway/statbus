@@ -5,8 +5,11 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
+	"time"
 )
 
 // STATBUS-055 — the migrate advisory-lock orphan gate. classifyAdvisoryHolder is
@@ -217,5 +220,115 @@ func TestTerminateZombieAdvisoryHolders_EmptyIsNoop(t *testing.T) {
 	}
 	if n != 0 {
 		t.Errorf("empty zombie list must kill 0, got %d", n)
+	}
+}
+
+func installPhase1DockerShim(t *testing.T, failuresBeforeSuccess, failureExit int, failureOutput string) (string, func() int) {
+	t.Helper()
+	dir := t.TempDir()
+	countPath := filepath.Join(dir, "exec-count")
+	script := fmt.Sprintf(`#!/bin/sh
+set -eu
+case "${2:-}" in
+  ps)
+    printf 'healthy\n'
+    ;;
+  exec)
+    count=0
+    if [ -f %[1]q ]; then
+      count=$(cat %[1]q)
+    fi
+    count=$((count + 1))
+    printf '%%s\n' "$count" > %[1]q
+    if [ "$count" -le %[2]d ]; then
+      cat >&2 <<'STATBUS_TEST_FAILURE'
+%[3]s
+STATBUS_TEST_FAILURE
+      exit %[4]d
+    fi
+    printf ' pg_terminate_backend | pid\n'
+    printf '%%s\n' '----------------------+-----'
+    printf '(0 rows)\n'
+    ;;
+  *)
+    printf 'unexpected docker invocation: %%s\n' "$*" >&2
+    exit 99
+    ;;
+esac
+`, countPath, failuresBeforeSuccess, failureOutput, failureExit)
+	dockerPath := filepath.Join(dir, "docker")
+	if err := os.WriteFile(dockerPath, []byte(script), 0755); err != nil {
+		t.Fatalf("write docker shim: %v", err)
+	}
+	t.Setenv("PATH", dir+string(os.PathListSeparator)+os.Getenv("PATH"))
+	readCount := func() int {
+		t.Helper()
+		data, err := os.ReadFile(countPath)
+		if err != nil {
+			if os.IsNotExist(err) {
+				return 0
+			}
+			t.Fatalf("read docker exec count: %v", err)
+		}
+		count, err := strconv.Atoi(strings.TrimSpace(string(data)))
+		if err != nil {
+			t.Fatalf("parse docker exec count %q: %v", strings.TrimSpace(string(data)), err)
+		}
+		return count
+	}
+	return dir, readCount
+}
+
+func TestPhase1BackendTerminationRetriesTransientDatabaseRestart(t *testing.T) {
+	dir, execCount := installPhase1DockerShim(t, 2, 2, `psql: error: connection to server on socket "/var/run/postgresql/.s.PGSQL.5432" failed:
+FATAL: the database system is shutting down`)
+
+	err := runPhase1BackendTerminationWithRetry(dir, "postgres", "statbus_local", 3*time.Second, 10*time.Millisecond)
+	if err != nil {
+		t.Fatalf("phase 1 must survive a transient PostgreSQL restart: %v", err)
+	}
+	if got := execCount(); got != 3 {
+		t.Fatalf("docker exec attempts = %d, want 3 (two connection failures then success)", got)
+	}
+}
+
+func TestPhase1BackendTerminationFailsHonestlyWhenDatabaseStaysDown(t *testing.T) {
+	dir, execCount := installPhase1DockerShim(t, 1000000, 2, `psql: error: connection to server at "db" (172.18.0.2), port 5432 failed: Connection refused
+Is the server running on that host and accepting TCP/IP connections?`)
+
+	started := time.Now()
+	err := runPhase1BackendTerminationWithRetry(dir, "postgres", "statbus_local", 750*time.Millisecond, 10*time.Millisecond)
+	if err == nil {
+		t.Fatal("phase 1 must fail when PostgreSQL never becomes reachable")
+	}
+	if elapsed := time.Since(started); elapsed > time.Second {
+		t.Fatalf("bounded retry exceeded its test budget: %s", elapsed)
+	}
+	for _, want := range []string{"database remained unavailable", "pg_terminate_backend could not run", "Connection refused"} {
+		if !strings.Contains(err.Error(), want) {
+			t.Errorf("permanent-down error missing %q: %v", want, err)
+		}
+	}
+	if got := execCount(); got < 2 {
+		t.Fatalf("permanent-down path attempted docker exec %d time(s), want a bounded retry with at least 2 attempts", got)
+	}
+}
+
+func TestPhase1BackendTerminationDoesNotRetryGenuineSQLError(t *testing.T) {
+	dir, execCount := installPhase1DockerShim(t, 1000000, 1, `ERROR: relation "pg_stat_activity_broken" does not exist
+LINE 1: SELECT pg_terminate_backend(pid) FROM pg_stat_activity_broken;
+                                               ^`)
+
+	err := runPhase1BackendTerminationWithRetry(dir, "postgres", "statbus_local", 2*time.Second, 10*time.Millisecond)
+	if err == nil {
+		t.Fatal("phase 1 must fail on a genuine SQL error")
+	}
+	for _, want := range []string{"not a retryable database connection failure", "pg_stat_activity_broken"} {
+		if !strings.Contains(err.Error(), want) {
+			t.Errorf("SQL error missing %q: %v", want, err)
+		}
+	}
+	if got := execCount(); got != 1 {
+		t.Fatalf("genuine SQL error attempted docker exec %d times, want immediate failure after 1", got)
 	}
 }
