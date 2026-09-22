@@ -6019,7 +6019,6 @@ export type Database = {
           release_status: Database["public"]["Enums"]["release_status_type"]
           release_url: string | null
           rollback_finish_pending_at: string | null
-          tree_convergence_required: boolean
           rolled_back_at: string | null
           scheduled_at: string | null
           skipped_at: string | null
@@ -6027,6 +6026,7 @@ export type Database = {
           state: Database["public"]["Enums"]["upgrade_state"]
           summary: string
           superseded_at: string | null
+          tree_convergence_required: boolean
         },
         Insert: {
           backup_path?: string | null
@@ -6054,7 +6054,6 @@ export type Database = {
           release_status?: Database["public"]["Enums"]["release_status_type"]
           release_url?: string | null
           rollback_finish_pending_at?: string | null
-          tree_convergence_required?: boolean
           rolled_back_at?: string | null
           scheduled_at?: string | null
           skipped_at?: string | null
@@ -6062,6 +6061,7 @@ export type Database = {
           state?: Database["public"]["Enums"]["upgrade_state"]
           summary: string
           superseded_at?: string | null
+          tree_convergence_required?: boolean
         },
         Update: {
           backup_path?: string | null
@@ -6089,7 +6089,6 @@ export type Database = {
           release_status?: Database["public"]["Enums"]["release_status_type"]
           release_url?: string | null
           rollback_finish_pending_at?: string | null
-          tree_convergence_required?: boolean
           rolled_back_at?: string | null
           scheduled_at?: string | null
           skipped_at?: string | null
@@ -6097,6 +6096,7 @@ export type Database = {
           state?: Database["public"]["Enums"]["upgrade_state"]
           summary?: string
           superseded_at?: string | null
+          tree_convergence_required?: boolean
         },
         Relationships: []
       },
