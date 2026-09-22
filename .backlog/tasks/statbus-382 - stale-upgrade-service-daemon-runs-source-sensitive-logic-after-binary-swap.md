@@ -60,3 +60,17 @@ The daemon cannot execute source-sensitive upgrade logic under a mismatched or
 deleted executable, pre-claim deterministic failures are bounded and recorded,
 and the stale-rc.18/rc.20-tree regression passes through the real supervised
 register/schedule/service path.
+
+## Update 2026-09-22
+
+Read-only rc.18 tracing and Norway box query confirm that operator dismissal is not authoritative against a reclaim loop. The resident daemon claims the candidate and its ordinary terminal failure write is an unguarded id-only statement:
+
+```sql
+UPDATE public.upgrade
+   SET state = 'failed', failure_code = $1, error = $2, scheduled_at = NULL
+ WHERE id = $3;
+```
+
+It can therefore clobber an operator decision that commits while the upgrade is in flight. The rc.18 claim itself only sets `state`, `started_at`, and `from_commit_version`, while the inspected `FOR UPDATE` query near the cited line is restore-reattempt authorization, not a failed-row reclaim sweep. The box still has the same row id 43727 for `fae6fa58...`, with `state=failed` and `dismissed_at` NULL, not a newly registered row.
+
+No designed rc.18/rc.20 operator verb was found that makes all stale-daemon claim/retry paths ignore the row. `dismiss` is therefore not a loop-proof stop for this failure mode. No `skip`, pause, maintenance-wide intake brake, or `UPGRADE_*` disable toggle was found in the inspected CLI/service source. Under the owner’s no-restart/no-kill constraint, the loop requires a shipped fix or daemon lifecycle intervention.
