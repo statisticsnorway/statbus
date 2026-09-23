@@ -4577,6 +4577,7 @@ func (d *Service) completeInProgressUpgrade(ctx context.Context) error {
 	finishingClean := completionRecorded
 	if scanErr == nil {
 		logUpgradeRow(LabelCompletedFromInProgress, fromInProgressJSON)
+		d.clearInstallFailureBanner(ctx)
 		d.deleteRollbackBinaryOnCompletion() // STATBUS-197 C3: swap resolved → ./sb.old must not linger
 	} else if dbName := d.markPgInvariantTerminal(scanErr, "service.go:completeInProgressUpgrade:completed"); dbName != "" {
 		// C4: DB-enforced invariant → prefer the specific name in the bundle.
@@ -4659,6 +4660,23 @@ func (d *Service) syncConfigToSystemInfo(ctx context.Context) {
 			}
 		}
 	}
+}
+
+// clearInstallFailureBanner removes box-wide failure metadata after the upgrade
+// service has durably recorded a successful completion. The same keys are
+// cleared by a successful ./sb install invocation. Without this service-side
+// twin, a later healthy daemon upgrade leaves an older install failure displayed
+// indefinitely. Best-effort observability cleanup must not undo a completed
+// upgrade if system_info cannot be written.
+func (d *Service) clearInstallFailureBanner(ctx context.Context) {
+	_ = d.execObserved(ctx, "clear stale install failure banner after successful upgrade",
+		`INSERT INTO public.system_info (key, value, updated_at) VALUES
+		     ('install_last_error', '', clock_timestamp()),
+		     ('install_last_error_at', '', clock_timestamp()),
+		     ('install_last_bundle_path', '', clock_timestamp())
+		 ON CONFLICT (key) DO UPDATE SET
+		     value = EXCLUDED.value,
+		     updated_at = EXCLUDED.updated_at`)
 }
 
 // reportDiskSpace writes the current free disk space to system_info.
@@ -10323,6 +10341,7 @@ func (d *Service) applyNewSbUpgrading(ctx context.Context, id int, commitSHA, di
 	progress.Write("%s", finishing.recordedLine())
 	log.Println("state=completed")
 	logUpgradeRow(LabelCompletedNormal, normalJSON)
+	d.clearInstallFailureBanner(ctx)
 	d.deleteRollbackBinaryOnCompletion() // STATBUS-197 C3: swap resolved → ./sb.old must not linger
 	// Notify the frontend the upgrade state changed — fired AFTER the terminal
 	// state='completed' UPDATE above, NOT before it (its prior position fired
@@ -11232,6 +11251,7 @@ func (d *Service) resumeNewSb(ctx context.Context, flag UpgradeFlag) error {
 				flag.ID, progress.RelPath())
 			if err == nil {
 				logUpgradeRow(LabelCompletedSelfHeal, selfHealJSON)
+				d.clearInstallFailureBanner(ctx)
 				d.deleteRollbackBinaryOnCompletion() // STATBUS-197 C3: swap resolved → ./sb.old must not linger
 				finishingClean := true
 				var finishingErr error
