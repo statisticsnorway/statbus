@@ -3,10 +3,10 @@ id: STATBUS-354
 title: >-
   rollback finishing as a column: land wip/347-column-protocol behind Sol's S3
   rollback reorder, proven by two VM arcs
-status: In Progress
+status: Done
 assignee: []
 created_date: '2026-09-04 10:26'
-updated_date: '2026-09-18 17:18'
+updated_date: '2026-09-23 15:10'
 labels:
   - upgrade
   - fail-fast
@@ -247,3 +247,7 @@ Published repair head `f03f5c0e7` is green in Go `35372247298`, app
 `35372247523`, Images `35372247917`, Fast Tests `35372597136`, and pg_regress
 `35372597129`. No rc.19 tag or GitHub release exists. Both paid schema-floor
 scenarios remain pending the next named candidate.
+
+## Resolution 2026-09-23
+
+Acceptance is met by 6e421c2f0 and later repairs through the green v2026.09.1 ladder and Norway install. The fix is released in v2026.09.1.

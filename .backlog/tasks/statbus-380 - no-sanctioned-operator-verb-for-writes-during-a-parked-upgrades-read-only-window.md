@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-09-21 12:03'
-updated_date: '2026-09-22 17:01'
+updated_date: '2026-09-23 15:10'
 labels:
   - upgrade
   - recovery
@@ -78,3 +78,9 @@ writes during a parked upgrade's read-only window. Raw admin psql with
 `default_transaction_read_only=off` and deliberate un-park/retry through
 `./sb install` remain the two documented mechanisms in this item. Status remains
 **To Do**.
+
+## Reconciliation 2026-09-23
+
+Classification: OPEN. Evidence: no sanctioned write-window verb exists; clicked checks also time out after five minutes when no daemon listens. No part of the item's own done-when is complete beyond any design already recorded above.
+
+A manually clicked check has no consumer when the upgrade daemon is missing or stopped, so the page waits for the generic five-minute timeout even though the existing unit-state banner already explains the daemon condition (`tmp/upgrades-page-ordering.md`).

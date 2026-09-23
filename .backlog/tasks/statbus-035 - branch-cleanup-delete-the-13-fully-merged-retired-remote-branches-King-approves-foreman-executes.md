@@ -3,10 +3,10 @@ id: STATBUS-035
 title: >-
   seed-branch-retirement: rebaseline the harness to the current stable, then
   delete db-seed and db-snapshot
-status: In Progress
+status: Done
 assignee: []
 created_date: '2026-06-12 07:57'
-updated_date: '2026-09-14 09:46'
+updated_date: '2026-09-23 15:10'
 labels:
   - git-hygiene
   - not-install-upgrade
@@ -218,3 +218,7 @@ Code landed and Sol-accepted (`e5d392a22`). Waiting on: the batch RC ladder gree
 ## Status (2026-09-14 09:46): In Progress
 
 rc.01 (`b6d810493`) was cut 2026-09-07 20:47 and carried this ticket, but the ladder stopped at step 1 (admission guard, STATBUS-365, not a finding against the candidate). rc.02 is cut from HEAD after the 365 fix; this ticket's remaining gate is that ladder.
+
+## Resolution 2026-09-23
+
+Acceptance is met by e5d392a22 plus the v2026.09.1 paid ladder; retired branches are absent. The fix is released in v2026.09.1.

@@ -4,10 +4,10 @@ title: >-
   the ladder never installs the candidate fresh: 0-happy-install installs the
   previous stable, so every release ships with its own install path unproven
   (v2026.09.0 fresh install fails)
-status: In Progress
+status: Done
 assignee: []
 created_date: '2026-09-14 12:36'
-updated_date: '2026-09-22 17:01'
+updated_date: '2026-09-23 15:10'
 labels:
   - release
   - install
@@ -1088,3 +1088,7 @@ to rc.28 successfully.
 Status remains **In Progress** because the file's final acceptance also requires
 the resulting stable's fresh `install.sh` path to be confirmed. rc.28 is a
 candidate, not that stable closeout.
+
+## Resolution 2026-09-23
+
+Acceptance is met by fresh-install and upgrade paths completed across the v2026.09.1 ladder. The fix is released in v2026.09.1.

@@ -5,7 +5,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-09-18 13:16'
-updated_date: '2026-09-18 13:16'
+updated_date: '2026-09-23 15:10'
 labels:
   - upgrade
   - recovery
@@ -55,3 +55,9 @@ closed in round 10 and are not work for this ticket.
 Open for traceability only. Revisit only if the threat model is deliberately
 expanded from accidental process-launch reintroduction to arbitrary in-process
 or foreign-code execution. No action is planned under the current model.
+
+## Reconciliation 2026-09-23
+
+Classification: PARTIAL. Evidence: compose-up authority fixes shipped, but the item is an observation ledger with remaining named follow-ups.
+
+Remaining: Resolve the remaining explicitly listed compose-up authority observations or route each to its owning item.

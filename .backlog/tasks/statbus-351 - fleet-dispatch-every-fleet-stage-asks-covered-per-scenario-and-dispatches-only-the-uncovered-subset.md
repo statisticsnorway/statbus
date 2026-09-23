@@ -3,10 +3,10 @@ id: STATBUS-351
 title: >-
   fleet dispatch: every fleet stage asks `covered` per scenario and dispatches
   only the uncovered subset
-status: In Progress
+status: Done
 assignee: []
 created_date: '2026-09-04 07:18'
-updated_date: '2026-09-16 22:34'
+updated_date: '2026-09-23 15:10'
 labels:
   - release
   - ci
@@ -91,3 +91,7 @@ Fix `1eccca23e` makes `ops/ci-deploy-status.sh` idempotent when `completed_at`
 is already present, while preserving distinct infra/admission classification.
 Independent review ACCEPTed it with mutation control. rc.16 must prove the
 orchestrator can re-enter the ladder and reach the arc scenarios.
+
+## Resolution 2026-09-23
+
+Acceptance is met by 1b7d8f23f, 1eccca23e and v2026.09.1 live subset dispatch evidence. The fix is released in v2026.09.1.

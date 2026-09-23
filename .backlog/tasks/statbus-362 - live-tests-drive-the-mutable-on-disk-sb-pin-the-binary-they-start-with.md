@@ -4,7 +4,7 @@ title: 'live tests drive the mutable on-disk ./sb: pin the binary they start wit
 status: To Do
 assignee: []
 created_date: '2026-09-07 17:26'
-updated_date: '2026-09-15 08:15'
+updated_date: '2026-09-23 15:10'
 labels:
   - testing
   - upgrade
@@ -186,3 +186,9 @@ tickets land in one push, one candidate, one ladder. Position in that push:
 **7 of 8**. live-database tests: worktree sandbox, livedb build tag, Fast Tests step, 25 renames; needs owner Q1 ruling first
 
 Batch order: 370 -> 368 -> 367 -> 363 -> 357 -> 361 -> 362 -> 359.
+
+## Reconciliation 2026-09-23
+
+Classification: PARTIAL. Evidence: design/scratch work only; live tests still need isolated pinned worktrees and green suite.
+
+Remaining: Land per-package scratch worktrees and pinned binaries, prevent project .env writes, and pass the full live suite.

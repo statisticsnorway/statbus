@@ -7,7 +7,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-09-07 13:48'
-updated_date: '2026-09-15 08:15'
+updated_date: '2026-09-23 15:10'
 labels:
   - ops
   - security
@@ -99,3 +99,9 @@ tickets land in one push, one candidate, one ladder. Position in that push:
 **6 of 8**. secrets in .env.credentials; no open ruling; build in scratch once the owner says go
 
 Batch order: 370 -> 368 -> 367 -> 363 -> 357 -> 361 -> 362 -> 359.
+
+## Reconciliation 2026-09-23
+
+Classification: PARTIAL. Evidence: post-release scratch batch only; credential relocation and fleet proof remain.
+
+Remaining: Land secret-file enforcement and prove authenticated dev calls while demo/Norway remain intentionally anonymous.

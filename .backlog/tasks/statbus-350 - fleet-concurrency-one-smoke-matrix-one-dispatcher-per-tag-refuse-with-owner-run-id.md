@@ -3,10 +3,10 @@ id: STATBUS-350
 title: >-
   fleet concurrency: one smoke matrix, native bounded queue, and owner-aware
   dispatch
-status: In Progress
+status: Done
 assignee: []
 created_date: '2026-09-04 06:40'
-updated_date: '2026-09-04 20:40'
+updated_date: '2026-09-23 15:10'
 labels:
   - release
   - ci
@@ -156,3 +156,9 @@ or discarded.
   both smoke marks, occupied-group refusal, queued-child revalidation, and all
   fleet stages. No RC or paid dispatch is part of the overnight implementation.
 <!-- SECTION:DESCRIPTION:END -->
+
+## Resolution 2026-09-23
+
+Acceptance is met by 49b7bffbc, c661fd9d3 and v2026.09.1 live fleet runs. The fix is released in v2026.09.1.
+
+Hetzner quota decision: keep VM matrices at `max-parallel: 2`. The persistent niue CX52 consumes 16 shared cores; three CX23 workers would reach 22 and were rejected, while two reach the observed 20-core ceiling. Keep bounded quota retry as defense in depth (`c661fd9d3`, `tmp/arc-harness-fixes-review.md`).

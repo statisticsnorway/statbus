@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-09-18 17:48'
-updated_date: '2026-09-22 17:01'
+updated_date: '2026-09-23 15:10'
 labels:
   - install
   - setup
@@ -194,3 +194,11 @@ started". This was observed at 2026-09-22 14:39Z; the workflow was green three
 minutes later. Add a bounded retry for the `Missing` case before presenting the
 not-started remedy, so a transient empty API page is not classified as durable
 absence.
+
+## Reconciliation 2026-09-23
+
+Classification: PARTIAL. Evidence: 9e57c1722 release fixes plus master-only 9032d89d5, bb5885f9c and be28245af; public/fleet setup split and complete VM matrix remain.
+
+Remaining: Complete public/fleet setup split, D1-D7, x86/Arm 26.04 matrix, and bounded retry for an empty GitHub workflow-runs page. Master-only OS/setup fixes ship next release.
+
+Readiness probe fact: `CheckReleaseWorkflowAtTag` currently maps an empty GitHub workflow-runs API page to `Missing`/workflow-not-started. Add bounded retry before declaring durable absence; this was observed on 2026-09-22 and the workflow appeared green three minutes later.

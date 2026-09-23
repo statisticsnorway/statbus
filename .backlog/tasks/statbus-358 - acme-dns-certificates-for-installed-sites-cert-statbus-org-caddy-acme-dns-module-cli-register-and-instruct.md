@@ -5,7 +5,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-09-07 07:02'
-updated_date: '2026-09-07 07:18'
+updated_date: '2026-09-23 15:10'
 labels:
   - install
   - tls
@@ -184,3 +184,7 @@ that service is the one new component.
 Re-testing plain HTTP-challenge ACME on a public IP (proven daily on cloud
 and Norway). HTTPS-only egress (STATBUS-357).
 <!-- SECTION:DESCRIPTION:END -->
+
+## Reconciliation 2026-09-23
+
+Classification: OPEN. Evidence: design only; no acme-dns command, credential flow, Caddy module, or live proof exists. No part of the item's own done-when is complete beyond any design already recorded above.

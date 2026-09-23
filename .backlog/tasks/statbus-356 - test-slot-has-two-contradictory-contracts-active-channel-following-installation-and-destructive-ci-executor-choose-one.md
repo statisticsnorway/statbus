@@ -5,7 +5,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-09-04 19:52'
-updated_date: '2026-09-04 19:52'
+updated_date: '2026-09-23 15:10'
 labels:
   - ops
   - upgrade
@@ -65,3 +65,7 @@ If it is dedicated disposable CI infrastructure, remove it from the active-insta
 - Service/container/database state is correct for the chosen role and observable as such. A failed unit is never the steady state.
 - A regression check fails if the contradictory role returns.
 <!-- SECTION:DESCRIPTION:END -->
+
+## Reconciliation 2026-09-23
+
+Classification: OPEN. Evidence: test slot contradictory role and failed service remain recorded, with no repair commit. No part of the item's own done-when is complete beyond any design already recorded above.

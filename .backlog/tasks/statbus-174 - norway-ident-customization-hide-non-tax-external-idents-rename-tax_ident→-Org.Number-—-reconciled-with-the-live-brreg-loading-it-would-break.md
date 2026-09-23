@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-07-13 12:08'
-updated_date: '2026-07-23 15:54'
+updated_date: '2026-09-23 15:10'
 labels:
   - norway
   - data-model
@@ -94,3 +94,9 @@ created: 2026-07-23 15:54
 AC#5 DONE (2026-07-23): fix-custom-scripts is retired from origin — verified absent by ls-remote. Per this ticket's own plan ('the branch is retired once this ticket exists'): the no.sql intent lives verbatim in the description (source tip 7b01c88cb recorded for archaeology), ke.sql confirmed dead against master. The King confirmed in chat today that this ticket is where the Norway-customization decision + pending state live; the branch question on STATBUS-035 is closed by this retirement. Remaining here: AC#1's reconciliation is checked; ACs #2-#4 + #6 are the build — unscheduled, parallel lane.
 ---
 <!-- COMMENTS:END -->
+
+## Reconciliation 2026-09-23
+
+Classification: PARTIAL. Evidence: design/reconciliation is recorded; tax-ident UI customization and Norway proof remain.
+
+Remaining: Implement semantic-code-based presentation behavior, relabel tax_ident to Org.Number, use public.reset, and prove a real Norway load/import.

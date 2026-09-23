@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-09-14 11:41'
-updated_date: '2026-09-22 17:01'
+updated_date: '2026-09-23 15:10'
 labels:
   - release
   - cli
@@ -74,3 +74,9 @@ Batch order: 370 -> 368 -> 367 -> 363 -> 357 -> 361 -> 362 -> 359.
 fallback defect for release preflight. Keep both files for history. STATBUS-368
 is the broader form because it also requires identity reporting and authenticated
 Git transport coverage. Neither duplicate is deleted or closed by this sweep.
+
+## Reconciliation 2026-09-23
+
+Classification: PARTIAL. Evidence: scratch fallback implementation only; not on master and no next-candidate proof.
+
+Remaining: Land GH_TOKEN fallback in both release checks, add tests, and prove it in the next release.

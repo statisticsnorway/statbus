@@ -3,10 +3,10 @@ id: STATBUS-339
 title: >-
   harness-fidelity: the smoke upgrade must let the RELEASED binary judge the
   candidate — no HEAD swap, real mode, real channel
-status: In Progress
+status: Done
 assignee: []
 created_date: '2026-09-02 11:20'
-updated_date: '2026-09-14 09:46'
+updated_date: '2026-09-23 15:10'
 labels:
   - test-harness
   - release
@@ -185,3 +185,7 @@ Code landed and Sol-accepted (`e5d392a22`). Waiting on: the batch RC ladder gree
 ## Status (2026-09-14 09:46): In Progress
 
 rc.01 (`b6d810493`) was cut 2026-09-07 20:47 and carried this ticket, but the ladder stopped at step 1 (admission guard, STATBUS-365, not a finding against the candidate). rc.02 is cut from HEAD after the 365 fix; this ticket's remaining gate is that ladder.
+
+## Resolution 2026-09-23
+
+Acceptance is met by e5d392a22, ed2ac1fd7 and the v2026.09.1 paid ladder. The fix is released in v2026.09.1.

@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-09-07 07:02'
-updated_date: '2026-09-15 08:15'
+updated_date: '2026-09-23 15:10'
 labels:
   - harness
   - install
@@ -98,3 +98,9 @@ tickets land in one push, one candidate, one ladder. Position in that push:
 **5 of 8**. https-only egress scenario; being built by palmtree (Astra) in scratch; joins --print-selected so the batch ladder runs it
 
 Batch order: 370 -> 368 -> 367 -> 363 -> 357 -> 361 -> 362 -> 359.
+
+## Reconciliation 2026-09-23
+
+Classification: PARTIAL. Evidence: scratch design/build is recorded, but nothing landed and no paid RC proof exists.
+
+Remaining: Land the HTTPS-only egress scenario, its mutation control, and obtain a green paid RC run.

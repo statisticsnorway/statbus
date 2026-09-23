@@ -3,10 +3,10 @@ id: STATBUS-248
 title: >-
   retire-dead-deploy-transport: delete the writer-less deploy workflows and
   branches — channels stay as surveyed, cloud.sh is the rollout path
-status: In Progress
+status: Done
 assignee: []
 created_date: '2026-08-19 07:27'
-updated_date: '2026-09-04 19:50'
+updated_date: '2026-09-23 15:10'
 labels:
   - release
   - ops
@@ -172,3 +172,7 @@ KING'S RULINGS (2026-09-04): (a) NO new toolchain verb — this is a one-time ma
 EXECUTION ORDER, now part of this ticket: (1) code fix — configureDeployFetch removed, both call sites normalize only, regression tests forbid its return (d689a94d7, 186a96d73); (2) manual per-box repair of the DEPLOY LINE ONLY (boxes noncanonical for other historical reasons — mw tag-only, ua/gh duplicate db-seed — are left alone and reported); (3) verify each box: canonical two lines + `git fetch --tags --prune-tags --dry-run` exit 0 + service healthy; (4) ONLY THEN delete the 8 remote branches (all tips verified ancestors of origin/master). Workflow deletions, deploy-to-dev fallback removal and the doc sweep are already done and are independent of the branch deletion.
 ---
 <!-- COMMENTS:END -->
+
+## Resolution 2026-09-23
+
+Acceptance is met by d689a94d7, 186a96d73, dd4921ba3 and the v2026.09.1 orchestrator/dev proof. The fix is released in v2026.09.1.

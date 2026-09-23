@@ -3,10 +3,10 @@ id: STATBUS-372
 title: >-
   add a live VM arc for rollback stop-verification ABORT when a serving service
   refuses to stop
-status: To Do
+status: Done
 assignee: []
 created_date: '2026-09-17 10:10'
-updated_date: '2026-09-17 10:10'
+updated_date: '2026-09-23 15:10'
 labels:
   - release
   - upgrade
@@ -45,3 +45,7 @@ the product takes the rollback stop-verification ABORT branch, and asserts:
 4. the held-closed verifier is not applied to this route-only caller; and
 5. the box and retained recovery evidence remain operable for the documented
    human response.
+
+## Resolution 2026-09-23
+
+Acceptance is met by rollback-stop live VM arc shipped and passed in the v2026.09.1 ladder. The fix is released in v2026.09.1.

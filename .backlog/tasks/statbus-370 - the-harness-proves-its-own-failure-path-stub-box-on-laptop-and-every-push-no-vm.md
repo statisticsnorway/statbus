@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-09-15 07:48'
-updated_date: '2026-09-22 17:01'
+updated_date: '2026-09-23 15:10'
 labels:
   - testing
   - harness
@@ -119,3 +119,9 @@ concurrent-install observation paths, but there is no `./dev.sh test-harness`
 verb, no localhost sshd stub-box test that proves capture-before-delete and
 `KEEP_VM=1` ordering, and no recorded negative mutation proof or layer-3 VM run.
 Status remains **In Progress**.
+
+## Reconciliation 2026-09-23
+
+Classification: PARTIAL. Evidence: scratch harness self-test only; not on master and not exercised on every push.
+
+Remaining: Land the laptop/every-push failure-path harness and its mutation controls.

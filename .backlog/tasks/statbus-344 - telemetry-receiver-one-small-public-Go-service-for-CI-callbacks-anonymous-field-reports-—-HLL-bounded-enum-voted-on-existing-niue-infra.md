@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-09-02 13:14'
-updated_date: '2026-09-03 12:54'
+updated_date: '2026-09-23 15:10'
 labels: []
 dependencies: []
 priority: medium
@@ -335,3 +335,7 @@ created: 2026-09-03 12:54
 KING APPROVED THE DESIGN (2026-09-03): 'queue the build. It's quite a big thing but it's also sensible to just do it because that's the only way to know what's going on.' Review directive attached: the work gets MULTIPLE REVIEW PASSES for minimality and relevance — foreman reviews each phase's diff with the explicit question 'is this minimal, is every piece relevant', beyond the normal correctness review. Build queued behind the v2026.09.0 promotion settling; lands in the architect's three independently-safe phases (1: receiver+snapshot+/ci+CI-GET+deploy+webhook, preflight untouched; 2: /report+aggregate GETs+opt-in reporter+entry-way text+privacy docs; 3: preflight/watchers may consult the cache, REST authority retained). Each phase: build → foreman correctness review → foreman minimality review → land → next.
 ---
 <!-- COMMENTS:END -->
+
+## Reconciliation 2026-09-23
+
+Classification: OPEN. Evidence: approved design only; no receiver service exists. No part of the item's own done-when is complete beyond any design already recorded above.

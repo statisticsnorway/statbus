@@ -2,10 +2,10 @@
 id: STATBUS-373
 title: >-
   make RetreatedToSourceAt marker writes authoritative
-status: To Do
+status: Done
 assignee: []
 created_date: '2026-09-17 10:44'
-updated_date: '2026-09-17 11:16'
+updated_date: '2026-09-23 15:10'
 labels:
   - upgrade
   - recovery
@@ -32,3 +32,7 @@ finding remains tracked here unless it lands in the rc.18 repair stack.
    narrated; no stale marker is left as valid recovery authority.
 2. Tests execute the failure branch, assert the durable marker/row state, and a
    mutation check proves that removing the error path makes the test fail.
+
+## Resolution 2026-09-23
+
+Acceptance is met by 3ed01b5d7 and related rollback error/marker authority repairs shipped and passed. The fix is released in v2026.09.1.

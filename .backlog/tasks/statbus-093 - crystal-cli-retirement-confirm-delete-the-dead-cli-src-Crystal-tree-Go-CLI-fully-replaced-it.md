@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-06-18 17:05'
-updated_date: '2026-07-13 15:00'
+updated_date: '2026-09-23 15:10'
 labels:
   - tooling
   - worker
@@ -77,3 +77,7 @@ GO-WORKER PORT DESIGN RULED (architect, 2026-07-13) — grounded in the actual .
 (4) SEQUENCING + RISK: engineer-substantial, post-campaign; the port rides the normal image pipeline so dev-slot canary is free; fiber-vs-goroutine scheduling differences are absorbed by the SQL-side transactional claims, and the one place they could leak (channel buffering) is pinned by contract (a). The Crystal tree's deletion — this ticket's original ask — becomes the port's final commit.
 ---
 <!-- COMMENTS:END -->
+
+## Reconciliation 2026-09-23
+
+Classification: OPEN. Evidence: cli/src, cli/lib, shard.yml, shard.lock and cli/Dockerfile still exist. No part of the item's own done-when is complete beyond any design already recorded above.

@@ -5,7 +5,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-09-16 22:34'
-updated_date: '2026-09-16 22:34'
+updated_date: '2026-09-23 15:10'
 labels:
   - migrations
   - ci
@@ -46,3 +46,7 @@ candidate when migration history renames or removes a version that can exist in
 any retained seed/cache chain, even if no named release contains that version.
 The invariant and authoritative comparison base are not yet designed. Do not
 close this ticket on the restore fallback alone.
+
+## Reconciliation 2026-09-23
+
+Classification: OPEN. Evidence: invariant is documented but no seed-lineage guard/repair implementation was found. No part of the item's own done-when is complete beyond any design already recorded above.

@@ -3,10 +3,10 @@ id: STATBUS-379
 title: >-
   sb release preflight should fall back to `gh auth token` when GITHUB_TOKEN is
   unset
-status: To Do
+status: Done
 assignee: []
 created_date: '2026-09-20 14:36'
-updated_date: '2026-09-22 17:01'
+updated_date: '2026-09-23 15:10'
 labels:
   - release
   - cli
@@ -52,3 +52,7 @@ fallback defect. STATBUS-379 is the narrower incident record from rc.21;
 STATBUS-368 also covers displayed GitHub identity and authenticated Git
 transport. Keep both files for history. Neither duplicate is deleted or closed
 by this sweep.
+
+## Resolution 2026-09-23
+
+Superseded by STATBUS-368. same GitHub-token fallback is owned by STATBUS-368.

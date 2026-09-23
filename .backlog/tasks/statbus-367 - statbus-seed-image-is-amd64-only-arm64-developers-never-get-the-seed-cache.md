@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-09-14 10:14'
-updated_date: '2026-09-22 17:01'
+updated_date: '2026-09-23 15:10'
 labels:
   - ci
   - dx
@@ -119,3 +119,9 @@ manifest, a scratch seed image, and no `--platform` in `cli/cmd/seed.go`.
 Master instead retains the amd64 image and explicit platform pins. The shipped
 fix resolves the reported developer failure but does not meet those written
 acceptance bullets.
+
+## Reconciliation 2026-09-23
+
+Classification: PARTIAL. Evidence: scratch multi-arch seed design/build only; not on master and no published manifest proof.
+
+Remaining: Land and publish the multi-arch seed manifest, then prove arm64 consumption.

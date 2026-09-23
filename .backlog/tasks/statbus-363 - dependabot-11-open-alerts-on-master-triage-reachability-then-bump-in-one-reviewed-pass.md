@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-09-07 19:46'
-updated_date: '2026-09-15 08:15'
+updated_date: '2026-09-23 15:10'
 labels:
   - security
   - dependencies
@@ -111,3 +111,9 @@ tickets land in one push, one candidate, one ladder. Position in that push:
 **4 of 8**. dependabot: ten build-time bumps, Sol-accepted in scratch (ce9de0f65 + 7e7b9186c); the Next >= 16.3.3 + sharp commit with its next/image smoke is ALSO in this batch, built and reviewed before the push
 
 Batch order: 370 -> 368 -> 367 -> 363 -> 357 -> 361 -> 362 -> 359.
+
+## Reconciliation 2026-09-23
+
+Classification: PARTIAL. Evidence: dependency work is not on master; current app/package changes are uncommitted and alerts require retriage.
+
+Remaining: Land reviewed dependency updates, complete next/sharp/Highcharts retriage, reach zero justified alerts, and pass CI/image smoke.

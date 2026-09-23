@@ -2,10 +2,10 @@
 id: STATBUS-377
 title: >-
   rc.18 boxes cannot self-upgrade: pre-pull capture runs in the OLD binary
-status: In Progress
+status: Done
 assignee: []
 created_date: '2026-09-19 10:43'
-updated_date: '2026-09-22 17:01'
+updated_date: '2026-09-23 15:10'
 labels:
   - upgrade
   - recovery
@@ -173,3 +173,9 @@ cross its own defect. The durable daemon/process identity invariant and bounded
 park-class handling for pre-claim failures are tracked in STATBUS-382. Commit
 `a96751064` fixes the profile render in newer binaries but cannot change an
 already resident rc.18 process.
+
+## Resolution 2026-09-23
+
+Acceptance is met by 002b99d9f and subsequent old-binary/pre-pull repairs shipped and passed in v2026.09.1. The fix is released in v2026.09.1.
+
+Pre-download policy fact: rc.31 was selected and downloaded before rc.30. The selector already compares CalVer correctly. The open policy question is whether to download only the latest candidate or a bounded descending set with an explicit resource budget and clear journal wording (`tmp/rc31-norway-observations.md` section 3).

@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-07-13 11:39'
-updated_date: '2026-07-13 15:28'
+updated_date: '2026-09-23 15:10'
 labels:
   - standalone
   - tooling
@@ -65,3 +65,7 @@ AUTH MODEL RULED (architect, 2026-07-13) — grounded in the branch's actual con
 MINED FROM THE BRANCH as deployment mechanics (not design): the custom image + SSLSNI patch, the compose shape (standalone subset — the multi-tenant servers.cloud.json is out of scope per the ticket), the handle_response redirect, the command-palette link. BUILD NOTES: the auth_gate migration needs re-porting against the CURRENT auth schema (it predates months of auth work — verify jwt_verify/extract_access_token signatures); AC#4's real-box proof on a standalone is the oracle. AC#2/#3's answers are contained above; they check when built and proven.
 ---
 <!-- COMMENTS:END -->
+
+## Reconciliation 2026-09-23
+
+Classification: OPEN. Evidence: feature/pgadmin remains the stated foundation; no shipped pgAdmin deployment found. No part of the item's own done-when is complete beyond any design already recorded above.

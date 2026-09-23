@@ -4,7 +4,7 @@ title: 'smtp2go-email: transactional email — send on user creation'
 status: To Do
 assignee: []
 created_date: '2026-06-23 11:53'
-updated_date: '2026-07-29 11:15'
+updated_date: '2026-09-23 15:10'
 labels:
   - email
   - auth
@@ -39,3 +39,7 @@ THE ONE SEQUENCING DECISION (open — decide at prioritization, AC#4): the worke
 - [ ] #3 User creation (CLI and web, one shared hook per the doc's model) enqueues the email through the worker task queue; permanent failure is a visible task state, never silence
 - [ ] #4 The 093 sequencing decision is recorded before build: ride the current worker or land as the Go worker's first new task class
 <!-- AC:END -->
+
+## Reconciliation 2026-09-23
+
+Classification: OPEN. Evidence: doc/design/smtp2go-email.md exists; no implementation commit found. No part of the item's own done-when is complete beyond any design already recorded above.

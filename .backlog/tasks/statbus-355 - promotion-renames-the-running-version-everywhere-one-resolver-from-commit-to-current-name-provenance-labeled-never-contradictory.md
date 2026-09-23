@@ -3,10 +3,10 @@ id: STATBUS-355
 title: >-
   promotion renames the running version everywhere: one resolver from commit to
   current name; provenance labeled, never contradictory
-status: In Progress
+status: Done
 assignee: []
 created_date: '2026-09-04 11:07'
-updated_date: '2026-09-04 20:20'
+updated_date: '2026-09-23 15:10'
 labels:
   - upgrade
   - app
@@ -69,3 +69,7 @@ identity surface to the stable name without reinstalling or recreating the app
 container. Verify the RC name remains visible only as labeled provenance and
 `./sb --version` remains the RC build label.
 <!-- SECTION:DESCRIPTION:END -->
+
+## Resolution 2026-09-23
+
+Acceptance is met by d53731ec5 implementation and rc.31 to v2026.09.1 same-SHA promotion observation. The fix is released in v2026.09.1.

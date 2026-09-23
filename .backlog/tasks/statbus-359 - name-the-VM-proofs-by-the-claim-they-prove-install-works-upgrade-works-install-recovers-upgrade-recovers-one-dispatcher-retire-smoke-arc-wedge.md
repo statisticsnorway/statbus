@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-09-07 07:56'
-updated_date: '2026-09-15 08:15'
+updated_date: '2026-09-23 15:10'
 labels:
   - harness
   - release
@@ -174,3 +174,9 @@ tickets land in one push, one candidate, one ladder. Position in that push:
 **8 of 8**. rename the VM proofs and move to test/vm/; LAST because it moves ~50 files and invalidates coverage by design; needs the two rulings
 
 Batch order: 370 -> 368 -> 367 -> 363 -> 357 -> 361 -> 362 -> 359.
+
+## Reconciliation 2026-09-23
+
+Classification: PARTIAL. Evidence: post-release scratch batch only; rename/move and next ladder proof remain.
+
+Remaining: Land the four-family rename and single dispatcher, sweep old terminology, and pass the first renamed ladder.

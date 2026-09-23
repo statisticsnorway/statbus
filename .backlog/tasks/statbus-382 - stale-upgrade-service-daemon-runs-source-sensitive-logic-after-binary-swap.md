@@ -5,7 +5,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-09-22 17:01'
-updated_date: '2026-09-22 17:01'
+updated_date: '2026-09-23 15:10'
 labels:
   - upgrade
   - recovery
@@ -74,3 +74,11 @@ UPDATE public.upgrade
 It can therefore clobber an operator decision that commits while the upgrade is in flight. The rc.18 claim itself only sets `state`, `started_at`, and `from_commit_version`, while the inspected `FOR UPDATE` query near the cited line is restore-reattempt authorization, not a failed-row reclaim sweep. The box still has the same row id 43727 for `fae6fa58...`, with `state=failed` and `dismissed_at` NULL, not a newly registered row.
 
 No designed rc.18/rc.20 operator verb was found that makes all stale-daemon claim/retry paths ignore the row. `dismiss` is therefore not a loop-proof stop for this failure mode. No `skip`, pause, maintenance-wide intake brake, or `UPGRADE_*` disable toggle was found in the inspected CLI/service source. Under the owner’s no-restart/no-kill constraint, the loop requires a shipped fix or daemon lifecycle intervention.
+
+## Reconciliation 2026-09-23
+
+Classification: PARTIAL. Evidence: problem and exec-in-place design are established; no handoff implementation exists.
+
+Remaining: Implement PID-preserving exec after PhaseNewSbSwapped, test flock/watchdog/error behavior, and retain crash backoff compatibility.
+
+The rc.31 planned handoff exposed a 30.17-second gap caused by `RestartSec=30`; exit 42 does not bypass it. `tmp/handoff-and-banner.md` Task B recommends exec-in-place after the durable `PhaseNewSbSwapped` stamp, preserving PID/MainPID and normal crash backoff while reacquiring the marker flock in the new image.

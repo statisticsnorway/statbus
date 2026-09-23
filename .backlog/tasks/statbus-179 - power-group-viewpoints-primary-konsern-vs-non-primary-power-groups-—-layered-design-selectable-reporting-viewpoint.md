@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-07-14 10:00'
-updated_date: '2026-07-27 15:24'
+updated_date: '2026-09-23 15:10'
 labels:
   - power-groups
   - design
@@ -220,3 +220,9 @@ created: 2026-07-27 15:24
 RESIDUE PINNED from DRAFT-001's archival (architect at the King's console, 2026-07-27): DRAFT-001 (power-group-reporting) was fully consumed — build body 1 → STATBUS-124 (Done), build body 2 → STATBUS-125 (Done), side-tasks 120/121 Done — and is now archived. ONE line survived its OPEN list: 'FRONTEND type touchpoints (requests.ts, database.types.ts, topology.tsx/topology-item.tsx, types.d.ts, power-groups/[id] stub) — pg-frontend never reported'. Pinned HERE because this is the live power-group task and its build phase touches the same type surface: at 179's build, verify whether 125's shapes reached the frontend types (./sb types generate + the listed files) and fold any gap into the build unit — or record that it was already handled.
 ---
 <!-- COMMENTS:END -->
+
+## Reconciliation 2026-09-23
+
+Classification: PARTIAL. Evidence: design and empirical DTPR/DTSO result are recorded; schema, derivation, UI, docs and approval remain.
+
+Remaining: Obtain owner approval, implement the two-scope schema/derivation/viewpoint UI and docs, migrate live-written data, and prove both fixtures.

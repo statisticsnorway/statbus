@@ -39,3 +39,7 @@ DISPOSITION: 500's conversion was the last piece of STATBUS-188's acceptance wor
 - [ ] #3 The redesigned test completes in bounded, predictable time on the dev harness and passes; the 175 echo-suppression wrap lands with it (expected regenerated from the real run)
 - [ ] #4 A regression note prevents new tests from adopting the single-transaction whole-import pattern (comment in test 500 + reference in testing rules)
 <!-- AC:END -->
+
+## Reconciliation 2026-09-23
+
+Classification: OPEN. Evidence: test 500 still carries the single-transaction redesign as unimplemented acceptance. No part of the item's own done-when is complete beyond any design already recorded above.
