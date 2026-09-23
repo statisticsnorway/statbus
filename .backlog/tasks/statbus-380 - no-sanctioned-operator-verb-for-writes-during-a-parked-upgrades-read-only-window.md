@@ -79,6 +79,12 @@ writes during a parked upgrade's read-only window. Raw admin psql with
 `./sb install` remain the two documented mechanisms in this item. Status remains
 **To Do**.
 
+## Implementation note 2026-09-23
+
+**Provisional, owner to confirm:** implemented `./sb upgrade repair --file <sql> --reason <reason> --operator <name>`. It locks a genuinely parked row and records the operator, reason, connection and repair marker in `public.upgrade_state_log` in the same single transaction as the reviewed SQL file. The command alone self-exempts its session from the read-only accident-guard; clients remain held.
+
+**Rejected alternative:** formally require `./sb install` before repair. `install` un-parks and immediately begins recovery, so it does not create an operator-controlled repair interval. A deterministic defect can re-park before the repair is made, making that rule ineffective and returning operators to unaudited raw admin psql. The narrow audited verb is therefore the simpler principled answer despite adding a constrained privileged path.
+
 ## Reconciliation 2026-09-23
 
 Classification: OPEN. Evidence: no sanctioned write-window verb exists; clicked checks also time out after five minutes when no daemon listens. No part of the item's own done-when is complete beyond any design already recorded above.

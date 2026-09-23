@@ -1051,6 +1051,7 @@ func init() {
 	upgradeCmd.AddCommand(upgradeDismissCmd)
 	upgradeCmd.AddCommand(upgradeListCmd)
 	upgradeCmd.AddCommand(upgradeScheduleCmd)
+	upgradeCmd.AddCommand(upgradeRepairCmd)
 	upgradeCmd.AddCommand(upgradeApplyLatestCmd)
 	upgradeApplyCmd.Flags().Bool("recreate", false, "recreate the database from migrations instead of migrating it (DESTRUCTIVE)")
 	upgradeCmd.AddCommand(upgradeApplyCmd)
