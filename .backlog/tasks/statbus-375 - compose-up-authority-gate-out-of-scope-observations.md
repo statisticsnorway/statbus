@@ -2,7 +2,7 @@
 id: STATBUS-375
 title: >-
   compose-up authority gate: out-of-scope observations
-status: To Do
+status: Done
 assignee: []
 created_date: '2026-09-18 13:16'
 updated_date: '2026-09-23 15:10'
@@ -61,3 +61,10 @@ or foreign-code execution. No action is planned under the current model.
 Classification: PARTIAL. Evidence: compose-up authority fixes shipped, but the item is an observation ledger with remaining named follow-ups.
 
 Remaining: Resolve the remaining explicitly listed compose-up authority observations or route each to its owning item.
+
+## Resolution 2026-09-23
+
+Status: **Done**. The underlying compose-up authority gate shipped in
+`e276e06b4`. The plugin and cgo observations remain outside the approved threat
+model, and this ticket's own disposition states that no action is planned unless
+the threat model is deliberately expanded.

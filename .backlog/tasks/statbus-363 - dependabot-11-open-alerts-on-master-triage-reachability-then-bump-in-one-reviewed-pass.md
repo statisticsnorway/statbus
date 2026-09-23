@@ -3,7 +3,7 @@ id: STATBUS-363
 title: >-
   dependabot: 11 open alerts on master (9 high): triage reachability, then bump
   in one reviewed pass
-status: In Progress
+status: Done
 assignee: []
 created_date: '2026-09-07 19:46'
 updated_date: '2026-09-23 15:10'
@@ -141,3 +141,11 @@ zero vulnerabilities across 1002 dependencies. A built-server request to
 `/_next/image` returned HTTP 200 for an auth-exempt public image path. No Go
 gate was required because no Go files or Go dependencies changed. Full evidence
 is in `tmp/statbus-363.md`.
+
+## Resolution 2026-09-23
+
+Status: **Done**. Commit `ff0003dfa` is on `origin/master`. It raises Next to
+`^16.3.3` and sharp to `^0.35.4`, resolves the retriaged transitive alerts, and
+records passing dependency install, 33 Jest tests, typecheck, lint, production
+build, `pnpm audit` with zero vulnerabilities, and a `/_next/image` HTTP 200
+smoke.

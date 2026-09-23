@@ -1,7 +1,7 @@
 ---
 id: STATBUS-383
 title: Bump Highcharts past the Q3/2026 untrusted-input vulnerability fixes
-status: To Do
+status: Done
 assignee: []
 created_date: '2026-09-22 19:26'
 updated_date: '2026-09-23 15:10'
@@ -60,3 +60,10 @@ Remaining: Commit the fixed Highcharts version, run frozen install, typecheck/li
   Detailed call-site evidence is in `tmp/highcharts-advisory.md`; combined gate
   evidence is in `tmp/statbus-363.md`.
 - The change is committed locally only and has not been pushed or shipped.
+
+## Resolution 2026-09-23
+
+Status: **Done**. Commit `ff0003dfa` is on `origin/master` and raises Highcharts
+Core to `^13.1.1`, later than the advisory's 13.1.0 fixed version. The combined
+dependency validation recorded passing install, 33 Jest tests, typecheck, lint,
+and production build.
