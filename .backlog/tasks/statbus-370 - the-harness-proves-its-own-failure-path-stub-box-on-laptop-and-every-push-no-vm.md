@@ -140,3 +140,12 @@ Local proof is recorded with the implementation commit. The workflow's green
 run and the layer-3 paid VM proof can only be recorded after the commit is pushed
 and included in the next candidate harness run, respectively. Status remains
 **In Progress** until those external proofs exist.
+
+## Fix-forward 2026-09-23
+
+The localhost test now sources an isolated copy of the real harness library and
+drives `_run_long_via_tmux`, `capture_failure_artifacts`, and `cleanup_vm` through
+localhost SSH, hcloud, and user-mapping seams. It asserts the real failure
+diagnostic, byte-identical registered-log capture, scp-before-delete ordering,
+and the real `KEEP_VM=1` branch. Its negative control mutates the copied
+`capture_failure_artifacts` scp and observes the same contract turn red.
