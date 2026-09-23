@@ -35,6 +35,7 @@
  failure_code               | upgrade_failure_code       |           |          |                                        | plain    |             |              | 
  rollback_finish_pending_at | timestamp with time zone   |           |          |                                        | plain    |             |              | STATBUS-347: set the instant a rollback's snapshot restore and service health were confirmed, BEFORE its read-only window and maintenance are lifted. While set, the row is cleanup-only: the marker still needs removing and the row still needs the final rolled_back transition, but the snapshot must NEVER be restored again (writes accepted after the lift would be overwritten). Cleared by the same transaction that writes rolled_back. Only ever set on a failed row; backup_path may be NULL for a PreSwap (nothing-moved) rollback.
  tree_convergence_required  | boolean                    |           | not null | false                                  | plain    |             |              | Crash-safe box-level obligation created when a successor claim displaces a parked upgrade whose serving containers may lag the checked-out tree. Every later candidate inherits any true carrier row across retries and supersession; only a successful serving-tree convergence may clear all carriers.
+ claim_token                | uuid                       |           |          |                                        | plain    |             |              | 
 Indexes:
     "upgrade_pkey" PRIMARY KEY, btree (id)
     "upgrade_commit_sha_key" UNIQUE CONSTRAINT, btree (commit_sha)
@@ -84,6 +85,7 @@ Not-null constraints:
 Triggers:
     upgrade_block_obsolete_pending_trigger BEFORE INSERT OR UPDATE OF state, committed_at, release_status ON upgrade FOR EACH ROW EXECUTE FUNCTION upgrade_block_obsolete_pending()
     upgrade_block_terminal_resurrection_trigger BEFORE UPDATE ON upgrade FOR EACH ROW WHEN (new.state = 'completed'::upgrade_state AND (old.state = ANY (ARRAY['superseded'::upgrade_state, 'failed'::upgrade_state, 'rolled_back'::upgrade_state, 'skipped'::upgrade_state, 'dismissed'::upgrade_state]))) EXECUTE FUNCTION upgrade_block_terminal_resurrection()
+    upgrade_guard_operator_transitions_trigger BEFORE UPDATE ON upgrade FOR EACH ROW EXECUTE FUNCTION upgrade_guard_operator_transitions()
     upgrade_notify_daemon_trigger AFTER UPDATE ON upgrade FOR EACH ROW EXECUTE FUNCTION upgrade_notify_daemon()
     upgrade_notify_frontend_trigger AFTER INSERT OR DELETE OR UPDATE ON upgrade FOR EACH ROW EXECUTE FUNCTION upgrade_notify_frontend()
     upgrade_state_log_trigger AFTER UPDATE ON upgrade FOR EACH ROW WHEN (old.state IS DISTINCT FROM new.state OR old.recovery_parked_at IS DISTINCT FROM new.recovery_parked_at OR old.rollback_finish_pending_at IS DISTINCT FROM new.rollback_finish_pending_at) EXECUTE FUNCTION upgrade_state_log_capture()

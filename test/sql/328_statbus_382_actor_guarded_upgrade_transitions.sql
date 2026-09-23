@@ -1,0 +1,92 @@
+\set ON_ERROR_STOP on
+\pset format unaligned
+\pset tuples_only on
+
+BEGIN;
+SET client_min_messages TO WARNING;
+TRUNCATE public.upgrade_state_log, public.upgrade RESTART IDENTITY;
+
+\echo '=== STATBUS-382: claim_token column exists ==='
+SELECT data_type
+  FROM information_schema.columns
+ WHERE table_schema = 'public'
+   AND table_name = 'upgrade'
+   AND column_name = 'claim_token';
+
+\echo '=== STATBUS-382: Norway fail-notify interleaving cannot reschedule without actor ==='
+INSERT INTO public.upgrade (
+  commit_sha, committed_at, state, summary, scheduled_at, started_at, error
+) VALUES (
+  '3820000000000000000000000000000000000001', now(), 'failed',
+  'Norway failed loop fixture', now(), now(), 'deterministic pre-destructive failure'
+) RETURNING id \gset norway_
+
+SELECT pg_notify('upgrade_apply', '3820000000000000000000000000000000000001');
+SAVEPOINT norway_schedule_without_actor;
+\set ON_ERROR_STOP off
+SELECT schedule_result
+  FROM public.upgrade_schedule('3820000000000000000000000000000000000001', false);
+\set ON_ERROR_STOP on
+ROLLBACK TO SAVEPOINT norway_schedule_without_actor;
+SELECT state, error
+  FROM public.upgrade
+ WHERE id = :norway_id;
+
+\echo '=== STATBUS-382: dismissed stays dismissed after stale daemon schedule call ==='
+SELECT set_config('statbus.actor', 'test operator', true);
+UPDATE public.upgrade
+   SET state = 'dismissed', dismissed_at = now()
+ WHERE id = :norway_id;
+SELECT set_config('statbus.actor', '', true);
+SAVEPOINT dismissed_schedule_without_actor;
+\set ON_ERROR_STOP off
+SELECT schedule_result
+  FROM public.upgrade_schedule('3820000000000000000000000000000000000001', false);
+\set ON_ERROR_STOP on
+ROLLBACK TO SAVEPOINT dismissed_schedule_without_actor;
+SELECT state, dismissed_at IS NOT NULL AS dismissed_at_kept
+  FROM public.upgrade
+ WHERE id = :norway_id;
+
+\echo '=== STATBUS-382: operator actor may reactivate dismissed ==='
+SELECT set_config('statbus.actor', 'test operator', true);
+SELECT schedule_result, landed_state
+  FROM public.upgrade_schedule('3820000000000000000000000000000000000001', false);
+SELECT state, dismissed_at IS NULL AS dismissal_cleared
+  FROM public.upgrade
+ WHERE id = :norway_id;
+SELECT set_config('statbus.actor', '', true);
+
+\echo '=== STATBUS-382: trigger blocks direct failed exit without actor ==='
+UPDATE public.upgrade
+   SET state = 'failed', started_at = now(), scheduled_at = NULL, error = 'again'
+ WHERE id = :norway_id;
+SAVEPOINT direct_failed_exit;
+\set ON_ERROR_STOP off
+UPDATE public.upgrade
+   SET state = 'scheduled', started_at = NULL, scheduled_at = now(), error = NULL
+ WHERE id = :norway_id;
+\set ON_ERROR_STOP on
+ROLLBACK TO SAVEPOINT direct_failed_exit;
+SELECT state FROM public.upgrade WHERE id = :norway_id;
+
+\echo '=== STATBUS-382: live unparked in_progress cannot be dismissed even with actor ==='
+SELECT set_config('statbus.actor', 'test operator', true);
+UPDATE public.upgrade
+   SET state = 'scheduled', started_at = NULL, scheduled_at = now(), error = NULL
+ WHERE id = :norway_id;
+UPDATE public.upgrade
+   SET state = 'in_progress', started_at = now()
+ WHERE id = :norway_id;
+SAVEPOINT live_dismiss;
+\set ON_ERROR_STOP off
+UPDATE public.upgrade
+   SET state = 'dismissed', dismissed_at = now()
+ WHERE id = :norway_id;
+\set ON_ERROR_STOP on
+ROLLBACK TO SAVEPOINT live_dismiss;
+SELECT state, dismissed_at IS NULL AS not_dismissed
+  FROM public.upgrade
+ WHERE id = :norway_id;
+
+ROLLBACK;

@@ -5996,6 +5996,7 @@ export type Database = {
         Row: {
           backup_path: string | null
           changes: string | null
+          claim_token: string | null
           commit_sha: string
           commit_tags: string[]
           commit_version: string | null
@@ -6031,6 +6032,7 @@ export type Database = {
         Insert: {
           backup_path?: string | null
           changes?: string | null
+          claim_token?: string | null
           commit_sha: string
           commit_tags?: string[]
           commit_version?: string | null
@@ -6066,6 +6068,7 @@ export type Database = {
         Update: {
           backup_path?: string | null
           changes?: string | null
+          claim_token?: string | null
           commit_sha?: string
           commit_tags?: string[]
           commit_version?: string | null
@@ -15672,6 +15675,10 @@ export type Database = {
         }
         Returns: string
       },
+      upgrade_guard_operator_transitions: {
+        Args: Record<string, never>
+        Returns: unknown
+      },
       upgrade_notify_daemon: {
         Args: Record<string, never>
         Returns: unknown
@@ -15701,6 +15708,10 @@ export type Database = {
       upgrade_state_log_capture: {
         Args: Record<string, never>
         Returns: unknown
+      },
+      upgrade_transition_actor_present: {
+        Args: Record<string, never>
+        Returns: boolean
       },
       upgrade_version_key: {
         Args: {
