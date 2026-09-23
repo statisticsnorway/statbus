@@ -80,9 +80,9 @@ Two stale references remain in scope: `doc/releases.md:152` still names
    fleet concepts, require zero GitHub credentials, use HTTPS only, finish
    warning-free, and build its summary solely from stage results.
 2. **Service-account key input supports both forms:** direct paste and file/env.
-3. **Ubuntu 26.04 LTS is the primary harness image.** Retain exactly one Ubuntu
-   24.04 bare-install happy path. Readiness is established by running the
-   harness, not by analysis.
+3. **Ubuntu 26.04 LTS is the primary harness image.** Retain exactly one
+   24.04 happy-upgrade path: previous release to candidate on the fleet's
+   Ubuntu 24.04. Readiness is established by running the harness, not by analysis.
 4. **The harness installs by VERSION, normally an rc tag, exactly as operators
    do.** Commit pinning remains only as an optional debugging override.
 
@@ -147,7 +147,8 @@ and upgrade-arc runs execute on real Hetzner VMs.
 5. Every setup summary statement is derived from the actual stage result; no
    skipped step is reported as installed.
 6. The harness uses Ubuntu 26.04 as primary, retains exactly one Ubuntu 24.04
-   bare-install happy path, and uses VERSION/rc-tag checkout by default.
+   happy-upgrade path from previous release to candidate on the fleet's Ubuntu
+   24.04, and uses VERSION/rc-tag checkout by default.
 7. The x86 and Arm VM matrix runs to completion and records public setup,
    fleet-layer setup, fresh install, and service readiness evidence.
 8. The stale `devops@<host>` and Linuxbrew `PATH` references are corrected, and
