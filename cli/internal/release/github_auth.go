@@ -4,6 +4,7 @@ import (
 	"encoding/base64"
 	"os"
 	"os/exec"
+	"regexp"
 	"strconv"
 	"strings"
 )
@@ -20,6 +21,8 @@ type GitHubAuthentication struct {
 	Token string
 	Mode  GitHubAuthMode
 }
+
+var authorizationHeaderPattern = regexp.MustCompile(`(?i)(authorization\s*[:=]\s*)[^\r\n]+`)
 
 // GitHubAuth is the single resolver for release-time GitHub reads.
 func GitHubAuth() GitHubAuthentication {
@@ -68,4 +71,25 @@ func GitHubGitEnv(base []string) []string {
 		"GIT_CONFIG_KEY_0=http.https://github.com/.extraheader",
 		"GIT_CONFIG_VALUE_0=AUTHORIZATION: basic "+encoded,
 	)
+}
+
+// RedactGitHubCredentials removes every representation of the resolved GitHub
+// credential before captured Git or HTTP output can be wrapped, printed, or
+// retained in diagnostics. Header values are redacted even when they do not
+// match the current token, because transports may normalize or replace them.
+func RedactGitHubCredentials(text string) string {
+	auth := GitHubAuth()
+	redacted := authorizationHeaderPattern.ReplaceAllString(text, "${1}[REDACTED]")
+	if auth.Token == "" {
+		return redacted
+	}
+	secrets := []string{
+		auth.Token,
+		base64.StdEncoding.EncodeToString([]byte(auth.Token)),
+		base64.StdEncoding.EncodeToString([]byte("x-access-token:" + auth.Token)),
+	}
+	for _, secret := range secrets {
+		redacted = strings.ReplaceAll(redacted, secret, "[REDACTED]")
+	}
+	return redacted
 }

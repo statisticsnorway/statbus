@@ -332,7 +332,8 @@ func migrationUpBlobHashInTag(projDir, tag string, version int64) (hash string, 
 	fetch.Dir = projDir
 	fetch.Env = GitHubGitEnv(os.Environ())
 	if out, ferr := fetch.CombinedOutput(); ferr != nil {
-		return "", false, fmt.Errorf("git fetch --depth 1 origin refs/tags/%s: %w: %s", tag, ferr, strings.TrimSpace(string(out)))
+		output := RedactGitHubCredentials(strings.TrimSpace(string(out)))
+		return "", false, fmt.Errorf("git fetch --depth 1 origin refs/tags/%s: %w: %s", tag, ferr, output)
 	}
 	ls := exec.Command("git", "ls-tree", "--name-only", "-r", "FETCH_HEAD", "--", "migrations")
 	ls.Dir = projDir

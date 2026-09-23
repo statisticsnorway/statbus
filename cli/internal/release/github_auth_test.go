@@ -1,6 +1,7 @@
 package release
 
 import (
+	"bytes"
 	"encoding/base64"
 	"os"
 	"path/filepath"
@@ -57,5 +58,54 @@ func TestGitHubGitEnvUsesExtraHeaderNotArgv(t *testing.T) {
 	want := base64.StdEncoding.EncodeToString([]byte("x-access-token:secret-token"))
 	if !strings.Contains(joined, "GIT_CONFIG_VALUE_0=AUTHORIZATION: basic "+want) {
 		t.Fatalf("missing encoded extraheader in %q", joined)
+	}
+}
+
+func TestAuthenticatedGitFailureRedactsCredentialsBeforeErrorsLogsAndDiagnostics(t *testing.T) {
+	const token = "sentinel-token-MUST-NOT-LEAK"
+	t.Setenv("GITHUB_TOKEN", token)
+	dir := t.TempDir()
+	encodedToken := base64.StdEncoding.EncodeToString([]byte(token))
+	encodedCredential := base64.StdEncoding.EncodeToString([]byte("x-access-token:" + token))
+	script := `#!/bin/sh
+printf '%s\n' "$GITHUB_TOKEN" >&2
+printf '%s\n' "` + encodedToken + `" >&2
+printf '%s\n' "$GIT_CONFIG_VALUE_0" >&2
+printf '%s\n' "Authorization: Bearer reflected-secret" >&2
+exit 1
+`
+	if err := os.WriteFile(filepath.Join(dir, "git"), []byte(script), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("PATH", dir)
+
+	_, _, err := migrationUpBlobHashInTag(t.TempDir(), "v2026.09.1-rc.99", 20260923000000)
+	if err == nil {
+		t.Fatal("expected authenticated git failure")
+	}
+
+	var userVisibleLog bytes.Buffer
+	userVisibleLog.WriteString(err.Error())
+	diagnosticPath := filepath.Join(t.TempDir(), "support-bundle-release-error.txt")
+	if writeErr := os.WriteFile(diagnosticPath, []byte(userVisibleLog.String()), 0o600); writeErr != nil {
+		t.Fatal(writeErr)
+	}
+	diagnostic, readErr := os.ReadFile(diagnosticPath)
+	if readErr != nil {
+		t.Fatal(readErr)
+	}
+	for surface, content := range map[string]string{
+		"returned error":            err.Error(),
+		"user-visible log":          userVisibleLog.String(),
+		"support bundle collection": string(diagnostic),
+	} {
+		for _, secret := range []string{token, encodedToken, encodedCredential, "reflected-secret"} {
+			if strings.Contains(content, secret) {
+				t.Fatalf("%s leaked %q in %q", surface, secret, content)
+			}
+		}
+		if !strings.Contains(content, "[REDACTED]") {
+			t.Fatalf("%s did not retain a redaction marker: %q", surface, content)
+		}
 	}
 }

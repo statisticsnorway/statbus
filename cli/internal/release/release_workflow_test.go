@@ -28,6 +28,23 @@ func TestCheckReleaseWorkflowRetriesEmptyPage(t *testing.T) {
 	}
 }
 
+func TestCheckReleaseWorkflowPermanentlyEmptyStaysMissingAfterThreeCalls(t *testing.T) {
+	var calls atomic.Int32
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		calls.Add(1)
+		_ = json.NewEncoder(w).Encode(map[string]any{"workflow_runs": []any{}})
+	}))
+	defer server.Close()
+
+	result := checkReleaseWorkflowAt(server.URL, "v2026.09.1-rc.99")
+	if result.Status != ReleaseWorkflowMissing {
+		t.Fatalf("result=%#v, want status %q", result, ReleaseWorkflowMissing)
+	}
+	if got := calls.Load(); got != 3 {
+		t.Fatalf("calls=%d, want exactly 3", got)
+	}
+}
+
 func TestCheckReleaseWorkflowAtTag(t *testing.T) {
 	cases := []struct {
 		name       string

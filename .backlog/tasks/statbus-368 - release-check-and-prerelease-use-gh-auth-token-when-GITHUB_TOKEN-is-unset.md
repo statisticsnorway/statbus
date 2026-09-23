@@ -93,3 +93,12 @@ readiness probe now retries an empty API page three times before reporting
 STATBUS-379 is the narrower duplicate and remains closed as superseded by this
 item. The 100-run operator proof can only be recorded after this commit is in the
 next candidate.
+
+## Fix-forward 2026-09-23
+
+Authenticated Git failure output is now redacted before it is wrapped or
+retained. The shared redactor removes the resolved token, its base64 forms, and
+every Authorization header value. A sentinel-token failure test covers the
+returned error, a user-visible log buffer, and a collected diagnostic file.
+The release-workflow retry test also proves that a permanently empty runs page
+returns `Missing` after exactly three requests.
