@@ -495,7 +495,10 @@ jobs:
             exit 0
           fi
           echo "incremental base: $tag"
-          cid="$(docker create "$tag")"
+          # The seed image is FROM scratch with no CMD. Supply the same inert
+          # placeholder used by `sb db seed fetch`; docker create otherwise fails
+          # with "no command specified" before docker cp can read the payload.
+          cid="$(docker create "$tag" /statbus-seed-is-data-only)"
           docker cp "$cid:/seed.pg_dump" "$dir/seed.pg_dump"
           docker cp "$cid:/seed.json"    "$dir/seed.json"
           docker rm "$cid"

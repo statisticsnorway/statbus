@@ -549,3 +549,37 @@ func TestFleetStagesUseCoveredSubsetAndHealthIsIndependent_STATBUS351(t *testing
 		t.Fatal("coverage-question-health must carry the King-approved actionable diagnosis")
 	}
 }
+
+func TestImagesWorkflowCreatesDataOnlyPriorSeedWithPlaceholderCommand(t *testing.T) {
+	const workflow = ".github/workflows/images.yaml"
+	data, err := os.ReadFile(thisRepoFile(t, workflow))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var doc struct {
+		Jobs map[string]struct {
+			Steps []struct {
+				Name string `yaml:"name"`
+				Run  string `yaml:"run"`
+			} `yaml:"steps"`
+		} `yaml:"jobs"`
+	}
+	if err := yaml.Unmarshal(data, &doc); err != nil {
+		t.Fatalf("%s is not parseable YAML: %v", workflow, err)
+	}
+	seed, ok := doc.Jobs["seed"]
+	if !ok {
+		t.Fatal("images workflow has no seed job")
+	}
+	for _, step := range seed.Steps {
+		if step.Name != "Resolve incremental prior seed (empty when no ancestor)" {
+			continue
+		}
+		command := regexp.MustCompile(`(?m)^\s*cid="\$\(docker create "\$tag" /statbus-seed-is-data-only\)"\s*$`)
+		if !command.MatchString(step.Run) {
+			t.Fatal("prior-seed extraction must give the FROM scratch data-only image an inert placeholder command")
+		}
+		return
+	}
+	t.Fatal("images workflow has no incremental prior-seed resolution step")
+}
