@@ -1,8 +1,9 @@
 #!/bin/bash
 # Scenario: 0-https-only-egress
 # Reuses the complete 0-happy-upgrade install and supervised upgrade proof, but
-# rejects every outbound TCP/80 connection immediately after bootstrap. Albania's
-# network may DROP instead; REJECT is the stricter, faster regression proxy.
+# rejects every IPv4 and IPv6 outbound TCP/80 connection immediately after
+# bootstrap. Albania's network may DROP instead; REJECT is the stricter, faster
+# regression proxy.
 set -euo pipefail
 
 SCENARIO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

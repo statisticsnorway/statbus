@@ -1264,14 +1264,22 @@ reset_vm_state() {
 # real DROP behavior: a regression fails immediately instead of timing out.
 apply_https_only_egress() {
     local blocked_url="http://example.com/statbus-http-egress-mutation"
-    echo "Applying HTTPS-only egress policy (reject outbound TCP/80)"
-    VM_EXEC sudo iptables -C OUTPUT -p tcp --dport 80 -j REJECT 2>/dev/null || \
-        VM_EXEC sudo iptables -A OUTPUT -p tcp --dport 80 -j REJECT
-    if VM_EXEC curl --fail --silent --show-error --max-time 5 "$blocked_url" >/dev/null 2>&1; then
-        echo "ERROR: HTTPS-only egress guard did not block $blocked_url" >&2
+    local firewall
+    echo "Applying HTTPS-only egress policy (reject outbound TCP/80 on IPv4 and IPv6)"
+    for firewall in iptables ip6tables; do
+        VM_EXEC sudo "$firewall" -C OUTPUT -p tcp --dport 80 -j REJECT 2>/dev/null || \
+            VM_EXEC sudo "$firewall" -A OUTPUT -p tcp --dport 80 -j REJECT
+    done
+    if VM_EXEC curl -4 --fail --silent --show-error --max-time 5 "$blocked_url" >/dev/null 2>&1; then
+        echo "ERROR: IPv4 HTTPS-only egress guard did not block $blocked_url" >&2
         return 1
     fi
-    echo "  ✓ deliberate plain-HTTP fetch rejected: $blocked_url"
+    echo "  ✓ deliberate IPv4 plain-HTTP fetch rejected: $blocked_url"
+    if VM_EXEC curl -6 --fail --silent --show-error --max-time 5 "$blocked_url" >/dev/null 2>&1; then
+        echo "ERROR: IPv6 HTTPS-only egress guard did not block $blocked_url" >&2
+        return 1
+    fi
+    echo "  ✓ deliberate IPv6 plain-HTTP fetch rejected: $blocked_url"
 }
 
 # Run install inside a bootstrapped VM.

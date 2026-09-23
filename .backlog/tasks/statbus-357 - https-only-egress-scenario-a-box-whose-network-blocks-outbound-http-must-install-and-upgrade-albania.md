@@ -118,3 +118,10 @@ fetches `http://example.com/statbus-http-egress-mutation`, requires rejection,
 and prints that URL in the passing diagnostic. The scenario is discovered by
 the default dispatcher. A real install and upgrade can only be proven by the
 next paid candidate harness run, so status remains **To Do** pending that run.
+
+## Fix-forward 2026-09-23
+
+The egress guard now installs matching `iptables` and `ip6tables` OUTPUT rules,
+then attempts the deliberate HTTP mutation with both `curl -4` and `curl -6`.
+The local regression asserts both firewall families and both address-family
+probes. The real harness scenario executes these commands on its Ubuntu VM.
