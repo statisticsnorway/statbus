@@ -1263,23 +1263,58 @@ reset_vm_state() {
 # established SSH intact. REJECT is the fast deterministic proxy for Albania's
 # real DROP behavior: a regression fails immediately instead of timing out.
 apply_https_only_egress() {
-    local blocked_url="http://example.com/statbus-http-egress-mutation"
+    local ipv4_literal="93.184.216.34"
+    local ipv6_literal="2606:2800:220:1:248:1893:25c8:1946"
+    local ipv4_url="http://${ipv4_literal}/statbus-http-egress-mutation"
+    local ipv6_url="http://[${ipv6_literal}]/statbus-http-egress-mutation"
     local firewall
+    local probe_rc
+
     echo "Applying HTTPS-only egress policy (reject outbound TCP/80 on IPv4 and IPv6)"
+
+    # Ubuntu 24.04 and 26.04 provide both commands in the iptables package,
+    # normally through its nftables-backed alternatives. Do not depend on ufw
+    # or another hardening package pulling this scenario prerequisite in.
+    if ! VM_EXEC bash -c 'command -v iptables >/dev/null 2>&1 && command -v ip6tables >/dev/null 2>&1'; then
+        echo "  iptables/ip6tables missing; installing the Ubuntu iptables package"
+        VM_EXEC sudo apt-get update
+        VM_EXEC sudo env DEBIAN_FRONTEND=noninteractive apt-get install -y iptables
+    fi
+    if ! VM_EXEC bash -c 'command -v iptables >/dev/null 2>&1 && command -v ip6tables >/dev/null 2>&1'; then
+        echo "ERROR: Ubuntu iptables package did not provide both iptables and ip6tables" >&2
+        return 1
+    fi
+    VM_EXEC sudo iptables --version || {
+        echo "ERROR: iptables exists but is not usable" >&2
+        return 1
+    }
+    VM_EXEC sudo ip6tables --version || {
+        echo "ERROR: ip6tables exists but is not usable" >&2
+        return 1
+    }
+
     for firewall in iptables ip6tables; do
         VM_EXEC sudo "$firewall" -C OUTPUT -p tcp --dport 80 -j REJECT 2>/dev/null || \
             VM_EXEC sudo "$firewall" -A OUTPUT -p tcp --dport 80 -j REJECT
     done
-    if VM_EXEC curl -4 --fail --silent --show-error --max-time 5 "$blocked_url" >/dev/null 2>&1; then
-        echo "ERROR: IPv4 HTTPS-only egress guard did not block $blocked_url" >&2
+
+    VM_EXEC curl --noproxy '*' -4 --fail --silent --show-error --connect-timeout 3 --max-time 5 "$ipv4_url" >/dev/null 2>&1 && probe_rc=0 || probe_rc=$?
+    if [ "$probe_rc" -ne 7 ]; then
+        echo "ERROR: IPv4 HTTPS-only egress probe expected connection refusal (curl rc=7), got rc=$probe_rc: $ipv4_url" >&2
         return 1
     fi
-    echo "  ✓ deliberate IPv4 plain-HTTP fetch rejected: $blocked_url"
-    if VM_EXEC curl -6 --fail --silent --show-error --max-time 5 "$blocked_url" >/dev/null 2>&1; then
-        echo "ERROR: IPv6 HTTPS-only egress guard did not block $blocked_url" >&2
+    echo "  ✓ deliberate IPv4 TCP/80 connection refused: $ipv4_url"
+
+    if ! VM_EXEC ip -6 route get "$ipv6_literal" >/dev/null 2>&1; then
+        echo "  VACUOUS: VM has no IPv6 route to $ipv6_literal; ip6tables rule was installed and checked, but no IPv6 TCP/80 connection can be attempted"
+        return 0
+    fi
+    VM_EXEC curl --noproxy '*' -6 --fail --silent --show-error --connect-timeout 3 --max-time 5 "$ipv6_url" >/dev/null 2>&1 && probe_rc=0 || probe_rc=$?
+    if [ "$probe_rc" -ne 7 ]; then
+        echo "ERROR: IPv6 HTTPS-only egress probe expected connection refusal (curl rc=7), got rc=$probe_rc: $ipv6_url" >&2
         return 1
     fi
-    echo "  ✓ deliberate IPv6 plain-HTTP fetch rejected: $blocked_url"
+    echo "  ✓ deliberate IPv6 TCP/80 connection refused: $ipv6_url"
 }
 
 # Run install inside a bootstrapped VM.

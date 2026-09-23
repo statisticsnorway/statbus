@@ -125,3 +125,22 @@ The egress guard now installs matching `iptables` and `ip6tables` OUTPUT rules,
 then attempts the deliberate HTTP mutation with both `curl -4` and `curl -6`.
 The local regression asserts both firewall families and both address-family
 probes. The real harness scenario executes these commands on its Ubuntu VM.
+
+## Firewall-tool fix-forward 2026-09-23
+
+The scenario now owns its firewall prerequisite instead of relying on `ufw` or
+another hardening dependency to provide it indirectly. It checks for both
+`iptables` and `ip6tables`, installs Ubuntu's `iptables` package when either is
+absent, re-checks both commands, and invokes both `--version` paths before
+installing rules. Ubuntu's package normally exposes nftables-backed alternatives,
+so retaining the two existing commands is simpler than adding separate `nft`
+rule syntax while still exercising both address families explicitly.
+
+After installing both rules, the scenario probes TCP/80 at IPv4 and IPv6
+literals with short timeouts and requires curl's connection-failure status. It
+first checks for an IPv6 route; an image without one emits an explicit
+`VACUOUS` diagnostic rather than silently counting unrelated lack of IPv6 as
+firewall proof. The offline contract pins ensure-tools → install-rules →
+verify-both-families ordering and includes a scratch mutation that removes the
+`ip6tables` rule. Actual Ubuntu 24.04 and 26.04 behavior remains pending the
+first paid VM run, which is the real proof for those images.
