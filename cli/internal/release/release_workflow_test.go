@@ -9,16 +9,29 @@ import (
 	"testing"
 )
 
+const (
+	testTagCommit = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+	oldTagCommit  = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+)
+
+func serveTagCommit(w http.ResponseWriter) {
+	_ = json.NewEncoder(w).Encode(map[string]any{"sha": testTagCommit})
+}
+
 func TestCheckReleaseWorkflowRetriesEmptyPage(t *testing.T) {
 	var calls atomic.Int32
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if strings.Contains(r.URL.Path, "/commits/") {
+			serveTagCommit(w)
+			return
+		}
 		call := calls.Add(1)
 		if call < 3 {
 			_ = json.NewEncoder(w).Encode(map[string]any{"workflow_runs": []any{}})
 			return
 		}
 		_ = json.NewEncoder(w).Encode(map[string]any{"workflow_runs": []map[string]any{{
-			"id": 501, "html_url": "https://example/run/501", "status": "queued",
+			"id": 501, "html_url": "https://example/run/501", "status": "queued", "head_sha": testTagCommit,
 		}}})
 	}))
 	defer server.Close()
@@ -30,7 +43,11 @@ func TestCheckReleaseWorkflowRetriesEmptyPage(t *testing.T) {
 
 func TestCheckReleaseWorkflowPermanentlyEmptyStaysMissingAfterThreeCalls(t *testing.T) {
 	var calls atomic.Int32
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if strings.Contains(r.URL.Path, "/commits/") {
+			serveTagCommit(w)
+			return
+		}
 		calls.Add(1)
 		_ = json.NewEncoder(w).Encode(map[string]any{"workflow_runs": []any{}})
 	}))
@@ -62,6 +79,7 @@ func TestCheckReleaseWorkflowAtTag(t *testing.T) {
 				"status":     "completed",
 				"conclusion": "success",
 				"created_at": "2026-05-19T10:00:00Z",
+				"head_sha":   testTagCommit,
 			}},
 			wantStatus: ReleaseWorkflowGreen,
 			wantURL:    "https://github.com/o/r/actions/runs/101",
@@ -75,6 +93,7 @@ func TestCheckReleaseWorkflowAtTag(t *testing.T) {
 				"status":     "in_progress",
 				"conclusion": nil,
 				"created_at": "2026-05-19T10:00:00Z",
+				"head_sha":   testTagCommit,
 			}},
 			wantStatus: ReleaseWorkflowPending,
 			wantURL:    "https://github.com/o/r/actions/runs/102",
@@ -88,6 +107,7 @@ func TestCheckReleaseWorkflowAtTag(t *testing.T) {
 				"status":     "completed",
 				"conclusion": "failure",
 				"created_at": "2026-05-19T10:00:00Z",
+				"head_sha":   testTagCommit,
 			}},
 			wantStatus: ReleaseWorkflowFailed,
 			wantURL:    "https://github.com/o/r/actions/runs/103",
@@ -112,6 +132,7 @@ func TestCheckReleaseWorkflowAtTag(t *testing.T) {
 					"status":     "completed",
 					"conclusion": "failure",
 					"created_at": "2026-05-19T11:00:00Z",
+					"head_sha":   testTagCommit,
 				},
 				{
 					"id":         104,
@@ -119,6 +140,7 @@ func TestCheckReleaseWorkflowAtTag(t *testing.T) {
 					"status":     "completed",
 					"conclusion": "success",
 					"created_at": "2026-05-19T10:00:00Z",
+					"head_sha":   testTagCommit,
 				},
 			},
 			wantStatus: ReleaseWorkflowGreen,
@@ -134,6 +156,7 @@ func TestCheckReleaseWorkflowAtTag(t *testing.T) {
 					"status":     "completed",
 					"conclusion": "success",
 					"created_at": "2026-05-19T12:00:00Z",
+					"head_sha":   testTagCommit,
 				},
 				{
 					"id":         106,
@@ -141,17 +164,65 @@ func TestCheckReleaseWorkflowAtTag(t *testing.T) {
 					"status":     "completed",
 					"conclusion": "failure",
 					"created_at": "2026-05-19T11:00:00Z",
+					"head_sha":   testTagCommit,
 				},
 			},
 			wantStatus: ReleaseWorkflowGreen,
 			wantURL:    "https://github.com/o/r/actions/runs/107",
 			wantID:     107,
 		},
+		{
+			name: "sha mismatch rejected",
+			runs: []map[string]any{
+				{"id": 109, "html_url": "https://github.com/o/r/actions/runs/109", "status": "completed", "conclusion": "failure", "head_sha": testTagCommit},
+				{"id": 108, "html_url": "https://github.com/o/r/actions/runs/108", "status": "completed", "conclusion": "success", "head_sha": oldTagCommit},
+			},
+			wantStatus: ReleaseWorkflowFailed,
+			wantURL:    "https://github.com/o/r/actions/runs/109",
+			wantID:     109,
+			wantDetail: "failure",
+		},
+		{
+			name: "all duplicates failed rejected",
+			runs: []map[string]any{
+				{"id": 111, "html_url": "https://github.com/o/r/actions/runs/111", "status": "completed", "conclusion": "failure", "head_sha": testTagCommit},
+				{"id": 110, "html_url": "https://github.com/o/r/actions/runs/110", "status": "completed", "conclusion": "failure", "head_sha": testTagCommit},
+			},
+			wantStatus: ReleaseWorkflowFailed,
+			wantURL:    "https://github.com/o/r/actions/runs/111",
+			wantID:     111,
+			wantDetail: "failure",
+		},
+		{
+			name: "rerun of the same ID is its latest attempt",
+			runs: []map[string]any{{
+				"id": 112, "html_url": "https://github.com/o/r/actions/runs/112", "status": "completed", "conclusion": "failure",
+				"head_sha": testTagCommit, "run_attempt": 2, "previous_attempt_url": "https://api.github.com/repos/o/r/actions/runs/112/attempts/1",
+			}},
+			wantStatus: ReleaseWorkflowFailed,
+			wantURL:    "https://github.com/o/r/actions/runs/112",
+			wantID:     112,
+			wantDetail: "failure",
+		},
+		{
+			name: "older success plus newer pending duplicate",
+			runs: []map[string]any{
+				{"id": 113, "html_url": "https://github.com/o/r/actions/runs/113", "status": "in_progress", "head_sha": testTagCommit},
+				{"id": 112, "html_url": "https://github.com/o/r/actions/runs/112", "status": "completed", "conclusion": "success", "head_sha": testTagCommit},
+			},
+			wantStatus: ReleaseWorkflowGreen,
+			wantURL:    "https://github.com/o/r/actions/runs/112",
+			wantID:     112,
+		},
 	}
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				if strings.Contains(r.URL.Path, "/commits/") {
+					serveTagCommit(w)
+					return
+				}
 				wantPath := "/repos/statisticsnorway/statbus/actions/workflows/release.yaml/runs"
 				if r.URL.Path != wantPath {
 					http.Error(w, "unexpected path "+r.URL.Path, http.StatusNotFound)

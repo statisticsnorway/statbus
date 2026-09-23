@@ -152,6 +152,17 @@ func checkManifestsAt(apiBase, registryBase, tag string) []CheckResult {
 // to its 8-char commit_short via the GitHub API. Works for both lightweight
 // and annotated tags (the /commits/{ref} endpoint dereferences either).
 func resolveTagToCommitShort(apiBase, tag string) (string, error) {
+	commitSHA, err := resolveTagToCommit(apiBase, tag)
+	if err != nil {
+		return "", err
+	}
+	return commitSHA[:8], nil
+}
+
+// resolveTagToCommit resolves a tag name to its full 40-character commit SHA
+// via the GitHub API. The /commits/{ref} endpoint dereferences both lightweight
+// and annotated tags.
+func resolveTagToCommit(apiBase, tag string) (string, error) {
 	url := fmt.Sprintf("%s/repos/%s/%s/commits/%s", apiBase, githubOrg, githubRepo, tag)
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
@@ -176,10 +187,10 @@ func resolveTagToCommitShort(apiBase, tag string) (string, error) {
 	if err := json.NewDecoder(resp.Body).Decode(&body); err != nil {
 		return "", fmt.Errorf("decode response: %w", err)
 	}
-	if len(body.SHA) < 8 {
-		return "", fmt.Errorf("unexpected short SHA from API: %q", body.SHA)
+	if len(body.SHA) != 40 {
+		return "", fmt.Errorf("unexpected commit SHA from API: %q", body.SHA)
 	}
-	return body.SHA[:8], nil
+	return body.SHA, nil
 }
 
 // checkManifest probes a single image by commit_short first (rc.63+ image

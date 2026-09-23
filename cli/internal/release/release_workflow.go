@@ -63,8 +63,12 @@ func CheckReleaseWorkflowAtTag(tag string) ReleaseWorkflowResult {
 // and the unfiltered first page of runs comes back. The correct filter
 // is `branch=`, which for a tag-trigger run matches the tag name.
 func checkReleaseWorkflowAt(apiBase, tag string) ReleaseWorkflowResult {
+	tagCommit, err := resolveTagToCommit(apiBase, tag)
+	if err != nil {
+		return ReleaseWorkflowResult{Status: ReleaseWorkflowUnknown, Detail: fmt.Sprintf("resolve tag commit: %v", err)}
+	}
 	for attempt := 1; attempt <= 3; attempt++ {
-		result := checkReleaseWorkflowOnceAt(apiBase, tag)
+		result := checkReleaseWorkflowOnceAt(apiBase, tag, tagCommit)
 		if result.Status != ReleaseWorkflowMissing || attempt == 3 {
 			return result
 		}
@@ -73,7 +77,7 @@ func checkReleaseWorkflowAt(apiBase, tag string) ReleaseWorkflowResult {
 	panic("unreachable")
 }
 
-func checkReleaseWorkflowOnceAt(apiBase, tag string) ReleaseWorkflowResult {
+func checkReleaseWorkflowOnceAt(apiBase, tag, tagCommit string) ReleaseWorkflowResult {
 	url := fmt.Sprintf("%s/repos/%s/%s/actions/workflows/%s/runs?branch=%s&event=push&per_page=10",
 		apiBase, githubOrg, githubRepo, releaseWorkflow, tag)
 	req, err := http.NewRequest("GET", url, nil)
@@ -101,6 +105,7 @@ func checkReleaseWorkflowOnceAt(apiBase, tag string) ReleaseWorkflowResult {
 			HTMLURL    string `json:"html_url"`
 			Status     string `json:"status"`
 			Conclusion string `json:"conclusion"`
+			HeadSHA    string `json:"head_sha"`
 		} `json:"workflow_runs"`
 	}
 	if err := json.NewDecoder(resp.Body).Decode(&body); err != nil {
@@ -110,15 +115,29 @@ func checkReleaseWorkflowOnceAt(apiBase, tag string) ReleaseWorkflowResult {
 		return ReleaseWorkflowResult{Status: ReleaseWorkflowMissing}
 	}
 
-	// GitHub returns newest first. Prefer any successful distinct run because
-	// release publication is an idempotent fact for this immutable tag. Keep
-	// the newest run as the diagnostic when no run succeeded.
+	// GitHub returns newest first. Ignore runs for any prior commit if a tag was
+	// moved. Among runs for the current commit, prefer any successful distinct
+	// run: the GitHub Release is create-once, while images are rebuilt from the
+	// same commit. Keep the newest matching run as the diagnostic when none
+	// succeeded.
+	matchingRuns := body.WorkflowRuns[:0]
 	for _, run := range body.WorkflowRuns {
+		if run.HeadSHA == tagCommit {
+			matchingRuns = append(matchingRuns, run)
+		}
+	}
+	if len(matchingRuns) == 0 {
+		return ReleaseWorkflowResult{
+			Status: ReleaseWorkflowMissing,
+			Detail: fmt.Sprintf("release workflow runs target head_sha %s, but tag resolves to %s", body.WorkflowRuns[0].HeadSHA, tagCommit),
+		}
+	}
+	for _, run := range matchingRuns {
 		if run.Status == "completed" && run.Conclusion == "success" {
 			return ReleaseWorkflowResult{Status: ReleaseWorkflowGreen, RunURL: run.HTMLURL, RunID: run.ID}
 		}
 	}
-	latest := body.WorkflowRuns[0]
+	latest := matchingRuns[0]
 	switch {
 	case latest.Status != "completed":
 		return ReleaseWorkflowResult{Status: ReleaseWorkflowPending, RunURL: latest.HTMLURL, RunID: latest.ID}
