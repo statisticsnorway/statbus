@@ -117,3 +117,27 @@ Batch order: 370 -> 368 -> 367 -> 363 -> 357 -> 361 -> 362 -> 359.
 Classification: PARTIAL. Evidence: dependency work is not on master; current app/package changes are uncommitted and alerts require retriage.
 
 Remaining: Land reviewed dependency updates, complete next/sharp/Highcharts retriage, reach zero justified alerts, and pass CI/image smoke.
+
+## Local implementation 2026-09-23 (STATBUS-363)
+
+All 17 alerts currently open on GitHub were retriaged. All are npm alerts in
+`app/pnpm-lock.yaml`; no Go module alert exists. The changes below are committed
+locally only, so GitHub will continue to report the alerts until the commit is
+pushed and Dependabot refreshes the dependency graph.
+
+| Alert(s) | Outcome | Reachability and local fix |
+|---|---|---|
+| #680, #681 `next` | fixed locally | Runtime and reachable: the shipped Next server exposes the Image Optimization API and the app imports `next/image` in five source components/pages. Raised `next` from `^16.2.11` to `^16.3.3`; lockfile resolved 16.3.6, above the 16.3.3 fix. |
+| #644, #679 `sharp` | fixed locally | Runtime and reachable through Next image optimization. Raised direct `sharp` from `^0.35.0` to `^0.35.4`; Next 16.3.6 also resolves sharp 0.35.4 instead of 0.34.5. |
+| #626, #642, #669, #670, #682, #683 `js-yaml` | fixed locally | Dev/build-time only through Jest coverage and ESLint. Overrides resolve 3.x to 3.15.2 and 4.x to 4.3.2. |
+| #640, #656, #657 `brace-expansion` | fixed locally | Dev/build-time only through glob/minimatch tooling. Override resolves 5.0.12, above the 5.0.9 fix. |
+| #676, #677 `browserslist` | fixed locally | Dev/build-time compatibility tooling. Override resolves 4.29.0, above the 4.28.7 fix. |
+| #678 `baseline-browser-mapping` | fixed locally | Dev/build-time browser compatibility data. Override resolves 2.11.20, above the 2.11.0 fix. |
+| #609 `@babel/core` | fixed locally | Dev/build-time compiler/test tooling. Override resolves 7.29.7, above the 7.29.6 fix. |
+
+Validation: `pnpm install`, 5 Jest suites/33 tests, TypeScript, lint (0 errors,
+5 warnings), production build, and `pnpm audit` all passed. `pnpm audit` reports
+zero vulnerabilities across 1002 dependencies. A built-server request to
+`/_next/image` returned HTTP 200 for an auth-exempt public image path. No Go
+gate was required because no Go files or Go dependencies changed. Full evidence
+is in `tmp/statbus-363.md`.

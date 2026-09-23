@@ -44,3 +44,19 @@ next build.
 Classification: PARTIAL. Evidence: Highcharts bump is present only as uncommitted app/package.json and pnpm-lock.yaml work, with validation/release still outstanding.
 
 Remaining: Commit the fixed Highcharts version, run frozen install, typecheck/lint/build/tests and the relevant chart smoke, then ship next release.
+
+## Local implementation 2026-09-23 (STATBUS-383)
+
+- Fixed locally: raised Highcharts Core from `^12.6.2` to `^13.1.1`, later than
+  Highsoft's 13.1.0 fixed version for all Core versions through 13.0.2.
+- Reachable before the fix: Highcharts is a shipped runtime dependency used by
+  five chart constructors. Database-originated or indirectly user-controlled
+  strings reach chart text options, and the drilldown tooltip uses `useHTML`.
+- The v13 migration review found no use of removed `StackItemObject.isNegative`
+  or obsolete option shapes. The existing `Axis.update({ visible })` call remains
+  supported. No call-site change, explicit `any`, or `@ts-ignore` was required.
+- Validation in the combined dependency pass: `pnpm install`, 5 Jest suites/33
+  tests, TypeScript, lint (0 errors, 5 warnings), and production build passed.
+  Detailed call-site evidence is in `tmp/highcharts-advisory.md`; combined gate
+  evidence is in `tmp/statbus-363.md`.
+- The change is committed locally only and has not been pushed or shipped.
