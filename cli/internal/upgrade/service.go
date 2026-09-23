@@ -2,6 +2,7 @@ package upgrade
 
 import (
 	"context"
+	"crypto/rand"
 	"database/sql"
 	"encoding/json"
 	"errors"
@@ -194,6 +195,7 @@ type Service struct {
 	// channel has no state to corrupt.
 	allowedSignersPath string    // path to tmp/allowed-signers file (empty if no signers configured)
 	flagLock           *FlagLock // holds the flock on tmp/upgrade-in-progress.json during executeUpgrade
+	activeClaimToken   string    // claim-scoped CAS authority for terminal writes
 	runningAsService   bool      // true when Run() is the entry point; false for one-shot callers
 	// STATBUS-046 / STATBUS-044 comment #6 — the crash-resume attempt is counted
 	// ONCE per process lifetime, at the START of the recovery pass (before the boot
@@ -5975,6 +5977,7 @@ const (
 	scheduleResultInProgress               scheduleResult = "in_progress"
 	scheduleResultRestoreReattemptRequired scheduleResult = "restore_reattempt_required"
 	scheduleResultUnregistered             scheduleResult = "unregistered"
+	scheduleResultOperatorRequired         scheduleResult = "operator_required"
 )
 
 func classifyScheduleResult(raw string) (scheduleResult, error) {
@@ -5985,7 +5988,8 @@ func classifyScheduleResult(raw string) (scheduleResult, error) {
 		scheduleResultAlreadyScheduled,
 		scheduleResultInProgress,
 		scheduleResultRestoreReattemptRequired,
-		scheduleResultUnregistered:
+		scheduleResultUnregistered,
+		scheduleResultOperatorRequired:
 		return result, nil
 	default:
 		return "", fmt.Errorf("unknown public.upgrade_schedule result %q", raw)
@@ -6092,6 +6096,10 @@ func (d *Service) onScheduledNotify(ctx context.Context, input string) {
 		reason := "the candidate is older than an installed completed candidate and was not queued"
 		fmt.Printf("Cannot schedule %s: %s\n", displayName, reason)
 		d.recordApplyRefused(ctx, input, reason)
+	case scheduleResultOperatorRequired:
+		reason := "the candidate is not available; only an explicit operator schedule may reactivate it"
+		fmt.Printf("Cannot schedule %s: %s\n", displayName, reason)
+		d.recordApplyRefused(ctx, input, reason)
 	case scheduleResultUnregistered:
 		// STATBUS-183 piece 1: the tag/commit resolved (git says it exists) but has
 		// no candidate row yet — the rc.06 race. Instead of the old drop, register it
@@ -6134,6 +6142,10 @@ func (d *Service) onScheduledNotify(ctx context.Context, input string) {
 			reason := "the candidate is older than an installed completed candidate and was not queued"
 			fmt.Printf("Cannot schedule %s after registering: %s\n", displayName, reason)
 			d.recordApplyRefused(ctx, input, reason)
+		case scheduleResultOperatorRequired:
+			reason := "the registered candidate is not available; only an explicit operator schedule may reactivate it"
+			fmt.Printf("Cannot schedule %s after registering: %s\n", displayName, reason)
+			d.recordApplyRefused(ctx, input, reason)
 		case scheduleResultUnregistered:
 			// Registered but promote found no row: impossible (the upsert guaranteed
 			// it) — surface it durably rather than silently.
@@ -6154,6 +6166,29 @@ func (d *Service) onApplyScheduled(ctx context.Context, displayName string) {
 // promoteExistingCandidate calls the one database-owned schedule door (NO insert);
 // shared by the first pass and the post-register re-run in onScheduledNotify.
 func (d *Service) promoteExistingCandidate(ctx context.Context, commitSHA CommitSHA) (scheduleResult, error) {
+	var state string
+	var parked bool
+	err := d.queryConn.QueryRow(ctx,
+		`SELECT state::text, state = 'in_progress' AND recovery_parked_at IS NOT NULL
+		   FROM public.upgrade WHERE commit_sha = $1`, string(commitSHA)).Scan(&state, &parked)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return scheduleResultUnregistered, nil
+	}
+	if err != nil {
+		return "", err
+	}
+	switch state {
+	case "available":
+	case "scheduled":
+		return scheduleResultAlreadyScheduled, nil
+	case "in_progress":
+		if parked {
+			return scheduleResultOperatorRequired, nil
+		}
+		return scheduleResultInProgress, nil
+	default:
+		return scheduleResultOperatorRequired, nil
+	}
 	result, err := scanScheduleResult(d.queryConn.QueryRow(ctx,
 		`SELECT schedule_result, upgrade_id, landed_state, superseded_count
 		   FROM public.upgrade_schedule($1, false)`,
@@ -6423,7 +6458,9 @@ func (d *Service) RunDismiss(ctx context.Context, input string, operator string)
 			var execErr error
 			ct, execErr = tx.Exec(ctx,
 				`UPDATE public.upgrade
-				    SET state = 'dismissed', dismissed_at = now()
+				    SET state = 'dismissed', dismissed_at = now(),
+				        recovery_parked_at = NULL, recovery_parked_reason = NULL,
+				        claim_token = NULL
 				  WHERE id = $1 AND state <> 'dismissed'`, id)
 			return execErr
 		})
@@ -6929,6 +6966,7 @@ type upgradeClaimSnapshot struct {
 	CommitSHA         string
 	FromCommitVersion string
 	StartedAt         time.Time
+	ClaimToken        string
 	ImmutableJSON     string
 	// Durable row state, not a fact recomputed from this claim attempt. A standing
 	// park displacement can leave the checked-out tree one generation ahead of
@@ -6942,6 +6980,16 @@ type scheduledUpgradeClaim struct {
 	CommitTags []string
 	Recreate   bool
 	Snapshot   upgradeClaimSnapshot
+}
+
+func newClaimToken() (string, error) {
+	var b [16]byte
+	if _, err := rand.Read(b[:]); err != nil {
+		return "", fmt.Errorf("generate claim token: %w", err)
+	}
+	b[6] = (b[6] & 0x0f) | 0x40
+	b[8] = (b[8] & 0x3f) | 0x80
+	return fmt.Sprintf("%08x-%04x-%04x-%04x-%012x", b[0:4], b[4:6], b[6:8], b[8:10], b[10:16]), nil
 }
 
 // Returns pgx.ErrNoRows verbatim when the claim matched 0 rows (row no longer
@@ -7074,6 +7122,11 @@ func (d *Service) applyClaimObligationSchemaFloor(ctx context.Context) error {
 // owns the floor-apply retry. Every other outcome is final for this attempt.
 func (d *Service) claimScheduledUpgradePass(ctx context.Context, id int) (scheduledUpgradeClaim, error) {
 	var claim scheduledUpgradeClaim
+	claimToken, tokenErr := newClaimToken()
+	if tokenErr != nil {
+		return scheduledUpgradeClaim{}, tokenErr
+	}
+	claim.Snapshot.ClaimToken = claimToken
 	tx, txErr := d.queryConn.Begin(ctx)
 	if txErr != nil {
 		return scheduledUpgradeClaim{}, fmt.Errorf("claim id=%d: begin tx: %w", id, txErr)
@@ -7207,10 +7260,11 @@ func (d *Service) claimScheduledUpgradePass(ctx context.Context, id int) (schedu
 			UPDATE public.upgrade
 			   SET state = 'in_progress',
 			       started_at = now(),
-			       from_commit_version = $1,
+				       from_commit_version = $1,
+				       claim_token = $4::uuid,
 			       tree_convergence_required = tree_convergence_required OR $3 OR (SELECT required FROM box_obligation)
 			 WHERE id = $2 AND state = 'scheduled' AND started_at IS NULL
-			 RETURNING commit_tags, recreate, id, commit_version, commit_sha, from_commit_version, started_at,
+				 RETURNING commit_tags, recreate, id, commit_version, commit_sha, from_commit_version, started_at,
 			           tree_convergence_required
 		),
 			labelled AS (
@@ -7224,9 +7278,9 @@ func (d *Service) claimScheduledUpgradePass(ctx context.Context, id int) (schedu
 				       c.id,
 				       c.commit_version,
 				       c.commit_sha,
-				       COALESCE(c.from_commit_version, '') AS from_commit_version,
-				       c.started_at,
-				       c.tree_convergence_required
+					       COALESCE(c.from_commit_version, '') AS from_commit_version,
+					       c.started_at,
+					       c.tree_convergence_required
 			  FROM claimed AS c
 		)
 		SELECT l.commit_tags,
@@ -7234,9 +7288,9 @@ func (d *Service) claimScheduledUpgradePass(ctx context.Context, id int) (schedu
 		       l.id,
 		       l.commit_version,
 		       l.commit_sha,
-		       l.from_commit_version,
-		       l.started_at,
-		       l.tree_convergence_required,
+			       l.from_commit_version,
+			       l.started_at,
+			       l.tree_convergence_required,
 		       (SELECT to_json(t)::text
 		          FROM (SELECT l.id AS id,
 		                       l.commit_version AS commit_version,
@@ -7244,7 +7298,7 @@ func (d *Service) claimScheduledUpgradePass(ctx context.Context, id int) (schedu
 		                       l.from_commit_version AS from_commit_version,
 		                       l.started_at AS started_at) AS t)
 		  FROM labelled AS l`,
-			d.version, id, displaced).Scan(
+			d.version, id, displaced, claimToken).Scan(
 			&claim.CommitTags,
 			&claim.Recreate,
 			&claim.Snapshot.ID,
@@ -7261,7 +7315,8 @@ func (d *Service) claimScheduledUpgradePass(ctx context.Context, id int) (schedu
 				UPDATE public.upgrade
 				   SET state = 'in_progress',
 				       started_at = now(),
-				       from_commit_version = $1
+				       from_commit_version = $1,
+				       claim_token = $3::uuid
 				 WHERE id = $2 AND state = 'scheduled' AND started_at IS NULL
 				 RETURNING commit_tags, recreate, id, commit_version, commit_sha, from_commit_version, started_at
 			),
@@ -7271,8 +7326,8 @@ func (d *Service) claimScheduledUpgradePass(ctx context.Context, id int) (schedu
 				       c.id,
 				       c.commit_version,
 				       c.commit_sha,
-				       COALESCE(c.from_commit_version, '') AS from_commit_version,
-				       c.started_at
+					       COALESCE(c.from_commit_version, '') AS from_commit_version,
+					       c.started_at
 				  FROM claimed AS c
 			)
 			SELECT l.commit_tags,
@@ -7280,8 +7335,8 @@ func (d *Service) claimScheduledUpgradePass(ctx context.Context, id int) (schedu
 			       l.id,
 			       l.commit_version,
 			       l.commit_sha,
-			       l.from_commit_version,
-			       l.started_at,
+				       l.from_commit_version,
+				       l.started_at,
 			       (SELECT to_json(t)::text
 			          FROM (SELECT l.id AS id,
 			                       l.commit_version AS commit_version,
@@ -7289,7 +7344,7 @@ func (d *Service) claimScheduledUpgradePass(ctx context.Context, id int) (schedu
 			                       l.from_commit_version AS from_commit_version,
 			                       l.started_at AS started_at) AS t)
 			  FROM labelled AS l`,
-			d.version, id).Scan(
+			d.version, id, claimToken).Scan(
 			&claim.CommitTags,
 			&claim.Recreate,
 			&claim.Snapshot.ID,
@@ -7372,6 +7427,10 @@ func (d *Service) executeScheduled(ctx context.Context) {
 	case imageClaimReady:
 		// Claim as today — no gate interference on the common path.
 	}
+	if IsFlockHeld(d.projDir) {
+		fmt.Printf("Scheduled upgrade id=%d: another live actor holds the upgrade marker flock; leaving it scheduled.\n", id)
+		return
+	}
 
 	// Claim immediately: mark started_at + state='in_progress' so the UI
 	// shows "In Progress" and the user can no longer unschedule.
@@ -7438,6 +7497,8 @@ func (d *Service) executeUpgrade(ctx context.Context, claim upgradeClaimSnapshot
 	commitSHA := claim.CommitSHA
 	d.upgrading = true
 	defer func() { d.upgrading = false }()
+	d.activeClaimToken = claim.ClaimToken
+	defer func() { d.activeClaimToken = "" }()
 
 	// Reset the unit's restart counter at dispatch (STATBUS-039 review
 	// finding 2): a legitimate upgrade is starting, so NRestarts must count
@@ -7635,9 +7696,16 @@ func (d *Service) executeUpgrade(ctx context.Context, claim upgradeClaimSnapshot
 	// it (it's on the filesystem, not in the DB volume which gets rolled
 	// back).
 	if err := d.writeUpgradeFlag(id, commitSHA, commitTags, invokedBy, trigger, recreate); err != nil {
-		// TODO: pick code — mutex flag acquisition failure; consider adding ErrInstallPreconditionFailed
 		msg := fmt.Sprintf("Could not acquire upgrade-mutex flag file: %v", err)
-		d.failUpgrade(ctx, id, msg, progress)
+		result, resetErr := d.queryConn.Exec(ctx,
+			`UPDATE public.upgrade
+			    SET state = 'scheduled', started_at = NULL, from_commit_version = NULL, claim_token = NULL
+			  WHERE id = $1 AND state = 'in_progress' AND claim_token = $2::uuid`, id, claim.ClaimToken)
+		rows := result.RowsAffected()
+		if resetErr != nil || rows != 1 {
+			return fmt.Errorf("%s; returning claim to scheduled failed (rows=%d): %v", msg, rows, resetErr)
+		}
+		progress.Write("Upgrade marker flock was busy; returned the claim to scheduled without changing scheduled_at.")
 		return fmt.Errorf("%s", msg)
 	}
 	progress.Write("Writing lock file for exclusive upgrade (%s) ... ok", homeRelativePath(d.flagPath()))
@@ -7674,7 +7742,16 @@ func (d *Service) executeUpgrade(ctx context.Context, claim upgradeClaimSnapshot
 	// name during the pull, but it cannot rewrite these recorded immutable IDs.
 	if err := d.captureSourceServingImageIdentities(ctx); err != nil {
 		msg := fmt.Sprintf("Could not record immutable source image identities before target pull: %v", err)
-		d.failUpgrade(ctx, id, msg, progress)
+		freshlyParked, parkErr := d.parkUpgrade(ctx, id, nil, msg, "parked on deterministic pre-destructive failure: "+msg)
+		if parkErr != nil {
+			return fmt.Errorf("%s; parking failed: %w", msg, parkErr)
+		}
+		if freshlyParked {
+			d.runCallback(displayName, map[string]string{"STATBUS_EVENT": "parked", "STATBUS_PARKED": "1", "STATBUS_PARK_REASON": msg})
+		}
+		if removeErr := d.removeUpgradeFlag(); removeErr != nil {
+			return fmt.Errorf("%s; parked but could not remove pre-destructive flag: %w", msg, removeErr)
+		}
 		return fmt.Errorf("%s", msg)
 	}
 	progress.Write("Recording immutable source image identities ... ok")
@@ -11841,8 +11918,8 @@ func (d *Service) failUpgradeWithFlagDisposition(ctx context.Context, id int, fa
 		// always sets started_at before executeUpgrade runs, so that holds.
 		var failJSON string
 		if scanErr := d.queryConn.QueryRow(ctx,
-			"UPDATE public.upgrade SET state = 'failed', failure_code = $1, error = $2, scheduled_at = NULL WHERE id = $3"+upgradeRowReturning,
-			failureCode, errMsg, id).Scan(&failJSON); scanErr == nil {
+			"UPDATE public.upgrade SET state = 'failed', failure_code = $1, error = $2, scheduled_at = NULL, claim_token = NULL WHERE id = $3 AND state = 'in_progress' AND claim_token = $4::uuid"+upgradeRowReturning,
+			failureCode, errMsg, id, d.activeClaimToken).Scan(&failJSON); scanErr == nil {
 			logUpgradeRow(LabelFailed, failJSON)
 		}
 	}

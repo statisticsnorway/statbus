@@ -233,17 +233,20 @@ func TestParkUpgrade_ImmuneNarrativeStructural(t *testing.T) {
 		t.Error("parkUpgrade must bind failureCode ($3) and errNarrative ($4) into the SAME terminalUpdate call as the park columns")
 	}
 
-	// (2) NON-EMPTY narrative at EVERY call site. Exactly three callers today: the
-	// deterministic park + the two crash-resume budget parks; each passes a concrete
+	// (2) NON-EMPTY narrative at EVERY call site. Exactly four callers today: the
+	// deterministic forward park, the pre-destructive capture park, and the two crash-resume budget parks; each passes a concrete
 	// non-empty narrative. If a caller is added/removed, update this pin deliberately.
 	callCount := strings.Count(source, "d.parkUpgrade(")
-	if callCount != 3 {
-		t.Fatalf("expected exactly 3 parkUpgrade call sites (deterministic + 2 budget); got %d — a park caller was added/removed, re-audit its narrative", callCount)
+	if callCount != 4 {
+		t.Fatalf("expected exactly 4 parkUpgrade call sites (deterministic forward + pre-destructive + 2 budget); got %d — a park caller was added/removed, re-audit its narrative", callCount)
 	}
 	// The deterministic caller's exact bytes (the arcs' `error LIKE '%parked on
 	// deterministic forward failure%'` asserts depend on these).
 	if !strings.Contains(source, `d.parkUpgrade(ctx, id, failureCode, reason, "parked on deterministic forward failure: "+reason)`) {
 		t.Error("the deterministic park caller must pass \"parked on deterministic forward failure: \"+reason (the arcs assert on these bytes)")
+	}
+	if !strings.Contains(source, `d.parkUpgrade(ctx, id, nil, msg, "parked on deterministic pre-destructive failure: "+msg)`) {
+		t.Error("the pre-destructive capture park must carry its deterministic narrative in the atomic park write")
 	}
 	// Both budget callers pass the crash-resume narrative — 2 occurrences pins both
 	// budget sites carry a non-empty story.
