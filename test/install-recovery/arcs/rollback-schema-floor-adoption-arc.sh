@@ -66,7 +66,7 @@ LOG_REL=$(row_field "COALESCE(log_relative_file_path,'')")
 # Prefer the row-addressed live file. A completed rollback may have moved the
 # authoritative retained copy beside the persistent backup, so fall back to the
 # newest forensic upgrade-logs-* directory containing that same row basename.
-REMOTE_LOG=$(VM_EXEC bash -c '
+REMOTE_LOG=$(VM_SCRIPT_INLINE resolve-retained-upgrade-log "$LOG_REL" <<'SCRIPT'
   set -euo pipefail
   rel=$1
   live="$HOME/statbus/tmp/upgrade-logs/$rel"
@@ -77,7 +77,8 @@ REMOTE_LOG=$(VM_EXEC bash -c '
   archived=$(find "$HOME/statbus-backups" -mindepth 2 -maxdepth 2 -type f -path "*/upgrade-logs-*/*" -name "$rel" -print | sort | tail -1)
   [ -n "$archived" ] || { echo "no retained upgrade log found for $rel" >&2; exit 1; }
   printf "%s\n" "$archived"
-' bash "$LOG_REL")
+SCRIPT
+)
 echo "  authoritative retained log: $REMOTE_LOG"
 LOCAL_LOG="tmp/install-recovery-rollback-schema-floor-adoption-authoritative.log"
 mkdir -p tmp

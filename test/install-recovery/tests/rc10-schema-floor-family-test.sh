@@ -60,6 +60,28 @@ checks = [
 raise SystemExit(0 if all(re.search(pattern, text) for pattern in checks) else 1)
 PY
 }
+assert_adoption_log_lookup_uses_lawful_transport() {
+  local file=$1
+  python3 - "$file" <<'PY'
+import re, sys
+text=open(sys.argv[1]).read()
+lawful = re.search(
+    r'REMOTE_LOG=\$\(VM_SCRIPT_INLINE resolve-retained-upgrade-log "\$LOG_REL" <<\x27SCRIPT\x27\n(?P<body>.*?)\nSCRIPT\n\)',
+    text,
+    re.S,
+)
+if not lawful:
+    raise SystemExit(1)
+body = lawful.group('body')
+checks = [
+    'live="$HOME/statbus/tmp/upgrade-logs/$rel"',
+    'find "$HOME/statbus-backups"',
+    '-name "$rel"',
+    'no retained upgrade log found for $rel',
+]
+raise SystemExit(0 if all(check in body for check in checks) else 1)
+PY
+}
 
 for scenario in rollback-schema-floor-adoption rollback-schema-floor-failure; do
   assert_lineage "$WORKFLOW" "$scenario" failing || die "$scenario is not routed to failing"
@@ -90,12 +112,17 @@ grep -q 'construct_upgrade_target "$base_sha" failing' "$WORKFLOW" || die 'faili
 grep -q 'live="$HOME/statbus/tmp/upgrade-logs/$rel"' "$ADOPTION_ARC" || die 'adoption arc no longer prefers the row-addressed live log'
 grep -q 'find "$HOME/statbus-backups".*upgrade-logs-' "$ADOPTION_ARC" || die 'adoption arc lacks archived forensic log fallback'
 grep -q 'tmp/install-recovery-rollback-schema-floor-adoption-authoritative.log' "$ADOPTION_ARC" || die 'adoption arc does not preserve the asserted log for artifact upload'
+assert_adoption_log_lookup_uses_lawful_transport "$ADOPTION_ARC" || die 'adoption retained-log lookup does not use quoted-heredoc VM_SCRIPT_INLINE transport'
+blocked_transport_arc=$(mktemp)
+trap 'rm -f "$old" "$blocked_transport_arc"' EXIT
+sed 's/VM_SCRIPT_INLINE resolve-retained-upgrade-log "$LOG_REL"/VM_EXEC bash -c/' "$ADOPTION_ARC" > "$blocked_transport_arc"
+! assert_adoption_log_lookup_uses_lawful_transport "$blocked_transport_arc" || die 'prohibited VM_EXEC retained-log transport mutation was not caught'
 
 assert_restore_step "$RESTORE_ARC" rollback || die 'C9 predicate does not accept StepRollback'
 ! assert_restore_step "$RESTORE_ARC" migrate-up || die 'C9 predicate still accepts stale migrate-up'
 ! assert_restore_step "$RESTORE_ARC" boot-migrate || die 'C9 predicate fails open on a wrong step'
 # Old-code negative proof for the assertion itself.
-old_arc=$(mktemp); trap 'rm -f "$old" "$old_arc"' EXIT
+old_arc=$(mktemp); trap 'rm -f "$old" "$blocked_transport_arc" "$old_arc"' EXIT
 sed 's/\[ "$STEP_AFTER_D5" = "rollback" \]/[ "$STEP_AFTER_D5" = "migrate-up" ]/' "$RESTORE_ARC" > "$old_arc"
 ! assert_restore_step "$old_arc" rollback || die 'old assertion unexpectedly accepts observed StepRollback'
 assert_restore_step "$old_arc" migrate-up || die 'old assertion negative control was not constructed'
@@ -105,7 +132,7 @@ assert_restore_step "$old_arc" migrate-up || die 'old assertion negative control
 # wiring at the human retry site, with the rejected unguarded form as a mutation.
 assert_floor_failure_retry_guard "$FAILURE_ARC" || die 'floor-failure human retry is not wrapped by run_accepting_rollback_control_exit'
 unguarded_arc=$(mktemp)
-trap 'rm -f "$old" "$old_arc" "$unguarded_arc"' EXIT
+trap 'rm -f "$old" "$blocked_transport_arc" "$old_arc" "$unguarded_arc"' EXIT
 sed 's/run_accepting_rollback_control_exit VM_EXEC/VM_EXEC/' "$FAILURE_ARC" > "$unguarded_arc"
 ! assert_floor_failure_retry_guard "$unguarded_arc" || die 'unguarded floor-failure retry mutation was not caught'
 
@@ -116,7 +143,7 @@ CANDIDATE_FLOOR=$(git -C "$ROOT" show "HEAD:cli/internal/migrate/daemon_floor.go
 [[ "$CANDIDATE_FLOOR" =~ ^[0-9]{14}$ ]] || die 'candidate DaemonSchemaFloor did not resolve to a migration version'
 [ "$(git -C "$ROOT" ls-tree --name-only HEAD -- migrations/ | grep -c "^migrations/${CANDIDATE_FLOOR}_.*\.up\.sql$")" = 1 ] || die 'candidate DaemonSchemaFloor does not identify exactly one up migration'
 stale_floor_arc=$(mktemp)
-trap 'rm -f "$old" "$old_arc" "$unguarded_arc" "$stale_floor_arc"' EXIT
+trap 'rm -f "$old" "$blocked_transport_arc" "$old_arc" "$unguarded_arc" "$stale_floor_arc"' EXIT
 sed 's/assert_schema_floor_retry_order "$LOG" "$ROLLBACK_DAEMON_FLOOR"/assert_schema_floor_retry_order "$LOG" "$HISTORICAL_FLOOR"/' "$FAILURE_ARC" > "$stale_floor_arc"
 ! assert_floor_failure_resolves_candidate_floor "$stale_floor_arc" || die 'stale historical-floor ordering mutation was not caught'
 
