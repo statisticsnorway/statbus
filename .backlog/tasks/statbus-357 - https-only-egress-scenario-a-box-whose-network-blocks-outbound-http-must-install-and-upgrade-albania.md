@@ -161,3 +161,12 @@ route `VACUOUS` diagnostic remain. Because the scenario delegates to
 `0-happy-upgrade.sh`, its actual VM image is the explicit Ubuntu 24.04 pin in
 that file, not the harness's Ubuntu 26.04 default. The offline mutation now
 removes the single inet rule and must turn the contract red.
+
+## OS decision correction 2026-09-23
+
+Owner decision: HTTPS-only egress tests the principle on the Ubuntu 26.04
+harness default and adds no older-LTS run. `0-happy-upgrade` remains the sole
+Ubuntu 24.04 scenario. Its shared flow now applies the 24.04 pin only for its
+own entry point; when `0-https-only-egress` delegates with its marker set, no
+image override is applied and `vm-bootstrap.sh` resolves Ubuntu 26.04. The
+image-selection offline contract asserts both sides of this split.

@@ -86,6 +86,9 @@ grep -q 'HARNESS_HTTPS_ONLY_EGRESS=1' "$SCENARIO"
 grep -Fq 'HARNESS_HARDENING_SKIP_STAGES=""' "$SCENARIO"
 grep -q '0-happy-upgrade.sh' "$SCENARIO"
 grep -Fq 'HARNESS_VM_IMAGE="ubuntu-24.04"' "$ROOT/test/install-recovery/scenarios/0-happy-upgrade.sh"
+grep -Fq 'if [ "${HARNESS_HTTPS_ONLY_EGRESS:-0}" != "1" ]; then' "$ROOT/test/install-recovery/scenarios/0-happy-upgrade.sh"
+! grep -Eq 'ubuntu-24\.04|HARNESS_VM_IMAGE=' "$SCENARIO" \
+    || die 'HTTPS-only scenario does not retain the Ubuntu 26.04 harness default'
 grep -Fq 'HARNESS_VM_IMAGE="${HARNESS_VM_IMAGE:-ubuntu-26.04}"' "$BOOTSTRAP"
 ! grep -Eq 'iptables|ip6tables|apt-get install -y iptables' "$events" \
     || die 'HTTPS-only policy introduced parallel iptables tooling'

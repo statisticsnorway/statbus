@@ -29,5 +29,15 @@ expected="$SCENARIOS/0-happy-upgrade.sh"
     || { echo "FAIL: the sole VM image override is $overrides, expected $expected" >&2; exit 1; }
 grep -Fq 'HARNESS_VM_IMAGE="ubuntu-24.04"' "$expected" \
     || { echo 'FAIL: 0-happy-upgrade is not explicitly pinned to ubuntu-24.04' >&2; exit 1; }
+grep -Fq 'if [ "${HARNESS_HTTPS_ONLY_EGRESS:-0}" != "1" ]; then' "$expected" \
+    || { echo 'FAIL: 0-happy-upgrade does not scope its 24.04 pin to its own entry point' >&2; exit 1; }
 
-echo 'PASS: Ubuntu 26.04 is the harness default and only 0-happy-upgrade uses Ubuntu 24.04'
+https_only="$SCENARIOS/0-https-only-egress.sh"
+grep -Fq 'export HARNESS_HTTPS_ONLY_EGRESS=1' "$https_only" \
+    || { echo 'FAIL: HTTPS-only scenario does not select the shared-flow 26.04 path' >&2; exit 1; }
+if grep -Eq 'ubuntu-24\.04|HARNESS_VM_IMAGE=' "$https_only"; then
+    echo 'FAIL: HTTPS-only scenario overrides the Ubuntu 26.04 harness default' >&2
+    exit 1
+fi
+
+echo 'PASS: only the 0-happy-upgrade entry point uses Ubuntu 24.04; HTTPS-only resolves to Ubuntu 26.04'
