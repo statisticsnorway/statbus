@@ -1,6 +1,7 @@
 "use client";
 
 import type { Chart } from "highcharts";
+import type {} from "highcharts/modules/export-data";
 import type {} from "highcharts/modules/exporting";
 import { Menu } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -25,10 +26,6 @@ interface ChartExportMenuProps {
   readonly filenameBase: string;
   readonly className?: string;
 }
-type ExportingWithData = NonNullable<Chart["exporting"]> & {
-    downloadCSV?: () => void;
-  };
-
 function getHeaderHeight(title: string, subtitle: string, hasActiveFilter: boolean): number {
   const subtitleLineCount = subtitle ? (hasActiveFilter ? 3 : 1) : 0;
   return (
@@ -47,7 +44,7 @@ export const ChartExportButton = ({
 }: ChartExportMenuProps) => {
   const exportPng = () => {
     if (!chart) return;
-    (chart.exporting as ExportingWithData | undefined)?.exportChart(
+    void chart.exporting.exportChart(
       { type: "image/png", filename: filenameBase },
       {
         chart: {
@@ -69,7 +66,7 @@ export const ChartExportButton = ({
     // downloadCSV takes no arguments — it reads the filename off the
     // chart's own options, so set it there first.
     chart.update({ exporting: { filename: filenameBase } }, false);
-    (chart.exporting as ExportingWithData | undefined)?.downloadCSV?.();
+    chart.exporting.downloadCSV();
   };
   
   return (
