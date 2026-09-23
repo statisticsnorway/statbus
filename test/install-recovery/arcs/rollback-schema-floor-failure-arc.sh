@@ -24,23 +24,18 @@ BASE_SHA="${SCHEMA_FLOOR_BASE_SHA:-${BASE_SHA:-}}"
 : "${BASE_SHA:?BASE_SHA or SCHEMA_FLOOR_BASE_SHA required}"
 : "${B_FULL:?B_FULL required}"
 : "${B_BRANCH:?B_BRANCH required}"
+LIB_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/lib"
+source "$LIB_DIR/schema-floor-assertions.sh"
 # The rollback runs B's binary before restoring the source tree, and that binary
 # uses the checked-in migrate.DaemonSchemaFloor constant. Resolve the same value
 # from B's commit object rather than conflating it with the historical migration
 # whose once-only ledger contract this arc also checks below.
-ROLLBACK_DAEMON_FLOOR=$(git show "$B_FULL:cli/internal/migrate/daemon_floor.go" | awk '
-  $1 == "const" && $2 == "DaemonSchemaFloor" && $3 == "int64" && $4 == "=" { print $5 }
-')
-[[ "$ROLLBACK_DAEMON_FLOOR" =~ ^[0-9]{14}$ ]] || { echo "✗ could not resolve B's DaemonSchemaFloor" >&2; exit 1; }
-ROLLBACK_FLOOR_MIGRATION=$(git ls-tree --name-only "$B_FULL" -- migrations/ | grep "^migrations/${ROLLBACK_DAEMON_FLOOR}_.*\.up\.sql$" || true)
-[ "$(printf '%s\n' "$ROLLBACK_FLOOR_MIGRATION" | grep -c .)" = 1 ] || { echo "✗ B's DaemonSchemaFloor does not identify exactly one up migration" >&2; exit 1; }
-LIB_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/lib"
+ROLLBACK_DAEMON_FLOOR=$(resolve_candidate_daemon_floor "$B_FULL")
 source "$LIB_DIR/vm-bootstrap.sh"
 source "$LIB_DIR/data-helpers.sh"
 source "$LIB_DIR/wedge-helpers.sh"
 source "$LIB_DIR/assertions.sh"
 source "$LIB_DIR/arc-helpers.sh"
-source "$LIB_DIR/schema-floor-assertions.sh"
 trap 'RC=$?; cleanup_vm "$VM_NAME"; exit $RC' EXIT
 row_field() { VM_EXEC bash -c "cd ~/statbus && echo \"SELECT $1 FROM public.upgrade WHERE commit_sha = '$B_FULL' ORDER BY id DESC LIMIT 1;\" | ./sb psql -t -A" 2>/dev/null | tr -d ' \r\n'; }
 flag_field() { VM_EXEC bash -c "python3 -c \"import json; print(json.load(open('/home/statbus/statbus/tmp/upgrade-in-progress.json'))['$1'])\"" 2>/dev/null | tr -d '\r\n'; }

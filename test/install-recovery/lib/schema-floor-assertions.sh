@@ -1,5 +1,22 @@
 #!/bin/bash
 
+resolve_candidate_daemon_floor() {
+  local candidate_commit=$1 daemon_floor floor_migration
+  daemon_floor=$(git show "$candidate_commit:cli/internal/migrate/daemon_floor.go" | awk '
+    $1 == "const" && $2 == "DaemonSchemaFloor" && $3 == "int64" && $4 == "=" { print $5 }
+  ')
+  [[ "$daemon_floor" =~ ^[0-9]{14}$ ]] || {
+    echo "✗ could not resolve candidate DaemonSchemaFloor" >&2
+    return 1
+  }
+  floor_migration=$(git ls-tree --name-only "$candidate_commit" -- migrations/ | grep "^migrations/${daemon_floor}_.*\.up\.sql$" || true)
+  [ "$(printf '%s\n' "$floor_migration" | grep -c .)" = 1 ] || {
+    echo "✗ candidate DaemonSchemaFloor does not identify exactly one up migration" >&2
+    return 1
+  }
+  printf '%s\n' "$daemon_floor"
+}
+
 schema_floor_progress_line() {
   printf 'Re-applying rollback daemon schema floor through db.migration: %s' "$1"
 }

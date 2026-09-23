@@ -45,17 +45,30 @@ pattern=r'run_accepting_rollback_control_exit\s+VM_EXEC\s+bash\s+-c\s+"[^"\n]*\.
 raise SystemExit(0 if re.search(pattern, text) else 1)
 PY
 }
-assert_floor_failure_resolves_candidate_floor() {
+assert_arc_resolves_candidate_floor() {
+  local file=$1 assertion=$2
+  python3 - "$file" "$assertion" <<'PY'
+import re, sys
+text=open(sys.argv[1]).read()
+checks = [
+    r'source "\$LIB_DIR/schema-floor-assertions\.sh"',
+    r'ROLLBACK_DAEMON_FLOOR=\$\(resolve_candidate_daemon_floor "\$B_FULL"\)',
+    r'WHERE version\s*=\s*\$HISTORICAL_FLOOR;',
+    re.escape(sys.argv[2]),
+]
+raise SystemExit(0 if all(re.search(pattern, text) for pattern in checks) else 1)
+PY
+}
+assert_shared_candidate_floor_resolver() {
   local file=$1
   python3 - "$file" <<'PY'
 import re, sys
 text=open(sys.argv[1]).read()
 checks = [
-    r'git show "\$B_FULL:cli/internal/migrate/daemon_floor\.go"',
+    r'resolve_candidate_daemon_floor\(\)',
+    r'git show "\$candidate_commit:cli/internal/migrate/daemon_floor\.go"',
     r'\$2 == "DaemonSchemaFloor"',
-    r'git ls-tree --name-only "\$B_FULL" -- migrations/',
-    r'WHERE version=\$HISTORICAL_FLOOR;',
-    r'assert_schema_floor_retry_order "\$LOG" "\$ROLLBACK_DAEMON_FLOOR"',
+    r'git ls-tree --name-only "\$candidate_commit" -- migrations/',
 ]
 raise SystemExit(0 if all(re.search(pattern, text) for pattern in checks) else 1)
 PY
@@ -138,14 +151,18 @@ sed 's/run_accepting_rollback_control_exit VM_EXEC/VM_EXEC/' "$FAILURE_ARC" > "$
 
 # The historical adoption migration remains a once-only ledger contract, while
 # retry ordering follows the floor compiled into the candidate recovery binary.
-assert_floor_failure_resolves_candidate_floor "$FAILURE_ARC" || die 'floor-failure arc does not separate historical migration from candidate daemon floor'
-CANDIDATE_FLOOR=$(git -C "$ROOT" show "HEAD:cli/internal/migrate/daemon_floor.go" | awk '$1 == "const" && $2 == "DaemonSchemaFloor" && $3 == "int64" && $4 == "=" { print $5 }')
+assert_shared_candidate_floor_resolver "$SCHEMA_FLOOR_ASSERTIONS" || die 'shared candidate daemon floor resolver is incomplete'
+CANDIDATE_FLOOR=$(resolve_candidate_daemon_floor HEAD)
 [[ "$CANDIDATE_FLOOR" =~ ^[0-9]{14}$ ]] || die 'candidate DaemonSchemaFloor did not resolve to a migration version'
-[ "$(git -C "$ROOT" ls-tree --name-only HEAD -- migrations/ | grep -c "^migrations/${CANDIDATE_FLOOR}_.*\.up\.sql$")" = 1 ] || die 'candidate DaemonSchemaFloor does not identify exactly one up migration'
+assert_arc_resolves_candidate_floor "$FAILURE_ARC" 'assert_schema_floor_retry_order "$LOG" "$ROLLBACK_DAEMON_FLOOR"' || die 'floor-failure arc does not separate historical migration from candidate daemon floor'
+assert_arc_resolves_candidate_floor "$ADOPTION_ARC" 'assert_schema_floor_adoption_progress "$LOG" "$ROLLBACK_DAEMON_FLOOR"' || die 'floor-adoption arc does not separate historical migration from candidate daemon floor'
 stale_floor_arc=$(mktemp)
-trap 'rm -f "$old" "$blocked_transport_arc" "$old_arc" "$unguarded_arc" "$stale_floor_arc"' EXIT
+stale_adoption_floor_arc=$(mktemp)
+trap 'rm -f "$old" "$blocked_transport_arc" "$old_arc" "$unguarded_arc" "$stale_floor_arc" "$stale_adoption_floor_arc"' EXIT
 sed 's/assert_schema_floor_retry_order "$LOG" "$ROLLBACK_DAEMON_FLOOR"/assert_schema_floor_retry_order "$LOG" "$HISTORICAL_FLOOR"/' "$FAILURE_ARC" > "$stale_floor_arc"
-! assert_floor_failure_resolves_candidate_floor "$stale_floor_arc" || die 'stale historical-floor ordering mutation was not caught'
+! assert_arc_resolves_candidate_floor "$stale_floor_arc" 'assert_schema_floor_retry_order "$LOG" "$ROLLBACK_DAEMON_FLOOR"' || die 'stale historical-floor ordering mutation was not caught'
+sed 's/assert_schema_floor_adoption_progress "$LOG" "$ROLLBACK_DAEMON_FLOOR"/assert_schema_floor_adoption_progress "$LOG" "$HISTORICAL_FLOOR"/' "$ADOPTION_ARC" > "$stale_adoption_floor_arc"
+! assert_arc_resolves_candidate_floor "$stale_adoption_floor_arc" 'assert_schema_floor_adoption_progress "$LOG" "$ROLLBACK_DAEMON_FLOOR"' || die 'stale adoption historical-floor mutation was not caught'
 
 # Execute the exact helpers used by both arcs. This is deliberately stronger
 # than bash -n or grep-only source inspection: it catches set -e control-flow

@@ -8,7 +8,7 @@ set -euo pipefail
 VM_NAME="${1:-statbus-arc-rollback-floor-adoption}"
 UPGRADE_BUDGET_S="${UPGRADE_BUDGET_S:-1200}"
 TICK_WAIT_S="${TICK_WAIT_S:-120}"
-FLOOR=20260907120000
+HISTORICAL_FLOOR=20260907120000
 # The workflow exports this only for the schema-floor family. Keep BASE_SHA as
 # the public arc input, but replace the ordinary candidate base with the exact
 # pre-column snapshot baseline. B still comes from the candidate-based failing
@@ -20,15 +20,19 @@ BASE_SHA="${SCHEMA_FLOOR_BASE_SHA:-${BASE_SHA:-}}"
 : "${B_BRANCH:?B_BRANCH required}"
 : "${V_VERSION:?V_VERSION required}"
 LIB_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/lib"
+source "$LIB_DIR/schema-floor-assertions.sh"
+# The ledger/hash checks below concern the historical migration that introduced
+# rollback adoption. The semantic progress marker instead comes from the daemon
+# floor compiled into B's recovery binary, which may advance in later candidates.
+ROLLBACK_DAEMON_FLOOR=$(resolve_candidate_daemon_floor "$B_FULL")
 source "$LIB_DIR/vm-bootstrap.sh"
 source "$LIB_DIR/data-helpers.sh"
 source "$LIB_DIR/wedge-helpers.sh"
 source "$LIB_DIR/assertions.sh"
 source "$LIB_DIR/arc-helpers.sh"
-source "$LIB_DIR/schema-floor-assertions.sh"
 trap 'RC=$?; cleanup_vm "$VM_NAME"; exit $RC' EXIT
 row_field() { VM_EXEC bash -c "cd ~/statbus && echo \"SELECT $1 FROM public.upgrade WHERE commit_sha = '$B_FULL' ORDER BY id DESC LIMIT 1;\" | ./sb psql -t -A" 2>/dev/null | tr -d ' \r\n'; }
-ledger_field() { VM_EXEC bash -c "cd ~/statbus && echo \"SELECT $1 FROM db.migration WHERE version = $FLOOR;\" | ./sb psql -t -A" 2>/dev/null | tr -d ' \r\n'; }
+ledger_field() { VM_EXEC bash -c "cd ~/statbus && echo \"SELECT $1 FROM db.migration WHERE version = $HISTORICAL_FLOOR;\" | ./sb psql -t -A" 2>/dev/null | tr -d ' \r\n'; }
 arc_prepare_box
 DATA_SNAPSHOT=$(snapshot_demo_data_counts "$VM_NAME")
 BASELINE_FP=$(capture_db_fingerprint baseline)
@@ -41,7 +45,7 @@ arc_to "$B_FULL" "$B_BRANCH" "B (column adoption then deterministic failure)" "r
 # restored to A (pre-column), where that file does not exist, so hash the bytes
 # from B's commit object instead of the current checkout. The runner has the full
 # fixture history (fetch-depth: 0), so git show resolves B_FULL without the VM.
-FLOOR_MIGRATION_FILE=$(git ls-tree --name-only "$B_FULL" -- migrations/ | grep "^migrations/${FLOOR}_" | grep '\.up\.sql$' | head -1)
+FLOOR_MIGRATION_FILE=$(git ls-tree --name-only "$B_FULL" -- migrations/ | grep "^migrations/${HISTORICAL_FLOOR}_" | grep '\.up\.sql$' | head -1)
 [ -n "$FLOOR_MIGRATION_FILE" ] || { echo "✗ could not resolve B's floor migration file" >&2; exit 1; }
 EXPECTED_HASH=$(git show "$B_FULL:$FLOOR_MIGRATION_FILE" | sha256sum | awk '{print $1}')
 [ "$(ledger_field content_hash)" = "$EXPECTED_HASH" ] || { echo '✗ floor ledger hash differs from migration bytes' >&2; exit 1; }
@@ -86,6 +90,6 @@ mkdir -p tmp
 # the exact bytes used by the semantic assertion so a failure retains its proof.
 VM_EXEC cat -- "$REMOTE_LOG" > "$LOCAL_LOG"
 LOG=$(cat "$LOCAL_LOG")
-assert_schema_floor_adoption_progress "$LOG" "$FLOOR"
+assert_schema_floor_adoption_progress "$LOG" "$ROLLBACK_DAEMON_FLOOR"
 NR0=$(arc_nrestarts); sleep 5; NR1=$(arc_nrestarts); [ "$NR0" = "$NR1" ] || { echo '✗ automatic restart loop after rollback' >&2; exit 1; }
 echo 'PASS: rollback schema floor adoption replayed and returned byte-identically to A'
