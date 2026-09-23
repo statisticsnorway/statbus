@@ -73,6 +73,9 @@ instead pg_restore a single dump file (~2 seconds). CI (images.yaml)
 builds and publishes the seed image on every master push — the same way
 the service images are tagged and pulled by commit_short.
 
+The seed image is a data-only scratch image. It is not runnable; use fetch
+to extract its dump and metadata.
+
 Subcommands:
   fetch     Download seed from the published statbus-seed:<commit_short> image
   restore   Restore seed into a database via pg_restore
@@ -117,14 +120,11 @@ var seedFetchCmd = &cobra.Command{
 			return fmt.Errorf("create .db-seed directory: %w", err)
 		}
 
-		// Pull the seed image. images.yaml intentionally publishes statbus-seed
-		// amd64-only because its -Fc logical dump is architecture-portable; pin the
-		// platform so an arm64 daemon does not request a nonexistent arm64 manifest.
-		// Uses the same docker daemon auth context as `docker compose pull` for the
-		// service images — no new auth surface.
+		// The published OCI index carries amd64 and arm64 descriptors that point
+		// at the same architecture-neutral scratch image digest.
 		fmt.Printf("Pulling seed image %s...\n", imageRef)
 		if out, err := upgrade.RunCommandOutput(projDir, "docker", seedPullDockerArgs(imageRef)...); err != nil {
-			return fmt.Errorf("pull seed image %s: %w\n  %s", imageRef, err, strings.TrimSpace(out))
+			return seedPullError(imageRef, out, err)
 		}
 
 		// Copy /seed.pg_dump + /seed.json out of the seed image.
@@ -172,17 +172,9 @@ func resolveSeedCommitShort(projDir string) string {
 // `docker create` (no start) + `docker cp`, with the container removed via
 // defer so a failed cp still cleans it up.
 //
-// No placeholder command is needed: the seed image (postgres/Dockerfile,
-// `FROM busybox:musl`) carries a self-documenting CMD, so `docker create`
-// accepts it directly — and `docker run` on the image prints extraction
-// usage instead of erroring. The container is never started here.
+// The scratch image has no command. Supply a placeholder argv so Docker can
+// create a stopped container whose filesystem can be copied; it is never run.
 func extractSeedFromImage(projDir, imageRef, seedDir string) error {
-	// Pin linux/amd64: the seed image is built amd64-only (busybox:musl + the
-	// pg_dump, which is platform-NEUTRAL data), and extraction only creates the
-	// container to `docker cp` files out — it never RUNS it, so no emulation is
-	// needed. A no-op on amd64 deployments; on an arm64 dev host it's what lets
-	// `docker create` select the (only) published manifest instead of failing
-	// with "no matching manifest for linux/arm64". Correct pin, not a workaround.
 	out, err := upgrade.RunCommandOutput(projDir, "docker", seedCreateDockerArgs(imageRef)...)
 	if err != nil {
 		return fmt.Errorf("docker create %s: %w\n  %s", imageRef, err, strings.TrimSpace(out))
@@ -217,11 +209,20 @@ func extractSeedFromImage(projDir, imageRef, seedDir string) error {
 }
 
 func seedPullDockerArgs(imageRef string) []string {
-	return []string{"pull", "--platform", "linux/amd64", imageRef}
+	return []string{"pull", imageRef}
 }
 
 func seedCreateDockerArgs(imageRef string) []string {
-	return []string{"create", "--platform", "linux/amd64", imageRef}
+	return []string{"create", imageRef, "/statbus-seed-is-data-only"}
+}
+
+func seedPullError(imageRef, output string, err error) error {
+	detail := strings.TrimSpace(output)
+	lower := strings.ToLower(detail)
+	if strings.Contains(lower, "manifest unknown") || strings.Contains(lower, "not found") {
+		return fmt.Errorf("seed image %s has not been built for this commit yet: %w\n  %s", imageRef, err, detail)
+	}
+	return fmt.Errorf("pull seed image %s failed: %w\n  %s", imageRef, err, detail)
 }
 
 // containerIDRe matches a full 64-char hex docker container id (what `docker

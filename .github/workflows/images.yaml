@@ -500,7 +500,8 @@ jobs:
           docker cp "$cid:/seed.json"    "$dir/seed.json"
           docker rm "$cid"
           echo "dir=$dir" >> "$GITHUB_OUTPUT"
-      - name: Build and push statbus-seed (amd64)
+      - name: Build and push statbus-seed payload
+        id: seed-build
         uses: docker/build-push-action@v6
         with:
           context: ./postgres
@@ -508,8 +509,9 @@ jobs:
           target: seed
           platforms: linux/amd64
           push: true
+          provenance: false
           tags: |
-            ${{ env.REGISTRY }}/${{ env.ORG }}/statbus-seed:${{ needs.describe.outputs.commit_short }}
+            ${{ env.REGISTRY }}/${{ env.ORG }}/statbus-seed:payload-${{ needs.describe.outputs.commit_short }}
           # migrations as a named context (off the main context); sb pulled from
           # its just-published image. Same flags as the local `./sb build seed`.
           build-contexts: |
@@ -527,3 +529,30 @@ jobs:
             type=registry,ref=${{ env.REGISTRY }}/${{ env.ORG }}/statbus-db:buildcache-amd64
             type=registry,ref=${{ env.REGISTRY }}/${{ env.ORG }}/statbus-seed:buildcache-amd64
           cache-to: type=registry,ref=${{ env.REGISTRY }}/${{ env.ORG }}/statbus-seed:buildcache-amd64,mode=max
+      - name: Publish one-digest amd64+arm64 seed index
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          DIGEST: ${{ steps.seed-build.outputs.digest }}
+          TAG: ${{ needs.describe.outputs.commit_short }}
+        run: |
+          set -euo pipefail
+          repo="${ORG}/statbus-seed"
+          payload="${REGISTRY}/${repo}@${DIGEST}"
+          docker buildx imagetools inspect --raw "$payload" > "$RUNNER_TEMP/seed-manifest.json"
+          size=$(wc -c < "$RUNNER_TEMP/seed-manifest.json" | tr -d ' ')
+          media_type=$(jq -r .mediaType "$RUNNER_TEMP/seed-manifest.json")
+          jq -n --arg digest "$DIGEST" --arg media_type "$media_type" --argjson size "$size" '{
+            schemaVersion: 2,
+            mediaType: "application/vnd.oci.image.index.v1+json",
+            manifests: [
+              {mediaType:$media_type, digest:$digest, size:$size, platform:{os:"linux", architecture:"amd64"}},
+              {mediaType:$media_type, digest:$digest, size:$size, platform:{os:"linux", architecture:"arm64"}}
+            ]
+          }' > "$RUNNER_TEMP/seed-index.json"
+          token=$(curl -fsS -u "${GITHUB_ACTOR}:${GH_TOKEN}" "https://${REGISTRY}/token?service=${REGISTRY}&scope=repository:${repo}:pull,push" | jq -r .token)
+          curl -fsS -X PUT \
+            -H "Authorization: Bearer $token" \
+            -H 'Content-Type: application/vnd.oci.image.index.v1+json' \
+            --data-binary @"$RUNNER_TEMP/seed-index.json" \
+            "https://${REGISTRY}/v2/${repo}/manifests/${TAG}"
+          docker buildx imagetools inspect "${REGISTRY}/${repo}:${TAG}"

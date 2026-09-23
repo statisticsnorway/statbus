@@ -7,10 +7,11 @@ import (
 	"os/exec"
 	"path/filepath"
 	"reflect"
+	"strings"
 	"testing"
 )
 
-func TestSeedFetchDockerArgsPinPublishedPlatform(t *testing.T) {
+func TestSeedFetchDockerArgsUseHostPlatformManifest(t *testing.T) {
 	const imageRef = "ghcr.io/statisticsnorway/statbus-seed:b73c8965"
 
 	for _, tc := range []struct {
@@ -21,12 +22,12 @@ func TestSeedFetchDockerArgsPinPublishedPlatform(t *testing.T) {
 		{
 			name: "pull",
 			got:  seedPullDockerArgs(imageRef),
-			want: []string{"pull", "--platform", "linux/amd64", imageRef},
+			want: []string{"pull", imageRef},
 		},
 		{
 			name: "create",
 			got:  seedCreateDockerArgs(imageRef),
-			want: []string{"create", "--platform", "linux/amd64", imageRef},
+			want: []string{"create", imageRef, "/statbus-seed-is-data-only"},
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -34,6 +35,18 @@ func TestSeedFetchDockerArgsPinPublishedPlatform(t *testing.T) {
 				t.Fatalf("docker argv = %#v, want %#v", tc.got, tc.want)
 			}
 		})
+	}
+}
+
+func TestSeedPullErrorDistinguishesMissingManifest(t *testing.T) {
+	err := fmt.Errorf("exit status 1")
+	missing := seedPullError("image:deadbeef", "manifest unknown", err).Error()
+	if !strings.Contains(missing, "has not been built for this commit yet") {
+		t.Fatalf("missing manifest diagnosis: %s", missing)
+	}
+	other := seedPullError("image:deadbeef", "connection refused", err).Error()
+	if !strings.Contains(other, "connection refused") || strings.Contains(other, "not been built") {
+		t.Fatalf("other failure diagnosis: %s", other)
 	}
 }
 
@@ -75,7 +88,7 @@ func TestExtractSeedFromImage(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(ctx, "seed.json"), metaJSON, 0o644); err != nil {
 		t.Fatal(err)
 	}
-	dockerfile := "FROM busybox:musl\nCOPY seed.pg_dump /seed.pg_dump\nCOPY seed.json /seed.json\n"
+	dockerfile := "FROM scratch\nCOPY seed.pg_dump /seed.pg_dump\nCOPY seed.json /seed.json\n"
 	if err := os.WriteFile(filepath.Join(ctx, "Dockerfile"), []byte(dockerfile), 0o644); err != nil {
 		t.Fatal(err)
 	}

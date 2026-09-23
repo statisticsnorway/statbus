@@ -526,23 +526,15 @@ RUN set -eu; \
     su postgres -c "pg_ctl -D \"$PGDATA\" stop -m fast" || kill "$entrypoint_pid" || true
 
 ####################
-# seed — busybox:musl self-documenting shipping image (~8MB measured: the
-# ~4.6MB seed.pg_dump + the 2.72MB busybox:musl base — ~3.6MB more than a
-# FROM scratch image shipping the seed alone). Built with `--target seed`,
-# published as statbus-seed:<commit_short>. Ships BOTH seed.pg_dump AND
-# seed.json — the restore path REQUIRES seed.json (without it install degrades
-# to the full-migration fallback). busybox:musl (vs FROM scratch) gives the
-# image a shell, so its CMD documents extraction: `docker run` prints usage
-# instead of erroring on a command-less image — the cost of a self-documenting,
-# registry-discoverable artifact. The seed is architecture-independent pg_dump
-# data extracted via docker cp (never executed), so the amd64-only image is
-# usable from any host.
+# seed — architecture-neutral data-only shipping image. It contains exactly the
+# dump and its metadata, is never run, and is consumed only with docker create +
+# docker cp. images.yaml publishes one OCI index with amd64 and arm64 descriptors
+# pointing at this same image digest.
 ####################
-FROM busybox:musl AS seed
-LABEL org.opencontainers.image.description="StatBus pre-migration DB seed (/seed.pg_dump + /seed.json). Not a runnable service; docker run prints extraction usage. Operators: ./sb db seed fetch."
+FROM scratch AS seed
+LABEL org.opencontainers.image.description="StatBus pre-migration DB seed (/seed.pg_dump + /seed.json). Data-only, not runnable. Operators: ./sb db seed fetch."
 COPY --from=seed-builder /build/.db-seed/seed.pg_dump /seed.pg_dump
 COPY --from=seed-builder /build/.db-seed/seed.json    /seed.json
-CMD ["sh","-c","printf '%s\\n' \\\n  'statbus-seed: the StatBus pre-migration database seed (not a runnable service).' \\\n  '' \\\n  'This image ships two files:' \\\n  '  /seed.pg_dump   pg_dump of the seeded database' \\\n  '  /seed.json      seed metadata (migration version)' \\\n  '' \\\n  'Operators: ./sb db seed fetch   (does the extraction for you)' \\\n  '' \\\n  'By hand:' \\\n  '  cid=$(docker create IMAGE)' \\\n  '  docker cp $cid:/seed.pg_dump ./ && docker cp $cid:/seed.json ./' \\\n  '  docker rm $cid'"]
 
 ####################
 # pg-runtime — DEFAULT build target. Zero-cost alias of pg-runtime-base,

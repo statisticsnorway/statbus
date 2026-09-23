@@ -125,3 +125,16 @@ acceptance bullets.
 Classification: PARTIAL. Evidence: scratch multi-arch seed design/build only; not on master and no published manifest proof.
 
 Remaining: Land and publish the multi-arch seed manifest, then prove arm64 consumption.
+
+## Implementation 2026-09-23
+
+Converted the seed shipping stage to `FROM scratch`, retaining only
+`/seed.pg_dump`, `/seed.json`, and the OCI description label. Seed fetch no
+longer pins pull or create to amd64; create supplies a never-run placeholder argv
+because the scratch image has no command. Pull diagnostics now distinguish a
+missing manifest from other Docker failures.
+
+The Images workflow builds the payload once on amd64 and publishes an OCI index
+whose amd64 and arm64 descriptors reference the same build output digest. The
+published manifest and arm64 `./dev.sh build-sb` restore can only be proven by
+the next Images run on a pushed commit, so status remains **In Progress**.
