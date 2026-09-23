@@ -3391,6 +3391,14 @@ EOS
         # See test/install-recovery/README.md for the catalogue.
         exec bash "$WORKSPACE/test/install-recovery/run.sh" "$@"
       ;;
+    'test-harness' )
+        # Offline install-recovery harness contract. This deliberately starts a
+        # localhost sshd, but allocates no cloud VM and uses no product container.
+        set -euo pipefail
+        bash "$WORKSPACE/test/install-recovery/tests/process-log-registration-test.sh"
+        bash "$WORKSPACE/test/install-recovery/tests/scenario-helper-resolution-test.sh"
+        bash "$WORKSPACE/test/install-recovery/tests/harness-failure-path-selftest.sh"
+      ;;
     'test-assert-db-at-head' )
         # Smoke test for the `./sb assert-db-at-head` Cobra subcommand
         # (Go implementation in cli/internal/migrate/at_head.go;

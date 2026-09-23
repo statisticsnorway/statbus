@@ -13,11 +13,12 @@ import (
 // exactly. See doc/release-workflow-gates.md for the chain (filename →
 // constant → SKIP_* env var) and rationale.
 const (
-	WorkflowImages        = "images.yaml"
-	WorkflowFastTests     = "fast-tests.yaml"
-	WorkflowGoTest        = "go-test.yaml"
-	WorkflowTestHardening = "test-hardening.yaml"
-	WorkflowTestSmoke     = "test-smoke.yaml"
+	WorkflowImages          = "images.yaml"
+	WorkflowFastTests       = "fast-tests.yaml"
+	WorkflowHarnessSelftest = "harness-selftest.yaml"
+	WorkflowGoTest          = "go-test.yaml"
+	WorkflowTestHardening   = "test-hardening.yaml"
+	WorkflowTestSmoke       = "test-smoke.yaml"
 	// Deleted workflow identities remain queryable in GitHub Actions and hold
 	// historical scenario evidence. Never fold these into WorkflowTestSmoke.
 	WorkflowTestInstallLegacy      = "test-install.yaml"

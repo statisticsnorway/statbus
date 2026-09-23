@@ -594,6 +594,7 @@ func preflightChecks(projDir string, checkOnly bool) bool {
 	// (checkStableWorkflowGate).
 	allPassed = checkPrereleaseWorkflowGate(projDir, release.WorkflowGoTest, "go-test", "SKIP_GO_TEST") && allPassed
 	allPassed = checkPrereleaseWorkflowGate(projDir, release.WorkflowAppBuildLint, "app-build-lint", "SKIP_APP_BUILD_LINT") && allPassed
+	allPassed = checkPrereleaseWorkflowGate(projDir, release.WorkflowHarnessSelftest, "harness-selftest", "SKIP_HARNESS_SELFTEST") && allPassed
 
 	// 16. The fleet's inbound-command policy is the reviewed one (STATBUS-259).
 	//

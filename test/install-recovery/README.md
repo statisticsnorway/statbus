@@ -322,3 +322,12 @@ CI-integrated via `.github/workflows/install-recovery-harness.yaml` — it runs 
 gh workflow run install-recovery-harness.yaml --ref master                                   # all scenarios (blank = all)
 gh workflow run install-recovery-harness.yaml --ref master -f scenarios="0-happy-upgrade 5-install-seed-on-populated"
 ```
+# Harness failure-path self-test
+
+Run `./dev.sh test-harness` before changing a scenario or harness library. It
+starts an ephemeral sshd on localhost and proves that registered failure logs
+reach the job output and local capture byte-for-byte before deletion, while
+`KEEP_VM=1` captures without deleting. No scenario or library change may merge
+unless every new failure branch is covered by this offline contract. A paid VM
+run remains the final proof of real provider behavior, not the place to discover
+missing harness diagnostics.

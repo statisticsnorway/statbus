@@ -125,3 +125,18 @@ Status remains **In Progress**.
 Classification: PARTIAL. Evidence: scratch harness self-test only; not on master and not exercised on every push.
 
 Remaining: Land the laptop/every-push failure-path harness and its mutation controls.
+
+## Implementation 2026-09-23
+
+Added `./dev.sh test-harness` and a localhost-sshd self-test that runs both the
+delete and `KEEP_VM=1` paths. It verifies the 30-line timeout diagnostic, a
+byte-identical registered-log copy, the printed size index, and scp-before-delete
+ordering. A mutation control reintroduces the historical `tee /dev/stderr`
+inside command substitution and verifies that the test rejects it. The new
+`Harness Selftest` workflow runs on every master push and relevant pull request,
+and `release check` consults it as a commit-scope workflow gate.
+
+Local proof is recorded with the implementation commit. The workflow's green
+run and the layer-3 paid VM proof can only be recorded after the commit is pushed
+and included in the next candidate harness run, respectively. Status remains
+**In Progress** until those external proofs exist.

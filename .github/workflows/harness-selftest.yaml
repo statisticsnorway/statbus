@@ -1,0 +1,28 @@
+# yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
+name: Harness Selftest
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    paths:
+      - 'test/install-recovery/**'
+      - 'ops/setup-ubuntu-lts.sh'
+      - 'install.sh'
+      - '.github/actions/**'
+      - '.github/workflows/harness-selftest.yaml'
+      - 'dev.sh'
+
+permissions:
+  contents: read
+
+jobs:
+  harness-selftest:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install localhost sshd
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends openssh-server
+      - name: Prove harness failure paths
+        run: ./dev.sh test-harness
