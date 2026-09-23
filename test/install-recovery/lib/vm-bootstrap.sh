@@ -870,7 +870,7 @@ EOF'
         || true
     ssh "${SSH_OPTS[@]}" root@"$ip" "
         rm -f /tmp/harden.exit /tmp/harden.log
-        tmux new-session -d -s harden 'bash /tmp/setup.sh --non-interactive --skip-stages=4 > /tmp/harden.log 2>&1; echo \$? > /tmp/harden.exit'
+        tmux new-session -d -s harden 'SKIP_STAGES="${HARNESS_HARDENING_SKIP_STAGES-4}" bash /tmp/setup.sh --non-interactive > /tmp/harden.log 2>&1; echo \$? > /tmp/harden.exit'
     "
     harness_register_log harden /tmp/harden.log "$ip"
     local max_iter=$(( ${LONG_CMD_MAX_MIN:-45} * 60 / 15 )) i=0 seen=0
@@ -1267,36 +1267,30 @@ apply_https_only_egress() {
     local ipv6_literal="2606:2800:220:1:248:1893:25c8:1946"
     local ipv4_url="http://${ipv4_literal}/statbus-http-egress-mutation"
     local ipv6_url="http://[${ipv6_literal}]/statbus-http-egress-mutation"
-    local firewall
     local probe_rc
 
     echo "Applying HTTPS-only egress policy (reject outbound TCP/80 on IPv4 and IPv6)"
 
-    # Ubuntu 24.04 and 26.04 provide both commands in the iptables package,
-    # normally through its nftables-backed alternatives. Do not depend on ufw
-    # or another hardening package pulling this scenario prerequisite in.
-    if ! VM_EXEC bash -c 'command -v iptables >/dev/null 2>&1 && command -v ip6tables >/dev/null 2>&1'; then
-        echo "  iptables/ip6tables missing; installing the Ubuntu iptables package"
-        VM_EXEC sudo apt-get update
-        VM_EXEC sudo env DEBIAN_FRONTEND=noninteractive apt-get install -y iptables
-    fi
-    if ! VM_EXEC bash -c 'command -v iptables >/dev/null 2>&1 && command -v ip6tables >/dev/null 2>&1'; then
-        echo "ERROR: Ubuntu iptables package did not provide both iptables and ip6tables" >&2
+    # This scenario enables setup-ubuntu-lts.sh stage 4. That stage installs the
+    # CrowdSec nftables bouncer and configures UFW, so use the same nftables
+    # mechanism as the hardened box rather than bringing a parallel firewall.
+    if ! VM_EXEC bash -c 'command -v nft >/dev/null 2>&1'; then
+        echo "ERROR: hardened VM has no nft command after CrowdSec/UFW security setup" >&2
         return 1
     fi
-    VM_EXEC sudo iptables --version || {
-        echo "ERROR: iptables exists but is not usable" >&2
+    VM_EXEC sudo nft --version || {
+        echo "ERROR: nft exists but is not usable after hardening" >&2
         return 1
     }
-    VM_EXEC sudo ip6tables --version || {
-        echo "ERROR: ip6tables exists but is not usable" >&2
+    VM_EXEC sudo nft list table inet statbus_https_only >/dev/null 2>&1 && \
+        VM_EXEC sudo nft delete table inet statbus_https_only || true
+    VM_EXEC sudo nft add table inet statbus_https_only
+    VM_EXEC sudo nft 'add chain inet statbus_https_only output { type filter hook output priority 0; policy accept; }'
+    VM_EXEC sudo nft add rule inet statbus_https_only output tcp dport 80 reject
+    VM_EXEC sudo nft list chain inet statbus_https_only output | grep -Fq 'tcp dport 80 reject' || {
+        echo "ERROR: nftables HTTPS-only output rule was not installed" >&2
         return 1
     }
-
-    for firewall in iptables ip6tables; do
-        VM_EXEC sudo "$firewall" -C OUTPUT -p tcp --dport 80 -j REJECT 2>/dev/null || \
-            VM_EXEC sudo "$firewall" -A OUTPUT -p tcp --dport 80 -j REJECT
-    done
 
     VM_EXEC curl --noproxy '*' -4 --fail --silent --show-error --connect-timeout 3 --max-time 5 "$ipv4_url" >/dev/null 2>&1 && probe_rc=0 || probe_rc=$?
     if [ "$probe_rc" -ne 7 ]; then
@@ -1306,7 +1300,7 @@ apply_https_only_egress() {
     echo "  ✓ deliberate IPv4 TCP/80 connection refused: $ipv4_url"
 
     if ! VM_EXEC ip -6 route get "$ipv6_literal" >/dev/null 2>&1; then
-        echo "  VACUOUS: VM has no IPv6 route to $ipv6_literal; ip6tables rule was installed and checked, but no IPv6 TCP/80 connection can be attempted"
+        echo "  VACUOUS: VM has no IPv6 route to $ipv6_literal; the inet-family nft rule was installed and checked, but no IPv6 TCP/80 connection can be attempted"
         return 0
     fi
     VM_EXEC curl --noproxy '*' -6 --fail --silent --show-error --connect-timeout 3 --max-time 5 "$ipv6_url" >/dev/null 2>&1 && probe_rc=0 || probe_rc=$?

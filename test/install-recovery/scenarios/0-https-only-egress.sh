@@ -8,4 +8,7 @@ set -euo pipefail
 
 SCENARIO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 export HARNESS_HTTPS_ONLY_EGRESS=1
+# Unlike the general harness default, run security stage 4 so this scenario
+# exercises the hardened box's CrowdSec nftables bouncer + UFW firewall shape.
+export HARNESS_HARDENING_SKIP_STAGES=""
 exec bash "$SCENARIO_DIR/0-happy-upgrade.sh" "${1:-statbus-recovery-0-https-only-egress}"

@@ -144,3 +144,20 @@ firewall proof. The offline contract pins ensure-tools → install-rules →
 verify-both-families ordering and includes a scratch mutation that removes the
 `ip6tables` rule. Actual Ubuntu 24.04 and 26.04 behavior remains pending the
 first paid VM run, which is the real proof for those images.
+
+## Hardened-firewall correction 2026-09-23
+
+The preceding package choice was incorrect for this scenario: it created a
+parallel iptables firewall instead of exercising the box produced by
+`ops/setup-ubuntu-lts.sh`. Security stage 4 installs
+`crowdsec-firewall-bouncer-nftables` and configures UFW, so this scenario now
+enables that normally skipped harness stage and requires its `nft` command to
+be usable. It installs no firewall package itself.
+
+After hardening, the scenario creates one dedicated `inet`-family nftables
+output chain and one `tcp dport 80 reject` rule. The inet family covers IPv4
+and IPv6 with the same rule. The literal-address probes and explicit no-IPv6-
+route `VACUOUS` diagnostic remain. Because the scenario delegates to
+`0-happy-upgrade.sh`, its actual VM image is the explicit Ubuntu 24.04 pin in
+that file, not the harness's Ubuntu 26.04 default. The offline mutation now
+removes the single inet rule and must turn the contract red.
