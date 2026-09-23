@@ -28,11 +28,11 @@ assert_https_only_contract() {
     local output="$2"
     assert_event_order "$events" \
         'bash -c command -v nft >/dev/null 2>&1' \
-        'sudo nft --version' \
-        'sudo nft add table inet statbus_https_only' \
-        'sudo nft add chain inet statbus_https_only output { type filter hook output priority 0; policy accept; }' \
-        'sudo nft add rule inet statbus_https_only output tcp dport 80 reject' \
-        'sudo nft list chain inet statbus_https_only output' \
+        'nft --version' \
+        'nft add table inet statbus_https_only' \
+        'nft add chain inet statbus_https_only output { type filter hook output priority 0; policy accept; }' \
+        'nft add rule inet statbus_https_only output tcp dport 80 reject' \
+        'nft list chain inet statbus_https_only output' \
         'curl --noproxy * -4 --fail --silent --show-error --connect-timeout 3 --max-time 5 http://93.184.216.34/statbus-http-egress-mutation' \
         'ip -6 route get 2606:2800:220:1:248:1893:25c8:1946' \
         'curl --noproxy * -6 --fail --silent --show-error --connect-timeout 3 --max-time 5 http://[2606:2800:220:1:248:1893:25c8:1946]/statbus-http-egress-mutation'
@@ -48,15 +48,21 @@ run_contract() {
         printf '%s\n' "$*" >> "$events"
         case "$*" in
             *'bash -c command -v nft'*) return 0 ;;
-            *'sudo nft --version') return 0 ;;
-            *'sudo nft list table inet statbus_https_only') return 1 ;;
-            *'sudo nft add table inet statbus_https_only') return 0 ;;
-            *'sudo nft add chain inet statbus_https_only output'*) return 0 ;;
-            *'sudo nft add rule inet statbus_https_only output tcp dport 80 reject') return 0 ;;
-            *'sudo nft list chain inet statbus_https_only output') printf '%s\n' 'tcp dport 80 reject'; return 0 ;;
             *'curl --noproxy * -4 --fail'*'http://93.184.216.34/'*) return 7 ;;
             *'ip -6 route get 2606:2800:220:1:248:1893:25c8:1946'*) return 0 ;;
             *'curl --noproxy * -6 --fail'*'http://[2606:2800:220:1:248:1893:25c8:1946]/'*) return 7 ;;
+        esac
+        return 99
+    }
+    VM_ROOT_EXEC() {
+        printf '%s\n' "$*" >> "$events"
+        case "$*" in
+            'nft --version') return 0 ;;
+            'nft list table inet statbus_https_only') return 1 ;;
+            'nft add table inet statbus_https_only') return 0 ;;
+            'nft add chain inet statbus_https_only output { type filter hook output priority 0; policy accept; }') return 0 ;;
+            'nft add rule inet statbus_https_only output tcp dport 80 reject') return 0 ;;
+            'nft list chain inet statbus_https_only output') printf '%s\n' 'tcp dport 80 reject'; return 0 ;;
         esac
         return 99
     }
@@ -72,7 +78,7 @@ output=$(run_contract "$events")
 assert_https_only_contract "$events" "$output"
 
 # Negative control: omitting the one inet-family rule must make the contract red.
-sed '/VM_EXEC sudo nft add rule inet statbus_https_only output tcp dport 80 reject/d' "$BOOTSTRAP" > "$mutated_bootstrap"
+sed '/VM_ROOT_EXEC nft add rule inet statbus_https_only output tcp dport 80 reject/d' "$BOOTSTRAP" > "$mutated_bootstrap"
 if (
     source "$mutated_bootstrap"
     trap - ERR
@@ -92,4 +98,6 @@ grep -Fq 'if [ "${HARNESS_HTTPS_ONLY_EGRESS:-0}" != "1" ]; then' "$ROOT/test/ins
 grep -Fq 'HARNESS_VM_IMAGE="${HARNESS_VM_IMAGE:-ubuntu-26.04}"' "$BOOTSTRAP"
 ! grep -Eq 'iptables|ip6tables|apt-get install -y iptables' "$events" \
     || die 'HTTPS-only policy introduced parallel iptables tooling'
-echo 'PASS: HTTPS-only scenario uses hardened nftables, installs one inet rule, and verifies IPv4/IPv6 enforcement in order'
+! grep -Fq 'sudo nft' "$events" \
+    || die 'HTTPS-only policy incorrectly relies on the hardened statbus account having general sudo access'
+echo 'PASS: HTTPS-only scenario uses root SSH for nftables, installs one inet rule, and verifies IPv4/IPv6 enforcement in order'

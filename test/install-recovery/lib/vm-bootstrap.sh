@@ -1024,6 +1024,25 @@ BANNER
     ssh "${SSH_OPTS[@]}" root@"$VM_IP" "sudo -i -u statbus -- $quoted_args"
 }
 
+# VM_ROOT_EXEC <command> [args...] executes a single-line command through the
+# harness's existing root SSH transport. Use this only for harness setup that
+# genuinely requires root. The hardened statbus operator account intentionally
+# has no general sudo access.
+VM_ROOT_EXEC() {
+    local arg
+    for arg in "$@"; do
+        case "$arg" in
+            *$'\n'*)
+                echo "ERROR: VM_ROOT_EXEC does not accept multi-line arguments" >&2
+                return 1
+                ;;
+        esac
+    done
+    local quoted_args
+    quoted_args=$(printf '%q ' "$@")
+    ssh "${SSH_OPTS[@]}" root@"$VM_IP" "$quoted_args"
+}
+
 # VM_SCRIPT <local-script-path> [args...] — STATBUS-021: scp a LOCAL file to
 # the VM and execute it there as the statbus user via VM_EXEC. NEVER
 # construct the script ON the VM via an ssh heredoc — that routes the
@@ -1278,16 +1297,16 @@ apply_https_only_egress() {
         echo "ERROR: hardened VM has no nft command after CrowdSec/UFW security setup" >&2
         return 1
     fi
-    VM_EXEC sudo nft --version || {
+    VM_ROOT_EXEC nft --version || {
         echo "ERROR: nft exists but is not usable after hardening" >&2
         return 1
     }
-    VM_EXEC sudo nft list table inet statbus_https_only >/dev/null 2>&1 && \
-        VM_EXEC sudo nft delete table inet statbus_https_only || true
-    VM_EXEC sudo nft add table inet statbus_https_only
-    VM_EXEC sudo nft 'add chain inet statbus_https_only output { type filter hook output priority 0; policy accept; }'
-    VM_EXEC sudo nft add rule inet statbus_https_only output tcp dport 80 reject
-    VM_EXEC sudo nft list chain inet statbus_https_only output | grep -Fq 'tcp dport 80 reject' || {
+    VM_ROOT_EXEC nft list table inet statbus_https_only >/dev/null 2>&1 && \
+        VM_ROOT_EXEC nft delete table inet statbus_https_only || true
+    VM_ROOT_EXEC nft add table inet statbus_https_only
+    VM_ROOT_EXEC nft 'add chain inet statbus_https_only output { type filter hook output priority 0; policy accept; }'
+    VM_ROOT_EXEC nft add rule inet statbus_https_only output tcp dport 80 reject
+    VM_ROOT_EXEC nft list chain inet statbus_https_only output | grep -Fq 'tcp dport 80 reject' || {
         echo "ERROR: nftables HTTPS-only output rule was not installed" >&2
         return 1
     }
