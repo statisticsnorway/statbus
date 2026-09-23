@@ -18,7 +18,14 @@ package migrate
 // the floor impossible: any migration NEWER than the floor that touches a daemon
 // relation fails the test until the floor is bumped in the same commit.
 //
-// VALUE: today 20260921223349 (the box-level serving-tree convergence
+// VALUE: today 20260923084454 (the upgrade-candidate calendar-version
+// ordering migration). This is an acknowledged guard false positive: the
+// migration replaces public.upgrade_supersede_older and reads public.upgrade
+// plus public.release_status_type, but it does not change the shape of any
+// daemon relation. The mechanical guard still requires the explicit floor
+// review and bump.
+//
+// Prior value: 20260921223349 (the box-level serving-tree convergence
 // obligation). The daemon's claim and crash-recovery SQL reads and writes
 // public.upgrade.tree_convergence_required, so boot must include the column.
 // The claim still explicitly tolerates a predecessor schema during the narrow
@@ -84,7 +91,7 @@ package migrate
 // the tree after STATBUS-349 and therefore sorted differently
 // on full replay than on incremental databases. Its replacement above the 349
 // migration is now the floor because the daemon requires the column.
-const DaemonSchemaFloor int64 = 20260921223349
+const DaemonSchemaFloor int64 = 20260923084454
 
 // DaemonRelationNames is the schema surface the daemon's OWN SQL touches — the
 // set whose shape the floor must satisfy. The bump guard flags any migration
