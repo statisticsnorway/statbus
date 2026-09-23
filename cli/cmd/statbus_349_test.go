@@ -26,6 +26,13 @@ func TestComposeServicesHaveImagesRequiresEachNamedService(t *testing.T) {
 	}
 }
 
+func TestLatestTagForPrereleaseUsesCalendarVersionOrder(t *testing.T) {
+	got := latestTagForChannel("v2026.09.1-rc.31\nv2026.09.1-rc.30\nv2026.09.1-rc.29\n", "prerelease")
+	if got != "v2026.09.1-rc.31" {
+		t.Fatalf("got %q, want newest calendar version", got)
+	}
+}
+
 func TestLatestTagForPrereleaseSkipsMalformedNewestTag(t *testing.T) {
 	got := latestTagForChannel("v2026.09.1-beta.1\nv2026.09.1-rc.4\nv2026.09.0\n", "prerelease")
 	if got != "v2026.09.1-rc.4" {

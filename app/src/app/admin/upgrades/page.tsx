@@ -17,6 +17,7 @@ import {
   upgradeScheduleAction,
   upgradeStateLabel,
 } from "./upgrade-schedule";
+import { compareUpgradeCandidates } from "./upgrade-ordering";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -749,21 +750,11 @@ export default function UpgradesPage() {
             );
           }
 
-          // Sort available: tagged releases first (release > prerelease > commit),
-          // then by id (monotonic with discovery, equivalent to commit-time order
-          // within a tier). This ensures the "Recommended" badge goes to the
-          // latest tagged release, not a newer plain commit.
-          const statusRank: Record<string, number> = {
-            release: 3,
-            prerelease: 2,
-            commit: 1,
-          };
-          available.sort((a, b) => {
-            const sa = statusRank[a.release_status] ?? 0;
-            const sb = statusRank[b.release_status] ?? 0;
-            if (sa !== sb) return sb - sa;
-            return b.id - a.id;
-          });
+          // Sort available by release tier, then by calendar version within the
+          // tier. Discovery iterates newest tags first, so insertion ids run in
+          // the opposite direction when several tags arrive in one pass.
+          // committed_at is only a tie-break for aliases/equivalent versions.
+          available.sort(compareUpgradeCandidates);
 
           // When an upgrade is scheduled or in-progress, hide available entries entirely.
           // The user only needs to see the active upgrade, not other options.

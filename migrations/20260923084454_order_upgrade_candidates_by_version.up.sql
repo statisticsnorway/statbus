@@ -1,8 +1,35 @@
-```sql
-CREATE OR REPLACE PROCEDURE public.upgrade_supersede_older(IN p_commit_sha text, INOUT p_superseded integer DEFAULT 0)
- LANGUAGE plpgsql
- SET search_path TO 'public', 'pg_temp'
-AS $procedure$
+-- Migration 20260923084454: order upgrade candidates by version
+BEGIN;
+
+CREATE OR REPLACE FUNCTION public.upgrade_version_key(p_version text)
+RETURNS integer[]
+LANGUAGE sql
+IMMUTABLE
+PARALLEL SAFE
+AS $upgrade_version_key$
+    SELECT CASE
+        WHEN match IS NULL THEN NULL
+        ELSE ARRAY[
+            match[1]::integer,
+            match[2]::integer,
+            match[3]::integer,
+            CASE WHEN match[4] IS NULL THEN 1 ELSE 0 END,
+            COALESCE(match[4]::integer, 0)
+        ]
+    END
+    FROM regexp_match(
+        p_version,
+        '^v+([0-9]{4})\.([0-9]{2})\.([0-9]+)(?:-rc\.([0-9]+))?$'
+    ) AS match;
+$upgrade_version_key$;
+
+CREATE OR REPLACE PROCEDURE public.upgrade_supersede_older(
+    IN p_commit_sha text,
+    INOUT p_superseded integer DEFAULT 0
+)
+LANGUAGE plpgsql
+SET search_path TO 'public', 'pg_temp'
+AS $upgrade_supersede_older$
 DECLARE
     _committed  timestamptz;
     _status     public.release_status_type;
@@ -51,5 +78,6 @@ BEGIN
             p_superseded, p_commit_sha, _status;
     END IF;
 END;
-$procedure$
-```
+$upgrade_supersede_older$;
+
+END;

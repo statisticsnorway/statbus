@@ -15702,6 +15702,12 @@ export type Database = {
         Args: Record<string, never>
         Returns: unknown
       },
+      upgrade_version_key: {
+        Args: {
+          p_version?: string
+        }
+        Returns: number[]
+      },
       urlencode: {
         Args: {
           string?: string
