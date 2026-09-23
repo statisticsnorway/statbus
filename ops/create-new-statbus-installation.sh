@@ -33,7 +33,7 @@ DEPLOYMENT_USER="statbus_${DEPLOYMENT_SLOT_CODE}"
 HOST="niue.statbus.org"
 
 # VERSION (STATBUS-268 #2 / Ukraine): a new installation lands on a NAMED
-# release, the same reasoning ops/setup-ubuntu-lts-24.sh's SSHDOERS_REF uses
+# release, the same reasoning ops/setup-ubuntu-lts.sh's SSHDOERS_REF uses
 # for the CI allowlist (architect ruling c3) — an install artifact procured
 # from a moving ref cannot be named afterward, and a master-born box would
 # refuse the very next scheduled upgrade as not-newer-than-installed. Checked
@@ -179,7 +179,7 @@ ssh root@$HOST bash <<CREATE_USER
 CREATE_USER
 
 echo "Configuring SSH Access"
-# Inline the same fetch+filter+dedupe contract used by ops/setup-ubuntu-lts-24.sh's
+# Inline the same fetch+filter+dedupe contract used by ops/setup-ubuntu-lts.sh's
 # populate_authorized_keys helper:
 #   * ED25519-only filter (no RSA dead weight)
 #   * Both source forms — `<user>.keys` and `<org>/<repo>.keys` — auto-detected

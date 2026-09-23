@@ -36,7 +36,7 @@ func TestUpgradeSensitivePolicyReachesBroadInputsWithoutRebroadeningSiblings_STA
 		".github/actions/dispatch-fleet-and-wait/dispatch.sh":   release.ReasonSharedController,
 		".github/actions/orchestrator-fleet-admission/admit.sh": release.ReasonSharedController,
 		".github/workflows/images.yaml":                         release.ReasonSharedController,
-		"ops/setup-ubuntu-lts-24.sh":                            release.ReasonSharedHarnessInput,
+		"ops/setup-ubuntu-lts.sh":                            release.ReasonSharedHarnessInput,
 		"test/install-recovery/lib/vm-bootstrap.sh":             release.ReasonSharedHarnessInput,
 		"test/install-recovery/fixtures/stage-head.sh":          release.ReasonSharedHarnessInput,
 		"cli/internal/release/sensitivity.go":                   release.ReasonProofInterpreter,

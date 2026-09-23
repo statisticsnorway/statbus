@@ -17,7 +17,7 @@ import (
 //
 // /etc/sshdoers on each host is the byte-pinned allowlist every inbound CI ssh
 // command is checked against. The repo carries the source (ops/<host>/sshdoers)
-// and Stage 8 of ops/setup-ubuntu-lts-24.sh installs it byte for byte, publishing
+// and Stage 8 of ops/setup-ubuntu-lts.sh installs it byte for byte, publishing
 // a world-readable /etc/sshdoers.sha256 beside it. Nothing else synced the two
 // before that stage existed, so the live policy could differ from the reviewed
 // copy silently, in either direction.
@@ -170,7 +170,7 @@ func checkSshdoersDrift(projDir string) bool {
 			fmt.Println("    Fix, in the order most likely to resolve it:")
 			fmt.Printf("      - is %s reachable, and does your key let you in as %s?\n", h.Address, sshdoersReadUserFor())
 			fmt.Printf("      - has Stage 8 ever run there? %s only exists after it has\n", sshdoersLiveHashPath)
-			fmt.Println("        (ops/setup-ubuntu-lts-24.sh, stage 8 — STATBUS-259)")
+			fmt.Println("        (ops/setup-ubuntu-lts.sh, stage 8 — STATBUS-259)")
 			fmt.Printf("      - override the account with %s=<user> if devops is not the right one\n", sshdoersReadUserEnv)
 			fmt.Printf("      - genuinely unreachable and the release cannot wait: %s=1 (bypass, prints loudly)\n", sshdoersSkipEnv)
 			allPassed = false

@@ -728,7 +728,7 @@ _apply_hardening() {
         scp -O "${SSH_OPTS[@]}" "$sb_binary" root@"$ip":/tmp/sb
         ssh "${SSH_OPTS[@]}" root@"$ip" 'chmod 0755 /tmp/sb'
     }
-    scp -O "${SSH_OPTS[@]}" "$HARNESS_ROOT/ops/setup-ubuntu-lts-24.sh" root@"$ip":/tmp/setup.sh
+    scp -O "${SSH_OPTS[@]}" "$HARNESS_ROOT/ops/setup-ubuntu-lts.sh" root@"$ip":/tmp/setup.sh
     ssh "${SSH_OPTS[@]}" root@"$ip" 'chmod 0755 /tmp/setup.sh'
 
     local env_config_file users_file

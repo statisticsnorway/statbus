@@ -24,7 +24,7 @@ env:
 
 jobs:
   setup-script-stage-7:
-    # Verify that setup-ubuntu-lts-24.sh Stage 7 creates the statbus service
+    # Verify that setup-ubuntu-lts.sh Stage 7 creates the statbus service
     # account correctly when run non-interactively. We don't run stages 0-6
     # on the runner itself (they'd reconfigure SSH, apt sources, etc — noisy
     # and potentially fragile). Just Stage 7 via SKIP_STAGES.
@@ -44,8 +44,8 @@ jobs:
           EXTRA_LOCALES=""
           SERVICE_USER="statbus"
           EOF
-          sudo chmod +x ops/setup-ubuntu-lts-24.sh
-          sudo SKIP_STAGES="0 1 2 3 4 5 6" ops/setup-ubuntu-lts-24.sh --non-interactive
+          sudo chmod +x ops/setup-ubuntu-lts.sh
+          sudo SKIP_STAGES="0 1 2 3 4 5 6" ops/setup-ubuntu-lts.sh --non-interactive
 
       - name: Verify Stage 7 outcomes
         run: |

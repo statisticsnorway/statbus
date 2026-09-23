@@ -2571,7 +2571,7 @@ func (d *Service) verifyArtifacts(ctx context.Context) {
 				// Images not in registry per the docker-manifest-inspect loop
 				// above. STATBUS-302: this used to ask `gh api` for the
 				// images.yaml workflow's conclusion — gh is not installed on
-				// production boxes (ops/setup-ubuntu-lts-24.sh never installs
+				// production boxes (ops/setup-ubuntu-lts.sh never installs
 				// it), so this call ALWAYS failed there, and the "gh
 				// unavailable" branch below then ASSERTED build failure from a
 				// probe that never actually observed one: "CI images absent

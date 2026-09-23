@@ -46,7 +46,7 @@ directory | shared controller | .github/actions/dispatch-fleet-and-wait
 directory | shared controller | .github/actions/orchestrator-fleet-admission
 exact | shared controller | .github/workflows/images.yaml
 
-exact | shared harness input | ops/setup-ubuntu-lts-24.sh
+exact | shared harness input | ops/setup-ubuntu-lts.sh
 directory | shared harness input | test/install-recovery/lib
 directory | shared harness input | test/install-recovery/fixtures
 
