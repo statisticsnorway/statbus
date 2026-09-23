@@ -45,6 +45,21 @@ pattern=r'run_accepting_rollback_control_exit\s+VM_EXEC\s+bash\s+-c\s+"[^"\n]*\.
 raise SystemExit(0 if re.search(pattern, text) else 1)
 PY
 }
+assert_floor_failure_resolves_candidate_floor() {
+  local file=$1
+  python3 - "$file" <<'PY'
+import re, sys
+text=open(sys.argv[1]).read()
+checks = [
+    r'git show "\$B_FULL:cli/internal/migrate/daemon_floor\.go"',
+    r'\$2 == "DaemonSchemaFloor"',
+    r'git ls-tree --name-only "\$B_FULL" -- migrations/',
+    r'WHERE version=\$HISTORICAL_FLOOR;',
+    r'assert_schema_floor_retry_order "\$LOG" "\$ROLLBACK_DAEMON_FLOOR"',
+]
+raise SystemExit(0 if all(re.search(pattern, text) for pattern in checks) else 1)
+PY
+}
 
 for scenario in rollback-schema-floor-adoption rollback-schema-floor-failure; do
   assert_lineage "$WORKFLOW" "$scenario" failing || die "$scenario is not routed to failing"
@@ -93,6 +108,17 @@ unguarded_arc=$(mktemp)
 trap 'rm -f "$old" "$old_arc" "$unguarded_arc"' EXIT
 sed 's/run_accepting_rollback_control_exit VM_EXEC/VM_EXEC/' "$FAILURE_ARC" > "$unguarded_arc"
 ! assert_floor_failure_retry_guard "$unguarded_arc" || die 'unguarded floor-failure retry mutation was not caught'
+
+# The historical adoption migration remains a once-only ledger contract, while
+# retry ordering follows the floor compiled into the candidate recovery binary.
+assert_floor_failure_resolves_candidate_floor "$FAILURE_ARC" || die 'floor-failure arc does not separate historical migration from candidate daemon floor'
+CANDIDATE_FLOOR=$(git -C "$ROOT" show "HEAD:cli/internal/migrate/daemon_floor.go" | awk '$1 == "const" && $2 == "DaemonSchemaFloor" && $3 == "int64" && $4 == "=" { print $5 }')
+[[ "$CANDIDATE_FLOOR" =~ ^[0-9]{14}$ ]] || die 'candidate DaemonSchemaFloor did not resolve to a migration version'
+[ "$(git -C "$ROOT" ls-tree --name-only HEAD -- migrations/ | grep -c "^migrations/${CANDIDATE_FLOOR}_.*\.up\.sql$")" = 1 ] || die 'candidate DaemonSchemaFloor does not identify exactly one up migration'
+stale_floor_arc=$(mktemp)
+trap 'rm -f "$old" "$old_arc" "$unguarded_arc" "$stale_floor_arc"' EXIT
+sed 's/assert_schema_floor_retry_order "$LOG" "$ROLLBACK_DAEMON_FLOOR"/assert_schema_floor_retry_order "$LOG" "$HISTORICAL_FLOOR"/' "$FAILURE_ARC" > "$stale_floor_arc"
+! assert_floor_failure_resolves_candidate_floor "$stale_floor_arc" || die 'stale historical-floor ordering mutation was not caught'
 
 # Execute the exact helpers used by both arcs. This is deliberately stronger
 # than bash -n or grep-only source inspection: it catches set -e control-flow

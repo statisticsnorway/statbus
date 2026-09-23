@@ -11,7 +11,7 @@
 set -euo pipefail
 VM_NAME="${1:-statbus-arc-rollback-floor-failure}"
 TICK_WAIT_S="${TICK_WAIT_S:-120}"
-FLOOR=20260907120000
+HISTORICAL_FLOOR=20260907120000
 INJECT_CLASS=rollback-floor-reapply
 UPGRADE_UNIT=statbus-upgrade@statbus.service
 # This arc rides the ORDINARY candidate base: BASE_SHA is the standard arc input
@@ -24,6 +24,16 @@ BASE_SHA="${SCHEMA_FLOOR_BASE_SHA:-${BASE_SHA:-}}"
 : "${BASE_SHA:?BASE_SHA or SCHEMA_FLOOR_BASE_SHA required}"
 : "${B_FULL:?B_FULL required}"
 : "${B_BRANCH:?B_BRANCH required}"
+# The rollback runs B's binary before restoring the source tree, and that binary
+# uses the checked-in migrate.DaemonSchemaFloor constant. Resolve the same value
+# from B's commit object rather than conflating it with the historical migration
+# whose once-only ledger contract this arc also checks below.
+ROLLBACK_DAEMON_FLOOR=$(git show "$B_FULL:cli/internal/migrate/daemon_floor.go" | awk '
+  $1 == "const" && $2 == "DaemonSchemaFloor" && $3 == "int64" && $4 == "=" { print $5 }
+')
+[[ "$ROLLBACK_DAEMON_FLOOR" =~ ^[0-9]{14}$ ]] || { echo "✗ could not resolve B's DaemonSchemaFloor" >&2; exit 1; }
+ROLLBACK_FLOOR_MIGRATION=$(git ls-tree --name-only "$B_FULL" -- migrations/ | grep "^migrations/${ROLLBACK_DAEMON_FLOOR}_.*\.up\.sql$" || true)
+[ "$(printf '%s\n' "$ROLLBACK_FLOOR_MIGRATION" | grep -c .)" = 1 ] || { echo "✗ B's DaemonSchemaFloor does not identify exactly one up migration" >&2; exit 1; }
 LIB_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/lib"
 source "$LIB_DIR/vm-bootstrap.sh"
 source "$LIB_DIR/data-helpers.sh"
@@ -69,7 +79,7 @@ run_accepting_rollback_control_exit VM_EXEC bash -c "rm -f ~/.config/systemd/use
 echo "  human retry ./sb install exit: $ROLLBACK_CONTROL_EXIT_RC (0 or 75=rolled-back both OK)"
 [ "$(row_field state)" = rolled_back ] || { echo '✗ human retry did not roll back' >&2; exit 1; }
 [ "$(row_field 'rollback_finish_pending_at IS NULL')" = t ] || { echo '✗ pending not cleared after retry' >&2; exit 1; }
-[ "$(VM_EXEC bash -c "cd ~/statbus && echo 'SELECT count(*) FROM db.migration WHERE version=$FLOOR;' | ./sb psql -t -A" 2>/dev/null | tr -d ' \r\n')" = 1 ] || { echo '✗ ordinary floor migration not recorded once' >&2; exit 1; }
+[ "$(VM_EXEC bash -c "cd ~/statbus && echo 'SELECT count(*) FROM db.migration WHERE version=$HISTORICAL_FLOOR;' | ./sb psql -t -A" 2>/dev/null | tr -d ' \r\n')" = 1 ] || { echo '✗ historical floor migration not recorded once' >&2; exit 1; }
 assert_flag_file_absent "$VM_NAME"
 assert_health_passes "$VM_NAME"
 assert_demo_data_counts_match_snapshot "$VM_NAME" "$DATA_SNAPSHOT"
@@ -77,5 +87,5 @@ assert_fingerprint_matches "post-retry == post-A data" "$BASELINE_FP" baseline
 [ "$(VM_EXEC bash -c 'cd ~/statbus && git rev-parse HEAD')" = "$BASE_SHA" ] || { echo '✗ source tree not restored after retry' >&2; exit 1; }
 [ "$(VM_EXEC bash -c 'cd ~/statbus && ./sb --version 2>/dev/null | head -1')" = "$BASE_SB" ] || { echo '✗ source binary not published last' >&2; exit 1; }
 LOG=$(VM_EXEC bash -c "cat ~/statbus/tmp/upgrade-logs/'$LOG_REL'")
-assert_schema_floor_retry_order "$LOG" "$FLOOR"
+assert_schema_floor_retry_order "$LOG" "$ROLLBACK_DAEMON_FLOOR"
 echo 'PASS: rollback floor failure held closed and plain install converged'
