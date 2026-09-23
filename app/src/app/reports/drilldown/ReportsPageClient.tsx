@@ -22,7 +22,6 @@ import {
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 
-
 export default function ReportsPageClient({}) {
   const [highchartsModulesLoaded, setHighchartsModulesLoaded] = useState(false);
   const [maxStatValuesNoFiltering, setMaxStatValuesNoFiltering] = useState<
@@ -131,56 +130,55 @@ export default function ReportsPageClient({}) {
   }, [statDefinitions, unitTypeLabel]);
 
   // Calculate max values only for unfiltered top-level data
- useGuardedEffect(
-   () => {
-     if (
-       drillDown &&
-       drillDown.unit_type === selectedUnitType &&
-       !region &&
-       !activityCategory
-     ) {
-       setMaxStatValuesNoFiltering((prevMaxValues) => {
-         const newMaxValues = { ...prevMaxValues };
-         statisticalVariables.forEach(({ value }) => {
-           const key = `${selectedUnitType}::${value}`;
-           const regionMax = Math.max(
-             0,
-             ...(drillDown.available.region?.map((point) =>
-               value === "count"
-                 ? point.count
-                 : (() => {
-                     const m = point.stats_summary?.[value];
-                     return m && "sum" in m ? (m.sum as number) : 0;
-                   })()
-             ) || [])
-           );
-           const categoryMax = Math.max(
-             0,
-             ...(drillDown.available.activity_category?.map((point) =>
-               value === "count"
-                 ? point.count
-                 : (() => {
-                     const m = point.stats_summary?.[value];
-                     return m && "sum" in m ? (m.sum as number) : 0;
-                   })()
-             ) || [])
-           );
-           newMaxValues[key] = { region: regionMax, activity: categoryMax };
-         });
-         return newMaxValues;
-       });
-     }
-   },
-   [
-     drillDown,
-     region,
-     activityCategory,
-     statisticalVariables,
-     selectedUnitType,
-   ],
-   "ReportsPageClient:calculateMaxValues"
- );
-
+  useGuardedEffect(
+    () => {
+      if (
+        drillDown &&
+        drillDown.unit_type === selectedUnitType &&
+        !region &&
+        !activityCategory
+      ) {
+        setMaxStatValuesNoFiltering((prevMaxValues) => {
+          const newMaxValues = { ...prevMaxValues };
+          statisticalVariables.forEach(({ value }) => {
+            const key = `${selectedUnitType}::${value}`;
+            const regionMax = Math.max(
+              0,
+              ...(drillDown.available.region?.map((point) =>
+                value === "count"
+                  ? point.count
+                  : (() => {
+                      const m = point.stats_summary?.[value];
+                      return m && "sum" in m ? (m.sum as number) : 0;
+                    })()
+              ) || [])
+            );
+            const categoryMax = Math.max(
+              0,
+              ...(drillDown.available.activity_category?.map((point) =>
+                value === "count"
+                  ? point.count
+                  : (() => {
+                      const m = point.stats_summary?.[value];
+                      return m && "sum" in m ? (m.sum as number) : 0;
+                    })()
+              ) || [])
+            );
+            newMaxValues[key] = { region: regionMax, activity: categoryMax };
+          });
+          return newMaxValues;
+        });
+      }
+    },
+    [
+      drillDown,
+      region,
+      activityCategory,
+      statisticalVariables,
+      selectedUnitType,
+    ],
+    "ReportsPageClient:calculateMaxValues"
+  );
 
   return (
     <div className="mx-auto flex w-full max-w-5xl flex-col px-2">

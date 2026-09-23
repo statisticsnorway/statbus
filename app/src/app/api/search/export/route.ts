@@ -21,10 +21,15 @@ export async function GET(request: NextRequest) {
 
   const client = await getServerRestClient();
   // Use baseDataStore to get actual data
-  const { externalIdentTypes, statDefinitions } = await baseDataStore.getBaseData(client);
+  const { externalIdentTypes, statDefinitions } =
+    await baseDataStore.getBaseData(client);
 
-  const externalIdentColumns = externalIdentTypes.map(({ code }) => `${code}:external_idents->>${code}`);
-  const statDefinitionColumns = statDefinitions.map(({ code }) => `${code}:stats_summary->${code}->sum`);
+  const externalIdentColumns = externalIdentTypes.map(
+    ({ code }) => `${code}:external_idents->>${code}`
+  );
+  const statDefinitionColumns = statDefinitions.map(
+    ({ code }) => `${code}:stats_summary->${code}->sum`
+  );
 
   searchParams.set(
     "select",
@@ -77,11 +82,13 @@ export async function GET(request: NextRequest) {
   searchParams.set("limit", "100000");
   searchParams.set("offset", "0");
 
-
   const format = searchParams.get("format") || "csv";
   searchParams.delete("format");
   if (!["csv", "xlsx"].includes(format)) {
-    return NextResponse.json({ message: "format must be 'csv' or 'xlsx'" }, { status: 400 });
+    return NextResponse.json(
+      { message: "format must be 'csv' or 'xlsx'" },
+      { status: 400 }
+    );
   }
 
   try {
@@ -90,12 +97,16 @@ export async function GET(request: NextRequest) {
 
     if (format === "xlsx") {
       const units = response.statisticalUnits;
-      const fields = units.length > 0
-        ? Object.keys(units[0])
-        : (searchParams.get("select") || "").split(",").map(s => {
-            const aliased = s.split(":");
-            return aliased[0].trim();
-          }).filter(Boolean);
+      const fields =
+        units.length > 0
+          ? Object.keys(units[0])
+          : (searchParams.get("select") || "")
+              .split(",")
+              .map((s) => {
+                const aliased = s.split(":");
+                return aliased[0].trim();
+              })
+              .filter(Boolean);
       const dateFields = new Set(["birth_date", "death_date"]);
 
       const workbook = new ExcelJS.Workbook();
@@ -104,25 +115,27 @@ export async function GET(request: NextRequest) {
 
       for (let colIdx = 0; colIdx < fields.length; colIdx++) {
         if (dateFields.has(fields[colIdx])) {
-          worksheet.getColumn(colIdx + 1).numFmt = 'yyyy-mm-dd';
+          worksheet.getColumn(colIdx + 1).numFmt = "yyyy-mm-dd";
         }
       }
 
       for (const unit of units) {
         const rec = unit as unknown as Record<string, unknown>;
-        worksheet.addRow(fields.map(f => {
-          const val = rec[f];
-          if (val === null || val === undefined) return null;
-          if (dateFields.has(f) && typeof val === "string") {
-            // Append T00:00:00 so Date parses as local time, not UTC.
-            // Without it, "2024-01-15" parses as UTC midnight and ExcelJS
-            // converts to local time, which can shift the date by a day.
-            const d = new Date(val + 'T00:00:00');
-            if (!isNaN(d.getTime())) return d;
+        worksheet.addRow(
+          fields.map((f) => {
+            const val = rec[f];
+            if (val === null || val === undefined) return null;
+            if (dateFields.has(f) && typeof val === "string") {
+              // Append T00:00:00 so Date parses as local time, not UTC.
+              // Without it, "2024-01-15" parses as UTC midnight and ExcelJS
+              // converts to local time, which can shift the date by a day.
+              const d = new Date(val + "T00:00:00");
+              if (!isNaN(d.getTime())) return d;
+              return val;
+            }
             return val;
-          }
-          return val;
-        }));
+          })
+        );
       }
 
       const passThrough = new PassThrough();
@@ -132,14 +145,20 @@ export async function GET(request: NextRequest) {
           passThrough.on("end", () => controller.close());
           passThrough.on("error", (err) => controller.error(err));
         },
-        cancel() { passThrough.destroy(); },
+        cancel() {
+          passThrough.destroy();
+        },
       });
 
-      workbook.xlsx.write(passThrough).then(() => passThrough.end()).catch((err) => passThrough.destroy(err));
+      workbook.xlsx
+        .write(passThrough)
+        .then(() => passThrough.end())
+        .catch((err) => passThrough.destroy(err));
 
       return new Response(webStream, {
         headers: {
-          "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+          "Content-Type":
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
           "Content-Disposition": `attachment; filename="${baseName}.xlsx"`,
         },
       });
@@ -160,6 +179,9 @@ export async function GET(request: NextRequest) {
     }
     // Handle non-standard errors (if any other types could be thrown)
     console.error("Unknown error fetching statistical units:", error);
-    return NextResponse.json({ error: "An unexpected error occurred" }, { status: 500 });
+    return NextResponse.json(
+      { error: "An unexpected error occurred" },
+      { status: 500 }
+    );
   }
 }

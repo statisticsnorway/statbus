@@ -4,12 +4,11 @@ import { useBaseData } from "@/atoms/base-data";
 import { HistoryReports } from "../history-reports";
 import { StatisticalVariablesChart } from "./statistical-variables-chart";
 
-
 export default function StatisticalVariablesPage() {
-const {statDefinitions} = useBaseData()
-const statsSummaryCodes = statDefinitions
-  .filter((s) => s.type === "int" || s.type === "float")
-  .map((s) => `stats_summary.${s.code}.sum`);
+  const { statDefinitions } = useBaseData();
+  const statsSummaryCodes = statDefinitions
+    .filter((s) => s.type === "int" || s.type === "float")
+    .map((s) => `stats_summary.${s.code}.sum`);
 
   return (
     <HistoryReports

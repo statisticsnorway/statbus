@@ -228,4 +228,3 @@ export async function getStatisticalUnitHistory(
     .returns<UnitHistory[]>();
   return { data, error };
 }
-

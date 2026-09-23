@@ -5,7 +5,10 @@ import * as highcharts from "highcharts";
 import { chart, type Chart } from "highcharts";
 import { useGuardedEffect } from "@/hooks/use-guarded-effect";
 import { ChartExportButton } from "@/components/chart-export-button";
-import { buildChartExportFilenameBase, joinSubtitleParts } from "@/lib/chart-export";
+import {
+  buildChartExportFilenameBase,
+  joinSubtitleParts,
+} from "@/lib/chart-export";
 import { getUnitTypeLabel } from "@/app/reports/unit-type-tabs";
 
 export const UnitCountChart = ({
@@ -112,7 +115,11 @@ export const UnitCountChart = ({
           chart={liveChart}
           title={title}
           subtitle={filterSubtitle}
-          filenameBase={buildChartExportFilenameBase("unitcount",unitType, year)}
+          filenameBase={buildChartExportFilenameBase(
+            "unitcount",
+            unitType,
+            year
+          )}
         />
       </div>
       <div ref={_ref} />

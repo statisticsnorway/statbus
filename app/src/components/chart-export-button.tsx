@@ -26,7 +26,11 @@ interface ChartExportMenuProps {
   readonly filenameBase: string;
   readonly className?: string;
 }
-function getHeaderHeight(title: string, subtitle: string, hasActiveFilter: boolean): number {
+function getHeaderHeight(
+  title: string,
+  subtitle: string,
+  hasActiveFilter: boolean
+): number {
   const subtitleLineCount = subtitle ? (hasActiveFilter ? 3 : 1) : 0;
   return (
     (title ? TITLE_LINE_HEIGHT : 0) +
@@ -49,7 +53,9 @@ export const ChartExportButton = ({
       {
         chart: {
           backgroundColor: "#FFFFFF",
-          height: chart.chartHeight + getHeaderHeight(title, subtitle, hasActiveFilter),
+          height:
+            chart.chartHeight +
+            getHeaderHeight(title, subtitle, hasActiveFilter),
         },
         title: { text: title },
         subtitle: {
@@ -68,7 +74,7 @@ export const ChartExportButton = ({
     chart.update({ exporting: { filename: filenameBase } }, false);
     chart.exporting.downloadCSV();
   };
-  
+
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
@@ -77,9 +83,7 @@ export const ChartExportButton = ({
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
-        <DropdownMenuItem onClick={exportPng}>
-          Download PNG
-        </DropdownMenuItem>
+        <DropdownMenuItem onClick={exportPng}>Download PNG</DropdownMenuItem>
         <DropdownMenuItem onClick={exportCsv}>Download CSV</DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
