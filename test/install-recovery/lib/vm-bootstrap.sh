@@ -1259,6 +1259,21 @@ reset_vm_state() {
     echo "VM $vm_name reset complete."
 }
 
+# apply_https_only_egress rejects outbound plain HTTP while leaving HTTPS and
+# established SSH intact. REJECT is the fast deterministic proxy for Albania's
+# real DROP behavior: a regression fails immediately instead of timing out.
+apply_https_only_egress() {
+    local blocked_url="http://example.com/statbus-http-egress-mutation"
+    echo "Applying HTTPS-only egress policy (reject outbound TCP/80)"
+    VM_EXEC sudo iptables -C OUTPUT -p tcp --dport 80 -j REJECT 2>/dev/null || \
+        VM_EXEC sudo iptables -A OUTPUT -p tcp --dport 80 -j REJECT
+    if VM_EXEC curl --fail --silent --show-error --max-time 5 "$blocked_url" >/dev/null 2>&1; then
+        echo "ERROR: HTTPS-only egress guard did not block $blocked_url" >&2
+        return 1
+    fi
+    echo "  ✓ deliberate plain-HTTP fetch rejected: $blocked_url"
+}
+
 # Run install inside a bootstrapped VM.
 #   install_statbus_in_vm <vm_name>                  → run the REAL install.sh --commit <HEAD-sha>
 #   install_statbus_in_vm <vm_name> v2026.05.0-rc.X  → download from release

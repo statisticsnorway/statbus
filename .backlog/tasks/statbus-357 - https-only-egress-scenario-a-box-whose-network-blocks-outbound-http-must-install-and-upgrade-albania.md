@@ -104,3 +104,17 @@ Batch order: 370 -> 368 -> 367 -> 363 -> 357 -> 361 -> 362 -> 359.
 Classification: PARTIAL. Evidence: scratch design/build is recorded, but nothing landed and no paid RC proof exists.
 
 Remaining: Land the HTTPS-only egress scenario, its mutation control, and obtain a green paid RC run.
+
+## Implementation 2026-09-23
+
+No Albania-specific product switch or checked-in operator hack exists. The
+current install and upgrade paths use HTTPS for external GitHub and GHCR reads;
+plain-HTTP product literals are loopback or container-internal. The new
+`0-https-only-egress` scenario therefore guards that current all-HTTPS state.
+
+The scenario reuses `0-happy-upgrade.sh` and, immediately after VM bootstrap,
+adds `iptables -A OUTPUT -p tcp --dport 80 -j REJECT`. Its deliberate mutation
+fetches `http://example.com/statbus-http-egress-mutation`, requires rejection,
+and prints that URL in the passing diagnostic. The scenario is discovered by
+the default dispatcher. A real install and upgrade can only be proven by the
+next paid candidate harness run, so status remains **To Do** pending that run.

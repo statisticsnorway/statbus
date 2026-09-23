@@ -124,6 +124,10 @@ echo "  Tagged target: $INSTALL_TARGET_TAG ($HEAD_SHA)"
 
 bootstrap_install_test_vm "$VM_NAME" "$INSTALL_VERSION"
 
+if [ "${HARNESS_HTTPS_ONLY_EGRESS:-0}" = "1" ]; then
+    apply_https_only_egress
+fi
+
 echo ""
 echo "── initial install at $INSTALL_VERSION ──"
 install_statbus_in_vm "$VM_NAME" "$INSTALL_VERSION"
