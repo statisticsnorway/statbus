@@ -1,7 +1,7 @@
 # /etc/sshdoers — statbus niue CI allowlist
 #
 # THIS FILE IS THE SOURCE. It is installed to /etc/sshdoers by Stage 8 of
-# ops/setup-ubuntu-lts.sh, byte for byte, and the stage publishes a
+# ops/setup-ubuntu-lts-24.sh, byte for byte, and the stage publishes a
 # world-readable /etc/sshdoers.sha256 beside it. The release preflight compares
 # that hash against this file and REFUSES TO CUT A RELEASE if they differ, so
 # the live inbound-command policy is provably the reviewed one (STATBUS-259).

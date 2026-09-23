@@ -202,3 +202,5 @@ Classification: PARTIAL. Evidence: 9e57c1722 release fixes plus master-only 9032
 Remaining: Complete public/fleet setup split, D1-D7, x86/Arm 26.04 matrix, and bounded retry for an empty GitHub workflow-runs page. Master-only OS/setup fixes ship next release.
 
 Readiness probe fact: `CheckReleaseWorkflowAtTag` currently maps an empty GitHub workflow-runs API page to `Missing`/workflow-not-started. Add bounded retry before declaring durable absence; this was observed on 2026-09-22 and the workflow appeared green three minutes later.
+
+Pending niue owner action: update the installed `/etc/sshdoers` comment from `ops/setup-ubuntu-lts-24.sh, byte for byte` to `ops/setup-ubuntu-lts.sh, byte for byte` and run Stage 8 on niue when the setup rename lands there.
