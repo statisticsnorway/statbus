@@ -88,7 +88,10 @@ else
     HCLOUD_LOCATIONS="${HCLOUD_LOCATIONS:-${HCLOUD_LOCATION:-hel1} fsn1 nbg1}"
 fi
 HCLOUD_LOCATION="${HCLOUD_LOCATION:-${HCLOUD_LOCATIONS%% *}}"
-HCLOUD_IMAGE="${HCLOUD_IMAGE:-ubuntu-24.04}"
+# One image selector for every install-recovery scenario and upgrade arc. A
+# scenario may set it before sourcing this library when it intentionally proves
+# a different supported target.
+HARNESS_VM_IMAGE="${HARNESS_VM_IMAGE:-ubuntu-26.04}"
 HCLOUD_SSH_KEY="${HCLOUD_SSH_KEY:-jorgen@veridit.no}"
 HCLOUD_NAME_PREFIX="${HCLOUD_NAME_PREFIX:-statbus-recovery-}"
 
@@ -1176,7 +1179,7 @@ bootstrap_install_test_vm() {
                 --name "$vm_name" \
                 --label "statbus-create-token=$create_token" \
                 --type "$HCLOUD_SERVER_TYPE" \
-                --image "$HCLOUD_IMAGE" \
+                --image "$HARNESS_VM_IMAGE" \
                 --location "$create_location" \
                 --ssh-key "$HCLOUD_SSH_KEY" \
                 >/dev/null 2>"$create_stderr"; then
@@ -1237,8 +1240,8 @@ reset_vm_state() {
         return 1
     fi
 
-    echo "Reimaging $vm_name to fresh $HCLOUD_IMAGE (server id and IP preserved)..."
-    hcloud server rebuild "$vm_name" --image "$HCLOUD_IMAGE" > /dev/null
+    echo "Reimaging $vm_name to fresh $HARNESS_VM_IMAGE (server id and IP preserved)..."
+    hcloud server rebuild "$vm_name" --image "$HARNESS_VM_IMAGE" > /dev/null
 
     VM_IP=$(_hcloud_server_ip "$vm_name") || return 1
     echo "  VM_IP=$VM_IP (unchanged)"

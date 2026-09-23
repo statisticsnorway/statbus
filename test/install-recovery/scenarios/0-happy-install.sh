@@ -25,6 +25,9 @@ VM_NAME="${1:-statbus-recovery-0-happy-install}"
 # default resolves to stable, unlike development (local). No channel seeding.
 HARNESS_DEPLOYMENT_MODE="${HARNESS_DEPLOYMENT_MODE:-private}"
 HARNESS_UPGRADE_CHANNEL="${HARNESS_UPGRADE_CHANNEL:-stable}"
+# Ubuntu 24.04 remains a supported target. Keep exactly this fresh-install
+# happy path on the older LTS so the harness proves installation there too.
+HARNESS_VM_IMAGE="ubuntu-24.04"
 if [ "$HARNESS_DEPLOYMENT_MODE" != private ] || [ "$HARNESS_UPGRADE_CHANNEL" != stable ]; then
     echo "ERROR: 0-happy-install requires private mode and the default stable channel" >&2
     exit 1
