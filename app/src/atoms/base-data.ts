@@ -8,34 +8,34 @@
  * such as statistical definitions, external identifier types, and time contexts.
  */
 
-import { atom } from 'jotai'
-import { loadable, selectAtom, atomWithStorage } from 'jotai/utils'
-import { isEqual } from 'moderndash'
-import { useAtomValue, useSetAtom } from 'jotai'
-import { atomWithRefresh } from 'jotai/utils'
-import { useCallback } from 'react'
+import { atom } from "jotai";
+import { loadable, selectAtom, atomWithStorage } from "jotai/utils";
+import { isEqual } from "moderndash";
+import { useAtomValue, useSetAtom } from "jotai";
+import { atomWithRefresh } from "jotai/utils";
+import { useCallback } from "react";
 
-import type { Database, Tables } from '@/lib/database.types'
-import { describeError } from '@/lib/error-format'
-import { restClientAtom } from './rest-client'
-import { authStatusUnstableDetailsAtom } from './auth'
+import type { Database, Tables } from "@/lib/database.types";
+import { describeError } from "@/lib/error-format";
+import { restClientAtom } from "./rest-client";
+import { authStatusUnstableDetailsAtom } from "./auth";
 
 // ============================================================================
 // LOCALSTORAGE CACHING FOR MENU STATE
 // ============================================================================
 
-const STORAGE_KEY_HAS_STATISTICAL_UNITS = 'statbus:hasStatisticalUnits';
+const STORAGE_KEY_HAS_STATISTICAL_UNITS = "statbus:hasStatisticalUnits";
 
 /**
  * Read the cached hasStatisticalUnits value from localStorage.
  * Returns null if not found or on SSR.
  */
 function getCachedHasStatisticalUnits(): boolean | null {
-  if (typeof window === 'undefined') return null;
+  if (typeof window === "undefined") return null;
   try {
     const cached = localStorage.getItem(STORAGE_KEY_HAS_STATISTICAL_UNITS);
-    if (cached === 'true') return true;
-    if (cached === 'false') return false;
+    if (cached === "true") return true;
+    if (cached === "false") return false;
     return null;
   } catch {
     return null;
@@ -46,9 +46,12 @@ function getCachedHasStatisticalUnits(): boolean | null {
  * Write the hasStatisticalUnits value to localStorage.
  */
 function setCachedHasStatisticalUnits(value: boolean): void {
-  if (typeof window === 'undefined') return;
+  if (typeof window === "undefined") return;
   try {
-    localStorage.setItem(STORAGE_KEY_HAS_STATISTICAL_UNITS, value ? 'true' : 'false');
+    localStorage.setItem(
+      STORAGE_KEY_HAS_STATISTICAL_UNITS,
+      value ? "true" : "false"
+    );
   } catch {
     // Ignore storage errors
   }
@@ -59,7 +62,7 @@ function setCachedHasStatisticalUnits(value: boolean): void {
  * Called when is_importing completes to force a fresh fetch.
  */
 export function invalidateHasStatisticalUnitsCache(): void {
-  if (typeof window === 'undefined') return;
+  if (typeof window === "undefined") return;
   try {
     localStorage.removeItem(STORAGE_KEY_HAS_STATISTICAL_UNITS);
   } catch {
@@ -72,12 +75,12 @@ export function invalidateHasStatisticalUnitsCache(): void {
 // ============================================================================
 
 export interface BaseData {
-  statDefinitions: Tables<"stat_definition_enabled">[]
-  externalIdentTypes: Tables<"external_ident_type_enabled">[]
-  statbusUsers: Tables<"user">[]
-  timeContexts: Tables<"time_context">[]
-  defaultTimeContext: Tables<"time_context"> | null
-  hasStatisticalUnits: boolean
+  statDefinitions: Tables<"stat_definition_enabled">[];
+  externalIdentTypes: Tables<"external_ident_type_enabled">[];
+  statbusUsers: Tables<"user">[];
+  timeContexts: Tables<"time_context">[];
+  defaultTimeContext: Tables<"time_context"> | null;
+  hasStatisticalUnits: boolean;
 }
 
 // Initial base data uses the cached value from localStorage for hasStatisticalUnits
@@ -100,81 +103,106 @@ const initialBaseData: BaseData = {
   hasStatisticalUnits: false,
 };
 
-import { authStateForDataFetchingAtom } from './auth';
-import { isUserConsideredAuthenticatedForUIAtom } from './auth';
+import { authStateForDataFetchingAtom } from "./auth";
+import { isUserConsideredAuthenticatedForUIAtom } from "./auth";
 
 // ...
 
 // Explicitly type the return of the async function for atomWithRefresh
-export const baseDataPromiseAtom = atomWithRefresh<Promise<BaseData>>(async (get): Promise<BaseData> => {
-  const authState = get(authStateForDataFetchingAtom);
-  const client = get(restClientAtom);
+export const baseDataPromiseAtom = atomWithRefresh<Promise<BaseData>>(
+  async (get): Promise<BaseData> => {
+    const authState = get(authStateForDataFetchingAtom);
+    const client = get(restClientAtom);
 
-  // If a token refresh or an initial check is in progress, suspend. This prevents API
-  // calls with an expired or unknown token. The atom will re-evaluate when the
-  // auth machine's state changes.
-  if (authState === 'refreshing' || authState === 'checking') {
-    return new Promise<never>(() => {}); // Suspends the atom and any component that uses it
-  }
-
-  // Check for a stable authenticated state.
-  if (authState !== 'authenticated') {
-    return initialBaseData;
-  }
-  
-  if (!client) {
-    // If the client is not ready, return the initial empty data.
-    // The atom will be re-evaluated automatically by Jotai when restClientAtom changes.
-    // Use cached value for hasStatisticalUnits to show menu optimistically
-    return getInitialBaseData();
-  }
-
-  try {
-    const [
-      statDefinitionsResult,
-      externalIdentTypesResult,
-      statbusUsersResult,
-      statisticalUnitResult,
-      timeContextsResult
-    ] = await Promise.all([
-      client.from("stat_definition_enabled").select(),
-      client.from("external_ident_type_enabled").select(),
-      client.from("user").select(), // Consider if all users are needed or just current user's info
-      client.from("statistical_unit").select("unit_id").limit(1), // Check existence with minimal data fetch
-      client.from("time_context").select("*") // Fetches all, view is ordered by default
-    ]);
-
-    if (statDefinitionsResult.error) console.error('Error fetching stat definitions:', statDefinitionsResult.error);
-    if (externalIdentTypesResult.error) console.error('Error fetching external ident types:', externalIdentTypesResult.error);
-    if (statbusUsersResult.error) console.error('Error fetching statbus users:', statbusUsersResult.error);
-    if (statisticalUnitResult.error) console.error('Error checking for statistical units:', statisticalUnitResult.error); // This error might still occur if other issues arise, but the query itself is fixed.
-    if (timeContextsResult.error) console.error('Error fetching time contexts:', timeContextsResult.error);
-    
-    let defaultTimeContext: Tables<"time_context"> | null = null;
-    if (timeContextsResult.data && timeContextsResult.data.length > 0) {
-      // The time_context view is pre-ordered by priority, then valid_on descending.
-      // The first one is the default.
-      defaultTimeContext = timeContextsResult.data[0] as Tables<"time_context">;
+    // If a token refresh or an initial check is in progress, suspend. This prevents API
+    // calls with an expired or unknown token. The atom will re-evaluate when the
+    // auth machine's state changes.
+    if (authState === "refreshing" || authState === "checking") {
+      return new Promise<never>(() => {}); // Suspends the atom and any component that uses it
     }
 
-    const hasStatisticalUnits = !!(statisticalUnitResult.data && statisticalUnitResult.data.length > 0);
-    
-    // Cache the result in localStorage for faster subsequent page loads
-    setCachedHasStatisticalUnits(hasStatisticalUnits);
+    // Check for a stable authenticated state.
+    if (authState !== "authenticated") {
+      return initialBaseData;
+    }
 
-    return {
-      statDefinitions: statDefinitionsResult.data || [],
-      externalIdentTypes: externalIdentTypesResult.data || [],
-      statbusUsers: statbusUsersResult.data || [],
-      timeContexts: timeContextsResult.data || [],
-      defaultTimeContext: defaultTimeContext,
-      hasStatisticalUnits,
-    };
-  } catch (error) {
-    console.error("baseDataPromiseAtom: Failed to fetch base data:", error);
-    return initialBaseData;
+    if (!client) {
+      // If the client is not ready, return the initial empty data.
+      // The atom will be re-evaluated automatically by Jotai when restClientAtom changes.
+      // Use cached value for hasStatisticalUnits to show menu optimistically
+      return getInitialBaseData();
+    }
+
+    try {
+      const [
+        statDefinitionsResult,
+        externalIdentTypesResult,
+        statbusUsersResult,
+        statisticalUnitResult,
+        timeContextsResult,
+      ] = await Promise.all([
+        client.from("stat_definition_enabled").select(),
+        client.from("external_ident_type_enabled").select(),
+        client.from("user").select().order("last_sign_in_at"), // Consider if all users are needed or just current user's info
+        client.from("statistical_unit").select("unit_id").limit(1), // Check existence with minimal data fetch
+        client.from("time_context").select("*"), // Fetches all, view is ordered by default
+      ]);
+
+      if (statDefinitionsResult.error)
+        console.error(
+          "Error fetching stat definitions:",
+          statDefinitionsResult.error
+        );
+      if (externalIdentTypesResult.error)
+        console.error(
+          "Error fetching external ident types:",
+          externalIdentTypesResult.error
+        );
+      if (statbusUsersResult.error)
+        console.error(
+          "Error fetching statbus users:",
+          statbusUsersResult.error
+        );
+      if (statisticalUnitResult.error)
+        console.error(
+          "Error checking for statistical units:",
+          statisticalUnitResult.error
+        ); // This error might still occur if other issues arise, but the query itself is fixed.
+      if (timeContextsResult.error)
+        console.error(
+          "Error fetching time contexts:",
+          timeContextsResult.error
+        );
+
+      let defaultTimeContext: Tables<"time_context"> | null = null;
+      if (timeContextsResult.data && timeContextsResult.data.length > 0) {
+        // The time_context view is pre-ordered by priority, then valid_on descending.
+        // The first one is the default.
+        defaultTimeContext = timeContextsResult
+          .data[0] as Tables<"time_context">;
+      }
+
+      const hasStatisticalUnits = !!(
+        statisticalUnitResult.data && statisticalUnitResult.data.length > 0
+      );
+
+      // Cache the result in localStorage for faster subsequent page loads
+      setCachedHasStatisticalUnits(hasStatisticalUnits);
+
+      return {
+        statDefinitions: statDefinitionsResult.data || [],
+        externalIdentTypes: externalIdentTypesResult.data || [],
+        statbusUsers: statbusUsersResult.data || [],
+        timeContexts: timeContextsResult.data || [],
+        defaultTimeContext: defaultTimeContext,
+        hasStatisticalUnits,
+      };
+    } catch (error) {
+      console.error("baseDataPromiseAtom: Failed to fetch base data:", error);
+      return initialBaseData;
+    }
   }
-});
+);
 
 export const baseDataLoadableAtom = loadable(baseDataPromiseAtom);
 
@@ -190,7 +218,14 @@ function isBaseDataEqual(a: BaseData, b: BaseData): boolean {
 
   // Create a key from an array of objects using their primary identifiers.
   // This is more efficient than a full deep equal and robust enough for this data.
-  const idKey = (arr: ReadonlyArray<{ id?: unknown; code?: unknown; ident?: unknown }>) => arr.map((item) => item?.id ?? item?.code ?? item?.ident ?? JSON.stringify(item)).join(',');
+  const idKey = (
+    arr: ReadonlyArray<{ id?: unknown; code?: unknown; ident?: unknown }>
+  ) =>
+    arr
+      .map(
+        (item) => item?.id ?? item?.code ?? item?.ident ?? JSON.stringify(item)
+      )
+      .join(",");
 
   if (idKey(a.statDefinitions) !== idKey(b.statDefinitions)) return false;
   if (idKey(a.externalIdentTypes) !== idKey(b.externalIdentTypes)) return false;
@@ -209,57 +244,87 @@ function areBaseDataResultsEqual(
   return isBaseDataEqual(a, b);
 }
 
-const baseDataUnstableDetailsAtom = atom<BaseData & { loading: boolean; error: string | null }>(
-  (get): BaseData & { loading: boolean; error: string | null } => {
-    const loadableState = get(baseDataLoadableAtom);
-    const isAuthenticatedForUI = get(isUserConsideredAuthenticatedForUIAtom);
-    let result: BaseData & { loading: boolean; error: string | null };
+const baseDataUnstableDetailsAtom = atom<
+  BaseData & { loading: boolean; error: string | null }
+>((get): BaseData & { loading: boolean; error: string | null } => {
+  const loadableState = get(baseDataLoadableAtom);
+  const isAuthenticatedForUI = get(isUserConsideredAuthenticatedForUIAtom);
+  let result: BaseData & { loading: boolean; error: string | null };
 
-    // Explicitly return initial data if not authenticated (from a UI perspective).
-    // This makes the atom's behavior during logout transition crystal clear and robust,
-    // preventing any possibility of showing stale data from a previous session.
-    if (!isAuthenticatedForUI) {
-      return { ...initialBaseData, loading: false, error: null };
-    }
-
-    switch (loadableState.state) {
-      case 'loading':
-        // While loading, use the previous data if available (loadable provides this).
-        // Fallback to initialBaseData if there's no previous data.
-        const dataWhileLoading = ((loadableState as { data?: BaseData }).data) ?? initialBaseData;
-        result = { ...dataWhileLoading, loading: true, error: null };
-        break;
-      case 'hasError':
-        const error = loadableState.error;
-        result = { ...initialBaseData, loading: false, error: describeError(error) };
-        break;
-      case 'hasData':
-        result = { ...loadableState.data, loading: false, error: null };
-        break;
-      default: // Should not happen with loadable
-        result = { ...initialBaseData, loading: false, error: 'Unknown loadable state' };
-    }
-    
-    // The "flap guard" logic has been removed from this atom. The flap is now
-    // prevented at its source by the new, stabilized `isAuthenticatedAtom`.
-    // This makes this atom much simpler and more direct.
-    
-    return result;
+  // Explicitly return initial data if not authenticated (from a UI perspective).
+  // This makes the atom's behavior during logout transition crystal clear and robust,
+  // preventing any possibility of showing stale data from a previous session.
+  if (!isAuthenticatedForUI) {
+    return { ...initialBaseData, loading: false, error: null };
   }
+
+  switch (loadableState.state) {
+    case "loading":
+      // While loading, use the previous data if available (loadable provides this).
+      // Fallback to initialBaseData if there's no previous data.
+      const dataWhileLoading =
+        (loadableState as { data?: BaseData }).data ?? initialBaseData;
+      result = { ...dataWhileLoading, loading: true, error: null };
+      break;
+    case "hasError":
+      const error = loadableState.error;
+      result = {
+        ...initialBaseData,
+        loading: false,
+        error: describeError(error),
+      };
+      break;
+    case "hasData":
+      result = { ...loadableState.data, loading: false, error: null };
+      break;
+    default: // Should not happen with loadable
+      result = {
+        ...initialBaseData,
+        loading: false,
+        error: "Unknown loadable state",
+      };
+  }
+
+  // The "flap guard" logic has been removed from this atom. The flap is now
+  // prevented at its source by the new, stabilized `isAuthenticatedAtom`.
+  // This makes this atom much simpler and more direct.
+
+  return result;
+});
+
+export const baseDataAtom = selectAtom(
+  baseDataUnstableDetailsAtom,
+  (v) => v,
+  areBaseDataResultsEqual
 );
 
-export const baseDataAtom = selectAtom(baseDataUnstableDetailsAtom, (v) => v, areBaseDataResultsEqual);
-
 // Derived atoms for individual data pieces
-export const statDefinitionsAtom = selectAtom(baseDataAtom, (data) => data.statDefinitions, isEqual)
-export const externalIdentTypesAtom = selectAtom(baseDataAtom, (data) => data.externalIdentTypes, isEqual)
-export const statbusUsersAtom = selectAtom(baseDataAtom, (data) => data.statbusUsers, isEqual)
-export const timeContextsAtom = atom((get) => get(baseDataAtom).timeContexts)
-export const defaultTimeContextAtom = atom((get) => get(baseDataAtom).defaultTimeContext)
-export const hasStatisticalUnitsAtom = atom((get) => get(baseDataAtom).hasStatisticalUnits)
+export const statDefinitionsAtom = selectAtom(
+  baseDataAtom,
+  (data) => data.statDefinitions,
+  isEqual
+);
+export const externalIdentTypesAtom = selectAtom(
+  baseDataAtom,
+  (data) => data.externalIdentTypes,
+  isEqual
+);
+export const statbusUsersAtom = selectAtom(
+  baseDataAtom,
+  (data) => data.statbusUsers,
+  isEqual
+);
+export const timeContextsAtom = atom((get) => get(baseDataAtom).timeContexts);
+export const defaultTimeContextAtom = atom(
+  (get) => get(baseDataAtom).defaultTimeContext
+);
+export const hasStatisticalUnitsAtom = atom(
+  (get) => get(baseDataAtom).hasStatisticalUnits
+);
 
 // Action to refresh base data
-export const refreshBaseDataAtom = atom(null, (_get, set) => { // get is not used
+export const refreshBaseDataAtom = atom(null, (_get, set) => {
+  // get is not used
   set(baseDataPromiseAtom);
 });
 
@@ -268,18 +333,18 @@ export const refreshBaseDataAtom = atom(null, (_get, set) => { // get is not use
 // ============================================================================
 
 export const useBaseData = () => {
-  const baseData = useAtomValue(baseDataAtom)
-  const refreshBaseData = useSetAtom(refreshBaseDataAtom)
-  
+  const baseData = useAtomValue(baseDataAtom);
+  const refreshBaseData = useSetAtom(refreshBaseDataAtom);
+
   return {
     ...baseData,
     refreshBaseData: useCallback(async () => {
       try {
-        await refreshBaseData()
+        await refreshBaseData();
       } catch (error) {
-        console.error('Failed to refresh base data:', error)
-        throw error
+        console.error("Failed to refresh base data:", error);
+        throw error;
       }
     }, [refreshBaseData]),
-  }
-}
+  };
+};

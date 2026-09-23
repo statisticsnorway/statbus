@@ -17,7 +17,6 @@ import {
 
 import { UnitTypeTabs } from "./unit-type-tabs";
 
-
 interface HistoryReportsProps {
   readonly title: string;
   readonly subtitle: string;
@@ -26,6 +25,8 @@ interface HistoryReportsProps {
     history: StatisticalHistoryHighcharts;
     isYearlyView: boolean;
     onYearSelect: (year: number) => void;
+    unitType: UnitType;
+    year: string;
   }) => ReactNode;
 }
 
@@ -54,11 +55,21 @@ export function HistoryReports({
 
   const [highchartsModulesLoaded, setHighchartsModulesLoaded] = useState(false);
 
-  useGuardedEffect(() => {
-    import("highcharts/modules/accessibility").then(() => {
-      setHighchartsModulesLoaded(true);
-    });
-  }, [], 'HistoryReports:importHighchartsModules');
+  useGuardedEffect(
+    () => {
+      Promise.all([
+        import("highcharts/modules/accessibility"),
+        // export-data extends Exporting, so it must load after exporting resolves.
+        import("highcharts/modules/exporting").then(
+          () => import("highcharts/modules/export-data")
+        ),
+      ]).then(() => {
+        setHighchartsModulesLoaded(true);
+      });
+    },
+    [],
+    "HistoryReports:importHighchartsModules"
+  );
 
   const { history, isLoading, error } = useStatisticalHistoryHighcharts(
     resolution,
@@ -84,21 +95,20 @@ export function HistoryReports({
               value={selectedUnitType}
               onValueChange={setSelectedUnitType}
             />
-          
-              <Select value={selectedYear} onValueChange={setSelectedYear}>
-                <SelectTrigger className="w-[180px]">
-                  <SelectValue placeholder="Select Year" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Years</SelectItem>
-                  {availableYears.map((year) => (
-                    <SelectItem key={year} value={year.toString()}>
-                      {year}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-          
+
+            <Select value={selectedYear} onValueChange={setSelectedYear}>
+              <SelectTrigger className="w-[180px]">
+                <SelectValue placeholder="Select Year" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Years</SelectItem>
+                {availableYears.map((year) => (
+                  <SelectItem key={year} value={year.toString()}>
+                    {year}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
         </div>
         {!isLoading && !error && history && highchartsModulesLoaded ? (
@@ -106,6 +116,8 @@ export function HistoryReports({
             history,
             isYearlyView: selectedYear === "all",
             onYearSelect: handleYearSelect,
+            unitType: selectedUnitType,
+            year: selectedYear,
           })
         ) : (
           <Skeleton className="h-[400px] " />

@@ -38,7 +38,11 @@ export default async function EnterpriseHistoryPage(props: {
   return (
     <DetailsPage title="History" subtitle="Statistical history for the unit">
       <HistoryChart historyHighcharts={historyHighcharts} />
-      <UnitHistoryTable unitHistory={unitHistory} />
+      <UnitHistoryTable
+        unitHistory={unitHistory}
+        unitId={parseInt(id, 10)}
+        unitType="enterprise"
+      />
     </DetailsPage>
   );
 }

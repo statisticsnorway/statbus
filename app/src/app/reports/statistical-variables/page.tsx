@@ -4,12 +4,11 @@ import { useBaseData } from "@/atoms/base-data";
 import { HistoryReports } from "../history-reports";
 import { StatisticalVariablesChart } from "./statistical-variables-chart";
 
-
 export default function StatisticalVariablesPage() {
-const {statDefinitions} = useBaseData()
-const statsSummaryCodes = statDefinitions
-  .filter((s) => s.type === "int" || s.type === "float")
-  .map((s) => `stats_summary.${s.code}.sum`);
+  const { statDefinitions } = useBaseData();
+  const statsSummaryCodes = statDefinitions
+    .filter((s) => s.type === "int" || s.type === "float")
+    .map((s) => `stats_summary.${s.code}.sum`);
 
   return (
     <HistoryReports
@@ -17,11 +16,13 @@ const statsSummaryCodes = statDefinitions
       subtitle="Statistical variable totals for enterprises, legal units, and establishments over time"
       seriesCodes={statsSummaryCodes}
     >
-      {({ history, isYearlyView, onYearSelect }) => (
+      {({ history, isYearlyView, onYearSelect, unitType, year }) => (
         <StatisticalVariablesChart
           history={history}
           isYearlyView={isYearlyView}
           onYearSelect={onYearSelect}
+          unitType={unitType}
+          year={year}
         />
       )}
     </HistoryReports>
