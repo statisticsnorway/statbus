@@ -95,6 +95,8 @@ See **[User Guide](doc/USAGE.md)** for detailed instructions.
 
 ### For Administrators (Single Instance Deployment)
 
+StatBus server setup supports Ubuntu 24.04 LTS and Ubuntu 26.04 LTS.
+
 ```bash
 curl -fsSL https://statbus.org/install.sh | bash
 ```

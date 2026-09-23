@@ -104,15 +104,15 @@ Backup fires on cadence unattended; SKIPS during an upgrade (both `d.upgrading` 
 <!-- SECTION:NOTES:BEGIN -->
 SCOPE REFINEMENT (King, 2026-06-29) — SUPERSEDES the per-slot multi-tenant framing above. TARGET = STANDALONE installs (external customers); the SSB cloud is de-scoped (SSB-managed / infra-handled — King: 'it doesn't matter if our cloud box does it or doesn't'). The feature is BUILT INTO the standalone install and runs AS THE LOCAL USER (dumps owned by that user). On standalone there is no other backup, so this scheduled dump IS the backup → data-safety-critical for every external customer.
 
-MECHANISM (open, King): 
+MECHANISM (open, King):
 - LEAN: a SYSTEM systemd timer with `User=<localuser>` — runs as the user, no `enable-linger` needed (system units fire unattended), journald logging + `Persistent=` missed-run catch-up, consistent with the existing upgrade units.
 - FALLBACK: a USER crontab — simplest, runs as the user, no linger, universal; weaker logging, no catch-up.
 - DISFAVORED: a *user* systemd timer (`systemctl --user`) — needs `enable-linger` (a root step) to run without an active login.
 Settle crontab-vs-systemd by how the standalone install already sets up its systemd units + whether setup runs as root (grounding in flight).
 
-MECHANISM SETTLED (grounded 2026-06-29; tmp/operator-standalone-systemd.md, foreman-verified). The standalone box runs everything as USER-level systemd as user `statbus`, with `enable-linger` ALREADY set (setup-ubuntu-lts-24.sh:1091) — the upgrade service itself is a USER unit (ops/statbus-upgrade.service: WantedBy=default.target, ~/.config/systemd/user/, `systemctl --user`, WorkingDirectory=%h/statbus). 
+MECHANISM SETTLED (grounded 2026-06-29; tmp/operator-standalone-systemd.md, foreman-verified). The standalone box runs everything as USER-level systemd as user `statbus`, with `enable-linger` ALREADY set (setup-ubuntu-lts.sh:1091) — the upgrade service itself is a USER unit (ops/statbus-upgrade.service: WantedBy=default.target, ~/.config/systemd/user/, `systemctl --user`, WorkingDirectory=%h/statbus).
 
-So the backup = a USER `.timer` + `.service` pair in ~/.config/systemd/user/, owned by `statbus`, installed by `./sb install` (same path as statbus-upgrade), managed via `systemctl --user`. Linger already enabled → fires without login. 
+So the backup = a USER `.timer` + `.service` pair in ~/.config/systemd/user/, owned by `statbus`, installed by `./sb install` (same path as statbus-upgrade), managed via `systemctl --user`. Linger already enabled → fires without login.
 
 This SUPERSEDES the open crontab-vs-systemd question: NOT a system timer with `User=` (the box uses user units), NOT a crontab — a user timer is the consistent, lowest-friction fit. (The earlier 'user systemd needs enable-linger' caveat is moot: linger is already on.) Install code lives at cli/cmd/install.go.
 

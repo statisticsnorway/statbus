@@ -1,9 +1,13 @@
-# setup-ubuntu-lts-24.sh
+# setup-ubuntu-lts.sh
 
 Ubuntu server setup script — **OS hardening + account creation** —
 with interactive stage-by-stage execution. Run once per host; creates the
 `devops` ops/admin account and the `statbus` service account that StatBus will
 be installed and operated under.
+
+Supported operating systems are Ubuntu 24.04 LTS and Ubuntu 26.04 LTS. The
+script reads `/etc/os-release` and refuses unsupported releases before making
+changes, in both interactive and non-interactive mode.
 
 This script is the **first of two phases** in a fresh StatBus install:
 
@@ -17,7 +21,7 @@ This script is the **first of two phases** in a fresh StatBus install:
 
 ```bash
 # Download
-curl -fsSL https://raw.githubusercontent.com/statisticsnorway/statbus/master/ops/setup-ubuntu-lts-24.sh -o setup.sh
+curl -fsSL https://raw.githubusercontent.com/statisticsnorway/statbus/master/ops/setup-ubuntu-lts.sh -o setup.sh
 chmod +x setup.sh
 
 # Run (will prompt for configuration, then each stage)

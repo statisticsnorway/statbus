@@ -25,7 +25,7 @@ Two of 36 jobs at rc.03 failed identically. Both reached the same late phase and
 
 **The control-line classification is wrong, and it matters.** Whether a rented machine dies is outside our control. What we choose to run on it during setup is entirely inside it. Responsibility follows the control line: this is ours.
 
-**What the setup script actually does.** `ops/setup-ubuntu-lts-24.sh` is a hardening script for the first two thirds of its length — etckeeper, unattended-upgrades, CrowdSec with a firewall bouncer, ufw, Docker — and installs a sensible operator toolkit from apt (neovim, htop, ripgrep, git, net-tools, jnettop, acl, aptitude). Then Stage 6 installs `build-essential`, bootstraps Homebrew from GitHub, and pours **helix** (a second editor), **bottom** (a second system monitor) and **zellij**.
+**What the setup script actually does.** `ops/setup-ubuntu-lts.sh` is a hardening script for the first two thirds of its length — etckeeper, unattended-upgrades, CrowdSec with a firewall bouncer, ufw, Docker — and installs a sensible operator toolkit from apt (neovim, htop, ripgrep, git, net-tools, jnettop, acl, aptitude). Then Stage 6 installs `build-essential`, bootstraps Homebrew from GitHub, and pours **helix** (a second editor), **bottom** (a second system monitor) and **zellij**.
 
 Three observations follow from reading it:
 

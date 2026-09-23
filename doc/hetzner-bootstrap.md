@@ -1,12 +1,16 @@
 # Hetzner Bootstrap — rescue to production-ready Ubuntu
 
-Short operator guide for the one-time initial install of Ubuntu 24.04 LTS on a
-Hetzner physical ("dedicated") server, specifically the steps that are
+Short operator guide for the one-time initial install of supported Ubuntu LTS
+releases on a Hetzner physical ("dedicated") server, specifically the steps that are
 Hetzner-rescue-specific and don't belong in the general
 [DEPLOYMENT.md](DEPLOYMENT.md) flow.
 
+StatBus supports Ubuntu 24.04 LTS and Ubuntu 26.04 LTS. The concrete
+`installimage` example below uses Ubuntu 24.04 LTS. Select the corresponding
+Ubuntu 26.04 image when provisioning that supported release.
+
 After the steps in this document, hand off to
-[setup-ubuntu-lts-24.md](setup-ubuntu-lts-24.md) for hardening + service
+[setup-ubuntu-lts.md](setup-ubuntu-lts.md) for hardening + service
 accounts, then [install-statbus.md](install-statbus.md) to install StatBus
 itself.
 
@@ -170,19 +174,20 @@ apt-get full-upgrade -y
 reboot
 ```
 
-## 8. Hand off to setup-ubuntu-lts-24.sh
+## 8. Hand off to setup-ubuntu-lts.sh
 
-The box is now a plain Ubuntu 24.04 server. Continue with the StatBus setup
-script, which handles the OS hardening + account creation:
+The box is now a plain supported Ubuntu LTS server. Continue with the StatBus
+setup script, which detects Ubuntu 24.04 or 26.04 from `/etc/os-release` and
+handles the OS hardening + account creation:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/statisticsnorway/statbus/master/ops/setup-ubuntu-lts-24.sh -o setup.sh
+curl -fsSL https://raw.githubusercontent.com/statisticsnorway/statbus/master/ops/setup-ubuntu-lts.sh -o setup.sh
 chmod +x setup.sh
 # Skip Stage 0 on Hetzner — HTTP APT sources work fine here.
 SKIP_STAGES="0" ./setup.sh
 ```
 
-See [setup-ubuntu-lts-24.md](setup-ubuntu-lts-24.md) for the full stage
+See [setup-ubuntu-lts.md](setup-ubuntu-lts.md) for the full stage
 description and options, and [DEPLOYMENT.md](DEPLOYMENT.md) /
 [install-statbus.md](install-statbus.md) for the StatBus install that
 follows.

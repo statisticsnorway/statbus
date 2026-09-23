@@ -39,11 +39,11 @@ DESIGN — the mechanism already exists; what is missing is that sshdoers never 
 
 ## THE LEGO DECOMPOSITION
 
-**General part, already built and already sanctioned:** `ops/setup-ubuntu-lts-24.sh` — a repo-tracked, staged, root-run host provisioning script with a non-interactive mode, fetched over https and run with sudo. That is *how root state on these hosts is established*, by design and by documented usage.
+**General part, already built and already sanctioned:** `ops/setup-ubuntu-lts.sh` — a repo-tracked, staged, root-run host provisioning script with a non-interactive mode, fetched over https and run with sudo. That is *how root state on these hosts is established*, by design and by documented usage.
 
 **Our composition:** the specific commands our CI is permitted to run on each slot.
 
-**What is missing is not a mechanism. It is that sshdoers was never made a stage of the one we have.** `grep sshdo ops/setup-ubuntu-lts-24.sh` returns nothing — the allowlist was established by hand, outside the path built for exactly this, and its own header records the consequence: *"Managed by hand."*
+**What is missing is not a mechanism. It is that sshdoers was never made a stage of the one we have.** `grep sshdo ops/setup-ubuntu-lts.sh` returns nothing — the allowlist was established by hand, outside the path built for exactly this, and its own header records the consequence: *"Managed by hand."*
 
 So the fix is not to invent a delivery mechanism. **It is to add a stage that renders `/etc/sshdoers` from `ops/<host>/sshdoers`**, which is already the repo layout (`ops/niue/sshdoers`, with standalone hosts free to carry their own).
 
@@ -87,7 +87,7 @@ Whether other hand-managed root state on these hosts (unit files, ACLs) should j
 author: foreman
 created: 2026-08-20 06:06
 ---
-KING APPROVAL (2026-08-20 morning) — the design in comment #1 is approved as ratified, exactly as written: /etc/sshdoers becomes a stage of ops/setup-ubuntu-lts-24.sh (the existing repo-tracked root provisioning path), independently runnable; a world-readable /etc/sshdoers.sha256 is published beside the root-owned file; drift FAILS THE RELEASE PREFLIGHT; explicitly NOT a ./sb subcommand (the product must not know CI doors). The existing `match hexdigits` grammar means 258's future `upgrade apply <40hex>` entry is one line.
+KING APPROVAL (2026-08-20 morning) — the design in comment #1 is approved as ratified, exactly as written: /etc/sshdoers becomes a stage of ops/setup-ubuntu-lts.sh (the existing repo-tracked root provisioning path), independently runnable; a world-readable /etc/sshdoers.sha256 is published beside the root-owned file; drift FAILS THE RELEASE PREFLIGHT; explicitly NOT a ./sb subcommand (the product must not know CI doors). The existing `match hexdigits` grammar means 258's future `upgrade apply <40hex>` entry is one line.
 
 Execution order pinned by the King:
 1. Engineer builds the stage + the preflight drift check (this ticket).
@@ -116,7 +116,7 @@ Build go approved on the architect's side; command list relayed to the King with
 author: engineer
 created: 2026-08-20 06:19
 ---
-**BUILT AND FROZEN — ready for the architect's verdict.** Chain: build OK, `go test ./...` green, `golangci-lint run ./...` 0 issues, gofmt clean, `bash -n` clean, **shellcheck warnings IDENTICAL to HEAD** (3×SC2034 + 3×SC2164, all pre-existing — compared count-by-code against a HEAD extraction, not eyeballed). Files: `ops/setup-ubuntu-lts-24.sh`, `ops/niue/sshdoers`, `cli/cmd/release.go`, plus `cli/cmd/release_sshdoers_drift.go` and its test (new).
+**BUILT AND FROZEN — ready for the architect's verdict.** Chain: build OK, `go test ./...` green, `golangci-lint run ./...` 0 issues, gofmt clean, `bash -n` clean, **shellcheck warnings IDENTICAL to HEAD** (3×SC2034 + 3×SC2164, all pre-existing — compared count-by-code against a HEAD extraction, not eyeballed). Files: `ops/setup-ubuntu-lts.sh`, `ops/niue/sshdoers`, `cli/cmd/release.go`, plus `cli/cmd/release_sshdoers_drift.go` and its test (new).
 
 ## ⚠ SEQUENCING — DECIDE THIS BEFORE LANDING
 
@@ -202,7 +202,7 @@ REMAINING ON THIS TICKET: (1) the King's pre-declared root session on niue (comm
 author: foreman
 created: 2026-08-27 12:33
 ---
-KING APPROVED THE ROOT SESSION (2026-08-27, first act back from the break): the pre-declared command list at tmp/259-command-list.md is the declared session, verbatim, with <COMMIT> = 202ff3511. Verified before relay: no commits landed during the break (origin tip still 99371ab9b), the last change to ops/setup-ubuntu-lts-24.sh and ops/niue/sshdoers is 202ff3511 itself, so the pin is exact. Compare-first stands: steps 1-3 read-only, STOP on hash difference, reconcile as a reviewed commit with live winning on first contact. The King runs steps 1-6 as root on niue; step 7's dev entry is provable through the real CI door via a deploy-to-dev dispatch, demo's at its next scheduled trigger or from a CI-key holder.
+KING APPROVED THE ROOT SESSION (2026-08-27, first act back from the break): the pre-declared command list at tmp/259-command-list.md is the declared session, verbatim, with <COMMIT> = 202ff3511. Verified before relay: no commits landed during the break (origin tip still 99371ab9b), the last change to ops/setup-ubuntu-lts.sh and ops/niue/sshdoers is 202ff3511 itself, so the pin is exact. Compare-first stands: steps 1-3 read-only, STOP on hash difference, reconcile as a reviewed commit with live winning on first contact. The King runs steps 1-6 as root on niue; step 7's dev entry is provable through the real CI door via a deploy-to-dev dispatch, demo's at its next scheduled trigger or from a CI-key holder.
 ---
 
 author: foreman
@@ -242,7 +242,7 @@ SECOND SESSION NEXT (operator, root@niue): provenance protocol as ratified in co
 author: foreman
 created: 2026-08-27 12:50
 ---
-SECOND SESSION STOPPED CLEANLY AT STEP 4 (2026-08-27): provenance check PASSED (live still at the recorded baseline f8b66940… — the new step 2 worked as ratified), backup taken (/root/sshdoers.pre-259.20260827T124818Z), then the stage run REFUSED: ops/setup-ubuntu-lts-24.sh --non-interactive demands /root/.setup-ubuntu.env (ADMIN_EMAIL, GITHUB_USERS, …) — values Stage 8 never consumes. Nothing was installed; zero bytes changed on the box.
+SECOND SESSION STOPPED CLEANLY AT STEP 4 (2026-08-27): provenance check PASSED (live still at the recorded baseline f8b66940… — the new step 2 worked as ratified), backup taken (/root/sshdoers.pre-259.20260827T124818Z), then the stage run REFUSED: ops/setup-ubuntu-lts.sh --non-interactive demands /root/.setup-ubuntu.env (ADMIN_EMAIL, GITHUB_USERS, …) — values Stage 8 never consumes. Nothing was installed; zero bytes changed on the box.
 
 THE FINDING: "independently runnable" was verified by READING (--skip-stages exists, comment #4) and never RUN — the run was the only oracle, again. The env requirement lives in the script preamble, not in the stages that consume it, so running ONLY Stage 8 still demands a config it never reads. Hand-writing a dummy env on niue is out (NO WORKAROUNDS, King's standing ruling). Architect is ruling the fix shape: per-stage config requirement (general, honest — the requirement belongs to the stages) vs a narrow only-Stage-8 exemption (surgical, special-case smell). Fix lands as a reviewed commit; THIRD session runs pinned at that commit — same provenance protocol, baseline unchanged (the box did not move).
 ---
@@ -303,5 +303,5 @@ ACCEPTANCE GREEN — run 33075841334: the chain dispatched deploy-to-dev, the wo
 ## Final Summary
 
 <!-- SECTION:FINAL_SUMMARY:BEGIN -->
-The fleet's inbound-command policy ships as code. Stage 8 of ops/setup-ubuntu-lts-24.sh installs /etc/sshdoers byte-for-byte from the reviewed ops/niue/sshdoers at a required explicit commit, publishes a world-readable hash, and release preflight check 16 fails any cut on drift, unreachability, or an empty domain. Getting there took four root sessions, each teaching something the reviews could not: compare-first fired on real drift (seven live grants the reviewed copy never had — a naive install would have revoked the fleet's convergence polls); the provenance protocol replaced identity with the right question; "independently runnable" proved false at run time and produced the per-stage input declarations; and the final session put the named-target apply entry live. The endgame swapped deploy-to-dev to `upgrade apply $REQUESTED_SHA` with the requested-vs-installed guard kept and its meaning inverted (a mismatch now means the apply verb broke, not that the box chose), and acceptance run 33075841334 proved the whole path — dispatch → door → named install → guard → convergence — through the real CI door. Allowlist changes are henceforth a reviewed commit plus a stage re-run; the last hand-managed security surface joined the doctrine. Deferred: STATBUS-269 (host-name validation), STATBUS-273 (retire dev's apply-latest grant after the transition proves stable).
+The fleet's inbound-command policy ships as code. Stage 8 of ops/setup-ubuntu-lts.sh installs /etc/sshdoers byte-for-byte from the reviewed ops/niue/sshdoers at a required explicit commit, publishes a world-readable hash, and release preflight check 16 fails any cut on drift, unreachability, or an empty domain. Getting there took four root sessions, each teaching something the reviews could not: compare-first fired on real drift (seven live grants the reviewed copy never had — a naive install would have revoked the fleet's convergence polls); the provenance protocol replaced identity with the right question; "independently runnable" proved false at run time and produced the per-stage input declarations; and the final session put the named-target apply entry live. The endgame swapped deploy-to-dev to `upgrade apply $REQUESTED_SHA` with the requested-vs-installed guard kept and its meaning inverted (a mismatch now means the apply verb broke, not that the box chose), and acceptance run 33075841334 proved the whole path — dispatch → door → named install → guard → convergence — through the real CI door. Allowlist changes are henceforth a reviewed commit plus a stage re-run; the last hand-managed security surface joined the doctrine. Deferred: STATBUS-269 (host-name validation), STATBUS-273 (retire dev's apply-latest grant after the transition proves stable).
 <!-- SECTION:FINAL_SUMMARY:END -->

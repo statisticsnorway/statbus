@@ -130,10 +130,11 @@ Docker Compose bypasses UFW firewall rules. Ensure you carefully review which po
 ### Server Setup (Required)
 
 Before installing StatBus, run the setup script to harden the OS and create
-the accounts StatBus expects. This is step 1 of a two-phase install:
+the accounts StatBus expects. Ubuntu 24.04 LTS and Ubuntu 26.04 LTS are
+supported. This is step 1 of a two-phase install:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/statisticsnorway/statbus/master/ops/setup-ubuntu-lts-24.sh -o setup.sh
+curl -fsSL https://raw.githubusercontent.com/statisticsnorway/statbus/master/ops/setup-ubuntu-lts.sh -o setup.sh
 chmod +x setup.sh
 sudo ./setup.sh
 ```
@@ -156,7 +157,7 @@ The script configures:
 - **Skip Stage 4** only if your server is on a private network with existing
   firewall infrastructure.
 
-See [setup-ubuntu-lts-24.md](setup-ubuntu-lts-24.md) for full details.
+See [setup-ubuntu-lts.md](setup-ubuntu-lts.md) for full details.
 For Hetzner physical hosts booted in rescue mode, also see
 [hetzner-bootstrap.md](hetzner-bootstrap.md).
 

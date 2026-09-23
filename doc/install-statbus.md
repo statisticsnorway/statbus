@@ -3,11 +3,12 @@
 STATBUS installation for Ubuntu LTS servers. The harness tests fresh candidate
 installation on Ubuntu 26.04 LTS. Its happy upgrade tests a previous release
 upgrading to the candidate on Ubuntu 24.04 LTS because the real fleet runs 24.04.
-All recovery scenarios and upgrade arcs run on Ubuntu 26.04 LTS.
+Both Ubuntu 24.04 LTS and Ubuntu 26.04 LTS are supported. All recovery scenarios
+and upgrade arcs run on Ubuntu 26.04 LTS.
 
 ## Prerequisites
 
-Run the [server setup script](setup-ubuntu-lts-24.md) first — it hardens the
+Run the [server setup script](setup-ubuntu-lts.md) first — it hardens the
 OS **and** creates the Linux accounts StatBus expects:
 
 - `devops` — ops/admin user (passwordless sudo, docker group)
@@ -72,12 +73,12 @@ See [DEPLOYMENT.md](DEPLOYMENT.md) for detailed configuration options.
 
 ```
 ┌─────────────────────────────────────────┐
-│  1. Provision Ubuntu 24.04 server       │
+│  1. Provision Ubuntu 24.04/26.04 server │
 └─────────────────┬───────────────────────┘
                   │
                   ▼
 ┌─────────────────────────────────────────┐
-│  2. Run setup-ubuntu-lts-24.sh          │
+│  2. Run setup-ubuntu-lts.sh          │
 │     (as root/sudo)                      │
 │     Creates: devops (ops) + statbus     │
 │     (service account), hardens OS.      │

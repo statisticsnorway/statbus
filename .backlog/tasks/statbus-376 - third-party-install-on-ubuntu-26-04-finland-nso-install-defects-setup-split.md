@@ -25,7 +25,7 @@ ordinal: 1
 ## Third-party transcript (Finland NSO, 2026-09-18)
 
 Ville-Mattis Pilvio tested the StatBus install in the Finland NSO sandbox on
-Ubuntu 26.04 LTS. As `statbus`, he ran `setup-ubuntu-lts-24.sh`, then:
+Ubuntu 26.04 LTS. As `statbus`, he ran `setup-ubuntu-lts.sh`, then:
 
     curl -fsSL https://statbus.org/install.sh | bash -s -- --channel prerelease
 
@@ -62,7 +62,7 @@ and an unexplained `TRUST_GITHUB_USER` prompt.
 6. **D6:** Stage 8 skip is warning-level and its hint exposes fleet-only
    `SSHDOERS_REF` to public installers.
 7. **D7:** The summary prints static claims rather than observed stage results;
-   the current static summary is at `setup-ubuntu-lts-24.sh:1690`.
+   the current static summary is at `setup-ubuntu-lts.sh:1690`.
 8. **D8-D11 are fixed in `9e57c1722`:** curl-pipe stdin handling; tag checkout
    noise and the `current` branch; `SYSTEM UNUSABLE` for pre-flight refusals;
    and the `TRUST_GITHUB_USER` explanation.
@@ -98,7 +98,7 @@ PUBLIC/FLEET/DROP classification. Its rename-impact list includes:
 - `sensitive_paths_list_test.go:39`
 - `DEPLOYMENT.md:136,159`
 - `CLOUD.md:745,768,774`
-- `setup-ubuntu-lts-24.md`
+- `setup-ubuntu-lts.md`
 - `install-statbus.md:77`
 - `hetzner-bootstrap.md:173,179`
 - `create-new-statbus-installation.sh:36,182`
@@ -133,6 +133,16 @@ and upgrade-arc runs execute on real Hetzner VMs.
   previous-release-to-candidate upgrade on the fleet's Ubuntu 24.04, and install
   by VERSION with an optional commit debug override.
 - **D: live proof.** Run the resulting matrix on VMs and retain the evidence.
+
+## 2026-09-23 setup-half progress
+
+D4 is resolved locally. The version-neutral `ops/setup-ubuntu-lts.sh` has one
+supported-version gate for Ubuntu 24.04 and 26.04. It refuses every other
+release before setup in both interactive and non-interactive mode. Repository
+references now use the version-neutral name, and an os-release fixture test
+covers acceptance of 24.04/26.04 and refusal of 22.04/25.10. Live package and
+repository proof on both supported releases remains the install-recovery
+harness run.
 
 ## Done when
 

@@ -14,7 +14,7 @@ labels:
   - infra
 dependencies: []
 references:
-  - ops/setup-ubuntu-lts-24.sh
+  - ops/setup-ubuntu-lts.sh
   - test/install-recovery/lib/vm-bootstrap.sh
   - .github/workflows/upgrade-arc-harness.yaml
 priority: medium
@@ -29,7 +29,7 @@ Our upgrade tests run on small rented machines, and the machines themselves are 
 
 WHAT THE EVIDENCE SHOWS: both victims (preswap-binary-swap-kill, then preswap-checkout-kill starting two seconds after the first died) reached late-stage setup — the heavy package installs (a 226MB editor among them) — and then the machine simply went quiet: SSH reads timed out, the harness failed at vm-bootstrap.sh:675 with "HARDENING FAILED ... (empty = SSH read failure)". Same Hetzner zone (hel1), same smallest tier (cx23), same phase, back-to-back provisioning waves. Both scenarios passed at earlier tags. Full triage: tmp/operator-arc-preswap-triage-2026-08-18.md and tmp/operator-arc-fail2-triage-2026-08-18.md.
 
-THE DESIGN QUESTION (architect rules — the obvious fixes conflict with a principle): (a) leaner setup — but ops/setup-ubuntu-lts-24.sh is the REAL operator setup script, and the harness's value is testing exactly what operators run; a test-only slim profile re-opens the divergence the harness exists to close. (b) bigger tier (cx33) — costs more across 31 VMs per full suite. (c) staggered provisioning or lower concurrency — cheaper, slower wall-clock. (d) something else the evidence suggests, e.g. asking whether a disposable test box needs the interactive comfort tools at all — which is really question (a) posed about the OPERATOR script's own contents.
+THE DESIGN QUESTION (architect rules — the obvious fixes conflict with a principle): (a) leaner setup — but ops/setup-ubuntu-lts.sh is the REAL operator setup script, and the harness's value is testing exactly what operators run; a test-only slim profile re-opens the divergence the harness exists to close. (b) bigger tier (cx33) — costs more across 31 VMs per full suite. (c) staggered provisioning or lower concurrency — cheaper, slower wall-clock. (d) something else the evidence suggests, e.g. asking whether a disposable test box needs the interactive comfort tools at all — which is really question (a) posed about the OPERATOR script's own contents.
 
 WHAT IS ACHIEVED: test failures mean product defects again, not rented-machine roulette — the suite's red becomes trustworthy, and nobody spends a morning triaging a machine that starved.
 <!-- SECTION:DESCRIPTION:END -->
@@ -48,7 +48,7 @@ WHAT IS ACHIEVED: test failures mean product defects again, not rented-machine r
 author: architect
 created: 2026-08-18 10:18
 ---
-RULED — doc-032. Option (d), and it is NOT a compromise between test reliability and operator parity: it DISSOLVES the tension. Delete the Homebrew comfort layer from ops/setup-ubuntu-lts-24.sh — Homebrew itself, build-essential, helix, bottom, zellij, and their verifications. Keep the apt toolkit (neovim, htop, ripgrep, git, net-tools, jnettop, acl, aptitude): an operator diagnosing a box needs an editor, a monitor and a grep, and those are small, apt-managed, and patched by the very mechanism this script installs.
+RULED — doc-032. Option (d), and it is NOT a compromise between test reliability and operator parity: it DISSOLVES the tension. Delete the Homebrew comfort layer from ops/setup-ubuntu-lts.sh — Homebrew itself, build-essential, helix, bottom, zellij, and their verifications. Keep the apt toolkit (neovim, htop, ripgrep, git, net-tools, jnettop, acl, aptitude): an operator diagnosing a box needs an editor, a monitor and a grep, and those are small, apt-managed, and patched by the very mechanism this script installs.
 
 PARITY IS PRESERVED, NOT TRADED. The harness keeps running the REAL operator script. No test-only slim profile, no divergence reopened. The script gets smaller, faster, safer AND the test machines stop dying — one change, both benefits, because they were the same problem seen from two ends.
 
@@ -76,13 +76,13 @@ SEQUENCING: agreed — solo reruns of the two failed jobs after drain regardless
 author: foreman
 created: 2026-08-18 10:19
 ---
-SEQUENCING (foreman): assigned to the mechanic, queued as his unit AFTER the orchestrator lands and the 223+220 arc-file pass (223 and 220 share upgrade-arc-harness.yaml, so they go as one unit; 227 is its own unit in ops/setup-ubuntu-lts-24.sh + test/install-recovery/lib/vm-bootstrap.sh). The architect's forensics deliverable is now AC#4 so it cannot drop out of the unit. FLAG TO THE KING, standing in my console: the ruling DELETES the Homebrew comfort layer (brew itself, build-essential, helix, bottom, zellij) from the REAL operator setup script — the apt toolkit (neovim, htop, ripgrep…) stays. If anyone relies on those tools on production boxes, object before the unit ships; the security case for deletion (unpatched parallel package tree + compiler toolchain on a hardened host) is on doc-032.
+SEQUENCING (foreman): assigned to the mechanic, queued as his unit AFTER the orchestrator lands and the 223+220 arc-file pass (223 and 220 share upgrade-arc-harness.yaml, so they go as one unit; 227 is its own unit in ops/setup-ubuntu-lts.sh + test/install-recovery/lib/vm-bootstrap.sh). The architect's forensics deliverable is now AC#4 so it cannot drop out of the unit. FLAG TO THE KING, standing in my console: the ruling DELETES the Homebrew comfort layer (brew itself, build-essential, helix, bottom, zellij) from the REAL operator setup script — the apt toolkit (neovim, htop, ripgrep…) stays. If anyone relies on those tools on production boxes, object before the unit ships; the security case for deletion (unpatched parallel package tree + compiler toolchain on a hardened host) is on doc-032.
 ---
 
 author: foreman
 created: 2026-08-18 11:33
 ---
-KING RATIFIED the comfort-layer deletion, 2026-08-18, foreman's console: "Approved, it slims the install." RE-SEQUENCED: the mechanic builds this NOW (ops/setup-ubuntu-lts-24.sh + test/install-recovery/lib/vm-bootstrap.sh are disjoint from his frozen orchestrator files), so the next RC cut carries the starvation remedy; 223+220 follow after the orchestrator lands as before.
+KING RATIFIED the comfort-layer deletion, 2026-08-18, foreman's console: "Approved, it slims the install." RE-SEQUENCED: the mechanic builds this NOW (ops/setup-ubuntu-lts.sh + test/install-recovery/lib/vm-bootstrap.sh are disjoint from his frozen orchestrator files), so the next RC cut carries the starvation remedy; 223+220 follow after the orchestrator lands as before.
 ---
 
 author: mechanic
@@ -90,7 +90,7 @@ created: 2026-08-18 11:57
 ---
 Built per doc-032 exactly, frozen for review (no commits) — second frozen unit beside 214, shares no files with it. Part 1/2: the comfort-layer deletion.
 
-ops/setup-ubuntu-lts-24.sh, Stage 6 (renamed "User Setup (devops)", was "& Developer Tools"): DELETED
+ops/setup-ubuntu-lts.sh, Stage 6 (renamed "User Setup (devops)", was "& Developer Tools"): DELETED
 - `apt-get install -y build-essential curl file git procps` (Homebrew's own dependency install)
 - the whole Homebrew bootstrap block: mkdir/chown /home/linuxbrew, the NONINTERACTIVE brew install.sh curl-pipe, ACL/ownership setup, /etc/profile.d/linuxbrew.sh (PATH + shellenv + bash-completion), the `git config --system safe.directory` for linuxbrew
 - `brew install helix bottom zellij` + its failure-tolerant fallback log line
@@ -106,7 +106,7 @@ Also caught two stale-prose spots while in the area (doc-accuracy, not functiona
 
 207 GOAL-BASED STAGES cross-check: grepped test/install-recovery/lib/*.sh and scenarios/*.sh for helix/zellij/bottom/linuxbrew/Homebrew — zero hits outside comments already updated. Nothing in the harness's own goal-based verification depends on any deleted tool; the harness only cares that Stage 6 (SSH/user setup) succeeds, which it still does, unchanged.
 
-Validated: `bash -n ops/setup-ubuntu-lts-24.sh` clean. `shellcheck` diffed against the pre-edit baseline (git show HEAD:...) — byte-identical finding set (same pre-existing SC2034/SC2164/SC1091 warnings, zero new, zero removed, only line numbers shifted). Part 2/2 (AC#4 forensics in vm-bootstrap.sh) follows in the next comment.
+Validated: `bash -n ops/setup-ubuntu-lts.sh` clean. `shellcheck` diffed against the pre-edit baseline (git show HEAD:...) — byte-identical finding set (same pre-existing SC2034/SC2164/SC1091 warnings, zero new, zero removed, only line numbers shifted). Part 2/2 (AC#4 forensics in vm-bootstrap.sh) follows in the next comment.
 ---
 
 author: mechanic
@@ -135,7 +135,7 @@ Both files' diffs frozen together (no commits), share no files with the STATBUS-
 author: mechanic
 created: 2026-08-18 12:00
 ---
-ADDITION (King-directed, via foreman): tmux added to the KEPT apt toolkit in ops/setup-ubuntu-lts-24.sh Stage 5 — `apt-get install -y neovim htop net-tools jnettop git acl ripgrep aptitude tmux`, plus `verify "tmux installed" "which tmux"`, plus the stage-description echo line updated to list it. Installed exactly like every other apt tool in that list — no auto-attach profile.d hook, no session-restore behavior recreated. An operator opts in manually (`tmux` / `tmux attach`) like any other server. Noted in the Homebrew-deletion comment too, so a reader lands on the full story (deleted zellij's role, tmux now covers session-survival) in one place. Re-validated: bash -n + shellcheck-vs-baseline still clean (zero new findings).
+ADDITION (King-directed, via foreman): tmux added to the KEPT apt toolkit in ops/setup-ubuntu-lts.sh Stage 5 — `apt-get install -y neovim htop net-tools jnettop git acl ripgrep aptitude tmux`, plus `verify "tmux installed" "which tmux"`, plus the stage-description echo line updated to list it. Installed exactly like every other apt tool in that list — no auto-attach profile.d hook, no session-restore behavior recreated. An operator opts in manually (`tmux` / `tmux attach`) like any other server. Noted in the Homebrew-deletion comment too, so a reader lands on the full story (deleted zellij's role, tmux now covers session-survival) in one place. Re-validated: bash -n + shellcheck-vs-baseline still clean (zero new findings).
 ---
 
 author: architect
@@ -167,7 +167,7 @@ LANDED at 07138b2c4, architect-approved with no amendment (verdict comment #7): 
 author: foreman
 created: 2026-08-28 02:11
 ---
-ROOT CAUSE FOUND for this ticket's signature (2026-08-28 ~02:15Z, during rc.12's chain diagnosis) — and it is a CHECK BUG, not VM exhaustion: ops/setup-ubuntu-lts-24.sh runs under set -o pipefail (:17) and Stage 3's verify at :811 is `dpkg -l | grep -q unattended-upgrades` — the canonical grep -q SIGPIPE race (grep exits on match, closes the pipe, dpkg dies of SIGPIPE with bytes unwritten, pipefail fails the pipeline despite the match). PROOF from rc.12's failing VM: apt printed 'unattended-upgrades is already the newest version' immediately before the ✗ — the install succeeded, the check raced. Nondeterministic by dpkg listing size (failing VM: 173 pending updates; green VMs: 44), which is why the failure ROVES scenarios: restore-broke-reattempt at Aug-19 and rc.11, 5-install-drifted-unit-reconciled at rc.12 — same fingerprint ('✗ unattended-upgrades installed' → vm-bootstrap.sh:756) every time. It has cost at least three chain runs. Fix in flight (pipe-free dpkg -s probe + a sweep of every early-exit-consumer pipeline under pipefail in the hardening script and harness libs); rides rc.13.
+ROOT CAUSE FOUND for this ticket's signature (2026-08-28 ~02:15Z, during rc.12's chain diagnosis) — and it is a CHECK BUG, not VM exhaustion: ops/setup-ubuntu-lts.sh runs under set -o pipefail (:17) and Stage 3's verify at :811 is `dpkg -l | grep -q unattended-upgrades` — the canonical grep -q SIGPIPE race (grep exits on match, closes the pipe, dpkg dies of SIGPIPE with bytes unwritten, pipefail fails the pipeline despite the match). PROOF from rc.12's failing VM: apt printed 'unattended-upgrades is already the newest version' immediately before the ✗ — the install succeeded, the check raced. Nondeterministic by dpkg listing size (failing VM: 173 pending updates; green VMs: 44), which is why the failure ROVES scenarios: restore-broke-reattempt at Aug-19 and rc.11, 5-install-drifted-unit-reconciled at rc.12 — same fingerprint ('✗ unattended-upgrades installed' → vm-bootstrap.sh:756) every time. It has cost at least three chain runs. Fix in flight (pipe-free dpkg -s probe + a sweep of every early-exit-consumer pipeline under pipefail in the hardening script and harness libs); rides rc.13.
 ---
 
 author: foreman

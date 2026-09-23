@@ -1,7 +1,7 @@
 # Host firewall (CrowdSec) on niue.statbus.org
 
 `niue.statbus.org` runs CrowdSec with the nftables firewall bouncer
-(installed by `ops/setup-ubuntu-lts-24.sh` Stage 4). When a scenario
+(installed by `ops/setup-ubuntu-lts.sh` Stage 4). When a scenario
 fires (typically `crowdsecurity/ssh-bf` for SSH brute-force), the
 bouncer drops all traffic from the offending source IP for 4 hours
 by default. Drops are silent (no RST, no ICMP unreachable) — clients

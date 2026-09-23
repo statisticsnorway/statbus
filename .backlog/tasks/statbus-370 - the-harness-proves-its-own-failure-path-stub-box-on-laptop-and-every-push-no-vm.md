@@ -84,7 +84,7 @@ purpose, run when the failure machinery changes (not per candidate),
   the stub sshd itself; no Hetzner, no Docker for the product).
 - GitHub: a job in `fast-tests.yaml` or its own `harness-selftest.yaml` on
   every push to master and every PR touching `test/install-recovery/**`,
-  `ops/setup-ubuntu-lts-24.sh`, `install.sh`, `.github/actions/**`. Free
+  `ops/setup-ubuntu-lts.sh`, `install.sh`, `.github/actions/**`. Free
   runner, ~2 min. Red blocks `release check` like any other workflow
   (add it to the prerelease gate table).
 

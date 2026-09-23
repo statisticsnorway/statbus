@@ -33,7 +33,7 @@ created: 2026-08-27 12:58
 ---
 **BUILT AND FROZEN.** Chain: build OK, `go test ./...` green, `golangci-lint run ./...` 0 issues, gofmt clean.
 
-**MY FILES ARE EXACTLY FOUR** — `cli/internal/upgrade/service.go` and three test files in the same package. `ops/setup-ubuntu-lts-24.sh` is ALSO dirty in the tree and is NOT mine: it carries the 259 second session's per-stage input declarations. Please stage by name, not by `git add -A`.
+**MY FILES ARE EXACTLY FOUR** — `cli/internal/upgrade/service.go` and three test files in the same package. `ops/setup-ubuntu-lts.sh` is ALSO dirty in the tree and is NOT mine: it carries the 259 second session's per-stage input declarations. Please stage by name, not by `git add -A`.
 
 ## The fix
 

@@ -742,7 +742,7 @@ requires one box code.
 
 The unified `FLEET_REGISTRY=()` near the top of `cloud.sh` has one `code|group|ssh_target|public_domain` entry per box. Add a new host by appending one entry; channel and display name are always read from the box.
 
-**Direct `./sb`** — when you want to run a specific operation on the host itself. Log in as the `statbus` service account (created by Stage 7 of `setup-ubuntu-lts-24.sh`):
+**Direct `./sb`** — when you want to run a specific operation on the host itself. Log in as the `statbus` service account (created by Stage 7 of `setup-ubuntu-lts.sh`):
 
 ```bash
 # rune-no example
@@ -765,7 +765,7 @@ For host-level administration (journalctl, apt, systemctl system units, etc.) lo
 The high-level shape (concrete walkthrough belongs in the per-host bootstrap plan; see [hetzner-bootstrap.md](hetzner-bootstrap.md) for Hetzner rescue → Ubuntu):
 
 1. Provision the box. Install Ubuntu 24.04 LTS with the desired filesystem (mdadm RAID where applicable; XFS recommended for `/`).
-2. Run `ops/setup-ubuntu-lts-24.sh` as root/sudo — creates `devops` + `statbus` accounts, hardens OS. `SKIP_STAGES="0"` if the network allows HTTP.
+2. Run `ops/setup-ubuntu-lts.sh` as root/sudo — creates `devops` + `statbus` accounts, hardens OS. `SKIP_STAGES="0"` if the network allows HTTP.
 3. Bootstrap StatBus as the service account: `ssh statbus@<host>` then `curl -fsSL https://statbus.org/install.sh | bash -s -- --channel prerelease`.
 4. Author `.env.config` with `CADDY_DEPLOYMENT_MODE=standalone` (this is now the default and may be omitted), `SITE_DOMAIN=<the public domain>` (required — standalone refuses without it), plus `SEQ_API_KEY` / `SLACK_TOKEN` copied from an existing instance for observability continuity. Use `canary` ONLY for a box we deliberately expose to release candidates first (Norway); an ordinary customer standalone is `production`.
 
