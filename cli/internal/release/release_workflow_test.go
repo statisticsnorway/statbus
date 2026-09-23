@@ -100,12 +100,11 @@ func TestCheckReleaseWorkflowAtTag(t *testing.T) {
 			wantStatus: ReleaseWorkflowMissing,
 		},
 		{
-			// Exact-most-recent semantics: the newer failure SUPERSEDES
-			// the older success. This is the case the old any-green-wins
-			// shape got wrong — a rerun (or, for tag-keyed workflows, a
-			// completely different run for the same tag) is the current
-			// truth, not the "best ever" historical run.
-			name: "rerun-supersedes-success: newer failure replaces older success",
+			// Separate IDs are separate workflow runs, not attempts of one
+			// rerun. Duplicate tag-push delivery can create two such runs;
+			// once one published the immutable tag, the other commonly loses
+			// the gh release create race with "tag already exists".
+			name: "duplicate push: successful publisher wins over newer failed duplicate",
 			runs: []map[string]any{
 				{
 					"id":         105,
@@ -122,16 +121,12 @@ func TestCheckReleaseWorkflowAtTag(t *testing.T) {
 					"created_at": "2026-05-19T10:00:00Z",
 				},
 			},
-			wantStatus: ReleaseWorkflowFailed,
-			wantURL:    "https://github.com/o/r/actions/runs/105",
-			wantID:     105,
-			wantDetail: "failure",
+			wantStatus: ReleaseWorkflowGreen,
+			wantURL:    "https://github.com/o/r/actions/runs/104",
+			wantID:     104,
 		},
 		{
-			// The inverse: a successful rerun supersedes a prior failure.
-			// Operator retried the failed jobs (gh run rerun --failed)
-			// and the latest run is now green — that's authoritative.
-			name: "rerun-supersedes-failure: newer success replaces older failure",
+			name: "newer successful publisher wins over older failure",
 			runs: []map[string]any{
 				{
 					"id":         107,

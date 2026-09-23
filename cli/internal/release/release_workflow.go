@@ -41,16 +41,16 @@ type ReleaseWorkflowResult struct {
 }
 
 // CheckReleaseWorkflowAtTag queries GitHub Actions for the release.yaml
-// runs triggered by the push of the given tag and reports the status of
-// the most recent run. release.yaml is tag-keyed (each tag's push fires
-// its own independent run that publishes that tag's specific GitHub
-// Release), so "exact-most-recent" is the right semantics: a rerun of
-// this tag's run is the current truth; an OLDER tag's success says
-// nothing about THIS tag's readiness.
+// runs triggered by the push of the given tag and reports whether any run
+// successfully published that tag's artifacts. A tag push should normally
+// produce one run, but GitHub can admit duplicate push deliveries as separate
+// run IDs. Once one of those runs succeeds, the immutable tag's artifacts are
+// published; a parallel duplicate can then fail with "Release.tag_name already
+// exists" without invalidating that success.
 //
-// This contrasts with CheckWorkflowAtCommit's any-green-wins semantics,
-// which is correct for commit-keyed workflows (images.yaml) where a
-// successful build for commit X is a permanent statement about commit X.
+// A GitHub rerun keeps the same run ID and updates that run's attempt/status,
+// so scanning distinct run IDs for a success does not let an older attempt of
+// one run override its newer failed attempt.
 func CheckReleaseWorkflowAtTag(tag string) ReleaseWorkflowResult {
 	return checkReleaseWorkflowAt("https://api.github.com", tag)
 }
@@ -101,7 +101,6 @@ func checkReleaseWorkflowOnceAt(apiBase, tag string) ReleaseWorkflowResult {
 			HTMLURL    string `json:"html_url"`
 			Status     string `json:"status"`
 			Conclusion string `json:"conclusion"`
-			CreatedAt  string `json:"created_at"`
 		} `json:"workflow_runs"`
 	}
 	if err := json.NewDecoder(resp.Body).Decode(&body); err != nil {
@@ -111,17 +110,18 @@ func checkReleaseWorkflowOnceAt(apiBase, tag string) ReleaseWorkflowResult {
 		return ReleaseWorkflowResult{Status: ReleaseWorkflowMissing}
 	}
 
-	// Exact-most-recent. The GitHub API returns runs sorted by
-	// created_at DESC; with `branch=<tag>` filtering, every run is
-	// for THIS tag's release.yaml trigger. The first entry is the
-	// most recent (re)run and IS the tag's authoritative status —
-	// no scanning, no any-green fallback.
+	// GitHub returns newest first. Prefer any successful distinct run because
+	// release publication is an idempotent fact for this immutable tag. Keep
+	// the newest run as the diagnostic when no run succeeded.
+	for _, run := range body.WorkflowRuns {
+		if run.Status == "completed" && run.Conclusion == "success" {
+			return ReleaseWorkflowResult{Status: ReleaseWorkflowGreen, RunURL: run.HTMLURL, RunID: run.ID}
+		}
+	}
 	latest := body.WorkflowRuns[0]
 	switch {
 	case latest.Status != "completed":
 		return ReleaseWorkflowResult{Status: ReleaseWorkflowPending, RunURL: latest.HTMLURL, RunID: latest.ID}
-	case latest.Conclusion == "success":
-		return ReleaseWorkflowResult{Status: ReleaseWorkflowGreen, RunURL: latest.HTMLURL, RunID: latest.ID}
 	default:
 		return ReleaseWorkflowResult{Status: ReleaseWorkflowFailed, RunURL: latest.HTMLURL, RunID: latest.ID, Detail: latest.Conclusion}
 	}
