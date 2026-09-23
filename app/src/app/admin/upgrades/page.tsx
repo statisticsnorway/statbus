@@ -18,6 +18,10 @@ import {
   upgradeStateLabel,
 } from "./upgrade-schedule";
 import { compareUpgradeCandidates } from "./upgrade-ordering";
+import {
+  filterStaleInstallFailure,
+  SystemInfoRow,
+} from "./install-failure-banner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -99,14 +103,8 @@ interface Upgrade {
   recovery_parked_reason: string | null;
 }
 
-interface SystemInfo {
-  key: string;
-  value: string;
-  updated_at: string;
-}
-
 interface SystemInfoSnapshot {
-  rows: SystemInfo[];
+  rows: SystemInfoRow[];
   observedAt: number;
 }
 
@@ -141,7 +139,7 @@ function UnitFloorWarning({
   systemInfo,
   observedAt,
 }: {
-  systemInfo?: SystemInfo[];
+  systemInfo?: SystemInfoRow[];
   observedAt?: number;
 }) {
   if (!systemInfo) return null;
@@ -240,10 +238,25 @@ const fetcher = async (url: string) => {
   return resp.json();
 };
 
-const systemInfoFetcher = async (url: string): Promise<SystemInfoSnapshot> => ({
-  rows: await fetcher(url),
-  observedAt: Date.now(),
-});
+const systemInfoFetcher = async (url: string): Promise<SystemInfoSnapshot> => {
+  const [rows, latestCompleted] = await Promise.all([
+    fetcher(url) as Promise<SystemInfoRow[]>,
+    fetcher(
+      "/rest/upgrade?select=completed_at&state=eq.completed&completed_at=not.is.null&order=completed_at.desc&limit=1"
+    ) as Promise<Array<{ completed_at: string }>>,
+  ]);
+
+  return {
+    // A successful upgrade is the durable fact. Best-effort cleanup of these
+    // legacy keys may fail, but no consumer of this snapshot should then show
+    // an install failure which predates that success.
+    rows: filterStaleInstallFailure(
+      rows,
+      latestCompleted[0]?.completed_at ?? null
+    ),
+    observedAt: Date.now(),
+  };
+};
 
 async function patchUpgrade(
   id: number,
