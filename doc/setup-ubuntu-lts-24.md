@@ -1,6 +1,6 @@
 # setup-ubuntu-lts-24.sh
 
-Ubuntu 24.04 LTS server setup script — **OS hardening + account creation** —
+Ubuntu server setup script — **OS hardening + account creation** —
 with interactive stage-by-stage execution. Run once per host; creates the
 `devops` ops/admin account and the `statbus` service account that StatBus will
 be installed and operated under.
@@ -162,9 +162,15 @@ The separation is intentional:
 
 ## Requirements
 
-- Ubuntu 24.04 LTS
+- Ubuntu 24.04 LTS, or Ubuntu 26.04 LTS with the current version warning accepted
 - Root/sudo access
 - Internet connection (for package downloads + GitHub SSH key fetch)
+
+The script currently compares `/etc/os-release` `VERSION_ID` with `24.04`. On a
+different version, including Ubuntu 26.04, it emits a warning and asks whether to
+continue. In non-interactive mode that prompt accepts the configured default, so
+the check does **not** refuse Ubuntu 26.04. The real install-recovery harness run,
+not this warning behavior, determines whether the full setup succeeds there.
 
 ## STATBUS Integration
 

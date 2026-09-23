@@ -1,6 +1,7 @@
 # Installing STATBUS
 
-STATBUS installation for Ubuntu 24.04 LTS servers.
+STATBUS installation for Ubuntu LTS servers. Ubuntu 26.04 LTS is the primary
+tested OS; one fresh-install harness scenario continues to test Ubuntu 24.04 LTS.
 
 ## Prerequisites
 

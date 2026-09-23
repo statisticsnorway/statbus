@@ -75,7 +75,7 @@ This section covers deploying StatBus for a single country or organization.
 ### Prerequisites
 
 **Server Requirements**:
-- **OS**: Linux (Ubuntu 24.04 LTS recommended)
+- **OS**: Linux (Ubuntu 26.04 LTS is the primary tested OS; Ubuntu 24.04 LTS remains supported)
 - **CPU**: 4 cores minimum
 - **RAM**: 16 GB minimum
 - **Disk**: 100 GB minimum (depends on data volume)

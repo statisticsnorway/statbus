@@ -108,6 +108,19 @@ PUBLIC/FLEET/DROP classification. Its rename-impact list includes:
 Also use `tmp/harness-checkout-noise.md`. Hetzner provides Ubuntu 26.04 images
 for both x86 and Arm.
 
+## 2026-09-23 harness-half progress
+
+Implemented locally in two commits, without pushing: the shared VM bootstrap
+defaults to Hetzner `ubuntu-26.04`, while exactly `0-happy-install` pins
+`ubuntu-24.04` to retain the older-LTS fresh-install proof. Offline contract
+tests cover that matrix. Documentation now distinguishes configured coverage
+from readiness and records that the current setup script warns, but does not
+refuse, when `VERSION_ID` is not `24.04`.
+
+The harness half is awaiting the coordinator's push after independent review.
+Ubuntu 26.04 readiness remains unproven until the first paid install-recovery
+and upgrade-arc runs execute on real Hetzner VMs.
+
 ## Workstreams
 
 - **A: this ticket.** Preserve the Finland transcript, defects, decisions, and

@@ -107,7 +107,7 @@ Clients worldwide
 
 ### Server Requirements
 
-- **OS**: Linux (Ubuntu 22.04 LTS or 24.04 LTS)
+- **OS**: Linux (Ubuntu 26.04 LTS is the primary tested OS; Ubuntu 24.04 LTS remains supported)
 - **CPU**: 8+ cores (2 cores per instance recommended)
 - **RAM**: 32+ GB (8 GB per instance recommended)
 - **Disk**: 500+ GB SSD

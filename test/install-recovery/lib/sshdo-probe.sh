@@ -17,7 +17,7 @@
 # comment #10).
 #
 # sshdo + the sshdoers grammar install from the repo's CANONICAL copies
-# (ops/niue/sshdo — python3, present on the ubuntu-24.04 VM image) — the same
+# (ops/niue/sshdo — python3, present on the Ubuntu LTS VM images) — the same
 # reviewable bytes the King provisions root-owned on niue. `match hexdigits`
 # makes each '#' in a stored command match one hex digit at runtime, so 40 of
 # them match the commit SHA (the niue grammar, ops/niue/sshdoers:7). sshdo

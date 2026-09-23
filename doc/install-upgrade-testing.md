@@ -22,6 +22,13 @@ run it for real and look at what happened.
 
 That loop — **commit → push → build → run → observe → iterate** — is the whole job.
 
+The fresh VMs primarily run **Ubuntu 26.04 LTS**. One install-recovery scenario,
+`0-happy-install`, remains explicitly pinned to **Ubuntu 24.04 LTS** so every
+candidate proves a clean install on the older supported LTS too. Offline shell
+tests can verify that this matrix is configured correctly, but they cannot prove
+that package installation, hardening, Docker, SSH, or systemd behavior works on
+either image. Only the paid VM run establishes readiness.
+
 ## Why these tests are not like the others
 
 Every other test, you can run *before* you push:
