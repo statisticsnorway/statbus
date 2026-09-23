@@ -10,11 +10,13 @@ export default function UnitCountsPage() {
       subtitle="Total number of enterprises, legal units, and establishments over time"
       seriesCodes={["countable_count"]}
     >
-      {({ history, isYearlyView, onYearSelect }) => (
+      {({ history, isYearlyView, onYearSelect, unitType, year }) => (
         <UnitCountChart
           history={history}
           isYearlyView={isYearlyView}
           onYearSelect={onYearSelect}
+          unitType={unitType}
+          year={year}
         />
       )}
     </HistoryReports>

@@ -17,11 +17,13 @@ const statsSummaryCodes = statDefinitions
       subtitle="Statistical variable totals for enterprises, legal units, and establishments over time"
       seriesCodes={statsSummaryCodes}
     >
-      {({ history, isYearlyView, onYearSelect }) => (
+      {({ history, isYearlyView, onYearSelect, unitType, year }) => (
         <StatisticalVariablesChart
           history={history}
           isYearlyView={isYearlyView}
           onYearSelect={onYearSelect}
+          unitType={unitType}
+          year={year}
         />
       )}
     </HistoryReports>

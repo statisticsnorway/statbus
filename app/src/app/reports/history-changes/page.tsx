@@ -16,11 +16,13 @@ export default function HistoryChangesPage() {
         "physical_region_change_count",
       ]}
     >
-      {({ history, isYearlyView, onYearSelect }) => (
+      {({ history, isYearlyView, onYearSelect, unitType, year }) => (
         <HistoryChangesChart
           history={history}
           isYearlyView={isYearlyView}
           onYearSelect={onYearSelect}
+          unitType={unitType}
+          year={year}
         />
       )}
     </HistoryReports>
