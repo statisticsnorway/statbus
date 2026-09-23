@@ -120,6 +120,7 @@ export const UnitCountChart = ({
             unitType,
             year
           )}
+          xlsxDateNumberFormat={isYearlyView ? "yyyy" : "yyyy-mm-dd"}
         />
       </div>
       <div ref={_ref} />

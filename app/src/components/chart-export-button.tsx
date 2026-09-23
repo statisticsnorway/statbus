@@ -11,6 +11,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { downloadChartXlsx } from "@/lib/chart-export";
 
 // Approximate title/subtitle line heights (px) at Highcharts' defaults —
 // used to grow exported height so the plot area isn't squeezed to fit them.
@@ -24,6 +25,7 @@ interface ChartExportMenuProps {
   readonly subtitle: string;
   readonly hasActiveFilter?: boolean;
   readonly filenameBase: string;
+  readonly xlsxDateNumberFormat?: "yyyy" | "yyyy-mm-dd";
   readonly className?: string;
 }
 function getHeaderHeight(
@@ -45,6 +47,7 @@ export const ChartExportButton = ({
   subtitle,
   hasActiveFilter = false,
   filenameBase,
+  xlsxDateNumberFormat,
 }: ChartExportMenuProps) => {
   const exportPng = () => {
     if (!chart) return;
@@ -75,6 +78,15 @@ export const ChartExportButton = ({
     chart.exporting.downloadCSV();
   };
 
+  const exportXlsx = () => {
+    if (!chart) return;
+    void downloadChartXlsx(
+      chart.exporting.getDataRows(false),
+      filenameBase,
+      xlsxDateNumberFormat
+    );
+  };
+
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
@@ -85,6 +97,7 @@ export const ChartExportButton = ({
       <DropdownMenuContent align="end">
         <DropdownMenuItem onClick={exportPng}>Download PNG</DropdownMenuItem>
         <DropdownMenuItem onClick={exportCsv}>Download CSV</DropdownMenuItem>
+        <DropdownMenuItem onClick={exportXlsx}>Download XLSX</DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
   );

@@ -147,6 +147,7 @@ export const HistoryChangesChart = ({
             unitType,
             year
           )}
+          xlsxDateNumberFormat={isYearlyView ? "yyyy" : "yyyy-mm-dd"}
         />
       </div>
       <div ref={_ref} />

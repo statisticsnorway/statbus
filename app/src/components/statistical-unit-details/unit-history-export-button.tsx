@@ -39,7 +39,7 @@ export function UnitHistoryExportButton({
         </DropdownMenuItem>
         <DropdownMenuItem asChild>
           <a href={`${baseUrl}&format=xlsx`} download>
-            Download Excel (.xlsx)
+            Download XLSX
           </a>
         </DropdownMenuItem>
       </DropdownMenuContent>

@@ -148,6 +148,7 @@ export const StatisticalVariablesChart = ({
             unitType,
             year
           )}
+          xlsxDateNumberFormat={isYearlyView ? "yyyy" : "yyyy-mm-dd"}
         />
       </div>
       <div ref={_ref} />
