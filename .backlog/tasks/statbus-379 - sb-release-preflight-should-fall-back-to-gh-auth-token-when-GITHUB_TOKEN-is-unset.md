@@ -56,3 +56,8 @@ by this sweep.
 ## Resolution 2026-09-23
 
 Superseded by STATBUS-368. same GitHub-token fallback is owned by STATBUS-368.
+
+## Supersession confirmed 2026-09-23
+
+STATBUS-368 implements this incident's token fallback together with identity
+reporting and authenticated Git transport. No separate implementation remains.

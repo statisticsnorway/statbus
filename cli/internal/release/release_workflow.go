@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"time"
 )
 
 // releaseWorkflow is the GitHub Actions workflow file that publishes the
@@ -62,6 +63,17 @@ func CheckReleaseWorkflowAtTag(tag string) ReleaseWorkflowResult {
 // and the unfiltered first page of runs comes back. The correct filter
 // is `branch=`, which for a tag-trigger run matches the tag name.
 func checkReleaseWorkflowAt(apiBase, tag string) ReleaseWorkflowResult {
+	for attempt := 1; attempt <= 3; attempt++ {
+		result := checkReleaseWorkflowOnceAt(apiBase, tag)
+		if result.Status != ReleaseWorkflowMissing || attempt == 3 {
+			return result
+		}
+		time.Sleep(250 * time.Millisecond)
+	}
+	panic("unreachable")
+}
+
+func checkReleaseWorkflowOnceAt(apiBase, tag string) ReleaseWorkflowResult {
 	url := fmt.Sprintf("%s/repos/%s/%s/actions/workflows/%s/runs?branch=%s&event=push&per_page=10",
 		apiBase, githubOrg, githubRepo, releaseWorkflow, tag)
 	req, err := http.NewRequest("GET", url, nil)

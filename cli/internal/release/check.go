@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"os"
 	"strings"
 	"sync"
 	"time"
@@ -327,13 +326,6 @@ func anonymousGHCRPullToken(registryBase, image string) (string, error) {
 // httpClient returns a shared client with a reasonable timeout.
 func httpClient() *http.Client {
 	return &http.Client{Timeout: 15 * time.Second}
-}
-
-func githubAuthHeader() string {
-	if tok := os.Getenv("GITHUB_TOKEN"); tok != "" {
-		return "Bearer " + tok
-	}
-	return ""
 }
 
 // assetNames returns the display names for all required assets (used in

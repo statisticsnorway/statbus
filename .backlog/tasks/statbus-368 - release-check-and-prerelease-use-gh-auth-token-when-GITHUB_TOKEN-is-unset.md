@@ -80,3 +80,16 @@ Git transport coverage. Neither duplicate is deleted or closed by this sweep.
 Classification: PARTIAL. Evidence: scratch fallback implementation only; not on master and no next-candidate proof.
 
 Remaining: Land GH_TOKEN fallback in both release checks, add tests, and prove it in the next release.
+
+## Implementation 2026-09-23
+
+Added one release-package resolver with the required order: `GITHUB_TOKEN`,
+then `gh auth token`, then anonymous. All release HTTP reads use it, release Git
+`ls-remote` and `fetch` carry the same token through a Git extraheader in the
+environment, and preflight prints the selected mode once. The release workflow
+readiness probe now retries an empty API page three times before reporting
+`Missing`.
+
+STATBUS-379 is the narrower duplicate and remains closed as superseded by this
+item. The 100-run operator proof can only be recorded after this commit is in the
+next candidate.

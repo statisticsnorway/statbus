@@ -5,8 +5,28 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"sync/atomic"
 	"testing"
 )
+
+func TestCheckReleaseWorkflowRetriesEmptyPage(t *testing.T) {
+	var calls atomic.Int32
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		call := calls.Add(1)
+		if call < 3 {
+			_ = json.NewEncoder(w).Encode(map[string]any{"workflow_runs": []any{}})
+			return
+		}
+		_ = json.NewEncoder(w).Encode(map[string]any{"workflow_runs": []map[string]any{{
+			"id": 501, "html_url": "https://example/run/501", "status": "queued",
+		}}})
+	}))
+	defer server.Close()
+	result := checkReleaseWorkflowAt(server.URL, "v2026.09.1-rc.1")
+	if result.Status != ReleaseWorkflowPending || calls.Load() != 3 {
+		t.Fatalf("result=%#v calls=%d", result, calls.Load())
+	}
+}
 
 func TestCheckReleaseWorkflowAtTag(t *testing.T) {
 	cases := []struct {

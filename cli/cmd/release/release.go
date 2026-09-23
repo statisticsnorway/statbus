@@ -41,6 +41,7 @@ Subcommands:
 // check)". prerelease passes false and then tags on success (see
 // releasePrereleaseCmd); check passes true and tags nothing.
 func preflightChecks(projDir string, checkOnly bool) bool {
+	fmt.Printf("  (GitHub: %s)\n", release.GitHubAuth().Mode)
 	// 1. Git working tree is clean (excluding explain/performance baselines which drift per environment)
 	allPassed := checkWorkingTreeClean(projDir)
 
@@ -569,7 +570,7 @@ func preflightChecks(projDir string, checkOnly bool) bool {
 	case release.WorkflowCheckUnknown:
 		fmt.Println("  ✗ images status check failed (GitHub API error)")
 		fmt.Printf("    Detail: %s\n", imagesResult.Detail)
-		fmt.Println("    Fix: check network connectivity / GITHUB_TOKEN; or re-run later")
+		fmt.Printf("    Fix: %s\n", githubAPIErrorFix(imagesResult.Detail))
 		allPassed = false
 	}
 
@@ -626,6 +627,13 @@ func preflightChecks(projDir string, checkOnly bool) bool {
 	return allPassed
 }
 
+func githubAPIErrorFix(detail string) string {
+	if release.GitHubAuth().Mode == release.GitHubAuthAnonymous && strings.Contains(detail, "HTTP 403") {
+		return "run `gh auth login` or set GITHUB_TOKEN, then retry"
+	}
+	return "check network connectivity / GitHub authentication; or re-run later"
+}
+
 func checkWorkingTreeClean(projDir string) bool {
 	statusOut, err := upgrade.RunCommandOutput(projDir, "git", "status", "--porcelain", "--untracked-files=all", "--", ".", ":(exclude)test/expected/explain/**", ":(exclude)test/expected/performance/**")
 	status := strings.TrimRight(statusOut, "\r\n")
@@ -678,7 +686,7 @@ func printFastSuiteWorkflowFailure(result release.WorkflowCheckResult, headShort
 	case release.WorkflowCheckUnknown:
 		fmt.Println("  ✗ Fast Tests status check failed (GitHub API error; no local stamp)")
 		fmt.Printf("    Detail: %s\n", result.Detail)
-		fmt.Println("    Fix: check network connectivity / GITHUB_TOKEN; or re-run later")
+		fmt.Printf("    Fix: %s\n", githubAPIErrorFix(result.Detail))
 	}
 	fmt.Println("    Or:  ./dev.sh migrate-and-test fast   (write local stamp from your machine)")
 }
@@ -778,7 +786,7 @@ func checkPrereleaseWorkflowGate(projDir, workflow, label, skipEnv string) bool 
 	case release.WorkflowCheckUnknown:
 		fmt.Printf("  ✗ %s status check failed (GitHub API error)\n", label)
 		fmt.Printf("    Detail: %s\n", result.Detail)
-		fmt.Println("    Fix: check network connectivity / GITHUB_TOKEN; or re-run later")
+		fmt.Printf("    Fix: %s\n", githubAPIErrorFix(result.Detail))
 	default:
 		fmt.Printf("  ✗ %s returned unexpected status %q\n", label, result.Status)
 	}
@@ -1844,7 +1852,7 @@ func checkStableWorkflowGate(workflow, label, skipEnv, rcTag, rcCommit, rcShort 
 	case release.WorkflowCheckUnknown:
 		fmt.Printf("  ✗ %s status check failed (GitHub API error)\n", label)
 		fmt.Printf("    Detail: %s\n", result.Detail)
-		fmt.Println("    Fix: check network connectivity / GITHUB_TOKEN; or re-run later")
+		fmt.Printf("    Fix: %s\n", githubAPIErrorFix(result.Detail))
 		return false
 	}
 	fmt.Printf("  ✗ %s returned unexpected status %q\n", label, result.Status)
@@ -2040,7 +2048,7 @@ func checkRCArtifactGate(rcTag string) bool {
 	case release.ReleaseWorkflowUnknown:
 		fmt.Printf("  ✗ RC %s release.yaml status check failed (GitHub API error)\n", rcTag)
 		fmt.Printf("    Detail: %s\n", wf.Detail)
-		fmt.Println("    Fix: check network connectivity / GITHUB_TOKEN; or re-run later")
+		fmt.Printf("    Fix: %s\n", githubAPIErrorFix(wf.Detail))
 		return false
 	}
 	fmt.Printf("  ✗ RC %s release.yaml returned unexpected status %q\n", rcTag, wf.Status)

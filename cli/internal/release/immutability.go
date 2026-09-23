@@ -262,6 +262,7 @@ var releaseTagParse = regexp.MustCompile(`^v(\d{4})\.(\d{2})\.(\d+)(?:-rc\.(\d+)
 func ReleaseTagsNewestFirst(projDir string) ([]string, error) {
 	cmd := exec.Command("git", "ls-remote", "--tags", "origin")
 	cmd.Dir = projDir
+	cmd.Env = GitHubGitEnv(os.Environ())
 	out, err := cmd.Output()
 	if err != nil {
 		return nil, fmt.Errorf("git ls-remote --tags origin: %w", err)
@@ -329,6 +330,7 @@ func releaseTagKey(tag string) (year, month, patch, rc int) {
 func migrationUpBlobHashInTag(projDir, tag string, version int64) (hash string, found bool, err error) {
 	fetch := exec.Command("git", "fetch", "--depth", "1", "origin", "refs/tags/"+tag)
 	fetch.Dir = projDir
+	fetch.Env = GitHubGitEnv(os.Environ())
 	if out, ferr := fetch.CombinedOutput(); ferr != nil {
 		return "", false, fmt.Errorf("git fetch --depth 1 origin refs/tags/%s: %w: %s", tag, ferr, strings.TrimSpace(string(out)))
 	}
