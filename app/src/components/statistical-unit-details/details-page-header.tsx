@@ -7,6 +7,7 @@ interface DetailsPageHeaderProps {
   className?: string;
   unitType?: "establishment" | "legal_unit" | "enterprise" | "power_group";
   unitTypeLabel?: string;
+  hasLegalUnit?: boolean;
 }
 
 export const DetailsPageHeader = ({
@@ -15,6 +16,7 @@ export const DetailsPageHeader = ({
   className,
   unitType,
   unitTypeLabel,
+  hasLegalUnit,
 }: DetailsPageHeaderProps) => (
   <div
     className={cn(
@@ -31,8 +33,14 @@ export const DetailsPageHeader = ({
       </div>
       {unitType && (
         <div className="flex flex-col items-center gap-1 text-xs text-gray-600">
-          <StatisticalUnitIcon type={unitType} className="h-8 w-8" />
-          {unitTypeLabel && <span className="font-medium">{unitTypeLabel}</span>}
+          <StatisticalUnitIcon
+            type={unitType}
+            className="h-8 w-8"
+            hasLegalUnit={hasLegalUnit}
+          />
+          {unitTypeLabel && (
+            <span className="font-medium">{unitTypeLabel}</span>
+          )}
         </div>
       )}
     </div>

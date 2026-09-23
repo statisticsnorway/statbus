@@ -13,7 +13,7 @@ const reportLinks = [
     label: "Changes Over Time",
   },
   { href: "/reports/drilldown", label: "Drilldown" },
-  { href: "/reports/statistical-variables", label: "Variables over time" },
+  { href: "/reports/statistical-variables", label: "Variables Over Time" },
 ];
 
 export default function ReportsLayout({

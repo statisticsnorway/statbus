@@ -31,6 +31,8 @@ export async function GET(request: NextRequest) {
     [
       externalIdentColumns,
       [
+        "valid_from",
+        "valid_to",
         "name",
         ...(hasSingleUnitType ? [] : ["unit_type"]),
         "birth_date",

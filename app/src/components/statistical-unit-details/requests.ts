@@ -3,6 +3,7 @@ import {
   getServerRestClient,
 } from "@/context/RestClientStore";
 import { PostgrestError } from "@supabase/postgrest-js";
+import { UnitHistory } from "./unit-history-table";
 
 export async function getEnterpriseById(id: string) {
   const client = await getBrowserRestClient();
@@ -218,11 +219,13 @@ export async function getStatisticalUnitHistory(
   const { data, error } = await client
     .from("statistical_unit")
     .select(
-      "valid_from,name,physical_region(code,name),primary_activity_category(code,name),status(code,name)"
+      `*,
+      physical_region(code,name),primary_activity_category(code,name),status(code,name),sector(code,name),legal_form(code,name)`
     )
     .eq("unit_id", unitId)
     .eq("unit_type", unitType)
-    .order("valid_from");
-
+    .order("valid_from")
+    .returns<UnitHistory[]>();
   return { data, error };
 }
+
