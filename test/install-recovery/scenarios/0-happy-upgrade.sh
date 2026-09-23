@@ -64,6 +64,9 @@ VM_NAME="${1:-statbus-recovery-0-happy-upgrade}"
 # fidelity are separate work with their own scenarios; see the 339 ticket.
 HARNESS_DEPLOYMENT_MODE="${HARNESS_DEPLOYMENT_MODE:-development}"
 HARNESS_UPGRADE_CHANNEL="${HARNESS_UPGRADE_CHANNEL:-prerelease}"
+# The fleet runs Ubuntu 24.04. This proves a 24.04 box upgrades from the
+# previous release to the candidate through the path the fleet actually takes.
+HARNESS_VM_IMAGE="ubuntu-24.04"
 UPGRADE_BUDGET_S="${UPGRADE_BUDGET_S:-900}"
 # > tick interval (60s) + slack, times enough ticks to ride out a registry
 # transient: verifyArtifacts retries every discovery cycle, so a ghcr 401/500

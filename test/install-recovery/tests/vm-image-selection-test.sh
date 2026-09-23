@@ -24,10 +24,10 @@ override_count=$(printf '%s\n' "$overrides" | grep -c .)
     exit 1
 }
 
-expected="$SCENARIOS/0-happy-install.sh"
+expected="$SCENARIOS/0-happy-upgrade.sh"
 [ "$overrides" = "$expected" ] \
     || { echo "FAIL: the sole VM image override is $overrides, expected $expected" >&2; exit 1; }
 grep -Fq 'HARNESS_VM_IMAGE="ubuntu-24.04"' "$expected" \
-    || { echo 'FAIL: 0-happy-install is not explicitly pinned to ubuntu-24.04' >&2; exit 1; }
+    || { echo 'FAIL: 0-happy-upgrade is not explicitly pinned to ubuntu-24.04' >&2; exit 1; }
 
-echo 'PASS: Ubuntu 26.04 is the harness default and only 0-happy-install uses Ubuntu 24.04'
+echo 'PASS: Ubuntu 26.04 is the harness default and only 0-happy-upgrade uses Ubuntu 24.04'
