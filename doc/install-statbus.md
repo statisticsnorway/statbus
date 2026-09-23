@@ -1,7 +1,9 @@
 # Installing STATBUS
 
-STATBUS installation for Ubuntu LTS servers. Ubuntu 26.04 LTS is the primary
-tested OS; one fresh-install harness scenario continues to test Ubuntu 24.04 LTS.
+STATBUS installation for Ubuntu LTS servers. The harness tests fresh candidate
+installation on Ubuntu 26.04 LTS. Its happy upgrade tests a previous release
+upgrading to the candidate on Ubuntu 24.04 LTS because the real fleet runs 24.04.
+All recovery scenarios and upgrade arcs run on Ubuntu 26.04 LTS.
 
 ## Prerequisites
 

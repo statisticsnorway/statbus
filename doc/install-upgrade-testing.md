@@ -22,12 +22,13 @@ run it for real and look at what happened.
 
 That loop — **commit → push → build → run → observe → iterate** — is the whole job.
 
-The fresh VMs primarily run **Ubuntu 26.04 LTS**. One install-recovery scenario,
-`0-happy-install`, remains explicitly pinned to **Ubuntu 24.04 LTS** so every
-candidate proves a clean install on the older supported LTS too. Offline shell
-tests can verify that this matrix is configured correctly, but they cannot prove
-that package installation, hardening, Docker, SSH, or systemd behavior works on
-either image. Only the paid VM run establishes readiness.
+The fresh-install happy path runs on **Ubuntu 26.04 LTS**, matching new candidate
+installations. The happy upgrade from the previous release to the candidate runs
+on **Ubuntu 24.04 LTS** because that is the path the real fleet takes: Norway/rune
+and niue run 24.04. All recovery scenarios and upgrade arcs run on Ubuntu 26.04.
+Offline shell tests can verify that this matrix is configured correctly, but they
+cannot prove that package installation, hardening, Docker, SSH, or systemd
+behavior works on either image. Only the paid VM run establishes readiness.
 
 ## Why these tests are not like the others
 

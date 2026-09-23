@@ -111,11 +111,13 @@ for both x86 and Arm.
 ## 2026-09-23 harness-half progress
 
 Implemented locally in two commits, without pushing: the shared VM bootstrap
-defaults to Hetzner `ubuntu-26.04`, while exactly `0-happy-install` pins
-`ubuntu-24.04` to retain the older-LTS fresh-install proof. Offline contract
-tests cover that matrix. Documentation now distinguishes configured coverage
-from readiness and records that the current setup script warns, but does not
-refuse, when `VERSION_ID` is not `24.04`.
+defaults to Hetzner `ubuntu-26.04`, while exactly `0-happy-upgrade` pins
+`ubuntu-24.04`. The candidate fresh install therefore tests the new-install path
+on 26.04, while the previous-release-to-candidate happy upgrade tests the path
+the 24.04 fleet actually takes. All recovery scenarios and upgrade arcs remain on
+26.04. Offline contract tests cover that matrix. Documentation now distinguishes
+configured coverage from readiness and records that the current setup script
+warns, but does not refuse, when `VERSION_ID` is not `24.04`.
 
 The harness half is awaiting the coordinator's push after independent review.
 Ubuntu 26.04 readiness remains unproven until the first paid install-recovery
@@ -127,9 +129,9 @@ and upgrade-arc runs execute on real Hetzner VMs.
   acceptance boundary in the backlog.
 - **B: setup split and D1-D7.** Implement the public/fleet separation and repair
   every still-open transcript defect. This work is carried by rc.19.
-- **C: harness contract.** Make Ubuntu 26.04 primary, keep exactly one Ubuntu
-  24.04 bare-install happy path, and install by VERSION with an optional commit
-  debug override.
+- **C: harness contract.** Make Ubuntu 26.04 primary, keep exactly the happy
+  previous-release-to-candidate upgrade on the fleet's Ubuntu 24.04, and install
+  by VERSION with an optional commit debug override.
 - **D: live proof.** Run the resulting matrix on VMs and retain the evidence.
 
 ## Done when

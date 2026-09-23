@@ -183,10 +183,12 @@ SSD is the single most impactful hardware choice after having sufficient RAM. If
 
 ## Operating System
 
-StatBus is primarily tested on Ubuntu 26.04 LTS. The release harness also runs
-one fresh-install scenario on Ubuntu 24.04 LTS, which remains a supported target.
-Other Linux distributions with Docker Engine 24+ and Docker Compose v2 may work,
-but are not covered by this harness. See `doc/setup-ubuntu-lts-24.md` for the
-current security-hardening script and its version-check behavior.
+StatBus tests fresh candidate installation on Ubuntu 26.04 LTS. The release
+harness tests a previous release upgrading to the candidate on Ubuntu 24.04 LTS,
+because the real fleet runs 24.04. All recovery scenarios and upgrade arcs run on
+Ubuntu 26.04. Other Linux distributions with Docker Engine 24+ and Docker Compose
+v2 may work, but are not covered by this harness. See
+`doc/setup-ubuntu-lts-24.md` for the current security-hardening script and its
+version-check behavior.
 
 Windows Server with Docker (WSL2 or Hyper-V backend) is not tested but should work. Linux is recommended for production.
