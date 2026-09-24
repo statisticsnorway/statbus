@@ -1,0 +1,41 @@
+---
+id: STATBUS-408
+title: >-
+  A fresh install interrupted after the database exists continues where it
+  stopped on the next run
+status: To Do
+assignee: []
+created_date: '2026-09-24 15:46'
+labels:
+  - install
+  - recovery
+  - database
+dependencies: []
+references:
+  - /Users/jhf/ssb/.jcode/scratch/rest-loop.md
+priority: high
+type: bug
+ordinal: 361000
+---
+
+## Description
+
+<!-- SECTION:DESCRIPTION:BEGIN -->
+A rerun recognizes a database created by an incomplete first installation and resumes from the first incomplete step. The pre-1.0 classification remains reserved for an established legacy installation.
+
+## Evidence, 2026-09-24
+
+A Hetzner Ubuntu 26.04 VM confirmed that a port-80 failure after database creation leaves the database reachable without `public.upgrade`. Every rerun was then refused as a pre-1.0 installation by `install/state.go:141-147`, before seed or migrations could continue. This recovery dead end encourages removal of the installation directory while the database volume survives, which can create a credentials split.
+
+## Proving scenario
+
+In install-recovery, hold port 80 through step 8, confirm the database volume exists, then free the port and run the one install command. The rerun identifies an incomplete fresh installation, resumes at the first incomplete step, and reaches green with the original volume.
+<!-- SECTION:DESCRIPTION:END -->
+
+## Acceptance Criteria
+<!-- AC:BEGIN -->
+- [ ] #1 A reachable database without the upgrade table is recognized as an incomplete fresh installation when first-install markers show setup is unfinished.
+- [ ] #2 The next run resumes at the first incomplete step and preserves the existing database volume.
+- [ ] #3 Established pre-1.0 installations continue to receive the legacy upgrade guidance.
+- [ ] #4 The interrupted-after-database harness scenario reaches green through the one install command.
+<!-- AC:END -->
