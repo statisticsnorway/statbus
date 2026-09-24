@@ -98,7 +98,7 @@ View definition:
                      JOIN external_ident_type eit ON ei.type_id = eit.id
                   WHERE ei.establishment_id IS NOT NULL
                 UNION ALL
-                 SELECT 'legal_unit'::statistical_unit_type AS statistical_unit_type,
+                 SELECT 'legal_unit'::statistical_unit_type,
                     ei.legal_unit_id,
                     eit.code,
                     COALESCE(ei.ident, ei.idents::text::character varying) AS "coalesce"
@@ -106,7 +106,7 @@ View definition:
                      JOIN external_ident_type eit ON ei.type_id = eit.id
                   WHERE ei.legal_unit_id IS NOT NULL
                 UNION ALL
-                 SELECT 'enterprise'::statistical_unit_type AS statistical_unit_type,
+                 SELECT 'enterprise'::statistical_unit_type,
                     ei.enterprise_id,
                     eit.code,
                     COALESCE(ei.ident, ei.idents::text::character varying) AS "coalesce"
@@ -114,7 +114,7 @@ View definition:
                      JOIN external_ident_type eit ON ei.type_id = eit.id
                   WHERE ei.enterprise_id IS NOT NULL
                 UNION ALL
-                 SELECT 'power_group'::statistical_unit_type AS statistical_unit_type,
+                 SELECT 'power_group'::statistical_unit_type,
                     ei.power_group_id,
                     eit.code,
                     COALESCE(ei.ident, ei.idents::text::character varying) AS "coalesce"
@@ -133,21 +133,21 @@ View definition:
                      JOIN tag t ON tfu.tag_id = t.id
                   WHERE tfu.establishment_id IS NOT NULL
                 UNION ALL
-                 SELECT 'legal_unit'::statistical_unit_type AS statistical_unit_type,
+                 SELECT 'legal_unit'::statistical_unit_type,
                     tfu.legal_unit_id,
                     t.path
                    FROM tag_for_unit tfu
                      JOIN tag t ON tfu.tag_id = t.id
                   WHERE tfu.legal_unit_id IS NOT NULL
                 UNION ALL
-                 SELECT 'enterprise'::statistical_unit_type AS statistical_unit_type,
+                 SELECT 'enterprise'::statistical_unit_type,
                     tfu.enterprise_id,
                     t.path
                    FROM tag_for_unit tfu
                      JOIN tag t ON tfu.tag_id = t.id
                   WHERE tfu.enterprise_id IS NOT NULL
                 UNION ALL
-                 SELECT 'power_group'::statistical_unit_type AS statistical_unit_type,
+                 SELECT 'power_group'::statistical_unit_type,
                     tfu.power_group_id,
                     t.path
                    FROM tag_for_unit tfu
