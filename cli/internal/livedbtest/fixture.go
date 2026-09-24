@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"syscall"
 )
@@ -46,7 +47,15 @@ func Setup(packageName string) (cleanup func(), err error) {
 		return nil, fmt.Errorf("create live-database fixture root: %w", err)
 	}
 	projectDir := filepath.Join(fixtureRoot, "project")
+	// pg_regress provisions statbus_seed, not POSTGRES_APP_DB. On CI the app
+	// database lacks public.upgrade, while local app databases may contain
+	// unrelated upgrade state. Clone the migrated seed for this package.
+	fixtureDB := "statbus_livedb_" + strconv.Itoa(os.Getpid())
+	createdDB := false
 	cleanup = func() {
+		if createdDB {
+			_, _ = run(projectDir, filepath.Join(projectDir, "sb"), "psql", "-d", "postgres", "-c", "DROP DATABASE "+fixtureDB+" WITH (FORCE)")
+		}
 		cmd := exec.Command("git", "-C", realRoot, "worktree", "remove", "--force", projectDir)
 		_ = cmd.Run()
 		_ = os.RemoveAll(fixtureRoot)
@@ -111,6 +120,16 @@ func Setup(packageName string) (cleanup func(), err error) {
 	}
 	if out, cmdErr := run(projectDir, filepath.Join(projectDir, "sb"), "config", "generate"); cmdErr != nil {
 		return fail("generate fixture config: %v: %s", cmdErr, out)
+	}
+	if out, cmdErr := run(projectDir, filepath.Join(projectDir, "sb"), "psql", "-d", "postgres", "-c", "CREATE DATABASE "+fixtureDB+" TEMPLATE statbus_seed"); cmdErr != nil {
+		return fail("clone migrated statbus_seed for live-database tests (run ./dev.sh migrate-and-test fast first): %v: %s", cmdErr, out)
+	}
+	createdDB = true
+	if out, cmdErr := run(projectDir, filepath.Join(projectDir, "sb"), "dotenv", "-f", ".env", "set", "POSTGRES_APP_DB", fixtureDB); cmdErr != nil {
+		return fail("point fixture at dedicated test database: %v: %s", cmdErr, out)
+	}
+	if out, cmdErr := run(projectDir, filepath.Join(projectDir, "sb"), "psql", "-d", fixtureDB, "-t", "-A", "-c", "SELECT to_regclass('public.upgrade'), max(version) FROM db.migration"); cmdErr != nil || !strings.HasPrefix(strings.TrimSpace(out), "upgrade|") {
+		return fail("dedicated live-database fixture is not migrated: %v: %s", cmdErr, out)
 	}
 
 	if err := os.Setenv(projectDirEnv, projectDir); err != nil {

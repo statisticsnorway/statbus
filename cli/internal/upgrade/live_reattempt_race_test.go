@@ -177,8 +177,10 @@ exit 0
 	}
 	if calls, err := os.ReadFile(dockerLog); err != nil {
 		t.Fatal(err)
-	} else if strings.TrimSpace(string(calls)) != "" {
-		t.Fatalf("delayed actor B touched Docker after actor A reopened writes:\n%s", calls)
+	} else if strings.TrimSpace(string(calls)) != "compose exec -T db psql -X -q -A -t -F | -v ON_ERROR_STOP=1 -U postgres -d postgres" {
+		// LoadConfigAndConnect must probe role-password agreement before dialing.
+		// That read-only DB probe is not a restore/restart by stale actor B.
+		t.Fatalf("delayed actor B touched Docker beyond its pre-connect password probe:\n%s", calls)
 	}
 	if _, err := os.Stat(flagFilePath(projDir)); !os.IsNotExist(err) {
 		t.Fatalf("delayed actor B left or replaced the replay marker: %v", err)
