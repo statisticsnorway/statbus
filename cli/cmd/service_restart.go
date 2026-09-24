@@ -85,6 +85,13 @@ func restartServicesWith(dir, profile string, ops restartOperations) (result err
 		// The installed unit is Type=notify: start returns after DB connect and
 		// LISTEN readiness, BEFORE recovery. Keep the mutex across that boundary.
 		if startDaemon {
+			// A unit that hit systemd's start-rate limit (repeated failed
+			// starts) refuses every further start until its failed state is
+			// cleared. Clear it first so a retried restart converges instead
+			// of failing the same way forever. Harmless on a healthy unit.
+			if out, err := ops.systemctl("reset-failed", unit); err != nil {
+				fmt.Printf("Note: clearing the failed state of %s did not succeed: %v: %s\n", unit, err, strings.TrimSpace(out))
+			}
 			out, err := ops.systemctl("start", unit)
 			if err != nil {
 				result = errors.Join(result, fmt.Errorf("start upgrade service %s: %w: %s", unit, err, strings.TrimSpace(out)))
@@ -121,6 +128,12 @@ func restartServicesWith(dir, profile string, ops restartOperations) (result err
 				fmt.Printf("Stopping upgrade service %s under the upgrade mutex.\n", ops.unit)
 				startDaemon = true
 			case "inactive": // intentionally stopped: do not resurrect it
+			case "failed":
+				// It was meant to run and stopped by failing (for example the
+				// start-rate limit). Start it again after the restart; the
+				// failed state is cleared right before that start.
+				fmt.Printf("Upgrade service %s had failed; it will be started again after the restart.\n", ops.unit)
+				startDaemon = true
 			default:
 				return fmt.Errorf("upgrade service %s has state %q; run ./sb install to repair it before restarting; no services were stopped", ops.unit, values["ActiveState"])
 			}
