@@ -27,6 +27,7 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/statisticsnorway/statbus/cli/internal/compose"
 	"github.com/statisticsnorway/statbus/cli/internal/dbdump"
+	"github.com/statisticsnorway/statbus/cli/internal/dbroute"
 	"github.com/statisticsnorway/statbus/cli/internal/diskpolicy"
 	"github.com/statisticsnorway/statbus/cli/internal/dotenv"
 	"github.com/statisticsnorway/statbus/cli/internal/inject"
@@ -4994,11 +4995,7 @@ func (d *Service) recoveryDSN() (string, error) {
 		}
 		return "", fmt.Errorf("%s not found in .env — regenerate with: ./sb config generate", key)
 	}
-	dbHost, err := requireKey("CADDY_DB_BIND_ADDRESS")
-	if err != nil {
-		return "", err
-	}
-	dbPort, err := requireKey("CADDY_DB_PORT")
+	dbHost, dbPort, err := dbroute.FromFile(f)
 	if err != nil {
 		return "", err
 	}

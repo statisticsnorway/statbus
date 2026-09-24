@@ -1,7 +1,7 @@
 ---
 id: STATBUS-390
 title: Every install-time database operation uses a route whose readiness is verified
-status: To Do
+status: In Progress
 assignee: []
 created_date: '2026-09-24 16:42'
 updated_date: '2026-09-24 18:40'
@@ -14,6 +14,10 @@ ordinal: 1
 ---
 
 ## Description
+
+## Progress 2026-09-24 (proof pending)
+
+Migration subprocess environment, migration and seed locks, installer post-completion connection, and upgrade daemon now share `dbroute.FromFile` for CADDY_DB_BIND_ADDRESS:CADDY_DB_PORT. Named unit tests pass without a database. This is not Done: Docker-exec subprocess fallback uses the container socket rather than the selected loopback route, and no `5-install-database-route-interrupted.sh` has been authored or run. A VM experiment must preserve Caddy's Layer4 database listener while interrupting only its web entry point. Acceptance criteria remain unchecked pending observed end-to-end proof.
 
 <!-- SECTION:DESCRIPTION:BEGIN -->
 Install-time seed restore, state checks, migrations, locks, final readiness, and automatic-update startup use the database service's internal socket or Docker-network route. Host-route use is removed from these installer-owned operations, so their readiness does not depend on the web entry point.

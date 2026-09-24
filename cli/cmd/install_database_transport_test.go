@@ -1,0 +1,48 @@
+package cmd
+
+import (
+	"os"
+	"path/filepath"
+	"strings"
+	"testing"
+
+	"github.com/statisticsnorway/statbus/cli/internal/migrate"
+)
+
+// The installer probes use PsqlCommand, seed restoration uses PgRestoreCommand,
+// and its final pgx connection and advisory lock use AdminConnStr.
+// Check their resolved endpoints without invoking either executable.
+func TestInstallerDatabaseOperationsUseInternalRoute(t *testing.T) {
+	dir := t.TempDir()
+	env := "SITE_DOMAIN=unreachable.example.invalid\nCADDY_DB_BIND_ADDRESS=127.0.0.1\nCADDY_DB_PORT=3914\nPOSTGRES_APP_DB=statbus_test\nPOSTGRES_ADMIN_USER=postgres\nPOSTGRES_ADMIN_PASSWORD=irrelevant\n"
+	if err := os.WriteFile(filepath.Join(dir, ".env"), []byte(env), 0600); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("DOCKER_PSQL", "0")
+	t.Setenv("PGHOST", "unreachable.example.invalid")
+	t.Setenv("PGPORT", "1")
+	for name, build := range map[string]func(string) (string, []string, []string, error){"state and migration": migrate.PsqlCommand, "seed restore": migrate.PgRestoreCommand} {
+		_, _, cmdEnv, err := build(dir)
+		if err != nil {
+			t.Fatalf("%s command unavailable: %v", name, err)
+		}
+		got := map[string]string{}
+		for _, pair := range cmdEnv {
+			if k, v, ok := strings.Cut(pair, "="); ok {
+				got[k] = v
+			}
+		}
+		if got["PGHOST"] != "127.0.0.1" || got["PGPORT"] != "3914" {
+			t.Errorf("%s route: %s:%s", name, got["PGHOST"], got["PGPORT"])
+		}
+	}
+	for _, name := range []string{"advisory lock", "final readiness"} {
+		dsn, err := migrate.AdminConnStr(dir)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !strings.Contains(dsn, "host=127.0.0.1 port=3914") {
+			t.Errorf("%s route: %s", name, dsn)
+		}
+	}
+}
