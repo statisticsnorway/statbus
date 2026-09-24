@@ -20,6 +20,8 @@ ordinal: 1
 
 Existing step-8 and final checks bound container-running and API `/ready` waits. A failed wait now records the complete container inventory and recent logs for services that failed to start, rather than only returning a condition. The automatic-update route, advertised HTTP/TLS endpoint proofs, and all disposable-VM scenarios remain pending; none of the five acceptance criteria is claimed complete.
 
+Continuation: a bounded final readiness failure now emits an allowlisted plain restarting-service line for rest, app, worker, or proxy in the operator terminal. Its state and recent logs remain in the install log. Guarded tests exercise each restart loop, and the terminal filter was checked with synthetic input. No VM proof has been run; all five acceptance criteria remain open.
+
 <!-- SECTION:DESCRIPTION:BEGIN -->
 After STATBUS-407 reconciles database role passwords, this ticket confirms API, application, worker, automatic-update route, and advertised-site readiness. The selected certificate mode determines whether the final site check uses trusted HTTPS or plain HTTP, and the installer prints success only after that response.
 

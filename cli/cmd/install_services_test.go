@@ -368,6 +368,34 @@ func TestVerifyInstallServing(t *testing.T) {
 	})
 }
 
+func TestRestartingClientsReportOwnLogsAfterBoundedReadiness(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, ".env"), []byte("REST_ADMIN_BIND_ADDRESS=127.0.0.1:3016\n"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	for _, service := range []string{"rest", "app", "worker", "proxy"} {
+		t.Run(service, func(t *testing.T) {
+			statuses := []serviceStatus{running("app"), running("db"), running("proxy"), running("rest"), running("worker")}
+			for i := range statuses {
+				if statuses[i].Service == service {
+					statuses[i].State = "restarting"
+				}
+			}
+			installFakeStack(t, &fakeStack{statuses: statuses, readyStatus: http.StatusOK})
+			var tailed []string
+			serviceLogTail = func(_ string, name string) { tailed = append(tailed, name) }
+			var err error
+			out := captureStdout(t, func() { err = verifyInstallServing(dir, 0, time.Millisecond) })
+			if err == nil || !strings.Contains(out, servicePlainName(service)+" keeps restarting; its recent logs are in the install log.") {
+				t.Fatalf("service=%s err=%v output=%s", service, err, out)
+			}
+			if strings.Join(tailed, ",") != service {
+				t.Fatalf("wrong service logs: %v", tailed)
+			}
+		})
+	}
+}
+
 // dbHealthyDir is a project dir whose db healthcheck the fakes report healthy.
 // waitForInstallDBHealth goes through checkDBHealthy (a real docker call), so
 // the test swaps it for the stack's view.

@@ -329,6 +329,19 @@ func describeServiceProblems(problems []serviceProblem) string {
 	return strings.Join(parts, "; ")
 }
 
+// The terminal filter only admits this fixed vocabulary. Raw status output and
+// service logs remain in the install log and support bundle.
+func reportRestartingClients(problems []serviceProblem) {
+	for _, problem := range problems {
+		if problem.State == "restarting" {
+			switch problem.Service {
+			case "rest", "app", "worker", "proxy":
+				fmt.Printf("INSTALL_SERVICE: %s keeps restarting; its recent logs are in the install log.\n", servicePlainName(problem.Service))
+			}
+		}
+	}
+}
+
 // requiredServices lists the services of the `all` profile, the set every
 // deployment mode runs (runStartServices starts exactly this profile).
 var requiredServices = func(dir string) ([]string, error) {
@@ -429,7 +442,7 @@ var restartPasswordClients = func(dir string, services []string) error {
 // the composeUpAll seam (the composeApplyServiceDefault pattern) so tests can
 // drive runStartServices without a docker daemon.
 func composeUpAllDefault(dir string) error {
-	cmd, err := compose.Up(context.Background(), dir, "--profile", "all", "-d")
+	cmd, err := compose.Up(context.Background(), dir, "--profile", "all", "-d", "--no-build")
 	if err != nil {
 		return err
 	}
@@ -498,6 +511,7 @@ func runStartServices(dir string) error {
 
 	problems, probeErr := waitForServicesRunning(dir, servicesRunningBudgetVar, servicesPollInterval)
 	if len(problems) > 0 {
+		reportRestartingClients(problems)
 		reportInstallServiceStates(dir)
 		for _, problem := range problems {
 			serviceLogTail(dir, problem.Service)
@@ -652,6 +666,7 @@ func verifyInstallServing(dir string, budget, interval time.Duration) error {
 
 	var reasons []string
 	failing := map[string]bool{}
+	reportRestartingClients(problems)
 	for _, p := range problems {
 		reasons = append(reasons, p.plain())
 		failing[p.Service] = true

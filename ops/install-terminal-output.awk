@@ -11,6 +11,12 @@
     fflush()
     next
 }
+/^INSTALL_SERVICE: (the API service \(rest\)|the web app \(app\)|the background worker \(worker\)|the web server \(proxy\)) keeps restarting; its recent logs are in the install log\.$/ {
+    sub(/^INSTALL_SERVICE: /, "")
+    print
+    fflush()
+    next
+}
 /^(Installation complete!|All steps complete\.|The previous restart finished\. Continuing installation\.)/ {
     print
     fflush()
