@@ -45,6 +45,8 @@ func TestParkedRepairSQL_RejectsMetaCommandsAndTransactionVariants(t *testing.T)
 		"START TRANSACTION;\n",
 		"COMMIT AND CHAIN;\n",
 		"DO $$ BEGIN UPDATE public.upgrade SET summary = 'hidden'; END $$;\n",
+		"END;\n",
+		" \n/* around it */ end ; -- trailing comment\n",
 	} {
 		path := filepath.Join(t.TempDir(), "repair.sql")
 		if err := os.WriteFile(path, []byte(body), 0600); err != nil {

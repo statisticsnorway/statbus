@@ -11,6 +11,7 @@ import (
 )
 
 var parkedRepairTransactionControl = regexp.MustCompile(`(?i)\b(begin|commit|rollback|abort|start\s+transaction|prepare\s+transaction)\b`)
+var parkedRepairStandaloneControl = regexp.MustCompile(`(?i)^\s*(end|savepoint|release)\b`)
 
 // validateParkedRepairSQL is deliberately conservative. The operator verb can
 // only audit one SQL statement, so anything requiring a SQL parser to prove safe
@@ -68,7 +69,7 @@ func validateParkedRepairSQL(body string) error {
 	if semicolons > 1 || (semicolons == 1 && !strings.HasSuffix(plain, ";")) {
 		return fmt.Errorf("contains multiple SQL statements")
 	}
-	if parkedRepairTransactionControl.MatchString(plain) {
+	if parkedRepairTransactionControl.MatchString(plain) || parkedRepairStandaloneControl.MatchString(plain) {
 		return fmt.Errorf("contains transaction control")
 	}
 	return nil
