@@ -1,3 +1,5 @@
+//go:build livedb
+
 package upgrade
 
 import (
@@ -10,7 +12,7 @@ import (
 	"time"
 )
 
-// TestLiveMaintenanceFile_ExtractorCommandRunsAgainstTheRealRow closes the
+// TestMaintenanceFileExtractorReadsTheLiveRow closes the
 // STATBUS-347 style rule 9 loop on the real path: the maintenance file is
 // produced from a REAL claim snapshot (the to_json text PostgreSQL itself
 // returned from the claim UPDATE), written through the REAL setMaintenance
@@ -21,11 +23,8 @@ import (
 // A file that names a command nobody ran is exactly the "file can never lie"
 // promise unkept; this runs it.
 //
-//	STATBUS_LIVE_DB=1 go test -count=1 -run TestLiveMaintenanceFile -v ./internal/upgrade
-func TestLiveMaintenanceFile_ExtractorCommandRunsAgainstTheRealRow(t *testing.T) {
-	if os.Getenv("STATBUS_LIVE_DB") == "" {
-		t.Skip("set STATBUS_LIVE_DB=1 to exercise the real database")
-	}
+// go test -tags livedb -count=1 ./internal/upgrade ./internal/install
+func TestMaintenanceFileExtractorReadsTheLiveRow(t *testing.T) {
 	projDir := findProjDir(t)
 	if _, err := os.Stat(maintenanceFlagHostPath()); err == nil {
 		t.Fatalf("a real maintenance flag exists at %s; refusing to run beside a live upgrade", maintenanceFlagHostPath())

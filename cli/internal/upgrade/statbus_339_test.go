@@ -1,3 +1,5 @@
+//go:build livedb
+
 package upgrade
 
 import (
@@ -12,12 +14,9 @@ import (
 	"time"
 )
 
-// TestLivePreswapFetchReturnedErrorRealSite_STATBUS339 drives executeUpgrade to
+// TestUpgradePreswapFetchErrorMarksUpgradeFailed drives executeUpgrade to
 // the actual inject.ErrorHere call immediately before ensureUpgradeCommitObjects.
-func TestLivePreswapFetchReturnedErrorRealSite_STATBUS339(t *testing.T) {
-	if os.Getenv("STATBUS_LIVE_DB") == "" {
-		t.Skip("set STATBUS_LIVE_DB=1 to exercise the real database")
-	}
+func TestUpgradePreswapFetchErrorMarksUpgradeFailed(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 	defer cancel()
 	realProjDir := findProjDir(t)
@@ -45,17 +44,13 @@ esac
 		{name: "production no-op reaches fetch seam", inject: false, wantFetches: 3},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			projDir := t.TempDir()
-			if err := os.Symlink(filepath.Join(realProjDir, ".env"), filepath.Join(projDir, ".env")); err != nil {
-				t.Fatal(err)
-			}
-			d := NewService(realProjDir, false, "dev", "")
+			projDir := realProjDir
+			d := NewService(projDir, false, "dev", "")
 			if err := d.LoadConfigAndConnect(ctx); err != nil {
 				t.Fatalf("LoadConfigAndConnect: %v", err)
 			}
 			defer d.Close()
-			d.projDir = projDir
-			d.allowedSignersPath = filepath.Join(projDir, "allowed-signers")
+			d.allowedSignersPath = filepath.Join(t.TempDir(), "allowed-signers")
 			if err := os.WriteFile(d.allowedSignersPath, []byte("test ssh-ed25519 AAAA\n"), 0o644); err != nil {
 				t.Fatal(err)
 			}
@@ -67,6 +62,7 @@ esac
 				return fetchSentinel
 			}
 			d.fetchRetryWait = func(context.Context, time.Duration) error { return nil }
+			d.captureSourceServingImageIdentitiesForTest = func(context.Context) error { return nil }
 			if tc.inject {
 				t.Setenv("STATBUS_INJECT_AT", "preswap-fetch-returns-error")
 			} else {

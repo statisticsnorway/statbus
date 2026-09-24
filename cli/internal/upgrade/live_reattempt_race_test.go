@@ -1,8 +1,11 @@
+//go:build livedb
+
 package upgrade
 
 import (
 	"context"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -10,18 +13,15 @@ import (
 	"time"
 )
 
-// TestLiveReattemptRestore_DelayedSecondInstallCannotRestoreAgain reproduces
+// TestRestoreReattemptSecondActorCannotRestoreAgain reproduces
 // SOL review 347 finding 1 with two Service instances. Actor A completes the
 // real restore reattempt and a post-A write lands. Actor B then arrives with the
 // stale row classification the install detector returned before A ran. Git and Docker
 // are PATH-shimmed, while the row, transaction/advisory locks, marker/flock,
 // pending transition, and terminal finalizer use the real local database/files.
 //
-//	STATBUS_LIVE_DB=1 go test -count=1 -run TestLiveReattemptRestore_DelayedSecondInstall -v ./internal/upgrade
-func TestLiveReattemptRestore_DelayedSecondInstallCannotRestoreAgain(t *testing.T) {
-	if os.Getenv("STATBUS_LIVE_DB") == "" {
-		t.Skip("set STATBUS_LIVE_DB=1 to exercise the real database")
-	}
+// go test -tags livedb -count=1 ./internal/upgrade ./internal/install
+func TestRestoreReattemptSecondActorCannotRestoreAgain(t *testing.T) {
 	projDir := findProjDir(t)
 	for _, path := range []string{flagFilePath(projDir), filepath.Join(projDir, "sb.old"), maintenanceFlagHostPath()} {
 		if _, err := os.Stat(path); err == nil {
@@ -49,14 +49,6 @@ esac
 `), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(shimDir, "git"), []byte(`#!/bin/sh
-case "$*" in
-  *"rev-parse"*) echo "$STATBUS_TEST_GIT_SHA"; exit 0 ;;
-  *) echo "shim git: $*"; exit 0 ;;
-esac
-	`), 0o755); err != nil {
-		t.Fatal(err)
-	}
 	if err := os.WriteFile(filepath.Join(shimDir, "rsync"), []byte(`#!/bin/sh
 set -eu
 if [ -f "$STATBUS_TEST_FLOOR_REWIND_ARM" ]; then
@@ -72,8 +64,7 @@ exit 0
 	}
 	t.Setenv("PATH", shimDir+string(os.PathListSeparator)+os.Getenv("PATH"))
 	t.Setenv("STATBUS_TEST_DOCKER_LOG", dockerLog)
-	t.Setenv("STATBUS_TEST_GIT_SHA", "1111111111111111111111111111111111111111")
-	t.Setenv("STATBUS_TEST_TARGET_SB", filepath.Join(projDir, "sb"))
+	t.Setenv("STATBUS_TEST_TARGET_SB", liveSBPath(t))
 	t.Setenv("STATBUS_TEST_FLOOR_DOWN", filepath.Join(projDir, "migrations", "20260907120000_statbus_347_rollback_finish_pending_column.down.sql"))
 	floorRewindArm := filepath.Join(shimDir, "floor-rewind.arm")
 	if err := os.WriteFile(floorRewindArm, []byte("armed\n"), 0o600); err != nil {
@@ -113,13 +104,21 @@ exit 0
 
 	backupPath := t.TempDir()
 	const sha = "3470000000000000000000000000000000000081"
+	sourceCommitBytes, err := exec.Command("git", "-C", projDir, "rev-parse", "HEAD").Output()
+	if err != nil {
+		t.Fatalf("resolve scratch source commit: %v", err)
+	}
+	sourceCommit := strings.TrimSpace(string(sourceCommitBytes))
+	if output, err := exec.Command("git", "-C", projDir, "tag", "-f", "pre-upgrade", sourceCommit).CombinedOutput(); err != nil {
+		t.Fatalf("create scratch pre-upgrade source ref: %v: %s", err, output)
+	}
 	var id int64
 	if err := control.queryConn.QueryRow(ctx, `
 		INSERT INTO public.upgrade (commit_sha, committed_at, commit_tags, release_status, summary, state,
-		                            scheduled_at, started_at, error, backup_path, log_relative_file_path)
+		                            scheduled_at, started_at, error, backup_path, log_relative_file_path, from_commit_version)
 		VALUES ($1, now() - interval '2 days', '{}', 'commit', 'live restore reattempt race probe', 'failed',
-		        now() - interval '1 hour', now() - interval '59 minutes', $2, $3, 'live-reattempt-race-probe.log')
-		RETURNING id`, sha, string(ErrRollbackDBRestore)+": live reattempt race probe", backupPath).Scan(&id); err != nil {
+		        now() - interval '1 hour', now() - interval '59 minutes', $2, $3, 'live-reattempt-race-probe.log', $4)
+		RETURNING id`, sha, string(ErrRollbackDBRestore)+": live reattempt race probe", backupPath, sourceCommit).Scan(&id); err != nil {
 		t.Fatalf("insert failed row: %v", err)
 	}
 	t.Cleanup(func() {
@@ -141,6 +140,7 @@ exit 0
 	})
 
 	actorA := NewService(projDir, false, "test", "")
+	actorA.startSourceApplicationStackForTest = func(context.Context, *ProgressLog) error { return nil }
 	if err := actorA.LoadConfigAndConnect(ctx); err != nil {
 		t.Fatalf("actor A LoadConfigAndConnect: %v", err)
 	}

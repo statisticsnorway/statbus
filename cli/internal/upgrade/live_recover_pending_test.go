@@ -1,3 +1,5 @@
+//go:build livedb
+
 package upgrade
 
 import (
@@ -9,7 +11,7 @@ import (
 	"time"
 )
 
-// TestLiveRecoverFromFlag_PendingRollbackNeverRestores exercises the exported
+// TestRecoveryWithPendingRollbackNeverRestoresSnapshot exercises the exported
 // recovery entrypoint the daemon boot AND `./sb install`'s crash-recovery ladder
 // both call (RecoverFromFlag), against the REAL local database and a REAL
 // service-held marker on disk, in the most dangerous shape: a PreSwap-phase
@@ -21,11 +23,8 @@ import (
 // that does not exist: any attempt to restore would fail loudly and leave the
 // row `failed` with the restore-broke wording instead of `rolled_back`.
 //
-//	STATBUS_LIVE_DB=1 go test -count=1 -run TestLiveRecoverFromFlag -v ./internal/upgrade
-func TestLiveRecoverFromFlag_PendingRollbackNeverRestores(t *testing.T) {
-	if os.Getenv("STATBUS_LIVE_DB") == "" {
-		t.Skip("set STATBUS_LIVE_DB=1 to exercise the real database")
-	}
+// go test -tags livedb -count=1 ./internal/upgrade ./internal/install
+func TestRecoveryWithPendingRollbackNeverRestoresSnapshot(t *testing.T) {
 	projDir := findProjDir(t)
 	if _, err := os.Stat(flagFilePath(projDir)); err == nil {
 		t.Fatalf("a real upgrade marker exists at %s; refusing to run beside a live upgrade", flagFilePath(projDir))

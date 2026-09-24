@@ -609,40 +609,40 @@ pnpm run test:watch     # Watch mode
 pnpm run test:coverage  # With coverage
 ```
 
-### Live twins (real database, opt-in)
+### Live-database tests
 
-Between the unit tests and the paid VM harness sits a set of opt-in Go tests
-that drive the REAL upgrade code against the REAL local database and real files
-on this box, cleaning up after themselves (probe rows use `commit_sha`
-`3470000000…`; residue is asserted zero). They exist because source-inspection
-tests cannot see NULL encodings, constraint rejections, lock re-entrance, or a
-row that a real `psql` classifies differently from the one you imagined.
+Between the unit tests and the paid VM harness is a Go build-tag tier that drives
+real upgrade and install code against the local Docker Compose database. Fast
+Tests runs this tier on every commit after the daemon-floor oracle.
 
 ```bash
-# The cleanup-only rollback finisher, the install ladder, the window seen by a
-# non-exempt session, the maintenance file's extractor command, the pruner:
-STATBUS_LIVE_DB=1 go test -C cli -count=1 -run 'TestLive' -v ./internal/upgrade ./internal/install
+# Run the same live-database tier locally. Keep services and the database up.
+./dev.sh test-livedb
 
-# The six gates `./sb release stable` runs, stopping before tag+push:
+# The stable-release gates need a real RC, credentials, and canary access, so
+# they remain manual under their separate mechanism tag.
 STATBUS_LIVE_RELEASE_GATES=v2026.09.0-rc.12 GITHUB_TOKEN=$(gh auth token) \
-  go test -C cli -count=1 -run TestLiveStablePreflight -v ./cmd
+  go test -C cli -tags release_live -count=1 -run TestReleaseStablePreflightGates -v ./cmd/release
 ```
+
+Each package creates one detached Git worktree at `HEAD`, copies the local
+`.env.config` and `.env.credentials`, generates that worktree's `.env`, and builds an
+identity-bearing `sb` with the same ldflags as `dev.sh`. Direct subprocess calls
+use a pinned copy for the whole package run. Mutable daemon files such as
+`.env`, `sb`, `sb.old`, `tmp/`, and migration fixtures therefore belong to the
+scratch worktree, never the developer's checkout. The install and upgrade
+packages share a filesystem flock because they use the same local database.
 
 Rules they follow, and that any new one must follow:
 
-- Refuse to run if a real marker (`tmp/upgrade-in-progress.json`), a real
-  maintenance flag, or `./sb.old` exists: never probe beside a live upgrade.
-- Anything that would reach `docker compose` is answered by a shim first on
-  `PATH`; the box's containers are never touched. Do **not** run a red twin of a
-  compose-reaching path from a git worktree that shares this box's compose
-  project name: it re-creates the real containers under the worktree's paths
-  (observed 2026-09-03; recovered with `docker compose --profile all down` and
-  `./sb start all` from the real project directory).
-- The `internal/upgrade` and `internal/install` test packages take one shared
-  filesystem flock when `STATBUS_LIVE_DB=1`. Go runs packages concurrently by
-  default, but these twins share the real marker and database; package-level
-  serialization prevents one package from observing the other's probe state.
-- Leave the read-only default OFF and the database rows as found.
+- Select the tier with `//go:build livedb`, not an environment-variable skip.
+- Name each test for the claim its assertions prove. Put ticket provenance in a
+  comment rather than the test name.
+- Refuse to run if a scratch-worktree upgrade marker, maintenance flag, or
+  `sb.old` exists.
+- Answer any `docker compose` call with a PATH shim. Tests use the host's Compose
+  database, but never mutate or bind-mount the main checkout into a container.
+- Leave the read-only default OFF and database rows as found.
 
 ### Upgrade System Hardening Tests
 

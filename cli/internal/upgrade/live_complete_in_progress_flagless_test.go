@@ -1,3 +1,5 @@
+//go:build livedb
+
 package upgrade
 
 import (
@@ -11,7 +13,7 @@ import (
 	"time"
 )
 
-// TestLiveCompleteInProgressUpgrade_FlaglessBehindClaimsAndRollsBack covers the
+// TestUpgradeFlaglessBehindRowRollsBack covers the
 // markerless reconciliation path used after a corrupt upgrade flag is removed.
 // The in_progress row still authorizes recovery, but the observed binary is
 // positively behind its target. The reconciler must create a fresh O_EXCL
@@ -20,11 +22,8 @@ import (
 // process. Docker is PATH-shimmed; the public.upgrade row and connections are
 // real.
 //
-//	STATBUS_LIVE_DB=1 go test -count=1 -run TestLiveCompleteInProgressUpgrade_FlaglessBehind -v ./internal/upgrade
-func TestLiveCompleteInProgressUpgrade_FlaglessBehindClaimsAndRollsBack(t *testing.T) {
-	if os.Getenv("STATBUS_LIVE_DB") == "" {
-		t.Skip("set STATBUS_LIVE_DB=1 to exercise the real database")
-	}
+// go test -tags livedb -count=1 ./internal/upgrade ./internal/install
+func TestUpgradeFlaglessBehindRowRollsBack(t *testing.T) {
 	realProjDir := findProjDir(t)
 	for _, path := range []string{flagFilePath(realProjDir), filepath.Join(realProjDir, "sb.old"), maintenanceFlagHostPath()} {
 		if _, err := os.Stat(path); err == nil {
@@ -90,7 +89,7 @@ esac
 		}
 	})
 
-	cmd := exec.CommandContext(ctx, os.Args[0], "-test.run=^TestLiveCompleteInProgressUpgrade_FlaglessBehindHelper$")
+	cmd := exec.CommandContext(ctx, os.Args[0], "-test.run=^TestUpgradeFlaglessBehindRow_Helper$")
 	cmd.Env = append(os.Environ(),
 		"STATBUS_FLAGLESS_BEHIND_HELPER=1",
 		"STATBUS_LIVE_TWIN_LOCK_HELD=1",
@@ -122,9 +121,9 @@ esac
 	}
 }
 
-// TestLiveCompleteInProgressUpgrade_FlaglessBehindHelper executes the rollback
-// process boundary for TestLiveCompleteInProgressUpgrade_FlaglessBehindClaimsAndRollsBack.
-func TestLiveCompleteInProgressUpgrade_FlaglessBehindHelper(t *testing.T) {
+// TestUpgradeFlaglessBehindRow_Helper executes the rollback
+// process boundary for TestUpgradeFlaglessBehindRowRollsBack.
+func TestUpgradeFlaglessBehindRow_Helper(t *testing.T) {
 	if os.Getenv("STATBUS_FLAGLESS_BEHIND_HELPER") != "1" {
 		t.Skip("helper process only")
 	}
@@ -139,6 +138,7 @@ func TestLiveCompleteInProgressUpgrade_FlaglessBehindHelper(t *testing.T) {
 	// Keep the real database configuration and connection, but isolate every
 	// filesystem, git, progress-log, and flock effect in the synthetic repo.
 	d.projDir = os.Getenv("STATBUS_FLAGLESS_BEHIND_PROJ_DIR")
+	d.startSourceApplicationStackForTest = func(context.Context, *ProgressLog) error { return nil }
 	if err := d.completeInProgressUpgrade(ctx); err != nil {
 		t.Fatalf("completeInProgressUpgrade: %v", err)
 	}

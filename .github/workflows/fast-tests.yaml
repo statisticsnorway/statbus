@@ -249,6 +249,14 @@ jobs:
           set -x
           ( cd cli && go test ./internal/migrate/ -run TestDaemonFloorSchemaSufficient -count=1 -v )
 
+      - name: Live-database tests
+        # STATBUS-362: real local DB coverage runs from detached per-package
+        # worktrees with a pinned identity-bearing sb binary. The package flock
+        # serializes install and upgrade because both use the same database.
+        run: |
+          set -euxo pipefail
+          ./dev.sh test-livedb
+
       - name: Show regression diffs on failure
         if: failure()
         run: |

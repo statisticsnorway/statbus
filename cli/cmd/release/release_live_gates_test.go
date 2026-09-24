@@ -1,3 +1,5 @@
+//go:build release_live
+
 package releasecmd
 
 import (
@@ -9,7 +11,7 @@ import (
 	"github.com/statisticsnorway/statbus/cli/internal/upgrade"
 )
 
-// TestLiveStablePreflight runs the EXACT gate functions `./sb release stable`
+// TestReleaseStablePreflightGates runs the EXACT gate functions `./sb release stable`
 // calls, against the real repo, the real GitHub Actions API and the real canary
 // boxes, and stops where the command would tag+push. It is the read-only twin
 // of the promotion: same code, same inputs, no side effects (the RunE's own
@@ -18,8 +20,8 @@ import (
 // Opt-in, because it needs network, `gh` credentials and SSH to the canaries:
 //
 //	STATBUS_LIVE_RELEASE_GATES=<rc-tag> GITHUB_TOKEN=$(gh auth token) \
-//	  go test -count=1 -run TestLiveStablePreflight -v ./cmd
-func TestLiveStablePreflight(t *testing.T) {
+//	  go test -count=1 -run TestReleaseStablePreflightGates -v ./cmd
+func TestReleaseStablePreflightGates(t *testing.T) {
 	rcTag := os.Getenv("STATBUS_LIVE_RELEASE_GATES")
 	if rcTag == "" {
 		t.Skip("set STATBUS_LIVE_RELEASE_GATES=<rc-tag> to exercise the real promotion gates")

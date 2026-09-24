@@ -1,3 +1,5 @@
+//go:build livedb
+
 package upgrade
 
 import (
@@ -18,9 +20,6 @@ const statbus354FloorVersion int64 = 20260907120000
 
 func requireSTATBUS354Live(t *testing.T) (string, *Service, context.Context) {
 	t.Helper()
-	if os.Getenv("STATBUS_LIVE_DB") == "" {
-		t.Skip("set STATBUS_LIVE_DB=1 to exercise the real database")
-	}
 	projDir := findProjDir(t)
 	for _, path := range []string{flagFilePath(projDir), filepath.Join(projDir, "sb.old"), maintenanceFlagHostPath()} {
 		if _, err := os.Stat(path); err == nil {
@@ -89,7 +88,7 @@ func statbus354FloorHash(t *testing.T, projDir string) string {
 func statbus354ApplyFloorDown(t *testing.T, projDir string, d *Service, ctx context.Context) {
 	t.Helper()
 	path := filepath.Join(projDir, "migrations", "20260907120000_statbus_347_rollback_finish_pending_column.down.sql")
-	cmd := exec.CommandContext(ctx, filepath.Join(projDir, "sb"), "psql")
+	cmd := exec.CommandContext(ctx, liveSBPath(t), "psql")
 	cmd.Dir = projDir
 	file, err := os.Open(path)
 	if err != nil {
@@ -111,7 +110,7 @@ func statbus354ApplyFloorDown(t *testing.T, projDir string, d *Service, ctx cont
 
 func statbus354ReapplyFloor(t *testing.T, projDir string, d *Service, ctx context.Context) {
 	t.Helper()
-	cmd := exec.CommandContext(ctx, filepath.Join(projDir, "sb"), "migrate", "up", "--to", fmt.Sprint(statbus354FloorVersion))
+	cmd := exec.CommandContext(ctx, liveSBPath(t), "migrate", "up", "--to", fmt.Sprint(statbus354FloorVersion))
 	cmd.Dir = projDir
 	if out, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("reapply floor: %v\n%s", err, out)
@@ -134,7 +133,7 @@ func statbus354ReapplyFloor(t *testing.T, projDir string, d *Service, ctx contex
 // arc: at the shimmed restore boundary apply the shipped down migration and
 // delete its ledger row together, then drive the ordinary target migration and
 // the real cleanup finisher.
-func TestLivePreColumnSnapshotAdoptionRollback_STATBUS354(t *testing.T) {
+func TestRollbackFromPreColumnSnapshotReappliesFloor(t *testing.T) {
 	projDir, d, ctx := requireSTATBUS354Live(t)
 	statbus354ApplyFloorDown(t, projDir, d, ctx)
 	t.Cleanup(func() { statbus354ReapplyFloor(t, projDir, d, context.Background()) })
@@ -163,7 +162,7 @@ func TestLivePreColumnSnapshotAdoptionRollback_STATBUS354(t *testing.T) {
 // Item 2. The named kill site itself is exercised by the VM arc because it is
 // an os.Exit boundary. This live twin proves its durable crash shape routes on
 // StepRollback even though the floor ledger already makes the DB look at-target.
-func TestLiveFloorSuccessBeforePendingStepRollbackWins_STATBUS354(t *testing.T) {
+func TestRollbackStepWinsOverAtFloorLedger(t *testing.T) {
 	projDir, d, ctx := requireSTATBUS354Live(t)
 	id, sha := statbus354InsertUpgrade(t, d, ctx, "floor-success-kill", "in_progress", false)
 	if err := d.writeUpgradeFlag(id, sha, nil, "STATBUS-354", string(TriggerService), false); err != nil {
@@ -210,7 +209,7 @@ func TestLiveFloorSuccessBeforePendingStepRollbackWins_STATBUS354(t *testing.T) 
 // Item 3. The real commit-to-ledger gap is already driven end-to-end by the
 // mandatory sheep arc. Locally we present the exact post-restore boundary and
 // prove the non-idempotent floor records exactly once through ordinary migrate.
-func TestLiveMigrationCommitBeforeLedgerRestoreRetry_STATBUS354(t *testing.T) {
+func TestMigrationFloorReapplyAfterPreColumnSnapshotRecordsOneLedgerRow(t *testing.T) {
 	projDir, d, ctx := requireSTATBUS354Live(t)
 	statbus354ApplyFloorDown(t, projDir, d, ctx)
 	t.Cleanup(func() { statbus354ReapplyFloor(t, projDir, d, context.Background()) })
@@ -223,7 +222,7 @@ func TestLiveMigrationCommitBeforeLedgerRestoreRetry_STATBUS354(t *testing.T) {
 	t.Log("PASS item 3: restored pre-column boundary retried non-idempotent floor with one schema effect and one ledger row")
 }
 
-func TestLiveFloorFailureHoldAndHumanRetry_STATBUS354(t *testing.T) {
+func TestRollbackFloorFailureHoldsUntilHumanRetryThenRecovers(t *testing.T) {
 	projDir, d, ctx := requireSTATBUS354Live(t)
 	id, sha := statbus354InsertUpgrade(t, d, ctx, "floor-failure-hold", "in_progress", false)
 	backup := t.TempDir()
@@ -264,7 +263,7 @@ func TestLiveFloorFailureHoldAndHumanRetry_STATBUS354(t *testing.T) {
 	t.Log("PASS item 4: deterministic floor failure held target rollback route alive-idle; ordinary migrate plus recovery converged")
 }
 
-func TestLivePendingCleanupMarkerPreservesSentinel_STATBUS354(t *testing.T) {
+func TestCleanupMarkerPreservesSentinelData(t *testing.T) {
 	projDir, d, ctx := requireSTATBUS354Live(t)
 	id, sha := statbus354InsertUpgrade(t, d, ctx, "pending-cleanup", "failed", true)
 	statbus354WriteFreeFinishingMarker(t, projDir, id, sha)
@@ -281,10 +280,21 @@ func TestLivePendingCleanupMarkerPreservesSentinel_STATBUS354(t *testing.T) {
 	t.Log("PASS item 5: pending plus cleanup marker finalized cleanup-only and preserved post-reopen sentinel")
 }
 
-func TestLiveTerminalRowCleanupMarkerPublishesSourceBinary_STATBUS354(t *testing.T) {
+func TestCleanupAfterTerminalRowRemovesMarkerAndRetainsRow(t *testing.T) {
 	projDir, d, ctx := requireSTATBUS354Live(t)
 	id, sha := statbus354InsertUpgrade(t, d, ctx, "terminal-cleanup", "failed", false)
-	if _, err := d.queryConn.Exec(ctx, "UPDATE public.upgrade SET state='rolled_back', rolled_back_at=now(), scheduled_at=NULL, failure_code=NULL WHERE id=$1", id); err != nil {
+	tx, err := d.queryConn.Begin(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+	if _, err := tx.Exec(ctx, "SELECT set_config('statbus.actor', 'live-database-test', true)"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := tx.Exec(ctx, "UPDATE public.upgrade SET state='rolled_back', rolled_back_at=now(), scheduled_at=NULL, failure_code=NULL WHERE id=$1", id); err != nil {
+		t.Fatal(err)
+	}
+	if err := tx.Commit(ctx); err != nil {
 		t.Fatal(err)
 	}
 	statbus354WriteFreeFinishingMarker(t, projDir, id, sha)
@@ -301,7 +311,7 @@ func TestLiveTerminalRowCleanupMarkerPublishesSourceBinary_STATBUS354(t *testing
 	t.Log("PASS item 6: terminal row plus cleanup marker performed marker-only cleanup and retained terminal row")
 }
 
-func TestLiveCleanupActorRaceStaleLoserCannotMutate_STATBUS354(t *testing.T) {
+func TestCleanupRaceStaleLoserCannotMutate(t *testing.T) {
 	projDir, winner, ctx := requireSTATBUS354Live(t)
 	id, sha := statbus354InsertUpgrade(t, winner, ctx, "cleanup-race", "failed", true)
 	statbus354WriteFreeFinishingMarker(t, projDir, id, sha)

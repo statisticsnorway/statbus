@@ -1,14 +1,20 @@
+//go:build livedb
+
 package upgrade
 
 import (
 	"context"
 	"os"
+	"os/exec"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/statisticsnorway/statbus/cli/internal/livedbtest"
 )
 
-// TestLivePruneDeletedTags_AllPrunedRowLands runs the REAL pruneDeletedTags
+// TestPruneDeletedTagsRecordsAllPrunedRow runs the REAL pruneDeletedTags
 // against the REAL local database (the same connect path the daemon uses),
 // with a row shaped exactly like the 25 rows that wedged on dev: every tag
 // moved elsewhere in git. Before 40baf42fe the reconcile UPDATE was rejected
@@ -18,11 +24,8 @@ import (
 // Everything runs inside one transaction that is rolled back, so the local
 // database is untouched. Opt-in: needs the local db up.
 //
-//	STATBUS_LIVE_DB=1 go test -count=1 -run TestLivePruneDeletedTags -v ./internal/upgrade
-func TestLivePruneDeletedTags_AllPrunedRowLands(t *testing.T) {
-	if os.Getenv("STATBUS_LIVE_DB") == "" {
-		t.Skip("set STATBUS_LIVE_DB=1 to exercise the real database")
-	}
+// go test -tags livedb -count=1 ./internal/upgrade ./internal/install
+func TestPruneDeletedTagsRecordsAllPrunedRow(t *testing.T) {
 	projDir := findProjDir(t)
 	d := NewService(projDir, false, "test", "")
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
@@ -80,21 +83,48 @@ func TestLivePruneDeletedTags_AllPrunedRowLands(t *testing.T) {
 	}
 }
 
+func TestPinnedSBIgnoresProjectBinaryReplacement(t *testing.T) {
+	projDir := findProjDir(t)
+	projectSB := filepath.Join(projDir, "sb")
+	original, err := os.ReadFile(projectSB)
+	if err != nil {
+		t.Fatalf("read fixture project sb: %v", err)
+	}
+	info, err := os.Stat(projectSB)
+	if err != nil {
+		t.Fatalf("stat fixture project sb: %v", err)
+	}
+	if err := os.WriteFile(projectSB, []byte("#!/bin/sh\nexit 99\n"), 0o755); err != nil {
+		t.Fatalf("replace fixture project sb: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := os.WriteFile(projectSB, original, info.Mode().Perm()); err != nil {
+			t.Errorf("restore fixture project sb: %v", err)
+		}
+	})
+
+	cmd := exec.Command(liveSBPath(t), "--version")
+	cmd.Dir = projDir
+	if out, err := cmd.CombinedOutput(); err != nil {
+		t.Fatalf("pinned sb changed after project ./sb replacement: %v\n%s", err, out)
+	}
+}
+
 func findProjDir(t *testing.T) string {
 	t.Helper()
-	dir, err := os.Getwd()
-	if err != nil {
-		t.Fatal(err)
+	if dir := livedbtest.ProjectDir(); dir != "" {
+		return dir
 	}
-	for i := 0; i < 6; i++ {
-		if _, err := os.Stat(dir + "/.env"); err == nil {
-			if _, err := os.Stat(dir + "/dev.sh"); err == nil {
-				return dir
-			}
-		}
-		dir += "/.."
+	t.Fatal("live-database fixture project dir is unset")
+	return ""
+}
+
+func liveSBPath(t *testing.T) string {
+	t.Helper()
+	if path := livedbtest.PinnedSB(); path != "" {
+		return path
 	}
-	t.Fatal("project dir (with .env and dev.sh) not found above the test cwd")
+	t.Fatal("live-database pinned sb path is unset")
 	return ""
 }
 

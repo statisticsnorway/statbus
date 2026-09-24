@@ -150,6 +150,7 @@ var allowedProcessLaunches = map[string]approvedLaunch{
 	"internal/freshness/check.go:isStale|os/exec|git":                                                 {Count: 1, Reason: "isStale resolves HEAD so binary freshness can compare the built revision with the active checkout"},
 	"internal/freshness/check.go:probeCommittedDrift|os/exec|git":                                     {Count: 1, Reason: "probeCommittedDrift inspects changed paths between revisions to decide whether a stale binary is affected"},
 	"internal/freshness/rebuild.go:headCommit|os/exec|git":                                            {Count: 1, Reason: "headCommit resolves the checkout revision stamped into a freshly rebuilt sb binary"},
+	"internal/livedbtest/fixture.go:Setup|os/exec|git":                                                {Count: 1, Reason: "live-database fixture removes its detached scratch worktree through Git during package cleanup"},
 	"internal/migrate/migrate.go:CommandContext|os/exec|pg_dump":                                      {Count: 1, Reason: "migrate CommandContext constructs pg_dump when the selected migration operation creates a database backup"},
 	"internal/migrate/migrate.go:CommandContext|os/exec|pg_restore":                                   {Count: 1, Reason: "migrate CommandContext constructs pg_restore when the selected migration operation restores a database archive"},
 	"internal/migrate/migrate.go:CommandContext|os/exec|psql":                                         {Count: 1, Reason: "migrate CommandContext constructs psql for SQL migrations and database inspection operations"},
@@ -270,6 +271,7 @@ var authorityProcessWrappers = map[string]authorityProcessWrapperSpec{
 // exact internal forwarding edges which merely preserve an executable that the
 // gate separately validates at each wrapper's callers.
 var allowedDynamicProcessForwarders = map[string]approvedLaunch{
+	"internal/livedbtest/fixture.go:run|os/exec":                                          {Count: 1, Reason: "the isolated live-database fixture forwards only its source-authored Git, Go, and pinned-sb setup commands through one output-capturing helper"},
 	"internal/upgrade/bundle.go:bundleCommandBody|upgrade.commandContext":                 {Count: 1, Reason: "bundleCommandBody forwards a reviewed bundle executable into commandContext while preserving section-specific arguments"},
 	"internal/upgrade/exec.go:RunCommandOutput|upgrade.runCommandOutput":                  {Count: 1, Reason: "RunCommandOutput forwards its public constant executable to the output-capturing runner"},
 	"internal/upgrade/exec.go:commandContext|os/exec":                                     {Count: 1, Reason: "commandContext performs the final os/exec construction after applying Git arguments or Docker validation"},
