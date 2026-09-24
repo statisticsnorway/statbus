@@ -1310,11 +1310,11 @@ apply_https_only_egress() {
         VM_ROOT_EXEC nft delete table inet statbus_https_only || true
     VM_ROOT_EXEC nft add table inet statbus_https_only
     VM_ROOT_EXEC nft 'add chain inet statbus_https_only output { type filter hook output priority 0; policy accept; }'
-    VM_ROOT_EXEC nft add rule inet statbus_https_only output meta nfproto ipv4 ip daddr '!=' '{ 10.0.0.0/8, 127.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16 }' tcp dport 80 reject
-    VM_ROOT_EXEC nft add rule inet statbus_https_only output meta nfproto ipv6 ip6 daddr '!=' '{ ::1, fc00::/7, fe80::/10 }' tcp dport 80 reject
+    VM_ROOT_EXEC nft add rule inet statbus_https_only output ip daddr '!=' '{ 10.0.0.0/8, 127.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16 }' tcp dport 80 reject
+    VM_ROOT_EXEC nft add rule inet statbus_https_only output ip6 daddr '!=' '{ ::1, fc00::/7, fe80::/10 }' tcp dport 80 reject
     installed_rules=$(VM_ROOT_EXEC nft list chain inet statbus_https_only output) || return 1
-    grep -Fq 'meta nfproto ipv4 ip daddr != { 10.0.0.0/8, 127.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16 } tcp dport 80 reject' <<<"$installed_rules" && \
-        grep -Fq 'meta nfproto ipv6 ip6 daddr != { ::1, fc00::/7, fe80::/10 } tcp dport 80 reject' <<<"$installed_rules" || {
+    grep -Fq 'ip daddr != { 10.0.0.0/8, 127.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16 } tcp dport 80 reject' <<<"$installed_rules" && \
+        grep -Fq 'ip6 daddr != { ::1, fc00::/7, fe80::/10 } tcp dport 80 reject' <<<"$installed_rules" || {
         echo "ERROR: nftables HTTPS-only output rule was not installed" >&2
         return 1
     }

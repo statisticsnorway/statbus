@@ -30,8 +30,8 @@ assert_https_only_contract() {
         'nft --version' \
         'nft add table inet statbus_https_only' \
         'nft add chain inet statbus_https_only output { type filter hook output priority 0; policy accept; }' \
-        'nft add rule inet statbus_https_only output meta nfproto ipv4 ip daddr != { 10.0.0.0/8, 127.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16 } tcp dport 80 reject' \
-        'nft add rule inet statbus_https_only output meta nfproto ipv6 ip6 daddr != { ::1, fc00::/7, fe80::/10 } tcp dport 80 reject' \
+        'nft add rule inet statbus_https_only output ip daddr != { 10.0.0.0/8, 127.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16 } tcp dport 80 reject' \
+        'nft add rule inet statbus_https_only output ip6 daddr != { ::1, fc00::/7, fe80::/10 } tcp dport 80 reject' \
         'curl --noproxy * -4 --fail --silent --show-error --connect-timeout 3 --max-time 5 http://93.184.216.34/statbus-http-egress-mutation' \
         'curl --noproxy * -6 --fail --silent --show-error --connect-timeout 3 --max-time 5 http://[2606:2800:220:1:248:1893:25c8:1946]/statbus-http-egress-mutation' \
         'curl --noproxy * --fail --silent --show-error http://127.0.0.1:3010/rest/'
@@ -80,8 +80,12 @@ run_contract() {
     }
 
     packet_rejected() {
-        local family="$1" destination="$2" rule
-        rule=$(grep -F "meta nfproto $family " "$rule_state" | tail -1 || true)
+        local family="$1" destination="$2" rule family_selector
+        case "$family" in
+            ipv4) family_selector='^ip daddr' ;;
+            ipv6) family_selector='^ip6 daddr' ;;
+        esac
+        rule=$(grep -E "$family_selector" "$rule_state" | tail -1 || true)
         [ -n "$rule" ] || return 1
         grep -Fq ' tcp dport 80 reject' <<<"$rule" || return 1
         # Docker's default userland-proxy accepts 127.0.0.1:3010, then opens a
@@ -118,7 +122,15 @@ run_contract() {
             'nft list table inet statbus_https_only') return 1 ;;
             'nft add table inet statbus_https_only'|'nft add chain inet statbus_https_only output { type filter hook output priority 0; policy accept; }') return 0 ;;
             nft\ add\ rule\ inet\ statbus_https_only\ output\ *)
-                printf '%s\n' "${*#nft add rule inet statbus_https_only output }" >> "$rule_state"
+                local listed_rule="$*"
+                listed_rule=${listed_rule#nft add rule inet statbus_https_only output }
+                listed_rule=${listed_rule#meta nfproto ipv4 }
+                listed_rule=${listed_rule#meta nfproto ipv6 }
+                case "$listed_rule" in
+                    ip\ daddr*\ reject) listed_rule="${listed_rule% reject} reject with icmp port-unreachable" ;;
+                    ip6\ daddr*\ reject) listed_rule="${listed_rule% reject} reject with icmpv6 port-unreachable" ;;
+                esac
+                printf '%s\n' "$listed_rule" >> "$rule_state"
                 return 0
                 ;;
             'nft list chain inet statbus_https_only output') cat "$rule_state"; return 0 ;;
@@ -160,13 +172,13 @@ trap 'rm -f "$events" "$missing_rule" "$widened_rule" "$no_ipv6" "$no_docker_bri
 output=$(run_contract "$events")
 assert_https_only_contract "$events" "$output"
 
-sed '/^[[:space:]]*VM_ROOT_EXEC nft add rule inet statbus_https_only output meta nfproto ipv4 ip daddr/d' "$BOOTSTRAP" > "$missing_rule"
+sed '/^[[:space:]]*VM_ROOT_EXEC nft add rule inet statbus_https_only output ip daddr/d' "$BOOTSTRAP" > "$missing_rule"
 expect_mutation_red 'missing IPv4 nft rule' "$missing_rule" 'nftables HTTPS-only output rule was not installed'
 
 sed 's/tcp dport 80 reject/tcp dport 80 accept/g' "$BOOTSTRAP" > "$widened_rule"
 expect_mutation_red 'widened accept rule' "$widened_rule" 'IPv4 HTTPS-only egress probe expected connection refusal'
 
-sed '/^[[:space:]]*VM_ROOT_EXEC nft add rule inet statbus_https_only output meta nfproto ipv6 ip6 daddr/d' "$BOOTSTRAP" > "$no_ipv6"
+sed '/^[[:space:]]*VM_ROOT_EXEC nft add rule inet statbus_https_only output ip6 daddr/d' "$BOOTSTRAP" > "$no_ipv6"
 expect_mutation_red 'missing IPv6 rule' "$no_ipv6" 'nftables HTTPS-only output rule was not installed'
 
 sed 's/, 172\.16\.0\.0\/12//g' "$BOOTSTRAP" > "$no_docker_bridge"
