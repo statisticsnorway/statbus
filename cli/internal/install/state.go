@@ -41,6 +41,20 @@ import (
 // State is the diagnosed state of an install directory.
 type State int
 
+// UnclassifiableResponseError means a database probe completed successfully,
+// but its output was not one of the shapes the installer can safely classify.
+// Callers must fail closed: unlike a connection/query failure, this is evidence
+// from an answering database whose provenance is unknown.
+type UnclassifiableResponseError struct {
+	Message string
+}
+
+func (e *UnclassifiableResponseError) Error() string { return e.Message }
+
+func unclassifiableResponse(format string, args ...any) error {
+	return &UnclassifiableResponseError{Message: fmt.Sprintf(format, args...)}
+}
+
 const (
 	StateFresh State = iota
 	StateLiveUpgrade
@@ -278,7 +292,7 @@ func parseUpgradeTableOutput(out string) (bool, error) {
 	case "":
 		return false, nil
 	default:
-		return false, fmt.Errorf("unexpected public.upgrade probe output: %q", out)
+		return false, unclassifiableResponse("unexpected public.upgrade probe output: %q", out)
 	}
 }
 
@@ -314,7 +328,7 @@ func (defaultProbe) InspectSchemaHistory(projDir string) (SchemaHistory, error) 
 func parseTwoBools(out string) (bool, bool, error) {
 	parts := strings.Split(strings.TrimSpace(out), "|")
 	if len(parts) != 2 {
-		return false, false, fmt.Errorf("unexpected schema probe output: %q", out)
+		return false, false, unclassifiableResponse("unexpected schema probe output: %q", out)
 	}
 	first, err := parseBoolToken(parts[0])
 	if err != nil {
@@ -334,39 +348,39 @@ func parseBoolToken(token string) (bool, error) {
 	case "f":
 		return false, nil
 	default:
-		return false, fmt.Errorf("unexpected boolean probe token %q", token)
+		return false, unclassifiableResponse("unexpected boolean probe token %q", token)
 	}
 }
 
 func parseSchemaHistoryCounts(out string, history SchemaHistory) (SchemaHistory, error) {
 	parts := strings.Split(strings.TrimSpace(out), "|")
 	if len(parts) != 2 {
-		return SchemaHistory{}, fmt.Errorf("unexpected migration history output: %q", out)
+		return SchemaHistory{}, unclassifiableResponse("unexpected migration history output: %q", out)
 	}
 	count, err := strconv.ParseInt(parts[0], 10, 64)
 	if err != nil {
-		return SchemaHistory{}, fmt.Errorf("parse migration count %q: %w", parts[0], err)
+		return SchemaHistory{}, unclassifiableResponse("parse migration count %q: %v", parts[0], err)
 	}
 	history.AppliedMigrations = count
 	if count == 0 {
 		if parts[1] != "" {
-			return SchemaHistory{}, fmt.Errorf("unexpected migration versions for empty history: %q", parts[1])
+			return SchemaHistory{}, unclassifiableResponse("unexpected migration versions for empty history: %q", parts[1])
 		}
 		return history, nil
 	}
 	if parts[1] == "" {
-		return SchemaHistory{}, fmt.Errorf("missing migration versions for count %d", count)
+		return SchemaHistory{}, unclassifiableResponse("missing migration versions for count %d", count)
 	}
 	history.AppliedVersions = strings.Split(parts[1], ",")
 	if int64(len(history.AppliedVersions)) != count {
-		return SchemaHistory{}, fmt.Errorf("migration count %d does not match %d versions", count, len(history.AppliedVersions))
+		return SchemaHistory{}, unclassifiableResponse("migration count %d does not match %d versions", count, len(history.AppliedVersions))
 	}
 	for _, version := range history.AppliedVersions {
 		if len(version) != 14 {
-			return SchemaHistory{}, fmt.Errorf("unexpected migration version %q", version)
+			return SchemaHistory{}, unclassifiableResponse("unexpected migration version %q", version)
 		}
 		if _, err := strconv.ParseInt(version, 10, 64); err != nil {
-			return SchemaHistory{}, fmt.Errorf("parse migration version %q: %w", version, err)
+			return SchemaHistory{}, unclassifiableResponse("parse migration version %q: %v", version, err)
 		}
 	}
 	return history, nil
@@ -391,11 +405,11 @@ func (defaultProbe) QueryScheduledUpgrade(projDir string) (*ScheduledRow, error)
 	}
 	parts := strings.Split(line, "|")
 	if len(parts) < 3 {
-		return nil, fmt.Errorf("unexpected scheduled-upgrade row: %q", line)
+		return nil, unclassifiableResponse("unexpected scheduled-upgrade row: %q", line)
 	}
 	id, err := strconv.ParseInt(parts[0], 10, 64)
 	if err != nil {
-		return nil, fmt.Errorf("parse id from %q: %w", parts[0], err)
+		return nil, unclassifiableResponse("parse id from %q: %v", parts[0], err)
 	}
 	return &ScheduledRow{
 		ID:        id,

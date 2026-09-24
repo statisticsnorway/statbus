@@ -29,6 +29,16 @@ import (
 	"github.com/statisticsnorway/statbus/cli/internal/upgrade"
 )
 
+var (
+	detectInstallState          = install.Detect
+	checkInstallSigners         = checkSignersDone
+	writeDetectionSupportBundle = func(installDir string) (string, error) {
+		path := filepath.Join(installDir, fmt.Sprintf("support-bundle-%s.txt", time.Now().UTC().Format("20060102-150405")))
+		return path, writeSupportBundle(installDir, path, upgrade.TriggerInstall)
+	}
+	runInstallStepTableTestHook func() error
+)
+
 // markTerminal is a thin wrapper over invariants.MarkTerminal that pins
 // the projDir to the install dir. Every fail-fast guard site in this file
 // calls markTerminal BEFORE returning the wrapped error, so install.sh
@@ -411,7 +421,7 @@ func runInstall() (installErr error) {
 	if !bypass && trustGitHubUser != "" {
 		cfgPath := filepath.Join(installDir, ".env.config")
 		if _, statErr := os.Stat(cfgPath); statErr == nil {
-			if checkSignersDone(installDir) {
+			if checkInstallSigners(installDir) {
 				fmt.Printf("Trusted signer already configured and verified — skipping GitHub fetch\n")
 			} else {
 				f, loadErr := dotenv.Load(cfgPath)
@@ -431,9 +441,23 @@ func runInstall() (installErr error) {
 
 	var detectedState install.State
 	if !bypass {
-		state, detail, derr := install.Detect(installDir, version)
+		state, detail, derr := detectInstallState(installDir, version)
 		if derr != nil {
-			log.Printf("State detection failed (continuing with step-table fallback): %v", derr)
+			var unclassifiable *install.UnclassifiableResponseError
+			if errors.As(derr, &unclassifiable) {
+				bundlePath, bundleErr := writeDetectionSupportBundle(installDir)
+				if bundleErr != nil {
+					bundlePath = filepath.Join(installDir, "support-bundle-<timestamp>.txt (bundle creation failed: "+bundleErr.Error()+")")
+				}
+				return fmt.Errorf("the database answered, but its install state could not be determined: %v\n"+
+					"nothing was changed.\n"+
+					"run the same install command again; if it stops here again, send this file to StatBus support: %s",
+					derr, bundlePath)
+			}
+			// The original fallback repairs unavailable databases and transient
+			// query failures through the idempotent step table. Those failures
+			// provide no contradictory database answer, so continuing is safe.
+			log.Printf("State detection failed because a probe was unavailable (continuing with step-table fallback): %v", derr)
 		} else {
 			detectedState = state
 			logInstallState(installDir, state, detail)
@@ -503,7 +527,7 @@ func runInstall() (installErr error) {
 	// fast, actionable failure instead of wasting 2 minutes on steps 1-12.
 	if !bypass {
 		cfgPath := filepath.Join(installDir, ".env.config")
-		if _, statErr := os.Stat(cfgPath); statErr == nil && !checkSignersDone(installDir) {
+		if _, statErr := os.Stat(cfgPath); statErr == nil && !checkInstallSigners(installDir) {
 			if nonInteractive {
 				return fmt.Errorf("no valid trusted signers configured.\n" +
 					"  The upgrade service requires at least one trusted signer that can verify commit signatures.\n" +
@@ -719,6 +743,9 @@ func runInstall() (installErr error) {
 	// otherwise misclassify every key as "changed" and restart nothing not
 	// yet running anyway).
 	oldEnvSnapshot, _ := os.ReadFile(filepath.Join(installDir, ".env"))
+	if runInstallStepTableTestHook != nil {
+		return runInstallStepTableTestHook()
+	}
 	oldCaddySnapshot := snapshotCaddyConfig(installDir)
 	wasAlreadyRunning := checkServicesDone(installDir)
 	var pendingRestarts map[config.RestartClass]bool
