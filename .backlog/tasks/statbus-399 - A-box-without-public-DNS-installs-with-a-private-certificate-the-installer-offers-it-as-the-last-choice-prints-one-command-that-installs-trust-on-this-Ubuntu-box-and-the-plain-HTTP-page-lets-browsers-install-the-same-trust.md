@@ -6,6 +6,7 @@ assignee: []
 created_date: '2026-09-24 15:35'
 updated_date: '2026-09-24 18:42'
 labels:
+  - owner-decision
   - install
   - certificate
   - ubuntu
@@ -15,6 +16,12 @@ priority: high
 type: bug
 ordinal: 352000
 ---
+
+## Status 2026-09-24
+
+**To Do, owner decision.** #1-7 not met: no persisted standalone private-certificate choice; `4-install-standalone-no-public-dns.sh` is only an authored scenario and currently cannot establish #2. **Remaining:** choose the certificate/trust policy, then ship the last-choice selector, public-root-only trust command and HTTP browser trust page, persistence, and full HTTPS/PostgreSQL direct-TLS VM proofs.
+
+Baseline: `origin/master` at `373d15fc3`. Criterion disposition and remaining positive targets are above; the acceptance criteria below remain authoritative. An authored but unrun VM scenario is **proof pending**, not met.
 
 ## Description
 

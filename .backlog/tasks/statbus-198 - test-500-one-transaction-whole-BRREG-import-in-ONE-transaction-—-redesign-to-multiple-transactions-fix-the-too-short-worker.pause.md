@@ -7,6 +7,7 @@ status: To Do
 assignee: []
 created_date: '2026-08-01 10:44'
 labels:
+  - harness
   - testing
   - import
   - performance
@@ -15,6 +16,12 @@ dependencies: []
 priority: medium
 ordinal: 198000
 ---
+
+## Status 2026-09-24
+
+**To Do:** #1-4 not met: `test/sql/500_import_jobs_for_brreg_downloads.sql` still calls the whole import synchronously and pauses for one hour (`7a0facee9` ticket history only). **Remaining:** drive bounded multi-transaction worker batches, sustain pause, regenerate real expected output, and document the regression rule.
+
+Baseline: `origin/master` at `373d15fc3`. Criterion disposition and remaining positive targets are above; the acceptance criteria below remain authoritative. An authored but unrun VM scenario is **proof pending**, not met.
 
 ## Description
 

@@ -1,12 +1,12 @@
 ---
 id: STATBUS-357
 title: A box with outbound HTTPS-only policy installs and upgrades successfully
-status: To Do
+status: In Progress
 assignee: []
 created_date: '2026-09-07 07:02'
 updated_date: '2026-09-24 18:47'
 labels:
-  - harness
+  - release-bug
   - install
   - upgrade
   - fidelity
@@ -16,6 +16,12 @@ priority: medium
 type: task
 ordinal: 50
 ---
+
+## Status 2026-09-24
+
+**In Progress:** `bdbcd8247` (`684945e11`, `3eb69eeca`) added private-destination nft exemption and `0-https-only-egress.sh`. #1 and #3 require named real-VM run `STATBUS-357-https-only-nat-1`, proof pending; #2 named mutation test absent; #4 default selection stays deliberately disabled. **Remaining:** run baseline+upgrade VM, run HTTP mutation control, record evidence, and select the scenario by default.
+
+Baseline: `origin/master` at `373d15fc3`. Criterion disposition and remaining positive targets are above; the acceptance criteria below remain authoritative. An authored but unrun VM scenario is **proof pending**, not met.
 
 ## Description
 

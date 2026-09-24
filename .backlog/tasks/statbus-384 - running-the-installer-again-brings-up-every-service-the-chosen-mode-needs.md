@@ -1,11 +1,12 @@
 ---
 id: STATBUS-384
 title: Running the installer again brings up every service the chosen mode needs
-status: To Do
+status: In Progress
 assignee: []
 created_date: '2026-09-24 16:42'
 updated_date: '2026-09-24 18:40'
 labels:
+  - release-bug
   - install
 dependencies:
   - STATBUS-408
@@ -14,6 +15,12 @@ priority: high
 type: bug
 ordinal: 1
 ---
+
+## Status 2026-09-24
+
+**In Progress.** `474cf6119`, `145c17292`: `cli/cmd/install_services.go` and `cli/cmd/install_services_test.go` check the selected service set (#1 behavior); the exact named `TestCheckServicesDoneRequiresAllSelectedServices` is not present. #2 is authored in `5-install-proxy-never-started.sh` but real-VM proof is pending; #3 remains not met. **Remaining:** run the proxy-loss VM recovery proof and add/run the interrupted-first-install resume scenario to ready API and web.
+
+Baseline: `origin/master` at `373d15fc3`. Criterion disposition and remaining positive targets are above; the acceptance criteria below remain authoritative. An authored but unrun VM scenario is **proof pending**, not met.
 
 ## Description
 

@@ -6,6 +6,7 @@ assignee: []
 created_date: '2026-09-24 16:05'
 updated_date: '2026-09-24 18:44'
 labels:
+  - owner-decision
   - install
   - configuration
   - certificates
@@ -15,6 +16,12 @@ priority: high
 type: enhancement
 ordinal: 361200
 ---
+
+## Status 2026-09-24
+
+**To Do, owner decision.** #1-4 not met: `0-interactive-rerun-answers.sh` and `0-unattended-rerun-answers.sh` are absent, and `cli/cmd/install.go` still skips input for a present `.env.config`. **Remaining:** decide safe re-prompt semantics, then make every answer revisable on rerun without manual file edits, including cert choice and idempotent unattended behavior.
+
+Baseline: `origin/master` at `373d15fc3`. Criterion disposition and remaining positive targets are above; the acceptance criteria below remain authoritative. An authored but unrun VM scenario is **proof pending**, not met.
 
 ## Description
 

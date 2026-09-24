@@ -1,11 +1,12 @@
 ---
 id: STATBUS-409
 title: Each installed site gives the API its selected site settings
-status: To Do
+status: In Progress
 assignee: []
 created_date: '2026-09-24 15:46'
 updated_date: '2026-09-24 18:44'
 labels:
+  - release-bug
   - api
   - configuration
   - postgrest
@@ -17,6 +18,12 @@ priority: medium
 type: bug
 ordinal: 362000
 ---
+
+## Status 2026-09-24
+
+**In Progress.** `598b35e1b`: `docker-compose.rest.yml` uses `PGRST_APP_SETTINGS_DEPLOYMENT_SLOT_CODE`; `test/config/postgrest-environment-test.sh` covers #1. #2 `cli/internal/config/postgrest_test.go` and #3 non-default-slot integration proof are absent. **Remaining:** cover both `PGRST_DB_CONFIG` Boolean cases and observe the selected slot via PostgREST/SQL on a non-default installation.
+
+Baseline: `origin/master` at `373d15fc3`. Criterion disposition and remaining positive targets are above; the acceptance criteria below remain authoritative. An authored but unrun VM scenario is **proof pending**, not met.
 
 ## Description
 

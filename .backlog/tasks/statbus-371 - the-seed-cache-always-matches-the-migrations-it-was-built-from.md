@@ -1,11 +1,12 @@
 ---
 id: STATBUS-371
 title: Retained seed lineages preserve every migration version they may contain
-status: To Do
+status: In Progress
 assignee: []
 created_date: '2026-09-16 22:34'
 updated_date: '2026-09-24 18:45'
 labels:
+  - release-bug
   - migrations
   - ci
   - fail-fast
@@ -14,6 +15,12 @@ priority: high
 type: task
 ordinal: 9
 ---
+
+## Status 2026-09-24
+
+**In Progress:** `dd30f3167` (`06ec54f40`, `5473e68ea`) adds `cli/internal/release/seed_lineage.go` and `seed_lineage_test.go` for #1-3 by equivalent tests. #4 pre-mutation cache/fallback tests need separate confirmation; #5 named owner-authority test and `doc/seed-lineage-authority.md` are absent. **Remaining:** prove cache rejection/fallback and record the authoritative retained lineage with owner approval.
+
+Baseline: `origin/master` at `373d15fc3`. Criterion disposition and remaining positive targets are above; the acceptance criteria below remain authoritative. An authored but unrun VM scenario is **proof pending**, not met.
 
 ## Description
 

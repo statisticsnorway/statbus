@@ -6,6 +6,7 @@ assignee: []
 created_date: '2026-09-24 16:44'
 updated_date: '2026-09-24 18:42'
 labels:
+  - release-bug
   - upgrade
   - recovery
   - cli
@@ -15,6 +16,12 @@ priority: high
 type: task
 ordinal: 85
 ---
+
+## Status 2026-09-24
+
+**To Do.** #1-3 not met: the two named VM handoff scenarios and `cli/internal/upgrade/handoff_test.go` are absent; `cli/internal/upgrade/service.go` still exits after swap to the service restart path (`8fcc7d8e4`). **Remaining:** prove one target-program continuation within five seconds, ownership without a competing daemon, and bounded crash-control recovery.
+
+Baseline: `origin/master` at `373d15fc3`. Criterion disposition and remaining positive targets are above; the acceptance criteria below remain authoritative. An authored but unrun VM scenario is **proof pending**, not met.
 
 ## Description
 

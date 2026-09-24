@@ -1,11 +1,12 @@
 ---
 id: STATBUS-380
 title: An operator can make one audited urgent repair while an upgrade stays parked
-status: To Do
+status: In Progress
 assignee: []
 created_date: '2026-09-21 12:03'
 updated_date: '2026-09-24 18:45'
 labels:
+  - release-bug
   - upgrade
   - recovery
   - cli
@@ -14,6 +15,12 @@ priority: low
 type: task
 ordinal: 22
 ---
+
+## Status 2026-09-24
+
+**In Progress:** `717368361` (`4069671b3`, `a0781aab7`) adds `cli/cmd/upgrade_repair.go` and `upgrade_repair_test.go` for one audited, bounded transaction and input refusal (#1-3 by equivalent tests). #4 real parked VM scenario and #5 owner-approved policy test/doc are absent. **Remaining:** agree the reviewed repair policy and demonstrate one audited repair with unchanged parked state and client-write hold on a VM.
+
+Baseline: `origin/master` at `373d15fc3`. Criterion disposition and remaining positive targets are above; the acceptance criteria below remain authoritative. An authored but unrun VM scenario is **proof pending**, not met.
 
 ## Description
 

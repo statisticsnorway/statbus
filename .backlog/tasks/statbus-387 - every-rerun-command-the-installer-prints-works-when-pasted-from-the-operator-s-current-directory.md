@@ -1,17 +1,24 @@
 ---
 id: STATBUS-387
 title: Every installer rerun command works from the operator's current directory and preserves the chosen options
-status: To Do
+status: In Progress
 assignee: []
 created_date: '2026-09-24 16:42'
 updated_date: '2026-09-24 18:40'
 labels:
+  - release-bug
   - install
 dependencies: []
 priority: high
 type: bug
 ordinal: 1
 ---
+
+## Status 2026-09-24
+
+**In Progress.** `e2e2f3ee2`, `373d15fc3`: `cli/cmd/install_operator_rerun_test.go::TestEveryInstallerRerunHintUsesSavedCommand` checks saved options (#1-2 partly), but the named scan and stable/prerelease/unattended matrix are absent. #3's `4-install-port-80-taken.sh` is authored, real-VM paste proof pending. **Remaining:** cover every rerun path and invocation mode, then paste the printed command from home on a VM.
+
+Baseline: `origin/master` at `373d15fc3`. Criterion disposition and remaining positive targets are above; the acceptance criteria below remain authoritative. An authored but unrun VM scenario is **proof pending**, not met.
 
 ## Description
 

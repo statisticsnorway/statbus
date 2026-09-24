@@ -3,11 +3,12 @@ id: STATBUS-093
 title: >-
   go-worker: recreate the Crystal worker in Go, then delete cli/src/ — end the
   Crystal/Go overlap
-status: To Do
+status: In Progress
 assignee: []
 created_date: '2026-06-18 17:05'
 updated_date: '2026-09-23 15:10'
 labels:
+  - feature-next
   - tooling
   - worker
   - go-port
@@ -15,6 +16,12 @@ labels:
 dependencies: []
 ordinal: 93000
 ---
+
+## Status 2026-09-24
+
+**In Progress:** #1 met by the recorded architect design and `doc/worker-structured-concurrency.md` (`730b5001c` ticket history); #2-5 not met: `cli/src/worker.cr`, `cli/Dockerfile`, and shards remain live. **Remaining:** port worker orchestration to Go, prove derive concurrency on a real box, then retire Crystal and update docs.
+
+Baseline: `origin/master` at `373d15fc3`. Criterion disposition and remaining positive targets are above; the acceptance criteria below remain authoritative. An authored but unrun VM scenario is **proof pending**, not met.
 
 ## Description
 

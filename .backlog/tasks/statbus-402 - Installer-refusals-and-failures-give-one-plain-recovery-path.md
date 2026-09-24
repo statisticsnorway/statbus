@@ -1,11 +1,12 @@
 ---
 id: STATBUS-402
 title: Installer refusals and failures give one plain recovery path
-status: To Do
+status: In Progress
 assignee: []
 created_date: '2026-09-24 15:35'
 updated_date: '2026-09-24 18:42'
 labels:
+  - release-bug
   - install
   - error-handling
 dependencies:
@@ -14,6 +15,12 @@ priority: high
 type: bug
 ordinal: 355000
 ---
+
+## Status 2026-09-24
+
+**In Progress.** `8543f493a`, `373d15fc3`: `cli/cmd/install_operator_output_test.go` and `install_failure_cause_test.go` cover plain guidance and redaction (#1 partly). The named post-start failure test and vocabulary test (#2-3) are absent; `harness-failure-path-selftest.sh` exists but does not by itself prove installer exit-78 wording. **Remaining:** assert all preflight/post-start outcomes, complete rerun/support path, and operator/internal vocabulary separation.
+
+Baseline: `origin/master` at `373d15fc3`. Criterion disposition and remaining positive targets are above; the acceptance criteria below remain authoritative. An authored but unrun VM scenario is **proof pending**, not met.
 
 ## Description
 

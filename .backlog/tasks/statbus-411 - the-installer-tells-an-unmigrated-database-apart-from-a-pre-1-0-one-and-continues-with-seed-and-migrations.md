@@ -1,11 +1,12 @@
 ---
 id: STATBUS-411
 title: The installer continues an initialized database through seed and migrations while preserving legacy data
-status: To Do
+status: In Progress
 assignee: []
 created_date: '2026-09-24 15:59'
 updated_date: '2026-09-24 18:44'
 labels:
+  - release-bug
   - install
   - recovery
   - database
@@ -14,6 +15,12 @@ priority: high
 type: bug
 ordinal: 361100
 ---
+
+## Status 2026-09-24
+
+**In Progress.** `3c76d6323`, `474cf6119`: `cli/internal/install/state.go` and `state_test.go::TestDetectWith` distinguish init-db-only and legacy by schema/migration provenance (#1 partly). #2-3 named disposable-VM scenarios are absent. **Remaining:** prove seed/migration resumes a bare initialized volume and legacy sentinel data survives a refusal unchanged.
+
+Baseline: `origin/master` at `373d15fc3`. Criterion disposition and remaining positive targets are above; the acceptance criteria below remain authoritative. An authored but unrun VM scenario is **proof pending**, not met.
 
 ## Description
 

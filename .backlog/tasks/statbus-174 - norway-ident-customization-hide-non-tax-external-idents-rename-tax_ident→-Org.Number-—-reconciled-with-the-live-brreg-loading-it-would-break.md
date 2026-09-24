@@ -3,11 +3,12 @@ id: STATBUS-174
 title: >-
   norway-ident-customization: hide non-tax external idents + rename
   tax_ident→"Org.Number" — reconciled with the live brreg loading it would break
-status: To Do
+status: In Progress
 assignee: []
 created_date: '2026-07-13 12:08'
 updated_date: '2026-09-23 15:10'
 labels:
+  - feature-next
   - norway
   - data-model
   - import
@@ -16,6 +17,12 @@ dependencies: []
 priority: medium
 ordinal: 175000
 ---
+
+## Status 2026-09-24
+
+**In Progress:** #1 and #5 documented/retired (`debfca0c7` ticket history); #2-4 and #6 not shipped or real-Norway-load proved. **Remaining:** use semantic code `tax_ident`, label it `Organisasjonsnummer`, hide other types safely, modernize `public.reset`, and run the Norway import/UI oracle.
+
+Baseline: `origin/master` at `373d15fc3`. Criterion disposition and remaining positive targets are above; the acceptance criteria below remain authoritative. An authored but unrun VM scenario is **proof pending**, not met.
 
 ## Description
 

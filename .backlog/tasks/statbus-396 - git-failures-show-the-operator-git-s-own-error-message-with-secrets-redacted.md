@@ -1,11 +1,12 @@
 ---
 id: STATBUS-396
 title: Git failures show Git's useful error text with every secret redacted
-status: To Do
+status: In Progress
 assignee: []
 created_date: '2026-09-24 16:44'
 updated_date: '2026-09-24 18:42'
 labels:
+  - release-bug
   - cli
   - error-handling
   - security
@@ -14,6 +15,12 @@ priority: medium
 type: task
 ordinal: 86
 ---
+
+## Status 2026-09-24
+
+**In Progress.** `1e96d380f`: `cli/internal/release/github_auth.go:26-45,107-120` preserves redacted Git stderr for release Git calls and `github_auth_test.go` exercises token redaction. #1-4 as written are not yet met: `cli/internal/gitexec/errors_test.go` and installer-level `test/install/install-git-errors-test.sh` do not exist. **Remaining:** prove authentication, missing ref, and DNS failures retain Git's text and redact secrets in both terminal and install log.
+
+Baseline: `origin/master` at `373d15fc3`. Criterion disposition and remaining positive targets are above; the acceptance criteria below remain authoritative. An authored but unrun VM scenario is **proof pending**, not met.
 
 ## Description
 

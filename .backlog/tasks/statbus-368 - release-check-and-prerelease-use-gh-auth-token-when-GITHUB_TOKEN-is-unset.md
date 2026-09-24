@@ -8,6 +8,7 @@ assignee: []
 created_date: '2026-09-14 11:41'
 updated_date: '2026-09-23 15:10'
 labels:
+  - release-bug
   - release
   - cli
 dependencies:
@@ -16,6 +17,12 @@ priority: medium
 type: bug
 ordinal: 20
 ---
+
+## Status 2026-09-24
+
+**In Progress:** `0aa5a982f`, `baf6f64fb`, `1e96d380f`: `cli/internal/release/github_auth.go` resolves environment, `gh auth token`, anonymous fallback and redacts Git transport errors; `github_auth_test.go` checks core behavior. The specified next-candidate 100-run proof and installed-box mode report are not evidenced. **Remaining:** record the 100-run next-cut rate/identity checks and authenticated/anonymous release behavior on their intended boxes.
+
+Baseline: `origin/master` at `373d15fc3`. Criterion disposition and remaining positive targets are above; the acceptance criteria below remain authoritative. An authored but unrun VM scenario is **proof pending**, not met.
 
 ## Ground truth
 

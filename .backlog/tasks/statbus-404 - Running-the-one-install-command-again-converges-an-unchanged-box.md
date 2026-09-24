@@ -1,11 +1,12 @@
 ---
 id: STATBUS-404
 title: Running the install command again preserves an unchanged ready installation
-status: To Do
+status: In Progress
 assignee: []
 created_date: '2026-09-24 15:35'
 updated_date: '2026-09-24 18:44'
 labels:
+  - release-bug
   - install
   - idempotency
 dependencies: []
@@ -13,6 +14,12 @@ priority: high
 type: bug
 ordinal: 357000
 ---
+
+## Status 2026-09-24
+
+**In Progress.** `8543f493a`, `474cf6119`: `cli/cmd/install.go` and `test/install-recovery/scenarios/0-happy-install.sh` implement an unchanged-rerun check (#2 authored, real-VM proof pending). #1 named Compose v2/v5 fixtures and #3 display-name-only scenario are absent. **Remaining:** test image detection with both Compose formats and prove zero-pull/no-restart unchanged and selective display-name reruns on a VM.
+
+Baseline: `origin/master` at `373d15fc3`. Criterion disposition and remaining positive targets are above; the acceptance criteria below remain authoritative. An authored but unrun VM scenario is **proof pending**, not met.
 
 ## Description
 

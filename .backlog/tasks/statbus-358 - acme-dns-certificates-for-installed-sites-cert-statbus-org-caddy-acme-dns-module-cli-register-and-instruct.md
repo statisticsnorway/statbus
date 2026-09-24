@@ -6,15 +6,21 @@ assignee: []
 created_date: '2026-09-07 07:02'
 updated_date: '2026-09-24 18:47'
 labels:
+  - owner-decision
   - install
   - tls
   - design
-  - harness
 dependencies: []
 priority: medium
 type: task
 ordinal: 351000
 ---
+
+## Status 2026-09-24
+
+**To Do, owner decision:** #1-6 not met: certservice approval tests, delegated-DNS VM scenario, CNAME check, and provider spike are absent (`2d8f2668f` only records the ownership question). **Remaining:** agree who runs the service and provider strategy, then implement identity approval, trusted issuance, renewal, restore, and operator checks.
+
+Baseline: `origin/master` at `373d15fc3`. Criterion disposition and remaining positive targets are above; the acceptance criteria below remain authoritative. An authored but unrun VM scenario is **proof pending**, not met.
 
 ## Description
 

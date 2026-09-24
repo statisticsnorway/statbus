@@ -1,11 +1,12 @@
 ---
 id: STATBUS-410
 title: Running the installer completes or waits for an earlier restart
-status: To Do
+status: In Progress
 assignee: []
 created_date: '2026-09-24 15:47'
 updated_date: '2026-09-24 18:44'
 labels:
+  - release-bug
   - install
   - restart
   - recovery
@@ -15,6 +16,12 @@ priority: high
 type: bug
 ordinal: 363000
 ---
+
+## Status 2026-09-24
+
+**In Progress.** `3fa3d744d`, `474cf6119`: `cli/cmd/service_restart.go`, `cli/internal/upgrade/restart_test.go` and authored `5-install-interrupted-restart.sh`, `5-install-live-upgrade-wait.sh` cover ownership and intent (#1-2 proof pending on VM; #4 partly). #3 start-limit scenario is absent. **Remaining:** run interrupted/live scenarios and prove cause-first repair before reset followed by ready service.
+
+Baseline: `origin/master` at `373d15fc3`. Criterion disposition and remaining positive targets are above; the acceptance criteria below remain authoritative. An authored but unrun VM scenario is **proof pending**, not met.
 
 ## Description
 

@@ -1,11 +1,12 @@
 ---
 id: STATBUS-401
 title: Step 15 creates the first administrator through a private prompt
-status: To Do
+status: In Progress
 assignee: []
 created_date: '2026-09-24 15:35'
 updated_date: '2026-09-24 18:42'
 labels:
+  - release-bug
   - install
   - users
   - security
@@ -14,6 +15,12 @@ priority: high
 type: bug
 ordinal: 354000
 ---
+
+## Status 2026-09-24
+
+**In Progress.** `2aea9e733`, `373d15fc3`: `cli/cmd/install_admin_prompt_test.go::TestPasswordMismatchRetriesWithoutDisclosure` satisfies #2; `0-interactive-admin-password.sh` and `0-happy-install.sh` are authored for #1, #3-4, but real-VM hidden-input/login and log-secrecy proofs are pending. **Remaining:** run both VM paths and verify password-free terminal, install log, and support log with successful login.
+
+Baseline: `origin/master` at `373d15fc3`. Criterion disposition and remaining positive targets are above; the acceptance criteria below remain authoritative. An authored but unrun VM scenario is **proof pending**, not met.
 
 ## Description
 

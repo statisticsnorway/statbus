@@ -6,6 +6,7 @@ assignee: []
 created_date: '2026-09-24 16:42'
 updated_date: '2026-09-24 18:42'
 labels:
+  - release-bug
   - install
 dependencies:
   - STATBUS-407
@@ -13,6 +14,12 @@ priority: high
 type: bug
 ordinal: 1
 ---
+
+## Status 2026-09-24
+
+**To Do.** #1-5 not met: none of the five named client-restart and endpoint-readiness scenarios/tests exists. `145c17292` added database/service reachability checks (`cli/cmd/install_services.go`), not the advertised TLS/HTTP client proof. **Remaining:** reconcile credentials, bound each client restart loop with its own logs, and verify advertised HTTPS or HTTP before announcing success.
+
+Baseline: `origin/master` at `373d15fc3`. Criterion disposition and remaining positive targets are above; the acceptance criteria below remain authoritative. An authored but unrun VM scenario is **proof pending**, not met.
 
 ## Description
 

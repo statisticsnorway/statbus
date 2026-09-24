@@ -15,6 +15,12 @@ type: task
 ordinal: 87
 ---
 
+## Status 2026-09-24
+
+**To Do.** #1-4 not met: no `test/install-recovery/tests/quota-scheduling-test.sh` or dated `evidence/hetzner-quota.md` exists. **Remaining:** record owner-approved quota and dated measured usage, enforce capacity before paid runs, and prove both one-VM fallback and higher-quota bounds.
+
+Baseline: `origin/master` at `373d15fc3`. Criterion disposition and remaining positive targets are above; the acceptance criteria below remain authoritative. An authored but unrun VM scenario is **proof pending**, not met.
+
 ## Description
 
 Harness concurrency is derived from the account's approved shared-core quota and current measured reservations. Before a paid run, the scheduler proves that existing servers plus planned test VMs fit the approved value. If an increase is declined, concurrency is fixed at one test VM and paid runs do not overlap other temporary shared-core work.

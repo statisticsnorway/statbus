@@ -1,11 +1,12 @@
 ---
 id: STATBUS-389
 title: The installer checks the domain name and recommends a workable certificate choice
-status: To Do
+status: In Progress
 assignee: []
 created_date: '2026-09-24 16:42'
 updated_date: '2026-09-24 18:40'
 labels:
+  - release-bug
   - install
 dependencies:
   - STATBUS-358
@@ -14,6 +15,12 @@ priority: high
 type: bug
 ordinal: 1
 ---
+
+## Status 2026-09-24
+
+**In Progress.** `0a166d25e`, `373d15fc3`: `cli/cmd/install_domain.go` and `install_domain_test.go` separate public DNS observation from reachability (#1 partly). `4-install-standalone-no-public-dns.sh` is authored, but #2-3 require the unshipped private-certificate choice (399) and real-VM proof. **Remaining:** deliver that choice and verify HTTPS plus honest certificate advice on a private-name VM.
+
+Baseline: `origin/master` at `373d15fc3`. Criterion disposition and remaining positive targets are above; the acceptance criteria below remain authoritative. An authored but unrun VM scenario is **proof pending**, not met.
 
 ## Description
 

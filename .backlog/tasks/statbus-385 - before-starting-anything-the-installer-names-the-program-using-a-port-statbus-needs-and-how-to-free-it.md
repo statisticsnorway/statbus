@@ -1,17 +1,24 @@
 ---
 id: STATBUS-385
 title: Before starting StatBus, the installer names any program using a required port and how to free it
-status: To Do
+status: In Progress
 assignee: []
 created_date: '2026-09-24 16:42'
 updated_date: '2026-09-24 18:40'
 labels:
+  - release-bug
   - install
 dependencies: []
 priority: high
 type: bug
 ordinal: 1
 ---
+
+## Status 2026-09-24
+
+**In Progress.** `373d15fc3`: `cli/cmd/install_ports.go` and `cli/cmd/install_ports_test.go::TestPortConflictGuidance` cover port-owner diagnostics (#1 partly, non-80 named test pending). `4-install-port-80-taken.sh` is authored for #2-3, but a successful real-VM run is proof pending. **Remaining:** assert non-80 ownership, then execute Apache refusal and pasted rerun on a real VM.
+
+Baseline: `origin/master` at `373d15fc3`. Criterion disposition and remaining positive targets are above; the acceptance criteria below remain authoritative. An authored but unrun VM scenario is **proof pending**, not met.
 
 ## Description
 

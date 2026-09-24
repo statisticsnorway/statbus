@@ -1,11 +1,12 @@
 ---
 id: STATBUS-405
 title: The automatic update self-check reports a starting service as healthy progress
-status: To Do
+status: In Progress
 assignee: []
 created_date: '2026-09-24 15:35'
 updated_date: '2026-09-24 18:44'
 labels:
+  - release-bug
   - upgrade
   - service
   - install
@@ -14,6 +15,12 @@ priority: medium
 type: bug
 ordinal: 358000
 ---
+
+## Status 2026-09-24
+
+**In Progress.** `8543f493a`: `cli/internal/unitfloor/unitfloor.go` and `unitfloor_test.go` distinguish activating from inactive (#1-2 partly). `1-boot-startup-timeout.sh` records the path, but #3 requires a real-VM ordered journal run. **Remaining:** assert exact alarm/recovery ordering and run startup-through-readiness on a VM.
+
+Baseline: `origin/master` at `373d15fc3`. Criterion disposition and remaining positive targets are above; the acceptance criteria below remain authoritative. An authored but unrun VM scenario is **proof pending**, not met.
 
 ## Description
 

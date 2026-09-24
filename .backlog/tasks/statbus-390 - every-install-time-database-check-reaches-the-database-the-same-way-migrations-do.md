@@ -6,12 +6,19 @@ assignee: []
 created_date: '2026-09-24 16:42'
 updated_date: '2026-09-24 18:40'
 labels:
+  - release-bug
   - install
 dependencies: []
 priority: high
 type: bug
 ordinal: 1
 ---
+
+## Status 2026-09-24
+
+**To Do.** #1-3 not met: the named transport tests and `5-install-database-route-interrupted.sh` are absent; `cli/cmd/install.go` and `cli/internal/migrate/migrate.go` still have distinct connection paths after `145c17292`. **Remaining:** route every seed/state/migration/lock/readiness and upgrade startup call through a verified internal transport, with unit and VM checks.
+
+Baseline: `origin/master` at `373d15fc3`. Criterion disposition and remaining positive targets are above; the acceptance criteria below remain authoritative. An authored but unrun VM scenario is **proof pending**, not met.
 
 ## Description
 

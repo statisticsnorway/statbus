@@ -3,11 +3,12 @@ id: STATBUS-173
 title: >-
   standalone-pgadmin: local pgAdmin on the standalone host at /pgadmin, JWT/user
   model resolved (no superadmin)
-status: To Do
+status: In Progress
 assignee: []
 created_date: '2026-07-13 11:39'
 updated_date: '2026-09-23 15:10'
 labels:
+  - feature-next
   - standalone
   - tooling
   - not-install-upgrade
@@ -15,6 +16,12 @@ dependencies: []
 priority: low
 ordinal: 174000
 ---
+
+## Status 2026-09-24
+
+**In Progress:** #1 documented and approved in this ticket (`0ccca148f` history); #2-5 not shipped on master: no pgAdmin service or real standalone proof. **Remaining:** port the retained branch's pgAdmin mechanics, wire scoped per-user RLS and webserver auth, and verify `/pgadmin` on a real standalone box.
+
+Baseline: `origin/master` at `373d15fc3`. Criterion disposition and remaining positive targets are above; the acceptance criteria below remain authoritative. An authored but unrun VM scenario is **proof pending**, not met.
 
 ## Description
 
