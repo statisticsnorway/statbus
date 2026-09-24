@@ -149,7 +149,7 @@ var ReleaseTagPattern = regexp.MustCompile(`^v\d{4}\.\d{2}\.\d+(-rc\.\d+)?$`)
 func MigrationInReleasedTag(projDir string, version int64) (string, error) {
 	tagsCmd := exec.Command("git", "tag", "-l", "v*")
 	tagsCmd.Dir = projDir
-	tagsOut, err := tagsCmd.Output()
+	tagsOut, err := commandOutput(tagsCmd)
 	if err != nil {
 		return "", fmt.Errorf("git tag -l v*: %w", err)
 	}
@@ -338,7 +338,7 @@ func migrationUpBlobHashInTag(projDir, tag string, version int64) (hash string, 
 	}
 	ls := exec.Command("git", "ls-tree", "--name-only", "-r", "FETCH_HEAD", "--", "migrations")
 	ls.Dir = projDir
-	lsOut, lerr := ls.Output()
+	lsOut, lerr := commandOutput(ls)
 	if lerr != nil {
 		return "", false, fmt.Errorf("git ls-tree FETCH_HEAD migrations (tag %s): %w", tag, lerr)
 	}
@@ -356,7 +356,7 @@ func migrationUpBlobHashInTag(projDir, tag string, version int64) (hash string, 
 	}
 	blob := exec.Command("git", "cat-file", "blob", "FETCH_HEAD:"+rel)
 	blob.Dir = projDir
-	content, berr := blob.Output()
+	content, berr := commandOutput(blob)
 	if berr != nil {
 		return "", false, fmt.Errorf("git cat-file blob FETCH_HEAD:%s (tag %s): %w", rel, tag, berr)
 	}

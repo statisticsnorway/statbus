@@ -338,7 +338,7 @@ func DiffSensitiveChanges(projDir, fromRef, toRef string, scenario Scenario) ([]
 	cmd.Stderr = &stderr
 	out, err := cmd.Output()
 	if err != nil {
-		return nil, fmt.Errorf("git diff %s..%s: %w: %s", fromRef, toRef, err, strings.TrimSpace(stderr.String()))
+		return nil, fmt.Errorf("git diff %s..%s: %w: %s", fromRef, toRef, err, RedactGitHubCredentials(strings.TrimSpace(stderr.String())))
 	}
 	if len(out) == 0 {
 		return nil, nil
