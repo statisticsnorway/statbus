@@ -105,6 +105,13 @@ Classification: PARTIAL. Evidence: scratch design/build is recorded, but nothing
 
 Remaining: Land the HTTPS-only egress scenario, its mutation control, and obtain a green paid RC run.
 
+## 2026-09-24 status
+
+HTTPS-only egress runs on demand since `fe4a769a7`. Branch
+`next/357-egress-default` at `61ece22d1` matches the pre-NAT destination and
+returns it to the default set; it is under review. Next step: merge after
+review and obtain the real proof in the next candidate harness run.
+
 ## Implementation 2026-09-23
 
 No Albania-specific product switch or checked-in operator hack exists. The

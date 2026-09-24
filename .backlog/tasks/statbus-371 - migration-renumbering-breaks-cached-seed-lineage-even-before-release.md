@@ -58,3 +58,11 @@ Provisional, owner to confirm: the authoritative retained lineage is the union o
 Rejected alternative: query the set of seed tags currently present in GHCR. Registry state is mutable and network-dependent; deleting or expiring an image would erase the evidence used by the release guard.
 
 The prerelease preflight and prerelease tag validator now reject a candidate that removes or renumbers any version in that lineage. The diagnostic identifies the version, first commit, and original path, and directs the operator to restore the version and add a forward migration.
+
+## 2026-09-24 status
+
+The seed lineage guard is merged. The owner requested an explanation of the
+authoritative-lineage choice, so that decision remains **OPEN**. Next step:
+explain why the first-parent post-release-baseline union is the authoritative,
+deterministic fail-closed source rather than mutable registry state, then
+record the owner's confirmation.

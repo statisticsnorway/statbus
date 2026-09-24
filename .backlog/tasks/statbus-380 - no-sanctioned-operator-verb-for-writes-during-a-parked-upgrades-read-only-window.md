@@ -90,3 +90,11 @@ writes during a parked upgrade's read-only window. Raw admin psql with
 Classification: OPEN. Evidence: no sanctioned write-window verb exists; clicked checks also time out after five minutes when no daemon listens. No part of the item's own done-when is complete beyond any design already recorded above.
 
 A manually clicked check has no consumer when the upgrade daemon is missing or stopped, so the page waits for the generic five-minute timeout even though the existing unit-state banner already explains the daemon condition (`tmp/upgrades-page-ordering.md`).
+
+## 2026-09-24 status
+
+The audited parked-repair verb is merged to master at `717368361`. The owner
+has asked for a plain explanation before confirming the choice between the
+repair verb and requiring `./sb install` to un-park first. Decision remains
+**OPEN with the owner**. Next step: provide that explanation and record the
+owner's confirmation or requested change.

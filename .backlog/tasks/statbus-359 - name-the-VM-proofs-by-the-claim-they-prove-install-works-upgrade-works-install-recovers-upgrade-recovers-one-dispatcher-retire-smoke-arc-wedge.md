@@ -180,3 +180,9 @@ Batch order: 370 -> 368 -> 367 -> 363 -> 357 -> 361 -> 362 -> 359.
 Classification: PARTIAL. Evidence: post-release scratch batch only; rename/move and next ladder proof remain.
 
 Remaining: Land the four-family rename and single dispatcher, sweep old terminology, and pass the first renamed ladder.
+
+## 2026-09-24 status
+
+Harness reorganisation is planned last in the next cycle. Next step: defer
+the four-family rename and single-dispatcher work until that cycle, then land
+the reorganisation and run the renamed ladder.

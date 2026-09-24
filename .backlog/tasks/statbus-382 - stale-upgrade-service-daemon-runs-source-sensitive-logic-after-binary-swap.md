@@ -99,3 +99,16 @@ Remaining, deliberately not started tonight:
 4. Install reporting sink, `os.Exit` inventory, churn diagnosis, and evidence-gated takeover (R11-R12).
 5. Daemon reconciliation while the install flock remains held, plus inline-path unification (R7).
 6. Paid VM harness using rc.18 (`7244856d`) to the fix candidate.
+
+## 2026-09-24 status
+
+Steps 1-2 are on master at `8fcc7d8e4`. Steps 3-4 are on
+`next/382-steps-3-4`, branched from `4d7ade5cf`, and are under review. Steps
+5-6 have not started.
+
+Owner decision: R11 takeover is **APPROVED** (2026-09-24 14:04) for the stale
+binary, churn, and pre-destructive-phase case. Still **OPEN with the owner**:
+dismissal refusal for a live, unparked `in_progress` row at the database layer,
+and the harness VM pair question, including why the previous release is not
+the starting point. Next step: resolve those two owner questions, then finish
+steps 5-6 and run the paired harness proof.
