@@ -7,6 +7,9 @@ import (
 )
 
 func TestMain(m *testing.M) {
+	if testguard.IsolatedDockerInvocation() {
+		os.Exit(m.Run())
+	}
 	if err := os.Setenv("STATBUS_CLI_UNIT_TEST_GUARD", "1"); err != nil {
 		panic(err)
 	}

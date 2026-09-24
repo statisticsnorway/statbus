@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/statisticsnorway/statbus/cli/internal/compose"
+	"github.com/statisticsnorway/statbus/cli/internal/testguard"
 )
 
 func servingEraTestImageID(hexDigit byte) string {
@@ -277,7 +278,7 @@ esac
 }
 
 func TestSourceServingExpectedImageReferencesRendersActualRepoComposeModel(t *testing.T) {
-	if os.Getenv("STATBUS_LIVE_DB_TEST") != "1" {
+	if !testguard.IsolatedDockerInvocation() {
 		t.Skip("actual-repository Compose render requires STATBUS_LIVE_DB_TEST=1")
 	}
 	if _, err := exec.LookPath("docker"); err != nil {
@@ -366,7 +367,7 @@ func TestSourceServingExpectedImageReferencesRendersActualRepoComposeModel(t *te
 }
 
 func TestComposePsListsExistingProfiledContainersWithoutProfileSelection(t *testing.T) {
-	if os.Getenv("STATBUS_LIVE_DB_TEST") != "1" {
+	if !testguard.IsolatedDockerInvocation() {
 		t.Skip("live Docker integration probe requires STATBUS_LIVE_DB_TEST=1")
 	}
 	if _, err := exec.LookPath("docker"); err != nil || exec.Command("docker", "info").Run() != nil {
@@ -375,6 +376,10 @@ func TestComposePsListsExistingProfiledContainersWithoutProfileSelection(t *test
 
 	dir := t.TempDir()
 	project := fmt.Sprintf("statbus-compose-ps-profile-%d", time.Now().UnixNano())
+	// The livedb runner owns its own throwaway Compose project. This nested
+	// profile probe must not inherit that project's name or enumerate its
+	// fixture service alongside the profile-gated app.
+	t.Setenv("COMPOSE_PROJECT_NAME", project)
 	image := project + ":local"
 	composePath := filepath.Join(dir, "compose.yaml")
 	if err := os.WriteFile(filepath.Join(dir, "Dockerfile"), []byte("FROM scratch\n"), 0o644); err != nil {

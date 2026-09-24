@@ -1,11 +1,67 @@
 package testguard
 
 import (
+	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
 )
+
+func TestIsolatedDockerInvocationRequiresTemporaryMarkedProject(t *testing.T) {
+	dir := t.TempDir()
+	name := "statbus-livedocker-test-guard"
+	t.Setenv("STATBUS_LIVE_DB_TEST", "1")
+	t.Setenv("STATBUS_LIVEDOCKER_PROJECT_DIR", dir)
+	t.Setenv("COMPOSE_PROJECT_NAME", name)
+	if IsolatedDockerInvocation() {
+		t.Fatal("unmarked temporary project authorized Docker")
+	}
+	if err := os.WriteFile(filepath.Join(dir, ".statbus-livedocker"), []byte(name+"\n"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if !IsolatedDockerInvocation() || Check("docker", "/usr/bin/docker") != nil {
+		t.Fatal("marked isolated project did not authorize Docker")
+	}
+	if err := Check("psql", "/usr/bin/psql"); err == nil {
+		t.Fatal("isolated Docker project incorrectly authorized psql")
+	}
+	t.Setenv("COMPOSE_PROJECT_NAME", "statbus-local")
+	if IsolatedDockerInvocation() {
+		t.Fatal("developer project authorized Docker")
+	}
+}
+
+func TestLiveDatabaseFixtureGuardRequiresPinnedTemporaryWorktree(t *testing.T) {
+	t.Setenv("STATBUS_LIVEDB_TEST_TIER", "1")
+	if liveDatabaseFixtureInvocation() {
+		t.Fatal("tier flag alone authorized service commands")
+	}
+	root, err := os.MkdirTemp("", "statbus-livedb-guard-")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.RemoveAll(root) })
+	project := filepath.Join(root, "project")
+	if err := os.Mkdir(project, 0700); err != nil {
+		t.Fatal(err)
+	}
+	pinned := filepath.Join(root, "pinned-sb")
+	if err := os.WriteFile(pinned, nil, 0700); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("STATBUS_LIVEDB_PROJECT_DIR", project)
+	t.Setenv("STATBUS_LIVEDB_PINNED_SB", pinned)
+	if liveDatabaseFixtureInvocation() {
+		t.Fatal("unmarked worktree authorized service commands")
+	}
+	if err := os.WriteFile(filepath.Join(project, ".statbus"), nil, 0600); err != nil {
+		t.Fatal(err)
+	}
+	if !liveDatabaseFixtureInvocation() || Check("psql", "/usr/bin/psql") != nil {
+		t.Fatal("pinned temporary live database fixture did not authorize psql")
+	}
+}
 
 func TestInstallBlocksDirectExec(t *testing.T) {
 	cleanup, err := Install()

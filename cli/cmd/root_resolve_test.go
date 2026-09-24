@@ -1,12 +1,34 @@
 package cmd
 
 import (
+	"os"
+	"path/filepath"
 	"runtime/debug"
 	"strings"
 	"testing"
 
 	"github.com/statisticsnorway/statbus/cli/internal/upgrade"
 )
+
+func TestInstallGuardResolvesInstallDirOutsideProjectCwd(t *testing.T) {
+	home := t.TempDir()
+	other := t.TempDir()
+	t.Setenv("HOME", home)
+	old, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chdir(other); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.Chdir(old) })
+	if got, want := guardProjectDir(installCmd), filepath.Join(home, "statbus"); got != want {
+		t.Fatalf("install guard project = %q, want %q (cwd %q)", got, want, other)
+	}
+	if got := guardProjectDir(rootCmd); got != other {
+		t.Fatalf("non-install guard project = %q, want cwd %q", got, other)
+	}
+}
 
 // TestResolveCommitSHA_Tiers covers the full identity-resolution
 // matrix that closes task #30 (freshness-debug).
