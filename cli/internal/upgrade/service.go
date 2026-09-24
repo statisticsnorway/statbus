@@ -3030,7 +3030,7 @@ func (d *Service) Run(ctx context.Context) error {
 	}
 
 	// The database's role passwords must equal .env before connect() dials
-	// with them. postgres/init-db.sh sets them only when the volume is first
+	// with them. The database init script sets them only when the volume is first
 	// initialised; a volume that outlived its .env.credentials rejects every
 	// TCP login (28P01), and this daemon would retry until systemd's
 	// TimeoutStartSec killed it, never sending READY=1 (Finland, rest-loop.md).
