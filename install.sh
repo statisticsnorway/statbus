@@ -718,7 +718,7 @@ trap - ERR
 install_output="$STATBUS_DIR/tmp/install-last-run-output.txt"
 mkdir -p "$STATBUS_DIR/tmp"
 if [ "$tty_available" = true ]; then
-    (exec </dev/tty; ./sb install ${SB_INSTALL_ARGS[@]+"${SB_INSTALL_ARGS[@]}"}) >"$install_output" 2>&1
+    (exec </dev/tty; STATBUS_INSTALL_PROMPTS_TO_TTY=1 ./sb install ${SB_INSTALL_ARGS[@]+"${SB_INSTALL_ARGS[@]}"}) >"$install_output" 2>&1
     sb_rc=$?
 else
     ./sb install ${SB_INSTALL_ARGS[@]+"${SB_INSTALL_ARGS[@]}"} >"$install_output" 2>&1
@@ -752,6 +752,11 @@ if [ "$sb_rc" -eq 78 ]; then
         echo 'stdin is not a terminal (running under a pipe?). Run interactively with a terminal on stdin, or provide STATBUS_ENV_CONFIG for unattended install.'
     else
         echo 'Installation cannot start with the current settings. Correct the settings, then run: curl -fsSL https://statbus.org/install.sh | bash'
+        preflight_bundle=$(grep -F 'send this file to StatBus support: ' "$install_output" | tail -1 | sed -E 's/^.*send this file to StatBus support: //' || true)
+        case "$preflight_bundle" in
+            "$STATBUS_DIR"/support-bundle-*.txt)
+                if [ -f "$preflight_bundle" ]; then echo "Support bundle: $preflight_bundle"; fi ;;
+        esac
         echo "Installation diagnostics: $install_output"
     fi
     exit "$sb_rc"

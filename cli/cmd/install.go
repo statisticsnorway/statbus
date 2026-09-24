@@ -62,6 +62,20 @@ func installDiagnostic(installDir, format string, args ...any) {
 	_, _ = fmt.Fprintf(f, format+"\n", args...)
 }
 
+// installTTYPrompt shows only explicit questions when install.sh captures all
+// other output in the support log. Other CLI callers retain ordinary stdout.
+func installTTYPrompt(format string, args ...any) {
+	if os.Getenv("STATBUS_INSTALL_PROMPTS_TO_TTY") != "1" {
+		return
+	}
+	f, err := os.OpenFile("/dev/tty", os.O_WRONLY, 0)
+	if err != nil {
+		return
+	}
+	defer func() { _ = f.Close() }()
+	_, _ = fmt.Fprintf(f, format, args...)
+}
+
 // thisLine returns the caller's source line number. Guard-site transcripts
 // embed it so the stderr message always points at the real code location
 // even as the file is edited — keeping the `install.go:NNN` anchor
@@ -363,7 +377,11 @@ func runInstall() (installErr error) {
 				installDiagnostic(installDir, "Could not create support bundle for restart check: %v", bundleErr)
 				bundlePath = filepath.Join(installDir, "tmp", "install-last-run-output.txt")
 			}
-			return &installPreflightRefusalError{err: fmt.Errorf("The installation cannot continue until its previous restart has finished. Run the same install command again: curl -fsSL https://statbus.org/install.sh | bash. If it stops again, send this file to StatBus support: %s", bundlePath)}
+			outsideFix := "check whether a previous restart is still running"
+			if strings.Contains(err.Error(), "retry with ./sb restart all") {
+				outsideFix = "wait for the restart to finish or run ./sb restart all to restore services"
+			}
+			return &installPreflightRefusalError{err: fmt.Errorf("the installation cannot continue until its previous restart has finished; %s. Then run curl -fsSL https://statbus.org/install.sh | bash. If it stops again, send this file to StatBus support: %s", outsideFix, bundlePath)}
 		}
 	}
 
@@ -455,7 +473,7 @@ func runInstall() (installErr error) {
 					installDiagnostic(installDir, "Could not create support bundle for detection: %v", bundleErr)
 					bundlePath = filepath.Join(installDir, "tmp", "install-last-run-output.txt")
 				}
-				return &installPreflightRefusalError{err: fmt.Errorf("The install state could not be determined safely; nothing was changed. Run the same install command again: curl -fsSL https://statbus.org/install.sh | bash. If it stops again, send this file to StatBus support: %s", bundlePath)}
+				return &installPreflightRefusalError{err: fmt.Errorf("the install state could not be determined safely; nothing was changed. Run the same install command again: curl -fsSL https://statbus.org/install.sh | bash. If it stops again, send this file to StatBus support: %s", bundlePath)}
 			}
 			// Only a positively identified database connection failure permits
 			// repair through the step table. Unknown errors fail closed above.
@@ -2679,6 +2697,7 @@ func runTrustSigners(dir string) error {
 	fmt.Println("  " + installinput.TrustExplanation)
 	fmt.Println("  StatBus recommends trusting the following release signer:")
 	fmt.Printf("    %s (Jorgen H. Fjeld) -- https://github.com/%s\n", defaultSigner, defaultSigner)
+	installTTYPrompt("\n  %s\n  %s\n  StatBus recommends trusting the following release signer:\n    %s (Jorgen H. Fjeld) -- https://github.com/%s\n", trustPrompt, installinput.TrustExplanation, defaultSigner, defaultSigner)
 
 	trusted, err := trustSignerInteractive(defaultSigner, f, reader)
 	signerPromptAnswered = true
@@ -3263,6 +3282,7 @@ func checkPrerequisites() error {
 
 func prompt(label, defaultVal string) string {
 	fmt.Printf("%s [%s]: ", label, defaultVal)
+	installTTYPrompt("%s [%s]: ", label, defaultVal)
 	reader := bufio.NewReader(os.Stdin)
 	line, _ := reader.ReadString('\n')
 	line = strings.TrimSpace(line)

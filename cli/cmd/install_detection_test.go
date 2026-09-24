@@ -155,7 +155,7 @@ func TestRunInstallStopsBeforeStepsWhenDatabaseAnswerCannotBeClassified(t *testi
 		t.Fatal("step table was reached after an unclassifiable database response")
 	}
 	for _, want := range []string{
-		"The install state could not be determined",
+		"the install state could not be determined",
 		"nothing was changed",
 		"Run the same install command again: curl -fsSL https://statbus.org/install.sh | bash",
 		"send this file to StatBus support: " + bundlePath,
