@@ -20,8 +20,11 @@ type fakeProbe struct {
 	flagAlive       bool
 	flagErr         error
 	dbReachable     bool
+	dbErr           error
 	hasUpgradeTable bool
 	hasUpgradeErr   error
+	history         SchemaHistory
+	historyErr      error
 	scheduledRow    *ScheduledRow
 	scheduledErr    error
 	reattemptRowID  int64
@@ -30,17 +33,51 @@ type fakeProbe struct {
 	reattemptErr    error
 }
 
-func (p *fakeProbe) FileExists(path string) bool { return p.files[path] }
+func (p *fakeProbe) FileExists(path string) (bool, error) { return p.files[path], nil }
 func (p *fakeProbe) ReadFlag(string) (*upgrade.UpgradeFlag, bool, error) {
 	return p.flag, p.flagAlive, p.flagErr
 }
-func (p *fakeProbe) DBReachable(string) bool              { return p.dbReachable }
+func (p *fakeProbe) DBReachable(string) (bool, error)     { return p.dbReachable, p.dbErr }
 func (p *fakeProbe) HasUpgradeTable(string) (bool, error) { return p.hasUpgradeTable, p.hasUpgradeErr }
+func (p *fakeProbe) InspectSchemaHistory(string) (SchemaHistory, error) {
+	return p.history, p.historyErr
+}
 func (p *fakeProbe) QueryScheduledUpgrade(string) (*ScheduledRow, error) {
 	return p.scheduledRow, p.scheduledErr
 }
 func (p *fakeProbe) QueryReattemptableRestore(string) (int64, string, bool, error) {
 	return p.reattemptRowID, p.reattemptBackup, p.reattemptFound, p.reattemptErr
+}
+
+func TestDetectionMalformedOutputsAndAvailabilityEvidence(t *testing.T) {
+	for _, out := range []string{"junk", "x|/backup", "1|", "1|/backup\njunk", "-1|/backup"} {
+		t.Run("restore "+out, func(t *testing.T) {
+			if _, _, _, err := parseReattemptableRestoreRows(out); err == nil {
+				t.Fatalf("accepted malformed restore output %q", out)
+			}
+		})
+	}
+	for _, out := range []string{"junk", "0|sha|sha", "1||sha", "1|sha|", "1|sha|sha|extra"} {
+		if _, err := parseScheduledUpgradeRow(out); err == nil {
+			t.Errorf("accepted malformed scheduled output %q", out)
+		}
+	}
+	for _, tc := range []struct {
+		diagnostic  string
+		unavailable bool
+	}{
+		{"psql: connection to server at localhost failed: Connection refused", true},
+		{"psql: connection to server timed out", true},
+		{"service \"db\" is not running", true},
+		{"ERROR: permission denied for table upgrade", false},
+		{"ERROR: relation public.upgrade does not exist", false},
+		{"construct psql query failed", false},
+		{"context deadline exceeded", false},
+	} {
+		if got := connectionUnavailable(tc.diagnostic); got != tc.unavailable {
+			t.Errorf("connectionUnavailable(%q) = %v, want %v", tc.diagnostic, got, tc.unavailable)
+		}
+	}
 }
 
 func TestDetectWith(t *testing.T) {
@@ -118,13 +155,96 @@ func TestDetectWith(t *testing.T) {
 			wantState: StateDBUnreachable,
 		},
 		{
-			name: "legacy: DB up, no public.upgrade table",
+			name: "legacy: pre-1.0 DB, application schema without migration history",
 			probe: fakeProbe{
 				files:           map[string]bool{cfgPath: true, credPath: true},
 				dbReachable:     true,
 				hasUpgradeTable: false,
+				history:         SchemaHistory{HasApplicationSchema: true},
 			},
 			wantState: StateLegacyNoUpgradeTable,
+		},
+		{
+			name: "legacy: pre-1.0 DB migrated by an old release",
+			probe: fakeProbe{
+				files:           map[string]bool{cfgPath: true, credPath: true},
+				dbReachable:     true,
+				hasUpgradeTable: false,
+				history: SchemaHistory{
+					AppliedMigrations:    2,
+					AppliedVersions:      []string{"20240128000000", "20240201000000"},
+					HasApplicationSchema: true,
+				},
+			},
+			wantState: StateLegacyNoUpgradeTable,
+		},
+		{
+			name: "legacy: old migrations applied today remain pre-1.0",
+			probe: fakeProbe{
+				files:           map[string]bool{cfgPath: true, credPath: true},
+				dbReachable:     true,
+				hasUpgradeTable: false,
+				history: SchemaHistory{
+					AppliedMigrations:    2,
+					AppliedVersions:      []string{"20240128000000", "20260310000000"},
+					HasApplicationSchema: true,
+				},
+			},
+			wantState: StateLegacyNoUpgradeTable,
+		},
+		{
+			name: "legacy: enterprise-only schema without migration history",
+			probe: fakeProbe{
+				files:           map[string]bool{cfgPath: true, credPath: true},
+				dbReachable:     true,
+				hasUpgradeTable: false,
+				history:         SchemaHistory{HasApplicationSchema: true},
+			},
+			wantState: StateLegacyNoUpgradeTable,
+		},
+		{
+			name: "fresh-db-incomplete: init-db.sh only, install stopped before Seed",
+			probe: fakeProbe{
+				files:           map[string]bool{cfgPath: true, credPath: true},
+				dbReachable:     true,
+				hasUpgradeTable: false,
+				history:         SchemaHistory{},
+			},
+			wantState: StateFreshDBIncomplete,
+		},
+		{
+			name: "fresh-db-incomplete: interrupted run has only post-upgrade-era versions",
+			probe: fakeProbe{
+				files:           map[string]bool{cfgPath: true, credPath: true},
+				dbReachable:     true,
+				hasUpgradeTable: false,
+				history: SchemaHistory{
+					AppliedMigrations:    2,
+					AppliedVersions:      []string{"20260312000000", "20260401000000"},
+					HasApplicationSchema: true,
+				},
+			},
+			wantState: StateFreshDBIncomplete,
+		},
+		{
+			name: "migrated DB with public.upgrade never consults schema history",
+			probe: fakeProbe{
+				files:           map[string]bool{cfgPath: true, credPath: true},
+				dbReachable:     true,
+				hasUpgradeTable: true,
+				historyErr:      errors.New("must not be called"),
+			},
+			wantState: StateNothingScheduled,
+		},
+		{
+			name: "schema history probe error surfaces",
+			probe: fakeProbe{
+				files:           map[string]bool{cfgPath: true, credPath: true},
+				dbReachable:     true,
+				hasUpgradeTable: false,
+				historyErr:      errors.New("psql exploded"),
+			},
+			wantErr: true,
 		},
 		{
 			name: "scheduled upgrade: row present",
@@ -272,6 +392,7 @@ func TestStateString(t *testing.T) {
 		{StateLegacyNoUpgradeTable, "legacy-no-upgrade-table"},
 		{StateScheduledUpgrade, "scheduled-upgrade"},
 		{StateNothingScheduled, "nothing-scheduled"},
+		{StateFreshDBIncomplete, "fresh-db-incomplete"},
 		{State(99), "unknown(99)"},
 	}
 	for _, c := range cases {
@@ -348,4 +469,52 @@ func extractFuncSource(t *testing.T, src, sig string) string {
 		return src[start:]
 	}
 	return src[start : start+len(sig)+end]
+}
+
+func TestParseSchemaHistory(t *testing.T) {
+	has, app, err := parseTwoBools("t|f\n")
+	if err != nil || !has || app {
+		t.Fatalf("parseTwoBools = %v %v %v", has, app, err)
+	}
+	for _, input := range []string{"junk|junk", "t|no", "yes|f"} {
+		if _, _, err := parseTwoBools(input); err == nil {
+			t.Errorf("parseTwoBools(%q) unexpectedly succeeded", input)
+		}
+	}
+	h, err := parseSchemaHistoryCounts("3|20240101000000,20240202000000,20260310000000\n", SchemaHistory{HasApplicationSchema: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if h.AppliedMigrations != 3 || len(h.AppliedVersions) != 3 || h.AppliedVersions[0] != "20240101000000" || !h.HasApplicationSchema {
+		t.Fatalf("parsed %+v", h)
+	}
+	h, err = parseSchemaHistoryCounts("0|", SchemaHistory{})
+	if err != nil || len(h.AppliedVersions) != 0 {
+		t.Fatalf("empty history parsed %+v %v", h, err)
+	}
+	for _, input := range []string{"garbage", "2|20240101000000", "1|junk", "0|20240101000000"} {
+		if _, err := parseSchemaHistoryCounts(input, SchemaHistory{}); err == nil {
+			t.Errorf("parseSchemaHistoryCounts(%q) unexpectedly succeeded", input)
+		}
+	}
+}
+
+func TestParseUpgradeTableOutput(t *testing.T) {
+	for _, tc := range []struct {
+		input string
+		want  bool
+	}{
+		{input: "1\n", want: true},
+		{input: "\n", want: false},
+	} {
+		got, err := parseUpgradeTableOutput(tc.input)
+		if err != nil || got != tc.want {
+			t.Errorf("parseUpgradeTableOutput(%q) = %v, %v; want %v, nil", tc.input, got, err, tc.want)
+		}
+	}
+	for _, input := range []string{"0", "junk", "t"} {
+		if _, err := parseUpgradeTableOutput(input); err == nil {
+			t.Errorf("parseUpgradeTableOutput(%q) unexpectedly succeeded", input)
+		}
+	}
 }

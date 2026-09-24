@@ -222,6 +222,9 @@ func TestUpgradeArcHarnessGate_NoEvidenceAnywhereRefuses(t *testing.T) {
 	writeSensitivePathsFile(t, dir)
 	addOriginRemote(t, dir) // no tags pushed: the walk finds zero candidates
 	stubScenarioEvidence(t, map[string]map[string]bool{})
+	stubWorkflowSeams(t, func(string, string) release.WorkflowCheckResult {
+		return release.WorkflowCheckResult{Status: release.WorkflowCheckMissing}
+	}, trivialComplete)
 
 	var passed bool
 	out := captureStdout(t, func() {
@@ -286,6 +289,9 @@ func TestInstallRecoveryHarnessGate_NoEvidenceAnywhereRefuses(t *testing.T) {
 	writeSensitivePathsFile(t, dir)
 	addOriginRemote(t, dir)
 	stubScenarioEvidence(t, map[string]map[string]bool{})
+	stubWorkflowSeams(t, func(string, string) release.WorkflowCheckResult {
+		return release.WorkflowCheckResult{Status: release.WorkflowCheckMissing}
+	}, trivialComplete)
 
 	var passed bool
 	out := captureStdout(t, func() {
@@ -355,6 +361,9 @@ func TestUpgradeArcHarnessGate_BlockedByAnchorRefuses(t *testing.T) {
 	stubScenarioEvidence(t, map[string]map[string]bool{
 		"working": {anchor: true},
 	})
+	stubWorkflowSeams(t, func(string, string) release.WorkflowCheckResult {
+		return release.WorkflowCheckResult{Status: release.WorkflowCheckMissing}
+	}, trivialComplete)
 
 	var passed bool
 	out := captureStdout(t, func() {

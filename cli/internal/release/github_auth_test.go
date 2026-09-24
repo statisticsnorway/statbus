@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/base64"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -131,5 +132,38 @@ exit 1
 		if !strings.Contains(content, "[REDACTED]") {
 			t.Fatalf("%s did not retain a redaction marker: %q", surface, content)
 		}
+	}
+}
+
+func TestCommandOutputRedactsGitStderr(t *testing.T) {
+	const token = "command-output-token-MUST-NOT-LEAK"
+	t.Setenv("GITHUB_TOKEN", token)
+	dir := t.TempDir()
+	encodedToken := base64.StdEncoding.EncodeToString([]byte(token))
+	encodedCredential := base64.StdEncoding.EncodeToString([]byte("x-access-token:" + token))
+	script := `#!/bin/sh
+printf '%s\n' "$GITHUB_TOKEN" >&2
+printf '%s\n' "` + encodedToken + `" >&2
+printf '%s\n' "` + encodedCredential + `" >&2
+printf '%s\n' "Authorization: Bearer reflected-command-output-secret" >&2
+exit 1
+`
+	if err := os.WriteFile(filepath.Join(dir, "git"), []byte(script), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("PATH", dir)
+
+	_, err := commandOutput(exec.Command("git", "tag", "-l", "v*"))
+	if err == nil {
+		t.Fatal("expected git failure")
+	}
+	message := err.Error()
+	for _, secret := range []string{token, encodedToken, encodedCredential, "reflected-command-output-secret"} {
+		if strings.Contains(message, secret) {
+			t.Fatalf("commandOutput leaked %q in %q", secret, message)
+		}
+	}
+	if !strings.Contains(message, "[REDACTED]") {
+		t.Fatalf("commandOutput did not retain a redaction marker: %q", message)
 	}
 }

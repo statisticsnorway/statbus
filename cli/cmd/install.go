@@ -29,12 +29,37 @@ import (
 	"github.com/statisticsnorway/statbus/cli/internal/upgrade"
 )
 
+var (
+	detectInstallState          = install.Detect
+	checkInstallSigners         = checkSignersDone
+	writeDetectionSupportBundle = func(installDir string) (string, error) {
+		path := filepath.Join(installDir, fmt.Sprintf("support-bundle-%s.txt", time.Now().UTC().Format("20060102-150405")))
+		return path, writeSupportBundle(installDir, path, upgrade.TriggerInstall)
+	}
+	runInstallStepTableTestHook func() error
+)
+
 // markTerminal is a thin wrapper over invariants.MarkTerminal that pins
 // the projDir to the install dir. Every fail-fast guard site in this file
 // calls markTerminal BEFORE returning the wrapped error, so install.sh
 // can surface the invariant name in its SYSTEM UNUSABLE banner.
 func markTerminal(installDir, name, observed string) {
 	invariants.MarkTerminal(installDir, name, observed)
+}
+
+// installDiagnostic records pre-log state checks in the same file collected by
+// the install support bundle. These checks run before ProgressLog is created.
+func installDiagnostic(installDir, format string, args ...any) {
+	path := filepath.Join(installDir, "tmp", "install-last-run-output.txt")
+	if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
+		return
+	}
+	f, err := os.OpenFile(path, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0600)
+	if err != nil {
+		return
+	}
+	defer func() { _ = f.Close() }()
+	_, _ = fmt.Fprintf(f, format+"\n", args...)
 }
 
 // thisLine returns the caller's source line number. Guard-site transcripts
@@ -123,8 +148,8 @@ var signerPromptAccepted bool
 var postUpgradeFixup bool
 
 var installCmd = &cobra.Command{
-	Use:   "install",
-	Short: "Install or resume StatBus installation",
+	Use:           "install",
+	Short:         "Install or resume StatBus installation",
 	SilenceErrors: true,
 	SilenceUsage:  true,
 	// install is part of the recovery surface — its job is to fix the
@@ -250,6 +275,32 @@ func acquireOrBypass(installDir string, bypass bool) (release func(), err error)
 	return func() { upgrade.ReleaseInstallFlag(lock) }, nil
 }
 
+// Signer trust must precede upgrade dispatch but follow safe classification.
+// An unclassifiable probe result must never cause a config write.
+func preflightInstallSigner(installDir string) {
+	if trustGitHubUser == "" {
+		return
+	}
+	cfgPath := filepath.Join(installDir, ".env.config")
+	if _, err := os.Stat(cfgPath); err != nil {
+		return
+	}
+	if checkInstallSigners(installDir) {
+		fmt.Println("Trusted signer already configured and verified — skipping GitHub fetch")
+		return
+	}
+	f, err := dotenv.Load(cfgPath)
+	if err != nil {
+		return
+	}
+	fmt.Printf("Trusting GitHub user %s (--trust-github-user)...\n", trustGitHubUser)
+	if err := trustSignerNonInteractive(trustGitHubUser, f); err != nil {
+		log.Printf("Could not trust %s (continuing, operator may add manually): %v", trustGitHubUser, err)
+	} else if err := f.Save(); err != nil {
+		log.Printf("Could not save .env.config after adding trusted signer: %v", err)
+	}
+}
+
 // runInstall is the entry point for `./sb install`. It is safe to run while
 // an upgrade service is active on the same host because of the mutex check
 // below: if the upgrade service has written tmp/upgrade-in-progress.json
@@ -306,7 +357,13 @@ func runInstall() (installErr error) {
 
 	if !bypass {
 		if err := upgrade.CheckRestartBarrier(installDir); err != nil {
-			return err
+			installDiagnostic(installDir, "Restart check failed: %v", err)
+			bundlePath, bundleErr := writeDetectionSupportBundle(installDir)
+			if bundleErr != nil {
+				installDiagnostic(installDir, "Could not create support bundle for restart check: %v", bundleErr)
+				bundlePath = filepath.Join(installDir, "tmp", "install-last-run-output.txt")
+			}
+			return &installPreflightRefusalError{err: fmt.Errorf("The installation cannot continue until its previous restart has finished. Run the same install command again: curl -fsSL https://statbus.org/install.sh | bash. If it stops again, send this file to StatBus support: %s", bundlePath)}
 		}
 	}
 
@@ -379,65 +436,41 @@ func runInstall() (installErr error) {
 	//                           The re-detect may land us in any other state.
 	//   StateLegacyNoUpgradeTable → refuse with a pointer to #65.6 (the
 	//                           pre-1.0 cascade lands there).
+	//   StateFreshDBIncomplete → a fresh install that stopped after the
+	//                           database was created: fall through to the
+	//                           step-table, which continues with Seed and
+	//                           Migrations.
 	//   all other states      → fall through to acquireOrBypass + step-table.
-	// Pre-Detect orphan-backend cleanup. Critical for recovery from a
-	// crashed upgrade that exhausted max_connections (rune wedge Stage B).
-	// install.Detect runs DB queries; if pool is exhausted, Detect fails
-	// and we'd skip the recovery path entirely. cleanOrphanSessions uses
-	// docker exec → peer auth → superuser inside the container, which
-	// works even when external connections all fail with "too many
-	// clients". Idempotent: the check is a single SELECT count(*); if the
-	// pool has headroom this is a no-op. Gated on services-up so fresh
-	// installs (no DB container yet) skip cleanly.
-	if !bypass && checkServicesDone(installDir) && !checkSessionsClean(installDir) {
-		fmt.Println("  Pre-detect: connection pool not clean, running cleanOrphanSessions")
-		if err := cleanOrphanSessions(installDir); err != nil {
-			// Best-effort here — log and proceed. install.Detect's own
-			// error path (and the step-table's later "Database sessions"
-			// step) will surface a real DB-down state with a clean error.
-			log.Printf("Pre-detect cleanOrphanSessions: %v", err)
-		}
-	}
-
-	// Pre-flight: if --trust-github-user is set, trust that user's signing key
-	// BEFORE state detection + dispatch. Positioned ahead of dispatchInstallState
-	// (below) on purpose: the scheduled-upgrade and crashed-upgrade paths return
-	// early from dispatch (handing off to executeUpgrade), so a trust pre-flight
-	// placed after dispatch never runs on a box with a pending/wedged upgrade —
-	// making `./sb install --trust-github-user X` a silent no-op exactly when the
-	// upgrade pipeline needs that signer to verify the target commit. Skips the
-	// GitHub fetch if a valid key is already configured (idempotent — no API call
-	// on re-run); a truly fresh box (no .env.config yet) is a no-op, same as
-	// before — the require-a-signer pre-flight further down still gates existing
-	// installs.
-	if !bypass && trustGitHubUser != "" {
-		cfgPath := filepath.Join(installDir, ".env.config")
-		if _, statErr := os.Stat(cfgPath); statErr == nil {
-			if checkSignersDone(installDir) {
-				fmt.Printf("Trusted signer already configured and verified — skipping GitHub fetch\n")
-			} else {
-				f, loadErr := dotenv.Load(cfgPath)
-				if loadErr == nil {
-					fmt.Printf("Trusting GitHub user %s (--trust-github-user)...\n", trustGitHubUser)
-					if err := trustSignerNonInteractive(trustGitHubUser, f); err != nil {
-						log.Printf("Could not trust %s (continuing, operator may add manually): %v", trustGitHubUser, err)
-					} else {
-						if err := f.Save(); err != nil {
-							log.Printf("Could not save .env.config after adding trusted signer: %v", err)
-						}
-					}
-				}
-			}
-		}
-	}
+	// Detection must precede mutating preflights. An unknown probe result
+	// cannot safely authorize signer changes or session cleanup.
 
 	var detectedState install.State
 	if !bypass {
-		state, detail, derr := install.Detect(installDir, version)
+		state, detail, derr := detectInstallState(installDir, version)
 		if derr != nil {
-			log.Printf("State detection failed during setup: %v", derr)
+			if !errors.Is(derr, install.ErrDatabaseUnavailable) {
+				installDiagnostic(installDir, "State detection failed: %v", derr)
+				bundlePath, bundleErr := writeDetectionSupportBundle(installDir)
+				if bundleErr != nil {
+					installDiagnostic(installDir, "Could not create support bundle for detection: %v", bundleErr)
+					bundlePath = filepath.Join(installDir, "tmp", "install-last-run-output.txt")
+				}
+				return &installPreflightRefusalError{err: fmt.Errorf("The install state could not be determined safely; nothing was changed. Run the same install command again: curl -fsSL https://statbus.org/install.sh | bash. If it stops again, send this file to StatBus support: %s", bundlePath)}
+			}
+			// Only a positively identified database connection failure permits
+			// repair through the step table. Unknown errors fail closed above.
+			preflightInstallSigner(installDir)
+			installDiagnostic(installDir, "State detection failed because the database is unavailable: %v", derr)
 			fmt.Println("The database could not be checked. Continuing with installation repair.")
 		} else {
+			// Cleanup and signer trust still precede dispatch (which can return
+			// early for scheduled/crashed upgrades), but only after classification.
+			if checkDBHealthy(installDir) && !checkSessionsClean(installDir) {
+				if err := cleanOrphanSessions(installDir); err != nil {
+					log.Printf("Post-detect cleanOrphanSessions: %v", err)
+				}
+			}
+			preflightInstallSigner(installDir)
 			detectedState = state
 			logInstallState(installDir, state, detail)
 			// Safe takeover (STATBUS-039): a live flock + a crash-looping
@@ -491,7 +524,7 @@ func runInstall() (installErr error) {
 					return fmt.Errorf("re-detect after recovery: %w", derr)
 				}
 				detectedState = state
-				log.Printf("State after recovery: %s (target=%s)", state, detail.TargetVersion)
+				installDiagnostic(installDir, "State after recovery: %s (target=%s)", state, detail.TargetVersion)
 				fmt.Println("Recovery finished. Checking the installation again.")
 			}
 			if handled, err := dispatchInstallState(installDir, state, detail); handled {
@@ -507,7 +540,7 @@ func runInstall() (installErr error) {
 	// fast, actionable failure instead of wasting 2 minutes on steps 1-12.
 	if !bypass {
 		cfgPath := filepath.Join(installDir, ".env.config")
-		if _, statErr := os.Stat(cfgPath); statErr == nil && !checkSignersDone(installDir) {
+		if _, statErr := os.Stat(cfgPath); statErr == nil && !checkInstallSigners(installDir) {
 			if nonInteractive {
 				return installPreflightRefusal("No valid release signer is configured.\n" +
 					"  The upgrade service requires at least one trusted signer that can verify commit signatures.\n" +
@@ -720,6 +753,9 @@ func runInstall() (installErr error) {
 	// otherwise misclassify every key as "changed" and restart nothing not
 	// yet running anyway).
 	oldEnvSnapshot, _ := os.ReadFile(filepath.Join(installDir, ".env"))
+	if runInstallStepTableTestHook != nil {
+		return runInstallStepTableTestHook()
+	}
 	oldCaddySnapshot := snapshotCaddyConfig(installDir)
 	wasAlreadyRunning := checkServicesDone(installDir)
 	var pendingRestarts map[config.RestartClass]bool
@@ -926,6 +962,14 @@ func runInstall() (installErr error) {
 	// the loop tail), resume so the system isn't left with clients down.
 	resumeIfQuiesced()
 
+	// Final check (audit B10): every service is running and the API answers
+	// /ready. A step table that is all green over a restart-looping rest or a
+	// proxy that never started must not print "Installation complete".
+	fmt.Println()
+	if err := verifyInstallServing(installDir, finalCheckBudget, finalCheckInterval); err != nil {
+		return err
+	}
+
 	fmt.Println()
 	if allDone {
 		fmt.Println("All steps complete. Nothing to do.")
@@ -1071,29 +1115,6 @@ func classifyDockerHealth(raw string) (dockerHealth, error) {
 }
 
 func (h dockerHealth) ready() bool { return h == dockerHealthHealthy }
-
-func checkServicesDone(dir string) bool {
-	// Use positional service name `db` rather than `--filter name=db`. The
-	// `--filter` flag's `name=` key is rejected by docker-compose v2.x as
-	// "unknown filter name" — observed on rune.statbus.org (statbus-no-db
-	// container, docker-compose Plugin 2025+). Positional service-name is
-	// the supported invocation; the legacy filter-style only worked on
-	// older lenient builds that silently accepted unknown filters.
-	cmd, buildErr := compose.CommandContext(context.Background(), dir, "ps", "db", "--format", "{{.Health}}")
-	if buildErr != nil {
-		return false
-	}
-	out, err := cmd.Output()
-	if err != nil {
-		return false
-	}
-	health, err := classifyDockerHealth(string(out))
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error: refusing to treat database service as ready: %v\n", err)
-		return false
-	}
-	return health.ready()
-}
 
 func checkMigrationsDone(dir string) bool {
 	// Done iff there are no pending migration files vs db.migration.
@@ -1368,16 +1389,6 @@ func runPullImages(dir string) error {
 		return runCmdDir(dir, "docker", "compose", "--profile", "all", "build")
 	}
 	return nil
-}
-
-func runStartServices(dir string) error {
-	cmd, err := compose.Up(context.Background(), dir, "--profile", "all", "-d")
-	if err != nil {
-		return err
-	}
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	return cmd.Run()
 }
 
 // diffEnvKeys returns every key whose value differs between oldContent and
@@ -2088,7 +2099,7 @@ func waitForInstallDBHealth(dir string, deadline time.Time, interval time.Durati
 		// Reuse the install step's existing Docker-health predicate. The database
 		// health check is backed by the container's pg_isready probe, so a
 		// restarting PostgreSQL remains "starting" until it accepts connections.
-		if checkServicesDone(dir) {
+		if checkDBHealthy(dir) {
 			return true
 		}
 		remaining := time.Until(deadline)
@@ -2328,7 +2339,7 @@ func cleanOrphanSessions(dir string) error {
 func checkSeedRestored(dir string) bool {
 	// If services aren't running yet, we can't check the DB.
 	// Return true to skip — the Services step must run first.
-	if !checkServicesDone(dir) {
+	if !checkDBHealthy(dir) {
 		return true
 	}
 
@@ -2895,7 +2906,7 @@ func connectInstallDB(dir string) (*pgx.Conn, error) {
 
 // completeInstallUpgradeRow creates a fresh `completed` upgrade row for the
 // current SHA (idempotent INSERT ... ON CONFLICT upsert). Used on
-// StateFresh/StateHalfConfigured/StateDBUnreachable where install is the
+// StateFresh/StateHalfConfigured/StateDBUnreachable/StateFreshDBIncomplete where install is the
 // first actor to touch public.upgrade; the daemon has not yet authored a row.
 // logRelPath is stamped on the new row (the on-disk log was created before
 // the step-table but couldn't be stamped until the row exists).
@@ -3378,6 +3389,8 @@ func logInstallState(projDir string, state install.State, detail *install.Detail
 		fmt.Println("Installation settings are incomplete. Repair will run now.")
 	case install.StateDBUnreachable:
 		fmt.Println("The database is not available. Repair will run now.")
+	case install.StateFreshDBIncomplete:
+		fmt.Println("The database exists but setup stopped before it was finished. Continuing where it stopped.")
 	case install.StateLegacyNoUpgradeTable:
 		fmt.Println("This installation is too old for automatic repair. Follow the documented manual upgrade path.")
 	case install.StateScheduledUpgrade:

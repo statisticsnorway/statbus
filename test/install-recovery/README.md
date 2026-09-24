@@ -191,6 +191,8 @@ diagram's transitions, and the activity diagram's partitions/arms. The run-proof
 | `3-postswap-worker-ddl-deadlock` | install-recovery § step-table / [DDL] stop-app-services — quiesce before the DDL window |
 | `5-install-bool-text-regression` | install-recovery § step-table / Database sessions — bool::text parse |
 | `5-install-drifted-unit-reconciled` | install-recovery § step-table / Upgrade service — drift reconcile |
+| `5-install-orphaned-db-volume-credentials` | install-recovery § Detect / fresh-db-incomplete → continue; step-table / Services — role passwords match .env.credentials; final check — API ready |
+| `5-install-proxy-never-started` | install-recovery § step-table / Services — every service started and confirmed running |
 | `5-install-seed-on-populated` | install-recovery § step-table / Seed gate (data-loss grade) |
 | `5-install-stage-a-killed-migrate` | install-recovery § step-table / Database sessions — orphan backend cleanup |
 | `5-install-stage-b-pool-exhaustion` | install-recovery § pre-detect cleanOrphanSessions — docker-exec bypass |
@@ -221,6 +223,10 @@ When you regress a fix, here's what fails:
 | Fix 9 — drop pool-saturation from checkSessionsClean |
 | Fix 10 — application_name='psql' filter |
 | Fix 11 — drop bool::text cast | `5-install-bool-text-regression` (and ALL scenarios — recheck-after-cleanup goes through this) |
+| Services step — `checkServicesDone` requires every `all`-profile service running, db healthy and role passwords equal to .env; `runStartServices` starts them, syncs passwords (dbroles), restarts the password clients, and names any service not running | `5-install-proxy-never-started` (proxy/app/worker removed ⇒ step 8 RUNNING, not OK) + `5-install-orphaned-db-volume-credentials` phase c + Go `TestServicesNotRunning`, `TestRunStartServices*`, `internal/dbroles` |
+| Final serving check — `verifyInstallServing` (every service running + rest admin `/ready` 200) before "Installation complete" | `5-install-orphaned-db-volume-credentials`, `5-install-proxy-never-started` + Go `TestVerifyInstallServing` |
+| Fresh-db-incomplete detection — an install interrupted after the DB exists continues instead of the pre-1.0 refusal | `5-install-orphaned-db-volume-credentials` phase b + Go `TestDetectWith` (init-db-only / pre-1.0 / migrated) |
+| Daemon role-password sync before first connect | `5-install-orphaned-db-volume-credentials` phase c (unit active) + Go `TestDaemonSyncsRolePasswordsBeforeFirstConnect` |
 | unit-reconcile — `checkServiceDone` byte-compares the on-disk unit to the repo template; drift ⇒ rewrite + daemon-reload + restart | `5-install-drifted-unit-reconciled` (without it, a drifted unit on a healthy box is never rewritten — rune's stale 90/infinity persists) + the local Go guards `TestUnitFileMatchesRepo_*` (drift detection) + `TestRunInstallService_RestartsOnDriftToArmTimers` (re-arm) |
 
 ## Adding a new scenario

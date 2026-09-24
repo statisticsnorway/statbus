@@ -18,17 +18,18 @@ func TestRestartOwnsCompleteWorkflow(t *testing.T) {
 		want                       []string
 		bad                        bool
 	}{
-		{"all", "all", "active", "", true, []string{"show", "stop", "stack:all", "start"}, false},
-		{"all except app", "all_except_app", "active", "", true, []string{"show", "stop", "stack:all_except_app", "start"}, false},
+		{"all", "all", "active", "", true, []string{"show", "stop", "stack:all", "reset-failed", "start"}, false},
+		{"all except app", "all_except_app", "active", "", true, []string{"show", "stop", "stack:all_except_app", "reset-failed", "start"}, false},
 		{"app narrow", "app", "active", "", true, []string{"stack:app"}, false},
 		{"non systemd", "all", "active", "", false, []string{"stack:all"}, false},
 		{"inactive preserved", "all", "inactive", "", true, []string{"show", "stack:all"}, false},
 		{"missing unit", "all", "missing", "", true, []string{"show", "stack:all"}, false},
-		{"failed unit refuses", "all", "failed", "", true, []string{"show"}, true},
+		{"failed unit is started again", "all", "failed", "", true, []string{"show", "stop", "stack:all", "reset-failed", "start"}, false},
+		{"unknown unit state refuses", "all", "deactivating", "", true, []string{"show"}, true},
 		{"probe failure", "all", "active", "show", true, []string{"show"}, true},
-		{"stop failure", "all", "active", "stop", true, []string{"show", "stop", "start"}, true},
-		{"stack failure restores daemon", "all", "active", "stack", true, []string{"show", "stop", "stack:all", "start"}, true},
-		{"start failure propagates", "all", "active", "start", true, []string{"show", "stop", "stack:all", "start"}, true},
+		{"stop failure", "all", "active", "stop", true, []string{"show", "stop", "reset-failed", "start"}, true},
+		{"stack failure restores daemon", "all", "active", "stack", true, []string{"show", "stop", "stack:all", "reset-failed", "start"}, true},
+		{"start failure propagates", "all", "active", "start", true, []string{"show", "stop", "stack:all", "reset-failed", "start"}, true},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			dir := t.TempDir()
@@ -238,5 +239,35 @@ func TestInstallRefusesRestartBeforeProbes(t *testing.T) {
 	err = runInstall()
 	if err == nil || !strings.Contains(err.Error(), "./sb restart all") {
 		t.Fatalf("install: %v", err)
+	}
+}
+
+// Rabbit's local replay: after repeated failed restarts systemd's start-rate
+// limit refused every further start. A retried restart must clear the failed
+// state before starting, so the retry converges.
+func TestRestartRetryClearsStartLimitBeforeStarting(t *testing.T) {
+	dir := t.TempDir()
+	limited := true
+	var calls []string
+	ops := restartOperations{systemd: true, unit: "unit", systemctl: func(args ...string) (string, error) {
+		calls = append(calls, args[0])
+		switch args[0] {
+		case "show":
+			return "LoadState=loaded\nActiveState=active\n", nil
+		case "reset-failed":
+			limited = false
+		case "start":
+			if limited {
+				return "start-limit-hit", errors.New("start request repeated too quickly")
+			}
+		}
+		return "", nil
+	}, stack: func(string) error { return nil }}
+	limited = true
+	if err := restartServicesWith(dir, "all", ops); err != nil {
+		t.Fatalf("restart with a rate-limited unit: %v (calls %v)", err, calls)
+	}
+	if !reflect.DeepEqual(calls, []string{"show", "stop", "reset-failed", "start"}) {
+		t.Fatalf("calls=%v", calls)
 	}
 }
