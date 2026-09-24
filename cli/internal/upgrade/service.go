@@ -2665,6 +2665,9 @@ func (d *Service) LoadConfigAndConnect(ctx context.Context) error {
 	if err := d.loadTrustedSigners(); err != nil {
 		return fmt.Errorf("load trusted signers: %w", err)
 	}
+	// Same reason as Run(): the inline dispatch runs before install's step
+	// table, so it must not dial with passwords the database does not hold.
+	d.syncRolePasswordsBeforeConnect(ctx)
 	return d.connect(ctx)
 }
 
@@ -3025,6 +3028,17 @@ func (d *Service) Run(ctx context.Context) error {
 	if err := d.EnsureDBUp(ctx); err != nil {
 		return fmt.Errorf("ensure DB up: %w", err)
 	}
+
+	// The database's role passwords must equal .env before connect() dials
+	// with them. The database init script sets them only when the volume is first
+	// initialised; a volume that outlived its .env.credentials rejects every
+	// TCP login (28P01), and this daemon would retry until systemd's
+	// TimeoutStartSec killed it, never sending READY=1 (Finland, rest-loop.md).
+	// The sync runs over the db container's trusted local socket, so it works
+	// while TCP auth is split. It is a read-only comparison on a box where
+	// the passwords already agree. A failure here is reported and connect()
+	// still runs: it surfaces the real error if the passwords stay split.
+	d.syncRolePasswordsBeforeConnect(ctx)
 
 	if err := d.connect(ctx); err != nil {
 		return fmt.Errorf("connect: %w", err)

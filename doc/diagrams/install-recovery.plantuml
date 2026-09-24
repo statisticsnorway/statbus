@@ -116,10 +116,19 @@ partition "Detect — 9-state probe ladder (state.go:104, short-circuit: first m
       NO TEST (gap): StateDBUnreachable (DB down at install -> step-table starts
       services) has no dedicated scenario.
     end note
+  elseif (no public.upgrade table, and the DB is this installer's unfinished setup?) then (yes)
+    :**fresh-db-incomplete** (StateFreshDBIncomplete)\nstep-table continues with Seed + Migrations;
+    note right #FFF9C4
+      No applied migration and no application tables (init-db.sh only), or the first
+      migration applied after the public.upgrade migration existed (20260311174120).
+      TEST 5-install-orphaned-db-volume-credentials phase b: an install that failed at
+      Services (port 80 held) continues on rerun instead of the pre-1.0 refusal.
+    end note
   elseif (no public.upgrade table?) then (yes)
     :**legacy — no upgrade table → refuse** (StateLegacyNoUpgradeTable);
     note right #FFF9C4
-      NO TEST (gap): the pre-1.0 legacy-refuse path has no dedicated scenario.
+      NO TEST (gap): the pre-1.0 legacy-refuse path has no dedicated scenario
+      (Go TestDetectWith covers the classification).
     end note
     stop
   elseif (scheduled row present?) then (yes)
@@ -154,7 +163,16 @@ partition "Detect — 9-state probe ladder (state.go:104, short-circuit: first m
 partition "step-table — install.go:536 (each step: check ? OK : run; idempotent, re-runnable)" {
   :Prerequisites -> Repository -> Binary -> Configuration\n-> Credentials -> Generated env;
   :Images;
-  :Services;
+  :**Services**\ncheckServicesDone ? : runStartServices\nevery service running, db healthy, role passwords = .env;
+  note right #FFF9C4
+    up -d → role passwords made equal to .env over the db container's local
+    socket (dbroles) → rest/worker/app restarted if one changed → wait until
+    every service runs, naming any that does not in plain words.
+    TEST 5-install-proxy-never-started: proxy/app/worker removed on a green box
+      ⇒ step 8 runs (not OK) and all five are running afterwards.
+    TEST 5-install-orphaned-db-volume-credentials phase c: a DB volume that
+      outlived its .env.credentials gets the new passwords; rest stops looping.
+  end note
   :Backup ownership (heal pre-upgrade-* dir ownership);
 
   :**Database sessions**\ncheckSessionsClean ? : cleanOrphanSessions — install.go:561;
@@ -201,6 +219,10 @@ partition "step-table — install.go:536 (each step: check ? OK : run; idempoten
   end note
 }
 
+:**Final check** — every service running and rest admin /ready = 200\n(names any service that is not, copies its log);
+note right #FFF9C4
+  TEST 5-install-orphaned-db-volume-credentials, 5-install-proxy-never-started.
+end note
 :install complete (idempotent — safe to re-run);
 
 note right #F3E5F5

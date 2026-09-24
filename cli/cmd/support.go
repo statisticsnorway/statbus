@@ -81,39 +81,14 @@ success so install.sh can capture it for the SYSTEM UNUSABLE banner.`,
 			return fmt.Errorf("invalid --trigger %q: must be install or adhoc", supportGatherTrigger)
 		}
 
-		logPath := latestUpgradeLog(projDir)
-
 		outPath := supportGatherOut
 		if outPath == "" {
 			stamp := time.Now().UTC().Format("20060102-150405")
 			outPath = filepath.Join(projDir, fmt.Sprintf("support-bundle-%s.txt", stamp))
 		}
 
-		tmpPath := outPath + ".tmp"
-		f, err := os.Create(tmpPath)
-		if err != nil {
-			return fmt.Errorf("create %s: %w", tmpPath, err)
-		}
-		bw := bufio.NewWriter(f)
-
-		// No live DB row — pass an empty JSON object so WriteBundleSections
-		// can still emit the header with "id=0 commit= state=".
-		upgrade.WriteBundleSections(context.Background(), bw, projDir, 0, "{}", logPath, trig)
-
-		if err := bw.Flush(); err != nil {
-			_ = f.Close()          // best-effort; already erroring out
-			_ = os.Remove(tmpPath) // best-effort cleanup of the broken tempfile
-			return fmt.Errorf("flush: %w", err)
-		}
-		if err := f.Sync(); err != nil {
-			_ = f.Close()          // best-effort; already erroring out
-			_ = os.Remove(tmpPath) // best-effort cleanup of the broken tempfile
-			return fmt.Errorf("fsync: %w", err)
-		}
-		_ = f.Close() // checked implicitly by the Rename below succeeding or not
-		if err := os.Rename(tmpPath, outPath); err != nil {
-			_ = os.Remove(tmpPath) // best-effort cleanup of the broken tempfile
-			return fmt.Errorf("rename: %w", err)
+		if err := writeSupportBundle(projDir, outPath, trig); err != nil {
+			return err
 		}
 
 		// stdout: absolute path only — install.sh captures it.
@@ -122,6 +97,38 @@ success so install.sh can capture it for the SYSTEM UNUSABLE banner.`,
 		fmt.Fprintf(os.Stderr, "Support bundle written to %s\n", outPath)
 		return nil
 	},
+}
+
+func writeSupportBundle(projDir, outPath string, trig upgrade.Trigger) error {
+	logPath := latestUpgradeLog(projDir)
+	tmpPath := outPath + ".tmp"
+	f, err := os.Create(tmpPath)
+	if err != nil {
+		return fmt.Errorf("create %s: %w", tmpPath, err)
+	}
+	bw := bufio.NewWriter(f)
+
+	// No live DB row — pass an empty JSON object so WriteBundleSections
+	// can still emit the header with "id=0 commit= state=".
+	upgrade.WriteBundleSections(context.Background(), bw, projDir, 0, "{}", logPath, trig)
+
+	if err := bw.Flush(); err != nil {
+		_ = f.Close()          // best-effort; already erroring out
+		_ = os.Remove(tmpPath) // best-effort cleanup of the broken tempfile
+		return fmt.Errorf("flush: %w", err)
+	}
+	if err := f.Sync(); err != nil {
+		_ = f.Close()          // best-effort; already erroring out
+		_ = os.Remove(tmpPath) // best-effort cleanup of the broken tempfile
+		return fmt.Errorf("fsync: %w", err)
+	}
+	_ = f.Close() // checked implicitly by the Rename below succeeding or not
+	if err := os.Rename(tmpPath, outPath); err != nil {
+		_ = os.Remove(tmpPath) // best-effort cleanup of the broken tempfile
+		return fmt.Errorf("rename: %w", err)
+	}
+
+	return nil
 }
 
 // latestUpgradeLog returns the absolute path of the most recent upgrade log.

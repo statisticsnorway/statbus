@@ -20,6 +20,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/statisticsnorway/statbus/cli/internal/compose"
+	"github.com/statisticsnorway/statbus/cli/internal/dbroles"
 	"github.com/statisticsnorway/statbus/cli/internal/dotenv"
 	"github.com/statisticsnorway/statbus/cli/internal/inject"
 )
@@ -2092,5 +2093,22 @@ func (d *Service) purgeOrphanBackups(referenced map[string]int, now time.Time) {
 			fmt.Printf("BACKUP_ORPHAN: %s unreferenced, age=%s (grace until %s)\n",
 				path, age.Truncate(time.Minute), graceUntil)
 		}
+	}
+}
+
+// syncRolePasswords is the seam behind syncRolePasswordsBeforeConnect.
+var syncRolePasswords = dbroles.SyncProject
+
+// syncRolePasswordsBeforeConnect makes the database's login-role passwords
+// equal to .env before the daemon's first connection (see Run). It reports
+// what it changed and never fails the boot on its own.
+func (d *Service) syncRolePasswordsBeforeConnect(ctx context.Context) {
+	changed, err := syncRolePasswords(ctx, d.projDir)
+	if err != nil {
+		fmt.Printf("Could not compare the database role passwords with .env (connecting anyway): %v\n", err)
+		return
+	}
+	if len(changed) > 0 {
+		fmt.Printf("The database held older passwords for %s; they now match .env.credentials.\n", dbroles.RoleNames(changed))
 	}
 }
