@@ -43,6 +43,32 @@ Rollback restores the snapshot (phase-2 state). During phase 3, the read-only wi
 ## Effect on recovery — the formal supersession (STATBUS-110 AC#3, 2026-07-12)
 **The read-only-window invariant SUPERSEDES STATBUS-039's "never restore on a guess."** The old doctrine was a categorical prohibition born of one risk: a restore could erase an external write that landed after the snapshot. The window removes the risk instead of prohibiting the action — with phase 3 write-free (against accidents), **a rollback is universally data-safe by construction**, so the *can't-verify → hold → human* branch collapses into safe-rollback / quiet-retry (STATBUS-109), and recovery self-decides with no operator travel. The successor doctrine, as the recovery decision model states it: *classify-then-act, with rollback as the universal safe fallback; the only human stops are "unknown" (unreadable own-state / unrecognized error) and "restore-broke" (the restore mechanism itself failed) — neither is a data-safety hold.* `doc/upgrade-recovery-model.md` is the canonical decision tree; this document is the invariant that makes its autonomy sound.
 
+## Parked-window repair (STATBUS-380)
+
+A parked upgrade can require a deliberate data or schema correction while its
+read-only accident-guard remains active. `./sb install` is not a repair interval:
+it un-parks and immediately starts one fresh recovery attempt, so it cannot
+reliably leave the operator a safe point to make that correction.
+
+Use the single sanctioned verb instead:
+
+```bash
+./sb upgrade repair --file tmp/repair.sql --reason "why this is needed" --operator "Name"
+```
+
+The command requires an `in_progress` row with `recovery_parked_at`, self-exempts
+only its own psql session, locks the parked row, and runs the supplied SQL and an
+`upgrade_state_log` entry in one transaction. The entry records the operator,
+reason, connection, and that this was a parked-window repair. The verb constrains
+how the arbitrary repair is recorded, not what it writes, and `upgrade list`'s
+`who` column consequently shows the repairer. It rejects empty files, psql
+meta-commands, and top-level transaction control because the verb owns the one
+atomic transaction. A later snapshot restore intentionally forfeits both the repair
+and its audit record, just as it forfeits every deliberate phase-3 write.
+
+Do not use raw admin psql for this flow. The exemption remains a PostgreSQL
+accident-guard escape hatch for product maintenance, not an operator API.
+
 ## Cost and acceptability
 During an upgrade's destructive window, external writes are blocked while reads keep working. This costs little in practice: browser and REST traffic already stop in this window under maintenance mode, so the only new restriction falls on a direct database connection, which few real users make. Upgrades are infrequent and this window lasts minutes, not hours, so a short write pause is a small price for a statistical registry. The block is a guard against accidents, not a lock: any session can deliberately turn it off for itself, but doing so deliberately forfeits that write if rollback restores the snapshot. The ratified rule is that you cannot go wrong without meaning to, and if you mean to, you are allowed. In exchange, the payoff is categorical: window ON means rollback is lossless by definition, which lets an unreachable box recover by itself instead of waiting for a human to travel there.
 
