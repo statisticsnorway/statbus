@@ -2637,7 +2637,7 @@ func runCreateUsers(dir string) error {
 		return err
 	}
 	if !stdinIsTerminal() {
-		return installPreflightRefusal("Create the first administrator in a terminal, or provide STATBUS_USERS_FILE for unattended installation. Then run: curl -fsSL https://statbus.org/install.sh | bash")
+		return installPreflightRefusal("The first administrator must be created in a terminal. Open a terminal on this computer, then run: curl -fsSL https://statbus.org/install.sh | bash")
 	}
 	fmt.Println("  Create the first administrator. Everyone else is invited from the web interface.")
 	email := prompt("  Email", "")
