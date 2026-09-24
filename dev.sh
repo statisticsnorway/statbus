@@ -3391,6 +3391,12 @@ EOS
         # See test/install-recovery/README.md for the catalogue.
         exec bash "$WORKSPACE/test/install-recovery/run.sh" "$@"
       ;;
+    'test-livedb' )
+        # STATBUS-362: real local database tier. The Go packages create detached
+        # scratch worktrees and pinned sb binaries, while this dev-only entrypoint
+        # keeps all local DB test execution behind ./dev.sh.
+        exec go test -C "$WORKSPACE/cli" -tags livedb -count=1 ./internal/upgrade ./internal/install "$@"
+      ;;
     'test-harness' )
         # Offline install-recovery harness contract. This deliberately starts a
         # localhost sshd, but allocates no cloud VM and uses no product container.

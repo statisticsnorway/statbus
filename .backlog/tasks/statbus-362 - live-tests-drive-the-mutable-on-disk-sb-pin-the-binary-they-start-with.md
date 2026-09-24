@@ -192,3 +192,11 @@ Batch order: 370 -> 368 -> 367 -> 363 -> 357 -> 361 -> 362 -> 359.
 Classification: PARTIAL. Evidence: design/scratch work only; live tests still need isolated pinned worktrees and green suite.
 
 Remaining: Land per-package scratch worktrees and pinned binaries, prevent project .env writes, and pass the full live suite.
+
+## Implementation note 2026-09-24
+
+Provisional, owner to confirm: selector `//go:build livedb`, tier name “live-database tests”, and the 25 claim-based names in the table above.
+
+Rejected alternative: retain the runtime `STATBUS_LIVE_DB` environment selector and `TestLive*` family names. Runtime skips let the live-only files participate in ordinary package compilation and name the execution mode rather than the assertion claim.
+
+Implemented per-package detached worktrees, copied local configuration into the scratch tree, generated only the scratch `.env`, built an identity-bearing pinned `sb`, redirected direct subprocess execution to that pinned binary, removed the fake Git shim, added a project-`sb` replacement regression test, wired Fast Tests, and updated development documentation. The manual stable-release gate is isolated under `release_live`.

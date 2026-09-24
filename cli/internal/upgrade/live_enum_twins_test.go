@@ -1,17 +1,15 @@
+//go:build livedb
+
 package upgrade
 
 import (
 	"context"
-	"os"
 	"sort"
 	"testing"
 	"time"
 )
 
-func TestLiveEnumTwins(t *testing.T) {
-	if os.Getenv("STATBUS_LIVE_DB") == "" {
-		t.Skip("set STATBUS_LIVE_DB=1 to exercise the real database")
-	}
+func TestUpgradeFailureCodeEnumMatchesGoConstants(t *testing.T) {
 
 	tests := []struct {
 		pgType string

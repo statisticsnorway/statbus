@@ -1,3 +1,5 @@
+//go:build livedb
+
 package upgrade
 
 import (
@@ -8,7 +10,7 @@ import (
 	"time"
 )
 
-// TestLiveRollbackFinishing exercises the REAL cleanup-only rollback finisher
+// TestRollbackFinishBlocksClaimsThenFinalizesAndAllowsClaims exercises the REAL cleanup-only rollback finisher
 // (db33f1316) against the REAL local database and a REAL marker file, on the
 // same connect path the daemon uses. It answers the three questions the design
 // makes: does a rollback_finish_pending_at row block every new claim; does
@@ -21,11 +23,8 @@ import (
 // real inserts into public.upgrade with a probe-only commit_sha; they are
 // deleted at the end together with their upgrade_state_log entries.
 //
-//	STATBUS_LIVE_DB=1 go test -count=1 -run TestLiveRollbackFinishing -v ./internal/upgrade
-func TestLiveRollbackFinishing(t *testing.T) {
-	if os.Getenv("STATBUS_LIVE_DB") == "" {
-		t.Skip("set STATBUS_LIVE_DB=1 to exercise the real database")
-	}
+// go test -tags livedb -count=1 ./internal/upgrade ./internal/install
+func TestRollbackFinishBlocksClaimsThenFinalizesAndAllowsClaims(t *testing.T) {
 	projDir := findProjDir(t)
 	if _, err := os.Stat(flagFilePath(projDir)); err == nil {
 		t.Fatalf("a real upgrade marker exists at %s; refusing to run the live probe beside a live upgrade", flagFilePath(projDir))

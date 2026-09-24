@@ -1,3 +1,5 @@
+//go:build livedb
+
 package upgrade
 
 import (
@@ -10,7 +12,7 @@ import (
 	"time"
 )
 
-// TestLiveRestoreAndFinalize_UnlinkFailureThenRecovery is the crash-shaped
+// TestRollbackFinalizeUnlinkFailureRecoversCleanupOnly is the crash-shaped
 // twin: the real restoreAndFinalize succeeds at every boundary EXCEPT the
 // final marker unlink (injected through the removeFile seam), so it must NOT
 // claim completion. Expected: the row is already durably rolled_back with the
@@ -19,11 +21,8 @@ import (
 // RecoverFromFlag — the real entrypoint, unlink working again — finishes
 // cleanup-only. Docker is a PATH shim; everything else is real.
 //
-//	STATBUS_LIVE_DB=1 go test -count=1 -run TestLiveRestoreAndFinalize_UnlinkFailure -v ./internal/upgrade
-func TestLiveRestoreAndFinalize_UnlinkFailureThenRecovery(t *testing.T) {
-	if os.Getenv("STATBUS_LIVE_DB") == "" {
-		t.Skip("set STATBUS_LIVE_DB=1 to exercise the real database")
-	}
+// go test -tags livedb -count=1 ./internal/upgrade ./internal/install
+func TestRollbackFinalizeUnlinkFailureRecoversCleanupOnly(t *testing.T) {
 	projDir := findProjDir(t)
 	for _, p := range []string{flagFilePath(projDir), filepath.Join(projDir, "sb.old"), maintenanceFlagHostPath()} {
 		if _, err := os.Stat(p); err == nil {
@@ -37,6 +36,7 @@ func TestLiveRestoreAndFinalize_UnlinkFailureThenRecovery(t *testing.T) {
 	t.Setenv("PATH", shimDir+string(os.PathListSeparator)+os.Getenv("PATH"))
 
 	d := NewService(projDir, false, "test", "")
+	d.startSourceApplicationStackForTest = func(context.Context, *ProgressLog) error { return nil }
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 	defer cancel()
 	if err := d.LoadConfigAndConnect(ctx); err != nil {

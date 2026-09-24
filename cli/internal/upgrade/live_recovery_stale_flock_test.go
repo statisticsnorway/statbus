@@ -1,3 +1,5 @@
+//go:build livedb
+
 package upgrade
 
 import (
@@ -12,7 +14,7 @@ import (
 	"time"
 )
 
-// TestLiveRecoveryRollback_StaleActorCannotRecreateMarker reproduces the
+// TestRecoveryStaleActorCannotRecreateMarker reproduces the
 // stale-intent race from SOL review 347 finding 2. Actor B classifies the same
 // marker as actor A, then is delayed until A has completed the real healthy
 // restore tail, removed the marker, and reopened writes. B runs in a helper
@@ -21,11 +23,8 @@ import (
 // real: the public.upgrade row, marker/flock, pending transition, cleanup-only
 // finalizer, and the delayed actor's recovery entry.
 //
-//	STATBUS_LIVE_DB=1 go test -count=1 -run TestLiveRecoveryRollback_StaleActor -v ./internal/upgrade
-func TestLiveRecoveryRollback_StaleActorCannotRecreateMarker(t *testing.T) {
-	if os.Getenv("STATBUS_LIVE_DB") == "" {
-		t.Skip("set STATBUS_LIVE_DB=1 to exercise the real database")
-	}
+// go test -tags livedb -count=1 ./internal/upgrade ./internal/install
+func TestRecoveryStaleActorCannotRecreateMarker(t *testing.T) {
 	projDir := findProjDir(t)
 	for _, path := range []string{flagFilePath(projDir), filepath.Join(projDir, "sb.old"), maintenanceFlagHostPath()} {
 		if _, err := os.Stat(path); err == nil {
@@ -51,6 +50,7 @@ esac
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 	defer cancel()
 	d := NewService(projDir, false, "test", "")
+	d.startSourceApplicationStackForTest = func(context.Context, *ProgressLog) error { return nil }
 	if err := d.LoadConfigAndConnect(ctx); err != nil {
 		t.Fatalf("LoadConfigAndConnect: %v", err)
 	}
@@ -131,7 +131,7 @@ esac
 	if err := os.WriteFile(dockerLog, nil, 0o644); err != nil {
 		t.Fatal(err)
 	}
-	cmd := exec.CommandContext(ctx, os.Args[0], "-test.run=^TestLiveRecoveryRollback_StaleActorHelper$")
+	cmd := exec.CommandContext(ctx, os.Args[0], "-test.run=^TestRecoveryStaleActor_Helper$")
 	cmd.Env = append(os.Environ(),
 		"STATBUS_STALE_RECOVERY_HELPER=1",
 		"STATBUS_LIVE_TWIN_LOCK_HELD=1",
@@ -156,11 +156,11 @@ esac
 	}
 }
 
-// TestLiveRecoveryRollback_StaleActorHelper is the delayed actor subprocess for
-// TestLiveRecoveryRollback_StaleActorCannotRecreateMarker. It is intentionally
+// TestRecoveryStaleActor_Helper is the delayed actor subprocess for
+// TestRecoveryStaleActorCannotRecreateMarker. It is intentionally
 // a separate process because vulnerable code terminates at rollback's exit-75
 // boundary. A fixed recoveryRollback returns after its loud stale-state refusal.
-func TestLiveRecoveryRollback_StaleActorHelper(t *testing.T) {
+func TestRecoveryStaleActor_Helper(t *testing.T) {
 	if os.Getenv("STATBUS_STALE_RECOVERY_HELPER") != "1" {
 		t.Skip("helper process only")
 	}

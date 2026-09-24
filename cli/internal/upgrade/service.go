@@ -234,6 +234,11 @@ type Service struct {
 	// that failed on rune, never the surrounding upgrade state machine.
 	fetchCommitObjects func(context.Context, io.Writer, string) error
 	fetchRetryWait     func(context.Context, time.Duration) error
+	// Narrow seam for the STATBUS-339 live-database claim. That test proves the
+	// preswap fetch boundary and terminal database write, not the independently
+	// tested serving-container capture precondition. Production leaves this nil.
+	captureSourceServingImageIdentitiesForTest func(context.Context) error
+	startSourceApplicationStackForTest         func(context.Context, *ProgressLog) error
 	// removeFile is a test seam for the two filesystem cleanup boundaries whose
 	// failure changes recovery direction. Production leaves it nil and uses
 	// os.Remove through removePath.
@@ -7672,7 +7677,13 @@ func (d *Service) executeUpgrade(ctx context.Context, claim upgradeClaimSnapshot
 	// Capture source image IDs before Step 1 pulls target images. Docker tags are
 	// mutable local pointers: a moving tag or same-short rebuild may retarget the
 	// name during the pull, but it cannot rewrite these recorded immutable IDs.
-	if err := d.captureSourceServingImageIdentities(ctx); err != nil {
+	if d.captureSourceServingImageIdentitiesForTest != nil {
+		if err := d.captureSourceServingImageIdentitiesForTest(ctx); err != nil {
+			msg := fmt.Sprintf("Could not record immutable source image identities before target pull: %v", err)
+			d.failUpgrade(ctx, id, msg, progress)
+			return fmt.Errorf("%s", msg)
+		}
+	} else if err := d.captureSourceServingImageIdentities(ctx); err != nil {
 		msg := fmt.Sprintf("Could not record immutable source image identities before target pull: %v", err)
 		d.failUpgrade(ctx, id, msg, progress)
 		return fmt.Errorf("%s", msg)
@@ -9535,6 +9546,9 @@ func (d *Service) containFailedSourceRecreate(ctx context.Context, progress *Pro
 // rc.66 -> rc.67 forbids recreation from a WRONG-era tree/config. It does not
 // forbid controlled recreation after source git/config restoration is proved.
 func (d *Service) startSourceApplicationStack(ctx context.Context, progress *ProgressLog) (returnErr error) {
+	if d.startSourceApplicationStackForTest != nil {
+		return d.startSourceApplicationStackForTest(ctx, progress)
+	}
 	if err := ctx.Err(); err != nil {
 		return err
 	}
@@ -10673,6 +10687,9 @@ func (d *Service) finalizePendingRollback(ctx context.Context, id int, label str
 		return false, fmt.Errorf("begin rollback finishing transaction: %w", err)
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
+	if _, err := tx.Exec(ctx, "SELECT set_config('statbus.actor', 'upgrade-service', true)"); err != nil {
+		return false, fmt.Errorf("set rollback finishing operator context: %w", err)
+	}
 	var finishLockHeld bool
 	if err := tx.QueryRow(ctx, "SELECT pg_try_advisory_xact_lock(hashtext('upgrade_daemon'))").Scan(&finishLockHeld); err != nil {
 		return false, fmt.Errorf("acquire rollback finishing transaction lock: %w", err)

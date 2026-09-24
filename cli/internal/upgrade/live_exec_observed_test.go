@@ -1,27 +1,25 @@
+//go:build livedb
+
 package upgrade
 
 import (
 	"bytes"
 	"context"
 	"log"
-	"os"
 	"strings"
 	"testing"
 	"time"
 )
 
-// TestLiveExecObserved_ConstraintRejectionIsOnTheJournal proves the sweep's
+// TestUpgradeConstraintRejectionAndZeroRowUpdateAreJournaled proves the sweep's
 // helper does what the pruner's swallowed Exec did not: a write the REAL schema
 // refuses (here: rollback_finish_pending_at on an in_progress row, forbidden by
 // chk_upgrade_rollback_finish_pending_requires_failed) produces a journal line
 // naming the purpose, the arguments and the constraint, and a zero-row UPDATE
 // says so rather than passing as success.
 //
-//	STATBUS_LIVE_DB=1 go test -count=1 -run TestLiveExecObserved -v ./internal/upgrade
-func TestLiveExecObserved_ConstraintRejectionIsOnTheJournal(t *testing.T) {
-	if os.Getenv("STATBUS_LIVE_DB") == "" {
-		t.Skip("set STATBUS_LIVE_DB=1 to exercise the real database")
-	}
+// go test -tags livedb -count=1 ./internal/upgrade ./internal/install
+func TestUpgradeConstraintRejectionAndZeroRowUpdateAreJournaled(t *testing.T) {
 	projDir := findProjDir(t)
 	d := NewService(projDir, false, "test", "")
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)

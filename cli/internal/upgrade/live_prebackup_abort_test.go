@@ -1,3 +1,5 @@
+//go:build livedb
+
 package upgrade
 
 import (
@@ -10,7 +12,7 @@ import (
 	"time"
 )
 
-// TestLiveAbortFailedPreBackupStop drives the REAL abortFailedPreBackupStop
+// TestUpgradeAbortBeforeBackupLeavesRowFailedWithNoBackupPath drives the REAL abortFailedPreBackupStop
 // (the unwind executeUpgrade takes when `docker compose stop` fails BEFORE any
 // snapshot) on the real database, twice, with docker answered by a PATH shim:
 //
@@ -24,11 +26,8 @@ import (
 //
 // Both leave the read-only default OFF and remove their rows and files.
 //
-//	STATBUS_LIVE_DB=1 go test -count=1 -run TestLiveAbortFailedPreBackupStop -v ./internal/upgrade
-func TestLiveAbortFailedPreBackupStop(t *testing.T) {
-	if os.Getenv("STATBUS_LIVE_DB") == "" {
-		t.Skip("set STATBUS_LIVE_DB=1 to exercise the real database")
-	}
+// go test -tags livedb -count=1 ./internal/upgrade ./internal/install
+func TestUpgradeAbortBeforeBackupLeavesRowFailedWithNoBackupPath(t *testing.T) {
 	projDir := findProjDir(t)
 	for _, p := range []string{flagFilePath(projDir), maintenanceFlagHostPath()} {
 		if _, err := os.Stat(p); err == nil {

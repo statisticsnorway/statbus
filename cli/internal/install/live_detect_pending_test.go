@@ -1,3 +1,5 @@
+//go:build livedb
+
 package install
 
 import (
@@ -10,10 +12,11 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/statisticsnorway/statbus/cli/internal/dotenv"
+	"github.com/statisticsnorway/statbus/cli/internal/livedbtest"
 	"github.com/statisticsnorway/statbus/cli/internal/upgrade"
 )
 
-// TestLiveDetect_PendingRollbackIsCrashedNotReattempt runs the REAL install
+// TestInstallDetectsPendingRollbackAsCrashedNotReattempt runs the REAL install
 // ladder probe (Detect with defaultProbe: real psql, real marker file) on the
 // cleanup-only shape: a free-flock service marker whose row is
 // rollback_finish_pending_at set with a retained backup_path. The ladder must say
@@ -21,11 +24,8 @@ import (
 // row) and NEVER StateRestoreReattemptable: once the window lifts, the contract is
 // completion only and snapshot replay is no longer a valid transition.
 //
-//	STATBUS_LIVE_DB=1 go test -count=1 -run TestLiveDetect -v ./internal/install
-func TestLiveDetect_PendingRollbackIsCrashedNotReattempt(t *testing.T) {
-	if os.Getenv("STATBUS_LIVE_DB") == "" {
-		t.Skip("set STATBUS_LIVE_DB=1 to exercise the real database")
-	}
+// go test -tags livedb -count=1 ./internal/upgrade ./internal/install
+func TestInstallDetectsPendingRollbackAsCrashedNotReattempt(t *testing.T) {
 	projDir := liveProjDir(t)
 	flagPath := filepath.Join(projDir, "tmp", "upgrade-in-progress.json")
 	if _, err := os.Stat(flagPath); err == nil {
@@ -90,19 +90,10 @@ func TestLiveDetect_PendingRollbackIsCrashedNotReattempt(t *testing.T) {
 
 func liveProjDir(t *testing.T) string {
 	t.Helper()
-	dir, err := os.Getwd()
-	if err != nil {
-		t.Fatal(err)
+	if dir := livedbtest.ProjectDir(); dir != "" {
+		return dir
 	}
-	for i := 0; i < 6; i++ {
-		if _, err := os.Stat(filepath.Join(dir, ".env")); err == nil {
-			if _, err := os.Stat(filepath.Join(dir, "dev.sh")); err == nil {
-				return dir
-			}
-		}
-		dir = filepath.Join(dir, "..")
-	}
-	t.Fatal("project dir (with .env and dev.sh) not found above the test cwd")
+	t.Fatal("live-database fixture project dir is unset")
 	return ""
 }
 

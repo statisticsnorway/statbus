@@ -1,3 +1,5 @@
+//go:build livedb
+
 package upgrade
 
 import (
@@ -10,7 +12,7 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
-// TestLiveRollbackFinishing_ExternalWritesReopen observes the window contract
+// TestRollbackFinishReopensExternalWrites observes the window contract
 // from the OUTSIDE: a fresh, non-exempt PostgreSQL session (the shape every app,
 // PostgREST, worker and psql session has) is rejected with 25006 while the
 // read-only default is ON, and accepted again after the real cleanup-only
@@ -23,11 +25,8 @@ import (
 // only when it can restore the prior state; it asserts the default is OFF
 // before starting and leaves it OFF.
 //
-//	STATBUS_LIVE_DB=1 go test -count=1 -run TestLiveRollbackFinishing_ExternalWritesReopen -v ./internal/upgrade
-func TestLiveRollbackFinishing_ExternalWritesReopen(t *testing.T) {
-	if os.Getenv("STATBUS_LIVE_DB") == "" {
-		t.Skip("set STATBUS_LIVE_DB=1 to exercise the real database")
-	}
+// go test -tags livedb -count=1 ./internal/upgrade ./internal/install
+func TestRollbackFinishReopensExternalWrites(t *testing.T) {
 	projDir := findProjDir(t)
 	if _, err := os.Stat(flagFilePath(projDir)); err == nil {
 		t.Fatalf("a real upgrade marker exists at %s; refusing to run beside a live upgrade", flagFilePath(projDir))

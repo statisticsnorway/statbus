@@ -1,3 +1,5 @@
+//go:build livedb
+
 package upgrade
 
 import (
@@ -10,7 +12,7 @@ import (
 	"time"
 )
 
-// TestLiveRestoreAndFinalize_HealthyTail drives the REAL restoreAndFinalize,
+// TestRollbackFinalizeHealthyTailCommitsAndUnlinks drives the REAL restoreAndFinalize,
 // the function that sets rollback_finish_pending_at and then finishes, on the
 // real database with a real held marker. Every docker invocation is answered
 // by a shim `docker` placed first on PATH (compose stop/up succeed, `compose
@@ -22,11 +24,8 @@ import (
 // guidance. backupPath is "" (the PreSwap "nothing moved" shape), so no
 // volume rsync is attempted; ./sb.old is absent, so no binary restore.
 //
-//	STATBUS_LIVE_DB=1 go test -count=1 -run TestLiveRestoreAndFinalize -v ./internal/upgrade
-func TestLiveRestoreAndFinalize_HealthyTail(t *testing.T) {
-	if os.Getenv("STATBUS_LIVE_DB") == "" {
-		t.Skip("set STATBUS_LIVE_DB=1 to exercise the real database")
-	}
+// go test -tags livedb -count=1 ./internal/upgrade ./internal/install
+func TestRollbackFinalizeHealthyTailCommitsAndUnlinks(t *testing.T) {
 	projDir := findProjDir(t)
 	if _, err := os.Stat(flagFilePath(projDir)); err == nil {
 		t.Fatalf("a real upgrade marker exists at %s; refusing to run beside a live upgrade", flagFilePath(projDir))
@@ -56,6 +55,7 @@ esac
 	t.Setenv("PATH", shimDir+string(os.PathListSeparator)+os.Getenv("PATH"))
 
 	d := NewService(projDir, false, "test", "")
+	d.startSourceApplicationStackForTest = func(context.Context, *ProgressLog) error { return nil }
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 	defer cancel()
 	if err := d.LoadConfigAndConnect(ctx); err != nil {
