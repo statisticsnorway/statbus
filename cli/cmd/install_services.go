@@ -13,17 +13,20 @@ package cmd
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"os"
 	"path/filepath"
 	"sort"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/statisticsnorway/statbus/cli/internal/compose"
 	"github.com/statisticsnorway/statbus/cli/internal/dbroles"
 	"github.com/statisticsnorway/statbus/cli/internal/dotenv"
+	"github.com/statisticsnorway/statbus/cli/internal/upgrade"
 )
 
 // servicePlainNames are the words the operator sees for each compose service.
@@ -320,6 +323,27 @@ func runStartServices(dir string) error {
 // healthcheck (pg_isready) reports healthy. Used where only the database is
 // needed (pre-detect session cleanup, the Seed probe, health waits).
 func checkDBHealthy(dir string) bool { return checkDBHealthyFn(dir) }
+
+// The daemon connects to the app database through the host's Caddy TCP port,
+// not the container socket used by the earlier install steps. Probe that same
+// authenticated route before systemctl enable --now can block for 120 seconds.
+var probeUpgradeDatabaseRoute = func(dir string) error {
+	return upgrade.NewService(dir, false, "", "").EnsureDBReachable(context.Background())
+}
+
+func checkUpgradeDatabaseRoute(dir string) error {
+	err := probeUpgradeDatabaseRoute(dir)
+	if err == nil {
+		return nil
+	}
+	if !checkDBHealthy(dir) {
+		return fmt.Errorf("the database (db) is not healthy; the upgrade service cannot reach it: %w", err)
+	}
+	if errors.Is(err, syscall.ECONNREFUSED) {
+		return fmt.Errorf("the web server (proxy) is not listening on the database port; the upgrade service cannot reach the database: %w", err)
+	}
+	return fmt.Errorf("the upgrade service cannot reach the database through the web server (proxy); check the database route and login credentials: %w", err)
+}
 
 // checkDBHealthyFn is the seam behind checkDBHealthy.
 var checkDBHealthyFn = checkDBHealthyDocker

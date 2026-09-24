@@ -70,3 +70,26 @@ func TestConnectBoundedByConnectTimeout(t *testing.T) {
 		t.Fatal("connect() did NOT return within 10s — connectTimeout is not bounding the dial (the unbounded-reconnect hole is open)")
 	}
 }
+
+func TestStartupConnectionBudgetIsShorterThanSystemdStartWindow(t *testing.T) {
+	if startupConnectTimeout <= 0 || startupConnectTimeout >= 120*time.Second {
+		t.Fatalf("startup budget %s must leave room before TimeoutStartSec=120s", startupConnectTimeout)
+	}
+	if connectTimeout <= 180*time.Second {
+		t.Fatalf("active-phase reconnect budget %s must preserve the 180s recovery stall", connectTimeout)
+	}
+	dir := t.TempDir()
+	env := "CADDY_DB_BIND_ADDRESS=127.0.0.1\nCADDY_DB_PORT=1\nPOSTGRES_APP_DB=statbus_test\nPOSTGRES_ADMIN_USER=postgres\nPOSTGRES_ADMIN_PASSWORD=irrelevant\n"
+	if err := os.WriteFile(filepath.Join(dir, ".env"), []byte(env), 0600); err != nil {
+		t.Fatal(err)
+	}
+	d := &Service{projDir: dir}
+	start := time.Now()
+	err := d.connectWithBudget(context.Background(), 100*time.Millisecond)
+	if err == nil || !strings.Contains(err.Error(), "100ms budget") {
+		t.Fatalf("startup dial should report its own budget: %v", err)
+	}
+	if time.Since(start) > 3*time.Second {
+		t.Fatalf("startup dial overran short budget: %s", time.Since(start))
+	}
+}

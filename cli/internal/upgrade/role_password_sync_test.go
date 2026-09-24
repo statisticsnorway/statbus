@@ -17,7 +17,7 @@ func TestDaemonSyncsRolePasswordsBeforeFirstConnect(t *testing.T) {
 	run := funcBody(t, "service.go", "func (d *Service) Run(")
 	up := strings.Index(run, "d.EnsureDBUp(ctx)")
 	sync := strings.Index(run, "d.syncRolePasswordsBeforeConnect(ctx)")
-	conn := strings.Index(run, "d.connect(ctx)")
+	conn := strings.Index(run, "d.connectWithBudget(ctx, startupConnectTimeout)")
 	if up < 0 || sync < 0 || conn < 0 || up > sync || sync > conn {
 		t.Fatalf("Run must call EnsureDBUp, then syncRolePasswordsBeforeConnect, then connect (positions %d, %d, %d)", up, sync, conn)
 	}

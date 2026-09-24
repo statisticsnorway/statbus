@@ -3040,7 +3040,10 @@ func (d *Service) Run(ctx context.Context) error {
 	// still runs: it surfaces the real error if the passwords stay split.
 	d.syncRolePasswordsBeforeConnect(ctx)
 
-	if err := d.connect(ctx); err != nil {
+	// The unit has TimeoutStartSec=120s. A five-minute reconnect budget is
+	// appropriate after READY, but cannot run inside systemd's start window.
+	// Leave time for the advisory lock and LISTEN before notifying readiness.
+	if err := d.connectWithBudget(ctx, startupConnectTimeout); err != nil {
 		return fmt.Errorf("connect: %w", err)
 	}
 	// STATBUS-338, Norway rc.02: executeUpgrade deliberately closes and nils both
@@ -4911,6 +4914,11 @@ func (d *Service) verifyCommitSignature(sha string) error {
 // assertion without a 5-min wait.
 var connectTimeout = 5 * time.Minute
 
+// Bound only the initial connection below the unit's 120s start budget.
+// Active-phase reconnects retain connectTimeout (including the 180s recovery
+// stall exercised by the install-recovery harness).
+var startupConnectTimeout = 80 * time.Second
+
 // connectAttemptTimeout bounds ONE dial inside connect()'s sub-attempt loop
 // (STATBUS-299). connectTimeout above remains the TOTAL budget; this is the
 // step size within it.
@@ -5018,6 +5026,10 @@ func (d *Service) recoveryDSN() (string, error) {
 }
 
 func (d *Service) connect(ctx context.Context) error {
+	return d.connectWithBudget(ctx, connectTimeout)
+}
+
+func (d *Service) connectWithBudget(ctx context.Context, budget time.Duration) error {
 	// STATBUS-143: the DSN comes from the single-source recoveryDSN() — the SAME
 	// route the crash-recovery reachability probe (EnsureDBReachable) dials, so a
 	// probe-pass implies this connection works by construction.
@@ -5053,17 +5065,16 @@ func (d *Service) connect(ctx context.Context) error {
 	// (pgconn.go connectOne → contextWatcher.Watch(ctx)) closes the conn if the
 	// deadline fires mid-startup/auth, so a handshake hang is bounded too — not
 	// only TCP connect. 5 min comfortably exceeds a legitimately slow
-	// reconnect (scenario 3-postswap-watchdog-reconnect holds 180 s) with margin; a genuine hang is killed
-	// at 5 min → connect() returns context.DeadlineExceeded → the caller fails
-	// out (applyNewSbUpgrading → newSbUpgradingFailure → rollback; task #7 backstops a
-	// loop) instead of pinging the watchdog forever.
-	connectCtx, cancel := context.WithTimeout(ctx, connectTimeout)
+	// reconnect (scenario 3-postswap-watchdog-reconnect holds 180 s) with margin;
+	// a genuine hang is killed at 5 min on active-phase reconnect. Startup uses
+	// a shorter budget to return before systemd's TimeoutStartSec=120s.
+	connectCtx, cancel := context.WithTimeout(ctx, budget)
 	defer cancel()
 
 	// ── BOUNDED SUB-ATTEMPTS (STATBUS-299) ──────────────────────────────────
-	// connectTimeout above is now the TOTAL budget; each individual dial gets
-	// connectAttemptTimeout. Patience overall is unchanged — what changes is
-	// that the phase is made of steps instead of one opaque wait.
+	// The caller's budget is the TOTAL budget; each individual dial gets
+	// connectAttemptTimeout. Patience within that budget is unchanged; the
+	// phase is made of steps instead of one opaque wait.
 	//
 	// WHY THIS EXISTS. A daemon starting while the database is briefly down sat
 	// in ONE five-minute dial on the main goroutine. That goroutine carries the
@@ -5104,10 +5115,10 @@ func (d *Service) connect(ctx context.Context) error {
 
 		if connectCtx.Err() != nil {
 			return fmt.Errorf("connect: %d attempt(s) within %s budget, last error: %w",
-				attempt, connectTimeout, lastErr)
+				attempt, budget, lastErr)
 		}
 		fmt.Printf("Database connect attempt %d failed (%v) — retrying within the %s budget\n",
-			attempt, lastErr, connectTimeout)
+			attempt, lastErr, budget)
 
 		// Brief pause between attempts, bounded by the total budget so a
 		// cancelled ctx never waits out the delay. Deliberately short: the
@@ -5115,7 +5126,7 @@ func (d *Service) connect(ctx context.Context) error {
 		select {
 		case <-connectCtx.Done():
 			return fmt.Errorf("connect: %d attempt(s) within %s budget, last error: %w",
-				attempt, connectTimeout, lastErr)
+				attempt, budget, lastErr)
 		case <-connectRetryAfter(connectRetryDelay):
 		}
 	}

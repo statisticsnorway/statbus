@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"syscall"
 	"testing"
 	"time"
 
@@ -87,6 +88,53 @@ func TestServiceProblemsInPlainWords(t *testing.T) {
 	want := "the web server (proxy) was never started; the API service (rest) keeps restarting; the background worker (worker) has stopped"
 	if got != want {
 		t.Fatalf("got  %q\nwant %q", got, want)
+	}
+}
+
+func TestUpgradeServiceRoutePreflight(t *testing.T) {
+	oldProbe, oldHealthy := probeUpgradeDatabaseRoute, checkDBHealthyFn
+	t.Cleanup(func() { probeUpgradeDatabaseRoute, checkDBHealthyFn = oldProbe, oldHealthy })
+	for _, tc := range []struct {
+		name    string
+		healthy bool
+		probe   error
+		want    string
+	}{
+		{"reachable", true, nil, ""},
+		{"proxy listener missing while db healthy", true, fmt.Errorf("dial: %w", syscall.ECONNREFUSED), "the web server (proxy) is not listening on the database port"},
+		{"database stopped", false, fmt.Errorf("dial: %w", syscall.ECONNREFUSED), "the database (db) is not healthy"},
+		{"authentication failed", true, errors.New("28P01 password authentication failed"), "check the database route and login credentials"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			probeUpgradeDatabaseRoute = func(string) error { return tc.probe }
+			checkDBHealthyFn = func(string) bool { return tc.healthy }
+			err := checkUpgradeDatabaseRoute("unused")
+			if tc.want == "" {
+				if err != nil {
+					t.Fatalf("unexpected error: %v", err)
+				}
+			} else if err == nil || !strings.Contains(err.Error(), tc.want) {
+				t.Fatalf("error = %v, want %q", err, tc.want)
+			}
+		})
+	}
+}
+
+func TestInstallProbesDatabaseRouteBeforeStartingUpgradeUnit(t *testing.T) {
+	src, err := os.ReadFile("install.go")
+	if err != nil {
+		t.Fatal(err)
+	}
+	body := funcBody(t, string(src), "func runInstallService(")
+	handoff := strings.Index(body, "if postUpgradeFixup {")
+	start := -1
+	if handoff >= 0 {
+		start = handoff + strings.Index(body[handoff:], "} else {")
+	}
+	probe := strings.Index(body, "checkUpgradeDatabaseRoute(dir)")
+	enable := strings.Index(body, `runCmd("systemctl", "--user", "enable", "--now", instance)`)
+	if handoff < 0 || start < handoff || probe < start || enable < probe {
+		t.Fatalf("route probe must precede enable --now but not block active service handoff (handoff=%d start=%d probe=%d enable=%d)", handoff, start, probe, enable)
 	}
 }
 
