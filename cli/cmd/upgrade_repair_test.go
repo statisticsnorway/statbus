@@ -27,7 +27,8 @@ func TestParkedRepairSQL_AuditsAndKeepsOneTransaction(t *testing.T) {
 	}
 	for _, want := range []string{
 		"recovery_parked_at IS NOT NULL", "FOR UPDATE", "public.upgrade_state_log", "INTO _upgrade_id",
-		"parked-window repair:", "actor_source", "'self-reported'", "\\ir '" + path + "'",
+		"set_config('statbus.repair_reason', :'reason', true)", "current_setting('statbus.repair_reason', true)",
+		"parked-window repair:", "actor_source", "'self-reported'", "CREATE TABLE public.repair_probe",
 	} {
 		if !strings.Contains(sql, want) {
 			t.Errorf("repair SQL missing %q:\n%s", want, sql)
@@ -36,7 +37,15 @@ func TestParkedRepairSQL_AuditsAndKeepsOneTransaction(t *testing.T) {
 }
 
 func TestParkedRepairSQL_RejectsMetaCommandsAndTransactionVariants(t *testing.T) {
-	for _, body := range []string{"\\c otherdb\n", "END;\n", "START TRANSACTION;\n", "COMMIT PREPARED 'x';\n"} {
+	for _, body := range []string{
+		"\\c otherdb\n",
+		"SELECT 1; \\! echo bypass\n",
+		"SELECT 1; ROLLBACK; CREATE TABLE public.repair_probe_bypass(id integer);\n",
+		"UPDATE public.upgrade SET summary = 'one'; DELETE FROM public.upgrade_state_log;\n",
+		"START TRANSACTION;\n",
+		"COMMIT AND CHAIN;\n",
+		"DO $$ BEGIN UPDATE public.upgrade SET summary = 'hidden'; END $$;\n",
+	} {
 		path := filepath.Join(t.TempDir(), "repair.sql")
 		if err := os.WriteFile(path, []byte(body), 0600); err != nil {
 			t.Fatal(err)
@@ -53,8 +62,8 @@ func TestParkedRepairSQL_RejectsTopLevelTransactionControl(t *testing.T) {
 		t.Fatal(err)
 	}
 	_, err := parkedRepairSQL(path, "test", "Ada")
-	if err == nil || !strings.Contains(err.Error(), "transaction control") {
-		t.Fatalf("expected transaction-control refusal, got %v", err)
+	if err == nil || !strings.Contains(err.Error(), "requires one audited SQL statement") {
+		t.Fatalf("expected fail-closed refusal, got %v", err)
 	}
 }
 

@@ -3,7 +3,6 @@ package cmd
 import (
 	"fmt"
 	"os"
-	"path/filepath"
 	"regexp"
 	"strings"
 
@@ -11,12 +10,69 @@ import (
 	"github.com/statisticsnorway/statbus/cli/internal/migrate"
 )
 
-// parkedRepairTransactionControl refuses SQL which could escape psql's -1
-// transaction. A parked-window repair is one auditable atomic change: either its
-// audit row and its SQL commit together, or neither does. PL/pgSQL bodies may
-// contain BEGIN/END, so only a top-level transaction-control line is rejected.
-var parkedRepairTransactionControl = regexp.MustCompile(`(?im)^\s*(begin|end|commit|rollback|abort|start\s+transaction|prepare\s+transaction|commit\s+prepared(?:\s+[^;]+)?|rollback\s+prepared(?:\s+[^;]+)?)\s*;\s*$`)
-var parkedRepairMetaCommand = regexp.MustCompile(`(?m)^\s*\\`)
+var parkedRepairTransactionControl = regexp.MustCompile(`(?i)\b(begin|commit|rollback|abort|start\s+transaction|prepare\s+transaction)\b`)
+
+// validateParkedRepairSQL is deliberately conservative. The operator verb can
+// only audit one SQL statement, so anything requiring a SQL parser to prove safe
+// is refused rather than guessed at: psql meta syntax, dollar-quoted procedural
+// bodies, unterminated quotes/comments, transaction control, and multiple
+// top-level statements.
+func validateParkedRepairSQL(body string) error {
+	if strings.Contains(body, `\`) {
+		return fmt.Errorf("contains a psql meta-command or backslash escape")
+	}
+	var visible strings.Builder
+	semicolons := 0
+	for i := 0; i < len(body); {
+		switch {
+		case i+1 < len(body) && body[i:i+2] == "--":
+			if end := strings.IndexByte(body[i+2:], '\n'); end >= 0 {
+				i += end + 2
+			} else {
+				i = len(body)
+			}
+		case i+1 < len(body) && body[i:i+2] == "/*":
+			end := strings.Index(body[i+2:], "*/")
+			if end < 0 {
+				return fmt.Errorf("contains an unterminated block comment")
+			}
+			i += end + 4
+		case body[i] == '\'' || body[i] == '"':
+			quote := body[i]
+			i++
+			for {
+				if i >= len(body) {
+					return fmt.Errorf("contains an unterminated quoted value")
+				}
+				if body[i] == quote {
+					if i+1 < len(body) && body[i+1] == quote {
+						i += 2
+						continue
+					}
+					i++
+					break
+				}
+				i++
+			}
+		case body[i] == '$':
+			return fmt.Errorf("contains dollar quoting; only one directly auditable SQL statement is accepted")
+		default:
+			if body[i] == ';' {
+				semicolons++
+			}
+			visible.WriteByte(body[i])
+			i++
+		}
+	}
+	plain := strings.TrimSpace(visible.String())
+	if semicolons > 1 || (semicolons == 1 && !strings.HasSuffix(plain, ";")) {
+		return fmt.Errorf("contains multiple SQL statements")
+	}
+	if parkedRepairTransactionControl.MatchString(plain) {
+		return fmt.Errorf("contains transaction control")
+	}
+	return nil
+}
 
 func parkedRepairSQL(sqlPath, reason, operator string) (string, error) {
 	body, err := os.ReadFile(sqlPath)
@@ -26,16 +82,12 @@ func parkedRepairSQL(sqlPath, reason, operator string) (string, error) {
 	if len(strings.TrimSpace(string(body))) == 0 {
 		return "", fmt.Errorf("repair SQL %q is empty", sqlPath)
 	}
-	if parkedRepairTransactionControl.Match(body) {
-		return "", fmt.Errorf("repair SQL %q contains top-level transaction control; ./sb upgrade repair owns the single audited transaction", sqlPath)
+	if err := validateParkedRepairSQL(string(body)); err != nil {
+		return "", fmt.Errorf("repair SQL %q %w; ./sb upgrade repair requires one audited SQL statement", sqlPath, err)
 	}
-	if parkedRepairMetaCommand.Match(body) {
-		return "", fmt.Errorf("repair SQL %q contains a psql meta-command; ./sb upgrade repair accepts SQL only", sqlPath)
-	}
-	// psql variables quote values safely. \ir keeps the supplied path relative to
-	// the invoking file, never to a shell expansion.
 	return fmt.Sprintf(`\set ON_ERROR_STOP on
 SELECT set_config('statbus.actor', :'operator', true);
+SELECT set_config('statbus.repair_reason', :'reason', true);
 DO $parked_repair$
 DECLARE
   _upgrade_id integer;
@@ -51,21 +103,15 @@ BEGIN
   END IF;
   INSERT INTO public.upgrade_state_log (
     upgrade_id, application_name, query, backend_pid, actor, actor_source
-  ) VALUES (
-    _upgrade_id, current_setting('application_name', true),
-    'parked-window repair: ' || :'reason', pg_backend_pid(),
-    current_setting('statbus.actor', true), 'self-reported'
-  );
+	  ) VALUES (
+	    _upgrade_id, current_setting('application_name', true),
+	    'parked-window repair: ' || current_setting('statbus.repair_reason', true), pg_backend_pid(),
+	    current_setting('statbus.actor', true), 'self-reported'
+	  );
 END;
 $parked_repair$;
-\ir %s
-`, psqlPathLiteral(sqlPath)), nil
-}
-
-func psqlPathLiteral(path string) string {
-	// psql's \ir accepts a single-quoted filename. Double quote characters are
-	// not special inside it; single quotes are doubled.
-	return "'" + strings.ReplaceAll(filepath.Clean(path), "'", "''") + "'"
+%s
+`, string(body)), nil
 }
 
 var upgradeRepairCmd = &cobra.Command{
