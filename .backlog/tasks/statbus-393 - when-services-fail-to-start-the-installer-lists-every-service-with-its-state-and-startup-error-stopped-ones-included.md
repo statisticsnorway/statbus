@@ -1,7 +1,7 @@
 ---
 id: STATBUS-393
 title: The installer reports every service condition and collects every service log
-status: To Do
+status: In Progress
 assignee: []
 created_date: '2026-09-24 16:42'
 updated_date: '2026-09-24 18:40'
@@ -14,6 +14,10 @@ ordinal: 1
 ---
 
 ## Description
+
+## Implementation note, 2026-09-24
+
+The installer now prints a five-container inventory on service-start and final-readiness failures, and the support bundle has `ps -a` and separate recent log sections for all five containers plus the automatic update unit. This is partial: the terminal inventory does not yet include the host automatic-update unit, startup errors are available in logs but not summarized per status, and neither disposable-VM scenario has been run. All three acceptance criteria remain open.
 
 <!-- SECTION:DESCRIPTION:BEGIN -->
 The installer reports the condition of the database, web entry point, API, application, worker, and automatic update service. A failure report distinguishes running, stopped, absent, and restarting services and writes logs for all six services to the support file.

@@ -49,11 +49,36 @@ func servicePortConflictCause(err error) string {
 
 // servicePlainNames are the words the operator sees for each compose service.
 var servicePlainNames = map[string]string{
-	"db":     "the database (db)",
-	"proxy":  "the web server (proxy)",
-	"rest":   "the API service (rest)",
-	"app":    "the web app (app)",
-	"worker": "the background worker (worker)",
+	"db":      "the database (db)",
+	"proxy":   "the web server (proxy)",
+	"rest":    "the API service (rest)",
+	"app":     "the web app (app)",
+	"worker":  "the background worker (worker)",
+	"upgrade": "the automatic update service (upgrade)",
+}
+
+var installServiceNames = []string{"db", "proxy", "rest", "app", "worker"}
+
+func reportInstallServiceStates(dir string) {
+	statuses, err := probeServiceStatuses(dir)
+	if err != nil {
+		fmt.Printf("  Service status unavailable: %v\n", err)
+		return
+	}
+	byName := make(map[string]serviceStatus, len(statuses))
+	for _, status := range statuses {
+		byName[status.Service] = status
+	}
+	for _, name := range installServiceNames {
+		state := "absent"
+		if status, ok := byName[name]; ok {
+			state = status.State
+			if status.Health != "" {
+				state += " (" + status.Health + ")"
+			}
+		}
+		fmt.Printf("  %s: %s\n", servicePlainName(name), state)
+	}
 }
 
 func servicePlainName(service string) string {
@@ -473,6 +498,10 @@ func runStartServices(dir string) error {
 
 	problems, probeErr := waitForServicesRunning(dir, servicesRunningBudgetVar, servicesPollInterval)
 	if len(problems) > 0 {
+		reportInstallServiceStates(dir)
+		for _, problem := range problems {
+			serviceLogTail(dir, problem.Service)
+		}
 		msg := "not every service is running: " + describeServiceProblems(problems)
 		if upErr != nil {
 			return fmt.Errorf("%s (starting them reported: %v)", msg, upErr)
@@ -480,6 +509,7 @@ func runStartServices(dir string) error {
 		return fmt.Errorf("%s", msg)
 	}
 	if probeErr != nil {
+		reportInstallServiceStates(dir)
 		return fmt.Errorf("could not confirm the services are running: %w", probeErr)
 	}
 	if upErr != nil {
@@ -645,5 +675,6 @@ func verifyInstallServing(dir string, budget, interval time.Duration) error {
 	for _, s := range services {
 		serviceLogTail(dir, s)
 	}
+	reportInstallServiceStates(dir)
 	return fmt.Errorf("the installation is not serving yet: %s", strings.Join(reasons, "; "))
 }

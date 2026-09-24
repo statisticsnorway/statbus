@@ -1,7 +1,7 @@
 ---
 id: STATBUS-394
 title: After database setup, the installer confirms every client service and the advertised site are ready
-status: To Do
+status: In Progress
 assignee: []
 created_date: '2026-09-24 16:42'
 updated_date: '2026-09-24 18:42'
@@ -15,6 +15,10 @@ ordinal: 1
 ---
 
 ## Description
+
+## Implementation note, 2026-09-24
+
+Existing step-8 and final checks bound container-running and API `/ready` waits. A failed wait now records the complete container inventory and recent logs for services that failed to start, rather than only returning a condition. The automatic-update route, advertised HTTP/TLS endpoint proofs, and all disposable-VM scenarios remain pending; none of the five acceptance criteria is claimed complete.
 
 <!-- SECTION:DESCRIPTION:BEGIN -->
 After STATBUS-407 reconciles database role passwords, this ticket confirms API, application, worker, automatic-update route, and advertised-site readiness. The selected certificate mode determines whether the final site check uses trusted HTTPS or plain HTTP, and the installer prints success only after that response.

@@ -183,8 +183,16 @@ func WriteBundleSections(ctx context.Context, w io.Writer, projDir string, id in
 	bundleSection(w,
 		fmt.Sprintf("log tail (last %d lines from %s)", bundleLogTailLines, filepath.Base(logAbsPath)),
 		bundleLogTailBody(logAbsPath, bundleLogTailLines))
-	bundleSection(w, "docker compose ps", bundleCommandBody(ctx, projDir, "docker", "compose", "ps"))
-	bundleSection(w, "docker compose logs db (tail 200)", bundleCommandBody(ctx, projDir, "docker", "compose", "logs", "db", "--tail", "200"))
+	bundleSection(w, "docker compose ps -a", bundleCommandBody(ctx, projDir, "docker", "compose", "ps", "-a"))
+	for _, service := range []string{"db", "proxy", "rest", "app", "worker"} {
+		bundleSection(w, fmt.Sprintf("docker compose logs %s (tail 200)", service),
+			bundleCommandBody(ctx, projDir, "docker", "compose", "logs", "--no-color", "--tail", "200", service))
+	}
+	if body, ok := bundleJournalctlBody(ctx); ok {
+		bundleSection(w, "automatic update service logs (tail 200)", body)
+	} else {
+		bundleSection(w, "automatic update service logs (tail 200)", "(journal unavailable)")
+	}
 	bundleSection(w, "container log snapshot (pre-rollback capture)", bundleContainerLogsBody(projDir, logAbsPath))
 	if body, ok := bundleJournalctlBody(ctx); ok {
 		bundleSection(w,
