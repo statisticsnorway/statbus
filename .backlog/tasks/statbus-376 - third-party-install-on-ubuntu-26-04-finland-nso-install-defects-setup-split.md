@@ -195,6 +195,17 @@ minutes later. Add a bounded retry for the `Missing` case before presenting the
 not-started remedy, so a transient empty API page is not classified as durable
 absence.
 
+## 2026-09-24 Finland v2026.09.2 install
+
+The new install triage confirms that the preflight disk refusal still surfaced as
+`SYSTEM UNUSABLE / no named invariant`, despite this ticket's earlier record
+that the `SYSTEM UNUSABLE` handling for preflight refusals was fixed in
+`9e57c1722`. The evidence is the Finland transcript analyzed in
+`tmp/finland-install-triage.md`, with the abort path at `install.sh:770-792`
+and the intended refusal type at `cli/cmd/install.go:95-101`. Keep this ticket's
+D8-D11 closure claim scoped to the earlier installer fixes and track the disk
+refusal regression separately as STATBUS-386.
+
 ## Reconciliation 2026-09-23
 
 Classification: PARTIAL. Evidence: 9e57c1722 release fixes plus master-only 9032d89d5, bb5885f9c and be28245af; public/fleet setup split and complete VM matrix remain.
