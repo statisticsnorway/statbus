@@ -77,9 +77,9 @@ func TestAllSBInvocationsFollowTargetBinaryPlacement(t *testing.T) {
 	body := installScript(t)
 	want := map[string]int{
 		`echo "Installed program: $(./sb --version)"`: 3,
-		`(exec </dev/tty; STATBUS_INSTALL_PROMPTS_TO_TTY=1 ./sb install ${SB_INSTALL_ARGS[@]+"${SB_INSTALL_ARGS[@]}"}) >"$install_output" 2>&1`: 1,
-		`./sb install ${SB_INSTALL_ARGS[@]+"${SB_INSTALL_ARGS[@]}"} >"$install_output" 2>&1`:                                                    1,
-		`if bundle_path=$(./sb support gather --trigger=install 2>/tmp/sb-support-gather.err); then`:                                            1,
+		`(exec </dev/tty; STATBUS_INSTALL_PROMPTS_TO_TTY=1 ./sb install ${SB_INSTALL_ARGS[@]+"${SB_INSTALL_ARGS[@]}"}) 2>&1 | tee "$install_output" | awk -f "$STATBUS_DIR/ops/install-terminal-output.awk"`: 1,
+		`./sb install ${SB_INSTALL_ARGS[@]+"${SB_INSTALL_ARGS[@]}"} 2>&1 | tee "$install_output" | awk -f "$STATBUS_DIR/ops/install-terminal-output.awk"`:                                                    1,
+		`if bundle_path=$(./sb support gather --trigger=install 2>/tmp/sb-support-gather.err); then`:                                                                                                         1,
 		`./sb support write-admin-ui-row \`: 1,
 	}
 	got := make(map[string]int)

@@ -379,7 +379,7 @@ func runInstall() (installErr error) {
 				if resumeErr := restartServices(flag.Restart.Profile); resumeErr == nil {
 					fmt.Println("The previous restart finished. Continuing installation.")
 				} else {
-					return &installPreflightRefusalError{err: fmt.Errorf("a restart is still running, or its services could not be restored. Wait for it to finish, then run the same install command again: curl -fsSL https://statbus.org/install.sh | bash")}
+					return &installPreflightRefusalError{err: fmt.Errorf("a restart is still running, or its services could not be restored. Wait for it to finish, then run the same install command again: %s", diskpolicy.RerunCommand())}
 				}
 			} else {
 				installDiagnostic(installDir, "Restart check failed: %v", err)
@@ -392,7 +392,7 @@ func runInstall() (installErr error) {
 				if strings.Contains(err.Error(), "retry with ./sb restart all") {
 					outsideFix = "wait for the restart to finish or run ./sb restart all to restore services"
 				}
-				return &installPreflightRefusalError{err: fmt.Errorf("the installation cannot continue until its previous restart has finished; %s. Then run curl -fsSL https://statbus.org/install.sh | bash. If it stops again, send this file to StatBus support: %s", outsideFix, bundlePath)}
+				return &installPreflightRefusalError{err: fmt.Errorf("the installation cannot continue until its previous restart has finished; %s. Then run %s. If it stops again, send this file to StatBus support: %s", outsideFix, diskpolicy.RerunCommand(), bundlePath)}
 			}
 		}
 	}
@@ -961,6 +961,11 @@ func runInstall() (installErr error) {
 			}
 			log.Printf("%s failed: %v", prefix, err)
 			fmt.Printf("%s FAILED: This part of installation could not finish.\n", prefix)
+			if s.name == "Services" {
+				if cause := servicePortConflictCause(err); cause != "" {
+					fmt.Println("INSTALL_CAUSE: " + cause)
+				}
+			}
 			if i < total-1 {
 				fmt.Println("\nThen run the same install command again:")
 				fmt.Println("    " + diskpolicy.RerunCommand())

@@ -8,7 +8,7 @@ trap 'rm -rf "$TMP_ROOT"' EXIT
 REAL_GIT=$(command -v git)
 mkdir -p "$TMP_ROOT/bin" "$TMP_ROOT/home" "$TMP_ROOT/inputs with spaces"
 unset STATBUS_INSTALL_VERSION
-export HOME="$TMP_ROOT/home" TRACE="$TMP_ROOT/trace"
+export HOME="$TMP_ROOT/home" TRACE="$TMP_ROOT/trace" FILTER_SOURCE="$ROOT/ops/install-terminal-output.awk"
 cat > "$TMP_ROOT/bin/git" <<'MOCK'
 #!/bin/bash
 set -eu
@@ -16,7 +16,8 @@ printf 'git:%s\n' "$*" >> "$TRACE"
 if [ "$1" = clone ]; then
     for destination in "$@"; do :; done
     [ ! -e "$destination" ]
-    mkdir -p "$destination/.git"
+    mkdir -p "$destination/.git" "$destination/ops"
+    cp "$FILTER_SOURCE" "$destination/ops/install-terminal-output.awk"
 fi
 MOCK
 cat > "$TMP_ROOT/bin/curl" <<'MOCK'
@@ -25,6 +26,7 @@ set -eu
 printf 'curl:%s\n' "$*" >> "$TRACE"
 case "$*" in
     *'/releases/latest'*) printf '{"tag_name": "v2026.09.0"}\n'; exit 0 ;;
+    *'/releases?per_page=50'*) printf '[{"tag_name": "v2026.09.0-rc.02"}]\n'; exit 0 ;;
 esac
 while [ "$1" != -o ]; do shift; done
 cat > "$2" <<'SB'
@@ -42,6 +44,10 @@ if [ "${EMIT_RERUN:-}" = 1 ]; then
 fi
 if [ "${EXPECT_RESTART_MARKER:-}" = 1 ]; then
     grep -Fq '"trigger":"restart"' tmp/upgrade-in-progress.json || exit 93
+    if [ "${FAIL_RESTART_RESTORE:-}" = 1 ]; then
+        printf 'a restart is still running, or its services could not be restored. Wait for it to finish, then run the same install command again: %s\n' "$STATBUS_INSTALL_RERUN_COMMAND"
+        exit 78
+    fi
     printf 'The previous restart finished. Continuing installation.\n'
     rm tmp/upgrade-in-progress.json
 fi
@@ -107,6 +113,27 @@ EXPECT_RESTART_MARKER=1 STATBUS_ENV_CONFIG="$EXPECTED_CONFIG" STATBUS_USERS_FILE
     bash "$ROOT/install.sh" --version v2026.09.0-rc.02 --non-interactive > "$TMP_ROOT/stale-restart-output"
 [ ! -e "$HOME/statbus/tmp/upgrade-in-progress.json" ]
 echo 'PASS: stale restart record reaches Go installer intact'
+# Go's failed-restoration refusal must survive the real shell wrapper with all
+# selected release and answer files intact, not collapse to a bare curl.
+printf '{"trigger":"restart","restart":{"profile":"all"}}\n' > "$HOME/statbus/tmp/upgrade-in-progress.json"
+set +e
+(cd "$TMP_ROOT" && EXPECT_RESTART_MARKER=1 FAIL_RESTART_RESTORE=1 STATBUS_ENV_CONFIG='inputs with spaces/config.env' STATBUS_USERS_FILE='inputs with spaces/users.yml' \
+    bash "$ROOT/install.sh" --version v2026.09.0-rc.02 --non-interactive) > "$TMP_ROOT/stale-restart-failed-output" 2>&1
+rc=$?
+set -e
+[ "$rc" = 78 ] || { cat "$TMP_ROOT/stale-restart-failed-output" >&2; exit 1; }
+grep -Fq 'a restart is still running, or its services could not be restored' "$TMP_ROOT/stale-restart-failed-output"
+grep -Fq 'bash -s -- --version v2026.09.0-rc.02 --non-interactive' "$TMP_ROOT/stale-restart-failed-output"
+grep -Fq "${TMP_ROOT}/inputs\\ with\\ spaces/config.env" "$TMP_ROOT/stale-restart-failed-output"
+grep -Fq 'STATBUS_USERS_FILE=' "$TMP_ROOT/stale-restart-failed-output"
+set +e
+EXPECT_RESTART_MARKER=1 FAIL_RESTART_RESTORE=1 STATBUS_ENV_CONFIG="$EXPECTED_CONFIG" STATBUS_USERS_FILE="$EXPECTED_USERS" \
+    bash "$ROOT/install.sh" --channel prerelease --non-interactive > "$TMP_ROOT/stale-channel-failed-output" 2>&1
+rc=$?
+set -e
+[ "$rc" = 78 ] || { cat "$TMP_ROOT/stale-channel-failed-output" >&2; exit 1; }
+grep -Fq 'bash -s -- --channel prerelease --non-interactive' "$TMP_ROOT/stale-channel-failed-output"
+echo 'PASS: failed stale restart restoration keeps the selected release and answers'
 # A live holder must get an immediate plain refusal, without bootstrap mutation.
 printf '{"trigger":"restart","restart":{"profile":"all"}}\n' > "$HOME/statbus/tmp/upgrade-in-progress.json"
 perl -MFcntl=:flock -e 'open(my $f, "+<", $ARGV[0]) or die $!; flock($f, LOCK_EX) or die $!; print "locked\n"; sleep 8' \
@@ -137,6 +164,7 @@ set -e
 grep -Fq 'The installation stopped before it could finish.' "$TMP_ROOT/output"
 grep -Fq 'Cause: step 16/17 (Trusted signers) failed: release signer approval was declined' "$TMP_ROOT/output"
 grep -Fq 'curl -fsSL https://statbus.org/install.sh | bash' "$TMP_ROOT/output"
+grep -Fq 'bash -s -- --version v2026.09.0-rc.02 --non-interactive' "$TMP_ROOT/output"
 ! grep -Fq 'SYSTEM UNUSABLE' "$TMP_ROOT/output"
 ! grep -Fq 'install.sh FAILED at line' "$TMP_ROOT/output"
 echo 'PASS: sb validation/installation failure propagates'

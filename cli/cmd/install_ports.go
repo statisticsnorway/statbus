@@ -70,6 +70,22 @@ func occupiedPortOwner(port installPort) string {
 	return "another program"
 }
 
+// portConflictGuidance is assembled from a numeric port and a process name
+// discovered locally, never from Docker output or an arbitrary exception.
+func portConflictGuidance(number int, owner string) string {
+	remedy := fmt.Sprintf("Find the listener with sudo ss -ltnp '( sport = :%d )', then stop that program to free port %d", number, number)
+	if owner != "another program" && strings.IndexFunc(owner, func(r rune) bool {
+		return (r < 'a' || r > 'z') && (r < 'A' || r > 'Z') && (r < '0' || r > '9') && r != '-' && r != '_'
+	}) < 0 {
+		if out, err := exec.Command("systemctl", "show", owner+".service", "--property=LoadState", "--value").Output(); err == nil && strings.TrimSpace(string(out)) == "loaded" {
+			remedy = "Free the port with sudo systemctl disable --now " + owner
+		} else {
+			remedy = fmt.Sprintf("Free the port with sudo kill $(sudo lsof -tiTCP:%d -sTCP:LISTEN)", number)
+		}
+	}
+	return fmt.Sprintf("port %d is in use by %s. %s.", number, owner, remedy)
+}
+
 func checkInstallPorts(dir string) error {
 	cfg, err := dotenv.Load(filepath.Join(dir, ".env.config"))
 	if err != nil {
@@ -104,20 +120,7 @@ func checkInstallPorts(dir string) error {
 		if ownPort {
 			continue
 		}
-		remedy := "Stop that program or change its port"
-		if owner != "another program" && strings.IndexFunc(owner, func(r rune) bool {
-			allowed := r >= 'a' && r <= 'z' || r >= 'A' && r <= 'Z' || r >= '0' && r <= '9' || r == '-' || r == '_'
-			return !allowed
-		}) < 0 {
-			unit := owner
-			if owner == "apache2" {
-				unit = "apache2"
-			}
-			if out, err := exec.Command("systemctl", "show", unit+".service", "--property=LoadState", "--value").Output(); err == nil && strings.TrimSpace(string(out)) == "loaded" {
-				remedy = "sudo systemctl disable --now " + unit
-			}
-		}
-		return fmt.Errorf("port %d is in use by %s. If it is a web server such as Apache, stop it with sudo systemctl disable --now apache2. %s. Your answers are saved. Then run the same install command again: %s", p.number, owner, remedy, diskpolicy.RerunCommand())
+		return fmt.Errorf("%s Your answers are saved. Then run the same install command again: %s", portConflictGuidance(p.number, owner), diskpolicy.RerunCommand())
 	}
 	return nil
 }

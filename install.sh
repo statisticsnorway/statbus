@@ -753,11 +753,11 @@ trap - ERR
 install_output="$STATBUS_DIR/tmp/install-last-run-output.txt"
 mkdir -p "$STATBUS_DIR/tmp"
 if [ "$tty_available" = true ]; then
-    (exec </dev/tty; STATBUS_INSTALL_PROMPTS_TO_TTY=1 ./sb install ${SB_INSTALL_ARGS[@]+"${SB_INSTALL_ARGS[@]}"}) >"$install_output" 2>&1
-    sb_rc=$?
+    (exec </dev/tty; STATBUS_INSTALL_PROMPTS_TO_TTY=1 ./sb install ${SB_INSTALL_ARGS[@]+"${SB_INSTALL_ARGS[@]}"}) 2>&1 | tee "$install_output" | awk -f "$STATBUS_DIR/ops/install-terminal-output.awk"
+    sb_rc=${PIPESTATUS[0]}
 else
-    ./sb install ${SB_INSTALL_ARGS[@]+"${SB_INSTALL_ARGS[@]}"} >"$install_output" 2>&1
-    sb_rc=$?
+    ./sb install ${SB_INSTALL_ARGS[@]+"${SB_INSTALL_ARGS[@]}"} 2>&1 | tee "$install_output" | awk -f "$STATBUS_DIR/ops/install-terminal-output.awk"
+    sb_rc=${PIPESTATUS[0]}
 fi
 trap 'rc=$?; echo "" >&2; echo "install.sh FAILED at line $LINENO: $BASH_COMMAND (exit $rc)" >&2' ERR
 set -e
@@ -774,7 +774,6 @@ set -e
 statbus_repo_lock_release
 
 if [ "$sb_rc" -eq 0 ]; then
-    grep -E '^\[[0-9]+/[0-9]+\] .+ (OK|DONE)$|^Installation complete!$|^All steps complete\.|^The previous restart finished\. Continuing installation\.$' "$install_output" || true
     # This is public DNS guidance from validated configuration, not arbitrary log output.
     if [ -n "${STATBUS_ENV_CONFIG:-}" ]; then
         grep -E '^  [A-Za-z0-9.-]+ (is not confirmed in public DNS|appears in public DNS)' "$install_output" | tail -1 || true
@@ -836,7 +835,10 @@ fi
 terminal_file="$STATBUS_DIR/tmp/install-terminal.txt"
 failed_step=$(grep -E '^\[[0-9]+/[0-9]+\] .+ +FAILED: ' "$install_output" | tail -1 || true)
 if [ -n "$failed_step" ]; then
-    failure_detail=$(printf '%s\n' "$failed_step" | sed -E 's/^\[([0-9]+\/[0-9]+)\] ([^ ]([^ ]| +[^ ])*) +FAILED: .*/step \1 (\2) failed: this part of installation could not finish/')
+    failure_detail=$(grep -E '^INSTALL_CAUSE: port [0-9]+ is in use by ' "$install_output" | tail -1 | sed 's/^INSTALL_CAUSE: //' || true)
+    if [ -z "$failure_detail" ]; then
+        failure_detail=$(printf '%s\n' "$failed_step" | sed -E 's/^\[([0-9]+\/[0-9]+)\] ([^ ]([^ ]| +[^ ])*) +FAILED: .*/step \1 (\2) failed: this part of installation could not finish/')
+    fi
     if printf '%s\n' "$failure_detail" | grep -Eiq 'INVARIANT|state:|step-table|pgx|\(target=|[A-Z][A-Z0-9]*_[A-Z_]{3,}'; then
         failure_detail="an installation step could not finish"
     fi
@@ -867,7 +869,7 @@ echo ""
 echo "The installation stopped before it could finish."
 echo "Cause: $failure_detail"
 echo "Then run the same install command again:"
-echo "    curl -fsSL https://statbus.org/install.sh | bash"
+echo "    $STATBUS_INSTALL_RERUN_COMMAND"
 if [ -n "$bundle_path" ]; then
     echo "If it stops at the same place again, send this file to StatBus support: $bundle_path"
 else

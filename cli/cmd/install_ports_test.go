@@ -1,12 +1,26 @@
 package cmd
 
 import (
+	"errors"
 	"net"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 )
+
+func TestPortConflictGuidance(t *testing.T) {
+	for _, owner := range []string{"python3", "another program"} {
+		message := portConflictGuidance(80, owner)
+		if !strings.Contains(message, "port 80 is in use by "+owner) || !strings.Contains(message, "sudo ") {
+			t.Fatalf("missing actionable port cause: %s", message)
+		}
+	}
+	message := servicePortConflictCause(errors.New("the web server (proxy) could not publish host port 80/tcp; port listener unavailable"))
+	if !strings.Contains(message, "port 80 is in use by") || !strings.Contains(message, "sudo ") {
+		t.Fatalf("service port failure lost actionable cause: %s", message)
+	}
+}
 
 func TestOccupiedPortOwnerWithoutSudo(t *testing.T) {
 	standalone := selectedInstallPorts("standalone", 1)
