@@ -190,3 +190,7 @@ Each VM proof carries the name of the claim it proves (install-works, upgrade-wo
 Harness reorganisation is planned last in the next cycle. Next step: defer
 the four-family rename and single-dispatcher work until that cycle, then land
 the reorganisation and run the renamed ladder.
+
+## Review correction 2026-09-24
+
+The historical counts and CI claims above are not acceptance facts until recomputed from master. Before implementation, record the resolved directory and `dev.sh` verb rulings. Acceptance positively establishes the four families `install-works`, `upgrade-works`, `install-recovers`, and `upgrade-recovers`; the vocabulary grep is the named verification method, not the outcome. Name the new unified-dispatch contract test and the exact RC ladder run that proves it. Master dispatcher and gate locations are `test/install-recovery/run.sh` and `cli/cmd/release/release.go:1463,1945,1972`; workflow existence alone does not establish historical counts.

@@ -37,3 +37,7 @@ Unit coverage feeds the same free-space values to first-install and later-fixup 
 - [ ] #2 Each path applies the same starting minimum and recommended capacity.
 - [ ] #3 A box in the warning band completes routine install and repair work.
 <!-- AC:END -->
+
+## Review correction 2026-09-24
+
+First-install measurement is `cli/cmd/install.go:524-538`; cite the actual later automatic-fixup implementation rather than inferring it from the audit (`test/install-recovery/arcs/c-rollback-resurrection-arc.sh:307` is only a current test anchor). Record the minimum, recommendation, persisted operator choice, and measured locations. Add a named shared-threshold unit test and **new** `test/install-recovery/scenarios/5-install-disk-threshold-repair.sh`, proving the choice persists across a new process, service restart, upgrade, and fixup.

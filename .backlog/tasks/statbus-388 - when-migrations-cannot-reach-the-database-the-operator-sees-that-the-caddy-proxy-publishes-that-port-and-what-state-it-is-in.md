@@ -37,3 +37,7 @@ During an install-recovery run, stop the service that provides the database rout
 - [ ] #2 A route failure names the address and the plain-language service that provides it.
 - [ ] #3 A rerun restores the route and completes the database step.
 <!-- AC:END -->
+
+## Review correction 2026-09-24
+
+Ground the observed host-route failure in the exact Finland transcript. Master publishes the database route at `caddy/docker-compose.yml:15`; migration connection use is at `cli/cmd/install.go:2557-2559,2889`. Add **new** `test/install-recovery/scenarios/5-install-database-route-interrupted.sh`, which observes either successful in-database migration or a plain failure naming the route/provider, followed by a successful rerun. This ticket diagnoses the route; STATBUS-390 owns transport consistency.

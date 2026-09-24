@@ -202,3 +202,7 @@ matching the original destination with `ct original daddr 127.0.0.0/8`, or by
 placing the reject in a hook/priority after conntrack NAT with the corresponding
 original-destination match. Prove the correction on a real VM, then remove the
 skip marker and re-enable default selection.
+
+## Review correction 2026-09-24
+
+This proof is on demand while the real-VM NAT exemption is corrected; `test/install-recovery/scenarios/0-https-only-egress.sh:10` explicitly excludes it from the default set. After a named paid VM run proves the corrected exemption, acceptance includes removing that exclusion and observing it in `--print-selected`. Albania's policy, the former owner workaround, and the rc.03 interpretation remain unverified historical reports until attached to a permitted primary record. The positive egress proof is a named paid run plus a mutation control that introduces one HTTP URL and observes the scenario fail naming that URL (`test/install-recovery/scenarios/0-https-only-egress.sh:2,10,18`; `test/install-recovery/lib/vm-bootstrap.sh:1313-1314`).

@@ -37,3 +37,7 @@ Use the existing injection hooks to stop the web entry point between seed and mi
 - [ ] #2 A healthy database gives consistent reachability results across installation steps.
 - [ ] #3 The injected route interruption scenario completes after the installer restores or bypasses the interrupted route.
 <!-- AC:END -->
+
+## Review correction 2026-09-24
+
+Current route anchors are `caddy/docker-compose.yml:15`, `cli/cmd/install.go:2889`, and `cli/internal/migrate/migrate.go:156`; each claim must also cite its exact `tmp/setup-connection-map.md` line. Add **new** `test/install-recovery/scenarios/5-install-database-route-interrupted.sh`. Acceptance chooses one reliable transport, or explicitly equivalent readiness guarantees, and observes the selected guarantee at every listed seed, state, migration, and automatic-update step rather than saying “restore or bypass.”

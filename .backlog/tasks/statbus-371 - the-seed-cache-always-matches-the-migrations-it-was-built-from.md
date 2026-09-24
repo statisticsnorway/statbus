@@ -69,3 +69,7 @@ authoritative-lineage choice, so that decision remains **OPEN**. Next step:
 explain why the first-parent post-release-baseline union is the authoritative,
 deterministic fail-closed source rather than mutable registry state, then
 record the owner's confirmation.
+
+## Review correction 2026-09-24
+
+The guard rejects retained migration renumbering (`cli/cmd/release/release.go:892-896`); it does not rebuild the cache merely because a version was renumbered. The target is preserved retained migration versions, or an explicit lineage change that regenerates a compatible seed before use. Acceptance names tests for first-parent retained-lineage rejection, preserved history, stale-cache fallback (`cli/cmd/release/release_verify.go:265`; `cli/cmd/seed_cache_test.go:14`), and the still-pending owner choice. The two repair commits and CI run `35116209731` remain unverified until attached to permitted primary evidence.

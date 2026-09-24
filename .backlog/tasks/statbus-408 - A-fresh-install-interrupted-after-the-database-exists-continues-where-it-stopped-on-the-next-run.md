@@ -43,3 +43,7 @@ In install-recovery, hold port 80 through step 8, confirm the database volume ex
 - [ ] #3 Established pre-1.0 installations continue to receive the legacy upgrade guidance.
 - [ ] #4 The interrupted-after-database harness scenario reaches green through the one install command.
 <!-- AC:END -->
+
+## Review correction 2026-09-24
+
+Use `cli/internal/install/state.go:141-147` and exact VM reproduction lines from `/Users/jhf/ssb/.jcode/scratch/rest-loop.md`. Add **new** `test/install-recovery/scenarios/5-install-interrupted-after-database-created.sh`, inducing failure after database creation rather than a port-80 preflight. Shared STATBUS-408/411 marker semantics must distinguish interrupted first install from established pre-1.0 using exact upgrade-table/schema/seed markers, cover both fake-probe edge cases, and observe preserved data.

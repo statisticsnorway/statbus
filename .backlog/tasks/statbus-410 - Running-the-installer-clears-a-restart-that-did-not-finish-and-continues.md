@@ -42,3 +42,7 @@ Add an install-recovery harness case that starts `./sb restart all`, terminates 
 - [ ] #4 The interrupted-restart harness case completes through the one install command with every required service running.
 - [ ] #5 Before restoring an unfinished restart, the installer clears the automatic update service's failed state so a previous start-rate limit cannot block recovery.
 <!-- AC:END -->
+
+## Review correction 2026-09-24
+
+Customer evidence is `/Users/jhf/ssb/statbus/tmp/finland-answers-4.txt:69-75`; current restart and saved-intent behavior is `cli/internal/upgrade/restart.go:19-38,40-87`. Add **new** `test/install-recovery/scenarios/5-install-interrupted-restart.sh`, `5-install-live-upgrade-wait.sh`, and `5-install-start-limit-recovery.sh`. Observe readiness, saved service set, marker clearing, held-lock wait, and one-command rerun. Local replay shows start-rate recovery only after correcting passwords (`tmp/local-ville-replay.md:964-980,1017-1018`), so clearing failed state is tested separately from fixing the underlying cause.

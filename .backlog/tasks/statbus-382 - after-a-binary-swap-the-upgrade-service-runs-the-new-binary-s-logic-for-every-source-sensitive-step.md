@@ -117,3 +117,7 @@ dismissal refusal for a live, unparked `in_progress` row at the database layer,
 and the harness VM pair question, including why the previous release is not
 the starting point. Next step: resolve those two owner questions, then finish
 steps 5-6 and run the paired harness proof.
+
+## Review correction 2026-09-24
+
+The Norway rc.18/rc.20 attempt counts, row, hash, and profile failure are unverified until attached to primary evidence. The merged stale-binary safeguard (`ops/statbus-upgrade.service:56`; `cli/internal/upgrade/service.go:294`) is distinct from the proposed in-process handoff in STATBUS-395. The 30.17-second figure is unverified. Name a new stale-daemon real register/schedule/service test whose positive outcome is execution by the new binary, with any failure bounded and recorded; existing carrier coverage is at `cli/internal/upgrade/backup_path_carriers_test.go:191-194`.

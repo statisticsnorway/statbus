@@ -37,3 +37,7 @@ A source-scanning test covers operator-facing rerun strings. The port-conflict h
 - [ ] #2 The printed command works from the operator current directory and converges a partial installation.
 - [ ] #3 Rerun guidance describes the operator action in plain words.
 <!-- AC:END -->
+
+## Review correction 2026-09-24
+
+The current cwd-dependent command is written from `install.sh:5`, `cli/cmd/root.go:122`, and `cli/cmd/install.go:534-535`; attach the exact Finland transcript line when quoting it. Add a named new source-scanning test and share `test/install-recovery/scenarios/4-install-port-80-taken.sh` with STATBUS-385. Published rerun commands use an absolute/cwd-independent executable and preserve selected options, including `--channel prerelease` and unattended settings.

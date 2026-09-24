@@ -44,3 +44,7 @@ New install-recovery scenario `5-install-orphaned-db-volume-credentials`: retain
 - [ ] #4 A healthy box verifies matching passwords and continues without changing them.
 - [ ] #5 The `5-install-orphaned-db-volume-credentials` scenario completes with the API ready, automatic updates active, the upgrade completed, and existing users intact.
 <!-- AC:END -->
+
+## Review correction 2026-09-24
+
+Role anchors remain `postgres/init-db.sh:135,141,223`. Tie VM observations and the prototype to exact `/Users/jhf/ssb/.jcode/scratch/rest-loop.md` lines, and cite password-authenticated upgrade connection plus local reconciliation ordering. Add **new** `test/install-recovery/scenarios/5-install-orphaned-db-volume-credentials.sh`: on a disposable VM it preserves the database volume and existing users, intentionally changes settings credentials, exercises installer and automatic-update reconciliation, proves a matching-password no-op, then proves API and upgrade readiness. Implementation ownership is shared with STATBUS-394.

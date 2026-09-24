@@ -40,3 +40,7 @@ New interruption scenario: stop installation between steps 8 and 12, then run th
 - [ ] #3 The `5-install-proxy-never-started` scenario finishes with all five services running and the automatic update service active.
 - [ ] #4 A rerun after interruption between service startup and database setup continues from the first incomplete step.
 <!-- AC:END -->
+
+## Review correction 2026-09-24
+
+Current `checkServicesDone` checks only the database (`cli/cmd/install.go:1058-1078`); the step runner is at `cli/cmd/install.go:711,741`. The local replay shows the web entry point left `Created`, a database-only Services OK rerun, and an unavailable database route (`/Users/jhf/ssb/statbus/tmp/local-ville-replay.md:240-284,697-718,720-783`). Add the **new** `test/install-recovery/scenarios/5-install-proxy-never-started.sh`. Its implementable recovery rule, shared with STATBUS-408/411, resumes from the first incomplete persisted step only after classifying an interrupted first install by exact markers. Operator text says web entry point/API, not proxy/container.

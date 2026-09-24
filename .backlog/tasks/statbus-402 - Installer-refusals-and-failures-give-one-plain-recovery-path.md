@@ -35,3 +35,7 @@ Add a forced preflight refusal to `harness-failure-path-selftest.sh` and assert 
 - [ ] #2 A failure after work begins prints the step, cause, fix, one install command, and support-file path.
 - [ ] #3 Operator output contains plain recovery guidance while implementation traces remain in the install log.
 <!-- AC:END -->
+
+## Review correction 2026-09-24
+
+Current bootstrap refusal and exit handling are `install.sh:770-792` and `cli/cmd/install.go:95-101`; attach the exact Finland refusal. Confirm the existing self-test's full master path before citation and add named new forced-refusal cases. Exit 78 is asserted only for deliberate refusal. Operator output contains no internal terms, and its one absolute rerun command preserves selected channel and unattended options.

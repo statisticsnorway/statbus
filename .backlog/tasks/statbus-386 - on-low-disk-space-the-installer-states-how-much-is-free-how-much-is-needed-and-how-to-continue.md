@@ -37,3 +37,7 @@ Unit coverage exercises the refusal, warning, and recommended bands. Install-rec
 - [ ] #2 At or above the starting minimum, installation continues and states the available space and recommended capacity.
 - [ ] #3 Below the starting minimum, the installer states the required space, the location to free, and the one install command to continue.
 <!-- AC:END -->
+
+## Review correction 2026-09-24
+
+The current first-install check is `cli/cmd/install.go:524-538`; the audit's 20 GB is a suggestion, not policy (`tmp/installer-message-audit.md:79,91`). Before implementation record the actual minimum, recommendation, and measured filesystems. Add named new unit tests for below-minimum, warning-band, and recommended-band results, plus **new** `test/install-recovery/scenarios/4-install-40gb-disk.sh`.

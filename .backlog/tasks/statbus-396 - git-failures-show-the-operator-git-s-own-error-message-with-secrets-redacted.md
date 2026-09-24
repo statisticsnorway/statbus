@@ -33,3 +33,7 @@ tokens and other secrets replaced by a redaction marker.
 Branch `next/git-stderr` is under review. Next step: complete review, merge the
 redacted stderr handling, and verify representative git failure paths do not
 leak sensitive values.
+
+## Review correction 2026-09-24
+
+Current git stderr/wrapping must be cited from master, including `cli/cmd/install.go:1646` and `cli/cmd/db.go:290`; `next/git-stderr` is not master evidence. Attach permitted auth, missing-ref, and network failure transcripts. Add named new tests for all three failures and credential-bearing URL variants in terminal and logs. The observable redaction marker is `[REDACTED]`, and assertions prove no character sequence from the fixture secret survives.

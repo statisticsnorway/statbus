@@ -39,3 +39,7 @@ Unit coverage supplies an activating service state. The existing `1-boot-startup
 - [ ] #3 Recovery guidance prints the one install command in plain words.
 - [ ] #4 The `1-boot-startup-timeout` journal shows healthy startup progress for a service that reaches active.
 <!-- AC:END -->
+
+## Review correction 2026-09-24
+
+Finland printed `NOT RUNNING` at the exact transcript line 162; current unit-floor logic is `cli/internal/unitfloor/unitfloor.go:110-139`, with installer readiness at `cli/cmd/install.go:2804-2823`. Preserve the confirmed existing `test/install-recovery/scenarios/1-boot-startup-timeout.sh` path and add a named new activating-state unit test. Logs must show no alarm from activating through READY=1, then success after READY=1, while an actually inactive unit produces a truthful alarm in observable order.

@@ -35,3 +35,7 @@ The partial-service and API-restart-loop scenarios assert a final status for the
 - [ ] #2 A service needing attention is named in plain words with its current condition.
 - [ ] #3 The support file contains logs from the database, web entry point, API, application, worker, and automatic update service.
 <!-- AC:END -->
+
+## Review correction 2026-09-24
+
+Current support output and enumeration are anchored at `cli/cmd/support.go:52`, `cli/internal/compose/compose.go:273`, and database-only install checking at `cli/cmd/install.go:1058-1078`; attach each Finland transcript observation to its exact line. Add **new** `test/install-recovery/scenarios/5-install-partial-services.sh` and `test/install-recovery/scenarios/5-install-api-restart-loop.sh`. They explicitly cover stopped, absent, and restarting states and inspect status plus logs for all six: database, web entry point, API, application, worker, and automatic update service.

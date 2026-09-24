@@ -1,7 +1,7 @@
 ---
 id: STATBUS-358
 title: >-
-  ACME DNS certificates for installed sites: acme-dns at cert.statbus.org, Caddy acme-dns module, CLI registers and instructs
+  A private-address site receives and renews a trusted certificate after one DNS change
 status: To Do
 assignee: []
 created_date: '2026-09-07 07:02'
@@ -190,3 +190,7 @@ and Norway). HTTPS-only egress (STATBUS-357).
 ## Reconciliation 2026-09-23
 
 Classification: OPEN. Evidence: design only; no acme-dns command, credential flow, Caddy module, or live proof exists. No part of the item's own done-when is complete beyond any design already recorded above.
+
+## Review correction 2026-09-24
+
+The operator sequence is register, retain the pending identity, obtain human SSB approval, create the printed CNAME, run `check` if issuance has not continued automatically, then observe issuance and renewal. This is not one command plus one action. Current Caddy supports the existing ACME/custom branches (`caddy/templates/standalone.caddyfile.tmpl:145-155`), the image currently builds only the existing modules (`caddy/Dockerfile:6`), and `./sb cert` has current behavior at `cli/cmd/cert.go:46,89`. The 2026-09-24 architecture text above is the recorded owner decision, not evidence of an implementation. acme-dns suitability, provider syntax, the service, and its library/fork remain research or prospective work. Acceptance requires a named new VM scenario proving approval, issuance, renewal, recreate, and restore while preserving identity.

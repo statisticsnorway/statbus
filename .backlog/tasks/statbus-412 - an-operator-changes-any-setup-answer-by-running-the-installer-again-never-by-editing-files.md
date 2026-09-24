@@ -1,6 +1,6 @@
 ---
 id: STATBUS-412
-title: An operator changes any setup answer by running the installer again, never by editing files
+title: An operator changes any setup answer by running the installer again
 status: To Do
 assignee: []
 created_date: '2026-09-24 16:05'
@@ -40,3 +40,7 @@ STATBUS-389 covers choosing a workable mode and explaining the network situation
 - [ ] #3 When a setup answer changes, the installer regenerates affected settings, restarts only affected services, and confirms readiness before announcing success.
 - [ ] #4 The new isolated standalone rerun scenario changes the certificate choice to private and HTTPS presents a local-authority certificate; the unchanged-answer rerun leaves unrelated services alone.
 <!-- AC:END -->
+
+## Review correction 2026-09-24
+
+Current rerun entry is `cli/cmd/install.go:974-977`; retain the caveat that the reported browser error and 16:00 message were not found. Add **new** `test/install-recovery/scenarios/0-interactive-rerun-answers.sh` and `0-unattended-rerun-answers.sh`. Observe unchanged-answer no-op, revision of all five listed values, and changed site/certificate HTTPS readiness. The certificate assertion depends on STATBUS-399 private-certificate functionality.

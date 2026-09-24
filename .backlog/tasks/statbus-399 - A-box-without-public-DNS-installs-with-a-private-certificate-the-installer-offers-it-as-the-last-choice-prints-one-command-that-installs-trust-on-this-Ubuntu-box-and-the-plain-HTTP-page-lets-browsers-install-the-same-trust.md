@@ -51,3 +51,7 @@ Harness scenario `4-install-standalone-no-public-dns` chooses the final private-
 - [ ] #6 The private-certificate choice is stored in configuration and remains selected after configuration generation and installer reruns.
 - [ ] #7 The trust command obtains the root certificate through a path readable by the operator account, and PostgreSQL guidance includes direct TLS negotiation for port 5432.
 <!-- AC:END -->
+
+## Review correction 2026-09-24
+
+Current standalone certificate behavior is `caddy/templates/standalone.caddyfile.tmpl:145-155`; development uses `tls internal` at `caddy/templates/development.caddyfile.tmpl:198`; Finland NXDOMAIN/retry is `/Users/jhf/ssb/statbus/tmp/finland-answers-4.txt:6-12`. The **new** test is `test/install-recovery/scenarios/4-install-standalone-no-public-dns.sh`. The local replay hand edit was only an experiment (`/Users/jhf/ssb/statbus/tmp/local-ville-replay.md:1023-1103`), not shipped capability. Add new tests for persisted choice across generation/rerun, an operator-readable root certificate without its private key, a pasted `sudo` trust command on pristine Ubuntu, browser authority verification against the same CA served by the plain-HTTP endpoint, and PostgreSQL direct TLS. Menu text says “your own certificate.”

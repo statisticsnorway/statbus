@@ -28,3 +28,7 @@ concurrency, and harness concurrency is set to fit the approved limit.
 The owner is sending a Hetzner support request on 2026-09-24. Next step: wait
 for the quota response, record the approved limit, and adjust harness
 concurrency or scheduling if needed.
+
+## Review correction 2026-09-24
+
+The asserted 22-core quota, niue 16-core use, and 3.5-hour/two-VM run are estimates until supported by an approved quota response and dated telemetry. Add a named new scheduling/quota contract check that sums niue plus configured VM concurrency and proves it is within the approved account limit. If support declines the increase, acceptance records and enforces reduced concurrency or non-overlapping schedules before another paid run (`test/install-recovery/README.md:10`).

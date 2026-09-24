@@ -37,3 +37,7 @@ Extend signer order and input tests to count one prompt per run. A terminal-driv
 - [ ] #3 The later signer step reports OK from the recorded answer.
 - [ ] #4 Additional signer management is available through the web interface after installation.
 <!-- AC:END -->
+
+## Review correction 2026-09-24
+
+Cite separately the pre-step question, step-16 handling, fingerprint output (`cli/cmd/install.go:107,163,2572-2588`), and any established web signer management. Name the exact existing signer input/order tests and add **new** `test/install-recovery/scenarios/0-interactive-trusted-signer.sh`, which observes one trusted-signer choice and no later terminal loop. Remove web-interface acceptance unless that feature is verified and exercised.

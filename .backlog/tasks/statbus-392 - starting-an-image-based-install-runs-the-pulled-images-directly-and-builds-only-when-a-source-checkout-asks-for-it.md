@@ -32,3 +32,7 @@ checkout needs it.
 - In development mode on an image-based install, `./sb start all` starts
   within seconds using pulled images.
 - In a source checkout, the development build still happens.
+
+## Review correction 2026-09-24
+
+Verified current behavior is `cli/cmd/service.go:47-56`, where development selects build, with start/build invocation in `cli/internal/compose/compose.go:445`; the prior `cli/internal/service/service.go:55` citation does not exist. The triage claim about image installs remains unknown unless separately sourced. Add named new unit and integration tests for image-based development mode and source checkout, measuring completion against an explicit test baseline rather than promising “within seconds” on arbitrary hardware.

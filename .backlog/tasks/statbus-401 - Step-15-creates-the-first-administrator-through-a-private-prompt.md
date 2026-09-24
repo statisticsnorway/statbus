@@ -37,3 +37,7 @@ Extend `0-happy-install` to inspect the transcript for protected credential outp
 - [ ] #3 The terminal and install log protect password values and show only plain success text.
 - [ ] #4 Unattended installation can create users from its configured user file.
 <!-- AC:END -->
+
+## Review correction 2026-09-24
+
+Ground step 15/password-column facts in exact Finland lines and `cli/cmd/install.go:2567-2570`; user-file handling is `cli/cmd/install.go:1278-1307`. Extend existing `test/install-recovery/scenarios/0-happy-install.sh` and add **new** `test/install-recovery/scenarios/0-interactive-admin-password.sh`. Two hidden matching entries are required; test mismatch, absence from terminal/install/support logs, and successful `/rest/rpc/login` with redacted fixtures.

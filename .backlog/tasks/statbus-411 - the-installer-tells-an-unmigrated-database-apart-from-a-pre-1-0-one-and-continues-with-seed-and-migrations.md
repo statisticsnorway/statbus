@@ -47,3 +47,7 @@ Existing unit-test location: `cli/internal/install/state_test.go:46` (`TestDetec
 - [ ] #3 On the established pre-1.0 state, the installer keeps the existing refusal and manual-upgrade guidance rather than writing over its data.
 - [ ] #4 The new isolated fresh-volume/restart/install harness case completes without the `legacy-no-upgrade-table` refusal.
 <!-- AC:END -->
+
+## Review correction 2026-09-24
+
+Preserve `cli/internal/install/state.go:138-148`, `cli/internal/install/state_test.go:46-77`, and `/Users/jhf/ssb/statbus/tmp/finland-answers-4.txt:79-89`. Add **new** `test/install-recovery/scenarios/5-install-init-db-only-recovery.sh`, explicitly disposable. Positive acceptance is seed/migrations and all services ready for init-db-only state; test implementation may also assert absence of the legacy refusal. The shared discriminator with STATBUS-408 must preserve legacy data and classify both fake-probe edges.

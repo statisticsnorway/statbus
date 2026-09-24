@@ -100,3 +100,7 @@ has asked for a plain explanation before confirming the choice between the
 repair verb and requiring `./sb install` to un-park first. Decision remains
 **OPEN with the owner**. Next step: provide that explanation and record the
 owner's confirmation or requested change.
+
+## Review correction 2026-09-24
+
+`./sb upgrade repair` is merged (`cli/cmd/upgrade_repair.go:78-153`); only owner confirmation of the policy remains open. Acceptance proves exactly one audited statement with operator and reason, while the parked state and client hold remain unchanged, using `cli/cmd/upgrade_repair_test.go:12,72` plus a named new real parked-upgrade proof. The clicked-check tangent and excluded `tmp/upgrades-page-ordering.md` are not evidence. Incident fixture `feae0fccf` must be tied to a permitted record before it is asserted as history.

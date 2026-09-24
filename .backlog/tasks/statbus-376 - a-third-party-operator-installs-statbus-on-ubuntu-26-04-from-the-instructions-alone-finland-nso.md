@@ -36,7 +36,7 @@ A third-party operator completes StatBus installation on Ubuntu 26.04 by followi
 - Image detection pulled every image again because real JSON uses `ContainerName` while the check expected `Container`. Covered by STATBUS-404.
 - Step 15 required `.users.yml`; after the example file was copied and edited, terminal output included database command output and password columns. Covered by STATBUS-401.
 - The release signer question appeared before the steps and signer handling appeared again at step 16. Covered by STATBUS-406.
-- Failed runs printed `FAILED_INSTALL_HAS_AUDIT_TRAIL` as a violated invariant even though every install has no upgrade row. Covered by STATBUS-403 and STATBUS-402.
+- Failed runs printed `FAILED_INSTALL_HAS_AUDIT_TRAIL` as a violated invariant. Successful installs do record an upgrade row; only failures before that write can have none. Covered by STATBUS-403 and STATBUS-402.
 - The automatic update self-check displayed `NOT RUNNING` while the service was still starting and later reached READY=1. Covered by STATBUS-405.
 - Support collection included only the database log. Covered by STATBUS-393.
 
@@ -49,7 +49,7 @@ A third-party operator completes StatBus installation on Ubuntu 26.04 by followi
 ## Evidence, 2026-09-24: answers 4
 
 - Certificate logs showed public DNS NXDOMAIN, staging certificate attempts, and 600-second retries. HTTPS reached port 443 but returned a TLS internal error. Covered by STATBUS-389 and STATBUS-399.
-- The API restarted about every minute with `FATAL: password authentication failed for user "authenticator"`. The database role password and generated settings were out of agreement after the interrupted first run. Covered by STATBUS-394.
+- The API restarted about every minute with `FATAL: password authentication failed for user "authenticator"`. The database role password and generated settings were out of agreement. How credentials were regenerated on the customer box is not determined; the normal local replay did not reproduce this loop. Covered by STATBUS-394.
 - The service ports were listening after manual intervention, confirming that the database itself was healthy and the remaining faults were certificate, API credential agreement, and readiness sequencing. Covered by STATBUS-384, STATBUS-393, and STATBUS-394.
 
 ## Evidence, 2026-09-24: operator follow-up
@@ -274,3 +274,9 @@ Remaining: Complete public/fleet setup split, D1-D7, x86/Arm 26.04 matrix, and b
 Readiness probe fact: `CheckReleaseWorkflowAtTag` currently maps an empty GitHub workflow-runs API page to `Missing`/workflow-not-started. Add bounded retry before declaring durable absence; this was observed on 2026-09-22 and the workflow appeared green three minutes later.
 
 Pending niue owner action: update the installed `/etc/sshdoers` comment from `ops/setup-ubuntu-lts-24.sh, byte for byte` to `ops/setup-ubuntu-lts.sh, byte for byte` and run Stage 8 on niue when the setup rename lands there.
+
+## Review correction 2026-09-24
+
+Established Finland facts are source-specific: the customer's REST log says `FATAL: password authentication failed for user "authenticator"` (`/Users/jhf/ssb/statbus/tmp/finland-answers-4.txt:52-58`). A surviving database volume plus regenerated credentials can create that loop, as reproduced on a disposable Hetzner VM (`/Users/jhf/ssb/.jcode/scratch/rest-loop.md`). How credentials were regenerated on the customer's box is **not determined**. The documented normal local replay did not reproduce the API loop (`/Users/jhf/ssb/statbus/tmp/local-ville-replay.md:984-987`); it did reproduce a web-entry-point `Created` state and step-17 timeout (`:697-783,989-992`) and printed completion/HTTPS despite failed TLS (`:598-605,643-695`). Successful install normally records/completes an upgrade row (`cli/cmd/install.go:2938-3039`); only failures before that write can lack one.
+
+Umbrella acceptance is a named new third-party Ubuntu 26.04 operator/VM run that proves all D1-D7 outcomes, every required service ready, and the advertised HTTPS endpoint completing TLS and returning HTTP before success text. Historic D1-D7/rc.19 inventory is implementation history, not that end-to-end proof. Unsupported assertions from `tmp/setup-simplification.md`, `tmp/harness-checkout-noise.md`, `tmp/finland-install-triage.md`, and historical CI are removed from the evidentiary basis unless individually checked. Use full paths such as `test/install-recovery/lib/vm-bootstrap.sh`, `cli/internal/upgrade/service.go`, and `ops/setup-ubuntu-lts.sh`.

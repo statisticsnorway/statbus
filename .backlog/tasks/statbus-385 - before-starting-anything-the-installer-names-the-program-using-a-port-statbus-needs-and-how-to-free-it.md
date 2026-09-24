@@ -37,3 +37,7 @@ New harness scenario `4-install-port-80-taken`: install Apache, run the unattend
 - [ ] #2 A port conflict message names the program and gives the exact command that frees the port.
 - [ ] #3 The `4-install-port-80-taken` scenario reaches green after the printed fix and the same install command.
 <!-- AC:END -->
+
+## Review correction 2026-09-24
+
+Finland's Apache/port-80 observation and the installer startup/preflight must be cited by exact transcript and master lines; Apache provenance is separate evidence, not part of the broad corpus. The **new** `test/install-recovery/scenarios/4-install-port-80-taken.sh` asserts the discovered port and program, a program-appropriate printed fix, and zero StatBus service starts. Apache commands are fixture-specific. Unit coverage enumerates every selected port and reports any owner on a different configured port with the same discovery contract.

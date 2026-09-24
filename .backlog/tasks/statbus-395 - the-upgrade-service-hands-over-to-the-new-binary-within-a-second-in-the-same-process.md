@@ -1,8 +1,6 @@
 ---
 id: STATBUS-395
-title: >-
-  The upgrade service hands over to the new binary within a second, in the same
-  process
+title: A planned upgrade resumes immediately under the new binary
 status: To Do
 assignee: []
 created_date: '2026-09-24 16:44'
@@ -39,3 +37,7 @@ This is tracked separately from the stale-daemon work in STATBUS-382.
 Awaiting owner go. Next step: obtain owner approval, implement the
 PID-preserving exec-in-place handoff, and validate flock, watchdog, error, and
 crash-backoff behavior.
+
+## Review correction 2026-09-24
+
+The operator outcome is immediate resumption under the new binary; MainPID, exec, flock, watchdog, and `RestartSec` are implementation details. Permitted current evidence is `ops/statbus-upgrade.service:56` and the upgrade phase code; the excluded `tmp/handoff-and-banner.md` and its 30.17-second figure are not evidence. Add a named new real service-handoff test with a declared reliable timing bound and a separate crash-backoff control test with explicit bounded behavior.

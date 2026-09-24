@@ -36,3 +36,7 @@ Extend `0-happy-install` to run the one install command a second time. Every ste
 - [ ] #3 Image detection recognizes real tool output that uses the `ContainerName` field.
 - [ ] #4 A changed input causes only the affected steps to report RUNNING and apply work.
 <!-- AC:END -->
+
+## Review correction 2026-09-24
+
+Current step convergence is `cli/cmd/install.go:990-1034`; real Compose v2/v5 JSON evidence is `tmp/installer-message-audit.md:144,268-272`. Add a named new real-JSON fixture/unit test and extend `test/install-recovery/scenarios/0-happy-install.sh`. Acceptance uses a named changed input, records affected services, and measures zero image pulls, zero unrelated regeneration, and zero unrelated restarts on the unchanged rerun.

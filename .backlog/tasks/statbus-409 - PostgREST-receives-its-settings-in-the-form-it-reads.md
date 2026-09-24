@@ -41,3 +41,7 @@ Start the API with a non-default deployment slot and query `current_setting('app
 - [ ] #3 `PGRST_DB_CONFIG` contains a true or false value that controls in-database configuration.
 - [ ] #4 A PostgREST 14 integration test observes the selected slot through `current_setting`.
 <!-- AC:END -->
+
+## Review correction 2026-09-24
+
+Current compose evidence is `docker-compose.rest.yml:5,28-30,37-40`; line 38 is erroneous. Verify semantics against the linked official PostgREST 14 configuration section and record section/version. Add named new config and integration test files, including non-default slot and true/false Boolean cases. PGRST names stay engineering detail; the operator observes the selected site's settings.

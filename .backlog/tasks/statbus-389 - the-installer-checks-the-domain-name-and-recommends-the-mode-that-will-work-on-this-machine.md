@@ -39,3 +39,7 @@ New harness scenario `4-install-standalone-no-public-dns`: choose standalone wit
 - [ ] #2 The installer states whether automatic certificate setup works for this computer.
 - [ ] #3 When automatic setup is unavailable, the installer offers the working certificate choices in the agreed order.
 <!-- AC:END -->
+
+## Review correction 2026-09-24
+
+The customer saw NXDOMAIN/retry at `/Users/jhf/ssb/statbus/tmp/finland-answers-4.txt:6-12`; current certificate behavior is `caddy/templates/standalone.caddyfile.tmpl:145-155`. External reachability checking is proposed, since DNS alone does not prove reachability. The **new** `test/install-recovery/scenarios/4-install-standalone-no-public-dns.sh` must recommend an actually workable mode/certificate choice and complete installation. Choice order is coordinated with delegated certificates in STATBUS-358 and private certificates in STATBUS-399.
