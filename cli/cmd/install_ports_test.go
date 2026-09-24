@@ -22,6 +22,83 @@ func TestPortConflictGuidance(t *testing.T) {
 	}
 }
 
+func TestOwnPublishedPortRangeAndForeignSlot(t *testing.T) {
+	// docker ps human output: statbus-local-proxy 127.0.0.1:3014-3015->3014-3015/tcp, 127.0.0.1:3010->80/tcp
+	// Compose's project-scoped JSON reports each publisher instead of that compressed column.
+	statuses, err := parseServiceStatuses([]byte(`{"Name":"statbus-local-proxy","Service":"proxy","State":"running","Publishers":[{"URL":"127.0.0.1","TargetPort":3014,"PublishedPort":3014,"Protocol":"tcp"},{"URL":"127.0.0.1","TargetPort":3015,"PublishedPort":3015,"Protocol":"tcp"},{"URL":"127.0.0.1","TargetPort":80,"PublishedPort":3010,"Protocol":"tcp"}]}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, port := range []int{3010, 3014, 3015} {
+		if !ownPublishedPort(statuses, port) {
+			t.Fatalf("own published port %d not recognized", port)
+		}
+	}
+	if ownPublishedPort(statuses, 3016) {
+		t.Fatal("foreign listener accepted as our port")
+	}
+	// Docker Compose scopes ps to this project: a different slot's container is absent.
+	if ownPublishedPort(nil, 3014) {
+		t.Fatal("different slot's container accepted as ours")
+	}
+	statuses[0].State = "exited"
+	if !ownPublishedPort(statuses, 3014) {
+		t.Fatal("Compose publisher ignored because service is not running")
+	}
+}
+
+func TestCheckInstallPortsOwnAndForeign(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, ".env.config"), []byte("CADDY_DEPLOYMENT_MODE=development\nDEPLOYMENT_SLOT_CODE=local\nDEPLOYMENT_SLOT_PORT_OFFSET=1\n"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	oldProbe, oldOwner := probeServiceStatuses, occupiedPortOwner
+	t.Cleanup(func() { probeServiceStatuses, occupiedPortOwner = oldProbe, oldOwner })
+	occupiedPortOwner = func(port installPort) string {
+		if port.number == 3014 || port.number == 3015 {
+			return "another program"
+		}
+		return ""
+	}
+	probeServiceStatuses = func(string) ([]serviceStatus, error) {
+		return parseServiceStatuses([]byte(`{"Service":"proxy","State":"running","Publishers":[{"PublishedPort":3014,"Protocol":"tcp"},{"PublishedPort":3015,"Protocol":"tcp"}]}`))
+	}
+	if err := checkInstallPorts(dir); err != nil {
+		t.Fatalf("own running proxy rejected: %v", err)
+	}
+	probeServiceStatuses = func(string) ([]serviceStatus, error) { return nil, nil } // Other slot is not this Compose project.
+	if err := checkInstallPorts(dir); err == nil || !strings.Contains(err.Error(), "port 3014 is in use by another program") {
+		t.Fatalf("foreign listener not refused: %v", err)
+	}
+	probeServiceStatuses = func(string) ([]serviceStatus, error) { return nil, errors.New("compose unavailable") }
+	if err := checkInstallPorts(dir); err == nil || !strings.Contains(err.Error(), "port 3014 is in use") || !strings.Contains(err.Error(), "could not ask Docker") || !strings.Contains(err.Error(), "compose unavailable") || !strings.Contains(err.Error(), "Your answers are saved") || strings.Contains(err.Error(), "another program") {
+		t.Fatalf("probe failure incorrectly blamed a foreign program: %v", err)
+	}
+	occupiedPortOwner = func(installPort) string { return "" }
+	if err := checkInstallPorts(dir); err != nil {
+		t.Fatalf("free ports should not require Docker: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, ".env.config"), []byte("CADDY_DEPLOYMENT_MODE=standalone\nDEPLOYMENT_SLOT_CODE=local\nDEPLOYMENT_SLOT_PORT_OFFSET=1\n"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	occupiedPortOwner = func(port installPort) string {
+		if port.number == 80 || port.number == 5432 {
+			return "another program"
+		}
+		return ""
+	}
+	probeServiceStatuses = func(string) ([]serviceStatus, error) {
+		return parseServiceStatuses([]byte(`{"Service":"proxy","Publishers":[{"PublishedPort":80,"Protocol":"tcp"},{"PublishedPort":5432,"Protocol":"tcp"}]}`))
+	}
+	if err := checkInstallPorts(dir); err != nil {
+		t.Fatalf("standalone own ports rejected: %v", err)
+	}
+	probeServiceStatuses = func(string) ([]serviceStatus, error) { return nil, nil }
+	if err := checkInstallPorts(dir); err == nil || !strings.Contains(err.Error(), "port 80 is in use by another program") {
+		t.Fatalf("standalone foreign port not refused: %v", err)
+	}
+}
+
 func TestOccupiedPortOwnerWithoutSudo(t *testing.T) {
 	standalone := selectedInstallPorts("standalone", 1)
 	if standalone[0].number != 80 || standalone[1].number != 443 || standalone[4].number != 5431 || standalone[5].number != 5432 {
