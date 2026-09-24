@@ -26,6 +26,8 @@ Primary records: `/Users/jhf/ssb/statbus/tmp/finland-transcript-actual.txt`, `/U
 
 The Finland laptop used `statbus.statfin.eu` only in `/etc/hosts` and had a private home-network address. The certificate service reported NXDOMAIN, retried every 600 seconds, and HTTPS returned a TLS internal error.
 
+Related: STATBUS-412 makes this setup answer revisable through an installer rerun, rather than requiring file edits.
+
 ## Proving scenario
 
 New harness scenario `4-install-standalone-no-public-dns`: choose standalone with a name absent from public DNS. Assert that the installer explains why automatic setup is unavailable and offers, in order, the operator own certificate files, a certificate from Statistics Norway when available, and a private certificate as the final explicit choice.
