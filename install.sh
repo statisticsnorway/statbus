@@ -794,6 +794,9 @@ terminal_file="$STATBUS_DIR/tmp/install-terminal.txt"
 failed_step=$(grep -E '^\[[0-9]+/[0-9]+\] .+ +FAILED: ' "$install_output" | tail -1 || true)
 if [ -n "$failed_step" ]; then
     failure_detail=$(printf '%s\n' "$failed_step" | sed -E 's/^\[([0-9]+\/[0-9]+)\] ([^ ]([^ ]| +[^ ])*) +FAILED: .*/step \1 (\2) failed: this part of installation could not finish/')
+    if printf '%s\n' "$failure_detail" | grep -Eiq 'INVARIANT|state:|step-table|pgx|\(target=|[A-Z][A-Z0-9]*_[A-Z_]{3,}'; then
+        failure_detail="an installation step could not finish"
+    fi
     if printf '%s\n' "$failed_step" | grep -Eq '^\[16/17\] Trusted signers +FAILED: '; then
         failure_detail="step 16/17 (Trusted signers) failed: release signer approval was declined"
     fi
