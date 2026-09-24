@@ -69,6 +69,16 @@ bootstrap_install_test_vm "$VM_NAME" "$INSTALL_TARGET_TAG"
 # 2. Install (no wedge)
 install_statbus_at_sha "$VM_NAME" "$TARGET_SHA" "$INSTALL_TARGET_TAG"
 
+# STATBUS-401: unattended configured-file creation still works, without the
+# fixture password in terminal capture, installer log, or support output.
+FIXTURE_PASSWORD=test-install-password-2026
+INSTALL_CAPTURE="${HARNESS_ROOT:-$REPO_ROOT}/tmp/install-recovery-${VM_NAME}-install.log"
+if grep -qF "$FIXTURE_PASSWORD" "$INSTALL_CAPTURE" ||
+    VM_EXEC bash -c 'cd ~/statbus && grep -F -q test-install-password-2026 tmp/install-last-run-output.txt tmp/install-logs/*.log tmp/upgrade-logs/*.log 2>/dev/null'; then
+    echo 'administrator password leaked to installation output or support log' >&2
+    exit 1
+fi
+
 # 3. Assertions against the box, never inferred from installer exit status.
 MODE=$(VM_EXEC bash -c "cd ~/statbus && ./sb dotenv -f .env.config get CADDY_DEPLOYMENT_MODE")
 [ "$MODE" = private ] || { echo "unexpected installed mode: '$MODE' (expected private)" >&2; exit 1; }
@@ -102,7 +112,7 @@ assert_systemd_active "$VM_NAME"
 
 echo "── green-box rerun is entirely quiet ──"
 RERUN_LOG=$(mktemp)
-VM_EXEC bash -c "export STATBUS_ENV_CONFIG=\"\$HOME/install-input.env\" STATBUS_USERS_FILE=/tmp/users.yml STATBUS_INSTALL_VERSION='$INSTALL_TARGET_TAG'; STATBUS_MIN_DISK_GB=5 bash /tmp/statbus-install.sh --non-interactive" >"$RERUN_LOG" 2>&1 || {
+VM_EXEC bash -c "export STATBUS_ENV_CONFIG=\"\$HOME/install-input.env\" STATBUS_USERS_FILE=/tmp/users.yml STATBUS_INSTALL_VERSION='$INSTALL_TARGET_TAG'; bash /tmp/statbus-install.sh --non-interactive" >"$RERUN_LOG" 2>&1 || {
     cat "$RERUN_LOG" >&2
     exit 1
 }

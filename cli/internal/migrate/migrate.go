@@ -26,6 +26,7 @@ import (
 	"github.com/statisticsnorway/statbus/cli/internal/config"
 	"github.com/statisticsnorway/statbus/cli/internal/dotenv"
 	"github.com/statisticsnorway/statbus/cli/internal/inject"
+	"github.com/statisticsnorway/statbus/cli/internal/testguard"
 )
 
 // CommandContext constructs database-tool commands returned by PsqlCommand,
@@ -45,6 +46,9 @@ func CommandContext(ctx context.Context, projDir, name string, args ...string) (
 		cmd = exec.CommandContext(ctx, "pg_restore", args...)
 	default:
 		return nil, fmt.Errorf("unsupported database-tool executable %q", name)
+	}
+	if err := testguard.Check(filepath.Base(name), cmd.Path); err != nil {
+		return nil, err
 	}
 	cmd.Dir = projDir
 	return cmd, nil

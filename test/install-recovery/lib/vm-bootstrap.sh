@@ -1540,6 +1540,12 @@ install_statbus_at_sha() {
     local short="${sha:0:8}"
     local release_tag="${3:-}"
     local install_command='STATBUS_MIN_DISK_GB=5 ./sb install --non-interactive --trust-github-user jhf'
+    local users_export='export STATBUS_USERS_FILE=/tmp/users.yml'
+    local fresh_install_command='bash /tmp/statbus-install.sh --non-interactive'
+    if [ "${HARNESS_INTERACTIVE_ADMIN:-0}" = 1 ]; then
+        users_export='unset STATBUS_USERS_FILE'
+        fresh_install_command='expect /tmp/statbus-admin.exp'
+    fi
     if [ -n "$release_tag" ]; then
         # STATBUS-369: a tagged fresh-install proof uses the candidate's REAL
         # install.sh and sb-linux-<arch> release asset, not the image's /sb.
@@ -1585,7 +1591,7 @@ set -e
 # impose its answer-file hygiene on the product. Scope it to the one file.
 ( umask 077; cat > "\$HOME/install-input.env" <<'CONFIG'
 CADDY_DEPLOYMENT_MODE=${HARNESS_DEPLOYMENT_MODE:-development}
-SITE_DOMAIN=statbus-test.local
+SITE_DOMAIN=${HARNESS_SITE_DOMAIN:-statbus-test.local}
 DEPLOYMENT_SLOT_NAME=Install Test
 DEPLOYMENT_SLOT_CODE=test
 TRUST_GITHUB_USER=jhf
@@ -1599,9 +1605,9 @@ case "\$(umask)" in
     *[4567]) echo "harness: umask \$(umask) strips other-read; the product checkout would be unreadable to the postgres container (STATBUS-369)"; exit 70 ;;
 esac
 export STATBUS_ENV_CONFIG="\$HOME/install-input.env"
-export STATBUS_USERS_FILE=/tmp/users.yml
+${users_export}
 export STATBUS_INSTALL_VERSION=${release_tag}
-STATBUS_MIN_DISK_GB=5 bash /tmp/statbus-install.sh --non-interactive
+${fresh_install_command}
 SCRIPT
     else
         cat > "$install_script" << SCRIPT

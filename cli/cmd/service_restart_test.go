@@ -228,6 +228,45 @@ func TestInstallRefusesRestartBeforeProbes(t *testing.T) {
 	t.Setenv("HOME", home)
 	t.Setenv("STATBUS_POST_UPGRADE_FIXUP", "")
 	dir := filepath.Join(home, "statbus")
+	if err := os.MkdirAll(dir, 0700); err != nil {
+		t.Fatal(err)
+	}
+	fixtureCheckout(t, dir)
+	oldExe := installExecutable
+	installExecutable = func() (string, error) { return filepath.Join(dir, "sb"), nil }
+	t.Cleanup(func() { installExecutable = oldExe })
+	if err := os.WriteFile(filepath.Join(dir, "sb"), nil, 0700); err != nil {
+		t.Fatal(err)
+	}
+	lock, _, _, err := upgrade.AcquireRestartFlag(dir, "all")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := upgrade.PrepareRestart(lock, upgrade.RestartIntent{Profile: "all"}); err != nil {
+		t.Fatal(err)
+	}
+	defer lock.Close() // a live holder must not be recovered by install
+	err = runInstall()
+	if err == nil || !strings.Contains(err.Error(), "a restart is still running") {
+		t.Fatalf("install: %v", err)
+	}
+}
+
+func TestInstallRestoresStaleRestartOnlyInFixtureProject(t *testing.T) {
+	home, _ := unattendedFixture(t)
+	t.Setenv("HOME", home)
+	t.Setenv("STATBUS_POST_UPGRADE_FIXUP", "")
+	dir := filepath.Join(home, "statbus")
+	if err := os.MkdirAll(dir, 0700); err != nil {
+		t.Fatal(err)
+	}
+	fixtureCheckout(t, dir)
+	oldExe := installExecutable
+	installExecutable = func() (string, error) { return filepath.Join(dir, "sb"), nil }
+	t.Cleanup(func() { installExecutable = oldExe })
+	if err := os.WriteFile(filepath.Join(dir, "sb"), nil, 0700); err != nil {
+		t.Fatal(err)
+	}
 	lock, _, _, err := upgrade.AcquireRestartFlag(dir, "all")
 	if err != nil {
 		t.Fatal(err)
@@ -236,9 +275,25 @@ func TestInstallRefusesRestartBeforeProbes(t *testing.T) {
 		t.Fatal(err)
 	}
 	lock.Close()
+
+	fakes := t.TempDir()
+	logPath := filepath.Join(fakes, "docker.log")
+	if err := os.WriteFile(filepath.Join(fakes, "docker"), []byte("#!/bin/sh\nprintf '%s %s\\n' \"$PWD\" \"$*\" >> \"$STATBUS_TEST_DOCKER_LOG\"\n"), 0700); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("STATBUS_TEST_DOCKER_LOG", logPath)
+	t.Setenv("PATH", fakes+string(os.PathListSeparator)+os.Getenv("PATH"))
 	err = runInstall()
-	if err == nil || !strings.Contains(err.Error(), "./sb restart all") {
-		t.Fatalf("install: %v", err)
+	// Restoration succeeds; the next preflight refuses absent unattended input.
+	if err == nil || strings.Contains(err.Error(), "restart is still running") {
+		t.Fatalf("install after stale restart: %v", err)
+	}
+	data, readErr := os.ReadFile(logPath)
+	if readErr != nil {
+		t.Fatal(readErr)
+	}
+	if strings.Count(string(data), dir+" compose ") != 2 || !strings.Contains(string(data), " down --remove-orphans") || !strings.Contains(string(data), " up -d") {
+		t.Fatalf("expected stop and start only in temporary project %s, got:\n%s", dir, data)
 	}
 }
 

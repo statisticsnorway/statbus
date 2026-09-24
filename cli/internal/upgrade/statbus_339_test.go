@@ -30,7 +30,10 @@ esac
 `), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(shimDir, "docker"), []byte("#!/bin/sh\nexit 0\n"), 0o755); err != nil {
+	// executeUpgrade checks Docker's storage path before reaching the fetch
+	// seam. A silent success from docker info is not a valid Docker root.
+	dockerShim := fmt.Sprintf("#!/bin/sh\nif [ \"${1:-}\" = info ]; then printf '%%s\\n' %q; fi\nexit 0\n", shimDir)
+	if err := os.WriteFile(filepath.Join(shimDir, "docker"), []byte(dockerShim), 0o755); err != nil {
 		t.Fatal(err)
 	}
 	t.Setenv("PATH", shimDir+string(os.PathListSeparator)+os.Getenv("PATH"))

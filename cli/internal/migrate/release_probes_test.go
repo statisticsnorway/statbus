@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/statisticsnorway/statbus/cli/internal/release"
+	"github.com/statisticsnorway/statbus/cli/internal/testguard"
 )
 
 // TestMain wires the REAL release probes exactly as main.go does, so every
@@ -15,13 +16,22 @@ import (
 // architecture rule forbids only the PRODUCTION edge, which
 // cmd/release/architecture_test.go pins.)
 func TestMain(m *testing.M) {
+	if err := os.Setenv("STATBUS_CLI_UNIT_TEST_GUARD", "1"); err != nil {
+		panic(err)
+	}
+	cleanup, err := testguard.Install()
+	if err != nil {
+		panic(err)
+	}
 	ReleaseProbe = ReleaseProbes{
 		BaselineTag:            release.CurrentImmutabilityBaselineTag,
 		MigrationExistsInTag:   release.MigrationExistsInTag,
 		MigrationInReleasedTag: release.MigrationInReleasedTag,
 		FileIsDirty:            release.FileIsDirty,
 	}
-	os.Exit(m.Run())
+	code := m.Run()
+	cleanup()
+	os.Exit(code)
 }
 
 // TestReleasedMigrationDownGuard_UnwiredProbesRefuse_STATBUS352: the guard's

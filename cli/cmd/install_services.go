@@ -19,7 +19,9 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"sort"
+	"strconv"
 	"strings"
 	"syscall"
 	"time"
@@ -29,6 +31,21 @@ import (
 	"github.com/statisticsnorway/statbus/cli/internal/dotenv"
 	"github.com/statisticsnorway/statbus/cli/internal/upgrade"
 )
+
+var failedPublishedPort = regexp.MustCompile(`could not publish host port ([0-9]+)/`)
+
+func servicePortConflictCause(err error) string {
+	match := failedPublishedPort.FindStringSubmatch(err.Error())
+	if len(match) != 2 {
+		return ""
+	}
+	port, _ := strconv.Atoi(match[1])
+	owner := occupiedPortOwner(installPort{"0.0.0.0", port})
+	if owner == "" {
+		owner = "another program"
+	}
+	return portConflictGuidance(port, owner)
+}
 
 // servicePlainNames are the words the operator sees for each compose service.
 var servicePlainNames = map[string]string{
@@ -391,9 +408,7 @@ func composeUpAllDefault(dir string) error {
 	if err != nil {
 		return err
 	}
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	return cmd.Run()
+	return runInstallCommandWithDiagnostic(cmd)
 }
 
 var composeUpAll = composeUpAllDefault

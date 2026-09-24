@@ -129,7 +129,12 @@ func stalenessGuard(c *cobra.Command, _ []string) {
 		fmt.Fprintln(os.Stderr, "WARN: "+msg)
 		return
 	}
-	msg := freshness.IsStale(config.ProjectDir(), string(commitSHA))
+	projectDir, err := guardProjectDir(c)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(exitBinaryUnusable)
+	}
+	msg := freshness.IsStale(projectDir, string(commitSHA))
 	if msg == "" {
 		return
 	}
@@ -170,14 +175,14 @@ func stalenessGuard(c *cobra.Command, _ []string) {
 			// install-held, or pre_swap) still self-heals below. PreSwap is
 			// gated OUT by IsServiceNewSbRecovery: it rolls back, so the
 			// tree must stay at the source commit.
-			if flag, ferr := upgrade.ReadFlagFile(config.ProjectDir()); ferr == nil && flag.IsServiceNewSbRecovery() {
+			if flag, ferr := upgrade.ReadFlagFile(projectDir); ferr == nil && flag.IsServiceNewSbRecovery() {
 				fmt.Fprintln(os.Stderr, "WARN: "+msg)
 				fmt.Fprintln(os.Stderr, "In-flight upgrade recovery (service-held flag, already booted the new binary) — deferring to the recovery boot; not self-healing.")
 				return
 			}
 			fmt.Fprintln(os.Stderr, "WARN: "+msg)
 			fmt.Fprintln(os.Stderr, "Self-healing: procuring ./sb for the worktree HEAD from the commit-tagged image (no host toolchain)...")
-			if err := freshness.RebuildAndReexec(config.ProjectDir()); err != nil {
+			if err := freshness.RebuildAndReexec(projectDir); err != nil {
 				fmt.Fprintf(os.Stderr, "Self-heal procure/exec failed: %v\n", err)
 				os.Exit(exitBinaryUnusable)
 			}
@@ -202,6 +207,14 @@ func stalenessGuard(c *cobra.Command, _ []string) {
 		os.Exit(exitBinaryUnusable)
 	}
 	fmt.Fprintln(os.Stderr, "WARN: "+msg)
+}
+
+func guardProjectDir(c *cobra.Command) (string, error) {
+	if c.Name() == "install" || c.Name() == "restart" {
+		return installProjectDir()
+	}
+	// Other commands retain their existing cwd-based config.ProjectDir behavior.
+	return config.ProjectDir(), nil
 }
 
 // resolveCommitSHA resolves the binary's commit identity from layered

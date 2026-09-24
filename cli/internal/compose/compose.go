@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/statisticsnorway/statbus/cli/internal/config"
+	"github.com/statisticsnorway/statbus/cli/internal/testguard"
 )
 
 // These are the Compose global options whose placement precedes the subcommand.
@@ -75,6 +76,9 @@ func dockerComposeCommand(ctx context.Context, projDir string, args ...string) (
 	}
 	finalArgs := append([]string{"compose"}, args...)
 	cmd := exec.CommandContext(ctx, "docker", finalArgs...)
+	if err := testguard.Check("docker", cmd.Path); err != nil {
+		return nil, err
+	}
 	cmd.Dir = projDir
 	return cmd, nil
 }
@@ -99,6 +103,9 @@ func DockerCommandContext(ctx context.Context, projDir string, args ...string) (
 		}
 	}
 	cmd := exec.CommandContext(ctx, "docker", args...)
+	if err := testguard.Check("docker", cmd.Path); err != nil {
+		return nil, err
+	}
 	cmd.Dir = projDir
 	return cmd, nil
 }
@@ -141,6 +148,9 @@ func Up(ctx context.Context, projDir string, args ...string) (*exec.Cmd, error) 
 	finalArgs = append(finalArgs, "up")
 	finalArgs = append(finalArgs, args[insertAt:]...)
 	cmd := exec.CommandContext(ctx, "docker", finalArgs...)
+	if err := testguard.Check("docker", cmd.Path); err != nil {
+		return nil, err
+	}
 	cmd.Dir = projDir
 	return cmd, nil
 }
@@ -444,12 +454,18 @@ func probeServiceState(projDir, svc string) (serviceStateView, error) {
 
 // IsDevelopmentMode checks the CADDY_DEPLOYMENT_MODE from .env.
 func IsDevelopmentMode() bool {
+	return IsDevelopmentModeInDir(config.ProjectDir())
+}
+
+// IsDevelopmentModeInDir reads the mode of the project being operated on,
+// rather than discovering an unrelated checkout from the caller's cwd.
+func IsDevelopmentModeInDir(projDir string) bool {
 	// Quick check via environment first
 	if mode := os.Getenv("CADDY_DEPLOYMENT_MODE"); mode != "" {
 		return mode == "development"
 	}
 	// Fall back to reading .env
-	envPath := config.ProjectDir() + "/.env"
+	envPath := projDir + "/.env"
 	if data, err := os.ReadFile(envPath); err == nil {
 		for _, line := range strings.Split(string(data), "\n") {
 			if strings.HasPrefix(line, "CADDY_DEPLOYMENT_MODE=") {

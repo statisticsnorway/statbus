@@ -23,6 +23,7 @@ import (
 	"github.com/statisticsnorway/statbus/cli/internal/dbroles"
 	"github.com/statisticsnorway/statbus/cli/internal/dotenv"
 	"github.com/statisticsnorway/statbus/cli/internal/inject"
+	"github.com/statisticsnorway/statbus/cli/internal/testguard"
 )
 
 const commandStderrTailBytes = 4096
@@ -97,6 +98,9 @@ func commandContext(ctx context.Context, dir, name string, args ...string) (*exe
 		return compose.DockerCommandContext(ctx, dir, args...)
 	}
 	cmd := exec.CommandContext(ctx, name, gitArgs(name, args)...)
+	if err := testguard.Check(name, cmd.Path); err != nil {
+		return nil, err
+	}
 	cmd.Dir = dir
 	return cmd, nil
 }

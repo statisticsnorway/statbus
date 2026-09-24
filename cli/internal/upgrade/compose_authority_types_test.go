@@ -69,7 +69,7 @@ var allowedComposeUpCalls = map[string]approvedLaunch{
 	"cmd/install_services.go:composeUpAllDefault":                        {Count: 1, Reason: "install step 8 starts every service of the all profile through compose.Up"},
 	"cmd/install_services.go:recreateServiceWithPorts.func":              {Count: 1, Reason: "install step 8 repairs a service missing its configured published ports through compose.Up"},
 	"cmd/service.go:startServices":                                       {Count: 1, Reason: "operator service start command delegates to the compose.Up chokepoint"},
-	"cmd/service_restart.go:restartServices":                             {Count: 1, Reason: "operator service restart brings services back through compose.Up"},
+	"cmd/service_restart.go:restartServicesInDir":                        {Count: 1, Reason: "operator service restart brings services back through compose.Up"},
 	"internal/upgrade/exec.go:EnsureDBUp":                                {Count: 1, Reason: "upgrade database preparation starts only the database services through compose.Up"},
 	"internal/upgrade/service.go:abortFailedPreBackupStop":               {Count: 1, Reason: "pre-backup abort restores the source services through compose.Up"},
 	"internal/upgrade/service.go:applyNewSbUpgrading":                    {Count: 2, Reason: "upgrade transition starts the target database and application stacks through compose.Up"},
@@ -99,6 +99,10 @@ var allowedProcessLaunches = map[string]approvedLaunch{
 	"cmd/install.go:runInstallCallback|os/exec|sh":                                                    {Count: 1, Reason: "runInstallCallback executes the administrator-configured post-install callback as the documented shell command"},
 	"cmd/install.go:runInstallService|os/exec|systemctl":                                              {Count: 3, Reason: "runInstallService queries active, failed-result, and boot-enabled systemd states to drive and verify user-unit reconciliation"},
 	"cmd/install.go:runRootInstall|os/exec|systemctl":                                                 {Count: 1, Reason: "runRootInstall queries is-enabled after root service setup to prove the upgrade unit will start on boot"},
+	"cmd/install_ports.go:portConflictGuidance|os/exec|systemctl":                                     {Count: 1, Reason: "installer checks whether an identified port owner is a loaded systemd service before offering a disable command"},
+	"cmd/install_ports.go:occupiedPortOwner|os/exec|systemctl":                                        {Count: 1, Reason: "installer reads active systemd services without requiring root privileges"},
+	"cmd/install_ports.go:occupiedPortOwner|os/exec|ss":                                               {Count: 2, Reason: "installer confirms a listener and optionally reads its process name before any service starts"},
+	"cmd/install_ports.go:occupiedPortOwner|os/exec|sudo":                                             {Count: 1, Reason: "installer uses noninteractive sudo only as optional owner enrichment"},
 	"cmd/install_services.go:portListener|os/exec|ss":                                                 {Count: 1, Reason: "install reads the host's listening ports to identify a conflicting process"},
 	"cmd/install_services.go:portListener|os/exec|sudo":                                               {Count: 1, Reason: "install reads the host's listening process names with non-interactive privilege"},
 	"cmd/install_upgrade.go:restartUpgradeService|os/exec|systemctl":                                  {Count: 2, Reason: "restartUpgradeService checks that the upgrade unit is active and restarts it to load the newly installed binary"},
@@ -136,7 +140,7 @@ var allowedProcessLaunches = map[string]approvedLaunch{
 	"cmd/seed_ancestor.go:seedImagePublished|upgrade.RunCommandOutput|docker":                         {Count: 1, Reason: "seedImagePublished inspects the registry manifest to test whether a commit's seed image exists"},
 	"cmd/seed_verify.go:deriveEligibilityFromGit|upgrade.RunCommandOutput|git":                        {Count: 2, Reason: "deriveEligibilityFromGit fetches history and diffs migrations since the seed commit to decide reuse eligibility"},
 	"cmd/seed_verify.go:gitHasCommit|upgrade.RunCommandOutput|git":                                    {Count: 1, Reason: "gitHasCommit asks Git's object database whether the seed provenance commit is locally available"},
-	"cmd/service_restart.go:restartServices|os/exec|systemctl":                                        {Count: 1, Reason: "restartServices checks whether the upgrade unit is active before coordinating a safe operator restart"},
+	"cmd/service_restart.go:restartServicesInDir|os/exec|systemctl":                                   {Count: 1, Reason: "restartServices checks whether the upgrade unit is active before coordinating a safe operator restart"},
 	"cmd/test.go:testCmd.RunE|os/exec|./dev.sh":                                                       {Count: 1, Reason: "testCmd delegates the requested development test selector to the repository's dev.sh test harness"},
 	"cmd/types.go:checkTypesStampGuard|upgrade.RunCommandOutput|git":                                  {Count: 4, Reason: "checkTypesStampGuard resolves HEAD, migration dirtiness, ancestry, and changed paths before trusting generated types"},
 	"cmd/types.go:typesGenerateCmd.RunE|upgrade.RunCommandOutput|git":                                 {Count: 1, Reason: "typesGenerateCmd records the current commit in the generated database-types freshness stamp"},
@@ -320,8 +324,8 @@ var allowedProcessExecutables = map[string]authorityExecutableClass{
 	"sh":           authorityMediator,
 	"ssh":          authorityTool,
 	"ssh-keygen":   authorityTool,
-	"systemctl":    authorityTool,
 	"sudo":         authorityTool,
+	"systemctl":    authorityTool,
 	"tar":          authorityTool,
 }
 
@@ -1157,8 +1161,7 @@ func TestTypedComposeAuthorityRejectsUnknownExecutableMediators(t *testing.T) {
 			err := typedAuthorityViolation(cliDir, overlay)
 			want := fmt.Sprintf("unknown os/exec executable %q", test.executable)
 			if test.executable == "sudo" {
-				// Only install_services.go:portListener may run sudo -n ss.
-				// A new sudo site remains prohibited by the exact-site inventory.
+				// Preserve the authority prohibition and exact-site allowlist from both sides.
 				want = `unallowlisted os/exec executable "sudo"`
 			}
 			if err == nil || !strings.Contains(err.Error(), want) {

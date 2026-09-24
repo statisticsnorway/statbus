@@ -27,6 +27,7 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/statisticsnorway/statbus/cli/internal/compose"
 	"github.com/statisticsnorway/statbus/cli/internal/dbdump"
+	"github.com/statisticsnorway/statbus/cli/internal/diskpolicy"
 	"github.com/statisticsnorway/statbus/cli/internal/dotenv"
 	"github.com/statisticsnorway/statbus/cli/internal/inject"
 	"github.com/statisticsnorway/statbus/cli/internal/invariants"
@@ -7686,21 +7687,16 @@ func (d *Service) executeUpgrade(ctx context.Context, claim upgradeClaimSnapshot
 		progress.Write("Verifying release assets ... ok")
 	}
 
-	// Check disk space. Need room for backup (~= DB size) + new images (~2GB).
-	// Refuse to start if less than 5GB free to avoid mid-upgrade disk-full failures.
-	var (
-		freeGB         uint64
-		diskSpaceKnown bool
-	)
-	if freeBytes, err := DiskFree(d.projDir); err == nil {
-		freeGB = freeBytes / (1024 * 1024 * 1024)
-		diskSpaceKnown = true
-		if freeGB < 5 {
-			// TODO: pick code — disk-space preflight; consider ErrRollbackGitDiskFull or a new ErrInstallPreconditionFailed
-			msg := fmt.Sprintf("Insufficient disk space: %d GB free (need at least 5 GB for backup + images)", freeGB)
-			d.failUpgrade(ctx, id, msg, progress)
-			return fmt.Errorf("%s", msg)
-		}
+	// Check disk space. Apply the same 20 GB floor and 40 GB recommendation as first install and
+	// post-upgrade fixup to both Docker service data and backup filesystems.
+	dockerRoot, rootErr := diskpolicy.DockerRoot(ctx, d.projDir)
+	if rootErr != nil {
+		d.failUpgrade(ctx, id, rootErr.Error(), progress)
+		return rootErr
+	}
+	if err := diskpolicy.CheckWith(d.projDir, func(message string) { progress.Write("%s", message) }, dockerRoot, d.backupRoot()); err != nil {
+		d.failUpgrade(ctx, id, err.Error(), progress)
+		return err
 	}
 
 	// Re-verify commit signature before proceeding.
@@ -7712,9 +7708,7 @@ func (d *Service) executeUpgrade(ctx context.Context, claim upgradeClaimSnapshot
 		return fmt.Errorf("%s", msg)
 	}
 	progress.Write("Verifying commit signature ... ok")
-	if diskSpaceKnown {
-		progress.Write("Disk space: %d GB free — enough for the upgrade", freeGB)
-	}
+	progress.Write("Disk space verified for Docker storage and backups")
 
 	// === All pre-flight checks passed — mark the upgrade as started ===
 	// Acquire a kernel-exclusive flock on the flag file BEFORE any

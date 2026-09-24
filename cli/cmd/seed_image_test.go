@@ -9,6 +9,8 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+
+	"github.com/statisticsnorway/statbus/cli/internal/testguard"
 )
 
 func TestSeedFetchDockerArgsUseHostPlatformManifest(t *testing.T) {
@@ -67,6 +69,9 @@ func dockerAvailable() bool {
 // (vs FROM scratch) carries a default command, so `docker create` works
 // without a placeholder arg — mirroring the real self-documenting image.
 func TestExtractSeedFromImage(t *testing.T) {
+	if !testguard.IsolatedDockerInvocation() {
+		t.Skip("live Docker integration probe requires STATBUS_LIVE_DB_TEST=1")
+	}
 	if !dockerAvailable() {
 		t.Skip("docker daemon not available")
 	}

@@ -3,7 +3,7 @@
 set -euo pipefail
 TEST_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 TMP_ROOT=$(mktemp -d "${TMPDIR:-/tmp}/statbus-369-happy.XXXXXX")
-trap 'rm -rf "$TMP_ROOT"' EXIT
+trap 'rc=$?; if [ "$rc" -ne 0 ]; then cat "$TMP_ROOT/output" "$TMP_ROOT/trace" >&2 2>/dev/null || true; fi; rm -rf "$TMP_ROOT"' EXIT
 HARNESS="$TMP_ROOT/test/install-recovery"
 mkdir -p "$HARNESS/lib" "$HARNESS/scenarios"
 cp "$TEST_DIR/../scenarios/0-happy-install.sh" "$HARNESS/scenarios/"
@@ -17,6 +17,7 @@ VM_SCRIPT() { echo operator-settings >> "$TRACE"; [ "${FAULT:-}" != operator-set
 VM_EXEC() {
     echo "query:$*" >> "$TRACE"
 	case "$*" in
+		*'grep -F -q test-install-password-2026'*) return 1 ;;
 		*'/tmp/statbus-install.sh --non-interactive'*)
 			[ "${FAULT:-}" != rerun ] || return 45
 			for n in $(seq 1 17); do
@@ -53,7 +54,11 @@ export TARGET_SHA
 auto_sha=$(git -C "$TMP_ROOT" rev-parse HEAD)
 TARGET_SHA="$auto_sha"
 SCENARIO="$HARNESS/scenarios/0-happy-install.sh"
-bash "$SCENARIO" > "$TMP_ROOT/output" 2>&1
+if ! bash "$SCENARIO" > "$TMP_ROOT/output" 2>&1; then
+    cat "$TMP_ROOT/output" >&2
+    cat "$TRACE" >&2
+    exit 1
+fi
 if ! grep -Fxq "candidate-install:statbus-recovery-0-happy-install $TARGET_SHA v2026.09.0-rc.02" "$TRACE"; then
     echo 'FAIL: fresh install did not install the candidate via the SHA helper' >&2
     cat "$TRACE" >&2

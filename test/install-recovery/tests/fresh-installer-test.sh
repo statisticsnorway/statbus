@@ -8,7 +8,7 @@ trap 'rm -rf "$TMP_ROOT"' EXIT
 REAL_GIT=$(command -v git)
 mkdir -p "$TMP_ROOT/bin" "$TMP_ROOT/home" "$TMP_ROOT/inputs with spaces"
 unset STATBUS_INSTALL_VERSION
-export HOME="$TMP_ROOT/home" TRACE="$TMP_ROOT/trace"
+export HOME="$TMP_ROOT/home" TRACE="$TMP_ROOT/trace" FILTER_SOURCE="$ROOT/ops/install-terminal-output.awk"
 cat > "$TMP_ROOT/bin/git" <<'MOCK'
 #!/bin/bash
 set -eu
@@ -16,7 +16,8 @@ printf 'git:%s\n' "$*" >> "$TRACE"
 if [ "$1" = clone ]; then
     for destination in "$@"; do :; done
     [ ! -e "$destination" ]
-    mkdir -p "$destination/.git"
+    mkdir -p "$destination/.git" "$destination/ops"
+    cp "$FILTER_SOURCE" "$destination/ops/install-terminal-output.awk"
 fi
 MOCK
 cat > "$TMP_ROOT/bin/curl" <<'MOCK'
@@ -25,6 +26,7 @@ set -eu
 printf 'curl:%s\n' "$*" >> "$TRACE"
 case "$*" in
     *'/releases/latest'*) printf '{"tag_name": "v2026.09.0"}\n'; exit 0 ;;
+    *'/releases?per_page=50'*) printf '[{"tag_name": "v2026.09.0-rc.02"}]\n'; exit 0 ;;
 esac
 while [ "$1" != -o ]; do shift; done
 cat > "$2" <<'SB'
@@ -33,6 +35,22 @@ set -eu
 if [ "$1" = --version ]; then echo 'fixture version'; exit 0; fi
 if [ "$1" != install ]; then exit 0; fi
 printf 'sb:%s\n' "$*" >> "$TRACE"
+if [ "${EMIT_DNS_ADVICE:-}" = 1 ]; then
+    printf '  candidate.example is not confirmed in public DNS, so an automatic public certificate cannot be promised, and local development is recommended for testing until the name is published and inbound port 80 is allowed.\n'
+fi
+if [ "${EMIT_RERUN:-}" = 1 ]; then
+    printf 'port 80 is in use by another program. Your answers are saved. Then run the same install command again: %s\n' "$STATBUS_INSTALL_RERUN_COMMAND"
+    exit 78
+fi
+if [ "${EXPECT_RESTART_MARKER:-}" = 1 ]; then
+    grep -Fq '"trigger":"restart"' tmp/upgrade-in-progress.json || exit 93
+    if [ "${FAIL_RESTART_RESTORE:-}" = 1 ]; then
+        printf 'a restart is still running, or its services could not be restored. Wait for it to finish, then run the same install command again: %s\n' "$STATBUS_INSTALL_RERUN_COMMAND"
+        exit 78
+    fi
+    printf 'The previous restart finished. Continuing installation.\n'
+    rm tmp/upgrade-in-progress.json
+fi
 if [ "${EXPECT_STDIN:-}" = pipe ]; then
     [ ! -t 0 ] || { echo 'fixture expected piped stdin' >&2; exit 91; }
     printf '%s\n' "$PIPE_MESSAGE" >&2
@@ -43,6 +61,8 @@ if [ "${EXPECT_STDIN:-}" = tty ]; then
     printf 'sb-stdin:tty\n' >> "$TRACE"
 fi
 [ "${FORCE_TERMINAL:-}" != 1 ] || { mkdir -p tmp; printf 'INVARIANT TEST_GUARD violated: database did not become ready\n' > tmp/install-terminal.txt; }
+[ "${EMIT_ROLLBACK:-}" != 1 ] || { printf 'UPGRADE_FAILED_ROLLED_BACK\n'; exit 75; }
+[ "${EMIT_CLASSIFIED:-}" != 1 ] || { printf '[8/17] Services             FAILED: This part of installation could not finish.\nINSTALL_CAUSE: The database rejected its password.\nINSTALL_FIX: Check the saved database credentials and synchronize them with the running database, then retry.\n'; exit 47; }
 [ "${FORCE_STEP_FAILURE:-}" != 1 ] || printf '[16/17] Trusted signers      FAILED: release signer approval was declined\n'
 [ "${STATBUS_ENV_CONFIG:-}" = "$EXPECTED_CONFIG" ]
 [ "${STATBUS_USERS_FILE:-}" = "$EXPECTED_USERS" ]
@@ -73,6 +93,88 @@ echo 'PASS: FRESH clone, explicit relative paths and flags forwarded to sb; impl
 STATBUS_ENV_CONFIG="$EXPECTED_CONFIG" STATBUS_USERS_FILE="$EXPECTED_USERS" \
     bash "$ROOT/install.sh" --version v2026.09.0-rc.02 --non-interactive > "$TMP_ROOT/output"
 echo 'PASS: RESCUE preserves explicit absolute paths without shell-side config imports'
+EMIT_DNS_ADVICE=1 STATBUS_ENV_CONFIG="$EXPECTED_CONFIG" STATBUS_USERS_FILE="$EXPECTED_USERS" \
+    bash "$ROOT/install.sh" --version v2026.09.0-rc.02 --non-interactive > "$TMP_ROOT/dns-output"
+grep -Fq 'candidate.example is not confirmed in public DNS' "$TMP_ROOT/dns-output"
+echo 'PASS: answers-file install surfaces public DNS recommendation'
+set +e
+(cd "$TMP_ROOT" && EMIT_RERUN=1 STATBUS_ENV_CONFIG='inputs with spaces/config.env' STATBUS_USERS_FILE='inputs with spaces/users.yml' \
+    bash "$ROOT/install.sh" --version v2026.09.0-rc.02 --non-interactive) > "$TMP_ROOT/rerun-output" 2>&1
+rc=$?
+set -e
+[ "$rc" = 78 ]
+grep -Fq 'STATBUS_ENV_CONFIG=' "$TMP_ROOT/rerun-output"
+grep -Fq 'STATBUS_USERS_FILE=' "$TMP_ROOT/rerun-output"
+grep -Fq 'bash -s -- --version v2026.09.0-rc.02 --non-interactive' "$TMP_ROOT/rerun-output"
+grep -Fq "${TMP_ROOT}/inputs\\ with\\ spaces/config.env" "$TMP_ROOT/rerun-output"
+echo 'PASS: rerun retains version, flags and absolute quoted answer paths'
+# A clean rollback is an exit-75 outcome, but its printed retry must preserve
+# the exact release selection and answer files too.
+for selection in version channel; do
+    if [ "$selection" = version ]; then args=(--version v2026.09.0-rc.02); else args=(--channel prerelease); fi
+    (cd "$TMP_ROOT" && EMIT_ROLLBACK=1 STATBUS_ENV_CONFIG='inputs with spaces/config.env' STATBUS_USERS_FILE='inputs with spaces/users.yml' \
+        bash "$ROOT/install.sh" "${args[@]}" --non-interactive) > "$TMP_ROOT/rollback-$selection-output" 2>&1
+    grep -Fq 'UPGRADE FAILED' "$TMP_ROOT/rollback-$selection-output"
+    grep -Fq "bash -s -- ${args[*]} --non-interactive" "$TMP_ROOT/rollback-$selection-output"
+    grep -Fq "${TMP_ROOT}/inputs\\ with\\ spaces/config.env" "$TMP_ROOT/rollback-$selection-output"
+    grep -Fq 'STATBUS_USERS_FILE=' "$TMP_ROOT/rollback-$selection-output"
+done
+echo 'PASS: clean rollback retains selected version/channel and both answer files'
+set +e
+EMIT_CLASSIFIED=1 STATBUS_ENV_CONFIG="$EXPECTED_CONFIG" STATBUS_USERS_FILE="$EXPECTED_USERS" \
+    bash "$ROOT/install.sh" --version v2026.09.0-rc.02 --non-interactive > "$TMP_ROOT/classified-output" 2>&1
+rc=$?
+set -e
+[ "$rc" = 47 ]
+grep -Fq 'Cause: The database rejected its password.' "$TMP_ROOT/classified-output"
+grep -Fq 'Outside fix: Check the saved database credentials and synchronize them with the running database, then retry.' "$TMP_ROOT/classified-output"
+echo 'PASS: classified step cause and outside fix reach wrapper without raw errors'
+# The real wrapper must leave a freed restart record for Go to inspect.
+mkdir -p "$HOME/statbus/tmp"
+printf '{"trigger":"restart","restart":{"profile":"all"}}\n' > "$HOME/statbus/tmp/upgrade-in-progress.json"
+EXPECT_RESTART_MARKER=1 STATBUS_ENV_CONFIG="$EXPECTED_CONFIG" STATBUS_USERS_FILE="$EXPECTED_USERS" \
+    bash "$ROOT/install.sh" --version v2026.09.0-rc.02 --non-interactive > "$TMP_ROOT/stale-restart-output"
+[ ! -e "$HOME/statbus/tmp/upgrade-in-progress.json" ]
+echo 'PASS: stale restart record reaches Go installer intact'
+# Go's failed-restoration refusal must survive the real shell wrapper with all
+# selected release and answer files intact, not collapse to a bare curl.
+printf '{"trigger":"restart","restart":{"profile":"all"}}\n' > "$HOME/statbus/tmp/upgrade-in-progress.json"
+set +e
+(cd "$TMP_ROOT" && EXPECT_RESTART_MARKER=1 FAIL_RESTART_RESTORE=1 STATBUS_ENV_CONFIG='inputs with spaces/config.env' STATBUS_USERS_FILE='inputs with spaces/users.yml' \
+    bash "$ROOT/install.sh" --version v2026.09.0-rc.02 --non-interactive) > "$TMP_ROOT/stale-restart-failed-output" 2>&1
+rc=$?
+set -e
+[ "$rc" = 78 ] || { cat "$TMP_ROOT/stale-restart-failed-output" >&2; exit 1; }
+grep -Fq 'a restart is still running, or its services could not be restored' "$TMP_ROOT/stale-restart-failed-output"
+grep -Fq 'bash -s -- --version v2026.09.0-rc.02 --non-interactive' "$TMP_ROOT/stale-restart-failed-output"
+grep -Fq "${TMP_ROOT}/inputs\\ with\\ spaces/config.env" "$TMP_ROOT/stale-restart-failed-output"
+grep -Fq 'STATBUS_USERS_FILE=' "$TMP_ROOT/stale-restart-failed-output"
+set +e
+EXPECT_RESTART_MARKER=1 FAIL_RESTART_RESTORE=1 STATBUS_ENV_CONFIG="$EXPECTED_CONFIG" STATBUS_USERS_FILE="$EXPECTED_USERS" \
+    bash "$ROOT/install.sh" --channel prerelease --non-interactive > "$TMP_ROOT/stale-channel-failed-output" 2>&1
+rc=$?
+set -e
+[ "$rc" = 78 ] || { cat "$TMP_ROOT/stale-channel-failed-output" >&2; exit 1; }
+grep -Fq 'bash -s -- --channel prerelease --non-interactive' "$TMP_ROOT/stale-channel-failed-output"
+echo 'PASS: failed stale restart restoration keeps the selected release and answers'
+# A live holder must get an immediate plain refusal, without bootstrap mutation.
+printf '{"trigger":"restart","restart":{"profile":"all"}}\n' > "$HOME/statbus/tmp/upgrade-in-progress.json"
+perl -MFcntl=:flock -e 'open(my $f, "+<", $ARGV[0]) or die $!; flock($f, LOCK_EX) or die $!; print "locked\n"; sleep 8' \
+    "$HOME/statbus/tmp/upgrade-in-progress.json" > "$TMP_ROOT/holder-ready" &
+holder=$!
+for _ in 1 2 3 4 5 6 7 8 9 10; do [ -s "$TMP_ROOT/holder-ready" ] && break; sleep 0.1; done
+set +e
+STATBUS_ENV_CONFIG="$EXPECTED_CONFIG" STATBUS_USERS_FILE="$EXPECTED_USERS" \
+    bash "$ROOT/install.sh" --version v2026.09.0-rc.02 --non-interactive > "$TMP_ROOT/live-restart-output" 2>&1
+rc=$?
+set -e
+kill "$holder" 2>/dev/null || true
+wait "$holder" 2>/dev/null || true
+[ "$rc" = 78 ] || { cat "$TMP_ROOT/live-restart-output" >&2; exit 1; }
+grep -q 'a restart is still running' "$TMP_ROOT/live-restart-output"
+grep -Fq '"trigger":"restart"' "$HOME/statbus/tmp/upgrade-in-progress.json"
+rm "$HOME/statbus/tmp/upgrade-in-progress.json"
+echo 'PASS: live restart refuses without waiting or replacing intent'
 export HOME="$TMP_ROOT/empty-home" EXPECTED_CONFIG='' EXPECTED_USERS=''
 mkdir -p "$HOME"
 bash "$ROOT/install.sh" --version v2026.09.0-rc.02 --non-interactive > "$TMP_ROOT/output"
@@ -85,6 +187,7 @@ set -e
 grep -Fq 'The installation stopped before it could finish.' "$TMP_ROOT/output"
 grep -Fq 'Cause: step 16/17 (Trusted signers) failed: release signer approval was declined' "$TMP_ROOT/output"
 grep -Fq 'curl -fsSL https://statbus.org/install.sh | bash' "$TMP_ROOT/output"
+grep -Fq 'bash -s -- --version v2026.09.0-rc.02 --non-interactive' "$TMP_ROOT/output"
 ! grep -Fq 'SYSTEM UNUSABLE' "$TMP_ROOT/output"
 ! grep -Fq 'install.sh FAILED at line' "$TMP_ROOT/output"
 echo 'PASS: sb validation/installation failure propagates'
@@ -116,6 +219,22 @@ if grep -Eq 'SYSTEM UNUSABLE|Contact your administrator|support bundle' "$TMP_RO
     echo 'FAIL: preflight refusal printed catastrophic guidance'; cat "$TMP_ROOT/pipe-output"; exit 1
 fi
 echo 'PASS: no-TTY piped install prints exact remedy without catastrophic banner'
+
+for advice in \
+    'port 80 is in use by apache2. sudo systemctl disable --now apache2. Your answers are saved. Then run the same install command again: curl -fsSL https://statbus.org/install.sh | bash' \
+    'Only 12 GB free on /var/lib/docker. StatBus needs at least 20 GB to install. Free some space, then run the same install command again: curl -fsSL https://statbus.org/install.sh | bash' \
+    'a restart is still running, or its services could not be restored. Wait for it to finish, then run the same install command again: curl -fsSL https://statbus.org/install.sh | bash'; do
+    set +e
+    printf '' | EXPECT_STDIN=pipe PIPE_MESSAGE="$advice" python3 -c \
+        'import os, sys; os.setsid(); os.execv("/bin/bash", ["bash", sys.argv[1], "--version", "v2026.09.0-rc.02"])' \
+        "$ROOT/install.sh" > "$TMP_ROOT/advice-output" 2>&1
+    rc=$?
+    set -e
+    [ "$rc" = 78 ] || { echo "FAIL: actionable preflight became $rc"; exit 1; }
+    grep -Fxq "$advice" "$TMP_ROOT/advice-output" || { cat "$TMP_ROOT/advice-output" >&2; exit 1; }
+    ! grep -Eq 'SYSTEM UNUSABLE|INVARIANT|panic:' "$TMP_ROOT/advice-output"
+done
+echo 'PASS: port, disk, and restart remedies reach operator without internal diagnostics'
 
 # Reproduce curl|bash under a controlling pseudo-terminal. install.sh itself
 # starts with pipe stdin, then must reattach /dev/tty before launching ./sb.

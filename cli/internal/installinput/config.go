@@ -27,8 +27,8 @@ type field struct {
 // One definition drives deployment prompts, input keys and the setup recipe.
 // Trust is asked at the signers step, where fingerprints can be displayed.
 var fields = []field{
-	{"CADDY_DEPLOYMENT_MODE", "Deployment mode (development/standalone/private)", "standalone", false},
-	{"SITE_DOMAIN", "Domain name", "statbus.nso.eu", false},
+	{"CADDY_DEPLOYMENT_MODE", "Deployment mode (development/standalone/private)", "development", false},
+	{"SITE_DOMAIN", "Domain name", "", false},
 	{"DEPLOYMENT_SLOT_NAME", "Display name", "StatBus", false},
 	{"DEPLOYMENT_SLOT_CODE", "Deployment code (short, lowercase)", "local", false},
 	{TrustKey, "Release signer to trust (GitHub username)", RecommendedSigner, true},
@@ -56,7 +56,11 @@ func Requirement() string {
 	var b strings.Builder
 	b.WriteString("set STATBUS_ENV_CONFIG to a file containing:")
 	for _, f := range fields {
-		fmt.Fprintf(&b, "\n  %s=%s  # %s", f.key, f.fallback, f.prompt)
+		fallback := f.fallback
+		if f.key == "SITE_DOMAIN" {
+			fallback = "example.org"
+		}
+		fmt.Fprintf(&b, "\n  %s=%s  # %s", f.key, fallback, f.prompt)
 	}
 	fmt.Fprintf(&b, "\n\n%s\nTRUST_GITHUB_USER=%s explicitly approves the recommended release signer\n%s (Jorgen H. Fjeld), https://github.com/%s. Review that trust decision.\n", TrustExplanation, RecommendedSigner, RecommendedSigner, RecommendedSigner)
 	b.WriteString("\nKeep the file outside ~/statbus, protect it with chmod 0600, then set:\n  export STATBUS_ENV_CONFIG=/path/to/install-input.env\n\nOptional:\n  export STATBUS_INSTALL_VERSION='<release-tag>'  # omit for latest stable\n  export STATBUS_USERS_FILE=/path/to/initial-users.yml\n\nBecause this run used --non-interactive, signer trust may instead be supplied with:\n  --trust-github-user <github-user>\n\nAfter exporting STATBUS_ENV_CONFIG, re-run the same install command.\nNon-interactive mode never approves a signer implicitly.")
@@ -64,10 +68,38 @@ func Requirement() string {
 }
 
 func Ask(prompt func(label, fallback string) string) string {
+	return AskWithMode(prompt, "development")
+}
+
+// AskWithMode supplies a host-appropriate mode without changing unattended inputs.
+func AskWithMode(prompt func(label, fallback string) string, modeDefault string) string {
 	var b strings.Builder
+	domain := ""
 	for _, f := range fields {
 		if !f.installationOnly {
-			fmt.Fprintf(&b, "%s=%s\n", f.key, prompt("  "+f.prompt, f.fallback))
+			fallback := f.fallback
+			if f.key == "CADDY_DEPLOYMENT_MODE" {
+				fallback = modeDefault
+			}
+			label := "  " + f.prompt
+			switch f.key {
+			case "CADDY_DEPLOYMENT_MODE":
+				label = "  How will people reach StatBus?\n    development: testing on this computer only\n    standalone: this computer serves the public website on ports 80 and 443\n    private: another web server forwards visitors to StatBus\n  " + f.prompt
+			case "SITE_DOMAIN":
+				label = "  The web address people will use. For local testing, use local.statbus.org.\n  " + f.prompt
+			case "DEPLOYMENT_SLOT_CODE":
+				if domain != "" {
+					fallback = strings.Split(domain, ".")[0]
+				}
+				label = "  A short lowercase name for this installation (used in container names).\n  " + f.prompt
+			case "DEPLOYMENT_SLOT_NAME":
+				label = "  A name people will recognize in the web interface.\n  " + f.prompt
+			}
+			answer := prompt(label, fallback)
+			if f.key == "SITE_DOMAIN" {
+				domain = answer
+			}
+			fmt.Fprintf(&b, "%s=%s\n", f.key, answer)
 		}
 	}
 	return b.String()

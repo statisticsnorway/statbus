@@ -20,7 +20,12 @@ func unattendedFixture(t *testing.T) (string, string) {
 	t.Setenv(installinput.EnvConfig, "")
 	t.Setenv(installinput.UsersFile, "")
 	dir := t.TempDir()
-	content := installinput.Ask(func(_ string, fallback string) string { return fallback })
+	content := installinput.Ask(func(label, fallback string) string {
+		if strings.HasSuffix(label, "Domain name") {
+			return "example.org"
+		}
+		return fallback
+	})
 	return dir, content
 }
 
@@ -42,7 +47,7 @@ func TestUnattendedConfigImport(t *testing.T) {
 	if err := runCreateConfig(dir); err != nil {
 		t.Fatal(err)
 	}
-	for name, want := range map[string]string{".env.config": content + "DEPLOYMENT_SLOT_PORT_OFFSET=1\n", ".users.yml": "users fixture"} {
+	for name, want := range map[string]string{".env.config": content + "DEPLOYMENT_SLOT_PORT_OFFSET=1\nSTATBUS_DISK_MIN_GB=20\nSTATBUS_DISK_RECOMMENDED_GB=40\n", ".users.yml": "users fixture"} {
 		path := filepath.Join(dir, name)
 		got, err := os.ReadFile(path)
 		if err != nil || string(got) != want {
@@ -121,7 +126,12 @@ func TestFreshInstallInputDistinguishesExplicitEnvAndPipe(t *testing.T) {
 	// validation error wins over any generic pipe diagnosis.
 	nonInteractive = false
 	input := filepath.Join(t.TempDir(), "input.env")
-	content := installinput.Ask(func(_ string, fallback string) string { return fallback })
+	content := installinput.Ask(func(label, fallback string) string {
+		if strings.HasSuffix(label, "Domain name") {
+			return "example.org"
+		}
+		return fallback
+	})
 	if err := os.WriteFile(input, []byte(content), 0600); err != nil {
 		t.Fatal(err)
 	}
@@ -175,6 +185,19 @@ func TestUnattendedCommandRefusesBeforeInfrastructure(t *testing.T) {
 	home, _ := unattendedFixture(t)
 	t.Setenv("HOME", home)
 	t.Setenv("STATBUS_POST_UPGRADE_FIXUP", "")
+	// Point the binary at a separate fixture checkout; do not inspect or
+	// restore a restart marker from the real repository running this test.
+	checkout := filepath.Join(home, "fixture")
+	if err := os.Mkdir(checkout, 0700); err != nil {
+		t.Fatal(err)
+	}
+	fixtureCheckout(t, checkout)
+	if err := os.WriteFile(filepath.Join(checkout, "sb"), nil, 0700); err != nil {
+		t.Fatal(err)
+	}
+	oldExe := installExecutable
+	installExecutable = func() (string, error) { return filepath.Join(checkout, "sb"), nil }
+	t.Cleanup(func() { installExecutable = oldExe })
 	old := postUpgradeFixup
 	postUpgradeFixup = false
 	t.Cleanup(func() { postUpgradeFixup = old })

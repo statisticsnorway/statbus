@@ -244,8 +244,10 @@ Controlled by `DEPLOYMENT_SLOT_CODE` and `DEPLOYMENT_SLOT_PORT_OFFSET` - enables
 # Default: plaintext on slot-based port (e.g., 3014 for local slot)
 ./sb psql -c "SELECT version();"
 
-# Testing TLS: uses TLS port (e.g., 3015 for local slot) with SNI
-TLS=1 ./sb psql -c "SELECT version();"
+# Testing TLS: ./sb psql always selects plaintext. The config helper selects
+# the TLS port (e.g. 3015), SNI, and database credentials for direct psql.
+eval "$(TLS=1 ./sb config show --postgres)"
+psql -c "SELECT version();"
 ```
 
 **Remote via SSH Tunnel** (mode=private):

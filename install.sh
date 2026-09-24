@@ -86,6 +86,11 @@ VERSION=""
 CHANNEL=""
 COMMIT_SHA=""
 SB_INSTALL_ARGS=()
+STATBUS_INSTALL_RERUN_COMMAND='curl -fsSL https://statbus.org/install.sh | bash'
+if [ "$#" -gt 0 ]; then
+    printf -v _rerun_args ' %q' "$@"
+    STATBUS_INSTALL_RERUN_COMMAND="${STATBUS_INSTALL_RERUN_COMMAND} -s --${_rerun_args}"
+fi
 while [ $# -gt 0 ]; do
     case "$1" in
         --version) VERSION="$2"; shift 2 ;;
@@ -128,6 +133,19 @@ for input_name in STATBUS_ENV_CONFIG STATBUS_USERS_FILE; do
         export "${input_name?}"
     fi
 done
+
+# Build the pasteable command only after relative answer paths became absolute.
+_rerun_env_args=""
+for _rerun_env in STATBUS_ENV_CONFIG STATBUS_USERS_FILE STATBUS_INSTALL_VERSION; do
+    if [ -n "${!_rerun_env:-}" ]; then
+        printf -v _rerun_value '%q' "${!_rerun_env}"
+        _rerun_env_args="${_rerun_env_args} ${_rerun_env}=${_rerun_value}"
+    fi
+done
+if [ -n "$_rerun_env_args" ]; then
+    STATBUS_INSTALL_RERUN_COMMAND="${STATBUS_INSTALL_RERUN_COMMAND/| bash/| env${_rerun_env_args} bash}"
+fi
+export STATBUS_INSTALL_RERUN_COMMAND
 
 # STATBUS-082: --commit <full-40-hex-sha> names one exact commit — mutually exclusive
 # with --version and --channel (any combination refuses), full lowercase hex only
@@ -263,7 +281,7 @@ print_sb_pull_failure() {
             echo "  Remedy: inspect the preserved Docker error above and correct it." >&2
             ;;
     esac
-    echo "  Then run: curl -fsSL https://statbus.org/install.sh | bash" >&2
+    echo "  Then run: $STATBUS_INSTALL_RERUN_COMMAND" >&2
     echo "  --commit tests the commit's PUBLISHED image and will not build a different binary locally." >&2
     echo "  Alternatively install a released version: --version <tag>, or --channel stable|prerelease." >&2
 }
@@ -390,6 +408,7 @@ STATBUS_DIR="${HOME}/statbus"
 # same mutex itself (acquireOrBypass), and holding it here would make it fail
 # EWOULDBLOCK against us. One holder, one contract, handed over cleanly.
 STATBUS_REPO_LOCK_HELD=""
+STATBUS_REPO_LOCK_OWN_FLAG=""
 
 # Write the install-held record — field-compatible with what AcquireInstallFlag
 # writes on the Go side (id/commit_sha/started_at/invoked_by/trigger/holder), so
@@ -418,9 +437,19 @@ statbus_repo_lock_acquire() {
     exec 9<>"$_flag" || return 0
 
     if perl -e 'use Fcntl ":flock"; open(my $f, "<&=9") or exit 2; exit(flock($f, LOCK_EX|LOCK_NB) ? 0 : 1);'; then
-        _statbus_write_install_flag
+        # A freed restart intent belongs to Go recovery. Never overwrite it.
+        if [ ! -s "$_flag" ]; then
+            _statbus_write_install_flag
+            STATBUS_REPO_LOCK_OWN_FLAG=1
+        fi
         STATBUS_REPO_LOCK_HELD=1
         return 0
+    fi
+
+    # A live restart must be reported immediately, not waited out and erased.
+    if grep -Eq '"trigger"[[:space:]]*:[[:space:]]*"restart"' "$_flag"; then
+        echo "a restart is still running. Wait for it to finish, then run the same install command again: $STATBUS_INSTALL_RERUN_COMMAND" >&2
+        exit 78
     fi
 
     # CONTENDED. Never wait silently: an upgrade can hold this for many minutes,
@@ -435,7 +464,10 @@ statbus_repo_lock_acquire() {
 
     if perl -e 'use Fcntl ":flock"; open(my $f, "<&=9") or exit 2; exit(flock($f, LOCK_EX) ? 0 : 1);'; then
         echo "Upgrade mutex acquired; continuing." >&2
-        _statbus_write_install_flag
+        if [ ! -s "$_flag" ]; then
+            _statbus_write_install_flag
+            STATBUS_REPO_LOCK_OWN_FLAG=1
+        fi
         STATBUS_REPO_LOCK_HELD=1
     else
         echo "Warning: could not acquire the upgrade mutex; continuing without it." >&2
@@ -447,9 +479,12 @@ statbus_repo_lock_acquire() {
 # left behind is state the next run has to reason about.
 statbus_repo_lock_release() {
     [ -n "$STATBUS_REPO_LOCK_HELD" ] || return 0
-    rm -f "$STATBUS_DIR/tmp/upgrade-in-progress.json" 2>/dev/null || true
+    if [ -n "$STATBUS_REPO_LOCK_OWN_FLAG" ]; then
+        rm -f "$STATBUS_DIR/tmp/upgrade-in-progress.json" 2>/dev/null || true
+    fi
     exec 9>&- 2>/dev/null || true
     STATBUS_REPO_LOCK_HELD=""
+    STATBUS_REPO_LOCK_OWN_FLAG=""
 }
 
 statbus_repo_lock_acquire
@@ -605,7 +640,7 @@ elif [ -n "$COMMIT_SHA" ]; then
     if ! statbus_git_fetch origin "$COMMIT_SHA"; then
         echo "Error: git fetch origin ${COMMIT_SHA} failed — is the commit pushed to origin?" >&2
         echo "  --commit checks out an exact origin commit; push it to origin first." >&2
-        echo "  Then run: curl -fsSL https://statbus.org/install.sh | bash" >&2
+        echo "  Then run: $STATBUS_INSTALL_RERUN_COMMAND" >&2
         exit 1
     fi
     git -c advice.detachedHead=false checkout --detach "${COMMIT_SHA}^{commit}"
@@ -718,11 +753,11 @@ trap - ERR
 install_output="$STATBUS_DIR/tmp/install-last-run-output.txt"
 mkdir -p "$STATBUS_DIR/tmp"
 if [ "$tty_available" = true ]; then
-    (exec </dev/tty; STATBUS_INSTALL_PROMPTS_TO_TTY=1 ./sb install ${SB_INSTALL_ARGS[@]+"${SB_INSTALL_ARGS[@]}"}) >"$install_output" 2>&1
-    sb_rc=$?
+    (exec </dev/tty; STATBUS_INSTALL_PROMPTS_TO_TTY=1 ./sb install ${SB_INSTALL_ARGS[@]+"${SB_INSTALL_ARGS[@]}"}) 2>&1 | tee "$install_output" | awk -f "$STATBUS_DIR/ops/install-terminal-output.awk"
+    sb_rc=${PIPESTATUS[0]}
 else
-    ./sb install ${SB_INSTALL_ARGS[@]+"${SB_INSTALL_ARGS[@]}"} >"$install_output" 2>&1
-    sb_rc=$?
+    ./sb install ${SB_INSTALL_ARGS[@]+"${SB_INSTALL_ARGS[@]}"} 2>&1 | tee "$install_output" | awk -f "$STATBUS_DIR/ops/install-terminal-output.awk"
+    sb_rc=${PIPESTATUS[0]}
 fi
 trap 'rc=$?; echo "" >&2; echo "install.sh FAILED at line $LINENO: $BASH_COMMAND (exit $rc)" >&2' ERR
 set -e
@@ -739,7 +774,10 @@ set -e
 statbus_repo_lock_release
 
 if [ "$sb_rc" -eq 0 ]; then
-    grep -E '^\[[0-9]+/[0-9]+\] .+ (OK|DONE)$|^Installation complete!$|^All steps complete\.' "$install_output" || true
+    # This is public DNS guidance from validated configuration, not arbitrary log output.
+    if [ -n "${STATBUS_ENV_CONFIG:-}" ]; then
+        grep -E '^  [A-Za-z0-9.-]+ (is not confirmed in public DNS|appears in public DNS)' "$install_output" | tail -1 || true
+    fi
     exit 0
 fi
 
@@ -750,8 +788,12 @@ fi
 if [ "$sb_rc" -eq 78 ]; then
     if grep -Fq 'stdin is not a terminal (running under a pipe?). Run interactively with a terminal on stdin, or provide STATBUS_ENV_CONFIG for unattended install.' "$install_output"; then
         echo 'stdin is not a terminal (running under a pipe?). Run interactively with a terminal on stdin, or provide STATBUS_ENV_CONFIG for unattended install.'
+    elif grep -Eq '^(port [0-9]+ is in use by |Only [0-9]+ GB free on |cannot check disk space at |a restart is still running)' "$install_output"; then
+        # Only these known, single-line operator remedies may cross the
+        # install log boundary. Never print an arbitrary exception or traceback.
+        grep -E '^(port [0-9]+ is in use by |Only [0-9]+ GB free on |cannot check disk space at |a restart is still running)' "$install_output" | tail -1
     else
-        echo 'Installation cannot start with the current settings. Correct the settings, then run: curl -fsSL https://statbus.org/install.sh | bash'
+        echo "Installation cannot start with the current settings. Correct the settings, then run: $STATBUS_INSTALL_RERUN_COMMAND"
         preflight_bundle=$(grep -F 'send this file to StatBus support: ' "$install_output" | tail -1 | sed -E 's/^.*send this file to StatBus support: //' || true)
         case "$preflight_bundle" in
             "$STATBUS_DIR"/support-bundle-*.txt)
@@ -780,7 +822,7 @@ if [ "$sb_rc" -eq 75 ]; then
     echo "version cleanly. Services are running; the maintenance banner is off."
     echo ""
     echo "After addressing the root cause, run:"
-    echo "    curl -fsSL https://statbus.org/install.sh | bash"
+    echo "    $STATBUS_INSTALL_RERUN_COMMAND"
     echo "==============================================================================="
     exit 0
 fi
@@ -793,7 +835,11 @@ fi
 terminal_file="$STATBUS_DIR/tmp/install-terminal.txt"
 failed_step=$(grep -E '^\[[0-9]+/[0-9]+\] .+ +FAILED: ' "$install_output" | tail -1 || true)
 if [ -n "$failed_step" ]; then
-    failure_detail=$(printf '%s\n' "$failed_step" | sed -E 's/^\[([0-9]+\/[0-9]+)\] ([^ ]([^ ]| +[^ ])*) +FAILED: .*/step \1 (\2) failed: this part of installation could not finish/')
+    failure_detail=$(grep -E '^INSTALL_CAUSE: (port [0-9]+ is in use by [[:print:]]+|The disk ran out of free space\.|Docker is not running\.|The installer cannot access Docker\.|A required image could not be downloaded\.|The database did not become reachable after it started\.|The database rejected its password\.|The user service manager is unavailable\.|The source update could not be fetched\.|The release signature could not be verified\.|The [A-Za-z +]+ step could not finish; the details are in the support file\.)$' "$install_output" | tail -1 | sed 's/^INSTALL_CAUSE: //' || true)
+    failure_fix=$(grep -E '^INSTALL_FIX: (Free space on the installation disk and Docker storage, then retry\.|Start Docker and then retry\.|Give this user access to the Docker socket, then retry\.|Check registry access, DNS and image credentials, then retry\.|Check Docker and database service health, then retry\.|Check the saved database credentials and synchronize them with the running database, then retry\.|Enable linger for the installation user and start its systemd user manager, then retry\.|Check network access and Git repository permissions, then retry\.|Verify the release signer and approve a trusted signer before retrying\.)$' "$install_output" | tail -1 | sed 's/^INSTALL_FIX: //' || true)
+    if [ -z "$failure_detail" ]; then
+        failure_detail=$(printf '%s\n' "$failed_step" | sed -E 's/^\[([0-9]+\/[0-9]+)\] ([^ ]([^ ]| +[^ ])*) +FAILED: .*/step \1 (\2) failed: this part of installation could not finish/')
+    fi
     if printf '%s\n' "$failure_detail" | grep -Eiq 'INVARIANT|state:|step-table|pgx|\(target=|[A-Z][A-Z0-9]*_[A-Z_]{3,}'; then
         failure_detail="an installation step could not finish"
     fi
@@ -823,8 +869,9 @@ fi
 echo ""
 echo "The installation stopped before it could finish."
 echo "Cause: $failure_detail"
+if [ -n "${failure_fix:-}" ]; then echo "Outside fix: $failure_fix"; fi
 echo "Then run the same install command again:"
-echo "    curl -fsSL https://statbus.org/install.sh | bash"
+echo "    $STATBUS_INSTALL_RERUN_COMMAND"
 if [ -n "$bundle_path" ]; then
     echo "If it stops at the same place again, send this file to StatBus support: $bundle_path"
 else

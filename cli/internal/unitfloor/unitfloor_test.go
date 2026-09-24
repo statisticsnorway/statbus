@@ -94,6 +94,15 @@ func TestDriftedUnitIsDetected(t *testing.T) {
 	}
 }
 
+func TestUnitRepairPreservesInstallInvocation(t *testing.T) {
+	command := "curl -fsSL https://statbus.org/install.sh | bash -s -- --channel prerelease"
+	t.Setenv("STATBUS_INSTALL_RERUN_COMMAND", command)
+	msg := (Report{State: UnitFileMissing}).Announce()
+	if !strings.Contains(msg, command) {
+		t.Fatalf("repair hint lost selected channel: %s", msg)
+	}
+}
+
 func TestActivatingUnitIsTreatedAsRunning(t *testing.T) {
 	if !systemdActivityIsRunning("activating\n", errors.New("systemctl exits nonzero while activating")) {
 		t.Fatal("actual systemctl output activating must be treated as running")

@@ -21,10 +21,10 @@
 #        upgrade service never connected, timing out at step 17.
 #
 # EXPECTED BEHAVIOUR (the operator never runs anything but the install command):
-#   a. install.sh while port 80 is held: step 8 "Services" FAILS and names the
-#      web server; the DB volume exists.
-#   b. Port 80 freed, `./sb install` again: detected as fresh-db-incomplete
-#      (never "pre-1.0"), continues, completes, API /ready answers 200.
+#   a. install.sh while port 80 is held: Services FAILS or the earlier port
+#      preflight refuses; the terminal names port 80 and how to free it.
+#   b. Port 80 freed, `./sb install` again: completes without "pre-1.0";
+#      when Services failed after DB creation it detects fresh-db-incomplete.
 #   c. `docker compose down; rm -rf ~/statbus` (volume KEPT), install.sh again:
 #      step 8 makes the database passwords match the new .env.credentials,
 #      rest runs without restarting, /ready 200, the upgrade service is active,
@@ -76,7 +76,7 @@ assert_proxy_published_ports() {
 }
 
 # ─────────────────────────────────────────────────────────────────────────
-# Phase a — port 80 is held by another program; step 8 must fail and say so.
+# Phase a — port 80 is held by another program; preflight or step 8 refuses.
 # ─────────────────────────────────────────────────────────────────────────
 echo ""
 echo "── phase a: install.sh while port 80 is held ──"
@@ -85,17 +85,19 @@ harness_register_log port80-squatter /tmp/http80.log
 set +e
 install_statbus_in_vm "$VM_NAME"
 set -e
-if ! grep -E '^\[[0-9]+/[0-9]+\] Services +FAILED' "$INSTALL_LOG" >/dev/null; then
-    echo "✗ phase a: step 'Services' did not fail while port 80 was held" >&2
+if grep -E '^\[[0-9]+/[0-9]+\] Services +FAILED' "$INSTALL_LOG" >/dev/null; then
+    PORT_REFUSED_AT=services
+elif grep -E '^port 80 is in use by ' "$INSTALL_LOG" >/dev/null; then
+    PORT_REFUSED_AT=preflight
+else
+    echo "✗ phase a: neither Services FAILED nor the port preflight refusal was visible" >&2
     exit 1
 fi
-if ! grep -F 'the web server (proxy)' "$INSTALL_LOG" >/dev/null; then
-    echo "✗ phase a: the failure does not name the web server in plain words" >&2
+if ! grep -E '^(Cause: )?port 80 is in use by (python3|another program)' "$INSTALL_LOG" >/dev/null || ! grep -E 'sudo (kill|ss|systemctl)' "$INSTALL_LOG" >/dev/null; then
+    echo "✗ phase a: terminal did not name port 80 and a command to free it" >&2
     exit 1
 fi
-VOLUME=$(VM_EXEC bash -c "docker volume ls --format '{{.Name}}' | grep -E '^statbus-.*-db-data\$' | head -1" | tr -d '\r\n')
-[ -n "$VOLUME" ] || { echo "✗ phase a: no database volume was created" >&2; exit 1; }
-echo "  ✓ phase a: Services FAILED naming the web server; volume $VOLUME exists"
+echo "  ✓ phase a: $PORT_REFUSED_AT refused occupied port 80 with actionable cause"
 
 # ─────────────────────────────────────────────────────────────────────────
 # Phase b — free port 80, rerun the install: it continues, never "pre-1.0".
@@ -111,11 +113,12 @@ if grep -F 'pre-1.0 install detected' "$INSTALL_LOG" >/dev/null; then
     echo "✗ phase b: the rerun was refused as a pre-1.0 install" >&2
     exit 1
 fi
-grep -F 'Detected install state: fresh-db-incomplete' "$INSTALL_LOG" >/dev/null || {
-    echo "✗ phase b: expected 'Detected install state: fresh-db-incomplete'" >&2
-    grep -F 'Detected install state' "$INSTALL_LOG" >&2 || true
-    exit 1
-}
+if [ "$PORT_REFUSED_AT" = services ]; then
+    grep -F 'Detected install state: fresh-db-incomplete' "$INSTALL_LOG" >/dev/null || {
+        echo "✗ phase b: expected 'Detected install state: fresh-db-incomplete'" >&2
+        exit 1
+    }
+fi
 grep -F 'All services are running and the API is ready.' "$INSTALL_LOG" >/dev/null || {
     echo "✗ phase b: the install did not confirm the API is ready" >&2
     exit 1
@@ -123,7 +126,9 @@ grep -F 'All services are running and the API is ready.' "$INSTALL_LOG" >/dev/nu
 [ "$(rest_admin_ready)" = 200 ] || { echo "✗ phase b: rest /ready is not 200" >&2; exit 1; }
 assert_proxy_published_ports
 assert_systemd_active "$VM_NAME"
-echo "  ✓ phase b: continued as fresh-db-incomplete, proxy published 5431/80/443, upgrade service active, /ready 200"
+VOLUME=$(VM_EXEC bash -c "docker volume ls --format '{{.Name}}' | grep -E '^statbus-.*-db-data\$' | head -1" | tr -d '\r\n')
+[ -n "$VOLUME" ] || { echo "✗ phase b: no database volume was created" >&2; exit 1; }
+echo "  ✓ phase b: proxy published 5431/80/443, upgrade service active, /ready 200"
 
 USERS_BEFORE=$(VM_EXEC bash -c "cd ~/statbus && ./sb psql -X -t -A -c 'SELECT count(*) FROM auth.user;'" | tr -d ' \r\n')
 [ "${USERS_BEFORE:-0}" -gt 0 ] || { echo "✗ phase b: no users were created" >&2; exit 1; }

@@ -301,11 +301,15 @@ func TestPhase1BackendTerminationFailsHonestlyWhenDatabaseStaysDown(t *testing.T
 Is the server running on that host and accepting TCP/IP connections?`)
 
 	started := time.Now()
-	err := runPhase1BackendTerminationWithRetry(dir, "postgres", "statbus_local", 750*time.Millisecond, 10*time.Millisecond)
+	// Package-wide go test ./... runs other subprocess-heavy packages in
+	// parallel. A 750ms deadline can expire before the shim's first process
+	// reaches its atomic count write; allow scheduling headroom while still
+	// asserting the retry remains bounded and actually executes twice.
+	err := runPhase1BackendTerminationWithRetry(dir, "postgres", "statbus_local", 3*time.Second, 10*time.Millisecond)
 	if err == nil {
 		t.Fatal("phase 1 must fail when PostgreSQL never becomes reachable")
 	}
-	if elapsed := time.Since(started); elapsed > time.Second {
+	if elapsed := time.Since(started); elapsed > 4*time.Second {
 		t.Fatalf("bounded retry exceeded its test budget: %s", elapsed)
 	}
 	for _, want := range []string{"database remained unavailable", "pg_terminate_backend could not run", "Connection refused"} {

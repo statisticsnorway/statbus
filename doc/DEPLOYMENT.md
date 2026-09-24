@@ -78,7 +78,7 @@ This section covers deploying StatBus for a single country or organization.
 - **OS**: Linux (Ubuntu 26.04 LTS is the primary tested OS; Ubuntu 24.04 LTS remains supported)
 - **CPU**: 4 cores minimum
 - **RAM**: 16 GB minimum
-- **Disk**: 100 GB minimum (depends on data volume)
+- **Disk**: 20 GB free minimum on both Docker storage and the backup filesystem; 40 GB free recommended for getting started. Plan more capacity as data grows.
 - **Network**: Public IP address with open ports 80, 443, 5432
 
 **Software Requirements**:
@@ -304,23 +304,13 @@ cd statbus
 git config core.hooksPath .githooks
 ```
 
-#### 3. Create Users File
+#### 3. Create the first administrator during installation
 
-```bash
-cp .users.example .users.yml
-nano .users.yml  # Edit to add your admin users
-```
-
-Example `.users.yml`:
-```yaml
-users:
-  - email: admin@example.com
-    password: your-secure-password
-    role: admin_user
-  - email: analyst@example.com
-    password: another-secure-password
-    role: regular_user
-```
+Run `./sb install` as the application user. If no `.users.yml` is present, it
+asks for the first administrator's email and name, then reads and confirms the
+password without echoing it. Do not put a plaintext password in the deployment
+guide or a shell command. For automated installation only, supply an explicit
+`STATBUS_USERS_FILE` path to a protected answers file.
 
 #### 4. Generate Configuration
 
@@ -352,11 +342,7 @@ CADDY_DEPLOYMENT_MODE=standalone
 # Your public domain
 SITE_DOMAIN=statbus.example.com
 
-# Port configuration (default values work for standalone)
-CADDY_HTTP_BIND_ADDRESS=0.0.0.0
-CADDY_HTTPS_BIND_ADDRESS=0.0.0.0
-CADDY_DB_BIND_ADDRESS=0.0.0.0
-CADDY_DB_PORT=5432  # Standard PostgreSQL port
+# Network addresses and ports are computed from deployment mode and slot.
 ```
 
 After editing, regenerate:
@@ -502,8 +488,7 @@ StatBus uses a layered configuration approach:
 **Network Configuration**:
 - `CADDY_HTTP_BIND_ADDRESS`: IP for HTTP (default: `0.0.0.0`)
 - `CADDY_HTTPS_BIND_ADDRESS`: IP for HTTPS (default: `0.0.0.0`)
-- `CADDY_DB_BIND_ADDRESS`: IP for PostgreSQL (default: `0.0.0.0`)
-- `CADDY_DB_PORT`: PostgreSQL port (default: 5432 for standalone, 3024 for development)
+- `CADDY_DB_BIND_ADDRESS` and `CADDY_DB_PORT`: generated from deployment mode and slot, not operator inputs
 
 **Deployment Mode**:
 - `CADDY_DEPLOYMENT_MODE`: `development` | `standalone` | `private`
@@ -603,31 +588,9 @@ The `caddy/data/` directory is gitignored to protect sensitive private keys.
 
 #### 1. Prepare Certificate Files
 
-**Option A: Converting from PFX/PKCS#12 format (most common)**
+**Option A: Converting from PFX/PKCS#12 format**
 
-Many certificate providers deliver certificates as `.pfx` or `.p12` files (password-protected). Use the included conversion script:
-
-```bash
-./ops/convert-pfx-cert.sh /path/to/certificate.pfx domain-name
-```
-
-The script will:
-- Prompt for the PFX password
-- Extract the certificate chain and private key
-- Place files in `caddy/data/custom-certs/`
-- Set secure permissions
-- **Automatically update `.env.config`** with the certificate paths
-- **Automatically regenerate** the Caddy configuration
-- **Offer to restart Caddy** to apply the new certificate
-
-Example:
-```bash
-./ops/convert-pfx-cert.sh ~/Downloads/statbus-albania.pfx albania
-# Enter password when prompted
-# Script handles everything - just confirm the Caddy restart
-```
-
-That's it! The script handles the entire process end-to-end.
+If your provider supplies a `.pfx` or `.p12` file, extract the certificate and key with OpenSSL into protected files, then configure the certificate paths as described below. Do not commit private keys.
 
 **Option B: From separate PEM files**
 

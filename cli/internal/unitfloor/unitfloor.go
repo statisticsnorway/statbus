@@ -36,6 +36,8 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+
+	"github.com/statisticsnorway/statbus/cli/internal/diskpolicy"
 )
 
 // State is the specific way a box can sit below its floor. The states are
@@ -127,7 +129,7 @@ func (r Report) Announce() string {
 	}
 	b.WriteString("║\n")
 	b.WriteString("║ FIX — run:\n")
-	b.WriteString("║     curl -fsSL https://statbus.org/install.sh | bash\n")
+	b.WriteString("║     " + diskpolicy.RerunCommand() + "\n")
 	b.WriteString("╚════════════════════════════════════════════════")
 	return b.String()
 }

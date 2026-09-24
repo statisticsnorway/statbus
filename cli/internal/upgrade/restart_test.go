@@ -44,6 +44,33 @@ func TestRestartMarkerSurvivesDaemonRecovery(t *testing.T) {
 	}
 }
 
+func TestInterruptedAndLiveRestartClassification(t *testing.T) {
+	dir := t.TempDir()
+	lock, _, _, err := AcquireRestartFlag(dir, "all")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := PrepareRestart(lock, RestartIntent{Profile: "all", Prepared: true}); err != nil {
+		t.Fatal(err)
+	}
+	if !IsFlockHeld(dir) {
+		t.Fatal("live restart lock not held")
+	}
+	if retry, _, _, err := AcquireRestartFlag(dir, "all"); err == nil {
+		retry.Close()
+		t.Fatal("live restart was taken over")
+	}
+	lock.Close()
+	if IsFlockHeld(dir) {
+		t.Fatal("interrupted restart lock still held")
+	}
+	retry, intent, _, err := AcquireRestartFlag(dir, "all")
+	if err != nil || intent == nil || intent.Profile != "all" || !intent.Prepared {
+		t.Fatalf("stale intent lost: %+v %v", intent, err)
+	}
+	retry.Close()
+}
+
 func TestRestartRefusesMissingPayload(t *testing.T) {
 	dir := t.TempDir()
 	lock, err := acquireFreshFlock(dir, UpgradeFlag{Holder: HolderInstall, Trigger: "restart"})
