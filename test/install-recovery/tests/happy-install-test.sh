@@ -16,7 +16,13 @@ cleanup_vm() { echo cleanup >> "$TRACE"; }
 VM_SCRIPT() { echo operator-settings >> "$TRACE"; [ "${FAULT:-}" != operator-settings ]; }
 VM_EXEC() {
     echo "query:$*" >> "$TRACE"
-    case "$*" in
+	case "$*" in
+		*'/tmp/statbus-install.sh --non-interactive'*)
+			[ "${FAULT:-}" != rerun ] || return 45
+			for n in $(seq 1 17); do
+				if [ "$n" = 12 ]; then printf '[12/17] Seed                 OK\n'; else printf '[%d/17] Step%-16d OK\n' "$n" "$n"; fi
+			done
+			;;
         *CADDY_DEPLOYMENT_MODE*) echo "${INSTALLED_MODE:-private}" ;;
         *UPGRADE_CHANNEL*) [ "${FAULT:-}" != channel-transport ] || return 44; echo "${INSTALLED_CHANNEL:-stable}" ;;
         *--version*) [ "${FAULT:-}" != transport ] || return 42
@@ -54,12 +60,14 @@ fi
 grep -Fq 'ORDER BY id DESC LIMIT 1' "$TRACE"
 grep -Fxq health "$TRACE"
 grep -Fxq operator-settings "$TRACE"
+grep -Fq '/tmp/statbus-install.sh --non-interactive' "$TRACE"
+! grep -Fq 'https://statbus.org/install.sh' "$TRACE"
 # Operator tuning must follow the on-box identity checks and initial health.
 identity_line=$(grep -n 'ORDER BY id DESC LIMIT 1' "$TRACE" | cut -d: -f1)
 operator_line=$(grep -n '^operator-settings$' "$TRACE" | cut -d: -f1)
 [ "$identity_line" -lt "$operator_line" ]
 echo 'PASS: candidate selected, installed, binary/ledger/health checked'
-for assignment in BINARY_VERSION=v2026.08.1 ROW_VERSION=v2026.08.1 ROW_SHA=deadbeef ROW_STATE=failed FAULT=transport FAULT=sql FAULT=empty-row FAULT=health FAULT=operator-settings FAULT=channel-transport INSTALLED_MODE=development INSTALLED_CHANNEL=local HARNESS_DEPLOYMENT_MODE=development HARNESS_UPGRADE_CHANNEL=prerelease INSTALL_TARGET_TAG=v2026.08.1 INSTALL_TARGET_TAG=not-a-release; do
+for assignment in BINARY_VERSION=v2026.08.1 ROW_VERSION=v2026.08.1 ROW_SHA=deadbeef ROW_STATE=failed FAULT=transport FAULT=sql FAULT=empty-row FAULT=health FAULT=operator-settings FAULT=channel-transport FAULT=rerun INSTALLED_MODE=development INSTALLED_CHANNEL=local HARNESS_DEPLOYMENT_MODE=development HARNESS_UPGRADE_CHANNEL=prerelease INSTALL_TARGET_TAG=v2026.08.1 INSTALL_TARGET_TAG=not-a-release; do
     : > "$TRACE"
     if env "$assignment" bash "$SCENARIO" > "$TMP_ROOT/output" 2>&1; then
         echo "FAIL: accepted $assignment" >&2; exit 1

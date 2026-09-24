@@ -335,7 +335,7 @@ procure_sb_from_commit_image() {
     docker cp "${sb_cid}:/sb" "${STATBUS_DIR}/sb"
     docker rm "$sb_cid" >/dev/null 2>&1 || true
     chmod +x "${STATBUS_DIR}/sb"
-    echo "Binary: $(./sb --version)"
+    echo "Installed program: $(./sb --version)"
     echo ""
 }
 
@@ -630,7 +630,7 @@ if [ -z "${SKIP_BINARY_DOWNLOAD:-}" ]; then
         echo "Updating existing installation..."
         mv "${HOME}/sb.tmp" "${STATBUS_DIR}/sb"
         cd "$STATBUS_DIR"
-        echo "Binary: $(./sb --version)"
+        echo "Installed program: $(./sb --version)"
         echo ""
         echo "Checking out $VERSION..."
         # Ensure db-seed is in origin's refspec so the subsequent
@@ -682,7 +682,7 @@ if [ -z "${SKIP_BINARY_DOWNLOAD:-}" ]; then
         git -C "$STATBUS_DIR" -c advice.detachedHead=false checkout --detach "${VERSION}^{commit}"
         mv "${HOME}/sb.tmp" "${STATBUS_DIR}/sb"
         cd "$STATBUS_DIR"
-        echo "Binary: $(./sb --version)"
+        echo "Installed program: $(./sb --version)"
         echo ""
     fi
 fi
@@ -775,9 +775,9 @@ fi
 # 1. Named failure detail, when a guard site recorded one.
 terminal_file="$STATBUS_DIR/tmp/install-terminal.txt"
 if [ -s "$terminal_file" ]; then
-    invariant_line=$(tail -1 "$terminal_file")
+    failure_detail=$(tail -1 "$terminal_file" | sed -E 's/^INVARIANT [^ ]+ violated: //')
 else
-    invariant_line="./sb install stopped with exit $sb_rc"
+    failure_detail="the installer returned exit code $sb_rc"
 fi
 
 # 2. Support bundle, gathered without printing internal diagnostics.
@@ -789,13 +789,14 @@ fi
 # 3. Admin-UI state (best-effort — ./sb support write-admin-ui-row exits 0
 #    when the DB is unreachable; we ignore the exit code either way).
 ./sb support write-admin-ui-row \
-    --message "$invariant_line" \
+    --message "$failure_detail" \
     --bundle-path "${bundle_path:-}" \
     >/dev/null 2>&1 || true
 
 # 4. Operator-facing instruction.
 echo ""
-echo "The installation stopped: $invariant_line"
+echo "The installation stopped before it could finish."
+echo "Cause: $failure_detail"
 echo "Then run the same install command again:"
 echo "    curl -fsSL https://statbus.org/install.sh | bash"
 if [ -n "$bundle_path" ]; then

@@ -221,7 +221,7 @@ echo "── recovery: removing C11 drop-in + release file ──"
 VM_EXEC bash -c "systemctl --user stop statbus-upgrade@statbus.service 2>/dev/null || true; rm -f $DROPIN_FILE; systemctl --user daemon-reload; rm -f $RELEASE_FILE"
 
 echo "── restarting upgrade-service without injection ──"
-RECOVERY_SINCE=$(date --iso-8601=seconds)
+RECOVERY_SINCE=$(VM_EXEC date --iso-8601=seconds)
 vm_start_unit "statbus-upgrade@statbus.service"
 echo "  ✓ unit active after recovery"
 RECOVERED_START_JOURNAL=$(mktemp)

@@ -17,7 +17,13 @@ func TestOperatorRerunHintsUsePublicInstallCommand(t *testing.T) {
 			t.Fatal(err)
 		}
 		body := string(data)
-		for _, forbidden := range []string{"re-run: ./sb install", "Steps 1-"} {
+		for _, forbidden := range []string{
+			"re-run: ./sb install",
+			"Re-run without sudo to verify: ./sb install",
+			"Then re-run ./sb install",
+			"Management: cd ",
+			"Steps 1-",
+		} {
 			if strings.Contains(body, forbidden) {
 				t.Errorf("%s contains forbidden operator rerun hint %q", path, forbidden)
 			}

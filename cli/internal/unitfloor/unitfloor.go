@@ -238,6 +238,10 @@ func UserUnitPath() string {
 
 func isActiveSystemd(instance string) bool {
 	out, err := exec.Command("systemctl", "--user", "is-active", instance).Output()
-	state := strings.TrimSpace(string(out))
+	return systemdActivityIsRunning(string(out), err)
+}
+
+func systemdActivityIsRunning(output string, err error) bool {
+	state := strings.TrimSpace(output)
 	return err == nil || state == "active" || state == "activating"
 }

@@ -8,8 +8,10 @@
 package config
 
 import (
+	"bytes"
 	"crypto/rand"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"math"
 	"math/big"
@@ -1170,7 +1172,12 @@ func generateCaddyFiles(derived *Derived, cfg *ConfigEnv, projDir string, verbos
 // Generate runs the full config generation pipeline.
 // This is the main entry point called by `sb config generate`.
 func Generate(verbose bool) error {
-	projDir := ProjectDir()
+	return GenerateInDir(ProjectDir(), verbose)
+}
+
+// GenerateInDir runs config generation for an explicit checkout. Install uses
+// this instead of inheriting the caller's cwd, which may be outside StatBus.
+func GenerateInDir(projDir string, verbose bool) error {
 
 	creds, err := loadOrGenerateCredentials(projDir, verbose)
 	if err != nil {
@@ -1244,8 +1251,53 @@ func Generate(verbose bool) error {
 		return fmt.Errorf("generate maintenance contact: %w", err)
 	}
 
-	fmt.Println("Config generated successfully.")
+	if verbose {
+		fmt.Println("Config generated successfully.")
+	}
 	return nil
+}
+
+// GeneratedFilesMatch renders the generated settings in an isolated temporary
+// checkout and compares them with projDir. It never writes inside projDir.
+func GeneratedFilesMatch(projDir string) bool {
+	tmpDir, err := os.MkdirTemp("", "statbus-settings-check-*")
+	if err != nil {
+		return false
+	}
+	defer func() { _ = os.RemoveAll(tmpDir) }()
+	for _, rel := range []string{".env.config", ".env.credentials"} {
+		data, readErr := os.ReadFile(filepath.Join(projDir, rel))
+		if readErr != nil || os.WriteFile(filepath.Join(tmpDir, rel), data, 0600) != nil {
+			return false
+		}
+	}
+	if err := os.CopyFS(filepath.Join(tmpDir, "caddy", "templates"), os.DirFS(filepath.Join(projDir, "caddy", "templates"))); err != nil {
+		return false
+	}
+	if err := GenerateInDir(tmpDir, false); err != nil {
+		return false
+	}
+	generated := []string{".env", "ops/maintenance/contact.js"}
+	for _, name := range CaddyConfigFiles {
+		generated = append(generated, filepath.Join("caddy", "config", name))
+	}
+	for _, rel := range generated {
+		want, wantErr := os.ReadFile(filepath.Join(tmpDir, rel))
+		got, gotErr := os.ReadFile(filepath.Join(projDir, rel))
+		if !errors.Is(wantErr, os.ErrNotExist) && wantErr != nil {
+			return false
+		}
+		if errors.Is(wantErr, os.ErrNotExist) {
+			if !errors.Is(gotErr, os.ErrNotExist) {
+				return false
+			}
+			continue
+		}
+		if gotErr != nil || !bytes.Equal(want, got) {
+			return false
+		}
+	}
+	return true
 }
 
 // EnvKeyRestartClasses returns the restart-class declarations made at each

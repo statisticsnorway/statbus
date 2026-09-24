@@ -102,11 +102,13 @@ assert_systemd_active "$VM_NAME"
 
 echo "── green-box rerun is entirely quiet ──"
 RERUN_LOG=$(mktemp)
-VM_EXEC bash -c "curl -fsSL https://statbus.org/install.sh | bash" >"$RERUN_LOG" 2>&1 || {
+VM_EXEC bash -c "export STATBUS_ENV_CONFIG=\"\$HOME/install-input.env\" STATBUS_USERS_FILE=/tmp/users.yml STATBUS_INSTALL_VERSION='$INSTALL_TARGET_TAG'; STATBUS_MIN_DISK_GB=5 bash /tmp/statbus-install.sh --non-interactive" >"$RERUN_LOG" 2>&1 || {
     cat "$RERUN_LOG" >&2
     exit 1
 }
-grep -Eq '^\[[0-9]+/17\] Images +OK$' "$RERUN_LOG" || { cat "$RERUN_LOG" >&2; echo "green rerun did not report Images OK" >&2; exit 1; }
+STEP_OK_COUNT=$(grep -Ec '^\[[0-9]+/17\] .+ +OK$' "$RERUN_LOG" || true)
+[ "$STEP_OK_COUNT" -eq 17 ] || { cat "$RERUN_LOG" >&2; echo "green rerun reported $STEP_OK_COUNT/17 steps OK" >&2; exit 1; }
+grep -Eq '^\[[0-9]+/17\] Seed +OK$' "$RERUN_LOG" || { cat "$RERUN_LOG" >&2; echo "green rerun did not report Seed OK" >&2; exit 1; }
 ! grep -Eqi '(^|[[:space:]])(pull|pulling|pulled)([[:space:]]|$)' "$RERUN_LOG" || { cat "$RERUN_LOG" >&2; echo "green rerun pulled images" >&2; exit 1; }
 ! grep -Eq '^\[[0-9]+/17\].* +(RUNNING|DONE)$' "$RERUN_LOG" || { cat "$RERUN_LOG" >&2; echo "green rerun changed a step" >&2; exit 1; }
 rm -f "$RERUN_LOG"

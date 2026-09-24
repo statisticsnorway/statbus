@@ -2,12 +2,10 @@ package cmd
 
 import (
 	"bufio"
-	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"log"
 	"os"
 	"os/exec"
@@ -114,6 +112,8 @@ func (stdinNotTerminalError) Error() string { return installinput.StdinNotTermin
 // signing key during install. This runs trust-key add non-interactively before
 // the step table, so cloud.sh can pass it through for fleet-wide key repair.
 var trustGitHubUser string
+var signerPromptAnswered bool
+var signerPromptAccepted bool
 
 // postUpgradeFixup signals that this install invocation is a post-upgrade
 // fixup spawned by the upgrade service itself. It is NOT a user-facing flag —
@@ -142,22 +142,9 @@ pending upgrade. Probes the install state and routes:
   - Live upgrade running    → refuses (points at journalctl).
   - Pre-1.0 database        → refuses (points at the manual upgrade path).
 
-To upgrade an existing install, schedule the target version first:
+For operator installation or repair, use the public installer:
 
-  ./sb upgrade schedule v2026.03.1
-  ./sb install                  # dispatches the scheduled upgrade
-
-Or let the systemd upgrade service pick it up on its next tick.
-
-Example first install (interactive):
-  ./sb install
-
-Example scripted install (non-interactive):
-  STATBUS_ENV_CONFIG=/path/to/install.env ./sb install --non-interactive
-
-Example with statbus.nso.eu domain:
-  ./sb install
-  # Prompts for: mode=standalone, domain=statbus.nso.eu, name=StatBus, code=nso`,
+  curl -fsSL https://statbus.org/install.sh | bash`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		return runInstall()
 	},
@@ -261,6 +248,9 @@ func acquireOrBypass(installDir string, bypass bool) (release func(), err error)
 // to signal "I am the upgrade service's own post-completion fixup, not a
 // conflicting actor."
 func runInstall() (installErr error) {
+	previousAnswered, previousAccepted := signerPromptAnswered, signerPromptAccepted
+	signerPromptAnswered, signerPromptAccepted = false, false
+	defer func() { signerPromptAnswered, signerPromptAccepted = previousAnswered, previousAccepted }()
 	// Resolve once, before fresh setup or existing-install recovery dispatch.
 	effectiveTrust, err := installinput.ResolveTrust(trustGitHubUser, "")
 	if err != nil {
@@ -727,10 +717,10 @@ func runInstall() (installErr error) {
 	steps := []step{
 		{"Prerequisites", checkPrereqDone, runPrereq},
 		{"Repository", checkRepoDone, runCloneRepo},
-		{"Binary", checkBinaryDone, runInstallBinary},
+		{"Program", checkBinaryDone, runInstallBinary},
 		{"Configuration", checkConfigDone, runCreateConfig},
 		{"Credentials", checkCredsDone, runCreateCreds},
-		{"Generated env", checkEnvDone, runGenerateEnv},
+		{"Settings", checkEnvDone, runGenerateEnv},
 		{"Images", checkImagesDone, runPullImages},
 		{"Services", checkServicesDone, runStartServices},
 		// "Apply config changes" is the ONLY step allowed to read the
@@ -868,18 +858,7 @@ func runInstall() (installErr error) {
 		}
 
 		if s.check(installDir) {
-			if s.name == "Seed" {
-				// STATBUS-018: a Seed skip here means checkSeedRestored found
-				// the schema already migrated / populated (its dbHasUserData /
-				// dbHasAppliedMigrations / migrations-done branches; the
-				// services-not-running defensive branch can't reach here — the
-				// Services step precedes Seed). Report it honestly rather than a
-				// bare "OK" so the operator sees the fast-path was deliberately
-				// bypassed, not silently skipped.
-				fmt.Printf("%s SKIPPED — schema already migrated\n", prefix)
-			} else {
-				fmt.Printf("%s OK\n", prefix)
-			}
+			fmt.Printf("%s OK\n", prefix)
 			// If we entered the quiesce window and Migrations was already
 			// done (check passed on re-run after a prior partial install),
 			// exit the window now — the DDL is fait accompli, services
@@ -945,7 +924,8 @@ func runInstall() (installErr error) {
 				fmt.Printf("Visit: https://%s\n", domain)
 			}
 		}
-		fmt.Printf("Management: cd %s && ./sb --help\n", installDir)
+		fmt.Println("To check or repair this installation later, run:")
+		fmt.Println("    curl -fsSL https://statbus.org/install.sh | bash")
 	}
 
 	return nil
@@ -987,30 +967,7 @@ func checkCredsDone(dir string) bool {
 }
 
 func checkEnvDone(dir string) bool {
-	beforeEnv, _ := os.ReadFile(filepath.Join(dir, ".env"))
-	beforeCaddy := snapshotCaddyConfig(dir)
-	beforeContact, _ := os.ReadFile(filepath.Join(dir, "ops", "maintenance", "contact.js"))
-
-	// Generate already renders into memory and writes each generated file only
-	// when its content changed. Silence its success line while this idempotency
-	// check determines whether the step did any work.
-	originalStdout := os.Stdout
-	readEnd, writeEnd, err := os.Pipe()
-	if err != nil {
-		return false
-	}
-	os.Stdout = writeEnd
-	generateErr := config.Generate(false)
-	os.Stdout = originalStdout
-	_ = writeEnd.Close()
-	_, _ = io.Copy(io.Discard, readEnd)
-	_ = readEnd.Close()
-	if generateErr != nil {
-		return false
-	}
-	afterEnv, _ := os.ReadFile(filepath.Join(dir, ".env"))
-	afterContact, _ := os.ReadFile(filepath.Join(dir, "ops", "maintenance", "contact.js"))
-	return bytes.Equal(beforeEnv, afterEnv) && beforeCaddy == snapshotCaddyConfig(dir) && bytes.Equal(beforeContact, afterContact)
+	return config.GeneratedFilesMatch(dir)
 }
 
 func checkImagesDone(dir string) bool {
@@ -1022,12 +979,28 @@ func checkImagesDone(dir string) bool {
 	if err != nil {
 		return false
 	}
-	imagesCmd, buildErr := compose.CommandContext(context.Background(), dir, "--profile", "all", "images", "--format", "json")
+	imagesCmd, buildErr := compose.CommandContext(context.Background(), dir, "--profile", "all", "config", "--images")
 	if buildErr != nil {
 		return false
 	}
 	imagesOut, err := imagesCmd.Output()
-	return err == nil && composeServicesHaveImages(string(servicesOut), imagesOut)
+	if err != nil {
+		return false
+	}
+	images := strings.Fields(string(imagesOut))
+	if len(images) != len(strings.Fields(string(servicesOut))) {
+		return false
+	}
+	for _, image := range images {
+		cmd, buildErr := compose.DockerCommandContext(context.Background(), dir, "image", "inspect", image)
+		if buildErr != nil {
+			return false
+		}
+		if err := cmd.Run(); err != nil {
+			return false
+		}
+	}
+	return true
 }
 
 func composeServicesHaveImages(servicesOutput string, imagesJSON []byte) bool {
@@ -1349,28 +1322,10 @@ func runCreateCreds(dir string) error {
 }
 
 func runGenerateEnv(dir string) error {
-	// Align with latest code — but only if we're on master (not a tag/detached HEAD).
-	// The upgrade service checks out a specific commit; install should respect that.
-	// Legacy servers checked out on an ops branch also need to align with master.
-	branchOut, err := upgrade.RunCommandOutput(dir, "git", "symbolic-ref", "--short", "HEAD")
-	branch := strings.TrimSpace(branchOut)
-	if err == nil && (branch == "master" || strings.HasPrefix(branch, "ops/")) {
-		if err := runCmdDir(dir, "git", "fetch", "origin", "master"); err != nil {
-			log.Printf("git fetch origin master failed (continuing with existing checkout): %v", err)
-		}
-		if err := runCmdDir(dir, "git", "checkout", "master"); err != nil {
-			log.Printf("git checkout master failed (continuing with existing checkout): %v", err)
-		}
-		if err := runCmdDir(dir, "git", "merge", "--ff-only", "origin/master"); err != nil {
-			log.Printf("git merge origin/master failed (continuing with existing checkout): %v", err)
-		}
-	}
-
 	// Migrate .env.config paths from devops/ → ops/ (one-time, idempotent)
 	migrateConfigPaths(dir)
 
-	sb := filepath.Join(dir, "sb")
-	if err := runCmdDir(dir, sb, "config", "generate"); err != nil {
+	if err := config.GenerateInDir(dir, false); err != nil {
 		return err
 	}
 	// Now that config exists, normalize the product-owned fetch configuration.
@@ -2675,10 +2630,15 @@ func runTrustSigners(dir string) error {
 		return trustSignerNonInteractive(trustGitHubUser, f)
 	}
 	if nonInteractive {
-		return installPreflightRefusal("No trusted release signer is configured, and this run cannot ask for approval.\n" +
-			"  The upgrade service requires at least one trusted signer to verify release signatures.\n" +
-			"  Pre-configure before running install:\n" +
-			"    ./sb upgrade trust-key add <github-username>")
+		return errors.New("a trusted release signer is required before StatBus can finish installing.\n" +
+			"Run the installer interactively to approve one:\n    curl -fsSL https://statbus.org/install.sh | bash")
+	}
+	if signerPromptAnswered {
+		if signerPromptAccepted {
+			return nil
+		}
+		return errors.New("a trusted release signer was not approved, so installation cannot continue.\n" +
+			"Run the installer again when you are ready to approve one:\n    curl -fsSL https://statbus.org/install.sh | bash")
 	}
 
 	cfgPath := filepath.Join(dir, ".env.config")
@@ -2697,15 +2657,17 @@ func runTrustSigners(dir string) error {
 	fmt.Printf("    %s (Jorgen H. Fjeld) -- https://github.com/%s\n", defaultSigner, defaultSigner)
 
 	trusted, err := trustSignerInteractive(defaultSigner, f, reader)
+	signerPromptAnswered = true
 	if err != nil {
-		log.Printf("Could not fetch keys for %s: %v", defaultSigner, err)
-		fmt.Println("  You can add trusted signers later with: ./sb upgrade trust-key add <github-username>")
+		log.Printf("Could not fetch the recommended signing key: %v", err)
+		fmt.Println("  Run the installer again to retry: curl -fsSL https://statbus.org/install.sh | bash")
 		return nil // Non-fatal: don't block installation
 	}
 	if !trusted {
-		fmt.Println("  Skipped. You can add trusted signers later with: ./sb upgrade trust-key add <github-username>")
+		fmt.Println("  Approval declined. The installer will stop before changing signer settings.")
 		return nil
 	}
+	signerPromptAccepted = true
 
 	return nil
 }
@@ -3266,7 +3228,7 @@ func runRootInstall() error {
 
 	fmt.Println()
 	fmt.Printf("  Upgrade service installed and started: %s (is-enabled=%s)\n", instance, state)
-	fmt.Println("  Re-run without sudo to verify: ./sb install")
+	fmt.Println("  To verify, run: curl -fsSL https://statbus.org/install.sh | bash")
 	return nil
 }
 
@@ -3402,35 +3364,25 @@ func migrateConfigPaths(dir string) {
 // for DB-vs-disk migration drift (best-effort; failure stays quiet so
 // a DB blip never breaks the install output).
 func logInstallState(projDir string, state install.State, detail *install.Detail) {
-	fmt.Printf("Detected install state: %s (current=%s, target=%s)\n",
-		state, detail.CurrentVersion, detail.TargetVersion)
 	switch state {
 	case install.StateFresh:
-		fmt.Printf("  Fresh install; target version = %s (binary).\n", detail.TargetVersion)
+		fmt.Println("Preparing a new StatBus installation.")
 	case install.StateLiveUpgrade:
-		if detail.Flag != nil {
-			fmt.Printf("  Upgrade in progress (%s). Install will refuse. See which process holds it: lsof tmp/upgrade-in-progress.json\n",
-				detail.Flag.Label())
-		}
+		fmt.Println("An upgrade is already running. Wait for it to finish, then retry if needed.")
 	case install.StateCrashedUpgrade:
-		if detail.Flag != nil {
-			fmt.Printf("  Prior upgrade crashed (%s). Its flock is free (the holder is gone); recovering.\n",
-				detail.Flag.Label())
-		}
+		fmt.Println("The previous upgrade stopped unexpectedly. Recovery will run now.")
 	case install.StateHalfConfigured:
-		fmt.Println("  .env.credentials missing; step-table will generate it.")
+		fmt.Println("Installation settings are incomplete. Repair will run now.")
 	case install.StateDBUnreachable:
-		fmt.Println("  Database not reachable; step-table will start services.")
+		fmt.Println("The database is not available. Repair will run now.")
 	case install.StateLegacyNoUpgradeTable:
-		fmt.Println("  Pre-1.0 install detected (public.upgrade absent). Install will refuse; automatic upgrade from pre-1.0 tracked as #65.6.")
+		fmt.Println("This installation is too old for automatic repair. Follow the documented manual upgrade path.")
 	case install.StateScheduledUpgrade:
-		fmt.Printf("  Upgrade scheduled (id=%d, version=%s). Dispatching inline upgrade.\n",
-			detail.ScheduledRowID, detail.TargetVersion)
+		fmt.Println("A scheduled upgrade is ready and will run now.")
 	case install.StateRestoreReattemptable:
-		fmt.Printf("  A prior rollback's database restore did not finish (row id=%d, snapshot retained). Re-attempting the restore.\n",
-			detail.ReattemptRowID)
+		fmt.Println("A previous database restore did not finish. It will be retried now.")
 	case install.StateNothingScheduled:
-		fmt.Println("  Existing install, no upgrade scheduled; running idempotent step-table to refresh.")
+		fmt.Println("Checking the existing installation.")
 		// Surface DB-vs-disk migration drift so the operator knows
 		// whether the step-table will actually apply migrations.
 		// Pre-fix the diagnostic said "no upgrade scheduled" while
@@ -3445,11 +3397,11 @@ func logInstallState(projDir string, state install.State, detail *install.Detail
 			// Couldn't probe one side; stay quiet rather than
 			// surface a confusing partial diagnostic.
 		case live == onDisk:
-			fmt.Printf("  DB migration_version %s matches on-disk max — step-table is a no-op for migrations.\n", live)
+			fmt.Println("  The database is up to date.")
 		case live < onDisk:
-			fmt.Printf("  DB migration_version %s < on-disk max %s — step-table will apply pending migrations.\n", live, onDisk)
+			fmt.Println("  Database updates will be applied.")
 		default: // live > onDisk
-			fmt.Printf("  DB migration_version %s > on-disk max %s — DB is ahead of this checkout; step-table may down-then-up to converge.\n", live, onDisk)
+			fmt.Println("  The database and installed program differ. Repair will reconcile them.")
 		}
 	}
 	fmt.Println()
@@ -3513,7 +3465,7 @@ func init() {
 		ExpectedToHold:   "Every failed install leaves a greppable breadcrumb in the install log when no upgrade row was created.",
 		WhyExpected:      "The primary installErr return drives the operator-facing failure message. This separate line is support context and must never reach stdout or stderr.",
 		ViolationShape:   "runInstall returns a non-nil installErr while upgradeRowID == 0; install_failed_no_row is appended directly to installLog.File().",
-		TranscriptFormat: "install_failed_no_row violated: detectedState=<state>: <err>",
+		TranscriptFormat: "install_failed_no_row: detectedState=<state>: <err>",
 	})
 	invariants.Register(invariants.Invariant{
 		Name:             "NOTIFY_UPGRADE_CHECK_BEST_EFFORT_LOGGED",

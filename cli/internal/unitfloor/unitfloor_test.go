@@ -1,6 +1,7 @@
 package unitfloor
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
@@ -94,14 +95,8 @@ func TestDriftedUnitIsDetected(t *testing.T) {
 }
 
 func TestActivatingUnitIsTreatedAsRunning(t *testing.T) {
-	dir := writeRepoTemplate(t, shipped)
-	body := shipped
-	withHome(t, &body)
-
-	activating := func(string) bool { return true }
-	r := inspectWith(dir, "statbus_demo", "linux", activating)
-	if r.State != OK || r.Announce() != "" {
-		t.Fatalf("activating service must be silent and healthy, got state=%v announcement=%q", r.State, r.Announce())
+	if !systemdActivityIsRunning("activating\n", errors.New("systemctl exits nonzero while activating")) {
+		t.Fatal("actual systemctl output activating must be treated as running")
 	}
 }
 

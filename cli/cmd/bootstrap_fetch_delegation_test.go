@@ -75,7 +75,7 @@ func TestBootstrapFetchNeverCallsTheBoxBinary(t *testing.T) {
 func TestAllSBInvocationsFollowTargetBinaryPlacement(t *testing.T) {
 	body := installScript(t)
 	want := map[string]int{
-		`echo "Binary: $(./sb --version)"`:                                                           3,
+		`echo "Installed program: $(./sb --version)"`:                                                3,
 		`(exec </dev/tty; ./sb install ${SB_INSTALL_ARGS[@]+"${SB_INSTALL_ARGS[@]}"})`:               1,
 		`./sb install ${SB_INSTALL_ARGS[@]+"${SB_INSTALL_ARGS[@]}"}`:                                 1,
 		`if bundle_path=$(./sb support gather --trigger=install 2>/tmp/sb-support-gather.err); then`: 1,
@@ -106,7 +106,7 @@ func TestAllSBInvocationsFollowTargetBinaryPlacement(t *testing.T) {
 		placement  string
 		invocation string
 	}{
-		{`mv "${HOME}/sb.tmp" "${STATBUS_DIR}/sb"`, `echo "Binary: $(./sb --version)"`},
+		{`mv "${HOME}/sb.tmp" "${STATBUS_DIR}/sb"`, `echo "Installed program: $(./sb --version)"`},
 	} {
 		placement := strings.Index(body, rescueShape.placement)
 		if placement == -1 {

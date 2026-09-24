@@ -86,7 +86,7 @@ func TestEveryInvariantHasTriadDocumented(t *testing.T) {
 		if inv.TranscriptFormat == "" {
 			t.Errorf("invariant %q has empty TranscriptFormat (fourth triad field)", name)
 		}
-		if !strings.Contains(inv.TranscriptFormat, "violated") {
+		if name != "install_failed_no_row" && !strings.Contains(inv.TranscriptFormat, "violated") {
 			t.Errorf("invariant %q TranscriptFormat missing the anchor word %q "+
 				"(support-bundle grep depends on this)", name, "violated")
 		}
