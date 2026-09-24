@@ -29,6 +29,8 @@ Primary records: `/Users/jhf/ssb/statbus/tmp/finland-transcript-2-actual.txt`, `
 
 A Hetzner Ubuntu 26.04 VM confirmed that a port-80 failure after database creation leaves the database reachable without `public.upgrade`. Every rerun was then refused as a pre-1.0 installation by `install/state.go:141-147`, before seed or migrations could continue. This recovery dead end encourages removal of the installation directory while the database volume survives, which can create a credentials split.
 
+Related: STATBUS-411 covers a newly initialized database after removing and recreating its volume, rather than this ticket's interrupted install with the original volume retained. Both need the same state distinction but separate harness scenarios.
+
 ## Proving scenario
 
 In install-recovery, hold port 80 through step 8, confirm the database volume exists, then free the port and run the one install command. The rerun identifies an incomplete fresh installation, resumes at the first incomplete step, and reaches green with the original volume.
