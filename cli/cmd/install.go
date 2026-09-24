@@ -1461,6 +1461,9 @@ func runGenerateEnv(dir string) error {
 func runPullImages(dir string) error {
 	// Try pull first (pre-built from ghcr.io)
 	if err := runCmdDir(dir, "docker", "compose", "--profile", "all", "pull"); err != nil {
+		if !startBuildsFromSource(dir) {
+			return fmt.Errorf("image pull failure: %w", err)
+		}
 		// Fall back to build for services without pre-built images
 		fmt.Println("  Pull incomplete, building remaining images locally...")
 		if buildErr := runCmdDir(dir, "docker", "compose", "--profile", "all", "build"); buildErr != nil {

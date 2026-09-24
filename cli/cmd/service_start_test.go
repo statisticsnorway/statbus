@@ -2,11 +2,40 @@ package cmd
 
 import (
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
 	"github.com/statisticsnorway/statbus/cli/internal/upgrade"
 )
+
+func TestStartImageBasedDevelopmentSkipsBuild(t *testing.T) {
+	t.Setenv("CADDY_DEPLOYMENT_MODE", "development")
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, ".env"), []byte("CADDY_DEPLOYMENT_MODE=development\nVERSION=v2026.09.3\n"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if args := strings.Join(startComposeArgs("all", startBuildsFromSource(dir)), " "); strings.Contains(args, "--build") || !strings.Contains(args, "--no-build") {
+		t.Fatalf("published image start must prohibit local builds: %s", args)
+	}
+}
+
+func TestStartSourceDevelopmentBuilds(t *testing.T) {
+	t.Setenv("CADDY_DEPLOYMENT_MODE", "development")
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, ".env"), []byte("CADDY_DEPLOYMENT_MODE=development\nVERSION=local\n"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if args := strings.Join(startComposeArgs("all", startBuildsFromSource(dir)), " "); !strings.Contains(args, "--build") {
+		t.Fatalf("source development start must build: %s", args)
+	}
+	if err := os.WriteFile(filepath.Join(dir, ".env"), []byte("CADDY_DEPLOYMENT_MODE=development\nVERSION=v2026.09.2-3-g12345678\n"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if !startBuildsFromSource(dir) {
+		t.Fatal("a source commit after a release tag must still build")
+	}
+}
 
 func TestStartServicesRefusesWhileRecoveryFlockHeld(t *testing.T) {
 	dir := t.TempDir()
