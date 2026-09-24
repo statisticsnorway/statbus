@@ -11,7 +11,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/statisticsnorway/statbus/cli/internal/compose"
 	"github.com/statisticsnorway/statbus/cli/internal/diskpolicy"
 	"github.com/statisticsnorway/statbus/cli/internal/dotenv"
 )
@@ -35,7 +34,7 @@ func selectedInstallPorts(mode string, offset int) []installPort {
 
 var listenerProgram = regexp.MustCompile(`users:\(\("([^"]+)"`)
 
-func occupiedPortOwner(port installPort) string {
+var occupiedPortOwner = func(port installPort) string {
 	address := net.JoinHostPort(port.host, strconv.Itoa(port.number))
 	listener, err := net.Listen("tcp", address)
 	if err == nil {
@@ -86,38 +85,39 @@ func portConflictGuidance(number int, owner string) string {
 	return fmt.Sprintf("port %d is in use by %s. %s.", number, owner, remedy)
 }
 
+func ownPublishedPort(statuses []serviceStatus, number int) bool {
+	for _, status := range statuses {
+		for _, publisher := range status.Publishers {
+			if publisher.PublishedPort == number && publisher.Protocol == "tcp" {
+				return true
+			}
+		}
+	}
+	return false
+}
+
 func checkInstallPorts(dir string) error {
 	cfg, err := dotenv.Load(filepath.Join(dir, ".env.config"))
 	if err != nil {
 		return err
 	}
 	mode, _ := cfg.Get("CADDY_DEPLOYMENT_MODE")
-	code, _ := cfg.Get("DEPLOYMENT_SLOT_CODE")
 	offset := 1
 	if raw, ok := cfg.Get("DEPLOYMENT_SLOT_PORT_OFFSET"); ok {
 		if parsed, e := strconv.Atoi(raw); e == nil {
 			offset = parsed
 		}
 	}
-	var own []byte
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-	if inspect, buildErr := compose.DockerCommandContext(ctx, dir, "ps", "--format", "{{.Names}} {{.Ports}}"); buildErr == nil {
-		own, _ = inspect.Output()
-	}
 	for _, p := range selectedInstallPorts(mode, offset) {
 		owner := occupiedPortOwner(p)
 		if owner == "" {
 			continue
 		}
-		ownPort := false
-		for _, line := range strings.Split(string(own), "\n") {
-			if strings.HasPrefix(line, "statbus-"+code+"-") && strings.Contains(line, fmt.Sprintf(":%d->", p.number)) {
-				ownPort = true
-				break
-			}
+		statuses, probeErr := probeServiceStatuses(dir)
+		if probeErr != nil {
+			return fmt.Errorf("port %d is in use, but the installer could not ask Docker which service holds it: %w. Your answers are saved. Then run the same install command again: %s", p.number, probeErr, diskpolicy.RerunCommand())
 		}
-		if ownPort {
+		if ownPublishedPort(statuses, p.number) {
 			continue
 		}
 		return fmt.Errorf("%s Your answers are saved. Then run the same install command again: %s", portConflictGuidance(p.number, owner), diskpolicy.RerunCommand())
