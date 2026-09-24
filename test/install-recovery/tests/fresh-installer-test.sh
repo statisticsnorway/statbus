@@ -94,7 +94,7 @@ FORCE_TERMINAL=1 INSTALL_EXIT=47 bash "$ROOT/install.sh" --version v2026.09.0-rc
 rc=$?
 set -e
 [ "$rc" = 47 ] || { echo "FAIL: terminal failure became $rc"; exit 1; }
-grep -Fq 'database did not become ready' "$TMP_ROOT/terminal-output"
+grep -Fq 'Cause: the installation could not finish its final checks' "$TMP_ROOT/terminal-output"
 ! grep -Fq 'INVARIANT' "$TMP_ROOT/terminal-output"
 echo 'PASS: terminal audit detail is translated to plain operator text'
 

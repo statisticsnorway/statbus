@@ -125,6 +125,8 @@ var postUpgradeFixup bool
 var installCmd = &cobra.Command{
 	Use:   "install",
 	Short: "Install or resume StatBus installation",
+	SilenceErrors: true,
+	SilenceUsage:  true,
 	// install is part of the recovery surface — its job is to fix the
 	// stale-binary state. stalenessGuard rebuilds + re-execs instead of
 	// hard-failing when this annotation is present. See cli/cmd/root.go.
@@ -146,7 +148,16 @@ For operator installation or repair, use the public installer:
 
   curl -fsSL https://statbus.org/install.sh | bash`,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		return runInstall()
+		err := runInstall()
+		if err != nil {
+			var preflight *installPreflightRefusalError
+			if errors.As(err, &preflight) {
+				_, _ = fmt.Fprintln(cmd.ErrOrStderr(), preflight.Error())
+			} else {
+				_, _ = fmt.Fprintln(cmd.ErrOrStderr(), "The installation stopped before it could finish. Check the installation log, correct the problem, then run: curl -fsSL https://statbus.org/install.sh | bash")
+			}
+		}
+		return err
 	},
 }
 
@@ -424,7 +435,8 @@ func runInstall() (installErr error) {
 	if !bypass {
 		state, detail, derr := install.Detect(installDir, version)
 		if derr != nil {
-			log.Printf("State detection failed (continuing with step-table fallback): %v", derr)
+			log.Printf("State detection failed during setup: %v", derr)
+			fmt.Println("The database could not be checked. Continuing with installation repair.")
 		} else {
 			detectedState = state
 			logInstallState(installDir, state, detail)
@@ -479,7 +491,8 @@ func runInstall() (installErr error) {
 					return fmt.Errorf("re-detect after recovery: %w", derr)
 				}
 				detectedState = state
-				fmt.Printf("  State after recovery: %s (target=%s)\n", state, detail.TargetVersion)
+				log.Printf("State after recovery: %s (target=%s)", state, detail.TargetVersion)
+				fmt.Println("Recovery finished. Checking the installation again.")
 			}
 			if handled, err := dispatchInstallState(installDir, state, detail); handled {
 				return err
@@ -622,7 +635,7 @@ func runInstall() (installErr error) {
 			// already set we fall through to the cleanup branch; A10/A11 emit
 			// log-only breadcrumbs if conn/UPDATE fail.
 			if installErr == nil && connErr != nil {
-				fmt.Fprintf(os.Stderr,
+				_, _ = fmt.Fprintf(installLog.File(),
 					"INVARIANT POST_COMPLETION_DB_REACHABLE_AFTER_STEP_TABLE violated: pgx.Connect failed after healthy step-table: %v (install.go:%d, pid=%d)\n",
 					connErr, thisLine(), os.Getpid())
 				markTerminal(installDir, "POST_COMPLETION_DB_REACHABLE_AFTER_STEP_TABLE",
@@ -882,7 +895,8 @@ func runInstall() (installErr error) {
 				fmt.Printf("%s %s\n", prefix, line)
 				continue
 			}
-			fmt.Printf("%s FAILED: %v\n", prefix, err)
+			log.Printf("%s failed: %v", prefix, err)
+			fmt.Printf("%s FAILED: This part of installation could not finish.\n", prefix)
 			if i < total-1 {
 				fmt.Println("\nThen run the same install command again:")
 				fmt.Println("    curl -fsSL https://statbus.org/install.sh | bash")
@@ -2916,9 +2930,7 @@ func completeInstallUpgradeRow(installDir string, conn *pgx.Conn, logRelPath str
 	if sha == "" || commitDate == "" {
 		// A8: GIT_HEAD_RESOLVABLE
 		cwd, _ := os.Getwd()
-		fmt.Fprintln(os.Stderr, "Could not identify the installed StatBus version after setup.")
-		fmt.Fprintln(os.Stderr, "Run the installer again:")
-		fmt.Fprintln(os.Stderr, "    curl -fsSL https://statbus.org/install.sh | bash")
+		log.Printf("Could not identify installed version: sha=%q commitDate=%q cwd=%s", sha, commitDate, cwd)
 		markTerminal(installDir, "GIT_HEAD_RESOLVABLE",
 			fmt.Sprintf("sha=%q; commitDate=%q; cwd=%s", sha, commitDate, cwd))
 		return fmt.Errorf("GIT_HEAD_RESOLVABLE: gitHeadInfo returned empty (sha=%q commitDate=%q)", sha, commitDate)
@@ -2988,9 +3000,7 @@ func completeInstallUpgradeRow(installDir string, conn *pgx.Conn, logRelPath str
 	}
 	if err != nil {
 		// A9: POST_COMPLETION_UPGRADE_ROW_INSERT_SUCCEEDS
-		fmt.Fprintln(os.Stderr, "Could not record the completed installation.")
-		fmt.Fprintln(os.Stderr, "Run the installer again:")
-		fmt.Fprintln(os.Stderr, "    curl -fsSL https://statbus.org/install.sh | bash")
+		log.Printf("Could not record completed installation: %v", err)
 		markTerminal(installDir, "POST_COMPLETION_UPGRADE_ROW_INSERT_SUCCEEDS",
 			fmt.Sprintf("sha=%s; INSERT err=%v", sha, err))
 		return fmt.Errorf("POST_COMPLETION_UPGRADE_ROW_INSERT_SUCCEEDS: %w", err)

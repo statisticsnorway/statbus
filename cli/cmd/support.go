@@ -82,6 +82,9 @@ success so install.sh can capture it for the SYSTEM UNUSABLE banner.`,
 		}
 
 		logPath := latestUpgradeLog(projDir)
+		if trig == "install" {
+			logPath = filepath.Join(projDir, "tmp", "install-last-run-output.txt")
+		}
 
 		outPath := supportGatherOut
 		if outPath == "" {

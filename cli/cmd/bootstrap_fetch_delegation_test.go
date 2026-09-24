@@ -76,8 +76,8 @@ func TestAllSBInvocationsFollowTargetBinaryPlacement(t *testing.T) {
 	body := installScript(t)
 	want := map[string]int{
 		`echo "Installed program: $(./sb --version)"`:                                                               3,
-		`(exec </dev/tty; ./sb install ${SB_INSTALL_ARGS[@]+"${SB_INSTALL_ARGS[@]}"}) 2>&1 | tee "$install_output"`: 1,
-		`./sb install ${SB_INSTALL_ARGS[@]+"${SB_INSTALL_ARGS[@]}"} 2>&1 | tee "$install_output"`:                   1,
+		`(exec </dev/tty; ./sb install ${SB_INSTALL_ARGS[@]+"${SB_INSTALL_ARGS[@]}"}) >"$install_output" 2>&1`: 1,
+		`./sb install ${SB_INSTALL_ARGS[@]+"${SB_INSTALL_ARGS[@]}"} >"$install_output" 2>&1`:                   1,
 		`if bundle_path=$(./sb support gather --trigger=install 2>/tmp/sb-support-gather.err); then`:                1,
 		`./sb support write-admin-ui-row \`:                                                                         1,
 	}

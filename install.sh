@@ -718,11 +718,11 @@ trap - ERR
 install_output="$STATBUS_DIR/tmp/install-last-run-output.txt"
 mkdir -p "$STATBUS_DIR/tmp"
 if [ "$tty_available" = true ]; then
-    (exec </dev/tty; ./sb install ${SB_INSTALL_ARGS[@]+"${SB_INSTALL_ARGS[@]}"}) 2>&1 | tee "$install_output"
-    sb_rc=${PIPESTATUS[0]}
+    (exec </dev/tty; ./sb install ${SB_INSTALL_ARGS[@]+"${SB_INSTALL_ARGS[@]}"}) >"$install_output" 2>&1
+    sb_rc=$?
 else
-    ./sb install ${SB_INSTALL_ARGS[@]+"${SB_INSTALL_ARGS[@]}"} 2>&1 | tee "$install_output"
-    sb_rc=${PIPESTATUS[0]}
+    ./sb install ${SB_INSTALL_ARGS[@]+"${SB_INSTALL_ARGS[@]}"} >"$install_output" 2>&1
+    sb_rc=$?
 fi
 trap 'rc=$?; echo "" >&2; echo "install.sh FAILED at line $LINENO: $BASH_COMMAND (exit $rc)" >&2' ERR
 set -e
@@ -739,6 +739,7 @@ set -e
 statbus_repo_lock_release
 
 if [ "$sb_rc" -eq 0 ]; then
+    grep -E '^\[[0-9]+/[0-9]+\] .+ (OK|DONE)$|^Installation complete!$|^All steps complete\.' "$install_output" || true
     exit 0
 fi
 
@@ -747,6 +748,12 @@ fi
 # contains the exact remedy. This is not an invariant breach, so do not claim
 # the system is unusable and do not generate a support bundle.
 if [ "$sb_rc" -eq 78 ]; then
+    if grep -Fq 'stdin is not a terminal (running under a pipe?). Run interactively with a terminal on stdin, or provide STATBUS_ENV_CONFIG for unattended install.' "$install_output"; then
+        echo 'stdin is not a terminal (running under a pipe?). Run interactively with a terminal on stdin, or provide STATBUS_ENV_CONFIG for unattended install.'
+    else
+        echo 'Installation cannot start with the current settings. Correct the settings, then run: curl -fsSL https://statbus.org/install.sh | bash'
+        echo "Installation diagnostics: $install_output"
+    fi
     exit "$sb_rc"
 fi
 
@@ -781,11 +788,14 @@ fi
 terminal_file="$STATBUS_DIR/tmp/install-terminal.txt"
 failed_step=$(grep -E '^\[[0-9]+/[0-9]+\] .+ +FAILED: ' "$install_output" | tail -1 || true)
 if [ -n "$failed_step" ]; then
-    failure_detail=$(printf '%s\n' "$failed_step" | sed -E 's/^\[([0-9]+\/[0-9]+)\] ([^ ]([^ ]| +[^ ])*) +FAILED: /step \1 (\2) failed: /')
+    failure_detail=$(printf '%s\n' "$failed_step" | sed -E 's/^\[([0-9]+\/[0-9]+)\] ([^ ]([^ ]| +[^ ])*) +FAILED: .*/step \1 (\2) failed: this part of installation could not finish/')
+    if printf '%s\n' "$failed_step" | grep -Eq '^\[16/17\] Trusted signers +FAILED: '; then
+        failure_detail="step 16/17 (Trusted signers) failed: release signer approval was declined"
+    fi
 elif [ -s "$terminal_file" ]; then
-    failure_detail=$(tail -1 "$terminal_file" | sed -E 's/^INVARIANT [^ ]+ violated: //')
+    failure_detail="the installation could not finish its final checks"
 else
-    failure_detail="the installer returned exit code $sb_rc"
+    failure_detail="the installer could not finish"
 fi
 
 # 2. Support bundle, gathered without printing internal diagnostics.
@@ -809,6 +819,8 @@ echo "Then run the same install command again:"
 echo "    curl -fsSL https://statbus.org/install.sh | bash"
 if [ -n "$bundle_path" ]; then
     echo "If it stops at the same place again, send this file to StatBus support: $bundle_path"
+else
+    echo "Installation diagnostics: $install_output"
 fi
 echo "==============================================================================="
 
