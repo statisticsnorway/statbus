@@ -82,11 +82,11 @@ func TestRecoveryDSNSingleSource(t *testing.T) {
 	if err != nil {
 		t.Fatalf("read exec.go: %v", err)
 	}
-	connectBody := extractFuncBody(t, string(svcSrc), "func (d *Service) connect(")
+	connectBody := extractFuncBody(t, string(svcSrc), "func (d *Service) connectWithBudget(")
 	probeBody := extractFuncBody(t, string(execSrc), "func (d *Service) EnsureDBReachable(")
 
 	if !strings.Contains(connectBody, "d.recoveryDSN()") {
-		t.Error("connect() must build its DSN from d.recoveryDSN() (the single-source route builder)")
+		t.Error("connectWithBudget() must build its DSN from d.recoveryDSN() (the single-source route builder)")
 	}
 	if !strings.Contains(probeBody, "d.recoveryDSN()") {
 		t.Error("EnsureDBReachable must build its DSN from d.recoveryDSN() (the SAME route connect uses) — the STATBUS-143 fix")
