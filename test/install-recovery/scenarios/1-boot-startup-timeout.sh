@@ -221,8 +221,14 @@ echo "── recovery: removing C11 drop-in + release file ──"
 VM_EXEC bash -c "systemctl --user stop statbus-upgrade@statbus.service 2>/dev/null || true; rm -f $DROPIN_FILE; systemctl --user daemon-reload; rm -f $RELEASE_FILE"
 
 echo "── restarting upgrade-service without injection ──"
+RECOVERY_SINCE=$(date --iso-8601=seconds)
 vm_start_unit "statbus-upgrade@statbus.service"
 echo "  ✓ unit active after recovery"
+RECOVERED_START_JOURNAL=$(mktemp)
+VM_EXEC journalctl --user -u statbus-upgrade@statbus.service --since "$RECOVERY_SINCE" --no-pager >"$RECOVERED_START_JOURNAL"
+! grep -Fq 'THIS BOX CANNOT FOLLOW ITS UPGRADE CHANNEL' "$RECOVERED_START_JOURNAL" || { cat "$RECOVERED_START_JOURNAL" >&2; echo "active daemon printed channel-following failure box" >&2; exit 1; }
+! grep -Fq 'The upgrade service is NOT RUNNING' "$RECOVERED_START_JOURNAL" || { cat "$RECOVERED_START_JOURNAL" >&2; echo "active daemon called itself not running" >&2; exit 1; }
+rm -f "$RECOVERED_START_JOURNAL"
 
 # ─────────────────────────────────────────────────────────────────────────
 # Phase 6 — assertions

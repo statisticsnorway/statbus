@@ -100,6 +100,17 @@ assert_step9_completed "$VM_NAME"
 assert_step_upgrade_service_completed "$VM_NAME"
 assert_systemd_active "$VM_NAME"
 
+echo "── green-box rerun is entirely quiet ──"
+RERUN_LOG=$(mktemp)
+VM_EXEC bash -c "curl -fsSL https://statbus.org/install.sh | bash" >"$RERUN_LOG" 2>&1 || {
+    cat "$RERUN_LOG" >&2
+    exit 1
+}
+grep -Eq '^\[[0-9]+/17\] Images +OK$' "$RERUN_LOG" || { cat "$RERUN_LOG" >&2; echo "green rerun did not report Images OK" >&2; exit 1; }
+! grep -Eqi '(^|[[:space:]])(pull|pulling|pulled)([[:space:]]|$)' "$RERUN_LOG" || { cat "$RERUN_LOG" >&2; echo "green rerun pulled images" >&2; exit 1; }
+! grep -Eq '^\[[0-9]+/17\].* +(RUNNING|DONE)$' "$RERUN_LOG" || { cat "$RERUN_LOG" >&2; echo "green rerun changed a step" >&2; exit 1; }
+rm -f "$RERUN_LOG"
+
 # Phase 2 is deliberately separate and visible: the installed product owns its
 # config now. Apply tuning as an operator would, then prove generated and live
 # consumers picked it up. The helper never participates in first installation.
