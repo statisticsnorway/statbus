@@ -22,6 +22,8 @@ After the domain question, the installer checks public DNS and whether this comp
 
 ## Evidence, 2026-09-24
 
+Primary records: `/Users/jhf/ssb/statbus/tmp/finland-transcript-actual.txt`, `/Users/jhf/ssb/statbus/tmp/finland-transcript-2-actual.txt`, `/Users/jhf/ssb/statbus/tmp/finland-chat-3.txt`, `/Users/jhf/ssb/statbus/tmp/finland-answers-4.txt`, `/Users/jhf/ssb/statbus/tmp/installer-message-audit.md`, and `/Users/jhf/ssb/statbus/tmp/setup-connection-map.md` (as applicable). Proposed behavior below is not an observation.
+
 The Finland laptop used `statbus.statfin.eu` only in `/etc/hosts` and had a private home-network address. The certificate service reported NXDOMAIN, retried every 600 seconds, and HTTPS returned a TLS internal error.
 
 ## Proving scenario

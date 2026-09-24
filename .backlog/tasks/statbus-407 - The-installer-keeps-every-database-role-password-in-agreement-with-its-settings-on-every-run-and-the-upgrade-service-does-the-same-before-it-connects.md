@@ -27,6 +27,8 @@ Every installer run reconciles the database passwords for the administrator, app
 
 ## Evidence, 2026-09-24
 
+Primary records: `/Users/jhf/ssb/statbus/tmp/finland-transcript-2-actual.txt`, `/Users/jhf/ssb/statbus/tmp/finland-chat-3.txt`, `/Users/jhf/ssb/statbus/tmp/finland-answers-4.txt`, `/Users/jhf/ssb/statbus/tmp/installer-message-audit.md`, `/Users/jhf/ssb/statbus/tmp/setup-connection-map.md`, and `/Users/jhf/ssb/.jcode/scratch/rest-loop.md` (as applicable). Proposed behavior below is not an observation.
+
 A Hetzner Ubuntu 26.04 VM reproduced a surviving `statbus-<code>-db-data` volume with regenerated `.env.credentials`. `postgres/init-db.sh:135`, `:141`, and `:223` set role passwords only during first database initialization. The API then reported `FATAL: password authentication failed for user "authenticator"`; the automatic update service received SQLSTATE `28P01` for the administrator and timed out at step 17. Installer steps 1-16 appeared green because their database commands ran inside the database service through local trust. A prototype that reapplied all four passwords from the generated settings restored API readiness and automatic updates on the same VM.
 
 ## Proving scenario

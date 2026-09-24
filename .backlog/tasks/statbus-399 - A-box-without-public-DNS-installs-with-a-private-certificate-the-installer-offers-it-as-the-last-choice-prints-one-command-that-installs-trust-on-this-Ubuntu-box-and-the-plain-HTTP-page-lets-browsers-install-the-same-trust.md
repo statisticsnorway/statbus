@@ -26,6 +26,8 @@ For the private certificate choice, installation prints one command that install
 
 ## Evidence, 2026-09-24
 
+Primary records: `/Users/jhf/ssb/statbus/tmp/finland-transcript-actual.txt`, `/Users/jhf/ssb/statbus/tmp/finland-transcript-2-actual.txt`, `/Users/jhf/ssb/statbus/tmp/finland-chat-3.txt`, `/Users/jhf/ssb/statbus/tmp/finland-answers-4.txt`, `/Users/jhf/ssb/statbus/tmp/installer-message-audit.md`, and `/Users/jhf/ssb/statbus/tmp/setup-connection-map.md` (as applicable). Proposed behavior below is not an observation.
+
 `caddy/templates/standalone.caddyfile.tmpl:145-155` supports automatic certificates or `TLS_CERT_FILE` and `TLS_KEY_FILE`; development uses `tls internal`. On the Finland laptop, the chosen name existed only in `/etc/hosts`. The certificate log reported NXDOMAIN through the staging authority and retried every 600 seconds. `curl` reached port 443 and received a TLS internal error.
 
 ## Proving scenario

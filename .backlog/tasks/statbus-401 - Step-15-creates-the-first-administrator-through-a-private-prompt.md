@@ -21,6 +21,8 @@ Interactive installation asks for the first administrator email, name, and passw
 
 ## Evidence, 2026-09-24
 
+Primary records: `/Users/jhf/ssb/statbus/tmp/finland-transcript-2-actual.txt`, `/Users/jhf/ssb/statbus/tmp/finland-chat-3.txt`, `/Users/jhf/ssb/statbus/tmp/finland-answers-4.txt`, `/Users/jhf/ssb/statbus/tmp/installer-message-audit.md`, `/Users/jhf/ssb/statbus/tmp/setup-connection-map.md`, and `/Users/jhf/ssb/.jcode/scratch/rest-loop.md` (as applicable). Proposed behavior below is not an observation.
+
 Finland step 15 stopped because `.users.yml` was absent. After the operator copied and edited an example file, the step printed database command output and a password column.
 
 ## Proving scenario

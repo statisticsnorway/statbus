@@ -20,6 +20,8 @@ A preflight refusal explains the reason and the one outside fix before installat
 
 ## Evidence, 2026-09-24
 
+Primary records: `/Users/jhf/ssb/statbus/tmp/finland-transcript-2-actual.txt`, `/Users/jhf/ssb/statbus/tmp/finland-chat-3.txt`, `/Users/jhf/ssb/statbus/tmp/finland-answers-4.txt`, `/Users/jhf/ssb/statbus/tmp/installer-message-audit.md`, `/Users/jhf/ssb/statbus/tmp/setup-connection-map.md`, and `/Users/jhf/ssb/.jcode/scratch/rest-loop.md` (as applicable). Proposed behavior below is not an observation.
+
 The Finland disk refusal printed shell source, `SYSTEM UNUSABLE`, an unnamed invariant, and a command that depended on the current directory even though installation had not started. Later failures printed internal audit wording rather than one recovery path.
 
 ## Proving scenario

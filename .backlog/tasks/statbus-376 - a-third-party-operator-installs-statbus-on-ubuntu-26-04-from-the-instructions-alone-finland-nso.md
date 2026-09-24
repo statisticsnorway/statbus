@@ -110,7 +110,7 @@ and an unexplained `TRUST_GITHUB_USER` prompt.
 6. **D6:** Stage 8 skip is warning-level and its hint exposes fleet-only
    `SSHDOERS_REF` to public installers.
 7. **D7:** The summary prints static claims rather than observed stage results;
-   the current static summary is at `setup-ubuntu-lts.sh:1690`.
+   the current static summary is at `ops/setup-ubuntu-lts.sh` (the former line 1690 is `stage_core_tools` at master `7a9cf707e`; locate the current static-summary line before implementation).
 8. **D8-D11 are fixed in `9e57c1722`:** curl-pipe stdin handling; tag checkout
    noise and the `current` branch; `SYSTEM UNUSABLE` for pre-flight refusals;
    and the `TRUST_GITHUB_USER` explanation.

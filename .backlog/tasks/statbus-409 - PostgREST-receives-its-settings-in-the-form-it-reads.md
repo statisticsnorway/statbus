@@ -23,6 +23,8 @@ PostgREST receives each setting through the environment variable defined for tha
 
 ## Evidence, 2026-09-24
 
+Primary records: `/Users/jhf/ssb/statbus/tmp/finland-transcript-2-actual.txt`, `/Users/jhf/ssb/statbus/tmp/finland-chat-3.txt`, `/Users/jhf/ssb/statbus/tmp/finland-answers-4.txt`, `/Users/jhf/ssb/statbus/tmp/installer-message-audit.md`, `/Users/jhf/ssb/statbus/tmp/setup-connection-map.md`, and `/Users/jhf/ssb/.jcode/scratch/rest-loop.md` (as applicable). Proposed behavior below is not an observation.
+
 `docker-compose.rest.yml` currently gives `PGRST_DB_CONFIG` the value `app.settings.deployment_slot_code=...`. PostgREST 14 documentation defines `db-config` as a Boolean with environment variable `PGRST_DB_CONFIG`, and defines arbitrary `app.settings.*` values through `PGRST_APP_SETTINGS_*`. The current value therefore controls the Boolean switch and does not deliver the deployment slot setting described by the comment.
 
 Official documentation: https://docs.postgrest.org/en/v14/references/configuration.html#db-config and the `app.settings.*` section on the same page.

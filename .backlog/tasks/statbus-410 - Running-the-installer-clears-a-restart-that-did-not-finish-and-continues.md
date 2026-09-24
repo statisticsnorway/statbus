@@ -23,6 +23,8 @@ Running the one install command detects whether a recorded restart still owns it
 
 ## Evidence, 2026-09-24
 
+Primary records: `/Users/jhf/ssb/statbus/tmp/finland-transcript-2-actual.txt`, `/Users/jhf/ssb/statbus/tmp/finland-chat-3.txt`, `/Users/jhf/ssb/statbus/tmp/finland-answers-4.txt`, `/Users/jhf/ssb/statbus/tmp/installer-message-audit.md`, `/Users/jhf/ssb/statbus/tmp/setup-connection-map.md`, and `/Users/jhf/ssb/.jcode/scratch/rest-loop.md` (as applicable). Proposed behavior below is not an observation.
+
 Finland operator output at 17:46 showed that an earlier `./sb restart all` stopped services and then failed while starting the automatic update service because of the stale database password. The saved restart record remained. A later `./sb install` was refused with `a restart is running or did not finish` and directed the operator back to `./sb restart all`. `cli/internal/upgrade/restart.go:19-38` currently refuses whenever the restart record exists through `restartRefusal` and `CheckRestartBarrier`, before distinguishing a live lock holder from an unfinished restart.
 
 ## Proving scenario

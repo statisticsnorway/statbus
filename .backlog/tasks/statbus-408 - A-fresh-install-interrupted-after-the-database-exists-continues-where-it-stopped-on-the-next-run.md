@@ -25,6 +25,8 @@ A rerun recognizes a database created by an incomplete first installation and re
 
 ## Evidence, 2026-09-24
 
+Primary records: `/Users/jhf/ssb/statbus/tmp/finland-transcript-2-actual.txt`, `/Users/jhf/ssb/statbus/tmp/finland-chat-3.txt`, `/Users/jhf/ssb/statbus/tmp/finland-answers-4.txt`, `/Users/jhf/ssb/statbus/tmp/installer-message-audit.md`, `/Users/jhf/ssb/statbus/tmp/setup-connection-map.md`, and `/Users/jhf/ssb/.jcode/scratch/rest-loop.md` (as applicable). Proposed behavior below is not an observation.
+
 A Hetzner Ubuntu 26.04 VM confirmed that a port-80 failure after database creation leaves the database reachable without `public.upgrade`. Every rerun was then refused as a pre-1.0 installation by `install/state.go:141-147`, before seed or migrations could continue. This recovery dead end encourages removal of the installation directory while the database volume survives, which can create a credentials split.
 
 ## Proving scenario

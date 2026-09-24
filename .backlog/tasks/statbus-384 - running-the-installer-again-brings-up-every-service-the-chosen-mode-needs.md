@@ -20,6 +20,8 @@ The Services step brings up every service required by the selected installation 
 
 ## Evidence, 2026-09-24
 
+Primary records: `/Users/jhf/ssb/statbus/tmp/finland-transcript-actual.txt`, `/Users/jhf/ssb/statbus/tmp/finland-transcript-2-actual.txt`, `/Users/jhf/ssb/statbus/tmp/finland-chat-3.txt`, `/Users/jhf/ssb/statbus/tmp/finland-answers-4.txt`, `/Users/jhf/ssb/statbus/tmp/installer-message-audit.md`, and `/Users/jhf/ssb/statbus/tmp/setup-connection-map.md` (as applicable). Proposed behavior below is not an observation.
+
 Finland session 1 left only the database running after port 80 was occupied. Session 2 then reported Services OK because the check observed only the healthy database, and later work failed through the missing database route. Code review also found that a fresh database created before seed and migrations has no upgrade table, so the current state detector can classify an interrupted first install as a legacy installation and refuse the rerun.
 
 ## Proving scenarios

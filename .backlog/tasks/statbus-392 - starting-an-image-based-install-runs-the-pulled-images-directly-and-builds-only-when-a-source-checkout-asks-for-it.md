@@ -17,9 +17,7 @@ ordinal: 1
 
 ## Finland v2026.09.2 evidence (2026-09-24)
 
-The triage notes `cli/internal/service/service.go:55` adds `--build` in
-development mode even for image-based installs, while compose files contain
-build blocks. This can turn a mode change or recovery into an unexpected local
+The image-build behavior was noted in triage, but its original code citation does not exist at master `7a9cf707e`; the exact implementation location and observation source are not determined. Verify whether development mode adds `--build` on image-based installs before implementing the proposed change. This can turn a mode change or recovery into an unexpected local
 build; the install path currently avoids it only because its Services step uses
 plain `up -d`.
 

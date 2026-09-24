@@ -20,6 +20,8 @@ Every failed installation writes a consistently named audit record to the instal
 
 ## Evidence, 2026-09-24
 
+Primary records: `/Users/jhf/ssb/statbus/tmp/finland-transcript-2-actual.txt`, `/Users/jhf/ssb/statbus/tmp/finland-chat-3.txt`, `/Users/jhf/ssb/statbus/tmp/finland-answers-4.txt`, `/Users/jhf/ssb/statbus/tmp/installer-message-audit.md`, `/Users/jhf/ssb/statbus/tmp/setup-connection-map.md`, and `/Users/jhf/ssb/.jcode/scratch/rest-loop.md` (as applicable). Proposed behavior below is not an observation.
+
 `FAILED_INSTALL_HAS_AUDIT_TRAIL` printed on every Finland failure. It was labelled as a violated invariant even though installs have no upgrade row by design.
 
 ## Proving scenario

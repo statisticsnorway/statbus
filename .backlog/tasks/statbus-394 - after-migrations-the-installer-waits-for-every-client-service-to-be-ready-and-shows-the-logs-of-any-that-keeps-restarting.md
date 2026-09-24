@@ -22,6 +22,8 @@ After database setup, the installer keeps database role passwords and generated 
 
 ## Evidence, 2026-09-24
 
+Primary records: `/Users/jhf/ssb/statbus/tmp/finland-transcript-actual.txt`, `/Users/jhf/ssb/statbus/tmp/finland-transcript-2-actual.txt`, `/Users/jhf/ssb/statbus/tmp/finland-chat-3.txt`, `/Users/jhf/ssb/statbus/tmp/finland-answers-4.txt`, `/Users/jhf/ssb/statbus/tmp/installer-message-audit.md`, and `/Users/jhf/ssb/statbus/tmp/setup-connection-map.md` (as applicable). Proposed behavior below is not an observation.
+
 The Finland API restart loop reported `FATAL: password authentication failed for user "authenticator"`. An interrupted first run left the database role password and generated settings out of agreement. Step 17 then enabled automatic updates before proving its database route and timed out.
 
 ## Proving scenario

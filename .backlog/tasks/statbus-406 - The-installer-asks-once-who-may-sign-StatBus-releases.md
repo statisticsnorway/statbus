@@ -21,6 +21,8 @@ Installation asks one plain question about trusting the Statistics Norway releas
 
 ## Evidence, 2026-09-24
 
+Primary records: `/Users/jhf/ssb/statbus/tmp/finland-transcript-2-actual.txt`, `/Users/jhf/ssb/statbus/tmp/finland-chat-3.txt`, `/Users/jhf/ssb/statbus/tmp/finland-answers-4.txt`, `/Users/jhf/ssb/statbus/tmp/installer-message-audit.md`, `/Users/jhf/ssb/statbus/tmp/setup-connection-map.md`, and `/Users/jhf/ssb/.jcode/scratch/rest-loop.md` (as applicable). Proposed behavior below is not an observation.
+
 Finland was asked about a release signer before the step table and then saw a separate trusted-signers step. The question used GitHub and key-management terminology and offered an additional-signer loop.
 
 ## Proving scenario

@@ -22,7 +22,9 @@ At the end of setup questions, the installer checks every network port the selec
 
 ## Evidence, 2026-09-24
 
-Ubuntu Desktop on the Finland laptop included Apache. Apache held port 80, so the first start stopped after partial service creation.
+Primary records: `/Users/jhf/ssb/statbus/tmp/finland-transcript-actual.txt`, `/Users/jhf/ssb/statbus/tmp/finland-transcript-2-actual.txt`, `/Users/jhf/ssb/statbus/tmp/finland-chat-3.txt`, `/Users/jhf/ssb/statbus/tmp/finland-answers-4.txt`, `/Users/jhf/ssb/statbus/tmp/installer-message-audit.md`, and `/Users/jhf/ssb/statbus/tmp/setup-connection-map.md` (as applicable). Proposed behavior below is not an observation.
+
+Apache held port 80 on the Finland laptop, so the first start stopped after partial service creation. How Apache was installed is not determined (`/Users/jhf/ssb/.jcode/scratch/apache-origin.md`).
 
 ## Proving scenario
 
