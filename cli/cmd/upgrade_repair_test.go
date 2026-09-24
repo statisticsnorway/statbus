@@ -26,11 +26,23 @@ func TestParkedRepairSQL_AuditsAndKeepsOneTransaction(t *testing.T) {
 		}
 	}
 	for _, want := range []string{
-		"recovery_parked_at IS NOT NULL", "FOR UPDATE", "public.upgrade_state_log",
+		"recovery_parked_at IS NOT NULL", "FOR UPDATE", "public.upgrade_state_log", "INTO _upgrade_id",
 		"parked-window repair:", "actor_source", "'self-reported'", "\\ir '" + path + "'",
 	} {
 		if !strings.Contains(sql, want) {
 			t.Errorf("repair SQL missing %q:\n%s", want, sql)
+		}
+	}
+}
+
+func TestParkedRepairSQL_RejectsMetaCommandsAndTransactionVariants(t *testing.T) {
+	for _, body := range []string{"\\c otherdb\n", "END;\n", "START TRANSACTION;\n", "COMMIT PREPARED 'x';\n"} {
+		path := filepath.Join(t.TempDir(), "repair.sql")
+		if err := os.WriteFile(path, []byte(body), 0600); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := parkedRepairSQL(path, "test", "Ada"); err == nil {
+			t.Fatalf("expected refusal for %q", body)
 		}
 	}
 }

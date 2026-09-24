@@ -15,7 +15,8 @@ import (
 // transaction. A parked-window repair is one auditable atomic change: either its
 // audit row and its SQL commit together, or neither does. PL/pgSQL bodies may
 // contain BEGIN/END, so only a top-level transaction-control line is rejected.
-var parkedRepairTransactionControl = regexp.MustCompile(`(?im)^\s*(begin|commit|rollback)\s*;\s*$`)
+var parkedRepairTransactionControl = regexp.MustCompile(`(?im)^\s*(begin|end|commit|rollback|abort|start\s+transaction|prepare\s+transaction|commit\s+prepared(?:\s+[^;]+)?|rollback\s+prepared(?:\s+[^;]+)?)\s*;\s*$`)
+var parkedRepairMetaCommand = regexp.MustCompile(`(?m)^\s*\\`)
 
 func parkedRepairSQL(sqlPath, reason, operator string) (string, error) {
 	body, err := os.ReadFile(sqlPath)
@@ -28,32 +29,35 @@ func parkedRepairSQL(sqlPath, reason, operator string) (string, error) {
 	if parkedRepairTransactionControl.Match(body) {
 		return "", fmt.Errorf("repair SQL %q contains top-level transaction control; ./sb upgrade repair owns the single audited transaction", sqlPath)
 	}
+	if parkedRepairMetaCommand.Match(body) {
+		return "", fmt.Errorf("repair SQL %q contains a psql meta-command; ./sb upgrade repair accepts SQL only", sqlPath)
+	}
 	// psql variables quote values safely. \ir keeps the supplied path relative to
 	// the invoking file, never to a shell expansion.
 	return fmt.Sprintf(`\set ON_ERROR_STOP on
 SELECT set_config('statbus.actor', :'operator', true);
 DO $parked_repair$
+DECLARE
+  _upgrade_id integer;
 BEGIN
-  IF NOT EXISTS (
-    SELECT 1
-      FROM public.upgrade AS u
-     WHERE u.state = 'in_progress'
-       AND u.recovery_parked_at IS NOT NULL
-  ) THEN
+  SELECT u.id
+    INTO _upgrade_id
+    FROM public.upgrade AS u
+   WHERE u.state = 'in_progress'
+     AND u.recovery_parked_at IS NOT NULL
+   FOR UPDATE;
+  IF NOT FOUND THEN
     RAISE EXCEPTION 'parked-window repair requires an in_progress parked upgrade';
   END IF;
+  INSERT INTO public.upgrade_state_log (
+    upgrade_id, application_name, query, backend_pid, actor, actor_source
+  ) VALUES (
+    _upgrade_id, current_setting('application_name', true),
+    'parked-window repair: ' || :'reason', pg_backend_pid(),
+    current_setting('statbus.actor', true), 'self-reported'
+  );
 END;
 $parked_repair$;
-INSERT INTO public.upgrade_state_log (
-  upgrade_id, application_name, query, backend_pid, actor, actor_source
-)
-SELECT u.id, current_setting('application_name', true),
-       'parked-window repair: ' || :'reason', pg_backend_pid(),
-       current_setting('statbus.actor', true), 'self-reported'
-  FROM public.upgrade AS u
- WHERE u.state = 'in_progress'
-   AND u.recovery_parked_at IS NOT NULL
- FOR UPDATE;
 \ir %s
 `, psqlPathLiteral(sqlPath)), nil
 }
@@ -89,8 +93,8 @@ reviewed SQL file, name the human operator, and give the operational reason.`,
 		if err != nil {
 			return err
 		}
-		env = append(env, "PGOPTIONS=-c default_transaction_read_only=off", "PGAPPNAME=sb upgrade repair")
 		args := append(prefix, "-1", "-v", "operator="+operator, "-v", "reason="+reason)
+		args, env = migrate.PsqlWriteArgs(psqlPath, args, env, "sb upgrade repair")
 		child, err := migrate.Command(projDir, psqlPath, args...)
 		if err != nil {
 			return fmt.Errorf("construct parked repair psql command: %w", err)

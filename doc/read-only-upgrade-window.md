@@ -59,10 +59,12 @@ Use the single sanctioned verb instead:
 The command requires an `in_progress` row with `recovery_parked_at`, self-exempts
 only its own psql session, locks the parked row, and runs the supplied SQL and an
 `upgrade_state_log` entry in one transaction. The entry records the operator,
-reason, connection, and that this was a parked-window repair. It rejects empty
-files and top-level `BEGIN`, `COMMIT`, or `ROLLBACK`, because the verb owns the
-one atomic transaction. A later snapshot restore intentionally forfeits both the
-repair and its audit record, just as it forfeits every deliberate phase-3 write.
+reason, connection, and that this was a parked-window repair. The verb constrains
+how the arbitrary repair is recorded, not what it writes, and `upgrade list`'s
+`who` column consequently shows the repairer. It rejects empty files, psql
+meta-commands, and top-level transaction control because the verb owns the one
+atomic transaction. A later snapshot restore intentionally forfeits both the repair
+and its audit record, just as it forfeits every deliberate phase-3 write.
 
 Do not use raw admin psql for this flow. The exemption remains a PostgreSQL
 accident-guard escape hatch for product maintenance, not an operator API.

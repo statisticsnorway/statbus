@@ -589,6 +589,15 @@ func injectReadOnlyExempt(psqlPath string, args, env []string) ([]string, []stri
 	return out, env
 }
 
+// PsqlWriteArgs applies the two connection-startup settings required by a
+// deliberate product write. It preserves PsqlCommand's host environment and
+// forwards both settings through docker compose exec when psql is in the
+// database container.
+func PsqlWriteArgs(psqlPath string, args, env []string, appName string) ([]string, []string) {
+	args, env = injectPsqlAppName(psqlPath, args, env, appName)
+	return injectReadOnlyExempt(psqlPath, args, env)
+}
+
 func runPsqlFile(projDir string, filePath string) (string, error) {
 	// Harness-only stall site: simulates a migration that runs longer
 	// than the upgrade-service's WatchdogSec budget. When activated via
