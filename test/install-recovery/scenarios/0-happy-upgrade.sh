@@ -134,6 +134,13 @@ fi
 echo ""
 echo "── initial install at $INSTALL_VERSION ──"
 install_statbus_in_vm "$VM_NAME" "$INSTALL_VERSION"
+if [ "${HARNESS_ASSERT_DISK_POLICY:-0}" = 1 ]; then
+    # Fleet baseline predates the installer policy. An operator who saved the
+    # chosen threshold before upgrade must retain it through the new binary's
+    # automatic fixup and subsequent rerun.
+    VM_EXEC bash -c 'cd ~/statbus && ./sb dotenv -f .env.config set STATBUS_DISK_MIN_GB 20 && ./sb dotenv -f .env.config set STATBUS_DISK_RECOMMENDED_GB 40'
+    VM_EXEC bash -c 'docker info --format "Docker data: {{.DockerRootDir}}"; df -h "$(docker info --format "{{.DockerRootDir}}")" "$HOME/statbus-backups"'
+fi
 if [ "${HARNESS_HTTPS_ONLY_EGRESS:-0}" = "1" ]; then
     # Fail in seconds if the host OUTPUT rule refuses docker-proxy's new,
     # non-NATed host -> container-IP:80 connection.
@@ -256,6 +263,14 @@ assert_demo_data_counts_match_snapshot "$VM_NAME" "$DATA_SNAPSHOT"
 assert_flag_file_absent "$VM_NAME"
 assert_no_orphan_backup "$VM_NAME"
 assert_health_passes "$VM_NAME"
+if [ "${HARNESS_ASSERT_DISK_POLICY:-0}" = 1 ]; then
+    POLICY=$(VM_EXEC bash -c 'cd ~/statbus && ./sb dotenv -f .env.config get STATBUS_DISK_MIN_GB && ./sb dotenv -f .env.config get STATBUS_DISK_RECOMMENDED_GB')
+    [ "$POLICY" = $'20\n40' ] || { echo "disk policy changed across upgrade/fixup: $POLICY" >&2; exit 1; }
+    VM_EXEC bash -c 'cd ~/statbus && ./sb install --non-interactive'
+    POLICY=$(VM_EXEC bash -c 'cd ~/statbus && ./sb dotenv -f .env.config get STATBUS_DISK_MIN_GB && ./sb dotenv -f .env.config get STATBUS_DISK_RECOMMENDED_GB')
+    [ "$POLICY" = $'20\n40' ] || { echo "disk policy changed on rerun: $POLICY" >&2; exit 1; }
+    VM_EXEC bash -c 'docker info --format "Docker data: {{.DockerRootDir}}"; df -h "$(docker info --format "{{.DockerRootDir}}")" "$HOME/statbus-backups"'
+fi
 
 # Bounded restarts. The normal upgrade should NOT have triggered any
 # watchdog or start-timeout — NRestarts ought to stay at baseline.

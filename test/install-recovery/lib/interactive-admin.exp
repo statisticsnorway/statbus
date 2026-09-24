@@ -1,0 +1,21 @@
+#!/usr/bin/expect -f
+# STATBUS-401: answer-file deployment settings, interactive administrator via
+# a real PTY. No password is sent until each hidden prompt is observed.
+set timeout 1200
+set matched 0
+set mismatch 0
+set password "test-install-password-2026"
+spawn -noecho bash /tmp/statbus-install.sh
+expect {
+    -re {Email \[\]: $} { send -- "interactive-admin@statbus.org\r"; incr matched; exp_continue }
+    -re {Name \[\]: $} { send -- "Interactive Admin\r"; incr matched; exp_continue }
+    -re {Password \(typing is hidden\): $} { send -- "$password\r"; incr matched; exp_continue }
+    -re {Password again: $} { send -- "$password\r"; incr matched; exp_continue }
+    timeout { puts stderr "timed out waiting for private administrator prompts"; exit 1 }
+    eof {}
+}
+set result [wait]
+if {[lindex $result 3] != 0 || $matched != 4 || $mismatch != 0} {
+    puts stderr "installer failed or did not ask all four first-administrator prompts (count $matched)"
+    exit 1
+}
