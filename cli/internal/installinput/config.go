@@ -68,11 +68,19 @@ func Requirement() string {
 }
 
 func Ask(prompt func(label, fallback string) string) string {
+	return AskWithMode(prompt, "development")
+}
+
+// AskWithMode supplies a host-appropriate mode without changing unattended inputs.
+func AskWithMode(prompt func(label, fallback string) string, modeDefault string) string {
 	var b strings.Builder
 	domain := ""
 	for _, f := range fields {
 		if !f.installationOnly {
 			fallback := f.fallback
+			if f.key == "CADDY_DEPLOYMENT_MODE" {
+				fallback = modeDefault
+			}
 			label := "  " + f.prompt
 			switch f.key {
 			case "CADDY_DEPLOYMENT_MODE":

@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"context"
 	"fmt"
 	"net"
 	"os/exec"
@@ -9,6 +10,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/statisticsnorway/statbus/cli/internal/compose"
 	"github.com/statisticsnorway/statbus/cli/internal/dotenv"
 )
 
@@ -42,6 +44,12 @@ func occupiedPortOwner(port installPort) string {
 	if matches := listenerProgram.FindSubmatch(out); len(matches) > 1 {
 		return string(matches[1])
 	}
+	// A non-root user can see the listener but often not its process name.
+	// sudo -n never asks for a password or stalls an unattended installation.
+	out, _ = exec.Command("sudo", "-n", "ss", "-ltnp", fmt.Sprintf("( sport = :%d )", port.number)).CombinedOutput()
+	if matches := listenerProgram.FindSubmatch(out); len(matches) > 1 {
+		return string(matches[1])
+	}
 	return "another program"
 }
 
@@ -58,7 +66,10 @@ func checkInstallPorts(dir string) error {
 			offset = parsed
 		}
 	}
-	own, _ := exec.Command("docker", "ps", "--format", "{{.Names}} {{.Ports}}").Output()
+	var own []byte
+	if inspect, buildErr := compose.DockerCommandContext(context.Background(), dir, "ps", "--format", "{{.Names}} {{.Ports}}"); buildErr == nil {
+		own, _ = inspect.Output()
+	}
 	for _, p := range selectedInstallPorts(mode, offset) {
 		owner := occupiedPortOwner(p)
 		if owner == "" {

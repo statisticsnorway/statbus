@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"net"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -19,6 +21,15 @@ func TestSelectedPortsAndOwners(t *testing.T) {
 	}
 	if m := listenerProgram.FindStringSubmatch(`users:(("apache2",pid=123,fd=4))`); len(m) != 2 || m[1] != "apache2" {
 		t.Fatalf("owner: %v", m)
+	}
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = listener.Close() }()
+	port := listener.Addr().(*net.TCPAddr).Port
+	if owner := occupiedPortOwner(installPort{"127.0.0.1", port}); owner == "" {
+		t.Fatal("occupied non-80 port was accepted")
 	}
 }
 func TestDomainAssessmentSeparatesDNSFromReachability(t *testing.T) {
@@ -37,5 +48,21 @@ func TestPasswordMismatchRetriesWithoutDisclosure(t *testing.T) {
 	value, err := askAdministratorPassword(func(string) (string, error) { answer := answers[i]; i++; return answer, nil })
 	if err != nil || value != "matching-secret" || i != 4 {
 		t.Fatalf("retry: %q, %v, %d", value, err, i)
+	}
+}
+
+func TestLaptopModeDefault(t *testing.T) {
+	root := t.TempDir()
+	if installIsLaptopAt(root) {
+		t.Fatal("server classified as laptop")
+	}
+	if err := os.Mkdir(filepath.Join(root, "BAT0"), 0700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(root, "BAT0", "type"), []byte("Battery\n"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if !installIsLaptopAt(root) {
+		t.Fatal("battery-backed laptop not detected")
 	}
 }

@@ -98,6 +98,9 @@ var allowedProcessLaunches = map[string]approvedLaunch{
 	"cmd/install.go:runInstallCallback|os/exec|sh":                                                    {Count: 1, Reason: "runInstallCallback executes the administrator-configured post-install callback as the documented shell command"},
 	"cmd/install.go:runInstallService|os/exec|systemctl":                                              {Count: 3, Reason: "runInstallService queries active, failed-result, and boot-enabled systemd states to drive and verify user-unit reconciliation"},
 	"cmd/install.go:runRootInstall|os/exec|systemctl":                                                 {Count: 1, Reason: "runRootInstall queries is-enabled after root service setup to prove the upgrade unit will start on boot"},
+	"cmd/install_ports.go:checkInstallPorts|os/exec|systemctl":                                        {Count: 1, Reason: "installer checks whether an identified port owner is a loaded systemd service before offering a disable command"},
+	"cmd/install_ports.go:occupiedPortOwner|os/exec|ss":                                               {Count: 1, Reason: "installer reads the program holding a required TCP port before any service starts"},
+	"cmd/install_ports.go:occupiedPortOwner|os/exec|sudo":                                             {Count: 1, Reason: "installer uses noninteractive sudo only to inspect a root-owned listener that ordinary ss cannot identify"},
 	"cmd/install_upgrade.go:restartUpgradeService|os/exec|systemctl":                                  {Count: 2, Reason: "restartUpgradeService checks that the upgrade unit is active and restarts it to load the newly installed binary"},
 	"cmd/install_upgrade.go:stopRestartUpgradeUnit|os/exec|systemctl":                                 {Count: 7, Reason: "stopRestartUpgradeUnit inspects, stops, resets, reenables, and restarts the upgrade unit during crash takeover"},
 	"cmd/install_upgrade.go:upgradeUnitCrashLooping|os/exec|systemctl":                                {Count: 1, Reason: "upgradeUnitCrashLooping reads systemd unit properties to distinguish a live upgrade from a restart loop"},
@@ -316,6 +319,8 @@ var allowedProcessExecutables = map[string]authorityExecutableClass{
 	"sh":           authorityMediator,
 	"ssh":          authorityTool,
 	"ssh-keygen":   authorityTool,
+	"ss":           authorityTool,
+	"sudo":         authorityTool,
 	"systemctl":    authorityTool,
 	"tar":          authorityTool,
 }

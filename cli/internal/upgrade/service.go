@@ -7676,7 +7676,7 @@ func (d *Service) executeUpgrade(ctx context.Context, claim upgradeClaimSnapshot
 		progress.Write("Verifying release assets ... ok")
 	}
 
-	// Apply the same 20 GB floor and 40 GB recommendation as first install and
+	// Check disk space. Apply the same 20 GB floor and 40 GB recommendation as first install and
 	// post-upgrade fixup to both Docker service data and backup filesystems.
 	var (
 		freeGB         uint64
@@ -7687,8 +7687,10 @@ func (d *Service) executeUpgrade(ctx context.Context, claim upgradeClaimSnapshot
 	if policyErr != nil {
 		return fmt.Errorf("read saved disk policy: %w", policyErr)
 	}
-	if out, err := exec.Command("docker", "info", "--format", "{{.DockerRootDir}}").Output(); err == nil && strings.TrimSpace(string(out)) != "" {
-		paths[0] = strings.TrimSpace(string(out))
+	if inspect, buildErr := compose.DockerCommandContext(ctx, d.projDir, "info", "--format", "{{.DockerRootDir}}"); buildErr == nil {
+		if out, inspectErr := inspect.Output(); inspectErr == nil && strings.TrimSpace(string(out)) != "" {
+			paths[0] = strings.TrimSpace(string(out))
+		}
 	}
 	for _, path := range paths {
 		measurement, err := diskpolicy.Measure(path)

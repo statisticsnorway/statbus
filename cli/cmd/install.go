@@ -592,8 +592,10 @@ func runInstall() (installErr error) {
 
 	// Check the two actual storage locations, not the caller's current directory.
 	dockerRoot := "/var/lib/docker"
-	if out, err := exec.Command("docker", "info", "--format", "{{.DockerRootDir}}").Output(); err == nil && strings.TrimSpace(string(out)) != "" {
-		dockerRoot = strings.TrimSpace(string(out))
+	if inspect, buildErr := compose.DockerCommandContext(context.Background(), installDir, "info", "--format", "{{.DockerRootDir}}"); buildErr == nil {
+		if out, inspectErr := inspect.Output(); inspectErr == nil && strings.TrimSpace(string(out)) != "" {
+			dockerRoot = strings.TrimSpace(string(out))
+		}
 	}
 	if err := diskpolicy.Check(installDir, dockerRoot, filepath.Join(home, "statbus-backups")); err != nil {
 		return &installPreflightRefusalError{err: err}
@@ -1362,8 +1364,18 @@ func runCreateConfig(dir string) error {
 	} else {
 		fmt.Println()
 		mode := ""
-		content, err = installinput.Validate(installinput.Ask(func(label, fallback string) string {
+		modeDefault := "standalone"
+		if installIsLaptop() {
+			modeDefault = "development"
+		}
+		content, err = installinput.Validate(installinput.AskWithMode(func(label, fallback string) string {
 			answer := prompt(label, fallback)
+			if strings.HasSuffix(label, "Domain name") {
+				for attempts := 0; answer == "" && attempts < 3; attempts++ {
+					fmt.Println("  Please enter the web address people will use. For local testing, use local.statbus.org.")
+					answer = prompt(label, fallback)
+				}
+			}
 			if strings.HasSuffix(label, "Deployment mode (development/standalone/private)") {
 				mode = answer
 			}
@@ -1372,7 +1384,7 @@ func runCreateConfig(dir string) error {
 				fmt.Println("  " + assessInstallDomain(answer, publicDomainLookup))
 			}
 			return answer
-		}))
+		}, modeDefault))
 	}
 	if err != nil {
 		return err
