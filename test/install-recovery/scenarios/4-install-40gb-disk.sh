@@ -4,6 +4,8 @@
 # same policy for later invocations. Requires a tagged candidate and VM.
 set -euo pipefail
 VM_NAME="${1:-statbus-recovery-4-install-40gb-disk}"
+HARNESS_DEPLOYMENT_MODE=private
+HARNESS_UPGRADE_CHANNEL=stable
 LIB_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/lib"
 REPO_ROOT="$(cd "$LIB_DIR/../../.." && pwd)"
 source "$LIB_DIR/release-baseline.sh"
