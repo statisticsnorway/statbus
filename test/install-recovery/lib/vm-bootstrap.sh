@@ -1278,24 +1278,22 @@ reset_vm_state() {
     echo "VM $vm_name reset complete."
 }
 
-# apply_https_only_egress rejects real external plain HTTP while leaving HTTPS
-# and host-local traffic intact. Docker 29 DNATs a locally-originated request to
-# 127.0.0.1:3010 in nat OUTPUT before this priority-0 filter OUTPUT hook, so the
-# packet visible here has the proxy container's bridge address and port 80. Match
-# the conntrack ORIGINAL destination instead of the post-NAT packet destination:
-# the published loopback/local address remains exempt, while an external :80
-# request remains rejectable. Container-to-container traffic is forwarded and
-# never traverses this host OUTPUT hook. REJECT is the fast deterministic proxy
-# for Albania's real DROP behavior: a regression fails immediately instead of
-# timing out.
+# apply_https_only_egress allows loopback and private-destination HTTP while it
+# refuses public-destination plain HTTP. With Docker's default userland-proxy,
+# loopback is excluded from Docker's nat OUTPUT jump. docker-proxy accepts the
+# host connection and opens a new, non-NATed host -> container-IP:80 connection,
+# so Docker bridge space must be exempt. Container-to-container traffic uses the
+# forward path and is unaffected. REJECT is the fast deterministic proxy for
+# Albania's real DROP behavior: a regression fails immediately instead of timing
+# out.
 apply_https_only_egress() {
     local ipv4_literal="93.184.216.34"
     local ipv6_literal="2606:2800:220:1:248:1893:25c8:1946"
     local ipv4_url="http://${ipv4_literal}/statbus-http-egress-mutation"
     local ipv6_url="http://[${ipv6_literal}]/statbus-http-egress-mutation"
-    local probe_rc local_address installed_rules
+    local probe_rc installed_rules
 
-    echo "Applying HTTPS-only egress policy (reject external TCP/80 by pre-NAT destination on IPv4 and IPv6)"
+    echo "Applying HTTPS-only egress policy (allow loopback/private destinations; reject public TCP/80 on IPv4 and IPv6)"
 
     # This scenario enables setup-ubuntu-lts.sh stage 4. That stage installs the
     # CrowdSec nftables bouncer and configures UFW, so use the same nftables
@@ -1312,23 +1310,11 @@ apply_https_only_egress() {
         VM_ROOT_EXEC nft delete table inet statbus_https_only || true
     VM_ROOT_EXEC nft add table inet statbus_https_only
     VM_ROOT_EXEC nft 'add chain inet statbus_https_only output { type filter hook output priority 0; policy accept; }'
-    VM_ROOT_EXEC nft 'add set inet statbus_https_only local_ipv4 { type ipv4_addr; flags interval; }'
-    VM_ROOT_EXEC nft 'add set inet statbus_https_only local_ipv6 { type ipv6_addr; flags interval; }'
-    VM_ROOT_EXEC nft add element inet statbus_https_only local_ipv4 '{ 127.0.0.0/8 }'
-    VM_ROOT_EXEC nft add element inet statbus_https_only local_ipv6 '{ ::1 }'
-    while read -r local_address; do
-        [ -n "$local_address" ] || continue
-        VM_ROOT_EXEC nft add element inet statbus_https_only local_ipv4 "{ $local_address }"
-    done < <(VM_EXEC ip -o -4 addr show | awk '$2 != "lo" {print $4}' | cut -d/ -f1)
-    while read -r local_address; do
-        [ -n "$local_address" ] || continue
-        VM_ROOT_EXEC nft add element inet statbus_https_only local_ipv6 "{ $local_address }"
-    done < <(VM_EXEC ip -o -6 addr show | awk '$2 != "lo" {print $4}' | cut -d/ -f1)
-    VM_ROOT_EXEC nft add rule inet statbus_https_only output meta nfproto ipv4 ct original protocol tcp ct original ip daddr '!=' @local_ipv4 ct original proto-dst 80 reject
-    VM_ROOT_EXEC nft add rule inet statbus_https_only output meta nfproto ipv6 ct original protocol tcp ct original ip6 daddr '!=' @local_ipv6 ct original proto-dst 80 reject
+    VM_ROOT_EXEC nft add rule inet statbus_https_only output meta nfproto ipv4 ip daddr '!=' '{ 10.0.0.0/8, 127.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16 }' tcp dport 80 reject
+    VM_ROOT_EXEC nft add rule inet statbus_https_only output meta nfproto ipv6 ip6 daddr '!=' '{ ::1, fc00::/7, fe80::/10 }' tcp dport 80 reject
     installed_rules=$(VM_ROOT_EXEC nft list chain inet statbus_https_only output) || return 1
-    grep -Fq 'meta nfproto ipv4 ct original protocol tcp ct original ip daddr != @local_ipv4 ct original proto-dst 80 reject' <<<"$installed_rules" && \
-        grep -Fq 'meta nfproto ipv6 ct original protocol tcp ct original ip6 daddr != @local_ipv6 ct original proto-dst 80 reject' <<<"$installed_rules" || {
+    grep -Fq 'meta nfproto ipv4 ip daddr != { 10.0.0.0/8, 127.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16 } tcp dport 80 reject' <<<"$installed_rules" && \
+        grep -Fq 'meta nfproto ipv6 ip6 daddr != { ::1, fc00::/7, fe80::/10 } tcp dport 80 reject' <<<"$installed_rules" || {
         echo "ERROR: nftables HTTPS-only output rule was not installed" >&2
         return 1
     }

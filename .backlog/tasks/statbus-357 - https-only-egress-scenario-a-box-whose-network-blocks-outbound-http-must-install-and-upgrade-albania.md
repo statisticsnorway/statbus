@@ -192,32 +192,32 @@ placing the reject in a hook/priority after conntrack NAT with the corresponding
 original-destination match. Prove the correction on a real VM, then remove the
 skip marker and re-enable default selection.
 
-## Pre-NAT destination correction 2026-09-24
+## Docker userland-proxy destination correction 2026-09-24
 
-The correction matches the conntrack original tuple, not the packet tuple seen
-after Docker's DNAT. Docker 29's locally-originated published-port path runs its
-`nat OUTPUT` destination translation before the ordinary priority-0 filter
-`OUTPUT` hook. Thus a request whose original destination is
-`127.0.0.1:3010` reaches the filter hook as bridge-address port 80, but
-`ct original ip daddr` and `ct original proto-dst` still report
-`127.0.0.1` and `3010`. An external HTTP request retains its external original
-address and original destination port 80 and is rejected.
+The corrected policy allows loopback and private-destination HTTP while refusing
+public-destination TCP/80. With Docker's default `userland-proxy=true`, Docker's
+nat `OUTPUT` jump excludes loopback. A request to `127.0.0.1:3010` is therefore
+not DNATed. `docker-proxy` accepts that host connection and opens a second,
+brand-new connection from the host to the container IP, for example
+`172.18.0.3:80`. The filter `OUTPUT` hook sees that container destination, and
+its conntrack original destination is also the container IP because no NAT is
+involved.
 
-The dedicated `inet` table now contains IPv4 and IPv6 local-address sets. They
-include the loopback ranges and every address assigned to the host. Two rules
-select the conntrack original L3 family and TCP protocol, reject original
-destination port 80 only when the original destination is outside the
-corresponding local-address set, and therefore cover both address families.
-Container-to-container traffic traverses the host's forward path rather than
-the host output hook and remains unaffected.
+The dedicated `inet` table consequently exempts destination scopes rather than
+host-assigned addresses. IPv4 loopback and RFC1918 ranges, including Docker's
+default `172.16.0.0/12` bridge space, are allowed. IPv6 loopback, ULA, and
+link-local ranges are allowed. Public IPv4 and IPv6 destination port 80 is
+refused. Container-to-container traffic traverses the forward path and remains
+unaffected.
 
-The offline contract models the published-loopback DNAT path and external IPv4
-and IPv6 paths. It also proves that removing a rule, removing destination scope,
-widening reject to accept, removing IPv6, or replacing the conntrack original
-destination with the post-NAT packet destination turns the contract red. The
-`HARNESS_SKIP_DEFAULT` marker is removed and selection tests again require
-`0-https-only-egress` in the default set.
+The offline contract models the published-loopback request as the non-NATed
+host -> `172.18.0.3:80` connection and decides rejection from membership in the
+rule's exempt destination set. Its required mutation removes
+`172.16.0.0/12`, which makes the docker-proxy health path red. The scenario
+retains `HARNESS_SKIP_DEFAULT` and remains explicitly runnable on demand until
+the corrected rule passes a paid real-VM run. The shared install flow also makes
+a bounded at-install health request so a wrong rule fails in seconds.
 
 This is an offline semantic and mutation proof. The acceptance-aligned proof is
 still the next candidate's paid install-recovery harness run on a real VM. Do
-not mark the ticket complete until that run is green.
+not mark the ticket complete or remove the skip marker until that run is green.
