@@ -47,6 +47,18 @@ func Setup(packageName string) (cleanup func(), err error) {
 		return nil, fmt.Errorf("create live-database fixture root: %w", err)
 	}
 	projectDir := filepath.Join(fixtureRoot, "project")
+	// Maintenance flags are written under $HOME, not the project directory.
+	// Compose can create $HOME/statbus-maintenance as root on CI; using the
+	// runner's HOME both fails there and risks touching an operator's real flag.
+	// Package tests and their subprocesses must share a private writable HOME.
+	originalHome, hadHome := os.LookupEnv("HOME")
+	privateHome := filepath.Join(fixtureRoot, "home")
+	if err := os.Mkdir(privateHome, 0o700); err != nil {
+		_ = os.RemoveAll(fixtureRoot)
+		_ = lock.Close()
+		return nil, fmt.Errorf("create live-database fixture home: %w", err)
+	}
+	homeChanged := false
 	// pg_regress provisions statbus_seed, not POSTGRES_APP_DB. On CI the app
 	// database lacks public.upgrade, while local app databases may contain
 	// unrelated upgrade state. Clone the migrated seed for this package.
@@ -58,6 +70,13 @@ func Setup(packageName string) (cleanup func(), err error) {
 		}
 		cmd := exec.Command("git", "-C", realRoot, "worktree", "remove", "--force", projectDir)
 		_ = cmd.Run()
+		if homeChanged {
+			if hadHome {
+				_ = os.Setenv("HOME", originalHome)
+			} else {
+				_ = os.Unsetenv("HOME")
+			}
+		}
 		_ = os.RemoveAll(fixtureRoot)
 		_ = lock.Close()
 	}
@@ -138,6 +157,10 @@ func Setup(packageName string) (cleanup func(), err error) {
 	if err := os.Setenv(pinnedSBEnv, pinnedSB); err != nil {
 		return fail("set pinned sb env: %v", err)
 	}
+	if err := os.Setenv("HOME", privateHome); err != nil {
+		return fail("set live-database fixture home: %v", err)
+	}
+	homeChanged = true
 	return cleanup, nil
 }
 

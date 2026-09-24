@@ -174,7 +174,10 @@ fi
 # install.go's runSeedRestore: warn and proceed; create-db just replays all
 # migrations instead of restoring the seed.
 if [ ! -f "$WORKSPACE/.db-seed/seed.pg_dump" ] && [ -x ./sb ]; then
-    ./sb db seed fetch || echo "Note: no seed image for this commit — proceeding without the seed cache (create-db will replay all migrations)." >&2
+    # postgres-variables is consumed by eval in subprocesses. Keep fetch's
+    # human-facing stdout off that machine-readable stream (including when a
+    # live test replaces docker with a PATH shim).
+    ./sb db seed fetch >&2 || echo "Note: no seed image for this commit — proceeding without the seed cache (create-db will replay all migrations)." >&2
 fi
 
 # Set TTY_INPUT to /dev/tty if available (interactive), otherwise /dev/null
@@ -2249,7 +2252,7 @@ EOF
         fi
       ;;
     'create-test-template' )
-        eval $(./dev.sh postgres-variables)
+        eval "$(./dev.sh postgres-variables)"
         TEMPLATE_NAME="${POSTGRES_TEST_DB:-statbus_test_template}"
         SEED_NAME="${POSTGRES_SEED_DB:-statbus_seed}"
 
