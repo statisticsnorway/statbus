@@ -20,6 +20,7 @@ type fakeProbe struct {
 	flagAlive       bool
 	flagErr         error
 	dbReachable     bool
+	dbErr           error
 	hasUpgradeTable bool
 	hasUpgradeErr   error
 	history         SchemaHistory
@@ -32,11 +33,11 @@ type fakeProbe struct {
 	reattemptErr    error
 }
 
-func (p *fakeProbe) FileExists(path string) bool { return p.files[path] }
+func (p *fakeProbe) FileExists(path string) (bool, error) { return p.files[path], nil }
 func (p *fakeProbe) ReadFlag(string) (*upgrade.UpgradeFlag, bool, error) {
 	return p.flag, p.flagAlive, p.flagErr
 }
-func (p *fakeProbe) DBReachable(string) bool              { return p.dbReachable }
+func (p *fakeProbe) DBReachable(string) (bool, error)     { return p.dbReachable, p.dbErr }
 func (p *fakeProbe) HasUpgradeTable(string) (bool, error) { return p.hasUpgradeTable, p.hasUpgradeErr }
 func (p *fakeProbe) InspectSchemaHistory(string) (SchemaHistory, error) {
 	return p.history, p.historyErr
@@ -46,6 +47,37 @@ func (p *fakeProbe) QueryScheduledUpgrade(string) (*ScheduledRow, error) {
 }
 func (p *fakeProbe) QueryReattemptableRestore(string) (int64, string, bool, error) {
 	return p.reattemptRowID, p.reattemptBackup, p.reattemptFound, p.reattemptErr
+}
+
+func TestDetectionMalformedOutputsAndAvailabilityEvidence(t *testing.T) {
+	for _, out := range []string{"junk", "x|/backup", "1|", "1|/backup\njunk", "-1|/backup"} {
+		t.Run("restore "+out, func(t *testing.T) {
+			if _, _, _, err := parseReattemptableRestoreRows(out); err == nil {
+				t.Fatalf("accepted malformed restore output %q", out)
+			}
+		})
+	}
+	for _, out := range []string{"junk", "0|sha|sha", "1||sha", "1|sha|", "1|sha|sha|extra"} {
+		if _, err := parseScheduledUpgradeRow(out); err == nil {
+			t.Errorf("accepted malformed scheduled output %q", out)
+		}
+	}
+	for _, tc := range []struct {
+		diagnostic  string
+		unavailable bool
+	}{
+		{"psql: connection to server at localhost failed: Connection refused", true},
+		{"psql: connection to server timed out", true},
+		{"service \"db\" is not running", true},
+		{"ERROR: permission denied for table upgrade", false},
+		{"ERROR: relation public.upgrade does not exist", false},
+		{"construct psql query failed", false},
+		{"context deadline exceeded", false},
+	} {
+		if got := connectionUnavailable(tc.diagnostic); got != tc.unavailable {
+			t.Errorf("connectionUnavailable(%q) = %v, want %v", tc.diagnostic, got, tc.unavailable)
+		}
+	}
 }
 
 func TestDetectWith(t *testing.T) {

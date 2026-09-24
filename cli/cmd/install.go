@@ -256,6 +256,32 @@ func acquireOrBypass(installDir string, bypass bool) (release func(), err error)
 	return func() { upgrade.ReleaseInstallFlag(lock) }, nil
 }
 
+// Signer trust must precede upgrade dispatch but follow safe classification.
+// An unclassifiable probe result must never cause a config write.
+func preflightInstallSigner(installDir string) {
+	if trustGitHubUser == "" {
+		return
+	}
+	cfgPath := filepath.Join(installDir, ".env.config")
+	if _, err := os.Stat(cfgPath); err != nil {
+		return
+	}
+	if checkInstallSigners(installDir) {
+		fmt.Println("Trusted signer already configured and verified — skipping GitHub fetch")
+		return
+	}
+	f, err := dotenv.Load(cfgPath)
+	if err != nil {
+		return
+	}
+	fmt.Printf("Trusting GitHub user %s (--trust-github-user)...\n", trustGitHubUser)
+	if err := trustSignerNonInteractive(trustGitHubUser, f); err != nil {
+		log.Printf("Could not trust %s (continuing, operator may add manually): %v", trustGitHubUser, err)
+	} else if err := f.Save(); err != nil {
+		log.Printf("Could not save .env.config after adding trusted signer: %v", err)
+	}
+}
+
 // runInstall is the entry point for `./sb install`. It is safe to run while
 // an upgrade service is active on the same host because of the mutex check
 // below: if the upgrade service has written tmp/upgrade-in-progress.json
@@ -388,77 +414,36 @@ func runInstall() (installErr error) {
 	//                           step-table, which continues with Seed and
 	//                           Migrations.
 	//   all other states      → fall through to acquireOrBypass + step-table.
-	// Pre-Detect orphan-backend cleanup. Critical for recovery from a
-	// crashed upgrade that exhausted max_connections (rune wedge Stage B).
-	// install.Detect runs DB queries; if pool is exhausted, Detect fails
-	// and we'd skip the recovery path entirely. cleanOrphanSessions uses
-	// docker exec → peer auth → superuser inside the container, which
-	// works even when external connections all fail with "too many
-	// clients". Idempotent: the check is a single SELECT count(*); if the
-	// pool has headroom this is a no-op. Gated on services-up so fresh
-	// installs (no DB container yet) skip cleanly.
-	if !bypass && checkDBHealthy(installDir) && !checkSessionsClean(installDir) {
-		fmt.Println("  Pre-detect: connection pool not clean, running cleanOrphanSessions")
-		if err := cleanOrphanSessions(installDir); err != nil {
-			// Best-effort here — log and proceed. install.Detect's own
-			// error path (and the step-table's later "Database sessions"
-			// step) will surface a real DB-down state with a clean error.
-			log.Printf("Pre-detect cleanOrphanSessions: %v", err)
-		}
-	}
-
-	// Pre-flight: if --trust-github-user is set, trust that user's signing key
-	// BEFORE state detection + dispatch. Positioned ahead of dispatchInstallState
-	// (below) on purpose: the scheduled-upgrade and crashed-upgrade paths return
-	// early from dispatch (handing off to executeUpgrade), so a trust pre-flight
-	// placed after dispatch never runs on a box with a pending/wedged upgrade —
-	// making `./sb install --trust-github-user X` a silent no-op exactly when the
-	// upgrade pipeline needs that signer to verify the target commit. Skips the
-	// GitHub fetch if a valid key is already configured (idempotent — no API call
-	// on re-run); a truly fresh box (no .env.config yet) is a no-op, same as
-	// before — the require-a-signer pre-flight further down still gates existing
-	// installs.
-	if !bypass && trustGitHubUser != "" {
-		cfgPath := filepath.Join(installDir, ".env.config")
-		if _, statErr := os.Stat(cfgPath); statErr == nil {
-			if checkInstallSigners(installDir) {
-				fmt.Printf("Trusted signer already configured and verified — skipping GitHub fetch\n")
-			} else {
-				f, loadErr := dotenv.Load(cfgPath)
-				if loadErr == nil {
-					fmt.Printf("Trusting GitHub user %s (--trust-github-user)...\n", trustGitHubUser)
-					if err := trustSignerNonInteractive(trustGitHubUser, f); err != nil {
-						log.Printf("Could not trust %s (continuing, operator may add manually): %v", trustGitHubUser, err)
-					} else {
-						if err := f.Save(); err != nil {
-							log.Printf("Could not save .env.config after adding trusted signer: %v", err)
-						}
-					}
-				}
-			}
-		}
-	}
+	// Detection must precede mutating preflights. An unknown probe result
+	// cannot safely authorize signer changes or session cleanup.
 
 	var detectedState install.State
 	if !bypass {
 		state, detail, derr := detectInstallState(installDir, version)
 		if derr != nil {
-			var unclassifiable *install.UnclassifiableResponseError
-			if errors.As(derr, &unclassifiable) {
+			if !errors.Is(derr, install.ErrDatabaseUnavailable) {
 				bundlePath, bundleErr := writeDetectionSupportBundle(installDir)
 				if bundleErr != nil {
 					bundlePath = filepath.Join(installDir, "support-bundle-<timestamp>.txt (bundle creation failed: "+bundleErr.Error()+")")
 				}
-				return fmt.Errorf("the database answered, but its install state could not be determined: %v\n"+
+				return &installPreflightRefusalError{err: fmt.Errorf("the install state could not be determined: %v\n"+
 					"nothing was changed.\n"+
 					"run the same install command again; if it stops here again, send this file to StatBus support: %s",
-					derr, bundlePath)
+					derr, bundlePath)}
 			}
-			// The original fallback repairs unavailable databases and transient
-			// query failures through the idempotent step table. Those failures
-			// provide no contradictory database answer, so continuing is safe.
+			// Only a positively identified database connection failure permits
+			// repair through the step table. Unknown errors fail closed above.
+			preflightInstallSigner(installDir)
 			log.Printf("State detection failed because a probe was unavailable (continuing with step-table fallback): %v", derr)
 		} else {
+			// Cleanup and signer trust still precede dispatch (which can return
+			// early for scheduled/crashed upgrades), but only after classification.
+			if checkDBHealthy(installDir) && !checkSessionsClean(installDir) {
+				if err := cleanOrphanSessions(installDir); err != nil {
+					log.Printf("Post-detect cleanOrphanSessions: %v", err)
+				}
+			}
+			preflightInstallSigner(installDir)
 			detectedState = state
 			logInstallState(installDir, state, detail)
 			// Safe takeover (STATBUS-039): a live flock + a crash-looping

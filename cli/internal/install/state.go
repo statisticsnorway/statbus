@@ -27,6 +27,7 @@ package install
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -41,18 +42,13 @@ import (
 // State is the diagnosed state of an install directory.
 type State int
 
-// UnclassifiableResponseError means a database probe completed successfully,
-// but its output was not one of the shapes the installer can safely classify.
-// Callers must fail closed: unlike a connection/query failure, this is evidence
-// from an answering database whose provenance is unknown.
-type UnclassifiableResponseError struct {
-	Message string
-}
-
-func (e *UnclassifiableResponseError) Error() string { return e.Message }
+// ErrDatabaseUnavailable is the only detection error permitting a step-table
+// repair fallback. It is attached only to positively identified connection
+// failures, never to query, configuration, command construction or parse errors.
+var ErrDatabaseUnavailable = errors.New("database unavailable")
 
 func unclassifiableResponse(format string, args ...any) error {
-	return &UnclassifiableResponseError{Message: fmt.Sprintf(format, args...)}
+	return fmt.Errorf(format, args...)
 }
 
 const (
@@ -117,9 +113,9 @@ type Detail struct {
 // Probe abstracts the environment queries Detect makes. The default probe hits
 // the real filesystem and runs psql. Tests inject fakes.
 type Probe interface {
-	FileExists(path string) bool
+	FileExists(path string) (bool, error)
 	ReadFlag(projDir string) (*upgrade.UpgradeFlag, bool, error)
-	DBReachable(projDir string) bool
+	DBReachable(projDir string) (bool, error)
 	HasUpgradeTable(projDir string) (bool, error)
 	InspectSchemaHistory(projDir string) (SchemaHistory, error)
 	QueryScheduledUpgrade(projDir string) (*ScheduledRow, error)
@@ -135,7 +131,11 @@ func Detect(projDir, currentVersion string) (State, *Detail, error) {
 func DetectWith(projDir, currentVersion string, probe Probe) (State, *Detail, error) {
 	detail := &Detail{CurrentVersion: currentVersion, TargetVersion: currentVersion}
 
-	if !probe.FileExists(filepath.Join(projDir, ".env.config")) {
+	hasConfig, err := probe.FileExists(filepath.Join(projDir, ".env.config"))
+	if err != nil {
+		return 0, nil, fmt.Errorf("check .env.config: %w", err)
+	}
+	if !hasConfig {
 		return StateFresh, detail, nil
 	}
 
@@ -151,11 +151,19 @@ func DetectWith(projDir, currentVersion string, probe Probe) (State, *Detail, er
 		return StateCrashedUpgrade, detail, nil
 	}
 
-	if !probe.FileExists(filepath.Join(projDir, ".env.credentials")) {
+	hasCredentials, err := probe.FileExists(filepath.Join(projDir, ".env.credentials"))
+	if err != nil {
+		return 0, nil, fmt.Errorf("check .env.credentials: %w", err)
+	}
+	if !hasCredentials {
 		return StateHalfConfigured, detail, nil
 	}
 
-	if !probe.DBReachable(projDir) {
+	reachable, err := probe.DBReachable(projDir)
+	if err != nil {
+		return 0, nil, fmt.Errorf("probe database reachability: %w", err)
+	}
+	if !reachable {
 		return StateDBUnreachable, detail, nil
 	}
 
@@ -253,9 +261,12 @@ func (h SchemaHistory) IsUnfinishedFreshInstall() bool {
 // defaultProbe is the production Probe: real filesystem + psql subprocess.
 type defaultProbe struct{}
 
-func (defaultProbe) FileExists(path string) bool {
+func (defaultProbe) FileExists(path string) (bool, error) {
 	_, err := os.Stat(path)
-	return err == nil
+	if errors.Is(err, os.ErrNotExist) {
+		return false, nil
+	}
+	return err == nil, err
 }
 
 func (defaultProbe) ReadFlag(projDir string) (*upgrade.UpgradeFlag, bool, error) {
@@ -266,12 +277,15 @@ func (defaultProbe) ReadFlag(projDir string) (*upgrade.UpgradeFlag, bool, error)
 	return flag, upgrade.IsFlockHeld(projDir), nil
 }
 
-func (defaultProbe) DBReachable(projDir string) bool {
+func (defaultProbe) DBReachable(projDir string) (bool, error) {
 	out, err := runQuery(projDir, 5*time.Second, "SELECT 1")
 	if err != nil {
-		return false
+		return false, err
 	}
-	return strings.TrimSpace(out) == "1"
+	if strings.TrimSpace(out) != "1" {
+		return false, unclassifiableResponse("unexpected SELECT 1 probe output: %q", out)
+	}
+	return true, nil
 }
 
 func (defaultProbe) HasUpgradeTable(projDir string) (bool, error) {
@@ -399,17 +413,24 @@ func (defaultProbe) QueryScheduledUpgrade(projDir string) (*ScheduledRow, error)
 	if err != nil {
 		return nil, err
 	}
+	return parseScheduledUpgradeRow(out)
+}
+
+func parseScheduledUpgradeRow(out string) (*ScheduledRow, error) {
 	line := strings.TrimSpace(out)
 	if line == "" {
 		return nil, nil
 	}
 	parts := strings.Split(line, "|")
-	if len(parts) < 3 {
+	if len(parts) != 3 {
 		return nil, unclassifiableResponse("unexpected scheduled-upgrade row: %q", line)
 	}
 	id, err := strconv.ParseInt(parts[0], 10, 64)
 	if err != nil {
 		return nil, unclassifiableResponse("parse id from %q: %v", parts[0], err)
+	}
+	if id <= 0 || strings.TrimSpace(parts[1]) == "" || strings.TrimSpace(parts[2]) == "" {
+		return nil, unclassifiableResponse("invalid scheduled-upgrade row: %q", line)
 	}
 	return &ScheduledRow{
 		ID:        id,
@@ -459,25 +480,32 @@ func (defaultProbe) QueryReattemptableRestore(projDir string) (int64, string, bo
 }
 
 func parseReattemptableRestoreRows(out string) (int64, string, bool, error) {
+	var firstID int64
+	var firstPath string
 	for _, line := range strings.Split(strings.TrimSpace(out), "\n") {
 		if strings.TrimSpace(line) == "" {
 			continue
 		}
 		parts := strings.SplitN(line, "|", 2)
 		if len(parts) < 2 {
-			return 0, "", false, fmt.Errorf("unexpected reattemptable-restore row: %q", line)
+			return 0, "", false, unclassifiableResponse("unexpected reattemptable-restore row: %q", line)
 		}
 		id, err := strconv.ParseInt(strings.TrimSpace(parts[0]), 10, 64)
 		if err != nil {
-			return 0, "", false, fmt.Errorf("parse id from %q: %w", parts[0], err)
+			return 0, "", false, unclassifiableResponse("parse id from %q: %v", parts[0], err)
+		}
+		if id <= 0 {
+			return 0, "", false, unclassifiableResponse("invalid reattemptable-restore id: %d", id)
 		}
 		backupPath := strings.TrimSpace(parts[1])
 		if backupPath == "" {
-			continue
+			return 0, "", false, unclassifiableResponse("empty backup path in reattemptable-restore row: %q", line)
 		}
-		return id, backupPath, true, nil
+		if firstPath == "" {
+			firstID, firstPath = id, backupPath
+		}
 	}
-	return 0, "", false, nil
+	return firstID, firstPath, firstPath != "", nil
 }
 
 // LiveMaxMigrationVersion queries db.migration for the highest applied
@@ -544,7 +572,35 @@ func runQuery(projDir string, timeout time.Duration, sql string) (string, error)
 	cmd.Env = env
 	out, err := cmd.CombinedOutput()
 	if err != nil {
+		if connectionUnavailable(string(out)) {
+			return "", fmt.Errorf("psql: %w: %v (%s)", ErrDatabaseUnavailable, err, strings.TrimSpace(string(out)))
+		}
 		return "", fmt.Errorf("psql: %w (%s)", err, strings.TrimSpace(string(out)))
 	}
 	return string(out), nil
+}
+
+// Connection-specific psql/docker diagnostics prove the DB was not reachable.
+// A subprocess timeout on its own does not prove this (the SQL could be slow).
+// Unknown diagnostics, including SQL permissions and incompatible schema, stay
+// ordinary errors and must stop install before it changes anything.
+func connectionUnavailable(output string) bool {
+	lower := strings.ToLower(output)
+	// A server-side SQL error can contain arbitrary user-controlled text,
+	// including the words "connection refused". It proves the DB answered.
+	if strings.Contains(lower, "error:") && !strings.Contains(lower, "psql: error:") {
+		return false
+	}
+	for _, marker := range []string{
+		"connection refused", "connection timed out", "connection to server timed out", "timeout expired",
+		"could not connect to server", "no route to host",
+		"is the server running locally and accepting connections",
+		"is the server running on that host and accepting tcp/ip connections",
+		"service \"db\" is not running", "container is not running",
+	} {
+		if strings.Contains(lower, marker) {
+			return true
+		}
+	}
+	return false
 }
