@@ -1278,9 +1278,12 @@ reset_vm_state() {
     echo "VM $vm_name reset complete."
 }
 
-# apply_https_only_egress rejects outbound plain HTTP while leaving HTTPS and
-# established SSH intact. REJECT is the fast deterministic proxy for Albania's
-# real DROP behavior: a regression fails immediately instead of timing out.
+# apply_https_only_egress rejects externally-routed plain HTTP while leaving
+# HTTPS, established SSH, and host-local loopback traffic intact. StatBus's
+# development-mode health path reaches Caddy through 127.0.0.1:3010, which is
+# internal transport rather than network egress. REJECT is the fast deterministic
+# proxy for Albania's real DROP behavior: a regression fails immediately instead
+# of timing out.
 apply_https_only_egress() {
     local ipv4_literal="93.184.216.34"
     local ipv6_literal="2606:2800:220:1:248:1893:25c8:1946"
@@ -1288,7 +1291,7 @@ apply_https_only_egress() {
     local ipv6_url="http://[${ipv6_literal}]/statbus-http-egress-mutation"
     local probe_rc
 
-    echo "Applying HTTPS-only egress policy (reject outbound TCP/80 on IPv4 and IPv6)"
+    echo "Applying HTTPS-only egress policy (reject non-loopback TCP/80 on IPv4 and IPv6)"
 
     # This scenario enables setup-ubuntu-lts.sh stage 4. That stage installs the
     # CrowdSec nftables bouncer and configures UFW, so use the same nftables
@@ -1305,8 +1308,8 @@ apply_https_only_egress() {
         VM_ROOT_EXEC nft delete table inet statbus_https_only || true
     VM_ROOT_EXEC nft add table inet statbus_https_only
     VM_ROOT_EXEC nft 'add chain inet statbus_https_only output { type filter hook output priority 0; policy accept; }'
-    VM_ROOT_EXEC nft add rule inet statbus_https_only output tcp dport 80 reject
-    VM_ROOT_EXEC nft list chain inet statbus_https_only output | grep -Fq 'tcp dport 80 reject' || {
+    VM_ROOT_EXEC nft add rule inet statbus_https_only output oifname '!=' lo tcp dport 80 reject
+    VM_ROOT_EXEC nft list chain inet statbus_https_only output | grep -Fq 'oifname != "lo" tcp dport 80 reject' || {
         echo "ERROR: nftables HTTPS-only output rule was not installed" >&2
         return 1
     }

@@ -31,7 +31,7 @@ assert_https_only_contract() {
         'nft --version' \
         'nft add table inet statbus_https_only' \
         'nft add chain inet statbus_https_only output { type filter hook output priority 0; policy accept; }' \
-        'nft add rule inet statbus_https_only output tcp dport 80 reject' \
+        'nft add rule inet statbus_https_only output oifname != lo tcp dport 80 reject' \
         'nft list chain inet statbus_https_only output' \
         'curl --noproxy * -4 --fail --silent --show-error --connect-timeout 3 --max-time 5 http://93.184.216.34/statbus-http-egress-mutation' \
         'ip -6 route get 2606:2800:220:1:248:1893:25c8:1946' \
@@ -61,8 +61,8 @@ run_contract() {
             'nft list table inet statbus_https_only') return 1 ;;
             'nft add table inet statbus_https_only') return 0 ;;
             'nft add chain inet statbus_https_only output { type filter hook output priority 0; policy accept; }') return 0 ;;
-            'nft add rule inet statbus_https_only output tcp dport 80 reject') return 0 ;;
-            'nft list chain inet statbus_https_only output') printf '%s\n' 'tcp dport 80 reject'; return 0 ;;
+            'nft add rule inet statbus_https_only output oifname != lo tcp dport 80 reject') return 0 ;;
+            'nft list chain inet statbus_https_only output') printf '%s\n' 'oifname != "lo" tcp dport 80 reject'; return 0 ;;
         esac
         return 99
     }
@@ -78,7 +78,7 @@ output=$(run_contract "$events")
 assert_https_only_contract "$events" "$output"
 
 # Negative control: omitting the one inet-family rule must make the contract red.
-sed '/VM_ROOT_EXEC nft add rule inet statbus_https_only output tcp dport 80 reject/d' "$BOOTSTRAP" > "$mutated_bootstrap"
+sed "/VM_ROOT_EXEC nft add rule inet statbus_https_only output oifname '!=' lo tcp dport 80 reject/d" "$BOOTSTRAP" > "$mutated_bootstrap"
 if (
     source "$mutated_bootstrap"
     trap - ERR
@@ -100,4 +100,8 @@ grep -Fq 'HARNESS_VM_IMAGE="${HARNESS_VM_IMAGE:-ubuntu-26.04}"' "$BOOTSTRAP"
     || die 'HTTPS-only policy introduced parallel iptables tooling'
 ! grep -Fq 'sudo nft' "$events" \
     || die 'HTTPS-only policy incorrectly relies on the hardened statbus account having general sudo access'
-echo 'PASS: HTTPS-only scenario uses root SSH for nftables, installs one inet rule, and verifies IPv4/IPv6 enforcement in order'
+grep -Fq 'oifname != lo tcp dport 80 reject' "$events" \
+    || die 'HTTPS-only policy does not exempt host-local loopback traffic'
+! grep -Fxq 'nft add rule inet statbus_https_only output tcp dport 80 reject' "$events" \
+    || die 'HTTPS-only policy still rejects loopback TCP/80 along with external egress'
+echo 'PASS: HTTPS-only scenario uses root SSH for nftables, exempts loopback, and verifies external IPv4/IPv6 enforcement in order'
