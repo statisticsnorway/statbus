@@ -31,8 +31,12 @@ func TestRestoreReattemptSecondActorCannotRestoreAgain(t *testing.T) {
 
 	shimDir := t.TempDir()
 	dockerLog := filepath.Join(shimDir, "docker.log")
+	stdinLog := filepath.Join(shimDir, "docker.stdin")
 	if err := os.WriteFile(filepath.Join(shimDir, "docker"), []byte(`#!/bin/sh
 printf '%s\n' "$*" >> "$STATBUS_TEST_DOCKER_LOG"
+if [ "$*" = 'compose exec -T db psql -X -q -A -t -F | -v ON_ERROR_STOP=1 -U postgres -d postgres' ]; then
+  cat >> "$STATBUS_TEST_DOCKER_STDIN"
+fi
 case "$*" in
   *"run --rm"*"rsync"*)
     if [ -f "$STATBUS_TEST_FLOOR_REWIND_ARM" ]; then
@@ -64,6 +68,7 @@ exit 0
 	}
 	t.Setenv("PATH", shimDir+string(os.PathListSeparator)+os.Getenv("PATH"))
 	t.Setenv("STATBUS_TEST_DOCKER_LOG", dockerLog)
+	t.Setenv("STATBUS_TEST_DOCKER_STDIN", stdinLog)
 	t.Setenv("STATBUS_TEST_TARGET_SB", liveSBPath(t))
 	t.Setenv("STATBUS_TEST_FLOOR_DOWN", filepath.Join(projDir, "migrations", "20260907120000_statbus_347_rollback_finish_pending_column.down.sql"))
 	floorRewindArm := filepath.Join(shimDir, "floor-rewind.arm")
@@ -165,6 +170,9 @@ exit 0
 	if err := os.WriteFile(dockerLog, nil, 0o644); err != nil {
 		t.Fatal(err)
 	}
+	if err := os.WriteFile(stdinLog, nil, 0o644); err != nil {
+		t.Fatal(err)
+	}
 
 	actorB := NewService(projDir, false, "test", "")
 	if err := actorB.LoadConfigAndConnect(ctx); err != nil {
@@ -175,12 +183,8 @@ exit 0
 	if reattemptErr == nil || !strings.Contains(reattemptErr.Error(), "no longer re-attemptable") {
 		t.Fatalf("delayed actor B did not refuse stale row authorization: %v", reattemptErr)
 	}
-	if calls, err := os.ReadFile(dockerLog); err != nil {
-		t.Fatal(err)
-	} else if strings.TrimSpace(string(calls)) != "compose exec -T db psql -X -q -A -t -F | -v ON_ERROR_STOP=1 -U postgres -d postgres" {
-		// LoadConfigAndConnect must probe role-password agreement before dialing.
-		// That read-only DB probe is not a restore/restart by stale actor B.
-		t.Fatalf("delayed actor B touched Docker beyond its pre-connect password probe:\n%s", calls)
+	if err := checkVerifierDockerCall(projDir, dockerLog, stdinLog); err != nil {
+		t.Fatalf("delayed actor B touched Docker beyond its exact read-only password probe: %v", err)
 	}
 	if _, err := os.Stat(flagFilePath(projDir)); !os.IsNotExist(err) {
 		t.Fatalf("delayed actor B left or replaced the replay marker: %v", err)
@@ -192,4 +196,5 @@ exit 0
 	if !strings.Contains(summary, "post-A write") {
 		t.Fatalf("post-A write was lost: %q", summary)
 	}
+	proveWriteRejected(t, projDir, dockerLog, stdinLog, shimDir)
 }

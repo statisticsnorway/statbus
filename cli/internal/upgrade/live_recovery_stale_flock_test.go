@@ -34,8 +34,12 @@ func TestRecoveryStaleActorCannotRecreateMarker(t *testing.T) {
 
 	shimDir := t.TempDir()
 	dockerLog := filepath.Join(shimDir, "docker.log")
+	stdinLog := filepath.Join(shimDir, "docker.stdin")
 	if err := os.WriteFile(filepath.Join(shimDir, "docker"), []byte(`#!/bin/sh
 printf '%s\n' "$*" >> "$STATBUS_TEST_DOCKER_LOG"
+if [ "$*" = 'compose exec -T db psql -X -q -A -t -F | -v ON_ERROR_STOP=1 -U postgres -d postgres' ]; then
+  cat >> "$STATBUS_TEST_DOCKER_STDIN"
+fi
 case "$*" in
   *"compose exec db pg_isready"*|*"compose exec"*"pg_isready"*) echo "accepting connections"; exit 0 ;;
   *"compose ps"*) echo "[]"; exit 0 ;;
@@ -46,6 +50,7 @@ esac
 	}
 	t.Setenv("PATH", shimDir+string(os.PathListSeparator)+os.Getenv("PATH"))
 	t.Setenv("STATBUS_TEST_DOCKER_LOG", dockerLog)
+	t.Setenv("STATBUS_TEST_DOCKER_STDIN", stdinLog)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 	defer cancel()
@@ -131,6 +136,9 @@ esac
 	if err := os.WriteFile(dockerLog, nil, 0o644); err != nil {
 		t.Fatal(err)
 	}
+	if err := os.WriteFile(stdinLog, nil, 0o644); err != nil {
+		t.Fatal(err)
+	}
 	cmd := exec.CommandContext(ctx, os.Args[0], "-test.run=^TestRecoveryStaleActor_Helper$")
 	cmd.Env = append(os.Environ(),
 		"STATBUS_STALE_RECOVERY_HELPER=1",
@@ -146,16 +154,13 @@ esac
 	if !strings.Contains(string(output), "someone already finished this recovery") {
 		t.Fatalf("delayed actor B did not report the durable-state refusal:\n%s", output)
 	}
-	if calls, err := os.ReadFile(dockerLog); err != nil {
-		t.Fatal(err)
-	} else if strings.TrimSpace(string(calls)) != "compose exec -T db psql -X -q -A -t -F | -v ON_ERROR_STOP=1 -U postgres -d postgres" {
-		// The subprocess checks role-password agreement before connecting.
-		// Reject any Docker action other than that single read-only probe.
-		t.Fatalf("delayed actor B touched Docker beyond its pre-connect password probe:\n%s", calls)
+	if err := checkVerifierDockerCall(projDir, dockerLog, stdinLog); err != nil {
+		t.Fatalf("delayed actor B touched Docker beyond its exact read-only password probe: %v", err)
 	}
 	if _, err := os.Stat(flagFilePath(projDir)); !os.IsNotExist(err) {
 		t.Fatalf("delayed actor B recreated the removed marker: %v", err)
 	}
+	proveWriteRejected(t, projDir, dockerLog, stdinLog, shimDir)
 }
 
 // TestRecoveryStaleActor_Helper is the delayed actor subprocess for
