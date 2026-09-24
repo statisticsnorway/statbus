@@ -139,7 +139,7 @@ if [ "${HARNESS_ASSERT_DISK_POLICY:-0}" = 1 ]; then
     # chosen threshold before upgrade must retain it through the new binary's
     # automatic fixup and subsequent rerun.
     VM_EXEC bash -c 'cd ~/statbus && ./sb dotenv -f .env.config set STATBUS_DISK_MIN_GB 20 && ./sb dotenv -f .env.config set STATBUS_DISK_RECOMMENDED_GB 40'
-    VM_EXEC bash -c 'docker info --format "Docker data: {{.DockerRootDir}}"; df -h "$(docker info --format "{{.DockerRootDir}}")" "$HOME/statbus-backups"'
+    VM_EXEC bash -c 'mkdir -p "$HOME/statbus-backups"; docker info --format "Docker data: {{.DockerRootDir}}"; df -h "$(docker info --format "{{.DockerRootDir}}")" "$HOME/statbus-backups"'
 fi
 if [ "${HARNESS_HTTPS_ONLY_EGRESS:-0}" = "1" ]; then
     # Fail in seconds if the host OUTPUT rule refuses docker-proxy's new,
@@ -269,7 +269,7 @@ if [ "${HARNESS_ASSERT_DISK_POLICY:-0}" = 1 ]; then
     VM_EXEC bash -c 'cd ~/statbus && ./sb install --non-interactive'
     POLICY=$(VM_EXEC bash -c 'cd ~/statbus && ./sb dotenv -f .env.config get STATBUS_DISK_MIN_GB && ./sb dotenv -f .env.config get STATBUS_DISK_RECOMMENDED_GB')
     [ "$POLICY" = $'20\n40' ] || { echo "disk policy changed on rerun: $POLICY" >&2; exit 1; }
-    VM_EXEC bash -c 'docker info --format "Docker data: {{.DockerRootDir}}"; df -h "$(docker info --format "{{.DockerRootDir}}")" "$HOME/statbus-backups"'
+    VM_EXEC bash -c 'mkdir -p "$HOME/statbus-backups"; docker info --format "Docker data: {{.DockerRootDir}}"; df -h "$(docker info --format "{{.DockerRootDir}}")" "$HOME/statbus-backups"'
 fi
 
 # Bounded restarts. The normal upgrade should NOT have triggered any

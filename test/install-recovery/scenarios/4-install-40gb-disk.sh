@@ -21,6 +21,6 @@ bootstrap_install_test_vm "$VM_NAME" "$INSTALL_TARGET_TAG"
 install_statbus_at_sha "$VM_NAME" "$TARGET_SHA" "$INSTALL_TARGET_TAG"
 POLICY=$(VM_EXEC bash -c 'cd ~/statbus && ./sb dotenv -f .env.config get STATBUS_DISK_MIN_GB && ./sb dotenv -f .env.config get STATBUS_DISK_RECOMMENDED_GB')
 [ "$POLICY" = $'20\n40' ] || { echo "wrong persisted disk policy: $POLICY" >&2; exit 1; }
-VM_EXEC bash -c 'docker info --format "Docker data: {{.DockerRootDir}}"; df -h "$(docker info --format "{{.DockerRootDir}}")" "$HOME/statbus-backups"'
+VM_EXEC bash -c 'mkdir -p "$HOME/statbus-backups"; docker info --format "Docker data: {{.DockerRootDir}}"; df -h "$(docker info --format "{{.DockerRootDir}}")" "$HOME/statbus-backups"'
 assert_health_passes "$VM_NAME"
 echo 'PASS: 40 GB installation measured Docker data and backups, retained 20/40 GB policy and serves requests'
