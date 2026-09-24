@@ -260,6 +260,22 @@ func ValidatePrereleaseTag(projDir, tagName string) error {
 		if err := compareMigrationsForTag(projDir, prevTag, tagName); err != nil {
 			return err
 		}
+		missing, err := release.MissingSeedLineageMigrations(projDir, prevTag, tagName)
+		if err != nil {
+			return fmt.Errorf("check retained seed migration lineage: %w", err)
+		}
+		if len(missing) > 0 {
+			var details []string
+			for _, migration := range missing {
+				commit := migration.Commit
+				if len(commit) > 12 {
+					commit = commit[:12]
+				}
+				details = append(details, fmt.Sprintf("%d (first seen at %s as %s)", migration.Version, commit, migration.Path))
+			}
+			return fmt.Errorf("tag %s removes or renumbers migration versions recorded by the retained first-parent seed lineage after %s:\n  %s\n  restore each original version and add a new forward migration instead",
+				tagName, prevTag, strings.Join(details, "\n  "))
+		}
 	}
 	return nil
 }
