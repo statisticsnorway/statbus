@@ -57,17 +57,13 @@ SELECT state, dismissed_at IS NULL AS dismissal_cleared
  WHERE id = :norway_id;
 SELECT set_config('statbus.actor', '', true);
 
-\echo '=== STATBUS-382: trigger blocks direct failed exit without actor ==='
+\echo '=== STATBUS-382: trigger allows daemon-owned direct failed exit without actor ==='
 UPDATE public.upgrade
    SET state = 'failed', started_at = now(), scheduled_at = NULL, error = 'again'
  WHERE id = :norway_id;
-SAVEPOINT direct_failed_exit;
-\set ON_ERROR_STOP off
 UPDATE public.upgrade
    SET state = 'scheduled', started_at = NULL, scheduled_at = now(), error = NULL
  WHERE id = :norway_id;
-\set ON_ERROR_STOP on
-ROLLBACK TO SAVEPOINT direct_failed_exit;
 SELECT state FROM public.upgrade WHERE id = :norway_id;
 
 \echo '=== STATBUS-382: live unparked in_progress cannot be dismissed even with actor ==='

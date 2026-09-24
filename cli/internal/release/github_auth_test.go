@@ -87,7 +87,7 @@ exit 1
 	var userVisibleLog bytes.Buffer
 	userVisibleLog.WriteString(err.Error())
 	diagnosticPath := filepath.Join(t.TempDir(), "support-bundle-release-error.txt")
-	if writeErr := os.WriteFile(diagnosticPath, []byte(userVisibleLog.String()), 0o600); writeErr != nil {
+	if writeErr := os.WriteFile(diagnosticPath, userVisibleLog.Bytes(), 0o600); writeErr != nil {
 		t.Fatal(writeErr)
 	}
 	diagnostic, readErr := os.ReadFile(diagnosticPath)

@@ -68,22 +68,16 @@ SELECT state, dismissed_at IS NULL AS dismissal_cleared
 scheduled|t
 SELECT set_config('statbus.actor', '', true);
 
-\echo '=== STATBUS-382: trigger blocks direct failed exit without actor ==='
-=== STATBUS-382: trigger blocks direct failed exit without actor ===
+\echo '=== STATBUS-382: trigger allows daemon-owned direct failed exit without actor ==='
+=== STATBUS-382: trigger allows daemon-owned direct failed exit without actor ===
 UPDATE public.upgrade
    SET state = 'failed', started_at = now(), scheduled_at = NULL, error = 'again'
  WHERE id = :norway_id;
-SAVEPOINT direct_failed_exit;
-\set ON_ERROR_STOP off
 UPDATE public.upgrade
    SET state = 'scheduled', started_at = NULL, scheduled_at = now(), error = NULL
  WHERE id = :norway_id;
-ERROR:  operator actor required to leave upgrade state failed
-CONTEXT:  PL/pgSQL function upgrade_guard_operator_transitions() line 29 at RAISE
-\set ON_ERROR_STOP on
-ROLLBACK TO SAVEPOINT direct_failed_exit;
 SELECT state FROM public.upgrade WHERE id = :norway_id;
-failed
+scheduled
 \echo '=== STATBUS-382: live unparked in_progress cannot be dismissed even with actor ==='
 === STATBUS-382: live unparked in_progress cannot be dismissed even with actor ===
 SELECT set_config('statbus.actor', 'test operator', true);
@@ -100,7 +94,7 @@ UPDATE public.upgrade
    SET state = 'dismissed', dismissed_at = now()
  WHERE id = :norway_id;
 ERROR:  cannot dismiss a live unparked in_progress upgrade
-CONTEXT:  PL/pgSQL function upgrade_guard_operator_transitions() line 12 at RAISE
+CONTEXT:  PL/pgSQL function upgrade_guard_operator_transitions() line 8 at RAISE
 \set ON_ERROR_STOP on
 ROLLBACK TO SAVEPOINT live_dismiss;
 SELECT state, dismissed_at IS NULL AS not_dismissed

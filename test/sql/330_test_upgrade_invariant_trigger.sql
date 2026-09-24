@@ -190,7 +190,6 @@ VALUES (lpad(to_hex(100), 40, '0'), now(), 'commit', 'in_progress',
 -- to fail is chk_upgrade_parked_requires_in_progress — its error is deterministic.
 -- VERBOSITY terse: the ERROR line is stable; the DETAIL failing-row dump is not.
 \set VERBOSITY terse
-SET LOCAL statbus.actor = 'pg_regress underlying parked constraint fixture';
 SAVEPOINT sp_t8;
 \set ON_ERROR_STOP off
 UPDATE public.upgrade SET state = 'failed', error = 'deterministic failure' WHERE id = 1;
