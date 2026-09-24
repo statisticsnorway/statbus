@@ -13,17 +13,21 @@ package cmd
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"sort"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/statisticsnorway/statbus/cli/internal/compose"
 	"github.com/statisticsnorway/statbus/cli/internal/dbroles"
 	"github.com/statisticsnorway/statbus/cli/internal/dotenv"
+	"github.com/statisticsnorway/statbus/cli/internal/upgrade"
 )
 
 // servicePlainNames are the words the operator sees for each compose service.
@@ -44,9 +48,151 @@ func servicePlainName(service string) string {
 
 // serviceStatus is one row of `docker compose ps -a --format json`.
 type serviceStatus struct {
-	Service string `json:"Service"`
-	State   string `json:"State"`
-	Health  string `json:"Health"`
+	Service    string          `json:"Service"`
+	State      string          `json:"State"`
+	Health     string          `json:"Health"`
+	Publishers []publishedPort `json:"Publishers"`
+}
+
+type publishedPort struct {
+	URL           string `json:"URL"`
+	TargetPort    int    `json:"TargetPort"`
+	PublishedPort int    `json:"PublishedPort"`
+	Protocol      string `json:"Protocol"`
+}
+
+type configuredPort struct {
+	HostIP    string `json:"host_ip"`
+	Target    int    `json:"target"`
+	Published string `json:"published"`
+	Protocol  string `json:"protocol"`
+}
+
+// Config's ports are the authority, not a fixed list of development ports.
+var configuredServicePorts = func(dir string) (map[string][]configuredPort, error) {
+	cmd, err := compose.CommandContext(context.Background(), dir, "--profile", "all", "config", "--format", "json")
+	if err != nil {
+		return nil, err
+	}
+	out, err := cmd.Output()
+	if err != nil {
+		return nil, fmt.Errorf("read docker compose port configuration: %w", err)
+	}
+	var config struct {
+		Services map[string]struct {
+			Ports []configuredPort `json:"ports"`
+		} `json:"services"`
+	}
+	if err := json.Unmarshal(out, &config); err != nil {
+		return nil, fmt.Errorf("parse docker compose port configuration: %w", err)
+	}
+	if len(config.Services) == 0 {
+		return nil, fmt.Errorf("docker compose port configuration has no services")
+	}
+	ports := make(map[string][]configuredPort, len(config.Services))
+	for service, entry := range config.Services {
+		ports[service] = entry.Ports
+	}
+	return ports, nil
+}
+
+func missingPublishedPorts(statuses []serviceStatus, configured map[string][]configuredPort) map[string][]configuredPort {
+	missing := make(map[string][]configuredPort)
+	for _, status := range statuses {
+		for _, expected := range configured[status.Service] {
+			found := false
+			for _, actual := range status.Publishers {
+				protocol := expected.Protocol
+				if protocol == "" {
+					protocol = "tcp"
+				}
+				// Compose reports the host IP as URL, including 0.0.0.0 for a wildcard.
+				if fmt.Sprint(actual.PublishedPort) == expected.Published && actual.TargetPort == expected.Target &&
+					actual.Protocol == protocol && (expected.HostIP == "" || actual.URL == expected.HostIP) {
+					found = true
+					break
+				}
+			}
+			if !found {
+				missing[status.Service] = append(missing[status.Service], expected)
+			}
+		}
+	}
+	return missing
+}
+
+// Give a port-conflict error the host listener, rather than just an exit code.
+func portListener(port configuredPort) string {
+	// The installer user may not see another user's process without sudo.
+	out, err := exec.Command("sudo", "-n", "ss", "-ltnup").Output()
+	if err != nil {
+		out, err = exec.Command("ss", "-ltnup").Output()
+	}
+	if err != nil {
+		return "listener unavailable (run ss -ltnup as root)"
+	}
+	for _, line := range strings.Split(string(out), "\n") {
+		fields := strings.Fields(line)
+		if len(fields) >= 5 && strings.HasSuffix(fields[4], ":"+port.Published) &&
+			(port.Protocol == "" || strings.EqualFold(fields[0], port.Protocol)) {
+			return strings.TrimSpace(line)
+		}
+	}
+	return "no host listener found by ss -ltnup"
+}
+
+var recreateServiceWithPorts = func(dir, service string) error {
+	cmd, err := compose.Up(context.Background(), dir, "--profile", "all", "-d", "--force-recreate", "--no-deps", service)
+	if err != nil {
+		return err
+	}
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("%w: %s", err, strings.TrimSpace(string(out)))
+	}
+	return nil
+}
+
+func reconcilePublishedPorts(dir string) error {
+	configured, err := configuredServicePorts(dir)
+	if err != nil {
+		return err
+	}
+	statuses, err := probeServiceStatuses(dir)
+	if err != nil {
+		return err
+	}
+	missing := missingPublishedPorts(statuses, configured)
+	services := make([]string, 0, len(missing))
+	for service := range missing {
+		services = append(services, service)
+	}
+	sort.Strings(services)
+	for _, service := range services {
+		fmt.Printf("  %s has missing published ports; recreating it ...\n", servicePlainName(service))
+		if err := recreateServiceWithPorts(dir, service); err != nil {
+			port := missing[service][0]
+			listener := ""
+			for _, candidate := range missing[service] {
+				if owner := portListener(candidate); !strings.HasPrefix(owner, "no host listener") {
+					port, listener = candidate, owner
+					break
+				}
+			}
+			if listener == "" {
+				listener = portListener(port)
+			}
+			return fmt.Errorf("%s could not publish host port %s/%s; port listener: %s: %w", servicePlainName(service), port.Published, port.Protocol, listener, err)
+		}
+	}
+	statuses, err = probeServiceStatuses(dir)
+	if err != nil {
+		return err
+	}
+	for service, ports := range missingPublishedPorts(statuses, configured) {
+		return fmt.Errorf("%s is still missing published host port %s/%s after recreation; port listener: %s", servicePlainName(service), ports[0].Published, ports[0].Protocol, portListener(ports[0]))
+	}
+	return nil
 }
 
 func parseServiceStatuses(out []byte) ([]serviceStatus, error) {
@@ -184,7 +330,18 @@ func currentServiceProblems(dir string) ([]serviceProblem, error) {
 	if err != nil {
 		return nil, err
 	}
-	return servicesNotRunning(required, statuses), nil
+	problems := servicesNotRunning(required, statuses)
+	configured, err := configuredServicePorts(dir)
+	if err != nil {
+		return nil, err
+	}
+	missing := missingPublishedPorts(statuses, configured)
+	for _, service := range required {
+		if len(missing[service]) > 0 {
+			problems = append(problems, serviceProblem{service, "missing published ports"})
+		}
+	}
+	return problems, nil
 }
 
 // rolePasswordsAgree is a seam over dbroles.CheckProject.
@@ -277,6 +434,9 @@ func waitForServicesRunning(dir string, budget, interval time.Duration) ([]servi
 func runStartServices(dir string) error {
 	fmt.Println("  Starting every service: database, web server, API, web app, background worker ...")
 	upErr := composeUpAll(dir)
+	if err := reconcilePublishedPorts(dir); err != nil {
+		return err
+	}
 
 	if !waitForInstallDBHealth(dir, time.Now().Add(servicesDBHealthyBudget), servicesPollInterval) {
 		if upErr != nil {
@@ -320,6 +480,27 @@ func runStartServices(dir string) error {
 // healthcheck (pg_isready) reports healthy. Used where only the database is
 // needed (pre-detect session cleanup, the Seed probe, health waits).
 func checkDBHealthy(dir string) bool { return checkDBHealthyFn(dir) }
+
+// The daemon connects to the app database through the host's Caddy TCP port,
+// not the container socket used by the earlier install steps. Probe that same
+// authenticated route before systemctl enable --now can block for 120 seconds.
+var probeUpgradeDatabaseRoute = func(dir string) error {
+	return upgrade.NewService(dir, false, "", "").EnsureDBReachable(context.Background())
+}
+
+func checkUpgradeDatabaseRoute(dir string) error {
+	err := probeUpgradeDatabaseRoute(dir)
+	if err == nil {
+		return nil
+	}
+	if !checkDBHealthy(dir) {
+		return fmt.Errorf("the database (db) is not healthy; the upgrade service cannot reach it: %w", err)
+	}
+	if errors.Is(err, syscall.ECONNREFUSED) {
+		return fmt.Errorf("the web server (proxy) is not listening on the database port; the upgrade service cannot reach the database: %w", err)
+	}
+	return fmt.Errorf("the upgrade service cannot reach the database through the web server (proxy); check the database route and login credentials: %w", err)
+}
 
 // checkDBHealthyFn is the seam behind checkDBHealthy.
 var checkDBHealthyFn = checkDBHealthyDocker

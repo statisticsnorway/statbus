@@ -67,6 +67,14 @@ rest_restart_count() {
     VM_EXEC bash -c "cd ~/statbus && docker inspect \"\$(./sb dotenv -f .env get COMPOSE_INSTANCE_NAME)-rest\" --format '{{.RestartCount}} {{.State.Status}}'" 2>/dev/null || echo "? ?"
 }
 
+assert_proxy_published_ports() {
+    local ports
+    ports=$(VM_EXEC bash -c 'cd ~/statbus && docker port "$(./sb dotenv -f .env get COMPOSE_INSTANCE_NAME)-proxy"')
+    for binding in '5431/tcp -> 127.0.0.1:5431' '5432/tcp -> 0.0.0.0:5432' '80/tcp -> 0.0.0.0:80' '443/tcp -> 0.0.0.0:443' '443/udp -> 0.0.0.0:443'; do
+        grep -Fq "$binding" <<<"$ports" || { echo "✗ proxy does not publish $binding: $ports" >&2; exit 1; }
+    done
+}
+
 # ─────────────────────────────────────────────────────────────────────────
 # Phase a — port 80 is held by another program; step 8 must fail and say so.
 # ─────────────────────────────────────────────────────────────────────────
@@ -113,8 +121,9 @@ grep -F 'All services are running and the API is ready.' "$INSTALL_LOG" >/dev/nu
     exit 1
 }
 [ "$(rest_admin_ready)" = 200 ] || { echo "✗ phase b: rest /ready is not 200" >&2; exit 1; }
+assert_proxy_published_ports
 assert_systemd_active "$VM_NAME"
-echo "  ✓ phase b: continued as fresh-db-incomplete, completed, /ready 200"
+echo "  ✓ phase b: continued as fresh-db-incomplete, proxy published 5431/80/443, upgrade service active, /ready 200"
 
 USERS_BEFORE=$(VM_EXEC bash -c "cd ~/statbus && ./sb psql -X -t -A -c 'SELECT count(*) FROM auth.user;'" | tr -d ' \r\n')
 [ "${USERS_BEFORE:-0}" -gt 0 ] || { echo "✗ phase b: no users were created" >&2; exit 1; }
@@ -130,6 +139,7 @@ VM_EXEC bash -c "systemctl --user disable --now statbus-upgrade@statbus.service 
 VM_EXEC bash -c "docker volume inspect $VOLUME >/dev/null && echo 'volume kept: $VOLUME'"
 : > "$INSTALL_LOG"
 install_statbus_in_vm "$VM_NAME"
+DETAIL_LOG=$(VM_EXEC bash -c 'cat ~/statbus/tmp/install-last-run-output.txt')
 
 FINGERPRINT_AFTER=$(VM_EXEC bash -c "sha256sum ~/statbus/.env.credentials | cut -c1-16" | tr -d '\r\n')
 if [ "$FINGERPRINT_BEFORE" = "$FINGERPRINT_AFTER" ]; then
@@ -138,11 +148,11 @@ if [ "$FINGERPRINT_BEFORE" = "$FINGERPRINT_AFTER" ]; then
 fi
 echo "  ✓ phase c precondition: .env.credentials regenerated over the surviving volume"
 
-grep -F 'The database held older passwords for' "$INSTALL_LOG" >/dev/null || {
+grep -F 'The database held older passwords for' <<<"$DETAIL_LOG" >/dev/null || {
     echo "✗ phase c: the install did not report re-applying the database passwords" >&2
     exit 1
 }
-grep -F 'All services are running and the API is ready.' "$INSTALL_LOG" >/dev/null || {
+grep -F 'All services are running and the API is ready.' <<<"$DETAIL_LOG" >/dev/null || {
     echo "✗ phase c: the install did not confirm the API is ready" >&2
     exit 1
 }
@@ -163,6 +173,7 @@ AUTH_STATUS=$(VM_EXEC bash -c "cd ~/statbus && curl -s -m 5 -o /dev/null -w '%{h
 echo "  ✓ phase c: rest steady, /ready 200, /rpc/auth_status 200"
 
 assert_systemd_active "$VM_NAME"
+assert_proxy_published_ports
 assert_step_upgrade_service_completed "$VM_NAME"
 
 NEWEST=$(VM_EXEC bash -c "cd ~/statbus && ./sb psql -X -t -A -c 'SELECT state FROM public.upgrade ORDER BY id DESC LIMIT 1;'" | tr -d ' \r\n')

@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"syscall"
 	"testing"
 	"time"
 
@@ -90,6 +91,53 @@ func TestServiceProblemsInPlainWords(t *testing.T) {
 	}
 }
 
+func TestUpgradeServiceRoutePreflight(t *testing.T) {
+	oldProbe, oldHealthy := probeUpgradeDatabaseRoute, checkDBHealthyFn
+	t.Cleanup(func() { probeUpgradeDatabaseRoute, checkDBHealthyFn = oldProbe, oldHealthy })
+	for _, tc := range []struct {
+		name    string
+		healthy bool
+		probe   error
+		want    string
+	}{
+		{"reachable", true, nil, ""},
+		{"proxy listener missing while db healthy", true, fmt.Errorf("dial: %w", syscall.ECONNREFUSED), "the web server (proxy) is not listening on the database port"},
+		{"database stopped", false, fmt.Errorf("dial: %w", syscall.ECONNREFUSED), "the database (db) is not healthy"},
+		{"authentication failed", true, errors.New("28P01 password authentication failed"), "check the database route and login credentials"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			probeUpgradeDatabaseRoute = func(string) error { return tc.probe }
+			checkDBHealthyFn = func(string) bool { return tc.healthy }
+			err := checkUpgradeDatabaseRoute("unused")
+			if tc.want == "" {
+				if err != nil {
+					t.Fatalf("unexpected error: %v", err)
+				}
+			} else if err == nil || !strings.Contains(err.Error(), tc.want) {
+				t.Fatalf("error = %v, want %q", err, tc.want)
+			}
+		})
+	}
+}
+
+func TestInstallProbesDatabaseRouteBeforeStartingUpgradeUnit(t *testing.T) {
+	src, err := os.ReadFile("install.go")
+	if err != nil {
+		t.Fatal(err)
+	}
+	body := funcBody(t, string(src), "func runInstallService(")
+	handoff := strings.Index(body, "if postUpgradeFixup {")
+	start := -1
+	if handoff >= 0 {
+		start = handoff + strings.Index(body[handoff:], "} else {")
+	}
+	probe := strings.Index(body, "checkUpgradeDatabaseRoute(dir)")
+	enable := strings.Index(body, `runCmd("systemctl", "--user", "enable", "--now", instance)`)
+	if handoff < 0 || start < handoff || probe < start || enable < probe {
+		t.Fatalf("route probe must precede enable --now but not block active service handoff (handoff=%d start=%d probe=%d enable=%d)", handoff, start, probe, enable)
+	}
+}
+
 func TestParseServiceStatuses(t *testing.T) {
 	ndjson := `{"Service":"db","State":"running","Health":"healthy","Name":"statbus-local-db"}
 {"Service":"rest","State":"restarting","Health":""}
@@ -104,6 +152,52 @@ func TestParseServiceStatuses(t *testing.T) {
 	}
 	if got, err := parseServiceStatuses([]byte("  \n")); err != nil || len(got) != 0 {
 		t.Fatalf("empty: %+v %v", got, err)
+	}
+}
+
+func TestPublishedPortsRealComposeJSONRecreatesUnboundProxy(t *testing.T) {
+	// Docker Compose ps --format json uses Publishers, not the human PORTS column.
+	statuses, err := parseServiceStatuses([]byte(`{"Name":"statbus-test-proxy","Service":"proxy","State":"running","Health":"","Publishers":[]}
+{"Name":"statbus-test-app","Service":"app","State":"running","Publishers":[{"URL":"127.0.0.1","TargetPort":3000,"PublishedPort":3012,"Protocol":"tcp"}]}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	ports := map[string][]configuredPort{"proxy": {
+		{HostIP: "0.0.0.0", Target: 80, Published: "80", Protocol: "tcp"},
+		{HostIP: "0.0.0.0", Target: 443, Published: "443", Protocol: "tcp"},
+		{HostIP: "0.0.0.0", Target: 443, Published: "443", Protocol: "udp"},
+		{HostIP: "127.0.0.1", Target: 5431, Published: "5431", Protocol: "tcp"},
+	}, "app": {{HostIP: "127.0.0.1", Target: 3000, Published: "3012", Protocol: "tcp"}}}
+	if got := missingPublishedPorts(statuses, ports); len(got["proxy"]) != 4 || len(got["app"]) != 0 {
+		t.Fatalf("missing = %+v", got)
+	}
+	oldConfig, oldProbe, oldRecreate, oldRequired := configuredServicePorts, probeServiceStatuses, recreateServiceWithPorts, requiredServices
+	t.Cleanup(func() {
+		configuredServicePorts, probeServiceStatuses, recreateServiceWithPorts, requiredServices = oldConfig, oldProbe, oldRecreate, oldRequired
+	})
+	configuredServicePorts = func(string) (map[string][]configuredPort, error) { return ports, nil }
+	probeServiceStatuses = func(string) ([]serviceStatus, error) { return statuses, nil }
+	requiredServices = func(string) ([]string, error) { return []string{"app", "proxy"}, nil }
+	problems, err := currentServiceProblems("unused")
+	if err != nil || len(problems) != 1 || problems[0].Service != "proxy" || problems[0].State != "missing published ports" {
+		t.Fatalf("portless running proxy must not pass step 8: %+v, %v", problems, err)
+	}
+	var recreated []string
+	recreateServiceWithPorts = func(_ string, service string) error {
+		recreated = append(recreated, service)
+		statuses[0].Publishers = []publishedPort{
+			{URL: "0.0.0.0", TargetPort: 80, PublishedPort: 80, Protocol: "tcp"},
+			{URL: "0.0.0.0", TargetPort: 443, PublishedPort: 443, Protocol: "tcp"},
+			{URL: "0.0.0.0", TargetPort: 443, PublishedPort: 443, Protocol: "udp"},
+			{URL: "127.0.0.1", TargetPort: 5431, PublishedPort: 5431, Protocol: "tcp"},
+		}
+		return nil
+	}
+	if err := reconcilePublishedPorts("unused"); err != nil {
+		t.Fatal(err)
+	}
+	if strings.Join(recreated, ",") != "proxy" {
+		t.Fatalf("recreated %v, want proxy only", recreated)
 	}
 }
 
@@ -127,6 +221,10 @@ func installFakeStack(t *testing.T, f *fakeStack) {
 		requiredServices, probeServiceStatuses, rolePasswordsAgree, syncRolePasswords, restartPasswordClients, composeUpAll, restReadyStatus, serviceLogTail =
 			oldReq, oldProbe, oldAgree, oldSync, oldRestart, oldUp, oldReady, oldTail
 	})
+	oldPorts, oldRecreate := configuredServicePorts, recreateServiceWithPorts
+	t.Cleanup(func() { configuredServicePorts, recreateServiceWithPorts = oldPorts, oldRecreate })
+	configuredServicePorts = func(string) (map[string][]configuredPort, error) { return map[string][]configuredPort{}, nil }
+	recreateServiceWithPorts = func(string, string) error { t.Fatal("unexpected recreation"); return nil }
 	requiredServices = func(string) ([]string, error) { return allFive, nil }
 	probeServiceStatuses = func(string) ([]serviceStatus, error) { return f.statuses, nil }
 	rolePasswordsAgree = func(string) (bool, error) { return f.passwordsAgree, nil }

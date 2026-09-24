@@ -239,7 +239,11 @@ case "${2:-}" in
       count=$(cat %[1]q)
     fi
     count=$((count + 1))
-    printf '%%s\n' "$count" > %[1]q
+    # The command can be cancelled at its deadline. A direct redirect truncates
+    # the count file before writing, leaving an empty file if cancellation
+    # lands between those operations. Publish complete counts atomically.
+    printf '%%s\n' "$count" > %[1]q.next
+    mv %[1]q.next %[1]q
     if [ "$count" -le %[2]d ]; then
       cat >&2 <<'STATBUS_TEST_FAILURE'
 %[3]s

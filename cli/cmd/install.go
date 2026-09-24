@@ -2918,6 +2918,13 @@ func runInstallService(dir string) error {
 			return fmt.Errorf("enable service: %w", err)
 		}
 	} else {
+		// Step 8 proves containers are running, not that Caddy published its
+		// database port. Probe the daemon's own route before --now can wait for
+		// systemd's timeout. The active service's exit-42 handoff above must not
+		// be blocked by a transient route outage during an in-flight upgrade.
+		if err := checkUpgradeDatabaseRoute(dir); err != nil {
+			return err
+		}
 		fmt.Printf("  Enabling and starting %s\n", instance)
 		if err := runCmd("systemctl", "--user", "enable", "--now", instance); err != nil {
 			return fmt.Errorf("enable service: %w", err)

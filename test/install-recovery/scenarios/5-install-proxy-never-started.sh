@@ -17,7 +17,7 @@
 #
 # EXPECTED BEHAVIOUR:
 #   A green box loses proxy, app and worker. Running the install again:
-#     - step 8 prints RUNNING (not OK) and ends with "All services are running."
+#     - step 8 prints DONE (not OK); its full diagnostic log confirms startup
 #     - all five services are running afterwards
 #     - Migrations and Upgrade service steps pass
 #     - the final check prints "All services are running and the API is ready."
@@ -73,11 +73,12 @@ if grep -E '^\[[0-9]+/[0-9]+\] Services +OK' "$INSTALL_LOG" >/dev/null; then
     echo "✗ step 8 reported Services OK with proxy, app and worker missing" >&2
     exit 1
 fi
-grep -E '^\[[0-9]+/[0-9]+\] Services +RUNNING' "$INSTALL_LOG" >/dev/null || {
-    echo "✗ step 8 did not run" >&2
+grep -E '^\[[0-9]+/[0-9]+\] Services +DONE' "$INSTALL_LOG" >/dev/null || {
+    echo "✗ step 8 did not finish" >&2
     exit 1
 }
-grep -F 'All services are running.' "$INSTALL_LOG" >/dev/null || {
+DETAIL_LOG=$(VM_EXEC bash -c 'cat ~/statbus/tmp/install-last-run-output.txt')
+grep -F 'All services are running.' <<<"$DETAIL_LOG" >/dev/null || {
     echo "✗ step 8 did not confirm every service is running" >&2
     exit 1
 }
@@ -85,7 +86,7 @@ grep -E '^\[[0-9]+/[0-9]+\] Migrations +(OK|DONE)' "$INSTALL_LOG" >/dev/null || 
     echo "✗ Migrations step did not pass" >&2
     exit 1
 }
-grep -F 'All services are running and the API is ready.' "$INSTALL_LOG" >/dev/null || {
+grep -F 'All services are running and the API is ready.' <<<"$DETAIL_LOG" >/dev/null || {
     echo "✗ the final check did not confirm the API is ready" >&2
     exit 1
 }
@@ -99,6 +100,17 @@ for svc in app db proxy rest worker; do
     esac
 done
 echo "  ✓ all five services running"
+
+# The VM proof at 8543f493a shows all three containers were recreated (fresh
+# CREATED timestamps), with proxy's configured dev-mode ports in compose ps.
+# Prove the bindings themselves, not just the container's running state.
+PROXY_PORTS=$(VM_EXEC bash -c 'cd ~/statbus && docker port "$(./sb dotenv -f .env get COMPOSE_INSTANCE_NAME)-proxy"')
+for binding in '3014/tcp -> 127.0.0.1:3014' '3015/tcp -> 127.0.0.1:3015' '80/tcp -> 127.0.0.1:3010' '443/tcp -> 127.0.0.1:3011' '443/udp -> 127.0.0.1:3011'; do
+    grep -Fq "$binding" <<<"$PROXY_PORTS" || { echo "✗ proxy is missing $binding: $PROXY_PORTS" >&2; exit 1; }
+done
+APP_PORTS=$(VM_EXEC bash -c 'cd ~/statbus && docker port "$(./sb dotenv -f .env get COMPOSE_INSTANCE_NAME)-app"')
+grep -Fq '3000/tcp -> 127.0.0.1:3012' <<<"$APP_PORTS" || { echo "✗ app port missing: $APP_PORTS" >&2; exit 1; }
+echo "  ✓ recreated proxy and app publish their configured host ports"
 
 assert_step_upgrade_service_completed "$VM_NAME"
 assert_systemd_active "$VM_NAME"
