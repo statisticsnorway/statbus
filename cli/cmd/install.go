@@ -373,6 +373,10 @@ func runInstall() (installErr error) {
 	//                           The re-detect may land us in any other state.
 	//   StateLegacyNoUpgradeTable → refuse with a pointer to #65.6 (the
 	//                           pre-1.0 cascade lands there).
+	//   StateFreshDBIncomplete → a fresh install that stopped after the
+	//                           database was created: fall through to the
+	//                           step-table, which continues with Seed and
+	//                           Migrations.
 	//   all other states      → fall through to acquireOrBypass + step-table.
 	// Pre-Detect orphan-backend cleanup. Critical for recovery from a
 	// crashed upgrade that exhausted max_connections (rune wedge Stage B).
@@ -2915,7 +2919,7 @@ func connectInstallDB(dir string) (*pgx.Conn, error) {
 
 // completeInstallUpgradeRow creates a fresh `completed` upgrade row for the
 // current SHA (idempotent INSERT ... ON CONFLICT upsert). Used on
-// StateFresh/StateHalfConfigured/StateDBUnreachable where install is the
+// StateFresh/StateHalfConfigured/StateDBUnreachable/StateFreshDBIncomplete where install is the
 // first actor to touch public.upgrade; the daemon has not yet authored a row.
 // logRelPath is stamped on the new row (the on-disk log was created before
 // the step-table but couldn't be stamped until the row exists).
@@ -3416,6 +3420,8 @@ func logInstallState(projDir string, state install.State, detail *install.Detail
 		fmt.Println("  .env.credentials missing; step-table will generate it.")
 	case install.StateDBUnreachable:
 		fmt.Println("  Database not reachable; step-table will start services.")
+	case install.StateFreshDBIncomplete:
+		fmt.Println("  The database exists but setup stopped before it was finished; continuing where it stopped.")
 	case install.StateLegacyNoUpgradeTable:
 		fmt.Println("  Pre-1.0 install detected (public.upgrade absent). Install will refuse; automatic upgrade from pre-1.0 tracked as #65.6.")
 	case install.StateScheduledUpgrade:

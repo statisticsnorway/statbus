@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/statisticsnorway/statbus/cli/internal/upgrade"
 )
@@ -22,6 +23,8 @@ type fakeProbe struct {
 	dbReachable     bool
 	hasUpgradeTable bool
 	hasUpgradeErr   error
+	history         SchemaHistory
+	historyErr      error
 	scheduledRow    *ScheduledRow
 	scheduledErr    error
 	reattemptRowID  int64
@@ -36,6 +39,9 @@ func (p *fakeProbe) ReadFlag(string) (*upgrade.UpgradeFlag, bool, error) {
 }
 func (p *fakeProbe) DBReachable(string) bool              { return p.dbReachable }
 func (p *fakeProbe) HasUpgradeTable(string) (bool, error) { return p.hasUpgradeTable, p.hasUpgradeErr }
+func (p *fakeProbe) InspectSchemaHistory(string) (SchemaHistory, error) {
+	return p.history, p.historyErr
+}
 func (p *fakeProbe) QueryScheduledUpgrade(string) (*ScheduledRow, error) {
 	return p.scheduledRow, p.scheduledErr
 }
@@ -118,13 +124,72 @@ func TestDetectWith(t *testing.T) {
 			wantState: StateDBUnreachable,
 		},
 		{
-			name: "legacy: DB up, no public.upgrade table",
+			name: "legacy: pre-1.0 DB, application schema without migration history",
 			probe: fakeProbe{
 				files:           map[string]bool{cfgPath: true, credPath: true},
 				dbReachable:     true,
 				hasUpgradeTable: false,
+				history:         SchemaHistory{HasApplicationSchema: true},
 			},
 			wantState: StateLegacyNoUpgradeTable,
+		},
+		{
+			name: "legacy: pre-1.0 DB migrated by an old release",
+			probe: fakeProbe{
+				files:           map[string]bool{cfgPath: true, credPath: true},
+				dbReachable:     true,
+				hasUpgradeTable: false,
+				history: SchemaHistory{
+					AppliedMigrations:    180,
+					EarliestAppliedAt:    time.Date(2025, 1, 10, 9, 0, 0, 0, time.UTC),
+					HasApplicationSchema: true,
+				},
+			},
+			wantState: StateLegacyNoUpgradeTable,
+		},
+		{
+			name: "fresh-db-incomplete: init-db.sh only, install stopped before Seed",
+			probe: fakeProbe{
+				files:           map[string]bool{cfgPath: true, credPath: true},
+				dbReachable:     true,
+				hasUpgradeTable: false,
+				history:         SchemaHistory{},
+			},
+			wantState: StateFreshDBIncomplete,
+		},
+		{
+			name: "fresh-db-incomplete: migrations started today, stopped before public.upgrade",
+			probe: fakeProbe{
+				files:           map[string]bool{cfgPath: true, credPath: true},
+				dbReachable:     true,
+				hasUpgradeTable: false,
+				history: SchemaHistory{
+					AppliedMigrations:    40,
+					EarliestAppliedAt:    time.Date(2026, 9, 24, 15, 0, 0, 0, time.UTC),
+					HasApplicationSchema: true,
+				},
+			},
+			wantState: StateFreshDBIncomplete,
+		},
+		{
+			name: "migrated DB with public.upgrade never consults schema history",
+			probe: fakeProbe{
+				files:           map[string]bool{cfgPath: true, credPath: true},
+				dbReachable:     true,
+				hasUpgradeTable: true,
+				historyErr:      errors.New("must not be called"),
+			},
+			wantState: StateNothingScheduled,
+		},
+		{
+			name: "schema history probe error surfaces",
+			probe: fakeProbe{
+				files:           map[string]bool{cfgPath: true, credPath: true},
+				dbReachable:     true,
+				hasUpgradeTable: false,
+				historyErr:      errors.New("psql exploded"),
+			},
+			wantErr: true,
 		},
 		{
 			name: "scheduled upgrade: row present",
@@ -272,6 +337,7 @@ func TestStateString(t *testing.T) {
 		{StateLegacyNoUpgradeTable, "legacy-no-upgrade-table"},
 		{StateScheduledUpgrade, "scheduled-upgrade"},
 		{StateNothingScheduled, "nothing-scheduled"},
+		{StateFreshDBIncomplete, "fresh-db-incomplete"},
 		{State(99), "unknown(99)"},
 	}
 	for _, c := range cases {
@@ -348,4 +414,25 @@ func extractFuncSource(t *testing.T, src, sig string) string {
 		return src[start:]
 	}
 	return src[start : start+len(sig)+end]
+}
+
+func TestParseSchemaHistory(t *testing.T) {
+	has, app, err := parseTwoBools("t|f\n")
+	if err != nil || !has || app {
+		t.Fatalf("parseTwoBools = %v %v %v", has, app, err)
+	}
+	h, err := parseSchemaHistoryCounts("3|1790000000\n", SchemaHistory{HasApplicationSchema: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if h.AppliedMigrations != 3 || h.EarliestAppliedAt.Unix() != 1790000000 || !h.HasApplicationSchema {
+		t.Fatalf("parsed %+v", h)
+	}
+	h, err = parseSchemaHistoryCounts("0|0", SchemaHistory{})
+	if err != nil || !h.EarliestAppliedAt.IsZero() {
+		t.Fatalf("empty history parsed %+v %v", h, err)
+	}
+	if _, err := parseSchemaHistoryCounts("garbage", SchemaHistory{}); err == nil {
+		t.Fatal("garbage parsed without error")
+	}
 }

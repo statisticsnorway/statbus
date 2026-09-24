@@ -8,7 +8,10 @@
 //  3. Flag file present + flock free ........... StateCrashedUpgrade (recover)
 //  4. Config present, credentials missing ...... StateHalfConfigured
 //  5. Config + creds, DB down .................. StateDBUnreachable
-//  6. DB up, no public.upgrade ................. StateLegacyNoUpgradeTable
+//  6. DB up, no public.upgrade, and the DB was
+//     set up by a pre-1.0 release .............. StateLegacyNoUpgradeTable
+//  6b. DB up, no public.upgrade, and the DB is
+//     this installer's own unfinished setup .... StateFreshDBIncomplete
 //  7. Scheduled row present .................... StateScheduledUpgrade
 //  8. Failed row w/ retained backup_path ....... StateRestoreReattemptable (STATBUS-111)
 //  9. Everything there, no scheduled row ....... StateNothingScheduled
@@ -49,6 +52,7 @@ const (
 	StateScheduledUpgrade
 	StateRestoreReattemptable
 	StateNothingScheduled
+	StateFreshDBIncomplete
 )
 
 func (s State) String() string {
@@ -71,6 +75,8 @@ func (s State) String() string {
 		return "restore-reattemptable"
 	case StateNothingScheduled:
 		return "nothing-scheduled"
+	case StateFreshDBIncomplete:
+		return "fresh-db-incomplete"
 	default:
 		return fmt.Sprintf("unknown(%d)", int(s))
 	}
@@ -102,6 +108,7 @@ type Probe interface {
 	ReadFlag(projDir string) (*upgrade.UpgradeFlag, bool, error)
 	DBReachable(projDir string) bool
 	HasUpgradeTable(projDir string) (bool, error)
+	InspectSchemaHistory(projDir string) (SchemaHistory, error)
 	QueryScheduledUpgrade(projDir string) (*ScheduledRow, error)
 	QueryReattemptableRestore(projDir string) (rowID int64, backupPath string, found bool, err error)
 }
@@ -144,6 +151,13 @@ func DetectWith(projDir, currentVersion string, probe Probe) (State, *Detail, er
 		return 0, nil, fmt.Errorf("check public.upgrade existence: %w", err)
 	}
 	if !hasTable {
+		history, err := probe.InspectSchemaHistory(projDir)
+		if err != nil {
+			return 0, nil, fmt.Errorf("inspect schema history: %w", err)
+		}
+		if history.IsUnfinishedFreshInstall() {
+			return StateFreshDBIncomplete, detail, nil
+		}
 		return StateLegacyNoUpgradeTable, detail, nil
 	}
 
@@ -179,6 +193,46 @@ func DetectWith(projDir, currentVersion string, probe Probe) (State, *Detail, er
 	return StateNothingScheduled, detail, nil
 }
 
+// upgradeTableIntroducedAt is the timestamp of the migration that creates
+// public.upgrade (20260311174120_add_upgrade_tracking). No release before it
+// ever carried that migration, so a pre-1.0 database had applied its first
+// migration before this moment. A database whose FIRST migration was applied
+// after it was set up by a binary that ships the public.upgrade migration: when
+// that table is still absent, the setup stopped part-way and this installer
+// continues it.
+var upgradeTableIntroducedAt = time.Date(2026, 3, 11, 17, 41, 20, 0, time.UTC)
+
+// SchemaHistory is what the database says about how it was set up, used only
+// when public.upgrade is absent to tell a pre-1.0 database from a fresh install
+// that stopped after the database was created (STATBUS-394 follow-up: Finland's
+// rerun after step 8 was refused as "pre-1.0").
+type SchemaHistory struct {
+	// AppliedMigrations counts rows in db.migration (0 when the table is absent).
+	AppliedMigrations int64
+	// EarliestAppliedAt is min(db.migration.applied_at); zero when no rows.
+	EarliestAppliedAt time.Time
+	// HasApplicationSchema is true when public.legal_unit exists: the core
+	// statistical tables that every release since the first one creates.
+	HasApplicationSchema bool
+}
+
+// IsUnfinishedFreshInstall is the pure verdict. Two shapes are this installer's
+// own unfinished work:
+//   - init-db.sh only: no migration applied and no application tables (the DB
+//     container initialised the empty cluster; Seed and Migrations never ran).
+//   - migrations started by a public.upgrade-era binary: the first migration was
+//     applied after the public.upgrade migration existed, and the run stopped
+//     before reaching it.
+//
+// Everything else without public.upgrade is a pre-1.0 database, including a
+// database with application tables but no migration history at all.
+func (h SchemaHistory) IsUnfinishedFreshInstall() bool {
+	if h.AppliedMigrations == 0 {
+		return !h.HasApplicationSchema
+	}
+	return !h.EarliestAppliedAt.IsZero() && h.EarliestAppliedAt.After(upgradeTableIntroducedAt)
+}
+
 // defaultProbe is the production Probe: real filesystem + psql subprocess.
 type defaultProbe struct{}
 
@@ -212,6 +266,56 @@ func (defaultProbe) HasUpgradeTable(projDir string) (bool, error) {
 		return false, err
 	}
 	return strings.TrimSpace(out) == "1", nil
+}
+
+func (defaultProbe) InspectSchemaHistory(projDir string) (SchemaHistory, error) {
+	out, err := runQuery(projDir, 10*time.Second,
+		`SELECT to_regclass('db.migration') IS NOT NULL, to_regclass('public.legal_unit') IS NOT NULL`)
+	if err != nil {
+		return SchemaHistory{}, err
+	}
+	hasMigrationTable, hasAppSchema, err := parseTwoBools(out)
+	if err != nil {
+		return SchemaHistory{}, err
+	}
+	history := SchemaHistory{HasApplicationSchema: hasAppSchema}
+	if !hasMigrationTable {
+		return history, nil
+	}
+	out, err = runQuery(projDir, 10*time.Second,
+		`SELECT count(*), COALESCE(floor(extract(epoch FROM min(applied_at)))::bigint, 0) FROM db.migration`)
+	if err != nil {
+		return SchemaHistory{}, err
+	}
+	return parseSchemaHistoryCounts(out, history)
+}
+
+func parseTwoBools(out string) (bool, bool, error) {
+	parts := strings.Split(strings.TrimSpace(out), "|")
+	if len(parts) != 2 {
+		return false, false, fmt.Errorf("unexpected schema probe output: %q", out)
+	}
+	return parts[0] == "t", parts[1] == "t", nil
+}
+
+func parseSchemaHistoryCounts(out string, history SchemaHistory) (SchemaHistory, error) {
+	parts := strings.Split(strings.TrimSpace(out), "|")
+	if len(parts) != 2 {
+		return SchemaHistory{}, fmt.Errorf("unexpected migration history output: %q", out)
+	}
+	count, err := strconv.ParseInt(parts[0], 10, 64)
+	if err != nil {
+		return SchemaHistory{}, fmt.Errorf("parse migration count %q: %w", parts[0], err)
+	}
+	epoch, err := strconv.ParseInt(parts[1], 10, 64)
+	if err != nil {
+		return SchemaHistory{}, fmt.Errorf("parse earliest applied_at %q: %w", parts[1], err)
+	}
+	history.AppliedMigrations = count
+	if count > 0 {
+		history.EarliestAppliedAt = time.Unix(epoch, 0).UTC()
+	}
+	return history, nil
 }
 
 func (defaultProbe) QueryScheduledUpgrade(projDir string) (*ScheduledRow, error) {
