@@ -277,6 +277,9 @@ esac
 }
 
 func TestSourceServingExpectedImageReferencesRendersActualRepoComposeModel(t *testing.T) {
+	if os.Getenv("STATBUS_LIVE_DB_TEST") != "1" {
+		t.Skip("actual-repository Compose render requires STATBUS_LIVE_DB_TEST=1")
+	}
 	if _, err := exec.LookPath("docker"); err != nil {
 		t.Skip("docker CLI not available")
 	}
@@ -363,6 +366,9 @@ func TestSourceServingExpectedImageReferencesRendersActualRepoComposeModel(t *te
 }
 
 func TestComposePsListsExistingProfiledContainersWithoutProfileSelection(t *testing.T) {
+	if os.Getenv("STATBUS_LIVE_DB_TEST") != "1" {
+		t.Skip("live Docker integration probe requires STATBUS_LIVE_DB_TEST=1")
+	}
 	if _, err := exec.LookPath("docker"); err != nil || exec.Command("docker", "info").Run() != nil {
 		t.Skip("docker daemon not available")
 	}

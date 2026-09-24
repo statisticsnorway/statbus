@@ -24,18 +24,33 @@ type restartOperations struct {
 }
 
 func restartServices(profile string) error {
+	return restartServicesInDir(config.ProjectDir(), profile)
+}
+
+func restartServicesInDir(dir, profile string) error {
 	ops := restartOperations{
-		systemd: runtime.GOOS == "linux", unit: serviceInstance(config.ProjectDir()),
+		systemd: runtime.GOOS == "linux", unit: serviceInstance(dir),
 		systemctl: func(args ...string) (string, error) {
 			out, err := exec.Command("systemctl", append([]string{"--user"}, args...)...).CombinedOutput()
 			return string(out), err
 		},
 		stack: func(p string) error {
-			if err := compose.Stop(p); err != nil {
+			stopArgs := []string{"down", "--remove-orphans"}
+			if p != "app" {
+				stopArgs = append([]string{"--profile", p}, stopArgs...)
+			} else {
+				stopArgs = append(stopArgs, "app")
+			}
+			stop, err := compose.CommandContext(context.Background(), dir, stopArgs...)
+			if err == nil {
+				stop.Stdin, stop.Stdout, stop.Stderr = os.Stdin, os.Stdout, os.Stderr
+				err = stop.Run()
+			}
+			if err != nil {
 				return fmt.Errorf("stop: %w", err)
 			}
 			args := []string{"-d", "--wait", "--wait-timeout", "120"}
-			if compose.IsDevelopmentMode() {
+			if compose.IsDevelopmentModeInDir(dir) {
 				args = append(args, "--build")
 			}
 			if p == "app" {
@@ -43,7 +58,7 @@ func restartServices(profile string) error {
 			} else {
 				args = append([]string{"--profile", p}, args...)
 			}
-			start, err := compose.Up(context.Background(), config.ProjectDir(), args...)
+			start, err := compose.Up(context.Background(), dir, args...)
 			if err != nil {
 				return err
 			}
@@ -60,7 +75,7 @@ func restartServices(profile string) error {
 			ops.systemd = false
 		}
 	}
-	return restartServicesWith(config.ProjectDir(), profile, ops)
+	return restartServicesWith(dir, profile, ops)
 }
 
 func restartServicesWith(dir, profile string, ops restartOperations) (result error) {

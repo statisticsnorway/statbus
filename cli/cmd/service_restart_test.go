@@ -242,6 +242,41 @@ func TestInstallRefusesRestartBeforeProbes(t *testing.T) {
 	}
 }
 
+func TestInstallRestoresStaleRestartOnlyInFixtureProject(t *testing.T) {
+	home, _ := unattendedFixture(t)
+	t.Setenv("HOME", home)
+	t.Setenv("STATBUS_POST_UPGRADE_FIXUP", "")
+	dir := filepath.Join(home, "statbus")
+	lock, _, _, err := upgrade.AcquireRestartFlag(dir, "all")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := upgrade.PrepareRestart(lock, upgrade.RestartIntent{Profile: "all"}); err != nil {
+		t.Fatal(err)
+	}
+	lock.Close()
+
+	fakes := t.TempDir()
+	logPath := filepath.Join(fakes, "docker.log")
+	if err := os.WriteFile(filepath.Join(fakes, "docker"), []byte("#!/bin/sh\nprintf '%s %s\\n' \"$PWD\" \"$*\" >> \"$STATBUS_TEST_DOCKER_LOG\"\n"), 0700); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("STATBUS_TEST_DOCKER_LOG", logPath)
+	t.Setenv("PATH", fakes+string(os.PathListSeparator)+os.Getenv("PATH"))
+	err = runInstall()
+	// Restoration succeeds; the next preflight refuses absent unattended input.
+	if err == nil || strings.Contains(err.Error(), "restart is still running") {
+		t.Fatalf("install after stale restart: %v", err)
+	}
+	data, readErr := os.ReadFile(logPath)
+	if readErr != nil {
+		t.Fatal(readErr)
+	}
+	if strings.Count(string(data), dir+" compose ") != 2 || !strings.Contains(string(data), " down --remove-orphans") || !strings.Contains(string(data), " up -d") {
+		t.Fatalf("expected stop and start only in temporary project %s, got:\n%s", dir, data)
+	}
+}
+
 // Rabbit's local replay: after repeated failed restarts systemd's start-rate
 // limit refused every further start. A retried restart must clear the failed
 // state before starting, so the retry converges.

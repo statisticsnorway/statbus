@@ -67,6 +67,9 @@ func dockerAvailable() bool {
 // (vs FROM scratch) carries a default command, so `docker create` works
 // without a placeholder arg — mirroring the real self-documenting image.
 func TestExtractSeedFromImage(t *testing.T) {
+	if os.Getenv("STATBUS_LIVE_DB_TEST") != "1" {
+		t.Skip("live Docker integration probe requires STATBUS_LIVE_DB_TEST=1")
+	}
 	if !dockerAvailable() {
 		t.Skip("docker daemon not available")
 	}
