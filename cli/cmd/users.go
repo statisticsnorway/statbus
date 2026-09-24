@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -197,16 +198,21 @@ func runPsqlSQL(projDir string, psqlArgs []string, env []string, sql string) err
 	if _, err := exec.LookPath(psqlArgs[0]); err != nil {
 		return fmt.Errorf("%s not found: %w", psqlArgs[0], err)
 	}
-	args := append(psqlArgs[1:], "-v", "ON_ERROR_STOP=on")
+	args := append(psqlArgs[1:], "-q", "-v", "ON_ERROR_STOP=on")
 	cmd, buildErr := migrate.Command(projDir, psqlArgs[0], args...)
 	if buildErr != nil {
 		return fmt.Errorf("construct users psql command: %w", buildErr)
 	}
 	cmd.Env = env
 	cmd.Stdin = strings.NewReader(sql)
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	return cmd.Run()
+	// user_create returns a password column. Neither it nor SQL errors that
+	// could echo the submitted SQL may enter the terminal or install log.
+	cmd.Stdout = io.Discard
+	cmd.Stderr = io.Discard
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("could not save the administrator; check the database and run the same install command again")
+	}
+	return nil
 }
 
 // ensureJWTSecret loads the JWT secret from .env.credentials into auth.secrets.

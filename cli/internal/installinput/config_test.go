@@ -92,7 +92,11 @@ func TestExplicitInputRefusals(t *testing.T) {
 		t.Errorf("missing signer trust explanation: %v", err)
 	}
 	for _, f := range fields {
-		if !strings.Contains(err.Error(), f.key+"="+f.fallback+"  # "+f.prompt) {
+		fallback := f.fallback
+		if f.key == "SITE_DOMAIN" {
+			fallback = "example.org"
+		}
+		if !strings.Contains(err.Error(), f.key+"="+fallback+"  # "+f.prompt) {
 			t.Errorf("missing help for %s", f.key)
 		}
 	}

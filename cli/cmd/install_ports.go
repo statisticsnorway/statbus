@@ -35,7 +35,7 @@ func occupiedPortOwner(port installPort) string {
 	address := net.JoinHostPort(port.host, strconv.Itoa(port.number))
 	listener, err := net.Listen("tcp", address)
 	if err == nil {
-		listener.Close()
+		_ = listener.Close()
 		return ""
 	}
 	out, _ := exec.Command("ss", "-ltnp", fmt.Sprintf("( sport = :%d )", port.number)).CombinedOutput()
@@ -76,7 +76,8 @@ func checkInstallPorts(dir string) error {
 		}
 		remedy := "Stop that program or change its port"
 		if owner != "another program" && strings.IndexFunc(owner, func(r rune) bool {
-			return !(r >= 'a' && r <= 'z' || r >= 'A' && r <= 'Z' || r >= '0' && r <= '9' || r == '-' || r == '_')
+			allowed := r >= 'a' && r <= 'z' || r >= 'A' && r <= 'Z' || r >= '0' && r <= '9' || r == '-' || r == '_'
+			return !allowed
 		}) < 0 {
 			unit := owner
 			if owner == "apache2" {

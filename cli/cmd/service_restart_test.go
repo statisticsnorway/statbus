@@ -235,9 +235,9 @@ func TestInstallRefusesRestartBeforeProbes(t *testing.T) {
 	if err := upgrade.PrepareRestart(lock, upgrade.RestartIntent{Profile: "all"}); err != nil {
 		t.Fatal(err)
 	}
-	lock.Close()
+	defer lock.Close() // a live holder must not be recovered by install
 	err = runInstall()
-	if err == nil || !strings.Contains(err.Error(), "./sb restart all") {
+	if err == nil || !strings.Contains(err.Error(), "a restart is still running") {
 		t.Fatalf("install: %v", err)
 	}
 }

@@ -20,6 +20,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/statisticsnorway/statbus/cli/internal/compose"
 	"github.com/statisticsnorway/statbus/cli/internal/config"
+	"github.com/statisticsnorway/statbus/cli/internal/diskpolicy"
 	"github.com/statisticsnorway/statbus/cli/internal/dotenv"
 	"github.com/statisticsnorway/statbus/cli/internal/install"
 	"github.com/statisticsnorway/statbus/cli/internal/installinput"
@@ -27,6 +28,7 @@ import (
 	"github.com/statisticsnorway/statbus/cli/internal/migrate"
 	"github.com/statisticsnorway/statbus/cli/internal/unitfloor"
 	"github.com/statisticsnorway/statbus/cli/internal/upgrade"
+	"golang.org/x/term"
 )
 
 var (
@@ -371,17 +373,27 @@ func runInstall() (installErr error) {
 
 	if !bypass {
 		if err := upgrade.CheckRestartBarrier(installDir); err != nil {
-			installDiagnostic(installDir, "Restart check failed: %v", err)
-			bundlePath, bundleErr := writeDetectionSupportBundle(installDir)
-			if bundleErr != nil {
-				installDiagnostic(installDir, "Could not create support bundle for restart check: %v", bundleErr)
-				bundlePath = filepath.Join(installDir, "tmp", "install-last-run-output.txt")
+			flag, readErr := upgrade.ReadFlagFile(installDir)
+			if readErr == nil && flag != nil && flag.Trigger == "restart" && flag.Restart != nil {
+				fmt.Println("A previous restart did not finish. Checking whether it is still running.")
+				if resumeErr := restartServices(flag.Restart.Profile); resumeErr == nil {
+					fmt.Println("The previous restart finished. Continuing installation.")
+				} else {
+					return &installPreflightRefusalError{err: fmt.Errorf("a restart is still running, or its services could not be restored. Wait for it to finish, then run the same install command again: curl -fsSL https://statbus.org/install.sh | bash")}
+				}
+			} else {
+				installDiagnostic(installDir, "Restart check failed: %v", err)
+				bundlePath, bundleErr := writeDetectionSupportBundle(installDir)
+				if bundleErr != nil {
+					installDiagnostic(installDir, "Could not create support bundle for restart check: %v", bundleErr)
+					bundlePath = filepath.Join(installDir, "tmp", "install-last-run-output.txt")
+				}
+				outsideFix := "check whether a previous restart is still running"
+				if strings.Contains(err.Error(), "retry with ./sb restart all") {
+					outsideFix = "wait for the restart to finish or run ./sb restart all to restore services"
+				}
+				return &installPreflightRefusalError{err: fmt.Errorf("the installation cannot continue until its previous restart has finished; %s. Then run curl -fsSL https://statbus.org/install.sh | bash. If it stops again, send this file to StatBus support: %s", outsideFix, bundlePath)}
 			}
-			outsideFix := "check whether a previous restart is still running"
-			if strings.Contains(err.Error(), "retry with ./sb restart all") {
-				outsideFix = "wait for the restart to finish or run ./sb restart all to restore services"
-			}
-			return &installPreflightRefusalError{err: fmt.Errorf("the installation cannot continue until its previous restart has finished; %s. Then run curl -fsSL https://statbus.org/install.sh | bash. If it stops again, send this file to StatBus support: %s", outsideFix, bundlePath)}
 		}
 	}
 
@@ -578,20 +590,13 @@ func runInstall() (installErr error) {
 	}
 	defer releaseFlag()
 
-	// Pre-flight: check disk space (default 100 GB, override with STATBUS_MIN_DISK_GB)
-	minDiskGB := uint64(100)
-	if v := os.Getenv("STATBUS_MIN_DISK_GB"); v != "" {
-		if n, err := strconv.ParseUint(v, 10, 64); err == nil {
-			minDiskGB = n
-		}
+	// Check the two actual storage locations, not the caller's current directory.
+	dockerRoot := "/var/lib/docker"
+	if out, err := exec.Command("docker", "info", "--format", "{{.DockerRootDir}}").Output(); err == nil && strings.TrimSpace(string(out)) != "" {
+		dockerRoot = strings.TrimSpace(string(out))
 	}
-	if freeBytes, err := upgrade.DiskFree("."); err == nil {
-		freeGB := freeBytes / (1024 * 1024 * 1024)
-		if freeGB < minDiskGB {
-			return &installPreflightRefusalError{err: fmt.Errorf("only %d GB is free. StatBus needs at least %d GB for the database, images, and backups\n"+
-				"Free some space, then run:\n    curl -fsSL https://statbus.org/install.sh | bash", freeGB, minDiskGB)}
-		}
-		fmt.Printf("Disk space: %d GB free\n", freeGB)
+	if err := diskpolicy.Check(installDir, dockerRoot, filepath.Join(home, "statbus-backups")); err != nil {
+		return &installPreflightRefusalError{err: err}
 	}
 
 	// --- Install-invocation / upgrade row lifecycle ---
@@ -850,7 +855,7 @@ func runInstall() (installErr error) {
 		{"Seed", checkSeedRestored, runSeedRestore},
 		{"Migrations", checkMigrationsDone, runMigrations},
 		{"JWT secret", checkJWTDone, runLoadJWT},
-		{"Users", checkUsersDone, runCreateUsers},
+		{"Administrator", checkUsersDone, runCreateUsers},
 		{"Trusted signers", checkSignersDone, runTrustSigners},
 		{"Upgrade service", checkServiceDone, runInstallService},
 	}
@@ -925,6 +930,11 @@ func runInstall() (installErr error) {
 
 		if s.check(installDir) {
 			fmt.Printf("%s OK\n", prefix)
+			if s.name == "Configuration" {
+				if err := checkInstallPorts(installDir); err != nil {
+					return &installPreflightRefusalError{err: err}
+				}
+			}
 			// If we entered the quiesce window and Migrations was already
 			// done (check passed on re-run after a prior partial install),
 			// exit the window now — the DDL is fait accompli, services
@@ -964,6 +974,11 @@ func runInstall() (installErr error) {
 		}
 
 		fmt.Printf("%s DONE\n", prefix)
+		if s.name == "Configuration" {
+			if err := checkInstallPorts(installDir); err != nil {
+				return &installPreflightRefusalError{err: err}
+			}
+		}
 
 		// Resume gate: leave the DDL window after Migrations succeeds.
 		// We don't resume after Seed (Migrations comes next inside the
@@ -1346,7 +1361,18 @@ func runCreateConfig(dir string) error {
 		content, err = installinput.Read(os.Getenv(installinput.EnvConfig))
 	} else {
 		fmt.Println()
-		content, err = installinput.Validate(installinput.Ask(prompt))
+		mode := ""
+		content, err = installinput.Validate(installinput.Ask(func(label, fallback string) string {
+			answer := prompt(label, fallback)
+			if strings.HasSuffix(label, "Deployment mode (development/standalone/private)") {
+				mode = answer
+			}
+			if strings.HasSuffix(label, "Domain name") && mode == "standalone" && answer != "" {
+				fmt.Println("  Checking the name in public DNS ...")
+				fmt.Println("  " + assessInstallDomain(answer, publicDomainLookup))
+			}
+			return answer
+		}))
 	}
 	if err != nil {
 		return err
@@ -1363,7 +1389,7 @@ func runCreateConfig(dir string) error {
 		}
 	}
 	// Slot spacing is an NSO default, not a questionnaire input.
-	content += "DEPLOYMENT_SLOT_PORT_OFFSET=1\n"
+	content += "DEPLOYMENT_SLOT_PORT_OFFSET=1\n" + diskpolicy.PolicyConfig
 	return os.WriteFile(filepath.Join(dir, ".env.config"), []byte(content), 0600)
 }
 
@@ -2593,8 +2619,56 @@ func runLoadJWT(dir string) error {
 }
 
 func runCreateUsers(dir string) error {
-	sb := filepath.Join(dir, "sb")
-	return runCmdDir(dir, sb, "users", "create")
+	if _, err := os.Stat(filepath.Join(dir, ".users.yml")); err == nil {
+		return applyUsersYML(dir)
+	} else if !os.IsNotExist(err) {
+		return err
+	}
+	if !stdinIsTerminal() {
+		return installPreflightRefusal("Create the first administrator in a terminal, or provide STATBUS_USERS_FILE for unattended installation. Then run: curl -fsSL https://statbus.org/install.sh | bash")
+	}
+	fmt.Println("  Create the first administrator. Everyone else is invited from the web interface.")
+	email := prompt("  Email", "")
+	name := prompt("  Name", "")
+	if email == "" || name == "" {
+		return fmt.Errorf("enter both an email and a name; run the same install command again")
+	}
+	password, err := askAdministratorPassword(func(label string) (string, error) {
+		fmt.Print(label)
+		installTTYPrompt("%s", label)
+		value, readErr := term.ReadPassword(int(os.Stdin.Fd()))
+		fmt.Println()
+		return string(value), readErr
+	})
+	if err != nil {
+		return err
+	}
+	if err := ensureJWTSecret(dir); err != nil {
+		return err
+	}
+	psqlArgs, env, err := migrate.PsqlArgs(dir)
+	if err != nil {
+		return err
+	}
+	sql := fmt.Sprintf("SELECT public.user_create(p_display_name => %s, p_email => %s, p_statbus_role => 'admin_user', p_password => %s);", pgQuote(name), pgQuote(email), pgQuote(password))
+	return runPsqlSQL(dir, psqlArgs, env, sql)
+}
+
+func askAdministratorPassword(read func(string) (string, error)) (string, error) {
+	for {
+		first, err := read("  Password (typing is hidden): ")
+		if err != nil {
+			return "", fmt.Errorf("could not read the password privately; run the same install command again")
+		}
+		second, err := read("  Password again: ")
+		if err != nil {
+			return "", fmt.Errorf("could not read the password privately; run the same install command again")
+		}
+		if first != "" && first == second {
+			return first, nil
+		}
+		fmt.Println("  Passwords did not match, or were empty. Please enter them again.")
+	}
 }
 
 func checkSignersDone(dir string) bool {

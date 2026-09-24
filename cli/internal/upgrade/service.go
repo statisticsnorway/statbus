@@ -27,6 +27,7 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/statisticsnorway/statbus/cli/internal/compose"
 	"github.com/statisticsnorway/statbus/cli/internal/dbdump"
+	"github.com/statisticsnorway/statbus/cli/internal/diskpolicy"
 	"github.com/statisticsnorway/statbus/cli/internal/dotenv"
 	"github.com/statisticsnorway/statbus/cli/internal/inject"
 	"github.com/statisticsnorway/statbus/cli/internal/invariants"
@@ -7675,20 +7676,32 @@ func (d *Service) executeUpgrade(ctx context.Context, claim upgradeClaimSnapshot
 		progress.Write("Verifying release assets ... ok")
 	}
 
-	// Check disk space. Need room for backup (~= DB size) + new images (~2GB).
-	// Refuse to start if less than 5GB free to avoid mid-upgrade disk-full failures.
+	// Apply the same 20 GB floor and 40 GB recommendation as first install and
+	// post-upgrade fixup to both Docker service data and backup filesystems.
 	var (
 		freeGB         uint64
 		diskSpaceKnown bool
 	)
-	if freeBytes, err := DiskFree(d.projDir); err == nil {
-		freeGB = freeBytes / (1024 * 1024 * 1024)
+	paths := []string{d.projDir, d.backupRoot()}
+	policy, policyErr := diskpolicy.Load(d.projDir)
+	if policyErr != nil {
+		return fmt.Errorf("read saved disk policy: %w", policyErr)
+	}
+	if out, err := exec.Command("docker", "info", "--format", "{{.DockerRootDir}}").Output(); err == nil && strings.TrimSpace(string(out)) != "" {
+		paths[0] = strings.TrimSpace(string(out))
+	}
+	for _, path := range paths {
+		measurement, err := diskpolicy.Measure(path)
+		if err != nil {
+			continue
+		}
+		freeGB = measurement.FreeGB
 		diskSpaceKnown = true
-		if freeGB < 5 {
-			// TODO: pick code — disk-space preflight; consider ErrRollbackGitDiskFull or a new ErrInstallPreconditionFailed
-			msg := fmt.Sprintf("Insufficient disk space: %d GB free (need at least 5 GB for backup + images)", freeGB)
-			d.failUpgrade(ctx, id, msg, progress)
-			return fmt.Errorf("%s", msg)
+		message, allowed := policy.Evaluate(measurement)
+		progress.Write("%s", message)
+		if !allowed {
+			d.failUpgrade(ctx, id, message, progress)
+			return fmt.Errorf("%s", message)
 		}
 	}
 
