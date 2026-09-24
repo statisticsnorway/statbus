@@ -8,10 +8,9 @@
 //  3. Flag file present + flock free ........... StateCrashedUpgrade (recover)
 //  4. Config present, credentials missing ...... StateHalfConfigured
 //  5. Config + creds, DB down .................. StateDBUnreachable
-//  6. DB up, no public.upgrade, and the DB was
-//     set up by a pre-1.0 release .............. StateLegacyNoUpgradeTable
-//     6b. DB up, no public.upgrade, and the DB is
-//     this installer's own unfinished setup .... StateFreshDBIncomplete
+//  6. DB up, no public.upgrade:
+//     - this installer's own unfinished setup .. StateFreshDBIncomplete (continue)
+//     - otherwise (pre-1.0 database) ........... StateLegacyNoUpgradeTable (refuse)
 //  7. Scheduled row present .................... StateScheduledUpgrade
 //  8. Failed row w/ retained backup_path ....... StateRestoreReattemptable (STATBUS-111)
 //  9. Everything there, no scheduled row ....... StateNothingScheduled
