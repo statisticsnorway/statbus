@@ -74,6 +74,43 @@ func TestMissingSeedLineageMigrationsRejectsPrereleaseRenumber(t *testing.T) {
 	}
 }
 
+func TestMissingSeedLineageMigrationsRejectsPrereleaseRemoval(t *testing.T) {
+	dir, run, writeMigration := seedLineageRepo(t)
+	writeMigration("20260101000000_baseline.up.sql")
+	run("add", "migrations")
+	run("commit", "-q", "-m", "baseline")
+	run("tag", "baseline")
+
+	const removedPath = "migrations/20260903205636_removed.up.sql"
+	writeMigration("20260903205636_removed.up.sql")
+	run("add", "migrations")
+	run("commit", "-q", "-m", "seed may publish removed version")
+	firstSeenCommit, err := gitOutput(dir, "rev-parse", "HEAD")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	run("rm", removedPath)
+	run("commit", "-q", "-m", "remove before rc")
+
+	missing, err := MissingSeedLineageMigrations(dir, "baseline", "HEAD")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(missing) != 1 {
+		t.Fatalf("missing = %#v, want one removed lineage version", missing)
+	}
+	if missing[0].Version != 20260903205636 {
+		t.Fatalf("version = %d, want 20260903205636", missing[0].Version)
+	}
+	if missing[0].Path != removedPath {
+		t.Fatalf("path = %q, want %q", missing[0].Path, removedPath)
+	}
+	if missing[0].Commit != strings.TrimSpace(firstSeenCommit) {
+		t.Fatalf("commit = %q, want %q", missing[0].Commit, strings.TrimSpace(firstSeenCommit))
+	}
+}
+
 func TestMissingSeedLineageMigrationsAllowsAdditionsAndSameVersionRename(t *testing.T) {
 	dir, run, writeMigration := seedLineageRepo(t)
 	writeMigration("20260101000000_baseline.up.sql")
