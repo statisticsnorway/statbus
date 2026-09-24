@@ -1156,6 +1156,9 @@ func TestTypedComposeAuthorityRejectsUnknownExecutableMediators(t *testing.T) {
 			})
 			err := typedAuthorityViolation(cliDir, overlay)
 			want := fmt.Sprintf("unknown os/exec executable %q", test.executable)
+			if test.executable == "sudo" {
+				want = "tool argument contains docker/docker-compose/podman/compose authority for sudo"
+			}
 			if err == nil || !strings.Contains(err.Error(), want) {
 				t.Fatalf("%s mediator mutation survived: %v", test.executable, err)
 			}
