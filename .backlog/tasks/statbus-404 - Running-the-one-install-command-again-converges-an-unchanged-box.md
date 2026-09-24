@@ -29,6 +29,8 @@ A second install run on a ready unchanged box reports settled steps and performs
 ## Evidence, 2026-09-24
 
 Current image and step convergence logic is at `cli/cmd/install.go:990-1034` at master `7a9cf707e`. The audit records real Compose JSON using `ContainerName` and the mismatch with the parsed field (`/Users/jhf/ssb/statbus/tmp/installer-message-audit.md:144,268-272`). Finland reruns visibly pulled images again (`/Users/jhf/ssb/statbus/tmp/finland-transcript-2-actual.txt:31-48,83-100`).
+
+Failed evidence, 2026-09-24: v2026.09.3-rc.01 (`10f094f2b`) smoke run `36063305786` (`0-happy-install`) failed its idempotent rerun on a healthy box: `cli/cmd/install_ports.go:113-119` string-matched `docker ps` Ports output for `:3014->`, while Docker prints consecutive ports as a range (`127.0.0.1:3014-3015->3014-3015/tcp`), so StatBus's own database port was refused as another program's. A fix is in review on `fix/port-preflight-own-ports` (`e6fc3f739`); real-VM proof remains pending.
 <!-- SECTION:DESCRIPTION:END -->
 
 ## Acceptance Criteria
