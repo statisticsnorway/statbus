@@ -155,13 +155,10 @@ Examples:
 	Args: cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		recreate, _ := cmd.Flags().GetBool("recreate")
+		operatorFlag, _ := cmd.Flags().GetString("operator")
 		ctx := context.Background()
 		svc := newUpgradeService(config.ProjectDir())
-		// STATBUS-317: apply has no --operator flag of its own (it is the CI
-		// door — see resolveOperator's own TRAP comment) — an interactive
-		// human still gets prompted; CI's non-interactive invocation gets
-		// 'absent', correctly, because there is no TTY to prompt.
-		if err := svc.RunApply(ctx, args[0], recreate, resolveOperator("")); err != nil {
+		if err := svc.RunApply(ctx, args[0], recreate, resolveOperator(operatorFlag)); err != nil {
 			return err
 		}
 		// STATBUS-170/-260: emit the 40-hex commit this command actually acted
@@ -1053,6 +1050,7 @@ func init() {
 	upgradeCmd.AddCommand(upgradeScheduleCmd)
 	upgradeCmd.AddCommand(upgradeApplyLatestCmd)
 	upgradeApplyCmd.Flags().Bool("recreate", false, "recreate the database from migrations instead of migrating it (DESTRUCTIVE)")
+	upgradeApplyCmd.Flags().String("operator", "", "operator name recorded when scheduling a previously terminal candidate")
 	upgradeCmd.AddCommand(upgradeApplyCmd)
 	upgradeCmd.AddCommand(upgradeServiceCmd)
 	upgradeSelfVerifyCmd.Flags().StringVar(&selfVerifyExpectCommit, "expect-commit", "",

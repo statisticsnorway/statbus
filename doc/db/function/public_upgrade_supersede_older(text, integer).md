@@ -24,7 +24,6 @@ BEGIN
             state = 'superseded',
             superseded_at = COALESCE(u.superseded_at, now())
          WHERE u.state IN ('available', 'scheduled', 'failed', 'rolled_back')
-           AND (u.state <> 'failed' OR public.upgrade_transition_actor_present())
            AND u.commit_sha != p_commit_sha
            AND (
                u.release_status < _status

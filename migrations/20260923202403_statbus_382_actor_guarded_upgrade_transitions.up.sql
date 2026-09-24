@@ -3,6 +3,9 @@ BEGIN;
 ALTER TABLE public.upgrade
 ADD COLUMN claim_token uuid;
 
+COMMENT ON COLUMN public.upgrade.claim_token IS
+  'Unique daemon claim identifier used to CAS terminal writes for an in_progress upgrade.';
+
 CREATE FUNCTION public.upgrade_transition_actor_present()
 RETURNS boolean
 LANGUAGE sql
@@ -20,10 +23,6 @@ SET search_path = public, auth, pg_temp
 AS $upgrade_guard_operator_transitions$
 DECLARE
   _actor_present boolean := public.upgrade_transition_actor_present();
-  _leaves_park boolean := OLD.state = 'in_progress'
-      AND OLD.recovery_parked_at IS NOT NULL
-      AND (NEW.state IS DISTINCT FROM 'in_progress'
-           OR NEW.recovery_parked_at IS NULL);
 BEGIN
   IF OLD.state = 'in_progress'
      AND OLD.recovery_parked_at IS NULL
@@ -33,7 +32,8 @@ BEGIN
       MESSAGE = 'cannot dismiss a live unparked in_progress upgrade';
   END IF;
 
-  IF NEW.state = 'dismissed'
+  IF OLD.state IS DISTINCT FROM NEW.state
+     AND NEW.state = 'dismissed'
      AND OLD.state NOT IN ('available', 'scheduled', 'failed', 'rolled_back')
      AND NOT (OLD.state = 'in_progress' AND OLD.recovery_parked_at IS NOT NULL) THEN
     RAISE EXCEPTION USING
@@ -41,14 +41,11 @@ BEGIN
       MESSAGE = format('cannot dismiss upgrade from state %s', OLD.state);
   END IF;
 
-  IF ((OLD.state = 'dismissed' AND NEW.state IS DISTINCT FROM 'dismissed')
-      OR (OLD.state = 'failed' AND NEW.state IS DISTINCT FROM 'failed')
-      OR _leaves_park)
+  IF OLD.state = 'dismissed' AND NEW.state IS DISTINCT FROM 'dismissed'
      AND NOT _actor_present THEN
     RAISE EXCEPTION USING
       ERRCODE = '42501',
-      MESSAGE = format('operator actor required to leave upgrade state %s',
-                       CASE WHEN _leaves_park THEN 'parked' ELSE OLD.state::text END);
+      MESSAGE = 'operator actor required to leave upgrade state dismissed';
   END IF;
 
   RETURN NEW;
@@ -85,7 +82,6 @@ BEGIN
             state = 'superseded',
             superseded_at = COALESCE(u.superseded_at, now())
          WHERE u.state IN ('available', 'scheduled', 'failed', 'rolled_back')
-           AND (u.state <> 'failed' OR public.upgrade_transition_actor_present())
            AND u.commit_sha != p_commit_sha
            AND (
                u.release_status < _status

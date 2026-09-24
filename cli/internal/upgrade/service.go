@@ -11917,9 +11917,15 @@ func (d *Service) failUpgradeWithFlagDisposition(ctx context.Context, id int, fa
 		// state='failed' requires started_at IS NOT NULL — executeScheduled
 		// always sets started_at before executeUpgrade runs, so that holds.
 		var failJSON string
+		where := "WHERE id = $3 AND state = 'in_progress'"
+		args := []any{failureCode, errMsg, id}
+		if d.activeClaimToken != "" {
+			where += " AND claim_token = $4::uuid"
+			args = append(args, d.activeClaimToken)
+		}
 		if scanErr := d.queryConn.QueryRow(ctx,
-			"UPDATE public.upgrade SET state = 'failed', failure_code = $1, error = $2, scheduled_at = NULL, claim_token = NULL WHERE id = $3 AND state = 'in_progress' AND claim_token = $4::uuid"+upgradeRowReturning,
-			failureCode, errMsg, id, d.activeClaimToken).Scan(&failJSON); scanErr == nil {
+			"UPDATE public.upgrade SET state = 'failed', failure_code = $1, error = $2, scheduled_at = NULL, claim_token = NULL "+where+upgradeRowReturning,
+			args...).Scan(&failJSON); scanErr == nil {
 			logUpgradeRow(LabelFailed, failJSON)
 		}
 	}
