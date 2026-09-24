@@ -1,11 +1,12 @@
 ---
 id: STATBUS-362
 title: 'live tests drive the mutable on-disk ./sb: pin the binary they start with'
-status: To Do
+status: In Progress
 assignee: []
 created_date: '2026-09-07 17:26'
 updated_date: '2026-09-23 15:10'
 labels:
+  - harness
   - testing
   - upgrade
 dependencies:
@@ -14,6 +15,12 @@ priority: medium
 type: task
 ordinal: 70
 ---
+
+## Status 2026-09-24
+
+**In Progress:** `ee25738b0`, `b0128bc7f`, `240fa0a92` added `cli/internal/livedbtest/fixture.go`, `//go:build livedb`, pinned scratch worktrees, private HOME, and CI fast-tests step. The broader done-when requires every listed live test, no project `.env` mutation, and green complete tier; the targeted merged checks cover only the exercised paths. **Remaining:** verify the whole live-database matrix, selector/naming, source-binary pinning, and owner approval of the provisional tier rule.
+
+Baseline: `origin/master` at `373d15fc3`. Criterion disposition and remaining positive targets are above; the acceptance criteria below remain authoritative. An authored but unrun VM scenario is **proof pending**, not met.
 
 ## Ground truth (2026-09-07)
 

@@ -1,11 +1,12 @@
 ---
 id: STATBUS-391
 title: Later installation and repair work follows the persisted disk policy chosen at first installation
-status: To Do
+status: In Progress
 assignee: []
 created_date: '2026-09-24 16:42'
 updated_date: '2026-09-24 18:40'
 labels:
+  - release-bug
   - install
 dependencies:
   - STATBUS-386
@@ -13,6 +14,12 @@ priority: high
 type: bug
 ordinal: 1
 ---
+
+## Status 2026-09-24
+
+**In Progress.** `2aea9e733`, `373d15fc3`: `cli/internal/diskpolicy/policy_test.go::TestSharedThresholdAcrossCallers` and `TestSavedDiskPolicySurvivesNewProcess` cover shared thresholds and persistence (#1, #2 partly); the named installer test is absent. `5-install-disk-threshold-repair.sh` is authored, but #3 has no real-VM run. **Remaining:** test persistence through service restart and run the 40 GB install/upgrade/fixup VM proof.
+
+Baseline: `origin/master` at `373d15fc3`. Criterion disposition and remaining positive targets are above; the acceptance criteria below remain authoritative. An authored but unrun VM scenario is **proof pending**, not met.
 
 ## Description
 

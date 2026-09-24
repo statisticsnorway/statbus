@@ -1,11 +1,12 @@
 ---
 id: STATBUS-408
 title: An interrupted first installation resumes from its first incomplete step
-status: To Do
+status: In Progress
 assignee: []
 created_date: '2026-09-24 15:46'
 updated_date: '2026-09-24 18:44'
 labels:
+  - release-bug
   - install
   - recovery
   - database
@@ -15,6 +16,12 @@ priority: high
 type: bug
 ordinal: 361000
 ---
+
+## Status 2026-09-24
+
+**In Progress.** `474cf6119`: `cli/internal/install/state.go`, `state_test.go`, and `cli/cmd/install_detection_test.go` implement first-install vs legacy marker classification (#1-2 via equivalent tests). #3-4 named `5-install-interrupted-after-database-created.sh` are absent. **Remaining:** preserve a sentinel and volume across interrupted step-eight rerun, then prove full service readiness on a disposable VM.
+
+Baseline: `origin/master` at `373d15fc3`. Criterion disposition and remaining positive targets are above; the acceptance criteria below remain authoritative. An authored but unrun VM scenario is **proof pending**, not met.
 
 ## Description
 

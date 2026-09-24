@@ -6,12 +6,19 @@ assignee: []
 created_date: '2026-09-24 16:42'
 updated_date: '2026-09-24 18:40'
 labels:
+  - release-bug
   - install
 dependencies: []
 priority: medium
 type: bug
 ordinal: 1
 ---
+
+## Status 2026-09-24
+
+**To Do.** #1-4 not met: `cli/cmd/service_test.go` and `4-image-start-no-build.sh` are absent; `cli/cmd/service.go:41-57` still chooses a build by development mode. **Remaining:** distinguish image installation from source checkout, retain source builds, and prove a no-build image start within the measured 20% budget.
+
+Baseline: `origin/master` at `373d15fc3`. Criterion disposition and remaining positive targets are above; the acceptance criteria below remain authoritative. An authored but unrun VM scenario is **proof pending**, not met.
 
 ## Goal
 

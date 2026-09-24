@@ -9,6 +9,7 @@ assignee: []
 created_date: '2026-09-07 13:48'
 updated_date: '2026-09-23 15:10'
 labels:
+  - release-bug
   - ops
   - security
   - fleet
@@ -16,6 +17,12 @@ dependencies:
   - STATBUS-357
 ordinal: 60
 ---
+
+## Status 2026-09-24
+
+**To Do:** acceptance 1-4 not met: no `.env.config` secret rejection or dev token installation is evidenced (`4a0ff7f34` ticket history). **Remaining:** enforce `.env.credentials` storage, reject config-file secrets, run token-backed tests, and verify authenticated dev calls while demo/Norway remain intentionally anonymous.
+
+Baseline: `origin/master` at `373d15fc3`. Criterion disposition and remaining positive targets are above; the acceptance criteria below remain authoritative. An authored but unrun VM scenario is **proof pending**, not met.
 
 ## Ruling (owner, 2026-09-07)
 

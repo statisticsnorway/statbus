@@ -6,6 +6,7 @@ assignee: []
 created_date: '2026-06-23 11:53'
 updated_date: '2026-09-23 15:10'
 labels:
+  - feature-next
   - email
   - auth
   - worker
@@ -15,6 +16,12 @@ documentation:
   - doc/design/smtp2go-email.md
 ordinal: 143000
 ---
+
+## Status 2026-09-24
+
+**To Do:** #1-4 not met; `doc/design/smtp2go-email.md` is a reviewed design (`0bfb67c1c` history), not an implemented sender/worker hook. **Remaining:** decide sequencing with 093, revalidate relay DNS, implement hardened shared user-creation queueing and visible failure states.
+
+Baseline: `origin/master` at `373d15fc3`. Criterion disposition and remaining positive targets are above; the acceptance criteria below remain authoritative. An authored but unrun VM scenario is **proof pending**, not met.
 
 ## Description
 

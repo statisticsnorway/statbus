@@ -6,6 +6,7 @@ assignee: []
 created_date: '2026-09-18 17:48'
 updated_date: '2026-09-24 18:47'
 labels:
+  - release-bug
   - install
   - setup
   - ubuntu
@@ -41,6 +42,12 @@ priority: high
 type: bug
 ordinal: 1
 ---
+
+## Status 2026-09-24
+
+**To Do:** #1-10 not met as written: seven `test/setup/public-setup-*` tests and the umbrella `0-third-party-ubuntu-26-04-install.sh` are absent. `373d15fc3` improved the installer but does not prove the independent published-instructions Ubuntu 26.04 workflow. **Remaining:** implement D1-D7 public setup, test operator-only installation and interruption, and record candidate-tag VM service/HTTPS evidence.
+
+Baseline: `origin/master` at `373d15fc3`. Criterion disposition and remaining positive targets are above; the acceptance criteria below remain authoritative. An authored but unrun VM scenario is **proof pending**, not met.
 
 ## Description
 

@@ -17,6 +17,12 @@ type: task
 ordinal: 10
 ---
 
+## Status 2026-09-24
+
+**In Progress:** `426914f60`, `aa49addd0`: localhost SSH stub, `./dev.sh test-harness`, mutation control, and Harness Selftest workflow are merged. The every-push green workflow and layer-3 real-VM failure path are not evidenced as completed. **Remaining:** observe green CI on the candidate and run the named real-VM failure/cleanup proof.
+
+Baseline: `origin/master` at `373d15fc3`. Criterion disposition and remaining positive targets are above; the acceptance criteria below remain authoritative. An authored but unrun VM scenario is **proof pending**, not met.
+
 ## Why
 
 The install-recovery harness learns everything about a VM over SSH and then

@@ -6,12 +6,19 @@ assignee: []
 created_date: '2026-09-24 16:42'
 updated_date: '2026-09-24 18:40'
 labels:
+  - release-bug
   - install
 dependencies: []
 priority: high
 type: bug
 ordinal: 1
 ---
+
+## Status 2026-09-24
+
+**To Do.** #1-3 not met: `5-install-partial-services.sh`, `5-install-api-restart-loop.sh`, and `cli/cmd/support_test.go` are absent after `145c17292`. **Remaining:** report all six service states and logs, including stopped, absent, and restarting, in terminal and the named support bundle.
+
+Baseline: `origin/master` at `373d15fc3`. Criterion disposition and remaining positive targets are above; the acceptance criteria below remain authoritative. An authored but unrun VM scenario is **proof pending**, not met.
 
 ## Description
 

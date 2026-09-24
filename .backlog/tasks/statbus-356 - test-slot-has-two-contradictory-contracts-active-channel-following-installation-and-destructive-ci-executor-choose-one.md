@@ -7,6 +7,7 @@ assignee: []
 created_date: '2026-09-04 19:52'
 updated_date: '2026-09-23 15:10'
 labels:
+  - owner-decision
   - ops
   - upgrade
   - ci
@@ -21,6 +22,12 @@ priority: high
 type: bug
 ordinal: 349000
 ---
+
+## Status 2026-09-24
+
+**To Do, owner decision:** neither serving-installation nor disposable-CI role has been selected, and no role-regression test or tag cleanup is merged. **Remaining:** declare one authoritative role, isolate the opposite machinery, reconcile conflicting refs, and prove healthy observable service/CI state.
+
+Baseline: `origin/master` at `373d15fc3`. Criterion disposition and remaining positive targets are above; the acceptance criteria below remain authoritative. An authored but unrun VM scenario is **proof pending**, not met.
 
 ## Description
 

@@ -1,11 +1,12 @@
 ---
 id: STATBUS-398
 title: The install-failure banner explains that a later successful install or upgrade clears it
-status: To Do
+status: In Progress
 assignee: []
 created_date: '2026-09-24 16:44'
 updated_date: '2026-09-24 18:42'
 labels:
+  - release-bug
   - install
   - upgrade
   - cli
@@ -15,6 +16,12 @@ priority: medium
 type: task
 ordinal: 88
 ---
+
+## Status 2026-09-24
+
+**In Progress.** `8543f493a`: `cli/internal/upgrade/install_failure_banner_test.go` and `app/src/app/admin/upgrades/install-failure-banner.test.ts` cover successful-upgrade clearing and UI visibility (#2, #4); installer clearing is in `cli/cmd/install.go` but its named test (#3) is absent. The provisional exact wording test (#1) is absent. **Remaining:** assert owner-approved provisional sentence exactly and test clearing on successful install.
+
+Baseline: `origin/master` at `373d15fc3`. Criterion disposition and remaining positive targets are above; the acceptance criteria below remain authoritative. An authored but unrun VM scenario is **proof pending**, not met.
 
 ## Description
 

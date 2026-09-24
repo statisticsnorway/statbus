@@ -7,12 +7,19 @@ status: To Do
 assignee: []
 created_date: '2026-09-02 13:14'
 updated_date: '2026-09-23 15:10'
-labels: []
+labels:
+  - feature-next
 dependencies: []
 priority: medium
 type: feature
 ordinal: 337000
 ---
+
+## Status 2026-09-24
+
+**To Do:** the owner-approved design is recorded here, but no receiver, CI callback, opt-in report client, snapshot, or deployment is merged. **Remaining:** implement and review the three independently safe phases with bounded HLL/privacy guarantees and real release consumers.
+
+Baseline: `origin/master` at `373d15fc3`. Criterion disposition and remaining positive targets are above; the acceptance criteria below remain authoritative. An authored but unrun VM scenario is **proof pending**, not met.
 
 ## Description
 

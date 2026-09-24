@@ -3,11 +3,12 @@ id: STATBUS-179
 title: >-
   power-group-viewpoints: primary (EU:Enterprise Group,NO:konsern) vs
   non-primary power groups — layered design + selectable reporting viewpoint
-status: To Do
+status: In Progress
 assignee: []
 created_date: '2026-07-14 10:00'
 updated_date: '2026-09-23 15:10'
 labels:
+  - feature-next
   - power-groups
   - design
   - reporting
@@ -17,6 +18,12 @@ dependencies: []
 priority: medium
 ordinal: 180000
 ---
+
+## Status 2026-09-24
+
+**In Progress:** design criteria #2-3 recorded (`01d0f26c5` ticket history); #1 documentation correction and #4 owner approval remain open, and Definition-of-Done #1-7 are unshipped. **Remaining:** obtain approval, implement two-scope schema/migration/derivation/viewpoints, update app/types/docs, and prove JV/Baltic fixtures.
+
+Baseline: `origin/master` at `373d15fc3`. Criterion disposition and remaining positive targets are above; the acceptance criteria below remain authoritative. An authored but unrun VM scenario is **proof pending**, not met.
 
 ## Description
 

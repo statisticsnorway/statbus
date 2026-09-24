@@ -1,11 +1,12 @@
 ---
 id: STATBUS-407
 title: Installation and automatic updates keep database role passwords aligned with saved settings
-status: To Do
+status: In Progress
 assignee: []
 created_date: '2026-09-24 15:46'
 updated_date: '2026-09-24 18:44'
 labels:
+  - release-bug
   - install
   - database
   - upgrade
@@ -15,6 +16,12 @@ priority: high
 type: bug
 ordinal: 360000
 ---
+
+## Status 2026-09-24
+
+**In Progress.** `474cf6119`, `145c17292`: `cli/internal/dbroles/dbroles.go` / `dbroles_test.go` and `cli/internal/upgrade/role_password_sync_test.go` cover four-role reconciliation, unchanged no-op, and service ordering (#1-3 by equivalent tests). #4 `5-install-orphaned-db-volume-credentials.sh` is authored, real-VM proof pending. **Remaining:** run surviving-volume recovery on a disposable VM, preserve users, and observe API and automatic-update readiness.
+
+Baseline: `origin/master` at `373d15fc3`. Criterion disposition and remaining positive targets are above; the acceptance criteria below remain authoritative. An authored but unrun VM scenario is **proof pending**, not met.
 
 ## Description
 

@@ -1,11 +1,12 @@
 ---
 id: STATBUS-400
 title: Every setup question explains its choices and offers a useful default
-status: To Do
+status: In Progress
 assignee: []
 created_date: '2026-09-24 15:35'
 updated_date: '2026-09-24 18:42'
 labels:
+  - release-bug
   - install
   - ux
 dependencies:
@@ -14,6 +15,12 @@ priority: high
 type: bug
 ordinal: 353000
 ---
+
+## Status 2026-09-24
+
+**In Progress.** `bda0df07b`, `0a166d25e`, `373d15fc3`: `cli/internal/installinput/config.go` and `config_test.go` explain choices and select host-appropriate defaults (#1 partly). `0-interactive-setup-choices.sh` does not exist, leaving #2-3 not met. **Remaining:** prove a private laptop defaults to local mode, then prove a persisted answer can be revised on rerun and retained.
+
+Baseline: `origin/master` at `373d15fc3`. Criterion disposition and remaining positive targets are above; the acceptance criteria below remain authoritative. An authored but unrun VM scenario is **proof pending**, not met.
 
 ## Description
 

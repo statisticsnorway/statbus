@@ -1,11 +1,12 @@
 ---
 id: STATBUS-406
 title: The installer asks once whether to trust the Statistics Norway release signer
-status: To Do
+status: In Progress
 assignee: []
 created_date: '2026-09-24 15:35'
 updated_date: '2026-09-24 18:44'
 labels:
+  - release-bug
   - install
   - security
   - ux
@@ -14,6 +15,12 @@ priority: high
 type: bug
 ordinal: 359000
 ---
+
+## Status 2026-09-24
+
+**In Progress.** `8543f493a`: `cli/cmd/install_trust_input_test.go` and `install_trust_order_test.go` cover #1-2, one fingerprinted choice persisted before the signer step. #3's `0-interactive-trusted-signer.sh` is absent. **Remaining:** exercise exactly one choice and a later OK step without an additional-signer loop on a VM.
+
+Baseline: `origin/master` at `373d15fc3`. Criterion disposition and remaining positive targets are above; the acceptance criteria below remain authoritative. An authored but unrun VM scenario is **proof pending**, not met.
 
 ## Description
 

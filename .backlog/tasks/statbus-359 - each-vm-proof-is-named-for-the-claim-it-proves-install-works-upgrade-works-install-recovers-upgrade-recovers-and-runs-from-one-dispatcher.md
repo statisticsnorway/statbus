@@ -14,6 +14,12 @@ dependencies:
 ordinal: 80
 ---
 
+## Status 2026-09-24
+
+**To Do:** #1-6 not met: `test/vm/run.sh` and all four-family dispatcher contract tests are absent (`93bc656fa` is ticket history only). The candidate-tag VM ladder is not run. **Remaining:** move proofs to four outcome families, wire one dispatcher/dev/release gate, audit vocabulary, and record a green paid four-cell candidate run.
+
+Baseline: `origin/master` at `373d15fc3`. Criterion disposition and remaining positive targets are above; the acceptance criteria below remain authoritative. An authored but unrun VM scenario is **proof pending**, not met.
+
 ## Description
 
 The paid VM proofs live under `test/vm/` in four positive outcome families: `install-works`, `upgrade-works`, `install-recovers`, and `upgrade-recovers`. One `test/vm/run.sh` dispatches by family, name, or all. The development entry point is `./dev.sh test-vm <family|name|all>`, while the free local Multipass check is `./dev.sh test-install-local`.

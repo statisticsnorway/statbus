@@ -1,17 +1,24 @@
 ---
 id: STATBUS-386
 title: On low disk space, the installer states what is free, what is needed, and how to continue
-status: To Do
+status: In Progress
 assignee: []
 created_date: '2026-09-24 16:42'
 updated_date: '2026-09-24 18:40'
 labels:
+  - release-bug
   - install
 dependencies: []
 priority: high
 type: bug
 ordinal: 1
 ---
+
+## Status 2026-09-24
+
+**In Progress.** `2aea9e733`, `373d15fc3`: `cli/internal/diskpolicy/policy.go` and `policy_test.go::TestSharedThresholdAcrossCallers` implement the 20/40 GB policy (#1-3 partly); the three named `cli/cmd/disk_policy_test.go` cases are absent. `4-install-40gb-disk.sh` exists, but #4 is proof pending on a real VM. **Remaining:** add the three installer-band assertions and run the 40 GB VM measurement.
+
+Baseline: `origin/master` at `373d15fc3`. Criterion disposition and remaining positive targets are above; the acceptance criteria below remain authoritative. An authored but unrun VM scenario is **proof pending**, not met.
 
 ## Description
 
