@@ -10,7 +10,6 @@ import (
 	"strings"
 
 	"github.com/statisticsnorway/statbus/cli/internal/compose"
-	"github.com/statisticsnorway/statbus/cli/internal/config"
 	"github.com/statisticsnorway/statbus/cli/internal/upgrade"
 )
 
@@ -24,7 +23,11 @@ type restartOperations struct {
 }
 
 func restartServices(profile string) error {
-	return restartServicesInDir(config.ProjectDir(), profile)
+	dir, err := installProjectDir()
+	if err != nil {
+		return err
+	}
+	return restartServicesInDir(dir, profile)
 }
 
 func restartServicesInDir(dir, profile string) error {

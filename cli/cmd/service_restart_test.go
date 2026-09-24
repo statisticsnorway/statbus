@@ -228,6 +228,16 @@ func TestInstallRefusesRestartBeforeProbes(t *testing.T) {
 	t.Setenv("HOME", home)
 	t.Setenv("STATBUS_POST_UPGRADE_FIXUP", "")
 	dir := filepath.Join(home, "statbus")
+	if err := os.MkdirAll(dir, 0700); err != nil {
+		t.Fatal(err)
+	}
+	fixtureCheckout(t, dir)
+	oldExe := installExecutable
+	installExecutable = func() (string, error) { return filepath.Join(dir, "sb"), nil }
+	t.Cleanup(func() { installExecutable = oldExe })
+	if err := os.WriteFile(filepath.Join(dir, "sb"), nil, 0700); err != nil {
+		t.Fatal(err)
+	}
 	lock, _, _, err := upgrade.AcquireRestartFlag(dir, "all")
 	if err != nil {
 		t.Fatal(err)
@@ -247,6 +257,16 @@ func TestInstallRestoresStaleRestartOnlyInFixtureProject(t *testing.T) {
 	t.Setenv("HOME", home)
 	t.Setenv("STATBUS_POST_UPGRADE_FIXUP", "")
 	dir := filepath.Join(home, "statbus")
+	if err := os.MkdirAll(dir, 0700); err != nil {
+		t.Fatal(err)
+	}
+	fixtureCheckout(t, dir)
+	oldExe := installExecutable
+	installExecutable = func() (string, error) { return filepath.Join(dir, "sb"), nil }
+	t.Cleanup(func() { installExecutable = oldExe })
+	if err := os.WriteFile(filepath.Join(dir, "sb"), nil, 0700); err != nil {
+		t.Fatal(err)
+	}
 	lock, _, _, err := upgrade.AcquireRestartFlag(dir, "all")
 	if err != nil {
 		t.Fatal(err)

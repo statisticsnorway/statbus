@@ -21,6 +21,13 @@ func withRunInstallDetectionHooks(t *testing.T) string {
 	if err := os.MkdirAll(installDir, 0o755); err != nil {
 		t.Fatal(err)
 	}
+	fixtureCheckout(t, installDir)
+	oldExe := installExecutable
+	installExecutable = func() (string, error) { return filepath.Join(installDir, "sb"), nil }
+	t.Cleanup(func() { installExecutable = oldExe })
+	if err := os.WriteFile(filepath.Join(installDir, "sb"), nil, 0700); err != nil {
+		t.Fatal(err)
+	}
 	if err := os.WriteFile(filepath.Join(installDir, ".env.config"), []byte("CADDY_DEPLOYMENT_MODE=development\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}

@@ -185,6 +185,19 @@ func TestUnattendedCommandRefusesBeforeInfrastructure(t *testing.T) {
 	home, _ := unattendedFixture(t)
 	t.Setenv("HOME", home)
 	t.Setenv("STATBUS_POST_UPGRADE_FIXUP", "")
+	// Point the binary at a separate fixture checkout; do not inspect or
+	// restore a restart marker from the real repository running this test.
+	checkout := filepath.Join(home, "fixture")
+	if err := os.Mkdir(checkout, 0700); err != nil {
+		t.Fatal(err)
+	}
+	fixtureCheckout(t, checkout)
+	if err := os.WriteFile(filepath.Join(checkout, "sb"), nil, 0700); err != nil {
+		t.Fatal(err)
+	}
+	oldExe := installExecutable
+	installExecutable = func() (string, error) { return filepath.Join(checkout, "sb"), nil }
+	t.Cleanup(func() { installExecutable = oldExe })
 	old := postUpgradeFixup
 	postUpgradeFixup = false
 	t.Cleanup(func() { postUpgradeFixup = old })

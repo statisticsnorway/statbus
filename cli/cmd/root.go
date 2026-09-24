@@ -3,7 +3,6 @@ package cmd
 import (
 	"fmt"
 	"os"
-	"path/filepath"
 	"runtime/debug"
 	"sync"
 
@@ -130,7 +129,11 @@ func stalenessGuard(c *cobra.Command, _ []string) {
 		fmt.Fprintln(os.Stderr, "WARN: "+msg)
 		return
 	}
-	projectDir := guardProjectDir(c)
+	projectDir, err := guardProjectDir(c)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(exitBinaryUnusable)
+	}
 	msg := freshness.IsStale(projectDir, string(commitSHA))
 	if msg == "" {
 		return
@@ -206,15 +209,12 @@ func stalenessGuard(c *cobra.Command, _ []string) {
 	fmt.Fprintln(os.Stderr, "WARN: "+msg)
 }
 
-// Install always acts on HOME/statbus, even when invoked as ./statbus/sb
-// install from elsewhere. Its freshness and recovery checks must do likewise.
-func guardProjectDir(c *cobra.Command) string {
-	if c.Name() == "install" {
-		if home, err := os.UserHomeDir(); err == nil {
-			return filepath.Join(home, "statbus")
-		}
+func guardProjectDir(c *cobra.Command) (string, error) {
+	if c.Name() == "install" || c.Name() == "restart" {
+		return installProjectDir()
 	}
-	return config.ProjectDir()
+	// Other commands retain their existing cwd-based config.ProjectDir behavior.
+	return config.ProjectDir(), nil
 }
 
 // resolveCommitSHA resolves the binary's commit identity from layered

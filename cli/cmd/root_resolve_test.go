@@ -10,23 +10,82 @@ import (
 	"github.com/statisticsnorway/statbus/cli/internal/upgrade"
 )
 
-func TestInstallGuardResolvesInstallDirOutsideProjectCwd(t *testing.T) {
-	home := t.TempDir()
-	other := t.TempDir()
-	t.Setenv("HOME", home)
-	old, err := os.Getwd()
+func fixtureCheckout(t *testing.T, dir string) {
+	t.Helper()
+	for _, name := range []string{".git", "docker-compose.yml"} {
+		if err := os.WriteFile(filepath.Join(dir, name), nil, 0600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := os.Mkdir(filepath.Join(dir, "cli"), 0700); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestInstallTargetResolution(t *testing.T) {
+	base := t.TempDir()
+	a, b := filepath.Join(base, "A"), filepath.Join(base, "B")
+	home := filepath.Join(base, "home")
+	defaultDir := filepath.Join(home, "statbus")
+	for _, dir := range []string{a, b, defaultDir} {
+		if err := os.MkdirAll(dir, 0700); err != nil {
+			t.Fatal(err)
+		}
+		fixtureCheckout(t, dir)
+	}
+	outside := filepath.Join(base, "outside")
+	if err := os.Mkdir(outside, 0700); err != nil {
+		t.Fatal(err)
+	}
+	for _, tc := range []struct {
+		name, exe, cwd, home, want string
+		refuse                     bool
+	}{
+		{"two checkouts: binary wins", filepath.Join(a, "sb"), b, home, a, false},
+		{"binary under HOME/statbus from HOME", filepath.Join(defaultDir, "sb"), home, home, defaultDir, false},
+		{"external binary uses cwd checkout", filepath.Join(outside, "sb"), b, home, b, false},
+		{"external binary uses default checkout", filepath.Join(outside, "sb"), outside, home, defaultDir, false},
+		{"no checkout refuses", filepath.Join(outside, "sb"), outside, outside, "", true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			if err := os.WriteFile(tc.exe, nil, 0700); err != nil {
+				t.Fatal(err)
+			}
+			got, err := resolveInstallDir(tc.exe, tc.cwd, tc.home)
+			if got != tc.want || (err != nil) != tc.refuse {
+				t.Fatalf("target=%q error=%v; want %q refusal=%v", got, err, tc.want, tc.refuse)
+			}
+			if tc.refuse && !strings.Contains(err.Error(), "cannot find a StatBus checkout") {
+				t.Fatal(err)
+			}
+		})
+	}
+	link := filepath.Join(outside, "linked-sb")
+	if err := os.Symlink(filepath.Join(a, "sb"), link); err != nil {
+		t.Fatal(err)
+	}
+	if got, err := resolveInstallDir(link, b, home); err != nil || got != a {
+		t.Fatalf("symlink target=%q error=%v", got, err)
+	}
+	old := installExecutable
+	installExecutable = func() (string, error) { return filepath.Join(a, "sb"), nil }
+	t.Cleanup(func() { installExecutable = old })
+	oldWD, err := os.Getwd()
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := os.Chdir(other); err != nil {
+	if err := os.Chdir(b); err != nil {
 		t.Fatal(err)
 	}
-	t.Cleanup(func() { _ = os.Chdir(old) })
-	if got, want := guardProjectDir(installCmd), filepath.Join(home, "statbus"); got != want {
-		t.Fatalf("install guard project = %q, want %q (cwd %q)", got, want, other)
+	t.Cleanup(func() { _ = os.Chdir(oldWD) })
+	if got, err := guardProjectDir(installCmd); err != nil || got != a {
+		t.Fatalf("guard target=%q error=%v", got, err)
 	}
-	if got := guardProjectDir(rootCmd); got != other {
-		t.Fatalf("non-install guard project = %q, want cwd %q", got, other)
+	if got, err := guardProjectDir(restartCmd); err != nil || got != a {
+		t.Fatalf("restart guard target=%q error=%v", got, err)
+	}
+	if got, err := installProjectDir(); err != nil || got != a {
+		t.Fatalf("runInstall target=%q error=%v", got, err)
 	}
 }
 

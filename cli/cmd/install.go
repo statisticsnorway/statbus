@@ -365,11 +365,14 @@ func runInstall() (installErr error) {
 	fmt.Println()
 
 	// Resolve project dir early — the upgrade-in-progress flag lives under it.
+	installDir, err := installProjectDir()
+	if err != nil {
+		return installPreflightRefusal(err.Error())
+	}
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return fmt.Errorf("cannot determine home directory (HOME unset?): %w", err)
 	}
-	installDir := filepath.Join(home, "statbus")
 
 	if !bypass {
 		if err := upgrade.CheckRestartBarrier(installDir); err != nil {
@@ -3073,10 +3076,10 @@ func completeInstallUpgradeRow(installDir string, conn *pgx.Conn, logRelPath str
 	sha, commitDate := gitHeadInfo(installDir)
 	if sha == "" || commitDate == "" {
 		// A8: GIT_HEAD_RESOLVABLE
-		cwd, _ := os.Getwd()
-		log.Printf("Could not identify installed version: sha=%q commitDate=%q cwd=%s", sha, commitDate, cwd)
+		// The installDir argument is the resolved checkout, not the caller's cwd.
+		log.Printf("Could not identify installed version: sha=%q commitDate=%q installDir=%s", sha, commitDate, installDir)
 		markTerminal(installDir, "GIT_HEAD_RESOLVABLE",
-			fmt.Sprintf("sha=%q; commitDate=%q; cwd=%s", sha, commitDate, cwd))
+			fmt.Sprintf("sha=%q; commitDate=%q; installDir=%s", sha, commitDate, installDir))
 		return fmt.Errorf("GIT_HEAD_RESOLVABLE: gitHeadInfo returned empty (sha=%q commitDate=%q)", sha, commitDate)
 	}
 
