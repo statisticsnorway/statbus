@@ -11,7 +11,17 @@ import (
 
 func TestPromptsAndRequiredKeysAreSameSet(t *testing.T) {
 	asked := map[string]bool{}
-	content := Ask(func(label, fallback string) string { asked[strings.TrimSpace(label)] = true; return fallback })
+	content := Ask(func(label, fallback string) string {
+		for _, f := range fields {
+			if strings.HasSuffix(label, f.prompt) {
+				asked[f.prompt] = true
+			}
+		}
+		if strings.HasSuffix(label, "Domain name") {
+			return "example.org"
+		}
+		return fallback
+	})
 	canonical, err := Validate(content)
 	if err != nil {
 		t.Fatal(err)
@@ -53,13 +63,18 @@ func TestPromptsAndRequiredKeysAreSameSet(t *testing.T) {
 }
 
 func TestExplicitInputRefusals(t *testing.T) {
-	content := Ask(func(_ string, fallback string) string { return fallback })
+	content := Ask(func(label, fallback string) string {
+		if strings.HasSuffix(label, "Domain name") {
+			return "example.org"
+		}
+		return fallback
+	})
 	tests := []struct{ name, input, want string }{
 		{"extra", content + "DEBUG=false\n", "extra key DEBUG"},
 		{"fixed output is not input", content + "DEPLOYMENT_SLOT_PORT_OFFSET=1\n", "extra key DEPLOYMENT_SLOT_PORT_OFFSET"},
 		{"duplicate", content + "SITE_DOMAIN=other\n", "duplicate key SITE_DOMAIN"},
 		{"malformed", content + "unexpected text\n", "expected KEY=VALUE"},
-		{"empty", strings.ReplaceAll(content, "SITE_DOMAIN=statbus.nso.eu", "SITE_DOMAIN="), "SITE_DOMAIN (Domain name)"},
+		{"empty", strings.ReplaceAll(content, "SITE_DOMAIN=example.org", "SITE_DOMAIN="), "SITE_DOMAIN (Domain name)"},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
@@ -140,7 +155,12 @@ func TestTrustAnswersAndConflicts(t *testing.T) {
 			t.Fatalf("%+v: %q %v", tc, got, err)
 		}
 	}
-	content := Ask(func(_ string, defaultValue string) string { return defaultValue }) + "TRUST_GITHUB_USER=jhf\n"
+	content := Ask(func(label, defaultValue string) string {
+		if strings.HasSuffix(label, "Domain name") {
+			return "example.org"
+		}
+		return defaultValue
+	}) + "TRUST_GITHUB_USER=jhf\n"
 	a, err := parse(content, "")
 	if err != nil || a.Trust != "jhf" || strings.Contains(a.Config, TrustKey) {
 		t.Fatalf("trust input not consumed separately: %+v %v", a, err)
@@ -152,6 +172,33 @@ func TestTrustAnswersAndConflicts(t *testing.T) {
 	for _, text := range []string{"TRUST_GITHUB_USER=jhf", "https://github.com/jhf", "STATBUS_INSTALL_VERSION", "STATBUS_USERS_FILE", "--trust-github-user <github-user>", "re-run the same install command", "never approves"} {
 		if !strings.Contains(help, text) {
 			t.Errorf("help missing %s", text)
+		}
+	}
+}
+
+func TestSetupChoiceExplanationsAndDefaults(t *testing.T) {
+	var labels []string
+	var domainDefault, modeDefault, codeDefault string
+	Ask(func(label, fallback string) string {
+		labels = append(labels, label)
+		if strings.HasSuffix(label, "Deployment mode (development/standalone/private)") {
+			modeDefault = fallback
+		}
+		if strings.HasSuffix(label, "Domain name") {
+			domainDefault = fallback
+			return "finland.example.org"
+		}
+		if strings.HasSuffix(label, "Deployment code (short, lowercase)") {
+			codeDefault = fallback
+		}
+		return fallback
+	})
+	if modeDefault != "development" || domainDefault != "" || codeDefault != "finland" {
+		t.Fatalf("defaults: %q %q %q", modeDefault, domainDefault, codeDefault)
+	}
+	for _, choice := range []string{"development: testing on this computer only", "standalone: this computer serves the public website", "private: another web server forwards visitors"} {
+		if !strings.Contains(strings.Join(labels, "\n"), choice) {
+			t.Errorf("missing choice %q", choice)
 		}
 	}
 }
