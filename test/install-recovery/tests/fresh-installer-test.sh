@@ -117,6 +117,22 @@ if grep -Eq 'SYSTEM UNUSABLE|Contact your administrator|support bundle' "$TMP_RO
 fi
 echo 'PASS: no-TTY piped install prints exact remedy without catastrophic banner'
 
+for advice in \
+    'port 80 is in use by apache2. sudo systemctl disable --now apache2. Your answers are saved. Then run the same install command again: curl -fsSL https://statbus.org/install.sh | bash' \
+    'Only 12 GB free on /var/lib/docker. StatBus needs at least 20 GB to install. Free some space, then run the same install command again: curl -fsSL https://statbus.org/install.sh | bash' \
+    'a restart is still running, or its services could not be restored. Wait for it to finish, then run the same install command again: curl -fsSL https://statbus.org/install.sh | bash'; do
+    set +e
+    printf '' | EXPECT_STDIN=pipe PIPE_MESSAGE="$advice" python3 -c \
+        'import os, sys; os.setsid(); os.execv("/bin/bash", ["bash", sys.argv[1], "--version", "v2026.09.0-rc.02"])' \
+        "$ROOT/install.sh" > "$TMP_ROOT/advice-output" 2>&1
+    rc=$?
+    set -e
+    [ "$rc" = 78 ] || { echo "FAIL: actionable preflight became $rc"; exit 1; }
+    grep -Fxq "$advice" "$TMP_ROOT/advice-output" || { cat "$TMP_ROOT/advice-output" >&2; exit 1; }
+    ! grep -Eq 'SYSTEM UNUSABLE|INVARIANT|panic:' "$TMP_ROOT/advice-output"
+done
+echo 'PASS: port, disk, and restart remedies reach operator without internal diagnostics'
+
 # Reproduce curl|bash under a controlling pseudo-terminal. install.sh itself
 # starts with pipe stdin, then must reattach /dev/tty before launching ./sb.
 export HOME="$TMP_ROOT/pty-home" INSTALLER_UNDER_TEST="$ROOT/install.sh"

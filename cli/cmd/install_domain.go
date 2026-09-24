@@ -16,9 +16,17 @@ func assessInstallDomain(domain string, lookup func(context.Context, string) ([]
 	defer cancel()
 	addresses, err := lookup(ctx, domain)
 	if err != nil || len(addresses) == 0 {
-		return fmt.Sprintf("%s is not confirmed in public DNS, so an automatic public certificate cannot be promised. Use local development for testing, or publish the name and allow inbound port 80 before using standalone.", domain)
+		return fmt.Sprintf("%s is not confirmed in public DNS, so an automatic public certificate cannot be promised, and local development is recommended for testing until the name is published and inbound port 80 is allowed.", domain)
 	}
-	return fmt.Sprintf("%s appears in public DNS; external access on port 80 has not been checked, so an automatic public certificate is not yet confirmed.", domain)
+	return fmt.Sprintf("%s appears in public DNS, but external access on port 80 has not been checked, so an automatic public certificate is not yet confirmed.", domain)
+}
+
+func showInstallDomainAdvice(domain string) {
+	message := "  " + assessInstallDomain(domain, publicDomainLookup)
+	fmt.Println(message)
+	// install.sh logs stdout while the questionnaire talks directly to /dev/tty.
+	// This recommendation is part of that questionnaire, not an internal log.
+	installTTYPrompt("%s\n", message)
 }
 
 // Query the public resolver directly instead of net.Resolver.LookupIP, whose

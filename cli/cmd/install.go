@@ -1361,6 +1361,14 @@ func runCreateConfig(dir string) error {
 	var err error
 	if nonInteractive || os.Getenv(installinput.EnvConfig) != "" {
 		content, err = installinput.Read(os.Getenv(installinput.EnvConfig))
+		if err == nil {
+			answers := dotenv.FromString(content)
+			mode, _ := answers.Get("CADDY_DEPLOYMENT_MODE")
+			domain, _ := answers.Get("SITE_DOMAIN")
+			if mode == "standalone" {
+				showInstallDomainAdvice(domain)
+			}
+		}
 	} else {
 		fmt.Println()
 		mode := ""
@@ -1380,8 +1388,7 @@ func runCreateConfig(dir string) error {
 				mode = answer
 			}
 			if strings.HasSuffix(label, "Domain name") && mode == "standalone" && answer != "" {
-				fmt.Println("  Checking the name in public DNS ...")
-				fmt.Println("  " + assessInstallDomain(answer, publicDomainLookup))
+				showInstallDomainAdvice(answer)
 			}
 			return answer
 		}, modeDefault))
