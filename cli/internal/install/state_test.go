@@ -6,7 +6,6 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/statisticsnorway/statbus/cli/internal/upgrade"
 )
@@ -140,10 +139,34 @@ func TestDetectWith(t *testing.T) {
 				dbReachable:     true,
 				hasUpgradeTable: false,
 				history: SchemaHistory{
-					AppliedMigrations:    180,
-					EarliestAppliedAt:    time.Date(2025, 1, 10, 9, 0, 0, 0, time.UTC),
+					AppliedMigrations:    2,
+					AppliedVersions:      []string{"20240128000000", "20240201000000"},
 					HasApplicationSchema: true,
 				},
+			},
+			wantState: StateLegacyNoUpgradeTable,
+		},
+		{
+			name: "legacy: old migrations applied today remain pre-1.0",
+			probe: fakeProbe{
+				files:           map[string]bool{cfgPath: true, credPath: true},
+				dbReachable:     true,
+				hasUpgradeTable: false,
+				history: SchemaHistory{
+					AppliedMigrations:    2,
+					AppliedVersions:      []string{"20240128000000", "20260310000000"},
+					HasApplicationSchema: true,
+				},
+			},
+			wantState: StateLegacyNoUpgradeTable,
+		},
+		{
+			name: "legacy: enterprise-only schema without migration history",
+			probe: fakeProbe{
+				files:           map[string]bool{cfgPath: true, credPath: true},
+				dbReachable:     true,
+				hasUpgradeTable: false,
+				history:         SchemaHistory{HasApplicationSchema: true},
 			},
 			wantState: StateLegacyNoUpgradeTable,
 		},
@@ -158,14 +181,14 @@ func TestDetectWith(t *testing.T) {
 			wantState: StateFreshDBIncomplete,
 		},
 		{
-			name: "fresh-db-incomplete: migrations started today, stopped before public.upgrade",
+			name: "fresh-db-incomplete: interrupted run has only post-upgrade-era versions",
 			probe: fakeProbe{
 				files:           map[string]bool{cfgPath: true, credPath: true},
 				dbReachable:     true,
 				hasUpgradeTable: false,
 				history: SchemaHistory{
-					AppliedMigrations:    40,
-					EarliestAppliedAt:    time.Date(2026, 9, 24, 15, 0, 0, 0, time.UTC),
+					AppliedMigrations:    2,
+					AppliedVersions:      []string{"20260312000000", "20260401000000"},
 					HasApplicationSchema: true,
 				},
 			},
@@ -421,18 +444,45 @@ func TestParseSchemaHistory(t *testing.T) {
 	if err != nil || !has || app {
 		t.Fatalf("parseTwoBools = %v %v %v", has, app, err)
 	}
-	h, err := parseSchemaHistoryCounts("3|1790000000\n", SchemaHistory{HasApplicationSchema: true})
+	for _, input := range []string{"junk|junk", "t|no", "yes|f"} {
+		if _, _, err := parseTwoBools(input); err == nil {
+			t.Errorf("parseTwoBools(%q) unexpectedly succeeded", input)
+		}
+	}
+	h, err := parseSchemaHistoryCounts("3|20240101000000,20240202000000,20260310000000\n", SchemaHistory{HasApplicationSchema: true})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if h.AppliedMigrations != 3 || h.EarliestAppliedAt.Unix() != 1790000000 || !h.HasApplicationSchema {
+	if h.AppliedMigrations != 3 || len(h.AppliedVersions) != 3 || h.AppliedVersions[0] != "20240101000000" || !h.HasApplicationSchema {
 		t.Fatalf("parsed %+v", h)
 	}
-	h, err = parseSchemaHistoryCounts("0|0", SchemaHistory{})
-	if err != nil || !h.EarliestAppliedAt.IsZero() {
+	h, err = parseSchemaHistoryCounts("0|", SchemaHistory{})
+	if err != nil || len(h.AppliedVersions) != 0 {
 		t.Fatalf("empty history parsed %+v %v", h, err)
 	}
-	if _, err := parseSchemaHistoryCounts("garbage", SchemaHistory{}); err == nil {
-		t.Fatal("garbage parsed without error")
+	for _, input := range []string{"garbage", "2|20240101000000", "1|junk", "0|20240101000000"} {
+		if _, err := parseSchemaHistoryCounts(input, SchemaHistory{}); err == nil {
+			t.Errorf("parseSchemaHistoryCounts(%q) unexpectedly succeeded", input)
+		}
+	}
+}
+
+func TestParseUpgradeTableOutput(t *testing.T) {
+	for _, tc := range []struct {
+		input string
+		want  bool
+	}{
+		{input: "1\n", want: true},
+		{input: "\n", want: false},
+	} {
+		got, err := parseUpgradeTableOutput(tc.input)
+		if err != nil || got != tc.want {
+			t.Errorf("parseUpgradeTableOutput(%q) = %v, %v; want %v, nil", tc.input, got, err, tc.want)
+		}
+	}
+	for _, input := range []string{"0", "junk", "t"} {
+		if _, err := parseUpgradeTableOutput(input); err == nil {
+			t.Errorf("parseUpgradeTableOutput(%q) unexpectedly succeeded", input)
+		}
 	}
 }

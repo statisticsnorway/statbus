@@ -192,14 +192,10 @@ func DetectWith(projDir, currentVersion string, probe Probe) (State, *Detail, er
 	return StateNothingScheduled, detail, nil
 }
 
-// upgradeTableIntroducedAt is the timestamp of the migration that creates
-// public.upgrade (20260311174120_add_upgrade_tracking). No release before it
-// ever carried that migration, so a pre-1.0 database had applied its first
-// migration before this moment. A database whose FIRST migration was applied
-// after it was set up by a binary that ships the public.upgrade migration: when
-// that table is still absent, the setup stopped part-way and this installer
-// continues it.
-var upgradeTableIntroducedAt = time.Date(2026, 3, 11, 17, 41, 20, 0, time.UTC)
+// upgradeTableMigrationVersion is the migration that creates public.upgrade.
+// Migration versions, unlike applied_at timestamps, are release provenance:
+// restoring or applying an old release today cannot make its versions modern.
+const upgradeTableMigrationVersion = "20260311174120"
 
 // SchemaHistory is what the database says about how it was set up, used only
 // when public.upgrade is absent to tell a pre-1.0 database from a fresh install
@@ -208,10 +204,9 @@ var upgradeTableIntroducedAt = time.Date(2026, 3, 11, 17, 41, 20, 0, time.UTC)
 type SchemaHistory struct {
 	// AppliedMigrations counts rows in db.migration (0 when the table is absent).
 	AppliedMigrations int64
-	// EarliestAppliedAt is min(db.migration.applied_at); zero when no rows.
-	EarliestAppliedAt time.Time
-	// HasApplicationSchema is true when public.legal_unit exists: the core
-	// statistical tables that every release since the first one creates.
+	// AppliedVersions is the complete set of db.migration versions.
+	AppliedVersions []string
+	// HasApplicationSchema is true when any public application table exists.
 	HasApplicationSchema bool
 }
 
@@ -219,9 +214,10 @@ type SchemaHistory struct {
 // own unfinished work:
 //   - init-db.sh only: no migration applied and no application tables (the DB
 //     container initialised the empty cluster; Seed and Migrations never ran).
-//   - migrations started by a public.upgrade-era binary: the first migration was
-//     applied after the public.upgrade migration existed, and the run stopped
-//     before reaching it.
+//   - migration history containing only versions newer than the migration that
+//     introduced public.upgrade. This is unambiguous modern provenance. A full
+//     replay also contains old versions, so it is conservatively refused if it
+//     somehow has no public.upgrade table.
 //
 // Everything else without public.upgrade is a pre-1.0 database, including a
 // database with application tables but no migration history at all.
@@ -229,7 +225,15 @@ func (h SchemaHistory) IsUnfinishedFreshInstall() bool {
 	if h.AppliedMigrations == 0 {
 		return !h.HasApplicationSchema
 	}
-	return !h.EarliestAppliedAt.IsZero() && h.EarliestAppliedAt.After(upgradeTableIntroducedAt)
+	if int64(len(h.AppliedVersions)) != h.AppliedMigrations {
+		return false
+	}
+	for _, version := range h.AppliedVersions {
+		if version <= upgradeTableMigrationVersion {
+			return false
+		}
+	}
+	return true
 }
 
 // defaultProbe is the production Probe: real filesystem + psql subprocess.
@@ -264,12 +268,30 @@ func (defaultProbe) HasUpgradeTable(projDir string) (bool, error) {
 	if err != nil {
 		return false, err
 	}
-	return strings.TrimSpace(out) == "1", nil
+	return parseUpgradeTableOutput(out)
+}
+
+func parseUpgradeTableOutput(out string) (bool, error) {
+	switch strings.TrimSpace(out) {
+	case "1":
+		return true, nil
+	case "":
+		return false, nil
+	default:
+		return false, fmt.Errorf("unexpected public.upgrade probe output: %q", out)
+	}
 }
 
 func (defaultProbe) InspectSchemaHistory(projDir string) (SchemaHistory, error) {
 	out, err := runQuery(projDir, 10*time.Second,
-		`SELECT to_regclass('db.migration') IS NOT NULL, to_regclass('public.legal_unit') IS NOT NULL`)
+		`SELECT to_regclass('db.migration') IS NOT NULL,
+                        EXISTS (
+                          SELECT 1
+                            FROM pg_class AS c
+                            JOIN pg_namespace AS n ON n.oid = c.relnamespace
+                           WHERE n.nspname = 'public'
+                             AND c.relkind IN ('r', 'p')
+                        )`)
 	if err != nil {
 		return SchemaHistory{}, err
 	}
@@ -282,7 +304,7 @@ func (defaultProbe) InspectSchemaHistory(projDir string) (SchemaHistory, error) 
 		return history, nil
 	}
 	out, err = runQuery(projDir, 10*time.Second,
-		`SELECT count(*), COALESCE(floor(extract(epoch FROM min(applied_at)))::bigint, 0) FROM db.migration`)
+		`SELECT count(*), COALESCE(string_agg(version::text, ',' ORDER BY version), '') FROM db.migration`)
 	if err != nil {
 		return SchemaHistory{}, err
 	}
@@ -294,7 +316,26 @@ func parseTwoBools(out string) (bool, bool, error) {
 	if len(parts) != 2 {
 		return false, false, fmt.Errorf("unexpected schema probe output: %q", out)
 	}
-	return parts[0] == "t", parts[1] == "t", nil
+	first, err := parseBoolToken(parts[0])
+	if err != nil {
+		return false, false, err
+	}
+	second, err := parseBoolToken(parts[1])
+	if err != nil {
+		return false, false, err
+	}
+	return first, second, nil
+}
+
+func parseBoolToken(token string) (bool, error) {
+	switch token {
+	case "t":
+		return true, nil
+	case "f":
+		return false, nil
+	default:
+		return false, fmt.Errorf("unexpected boolean probe token %q", token)
+	}
 }
 
 func parseSchemaHistoryCounts(out string, history SchemaHistory) (SchemaHistory, error) {
@@ -306,13 +347,27 @@ func parseSchemaHistoryCounts(out string, history SchemaHistory) (SchemaHistory,
 	if err != nil {
 		return SchemaHistory{}, fmt.Errorf("parse migration count %q: %w", parts[0], err)
 	}
-	epoch, err := strconv.ParseInt(parts[1], 10, 64)
-	if err != nil {
-		return SchemaHistory{}, fmt.Errorf("parse earliest applied_at %q: %w", parts[1], err)
-	}
 	history.AppliedMigrations = count
-	if count > 0 {
-		history.EarliestAppliedAt = time.Unix(epoch, 0).UTC()
+	if count == 0 {
+		if parts[1] != "" {
+			return SchemaHistory{}, fmt.Errorf("unexpected migration versions for empty history: %q", parts[1])
+		}
+		return history, nil
+	}
+	if parts[1] == "" {
+		return SchemaHistory{}, fmt.Errorf("missing migration versions for count %d", count)
+	}
+	history.AppliedVersions = strings.Split(parts[1], ",")
+	if int64(len(history.AppliedVersions)) != count {
+		return SchemaHistory{}, fmt.Errorf("migration count %d does not match %d versions", count, len(history.AppliedVersions))
+	}
+	for _, version := range history.AppliedVersions {
+		if len(version) != 14 {
+			return SchemaHistory{}, fmt.Errorf("unexpected migration version %q", version)
+		}
+		if _, err := strconv.ParseInt(version, 10, 64); err != nil {
+			return SchemaHistory{}, fmt.Errorf("parse migration version %q: %w", version, err)
+		}
 	}
 	return history, nil
 }
