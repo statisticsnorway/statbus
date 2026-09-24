@@ -263,9 +263,10 @@ func ReleaseTagsNewestFirst(projDir string) ([]string, error) {
 	cmd := exec.Command("git", "ls-remote", "--tags", "origin")
 	cmd.Dir = projDir
 	cmd.Env = GitHubGitEnv(os.Environ())
-	out, err := cmd.Output()
+	out, err := cmd.CombinedOutput()
 	if err != nil {
-		return nil, fmt.Errorf("git ls-remote --tags origin: %w", err)
+		output := RedactGitHubCredentials(strings.TrimSpace(string(out)))
+		return nil, fmt.Errorf("git ls-remote --tags origin: %w: %s", err, output)
 	}
 	seen := make(map[string]bool)
 	var tags []string

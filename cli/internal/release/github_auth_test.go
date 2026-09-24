@@ -56,8 +56,32 @@ func TestGitHubGitEnvUsesExtraHeaderNotArgv(t *testing.T) {
 	env := GitHubGitEnv([]string{"HOME=/tmp/home"})
 	joined := strings.Join(env, "\n")
 	want := base64.StdEncoding.EncodeToString([]byte("x-access-token:secret-token"))
-	if !strings.Contains(joined, "GIT_CONFIG_VALUE_0=AUTHORIZATION: basic "+want) {
+	if !strings.Contains(joined, "GIT_CONFIG_COUNT=2") ||
+		!strings.Contains(joined, "GIT_CONFIG_VALUE_0=") ||
+		!strings.Contains(joined, "GIT_CONFIG_VALUE_1=AUTHORIZATION: basic "+want) {
 		t.Fatalf("missing encoded extraheader in %q", joined)
+	}
+}
+
+func TestGitHubGitEnvResetsInheritedAuthorizationBeforeAddingItsOwn(t *testing.T) {
+	t.Setenv("GITHUB_TOKEN", "secret-token")
+	env := GitHubGitEnv([]string{
+		"GIT_CONFIG_COUNT=1",
+		"GIT_CONFIG_KEY_0=credential.helper",
+		"GIT_CONFIG_VALUE_0=store",
+	})
+	joined := strings.Join(env, "\n")
+	want := base64.StdEncoding.EncodeToString([]byte("x-access-token:secret-token"))
+	for _, item := range []string{
+		"GIT_CONFIG_COUNT=3",
+		"GIT_CONFIG_KEY_1=http.https://github.com/.extraheader",
+		"GIT_CONFIG_VALUE_1=",
+		"GIT_CONFIG_KEY_2=http.https://github.com/.extraheader",
+		"GIT_CONFIG_VALUE_2=AUTHORIZATION: basic " + want,
+	} {
+		if !strings.Contains(joined, item) {
+			t.Fatalf("missing %q in %q", item, joined)
+		}
 	}
 }
 
@@ -70,7 +94,7 @@ func TestAuthenticatedGitFailureRedactsCredentialsBeforeErrorsLogsAndDiagnostics
 	script := `#!/bin/sh
 printf '%s\n' "$GITHUB_TOKEN" >&2
 printf '%s\n' "` + encodedToken + `" >&2
-printf '%s\n' "$GIT_CONFIG_VALUE_0" >&2
+printf '%s\n' "$GIT_CONFIG_VALUE_1" >&2
 printf '%s\n' "Authorization: Bearer reflected-secret" >&2
 exit 1
 `

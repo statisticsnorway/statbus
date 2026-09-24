@@ -55,21 +55,28 @@ func GitHubGitEnv(base []string) []string {
 	}
 	encoded := base64.StdEncoding.EncodeToString([]byte("x-access-token:" + auth.Token))
 	env := append([]string{}, base...)
+	// An empty extraheader resets values inherited from lower-priority config.
+	// actions/checkout persists its own Authorization extraheader locally; without
+	// this reset Git sends both credentials and GitHub rejects the duplicate header.
 	index := 0
 	for i, item := range env {
 		if strings.HasPrefix(item, "GIT_CONFIG_COUNT=") {
 			index, _ = strconv.Atoi(strings.TrimPrefix(item, "GIT_CONFIG_COUNT="))
-			env[i] = "GIT_CONFIG_COUNT=" + strconv.Itoa(index+1)
+			env[i] = "GIT_CONFIG_COUNT=" + strconv.Itoa(index+2)
 			return append(env,
 				"GIT_CONFIG_KEY_"+strconv.Itoa(index)+"=http.https://github.com/.extraheader",
-				"GIT_CONFIG_VALUE_"+strconv.Itoa(index)+"=AUTHORIZATION: basic "+encoded,
+				"GIT_CONFIG_VALUE_"+strconv.Itoa(index)+"=",
+				"GIT_CONFIG_KEY_"+strconv.Itoa(index+1)+"=http.https://github.com/.extraheader",
+				"GIT_CONFIG_VALUE_"+strconv.Itoa(index+1)+"=AUTHORIZATION: basic "+encoded,
 			)
 		}
 	}
 	return append(env,
-		"GIT_CONFIG_COUNT=1",
+		"GIT_CONFIG_COUNT=2",
 		"GIT_CONFIG_KEY_0=http.https://github.com/.extraheader",
-		"GIT_CONFIG_VALUE_0=AUTHORIZATION: basic "+encoded,
+		"GIT_CONFIG_VALUE_0=",
+		"GIT_CONFIG_KEY_1=http.https://github.com/.extraheader",
+		"GIT_CONFIG_VALUE_1=AUTHORIZATION: basic "+encoded,
 	)
 }
 
