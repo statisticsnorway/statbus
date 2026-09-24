@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-09-24 16:42'
-updated_date: '2026-09-24 14:53'
+updated_date: '2026-09-24 15:35'
 labels:
   - install
 dependencies: []
@@ -15,25 +15,23 @@ type: bug
 ordinal: 1
 ---
 
-## Finland v2026.09.2 evidence (2026-09-24)
+## Description
 
-The Finland operator selected standalone with `statbus.statfin.eu`, but the
-triage records `dig +short` as empty. Standalone binds 80/443, requests ACME,
-and exposes TLS PostgreSQL, which does not fit this laptop. The default is in
-`installinput/config.go:30-31`; ACME behavior is in
-`caddy/templates/standalone.caddyfile.tmpl:151-154`.
+<!-- SECTION:DESCRIPTION:BEGIN -->
+After the domain question, the installer checks public DNS and whether this computer is reachable for automatic certificate setup. It then explains the result in one sentence and offers the certificate choices that work, in best-to-fallback order.
 
-## Goal
+## Evidence, 2026-09-24
 
-During configuration the installer resolves the chosen domain, tells the
-operator what it found, and recommends the mode that will work on this machine:
-standalone when the domain points here, development (or standalone with
-provided certificates) when it does not.
+The Finland laptop used `statbus.statfin.eu` only in `/etc/hosts` and had a private home-network address. The certificate service reported NXDOMAIN, retried every 600 seconds, and HTTPS returned a TLS internal error.
 
-## Done when
+## Proving scenario
 
-- With a domain that resolves to this host, standalone is recommended and
-  install proceeds.
-- With a domain that has no public DNS (the Finland case), the operator sees
-  the lookup result and is offered development mode or the certificate option,
-  and the chosen mode is recorded in `.env.config`.
+New harness scenario `4-install-standalone-no-public-dns`: choose standalone with a name absent from public DNS. Assert that the installer explains why automatic setup is unavailable and offers, in order, the operator own certificate files, a certificate from Statistics Norway when available, and a private certificate as the final explicit choice.
+<!-- SECTION:DESCRIPTION:END -->
+
+## Acceptance Criteria
+<!-- AC:BEGIN -->
+- [ ] #1 The installer checks public DNS and external reachability after the domain answer.
+- [ ] #2 The installer states whether automatic certificate setup works for this computer.
+- [ ] #3 When automatic setup is unavailable, the installer offers the working certificate choices in the agreed order.
+<!-- AC:END -->

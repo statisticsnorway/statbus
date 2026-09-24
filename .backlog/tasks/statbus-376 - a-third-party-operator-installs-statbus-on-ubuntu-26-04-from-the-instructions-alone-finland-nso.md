@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-09-18 17:48'
-updated_date: '2026-09-24 14:53'
+updated_date: '2026-09-24 15:36'
 labels:
   - install
   - setup
@@ -21,6 +21,54 @@ priority: high
 type: bug
 ordinal: 1
 ---
+
+## Description
+
+<!-- SECTION:DESCRIPTION:BEGIN -->
+A third-party operator completes StatBus installation on Ubuntu 26.04 by following the published one-command flow and the installer guidance. Running the same command again converges any partial first run, and later administration continues in the web interface.
+
+## Evidence, 2026-09-24: Finland session 2
+
+- After reboot and Apache removal, rerunning installation found only the database healthy and treated the Services step as complete. The web entry point, application, and worker remained absent; the automatic update service then timed out on its database route. Covered by STATBUS-384, STATBUS-388, STATBUS-390, and STATBUS-394.
+- Code review found an additional interrupted-first-install state: after step 8 creates a fresh database and before seed or migrations create the upgrade table, rerun can classify the box as a legacy installation and refuse it. Covered by STATBUS-384.
+- The disk check required an internal override at about 85 GB free. Covered by STATBUS-386 and STATBUS-391.
+- Rerun guidance printed a directory-dependent command. Covered by STATBUS-387 and STATBUS-402.
+- Image detection pulled every image again because real JSON uses `ContainerName` while the check expected `Container`. Covered by STATBUS-404.
+- Step 15 required `.users.yml`; after the example file was copied and edited, terminal output included database command output and password columns. Covered by STATBUS-401.
+- The release signer question appeared before the steps and signer handling appeared again at step 16. Covered by STATBUS-406.
+- Failed runs printed `FAILED_INSTALL_HAS_AUDIT_TRAIL` as a violated invariant even though every install has no upgrade row. Covered by STATBUS-403 and STATBUS-402.
+- The automatic update self-check displayed `NOT RUNNING` while the service was still starting and later reached READY=1. Covered by STATBUS-405.
+- Support collection included only the database log. Covered by STATBUS-393.
+
+## Evidence, 2026-09-24: chat 3
+
+- The host is an Ubuntu Desktop multiboot laptop with static private address `192.168.0.7`; `statbus.statfin.eu` existed only in `/etc/hosts` and was unreachable from the public internet. Covered by STATBUS-389 and STATBUS-399.
+- Ville requested a certificate supplied by Statistics Norway. Owner decision: offer automatic certificate first, operator certificate files second, Statistics Norway certificate when available third, and an explicitly chosen private certificate last. Covered by STATBUS-399.
+- Ville reported that Ubuntu Desktop came with Apache. An independent Ubuntu 26.04 `ubuntu-desktop` package simulation found no Apache package, so the origin of Apache remains undetermined. The installer outcome is covered by STATBUS-385.
+
+## Evidence, 2026-09-24: answers 4
+
+- Certificate logs showed public DNS NXDOMAIN, staging certificate attempts, and 600-second retries. HTTPS reached port 443 but returned a TLS internal error. Covered by STATBUS-389 and STATBUS-399.
+- The API restarted about every minute with `FATAL: password authentication failed for user "authenticator"`. The database role password and generated settings were out of agreement after the interrupted first run. Covered by STATBUS-394.
+- The service ports were listening after manual intervention, confirming that the database itself was healthy and the remaining faults were certificate, API credential agreement, and readiness sequencing. Covered by STATBUS-384, STATBUS-393, and STATBUS-394.
+
+## Evidence, 2026-09-24: operator follow-up
+
+- `UPGRADE_CHANNEL=prerelease` was set by hand. The Finland box should return to `stable` after the fixed release is available.
+- `.users.yml` contains plain-text passwords. After the web interface is available and the administrator password is changed there, the file can be removed.
+
+## Behaviour coverage
+
+B1 STATBUS-384; B2 STATBUS-385; B3 STATBUS-389 and STATBUS-399; B4 STATBUS-400; B5 STATBUS-388 and STATBUS-390; B6 STATBUS-401; B7 STATBUS-386 and STATBUS-391; B8 STATBUS-387; B9 STATBUS-402; B10 STATBUS-393 and STATBUS-394; B11 STATBUS-403; B12 STATBUS-404; B13 STATBUS-405; B14 STATBUS-406.
+<!-- SECTION:DESCRIPTION:END -->
+
+## Acceptance Criteria
+<!-- AC:BEGIN -->
+- [ ] #1 The one published install command completes a fresh Ubuntu 26.04 installation from the instructions alone.
+- [ ] #2 Running the same command again resumes an interrupted first installation and reaches a healthy settled state.
+- [ ] #3 Installer guidance uses plain operator words and provides one actionable recovery path for each outside dependency.
+- [ ] #4 A successful installation confirms every service is ready and prints the web address and first-administrator sign-in account.
+<!-- AC:END -->
 
 ## Third-party transcript (Finland NSO, 2026-09-18)
 

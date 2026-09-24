@@ -1,12 +1,12 @@
 ---
 id: STATBUS-391
 title: >-
-  An operator's chosen disk threshold is remembered and applies to every later
-  install and automatic fixup
+  Later install and repair work follows the same measured disk policy as first
+  installation
 status: To Do
 assignee: []
 created_date: '2026-09-24 16:42'
-updated_date: '2026-09-24 14:53'
+updated_date: '2026-09-24 15:35'
 labels:
   - install
 dependencies: []
@@ -15,22 +15,23 @@ type: bug
 ordinal: 1
 ---
 
-## Finland v2026.09.2 evidence (2026-09-24)
+## Description
 
-The triage found the 100 GB check runs on every `./sb install` at
-`cli/cmd/install.go:524-538`, while the service-spawned fixup inherits systemd's
-environment through `cli/internal/upgrade/exec.go:130-137`. The operator had to
-set `STATBUS_MIN_DISK_GB=84` repeatedly, and automatic fixup cannot inherit it.
+<!-- SECTION:DESCRIPTION:BEGIN -->
+First installation, reruns, upgrades, and automatic repair use the same measured disk locations and thresholds. The warning band remains a warning during later work, so a box accepted at installation continues through routine repair.
 
-## Goal
+## Evidence, 2026-09-24
 
-When an operator sets a disk threshold deliberately, StatBus stores it with the
-installation's configuration and every later `./sb install`, including the one
-the upgrade service spawns, uses that stored value. The default threshold fits
-ordinary production hosts.
+The Finland run needed an internal disk override. Separate automatic fixup code could apply a different threshold later, making the accepted choice unstable across runs.
 
-## Done when
+## Proving scenario
 
-- After one install with `STATBUS_MIN_DISK_GB=84`, a plain `./sb install` and a
-  service-spawned fixup both apply 84.
-- The stored value is visible in `./sb config show`.
+Unit coverage feeds the same free-space values to first-install and later-fixup checks and receives the same refusal, warning, and recommended results. Install-recovery arcs run on ordinary 40 GB VMs and complete both install and repair.
+<!-- SECTION:DESCRIPTION:END -->
+
+## Acceptance Criteria
+<!-- AC:BEGIN -->
+- [ ] #1 First installation, reruns, upgrades, and automatic repair measure the same service-data and backup locations.
+- [ ] #2 Each path applies the same starting minimum and recommended capacity.
+- [ ] #3 A box in the warning band completes routine install and repair work.
+<!-- AC:END -->

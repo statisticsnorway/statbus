@@ -4,7 +4,7 @@ title: Running the installer again brings up every service the chosen mode needs
 status: To Do
 assignee: []
 created_date: '2026-09-24 16:42'
-updated_date: '2026-09-24 14:53'
+updated_date: '2026-09-24 15:35'
 labels:
   - install
 dependencies: []
@@ -13,27 +13,26 @@ type: bug
 ordinal: 1
 ---
 
-## Finland v2026.09.2 evidence (2026-09-24)
+## Description
 
-On Ville-Mattis Pilvio's Ubuntu 26.04 install, Apache held port 80, so the first
-`docker compose --profile all up -d` left the Caddy `proxy` container stopped.
-On rerun, the Services step was accepted because the database was healthy, and
-the proxy was never retried. Migrations then failed because nothing published
-127.0.0.1:5431. The triage records this at `cli/cmd/install.go:1058-1079`
-(`checkServicesDone` checks only `compose ps db`) and `cli/cmd/install.go:1374-1381`
-(the initial all-profile start).
+<!-- SECTION:DESCRIPTION:BEGIN -->
+The Services step brings up every service required by the selected installation and confirms each service is running on every run. A rerun repairs a partial first run by starting the missing web entry point, API, application, and worker before later steps continue. A first installation interrupted after service startup is still recognized as an incomplete first installation and resumes from the next incomplete step.
 
-## Goal
+## Evidence, 2026-09-24
 
-A rerun of `./sb install` looks at every service the chosen mode needs (db,
-proxy, rest, worker, app) and starts whichever is not running, so the install
-finishes with the whole stack up.
+Finland session 1 left only the database running after port 80 was occupied. Session 2 then reported Services OK because the check observed only the healthy database, and later work failed through the missing database route. Code review also found that a fresh database created before seed and migrations has no upgrade table, so the current state detector can classify an interrupted first install as a legacy installation and refuse the rerun.
 
-## Done when
+## Proving scenarios
 
-- A rerun after a partial start ends with every service of the selected mode
-  running and healthy.
-- The Services step counts as done only when all of those services are running;
-  otherwise it runs the idempotent start again.
-- A regression test starts from a healthy db with a stopped proxy and observes
-  the rerun bring the proxy up and migrations succeed.
+New harness scenario `5-install-proxy-never-started`: install to green, remove the web entry point, application, and worker, then run the one install command. The Services step reports RUNNING, restores all five services, and steps 13 and 17 succeed.
+
+New interruption scenario: stop installation between steps 8 and 12, then run the one install command. The rerun recognizes the incomplete first installation, resumes at the first incomplete step, and reaches green. Unit coverage includes database only, database plus web entry point, all services, an API restart loop, and the pre-migration fresh-database state.
+<!-- SECTION:DESCRIPTION:END -->
+
+## Acceptance Criteria
+<!-- AC:BEGIN -->
+- [ ] #1 The Services step reports OK only when the database, web entry point, API, application, and worker are running and the database is healthy.
+- [ ] #2 A rerun starts every missing or stopped service required by the selected installation.
+- [ ] #3 The `5-install-proxy-never-started` scenario finishes with all five services running and the automatic update service active.
+- [ ] #4 A rerun after interruption between service startup and database setup continues from the first incomplete step.
+<!-- AC:END -->

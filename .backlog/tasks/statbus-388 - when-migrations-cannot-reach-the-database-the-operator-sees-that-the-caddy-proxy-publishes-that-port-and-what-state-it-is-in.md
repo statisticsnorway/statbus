@@ -1,12 +1,12 @@
 ---
 id: STATBUS-388
 title: >-
-  When migrations cannot reach the database, the operator sees that the Caddy
-  proxy publishes that port and what state it is in
+  When a database step cannot connect, the installer names the unavailable route
+  and the service that provides it
 status: To Do
 assignee: []
 created_date: '2026-09-24 16:42'
-updated_date: '2026-09-24 14:53'
+updated_date: '2026-09-24 15:35'
 labels:
   - install
 dependencies: []
@@ -15,21 +15,23 @@ type: bug
 ordinal: 1
 ---
 
-## Finland v2026.09.2 evidence (2026-09-24)
+## Description
 
-Migrations reported only `dial tcp 127.0.0.1:5431: connection refused` after
-the proxy failed to start. The triage points to `cli/internal/migrate/migrate.go:957`
-and explains that standalone port 5431 is published only by the proxy. The
-operator therefore saw a database-looking error instead of the missing service.
+<!-- SECTION:DESCRIPTION:BEGIN -->
+Every database step either connects inside the database service or confirms that its required route is ready first. A connection failure names the unavailable route and the service that provides it in plain operator language.
 
-## Goal
+## Evidence, 2026-09-24
 
-When migrations or host `psql` cannot connect, the message explains that
-CADDY_DB_PORT is published by the Caddy proxy, shows the proxy's current state,
-and gives the command to read its logs.
+Finland migrations dialled `127.0.0.1:5431` after the web entry point had failed to start. The visible error looked like a database failure although the database itself was healthy.
 
-## Done when
+## Proving scenario
 
-- With the proxy stopped, the operator sees the proxy named as the cause, its
-  state (e.g. Exited), and `./sb logs proxy`.
-- With the proxy running, connection errors are reported as before.
+During an install-recovery run, stop the service that provides the database route before migrations. The installer either completes migrations through the database service or reports that the web entry point is unavailable and restores it on rerun.
+<!-- SECTION:DESCRIPTION:END -->
+
+## Acceptance Criteria
+<!-- AC:BEGIN -->
+- [ ] #1 Each database step has a reachable route before it begins.
+- [ ] #2 A route failure names the address and the plain-language service that provides it.
+- [ ] #3 A rerun restores the route and completes the database step.
+<!-- AC:END -->

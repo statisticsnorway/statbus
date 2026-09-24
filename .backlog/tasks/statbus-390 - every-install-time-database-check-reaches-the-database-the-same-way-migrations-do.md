@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-09-24 16:42'
-updated_date: '2026-09-24 14:53'
+updated_date: '2026-09-24 15:35'
 labels:
   - install
 dependencies: []
@@ -15,21 +15,23 @@ type: bug
 ordinal: 1
 ---
 
-## Finland v2026.09.2 evidence (2026-09-24)
+## Description
 
-Seed checking can bypass the failed proxy with `docker compose exec -T db psql`,
-while migrations use TCP through 127.0.0.1:5431. The mismatch is documented in
-the triage at `cli/cmd/install.go:2329-2371` versus
-`cli/internal/migrate/migrate.go:919-923`, allowing install to pass an earlier
-probe and fail later on the proxy.
+<!-- SECTION:DESCRIPTION:BEGIN -->
+Every install-time database operation uses one dependable connection method. Seed restore, state checks, migrations, locks, and final readiness agree on that route, so a healthy database produces the same result in every step.
 
-## Goal
+## Evidence, 2026-09-24
 
-Every install-time database check reaches the database by the same path
-migrations use, so a check that passes means migrations can connect too.
+Finland seed and state checks could reach the database from inside its service while migrations and the automatic update service used a host route that was absent after the partial first run.
 
-## Done when
+## Proving scenario
 
-- Seed checking and migrations use one named transport.
-- With the proxy stopped, the first database check reports the proxy (per
-  STATBUS-388), at the same step migrations would.
+Use the existing injection hooks to stop the web entry point between seed and migrations. The migration step completes through the database service, or the installer restores and confirms the required route before continuing.
+<!-- SECTION:DESCRIPTION:END -->
+
+## Acceptance Criteria
+<!-- AC:BEGIN -->
+- [ ] #1 Seed restore, state checks, migrations, locks, and readiness checks use one dependable database route.
+- [ ] #2 A healthy database gives consistent reachability results across installation steps.
+- [ ] #3 The injected route interruption scenario completes after the installer restores or bypasses the interrupted route.
+<!-- AC:END -->

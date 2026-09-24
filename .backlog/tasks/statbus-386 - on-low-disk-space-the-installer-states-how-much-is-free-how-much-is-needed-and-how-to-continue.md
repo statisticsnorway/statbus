@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-09-24 16:42'
-updated_date: '2026-09-24 14:53'
+updated_date: '2026-09-24 15:34'
 labels:
   - install
 dependencies: []
@@ -15,25 +15,23 @@ type: bug
 ordinal: 1
 ---
 
-## Finland v2026.09.2 evidence (2026-09-24)
+## Description
 
-The install's disk-space refusal printed `SYSTEM UNUSABLE / no named invariant`.
-The triage identifies this as the install.sh abort path at
-`install.sh:770-792`, while `cli/cmd/install.go:95-101` already defines the
-plain `installPreflightRefusalError` path and `install.sh:735-737` has the
-intended remedy. This is a refused precondition, not a broken system.
+<!-- SECTION:DESCRIPTION:BEGIN -->
+The disk check measures the filesystems that hold service data and backups. It warns and continues above the starting minimum, recommends capacity for growth, and gives one plain recovery action below the minimum.
 
-## Goal
+## Evidence, 2026-09-24
 
-When a precondition is unmet (disk space, root, trusted signer), the installer
-exits through the plain preflight-refusal path with a short message: what it
-found, what it needs, and the command to continue.
+The Finland laptop had about 85 GB free. The installer refused at a 100 GB threshold and directed the operator to an internal setting and a directory-dependent command.
 
-## Done when
+## Proving scenario
 
-- On a host with too little disk, the operator sees free space, required space,
-  and the exact rerun command (with `STATBUS_MIN_DISK_GB` for a deliberate
-  override).
-- Root and trusted-signer refusals use the same plain preflight format.
-- The message reads as a precondition to satisfy, and install.sh exits with the
-  preflight-refusal code.
+Unit coverage exercises the refusal, warning, and recommended bands. Install-recovery VMs run with their ordinary 40 GB disks and reach green through the warning band using the one install command.
+<!-- SECTION:DESCRIPTION:END -->
+
+## Acceptance Criteria
+<!-- AC:BEGIN -->
+- [ ] #1 The disk check measures the storage locations used for service data and backups.
+- [ ] #2 At or above the starting minimum, installation continues and states the available space and recommended capacity.
+- [ ] #3 Below the starting minimum, the installer states the required space, the location to free, and the one install command to continue.
+<!-- AC:END -->

@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-09-24 16:42'
-updated_date: '2026-09-24 14:53'
+updated_date: '2026-09-24 15:34'
 labels:
   - install
 dependencies: []
@@ -15,22 +15,23 @@ type: bug
 ordinal: 1
 ---
 
-## Finland v2026.09.2 evidence (2026-09-24)
+## Description
 
-The refusal suggested `./sb install`, but the operator was in `~` and the
-binary was `~/statbus/sb`. The triage cites `cli/cmd/install.go:535` and the
-installer directory setup at `install.sh:349`; it also calls out another rerun
-hint at `install.go:889`.
+<!-- SECTION:DESCRIPTION:BEGIN -->
+Every instruction to run installation again prints `curl -fsSL https://statbus.org/install.sh | bash`. The command works from the operator current directory and rerunning it converges the installation.
 
-## Goal
+## Evidence, 2026-09-24
 
-Every rerun hint the installer prints includes the resolved install directory,
-for example `cd ~/statbus && STATBUS_MIN_DISK_GB=N ./sb install`, so it works
-when pasted into the shell where the operator ran install.sh.
+Finland output printed `./sb install`, while the operator was in the home directory and the program lived under `~/statbus`. It also exposed internal guidance about skipped steps.
 
-## Done when
+## Proving scenario
 
-- Running install.sh from `~` and pasting the printed hint reruns the install
-  successfully.
-- The hints at `install.go:535` and `install.go:889` both use the resolved
-  directory.
+A source-scanning test covers operator-facing rerun strings. The port-conflict harness scenario pastes the printed command from the home directory and reaches green.
+<!-- SECTION:DESCRIPTION:END -->
+
+## Acceptance Criteria
+<!-- AC:BEGIN -->
+- [ ] #1 Every rerun instruction prints `curl -fsSL https://statbus.org/install.sh | bash`.
+- [ ] #2 The printed command works from the operator current directory and converges a partial installation.
+- [ ] #3 Rerun guidance describes the operator action in plain words.
+<!-- AC:END -->

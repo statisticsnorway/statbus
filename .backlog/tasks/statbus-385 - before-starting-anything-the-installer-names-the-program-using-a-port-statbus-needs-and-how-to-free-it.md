@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-09-24 16:42'
-updated_date: '2026-09-24 14:53'
+updated_date: '2026-09-24 15:34'
 labels:
   - install
 dependencies: []
@@ -15,24 +15,23 @@ type: bug
 ordinal: 1
 ---
 
-## Finland v2026.09.2 evidence (2026-09-24)
+## Description
 
-Apache occupied port 80 on the Ubuntu 26.04 host. The install reached Docker
-startup and surfaced only a generic container failure instead of identifying the
-conflicting process. The triage finds no port preflight in
-`cli/cmd/install.go:945-954`; standalone also needs 443 and 5431 (the triage
-calls out the configured database port, with 5432 for the TLS listener).
+<!-- SECTION:DESCRIPTION:BEGIN -->
+At the end of setup questions, the installer checks every network port the selected installation uses. When another program owns a port, the installer names that program in plain words, prints the exact command that frees the port, says the answers are saved, and prints the one install command to continue.
 
-## Goal
+## Evidence, 2026-09-24
 
-Before starting any container, the installer checks each address and port the
-chosen mode binds (80, 443 and the database ports for standalone) and, for any
-port in use, tells the operator which program holds it and how to free it or
-pick a mode that avoids it.
+Ubuntu Desktop on the Finland laptop included Apache. Apache held port 80, so the first start stopped after partial service creation.
 
-## Done when
+## Proving scenario
 
-- With Apache on port 80, the operator sees "port 80 is used by apache2"
-  (or the actual owner) plus the stop command and the alternative mode, before
-  any container starts.
-- With all ports free, the preflight passes silently and install continues.
+New harness scenario `4-install-port-80-taken`: install Apache, run the unattended standalone install, and assert a preflight refusal naming Apache and `sudo systemctl disable --now apache2` before any StatBus service starts. Run that command and repeat the one install command; installation reaches green.
+<!-- SECTION:DESCRIPTION:END -->
+
+## Acceptance Criteria
+<!-- AC:BEGIN -->
+- [ ] #1 The installer checks every network port selected by the setup answers before starting StatBus.
+- [ ] #2 A port conflict message names the program and gives the exact command that frees the port.
+- [ ] #3 The `4-install-port-80-taken` scenario reaches green after the printed fix and the same install command.
+<!-- AC:END -->

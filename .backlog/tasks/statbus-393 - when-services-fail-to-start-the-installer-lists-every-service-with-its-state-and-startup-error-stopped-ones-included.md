@@ -1,12 +1,10 @@
 ---
 id: STATBUS-393
-title: >-
-  When services fail to start, the installer lists every service with its state
-  and startup error, stopped ones included
+title: The installer reports every service condition and collects every service log
 status: To Do
 assignee: []
 created_date: '2026-09-24 16:42'
-updated_date: '2026-09-24 14:53'
+updated_date: '2026-09-24 15:35'
 labels:
   - install
 dependencies: []
@@ -15,19 +13,23 @@ type: bug
 ordinal: 1
 ---
 
-## Finland v2026.09.2 evidence (2026-09-24)
+## Description
 
-A partial compose start can leave app, worker, or rest in Created/Exited state,
-which `docker ps` hides. The triage says install has no `docker ps -a` failure
-report and cites the all-profile start at `cli/cmd/install.go:1374-1381`.
+<!-- SECTION:DESCRIPTION:BEGIN -->
+The installer finishes by confirming every service is running and prints the address to open. When a service needs attention, the installer names it in plain words, states its current condition, and writes logs from every service into the support file.
 
-## Goal
+## Evidence, 2026-09-24
 
-When the Services step fails, the installer prints every compose service with
-its state, including Created and Exited ones, and each failed service's startup
-error, so the operator sees which component failed and why.
+Finland had a restarting API service while the installer progressed. The support bundle gathered the database log only, leaving the API authentication failure outside the bundle.
 
-## Done when
+## Proving scenario
 
-- In the Finland shape (port 80 taken), the report shows `proxy` Exited with the
-  bind error, and app/worker/rest with their states.
+The partial-service and API-restart-loop scenarios assert a final status for the database, web entry point, API, application, worker, and automatic update service. The support file contains logs for every service and the terminal prints its path.
+<!-- SECTION:DESCRIPTION:END -->
+
+## Acceptance Criteria
+<!-- AC:BEGIN -->
+- [ ] #1 Successful installation confirms every service is running and prints the web address.
+- [ ] #2 A service needing attention is named in plain words with its current condition.
+- [ ] #3 The support file contains logs from the database, web entry point, API, application, worker, and automatic update service.
+<!-- AC:END -->
