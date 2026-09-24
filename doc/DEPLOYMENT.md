@@ -78,7 +78,7 @@ This section covers deploying StatBus for a single country or organization.
 - **OS**: Linux (Ubuntu 26.04 LTS is the primary tested OS; Ubuntu 24.04 LTS remains supported)
 - **CPU**: 4 cores minimum
 - **RAM**: 16 GB minimum
-- **Disk**: 100 GB minimum (depends on data volume)
+- **Disk**: 20 GB free minimum on both Docker storage and the backup filesystem; 40 GB free recommended for getting started. Plan more capacity as data grows.
 - **Network**: Public IP address with open ports 80, 443, 5432
 
 **Software Requirements**:
@@ -304,23 +304,13 @@ cd statbus
 git config core.hooksPath .githooks
 ```
 
-#### 3. Create Users File
+#### 3. Create the first administrator during installation
 
-```bash
-cp .users.example .users.yml
-nano .users.yml  # Edit to add your admin users
-```
-
-Example `.users.yml`:
-```yaml
-users:
-  - email: admin@example.com
-    password: your-secure-password
-    role: admin_user
-  - email: analyst@example.com
-    password: another-secure-password
-    role: regular_user
-```
+Run `./sb install` as the application user. If no `.users.yml` is present, it
+asks for the first administrator's email and name, then reads and confirms the
+password without echoing it. Do not put a plaintext password in the deployment
+guide or a shell command. For automated installation only, supply an explicit
+`STATBUS_USERS_FILE` path to a protected answers file.
 
 #### 4. Generate Configuration
 

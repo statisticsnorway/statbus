@@ -20,9 +20,7 @@ bootstrap_install_test_vm "$VM_NAME" "$INSTALL_TARGET_TAG"
 # This address has a public A record, unlike the harness's private-mode name.
 HARNESS_SITE_DOMAIN="${VM_IP//./-}.sslip.io"
 VM_ROOT_EXEC bash -c 'DEBIAN_FRONTEND=noninteractive apt-get install -y apache2 >/dev/null && systemctl enable --now apache2'
-# ss does not expose another user's PID to the unprivileged statbus account.
-# Allow only the read-only listener lookup used by the product's preflight.
-VM_ROOT_EXEC bash -c 'printf "statbus ALL=(root) NOPASSWD: /usr/bin/ss -ltnp *\n" > /etc/sudoers.d/statbus-listener-test && chmod 0440 /etc/sudoers.d/statbus-listener-test'
+# No sudoers fixture: the application user must discover Apache via systemd.
 VM_ROOT_EXEC bash -c 'ss -ltn "( sport = :80 )" | grep -q LISTEN'
 FIRST_LOG=$(mktemp)
 if install_statbus_at_sha "$VM_NAME" "$TARGET_SHA" "$INSTALL_TARGET_TAG" >"$FIRST_LOG" 2>&1; then

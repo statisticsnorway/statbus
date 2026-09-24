@@ -591,11 +591,9 @@ func runInstall() (installErr error) {
 	defer releaseFlag()
 
 	// Check the two actual storage locations, not the caller's current directory.
-	dockerRoot := "/var/lib/docker"
-	if inspect, buildErr := compose.DockerCommandContext(context.Background(), installDir, "info", "--format", "{{.DockerRootDir}}"); buildErr == nil {
-		if out, inspectErr := inspect.Output(); inspectErr == nil && strings.TrimSpace(string(out)) != "" {
-			dockerRoot = strings.TrimSpace(string(out))
-		}
+	dockerRoot, rootErr := diskpolicy.DockerRoot(context.Background(), installDir)
+	if rootErr != nil {
+		return &installPreflightRefusalError{err: rootErr}
 	}
 	if err := diskpolicy.Check(installDir, dockerRoot, filepath.Join(home, "statbus-backups")); err != nil {
 		return &installPreflightRefusalError{err: err}
@@ -965,7 +963,7 @@ func runInstall() (installErr error) {
 			fmt.Printf("%s FAILED: This part of installation could not finish.\n", prefix)
 			if i < total-1 {
 				fmt.Println("\nThen run the same install command again:")
-				fmt.Println("    curl -fsSL https://statbus.org/install.sh | bash")
+				fmt.Println("    " + diskpolicy.RerunCommand())
 			}
 			// DO NOT auto-resume on failure: clients restarted on top of
 			// a half-done DDL state could compound damage. The operator

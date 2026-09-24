@@ -33,6 +33,11 @@ set -eu
 if [ "$1" = --version ]; then echo 'fixture version'; exit 0; fi
 if [ "$1" != install ]; then exit 0; fi
 printf 'sb:%s\n' "$*" >> "$TRACE"
+if [ "${EXPECT_RESTART_MARKER:-}" = 1 ]; then
+    grep -Fq '"trigger":"restart"' tmp/upgrade-in-progress.json || exit 93
+    printf 'The previous restart finished. Continuing installation.\n'
+    rm tmp/upgrade-in-progress.json
+fi
 if [ "${EXPECT_STDIN:-}" = pipe ]; then
     [ ! -t 0 ] || { echo 'fixture expected piped stdin' >&2; exit 91; }
     printf '%s\n' "$PIPE_MESSAGE" >&2
@@ -73,6 +78,31 @@ echo 'PASS: FRESH clone, explicit relative paths and flags forwarded to sb; impl
 STATBUS_ENV_CONFIG="$EXPECTED_CONFIG" STATBUS_USERS_FILE="$EXPECTED_USERS" \
     bash "$ROOT/install.sh" --version v2026.09.0-rc.02 --non-interactive > "$TMP_ROOT/output"
 echo 'PASS: RESCUE preserves explicit absolute paths without shell-side config imports'
+# The real wrapper must leave a freed restart record for Go to inspect.
+mkdir -p "$HOME/statbus/tmp"
+printf '{"trigger":"restart","restart":{"profile":"all"}}\n' > "$HOME/statbus/tmp/upgrade-in-progress.json"
+EXPECT_RESTART_MARKER=1 STATBUS_ENV_CONFIG="$EXPECTED_CONFIG" STATBUS_USERS_FILE="$EXPECTED_USERS" \
+    bash "$ROOT/install.sh" --version v2026.09.0-rc.02 --non-interactive > "$TMP_ROOT/stale-restart-output"
+[ ! -e "$HOME/statbus/tmp/upgrade-in-progress.json" ]
+echo 'PASS: stale restart record reaches Go installer intact'
+# A live holder must get an immediate plain refusal, without bootstrap mutation.
+printf '{"trigger":"restart","restart":{"profile":"all"}}\n' > "$HOME/statbus/tmp/upgrade-in-progress.json"
+perl -MFcntl=:flock -e 'open(my $f, "+<", $ARGV[0]) or die $!; flock($f, LOCK_EX) or die $!; print "locked\n"; sleep 8' \
+    "$HOME/statbus/tmp/upgrade-in-progress.json" > "$TMP_ROOT/holder-ready" &
+holder=$!
+for _ in 1 2 3 4 5 6 7 8 9 10; do [ -s "$TMP_ROOT/holder-ready" ] && break; sleep 0.1; done
+set +e
+STATBUS_ENV_CONFIG="$EXPECTED_CONFIG" STATBUS_USERS_FILE="$EXPECTED_USERS" \
+    bash "$ROOT/install.sh" --version v2026.09.0-rc.02 --non-interactive > "$TMP_ROOT/live-restart-output" 2>&1
+rc=$?
+set -e
+kill "$holder" 2>/dev/null || true
+wait "$holder" 2>/dev/null || true
+[ "$rc" = 78 ] || { cat "$TMP_ROOT/live-restart-output" >&2; exit 1; }
+grep -q 'a restart is still running' "$TMP_ROOT/live-restart-output"
+grep -Fq '"trigger":"restart"' "$HOME/statbus/tmp/upgrade-in-progress.json"
+rm "$HOME/statbus/tmp/upgrade-in-progress.json"
+echo 'PASS: live restart refuses without waiting or replacing intent'
 export HOME="$TMP_ROOT/empty-home" EXPECTED_CONFIG='' EXPECTED_USERS=''
 mkdir -p "$HOME"
 bash "$ROOT/install.sh" --version v2026.09.0-rc.02 --non-interactive > "$TMP_ROOT/output"

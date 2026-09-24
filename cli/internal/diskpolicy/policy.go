@@ -2,6 +2,7 @@
 package diskpolicy
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -9,6 +10,7 @@ import (
 	"strings"
 	"syscall"
 
+	"github.com/statisticsnorway/statbus/cli/internal/compose"
 	"github.com/statisticsnorway/statbus/cli/internal/dotenv"
 )
 
@@ -51,13 +53,60 @@ func Load(dir string) (Policy, error) {
 
 func Evaluate(m Measurement) (string, bool) { return (Policy{MinimumGB, RecommendedGB}).Evaluate(m) }
 func (p Policy) Evaluate(m Measurement) (string, bool) {
+	rerun := RerunCommand()
 	if m.FreeGB < p.MinimumGB {
-		return fmt.Sprintf("Only %d GB free on %s. StatBus needs at least %d GB to install. Free some space, then run the same install command again: curl -fsSL https://statbus.org/install.sh | bash", m.FreeGB, m.Path, p.MinimumGB), false
+		return fmt.Sprintf("Only %d GB free on %s. StatBus needs at least %d GB to install. Free some space, then run the same install command again: %s", m.FreeGB, m.Path, p.MinimumGB, rerun), false
 	}
 	if m.FreeGB < p.RecommendedGB {
 		return fmt.Sprintf("Disk space: %d GB free on %s. %d GB is recommended; this is enough to start, and you can add space later.", m.FreeGB, m.Path, p.RecommendedGB), true
 	}
 	return fmt.Sprintf("Disk space: %d GB free on %s; the %d GB recommendation is met.", m.FreeGB, m.Path, p.RecommendedGB), true
+}
+
+func RerunCommand() string {
+	if command := os.Getenv("STATBUS_INSTALL_RERUN_COMMAND"); command != "" {
+		return command
+	}
+	return "curl -fsSL https://statbus.org/install.sh | bash"
+}
+
+// DockerRoot refuses to guess a storage location when Docker cannot report it.
+func DockerRoot(ctx context.Context, dir string) (string, error) {
+	command, err := compose.DockerCommandContext(ctx, dir, "info", "--format", "{{.DockerRootDir}}")
+	if err != nil {
+		return "", fmt.Errorf("cannot check disk space at Docker storage: Docker root unavailable")
+	}
+	output, err := command.Output()
+	if err != nil || strings.TrimSpace(string(output)) == "" {
+		return "", fmt.Errorf("cannot check disk space at Docker storage: Docker root unavailable")
+	}
+	return strings.TrimSpace(string(output)), nil
+}
+
+// CheckWith is the common decision and measurement path for install, fixup and upgrade.
+func CheckWith(dir string, report func(string), paths ...string) error {
+	policy, err := Load(dir)
+	if err != nil {
+		return err
+	}
+	seen := map[string]bool{}
+	var refusal error
+	for _, path := range paths {
+		if strings.TrimSpace(path) == "" || seen[path] {
+			continue
+		}
+		seen[path] = true
+		m, err := Measure(path)
+		if err != nil {
+			return fmt.Errorf("cannot check disk space at %s: measurement unavailable", path)
+		}
+		message, ok := policy.Evaluate(m)
+		report(message)
+		if !ok && refusal == nil {
+			refusal = fmt.Errorf("%s", message)
+		}
+	}
+	return refusal
 }
 
 func Measure(path string) (Measurement, error) {
@@ -79,26 +128,5 @@ func Measure(path string) (Measurement, error) {
 }
 
 func Check(dir string, paths ...string) error {
-	policy, err := Load(dir)
-	if err != nil {
-		return err
-	}
-	seen := map[string]bool{}
-	var refusal error
-	for _, path := range paths {
-		if strings.TrimSpace(path) == "" || seen[path] {
-			continue
-		}
-		seen[path] = true
-		m, err := Measure(path)
-		if err != nil {
-			return fmt.Errorf("cannot check disk space at %s: %w", path, err)
-		}
-		message, ok := policy.Evaluate(m)
-		fmt.Println(message)
-		if !ok && refusal == nil {
-			refusal = fmt.Errorf("%s", message)
-		}
-	}
-	return refusal
+	return CheckWith(dir, func(message string) { fmt.Println(message) }, paths...)
 }

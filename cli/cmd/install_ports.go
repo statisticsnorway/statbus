@@ -9,8 +9,10 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/statisticsnorway/statbus/cli/internal/compose"
+	"github.com/statisticsnorway/statbus/cli/internal/diskpolicy"
 	"github.com/statisticsnorway/statbus/cli/internal/dotenv"
 )
 
@@ -40,13 +42,28 @@ func occupiedPortOwner(port installPort) string {
 		_ = listener.Close()
 		return ""
 	}
-	out, _ := exec.Command("ss", "-ltnp", fmt.Sprintf("( sport = :%d )", port.number)).CombinedOutput()
+	filter := fmt.Sprintf("( sport = :%d )", port.number)
+	// A failed bind on a privileged port alone does not prove a listener exists.
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+	listeners, listenErr := exec.CommandContext(ctx, "ss", "-ltn", filter).Output()
+	if listenErr != nil || !strings.Contains(string(listeners), "LISTEN") {
+		return ""
+	}
+	// Unprivileged ss often masks the process, but systemd reports active units.
+	units, _ := exec.CommandContext(ctx, "systemctl", "list-units", "--type=socket,service", "--state=active", "--no-legend", "--plain").Output()
+	for _, name := range []string{"apache2", "nginx", "caddy"} {
+		if strings.Contains(string(units), name+".service") || strings.Contains(string(units), name+".socket") {
+			return name
+		}
+	}
+	out, _ := exec.CommandContext(ctx, "ss", "-ltnp", filter).Output()
 	if matches := listenerProgram.FindSubmatch(out); len(matches) > 1 {
 		return string(matches[1])
 	}
 	// A non-root user can see the listener but often not its process name.
 	// sudo -n never asks for a password or stalls an unattended installation.
-	out, _ = exec.Command("sudo", "-n", "ss", "-ltnp", fmt.Sprintf("( sport = :%d )", port.number)).CombinedOutput()
+	out, _ = exec.CommandContext(ctx, "sudo", "-n", "ss", "-ltnp", filter).Output()
 	if matches := listenerProgram.FindSubmatch(out); len(matches) > 1 {
 		return string(matches[1])
 	}
@@ -67,7 +84,9 @@ func checkInstallPorts(dir string) error {
 		}
 	}
 	var own []byte
-	if inspect, buildErr := compose.DockerCommandContext(context.Background(), dir, "ps", "--format", "{{.Names}} {{.Ports}}"); buildErr == nil {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	if inspect, buildErr := compose.DockerCommandContext(ctx, dir, "ps", "--format", "{{.Names}} {{.Ports}}"); buildErr == nil {
 		own, _ = inspect.Output()
 	}
 	for _, p := range selectedInstallPorts(mode, offset) {
@@ -98,7 +117,7 @@ func checkInstallPorts(dir string) error {
 				remedy = "sudo systemctl disable --now " + unit
 			}
 		}
-		return fmt.Errorf("port %d is in use by %s. %s. Your answers are saved. Then run the same install command again: curl -fsSL https://statbus.org/install.sh | bash", p.number, owner, remedy)
+		return fmt.Errorf("port %d is in use by %s. If it is a web server such as Apache, stop it with sudo systemctl disable --now apache2. %s. Your answers are saved. Then run the same install command again: %s", p.number, owner, remedy, diskpolicy.RerunCommand())
 	}
 	return nil
 }

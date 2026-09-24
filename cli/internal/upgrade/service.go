@@ -7678,33 +7678,14 @@ func (d *Service) executeUpgrade(ctx context.Context, claim upgradeClaimSnapshot
 
 	// Check disk space. Apply the same 20 GB floor and 40 GB recommendation as first install and
 	// post-upgrade fixup to both Docker service data and backup filesystems.
-	var (
-		freeGB         uint64
-		diskSpaceKnown bool
-	)
-	paths := []string{d.projDir, d.backupRoot()}
-	policy, policyErr := diskpolicy.Load(d.projDir)
-	if policyErr != nil {
-		return fmt.Errorf("read saved disk policy: %w", policyErr)
+	dockerRoot, rootErr := diskpolicy.DockerRoot(ctx, d.projDir)
+	if rootErr != nil {
+		d.failUpgrade(ctx, id, rootErr.Error(), progress)
+		return rootErr
 	}
-	if inspect, buildErr := compose.DockerCommandContext(ctx, d.projDir, "info", "--format", "{{.DockerRootDir}}"); buildErr == nil {
-		if out, inspectErr := inspect.Output(); inspectErr == nil && strings.TrimSpace(string(out)) != "" {
-			paths[0] = strings.TrimSpace(string(out))
-		}
-	}
-	for _, path := range paths {
-		measurement, err := diskpolicy.Measure(path)
-		if err != nil {
-			continue
-		}
-		freeGB = measurement.FreeGB
-		diskSpaceKnown = true
-		message, allowed := policy.Evaluate(measurement)
-		progress.Write("%s", message)
-		if !allowed {
-			d.failUpgrade(ctx, id, message, progress)
-			return fmt.Errorf("%s", message)
-		}
+	if err := diskpolicy.CheckWith(d.projDir, func(message string) { progress.Write("%s", message) }, dockerRoot, d.backupRoot()); err != nil {
+		d.failUpgrade(ctx, id, err.Error(), progress)
+		return err
 	}
 
 	// Re-verify commit signature before proceeding.
@@ -7716,9 +7697,7 @@ func (d *Service) executeUpgrade(ctx context.Context, claim upgradeClaimSnapshot
 		return fmt.Errorf("%s", msg)
 	}
 	progress.Write("Verifying commit signature ... ok")
-	if diskSpaceKnown {
-		progress.Write("Disk space: %d GB free — enough for the upgrade", freeGB)
-	}
+	progress.Write("Disk space verified for Docker storage and backups")
 
 	// === All pre-flight checks passed — mark the upgrade as started ===
 	// Acquire a kernel-exclusive flock on the flag file BEFORE any
