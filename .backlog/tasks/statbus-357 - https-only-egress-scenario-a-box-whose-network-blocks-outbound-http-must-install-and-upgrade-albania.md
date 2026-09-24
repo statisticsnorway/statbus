@@ -170,3 +170,24 @@ Ubuntu 24.04 scenario. Its shared flow now applies the 24.04 pin only for its
 own entry point; when `0-https-only-egress` delegates with its marker set, no
 image override is applied and `vm-bootstrap.sh` resolves Ubuntu 26.04. The
 image-selection offline contract asserts both sides of this split.
+
+## On-demand correction 2026-09-24
+
+The three paid-run findings are now explicit. First, the hardened operator is
+restricted and cannot install the root-owned nftables rule itself. Second, the
+harness health assertion uses the loopback address `127.0.0.1:3010`. Third,
+that address is a Docker-published port: Docker 29 DNATs locally originated
+traffic in `nat OUTPUT` before the filter output hook, so the rule sees bridge
+traffic to the proxy container on port 80 and a loopback-interface exemption
+cannot match. The rc.03 evidence also showed that no product code path used
+external TCP/80.
+
+For this release, `0-https-only-egress` is therefore marked
+`HARNESS_SKIP_DEFAULT`. Its rule and assertions are unchanged, and it remains
+runnable by name, but it no longer gates the default paid fleet.
+
+Next cycle, exempt the Docker-published loopback path correctly, for example by
+matching the original destination with `ct original daddr 127.0.0.0/8`, or by
+placing the reject in a hook/priority after conntrack NAT with the corresponding
+original-destination match. Prove the correction on a real VM, then remove the
+skip marker and re-enable default selection.
