@@ -588,6 +588,12 @@ func min64(a, b int64) int64 {
 
 // computeDerived calculates port offsets, bind addresses, and other derived values.
 func computeDerived(cfg *ConfigEnv) *Derived {
+	return computeDerivedInDir(cfg, ProjectDir())
+}
+
+// computeDerivedInDir resolves checkout identity only from gitDir. Callers that
+// accept an explicit checkout must never inherit the process working directory.
+func computeDerivedInDir(cfg *ConfigEnv, gitDir string) *Derived {
 	offset, _ := strconv.Atoi(cfg.DeploymentSlotPortOffset)
 	basePort := 3000
 	portOffset := basePort + (offset * 10)
@@ -637,11 +643,15 @@ func computeDerived(cfg *ConfigEnv) *Derived {
 	// go through the ldflag-set cmd.commit in Go, not through this
 	// display form.
 	version := "local"
-	if out, err := exec.Command("git", "describe", "--tags", "--always").Output(); err == nil {
+	describeCmd := exec.Command("git", "describe", "--tags", "--always")
+	describeCmd.Dir = gitDir
+	if out, err := describeCmd.Output(); err == nil {
 		version = strings.TrimSpace(string(out))
 	}
 	commitShort := "unknown"
-	if out, err := exec.Command("git", "rev-parse", "--short=8", "HEAD").Output(); err == nil {
+	revParseCmd := exec.Command("git", "rev-parse", "--short=8", "HEAD")
+	revParseCmd.Dir = gitDir
+	if out, err := revParseCmd.Output(); err == nil {
 		commitShort = strings.TrimSpace(string(out))
 	}
 
@@ -1178,6 +1188,13 @@ func Generate(verbose bool) error {
 // GenerateInDir runs config generation for an explicit checkout. Install uses
 // this instead of inheriting the caller's cwd, which may be outside StatBus.
 func GenerateInDir(projDir string, verbose bool) error {
+	return generateInDir(projDir, projDir, verbose)
+}
+
+// generateInDir renders into projDir while resolving VERSION/COMMIT_SHORT from
+// gitDir. GeneratedFilesMatch uses an isolated destination but the real checkout
+// as the identity source.
+func generateInDir(projDir, gitDir string, verbose bool) error {
 
 	creds, err := loadOrGenerateCredentials(projDir, verbose)
 	if err != nil {
@@ -1194,7 +1211,7 @@ func GenerateInDir(projDir string, verbose bool) error {
 		return err
 	}
 
-	derived := computeDerived(cfg)
+	derived := computeDerivedInDir(cfg, gitDir)
 
 	// Generate .env content
 	envContent, _, err := generateEnvContent(creds, cfg, derived, dbMem, projDir)
@@ -1265,7 +1282,10 @@ func GeneratedFilesMatch(projDir string) bool {
 		return false
 	}
 	defer func() { _ = os.RemoveAll(tmpDir) }()
-	for _, rel := range []string{".env.config", ".env.credentials"} {
+	if err := os.MkdirAll(filepath.Join(tmpDir, "ops", "maintenance"), 0755); err != nil {
+		return false
+	}
+	for _, rel := range []string{".env.config", ".env.credentials", ".env.example"} {
 		data, readErr := os.ReadFile(filepath.Join(projDir, rel))
 		if readErr != nil || os.WriteFile(filepath.Join(tmpDir, rel), data, 0600) != nil {
 			return false
@@ -1274,7 +1294,7 @@ func GeneratedFilesMatch(projDir string) bool {
 	if err := os.CopyFS(filepath.Join(tmpDir, "caddy", "templates"), os.DirFS(filepath.Join(projDir, "caddy", "templates"))); err != nil {
 		return false
 	}
-	if err := GenerateInDir(tmpDir, false); err != nil {
+	if err := generateInDir(tmpDir, projDir, false); err != nil {
 		return false
 	}
 	generated := []string{".env", "ops/maintenance/contact.js"}
@@ -1325,7 +1345,7 @@ func EnvKeyRestartClasses(projDir string) (map[string][]RestartClass, error) {
 	if err != nil {
 		return nil, err
 	}
-	derived := computeDerived(cfg)
+	derived := computeDerivedInDir(cfg, projDir)
 	_, classes, err := generateEnvContent(creds, cfg, derived, dbMem, projDir)
 	if err != nil {
 		return nil, err

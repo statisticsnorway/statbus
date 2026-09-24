@@ -498,9 +498,8 @@ func runInstall() (installErr error) {
 			if nonInteractive {
 				return installPreflightRefusal("No valid release signer is configured.\n" +
 					"  The upgrade service requires at least one trusted signer that can verify commit signatures.\n" +
-					"  Pre-configure before running install:\n" +
-					"    ./sb upgrade trust-key add <github-username>\n" +
-					"  Or pass --trust-github-user <username> to install.")
+					"  Run the installer interactively to approve a signer:\n" +
+					"    curl -fsSL https://statbus.org/install.sh | bash")
 			}
 			fmt.Println("No valid trusted signers configured. You must approve at least one signer before the install can proceed.")
 			if err := runTrustSigners(installDir); err != nil {
@@ -659,9 +658,7 @@ func runInstall() (installErr error) {
 				// Notify the daemon so it picks up any newly available releases.
 				// Best-effort: periodic discovery tick recovers on drop.
 				if _, err := conn.Exec(context.Background(), "NOTIFY upgrade_check"); err != nil {
-					log.Printf(
-						"INVARIANT NOTIFY_UPGRADE_CHECK_BEST_EFFORT_LOGGED violated (audit-only): NOTIFY upgrade_check failed post-install: %v (install.go:%d, pid=%d) — next daemon tick will recover",
-						err, thisLine(), os.Getpid())
+					log.Printf("Could not notify the upgrade service after installation: %v. Its next scheduled check will retry.", err)
 				}
 				// Stamp install-invocation tracking in public.system_info.
 				// Mirrors the support.go install_last_error* upsert pattern.
@@ -828,7 +825,9 @@ func runInstall() (installErr error) {
 			// closed, and the operator can restart services manually if
 			// the Resume itself errored. Surface as a clear warning so
 			// it's not silent.
-			fmt.Printf("  ⚠ resume clients failed: %v — restart manually: ./sb start all_except_db\n", buildErr)
+			fmt.Printf("  ⚠ Some services did not resume: %v\n", buildErr)
+			fmt.Println("  Run the installer again to finish recovery:")
+			fmt.Println("    curl -fsSL https://statbus.org/install.sh | bash")
 		}
 		quiescedServices = nil
 	}
@@ -843,15 +842,15 @@ func runInstall() (installErr error) {
 		// matched verbatim against the step slice above so renaming a
 		// step here forces a deliberate revisit of this hook.
 		if (s.name == "Seed" || s.name == "Migrations") && !quiesced && !s.check(installDir) {
-			fmt.Printf("  [DDL] quiescing worker / app / rest before %s ...\n", s.name)
+			fmt.Printf("  Pausing application traffic before %s ...\n", s.name)
 			stopped, err := compose.QuiesceClients(installDir)
 			if err != nil {
 				return fmt.Errorf("quiesce clients before %s: %w (must not proceed with DDL on live services)", s.name, err)
 			}
 			if len(stopped) == 0 {
-				fmt.Printf("  [DDL] no clients were running; entering DDL window without stopping anything\n")
+				fmt.Println("  Application traffic was already paused")
 			} else {
-				fmt.Printf("  [DDL] stopped %v; resume after Migrations succeeds\n", stopped)
+				fmt.Println("  Application traffic paused; it will resume after database setup")
 			}
 			quiescedServices = stopped
 			quiesced = true
@@ -2917,9 +2916,9 @@ func completeInstallUpgradeRow(installDir string, conn *pgx.Conn, logRelPath str
 	if sha == "" || commitDate == "" {
 		// A8: GIT_HEAD_RESOLVABLE
 		cwd, _ := os.Getwd()
-		fmt.Fprintf(os.Stderr,
-			"INVARIANT GIT_HEAD_RESOLVABLE violated: gitHeadInfo returned sha=%q commitDate=%q at post-completion; cannot record version (install.go:%d, pid=%d, cwd=%s)\n",
-			sha, commitDate, thisLine(), os.Getpid(), cwd)
+		fmt.Fprintln(os.Stderr, "Could not identify the installed StatBus version after setup.")
+		fmt.Fprintln(os.Stderr, "Run the installer again:")
+		fmt.Fprintln(os.Stderr, "    curl -fsSL https://statbus.org/install.sh | bash")
 		markTerminal(installDir, "GIT_HEAD_RESOLVABLE",
 			fmt.Sprintf("sha=%q; commitDate=%q; cwd=%s", sha, commitDate, cwd))
 		return fmt.Errorf("GIT_HEAD_RESOLVABLE: gitHeadInfo returned empty (sha=%q commitDate=%q)", sha, commitDate)
@@ -2989,19 +2988,13 @@ func completeInstallUpgradeRow(installDir string, conn *pgx.Conn, logRelPath str
 	}
 	if err != nil {
 		// A9: POST_COMPLETION_UPGRADE_ROW_INSERT_SUCCEEDS
-		fmt.Fprintf(os.Stderr,
-			"INVARIANT POST_COMPLETION_UPGRADE_ROW_INSERT_SUCCEEDS violated: could not record completed upgrade row for sha=%s: %v (install.go:%d, pid=%d)\n",
-			sha, err, thisLine(), os.Getpid())
+		fmt.Fprintln(os.Stderr, "Could not record the completed installation.")
+		fmt.Fprintln(os.Stderr, "Run the installer again:")
+		fmt.Fprintln(os.Stderr, "    curl -fsSL https://statbus.org/install.sh | bash")
 		markTerminal(installDir, "POST_COMPLETION_UPGRADE_ROW_INSERT_SUCCEEDS",
 			fmt.Sprintf("sha=%s; INSERT err=%v", sha, err))
 		return fmt.Errorf("POST_COMPLETION_UPGRADE_ROW_INSERT_SUCCEEDS: %w", err)
 	}
-	// Symmetric with the recovery / executeUpgrade completion paths: emit the
-	// full row snapshot under a greppable label (the recovery path logs
-	// logUpgradeRow[completed-normal]; this is its install-side sibling). Same
-	// "upgrade row [<label>] <json>" format as upgrade.logUpgradeRow so the
-	// journald grep contract (grep 'upgrade row \[<label>\]') holds.
-	fmt.Printf("upgrade row [%s] %s\n", upgrade.LabelCompletedInstall, rowJSON)
 	fmt.Printf("  Recorded installed version %s in upgrade table\n", version)
 	return nil
 }

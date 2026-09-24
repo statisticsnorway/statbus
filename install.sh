@@ -251,18 +251,19 @@ print_sb_pull_failure() {
     case "$class" in
         auth)
             echo "  Remedy: the GHCR package must be public for clean installs." >&2
-            echo "    GitHub Packages -> statbus-sb -> Package settings -> Change visibility -> Public, then retry." >&2
+            echo "    GitHub Packages -> statbus-sb -> Package settings -> Change visibility -> Public." >&2
             ;;
         missing)
-            echo "  Remedy: wait for images.yaml to publish statbus-sb:${version}, then retry." >&2
+            echo "  Remedy: wait for the release image to become available." >&2
             ;;
         network)
-            echo "  Remedy: registry/network remained unavailable after bounded retries; retry the install." >&2
+            echo "  Remedy: the registry or network remained unavailable after bounded retries." >&2
             ;;
         *)
-            echo "  Remedy: inspect the preserved Docker error above, then retry after correcting it." >&2
+            echo "  Remedy: inspect the preserved Docker error above and correct it." >&2
             ;;
     esac
+    echo "  Then run: curl -fsSL https://statbus.org/install.sh | bash" >&2
     echo "  --commit tests the commit's PUBLISHED image and will not build a different binary locally." >&2
     echo "  Alternatively install a released version: --version <tag>, or --channel stable|prerelease." >&2
 }
@@ -603,7 +604,8 @@ elif [ -n "$COMMIT_SHA" ]; then
     # guarantees this for arc runs).
     if ! statbus_git_fetch origin "$COMMIT_SHA"; then
         echo "Error: git fetch origin ${COMMIT_SHA} failed — is the commit pushed to origin?" >&2
-        echo "  --commit checks out an exact origin commit; push it to origin first, then retry." >&2
+        echo "  --commit checks out an exact origin commit; push it to origin first." >&2
+        echo "  Then run: curl -fsSL https://statbus.org/install.sh | bash" >&2
         exit 1
     fi
     git -c advice.detachedHead=false checkout --detach "${COMMIT_SHA}^{commit}"
@@ -713,12 +715,15 @@ fi
 # have something actionable when they come back to "what happened".
 set +e
 trap - ERR
+install_output="$STATBUS_DIR/tmp/install-last-run-output.txt"
+mkdir -p "$STATBUS_DIR/tmp"
 if [ "$tty_available" = true ]; then
-    (exec </dev/tty; ./sb install ${SB_INSTALL_ARGS[@]+"${SB_INSTALL_ARGS[@]}"})
+    (exec </dev/tty; ./sb install ${SB_INSTALL_ARGS[@]+"${SB_INSTALL_ARGS[@]}"}) 2>&1 | tee "$install_output"
+    sb_rc=${PIPESTATUS[0]}
 else
-    ./sb install ${SB_INSTALL_ARGS[@]+"${SB_INSTALL_ARGS[@]}"}
+    ./sb install ${SB_INSTALL_ARGS[@]+"${SB_INSTALL_ARGS[@]}"} 2>&1 | tee "$install_output"
+    sb_rc=${PIPESTATUS[0]}
 fi
-sb_rc=$?
 trap 'rc=$?; echo "" >&2; echo "install.sh FAILED at line $LINENO: $BASH_COMMAND (exit $rc)" >&2' ERR
 set -e
 # Sentinel: we reached here, so every bash-level step above succeeded.
@@ -774,7 +779,10 @@ fi
 
 # 1. Named failure detail, when a guard site recorded one.
 terminal_file="$STATBUS_DIR/tmp/install-terminal.txt"
-if [ -s "$terminal_file" ]; then
+failed_step=$(grep -E '^\[[0-9]+/[0-9]+\] .+ +FAILED: ' "$install_output" | tail -1 || true)
+if [ -n "$failed_step" ]; then
+    failure_detail=$(printf '%s\n' "$failed_step" | sed -E 's/^\[([0-9]+\/[0-9]+)\] ([^ ]([^ ]| +[^ ])*) +FAILED: /step \1 (\2) failed: /')
+elif [ -s "$terminal_file" ]; then
     failure_detail=$(tail -1 "$terminal_file" | sed -E 's/^INVARIANT [^ ]+ violated: //')
 else
     failure_detail="the installer returned exit code $sb_rc"

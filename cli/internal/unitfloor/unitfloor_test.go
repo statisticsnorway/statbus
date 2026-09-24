@@ -67,12 +67,12 @@ func TestMissingUnitIsDetectedAndAnnounced(t *testing.T) {
 	if !strings.Contains(msg, "curl -fsSL https://statbus.org/install.sh | bash") {
 		t.Errorf("announce must name the public install command, got:\n%s", msg)
 	}
-	// And it must say what the gap COSTS, not merely that a file is absent.
-	if !strings.Contains(msg, "stale") {
+	// And it must say what the gap costs, without exposing implementation paths.
+	if !strings.Contains(msg, "will not discover new releases") {
 		t.Errorf("announce must state the consequence, got:\n%s", msg)
 	}
-	if !strings.Contains(msg, r.UnitPath) {
-		t.Errorf("announce must name the specific path, got:\n%s", msg)
+	if strings.Contains(msg, r.UnitPath) {
+		t.Errorf("announce must not expose the internal unit path, got:\n%s", msg)
 	}
 }
 
@@ -114,8 +114,8 @@ func TestInactiveUnitIsDetected(t *testing.T) {
 	if r.Healthy() {
 		t.Fatal("an inactive service must not report healthy")
 	}
-	if !strings.Contains(r.Announce(), r.Instance) {
-		t.Errorf("inactive announce must name the instance %q", r.Instance)
+	if strings.Contains(r.Announce(), r.Instance) {
+		t.Errorf("inactive announce must not expose the internal instance %q", r.Instance)
 	}
 }
 
