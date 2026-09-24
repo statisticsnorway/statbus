@@ -57,6 +57,13 @@ A third-party operator completes StatBus installation on Ubuntu 26.04 by followi
 - `UPGRADE_CHANNEL=prerelease` was set by hand. The Finland box should return to `stable` after the fixed release is available.
 - `.users.yml` contains plain-text passwords. After the web interface is available and the administrator password is changed there, the file can be removed.
 
+## Evidence, 2026-09-24: local Multipass replay
+
+- The replay reproduced the step-17 timeout exactly through the port-80 path: the failed bind left the web entry point in `Created`, the Services step accepted database health alone, and the automatic update service could not reach its database route. Source: `/Users/jhf/ssb/statbus/tmp/local-ville-replay.md`, lines 697-783 and 989-992.
+- The documented sequence did not produce an API restart loop. That loop appeared only in the diagnostic experiment where the database role password differed from generated settings. Source: `/Users/jhf/ssb/statbus/tmp/local-ville-replay.md`, lines 896-962 and 984-987.
+- Certificate issuance failure caused neither the API restart loop nor the automatic update timeout. With all services otherwise healthy, it prevented both the site and TLS PostgreSQL from completing a handshake. Source: `/Users/jhf/ssb/statbus/tmp/local-ville-replay.md`, lines 643-695 and 995-1001.
+- The installer printed `Installation complete!` and the HTTPS address while that address still failed during the TLS handshake. Final readiness therefore includes answering successfully at the advertised HTTPS address whenever the selected certificate mode expects HTTPS. Covered by STATBUS-394. Source: `/Users/jhf/ssb/statbus/tmp/local-ville-replay.md`, lines 598-605, 643-694, and 995-1001.
+
 ## Behaviour coverage
 
 B1 STATBUS-384; B2 STATBUS-385; B3 STATBUS-389 and STATBUS-399; B4 STATBUS-400; B5 STATBUS-388 and STATBUS-390; B6 STATBUS-401; B7 STATBUS-386 and STATBUS-391; B8 STATBUS-387; B9 STATBUS-402; B10 STATBUS-393 and STATBUS-394; B11 STATBUS-403; B12 STATBUS-404; B13 STATBUS-405; B14 STATBUS-406.

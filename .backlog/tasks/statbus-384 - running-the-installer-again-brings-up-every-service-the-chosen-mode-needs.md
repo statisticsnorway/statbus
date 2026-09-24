@@ -24,6 +24,8 @@ Primary records: `/Users/jhf/ssb/statbus/tmp/finland-transcript-actual.txt`, `/U
 
 Finland session 1 left only the database running after port 80 was occupied. Session 2 then reported Services OK because the check observed only the healthy database, and later work failed through the missing database route. Code review also found that a fresh database created before seed and migrations has no upgrade table, so the current state detector can classify an interrupted first install as a legacy installation and refuse the rerun.
 
+The local Multipass replay reproduced the service gap exactly. A port-80 bind failure left the web entry point in `Created`, which is not a running state. On rerun, step 8 reported Services OK because it checked only database health, so the web entry point was never started and its database route remained unavailable. Source: `/Users/jhf/ssb/statbus/tmp/local-ville-replay.md`, lines 240-284, 697-718, and 720-783.
+
 ## Proving scenarios
 
 New harness scenario `5-install-proxy-never-started`: install to green, remove the web entry point, application, and worker, then run the one install command. The Services step reports RUNNING, restores all five services, and steps 13 and 17 succeed.
