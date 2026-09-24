@@ -2,10 +2,33 @@ package cmd
 
 import (
 	"errors"
+	"fmt"
 	"os/exec"
 	"strings"
 	"testing"
 )
+
+func TestInstallFailureCauseOperatorTextContainsNoInternalDiagnostics(t *testing.T) {
+	forbidden := installOperatorForbiddenDiagnostics(t)
+	check := func(name, cause, fix string) {
+		t.Helper()
+		for field, text := range map[string]string{"cause": cause, "outside fix": fix} {
+			if forbidden.MatchString(text) {
+				t.Errorf("%s %s contains internal diagnostics: %q", name, field, text)
+			}
+		}
+	}
+	for i, entry := range installFailureCauses {
+		if entry.pattern == failedPublishedPort {
+			// Dynamic port guidance is produced by a separate formatter.
+			check(fmt.Sprintf("entry %d (port)", i), servicePortConflictCause(errors.New("port 80 is in use")), entry.fix)
+			continue
+		}
+		check(fmt.Sprintf("entry %d", i), entry.cause, entry.fix)
+	}
+	cause, fix := classifyInstallFailure("Configuration", errors.New("INVARIANT pgx secret=123"))
+	check("unknown fallback", cause, fix)
+}
 
 func TestClassifyInstallFailure(t *testing.T) {
 	cases := []struct{ name, step, diagnostic, cause, fix string }{
