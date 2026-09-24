@@ -35,11 +35,13 @@ grep -Fq 'if [ "${HARNESS_HTTPS_ONLY_EGRESS:-0}" != "1" ]; then' "$expected" \
 https_only="$SCENARIOS/0-https-only-egress.sh"
 grep -Fq 'export HARNESS_HTTPS_ONLY_EGRESS=1' "$https_only" \
     || { echo 'FAIL: HTTPS-only scenario does not select the shared-flow 26.04 path' >&2; exit 1; }
-grep -Fq 'HARNESS_SKIP_DEFAULT' "$https_only" \
-    || { echo 'FAIL: HTTPS-only scenario is not pinned as on-demand while its Docker-published loopback exemption is unresolved' >&2; exit 1; }
+if grep -Fq 'HARNESS_SKIP_DEFAULT' "$https_only"; then
+    echo 'FAIL: HTTPS-only scenario remains excluded after its pre-NAT loopback exemption was implemented' >&2
+    exit 1
+fi
 if grep -Eq 'ubuntu-24\.04|HARNESS_VM_IMAGE=' "$https_only"; then
     echo 'FAIL: HTTPS-only scenario overrides the Ubuntu 26.04 harness default' >&2
     exit 1
 fi
 
-echo 'PASS: only the 0-happy-upgrade entry point uses Ubuntu 24.04; HTTPS-only is on-demand and resolves to Ubuntu 26.04'
+echo 'PASS: only the 0-happy-upgrade entry point uses Ubuntu 24.04; default-selected HTTPS-only resolves to Ubuntu 26.04'

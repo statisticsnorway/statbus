@@ -191,3 +191,33 @@ matching the original destination with `ct original daddr 127.0.0.0/8`, or by
 placing the reject in a hook/priority after conntrack NAT with the corresponding
 original-destination match. Prove the correction on a real VM, then remove the
 skip marker and re-enable default selection.
+
+## Pre-NAT destination correction 2026-09-24
+
+The correction matches the conntrack original tuple, not the packet tuple seen
+after Docker's DNAT. Docker 29's locally-originated published-port path runs its
+`nat OUTPUT` destination translation before the ordinary priority-0 filter
+`OUTPUT` hook. Thus a request whose original destination is
+`127.0.0.1:3010` reaches the filter hook as bridge-address port 80, but
+`ct original ip daddr` and `ct original proto-dst` still report
+`127.0.0.1` and `3010`. An external HTTP request retains its external original
+address and original destination port 80 and is rejected.
+
+The dedicated `inet` table now contains IPv4 and IPv6 local-address sets. They
+include the loopback ranges and every address assigned to the host. Two rules
+select the conntrack original L3 family and TCP protocol, reject original
+destination port 80 only when the original destination is outside the
+corresponding local-address set, and therefore cover both address families.
+Container-to-container traffic traverses the host's forward path rather than
+the host output hook and remains unaffected.
+
+The offline contract models the published-loopback DNAT path and external IPv4
+and IPv6 paths. It also proves that removing a rule, removing destination scope,
+widening reject to accept, removing IPv6, or replacing the conntrack original
+destination with the post-NAT packet destination turns the contract red. The
+`HARNESS_SKIP_DEFAULT` marker is removed and selection tests again require
+`0-https-only-egress` in the default set.
+
+This is an offline semantic and mutation proof. The acceptance-aligned proof is
+still the next candidate's paid install-recovery harness run on a real VM. Do
+not mark the ticket complete until that run is green.

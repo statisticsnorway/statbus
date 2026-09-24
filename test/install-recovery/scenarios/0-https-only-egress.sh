@@ -7,7 +7,6 @@
 # channel and runs that checkout's ./sb install, so this scenario does not claim
 # that every installation transport is HTTPS. Albania's network may DROP instead;
 # REJECT is the stricter, faster regression proxy.
-# HARNESS_SKIP_DEFAULT: on-demand until Docker-published loopback is exempted
 set -euo pipefail
 
 SCENARIO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
