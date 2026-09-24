@@ -132,9 +132,8 @@ func (r Report) Announce() string {
 		b.WriteString("║ Upgrades will not be discovered and the page will go stale.\n")
 	}
 	b.WriteString("║\n")
-	b.WriteString("║ FIX — run the install entrypoint; it is idempotent and safe to\n")
-	b.WriteString("║ re-run on a healthy box:\n")
-	b.WriteString("║     ./sb install\n")
+	b.WriteString("║ FIX — run:\n")
+	b.WriteString("║     curl -fsSL https://statbus.org/install.sh | bash\n")
 	b.WriteString("╚════════════════════════════════════════════════")
 	return b.String()
 }
@@ -238,5 +237,7 @@ func UserUnitPath() string {
 }
 
 func isActiveSystemd(instance string) bool {
-	return exec.Command("systemctl", "--user", "is-active", instance).Run() == nil
+	out, err := exec.Command("systemctl", "--user", "is-active", instance).Output()
+	state := strings.TrimSpace(string(out))
+	return err == nil || state == "active" || state == "activating"
 }

@@ -63,8 +63,8 @@ func TestMissingUnitIsDetectedAndAnnounced(t *testing.T) {
 		t.Fatal("a floor breach must produce an announcement")
 	}
 	// The whole point of the ticket: the message names the repair.
-	if !strings.Contains(msg, "./sb install") {
-		t.Errorf("announce must name the fix ./sb install, got:\n%s", msg)
+	if !strings.Contains(msg, "curl -fsSL https://statbus.org/install.sh | bash") {
+		t.Errorf("announce must name the public install command, got:\n%s", msg)
 	}
 	// And it must say what the gap COSTS, not merely that a file is absent.
 	if !strings.Contains(msg, "stale") {
@@ -88,8 +88,20 @@ func TestDriftedUnitIsDetected(t *testing.T) {
 	if r.Healthy() {
 		t.Fatal("a drifted unit must not report healthy")
 	}
-	if !strings.Contains(r.Announce(), "./sb install") {
+	if !strings.Contains(r.Announce(), "curl -fsSL https://statbus.org/install.sh | bash") {
 		t.Error("drift announce must name the fix")
+	}
+}
+
+func TestActivatingUnitIsTreatedAsRunning(t *testing.T) {
+	dir := writeRepoTemplate(t, shipped)
+	body := shipped
+	withHome(t, &body)
+
+	activating := func(string) bool { return true }
+	r := inspectWith(dir, "statbus_demo", "linux", activating)
+	if r.State != OK || r.Announce() != "" {
+		t.Fatalf("activating service must be silent and healthy, got state=%v announcement=%q", r.State, r.Announce())
 	}
 }
 

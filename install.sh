@@ -712,18 +712,19 @@ fi
 # exits and write a named-invariant banner + support bundle so operators
 # have something actionable when they come back to "what happened".
 set +e
+trap - ERR
 if [ "$tty_available" = true ]; then
     (exec </dev/tty; ./sb install ${SB_INSTALL_ARGS[@]+"${SB_INSTALL_ARGS[@]}"})
 else
     ./sb install ${SB_INSTALL_ARGS[@]+"${SB_INSTALL_ARGS[@]}"}
 fi
 sb_rc=$?
+trap 'rc=$?; echo "" >&2; echo "install.sh FAILED at line $LINENO: $BASH_COMMAND (exit $rc)" >&2' ERR
 set -e
 # Sentinel: we reached here, so every bash-level step above succeeded.
 # If the script died before this line (git checkout, curl, mv, etc.) the
 # ERR trap fired and printed the failing command. If sb_rc != 0 the
 # failure was inside the Go binary — not a bash-level exit.
-echo "install.sh: ./sb install returned (exit $sb_rc)" >&2
 
 # STATBUS-323: belt — release again on the failure path. The release above is
 # the normal hand-over and has already run, so this is a no-op then; it exists
@@ -761,42 +762,28 @@ if [ "$sb_rc" -eq 75 ]; then
     echo "The upgrade attempt did not succeed, but rollback restored the prior"
     echo "version cleanly. Services are running; the maintenance banner is off."
     echo ""
-    echo "To retry the upgrade after addressing the root cause: re-run this script."
+    echo "After addressing the root cause, run:"
+    echo "    curl -fsSL https://statbus.org/install.sh | bash"
     echo "==============================================================================="
     exit 0
 fi
 
-# Anything else is a catastrophic failure — gather a support bundle and
-# write admin-UI state. Everything below is best-effort. If a step fails,
-# continue to the next so the SYSTEM UNUSABLE banner always prints even
-# when the DB is down or the bundle disk write fails.
-echo ""
-echo "==============================================================================="
-echo "SYSTEM UNUSABLE — ./sb install failed (exit $sb_rc)"
-echo "==============================================================================="
+# Anything else is a real installer failure. Gather diagnostics silently, then
+# give the operator one plain retry command and the support file to send if the
+# same step fails again.
 
-# 1. Named invariant that drove termination (empty when a panic or SIGKILL
-#    aborted before a guard site could write install-terminal.txt).
+# 1. Named failure detail, when a guard site recorded one.
 terminal_file="$STATBUS_DIR/tmp/install-terminal.txt"
 if [ -s "$terminal_file" ]; then
     invariant_line=$(tail -1 "$terminal_file")
-    echo ""
-    echo "Invariant breached:"
-    echo "  $invariant_line"
 else
-    invariant_line="(no named invariant — ./sb install aborted before a guard site fired)"
-    echo ""
-    echo "Invariant breached: $invariant_line"
+    invariant_line="./sb install stopped with exit $sb_rc"
 fi
 
-# 2. Support bundle: writes ./support-bundle-<ts>.txt and prints the abs path.
+# 2. Support bundle, gathered without printing internal diagnostics.
 bundle_path=""
 if bundle_path=$(./sb support gather --trigger=install 2>/tmp/sb-support-gather.err); then
-    echo ""
-    echo "Support bundle: $bundle_path"
-else
-    echo ""
-    echo "Support bundle: (gather failed — see /tmp/sb-support-gather.err)"
+    :
 fi
 
 # 3. Admin-UI state (best-effort — ./sb support write-admin-ui-row exits 0
@@ -807,11 +794,13 @@ fi
     >/dev/null 2>&1 || true
 
 # 4. Operator-facing instruction.
-contact="${ADMINISTRATOR_CONTACT:-Contact your administrator}"
 echo ""
-echo "Next steps:"
-echo "  $contact"
-echo "  Attach the support bundle above to your support ticket."
+echo "The installation stopped: $invariant_line"
+echo "Then run the same install command again:"
+echo "    curl -fsSL https://statbus.org/install.sh | bash"
+if [ -n "$bundle_path" ]; then
+    echo "If it stops at the same place again, send this file to StatBus support: $bundle_path"
+fi
 echo "==============================================================================="
 
 exit "$sb_rc"
