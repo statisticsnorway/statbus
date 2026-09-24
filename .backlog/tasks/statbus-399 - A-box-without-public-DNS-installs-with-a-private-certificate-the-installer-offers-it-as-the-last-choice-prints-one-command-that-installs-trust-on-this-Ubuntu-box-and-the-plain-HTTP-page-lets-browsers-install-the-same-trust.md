@@ -32,6 +32,8 @@ Primary records: `/Users/jhf/ssb/statbus/tmp/finland-transcript-actual.txt`, `/U
 
 Related: STATBUS-412 makes the certificate choice revisable on an installer rerun. This ticket supplies the private-certificate behavior itself.
 
+Related delegated-certificate exit: STATBUS-358 proposes a StatBus-operated certificate service for boxes without public DNS. Its 2026-09-24 owner decision places registration, approval, identity, and challenge records in our Postgres database on niue. This ticket retains the private-certificate fallback when delegated issuance is unavailable.
+
 ## Proving scenario
 
 Harness scenario `4-install-standalone-no-public-dns` chooses the final private-certificate option. Installation reaches green. The printed trust command makes `curl https://<name>/` succeed on the Ubuntu box, and the plain-HTTP page serves the same trust certificate for browser installation.

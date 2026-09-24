@@ -51,8 +51,8 @@ Every StatBus box needs a certificate for its own HTTPS listener. Today:
 
 The fourth case is the common one: the box is on a private IP behind the
 NSO's firewall, the HTTP challenge cannot reach it, and the NSO may have no
-wildcard to give. The chosen design is the standard ACME DNS-01 pattern with
-an off-the-shelf **acme-dns** server we run at `cert.statbus.org`:
+wildcard to give. The chosen design uses ACME DNS-01 through a StatBus-owned
+Go certificate service hosted at `cert.statbus.org` (owner decision below):
 
 1. The box calls `https://cert.statbus.org/register` once and receives a
    per-box credential (username, password, fulldomain, subdomain). That
@@ -96,13 +96,9 @@ Consequences:
   registrant and needs a new approval. This is the `.env.credentials`
   discipline exactly (stable identity across recreate/restore).
 - **Stock acme-dns cannot do this alone.** It has no pending/approved state.
-  The likely shape is a small Go service of ours that uses acme-dns as a
-  LIBRARY (it is straightforward Go) and adds: registration -> pending,
-  approval -> active, and a gate on the TXT update path that refuses
-  non-active identities. Investigate before settling: how much of acme-dns
-  is importable as a package, whether its update endpoint can be wrapped or
-  must be forked, and how approval state is stored (its own SQLite is the
-  obvious place).
+  Our Go service owns registration, approval, identities, and challenge records
+  in our Postgres database on niue. Investigate only whether acme-dns is
+  importable as a DNS-answering library, or whether that portion needs a fork.
 - **`--cert-register-key` is dropped** from the design unless the
   investigation shows ask-and-approve cannot work; it is the thing we cannot
   deliver to an unreachable box.
@@ -110,8 +106,13 @@ Consequences:
   CNAME to create, says "pending approval by SSB", and `./sb cert acme-dns
   check` reports pending / approved / CNAME missing / CNAME correct.
 
-On the server we run acme-dns as a library inside a small approval service;
-that service is the one new component.
+On the server we run our own Go certificate service; acme-dns is at most a library for DNS answering. This service is the one new component.
+
+## Owner decision, 2026-09-24
+
+> The certificate service is a Go service of ours, using our own Postgres database on niue for registrations, pending/approved state, per-box identities and the challenge records; hosted behind Caddy on niue at cert.statbus.org. acme-dns is at most a library for the DNS answering part.
+
+This settles open point 3's approval-state location. The library-versus-fork question remains limited to DNS answering and still needs investigation. This is a design decision, not evidence that the service exists.
 
 ## Ground truth (2026-09-07)
 
@@ -133,18 +134,19 @@ that service is the one new component.
 
 ## Work, in order
 
-1. **Server:** finish the acme-dns setup at `cert.statbus.org` after the DNS
-   changes; register one test client by hand and prove issuance with a
-   hand-written Caddy config. Record the exact `/register` response shape
-   and the CNAME the NSO must create in this ticket.
+1. **Server:** build and deploy our Go certificate service behind Caddy on
+   niue at `cert.statbus.org`, with registration, approval, per-box identity,
+   and challenge records in our Postgres database. Register one test client
+   and prove issuance with a hand-written Caddy config. Record the exact
+   `/register` response and the CNAME the NSO must create in this ticket.
 2. **Caddy image:** add `--with github.com/caddy-dns/acmedns` to
    `caddy/Dockerfile`; confirm the module lists in `caddy list-modules`.
 3. **Investigation (before any CLI work):** can acme-dns be used as a Go
-   library with a pending/approved gate on its TXT update path, or does it
-   need a fork? Where does approval state live? What does the approval verb
-   look like on our side (`./cloud.sh cert approve <identity>` is the
-   natural home after STATBUS-337)? Write the answer here; that is the
-   ruling point for this ticket.
+   library solely for DNS answering, or does that part need a fork? Approval
+   and challenge state belong in our Postgres database on niue (owner decision
+   2026-09-24). Define the approval verb on our side (`./cloud.sh cert approve
+   <identity>` is the natural home after STATBUS-337) and record its contract
+   here before implementation.
 4. **CLI:** `./sb cert acme-dns register` registers once, stores the durable
    identity in `.env.credentials` (creation-header discipline, never
    regenerated, never auto-propagated), prints the one CNAME the operator
