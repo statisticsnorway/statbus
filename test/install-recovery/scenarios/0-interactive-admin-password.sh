@@ -37,6 +37,6 @@ VM_SCRIPT_INLINE first-admin-login <<'REMOTE'
 set -euo pipefail
 code=$(curl -sS -o /tmp/first-admin-login-response -w '%{http_code}' -H 'Host: statbus-test.local' -H 'Content-Type: application/json' -d '{"email":"interactive-admin@statbus.org","password":"test-install-password-2026"}' http://127.0.0.1:3010/rest/rpc/login)
 [ "$code" = 200 ]
-grep -q '"is_authenticated":true' /tmp/first-admin-login-response
+grep -Eq '"is_authenticated"[[:space:]]*:[[:space:]]*true' /tmp/first-admin-login-response
 REMOTE
 echo 'PASS: administrator password entered twice without echo, logs clean, and /rest/rpc/login authenticates'
