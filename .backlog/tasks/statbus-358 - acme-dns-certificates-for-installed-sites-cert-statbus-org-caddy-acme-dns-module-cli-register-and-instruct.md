@@ -32,7 +32,7 @@ Current standalone configuration has automatic-ACME and supplied-certificate bra
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 `new: test/certificate-service/registration-approval-test.go::TestPendingIdentityRequiresHumanApproval` registers one identity, observes pending state, records human approval, and proves only that identity can update its challenge record.
+- [ ] #1 `new: cli/internal/certservice/registration_approval_test.go::TestPendingIdentityRequiresHumanApproval` registers one identity, observes pending state, records human approval, and proves only that identity can update its challenge record.
 - [ ] #2 `new: test/install-recovery/scenarios/4-install-delegated-dns-certificate.sh` registers once, preserves the identity, prints the exact CNAME, observes approval, creates the CNAME, and receives a trusted certificate.
 - [ ] #3 `new: test/install-recovery/scenarios/4-install-delegated-dns-certificate.sh` advances the renewal window and observes automatic renewal with the same identity and no new approval.
 - [ ] #4 `new: test/install-recovery/scenarios/4-install-delegated-dns-certificate.sh` recreates the application and restores from backup, then observes the same identity, approval, CNAME target, and renewed certificate.

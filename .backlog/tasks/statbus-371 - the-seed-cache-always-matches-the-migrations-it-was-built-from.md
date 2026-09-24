@@ -31,4 +31,4 @@ The owner decision on the first-parent retained-lineage choice remains open. Mut
 - [ ] #2 `cli/internal/release/seed_lineage_test.go::TestMissingSeedLineageMigrationsRejectsPrereleaseRemoval` rejects removal from retained first-parent history.
 - [ ] #3 `cli/internal/release/seed_lineage_test.go::TestMissingSeedLineageMigrationsAllowsAdditionsAndSameVersionRename` preserves the version while allowing additions and description-only path changes.
 - [ ] #4 `cli/cmd/seed_cache_test.go::TestRunSeedRestoreCmd_ValidatesCacheBeforeRestoreMutation` and `cli/cmd/seed_gate_test.go::TestClassifySeedRestoreErrorFallsBackForIncompatibleCache` prove pre-mutation incompatibility rejection and permitted full-replay fallback.
-- [ ] #5 `new: doc/seed-lineage-authority.md::owner-decision` records owner confirmation or the replacement authoritative lineage before this ticket is complete.
+- [ ] #5 `new: cli/internal/release/seed_lineage_authority_test.go::TestOwnerDecisionNamesAuthoritativeRetainedLineage` verifies `new: doc/seed-lineage-authority.md::owner-decision` records owner confirmation or a concrete replacement authoritative lineage before this ticket is complete.

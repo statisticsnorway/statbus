@@ -29,4 +29,4 @@ The repair command is merged at `cli/cmd/upgrade_repair.go:78-153` at master `7a
 - [ ] #2 `cli/cmd/upgrade_repair_test.go::TestParkedRepairSQL_RejectsMetaCommandsAndTransactionVariants` proves multi-statement, transaction-control, and meta-command inputs are refused.
 - [ ] #3 `cli/cmd/upgrade_repair_test.go::TestUpgradeRepairRequiresAuditInputs` requires file, reason, and operator.
 - [ ] #4 `new: test/install-recovery/scenarios/7-parked-upgrade-audited-repair.sh` parks a real upgrade, performs one repair, observes one matching audit record, unchanged parked state, and continued client-write hold.
-- [ ] #5 `new: doc/upgrade-repair-policy.md::owner-decision` records owner confirmation or the replacement policy before completion.
+- [ ] #5 `new: cli/cmd/upgrade_repair_policy_test.go::TestOwnerDecisionNamesApprovedParkedRepairPolicy` verifies `new: doc/upgrade-repair-policy.md::owner-decision` records owner confirmation or a concrete replacement policy before completion.

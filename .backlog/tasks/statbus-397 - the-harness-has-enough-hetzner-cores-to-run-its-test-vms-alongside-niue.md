@@ -26,6 +26,6 @@ The earlier 22-core quota, 16-core niue use, two-VM concurrency, and 3.5-hour du
 ## Acceptance Criteria
 
 - [ ] #1 `new: test/install-recovery/tests/quota-scheduling-test.sh` reads the approved value from `test/install-recovery/evidence/hetzner-quota.md`, sums measured reservations and configured VM concurrency, and refuses a run that exceeds it.
-- [ ] #2 `new: test/install-recovery/evidence/hetzner-quota.md` records the dated Hetzner approval and dated server telemetry used by the scheduler.
+- [ ] #2 `new: test/install-recovery/tests/quota-scheduling-test.sh` verifies `new: test/install-recovery/evidence/hetzner-quota.md` records the dated Hetzner approval and dated server telemetry used by the scheduler and refuses missing or stale values.
 - [ ] #3 `new: test/install-recovery/tests/quota-scheduling-test.sh` proves the declined-increase fallback enforces one test VM and rejects overlap with other temporary shared-core work.
 - [ ] #4 `new: test/install-recovery/tests/quota-scheduling-test.sh` proves an approved higher value permits only the concurrency that fits the recorded quota.

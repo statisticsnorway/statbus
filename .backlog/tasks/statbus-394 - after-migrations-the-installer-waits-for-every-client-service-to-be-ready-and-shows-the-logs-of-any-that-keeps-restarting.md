@@ -27,7 +27,8 @@ The customer's API log establishes authenticator password failure but does not e
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
 - [ ] #1 `new: test/install-recovery/scenarios/5-install-api-restart-loop.sh` depends on STATBUS-407, changes credentials only on a disposable database, and observes API, application, and worker ready after reconciliation.
-- [ ] #2 `new: cli/cmd/install_readiness_test.go::TestAutomaticUpdateRouteBeforeEnable` holds the selected route unavailable, observes a bounded actionable failure with logs, restores it, and confirms reachability before enablement.
-- [ ] #3 `new: test/install-recovery/scenarios/5-install-standalone-https-readiness.sh` selects public or operator-supplied trust, proves a trusted TLS handshake and HTTP response at the advertised address, then observes the success banner afterward.
-- [ ] #4 `new: test/install-recovery/scenarios/5-install-private-http-readiness.sh` selects a mode whose advertised endpoint is plain HTTP, proves the HTTP response, and observes no false HTTPS requirement.
+- [ ] #2 `new: test/install-recovery/scenarios/5-install-client-restart-loop-diagnostic.sh` deliberately leaves the API, application, and worker in a restart loop one at a time on a disposable VM, observes the installer fail within its bounded readiness timeout, and verifies the diagnostic names the restarting service and includes that service's own startup error and recent logs. The fixture does not assert how the customer's credentials diverged.
+- [ ] #3 `new: cli/cmd/install_readiness_test.go::TestAutomaticUpdateRouteBeforeEnable` holds the selected route unavailable, observes a bounded actionable failure with logs, restores it, and confirms reachability before enablement.
+- [ ] #4 `new: test/install-recovery/scenarios/5-install-standalone-https-readiness.sh` selects public or operator-supplied trust, proves a trusted TLS handshake and HTTP response at the advertised address, then observes the success banner afterward.
+- [ ] #5 `new: test/install-recovery/scenarios/5-install-private-http-readiness.sh` selects a mode whose advertised endpoint is plain HTTP, proves the HTTP response, and observes no false HTTPS requirement.
 <!-- AC:END -->
