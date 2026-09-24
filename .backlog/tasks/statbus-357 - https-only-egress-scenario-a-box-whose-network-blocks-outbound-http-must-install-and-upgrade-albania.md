@@ -198,3 +198,33 @@ matching the original destination with `ct original daddr 127.0.0.0/8`, or by
 placing the reject in a hook/priority after conntrack NAT with the corresponding
 original-destination match. Prove the correction on a real VM, then remove the
 skip marker and re-enable default selection.
+
+## Docker userland-proxy destination correction 2026-09-24
+
+The corrected policy allows loopback and private-destination HTTP while refusing
+public-destination TCP/80. With Docker's default `userland-proxy=true`, Docker's
+nat `OUTPUT` jump excludes loopback. A request to `127.0.0.1:3010` is therefore
+not DNATed. `docker-proxy` accepts that host connection and opens a second,
+brand-new connection from the host to the container IP, for example
+`172.18.0.3:80`. The filter `OUTPUT` hook sees that container destination, and
+its conntrack original destination is also the container IP because no NAT is
+involved.
+
+The dedicated `inet` table consequently exempts destination scopes rather than
+host-assigned addresses. IPv4 loopback and RFC1918 ranges, including Docker's
+default `172.16.0.0/12` bridge space, are allowed. IPv6 loopback, ULA, and
+link-local ranges are allowed. Public IPv4 and IPv6 destination port 80 is
+refused. Container-to-container traffic traverses the forward path and remains
+unaffected.
+
+The offline contract models the published-loopback request as the non-NATed
+host -> `172.18.0.3:80` connection and decides rejection from membership in the
+rule's exempt destination set. Its required mutation removes
+`172.16.0.0/12`, which makes the docker-proxy health path red. The scenario
+retains `HARNESS_SKIP_DEFAULT` and remains explicitly runnable on demand until
+the corrected rule passes a paid real-VM run. The shared install flow also makes
+a bounded at-install health request so a wrong rule fails in seconds.
+
+This is an offline semantic and mutation proof. The acceptance-aligned proof is
+still the next candidate's paid install-recovery harness run on a real VM. Do
+not mark the ticket complete or remove the skip marker until that run is green.

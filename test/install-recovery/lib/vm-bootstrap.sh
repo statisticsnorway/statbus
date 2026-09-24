@@ -1278,20 +1278,22 @@ reset_vm_state() {
     echo "VM $vm_name reset complete."
 }
 
-# apply_https_only_egress rejects externally-routed plain HTTP while leaving
-# HTTPS, established SSH, and host-local loopback traffic intact. StatBus's
-# development-mode health path reaches Caddy through 127.0.0.1:3010, which is
-# internal transport rather than network egress. REJECT is the fast deterministic
-# proxy for Albania's real DROP behavior: a regression fails immediately instead
-# of timing out.
+# apply_https_only_egress allows loopback and private-destination HTTP while it
+# refuses public-destination plain HTTP. With Docker's default userland-proxy,
+# loopback is excluded from Docker's nat OUTPUT jump. docker-proxy accepts the
+# host connection and opens a new, non-NATed host -> container-IP:80 connection,
+# so Docker bridge space must be exempt. Container-to-container traffic uses the
+# forward path and is unaffected. REJECT is the fast deterministic proxy for
+# Albania's real DROP behavior: a regression fails immediately instead of timing
+# out.
 apply_https_only_egress() {
     local ipv4_literal="93.184.216.34"
     local ipv6_literal="2606:2800:220:1:248:1893:25c8:1946"
     local ipv4_url="http://${ipv4_literal}/statbus-http-egress-mutation"
     local ipv6_url="http://[${ipv6_literal}]/statbus-http-egress-mutation"
-    local probe_rc
+    local probe_rc installed_rules
 
-    echo "Applying HTTPS-only egress policy (reject non-loopback TCP/80 on IPv4 and IPv6)"
+    echo "Applying HTTPS-only egress policy (allow loopback/private destinations; reject public TCP/80 on IPv4 and IPv6)"
 
     # This scenario enables setup-ubuntu-lts.sh stage 4. That stage installs the
     # CrowdSec nftables bouncer and configures UFW, so use the same nftables
@@ -1308,8 +1310,11 @@ apply_https_only_egress() {
         VM_ROOT_EXEC nft delete table inet statbus_https_only || true
     VM_ROOT_EXEC nft add table inet statbus_https_only
     VM_ROOT_EXEC nft 'add chain inet statbus_https_only output { type filter hook output priority 0; policy accept; }'
-    VM_ROOT_EXEC nft add rule inet statbus_https_only output oifname '!=' lo tcp dport 80 reject
-    VM_ROOT_EXEC nft list chain inet statbus_https_only output | grep -Fq 'oifname != "lo" tcp dport 80 reject' || {
+    VM_ROOT_EXEC nft add rule inet statbus_https_only output ip daddr '!=' '{ 10.0.0.0/8, 127.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16 }' tcp dport 80 reject
+    VM_ROOT_EXEC nft add rule inet statbus_https_only output ip6 daddr '!=' '{ ::1, fc00::/7, fe80::/10 }' tcp dport 80 reject
+    installed_rules=$(VM_ROOT_EXEC nft list chain inet statbus_https_only output) || return 1
+    grep -Fq 'ip daddr != { 10.0.0.0/8, 127.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16 } tcp dport 80 reject' <<<"$installed_rules" && \
+        grep -Fq 'ip6 daddr != { ::1, fc00::/7, fe80::/10 } tcp dport 80 reject' <<<"$installed_rules" || {
         echo "ERROR: nftables HTTPS-only output rule was not installed" >&2
         return 1
     }
