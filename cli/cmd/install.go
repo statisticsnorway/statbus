@@ -195,7 +195,7 @@ For operator installation or repair, use the public installer:
 			if errors.As(err, &preflight) {
 				_, _ = fmt.Fprintln(cmd.ErrOrStderr(), preflight.Error())
 			} else {
-				_, _ = fmt.Fprintln(cmd.ErrOrStderr(), "The installation stopped before it could finish. Check the installation log, correct the problem, then run: curl -fsSL https://statbus.org/install.sh | bash")
+				_, _ = fmt.Fprintln(cmd.ErrOrStderr(), "The installation stopped before it could finish. Check the installation log, correct the problem, then run: "+diskpolicy.RerunCommand())
 			}
 		}
 		return err
@@ -349,7 +349,7 @@ func runInstall() (installErr error) {
 	// running as root would create files owned by root in the project dir.
 	if os.Geteuid() == 0 {
 		return installPreflightRefusal("StatBus must be installed as the application user, not root.\n" +
-			"Switch to that user, then run:\n    curl -fsSL https://statbus.org/install.sh | bash")
+			"Switch to that user, then run:\n    " + diskpolicy.RerunCommand())
 	}
 
 	// Self-identifying banner: the post-completion fixup is a legitimately
@@ -485,7 +485,7 @@ func runInstall() (installErr error) {
 					installDiagnostic(installDir, "Could not create support bundle for detection: %v", bundleErr)
 					bundlePath = filepath.Join(installDir, "tmp", "install-last-run-output.txt")
 				}
-				return &installPreflightRefusalError{err: fmt.Errorf("the install state could not be determined safely; nothing was changed. Run the same install command again: curl -fsSL https://statbus.org/install.sh | bash. If it stops again, send this file to StatBus support: %s", bundlePath)}
+				return &installPreflightRefusalError{err: fmt.Errorf("the install state could not be determined safely; nothing was changed. Run the same install command again: %s. If it stops again, send this file to StatBus support: %s", diskpolicy.RerunCommand(), bundlePath)}
 			}
 			// Only a positively identified database connection failure permits
 			// repair through the step table. Unknown errors fail closed above.
@@ -575,7 +575,7 @@ func runInstall() (installErr error) {
 				return installPreflightRefusal("No valid release signer is configured.\n" +
 					"  The upgrade service requires at least one trusted signer that can verify commit signatures.\n" +
 					"  Run the installer interactively to approve a signer:\n" +
-					"    curl -fsSL https://statbus.org/install.sh | bash")
+					"    " + diskpolicy.RerunCommand())
 			}
 			fmt.Println("No valid trusted signers configured. You must approve at least one signer before the install can proceed.")
 			if err := runTrustSigners(installDir); err != nil {
@@ -899,7 +899,7 @@ func runInstall() (installErr error) {
 			// it's not silent.
 			fmt.Printf("  ⚠ Some services did not resume: %v\n", buildErr)
 			fmt.Println("  Run the installer again to finish recovery:")
-			fmt.Println("    curl -fsSL https://statbus.org/install.sh | bash")
+			fmt.Println("    " + diskpolicy.RerunCommand())
 		}
 		quiescedServices = nil
 	}
@@ -917,6 +917,7 @@ func runInstall() (installErr error) {
 			fmt.Printf("  Pausing application traffic before %s ...\n", s.name)
 			stopped, err := compose.QuiesceClients(installDir)
 			if err != nil {
+				printInstallStepFailure(s.name, prefix, fmt.Errorf("quiesce clients: %w", err), i < total-1)
 				return fmt.Errorf("quiesce clients before %s: %w (must not proceed with DDL on live services)", s.name, err)
 			}
 			if len(stopped) == 0 {
@@ -959,17 +960,7 @@ func runInstall() (installErr error) {
 				fmt.Printf("%s %s\n", prefix, line)
 				continue
 			}
-			log.Printf("%s failed: %v", prefix, err)
-			fmt.Printf("%s FAILED: This part of installation could not finish.\n", prefix)
-			if s.name == "Services" {
-				if cause := servicePortConflictCause(err); cause != "" {
-					fmt.Println("INSTALL_CAUSE: " + cause)
-				}
-			}
-			if i < total-1 {
-				fmt.Println("\nThen run the same install command again:")
-				fmt.Println("    " + diskpolicy.RerunCommand())
-			}
+			printInstallStepFailure(s.name, prefix, err, i < total-1)
 			// DO NOT auto-resume on failure: clients restarted on top of
 			// a half-done DDL state could compound damage. The operator
 			// re-runs ./sb install, which re-evaluates the quiesce window
@@ -1020,10 +1011,24 @@ func runInstall() (installErr error) {
 			}
 		}
 		fmt.Println("To check or repair this installation later, run:")
-		fmt.Println("    curl -fsSL https://statbus.org/install.sh | bash")
+		fmt.Println("    " + diskpolicy.RerunCommand())
 	}
 
 	return nil
+}
+
+func printInstallStepFailure(stepName, prefix string, err error, rerun bool) {
+	log.Printf("%s failed: %v", prefix, err)
+	cause, fix := classifyInstallFailure(stepName, err)
+	fmt.Printf("%s FAILED: This part of installation could not finish.\n", prefix)
+	fmt.Println("INSTALL_CAUSE: " + cause)
+	if fix != "" {
+		fmt.Println("INSTALL_FIX: " + fix)
+	}
+	if rerun {
+		fmt.Println("\nThen run the same install command again:")
+		fmt.Println("    " + diskpolicy.RerunCommand())
+	}
 }
 
 // ── Step checks (return true if step is already done) ──
@@ -1452,7 +1457,10 @@ func runPullImages(dir string) error {
 	if err := runCmdDir(dir, "docker", "compose", "--profile", "all", "pull"); err != nil {
 		// Fall back to build for services without pre-built images
 		fmt.Println("  Pull incomplete, building remaining images locally...")
-		return runCmdDir(dir, "docker", "compose", "--profile", "all", "build")
+		if buildErr := runCmdDir(dir, "docker", "compose", "--profile", "all", "build"); buildErr != nil {
+			return fmt.Errorf("image pull failure and local build failure: %w", buildErr)
+		}
+		return nil
 	}
 	return nil
 }
@@ -2143,8 +2151,8 @@ func regeneratingZombieError(totalKilled, killAttempts int, last sessionsVerdict
 	return fmt.Errorf(
 		"zombie advisory-lock source is REGENERATING (%d killed across %d attempt(s), still appearing) — "+
 			"not a one-off leak; the underlying source needs investigation (STATBUS-149), not another kill. "+
-			"Last observed: %s. Check `journalctl --user -u 'statbus-upgrade@*'` for the underlying cause, then run curl -fsSL https://statbus.org/install.sh | bash",
-		totalKilled, killAttempts, last.describe())
+			"Last observed: %s. Check `journalctl --user -u 'statbus-upgrade@*'` for the underlying cause, then run %s",
+		totalKilled, killAttempts, last.describe(), diskpolicy.RerunCommand())
 }
 
 const phase1TerminateSQL = `
@@ -2382,8 +2390,8 @@ func cleanOrphanSessions(dir string) error {
 	}
 	return fmt.Errorf(
 		"database sessions did not settle within %s after cleanOrphanSessions — %s. "+
-			"Check `journalctl --user -u 'statbus-upgrade@*'` for the underlying cause, then run curl -fsSL https://statbus.org/install.sh | bash",
-		sessionsSettleCap, last.describe())
+			"Check `journalctl --user -u 'statbus-upgrade@*'` for the underlying cause, then run %s",
+		sessionsSettleCap, last.describe(), diskpolicy.RerunCommand())
 }
 
 // checkSeedRestored returns true if the database already has migrations
@@ -2647,7 +2655,7 @@ func runCreateUsers(dir string) error {
 		return err
 	}
 	if !stdinIsTerminal() {
-		return installPreflightRefusal("The first administrator must be created in a terminal. Open a terminal on this computer, then run: curl -fsSL https://statbus.org/install.sh | bash")
+		return installPreflightRefusal("The first administrator must be created in a terminal. Open a terminal on this computer, then run: " + diskpolicy.RerunCommand())
 	}
 	fmt.Println("  Create the first administrator. Everyone else is invited from the web interface.")
 	email := prompt("  Email", "")
@@ -2769,14 +2777,14 @@ func runTrustSigners(dir string) error {
 	}
 	if nonInteractive {
 		return errors.New("a trusted release signer is required before StatBus can finish installing.\n" +
-			"Run the installer interactively to approve one:\n    curl -fsSL https://statbus.org/install.sh | bash")
+			"Run the installer interactively to approve one:\n    " + diskpolicy.RerunCommand())
 	}
 	if signerPromptAnswered {
 		if signerPromptAccepted {
 			return nil
 		}
 		return errors.New("a trusted release signer was not approved, so installation cannot continue.\n" +
-			"Run the installer again when you are ready to approve one:\n    curl -fsSL https://statbus.org/install.sh | bash")
+			"Run the installer again when you are ready to approve one:\n    " + diskpolicy.RerunCommand())
 	}
 
 	cfgPath := filepath.Join(dir, ".env.config")
@@ -2799,7 +2807,7 @@ func runTrustSigners(dir string) error {
 	signerPromptAnswered = true
 	if err != nil {
 		log.Printf("Could not fetch the recommended signing key: %v", err)
-		fmt.Println("  Run the installer again to retry: curl -fsSL https://statbus.org/install.sh | bash")
+		fmt.Println("  Run the installer again to retry: " + diskpolicy.RerunCommand())
 		return nil // Non-fatal: don't block installation
 	}
 	if !trusted {
@@ -3364,7 +3372,7 @@ func runRootInstall() error {
 
 	fmt.Println()
 	fmt.Printf("  Upgrade service installed and started: %s (is-enabled=%s)\n", instance, state)
-	fmt.Println("  To verify, run: curl -fsSL https://statbus.org/install.sh | bash")
+	fmt.Println("  To verify, run: " + diskpolicy.RerunCommand())
 	return nil
 }
 
@@ -3400,9 +3408,7 @@ func runCmd(name string, args ...string) error {
 	if err != nil {
 		return err
 	}
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	return cmd.Run()
+	return runInstallCommandWithDiagnostic(cmd)
 }
 
 func runCmdDir(dir, name string, args ...string) error {
@@ -3410,9 +3416,7 @@ func runCmdDir(dir, name string, args ...string) error {
 	if err != nil {
 		return err
 	}
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	return cmd.Run()
+	return runInstallCommandWithDiagnostic(cmd)
 }
 
 func composeCommand(dir string, args ...string) (*exec.Cmd, error) {

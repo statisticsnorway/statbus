@@ -281,7 +281,7 @@ print_sb_pull_failure() {
             echo "  Remedy: inspect the preserved Docker error above and correct it." >&2
             ;;
     esac
-    echo "  Then run: curl -fsSL https://statbus.org/install.sh | bash" >&2
+    echo "  Then run: $STATBUS_INSTALL_RERUN_COMMAND" >&2
     echo "  --commit tests the commit's PUBLISHED image and will not build a different binary locally." >&2
     echo "  Alternatively install a released version: --version <tag>, or --channel stable|prerelease." >&2
 }
@@ -640,7 +640,7 @@ elif [ -n "$COMMIT_SHA" ]; then
     if ! statbus_git_fetch origin "$COMMIT_SHA"; then
         echo "Error: git fetch origin ${COMMIT_SHA} failed — is the commit pushed to origin?" >&2
         echo "  --commit checks out an exact origin commit; push it to origin first." >&2
-        echo "  Then run: curl -fsSL https://statbus.org/install.sh | bash" >&2
+        echo "  Then run: $STATBUS_INSTALL_RERUN_COMMAND" >&2
         exit 1
     fi
     git -c advice.detachedHead=false checkout --detach "${COMMIT_SHA}^{commit}"
@@ -822,7 +822,7 @@ if [ "$sb_rc" -eq 75 ]; then
     echo "version cleanly. Services are running; the maintenance banner is off."
     echo ""
     echo "After addressing the root cause, run:"
-    echo "    curl -fsSL https://statbus.org/install.sh | bash"
+    echo "    $STATBUS_INSTALL_RERUN_COMMAND"
     echo "==============================================================================="
     exit 0
 fi
@@ -835,7 +835,8 @@ fi
 terminal_file="$STATBUS_DIR/tmp/install-terminal.txt"
 failed_step=$(grep -E '^\[[0-9]+/[0-9]+\] .+ +FAILED: ' "$install_output" | tail -1 || true)
 if [ -n "$failed_step" ]; then
-    failure_detail=$(grep -E '^INSTALL_CAUSE: port [0-9]+ is in use by ' "$install_output" | tail -1 | sed 's/^INSTALL_CAUSE: //' || true)
+    failure_detail=$(grep -E '^INSTALL_CAUSE: (port [0-9]+ is in use by [[:print:]]+|The disk ran out of free space\.|Docker is not running\.|The installer cannot access Docker\.|A required image could not be downloaded\.|The database did not become reachable after it started\.|The database rejected its password\.|The user service manager is unavailable\.|The source update could not be fetched\.|The release signature could not be verified\.|The [A-Za-z +]+ step could not finish; the details are in the support file\.)$' "$install_output" | tail -1 | sed 's/^INSTALL_CAUSE: //' || true)
+    failure_fix=$(grep -E '^INSTALL_FIX: (Free space on the installation disk and Docker storage, then retry\.|Start Docker and then retry\.|Give this user access to the Docker socket, then retry\.|Check registry access, DNS and image credentials, then retry\.|Check Docker and database service health, then retry\.|Check the saved database credentials and synchronize them with the running database, then retry\.|Enable linger for the installation user and start its systemd user manager, then retry\.|Check network access and Git repository permissions, then retry\.|Verify the release signer and approve a trusted signer before retrying\.)$' "$install_output" | tail -1 | sed 's/^INSTALL_FIX: //' || true)
     if [ -z "$failure_detail" ]; then
         failure_detail=$(printf '%s\n' "$failed_step" | sed -E 's/^\[([0-9]+\/[0-9]+)\] ([^ ]([^ ]| +[^ ])*) +FAILED: .*/step \1 (\2) failed: this part of installation could not finish/')
     fi
@@ -868,6 +869,7 @@ fi
 echo ""
 echo "The installation stopped before it could finish."
 echo "Cause: $failure_detail"
+if [ -n "${failure_fix:-}" ]; then echo "Outside fix: $failure_fix"; fi
 echo "Then run the same install command again:"
 echo "    $STATBUS_INSTALL_RERUN_COMMAND"
 if [ -n "$bundle_path" ]; then

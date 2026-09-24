@@ -61,6 +61,8 @@ if [ "${EXPECT_STDIN:-}" = tty ]; then
     printf 'sb-stdin:tty\n' >> "$TRACE"
 fi
 [ "${FORCE_TERMINAL:-}" != 1 ] || { mkdir -p tmp; printf 'INVARIANT TEST_GUARD violated: database did not become ready\n' > tmp/install-terminal.txt; }
+[ "${EMIT_ROLLBACK:-}" != 1 ] || { printf 'UPGRADE_FAILED_ROLLED_BACK\n'; exit 75; }
+[ "${EMIT_CLASSIFIED:-}" != 1 ] || { printf '[8/17] Services             FAILED: This part of installation could not finish.\nINSTALL_CAUSE: The database rejected its password.\nINSTALL_FIX: Check the saved database credentials and synchronize them with the running database, then retry.\n'; exit 47; }
 [ "${FORCE_STEP_FAILURE:-}" != 1 ] || printf '[16/17] Trusted signers      FAILED: release signer approval was declined\n'
 [ "${STATBUS_ENV_CONFIG:-}" = "$EXPECTED_CONFIG" ]
 [ "${STATBUS_USERS_FILE:-}" = "$EXPECTED_USERS" ]
@@ -106,6 +108,27 @@ grep -Fq 'STATBUS_USERS_FILE=' "$TMP_ROOT/rerun-output"
 grep -Fq 'bash -s -- --version v2026.09.0-rc.02 --non-interactive' "$TMP_ROOT/rerun-output"
 grep -Fq "${TMP_ROOT}/inputs\\ with\\ spaces/config.env" "$TMP_ROOT/rerun-output"
 echo 'PASS: rerun retains version, flags and absolute quoted answer paths'
+# A clean rollback is an exit-75 outcome, but its printed retry must preserve
+# the exact release selection and answer files too.
+for selection in version channel; do
+    if [ "$selection" = version ]; then args=(--version v2026.09.0-rc.02); else args=(--channel prerelease); fi
+    (cd "$TMP_ROOT" && EMIT_ROLLBACK=1 STATBUS_ENV_CONFIG='inputs with spaces/config.env' STATBUS_USERS_FILE='inputs with spaces/users.yml' \
+        bash "$ROOT/install.sh" "${args[@]}" --non-interactive) > "$TMP_ROOT/rollback-$selection-output" 2>&1
+    grep -Fq 'UPGRADE FAILED' "$TMP_ROOT/rollback-$selection-output"
+    grep -Fq "bash -s -- ${args[*]} --non-interactive" "$TMP_ROOT/rollback-$selection-output"
+    grep -Fq "${TMP_ROOT}/inputs\\ with\\ spaces/config.env" "$TMP_ROOT/rollback-$selection-output"
+    grep -Fq 'STATBUS_USERS_FILE=' "$TMP_ROOT/rollback-$selection-output"
+done
+echo 'PASS: clean rollback retains selected version/channel and both answer files'
+set +e
+EMIT_CLASSIFIED=1 STATBUS_ENV_CONFIG="$EXPECTED_CONFIG" STATBUS_USERS_FILE="$EXPECTED_USERS" \
+    bash "$ROOT/install.sh" --version v2026.09.0-rc.02 --non-interactive > "$TMP_ROOT/classified-output" 2>&1
+rc=$?
+set -e
+[ "$rc" = 47 ]
+grep -Fq 'Cause: The database rejected its password.' "$TMP_ROOT/classified-output"
+grep -Fq 'Outside fix: Check the saved database credentials and synchronize them with the running database, then retry.' "$TMP_ROOT/classified-output"
+echo 'PASS: classified step cause and outside fix reach wrapper without raw errors'
 # The real wrapper must leave a freed restart record for Go to inspect.
 mkdir -p "$HOME/statbus/tmp"
 printf '{"trigger":"restart","restart":{"profile":"all"}}\n' > "$HOME/statbus/tmp/upgrade-in-progress.json"

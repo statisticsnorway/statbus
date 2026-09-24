@@ -408,9 +408,7 @@ func composeUpAllDefault(dir string) error {
 	if err != nil {
 		return err
 	}
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	return cmd.Run()
+	return runInstallCommandWithDiagnostic(cmd)
 }
 
 var composeUpAll = composeUpAllDefault
