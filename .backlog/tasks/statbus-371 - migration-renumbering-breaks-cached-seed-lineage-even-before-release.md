@@ -50,3 +50,11 @@ close this ticket on the restore fallback alone.
 ## Reconciliation 2026-09-23
 
 Classification: OPEN. Evidence: invariant is documented but no seed-lineage guard/repair implementation was found. No part of the item's own done-when is complete beyond any design already recorded above.
+
+## Implementation note 2026-09-24
+
+Provisional, owner to confirm: the authoritative retained lineage is the union of migration versions visible on first-parent Git history after the previous release baseline. Every master push is eligible to publish a commit-addressed seed, so this is a deterministic, fail-closed over-approximation of versions that may remain in caches even when no release tag contains them.
+
+Rejected alternative: query the set of seed tags currently present in GHCR. Registry state is mutable and network-dependent; deleting or expiring an image would erase the evidence used by the release guard.
+
+The prerelease preflight and prerelease tag validator now reject a candidate that removes or renumbers any version in that lineage. The diagnostic identifies the version, first commit, and original path, and directs the operator to restore the version and add a forward migration.

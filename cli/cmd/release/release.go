@@ -879,7 +879,35 @@ func checkImmutabilityGateAgainst(projDir, prevTag string) bool {
 		// — nothing to add here.
 		return false
 	}
-	return true
+	return checkSeedLineageGuardAgainst(projDir, prevTag, "HEAD")
+}
+
+// checkSeedLineageGuardAgainst preserves migration versions that appeared on
+// first-parent master history after the previous release. Images publishes a
+// commit-addressed seed for each master push, so a version can be baked into a
+// retained cache before any RC contains it.
+func checkSeedLineageGuardAgainst(projDir, baselineRef, candidateRef string) bool {
+	missing, err := release.MissingSeedLineageMigrations(projDir, baselineRef, candidateRef)
+	if err != nil {
+		fmt.Printf("  ✗ Seed migration lineage (%v)\n", err)
+		return false
+	}
+	if len(missing) == 0 {
+		fmt.Printf("  ✓ Seed migration lineage preserves every version seen on first-parent history after %s\n", baselineRef)
+		return true
+	}
+
+	fmt.Printf("  ✗ Seed migration lineage: %s removes or renumbers versions already visible after %s\n", candidateRef, baselineRef)
+	for _, migration := range missing {
+		commit := migration.Commit
+		if len(commit) > 12 {
+			commit = commit[:12]
+		}
+		fmt.Printf("    %d first appeared at %s as %s\n", migration.Version, commit, migration.Path)
+	}
+	fmt.Println("    A retained seed/cache may already contain those ledger rows and schema changes.")
+	fmt.Println("    Fix: restore each original version and add a new forward migration instead of renumbering/removing it.")
+	return false
 }
 
 // noSameKindTagAtHEAD refuses to tag a same-kind tag on a commit that
