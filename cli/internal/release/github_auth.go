@@ -2,6 +2,7 @@ package release
 
 import (
 	"encoding/base64"
+	"fmt"
 	"os"
 	"os/exec"
 	"regexp"
@@ -22,6 +23,29 @@ type GitHubAuthentication struct {
 	Mode  GitHubAuthMode
 }
 
+func redactCommandStderr(text string) string {
+	redacted := authorizationHeaderPattern.ReplaceAllString(text, "${1}[REDACTED]")
+	if token := strings.TrimSpace(os.Getenv("GITHUB_TOKEN")); token != "" {
+		for _, secret := range []string{token, base64.StdEncoding.EncodeToString([]byte(token)), base64.StdEncoding.EncodeToString([]byte("x-access-token:" + token))} {
+			redacted = strings.ReplaceAll(redacted, secret, "[REDACTED]")
+		}
+	}
+	return redacted
+}
+
+func commandOutput(cmd *exec.Cmd) ([]byte, error) {
+	var stderr strings.Builder
+	cmd.Stderr = &stderr
+	out, err := cmd.Output()
+	if err != nil {
+		message := strings.TrimSpace(redactCommandStderr(stderr.String()))
+		if message != "" {
+			return out, fmt.Errorf("%w: %s", err, message)
+		}
+	}
+	return out, err
+}
+
 var authorizationHeaderPattern = regexp.MustCompile(`(?i)(authorization\s*[:=]\s*)[^\r\n]+`)
 
 // GitHubAuth is the single resolver for release-time GitHub reads.
@@ -29,7 +53,7 @@ func GitHubAuth() GitHubAuthentication {
 	if token := strings.TrimSpace(os.Getenv("GITHUB_TOKEN")); token != "" {
 		return GitHubAuthentication{Token: token, Mode: GitHubAuthEnv}
 	}
-	out, err := exec.Command("gh", "auth", "token").Output()
+	out, err := commandOutput(exec.Command("gh", "auth", "token"))
 	if err == nil {
 		if token := strings.TrimSpace(string(out)); token != "" {
 			return GitHubAuthentication{Token: token, Mode: GitHubAuthCLI}
@@ -86,16 +110,11 @@ func GitHubGitEnv(base []string) []string {
 // match the current token, because transports may normalize or replace them.
 func RedactGitHubCredentials(text string) string {
 	auth := GitHubAuth()
-	redacted := authorizationHeaderPattern.ReplaceAllString(text, "${1}[REDACTED]")
+	redacted := redactCommandStderr(text)
 	if auth.Token == "" {
 		return redacted
 	}
-	secrets := []string{
-		auth.Token,
-		base64.StdEncoding.EncodeToString([]byte(auth.Token)),
-		base64.StdEncoding.EncodeToString([]byte("x-access-token:" + auth.Token)),
-	}
-	for _, secret := range secrets {
+	for _, secret := range []string{auth.Token, base64.StdEncoding.EncodeToString([]byte(auth.Token)), base64.StdEncoding.EncodeToString([]byte("x-access-token:" + auth.Token))} {
 		redacted = strings.ReplaceAll(redacted, secret, "[REDACTED]")
 	}
 	return redacted

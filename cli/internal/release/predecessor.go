@@ -65,7 +65,7 @@ func FindLatestStableTagBeforePrefix(projDir, prefix string) (string, error) {
 
 	cmd := exec.Command("git", "tag", "-l", "v*.*.*")
 	cmd.Dir = projDir
-	outBytes, err := cmd.Output()
+	outBytes, err := commandOutput(cmd)
 	if err != nil {
 		return "", fmt.Errorf("listing stable tags: %w", err)
 	}
@@ -104,7 +104,7 @@ func ListRCNumbersForPatch(projDir, prefix string, patch int, excludeTag string)
 	pattern := fmt.Sprintf("%s.%d-rc.*", prefix, patch)
 	cmd := exec.Command("git", "tag", "-l", pattern)
 	cmd.Dir = projDir
-	outBytes, err := cmd.Output()
+	outBytes, err := commandOutput(cmd)
 	if err != nil {
 		return nil, fmt.Errorf("listing %s: %w", pattern, err)
 	}
@@ -202,7 +202,7 @@ func CurrentImmutabilityBaselineTag(projDir string) (string, error) {
 
 	cmd := exec.Command("git", "tag", "-l", fmt.Sprintf("%s.*", prefix))
 	cmd.Dir = projDir
-	outBytes, err := cmd.Output()
+	outBytes, err := commandOutput(cmd)
 	if err != nil {
 		return "", fmt.Errorf("listing stable tags: %w", err)
 	}
