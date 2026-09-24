@@ -1,11 +1,10 @@
 ---
 id: STATBUS-396
-title: >-
-  git errors carry git's own stderr, redacted
+title: 'Git failures show the operator git''s own error message, with secrets redacted'
 status: To Do
 assignee: []
 created_date: '2026-09-24 16:44'
-updated_date: '2026-09-24 16:44'
+updated_date: '2026-09-24 14:53'
 labels:
   - cli
   - error-handling
@@ -20,8 +19,14 @@ ordinal: 86
 
 ## Description
 
-Git-related failures should preserve git's own stderr so operators receive the
-actual failure context, while secrets and sensitive values are redacted.
+When a git command fails, the operator sees git's own error message, with
+tokens and other secrets replaced by a redaction marker.
+
+## Done when
+
+- Representative git failures (auth, missing ref, network) show git's message.
+- A failure with a credential in the URL shows the message with the credential
+  redacted.
 
 ## 2026-09-24 status
 

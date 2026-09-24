@@ -1,12 +1,12 @@
 ---
 id: STATBUS-376
 title: >-
-  Third-party install on Ubuntu 26.04 (Finland NSO): install defects + setup
-  split
+  A third-party operator installs StatBus on Ubuntu 26.04 from the instructions
+  alone (Finland NSO)
 status: To Do
 assignee: []
 created_date: '2026-09-18 17:48'
-updated_date: '2026-09-23 15:10'
+updated_date: '2026-09-24 14:53'
 labels:
   - install
   - setup
@@ -204,7 +204,11 @@ that the `SYSTEM UNUSABLE` handling for preflight refusals was fixed in
 `tmp/finland-install-triage.md`, with the abort path at `install.sh:770-792`
 and the intended refusal type at `cli/cmd/install.go:95-101`. Keep this ticket's
 D8-D11 closure claim scoped to the earlier installer fixes and track the disk
-refusal regression separately as STATBUS-386.
+refusal regression separately as STATBUS-386, where the target is a plain
+preflight message that states free space, required space and the command to
+continue. The north star for the Finland follow-ups: a third-party operator
+follows the instructions on a fresh Ubuntu 26.04 host and ends with every
+service running (STATBUS-384 to STATBUS-394).
 
 ## Reconciliation 2026-09-23
 

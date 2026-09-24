@@ -1,11 +1,12 @@
 ---
 id: STATBUS-382
 title: >-
-  stale upgrade-service daemon runs source-sensitive logic after binary swap
+  After a binary swap, the upgrade service runs the new binary's logic for every
+  source-sensitive step
 status: To Do
 assignee: []
 created_date: '2026-09-22 17:01'
-updated_date: '2026-09-23 15:10'
+updated_date: '2026-09-24 14:53'
 labels:
   - upgrade
   - recovery
@@ -99,6 +100,10 @@ Remaining, deliberately not started tonight:
 4. Install reporting sink, `os.Exit` inventory, churn diagnosis, and evidence-gated takeover (R11-R12).
 5. Daemon reconciliation while the install flock remains held, plus inline-path unification (R7).
 6. Paid VM harness using rc.18 (`7244856d`) to the fix candidate.
+
+## North star
+
+Once the new binary is swapped in, every source-sensitive step of the upgrade runs the new binary's code. A daemon still running the old image hands over to the new one before such a step.
 
 ## 2026-09-24 status
 

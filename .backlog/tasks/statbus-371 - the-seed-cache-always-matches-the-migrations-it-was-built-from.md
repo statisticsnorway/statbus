@@ -1,11 +1,10 @@
 ---
 id: STATBUS-371
-title: >-
-  migration renumbering breaks cached seed lineage even before release
+title: The seed cache always matches the migrations it was built from
 status: To Do
 assignee: []
 created_date: '2026-09-16 22:34'
-updated_date: '2026-09-23 15:10'
+updated_date: '2026-09-24 14:53'
 labels:
   - migrations
   - ci
@@ -58,6 +57,10 @@ Provisional, owner to confirm: the authoritative retained lineage is the union o
 Rejected alternative: query the set of seed tags currently present in GHCR. Registry state is mutable and network-dependent; deleting or expiring an image would erase the evidence used by the release guard.
 
 The prerelease preflight and prerelease tag validator now reject a candidate that removes or renumbers any version in that lineage. The diagnostic identifies the version, first commit, and original path, and directs the operator to restore the version and add a forward migration.
+
+## North star
+
+The seed cache is keyed by the exact migration lineage it was built from. When migrations are renumbered, the cache is rebuilt from the new lineage before anything uses it.
 
 ## 2026-09-24 status
 

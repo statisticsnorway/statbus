@@ -1,13 +1,15 @@
 ---
 id: STATBUS-392
 title: >-
-  Development mode start must not force a local build when images are already pulled
+  Starting an image-based install runs the pulled images directly, and builds
+  only when a source checkout asks for it
 status: To Do
 assignee: []
 created_date: '2026-09-24 16:42'
-updated_date: '2026-09-24 16:42'
+updated_date: '2026-09-24 14:53'
 labels:
   - install
+dependencies: []
 priority: medium
 type: bug
 ordinal: 1
@@ -21,7 +23,14 @@ build blocks. This can turn a mode change or recovery into an unexpected local
 build; the install path currently avoids it only because its Services step uses
 plain `up -d`.
 
+## Goal
+
+`./sb start` on an image-based install starts the pulled images directly. It
+builds only when the operator asks (`./sb build`) or a source development
+checkout needs it.
+
 ## Done when
 
-`./sb start` builds only when explicitly requested or when a development
-checkout requires it, and image-based installs start pulled images directly.
+- In development mode on an image-based install, `./sb start all` starts
+  within seconds using pulled images.
+- In a source checkout, the development build still happens.

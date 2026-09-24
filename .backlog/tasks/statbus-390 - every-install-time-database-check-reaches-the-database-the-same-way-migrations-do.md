@@ -1,13 +1,15 @@
 ---
 id: STATBUS-390
 title: >-
-  Install database probes must use the same transport as migrations
+  Every install-time database check reaches the database the same way migrations
+  do
 status: To Do
 assignee: []
 created_date: '2026-09-24 16:42'
-updated_date: '2026-09-24 16:42'
+updated_date: '2026-09-24 14:53'
 labels:
   - install
+dependencies: []
 priority: high
 type: bug
 ordinal: 1
@@ -21,7 +23,13 @@ the triage at `cli/cmd/install.go:2329-2371` versus
 `cli/internal/migrate/migrate.go:919-923`, allowing install to pass an earlier
 probe and fail later on the proxy.
 
+## Goal
+
+Every install-time database check reaches the database by the same path
+migrations use, so a check that passes means migrations can connect too.
+
 ## Done when
 
-All install-time database readiness checks use one explicit transport, or both
-paths require and diagnose the proxy consistently.
+- Seed checking and migrations use one named transport.
+- With the proxy stopped, the first database check reports the proxy (per
+  STATBUS-388), at the same step migrations would.

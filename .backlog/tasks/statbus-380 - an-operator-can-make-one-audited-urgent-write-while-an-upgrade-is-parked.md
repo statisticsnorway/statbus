@@ -1,12 +1,10 @@
 ---
 id: STATBUS-380
-title: >-
-  No sanctioned operator verb for writes during a parked upgrade's read-only
-  window
+title: 'An operator can make one audited, urgent write while an upgrade is parked'
 status: To Do
 assignee: []
 created_date: '2026-09-21 12:03'
-updated_date: '2026-09-23 15:10'
+updated_date: '2026-09-24 14:53'
 labels:
   - upgrade
   - recovery
@@ -90,6 +88,10 @@ writes during a parked upgrade's read-only window. Raw admin psql with
 Classification: OPEN. Evidence: no sanctioned write-window verb exists; clicked checks also time out after five minutes when no daemon listens. No part of the item's own done-when is complete beyond any design already recorded above.
 
 A manually clicked check has no consumer when the upgrade daemon is missing or stopped, so the page waits for the generic five-minute timeout even though the existing unit-state banner already explains the daemon condition (`tmp/upgrades-page-ordering.md`).
+
+## North star
+
+While an upgrade is parked, an operator runs one audited repair command to make an urgent write. The write is recorded with who, when and why, and the parked upgrade stays parked for its fix release.
 
 ## 2026-09-24 status
 

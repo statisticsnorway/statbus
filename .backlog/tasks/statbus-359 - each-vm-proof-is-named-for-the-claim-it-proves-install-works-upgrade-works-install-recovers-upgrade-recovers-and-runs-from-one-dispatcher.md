@@ -1,12 +1,12 @@
 ---
 id: STATBUS-359
 title: >-
-  Name the VM proofs by the claim they prove: install-works, upgrade-works,
-  install-recovers, upgrade-recovers; one dispatcher; retire smoke, arc, wedge
+  Each VM proof is named for the claim it proves (install-works, upgrade-works,
+  install-recovers, upgrade-recovers) and runs from one dispatcher
 status: To Do
 assignee: []
 created_date: '2026-09-07 07:56'
-updated_date: '2026-09-23 15:10'
+updated_date: '2026-09-24 14:53'
 labels:
   - harness
   - release
@@ -180,6 +180,10 @@ Batch order: 370 -> 368 -> 367 -> 363 -> 357 -> 361 -> 362 -> 359.
 Classification: PARTIAL. Evidence: post-release scratch batch only; rename/move and next ladder proof remain.
 
 Remaining: Land the four-family rename and single dispatcher, sweep old terminology, and pass the first renamed ladder.
+
+## North star
+
+Each VM proof carries the name of the claim it proves (install-works, upgrade-works, install-recovers, upgrade-recovers), and one dispatcher runs them all. The release ladder reads as a list of proven claims.
 
 ## 2026-09-24 status
 

@@ -1,12 +1,12 @@
 ---
 id: STATBUS-357
 title: >-
-  https-only egress scenario: a box whose network blocks outbound HTTP must
-  install and upgrade (the Albania shape)
+  A box that can reach the internet only over HTTPS installs and upgrades
+  cleanly (the Albania shape)
 status: To Do
 assignee: []
 created_date: '2026-09-07 07:02'
-updated_date: '2026-09-23 15:10'
+updated_date: '2026-09-24 14:53'
 labels:
   - harness
   - install
@@ -104,6 +104,10 @@ Batch order: 370 -> 368 -> 367 -> 363 -> 357 -> 361 -> 362 -> 359.
 Classification: PARTIAL. Evidence: scratch design/build is recorded, but nothing landed and no paid RC proof exists.
 
 Remaining: Land the HTTPS-only egress scenario, its mutation control, and obtain a green paid RC run.
+
+## North star
+
+A box whose network allows only outbound HTTPS installs and upgrades end to end. The https-only egress scenario runs in the default harness set and passes for every candidate.
 
 ## 2026-09-24 status
 
