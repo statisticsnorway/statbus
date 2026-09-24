@@ -24,6 +24,12 @@ func withRunInstallDetectionHooks(t *testing.T) string {
 	if err := os.WriteFile(filepath.Join(installDir, ".env.config"), []byte("CADDY_DEPLOYMENT_MODE=development\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
+	bin := t.TempDir()
+	if err := os.WriteFile(filepath.Join(bin, "docker"), []byte("#!/bin/sh\nif [ \"$1\" = info ]; then printf '%s\\n' \"$STATBUS_TEST_DOCKER_ROOT\"; fi\n"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("STATBUS_TEST_DOCKER_ROOT", home)
+	t.Setenv("PATH", bin+string(os.PathListSeparator)+os.Getenv("PATH"))
 
 	originalDetect := detectInstallState
 	originalBundle := writeDetectionSupportBundle

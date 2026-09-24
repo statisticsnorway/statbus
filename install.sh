@@ -789,12 +789,12 @@ fi
 if [ "$sb_rc" -eq 78 ]; then
     if grep -Fq 'stdin is not a terminal (running under a pipe?). Run interactively with a terminal on stdin, or provide STATBUS_ENV_CONFIG for unattended install.' "$install_output"; then
         echo 'stdin is not a terminal (running under a pipe?). Run interactively with a terminal on stdin, or provide STATBUS_ENV_CONFIG for unattended install.'
-    elif grep -Eq '^(port [0-9]+ is in use by |Only [0-9]+ GB free on |a restart is still running)' "$install_output"; then
-        # Only these three known, single-line operator remedies may cross the
+    elif grep -Eq '^(port [0-9]+ is in use by |Only [0-9]+ GB free on |cannot check disk space at |a restart is still running)' "$install_output"; then
+        # Only these known, single-line operator remedies may cross the
         # install log boundary. Never print an arbitrary exception or traceback.
-        grep -E '^(port [0-9]+ is in use by |Only [0-9]+ GB free on |a restart is still running)' "$install_output" | tail -1
+        grep -E '^(port [0-9]+ is in use by |Only [0-9]+ GB free on |cannot check disk space at |a restart is still running)' "$install_output" | tail -1
     else
-        echo 'Installation cannot start with the current settings. Correct the settings, then run: curl -fsSL https://statbus.org/install.sh | bash'
+        echo "Installation cannot start with the current settings. Correct the settings, then run: $STATBUS_INSTALL_RERUN_COMMAND"
         preflight_bundle=$(grep -F 'send this file to StatBus support: ' "$install_output" | tail -1 | sed -E 's/^.*send this file to StatBus support: //' || true)
         case "$preflight_bundle" in
             "$STATBUS_DIR"/support-bundle-*.txt)

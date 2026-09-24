@@ -324,10 +324,8 @@ var allowedProcessExecutables = map[string]authorityExecutableClass{
 	"sh":           authorityMediator,
 	"ssh":          authorityTool,
 	"ssh-keygen":   authorityTool,
-	"ss":           authorityTool,
 	"sudo":         authorityTool,
 	"systemctl":    authorityTool,
-	"sudo":         authorityTool,
 	"tar":          authorityTool,
 }
 

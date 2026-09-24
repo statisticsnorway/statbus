@@ -33,9 +33,10 @@ grep -q 'curl -fsSL https://statbus.org/install.sh | bash' "$FIRST_LOG" || { cat
 grep -qi 'answers are saved' "$FIRST_LOG" || { cat "$FIRST_LOG" >&2; exit 1; }
 [ "$(VM_EXEC bash -c 'cd ~/statbus && docker compose ps -q | wc -l' | tr -d ' ')" = 0 ] || { echo 'StatBus services started before port preflight' >&2; exit 1; }
 VM_ROOT_EXEC systemctl disable --now apache2
-# Paste the exact published command from the home directory. The explicit
-# version env keeps the release candidate under test even if master advances.
-VM_EXEC bash -c "cd ~ && export STATBUS_ENV_CONFIG=\"\$HOME/install-input.env\" STATBUS_USERS_FILE=/tmp/users.yml STATBUS_INSTALL_VERSION='$INSTALL_TARGET_TAG'; curl -fsSL https://statbus.org/install.sh | bash"
+# Paste the exact command emitted in the refusal, including release and answer paths.
+RERUN_COMMAND=$(grep '^port 80 is in use by ' "$FIRST_LOG" | tail -1 | sed 's/^.*Then run the same install command again: //')
+[[ "$RERUN_COMMAND" == *'curl -fsSL https://statbus.org/install.sh | env '* && "$RERUN_COMMAND" == *"STATBUS_INSTALL_VERSION=$INSTALL_TARGET_TAG"* && "$RERUN_COMMAND" == *'bash -s -- --non-interactive'* ]] || { cat "$FIRST_LOG" >&2; exit 1; }
+VM_EXEC bash -c "cd ~ && $RERUN_COMMAND"
 assert_health_passes "$VM_NAME"
 rm -f "$FIRST_LOG"
 echo 'PASS: Apache port conflict refused before service start and saved-answer rerun is healthy'

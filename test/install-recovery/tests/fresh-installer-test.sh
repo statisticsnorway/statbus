@@ -33,6 +33,13 @@ set -eu
 if [ "$1" = --version ]; then echo 'fixture version'; exit 0; fi
 if [ "$1" != install ]; then exit 0; fi
 printf 'sb:%s\n' "$*" >> "$TRACE"
+if [ "${EMIT_DNS_ADVICE:-}" = 1 ]; then
+    printf '  candidate.example is not confirmed in public DNS, so an automatic public certificate cannot be promised, and local development is recommended for testing until the name is published and inbound port 80 is allowed.\n'
+fi
+if [ "${EMIT_RERUN:-}" = 1 ]; then
+    printf 'port 80 is in use by another program. Your answers are saved. Then run the same install command again: %s\n' "$STATBUS_INSTALL_RERUN_COMMAND"
+    exit 78
+fi
 if [ "${EXPECT_RESTART_MARKER:-}" = 1 ]; then
     grep -Fq '"trigger":"restart"' tmp/upgrade-in-progress.json || exit 93
     printf 'The previous restart finished. Continuing installation.\n'
@@ -78,6 +85,21 @@ echo 'PASS: FRESH clone, explicit relative paths and flags forwarded to sb; impl
 STATBUS_ENV_CONFIG="$EXPECTED_CONFIG" STATBUS_USERS_FILE="$EXPECTED_USERS" \
     bash "$ROOT/install.sh" --version v2026.09.0-rc.02 --non-interactive > "$TMP_ROOT/output"
 echo 'PASS: RESCUE preserves explicit absolute paths without shell-side config imports'
+EMIT_DNS_ADVICE=1 STATBUS_ENV_CONFIG="$EXPECTED_CONFIG" STATBUS_USERS_FILE="$EXPECTED_USERS" \
+    bash "$ROOT/install.sh" --version v2026.09.0-rc.02 --non-interactive > "$TMP_ROOT/dns-output"
+grep -Fq 'candidate.example is not confirmed in public DNS' "$TMP_ROOT/dns-output"
+echo 'PASS: answers-file install surfaces public DNS recommendation'
+set +e
+(cd "$TMP_ROOT" && EMIT_RERUN=1 STATBUS_ENV_CONFIG='inputs with spaces/config.env' STATBUS_USERS_FILE='inputs with spaces/users.yml' \
+    bash "$ROOT/install.sh" --version v2026.09.0-rc.02 --non-interactive) > "$TMP_ROOT/rerun-output" 2>&1
+rc=$?
+set -e
+[ "$rc" = 78 ]
+grep -Fq 'STATBUS_ENV_CONFIG=' "$TMP_ROOT/rerun-output"
+grep -Fq 'STATBUS_USERS_FILE=' "$TMP_ROOT/rerun-output"
+grep -Fq 'bash -s -- --version v2026.09.0-rc.02 --non-interactive' "$TMP_ROOT/rerun-output"
+grep -Fq "${TMP_ROOT}/inputs\\ with\\ spaces/config.env" "$TMP_ROOT/rerun-output"
+echo 'PASS: rerun retains version, flags and absolute quoted answer paths'
 # The real wrapper must leave a freed restart record for Go to inspect.
 mkdir -p "$HOME/statbus/tmp"
 printf '{"trigger":"restart","restart":{"profile":"all"}}\n' > "$HOME/statbus/tmp/upgrade-in-progress.json"

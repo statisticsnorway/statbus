@@ -9,6 +9,7 @@ import (
 	"strconv"
 	"strings"
 	"syscall"
+	"time"
 
 	"github.com/statisticsnorway/statbus/cli/internal/compose"
 	"github.com/statisticsnorway/statbus/cli/internal/dotenv"
@@ -72,6 +73,8 @@ func RerunCommand() string {
 
 // DockerRoot refuses to guess a storage location when Docker cannot report it.
 func DockerRoot(ctx context.Context, dir string) (string, error) {
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
 	command, err := compose.DockerCommandContext(ctx, dir, "info", "--format", "{{.DockerRootDir}}")
 	if err != nil {
 		return "", fmt.Errorf("cannot check disk space at Docker storage: Docker root unavailable")
@@ -80,7 +83,12 @@ func DockerRoot(ctx context.Context, dir string) (string, error) {
 	if err != nil || strings.TrimSpace(string(output)) == "" {
 		return "", fmt.Errorf("cannot check disk space at Docker storage: Docker root unavailable")
 	}
-	return strings.TrimSpace(string(output)), nil
+	root := strings.TrimSpace(string(output))
+	info, statErr := os.Stat(root)
+	if statErr != nil || !info.IsDir() {
+		return "", fmt.Errorf("cannot check disk space at Docker storage: Docker root unavailable")
+	}
+	return root, nil
 }
 
 // CheckWith is the common decision and measurement path for install, fixup and upgrade.

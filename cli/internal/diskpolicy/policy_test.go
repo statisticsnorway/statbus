@@ -1,6 +1,7 @@
 package diskpolicy
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 	"strings"
@@ -36,5 +37,27 @@ func TestSavedDiskPolicySurvivesNewProcess(t *testing.T) {
 		if allowed != (free >= 20) {
 			t.Fatalf("%d GB: allowed=%t", free, allowed)
 		}
+	}
+}
+
+func TestDockerRootUnavailableFailsClosed(t *testing.T) {
+	bin := t.TempDir()
+	docker := filepath.Join(bin, "docker")
+	if err := os.WriteFile(docker, []byte("#!/bin/sh\nprintf '/nonexistent/docker-storage\\n'\n"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("PATH", bin+string(os.PathListSeparator)+os.Getenv("PATH"))
+	_, err := DockerRoot(context.Background(), t.TempDir())
+	if err == nil || err.Error() != "cannot check disk space at Docker storage: Docker root unavailable" {
+		t.Fatalf("unavailable root: %v", err)
+	}
+}
+
+func TestDiskRefusalRetainsOperatorRerun(t *testing.T) {
+	command := "curl -fsSL https://statbus.org/install.sh | env STATBUS_ENV_CONFIG=/home/operator/answers bash -s -- --channel prerelease --non-interactive"
+	t.Setenv("STATBUS_INSTALL_RERUN_COMMAND", command)
+	message, ok := Evaluate(Measurement{Path: "/docker", FreeGB: 1})
+	if ok || !strings.Contains(message, command) {
+		t.Fatalf("refusal: %q allowed=%t", message, ok)
 	}
 }

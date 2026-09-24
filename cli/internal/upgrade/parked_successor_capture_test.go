@@ -18,6 +18,7 @@ func installParkedSuccessorConvergenceShim(t *testing.T, treeTag, sourceTag stri
 	shim := `#!/bin/sh
 printf '%s\n' "$*" >> "$STATBUS_TEST_DOCKER_LOG"
 case "$*" in
+	  "info --format {{.DockerRootDir}}") printf '%s\n' "$STATBUS_TEST_DOCKER_ROOT" ;;
   "compose --profile all config --format json")
     printf '%s\n' '{"services":{"app":{"image":"ghcr.io/statisticsnorway/statbus-app:'"$STATBUS_TEST_TREE_TAG"'"},"worker":{"image":"ghcr.io/statisticsnorway/statbus-worker:'"$STATBUS_TEST_TREE_TAG"'"},"rest":{"image":"postgrest/postgrest:v12.2.8"},"proxy":{"image":"ghcr.io/statisticsnorway/statbus-proxy:'"$STATBUS_TEST_TREE_TAG"'"}}}'
     ;;
@@ -74,6 +75,7 @@ exit 0
 	}
 	t.Setenv("PATH", shimDir+string(os.PathListSeparator)+os.Getenv("PATH"))
 	t.Setenv("STATBUS_TEST_DOCKER_LOG", logPath)
+	t.Setenv("STATBUS_TEST_DOCKER_ROOT", shimDir)
 	t.Setenv("STATBUS_TEST_CONVERGED_PATH", convergedPath)
 	t.Setenv("STATBUS_TEST_STOPPED_PATH", stoppedPath)
 	t.Setenv("STATBUS_TEST_TREE_TAG", treeTag)
