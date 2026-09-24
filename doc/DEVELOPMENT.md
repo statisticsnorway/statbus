@@ -616,7 +616,8 @@ real upgrade and install code against the local Docker Compose database. Fast
 Tests runs this tier on every commit after the daemon-floor oracle.
 
 ```bash
-# Run the same live-database tier locally. Keep services and the database up.
+# Keep Compose running and migrate statbus_seed first (for example,
+# ./dev.sh migrate-and-test fast). No app database is modified.
 ./dev.sh test-livedb
 
 # The stable-release gates need a real RC, credentials, and canary access, so
@@ -627,11 +628,15 @@ STATBUS_LIVE_RELEASE_GATES=v2026.09.0-rc.12 GITHUB_TOKEN=$(gh auth token) \
 
 Each package creates one detached Git worktree at `HEAD`, copies the local
 `.env.config` and `.env.credentials`, generates that worktree's `.env`, and builds an
-identity-bearing `sb` with the same ldflags as `dev.sh`. Direct subprocess calls
-use a pinned copy for the whole package run. Mutable daemon files such as
-`.env`, `sb`, `sb.old`, `tmp/`, and migration fixtures therefore belong to the
-scratch worktree, never the developer's checkout. The install and upgrade
-packages share a filesystem flock because they use the same local database.
+identity-bearing `sb` with the same ldflags as `dev.sh`. Each package clones
+the migrated `statbus_seed` into its own disposable database, points only its
+copied `.env` at that clone, and drops it after the package completes. This
+avoids both CI's uninitialized app database and local upgrade rows. Direct
+subprocess calls use a pinned copy for the whole package run. Mutable daemon
+files such as `.env`, `sb`, `sb.old`, `tmp/`, and migration fixtures therefore
+belong to the scratch worktree, never the developer's checkout. The install
+and upgrade packages share a filesystem flock because they also exercise host-level
+maintenance and upgrade files.
 
 Rules they follow, and that any new one must follow:
 
