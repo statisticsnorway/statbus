@@ -66,7 +66,7 @@ var allowedComposeUpCalls = map[string]approvedLaunch{
 	"cmd/db.go:dockerComposeStart":                                       {Count: 1, Reason: "operator database workflow starts the requested compose services through compose.Up"},
 	"cmd/install.go:composeApplyServiceDefault":                          {Count: 1, Reason: "install applies the configured default service set through compose.Up"},
 	"cmd/install.go:runInstall":                                          {Count: 1, Reason: "install starts the full application stack through compose.Up"},
-	"cmd/install.go:runStartServices":                                    {Count: 1, Reason: "install step starts its declared services through compose.Up"},
+	"cmd/install_services.go:composeUpAllDefault":                        {Count: 1, Reason: "install step 8 starts every service of the all profile through compose.Up"},
 	"cmd/service.go:startServices":                                       {Count: 1, Reason: "operator service start command delegates to the compose.Up chokepoint"},
 	"cmd/service_restart.go:restartServices":                             {Count: 1, Reason: "operator service restart brings services back through compose.Up"},
 	"internal/upgrade/exec.go:EnsureDBUp":                                {Count: 1, Reason: "upgrade database preparation starts only the database services through compose.Up"},

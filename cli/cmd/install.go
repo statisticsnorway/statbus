@@ -387,7 +387,7 @@ func runInstall() (installErr error) {
 	// clients". Idempotent: the check is a single SELECT count(*); if the
 	// pool has headroom this is a no-op. Gated on services-up so fresh
 	// installs (no DB container yet) skip cleanly.
-	if !bypass && checkServicesDone(installDir) && !checkSessionsClean(installDir) {
+	if !bypass && checkDBHealthy(installDir) && !checkSessionsClean(installDir) {
 		fmt.Println("  Pre-detect: connection pool not clean, running cleanOrphanSessions")
 		if err := cleanOrphanSessions(installDir); err != nil {
 			// Best-effort here — log and proceed. install.Detect's own
@@ -933,6 +933,14 @@ func runInstall() (installErr error) {
 	// the loop tail), resume so the system isn't left with clients down.
 	resumeIfQuiesced()
 
+	// Final check (audit B10): every service is running and the API answers
+	// /ready. A step table that is all green over a restart-looping rest or a
+	// proxy that never started must not print "Installation complete".
+	fmt.Println()
+	if err := verifyInstallServing(installDir, finalCheckBudget, finalCheckInterval); err != nil {
+		return err
+	}
+
 	fmt.Println()
 	if allDone {
 		fmt.Println("All steps complete. Nothing to do.")
@@ -1058,29 +1066,6 @@ func classifyDockerHealth(raw string) (dockerHealth, error) {
 }
 
 func (h dockerHealth) ready() bool { return h == dockerHealthHealthy }
-
-func checkServicesDone(dir string) bool {
-	// Use positional service name `db` rather than `--filter name=db`. The
-	// `--filter` flag's `name=` key is rejected by docker-compose v2.x as
-	// "unknown filter name" — observed on rune.statbus.org (statbus-no-db
-	// container, docker-compose Plugin 2025+). Positional service-name is
-	// the supported invocation; the legacy filter-style only worked on
-	// older lenient builds that silently accepted unknown filters.
-	cmd, buildErr := compose.CommandContext(context.Background(), dir, "ps", "db", "--format", "{{.Health}}")
-	if buildErr != nil {
-		return false
-	}
-	out, err := cmd.Output()
-	if err != nil {
-		return false
-	}
-	health, err := classifyDockerHealth(string(out))
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error: refusing to treat database service as ready: %v\n", err)
-		return false
-	}
-	return health.ready()
-}
 
 func checkMigrationsDone(dir string) bool {
 	// Done iff there are no pending migration files vs db.migration.
@@ -1373,16 +1358,6 @@ func runPullImages(dir string) error {
 		return runCmdDir(dir, "docker", "compose", "--profile", "all", "build")
 	}
 	return nil
-}
-
-func runStartServices(dir string) error {
-	cmd, err := compose.Up(context.Background(), dir, "--profile", "all", "-d")
-	if err != nil {
-		return err
-	}
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	return cmd.Run()
 }
 
 // diffEnvKeys returns every key whose value differs between oldContent and
@@ -2093,7 +2068,7 @@ func waitForInstallDBHealth(dir string, deadline time.Time, interval time.Durati
 		// Reuse the install step's existing Docker-health predicate. The database
 		// health check is backed by the container's pg_isready probe, so a
 		// restarting PostgreSQL remains "starting" until it accepts connections.
-		if checkServicesDone(dir) {
+		if checkDBHealthy(dir) {
 			return true
 		}
 		remaining := time.Until(deadline)
@@ -2333,7 +2308,7 @@ func cleanOrphanSessions(dir string) error {
 func checkSeedRestored(dir string) bool {
 	// If services aren't running yet, we can't check the DB.
 	// Return true to skip — the Services step must run first.
-	if !checkServicesDone(dir) {
+	if !checkDBHealthy(dir) {
 		return true
 	}
 
