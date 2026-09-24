@@ -1,20 +1,16 @@
 ---
 id: STATBUS-407
-title: >-
-  The installer keeps every database role password in agreement with its
-  settings on every run, and the upgrade service does the same before it
-  connects
+title: Installation and automatic updates keep database role passwords aligned with saved settings
 status: To Do
 assignee: []
 created_date: '2026-09-24 15:46'
+updated_date: '2026-09-24 18:44'
 labels:
   - install
   - database
   - upgrade
   - security
 dependencies: []
-references:
-  - /Users/jhf/ssb/.jcode/scratch/rest-loop.md
 priority: high
 type: bug
 ordinal: 360000
@@ -23,28 +19,17 @@ ordinal: 360000
 ## Description
 
 <!-- SECTION:DESCRIPTION:BEGIN -->
-Every installer run reconciles the database passwords for the administrator, application, API, and notification roles with the generated settings before any password-authenticated connection begins. The automatic update service performs the same reconciliation after the database is available and before it connects. A healthy box verifies the passwords and continues without changing them.
+After the database is available, installation reconciles administrator, application, API, and notification role passwords through the database-local trusted connection before any password-authenticated connection. Automatic-update startup performs the same reconciliation before its authenticated connection. Matching passwords produce a verified no-op.
 
 ## Evidence, 2026-09-24
 
-Primary records: `/Users/jhf/ssb/statbus/tmp/finland-transcript-2-actual.txt`, `/Users/jhf/ssb/statbus/tmp/finland-chat-3.txt`, `/Users/jhf/ssb/statbus/tmp/finland-answers-4.txt`, `/Users/jhf/ssb/statbus/tmp/installer-message-audit.md`, `/Users/jhf/ssb/statbus/tmp/setup-connection-map.md`, and `/Users/jhf/ssb/.jcode/scratch/rest-loop.md` (as applicable). Proposed behavior below is not an observation.
-
-A Hetzner Ubuntu 26.04 VM reproduced a surviving `statbus-<code>-db-data` volume with regenerated `.env.credentials`. `postgres/init-db.sh:135`, `:141`, and `:223` set role passwords only during first database initialization. The API then reported `FATAL: password authentication failed for user "authenticator"`; the automatic update service received SQLSTATE `28P01` for the administrator and timed out at step 17. Installer steps 1-16 appeared green because their database commands ran inside the database service through local trust. A prototype that reapplied all four passwords from the generated settings restored API readiness and automatic updates on the same VM.
-
-## Proving scenario
-
-New install-recovery scenario `5-install-orphaned-db-volume-credentials`: retain the database volume, recreate the installation directory and generated credentials, then run the one install command. Assert that installation exits successfully, API restart count remains stable for 60 seconds, the API readiness endpoint and `auth_status` return 200, the automatic update service is active, the upgrade row completes, and existing users remain intact.
+Role passwords are initially set only during empty-volume initialization (`postgres/init-db.sh:135-141,223` at master `7a9cf707e`). The disposable VM showed a surviving volume with regenerated settings, API authenticator failure, and automatic-update administrator failure (`/Users/jhf/ssb/.jcode/scratch/rest-loop.md:45-58`). The prototype reconciled all four roles locally and restored API and automatic-update readiness (`/Users/jhf/ssb/.jcode/scratch/rest-loop.md:55-67`). Password-authenticated consumers and the database-local ordering are documented at `/Users/jhf/ssb/.jcode/scratch/rest-loop.md:22-31,34-43,60-67`. How credentials diverged on the customer box remains undetermined (`/Users/jhf/ssb/.jcode/scratch/rest-loop.md:16-18`).
 <!-- SECTION:DESCRIPTION:END -->
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 Every installer run verifies and reconciles the administrator, application, API, and notification role passwords with the generated settings.
-- [ ] #2 Password reconciliation runs through the database local connection before any password-authenticated installer connection.
-- [ ] #3 The automatic update service reconciles the same role passwords after the database is available and before it connects.
-- [ ] #4 A healthy box verifies matching passwords and continues without changing them.
-- [ ] #5 The `5-install-orphaned-db-volume-credentials` scenario completes with the API ready, automatic updates active, the upgrade completed, and existing users intact.
+- [ ] #1 `new: cli/cmd/install_database_credentials_test.go::TestReconcileRolesBeforeAuthenticatedConnections` proves all four roles are reconciled through the local trusted connection before installer TCP authentication.
+- [ ] #2 `new: cli/internal/upgrade/database_credentials_test.go::TestServiceReconcilesBeforeConnect` proves automatic-update startup reconciles the same roles after database availability and before its authenticated connection.
+- [ ] #3 `new: cli/internal/databasecredentials/reconcile_test.go::TestMatchingPasswordsAreNoOp` records zero role changes when all four passwords already match.
+- [ ] #4 `new: test/install-recovery/scenarios/5-install-orphaned-db-volume-credentials.sh` preserves a disposable database volume and existing users, intentionally changes settings credentials, exercises both reconciliation paths, and observes API readiness plus completed automatic-update startup.
 <!-- AC:END -->
-
-## Review correction 2026-09-24
-
-Role anchors remain `postgres/init-db.sh:135,141,223`. Tie VM observations and the prototype to exact `/Users/jhf/ssb/.jcode/scratch/rest-loop.md` lines, and cite password-authenticated upgrade connection plus local reconciliation ordering. Add **new** `test/install-recovery/scenarios/5-install-orphaned-db-volume-credentials.sh`: on a disposable VM it preserves the database volume and existing users, intentionally changes settings credentials, exercises installer and automatic-update reconciliation, proves a matching-password no-op, then proves API and upgrade readiness. Implementation ownership is shared with STATBUS-394.

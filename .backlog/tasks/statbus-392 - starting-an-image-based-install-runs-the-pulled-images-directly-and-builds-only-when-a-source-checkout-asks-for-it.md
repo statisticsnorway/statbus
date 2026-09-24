@@ -1,12 +1,10 @@
 ---
 id: STATBUS-392
-title: >-
-  Starting an image-based install runs the pulled images directly, and builds
-  only when a source checkout asks for it
+title: Image-based starts run pulled images directly while source checkouts retain development builds
 status: To Do
 assignee: []
 created_date: '2026-09-24 16:42'
-updated_date: '2026-09-24 14:53'
+updated_date: '2026-09-24 18:40'
 labels:
   - install
 dependencies: []
@@ -15,24 +13,17 @@ type: bug
 ordinal: 1
 ---
 
-## Finland v2026.09.2 evidence (2026-09-24)
-
-The image-build behavior was noted in triage, but its original code citation does not exist at master `7a9cf707e`; the exact implementation location and observation source are not determined. Verify whether development mode adds `--build` on image-based installs before implementing the proposed change. This can turn a mode change or recovery into an unexpected local
-build; the install path currently avoids it only because its Services step uses
-plain `up -d`.
-
 ## Goal
 
-`./sb start` on an image-based install starts the pulled images directly. It
-builds only when the operator asks (`./sb build`) or a source development
-checkout needs it.
+`./sb start` distinguishes an image-based installation from a source checkout. Image-based development starts use pulled images without a build, while source development checkouts retain their build-before-start behavior.
 
-## Done when
+## Evidence, 2026-09-24
 
-- In development mode on an image-based install, `./sb start all` starts
-  within seconds using pulled images.
-- In a source checkout, the development build still happens.
+Current `./sb start` selects build solely from development mode (`cli/cmd/service.go:41-57` at master `7a9cf707e`), and compose mode detection reads `CADDY_DEPLOYMENT_MODE` (`cli/internal/compose/compose.go:445-452` at master `7a9cf707e`). Whether a released image installation exercised this path in Finland is unknown.
 
-## Review correction 2026-09-24
+## Acceptance Criteria
 
-Verified current behavior is `cli/cmd/service.go:47-56`, where development selects build, with start/build invocation in `cli/internal/compose/compose.go:445`; the prior `cli/internal/service/service.go:55` citation does not exist. The triage claim about image installs remains unknown unless separately sourced. Add named new unit and integration tests for image-based development mode and source checkout, measuring completion against an explicit test baseline rather than promising “within seconds” on arbitrary hardware.
+- [ ] #1 `new: cli/cmd/service_test.go::TestStartImageBasedDevelopmentSkipsBuild` observes no build invocation for an image-based development install.
+- [ ] #2 `new: cli/cmd/service_test.go::TestStartSourceDevelopmentBuilds` observes the existing build invocation for a source checkout.
+- [ ] #3 `new: test/install-recovery/scenarios/4-image-start-no-build.sh` measures an image start against a baseline pull-plus-start run and requires it to stay within 20 percent of that baseline with zero local builds.
+- [ ] #4 `new: test/install-recovery/scenarios/4-image-start-no-build.sh` records whether the image-install path was exercised, rather than claiming an unobserved Finland result.

@@ -1,17 +1,15 @@
 ---
 id: STATBUS-411
-title: The installer tells an unmigrated database apart from a pre-1.0 one and continues with seed and migrations
+title: The installer continues an initialized database through seed and migrations while preserving legacy data
 status: To Do
 assignee: []
 created_date: '2026-09-24 15:59'
+updated_date: '2026-09-24 18:44'
 labels:
   - install
   - recovery
   - database
 dependencies: []
-references:
-  - /Users/jhf/ssb/statbus/tmp/finland-answers-4.txt
-  - /Users/jhf/ssb/.jcode/scratch/rest-loop.md
 priority: high
 type: bug
 ordinal: 361100
@@ -20,34 +18,16 @@ ordinal: 361100
 ## Description
 
 <!-- SECTION:DESCRIPTION:BEGIN -->
-An initialized but unmigrated database is a fresh installation in progress. The installer continues with seed and migrations instead of directing its operator to the legacy upgrade procedure. A genuine pre-1.0 database, which contains StatBus tables and data but no `public.upgrade`, retains the existing refusal and manual-upgrade guidance.
+An init-db-only database with no `public.upgrade`, null `to_regclass('public.statistical_unit')`, and missing or empty `db.migration` is a first installation ready for seed and migrations. A database with `public.statistical_unit` present or at least one applied `db.migration` row but no `public.upgrade` is legacy, and its data is preserved with manual-upgrade guidance. STATBUS-408 shares this exact discriminator for interrupted first installation.
 
-## Grounded evidence
+## Evidence, 2026-09-24
 
-At master `7a9cf707e`, `cli/internal/install/state.go:138-148` checks `DBReachable`, then `HasUpgradeTable`, then returns `StateLegacyNoUpgradeTable` whenever the table is absent. This does not distinguish a database initialized by `postgres/init-db.sh` (roles and an application database, before the StatBus schema is installed) from an established pre-1.0 database. The differentiator to test is presence of StatBus schema/tables and data, not just absence of `public.upgrade`.
-
-In `/Users/jhf/ssb/statbus/tmp/finland-answers-4.txt:69-89`, the operator removed `statbus-local-db-data`, ran `./sb restart all` to create a fresh database volume, then ran `./sb install`. The output was exactly:
-
-> Detected install state: legacy-no-upgrade-table (current=v2026.09.2, target=v2026.09.2)
->   Pre-1.0 install detected (public.upgrade absent). Install will refuse; automatic upgrade from pre-1.0 tracked as #65.6.
->
-> Error: pre-1.0 install detected (public.upgrade table absent). Automatic upgrade from pre-1.0 is not yet implemented (tracked as #65.6). Contact support or follow the manual upgrade path in doc/CLOUD.md
-
-The related VM reproduction is `/Users/jhf/ssb/.jcode/scratch/rest-loop.md:48,168`. STATBUS-408 covers a *different entry into this same state ladder*: an interrupted installation whose original database volume survives. Keep the scenarios separate and cross-link their implementation.
-
-## Proving scenarios
-
-Existing unit-test location: `cli/internal/install/state_test.go:46` (`TestDetectWith`). Extend its fake-probe cases for init-db-only, established pre-1.0, and migrated databases. **New** install-recovery harness case: complete a fresh install, stop services and remove its test database volume, run `./sb restart all`, then paste the published one install command. Assert it reaches green and creates the StatBus schema rather than reporting a pre-1.0 installation. Run this only on an isolated disposable test VM and volume, never an operator database.
+Current state detection treats every reachable database without `public.upgrade` as legacy (`cli/internal/install/state.go:138-148` at master `7a9cf707e`), with current fake-probe coverage at `cli/internal/install/state_test.go:46-77`. Applied migrations are recorded in `db.migration` (`cli/internal/migrate/migrate.go:1-5`), and the existing seed-gate matrix defines missing, empty, and populated ledger semantics (`cli/cmd/seed_gate_test.go:25-58`), both at master `7a9cf707e`. Finland recreated a fresh database volume and received the legacy refusal (`/Users/jhf/ssb/statbus/tmp/finland-answers-4.txt:69-89`).
 <!-- SECTION:DESCRIPTION:END -->
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 `TestDetectWith` classifies a reachable init-db-only database with no StatBus schema as fresh and not yet migrated, an established database with StatBus tables and no `public.upgrade` as pre-1.0, and a migrated database as its existing state.
-- [ ] #2 On the fresh-unmigrated state, the installer proceeds through seed and migrations (steps 12-13) and the published install command completes with every required service ready.
-- [ ] #3 On the established pre-1.0 state, the installer keeps the existing refusal and manual-upgrade guidance rather than writing over its data.
-- [ ] #4 The new isolated fresh-volume/restart/install harness case completes without the `legacy-no-upgrade-table` refusal.
+- [ ] #1 `cli/internal/install/state_test.go::TestDetectWith` plus `new: cli/internal/install/state_markers_test.go::TestDetectWithSchemaAndSeedMarkers` classifies init-db-only, both conflicting fake-probe edges, established legacy, and migrated states using `public.statistical_unit` presence and `db.migration` row count.
+- [ ] #2 `new: test/install-recovery/scenarios/5-install-init-db-only-recovery.sh` uses a disposable volume, observes seed and migrations complete, and finishes with every required service ready.
+- [ ] #3 `new: test/install-recovery/scenarios/5-install-legacy-data-preservation.sh` creates representative legacy data, observes manual-upgrade guidance, and proves every sentinel row remains unchanged.
 <!-- AC:END -->
-
-## Review correction 2026-09-24
-
-Preserve `cli/internal/install/state.go:138-148`, `cli/internal/install/state_test.go:46-77`, and `/Users/jhf/ssb/statbus/tmp/finland-answers-4.txt:79-89`. Add **new** `test/install-recovery/scenarios/5-install-init-db-only-recovery.sh`, explicitly disposable. Positive acceptance is seed/migrations and all services ready for init-db-only state; test implementation may also assert absence of the legacy refusal. The shared discriminator with STATBUS-408 must preserve legacy data and classify both fake-probe edges.

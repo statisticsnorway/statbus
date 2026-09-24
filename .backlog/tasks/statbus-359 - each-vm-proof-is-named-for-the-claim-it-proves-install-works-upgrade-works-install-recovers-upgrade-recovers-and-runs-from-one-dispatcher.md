@@ -1,12 +1,10 @@
 ---
 id: STATBUS-359
-title: >-
-  Each VM proof is named for the claim it proves (install-works, upgrade-works,
-  install-recovers, upgrade-recovers) and runs from one dispatcher
+title: One dispatcher runs four VM proof families named for their outcomes
 status: To Do
 assignee: []
 created_date: '2026-09-07 07:56'
-updated_date: '2026-09-24 14:53'
+updated_date: '2026-09-24 18:47'
 labels:
   - harness
   - release
@@ -16,181 +14,21 @@ dependencies:
 ordinal: 80
 ---
 
-## Ruling (owner, 2026-09-07)
+## Description
 
-The paid VM proofs get four names that state the North Star in the name,
-what the test helps us ensure is the case:
+The paid VM proofs live under `test/vm/` in four positive outcome families: `install-works`, `upgrade-works`, `install-recovers`, and `upgrade-recovers`. One `test/vm/run.sh` dispatches by family, name, or all. The development entry point is `./dev.sh test-vm <family|name|all>`, while the free local Multipass check is `./dev.sh test-install-local`.
 
-| subject \ claim | nothing breaks | something breaks at one exact point |
-|---|---|---|
-| install | `install-works` | `install-recovers` |
-| upgrade | `upgrade-works` | `upgrade-recovers` |
+## Dated inventory, 2026-09-24
 
-Each name reads as the sentence the test proves. A red run reads as its
-negation, which is exactly the news an operator needs.
+A repository inventory in this worktree found 16 `test/install-recovery/scenarios/*.sh` files and 35 `test/install-recovery/arcs/*-arc.sh` files. Those are source-file counts, not final family counts. The earlier 15, 33, and 98 counts and historical CI descriptions are withdrawn. The authoritative family counts are generated after classification by the named dispatcher contract test below.
 
-**All other tribal language goes:** `smoke`, `arc`, `arcs`, `-arc.sh`,
-`wedge`, `fleet` (as a test-family name), `harness` (as a family
-qualifier). `scenario` stays only as the generic word for "one test file";
-it is not a family name. Where the tribal word carried a real distinction
-(STATBUS-071's "arc" meant real register+schedule dispatch, never
-fabricated state) that distinction is now universal doctrine, enforced by
-`run.sh`'s forbidden-shape scan, so the word distinguishes nothing.
+Current dispatch and release-gate entry points are `test/install-recovery/run.sh` and `cli/cmd/release/release.go:1463,1945,1972` at master `7a9cf707e`.
 
-Why not the conventional pairs: "sad path" means "bad input rejected
-gracefully" in test vocabulary, but our recovery tests inject a kill or an
-error into a VALID run and demand recovery, so "sad install" misleads.
-"Sunny/rainy", "nominal/off-nominal" are symmetric but say nothing about
-recovery. The verb pair names the proof, not the input.
+## Acceptance Criteria
 
-## Ground truth today (three families, three dispatch paths)
-
-| today | files | dispatched by | judged by |
-|---|---|---|---|
-| "smoke" | `scenarios/0-happy-install.sh`, `scenarios/0-happy-upgrade.sh` | `test-smoke.yaml`'s own `case` | `checkSmokeGate` |
-| "install-recovery scenarios" | `scenarios/*.sh` (15 incl. the two above) | `run.sh --print-selected` → `install-recovery-harness.yaml` | `checkInstallRecoveryHarnessGate` |
-| "upgrade arcs" | `arcs/*-arc.sh` (33) | `upgrade-arc-harness.yaml` builds lineage branches itself, calls `arcs/<name>-arc.sh` | `checkUpgradeArcHarnessGate` |
-
-All three already share `lib/` (vm-bootstrap, assertions, data-helpers,
-wedge-helpers, release-baseline, arc-helpers) and one VM shape. The
-difference is only in who selects and who constructs the lineage.
-
-One straggler: `scenarios/3-postswap-worker-ddl-deadlock.sh` registers and
-schedules a real upgrade, so it is an `upgrade-recovers` test living in the
-install family.
-
-Word census at the time of ruling (tracked files, excluding backlog,
-archive, tmp): `arc` 118 files, `wedge` 85, `arcs` 53, `smoke` 39. Heaviest:
-`test/install-recovery/arcs` (33), `cli/internal/upgrade` (23),
-`cli/internal/release` (13), `cli/cmd/release` (10), `.github/workflows` (8),
-`lib/` (8), `doc` + `doc/diagrams` (13).
-
-## Target shape
-
-```
-test/vm/                              (or keep test/install-recovery/ renamed; rule below)
-  run.sh                              ONE dispatcher for all four cells
-  lib/                                shared, unchanged in substance
-  install-works/     <name>.sh        1
-  upgrade-works/     <name>.sh        1 + today's `working` lineage fixture
-  install-recovers/  <name>.sh        13 (today's 1-boot-*, 5-install-*)
-  upgrade-recovers/  <name>.sh        32 (today's arcs minus `working`, plus 3-postswap-worker-ddl-deadlock)
-```
-
-- The cell is the directory; the file name drops every prefix and suffix
-  (`0-`, `1-boot-`, `5-install-`, `-arc`). Phase ordering that the prefixes
-  carried moves to a `# phase:` header line `run.sh` can sort on, or is
-  dropped if nothing consumes it (verify before deciding).
-- `run.sh` selects by cell, by name, or all; `--list` and
-  `--print-selected` keep their contract. Lineage construction that
-  `upgrade-arc-harness.yaml` does today moves into a `lib/` helper the
-  upgrade tests call, so the workflow is a thin matrix over `run.sh` output
-  like the fleet workflow already is.
-- Workflows: `test-smoke.yaml` → `install-works` + `upgrade-works` run
-  first because they are cheap (the ladder's rungs 4 and 5 keep their
-  place; only the label changes). `install-recovery-harness.yaml` →
-  `install-recovers.yaml`; `upgrade-arc-harness.yaml` →
-  `upgrade-recovers.yaml`. Job ids in `release-fleet-orchestrator.yaml`
-  follow.
-- `coverage.go` `Scenario.Home` takes the cell name; the ownership rule in
-  `doc/release-ladder.md` ("Fleet owns exactly `scenarios/<name>.sh`; arcs
-  own exactly `arcs/<name>-arc.sh`") becomes "each cell owns exactly
-  `<cell>/<name>.sh`".
-- Gate readers `checkSmokeGate`, `checkInstallRecoveryHarnessGate`,
-  `checkUpgradeArcHarnessGate` → one reader per cell with the cell name.
-- `lib/arc-helpers.sh` and `lib/wedge-helpers.sh` get names that say what
-  they contain (dispatch helpers, fault-injection helpers); `inject` stays
-  since it is the mechanism, not a family.
-- `doc/release-ladder.md`, `README.md`, `doc/CLOUD.md`, AGENTS.md,
-  `dev.sh` help text, `.claude/hooks/*`: all four names, no old words.
-- Backlog and `doc/archive` are history and are NOT rewritten.
-
-## Also in scope: the pg_regress CI job names (owner, 2026-09-07)
-
-Ground truth: `fast-tests.yaml` (GitHub runner) and `pg_regress.yaml`
-(niue, self-hosted) both run `./dev.sh migrate-and-test fast`, the same 98
-tests. The runner job is THE per-commit oracle; the niue job is the fallback
-for when we choose to run it ourselves, not a second gate. The names must
-say that ("pg_regress" vs "pg_regress fallback (self-hosted)" or similar),
-and nothing should wait on the fallback. The 4xx/5xx tier is deliberately
-outside CI (too slow); tests that are not slow must not live there (the
-349 and 347 repair tests were renumbered out of it).
-
-## Rulings still open (write the answer here before the work starts)
-
-1. Directory: `test/vm/` (says what they are: paid VM proofs) or keep
-   `test/install-recovery/` as the umbrella with the four cells inside?
-   The umbrella name is itself a family word, so `test/vm/` is the
-   consistent choice; ruling wanted because it moves 50 files' paths.
-2. `dev.sh` verbs: `test-install` today runs a Multipass happy install;
-   `test-install-recovery` runs the paid fleet. Proposed: `./dev.sh
-   test-vm <cell|name|all>` as the one entry, with `test-install` kept as
-   the free local Multipass check under a name that says so
-   (`test-install-local`).
-
-## Sequencing (owner rule: never during a paid run)
-
-Mechanical, wide, and it invalidates every coverage proof by design (the
-paths move, so `DecideCoverage` sees every home changed). So:
-
-1. Land AFTER the current queue (STATBUS-035/339 paid run, 337, 341, 354)
-   and after the batch RC is cut, or immediately before a fresh RC whose
-   full ladder will run anyway. Never between an RC tag and its proofs.
-2. One implementer, one commit series: (a) `git mv` with zero content
-   change so history follows; (b) `run.sh` + lineage helper; (c)
-   workflows + orchestrator job ids; (d) Go: homes, gate readers, tests;
-   (e) docs and hooks; (f) word sweep with the census re-run to zero.
-3. Prove without paying: `run.sh --list` and `--print-selected` per cell
-   match today's counts (2 / 13 / 1+1 / 32) before and after; `go test
-   ./cli/...` green (`workflow_triggers_test`,
-   `workflow_fleet_concurrency_test`, `architecture_test`,
-   `release_arc_domain_gate_test` all pin workflow and path names and must
-   be updated, not deleted); `bash -n` and shellcheck on every moved file;
-   `actionlint` on the workflows; `./sb release covered` against the last
-   RC reports every cell as uncovered (expected, by design) and against the
-   next RC's tag reports covered once its ladder is green.
-4. The next RC after landing runs the full ladder; that run is the
-   acceptance.
-
-## Acceptance
-
-1. The four names are the only family names in tracked, non-archive files;
-   `git grep -wiE 'smoke|arcs?|wedge' -- ':!.backlog' ':!doc/archive'`
-   returns only hits that are not test-family usage (each remaining hit
-   listed in the evidence with its reason, e.g. `arc` in an unrelated
-   identifier).
-2. One `run.sh` dispatches all four cells; the three workflows are thin
-   matrices over its output.
-3. Counts preserved and named per cell in `--list`.
-4. Coverage, gates, ladder doc, and orchestrator use the cell names.
-5. The first full ladder on the next RC is green with the new names.
-
-## Batch sequencing (owner ruling 2026-09-15)
-
-This ticket lands in the ONE batch after the current release: it does not
-touch master until v2026.09.1-rc.08 (or the first later rc that goes fully
-green) has been installed on Norway and promoted to stable. Then all batch
-tickets land in one push, one candidate, one ladder. Position in that push:
-**8 of 8**. rename the VM proofs and move to test/vm/; LAST because it moves ~50 files and invalidates coverage by design; needs the two rulings
-
-Batch order: 370 -> 368 -> 367 -> 363 -> 357 -> 361 -> 362 -> 359.
-
-## Reconciliation 2026-09-23
-
-Classification: PARTIAL. Evidence: post-release scratch batch only; rename/move and next ladder proof remain.
-
-Remaining: Land the four-family rename and single dispatcher, sweep old terminology, and pass the first renamed ladder.
-
-## North star
-
-Each VM proof carries the name of the claim it proves (install-works, upgrade-works, install-recovers, upgrade-recovers), and one dispatcher runs them all. The release ladder reads as a list of proven claims.
-
-## 2026-09-24 status
-
-Harness reorganisation is planned last in the next cycle. Next step: defer
-the four-family rename and single-dispatcher work until that cycle, then land
-the reorganisation and run the renamed ladder.
-
-## Review correction 2026-09-24
-
-The historical counts and CI claims above are not acceptance facts until recomputed from master. Before implementation, record the resolved directory and `dev.sh` verb rulings. Acceptance positively establishes the four families `install-works`, `upgrade-works`, `install-recovers`, and `upgrade-recovers`; the vocabulary grep is the named verification method, not the outcome. Name the new unified-dispatch contract test and the exact RC ladder run that proves it. Master dispatcher and gate locations are `test/install-recovery/run.sh` and `cli/cmd/release/release.go:1463,1945,1972`; workflow existence alone does not establish historical counts.
+- [ ] #1 `new: test/vm/tests/dispatcher-contract-test.sh` enumerates every moved proof exactly once in one of the four families and prints the computed count for each family.
+- [ ] #2 `new: test/vm/tests/dispatcher-contract-test.sh` proves `test/vm/run.sh --list`, `--print-selected`, family selection, name selection, and all selection use one dispatch contract.
+- [ ] #3 `new: test/vm/tests/dev-command-contract-test.sh` proves `./dev.sh test-vm` dispatches paid proofs and `./dev.sh test-install-local` retains the free local check.
+- [ ] #4 `new: test/vm/tests/release-contract-test.sh` proves coverage homes, release gates, workflow matrices, orchestrator job IDs, and release-ladder labels use the four positive family names.
+- [ ] #5 `new: test/vm/tests/family-vocabulary-test.sh` lists every remaining historical vocabulary hit with its non-family reason and positively verifies every active proof and operator command uses one of the four target family names.
+- [ ] #6 Paid run identity `STATBUS-359-four-cell-ladder-1`, recorded in `new: test/vm/evidence/STATBUS-359-four-cell-ladder-1.md`, runs the first candidate tag after landing and records all four families green through the release-candidate ladder.

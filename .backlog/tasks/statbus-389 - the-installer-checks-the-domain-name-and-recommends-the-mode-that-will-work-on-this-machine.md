@@ -1,15 +1,15 @@
 ---
 id: STATBUS-389
-title: >-
-  The installer checks the domain name and recommends the mode that will work on
-  this machine
+title: The installer checks the domain name and recommends a workable certificate choice
 status: To Do
 assignee: []
 created_date: '2026-09-24 16:42'
-updated_date: '2026-09-24 15:35'
+updated_date: '2026-09-24 18:40'
 labels:
   - install
-dependencies: []
+dependencies:
+  - STATBUS-358
+  - STATBUS-399
 priority: high
 type: bug
 ordinal: 1
@@ -18,28 +18,16 @@ ordinal: 1
 ## Description
 
 <!-- SECTION:DESCRIPTION:BEGIN -->
-After the domain question, the installer checks public DNS and whether this computer is reachable for automatic certificate setup. It then explains the result in one sentence and offers the certificate choices that work, in best-to-fallback order.
+After the domain answer, the installer checks public DNS and proposes an external reachability check. It explains the observed result and recommends a certificate choice that can complete installation on the current machine. Delegated certificates are coordinated with STATBUS-358 and private certificates with STATBUS-399.
 
 ## Evidence, 2026-09-24
 
-Primary records: `/Users/jhf/ssb/statbus/tmp/finland-transcript-actual.txt`, `/Users/jhf/ssb/statbus/tmp/finland-transcript-2-actual.txt`, `/Users/jhf/ssb/statbus/tmp/finland-chat-3.txt`, `/Users/jhf/ssb/statbus/tmp/finland-answers-4.txt`, `/Users/jhf/ssb/statbus/tmp/installer-message-audit.md`, and `/Users/jhf/ssb/statbus/tmp/setup-connection-map.md` (as applicable). Proposed behavior below is not an observation.
-
-The Finland laptop used `statbus.statfin.eu` only in `/etc/hosts` and had a private home-network address. The certificate service reported NXDOMAIN, retried every 600 seconds, and HTTPS returned a TLS internal error.
-
-Related: STATBUS-412 makes this setup answer revisable through an installer rerun, rather than requiring file edits.
-
-## Proving scenario
-
-New harness scenario `4-install-standalone-no-public-dns`: choose standalone with a name absent from public DNS. Assert that the installer explains why automatic setup is unavailable and offers, in order, the operator own certificate files, a certificate from Statistics Norway when available, and a private certificate as the final explicit choice.
+The Finland domain returned NXDOMAIN and automatic certificate issuance retried (`/Users/jhf/ssb/statbus/tmp/finland-answers-4.txt:6-12`). Current standalone configuration requests automatic public certificates (`caddy/templates/standalone.caddyfile.tmpl:145-155` at master `7a9cf707e`). External reachability checking is proposed behavior because DNS alone does not establish reachability.
 <!-- SECTION:DESCRIPTION:END -->
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 The installer checks public DNS and external reachability after the domain answer.
-- [ ] #2 The installer states whether automatic certificate setup works for this computer.
-- [ ] #3 When automatic setup is unavailable, the installer offers the working certificate choices in the agreed order.
+- [ ] #1 `new: cli/cmd/install_domain_test.go::TestDomainAssessmentSeparatesDNSFromReachability` reports public DNS as an observation and labels external reachability as checked only when that proposed probe actually ran.
+- [ ] #2 `new: test/install-recovery/scenarios/4-install-standalone-no-public-dns.sh` uses a name absent from public DNS, selects the offered private-certificate fallback from STATBUS-399, and completes installation to a working HTTPS page.
+- [ ] #3 `new: test/install-recovery/scenarios/4-install-standalone-no-public-dns.sh` records that automatic public certificates were not promised and that the recommended choice was workable on the installed machine.
 <!-- AC:END -->
-
-## Review correction 2026-09-24
-
-The customer saw NXDOMAIN/retry at `/Users/jhf/ssb/statbus/tmp/finland-answers-4.txt:6-12`; current certificate behavior is `caddy/templates/standalone.caddyfile.tmpl:145-155`. External reachability checking is proposed, since DNS alone does not prove reachability. The **new** `test/install-recovery/scenarios/4-install-standalone-no-public-dns.sh` must recommend an actually workable mode/certificate choice and complete installation. Choice order is coordinated with delegated certificates in STATBUS-358 and private certificates in STATBUS-399.

@@ -1,17 +1,15 @@
 ---
 id: STATBUS-396
-title: 'Git failures show the operator git''s own error message, with secrets redacted'
+title: Git failures show Git's useful error text with every secret redacted
 status: To Do
 assignee: []
 created_date: '2026-09-24 16:44'
-updated_date: '2026-09-24 14:53'
+updated_date: '2026-09-24 18:42'
 labels:
   - cli
   - error-handling
   - security
 dependencies: []
-references:
-  - next/git-stderr
 priority: medium
 type: task
 ordinal: 86
@@ -19,21 +17,15 @@ ordinal: 86
 
 ## Description
 
-When a git command fails, the operator sees git's own error message, with
-tokens and other secrets replaced by a redaction marker.
+When a Git command fails, terminal and log output retain Git's actionable authentication, missing-reference, or network text while replacing tokens, passwords, and credential-bearing URL components with `[REDACTED]`.
 
-## Done when
+## Evidence, 2026-09-24
 
-- Representative git failures (auth, missing ref, network) show git's message.
-- A failure with a credential in the URL shows the message with the credential
-  redacted.
+Master commonly captures child-process output with `CombinedOutput` and includes it in wrapped errors, for example `cli/cmd/install.go:1646-1649` and `cli/cmd/db.go:290-292` at `7a9cf707e`. The permitted representative fixture texts are recorded by the named tests below: `fatal: Authentication failed`, `fatal: couldn't find remote ref <ref>`, and `fatal: unable to access <url>: Could not resolve host`.
 
-## 2026-09-24 status
+## Acceptance Criteria
 
-Branch `next/git-stderr` is under review. Next step: complete review, merge the
-redacted stderr handling, and verify representative git failure paths do not
-leak sensitive values.
-
-## Review correction 2026-09-24
-
-Current git stderr/wrapping must be cited from master, including `cli/cmd/install.go:1646` and `cli/cmd/db.go:290`; `next/git-stderr` is not master evidence. Attach permitted auth, missing-ref, and network failure transcripts. Add named new tests for all three failures and credential-bearing URL variants in terminal and logs. The observable redaction marker is `[REDACTED]`, and assertions prove no character sequence from the fixture secret survives.
+- [ ] #1 `new: cli/internal/gitexec/errors_test.go::TestAuthenticationFailurePreservesMessageAndRedactsSecret` sends a credential-bearing URL and observes `fatal: Authentication failed` plus `[REDACTED]` in terminal and log output, with no fixture-secret substring surviving.
+- [ ] #2 `new: cli/internal/gitexec/errors_test.go::TestMissingRefPreservesMessage` observes `fatal: couldn't find remote ref <ref>` in terminal and log output.
+- [ ] #3 `new: cli/internal/gitexec/errors_test.go::TestNetworkFailurePreservesMessageAndRedactsURLCredentials` observes `Could not resolve host` and `[REDACTED]` in both outputs with no fixture-secret substring surviving.
+- [ ] #4 `new: test/install/install-git-errors-test.sh` exercises the three named Git failures through the installer and verifies the same terminal and install-log assertions.

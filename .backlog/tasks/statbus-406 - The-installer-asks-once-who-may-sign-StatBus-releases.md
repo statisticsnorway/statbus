@@ -1,9 +1,10 @@
 ---
 id: STATBUS-406
-title: The installer asks once who may sign StatBus releases
+title: The installer asks once whether to trust the Statistics Norway release signer
 status: To Do
 assignee: []
 created_date: '2026-09-24 15:35'
+updated_date: '2026-09-24 18:44'
 labels:
   - install
   - security
@@ -17,27 +18,16 @@ ordinal: 359000
 ## Description
 
 <!-- SECTION:DESCRIPTION:BEGIN -->
-Installation asks one plain question about trusting the Statistics Norway release signer, shows the key fingerprint, records the answer, and reports the signer step as complete later in the run. Additional signers are managed after installation through the web interface.
+Installation asks one plain question about trusting the Statistics Norway release signer, shows the key fingerprint, persists the answer, and later reports the signer step complete. The terminal does not enter an additional-signer loop.
 
 ## Evidence, 2026-09-24
 
-Primary records: `/Users/jhf/ssb/statbus/tmp/finland-transcript-2-actual.txt`, `/Users/jhf/ssb/statbus/tmp/finland-chat-3.txt`, `/Users/jhf/ssb/statbus/tmp/finland-answers-4.txt`, `/Users/jhf/ssb/statbus/tmp/installer-message-audit.md`, `/Users/jhf/ssb/statbus/tmp/setup-connection-map.md`, and `/Users/jhf/ssb/.jcode/scratch/rest-loop.md` (as applicable). Proposed behavior below is not an observation.
-
-Finland was asked about a release signer before the step table and then saw a separate trusted-signers step. The question used GitHub and key-management terminology and offered an additional-signer loop.
-
-## Proving scenario
-
-Extend signer order and input tests to count one prompt per run. A terminal-driven fresh-install scenario records one plain question, the fingerprint, and a later OK result for the signer step.
+The Finland flow asked for trust before the step table, showed the fingerprint, offered an additional-signer prompt, and later ran the signer step (`/Users/jhf/ssb/statbus/tmp/finland-transcript-actual.txt:88-102`, `/Users/jhf/ssb/statbus/tmp/finland-transcript-2-actual.txt:107-114`). Master separates early input and step-16 handling at `cli/cmd/install.go:107,163,2572-2588` at `7a9cf707e`. No verified web signer-management feature is part of this ticket.
 <!-- SECTION:DESCRIPTION:END -->
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 Installation asks one plain question about trusting the Statistics Norway release signer.
-- [ ] #2 The question shows the signing key fingerprint before recording trust.
-- [ ] #3 The later signer step reports OK from the recorded answer.
-- [ ] #4 Additional signer management is available through the web interface after installation.
+- [ ] #1 `cli/cmd/install_trust_input_test.go` observes one plain trust choice with fingerprint before persistence.
+- [ ] #2 `cli/cmd/install_trust_order_test.go` observes the persisted choice before the later signer step and no second prompt.
+- [ ] #3 `new: test/install-recovery/scenarios/0-interactive-trusted-signer.sh` records exactly one trusted-signer choice, the fingerprint, a later OK result, and no additional-signer terminal loop.
 <!-- AC:END -->
-
-## Review correction 2026-09-24
-
-Cite separately the pre-step question, step-16 handling, fingerprint output (`cli/cmd/install.go:107,163,2572-2588`), and any established web signer management. Name the exact existing signer input/order tests and add **new** `test/install-recovery/scenarios/0-interactive-trusted-signer.sh`, which observes one trusted-signer choice and no later terminal loop. Remove web-interface acceptance unless that feature is verified and exercised.

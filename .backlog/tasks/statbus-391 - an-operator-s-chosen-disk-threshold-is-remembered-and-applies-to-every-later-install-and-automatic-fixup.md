@@ -1,15 +1,14 @@
 ---
 id: STATBUS-391
-title: >-
-  Later install and repair work follows the same measured disk policy as first
-  installation
+title: Later installation and repair work follows the persisted disk policy chosen at first installation
 status: To Do
 assignee: []
 created_date: '2026-09-24 16:42'
-updated_date: '2026-09-24 15:35'
+updated_date: '2026-09-24 18:40'
 labels:
   - install
-dependencies: []
+dependencies:
+  - STATBUS-386
 priority: high
 type: bug
 ordinal: 1
@@ -18,26 +17,16 @@ ordinal: 1
 ## Description
 
 <!-- SECTION:DESCRIPTION:BEGIN -->
-First installation, reruns, upgrades, and automatic repair use the same measured disk locations and thresholds. The warning band remains a warning during later work, so a box accepted at installation continues through routine repair.
+The installer persists the STATBUS-386 disk-policy choice in `.env.config`. First installation, a new process, service restart, rerun, upgrade, and automatic fixup measure the Docker service-data and backup filesystems with the same 20 GB minimum and 40 GB recommendation.
 
 ## Evidence, 2026-09-24
 
-Primary records: `/Users/jhf/ssb/statbus/tmp/finland-transcript-actual.txt`, `/Users/jhf/ssb/statbus/tmp/finland-transcript-2-actual.txt`, `/Users/jhf/ssb/statbus/tmp/finland-chat-3.txt`, `/Users/jhf/ssb/statbus/tmp/finland-answers-4.txt`, `/Users/jhf/ssb/statbus/tmp/installer-message-audit.md`, and `/Users/jhf/ssb/statbus/tmp/setup-connection-map.md` (as applicable). Proposed behavior below is not an observation.
-
-The Finland run needed an internal disk override. Separate automatic fixup code could apply a different threshold later, making the accepted choice unstable across runs.
-
-## Proving scenario
-
-Unit coverage feeds the same free-space values to first-install and later-fixup checks and receives the same refusal, warning, and recommended results. Install-recovery arcs run on ordinary 40 GB VMs and complete both install and repair.
+Current first-install code reads an ephemeral environment override and measures `.` (`cli/cmd/install.go:524-538` at master `7a9cf707e`). The automatic upgrade service independently measures `d.projDir` only for reporting and does not apply the selected install threshold (`cli/internal/upgrade/service.go:4689-4703` at master `7a9cf707e`). The rollback-resurrection arc invokes later fixup (`test/install-recovery/arcs/c-rollback-resurrection-arc.sh:307` at master `7a9cf707e`). Persisting one shared policy across these callers is the target behavior of this ticket.
 <!-- SECTION:DESCRIPTION:END -->
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 First installation, reruns, upgrades, and automatic repair measure the same service-data and backup locations.
-- [ ] #2 Each path applies the same starting minimum and recommended capacity.
-- [ ] #3 A box in the warning band completes routine install and repair work.
+- [ ] #1 `new: cli/internal/diskpolicy/policy_test.go::TestSharedThresholdAcrossCallers` gives first install, rerun, upgrade, and fixup the same free-space values and observes identical refusal, warning, and recommended results.
+- [ ] #2 `new: cli/cmd/install_disk_policy_test.go::TestDiskPolicyPersistsInEnvConfig` selects the 20 GB minimum and 40 GB recommendation and observes the same measured locations and values after a new process and service restart.
+- [ ] #3 `new: test/install-recovery/scenarios/5-install-disk-threshold-repair.sh` proves the persisted choice survives installation, upgrade, and automatic fixup on the 40 GB VM.
 <!-- AC:END -->
-
-## Review correction 2026-09-24
-
-First-install measurement is `cli/cmd/install.go:524-538`; cite the actual later automatic-fixup implementation rather than inferring it from the audit (`test/install-recovery/arcs/c-rollback-resurrection-arc.sh:307` is only a current test anchor). Record the minimum, recommendation, persisted operator choice, and measured locations. Add a named shared-threshold unit test and **new** `test/install-recovery/scenarios/5-install-disk-threshold-repair.sh`, proving the choice persists across a new process, service restart, upgrade, and fixup.

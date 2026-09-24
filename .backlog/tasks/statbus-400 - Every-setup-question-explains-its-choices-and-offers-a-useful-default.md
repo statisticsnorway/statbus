@@ -4,10 +4,12 @@ title: Every setup question explains its choices and offers a useful default
 status: To Do
 assignee: []
 created_date: '2026-09-24 15:35'
+updated_date: '2026-09-24 18:42'
 labels:
   - install
   - ux
-dependencies: []
+dependencies:
+  - STATBUS-412
 priority: high
 type: bug
 ordinal: 353000
@@ -16,27 +18,16 @@ ordinal: 353000
 ## Description
 
 <!-- SECTION:DESCRIPTION:BEGIN -->
-Interactive installation questions use plain words, explain each choice in one line, and offer defaults derived from the computer and domain. The installation type question explains public server, server behind an existing web gateway, and local development without exposing internal component names. The site code defaults from the first domain label, and the domain starts empty.
+Interactive setup uses plain words and one-line explanations. On a private laptop, the recommended default is local development rather than a public server. The domain starts empty, site code defaults from the chosen domain's first label, and a rerun presents persisted values as defaults while allowing revision through STATBUS-412.
 
 ## Evidence, 2026-09-24
 
-Primary records: `/Users/jhf/ssb/statbus/tmp/finland-transcript-2-actual.txt`, `/Users/jhf/ssb/statbus/tmp/finland-chat-3.txt`, `/Users/jhf/ssb/statbus/tmp/finland-answers-4.txt`, `/Users/jhf/ssb/statbus/tmp/installer-message-audit.md`, `/Users/jhf/ssb/statbus/tmp/setup-connection-map.md`, and `/Users/jhf/ssb/.jcode/scratch/rest-loop.md` (as applicable). Proposed behavior below is not an observation.
-
-The Finland operator selected a public-server installation for a private laptop name. Existing prompts used internal deployment labels and offered `statbus.nso.eu` as a domain placeholder.
-
-## Proving scenario
-
-Unit tests cover prompt text and defaults. A terminal-driven fresh-install scenario records the question flow and selects the recommended choice for a private laptop.
+The Finland prompt offered internal deployment labels and defaulted to standalone plus `statbus.nso.eu` (`/Users/jhf/ssb/statbus/tmp/finland-transcript-actual.txt:46-52`). Current hardcoded defaults are in `cli/internal/installinput/config.go:31-33` at master `7a9cf707e`. Detecting a private-laptop situation and recommending local development is target behavior.
 <!-- SECTION:DESCRIPTION:END -->
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 Each interactive question explains every choice in one plain-language line.
-- [ ] #2 The recommended installation choice fits the detected network situation.
-- [ ] #3 The site code defaults from the first label of the chosen domain.
-- [ ] #4 The domain question begins empty and accepts the operator chosen name.
+- [ ] #1 `new: cli/internal/installinput/config_test.go::TestSetupChoiceExplanationsAndDefaults` asserts every choice's exact plain-language explanation, an empty fresh domain, and domain-derived site code.
+- [ ] #2 `new: test/install-recovery/scenarios/0-interactive-setup-choices.sh` detects a private laptop, presents local development as the default, accepts it, and completes the setup flow.
+- [ ] #3 `new: test/install-recovery/scenarios/0-interactive-setup-choices.sh` reruns setup, observes persisted values as defaults, changes one value through STATBUS-412, and observes the revised value on the next rerun.
 <!-- AC:END -->
-
-## Review correction 2026-09-24
-
-Current hardcoded defaults are `cli/internal/installinput/config.go:31-33`; attach the exact Finland prompt lines to quoted wording. Add **new** `test/install-recovery/scenarios/0-interactive-setup-choices.sh`, asserting exact plain-language choices and the recommended private-laptop default. A rerun presents existing values as defaults and allows revision consistently with STATBUS-412.

@@ -1,16 +1,16 @@
 ---
 id: STATBUS-410
-title: Running the installer clears a restart that did not finish and continues
+title: Running the installer completes or waits for an earlier restart
 status: To Do
 assignee: []
 created_date: '2026-09-24 15:47'
+updated_date: '2026-09-24 18:44'
 labels:
   - install
   - restart
   - recovery
-dependencies: []
-references:
-  - /Users/jhf/ssb/statbus/tmp/finland-answers-4.txt
+dependencies:
+  - STATBUS-407
 priority: high
 type: bug
 ordinal: 363000
@@ -19,30 +19,17 @@ ordinal: 363000
 ## Description
 
 <!-- SECTION:DESCRIPTION:BEGIN -->
-Running the one install command detects whether a recorded restart still owns its lock. When the lock is free, installation treats the record as an unfinished restart, clears any failed-state start limit for the automatic update service, restores the services according to the saved restart intent, clears the record after readiness is confirmed, and continues installation. When a restart process still owns the lock, the installer says in plain words that restart is in progress and asks the operator to wait.
+When an earlier restart is no longer running, the installer restores the saved service set, confirms readiness, clears the saved restart state, and continues. When the restart is still running, the installer asks the operator to wait. Recovery from a start-rate limit occurs after the underlying password or route cause is corrected.
 
 ## Evidence, 2026-09-24
 
-Primary records: `/Users/jhf/ssb/statbus/tmp/finland-transcript-2-actual.txt`, `/Users/jhf/ssb/statbus/tmp/finland-chat-3.txt`, `/Users/jhf/ssb/statbus/tmp/finland-answers-4.txt`, `/Users/jhf/ssb/statbus/tmp/installer-message-audit.md`, `/Users/jhf/ssb/statbus/tmp/setup-connection-map.md`, and `/Users/jhf/ssb/.jcode/scratch/rest-loop.md` (as applicable). Proposed behavior below is not an observation.
-
-Finland operator output at 17:46 showed that an earlier `./sb restart all` stopped services and then failed while starting the automatic update service because of the stale database password. The saved restart record remained. A later `./sb install` was refused with `a restart is running or did not finish` and directed the operator back to `./sb restart all`. `cli/internal/upgrade/restart.go:19-38` currently refuses whenever the restart record exists through `restartRefusal` and `CheckRestartBarrier`, before distinguishing a live lock holder from an unfinished restart.
-
-The local Multipass replay reproduced a second dead end after repeated failed restarts: the automatic update service reached its start-rate limit, every subsequent restart failed immediately, and the installer directed the operator back to the same restart command. Recovery succeeded only after clearing the unit's failed state, but none of the messages identified that recovery. The installer can make the documented one-command recovery converge by clearing this failed state before it starts the service. Source: `/Users/jhf/ssb/statbus/tmp/local-ville-replay.md`, lines 964-980 and 1017-1018.
-
-## Proving scenario
-
-Add an install-recovery harness case that starts `./sb restart all`, terminates it after services are down and the restart intent is saved, then runs `curl -fsSL https://statbus.org/install.sh | bash`. The installer acquires the free lock, restores the saved service set, confirms readiness, clears the restart record, continues, and exits successfully with every required service running. A companion live-lock case keeps restart running and observes the plain wait message.
+Finland retained a saved restart after restart failure and later refused installer recovery (`/Users/jhf/ssb/statbus/tmp/finland-answers-4.txt:69-75`). Current restart refusal and saved intent are at `cli/internal/upgrade/restart.go:19-87` at master `7a9cf707e`. The local replay recovered from the start-rate limit only after the password cause was corrected (`/Users/jhf/ssb/statbus/tmp/local-ville-replay.md:964-980,1017-1018`).
 <!-- SECTION:DESCRIPTION:END -->
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 The installer checks the restart lock when a restart record exists.
-- [ ] #2 With a free lock, the installer restores the saved service set, confirms readiness, clears the restart record, and continues installation.
-- [ ] #3 With a held lock, the installer states that restart is in progress and asks the operator to wait.
-- [ ] #4 The interrupted-restart harness case completes through the one install command with every required service running.
-- [ ] #5 Before restoring an unfinished restart, the installer clears the automatic update service's failed state so a previous start-rate limit cannot block recovery.
+- [ ] #1 `new: test/install-recovery/scenarios/5-install-interrupted-restart.sh` terminates a restart after saving intent, then observes the installer restore exactly that service set, confirm readiness, clear saved state, and complete.
+- [ ] #2 `new: test/install-recovery/scenarios/5-install-live-upgrade-wait.sh` keeps the earlier operation active and observes a plain wait message with no competing recovery.
+- [ ] #3 `new: test/install-recovery/scenarios/5-install-start-limit-recovery.sh` first proves reset alone cannot recover while the password or route cause remains, then fixes the cause, clears failed state, and observes a ready service.
+- [ ] #4 `new: cli/internal/upgrade/restart_test.go::TestInterruptedAndLiveRestartClassification` deterministically covers both ownership states and saved-intent preservation.
 <!-- AC:END -->
-
-## Review correction 2026-09-24
-
-Customer evidence is `/Users/jhf/ssb/statbus/tmp/finland-answers-4.txt:69-75`; current restart and saved-intent behavior is `cli/internal/upgrade/restart.go:19-38,40-87`. Add **new** `test/install-recovery/scenarios/5-install-interrupted-restart.sh`, `5-install-live-upgrade-wait.sh`, and `5-install-start-limit-recovery.sh`. Observe readiness, saved service set, marker clearing, held-lock wait, and one-command rerun. Local replay shows start-rate recovery only after correcting passwords (`tmp/local-ville-replay.md:964-980,1017-1018`), so clearing failed state is tested separately from fixing the underlying cause.

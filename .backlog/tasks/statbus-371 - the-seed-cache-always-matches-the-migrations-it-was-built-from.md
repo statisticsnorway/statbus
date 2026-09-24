@@ -1,10 +1,10 @@
 ---
 id: STATBUS-371
-title: The seed cache always matches the migrations it was built from
+title: Retained seed lineages preserve every migration version they may contain
 status: To Do
 assignee: []
 created_date: '2026-09-16 22:34'
-updated_date: '2026-09-24 14:53'
+updated_date: '2026-09-24 18:45'
 labels:
   - migrations
   - ci
@@ -17,59 +17,18 @@ ordinal: 9
 
 ## Description
 
-A migration filename/version is part of the seed-cache chain as soon as a cache
-has recorded it. "Never released" does not make renumbering safe.
+The prerelease gate preserves every migration version visible in the authoritative retained seed lineage. A candidate that removes or renumbers one of those versions is rejected and directed to restore it plus add a forward migration. Cache consumption separately rejects incompatible cached history and falls back to full replay where that fallback is permitted. Renumbering does not itself rebuild a cache.
 
-STATBUS-347 migration `20260903205636` was retimestamped to
-`20260907120000` in `f6d249b62`. Niue's stale cached seed still contained the
-old version and its `rollback_finish_pending_at` column. The eager content-hash
-check ignored file-less orphan ledger rows, so restore accepted the cache and
-full replay attempted the renumbered migration against the already-present
-column. pg_regress then failed every commit since rc.11 with
-`column rollback_finish_pending_at already exists`.
+## Evidence, 2026-09-24
 
-## Observed repair (2026-09-16)
+The merged prerelease guard rejects retained migration renumbering (`cli/cmd/release/release.go:892-909` and `cli/cmd/release/release_verify.go:265-276` at master `7a9cf707e`). The current authoritative lineage is the first-parent union after the previous release baseline (`cli/internal/release/seed_lineage.go:15-37` at master `7a9cf707e`), with its retained-version cases in `cli/internal/release/seed_lineage_test.go`. Incompatible-cache validation precedes restore mutation (`cli/cmd/seed_cache_test.go:52-87`), while permitted full-replay fallback is classified by `cli/cmd/seed_gate_test.go:11-23`, both at master `7a9cf707e`. Earlier repair commit and CI-run claims remain unverified and are not part of the operative evidence.
 
-- `aaaaee881`: fail-closed cache compatibility preflight before `pg_restore`.
-- `23b3993ad`: rejected development cache falls back to full replay.
-- Niue pg_regress run `35116209731`: stale cache rejected, full replay used,
-  all 100 tests passed.
+The owner decision on the first-parent retained-lineage choice remains open. Mutable registry contents are not the authority because deletion or expiry could remove the history used by the gate. This rationale is target policy pending owner confirmation.
 
-These commits repair cache consumption. They do not yet prevent a migration
-renumber from entering the prerelease line.
+## Acceptance Criteria
 
-## Architect decision required
-
-Choose and build the forward guard at the prerelease gate. It must reject a
-candidate when migration history renames or removes a version that can exist in
-any retained seed/cache chain, even if no named release contains that version.
-The invariant and authoritative comparison base are not yet designed. Do not
-close this ticket on the restore fallback alone.
-
-## Reconciliation 2026-09-23
-
-Classification: OPEN. Evidence: invariant is documented but no seed-lineage guard/repair implementation was found. No part of the item's own done-when is complete beyond any design already recorded above.
-
-## Implementation note 2026-09-24
-
-Provisional, owner to confirm: the authoritative retained lineage is the union of migration versions visible on first-parent Git history after the previous release baseline. Every master push is eligible to publish a commit-addressed seed, so this is a deterministic, fail-closed over-approximation of versions that may remain in caches even when no release tag contains them.
-
-Rejected alternative: query the set of seed tags currently present in GHCR. Registry state is mutable and network-dependent; deleting or expiring an image would erase the evidence used by the release guard.
-
-The prerelease preflight and prerelease tag validator now reject a candidate that removes or renumbers any version in that lineage. The diagnostic identifies the version, first commit, and original path, and directs the operator to restore the version and add a forward migration.
-
-## North star
-
-The seed cache is keyed by the exact migration lineage it was built from. When migrations are renumbered, the cache is rebuilt from the new lineage before anything uses it.
-
-## 2026-09-24 status
-
-The seed lineage guard is merged. The owner requested an explanation of the
-authoritative-lineage choice, so that decision remains **OPEN**. Next step:
-explain why the first-parent post-release-baseline union is the authoritative,
-deterministic fail-closed source rather than mutable registry state, then
-record the owner's confirmation.
-
-## Review correction 2026-09-24
-
-The guard rejects retained migration renumbering (`cli/cmd/release/release.go:892-896`); it does not rebuild the cache merely because a version was renumbered. The target is preserved retained migration versions, or an explicit lineage change that regenerates a compatible seed before use. Acceptance names tests for first-parent retained-lineage rejection, preserved history, stale-cache fallback (`cli/cmd/release/release_verify.go:265`; `cli/cmd/seed_cache_test.go:14`), and the still-pending owner choice. The two repair commits and CI run `35116209731` remain unverified until attached to permitted primary evidence.
+- [ ] #1 `cli/internal/release/seed_lineage_test.go::TestMissingSeedLineageMigrationsRejectsPrereleaseRenumber` identifies the retained version, first commit, and original path and rejects renumbering.
+- [ ] #2 `cli/internal/release/seed_lineage_test.go::TestMissingSeedLineageMigrationsRejectsPrereleaseRemoval` rejects removal from retained first-parent history.
+- [ ] #3 `cli/internal/release/seed_lineage_test.go::TestMissingSeedLineageMigrationsAllowsAdditionsAndSameVersionRename` preserves the version while allowing additions and description-only path changes.
+- [ ] #4 `cli/cmd/seed_cache_test.go::TestRunSeedRestoreCmd_ValidatesCacheBeforeRestoreMutation` and `cli/cmd/seed_gate_test.go::TestClassifySeedRestoreErrorFallsBackForIncompatibleCache` prove pre-mutation incompatibility rejection and permitted full-replay fallback.
+- [ ] #5 `new: doc/seed-lineage-authority.md::owner-decision` records owner confirmation or the replacement authoritative lineage before this ticket is complete.

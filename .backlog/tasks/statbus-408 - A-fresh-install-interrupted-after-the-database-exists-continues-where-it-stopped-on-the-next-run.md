@@ -1,18 +1,16 @@
 ---
 id: STATBUS-408
-title: >-
-  A fresh install interrupted after the database exists continues where it
-  stopped on the next run
+title: An interrupted first installation resumes from its first incomplete step
 status: To Do
 assignee: []
 created_date: '2026-09-24 15:46'
+updated_date: '2026-09-24 18:44'
 labels:
   - install
   - recovery
   - database
-dependencies: []
-references:
-  - /Users/jhf/ssb/.jcode/scratch/rest-loop.md
+dependencies:
+  - STATBUS-411
 priority: high
 type: bug
 ordinal: 361000
@@ -21,29 +19,17 @@ ordinal: 361000
 ## Description
 
 <!-- SECTION:DESCRIPTION:BEGIN -->
-A rerun recognizes a database created by an incomplete first installation and resumes from the first incomplete step. The pre-1.0 classification remains reserved for an established legacy installation.
+A rerun classifies a reachable database as an interrupted first installation when `public.upgrade` is absent, `to_regclass('public.statistical_unit')` is null, and `db.migration` is missing or contains zero applied rows. It resumes the first incomplete persisted step and preserves the original database volume and its data. A database with no `public.upgrade` but with either `public.statistical_unit` present or at least one `db.migration` row is classified as legacy and preserved for STATBUS-411 guidance.
 
 ## Evidence, 2026-09-24
 
-Primary records: `/Users/jhf/ssb/statbus/tmp/finland-transcript-2-actual.txt`, `/Users/jhf/ssb/statbus/tmp/finland-chat-3.txt`, `/Users/jhf/ssb/statbus/tmp/finland-answers-4.txt`, `/Users/jhf/ssb/statbus/tmp/installer-message-audit.md`, `/Users/jhf/ssb/statbus/tmp/setup-connection-map.md`, and `/Users/jhf/ssb/.jcode/scratch/rest-loop.md` (as applicable). Proposed behavior below is not an observation.
-
-A Hetzner Ubuntu 26.04 VM confirmed that a port-80 failure after database creation leaves the database reachable without `public.upgrade`. Every rerun was then refused as a pre-1.0 installation by `install/state.go:141-147`, before seed or migrations could continue. This recovery dead end encourages removal of the installation directory while the database volume survives, which can create a credentials split.
-
-Related: STATBUS-411 covers a newly initialized database after removing and recreating its volume, rather than this ticket's interrupted install with the original volume retained. Both need the same state distinction but separate harness scenarios.
-
-## Proving scenario
-
-In install-recovery, hold port 80 through step 8, confirm the database volume exists, then free the port and run the one install command. The rerun identifies an incomplete fresh installation, resumes at the first incomplete step, and reaches green with the original volume.
+Current detection returns legacy whenever the database is reachable and `public.upgrade` is absent (`cli/internal/install/state.go:138-148` at master `7a9cf707e`). Applied migrations are recorded in `db.migration` (`cli/internal/migrate/migrate.go:1-5`), and the existing seed gate distinguishes a missing table, an empty table, and one or more applied rows (`cli/cmd/seed_gate_test.go:25-58`), both at master `7a9cf707e`. On the disposable VM, a step-8 interruption left the original volume reachable without seed or migrations and every rerun was refused as legacy (`/Users/jhf/ssb/.jcode/scratch/rest-loop.md:45-48,163-175`).
 <!-- SECTION:DESCRIPTION:END -->
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 A reachable database without the upgrade table is recognized as an incomplete fresh installation when first-install markers show setup is unfinished.
-- [ ] #2 The next run resumes at the first incomplete step and preserves the existing database volume.
-- [ ] #3 Established pre-1.0 installations continue to receive the legacy upgrade guidance.
-- [ ] #4 The interrupted-after-database harness scenario reaches green through the one install command.
+- [ ] #1 `new: cli/internal/install/state_markers_test.go::TestInterruptedFreshMarkers` classifies absent `public.upgrade`, null `to_regclass('public.statistical_unit')`, and missing or empty `db.migration` as interrupted first installation.
+- [ ] #2 `new: cli/internal/install/state_markers_test.go::TestLegacyMarkerEdges` classifies both fake-probe edges, `public.statistical_unit` present with no applied migration row and schema absent with at least one `db.migration` row, as legacy requiring preservation.
+- [ ] #3 `new: test/install-recovery/scenarios/5-install-interrupted-after-database-created.sh` fails after database creation, writes a sentinel row before interruption, reruns installation, and observes resume from the first incomplete step with the volume and sentinel preserved.
+- [ ] #4 `new: test/install-recovery/scenarios/5-install-interrupted-after-database-created.sh` reaches ready services and records the final classification markers.
 <!-- AC:END -->
-
-## Review correction 2026-09-24
-
-Use `cli/internal/install/state.go:141-147` and exact VM reproduction lines from `/Users/jhf/ssb/.jcode/scratch/rest-loop.md`. Add **new** `test/install-recovery/scenarios/5-install-interrupted-after-database-created.sh`, inducing failure after database creation rather than a port-80 preflight. Shared STATBUS-408/411 marker semantics must distinguish interrupted first install from established pre-1.0 using exact upgrade-table/schema/seed markers, cover both fake-probe edge cases, and observe preserved data.

@@ -1,13 +1,15 @@
 ---
 id: STATBUS-403
-title: Every failed install writes a quiet audit record to the install log
+title: Every failed installation writes one quiet audit record to the install log
 status: To Do
 assignee: []
 created_date: '2026-09-24 15:35'
+updated_date: '2026-09-24 18:42'
 labels:
   - install
   - logging
-dependencies: []
+dependencies:
+  - STATBUS-402
 priority: medium
 type: bug
 ordinal: 356000
@@ -16,26 +18,16 @@ ordinal: 356000
 ## Description
 
 <!-- SECTION:DESCRIPTION:BEGIN -->
-Every failed installation writes a consistently named audit record to the install log while the terminal presents the operator recovery message. When failure occurs before the successful-install path records its upgrade row, that log entry provides the bounded failed-install history.
+Each failed installation writes exactly one consistently named audit record to the install log and no audit wording to the terminal. The record contains no credentials. The terminal instead prints the positive recovery outcome defined by STATBUS-402: what to fix, the complete rerun command, and the support-file path when applicable.
 
 ## Evidence, 2026-09-24
 
-Primary records: `/Users/jhf/ssb/statbus/tmp/finland-transcript-2-actual.txt`, `/Users/jhf/ssb/statbus/tmp/finland-chat-3.txt`, `/Users/jhf/ssb/statbus/tmp/finland-answers-4.txt`, `/Users/jhf/ssb/statbus/tmp/installer-message-audit.md`, `/Users/jhf/ssb/statbus/tmp/setup-connection-map.md`, and `/Users/jhf/ssb/.jcode/scratch/rest-loop.md` (as applicable). Proposed behavior below is not an observation.
-
-`/Users/jhf/ssb/statbus/tmp/finland-transcript-2-actual.txt:64,123` shows `FAILED_INSTALL_HAS_AUDIT_TRAIL` on Finland failures. Master records successful installs in an upgrade row (`cli/cmd/install.go:2938-3039`); `upgradeRowID == 0` applies only before that write (`cli/cmd/install.go:682-692`).
-
-## Proving scenario
-
-Unit tests route the audit record through the log writer for representative preflight and step failures and inspect terminal streams for the plain recovery message.
+Finland terminal output duplicated internal `FAILED_INSTALL_HAS_AUDIT_TRAIL` wording on separate failures (`/Users/jhf/ssb/statbus/tmp/finland-transcript-2-actual.txt:58-65,114-124`). Successful installation records completion in an upgrade row (`cli/cmd/install.go:2938-3039` at master `7a9cf707e`), while `upgradeRowID == 0` applies only to failures before that write (`cli/cmd/install.go:682-692` at master `7a9cf707e`).
 <!-- SECTION:DESCRIPTION:END -->
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 Every failed installation writes a consistently named audit record to the install log.
-- [ ] #2 The audit record describes expected install history in calm language.
-- [ ] #3 The terminal presents the plain operator recovery message for the same failure.
+- [ ] #1 `new: cli/cmd/install_failure_audit_test.go::TestPreflightFailureWritesOneAuditRecord` observes exactly one install-log record, zero terminal copies, and no fixture credential.
+- [ ] #2 `new: cli/cmd/install_failure_audit_test.go::TestStepFailureWritesOneAuditRecord` observes the same once-only and zero-credential properties after work begins.
+- [ ] #3 `new: cli/cmd/install_failure_audit_test.go::TestFailureTerminalShowsRecoveryOutcome` observes the plain fix, complete rerun command, and support-file path instead of audit vocabulary.
 <!-- AC:END -->
-
-## Review correction 2026-09-24
-
-Successful installation records completion in an upgrade row (`cli/cmd/install.go:2938-3039`); only a failed install before that point can have `upgradeRowID == 0` (`cli/cmd/install.go:682-692`). Cite Finland transcript lines 64 and 123 directly. Add named new log-writer tests proving one record per failure, no terminal duplication, and no credentials. The positive operator outcome is a plain recovery message and one rerun command.

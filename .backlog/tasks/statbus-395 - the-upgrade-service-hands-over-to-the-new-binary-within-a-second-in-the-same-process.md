@@ -1,18 +1,16 @@
 ---
 id: STATBUS-395
-title: A planned upgrade resumes immediately under the new binary
+title: A planned upgrade resumes promptly under the new program
 status: To Do
 assignee: []
 created_date: '2026-09-24 16:44'
-updated_date: '2026-09-24 14:55'
+updated_date: '2026-09-24 18:42'
 labels:
   - upgrade
   - recovery
   - cli
 dependencies:
   - STATBUS-382
-references:
-  - tmp/handoff-and-banner.md
 priority: high
 type: task
 ordinal: 85
@@ -20,24 +18,14 @@ ordinal: 85
 
 ## Description
 
-After the durable `PhaseNewSbSwapped` stamp, the upgrade service execs the new
-binary in the same process: the PID stays the same, the new image reacquires
-the marker flock, and the upgrade continues at once instead of waiting out the
-30-second `RestartSec`. The design is in `tmp/handoff-and-banner.md`, task B.
-This is tracked separately from the stale-daemon work in STATBUS-382.
+After the durable program-swap phase, a planned upgrade resumes under the new program without waiting for a service-restart delay. The reliable acceptance bound is five seconds from the completed swap stamp to the first new-program continuation record.
 
-## Done when
+## Evidence, 2026-09-24
 
-- A planned handoff continues within a second of the swap, with the same
-  MainPID.
-- flock, watchdog, error exit, and crash backoff behave as before.
+The service currently has a 30-second restart delay (`ops/statbus-upgrade.service:56` at master `7a9cf707e`). The upgrade service swaps `./sb`, exits 42 for a fresh process, and distinguishes the expected post-swap continuation using `PhaseNewSbSwapped` (`cli/internal/upgrade/service.go:293-321` at master `7a9cf707e`). The excluded `tmp/handoff-and-banner.md` and its 30.17-second assertion are not evidentiary support.
 
-## 2026-09-24 status
+## Acceptance Criteria
 
-Awaiting owner go. Next step: obtain owner approval, implement the
-PID-preserving exec-in-place handoff, and validate flock, watchdog, error, and
-crash-backoff behavior.
-
-## Review correction 2026-09-24
-
-The operator outcome is immediate resumption under the new binary; MainPID, exec, flock, watchdog, and `RestartSec` are implementation details. Permitted current evidence is `ops/statbus-upgrade.service:56` and the upgrade phase code; the excluded `tmp/handoff-and-banner.md` and its 30.17-second figure are not evidence. Add a named new real service-handoff test with a declared reliable timing bound and a separate crash-backoff control test with explicit bounded behavior.
+- [ ] #1 `new: test/install-recovery/scenarios/7-upgrade-new-program-handoff.sh` records the completed swap and first continuation under the target version no more than five seconds apart.
+- [ ] #2 `new: cli/internal/upgrade/handoff_test.go::TestNewProgramHandoffPreservesUpgradeOwnership` observes one continuation and no competing service execution during a planned handoff.
+- [ ] #3 `new: test/install-recovery/scenarios/7-upgrade-handoff-crash-control.sh` kills the continuation process and observes the configured restart delay and bounded recovery behavior rather than the planned fast path.

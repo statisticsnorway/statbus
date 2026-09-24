@@ -4,6 +4,7 @@ title: Step 15 creates the first administrator through a private prompt
 status: To Do
 assignee: []
 created_date: '2026-09-24 15:35'
+updated_date: '2026-09-24 18:42'
 labels:
   - install
   - users
@@ -17,27 +18,17 @@ ordinal: 354000
 ## Description
 
 <!-- SECTION:DESCRIPTION:BEGIN -->
-Interactive installation asks for the first administrator email, name, and password twice with hidden typing, then creates that administrator. Additional users are invited from the web interface. File-based user creation remains available for unattended installation. Terminal and log output protect password values.
+Interactive step 15 asks for administrator email, name, and two matching password entries with hidden typing, then creates the administrator. Unattended installation retains configured-file creation. Terminal, install log, and support log contain no password value.
 
 ## Evidence, 2026-09-24
 
-Primary records: `/Users/jhf/ssb/statbus/tmp/finland-transcript-2-actual.txt`, `/Users/jhf/ssb/statbus/tmp/finland-chat-3.txt`, `/Users/jhf/ssb/statbus/tmp/finland-answers-4.txt`, `/Users/jhf/ssb/statbus/tmp/installer-message-audit.md`, `/Users/jhf/ssb/statbus/tmp/setup-connection-map.md`, and `/Users/jhf/ssb/.jcode/scratch/rest-loop.md` (as applicable). Proposed behavior below is not an observation.
-
-Finland step 15 stopped because `.users.yml` was absent. After the operator copied and edited an example file, the step printed database command output and a password column.
-
-## Proving scenario
-
-Extend `0-happy-install` to inspect the transcript for protected credential output. A terminal-driven fresh-install scenario answers the administrator prompts and signs in through `/rest/rpc/login` with the created account.
+Finland step 15 stopped because `.users.yml` was absent (`/Users/jhf/ssb/statbus/tmp/finland-transcript-2-actual.txt:53-65`). After the file was supplied, the step printed a password-bearing result column (`/Users/jhf/ssb/statbus/tmp/finland-transcript-2-actual.txt:99-112`). Step 15 invokes user creation at `cli/cmd/install.go:2567-2570`, and file handling is at `cli/cmd/install.go:1278-1307`, both at master `7a9cf707e`.
 <!-- SECTION:DESCRIPTION:END -->
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 Interactive step 15 asks for the first administrator email, name, and password confirmation with hidden password entry.
-- [ ] #2 Step 15 creates the first administrator and installation continues to completion.
-- [ ] #3 The terminal and install log protect password values and show only plain success text.
-- [ ] #4 Unattended installation can create users from its configured user file.
+- [ ] #1 `new: test/install-recovery/scenarios/0-interactive-admin-password.sh` observes two hidden matching password entries, creates the administrator, and completes installation.
+- [ ] #2 `new: cli/cmd/install_admin_prompt_test.go::TestPasswordMismatchRetriesWithoutDisclosure` supplies mismatched entries and observes a plain retry with neither value disclosed.
+- [ ] #3 `new: test/install-recovery/scenarios/0-interactive-admin-password.sh` proves the fixture password is absent from terminal, install log, and support log, then signs in successfully through `/rest/rpc/login`.
+- [ ] #4 `test/install-recovery/scenarios/0-happy-install.sh` proves unattended configured-file user creation still completes and also contains no fixture password in terminal, install log, or support log.
 <!-- AC:END -->
-
-## Review correction 2026-09-24
-
-Ground step 15/password-column facts in exact Finland lines and `cli/cmd/install.go:2567-2570`; user-file handling is `cli/cmd/install.go:1278-1307`. Extend existing `test/install-recovery/scenarios/0-happy-install.sh` and add **new** `test/install-recovery/scenarios/0-interactive-admin-password.sh`. Two hidden matching entries are required; test mismatch, absence from terminal/install/support logs, and successful `/rest/rpc/login` with redacted fixtures.
