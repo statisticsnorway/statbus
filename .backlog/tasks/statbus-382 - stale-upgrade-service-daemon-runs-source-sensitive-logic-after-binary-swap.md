@@ -82,3 +82,20 @@ Classification: PARTIAL. Evidence: problem and exec-in-place design are establis
 Remaining: Implement PID-preserving exec after PhaseNewSbSwapped, test flock/watchdog/error behavior, and retain crash backoff compatibility.
 
 The rc.31 planned handoff exposed a 30.17-second gap caused by `RestartSec=30`; exit 42 does not bypass it. `tmp/handoff-and-banner.md` Task B recommends exec-in-place after the durable `PhaseNewSbSwapped` stamp, preserving PID/MainPID and normal crash backoff while reacquiring the marker flock in the new image.
+
+## Provisional decisions for the 2026-09-23 implementation stab
+
+1. **provisional, owner to confirm:** `./sb install` may use evidence-gated `DAEMON_TAKEOVER [STALE_BINARY_LOOP]` authority only when the resident MainPID is binary-stale, state churn proves a reclaim loop, and the durable phase is pre-destructive. Destructive phases continue to refuse takeover (R11).
+2. **provisional, owner to confirm:** dismissal of a live, unparked `in_progress` row is refused at the database layer. Dismissal remains legal from `available`, `scheduled`, `failed`, `rolled_back`, and parked `in_progress` (R2).
+3. **provisional, owner to confirm:** the paid harness pair is N = rc.18 (`7244856d`) and N+1 = the fix candidate. Checked 2026-09-23: the `statbus-app`, `statbus-worker`, `statbus-db`, `statbus-proxy`, and `statbus-seed` manifests tagged `7244856d` are all still retained on GHCR.
+
+## 2026-09-23 implementation scope and remaining order
+
+Completed in this stab: Fable step 1 (DB trigger, actor-gated `upgrade_schedule`, `claim_token`) and step 2 (NOTIFY handler discipline, deterministic pre-destructive park routing, claim-token CAS, pre-claim flock probe, flag-contention reschedule, and dismissal park cleanup).
+
+Remaining, deliberately not started tonight:
+
+3. Fingerprint helper and exit-42 service gate (R3-R6).
+4. Install reporting sink, `os.Exit` inventory, churn diagnosis, and evidence-gated takeover (R11-R12).
+5. Daemon reconciliation while the install flock remains held, plus inline-path unification (R7).
+6. Paid VM harness using rc.18 (`7244856d`) to the fix candidate.

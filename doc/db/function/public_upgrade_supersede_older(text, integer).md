@@ -19,10 +19,6 @@ BEGIN
         RETURN;
     END IF;
 
-    -- Lower release tiers are always older. Peers are ordered by their
-    -- calendar version, never by insertion id or discovery time. committed_at
-    -- is the tie-break for aliases/equivalent versions and the fallback for
-    -- unversioned commit rows.
     WITH superseded AS (
         UPDATE public.upgrade AS u SET
             state = 'superseded',

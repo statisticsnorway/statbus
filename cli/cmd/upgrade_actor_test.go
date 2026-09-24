@@ -88,7 +88,7 @@ func TestStateTransitionVerbsRouteThroughResolveOperator_STATBUS317(t *testing.T
 	for _, call := range []struct{ verb, want string }{
 		{"RunSchedule", "RunSchedule(context.Background(), args[0], recreateFlag, resolveOperator(operatorFlag))"},
 		{"RunDismiss", "RunDismiss(context.Background(), args[0], resolveOperator(operatorFlag))"},
-		{"RunApply", "RunApply(ctx, args[0], recreate, resolveOperator(\"\"))"},
+		{"RunApply", "RunApply(ctx, args[0], recreate, resolveOperator(operatorFlag))"},
 	} {
 		if !strings.Contains(src, call.want) {
 			t.Errorf("%s call site not found in the expected shape %q — a state-transition verb must resolve its operator through resolveOperator, never bypass it", call.verb, call.want)

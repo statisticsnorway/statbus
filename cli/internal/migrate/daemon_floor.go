@@ -91,7 +91,7 @@ package migrate
 // the tree after STATBUS-349 and therefore sorted differently
 // on full replay than on incremental databases. Its replacement above the 349
 // migration is now the floor because the daemon requires the column.
-const DaemonSchemaFloor int64 = 20260923084454
+const DaemonSchemaFloor int64 = 20260923202403
 
 // DaemonRelationNames is the schema surface the daemon's OWN SQL touches — the
 // set whose shape the floor must satisfy. The bump guard flags any migration

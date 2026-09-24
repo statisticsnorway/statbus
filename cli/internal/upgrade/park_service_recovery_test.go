@@ -224,6 +224,13 @@ func TestBudgetParks_RouteThroughHelper_STATBUS204(t *testing.T) {
 			continue
 		}
 		if !strings.Contains(chunk, "d.parkServiceRecovery(") {
+			// STATBUS-382's pre-destructive source-capture failure parks while the
+			// source services are still serving and then removes the flag. There is
+			// no machine-state retreat to perform, unlike every post-destructive park.
+			if strings.Contains(chunk, "parked on deterministic pre-destructive failure") &&
+				strings.Contains(chunk, "d.removeUpgradeFlag()") {
+				continue
+			}
 			name := chunk
 			if nl := strings.IndexByte(chunk, '\n'); nl >= 0 {
 				name = chunk[:nl]

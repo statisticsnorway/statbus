@@ -154,7 +154,7 @@ var rewindAudit = map[siteKey]rewindDisposition{
 			"rollback_finish_pending_at in the SAME statement that writes rolled_back (the CHECK forbids " +
 			"pending on rolled_back, so a partial write is impossible). Establishes the healthy terminal contract.",
 	},
-	{"cli/internal/upgrade/service.go", "UPDATE", "error,failure_code,scheduled_at,state"}: {
+	{"cli/internal/upgrade/service.go", "UPDATE", "claim_token,error,failure_code,scheduled_at,state"}: {
 		Class: classSupersededByTerminal, Count: 1,
 		Why: "Claim-window failure write: sets its own state+error, and clears scheduled_at deliberately.",
 	},
@@ -172,10 +172,14 @@ var rewindAudit = map[siteKey]rewindDisposition{
 
 	// ── C. OUTSIDE THE WINDOW — written before the snapshot, so it contains them ──
 	{"cli/internal/upgrade/service.go", "UPDATE", "from_commit_version,started_at,state"}: {
-		Class: classOutsideWindow, Count: 2,
-		Why: "Both writes run before backupDatabase, so no restore window has opened: the CI-not-ready return to scheduled, and the predecessor-schema claim fallback that lacks the later convergence column.",
+		Class: classOutsideWindow, Count: 1,
+		Why: "The CI-not-ready return to scheduled runs before backupDatabase, so no restore window has opened.",
 	},
-	{"cli/internal/upgrade/service.go", "UPDATE", "from_commit_version,started_at,state,tree_convergence_required"}: {
+	{"cli/internal/upgrade/service.go", "UPDATE", "claim_token,from_commit_version,started_at,state"}: {
+		Class: classOutsideWindow, Count: 2,
+		Why: "The predecessor-schema claim and the flag-contention claim return both run before backupDatabase. The latter clears claim_token while preserving scheduled_at.",
+	},
+	{"cli/internal/upgrade/service.go", "UPDATE", "claim_token,from_commit_version,started_at,state,tree_convergence_required"}: {
 		Class: classOutsideWindow, Count: 1,
 		Why: "The claim atomically records the displaced-park convergence obligation before flag acquisition and backupDatabase; no restore window has opened.",
 	},
@@ -277,7 +281,7 @@ var rewindAudit = map[siteKey]rewindDisposition{
 			"STATE, not the intended one, and the flip to EXEMPT-with-proof belongs to the commit that lands it.",
 	},
 
-	{"cli/internal/upgrade/service.go", "UPDATE", "dismissed_at,state"}: {
+	{"cli/internal/upgrade/service.go", "UPDATE", "claim_token,dismissed_at,recovery_parked_at,recovery_parked_reason,state"}: {
 		Class: classOutsideWindow, Count: 1,
 		Why: "The `sb upgrade dismiss` write (STATBUS-250's first deliverable). Category C for the reason the " +
 			"architect established on the app's dismissal: a restore rewinds to the snapshot of THAT upgrade, and " +

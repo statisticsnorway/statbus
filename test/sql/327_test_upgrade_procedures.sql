@@ -39,6 +39,7 @@
 \i test/setup.sql
 
 BEGIN;
+SET LOCAL statbus.actor = 'pg_regress upgrade procedure fixture';
 
 -- Disable the BEFORE-INSERT trigger that auto-supersedes obsolete pending
 -- rows on insert. This test exercises upgrade_supersede_older directly;

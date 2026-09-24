@@ -147,7 +147,7 @@ ssh "$DEPLOYMENT_USER@$HOST" bash <<RESET_SLOT
     # every other disposition does; a raw SQL write would not carry that
     # guarantee).
     echo "── dismissing $WRECKING_VERSION ──"
-    ./sb upgrade dismiss "$WRECKING_VERSION"
+    ./sb upgrade dismiss "$WRECKING_VERSION" --operator "reset-statbus-slot"
 
     # Step 8: restart the service and verify from the RUNNING service, not
     # the file on disk — the same lesson as the fleet correction.
