@@ -155,6 +155,52 @@ func TestParseServiceStatuses(t *testing.T) {
 	}
 }
 
+func TestPublishedPortsRealComposeJSONRecreatesUnboundProxy(t *testing.T) {
+	// Docker Compose ps --format json uses Publishers, not the human PORTS column.
+	statuses, err := parseServiceStatuses([]byte(`{"Name":"statbus-test-proxy","Service":"proxy","State":"running","Health":"","Publishers":[]}
+{"Name":"statbus-test-app","Service":"app","State":"running","Publishers":[{"URL":"127.0.0.1","TargetPort":3000,"PublishedPort":3012,"Protocol":"tcp"}]}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	ports := map[string][]configuredPort{"proxy": {
+		{HostIP: "0.0.0.0", Target: 80, Published: "80", Protocol: "tcp"},
+		{HostIP: "0.0.0.0", Target: 443, Published: "443", Protocol: "tcp"},
+		{HostIP: "0.0.0.0", Target: 443, Published: "443", Protocol: "udp"},
+		{HostIP: "127.0.0.1", Target: 5431, Published: "5431", Protocol: "tcp"},
+	}, "app": {{HostIP: "127.0.0.1", Target: 3000, Published: "3012", Protocol: "tcp"}}}
+	if got := missingPublishedPorts(statuses, ports); len(got["proxy"]) != 4 || len(got["app"]) != 0 {
+		t.Fatalf("missing = %+v", got)
+	}
+	oldConfig, oldProbe, oldRecreate, oldRequired := configuredServicePorts, probeServiceStatuses, recreateServiceWithPorts, requiredServices
+	t.Cleanup(func() {
+		configuredServicePorts, probeServiceStatuses, recreateServiceWithPorts, requiredServices = oldConfig, oldProbe, oldRecreate, oldRequired
+	})
+	configuredServicePorts = func(string) (map[string][]configuredPort, error) { return ports, nil }
+	probeServiceStatuses = func(string) ([]serviceStatus, error) { return statuses, nil }
+	requiredServices = func(string) ([]string, error) { return []string{"app", "proxy"}, nil }
+	problems, err := currentServiceProblems("unused")
+	if err != nil || len(problems) != 1 || problems[0].Service != "proxy" || problems[0].State != "missing published ports" {
+		t.Fatalf("portless running proxy must not pass step 8: %+v, %v", problems, err)
+	}
+	var recreated []string
+	recreateServiceWithPorts = func(_ string, service string) error {
+		recreated = append(recreated, service)
+		statuses[0].Publishers = []publishedPort{
+			{URL: "0.0.0.0", TargetPort: 80, PublishedPort: 80, Protocol: "tcp"},
+			{URL: "0.0.0.0", TargetPort: 443, PublishedPort: 443, Protocol: "tcp"},
+			{URL: "0.0.0.0", TargetPort: 443, PublishedPort: 443, Protocol: "udp"},
+			{URL: "127.0.0.1", TargetPort: 5431, PublishedPort: 5431, Protocol: "tcp"},
+		}
+		return nil
+	}
+	if err := reconcilePublishedPorts("unused"); err != nil {
+		t.Fatal(err)
+	}
+	if strings.Join(recreated, ",") != "proxy" {
+		t.Fatalf("recreated %v, want proxy only", recreated)
+	}
+}
+
 // fakeStack drives the step-8 seams without a docker daemon.
 type fakeStack struct {
 	statuses       []serviceStatus
@@ -175,6 +221,10 @@ func installFakeStack(t *testing.T, f *fakeStack) {
 		requiredServices, probeServiceStatuses, rolePasswordsAgree, syncRolePasswords, restartPasswordClients, composeUpAll, restReadyStatus, serviceLogTail =
 			oldReq, oldProbe, oldAgree, oldSync, oldRestart, oldUp, oldReady, oldTail
 	})
+	oldPorts, oldRecreate := configuredServicePorts, recreateServiceWithPorts
+	t.Cleanup(func() { configuredServicePorts, recreateServiceWithPorts = oldPorts, oldRecreate })
+	configuredServicePorts = func(string) (map[string][]configuredPort, error) { return map[string][]configuredPort{}, nil }
+	recreateServiceWithPorts = func(string, string) error { t.Fatal("unexpected recreation"); return nil }
 	requiredServices = func(string) ([]string, error) { return allFive, nil }
 	probeServiceStatuses = func(string) ([]serviceStatus, error) { return f.statuses, nil }
 	rolePasswordsAgree = func(string) (bool, error) { return f.passwordsAgree, nil }

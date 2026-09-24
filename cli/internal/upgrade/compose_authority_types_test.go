@@ -67,6 +67,7 @@ var allowedComposeUpCalls = map[string]approvedLaunch{
 	"cmd/install.go:composeApplyServiceDefault":                          {Count: 1, Reason: "install applies the configured default service set through compose.Up"},
 	"cmd/install.go:runInstall":                                          {Count: 1, Reason: "install starts the full application stack through compose.Up"},
 	"cmd/install_services.go:composeUpAllDefault":                        {Count: 1, Reason: "install step 8 starts every service of the all profile through compose.Up"},
+	"cmd/install_services.go:recreateServiceWithPorts.func":              {Count: 1, Reason: "install step 8 repairs a service missing its configured published ports through compose.Up"},
 	"cmd/service.go:startServices":                                       {Count: 1, Reason: "operator service start command delegates to the compose.Up chokepoint"},
 	"cmd/service_restart.go:restartServices":                             {Count: 1, Reason: "operator service restart brings services back through compose.Up"},
 	"internal/upgrade/exec.go:EnsureDBUp":                                {Count: 1, Reason: "upgrade database preparation starts only the database services through compose.Up"},
@@ -98,6 +99,8 @@ var allowedProcessLaunches = map[string]approvedLaunch{
 	"cmd/install.go:runInstallCallback|os/exec|sh":                                                    {Count: 1, Reason: "runInstallCallback executes the administrator-configured post-install callback as the documented shell command"},
 	"cmd/install.go:runInstallService|os/exec|systemctl":                                              {Count: 3, Reason: "runInstallService queries active, failed-result, and boot-enabled systemd states to drive and verify user-unit reconciliation"},
 	"cmd/install.go:runRootInstall|os/exec|systemctl":                                                 {Count: 1, Reason: "runRootInstall queries is-enabled after root service setup to prove the upgrade unit will start on boot"},
+	"cmd/install_services.go:portListener|os/exec|ss":                                                 {Count: 1, Reason: "install reads the host's listening ports to identify a conflicting process"},
+	"cmd/install_services.go:portListener|os/exec|sudo":                                               {Count: 1, Reason: "install reads the host's listening process names with non-interactive privilege"},
 	"cmd/install_upgrade.go:restartUpgradeService|os/exec|systemctl":                                  {Count: 2, Reason: "restartUpgradeService checks that the upgrade unit is active and restarts it to load the newly installed binary"},
 	"cmd/install_upgrade.go:stopRestartUpgradeUnit|os/exec|systemctl":                                 {Count: 7, Reason: "stopRestartUpgradeUnit inspects, stops, resets, reenables, and restarts the upgrade unit during crash takeover"},
 	"cmd/install_upgrade.go:upgradeUnitCrashLooping|os/exec|systemctl":                                {Count: 1, Reason: "upgradeUnitCrashLooping reads systemd unit properties to distinguish a live upgrade from a restart loop"},
@@ -313,10 +316,12 @@ var allowedProcessExecutables = map[string]authorityExecutableClass{
 	"pg_restore":   authorityTool,
 	"psql":         authorityTool,
 	"scp":          authorityTool,
+	"ss":           authorityTool,
 	"sh":           authorityMediator,
 	"ssh":          authorityTool,
 	"ssh-keygen":   authorityTool,
 	"systemctl":    authorityTool,
+	"sudo":         authorityTool,
 	"tar":          authorityTool,
 }
 
@@ -1151,6 +1156,11 @@ func TestTypedComposeAuthorityRejectsUnknownExecutableMediators(t *testing.T) {
 			})
 			err := typedAuthorityViolation(cliDir, overlay)
 			want := fmt.Sprintf("unknown os/exec executable %q", test.executable)
+			if test.executable == "sudo" {
+				// Only install_services.go:portListener may run sudo -n ss.
+				// A new sudo site remains prohibited by the exact-site inventory.
+				want = `unallowlisted os/exec executable "sudo"`
+			}
 			if err == nil || !strings.Contains(err.Error(), want) {
 				t.Fatalf("%s mediator mutation survived: %v", test.executable, err)
 			}
