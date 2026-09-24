@@ -10,7 +10,7 @@
 //  5. Config + creds, DB down .................. StateDBUnreachable
 //  6. DB up, no public.upgrade, and the DB was
 //     set up by a pre-1.0 release .............. StateLegacyNoUpgradeTable
-//  6b. DB up, no public.upgrade, and the DB is
+//     6b. DB up, no public.upgrade, and the DB is
 //     this installer's own unfinished setup .... StateFreshDBIncomplete
 //  7. Scheduled row present .................... StateScheduledUpgrade
 //  8. Failed row w/ retained backup_path ....... StateRestoreReattemptable (STATBUS-111)
