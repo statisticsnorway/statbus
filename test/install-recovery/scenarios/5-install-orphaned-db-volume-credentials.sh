@@ -72,7 +72,7 @@ rest_restart_count() {
 # ─────────────────────────────────────────────────────────────────────────
 echo ""
 echo "── phase a: install.sh while port 80 is held ──"
-VM_ROOT_EXEC bash -c 'cd /tmp && (nohup python3 -m http.server 80 >/tmp/http80.log 2>&1 &) ; sleep 1; ss -ltn | grep -q ":80 " && echo "port 80 held"'
+VM_ROOT_EXEC bash -c 'cd /tmp; nohup python3 -m http.server 80 >/tmp/http80.log 2>&1 & echo $! >/tmp/http80.pid; sleep 1; kill -0 "$(cat /tmp/http80.pid)"; ss -ltn | grep -q ":80 "; echo "port 80 held by PID $(cat /tmp/http80.pid)"'
 harness_register_log port80-squatter /tmp/http80.log
 set +e
 install_statbus_in_vm "$VM_NAME"
@@ -94,9 +94,11 @@ echo "  ✓ phase a: Services FAILED naming the web server; volume $VOLUME exist
 # ─────────────────────────────────────────────────────────────────────────
 echo ""
 echo "── phase b: port 80 freed, ./sb install again ──"
-VM_ROOT_EXEC bash -c 'pkill -f "http.server 80"; sleep 1; ss -ltn | grep -q ":80 " && echo "port 80 STILL held" || echo "port 80 free"'
+VM_ROOT_EXEC bash -c 'pid=$(cat /tmp/http80.pid); kill "$pid"; for _ in 1 2 3 4 5; do kill -0 "$pid" 2>/dev/null || break; sleep 1; done; ! kill -0 "$pid" 2>/dev/null; ! ss -ltn | grep -q ":80 "; echo "port 80 free after stopping PID $pid"'
 : > "$INSTALL_LOG"
-install_statbus_in_vm "$VM_NAME"
+IP=$(_hcloud_server_ip "$VM_NAME")
+_run_long_via_tmux "$IP" "install-rerun" "cd ~/statbus && STATBUS_MIN_DISK_GB=5 ./sb install --non-interactive --trust-github-user jhf" "$VM_NAME" \
+    | tee -a "$INSTALL_LOG"
 if grep -F 'pre-1.0 install detected' "$INSTALL_LOG" >/dev/null; then
     echo "✗ phase b: the rerun was refused as a pre-1.0 install" >&2
     exit 1
