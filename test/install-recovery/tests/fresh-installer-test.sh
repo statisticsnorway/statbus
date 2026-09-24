@@ -42,6 +42,8 @@ if [ "${EXPECT_STDIN:-}" = tty ]; then
     [ -t 0 ] || { echo 'fixture expected terminal stdin' >&2; exit 92; }
     printf 'sb-stdin:tty\n' >> "$TRACE"
 fi
+[ "${FORCE_TERMINAL:-}" != 1 ] || { mkdir -p tmp; printf 'INVARIANT TEST_GUARD violated: database did not become ready\n' > tmp/install-terminal.txt; }
+[ "${FORCE_STEP_FAILURE:-}" != 1 ] || printf '[16/17] Trusted signers      FAILED: release signer approval was declined\n'
 [ "${STATBUS_ENV_CONFIG:-}" = "$EXPECTED_CONFIG" ]
 [ "${STATBUS_USERS_FILE:-}" = "$EXPECTED_USERS" ]
 # Shell bootstrap must leave input validation and importing to the product.
@@ -76,12 +78,25 @@ mkdir -p "$HOME"
 bash "$ROOT/install.sh" --version v2026.09.0-rc.02 --non-interactive > "$TMP_ROOT/output"
 echo 'PASS: absent env vars reach sb, whose fail-fast validation owns the error'
 set +e
-INSTALL_EXIT=47 bash "$ROOT/install.sh" --version v2026.09.0-rc.02 --non-interactive > "$TMP_ROOT/output" 2>&1
+FORCE_STEP_FAILURE=1 INSTALL_EXIT=47 bash "$ROOT/install.sh" --version v2026.09.0-rc.02 --non-interactive > "$TMP_ROOT/output" 2>&1
 rc=$?
 set -e
 [ "$rc" = 47 ] || { echo "FAIL: sb failure became $rc"; exit 1; }
-grep -Fq 'SYSTEM UNUSABLE — ./sb install failed (exit 47)' "$TMP_ROOT/output"
+grep -Fq 'The installation stopped before it could finish.' "$TMP_ROOT/output"
+grep -Fq 'Cause: step 16/17 (Trusted signers) failed: release signer approval was declined' "$TMP_ROOT/output"
+grep -Fq 'curl -fsSL https://statbus.org/install.sh | bash' "$TMP_ROOT/output"
+! grep -Fq 'SYSTEM UNUSABLE' "$TMP_ROOT/output"
+! grep -Fq 'install.sh FAILED at line' "$TMP_ROOT/output"
 echo 'PASS: sb validation/installation failure propagates'
+
+set +e
+FORCE_TERMINAL=1 INSTALL_EXIT=47 bash "$ROOT/install.sh" --version v2026.09.0-rc.02 --non-interactive > "$TMP_ROOT/terminal-output" 2>&1
+rc=$?
+set -e
+[ "$rc" = 47 ] || { echo "FAIL: terminal failure became $rc"; exit 1; }
+grep -Fq 'Cause: the installation could not finish its final checks' "$TMP_ROOT/terminal-output"
+! grep -Fq 'INVARIANT' "$TMP_ROOT/terminal-output"
+echo 'PASS: terminal audit detail is translated to plain operator text'
 
 # With no controlling terminal, `echo | install.sh` must preserve piped stdin
 # for ./sb, which returns the Go preflight contract. The wrapper propagates the

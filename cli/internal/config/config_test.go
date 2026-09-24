@@ -2,12 +2,90 @@ package config
 
 import (
 	"os"
+	"os/exec"
 	"path/filepath"
 	"runtime"
 	"sort"
 	"strings"
 	"testing"
+
+	"github.com/statisticsnorway/statbus/cli/internal/testgit"
 )
+
+func TestGeneratedFilesMatch_UnchangedAndChangedOutsideCheckout(t *testing.T) {
+	_, thisFile, _, ok := runtime.Caller(0)
+	if !ok {
+		t.Fatal("runtime.Caller failed")
+	}
+	repoRoot := filepath.Join(filepath.Dir(thisFile), "..", "..", "..")
+	projDir := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(projDir, "ops", "maintenance"), 0755); err != nil {
+		t.Fatal(err)
+	}
+
+	for _, rel := range []string{".env.example"} {
+		data, err := os.ReadFile(filepath.Join(repoRoot, rel))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(projDir, rel), data, 0644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := os.CopyFS(filepath.Join(projDir, "caddy", "templates"), os.DirFS(filepath.Join(repoRoot, "caddy", "templates"))); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(projDir, ".env.config"), []byte(
+		"DEPLOYMENT_SLOT_CODE=test\nDEPLOYMENT_SLOT_NAME=Test\nDEPLOYMENT_SLOT_PORT_OFFSET=9\nCADDY_DEPLOYMENT_MODE=development\nSITE_DOMAIN=test.statbus.org\n"), 0600); err != nil {
+		t.Fatal(err)
+	}
+
+	runGit := func(args ...string) string {
+		t.Helper()
+		cmd := exec.Command("git", testgit.Args(args...)...)
+		cmd.Dir = projDir
+		cmd.Env = testgit.Env()
+		out, err := cmd.CombinedOutput()
+		if err != nil {
+			t.Fatalf("git %v: %v\n%s", args, err, out)
+		}
+		return strings.TrimSpace(string(out))
+	}
+	runGit("init", "-q")
+	runGit("add", ".")
+	runGit("-c", "user.name=test", "-c", "user.email=test@example.invalid", "-c", "commit.gpgsign=false", "commit", "-qm", "fixture")
+	wantCommit := runGit("rev-parse", "--short=8", "HEAD")
+
+	outside := t.TempDir()
+	oldCwd, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chdir(outside); err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = os.Chdir(oldCwd) }()
+
+	if err := GenerateInDir(projDir, false); err != nil {
+		t.Fatalf("GenerateInDir: %v", err)
+	}
+	envData, err := os.ReadFile(filepath.Join(projDir, ".env"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(envData), "COMMIT_SHORT="+wantCommit) {
+		t.Fatalf("explicit checkout git identity missing, want COMMIT_SHORT=%s", wantCommit)
+	}
+	if !GeneratedFilesMatch(projDir) {
+		t.Fatal("unchanged generated files must match")
+	}
+	if err := os.WriteFile(filepath.Join(projDir, ".env"), append(envData, []byte("MUTATED=1\n")...), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if GeneratedFilesMatch(projDir) {
+		t.Fatal("changed generated .env must not match")
+	}
+}
 
 // TestGenerateCaddyFiles_WritesExactlyCaddyConfigFiles proves the exported
 // CaddyConfigFiles list (config.go) stays in sync with what generateCaddyFiles

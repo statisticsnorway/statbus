@@ -119,7 +119,7 @@ func TestRunInstallProbeErrorsFailClosed(t *testing.T) {
 				if err == nil || steps != 0 {
 					t.Fatalf("refusal: err=%v steps=%d", err, steps)
 				}
-				for _, want := range []string{"could not be determined", "nothing was changed", "run the same install command again", bundlePath} {
+				for _, want := range []string{"could not be determined", "nothing was changed", "Run the same install command again", bundlePath} {
 					if !strings.Contains(err.Error(), want) {
 						t.Errorf("missing %q in %v", want, err)
 					}
@@ -157,11 +157,15 @@ func TestRunInstallStopsBeforeStepsWhenDatabaseAnswerCannotBeClassified(t *testi
 	for _, want := range []string{
 		"the install state could not be determined",
 		"nothing was changed",
-		"run the same install command again; if it stops here again, send this file to StatBus support: " + bundlePath,
+		"Run the same install command again: curl -fsSL https://statbus.org/install.sh | bash",
+		"send this file to StatBus support: " + bundlePath,
 	} {
 		if !strings.Contains(err.Error(), want) {
 			t.Errorf("error missing %q:\n%s", want, err)
 		}
+	}
+	if strings.Contains(err.Error(), "unexpected schema probe output") {
+		t.Fatal("internal probe error leaked into the operator refusal")
 	}
 	if _, statErr := os.Stat(bundlePath); statErr != nil {
 		t.Fatalf("support bundle was not written: %v", statErr)

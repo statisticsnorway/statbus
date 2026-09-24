@@ -100,6 +100,23 @@ assert_step9_completed "$VM_NAME"
 assert_step_upgrade_service_completed "$VM_NAME"
 assert_systemd_active "$VM_NAME"
 
+echo "── green-box rerun is entirely quiet ──"
+RERUN_LOG=$(mktemp)
+VM_EXEC bash -c "export STATBUS_ENV_CONFIG=\"\$HOME/install-input.env\" STATBUS_USERS_FILE=/tmp/users.yml STATBUS_INSTALL_VERSION='$INSTALL_TARGET_TAG'; STATBUS_MIN_DISK_GB=5 bash /tmp/statbus-install.sh --non-interactive" >"$RERUN_LOG" 2>&1 || {
+    cat "$RERUN_LOG" >&2
+    exit 1
+}
+STEP_OK_COUNT=$(grep -Ec '^\[[0-9]+/17\] .+ +OK$' "$RERUN_LOG" || true)
+[ "$STEP_OK_COUNT" -eq 17 ] || { cat "$RERUN_LOG" >&2; echo "green rerun reported $STEP_OK_COUNT/17 steps OK" >&2; exit 1; }
+for step_index in $(seq 1 17); do
+    INDEX_COUNT=$(grep -Ec "^\\[$step_index/17\\] .+ +OK$" "$RERUN_LOG" || true)
+    [ "$INDEX_COUNT" -eq 1 ] || { cat "$RERUN_LOG" >&2; echo "green rerun reported step $step_index OK $INDEX_COUNT times" >&2; exit 1; }
+done
+grep -Eq '^\[12/17\] Seed +OK$' "$RERUN_LOG" || { cat "$RERUN_LOG" >&2; echo "green rerun did not report Seed OK" >&2; exit 1; }
+! grep -Eqi '(^|[[:space:]])(pull|pulling|pulled)([[:space:]]|$)' "$RERUN_LOG" || { cat "$RERUN_LOG" >&2; echo "green rerun pulled images" >&2; exit 1; }
+! grep -Eq '^\[[0-9]+/17\].* +(RUNNING|DONE)$' "$RERUN_LOG" || { cat "$RERUN_LOG" >&2; echo "green rerun changed a step" >&2; exit 1; }
+rm -f "$RERUN_LOG"
+
 # Phase 2 is deliberately separate and visible: the installed product owns its
 # config now. Apply tuning as an operator would, then prove generated and live
 # consumers picked it up. The helper never participates in first installation.

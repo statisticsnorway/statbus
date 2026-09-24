@@ -101,6 +101,9 @@ success so install.sh can capture it for the SYSTEM UNUSABLE banner.`,
 
 func writeSupportBundle(projDir, outPath string, trig upgrade.Trigger) error {
 	logPath := latestUpgradeLog(projDir)
+	if trig == upgrade.TriggerInstall {
+		logPath = filepath.Join(projDir, "tmp", "install-last-run-output.txt")
+	}
 	tmpPath := outPath + ".tmp"
 	f, err := os.Create(tmpPath)
 	if err != nil {

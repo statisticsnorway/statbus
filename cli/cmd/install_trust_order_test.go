@@ -44,3 +44,31 @@ func TestTrustGitHubUserRunsBeforeDispatch(t *testing.T) {
 			trustIdx, dispatchIdx)
 	}
 }
+
+func TestInteractiveSignerQuestionHasOneOwnerAndNoAdditionalLoop(t *testing.T) {
+	src, err := os.ReadFile(thisRepoFile(t, "cli/cmd/install.go"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	body := string(src)
+	if got := strings.Count(body, "installinput.TrustQuestion()"); got != 1 {
+		t.Fatalf("signer question owners = %d, want exactly one", got)
+	}
+	if strings.Contains(body, "Add additional trusted signer?") {
+		t.Fatal("interactive install must not enter an additional-signer loop")
+	}
+}
+
+func TestFailedInstallBreadcrumbIsLogOnlyAndPlainlyNamed(t *testing.T) {
+	src, err := os.ReadFile(thisRepoFile(t, "cli/cmd/install.go"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	body := string(src)
+	if strings.Contains(body, "FAILED_INSTALL_HAS_AUDIT_TRAIL") {
+		t.Fatal("old alarming invariant name remains in installer source")
+	}
+	if !strings.Contains(body, `fmt.Fprintf(installLog.File(), "install_failed_no_row:`) {
+		t.Fatal("failed-install breadcrumb must write directly to the install log")
+	}
+}

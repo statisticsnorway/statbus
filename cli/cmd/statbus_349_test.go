@@ -17,7 +17,7 @@ func TestPFXPasswordClassificationUsesSentinelOnly(t *testing.T) {
 }
 
 func TestComposeServicesHaveImagesRequiresEachNamedService(t *testing.T) {
-	images := []byte(`[{"Container":"db","ID":"sha256:db"},{"Container":"app","ID":"sha256:app"}]`)
+	images := []byte(`[{"ContainerName":"statbus-local-db","ID":"sha256:db"},{"ContainerName":"statbus-local-app","ID":"sha256:app"}]`)
 	if !composeServicesHaveImages("db\napp\n", images) {
 		t.Fatal("all required services with IDs must be ready")
 	}

@@ -251,18 +251,19 @@ print_sb_pull_failure() {
     case "$class" in
         auth)
             echo "  Remedy: the GHCR package must be public for clean installs." >&2
-            echo "    GitHub Packages -> statbus-sb -> Package settings -> Change visibility -> Public, then retry." >&2
+            echo "    GitHub Packages -> statbus-sb -> Package settings -> Change visibility -> Public." >&2
             ;;
         missing)
-            echo "  Remedy: wait for images.yaml to publish statbus-sb:${version}, then retry." >&2
+            echo "  Remedy: wait for the release image to become available." >&2
             ;;
         network)
-            echo "  Remedy: registry/network remained unavailable after bounded retries; retry the install." >&2
+            echo "  Remedy: the registry or network remained unavailable after bounded retries." >&2
             ;;
         *)
-            echo "  Remedy: inspect the preserved Docker error above, then retry after correcting it." >&2
+            echo "  Remedy: inspect the preserved Docker error above and correct it." >&2
             ;;
     esac
+    echo "  Then run: curl -fsSL https://statbus.org/install.sh | bash" >&2
     echo "  --commit tests the commit's PUBLISHED image and will not build a different binary locally." >&2
     echo "  Alternatively install a released version: --version <tag>, or --channel stable|prerelease." >&2
 }
@@ -335,7 +336,7 @@ procure_sb_from_commit_image() {
     docker cp "${sb_cid}:/sb" "${STATBUS_DIR}/sb"
     docker rm "$sb_cid" >/dev/null 2>&1 || true
     chmod +x "${STATBUS_DIR}/sb"
-    echo "Binary: $(./sb --version)"
+    echo "Installed program: $(./sb --version)"
     echo ""
 }
 
@@ -603,7 +604,8 @@ elif [ -n "$COMMIT_SHA" ]; then
     # guarantees this for arc runs).
     if ! statbus_git_fetch origin "$COMMIT_SHA"; then
         echo "Error: git fetch origin ${COMMIT_SHA} failed — is the commit pushed to origin?" >&2
-        echo "  --commit checks out an exact origin commit; push it to origin first, then retry." >&2
+        echo "  --commit checks out an exact origin commit; push it to origin first." >&2
+        echo "  Then run: curl -fsSL https://statbus.org/install.sh | bash" >&2
         exit 1
     fi
     git -c advice.detachedHead=false checkout --detach "${COMMIT_SHA}^{commit}"
@@ -630,7 +632,7 @@ if [ -z "${SKIP_BINARY_DOWNLOAD:-}" ]; then
         echo "Updating existing installation..."
         mv "${HOME}/sb.tmp" "${STATBUS_DIR}/sb"
         cd "$STATBUS_DIR"
-        echo "Binary: $(./sb --version)"
+        echo "Installed program: $(./sb --version)"
         echo ""
         echo "Checking out $VERSION..."
         # Ensure db-seed is in origin's refspec so the subsequent
@@ -682,7 +684,7 @@ if [ -z "${SKIP_BINARY_DOWNLOAD:-}" ]; then
         git -C "$STATBUS_DIR" -c advice.detachedHead=false checkout --detach "${VERSION}^{commit}"
         mv "${HOME}/sb.tmp" "${STATBUS_DIR}/sb"
         cd "$STATBUS_DIR"
-        echo "Binary: $(./sb --version)"
+        echo "Installed program: $(./sb --version)"
         echo ""
     fi
 fi
@@ -712,18 +714,22 @@ fi
 # exits and write a named-invariant banner + support bundle so operators
 # have something actionable when they come back to "what happened".
 set +e
+trap - ERR
+install_output="$STATBUS_DIR/tmp/install-last-run-output.txt"
+mkdir -p "$STATBUS_DIR/tmp"
 if [ "$tty_available" = true ]; then
-    (exec </dev/tty; ./sb install ${SB_INSTALL_ARGS[@]+"${SB_INSTALL_ARGS[@]}"})
+    (exec </dev/tty; STATBUS_INSTALL_PROMPTS_TO_TTY=1 ./sb install ${SB_INSTALL_ARGS[@]+"${SB_INSTALL_ARGS[@]}"}) >"$install_output" 2>&1
+    sb_rc=$?
 else
-    ./sb install ${SB_INSTALL_ARGS[@]+"${SB_INSTALL_ARGS[@]}"}
+    ./sb install ${SB_INSTALL_ARGS[@]+"${SB_INSTALL_ARGS[@]}"} >"$install_output" 2>&1
+    sb_rc=$?
 fi
-sb_rc=$?
+trap 'rc=$?; echo "" >&2; echo "install.sh FAILED at line $LINENO: $BASH_COMMAND (exit $rc)" >&2' ERR
 set -e
 # Sentinel: we reached here, so every bash-level step above succeeded.
 # If the script died before this line (git checkout, curl, mv, etc.) the
 # ERR trap fired and printed the failing command. If sb_rc != 0 the
 # failure was inside the Go binary — not a bash-level exit.
-echo "install.sh: ./sb install returned (exit $sb_rc)" >&2
 
 # STATBUS-323: belt — release again on the failure path. The release above is
 # the normal hand-over and has already run, so this is a no-op then; it exists
@@ -733,6 +739,7 @@ echo "install.sh: ./sb install returned (exit $sb_rc)" >&2
 statbus_repo_lock_release
 
 if [ "$sb_rc" -eq 0 ]; then
+    grep -E '^\[[0-9]+/[0-9]+\] .+ (OK|DONE)$|^Installation complete!$|^All steps complete\.' "$install_output" || true
     exit 0
 fi
 
@@ -741,6 +748,17 @@ fi
 # contains the exact remedy. This is not an invariant breach, so do not claim
 # the system is unusable and do not generate a support bundle.
 if [ "$sb_rc" -eq 78 ]; then
+    if grep -Fq 'stdin is not a terminal (running under a pipe?). Run interactively with a terminal on stdin, or provide STATBUS_ENV_CONFIG for unattended install.' "$install_output"; then
+        echo 'stdin is not a terminal (running under a pipe?). Run interactively with a terminal on stdin, or provide STATBUS_ENV_CONFIG for unattended install.'
+    else
+        echo 'Installation cannot start with the current settings. Correct the settings, then run: curl -fsSL https://statbus.org/install.sh | bash'
+        preflight_bundle=$(grep -F 'send this file to StatBus support: ' "$install_output" | tail -1 | sed -E 's/^.*send this file to StatBus support: //' || true)
+        case "$preflight_bundle" in
+            "$STATBUS_DIR"/support-bundle-*.txt)
+                if [ -f "$preflight_bundle" ]; then echo "Support bundle: $preflight_bundle"; fi ;;
+        esac
+        echo "Installation diagnostics: $install_output"
+    fi
     exit "$sb_rc"
 fi
 
@@ -761,57 +779,57 @@ if [ "$sb_rc" -eq 75 ]; then
     echo "The upgrade attempt did not succeed, but rollback restored the prior"
     echo "version cleanly. Services are running; the maintenance banner is off."
     echo ""
-    echo "To retry the upgrade after addressing the root cause: re-run this script."
+    echo "After addressing the root cause, run:"
+    echo "    curl -fsSL https://statbus.org/install.sh | bash"
     echo "==============================================================================="
     exit 0
 fi
 
-# Anything else is a catastrophic failure — gather a support bundle and
-# write admin-UI state. Everything below is best-effort. If a step fails,
-# continue to the next so the SYSTEM UNUSABLE banner always prints even
-# when the DB is down or the bundle disk write fails.
-echo ""
-echo "==============================================================================="
-echo "SYSTEM UNUSABLE — ./sb install failed (exit $sb_rc)"
-echo "==============================================================================="
+# Anything else is a real installer failure. Gather diagnostics silently, then
+# give the operator one plain retry command and the support file to send if the
+# same step fails again.
 
-# 1. Named invariant that drove termination (empty when a panic or SIGKILL
-#    aborted before a guard site could write install-terminal.txt).
+# 1. Named failure detail, when a guard site recorded one.
 terminal_file="$STATBUS_DIR/tmp/install-terminal.txt"
-if [ -s "$terminal_file" ]; then
-    invariant_line=$(tail -1 "$terminal_file")
-    echo ""
-    echo "Invariant breached:"
-    echo "  $invariant_line"
+failed_step=$(grep -E '^\[[0-9]+/[0-9]+\] .+ +FAILED: ' "$install_output" | tail -1 || true)
+if [ -n "$failed_step" ]; then
+    failure_detail=$(printf '%s\n' "$failed_step" | sed -E 's/^\[([0-9]+\/[0-9]+)\] ([^ ]([^ ]| +[^ ])*) +FAILED: .*/step \1 (\2) failed: this part of installation could not finish/')
+    if printf '%s\n' "$failure_detail" | grep -Eiq 'INVARIANT|state:|step-table|pgx|\(target=|[A-Z][A-Z0-9]*_[A-Z_]{3,}'; then
+        failure_detail="an installation step could not finish"
+    fi
+    if printf '%s\n' "$failed_step" | grep -Eq '^\[16/17\] Trusted signers +FAILED: '; then
+        failure_detail="step 16/17 (Trusted signers) failed: release signer approval was declined"
+    fi
+elif [ -s "$terminal_file" ]; then
+    failure_detail="the installation could not finish its final checks"
 else
-    invariant_line="(no named invariant — ./sb install aborted before a guard site fired)"
-    echo ""
-    echo "Invariant breached: $invariant_line"
+    failure_detail="the installer could not finish"
 fi
 
-# 2. Support bundle: writes ./support-bundle-<ts>.txt and prints the abs path.
+# 2. Support bundle, gathered without printing internal diagnostics.
 bundle_path=""
 if bundle_path=$(./sb support gather --trigger=install 2>/tmp/sb-support-gather.err); then
-    echo ""
-    echo "Support bundle: $bundle_path"
-else
-    echo ""
-    echo "Support bundle: (gather failed — see /tmp/sb-support-gather.err)"
+    :
 fi
 
 # 3. Admin-UI state (best-effort — ./sb support write-admin-ui-row exits 0
 #    when the DB is unreachable; we ignore the exit code either way).
 ./sb support write-admin-ui-row \
-    --message "$invariant_line" \
+    --message "$failure_detail" \
     --bundle-path "${bundle_path:-}" \
     >/dev/null 2>&1 || true
 
 # 4. Operator-facing instruction.
-contact="${ADMINISTRATOR_CONTACT:-Contact your administrator}"
 echo ""
-echo "Next steps:"
-echo "  $contact"
-echo "  Attach the support bundle above to your support ticket."
+echo "The installation stopped before it could finish."
+echo "Cause: $failure_detail"
+echo "Then run the same install command again:"
+echo "    curl -fsSL https://statbus.org/install.sh | bash"
+if [ -n "$bundle_path" ]; then
+    echo "If it stops at the same place again, send this file to StatBus support: $bundle_path"
+else
+    echo "Installation diagnostics: $install_output"
+fi
 echo "==============================================================================="
 
 exit "$sb_rc"

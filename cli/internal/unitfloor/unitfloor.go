@@ -113,28 +113,21 @@ func (r Report) Announce() string {
 		return ""
 	}
 	var b strings.Builder
-	b.WriteString("╔══ THIS BOX CANNOT FOLLOW ITS UPGRADE CHANNEL ══\n")
+	b.WriteString("╔══ AUTOMATIC UPDATE CHECKS NEED REPAIR ══\n")
 	switch r.State {
 	case UnitFileMissing:
-		fmt.Fprintf(&b, "║ The upgrade service unit is MISSING: %s\n", r.UnitPath)
-		b.WriteString("║ Nothing on this box is scheduling upgrade checks. It will never\n")
-		b.WriteString("║ take a new release on its own, and its upgrade page will go stale\n")
-		b.WriteString("║ without ever reporting an error.\n")
+		b.WriteString("║ Automatic update checks are not installed.\n")
+		b.WriteString("║ This StatBus installation will not discover new releases until repaired.\n")
 	case UnitFileDrifted:
-		fmt.Fprintf(&b, "║ The upgrade service unit has DRIFTED from the shipped template:\n")
-		fmt.Fprintf(&b, "║   on disk: %s\n", r.UnitPath)
-		fmt.Fprintf(&b, "║   shipped: %s\n", r.RepoPath)
-		b.WriteString("║ This box is running an old unit definition — its timeouts and\n")
-		b.WriteString("║ watchdog settings are whatever they were when it was installed.\n")
+		b.WriteString("║ Automatic update settings are out of date.\n")
+		b.WriteString("║ Repair them so future release checks use the supported settings.\n")
 	case Inactive:
-		fmt.Fprintf(&b, "║ The upgrade service is NOT RUNNING: %s\n", r.Instance)
-		b.WriteString("║ The unit is installed correctly but inactive, so no checks tick.\n")
-		b.WriteString("║ Upgrades will not be discovered and the page will go stale.\n")
+		b.WriteString("║ Automatic update checks are not running.\n")
+		b.WriteString("║ This StatBus installation will not discover new releases until repaired.\n")
 	}
 	b.WriteString("║\n")
-	b.WriteString("║ FIX — run the install entrypoint; it is idempotent and safe to\n")
-	b.WriteString("║ re-run on a healthy box:\n")
-	b.WriteString("║     ./sb install\n")
+	b.WriteString("║ FIX — run:\n")
+	b.WriteString("║     curl -fsSL https://statbus.org/install.sh | bash\n")
 	b.WriteString("╚════════════════════════════════════════════════")
 	return b.String()
 }
@@ -238,5 +231,11 @@ func UserUnitPath() string {
 }
 
 func isActiveSystemd(instance string) bool {
-	return exec.Command("systemctl", "--user", "is-active", instance).Run() == nil
+	out, err := exec.Command("systemctl", "--user", "is-active", instance).Output()
+	return systemdActivityIsRunning(string(out), err)
+}
+
+func systemdActivityIsRunning(output string, err error) bool {
+	state := strings.TrimSpace(output)
+	return err == nil || state == "active" || state == "activating"
 }
