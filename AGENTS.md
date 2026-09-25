@@ -516,6 +516,7 @@ export const loginAtom = atom(null, async (get, set, credentials) => {
 
 ## Notes
 
+- Tickets are Backlog.md files under `.backlog/tasks/`, read with the `backlog` CLI, the `backlog` MCP server (`mcp__backlog__task_view`, `task_edit`, `task_list`, ...), or `rg`. Never guess or open ticket-tracker URLs (no Linear, no YouTrack for STATBUS); never open browser tabs to look up a ticket (owner decision 2026-09-25 after workers opened linear.app tabs in the owner's browser).
 - Use `tmp/` directory for diagnostic SQL, journals, debug scripts (gitignored)
 - Don't delete files from `tmp/` - they serve as useful logs
 - Commit messages: `prefix: description` (e.g., `auth: Fix JWT verification`)
@@ -539,5 +540,7 @@ export const loginAtom = atom(null, async (get, set, credentials) => {
 **Never defer known bugs.** If a latent bug is found during investigation, fix it immediately or in the very next step. Silent data corruption (e.g. missing UNIQUE constraints allowing duplicates) wastes huge amounts of user/debugging/support time. No "skip for now" — deferring known bugs is considered a moral deficiency.
 
 **Always add constraints.** If a table can have duplicates that shouldn't exist, add `UNIQUE`. If a function has a race condition, fix it. The codebase has dozens of constraints by design — intentional quality engineering, not over-engineering.
+
+**No anxiety tests (owner principle, 2026-09-25).** A test must check a real system invariant or behavior. A negative test for a possible future bad, keyed to an arbitrary token (e.g. grepping that a retired string never reappears), cannot do what it claims: a known token cannot prevent an unknown bad. It over-fires on harmless mentions, under-fires on the same error under a new name, and its true cost is confusion, review time, and CI coupling. Rejected designs live in tickets and git history; review is the gate. (Origin: the UPGRADE_ROLE guard, deleted per STATBUS-413 option D.)
 
 **There are NO flaky tests.** Never dismiss test failures as "flaky" or "transient". Every failure has a real root cause. Common actual causes: concurrent test runs colliding on shared DB resources (left a background test running); actual code bugs introduced by changes; environment issues needing fixing. "Flaky" is a lazy excuse that masks real problems.

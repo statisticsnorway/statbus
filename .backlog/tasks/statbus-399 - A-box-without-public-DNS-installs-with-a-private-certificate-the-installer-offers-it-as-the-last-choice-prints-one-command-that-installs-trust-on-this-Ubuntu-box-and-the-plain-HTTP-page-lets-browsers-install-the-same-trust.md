@@ -4,7 +4,7 @@ title: A private-name installation offers a private certificate and complete tru
 status: To Do
 assignee: []
 created_date: '2026-09-24 15:35'
-updated_date: '2026-09-24 18:42'
+updated_date: '2026-09-25 13:53'
 labels:
   - owner-decision
   - install
@@ -31,6 +31,18 @@ A standalone box with a private name can select a private certificate as the fin
 ## Evidence, 2026-09-24
 
 Current standalone configuration supports automatic certificates or supplied certificate files (`caddy/templates/standalone.caddyfile.tmpl:145-155` at master `7a9cf707e`), while development mode uses an internal authority (`caddy/templates/development.caddyfile.tmpl:198-202` at master `7a9cf707e`). Finland automatic issuance failed with NXDOMAIN and retries (`/Users/jhf/ssb/statbus/tmp/finland-answers-4.txt:6-12`). The local hand-edited experiment proved trusted HTTPS and PostgreSQL direct TLS, but also found the generated root unreadable by the operator and the choice lost on regeneration (`/Users/jhf/ssb/statbus/tmp/local-ville-replay.md:1023-1103`). That experiment is evidence, not shipped capability.
+## Owner decisions, 2026-09-25 13:43Z
+
+- **Ship this first.** It is Finland's unblocker; STATBUS-358 (the SSB certificate service) proceeds concurrently but separately.
+- In the installed flow the private certificate also serves as the *temporary* certificate while an SSB-issued certificate awaits approval; swapping to the SSB-issued certificate later is a config change, not a reinstall.
+
+## Owner decisions, 2026-09-25 13:52Z — flow shape
+
+- **No blocking/locking wait in the installer.** Waiting for approval must not hold the installer open: unfriendly for scripting. Instead the installer STOPS and presents the choice.
+- **Interactive:** the operator chooses at the prompt.
+- **Non-interactive:** the installer prints exact instructions: which environment variables to set to select each path, and exactly what to report to Statistics Norway.
+- Private-certificate-as-temporary with a later swap to the SSB-issued certificate is the accepted way to get a box running immediately.
+
 <!-- SECTION:DESCRIPTION:END -->
 
 ## Acceptance Criteria

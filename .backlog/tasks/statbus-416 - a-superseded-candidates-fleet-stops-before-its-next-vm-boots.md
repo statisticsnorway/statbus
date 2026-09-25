@@ -4,7 +4,7 @@ title: A superseded candidate's fleet stops before its next VM boots
 status: In Progress
 assignee: []
 created_date: '2026-09-25 09:45'
-updated_date: '2026-09-25 12:20'
+updated_date: '2026-09-25 16:35'
 labels:
   - release-bug
   - ci
@@ -36,6 +36,10 @@ A newer RC does not interrupt an already running VM, but each queued scenario of
 The per-scenario supersession check (merged `ef32c20c5`) has not yet had a chance to fire: rc.04 was cut 10:03:52Z while rc.03's last two scenarios were already running (ended 10:04:07Z/10:04:22Z); no rc.03 scenario started after the cut.
 
 rc.04 exposed the opposite defect: its orchestrator run 36121911613 failed in 90 s at 10:05:08Z because `.github/actions/dispatch-fleet-and-wait/dispatch.sh` preflight_fleet_group refused (`Hetzner VM fleet occupied`) while rc.03's fleet (run 36116753412) was draining. Fixed in `2feb30f29`: an older candidate's occupying run -> bounded wait (30 s polls, 20 min cap, owner id and remaining jobs logged); same/newer/manual/unknown occupant -> refuse as before; the occupant is never cancelled. Merged in `a3526f832`; rc.05's orchestrator dispatched its smoke normally. Proof of the per-scenario stop still pending: needs a cut while a fleet has scenarios still queued.
+
+## rc.05 observation, 2026-09-25
+
+Run 36130286326 was the newest candidate's own fleet, so no scenario started after a newer cut: the supersession check remains unobserved in anger. First real opportunity is rc.06's fleet if rc.07 is cut while it runs.
 
 <!-- SECTION:DESCRIPTION:END -->
 

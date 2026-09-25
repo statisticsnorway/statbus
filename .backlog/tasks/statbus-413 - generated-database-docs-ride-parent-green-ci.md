@@ -4,7 +4,7 @@ title: A push that changes only generated doc/db/ files rides the parent's green
 status: In Progress
 assignee: []
 created_date: '2026-09-24 23:55'
-updated_date: '2026-09-24 23:55'
+updated_date: '2026-09-25 13:36'
 labels:
   - release-bug
   - ci
@@ -26,6 +26,10 @@ A commit that changes only generated database-reference Markdown under `doc/db/`
 - `ops/release/ci-exempt-paths.txt:1-27,41-63` currently exempts only `.backlog/`, explicitly says `doc/` is not included and lists the synchronized Go/app trigger filters. `cli/cmd/release/release.go:1567-1656,178-205` implements anchored first-parent verdict riding, and `cli/cmd/release/release_ci_exempt_ride_test.go:25-113` covers fail-closed matching.
 - `.github/workflows/go-test.yaml:41-45` and `.github/workflows/app_build_and_lint-workflow.yaml:16-22` ignore `.backlog/**` on pushes, not `doc/db/**`. `.github/workflows/images.yaml:86-220,342-389` decides exempt-only changes and verifies retagged parent images. On `.backlog/`-only commit `8b73ca1fb`, Images run [36031394505](https://github.com/statisticsnorway/statbus/actions/runs/36031394505) recorded five successful parent-retag jobs with the build skipped. The seed job has separate semantics (`images.yaml:391-446`) and must retain its publication contract.
 - Work is active on worker blowfish's `ci/docdb-exempt` branch, not merged at the baseline `373d15fc3`. **In Progress describes that active implementation, not accepted master behavior.**
+## Owner decision, 2026-09-25 13:35Z: option D — delete the guard
+
+The retired-role string guard (`TestRetiredUpgradeRoleAppearsNowhere`, cli/cmd/upgrade_role_retired_test.go) is deleted. Owner's analysis, confirmed by the coordinator: the test over-fires (the string in commentary or generated SQL is not the harm) and under-fires (the same design error under a different key name passes). It guards one historical string, not a principle; the design decision lives in the STATBUS-307 ticket and git history, and review is the actual gate. With the guard gone, this ticket's blocker is dissolved: doc/db-only pushes may ride the exemption list on their own merits, after verifying no OTHER Go test or build step consumes doc/db/ (memo: tmp/q1-docdb-exemption.md).
+
 <!-- SECTION:DESCRIPTION:END -->
 
 ## Acceptance Criteria

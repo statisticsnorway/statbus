@@ -4,7 +4,7 @@ title: Running the installer completes or waits for an earlier restart
 status: In Progress
 assignee: []
 created_date: '2026-09-24 15:47'
-updated_date: '2026-09-25 12:20'
+updated_date: '2026-09-25 16:35'
 labels:
   - release-bug
   - install
@@ -38,6 +38,10 @@ Finland retained a saved restart after restart failure and later refused install
 ## rc.03 evidence, 2026-09-25
 
 rc.03 run 36116753412 job 108013586646 (5-install-live-upgrade-wait): rerun refused `a restart is still running, or its services could not be restored`. Review established the marker writer (PID 16498) was the installer's own stale-restart recovery and the refusal came from an invalid fixture that requested a daemon restart for an app-only restart with no unit, not a product bug; scenario fixed in `faf0905be`, merged in `a3526f832` (rc.05). VM proof pending.
+
+## VM proof, 2026-09-25 (rc.05, run 36130286326)
+
+5-install-live-upgrade-wait: GREEN. The corrected fixture (faf0905be) ran the full wait path on a VM: the installer's rerun now waits out a live restart instead of hitting the stale-recovery false positive.
 
 <!-- SECTION:DESCRIPTION:END -->
 

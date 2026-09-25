@@ -4,7 +4,7 @@ title: Every fault scenario starts from one installed snapshot on a warm LXD box
 status: To Do
 assignee: []
 created_date: '2026-09-25 11:15'
-updated_date: '2026-09-25 12:20'
+updated_date: '2026-09-25 17:42'
 labels:
   - harness
   - velocity
@@ -41,6 +41,10 @@ Backend prototype: branch `harness/lxd-backend-stage1` (commits `c117223c9`, `af
 Defect in the stage-1 specification (coordinator error, not the worker's): the scenario scripts already declare their mode and starting state (`HARNESS_DEPLOYMENT_MODE` per script; standalone in 4-install-port-80-taken, 5-install-orphaned-db-volume-credentials, 4-install-standalone-no-public-dns; private in 0-happy-install, 4-install-40gb-disk, 5-install-interrupted-restart, 5-install-live-upgrade-wait, 0-interactive-admin-password; development in 0-happy-upgrade and the vm-bootstrap default), and several start FRESH or from a previous stable baseline. The backend must fork from the checkpoint each scenario's own script requires: (a) hardened, nothing installed (scenario runs install.sh itself); (b) installed-<candidate>-<mode>; (c) installed-<previous stable>-<mode> for upgrade/concurrency scenarios; plus a per-instance root quota for 4-install-40gb-disk and APT index present for interactive scenarios.
 
 Open before stage 2: the deployment-mode question in the new ticket on NSO-representative harness modes (which mode the proofs of record must use).
+
+## Owner lifecycle decision, 2026-09-25 17:41Z
+
+The warm box is not permanent: **ramp up on demand, keep it around roughly 24 hours after last use, then clean up.** The automation (stage 3) must implement: an idle-timeout reaper (delete the box when unused > ~24 h) and a fast ramp-up path (recreate + harden + build the candidate base unattended; consider a Hetzner snapshot of the hardened LXD host to make ramp-up minutes instead of a full harden cycle).
 
 <!-- SECTION:DESCRIPTION:END -->
 

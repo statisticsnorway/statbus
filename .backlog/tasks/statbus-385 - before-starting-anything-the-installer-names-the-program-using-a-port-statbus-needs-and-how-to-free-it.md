@@ -4,7 +4,7 @@ title: Before starting StatBus, the installer names any program using a required
 status: In Progress
 assignee: []
 created_date: '2026-09-24 16:42'
-updated_date: '2026-09-25 12:20'
+updated_date: '2026-09-25 16:35'
 labels:
   - release-bug
   - install
@@ -41,6 +41,10 @@ Failed evidence, 2026-09-24: v2026.09.3-rc.01 (`10f094f2b`) smoke run `360633057
 ## rc.03 evidence and fix, 2026-09-25
 
 rc.03 run 36116753412: job 108013584931 (4-install-port-80-taken) printed the correct apache2 refusal; the scenario failed on a stale literal assertion (`curl -fsSL https://statbus.org/install.sh | bash` vs the saved rerun command that includes the operator's env vars), fixed in the scenario by `ed82f865e`. Job 108013586533 (5-install-orphaned-db-volume-credentials phase a, root `python3 -m http.server 80`) printed the generic `Installation cannot start with the current settings` because the Docker ownership probe failed on a fresh box and the named-owner line was lost; fixed in `08bcd2908` (every owner shape: named service, another program, probe error reaches the terminal verbatim; test TestCheckInstallPortsOwnAndForeign). Both merged in `a3526f832`, first candidate v2026.09.3-rc.05. VM proof pending.
+
+## VM proof, 2026-09-25 (rc.05, run 36130286326, job 108056844900)
+
+4-install-port-80-taken: the first refusal named the owner and remedy verbatim on a real VM: `port 80 is in use by apache2. Free the port with sudo systemctl disable --now apache2. ... Your answers are saved. Then run the same install command again: curl ...` — both rc.03 fixes (08bcd2908, ed82f865e) proven. The scenario then failed at the RERUN for a NEW, unrelated product reason (interrupted-install signer refusal; fixed on fix/rc05-port80-rerun).
 
 <!-- SECTION:DESCRIPTION:END -->
 

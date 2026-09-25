@@ -4,7 +4,7 @@ title: Installation and automatic updates keep database role passwords aligned w
 status: In Progress
 assignee: []
 created_date: '2026-09-24 15:46'
-updated_date: '2026-09-25 12:20'
+updated_date: '2026-09-25 16:35'
 labels:
   - release-bug
   - install
@@ -34,6 +34,10 @@ Role passwords are initially set only during empty-volume initialization (`postg
 ## rc.03 evidence and fix, 2026-09-25
 
 rc.03 install-recovery run 36116753412, job 108013586533 (5-install-orphaned-db-volume-credentials). The LXD fork prototype (tmp/throwaway-lxd-prototype.md lines 43-46) reproduced phase b in 2 minutes: reinstall over a surviving database volume with new credentials failed step 8 in 15 s, PostgREST looping on `password authentication failed for user "authenticator"`, because `reconcilePublishedPorts` ran before `syncRolePasswords` in cli/cmd/install_services.go. Fixed in `46488ccb4` (step 8 order: DB health -> syncRolePasswords -> restart clients -> reconcilePublishedPorts -> readiness), with a source-order test and a behavioral regression (red before, green after), merged to master in `a3526f832`, first candidate carrying it: v2026.09.3-rc.05. VM proof pending on rc.05's install-recovery run.
+
+## VM proof, 2026-09-25 (rc.05, run 36130286326, job 108056846431)
+
+Phase b of 5-install-orphaned-db-volume-credentials PASSED on the VM fleet: reinstall over a surviving database volume with new credentials reached `published 5431/80/443, upgrade service active, /ready 200` — the step-8 ordering fix (46488ccb4) holds on real VMs, not only on the LXD fork. The scenario then failed in phase c for a harness reason (unprivileged rm of container-owned caddy files, fixed in fix/rc05-harness). The product defect this ticket tracks is proven fixed; the scenario's own repair is in flight.
 
 <!-- SECTION:DESCRIPTION:END -->
 

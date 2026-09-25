@@ -4,7 +4,7 @@ title: A private-address site receives and renews a trusted certificate after on
 status: To Do
 assignee: []
 created_date: '2026-09-07 07:02'
-updated_date: '2026-09-24 18:47'
+updated_date: '2026-09-25 13:53'
 labels:
   - owner-decision
   - install
@@ -34,6 +34,17 @@ The approved architecture places registration, pending and approved state, per-b
 ## Evidence, 2026-09-24
 
 Current standalone configuration has automatic-ACME and supplied-certificate branches (`caddy/templates/standalone.caddyfile.tmpl:145-155` at master `7a9cf707e`). The current Caddy image builds only its existing modules (`caddy/Dockerfile:6` at master `7a9cf707e`), and current certificate CLI behavior begins at `cli/cmd/cert.go:46-89` at master `7a9cf707e`. No delegated DNS certificate service, registration command, approval flow, or renewal proof exists in master. The exact DNS-answering library, fork, and provider syntax remain conditional until a spike proves them.
+## Owner decisions, 2026-09-25 13:43Z
+
+- Built **concurrently** with STATBUS-399, not after it.
+- The service lives in **its own repository** and **installs separately** (on SSB infrastructure, niue). The box-side registration/approval/renewal commands stay in this repo (cli/cmd/cert.go territory).
+
+## Owner decisions, 2026-09-25 13:52Z — identity and approval
+
+- Approval happens on the SSB side (sensible: a human approves each box).
+- **Stable identifier, mandatory:** the identity we see and approve must be identical to the identity the box presents on every rerun. Persisted across reruns, recreate and restore (AC #4 already requires this).
+- Box-side flow (with 399): installer stops and offers the choice interactively; non-interactive runs receive printed env vars and exactly what to report to SSB. No blocking wait inside the installer.
+
 <!-- SECTION:DESCRIPTION:END -->
 
 ## Acceptance Criteria
