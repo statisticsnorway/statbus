@@ -321,7 +321,11 @@ func loadOrGenerateCredentials(projDir string, verbose bool) (*Credentials, erro
 		ServiceRoleKey:                gen("SERVICE_ROLE_KEY", func() string { return generateJWT(jwtSecret, "service_role") }),
 	}
 	creds.GithubToken, _ = f.Get("GITHUB_TOKEN")
-	creds.SeqAPIKey, _ = f.Get("SEQ_API_KEY")
+	// SEQ_API_KEY gets a generated placeholder like every other credential: the
+	// app service declares it :?-required (docker-compose.app.yml), so an absent
+	// value breaks compose even where no Seq server runs. It lives in
+	// .env.credentials, never in .env.config (STATBUS-361).
+	creds.SeqAPIKey = gen("SEQ_API_KEY", func() string { return "secret_seq_api_key" })
 	creds.SlackToken, _ = f.Get("SLACK_TOKEN")
 
 	if err := f.Save(); err != nil {
