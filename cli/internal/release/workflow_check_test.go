@@ -595,7 +595,7 @@ func TestCheckWorkflowByMarker_STATBUS285(t *testing.T) {
 // would go instantly Missing and the release gate would refuse every cut — a
 // gate broken by its own rollout. This is the guard on that.
 func TestOnlyMarkerCarryingWorkflowsUseMarkerLookup_STATBUS285(t *testing.T) {
-	marked := []string{WorkflowFastTests, WorkflowPgRegress}
+	marked := []string{WorkflowFastTests}
 	unmarked := []string{WorkflowImages, WorkflowGoTest, WorkflowTestHardening,
 		WorkflowTestSmoke, WorkflowTestInstallLegacy, WorkflowTestUpgradeLegacy,
 		WorkflowInstallRecoveryHarness, WorkflowAppBuildLint, WorkflowUpgradeArcHarness}
@@ -618,7 +618,7 @@ func TestOnlyMarkerCarryingWorkflowsUseMarkerLookup_STATBUS285(t *testing.T) {
 //
 // workflowCarriesExercisedMarker is a hand-kept set, and a hand-kept set rots:
 // the day someone adds `exercised-sha=` to another workflow's run-name, or
-// removes it from one of these two, the Go side would keep answering from
+// removes it from Fast Tests, the Go side would keep answering from
 // memory. Both directions of that drift are silent and bad — a workflow that
 // gained the marker keeps being read by the head_sha lie, and one that lost it
 // goes permanently Missing and refuses every cut.
@@ -672,7 +672,7 @@ func TestMarkerScopeMatchesTheWorkflowFiles_STATBUS285(t *testing.T) {
 				"STATBUS-285 lie this ticket removes", name)
 		}
 	}
-	for _, name := range []string{WorkflowFastTests, WorkflowPgRegress} {
+	for _, name := range []string{WorkflowFastTests} {
 		if workflowCarriesExercisedMarker(name) && !emitsMarker[name] {
 			t.Errorf("%s is read via the marker lookup but its workflow file no longer emits "+
 				"exercised-sha — every commit will now read Missing and the release gate will refuse "+
@@ -699,7 +699,6 @@ func TestRoutingReachesTheMarkerLookup_STATBUS285(t *testing.T) {
 		workflow       string
 		wantHeadSHAArg bool
 	}{
-		{WorkflowPgRegress, false}, // marked → marker lookup → no head_sha filter
 		{WorkflowFastTests, false},
 		{WorkflowImages, true}, // unmarked → legacy path → head_sha filter
 		{WorkflowGoTest, true},

@@ -175,7 +175,7 @@ func preflightChecks(projDir string, checkOnly bool) bool {
 		}
 		pgRegressResult := checkWorkflowAtCommit(release.WorkflowFastTests, headFull)
 
-		// STATBUS-219: the pg_regress fast suite is a verdict about content, so it may ride an
+		// STATBUS-219: the fast suite is a verdict about content, so it may ride an
 		// exempt-only ancestor's green (same reasoning as
 		// checkPrereleaseWorkflowGate; Unknown excluded there and here).
 		var pgRide *exemptRide
@@ -290,14 +290,14 @@ func preflightChecks(projDir string, checkOnly bool) bool {
 				stampFromRide, checkOnly); !covered {
 				// STATBUS-288: the third drift-refusal site. Wired to the same
 				// MECHANISM as its siblings at :338 and :356 but deliberately to a
-				// DIFFERENT WORKFLOW — fast-tests, not pg_regress. A staleness
+				// DIFFERENT WORKFLOW — the fast-tests workflow. A staleness
 				// check cannot be satisfied by a run that rode an ancestor's stamp
 				// without executing; see staleTemplateCoveredByFastTestsGreen.
 				//
 				// This branch fires when the stamp's SOURCE-DB version is behind
 				// HEAD's on-disk max — the local suite ran against a stale
 				// template. That is a real gap in the LOCAL evidence, and it was
-				// refusing on that basis alone. But a green pg_regress at HEAD
+				// refusing on that basis alone. But a green fast suite at HEAD
 				// answers the stronger question: CI built its database from this
 				// committed tree, so its template cannot be stale by construction.
 				// Refusing while holding that answer asks the operator to
@@ -336,7 +336,7 @@ func preflightChecks(projDir string, checkOnly bool) bool {
 					}
 					fmt.Printf("  ✓ Fast tests cover latest migrations (stamp: %s, source version: %s, last migration: %s)\n", shortStamp, stampVersion, shortMig)
 				} else if covered, ciResult := driftCoveredByCIGreen(projDir, "test expected file drift", testExpectedDrift, stampFromRide, checkOnly); !covered {
-					// Not covered by a green pg_regress at HEAD — see
+					// Not covered by a green fast suite at HEAD — see
 					// driftCoveredByCIGreen for the argument it makes when it
 					// IS green. Refusal below is unchanged except for the
 					// STATBUS-277 either/or line printed first.
@@ -354,7 +354,7 @@ func preflightChecks(projDir string, checkOnly bool) bool {
 					allPassed = false
 				}
 			} else if covered, ciResult := driftCoveredByCIGreen(projDir, "latest migrations", newMigrations, stampFromRide, checkOnly); !covered {
-				// Not covered by a green pg_regress at HEAD — see
+				// Not covered by a green fast suite at HEAD — see
 				// driftCoveredByCIGreen for the argument it makes when it IS
 				// green. Refusal below is unchanged except for the STATBUS-277
 				// either/or line printed first.
@@ -1200,7 +1200,7 @@ var releasePrereleaseCmd = &cobra.Command{
 Includes the commit-scope workflow oracles (STATBUS-199 D1: "gate obvious
 things as early as possible" — these need only the commit, not a cut RC
 tag, so they belong here rather than at stable promotion):
-  - pg_regress fast suite: local stamp, else the Fast Tests runner job at HEAD
+  - fast suite: local stamp, else the Fast Tests runner job at HEAD
   - images (Docker artifacts build)
   - go-test (go vet + go test ./...)
   - app-build-lint (app/ build + lint)
@@ -1218,7 +1218,7 @@ Operator bypasses (use sparingly — each one is an admission that a gate's
 invariant has NOT been verified for the SHA):
   SKIP_GO_TEST=1
   SKIP_APP_BUILD_LINT=1
-(No SKIP for pg_regress or images by design — see their own checks' comments.)
+(No SKIP for the fast suite or images by design — see their own checks' comments.)
 
 release stable then RIDES this gating rather than re-checking it — see
 ` + "`./sb release stable --help`" + ` for what stable still gates on its own
@@ -1904,7 +1904,7 @@ func checkStableWorkflowGate(workflow, label, skipEnv, rcTag, rcCommit, rcShort 
 // seams together even though it only consults checkWorkflowAtCommit — that
 // mechanism is STATBUS-219's, untouched by this switch. checkWorkflowAtCommit
 // itself remains live production code at several other call sites (see
-// findExemptRide, the pg_regress/images checks) — only workflowJobsComplete's
+// findExemptRide, the fast-suite/images checks) — only workflowJobsComplete's
 // PRODUCTION call sites are gone.
 var (
 	checkWorkflowAtCommit = release.CheckWorkflowAtCommit

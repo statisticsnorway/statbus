@@ -179,7 +179,7 @@ func driftCoveredByCIGreen(projDir, what, drifted string, stampFromRide, checkOn
 // The two workflows can be green at one commit and mean different things.
 // Observed on 2026-08-27 at a3988e163: fast-tests.yaml had really run (89/89,
 // and its log recorded the very stamp content this check wants), while
-// pg_regress.yaml at that same SHA concluded "success" as a stamp-ride
+// the retired remote pg_regress workflow at that same SHA concluded "success" as a stamp-ride
 // inherited from b319ae4be, with zero tests executed in the run itself.
 //
 // That observation is not offered as proof the ride was WRONG — it may well

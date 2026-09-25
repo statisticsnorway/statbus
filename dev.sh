@@ -1274,29 +1274,9 @@ EOS
 
         ./dev.sh create-db > /dev/null
 
-        # STATBUS-162: on FAILURE, print the db container's own logs (incl.
-        # init-db's [N/8] section markers, which print to the container's
-        # stderr and appear NOWHERE else) to stdout, delimited, BEFORE
-        # delete-db tears the container down. This is the ONLY channel
-        # available to get that evidence off a remote CI host: the pg_regress
-        # workflow's SSH key is allowlisted (niue's sshdo) to run ONLY this
-        # exact command line, so no follow-up SSH/SCP step could ever fetch
-        # anything after the fact even if the container survived — and
-        # delete-db's `./sb stop all` (docker compose down) removes it
-        # outright, not just stops it, so nothing would be left to fetch
-        # anyway. Printing here, inside the one already-allowed command,
-        # before teardown, is the only place this evidence can still escape.
-        # The workflow captures this step's stdout (capture_stdout) and
-        # extracts the delimited section into a real uploaded artifact.
-        #
-        # Bounded at the PRODUCER (--tail=5000), not left to the consumer:
-        # the GHA step-output ceiling truncates SILENTLY, and unbounded
-        # output risks clipping the BEGIN marker itself — losing everything,
-        # not just the oldest lines. A named tail window here is a real bound
-        # (no-silent-caps), and it's always sufficient: under
-        # restart:unless-stopped a failed init-db reprints its whole [N/8]
-        # sequence every boot, so the recent tail always contains one
-        # complete failure cycle.
+        # On failure, print the last 5000 db-container log lines before
+        # teardown removes the container. This preserves init-db diagnostics
+        # alongside the locally runnable test command's output.
         _ci_teardown() {
             local rc=$?
             if [ "$rc" -ne 0 ]; then
@@ -3804,7 +3784,7 @@ EOS
       echo "  test <all|fast|benchmarks|name>    Run pg_regress tests (check-don't-fix preconditions)"
       echo "  migrate-and-test <args...>         CI-friendly: bootstrap seed + test template, then test"
       echo "  test-isolated <name>               Run single test in isolated database"
-      echo "  continous-integration-test [branch] [commit]  Full CI test pipeline"
+      echo "  continous-integration-test [branch] [commit]  Local equivalent of GitHub Fast Tests run"
       echo "  diff-fail-first [gui|vim|pipe]     Show diff for first failed test"
       echo "  diff-fail-all [gui|vim|pipe]       Show diffs for all failed tests"
       echo "  make-all-failed-test-results-expected  Accept all test failures"

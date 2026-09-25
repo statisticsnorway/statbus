@@ -17,7 +17,7 @@
 #
 # Originally generated 2026-04-15.
 
-# Abstract hex-digit runs (needed for the 40-char SHA in pg_regress).
+# Abstract hex-digit runs (needed for commit-addressed commands).
 # A '#' in a stored command matches any hex digit at runtime.
 match hexdigits
 
@@ -42,7 +42,7 @@ statbus_demo: cd ~/statbus && ./sb upgrade apply-latest
 # is the general named-target verb; this is the one door permitted to
 # invoke it with an argument. 40 '#' characters match the 40-hex commit SHA
 # at runtime (via `match hexdigits`), same pattern as the ci-deploy-status.sh
-# and pg_regress entries below. This is now dev's ONLY apply door: the
+# and deploy-status entries below. This is now dev's ONLY apply door: the
 # apply-latest entry it deliberately coexisted with through the STATBUS-259
 # transition was retired by STATBUS-273 (2026-08-31) once the named-target
 # path had proven itself across real cuts — dev's door permits exactly one
@@ -73,12 +73,6 @@ statbus_ma: ~/statbus/ops/ci-notify.sh
 statbus_ug: ~/statbus/ops/ci-notify.sh
 statbus_et: ~/statbus/ops/ci-notify.sh
 statbus_jo: ~/statbus/ops/ci-notify.sh
-
-#
-# pg_regress test runner — invoked by pg_regress.yaml via appleboy ssh-action.
-# 40 '#' characters match a 40-char hex SHA at runtime (via `match hexdigits`).
-#
-statbus_test: cd statbus && git fetch origin && git checkout -- . && git checkout ######################################## && ./dev.sh continous-integration-test
 
 #
 # CI deploy-status poll — invoked by deploy-to-dev.yaml after the poke

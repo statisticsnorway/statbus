@@ -15,7 +15,7 @@ Sister documents: [release-workflow-gates.md](release-workflow-gates.md)
 
 | # | rung | proves | cost | when it runs |
 |---|---|---|---|---|
-| 1 | cut oracles: `go-test`, `fast-tests`, `pg_regress`, `app_build_and_lint` | the code at the commit: Go CLI units (about 1000, including the live twins), the SQL suite (migrations, temporal tables, import, worker), the Next.js build and lint | GitHub runners, ~10 min | every push to master; `./sb release rc` refuses to tag without them |
+| 1 | cut oracles: `go-test`, `fast-tests`, `app_build_and_lint` | the code at the commit: Go CLI units (including the live twins), the fast SQL suite (migrations, temporal tables, import, worker), the Next.js build and lint | GitHub runners | release preflight refuses to tag without them; run `./dev.sh continous-integration-test` locally for the Fast Tests equivalent |
 | 2 | `release.yaml` | six `sb` binaries and six ghcr images exist for the tag; released migrations are immutable | GitHub runners, ~5 min | the tag push |
 | 3 | `test-hardening` | the shipped images and compose posture, and `install.sh` end to end against a pinned version on a runner | GitHub runner, ~12 min | the tag push |
 | 4 | smoke `0-happy-install` | an empty prepared Ubuntu VM in NSO private mode (default stable channel) runs the candidate’s shipped `install.sh --non-interactive` with `STATBUS_INSTALL_VERSION=<tag>` through FRESH, using its explicit deployment answers plus signer consent, and proves mode/channel, candidate binary/ledger identity and health, then separately applies operator tuning and verifies restarted consumers | 1 VM, ~13 min | the tag push, via the orchestrator |

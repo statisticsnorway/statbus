@@ -36,8 +36,7 @@ the architect's review.
   the `self-hosted, niue` labels. statbus is a PUBLIC repo — a fork PR can rewrite a
   workflow, so a PR job on a self-hosted runner would be arbitrary third-party code
   on production. The notify workflow's triggers are `push`/`workflow_run` only, so
-  it is safe; pg_regress (which has a PR trigger) must keep its PR leg on
-  `ubuntu-latest` when it migrates (doc-026 §2, a later phase).
+  it is safe. No pull-request job may run on this production runner.
 
 ## Consequence you must respect: raw ssh, not Docker actions
 
@@ -83,7 +82,7 @@ a human action):
 Replace `.github/workflows/notify-all-clouds.yaml` with the PROPOSED file here (once
 its two open questions below are ruled), which moves the notify legs to
 `[self-hosted, niue]`, converts to raw ssh, and adds the hosted `runner-online`
-canary. Then pg_regress's trusted legs, then the slot deploys — each doc-026 §3.
+canary. Then the remaining trusted slot deploys — each doc-026 §3.
 
 ## Rollback (every step)
 

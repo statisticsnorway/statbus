@@ -1,6 +1,6 @@
 # STATBUS-219: paths whose changes CANNOT affect any test outcome, build
-# artifact, or runtime behaviour. When a prerelease VERDICT gate (pg_regress,
-# go-test, app-build-lint, fast-tests) is not green at the tip, the preflight
+# artifact, or runtime behaviour. When a prerelease VERDICT gate (go-test,
+# app-build-lint, fast-tests) is not green at the tip, the preflight
 # (cli/cmd/release.go) may accept a green run at the nearest first-parent
 # ancestor whose DIRECT diff to the tip changes only paths listed here — the
 # ride is printed loudly, naming the ride target and the run it verified,
@@ -47,7 +47,7 @@
 # below means updating THREE places, not one.
 #
 # `migrations/` AND `test/` MUST NEVER BE ADDED. Beyond the obvious (they are
-# test inputs), the ride's pg_regress arm depends on it: on a ride the preflight
+# test inputs), the ride's SQL-test arm depends on it: on a ride the preflight
 # feeds the stamp checks the RIDE TARGET's SHA and lets them diff
 # stampSHA..HEAD for migration and test/expected drift. That diff is empty BY
 # CONSTRUCTION only because those paths are not exempt. Exempt either one and
@@ -58,6 +58,12 @@
 # never itself ride a prior green: this file is deliberately NOT exempt (it is
 # under ops/, which is absent here on purpose), and a test asserts that it
 # matches no entry in its own list. Each new entry ships as its own argued,
-# ratified addition — `doc/` is the obvious next candidate and is deliberately
-# NOT included here.
+# ratified addition — hand-authored `doc/` is deliberately NOT included here.
 .backlog/
+# Generated database reference only; no Go/app build or test reads these outputs.
+# Constrained to the three subdirectories dev.sh generate-doc-db regenerates
+# (dev.sh:2964-2968): a hand-authored file anywhere else under doc/db/ must
+# never ride a parent green.
+doc/db/table/
+doc/db/view/
+doc/db/function/

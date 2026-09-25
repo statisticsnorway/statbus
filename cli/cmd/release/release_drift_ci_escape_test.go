@@ -245,7 +245,7 @@ func TestPrintDriftEitherOrRefusal(t *testing.T) {
 
 // stubWorkflowCheckPerWorkflow answers differently per workflow, which is the
 // only way to pin STATBUS-288's actual requirement: that the stale-template
-// escape reads fast-tests and is NOT satisfied by pg_regress alone.
+// escape reads fast-tests and was NOT satisfied by the retired remote pg_regress workflow alone.
 func stubWorkflowCheckPerWorkflow(t *testing.T, answers map[string]release.WorkflowCheckStatus) {
 	t.Helper()
 	old := checkWorkflowAtCommit
@@ -269,7 +269,7 @@ func stubWorkflowCheckPerWorkflow(t *testing.T, answers map[string]release.Workf
 // ancestor's stamp and still conclude "success".
 //
 // Observed on 2026-08-27 at a3988e163: fast-tests.yaml really ran (89/89), while
-// pg_regress.yaml at the SAME commit was a stamp-ride from b319ae4be with zero
+// the retired remote pg_regress workflow at the SAME commit was a stamp-ride from b319ae4be with zero
 // tests executed. Both were green; only one was evidence. Gating a staleness
 // check on the ride would defeat the check, since a ride proves a suite passed
 // somewhere EARLIER — precisely the claim staleness disputes.
@@ -299,19 +299,18 @@ func TestStaleTemplateBranchConsultsFastTests(t *testing.T) {
 		}
 	})
 
-	// THE LOAD-BEARING ARM: pg_regress green, fast-tests NOT green. The escape
-	// must refuse. If it consulted pg_regress it would pass here, and tonight's
-	// evidence says that green can be an inherited ride.
-	t.Run("pg_regress green alone does NOT satisfy it", func(t *testing.T) {
+	// THE LOAD-BEARING ARM: an unrelated workflow is green, fast-tests is not.
+	// The escape must refuse rather than accepting another green verdict.
+	t.Run("unrelated green alone does NOT satisfy it", func(t *testing.T) {
 		dir := newDriftRepo(t)
 		stubWorkflowCheckPerWorkflow(t, map[string]release.WorkflowCheckStatus{
 			release.WorkflowFastTests: release.WorkflowCheckMissing,
-			release.WorkflowPgRegress: release.WorkflowCheckGreen,
+			"unrelated-workflow.yaml": release.WorkflowCheckGreen,
 		})
 
 		covered, _ := staleTemplateCoveredByFastTestsGreen(dir, what, drifted, false, false)
 		if covered {
-			t.Fatal("a pg_regress green must NOT satisfy the stale-template check — it can be a stamp-ride")
+			t.Fatal("an unrelated workflow's green must NOT satisfy the stale-template check")
 		}
 		if _, err := os.Stat(fastTestStampPath(dir)); err == nil {
 			t.Fatal("refusal wrote a local stamp")

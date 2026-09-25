@@ -32,13 +32,12 @@ import (
 const exercisedSHAMarker = "exercised-sha="
 
 // workflowRunTriggeredOracles are the workflows whose green the release gate
-// consumes as evidence about a named commit. Both are workflow_run-triggered by
+// consumes as evidence about a named commit. It is workflow_run-triggered by
 // design (they must run after Images), which is precisely why they need the
 // marker: the trigger type that makes them useful is the trigger type that
 // breaks their attribution.
 var workflowRunTriggeredOracles = []string{
 	"fast-tests.yaml",
-	"pg_regress.yaml",
 }
 
 func readWorkflowFile(t *testing.T, name string) string {

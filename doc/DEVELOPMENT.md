@@ -371,7 +371,7 @@ StatBus uses several PostgreSQL schemas:
 
 ### Testing Database Changes
 
-**Run pg_regress tests**:
+**Run pg_regress tests** (or `./dev.sh continous-integration-test` for the local equivalent of GitHub Fast Tests):
 ```bash
 # Run all tests
 ./dev.sh test all
