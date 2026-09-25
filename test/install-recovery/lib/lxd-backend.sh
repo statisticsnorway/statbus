@@ -31,7 +31,7 @@ ssh() {
     [ "${host#*@}" = "${VM_IP:-UNSET}" ] || { echo "REFUSE: guest SSH destination $host does not match fork IP" >&2; return 2; }
     case "$host" in
         root@*) _lxd_host lxc exec "$VM_NAME" -- bash -lc "$*" ;;
-        statbus@*) _lxd_host lxc exec "$VM_NAME" -- sudo -i -u statbus bash -lc "$*" ;;
+        statbus@*) _lxd_host lxc exec "$VM_NAME" -- sudo -u statbus -H env XDG_RUNTIME_DIR=/run/user/1001 bash -c "$*" ;;
         *) return 2 ;;
     esac
 }
@@ -121,7 +121,7 @@ lxd_base_for_candidate() {
         _lxd_host lxc exec "$base" -- bash -c 'rm -f /etc/apt/sources.list.d/ubuntu.sources.bak; mkdir -p /run/sshd'
         _lxd_host lxc exec "$base" -- env SKIP_STAGES='1 3 4 5 6 7 8' bash /root/setup.sh --non-interactive
     }
-    _lxd_host lxc exec "$base" -- bash -c 'usermod -aG docker statbus; loginctl enable-linger statbus; grep -q XDG_RUNTIME_DIR /home/statbus/.profile || echo "export XDG_RUNTIME_DIR=/run/user/$(id -u)" >> /home/statbus/.profile; systemctl is-active docker'
+    _lxd_host lxc exec "$base" -- bash -c 'usermod -aG docker statbus; loginctl enable-linger statbus; echo "export XDG_RUNTIME_DIR=/run/user/1001" >> /home/statbus/.profile; systemctl is-active docker'
     _lxd_host lxc exec "$base" -- apt-get update -qq
     lxd_certificates "$base"
     _lxd_mark "hardening complete $base in $(($(date +%s)-start))s"
@@ -174,12 +174,16 @@ lxd_fork() {
     _lxd_host lxc info "$base" | grep -qE '^\| checkpoint +\|' || { echo "No checkpoint $base/checkpoint" >&2; return 1; }
     if _lxd_host lxc info "$name" >/dev/null 2>&1; then echo "REFUSE: $name exists. Reset explicitly first." >&2; return 1; fi
     start=$(date +%s); _lxd_host lxc copy "$base/checkpoint" "$name"
+    VM_NAME=$name; LXD_OWNED_BY_THIS_RUN=1
     _lxd_mark "copy $base/checkpoint -> $name $(($(date +%s)-start))s"
     if [ "$scenario" = 4-install-40gb-disk ]; then
         _lxd_host lxc config device override "$name" root size=40GiB
         _lxd_mark "$name root Btrfs quota 40GiB"
     fi
     start=$(date +%s); _lxd_host lxc start "$name"
+    # Earlier prototype snapshots wrote /run/user/0 by expanding $(id -u) as
+    # root. Append the actual statbus UID so nested login shells reach its bus.
+    _lxd_host lxc exec "$name" -- bash -c 'echo "export XDG_RUNTIME_DIR=/run/user/1001" >> /home/statbus/.profile'
     if [ "$checkpoint" = hardened-nothing-installed ]; then
         local i
         for ((i=0;i<90;i++)); do
@@ -191,9 +195,9 @@ lxd_fork() {
         _lxd_mark "$name fresh boot IP $VM_IP"
     else
         _lxd_ready "$name"
+        _lxd_host lxc exec "$name" -- bash -c 'cp /home/statbus/statbus/.env.config /tmp/env-config; cp /home/statbus/users.yml /tmp/users.yml; chown statbus:statbus /tmp/env-config /tmp/users.yml; chmod 0600 /tmp/env-config /tmp/users.yml'
     fi
     _lxd_mark "boot/readiness $name $(($(date +%s)-start))s"
-    VM_NAME=$name; LXD_OWNED_BY_THIS_RUN=1
 }
 lxd_capture_failure() {
     local name=$1 out
@@ -245,6 +249,50 @@ _lxd_unit_op() {
 vm_start_unit() { _lxd_unit_op start "$@"; }
 vm_restart_unit() { _lxd_unit_op restart "$@"; }
 _hcloud_server_ip() { _lxd_guest_ip "$VM_NAME"; }
+hcloud() {
+    if [ "${1:-}" = server ] && [ "${2:-}" = ip ] && [ "${3:-}" = "$VM_NAME" ]; then
+        printf '%s\n' "$VM_IP"
+    else
+        echo "REFUSE: unsupported hcloud action in LXD scenario: $*" >&2
+        return 2
+    fi
+}
+upload_install_script_to_vm() {
+    local name=$1 src=$2 dest=$3
+    [ "$name" = "$VM_NAME" ] && [[ "$dest" == /tmp/* ]] || return 2
+    _lxd_upload "$src" "/root/s2-install-script-$$"
+    _lxd_host lxc file push "/root/s2-install-script-$$" "$name$dest"
+    _lxd_host lxc exec "$name" -- chmod 0755 "$dest"
+    rm -f "$src"
+}
+VM_SCRIPT_INLINE() {
+    local label=$1 path remote; shift
+    [[ "$label" =~ ^[a-zA-Z0-9-]+$ ]] || return 2
+    path=$(mktemp "$LXD_LOG_DIR/s2-inline-${label}-XXXXXX") || return
+    cat > "$path"
+    remote="/home/statbus/s2-inline-${label}-$$.sh"
+    _lxd_upload "$path" "/root/s2-inline-${label}-$$.sh"
+    _lxd_host lxc file push "/root/s2-inline-${label}-$$.sh" "$VM_NAME$remote" >/dev/null 2>&1
+    _lxd_host lxc exec "$VM_NAME" -- chmod 0755 "$remote"
+    local rc=0
+    VM_EXEC bash "$remote" "$@" || rc=$?
+    rm -f "$path"
+    return "$rc"
+}
+upload_sb_to_vm() {
+    local name=$1
+    [ "$name" = "$VM_NAME" ] || return 2
+    _lxd_host lxc exec "$name" -- sudo -i -u statbus bash -lc "curl -fL --retry 3 -o /home/statbus/sb-candidate https://github.com/statisticsnorway/statbus/releases/download/$LXD_CANDIDATE/sb-linux-amd64 && chmod 0755 /home/statbus/sb-candidate"
+    _lxd_mark "candidate binary downloaded for $name"
+    _lxd_host lxc exec "$name" -- bash -c 'cp /home/statbus/sb-candidate /tmp/sb; chmod 0755 /tmp/sb'
+    _lxd_mark "candidate binary staged for $name"
+    _lxd_host lxc exec "$name" -- mv /home/statbus/statbus/sb /home/statbus/statbus/sb.old
+    _lxd_mark "prior binary moved for $name"
+    _lxd_host lxc exec "$name" -- install -m 0755 -o statbus -g statbus /tmp/sb /home/statbus/statbus/sb
+    _lxd_mark "candidate binary installed for $name"
+    # Keep the previous inode in this disposable fork; cleanup is not needed
+    # for correctness and must not abort the injected scenario.
+}
 _run_long_via_tmux() { local command=$3; VM_EXEC bash -lc "$command"; }
 install_statbus_in_vm() {
     local name=$1 log="$HARNESS_ROOT/tmp/install-recovery-$1-install.log" installed
