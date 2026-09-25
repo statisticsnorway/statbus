@@ -20,6 +20,7 @@ import {
 import { compareUpgradeCandidates } from "./upgrade-ordering";
 import {
   filterStaleInstallFailure,
+  INSTALL_FAILURE_BANNER_WORDING,
   SystemInfoRow,
 } from "./install-failure-banner";
 import { Badge } from "@/components/ui/badge";
@@ -662,9 +663,7 @@ export default function UpgradesPage() {
               </p>
             )}
             <p className="text-xs text-red-800">
-              Re-run <span className="font-mono">./install.sh</span> after the
-              underlying issue is resolved. A successful install will clear this
-              banner.
+              {INSTALL_FAILURE_BANNER_WORDING}
             </p>
           </CardContent>
         </Card>

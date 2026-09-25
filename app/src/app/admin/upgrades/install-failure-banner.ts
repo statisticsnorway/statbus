@@ -1,3 +1,6 @@
+export const INSTALL_FAILURE_BANNER_WORDING =
+  "The last installation did not finish. Run the installer again. This message clears after a successful installation or upgrade.";
+
 export interface SystemInfoRow {
   key: string;
   value: string;
