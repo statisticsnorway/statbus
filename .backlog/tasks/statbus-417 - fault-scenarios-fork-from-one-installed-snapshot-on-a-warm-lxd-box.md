@@ -4,7 +4,7 @@ title: Every fault scenario starts from one installed snapshot on a warm LXD box
 status: To Do
 assignee: []
 created_date: '2026-09-25 11:15'
-updated_date: '2026-09-25 17:42'
+updated_date: '2026-09-25 20:14'
 labels:
   - harness
   - velocity
@@ -44,7 +44,11 @@ Open before stage 2: the deployment-mode question in the new ticket on NSO-repre
 
 ## Owner lifecycle decision, 2026-09-25 17:41Z
 
-The warm box is not permanent: **ramp up on demand, keep it around roughly 24 hours after last use, then clean up.** The automation (stage 3) must implement: an idle-timeout reaper (delete the box when unused > ~24 h) and a fast ramp-up path (recreate + harden + build the candidate base unattended; consider a Hetzner snapshot of the hardened LXD host to make ramp-up minutes instead of a full harden cycle).
+The warm box is not permanent: **ramp up on demand, keep it warm while used, then clean up.** The automation (stage 3) must implement: an idle-timeout reaper (delete the box ~3 h after last fleet activity, confirmed by the owner 20:11Z) and a fast ramp-up path (recreate + harden + build the candidate base unattended; consider a Hetzner snapshot of the hardened LXD host to make ramp-up minutes instead of a full harden cycle).
+
+## Trigger correction, 2026-09-25 20:14Z (owner)
+
+Ramp-up triggers at the **release-candidate cut** (the rc tag / orchestrator dispatch), NOT at master push: only a tagged candidate is ever exercised by the fleet. A master push without a candidate must not start the box. Idle reaper: ~3 hours after last fleet activity (owner-confirmed).
 
 <!-- SECTION:DESCRIPTION:END -->
 
