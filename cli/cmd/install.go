@@ -2669,13 +2669,7 @@ func runCreateUsers(dir string) error {
 	if email == "" || name == "" {
 		return fmt.Errorf("enter both an email and a name; run the same install command again")
 	}
-	password, err := askAdministratorPassword(func(label string) (string, error) {
-		fmt.Print(label)
-		installTTYPrompt("%s", label)
-		value, readErr := term.ReadPassword(int(os.Stdin.Fd()))
-		fmt.Println()
-		return string(value), readErr
-	})
+	password, err := askAdministratorPassword(readAdministratorPassword)
 	if err != nil {
 		return err
 	}
@@ -2688,6 +2682,26 @@ func runCreateUsers(dir string) error {
 	}
 	sql := fmt.Sprintf("SELECT public.user_create(p_display_name => %s, p_email => %s, p_statbus_role => 'admin_user', p_password => %s);", pgQuote(name), pgQuote(email), pgQuote(password))
 	return runPsqlSQL(dir, psqlArgs, env, sql)
+}
+
+// readAdministratorPassword disables terminal echo before publishing the prompt.
+// A PTY client may send input as soon as it sees the prompt, before ReadPassword
+// would otherwise disable echo, leaking the secret into install.sh's capture.
+func readAdministratorPassword(label string) (string, error) {
+	fd := int(os.Stdin.Fd())
+	state, err := term.MakeRaw(fd)
+	if err != nil {
+		return "", err // Do not prompt on a terminal whose echo cannot be disabled.
+	}
+	defer func() { _ = term.Restore(fd, state) }()
+	fmt.Print(label)
+	installTTYPrompt("%s", label)
+	value, err := term.ReadPassword(fd)
+	if restoreErr := term.Restore(fd, state); restoreErr != nil {
+		return "", restoreErr
+	}
+	fmt.Println()
+	return string(value), err
 }
 
 func askAdministratorPassword(read func(string) (string, error)) (string, error) {
