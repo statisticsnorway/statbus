@@ -103,6 +103,28 @@ func TestRunInstallSignerPreflightAfterPortRefusal(t *testing.T) {
 	}
 }
 
+func TestSavedSignerConsentSurvivesCompletedConfig(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, ".env.config"), []byte("CADDY_DEPLOYMENT_MODE=standalone\n"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	answers := filepath.Join(t.TempDir(), "install-input.env")
+	content := "CADDY_DEPLOYMENT_MODE=standalone\nSITE_DOMAIN=example.org\nDEPLOYMENT_SLOT_NAME=Install Test\nDEPLOYMENT_SLOT_CODE=test\nTRUST_GITHUB_USER=jhf\n"
+	if err := os.WriteFile(answers, []byte(content), 0600); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("STATBUS_ENV_CONFIG", answers)
+	previous := trustGitHubUser
+	trustGitHubUser = ""
+	t.Cleanup(func() { trustGitHubUser = previous })
+	if err := validateFreshInstallInput(dir, false); err != nil {
+		t.Fatal(err)
+	}
+	if trustGitHubUser != "jhf" {
+		t.Fatalf("saved signer consent was lost: %q", trustGitHubUser)
+	}
+}
+
 func (p installProbe) FileExists(path string) (bool, error) {
 	if filepath.Base(path) == ".env.config" {
 		return true, p.configErr

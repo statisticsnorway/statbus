@@ -1360,10 +1360,26 @@ func runInstallBinary(dir string) error {
 }
 
 func validateFreshInstallInput(dir string, bypass bool) error {
-	if bypass || checkConfigDone(dir) {
+	if bypass {
 		return nil
 	}
 	configPath := os.Getenv(installinput.EnvConfig)
+	configDone := checkConfigDone(dir)
+	// A refused first install may already have saved .env.config, while its
+	// signer step has not run. Keep the explicit signer consent from the saved
+	// answers when the file still exists. For an established installation,
+	// a stale/missing input path is harmless: existing config is authoritative.
+	_, answerErr := os.Stat(configPath)
+	if configPath != "" && (answerErr == nil || !configDone) {
+		answers, err := installinput.ReadAnswers(configPath, trustGitHubUser)
+		if err != nil {
+			return err
+		}
+		trustGitHubUser = answers.Trust
+	}
+	if configDone {
+		return nil
+	}
 	if !nonInteractive && configPath == "" && !stdinIsTerminal() {
 		return stdinNotTerminalError{}
 	}
