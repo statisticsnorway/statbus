@@ -120,14 +120,7 @@ jobs:
         if: steps.freshness.outputs.superseded != 'true'
         env:
           HCLOUD_CLI_VERSION: "1.64.1"
-        run: |
-          set -euo pipefail
-          curl -fsSL \
-            "https://github.com/hetznercloud/cli/releases/download/v${HCLOUD_CLI_VERSION}/hcloud-linux-amd64.tar.gz" \
-            -o /tmp/hcloud.tar.gz
-          sudo tar -C /usr/local/bin -xzf /tmp/hcloud.tar.gz hcloud
-          rm /tmp/hcloud.tar.gz
-          hcloud version
+        run: bash .github/scripts/install-hcloud.sh
 
       - name: Install CI SSH private key
         if: steps.freshness.outputs.superseded != 'true'
