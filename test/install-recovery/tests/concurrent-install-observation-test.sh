@@ -16,7 +16,7 @@ def check(label, code, success):
 # Transport must fail even if it emits a plausible exit status. A malformed
 # observation must never count as the expected nonzero product refusal.
 a = s.index('if ! SECOND_EXIT=')
-b = s.index('# The flag identifies', a)
+b = s.index('# Require the exact process ID', a)
 gate = s[a:b]
 for value, transport, success in [('1', 0, True), ('0', 0, False), ('?', 0, False), ('', 0, False), ('256', 0, False), ('1', 23, False)]:
     check(f'second exit={value!r} transport={transport}', f'''
@@ -27,7 +27,7 @@ VM_EXEC() {{ echo 'live-upgrade'; }}
 ''', success)
 # Readiness failure with plausible stdout is still failure, not a valid PID.
 a = s.index('if ! MIGRATE_PID=')
-b = s.index('# The flag no longer stores', a)
+b = s.index('# The PID is diagnostic', a)
 check('readiness rejects failed transport with PID stdout', '''
 VM_NAME=unused RELEASE_FILE=unused STALL_MAX_WAIT_S=1 ip=unused
 SSH_OPTS=()
@@ -36,13 +36,13 @@ wait_for_inject_stall_ready() { echo 424242; return 23; }
 ''' + s[a:b], False)
 a = s.index('FIRST_HOLDER=$(VM_EXEC')
 b = s.index('# Phase 4', a)
-for flag, success in [('{"holder":"install"}', True), ('{"holder":"service"}', False), ('{"PID":123}', False), ('', False), ('{bad', False)]:
+for flag, success in [('{"holder":"install","pid":4242}', True), ('{"holder":"install"}', False), ('{"holder":"install","pid":0}', False), ('{"holder":"install","pid":"4242"}', False), ('{"holder":"service","pid":4242}', False), ('{"PID":123}', False), ('', False), ('{bad', False)]:
     check(f'holder flag {flag!r}', f"VM_EXEC() {{ printf '%s\\n' '{flag}'; }}\n" + s[a:b], success)
-a = s.index('# The flag identifies')
+a = s.index('# Require the exact process ID')
 b = s.index('# Phase 5', a)
-valid = 'Detected install state: live-upgrade\nan installation started at 2026-09-25T07:00:00Z is still running\nlsof tmp/upgrade-in-progress.json'
-for diagnostic, success in [(valid, True), ('holder PID=', False), ('Detected install state: crashed-upgrade', False), (valid.replace('an installation', 'an upgrade'), False), (valid.replace('lsof', 'missing'), False), (valid + '\nAn upgrade is already running', False)]:
-    check(f'refusal diagnostic {diagnostic!r}', f"SECOND_OUTPUT='{diagnostic}'\n" + s[a:b], success)
+valid = 'Detected install state: live-upgrade\nan installation started at 2026-09-25T07:00:00Z (process 4242) is still running'
+for diagnostic, success in [(valid, True), ('holder PID=', False), ('Detected install state: crashed-upgrade', False), (valid.replace('an installation', 'an upgrade'), False), (valid.replace('4242', '4243'), False), (valid.replace(' (process 4242)', ''), False), (valid + '\nlsof tmp/upgrade-in-progress.json', False), (valid + '\nAn upgrade is already running', False)]:
+    check(f'refusal diagnostic {diagnostic!r}', f"FIRST_PID=4242\nSECOND_OUTPUT='{diagnostic}'\n" + s[a:b], success)
 a = s.index('echo "  first install exited: $FIRST_EXIT"')
 b = s.index('# Phase 6', a)
 for status, success in [('0', True), ('1', False), ('?', False)]:

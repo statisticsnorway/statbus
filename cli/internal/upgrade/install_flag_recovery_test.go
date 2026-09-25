@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"strings"
 	"testing"
 )
 
@@ -15,6 +16,10 @@ func TestRecoverFromFlagKeepsLiveInstallMutex(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer ReleaseInstallFlag(lock)
+	flag, err := ReadFlagFile(dir)
+	if err != nil || flag == nil || flag.Holder != HolderInstall || flag.PID != os.Getpid() {
+		t.Fatalf("install marker must record holder and diagnostic process ID: flag=%+v err=%v", flag, err)
+	}
 	before, err := os.Stat(flagFilePath(dir))
 	if err != nil {
 		t.Fatal(err)
@@ -42,6 +47,8 @@ func TestRecoverFromFlagKeepsLiveInstallMutex(t *testing.T) {
 	if err == nil {
 		ReleaseInstallFlag(second)
 		t.Error("second install acquired mutex while first still holds its flock")
+	} else if !strings.Contains(err.Error(), fmt.Sprintf("(process %d)", os.Getpid())) || strings.Contains(err.Error(), "lsof") {
+		t.Errorf("contended install must identify holder without internal command: %v", err)
 	}
 }
 

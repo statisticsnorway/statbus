@@ -14,17 +14,22 @@ func TestLiveHolderRefusal(t *testing.T) {
 	for _, tc := range []struct {
 		name, holder, want, notWant string
 	}{
-		{"install", upgrade.HolderInstall, "an installation started at 2026-09-25T07:00:00Z is still running", "An upgrade is already running"},
-		{"service", upgrade.HolderService, "upgrade in progress", "An installation started"},
+		{"install", upgrade.HolderInstall, "an installation started at 2026-09-25T07:00:00Z (process 4242) is still running", "lsof"},
+		{"service", upgrade.HolderService, "upgrade in progress", "an installation started"},
+		{"legacy install without PID", upgrade.HolderInstall, "an installation started at", "(process 0)"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			detail := &install.Detail{Flag: &upgrade.UpgradeFlag{Holder: tc.holder, StartedAt: started}}
+			pid := 4242
+			if tc.name == "legacy install without PID" {
+				pid = 0
+			}
+			detail := &install.Detail{Flag: &upgrade.UpgradeFlag{Holder: tc.holder, StartedAt: started, PID: pid}}
 			handled, err := dispatchInstallState(t.TempDir(), install.StateLiveUpgrade, detail)
 			if !handled || err == nil || !strings.Contains(err.Error(), tc.want) || strings.Contains(err.Error(), tc.notWant) {
 				t.Fatalf("handled=%v err=%v, want %q but not %q", handled, err, tc.want, tc.notWant)
 			}
-			if !strings.Contains(err.Error(), "lsof tmp/upgrade-in-progress.json") {
-				t.Fatalf("missing process inspection hint: %v", err)
+			if strings.Contains(err.Error(), "lsof") {
+				t.Fatalf("operator refusal contains an internal inspection command: %v", err)
 			}
 		})
 	}

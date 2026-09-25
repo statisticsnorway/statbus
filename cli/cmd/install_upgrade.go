@@ -30,16 +30,18 @@ func dispatchInstallState(projDir string, state install.State, detail *install.D
 	case install.StateLiveUpgrade:
 		if detail.Flag != nil {
 			if detail.Flag.Holder == upgrade.HolderInstall {
-				return true, fmt.Errorf("an installation started at %s is still running. Wait for it to finish, then run the same install command again.\n"+
-					"  To identify the process holding the installation lock: lsof tmp/upgrade-in-progress.json",
+				if detail.Flag.PID > 0 {
+					return true, fmt.Errorf("an installation started at %s (process %d) is still running. Wait for it to finish, then run the same install command again",
+						detail.Flag.StartedAt.Format(time.RFC3339), detail.Flag.PID)
+				}
+				// Older markers had no PID; do not invent one. Flock still proves liveness.
+				return true, fmt.Errorf("an installation started at %s is still running. Wait for it to finish, then run the same install command again",
 					detail.Flag.StartedAt.Format(time.RFC3339))
 			}
-			return true, fmt.Errorf("upgrade in progress (%s, started %s); wait for it to finish.\n"+
-				"  See which process holds it: lsof tmp/upgrade-in-progress.json",
+			return true, fmt.Errorf("upgrade in progress (%s, started %s); wait for it to finish",
 				detail.Flag.Label(), detail.Flag.StartedAt.Format(time.RFC3339))
 		}
-		return true, fmt.Errorf("upgrade in progress; wait for it to finish.\n" +
-			"  See which process holds it: lsof tmp/upgrade-in-progress.json")
+		return true, fmt.Errorf("upgrade in progress; wait for it to finish")
 	case install.StateScheduledUpgrade:
 		return true, runInlineUpgradeScheduled(projDir, detail)
 	case install.StateRestoreReattemptable:

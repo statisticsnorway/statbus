@@ -411,17 +411,18 @@ func normalizePhaseBytes(phase string) string {
 // footgun — after a crash the OS can reuse the number for an unrelated process,
 // so a PID-liveness check could read a stranger as "still running" and wrongly
 // refuse recovery. The flock has no such hole (the OS frees it on holder death,
-// reused PID or not). There is no PID field and no pidAlive(); operator messages
-// that need to point at the holder emit the hint `lsof tmp/upgrade-in-progress.json`.
+// reused PID or not). PID is diagnostic metadata only; never use it to decide
+// liveness or authorize recovery. The flock alone makes a holder live.
 //
 // Legacy flag files written before Release 1 lack StartedAt/InvokedBy and
 // deserialize with zero values; Holder also defaults to empty (treated as
-// "service"). A pre-111 flag's "pid" JSON key is simply ignored on unmarshal.
+// "service"). Older flags lacking PID deserialize with PID=0.
 type UpgradeFlag struct {
 	ID         int       `json:"id"`                    // 0 when Holder=="install"
 	CommitSHA  string    `json:"commit_sha"`            // "" when Holder=="install"
 	CommitTags []string  `json:"commit_tags,omitempty"` // release tags at CommitSHA; empty for install-held and untagged commits
 	StartedAt  time.Time `json:"started_at"`            // time.Now() at write time
+	PID        int       `json:"pid,omitempty"`         // install holder process identity for diagnostics only; flock proves liveness
 	InvokedBy  string    `json:"invoked_by"`            // specific trigger (e.g. "notify:v2026.04.1", "operator:jhf")
 	Trigger    string    `json:"trigger"`               // coarse bucket ("notify"|"scheduled"|"recovery"|"install")
 	Holder     string    `json:"holder"`                // HolderService or HolderInstall
@@ -514,8 +515,7 @@ func (f *UpgradeFlag) UnmarshalJSON(data []byte) error {
 // Label returns a human-readable label for the flag. For service-held
 // flags, the label is renderDisplayName(CommitSHA, CommitTags). For
 // install-held flags, returns "install" (there is no commit-centric label,
-// and STATBUS-111 removed the PID — liveness/identity is the flock, not a
-// stored number).
+// liveness is the flock, never the stored diagnostic PID).
 func (f *UpgradeFlag) Label() string {
 	if f == nil {
 		return ""
@@ -1665,6 +1665,7 @@ func (d *Service) writeGoroutineDump() (string, error) {
 func AcquireInstallFlag(projDir, invokedBy string) (*FlagLock, error) {
 	flag := UpgradeFlag{
 		StartedAt: time.Now(),
+		PID:       os.Getpid(),
 		InvokedBy: invokedBy,
 		Trigger:   "install",
 		Holder:    HolderInstall,
@@ -1704,9 +1705,7 @@ func ReleaseInstallFlag(lock *FlagLock) {
 // construction (STATBUS-111: liveness = the flock alone; there is no
 // PID-liveness branch and thus no "crashed" case here — a crashed holder frees
 // the flock, so acquireFlock succeeds and the recovery path takes over). It
-// branches on Holder to tailor the wait guidance, and emits the `lsof` hint so
-// the operator can see WHICH process holds the marker without a PID baked into
-// the file.
+// branches on Holder to tailor the wait guidance. PID is display-only.
 //
 // Empty Holder (legacy pre-Release-1.1 flags) is treated as service.
 func formatContentionError(flag *UpgradeFlag) error {
@@ -1714,22 +1713,23 @@ func formatContentionError(flag *UpgradeFlag) error {
 	if holder == "" {
 		holder = HolderService
 	}
-	const lsofHint = "  See which process holds it:\n    lsof tmp/upgrade-in-progress.json"
 	switch holder {
 	case HolderInstall:
-		return fmt.Errorf(
-			"another ./sb install is already running (%s, invoked_by=%s).\n\n%s\n\n"+
-				"  Wait for it to complete, then retry",
-			flag.Label(), flag.InvokedBy, lsofHint)
+		if flag.PID > 0 {
+			return fmt.Errorf("an installation started at %s (process %d) is still running. Wait for it to finish, then run the same install command again",
+				flag.StartedAt.Format(time.RFC3339), flag.PID)
+		}
+		return fmt.Errorf("an installation started at %s is still running. Wait for it to finish, then run the same install command again",
+			flag.StartedAt.Format(time.RFC3339))
 	default: // HolderService
 		return fmt.Errorf(
-			"an orchestrated upgrade is in progress (%s, invoked_by=%s).\n\n%s\n\n"+
+			"an orchestrated upgrade is in progress (%s, invoked_by=%s).\n\n"+
 				"  Wait for it to complete:\n"+
 				"    journalctl --user -u 'statbus-upgrade@*' -f\n\n"+
 				"  Do NOT pass --post-upgrade-fixup — that flag is the upgrade service's\n"+
 				"  internal contract with its own post-upgrade install step. Using it from the\n"+
 				"  command line would corrupt an upgrade that is currently running",
-			flag.Label(), flag.InvokedBy, lsofHint)
+			flag.Label(), flag.InvokedBy)
 	}
 }
 

@@ -22,7 +22,7 @@ ordinal: 355000
 
 ## Release gate observation 2026-09-25
 
-v2026.09.3 rc.02 failed `1-boot-concurrent-install` in [Actions run 36104217764, job 107973800359](https://github.com/statisticsnorway/statbus/actions/runs/36104217764/job/107973800359): a second installer correctly refused an install-held live mutex, but printed `An upgrade is already running` instead of naming the installation. The flag already records `holder=install` and `started_at`; no PID is stored (flock is the liveness proof). The targeted fix uses the flag owner and start time in plain operator wording and retains the `lsof` process-inspection hint. The concurrent-install VM scenario remains proof pending until rerun; this observation does not complete AC #1-3.
+v2026.09.3 rc.02 failed `1-boot-concurrent-install` in [Actions run 36104217764, job 107973800359](https://github.com/statisticsnorway/statbus/actions/runs/36104217764/job/107973800359): a second installer correctly refused an install-held live mutex, but printed `An upgrade is already running` instead of naming the installation. The flag already records `holder=install` and `started_at`; it did not retain the process ID. Review follow-up records the install holder's PID as diagnostic-only metadata (the flock remains the sole liveness proof), renders it alongside start time in plain operator wording, and removes the `lsof` hint. The concurrent-install VM scenario now requires that the diagnostic PID equal the flag PID and remains proof pending until rerun; this observation does not complete AC #1-3.
 
 Baseline: `origin/master` at `373d15fc3`. Criterion disposition and remaining positive targets are above; the acceptance criteria below remain authoritative. An authored but unrun VM scenario is **proof pending**, not met.
 

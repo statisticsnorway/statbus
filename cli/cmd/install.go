@@ -258,7 +258,7 @@ func acquireOrBypass(installDir string, bypass bool) (release func(), err error)
 		//      flag was hand-passed. Audit it (A17) and proceed (harmless; the
 		//      step-table is idempotent).
 		if flag, rerr := upgrade.ReadFlagFile(installDir); rerr == nil && flag != nil {
-			fmt.Printf("Upgrade mutex bypass honored (--post-upgrade-fixup). Flag holder=%s, invoked_by=%s (see: lsof tmp/upgrade-in-progress.json).\n",
+			fmt.Printf("Upgrade mutex bypass honored (--post-upgrade-fixup). Flag holder=%s, invoked_by=%s.\n",
 				flag.Holder, flag.InvokedBy)
 		} else if os.Getenv("STATBUS_POST_UPGRADE_FIXUP") == "1" {
 			fmt.Println("Post-upgrade fixup: upgrade already completed and cleared its flag — proceeding (expected).")
