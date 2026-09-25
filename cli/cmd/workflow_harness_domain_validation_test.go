@@ -98,6 +98,35 @@ func TestSupersededCandidateStopsBeforeEachVMAndPropagatesFleetVerdict_STATBUS41
 	}
 }
 
+func TestFleetHcloudInstallRetriesAreShared(t *testing.T) {
+	installer, err := os.ReadFile(thisRepoFile(t, ".github/scripts/install-hcloud.sh"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, required := range []string{"for attempt in 1 2 3 4 5", "sleep $((attempt * 10))", "hcloud version", "::error title=hcloud CLI install failed::", "not a scenario finding"} {
+		if !strings.Contains(string(installer), required) {
+			t.Errorf("shared hcloud installer missing %q", required)
+		}
+	}
+	for _, tc := range []struct{ file, job string }{
+		{".github/workflows/test-smoke.yaml", "smoke"},
+		{".github/workflows/install-recovery-harness.yaml", "run-scenario"},
+		{".github/workflows/upgrade-arc-harness.yaml", "run-arc"},
+	} {
+		steps := jobSteps(t, tc.file, tc.job)
+		install := steps[stepIndexByName(t, steps, "Install hcloud CLI")]
+		if install["run"] != "bash .github/scripts/install-hcloud.sh" {
+			t.Errorf("%s must use shared retry installer: %v", tc.file, install)
+		}
+	}
+	for _, file := range []string{".github/workflows/install-recovery-harness.yaml", ".github/workflows/upgrade-arc-harness.yaml"} {
+		steps := jobSteps(t, file, "cleanup")
+		if steps[0]["uses"] != "actions/checkout@v4" || !strings.Contains(steps[1]["run"].(string), "bash .github/scripts/install-hcloud.sh") {
+			t.Errorf("%s orphan sweep must use shared retry installer after checkout", file)
+		}
+	}
+}
+
 func stepIndexByRunContains(t *testing.T, steps []map[string]any, command string) int {
 	t.Helper()
 	for i, step := range steps {

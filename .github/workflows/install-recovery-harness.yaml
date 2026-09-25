@@ -505,14 +505,7 @@ jobs:
         # version so a runner upgrade doesn't change observed behaviour.
         env:
           HCLOUD_CLI_VERSION: "1.64.1"
-        run: |
-          set -euo pipefail
-          curl -fsSL \
-            "https://github.com/hetznercloud/cli/releases/download/v${HCLOUD_CLI_VERSION}/hcloud-linux-amd64.tar.gz" \
-            -o /tmp/hcloud.tar.gz
-          sudo tar -C /usr/local/bin -xzf /tmp/hcloud.tar.gz hcloud
-          rm /tmp/hcloud.tar.gz
-          hcloud version
+        run: bash .github/scripts/install-hcloud.sh
 
       - name: Install CI SSH private key
         if: steps.freshness.outputs.superseded != 'true'
@@ -646,6 +639,8 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
+      - name: Checkout
+        uses: actions/checkout@v4
       - name: Install hcloud + reap aged-out statbus-recovery-* orphans
         # ONE fully best-effort step that ALWAYS exits 0 — this housekeeping job
         # must never fail the workflow conclusion (the gate reads that
@@ -664,11 +659,7 @@ jobs:
           HCLOUD_TOKEN: ${{ secrets.HCLOUD_TOKEN }}
         run: |
           set +e
-          curl -fsSL \
-            "https://github.com/hetznercloud/cli/releases/download/v${HCLOUD_CLI_VERSION}/hcloud-linux-amd64.tar.gz" \
-            -o /tmp/hcloud.tar.gz \
-            && sudo tar -C /usr/local/bin -xzf /tmp/hcloud.tar.gz hcloud
-          if ! command -v hcloud >/dev/null 2>&1; then
+          if ! bash .github/scripts/install-hcloud.sh; then
             echo "hcloud CLI unavailable — skipping global reap (best-effort)."
             exit 0
           fi
