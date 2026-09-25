@@ -4,7 +4,7 @@ title: Running the installer completes or waits for an earlier restart
 status: In Progress
 assignee: []
 created_date: '2026-09-24 15:47'
-updated_date: '2026-09-25 10:28'
+updated_date: '2026-09-25 12:20'
 labels:
   - release-bug
   - install
@@ -35,6 +35,10 @@ When an earlier restart is no longer running, the installer restores the saved s
 ## Evidence, 2026-09-24
 
 Finland retained a saved restart after restart failure and later refused installer recovery (`/Users/jhf/ssb/statbus/tmp/finland-answers-4.txt:69-75`). Current restart refusal and saved intent are at `cli/internal/upgrade/restart.go:19-87` at master `7a9cf707e`. The local replay recovered from the start-rate limit only after the password cause was corrected (`/Users/jhf/ssb/statbus/tmp/local-ville-replay.md:964-980,1017-1018`).
+## rc.03 evidence, 2026-09-25
+
+rc.03 run 36116753412 job 108013586646 (5-install-live-upgrade-wait): rerun refused `a restart is still running, or its services could not be restored`. Review established the marker writer (PID 16498) was the installer's own stale-restart recovery and the refusal came from an invalid fixture that requested a daemon restart for an app-only restart with no unit, not a product bug; scenario fixed in `faf0905be`, merged in `a3526f832` (rc.05). VM proof pending.
+
 <!-- SECTION:DESCRIPTION:END -->
 
 ## Acceptance Criteria

@@ -4,7 +4,7 @@ title: Installation and automatic updates keep database role passwords aligned w
 status: In Progress
 assignee: []
 created_date: '2026-09-24 15:46'
-updated_date: '2026-09-24 18:44'
+updated_date: '2026-09-25 12:20'
 labels:
   - release-bug
   - install
@@ -31,6 +31,10 @@ After the database is available, installation reconciles administrator, applicat
 ## Evidence, 2026-09-24
 
 Role passwords are initially set only during empty-volume initialization (`postgres/init-db.sh:135-141,223` at master `7a9cf707e`). The disposable VM showed a surviving volume with regenerated settings, API authenticator failure, and automatic-update administrator failure (`/Users/jhf/ssb/.jcode/scratch/rest-loop.md:45-58`). The prototype reconciled all four roles locally and restored API and automatic-update readiness (`/Users/jhf/ssb/.jcode/scratch/rest-loop.md:55-67`). Password-authenticated consumers and the database-local ordering are documented at `/Users/jhf/ssb/.jcode/scratch/rest-loop.md:22-31,34-43,60-67`. How credentials diverged on the customer box remains undetermined (`/Users/jhf/ssb/.jcode/scratch/rest-loop.md:16-18`).
+## rc.03 evidence and fix, 2026-09-25
+
+rc.03 install-recovery run 36116753412, job 108013586533 (5-install-orphaned-db-volume-credentials). The LXD fork prototype (tmp/throwaway-lxd-prototype.md lines 43-46) reproduced phase b in 2 minutes: reinstall over a surviving database volume with new credentials failed step 8 in 15 s, PostgREST looping on `password authentication failed for user "authenticator"`, because `reconcilePublishedPorts` ran before `syncRolePasswords` in cli/cmd/install_services.go. Fixed in `46488ccb4` (step 8 order: DB health -> syncRolePasswords -> restart clients -> reconcilePublishedPorts -> readiness), with a source-order test and a behavioral regression (red before, green after), merged to master in `a3526f832`, first candidate carrying it: v2026.09.3-rc.05. VM proof pending on rc.05's install-recovery run.
+
 <!-- SECTION:DESCRIPTION:END -->
 
 ## Acceptance Criteria

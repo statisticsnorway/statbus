@@ -4,7 +4,7 @@ title: Every fault scenario starts from one installed snapshot on a warm LXD box
 status: To Do
 assignee: []
 created_date: '2026-09-25 11:15'
-updated_date: '2026-09-25 11:15'
+updated_date: '2026-09-25 12:20'
 labels:
   - harness
   - velocity
@@ -31,6 +31,17 @@ Every fault scenario currently re-pays the same approximately ten-minute provisi
 - Add the LXD backend to STATBUS-359's dispatcher as its second backend. STATBUS-416 candidate supersession must be checked per fork before allocation/start, with an observable neutral SUPERSEDED fleet verdict rather than a false failure or green result. Keep the current assertions independent of backend and do not substitute a handcrafted checkout or image for the candidate's own installer/assets.
 - Decide whether the dedicated box persists warm between candidates or is created per candidate, and whether GitHub Actions uses a self-hosted runner there or SSH to it. Capture isolation, credentials, cleanup, capacity and cost in the implementation. Neither prototype measures the whole 23-scenario gate, so its under-15-minute target is a target, not an observed result.
 - Inspect scenario headers and explicitly route host-specific cases before moving them: `0-https-only-egress.sh` exercises hardened CrowdSec nftables/UFW and may require an LXD VM; `4-install-40gb-disk.sh` requires the real 40 GB disk policy and should remain a fresh VM or an accurately sized LXD VM; `4-install-port-80-taken.sh` needs a genuine port owner and public certificate path; `4-install-standalone-no-public-dns.sh` tests DNS/certificate behavior. Boot/systemd cases (`1-boot-*.sh`, `5-install-stage-c-systemd-failed.sh`) require guest systemd fidelity, and the remaining `5-install-*` fault scripts and `3-postswap-worker-ddl-deadlock.sh` need Docker, PostgreSQL and upgrade-service behavior. Determine, rather than assume, which require a kernel, reboot, firewall or boot boundary unavailable to containers; run those on LXD **VMs on the same box** if needed, retaining their assertions. Happy install and upgrade do not migrate to the fork backend.
+## Stage 1 by hand, 2026-09-25 (rc.05)
+
+Backend prototype: branch `harness/lxd-backend-stage1` (commits `c117223c9`, `afa570eda`, `73ddaa181`, not merged). Evidence: `tmp/lxd-stage1.md` (22 scenarios, per-run wall time, rc, logs). One base built with the real `install.sh` for `v2026.09.3-rc.05`, `/rest/` 200; Btrfs copy under 1 s; fork boot to 200 in 8-11 s.
+
+- 8 scenarios reached their unchanged PASS marker on forks: 5-install-proxy-never-started 29 s, 5-install-bool-text-regression 31 s, stages A-E 28-99 s, 1-boot-startup-timeout 193 s (real systemd NRestarts 0->1). Stage A and B pass markers have injection caveats (Phase 1 PID absent; pool saturation may not have engaged).
+- 14 scenarios were red for precondition reasons, not rc.05 product failures: the backend built ONE base in `private` mode, but scenarios declare their own starting point and mode.
+
+Defect in the stage-1 specification (coordinator error, not the worker's): the scenario scripts already declare their mode and starting state (`HARNESS_DEPLOYMENT_MODE` per script; standalone in 4-install-port-80-taken, 5-install-orphaned-db-volume-credentials, 4-install-standalone-no-public-dns; private in 0-happy-install, 4-install-40gb-disk, 5-install-interrupted-restart, 5-install-live-upgrade-wait, 0-interactive-admin-password; development in 0-happy-upgrade and the vm-bootstrap default), and several start FRESH or from a previous stable baseline. The backend must fork from the checkpoint each scenario's own script requires: (a) hardened, nothing installed (scenario runs install.sh itself); (b) installed-<candidate>-<mode>; (c) installed-<previous stable>-<mode> for upgrade/concurrency scenarios; plus a per-instance root quota for 4-install-40gb-disk and APT index present for interactive scenarios.
+
+Open before stage 2: the deployment-mode question in the new ticket on NSO-representative harness modes (which mode the proofs of record must use).
+
 <!-- SECTION:DESCRIPTION:END -->
 
 ## Acceptance Criteria

@@ -4,7 +4,7 @@ title: A superseded candidate's fleet stops before its next VM boots
 status: In Progress
 assignee: []
 created_date: '2026-09-25 09:45'
-updated_date: '2026-09-25 12:25'
+updated_date: '2026-09-25 12:20'
 labels:
   - release-bug
   - ci
@@ -31,6 +31,12 @@ A newer RC does not interrupt an already running VM, but each queued scenario of
 - `.github/workflows/release-fleet-orchestrator.yaml:107-125,281-295,380-394,529-543` checks the newest tag at the initial decision and between fleet stages, never between matrix scenarios. Its final Fleet verdict at `:732-816` independently rechecks tags and distinguishes SUPERSEDED from a genuine failure.
 - `.github/actions/orchestrator-fleet-admission/admit.sh:81-88` checks newest RC once before each child fleet starts, not when an individual scenario later gets a VM slot. Its supersession refusal exits 1, so it is not a neutral per-scenario outcome.
 - `.github/workflows/install-recovery-harness.yaml:110-113`, `upgrade-arc-harness.yaml:105-108`, and `test-smoke.yaml:23-26` share `hetzner-vm-fleet`, `cancel-in-progress: false`, `queue: max` (STATBUS-208). Cancelling in-flight VMs would strand cleanup and contend with the newer fleet.
+## Observations and follow-up fix, 2026-09-25
+
+The per-scenario supersession check (merged `ef32c20c5`) has not yet had a chance to fire: rc.04 was cut 10:03:52Z while rc.03's last two scenarios were already running (ended 10:04:07Z/10:04:22Z); no rc.03 scenario started after the cut.
+
+rc.04 exposed the opposite defect: its orchestrator run 36121911613 failed in 90 s at 10:05:08Z because `.github/actions/dispatch-fleet-and-wait/dispatch.sh` preflight_fleet_group refused (`Hetzner VM fleet occupied`) while rc.03's fleet (run 36116753412) was draining. Fixed in `2feb30f29`: an older candidate's occupying run -> bounded wait (30 s polls, 20 min cap, owner id and remaining jobs logged); same/newer/manual/unknown occupant -> refuse as before; the occupant is never cancelled. Merged in `a3526f832`; rc.05's orchestrator dispatched its smoke normally. Proof of the per-scenario stop still pending: needs a cut while a fleet has scenarios still queued.
+
 <!-- SECTION:DESCRIPTION:END -->
 
 ## Acceptance Criteria

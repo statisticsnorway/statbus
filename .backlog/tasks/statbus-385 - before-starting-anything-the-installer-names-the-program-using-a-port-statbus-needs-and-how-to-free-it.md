@@ -4,7 +4,7 @@ title: Before starting StatBus, the installer names any program using a required
 status: In Progress
 assignee: []
 created_date: '2026-09-24 16:42'
-updated_date: '2026-09-25 10:28'
+updated_date: '2026-09-25 12:20'
 labels:
   - release-bug
   - install
@@ -38,6 +38,10 @@ After setup questions, the installer checks every port selected by the answers. 
 The Finland run failed before the web entry point started because port 80 was already in use (`/Users/jhf/ssb/statbus/tmp/finland-transcript-actual.txt:67-80`). The separate provenance record says how Apache arrived on that laptop is undetermined (`/Users/jhf/ssb/.jcode/scratch/apache-origin.md:1-18`). Current startup streams the service-start failure rather than performing the proposed preflight (`cli/cmd/install.go:1374-1381` at master `7a9cf707e`, as indexed by `/Users/jhf/ssb/statbus/tmp/installer-message-audit.md:103-104`).
 
 Failed evidence, 2026-09-24: v2026.09.3-rc.01 (`10f094f2b`) smoke run `36063305786` (`0-happy-install`) failed its idempotent rerun on a healthy box: `cli/cmd/install_ports.go:113-119` string-matched `docker ps` Ports output for `:3014->`, while Docker prints consecutive ports as a range (`127.0.0.1:3014-3015->3014-3015/tcp`), so StatBus's own database port was refused as another program's. A fix is in review on `fix/port-preflight-own-ports` (`e6fc3f739`); real-VM proof remains pending.
+## rc.03 evidence and fix, 2026-09-25
+
+rc.03 run 36116753412: job 108013584931 (4-install-port-80-taken) printed the correct apache2 refusal; the scenario failed on a stale literal assertion (`curl -fsSL https://statbus.org/install.sh | bash` vs the saved rerun command that includes the operator's env vars), fixed in the scenario by `ed82f865e`. Job 108013586533 (5-install-orphaned-db-volume-credentials phase a, root `python3 -m http.server 80`) printed the generic `Installation cannot start with the current settings` because the Docker ownership probe failed on a fresh box and the named-owner line was lost; fixed in `08bcd2908` (every owner shape: named service, another program, probe error reaches the terminal verbatim; test TestCheckInstallPortsOwnAndForeign). Both merged in `a3526f832`, first candidate v2026.09.3-rc.05. VM proof pending.
+
 <!-- SECTION:DESCRIPTION:END -->
 
 ## Release blocker notes
