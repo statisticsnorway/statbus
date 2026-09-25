@@ -24,8 +24,11 @@ VM_SCRIPT_INLINE live-restart-holder <<'REMOTE'
 set -euo pipefail
 cd "$HOME/statbus"
 cat > tmp/upgrade-in-progress.json <<'FLAG'
-{"id":0,"commit_sha":"","started_at":"2026-09-24T12:00:00Z","invoked_by":"operator:restart","trigger":"restart","holder":"install","restart":{"profile":"app","prepared":true,"daemon":true}}
+{"id":0,"commit_sha":"","started_at":"2026-09-24T12:00:00Z","invoked_by":"operator:restart","trigger":"restart","holder":"install","restart":{"profile":"app","prepared":true,"daemon":false}}
 FLAG
+# An app-only restart never stops the upgrade unit (service_restart.go), so
+# it cannot carry Daemon=true without a unit to restart. That invalid fixture
+# made the post-holder retry fail at systemctl start "" and retain its marker.
 # -F makes flock exec sleep instead of leaving a child holding the lock after
 # the recorded flock PID is killed. The retry below must see the lock released.
 nohup flock -F -x tmp/upgrade-in-progress.json sleep 90 > tmp/live-restart-holder.log 2>&1 </dev/null &
@@ -45,6 +48,7 @@ grep -Eqi 'restart is still running|wait for it to finish' "$REFUSAL" || { cat "
 AFTER=$(VM_EXEC bash -c 'cd ~/statbus && sha256sum tmp/upgrade-in-progress.json | cut -d" " -f1')
 [ "$BEFORE" = "$AFTER" ] || { echo 'live restart intent was modified' >&2; exit 1; }
 VM_EXEC bash -c 'cd ~/statbus && kill "$(cat tmp/test-live-restart-pid)" && flock -w 10 tmp/upgrade-in-progress.json true'
+VM_EXEC bash -c 'cd ~/statbus && ! grep -q "\"pid\"" tmp/upgrade-in-progress.json'
 VM_EXEC bash -c "cd ~ && export STATBUS_ENV_CONFIG=\"\$HOME/install-input.env\" STATBUS_USERS_FILE=/tmp/users.yml STATBUS_INSTALL_VERSION='$INSTALL_TARGET_TAG'; bash /tmp/statbus-install.sh --non-interactive"
 assert_health_passes "$VM_NAME"
 rm -f "$REFUSAL"
