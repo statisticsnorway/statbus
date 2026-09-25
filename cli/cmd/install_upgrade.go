@@ -29,6 +29,11 @@ func dispatchInstallState(projDir string, state install.State, detail *install.D
 	switch state {
 	case install.StateLiveUpgrade:
 		if detail.Flag != nil {
+			if detail.Flag.Holder == upgrade.HolderInstall {
+				return true, fmt.Errorf("an installation started at %s is still running. Wait for it to finish, then run the same install command again.\n"+
+					"  To identify the process holding the installation lock: lsof tmp/upgrade-in-progress.json",
+					detail.Flag.StartedAt.Format(time.RFC3339))
+			}
 			return true, fmt.Errorf("upgrade in progress (%s, started %s); wait for it to finish.\n"+
 				"  See which process holds it: lsof tmp/upgrade-in-progress.json",
 				detail.Flag.Label(), detail.Flag.StartedAt.Format(time.RFC3339))

@@ -3515,7 +3515,11 @@ func logInstallState(projDir string, state install.State, detail *install.Detail
 	case install.StateFresh:
 		fmt.Println("Preparing a new StatBus installation.")
 	case install.StateLiveUpgrade:
-		fmt.Println("An upgrade is already running. Wait for it to finish, then retry if needed.")
+		if detail.Flag != nil && detail.Flag.Holder == upgrade.HolderInstall {
+			fmt.Println("Another installation is still running. Wait for it to finish, then run the same install command again.")
+		} else {
+			fmt.Println("An upgrade is already running. Wait for it to finish, then retry if needed.")
+		}
 	case install.StateCrashedUpgrade:
 		fmt.Println("The previous upgrade stopped unexpectedly. Recovery will run now.")
 	case install.StateHalfConfigured:

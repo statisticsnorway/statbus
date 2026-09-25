@@ -31,7 +31,7 @@
 #      + the migrate subprocess being alive).
 #   4. Run a SECOND ./sb install without any inject env vars.
 #   5. Assert: the second install refuses with a diagnostic that
-#      mentions "live-upgrade" and the lock inspection hint. Exit non-zero.
+#      names the running installation and gives the lock inspection hint. Exit non-zero.
 #   6. Remove release file → first install proceeds → completes.
 #   7. Assert: exactly ONE upgrade row exists in public.upgrade.
 #
@@ -224,11 +224,11 @@ if [ "$SECOND_EXIT" = "0" ]; then
 fi
 echo "  ✓ second install refused with non-zero exit"
 
-# The current product identifies the holder by label, not a stored PID, and
-# directs the operator to lsof for process identity. Do not accept generic
-# 'holder' text or an empty PID= alternative as evidence of live-upgrade refusal.
+# The flag identifies the install holder and start time, not a stored PID;
+# lsof identifies the process holding the flock. Reject upgrade-only wording.
 if printf '%s\n' "$SECOND_OUTPUT" | grep -Fq 'Detected install state: live-upgrade' &&
-   printf '%s\n' "$SECOND_OUTPUT" | grep -Fq 'Upgrade in progress (install)' &&
+   printf '%s\n' "$SECOND_OUTPUT" | grep -Eq 'an installation started at [^ ]+ is still running' &&
+   ! printf '%s\n' "$SECOND_OUTPUT" | grep -Fq 'An upgrade is already running' &&
    printf '%s\n' "$SECOND_OUTPUT" | grep -Fq 'lsof tmp/upgrade-in-progress.json'; then
     echo "  ✓ second install identifies the live install holder and lock inspection command"
 else

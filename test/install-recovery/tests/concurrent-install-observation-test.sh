@@ -16,7 +16,7 @@ def check(label, code, success):
 # Transport must fail even if it emits a plausible exit status. A malformed
 # observation must never count as the expected nonzero product refusal.
 a = s.index('if ! SECOND_EXIT=')
-b = s.index('# The current product identifies', a)
+b = s.index('# The flag identifies', a)
 gate = s[a:b]
 for value, transport, success in [('1', 0, True), ('0', 0, False), ('?', 0, False), ('', 0, False), ('256', 0, False), ('1', 23, False)]:
     check(f'second exit={value!r} transport={transport}', f'''
@@ -38,10 +38,10 @@ a = s.index('FIRST_HOLDER=$(VM_EXEC')
 b = s.index('# Phase 4', a)
 for flag, success in [('{"holder":"install"}', True), ('{"holder":"service"}', False), ('{"PID":123}', False), ('', False), ('{bad', False)]:
     check(f'holder flag {flag!r}', f"VM_EXEC() {{ printf '%s\\n' '{flag}'; }}\n" + s[a:b], success)
-a = s.index('# The current product identifies')
+a = s.index('# The flag identifies')
 b = s.index('# Phase 5', a)
-valid = 'Detected install state: live-upgrade\nUpgrade in progress (install)\nlsof tmp/upgrade-in-progress.json'
-for diagnostic, success in [(valid, True), ('holder PID=', False), ('Detected install state: crashed-upgrade', False), (valid.replace('install)', 'service)'), False), (valid.replace('lsof', 'missing'), False)]:
+valid = 'Detected install state: live-upgrade\nan installation started at 2026-09-25T07:00:00Z is still running\nlsof tmp/upgrade-in-progress.json'
+for diagnostic, success in [(valid, True), ('holder PID=', False), ('Detected install state: crashed-upgrade', False), (valid.replace('an installation', 'an upgrade'), False), (valid.replace('lsof', 'missing'), False), (valid + '\nAn upgrade is already running', False)]:
     check(f'refusal diagnostic {diagnostic!r}', f"SECOND_OUTPUT='{diagnostic}'\n" + s[a:b], success)
 a = s.index('echo "  first install exited: $FIRST_EXIT"')
 b = s.index('# Phase 6', a)
