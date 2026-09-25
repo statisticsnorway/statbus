@@ -31,7 +31,7 @@
 #      + the migrate subprocess being alive).
 #   4. Run a SECOND ./sb install without any inject env vars.
 #   5. Assert: the second install refuses with a diagnostic that
-#      mentions "live-upgrade" and the lock inspection hint. Exit non-zero.
+#      names the running installation and its recorded process ID. Exit non-zero.
 #   6. Remove release file → first install proceeds → completes.
 #   7. Assert: exactly ONE upgrade row exists in public.upgrade.
 #
@@ -179,14 +179,14 @@ if ! MIGRATE_PID=$(wait_for_inject_stall_ready "$VM_NAME" "$RELEASE_FILE" "$STAL
     exit 1
 fi
 
-# The flag no longer stores a PID (STATBUS-111). Validate its real holder
-# field; the second install's live-upgrade classification proves flock liveness.
+# The PID is diagnostic only. Verify owner and PID in the flag; the second
+# install's live-upgrade classification proves flock liveness independently.
 FIRST_HOLDER=$(VM_EXEC bash -c 'cat ~/statbus/tmp/upgrade-in-progress.json')
-if ! printf '%s\n' "$FIRST_HOLDER" | python3 -c 'import json, sys; sys.exit(json.load(sys.stdin).get("holder") != "install")'; then
-    echo "✗ first install did not create an install-held upgrade flag" >&2
+if ! FIRST_PID=$(printf '%s\n' "$FIRST_HOLDER" | python3 -c 'import json, sys; f=json.load(sys.stdin); pid=f.get("pid"); assert f.get("holder") == "install" and type(pid) is int and pid > 0; print(pid)'); then
+    echo "✗ first install did not create an install-held flag with a process ID" >&2
     exit 1
 fi
-echo "  first install has an install-held upgrade flag"
+echo "  first install has an install-held upgrade flag (process $FIRST_PID)"
 
 # ─────────────────────────────────────────────────────────────────────────
 # Phase 4 — run SECOND install (no env vars); expect refusal
@@ -224,13 +224,13 @@ if [ "$SECOND_EXIT" = "0" ]; then
 fi
 echo "  ✓ second install refused with non-zero exit"
 
-# The current product identifies the holder by label, not a stored PID, and
-# directs the operator to lsof for process identity. Do not accept generic
-# 'holder' text or an empty PID= alternative as evidence of live-upgrade refusal.
+# Require the exact process ID read from the marker, never a generic holder
+# label or a PID discovered by running a command. Reject upgrade-only wording.
 if printf '%s\n' "$SECOND_OUTPUT" | grep -Fq 'Detected install state: live-upgrade' &&
-   printf '%s\n' "$SECOND_OUTPUT" | grep -Fq 'Upgrade in progress (install)' &&
-   printf '%s\n' "$SECOND_OUTPUT" | grep -Fq 'lsof tmp/upgrade-in-progress.json'; then
-    echo "  ✓ second install identifies the live install holder and lock inspection command"
+   printf '%s\n' "$SECOND_OUTPUT" | grep -Eq "an installation started at [^ ]+ \\(process ${FIRST_PID}\\) is still running" &&
+   ! printf '%s\n' "$SECOND_OUTPUT" | grep -Fq 'An upgrade is already running' &&
+   ! printf '%s\n' "$SECOND_OUTPUT" | grep -Fq 'lsof'; then
+    echo "  ✓ second install identifies the live installation and its process ID"
 else
     echo "✗ second install diagnostic does not identify the live install holder:"
     echo "$SECOND_OUTPUT" | tail -20 | sed 's/^/    /'

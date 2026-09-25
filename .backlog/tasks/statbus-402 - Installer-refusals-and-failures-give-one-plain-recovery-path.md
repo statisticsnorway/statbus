@@ -20,6 +20,12 @@ ordinal: 355000
 
 **In Progress.** `8543f493a`, `373d15fc3`: `cli/cmd/install_operator_output_test.go` and `install_failure_cause_test.go` cover plain guidance and redaction (#1 partly). The named post-start failure test and vocabulary test (#2-3) are absent; `harness-failure-path-selftest.sh` exists but does not by itself prove installer exit-78 wording. **Remaining:** assert all preflight/post-start outcomes, complete rerun/support path, and operator/internal vocabulary separation.
 
+## Release gate observation 2026-09-25
+
+v2026.09.3 rc.02 failed `1-boot-concurrent-install` in [Actions run 36104217764, job 107973800359](https://github.com/statisticsnorway/statbus/actions/runs/36104217764/job/107973800359): a second installer correctly refused an install-held live mutex, but printed `An upgrade is already running` instead of naming the installation. The flag already records `holder=install` and `started_at`; it did not retain the process ID. Review follow-up records the install holder's PID as diagnostic-only metadata (the flock remains the sole liveness proof), renders it alongside start time in plain operator wording, and removes the `lsof` hint. The concurrent-install VM scenario now requires that the diagnostic PID equal the flag PID and remains proof pending until rerun; this observation does not complete AC #1-3.
+
+Second review caught the other install-held marker writers: restart claim and preparation, operator-start guard, and the flagless rollback / restore-reattempt authorization claims. All six production writers now stamp start time and PID; the live install, restart, start-guard, and fresh-claim refusals use one plain PID-bearing line. A stale flag's PID is never treated as liveness. An AST audit guards every production writer, and focused tests exercise each holder kind; VM proof remains pending.
+
 Baseline: `origin/master` at `373d15fc3`. Criterion disposition and remaining positive targets are above; the acceptance criteria below remain authoritative. An authored but unrun VM scenario is **proof pending**, not met.
 
 ## Description

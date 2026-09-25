@@ -29,12 +29,13 @@ func dispatchInstallState(projDir string, state install.State, detail *install.D
 	switch state {
 	case install.StateLiveUpgrade:
 		if detail.Flag != nil {
-			return true, fmt.Errorf("upgrade in progress (%s, started %s); wait for it to finish.\n"+
-				"  See which process holds it: lsof tmp/upgrade-in-progress.json",
+			if detail.Flag.Holder == upgrade.HolderInstall {
+				return true, upgrade.LiveInstallHolderRefusal(detail.Flag)
+			}
+			return true, fmt.Errorf("upgrade in progress (%s, started %s); wait for it to finish",
 				detail.Flag.Label(), detail.Flag.StartedAt.Format(time.RFC3339))
 		}
-		return true, fmt.Errorf("upgrade in progress; wait for it to finish.\n" +
-			"  See which process holds it: lsof tmp/upgrade-in-progress.json")
+		return true, fmt.Errorf("upgrade in progress; wait for it to finish")
 	case install.StateScheduledUpgrade:
 		return true, runInlineUpgradeScheduled(projDir, detail)
 	case install.StateRestoreReattemptable:

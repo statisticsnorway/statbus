@@ -258,7 +258,7 @@ func acquireOrBypass(installDir string, bypass bool) (release func(), err error)
 		//      flag was hand-passed. Audit it (A17) and proceed (harmless; the
 		//      step-table is idempotent).
 		if flag, rerr := upgrade.ReadFlagFile(installDir); rerr == nil && flag != nil {
-			fmt.Printf("Upgrade mutex bypass honored (--post-upgrade-fixup). Flag holder=%s, invoked_by=%s (see: lsof tmp/upgrade-in-progress.json).\n",
+			fmt.Printf("Upgrade mutex bypass honored (--post-upgrade-fixup). Flag holder=%s, invoked_by=%s.\n",
 				flag.Holder, flag.InvokedBy)
 		} else if os.Getenv("STATBUS_POST_UPGRADE_FIXUP") == "1" {
 			fmt.Println("Post-upgrade fixup: upgrade already completed and cleared its flag — proceeding (expected).")
@@ -380,7 +380,7 @@ func runInstall() (installErr error) {
 			if readErr == nil && flag != nil && flag.Trigger == "restart" && flag.Restart != nil {
 				fmt.Println("A previous restart did not finish. Checking whether it is still running.")
 				if upgrade.IsFlockHeld(installDir) {
-					return &installPreflightRefusalError{err: fmt.Errorf("a restart is still running; wait for it to finish before installing")}
+					return &installPreflightRefusalError{err: upgrade.LiveInstallHolderRefusal(flag)}
 				}
 				if resumeErr := restartServicesInDir(installDir, flag.Restart.Profile); resumeErr == nil {
 					fmt.Println("The previous restart finished. Continuing installation.")
@@ -3533,7 +3533,11 @@ func logInstallState(projDir string, state install.State, detail *install.Detail
 	case install.StateFresh:
 		fmt.Println("Preparing a new StatBus installation.")
 	case install.StateLiveUpgrade:
-		fmt.Println("An upgrade is already running. Wait for it to finish, then retry if needed.")
+		if detail.Flag != nil && detail.Flag.Holder == upgrade.HolderInstall {
+			fmt.Println("Another installation is still running. Wait for it to finish, then run the same install command again.")
+		} else {
+			fmt.Println("An upgrade is already running. Wait for it to finish, then retry if needed.")
+		}
 	case install.StateCrashedUpgrade:
 		fmt.Println("The previous upgrade stopped unexpectedly. Recovery will run now.")
 	case install.StateHalfConfigured:

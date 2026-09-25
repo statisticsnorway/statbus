@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -247,7 +248,7 @@ func TestInstallRefusesRestartBeforeProbes(t *testing.T) {
 	}
 	defer lock.Close() // a live holder must not be recovered by install
 	err = runInstall()
-	if err == nil || !strings.Contains(err.Error(), "a restart is still running") {
+	if err == nil || !strings.Contains(err.Error(), fmt.Sprintf("(process %d) is still running", os.Getpid())) {
 		t.Fatalf("install: %v", err)
 	}
 }
