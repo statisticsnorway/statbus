@@ -3,7 +3,7 @@
 #
 # Fresh Ubuntu VM → the candidate's real install.sh → a healthy StatBus at
 # the candidate, using its tagged sb-linux-<arch> release asset and published
-# images at its commit, in private mode with the derived stable channel.
+# images at its commit, in standalone mode with a supplied TLS certificate.
 # Then apply operator tuning in a labelled second phase and verify consumers.
 # Proves release-ladder.md rung 4, not a baseline hop.
 # This is "install-works" in STATBUS-359's pending naming scheme.
@@ -21,12 +21,11 @@
 set -euo pipefail
 
 VM_NAME="${1:-statbus-recovery-0-happy-install}"
-# Private is an NSO mode without ACME or public DNS. Its untouched product
-# default resolves to stable, unlike development (local). No channel seeding.
-HARNESS_DEPLOYMENT_MODE="${HARNESS_DEPLOYMENT_MODE:-private}"
+# Standalone is the NSO deployment. Supply a certificate without public DNS.
+HARNESS_DEPLOYMENT_MODE="${HARNESS_DEPLOYMENT_MODE:-standalone}"
 HARNESS_UPGRADE_CHANNEL="${HARNESS_UPGRADE_CHANNEL:-stable}"
-if [ "$HARNESS_DEPLOYMENT_MODE" != private ] || [ "$HARNESS_UPGRADE_CHANNEL" != stable ]; then
-    echo "ERROR: 0-happy-install requires private mode and the default stable channel" >&2
+if [ "$HARNESS_DEPLOYMENT_MODE" != standalone ] || [ "$HARNESS_UPGRADE_CHANNEL" != stable ]; then
+    echo "ERROR: 0-happy-install requires standalone mode and the default stable channel" >&2
     exit 1
 fi
 
@@ -81,7 +80,7 @@ fi
 
 # 3. Assertions against the box, never inferred from installer exit status.
 MODE=$(VM_EXEC bash -c "cd ~/statbus && ./sb dotenv -f .env.config get CADDY_DEPLOYMENT_MODE")
-[ "$MODE" = private ] || { echo "unexpected installed mode: '$MODE' (expected private)" >&2; exit 1; }
+[ "$MODE" = standalone ] || { echo "unexpected installed mode: '$MODE' (expected standalone)" >&2; exit 1; }
 # The daemon's loadConfig reads this generated key with the same dotenv parser.
 # Require it explicitly: never accept the daemon's missing-key fallback.
 CHANNEL=$(VM_EXEC bash -c "cd ~/statbus && ./sb dotenv -f .env get UPGRADE_CHANNEL")
@@ -106,6 +105,7 @@ fi
 echo "  ✓ newest public.upgrade row: $UPGRADE_IDENTITY"
 
 assert_health_passes "$VM_NAME"
+assert_harness_https_passes "$VM_NAME"
 assert_step9_completed "$VM_NAME"
 assert_step_upgrade_service_completed "$VM_NAME"
 assert_systemd_active "$VM_NAME"
@@ -133,6 +133,7 @@ rm -f "$RERUN_LOG"
 echo "Phase 2: operator edits, config generate, restart, effective-setting assertions"
 VM_SCRIPT "$LIB_DIR/configure-smoke-instance.sh"
 assert_health_passes "$VM_NAME"
+assert_harness_https_passes "$VM_NAME"
 assert_systemd_active "$VM_NAME"
 
 echo ""

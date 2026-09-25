@@ -724,6 +724,15 @@ if [ -z "${SKIP_BINARY_DOWNLOAD:-}" ]; then
     fi
 fi
 
+# A provisioner may stage its own certificate before FRESH creates the checkout.
+# This optional input merely places files at the documented Caddy bind mount;
+# TLS_CERT_FILE/TLS_KEY_FILE still select the actual production Caddy path.
+if [ -n "${STATBUS_HARNESS_CERT_STAGING:-}" ]; then
+    install -d -m 0755 "$STATBUS_DIR/caddy/data/custom-certs"
+    install -m 0644 "$STATBUS_HARNESS_CERT_STAGING/domain.crt" "$STATBUS_DIR/caddy/data/custom-certs/domain.crt"
+    install -m 0600 "$STATBUS_HARNESS_CERT_STAGING/domain.key" "$STATBUS_DIR/caddy/data/custom-certs/domain.key"
+fi
+
 # Clear any stale terminal file from a prior failed run so the banner below
 # only reflects invariants fired during THIS install, not ghosts from before.
 rm -f "$STATBUS_DIR/tmp/install-terminal.txt" 2>/dev/null || true

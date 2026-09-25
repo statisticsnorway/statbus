@@ -4,7 +4,7 @@
 # Requires a tagged candidate, uses a VM, never the host PostgreSQL.
 set -euo pipefail
 VM_NAME="${1:-statbus-recovery-0-interactive-admin-password}"
-HARNESS_DEPLOYMENT_MODE=private
+HARNESS_DEPLOYMENT_MODE=standalone
 HARNESS_UPGRADE_CHANNEL=stable
 HARNESS_INTERACTIVE_ADMIN=1
 LIB_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/lib"
@@ -24,6 +24,7 @@ scp -O "${SSH_OPTS[@]}" "$LIB_DIR/interactive-admin.exp" root@"$VM_IP":/tmp/stat
 VM_ROOT_EXEC bash -c 'chown statbus:statbus /tmp/statbus-admin.exp && chmod 0600 /tmp/statbus-admin.exp'
 install_statbus_at_sha "$VM_NAME" "$TARGET_SHA" "$INSTALL_TARGET_TAG"
 assert_health_passes "$VM_NAME"
+assert_harness_https_passes "$VM_NAME"
 INSTALL_CAPTURE="${HARNESS_ROOT:-$REPO_ROOT}/tmp/install-recovery-${VM_NAME}-install.log"
 if grep -qF 'test-install-password-2026' "$INSTALL_CAPTURE" ||
     VM_EXEC bash -c 'cd ~/statbus && grep -F -q test-install-password-2026 tmp/install-last-run-output.txt tmp/install-logs/*.log tmp/upgrade-logs/*.log 2>/dev/null'; then

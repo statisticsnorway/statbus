@@ -7,6 +7,15 @@
 #
 # Source AFTER vm-bootstrap.sh — relies on VM_EXEC being set.
 
+assert_harness_https_passes() {
+    local domain="${HARNESS_SITE_DOMAIN:-statbus-test.local}" code
+    code=$(VM_EXEC curl --noproxy '*' --silent --show-error --cacert /home/statbus/harness-certs/ca.crt \
+        --connect-timeout 5 --max-time 30 --output /dev/null --write-out '%{http_code}' \
+        "https://${domain}/rest/") || return 1
+    [[ "$code" =~ ^[23][0-9][0-9]$ ]] || { echo "HTTPS /rest/ failed: HTTP $code" >&2; return 1; }
+    echo "  ✓ CA-verified HTTPS /rest/ (HTTP $code)"
+}
+
 # Test that the app's REST endpoint responds 2xx/3xx. 5-minute budget —
 # cold start on a fresh Hetzner cx23 with cold container images can take
 # ~60-120s past `./sb install` completion (docker compose returns when

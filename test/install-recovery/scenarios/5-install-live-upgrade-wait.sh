@@ -3,7 +3,7 @@
 # Reuses the installed tagged candidate fixture, never runs an actual upgrade.
 set -euo pipefail
 VM_NAME="${1:-statbus-recovery-5-install-live-upgrade-wait}"
-HARNESS_DEPLOYMENT_MODE=private
+HARNESS_DEPLOYMENT_MODE=standalone
 HARNESS_UPGRADE_CHANNEL=stable
 LIB_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/lib"
 REPO_ROOT="$(cd "$LIB_DIR/../../.." && pwd)"

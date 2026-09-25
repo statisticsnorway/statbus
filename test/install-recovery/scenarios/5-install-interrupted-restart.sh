@@ -4,7 +4,7 @@
 # and the released candidate's real first-install path.
 set -euo pipefail
 VM_NAME="${1:-statbus-recovery-5-install-interrupted-restart}"
-HARNESS_DEPLOYMENT_MODE=private
+HARNESS_DEPLOYMENT_MODE=standalone
 HARNESS_UPGRADE_CHANNEL=stable
 LIB_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/lib"
 REPO_ROOT="$(cd "$LIB_DIR/../../.." && pwd)"

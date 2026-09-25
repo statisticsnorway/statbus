@@ -26,7 +26,7 @@ VM_EXEC() {
 				[ "${FAULT:-}" != duplicate-step ] || [ "$n" != 7 ] || printf '[7/17] Step7            OK\n'
 			done
 			;;
-        *CADDY_DEPLOYMENT_MODE*) echo "${INSTALLED_MODE:-private}" ;;
+        *CADDY_DEPLOYMENT_MODE*) echo "${INSTALLED_MODE:-standalone}" ;;
         *UPGRADE_CHANNEL*) [ "${FAULT:-}" != channel-transport ] || return 44; echo "${INSTALLED_CHANNEL:-stable}" ;;
         *--version*) [ "${FAULT:-}" != transport ] || return 42
             echo "sb version ${BINARY_VERSION:-v2026.09.0-rc.02} (commit ${TARGET_SHA:0:8})" ;;
@@ -40,6 +40,7 @@ VM_EXEC() {
 MOCK
 cat > "$HARNESS/lib/assertions.sh" <<'MOCK'
 assert_health_passes() { echo health >> "$TRACE"; [ "${FAULT:-}" != health ]; }
+assert_harness_https_passes() { echo https >> "$TRACE"; [ "${FAULT:-}" != https ]; }
 assert_step9_completed() { :; }
 assert_step_upgrade_service_completed() { :; }
 assert_systemd_active() { :; }
@@ -66,6 +67,7 @@ if ! grep -Fxq "candidate-install:statbus-recovery-0-happy-install $TARGET_SHA v
 fi
 grep -Fq 'ORDER BY id DESC LIMIT 1' "$TRACE"
 grep -Fxq health "$TRACE"
+grep -Fxq https "$TRACE"
 grep -Fxq operator-settings "$TRACE"
 grep -Fq '/tmp/statbus-install.sh --non-interactive' "$TRACE"
 ! grep -Fq 'https://statbus.org/install.sh' "$TRACE"
@@ -74,7 +76,7 @@ identity_line=$(grep -n 'ORDER BY id DESC LIMIT 1' "$TRACE" | cut -d: -f1)
 operator_line=$(grep -n '^operator-settings$' "$TRACE" | cut -d: -f1)
 [ "$identity_line" -lt "$operator_line" ]
 echo 'PASS: candidate selected, installed, binary/ledger/health checked'
-for assignment in BINARY_VERSION=v2026.08.1 ROW_VERSION=v2026.08.1 ROW_SHA=deadbeef ROW_STATE=failed FAULT=transport FAULT=sql FAULT=empty-row FAULT=health FAULT=operator-settings FAULT=channel-transport FAULT=rerun FAULT=missing-step FAULT=duplicate-step INSTALLED_MODE=development INSTALLED_CHANNEL=local HARNESS_DEPLOYMENT_MODE=development HARNESS_UPGRADE_CHANNEL=prerelease INSTALL_TARGET_TAG=v2026.08.1 INSTALL_TARGET_TAG=not-a-release; do
+for assignment in BINARY_VERSION=v2026.08.1 ROW_VERSION=v2026.08.1 ROW_SHA=deadbeef ROW_STATE=failed FAULT=transport FAULT=sql FAULT=empty-row FAULT=health FAULT=https FAULT=operator-settings FAULT=channel-transport FAULT=rerun FAULT=missing-step FAULT=duplicate-step INSTALLED_MODE=development INSTALLED_CHANNEL=local HARNESS_DEPLOYMENT_MODE=development HARNESS_UPGRADE_CHANNEL=prerelease INSTALL_TARGET_TAG=v2026.08.1 INSTALL_TARGET_TAG=not-a-release; do
     : > "$TRACE"
     if env "$assignment" bash "$SCENARIO" > "$TMP_ROOT/output" 2>&1; then
         echo "FAIL: accepted $assignment" >&2; exit 1

@@ -1,7 +1,7 @@
 #!/bin/bash
 # Scenario: 0-happy-upgrade  (baseline — no failure injection)
 # judge = <baseline release binary>, judged = <tagged candidate>
-# Shape: development mode + prerelease channel by default (the Norway hop; see below for why not standalone).
+# Shape: standalone mode with supplied TLS certificate + prerelease channel.
 # Class:                 N/A (baseline regression net for the happy path)
 # Class kind:            N/A — no inject site fires
 # Source forensics:      tmp/install-state-machine-forensics.md
@@ -54,15 +54,9 @@
 set -euo pipefail
 
 VM_NAME="${1:-statbus-recovery-0-happy-upgrade}"
-# Shape: development mode, prerelease channel. The channel is the Norway hop
-# (a released binary judging a prerelease candidate) and is what this scenario
-# exists to prove. Deployment mode stays development on purpose: standalone
-# means real ports 80/443 and an automatic public ACME certificate, and an
-# ephemeral harness VM named statbus-test.local has neither public DNS nor a
-# way to obtain one, so the very first health probe would fail before the
-# upgrade ran (STATBUS-339 review, 2026-09-06). Certificate and HTTPS-only
-# fidelity are separate work with their own scenarios; see the 339 ticket.
-HARNESS_DEPLOYMENT_MODE="${HARNESS_DEPLOYMENT_MODE:-development}"
+# A released binary judges a prerelease candidate on an NSO standalone box.
+# Its pre-provisioned certificate avoids public ACME and exercises real TLS.
+HARNESS_DEPLOYMENT_MODE="${HARNESS_DEPLOYMENT_MODE:-standalone}"
 HARNESS_UPGRADE_CHANNEL="${HARNESS_UPGRADE_CHANNEL:-prerelease}"
 # The fleet runs Ubuntu 24.04. The happy-upgrade entry point proves that fleet
 # hop, while callers that deliberately reuse its flow (currently HTTPS-only
@@ -153,6 +147,7 @@ if [ "${HARNESS_HTTPS_ONLY_EGRESS:-0}" = "1" ]; then
     echo "  ✓ at-install docker-proxy health path allowed (HTTP $install_http_code)"
 fi
 assert_health_passes "$VM_NAME"
+assert_harness_https_passes "$VM_NAME"
 
 echo ""
 echo "── populating demo data ──"
@@ -263,6 +258,7 @@ assert_demo_data_counts_match_snapshot "$VM_NAME" "$DATA_SNAPSHOT"
 assert_flag_file_absent "$VM_NAME"
 assert_no_orphan_backup "$VM_NAME"
 assert_health_passes "$VM_NAME"
+assert_harness_https_passes "$VM_NAME"
 if [ "${HARNESS_ASSERT_DISK_POLICY:-0}" = 1 ]; then
     POLICY=$(VM_EXEC bash -c 'cd ~/statbus && ./sb dotenv -f .env.config get STATBUS_DISK_MIN_GB && ./sb dotenv -f .env.config get STATBUS_DISK_RECOMMENDED_GB')
     [ "$POLICY" = $'20\n40' ] || { echo "disk policy changed across upgrade/fixup: $POLICY" >&2; exit 1; }
