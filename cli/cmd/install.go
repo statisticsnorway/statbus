@@ -323,6 +323,13 @@ func preflightInstallSigner(installDir string) {
 	}
 }
 
+func signerPreflightRequired(state install.State) bool {
+	// These states precede the trusted-signers step of the first install.
+	// In particular, port preflight can fail after config is saved but before
+	// credentials exist. Requiring a signer then makes the emitted rerun fail.
+	return state != install.StateFresh && state != install.StateHalfConfigured && state != install.StateDBUnreachable && state != install.StateFreshDBIncomplete
+}
+
 // runInstall is the entry point for `./sb install`. It is safe to run while
 // an upgrade service is active on the same host because of the mutex check
 // below: if the upgrade service has written tmp/upgrade-in-progress.json
@@ -578,14 +585,13 @@ func runInstall() (installErr error) {
 		}
 	}
 
-	// Pre-flight: on existing installs (.env.config exists), require at
-	// least one trusted signer BEFORE doing any work. Fresh installs skip
-	// this — .env.config doesn't exist yet (step 5 creates it, step 13
-	// prompts for signers). Re-installs that removed their signer get a
-	// fast, actionable failure instead of wasting 2 minutes on steps 1-12.
+	// Pre-flight: require a signer on completed installations, but not on an
+	// interrupted first install. Config is written before port preflight and
+	// signer setup happens later, so .env.config alone does not prove that
+	// signer approval was ever reached. The step table handles these states.
 	if !bypass {
 		cfgPath := filepath.Join(installDir, ".env.config")
-		if _, statErr := os.Stat(cfgPath); statErr == nil && !checkInstallSigners(installDir) {
+		if _, statErr := os.Stat(cfgPath); statErr == nil && signerPreflightRequired(detectedState) && !checkInstallSigners(installDir) {
 			if nonInteractive {
 				return installPreflightRefusal("No valid release signer is configured.\n" +
 					"  The upgrade service requires at least one trusted signer that can verify commit signatures.\n" +

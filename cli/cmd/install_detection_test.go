@@ -70,6 +70,39 @@ type installProbe struct {
 	configErr, credentialsErr                                      error
 }
 
+func TestRunInstallSignerPreflightAfterPortRefusal(t *testing.T) {
+	for _, tc := range []struct {
+		name      string
+		state     install.State
+		wantSteps int
+	}{
+		{"config saved before credentials", install.StateHalfConfigured, 1},
+		{"database not yet reachable", install.StateDBUnreachable, 1},
+		{"first database incomplete", install.StateFreshDBIncomplete, 1},
+		{"existing installation", install.StateNothingScheduled, 0},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			withRunInstallDetectionHooks(t)
+			checkInstallSigners = func(string) bool { return false }
+			detectInstallState = func(string, string) (install.State, *install.Detail, error) {
+				return tc.state, &install.Detail{}, nil
+			}
+			steps := 0
+			runInstallStepTableTestHook = func() error { steps++; return nil }
+			err := runInstall()
+			if steps != tc.wantSteps {
+				t.Fatalf("steps=%d, want %d; err=%v", steps, tc.wantSteps, err)
+			}
+			if tc.wantSteps == 0 && (err == nil || !strings.Contains(err.Error(), "No valid release signer")) {
+				t.Fatalf("existing install must refuse without signer: %v", err)
+			}
+			if tc.wantSteps == 1 && err != nil {
+				t.Fatalf("incomplete installation could not resume: %v", err)
+			}
+		})
+	}
+}
+
 func (p installProbe) FileExists(path string) (bool, error) {
 	if filepath.Base(path) == ".env.config" {
 		return true, p.configErr
