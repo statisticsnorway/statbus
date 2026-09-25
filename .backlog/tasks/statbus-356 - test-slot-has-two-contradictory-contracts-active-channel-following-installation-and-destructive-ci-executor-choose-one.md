@@ -5,7 +5,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-09-04 19:52'
-updated_date: '2026-09-23 15:10'
+updated_date: '2026-09-25 12:20'
 labels:
   - owner-decision
   - ops
@@ -71,6 +71,10 @@ If it is dedicated disposable CI infrastructure, remove it from the active-insta
 - `git fetch --tags --prune-tags --dry-run` succeeds without force-clobber ambiguity; the two conflicting tags are diagnosed and corrected deliberately, not hidden.
 - Service/container/database state is correct for the chosen role and observable as such. A failed unit is never the steady state.
 - A regression check fails if the contradictory role returns.
+## Grounded facts, 2026-09-25
+
+The destructive CI executor side of this contract is `.github/workflows/pg_regress.yaml` job `pg_regress_trusted` on `runs-on: [self-hosted, niue]`, triggered by workflow_run after Images on every master push. It SSHes to niue as `statbus_test` and runs `./dev.sh continous-integration-test`, which does `./dev.sh delete-db`, `./dev.sh create-db`, then `./dev.sh migrate-and-test fast` (dev.sh:1228-1316). That is the SAME suite `.github/workflows/fast-tests.yaml` runs on a GitHub-hosted runner. The release preflight gates only on fast-tests.yaml (cli/cmd/release/release.go:176); pg_regress gates nothing. Measured today: pg_regress 45-85 min per run (10:03->10:48, 08:28->09:52) vs Fast Tests 15-30 min. It also occupies the only niue self-hosted runner: rc.05's dev-canary deploy (run 36126656902, `runs-on: [self-hosted, niue]`) queued from 10:56 behind pg_regress run 36125263046 (started 10:48). Proposal awaiting owner decision: remove pg_regress's automatic triggers (workflow_run and pull_request), keep workflow_dispatch as the manual fallback its name says it is; this resolves the destructive-executor half of this ticket.
+
 <!-- SECTION:DESCRIPTION:END -->
 
 ## Reconciliation 2026-09-23
