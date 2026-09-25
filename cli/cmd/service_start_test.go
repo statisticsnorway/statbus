@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -58,8 +59,8 @@ func TestStartServicesRefusesWhileRecoveryFlockHeld(t *testing.T) {
 	defer upgrade.ReleaseInstallFlag(owner)
 
 	err = startServices("all", false)
-	if err == nil || !strings.Contains(err.Error(), "./sb install") {
-		t.Fatalf("sb start while recovery flock held = %v, want refusal with ./sb install guidance", err)
+	if err == nil || !strings.Contains(err.Error(), fmt.Sprintf("(process %d) is still running", os.Getpid())) {
+		t.Fatalf("sb start while recovery flock held = %v, want plain holder PID", err)
 	}
 }
 

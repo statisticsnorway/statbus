@@ -761,7 +761,7 @@ func acquireFlockWithHook(projDir string, flag UpgradeFlag, hook flagOpenHook) (
 		f, openErr := openCanonicalFlagLocked(path, hook)
 		if os.IsNotExist(openErr) {
 			lock, freshErr := createFreshFlagAtomically(projDir, data)
-			if os.IsExist(freshErr) {
+			if errors.Is(freshErr, os.ErrExist) {
 				continue
 			}
 			return lock, freshErr
@@ -823,13 +823,16 @@ func acquireFreshFlock(projDir string, flag UpgradeFlag) (*FlagLock, error) {
 	}
 	lock, err := createFreshFlagAtomically(projDir, data)
 	if err != nil {
-		if os.IsExist(err) {
+		if errors.Is(err, os.ErrExist) {
 			path := flagFilePath(projDir)
 			existing, readErr := ReadFlagFile(projDir)
 			if readErr != nil {
 				return nil, fmt.Errorf("refusing fresh marker claim because %s already exists and is unreadable: %w", path, readErr)
 			}
 			if existing != nil {
+				if existing.Holder == HolderInstall && IsFlockHeld(projDir) {
+					return nil, LiveInstallHolderRefusal(existing)
+				}
 				return nil, fmt.Errorf("refusing fresh marker claim because %s already records upgrade %d phase %q (holder=%s); re-detect state instead of overwriting durable intent", path, existing.ID, existing.Phase, existing.Holder)
 			}
 			return nil, fmt.Errorf("refusing fresh marker claim because %s already exists", path)
@@ -1699,6 +1702,22 @@ func ReleaseInstallFlag(lock *FlagLock) {
 	}
 }
 
+// LiveInstallHolderRefusal describes a proven-live install-held marker. Callers
+// must establish liveness by flock first; PID is only the reported identity.
+// Legacy markers without PID retain a truthful wait message without inventing
+// a process number.
+func LiveInstallHolderRefusal(flag *UpgradeFlag) error {
+	if flag != nil && flag.PID > 0 {
+		return fmt.Errorf("an installation started at %s (process %d) is still running. Wait for it to finish, then run the same install command again",
+			flag.StartedAt.Format(time.RFC3339), flag.PID)
+	}
+	if flag != nil {
+		return fmt.Errorf("an installation started at %s is still running. Wait for it to finish, then run the same install command again",
+			flag.StartedAt.Format(time.RFC3339))
+	}
+	return errors.New("an installation is still running. Wait for it to finish, then run the same install command again")
+}
+
 // formatContentionError builds the operator-facing message for a failed
 // acquireFlock. It is called ONLY from the flock-contention branch, where
 // another process demonstrably HOLDS the flock — so the holder is LIVE by
@@ -1715,12 +1734,7 @@ func formatContentionError(flag *UpgradeFlag) error {
 	}
 	switch holder {
 	case HolderInstall:
-		if flag.PID > 0 {
-			return fmt.Errorf("an installation started at %s (process %d) is still running. Wait for it to finish, then run the same install command again",
-				flag.StartedAt.Format(time.RFC3339), flag.PID)
-		}
-		return fmt.Errorf("an installation started at %s is still running. Wait for it to finish, then run the same install command again",
-			flag.StartedAt.Format(time.RFC3339))
+		return LiveInstallHolderRefusal(flag)
 	default: // HolderService
 		return fmt.Errorf(
 			"an orchestrated upgrade is in progress (%s, invoked_by=%s).\n\n"+
@@ -4383,6 +4397,7 @@ func (d *Service) completeInProgressUpgrade(ctx context.Context) error {
 		tentative := UpgradeFlag{
 			ID:        id,
 			StartedAt: time.Now(),
+			PID:       os.Getpid(),
 			InvokedBy: "recovery:completeInProgressUpgrade-authorization",
 			Trigger:   "recovery",
 			Holder:    HolderInstall,
@@ -12872,6 +12887,7 @@ func (d *Service) ReattemptRestore(ctx context.Context, rowID int64) error {
 	tentative := UpgradeFlag{
 		ID:        int(rowID),
 		StartedAt: time.Now(),
+		PID:       os.Getpid(),
 		InvokedBy: "operator:restore-reattempt-authorization",
 		Trigger:   "install-cli",
 		Holder:    HolderInstall,

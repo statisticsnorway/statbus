@@ -2,9 +2,11 @@ package upgrade
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"syscall"
 	"testing"
 	"time"
@@ -50,19 +52,36 @@ func TestInterruptedAndLiveRestartClassification(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	assertRestartOwner := func() {
+		t.Helper()
+		flag, err := ReadFlagFile(dir)
+		if err != nil || flag == nil || flag.StartedAt.IsZero() || flag.PID != os.Getpid() || flag.Holder != HolderInstall {
+			t.Fatalf("restart marker lacks current owner identity: flag=%+v err=%v", flag, err)
+		}
+	}
+	assertRestartOwner() // initial marker
 	if err := PrepareRestart(lock, RestartIntent{Profile: "all", Prepared: true}); err != nil {
 		t.Fatal(err)
 	}
+	assertRestartOwner() // prepared marker rewrite
 	if !IsFlockHeld(dir) {
 		t.Fatal("live restart lock not held")
+	}
+	if err := CheckRestartBarrier(dir); err == nil || !strings.Contains(err.Error(), fmt.Sprintf("(process %d)", os.Getpid())) {
+		t.Fatalf("live restart barrier omits holder identity: %v", err)
 	}
 	if retry, _, _, err := AcquireRestartFlag(dir, "all"); err == nil {
 		retry.Close()
 		t.Fatal("live restart was taken over")
+	} else if !strings.Contains(err.Error(), fmt.Sprintf("(process %d)", os.Getpid())) {
+		t.Fatalf("live restart refusal omits holder PID: %v", err)
 	}
 	lock.Close()
 	if IsFlockHeld(dir) {
 		t.Fatal("interrupted restart lock still held")
+	}
+	if err := CheckRestartBarrier(dir); err == nil || strings.Contains(err.Error(), fmt.Sprintf("(process %d)", os.Getpid())) {
+		t.Fatalf("stale restart barrier must not claim PID is live: %v", err)
 	}
 	retry, intent, _, err := AcquireRestartFlag(dir, "all")
 	if err != nil || intent == nil || intent.Profile != "all" || !intent.Prepared {

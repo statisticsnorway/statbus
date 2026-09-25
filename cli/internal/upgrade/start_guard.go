@@ -38,6 +38,9 @@ func AcquireOperatorStartGuard(projDir, invokedBy string) (*OperatorStartGuard, 
 			if readErr != nil {
 				return nil, fmt.Errorf("service start refused: recovery marker is live but unreadable: %w; run ./sb install for diagnosis", readErr)
 			}
+			if flag != nil && flag.Holder == HolderInstall {
+				return nil, LiveInstallHolderRefusal(flag)
+			}
 			label := "upgrade/install recovery"
 			if flag != nil {
 				label = flag.Label()
@@ -50,6 +53,7 @@ func AcquireOperatorStartGuard(projDir, invokedBy string) (*OperatorStartGuard, 
 
 		marker := UpgradeFlag{
 			StartedAt: time.Now(),
+			PID:       os.Getpid(),
 			InvokedBy: invokedBy,
 			Trigger:   "start",
 			Holder:    HolderInstall,
@@ -59,7 +63,7 @@ func AcquireOperatorStartGuard(projDir, invokedBy string) (*OperatorStartGuard, 
 			return nil, fmt.Errorf("marshal operator start guard: %w", marshalErr)
 		}
 		lock, createErr := createFreshFlagAtomically(projDir, data)
-		if os.IsExist(createErr) {
+		if errors.Is(createErr, os.ErrExist) {
 			continue
 		}
 		if createErr != nil {

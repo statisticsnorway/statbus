@@ -380,7 +380,7 @@ func runInstall() (installErr error) {
 			if readErr == nil && flag != nil && flag.Trigger == "restart" && flag.Restart != nil {
 				fmt.Println("A previous restart did not finish. Checking whether it is still running.")
 				if upgrade.IsFlockHeld(installDir) {
-					return &installPreflightRefusalError{err: fmt.Errorf("a restart is still running; wait for it to finish before installing")}
+					return &installPreflightRefusalError{err: upgrade.LiveInstallHolderRefusal(flag)}
 				}
 				if resumeErr := restartServicesInDir(installDir, flag.Restart.Profile); resumeErr == nil {
 					fmt.Println("The previous restart finished. Continuing installation.")

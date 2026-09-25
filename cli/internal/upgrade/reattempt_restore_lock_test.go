@@ -1,11 +1,26 @@
 package upgrade
 
 import (
+	"fmt"
 	"os"
 	"os/exec"
 	"strings"
 	"testing"
+	"time"
 )
+
+func TestFreshClaimNamesLiveInstallHeldMarker(t *testing.T) {
+	dir := t.TempDir()
+	owner, err := acquireFreshFlock(dir, UpgradeFlag{Holder: HolderInstall, Trigger: "install-cli", StartedAt: time.Now(), PID: os.Getpid()})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer owner.Close()
+	claim, err := acquireFreshFlock(dir, UpgradeFlag{Holder: HolderService, Trigger: "scheduled"})
+	if claim != nil || err == nil || !strings.Contains(err.Error(), fmt.Sprintf("(process %d)", os.Getpid())) {
+		t.Fatalf("fresh claim against live install holder: claim=%v err=%v", claim, err)
+	}
+}
 
 func TestAcquireFreshFlock_RefusesExistingMarkerWithoutRewrite(t *testing.T) {
 	dir := t.TempDir()

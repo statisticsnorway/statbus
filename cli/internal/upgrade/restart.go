@@ -3,6 +3,7 @@ package upgrade
 import (
 	"encoding/json"
 	"fmt"
+	"os"
 	"time"
 )
 
@@ -32,6 +33,9 @@ func CheckRestartBarrier(dir string) error {
 		return fmt.Errorf("inspect restart barrier: %w", err)
 	}
 	if flag != nil && flag.Trigger == "restart" {
+		if flag.Holder == HolderInstall && IsFlockHeld(dir) {
+			return LiveInstallHolderRefusal(flag)
+		}
 		return restartRefusal(flag.Restart)
 	}
 	return nil
@@ -67,7 +71,7 @@ func AcquireRestartFlag(dir, profile string) (*FlagLock, *RestartIntent, bool, e
 		}
 		return lock, held.Restart, false, nil
 	}
-	lock, err := acquireFreshFlock(dir, UpgradeFlag{StartedAt: time.Now(), InvokedBy: "operator:restart", Trigger: "restart", Holder: HolderInstall, Restart: &RestartIntent{Profile: profile}})
+	lock, err := acquireFreshFlock(dir, UpgradeFlag{StartedAt: time.Now(), PID: os.Getpid(), InvokedBy: "operator:restart", Trigger: "restart", Holder: HolderInstall, Restart: &RestartIntent{Profile: profile}})
 	return lock, nil, false, err
 }
 
@@ -79,7 +83,7 @@ func PrepareRestart(lock *FlagLock, intent RestartIntent) error {
 		return fmt.Errorf("restart intent requires held mutex")
 	}
 	intent.Prepared = true
-	flag := UpgradeFlag{StartedAt: time.Now(), InvokedBy: "operator:restart", Trigger: "restart", Holder: HolderInstall, Restart: &intent}
+	flag := UpgradeFlag{StartedAt: time.Now(), PID: os.Getpid(), InvokedBy: "operator:restart", Trigger: "restart", Holder: HolderInstall, Restart: &intent}
 	data, err := json.MarshalIndent(flag, "", "  ")
 	if err != nil {
 		return err
