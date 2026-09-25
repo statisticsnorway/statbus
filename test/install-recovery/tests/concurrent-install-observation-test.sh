@@ -42,7 +42,7 @@ for flag, success in [('{"holder":"install","pid":4242}', True), ('{"holder":"in
     check(f'holder flag {flag!r}', f"VM_EXEC() {{ printf '%s\\n' '{flag}'; }}\n" + s[a:b], success)
 a = s.index('# Require the exact process ID')
 b = s.index('# Phase 5', a)
-valid = 'Detected install state: live-upgrade\nan installation started at 2026-09-25T07:00:00Z (process 4242) is still running'
+valid = 'an installation started at 2026-09-25T07:00:00Z (process 4242) is still running'
 for diagnostic, success in [(valid, True), ('holder PID=', False), ('Detected install state: crashed-upgrade', False), (valid.replace('an installation', 'an upgrade'), False), (valid.replace('4242', '4243'), False), (valid.replace(' (process 4242)', ''), False), (valid + '\nlsof tmp/upgrade-in-progress.json', False), (valid + '\nAn upgrade is already running', False)]:
     check(f'refusal diagnostic {diagnostic!r}', f"FIRST_PID=4242\nSECOND_OUTPUT='{diagnostic}'\n" + s[a:b], success)
 a = s.index('echo "  first install exited: $FIRST_EXIT"')

@@ -2043,6 +2043,16 @@ for path in /home/statbus/statbus/tmp/*.log; do
 done
 [ "$found_tmp" = 1 ] || printf 'missing\tstatbus-tmp-logs\t/home/statbus/statbus/tmp/*.log\tnot-found\n' >> "$index"
 capture_file upgrade-in-progress /home/statbus/statbus/tmp/upgrade-in-progress.json "$capture_dir/statbus-tmp/upgrade-in-progress.json"
+capture_file install-last-run-output /home/statbus/statbus/tmp/install-last-run-output.txt "$capture_dir/statbus-tmp/install-last-run-output.txt"
+if [ -d /home/statbus/statbus/tmp/install-logs ]; then
+    if cp -a -- /home/statbus/statbus/tmp/install-logs "$capture_dir/statbus-tmp/install-logs"; then
+        printf 'captured\tinstall-logs\t/home/statbus/statbus/tmp/install-logs\tdirectory\n' >> "$index"
+    else
+        printf 'missing\tinstall-logs\t/home/statbus/statbus/tmp/install-logs\tcopy-failed\n' >> "$index"
+    fi
+else
+    printf 'missing\tinstall-logs\t/home/statbus/statbus/tmp/install-logs\tnot-found\n' >> "$index"
+fi
 exit 0
 REMOTE
     then

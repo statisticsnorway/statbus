@@ -114,8 +114,8 @@ if grep -F 'pre-1.0 install detected' "$INSTALL_LOG" >/dev/null; then
     exit 1
 fi
 if [ "$PORT_REFUSED_AT" = services ]; then
-    grep -F 'Detected install state: fresh-db-incomplete' "$INSTALL_LOG" >/dev/null || {
-        echo "✗ phase b: expected 'Detected install state: fresh-db-incomplete'" >&2
+    grep -F 'The database exists but setup stopped before it was finished. Continuing where it stopped.' "$INSTALL_LOG" >/dev/null || {
+        echo "✗ phase b: expected fresh-db-incomplete continuation diagnostic" >&2
         exit 1
     }
 fi
@@ -140,7 +140,8 @@ FINGERPRINT_BEFORE=$(VM_EXEC bash -c "sha256sum ~/statbus/.env.credentials | cut
 # ─────────────────────────────────────────────────────────────────────────
 echo ""
 echo "── phase c: docker compose down, rm -rf ~/statbus (volume kept), install.sh ──"
-VM_EXEC bash -c "systemctl --user disable --now statbus-upgrade@statbus.service 2>/dev/null; cd ~/statbus && docker compose --profile all down; cd ~ && rm -rf ~/statbus"
+VM_EXEC bash -c "systemctl --user disable --now statbus-upgrade@statbus.service 2>/dev/null; cd ~/statbus && docker compose --profile all down"
+VM_ROOT_EXEC bash -c 'rm -rf /home/statbus/statbus'
 VM_EXEC bash -c "docker volume inspect $VOLUME >/dev/null && echo 'volume kept: $VOLUME'"
 : > "$INSTALL_LOG"
 install_statbus_in_vm "$VM_NAME"
