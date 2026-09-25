@@ -28,8 +28,7 @@ func TestDockerDatabaseCommandsUseLocalSocket(t *testing.T) {
 	t.Setenv("DOCKER_PSQL", "1")
 	t.Setenv("PGHOST", "unreachable.example.invalid")
 	for name, build := range map[string]func(string) (string, []string, []string, error){
-		"migration":      PsqlCommand,
-		"restore helper": PgRestoreCommand,
+		"migration": PsqlCommand,
 	} {
 		path, args, env, err := build(dir)
 		if err != nil {

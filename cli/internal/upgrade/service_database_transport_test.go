@@ -7,9 +7,9 @@ import (
 	"testing"
 )
 
-// Initial reconciliation, the dial and the reachability probe all consume
-// recoveryDSN, which is reloaded after each configuration regeneration.
-func TestInitialServiceReconciliationUsesInternalRoute(t *testing.T) {
+// The recovery DSN builder reloads the internal endpoint after configuration
+// regeneration. This test does not run service reconciliation.
+func TestRecoveryDSNUsesInternalRoute(t *testing.T) {
 	dir := t.TempDir()
 	env := "SITE_DOMAIN=dead.example.invalid\nCADDY_DB_BIND_ADDRESS=127.0.0.1\nCADDY_DB_PORT=3914\nPOSTGRES_APP_DB=statbus_test\nPOSTGRES_ADMIN_USER=postgres\nPOSTGRES_ADMIN_PASSWORD=irrelevant\n"
 	if err := os.WriteFile(filepath.Join(dir, ".env"), []byte(env), 0600); err != nil {
