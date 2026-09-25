@@ -2688,15 +2688,19 @@ func runCreateUsers(dir string) error {
 // A PTY client may send input as soon as it sees the prompt, before ReadPassword
 // would otherwise disable echo, leaking the secret into install.sh's capture.
 func readAdministratorPassword(label string) (string, error) {
+	return readAdministratorPasswordWithReader(label, term.ReadPassword)
+}
+
+func readAdministratorPasswordWithReader(label string, read func(int) ([]byte, error)) (string, error) {
 	fd := int(os.Stdin.Fd())
-	state, err := term.MakeRaw(fd)
+	state, err := disableAdministratorPasswordEcho(fd)
 	if err != nil {
 		return "", err // Do not prompt on a terminal whose echo cannot be disabled.
 	}
 	defer func() { _ = term.Restore(fd, state) }()
 	fmt.Print(label)
 	installTTYPrompt("%s", label)
-	value, err := term.ReadPassword(fd)
+	value, err := read(fd)
 	if restoreErr := term.Restore(fd, state); restoreErr != nil {
 		return "", restoreErr
 	}

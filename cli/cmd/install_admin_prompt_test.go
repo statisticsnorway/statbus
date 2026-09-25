@@ -5,6 +5,8 @@ import (
 	"os"
 	"strings"
 	"testing"
+
+	"golang.org/x/sys/unix"
 )
 
 func TestPasswordMismatchRetriesWithoutDisclosure(t *testing.T) {
@@ -76,5 +78,26 @@ func TestAdministratorPasswordPTYFixture(t *testing.T) {
 	value, err := askAdministratorPassword(readAdministratorPassword)
 	if err != nil || value != "test-install-password-2026" {
 		t.Fatalf("private administrator password input failed: %v", err)
+	}
+}
+
+func TestAdministratorPasswordSignalModePTYFixture(t *testing.T) {
+	if os.Getenv("STATBUS_TEST_ADMIN_PTY") != "1" {
+		t.Skip("requires an Expect PTY")
+	}
+	_, err := readAdministratorPasswordWithReader("  Private mode: ", func(fd int) ([]byte, error) {
+		// This is the interval after the prompt appears but before ReadPassword
+		// sets its own mode. Ctrl-C must already work here, without echo.
+		settings, err := unix.IoctlGetTermios(fd, passwordIoctlReadTermios)
+		if err != nil {
+			return nil, err
+		}
+		if settings.Lflag&unix.ECHO != 0 || settings.Lflag&unix.ISIG == 0 || settings.Lflag&unix.ICANON == 0 {
+			t.Errorf("prompt mode: ECHO must be off, ISIG and ICANON must stay on (Lflag=%#x)", settings.Lflag)
+		}
+		return []byte("checked"), nil
+	})
+	if err != nil {
+		t.Fatal(err)
 	}
 }
