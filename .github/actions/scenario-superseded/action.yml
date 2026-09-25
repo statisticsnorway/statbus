@@ -1,0 +1,31 @@
+# yaml-language-server: $schema=https://json.schemastore.org/github-action.json
+name: Stop superseded VM scenario
+description: Check remote RC freshness before this matrix job can boot a VM.
+inputs:
+  candidate-ref:
+    description: Candidate tag or manual dispatch ref.
+    required: true
+  scenario:
+    description: Matrix scenario slug, used to identify its verdict artifact.
+    required: true
+outputs:
+  superseded:
+    description: 'true only when a newer RC was observed before this VM boot'
+    value: ${{ steps.check.outputs.superseded }}
+runs:
+  using: composite
+  steps:
+    - name: Check newest remote RC
+      id: check
+      shell: bash
+      env:
+        CANDIDATE_REF: ${{ inputs.candidate-ref }}
+        SCENARIO: ${{ inputs.scenario }}
+      run: bash "${{ github.action_path }}/check.sh"
+    - name: Record scenario freshness for fleet verdict
+      uses: actions/upload-artifact@v4
+      with:
+        name: scenario-freshness-${{ github.job }}-${{ inputs.scenario }}
+        path: ${{ steps.check.outputs.marker }}
+        if-no-files-found: error
+        retention-days: 1

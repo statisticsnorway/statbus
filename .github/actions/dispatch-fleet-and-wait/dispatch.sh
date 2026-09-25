@@ -226,6 +226,33 @@ start=$SECONDS
 while :; do
   read -r run_status run_conclusion < <(gh run view "$run_id" --json status,conclusion --jq '"\(.status) \(.conclusion // "pending")"')
   if [ "$run_status" = "completed" ]; then
+    # workflow_dispatch does not expose the child's job outputs to this parent.
+    # The child aggregate uploads one verdict artifact after ALL matrix jobs.
+    # Never call a missing verdict green. Early discovery/checkout failures may
+    # have no artifact; their non-success conclusion still reports the failure.
+    if is_paid_fleet_workflow "$WORKFLOW_FILE"; then
+      verdict_dir="$(mktemp -d)"
+      if gh run download "$run_id" --name fleet-verdict --dir "$verdict_dir" >/dev/null 2>&1; then
+        verdict="$(cat "$verdict_dir/fleet-verdict.txt" 2>/dev/null || true)"
+      else
+        verdict=""
+      fi
+      rm -rf "$verdict_dir"
+      case "$verdict" in
+        SUPERSEDED)
+          echo 'superseded=true' >> "$GITHUB_OUTPUT"
+          echo "SUPERSEDED — ${WORKFLOW_FILE} stopped a scenario before its VM boot: ${run_url}"
+          exit 0 ;;
+        COMPLETE) echo 'superseded=false' >> "$GITHUB_OUTPUT" ;;
+        *)
+          if [ "$run_conclusion" = success ]; then
+            echo "::error title=Missing fleet verdict::${WORKFLOW_FILE} concluded success without a verifiable aggregate artifact: ${run_url}"
+            exit 1
+          fi
+          echo "No aggregate verdict (early child failure); preserving conclusion '${run_conclusion}'."
+          ;;
+      esac
+    fi
     if [ "$run_conclusion" = "success" ]; then
       echo "GREEN — ${WORKFLOW_FILE} concluded success: ${run_url}"
       exit 0

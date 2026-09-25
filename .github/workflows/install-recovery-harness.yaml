@@ -475,7 +475,15 @@ jobs:
           ref: ${{ github.sha }}
           fetch-depth: 0
 
+      - name: Stop superseded candidate before scenario VM boot
+        id: freshness
+        uses: ./.github/actions/scenario-superseded
+        with:
+          candidate-ref: ${{ github.ref_name }}
+          scenario: ${{ matrix.scenario }}
+
       - name: Download sb binary artifact
+        if: steps.freshness.outputs.superseded != 'true'
         # The single binary built by `discover`. No Go toolchain here:
         # vm-bootstrap.sh only rebuilds when STATBUS_SB_BINARY is unset/missing,
         # so a present artifact means zero host-side `go` in matrix jobs.
@@ -485,10 +493,12 @@ jobs:
           path: .
 
       - name: Restore execute bit on sb binary
+        if: steps.freshness.outputs.superseded != 'true'
         # actions/upload-artifact does not preserve the POSIX execute bit.
         run: chmod +x sb-linux-amd64
 
       - name: Install hcloud CLI
+        if: steps.freshness.outputs.superseded != 'true'
         # Pinned binary from GitHub releases. Hetzner does NOT operate a signed
         # apt repo for the hcloud CLI itself (verified 2026-05-20), so the
         # canonical install on Linux is the GitHub release tarball. Pin the
@@ -505,6 +515,7 @@ jobs:
           hcloud version
 
       - name: Install CI SSH private key
+        if: steps.freshness.outputs.superseded != 'true'
         # The matching public key is registered in the Hetzner project as SSH
         # key "statbus-ci" — vm-bootstrap.sh references it by name via the
         # HCLOUD_SSH_KEY env (set in the run step). The private key here is what
@@ -522,6 +533,7 @@ jobs:
             | awk '{ print "SSH key fingerprint:", $2 }'
 
       - name: Run scenario on its own Hetzner VM
+        if: steps.freshness.outputs.superseded != 'true'
         # Runs exactly ONE discovery-emitted scenario through run.sh's explicit
         # exact boundary. The discover job above already performed global domain
         # validation at this same github.sha; exact execution validates the safe
@@ -546,7 +558,7 @@ jobs:
         # Per-job artifact (unique name — upload-artifact@v4 forbids duplicate
         # names across concurrent jobs). Globs both the scenario log and its
         # vm-bootstrap log for this scenario.
-        if: always()
+        if: ${{ always() && steps.freshness.outputs.superseded != 'true' }}
         uses: actions/upload-artifact@v4
         with:
           name: install-recovery-log-${{ matrix.scenario }}
@@ -573,7 +585,7 @@ jobs:
         # apart only by staying textually identical. Without the suffix here
         # this step would reap nothing (defect A's fix means the real VM
         # name no longer matches this reconstruction).
-        if: always()
+        if: ${{ always() && steps.freshness.outputs.superseded != 'true' }}
         env:
           HCLOUD_TOKEN: ${{ secrets.HCLOUD_TOKEN }}
           SCENARIO: ${{ matrix.scenario }}
@@ -591,6 +603,22 @@ jobs:
             echo "Own VM $vm already gone (scenario trap cleaned up) — nothing to reap."
           fi
           exit 0
+
+  fleet-verdict:
+    name: Aggregate scenario freshness verdict
+    needs: [discover, run-scenario]
+    if: ${{ always() && needs.discover.outputs.matrix != '' }}
+    runs-on: ubuntu-24.04
+    outputs:
+      superseded: ${{ steps.verdict.outputs.superseded }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Aggregate and publish fleet verdict
+        id: verdict
+        uses: ./.github/actions/scenario-fleet-verdict
+        with:
+          matrix-json: ${{ needs.discover.outputs.matrix }}
 
   cleanup:
     name: Reap orphan VMs (final global sweep)

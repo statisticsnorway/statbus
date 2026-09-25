@@ -41,6 +41,9 @@ outputs:
   run-url:
     description: 'The html_url of the run this action dispatched and waited on.'
     value: ${{ steps.dispatch.outputs.run_url }}
+  superseded:
+    description: 'true when the child fleet reported at least one superseded VM scenario.'
+    value: ${{ steps.dispatch.outputs.superseded }}
 runs:
   using: composite
   steps:
