@@ -4,7 +4,7 @@ title: Step 15 creates the first administrator through a private prompt
 status: In Progress
 assignee: []
 created_date: '2026-09-24 15:35'
-updated_date: '2026-09-24 18:42'
+updated_date: '2026-09-25 10:28'
 labels:
   - release-bug
   - install
@@ -15,6 +15,10 @@ priority: high
 type: bug
 ordinal: 354000
 ---
+
+## Release gate observation 2026-09-25
+
+**In Progress.** rc.02 at `2198185bb` failed `0-interactive-admin-password` ([run 36104217764, job 107973800396](https://github.com/statisticsnorway/statbus/actions/runs/36104217764/job/107973800396)): the password appeared at `Password again` due to a PTY echo race. Merged repairs `7479696a4` and `d38a0e2bc` disable only termios ECHO before prompting while preserving ISIG (`cli/cmd/install_password_terminal.go:10-22`; `cli/cmd/install_password_terminal_test.go`). This is implementation, not a passing VM secrecy/login observation. AC #1 and #3 remain proof pending at the rc.03 gate, including terminal, install and support logs; do not mark Done.
 
 ## Status 2026-09-24
 

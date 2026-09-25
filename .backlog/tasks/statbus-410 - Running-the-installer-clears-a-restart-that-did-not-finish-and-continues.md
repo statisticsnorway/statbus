@@ -4,7 +4,7 @@ title: Running the installer completes or waits for an earlier restart
 status: In Progress
 assignee: []
 created_date: '2026-09-24 15:47'
-updated_date: '2026-09-24 18:44'
+updated_date: '2026-09-25 10:28'
 labels:
   - release-bug
   - install
@@ -16,6 +16,10 @@ priority: high
 type: bug
 ordinal: 363000
 ---
+
+## Release gate observation 2026-09-25
+
+**In Progress.** rc.02 (`2198185bb`) failed `5-install-live-upgrade-wait` ([run 36104217764, job 107973801494](https://github.com/statisticsnorway/statbus/actions/runs/36104217764/job/107973801494)): the fixture's flock forked, so its child retained the lock instead of releasing it for the subsequent install retry. `1f84f55d4` (merge `51503fbbe`) changes the holder to `flock -F`, keeping the lock in the recorded process (`test/install-recovery/scenarios/5-install-live-upgrade-wait.sh:31`). This addresses the scenario's live-holder and recovery boundary for AC #2, but is not a successful VM observation. AC #1-4 remain open pending the rc.03 gate, including the absent start-limit scenario (#3).
 
 ## Status 2026-09-24
 

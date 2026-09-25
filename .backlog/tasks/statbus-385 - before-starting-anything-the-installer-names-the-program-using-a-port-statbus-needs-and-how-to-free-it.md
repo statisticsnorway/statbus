@@ -4,7 +4,7 @@ title: Before starting StatBus, the installer names any program using a required
 status: In Progress
 assignee: []
 created_date: '2026-09-24 16:42'
-updated_date: '2026-09-25 09:28'
+updated_date: '2026-09-25 10:28'
 labels:
   - release-bug
   - install
@@ -21,6 +21,8 @@ ordinal: 1
 Baseline: `origin/master` at `373d15fc3`. Criterion disposition and remaining positive targets are above; the acceptance criteria below remain authoritative. An authored but unrun VM scenario is **proof pending**, not met.
 
 ## Status 2026-09-25
+
+**Merged follow-up, proof pending.** `645a96236` (merge `56bfb8b36`) preserves a named Apache owner when the Docker ownership probe fails; `cli/cmd/install_ports_test.go:112-113` asserts the remedy and saved-answer rerun. rc.02 at `2198185bb` failed not only `4-install-port-80-taken` ([run 36104217764, job 107973800497](https://github.com/statisticsnorway/statbus/actions/runs/36104217764/job/107973800497)) but also phase a of `5-install-orphaned-db-volume-credentials` ([job 107973801514](https://github.com/statisticsnorway/statbus/actions/runs/36104217764/job/107973801514)), whose required port-80 cause/remedy is checked at `test/install-recovery/scenarios/5-install-orphaned-db-volume-credentials.sh:79-100`. Neither failed VM path proves AC #2-3. Await rc.03 reruns.
 
 **In Progress, release blocker.** Candidate `v2026.09.3-rc.02` failed scenario `4-install-port-80-taken.sh`, run `36104217764`, job `107973800497`: after Configuration DONE the terminal printed only the generic settings refusal (exit 78), not Apache's name and remedy. The installer wrapper admits only `port N is in use by ...` on this exit path; a failed Compose ownership probe instead says `port N is in use, but ... could not ask Docker`, which the wrapper replaces with the generic sentence. The job artifact did not collect `install-last-run-output.txt`, so the exact Go-side probe error is not available. The captured independent `docker compose ps` reports missing generated `.env` variables, evidence consistent with a Compose probe failure but not proof of its exact cause.
 
