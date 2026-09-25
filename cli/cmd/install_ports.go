@@ -115,13 +115,11 @@ func checkInstallPorts(dir string) error {
 		}
 		statuses, probeErr := probeServiceStatuses(dir)
 		if probeErr != nil {
-			// A named host web server is independently identified as the listener.
-			// Compose may be unavailable during first install, before services exist;
-			// do not replace this actionable refusal with a Docker probe error.
-			if owner == "apache2" || owner == "nginx" || owner == "caddy" {
-				return fmt.Errorf("%s Your answers are saved. Then run the same install command again: %s", portConflictGuidance(p.number, owner), diskpolicy.RerunCommand())
-			}
-			return fmt.Errorf("port %d is in use, but the installer could not ask Docker which service holds it: %w. Your answers are saved. Then run the same install command again: %s", p.number, probeErr, diskpolicy.RerunCommand())
+			// The listener is independently confirmed even when Compose cannot tell
+			// whether it belongs to this installation. Keep the diagnostic private
+			// and give every owner shape the same terminal-safe port refusal.
+			installDiagnostic(dir, "Docker port ownership probe for %d failed: %v", p.number, probeErr)
+			return fmt.Errorf("%s Docker service ownership could not be checked. Your answers are saved. Then run the same install command again: %s", portConflictGuidance(p.number, owner), diskpolicy.RerunCommand())
 		}
 		if ownPublishedPort(statuses, p.number) {
 			continue
