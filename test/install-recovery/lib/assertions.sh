@@ -20,10 +20,11 @@ assert_harness_https_passes() {
 # cold start on a fresh Hetzner cx23 with cold container images can take
 # ~60-120s past `./sb install` completion (docker compose returns when
 # containers are "started", which is well before Caddy + app are actually
-# serving). Slot=test → port 3010 (from vm-bootstrap's env-config).
-# Override port via $HEALTH_PORT if needed. Diagnostic dump every 30s.
+# serving). Standalone uses CA-verified HTTPS on 443. Other modes retain
+# their slot HTTP binding; override via HEALTH_PORT if needed.
 assert_health_passes() {
     local vm_name="$1"
+    local mode="${HARNESS_DEPLOYMENT_MODE:-standalone}"
     local port="${HEALTH_PORT:-3010}"
     local i http_code
 
@@ -40,10 +41,16 @@ assert_health_passes() {
         domain=$(VM_EXEC bash -c "cd ~/statbus && ./sb dotenv -f .env.config get SITE_DOMAIN 2>/dev/null" 2>/dev/null | tr -d ' \r\n' || true)
     fi
     [ -z "$domain" ] && domain="statbus-test.local"
-    echo "  (health probe Host: $domain → :$port/rest/)"
+    local url="http://127.0.0.1:${port}/rest/" curl_options="-H 'Host: ${domain}'"
+    if [ "$mode" = standalone ]; then
+        port="${HEALTH_PORT:-443}"
+        url="https://${domain}:${port}/rest/"
+        curl_options="--cacert /home/statbus/harness-certs/ca.crt"
+    fi
+    echo "  (health probe $url)"
 
     for i in $(seq 1 60); do
-        http_code=$(VM_EXEC bash -c "curl -s -m 3 -H 'Host: ${domain}' http://127.0.0.1:${port}/rest/ -o /dev/null -w '%{http_code}'" 2>/dev/null || echo "000")
+        http_code=$(VM_EXEC bash -c "curl -s -m 3 ${curl_options} '${url}' -o /dev/null -w '%{http_code}'" 2>/dev/null || echo "000")
         if echo "$http_code" | grep "^[23]" >/dev/null; then
             echo "  ✓ health check passed (attempt $i, code=$http_code, ${i}×5s)"
             return 0

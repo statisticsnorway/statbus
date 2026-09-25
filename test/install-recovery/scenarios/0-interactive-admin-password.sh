@@ -36,7 +36,7 @@ fi
 VM_SCRIPT_INLINE first-admin-login <<'REMOTE'
 #!/usr/bin/env bash
 set -euo pipefail
-code=$(curl -sS -o /tmp/first-admin-login-response -w '%{http_code}' -H 'Host: statbus-test.local' -H 'Content-Type: application/json' -d '{"email":"interactive-admin@statbus.org","password":"test-install-password-2026"}' http://127.0.0.1:3010/rest/rpc/login)
+code=$(curl -sS --cacert "$HOME/harness-certs/ca.crt" -o /tmp/first-admin-login-response -w '%{http_code}' -H 'Content-Type: application/json' -d '{"email":"interactive-admin@statbus.org","password":"test-install-password-2026"}' https://statbus-test.local/rest/rpc/login)
 [ "$code" = 200 ]
 grep -Eq '"is_authenticated"[[:space:]]*:[[:space:]]*true' /tmp/first-admin-login-response
 REMOTE

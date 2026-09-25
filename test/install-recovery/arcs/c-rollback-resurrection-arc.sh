@@ -133,7 +133,8 @@ APPLY_SQL
 
 assert_direct_auth_status_healthy() {
     local phase="$1"
-    local rest_port=$(( ${HEALTH_PORT:-3010} + 3 ))
+    # REST remains loopback-only on the slot-derived +3 port in standalone.
+    local rest_port="${HARNESS_REST_PORT:-3013}"
     local auth_out auth_code auth_body
     auth_out=$(VM_EXEC bash -c "curl -s -m 5 -w '\n__HTTP__%{http_code}' -X POST http://127.0.0.1:${rest_port}/rpc/auth_status -H 'Content-Type: application/json' -d '{}'" 2>/dev/null || echo "__HTTP__000")
     auth_code=$(echo "$auth_out" | grep -oE '__HTTP__[0-9]+' | grep -oE '[0-9]+$' | tail -1 || true)
@@ -147,10 +148,10 @@ assert_direct_auth_status_healthy() {
 # the explicit HTTP 200 assertions above and below C are the health oracles.
 _crollback_instrumentation() {
     local _label="$1"
-    local _rest_port=$(( ${HEALTH_PORT:-3010} + 3 ))  # proxy http port +3 = rest port (3010→3013), slot-agnostic
+    local _rest_port="${HARNESS_REST_PORT:-3013}"  # slot=test REST binding, independent of standalone HTTPS :443
     echo ""
     echo "══════════ INSTRUMENTATION (${_label}) — run-2 unexplained-heal probes ══════════"
-    # (a) DIRECT to the rest port, bypassing the proxy path the :3010 probe takes —
+    # (a) DIRECT to the loopback REST port, bypassing the HTTPS proxy path —
     #     discriminates proxy-vs-db (is the heal in the proxy route or the DB?).
     echo "── probe (a): direct POST rest:${_rest_port}/rpc/auth_status (bypasses the proxy) ──"
     VM_EXEC bash -c "curl -s -m 5 -w '\n    HTTP %{http_code}\n' -X POST http://127.0.0.1:${_rest_port}/rpc/auth_status -H 'Content-Type: application/json' -d '{}'" 2>/dev/null | sed 's/^/    /' || echo "    (probe a failed)"

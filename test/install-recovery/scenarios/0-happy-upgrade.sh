@@ -139,7 +139,7 @@ if [ "${HARNESS_HTTPS_ONLY_EGRESS:-0}" = "1" ]; then
     # Fail in seconds if the host OUTPUT rule refuses docker-proxy's new,
     # non-NATed host -> container-IP:80 connection.
     install_http_code=$(VM_EXEC curl --noproxy '*' --silent --output /dev/null --write-out '%{http_code}' \
-        --connect-timeout 5 --max-time 30 http://127.0.0.1:3010/rest/ || true)
+        --connect-timeout 5 --max-time 30 http://127.0.0.1:80/rest/ || true)
     if [ "$install_http_code" = "000" ] || [ -z "$install_http_code" ]; then
         echo "✗ HTTPS-only policy refused the at-install docker-proxy health path (HTTP $install_http_code)" >&2
         exit 1
