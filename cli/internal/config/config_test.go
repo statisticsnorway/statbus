@@ -395,16 +395,30 @@ func TestGithubTokenIsOptInAndDocumentedAtCreation_STATBUS341(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(string(fresh), "# GITHUB_TOKEN=") || !strings.Contains(string(fresh), "fine-grained") {
-		t.Fatalf("fresh .env.config must document the commented optional token entry:\n%s", fresh)
+	if strings.Contains(string(fresh), "GITHUB_TOKEN=") {
+		t.Fatalf("fresh .env.config must not document the token entry:\n%s", fresh)
+	}
+	if _, err := loadOrGenerateCredentials(freshDir, false); err != nil {
+		t.Fatal(err)
+	}
+	credentialHeader, err := os.ReadFile(filepath.Join(freshDir, ".env.credentials"))
+	if err != nil || !strings.Contains(string(credentialHeader), "# GITHUB_TOKEN=") {
+		t.Fatalf("fresh credentials must document the optional token: %v", err)
 	}
 }
 
 func TestGithubTokenExplicitValueReachesGeneratedEnv_STATBUS341(t *testing.T) {
 	projDir := t.TempDir()
 	if err := os.WriteFile(filepath.Join(projDir, ".env.config"), []byte(
-		"DEPLOYMENT_SLOT_CODE=test\nCADDY_DEPLOYMENT_MODE=development\nSITE_DOMAIN=test.statbus.org\nGITHUB_TOKEN=explicit-test-token\n"), 0600); err != nil {
+		"DEPLOYMENT_SLOT_CODE=test\nCADDY_DEPLOYMENT_MODE=development\nSITE_DOMAIN=test.statbus.org\n"), 0600); err != nil {
 		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(projDir, ".env.credentials"), []byte("GITHUB_TOKEN=explicit-test-token\n"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	creds, err := loadOrGenerateCredentials(projDir, false)
+	if err != nil || creds.GithubToken != "explicit-test-token" {
+		t.Fatalf("token must be read from .env.credentials: %v", err)
 	}
 	if err := os.WriteFile(filepath.Join(projDir, ".env.example"), []byte("# minimal example\n"), 0644); err != nil {
 		t.Fatal(err)
@@ -421,8 +435,23 @@ func TestGithubTokenExplicitValueReachesGeneratedEnv_STATBUS341(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(out, "\nGITHUB_TOKEN=explicit-test-token\n") {
-		t.Fatalf("generated .env did not carry the explicitly declared token:\n%s", out)
+	if strings.Contains(out, "GITHUB_TOKEN=") {
+		t.Fatalf("generated .env must not duplicate the token:\n%s", out)
+	}
+}
+
+func TestConfigRejectsMisplacedSecrets_STATBUS361(t *testing.T) {
+	for _, key := range []string{"GITHUB_TOKEN", "SLACK_TOKEN", "SEQ_API_KEY"} {
+		t.Run(key, func(t *testing.T) {
+			dir := t.TempDir()
+			if err := os.WriteFile(filepath.Join(dir, ".env.config"), []byte("CADDY_DEPLOYMENT_MODE=development\n"+key+"=fixture-value\n"), 0600); err != nil {
+				t.Fatal(err)
+			}
+			_, err := loadOrGenerateConfig(dir, false)
+			if err == nil || !strings.Contains(err.Error(), key) || !strings.Contains(err.Error(), ".env.credentials") {
+				t.Fatalf("expected directive refusal for %s, got %v", key, err)
+			}
+		})
 	}
 }
 
