@@ -430,7 +430,7 @@ func TestLegacySecretsMigrateOnce_STATBUS361(t *testing.T) {
 	dir := t.TempDir()
 	configPath := filepath.Join(dir, ".env.config")
 	credentialsPath := filepath.Join(dir, ".env.credentials")
-	if err := os.WriteFile(configPath, []byte("CADDY_DEPLOYMENT_MODE=development\nGITHUB_TOKEN=legacy-token\nSLACK_TOKEN=legacy-slack\nSEQ_API_KEY=legacy-seq\n"), 0600); err != nil {
+	if err := os.WriteFile(configPath, []byte("CADDY_DEPLOYMENT_MODE=development\nGITHUB_TOKEN=older-token\nGITHUB_TOKEN=legacy-token\nSLACK_TOKEN=legacy-slack\nSEQ_API_KEY=legacy-seq\n"), 0600); err != nil {
 		t.Fatal(err)
 	}
 	if err := migrateLegacySecrets(dir); err != nil {
@@ -465,6 +465,62 @@ func TestLegacySecretsMigrateOnce_STATBUS361(t *testing.T) {
 	}
 	if string(again) != string(credentials) {
 		t.Fatalf("second migration changed credentials")
+	}
+}
+
+func TestPlainGenerateRejectsFreshSecret_STATBUS361(t *testing.T) {
+	dir := t.TempDir()
+	configPath := filepath.Join(dir, ".env.config")
+	if err := os.WriteFile(configPath, []byte("CADDY_DEPLOYMENT_MODE=development\nGITHUB_TOKEN=fresh-token\n"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	err := GenerateInDir(dir, false)
+	if err == nil || !strings.Contains(err.Error(), "GITHUB_TOKEN in .env.config is a secret; move it to .env.credentials") {
+		t.Fatalf("plain config generation must reject the misplaced secret, got %v", err)
+	}
+	config, err := os.ReadFile(configPath)
+	if err != nil || !strings.Contains(string(config), "GITHUB_TOKEN=fresh-token") {
+		t.Fatalf("plain generation moved the secret: %s, %v", config, err)
+	}
+}
+
+func TestInstallerGenerationMigratesLegacySecret_STATBUS361(t *testing.T) {
+	dir := t.TempDir()
+	configPath := filepath.Join(dir, ".env.config")
+	if err := os.WriteFile(configPath, []byte("CADDY_DEPLOYMENT_MODE=development\nSITE_DOMAIN=local.statbus.org\nGITHUB_TOKEN=old\nGITHUB_TOKEN=legacy-token\n"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	repoRoot := filepath.Join("..", "..", "..")
+	example, err := os.ReadFile(filepath.Join(repoRoot, ".env.example"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, ".env.example"), example, 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.CopyFS(filepath.Join(dir, "caddy", "templates"), os.DirFS(filepath.Join(repoRoot, "caddy", "templates"))); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(filepath.Join(dir, "ops", "maintenance"), 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := GenerateForInstallInDir(dir, false); err != nil {
+		t.Fatal(err)
+	}
+	config, err := os.ReadFile(configPath)
+	if err != nil || strings.Contains(string(config), "GITHUB_TOKEN=") {
+		t.Fatalf("installer left legacy token lines: %s, %v", config, err)
+	}
+	credentials, err := os.ReadFile(filepath.Join(dir, ".env.credentials"))
+	if err != nil || !strings.Contains(string(credentials), "GITHUB_TOKEN=legacy-token") {
+		t.Fatalf("installer did not preserve last legacy value: %s, %v", credentials, err)
+	}
+	if err := GenerateForInstallInDir(dir, false); err != nil {
+		t.Fatal(err)
+	}
+	again, err := os.ReadFile(filepath.Join(dir, ".env.credentials"))
+	if err != nil || string(again) != string(credentials) {
+		t.Fatalf("installer rerun changed credentials: %s, %v", again, err)
 	}
 }
 

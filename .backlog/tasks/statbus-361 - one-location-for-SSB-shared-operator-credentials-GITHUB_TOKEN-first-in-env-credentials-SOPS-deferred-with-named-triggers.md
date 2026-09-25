@@ -20,7 +20,9 @@ ordinal: 60
 
 ## Implementation 2026-09-25
 
-Review C remediation: config generation now migrates legacy operator tokens from `.env.config` into `.env.credentials` before enforcing config-file rejection, retaining an already-present credential as authoritative and making repeat runs no-ops. The new-installation provisioner writes shared tokens to `.env.credentials`. Local regression tests cover migration, repetition, existing-value precedence, and direct fresh-config rejection. This is local code validation only, not evidence of a token installed on dev or authenticated GitHub calls. Fleet acceptance remains pending.
+Review C remediation: installer reruns migrate legacy operator tokens from `.env.config` into `.env.credentials` before config-file validation, retaining an already-present credential as authoritative and making repeat runs no-ops. The new-installation provisioner writes shared tokens to `.env.credentials`. This is local code validation only, not evidence of a token installed on dev or authenticated GitHub calls. Fleet acceptance remains pending.
+
+Follow-up review correction: migration is now scoped to the install command's credential/config steps, not ordinary `sb config generate`; the latter rejects a newly misplaced secret without moving it. Migration deletes every duplicate assignment of a legacy secret, not merely its last occurrence. Local tests exercise fresh rejection, duplicate-line removal, and idempotence. Live fleet acceptance is still pending.
 
 Scratch branch `fix/credentials-361` moves optional tokens to `.env.credentials`, rejects `GITHUB_TOKEN`, `SLACK_TOKEN`, and `SEQ_API_KEY` in `.env.config`, and reads the GitHub token for the upgrade service without copying it into generated `.env`. Fixture tests cover refusal and the token's documented home. Acceptance remains pending: the operator must move existing dev values, install the fine-grained token personally, observe authenticated dev calls at 5000/h, and confirm Norway/demo stay anonymous. No remote credential changes or fleet verification were performed.
 

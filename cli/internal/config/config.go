@@ -1185,14 +1185,23 @@ func Generate(verbose bool) error {
 	return GenerateInDir(ProjectDir(), verbose)
 }
 
-// GenerateInDir runs config generation for an explicit checkout. Install uses
-// this instead of inheriting the caller's cwd, which may be outside StatBus.
+// GenerateInDir runs strict config generation for an explicit checkout.
+// Unlike the installer entrypoint, it never migrates misplaced secrets.
 func GenerateInDir(projDir string, verbose bool) error {
 	return generateInDir(projDir, projDir, verbose)
 }
 
-// migrateLegacySecrets moves old operator tokens before either config file is
-// generated. Save credentials first so a failed config write never loses a token.
+// GenerateForInstallInDir upgrades legacy operator secret placement on install
+// reruns before applying the strict config-generation validation.
+func GenerateForInstallInDir(projDir string, verbose bool) error {
+	if err := migrateLegacySecrets(projDir); err != nil {
+		return err
+	}
+	return GenerateInDir(projDir, verbose)
+}
+
+// migrateLegacySecrets moves old operator tokens on the installer path.
+// Save credentials first so a failed config write never loses a token.
 func migrateLegacySecrets(projDir string) error {
 	config, err := dotenv.Load(filepath.Join(projDir, ".env.config"))
 	if err != nil {
@@ -1234,9 +1243,6 @@ func migrateLegacySecrets(projDir string) error {
 // gitDir. GeneratedFilesMatch uses an isolated destination but the real checkout
 // as the identity source.
 func generateInDir(projDir, gitDir string, verbose bool) error {
-	if err := migrateLegacySecrets(projDir); err != nil {
-		return err
-	}
 
 	creds, err := loadOrGenerateCredentials(projDir, verbose)
 	if err != nil {

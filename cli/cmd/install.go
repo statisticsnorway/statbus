@@ -1436,16 +1436,16 @@ func runCreateConfig(dir string) error {
 }
 
 func runCreateCreds(dir string) error {
-	// sb config generate creates .env.credentials if missing
-	sb := filepath.Join(dir, "sb")
-	return runCmdDir(dir, sb, "config", "generate")
+	// Existing installations may still hold legacy tokens in .env.config.
+	// This install-only entrypoint moves them before strict generation.
+	return config.GenerateForInstallInDir(dir, false)
 }
 
 func runGenerateEnv(dir string) error {
 	// Migrate .env.config paths from devops/ → ops/ (one-time, idempotent)
 	migrateConfigPaths(dir)
 
-	if err := config.GenerateInDir(dir, false); err != nil {
+	if err := config.GenerateForInstallInDir(dir, false); err != nil {
 		return err
 	}
 	// Now that config exists, normalize the product-owned fetch configuration.
