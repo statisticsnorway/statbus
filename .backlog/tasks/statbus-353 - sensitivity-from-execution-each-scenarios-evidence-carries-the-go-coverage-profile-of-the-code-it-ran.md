@@ -2,7 +2,7 @@
 id: STATBUS-353
 title: >-
   sensitivity from execution: each scenario's evidence carries the Go coverage profile of the code it ran, and a diff is sensitive only if it touches that code
-status: To Do
+status: Cancelled
 assignee: []
 created_date: '2026-09-04 10:21'
 updated_date: '2026-09-23 15:10'
@@ -51,6 +51,10 @@ Go 1.20+ can build a binary with `-cover`; at run time, with `GOCOVERDIR` set, i
 ## Why after 352
 
 352 makes the box/tool split real in the tree and gives the fallback this ticket needs. Without it, a profile-less anchor has no sound rule to fall back on.
+
+## Cancelled 2026-09-25
+
+Owner decision: coverage-based scenario selection is not sensible for this codebase. There is no per-component change tracking to ground it (the only tracked relationship is whether a diff touches install/boot at all), so a "safe to skip" verdict would rest on data that is not collected and would produce silent false greens. The velocity comes from two other places instead: a superseded candidate's fleet stops before its next VM boots (STATBUS-416), and fault scenarios fork from a snapshot instead of reinstalling (LXD on rune, ticket pending). Spec audit: tmp/spec-audit-a.md (NEEDS-SPEC for the same reason).
 <!-- SECTION:DESCRIPTION:END -->
 
 ## Reconciliation 2026-09-23
