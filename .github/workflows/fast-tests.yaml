@@ -66,6 +66,11 @@ run-name: >-
 # gate: fast suite only, in-runner, no external dependencies.
 
 on:
+  # If the master run was classified before the RC tag existed, its master
+  # group may be cancelled. The tag event creates an independent run at the
+  # exact candidate SHA, removing that classification race.
+  push:
+    tags: ['v*-rc.*']
   workflow_dispatch:
   workflow_run:
     workflows: ["Images"]
@@ -74,22 +79,41 @@ on:
     branches-ignore:
       - 'ops/**'
 
-# STATBUS-364: one run in flight on master, newest push wins. PR runs keep
-# per-ref groups (cancel superseded commits). The workflow_run path (master,
-# fired once Images completes) and manual dispatch share a FIXED group, so a
-# newer push cancels the in-flight run and GitHub keeps at most one pending run.
-# The discriminator is "is this a PR" rather than "is this a push" because this
-# workflow's master trigger is workflow_run, not push.
-concurrency:
-  group: ${{ github.event_name == 'pull_request' && format('fast-tests-{0}', github.ref) || 'fast-tests-master' }}
-  cancel-in-progress: true
+# STATBUS-415: classify before assigning job concurrency. Workflow-level
+# concurrency cannot inspect tags at the exercised workflow_run SHA. Ordinary
+# master and PR runs still cancel superseded work (STATBUS-364), while each
+# tagged candidate has its own group and survives later master pushes.
 
 permissions:
   contents: read
   packages: read
 
 jobs:
+  classify:
+    runs-on: ubuntu-24.04
+    outputs:
+      candidate: ${{ steps.tag.outputs.candidate }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.sha }}
+          fetch-depth: 0
+      - id: tag
+        env:
+          EXERCISED_SHA: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.sha }}
+        run: |
+          git fetch --force --tags origin
+          if git tag --points-at "$EXERCISED_SHA" | grep -Eq '^v[0-9]+\.[0-9]+\.[0-9]+-rc\.[0-9]+$'; then
+            echo 'candidate=true' >> "$GITHUB_OUTPUT"
+          else
+            echo 'candidate=false' >> "$GITHUB_OUTPUT"
+          fi
+
   fast-tests:
+    needs: classify
+    concurrency:
+      group: ${{ needs.classify.outputs.candidate == 'true' && format('fast-tests-rc-{0}', github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.sha) || (github.event_name == 'pull_request' && format('fast-tests-{0}', github.ref) || 'fast-tests-master') }}
+      cancel-in-progress: true
     name: pg_regress fast suite
     runs-on: ubuntu-24.04
     timeout-minutes: 30

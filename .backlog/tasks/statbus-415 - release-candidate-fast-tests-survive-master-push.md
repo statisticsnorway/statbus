@@ -27,6 +27,19 @@ A tagged release candidate retains a conclusive Fast Tests run at its own commit
 <!-- SECTION:DESCRIPTION:END -->
 
 ## Acceptance Criteria
+Implementation note (2026-09-25): Fast Tests now classifies the exercised SHA's
+RC tags before assigning job concurrency, reserving a SHA-specific group for
+tagged candidates while retaining the fixed master and per-ref PR groups.
+The Go contract test parses both workflow YAML files and evaluates group keys for
+master A then B (same cancellable group), tagged candidate A then master B
+(different groups), and distinct PR refs (different groups). This is a static
+contract, not live proof. pg_regress has a shared group with
+`cancel-in-progress: false`, so it has no equivalent running-job cancellation.
+The tag-push trigger also starts an independent run at the candidate SHA if
+its earlier master run was classified before tagging and later cancelled.
+Proof pending: the next candidate cut must perform the live two-push exercise,
+record both run IDs, conclusions, exercised SHAs and the release-gate outcome.
+
 <!-- AC:BEGIN -->
 - [ ] #1 A workflow/orchestrator contract test models a candidate Fast Tests run at commit A followed by a master push and run at commit B. The candidate run at A is not cancelled without a replacement run explicitly dispatched at A; the B run never masquerades as A's verdict.
 - [ ] #2 The chosen mechanism preserves the STATBUS-364 bound for routine superseded master and PR checks while giving tagged-candidate runs their own non-conflicting group or a bounded automatic redispatch/wait at the candidate SHA. A manual workaround is not the mechanism.
