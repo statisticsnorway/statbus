@@ -58,6 +58,9 @@ type Credentials struct {
 	DashboardUsername             string
 	DashboardPassword             string
 	ServiceRoleKey                string
+	GithubToken                   string
+	SeqAPIKey                     string
+	SlackToken                    string
 }
 
 // ConfigEnv holds values from .env.config.
@@ -268,15 +271,16 @@ process.stdout.write(header + '.' + payload + '.' + sig);`,
 	return "JWT_GENERATION_REQUIRES_NODE_OR_GOLANG_JWT"
 }
 
-const credentialsHeader = `# A running system never reads this file back. Editing it changes nothing and leaves it mismatched with the database.
+const credentialsHeader = `# Database identity values below are loaded at creation; optional operator tokens are read on each config generation.
 # To apply a changed value, delete and recreate the ENTIRE environment (destructive: all data lost; ./dev.sh recreate-database on dev, full reinstall on a production box), or apply the specific change manually with the proper commands (a support operation).
-# This file's purpose is stable identity: recreates and restores get the same credentials back.`
-
-const configCreationHeader = `# Optional GitHub authentication for upgrade discovery.
-# Create a fine-grained, read-only, repository-scoped token at:
+# This file's purpose is stable identity: recreates and restores get the same credentials back.
+# Optional GitHub authentication: fine-grained read-only repository token (anonymous by default).
 # https://github.com/settings/personal-access-tokens/new
-# Anonymous HTTPS is the default. Uncomment only when this box opts in.
-# GITHUB_TOKEN=`
+# GITHUB_TOKEN=
+# SLACK_TOKEN=
+# SEQ_API_KEY=`
+
+const configCreationHeader = `# Configuration only. Put tokens, keys and passwords in .env.credentials.`
 
 // loadOrGenerateCredentials reads .env.credentials, generating missing values.
 func loadOrGenerateCredentials(projDir string, verbose bool) (*Credentials, error) {
@@ -316,6 +320,9 @@ func loadOrGenerateCredentials(projDir string, verbose bool) (*Credentials, erro
 		DashboardPassword:             gen("DASHBOARD_PASSWORD", func() string { return randomString(20) }),
 		ServiceRoleKey:                gen("SERVICE_ROLE_KEY", func() string { return generateJWT(jwtSecret, "service_role") }),
 	}
+	creds.GithubToken, _ = f.Get("GITHUB_TOKEN")
+	creds.SeqAPIKey, _ = f.Get("SEQ_API_KEY")
+	creds.SlackToken, _ = f.Get("SLACK_TOKEN")
 
 	if err := f.Save(); err != nil {
 		return nil, fmt.Errorf("save credentials: %w", err)
@@ -351,6 +358,16 @@ func loadOrGenerateConfig(projDir string, verbose bool) (*ConfigEnv, error) {
 	f, err := dotenv.Load(cfgPath)
 	if err != nil {
 		return nil, fmt.Errorf("load config: %w", err)
+	}
+	for _, key := range []string{"GITHUB_TOKEN", "SLACK_TOKEN", "SEQ_API_KEY"} {
+		if _, found := f.Get(key); found {
+			if _, err := os.Stat(filepath.Join(projDir, ".env")); err == nil {
+				return nil, fmt.Errorf("%s in .env.config is a secret; run ./sb install to migrate it to .env.credentials", key)
+			} else if !os.IsNotExist(err) {
+				return nil, fmt.Errorf("stat generated config: %w", err)
+			}
+			return nil, fmt.Errorf("%s in .env.config is a secret; move it to .env.credentials", key)
+		}
 	}
 	if configCreated {
 		for _, line := range strings.Split(configCreationHeader, "\n") {
@@ -450,8 +467,8 @@ func loadOrGenerateConfig(projDir string, verbose bool) (*ConfigEnv, error) {
 		BrowserAPIURL:            gen("BROWSER_REST_URL", defaultBrowserURL),
 		ServerAPIURL:             gen("SERVER_REST_URL", defaultServerURL),
 		SeqServerURL:             gen("SEQ_SERVER_URL", "https://log.statbus.org"),
-		SeqAPIKey:                gen("SEQ_API_KEY", "secret_seq_api_key"),
-		SlackToken:               gen("SLACK_TOKEN", "secret_slack_api_token"),
+		SeqAPIKey:                "",
+		SlackToken:               "",
 		PostgresAdminDB:          gen("POSTGRES_ADMIN_DB", "postgres"),
 		PostgresAdminUser:        gen("POSTGRES_ADMIN_USER", "postgres"),
 		PostgresAppDB:            appDB,
@@ -509,9 +526,7 @@ func loadOrGenerateConfig(projDir string, verbose bool) (*ConfigEnv, error) {
 	// there, NOT in the generated .env, which this same command overwrites
 	// on every install and at upgrade step 3.1.
 	gen("UPGRADE_CALLBACK", "")
-	// GITHUB_TOKEN is deliberately not generated. Existing .env.config files
-	// remain untouched unless an operator explicitly opts in by adding the key;
-	// the commented entry point is present only in the fresh-file header above.
+	// Optional operator tokens are read from .env.credentials, never generated here.
 
 	// Upgrade-service polling settings — only the deployed service uses these,
 	// so they are written for non-development modes only.
@@ -1000,8 +1015,7 @@ PUBLIC_STATBUS_COMMIT_SHORT=%[23]s
 		// ops/notify-slack.sh for the reference implementation.
 		fmt.Fprintf(&b, "UPGRADE_CALLBACK=%s\n", getOrDefault("UPGRADE_CALLBACK", ""))
 		classes.declare("UPGRADE_CALLBACK") // runCallback() calls dotenv.Load(".env") itself on every invocation — never cached
-		fmt.Fprintf(&b, "GITHUB_TOKEN=%s\n", getOrDefault("GITHUB_TOKEN", ""))
-		classes.declare("GITHUB_TOKEN", RestartUpgradeDaemon)
+		// The upgrade service reads GITHUB_TOKEN directly from .env.credentials.
 		// Scheduled logical-backup settings (STATBUS-113) — read by the service's loadConfig().
 		fmt.Fprintf(&b, "BACKUP_ENABLED=%s\n", getOrDefault("BACKUP_ENABLED", "true"))
 		classes.declare("BACKUP_ENABLED", RestartUpgradeDaemon)
@@ -1253,6 +1267,8 @@ func generateInDir(projDir, gitDir string, verbose bool) error {
 	if err != nil {
 		return err
 	}
+	cfg.SeqAPIKey = creds.SeqAPIKey
+	cfg.SlackToken = creds.SlackToken
 
 	dbMem, err := computeDbMemory(cfg.DbMemLimit)
 	if err != nil {

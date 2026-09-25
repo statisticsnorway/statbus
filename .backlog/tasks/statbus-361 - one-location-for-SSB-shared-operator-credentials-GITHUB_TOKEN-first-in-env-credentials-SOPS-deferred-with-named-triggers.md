@@ -18,6 +18,10 @@ dependencies:
 ordinal: 60
 ---
 
+## Implementation 2026-09-25, review B correction
+
+Rebased onto current `origin/master` without conflicts, retaining master's password-prompt changes. Installer credential and settings steps now migrate legacy token placement only when a previously generated `.env` identifies a rerun. Fresh installs with an authored secret refuse plainly without moving it. Standalone config generation on an existing box refuses with `./sb install` as the migration path. Operator-path fixture tests exercise both installer steps on fresh state, duplicate-line migration and idempotent reruns, and standalone legacy guidance. No Docker or live deployment was run. Fleet credential installation and authenticated-call evidence remain outstanding, so this ticket remains In Progress.
+
 ## Implementation 2026-09-25
 
 Review C remediation: installer reruns migrate legacy operator tokens from `.env.config` into `.env.credentials` before config-file validation, retaining an already-present credential as authoritative and making repeat runs no-ops. The new-installation provisioner writes shared tokens to `.env.credentials`. This is local code validation only, not evidence of a token installed on dev or authenticated GitHub calls. Fleet acceptance remains pending.
