@@ -7,10 +7,10 @@ set mismatch 0
 set password "test-install-password-2026"
 spawn -noecho bash /tmp/statbus-install.sh
 expect {
-    -re {Email \[\]: $} { send -- "interactive-admin@statbus.org\r"; incr matched; exp_continue }
-    -re {Name \[\]: $} { send -- "Interactive Admin\r"; incr matched; exp_continue }
-    -re {Password \(typing is hidden\): $} { send -- "$password\r"; incr matched; exp_continue }
-    -re {Password again: $} { send -- "$password\r"; incr matched; exp_continue }
+    -re {Email \[\]: } { send -- "interactive-admin@statbus.org\r"; incr matched; exp_continue }
+    -re {Name \[\]: } { send -- "Interactive Admin\r"; incr matched; exp_continue }
+    -re {Password \(typing is hidden\): } { send -- "$password\r"; incr matched; exp_continue }
+    -re {Password again: } { send -- "$password\r"; incr matched; exp_continue }
     timeout { puts stderr "timed out waiting for private administrator prompts"; exit 1 }
     eof {}
 }

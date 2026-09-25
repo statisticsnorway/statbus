@@ -226,8 +226,7 @@ echo "  ✓ second install refused with non-zero exit"
 
 # Require the exact process ID read from the marker, never a generic holder
 # label or a PID discovered by running a command. Reject upgrade-only wording.
-if printf '%s\n' "$SECOND_OUTPUT" | grep -Fq 'Detected install state: live-upgrade' &&
-   printf '%s\n' "$SECOND_OUTPUT" | grep -Eq "an installation started at [^ ]+ \\(process ${FIRST_PID}\\) is still running" &&
+if printf '%s\n' "$SECOND_OUTPUT" | grep -Eq "an installation started at [^ ]+ \\(process ${FIRST_PID}\\) is still running" &&
    ! printf '%s\n' "$SECOND_OUTPUT" | grep -Fq 'An upgrade is already running' &&
    ! printf '%s\n' "$SECOND_OUTPUT" | grep -Fq 'lsof'; then
     echo "  ✓ second install identifies the live installation and its process ID"

@@ -228,8 +228,8 @@ echo "  ./sb install exit: $INSTALL_RC"
 
 echo ""
 echo "── assert 1: the route-aware probe caught the stopped proxy (start-fallback line fired) ──"
-grep -q "Detected install state: crashed-upgrade" "$INSTALL_OUT" || {
-    echo "✗ expected 'Detected install state: crashed-upgrade' in the install output" >&2; exit 1; }
+grep -Fq 'The previous upgrade stopped unexpectedly. Recovery will run now.' "$INSTALL_OUT" || {
+    echo '✗ expected crashed-upgrade recovery diagnostic in the install output' >&2; exit 1; }
 echo "  ✓ ladder detected crashed-upgrade"
 grep -q "DB not reachable, attempting \`docker compose start db\`" "$INSTALL_OUT" || {
     echo "✗ expected the STATBUS-143 start-fallback line — without it the probe did NOT correctly fail on the stopped-proxy route (the pre-143 false-pass this fix kills)" >&2
@@ -274,8 +274,8 @@ INSTALL_RC2=$?
 set -e
 echo "  second ./sb install exit: $INSTALL_RC2"
 [ "$INSTALL_RC2" -eq 0 ] || { cat "$INSTALL_OUT2"; echo "✗ second install did not exit 0" >&2; exit 1; }
-grep -q "Detected install state: nothing-scheduled" "$INSTALL_OUT2" || {
-    cat "$INSTALL_OUT2"; echo "✗ expected 'Detected install state: nothing-scheduled' on the second install" >&2; exit 1;
+grep -Fq 'Checking the existing installation.' "$INSTALL_OUT2" || {
+    cat "$INSTALL_OUT2"; echo '✗ expected existing-installation diagnostic on the second install' >&2; exit 1;
 }
 echo "  ✓ second install detected nothing-scheduled"
 rm -f "$INSTALL_OUT2"
