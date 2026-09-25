@@ -2858,6 +2858,9 @@ const exitPrincipledConfigRefusal = 78
 // Run starts the upgrade service main loop.
 func (d *Service) Run(ctx context.Context) error {
 	d.runningAsService = true
+	if err := loadOperatorCredentials(d.projDir); err != nil {
+		return fmt.Errorf("load operator credentials: %w", err)
+	}
 
 	ctx, cancel := signal.NotifyContext(ctx, syscall.SIGINT, syscall.SIGTERM)
 	defer cancel()

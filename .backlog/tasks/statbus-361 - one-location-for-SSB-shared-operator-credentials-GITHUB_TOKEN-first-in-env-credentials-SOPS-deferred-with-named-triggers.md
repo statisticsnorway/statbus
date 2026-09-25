@@ -124,3 +124,7 @@ Batch order: 370 -> 368 -> 367 -> 363 -> 357 -> 361 -> 362 -> 359.
 Classification: PARTIAL. Evidence: post-release scratch batch only; credential relocation and fleet proof remain.
 
 Remaining: Land secret-file enforcement and prove authenticated dev calls while demo/Norway remain intentionally anonymous.
+
+## Notes 2026-09-25
+
+The upgrade service loads optional `GITHUB_TOKEN`, `SLACK_TOKEN`, and `SEQ_API_KEY` from `.env.credentials` at startup, before API requests, git fetches, or callback subprocesses. A nonempty process environment value wins over the credentials file. The user-level systemd unit does not source the file, avoiding systemd EnvironmentFile precedence over an explicit process environment. `GITHUB_TOKEN` reaches both GitHub API requests and the authenticated git-fetch header; `SLACK_TOKEN` reaches the callback subprocess. Generated `.env` continues to supply `SEQ_API_KEY` to app/worker containers. No token value is logged by the loader. Deployment observation for dev authentication and anonymous Norway/demo remains pending.
