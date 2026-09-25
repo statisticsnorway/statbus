@@ -7,7 +7,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-09-07 13:48'
-updated_date: '2026-09-23 15:10'
+updated_date: '2026-09-25 20:58'
 labels:
   - release-bug
   - ops
@@ -17,6 +17,10 @@ dependencies:
   - STATBUS-357
 ordinal: 60
 ---
+
+## Merge status 2026-09-25 (coordinator)
+
+Merged to master at c05b3ccf6 (branch fix/361-credentials-rebased, c514d4264) after a coordinator rebase (the original branch was based on an old master and reverted unrelated work) and two review rounds. Post-merge fixes: errcheck in the loader test (3cf30b234); SEQ_API_KEY placeholder restored into .env.credentials because docker-compose.app.yml declares it :?-required (1e98c8ace + regression test). Still open: live-deployment evidence (authenticated dev calls; Norway/demo stay anonymous) — the ticket stays open for that.
 
 ## Implementation 2026-09-25, review B correction
 
