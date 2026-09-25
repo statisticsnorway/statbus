@@ -39,7 +39,7 @@ func TestOperatorCredentialsFallbackAndOverride(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	t.Setenv("GITHUB_TOKEN", "env-token")
 	t.Setenv("SLACK_TOKEN", "env-slack")
 	t.Setenv("SEQ_API_KEY", "env-seq")
