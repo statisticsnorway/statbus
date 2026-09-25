@@ -66,7 +66,7 @@ set -euo pipefail
 [ ! -e "$HOME/statbus" ]
 [ "$STATBUS_ENV_CONFIG" = "$HOME/install-input.env" ]
 grep -Fxq 'CADDY_DEPLOYMENT_MODE=private' "$STATBUS_ENV_CONFIG"
-[ "$(wc -l < "$STATBUS_ENV_CONFIG" | tr -d ' ')" = 5 ]
+[ "$(grep -c . "$STATBUS_ENV_CONFIG")" = 5 ]
 [ "$(cat "$STATBUS_USERS_FILE")" = users-fixture ]
 grep -Fxq 'TRUST_GITHUB_USER=jhf' "$STATBUS_ENV_CONFIG"
 [ "$STATBUS_INSTALL_VERSION" = v2026.09.0-rc.02 ]

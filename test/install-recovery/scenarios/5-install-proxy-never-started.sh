@@ -101,15 +101,14 @@ for svc in app db proxy rest worker; do
 done
 echo "  ✓ all five services running"
 
-# The VM proof at 8543f493a shows all three containers were recreated (fresh
-# CREATED timestamps), with proxy's configured dev-mode ports in compose ps.
+# Prove the standalone bindings after recreating the containers.
 # Prove the bindings themselves, not just the container's running state.
 PROXY_PORTS=$(VM_EXEC bash -c 'cd ~/statbus && docker port "$(./sb dotenv -f .env get COMPOSE_INSTANCE_NAME)-proxy"')
-for binding in '3014/tcp -> 127.0.0.1:3014' '3015/tcp -> 127.0.0.1:3015' '80/tcp -> 127.0.0.1:3010' '443/tcp -> 127.0.0.1:3011' '443/udp -> 127.0.0.1:3011'; do
+for binding in '5431/tcp -> 127.0.0.1:5431' '5432/tcp -> 0.0.0.0:5432' '80/tcp -> 0.0.0.0:80' '443/tcp -> 0.0.0.0:443' '443/udp -> 0.0.0.0:443'; do
     grep -Fq "$binding" <<<"$PROXY_PORTS" || { echo "✗ proxy is missing $binding: $PROXY_PORTS" >&2; exit 1; }
 done
 APP_PORTS=$(VM_EXEC bash -c 'cd ~/statbus && docker port "$(./sb dotenv -f .env get COMPOSE_INSTANCE_NAME)-app"')
-grep -Fq '3000/tcp -> 127.0.0.1:3012' <<<"$APP_PORTS" || { echo "✗ app port missing: $APP_PORTS" >&2; exit 1; }
+grep -Fq '3000/tcp -> 127.0.0.1:3012' <<<"$APP_PORTS" || { echo "✗ app loopback port missing: $APP_PORTS" >&2; exit 1; }
 echo "  ✓ recreated proxy and app publish their configured host ports"
 
 assert_step_upgrade_service_completed "$VM_NAME"

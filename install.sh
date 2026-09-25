@@ -366,6 +366,17 @@ procure_sb_from_commit_image() {
 # The edge path sets $VERSION to "sha-<short>" and builds from source
 # (see edge block further down — it doesn't use $BINARY_URL).
 STATBUS_DIR="${HOME}/statbus"
+HARNESS_CERT_FRESH=0
+if [ "${STATBUS_HARNESS_CERT_STAGING+x}" = x ]; then
+    if [ "$STATBUS_HARNESS_CERT_STAGING" != "$HOME/harness-certs" ] ||
+       [ -e "$STATBUS_DIR" ] || [ -L "$STATBUS_DIR" ] ||
+       [ ! -f "$STATBUS_HARNESS_CERT_STAGING/domain.crt" ] ||
+       [ ! -f "$STATBUS_HARNESS_CERT_STAGING/domain.key" ]; then
+        echo "Error: harness certificate staging requires the exact harness path and an absent ~/statbus checkout" >&2
+        exit 1
+    fi
+    HARNESS_CERT_FRESH=1
+fi
 
 # ── OWN THE REPOSITORY FOR THIS BOOTSTRAP (STATBUS-323) ──────────────────────
 #
@@ -722,6 +733,21 @@ if [ -z "${SKIP_BINARY_DOWNLOAD:-}" ]; then
         echo "Installed program: $(./sb --version)"
         echo ""
     fi
+fi
+
+# A provisioner may stage its own certificate before FRESH creates the checkout.
+# This optional input merely places files at the documented Caddy bind mount;
+# TLS_CERT_FILE/TLS_KEY_FILE still select the actual production Caddy path.
+if [ "$HARNESS_CERT_FRESH" = 1 ]; then
+    if [ -L "$STATBUS_DIR/caddy/data/custom-certs" ] ||
+       [ -e "$STATBUS_DIR/caddy/data/custom-certs/domain.crt" ] ||
+       [ -e "$STATBUS_DIR/caddy/data/custom-certs/domain.key" ]; then
+        echo "Error: harness certificate destination already exists; refusing to overwrite" >&2
+        exit 1
+    fi
+    install -d -m 0755 "$STATBUS_DIR/caddy/data/custom-certs"
+    install -m 0644 "$STATBUS_HARNESS_CERT_STAGING/domain.crt" "$STATBUS_DIR/caddy/data/custom-certs/domain.crt"
+    install -m 0600 "$STATBUS_HARNESS_CERT_STAGING/domain.key" "$STATBUS_DIR/caddy/data/custom-certs/domain.key"
 fi
 
 # Clear any stale terminal file from a prior failed run so the banner below

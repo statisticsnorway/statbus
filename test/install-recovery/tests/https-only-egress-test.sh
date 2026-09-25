@@ -34,7 +34,7 @@ assert_https_only_contract() {
         'nft add rule inet statbus_https_only output ip6 daddr != { ::1, fc00::/7, fe80::/10 } tcp dport 80 reject' \
         'curl --noproxy * -4 --fail --silent --show-error --connect-timeout 3 --max-time 5 http://93.184.216.34/statbus-http-egress-mutation' \
         'curl --noproxy * -6 --fail --silent --show-error --connect-timeout 3 --max-time 5 http://[2606:2800:220:1:248:1893:25c8:1946]/statbus-http-egress-mutation' \
-        'curl --noproxy * --fail --silent --show-error http://127.0.0.1:3010/rest/'
+        'curl --noproxy * --fail --silent --show-error http://127.0.0.1:80/rest/'
     grep -Fq 'IPv4 TCP/80 connection refused' <<<"$output" || die 'missing IPv4 enforcement diagnostic'
     grep -Fq 'IPv6 TCP/80 connection refused' <<<"$output" || die 'missing IPv6 enforcement diagnostic'
     grep -Fq 'docker-proxy health path allowed' <<<"$output" || die 'missing docker-proxy exemption diagnostic'
@@ -88,7 +88,7 @@ run_contract() {
         rule=$(grep -E "$family_selector" "$rule_state" | tail -1 || true)
         [ -n "$rule" ] || return 1
         grep -Fq ' tcp dport 80 reject' <<<"$rule" || return 1
-        # Docker's default userland-proxy accepts 127.0.0.1:3010, then opens a
+        # Docker's default userland-proxy accepts 127.0.0.1:80, then opens a
         # new host -> 172.18.0.3:80 connection. There is no NAT. The outcome is
         # determined solely by whether that destination belongs to an exempt CIDR.
         ! destination_is_exempt "$family" "$destination" "$rule"
@@ -107,7 +107,7 @@ run_contract() {
                 packet_rejected ipv6 2606:2800:220:1:248:1893:25c8:1946 && return 7
                 return 0
                 ;;
-            *'curl --noproxy * --fail --silent --show-error http://127.0.0.1:3010/rest/'*)
+            *'curl --noproxy * --fail --silent --show-error http://127.0.0.1:80/rest/'*)
                 packet_rejected ipv4 172.18.0.3 && return 7
                 return 0
                 ;;
@@ -139,7 +139,7 @@ run_contract() {
     }
 
     apply_https_only_egress || { rm -f "$rule_state"; return 1; }
-    local loopback_url='http://127.0.0.1:3010/rest/'
+    local loopback_url='http://127.0.0.1:80/rest/'
     if ! VM_EXEC curl --noproxy '*' --fail --silent --show-error "$loopback_url" >/dev/null 2>&1; then
         echo "ERROR: HTTPS-only rule rejected docker-proxy host -> 172.18.0.3:80: $loopback_url" >&2
         rm -f "$rule_state"

@@ -704,11 +704,36 @@ _dump_bootstrap_failure_diagnostics() {
     echo "  ══ end bootstrap-failure forensics ══" >&2
 }
 
+# Generate a VM-local CA and domain certificate. Stage outside the checkout so
+# install.sh can create ~/statbus through its genuine FRESH clone. The installer
+# copies these into Caddy's actual bind-mounted custom-certs directory.
+provision_harness_certificate() {
+    local ip="$1" domain="$2"
+    [[ "$domain" =~ ^[a-zA-Z0-9.-]+$ ]] || { echo "invalid harness domain: $domain" >&2; return 1; }
+    ssh "${SSH_OPTS[@]}" root@"$ip" "HARNESS_DOMAIN='$domain' bash -s" <<'REMOTE'
+set -euo pipefail
+dir=/home/statbus/harness-certs
+install -d -m 0700 -o statbus -g statbus "$dir"
+openssl req -x509 -newkey rsa:2048 -nodes -days 7 -sha256 \
+    -subj '/CN=StatBus harness CA' -keyout "$dir/ca.key" -out "$dir/ca.crt" >/dev/null 2>&1
+openssl req -newkey rsa:2048 -nodes -sha256 -subj "/CN=$HARNESS_DOMAIN" \
+    -keyout "$dir/domain.key" -out "$dir/domain.csr" >/dev/null 2>&1
+printf 'subjectAltName=DNS:%s\nextendedKeyUsage=serverAuth\n' "$HARNESS_DOMAIN" > "$dir/extensions"
+openssl x509 -req -in "$dir/domain.csr" -CA "$dir/ca.crt" -CAkey "$dir/ca.key" \
+    -CAcreateserial -days 7 -sha256 -extfile "$dir/extensions" -out "$dir/domain.pem" >/dev/null 2>&1
+cat "$dir/domain.pem" "$dir/ca.crt" > "$dir/domain.crt"
+chown -R statbus:statbus "$dir"
+chmod 0600 "$dir/domain.key" "$dir/ca.key"
+sed -i "/[[:space:]]$HARNESS_DOMAIN\([[:space:]]\|$\)/d" /etc/hosts
+printf '127.0.0.1 %s\n' "$HARNESS_DOMAIN" >> /etc/hosts
+REMOTE
+}
+
 # Run the project hardening + statbus user setup on a freshly-booted VM.
 # Idempotent — safe to call again after a rebuild.
 _apply_hardening() {
     local ip="$1" sb_binary="${2:-}"
-    local deployment_mode="${HARNESS_DEPLOYMENT_MODE:-development}"
+    local deployment_mode="${HARNESS_DEPLOYMENT_MODE:-standalone}"
     local upgrade_channel="${HARNESS_UPGRADE_CHANNEL:-stable}"
 
     case "$deployment_mode" in
@@ -738,15 +763,22 @@ DEPLOYMENT_SLOT_NAME=Install Test
 DEPLOYMENT_SLOT_CODE=test
 DEPLOYMENT_SLOT_PORT_OFFSET=1
 CADDY_DEPLOYMENT_MODE=__HARNESS_DEPLOYMENT_MODE__
-SITE_DOMAIN=statbus-test.local
-STATBUS_URL=https://statbus-test.local
-BROWSER_REST_URL=https://statbus-test.local
+SITE_DOMAIN=__HARNESS_SITE_DOMAIN__
+STATBUS_URL=https://__HARNESS_SITE_DOMAIN__
+BROWSER_REST_URL=https://__HARNESS_SITE_DOMAIN__
 SERVER_REST_URL=http://proxy:80
 DEBUG=false
 PUBLIC_DEBUG=false
 ENVCONFIG
+    if [ "$deployment_mode" = standalone ] && [ "${HARNESS_NO_CUSTOM_CERT:-0}" != 1 ]; then
+        cat >> "$env_config_file" <<'ENVCONFIG'
+TLS_CERT_FILE=/data/custom-certs/domain.crt
+TLS_KEY_FILE=/data/custom-certs/domain.key
+ENVCONFIG
+    fi
     sed -i.bak \
         -e "s/__HARNESS_DEPLOYMENT_MODE__/$deployment_mode/" \
+        -e "s/__HARNESS_SITE_DOMAIN__/${HARNESS_SITE_DOMAIN:-statbus-test.local}/g" \
         "$env_config_file"
     rm -f "$env_config_file.bak"
 
@@ -916,6 +948,9 @@ EOF'
         echo "  ERROR: /tmp/env-config is not readable by statbus after chown (STATBUS-369)" >&2
         return 1
     }
+    if [ "$deployment_mode" = standalone ] && [ "${HARNESS_NO_CUSTOM_CERT:-0}" != 1 ]; then
+        provision_harness_certificate "$ip" "${HARNESS_SITE_DOMAIN:-statbus-test.local}"
+    fi
 
     echo "  fetching personal SSH keys from GitHub (ed25519 only)..."
     ssh "${SSH_OPTS[@]}" root@"$ip" '
@@ -1113,6 +1148,11 @@ bootstrap_install_test_vm() {
     local vm_name="$1"
     local install_version="${2:-}"
     _check_name_safety "$vm_name" || return 1
+    # This scenario deliberately proves absence of a certificate, not the
+    # ordinary supplied-certificate installation path. Leave its script intact.
+    if [ "${HARNESS_SITE_DOMAIN:-}" = statbus-no-public-dns.invalid ]; then
+        HARNESS_NO_CUSTOM_CERT=1
+    fi
 
     # STATBUS-208 defect A: finalize the run-unique name HERE, before the
     # refuse-on-existing check and before VM_NAME is published — every
@@ -1425,6 +1465,7 @@ if [ ! -d ~/statbus/.git ]; then
 fi
 # Pre-place config files: ./sb install (called by install.sh) needs .env.config.
 # For RESCUE mode these survive install.sh's 'git checkout -B current origin/master'.
+$(if [ "${HARNESS_DEPLOYMENT_MODE:-standalone}" = standalone ] && [ "${HARNESS_NO_CUSTOM_CERT:-0}" != 1 ]; then printf 'install -d -m 0755 ~/statbus/caddy/data/custom-certs\ninstall -m 0644 ~/harness-certs/domain.crt ~/statbus/caddy/data/custom-certs/domain.crt\ninstall -m 0600 ~/harness-certs/domain.key ~/statbus/caddy/data/custom-certs/domain.key'; fi)
 cp /tmp/env-config ~/statbus/.env.config || { echo "harness: cannot copy /tmp/env-config as $(id -un): $(ls -l /tmp/env-config 2>&1 || true)"; exit 70; }
 cp /tmp/users.yml ~/statbus/.users.yml || { echo "harness: cannot copy /tmp/users.yml as $(id -un): $(ls -l /tmp/users.yml 2>&1 || true)"; exit 70; }
 # Run the real install.sh (uploaded as /tmp/statbus-install.sh to avoid a naming
@@ -1472,6 +1513,7 @@ if [ ! -d ~/statbus/.git ]; then
 fi
 mv ~/sb.tmp ~/statbus/sb
 cd ~/statbus
+$(if [ "${HARNESS_DEPLOYMENT_MODE:-standalone}" = standalone ] && [ "${HARNESS_NO_CUSTOM_CERT:-0}" != 1 ]; then printf 'install -d -m 0755 caddy/data/custom-certs\ninstall -m 0644 ~/harness-certs/domain.crt caddy/data/custom-certs/domain.crt\ninstall -m 0600 ~/harness-certs/domain.key caddy/data/custom-certs/domain.key'; fi)
 # STATBUS-369: these two copies are the ONLY way the box gets its config. They
 # used to be `2>/dev/null || true`, which hid a permission failure (root:root
 # 0600 upload, copied as statbus) for three RCs and made the released binary
@@ -1590,8 +1632,9 @@ set -e
 # loop, db unhealthy). An NSO's shell has umask 022; the harness must not
 # impose its answer-file hygiene on the product. Scope it to the one file.
 ( umask 077; cat > "\$HOME/install-input.env" <<'CONFIG'
-CADDY_DEPLOYMENT_MODE=${HARNESS_DEPLOYMENT_MODE:-development}
+CADDY_DEPLOYMENT_MODE=${HARNESS_DEPLOYMENT_MODE:-standalone}
 SITE_DOMAIN=${HARNESS_SITE_DOMAIN:-statbus-test.local}
+$(if [ "${HARNESS_DEPLOYMENT_MODE:-standalone}" = standalone ] && [ "${HARNESS_NO_CUSTOM_CERT:-0}" != 1 ]; then printf 'TLS_CERT_FILE=/data/custom-certs/domain.crt\nTLS_KEY_FILE=/data/custom-certs/domain.key'; fi)
 DEPLOYMENT_SLOT_NAME=Install Test
 DEPLOYMENT_SLOT_CODE=test
 TRUST_GITHUB_USER=jhf
@@ -1605,6 +1648,7 @@ case "\$(umask)" in
     *[4567]) echo "harness: umask \$(umask) strips other-read; the product checkout would be unreadable to the postgres container (STATBUS-369)"; exit 70 ;;
 esac
 export STATBUS_ENV_CONFIG="\$HOME/install-input.env"
+$(if [ "${HARNESS_DEPLOYMENT_MODE:-standalone}" = standalone ] && [ "${HARNESS_NO_CUSTOM_CERT:-0}" != 1 ]; then printf 'export STATBUS_HARNESS_CERT_STAGING="$HOME/harness-certs"'; fi)
 ${users_export}
 export STATBUS_INSTALL_VERSION=${release_tag}
 ${fresh_install_command}
@@ -1631,6 +1675,7 @@ docker rm "\$cid"
 chmod +x ./sb
 # Pre-place config: ./sb install needs .env.config + .users.yml.
 cp /tmp/env-config .env.config || { echo "harness: cannot copy /tmp/env-config as $(id -un): $(ls -l /tmp/env-config 2>&1 || true)"; exit 70; }
+$(if [ "${HARNESS_DEPLOYMENT_MODE:-standalone}" = standalone ] && [ "${HARNESS_NO_CUSTOM_CERT:-0}" != 1 ]; then printf 'install -d -m 0755 caddy/data/custom-certs\ninstall -m 0644 ~/harness-certs/domain.crt caddy/data/custom-certs/domain.crt\ninstall -m 0600 ~/harness-certs/domain.key caddy/data/custom-certs/domain.key'; fi)
 cp /tmp/users.yml .users.yml || { echo "harness: cannot copy /tmp/users.yml as $(id -un): $(ls -l /tmp/users.yml 2>&1 || true)"; exit 70; }
 ${install_command}
 SCRIPT
