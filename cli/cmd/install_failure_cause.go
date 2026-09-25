@@ -64,6 +64,9 @@ var installFailureCauses = []installFailureCause{
 }
 
 func classifyInstallFailure(step string, err error) (cause, fix string) {
+	if matches := refusedDatabaseRoute.FindStringSubmatch(err.Error()); len(matches) == 3 {
+		return fmt.Sprintf("The database route at %s:%s is unavailable; the web entry point provides this route.", matches[1], matches[2]), "Start or repair the web entry point, then retry the install."
+	}
 	for _, entry := range installFailureCauses {
 		if entry.pattern.MatchString(err.Error()) {
 			if entry.pattern == failedPublishedPort {
@@ -74,3 +77,5 @@ func classifyInstallFailure(step string, err error) (cause, fix string) {
 	}
 	return fmt.Sprintf("The %s step could not finish; the details are in the support file.", strings.ToLower(step)), ""
 }
+
+var refusedDatabaseRoute = regexp.MustCompile(`(?i)(?:dial tcp |connection to server at "?)(127\.0\.0\.1|localhost|\[::1\]):([0-9]{2,5}).*(?:connection refused|connect: connection refused)`)
