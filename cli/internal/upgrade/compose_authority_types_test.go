@@ -947,15 +947,14 @@ func authorityOverlay(t *testing.T, cliDir, rel string, mutate func(string) stri
 
 func withAuthorityMutationPackage(t *testing.T, cliDir, source string, check func(error)) {
 	t.Helper()
-	dir, err := os.MkdirTemp(filepath.Join(cliDir, "internal"), "authoritymutation")
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() { _ = os.RemoveAll(dir) })
-	if err := os.WriteFile(filepath.Join(dir, "mutation.go"), []byte(source), 0o644); err != nil {
-		t.Fatal(err)
-	}
-	check(typedAuthorityViolation(cliDir, nil))
+	// The mutation package exists ONLY in the go/packages overlay, never on
+	// disk: a real directory inside the module races with the concurrent
+	// `go build ./...` in cmd/release's TestRunGoCLIBuildUsesHostToolchain
+	// (go test runs both packages at once), which observed the directory
+	// mid-creation and failed with "no such file or directory".
+	synthetic := filepath.Join(cliDir, "internal", "authoritymutation", "mutation.go")
+	overlay := map[string][]byte{synthetic: []byte(source)}
+	check(typedAuthorityViolation(cliDir, overlay))
 }
 
 func TestTypedComposeAuthorityRejectsAssignedUpFunction(t *testing.T) {
