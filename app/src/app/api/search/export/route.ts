@@ -6,12 +6,25 @@ import { toCSV } from "@/lib/csv-utils";
 import { getServerRestClient } from "@/context/RestClientStore";
 import { baseDataStore } from "@/context/BaseDataStore";
 
+const PAGE_SIZE = 100_000;
+const EXCEL_MAX_ROWS = 1_048_576;
+
+// A unit can have multiple temporal rows. Together these columns identify a
+// row of statistical_unit_def, even when names and dates are shared.
+export function exportOrder(order: string | null): string {
+  const columns = (order || "name.asc").split(",").map((part) => part.trim());
+  for (const key of ["unit_type", "unit_id", "valid_from", "valid_to"]) {
+    if (!columns.some((column) => column.split(".")[0] === key)) {
+      columns.push(`${key}.asc`);
+    }
+  }
+  return columns.join(",");
+}
+
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
 
-  if (!searchParams.has("order")) {
-    searchParams.set("order", "name.asc");
-  }
+  searchParams.set("order", exportOrder(searchParams.get("order")));
 
   const unitTypeFilter = searchParams.get("unit_type") || "";
 
@@ -79,7 +92,7 @@ export async function GET(request: NextRequest) {
       .join(",")
   );
 
-  searchParams.set("limit", "100000");
+  searchParams.set("limit", String(PAGE_SIZE));
   searchParams.set("offset", "0");
 
   const format = searchParams.get("format") || "csv";
@@ -94,8 +107,49 @@ export async function GET(request: NextRequest) {
   try {
     const response = await getStatisticalUnits(client, searchParams);
     const baseName = hasSingleUnitType ? `${unitType}s` : "statistical_units";
+    const total = response.estimatedCount;
+    if (total == null || !Number.isSafeInteger(total) || total < 0) {
+      if (format === "xlsx") {
+        return NextResponse.json(
+          {
+            message: `Excel supports at most ${EXCEL_MAX_ROWS - 1} data rows. Use CSV instead.`,
+          },
+          { status: 413 }
+        );
+      }
+      throw new Error("Exact export row count is unavailable");
+    }
+    if (response.statisticalUnits.length > total) {
+      throw new Error(
+        "Export changed while reading rows: more rows than the initial count"
+      );
+    }
+
+    const fetchPage = async (offset: number) => {
+      searchParams.set("offset", String(offset));
+      searchParams.set("limit", String(Math.min(PAGE_SIZE, total - offset)));
+      const page = (await getStatisticalUnits(client, searchParams))
+        .statisticalUnits;
+      if (format === "xlsx" && offset + page.length > EXCEL_MAX_ROWS - 1) {
+        return page;
+      }
+      if (page.length > total - offset || page.length === 0) {
+        throw new Error(
+          "Export changed while reading rows: initial count cannot be covered"
+        );
+      }
+      return page;
+    };
 
     if (format === "xlsx") {
+      if (total > EXCEL_MAX_ROWS - 1) {
+        return NextResponse.json(
+          {
+            message: `Excel supports at most ${EXCEL_MAX_ROWS - 1} data rows. Use CSV instead.`,
+          },
+          { status: 413 }
+        );
+      }
       const units = response.statisticalUnits;
       const fields =
         units.length > 0
@@ -119,23 +173,38 @@ export async function GET(request: NextRequest) {
         }
       }
 
-      for (const unit of units) {
-        const rec = unit as unknown as Record<string, unknown>;
-        worksheet.addRow(
-          fields.map((f) => {
-            const val = rec[f];
-            if (val === null || val === undefined) return null;
-            if (dateFields.has(f) && typeof val === "string") {
-              // Append T00:00:00 so Date parses as local time, not UTC.
-              // Without it, "2024-01-15" parses as UTC midnight and ExcelJS
-              // converts to local time, which can shift the date by a day.
-              const d = new Date(val + "T00:00:00");
-              if (!isNaN(d.getTime())) return d;
+      let offset = 0;
+      let page = units;
+      while (offset < total) {
+        if (offset + page.length > EXCEL_MAX_ROWS - 1) {
+          return NextResponse.json(
+            {
+              message: `Excel supports at most ${EXCEL_MAX_ROWS - 1} data rows. Use CSV instead.`,
+            },
+            { status: 413 }
+          );
+        }
+        for (const unit of page) {
+          const rec = unit as unknown as Record<string, unknown>;
+          worksheet.addRow(
+            fields.map((f) => {
+              const val = rec[f];
+              if (val === null || val === undefined) return null;
+              if (dateFields.has(f) && typeof val === "string") {
+                // Append T00:00:00 so Date parses as local time, not UTC.
+                // Without it, "2024-01-15" parses as UTC midnight and ExcelJS
+                // converts to local time, which can shift the date by a day.
+                const d = new Date(val + "T00:00:00");
+                if (!isNaN(d.getTime())) return d;
+                return val;
+              }
               return val;
-            }
-            return val;
-          })
-        );
+            })
+          );
+        }
+        offset += page.length;
+        if (offset >= total) break;
+        page = await fetchPage(offset);
       }
 
       const passThrough = new PassThrough();
@@ -164,8 +233,30 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    const { header, body } = toCSV(response.statisticalUnits);
-    return new Response(header + body, {
+    const encoder = new TextEncoder();
+    let page = response.statisticalUnits;
+    let offset = 0;
+    let first = true;
+    const stream = new ReadableStream<Uint8Array>({
+      async pull(controller) {
+        try {
+          if (offset < total) {
+            // toCSV uses object insertion order for columns, matching the select list.
+            const { header, body } = toCSV(page);
+            controller.enqueue(encoder.encode((first ? header : "\n") + body));
+            first = false;
+            offset += page.length;
+            if (offset < total) {
+              page = await fetchPage(offset);
+            }
+          }
+          if (offset >= total) controller.close();
+        } catch (error) {
+          controller.error(error);
+        }
+      },
+    });
+    return new Response(stream, {
       headers: {
         "Content-Type": "text/csv",
         "Content-Disposition": `attachment; filename="${baseName}.csv"`,
