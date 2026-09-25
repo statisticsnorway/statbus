@@ -49,11 +49,50 @@ func servicePortConflictCause(err error) string {
 
 // servicePlainNames are the words the operator sees for each compose service.
 var servicePlainNames = map[string]string{
-	"db":     "the database (db)",
-	"proxy":  "the web server (proxy)",
-	"rest":   "the API service (rest)",
-	"app":    "the web app (app)",
-	"worker": "the background worker (worker)",
+	"db":      "the database (db)",
+	"proxy":   "the web server (proxy)",
+	"rest":    "the API service (rest)",
+	"app":     "the web app (app)",
+	"worker":  "the background worker (worker)",
+	"upgrade": "the automatic update service (upgrade)",
+}
+
+var installServiceNames = []string{"db", "proxy", "rest", "app", "worker", "upgrade"}
+
+var upgradeUnitState = func() string {
+	out, _ := exec.Command("systemctl", "--user", "is-active", "statbus-upgrade@statbus.service").Output()
+	state := strings.TrimSpace(string(out))
+	if state == "" {
+		return "absent"
+	}
+	return state
+}
+
+func reportInstallServiceStates(dir string) {
+	statuses, err := probeServiceStatuses(dir)
+	if err != nil {
+		fmt.Printf("INSTALL_LOG_SERVICE: container status unavailable: %v\n", err)
+	}
+	byName := make(map[string]serviceStatus, len(statuses))
+	for _, status := range statuses {
+		byName[status.Service] = status
+	}
+	for _, name := range installServiceNames {
+		state := "absent"
+		if err != nil {
+			state = "unknown"
+		}
+		if name == "upgrade" {
+			state = upgradeUnitState()
+		}
+		if status, ok := byName[name]; ok {
+			state = status.State
+			if status.Health != "" {
+				state += " (" + status.Health + ")"
+			}
+		}
+		fmt.Printf("  %s: %s\n", servicePlainName(name), state)
+	}
 }
 
 func servicePlainName(service string) string {
@@ -304,6 +343,19 @@ func describeServiceProblems(problems []serviceProblem) string {
 	return strings.Join(parts, "; ")
 }
 
+// The terminal filter only admits this fixed vocabulary. Raw status output and
+// service logs remain in the install log and support bundle.
+func reportRestartingClients(problems []serviceProblem) {
+	for _, problem := range problems {
+		if problem.State == "restarting" {
+			switch problem.Service {
+			case "rest", "app", "worker", "proxy":
+				fmt.Printf("INSTALL_SERVICE: %s keeps restarting; its recent logs are in the install log.\n", servicePlainName(problem.Service))
+			}
+		}
+	}
+}
+
 // requiredServices lists the services of the `all` profile, the set every
 // deployment mode runs (runStartServices starts exactly this profile).
 var requiredServices = func(dir string) ([]string, error) {
@@ -404,7 +456,7 @@ var restartPasswordClients = func(dir string, services []string) error {
 // the composeUpAll seam (the composeApplyServiceDefault pattern) so tests can
 // drive runStartServices without a docker daemon.
 func composeUpAllDefault(dir string) error {
-	cmd, err := compose.Up(context.Background(), dir, "--profile", "all", "-d")
+	cmd, err := compose.Up(context.Background(), dir, "--profile", "all", "-d", "--no-build")
 	if err != nil {
 		return err
 	}
@@ -417,9 +469,10 @@ var composeUpAll = composeUpAllDefault
 var passwordClients = []string{"rest", "worker", "app"}
 
 const (
-	servicesDBHealthyBudget = 2 * time.Minute
-	servicesPollInterval    = 2 * time.Second
+	servicesPollInterval = 2 * time.Second
 )
+
+var servicesDBHealthyBudget = 2 * time.Minute
 
 // servicesRunningBudgetVar bounds how long step 8 waits for every service to
 // be running after `up`. A var so tests can shorten it.
@@ -446,7 +499,12 @@ func waitForServicesRunning(dir string, budget, interval time.Duration) ([]servi
 // passwords are made equal to .env over the db container's local socket, the
 // clients that log in with them are restarted if any changed, and the step
 // waits until every service is running, naming any that is not.
-func runStartServices(dir string) error {
+func runStartServices(dir string) (result error) {
+	defer func() {
+		if result != nil {
+			reportInstallServiceStates(dir)
+		}
+	}()
 	fmt.Println("  Starting every service: database, web server, API, web app, background worker ...")
 	upErr := composeUpAll(dir)
 	if err := reconcilePublishedPorts(dir); err != nil {
@@ -473,6 +531,10 @@ func runStartServices(dir string) error {
 
 	problems, probeErr := waitForServicesRunning(dir, servicesRunningBudgetVar, servicesPollInterval)
 	if len(problems) > 0 {
+		reportInstallServiceStates(dir)
+		for _, problem := range problems {
+			reportFailingService(dir, problem)
+		}
 		msg := "not every service is running: " + describeServiceProblems(problems)
 		if upErr != nil {
 			return fmt.Errorf("%s (starting them reported: %v)", msg, upErr)
@@ -480,6 +542,7 @@ func runStartServices(dir string) error {
 		return fmt.Errorf("%s", msg)
 	}
 	if probeErr != nil {
+		reportInstallServiceStates(dir)
 		return fmt.Errorf("could not confirm the services are running: %w", probeErr)
 	}
 	if upErr != nil {
@@ -586,6 +649,12 @@ var serviceLogTail = func(dir, service string) {
 	}
 }
 
+func reportFailingService(dir string, problem serviceProblem) {
+	fmt.Printf("INSTALL_SERVICE: %s; its recent logs are in the install log.\n", problem.plain())
+	fmt.Printf("INSTALL_LOG_SERVICE: %s: %s\n", problem.Service, problem.State)
+	serviceLogTail(dir, problem.Service)
+}
+
 const (
 	finalCheckBudget   = 2 * time.Minute
 	finalCheckInterval = 2 * time.Second
@@ -643,7 +712,26 @@ func verifyInstallServing(dir string, budget, interval time.Duration) error {
 	}
 	sort.Strings(services)
 	for _, s := range services {
-		serviceLogTail(dir, s)
+		if s == "rest" && !containsServiceProblem(problems, s) {
+			reportFailingService(dir, serviceProblem{s, "not ready"})
+			continue
+		}
+		for _, p := range problems {
+			if p.Service == s {
+				reportFailingService(dir, p)
+				break
+			}
+		}
 	}
+	reportInstallServiceStates(dir)
 	return fmt.Errorf("the installation is not serving yet: %s", strings.Join(reasons, "; "))
+}
+
+func containsServiceProblem(problems []serviceProblem, service string) bool {
+	for _, p := range problems {
+		if p.Service == service {
+			return true
+		}
+	}
+	return false
 }

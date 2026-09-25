@@ -326,6 +326,47 @@ func TestRunStartServicesNamesTheServiceThatDoesNotStart(t *testing.T) {
 	}
 }
 
+func TestStartEarlyFailuresPrintSixServiceInventory(t *testing.T) {
+	for _, failure := range []string{"ports", "database", "passwords"} {
+		t.Run(failure, func(t *testing.T) {
+			f := &fakeStack{statuses: []serviceStatus{running("db"), {Service: "proxy", State: "restarting"}, {Service: "rest", State: "exited"}, {Service: "app", State: "stopped"}}, passwordsAgree: true}
+			installFakeStack(t, f)
+			oldUnit := upgradeUnitState
+			upgradeUnitState = func() string { return "inactive" }
+			t.Cleanup(func() { upgradeUnitState = oldUnit })
+			if failure == "ports" {
+				configuredServicePorts = func(string) (map[string][]configuredPort, error) { return nil, errors.New("ports unavailable") }
+			}
+			if failure == "database" {
+				old := checkDBHealthyFn
+				checkDBHealthyFn = func(string) bool { return false }
+				t.Cleanup(func() { checkDBHealthyFn = old })
+				oldBudget := servicesDBHealthyBudget
+				servicesDBHealthyBudget = 0
+				t.Cleanup(func() { servicesDBHealthyBudget = oldBudget })
+			}
+			if failure == "passwords" {
+				old := syncRolePasswords
+				syncRolePasswords = func(string) ([]dbroles.Mismatch, error) { return nil, errors.New("sync unavailable") }
+				t.Cleanup(func() { syncRolePasswords = old })
+				oldHealth := checkDBHealthyFn
+				checkDBHealthyFn = func(string) bool { return true }
+				t.Cleanup(func() { checkDBHealthyFn = oldHealth })
+			}
+			var err error
+			out := captureStdout(t, func() { err = runStartServices(t.TempDir()) })
+			if err == nil {
+				t.Fatal("expected early failure")
+			}
+			for _, line := range []string{"the database (db): running (healthy)", "the web server (proxy): restarting", "the API service (rest): exited", "the web app (app): stopped", "the background worker (worker): absent", "the automatic update service (upgrade): inactive"} {
+				if !strings.Contains(out, line) {
+					t.Fatalf("missing %q in %s", line, out)
+				}
+			}
+		})
+	}
+}
+
 func TestVerifyInstallServing(t *testing.T) {
 	dir := t.TempDir()
 	if err := os.WriteFile(filepath.Join(dir, ".env"), []byte("REST_ADMIN_BIND_ADDRESS=127.0.0.1:3016\n"), 0o600); err != nil {
@@ -366,6 +407,34 @@ func TestVerifyInstallServing(t *testing.T) {
 			t.Fatalf("log tails for %v", tailed)
 		}
 	})
+}
+
+func TestRestartingClientsReportOwnLogsAfterBoundedReadiness(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, ".env"), []byte("REST_ADMIN_BIND_ADDRESS=127.0.0.1:3016\n"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	for _, service := range []string{"rest", "app", "worker", "proxy"} {
+		t.Run(service, func(t *testing.T) {
+			statuses := []serviceStatus{running("app"), running("db"), running("proxy"), running("rest"), running("worker")}
+			for i := range statuses {
+				if statuses[i].Service == service {
+					statuses[i].State = "restarting"
+				}
+			}
+			installFakeStack(t, &fakeStack{statuses: statuses, readyStatus: http.StatusOK})
+			var tailed []string
+			serviceLogTail = func(_ string, name string) { tailed = append(tailed, name) }
+			var err error
+			out := captureStdout(t, func() { err = verifyInstallServing(dir, 0, time.Millisecond) })
+			if err == nil || !strings.Contains(out, servicePlainName(service)+" keeps restarting; its recent logs are in the install log.") {
+				t.Fatalf("service=%s err=%v output=%s", service, err, out)
+			}
+			if strings.Join(tailed, ",") != service {
+				t.Fatalf("wrong service logs: %v", tailed)
+			}
+		})
+	}
 }
 
 // dbHealthyDir is a project dir whose db healthcheck the fakes report healthy.

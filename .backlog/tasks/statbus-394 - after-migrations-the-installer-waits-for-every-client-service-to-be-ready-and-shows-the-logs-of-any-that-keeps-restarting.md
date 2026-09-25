@@ -1,7 +1,7 @@
 ---
 id: STATBUS-394
 title: After database setup, the installer confirms every client service and the advertised site are ready
-status: To Do
+status: In Progress
 assignee: []
 created_date: '2026-09-24 16:42'
 updated_date: '2026-09-24 18:42'
@@ -22,6 +22,14 @@ ordinal: 1
 Baseline: `origin/master` at `373d15fc3`. Criterion disposition and remaining positive targets are above; the acceptance criteria below remain authoritative. An authored but unrun VM scenario is **proof pending**, not met.
 
 ## Description
+
+## Implementation note, 2026-09-24
+
+Review follow-up: bounded-readiness diagnostics now include plain per-failing-service terminal lines and state plus recent logs in the install log, with six-entry inventory. Go vet, command tests and gofmt passed. Advertised HTTP/TLS, worker functional readiness, update route and disposable-VM scenarios remain proof-pending; no acceptance criteria closed.
+
+Existing step-8 and final checks bound container-running and API `/ready` waits. A failed wait now records the complete container inventory and recent logs for services that failed to start, rather than only returning a condition. The automatic-update route, advertised HTTP/TLS endpoint proofs, and all disposable-VM scenarios remain pending; none of the five acceptance criteria is claimed complete.
+
+Continuation: a bounded final readiness failure now emits an allowlisted plain restarting-service line for rest, app, worker, or proxy in the operator terminal. Its state and recent logs remain in the install log. Guarded tests exercise each restart loop, and the terminal filter was checked with synthetic input. No VM proof has been run; all five acceptance criteria remain open.
 
 <!-- SECTION:DESCRIPTION:BEGIN -->
 After STATBUS-407 reconciles database role passwords, this ticket confirms API, application, worker, automatic-update route, and advertised-site readiness. The selected certificate mode determines whether the final site check uses trusted HTTPS or plain HTTP, and the installer prints success only after that response.
