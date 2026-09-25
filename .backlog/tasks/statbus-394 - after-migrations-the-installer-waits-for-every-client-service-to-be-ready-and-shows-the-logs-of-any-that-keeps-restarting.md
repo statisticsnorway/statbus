@@ -18,6 +18,8 @@ ordinal: 1
 
 ## Implementation note, 2026-09-24
 
+Review follow-up: bounded-readiness diagnostics now include plain per-failing-service terminal lines and state plus recent logs in the install log, with six-entry inventory. Go vet, command tests and gofmt passed. Advertised HTTP/TLS, worker functional readiness, update route and disposable-VM scenarios remain proof-pending; no acceptance criteria closed.
+
 Existing step-8 and final checks bound container-running and API `/ready` waits. A failed wait now records the complete container inventory and recent logs for services that failed to start, rather than only returning a condition. The automatic-update route, advertised HTTP/TLS endpoint proofs, and all disposable-VM scenarios remain pending; none of the five acceptance criteria is claimed complete.
 
 Continuation: a bounded final readiness failure now emits an allowlisted plain restarting-service line for rest, app, worker, or proxy in the operator terminal. Its state and recent logs remain in the install log. Guarded tests exercise each restart loop, and the terminal filter was checked with synthetic input. No VM proof has been run; all five acceptance criteria remain open.

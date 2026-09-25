@@ -17,6 +17,17 @@
     fflush()
     next
 }
+/^  (the database \(db\)|the web server \(proxy\)|the API service \(rest\)|the web app \(app\)|the background worker \(worker\)|the automatic update service \(upgrade\)): (running|restarting|exited|stopped|created|dead|paused|removing|absent|active|inactive|failed|activating|deactivating|unknown)( \((healthy|unhealthy|starting)\))?$/ {
+    print
+    fflush()
+    next
+}
+/^INSTALL_SERVICE: (the database \(db\)|the web server \(proxy\)|the API service \(rest\)|the web app \(app\)|the background worker \(worker\)) (was never started|keeps restarting|is still starting|is running but reports unhealthy|has stopped|was created but could not start|is (running|restarting|exited|stopped|dead|not ready|missing published ports)); its recent logs are in the install log\.$/ {
+    sub(/^INSTALL_SERVICE: /, "")
+    print
+    fflush()
+    next
+}
 /^(Installation complete!|All steps complete\.|The previous restart finished\. Continuing installation\.)/ {
     print
     fflush()

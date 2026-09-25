@@ -57,13 +57,21 @@ var servicePlainNames = map[string]string{
 	"upgrade": "the automatic update service (upgrade)",
 }
 
-var installServiceNames = []string{"db", "proxy", "rest", "app", "worker"}
+var installServiceNames = []string{"db", "proxy", "rest", "app", "worker", "upgrade"}
+
+var upgradeUnitState = func() string {
+	out, _ := exec.Command("systemctl", "--user", "is-active", "statbus-upgrade@statbus.service").Output()
+	state := strings.TrimSpace(string(out))
+	if state == "" {
+		return "absent"
+	}
+	return state
+}
 
 func reportInstallServiceStates(dir string) {
 	statuses, err := probeServiceStatuses(dir)
 	if err != nil {
-		fmt.Printf("  Service status unavailable: %v\n", err)
-		return
+		fmt.Printf("INSTALL_LOG_SERVICE: container status unavailable: %v\n", err)
 	}
 	byName := make(map[string]serviceStatus, len(statuses))
 	for _, status := range statuses {
@@ -71,6 +79,12 @@ func reportInstallServiceStates(dir string) {
 	}
 	for _, name := range installServiceNames {
 		state := "absent"
+		if err != nil {
+			state = "unknown"
+		}
+		if name == "upgrade" {
+			state = upgradeUnitState()
+		}
 		if status, ok := byName[name]; ok {
 			state = status.State
 			if status.Health != "" {
@@ -455,9 +469,10 @@ var composeUpAll = composeUpAllDefault
 var passwordClients = []string{"rest", "worker", "app"}
 
 const (
-	servicesDBHealthyBudget = 2 * time.Minute
-	servicesPollInterval    = 2 * time.Second
+	servicesPollInterval = 2 * time.Second
 )
+
+var servicesDBHealthyBudget = 2 * time.Minute
 
 // servicesRunningBudgetVar bounds how long step 8 waits for every service to
 // be running after `up`. A var so tests can shorten it.
@@ -484,7 +499,12 @@ func waitForServicesRunning(dir string, budget, interval time.Duration) ([]servi
 // passwords are made equal to .env over the db container's local socket, the
 // clients that log in with them are restarted if any changed, and the step
 // waits until every service is running, naming any that is not.
-func runStartServices(dir string) error {
+func runStartServices(dir string) (result error) {
+	defer func() {
+		if result != nil {
+			reportInstallServiceStates(dir)
+		}
+	}()
 	fmt.Println("  Starting every service: database, web server, API, web app, background worker ...")
 	upErr := composeUpAll(dir)
 	if err := reconcilePublishedPorts(dir); err != nil {
@@ -511,10 +531,9 @@ func runStartServices(dir string) error {
 
 	problems, probeErr := waitForServicesRunning(dir, servicesRunningBudgetVar, servicesPollInterval)
 	if len(problems) > 0 {
-		reportRestartingClients(problems)
 		reportInstallServiceStates(dir)
 		for _, problem := range problems {
-			serviceLogTail(dir, problem.Service)
+			reportFailingService(dir, problem)
 		}
 		msg := "not every service is running: " + describeServiceProblems(problems)
 		if upErr != nil {
@@ -630,6 +649,12 @@ var serviceLogTail = func(dir, service string) {
 	}
 }
 
+func reportFailingService(dir string, problem serviceProblem) {
+	fmt.Printf("INSTALL_SERVICE: %s; its recent logs are in the install log.\n", problem.plain())
+	fmt.Printf("INSTALL_LOG_SERVICE: %s: %s\n", problem.Service, problem.State)
+	serviceLogTail(dir, problem.Service)
+}
+
 const (
 	finalCheckBudget   = 2 * time.Minute
 	finalCheckInterval = 2 * time.Second
@@ -666,7 +691,6 @@ func verifyInstallServing(dir string, budget, interval time.Duration) error {
 
 	var reasons []string
 	failing := map[string]bool{}
-	reportRestartingClients(problems)
 	for _, p := range problems {
 		reasons = append(reasons, p.plain())
 		failing[p.Service] = true
@@ -688,8 +712,26 @@ func verifyInstallServing(dir string, budget, interval time.Duration) error {
 	}
 	sort.Strings(services)
 	for _, s := range services {
-		serviceLogTail(dir, s)
+		if s == "rest" && !containsServiceProblem(problems, s) {
+			reportFailingService(dir, serviceProblem{s, "not ready"})
+			continue
+		}
+		for _, p := range problems {
+			if p.Service == s {
+				reportFailingService(dir, p)
+				break
+			}
+		}
 	}
 	reportInstallServiceStates(dir)
 	return fmt.Errorf("the installation is not serving yet: %s", strings.Join(reasons, "; "))
+}
+
+func containsServiceProblem(problems []serviceProblem, service string) bool {
+	for _, p := range problems {
+		if p.Service == service {
+			return true
+		}
+	}
+	return false
 }

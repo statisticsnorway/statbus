@@ -17,6 +17,8 @@ ordinal: 1
 
 ## Implementation note, 2026-09-24
 
+Review follow-up: six-service failure inventory and terminal filtering changed without changing image-start policy. Go vet, command tests and gofmt passed. VM timing and actual image-start proof remain pending.
+
 The generated release `VERSION=v...` now selects `--no-build` even with development proxy mode, while untagged source development retains `--build`. Install image pull no longer falls back to a local build for a release, and installer startup explicitly uses `--no-build`. Guarded unit tests exercise both decisions. The measured disposable-VM timing scenario and observation of the actual Finland path remain pending, so #3-4 are open and the ticket is not Done.
 
 `./sb start` distinguishes an image-based installation from a source checkout. Image-based development starts use pulled images without a build, while source development checkouts retain their build-before-start behavior.

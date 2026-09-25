@@ -41,6 +41,22 @@ func TestInstallTerminalWriterReceivesEveryStepLine(t *testing.T) {
 	}
 	input.WriteString("  Starting every service: database, web server, API, web app, background worker ...\n")
 	want.WriteString("  Starting every service: database, web server, API, web app, background worker ...\n")
+	for _, line := range []string{
+		"  the database (db): running (healthy)",
+		"  the web server (proxy): restarting",
+		"  the API service (rest): exited",
+		"  the web app (app): stopped",
+		"  the background worker (worker): absent",
+		"  the automatic update service (upgrade): inactive",
+		"INSTALL_SERVICE: the web app (app) has stopped; its recent logs are in the install log.",
+	} {
+		input.WriteString(line + "\n")
+		if strings.HasPrefix(line, "INSTALL_SERVICE: ") {
+			line = strings.TrimPrefix(line, "INSTALL_SERVICE: ")
+		}
+		want.WriteString(line + "\n")
+	}
+	input.WriteString("INSTALL_LOG_SERVICE: app: stopped\n  Last lines from the web app (app):\n    secret docker log\n")
 	input.WriteString("  Container proxy Recreate\n2026/09/24 INVARIANT state: pgx\nINSTALL_CAUSE: secret\n")
 	cmd := exec.Command("awk", "-f", "../../ops/install-terminal-output.awk")
 	cmd.Stdin = strings.NewReader(input.String())

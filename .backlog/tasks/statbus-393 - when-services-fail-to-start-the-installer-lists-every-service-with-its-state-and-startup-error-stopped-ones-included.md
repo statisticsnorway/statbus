@@ -17,6 +17,8 @@ ordinal: 1
 
 ## Implementation note, 2026-09-24
 
+Review follow-up: the allowlisted terminal now displays all six inventory entries, including the host update unit; early port, DB-health, and password-sync failures also print inventory. Bounded-readiness failures log each failing state and tail and show one plain diagnostic line per failing service. Fake-stack and AWK tests cover these paths. VM scenarios and support-file acceptance proof remain pending; criteria stay open.
+
 The installer now prints a five-container inventory on service-start and final-readiness failures, and the support bundle has `ps -a` and separate recent log sections for all five containers plus the automatic update unit. This is partial: the terminal inventory does not yet include the host automatic-update unit, startup errors are available in logs but not summarized per status, and neither disposable-VM scenario has been run. All three acceptance criteria remain open.
 
 <!-- SECTION:DESCRIPTION:BEGIN -->
