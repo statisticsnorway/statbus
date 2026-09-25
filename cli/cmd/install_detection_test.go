@@ -70,6 +70,102 @@ type installProbe struct {
 	configErr, credentialsErr                                      error
 }
 
+func TestRunInstallSignerPreflightAfterPortRefusal(t *testing.T) {
+	for _, tc := range []struct {
+		name      string
+		state     install.State
+		pending   bool
+		wantSteps int
+	}{
+		{"config saved before credentials", install.StateHalfConfigured, true, 1},
+		{"database not yet reachable", install.StateDBUnreachable, true, 1},
+		{"first database incomplete", install.StateFreshDBIncomplete, true, 1},
+		{"established database down", install.StateDBUnreachable, false, 0},
+		{"established credentials missing", install.StateHalfConfigured, false, 0},
+		{"existing installation", install.StateNothingScheduled, false, 0},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			dir := withRunInstallDetectionHooks(t)
+			if tc.pending {
+				if err := os.WriteFile(filepath.Join(dir, firstInstallSignerPending), []byte("pending\n"), 0600); err != nil {
+					t.Fatal(err)
+				}
+			}
+			checkInstallSigners = func(string) bool { return false }
+			detectInstallState = func(string, string) (install.State, *install.Detail, error) {
+				return tc.state, &install.Detail{}, nil
+			}
+			steps := 0
+			runInstallStepTableTestHook = func() error { steps++; return nil }
+			err := runInstall()
+			if steps != tc.wantSteps {
+				t.Fatalf("steps=%d, want %d; err=%v", steps, tc.wantSteps, err)
+			}
+			if tc.wantSteps == 0 && (err == nil || !strings.Contains(err.Error(), "No valid release signer")) {
+				t.Fatalf("existing install must refuse without signer: %v", err)
+			}
+			if tc.wantSteps == 1 && err != nil {
+				t.Fatalf("incomplete installation could not resume: %v", err)
+			}
+		})
+	}
+}
+
+func TestSavedSignerConsentSurvivesCompletedConfig(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, ".env.config"), []byte("CADDY_DEPLOYMENT_MODE=standalone\n"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	answers := filepath.Join(t.TempDir(), "install-input.env")
+	content := "CADDY_DEPLOYMENT_MODE=standalone\nSITE_DOMAIN=example.org\nDEPLOYMENT_SLOT_NAME=Install Test\nDEPLOYMENT_SLOT_CODE=test\nTRUST_GITHUB_USER=jhf\n"
+	if err := os.WriteFile(answers, []byte(content), 0600); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("STATBUS_ENV_CONFIG", answers)
+	if err := os.WriteFile(filepath.Join(dir, firstInstallSignerPending), []byte("pending\n"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	previous := trustGitHubUser
+	trustGitHubUser = ""
+	t.Cleanup(func() { trustGitHubUser = previous })
+	if err := validateFreshInstallInput(dir, false); err != nil {
+		t.Fatal(err)
+	}
+	if trustGitHubUser != "" {
+		t.Fatal("consent imported before state classification")
+	}
+	if err := importPendingSignerConsent(dir); err != nil {
+		t.Fatal(err)
+	}
+	if trustGitHubUser != "jhf" {
+		t.Fatalf("saved signer consent was lost: %q", trustGitHubUser)
+	}
+}
+
+func TestEstablishedInstallIgnoresStaleSignerAnswers(t *testing.T) {
+	dir := withRunInstallDetectionHooks(t)
+	answers := filepath.Join(t.TempDir(), "answers.env")
+	if err := os.WriteFile(answers, []byte("TRUST_GITHUB_USER=jhf\n"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("STATBUS_ENV_CONFIG", answers)
+	checkInstallSigners = func(string) bool { return false }
+	detectInstallState = func(string, string) (install.State, *install.Detail, error) {
+		return install.StateNothingScheduled, &install.Detail{}, nil
+	}
+	runInstallStepTableTestHook = func() error { t.Fatal("established installation reached steps"); return nil }
+	err := runInstall()
+	if err == nil || !strings.Contains(err.Error(), "No valid release signer") {
+		t.Fatalf("expected explicit signer refusal: %v", err)
+	}
+	if trustGitHubUser != "" {
+		t.Fatalf("stale consent imported: %q", trustGitHubUser)
+	}
+	if signerPreflightRequired(dir, install.StateDBUnreachable) != true {
+		t.Fatal("lost database must not establish first-install provenance")
+	}
+}
+
 func (p installProbe) FileExists(path string) (bool, error) {
 	if filepath.Base(path) == ".env.config" {
 		return true, p.configErr

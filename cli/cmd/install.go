@@ -323,6 +323,20 @@ func preflightInstallSigner(installDir string) {
 	}
 }
 
+const firstInstallSignerPending = ".first-install-signer-pending"
+
+func signerPreflightRequired(dir string, state install.State) bool {
+	// DB reachability and missing credentials are not installation provenance.
+	// Only configuration creation writes this marker, and the signer step
+	// removes it before an installation can finish. Older boxes without it
+	// fail closed, even if their DB has disappeared.
+	if state != install.StateFresh && state != install.StateHalfConfigured && state != install.StateDBUnreachable && state != install.StateFreshDBIncomplete {
+		return true
+	}
+	_, err := os.Stat(filepath.Join(dir, firstInstallSignerPending))
+	return err != nil
+}
+
 // runInstall is the entry point for `./sb install`. It is safe to run while
 // an upgrade service is active on the same host because of the mutex check
 // below: if the upgrade service has written tmp/upgrade-in-progress.json
@@ -501,6 +515,11 @@ func runInstall() (installErr error) {
 			}
 			// Only a positively identified database connection failure permits
 			// repair through the step table. Unknown errors fail closed above.
+			if !signerPreflightRequired(installDir, install.StateDBUnreachable) {
+				if err := importPendingSignerConsent(installDir); err != nil {
+					return &installPreflightRefusalError{err: err}
+				}
+			}
 			preflightInstallSigner(installDir)
 			installDiagnostic(installDir, "State detection failed because the database is unavailable: %v", derr)
 			fmt.Println("The database could not be checked. Continuing with installation repair.")
@@ -510,6 +529,11 @@ func runInstall() (installErr error) {
 			if checkDBHealthy(installDir) && !checkSessionsClean(installDir) {
 				if err := cleanOrphanSessions(installDir); err != nil {
 					log.Printf("Post-detect cleanOrphanSessions: %v", err)
+				}
+			}
+			if !signerPreflightRequired(installDir, state) {
+				if err := importPendingSignerConsent(installDir); err != nil {
+					return &installPreflightRefusalError{err: err}
 				}
 			}
 			preflightInstallSigner(installDir)
@@ -578,14 +602,13 @@ func runInstall() (installErr error) {
 		}
 	}
 
-	// Pre-flight: on existing installs (.env.config exists), require at
-	// least one trusted signer BEFORE doing any work. Fresh installs skip
-	// this — .env.config doesn't exist yet (step 5 creates it, step 13
-	// prompts for signers). Re-installs that removed their signer get a
-	// fast, actionable failure instead of wasting 2 minutes on steps 1-12.
+	// Pre-flight: require a signer on completed installations, but not on an
+	// interrupted first install. Config is written before port preflight and
+	// signer setup happens later, so .env.config alone does not prove that
+	// signer approval was ever reached. The step table handles these states.
 	if !bypass {
 		cfgPath := filepath.Join(installDir, ".env.config")
-		if _, statErr := os.Stat(cfgPath); statErr == nil && !checkInstallSigners(installDir) {
+		if _, statErr := os.Stat(cfgPath); statErr == nil && signerPreflightRequired(installDir, detectedState) && !checkInstallSigners(installDir) {
 			if nonInteractive {
 				return installPreflightRefusal("No valid release signer is configured.\n" +
 					"  The upgrade service requires at least one trusted signer that can verify commit signatures.\n" +
@@ -946,6 +969,11 @@ func runInstall() (installErr error) {
 
 		if s.check(installDir) {
 			fmt.Printf("%s OK\n", prefix)
+			if s.name == "Trusted signers" {
+				if err := clearFirstInstallSignerPending(installDir); err != nil {
+					return err
+				}
+			}
 			if s.name == "Configuration" {
 				if err := checkInstallPorts(installDir); err != nil {
 					return &installPreflightRefusalError{err: err}
@@ -985,6 +1013,11 @@ func runInstall() (installErr error) {
 		}
 
 		fmt.Printf("%s DONE\n", prefix)
+		if s.name == "Trusted signers" {
+			if err := clearFirstInstallSignerPending(installDir); err != nil {
+				return err
+			}
+		}
 		if s.name == "Configuration" {
 			if err := checkInstallPorts(installDir); err != nil {
 				return &installPreflightRefusalError{err: err}
@@ -1354,10 +1387,14 @@ func runInstallBinary(dir string) error {
 }
 
 func validateFreshInstallInput(dir string, bypass bool) error {
-	if bypass || checkConfigDone(dir) {
+	if bypass {
 		return nil
 	}
 	configPath := os.Getenv(installinput.EnvConfig)
+	configDone := checkConfigDone(dir)
+	if configDone {
+		return nil
+	}
 	if !nonInteractive && configPath == "" && !stdinIsTerminal() {
 		return stdinNotTerminalError{}
 	}
@@ -1375,6 +1412,26 @@ func validateFreshInstallInput(dir string, bypass bool) error {
 		if _, err := os.ReadFile(path); err != nil {
 			return fmt.Errorf("read STATBUS_USERS_FILE %q: %w", path, err)
 		}
+	}
+	return nil
+}
+
+func importPendingSignerConsent(dir string) error {
+	configPath := os.Getenv(installinput.EnvConfig)
+	if configPath == "" {
+		return nil
+	}
+	answers, err := installinput.ReadAnswers(configPath, trustGitHubUser)
+	if err != nil {
+		return err
+	}
+	trustGitHubUser = answers.Trust
+	return nil
+}
+
+func clearFirstInstallSignerPending(dir string) error {
+	if err := os.Remove(filepath.Join(dir, firstInstallSignerPending)); err != nil && !os.IsNotExist(err) {
+		return fmt.Errorf("clear first-install signer state: %w", err)
 	}
 	return nil
 }
@@ -1432,6 +1489,12 @@ func runCreateConfig(dir string) error {
 	}
 	// Slot spacing is an NSO default, not a questionnaire input.
 	content += "DEPLOYMENT_SLOT_PORT_OFFSET=1\n" + diskpolicy.PolicyConfig
+	// Write provenance before config: a port refusal follows configuration
+	// immediately, long before the trusted-signers step. Never create this
+	// marker when repairing an existing configuration.
+	if err := os.WriteFile(filepath.Join(dir, firstInstallSignerPending), []byte("pending\n"), 0600); err != nil {
+		return err
+	}
 	return os.WriteFile(filepath.Join(dir, ".env.config"), []byte(content), 0600)
 }
 
