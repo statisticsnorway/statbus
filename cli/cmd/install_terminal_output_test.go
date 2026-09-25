@@ -51,10 +51,7 @@ func TestInstallTerminalWriterReceivesEveryStepLine(t *testing.T) {
 		"INSTALL_SERVICE: the web app (app) has stopped; its recent logs are in the install log.",
 	} {
 		input.WriteString(line + "\n")
-		if strings.HasPrefix(line, "INSTALL_SERVICE: ") {
-			line = strings.TrimPrefix(line, "INSTALL_SERVICE: ")
-		}
-		want.WriteString(line + "\n")
+		want.WriteString(strings.TrimPrefix(line, "INSTALL_SERVICE: ") + "\n")
 	}
 	input.WriteString("INSTALL_LOG_SERVICE: app: stopped\n  Last lines from the web app (app):\n    secret docker log\n")
 	input.WriteString("  Container proxy Recreate\n2026/09/24 INVARIANT state: pgx\nINSTALL_CAUSE: secret\n")

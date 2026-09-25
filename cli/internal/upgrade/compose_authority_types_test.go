@@ -105,6 +105,7 @@ var allowedProcessLaunches = map[string]approvedLaunch{
 	"cmd/install_ports.go:occupiedPortOwner.func|os/exec|sudo":                                        {Count: 1, Reason: "installer uses noninteractive sudo only as optional owner enrichment"},
 	"cmd/install_services.go:portListener|os/exec|ss":                                                 {Count: 1, Reason: "install reads the host's listening ports to identify a conflicting process"},
 	"cmd/install_services.go:portListener|os/exec|sudo":                                               {Count: 1, Reason: "install reads the host's listening process names with non-interactive privilege"},
+	"cmd/install_services.go:upgradeUnitState.func|os/exec|systemctl":                                 {Count: 1, Reason: "install reads the automatic-update unit's active state for the failure inventory"},
 	"cmd/install_upgrade.go:restartUpgradeService|os/exec|systemctl":                                  {Count: 2, Reason: "restartUpgradeService checks that the upgrade unit is active and restarts it to load the newly installed binary"},
 	"cmd/install_upgrade.go:stopRestartUpgradeUnit|os/exec|systemctl":                                 {Count: 7, Reason: "stopRestartUpgradeUnit inspects, stops, resets, reenables, and restarts the upgrade unit during crash takeover"},
 	"cmd/install_upgrade.go:upgradeUnitCrashLooping|os/exec|systemctl":                                {Count: 1, Reason: "upgradeUnitCrashLooping reads systemd unit properties to distinguish a live upgrade from a restart loop"},
