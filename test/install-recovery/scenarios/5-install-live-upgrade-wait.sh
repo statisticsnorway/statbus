@@ -26,7 +26,9 @@ cd "$HOME/statbus"
 cat > tmp/upgrade-in-progress.json <<'FLAG'
 {"id":0,"commit_sha":"","started_at":"2026-09-24T12:00:00Z","invoked_by":"operator:restart","trigger":"restart","holder":"install","restart":{"profile":"app","prepared":true,"daemon":true}}
 FLAG
-nohup flock -x tmp/upgrade-in-progress.json sleep 90 > tmp/live-restart-holder.log 2>&1 </dev/null &
+# -F makes flock exec sleep instead of leaving a child holding the lock after
+# the recorded flock PID is killed. The retry below must see the lock released.
+nohup flock -F -x tmp/upgrade-in-progress.json sleep 90 > tmp/live-restart-holder.log 2>&1 </dev/null &
 echo $! > tmp/test-live-restart-pid
 sleep 1
 kill -0 "$(cat tmp/test-live-restart-pid)"
@@ -42,7 +44,7 @@ fi
 grep -Eqi 'restart is still running|wait for it to finish' "$REFUSAL" || { cat "$REFUSAL" >&2; exit 1; }
 AFTER=$(VM_EXEC bash -c 'cd ~/statbus && sha256sum tmp/upgrade-in-progress.json | cut -d" " -f1')
 [ "$BEFORE" = "$AFTER" ] || { echo 'live restart intent was modified' >&2; exit 1; }
-VM_EXEC bash -c 'cd ~/statbus && kill "$(cat tmp/test-live-restart-pid)"'
+VM_EXEC bash -c 'cd ~/statbus && kill "$(cat tmp/test-live-restart-pid)" && flock -w 10 tmp/upgrade-in-progress.json true'
 VM_EXEC bash -c "cd ~ && export STATBUS_ENV_CONFIG=\"\$HOME/install-input.env\" STATBUS_USERS_FILE=/tmp/users.yml STATBUS_INSTALL_VERSION='$INSTALL_TARGET_TAG'; bash /tmp/statbus-install.sh --non-interactive"
 assert_health_passes "$VM_NAME"
 rm -f "$REFUSAL"
