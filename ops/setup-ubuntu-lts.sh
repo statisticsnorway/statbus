@@ -487,6 +487,19 @@ setup_env() {
 # Stage 0: HTTPS APT Sources
 # =============================================================================
 
+apt_http_sources() {
+    local sources_dir="${1:-/etc/apt/sources.list.d}"
+    local legacy_sources="${2:-/etc/apt/sources.list}"
+    local source
+    local found=1
+    # sources.list(5): apt reads only .list and .sources entries in this directory.
+    for source in "$sources_dir"/*.list "$sources_dir"/*.sources "$legacy_sources"; do
+        [[ -f "$source" ]] || continue
+        grep -nHE '^[[:space:]]*(URIs:|deb(-src)?[[:space:]]).*http://' "$source" && found=0
+    done
+    return "$found"
+}
+
 stage_https_sources() {
     log_header "Stage 0: HTTPS APT Sources"
 
@@ -511,6 +524,7 @@ stage_https_sources() {
 
     local sources_file="/etc/apt/sources.list.d/ubuntu.sources"
     local old_sources="/etc/apt/sources.list"
+    local backup_dir="/var/backups/statbus"
 
     # STATBUS-207: the goal is HTTPS apt sources, not the kernel.org mirror
     # specifically. Detect ANY remaining http:// URI on an ACTIVE source
@@ -538,7 +552,8 @@ stage_https_sources() {
 
         if grep -qE "${uri_line_re}.*http://" "$sources_file"; then
             log "Backing up original sources..."
-            cp "$sources_file" "${sources_file}.bak"
+            mkdir -p "$backup_dir"
+            cp "$sources_file" "$backup_dir/ubuntu.sources.$(date +%Y%m%d%H%M%S).bak"
 
             log "Switching http:// URIs to HTTPS mirror..."
             sed -i 's|http://[^/]*/ubuntu|https://mirrors.edge.kernel.org/ubuntu|g' "$sources_file"
@@ -550,7 +565,8 @@ stage_https_sources() {
 
         if grep -qE "${uri_line_re}.*http://" "$old_sources"; then
             log "Backing up original sources..."
-            cp "$old_sources" "${old_sources}.bak"
+            mkdir -p "$backup_dir"
+            cp "$old_sources" "$backup_dir/sources.list.$(date +%Y%m%d%H%M%S).bak"
 
             log "Switching http:// URIs to HTTPS mirror..."
             sed -i 's|http://[^/]*/ubuntu|https://mirrors.edge.kernel.org/ubuntu|g' "$old_sources"
@@ -574,9 +590,9 @@ stage_https_sources() {
     # harness run — the log is the only oracle).
     echo ""
     log "Verifying Stage 0..."
-    if ! verify "HTTPS sources configured (no http:// URI remains)" "! grep -rqE '${uri_line_re}.*http://' /etc/apt/sources.list.d/ /etc/apt/sources.list 2>/dev/null"; then
+    if ! verify "HTTPS sources configured (no http:// URI remains)" "! apt_http_sources"; then
         log_error "Actual apt source URIs on this image (diagnose without a live VM):"
-        grep -rnE "$uri_line_re" /etc/apt/sources.list.d/ /etc/apt/sources.list 2>/dev/null | sed 's/^/    /'
+        apt_http_sources | sed 's/^/    /'
     fi
     verify "APT update succeeds" "apt-get update -qq"
 
