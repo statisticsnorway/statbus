@@ -395,16 +395,30 @@ func TestGithubTokenIsOptInAndDocumentedAtCreation_STATBUS341(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(string(fresh), "# GITHUB_TOKEN=") || !strings.Contains(string(fresh), "fine-grained") {
-		t.Fatalf("fresh .env.config must document the commented optional token entry:\n%s", fresh)
+	if strings.Contains(string(fresh), "GITHUB_TOKEN=") {
+		t.Fatalf("fresh .env.config must not document the token entry:\n%s", fresh)
+	}
+	if _, err := loadOrGenerateCredentials(freshDir, false); err != nil {
+		t.Fatal(err)
+	}
+	credentialHeader, err := os.ReadFile(filepath.Join(freshDir, ".env.credentials"))
+	if err != nil || !strings.Contains(string(credentialHeader), "# GITHUB_TOKEN=") {
+		t.Fatalf("fresh credentials must document the optional token: %v", err)
 	}
 }
 
 func TestGithubTokenExplicitValueReachesGeneratedEnv_STATBUS341(t *testing.T) {
 	projDir := t.TempDir()
 	if err := os.WriteFile(filepath.Join(projDir, ".env.config"), []byte(
-		"DEPLOYMENT_SLOT_CODE=test\nCADDY_DEPLOYMENT_MODE=development\nSITE_DOMAIN=test.statbus.org\nGITHUB_TOKEN=explicit-test-token\n"), 0600); err != nil {
+		"DEPLOYMENT_SLOT_CODE=test\nCADDY_DEPLOYMENT_MODE=development\nSITE_DOMAIN=test.statbus.org\n"), 0600); err != nil {
 		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(projDir, ".env.credentials"), []byte("GITHUB_TOKEN=explicit-test-token\n"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	creds, err := loadOrGenerateCredentials(projDir, false)
+	if err != nil || creds.GithubToken != "explicit-test-token" {
+		t.Fatalf("token must be read from .env.credentials: %v", err)
 	}
 	if err := os.WriteFile(filepath.Join(projDir, ".env.example"), []byte("# minimal example\n"), 0644); err != nil {
 		t.Fatal(err)
@@ -421,8 +435,158 @@ func TestGithubTokenExplicitValueReachesGeneratedEnv_STATBUS341(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(out, "\nGITHUB_TOKEN=explicit-test-token\n") {
-		t.Fatalf("generated .env did not carry the explicitly declared token:\n%s", out)
+	if strings.Contains(out, "GITHUB_TOKEN=") {
+		t.Fatalf("generated .env must not duplicate the token:\n%s", out)
+	}
+}
+
+func TestConfigRejectsMisplacedSecrets_STATBUS361(t *testing.T) {
+	for _, key := range []string{"GITHUB_TOKEN", "SLACK_TOKEN", "SEQ_API_KEY"} {
+		t.Run(key, func(t *testing.T) {
+			dir := t.TempDir()
+			if err := os.WriteFile(filepath.Join(dir, ".env.config"), []byte("CADDY_DEPLOYMENT_MODE=development\n"+key+"=fixture-value\n"), 0600); err != nil {
+				t.Fatal(err)
+			}
+			_, err := loadOrGenerateConfig(dir, false)
+			if err == nil || !strings.Contains(err.Error(), key) || !strings.Contains(err.Error(), ".env.credentials") {
+				t.Fatalf("expected directive refusal for %s, got %v", key, err)
+			}
+		})
+	}
+}
+
+func TestLegacySecretsMigrateOnce_STATBUS361(t *testing.T) {
+	dir := t.TempDir()
+	configPath := filepath.Join(dir, ".env.config")
+	credentialsPath := filepath.Join(dir, ".env.credentials")
+	if err := os.WriteFile(configPath, []byte("CADDY_DEPLOYMENT_MODE=development\nGITHUB_TOKEN=older-token\nGITHUB_TOKEN=legacy-token\nSLACK_TOKEN=legacy-slack\nSEQ_API_KEY=legacy-seq\n"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if err := migrateLegacySecrets(dir); err != nil {
+		t.Fatal(err)
+	}
+	config, err := os.ReadFile(configPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	credentials, err := os.ReadFile(credentialsPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	info, err := os.Stat(credentialsPath)
+	if err != nil || info.Mode().Perm() != 0600 {
+		t.Fatalf("migrated credentials must be mode 0600: %v, %v", info, err)
+	}
+	for _, key := range []string{"GITHUB_TOKEN", "SLACK_TOKEN", "SEQ_API_KEY"} {
+		if strings.Contains(string(config), key+"=") || !strings.Contains(string(credentials), key+"=legacy-") {
+			t.Fatalf("%s not moved: config=%s credentials=%s", key, config, credentials)
+		}
+	}
+	if _, err := loadOrGenerateConfig(dir, false); err != nil {
+		t.Fatalf("migrated config rejected: %v", err)
+	}
+	if err := migrateLegacySecrets(dir); err != nil {
+		t.Fatal(err)
+	}
+	again, err := os.ReadFile(credentialsPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(again) != string(credentials) {
+		t.Fatalf("second migration changed credentials")
+	}
+}
+
+func TestPlainGenerateRejectsFreshSecret_STATBUS361(t *testing.T) {
+	dir := t.TempDir()
+	configPath := filepath.Join(dir, ".env.config")
+	if err := os.WriteFile(configPath, []byte("CADDY_DEPLOYMENT_MODE=development\nGITHUB_TOKEN=fresh-token\n"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	err := GenerateInDir(dir, false)
+	if err == nil || !strings.Contains(err.Error(), "GITHUB_TOKEN in .env.config is a secret; move it to .env.credentials") {
+		t.Fatalf("plain config generation must reject the misplaced secret, got %v", err)
+	}
+	config, err := os.ReadFile(configPath)
+	if err != nil || !strings.Contains(string(config), "GITHUB_TOKEN=fresh-token") {
+		t.Fatalf("plain generation moved the secret: %s, %v", config, err)
+	}
+}
+
+func TestInstallerGenerationMigratesLegacySecret_STATBUS361(t *testing.T) {
+	dir := t.TempDir()
+	configPath := filepath.Join(dir, ".env.config")
+	if err := os.WriteFile(configPath, []byte("CADDY_DEPLOYMENT_MODE=development\nSITE_DOMAIN=local.statbus.org\nGITHUB_TOKEN=old\nGITHUB_TOKEN=legacy-token\n"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	repoRoot := filepath.Join("..", "..", "..")
+	example, err := os.ReadFile(filepath.Join(repoRoot, ".env.example"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, ".env.example"), example, 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.CopyFS(filepath.Join(dir, "caddy", "templates"), os.DirFS(filepath.Join(repoRoot, "caddy", "templates"))); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(filepath.Join(dir, "ops", "maintenance"), 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := GenerateForInstallInDir(dir, false); err != nil {
+		t.Fatal(err)
+	}
+	config, err := os.ReadFile(configPath)
+	if err != nil || strings.Contains(string(config), "GITHUB_TOKEN=") {
+		t.Fatalf("installer left legacy token lines: %s, %v", config, err)
+	}
+	credentials, err := os.ReadFile(filepath.Join(dir, ".env.credentials"))
+	if err != nil || !strings.Contains(string(credentials), "GITHUB_TOKEN=legacy-token") {
+		t.Fatalf("installer did not preserve last legacy value: %s, %v", credentials, err)
+	}
+	if err := GenerateForInstallInDir(dir, false); err != nil {
+		t.Fatal(err)
+	}
+	again, err := os.ReadFile(filepath.Join(dir, ".env.credentials"))
+	if err != nil || string(again) != string(credentials) {
+		t.Fatalf("installer rerun changed credentials: %s, %v", again, err)
+	}
+}
+
+func TestExistingCredentialWinsDuringMigration_STATBUS361(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, ".env.config"), []byte("GITHUB_TOKEN=new-token\n"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, ".env.credentials"), []byte("GITHUB_TOKEN=existing-token\n"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if err := migrateLegacySecrets(dir); err != nil {
+		t.Fatal(err)
+	}
+	credentials, err := os.ReadFile(filepath.Join(dir, ".env.credentials"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(credentials), "GITHUB_TOKEN=existing-token") {
+		t.Fatalf("existing credential overwritten: %s", credentials)
+	}
+}
+
+func TestInstallationProvisionerWritesSecretsToCredentials_STATBUS361(t *testing.T) {
+	script, err := os.ReadFile(filepath.Join("..", "..", "..", "ops", "create-new-statbus-installation.sh"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, line := range []string{"set_credential SEQ_API_KEY", "set_credential SLACK_TOKEN", "chmod 600 .env.credentials"} {
+		if !strings.Contains(string(script), line) {
+			t.Fatalf("provisioner missing %q", line)
+		}
+	}
+	for _, line := range []string{"set_or_update SEQ_API_KEY", "set_or_update SLACK_TOKEN"} {
+		if strings.Contains(string(script), line) {
+			t.Fatalf("provisioner still writes a secret through config helper: %q", line)
+		}
 	}
 }
 

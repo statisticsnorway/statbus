@@ -176,14 +176,19 @@ func (f *File) Set(key, value string) {
 
 // Delete removes a key. Returns true if the key existed.
 func (f *File) Delete(key string) bool {
-	l, ok := f.mapping[key]
+	_, ok := f.mapping[key]
 	if !ok {
 		return false
 	}
 	delete(f.mapping, key)
-	// Convert to an invalid line so it's removed from output but indices stay stable.
-	l.kind = kindBlank
-	l.raw = ""
+	// A file may contain duplicate assignments. Remove all of them so an
+	// earlier secret cannot survive migration or become active on the next load.
+	for _, l := range f.lines {
+		if l.kind == kindKeyVal && l.key == key {
+			l.kind = kindBlank
+			l.raw = ""
+		}
+	}
 	return true
 }
 

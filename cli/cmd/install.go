@@ -1499,16 +1499,27 @@ func runCreateConfig(dir string) error {
 }
 
 func runCreateCreds(dir string) error {
-	// sb config generate creates .env.credentials if missing
-	sb := filepath.Join(dir, "sb")
-	return runCmdDir(dir, sb, "config", "generate")
+	return generateInstallerConfig(dir)
+}
+
+// A generated .env identifies a previous installation pass. A newly authored
+// secret on a fresh install must be refused rather than silently relocated.
+func generateInstallerConfig(dir string) error {
+	_, err := os.Stat(filepath.Join(dir, ".env"))
+	if err == nil {
+		return config.GenerateForInstallInDir(dir, false)
+	}
+	if !os.IsNotExist(err) {
+		return fmt.Errorf("stat generated config: %w", err)
+	}
+	return config.GenerateInDir(dir, false)
 }
 
 func runGenerateEnv(dir string) error {
 	// Migrate .env.config paths from devops/ → ops/ (one-time, idempotent)
 	migrateConfigPaths(dir)
 
-	if err := config.GenerateInDir(dir, false); err != nil {
+	if err := generateInstallerConfig(dir); err != nil {
 		return err
 	}
 	// Now that config exists, normalize the product-owned fetch configuration.

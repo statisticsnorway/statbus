@@ -4,7 +4,7 @@ title: >-
   One location for SSB-shared operator credentials: GITHUB_TOKEN first, in
   .env.credentials, reachable by the fleet script over SSH; SOPS deferred with
   named triggers
-status: To Do
+status: In Progress
 assignee: []
 created_date: '2026-09-07 13:48'
 updated_date: '2026-09-23 15:10'
@@ -17,6 +17,18 @@ dependencies:
   - STATBUS-357
 ordinal: 60
 ---
+
+## Implementation 2026-09-25, review B correction
+
+Rebased onto current `origin/master` without conflicts, retaining master's password-prompt changes. Installer credential and settings steps now migrate legacy token placement only when a previously generated `.env` identifies a rerun. Fresh installs with an authored secret refuse plainly without moving it. Standalone config generation on an existing box refuses with `./sb install` as the migration path. Operator-path fixture tests exercise both installer steps on fresh state, duplicate-line migration and idempotent reruns, and standalone legacy guidance. No Docker or live deployment was run. Fleet credential installation and authenticated-call evidence remain outstanding, so this ticket remains In Progress.
+
+## Implementation 2026-09-25
+
+Review C remediation: installer reruns migrate legacy operator tokens from `.env.config` into `.env.credentials` before config-file validation, retaining an already-present credential as authoritative and making repeat runs no-ops. The new-installation provisioner writes shared tokens to `.env.credentials`. This is local code validation only, not evidence of a token installed on dev or authenticated GitHub calls. Fleet acceptance remains pending.
+
+Follow-up review correction: migration is now scoped to the install command's credential/config steps, not ordinary `sb config generate`; the latter rejects a newly misplaced secret without moving it. Migration deletes every duplicate assignment of a legacy secret, not merely its last occurrence. Local tests exercise fresh rejection, duplicate-line removal, and idempotence. Live fleet acceptance is still pending.
+
+Scratch branch `fix/credentials-361` moves optional tokens to `.env.credentials`, rejects `GITHUB_TOKEN`, `SLACK_TOKEN`, and `SEQ_API_KEY` in `.env.config`, and reads the GitHub token for the upgrade service without copying it into generated `.env`. Fixture tests cover refusal and the token's documented home. Acceptance remains pending: the operator must move existing dev values, install the fine-grained token personally, observe authenticated dev calls at 5000/h, and confirm Norway/demo stay anonymous. No remote credential changes or fleet verification were performed.
 
 ## Status 2026-09-24
 
@@ -112,3 +124,7 @@ Batch order: 370 -> 368 -> 367 -> 363 -> 357 -> 361 -> 362 -> 359.
 Classification: PARTIAL. Evidence: post-release scratch batch only; credential relocation and fleet proof remain.
 
 Remaining: Land secret-file enforcement and prove authenticated dev calls while demo/Norway remain intentionally anonymous.
+
+## Notes 2026-09-25
+
+The upgrade service loads optional `GITHUB_TOKEN`, `SLACK_TOKEN`, and `SEQ_API_KEY` from `.env.credentials` at startup, before API requests, git fetches, or callback subprocesses. A nonempty process environment value wins over the credentials file. The user-level systemd unit does not source the file, avoiding systemd EnvironmentFile precedence over an explicit process environment. `GITHUB_TOKEN` reaches both GitHub API requests and the authenticated git-fetch header; `SLACK_TOKEN` reaches the callback subprocess. Generated `.env` continues to supply `SEQ_API_KEY` to app/worker containers. No token value is logged by the loader. Deployment observation for dev authentication and anonymous Norway/demo remains pending.
