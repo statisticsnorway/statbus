@@ -75,4 +75,52 @@ describe("search export", () => {
     });
     expect(fetchUnits).toHaveBeenCalledTimes(1);
   });
+
+  it("refuses XLSX when the exact count is unavailable", async () => {
+    fetchUnits.mockResolvedValueOnce({
+      statisticalUnits: [row(1)],
+      estimatedCount: null,
+    });
+    const response = await GET(
+      new NextRequest("http://localhost/api/search/export?format=xlsx")
+    );
+    expect(response.status).toBe(413);
+    expect(await response.json()).toEqual({
+      message: expect.stringContaining("Use CSV instead"),
+    });
+    expect(fetchUnits).toHaveBeenCalledTimes(1);
+  });
+
+  it("refuses XLSX when a later page grows beyond the sheet limit", async () => {
+    const first = Array.from({ length: 100_000 }, (_, index) => row(index));
+    fetchUnits.mockResolvedValueOnce({
+      statisticalUnits: first,
+      estimatedCount: 1_048_575,
+    });
+    fetchUnits.mockResolvedValueOnce({
+      statisticalUnits: Array(948_576).fill(row(1)),
+      estimatedCount: 1_048_576,
+    });
+    const response = await GET(
+      new NextRequest("http://localhost/api/search/export?format=xlsx")
+    );
+    expect(response.status).toBe(413);
+    expect(await response.json()).toEqual({
+      message: expect.stringContaining("Use CSV instead"),
+    });
+    expect(fetchUnits).toHaveBeenCalledTimes(2);
+  });
+
+  it("stops at the initial count even when the last page is full", async () => {
+    const first = Array.from({ length: 100_000 }, (_, index) => row(index));
+    fetchUnits.mockResolvedValueOnce({
+      statisticalUnits: first,
+      estimatedCount: 100_000,
+    });
+    const response = await GET(
+      new NextRequest("http://localhost/api/search/export?format=csv")
+    );
+    expect((await response.text()).split("\n")).toHaveLength(100_001);
+    expect(fetchUnits).toHaveBeenCalledTimes(1);
+  });
 });

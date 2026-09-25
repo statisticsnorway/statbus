@@ -107,17 +107,42 @@ export async function GET(request: NextRequest) {
   try {
     const response = await getStatisticalUnits(client, searchParams);
     const baseName = hasSingleUnitType ? `${unitType}s` : "statistical_units";
+    const total = response.estimatedCount;
+    if (total == null || !Number.isSafeInteger(total) || total < 0) {
+      if (format === "xlsx") {
+        return NextResponse.json(
+          {
+            message: `Excel supports at most ${EXCEL_MAX_ROWS - 1} data rows. Use CSV instead.`,
+          },
+          { status: 413 }
+        );
+      }
+      throw new Error("Exact export row count is unavailable");
+    }
+    if (response.statisticalUnits.length > total) {
+      throw new Error(
+        "Export changed while reading rows: more rows than the initial count"
+      );
+    }
 
     const fetchPage = async (offset: number) => {
       searchParams.set("offset", String(offset));
-      return (await getStatisticalUnits(client, searchParams)).statisticalUnits;
+      searchParams.set("limit", String(Math.min(PAGE_SIZE, total - offset)));
+      const page = (await getStatisticalUnits(client, searchParams))
+        .statisticalUnits;
+      if (format === "xlsx" && offset + page.length > EXCEL_MAX_ROWS - 1) {
+        return page;
+      }
+      if (page.length > total - offset || page.length === 0) {
+        throw new Error(
+          "Export changed while reading rows: initial count cannot be covered"
+        );
+      }
+      return page;
     };
 
     if (format === "xlsx") {
-      if (
-        response.estimatedCount != null &&
-        response.estimatedCount > EXCEL_MAX_ROWS - 1
-      ) {
+      if (total > EXCEL_MAX_ROWS - 1) {
         return NextResponse.json(
           {
             message: `Excel supports at most ${EXCEL_MAX_ROWS - 1} data rows. Use CSV instead.`,
@@ -150,7 +175,15 @@ export async function GET(request: NextRequest) {
 
       let offset = 0;
       let page = units;
-      while (page.length > 0) {
+      while (offset < total) {
+        if (offset + page.length > EXCEL_MAX_ROWS - 1) {
+          return NextResponse.json(
+            {
+              message: `Excel supports at most ${EXCEL_MAX_ROWS - 1} data rows. Use CSV instead.`,
+            },
+            { status: 413 }
+          );
+        }
         for (const unit of page) {
           const rec = unit as unknown as Record<string, unknown>;
           worksheet.addRow(
@@ -170,7 +203,7 @@ export async function GET(request: NextRequest) {
           );
         }
         offset += page.length;
-        if (page.length < PAGE_SIZE) break;
+        if (offset >= total) break;
         page = await fetchPage(offset);
       }
 
@@ -207,19 +240,17 @@ export async function GET(request: NextRequest) {
     const stream = new ReadableStream<Uint8Array>({
       async pull(controller) {
         try {
-          if (page.length > 0) {
+          if (offset < total) {
             // toCSV uses object insertion order for columns, matching the select list.
             const { header, body } = toCSV(page);
             controller.enqueue(encoder.encode((first ? header : "\n") + body));
             first = false;
             offset += page.length;
-            if (page.length === PAGE_SIZE) {
+            if (offset < total) {
               page = await fetchPage(offset);
-            } else {
-              page = [];
             }
           }
-          if (page.length === 0) controller.close();
+          if (offset >= total) controller.close();
         } catch (error) {
           controller.error(error);
         }
