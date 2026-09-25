@@ -17,6 +17,19 @@ type: task
 ordinal: 88
 ---
 
+## Status 2026-09-25
+
+**In Progress.** The provisional sentence now renders verbatim in the admin
+banner and has an exact wording regression test (#1). The named installer
+clearing test (#3) verifies that the successful-install path invokes the stamp
+and its SQL clears all three persisted failure keys. Existing upgrade and UI
+tests (#2, #4) passed. Observed: `go vet ./...`, `go test ./cmd
+./internal/upgrade`, `gofmt -l cmd internal` (empty), and `golangci-lint run
+./cmd/...` (0 issues); both banner Jest suites (3 tests), `pnpm run tsc`,
+and Prettier check passed. No real installer/database or VM run was performed;
+the new Go test checks source structure, not a live DB transition. Keep In
+Progress pending an end-to-end install-clear observation if required for Done.
+
 ## Status 2026-09-24
 
 **In Progress.** `8543f493a`: `cli/internal/upgrade/install_failure_banner_test.go` and `app/src/app/admin/upgrades/install-failure-banner.test.ts` cover successful-upgrade clearing and UI visibility (#2, #4); installer clearing is in `cli/cmd/install.go` but its named test (#3) is absent. The provisional exact wording test (#1) is absent. **Remaining:** assert owner-approved provisional sentence exactly and test clearing on successful install.
