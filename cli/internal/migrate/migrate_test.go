@@ -20,6 +20,26 @@ func writeEnv(t *testing.T, contents string) string {
 	return dir
 }
 
+// Docker mode deliberately does not inherit the host route: inside db,
+// libpq's local socket provides trusted admin access when TCP credentials
+// have drifted or the host has no psql binary. No Docker command is run here.
+func TestDockerDatabaseCommandsUseLocalSocket(t *testing.T) {
+	dir := writeEnv(t, "SITE_DOMAIN=unreachable.example.invalid\nPOSTGRES_APP_DB=statbus_test\nPOSTGRES_ADMIN_USER=postgres\n")
+	t.Setenv("DOCKER_PSQL", "1")
+	t.Setenv("PGHOST", "unreachable.example.invalid")
+	for name, build := range map[string]func(string) (string, []string, []string, error){
+		"migration": PsqlCommand,
+	} {
+		path, args, env, err := build(dir)
+		if err != nil {
+			t.Fatalf("%s: %v", name, err)
+		}
+		if path != "docker" || !strings.Contains(strings.Join(args, " "), "exec -T") || env != nil {
+			t.Errorf("%s: path=%q args=%q env=%q, want docker exec with no host PG environment", name, path, args, env)
+		}
+	}
+}
+
 func TestPsqlEnv_UsesCaddyBind(t *testing.T) {
 	dir := writeEnv(t, strings.Join([]string{
 		"CADDY_DB_BIND_ADDRESS=127.0.0.1",

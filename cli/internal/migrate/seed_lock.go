@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/statisticsnorway/statbus/cli/internal/dbroute"
 	"github.com/statisticsnorway/statbus/cli/internal/dotenv"
 )
 
@@ -53,12 +54,6 @@ func PostgresSystemConnStr(projDir string) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("load .env: %w", err)
 	}
-	requireKey := func(key string) (string, error) {
-		if v, ok := f.Get(key); ok && v != "" {
-			return v, nil
-		}
-		return "", fmt.Errorf("%s not found in .env — regenerate with: ./sb config generate", key)
-	}
 	getOr := func(key, fallback string) string {
 		if v := os.Getenv(key); v != "" {
 			return v
@@ -68,11 +63,7 @@ func PostgresSystemConnStr(projDir string) (string, error) {
 		}
 		return fallback
 	}
-	dbHost, err := requireKey("CADDY_DB_BIND_ADDRESS")
-	if err != nil {
-		return "", err
-	}
-	dbPort, err := requireKey("CADDY_DB_PORT")
+	dbHost, dbPort, err := dbroute.FromFile(f)
 	if err != nil {
 		return "", err
 	}

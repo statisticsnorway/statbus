@@ -2047,16 +2047,13 @@ const (
 //
 // Connects via `docker compose exec -T db psql -U postgres`, NOT
 // migrate.PsqlCommand. Critical: when max_connections is exhausted,
-// EVERY external connection fails — including ones nominally targeting
-// `superuser_reserved_connections` — because the reserved slots are
-// gated on the AUTH ROLE (must be superuser), not the connection
-// target. The statbus role is not superuser; reserved slots are
-// unreachable from the host.
+// ordinary-role external connections fail; reserved slots require a
+// superuser-authenticated connection, not merely a postgres database target.
 //
-// Connecting *inside* the container as the postgres OS user via peer
-// authentication gives full superuser privileges and bypasses the
-// connection pool entirely. This is the only path that works when the
-// pool is wedged.
+// Connecting *inside* the container as postgres uses the local Unix socket;
+// pg_hba.conf grants local postgres trust authentication. This still occupies
+// a PostgreSQL connection slot, but the superuser can use reserved slots when
+// ordinary-role TCP connections cannot. It does not depend on Caddy's route.
 //
 // TWO-PHASE design:
 //

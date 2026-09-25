@@ -24,6 +24,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/statisticsnorway/statbus/cli/internal/compose"
 	"github.com/statisticsnorway/statbus/cli/internal/config"
+	"github.com/statisticsnorway/statbus/cli/internal/dbroute"
 	"github.com/statisticsnorway/statbus/cli/internal/dotenv"
 	"github.com/statisticsnorway/statbus/cli/internal/inject"
 	"github.com/statisticsnorway/statbus/cli/internal/testguard"
@@ -218,12 +219,6 @@ func psqlEnv(projDir string) ([]string, error) {
 		return nil, fmt.Errorf("load .env: %w", err)
 	}
 
-	requireKey := func(key string) (string, error) {
-		if v, ok := f.Get(key); ok && v != "" {
-			return v, nil
-		}
-		return "", fmt.Errorf("%s not found in .env — regenerate with: ./sb config generate", key)
-	}
 	// Process env overrides .env file — allows PGDATABASE=... ./sb migrate up
 	getOr := func(key, fallback string) string {
 		if v := os.Getenv(key); v != "" {
@@ -235,11 +230,7 @@ func psqlEnv(projDir string) ([]string, error) {
 		return fallback
 	}
 
-	dbHost, err := requireKey("CADDY_DB_BIND_ADDRESS")
-	if err != nil {
-		return nil, err
-	}
-	dbPort, err := requireKey("CADDY_DB_PORT")
+	dbHost, dbPort, err := dbroute.FromFile(f)
 	if err != nil {
 		return nil, err
 	}
@@ -896,12 +887,6 @@ func DiskVersions(projDir string) ([]int64, error) {
 // connection. Uses CADDY_DB_BIND_ADDRESS (server-internal bind), not
 // SITE_DOMAIN — same rationale as psqlEnv.
 func advisoryLockConnStr(f *dotenv.File) (string, error) {
-	requireKey := func(key string) (string, error) {
-		if v, ok := f.Get(key); ok && v != "" {
-			return v, nil
-		}
-		return "", fmt.Errorf("%s not found in .env — regenerate with: ./sb config generate", key)
-	}
 	// Process env wins over .env file — matches psqlEnv's pattern.
 	// Critical for `./sb migrate up --target seed` (and `migrate redo`)
 	// where the env override must reach the lock connection so the
@@ -920,11 +905,7 @@ func advisoryLockConnStr(f *dotenv.File) (string, error) {
 		}
 		return fallback
 	}
-	dbHost, err := requireKey("CADDY_DB_BIND_ADDRESS")
-	if err != nil {
-		return "", err
-	}
-	dbPort, err := requireKey("CADDY_DB_PORT")
+	dbHost, dbPort, err := dbroute.FromFile(f)
 	if err != nil {
 		return "", err
 	}
