@@ -1,6 +1,8 @@
 package cmd
 
 import (
+	"io"
+	"os"
 	"strings"
 	"testing"
 	"time"
@@ -34,6 +36,43 @@ func TestLiveHolderRefusal(t *testing.T) {
 			}
 			if strings.Contains(err.Error(), "lsof") {
 				t.Fatalf("operator refusal contains an internal inspection command: %v", err)
+			}
+		})
+	}
+}
+
+func TestLiveInstallStateLogNamesHolder(t *testing.T) {
+	started := time.Date(2026, 9, 25, 7, 0, 0, 0, time.UTC)
+	for _, tc := range []struct {
+		name, holder, want string
+	}{
+		{"install", upgrade.HolderInstall, "an installation started at 2026-09-25T07:00:00Z (process 4242) is still running"},
+		{"service", upgrade.HolderService, "An upgrade is already running. Wait for it to finish, then retry if needed."},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			reader, writer, err := os.Pipe()
+			if err != nil {
+				t.Fatal(err)
+			}
+			stdout := os.Stdout
+			os.Stdout = writer
+			defer func() { os.Stdout = stdout }()
+			logInstallState(t.TempDir(), install.StateLiveUpgrade, &install.Detail{Flag: &upgrade.UpgradeFlag{
+				Holder: tc.holder, PID: 4242, StartedAt: started,
+			}})
+			if err := writer.Close(); err != nil {
+				t.Fatal(err)
+			}
+			output, err := io.ReadAll(reader)
+			if closeErr := reader.Close(); closeErr != nil {
+				t.Fatal(closeErr)
+			}
+			if err != nil {
+				t.Fatal(err)
+			}
+			got := string(output)
+			if !strings.Contains(got, tc.want) || strings.Contains(got, "lsof") || strings.Contains(got, "docker") || strings.Count(got, tc.want) != 1 {
+				t.Fatalf("state log = %q, want exactly one %q and no internal commands", got, tc.want)
 			}
 		})
 	}

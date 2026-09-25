@@ -138,6 +138,9 @@ var stdinIsTerminal = func() bool {
 // a plain refusal instead of the SYSTEM UNUSABLE invariant-breach path.
 type installPreflightRefusalError struct{ err error }
 
+// installStateLoggedRefusalError marks a refusal already printed by logInstallState.
+type installStateLoggedRefusalError struct{ error }
+
 func (e *installPreflightRefusalError) Error() string { return e.err.Error() }
 func (e *installPreflightRefusalError) Unwrap() error { return e.err }
 
@@ -192,7 +195,10 @@ For operator installation or repair, use the public installer:
 		err := runInstall()
 		if err != nil {
 			var preflight *installPreflightRefusalError
-			if errors.As(err, &preflight) {
+			var logged *installStateLoggedRefusalError
+			if errors.As(err, &logged) {
+				// The state line already contains the actionable refusal.
+			} else if errors.As(err, &preflight) {
 				_, _ = fmt.Fprintln(cmd.ErrOrStderr(), preflight.Error())
 			} else {
 				_, _ = fmt.Fprintln(cmd.ErrOrStderr(), "The installation stopped before it could finish. Check the installation log, correct the problem, then run: "+diskpolicy.RerunCommand())
@@ -564,6 +570,9 @@ func runInstall() (installErr error) {
 				fmt.Println("Recovery finished. Checking the installation again.")
 			}
 			if handled, err := dispatchInstallState(installDir, state, detail); handled {
+				if state == install.StateLiveUpgrade && detail.Flag != nil && detail.Flag.Holder == upgrade.HolderInstall {
+					return &installStateLoggedRefusalError{err}
+				}
 				return err
 			}
 		}
@@ -3534,7 +3543,7 @@ func logInstallState(projDir string, state install.State, detail *install.Detail
 		fmt.Println("Preparing a new StatBus installation.")
 	case install.StateLiveUpgrade:
 		if detail.Flag != nil && detail.Flag.Holder == upgrade.HolderInstall {
-			fmt.Println("Another installation is still running. Wait for it to finish, then run the same install command again.")
+			fmt.Println(upgrade.LiveInstallHolderRefusal(detail.Flag).Error())
 		} else {
 			fmt.Println("An upgrade is already running. Wait for it to finish, then retry if needed.")
 		}

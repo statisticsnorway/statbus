@@ -7,6 +7,8 @@ from pathlib import Path
 import subprocess
 import sys
 root = Path(sys.argv[1])
+subprocess.run(['go', 'test', './cmd/', '-run', '^TestLiveInstallStateLogNamesHolder$', '-count=1'], cwd=root / 'cli', check=True)
+print('PASS: live-install state line names holder, service line unchanged')
 s = (root / 'test/install-recovery/scenarios/1-boot-concurrent-install.sh').read_text()
 def check(label, code, success):
     p = subprocess.run(['bash', '-c', 'set -euo pipefail\n' + code], text=True, capture_output=True)
