@@ -1,10 +1,10 @@
 ---
 id: STATBUS-415
 title: A release candidate's Fast Tests run completes even when master moves on
-status: To Do
+status: In Progress
 assignee: []
 created_date: '2026-09-24 23:56'
-updated_date: '2026-09-24 23:56'
+updated_date: '2026-09-25 10:28'
 labels:
   - release-bug
   - ci
@@ -13,6 +13,10 @@ priority: high
 type: bug
 ordinal: 366000
 ---
+
+## Status 2026-09-25
+
+**In Progress, live proof pending.** `1556ab0b9` (merge `dff6f5594`) separates tagged-candidate Fast Tests concurrency from the cancellable master group; `85e0050a5` adds evaluated concurrency-key cases (`cli/cmd/workflow_candidate_concurrency_test.go:144`, `.github/workflows/fast-tests.yaml:84-116`). These static checks do not constitute AC #4: run the candidate-A then master-B two-push exercise, recording both run IDs, final conclusions, exercised SHAs and release-gate result before Done.
 
 ## Description
 

@@ -4,7 +4,7 @@ title: The install-failure banner explains that a later successful install or up
 status: In Progress
 assignee: []
 created_date: '2026-09-24 16:44'
-updated_date: '2026-09-24 18:42'
+updated_date: '2026-09-25 10:28'
 labels:
   - release-bug
   - install
@@ -18,6 +18,8 @@ ordinal: 88
 ---
 
 ## Status 2026-09-25
+
+**Merged follow-up, proof pending.** `42be53b2e` (merge `7c9a2ead3`) supplies the provisional banner wording and `cli/cmd/install_failure_banner_test.go:9` (`TestSuccessfulInstallClearsBanner`), alongside the existing upgrade/UI tests described below. These are code/test observations, not an observed live banner transition through both successful install and upgrade. Remain In Progress until acceptance is proved by the gate.
 
 **In Progress.** The provisional sentence now renders verbatim in the admin
 banner and has an exact wording regression test (#1). The named installer

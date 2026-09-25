@@ -4,7 +4,7 @@ title: Installer refusals and failures give one plain recovery path
 status: In Progress
 assignee: []
 created_date: '2026-09-24 15:35'
-updated_date: '2026-09-24 18:42'
+updated_date: '2026-09-25 10:28'
 labels:
   - release-bug
   - install
@@ -21,6 +21,8 @@ ordinal: 355000
 **In Progress.** `8543f493a`, `373d15fc3`: `cli/cmd/install_operator_output_test.go` and `install_failure_cause_test.go` cover plain guidance and redaction (#1 partly). The named post-start failure test and vocabulary test (#2-3) are absent; `harness-failure-path-selftest.sh` exists but does not by itself prove installer exit-78 wording. **Remaining:** assert all preflight/post-start outcomes, complete rerun/support path, and operator/internal vocabulary separation.
 
 ## Release gate observation 2026-09-25
+
+**Merged follow-up, proof pending.** rc.02 (`2198185bb`) failed the concurrent-install refusal ([run 36104217764, job 107973800359](https://github.com/statisticsnorway/statbus/actions/runs/36104217764/job/107973800359)). `8689926a4` names the live installation instead of an upgrade; `ddd3f6408` includes diagnostic PID; `47173a31d` stamps PID and start time across six install-held marker writers and routes refusals through `LiveInstallHolderRefusal` (`cli/internal/upgrade/service.go:1705-1717`, `cli/cmd/install.go:383`). Flock alone establishes liveness. The rc.03 VM refusal is still unobserved, and this does not complete AC #1-3.
 
 v2026.09.3 rc.02 failed `1-boot-concurrent-install` in [Actions run 36104217764, job 107973800359](https://github.com/statisticsnorway/statbus/actions/runs/36104217764/job/107973800359): a second installer correctly refused an install-held live mutex, but printed `An upgrade is already running` instead of naming the installation. The flag already records `holder=install` and `started_at`; it did not retain the process ID. Review follow-up records the install holder's PID as diagnostic-only metadata (the flock remains the sole liveness proof), renders it alongside start time in plain operator wording, and removes the `lsof` hint. The concurrent-install VM scenario now requires that the diagnostic PID equal the flag PID and remains proof pending until rerun; this observation does not complete AC #1-3.
 

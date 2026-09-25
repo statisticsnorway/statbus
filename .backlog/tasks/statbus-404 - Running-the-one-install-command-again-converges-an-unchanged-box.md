@@ -4,7 +4,7 @@ title: Running the install command again preserves an unchanged ready installati
 status: In Progress
 assignee: []
 created_date: '2026-09-24 15:35'
-updated_date: '2026-09-24 18:44'
+updated_date: '2026-09-25 10:28'
 labels:
   - release-bug
   - install
@@ -14,6 +14,10 @@ priority: high
 type: bug
 ordinal: 357000
 ---
+
+## Release gate observation 2026-09-25
+
+**In Progress.** rc.02 (`2198185bb`) smoke [run 36102984100, `0-happy-install` job 107969435877](https://github.com/statisticsnorway/statbus/actions/runs/36102984100/job/107969435877) concluded **success**, including the scenario's unchanged healthy-install rerun (`test/install-recovery/scenarios/0-happy-install.sh`). This is observed-green VM evidence for AC #2, superseding rc.01's failed rerun below. It does not prove the missing Compose v2/v5 fixture (#1) or display-name-only rerun (#3), so do not mark Done.
 
 ## Status 2026-09-24
 
