@@ -45,6 +45,10 @@ ordinal: 1
 
 ## Status 2026-09-24
 
+## Hardening prototype finding, 2026-09-25
+
+The rune LXD guest hardening run exited 1 after Stage 0 rewrote the active `ubuntu.sources` to HTTPS: verification also scanned its own HTTP `ubuntu.sources.bak` in `sources.list.d`. Moving that backup outside the apt directory made a Stage 0 rerun green in 2.96 seconds (`tmp/rune-lxd-prototype.md`, resumed owner-approved prototype). The script fix stores backups under `/var/backups/statbus` and verifies only apt-read `.list`/`.sources` entries and legacy `sources.list`, with a fixture regression test. This is Stage 0 evidence, not completion of the independent-operator install acceptance criteria.
+
 **To Do:** #1-10 not met as written: seven `test/setup/public-setup-*` tests and the umbrella `0-third-party-ubuntu-26-04-install.sh` are absent. `373d15fc3` improved the installer but does not prove the independent published-instructions Ubuntu 26.04 workflow. **Remaining:** implement D1-D7 public setup, test operator-only installation and interruption, and record candidate-tag VM service/HTTPS evidence.
 
 Baseline: `origin/master` at `373d15fc3`. Criterion disposition and remaining positive targets are above; the acceptance criteria below remain authoritative. An authored but unrun VM scenario is **proof pending**, not met.
