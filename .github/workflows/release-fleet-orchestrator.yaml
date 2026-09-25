@@ -11,8 +11,9 @@ name: Release Fleet Orchestrator
 #
 # The three paid workflows use GitHub's native hetzner-vm-fleet queue with
 # queue:max and cancel-in-progress:false. The dispatcher checks the ordered
-# concurrency-group membership before dispatch and refuses ordinary occupied-
-# group dispatches. A rare check-to-dispatch race waits in the native queue;
+# concurrency-group membership before dispatch. It waits up to 20 minutes for
+# older superseded fleets to drain, but refuses same/newer or manual collisions.
+# A rare check-to-dispatch race waits in the native queue;
 # it is never auto-cancelled. Orchestrator-created children revalidate this
 # parent and newest-RC status before their first paid or fixture side effect.
 # Direct hand dispatches carry no parent ID and remain deliberate.
@@ -132,7 +133,7 @@ jobs:
           needs['decide-obsolete'].result == 'success' &&
           needs['decide-obsolete'].outputs.obsolete == 'false' }}
     runs-on: ubuntu-24.04
-    timeout-minutes: 90
+    timeout-minutes: 110
     outputs:
       run_url: ${{ steps.dispatch.outputs.run-url }}
       superseded: ${{ steps.dispatch.outputs.superseded }}
@@ -362,7 +363,7 @@ jobs:
     # the typical case without approaching the 360min per-job ceiling
     # (this is a SEPARATE job from upgrade-arc-harness's below, so it gets
     # its own fresh 360min allowance).
-    timeout-minutes: 180
+    timeout-minutes: 200
     outputs:
       run_url: ${{ steps.dispatch.outputs.run-url }}
       superseded: ${{ steps.dispatch.outputs.superseded }}
@@ -513,7 +514,7 @@ jobs:
     # teardown(10) + cleanup(10) -> worst case comfortably under the 360min
     # per-job ceiling but the longest of the three fleets; budgeted with
     # the most headroom accordingly.
-    timeout-minutes: 330
+    timeout-minutes: 350
     outputs:
       run_url: ${{ steps.dispatch.outputs.run-url }}
       superseded: ${{ steps.dispatch.outputs.superseded }}
@@ -646,7 +647,7 @@ jobs:
           ref: ${{ github.ref_name }}
           commit-sha: ${{ github.sha }}
           dispatch-inputs: scenarios=${{ steps.coverage.outputs.scenarios }}
-          poll-budget-s: "19200"   # ~320min, under the 330min job ceiling above
+          poll-budget-s: "19200"   # ~320min, leaves 20min drain + 10min setup below 350min job ceiling
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
   coverage-question-health:

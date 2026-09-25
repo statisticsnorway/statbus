@@ -73,16 +73,77 @@ describe_members() {
   done <<<"$rows"
 }
 
-preflight_fleet_group() {
-  local json rows count
-  json="$(fleet_group_json)"
-  rows="$(fleet_members <<<"$json")"
-  count="$(grep -c . <<<"$rows" || true)"
-  if [ "$count" -gt 0 ]; then
-    echo "::error title=Hetzner VM fleet occupied::refusing to dispatch ${WORKFLOW_FILE}; ordered owner and waiters follow"
-    describe_members "$json"
-    return 1
+# The REST run has no workflow_dispatch inputs (including orchestrator-run-id).
+# The release orchestrator dispatches with GITHUB_TOKEN, whose child actor is
+# github-actions[bot]; a human's direct dispatch has their own actor. Unknown
+# provenance fails closed. Compare the actual run ref, not its cosmetic name.
+classify_fleet_member() {
+  local row=$1 id run branch sha actor event
+  id="$(jq -r '.id' <<<"$row")"
+  if ! run="$(gh api "repos/${GH_REPO}/actions/runs/${id}")"; then
+    echo refuse
+    return
   fi
+  if ! jq -e --argjson id "$id" '
+    .id == $id and (.head_branch | type) == "string" and
+    (.head_sha | type) == "string" and (.event | type) == "string" and
+    (.actor.login | type) == "string"
+  ' <<<"$run" >/dev/null; then
+    echo refuse
+    return
+  fi
+  read -r branch sha event actor < <(jq -r '[.head_branch,.head_sha,.event,.actor.login] | join(" ")' <<<"$run")
+  if [ "$event" != workflow_dispatch ] || [ "$actor" != 'github-actions[bot]' ] ||
+    ! [[ "$REF" =~ ^v[0-9]+\.[0-9]+\.[0-9]+-rc\.[0-9]+$ ]] ||
+    ! [[ "$branch" =~ ^v[0-9]+\.[0-9]+\.[0-9]+-rc\.[0-9]+$ ]]; then
+    echo refuse
+  elif [ "$branch" != "$REF" ]; then
+    if [ "$(printf '%s\n%s\n' "$branch" "$REF" | LC_ALL=C sort -V | head -n 1)" = "$branch" ]; then
+      echo wait
+    else
+      echo refuse
+    fi
+  elif [ "$sha" != "$COMMIT_SHA" ] && git merge-base --is-ancestor "$sha" "$COMMIT_SHA"; then
+    echo wait
+  else
+    echo refuse
+  fi
+}
+
+preflight_fleet_group() {
+  local json rows row id remaining elapsed start=$SECONDS waited=false
+  while :; do
+    json="$(fleet_group_json)"
+    rows="$(fleet_members <<<"$json")"
+    if [ -z "$rows" ]; then
+      if [ "$waited" = true ]; then
+        echo "Fleet drained; dispatching ${WORKFLOW_FILE} at ${REF}."
+        echo "- Fleet drained after $((SECONDS - start))s; dispatching \`${WORKFLOW_FILE}\` at \`${REF}\`." >> "$GITHUB_STEP_SUMMARY"
+      fi
+      return 0
+    fi
+    while IFS= read -r row; do
+      if [ "$(classify_fleet_member "$row")" != wait ]; then
+        echo "::error title=Hetzner VM fleet occupied::refusing to dispatch ${WORKFLOW_FILE}; ordered owner and waiters follow"
+        describe_members "$json"
+        return 1
+      fi
+    done <<<"$rows"
+    elapsed=$((SECONDS - start))
+    if [ "$elapsed" -ge 1200 ]; then
+      echo "::error title=Fleet drain timed out::older fleet still occupied after 20 minutes; refusing to dispatch ${WORKFLOW_FILE}"
+      describe_members "$json"
+      echo "- Fleet drain timed out after ${elapsed}s; \`${WORKFLOW_FILE}\` not dispatched." >> "$GITHUB_STEP_SUMMARY"
+      return 1
+    fi
+    waited=true
+    id="$(jq -r '.id' <<<"$rows" | head -n 1)"
+    remaining="$(gh run view "$id" --json jobs --jq '[.jobs[] | select(.status != "completed") | .name] | join(", ")' 2>/dev/null || echo '<unavailable>')"
+    echo "Waiting for superseded fleet owner ${id} to drain (${elapsed}s/1200s); remaining jobs: ${remaining:-<group releasing>}"
+    describe_members "$json"
+    echo "- Waiting for older fleet owner [${id}](https://github.com/${GH_REPO}/actions/runs/${id}) to drain (${elapsed}s/1200s); remaining jobs: ${remaining:-<group releasing>}." >> "$GITHUB_STEP_SUMMARY"
+    sleep 30
+  done
 }
 
 report_fleet_group_after_correlation() {
@@ -98,12 +159,16 @@ if [ "${STATBUS_DISPATCH_TEST_MODE:-}" = classify ]; then
   is_paid_fleet_workflow "$WORKFLOW_FILE"
   exit $?
 fi
+if [ "${STATBUS_DISPATCH_TEST_MODE:-}" = classify-member ]; then
+  classify_fleet_member "$(cat)"
+  exit 0
+fi
 if [ "${STATBUS_DISPATCH_TEST_MODE:-}" = preflight ]; then
   preflight_fleet_group
   exit $?
 fi
 if [ "${STATBUS_DISPATCH_TEST_MODE:-}" = postflight ]; then
-  report_fleet_group_after_correlation "$RUN_ID"
+  report_fleet_group_after_correlation "${RUN_ID:-}"
   exit $?
 fi
 
