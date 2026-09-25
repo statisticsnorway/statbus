@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"os"
 	"strings"
 	"testing"
 )
@@ -16,6 +17,85 @@ func stepIndexByName(t *testing.T, steps []map[string]any, name string) int {
 	}
 	t.Fatalf("no workflow step named %q", name)
 	return -1
+}
+
+func TestSupersededCandidateStopsBeforeEachVMAndPropagatesFleetVerdict_STATBUS416(t *testing.T) {
+	guard := workflowDoc(t, ".github/actions/scenario-superseded/action.yml")
+	guardSteps := guard["runs"].(map[string]any)["steps"].([]any)
+	if guardSteps[1].(map[string]any)["uses"] != "actions/upload-artifact@v4" {
+		t.Fatal("every scenario must publish its freshness marker inside the first composite action")
+	}
+	aggregate := workflowDoc(t, ".github/actions/scenario-fleet-verdict/action.yml")
+	if aggregate["runs"].(map[string]any)["steps"].([]any)[2].(map[string]any)["with"].(map[string]any)["name"] != "fleet-verdict" {
+		t.Fatal("child fleet verdict must be available as a named artifact to workflow_dispatch parent")
+	}
+	for _, tc := range []struct{ file, job, selector string }{
+		{".github/workflows/test-smoke.yaml", "smoke", "select"},
+		{".github/workflows/install-recovery-harness.yaml", "run-scenario", "discover"},
+		{".github/workflows/upgrade-arc-harness.yaml", "run-arc", "discover"},
+	} {
+		t.Run(tc.job, func(t *testing.T) {
+			doc := workflowDoc(t, tc.file)
+			lock := doc["concurrency"].(map[string]any)
+			if lock["group"] != "hetzner-vm-fleet" || lock["cancel-in-progress"] != false || lock["queue"] != "max" {
+				t.Fatalf("%s must retain shared non-cancelling VM capacity lock: %v", tc.file, lock)
+			}
+			steps := jobSteps(t, tc.file, tc.job)
+			if len(steps) < 3 || steps[0]["uses"] != "actions/checkout@v4" || steps[1]["uses"] != "./.github/actions/scenario-superseded" || steps[1]["id"] != "freshness" {
+				t.Fatalf("%s must check freshness as first post-checkout VM job step", tc.job)
+			}
+			with := steps[1]["with"].(map[string]any)
+			if with["candidate-ref"] != "${{ github.ref_name }}" || with["scenario"] != "${{ matrix.scenario }}" {
+				t.Fatalf("%s freshness guard must receive its candidate tag and scenario: %v", tc.job, with)
+			}
+			for _, step := range steps[2:] {
+				condition, _ := step["if"].(string)
+				if !strings.Contains(condition, "steps.freshness.outputs.superseded != 'true'") {
+					t.Errorf("%s step %v can run after supersession: if=%q", tc.job, step["name"], condition)
+				}
+			}
+			jobs := doc["jobs"].(map[string]any)
+			verdict := jobs["fleet-verdict"].(map[string]any)
+			if !strings.Contains(verdict["if"].(string), "always()") || verdict["outputs"].(map[string]any)["superseded"] != "${{ steps.verdict.outputs.superseded }}" {
+				t.Fatalf("%s must aggregate even after scenario failure and expose superseded: %v", tc.file, verdict)
+			}
+			vsteps := jobSteps(t, tc.file, "fleet-verdict")
+			if vsteps[1]["uses"] != "./.github/actions/scenario-fleet-verdict" ||
+				!strings.Contains(vsteps[1]["with"].(map[string]any)["matrix-json"].(string), "needs."+tc.selector+".outputs.matrix") {
+				t.Fatalf("%s must aggregate the exact selected matrix", tc.file)
+			}
+		})
+	}
+
+	dispatch, err := os.ReadFile(thisRepoFile(t, ".github/actions/dispatch-fleet-and-wait/dispatch.sh"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, required := range []string{"gh run download \"$run_id\" --name fleet-verdict", "SUPERSEDED)", "superseded=true", "Missing fleet verdict"} {
+		if !strings.Contains(string(dispatch), required) {
+			t.Errorf("dispatch must distinguish child supersession and reject success without verdict: missing %q", required)
+		}
+	}
+	orchestrator := workflowDoc(t, ".github/workflows/release-fleet-orchestrator.yaml")
+	jobs := orchestrator["jobs"].(map[string]any)
+	for _, job := range []string{"smoke", "install-recovery-harness", "upgrade-arc-harness"} {
+		outputs := jobs[job].(map[string]any)["outputs"].(map[string]any)
+		if outputs["superseded"] != "${{ steps.dispatch.outputs.superseded }}" {
+			t.Errorf("%s must expose child fleet verdict", job)
+		}
+	}
+	if !strings.Contains(jobs["dev-canary"].(map[string]any)["if"].(string), "needs['smoke'].outputs.superseded != 'true'") ||
+		!strings.Contains(jobs["upgrade-arc-harness"].(map[string]any)["if"].(string), "needs['install-recovery-harness'].outputs.superseded != 'true'") {
+		t.Fatal("a superseded child fleet must not dispatch the next fleet")
+	}
+	final := jobSteps(t, ".github/workflows/release-fleet-orchestrator.yaml", "fleet-verdict")
+	check := final[1]["run"].(string)
+	if !strings.Contains(check, `[ "$SMOKE_SUPERSEDED" = true ]`) ||
+		!strings.Contains(check, `[ "$INSTALL_SUPERSEDED" = true ]`) ||
+		!strings.Contains(check, `[ "$UPGRADE_SUPERSEDED" = true ]`) ||
+		!strings.Contains(check, `echo "obsolete=true" >> "$GITHUB_OUTPUT"`) {
+		t.Fatal("final verdict must honor child-observed supersession when its own tag refresh fails")
+	}
 }
 
 func stepIndexByRunContains(t *testing.T, steps []map[string]any, command string) int {

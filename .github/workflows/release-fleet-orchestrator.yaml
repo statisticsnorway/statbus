@@ -135,6 +135,7 @@ jobs:
     timeout-minutes: 90
     outputs:
       run_url: ${{ steps.dispatch.outputs.run-url }}
+      superseded: ${{ steps.dispatch.outputs.superseded }}
       undecidable: ${{ steps.coverage.outputs.undecidable }}
       coverage_error: ${{ steps.coverage.outputs.coverage_error }}
     steps:
@@ -246,7 +247,8 @@ jobs:
       ${{ !cancelled() &&
           needs['decide-obsolete'].result == 'success' &&
           needs['decide-obsolete'].outputs.obsolete == 'false' &&
-          needs['smoke'].result == 'success' }}
+          needs['smoke'].result == 'success' &&
+          needs['smoke'].outputs.superseded != 'true' }}
     runs-on: ubuntu-24.04
     # deploy-to-dev's own convergence poll is the long pole; budget above it.
     timeout-minutes: 90
@@ -363,6 +365,7 @@ jobs:
     timeout-minutes: 180
     outputs:
       run_url: ${{ steps.dispatch.outputs.run-url }}
+      superseded: ${{ steps.dispatch.outputs.superseded }}
       undecidable: ${{ steps.coverage.outputs.undecidable }}
       coverage_error: ${{ steps.coverage.outputs.coverage_error }}
     steps:
@@ -502,7 +505,8 @@ jobs:
       ${{ !cancelled() &&
           needs['decide-obsolete'].result == 'success' &&
           needs['decide-obsolete'].outputs.obsolete == 'false' &&
-          needs['install-recovery-harness'].result == 'success' }}
+          needs['install-recovery-harness'].result == 'success' &&
+          needs['install-recovery-harness'].outputs.superseded != 'true' }}
     runs-on: ubuntu-24.04
     # upgrade-arc-harness.yaml's own stages: construct(15) + image-wait(50)
     # + run-arc(120/job, max-parallel 3, 31 arcs -> up to 11 waves) +
@@ -512,6 +516,7 @@ jobs:
     timeout-minutes: 330
     outputs:
       run_url: ${{ steps.dispatch.outputs.run-url }}
+      superseded: ${{ steps.dispatch.outputs.superseded }}
       undecidable: ${{ steps.coverage.outputs.undecidable }}
       coverage_error: ${{ steps.coverage.outputs.coverage_error }}
     steps:
@@ -691,9 +696,11 @@ jobs:
   # promotable signal for a candidate that was never fully tested.
   #
   # It is an observed outcome, not an approximation via success()/failure().
-  # This final job checks tags for itself. Only that observation may print
-  # SUPERSEDED. Otherwise it names the first real failed stage and its child
-  # URL, then fails too so a child failure cannot acquire a reassuring label.
+  # This final job checks tags for itself AND honors a child fleet's recorded
+  # per-scenario supersession if its own tag refresh is unavailable. Only
+  # observed tag/child evidence may print SUPERSEDED. Otherwise it names the
+  # first real failed stage and its child URL, then fails too so a child
+  # failure cannot acquire a reassuring label.
   # ═══════════════════════════════════════════════════════════════════════
   fleet-verdict:
     name: "Fleet verdict — superseded or failed"
@@ -731,14 +738,24 @@ jobs:
 
       - name: "Decision point: was this candidate superseded at any time during the chain?"
         id: obsolete
+        env:
+          SMOKE_SUPERSEDED: ${{ needs.smoke.outputs.superseded }}
+          INSTALL_SUPERSEDED: ${{ needs['install-recovery-harness'].outputs.superseded }}
+          UPGRADE_SUPERSEDED: ${{ needs['upgrade-arc-harness'].outputs.superseded }}
         run: |
           set -euo pipefail
-          git fetch --tags --quiet origin || true
+          if ! git fetch --tags --quiet origin; then
+            echo '::warning title=RC freshness unknown::final tag refresh failed; preserving any child-observed supersession'
+          fi
           THIS_TAG="${{ github.ref_name }}"
           NEWEST="$(git tag --sort=-version:refname | grep -- '-rc\.' | sed -n '1p' || true)"
-          if [ -n "$NEWEST" ] && [ "$NEWEST" != "$THIS_TAG" ]; then
+          if [ "$NEWEST" = "$THIS_TAG" ]; then
+            NEWEST=""
+          fi
+          if { [ -n "$NEWEST" ] && [ "$NEWEST" != "$THIS_TAG" ]; } ||
+             [ "$SMOKE_SUPERSEDED" = true ] || [ "$INSTALL_SUPERSEDED" = true ] || [ "$UPGRADE_SUPERSEDED" = true ]; then
             echo "obsolete=true" >> "$GITHUB_OUTPUT"
-            echo "newer=$NEWEST" >> "$GITHUB_OUTPUT"
+            echo "newer=${NEWEST:-a newer candidate observed by a child fleet}" >> "$GITHUB_OUTPUT"
           else
             echo "obsolete=false" >> "$GITHUB_OUTPUT"
             echo "newer=" >> "$GITHUB_OUTPUT"

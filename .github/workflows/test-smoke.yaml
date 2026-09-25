@@ -98,16 +98,26 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Stop superseded candidate before scenario VM boot
+        id: freshness
+        uses: ./.github/actions/scenario-superseded
+        with:
+          candidate-ref: ${{ github.ref_name }}
+          scenario: ${{ matrix.scenario }}
+
       - name: Set up Go
+        if: steps.freshness.outputs.superseded != 'true'
         uses: actions/setup-go@v5
         with:
           go-version-file: cli/go.mod
           cache-dependency-path: cli/go.sum
 
       - name: Build sb binary (linux/amd64)
+        if: steps.freshness.outputs.superseded != 'true'
         run: ./dev.sh build-sb linux/amd64
 
       - name: Install hcloud CLI
+        if: steps.freshness.outputs.superseded != 'true'
         env:
           HCLOUD_CLI_VERSION: "1.64.1"
         run: |
@@ -120,6 +130,7 @@ jobs:
           hcloud version
 
       - name: Install CI SSH private key
+        if: steps.freshness.outputs.superseded != 'true'
         env:
           STATBUS_CI_SSH_PRIVATE_KEY: ${{ secrets.STATBUS_CI_SSH_PRIVATE_KEY }}
         run: |
@@ -131,6 +142,7 @@ jobs:
           ssh-keygen -lf ~/.ssh/id_ed25519 | awk '{ print "SSH key fingerprint:", $2 }'
 
       - name: Run selected smoke scenario on Hetzner VM
+        if: steps.freshness.outputs.superseded != 'true'
         env:
           HCLOUD_TOKEN: ${{ secrets.HCLOUD_TOKEN }}
           HCLOUD_SSH_KEY: statbus-ci
@@ -144,7 +156,7 @@ jobs:
           esac
 
       - name: Cat install log on failure
-        if: failure()
+        if: ${{ failure() && steps.freshness.outputs.superseded != 'true' }}
         run: |
           for log in tmp/install-recovery-*-install.log; do
             [ -e "$log" ] || continue
@@ -154,7 +166,7 @@ jobs:
           done
 
       - name: Upload install log on failure
-        if: failure()
+        if: ${{ failure() && steps.freshness.outputs.superseded != 'true' }}
         uses: actions/upload-artifact@v4
         with:
           name: install-recovery-log-${{ matrix.scenario }}-${{ github.run_id }}
@@ -163,7 +175,7 @@ jobs:
           if-no-files-found: warn
 
       - name: Reap own orphan VM (defense in depth)
-        if: always()
+        if: ${{ always() && steps.freshness.outputs.superseded != 'true' }}
         env:
           HCLOUD_TOKEN: ${{ secrets.HCLOUD_TOKEN }}
           SCENARIO: ${{ matrix.scenario }}
@@ -181,3 +193,19 @@ jobs:
             echo "Own VM $vm already gone (scenario trap cleaned up) — nothing to reap."
           fi
           exit 0
+
+  fleet-verdict:
+    name: Aggregate scenario freshness verdict
+    needs: [select, smoke]
+    if: ${{ always() && needs.select.outputs.matrix != '' }}
+    runs-on: ubuntu-24.04
+    outputs:
+      superseded: ${{ steps.verdict.outputs.superseded }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Aggregate and publish fleet verdict
+        id: verdict
+        uses: ./.github/actions/scenario-fleet-verdict
+        with:
+          matrix-json: ${{ needs.select.outputs.matrix }}
