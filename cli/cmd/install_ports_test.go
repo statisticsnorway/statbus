@@ -71,7 +71,7 @@ func TestCheckInstallPortsOwnAndForeign(t *testing.T) {
 		t.Fatalf("foreign listener not refused: %v", err)
 	}
 	probeServiceStatuses = func(string) ([]serviceStatus, error) { return nil, errors.New("compose unavailable") }
-	if err := checkInstallPorts(dir); err == nil || !strings.Contains(err.Error(), "port 3014 is in use") || !strings.Contains(err.Error(), "could not ask Docker") || !strings.Contains(err.Error(), "compose unavailable") || !strings.Contains(err.Error(), "Your answers are saved") || strings.Contains(err.Error(), "another program") {
+	if err := checkInstallPorts(dir); err == nil || !strings.Contains(err.Error(), "port 3014 is in use by another program") || !strings.Contains(err.Error(), "Docker service ownership could not be checked") || strings.Contains(err.Error(), "compose unavailable") || !strings.Contains(err.Error(), "Your answers are saved") {
 		t.Fatalf("probe failure incorrectly blamed a foreign program: %v", err)
 	}
 	occupiedPortOwner = func(installPort) string { return "" }
@@ -111,6 +111,18 @@ func TestCheckInstallPortsOwnAndForeign(t *testing.T) {
 	t.Setenv("PATH", bin+string(os.PathListSeparator)+os.Getenv("PATH"))
 	if err := checkInstallPorts(dir); err == nil || !strings.Contains(err.Error(), "port 80 is in use by apache2. Free the port with sudo systemctl disable --now apache2.") || !strings.Contains(err.Error(), "Your answers are saved. Then run the same install command again: curl -fsSL https://statbus.org/install.sh") {
 		t.Fatalf("Apache remedy lost when Docker probe fails: %v", err)
+	}
+	for _, owner := range []string{"python3", "another program"} {
+		occupiedPortOwner = func(port installPort) string {
+			if port.number == 80 {
+				return owner
+			}
+			return ""
+		}
+		err := checkInstallPorts(dir)
+		if err == nil || !strings.HasPrefix(err.Error(), "port 80 is in use by "+owner+".") || !strings.Contains(err.Error(), "Your answers are saved") {
+			t.Fatalf("probe-error port refusal for %s lost its owner: %v", owner, err)
+		}
 	}
 }
 

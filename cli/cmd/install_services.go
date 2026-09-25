@@ -495,10 +495,11 @@ func waitForServicesRunning(dir string, budget, interval time.Duration) ([]servi
 }
 
 // runStartServices is step 8's action. `up -d` is idempotent: it creates what
-// is missing, recreates what changed and leaves the rest alone. Then the role
-// passwords are made equal to .env over the db container's local socket, the
-// clients that log in with them are restarted if any changed, and the step
-// waits until every service is running, naming any that is not.
+// is missing, recreates what changed and leaves the rest alone. Once the DB
+// is healthy, make role passwords equal to .env over its local socket and
+// restart password clients. Only then reconcile published ports: with stale
+// passwords, a crash-looping rest cannot publish its port. Finally wait for
+// every service to run, naming any that does not.
 func runStartServices(dir string) (result error) {
 	defer func() {
 		if result != nil {
@@ -507,10 +508,6 @@ func runStartServices(dir string) (result error) {
 	}()
 	fmt.Println("  Starting every service: database, web server, API, web app, background worker ...")
 	upErr := composeUpAll(dir)
-	if err := reconcilePublishedPorts(dir); err != nil {
-		return err
-	}
-
 	if !waitForInstallDBHealth(dir, time.Now().Add(servicesDBHealthyBudget), servicesPollInterval) {
 		if upErr != nil {
 			return fmt.Errorf("the database did not start: %w", upErr)
@@ -527,6 +524,9 @@ func runStartServices(dir string) (result error) {
 		if err := restartPasswordClients(dir, passwordClients); err != nil {
 			fmt.Printf("  Restarting the services that use those passwords did not finish cleanly: %v\n", err)
 		}
+	}
+	if err := reconcilePublishedPorts(dir); err != nil {
+		return err
 	}
 
 	problems, probeErr := waitForServicesRunning(dir, servicesRunningBudgetVar, servicesPollInterval)

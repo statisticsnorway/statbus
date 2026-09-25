@@ -253,6 +253,50 @@ func TestInstallRefusesRestartBeforeProbes(t *testing.T) {
 	}
 }
 
+// The fixture's app-only restart leaves the upgrade daemon untouched. A live
+// holder must block the installer; after it exits the exact same intent must
+// be restorable without attempting to start an unspecified systemd unit.
+func TestAppRestartLivenessAndStaleRecovery(t *testing.T) {
+	dir := t.TempDir()
+	lock, _, _, err := upgrade.AcquireRestartFlag(dir, "app")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := upgrade.PrepareRestart(lock, upgrade.RestartIntent{Profile: "app", Daemon: false}); err != nil {
+		t.Fatal(err)
+	}
+	if err := upgrade.CheckRestartBarrier(dir); err == nil || !strings.Contains(err.Error(), "still running") {
+		t.Fatalf("live restart must refuse install: %v", err)
+	}
+	if err := restartServicesWith(dir, "app", restartOperations{stack: func(string) error { t.Fatal("live restart reached stack"); return nil }}); err == nil {
+		t.Fatal("live restart was acquired")
+	}
+	lock.Close()
+	if upgrade.IsFlockHeld(dir) {
+		t.Fatal("released restart still held")
+	}
+	if err := upgrade.CheckRestartBarrier(dir); err == nil {
+		t.Fatal("stale restart barrier missing")
+	}
+	stackCalls := 0
+	err = restartServicesWith(dir, "app", restartOperations{
+		stack: func(profile string) error {
+			stackCalls++
+			if profile != "app" {
+				t.Fatal(profile)
+			}
+			return nil
+		},
+		systemctl: func(args ...string) (string, error) { t.Fatalf("app restart tried systemctl %v", args); return "", nil },
+	})
+	if err != nil || stackCalls != 1 {
+		t.Fatalf("stale restart: %v, stack calls: %d", err, stackCalls)
+	}
+	if flag, err := upgrade.ReadFlagFile(dir); err != nil || flag != nil {
+		t.Fatalf("stale marker survived: %v, %v", flag, err)
+	}
+}
+
 func TestInstallRestoresStaleRestartOnlyInFixtureProject(t *testing.T) {
 	home, _ := unattendedFixture(t)
 	t.Setenv("HOME", home)

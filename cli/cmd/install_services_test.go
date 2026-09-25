@@ -304,6 +304,59 @@ func TestRunStartServicesBringsUpEverythingAndHealsPasswords(t *testing.T) {
 	}
 }
 
+// STATBUS-407: with a surviving DB volume and newly generated credentials,
+// rest crash-loops and does not publish its port until its DB role is repaired.
+// Pin the production action's ordering, not just this fixture's final state.
+func TestRunStartServicesSyncsPasswordsBeforePublishedPorts(t *testing.T) {
+	src, err := os.ReadFile(thisRepoFile(t, "cli/cmd/install_services.go"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	body := string(src)
+	start := strings.Index(body, "func runStartServices(")
+	if start < 0 {
+		t.Fatal("cannot find runStartServices")
+	}
+	end := strings.Index(body[start:], "\n// checkDBHealthy")
+	if end < 0 {
+		t.Fatal("cannot find runStartServices body")
+	}
+	fn := body[start : start+end]
+	up := strings.Index(fn, "composeUpAll(dir)")
+	health := strings.Index(fn, "waitForInstallDBHealth(dir,")
+	sync := strings.Index(fn, "syncRolePasswords(dir)")
+	restart := strings.Index(fn, "restartPasswordClients(dir, passwordClients)")
+	ports := strings.Index(fn, "reconcilePublishedPorts(dir)")
+	ready := strings.Index(fn, "waitForServicesRunning(dir,")
+	if up < 0 || health <= up || sync <= health || restart <= sync || ports <= restart || ready <= ports {
+		t.Fatalf("step 8 order must be compose up -> DB health -> password sync -> client restart -> port reconciliation -> service readiness; offsets up=%d health=%d sync=%d restart=%d ports=%d ready=%d", up, health, sync, restart, ports, ready)
+	}
+}
+
+func TestRunStartServicesOrphanedVolumeRepairsBeforePortProbe(t *testing.T) {
+	dir := dbHealthyDir(t)
+	f := &fakeStack{
+		statuses: []serviceStatus{running("db"), {Service: "rest", State: "restarting"}},
+		onUp: func(f *fakeStack) {
+			f.statuses = []serviceStatus{running("app"), running("db"), running("proxy"),
+				{Service: "rest", State: "restarting"}, running("worker")}
+		},
+	}
+	installFakeStack(t, f)
+	configuredServicePorts = func(string) (map[string][]configuredPort, error) {
+		if !f.passwordsAgree {
+			return nil, errors.New("authenticator is still using the old password; rest port absent")
+		}
+		return map[string][]configuredPort{}, nil
+	}
+	if err := runStartServices(dir); err != nil {
+		t.Fatalf("orphaned volume should be repaired before port inspection: %v", err)
+	}
+	if f.syncCalls != 1 || !f.passwordsAgree {
+		t.Fatalf("role passwords were not reconciled: %+v", f)
+	}
+}
+
 func TestRunStartServicesNamesTheServiceThatDoesNotStart(t *testing.T) {
 	dir := dbHealthyDir(t)
 	f := &fakeStack{
@@ -336,6 +389,9 @@ func TestStartEarlyFailuresPrintSixServiceInventory(t *testing.T) {
 			t.Cleanup(func() { upgradeUnitState = oldUnit })
 			if failure == "ports" {
 				configuredServicePorts = func(string) (map[string][]configuredPort, error) { return nil, errors.New("ports unavailable") }
+				oldHealth := checkDBHealthyFn
+				checkDBHealthyFn = func(string) bool { return true }
+				t.Cleanup(func() { checkDBHealthyFn = oldHealth })
 			}
 			if failure == "database" {
 				old := checkDBHealthyFn
