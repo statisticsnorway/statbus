@@ -426,6 +426,85 @@ func TestGithubTokenExplicitValueReachesGeneratedEnv_STATBUS341(t *testing.T) {
 	}
 }
 
+func TestLegacySecretsMigrateOnce_STATBUS361(t *testing.T) {
+	dir := t.TempDir()
+	configPath := filepath.Join(dir, ".env.config")
+	credentialsPath := filepath.Join(dir, ".env.credentials")
+	if err := os.WriteFile(configPath, []byte("CADDY_DEPLOYMENT_MODE=development\nGITHUB_TOKEN=legacy-token\nSLACK_TOKEN=legacy-slack\nSEQ_API_KEY=legacy-seq\n"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if err := migrateLegacySecrets(dir); err != nil {
+		t.Fatal(err)
+	}
+	config, err := os.ReadFile(configPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	credentials, err := os.ReadFile(credentialsPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	info, err := os.Stat(credentialsPath)
+	if err != nil || info.Mode().Perm() != 0600 {
+		t.Fatalf("migrated credentials must be mode 0600: %v, %v", info, err)
+	}
+	for _, key := range []string{"GITHUB_TOKEN", "SLACK_TOKEN", "SEQ_API_KEY"} {
+		if strings.Contains(string(config), key+"=") || !strings.Contains(string(credentials), key+"=legacy-") {
+			t.Fatalf("%s not moved: config=%s credentials=%s", key, config, credentials)
+		}
+	}
+	if _, err := loadOrGenerateConfig(dir, false); err != nil {
+		t.Fatalf("migrated config rejected: %v", err)
+	}
+	if err := migrateLegacySecrets(dir); err != nil {
+		t.Fatal(err)
+	}
+	again, err := os.ReadFile(credentialsPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(again) != string(credentials) {
+		t.Fatalf("second migration changed credentials")
+	}
+}
+
+func TestExistingCredentialWinsDuringMigration_STATBUS361(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, ".env.config"), []byte("GITHUB_TOKEN=new-token\n"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, ".env.credentials"), []byte("GITHUB_TOKEN=existing-token\n"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if err := migrateLegacySecrets(dir); err != nil {
+		t.Fatal(err)
+	}
+	credentials, err := os.ReadFile(filepath.Join(dir, ".env.credentials"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(credentials), "GITHUB_TOKEN=existing-token") {
+		t.Fatalf("existing credential overwritten: %s", credentials)
+	}
+}
+
+func TestInstallationProvisionerWritesSecretsToCredentials_STATBUS361(t *testing.T) {
+	script, err := os.ReadFile(filepath.Join("..", "..", "..", "ops", "create-new-statbus-installation.sh"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, line := range []string{"set_credential SEQ_API_KEY", "set_credential SLACK_TOKEN", "chmod 600 .env.credentials"} {
+		if !strings.Contains(string(script), line) {
+			t.Fatalf("provisioner missing %q", line)
+		}
+	}
+	for _, line := range []string{"set_or_update SEQ_API_KEY", "set_or_update SLACK_TOKEN"} {
+		if strings.Contains(string(script), line) {
+			t.Fatalf("provisioner still writes a secret through config helper: %q", line)
+		}
+	}
+}
+
 // TestGenerateEnvContent_RestAdminBindAddress verifies the generated .env
 // carries REST_ADMIN_BIND_ADDRESS with the offset+6 loopback value. This
 // guards the fragile positional-index wiring in the head template (%[26]s):

@@ -1191,10 +1191,52 @@ func GenerateInDir(projDir string, verbose bool) error {
 	return generateInDir(projDir, projDir, verbose)
 }
 
+// migrateLegacySecrets moves old operator tokens before either config file is
+// generated. Save credentials first so a failed config write never loses a token.
+func migrateLegacySecrets(projDir string) error {
+	config, err := dotenv.Load(filepath.Join(projDir, ".env.config"))
+	if err != nil {
+		return err
+	}
+	credentials, err := dotenv.Load(filepath.Join(projDir, ".env.credentials"))
+	if err != nil {
+		return err
+	}
+	var moved []string
+	for _, key := range []string{"GITHUB_TOKEN", "SLACK_TOKEN", "SEQ_API_KEY"} {
+		value, found := config.Get(key)
+		if !found {
+			continue
+		}
+		if _, present := credentials.Get(key); !present {
+			credentials.Set(key, value)
+		}
+		config.Delete(key)
+		moved = append(moved, key)
+	}
+	if len(moved) == 0 {
+		return nil
+	}
+	if err := credentials.Save(); err != nil {
+		return fmt.Errorf("save migrated credentials: %w", err)
+	}
+	if err := os.Chmod(filepath.Join(projDir, ".env.credentials"), 0600); err != nil {
+		return fmt.Errorf("protect migrated credentials: %w", err)
+	}
+	if err := config.Save(); err != nil {
+		return fmt.Errorf("save config after credential migration: %w", err)
+	}
+	fmt.Fprintf(os.Stderr, "Moved %s from .env.config to .env.credentials.\n", strings.Join(moved, ", "))
+	return nil
+}
+
 // generateInDir renders into projDir while resolving VERSION/COMMIT_SHORT from
 // gitDir. GeneratedFilesMatch uses an isolated destination but the real checkout
 // as the identity source.
 func generateInDir(projDir, gitDir string, verbose bool) error {
+	if err := migrateLegacySecrets(projDir); err != nil {
+		return err
+	}
 
 	creds, err := loadOrGenerateCredentials(projDir, verbose)
 	if err != nil {

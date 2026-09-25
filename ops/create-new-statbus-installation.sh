@@ -361,6 +361,18 @@ ssh $DEPLOYMENT_USER@$HOST bash << UPDATE_SETTINGS
         fi
     }
 
+    # Tokens belong in the private credentials file, never in .env.config.
+    touch .env.credentials
+    chmod 600 .env.credentials
+    set_credential() {
+        key="\$1"; value="\$2"
+        if grep -q "^\${key}=" .env.credentials; then
+            sed -i "s#^\${key}=.*#\${key}=\${value}#" .env.credentials
+        else
+            echo "\${key}=\${value}" >> .env.credentials
+        fi
+    }
+
     set_or_update DEPLOYMENT_SLOT_PORT_OFFSET "$OFFSET"
     set_or_update DEPLOYMENT_SLOT_NAME "$DEPLOYMENT_SLOT_NAME"
     set_or_update DEPLOYMENT_SLOT_CODE "$DEPLOYMENT_SLOT_CODE"
@@ -381,19 +393,25 @@ ssh $DEPLOYMENT_USER@$HOST bash << UPDATE_SETTINGS
     set_or_update BROWSER_REST_URL "https://$DOMAIN"
 
     # Check and update API keys from statbus_dev if defaults are present
-    current_seq_key=\$(grep '^SEQ_API_KEY=' .env.config | cut -d'=' -f2)
+    current_seq_key=\$(grep '^SEQ_API_KEY=' .env.credentials | cut -d'=' -f2)
     if [ -z "\$current_seq_key" ] || [ "\$current_seq_key" = "secret_seq_api_key" ]; then
-        dev_seq_key=\$(grep '^SEQ_API_KEY=' /home/statbus_dev/statbus/.env.config | cut -d'=' -f2)
-        set_or_update SEQ_API_KEY "\$dev_seq_key"
+        dev_seq_key=\$(grep '^SEQ_API_KEY=' /home/statbus_dev/statbus/.env.credentials | cut -d'=' -f2-)
+        if [ -z "\$dev_seq_key" ]; then
+            dev_seq_key=\$(grep '^SEQ_API_KEY=' /home/statbus_dev/statbus/.env.config | cut -d'=' -f2-)
+        fi
+        set_credential SEQ_API_KEY "\$dev_seq_key"
         echo "Updated SEQ_API_KEY from statbus_dev"
     else
         echo "SEQ_API_KEY already configured with non-default value"
     fi
 
-    current_slack_token=\$(grep '^SLACK_TOKEN=' .env.config | cut -d'=' -f2)
+    current_slack_token=\$(grep '^SLACK_TOKEN=' .env.credentials | cut -d'=' -f2)
     if [ -z "\$current_slack_token" ] || [ "\$current_slack_token" = "secret_slack_api_token" ]; then
-        dev_slack_token=\$(grep '^SLACK_TOKEN=' /home/statbus_dev/statbus/.env.config | cut -d'=' -f2)
-        set_or_update SLACK_TOKEN "\$dev_slack_token"
+        dev_slack_token=\$(grep '^SLACK_TOKEN=' /home/statbus_dev/statbus/.env.credentials | cut -d'=' -f2-)
+        if [ -z "\$dev_slack_token" ]; then
+            dev_slack_token=\$(grep '^SLACK_TOKEN=' /home/statbus_dev/statbus/.env.config | cut -d'=' -f2-)
+        fi
+        set_credential SLACK_TOKEN "\$dev_slack_token"
         echo "Updated SLACK_TOKEN from statbus_dev"
     else
         echo "SLACK_TOKEN already configured with non-default value"
