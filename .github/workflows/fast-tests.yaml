@@ -34,7 +34,7 @@ run-name: >-
 
 # Fast Tests — pg_regress fast suite, gated to run AFTER the Images build.
 #
-# Trigger model (mirrors pg_regress.yaml):
+# Trigger model:
 #   - workflow_run on "Images" completion (fires for master pushes once Images
 #     finishes): reuse the commit_short-tagged images Images just published —
 #     PULL them, no local rebuild — and fetch the published seed image (which
@@ -60,10 +60,7 @@ run-name: >-
 # still exists per master commit — workflow_run fires once Images completes for
 # that commit (the RC tags a master commit).
 #
-# Relationship to pg_regress.yaml: pg_regress SSHes to niue.statbus.org and runs
-# the FULL suite (incl 4xx/5xx imports) on a provisioned server — complementary,
-# deeper, external-server-dependent. This is the lightweight always-available
-# gate: fast suite only, in-runner, no external dependencies.
+# Locally, ./dev.sh continous-integration-test runs the same fast SQL suite.
 
 on:
   # If the master run was classified before the RC tag existed, its master

@@ -105,6 +105,33 @@ func TestCIExemptPathsFile_IsNotItselfExempt(t *testing.T) {
 	if len(exempt) == 0 {
 		t.Fatal("the exempt list is empty — if that is deliberate, the ride mechanism is dead code")
 	}
+	// Generated database reference is exempt, not hand-authored docs or inputs.
+	for _, tc := range []struct {
+		path string
+		want bool
+	}{
+		{"doc/db/table/public_upgrade.md", true},
+		{"doc/db/function/public_auth_status().md", true},
+		{"doc/db/view/public_statistical_unit_def.md", true},
+		// Only the three generated subdirectories are exempt; anything else
+		// under doc/db/ is hand-authored and must never ride.
+		{"doc/db/README.md", false},
+		{"doc/db/notes.md", false},
+		{"doc/db-security-report.md", false},
+		{"doc/DEVELOPMENT.md", false},
+		{"cli/sql/generate_database_types.sql", false},
+		{"migrations/20260101000000_x.up.sql", false},
+		{"test/sql/008_verify_rls_and_grants.sql", false},
+		{"app/src/app/page.tsx", false},
+		{"ops/release/ci-exempt-paths.txt", false},
+	} {
+		if got := fileIsCIExempt(tc.path, exempt); got != tc.want {
+			t.Errorf("exempt(%q) = %v, want %v", tc.path, got, tc.want)
+		}
+	}
+	if ok, _, _ := changedFilesAllExempt([]string{"doc/db/table/public_upgrade.md", "doc/DEVELOPMENT.md"}, exempt); ok {
+		t.Error("mixed generated and hand-authored docs must require fresh checks")
+	}
 	if fileIsCIExempt(ciExemptPathsFile, exempt) {
 		t.Fatalf("%s matches its OWN list (%v) — changing what counts as test-irrelevant would then ride a prior green, which is exactly the act that must always be tested (AC#5)", ciExemptPathsFile, exempt)
 	}

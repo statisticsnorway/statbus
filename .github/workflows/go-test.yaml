@@ -25,10 +25,9 @@ name: Go Test
 # STATBUS-219 Stage 2 (doc-030, architect comment #11): this workflow is an
 # INDEPENDENT trigger — nothing chains off it — so a board-only push that
 # matches paths-ignore below produces NO run at all, with no conclusion for
-# anything downstream to misread (unlike pg_regress/fast-tests, which are
+# anything downstream to misread (unlike fast-tests, which is
 # workflow_run-chained off Images and therefore MUST keep running
-# unconditionally; see pg_regress.yaml's own comment for why that half was
-# ruled explicitly OUT of scope here). The resulting Missing at the tip is
+# unconditionally). The resulting Missing at the tip is
 # exactly what STATBUS-219 Stage 1's ancestor-ride in the release preflight
 # was built and RED-verified to cover.
 #
@@ -43,6 +42,9 @@ on:
     branches: [master]
     paths-ignore:
       - '.backlog/**'
+      - 'doc/db/table/**'
+      - 'doc/db/view/**'
+      - 'doc/db/function/**'
   pull_request:
     branches-ignore:
       - 'ops/**'

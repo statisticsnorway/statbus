@@ -20,6 +20,9 @@ on:
       - 'ops/**'  # Ignore any branch prefixed with ops/
     paths-ignore:
       - '.backlog/**'
+      - 'doc/db/table/**'
+      - 'doc/db/view/**'
+      - 'doc/db/function/**'
   pull_request:
     branches-ignore:
       - 'ops/**'  # Ignore any branch prefixed with ops/

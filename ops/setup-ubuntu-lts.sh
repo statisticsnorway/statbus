@@ -1402,8 +1402,8 @@ stage_ci_allowlist() {
     # permitted commands), so it would not open the door — but it would break
     # every CI path on the box while looking like a successful run. Both grammar
     # lines are load-bearing: `match hexdigits` is what lets a 40-char SHA be
-    # matched at all, and its absence would silently refuse the pg_regress
-    # runner and any commit-addressed entry.
+    # matched at all, and its absence would silently refuse any
+    # commit-addressed entry.
     if [[ ! -s "$staged" ]]; then
         log_error "The fetched allowlist is EMPTY — refusing to install it."
         FAILED_VERIFICATIONS+=("Stage 8: fetched allowlist was empty")

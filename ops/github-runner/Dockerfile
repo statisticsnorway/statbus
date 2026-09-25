@@ -1,5 +1,5 @@
 # statbus-gha-runner — a containerized GitHub Actions self-hosted runner for the
-# workflows that SSH into niue (the upgrade poke to the cloud slots, pg_regress).
+# workflows that SSH into niue (including the upgrade poke to cloud slots).
 # It runs those jobs FROM niue instead of from a GitHub-hosted Azure runner, whose
 # IP ranges intermittently sit on niue's CrowdSec community blocklist and get their
 # SSH dropped — so our own CI can't reach our own box. Moving the SSH *client* onto

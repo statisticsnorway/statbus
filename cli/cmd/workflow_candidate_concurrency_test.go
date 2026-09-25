@@ -183,17 +183,4 @@ func TestFastTestsCandidateConcurrency_STATBUS415(t *testing.T) {
 	if keys["PR 1"] == keys["PR 2"] {
 		t.Error("unrelated PRs must have separate groups")
 	}
-
-	regress := loadConcurrencyWorkflow(t, "pg_regress.yaml")
-	for name, job := range regress.Jobs {
-		if job.Concurrency.Group == "" {
-			continue
-		}
-		if job.Concurrency.Cancel {
-			t.Errorf("%s: pg_regress must not cancel in-flight gate evidence", name)
-		}
-		if job.Concurrency.Group != "statbus_test" {
-			t.Errorf("%s: unexpected pg_regress group %q", name, job.Concurrency.Group)
-		}
-	}
 }

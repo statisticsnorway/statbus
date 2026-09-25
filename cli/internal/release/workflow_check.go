@@ -24,7 +24,6 @@ const (
 	WorkflowTestInstallLegacy      = "test-install.yaml"
 	WorkflowTestUpgradeLegacy      = "test-upgrade.yaml"
 	WorkflowInstallRecoveryHarness = "install-recovery-harness.yaml"
-	WorkflowPgRegress              = "pg_regress.yaml"
 	// WorkflowAppBuildLint (STATBUS-199): app/ build + lint. Never gated
 	// anywhere before this — gains its first release-gate consumer at the
 	// prerelease preflight (D1 layer re-map).
@@ -152,7 +151,7 @@ const exercisedSHAMarker = "exercised-sha="
 
 func workflowCarriesExercisedMarker(workflow string) bool {
 	switch workflow {
-	case WorkflowFastTests, WorkflowPgRegress:
+	case WorkflowFastTests:
 		return true
 	}
 	return false
