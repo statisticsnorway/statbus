@@ -4,7 +4,7 @@ title: Every fault scenario starts from one installed snapshot on a warm LXD box
 status: To Do
 assignee: []
 created_date: '2026-09-25 11:15'
-updated_date: '2026-09-25 20:14'
+updated_date: '2026-09-25 20:20'
 labels:
   - harness
   - velocity
@@ -49,6 +49,10 @@ The warm box is not permanent: **ramp up on demand, keep it warm while used, the
 ## Trigger correction, 2026-09-25 20:14Z (owner)
 
 Ramp-up triggers at the **release-candidate cut** (the rc tag / orchestrator dispatch), NOT at master push: only a tagged candidate is ever exercised by the fleet. A master push without a candidate must not start the box. Idle reaper: ~3 hours after last fleet activity (owner-confirmed).
+
+## Strategy confirmed, 2026-09-25 20:19Z (owner)
+
+Run BOTH fleets in parallel per candidate: the Hetzner VM fleet stays the proof of record while the LXD fork fleet proves parity. Once the lifecycle (ramp at candidate cut, 3h idle reaper) and the full-suite parity run are proven, the LXD fleet REPLACES the VM scenarios. Stages: (2) per-scenario checkpoints + full-suite parity verdict comparison on one candidate; (3) lifecycle automation + orchestrator wiring; (4) retire the VM scenarios.
 
 <!-- SECTION:DESCRIPTION:END -->
 

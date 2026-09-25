@@ -4,7 +4,7 @@ title: The harness proofs of record install StatBus the way a national statistic
 status: To Do
 assignee: []
 created_date: '2026-09-25 12:20'
-updated_date: '2026-09-25 13:03'
+updated_date: '2026-09-25 20:57'
 labels:
   - harness
   - owner-decision
@@ -60,6 +60,10 @@ Consequence for this ticket: the harness proofs of record and the STATBUS-417 fa
 ## ACME coverage decision, 2026-09-25 13:02Z
 
 There will be **no harness test with real public DNS and a real certificate**. The Norwegian installation IS that proof: it runs standalone in the cloud with a real Let's Encrypt certificate. The harness keeps only the graceful-behavior scenario `4-install-standalone-no-public-dns` (installer must detect absent public DNS and must not promise an automatic certificate). Everything else certificate-related in the harness uses pre-provisioned `TLS_CERT_FILE`/`TLS_KEY_FILE`.
+
+## Implemented, 2026-09-25 (merge 61f6df742, branch fix/418-harness-standalone d82fe6e32)
+
+vm-bootstrap defaults to standalone; VM-local CA + server cert generated pre-install and staged through the product's real TLS_CERT_FILE/TLS_KEY_FILE custom-cert path (install.sh staging is fail-closed behind an exact harness-only signal and verified-FRESH state); 0-happy-install, 0-happy-upgrade, 0-interactive-admin-password and the generic fault scenarios run standalone with CA-verified HTTPS health assertions; port probes are mode-appropriate (443, not 301x). 4-install-standalone-no-public-dns unchanged. Two review rounds. AC #3 (a candidate gate run proving it) pending on rc.06.
 
 <!-- SECTION:DESCRIPTION:END -->
 

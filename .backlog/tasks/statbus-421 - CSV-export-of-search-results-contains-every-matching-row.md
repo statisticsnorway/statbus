@@ -27,4 +27,8 @@ Reported by Erik 2026-09-25 (Slack): exporting all legal units + establishments 
 - Memory: buffering 1.9M rows as JSON in the route handler is heavy; CSV should stream page-by-page into the response.
 - Expected full count for Norway: ~1.9M units (legal units + establishments).
 
+## Fix merged, 2026-09-25 (commit bc8d94082)
+
+/app/src/app/api/search/export/route.ts now streams successive 100k-row PostgREST pages into the CSV response with backpressure; ordering is name.asc + tiebreakers unit_type, unit_id, valid_from, valid_to (unique per the view's UNION ALL timeline inputs). XLSX fails closed with 413 + CSV recommendation when the exact count is unavailable or exceeds 1,048,575 data rows, and accumulation is bounded by the up-front count. UI disables Excel above the threshold. Two independent review rounds; Jest coverage for multi-page assembly, refusals, ordering. Known limit (documented in code): offset pagination is not snapshot-consistent under concurrent writes; a stronger guarantee needs a snapshot/keyset design. Awaiting CI green + candidate gate as final evidence.
+
 <!-- SECTION:DESCRIPTION:END -->
