@@ -1584,6 +1584,12 @@ install_statbus_at_sha() {
     local install_command='STATBUS_MIN_DISK_GB=5 ./sb install --non-interactive --trust-github-user jhf'
     local users_export='export STATBUS_USERS_FILE=/tmp/users.yml'
     local fresh_install_command='bash /tmp/statbus-install.sh --non-interactive'
+    local install_version_export="export STATBUS_INSTALL_VERSION=${release_tag}"
+    if [ "${HARNESS_INSTALL_PRERELEASE_CHANNEL:-0}" = 1 ]; then
+        [ -n "$release_tag" ] && [[ "$release_tag" == *-rc.* ]] || { echo 'prerelease channel requires an rc candidate tag' >&2; return 1; }
+        fresh_install_command='bash /tmp/statbus-install.sh --channel prerelease --non-interactive'
+        install_version_export='unset STATBUS_INSTALL_VERSION'
+    fi
     if [ "${HARNESS_INTERACTIVE_ADMIN:-0}" = 1 ]; then
         users_export='unset STATBUS_USERS_FILE'
         fresh_install_command='expect /tmp/statbus-admin.exp'
@@ -1650,7 +1656,7 @@ esac
 export STATBUS_ENV_CONFIG="\$HOME/install-input.env"
 $(if [ "${HARNESS_DEPLOYMENT_MODE:-standalone}" = standalone ] && [ "${HARNESS_NO_CUSTOM_CERT:-0}" != 1 ]; then printf 'export STATBUS_HARNESS_CERT_STAGING="$HOME/harness-certs"'; fi)
 ${users_export}
-export STATBUS_INSTALL_VERSION=${release_tag}
+${install_version_export}
 ${fresh_install_command}
 SCRIPT
     else
