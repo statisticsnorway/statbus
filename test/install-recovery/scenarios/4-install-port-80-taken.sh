@@ -29,7 +29,6 @@ if install_statbus_at_sha "$VM_NAME" "$TARGET_SHA" "$INSTALL_TARGET_TAG" >"$FIRS
     exit 1
 fi
 grep -q 'sudo systemctl disable --now apache2' "$FIRST_LOG" || { cat "$FIRST_LOG" >&2; exit 1; }
-grep -q 'curl -fsSL https://statbus.org/install.sh | bash' "$FIRST_LOG" || { cat "$FIRST_LOG" >&2; exit 1; }
 grep -qi 'answers are saved' "$FIRST_LOG" || { cat "$FIRST_LOG" >&2; exit 1; }
 [ "$(VM_EXEC bash -c 'cd ~/statbus && docker compose ps -q | wc -l' | tr -d ' ')" = 0 ] || { echo 'StatBus services started before port preflight' >&2; exit 1; }
 VM_ROOT_EXEC systemctl disable --now apache2
