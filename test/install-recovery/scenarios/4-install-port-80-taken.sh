@@ -5,6 +5,7 @@
 set -euo pipefail
 VM_NAME="${1:-statbus-recovery-4-install-port-80-taken}"
 HARNESS_DEPLOYMENT_MODE=standalone
+HARNESS_INSTALL_PRERELEASE_CHANNEL=1
 LIB_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/lib"
 REPO_ROOT="$(cd "$LIB_DIR/../../.." && pwd)"
 source "$LIB_DIR/release-baseline.sh"
@@ -32,10 +33,11 @@ grep -q 'sudo systemctl disable --now apache2' "$FIRST_LOG" || { cat "$FIRST_LOG
 grep -qi 'answers are saved' "$FIRST_LOG" || { cat "$FIRST_LOG" >&2; exit 1; }
 [ "$(VM_EXEC bash -c 'cd ~/statbus && docker compose ps -q | wc -l' | tr -d ' ')" = 0 ] || { echo 'StatBus services started before port preflight' >&2; exit 1; }
 VM_ROOT_EXEC systemctl disable --now apache2
-# Paste the exact command emitted in the refusal, including release and answer paths.
+# Paste the exact command emitted in the refusal, including channel and answer paths.
 RERUN_COMMAND=$(grep '^port 80 is in use by ' "$FIRST_LOG" | tail -1 | sed 's/^.*Then run the same install command again: //')
-[[ "$RERUN_COMMAND" == *'curl -fsSL https://statbus.org/install.sh | env '* && "$RERUN_COMMAND" == *"STATBUS_INSTALL_VERSION=$INSTALL_TARGET_TAG"* && "$RERUN_COMMAND" == *'bash -s -- --non-interactive'* ]] || { cat "$FIRST_LOG" >&2; exit 1; }
+[[ "$RERUN_COMMAND" == *'curl -fsSL https://statbus.org/install.sh | env '* && "$RERUN_COMMAND" == *'STATBUS_ENV_CONFIG='* && "$RERUN_COMMAND" == *'STATBUS_USERS_FILE='* && "$RERUN_COMMAND" == *'bash -s -- --channel prerelease --non-interactive'* ]] || { cat "$FIRST_LOG" >&2; exit 1; }
 VM_EXEC bash -c "cd ~ && $RERUN_COMMAND"
+VM_EXEC bash -c "cd ~/statbus && test \"\$(git describe --tags --exact-match HEAD)\" = '$INSTALL_TARGET_TAG'"
 assert_health_passes "$VM_NAME"
 rm -f "$FIRST_LOG"
 echo 'PASS: Apache port conflict refused before service start and saved-answer rerun is healthy'
