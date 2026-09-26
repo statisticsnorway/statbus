@@ -195,7 +195,11 @@ TRUST_GITHUB_USER=jhf
 | `SITE_DOMAIN` | Domain name |
 | `DEPLOYMENT_SLOT_NAME` | Display name |
 | `DEPLOYMENT_SLOT_CODE` | Deployment code (short, lowercase) |
+| `TLS_CERT_FILE` | TLS certificate fullchain file (custom certificate) |
+| `TLS_KEY_FILE` | TLS certificate private key file (custom certificate) |
 | `TRUST_GITHUB_USER` | Release signer to trust (GitHub username). Releases are signed; this names the GitHub user whose published signing key the installer verifies release tags against; jhf is the SSB release signer. |
+
+`TLS_CERT_FILE` and `TLS_KEY_FILE` are optional and must be given together; they select the custom-certificate path (see Custom TLS Certificates below) and are never asked interactively.
 
 Keep this input outside `~/statbus`, which the installer clones itself. Protect
 it with mode `0600` and explicitly export its path before running the installer:

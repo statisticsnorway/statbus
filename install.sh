@@ -818,6 +818,11 @@ if [ "$sb_rc" -eq 78 ]; then
         # Only these known, single-line operator remedies may cross the
         # install log boundary. Never print an arbitrary exception or traceback.
         grep -E '^(port [0-9]+ is in use by |Only [0-9]+ GB free on |cannot check disk space at |a restart is still running)' "$install_output" | tail -1
+    elif grep -Eq '^STATBUS_ENV_CONFIG: (extra key [A-Za-z0-9_]+|missing key [A-Z_]+ \(.*\)|missing value for [A-Z_]+ \(.*\)|duplicate key [A-Za-z0-9_]+|TLS_CERT_FILE and TLS_KEY_FILE must be given together \(a certificate needs both parts\))$' "$install_output"; then
+        # Answer-file refusals: FULL-LINE anchored, so nothing arbitrary can
+        # trail the fixed diagnostic across the log boundary (review round 2).
+        # Key names are charset-restricted; prompts are our own fixed strings.
+        grep -E '^STATBUS_ENV_CONFIG: (extra key [A-Za-z0-9_]+|missing key [A-Z_]+ \(.*\)|missing value for [A-Z_]+ \(.*\)|duplicate key [A-Za-z0-9_]+|TLS_CERT_FILE and TLS_KEY_FILE must be given together \(a certificate needs both parts\))$' "$install_output" | tail -1
     else
         echo "Installation cannot start with the current settings. Correct the settings, then run: $STATBUS_INSTALL_RERUN_COMMAND"
         preflight_bundle=$(grep -F 'send this file to StatBus support: ' "$install_output" | tail -1 | sed -E 's/^.*send this file to StatBus support: //' || true)

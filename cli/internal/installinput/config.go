@@ -22,16 +22,25 @@ const StdinNotTerminalMessage = "stdin is not a terminal (running under a pipe?)
 type field struct {
 	key, prompt, fallback string
 	installationOnly      bool
+	// optional keys are accepted in the answer file and emitted when present,
+	// but never required and never prompted for interactively.
+	optional bool
 }
 
 // One definition drives deployment prompts, input keys and the setup recipe.
 // Trust is asked at the signers step, where fingerprints can be displayed.
 var fields = []field{
-	{"CADDY_DEPLOYMENT_MODE", "Deployment mode (development/standalone/private)", "development", false},
-	{"SITE_DOMAIN", "Domain name", "", false},
-	{"DEPLOYMENT_SLOT_NAME", "Display name", "StatBus", false},
-	{"DEPLOYMENT_SLOT_CODE", "Deployment code (short, lowercase)", "local", false},
-	{TrustKey, "Release signer to trust (GitHub username)", RecommendedSigner, true},
+	{"CADDY_DEPLOYMENT_MODE", "Deployment mode (development/standalone/private)", "development", false, false},
+	{"SITE_DOMAIN", "Domain name", "", false, false},
+	{"DEPLOYMENT_SLOT_NAME", "Display name", "StatBus", false, false},
+	{"DEPLOYMENT_SLOT_CODE", "Deployment code (short, lowercase)", "local", false, false},
+	{TrustKey, "Release signer to trust (GitHub username)", RecommendedSigner, true, false},
+	// Custom-certificate answers (doc/DEPLOYMENT.md): an NSO on a private
+	// network installs standalone with its own certificate; the unattended
+	// answer file is how those keys reach .env.config. Not prompted — the
+	// interactive certificate choice is STATBUS-399's design.
+	{"TLS_CERT_FILE", "TLS certificate fullchain file (custom certificate)", "", false, true},
+	{"TLS_KEY_FILE", "TLS certificate private key file (custom certificate)", "", false, true},
 }
 
 var githubUsername = regexp.MustCompile(`^[a-zA-Z0-9]([a-zA-Z0-9-]{0,37}[a-zA-Z0-9])?$`)
@@ -76,7 +85,7 @@ func AskWithMode(prompt func(label, fallback string) string, modeDefault string)
 	var b strings.Builder
 	domain := ""
 	for _, f := range fields {
-		if !f.installationOnly {
+		if !f.installationOnly && !f.optional {
 			fallback := f.fallback
 			if f.key == "CADDY_DEPLOYMENT_MODE" {
 				fallback = modeDefault
@@ -178,9 +187,18 @@ func parse(content, trustFlag string) (Answers, error) {
 		}
 		value, ok := values[f.key]
 		if !ok {
+			if f.optional {
+				continue
+			}
 			return Answers{}, fmt.Errorf("STATBUS_ENV_CONFIG: missing key %s (%s)", f.key, f.prompt)
 		}
 		fmt.Fprintf(&b, "%s=%s\n", f.key, value)
+	}
+	// The custom-certificate pair is both-or-neither.
+	_, certOK := values["TLS_CERT_FILE"]
+	_, keyOK := values["TLS_KEY_FILE"]
+	if certOK != keyOK {
+		return Answers{}, fmt.Errorf("STATBUS_ENV_CONFIG: TLS_CERT_FILE and TLS_KEY_FILE must be given together (a certificate needs both parts)")
 	}
 	trust, err := ResolveTrust(trustFlag, values[TrustKey])
 	if err != nil {

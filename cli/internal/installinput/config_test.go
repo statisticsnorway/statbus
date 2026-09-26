@@ -27,7 +27,13 @@ func TestPromptsAndRequiredKeysAreSameSet(t *testing.T) {
 		t.Fatal(err)
 	}
 	keys := dotenv.FromString(canonical).Keys()
-	if len(keys) != len(asked) || len(keys) != len(fields)-1 {
+	prompted := 0
+	for _, f := range fields {
+		if !f.installationOnly && !f.optional {
+			prompted++
+		}
+	}
+	if len(keys) != len(asked) || len(keys) != prompted {
 		t.Fatalf("keys=%v prompts=%v", keys, asked)
 	}
 	for _, f := range fields {
@@ -42,6 +48,13 @@ func TestPromptsAndRequiredKeysAreSameSet(t *testing.T) {
 			}
 			if strings.Contains(err.Error(), "--trust-github-user") || !strings.Contains(err.Error(), TrustExplanation) {
 				t.Fatal(err)
+			}
+			continue
+		}
+		if f.optional {
+			// Optional keys are never prompted and never required.
+			if asked[f.prompt] {
+				t.Errorf("optional key %s must not be prompted", f.key)
 			}
 			continue
 		}
@@ -203,6 +216,41 @@ func TestSetupChoiceExplanationsAndDefaults(t *testing.T) {
 	for _, choice := range []string{"development: testing on this computer only", "standalone: this computer serves the public website", "private: another web server forwards visitors"} {
 		if !strings.Contains(strings.Join(labels, "\n"), choice) {
 			t.Errorf("missing choice %q", choice)
+		}
+	}
+}
+
+// The custom-certificate pair is a legitimate unattended answer for an NSO
+// with its own certificate (doc/DEPLOYMENT.md): accepted, emitted when
+// present, omitted when absent, and refused half-given.
+func TestCustomCertificatePair_STATBUS418(t *testing.T) {
+	base := "CADDY_DEPLOYMENT_MODE=standalone\nSITE_DOMAIN=statbus.example.no\nDEPLOYMENT_SLOT_NAME=Test\nDEPLOYMENT_SLOT_CODE=ts\nTRUST_GITHUB_USER=jhf\n"
+
+	withPair := base + "TLS_CERT_FILE=/data/custom-certs/domain.crt\nTLS_KEY_FILE=/data/custom-certs/domain.key\n"
+	out, err := Validate(withPair)
+	if err != nil {
+		t.Fatalf("certificate pair must be accepted: %v", err)
+	}
+	for _, want := range []string{"TLS_CERT_FILE=/data/custom-certs/domain.crt", "TLS_KEY_FILE=/data/custom-certs/domain.key"} {
+		if !strings.Contains(out, want) {
+			t.Errorf("emitted config lacks %q:\n%s", want, out)
+		}
+	}
+
+	out, err = Validate(base)
+	if err != nil {
+		t.Fatalf("absent pair must be fine: %v", err)
+	}
+	if strings.Contains(out, "TLS_CERT_FILE") || strings.Contains(out, "TLS_KEY_FILE") {
+		t.Errorf("absent pair must not be emitted:\n%s", out)
+	}
+
+	for _, lone := range []string{
+		base + "TLS_CERT_FILE=/data/custom-certs/domain.crt\n",
+		base + "TLS_KEY_FILE=/data/custom-certs/domain.key\n",
+	} {
+		if _, err := Validate(lone); err == nil || !strings.Contains(err.Error(), "TLS_CERT_FILE and TLS_KEY_FILE must be given together") {
+			t.Errorf("half-given pair must refuse with the both-or-neither message, got: %v", err)
 		}
 	}
 }
