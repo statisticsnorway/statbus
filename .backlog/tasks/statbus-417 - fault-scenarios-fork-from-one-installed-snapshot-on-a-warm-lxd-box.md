@@ -4,7 +4,7 @@ title: Every fault scenario starts from one installed snapshot on a warm LXD box
 status: To Do
 assignee: []
 created_date: '2026-09-25 11:15'
-updated_date: '2026-09-26 13:40'
+updated_date: '2026-09-26 13:43'
 labels:
   - harness
   - velocity
@@ -57,6 +57,14 @@ Run BOTH fleets in parallel per candidate: the Hetzner VM fleet stays the proof 
 ## Owner ruling, 2026-09-26 13:39Z — happy paths are base builds; the whole gate becomes one checkpoint tree
 
 The base build IS the happy-install proof: each base starts from a PRISTINE Ubuntu cloud guest, hardens, and runs the real installer — that is a fresh-machine install. The gate's shape becomes one tree: pristine 24.04/26.04 guests → install → snapshots (= 0-happy-install per Ubuntu version); fork → upgrade to candidate (= 0-happy-upgrade); fork → rerun (= idempotent reinstall); forks → fault scenarios. No per-scenario VMs and no separate happy-path VMs in the steady-state gate. Honesty constraints the coordinator must keep: (1) the parity run vs the VM fleet still decides adoption; (2) LXD guests share the host kernel — one periodic full-VM soak (per stable promotion or weekly) is the long-stop for kernel-dependent behavior; (3) Hetzner provisioning/cloud-init itself is covered by the hardening gate, which may also run in a guest.
+
+## Progress, 2026-09-26 midday
+
+Merged to master: `harness/lxd-lifecycle` (27b73e674) — ops/lxd-fleet/{up,reap,base}.sh: ramp at candidate cut, 3h idle reaper with flock + reaping sentinel, tag-pinned base builds (the base runs the candidate's OWN install.sh), idempotent resume on partial provisioning. Two review rounds each. In flight: backend verdict-classification round 3 (owl), then the parity run.
+
+## The checkpoint tree (pondered shape for the parity plan and stage 3)
+
+Per candidate tag: pristine 24.04 guest → harden → install candidate → snapshot `installed-<tag>-24.04` (= 0-happy-install 24.04); same on 26.04. Forks: installed-previous-stable → upgrade to candidate (= 0-happy-upgrade); installed-<tag> → rerun (= idempotent reinstall); checkpoint per scenario declaration → fault scenarios. One full-guest soak per stable promotion on a real VM (Ubuntu version current at promotion) as the kernel-sharing long-stop. Warm-run budget once the tree exists: base builds ~5 min each (parallel), fork proofs seconds-to-minutes — the gate's fleet phase collapses from ~90 min to ~15-20 min.
 
 <!-- SECTION:DESCRIPTION:END -->
 

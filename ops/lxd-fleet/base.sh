@@ -18,7 +18,8 @@ if lxc info '$name' 2>/dev/null | grep -Fq '| installed '; then
     exit 0
 fi
 if lxc info '$name' >/dev/null 2>&1; then echo 'REFUSE: incomplete base $name exists' >&2; exit 1; fi
-lxc launch ubuntu:24.04 '$name' --config security.nesting=true --config limits.cpu=2 --config limits.memory=6GiB
+# lxc launch reads stdin (would swallow the rest of this heredoc as YAML).
+lxc launch ubuntu:24.04 '$name' --config security.nesting=true --config limits.cpu=2 --config limits.memory=6GiB < /dev/null
 touch /root/fleet-run.active
 REMOTE
 )
