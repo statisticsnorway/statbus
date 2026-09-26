@@ -24,7 +24,7 @@ VM_ROOT_EXEC chmod 0644 /tmp/statbus-install.sh
 # Run the actual fresh installer. The watcher interrupts at the Services DONE
 # output boundary. A missed boundary fails the fixture rather than pretending
 # that a completed install was interrupted.
-VM_SCRIPT_INLINE interrupt-first-install "$INSTALL_TARGET_TAG" <<'REMOTE'
+VM_SCRIPT_INLINE interrupt-first-install-launch "$INSTALL_TARGET_TAG" <<'REMOTE'
 #!/usr/bin/env bash
 set -euo pipefail
 version="$1"
@@ -39,7 +39,13 @@ TRUST_GITHUB_USER=jhf
 CONFIG
 )
 setsid bash -c 'cd "$HOME"; export STATBUS_ENV_CONFIG="$HOME/install-input.env" STATBUS_USERS_FILE=/tmp/users.yml STATBUS_INSTALL_VERSION="$1" STATBUS_MIN_DISK_GB=5 STATBUS_HARNESS_CERT_STAGING="$HOME/harness-certs"; bash /tmp/statbus-install.sh --non-interactive' bash "$version" > "$HOME/first-install.log" 2>&1 &
-pid=$!
+echo $! > "$HOME/first-install.pid"
+REMOTE
+harness_register_log interrupt-first-install /home/statbus/first-install.log "$IP"
+VM_SCRIPT_INLINE interrupt-first-install-watch <<'REMOTE'
+#!/usr/bin/env bash
+set -euo pipefail
+pid=$(cat "$HOME/first-install.pid")
 observed=0
 for ((attempt=0; attempt<2400; attempt++)); do
     if grep -Eq '^\[[0-9]+/[0-9]+\] Services +DONE' "$HOME/first-install.log"; then
