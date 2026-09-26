@@ -13,8 +13,10 @@ MARKER="${HARNESS_ROOT}/tmp/install-recovery-${VM_NAME}-route-stopped"
 FIRST_LOG="${HARNESS_ROOT}/tmp/install-recovery-${VM_NAME}-first.log"
 SECOND_LOG="${HARNESS_ROOT}/tmp/install-recovery-${VM_NAME}-recovery.log"
 rm -f "$MARKER" "$LOG" "$FIRST_LOG" "$SECOND_LOG"
+WATCH_LOG="${HARNESS_ROOT}/tmp/install-recovery-${VM_NAME}-route-watcher.log"
 # Watch the services completion boundary and kill only the route provider.
 # The install can either use the in-service route or fail with a bounded diagnosis.
+harness_register_log db-route-watcher "$WATCH_LOG" "$(_hcloud_server_ip "$VM_NAME")"
 (
   for ((i=0; i<1200; i++)); do
     if grep -Eq '^\[[0-9]+/[0-9]+\] Services +(DONE|OK)' "$LOG" 2>/dev/null; then break; fi
@@ -26,7 +28,7 @@ rm -f "$MARKER" "$LOG" "$FIRST_LOG" "$SECOND_LOG"
   VM_EXEC bash -c 'cd ~/statbus && docker compose --profile all stop proxy' || exit 1
   if grep -Eq '^\[[0-9]+/[0-9]+\] (Seed|Migrations) ' "$LOG"; then exit 1; fi
   date +%s > "$MARKER"
-) &
+) > "$WATCH_LOG" 2>&1 &
 watcher=$!
 if install_statbus_in_vm "$VM_NAME"; then
   first_rc=0
