@@ -4,7 +4,7 @@ title: An operator can remove a StatBus installation cleanly, from install.sh or
 status: To Do
 assignee: []
 created_date: '2026-09-25 13:08'
-updated_date: '2026-09-25 13:13'
+updated_date: '2026-09-26 08:51'
 labels:
   - installer
 priority: high
@@ -29,6 +29,14 @@ Finland wants to do another installation and needs a clean removal path first (o
 - Default preservation: keep `dbdumps/` and `.env.credentials` unless a flag says delete? Or delete everything with a typed confirmation?
 - Does removal include the `statbus` user and host hardening, or only the StatBus deployment (user/hardening belong to host provisioning, step 1)?
 - Naming: `./sb uninstall` locally and a standalone `uninstall.sh` served at statbus.org (owner decision: separate script, 2026-09-25 13:12Z).
+## Owner interaction design, 2026-09-26 08:50Z
+
+Purpose: when an installation is broken or the operator wants to start over (Finland's reinstall case), one command cleans the system so a fresh install works.
+
+- **Interactive:** asks what to delete — everything, or keep selected things (e.g. database dumps, credentials). Plain operator text.
+- **Non-interactive:** deletes everything, gated by an explicit confirmation environment variable (e.g. `STATBUS_UNINSTALL_CONFIRM=yes-delete-everything`); without it, refuse with instructions.
+- **Container-owned files:** rc.05's orphaned-volume scenario proved `caddy/data/` contains root-owned files — removal needs root or docker-mediated deletion; the uninstaller must handle that, not die on Permission denied.
+
 <!-- SECTION:DESCRIPTION:END -->
 
 ## Acceptance Criteria
