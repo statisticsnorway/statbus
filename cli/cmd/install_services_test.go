@@ -257,7 +257,7 @@ func installFakeStack(t *testing.T, f *fakeStack) {
 	serviceLogTail = func(string, string) {}
 }
 
-func TestCheckServicesDoneRequiresEveryServiceAndAgreeingPasswords(t *testing.T) {
+func TestCheckServicesDoneRequiresAllSelectedServices(t *testing.T) {
 	f := &fakeStack{statuses: []serviceStatus{running("db")}, passwordsAgree: true}
 	installFakeStack(t, f)
 	if checkServicesDone("/x") {
@@ -267,6 +267,24 @@ func TestCheckServicesDoneRequiresEveryServiceAndAgreeingPasswords(t *testing.T)
 	if !checkServicesDone("/x") {
 		t.Fatal("all five running with agreeing passwords must be done")
 	}
+	for _, service := range allFive {
+		complete := append([]serviceStatus(nil), f.statuses...)
+		f.statuses = nil
+		for _, status := range complete {
+			if status.Service != service {
+				f.statuses = append(f.statuses, status)
+			}
+		}
+		if checkServicesDone("/x") {
+			t.Fatalf("missing %s must not be done", service)
+		}
+		f.statuses = complete
+	}
+	f.statuses[1].Health = "starting"
+	if checkServicesDone("/x") {
+		t.Fatal("unhealthy db must not be done")
+	}
+	f.statuses[1].Health = "healthy"
 	f.passwordsAgree = false
 	if checkServicesDone("/x") {
 		t.Fatal("all five running with a stale role password must not be done")
