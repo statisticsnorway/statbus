@@ -5,10 +5,15 @@ source "${STATBUS_CREDENTIALS_FILE:-$ROOT/.env.credentials}"
 : "${HCLOUD_TOKEN:?HCLOUD_TOKEN is required}"
 export HCLOUD_TOKEN
 name=statbus-lxd-fleet
-ip=$(hcloud server describe "$name" -o json 2>/dev/null | jq -r '.public_net.ipv4.ip // empty' || true)
-if [ -n "$ip" ]; then printf '%s\n' "$ip"; exit 0; fi
-hcloud server create --name "$name" --type ccx33 --image ubuntu-24.04 --location hel1 --ssh-key 'jorgen@veridit.no' >/dev/null
-ip=$(hcloud server describe "$name" -o json | jq -er '.public_net.ipv4.ip')
+server=$(hcloud server describe "$name" -o json 2>/dev/null || true)
+if [ -z "$server" ]; then
+    hcloud server create --name "$name" --type ccx33 --image ubuntu-24.04 --location hel1 --ssh-key 'jorgen@veridit.no' --label statbus-purpose=lxd-fleet >/dev/null
+    server=$(hcloud server describe "$name" -o json)
+fi
+# A same-name machine is not automatically ours.
+[ "$(jq -r '.labels["statbus-purpose"] // empty' <<<"$server")" = lxd-fleet ] || { echo 'REFUSE: foreign or unlabeled fleet box' >&2; exit 1; }
+[ "$(jq -r '.server_type.name // empty' <<<"$server")" = ccx33 ] || { echo 'REFUSE: unexpected server type' >&2; exit 1; }
+ip=$(jq -er '.public_net.ipv4.ip' <<<"$server")
 opts=(-o BatchMode=yes -o StrictHostKeyChecking=accept-new -o ConnectTimeout=5)
 for ((i=0;i<90;i++)); do
     if ssh "${opts[@]}" "root@$ip" true 2>/dev/null; then break; fi
@@ -17,41 +22,27 @@ for ((i=0;i<90;i++)); do
 done
 ssh "${opts[@]}" "root@$ip" 'bash -s' <<'REMOTE'
 set -euo pipefail
-apt-get update -qq
-DEBIAN_FRONTEND=noninteractive apt-get install -y btrfs-progs >/dev/null
+if ! command -v btrfs >/dev/null 2>&1; then
+    apt-get update -qq
+    DEBIAN_FRONTEND=noninteractive apt-get install -y btrfs-progs >/dev/null
+fi
 if ! snap list lxd >/dev/null 2>&1; then snap install lxd >/dev/null; fi
 if ! lxc storage show statbus-test >/dev/null 2>&1; then
-    cat > /root/lxd-preseed.yml <<'PRESEED'
-config: {}
-networks:
-- name: lxdbr0
-  type: bridge
-  config:
-    ipv4.address: auto
-    ipv4.nat: "true"
-    ipv6.address: none
-storage_pools:
-- name: statbus-test
-  driver: btrfs
-  config:
-    size: 60GiB
-profiles:
-- name: default
-  config: {}
-  devices:
-    root:
-      path: /
-      pool: statbus-test
-      type: disk
-    eth0:
-      name: eth0
-      network: lxdbr0
-      type: nic
-projects: []
-cluster: null
-PRESEED
-    lxd init --preseed < /root/lxd-preseed.yml
+    lxc storage create statbus-test btrfs size=60GiB
 fi
-test "$(lxc storage get statbus-test driver)" = btrfs
+if ! lxc network show lxdbr0 >/dev/null 2>&1; then
+    lxc network create lxdbr0 ipv4.address=auto ipv4.nat=true ipv6.address=none
+fi
+[ "$(lxc storage get statbus-test driver)" = btrfs ] || { echo 'REFUSE: storage pool is not btrfs' >&2; exit 1; }
+[ "$(lxc network get lxdbr0 ipv4.nat)" = true ] || { echo 'REFUSE: bridge NAT is disabled' >&2; exit 1; }
+[ "$(lxc network get lxdbr0 ipv6.address)" = none ] || { echo 'REFUSE: bridge IPv6 differs' >&2; exit 1; }
+if ! lxc profile device show default | grep -q '^  root:'; then
+    lxc profile device add default root disk path=/ pool=statbus-test
+fi
+if ! lxc profile device show default | grep -q '^  eth0:'; then
+    lxc profile device add default eth0 nic name=eth0 network=lxdbr0
+fi
+[ "$(lxc profile device get default root pool)" = statbus-test ] || { echo 'REFUSE: default profile uses another pool' >&2; exit 1; }
+[ "$(lxc profile device get default eth0 network)" = lxdbr0 ] || { echo 'REFUSE: default profile uses another bridge' >&2; exit 1; }
 REMOTE
 printf '%s\n' "$ip"
