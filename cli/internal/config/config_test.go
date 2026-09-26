@@ -9,6 +9,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/statisticsnorway/statbus/cli/internal/dotenv"
 	"github.com/statisticsnorway/statbus/cli/internal/testgit"
 )
 
@@ -824,5 +825,44 @@ func TestCaddyTemplates_UnmatchedHostCatchAll_STATBUS189(t *testing.T) {
 		if !strings.Contains(src, "STATBUS-189") || !strings.Contains(src, `respond "no matching site for this host" 404`) {
 			t.Errorf("%s: missing the STATBUS-189 unmatched-host catch-all (:80 respond 404) — unmatched hosts would read Caddy's implicit 200-empty and false-green external monitors", name)
 		}
+	}
+}
+
+// Review round 2 (rc.07 smoke analysis): a pre-split box carries
+// SEQ_API_KEY= as an EMPTY placeholder in .env.config. Migrating that empty
+// value into .env.credentials would defeat the generated placeholder and
+// break compose's :? requirement on docker-compose.app.yml. The migration
+// must drop empty entries without writing credentials.
+func TestLegacyEmptyPlaceholderDroppedNotMigrated_STATBUS361(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.WriteFile(dir+"/.env.config", []byte("CADDY_DEPLOYMENT_MODE=development\nSITE_DOMAIN=test.local\nSEQ_API_KEY=\nSLACK_TOKEN=real-slack\n"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if err := migrateLegacySecrets(dir); err != nil {
+		t.Fatal(err)
+	}
+	creds, err := dotenv.Load(dir + "/.env.credentials")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if v, present := creds.Get("SEQ_API_KEY"); present {
+		t.Fatalf("empty placeholder must not be migrated (got present=%q)", v)
+	}
+	if v, _ := creds.Get("SLACK_TOKEN"); v != "real-slack" {
+		t.Fatalf("real value must migrate, got %q", v)
+	}
+	cfg, _ := dotenv.Load(dir + "/.env.config")
+	for _, key := range []string{"SEQ_API_KEY", "SLACK_TOKEN"} {
+		if _, found := cfg.Get(key); found {
+			t.Errorf("%s must leave .env.config", key)
+		}
+	}
+	// Generation after the migration must yield a non-empty SEQ key.
+	c, err := loadOrGenerateCredentials(dir, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if c.SeqAPIKey == "" {
+		t.Fatal("generated SEQ placeholder must survive the legacy-empty case")
 	}
 }

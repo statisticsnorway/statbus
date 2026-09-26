@@ -1235,10 +1235,18 @@ func migrateLegacySecrets(projDir string) error {
 		if !found {
 			continue
 		}
+		config.Delete(key)
+		if strings.TrimSpace(value) == "" {
+			// An empty legacy entry is a placeholder, not a secret: drop it
+			// without writing credentials, so generated defaults still apply
+			// (an empty SEQ_API_KEY would defeat the placeholder and break
+			// compose's :? requirement — review round 2).
+			moved = append(moved, key+" (empty placeholder dropped)")
+			continue
+		}
 		if _, present := credentials.Get(key); !present {
 			credentials.Set(key, value)
 		}
-		config.Delete(key)
 		moved = append(moved, key)
 	}
 	if len(moved) == 0 {

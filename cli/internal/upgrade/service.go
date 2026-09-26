@@ -2965,7 +2965,7 @@ func (d *Service) Run(ctx context.Context) error {
 	// fingerprint that carried no cause, because the one byte that named it was
 	// discarded HERE. config generate refuses with a precise, actionable
 	// message; this is the line that decided nobody would read it.
-	if out, err := runCommandOutput(d.projDir, "./sb", "config", "generate"); err != nil {
+	if out, err := runCommandOutput(d.projDir, "./sb", "config", "generate", "--migrate-legacy-secrets"); err != nil {
 		// STATBUS-298: a principled refusal (config.ErrPrincipledRefusal,
 		// selected as exit 78/EX_CONFIG by configGenerateCmd.RunE in
 		// cli/cmd/config.go — the sentinel cannot cross this subprocess
@@ -9989,9 +9989,11 @@ func (d *Service) applyNewSbUpgrading(ctx context.Context, id int, commitSHA, di
 	}()
 
 	// Regenerate config via the NEW binary. VERSION comes from git describe
-	// --tags --always against the just-checked-out HEAD.
+	// --tags --always against the just-checked-out HEAD. The migrating variant
+	// because a pre-split box carries legacy token placeholders/values in
+	// .env.config (STATBUS-361); refusing here would crash-loop the upgrade.
 	d.markStep(StepConfigGenerate)
-	if err := runCommandToLog(projDir, 2*time.Minute, progress.File(), "config-generate", progress.bump, "./sb", "config", "generate"); err != nil {
+	if err := runCommandToLog(projDir, 2*time.Minute, progress.File(), "config-generate", progress.bump, "./sb", "config", "generate", "--migrate-legacy-secrets"); err != nil {
 		// STATBUS-046 slice 2: config generate renders templates from .env.config
 		// (no network/DB), so a NON-TIMEOUT failure is deterministic (B) — PARK on
 		// FIRST with a named reason instead of burning three deaths. A timeout is

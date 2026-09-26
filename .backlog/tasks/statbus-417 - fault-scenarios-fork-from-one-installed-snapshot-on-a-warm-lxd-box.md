@@ -4,7 +4,7 @@ title: Every fault scenario starts from one installed snapshot on a warm LXD box
 status: To Do
 assignee: []
 created_date: '2026-09-25 11:15'
-updated_date: '2026-09-26 13:43'
+updated_date: '2026-09-26 20:53'
 labels:
   - harness
   - velocity
@@ -65,6 +65,10 @@ Merged to master: `harness/lxd-lifecycle` (27b73e674) — ops/lxd-fleet/{up,reap
 ## The checkpoint tree (pondered shape for the parity plan and stage 3)
 
 Per candidate tag: pristine 24.04 guest → harden → install candidate → snapshot `installed-<tag>-24.04` (= 0-happy-install 24.04); same on 26.04. Forks: installed-previous-stable → upgrade to candidate (= 0-happy-upgrade); installed-<tag> → rerun (= idempotent reinstall); checkpoint per scenario declaration → fault scenarios. One full-guest soak per stable promotion on a real VM (Ubuntu version current at promotion) as the kernel-sharing long-stop. Warm-run budget once the tree exists: base builds ~5 min each (parallel), fork proofs seconds-to-minutes — the gate's fleet phase collapses from ~90 min to ~15-20 min.
+
+## Owner refinement, 2026-09-26 20:52Z
+
+The LXD gate must keep the SAME skip/supersession semantics as the VM fleet: a newer candidate supersedes an in-flight run (per-scenario, per 416), verdicts attribute to the exercised SHA, and test-irrelevant changes ride the same exemption list. The fork fleet is not a second-class runner with weaker freshness rules.
 
 <!-- SECTION:DESCRIPTION:END -->
 

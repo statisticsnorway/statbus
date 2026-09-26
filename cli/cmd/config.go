@@ -14,7 +14,8 @@ import (
 )
 
 var (
-	configShowPostgres bool
+	configShowPostgres   bool
+	migrateLegacySecrets bool
 )
 
 var configCmd = &cobra.Command{
@@ -58,7 +59,17 @@ derives all computed values (ports, memory tuning, URLs), writes .env,
 and renders Caddyfile templates from caddy/templates/*.caddyfile.tmpl
 into caddy/config/.`,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		err := config.Generate(verbose)
+		gen := config.Generate
+		if migrateLegacySecrets {
+			// The install/upgrade context opts into migrating legacy operator
+			// tokens out of .env.config before strict validation (STATBUS-361):
+			// a box installed before the credential split carries placeholder
+			// or real tokens there, and the upgrade service's recovery-boot
+			// config regeneration must not refuse on them mid-upgrade (rc.07
+			// smoke: the service crash-looped on exactly this).
+			gen = func(verbose bool) error { return config.GenerateForInstallInDir(config.ProjectDir(), verbose) }
+		}
+		err := gen(verbose)
 		// STATBUS-298: a principled refusal exits 78 directly — bypassing
 		// cobra's normal RunE-error path (which main.go maps uniformly to
 		// exit 1, indistinguishable from any other failure and, in the
@@ -210,6 +221,7 @@ func showPostgresVars() error {
 }
 
 func init() {
+	configGenerateCmd.Flags().BoolVar(&migrateLegacySecrets, "migrate-legacy-secrets", false, "migrate legacy operator tokens from .env.config to .env.credentials before validating (install/upgrade context only)")
 	configShowCmd.Flags().BoolVar(&configShowPostgres, "postgres", false, "output PostgreSQL connection variables in shell-evaluable format")
 	configCmd.AddCommand(configGenerateCmd)
 	configCmd.AddCommand(configShowCmd)
