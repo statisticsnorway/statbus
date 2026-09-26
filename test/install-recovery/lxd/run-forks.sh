@@ -38,6 +38,14 @@ else
         scenarios+=("$2"); shift 2
     done
 fi
+# A slug owns one container, log and row per invocation.
+declare -A seen_slugs=()
+for slug in "${scenarios[@]}"; do
+    if [ "${seen_slugs[$slug]+yes}" = yes ]; then
+        echo "Duplicate scenario slug: $slug" >&2; exit 2
+    fi
+    seen_slugs[$slug]=1
+done
 # Build each distinct checkpoint only on demand, serially. Never race two builders.
 checkpoints=()
 for slug in "${scenarios[@]}"; do
@@ -66,7 +74,13 @@ for slug in "${scenarios[@]}"; do
         if _lxd_host lxc info "$name" >/dev/null 2>&1; then _lxd_host lxc delete "$name" --force; fi
         rc=0
         LXD_CANDIDATE="$TAG" LXD_LOG_DIR="$RUN_DIR" bash "$RUN_DIR/shadow/scenarios/$slug.sh" "statbus-recovery-$slug" >"$RUN_DIR/$slug.log" 2>&1 || rc=$?
-        if [ "$rc" -eq 0 ] && grep -q 'PASS:' "$RUN_DIR/$slug.log"; then verdict=PASS; else verdict=FAIL; fi
+        if [ "$rc" -eq 0 ]; then
+            if grep -q 'PASS:' "$RUN_DIR/$slug.log"; then verdict=PASS; else verdict=INVALID; fi
+        elif grep -Eq '(^|[[:space:]])(FAIL:|ASSERTION FAIL:|PRODUCT FAIL:)' "$RUN_DIR/$slug.log"; then
+            verdict=FAIL
+        else
+            verdict=ERROR
+        fi
         if [ "$slug" = 4-install-40gb-disk ] && [ "$verdict" = PASS ]; then
             if ! awk '$1 ~ /^\/dev\// && $2 == "40G" {found=1} END {exit !found}' "$RUN_DIR/$slug.log"; then
                 verdict=INVALID
@@ -85,3 +99,4 @@ for pid in ${pids[@]+"${pids[@]}"}; do wait "$pid" || true; done
 for slug in "${scenarios[@]}"; do cat "$RUN_DIR/$slug.row" >> "$RUN_DIR/comparison.tsv"; done
 cat "$RUN_DIR/comparison.tsv"
 echo "Logs and parity template: $RUN_DIR"
+awk -F '\t' 'NR > 1 && $4 != "PASS" {bad=1} END {exit bad}' "$RUN_DIR/comparison.tsv"

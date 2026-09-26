@@ -134,31 +134,22 @@ lxd_base_for_candidate() {
     local install_tag=${checkpoint#installed-}
     install_tag=${install_tag%-standalone}
     [[ "$install_tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-rc\.[0-9]+)?$ ]] || { echo "Invalid checkpoint $checkpoint" >&2; return 2; }
-    fixture=$(mktemp)
+    fixture=$(mktemp "$LXD_LOG_DIR/s2-users-XXXXXX")
     printf '%s\n' '- email: test@statbus.org' '  password: test-install-password-2026' '  role: admin_user' '  display_name: Admin' > "$fixture"
     _lxd_upload "$fixture" /root/s2-users.yml
     rm -f "$fixture"
     _lxd_host lxc file push /root/s2-users.yml "$base/home/statbus/users.yml"
     _lxd_host lxc exec "$base" -- chown statbus:statbus /home/statbus/users.yml
-    # rc.05 installer rejects TLS_* as extra keys in STATBUS_ENV_CONFIG, even
-    # though its runtime supports custom certs. Install privately, then convert
-    # the installed checkpoint to standalone with the staged VM-local cert.
-    _lxd_host lxc exec "$base" -- bash -c 'printf "CADDY_DEPLOYMENT_MODE=private\nSITE_DOMAIN=statbus-test.local\nDEPLOYMENT_SLOT_NAME=Install Test\nDEPLOYMENT_SLOT_CODE=test\nTRUST_GITHUB_USER=jhf\n" > /home/statbus/install-input.env; chown statbus:statbus /home/statbus/install-input.env; chmod 600 /home/statbus/install-input.env'
+    _lxd_host lxc exec "$base" -- bash -c 'printf "CADDY_DEPLOYMENT_MODE=standalone\nSITE_DOMAIN=statbus-test.local\nTLS_CERT_FILE=/data/custom-certs/domain.crt\nTLS_KEY_FILE=/data/custom-certs/domain.key\nDEPLOYMENT_SLOT_NAME=Install Test\nDEPLOYMENT_SLOT_CODE=test\nTRUST_GITHUB_USER=jhf\n" > /home/statbus/install-input.env; chown statbus:statbus /home/statbus/install-input.env; chmod 600 /home/statbus/install-input.env'
     start=$(date +%s)
     _lxd_mark "REAL tagged installer start $tag $base"
     local installer_url=https://statbus.org/install.sh
     local staging=STATBUS_HARNESS_CERT_STAGING=/home/statbus/harness-certs
     if [ "$install_tag" != "$tag" ]; then
-        installer_url="https://raw.githubusercontent.com/statisticsnorway/statbus/$install_tag/install.sh"
-        staging=''
-        _lxd_mark "historical checkpoint uses its own tagged installer $installer_url"
+        _lxd_mark "historical target $install_tag via current installer certificate staging seam"
     fi
     _lxd_host lxc exec "$base" -- sudo -i -u statbus bash -lc "set -o pipefail; curl -fsSL $installer_url | env $staging STATBUS_INSTALL_VERSION=$install_tag STATBUS_ENV_CONFIG=/home/statbus/install-input.env STATBUS_USERS_FILE=/home/statbus/users.yml STATBUS_MIN_DISK_GB=5 GIT_NETWORK_MAX_ATTEMPTS=8 GIT_NETWORK_RETRY_DELAY_S=45 DOCKER_PULL_MAX_ATTEMPTS=5 DOCKER_PULL_RETRY_DELAY_S=30 bash -s -- --non-interactive" || { _lxd_mark "INSTALL FAILED $install_tag after $(($(date +%s)-start))s"; lxd_capture_failure "$base"; return 1; }
     _lxd_mark "installer complete $tag in $(($(date +%s)-start))s"
-    if [ "$install_tag" != "$tag" ]; then
-        _lxd_host lxc exec "$base" -- bash -c 'install -d -m 0755 /home/statbus/statbus/caddy/data/custom-certs; install -m 0644 /home/statbus/harness-certs/domain.crt /home/statbus/statbus/caddy/data/custom-certs/domain.crt; install -m 0600 /home/statbus/harness-certs/domain.key /home/statbus/statbus/caddy/data/custom-certs/domain.key; chown -R statbus:statbus /home/statbus/statbus/caddy/data/custom-certs'
-    fi
-    _lxd_host lxc exec "$base" -- sudo -i -u statbus bash -lc 'cd ~/statbus && ./sb dotenv -f .env.config set CADDY_DEPLOYMENT_MODE standalone && ./sb dotenv -f .env.config set TLS_CERT_FILE /data/custom-certs/domain.crt && ./sb dotenv -f .env.config set TLS_KEY_FILE /data/custom-certs/domain.key && ./sb config generate && ./sb restart all'
     _lxd_ready "$base"
     _lxd_host lxc exec "$base" -- sudo -i -u statbus bash -lc 'cd ~/statbus && ./sb --version && ./sb ps'
     start=$(date +%s)
@@ -195,7 +186,7 @@ lxd_fork() {
         _lxd_mark "$name fresh boot IP $VM_IP"
     else
         _lxd_ready "$name"
-        _lxd_host lxc exec "$name" -- bash -c 'cp /home/statbus/statbus/.env.config /tmp/env-config; cp /home/statbus/users.yml /tmp/users.yml; chown statbus:statbus /tmp/env-config /tmp/users.yml; chmod 0600 /tmp/env-config /tmp/users.yml'
+        _lxd_host lxc exec "$name" -- bash -c 'cp /home/statbus/statbus/.env.config /home/statbus/env-config; chown statbus:statbus /home/statbus/env-config; chmod 0600 /home/statbus/env-config; ln -sfn /home/statbus/env-config /tmp/env-config; ln -sfn /home/statbus/users.yml /tmp/users.yml'
     fi
     _lxd_mark "boot/readiness $name $(($(date +%s)-start))s"
 }
@@ -318,9 +309,12 @@ install_statbus_at_sha() {
     }
     VM_EXEC test ! -e /home/statbus/statbus || { echo 'FRESH checkout already exists' >&2; return 70; }
     VM_ROOT_EXEC bash -lc 'printf "%s\n" "- email: test@statbus.org" "  password: test-install-password-2026" "  role: admin_user" "  display_name: Admin" > /home/statbus/users.yml; chown statbus:statbus /home/statbus/users.yml; chmod 0600 /home/statbus/users.yml'
+    VM_ROOT_EXEC ln -sfn /home/statbus/users.yml /tmp/users.yml
     VM_ROOT_EXEC bash -lc 'cat > /home/statbus/install-input.env <<EOF
-CADDY_DEPLOYMENT_MODE=private
+CADDY_DEPLOYMENT_MODE=standalone
 SITE_DOMAIN=statbus-test.local
+TLS_CERT_FILE=/data/custom-certs/domain.crt
+TLS_KEY_FILE=/data/custom-certs/domain.key
 DEPLOYMENT_SLOT_NAME=Install Test
 DEPLOYMENT_SLOT_CODE=test
 TRUST_GITHUB_USER=jhf
@@ -328,8 +322,5 @@ EOF
 chown statbus:statbus /home/statbus/install-input.env; chmod 600 /home/statbus/install-input.env'
     VM_EXEC bash -lc "set -o pipefail; curl -fsSL https://statbus.org/install.sh | env STATBUS_HARNESS_CERT_STAGING=/home/statbus/harness-certs STATBUS_INSTALL_VERSION=$tag STATBUS_USERS_FILE=/home/statbus/users.yml STATBUS_ENV_CONFIG=/home/statbus/install-input.env STATBUS_MIN_DISK_GB=5 bash -s -- --non-interactive" 2>&1 | tee "$log"
     local rc=${PIPESTATUS[0]}
-    if [ "$rc" -eq 0 ]; then
-        VM_EXEC bash -lc 'cd ~/statbus && ./sb dotenv -f .env.config set CADDY_DEPLOYMENT_MODE standalone && ./sb dotenv -f .env.config set TLS_CERT_FILE /data/custom-certs/domain.crt && ./sb dotenv -f .env.config set TLS_KEY_FILE /data/custom-certs/domain.key && ./sb config generate && ./sb restart all'
-    fi
     return "$rc"
 }
