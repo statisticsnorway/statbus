@@ -7,6 +7,7 @@ shift
 [[ "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+-rc\.[0-9]+$ ]] || exit 2
 export LXD_CANDIDATE=$TAG
 source "$ROOT/test/install-recovery/lib/lxd-backend.sh"
+source "$ROOT/test/install-recovery/lxd/verdict.sh"
 PINNED_ROOT="${JCODE_SCRATCH_DIR:?JCODE_SCRATCH_DIR required}/lxd-s2-pinned-${TAG//[^a-zA-Z0-9-]/-}"
 if [ ! -d "$PINNED_ROOT/.git" ] && [ ! -f "$PINNED_ROOT/.git" ]; then
     git -C "$ROOT" worktree add --detach "$PINNED_ROOT" "$TAG"
@@ -74,13 +75,7 @@ for slug in "${scenarios[@]}"; do
         if _lxd_host lxc info "$name" >/dev/null 2>&1; then _lxd_host lxc delete "$name" --force; fi
         rc=0
         LXD_CANDIDATE="$TAG" LXD_LOG_DIR="$RUN_DIR" bash "$RUN_DIR/shadow/scenarios/$slug.sh" "statbus-recovery-$slug" >"$RUN_DIR/$slug.log" 2>&1 || rc=$?
-        if [ "$rc" -eq 0 ]; then
-            if grep -q 'PASS:' "$RUN_DIR/$slug.log"; then verdict=PASS; else verdict=INVALID; fi
-        elif grep -Eq '(^|[[:space:]])(FAIL:|ASSERTION FAIL:|PRODUCT FAIL:)' "$RUN_DIR/$slug.log"; then
-            verdict=FAIL
-        else
-            verdict=ERROR
-        fi
+        verdict=$(lxd_scenario_verdict "$RUN_DIR/$slug.log" "$rc")
         if [ "$slug" = 4-install-40gb-disk ] && [ "$verdict" = PASS ]; then
             if ! awk '$1 ~ /^\/dev\// && $2 == "40G" {found=1} END {exit !found}' "$RUN_DIR/$slug.log"; then
                 verdict=INVALID
