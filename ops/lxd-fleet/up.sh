@@ -36,12 +36,10 @@ fi
 [ "$(lxc storage get statbus-test driver)" = btrfs ] || { echo 'REFUSE: storage pool is not btrfs' >&2; exit 1; }
 [ "$(lxc network get lxdbr0 ipv4.nat)" = true ] || { echo 'REFUSE: bridge NAT is disabled' >&2; exit 1; }
 [ "$(lxc network get lxdbr0 ipv6.address)" = none ] || { echo 'REFUSE: bridge IPv6 differs' >&2; exit 1; }
-if ! lxc profile device show default | grep -q '^  root:'; then
-    lxc profile device add default root disk path=/ pool=statbus-test
-fi
-if ! lxc profile device show default | grep -q '^  eth0:'; then
-    lxc profile device add default eth0 nic name=eth0 network=lxdbr0
-fi
+# `device show` emits top-level keys; `device get` both checks and stays quiet
+# when the device already exists (review round 2: indented-key grep missed).
+[ "$(lxc profile device get default root pool 2>/dev/null)" = statbus-test ] || lxc profile device add default root disk path=/ pool=statbus-test
+[ "$(lxc profile device get default eth0 network 2>/dev/null)" = lxdbr0 ] || lxc profile device add default eth0 nic name=eth0 network=lxdbr0
 [ "$(lxc profile device get default root pool)" = statbus-test ] || { echo 'REFUSE: default profile uses another pool' >&2; exit 1; }
 [ "$(lxc profile device get default eth0 network)" = lxdbr0 ] || { echo 'REFUSE: default profile uses another bridge' >&2; exit 1; }
 REMOTE
