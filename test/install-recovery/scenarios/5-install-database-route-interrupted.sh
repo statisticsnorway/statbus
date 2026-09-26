@@ -10,12 +10,22 @@ trap 'rc=$?; cleanup_vm "$VM_NAME"; exit $rc' EXIT
 bootstrap_install_test_vm "$VM_NAME" ""
 LOG="${HARNESS_ROOT}/tmp/install-recovery-${VM_NAME}-install.log"
 MARKER="${HARNESS_ROOT}/tmp/install-recovery-${VM_NAME}-route-stopped"
-rm -f "$MARKER"
+FIRST_LOG="${HARNESS_ROOT}/tmp/install-recovery-${VM_NAME}-first.log"
+SECOND_LOG="${HARNESS_ROOT}/tmp/install-recovery-${VM_NAME}-recovery.log"
+rm -f "$MARKER" "$LOG" "$FIRST_LOG" "$SECOND_LOG"
 # Watch the services completion boundary and kill only the route provider.
 # The install can either use the in-service route or fail with a bounded diagnosis.
 (
-  while ! grep -Eq '^\[[0-9]+/[0-9]+\] Services +(DONE|OK)' "$LOG" 2>/dev/null; do sleep 0.1; done
-  VM_EXEC bash -c 'cd ~/statbus && docker compose --profile all stop proxy' && touch "$MARKER"
+  for ((i=0; i<1200; i++)); do
+    if grep -Eq '^\[[0-9]+/[0-9]+\] Services +(DONE|OK)' "$LOG" 2>/dev/null; then break; fi
+    sleep 0.1
+  done
+  grep -Eq '^\[[0-9]+/[0-9]+\] Services +(DONE|OK)' "$LOG" || exit 1
+  # A late stop is not an interrupted migration fixture.
+  if grep -Eq '^\[[0-9]+/[0-9]+\] (Seed|Migrations) ' "$LOG"; then exit 1; fi
+  VM_EXEC bash -c 'cd ~/statbus && docker compose --profile all stop proxy' || exit 1
+  if grep -Eq '^\[[0-9]+/[0-9]+\] (Seed|Migrations) ' "$LOG"; then exit 1; fi
+  date +%s > "$MARKER"
 ) &
 watcher=$!
 if install_statbus_in_vm "$VM_NAME"; then
@@ -26,14 +36,23 @@ fi
 kill "$watcher" 2>/dev/null || true
 wait "$watcher" 2>/dev/null || true
 test -f "$MARKER" || { echo 'route interruption did not occur' >&2; exit 1; }
-if [ "$first_rc" -ne 0 ]; then
-  grep -F 'web entry point' "$LOG" >/dev/null || { echo 'missing route provider diagnosis' >&2; exit 1; }
-  grep -E '127\.0\.0\.1:[0-9]+' "$LOG" >/dev/null || { echo 'missing route address' >&2; exit 1; }
+stopped_at=$(cat "$MARKER")
+if (( $(date +%s) - stopped_at > 300 )); then
+  echo 'interrupted install did not fail within five minutes of route stop' >&2
+  exit 1
 fi
+cp "$LOG" "$FIRST_LOG"
+test "$first_rc" -ne 0 || { echo 'interrupted install unexpectedly succeeded' >&2; exit 1; }
+grep -F 'web entry point' "$FIRST_LOG" >/dev/null || { echo 'missing route provider diagnosis' >&2; exit 1; }
+grep -E '(127\.0\.0\.1|localhost):[0-9]+' "$FIRST_LOG" >/dev/null || { echo 'missing route address' >&2; exit 1; }
+grep -Ei '(retry|rerun)' "$FIRST_LOG" >/dev/null || { echo 'missing recovery action' >&2; exit 1; }
+# The harness appends to LOG; isolate each invocation before checking progress.
+rm -f "$LOG"
 # The installer repairs the stopped route on rerun.
 install_statbus_in_vm "$VM_NAME"
-grep -E '^\[[0-9]+/[0-9]+\] Seed +(DONE|OK)' "$LOG" >/dev/null
-grep -E '^\[[0-9]+/[0-9]+\] Migrations +(DONE|OK)' "$LOG" >/dev/null
+cp "$LOG" "$SECOND_LOG"
+grep -E '^\[[0-9]+/[0-9]+\] Seed +(DONE|OK)' "$SECOND_LOG" >/dev/null
+grep -E '^\[[0-9]+/[0-9]+\] Migrations +(DONE|OK)' "$SECOND_LOG" >/dev/null
 assert_step_upgrade_service_completed "$VM_NAME"
 assert_health_passes "$VM_NAME"
 VM_EXEC bash -c 'cd ~/statbus && echo "SELECT 1" | ./sb psql' | grep -q 1

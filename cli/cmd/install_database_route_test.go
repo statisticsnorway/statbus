@@ -32,3 +32,15 @@ func TestDatabaseRouteFailureNamesProvider(t *testing.T) {
 		t.Errorf("missing recovery action: %q", fix)
 	}
 }
+
+func TestPsqlDatabaseRouteFailureNamesProvider(t *testing.T) {
+	for _, diagnostic := range []string{
+		`psql: error: connection to server at "localhost" (::1), port 5432 failed: Connection refused`,
+		`psql: error: connection to server at "127.0.0.1" (127.0.0.1), port 5432 failed: Connection refused`,
+	} {
+		cause, fix := classifyInstallFailure("Migrations", fmt.Errorf("%s", diagnostic))
+		if !strings.Contains(cause, ":5432") || !strings.Contains(cause, "web entry point") || !strings.Contains(fix, "retry") {
+			t.Errorf("diagnostic %q classified as cause %q, fix %q", diagnostic, cause, fix)
+		}
+	}
+}

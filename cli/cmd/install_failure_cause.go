@@ -64,8 +64,10 @@ var installFailureCauses = []installFailureCause{
 }
 
 func classifyInstallFailure(step string, err error) (cause, fix string) {
-	if matches := refusedDatabaseRoute.FindStringSubmatch(err.Error()); len(matches) == 3 {
-		return fmt.Sprintf("The database route at %s:%s is unavailable; the web entry point provides this route.", matches[1], matches[2]), "Start or repair the web entry point, then retry the install."
+	for _, pattern := range []*regexp.Regexp{refusedDatabaseRoute, refusedPsqlDatabaseRoute} {
+		if matches := pattern.FindStringSubmatch(err.Error()); len(matches) == 3 {
+			return fmt.Sprintf("The database route at %s:%s is unavailable; the web entry point provides this route.", matches[1], matches[2]), "Start or repair the web entry point, then retry the install."
+		}
 	}
 	for _, entry := range installFailureCauses {
 		if entry.pattern.MatchString(err.Error()) {
@@ -79,3 +81,4 @@ func classifyInstallFailure(step string, err error) (cause, fix string) {
 }
 
 var refusedDatabaseRoute = regexp.MustCompile(`(?i)(?:dial tcp |connection to server at "?)(127\.0\.0\.1|localhost|\[::1\]):([0-9]{2,5}).*(?:connection refused|connect: connection refused)`)
+var refusedPsqlDatabaseRoute = regexp.MustCompile(`(?i)connection to server at "(localhost|127\.0\.0\.1)" \((?:::1|127\.0\.0\.1)\), port ([0-9]{2,5}) failed: connection refused`)
