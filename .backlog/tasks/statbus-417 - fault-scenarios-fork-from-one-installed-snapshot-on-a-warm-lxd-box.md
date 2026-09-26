@@ -4,7 +4,7 @@ title: Every fault scenario starts from one installed snapshot on a warm LXD box
 status: To Do
 assignee: []
 created_date: '2026-09-25 11:15'
-updated_date: '2026-09-25 20:20'
+updated_date: '2026-09-26 13:40'
 labels:
   - harness
   - velocity
@@ -53,6 +53,10 @@ Ramp-up triggers at the **release-candidate cut** (the rc tag / orchestrator dis
 ## Strategy confirmed, 2026-09-25 20:19Z (owner)
 
 Run BOTH fleets in parallel per candidate: the Hetzner VM fleet stays the proof of record while the LXD fork fleet proves parity. Once the lifecycle (ramp at candidate cut, 3h idle reaper) and the full-suite parity run are proven, the LXD fleet REPLACES the VM scenarios. Stages: (2) per-scenario checkpoints + full-suite parity verdict comparison on one candidate; (3) lifecycle automation + orchestrator wiring; (4) retire the VM scenarios.
+
+## Owner ruling, 2026-09-26 13:39Z — happy paths are base builds; the whole gate becomes one checkpoint tree
+
+The base build IS the happy-install proof: each base starts from a PRISTINE Ubuntu cloud guest, hardens, and runs the real installer — that is a fresh-machine install. The gate's shape becomes one tree: pristine 24.04/26.04 guests → install → snapshots (= 0-happy-install per Ubuntu version); fork → upgrade to candidate (= 0-happy-upgrade); fork → rerun (= idempotent reinstall); forks → fault scenarios. No per-scenario VMs and no separate happy-path VMs in the steady-state gate. Honesty constraints the coordinator must keep: (1) the parity run vs the VM fleet still decides adoption; (2) LXD guests share the host kernel — one periodic full-VM soak (per stable promotion or weekly) is the long-stop for kernel-dependent behavior; (3) Hetzner provisioning/cloud-init itself is covered by the hardening gate, which may also run in a guest.
 
 <!-- SECTION:DESCRIPTION:END -->
 
