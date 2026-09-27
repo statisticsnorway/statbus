@@ -4,7 +4,7 @@ title: Every fault scenario starts from one installed snapshot on a warm LXD box
 status: To Do
 assignee: []
 created_date: '2026-09-25 11:15'
-updated_date: '2026-09-26 20:53'
+updated_date: '2026-09-27 08:34'
 labels:
   - harness
   - velocity
@@ -69,6 +69,12 @@ Per candidate tag: pristine 24.04 guest → harden → install candidate → sna
 ## Owner refinement, 2026-09-26 20:52Z
 
 The LXD gate must keep the SAME skip/supersession semantics as the VM fleet: a newer candidate supersedes an in-flight run (per-scenario, per 416), verdicts attribute to the exercised SHA, and test-irrelevant changes ride the same exemption list. The fork fleet is not a second-class runner with weaker freshness rules.
+
+## Owner ruling, 2026-09-27 08:33Z — no permanent soak; total cleanup
+
+The per-promotion VM soak is RETRACTED (owner): a permanent parallel run "just in case" is an anxiety guard — the thing this project does not do. Parity proves equivalence, we switch, we commit totally. If a kernel-dependent fault ever appears in the field, the response is a targeted test for that fault, not a standing fleet. After the switch: the VM per-scenario fleet is DELETED (workflow, dispatch action, docs), not mothballed.
+
+Also: the box's identity between runs is its NAME (statbus-lxd-fleet) resolved via the hcloud API (HCLOUD_TOKEN, already a repo secret) — never a stored IP, which goes stale on reap+recreate.
 
 <!-- SECTION:DESCRIPTION:END -->
 

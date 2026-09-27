@@ -771,6 +771,15 @@ if (: </dev/tty) 2>/dev/null; then
     tty_available=true
 fi
 
+# The terminal filter is an aid, not a requirement: when this script installs
+# an OLDER version (STATBUS_INSTALL_VERSION pinning a previous stable), the
+# target tree may predate the filter — degrade to unfiltered output instead of
+# dying in awk. (Observed: rc.08's script installing v2026.09.2, 2026-09-27.)
+awk_filter=cat
+if [ -f "$STATBUS_DIR/ops/install-terminal-output.awk" ]; then
+    awk_filter="$STATBUS_DIR/ops/install-terminal-output.awk"
+fi
+
 # Run the Go-side installer. Do NOT replace this parent shell — we need to handle non-zero
 # exits and write a named-invariant banner + support bundle so operators
 # have something actionable when they come back to "what happened".
@@ -779,10 +788,10 @@ trap - ERR
 install_output="$STATBUS_DIR/tmp/install-last-run-output.txt"
 mkdir -p "$STATBUS_DIR/tmp"
 if [ "$tty_available" = true ]; then
-    (exec </dev/tty; STATBUS_INSTALL_PROMPTS_TO_TTY=1 ./sb install ${SB_INSTALL_ARGS[@]+"${SB_INSTALL_ARGS[@]}"}) 2>&1 | tee "$install_output" | awk -f "$STATBUS_DIR/ops/install-terminal-output.awk"
+    (exec </dev/tty; STATBUS_INSTALL_PROMPTS_TO_TTY=1 ./sb install ${SB_INSTALL_ARGS[@]+"${SB_INSTALL_ARGS[@]}"}) 2>&1 | tee "$install_output" | if [ "$awk_filter" = cat ]; then cat; else awk -f "$awk_filter"; fi
     sb_rc=${PIPESTATUS[0]}
 else
-    ./sb install ${SB_INSTALL_ARGS[@]+"${SB_INSTALL_ARGS[@]}"} 2>&1 | tee "$install_output" | awk -f "$STATBUS_DIR/ops/install-terminal-output.awk"
+    ./sb install ${SB_INSTALL_ARGS[@]+"${SB_INSTALL_ARGS[@]}"} 2>&1 | tee "$install_output" | if [ "$awk_filter" = cat ]; then cat; else awk -f "$awk_filter"; fi
     sb_rc=${PIPESTATUS[0]}
 fi
 trap 'rc=$?; echo "" >&2; echo "install.sh FAILED at line $LINENO: $BASH_COMMAND (exit $rc)" >&2' ERR
