@@ -33,6 +33,7 @@ import (
 
 var (
 	detectInstallState          = install.Detect
+	recoverCrashedInstall       = runCrashRecovery
 	checkInstallSigners         = checkSignersDone
 	writeDetectionSupportBundle = func(installDir string) (string, error) {
 		path := filepath.Join(installDir, fmt.Sprintf("support-bundle-%s.txt", time.Now().UTC().Format("20060102-150405")))
@@ -582,16 +583,27 @@ func runInstall() (installErr error) {
 						restartIfRecovered()
 					}
 				}()
-				if err := runCrashRecovery(installDir, &restartIfRecovered); err != nil {
+				if err := recoverCrashedInstall(installDir, &restartIfRecovered); err != nil {
 					return fmt.Errorf("crash recovery: %w", err)
 				}
-				state, detail, derr = install.Detect(installDir, version)
+				state, detail, derr = detectInstallState(installDir, version)
 				if derr != nil {
 					return fmt.Errorf("re-detect after recovery: %w", derr)
 				}
 				detectedState = state
+				// A stale install-held flag masks first-install provenance at the
+				// initial probe. Only after recovery removes it can Detect see the
+				// unfinished database. Import consent from the answer file now,
+				// under the same marker-and-state gate as ordinary repair.
+				if !signerPreflightRequired(installDir, state) {
+					if err := importPendingSignerConsent(installDir); err != nil {
+						return &installPreflightRefusalError{err: err}
+					}
+					preflightInstallSigner(installDir)
+				}
 				installDiagnostic(installDir, "State after recovery: %s (target=%s)", state, detail.TargetVersion)
 				fmt.Println("Recovery finished. Checking the installation again.")
+				logInstallState(installDir, state, detail)
 			}
 			if handled, err := dispatchInstallState(installDir, state, detail); handled {
 				if state == install.StateLiveUpgrade && detail.Flag != nil && detail.Flag.Holder == upgrade.HolderInstall {
