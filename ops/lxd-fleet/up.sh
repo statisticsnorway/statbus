@@ -38,7 +38,11 @@ REMOTE
     fi
 fi
 if [ -z "$server" ]; then
-    hcloud server create --name "$name" --type ccx33 --image "$image" --location hel1 --ssh-key 'jorgen@veridit.no' --label statbus-purpose=lxd-fleet >/dev/null
+    # Both keys at creation: the operator's, and the CI key whose private half
+    # is the LXD_FLEET_SSH_KEY secret. Without the CI key a freshly created box
+    # is unreachable from the workflow (the prototype only worked because the
+    # key had been appended by hand).
+    hcloud server create --name "$name" --type ccx33 --image "$image" --location hel1 --ssh-key 'jorgen@veridit.no' --ssh-key statbus-lxd-fleet-ci --label statbus-purpose=lxd-fleet >/dev/null
     server=$(hcloud server describe "$name" -o json)
 fi
 [ "$(jq -r '.labels["statbus-purpose"] // empty' <<<"$server")" = lxd-fleet ] || { echo 'REFUSE: foreign or unlabeled fleet box' >&2; exit 1; }
@@ -52,24 +56,30 @@ for ((i=0;i<90;i++)); do
 done
 ssh "${opts[@]}" "root@$ip" 'bash -s' <<'REMOTE'
 set -euo pipefail
+# This script arrives on stdin (bash -s). lxc create/add commands read YAML
+# from a non-terminal stdin, so each one gets </dev/null or it swallows the
+# remainder of this script ("yaml: mapping values are not allowed").
 if ! command -v btrfs >/dev/null 2>&1; then
     apt-get update -qq
-    DEBIAN_FRONTEND=noninteractive apt-get install -y btrfs-progs >/dev/null
+    DEBIAN_FRONTEND=noninteractive apt-get install -y btrfs-progs </dev/null >/dev/null
 fi
-if ! snap list lxd >/dev/null 2>&1; then snap install lxd >/dev/null; fi
+if ! snap list lxd >/dev/null 2>&1; then snap install lxd </dev/null >/dev/null; fi
 if ! lxc storage show statbus-test >/dev/null 2>&1; then
-    lxc storage create statbus-test btrfs size=60GiB
+    lxc storage create statbus-test btrfs size=60GiB </dev/null
 fi
 if ! lxc network show lxdbr0 >/dev/null 2>&1; then
-    lxc network create lxdbr0 ipv4.address=auto ipv4.nat=true ipv6.address=none
+    lxc network create lxdbr0 ipv4.address=auto ipv4.nat=true ipv6.address=none </dev/null
 fi
-[ "$(lxc storage get statbus-test driver)" = btrfs ] || { echo 'REFUSE: storage pool is not btrfs' >&2; exit 1; }
+# `driver` is a pool attribute, not a config key: `lxc storage get <pool>
+# driver` prints nothing (observed on LXD 5.21 / Ubuntu 26.04), so read it
+# from the listing instead.
+[ "$(lxc storage list --format csv | awk -F, '$1 == "statbus-test" {print $2}')" = btrfs ] || { echo 'REFUSE: storage pool is not btrfs' >&2; exit 1; }
 [ "$(lxc network get lxdbr0 ipv4.nat)" = true ] || { echo 'REFUSE: bridge NAT is disabled' >&2; exit 1; }
 [ "$(lxc network get lxdbr0 ipv6.address)" = none ] || { echo 'REFUSE: bridge IPv6 differs' >&2; exit 1; }
 # `device show` emits top-level keys; `device get` both checks and stays quiet
 # when the device already exists (review round 2: indented-key grep missed).
-[ "$(lxc profile device get default root pool 2>/dev/null)" = statbus-test ] || lxc profile device add default root disk path=/ pool=statbus-test
-[ "$(lxc profile device get default eth0 network 2>/dev/null)" = lxdbr0 ] || lxc profile device add default eth0 nic name=eth0 network=lxdbr0
+[ "$(lxc profile device get default root pool 2>/dev/null)" = statbus-test ] || lxc profile device add default root disk path=/ pool=statbus-test </dev/null
+[ "$(lxc profile device get default eth0 network 2>/dev/null)" = lxdbr0 ] || lxc profile device add default eth0 nic name=eth0 network=lxdbr0 </dev/null
 [ "$(lxc profile device get default root pool)" = statbus-test ] || { echo 'REFUSE: default profile uses another pool' >&2; exit 1; }
 [ "$(lxc profile device get default eth0 network)" = lxdbr0 ] || { echo 'REFUSE: default profile uses another bridge' >&2; exit 1; }
 REMOTE

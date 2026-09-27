@@ -56,7 +56,7 @@ for package in ufw unattended-upgrades; do
 done
 if (( ${#missing[@]} )); then
     apt-get update -qq
-    apt-get install -y "${missing[@]}" >/dev/null
+    apt-get install -y "${missing[@]}" </dev/null >/dev/null
 fi
 # Stage 3's security-update cadence, without its interactive email/reboot
 # policy: these short-lived fleet hosts must not reboot underneath forks.
@@ -77,21 +77,21 @@ systemctl enable --now apt-daily.timer apt-daily-upgrade.timer >/dev/null
 # adds CrowdSec's apt repository and is skipped on subsequent ramps.
 if ! command -v crowdsec >/dev/null 2>&1; then
     curl -fsSL https://install.crowdsec.net | bash
-    apt-get update -qq
-    apt-get install -y crowdsec crowdsec-firewall-bouncer-nftables >/dev/null
+    apt-get update -qq </dev/null
+    apt-get install -y crowdsec crowdsec-firewall-bouncer-nftables </dev/null >/dev/null
 fi
 if ! dpkg-query -W -f='${Status}' crowdsec-firewall-bouncer-nftables 2>/dev/null | grep -qx 'install ok installed'; then
-    apt-get install -y crowdsec-firewall-bouncer-nftables >/dev/null
+    apt-get install -y crowdsec-firewall-bouncer-nftables </dev/null >/dev/null
 fi
-cscli collections list -o json | grep -q 'crowdsecurity/sshd' || cscli collections install crowdsecurity/sshd
+cscli collections list -o json </dev/null | grep -q 'crowdsecurity/sshd' || cscli collections install crowdsecurity/sshd </dev/null
 systemctl enable --now crowdsec >/dev/null
 systemctl is-active --quiet crowdsec
 # The package can create a local YAML key without registering the bouncer in
 # CrowdSec's API (observed on the live box: "API error: access forbidden").
 # An already healthy registration is left untouched on subsequent ramps.
 if ! systemctl is-active --quiet crowdsec-firewall-bouncer; then
-    cscli bouncers delete statbus-lxd-host >/dev/null 2>&1 || true
-    bouncer_key=$(cscli bouncers add statbus-lxd-host -o raw)
+    cscli bouncers delete statbus-lxd-host </dev/null >/dev/null 2>&1 || true
+    bouncer_key=$(cscli bouncers add statbus-lxd-host -o raw </dev/null)
     config=/etc/crowdsec/bouncers/crowdsec-firewall-bouncer.yaml
     awk -v key="$bouncer_key" '$1 == "api_key:" {$0 = "api_key: " key; found=1} {print} END {if (!found) exit 1}' "$config" > "$config.stage"
     chmod 600 "$config.stage"
@@ -132,8 +132,11 @@ fi
 trap 'lxc delete "$guest" --force >/dev/null 2>&1 || true' EXIT
 lxc launch ubuntu:24.04 "$guest" < /dev/null >/dev/null
 for attempt in $(seq 1 30); do
-    if lxc exec "$guest" -- getent ahostsv4 archive.ubuntu.com >/dev/null 2>&1 &&
-       lxc exec "$guest" -- timeout 8 bash -c 'echo >/dev/tcp/1.1.1.1/80' >/dev/null 2>&1; then
+    # </dev/null: lxc exec forwards stdin, and stdin here is the rest of this
+    # bash -s script. Without it the failure tail below is swallowed and a
+    # failed egress check exits 0.
+    if lxc exec "$guest" -- getent ahostsv4 archive.ubuntu.com </dev/null >/dev/null 2>&1 &&
+       lxc exec "$guest" -- timeout 8 bash -c 'echo >/dev/tcp/1.1.1.1/80' </dev/null >/dev/null 2>&1; then
         echo 'Guest DNS and outbound TCP verified through LXD bridge'
         exit 0
     fi
