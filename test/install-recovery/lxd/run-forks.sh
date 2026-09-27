@@ -62,19 +62,22 @@ fresh_fork_batch() {
     return 0
 }
 # A shadow bootstrap selects the backend without modifying original scenario assertions.
-for lib in "$ROOT"/test/install-recovery/lib/*.sh; do
+for lib in "$PINNED_ROOT"/test/install-recovery/lib/*; do
     [ "${lib##*/}" = vm-bootstrap.sh ] && continue
     ln -s "$lib" "$RUN_DIR/shadow/lib/${lib##*/}"
 done
 ln -s "$ROOT/test/install-recovery/lib/lxd-backend.sh" "$RUN_DIR/shadow/lib/vm-bootstrap.sh"
-for scenario in "$ROOT"/test/install-recovery/scenarios/*.sh; do
+for scenario in "$PINNED_ROOT"/test/install-recovery/scenarios/*.sh; do
     ln -s "$scenario" "$RUN_DIR/shadow/scenarios/${scenario##*/}"
 done
 scenarios=()
 if [ "$#" -eq 0 ]; then
-    for script in "$ROOT"/test/install-recovery/scenarios/*.sh; do
+    for script in "$PINNED_ROOT"/test/install-recovery/scenarios/*.sh; do
         slug=${script##*/}; slug=${slug%.sh}
         case "$slug" in 0-happy-*) continue ;; esac
+        # Same file-content marker as run.sh's default/full discovery. Explicit
+        # --scenario still selects on-demand cases.
+        if grep -q HARNESS_SKIP_DEFAULT "$script"; then continue; fi
         scenarios+=("$slug")
     done
 else
