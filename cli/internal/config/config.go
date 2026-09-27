@@ -491,6 +491,9 @@ func loadOrGenerateConfig(projDir string, verbose bool) (*ConfigEnv, error) {
 		AptUseHttpsOnly:          gen("APT_USE_HTTPS_ONLY", "false"),
 		AdministratorContact:     gen("ADMINISTRATOR_CONTACT", ""),
 	}
+	if err := validateTLSPaths(projDir, cfg.TlsCertFile, cfg.TlsKeyFile); err != nil {
+		return nil, err
+	}
 
 	// STATBUS-307 fleet transition. Runs BEFORE resolution so a box carrying the
 	// retired key resolves against its translated state in the same pass, rather
@@ -1201,6 +1204,31 @@ func generateCaddyFiles(derived *Derived, cfg *ConfigEnv, projDir string, verbos
 // This is the main entry point called by `sb config generate`.
 func Generate(verbose bool) error {
 	return GenerateInDir(ProjectDir(), verbose)
+}
+
+// validateTLSPaths checks the container-to-host mapping before rendering Caddy configuration.
+func validateTLSPaths(projDir, cert, key string) error {
+	if cert == "" && key == "" {
+		return nil
+	}
+	guidance := "TLS_CERT_FILE and TLS_KEY_FILE are paths INSIDE the Caddy container under /data/; place files on the host in caddy/data/custom-certs/ and use /data/custom-certs/... values. See doc/DEPLOYMENT.md, Custom TLS Certificates."
+	if cert == "" || key == "" {
+		return fmt.Errorf("both TLS_CERT_FILE and TLS_KEY_FILE must be set together. %s", guidance)
+	}
+	for _, item := range []struct{ name, value string }{{"TLS_CERT_FILE", cert}, {"TLS_KEY_FILE", key}} {
+		if !strings.HasPrefix(item.value, "/data/") || filepath.Clean(item.value) != item.value || item.value == "/data/" {
+			return fmt.Errorf("%s=%q is not a valid Caddy container path. %s", item.name, item.value, guidance)
+		}
+		hostPath := filepath.Join(projDir, "caddy", "data", strings.TrimPrefix(item.value, "/data/"))
+		info, err := os.Stat(hostPath)
+		if err != nil {
+			return fmt.Errorf("%s=%q: corresponding host file %s is unavailable: %v. %s", item.name, item.value, hostPath, err, guidance)
+		}
+		if !info.Mode().IsRegular() {
+			return fmt.Errorf("%s=%q: corresponding host path %s is not a regular file. %s", item.name, item.value, hostPath, guidance)
+		}
+	}
+	return nil
 }
 
 // GenerateInDir runs strict config generation for an explicit checkout.
