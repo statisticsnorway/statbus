@@ -40,13 +40,10 @@ else
     done
 fi
 # A slug owns one container, log and row per invocation.
-declare -A seen_slugs=()
-for slug in "${scenarios[@]}"; do
-    if [ "${seen_slugs[$slug]+yes}" = yes ]; then
-        echo "Duplicate scenario slug: $slug" >&2; exit 2
-    fi
-    seen_slugs[$slug]=1
-done
+# Portable duplicate check: macOS ships bash 3.2 (no associative arrays) and
+# this driver runs from developer machines as well as CI.
+dup=$(printf '%s\n' "${scenarios[@]}" | sort | uniq -d)
+[ -z "$dup" ] || { echo "Duplicate scenario slug: $dup" >&2; exit 2; }
 # Build each distinct checkpoint only on demand, serially. Never race two builders.
 checkpoints=()
 for slug in "${scenarios[@]}"; do
