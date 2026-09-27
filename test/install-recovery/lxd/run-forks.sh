@@ -17,7 +17,8 @@ fi
     echo 'REFUSE: pinned worktree HEAD is not candidate tag' >&2; exit 2;
 }
 RUN_DIR="$PINNED_ROOT/tmp/lxd-stage2-${TAG}-$(date -u +%Y%m%dT%H%M%S)"
-mkdir -p "$RUN_DIR/shadow/lib" "$RUN_DIR/shadow/scenarios"
+SHADOW_ROOT="$RUN_DIR/shadow"
+mkdir -p "$SHADOW_ROOT/test/install-recovery/lib" "$SHADOW_ROOT/test/install-recovery/scenarios"
 printf 'scenario\tvm_verdict\tvm_wall_s\tlxd_verdict\tlxd_wall_s\tlxd_rc\tcheckpoint\n' > "$RUN_DIR/comparison.tsv"
 phase=setup
 finalize() {
@@ -61,14 +62,29 @@ fresh_fork_batch() {
     fi
     return 0
 }
+# The scenarios derive REPO_ROOT via ../../.. from their own directory. Mirror
+# the candidate's top-level tree at the shadow root so install.sh and every
+# other repo-relative asset resolve to the tagged tree, not pinned/tmp/.
+for entry in "$PINNED_ROOT"/*; do
+    [ "${entry##*/}" = test ] && continue
+    ln -s "$entry" "$SHADOW_ROOT/${entry##*/}"
+done
+for entry in "$PINNED_ROOT"/test/*; do
+    [ "${entry##*/}" = install-recovery ] && continue
+    ln -s "$entry" "$SHADOW_ROOT/test/${entry##*/}"
+done
+for entry in "$PINNED_ROOT"/test/install-recovery/*; do
+    case "${entry##*/}" in lib|scenarios) continue ;; esac
+    ln -s "$entry" "$SHADOW_ROOT/test/install-recovery/${entry##*/}"
+done
 # A shadow bootstrap selects the backend without modifying original scenario assertions.
 for lib in "$PINNED_ROOT"/test/install-recovery/lib/*; do
     [ "${lib##*/}" = vm-bootstrap.sh ] && continue
-    ln -s "$lib" "$RUN_DIR/shadow/lib/${lib##*/}"
+    ln -s "$lib" "$SHADOW_ROOT/test/install-recovery/lib/${lib##*/}"
 done
-ln -s "$ROOT/test/install-recovery/lib/lxd-backend.sh" "$RUN_DIR/shadow/lib/vm-bootstrap.sh"
+ln -s "$ROOT/test/install-recovery/lib/lxd-backend.sh" "$SHADOW_ROOT/test/install-recovery/lib/vm-bootstrap.sh"
 for scenario in "$PINNED_ROOT"/test/install-recovery/scenarios/*.sh; do
-    ln -s "$scenario" "$RUN_DIR/shadow/scenarios/${scenario##*/}"
+    ln -s "$scenario" "$SHADOW_ROOT/test/install-recovery/scenarios/${scenario##*/}"
 done
 scenarios=()
 if [ "$#" -eq 0 ]; then
@@ -123,7 +139,7 @@ for slug in "${scenarios[@]}"; do
         # Only our own prefixed instance, reset before every invocation.
         if _lxd_host lxc info "$name" >/dev/null 2>&1; then _lxd_host lxc delete "$name" --force; fi
         rc=0
-        LXD_CANDIDATE="$TAG" LXD_LOG_DIR="$RUN_DIR" bash "$RUN_DIR/shadow/scenarios/$slug.sh" "statbus-recovery-$slug" >"$RUN_DIR/$slug.log" 2>&1 || rc=$?
+        LXD_CANDIDATE="$TAG" LXD_LOG_DIR="$RUN_DIR" bash "$SHADOW_ROOT/test/install-recovery/scenarios/$slug.sh" "statbus-recovery-$slug" >"$RUN_DIR/$slug.log" 2>&1 || rc=$?
         verdict=$(lxd_scenario_verdict "$RUN_DIR/$slug.log" "$rc")
         if [ "$slug" = 4-install-40gb-disk ] && [ "$verdict" = PASS ]; then
             if ! awk '$1 ~ /^\/dev\// && $2 == "40G" {found=1} END {exit !found}' "$RUN_DIR/$slug.log"; then
