@@ -4,7 +4,7 @@ title: Every fault scenario starts from one installed snapshot on a warm LXD box
 status: To Do
 assignee: []
 created_date: '2026-09-25 11:15'
-updated_date: '2026-09-27 08:38'
+updated_date: '2026-09-27 08:53'
 labels:
   - harness
   - velocity
@@ -80,8 +80,12 @@ Also: the box's identity between runs is its NAME (statbus-lxd-fleet) resolved v
 
 - Box identity is its NAME via hcloud (perfect, stable).
 - No retained VM fleet after the switch; the technical differences are minimal and accepted.
-- **The LXD host must run the target platform's kernel: Ubuntu 26.04.** Since guests share the host kernel, a 26.04 host makes the guests' kernel the officially targeted one; this closes most of the shared-kernel caveat. The box gets rebuilt on 26.04 (or upgraded) during stage 3.
+- **The LXD host must run the target platform's kernel: Ubuntu 26.04.** Since guests share the host kernel, a 26.04 host makes the guests' kernel the officially targeted one; this closes most of the shared-kernel caveat. The box gets rebuilt on 26.04 by MECHANISM, not by hand: up.sh recreates the named box on image drift, so the image bump takes effect at the next ramp (bases are snapshots; rebuild via base.sh in minutes).
 - **No per-commit runs and no subset selection:** the jobs need the released candidate build (images exist only per commit/tag), and there is no ahead-of-time channel to name a subset — the design stands: every candidate runs the full suite, on both fleets until the switch.
+
+## Host hardening requirement, 2026-09-27 08:44Z (owner)
+
+The LXD host itself must be hardened while it lives: key-only SSH (incl. root), ufw default-deny with SSH only, CrowdSec (the project's existing tool — setup-ubuntu-lts.sh stage 4, with UFW + nftables bouncer; NOT fail2ban), unattended security upgrades — grounded in ops/setup-ubuntu-lts.sh's real stages. Found missing on the current box (ufw inactive, no fail2ban). The 3h reaper bounds exposure but does not replace hardening. Guests already run the full hardening via base.sh; the per-candidate Test Hardening gate proves the script.
 
 <!-- SECTION:DESCRIPTION:END -->
 

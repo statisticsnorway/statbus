@@ -4,7 +4,7 @@ title: Running the installer completes or waits for an earlier restart
 status: In Progress
 assignee: []
 created_date: '2026-09-24 15:47'
-updated_date: '2026-09-25 16:35'
+updated_date: '2026-09-27 10:14'
 labels:
   - release-bug
   - install
@@ -42,6 +42,10 @@ rc.03 run 36116753412 job 108013586646 (5-install-live-upgrade-wait): rerun refu
 ## VM proof, 2026-09-25 (rc.05, run 36130286326)
 
 5-install-live-upgrade-wait: GREEN. The corrected fixture (faf0905be) ran the full wait path on a VM: the installer's rerun now waits out a live restart instead of hitting the stale-recovery false positive.
+
+## rc.08 fleet outcome, 2026-09-27 (run 36306317962)
+
+Fleet: 19/23 green. The four reds are all harness-side with root causes and fixes in flight for rc.09: port-80 (the sslip override predates 418 cert staging; product refusal and rerun were both correct), concurrent-install (the rc.08 seed already contained the migration delta so the stall site never ran), interrupted-first-run (cert-staging env on the rerun), database-route-interrupted (expected first-run failure vs wrapper classification). Smoke: both legs green — the happy-upgrade leg proves the 361 legacy-token migration fix against v2026.09.2's placeholder-laden .env.config.
 
 <!-- SECTION:DESCRIPTION:END -->
 

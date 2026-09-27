@@ -4,7 +4,7 @@ title: Before starting StatBus, the installer names any program using a required
 status: In Progress
 assignee: []
 created_date: '2026-09-24 16:42'
-updated_date: '2026-09-25 16:35'
+updated_date: '2026-09-27 10:14'
 labels:
   - release-bug
   - install
@@ -45,6 +45,10 @@ rc.03 run 36116753412: job 108013584931 (4-install-port-80-taken) printed the co
 ## VM proof, 2026-09-25 (rc.05, run 36130286326, job 108056844900)
 
 4-install-port-80-taken: the first refusal named the owner and remedy verbatim on a real VM: `port 80 is in use by apache2. Free the port with sudo systemctl disable --now apache2. ... Your answers are saved. Then run the same install command again: curl ...` — both rc.03 fixes (08bcd2908, ed82f865e) proven. The scenario then failed at the RERUN for a NEW, unrelated product reason (interrupted-install signer refusal; fixed on fix/rc05-port80-rerun).
+
+## rc.08 fleet outcome, 2026-09-27 (run 36306317962)
+
+Fleet: 19/23 green. The four reds are all harness-side with root causes and fixes in flight for rc.09: port-80 (the sslip override predates 418 cert staging; product refusal and rerun were both correct), concurrent-install (the rc.08 seed already contained the migration delta so the stall site never ran), interrupted-first-run (cert-staging env on the rerun), database-route-interrupted (expected first-run failure vs wrapper classification). Smoke: both legs green — the happy-upgrade leg proves the 361 legacy-token migration fix against v2026.09.2's placeholder-laden .env.config.
 
 <!-- SECTION:DESCRIPTION:END -->
 
