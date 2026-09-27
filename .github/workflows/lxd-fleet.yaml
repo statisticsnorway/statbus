@@ -1,0 +1,174 @@
+# yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
+name: LXD Fork Fleet (advisory parity)
+on:
+  workflow_dispatch: {}
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: lxd-fork-fleet
+  cancel-in-progress: false
+jobs:
+  parity:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 180
+    env:
+      HCLOUD_TOKEN: ${{ secrets.HCLOUD_TOKEN }}
+      STATBUS_CREDENTIALS_FILE: /home/runner/work/_temp/lxd-credentials
+      JCODE_SCRATCH_DIR: /home/runner/work/_temp
+      LXD_FLEET_ARTIFACT_DIR: /home/runner/work/_temp/lxd-artifacts
+    steps:
+      - name: Initialize parity artifact
+        run: |
+          mkdir -p "$LXD_FLEET_ARTIFACT_DIR"
+          echo 'INITIALIZED: awaiting setup' > "$LXD_FLEET_ARTIFACT_DIR/workflow-status.txt"
+      - uses: actions/checkout@v4
+        id: checkout
+        with:
+          fetch-depth: 0
+      - name: Install box key and tooling
+        id: tooling
+        env:
+          BOX_KEY: ${{ secrets.LXD_FLEET_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          bash .github/scripts/install-hcloud.sh
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$BOX_KEY" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          printf 'HCLOUD_TOKEN=%q\n' "$HCLOUD_TOKEN" > "$STATBUS_CREDENTIALS_FILE"
+          chmod 600 "$STATBUS_CREDENTIALS_FILE"
+      - name: Check freshness before any paid operation
+        id: freshness
+        uses: ./.github/actions/scenario-superseded
+        with:
+          candidate-ref: ${{ github.ref_name }}
+          scenario: lxd-fleet
+      - name: Wait for previous fleet to drain (bounded 20 minutes)
+        id: drain
+        if: steps.freshness.outputs.superseded != 'true'
+        run: |
+          set -euo pipefail
+          exec > >(tee "$LXD_FLEET_ARTIFACT_DIR/drain.log") 2>&1
+          if ! hcloud server describe statbus-lxd-fleet -o json >/dev/null 2>&1; then
+            echo 'No existing fleet box; ramp can proceed.'
+            exit 0
+          fi
+          ip=$(hcloud server describe statbus-lxd-fleet -o json | jq -er '.public_net.ipv4.ip')
+          for attempt in $(seq 1 120); do
+            # Existing box may be absent before up.sh ramps it. A live active
+            # marker belongs to the previous candidate; never race its forks.
+            if ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new -o ConnectTimeout=5 "root@$ip" \
+                'test ! -e /root/fleet-run.active && test ! -e /root/fleet-hardening.active && guests=$(lxc list --format csv) && ! grep -q RUNNING <<< "$guests"' 2>/dev/null; then
+              echo 'Previous LXD fleet drained.'
+              exit 0
+            fi
+            if [ "$attempt" -eq 120 ]; then
+              echo '::error title=LXD fleet occupied::previous candidate did not drain within 20 minutes'
+              exit 1
+            fi
+            echo "Waiting for previous LXD fleet to drain ($attempt/120)"
+            sleep 10
+          done
+      - name: Recheck newest RC after occupancy wait
+        id: after-wait
+        if: steps.freshness.outputs.superseded != 'true'
+        uses: ./.github/actions/scenario-superseded
+        with:
+          candidate-ref: ${{ github.ref_name }}
+          scenario: lxd-fleet-after-wait
+      - name: Ramp warm box
+        id: ramp
+        if: steps.freshness.outputs.superseded != 'true' && steps.after-wait.outputs.superseded != 'true'
+        run: |
+          set -euo pipefail
+          ops/lxd-fleet/up.sh 2>&1 | tee "$LXD_FLEET_ARTIFACT_DIR/ramp.log"
+          ip=$(tail -n 1 "$LXD_FLEET_ARTIFACT_DIR/ramp.log")
+          [[ "$ip" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo 'up.sh did not return an IPv4 address'; exit 1; }
+          echo "LXD_HOST=root@$ip" >> "$GITHUB_ENV"
+          echo "Fleet host resolved by name: $ip"
+      - name: Build or reuse candidate base
+        id: base
+        if: steps.freshness.outputs.superseded != 'true' && steps.after-wait.outputs.superseded != 'true'
+        run: |
+          set -euo pipefail
+          ops/lxd-fleet/base.sh "${{ github.ref_name }}" 2>&1 | tee "$LXD_FLEET_ARTIFACT_DIR/base.log"
+      - name: Run all fork scenarios (batch-boundary supersession)
+        id: driver
+        if: steps.freshness.outputs.superseded != 'true' && steps.after-wait.outputs.superseded != 'true'
+        run: |
+          set -euo pipefail
+          exec > >(tee "$LXD_FLEET_ARTIFACT_DIR/driver.log") 2>&1
+          ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new "$LXD_HOST" \
+            'flock /root/fleet-run.lock bash -c "test ! -e /root/fleet-run.active && test ! -e /root/fleet-hardening.active && touch /root/fleet-run.active"'
+          trap 'ssh -o BatchMode=yes "$LXD_HOST" "rm -f /root/fleet-run.active; date +%s > /root/last-fleet-activity"' EXIT
+          test/install-recovery/lxd/run-forks.sh "${{ github.ref_name }}"
+      - name: Collect workflow phase outcome
+        if: always()
+        env:
+          FIRST: ${{ steps.freshness.outputs.superseded }}
+          AFTER_WAIT: ${{ steps.after-wait.outputs.superseded }}
+          CHECKOUT: ${{ steps.checkout.outcome }}
+          TOOLING: ${{ steps.tooling.outcome }}
+          SETUP: ${{ steps.freshness.outcome }}
+          DRAIN: ${{ steps.drain.outcome }}
+          RECHECK: ${{ steps.after-wait.outcome }}
+          RAMP: ${{ steps.ramp.outcome }}
+          BASE: ${{ steps.base.outcome }}
+          DRIVER: ${{ steps.driver.outcome }}
+        run: |
+          mkdir -p "$LXD_FLEET_ARTIFACT_DIR"
+          if [ ! -f test/install-recovery/lxd/fleet-status.sh ]; then
+            printf 'STATUS=ERROR\nPHASE=checkout\nDETAIL=status helper unavailable\n' > "$LXD_FLEET_ARTIFACT_DIR/fleet-status.txt"
+            echo 'status=ERROR' > "$LXD_FLEET_ARTIFACT_DIR/workflow-status.txt"
+            exit 0
+          fi
+          source test/install-recovery/lxd/fleet-status.sh
+          status_file="$LXD_FLEET_ARTIFACT_DIR/fleet-status.txt"
+          fleet_status_read "$status_file"
+          if [ "$FIRST" = true ] || [ "$AFTER_WAIT" = true ]; then
+            printf 'STATUS=SUPERSEDED\nPHASE=freshness\n' > "$status_file"
+          elif [[ " $CHECKOUT $TOOLING $SETUP $DRAIN $RECHECK $RAMP $BASE $DRIVER " == *' failure '* ]] && [ "$FLEET_STATUS" != FAILED ]; then
+            printf 'STATUS=FAILED\nPHASE=workflow\n' > "$status_file"
+          elif [ "$FLEET_STATUS" = ERROR ]; then
+            printf 'STATUS=ERROR\nPHASE=collector\nDETAIL=missing or malformed driver status\n' > "$status_file"
+          fi
+          fleet_status_read "$status_file"
+          {
+            echo "checkout=$CHECKOUT tooling=$TOOLING freshness=$SETUP drain=$DRAIN recheck=$RECHECK ramp=$RAMP base=$BASE driver=$DRIVER"
+            if [ "$DRIVER" != skipped ]; then
+              echo "phase=driver outcome=$DRIVER"
+            elif [ "$BASE" != skipped ]; then
+              echo "phase=base outcome=$BASE"
+            elif [ "$RAMP" != skipped ]; then
+              echo "phase=ramp outcome=$RAMP"
+            elif [ "$RECHECK" != skipped ]; then
+              echo "phase=recheck outcome=$RECHECK"
+            elif [ "$DRAIN" != skipped ]; then
+              echo "phase=drain outcome=$DRAIN"
+            elif [ "$SETUP" != skipped ]; then
+              echo "phase=freshness outcome=$SETUP"
+            elif [ "$TOOLING" != skipped ]; then
+              echo "phase=tooling outcome=$TOOLING"
+            else
+              echo "phase=checkout outcome=$CHECKOUT"
+            fi
+            echo "status=$FLEET_STATUS"
+          } > "$LXD_FLEET_ARTIFACT_DIR/workflow-status.txt"
+      - name: Upload comparison and per-scenario logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: lxd-fleet-comparison
+          path: ${{ runner.temp }}/lxd-artifacts/
+          if-no-files-found: warn
+      - name: State LXD verdict
+        if: always()
+        run: |
+          if [ ! -f test/install-recovery/lxd/fleet-status.sh ]; then
+            echo '### LXD parity: ERROR (checkout unavailable, ADVISORY ONLY)' >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          source test/install-recovery/lxd/fleet-status.sh
+          fleet_status_read "$LXD_FLEET_ARTIFACT_DIR/fleet-status.txt"
+          echo "### LXD parity: $FLEET_STATUS (ADVISORY ONLY)" >> "$GITHUB_STEP_SUMMARY"

@@ -461,6 +461,56 @@ func TestSupersededVerdictRunsLastAndAsksForItself_STATBUS246(t *testing.T) {
 	}
 }
 
+func TestLXDFleetParallelAndAdvisory_STATBUS417(t *testing.T) {
+	data, err := os.ReadFile(thisRepoFile(t, ".github/workflows/release-fleet-orchestrator.yaml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var doc struct {
+		Jobs map[string]struct {
+			Needs []string `yaml:"needs"`
+			Steps []struct {
+				ID              string            `yaml:"id"`
+				With            map[string]string `yaml:"with"`
+				ContinueOnError bool              `yaml:"continue-on-error"`
+				Run             string            `yaml:"run"`
+			} `yaml:"steps"`
+		} `yaml:"jobs"`
+	}
+	if err := yaml.Unmarshal(data, &doc); err != nil {
+		t.Fatal(err)
+	}
+	lxd, ok := doc.Jobs["lxd-fleet"]
+	if !ok {
+		t.Fatal("missing LXD fleet dispatch")
+	}
+	for _, dep := range lxd.Needs {
+		if dep == "install-recovery-harness" || dep == "upgrade-arc-harness" {
+			t.Fatal("LXD dispatch must run in parallel with the VM fleet")
+		}
+	}
+	var dispatch bool
+	for _, step := range lxd.Steps {
+		if step.With["workflow-file"] == "lxd-fleet.yaml" {
+			dispatch = step.ContinueOnError && step.With["ref"] != "" && step.With["commit-sha"] != ""
+		}
+	}
+	if !dispatch {
+		t.Fatal("LXD child must be dispatched at the candidate ref and SHA with advisory-only failure handling")
+	}
+	verdict := doc.Jobs["fleet-verdict"]
+	if !strings.Contains(strings.Join(verdict.Needs, " "), "lxd-fleet") {
+		t.Fatal("final verdict must await LXD parity result")
+	}
+	var advisory bool
+	for _, step := range verdict.Steps {
+		advisory = advisory || strings.Contains(step.Run, "ADVISORY ONLY, NOT A CANDIDATE GATE")
+	}
+	if !advisory {
+		t.Fatal("final verdict must report the advisory status explicitly")
+	}
+}
+
 func TestFleetStagesUseCoveredSubsetAndHealthIsIndependent_STATBUS351(t *testing.T) {
 	rel := ".github/workflows/release-fleet-orchestrator.yaml"
 	data, err := os.ReadFile(thisRepoFile(t, rel))

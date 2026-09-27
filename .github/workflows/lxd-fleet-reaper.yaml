@@ -1,0 +1,46 @@
+# yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
+name: Reap idle LXD fleet
+on:
+  schedule:
+    - cron: '17 * * * *'
+  workflow_dispatch: {}
+permissions:
+  contents: read
+jobs:
+  reap:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Hetzner CLI and SSH key
+        env:
+          BOX_KEY: ${{ secrets.LXD_FLEET_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          bash .github/scripts/install-hcloud.sh
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$BOX_KEY" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+      - name: Reap only after the three-hour idle guard
+        env:
+          HCLOUD_TOKEN: ${{ secrets.HCLOUD_TOKEN }}
+        run: |
+          set -euo pipefail
+          printf 'HCLOUD_TOKEN=%q\n' "$HCLOUD_TOKEN" > "$RUNNER_TEMP/lxd-credentials"
+          chmod 600 "$RUNNER_TEMP/lxd-credentials"
+          if ! hcloud server describe statbus-lxd-fleet -o json > "$RUNNER_TEMP/fleet-describe.json" 2> "$RUNNER_TEMP/fleet-describe.err"; then
+            if grep -qi 'not found' "$RUNNER_TEMP/fleet-describe.err"; then
+              echo 'No fleet box to reap.'
+              exit 0
+            fi
+            cat "$RUNNER_TEMP/fleet-describe.err" >&2
+            echo 'Fleet box lookup failed.' >&2
+            exit 1
+          fi
+          rc=0
+          STATBUS_CREDENTIALS_FILE="$RUNNER_TEMP/lxd-credentials" ops/lxd-fleet/reap.sh || rc=$?
+          if [ "$rc" -eq 42 ]; then
+            echo 'Fleet used within three hours, leaving it running.'
+            exit 0
+          fi
+          exit "$rc"

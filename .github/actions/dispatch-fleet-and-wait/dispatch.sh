@@ -291,6 +291,25 @@ start=$SECONDS
 while :; do
   read -r run_status run_conclusion < <(gh run view "$run_id" --json status,conclusion --jq '"\(.status) \(.conclusion // "pending")"')
   if [ "$run_status" = "completed" ]; then
+    if [ "$WORKFLOW_FILE" = lxd-fleet.yaml ]; then
+      parity_dir="$(mktemp -d)"
+      gh run download "$run_id" --name lxd-fleet-comparison --dir "$parity_dir" >/dev/null 2>&1 || true
+      source "$(dirname "$0")/../../../test/install-recovery/lxd/fleet-status.sh"
+      fleet_status_read "$parity_dir/fleet-status.txt"
+      echo "fleet-status=$FLEET_STATUS" >> "$GITHUB_OUTPUT"
+      if [ "$FLEET_STATUS" = SUPERSEDED ]; then
+        echo 'superseded=true' >> "$GITHUB_OUTPUT"
+        echo "LXD fleet SUPERSEDED: $FLEET_DETAIL"
+        rm -rf "$parity_dir"
+        exit 0
+      fi
+      echo 'superseded=false' >> "$GITHUB_OUTPUT"
+      rm -rf "$parity_dir"
+      if [ "$FLEET_STATUS" != PASSED ]; then
+        echo "::error title=LXD fleet $FLEET_STATUS::$FLEET_DETAIL $FLEET_PHASE ($run_url)"
+        exit 1
+      fi
+    fi
     # workflow_dispatch does not expose the child's job outputs to this parent.
     # The child aggregate uploads one verdict artifact after ALL matrix jobs.
     # Never call a missing verdict green. Early discovery/checkout failures may
