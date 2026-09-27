@@ -45,10 +45,23 @@ scp() {
             *) if [ -z "$source" ]; then source=$arg; else destination=$arg; fi ;;
         esac
     done
-    [[ "$destination" == root@"${VM_IP:-UNSET}":/* ]] || { echo "REFUSE: guest SCP destination $destination" >&2; return 2; }
+    [[ "$destination" == "root@${VM_IP:-UNSET}:"/* ]] || { echo "REFUSE: guest SCP destination $destination" >&2; return 2; }
     staging="/root/s2-transfer-$$"
     _lxd_upload "$source" "$staging"
     _lxd_host lxc file push "$staging" "$VM_NAME${destination#*:}"
+}
+_wait_for_ssh() {
+    local ip=$1 max=${2:-90} i
+    [ "$ip" = "${VM_IP:-}" ] || { echo "REFUSE: readiness probe outside fork IP $ip" >&2; return 2; }
+    for ((i=1;i<=max;i++)); do
+        if _lxd_host lxc exec "$VM_NAME" -- true >/dev/null 2>&1; then
+            echo "  fork exec ready after ${i}s"
+            return 0
+        fi
+        sleep 1
+    done
+    echo "  fork exec not ready within ${max}s" >&2
+    return 1
 }
 _lxd_guest_ip() {
     # The LXD bridge address is the guest's eth0 (the default profile's nic).
@@ -77,10 +90,18 @@ _lxd_ready() {
 # The script, not its filename, declares its initial state. A fresh installer
 # requires an absent checkout. Historical upgrade arcs select the baseline tag.
 lxd_checkpoint_for_scenario() {
-    local slug=$1 file="$HARNESS_ROOT/test/install-recovery/scenarios/$1.sh" baseline
+    local slug=$1 file="$HARNESS_ROOT/test/install-recovery/scenarios/$1.sh" baseline delegated
     [ -f "$file" ] || { echo "Unknown scenario $slug" >&2; return 2; }
+    # Delegators execute another scenario without changing the VM name. Select
+    # the checkpoint that the executed script actually bootstraps from.
+    delegated=$(sed -nE 's@^[[:space:]]*exec (bash )?"\$\(dirname "\$0"\)/([a-zA-Z0-9-]+)\.sh".*@\2@p' "$file" | head -n 1)
+    if [ -n "$delegated" ]; then
+        [ "$delegated" != "$slug" ] || { echo "Self-delegating scenario $slug" >&2; return 2; }
+        lxd_checkpoint_for_scenario "$delegated"
+        return
+    fi
     case "$slug" in
-        0-happy-*|0-interactive-admin-password|4-install-*|5-install-interrupted-restart|5-install-live-upgrade-wait)
+        0-happy-install|0-interactive-admin-password|4-install-*|5-install-interrupted-*|5-install-live-upgrade-wait|6-uninstall-reinstall)
             printf 'hardened-nothing-installed'; return ;;
     esac
     if grep -Eq 'bootstrap_install_test_vm "\$VM_NAME" ""' "$file"; then
