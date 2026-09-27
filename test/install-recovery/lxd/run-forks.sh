@@ -17,7 +17,8 @@ fi
     echo 'REFUSE: pinned worktree HEAD is not candidate tag' >&2; exit 2;
 }
 RUN_DIR="$PINNED_ROOT/tmp/lxd-stage2-${TAG}-$(date -u +%Y%m%dT%H%M%S)"
-mkdir -p "$RUN_DIR/shadow/lib" "$RUN_DIR/shadow/scenarios"
+SHADOW_ROOT="$RUN_DIR/shadow"
+mkdir -p "$SHADOW_ROOT/test/install-recovery/lib" "$SHADOW_ROOT/test/install-recovery/scenarios"
 printf 'scenario\tvm_verdict\tvm_wall_s\tlxd_verdict\tlxd_wall_s\tlxd_rc\tcheckpoint\n' > "$RUN_DIR/comparison.tsv"
 phase=setup
 finalize() {
@@ -61,20 +62,38 @@ fresh_fork_batch() {
     fi
     return 0
 }
-# A shadow bootstrap selects the backend without modifying original scenario assertions.
-for lib in "$ROOT"/test/install-recovery/lib/*.sh; do
-    [ "${lib##*/}" = vm-bootstrap.sh ] && continue
-    ln -s "$lib" "$RUN_DIR/shadow/lib/${lib##*/}"
+# The scenarios derive REPO_ROOT via ../../.. from their own directory. Mirror
+# the candidate's top-level tree at the shadow root so install.sh and every
+# other repo-relative asset resolve to the tagged tree, not pinned/tmp/.
+for entry in "$PINNED_ROOT"/*; do
+    [ "${entry##*/}" = test ] && continue
+    ln -s "$entry" "$SHADOW_ROOT/${entry##*/}"
 done
-ln -s "$ROOT/test/install-recovery/lib/lxd-backend.sh" "$RUN_DIR/shadow/lib/vm-bootstrap.sh"
-for scenario in "$ROOT"/test/install-recovery/scenarios/*.sh; do
-    ln -s "$scenario" "$RUN_DIR/shadow/scenarios/${scenario##*/}"
+for entry in "$PINNED_ROOT"/test/*; do
+    [ "${entry##*/}" = install-recovery ] && continue
+    ln -s "$entry" "$SHADOW_ROOT/test/${entry##*/}"
+done
+for entry in "$PINNED_ROOT"/test/install-recovery/*; do
+    case "${entry##*/}" in lib|scenarios) continue ;; esac
+    ln -s "$entry" "$SHADOW_ROOT/test/install-recovery/${entry##*/}"
+done
+# A shadow bootstrap selects the backend without modifying original scenario assertions.
+for lib in "$PINNED_ROOT"/test/install-recovery/lib/*; do
+    [ "${lib##*/}" = vm-bootstrap.sh ] && continue
+    ln -s "$lib" "$SHADOW_ROOT/test/install-recovery/lib/${lib##*/}"
+done
+ln -s "$ROOT/test/install-recovery/lib/lxd-backend.sh" "$SHADOW_ROOT/test/install-recovery/lib/vm-bootstrap.sh"
+for scenario in "$PINNED_ROOT"/test/install-recovery/scenarios/*.sh; do
+    ln -s "$scenario" "$SHADOW_ROOT/test/install-recovery/scenarios/${scenario##*/}"
 done
 scenarios=()
 if [ "$#" -eq 0 ]; then
-    for script in "$ROOT"/test/install-recovery/scenarios/*.sh; do
+    for script in "$PINNED_ROOT"/test/install-recovery/scenarios/*.sh; do
         slug=${script##*/}; slug=${slug%.sh}
         case "$slug" in 0-happy-*) continue ;; esac
+        # Same file-content marker as run.sh's default/full discovery. Explicit
+        # --scenario still selects on-demand cases.
+        if grep -q HARNESS_SKIP_DEFAULT "$script"; then continue; fi
         scenarios+=("$slug")
     done
 else
@@ -90,6 +109,11 @@ dup=$(printf '%s\n' "${scenarios[@]}" | sort | uniq -d)
 [ -z "$dup" ] || { echo "Duplicate scenario slug: $dup" >&2; exit 2; }
 # Build each distinct checkpoint only on demand, serially. Never race two builders.
 checkpoints=()
+phase=prune-superseded-bases
+if ! fresh_fork_batch; then exit 0; fi
+_lxd_prune_other_bases "$TAG" >"$RUN_DIR/prune-bases.log" 2>&1 || {
+    echo "BASE PRUNE FAILED; see $RUN_DIR/prune-bases.log" >&2; exit 1;
+}
 for slug in "${scenarios[@]}"; do
     phase="checkpoint-$slug"
     if ! fresh_fork_batch; then
@@ -109,6 +133,12 @@ for slug in "${scenarios[@]}"; do
 done
 MAX_PARALLEL=${LXD_PARALLEL:-6}
 [[ "$MAX_PARALLEL" =~ ^[1-8]$ ]] || { echo 'LXD_PARALLEL must be 1..8' >&2; exit 2; }
+# macOS Bash parses the first UTF-8 byte following an unbraced expansion as
+# part of the variable name in the scenario's status=$STATUS_1→$STATUS_2
+# diagnostic. Linux's C.UTF-8 does not. Use bytewise C for scenario shells on
+# macOS, leaving the pinned scenarios and their assertions untouched.
+scenario_locale=${LC_ALL:-C}
+if [ "$(uname -s)" = Darwin ]; then scenario_locale=C; fi
 pids=()
 for slug in "${scenarios[@]}"; do
     phase="fork-$slug"
@@ -120,7 +150,7 @@ for slug in "${scenarios[@]}"; do
         # Only our own prefixed instance, reset before every invocation.
         if _lxd_host lxc info "$name" >/dev/null 2>&1; then _lxd_host lxc delete "$name" --force; fi
         rc=0
-        LXD_CANDIDATE="$TAG" LXD_LOG_DIR="$RUN_DIR" bash "$RUN_DIR/shadow/scenarios/$slug.sh" "statbus-recovery-$slug" >"$RUN_DIR/$slug.log" 2>&1 || rc=$?
+        LC_ALL="$scenario_locale" LXD_CANDIDATE="$TAG" LXD_LOG_DIR="$RUN_DIR" bash "$SHADOW_ROOT/test/install-recovery/scenarios/$slug.sh" "statbus-recovery-$slug" >"$RUN_DIR/$slug.log" 2>&1 || rc=$?
         verdict=$(lxd_scenario_verdict "$RUN_DIR/$slug.log" "$rc")
         if [ "$slug" = 4-install-40gb-disk ] && [ "$verdict" = PASS ]; then
             if ! awk '$1 ~ /^\/dev\// && $2 == "40G" {found=1} END {exit !found}' "$RUN_DIR/$slug.log"; then
