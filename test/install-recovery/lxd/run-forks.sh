@@ -133,6 +133,12 @@ for slug in "${scenarios[@]}"; do
 done
 MAX_PARALLEL=${LXD_PARALLEL:-6}
 [[ "$MAX_PARALLEL" =~ ^[1-8]$ ]] || { echo 'LXD_PARALLEL must be 1..8' >&2; exit 2; }
+# macOS Bash parses the first UTF-8 byte following an unbraced expansion as
+# part of the variable name in the scenario's status=$STATUS_1→$STATUS_2
+# diagnostic. Linux's C.UTF-8 does not. Use bytewise C for scenario shells on
+# macOS, leaving the pinned scenarios and their assertions untouched.
+scenario_locale=${LC_ALL:-C}
+if [ "$(uname -s)" = Darwin ]; then scenario_locale=C; fi
 pids=()
 for slug in "${scenarios[@]}"; do
     phase="fork-$slug"
@@ -144,7 +150,7 @@ for slug in "${scenarios[@]}"; do
         # Only our own prefixed instance, reset before every invocation.
         if _lxd_host lxc info "$name" >/dev/null 2>&1; then _lxd_host lxc delete "$name" --force; fi
         rc=0
-        LXD_CANDIDATE="$TAG" LXD_LOG_DIR="$RUN_DIR" bash "$SHADOW_ROOT/test/install-recovery/scenarios/$slug.sh" "statbus-recovery-$slug" >"$RUN_DIR/$slug.log" 2>&1 || rc=$?
+        LC_ALL="$scenario_locale" LXD_CANDIDATE="$TAG" LXD_LOG_DIR="$RUN_DIR" bash "$SHADOW_ROOT/test/install-recovery/scenarios/$slug.sh" "statbus-recovery-$slug" >"$RUN_DIR/$slug.log" 2>&1 || rc=$?
         verdict=$(lxd_scenario_verdict "$RUN_DIR/$slug.log" "$rc")
         if [ "$slug" = 4-install-40gb-disk ] && [ "$verdict" = PASS ]; then
             if ! awk '$1 ~ /^\/dev\// && $2 == "40G" {found=1} END {exit !found}' "$RUN_DIR/$slug.log"; then
