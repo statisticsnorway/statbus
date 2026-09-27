@@ -14,6 +14,23 @@ SSH_OPTS=(-o BatchMode=yes)
 _lxd_host() { local q; printf -v q '%q ' "$@"; LC_ALL=C command ssh "${LXD_SSH_OPTS[@]}" "$LXD_HOST" "$q"; }
 _lxd_name() { printf 's2-base-%s' "${1//[^a-zA-Z0-9-]/-}"; }
 _lxd_mark() { printf '%s | %s\n' "$(date -u +%FT%TZ)" "$*" >&2; }
+_lxd_prune_other_bases() {
+    local tag=$1 safe=${1//[^a-zA-Z0-9-]/-}
+    [[ "$tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+-rc\.[0-9]+$ ]] || return 2
+    # CI/driver acquired the occupancy marker before entering here. The flock
+    # serializes this destructive catalog maintenance with reaper and ramp-up.
+    _lxd_host flock /root/fleet-run.lock bash -c '
+set -euo pipefail
+test -e /root/fleet-run.active && test ! -e /root/fleet-reaping && test ! -e /root/fleet-hardening.active
+names=$(lxc list -c n --format csv)
+while IFS= read -r name; do
+    case "$name" in
+        "fleet-base-$1"|"s2-base-$1-"*) continue ;;
+        fleet-base-v*|s2-base-v*) echo "prune superseded base $name"; lxc delete "$name" --force ;;
+    esac
+done <<< "$names"
+' _ "$safe"
+}
 _lxd_upload() { command scp -q "${LXD_SSH_OPTS[@]}" "$1" "$LXD_HOST:$2"; }
 # Existing assertion/wedge helpers invoke ssh/scp directly rather than VM_EXEC.
 # Route only this fork's guest IP; refuse any unrelated destination.
@@ -158,7 +175,7 @@ CONFIG
     _lxd_host lxc exec "$VM_NAME" -- chmod 0644 /tmp/users.yml
     rm -f "$fixture"
 }
-lxd_base_for_candidate() {
+_lxd_build_base_for_candidate() {
     local tag=$1 checkpoint=${2:-installed-$1-standalone} base start fixture
     [[ "$tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+-rc\.[0-9]+$ ]] || { echo "Invalid candidate tag: $tag" >&2; return 2; }
     base=$(_lxd_name "$tag-$checkpoint")
@@ -170,25 +187,26 @@ lxd_base_for_candidate() {
     fi
     start=$(date +%s)
     _lxd_mark "launch $base ubuntu:24.04 nesting=true cpu=2 memory=6GiB"
-    _lxd_host lxc launch ubuntu:24.04 "$base" --config security.nesting=true --config limits.cpu=2 --config limits.memory=6GiB
-    _lxd_upload "$HARNESS_ROOT/ops/setup-ubuntu-lts.sh" /root/s2-setup.sh
-    _lxd_host lxc file push /root/s2-setup.sh "$base/root/setup.sh"
-    _lxd_host lxc exec "$base" -- bash -c 'printf "ADMIN_EMAIL=test@statbus.org\nGITHUB_USERS=jhf\nEXTRA_LOCALES=\nCADDY_PLUGINS=\n" > /root/.setup-ubuntu.env; mkdir -p /run/sshd'
+    _lxd_host lxc launch ubuntu:24.04 "$base" --config security.nesting=true --config limits.cpu=2 --config limits.memory=6GiB || return
+    LXD_BASE_OWNED_BY_THIS_BUILD=1
+    _lxd_upload "$HARNESS_ROOT/ops/setup-ubuntu-lts.sh" /root/s2-setup.sh || return
+    _lxd_host lxc file push /root/s2-setup.sh "$base/root/setup.sh" || return
+    _lxd_host lxc exec "$base" -- bash -c 'printf "ADMIN_EMAIL=test@statbus.org\nGITHUB_USERS=jhf\nEXTRA_LOCALES=\nCADDY_PLUGINS=\n" > /root/.setup-ubuntu.env; mkdir -p /run/sshd' || return
     _lxd_mark "hardening start $base (SKIP_STAGES=4 as VM harness)"
     _lxd_host lxc exec "$base" -- env SKIP_STAGES=4 bash /root/setup.sh --non-interactive || {
         # The prototype's Stage 0 verifier mistakenly inspected its own backup.
         # Retry only failed setup stages, never suppress an unexplained error.
-        _lxd_host lxc exec "$base" -- bash -c 'rm -f /etc/apt/sources.list.d/ubuntu.sources.bak; mkdir -p /run/sshd'
-        _lxd_host lxc exec "$base" -- env SKIP_STAGES='1 3 4 5 6 7 8' bash /root/setup.sh --non-interactive
+        _lxd_host lxc exec "$base" -- bash -c 'rm -f /etc/apt/sources.list.d/ubuntu.sources.bak; mkdir -p /run/sshd' || return
+        _lxd_host lxc exec "$base" -- env SKIP_STAGES='1 3 4 5 6 7 8' bash /root/setup.sh --non-interactive || return
     }
-    _lxd_host lxc exec "$base" -- bash -c 'usermod -aG docker statbus; loginctl enable-linger statbus; echo "export XDG_RUNTIME_DIR=/run/user/1001" >> /home/statbus/.profile; systemctl is-active docker'
-    _lxd_host lxc exec "$base" -- apt-get update -qq
-    lxd_certificates "$base"
+    _lxd_host lxc exec "$base" -- bash -c 'usermod -aG docker statbus; loginctl enable-linger statbus; echo "export XDG_RUNTIME_DIR=/run/user/1001" >> /home/statbus/.profile; systemctl is-active docker' || return
+    _lxd_host lxc exec "$base" -- apt-get update -qq || return
+    lxd_certificates "$base" || return
     _lxd_mark "hardening complete $base in $(($(date +%s)-start))s"
     if [ "$checkpoint" = hardened-nothing-installed ]; then
-        _lxd_host lxc exec "$base" -- test ! -e /home/statbus/statbus
-        _lxd_host lxc stop "$base"
-        _lxd_host lxc snapshot "$base" checkpoint
+        _lxd_host lxc exec "$base" -- test ! -e /home/statbus/statbus || return
+        _lxd_host lxc stop "$base" || return
+        _lxd_host lxc snapshot "$base" checkpoint || return
         return 0
     fi
     local install_tag=${checkpoint#installed-}
@@ -196,7 +214,7 @@ lxd_base_for_candidate() {
     [[ "$install_tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-rc\.[0-9]+)?$ ]] || { echo "Invalid checkpoint $checkpoint" >&2; return 2; }
     fixture=$(mktemp "$LXD_LOG_DIR/s2-users-XXXXXX")
     printf '%s\n' '- email: test@statbus.org' '  password: test-install-password-2026' '  role: admin_user' '  display_name: Admin' > "$fixture"
-    _lxd_upload "$fixture" /root/s2-users.yml
+    _lxd_upload "$fixture" /root/s2-users.yml || return
     rm -f "$fixture"
     _lxd_host lxc file push /root/s2-users.yml "$base/home/statbus/users.yml"
     _lxd_host lxc exec "$base" -- chown statbus:statbus /home/statbus/users.yml
@@ -268,9 +286,24 @@ SCRIPT
     _lxd_ready "$base"
     _lxd_host lxc exec "$base" -- sudo -i -u statbus bash -lc 'cd ~/statbus && ./sb --version && ./sb ps'
     start=$(date +%s)
-    _lxd_host lxc stop "$base"
-    _lxd_host lxc snapshot "$base" checkpoint
+    _lxd_host lxc stop "$base" || return
+    _lxd_host lxc snapshot "$base" checkpoint || return
     _lxd_mark "snapshot $base/checkpoint $(($(date +%s)-start))s"
+}
+lxd_base_for_candidate() {
+    local tag=$1 checkpoint=${2:-installed-$1-standalone} base rc
+    base=$(_lxd_name "$tag-$checkpoint")
+    LXD_BASE_OWNED_BY_THIS_BUILD=0
+    if _lxd_build_base_for_candidate "$tag" "$checkpoint"; then
+        return 0
+    else
+        rc=$?
+    fi
+    if [ "$LXD_BASE_OWNED_BY_THIS_BUILD" = 1 ]; then
+        _lxd_mark "base build failed: stopping incomplete $base (preserving for inspection)"
+        _lxd_host lxc stop "$base" --force || _lxd_mark "WARNING: failed to stop incomplete $base"
+    fi
+    return "$rc"
 }
 lxd_fork() {
     local tag=$1 scenario=$2 base name start checkpoint
@@ -471,6 +504,7 @@ set -e
 case "$(umask)" in *[4567]) echo 'harness: umask strips other-read'; exit 70 ;; esac
 export STATBUS_ENV_CONFIG="$HOME/install-input.env" STATBUS_MIN_DISK_GB=5
 if [ "$2" = standalone ] && [ "$4" != 1 ]; then export STATBUS_HARNESS_CERT_STAGING="$HOME/harness-certs"; fi
+export STATBUS_INSTALL_VERSION="$1"
 if [ "$6" = 1 ]; then
     unset STATBUS_USERS_FILE
     exec expect /tmp/statbus-admin.exp
@@ -480,7 +514,6 @@ if [ "$5" = 1 ]; then
     unset STATBUS_INSTALL_VERSION
     exec bash /tmp/statbus-install.sh --channel prerelease --non-interactive
 fi
-export STATBUS_INSTALL_VERSION="$1"
 exec bash /tmp/statbus-install.sh --non-interactive
 REMOTE
     return "${PIPESTATUS[0]}"

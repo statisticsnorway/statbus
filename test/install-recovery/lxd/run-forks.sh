@@ -109,6 +109,11 @@ dup=$(printf '%s\n' "${scenarios[@]}" | sort | uniq -d)
 [ -z "$dup" ] || { echo "Duplicate scenario slug: $dup" >&2; exit 2; }
 # Build each distinct checkpoint only on demand, serially. Never race two builders.
 checkpoints=()
+phase=prune-superseded-bases
+if ! fresh_fork_batch; then exit 0; fi
+_lxd_prune_other_bases "$TAG" >"$RUN_DIR/prune-bases.log" 2>&1 || {
+    echo "BASE PRUNE FAILED; see $RUN_DIR/prune-bases.log" >&2; exit 1;
+}
 for slug in "${scenarios[@]}"; do
     phase="checkpoint-$slug"
     if ! fresh_fork_batch; then
