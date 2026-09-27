@@ -331,6 +331,10 @@ lxd_fork() {
             sleep 1
         done
         [ -n "$VM_IP" ] || { echo "No guest IP for $name" >&2; return 1; }
+        # The base's apt lists do not survive same-pool CoW fork creation on
+        # this LXD host (apache2 has no candidate), although a cross-pool copy
+        # includes them. Match the fresh VM's usable apt metadata at boot.
+        _lxd_host lxc exec "$name" -- apt-get update -qq
         _lxd_prepare_fresh_answers
         _lxd_mark "$name fresh boot IP $VM_IP"
     else
