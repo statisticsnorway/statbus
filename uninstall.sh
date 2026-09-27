@@ -27,6 +27,13 @@ if [[ $INTERACTIVE == 1 ]]; then
     read -r -u 3 -p 'Delete credentials too? [y/N] ' answer
     [[ $answer != [yY]* ]] || KEEP_CREDENTIALS=0
 fi
+# Keep the exclusion inode outside the tree being removed, through final unlink.
+command -v perl >/dev/null 2>&1 || { echo 'perl is required for the uninstall mutex.'; exit 1; }
+exec 8<>"$HOME/.statbus-uninstall.lock"
+if ! perl -e 'use Fcntl ":flock"; open(my $f, "<&=8") or exit 2; exit(flock($f, LOCK_EX|LOCK_NB) ? 0 : 1);'; then
+    echo 'Install/uninstall mutex is held; refusing removal.'
+    exit 1
+fi
 # The Go install/upgrade mutex and install.sh's statbus_repo_lock are the
 # exclusive flock on this exact inode. Never unlink it until the last operation.
 if [[ -d $DIR ]]; then
@@ -57,6 +64,10 @@ for unit in "$HOME/.config/systemd/user/statbus-upgrade@.service" /etc/systemd/s
     [[ $unit != /etc/* || $USER != statbus_* ]] || continue
     [[ ! -e $unit ]] || units+=("$unit")
 done
+if ((${#units[@]} > 0)) && ! command -v systemctl >/dev/null 2>&1; then
+    echo 'An upgrade unit is installed but systemctl is unavailable; refusing removal.'
+    exit 1
+fi
 images=()
 if command -v docker >/dev/null 2>&1 && docker info >/dev/null 2>&1; then
     while IFS= read -r image; do
@@ -112,10 +123,14 @@ if [[ $INTERACTIVE == 1 ]]; then
     read -r -u 3 -p 'Type DELETE to execute this exact plan: ' answer
     [[ $answer == DELETE ]] || { echo 'Removal cancelled.'; exit 1; }
 fi
-if command -v systemctl >/dev/null 2>&1 && { ((${#units[@]} > 0)) || [[ $(systemctl --user is-active "statbus-upgrade@${USER}.service" 2>/dev/null || true) == active ]]; }; then
+user_unit="statbus-upgrade@${USER}.service"
+user_state=inactive
+if command -v systemctl >/dev/null 2>&1; then
+    user_state=$(systemctl --user is-active "$user_unit" 2>/dev/null || true)
+fi
+if ((${#units[@]} > 0)) || [[ -n $user_state && $user_state != inactive && $user_state != unknown ]]; then
     echo 'Step 1: stopping StatBus upgrade service'
-    user_unit="statbus-upgrade@${USER}.service"
-    if [[ -e $HOME/.config/systemd/user/statbus-upgrade@.service ]] || [[ $(systemctl --user is-active "$user_unit" 2>/dev/null || true) == active ]]; then
+    if [[ -e $HOME/.config/systemd/user/statbus-upgrade@.service ]] || [[ -n $user_state && $user_state != inactive && $user_state != unknown ]]; then
         systemctl --user disable --now "$user_unit" >>"$LOG" 2>&1
         [[ $(systemctl --user is-active "$user_unit" 2>/dev/null || true) == inactive ]] || { echo 'User upgrade service is not inactive; refusing removal.'; exit 1; }
     fi
@@ -139,7 +154,7 @@ echo 'Step 3: removing units and checkout files'
 for unit in "${units[@]}"; do
     if [[ $unit == /etc/* ]]; then sudo -n rm -f -- "$unit" >>"$LOG" 2>&1; else rm -f -- "$unit" >>"$LOG" 2>&1; fi
 done
-if command -v systemctl >/dev/null 2>&1 && { ((${#units[@]} > 0)) || [[ $(systemctl --user is-active "statbus-upgrade@${USER}.service" 2>/dev/null || true) == active ]]; }; then
+if command -v systemctl >/dev/null 2>&1 && { ((${#units[@]} > 0)) || [[ -n $user_state && $user_state != inactive && $user_state != unknown ]]; }; then
     systemctl --user daemon-reload >>"$LOG" 2>&1
     if [[ $USE_SUDO == 1 && $USER != statbus_* ]]; then sudo -n systemctl daemon-reload >>"$LOG" 2>&1; fi
 fi
