@@ -123,6 +123,41 @@ lxd_certificates() {
     local name=$1
     _lxd_host lxc exec "$name" -- bash -c 'set -e; d=/home/statbus/harness-certs; install -d -m 0700 -o statbus -g statbus "$d"; openssl req -x509 -newkey rsa:2048 -nodes -days 7 -sha256 -subj "/CN=StatBus harness CA" -keyout "$d/ca.key" -out "$d/ca.crt" >/dev/null 2>&1; openssl req -newkey rsa:2048 -nodes -sha256 -subj "/CN=statbus-test.local" -keyout "$d/domain.key" -out "$d/domain.csr" >/dev/null 2>&1; printf "subjectAltName=DNS:statbus-test.local\nextendedKeyUsage=serverAuth\n" > "$d/extensions"; openssl x509 -req -in "$d/domain.csr" -CA "$d/ca.crt" -CAkey "$d/ca.key" -CAcreateserial -days 7 -sha256 -extfile "$d/extensions" -out "$d/domain.pem" >/dev/null 2>&1; cat "$d/domain.pem" "$d/ca.crt" > "$d/domain.crt"; chown -R statbus:statbus "$d"; chmod 0600 "$d/domain.key" "$d/ca.key"; printf "127.0.0.1 statbus-test.local\n" >> /etc/hosts'
 }
+_lxd_prepare_fresh_answers() {
+    local mode=${HARNESS_DEPLOYMENT_MODE:-standalone} channel=${HARNESS_UPGRADE_CHANNEL:-stable}
+    local domain=${HARNESS_SITE_DOMAIN:-statbus-test.local} fixture
+    case "$mode" in development|private|standalone) ;; *) echo "Invalid deployment mode: $mode" >&2; return 2 ;; esac
+    case "$channel" in stable|prerelease) ;; *) echo "Invalid upgrade channel: $channel" >&2; return 2 ;; esac
+    [[ "$domain" =~ ^[a-zA-Z0-9.-]+$ ]] || return 2
+    fixture=$(mktemp "$LXD_LOG_DIR/s2-env-XXXXXX")
+    cat > "$fixture" <<CONFIG
+DEPLOYMENT_SLOT_NAME=Install Test
+DEPLOYMENT_SLOT_CODE=test
+DEPLOYMENT_SLOT_PORT_OFFSET=1
+CADDY_DEPLOYMENT_MODE=$mode
+SITE_DOMAIN=$domain
+STATBUS_URL=https://$domain
+BROWSER_REST_URL=https://$domain
+SERVER_REST_URL=http://proxy:80
+DEBUG=false
+PUBLIC_DEBUG=false
+UPGRADE_CHANNEL=$channel
+CONFIG
+    if [ "$mode" = standalone ] && [ "${HARNESS_NO_CUSTOM_CERT:-0}" != 1 ]; then
+        printf 'TLS_CERT_FILE=/data/custom-certs/domain.crt\nTLS_KEY_FILE=/data/custom-certs/domain.key\n' >> "$fixture"
+    fi
+    _lxd_upload "$fixture" /root/s2-env-config
+    _lxd_host lxc file push /root/s2-env-config "$VM_NAME/tmp/env-config"
+    _lxd_host lxc exec "$VM_NAME" -- chown statbus:statbus /tmp/env-config
+    _lxd_host lxc exec "$VM_NAME" -- chmod 0600 /tmp/env-config
+    rm -f "$fixture"
+    fixture=$(mktemp "$LXD_LOG_DIR/s2-users-XXXXXX")
+    printf '%s\n' '- email: test@statbus.org' '  password: test-install-password-2026' '  role: admin_user' '  display_name: Admin' > "$fixture"
+    _lxd_upload "$fixture" /root/s2-users.yml
+    _lxd_host lxc file push /root/s2-users.yml "$VM_NAME/tmp/users.yml"
+    _lxd_host lxc exec "$VM_NAME" -- chmod 0644 /tmp/users.yml
+    rm -f "$fixture"
+}
 lxd_base_for_candidate() {
     local tag=$1 checkpoint=${2:-installed-$1-standalone} base start fixture
     [[ "$tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+-rc\.[0-9]+$ ]] || { echo "Invalid candidate tag: $tag" >&2; return 2; }
@@ -263,6 +298,7 @@ lxd_fork() {
             sleep 1
         done
         [ -n "$VM_IP" ] || { echo "No guest IP for $name" >&2; return 1; }
+        _lxd_prepare_fresh_answers
         _lxd_mark "$name fresh boot IP $VM_IP"
     else
         _lxd_ready "$name"
@@ -365,11 +401,43 @@ upload_sb_to_vm() {
     # for correctness and must not abort the injected scenario.
 }
 _run_long_via_tmux() { local command=$3; VM_EXEC bash -lc "$command"; }
+_lxd_stage_candidate_install() {
+    _wait_for_ssh "$VM_IP" 30
+    # HARNESS_ROOT is the tag-pinned checkout reached through the shadow lib,
+    # never the moving statbus.org/install.sh or the branch being edited.
+    scp -O "${SSH_OPTS[@]}" "$HARNESS_ROOT/install.sh" "root@$VM_IP:/tmp/statbus-install.sh"
+    VM_ROOT_EXEC chmod 0644 /tmp/statbus-install.sh
+}
 install_statbus_in_vm() {
-    local name=$1 log="$HARNESS_ROOT/tmp/install-recovery-$1-install.log" installed
-    if VM_EXEC test ! -e /home/statbus/statbus; then
-        install_statbus_at_sha "$name" "$(git -C "$HARNESS_ROOT" rev-parse "$LXD_CANDIDATE^{commit}")" "$LXD_CANDIDATE"
-        return
+    local name=$1 log="$HARNESS_ROOT/tmp/install-recovery-$1-install.log" installed commit
+    if [ -z "${2:-}" ]; then
+        # VM harness's no-version contract: HEAD via the published per-commit
+        # image, through install.sh --commit in RESCUE mode. A historical base
+        # must become the candidate before a fault is injected, not just rerun
+        # its old ./sb install (which hid the boot startup warning's real era).
+        commit=$(git -C "$HARNESS_ROOT" rev-parse HEAD)
+        [ "$commit" = "$(git -C "$HARNESS_ROOT" rev-parse "$LXD_CANDIDATE^{commit}")" ] || return 2
+        _lxd_stage_candidate_install
+        VM_SCRIPT_INLINE install-head "$commit" "${HARNESS_DEPLOYMENT_MODE:-standalone}" "${HARNESS_NO_CUSTOM_CERT:-0}" <<'REMOTE' 2>&1 | tee -a "$log"
+#!/usr/bin/env bash
+set -e
+if [ ! -d "$HOME/statbus/.git" ]; then
+    for attempt in 1 2 3 4 5 6 7 8; do
+        if git clone --depth 50 https://github.com/statisticsnorway/statbus.git "$HOME/statbus"; then break; fi
+        [ "$attempt" -lt 8 ] || exit 1
+        rm -rf "$HOME/statbus"; sleep 45
+    done
+fi
+if [ "$2" = standalone ] && [ "$3" != 1 ]; then
+    install -d -m 0755 "$HOME/statbus/caddy/data/custom-certs"
+    install -m 0644 "$HOME/harness-certs/domain.crt" "$HOME/statbus/caddy/data/custom-certs/domain.crt"
+    install -m 0600 "$HOME/harness-certs/domain.key" "$HOME/statbus/caddy/data/custom-certs/domain.key"
+fi
+cp /tmp/env-config "$HOME/statbus/.env.config"
+cp /tmp/users.yml "$HOME/statbus/.users.yml"
+STATBUS_MIN_DISK_GB=5 GIT_NETWORK_MAX_ATTEMPTS=8 GIT_NETWORK_RETRY_DELAY_S=45 DOCKER_PULL_MAX_ATTEMPTS=5 DOCKER_PULL_RETRY_DELAY_S=30 bash /tmp/statbus-install.sh --commit "$1" --trust-github-user jhf
+REMOTE
+        return "${PIPESTATUS[0]}"
     fi
     if [ -n "${2:-}" ]; then
         installed=$(VM_EXEC bash -lc 'cd ~/statbus && ./sb --version' 2>/dev/null || true)
@@ -383,24 +451,37 @@ install_statbus_in_vm() {
     return "${PIPESTATUS[0]}"
 }
 install_statbus_at_sha() {
-    local tag=${3:?tag required} sha=${2:?sha required} log="$LXD_LOG_DIR/fresh-${VM_NAME}.log"
+    local tag=${3:?tag required} sha=${2:?sha required} log="$HARNESS_ROOT/tmp/install-recovery-${1}-install.log"
     [ "$(git -C "$HARNESS_ROOT" rev-parse "$tag^{commit}")" = "$sha" ] || {
         echo "REFUSE: $tag does not resolve to supplied commit $sha" >&2; return 2;
     }
     VM_EXEC test ! -e /home/statbus/statbus || { echo 'FRESH checkout already exists' >&2; return 70; }
-    VM_ROOT_EXEC bash -lc 'printf "%s\n" "- email: test@statbus.org" "  password: test-install-password-2026" "  role: admin_user" "  display_name: Admin" > /home/statbus/users.yml; chown statbus:statbus /home/statbus/users.yml; chmod 0600 /home/statbus/users.yml'
-    VM_ROOT_EXEC ln -sfn /home/statbus/users.yml /tmp/users.yml
-    VM_ROOT_EXEC bash -lc 'cat > /home/statbus/install-input.env <<EOF
-CADDY_DEPLOYMENT_MODE=standalone
-SITE_DOMAIN=statbus-test.local
-TLS_CERT_FILE=/data/custom-certs/domain.crt
-TLS_KEY_FILE=/data/custom-certs/domain.key
-DEPLOYMENT_SLOT_NAME=Install Test
-DEPLOYMENT_SLOT_CODE=test
-TRUST_GITHUB_USER=jhf
-EOF
-chown statbus:statbus /home/statbus/install-input.env; chmod 600 /home/statbus/install-input.env'
-    VM_EXEC bash -lc "set -o pipefail; curl -fsSL https://statbus.org/install.sh | env STATBUS_HARNESS_CERT_STAGING=/home/statbus/harness-certs STATBUS_INSTALL_VERSION=$tag STATBUS_USERS_FILE=/home/statbus/users.yml STATBUS_ENV_CONFIG=/home/statbus/install-input.env STATBUS_MIN_DISK_GB=5 bash -s -- --non-interactive" 2>&1 | tee "$log"
-    local rc=${PIPESTATUS[0]}
-    return "$rc"
+    _lxd_stage_candidate_install
+    VM_SCRIPT_INLINE tagged-install "$tag" "${HARNESS_DEPLOYMENT_MODE:-standalone}" "${HARNESS_SITE_DOMAIN:-statbus-test.local}" "${HARNESS_NO_CUSTOM_CERT:-0}" "${HARNESS_INSTALL_PRERELEASE_CHANNEL:-0}" "${HARNESS_INTERACTIVE_ADMIN:-0}" <<'REMOTE' 2>&1 | tee -a "$log"
+#!/usr/bin/env bash
+set -e
+[ ! -e "$HOME/statbus" ] || { echo 'harness: FRESH requires absent ~/statbus'; exit 70; }
+( umask 077; {
+    printf 'CADDY_DEPLOYMENT_MODE=%s\nSITE_DOMAIN=%s\n' "$2" "$3"
+    if [ "$2" = standalone ] && [ "$4" != 1 ]; then
+        printf 'TLS_CERT_FILE=/data/custom-certs/domain.crt\nTLS_KEY_FILE=/data/custom-certs/domain.key\n'
+    fi
+    printf 'DEPLOYMENT_SLOT_NAME=Install Test\nDEPLOYMENT_SLOT_CODE=test\nTRUST_GITHUB_USER=jhf\n'
+} > "$HOME/install-input.env" )
+case "$(umask)" in *[4567]) echo 'harness: umask strips other-read'; exit 70 ;; esac
+export STATBUS_ENV_CONFIG="$HOME/install-input.env" STATBUS_MIN_DISK_GB=5
+if [ "$2" = standalone ] && [ "$4" != 1 ]; then export STATBUS_HARNESS_CERT_STAGING="$HOME/harness-certs"; fi
+if [ "$6" = 1 ]; then
+    unset STATBUS_USERS_FILE
+    exec expect /tmp/statbus-admin.exp
+fi
+export STATBUS_USERS_FILE=/tmp/users.yml
+if [ "$5" = 1 ]; then
+    unset STATBUS_INSTALL_VERSION
+    exec bash /tmp/statbus-install.sh --channel prerelease --non-interactive
+fi
+export STATBUS_INSTALL_VERSION="$1"
+exec bash /tmp/statbus-install.sh --non-interactive
+REMOTE
+    return "${PIPESTATUS[0]}"
 }
