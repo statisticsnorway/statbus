@@ -51,7 +51,7 @@ jobs:
             # Existing box may be absent before up.sh ramps it. A live active
             # marker belongs to the previous candidate; never race its forks.
             if ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new -o ConnectTimeout=5 "root@$ip" \
-                'test ! -e /root/fleet-run.active' 2>/dev/null; then
+                'test ! -e /root/fleet-run.active && test ! -e /root/fleet-hardening.active && guests=$(lxc list --format csv) && ! grep -q RUNNING <<< "$guests"' 2>/dev/null; then
               echo 'Previous LXD fleet drained.'
               exit 0
             fi
@@ -86,7 +86,7 @@ jobs:
         run: |
           set -euo pipefail
           ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new "$LXD_HOST" \
-            'flock /root/fleet-run.lock bash -c "test ! -e /root/fleet-run.active && touch /root/fleet-run.active"'
+            'flock /root/fleet-run.lock bash -c "test ! -e /root/fleet-run.active && test ! -e /root/fleet-hardening.active && touch /root/fleet-run.active"'
           trap 'ssh -o BatchMode=yes "$LXD_HOST" "rm -f /root/fleet-run.active; date +%s > /root/last-fleet-activity"' EXIT
           test/install-recovery/lxd/run-forks.sh "${{ github.ref_name }}"
       - name: Preserve pre-run supersession in parity artifact

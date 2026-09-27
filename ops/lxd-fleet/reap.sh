@@ -18,6 +18,7 @@ read -r last < "$marker"
 now=$(date +%s)
 (( now >= last + 10800 )) || { echo 'REFUSE: fleet active within three hours' >&2; exit 1; }
 [ ! -e /root/fleet-run.active ] || { echo 'REFUSE: fleet run marker exists' >&2; exit 1; }
+[ ! -e /root/fleet-hardening.active ] || { echo 'REFUSE: host hardening is active' >&2; exit 1; }
 [ ! -e /root/fleet-reaping ] || { echo 'REFUSE: reap already underway' >&2; exit 1; }
 touch /root/fleet-reaping
 REMOTE

@@ -43,4 +43,8 @@ fi
 [ "$(lxc profile device get default root pool)" = statbus-test ] || { echo 'REFUSE: default profile uses another pool' >&2; exit 1; }
 [ "$(lxc profile device get default eth0 network)" = lxdbr0 ] || { echo 'REFUSE: default profile uses another bridge' >&2; exit 1; }
 REMOTE
+# Host security is part of the ramp, not an optional follow-up. In particular,
+# never change sshd/UFW while a fleet is executing on this host. The new SSH
+# connection in harden-host.sh verifies the key before and after each change.
+"$ROOT/ops/lxd-fleet/harden-host.sh" "root@$ip"
 printf '%s\n' "$ip"

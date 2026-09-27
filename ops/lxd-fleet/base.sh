@@ -12,6 +12,7 @@ start=$(date +%s)
 state=$(remote 'flock -n /root/fleet-run.lock bash -s' <<REMOTE
 set -euo pipefail
 [ ! -e /root/fleet-reaping ] || { echo 'REFUSE: fleet host is being reaped' >&2; exit 1; }
+[ ! -e /root/fleet-hardening.active ] || { echo 'REFUSE: fleet host is being hardened' >&2; exit 1; }
 date +%s > /root/last-fleet-activity
 if lxc info '$name' 2>/dev/null | grep -Fq '| installed '; then
     echo REUSED
