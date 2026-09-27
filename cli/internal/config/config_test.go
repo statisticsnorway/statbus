@@ -88,6 +88,60 @@ func TestGeneratedFilesMatch_UnchangedAndChangedOutsideCheckout(t *testing.T) {
 	}
 }
 
+// TestGeneratedFilesMatch_CustomTLSCheckout is the rc.09 smoke regression: the
+// TLS path validation stats caddy/data/custom-certs/ files, and the settings
+// done-check renders in an isolated temp dir that has no caddy/data. It must
+// resolve those host files against the real checkout, or every box with a
+// custom certificate re-runs Settings on each install and a green rerun is
+// never quiet.
+func TestGeneratedFilesMatch_CustomTLSCheckout(t *testing.T) {
+	_, thisFile, _, ok := runtime.Caller(0)
+	if !ok {
+		t.Fatal("runtime.Caller failed")
+	}
+	repoRoot := filepath.Join(filepath.Dir(thisFile), "..", "..", "..")
+	projDir := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(projDir, "ops", "maintenance"), 0755); err != nil {
+		t.Fatal(err)
+	}
+	data, err := os.ReadFile(filepath.Join(repoRoot, ".env.example"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(projDir, ".env.example"), data, 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.CopyFS(filepath.Join(projDir, "caddy", "templates"), os.DirFS(filepath.Join(repoRoot, "caddy", "templates"))); err != nil {
+		t.Fatal(err)
+	}
+	certDir := filepath.Join(projDir, "caddy", "data", "custom-certs")
+	if err := os.MkdirAll(certDir, 0700); err != nil {
+		t.Fatal(err)
+	}
+	for _, name := range []string{"domain.crt", "domain.key"} {
+		if err := os.WriteFile(filepath.Join(certDir, name), []byte("fixture"), 0600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := os.WriteFile(filepath.Join(projDir, ".env.config"), []byte(
+		"DEPLOYMENT_SLOT_CODE=test\nDEPLOYMENT_SLOT_NAME=Test\nCADDY_DEPLOYMENT_MODE=standalone\nSITE_DOMAIN=statbus-test.local\n"+
+			"TLS_CERT_FILE=/data/custom-certs/domain.crt\nTLS_KEY_FILE=/data/custom-certs/domain.key\n"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if err := GenerateInDir(projDir, false); err != nil {
+		t.Fatalf("GenerateInDir: %v", err)
+	}
+	if !GeneratedFilesMatch(projDir) {
+		t.Fatal("unchanged generated files with custom TLS certificates must match")
+	}
+	if err := os.Remove(filepath.Join(certDir, "domain.key")); err != nil {
+		t.Fatal(err)
+	}
+	if GeneratedFilesMatch(projDir) {
+		t.Fatal("a missing custom TLS key must still fail the settings check")
+	}
+}
+
 // TestGenerateCaddyFiles_WritesExactlyCaddyConfigFiles proves the exported
 // CaddyConfigFiles list (config.go) stays in sync with what generateCaddyFiles
 // actually writes — install's config-diff step (STATBUS-332) snapshots

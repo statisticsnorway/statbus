@@ -491,9 +491,6 @@ func loadOrGenerateConfig(projDir string, verbose bool) (*ConfigEnv, error) {
 		AptUseHttpsOnly:          gen("APT_USE_HTTPS_ONLY", "false"),
 		AdministratorContact:     gen("ADMINISTRATOR_CONTACT", ""),
 	}
-	if err := validateTLSPaths(projDir, cfg.TlsCertFile, cfg.TlsKeyFile); err != nil {
-		return nil, err
-	}
 
 	// STATBUS-307 fleet transition. Runs BEFORE resolution so a box carrying the
 	// retired key resolves against its translated state in the same pass, rather
@@ -1206,8 +1203,12 @@ func Generate(verbose bool) error {
 	return GenerateInDir(ProjectDir(), verbose)
 }
 
-// validateTLSPaths checks the container-to-host mapping before rendering Caddy configuration.
-func validateTLSPaths(projDir, cert, key string) error {
+// validateTLSPaths checks the container-to-host mapping before rendering Caddy
+// configuration. checkoutDir must be the REAL checkout: the certificate files
+// live under its caddy/data/, which GeneratedFilesMatch's isolated render
+// directory never has (rc.09 smoke: validating there made the Settings
+// done-check false on every custom-certificate box).
+func validateTLSPaths(checkoutDir, cert, key string) error {
 	if cert == "" && key == "" {
 		return nil
 	}
@@ -1219,7 +1220,7 @@ func validateTLSPaths(projDir, cert, key string) error {
 		if !strings.HasPrefix(item.value, "/data/") || filepath.Clean(item.value) != item.value || item.value == "/data/" {
 			return fmt.Errorf("%s=%q is not a valid Caddy container path. %s", item.name, item.value, guidance)
 		}
-		hostPath := filepath.Join(projDir, "caddy", "data", strings.TrimPrefix(item.value, "/data/"))
+		hostPath := filepath.Join(checkoutDir, "caddy", "data", strings.TrimPrefix(item.value, "/data/"))
 		info, err := os.Stat(hostPath)
 		if err != nil {
 			return fmt.Errorf("%s=%q: corresponding host file %s is unavailable: %v. %s", item.name, item.value, hostPath, err, guidance)
@@ -1305,6 +1306,10 @@ func generateInDir(projDir, gitDir string, verbose bool) error {
 
 	cfg, err := loadOrGenerateConfig(projDir, verbose)
 	if err != nil {
+		return err
+	}
+	// gitDir is the real checkout (== projDir except in GeneratedFilesMatch).
+	if err := validateTLSPaths(gitDir, cfg.TlsCertFile, cfg.TlsKeyFile); err != nil {
 		return err
 	}
 	cfg.SeqAPIKey = creds.SeqAPIKey
@@ -1443,6 +1448,9 @@ func EnvKeyRestartClasses(projDir string) (map[string][]RestartClass, error) {
 	}
 	cfg, err := loadOrGenerateConfig(projDir, false)
 	if err != nil {
+		return nil, err
+	}
+	if err := validateTLSPaths(projDir, cfg.TlsCertFile, cfg.TlsKeyFile); err != nil {
 		return nil, err
 	}
 	dbMem, err := computeDbMemory(cfg.DbMemLimit)
