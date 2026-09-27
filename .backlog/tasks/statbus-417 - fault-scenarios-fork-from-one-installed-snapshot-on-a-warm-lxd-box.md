@@ -4,7 +4,7 @@ title: Every fault scenario starts from one installed snapshot on a warm LXD box
 status: To Do
 assignee: []
 created_date: '2026-09-25 11:15'
-updated_date: '2026-09-27 08:34'
+updated_date: '2026-09-27 08:38'
 labels:
   - harness
   - velocity
@@ -75,6 +75,13 @@ The LXD gate must keep the SAME skip/supersession semantics as the VM fleet: a n
 The per-promotion VM soak is RETRACTED (owner): a permanent parallel run "just in case" is an anxiety guard — the thing this project does not do. Parity proves equivalence, we switch, we commit totally. If a kernel-dependent fault ever appears in the field, the response is a targeted test for that fault, not a standing fleet. After the switch: the VM per-scenario fleet is DELETED (workflow, dispatch action, docs), not mothballed.
 
 Also: the box's identity between runs is its NAME (statbus-lxd-fleet) resolved via the hcloud API (HCLOUD_TOKEN, already a repo secret) — never a stored IP, which goes stale on reap+recreate.
+
+## Owner rulings, 2026-09-27 08:37Z
+
+- Box identity is its NAME via hcloud (perfect, stable).
+- No retained VM fleet after the switch; the technical differences are minimal and accepted.
+- **The LXD host must run the target platform's kernel: Ubuntu 26.04.** Since guests share the host kernel, a 26.04 host makes the guests' kernel the officially targeted one; this closes most of the shared-kernel caveat. The box gets rebuilt on 26.04 (or upgraded) during stage 3.
+- **No per-commit runs and no subset selection:** the jobs need the released candidate build (images exist only per commit/tag), and there is no ahead-of-time channel to name a subset — the design stands: every candidate runs the full suite, on both fleets until the switch.
 
 <!-- SECTION:DESCRIPTION:END -->
 
