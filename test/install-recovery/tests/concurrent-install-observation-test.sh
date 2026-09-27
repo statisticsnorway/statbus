@@ -30,12 +30,20 @@ VM_EXEC() {{ echo 'live-upgrade'; }}
 # Readiness failure with plausible stdout is still failure, not a valid PID.
 a = s.index('if ! MIGRATE_PID=')
 b = s.index('# The PID is diagnostic', a)
+guard = s[s.index('assert_migration_delta() {'):a]
+for line, success in [('[13/17] Migrations  RUNNING', True), ('[13/17] Migrations  OK', False), ('[13/17] Seed  OK', False)]:
+    check(f'migration fixture guard {line}', f'''ip=unused
+SSH_OPTS=(dummy)
+ssh() {{ printf '%s\\n' '{line}'; }}
+{guard}
+assert_migration_delta
+''', success)
 check('readiness rejects failed transport with PID stdout', '''
 VM_NAME=unused RELEASE_FILE=unused STALL_MAX_WAIT_S=1 ip=unused
-SSH_OPTS=()
+SSH_OPTS=(dummy)
 ssh() { :; }
 wait_for_inject_stall_ready() { echo 424242; return 23; }
-''' + s[a:b], False)
+''' + guard + s[a:b], False)
 a = s.index('FIRST_HOLDER=$(VM_EXEC')
 b = s.index('# Phase 4', a)
 for flag, success in [('{"holder":"install","pid":4242}', True), ('{"holder":"install"}', False), ('{"holder":"install","pid":0}', False), ('{"holder":"install","pid":"4242"}', False), ('{"holder":"service","pid":4242}', False), ('{"PID":123}', False), ('', False), ('{bad', False)]:
