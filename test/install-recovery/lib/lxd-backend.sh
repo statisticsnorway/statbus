@@ -447,8 +447,15 @@ _lxd_stage_candidate_install() {
     scp -O "${SSH_OPTS[@]}" "$HARNESS_ROOT/install.sh" "root@$VM_IP:/tmp/statbus-install.sh"
     VM_ROOT_EXEC chmod 0644 /tmp/statbus-install.sh
 }
+_lxd_install_exit() {
+    local rc=$1
+    if [ "$rc" -ne 0 ]; then
+        echo "  FAILURE CLASS: remote-stage-failed[install] exit=$rc" >&2
+    fi
+    return "$rc"
+}
 install_statbus_in_vm() {
-    local name=$1 log="$HARNESS_ROOT/tmp/install-recovery-$1-install.log" installed commit
+    local name=$1 log="$HARNESS_ROOT/tmp/install-recovery-$1-install.log" installed commit rc
     if [ -z "${2:-}" ]; then
         # VM harness's no-version contract: HEAD via the published per-commit
         # image, through install.sh --commit in RESCUE mode. A historical base
@@ -476,7 +483,9 @@ cp /tmp/env-config "$HOME/statbus/.env.config"
 cp /tmp/users.yml "$HOME/statbus/.users.yml"
 STATBUS_MIN_DISK_GB=5 GIT_NETWORK_MAX_ATTEMPTS=8 GIT_NETWORK_RETRY_DELAY_S=45 DOCKER_PULL_MAX_ATTEMPTS=5 DOCKER_PULL_RETRY_DELAY_S=30 bash /tmp/statbus-install.sh --commit "$1" --trust-github-user jhf
 REMOTE
-        return "${PIPESTATUS[0]}"
+        rc=${PIPESTATUS[0]}
+        _lxd_install_exit "$rc"
+        return
     fi
     if [ -n "${2:-}" ]; then
         installed=$(VM_EXEC bash -lc 'cd ~/statbus && ./sb --version' 2>/dev/null || true)
@@ -487,10 +496,11 @@ REMOTE
         fi
     fi
     VM_EXEC bash -lc "cd ~/statbus && STATBUS_MIN_DISK_GB=5 ./sb install --non-interactive --trust-github-user jhf" 2>&1 | tee -a "$log"
-    return "${PIPESTATUS[0]}"
+    rc=${PIPESTATUS[0]}
+    _lxd_install_exit "$rc"
 }
 install_statbus_at_sha() {
-    local tag=${3:?tag required} sha=${2:?sha required} log="$HARNESS_ROOT/tmp/install-recovery-${1}-install.log"
+    local tag=${3:?tag required} sha=${2:?sha required} log="$HARNESS_ROOT/tmp/install-recovery-${1}-install.log" rc
     [ "$(git -C "$HARNESS_ROOT" rev-parse "$tag^{commit}")" = "$sha" ] || {
         echo "REFUSE: $tag does not resolve to supplied commit $sha" >&2; return 2;
     }
@@ -527,5 +537,6 @@ if [ "$5" = 1 ]; then
 fi
 exec bash /tmp/statbus-install.sh --non-interactive
 REMOTE
-    return "${PIPESTATUS[0]}"
+    rc=${PIPESTATUS[0]}
+    _lxd_install_exit "$rc"
 }
