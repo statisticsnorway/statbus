@@ -31,4 +31,10 @@ jobs:
             echo 'No fleet box to reap.'
             exit 0
           fi
-          STATBUS_CREDENTIALS_FILE="$RUNNER_TEMP/lxd-credentials" ops/lxd-fleet/reap.sh
+          rc=0
+          STATBUS_CREDENTIALS_FILE="$RUNNER_TEMP/lxd-credentials" ops/lxd-fleet/reap.sh || rc=$?
+          if [ "$rc" -eq 42 ]; then
+            echo 'Fleet used within three hours, leaving it running.'
+            exit 0
+          fi
+          exit "$rc"

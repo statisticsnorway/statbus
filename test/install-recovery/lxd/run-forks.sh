@@ -17,6 +17,28 @@ fi
 }
 RUN_DIR="$PINNED_ROOT/tmp/lxd-stage2-${TAG}-$(date -u +%Y%m%dT%H%M%S)"
 mkdir -p "$RUN_DIR/shadow/lib" "$RUN_DIR/shadow/scenarios"
+printf 'scenario\tvm_verdict\tvm_wall_s\tlxd_verdict\tlxd_wall_s\tlxd_rc\tcheckpoint\n' > "$RUN_DIR/comparison.tsv"
+phase=setup
+finalize() {
+    local rc=$? slug
+    trap - EXIT
+    for slug in "${scenarios[@]+"${scenarios[@]}"}"; do
+        [ -f "$RUN_DIR/$slug.row" ] || continue
+        cat "$RUN_DIR/$slug.row" >> "$RUN_DIR/comparison.tsv"
+    done
+    if [ "$rc" -ne 0 ]; then
+        printf '%s\t\t\tPHASE_FAILED\t\t%s\t\n' "$phase" "$rc" >> "$RUN_DIR/comparison.tsv"
+        printf 'FAILED in %s (exit %s)\n' "$phase" "$rc" > "$RUN_DIR/fleet-status.txt"
+    fi
+    if [ -n "${LXD_FLEET_ARTIFACT_DIR:-}" ]; then
+        mkdir -p "$LXD_FLEET_ARTIFACT_DIR"
+        cp "$RUN_DIR/comparison.tsv" "$LXD_FLEET_ARTIFACT_DIR/"
+        find "$RUN_DIR" -maxdepth 1 -name '*.log' -exec cp {} "$LXD_FLEET_ARTIFACT_DIR/" \;
+        [ ! -f "$RUN_DIR/fleet-status.txt" ] || cp "$RUN_DIR/fleet-status.txt" "$LXD_FLEET_ARTIFACT_DIR/"
+    fi
+}
+scenarios=()
+trap finalize EXIT
 if [ -n "${LXD_FLEET_ARTIFACT_DIR:-}" ]; then
     mkdir -p "$LXD_FLEET_ARTIFACT_DIR"
     echo "$RUN_DIR" > "$LXD_FLEET_ARTIFACT_DIR/run-dir.txt"
@@ -68,8 +90,8 @@ dup=$(printf '%s\n' "${scenarios[@]}" | sort | uniq -d)
 # Build each distinct checkpoint only on demand, serially. Never race two builders.
 checkpoints=()
 for slug in "${scenarios[@]}"; do
+    phase="checkpoint-$slug"
     if ! fresh_fork_batch; then
-        [ -z "${LXD_FLEET_ARTIFACT_DIR:-}" ] || cp "$RUN_DIR/fleet-status.txt" "$LXD_FLEET_ARTIFACT_DIR/"
         exit 0
     fi
     checkpoint=$(lxd_checkpoint_for_scenario "$slug")
@@ -84,12 +106,12 @@ for slug in "${scenarios[@]}"; do
         }
     fi
 done
-printf 'scenario\tvm_verdict\tvm_wall_s\tlxd_verdict\tlxd_wall_s\tlxd_rc\tcheckpoint\n' > "$RUN_DIR/comparison.tsv"
 MAX_PARALLEL=${LXD_PARALLEL:-6}
 [[ "$MAX_PARALLEL" =~ ^[1-8]$ ]] || { echo 'LXD_PARALLEL must be 1..8' >&2; exit 2; }
 pids=()
 for slug in "${scenarios[@]}"; do
-    if [ "${#pids[@]}" -eq 0 ] && ! fresh_fork_batch; then break; fi
+    phase="fork-$slug"
+    if ! fresh_fork_batch; then break; fi
     checkpoint=$(lxd_checkpoint_for_scenario "$slug")
     (
         started=$(date +%s)
@@ -114,15 +136,10 @@ for slug in "${scenarios[@]}"; do
     fi
 done
 for pid in ${pids[@]+"${pids[@]}"}; do wait "$pid" || true; done
-for slug in "${scenarios[@]}"; do
-    if [ -f "$RUN_DIR/$slug.row" ]; then cat "$RUN_DIR/$slug.row" >> "$RUN_DIR/comparison.tsv"; fi
-done
-cat "$RUN_DIR/comparison.tsv"
+phase=verdict
 echo "Logs and parity template: $RUN_DIR"
-if [ -n "${LXD_FLEET_ARTIFACT_DIR:-}" ]; then
-    cp "$RUN_DIR/comparison.tsv" "$LXD_FLEET_ARTIFACT_DIR/"
-    find "$RUN_DIR" -maxdepth 1 -name '*.log' -exec cp {} "$LXD_FLEET_ARTIFACT_DIR/" \;
-    [ ! -f "$RUN_DIR/fleet-status.txt" ] || cp "$RUN_DIR/fleet-status.txt" "$LXD_FLEET_ARTIFACT_DIR/"
-fi
 [ ! -f "$RUN_DIR/fleet-status.txt" ] || exit 0
-awk -F '\t' 'NR > 1 && $4 != "PASS" {bad=1} END {exit bad}' "$RUN_DIR/comparison.tsv"
+for slug in "${scenarios[@]}"; do
+    [ -f "$RUN_DIR/$slug.row" ] || { echo "Missing result: $slug" >&2; exit 1; }
+    awk -F '\t' '$4 != "PASS" {exit 1}' "$RUN_DIR/$slug.row" || exit 1
+done
