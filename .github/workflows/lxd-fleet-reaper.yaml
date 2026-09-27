@@ -25,11 +25,17 @@ jobs:
         env:
           HCLOUD_TOKEN: ${{ secrets.HCLOUD_TOKEN }}
         run: |
+          set -euo pipefail
           printf 'HCLOUD_TOKEN=%q\n' "$HCLOUD_TOKEN" > "$RUNNER_TEMP/lxd-credentials"
           chmod 600 "$RUNNER_TEMP/lxd-credentials"
-          if ! hcloud server describe statbus-lxd-fleet -o json >/dev/null 2>&1; then
-            echo 'No fleet box to reap.'
-            exit 0
+          if ! hcloud server describe statbus-lxd-fleet -o json > "$RUNNER_TEMP/fleet-describe.json" 2> "$RUNNER_TEMP/fleet-describe.err"; then
+            if grep -qi 'not found' "$RUNNER_TEMP/fleet-describe.err"; then
+              echo 'No fleet box to reap.'
+              exit 0
+            fi
+            cat "$RUNNER_TEMP/fleet-describe.err" >&2
+            echo 'Fleet box lookup failed.' >&2
+            exit 1
           fi
           rc=0
           STATBUS_CREDENTIALS_FILE="$RUNNER_TEMP/lxd-credentials" ops/lxd-fleet/reap.sh || rc=$?

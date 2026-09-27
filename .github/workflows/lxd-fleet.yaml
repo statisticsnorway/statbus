@@ -18,10 +18,16 @@ jobs:
       JCODE_SCRATCH_DIR: /home/runner/work/_temp
       LXD_FLEET_ARTIFACT_DIR: /home/runner/work/_temp/lxd-artifacts
     steps:
+      - name: Initialize parity artifact
+        run: |
+          mkdir -p "$LXD_FLEET_ARTIFACT_DIR"
+          echo 'INITIALIZED: awaiting setup' > "$LXD_FLEET_ARTIFACT_DIR/workflow-status.txt"
       - uses: actions/checkout@v4
+        id: checkout
         with:
           fetch-depth: 0
       - name: Install box key and tooling
+        id: tooling
         env:
           BOX_KEY: ${{ secrets.LXD_FLEET_SSH_KEY }}
         run: |
@@ -39,9 +45,11 @@ jobs:
           candidate-ref: ${{ github.ref_name }}
           scenario: lxd-fleet
       - name: Wait for previous fleet to drain (bounded 20 minutes)
+        id: drain
         if: steps.freshness.outputs.superseded != 'true'
         run: |
           set -euo pipefail
+          exec > >(tee "$LXD_FLEET_ARTIFACT_DIR/drain.log") 2>&1
           if ! hcloud server describe statbus-lxd-fleet -o json >/dev/null 2>&1; then
             echo 'No existing fleet box; ramp can proceed.'
             exit 0
@@ -70,35 +78,76 @@ jobs:
           candidate-ref: ${{ github.ref_name }}
           scenario: lxd-fleet-after-wait
       - name: Ramp warm box
+        id: ramp
         if: steps.freshness.outputs.superseded != 'true' && steps.after-wait.outputs.superseded != 'true'
         run: |
           set -euo pipefail
-          ops/lxd-fleet/up.sh | tee "$RUNNER_TEMP/lxd-ramp.log"
-          ip=$(tail -n 1 "$RUNNER_TEMP/lxd-ramp.log")
+          ops/lxd-fleet/up.sh 2>&1 | tee "$LXD_FLEET_ARTIFACT_DIR/ramp.log"
+          ip=$(tail -n 1 "$LXD_FLEET_ARTIFACT_DIR/ramp.log")
           [[ "$ip" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo 'up.sh did not return an IPv4 address'; exit 1; }
           echo "LXD_HOST=root@$ip" >> "$GITHUB_ENV"
           echo "Fleet host resolved by name: $ip"
       - name: Build or reuse candidate base
-        if: steps.freshness.outputs.superseded != 'true' && steps.after-wait.outputs.superseded != 'true'
-        run: ops/lxd-fleet/base.sh "${{ github.ref_name }}"
-      - name: Run all fork scenarios (batch-boundary supersession)
+        id: base
         if: steps.freshness.outputs.superseded != 'true' && steps.after-wait.outputs.superseded != 'true'
         run: |
           set -euo pipefail
+          ops/lxd-fleet/base.sh "${{ github.ref_name }}" 2>&1 | tee "$LXD_FLEET_ARTIFACT_DIR/base.log"
+      - name: Run all fork scenarios (batch-boundary supersession)
+        id: driver
+        if: steps.freshness.outputs.superseded != 'true' && steps.after-wait.outputs.superseded != 'true'
+        run: |
+          set -euo pipefail
+          exec > >(tee "$LXD_FLEET_ARTIFACT_DIR/driver.log") 2>&1
           ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new "$LXD_HOST" \
             'flock /root/fleet-run.lock bash -c "test ! -e /root/fleet-run.active && test ! -e /root/fleet-hardening.active && touch /root/fleet-run.active"'
           trap 'ssh -o BatchMode=yes "$LXD_HOST" "rm -f /root/fleet-run.active; date +%s > /root/last-fleet-activity"' EXIT
           test/install-recovery/lxd/run-forks.sh "${{ github.ref_name }}"
-      - name: Preserve pre-run supersession in parity artifact
+      - name: Collect workflow phase outcome
         if: always()
         env:
           FIRST: ${{ steps.freshness.outputs.superseded }}
           AFTER_WAIT: ${{ steps.after-wait.outputs.superseded }}
+          CHECKOUT: ${{ steps.checkout.outcome }}
+          TOOLING: ${{ steps.tooling.outcome }}
+          SETUP: ${{ steps.freshness.outcome }}
+          DRAIN: ${{ steps.drain.outcome }}
+          RECHECK: ${{ steps.after-wait.outcome }}
+          RAMP: ${{ steps.ramp.outcome }}
+          BASE: ${{ steps.base.outcome }}
+          DRIVER: ${{ steps.driver.outcome }}
         run: |
+          mkdir -p "$LXD_FLEET_ARTIFACT_DIR"
           if [ "$FIRST" = true ] || [ "$AFTER_WAIT" = true ]; then
-            mkdir -p "$LXD_FLEET_ARTIFACT_DIR"
             echo SUPERSEDED > "$LXD_FLEET_ARTIFACT_DIR/fleet-status.txt"
           fi
+          {
+            echo "checkout=$CHECKOUT tooling=$TOOLING freshness=$SETUP drain=$DRAIN recheck=$RECHECK ramp=$RAMP base=$BASE driver=$DRIVER"
+            if [ "$DRIVER" != skipped ]; then
+              echo "phase=driver outcome=$DRIVER"
+            elif [ "$BASE" != skipped ]; then
+              echo "phase=base outcome=$BASE"
+            elif [ "$RAMP" != skipped ]; then
+              echo "phase=ramp outcome=$RAMP"
+            elif [ "$RECHECK" != skipped ]; then
+              echo "phase=recheck outcome=$RECHECK"
+            elif [ "$DRAIN" != skipped ]; then
+              echo "phase=drain outcome=$DRAIN"
+            elif [ "$SETUP" != skipped ]; then
+              echo "phase=freshness outcome=$SETUP"
+            elif [ "$TOOLING" != skipped ]; then
+              echo "phase=tooling outcome=$TOOLING"
+            else
+              echo "phase=checkout outcome=$CHECKOUT"
+            fi
+            if [ "$FIRST" = true ] || [ "$AFTER_WAIT" = true ] || grep -qx SUPERSEDED "$LXD_FLEET_ARTIFACT_DIR/fleet-status.txt" 2>/dev/null; then
+              echo 'status=SUPERSEDED'
+            elif [[ " $CHECKOUT $TOOLING $SETUP $DRAIN $RECHECK $RAMP $BASE $DRIVER " == *' failure '* ]] || grep -q '^FAILED' "$LXD_FLEET_ARTIFACT_DIR/fleet-status.txt" 2>/dev/null; then
+              echo 'status=FAILED'
+            else
+              echo 'status=COMPLETED'
+            fi
+          } > "$LXD_FLEET_ARTIFACT_DIR/workflow-status.txt"
       - name: Upload comparison and per-scenario logs
         if: always()
         uses: actions/upload-artifact@v4
@@ -109,8 +158,10 @@ jobs:
       - name: State LXD verdict
         if: always()
         run: |
-          if [ "${{ steps.freshness.outputs.superseded }}" = true ] || [ "${{ steps.after-wait.outputs.superseded }}" = true ] || [ -f "$LXD_FLEET_ARTIFACT_DIR/fleet-status.txt" ]; then
+          if [ "${{ steps.freshness.outputs.superseded }}" = true ] || [ "${{ steps.after-wait.outputs.superseded }}" = true ] || grep -qx SUPERSEDED "$LXD_FLEET_ARTIFACT_DIR/fleet-status.txt" 2>/dev/null; then
             echo '### LXD parity: SUPERSEDED (ADVISORY ONLY)' >> "$GITHUB_STEP_SUMMARY"
+          elif grep -qx 'status=FAILED' "$LXD_FLEET_ARTIFACT_DIR/workflow-status.txt" 2>/dev/null; then
+            echo '### LXD parity: FAILED (ADVISORY ONLY)' >> "$GITHUB_STEP_SUMMARY"
           else
             echo '### LXD parity: see job conclusion and comparison artifact (ADVISORY ONLY)' >> "$GITHUB_STEP_SUMMARY"
           fi
