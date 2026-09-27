@@ -51,7 +51,11 @@ scp() {
     _lxd_host lxc file push "$staging" "$VM_NAME${destination#*:}"
 }
 _lxd_guest_ip() {
-    _lxd_host lxc exec "$1" -- hostname -I | awk '{for(i=1;i<=NF;i++) if ($i ~ /^10\.111\./) {print $i; exit}}'
+    # The LXD bridge address is the guest's eth0 (the default profile's nic).
+    # Never match a subnet: lxdbr0's ipv4.address=auto picks a random /24 per
+    # host (10.111.x on the prototype, 10.45.131.x on the 26.04 box), and the
+    # guest's Docker bridges (172.17/172.18) are also listed by hostname -I.
+    _lxd_host lxc exec "$1" -- ip -4 -o addr show dev eth0 scope global | awk '{split($4, a, "/"); print a[1]; exit}'
 }
 _lxd_ready() {
     local name=$1 ip i code
@@ -146,9 +150,64 @@ lxd_base_for_candidate() {
     local installer_url=https://statbus.org/install.sh
     local staging=STATBUS_HARNESS_CERT_STAGING=/home/statbus/harness-certs
     if [ "$install_tag" != "$tag" ]; then
-        _lxd_mark "historical target $install_tag via current installer certificate staging seam"
+        # A historical baseline is installed the way vm-bootstrap.sh's
+        # install_statbus_at_sha release-tag path installs it: that release's
+        # own sb-linux asset, a checkout at its tag, pre-placed .env.config /
+        # .users.yml / certificates, then its own ./sb install. Feeding it the
+        # CURRENT installer's answer file is not what history did: v2026.09.2
+        # refuses TLS keys there ("STATBUS_ENV_CONFIG: extra key
+        # TLS_CERT_FILE"), which failed this checkpoint at rc.08 and rc.09.
+        _lxd_mark "historical target $install_tag via its own released sb (VM harness baseline path)"
+        local script
+        script=$(mktemp "$LXD_LOG_DIR/s2-baseline-XXXXXX")
+        cat > "$script" <<SCRIPT
+set -euo pipefail
+for attempt in 1 2 3 4 5 6 7 8; do
+    if curl -fsSL https://github.com/statisticsnorway/statbus/releases/download/$install_tag/sb-linux-amd64 -o ~/sb.tmp; then break; fi
+    echo "GitHub sb-linux download retry \$attempt/8" >&2
+    [ "\$attempt" -eq 8 ] && exit 1
+    rm -f ~/sb.tmp; sleep 45
+done
+chmod +x ~/sb.tmp
+for attempt in 1 2 3 4 5 6 7 8; do
+    if git clone --quiet --depth 50 --branch $install_tag https://github.com/statisticsnorway/statbus.git ~/statbus; then break; fi
+    echo "GitHub clone retry \$attempt/8" >&2
+    [ "\$attempt" -eq 8 ] && exit 1
+    rm -rf ~/statbus; sleep 45
+done
+mv ~/sb.tmp ~/statbus/sb
+cd ~/statbus
+install -d -m 0755 caddy/data/custom-certs
+install -m 0644 ~/harness-certs/domain.crt caddy/data/custom-certs/domain.crt
+install -m 0600 ~/harness-certs/domain.key caddy/data/custom-certs/domain.key
+# Same content as vm-bootstrap.sh's env-config fixture for a current-era box.
+( umask 077; cat > .env.config <<'ENVCONFIG'
+DEPLOYMENT_SLOT_NAME=Install Test
+DEPLOYMENT_SLOT_CODE=test
+DEPLOYMENT_SLOT_PORT_OFFSET=1
+CADDY_DEPLOYMENT_MODE=standalone
+SITE_DOMAIN=statbus-test.local
+STATBUS_URL=https://statbus-test.local
+BROWSER_REST_URL=https://statbus-test.local
+SERVER_REST_URL=http://proxy:80
+DEBUG=false
+PUBLIC_DEBUG=false
+TLS_CERT_FILE=/data/custom-certs/domain.crt
+TLS_KEY_FILE=/data/custom-certs/domain.key
+UPGRADE_CHANNEL=stable
+ENVCONFIG
+)
+cp ~/users.yml .users.yml
+STATBUS_MIN_DISK_GB=5 ./sb install --non-interactive --trust-github-user jhf
+SCRIPT
+        _lxd_upload "$script" /root/s2-baseline.sh
+        rm -f "$script"
+        _lxd_host lxc file push /root/s2-baseline.sh "$base/home/statbus/s2-baseline.sh"
+        _lxd_host lxc exec "$base" -- chown statbus:statbus /home/statbus/s2-baseline.sh
+        _lxd_host lxc exec "$base" -- sudo -i -u statbus bash /home/statbus/s2-baseline.sh || { _lxd_mark "INSTALL FAILED $install_tag after $(($(date +%s)-start))s"; lxd_capture_failure "$base"; return 1; }
+    else
+        _lxd_host lxc exec "$base" -- sudo -i -u statbus bash -lc "set -o pipefail; curl -fsSL $installer_url | env $staging STATBUS_INSTALL_VERSION=$install_tag STATBUS_ENV_CONFIG=/home/statbus/install-input.env STATBUS_USERS_FILE=/home/statbus/users.yml STATBUS_MIN_DISK_GB=5 GIT_NETWORK_MAX_ATTEMPTS=8 GIT_NETWORK_RETRY_DELAY_S=45 DOCKER_PULL_MAX_ATTEMPTS=5 DOCKER_PULL_RETRY_DELAY_S=30 bash -s -- --non-interactive" || { _lxd_mark "INSTALL FAILED $install_tag after $(($(date +%s)-start))s"; lxd_capture_failure "$base"; return 1; }
     fi
-    _lxd_host lxc exec "$base" -- sudo -i -u statbus bash -lc "set -o pipefail; curl -fsSL $installer_url | env $staging STATBUS_INSTALL_VERSION=$install_tag STATBUS_ENV_CONFIG=/home/statbus/install-input.env STATBUS_USERS_FILE=/home/statbus/users.yml STATBUS_MIN_DISK_GB=5 GIT_NETWORK_MAX_ATTEMPTS=8 GIT_NETWORK_RETRY_DELAY_S=45 DOCKER_PULL_MAX_ATTEMPTS=5 DOCKER_PULL_RETRY_DELAY_S=30 bash -s -- --non-interactive" || { _lxd_mark "INSTALL FAILED $install_tag after $(($(date +%s)-start))s"; lxd_capture_failure "$base"; return 1; }
     _lxd_mark "installer complete $tag in $(($(date +%s)-start))s"
     _lxd_ready "$base"
     _lxd_host lxc exec "$base" -- sudo -i -u statbus bash -lc 'cd ~/statbus && ./sb --version && ./sb ps'
