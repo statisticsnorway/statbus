@@ -320,6 +320,11 @@ lxd_fork() {
         _lxd_mark "$name root Btrfs quota 40GiB"
     fi
     start=$(date +%s); _lxd_host lxc start "$name"
+    # First boot's cloud-init rewrites ubuntu.sources back to archive/security
+    # hosts, while hardening's package indexes came from mirrors.edge.kernel.org.
+    # apt-get update -qq alone left a stale binary pkgcache containing only
+    # Docker packages. Restore the mirror, invalidate it, and require Apache.
+    _lxd_host lxc exec "$name" -- bash -c 'set -e; if grep -qE "http://(archive|security).ubuntu.com/ubuntu" /etc/apt/sources.list.d/ubuntu.sources; then sed -i -e "s#http://archive.ubuntu.com/ubuntu#https://mirrors.edge.kernel.org/ubuntu#g" -e "s#http://security.ubuntu.com/ubuntu#https://mirrors.edge.kernel.org/ubuntu#g" /etc/apt/sources.list.d/ubuntu.sources; fi; apt-get update -qq; rm -f /var/cache/apt/pkgcache.bin /var/cache/apt/srcpkgcache.bin; apt-cache show apache2 >/dev/null'
     # Earlier prototype snapshots wrote /run/user/0 by expanding $(id -u) as
     # root. Append the actual statbus UID so nested login shells reach its bus.
     _lxd_host lxc exec "$name" -- bash -c 'echo "export XDG_RUNTIME_DIR=/run/user/1001" >> /home/statbus/.profile'
@@ -331,10 +336,6 @@ lxd_fork() {
             sleep 1
         done
         [ -n "$VM_IP" ] || { echo "No guest IP for $name" >&2; return 1; }
-        # The base's apt lists do not survive same-pool CoW fork creation on
-        # this LXD host (apache2 has no candidate), although a cross-pool copy
-        # includes them. Match the fresh VM's usable apt metadata at boot.
-        _lxd_host lxc exec "$name" -- apt-get update -qq
         _lxd_prepare_fresh_answers
         _lxd_mark "$name fresh boot IP $VM_IP"
     else
@@ -494,7 +495,7 @@ install_statbus_at_sha() {
     }
     VM_EXEC test ! -e /home/statbus/statbus || { echo 'FRESH checkout already exists' >&2; return 70; }
     _lxd_stage_candidate_install
-    VM_SCRIPT_INLINE tagged-install "$tag" "${HARNESS_DEPLOYMENT_MODE:-standalone}" "${HARNESS_SITE_DOMAIN:-statbus-test.local}" "${HARNESS_NO_CUSTOM_CERT:-0}" "${HARNESS_INSTALL_PRERELEASE_CHANNEL:-0}" "${HARNESS_INTERACTIVE_ADMIN:-0}" <<'REMOTE' 2>&1 | tee -a "$log"
+    VM_SCRIPT_INLINE tagged-install "$tag" "${HARNESS_DEPLOYMENT_MODE:-standalone}" "${HARNESS_SITE_DOMAIN:-statbus-test.local}" "${HARNESS_NO_CUSTOM_CERT:-0}" "${HARNESS_INSTALL_PRERELEASE_CHANNEL:-0}" "${HARNESS_INTERACTIVE_ADMIN:-0}" "$VM_NAME" <<'REMOTE' 2>&1 | tee -a "$log"
 #!/usr/bin/env bash
 set -e
 [ ! -e "$HOME/statbus" ] || { echo 'harness: FRESH requires absent ~/statbus'; exit 70; }
@@ -506,7 +507,12 @@ set -e
     printf 'DEPLOYMENT_SLOT_NAME=Install Test\nDEPLOYMENT_SLOT_CODE=test\nTRUST_GITHUB_USER=jhf\n'
 } > "$HOME/install-input.env" )
 case "$(umask)" in *[4567]) echo 'harness: umask strips other-read'; exit 70 ;; esac
-export STATBUS_ENV_CONFIG="$HOME/install-input.env" STATBUS_MIN_DISK_GB=5
+export STATBUS_ENV_CONFIG="$HOME/install-input.env"
+if [[ "$7" == *-4-install-40gb-disk ]]; then
+    unset STATBUS_MIN_DISK_GB
+else
+    export STATBUS_MIN_DISK_GB=5
+fi
 if [ "$2" = standalone ] && [ "$4" != 1 ]; then export STATBUS_HARNESS_CERT_STAGING="$HOME/harness-certs"; fi
 export STATBUS_INSTALL_VERSION="$1"
 if [ "$6" = 1 ]; then
