@@ -118,9 +118,22 @@ jobs:
           DRIVER: ${{ steps.driver.outcome }}
         run: |
           mkdir -p "$LXD_FLEET_ARTIFACT_DIR"
-          if [ "$FIRST" = true ] || [ "$AFTER_WAIT" = true ]; then
-            echo SUPERSEDED > "$LXD_FLEET_ARTIFACT_DIR/fleet-status.txt"
+          if [ ! -f test/install-recovery/lxd/fleet-status.sh ]; then
+            printf 'STATUS=ERROR\nPHASE=checkout\nDETAIL=status helper unavailable\n' > "$LXD_FLEET_ARTIFACT_DIR/fleet-status.txt"
+            echo 'status=ERROR' > "$LXD_FLEET_ARTIFACT_DIR/workflow-status.txt"
+            exit 0
           fi
+          source test/install-recovery/lxd/fleet-status.sh
+          status_file="$LXD_FLEET_ARTIFACT_DIR/fleet-status.txt"
+          fleet_status_read "$status_file"
+          if [ "$FIRST" = true ] || [ "$AFTER_WAIT" = true ]; then
+            printf 'STATUS=SUPERSEDED\nPHASE=freshness\n' > "$status_file"
+          elif [[ " $CHECKOUT $TOOLING $SETUP $DRAIN $RECHECK $RAMP $BASE $DRIVER " == *' failure '* ]] && [ "$FLEET_STATUS" != FAILED ]; then
+            printf 'STATUS=FAILED\nPHASE=workflow\n' > "$status_file"
+          elif [ "$FLEET_STATUS" = ERROR ]; then
+            printf 'STATUS=ERROR\nPHASE=collector\nDETAIL=missing or malformed driver status\n' > "$status_file"
+          fi
+          fleet_status_read "$status_file"
           {
             echo "checkout=$CHECKOUT tooling=$TOOLING freshness=$SETUP drain=$DRAIN recheck=$RECHECK ramp=$RAMP base=$BASE driver=$DRIVER"
             if [ "$DRIVER" != skipped ]; then
@@ -140,13 +153,7 @@ jobs:
             else
               echo "phase=checkout outcome=$CHECKOUT"
             fi
-            if [ "$FIRST" = true ] || [ "$AFTER_WAIT" = true ] || grep -qx SUPERSEDED "$LXD_FLEET_ARTIFACT_DIR/fleet-status.txt" 2>/dev/null; then
-              echo 'status=SUPERSEDED'
-            elif [[ " $CHECKOUT $TOOLING $SETUP $DRAIN $RECHECK $RAMP $BASE $DRIVER " == *' failure '* ]] || grep -q '^FAILED' "$LXD_FLEET_ARTIFACT_DIR/fleet-status.txt" 2>/dev/null; then
-              echo 'status=FAILED'
-            else
-              echo 'status=COMPLETED'
-            fi
+            echo "status=$FLEET_STATUS"
           } > "$LXD_FLEET_ARTIFACT_DIR/workflow-status.txt"
       - name: Upload comparison and per-scenario logs
         if: always()
@@ -158,10 +165,10 @@ jobs:
       - name: State LXD verdict
         if: always()
         run: |
-          if [ "${{ steps.freshness.outputs.superseded }}" = true ] || [ "${{ steps.after-wait.outputs.superseded }}" = true ] || grep -qx SUPERSEDED "$LXD_FLEET_ARTIFACT_DIR/fleet-status.txt" 2>/dev/null; then
-            echo '### LXD parity: SUPERSEDED (ADVISORY ONLY)' >> "$GITHUB_STEP_SUMMARY"
-          elif grep -qx 'status=FAILED' "$LXD_FLEET_ARTIFACT_DIR/workflow-status.txt" 2>/dev/null; then
-            echo '### LXD parity: FAILED (ADVISORY ONLY)' >> "$GITHUB_STEP_SUMMARY"
-          else
-            echo '### LXD parity: see job conclusion and comparison artifact (ADVISORY ONLY)' >> "$GITHUB_STEP_SUMMARY"
+          if [ ! -f test/install-recovery/lxd/fleet-status.sh ]; then
+            echo '### LXD parity: ERROR (checkout unavailable, ADVISORY ONLY)' >> "$GITHUB_STEP_SUMMARY"
+            exit 0
           fi
+          source test/install-recovery/lxd/fleet-status.sh
+          fleet_status_read "$LXD_FLEET_ARTIFACT_DIR/fleet-status.txt"
+          echo "### LXD parity: $FLEET_STATUS (ADVISORY ONLY)" >> "$GITHUB_STEP_SUMMARY"

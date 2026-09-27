@@ -8,6 +8,7 @@ shift
 export LXD_CANDIDATE=$TAG
 source "$ROOT/test/install-recovery/lib/lxd-backend.sh"
 source "$ROOT/test/install-recovery/lxd/verdict.sh"
+source "$ROOT/test/install-recovery/lxd/fleet-status.sh"
 PINNED_ROOT="${JCODE_SCRATCH_DIR:?JCODE_SCRATCH_DIR required}/lxd-s2-pinned-${TAG//[^a-zA-Z0-9-]/-}"
 if [ ! -d "$PINNED_ROOT/.git" ] && [ ! -f "$PINNED_ROOT/.git" ]; then
     git -C "$ROOT" worktree add --detach "$PINNED_ROOT" "$TAG"
@@ -28,7 +29,7 @@ finalize() {
     done
     if [ "$rc" -ne 0 ]; then
         printf '%s\t\t\tPHASE_FAILED\t\t%s\t\n' "$phase" "$rc" >> "$RUN_DIR/comparison.tsv"
-        printf 'FAILED in %s (exit %s)\n' "$phase" "$rc" > "$RUN_DIR/fleet-status.txt"
+        printf 'STATUS=FAILED\nPHASE=%s\nDETAIL=exit %s\n' "$phase" "$rc" > "$RUN_DIR/fleet-status.txt"
     fi
     if [ -n "${LXD_FLEET_ARTIFACT_DIR:-}" ]; then
         mkdir -p "$LXD_FLEET_ARTIFACT_DIR"
@@ -55,7 +56,7 @@ fresh_fork_batch() {
     if [ -n "$newest" ] && [ "$newest" != "$TAG" ] &&
        [ "$(printf '%s\n%s\n' "$TAG" "$newest" | LC_ALL=C sort -V | tail -n 1)" = "$newest" ]; then
         echo "SUPERSEDED by $newest before next fork batch" >&2
-        printf 'SUPERSEDED by %s\n' "$newest" > "$RUN_DIR/fleet-status.txt"
+        printf 'STATUS=SUPERSEDED\nDETAIL=newer tag %s\n' "$newest" > "$RUN_DIR/fleet-status.txt"
         return 1
     fi
     return 0
@@ -138,8 +139,10 @@ done
 for pid in ${pids[@]+"${pids[@]}"}; do wait "$pid" || true; done
 phase=verdict
 echo "Logs and parity template: $RUN_DIR"
-[ ! -f "$RUN_DIR/fleet-status.txt" ] || exit 0
+fleet_status_read "$RUN_DIR/fleet-status.txt"
+[ "$FLEET_STATUS" != SUPERSEDED ] || exit 0
 for slug in "${scenarios[@]}"; do
     [ -f "$RUN_DIR/$slug.row" ] || { echo "Missing result: $slug" >&2; exit 1; }
     awk -F '\t' '$4 != "PASS" {exit 1}' "$RUN_DIR/$slug.row" || exit 1
 done
+printf 'STATUS=PASSED\n' > "$RUN_DIR/fleet-status.txt"

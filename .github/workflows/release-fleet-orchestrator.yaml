@@ -357,6 +357,7 @@ jobs:
       run_url: ${{ steps.dispatch.outputs.run-url }}
       conclusion: ${{ steps.dispatch.outcome }}
       superseded: ${{ steps.dispatch.outputs.superseded }}
+      fleet_status: ${{ steps.dispatch.outputs.fleet-status }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -376,9 +377,10 @@ jobs:
         env:
           RESULT: ${{ steps.dispatch.outcome }}
           SUPERSEDED: ${{ steps.dispatch.outputs.superseded }}
+          FLEET_STATUS: ${{ steps.dispatch.outputs.fleet-status }}
           URL: ${{ steps.dispatch.outputs.run-url }}
         run: |
-          if [ "$SUPERSEDED" = true ]; then RESULT=SUPERSEDED; fi
+          if [ -n "$FLEET_STATUS" ]; then RESULT=$FLEET_STATUS; fi
           echo "### LXD fleet: ${RESULT:-unknown} (ADVISORY ONLY, does NOT gate the candidate)" >> "$GITHUB_STEP_SUMMARY"
           echo "Child run: ${URL:-not dispatched}" >> "$GITHUB_STEP_SUMMARY"
 
@@ -781,10 +783,11 @@ jobs:
         env:
           LXD_RESULT: ${{ needs['lxd-fleet'].outputs.conclusion }}
           LXD_SUPERSEDED: ${{ needs['lxd-fleet'].outputs.superseded }}
+          LXD_STATUS: ${{ needs['lxd-fleet'].outputs.fleet_status }}
           LXD_JOB: ${{ needs['lxd-fleet'].result }}
           LXD_URL: ${{ needs['lxd-fleet'].outputs.run_url }}
         run: |
-          if [ "$LXD_SUPERSEDED" = true ]; then LXD_RESULT=SUPERSEDED; fi
+          if [ -n "$LXD_STATUS" ]; then LXD_RESULT=$LXD_STATUS; fi
           echo "### LXD fork fleet: ${LXD_RESULT:-${LXD_JOB:-unknown}} (ADVISORY ONLY, NOT A CANDIDATE GATE)" >> "$GITHUB_STEP_SUMMARY"
           echo "Child run: ${LXD_URL:-not dispatched}" >> "$GITHUB_STEP_SUMMARY"
 

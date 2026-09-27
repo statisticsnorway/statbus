@@ -44,6 +44,9 @@ outputs:
   superseded:
     description: 'true when the child fleet reported at least one superseded VM scenario.'
     value: ${{ steps.dispatch.outputs.superseded }}
+  fleet-status:
+    description: 'Canonical LXD parity status (PASSED, FAILED, SUPERSEDED, ERROR).'
+    value: ${{ steps.dispatch.outputs.fleet-status }}
 runs:
   using: composite
   steps:
