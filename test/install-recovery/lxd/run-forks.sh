@@ -17,6 +17,27 @@ fi
 }
 RUN_DIR="$PINNED_ROOT/tmp/lxd-stage2-${TAG}-$(date -u +%Y%m%dT%H%M%S)"
 mkdir -p "$RUN_DIR/shadow/lib" "$RUN_DIR/shadow/scenarios"
+if [ -n "${LXD_FLEET_ARTIFACT_DIR:-}" ]; then
+    mkdir -p "$LXD_FLEET_ARTIFACT_DIR"
+    echo "$RUN_DIR" > "$LXD_FLEET_ARTIFACT_DIR/run-dir.txt"
+fi
+# The remote tag lookup is deliberately repeated at each batch boundary, not
+# read from the checkout made when this workflow started.
+fresh_fork_batch() {
+    local tags newest
+    if ! tags=$(git -C "$ROOT" ls-remote --tags --refs origin 'v*-rc.*'); then
+        echo '::warning title=RC freshness unknown::remote lookup failed; proceeding' >&2
+        return 0
+    fi
+    newest=$(printf '%s\n' "$tags" | awk '$2 ~ /^refs\/tags\/v[0-9]+\.[0-9]+\.[0-9]+-rc\.[0-9]+$/ {sub(/^refs\/tags\//, "", $2); print $2}' | LC_ALL=C sort -V | tail -n 1)
+    if [ -n "$newest" ] && [ "$newest" != "$TAG" ] &&
+       [ "$(printf '%s\n%s\n' "$TAG" "$newest" | LC_ALL=C sort -V | tail -n 1)" = "$newest" ]; then
+        echo "SUPERSEDED by $newest before next fork batch" >&2
+        printf 'SUPERSEDED by %s\n' "$newest" > "$RUN_DIR/fleet-status.txt"
+        return 1
+    fi
+    return 0
+}
 # A shadow bootstrap selects the backend without modifying original scenario assertions.
 for lib in "$ROOT"/test/install-recovery/lib/*.sh; do
     [ "${lib##*/}" = vm-bootstrap.sh ] && continue
@@ -47,6 +68,10 @@ dup=$(printf '%s\n' "${scenarios[@]}" | sort | uniq -d)
 # Build each distinct checkpoint only on demand, serially. Never race two builders.
 checkpoints=()
 for slug in "${scenarios[@]}"; do
+    if ! fresh_fork_batch; then
+        [ -z "${LXD_FLEET_ARTIFACT_DIR:-}" ] || cp "$RUN_DIR/fleet-status.txt" "$LXD_FLEET_ARTIFACT_DIR/"
+        exit 0
+    fi
     checkpoint=$(lxd_checkpoint_for_scenario "$slug")
     found=0
     for existing in ${checkpoints[@]+"${checkpoints[@]}"}; do
@@ -64,6 +89,7 @@ MAX_PARALLEL=${LXD_PARALLEL:-6}
 [[ "$MAX_PARALLEL" =~ ^[1-8]$ ]] || { echo 'LXD_PARALLEL must be 1..8' >&2; exit 2; }
 pids=()
 for slug in "${scenarios[@]}"; do
+    if [ "${#pids[@]}" -eq 0 ] && ! fresh_fork_batch; then break; fi
     checkpoint=$(lxd_checkpoint_for_scenario "$slug")
     (
         started=$(date +%s)
@@ -88,7 +114,15 @@ for slug in "${scenarios[@]}"; do
     fi
 done
 for pid in ${pids[@]+"${pids[@]}"}; do wait "$pid" || true; done
-for slug in "${scenarios[@]}"; do cat "$RUN_DIR/$slug.row" >> "$RUN_DIR/comparison.tsv"; done
+for slug in "${scenarios[@]}"; do
+    if [ -f "$RUN_DIR/$slug.row" ]; then cat "$RUN_DIR/$slug.row" >> "$RUN_DIR/comparison.tsv"; fi
+done
 cat "$RUN_DIR/comparison.tsv"
 echo "Logs and parity template: $RUN_DIR"
+if [ -n "${LXD_FLEET_ARTIFACT_DIR:-}" ]; then
+    cp "$RUN_DIR/comparison.tsv" "$LXD_FLEET_ARTIFACT_DIR/"
+    find "$RUN_DIR" -maxdepth 1 -name '*.log' -exec cp {} "$LXD_FLEET_ARTIFACT_DIR/" \;
+    [ ! -f "$RUN_DIR/fleet-status.txt" ] || cp "$RUN_DIR/fleet-status.txt" "$LXD_FLEET_ARTIFACT_DIR/"
+fi
+[ ! -f "$RUN_DIR/fleet-status.txt" ] || exit 0
 awk -F '\t' 'NR > 1 && $4 != "PASS" {bad=1} END {exit bad}' "$RUN_DIR/comparison.tsv"

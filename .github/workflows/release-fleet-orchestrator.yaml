@@ -343,6 +343,45 @@ jobs:
           poll-budget-s: "4800"
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
+  lxd-fleet:
+    name: "LXD parity fleet (ADVISORY ONLY)"
+    needs: [decide-obsolete, dev-canary]
+    if: >-
+      ${{ !cancelled() &&
+          needs['decide-obsolete'].result == 'success' &&
+          needs['decide-obsolete'].outputs.obsolete == 'false' &&
+          needs['dev-canary'].result == 'success' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 200
+    outputs:
+      run_url: ${{ steps.dispatch.outputs.run-url }}
+      conclusion: ${{ steps.dispatch.outcome }}
+      superseded: ${{ steps.dispatch.outputs.superseded }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Dispatch lxd-fleet.yaml at candidate tag and wait
+        id: dispatch
+        continue-on-error: true
+        uses: ./.github/actions/dispatch-fleet-and-wait
+        with:
+          workflow-file: lxd-fleet.yaml
+          ref: ${{ github.ref_name }}
+          commit-sha: ${{ github.sha }}
+          poll-budget-s: "9600"
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Report advisory parity result
+        if: always()
+        env:
+          RESULT: ${{ steps.dispatch.outcome }}
+          SUPERSEDED: ${{ steps.dispatch.outputs.superseded }}
+          URL: ${{ steps.dispatch.outputs.run-url }}
+        run: |
+          if [ "$SUPERSEDED" = true ]; then RESULT=SUPERSEDED; fi
+          echo "### LXD fleet: ${RESULT:-unknown} (ADVISORY ONLY, does NOT gate the candidate)" >> "$GITHUB_STEP_SUMMARY"
+          echo "Child run: ${URL:-not dispatched}" >> "$GITHUB_STEP_SUMMARY"
+
   install-recovery-harness:
     name: "4/5: dispatch Install Recovery Harness"
     needs: [decide-obsolete, dev-canary]
@@ -726,6 +765,7 @@ jobs:
       - dev-canary
       - install-recovery-harness
       - upgrade-arc-harness
+      - lxd-fleet
     # !cancelled() rather than success(): every upstream may legitimately be
     # SKIPPED on a superseded chain, and this job must still speak.
     if: ${{ !cancelled() }}
@@ -736,6 +776,17 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+
+      - name: Report LXD parity independently of the gating verdict
+        env:
+          LXD_RESULT: ${{ needs['lxd-fleet'].outputs.conclusion }}
+          LXD_SUPERSEDED: ${{ needs['lxd-fleet'].outputs.superseded }}
+          LXD_JOB: ${{ needs['lxd-fleet'].result }}
+          LXD_URL: ${{ needs['lxd-fleet'].outputs.run_url }}
+        run: |
+          if [ "$LXD_SUPERSEDED" = true ]; then LXD_RESULT=SUPERSEDED; fi
+          echo "### LXD fork fleet: ${LXD_RESULT:-${LXD_JOB:-unknown}} (ADVISORY ONLY, NOT A CANDIDATE GATE)" >> "$GITHUB_STEP_SUMMARY"
+          echo "Child run: ${LXD_URL:-not dispatched}" >> "$GITHUB_STEP_SUMMARY"
 
       - name: "Decision point: was this candidate superseded at any time during the chain?"
         id: obsolete
