@@ -48,7 +48,7 @@
 set -euo pipefail
 
 VM_NAME="${1:-statbus-recovery-1-boot-concurrent-install}"
-STALL_MAX_WAIT_S="${STALL_MAX_WAIT_S:-300}"
+STALL_MAX_WAIT_S="${STALL_MAX_WAIT_S:-1200}"
 INSTALL_BUDGET_S="${INSTALL_BUDGET_S:-900}"
 
 LIB_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/lib"
@@ -135,6 +135,7 @@ cp /tmp/users.yml .users.yml
 echo \$\$ > /tmp/install-c10-first.pid
 exec env STATBUS_INJECT_AT=concurrent-install-attempted-during-migrate-up \
 STATBUS_INJECT_STALL_UNTIL_REMOVED_FILE=$RELEASE_FILE \
+STATBUS_DB_SEED_NO_FETCH=1 \
 STATBUS_MIN_DISK_GB=5 \
     ./sb install --non-interactive --trust-github-user jhf
 SCRIPT
@@ -155,29 +156,30 @@ echo "── waiting for first install's stall to engage ──"
 # Keep readiness status separate from stdout. Even a failed transport that
 # prints a plausible PID must reach the diagnostic below, not the next phase.
 # Progress remains on stderr, and success emits only the numeric PID.
-# Image pulls precede migrations. Give that phase its own budget, then
-# observe the actual migrate process. Earlier CI tails contained an INJECT
-# marker only AFTER timeout; they did not timestamp when the stall began.
-echo "── waiting for first install to finish pulling images (step 7) ──"
-IMAGES_MAX_WAIT_S="${IMAGES_MAX_WAIT_S:-900}"
-_deadline=$(( $(date +%s) + IMAGES_MAX_WAIT_S ))
-until ssh "${SSH_OPTS[@]}" root@"$ip" "grep -qE '^\[7/[0-9]+\] Images +(OK|SKIP|DONE)' /tmp/install-c10-first.log 2>/dev/null"; do
-    if [ "$(date +%s)" -ge "$_deadline" ]; then
-        echo "✗ first install did not finish step 7 (Images) within ${IMAGES_MAX_WAIT_S}s" >&2
-        echo "  first install exit (if any): $(ssh "${SSH_OPTS[@]}" root@"$ip" "cat /tmp/install-c10-first.exit 2>/dev/null" || echo '(not exited yet)')" >&2
-        ssh "${SSH_OPTS[@]}" root@"$ip" "tail -30 /tmp/install-c10-first.log 2>/dev/null" >&2 || true
-        exit 1
+# Watch from the moment the install starts, not from an Images log line:
+# that line can be written after Migrations has already finished.
+echo "  stall watch starts with first install (${STALL_MAX_WAIT_S}s including image pulls)"
+assert_migration_delta() {
+    local log
+    log=$(ssh "${SSH_OPTS[@]}" root@"$ip" 'cat /tmp/install-c10-first.log 2>/dev/null') || return 1
+    if printf '%s\n' "$log" | grep -Eq '^\[13/17\] Migrations +OK'; then
+        echo '✗ seed obviated the migration delta: Migrations was skipped' >&2
+        return 1
     fi
-    sleep 10
-done
-echo "  images pulled; stall budget starts now (${STALL_MAX_WAIT_S}s)"
+    if ! printf '%s\n' "$log" | grep -Eq '^\[13/17\] Migrations +RUNNING'; then
+        echo '✗ seed obviated the migration delta: Migrations RUNNING line absent' >&2
+        return 1
+    fi
+}
 if ! MIGRATE_PID=$(wait_for_inject_stall_ready "$VM_NAME" "$RELEASE_FILE" "$STALL_MAX_WAIT_S" /tmp/install-c10-first.log /tmp/install-c10-first.pid concurrent-install-attempted-during-migrate-up); then
+    assert_migration_delta || exit 1
     echo "✗ stall never activated within ${STALL_MAX_WAIT_S}s" >&2
     echo "  first install exit (if any): $(ssh "${SSH_OPTS[@]}" root@"$ip" "cat /tmp/install-c10-first.exit 2>/dev/null" || echo '(not exited yet)')" >&2
     echo "  last 30 lines of /tmp/install-c10-first.log:" >&2
     ssh "${SSH_OPTS[@]}" root@"$ip" "tail -30 /tmp/install-c10-first.log 2>/dev/null" >&2 || true
     exit 1
 fi
+assert_migration_delta || exit 1
 
 # The PID is diagnostic only. Verify owner and PID in the flag; the second
 # install's live-upgrade classification proves flock liveness independently.
