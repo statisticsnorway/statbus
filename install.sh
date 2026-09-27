@@ -431,8 +431,16 @@ _statbus_write_install_flag() {
 }
 
 statbus_repo_lock_acquire() {
+    # Exclude uninstall even when .git is absent. This fixed inode lives outside
+    # the checkout and remains locked for the entire bootstrap and Go install.
+    command -v perl >/dev/null 2>&1 || { echo 'perl is required for the uninstall mutex.' >&2; exit 1; }
+    exec 8<>"$HOME/.statbus-uninstall.lock"
+    if ! perl -e 'use Fcntl ":flock"; open(my $f, "<&=8") or exit 2; exit(flock($f, LOCK_EX|LOCK_NB) ? 0 : 1);'; then
+        echo 'Uninstall is in progress; refusing install. Retry after removal finishes.' >&2
+        exit 78
+    fi
     # Fresh installs have no repository and no service, so there is nothing to
-    # race and nothing to lock — the directory does not exist yet.
+    # lock with the repository mutex — the directory does not exist yet.
     [ -d "$STATBUS_DIR/.git" ] || return 0
     if ! command -v perl >/dev/null 2>&1; then
         echo "Warning: perl not found; proceeding without the repository lock." >&2
