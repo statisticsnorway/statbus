@@ -97,6 +97,8 @@ var allowedProcessLaunches = map[string]approvedLaunch{
 	"cmd/install.go:commandContextDir|os/exec|systemctl":                                              {Count: 1, Reason: "commandContextDir constructs user-systemd commands used by install service setup and repair steps"},
 	"cmd/install.go:gitHeadInfo|upgrade.RunCommandOutput|git":                                         {Count: 2, Reason: "gitHeadInfo reads HEAD's commit SHA and commit timestamp so install-state detection identifies the exact checkout"},
 	"cmd/install.go:runInstallCallback|os/exec|sh":                                                    {Count: 1, Reason: "runInstallCallback executes the administrator-configured post-install callback as the documented shell command"},
+	"cmd/install.go:serviceFailureWithJournal|os/exec|journalctl":                                     {Count: 1, Reason: "service-start failures append the unit's bounded journal tail so the operator sees the cause (STATBUS-422)"},
+	"cmd/uninstall.go:uninstallCmd.RunE|os/exec|bash":                                                 {Count: 1, Reason: "sb uninstall runs the checkout's uninstall.sh, the single removal implementation shared with curl|bash (STATBUS-419)"},
 	"cmd/install.go:runInstallService|os/exec|systemctl":                                              {Count: 3, Reason: "runInstallService queries active, failed-result, and boot-enabled systemd states to drive and verify user-unit reconciliation"},
 	"cmd/install.go:runRootInstall|os/exec|systemctl":                                                 {Count: 1, Reason: "runRootInstall queries is-enabled after root service setup to prove the upgrade unit will start on boot"},
 	"cmd/install_ports.go:portConflictGuidance|os/exec|systemctl":                                     {Count: 1, Reason: "installer checks whether an identified port owner is a loaded systemd service before offering a disable command"},
@@ -351,6 +353,7 @@ var allowedIntentionalDynamicMediatorCalls = map[string]approvedLaunch{
 	"cmd/db_with_seed_lock.go:withSeedLockCmd.RunE|/usr/bin/env":         {Count: 1, Reason: "operator seed-lock command intentionally executes the user-selected command via env"},
 	"cmd/dotenv.go:dotenvGenerateCmd.RunE|sh":                            {Count: 1, Reason: "dotenv generation intentionally runs the configured shell fragment"},
 	"cmd/install.go:runInstallCallback|sh":                               {Count: 1, Reason: "install completion intentionally runs the configured callback shell command"},
+	"cmd/uninstall.go:uninstallCmd.RunE|bash":                            {Count: 1, Reason: "sb uninstall delegates to the checkout's uninstall.sh so the local and curl|bash entry points share one implementation (STATBUS-419)"},
 	"internal/selfupdate/selfupdate.go:ReplaceBinaryOnDisk|/usr/bin/env": {Count: 1, Reason: "self-update intentionally invokes the platform install utility via env"},
 	"internal/upgrade/service.go:runCallback|sh":                         {Count: 1, Reason: "upgrade completion intentionally runs the configured callback shell command"},
 }
