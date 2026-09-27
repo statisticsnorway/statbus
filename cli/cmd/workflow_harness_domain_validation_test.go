@@ -89,7 +89,16 @@ func TestSupersededCandidateStopsBeforeEachVMAndPropagatesFleetVerdict_STATBUS41
 		t.Fatal("a superseded child fleet must not dispatch the next fleet")
 	}
 	final := jobSteps(t, ".github/workflows/release-fleet-orchestrator.yaml", "fleet-verdict")
-	check := final[1]["run"].(string)
+	// Locate the supersession-aware verdict step by content, not position:
+	// advisory reporting steps (e.g. the LXD parity report, STATBUS-417) may
+	// precede it without changing its contract.
+	check := ""
+	for _, step := range final {
+		if run, _ := step["run"].(string); strings.Contains(run, `[ "$SMOKE_SUPERSEDED" = true ]`) {
+			check = run
+			break
+		}
+	}
 	if !strings.Contains(check, `[ "$SMOKE_SUPERSEDED" = true ]`) ||
 		!strings.Contains(check, `[ "$INSTALL_SUPERSEDED" = true ]`) ||
 		!strings.Contains(check, `[ "$UPGRADE_SUPERSEDED" = true ]`) ||
