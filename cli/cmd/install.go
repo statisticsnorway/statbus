@@ -2500,6 +2500,13 @@ func cleanOrphanSessions(dir string) error {
 // migration check: if any user-facing table holds rows, route to
 // migrate-forward regardless of the migration delta.
 func checkSeedRestored(dir string) bool {
+	// Explicit operator/harness control: migrate from scratch without fetching
+	// or restoring a seed, even when the database is genuinely empty.
+	if os.Getenv("STATBUS_DB_SEED_NO_FETCH") == "1" {
+		fmt.Println("  STATBUS_DB_SEED_NO_FETCH=1 — skipping seed fetch and restore; full migrations will run.")
+		return true
+	}
+
 	// If services aren't running yet, we can't check the DB.
 	// Return true to skip — the Services step must run first.
 	if !checkDBHealthy(dir) {
@@ -2685,6 +2692,13 @@ func stepRunOutcome(runErr error) (line string, fatal bool) {
 // the two are distinguished — the missing-image path is calm/expected, the
 // failed-restore path is loud — and neither is ever reported as DONE.
 func runSeedRestore(dir string) error {
+	// Guard the destructive path too, including direct callers outside the
+	// install step table. The step check normally prevents reaching this point.
+	if os.Getenv("STATBUS_DB_SEED_NO_FETCH") == "1" {
+		fmt.Println("  STATBUS_DB_SEED_NO_FETCH=1 — skipping seed fetch and restore; full migrations will run.")
+		return nil
+	}
+
 	sb := filepath.Join(dir, "sb")
 
 	// Fetch seed from the published image.
