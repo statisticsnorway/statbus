@@ -320,6 +320,7 @@ lxd_fork() {
         _lxd_mark "$name root Btrfs quota 40GiB"
     fi
     start=$(date +%s); _lxd_host lxc start "$name"
+    _lxd_host lxc exec "$name" -- cloud-init status --wait
     # First boot's cloud-init rewrites ubuntu.sources back to archive/security
     # hosts, while hardening's package indexes came from mirrors.edge.kernel.org.
     # apt-get update -qq alone left a stale binary pkgcache containing only
