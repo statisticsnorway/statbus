@@ -147,6 +147,40 @@ func withFakeComposeApplyService(t *testing.T) *[]string {
 	return &calls
 }
 
+// TestApplyPendingRestarts_DefersDaemonUntilAfterMigrations protects the install
+// DDL window: boot-migrate can write schema up to DaemonSchemaFloor, so starting
+// the daemon from step 9 lets it steal the migration before step 13 runs.
+func TestApplyPendingRestarts_DefersDaemonUntilAfterMigrations(t *testing.T) {
+	calls := withFakeComposeApplyService(t)
+	orig := restartUpgradeDaemon
+	restarts := 0
+	restartUpgradeDaemon = func(string) { restarts++ }
+	t.Cleanup(func() { restartUpgradeDaemon = orig })
+	pending := map[config.RestartClass]bool{
+		config.RestartApp:           true,
+		config.RestartUpgradeDaemon: true,
+	}
+	if err := applyPendingRestarts(t.TempDir(), pending); err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(*calls, []string{"app"}) {
+		t.Errorf("step 9 compose calls = %v, want app only", *calls)
+	}
+	if restarts != 0 {
+		t.Fatalf("step 9 restarted the daemon %d time(s) before Seed/Migrations; boot-migrate can consume the installer migration delta", restarts)
+	}
+	// The installer calls this only after the Migrations and Upgrade service
+	// steps, using the original step-9 diff rather than recomputing .env.
+	applyPendingUpgradeDaemonRestart(t.TempDir(), pending)
+	if restarts != 1 {
+		t.Fatalf("after Migrations: daemon restarted %d time(s), want exactly one", restarts)
+	}
+	applyPendingUpgradeDaemonRestart(t.TempDir(), map[config.RestartClass]bool{config.RestartApp: true})
+	if restarts != 1 {
+		t.Fatalf("app-only config restarted daemon: %d calls", restarts)
+	}
+}
+
 // TestApplyPendingRestarts_EmptyPendingRestartsNothing is AC#2 at the apply
 // layer: an empty class set must issue ZERO docker compose service applications.
 func TestApplyPendingRestarts_EmptyPendingRestartsNothing(t *testing.T) {

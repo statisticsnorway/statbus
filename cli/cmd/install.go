@@ -1039,6 +1039,13 @@ func runInstall() (installErr error) {
 	// the loop tail), resume so the system isn't left with clients down.
 	resumeIfQuiesced()
 
+	// The config diff is computed at step 9, but the upgrade daemon must not
+	// restart until the install has finished Seed + Migrations. Its boot-migrate
+	// writes up to DaemonSchemaFloor without owning the install flock.
+	// Restart after the step table so the Upgrade service step has also reconciled
+	// the on-disk unit before the daemon loads the new binary and configuration.
+	applyPendingUpgradeDaemonRestart(installDir, pendingRestarts)
+
 	// Final check (audit B10): every service is running and the API answers
 	// /ready. A step table that is all green over a restart-looping rest or a
 	// proxy that never started must not print "Installation complete".
@@ -1661,12 +1668,12 @@ func composeApplyServiceDefault(dir, service string) error {
 
 var composeApplyService = composeApplyServiceDefault
 
-// applyPendingRestarts executes exactly the restart classes STATBUS-332's
-// diff step decided are needed — never more. Order is fixed for
-// reproducible output: db (heaviest — drops every live connection) first,
-// so the services that depend on it reconnect fresh, then rest/worker/app,
-// then proxy, then the host-level upgrade-daemon last (independent of the
-// docker compose services entirely).
+// Unit tests observe restart timing without invoking systemd.
+var restartUpgradeDaemon = restartUpgradeService
+
+// applyPendingRestarts applies only compose classes at step 9. The daemon is
+// deferred to after the step table because its boot-migrate is a DDL writer.
+// Order among compose services remains db first, then rest/worker/app/proxy.
 func applyPendingRestarts(dir string, pending map[config.RestartClass]bool) error {
 	type action struct {
 		class   config.RestartClass
@@ -1692,12 +1699,21 @@ func applyPendingRestarts(dir string, pending map[config.RestartClass]bool) erro
 	}
 	if pending[config.RestartUpgradeDaemon] {
 		restarted = true
-		restartUpgradeService(dir) // best-effort, own logging (install_upgrade.go)
+		fmt.Println("  Upgrade daemon restart deferred until after Migrations and unit reconciliation.")
 	}
 	if !restarted {
 		fmt.Println("  No config changes require applying.")
 	}
 	return nil
+}
+
+// applyPendingUpgradeDaemonRestart performs the step-9 decision only after the
+// install's DDL window closes and the Upgrade service step has run. The helper
+// is a no-op for unchanged config and for fresh installs (no pending classes).
+func applyPendingUpgradeDaemonRestart(dir string, pending map[config.RestartClass]bool) {
+	if pending[config.RestartUpgradeDaemon] {
+		restartUpgradeDaemon(dir) // best-effort, own logging (install_upgrade.go)
+	}
 }
 
 // checkSessionsClean returns true iff there are no detectable ZOMBIES
