@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -39,6 +40,7 @@ func withRunInstallDetectionHooks(t *testing.T) string {
 	t.Setenv("PATH", bin+string(os.PathListSeparator)+os.Getenv("PATH"))
 
 	originalDetect := detectInstallState
+	originalRecover := recoverCrashedInstall
 	originalBundle := writeDetectionSupportBundle
 	originalSigners := checkInstallSigners
 	originalStepHook := runInstallStepTableTestHook
@@ -48,6 +50,7 @@ func withRunInstallDetectionHooks(t *testing.T) string {
 	originalFixup := postUpgradeFixup
 	t.Cleanup(func() {
 		detectInstallState = originalDetect
+		recoverCrashedInstall = originalRecover
 		writeDetectionSupportBundle = originalBundle
 		checkInstallSigners = originalSigners
 		runInstallStepTableTestHook = originalStepHook
@@ -139,6 +142,99 @@ func TestSavedSignerConsentSurvivesCompletedConfig(t *testing.T) {
 	}
 	if trustGitHubUser != "jhf" {
 		t.Fatalf("saved signer consent was lost: %q", trustGitHubUser)
+	}
+}
+
+func TestRunInstallImportsConsentAfterInstallFlagRecovery(t *testing.T) {
+	for _, tc := range []struct {
+		name       string
+		state      install.State
+		marker     bool
+		wantResume bool
+	}{
+		{"first install with pending consent", install.StateFreshDBIncomplete, true, true},
+		{"first install without marker", install.StateFreshDBIncomplete, false, false},
+		{"established box with stale marker", install.StateNothingScheduled, true, false},
+		{"established box without marker", install.StateNothingScheduled, false, false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			dir := withRunInstallDetectionHooks(t)
+			answers := filepath.Join(t.TempDir(), "install-input.env")
+			if err := os.WriteFile(answers, []byte("CADDY_DEPLOYMENT_MODE=standalone\nSITE_DOMAIN=example.org\nDEPLOYMENT_SLOT_NAME=Install Test\nDEPLOYMENT_SLOT_CODE=test\nTRUST_GITHUB_USER=jhf\n"), 0600); err != nil {
+				t.Fatal(err)
+			}
+			t.Setenv("STATBUS_ENV_CONFIG", answers)
+			if tc.marker {
+				if err := os.WriteFile(filepath.Join(dir, firstInstallSignerPending), []byte("pending\n"), 0600); err != nil {
+					t.Fatal(err)
+				}
+			}
+			// Trust is checked without a network request. Only consent imported
+			// after recovery may make this fake signer available to the preflight.
+			checkInstallSigners = func(string) bool { return trustGitHubUser == "jhf" }
+			probes := 0
+			detectInstallState = func(string, string) (install.State, *install.Detail, error) {
+				probes++
+				if probes == 1 {
+					return install.StateCrashedUpgrade, &install.Detail{Flag: &upgrade.UpgradeFlag{Holder: upgrade.HolderInstall}}, nil
+				}
+				return tc.state, &install.Detail{}, nil
+			}
+			recoveries := 0
+			recoverCrashedInstall = func(string, *func()) error { recoveries++; return nil }
+			steps := 0
+			runInstallStepTableTestHook = func() error {
+				steps++
+				if trustGitHubUser != "jhf" {
+					t.Fatalf("step table lost saved consent: %q", trustGitHubUser)
+				}
+				return nil
+			}
+			err := runInstall()
+			if probes != 2 || recoveries != 1 {
+				t.Fatalf("probes=%d recoveries=%d err=%v", probes, recoveries, err)
+			}
+			if tc.wantResume {
+				if err != nil || steps != 1 {
+					t.Fatalf("interrupted install failed to resume: steps=%d err=%v", steps, err)
+				}
+			} else if err == nil || !strings.Contains(err.Error(), "No valid release signer") || steps != 0 {
+				t.Fatalf("non-provenanced install must refuse: steps=%d err=%v", steps, err)
+			}
+		})
+	}
+}
+
+func TestRecoveryBootMigrateLeavesInstallFlagForStepTable(t *testing.T) {
+	dir := t.TempDir()
+	check := func(want bool) {
+		t.Helper()
+		got, err := recoveryBootMigrateRequired(dir)
+		if err != nil || got != want {
+			t.Fatalf("boot migrate required=%t, want %t: %v", got, want, err)
+		}
+	}
+	check(true) // No install-held provenance, retain the old recovery path.
+	lock, err := upgrade.AcquireInstallFlag(dir, "first-install")
+	if err != nil {
+		t.Fatal(err)
+	}
+	lock.Close() // Genuine stale install flag, without touching the database.
+	check(false)
+	path := filepath.Join(dir, "tmp", "upgrade-in-progress.json")
+	serviceFlag, err := json.Marshal(upgrade.UpgradeFlag{Holder: upgrade.HolderService, ID: 1})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(path, serviceFlag, 0600); err != nil {
+		t.Fatal(err)
+	}
+	check(true) // A real upgrade still needs its schema-floor migration.
+	if err := os.WriteFile(path, []byte("not JSON"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := recoveryBootMigrateRequired(dir); err == nil {
+		t.Fatal("malformed recovery marker must fail closed")
 	}
 }
 

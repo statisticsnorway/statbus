@@ -427,6 +427,10 @@ func runCrashRecovery(projDir string, restartIfRecovered *func()) error {
 	// so the guard continues with the fresh budget. No-op (false) when there is no
 	// service-held forward-recovery flag.
 	skipBootMigrate := svc.RecoveryBudgetGuard(ctx)
+	bootMigrate, err := recoveryBootMigrateRequired(projDir)
+	if err != nil {
+		return err
+	}
 
 	// Schema-skew guard (rc.65 structural fix). Mirrors Service.Run() —
 	// bring the schema to HEAD before any RecoverFromFlag query touches
@@ -449,7 +453,7 @@ func runCrashRecovery(projDir string, restartIfRecovered *func()) error {
 	// ran above) but this path does not #14-terminate an orphan — the orphan
 	// self-resolves on client-gone, or the next service start's boot-migrate
 	// timeout handler reaps it.
-	if !skipBootMigrate {
+	if !skipBootMigrate && bootMigrate {
 		if err := runCmdDirTimeout(projDir, upgrade.MigrateUpTimeout, sb, "migrate", "up", "--to", strconv.FormatInt(migrate.DaemonSchemaFloor, 10), "--verbose"); err != nil {
 			// STATBUS-017: symmetric to service.go's boot-migrate-up handler. A
 			// service-held in-progress flag means the guard can't re-apply the
@@ -490,6 +494,19 @@ func runCrashRecovery(projDir string, restartIfRecovered *func()) error {
 	}
 	recovered = true
 	return nil
+}
+
+// An install-held marker only needs its stale mutex cleared. Boot-migrating
+// here would create public.upgrade before install.Detect can recognize the
+// unfinished first install; the install step table owns Seed and Migrations.
+// Service-held upgrade flags still require the schema-floor migration before
+// RecoverFromFlag queries their upgrade rows.
+func recoveryBootMigrateRequired(projDir string) (bool, error) {
+	flag, err := upgrade.ReadFlagFile(projDir)
+	if err != nil {
+		return false, fmt.Errorf("read recovery flag before boot migrate: %w", err)
+	}
+	return flag == nil || flag.Holder != upgrade.HolderInstall, nil
 }
 
 // shouldRestartAfterFailedRecovery is runCrashRecovery's STATBUS-147 decision,
