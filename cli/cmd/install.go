@@ -2996,7 +2996,7 @@ func runInstallService(dir string) error {
 	if unitWasDrifted && unitWasActive && !postUpgradeFixup {
 		fmt.Printf("  Unit %s drifted from the repo template and was running — restarting to arm the reconciled timers\n", instance)
 		if err := runCmd("systemctl", "--user", "restart", instance); err != nil {
-			return fmt.Errorf("restart %s after unit reconcile: %w", instance, err)
+			return serviceFailureWithJournal("restart service", instance, true, err)
 		}
 	}
 
@@ -3031,7 +3031,7 @@ func runInstallService(dir string) error {
 			strings.Contains(probe, "Result=start-limit-hit") {
 			fmt.Printf("  Unit %s is in failed state — running reset-failed\n", instance)
 			if err := runCmd("systemctl", "--user", "reset-failed", instance); err != nil {
-				return fmt.Errorf("reset-failed for %s: %w", instance, err)
+				return serviceFailureWithJournal("reset-failed", instance, true, err)
 			}
 		}
 	}
@@ -3049,7 +3049,7 @@ func runInstallService(dir string) error {
 	if postUpgradeFixup {
 		fmt.Printf("  Enabling %s (start deferred — service is the active main PID, will exit-42 → systemd auto-restart)\n", instance)
 		if err := runCmd("systemctl", "--user", "enable", instance); err != nil {
-			return fmt.Errorf("enable service: %w", err)
+			return serviceFailureWithJournal("enable service", instance, true, err)
 		}
 	} else {
 		// Step 8 proves containers are running, not that Caddy published its
@@ -3061,7 +3061,7 @@ func runInstallService(dir string) error {
 		}
 		fmt.Printf("  Enabling and starting %s\n", instance)
 		if err := runCmd("systemctl", "--user", "enable", "--now", instance); err != nil {
-			return fmt.Errorf("enable service: %w", err)
+			return serviceFailureWithJournal("enable service", instance, true, err)
 		}
 	}
 
@@ -3480,7 +3480,7 @@ func runRootInstall() error {
 
 	fmt.Printf("  Enabling and starting %s\n", instance)
 	if err := runCmd("systemctl", "enable", "--now", instance); err != nil {
-		return fmt.Errorf("enable service: %w", err)
+		return serviceFailureWithJournal("enable service", instance, false, err)
 	}
 
 	// Mirror the user-service verification above: confirm the boot-enable
@@ -3522,6 +3522,19 @@ func prompt(label, defaultVal string) string {
 		return defaultVal
 	}
 	return line
+}
+
+func serviceFailureWithJournal(action, instance string, user bool, cause error) error {
+	args := []string{}
+	if user {
+		args = append(args, "--user")
+	}
+	args = append(args, "-u", instance, "-n", "40", "--no-pager")
+	out, err := exec.Command("journalctl", args...).CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("%s: %w; journalctl %s failed: %v (%s)", action, cause, strings.Join(args, " "), err, strings.TrimSpace(string(out)))
+	}
+	return fmt.Errorf("%s: %w\nJournal tail for %s:\n%s", action, cause, instance, strings.TrimSpace(string(out)))
 }
 
 func runCmd(name string, args ...string) error {
