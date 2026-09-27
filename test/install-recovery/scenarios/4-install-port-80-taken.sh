@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # STATBUS-385: Apache owns port 80 before the candidate's first install.
-# Requires a tagged candidate. The host's public IP is used with sslip.io so
-# a standalone rerun can request a real public certificate, if ingress allows.
+# Requires a tagged candidate. The harness provisions a certificate for its
+# default statbus-test.local domain before the installation begins.
 set -euo pipefail
 VM_NAME="${1:-statbus-recovery-4-install-port-80-taken}"
 HARNESS_DEPLOYMENT_MODE=standalone
@@ -18,8 +18,6 @@ source "$LIB_DIR/vm-bootstrap.sh"
 source "$LIB_DIR/assertions.sh"
 trap 'rc=$?; cleanup_vm "$VM_NAME"; exit $rc' EXIT
 bootstrap_install_test_vm "$VM_NAME" "$INSTALL_TARGET_TAG"
-# This address has a public A record, unlike the harness's private-mode name.
-HARNESS_SITE_DOMAIN="${VM_IP//./-}.sslip.io"
 VM_ROOT_EXEC bash -c 'DEBIAN_FRONTEND=noninteractive apt-get install -y apache2 >/dev/null && systemctl enable --now apache2'
 # No sudoers fixture: the application user must discover Apache via systemd.
 VM_ROOT_EXEC bash -c 'ss -ltn "( sport = :80 )" | grep -q LISTEN'
