@@ -29,3 +29,28 @@ func TestServiceFailureWithJournal(t *testing.T) {
 		})
 	}
 }
+
+// Review round 2: the drifted-unit reconcile-restart path must also surface
+// the journal, not only enable/reset-failed.
+func TestReconcileRestartUsesJournalHelper_STATBUS422(t *testing.T) {
+	src, err := os.ReadFile("install.go")
+	if err != nil {
+		t.Fatal(err)
+	}
+	// The restart branch in the drifted-unit reconcile path must route through
+	// serviceFailureWithJournal like every other service-start failure.
+	start := strings.Index(string(src), "unitWasDrifted && unitWasActive && !postUpgradeFixup")
+	if start < 0 {
+		t.Fatal("reconcile-restart branch not found")
+	}
+	window := string(src)[start : start+600]
+	if !strings.Contains(window, `"--user", "restart", instance`) {
+		t.Fatal("restart invocation missing")
+	}
+	if !strings.Contains(window, `serviceFailureWithJournal("restart service", instance, true, err)`) {
+		t.Fatal("reconcile-restart failure must go through serviceFailureWithJournal")
+	}
+	if strings.Contains(window, "fmt.Errorf(\"restart %s after unit reconcile") {
+		t.Fatal("stale journal-less restart error remains")
+	}
+}

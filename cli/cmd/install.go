@@ -2982,7 +2982,7 @@ func runInstallService(dir string) error {
 	if unitWasDrifted && unitWasActive && !postUpgradeFixup {
 		fmt.Printf("  Unit %s drifted from the repo template and was running — restarting to arm the reconciled timers\n", instance)
 		if err := runCmd("systemctl", "--user", "restart", instance); err != nil {
-			return fmt.Errorf("restart %s after unit reconcile: %w", instance, err)
+			return serviceFailureWithJournal("restart service", instance, true, err)
 		}
 	}
 
