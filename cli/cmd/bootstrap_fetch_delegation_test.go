@@ -77,9 +77,11 @@ func TestAllSBInvocationsFollowTargetBinaryPlacement(t *testing.T) {
 	body := installScript(t)
 	want := map[string]int{
 		`echo "Installed program: $(./sb --version)"`: 3,
-		`(exec </dev/tty; STATBUS_INSTALL_PROMPTS_TO_TTY=1 ./sb install ${SB_INSTALL_ARGS[@]+"${SB_INSTALL_ARGS[@]}"}) 2>&1 | tee "$install_output" | awk -f "$STATBUS_DIR/ops/install-terminal-output.awk"`: 1,
-		`./sb install ${SB_INSTALL_ARGS[@]+"${SB_INSTALL_ARGS[@]}"} 2>&1 | tee "$install_output" | awk -f "$STATBUS_DIR/ops/install-terminal-output.awk"`:                                                    1,
-		`if bundle_path=$(./sb support gather --trigger=install 2>/tmp/sb-support-gather.err); then`:                                                                                                         1,
+		// The terminal filter is optional (older target trees may predate it) —
+		// the pinned part is the invocation and the tee, not the filter choice.
+		`(exec </dev/tty; STATBUS_INSTALL_PROMPTS_TO_TTY=1 ./sb install ${SB_INSTALL_ARGS[@]+"${SB_INSTALL_ARGS[@]}"}) 2>&1 | tee "$install_output" | if [ "$awk_filter" = cat ]; then cat; else awk -f "$awk_filter"; fi`: 1,
+		`./sb install ${SB_INSTALL_ARGS[@]+"${SB_INSTALL_ARGS[@]}"} 2>&1 | tee "$install_output" | if [ "$awk_filter" = cat ]; then cat; else awk -f "$awk_filter"; fi`:                                                    1,
+		`if bundle_path=$(./sb support gather --trigger=install 2>/tmp/sb-support-gather.err); then`:                                                                                                                       1,
 		`./sb support write-admin-ui-row \`: 1,
 	}
 	got := make(map[string]int)
