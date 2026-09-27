@@ -30,7 +30,11 @@ harness_register_log db-route-watcher "$WATCH_LOG" "$(_hcloud_server_ip "$VM_NAM
   date +%s > "$MARKER"
 ) > "$WATCH_LOG" 2>&1 &
 watcher=$!
-if install_statbus_in_vm "$VM_NAME"; then
+# The detached long-stage runner reports a nonzero remote exit as
+# remote-stage-failed[install]. That is the expected result of this first
+# invocation, not a harness failure. Capture its status and only accept it
+# after checking the specific route diagnosis below.
+if install_statbus_in_vm "$VM_NAME" 2>"$FIRST_LOG.wrapper"; then
   first_rc=0
 else
   first_rc=$?
@@ -45,7 +49,8 @@ if (( $(date +%s) - stopped_at > 300 )); then
 fi
 cp "$LOG" "$FIRST_LOG"
 test "$first_rc" -ne 0 || { echo 'interrupted install unexpectedly succeeded' >&2; exit 1; }
-grep -F 'web entry point' "$FIRST_LOG" >/dev/null || { echo 'missing route provider diagnosis' >&2; exit 1; }
+grep -F 'remote-stage-failed[install]' "$FIRST_LOG.wrapper" >/dev/null || { cat "$FIRST_LOG.wrapper" >&2; echo 'missing remote install exit classification' >&2; exit 1; }
+grep -F 'web entry point' "$FIRST_LOG" >/dev/null || { echo 'missing route provider diagnosis (first install failed for another reason)' >&2; tail -80 "$FIRST_LOG" >&2; exit 1; }
 grep -E '(127\.0\.0\.1|localhost):[0-9]+' "$FIRST_LOG" >/dev/null || { echo 'missing route address' >&2; exit 1; }
 grep -Ei '(retry|rerun)' "$FIRST_LOG" >/dev/null || { echo 'missing recovery action' >&2; exit 1; }
 # The harness appends to LOG; isolate each invocation before checking progress.

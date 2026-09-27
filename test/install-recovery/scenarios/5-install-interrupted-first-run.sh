@@ -68,7 +68,7 @@ test -f .first-install-signer-pending
 REMOTE
 
 RERUN_LOG=$(mktemp)
-VM_EXEC bash -c "cd ~ && export STATBUS_ENV_CONFIG=\"\$HOME/install-input.env\" STATBUS_USERS_FILE=/tmp/users.yml STATBUS_INSTALL_VERSION='$INSTALL_TARGET_TAG' STATBUS_MIN_DISK_GB=5 STATBUS_HARNESS_CERT_STAGING=\"\$HOME/harness-certs\"; bash /tmp/statbus-install.sh --non-interactive" >"$RERUN_LOG" 2>&1 || { cat "$RERUN_LOG" >&2; exit 1; }
+VM_EXEC bash -c "cd ~ && export STATBUS_ENV_CONFIG=\"\$HOME/install-input.env\" STATBUS_USERS_FILE=/tmp/users.yml STATBUS_INSTALL_VERSION='$INSTALL_TARGET_TAG' STATBUS_MIN_DISK_GB=5; unset STATBUS_HARNESS_CERT_STAGING; bash /tmp/statbus-install.sh --non-interactive" >"$RERUN_LOG" 2>&1 || { cat "$RERUN_LOG" >&2; exit 1; }
 grep -Fq 'The database exists but setup stopped before it was finished. Continuing where it stopped.' "$RERUN_LOG" || { cat "$RERUN_LOG" >&2; exit 1; }
 grep -Eq '^\[[0-9]+/[0-9]+\] Services +OK' "$RERUN_LOG" || { cat "$RERUN_LOG" >&2; exit 1; }
 grep -Eq '^\[[0-9]+/[0-9]+\] (Seed|Migrations) +DONE' "$RERUN_LOG" || { cat "$RERUN_LOG" >&2; exit 1; }
