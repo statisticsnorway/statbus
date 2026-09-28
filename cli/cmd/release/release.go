@@ -1450,8 +1450,8 @@ SKIP_APP_BUILD_LINT) apply at the prerelease cut — see
 		//    that gating. Only checks that genuinely need the RC TAG to
 		//    exist stay here: the tag-fired workflows (test-hardening,
 		//    test-install — their only automatic trigger IS the RC tag
-		//    push, STATBUS-205), the two VM harnesses, and canary
-		//    convergence (below).
+		//    push, STATBUS-205), VM smoke and upgrade arcs, the LXD fault
+		//    fleet, and canary convergence (below).
 		fmt.Println("  ✓ Commit-scope oracles (images/fast-tests/go-test/app-build-lint) were gated at the RC cut (prerelease preflight) — stable rides the RC's gating.")
 		allPassed := true
 		// test-hardening + test-install (STATBUS-205): both fire only on

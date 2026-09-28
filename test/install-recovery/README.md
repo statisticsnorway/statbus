@@ -1,16 +1,17 @@
 # Install Recovery Test Harness
 
 > **Read first: [The only way to know if install and upgrade work is to run them](../../doc/install-upgrade-testing.md).**
-> You cannot reason out whether these paths work — the problem is too hard. The only way to know is commit → push → CI builds the per-commit image → run it on a real VM here → observe → iterate. Unlike the SQL, Go, and integration tests, these *cannot* be run before you push. Stalling before a run produces zero knowledge.
+> You cannot reason out whether these paths work. Commit → push → build the per-commit image → run the LXD fault fleet or the separate VM smoke/arc workflow → observe → iterate. Offline selftests can run before a push; the actual install and upgrade proofs require published images.
 
-End-to-end Hetzner-Cloud regression tests for the install ladder's recovery surface. Sister to `./dev.sh test-install` (which validates only the happy path).
+End-to-end regression tests for the install ladder's recovery surface. The **release fault gate** is the LXD fleet; `./dev.sh test-install-recovery` remains a local/manual fresh-VM diagnostic runner. Smoke and upgrade arcs still use VMs.
 
 ## Cost and prerequisites
 
-The harness provisions **paid ephemeral [Hetzner Cloud](https://hetzner.cloud) VMs** (CX23, ~€0.0072/hr; Hetzner bills hourly with a 1-hour minimum, so a single scenario run costs at least €0.0072). `HCLOUD_TOKEN` must be set in `.env.credentials` before any run.
+The **manual runner** provisions paid ephemeral [Hetzner Cloud](https://hetzner.cloud) VMs (CX23, ~€0.0072/hr; Hetzner bills hourly with a 1-hour minimum, so a single scenario run costs at least €0.0072). `HCLOUD_TOKEN` must be set in `.env.credentials` before a manual run. The release LXD fleet rents one separate on-demand host and forks isolated guests there.
 
-The primary harness image is **Ubuntu 26.04 LTS** (`ubuntu-26.04`). The fresh
-candidate install, every recovery scenario, and every upgrade arc use that image.
+The manual VM runner's primary image is **Ubuntu 26.04 LTS** (`ubuntu-26.04`).
+The VM smoke fresh install, manually dispatched VM recovery scenarios, and
+upgrade arcs use that image; LXD builds its own Ubuntu 26.04 guests on one host.
 Exactly one scenario, `0-happy-upgrade`, explicitly uses **Ubuntu 24.04 LTS** to
 prove that a box running the fleet's OS can upgrade from the previous release to
 the candidate. `HARNESS_VM_IMAGE` is resolved centrally in `lib/vm-bootstrap.sh`;
@@ -43,9 +44,9 @@ Each scenario picks one such moment (the machine is killed mid-backup, mid-git-c
 
 In a single session (rc.04 → rc.12), eleven recovery-related bugs shipped because we had no end-to-end test for the install ladder against deliberately wedged systems. The most embarrassing was Fix 11: a one-character `(...)::text` cast in `checkSessionsClean` that silently broke the function for three RCs (rc.09 / rc.10 / rc.11) — only caught because rune's wedged install kept failing.
 
-A working install today should pass all scenarios in this harness. A regression that re-introduces any of fixes 6/7/8/9/10/11 will fail the corresponding scenario in <2 min after VM bootstrap.
+A working install should pass the applicable default fault suite. A regression that re-introduces any of fixes 6/7/8/9/10/11 should fail the corresponding scenario after bootstrap.
 
-Each scenario writes `tmp/install-recovery-<scenario>.log`. After all scenarios pass, the harness writes `tmp/install-recovery-test-passed-sha` (gateable by `./sb release stable --with-recovery-tests`).
+The manual VM runner writes `tmp/install-recovery-<scenario>.log` and a local `tmp/install-recovery-test-passed-sha` stamp. That stamp is **not** the release gate. Stable promotion checks the whole successful LXD workflow at the candidate commit.
 
 ## Architecture
 
@@ -61,7 +62,7 @@ test/install-recovery/
 └── run.sh                   — dispatcher
 ```
 
-Each scenario is **a fresh Hetzner Cloud VM**, no state shared. Per-scenario isolation > shared-VM speed: bug-class regressions are caught reliably.
+The manual runner uses a fresh Hetzner Cloud VM per scenario. The LXD release gate uses isolated forks of candidate-pinned installed guest checkpoints on one rented host. Smoke and arcs retain their own fresh-VM runs.
 
 ## Scenario catalogue (15 scenarios; retired rows kept as supersession records)
 
@@ -306,7 +307,7 @@ ssh root@$ip 'sudo -i -u statbus -- ./sb psql -c "SELECT * FROM public.upgrade O
 ssh root@$ip journalctl --user -u 'statbus-upgrade@*' --no-pager -n 200
 ```
 
-Each scenario's full log is uploaded as a CI artifact `install-recovery-log-<slug>` (`gh run download <run-id> -n install-recovery-log-<slug>`) and written locally to `tmp/install-recovery-<vm_name>.log`.
+The manual VM runner writes `tmp/install-recovery-<vm_name>.log` locally; it no longer has a CI matrix that uploads `install-recovery-log-<slug>`. For CI fault evidence, download the `lxd-fleet-comparison` artifact from the LXD child run (instructions below), which includes `comparison.tsv`, `fleet-status.txt` and per-scenario logs. Smoke and arc runs publish their own distinct artifacts.
 
 ## Cleanup
 

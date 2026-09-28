@@ -6,10 +6,10 @@ name: Release Fleet Orchestrator
 # STATBUS-350: this is the only v*-rc.* fleet dispatcher. It asks the shared
 # per-scenario coverage authority for the fixed two-scenario smoke domain,
 # dispatches test-smoke.yaml at most once with only uncovered selectors, then
-# proceeds through dev, install recovery, and upgrade arcs. Every arriving
+# proceeds through dev, the LXD fault fleet, and upgrade arcs. Every arriving
 # stage retains its own supersession check.
 #
-# The three paid workflows use GitHub's native hetzner-vm-fleet queue with
+# The three paid fleet workflows (smoke, LXD, arcs) use GitHub's native hetzner-vm-fleet queue with
 # queue:max and cancel-in-progress:false. The dispatcher checks the ordered
 # concurrency-group membership before dispatch. It waits up to 20 minutes for
 # older superseded fleets to drain, but refuses same/newer or manual collisions.
@@ -344,7 +344,7 @@ jobs:
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
   lxd-fleet:
-    name: "4/5: LXD fault fleet"
+    name: "3/4: LXD fault fleet"
     needs: [decide-obsolete, dev-canary]
     if: >-
       ${{ !cancelled() &&
@@ -384,7 +384,7 @@ jobs:
           echo "Child run: ${URL:-not dispatched}" >> "$GITHUB_STEP_SUMMARY"
 
   upgrade-arc-harness:
-    name: "5/5 (most expensive): dispatch Upgrade Arc Harness"
+    name: "4/4 (most expensive): dispatch Upgrade Arc Harness"
     needs: [decide-obsolete, lxd-fleet]
     if: >-
       ${{ !cancelled() &&
@@ -697,10 +697,10 @@ jobs:
             STEP="2/4 dev canary"
             URL="${DEV_URL:-${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}}"
           elif [ "$LXD_RESULT" = "failure" ]; then
-            STEP="4/5 LXD fault fleet"
+            STEP="3/4 LXD fault fleet"
             URL="${LXD_URL:-${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}}"
           else
-            STEP="5/5 upgrade arcs"
+            STEP="4/4 upgrade arcs"
             URL="${UPGRADE_URL:-${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}}"
           fi
           echo "::error title=Release fleet failed::FAILED at step $STEP — $URL"

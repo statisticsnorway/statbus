@@ -74,7 +74,7 @@ gh run cancel <pending-id>
 
 GitHub's cancel endpoint has no pending-only precondition. A run observed pending can become active before cancellation is processed. Never automate this cancellation or use a bulk-cancel command. Cancelling an active owner can interrupt VM cleanup.
 
-The pre-flight in `cli/cmd/release.go` runs each gate independently — each can be SKIP-bypassed individually for surgical operator control.
+The pre-flight in `cli/cmd/release/release.go` runs each gate independently — each can be SKIP-bypassed individually for surgical operator control.
 
 ## Adding a new gate
 
@@ -85,7 +85,7 @@ To add a workflow gate (call it `test-X.yaml`):
    ```go
    const WorkflowTestX = "test-x.yaml"
    ```
-3. Add a pre-flight gate in `releaseStableCmd.RunE` in `cli/cmd/release.go` at the correct trigger layer. Include the `SKIP_TEST_X=1` bypass when approved.
+3. Add a pre-flight gate in `releaseStableCmd.RunE` in `cli/cmd/release/release.go` at the correct trigger layer. Include the `SKIP_TEST_X=1` bypass when approved.
 4. Update the table in this document.
 
 That is the entire surface. No new functions, no new types, no new error-message catalog — the generic helper provides all of them.
