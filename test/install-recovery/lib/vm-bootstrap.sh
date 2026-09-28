@@ -144,6 +144,19 @@ SSH_OPTS=(
     -o ControlPath=none
 )
 
+# harness_real_ssh [ssh-args...] — the genuine OpenSSH client talking
+# DIRECTLY to a guest's real sshd, never a backend-internal shortcut. On the
+# Hetzner backend this is nothing special (VM_IP is already a real, directly
+# routable network address, and no ssh/scp shim exists in this file) — it's
+# plain `ssh`. It exists so a scenario/arc that needs the ACTUAL transport
+# (not a semantically-equivalent-but-different-mechanism substitute) has one
+# name that means the same thing on both backends. deploy-status-proof-arc.sh
+# is the first caller: its whole point is proving a REAL sshd/sshdo gate, so
+# it must never go through vm-bootstrap.sh's shims. lxd-backend.sh's own
+# ssh() intercepts everything else and reroutes through `lxc exec` (correct
+# for ordinary provisioning traffic, wrong for this one arc).
+harness_real_ssh() { command ssh "$@"; }
+
 _check_name_safety() {
     local name="$1"
     case "$name" in

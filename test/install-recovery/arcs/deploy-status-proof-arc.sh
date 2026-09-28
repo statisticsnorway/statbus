@@ -63,7 +63,7 @@ _dump_proof_failure_diagnostics() {
     VM_EXEC bash -c "cd ~/statbus && echo \"SELECT id, state, recovery_parked_at IS NOT NULL AS parked, COALESCE(error,'') FROM public.upgrade WHERE commit_sha = '${B_FULL:-}' ORDER BY id;\" | ./sb psql" >&2 || true
     VM_EXEC bash -c "journalctl --user -u statbus-upgrade@statbus.service --no-pager -n 300 2>/dev/null" >&2 || true
     echo "── sshdo transport state ──" >&2
-    ssh "${SSH_OPTS[@]}" root@"$VM_IP" "ls -la /usr/local/bin/sshdo /etc/sshdoers /home/statbus/.ssh/authorized_keys 2>&1; echo '--- sshdoers ---'; cat /etc/sshdoers 2>&1; echo '--- sshdo auth log tail ---'; journalctl -t sshdo -n 40 --no-pager 2>/dev/null || grep -h sshdo /var/log/auth.log 2>/dev/null | tail -40" >&2 || true
+    harness_real_ssh "${SSH_OPTS[@]}" root@"$VM_IP" "ls -la /usr/local/bin/sshdo /etc/sshdoers /home/statbus/.ssh/authorized_keys 2>&1; echo '--- sshdoers ---'; cat /etc/sshdoers 2>&1; echo '--- sshdo auth log tail ---'; journalctl -t sshdo -n 40 --no-pager 2>/dev/null || grep -h sshdo /var/log/auth.log 2>/dev/null | tail -40" >&2 || true
     echo "══════════ end failure diagnostics ══════════" >&2
 }
 
@@ -86,8 +86,22 @@ setup_sshdo_probe "$PROBE_KEY_DIR/probe_key.pub"
 # as the statbus user, forced through sshdo. BatchMode so a broken key/gate
 # fails instead of prompting. The requested command string becomes
 # SSH_ORIGINAL_COMMAND; sshdo allows it only if it matches the sshdoers line.
+# harness_real_ssh (not bare `ssh`): on the LXD backend, bare `ssh` is
+# lxd-backend.sh's own guest-routing shim, which reroutes through `lxc exec`
+# and never touches the fork's actual sshd/sshdo — this whole arc exists to
+# prove that REAL gate, so it must use the one name guaranteed to mean "the
+# genuine OpenSSH client" on both backends (harness_real_ssh: `ssh` on
+# Hetzner, a ProxyJump-through-the-fleet-host wrapper on LXD).
+# IdentitiesOnly=yes is load-bearing, not decoration: without it, ssh tries
+# every other configured/agent identity before this one, so a broken probe
+# key or a broken sshdo config could still authenticate via an unrelated
+# already-trusted key and silently pass — the proof would prove nothing
+# (verified live during STATBUS-425 M3a prototyping: an ambient trusted key
+# on the test host authenticated instead of the intended ephemeral key until
+# IdentitiesOnly=yes was added).
 probe_ssh() {
-    ssh -i "$PROBE_KEY_DIR/probe_key" \
+    harness_real_ssh -i "$PROBE_KEY_DIR/probe_key" \
+        -o IdentitiesOnly=yes \
         -o StrictHostKeyChecking=no \
         -o UserKnownHostsFile=/dev/null \
         -o LogLevel=ERROR \

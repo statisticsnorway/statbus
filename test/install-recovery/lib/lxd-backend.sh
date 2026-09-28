@@ -195,6 +195,29 @@ scp() {
     _lxd_upload "$source" "$staging"
     _lxd_push "$staging" "$VM_NAME${destination#*:}"
 }
+# harness_real_ssh [ssh-args...] — deploy-status-proof-arc.sh's genuine sshd
+# requirement (STATBUS-425 M3a): that arc's whole point is proving a REAL
+# ssh -> sshdo -> forced-command gate, so it must reach the fork's actual
+# sshd, never lxd-backend.sh's own ssh() shim above (which reroutes every
+# ordinary `ssh root@$VM_IP ...` call through `lxc exec`, silently defeating
+# the proof — the probe would "pass" against a gate it never touched).
+# ProxyJump through the fleet host: the fork's LXD-bridge IP (VM_IP, e.g.
+# 10.x.x.x) is not routable from the CI runner, only from LXD_HOST itself.
+# `-F none` is required, not optional — an ambient ~/.ssh/config on the
+# runner (Include/ProxyJump/Host-block defaults) could otherwise silently
+# change the transport this arc is trying to prove (verified live: a local
+# ControlMaster reuse masked a real auth failure during prototyping).
+# IdentitiesOnly is the CALLER's responsibility (probe_ssh's own -i pins the
+# ephemeral probe key) — this function must not decide identity policy for
+# every caller, only the routing. Host-key checking for the GUEST itself is
+# baked in here (StrictHostKeyChecking=no/UserKnownHostsFile=/dev/null): a
+# fresh fork's host key is never known ahead of time and SSH_OPTS on this
+# backend is a nonempty-only placeholder (see its own comment above), not a
+# real per-call option set the way it is on the Hetzner backend.
+harness_real_ssh() {
+    "$_LXD_REAL_SSH" -F none -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null \
+        -o ProxyCommand="$_LXD_REAL_SSH -F none -o BatchMode=yes -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -W %h:%p ${LXD_SSH_KEY_FILE:+-i $LXD_SSH_KEY_FILE} $LXD_HOST" "$@"
+}
 _wait_for_ssh() {
     local ip=$1 max=${2:-90} i
     [ "$ip" = "${VM_IP:-}" ] || { echo "REFUSE: readiness probe outside fork IP $ip" >&2; return 2; }
@@ -572,21 +595,28 @@ lxd_snapshot_installed() {
     # Rerun-safe: a `gh run rerun` of an infra flake must not be permanently
     # stuck behind "base already exists" until a human deletes it by hand
     # (review §1a.3). Serialize the check-and-replace under the same host
-    # flock the pruning path uses, and only ever replace a base that has no
-    # live fork of THIS candidate currently RUNNING (a live fork means
-    # another job may still be reading that base's checkpoint).
+    # flock the pruning path uses, and only ever replace a base that has a
+    # live fork of THIS candidate currently RUNNING OTHER than the caller's
+    # own source fork ($name): lxd_snapshot_installed is called WHILE its own
+    # fork is running by design (it copies the running fork, see below), so
+    # without excluding self the probe always finds at least $name RUNNING
+    # and permanently refuses every rerun, including the very first attempt
+    # (review §B2: verified live against a real running fork, not just
+    # offline — the probe subshell's own stdout, not the `calls` mock array,
+    # is what a caller observes, since command substitution runs in a
+    # subshell bash arrays cannot see into).
     live=$(_lxd_host flock /root/fleet-run.lock bash -c '
 set -euo pipefail
-base=$1 prefix=$2
+base=$1 prefix=$2 self=$3
 if lxc info "$base" >/dev/null 2>&1; then
-    running=$(lxc list -c n,s --format csv | awk -F, -v p="$prefix" "index(\$1,p)==1 && \$2==\"RUNNING\" {print \$1}")
+    running=$(lxc list -c n,s --format csv | awk -F, -v p="$prefix" -v self="$self" "\$1!=self && index(\$1,p)==1 && \$2==\"RUNNING\" {print \$1}")
     if [ -n "$running" ]; then
         printf "%s\n" "$running"
     else
         lxc delete "$base" --force
     fi
 fi
-' _ "$base" "$fork_prefix_pattern") || return
+' _ "$base" "$fork_prefix_pattern" "$name") || return
     if [ -n "$live" ]; then
         echo "REFUSE: smoke checkpoint $base already exists and live forks of $tag are still RUNNING (will not replace): $live" >&2
         return 1
