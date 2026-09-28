@@ -29,7 +29,15 @@ trap 'remote "rm -f /root/fleet-run.active; date +%s > /root/last-fleet-activity
 # Transfer the actual current hardening script. A stopped incomplete base is
 # intentionally retained on failure for diagnosis, never silently overwritten.
 scp "${opts[@]}" "$ROOT/ops/setup-ubuntu-lts.sh" "$host:/root/fleet-setup.sh"
-remote "lxc file push /root/fleet-setup.sh '$name/root/setup.sh'"
+# Same bounded forkfile.sock retry as _lxd_push in lxd-backend.sh (LXD 5.21
+# exits the per-instance file helper after 10 s idle; run 36433435451).
+for push_attempt in 1 2 3; do
+    if push_err=$(remote "lxc file push /root/fleet-setup.sh '$name/root/setup.sh'" 2>&1); then break; fi
+    printf '%s\n' "$push_err" >&2
+    case "$push_err" in *forkfile.sock*) ;; *) exit 1 ;; esac
+    [ "$push_attempt" -lt 3 ] || { echo 'lxc file push: forkfile helper error persisted after 3 attempts' >&2; exit 1; }
+    sleep 1
+done
 remote "lxc exec '$name' -- bash -c 'printf \"ADMIN_EMAIL=test@statbus.org\\nGITHUB_USERS=jhf\\nEXTRA_LOCALES=\\nCADDY_PLUGINS=\\n\" > /root/.setup-ubuntu.env; mkdir -p /run/sshd'"
 remote "lxc exec '$name' -- env SKIP_STAGES=4 bash /root/setup.sh --non-interactive" || {
     remote "lxc exec '$name' -- rm -f /etc/apt/sources.list.d/ubuntu.sources.bak"

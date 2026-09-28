@@ -49,5 +49,10 @@ grep -qF "$OTHER" "$STUB_DIR/stderr" || fail 'non-race error text not surfaced'
 
 run_case "$RACE" "$RACE" "$RACE" ok;  rc=$?
 [ "$rc" = 1 ] && [ "$(calls)" = 3 ] || fail "persistent race must stop at 3: rc=$rc calls=$(calls)"
+grep -q 'persisted after 3 attempts' "$STUB_DIR/stderr" || fail 'final attempt must say it gave up'
+[ "$(grep -c 'retrying' "$STUB_DIR/stderr")" = 2 ] || fail 'only attempts 1 and 2 may announce a retry'
+
+run_case "$RACE" "$OTHER" ok;         rc=$?
+[ "$rc" = 1 ] && [ "$(calls)" = 2 ] || fail "non-race error after a retry must stop: rc=$rc calls=$(calls)"
 
 echo 'PASS: lxd push retries only the forkfile idle-exit race, at most 3 attempts'

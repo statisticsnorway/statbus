@@ -48,8 +48,9 @@ _lxd_upload() { command scp -q "${LXD_SSH_OPTS[@]}" "$1" "$LXD_HOST:$2"; }
 # after 10s idle (lxd/main_forkfile.go). A push that connects while that helper
 # is exiting fails with "error receiving version packet ... forkfile.sock ...
 # connection reset by peer" (rc.15 LXD run 36433435451, 5-install-stage-c).
-# Only that transport race is retried: a push spawns a fresh helper, and the
-# copy is an idempotent overwrite. Every other failure surfaces at once.
+# Errors naming forkfile.sock (that race, or a helper socket gone missing) are
+# retried, at most 3 attempts in all: a push spawns a fresh helper, and every
+# call site is an idempotent overwrite. Any other failure surfaces at once.
 _lxd_push() {
     local attempt err
     for attempt in 1 2 3; do
@@ -58,13 +59,11 @@ _lxd_push() {
             return 0
         fi
         printf '%s\n' "$err" >&2
-        case "$err" in
-            *forkfile.sock*) _lxd_mark "lxc file push hit the forkfile idle-exit race (attempt $attempt/3); retrying" ;;
-            *) return 1 ;;
-        esac
+        case "$err" in *forkfile.sock*) ;; *) return 1 ;; esac
+        [ "$attempt" -lt 3 ] || { _lxd_mark "lxc file push: forkfile helper error persisted after 3 attempts"; return 1; }
+        _lxd_mark "lxc file push hit the forkfile idle-exit race (attempt $attempt/3); retrying"
         sleep 1
     done
-    return 1
 }
 # Existing assertion/wedge helpers invoke ssh/scp directly rather than VM_EXEC.
 # Route only this fork's guest IP; refuse any unrelated destination.
