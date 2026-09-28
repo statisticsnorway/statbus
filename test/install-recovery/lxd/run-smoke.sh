@@ -40,13 +40,27 @@ case "$SCENARIO" in
         # channel the scenario declares, not the harness-wide stable default
         # (review §1a.5).
         export HARNESS_UPGRADE_CHANNEL=prerelease
-        lxd_base_for_candidate "$TAG" "installed-$baseline-standalone"
+        # review B3: the channel rides in the checkpoint NAME, not only in a
+        # config key checked at build time. The fault fleet's own fallback
+        # build (lxd_checkpoint_for_scenario -> lxd_base_for_candidate, no
+        # HARNESS_UPGRADE_CHANNEL set, so channel=stable) wants the SAME
+        # instance name "installed-$baseline-standalone" this job would
+        # otherwise also claim for a DIFFERENT (prerelease) box state. Two
+        # producers, one candidate tag, one baseline tag, two genuinely
+        # different .env.config contents cannot share one checkpoint name:
+        # whichever runs second finds a base "built for the other channel"
+        # and REFUSES (a real run, not hypothetical - the fault fleet always
+        # runs after smoke). Suffix only the non-stable identity; the fault
+        # fleet's stable name is untouched, so its own parity history stays
+        # valid.
+        checkpoint="installed-$baseline-standalone-pre"
+        lxd_base_for_candidate "$TAG" "$checkpoint"
         ;;
 esac
 bash "$ROOT/test/install-recovery/scenarios/$SCENARIO.sh" "statbus-recovery-$SCENARIO"
 case "$SCENARIO" in
     0-happy-install) checkpoint="installed-$TAG-standalone" ;;
-    0-happy-upgrade) checkpoint="installed-$baseline-standalone" ;;
+    0-happy-upgrade) checkpoint="installed-$baseline-standalone-pre" ;;
 esac
 base=$(_lxd_name "$TAG-$checkpoint")
 [ "$(_lxd_host lxc config get "$base" image.version)" = 26.04 ]

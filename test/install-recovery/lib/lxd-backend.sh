@@ -403,6 +403,12 @@ _lxd_build_base_for_candidate() {
         return 0
     fi
     local install_tag=${checkpoint#installed-}
+    # review B3: a non-stable identity carries a "-pre" suffix (see
+    # run-smoke.sh's prerelease checkpoint name) so it cannot collide with
+    # the fault fleet's stable-named checkpoint of the SAME baseline tag.
+    # Strip it before "-standalone" so the underlying release tag parses the
+    # same as it always has.
+    install_tag=${install_tag%-pre}
     install_tag=${install_tag%-standalone}
     [[ "$install_tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-rc\.[0-9]+)?$ ]] || { echo "Invalid checkpoint $checkpoint" >&2; return 2; }
     fixture=$(mktemp "$LXD_LOG_DIR/s2-users-XXXXXX")
