@@ -19,4 +19,4 @@ VM_EXEC bash -c 'cd ~/statbus && STATBUS_UNINSTALL_CONFIRM=yes-delete-everything
 VM_EXEC bash -c 'test ! -e ~/statbus && test -z "$(docker ps -aq --filter name=statbus)" && test -z "$(docker volume ls -q --filter name=statbus)"'
 install_statbus_at_sha "$VM_NAME" "$TARGET_SHA" "$INSTALL_TARGET_TAG"
 VM_EXEC bash -c 'cd ~/statbus && ./sb db status'
-echo 'Uninstall and fresh reinstall succeeded.'
+echo 'PASS: uninstall removed checkout, containers and volumes without sudo, and a fresh reinstall on the same box succeeded'
