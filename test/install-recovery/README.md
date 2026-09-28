@@ -322,11 +322,14 @@ A VM left running by `--keep-vm` bills ~€0.17/day until deleted.
 
 ## CI integration
 
-CI-integrated via `.github/workflows/install-recovery-harness.yaml` — it runs the full scenario matrix on **Hetzner Cloud VMs** (one fresh VM per scenario; `max-parallel` bounded by the Hetzner quota), on prerelease-tag push (`v*-rc.*`) and manual dispatch. Upgrade arcs use the same central Ubuntu 26.04 image default. Each scenario pulls the per-commit `statbus-*:<commit_short>` images built by `images.yaml`, so the target commit's images must be green on ghcr first. The stable-release pre-flight gates on a green run via `release.CheckWorkflowAtCommit(WorkflowInstallRecoveryHarness, sha)`.
+The release fault gate is `.github/workflows/lxd-fleet.yaml`, dispatched by `release-fleet-orchestrator.yaml` after the dev canary. It ramps the named Ubuntu 26.04 `statbus-lxd-fleet` host on demand, builds candidate-pinned installed bases from pristine hardened guests using the real installer, and forks the required scenarios from checkpoints. Its `lxd-fleet-comparison` artifact holds `comparison.tsv`, per-scenario logs, and `fleet-status.txt`. The stable-release pre-flight requires a **successful whole LXD workflow at the RC commit** (`WorkflowLXDFleet`), not historical VM per-scenario marks. `SKIP_INSTALL_RECOVERY=1` is the retained operator bypass. A SUPERSEDED child is neutral to orchestration but cannot satisfy promotion. The 40 GB disk scenario currently has no faithful LXD form without KVM; its disposition remains an owner decision.
+
+The **separate** `test-smoke.yaml` happy install/upgrade proofs and `upgrade-arc-harness.yaml` arcs continue to use fresh Hetzner VMs. The local runner and `lib/vm-bootstrap.sh` are retained for those workflows and manual diagnosis. Each candidate needs its per-commit images built by `images.yaml` before the LXD base build.
 
 ```bash
-gh workflow run install-recovery-harness.yaml --ref master                                   # all scenarios (blank = all)
-gh workflow run install-recovery-harness.yaml --ref master -f scenarios="0-happy-upgrade 5-install-seed-on-populated"
+gh workflow run lxd-fleet.yaml --ref <candidate-tag>
+gh run list --workflow lxd-fleet.yaml --limit 5
+gh run download <run-id> --name lxd-fleet-comparison --dir tmp/lxd-evidence
 ```
 # Harness failure-path self-test
 

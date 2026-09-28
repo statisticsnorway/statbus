@@ -21,9 +21,9 @@ case release.WorkflowCheckUnknown:  // GitHub API error; tell operator to retry
 }
 ```
 
-The generic workflow check has **any-green semantics**. Scenario gates are stricter: each required scenario needs its own successful job mark.
+The generic workflow check has **any-green semantics**. Smoke and upgrade-arc scenario gates are stricter: each required scenario needs its own successful job mark. The LXD fault fleet runs without a subset selector and reports PASSED only after its complete checkpoint tree; stable promotion checks a successful `lxd-fleet.yaml` run at the RC commit, not scenario job marks in `comparison.tsv`. This trades per-scenario evidence inheritance for an honest whole-suite gate on each RC. A SUPERSEDED child is neutral to the orchestrator but concludes non-success and cannot satisfy stable promotion.
 
-Every VM stage in `release-fleet-orchestrator.yaml` makes its dispatch decision per scenario with the same coverage evaluator its promotion gate uses. Smoke, install-recovery, and upgrade arcs all call `./sb release covered-subset` with their workflow identity and dispatch only the returned selectors. The evaluator passes each full `Scenario{Name, Home}` to the one sensitivity matcher, which combines the broad checked policy with home-specific controller and own-script rules. There is no workflow-local second implementation.
+The VM smoke and upgrade-arc stages in `release-fleet-orchestrator.yaml` make their dispatch decision per scenario with the same coverage evaluator their promotion gates use. They call `./sb release covered-subset` with their workflow identities and dispatch only the returned selectors. The LXD fault fleet instead always runs its entire checkpoint tree. The evaluator passes each full `Scenario{Name, Home}` to the one sensitivity matcher, which combines the broad checked policy with home-specific controller and own-script rules for the surviving scenario gates.
 
 ## Naming convention
 
@@ -37,10 +37,10 @@ Every gate uses the same chain of names — workflow filename, Go constant, env-
 | `app_build_and_lint-workflow.yaml` | `WorkflowAppBuildLint` | `SKIP_APP_BUILD_LINT=1` | `release prerelease` pre-flight |
 | `test-hardening.yaml`    | `WorkflowTestHardening`    | `SKIP_TEST_HARDENING=1` | `release stable` pre-flight (tag-fired, STATBUS-205) |
 | `test-smoke.yaml`        | `WorkflowTestSmoke`        | `SKIP_TEST_INSTALL=1` (compatibility name) | `release stable` pre-flight, fixed two-scenario coverage domain |
-| `install-recovery-harness.yaml` | `WorkflowInstallRecoveryHarness` | `SKIP_INSTALL_RECOVERY=1` | `release stable` pre-flight (tag-fired) |
+| `lxd-fleet.yaml` | `WorkflowLXDFleet` | `SKIP_INSTALL_RECOVERY=1` (compatibility name) | `release stable` pre-flight (full RC suite) |
 | `upgrade-arc-harness.yaml` | `WorkflowUpgradeArcHarness` | `SKIP_UPGRADE_ARCS=1` | `release stable` pre-flight (tag-fired; path-sensitive ride, STATBUS-199 D2) |
 
-The Go constant name is `Workflow` + CamelCase of the workflow filename. The env var is `SKIP_` + uppercase-with-underscores of the workflow filename. Both derive mechanically from the workflow's own name; neither encodes a separate concept.
+Workflow constants track filenames. Historical operator bypasses are retained for compatibility: `SKIP_INSTALL_RECOVERY=1` bypasses the LXD fault gate and `SKIP_TEST_INSTALL=1` bypasses VM smoke.
 
 ## Where each gate fires
 
@@ -49,15 +49,15 @@ The Go constant name is `Workflow` + CamelCase of the workflow filename. The env
 - **`go-test.yaml`** — gates `./sb release prerelease` (runs in pre-flight; STATBUS-199 D1). Triggers on every `master` push plus `pull_request` plus `workflow_dispatch`. Pure Go, no Docker: runs `go vet ./...` then `go test ./...` in `cli/` (the CLI's ~44 unit-test files across `cli/cmd` + `cli/internal`, including the upgrade/recovery self-heal suite). Closes the gap where a Go-layer regression could land silently red on master: neither `images.yaml` nor `fast-tests.yaml` runs `go test` (`fast-tests` is the pg_regress suite only).
 - **`test-hardening.yaml`** — gates `./sb release stable` (runs in pre-flight). Triggers ONLY on prerelease tag push (`v*-rc.*`) plus `workflow_dispatch` — no run can exist before the RC tag, so it cannot gate the cut (STATBUS-205).
 - **`test-smoke.yaml`** — dispatch-only two-entry matrix for `0-happy-install` and `0-happy-upgrade`. The orchestrator passes only uncovered selectors, at most once. Stable promotion evaluates both home-qualified Smoke marks independently; same-name Fleet marks do not substitute because the wrappers and dependencies differ.
-- **`install-recovery-harness.yaml`** — gates `./sb release stable` per scenario. It provisions a Hetzner cx23 VM per selected recovery scenario.
+- **`lxd-fleet.yaml`** — gates `./sb release stable` as one complete LXD fault-suite run at the RC commit. Its `lxd-fleet-comparison` artifact (`comparison.tsv`, `fleet-status.txt`) diagnoses individual scenarios and supersession; it is not an API-backed matrix of successful scenario jobs. The pristine base builds are the happy install proofs within this checkpoint tree. The separate VM smoke and upgrade arcs remain unchanged.
 
 ## Paid fleet queue operations
 
-The exact paid workflow set is `test-smoke.yaml`, `install-recovery-harness.yaml`, and `upgrade-arc-harness.yaml`. All three use the native `hetzner-vm-fleet` concurrency group with `cancel-in-progress: false` and `queue: max`.
+The paid **VM** workflow set is `test-smoke.yaml` and `upgrade-arc-harness.yaml`. Both use the native `hetzner-vm-fleet` concurrency group with `cancel-in-progress: false` and `queue: max`. LXD has its own `lxd-fork-fleet` concurrency group and resolves the named `statbus-lxd-fleet` host through hcloud.
 
 STATBUS-350 Option A has two repository-owned safety layers around that native scheduler boundary. The orchestrator dispatcher refuses an ordinary dispatch when the group API reports any valid active member. This check is intentionally not claimed to be atomic. If the group becomes occupied between check and dispatch, the child waits under GitHub's native queue. The dispatcher reports the ordered owner/waiters and keeps polling. It never calls `gh run cancel` automatically.
 
-For only these three paid workflows, the dispatcher adds `orchestrator-run-id`. A shared local action runs immediately after checkout in the first cheap job. Before any VM provisioning or upgrade-arc fixture mutation, it requires that the named parent is still the in-progress `release-fleet-orchestrator.yaml` run, from either the tag push or a manual re-dispatch, at the child's exact SHA, and that the child tag is still the newest RC. A stale queued orchestrator child therefore fails before spending money. Direct manual dispatches leave the input blank, bypass this age check, and remain deliberate.
+For only these two VM workflows, the dispatcher adds `orchestrator-run-id`. A shared local action runs immediately after checkout in the first cheap job. Before any VM provisioning or upgrade-arc fixture mutation, it requires that the named parent is still the in-progress `release-fleet-orchestrator.yaml` run, from either the tag push or a manual re-dispatch, at the child's exact SHA, and that the child tag is still the newest RC. A stale queued orchestrator child therefore fails before spending money. Direct manual dispatches leave the input blank, bypass this age check, and remain deliberate.
 
 Inspect the ordered owner and waiters with:
 

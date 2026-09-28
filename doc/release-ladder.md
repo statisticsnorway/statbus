@@ -21,12 +21,12 @@ Sister documents: [release-workflow-gates.md](release-workflow-gates.md)
 | 4 | smoke `0-happy-install` | an empty prepared Ubuntu VM in NSO standalone mode (default stable channel) runs the candidate’s shipped `install.sh --non-interactive` with `STATBUS_INSTALL_VERSION=<tag>` through FRESH, using explicit deployment answers, pre-provisioned `TLS_CERT_FILE`/`TLS_KEY_FILE` and signer consent; proves mode/channel, candidate binary/ledger identity and CA-verified HTTPS health, then separately applies operator tuning and verifies restarted consumers | 1 VM, ~13 min | the tag push, via the orchestrator |
 | 5 | smoke `0-happy-upgrade` | a standalone VM with pre-provisioned certificate files installs the newest stable below the candidate using the legacy baseline helper, then the real upgrade service, judged by the RELEASED binary, takes it to the candidate with data intact and CA-verified HTTPS health. Temporary v2026.09.0 exception: switch baseline installation to FRESH `install.sh` from the first stable carrying the unattended config seam. This cell does not yet prove autonomous latest-stable selection | 1 VM, ~15 min | same |
 | 6 | dev canary | `statbus_dev` on niue takes the candidate through its own upgrade service, like a customer box | no VM, ~2 min | same; never skipped |
-| 7 | install-recovery fleet (15 scenarios) | the two smokes again, plus 13 failure injections during install: advisory lock too early, concurrent install, stale flag handoff, startup timeout, worker DDL deadlock after the swap, bool/text regression, drifted systemd unit, seed on a populated DB, and the five stage kills (migrate killed, pool exhaustion, systemd failed, advisory zombie, worker busy). Each must recover to a healthy box or refuse with a reason | 15 VMs, ~60 min at max-parallel 3 | same |
+| 7 | LXD fault fleet (full checkpoint tree) | pristine Ubuntu guests harden and install the candidate's released assets into mode-specific bases; installed forks exercise the fault-injection catalogue with the original assertions, and happy upgrade/idempotent reinstall branch from their appropriate checkpoints. A complete PASSED workflow at the RC commit is required for stable promotion; SUPERSEDED never promotes | one on-demand Ubuntu 26.04 host with a Btrfs LXD pool; rc.11 measured 36 min cold-to-verdict | same, after dev canary |
 | 8 | upgrade-arc fleet (32 arcs) | the upgrade killed or broken at one exact point, then recovered: pre-swap (backup, checkout, binary swap), post-swap (mid-migration, mid-transaction, between migrations, after commit, container restart, OOM, timeout, ceiling), watchdog and proxy, rollback kills and resurrection, park and un-park, restore reattempt, transient DB backoff, cross-version rename handoff, plus the `working` and `failing` lineage fixtures | 32 VMs, ~2.5 h at max-parallel 3 | same |
 | 9 | Norway canary | a person installs the candidate on `rune` deliberately, against an observation card | human | the King, never automated |
 | 10 | `./sb release stable` | reads rungs 2 to 9 at the exact commit and promotes the LATEST rc | laptop | the King |
 
-Rungs 4 and 5 share one selected matrix run and one fleet lease. Rungs 4 to 8 are driven in order by `release-fleet-orchestrator.yaml`, which
+Rungs 4 and 5 share one selected VM matrix run and one fleet lease; rung 8 is still a fresh-VM arc matrix. Rung 7 is the independent LXD checkpoint-tree fault gate. Its 40 GB disk scenario lacks a faithful guest filesystem proof without KVM and remains an explicit owner question, not an implicit pass. Rungs 4 to 8 are driven in order by `release-fleet-orchestrator.yaml`, which
 owns the tag. A failure at any rung stops the chain before the next, more
 expensive rung is rented.
 
@@ -39,10 +39,7 @@ it installs that version's release assets and requires evidence at the exact
 candidate commit. A green install of an earlier version cannot be inherited,
 even across an `app/`-only or `doc/`-only diff (STATBUS-369).
 
-The other cells in rungs 5, 7 and 8 prove upgrade and recovery. Those only
-change when files the box executes change. So a scenario proven at an
-earlier candidate still holds for a later one if nothing it exercises
-changed in between. That decision is ONE algorithm in ONE place:
+The VM cells in rungs 5 and 8 may inherit independent scenario evidence when nothing that scenario exercises changed. The LXD fault fleet at rung 7 does **not** inherit per-scenario VM marks: each candidate runs its full checkpoint tree, and stable promotion requires a successful LXD workflow at that exact RC commit. The VM coverage decision is ONE algorithm in ONE place:
 
 - `cli/internal/release/coverage.go`, `DecideCoverage`: for a scenario and a
   target commit, look for green evidence at the commit; if none, walk back
@@ -56,7 +53,7 @@ changed in between. That decision is ONE algorithm in ONE place:
   own scripts and home-specific controllers are derived in the same matcher.
 - `./sb release covered <scenario> <commit>` is the same evaluator as a
   command (exit 0 covered, 1 must run, 2 undecidable, 64 usage, 69 stale
-  binary). `covered-subset` and stable promotion use that evaluator too.
+  binary). VM smoke and arc `covered-subset` and stable promotion use that evaluator too. The LXD whole-run gate does not.
 
 The list, and what each entry stands for:
 
@@ -75,9 +72,7 @@ Fleet owns exactly `scenarios/<name>.sh`; arcs own exactly
 `arcs/<name>-arc.sh`; Smoke owns its fixed two scenario scripts through its own
 workflow wrapper. Sibling scenario contents do not invalidate each other.
 
-`app/` and `doc/` are absent on purpose. A candidate that changes only the
-product may skip the inheritable VM cells, but still proves its fresh install
-and rung 6. `cli/cmd/sensitive_paths_list_test.go`
+`app/` and `doc/` are absent from the **VM scenario-inheritance policy** on purpose. The LXD suite is candidate-pinned and cannot skip merely because that policy calls a change test-irrelevant. VM smoke and upgrade arcs retain their path-sensitive decisions; rung 6 remains mandatory. `cli/cmd/sensitive_paths_list_test.go`
 pins the real list against every artefact the box executes, so an entry
 cannot be lost silently.
 
