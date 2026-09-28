@@ -137,11 +137,7 @@ func runInlineRestoreReattempt(projDir string, detail *install.Detail) error {
 		detail.ReattemptRowID)
 
 	if err := svc.ReattemptRestore(ctx, detail.ReattemptRowID); err != nil {
-		// FORECAST (degraded): the restore failed again — actionable next step.
-		return fmt.Errorf("%w\n\n"+
-			"  The database restore could not be completed; the system is still degraded.\n"+
-			"  Next: contact SSB support and involve your IT staff. Keep this box as-is for diagnosis;\n"+
-			"  re-running `./sb install` will re-attempt the same restore", err)
+		return restoreReattemptFailure(err)
 	}
 
 	// FORECAST (success): healthy at the OLD version. Do NOT re-schedule the same
@@ -321,13 +317,18 @@ func runCrashRecovery(projDir string, restartIfRecovered *func()) error {
 	// `docker rm`-d it, or scenario diverged further), start errors
 	// "no such service" and we fall through to EnsureDBReachable's
 	// category-3 refusal — the real operator-investigate path.
+	//
+	// Both refusals are named (upgrade.OperatorRefusalError) and wrapped with
+	// %w, so `./sb install` shows their remedy. rc.16's severed-proxy arc (run
+	// 36468921894) got only the generic failure line: the start error was
+	// formatted with %v and lost its identity.
 	if err := svc.EnsureDBReachable(ctx); err != nil {
 		fmt.Printf("crash recovery: DB not reachable, attempting `docker compose start db` (existing container, no recreate)…\n")
 		if startErr := svc.StartDatabaseRouteServingMayRun(ctx); startErr != nil {
-			return fmt.Errorf("crash recovery: %w (start fallback: %v)", err, startErr)
+			return fmt.Errorf("crash recovery: %w", recoveryDBRouteRefusal(err, startErr))
 		}
 		if err := svc.EnsureDBReachable(ctx); err != nil {
-			return fmt.Errorf("crash recovery: %w", err)
+			return fmt.Errorf("crash recovery: %w", recoveryDBRouteRefusal(err, nil))
 		}
 	}
 
@@ -355,8 +356,12 @@ func runCrashRecovery(projDir string, restartIfRecovered *func()) error {
 		// fail-fast.
 		unparked, oldReason, uerr := svc.UnparkByID(ctx, flag.ID)
 		if uerr != nil {
-			return fmt.Errorf("crash recovery: could not clear the park marker for upgrade id=%d: %w — "+
-				"if this upgrade is parked, install cannot resume it; fix DB access and re-run ./sb install", flag.ID, uerr)
+			return fmt.Errorf("crash recovery: %w", &upgrade.OperatorRefusalError{
+				Class: upgrade.RefusalUnparkFailed,
+				Text: fmt.Sprintf("could not clear the park marker for upgrade id=%d — "+
+					"if this upgrade is parked, install cannot resume it; fix DB access and re-run ./sb install", flag.ID),
+				Detail: uerr,
+			})
 		}
 		if unparked {
 			reason := oldReason

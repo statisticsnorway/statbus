@@ -129,7 +129,7 @@ func TestRecoveryRouteStartContracts(t *testing.T) {
 		t.Error("route-only StartDatabaseRouteServingMayRun must not reject a legitimately live serving tier")
 	}
 	if !strings.Contains(containersBody, "proxyContainerMissing") {
-		t.Error("StartDatabaseRouteServingMayRun must detect a missing proxy and refuse precisely (newProxyRouteMissingError), not emit an opaque docker error (AC#3)")
+		t.Error("StartDatabaseRouteServingMayRun must detect a missing proxy and refuse precisely (NewProxyRouteMissingError), not emit an opaque docker error (AC#3)")
 	}
 	startIdx := strings.Index(heldBody, "d.startDatabaseAndItsProxy(ctx)")
 	verifyIdx := strings.Index(heldBody, "d.verifyRecoveryClientsStopped(ctx)")
@@ -147,7 +147,7 @@ func TestRecoveryRouteStartContracts(t *testing.T) {
 // state and the operator's action (recreate deliberately, then re-run install)
 // so a re-run is an actionable path out, not a silent identical error loop.
 func TestProxyRouteMissingErrorText(t *testing.T) {
-	msg := newProxyRouteMissingError().Error()
+	msg := NewProxyRouteMissingError().Error()
 	for _, want := range []string{
 		"proxy container — does not exist",
 		"docker compose up -d proxy",

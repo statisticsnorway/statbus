@@ -795,11 +795,15 @@ set +e
 trap - ERR
 install_output="$STATBUS_DIR/tmp/install-last-run-output.txt"
 mkdir -p "$STATBUS_DIR/tmp"
+# Truncate once, then append: ./sb install appends its own diagnostics to this
+# file (installDiagnostic, O_APPEND). A truncating tee keeps its own offset and
+# overwrites them with later output.
+: > "$install_output"
 if [ "$tty_available" = true ]; then
-    (exec </dev/tty; STATBUS_INSTALL_PROMPTS_TO_TTY=1 ./sb install ${SB_INSTALL_ARGS[@]+"${SB_INSTALL_ARGS[@]}"}) 2>&1 | tee "$install_output" | if [ "$awk_filter" = cat ]; then cat; else awk -f "$awk_filter"; fi
+    (exec </dev/tty; STATBUS_INSTALL_PROMPTS_TO_TTY=1 ./sb install ${SB_INSTALL_ARGS[@]+"${SB_INSTALL_ARGS[@]}"}) 2>&1 | tee -a "$install_output" | if [ "$awk_filter" = cat ]; then cat; else awk -f "$awk_filter"; fi
     sb_rc=${PIPESTATUS[0]}
 else
-    ./sb install ${SB_INSTALL_ARGS[@]+"${SB_INSTALL_ARGS[@]}"} 2>&1 | tee "$install_output" | if [ "$awk_filter" = cat ]; then cat; else awk -f "$awk_filter"; fi
+    ./sb install ${SB_INSTALL_ARGS[@]+"${SB_INSTALL_ARGS[@]}"} 2>&1 | tee -a "$install_output" | if [ "$awk_filter" = cat ]; then cat; else awk -f "$awk_filter"; fi
     sb_rc=${PIPESTATUS[0]}
 fi
 trap 'rc=$?; echo "" >&2; echo "install.sh FAILED at line $LINENO: $BASH_COMMAND (exit $rc)" >&2' ERR
@@ -911,20 +915,36 @@ if [ -n "$failed_step" ]; then
     if printf '%s\n' "$failed_step" | grep -Eq '^\[16/17\] Trusted signers +FAILED: '; then
         failure_detail="step 16/17 (Trusted signers) failed: release signer approval was declined"
     fi
-elif [ -s "$terminal_file" ]; then
-    failure_detail="the installation could not finish its final checks"
 else
-    failure_detail="the installer could not finish"
+    # A named upgrade refusal (cli/cmd/install_refusal.go) stops before any
+    # step runs, typically inside crash recovery or a restore re-attempt, and
+    # prints a fixed cause/fix pair. rc.16's severed-proxy and restore-broke
+    # arcs (run 36468921894) showed only the generic line here.
+    # The following grep ERE is checked against every Go refusal sentence.
+    # INSTALL_REFUSAL_ALLOWLIST: exact refusal operator grammar follows.
+    failure_detail=$(grep -E '^INSTALL_CAUSE: (The database connection route is missing: the web server \(proxy\) container was removed while an upgrade was interrupted, and recovery does not recreate it automatically\.|The program files of the previous version cannot be found, so the database restore was refused before anything changed\.|The automatic update service is still running, so the database restore was not attempted\.|The images for the scheduled upgrade are still being published\.|The images for the scheduled upgrade failed to publish\.|Another process already started the scheduled upgrade\.|The automatic update service is starting the scheduled upgrade itself\.|The database cannot be reached, and starting the existing database and web server did not restore the connection\.|The paused upgrade could not be released for a new attempt because the database could not be updated\.|The database restore could not be completed; the system is still degraded\.)$' "$install_output" | tail -1 | sed 's/^INSTALL_CAUSE: //' || true)
+    failure_fix=$(grep -E '^INSTALL_FIX: (Recreate the web server deliberately: in the StatBus installation directory run docker compose up -d proxy, then retry\.|Keep this box as it is and contact StatBus support with your IT staff\.|Wait for the automatic update service to stop, then retry\.|Wait a few minutes, then retry\.|Register the release again or choose a later release, then retry\.|Wait for it to finish, then retry\.|Check Docker and database service health, then retry\.)$' "$install_output" | tail -1 | sed 's/^INSTALL_FIX: //' || true)
+    if [ -z "$failure_detail" ]; then
+        failure_fix=""
+        if [ -s "$terminal_file" ]; then
+            failure_detail="the installation could not finish its final checks"
+        else
+            failure_detail="the installer could not finish"
+        fi
+    fi
 fi
 
-# A restore re-attempt that failed again leaves the box degraded on purpose:
-# the Go side already told the operator (lines passed by the terminal filter)
-# to keep the box as-is and contact support. The closing instruction below must
-# not contradict that with "run it again" (review2-state-lines finding 3).
-restore_degraded=0
+# A restore re-attempt that failed again, or one refused because the previous
+# version's files are gone, leaves the box degraded on purpose: the operator
+# must keep the box as-is and contact support. The closing instruction below
+# must not contradict that with "run it again" (review2-state-lines finding 3).
+keep_box=0
 if grep -Fxq '  The database restore could not be completed; the system is still degraded.' "$install_output"; then
-    restore_degraded=1
+    keep_box=1
     failure_detail="the database restore could not be completed; the system is still degraded"
+fi
+if [ "${failure_fix:-}" = "Keep this box as it is and contact StatBus support with your IT staff." ]; then
+    keep_box=1
 fi
 
 # 2. Support bundle, gathered without printing internal diagnostics.
@@ -941,9 +961,10 @@ fi
     >/dev/null 2>&1 || true
 
 # 4. Operator-facing instruction.
-if [ "$restore_degraded" = 1 ]; then
+if [ "$keep_box" = 1 ]; then
     echo ""
-    echo "The database restore could not be completed; the system is still degraded."
+    echo "The installation stopped before it could finish."
+    echo "Cause: $failure_detail"
     echo "Keep this box as it is and contact StatBus support with your IT staff."
     if [ -n "$bundle_path" ]; then
         echo "Send this file to StatBus support: $bundle_path"

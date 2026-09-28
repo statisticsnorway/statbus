@@ -2757,11 +2757,11 @@ func (d *Service) ExecuteUpgradeInline(ctx context.Context, id int, commitSHA, _
 		}
 		switch evaluateImageClaimGate(dockerImagesStatus, scheduledAt, time.Now(), manifestTimeout) {
 		case imageClaimFailed:
-			return fmt.Errorf("upgrade row %d: images failed to publish (CI failed) — re-push or ./sb upgrade register again", id)
+			return &OperatorRefusalError{Class: RefusalClaimImagesFailed, Text: fmt.Sprintf("upgrade row %d: images failed to publish (CI failed) — re-push or ./sb upgrade register again", id)}
 		case imageClaimWait:
 			fmt.Printf("Upgrade row %d: scheduled, images still building — waiting for publication.\n", id)
 			d.verifyArtifacts(ctx) // one immediate re-probe, same as executeScheduled's gate
-			return fmt.Errorf("upgrade row %d: images not yet verified ready (still building) — re-run ./sb install shortly", id)
+			return &OperatorRefusalError{Class: RefusalClaimImagesBuilding, Text: fmt.Sprintf("upgrade row %d: images not yet verified ready (still building) — re-run ./sb install shortly", id)}
 		case imageClaimPastGrace:
 			fmt.Printf("Upgrade row %d: images unverified past %s — proceeding; the warm-up pull will fail actionably if truly absent.\n", id, manifestTimeout)
 		case imageClaimReady:
@@ -2780,7 +2780,7 @@ func (d *Service) ExecuteUpgradeInline(ctx context.Context, id int, commitSHA, _
 	// stands. commit_tags comes from the claim's RETURNING here.
 	claim, claimErr := d.claimScheduledUpgrade(ctx, id)
 	if errors.Is(claimErr, pgx.ErrNoRows) {
-		return fmt.Errorf("upgrade row %d no longer in 'scheduled' state (another actor claimed it first); re-run ./sb install after it finishes", id)
+		return &OperatorRefusalError{Class: RefusalClaimTaken, Text: fmt.Sprintf("upgrade row %d no longer in 'scheduled' state (another actor claimed it first); re-run ./sb install after it finishes", id)}
 	}
 	if claimErr != nil {
 		d.markPgInvariantTerminal(claimErr, "service.go:ExecuteUpgradeInline:claim")
@@ -7233,7 +7233,7 @@ func (d *Service) claimScheduledUpgradePass(ctx context.Context, id int) (schedu
 		return scheduledUpgradeClaim{}, fmt.Errorf("claim id=%d: acquire upgrade transaction lock: %w", id, lockErr)
 	}
 	if !claimLockHeld {
-		return scheduledUpgradeClaim{}, fmt.Errorf("refusing to claim upgrade id=%d: a running upgrade service owns the upgrade lock and claims scheduled rows itself (within its 30s heartbeat); wait for it, or stop the service before dispatching inline with ./sb install", id)
+		return scheduledUpgradeClaim{}, &OperatorRefusalError{Class: RefusalClaimDaemonOwnsLock, Text: fmt.Sprintf("refusing to claim upgrade id=%d: a running upgrade service owns the upgrade lock and claims scheduled rows itself (within its 30s heartbeat); wait for it, or stop the service before dispatching inline with ./sb install", id)}
 	}
 
 	// The claim supports one predecessor schema, so its pg_attribute observation
@@ -12976,7 +12976,7 @@ func (d *Service) ReattemptRestore(ctx context.Context, rowID int64) error {
 		return fmt.Errorf("ReattemptRestore: acquire upgrade transaction lock for row %d: %w", rowID, err)
 	}
 	if !advisoryLockHeld {
-		return fmt.Errorf("ReattemptRestore: refusing row %d because a running upgrade daemon owns the upgrade lock; stop/quiesce it and re-run ./sb install", rowID)
+		return &OperatorRefusalError{Class: RefusalRestoreDaemonOwnsLock, Text: fmt.Sprintf("ReattemptRestore: refusing row %d because a running upgrade daemon owns the upgrade lock; stop/quiesce it and re-run ./sb install", rowID)}
 	}
 
 	// Capture the commit label, snapshot identity, log, and recovery_attempts
@@ -13013,8 +13013,7 @@ func (d *Service) ReattemptRestore(ctx context.Context, rowID int64) error {
 	// refusal, not permission to stop services and discover the corruption after
 	// the database has already been rewound.
 	if _, _, err := resolveGitRestoreTarget(d.projDir, ""); err != nil {
-		refusal := fmt.Sprintf("%s: cannot resolve the source working tree before the database re-attempt (%v) — the git tree is corrupt; do NOT proceed. Manual recovery required: contact SSB support and involve your IT staff%s",
-			ErrRollbackGitCorrupt, err, contactSuffix(readAdministratorContact(d.projDir)))
+		refusal := NewRestoreGitCorruptError(err, readAdministratorContact(d.projDir))
 		if _, updateErr := tx.Exec(ctx, `
 			UPDATE public.upgrade
 			   SET failure_code = $1
@@ -13024,7 +13023,7 @@ func (d *Service) ReattemptRestore(ctx context.Context, rowID int64) error {
 		if commitErr := tx.Commit(ctx); commitErr != nil {
 			return fmt.Errorf("ReattemptRestore: commit git-corrupt refusal for row %d: %w", rowID, commitErr)
 		}
-		return errors.New(refusal)
+		return refusal
 	}
 
 	// Authorization succeeded. Rewrite the held tentative marker in place to a

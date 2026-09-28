@@ -1,6 +1,7 @@
 package upgrade
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -104,14 +105,26 @@ func TestReattemptRestore_GitCorruptRefusesBeforeDestructiveWorkAndRecordsFailur
 		t.Fatalf("git-corrupt refusal order drifted: preflight=%d update=%d marker=%d stop=%d restore=%d",
 			preflight, failureUpdate, authorizeMarker, serviceStop, restore)
 	}
+	if !strings.Contains(body, "NewRestoreGitCorruptError(") {
+		t.Error("git-corrupt refusal must be the named NewRestoreGitCorruptError, so ./sb install shows its remedy")
+	}
+	refusal := NewRestoreGitCorruptError(errors.New("rev-parse pre-upgrade: unknown revision"), "ops@example.org")
+	var named *OperatorRefusalError
+	if !errors.As(refusal, &named) || named.Class != RefusalRestoreGitCorrupt {
+		t.Fatalf("git-corrupt refusal is not a named RefusalRestoreGitCorrupt: %#v", refusal)
+	}
 	for _, want := range []string{
-		"ErrRollbackGitCorrupt",
+		string(ErrRollbackGitCorrupt),
 		"the git tree is corrupt",
 		"do NOT proceed",
+		": ops@example.org",
 	} {
-		if !strings.Contains(body, want) {
-			t.Errorf("git-corrupt refusal is missing %q", want)
+		if !strings.Contains(named.Text, want) {
+			t.Errorf("git-corrupt refusal text is missing %q: %s", want, named.Text)
 		}
+	}
+	if strings.Contains(named.Text, "unknown revision") || !strings.Contains(refusal.Error(), "unknown revision") {
+		t.Errorf("the git error belongs in Error() for logs, never in the operator Text: text=%q err=%q", named.Text, refusal.Error())
 	}
 }
 
