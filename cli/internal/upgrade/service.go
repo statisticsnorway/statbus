@@ -6075,6 +6075,38 @@ func errNotRegistered(displayName, input string) error {
 	return fmt.Errorf("%s is not registered — run `./sb upgrade register %s` first", displayName, input)
 }
 
+// operatorRequiredScheduleError turns public.upgrade_schedule's STATBUS-382
+// actor refusal (SQLSTATE 42501, "operator actor required to schedule upgrade
+// from state <s>") into plain operator text that names the remedy. Returns nil
+// for any other error so the caller keeps its ordinary wrapping.
+//
+// The refusal itself is correct and stays: a failed, dismissed, or parked
+// candidate is re-armed only by a NAMED operator, so no automatic path (a
+// stale daemon, a NOTIFY interleaving, apply-latest from CI) can loop on a
+// release that already stopped. What was wrong is the delivery: rc.16's
+// preswap-fetch-returned-error arc (run 36468921894) showed that an operator
+// running `./sb upgrade schedule <sha>` without a terminal (so no prompt) got
+// only "ERROR: operator actor required … (SQLSTATE 42501)", which names
+// neither the flag that satisfies it nor why it exists. The remedy names
+// `schedule` because every verb that reaches here (schedule, apply,
+// apply-latest) is satisfied by it, and apply-latest has no --operator flag.
+func operatorRequiredScheduleError(displayName, input string, err error) error {
+	var pgErr *pgconn.PgError
+	if !errors.As(err, &pgErr) || pgErr.Code != "42501" ||
+		!strings.HasPrefix(pgErr.Message, "operator actor required") {
+		return nil
+	}
+	state := "failed, dismissed, or parked"
+	if i := strings.LastIndex(pgErr.Message, "state "); i >= 0 {
+		state = strings.TrimSpace(pgErr.Message[i+len("state "):])
+	}
+	return fmt.Errorf("%s was not scheduled: it is %s, and only a named operator may schedule it again.\n"+
+		"  This keeps automatic paths from re-running a candidate that already stopped (STATBUS-382).\n"+
+		"  Re-run with your name for the audit log:\n"+
+		"    ./sb upgrade schedule %s --operator \"<your name>\"",
+		displayName, state, input)
+}
+
 // applyNotifyFetchTimeout bounds the STATBUS-183 apply-race fetch inside the
 // NOTIFY handler. The handler runs on the daemon's main goroutine under
 // WatchdogSec=120s, so this is deliberately short (A3) — a hung fetch fails fast
@@ -6708,6 +6740,9 @@ func (d *Service) scheduleStep(ctx context.Context, input string, recreate bool,
 			return queryErr
 		})
 		if err != nil {
+			if refusal := operatorRequiredScheduleError(displayName, input, err); refusal != nil {
+				return refusal
+			}
 			return fmt.Errorf("schedule %s: %w", displayName, err)
 		}
 
