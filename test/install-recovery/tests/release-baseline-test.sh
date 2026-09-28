@@ -74,7 +74,8 @@ if grep -Fq "'chmod 0644 /tmp/env-config'" "$BOOTSTRAP"; then
     exit 1
 fi
 mode_probe=$(umask 077; mktemp)
-mode=$(stat -f '%Sp' "$mode_probe" 2>/dev/null || stat -c '%A' "$mode_probe")
+# GNU first: Linux `stat -f` is --file-system and would succeed with the wrong output.
+mode=$(stat -c '%A' "$mode_probe" 2>/dev/null || stat -f '%Sp' "$mode_probe")
 rm -f "$mode_probe"
 assert_eq -rw------- "$mode" "token-bearing tempfile creation mode"
 

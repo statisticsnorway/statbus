@@ -7,6 +7,9 @@ ROOT=$(cd "$(dirname "$0")/../../.." && pwd)
 TMP_ROOT=$(mktemp -d "${TMPDIR:-/tmp}/statbus-token-era.XXXXXX")
 trap 'rm -rf "$TMP_ROOT"' EXIT
 fail() { echo "FAIL: $*" >&2; exit 1; }
+# GNU first: on Linux, `stat -f` means --file-system and succeeds, printing
+# filesystem status instead of a mode, so a BSD-first probe never falls back.
+file_mode() { stat -c %a "$1" 2>/dev/null || stat -f %Lp "$1"; }
 
 export HCLOUD_TOKEN=dummy-hcloud-token
 # vm-bootstrap.sh derives HARNESS_ROOT from its actual location and does not
@@ -23,8 +26,8 @@ render() {
     BASE_SHA="$base"
     (umask 077; printf 'DEPLOYMENT_SLOT_CODE=test\n' > "$config"; : > "$credentials")
     harness_render_github_token "$config" "$credentials"
-    [ "$(stat -f %Lp "$config" 2>/dev/null || stat -c %a "$config")" = 600 ] || fail "config permissions for $base"
-    [ "$(stat -f %Lp "$credentials" 2>/dev/null || stat -c %a "$credentials")" = 600 ] || fail "credentials permissions for $base"
+    [ "$(file_mode "$config")" = 600 ] || fail "config permissions for $base"
+    [ "$(file_mode "$credentials")" = 600 ] || fail "credentials permissions for $base"
 }
 
 export GITHUB_TOKEN=dummy-arc-token-not-a-secret
