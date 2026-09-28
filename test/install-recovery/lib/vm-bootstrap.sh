@@ -137,7 +137,7 @@ _check_name_safety() {
 # and distinct per workflow RUN (two runs of the SAME workflow, or two
 # DIFFERENT workflows firing off the same tag push, never share one — this
 # is what makes statbus-recovery-0-happy-install collide today between
-# test-install.yaml and install-recovery-harness.yaml). Local (no
+# test-install.yaml and the retired install-recovery-harness.yaml). Local (no
 # GITHUB_RUN_ID): this process's PID — unique per concurrently-running
 # dev.sh invocation on one machine, which is the only local collision that
 # matters (a single developer isn't racing a concurrent CI fleet).
@@ -2221,7 +2221,7 @@ cleanup_vm() {
     # STATBUS-207/208 ownership guard: refuse to act on a VM this run did
     # not create — a cross-run name collision (two workflows deriving the
     # same VM name from the same scenario slug, e.g. test-install.yaml and
-    # install-recovery-harness.yaml both running 0-happy-install) must
+    # the retired install-recovery-harness.yaml both running 0-happy-install) must
     # never let one job's cleanup delete (or even probe) another job's
     # live VM. bootstrap_install_test_vm only sets VM_OWNED_BY_THIS_RUN
     # after `hcloud server create` itself succeeded; a caller whose

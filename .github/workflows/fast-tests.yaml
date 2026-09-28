@@ -2,7 +2,7 @@
 name: Fast Tests
 
 # run-name — MACHINE-READ (STATBUS-285). NOT cosmetic, unlike the label on
-# install-recovery-harness.yaml.
+# the LXD fault fleet (lxd-fleet.yaml).
 #
 # WHY IT EXISTS. For workflow_run-triggered workflows GitHub files the run's API
 # head_sha under the DEFAULT BRANCH'S TIP AT TRIGGER TIME, not under the commit

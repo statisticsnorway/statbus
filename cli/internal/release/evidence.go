@@ -390,12 +390,17 @@ func WorkflowsRunningScenario(scenario Scenario) []string {
 // happyPathCompatibilityWorkflows names the producers that have left marks for
 // a happy-path slug under a different identity than its current home. Any
 // other scenario has exactly one producer and returns nil.
+//
+// The retired VM fault workflow (install-recovery-harness.yaml) is NOT listed:
+// it is deleted, so asking GitHub for its runs at a new candidate SHA can only
+// return nothing, and current smoke evidence must come from test-smoke.yaml
+// (review2-lxd-only-gate: no live query of the deleted workflow).
 func happyPathCompatibilityWorkflows(name string) []string {
 	switch name {
 	case "0-happy-install":
-		return []string{WorkflowTestSmoke, WorkflowTestInstallLegacy, WorkflowInstallRecoveryHarness}
+		return []string{WorkflowTestSmoke, WorkflowTestInstallLegacy}
 	case "0-happy-upgrade":
-		return []string{WorkflowTestSmoke, WorkflowTestUpgradeLegacy, WorkflowInstallRecoveryHarness}
+		return []string{WorkflowTestSmoke, WorkflowTestUpgradeLegacy}
 	}
 	return nil
 }

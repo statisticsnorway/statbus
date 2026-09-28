@@ -93,7 +93,7 @@ on:
 
 # STATBUS-208 (kept as defense in depth after STATBUS-214): the group is
 # SHARED (hetzner-vm-fleet) across all three VM-fleet workflows (this one,
-# install-recovery-harness.yaml, test-smoke.yaml). It no longer does the
+# the LXD fault fleet, test-smoke.yaml). It no longer does the
 # tag-push serialization job — the release-fleet-orchestrator's needs:
 # chain does that now, dispatching the three fleets strictly one at a time
 # — but it still stops a stray manual workflow_dispatch of one fleet from
@@ -401,7 +401,7 @@ jobs:
     timeout-minutes: 50
     steps:
       - name: Poll ghcr until all images exist at base_short, B_short AND C_short
-        # Mirrors install-recovery-harness.yaml's discover-gate poll, generalized
+        # Mirrors the retired VM fault workflow's discover-gate poll, generalized
         # over ALL THREE commit_shorts. The B/C images are built by the images.yaml
         # runs construct dispatched (cold ~20-30 min). A's images (base_short) are
         # built by the master push, normally ready — but install_statbus_at_sha
@@ -1005,7 +1005,7 @@ jobs:
     # instantaneous handoff, so a straggler from the run just ahead in the
     # queue (another upgrade-arc-harness run) could still be tearing down.
     # Age-gated, not just prefix-matched, for the same reason
-    # install-recovery-harness.yaml's equivalent sweep is: only servers
+    # the retired VM fault workflow's equivalent sweep was: only servers
     # older than MIN_ORPHAN_AGE_MIN (comfortably above run-arc's own
     # 120-minute timeout, line ~529, plus VM boot/SSH-wait margin) are ever
     # reaped, so a genuinely-still-running arc's VM is never mistaken for

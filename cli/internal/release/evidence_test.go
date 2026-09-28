@@ -345,10 +345,13 @@ func TestWorkflowsRunningScenario_UnionsProducers_STATBUS350(t *testing.T) {
 		if got[0] != scenario.Home.String() {
 			t.Errorf("%v: home must be asked first; got %v", scenario, got)
 		}
-		for _, want := range []string{WorkflowTestSmoke, WorkflowTestInstallLegacy, WorkflowInstallRecoveryHarness} {
+		for _, want := range []string{WorkflowTestSmoke, WorkflowTestInstallLegacy} {
 			if !has(got, want) {
 				t.Errorf("%v: STATBUS-350 requires %s marks to remain discoverable; got %v", scenario, want, got)
 			}
+		}
+		if scenario.Home != WorkflowFleet && has(got, WorkflowInstallRecoveryHarness) {
+			t.Errorf("%v: the deleted VM fault workflow must not be queried for current smoke evidence; got %v", scenario, got)
 		}
 		if has(got, WorkflowTestUpgradeLegacy) {
 			t.Errorf("%v must not ask the upgrade legacy identity; got %v", scenario, got)
