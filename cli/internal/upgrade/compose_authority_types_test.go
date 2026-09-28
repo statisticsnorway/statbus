@@ -75,6 +75,7 @@ var allowedComposeUpCalls = map[string]approvedLaunch{
 	"internal/upgrade/service.go:applyNewSbUpgrading":                    {Count: 2, Reason: "upgrade transition starts the target database and application stacks through compose.Up"},
 	"internal/upgrade/service.go:completeInProgressUpgrade":              {Count: 1, Reason: "successful upgrade completion starts the target application stack through compose.Up"},
 	"internal/upgrade/service.go:convergeParkedServingTierToCurrentTree": {Count: 1, Reason: "a successor claim against a displaced park reconciles the serving tier to the current tree before capturing its source baseline"},
+	"internal/upgrade/service.go:convergeSourceDatabaseContainer":        {Count: 1, Reason: "source-era recovery converges the database container to the restored source compose model before serving (rc.16 run 36468921894)"},
 	"internal/upgrade/service.go:startSourceApplicationStack":            {Count: 1, Reason: "recovery restores the verified source application stack through compose.Up"},
 }
 

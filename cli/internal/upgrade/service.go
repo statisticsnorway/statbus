@@ -9739,6 +9739,16 @@ func (d *Service) startSourceApplicationStack(ctx context.Context, progress *Pro
 		return &sourceServingEraUnknownError{Detail: fmt.Sprintf("derived unsupported serving era %q", era)}
 	}
 
+	// The database container is part of the source era too. A forward step that
+	// reached its db-up ran the TARGET compose model, and the rollback/park route
+	// start only resumes that existing container. Converge it to the restored
+	// source model now, inside the maintenance window, so no later ordinary
+	// `docker compose up -d db` (the daemon's next boot) recreates the database
+	// after recovery has reported success (rc.16 arc run 36468921894).
+	if err := d.convergeSourceDatabaseContainer(ctx, progress); err != nil {
+		return err
+	}
+
 	buildCommand := func(commandCtx context.Context) (*exec.Cmd, error) {
 		if recreated {
 			return compose.Up(commandCtx, d.projDir, composeArgs...)
@@ -9806,6 +9816,80 @@ func (d *Service) startSourceApplicationStack(ctx context.Context, progress *Pro
 	}
 	if err := d.healthCheck(progress, 5, 5*time.Second); err != nil {
 		return fmt.Errorf("source services did not pass the health gate: %w", err)
+	}
+	return nil
+}
+
+// convergeSourceDatabaseContainer makes the database container match the
+// restored source compose model before any source-era serving claim.
+//
+// rc.16 arc run 36468921894 proved the gap: the forward step's db-up created the
+// db container from the TARGET model (image statbus-db:<target>, target config
+// hash). Rollback restored the volume, the source tree and the source .env, then
+// only resumed that same container. rolled_back was recorded while the db still
+// carried the target model, and the next daemon boot's EnsureDBUp
+// (`docker compose up -d db`) saw the drift and recreated the database 30 s
+// after success was reported.
+//
+// Rollback and park recovery have already restored source git and config, so
+// this is the controlled recreation the rc.66 -> rc.67 rule permits. Compose
+// leaves a container that already matches in place (no restart), so boxes whose
+// db never moved are unaffected. --no-deps keeps this to the database alone.
+//
+// The daemon's own sessions are closed first and reopened after, mirroring
+// executeUpgrade's disconnect before it stops the database. The db image sets
+// no stop signal, so a recreate stops PostgreSQL with SIGTERM (smart shutdown),
+// which waits for every session and is SIGKILLed after Compose's 10 s grace.
+// That unclean stop is what produced "the database system is shutting down"
+// and crash recovery in the rc.16 arc. App, worker and rest are stopped on
+// every caller path here, so the daemon is the only remaining client.
+func (d *Service) convergeSourceDatabaseContainer(ctx context.Context, progress *ProgressLog) error {
+	reconnectAfter := d.queryConn != nil || d.listenConn != nil
+	if d.listenConn != nil {
+		_ = d.listenConn.Close(context.Background()) // best-effort; the session is being discarded
+		d.listenConn = nil
+	}
+	if d.queryConn != nil {
+		_ = d.queryConn.Close(context.Background()) // best-effort; the session is being discarded
+		d.queryConn = nil
+	}
+	args := []string{"-d", "--no-build", "--no-deps", "db"}
+	commandCtx, cancel := context.WithTimeout(ctx, 5*time.Minute)
+	defer cancel()
+	cmd, err := compose.Up(commandCtx, d.projDir, args...)
+	if err == nil {
+		var out string
+		if progress != nil {
+			out, err = runPreparedCommandToLogCapture(commandCtx, cmd, 5*time.Minute, progress.File(), "source-db-compose", progress.bump, "docker compose up", args)
+		} else {
+			out, err = runPreparedCommandOutput(commandCtx, cmd, 5*time.Minute, "docker compose up", args)
+		}
+		if err != nil {
+			err = fmt.Errorf("%w (%s)", err, strings.TrimSpace(out))
+		}
+	}
+	if err != nil {
+		if progress != nil {
+			progress.Write("  Converging the database container to the restored source configuration ... failed: %v", err)
+		}
+		return fmt.Errorf("converge database container to restored source configuration: %w", err)
+	}
+	if err := d.waitForDBHealth(NewSbUpgradingDBHealthTimeout); err != nil {
+		if progress != nil {
+			progress.Write("  Converging the database container to the restored source configuration ... unhealthy: %v", err)
+		}
+		return fmt.Errorf("database not healthy after converging to restored source configuration: %w", err)
+	}
+	if reconnectAfter {
+		if err := d.reconnect(ctx); err != nil {
+			if progress != nil {
+				progress.Write("  Converging the database container to the restored source configuration ... reconnect failed: %v", err)
+			}
+			return fmt.Errorf("reconnect after converging database container to restored source configuration: %w", err)
+		}
+	}
+	if progress != nil {
+		progress.Write("  Converging the database container to the restored source configuration ... ok")
 	}
 	return nil
 }

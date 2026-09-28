@@ -290,9 +290,9 @@ func recoveryComposeUpViolation(bodies map[string]serviceMethodInfo) error {
 		}
 	}
 	sort.Strings(reachedUps)
-	wantReachedUps := []string{"applyNewSbUpgrading", "completeInProgressUpgrade", "convergeParkedServingTierToCurrentTree", "startSourceApplicationStack"}
+	wantReachedUps := []string{"applyNewSbUpgrading", "completeInProgressUpgrade", "convergeParkedServingTierToCurrentTree", "convergeSourceDatabaseContainer", "startSourceApplicationStack"}
 	if fmt.Sprint(reachedUps) != fmt.Sprint(wantReachedUps) {
-		return fmt.Errorf("recovery entry/failure closure reaches compose-up functions %v; want only forward continuation, durable displaced-park convergence, flagless AtTarget serve-proof, and era-verified source recreation %v", reachedUps, wantReachedUps)
+		return fmt.Errorf("recovery entry/failure closure reaches compose-up functions %v; want only forward continuation, durable displaced-park convergence, flagless AtTarget serve-proof, era-verified source recreation, and its source database convergence %v", reachedUps, wantReachedUps)
 	}
 
 	// completeInProgressUpgrade is an entry root with a Behind rollback branch
