@@ -4,6 +4,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"syscall"
 	"testing"
@@ -788,5 +789,89 @@ esac
 	}
 	if _, err := os.Stat(dir); !os.IsNotExist(err) {
 		t.Fatalf("checkout remains: %v %s", err, out)
+	}
+}
+
+func TestUninstallHelperRejectsDifferentCheckoutInode(t *testing.T) {
+	for _, stage := range []string{"preflight", "path", "tmp"} {
+		t.Run(stage, func(t *testing.T) {
+			home := t.TempDir()
+			dir := filepath.Join(home, "statbus")
+			external := filepath.Join(home, "external")
+			for _, path := range []string{filepath.Join(dir, "tmp"), filepath.Join(external, "tmp"), filepath.Join(home, "mapped-root")} {
+				if err := os.MkdirAll(path, 0700); err != nil {
+					t.Fatal(err)
+				}
+			}
+			for _, path := range []string{filepath.Join(dir, "victim"), filepath.Join(external, "victim"), filepath.Join(external, "tmp", "sentinel")} {
+				if err := os.WriteFile(path, []byte("untouched"), 0600); err != nil {
+					t.Fatal(err)
+				}
+			}
+			mapped := filepath.Join(home, "mapped-root", "statbus")
+			initial := dir
+			if stage == "preflight" {
+				initial = external
+			}
+			if err := os.Symlink(initial, mapped); err != nil {
+				t.Fatal(err)
+			}
+			bin := filepath.Join(home, "bin")
+			if err := os.Mkdir(bin, 0700); err != nil {
+				t.Fatal(err)
+			}
+			// The fake Docker executes the exact -c payload, mapping /home-root
+			// to mapped-root. A fake stat translates GNU stat syntax on macOS.
+			stat := "#!/bin/sh\nif [ \"$1\" = -c ]; then "
+			if runtime.GOOS == "darwin" {
+				stat += "exec /usr/bin/stat -f '%d:%i' \"$3\"\n"
+			} else {
+				stat += "exec /usr/bin/stat \"$@\"\n"
+			}
+			stat += "fi\nexec /usr/bin/stat \"$@\"\n"
+			if err := os.WriteFile(filepath.Join(bin, "stat"), []byte(stat), 0700); err != nil {
+				t.Fatal(err)
+			}
+			docker := `#!/usr/bin/env bash
+if [[ $1 == version ]]; then echo 27.5.1; exit 0; fi
+if [[ $1 != run ]]; then exit 0; fi
+count=0
+[[ ! -e "$HOME/helper-count" ]] || count=$(cat "$HOME/helper-count")
+count=$((count+1))
+echo "$count" > "$HOME/helper-count"
+if [[ "$STAGE" == path && $count == 2 || "$STAGE" == tmp && $count == 3 ]]; then
+  rm "$HOME/mapped-root/statbus"
+  ln -s "$HOME/external" "$HOME/mapped-root/statbus"
+fi
+while [[ $1 != -c ]]; do shift; done
+shift
+helper=$1; shift
+helper=${helper//\/home-root\/statbus/$HOME\/mapped-root\/statbus}
+/bin/sh -c "$helper" "$@"
+`
+			if err := os.WriteFile(filepath.Join(bin, "docker"), []byte(docker), 0700); err != nil {
+				t.Fatal(err)
+			}
+			script, _ := filepath.Abs("../../uninstall.sh")
+			cmd := exec.Command("bash", script)
+			cmd.Env = append(os.Environ(), "HOME="+home, "PATH="+bin+":"+os.Getenv("PATH"), "STAGE="+stage, "STATBUS_UNINSTALL_CONFIRM=yes-delete-everything")
+			out, err := cmd.CombinedOutput()
+			if err == nil {
+				t.Fatalf("different inode accepted: %s", out)
+			}
+			calls, readErr := os.ReadFile(filepath.Join(home, "helper-count"))
+			want := map[string]string{"preflight": "1\n", "path": "2\n", "tmp": "3\n"}[stage]
+			if readErr != nil || string(calls) != want {
+				t.Fatalf("helper stage %s not exercised: %v %q %s", stage, readErr, calls, out)
+			}
+			if stage == "preflight" && strings.Contains(string(out), "Step 2") {
+				t.Fatalf("preflight failed after teardown: %s", out)
+			}
+			for _, path := range []string{filepath.Join(external, "victim"), filepath.Join(external, "tmp", "sentinel")} {
+				if data, readErr := os.ReadFile(path); readErr != nil || string(data) != "untouched" {
+					t.Fatalf("external path %s changed: %v %q %s", path, readErr, data, out)
+				}
+			}
+		})
 	}
 }
