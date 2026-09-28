@@ -32,3 +32,12 @@
     print
     fflush()
 }
+# The install-state announcement (cli/cmd/install.go logInstallState). The
+# operator must see which situation the installer detected before any step
+# line: an interrupted first install says it is continuing, not starting over
+# (5-install-interrupted-first-run asserts this line; it was filtered out).
+# TestInstallTerminalWriterShowsEveryInstallState keeps this list in sync.
+/^(Preparing a new StatBus installation\.|An upgrade is already running\. Wait for it to finish, then retry if needed\.|The previous upgrade stopped unexpectedly\. Recovery will run now\.|Installation settings are incomplete\. Repair will run now\.|The database is not available\. Repair will run now\.|The database exists but setup stopped before it was finished\. Continuing where it stopped\.|This installation is too old for automatic repair\. Follow the documented manual upgrade path\.|A scheduled upgrade is ready and will run now\.|A previous database restore did not finish\. It will be retried now\.|Checking the existing installation\.|  The database and installed program differ\. Repair will reconcile them\.)$/ {
+    print
+    fflush()
+}

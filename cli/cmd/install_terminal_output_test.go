@@ -65,3 +65,38 @@ func TestInstallTerminalWriterReceivesEveryStepLine(t *testing.T) {
 		t.Fatalf("terminal writer:\n%s\nwant:\n%s", got, want.String())
 	}
 }
+
+// TestInstallTerminalWriterShowsEveryInstallState: every sentence
+// logInstallState prints must reach the operator's terminal. The interrupted
+// first-install line ("The database exists but setup stopped ...") was
+// filtered out, so rc.10/rc.11's 5-install-interrupted-first-run could not see
+// it on either fleet. The sentences are read from install.go itself so a new
+// state line cannot be added without the filter noticing.
+func TestInstallTerminalWriterShowsEveryInstallState(t *testing.T) {
+	source, err := os.ReadFile("install.go")
+	if err != nil {
+		t.Fatal(err)
+	}
+	body := strings.SplitN(string(source), "func logInstallState(", 2)
+	if len(body) != 2 {
+		t.Fatal("logInstallState not found")
+	}
+	body = strings.SplitN(body[1], "\n}\n", 2)
+	matches := regexp.MustCompile(`fmt\.Println\("([^"]+)"\)`).FindAllStringSubmatch(body[0], -1)
+	if len(matches) < 10 {
+		t.Fatalf("expected every install-state sentence, found %d", len(matches))
+	}
+	var input strings.Builder
+	for _, m := range matches {
+		input.WriteString(m[1] + "\n")
+	}
+	cmd := exec.Command("awk", "-f", "../../ops/install-terminal-output.awk")
+	cmd.Stdin = strings.NewReader(input.String())
+	got, err := cmd.Output()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(got) != input.String() {
+		t.Fatalf("install-state lines hidden from the operator:\n got:\n%s\nwant:\n%s", got, input.String())
+	}
+}
