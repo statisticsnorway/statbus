@@ -67,10 +67,24 @@ refuse_nested_mounts() {
         return 1
     fi
 }
+# The marker, sudo probe and Docker probe all write through tmp. Reject any
+# symlink in these paths before opening the marker, and again under the lock.
+check_tmp_boundary() {
+    [[ ! -L $DIR && ! -L $DIR/tmp && -d $DIR/tmp && ! -L $DIR/tmp/upgrade-in-progress.json ]] || {
+        echo 'Checkout tmp or its install lock is a symlink or not a directory; repair ~/statbus/tmp and retry.'
+        return 1
+    }
+    if [[ -e $DIR/tmp/upgrade-in-progress.json && ! -f $DIR/tmp/upgrade-in-progress.json ]]; then
+        echo 'Install lock is not a regular file inside ~/statbus/tmp; repair it and retry.'
+        return 1
+    fi
+}
 if [[ -d $DIR ]]; then
     [[ ! -L $DIR ]] || { echo 'Checkout is a symlink; refusing removal outside ~/statbus.'; exit 1; }
     refuse_nested_mounts || exit 1
+    [[ ! -L $DIR/tmp ]] || { echo 'Checkout tmp is a symlink; move it inside ~/statbus and retry.'; exit 1; }
     [[ -d $DIR/tmp ]] || mkdir -p "$DIR/tmp"
+    check_tmp_boundary || exit 1
     flag="$DIR/tmp/upgrade-in-progress.json"
     marker_owned=0
     exec 9<>"$flag"
@@ -84,7 +98,7 @@ if [[ -d $DIR ]]; then
     fi
     # On refusal, remove only our own marker while still holding its flock.
     # The successful removal deletes tmp last, immediately before exit.
-    trap 'if [[ $marker_owned == 1 && -e $flag ]]; then rm -f -- "$flag"; fi' EXIT
+    trap 'if [[ $marker_owned == 1 && -e $flag && ! -L $DIR/tmp && ! -L $flag ]]; then rm -f -- "$flag"; fi' EXIT
 fi
 project=statbus
 if [[ -f "$DIR/.env" ]]; then
@@ -187,6 +201,11 @@ for path in "${remaining[@]}"; do echo "  Path (recursively): $path"; done
 if [[ $INTERACTIVE == 1 ]]; then
     read -r -u 3 -p 'Type DELETE to execute this exact plan: ' answer
     [[ $answer == DELETE ]] || { echo 'Removal cancelled.'; exit 1; }
+fi
+# Recheck while holding the install lock immediately before teardown.
+if [[ -d $DIR ]]; then
+    check_tmp_boundary || exit 1
+    refuse_nested_mounts || exit 1
 fi
 user_unit="statbus-upgrade@${USER}.service"
 user_state=inactive

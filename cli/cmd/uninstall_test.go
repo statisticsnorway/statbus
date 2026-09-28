@@ -47,6 +47,63 @@ func TestUninstallNestedMountRefusesBeforeTeardown(t *testing.T) {
 	}
 }
 
+func TestUninstallSymlinkedTmpRefusesBeforeExternalWrite(t *testing.T) {
+	home := t.TempDir()
+	dir := filepath.Join(home, "statbus")
+	external := filepath.Join(home, "external")
+	for _, path := range []string{dir, external} {
+		if err := os.Mkdir(path, 0700); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := os.Symlink(external, filepath.Join(dir, "tmp")); err != nil {
+		t.Fatal(err)
+	}
+	bin := filepath.Join(home, "bin")
+	if err := os.Mkdir(bin, 0700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(bin, "docker"), []byte("#!/bin/sh\necho called >> \"$HOME/teardown\"\n"), 0700); err != nil {
+		t.Fatal(err)
+	}
+	script, _ := filepath.Abs("../../uninstall.sh")
+	cmd := exec.Command("bash", script)
+	cmd.Env = append(os.Environ(), "HOME="+home, "PATH="+bin+":"+os.Getenv("PATH"), "STATBUS_UNINSTALL_CONFIRM=yes-delete-everything")
+	out, err := cmd.CombinedOutput()
+	if err == nil || !strings.Contains(string(out), "symlink") || strings.Contains(string(out), "Step 2") {
+		t.Fatalf("symlinked tmp refusal: %v %s", err, out)
+	}
+	entries, err := os.ReadDir(external)
+	if err != nil || len(entries) != 0 {
+		t.Fatalf("external directory changed: %v %v", err, entries)
+	}
+	if _, err := os.Stat(filepath.Join(home, "teardown")); !os.IsNotExist(err) {
+		t.Fatalf("Docker called before tmp refusal: %v", err)
+	}
+}
+
+func TestUninstallSymlinkedInstallLockRefusesBeforeExternalWrite(t *testing.T) {
+	home := t.TempDir()
+	dir := filepath.Join(home, "statbus", "tmp")
+	if err := os.MkdirAll(dir, 0700); err != nil {
+		t.Fatal(err)
+	}
+	external := filepath.Join(home, "external-lock")
+	if err := os.Symlink(external, filepath.Join(dir, "upgrade-in-progress.json")); err != nil {
+		t.Fatal(err)
+	}
+	script, _ := filepath.Abs("../../uninstall.sh")
+	cmd := exec.Command("bash", script)
+	cmd.Env = append(os.Environ(), "HOME="+home, "STATBUS_UNINSTALL_CONFIRM=yes-delete-everything")
+	out, err := cmd.CombinedOutput()
+	if err == nil || !strings.Contains(string(out), "symlink") || strings.Contains(string(out), "Step 2") {
+		t.Fatalf("symlinked install lock refusal: %v %s", err, out)
+	}
+	if _, err := os.Stat(external); !os.IsNotExist(err) {
+		t.Fatalf("external lock file created: %v", err)
+	}
+}
+
 func TestUninstallScriptSelectionsAndRerun(t *testing.T) {
 	script, err := filepath.Abs("../../uninstall.sh")
 	if err != nil {
