@@ -1723,7 +1723,10 @@ func applyPendingRestarts(dir string, pending map[config.RestartClass]bool) erro
 // install's DDL window closes and the Upgrade service step has run. The helper
 // is a no-op for unchanged config and for fresh installs (no pending classes).
 func applyPendingUpgradeDaemonRestart(dir string, pending map[config.RestartClass]bool) {
-	if pending[config.RestartUpgradeDaemon] {
+	// This install may be the active daemon's post-upgrade child. The parent
+	// exits 42 after the child returns so systemd performs the one safe handoff.
+	// Restarting here would kill that parent before the fixup finishes.
+	if pending[config.RestartUpgradeDaemon] && !postUpgradeFixup && os.Getenv("STATBUS_POST_UPGRADE_FIXUP") != "1" {
 		restartUpgradeDaemon(dir) // best-effort, own logging (install_upgrade.go)
 	}
 }
@@ -3021,7 +3024,7 @@ func runInstallService(dir string) error {
 	// auto-restart handoff (Item H below); restarting it here would kill the
 	// in-flight upgrade. The enable --now path below covers the not-running
 	// and fresh-install cases.
-	if unitWasDrifted && unitWasActive && !postUpgradeFixup {
+	if unitWasDrifted && unitWasActive && !postUpgradeFixup && os.Getenv("STATBUS_POST_UPGRADE_FIXUP") != "1" {
 		fmt.Printf("  Unit %s drifted from the repo template and was running — restarting to arm the reconciled timers\n", instance)
 		if err := runCmd("systemctl", "--user", "restart", instance); err != nil {
 			return serviceFailureWithJournal("restart service", instance, true, err)
@@ -3074,7 +3077,7 @@ func runInstallService(dir string) error {
 	// SuccessExitStatus=42/RestartForceExitStatus=42/Restart=always so
 	// the parent's exit-42 → systemd auto-restart picks up the new
 	// binary. The is-enabled verification below still fires.
-	if postUpgradeFixup {
+	if postUpgradeFixup || os.Getenv("STATBUS_POST_UPGRADE_FIXUP") == "1" {
 		fmt.Printf("  Enabling %s (start deferred — service is the active main PID, will exit-42 → systemd auto-restart)\n", instance)
 		if err := runCmd("systemctl", "--user", "enable", instance); err != nil {
 			return serviceFailureWithJournal("enable service", instance, true, err)

@@ -122,7 +122,7 @@ func TestRunInstallService_GatesNowOnPostUpgradeFixup(t *testing.T) {
 	}
 	fn := rest[:end[1]]
 
-	gateIdx := strings.Index(fn, "if postUpgradeFixup {")
+	gateIdx := strings.Index(fn, "if postUpgradeFixup || os.Getenv(\"STATBUS_POST_UPGRADE_FIXUP\") == \"1\" {")
 	if gateIdx < 0 {
 		t.Fatal("runInstallService missing `if postUpgradeFixup {` gate. " +
 			"Without it, step 14/14's `systemctl --user enable --now` " +

@@ -126,7 +126,7 @@ func TestInstallProbesDatabaseRouteBeforeStartingUpgradeUnit(t *testing.T) {
 		t.Fatal(err)
 	}
 	body := funcBody(t, string(src), "func runInstallService(")
-	handoff := strings.Index(body, "if postUpgradeFixup {")
+	handoff := strings.Index(body, "if postUpgradeFixup || os.Getenv(\"STATBUS_POST_UPGRADE_FIXUP\") == \"1\" {")
 	start := -1
 	if handoff >= 0 {
 		start = handoff + strings.Index(body[handoff:], "} else {")

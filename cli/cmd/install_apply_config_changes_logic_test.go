@@ -181,6 +181,32 @@ func TestApplyPendingRestarts_DefersDaemonUntilAfterMigrations(t *testing.T) {
 	}
 }
 
+// The fixup is a child of the active upgrade daemon. Only the parent's exit-42
+// handoff may restart that daemon, even when regenerated config changed a
+// daemon-classified key.
+func TestDeferredDaemonRestart_FixupUsesParentHandoff(t *testing.T) {
+	orig := restartUpgradeDaemon
+	restarts := 0
+	restartUpgradeDaemon = func(string) { restarts++ }
+	t.Cleanup(func() { restartUpgradeDaemon = orig })
+	pending := map[config.RestartClass]bool{config.RestartUpgradeDaemon: true}
+	for _, signal := range []string{"flag", "environment"} {
+		t.Run(signal, func(t *testing.T) {
+			old := postUpgradeFixup
+			postUpgradeFixup = signal == "flag"
+			t.Cleanup(func() { postUpgradeFixup = old })
+			t.Setenv("STATBUS_POST_UPGRADE_FIXUP", "0")
+			if signal == "environment" {
+				t.Setenv("STATBUS_POST_UPGRADE_FIXUP", "1")
+			}
+			applyPendingUpgradeDaemonRestart(t.TempDir(), pending)
+			if restarts != 0 {
+				t.Fatalf("fixup %s restarted its active parent daemon %d time(s), want zero (exit-42 handoff)", signal, restarts)
+			}
+		})
+	}
+}
+
 // TestApplyPendingRestarts_EmptyPendingRestartsNothing is AC#2 at the apply
 // layer: an empty class set must issue ZERO docker compose service applications.
 func TestApplyPendingRestarts_EmptyPendingRestartsNothing(t *testing.T) {
