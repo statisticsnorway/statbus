@@ -90,5 +90,30 @@ REMOTE
 # Host security is part of the ramp, not an optional follow-up. In particular,
 # never change sshd/UFW while a fleet is executing on this host. The new SSH
 # connection in harden-host.sh verifies the key before and after each change.
-"$ROOT/ops/lxd-fleet/harden-host.sh" "root@$ip"
+#
+# review B4: harden-host.sh REFUSES while any guest is RUNNING or any starter
+# holds the marker directory (by design - it must never touch sshd/UFW mid-
+# fleet). Calling it unconditionally on every up.sh invocation therefore made
+# EVERY concurrent consumer after the first fail: rc.N+1's smoke ramping
+# while rc.N's fault fleet or arcs are still running on the SAME box hit this
+# refusal, a genuine regression against the single-tenant Hetzner smoke this
+# replaces. Harden only when this box is genuinely new to this image - a
+# fresh create or a just-completed image-drift recreate, both of which leave
+# NO prior /root/fleet-hardened-<image_id> marker because the box (or its
+# prior marker set) did not exist a moment ago. An existing, already-hardened
+# box for the SAME image is a pure IP resolution for every later consumer.
+if ssh "${opts[@]}" "root@$ip" "test -e /root/fleet-hardened-$image_id"; then
+    echo "Fleet host already hardened for image $image_id; skipping (review B4)" >&2
+else
+    "$ROOT/ops/lxd-fleet/harden-host.sh" "root@$ip"
+    ssh "${opts[@]}" "root@$ip" "touch /root/fleet-hardened-$image_id"
+fi
+# review H4: reap.sh's cron can fire between this ramp job finishing and the
+# NEXT job (a smoke leg, the fault driver, an arc matrix job) acquiring its
+# own marker under /root/fleet-active/ - up.sh itself never stamped
+# /root/last-fleet-activity, so a box idle for close to 3h at ramp time could
+# be deleted by the reaper in that runner-pickup-plus-checkout window before
+# anyone holds a marker. Stamp activity as this ramp's last act so the
+# reaper's 3h clock restarts here, same as every other starter already does.
+ssh "${opts[@]}" "root@$ip" 'date +%s > /root/last-fleet-activity'
 printf '%s\n' "$ip"
