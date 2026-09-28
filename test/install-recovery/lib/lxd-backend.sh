@@ -12,7 +12,11 @@ LXD_SSH_OPTS=(-o BatchMode=yes -o StrictHostKeyChecking=no -o UserKnownHostsFile
 # Nonempty because bash 3.2 with nounset treats an empty array expansion as unbound.
 SSH_OPTS=(-o BatchMode=yes)
 _lxd_host() { local q; printf -v q '%q ' "$@"; LC_ALL=C command ssh "${LXD_SSH_OPTS[@]}" "$LXD_HOST" "$q"; }
-_lxd_name() { printf 's2-base-%s' "${1//[^a-zA-Z0-9-]/-}"; }
+LXD_BASE_PREFIX=${LXD_BASE_PREFIX:-s2-base}
+_lxd_name() {
+    [[ "$LXD_BASE_PREFIX" =~ ^[a-z][a-z0-9-]{0,12}$ ]] || { echo "Invalid LXD_BASE_PREFIX: $LXD_BASE_PREFIX" >&2; return 2; }
+    printf '%s-%s' "$LXD_BASE_PREFIX" "${1//[^a-zA-Z0-9-]/-}"
+}
 _lxd_mark() { printf '%s | %s\n' "$(date -u +%FT%TZ)" "$*" >&2; }
 # Pure selector: read instance names on stdin and print only other candidate
 # bases. Parse the tag BEFORE any checkpoint suffix, which itself may contain
@@ -213,14 +217,18 @@ _lxd_build_base_for_candidate() {
     [[ "$tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+-rc\.[0-9]+$ ]] || { echo "Invalid candidate tag: $tag" >&2; return 2; }
     base=$(_lxd_name "$tag-$checkpoint")
     if _lxd_host lxc info "$base" 2>/dev/null | grep -qE '^\| checkpoint +\|'; then
+        if [ "$(_lxd_host lxc config get "$base" image.version)" != 26.04 ]; then
+            echo "REFUSE: $base/checkpoint predates Ubuntu 26.04; replace only after its active fleet drains." >&2
+            return 1
+        fi
         _lxd_mark "$base/checkpoint exists, reusing candidate catalog entry"; return 0
     fi
     if _lxd_host lxc info "$base" >/dev/null 2>&1; then
         echo "REFUSE: unsnapshotted base $base exists. Inspect or delete explicitly before retry." >&2; return 1
     fi
     start=$(date +%s)
-    _lxd_mark "launch $base ubuntu:24.04 nesting=true cpu=2 memory=6GiB"
-    _lxd_host lxc launch ubuntu:24.04 "$base" --config security.nesting=true --config limits.cpu=2 --config limits.memory=6GiB || return
+    _lxd_mark "launch $base ubuntu:26.04 nesting=true cpu=2 memory=6GiB"
+    _lxd_host lxc launch ubuntu:26.04 "$base" --config security.nesting=true --config limits.cpu=2 --config limits.memory=6GiB || return
     LXD_BASE_OWNED_BY_THIS_BUILD=1
     _lxd_upload "$HARNESS_ROOT/ops/setup-ubuntu-lts.sh" /root/s2-setup.sh || return
     _lxd_push /root/s2-setup.sh "$base/root/setup.sh" || return

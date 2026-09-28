@@ -130,7 +130,7 @@ if lxc info "$guest" >/dev/null 2>&1; then
     exit 1
 fi
 trap 'lxc delete "$guest" --force >/dev/null 2>&1 || true' EXIT
-lxc launch ubuntu:24.04 "$guest" < /dev/null >/dev/null
+lxc launch ubuntu:26.04 "$guest" < /dev/null >/dev/null
 for attempt in $(seq 1 30); do
     # </dev/null: lxc exec forwards stdin, and stdin here is the rest of this
     # bash -s script. Without it the failure tail below is swallowed and a

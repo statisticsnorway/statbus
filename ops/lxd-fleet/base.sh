@@ -15,12 +15,13 @@ set -euo pipefail
 [ ! -e /root/fleet-hardening.active ] || { echo 'REFUSE: fleet host is being hardened' >&2; exit 1; }
 date +%s > /root/last-fleet-activity
 if lxc info '$name' 2>/dev/null | grep -Fq '| installed '; then
+    [ "\$(lxc config get '$name' image.version)" = 26.04 ] || { echo 'REFUSE: existing base $name predates Ubuntu 26.04' >&2; exit 1; }
     echo REUSED
     exit 0
 fi
 if lxc info '$name' >/dev/null 2>&1; then echo 'REFUSE: incomplete base $name exists' >&2; exit 1; fi
 # lxc launch reads stdin (would swallow the rest of this heredoc as YAML).
-lxc launch ubuntu:24.04 '$name' --config security.nesting=true --config limits.cpu=2 --config limits.memory=6GiB < /dev/null
+lxc launch ubuntu:26.04 '$name' --config security.nesting=true --config limits.cpu=2 --config limits.memory=6GiB < /dev/null
 touch /root/fleet-run.active
 REMOTE
 )
