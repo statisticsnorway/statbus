@@ -68,6 +68,11 @@ func TestInstallScriptNeverStopsTheUpgradeUnit(t *testing.T) {
 		if trimmed == "" || strings.HasPrefix(trimmed, "#") {
 			continue
 		}
+		// A quoted grep allowlist contains operator advice, not an executed
+		// systemctl command. Its literal "stop" must not trigger this guard.
+		if strings.HasPrefix(trimmed, "failure_detail=$(grep -E '") {
+			continue
+		}
 		if strings.Contains(line, "systemctl") && strings.Contains(line, "stop") {
 			t.Errorf("line %d stops a unit: %q\n  SIGTERM to an in-flight upgrade triggers a rollback over the live DB (the rune footgun). Take the mutex instead.",
 				i+1, trimmed)

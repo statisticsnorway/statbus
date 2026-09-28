@@ -64,6 +64,7 @@ fi
 [ "${EMIT_ROLLBACK:-}" != 1 ] || { printf 'UPGRADE_FAILED_ROLLED_BACK\n'; exit 75; }
 [ "${EMIT_CLASSIFIED:-}" != 1 ] || { printf '[8/17] Services             FAILED: This part of installation could not finish.\nINSTALL_CAUSE: The database rejected its password.\nINSTALL_FIX: Check the saved database credentials and synchronize them with the running database, then retry.\n'; exit 47; }
 [ "${EMIT_ROUTE_CAUSE:-}" != 1 ] || { printf '[17/17] Upgrade service      FAILED: This part of installation could not finish.\nINSTALL_CAUSE: The database route at 127.0.0.1:5431 is unavailable; the web entry point provides this route.\nINSTALL_FIX: Start or repair the web entry point, then retry the install.\n'; exit 47; }
+[ -z "${EMIT_PORT_CAUSE:-}" ] || { printf '[8/17] Services             FAILED: This part of installation could not finish.\nINSTALL_CAUSE: %s\n' "$EMIT_PORT_CAUSE"; exit 47; }
 [ "${FORCE_STEP_FAILURE:-}" != 1 ] || printf '[16/17] Trusted signers      FAILED: release signer approval was declined\n'
 [ "${STATBUS_ENV_CONFIG:-}" = "$EXPECTED_CONFIG" ]
 [ "${STATBUS_USERS_FILE:-}" = "$EXPECTED_USERS" ]
@@ -141,6 +142,35 @@ set -e
 grep -Fq 'Cause: The database route at 127.0.0.1:5431 is unavailable; the web entry point provides this route.' "$TMP_ROOT/route-output" || { cat "$TMP_ROOT/route-output" >&2; exit 1; }
 grep -Fq 'Outside fix: Start or repair the web entry point, then retry the install.' "$TMP_ROOT/route-output" || { cat "$TMP_ROOT/route-output" >&2; exit 1; }
 echo 'PASS: database-route cause and fix reach the wrapper'
+# Classified port failures have three product remedies. Only a single safe
+# owner token (or the literal fallback) and one of those remedies may cross
+# the wrapper's diagnostic boundary. Exit-78 preflight is tested below.
+for cause in \
+    "port 80 is in use by apache2. Free the port with sudo systemctl disable --now apache2." \
+    "port 443 is in use by python3. Free the port with sudo kill \$(sudo lsof -tiTCP:443 -sTCP:LISTEN)." \
+    "port 3014 is in use by another program. Find the listener with sudo ss -ltnp '( sport = :3014 )', then stop that program to free port 3014."; do
+    set +e
+    EMIT_PORT_CAUSE="$cause" STATBUS_ENV_CONFIG="$EXPECTED_CONFIG" STATBUS_USERS_FILE="$EXPECTED_USERS" \
+        bash "$ROOT/install.sh" --version v2026.09.0-rc.02 --non-interactive > "$TMP_ROOT/port-output" 2>&1
+    rc=$?
+    set -e
+    [ "$rc" = 47 ]
+    grep -Fxq "Cause: $cause" "$TMP_ROOT/port-output" || { cat "$TMP_ROOT/port-output" >&2; exit 1; }
+done
+for cause in \
+    'port 80 is in use by arbitrary text secret=foo' \
+    'port 80 is in use by apache2. Free the port with sudo systemctl disable --now apache2. secret=foo' \
+    'port 80 is in use by apache2. Free the port with sudo systemctl disable --now nginx.'; do
+    set +e
+    EMIT_PORT_CAUSE="$cause" STATBUS_ENV_CONFIG="$EXPECTED_CONFIG" STATBUS_USERS_FILE="$EXPECTED_USERS" \
+        bash "$ROOT/install.sh" --version v2026.09.0-rc.02 --non-interactive > "$TMP_ROOT/port-output" 2>&1
+    rc=$?
+    set -e
+    [ "$rc" = 47 ]
+    ! grep -Fq "Cause: $cause" "$TMP_ROOT/port-output" || { cat "$TMP_ROOT/port-output" >&2; exit 1; }
+    grep -Fq 'Cause: step 8/17 (Services) failed: this part of installation could not finish' "$TMP_ROOT/port-output"
+done
+echo 'PASS: classified port grammar admits product remedies, rejects arbitrary owner and suffix'
 # The real wrapper must leave a freed restart record for Go to inspect.
 mkdir -p "$HOME/statbus/tmp"
 printf '{"trigger":"restart","restart":{"profile":"all"}}\n' > "$HOME/statbus/tmp/upgrade-in-progress.json"
@@ -253,6 +283,7 @@ echo 'PASS: port, disk, and restart remedies reach operator without internal dia
 export HOME="$TMP_ROOT/pty-home" INSTALLER_UNDER_TEST="$ROOT/install.sh"
 mkdir -p "$HOME"
 : > "$TRACE"
+# shellcheck disable=SC2209 # Inline environment assignment for the Python process.
 EXPECT_STDIN=tty python3 - <<'PY' > "$TMP_ROOT/pty-output" 2>&1
 import os
 import pty

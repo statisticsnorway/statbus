@@ -14,22 +14,34 @@ SSH_OPTS=(-o BatchMode=yes)
 _lxd_host() { local q; printf -v q '%q ' "$@"; LC_ALL=C command ssh "${LXD_SSH_OPTS[@]}" "$LXD_HOST" "$q"; }
 _lxd_name() { printf 's2-base-%s' "${1//[^a-zA-Z0-9-]/-}"; }
 _lxd_mark() { printf '%s | %s\n' "$(date -u +%FT%TZ)" "$*" >&2; }
+# Pure selector: read instance names on stdin and print only other candidate
+# bases. Parse the tag BEFORE any checkpoint suffix, which itself may contain
+# a historical release name unrelated to the base's owning candidate.
+_lxd_bases_to_prune() {
+    local tag=$1 safe=${1//[^a-zA-Z0-9-]/-} name base_tag
+    [[ "$tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+-rc\.[0-9]+$ ]] || return 2
+    while IFS= read -r name; do
+        if [[ "$name" =~ ^(fleet|s2)-base-(v[0-9]+-[0-9]+-[0-9]+-rc-[0-9]+)(-[a-zA-Z0-9-]+)?$ ]]; then
+            base_tag=${BASH_REMATCH[2]}
+            [ "$base_tag" = "$safe" ] || printf '%s\n' "$name"
+        fi
+    done
+}
 _lxd_prune_other_bases() {
-    local tag=$1 safe=${1//[^a-zA-Z0-9-]/-}
+    local tag=$1 selector
     [[ "$tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+-rc\.[0-9]+$ ]] || return 2
     # CI/driver acquired the occupancy marker before entering here. The flock
     # serializes this destructive catalog maintenance with reaper and ramp-up.
-    _lxd_host flock /root/fleet-run.lock bash -c '
+    selector=$(declare -f _lxd_bases_to_prune)
+    _lxd_host flock /root/fleet-run.lock bash -c "$selector"$'
 set -euo pipefail
 test -e /root/fleet-run.active && test ! -e /root/fleet-reaping && test ! -e /root/fleet-hardening.active
 names=$(lxc list -c n --format csv)
 while IFS= read -r name; do
-    case "$name" in
-        "fleet-base-$1"|"s2-base-$1-"*) continue ;;
-        fleet-base-v*|s2-base-v*) echo "prune superseded base $name"; lxc delete "$name" --force ;;
-    esac
-done <<< "$names"
-' _ "$safe"
+    echo "prune superseded base $name"
+    lxc delete "$name" --force
+done < <(_lxd_bases_to_prune "$1" <<< "$names")
+' _ "$tag"
 }
 _lxd_upload() { command scp -q "${LXD_SSH_OPTS[@]}" "$1" "$LXD_HOST:$2"; }
 # Existing assertion/wedge helpers invoke ssh/scp directly rather than VM_EXEC.

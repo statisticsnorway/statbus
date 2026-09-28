@@ -3,7 +3,9 @@ package cmd
 import (
 	"errors"
 	"fmt"
+	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -59,6 +61,93 @@ func TestClassifyInstallFailure(t *testing.T) {
 			}
 		})
 	}
+}
+
+// Keep the actual grep ERE used by the standalone bootstrap in sync with Go's
+// operator-facing sentences. grep, rather than Go regexp, checks POSIX ERE
+// backreferences as they are interpreted by install.sh on the target host.
+func TestInstallCauseAndFixMatchShellAllowlist(t *testing.T) {
+	bootstrap, err := os.ReadFile("../../install.sh")
+	if err != nil {
+		t.Fatal(err)
+	}
+	lines := strings.Split(string(bootstrap), "\n")
+	patternAfter := func(marker, prefix string) string {
+		t.Helper()
+		for i, line := range lines {
+			if !strings.Contains(line, marker) {
+				continue
+			}
+			if i+1 >= len(lines) || !strings.Contains(lines[i+1], prefix) {
+				t.Fatalf("%s not followed by shell grep", marker)
+			}
+			line = strings.TrimSpace(lines[i+1])
+			start := strings.Index(line, "grep -E '")
+			end := strings.LastIndex(line, "' \"$install_output\"")
+			if start < 0 || end <= start {
+				t.Fatalf("cannot extract ERE after %s: %q", marker, line)
+			}
+			return strings.ReplaceAll(line[start+len("grep -E '"):end], `'"'"'`, "'")
+		}
+		t.Fatalf("missing marker %s", marker)
+		return ""
+	}
+	causePattern := patternAfter("INSTALL_CAUSE_ALLOWLIST:", "failure_detail=$(grep -E")
+	// The fix grep is adjacent to the cause grep. Extract its actual ERE too.
+	fixPattern := ""
+	for _, line := range lines {
+		if strings.Contains(line, "failure_fix=$(grep -E '") {
+			start := strings.Index(line, "grep -E '") + len("grep -E '")
+			end := strings.LastIndex(line, "' \"$install_output\"")
+			if end <= start {
+				t.Fatalf("cannot extract fix ERE: %q", line)
+			}
+			fixPattern = line[start:end]
+			break
+		}
+	}
+	if fixPattern == "" {
+		t.Fatal("missing INSTALL_FIX grep")
+	}
+	match := func(pattern, value string) bool {
+		t.Helper()
+		cmd := exec.Command("grep", "-E", "-q", pattern)
+		cmd.Stdin = strings.NewReader(value + "\n")
+		return cmd.Run() == nil
+	}
+	check := func(cause, fix string) {
+		t.Helper()
+		if !match(causePattern, "INSTALL_CAUSE: "+cause) {
+			t.Errorf("cause not permitted by install.sh: %q", cause)
+		}
+		if fix != "" && !match(fixPattern, "INSTALL_FIX: "+fix) {
+			t.Errorf("fix not permitted by install.sh: %q", fix)
+		}
+	}
+	for _, entry := range installFailureCauses {
+		if entry.pattern != failedPublishedPort {
+			check(entry.cause, entry.fix)
+		}
+	}
+	for _, host := range []string{"127.0.0.1", "localhost", "[::1]"} {
+		cause, fix := classifyInstallFailure("Upgrade service", errors.New("dial tcp "+host+":5431: connect: connection refused"))
+		check(cause, fix)
+	}
+	cause, fix := classifyInstallFailure("Upgrade service", errors.New("unrecognized failure"))
+	check(cause, fix)
+	unitDir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(unitDir, "systemctl"), []byte("#!/bin/sh\nif [ \"$2\" = apache2.service ]; then echo loaded; else echo not-found; fi\n"), 0700); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("PATH", unitDir+string(os.PathListSeparator)+os.Getenv("PATH"))
+	for _, owner := range []string{"apache2", "python3", "another program", "unexpected text secret=foo", "bad.name"} {
+		check(portConflictGuidance(80, owner), "")
+	}
+	oldOwner := occupiedPortOwner
+	t.Cleanup(func() { occupiedPortOwner = oldOwner })
+	occupiedPortOwner = func(installPort) string { return "apache2" }
+	cause, fix = classifyInstallFailure("Services", errors.New("could not publish host port 443/tcp"))
+	check(cause, fix)
 }
 
 func TestInstallCommandDiagnosticFeedsClassifier(t *testing.T) {

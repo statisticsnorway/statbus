@@ -33,6 +33,7 @@ func selectedInstallPorts(mode string, offset int) []installPort {
 }
 
 var listenerProgram = regexp.MustCompile(`users:\(\("([^"]+)"`)
+var safePortOwner = regexp.MustCompile(`^[A-Za-z0-9_-]{1,64}$`)
 
 var occupiedPortOwner = func(port installPort) string {
 	address := net.JoinHostPort(port.host, strconv.Itoa(port.number))
@@ -72,10 +73,13 @@ var occupiedPortOwner = func(port installPort) string {
 // portConflictGuidance is assembled from a numeric port and a process name
 // discovered locally, never from Docker output or an arbitrary exception.
 func portConflictGuidance(number int, owner string) string {
+	// ss process names can contain arbitrary printable characters. Never pass
+	// an unrecognized owner through the installer diagnostic boundary.
+	if !safePortOwner.MatchString(owner) {
+		owner = "another program"
+	}
 	remedy := fmt.Sprintf("Find the listener with sudo ss -ltnp '( sport = :%d )', then stop that program to free port %d", number, number)
-	if owner != "another program" && strings.IndexFunc(owner, func(r rune) bool {
-		return (r < 'a' || r > 'z') && (r < 'A' || r > 'Z') && (r < '0' || r > '9') && r != '-' && r != '_'
-	}) < 0 {
+	if owner != "another program" {
 		if out, err := exec.Command("systemctl", "show", owner+".service", "--property=LoadState", "--value").Output(); err == nil && strings.TrimSpace(string(out)) == "loaded" {
 			remedy = "Free the port with sudo systemctl disable --now " + owner
 		} else {
