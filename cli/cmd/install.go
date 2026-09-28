@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"log"
 	"os"
 	"os/exec"
@@ -200,18 +201,38 @@ For operator installation or repair, use the public installer:
 	RunE: func(cmd *cobra.Command, args []string) error {
 		err := runInstall()
 		if err != nil {
-			var preflight *installPreflightRefusalError
-			var logged *installStateLoggedRefusalError
-			if errors.As(err, &logged) {
-				// The state line already contains the actionable refusal.
-			} else if errors.As(err, &preflight) {
-				_, _ = fmt.Fprintln(cmd.ErrOrStderr(), preflight.Error())
-			} else {
-				_, _ = fmt.Fprintln(cmd.ErrOrStderr(), "The installation stopped before it could finish. Check the installation log, correct the problem, then run: "+diskpolicy.RerunCommand())
-			}
+			reportInstallFailure(cmd.ErrOrStderr(), err)
 		}
 		return err
 	},
+}
+
+// reportInstallFailure is the operator boundary for runInstall's error. The
+// raw error goes to the installation diagnostics file (crash-recovery errors
+// return before the run log exists, so this is their only record). The
+// terminal gets product-authored text only: a state line already printed, a
+// preflight remedy, a named upgrade refusal with its fixed cause/fix, or the
+// generic line.
+func reportInstallFailure(w io.Writer, err error) {
+	if dir, dirErr := installProjectDir(); dirErr == nil {
+		installDiagnostic(dir, "Installation stopped: %v", err)
+	}
+	printInstallFailure(w, err)
+}
+
+// printInstallFailure renders runInstall's error for the operator.
+func printInstallFailure(w io.Writer, err error) {
+	var preflight *installPreflightRefusalError
+	var logged *installStateLoggedRefusalError
+	if errors.As(err, &logged) {
+		// The state line already contains the actionable refusal.
+	} else if refusal, ok := installRefusal(err); ok {
+		printInstallRefusal(w, refusal)
+	} else if errors.As(err, &preflight) {
+		_, _ = fmt.Fprintln(w, preflight.Error())
+	} else {
+		_, _ = fmt.Fprintln(w, "The installation stopped before it could finish. Check the installation log, correct the problem, then run: "+diskpolicy.RerunCommand())
+	}
 }
 
 func init() {
@@ -622,7 +643,9 @@ func runInstall() (installErr error) {
 				logInstallState(installDir, state, detail)
 			}
 			if handled, err := dispatchInstallState(installDir, state, detail); handled {
-				if state == install.StateLiveUpgrade && detail.Flag != nil && detail.Flag.Holder == upgrade.HolderInstall {
+				// logInstallState already printed these refusals' remedy
+				// (wait for the running upgrade; follow the manual path).
+				if err != nil && (state == install.StateLiveUpgrade || state == install.StateLegacyNoUpgradeTable) {
 					return &installStateLoggedRefusalError{err}
 				}
 				return err

@@ -1399,7 +1399,7 @@ func (d *Service) EnsureDBUp(ctx context.Context) error {
 //
 // A truly-MISSING proxy (removed, not stopped) cannot be started and must NOT be
 // `up -d`'d (image-mismatch class above) — so we detect it up front and return
-// the precise category-3 refusal (newProxyRouteMissingError) instead of an
+// the precise category-3 refusal (NewProxyRouteMissingError) instead of an
 // opaque docker "no container" error. If the db container has been REMOVED,
 // `docker compose start` errors and the wrapped error falls through to the
 // caller's refusal path.
@@ -1460,7 +1460,7 @@ func (d *Service) StartDatabaseRouteServingMustBeStopped(ctx context.Context) er
 // are not recreated with the current binary's image (the rc.66 -> rc.67 lesson).
 func (d *Service) startDatabaseAndItsProxy(ctx context.Context) error {
 	if missing, perr := d.proxyContainerMissing(ctx); perr == nil && missing {
-		return newProxyRouteMissingError()
+		return NewProxyRouteMissingError()
 	}
 	if out, err := runCommandOutput(d.projDir, "docker", "compose", "start", "db"); err != nil {
 		return fmt.Errorf("docker compose start db: %w (%s)", err, strings.TrimSpace(out))
@@ -1487,7 +1487,7 @@ func (d *Service) proxyContainerID(ctx context.Context) (string, error) {
 	}
 	id := strings.TrimSpace(string(out))
 	if id == "" {
-		return "", newProxyRouteMissingError()
+		return "", NewProxyRouteMissingError()
 	}
 	return id, nil
 }
@@ -1566,20 +1566,6 @@ func (d *Service) proxyContainerMissing(ctx context.Context) (bool, error) {
 		}
 	}
 	return true, nil // no proxy container at all — severed route
-}
-
-// newProxyRouteMissingError is the STATBUS-143 category-3 refusal for the
-// severed-route case: the proxy container the service reaches PostgreSQL THROUGH
-// does not exist. Deliberately NOT auto-recreated — `up -d proxy` under the
-// operator's binary can pull a different image tag than the in-flight upgrade
-// target (the rc.66 → rc.67 mismatch class). Names the state + the manual
-// operator option with that caveat, so a re-run of `./sb install` gives an
-// actionable path out rather than a silent identical connection-refused loop.
-func newProxyRouteMissingError() error {
-	return fmt.Errorf(
-		"the db's connection route — the proxy container — does not exist; the crash that interrupted this upgrade may have removed it mid-recreate.\n" +
-			"  Recovery reaches PostgreSQL THROUGH this proxy (Caddy layer4 on CADDY_DB_BIND_ADDRESS:CADDY_DB_PORT), so it cannot connect, and it will not auto-recreate the proxy: `docker compose up -d proxy` under the current binary may pull a different image tag than the interrupted upgrade's target.\n" +
-			"  Operator action: inspect `docker compose ps -a`; recreate the proxy deliberately with `docker compose up -d proxy` (accepting that version caveat), then re-run `./sb install`")
 }
 
 // EnsureDBReachable verifies the DB is reachable via the .env-configured
