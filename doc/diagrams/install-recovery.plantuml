@@ -57,6 +57,17 @@ if (services up AND connection pool not clean?) then (yes)
 else (clean / fresh)
 endif
 
+if (.env.config + .env.credentials present, generated .env missing, no upgrade flag?) then (yes)
+  :restore generated settings (the Settings step)\nbefore Detect — install.go restoreSettingsBeforeDetect;
+  note right
+    The DB probe reads its route from .env, so without it Detect could not classify
+    and install refused on every rerun (rc.15 arc run 36442434055). Detect then decides
+    from the real database. A settings error refuses here with its cause.
+    TEST Go TestRunInstallRestoresSettingsBeforeDetect, TestRestoreSettingsBeforeDetectWritesRealRoute.
+  end note
+else (no)
+endif
+
 partition "Detect — 9-state probe ladder (state.go:104, short-circuit: first match wins)" {
   if (.env.config missing?) then (yes)
     :**fresh-install** (StateFresh)\n-> step-table;
@@ -104,12 +115,11 @@ partition "Detect — 9-state probe ladder (state.go:104, short-circuit: first m
       Recovery routes by observed-state — see the **upgrade-lifecycle** diagram for the full decision tree (§1–§4).
     end note
     :re-Detect -> resolves to a step-table state;
-  elseif (.env.credentials or generated .env missing?) then (yes)
-    :**half-configured** (StateHalfConfigured)\nstep-table generates creds + .env;
+  elseif (.env.credentials missing?) then (yes)
+    :**half-configured** (StateHalfConfigured)\nstep-table generates creds;
     note right #FFF9C4
-      Without .env the DB probe has no route, so it is not run.
-      TEST Go TestRunInstallContinuesWhenSettingsNeverRan; every upgrade arc's
-      pinned install pre-places .env.credentials (rc.15 run 36442434055).
+      NO TEST (gap): StateHalfConfigured (.env.credentials missing -> step-table
+      regenerates creds) has no dedicated scenario.
     end note
   elseif (DB unreachable?) then (yes)
     :**db-unreachable** (StateDBUnreachable)\nstep-table starts services;
