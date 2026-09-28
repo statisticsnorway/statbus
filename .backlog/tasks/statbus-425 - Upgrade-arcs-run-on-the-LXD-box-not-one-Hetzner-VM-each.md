@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-09-28 13:07'
-updated_date: '2026-09-28 19:04'
+updated_date: '2026-09-28 20:24'
 labels:
   - ci
   - lxd
@@ -37,4 +37,6 @@ The 4/4 upgrade-arc stage boots one Hetzner CX23 per arc, max-parallel 2 (projec
 
 <!-- SECTION:NOTES:BEGIN -->
 Owner direction 2026-09-28 18:56: move smoke AND the upgrade arcs to LXD; smoke creates the checkpoint images the fault checks and the arcs fork from. Design and measurements: tmp/lxd-all-gates.md. Guests move to ubuntu:26.04 (VM harness default). The 40 GB real-disk install leaves with smoke (owner's 07:21 ruling named this revisit condition); remaining coverage is Go tests. Parity: LXD verdicts match Hetzner at the same candidate (rc.16 arcs run 36468921894).
+
+Plan review 2026-09-28 (Fable 5.1, one pass; Astra stopped on the OpenAI limit): SOUND WITH CHANGES, tmp/review-lxd-all-gates-plan.md. Revised milestones adopted: M2' smoke on LXD with provenance keys (user.statbus.candidate/producer/run_id), checkpoint-pending→checkpoint rename as smoke's last act, rerun-safe replace, per-job active marker vs reaper, single ramp job; M3a arc-aware LXD backend (tag-less install_statbus_at_sha, statbus-arc-* mapping, executable ssh/scp shim for 'timeout ssh', ProxyJump for deploy-status-proof, bounded volume for un-park-to-completion, GITHUB_TOKEN, ControlMaster), verified by hand on 4 hardest arcs incl. c-rollback reproducing rc.16's red; M3b arc workflow shadow run beside Hetzner; M4 orchestrator (construct at start, smoke always dispatched, box slot semaphore) + gates + delete Hetzner steps; M5 parity (every Hetzner red is an LXD red for the same reason). Estimate ~77 min on ccx33 sequential faults→arcs; ~40 min on a bigger box (423).
 <!-- SECTION:NOTES:END -->
