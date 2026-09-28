@@ -46,6 +46,70 @@ if lxd_snapshot_installed "$LXD_CANDIDATE" s2-v2026-09-3-rc-16-0-happy-install; 
 fi
 echo 'PASS: only the owned healthy smoke fork publishes a checkpoint-pending before tuning'
 
+# B2 (review): the rerun-safe replace probe must exclude the CALLER's own
+# source fork from "still-live", or lxd_snapshot_installed refuses on every
+# rerun — it is called while its own source fork ($VM_NAME) is RUNNING, by
+# design (it copies the running fork; see the comment above lxd_snapshot_
+# installed). The probe runs as `bash -c '<script>'` inside a command-
+# substitution subshell the mock above cannot see into via `calls` (that
+# mock's own comment explains why). Exercise the actual embedded awk filter
+# by really running it, with a stub `lxc` on the exec path instead of a
+# paraphrase of the logic. The probe's inner `bash -c` only inherits the
+# process environment (exported names), never this script's local shell
+# variables, so everything the stub `lxc` reads must itself be exported.
+calls=()
+DELETED_MARKER_DIR=$(mktemp -d)
+export DELETED_MARKER_DIR BASE
+lxc() {
+    case "$1" in
+        info) [ "$2" = "$BASE" ] && return 0 || return 1 ;;
+        list) printf '%s\n' "$LXC_LIST_CSV" ;;
+        delete) : > "$DELETED_MARKER_DIR/$2" ;;
+        *) return 1 ;;
+    esac
+}
+export -f lxc
+_lxd_ready() { calls+=("ready:$1"); }
+_lxd_host() {
+    calls+=("$*")
+    if [ "$1" = flock ]; then
+        shift 2
+        "$@"
+        return
+    fi
+    if [ "$1 $2" = 'lxc info' ]; then return 1; fi
+}
+VM_NAME=s2-v2026-09-3-rc-16-0-happy-install
+export LXD_OWNED_BY_THIS_RUN=1
+
+# Scenario A: the base already exists, and the ONLY RUNNING instance under
+# the candidate's fork prefix is the caller's own source fork. Must proceed
+# (not refuse) and replace the stale base.
+export LXC_LIST_CSV=$'s2-v2026-09-3-rc-16-0-happy-install,RUNNING\ns2-v2026-09-3-rc-16-0-happy-upgrade,STOPPED'
+lxd_snapshot_installed "$LXD_CANDIDATE" "$VM_NAME" || {
+    echo 'FAIL: rerun-safe replace refused on its own running source fork' >&2; exit 1;
+}
+[ -e "$DELETED_MARKER_DIR/$BASE" ] || {
+    echo 'FAIL: stale base was not replaced when only the callers own fork was RUNNING' >&2; exit 1;
+}
+echo 'PASS: rerun-safe replace excludes the callers own running fork from the still-live probe'
+
+# Scenario B: a genuine SIBLING fork of the same candidate (not the caller)
+# is RUNNING. Must still refuse, and must NOT delete the base out from
+# under the sibling that may still be reading its checkpoint.
+rm -f "$DELETED_MARKER_DIR/$BASE"
+export LXC_LIST_CSV=$'s2-v2026-09-3-rc-16-0-happy-install,RUNNING\ns2-v2026-09-3-rc-16-5-install-disk-threshold-repair,RUNNING'
+if lxd_snapshot_installed "$LXD_CANDIDATE" "$VM_NAME"; then
+    echo 'FAIL: rerun-safe replace proceeded while a sibling fork was still RUNNING' >&2; exit 1
+fi
+[ ! -e "$DELETED_MARKER_DIR/$BASE" ] || {
+    echo 'FAIL: base was deleted while a sibling fork was still RUNNING' >&2; exit 1;
+}
+echo 'PASS: rerun-safe replace still refuses when a genuine sibling fork is RUNNING'
+rm -rf "$DELETED_MARKER_DIR"
+unset -f lxc
+unset LXC_LIST_CSV DELETED_MARKER_DIR
+
 # lxd_promote_checkpoint: the scenario's separate last act. Must refuse
 # without a checkpoint-pending snapshot present, and rename (never copy or
 # re-snapshot) when one exists. `_lxd_host lxc info "$base" | grep ...` runs
