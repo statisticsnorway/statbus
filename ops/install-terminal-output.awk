@@ -32,12 +32,28 @@
     print
     fflush()
 }
-# The install-state announcement (cli/cmd/install.go logInstallState). The
-# operator must see which situation the installer detected before any step
-# line: an interrupted first install says it is continuing, not starting over
-# (5-install-interrupted-first-run asserts this line; it was filtered out).
-# TestInstallTerminalWriterShowsEveryInstallState keeps this list in sync.
+# The install-state announcement (cli/cmd/install.go logInstallState) and the
+# two fixed transitions around it. The operator must see which situation the
+# installer detected before any step line: an interrupted first install says it
+# is continuing, not starting over (5-install-interrupted-first-run asserts
+# this line; it was filtered out). Whole-line fixed literals only.
+# TestInstallTerminalWriterShowsEveryInstallState runs logInstallState for
+# every state and checks each line reaches the terminal exactly once.
 /^(Preparing a new StatBus installation\.|An upgrade is already running\. Wait for it to finish, then retry if needed\.|The previous upgrade stopped unexpectedly\. Recovery will run now\.|Installation settings are incomplete\. Repair will run now\.|The database is not available\. Repair will run now\.|The database exists but setup stopped before it was finished\. Continuing where it stopped\.|This installation is too old for automatic repair\. Follow the documented manual upgrade path\.|A scheduled upgrade is ready and will run now\.|A previous database restore did not finish\. It will be retried now\.|Checking the existing installation\.|  The database and installed program differ\. Repair will reconcile them\.)$/ {
     print
     fflush()
+    next
+}
+/^(Recovery finished\. Checking the installation again\.|The database could not be checked\. Continuing with installation repair\.)$/ {
+    print
+    fflush()
+    next
+}
+# upgrade.LiveInstallHolderRefusal: the one dynamic state line. Only its exact
+# grammar passes (RFC3339 time, optional numeric PID, fixed remedy), so no
+# other text can ride along to the operator's terminal.
+/^an installation (started at [0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\.[0-9]+)?(Z|[+-][0-9]{2}:[0-9]{2})( \(process [0-9]+\))? )?is still running\. Wait for it to finish, then run the same install command again$/ {
+    print
+    fflush()
+    next
 }

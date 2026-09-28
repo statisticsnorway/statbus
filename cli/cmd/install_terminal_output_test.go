@@ -8,6 +8,10 @@ import (
 	"regexp"
 	"strings"
 	"testing"
+	"time"
+
+	"github.com/statisticsnorway/statbus/cli/internal/install"
+	"github.com/statisticsnorway/statbus/cli/internal/upgrade"
 )
 
 func TestInstallTerminalWriterReceivesEveryStepLine(t *testing.T) {
@@ -66,37 +70,78 @@ func TestInstallTerminalWriterReceivesEveryStepLine(t *testing.T) {
 	}
 }
 
-// TestInstallTerminalWriterShowsEveryInstallState: every sentence
-// logInstallState prints must reach the operator's terminal. The interrupted
-// first-install line ("The database exists but setup stopped ...") was
-// filtered out, so rc.10/rc.11's 5-install-interrupted-first-run could not see
-// it on either fleet. The sentences are read from install.go itself so a new
-// state line cannot be added without the filter noticing.
+// TestInstallTerminalWriterShowsEveryInstallState runs the real
+// logInstallState for every install.State (both live-holder forms included)
+// and pipes its output through the operator terminal filter: every non-blank
+// line must reach the terminal exactly once. The interrupted first-install
+// line was filtered out, so rc.11's 5-install-interrupted-first-run could not
+// see it (LXD run 36373249889). A new State or a new line in
+// logInstallState is exercised automatically and cannot be hidden silently.
+// The three NothingScheduled drift sub-lines depend on a live database and
+// are checked as literals below, along with the two fixed transitions
+// printed around logInstallState in runInstall.
 func TestInstallTerminalWriterShowsEveryInstallState(t *testing.T) {
-	source, err := os.ReadFile("install.go")
-	if err != nil {
-		t.Fatal(err)
+	started := time.Date(2026, 9, 28, 3, 44, 5, 0, time.UTC)
+	cases := []struct {
+		name   string
+		state  install.State
+		detail *install.Detail
+	}{
+		{"install holder with pid", install.StateLiveUpgrade, &install.Detail{Flag: &upgrade.UpgradeFlag{Holder: upgrade.HolderInstall, StartedAt: started, PID: 4242}}},
+		{"install holder without pid", install.StateLiveUpgrade, &install.Detail{Flag: &upgrade.UpgradeFlag{Holder: upgrade.HolderInstall, StartedAt: started}}},
+		{"service holder", install.StateLiveUpgrade, &install.Detail{Flag: &upgrade.UpgradeFlag{Holder: upgrade.HolderService, StartedAt: started}}},
 	}
-	body := strings.SplitN(string(source), "func logInstallState(", 2)
-	if len(body) != 2 {
-		t.Fatal("logInstallState not found")
+	for s := install.StateFresh; s <= install.StateFreshDBIncomplete; s++ {
+		if s == install.StateLiveUpgrade {
+			continue
+		}
+		cases = append(cases, struct {
+			name   string
+			state  install.State
+			detail *install.Detail
+		}{s.String(), s, &install.Detail{}})
 	}
-	body = strings.SplitN(body[1], "\n}\n", 2)
-	matches := regexp.MustCompile(`fmt\.Println\("([^"]+)"\)`).FindAllStringSubmatch(body[0], -1)
-	if len(matches) < 10 {
-		t.Fatalf("expected every install-state sentence, found %d", len(matches))
+	projDir := t.TempDir()
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			out := captureStdout(t, func() { logInstallState(projDir, c.state, c.detail) })
+			var want strings.Builder
+			for _, line := range strings.Split(out, "\n") {
+				if strings.TrimSpace(line) != "" {
+					want.WriteString(line + "\n")
+				}
+			}
+			if want.Len() == 0 {
+				t.Fatalf("state %s printed nothing", c.state)
+			}
+			if got := runTerminalFilter(t, out); got != want.String() {
+				t.Fatalf("install-state lines hidden or duplicated:\n got:\n%s\nwant:\n%s", got, want.String())
+			}
+		})
 	}
-	var input strings.Builder
-	for _, m := range matches {
-		input.WriteString(m[1] + "\n")
+	literals := "  The database is up to date.\n  Database updates will be applied.\n  The database and installed program differ. Repair will reconcile them.\nRecovery finished. Checking the installation again.\nThe database could not be checked. Continuing with installation repair.\n"
+	if got := runTerminalFilter(t, literals); got != literals {
+		t.Fatalf("fixed state lines hidden or duplicated:\n got:\n%s\nwant:\n%s", got, literals)
 	}
+	// Only the exact holder grammar passes; appended or substituted text must not.
+	for _, hostile := range []string{
+		"an installation started at 2026-09-28T03:44:05Z (process 42) is still running. Wait for it to finish, then run the same install command again; token=secret",
+		"an installation started at yesterday is still running. Wait for it to finish, then run the same install command again",
+		"an installation started at 2026-09-28T03:44:05Z (process x) is still running. Wait for it to finish, then run the same install command again",
+	} {
+		if got := runTerminalFilter(t, hostile+"\n"); got != "" {
+			t.Fatalf("non-grammar holder text reached the terminal: %q", got)
+		}
+	}
+}
+
+func runTerminalFilter(t *testing.T, input string) string {
+	t.Helper()
 	cmd := exec.Command("awk", "-f", "../../ops/install-terminal-output.awk")
-	cmd.Stdin = strings.NewReader(input.String())
+	cmd.Stdin = strings.NewReader(input)
 	got, err := cmd.Output()
 	if err != nil {
 		t.Fatal(err)
 	}
-	if string(got) != input.String() {
-		t.Fatalf("install-state lines hidden from the operator:\n got:\n%s\nwant:\n%s", got, input.String())
-	}
+	return string(got)
 }
