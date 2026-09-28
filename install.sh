@@ -783,7 +783,7 @@ fi
 # an OLDER version (STATBUS_INSTALL_VERSION pinning a previous stable), the
 # target tree may predate the filter — degrade to unfiltered output instead of
 # dying in awk. (Observed: rc.08's script installing v2026.09.2, 2026-09-27.)
-awk_filter=cat
+awk_filter='cat'
 if [ -f "$STATBUS_DIR/ops/install-terminal-output.awk" ]; then
     awk_filter="$STATBUS_DIR/ops/install-terminal-output.awk"
 fi
@@ -887,7 +887,9 @@ if [ -n "$failed_step" ]; then
     # be listed here, or the operator gets the generic step line instead (the
     # database-route cause was missing: rc.08 and rc.10
     # 5-install-database-route-interrupted).
-    failure_detail=$(grep -E '^INSTALL_CAUSE: (port [0-9]+ is in use by [[:print:]]+|The database route at (127\.0\.0\.1|localhost|\[::1\]):[0-9]{2,5} is unavailable; the web entry point provides this route\.|The disk ran out of free space\.|Docker is not running\.|The installer cannot access Docker\.|A required image could not be downloaded\.|The database did not become reachable after it started\.|The database rejected its password\.|The user service manager is unavailable\.|The source update could not be fetched\.|The release signature could not be verified\.|The [A-Za-z +]+ step could not finish; the details are in the support file\.)$' "$install_output" | tail -1 | sed 's/^INSTALL_CAUSE: //' || true)
+    # The following grep ERE is checked against every Go cause and fix sentence.
+    # INSTALL_CAUSE_ALLOWLIST: exact classified operator grammar follows.
+    failure_detail=$(grep -E '^INSTALL_CAUSE: (port ([0-9]+) is in use by (([A-Za-z0-9_-]+)\. Free the port with sudo (systemctl disable --now \4|kill \$\(sudo lsof -tiTCP:\2 -sTCP:LISTEN\))|another program\. Find the listener with sudo ss -ltnp '"'"'\( sport = :\2 \)'"'"', then stop that program to free port \2)\.|The database route at (127\.0\.0\.1|localhost|\[::1\]):[0-9]{2,5} is unavailable; the web entry point provides this route\.|The disk ran out of free space\.|Docker is not running\.|The installer cannot access Docker\.|A required image could not be downloaded\.|The database did not become reachable after it started\.|The database rejected its password\.|The user service manager is unavailable\.|The source update could not be fetched\.|The release signature could not be verified\.|The [A-Za-z +]+ step could not finish; the details are in the support file\.)$' "$install_output" | tail -1 | sed 's/^INSTALL_CAUSE: //' || true)
     failure_fix=$(grep -E '^INSTALL_FIX: (Start or repair the web entry point, then retry the install\.|Free space on the installation disk and Docker storage, then retry\.|Start Docker and then retry\.|Give this user access to the Docker socket, then retry\.|Check registry access, DNS and image credentials, then retry\.|Check Docker and database service health, then retry\.|Check the saved database credentials and synchronize them with the running database, then retry\.|Enable linger for the installation user and start its systemd user manager, then retry\.|Check network access and Git repository permissions, then retry\.|Verify the release signer and approve a trusted signer before retrying\.)$' "$install_output" | tail -1 | sed 's/^INSTALL_FIX: //' || true)
     if [ -z "$failure_detail" ]; then
         failure_detail=$(printf '%s\n' "$failed_step" | sed -E 's/^\[([0-9]+\/[0-9]+)\] ([^ ]([^ ]| +[^ ])*) +FAILED: .*/step \1 (\2) failed: this part of installation could not finish/')
