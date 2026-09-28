@@ -131,6 +131,9 @@ if ! git cat-file -e $HEAD_LOCAL 2>/dev/null; then
 fi
 git checkout $HEAD_LOCAL
 cp /tmp/env-config .env.config
+if [ -f /tmp/env-credentials ]; then
+    install -m 0600 /tmp/env-credentials .env.credentials
+fi
 cp /tmp/users.yml .users.yml
 echo \$\$ > /tmp/install-c10-first.pid
 exec env STATBUS_INJECT_AT=concurrent-install-attempted-during-migrate-up \

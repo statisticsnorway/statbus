@@ -66,6 +66,22 @@ HARNESS_LIB_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 HARNESS_ROOT="$(cd "$HARNESS_LIB_DIR/../../.." && pwd)"
 source "$HARNESS_LIB_DIR/watch-decisions.sh"
 
+# The bootstrap fixture must reflect the BASE_SHA's credential contract, not
+# the harness HEAD's. STATBUS-361 introduced this read from .env.credentials
+# and simultaneously made fresh installs refuse GITHUB_TOKEN in .env.config.
+# Probe the defining source statement rather than a commit SHA (as with the
+# upgrade-channel era probe below). An unset BASE_SHA denotes current code.
+harness_render_github_token() {
+    local config_file="$1" credentials_file="$2" base="${BASE_SHA:-HEAD}"
+    [ -n "${GITHUB_TOKEN:-}" ] || return 0
+    git -C "$HARNESS_ROOT" cat-file -e "$base:cli/internal/config/config.go" || return 1
+    if git -C "$HARNESS_ROOT" show "$base:cli/internal/config/config.go" | grep -F 'creds.GithubToken, _ = f.Get("GITHUB_TOKEN")' >/dev/null; then
+        printf 'GITHUB_TOKEN=%s\n' "$GITHUB_TOKEN" >> "$credentials_file"
+    else
+        printf 'GITHUB_TOKEN=%s\n' "$GITHUB_TOKEN" >> "$config_file"
+    fi
+}
+
 # Load HCLOUD_TOKEN from .env.credentials if not in env.
 if [ -z "${HCLOUD_TOKEN:-}" ]; then
     if [ -f "$HARNESS_ROOT/.env.credentials" ]; then
@@ -756,7 +772,7 @@ _apply_hardening() {
     scp -O "${SSH_OPTS[@]}" "$HARNESS_ROOT/ops/setup-ubuntu-lts.sh" root@"$ip":/tmp/setup.sh
     ssh "${SSH_OPTS[@]}" root@"$ip" 'chmod 0755 /tmp/setup.sh'
 
-    local env_config_file users_file
+    local env_config_file env_credentials_file users_file
     env_config_file=$(umask 077; mktemp)
     cat > "$env_config_file" << 'ENVCONFIG'
 DEPLOYMENT_SLOT_NAME=Install Test
@@ -862,16 +878,21 @@ ENVCONFIG
     # transfer: every earlier build step (cat, sed, printf) can fail under
     # `set -e` and exit the shell, but at that point the file holds no secret.
     # Under `set -e` a failing command exits the shell without running a RETURN
-    # trap, so the block catches the failure, removes the file, re-raises.
+    # trap, so the block catches the failure, removes both files, re-raises.
+    # Post-361 bases receive /tmp/env-credentials; pre-361 bases still read
+    # GITHUB_TOKEN from /tmp/env-config. Empty credentials files are not sent.
+    env_credentials_file=$(umask 077; mktemp)
     local transfer_rc=0
     {
-        if [ -n "${GITHUB_TOKEN:-}" ]; then
-            printf 'GITHUB_TOKEN=%s\n' "$GITHUB_TOKEN" >> "$env_config_file"
-        fi \
+        harness_render_github_token "$env_config_file" "$env_credentials_file" \
         && scp -O "${SSH_OPTS[@]}" "$env_config_file" root@"$ip":/tmp/env-config \
-        && ssh "${SSH_OPTS[@]}" root@"$ip" 'chmod 0600 /tmp/env-config'
+        && ssh "${SSH_OPTS[@]}" root@"$ip" 'chmod 0600 /tmp/env-config' \
+        && { if [ -s "$env_credentials_file" ]; then
+            scp -O "${SSH_OPTS[@]}" "$env_credentials_file" root@"$ip":/tmp/env-credentials \
+                && ssh "${SSH_OPTS[@]}" root@"$ip" 'chmod 0600 /tmp/env-credentials'
+        fi; }
     } || transfer_rc=$?
-    rm -f "$env_config_file" "$env_config_file.bak"
+    rm -f "$env_config_file" "$env_config_file.bak" "$env_credentials_file"
     [ "$transfer_rc" -eq 0 ] || return "$transfer_rc"
 
     users_file=$(mktemp)
@@ -939,13 +960,17 @@ EOF'
         grep -q XDG_RUNTIME_DIR /home/statbus/.profile 2>/dev/null \
             || echo "export XDG_RUNTIME_DIR=/run/user/\$(id -u)" >> /home/statbus/.profile
     '
-    # STATBUS-369: /tmp/env-config was uploaded root:root 0600 (STATBUS-341: it
-    # may carry a token) BEFORE this user existed. Every consumer copies it AS
-    # statbus, so it must be owned by statbus; keep 0600 so nobody else on the
-    # box can read it. This is the earliest point the owner exists. Fail loud:
-    # a box whose config the installer cannot read is not a box worth testing.
+    # STATBUS-369: config and optional credentials were uploaded root:root 0600
+    # BEFORE this user existed. Every consumer copies them AS statbus, so they
+    # must be owned by statbus; keep 0600 so nobody else on the box can read
+    # them. This is the earliest point the owner exists. Fail loud if the
+    # installer cannot read its inputs.
     ssh "${SSH_OPTS[@]}" root@"$ip" 'chown statbus:statbus /tmp/env-config && chmod 0600 /tmp/env-config && sudo -u statbus test -r /tmp/env-config' || {
         echo "  ERROR: /tmp/env-config is not readable by statbus after chown (STATBUS-369)" >&2
+        return 1
+    }
+    ssh "${SSH_OPTS[@]}" root@"$ip" 'if [ -f /tmp/env-credentials ]; then chown statbus:statbus /tmp/env-credentials && chmod 0600 /tmp/env-credentials && sudo -u statbus test -r /tmp/env-credentials; fi' || {
+        echo "  ERROR: /tmp/env-credentials is not readable by statbus after chown" >&2
         return 1
     }
     if [ "$deployment_mode" = standalone ] && [ "${HARNESS_NO_CUSTOM_CERT:-0}" != 1 ]; then
@@ -1467,6 +1492,9 @@ fi
 # For RESCUE mode these survive install.sh's 'git checkout -B current origin/master'.
 $(if [ "${HARNESS_DEPLOYMENT_MODE:-standalone}" = standalone ] && [ "${HARNESS_NO_CUSTOM_CERT:-0}" != 1 ]; then printf 'install -d -m 0755 ~/statbus/caddy/data/custom-certs\ninstall -m 0644 ~/harness-certs/domain.crt ~/statbus/caddy/data/custom-certs/domain.crt\ninstall -m 0600 ~/harness-certs/domain.key ~/statbus/caddy/data/custom-certs/domain.key'; fi)
 cp /tmp/env-config ~/statbus/.env.config || { echo "harness: cannot copy /tmp/env-config as $(id -un): $(ls -l /tmp/env-config 2>&1 || true)"; exit 70; }
+if [ -f /tmp/env-credentials ]; then
+    install -m 0600 /tmp/env-credentials ~/statbus/.env.credentials || { echo "harness: cannot copy /tmp/env-credentials as $(id -un)"; exit 70; }
+fi
 cp /tmp/users.yml ~/statbus/.users.yml || { echo "harness: cannot copy /tmp/users.yml as $(id -un): $(ls -l /tmp/users.yml 2>&1 || true)"; exit 70; }
 # Run the real install.sh (uploaded as /tmp/statbus-install.sh to avoid a naming
 # conflict with the harness wrapper at /tmp/install.sh). Always in RESCUE mode
@@ -1519,6 +1547,9 @@ $(if [ "${HARNESS_DEPLOYMENT_MODE:-standalone}" = standalone ] && [ "${HARNESS_N
 # 0600 upload, copied as statbus) for three RCs and made the released binary
 # report "fresh, no .env.config". A missing config must fail here, by name.
 cp /tmp/env-config .env.config || { echo "harness: cannot copy /tmp/env-config to ~/statbus/.env.config as $(id -un): $(ls -l /tmp/env-config 2>&1 || true)"; exit 70; }
+if [ -f /tmp/env-credentials ]; then
+    install -m 0600 /tmp/env-credentials .env.credentials || { echo "harness: cannot copy /tmp/env-credentials as $(id -un)"; exit 70; }
+fi
 cp /tmp/users.yml .users.yml || { echo "harness: cannot copy /tmp/users.yml as $(id -un): $(ls -l /tmp/users.yml 2>&1 || true)"; exit 70; }
 STATBUS_MIN_DISK_GB=5 ./sb install --non-interactive --trust-github-user jhf $extra_args
 SCRIPT
@@ -1681,6 +1712,9 @@ docker rm "\$cid"
 chmod +x ./sb
 # Pre-place config: ./sb install needs .env.config + .users.yml.
 cp /tmp/env-config .env.config || { echo "harness: cannot copy /tmp/env-config as $(id -un): $(ls -l /tmp/env-config 2>&1 || true)"; exit 70; }
+if [ -f /tmp/env-credentials ]; then
+    install -m 0600 /tmp/env-credentials .env.credentials || { echo "harness: cannot copy /tmp/env-credentials as $(id -un)"; exit 70; }
+fi
 $(if [ "${HARNESS_DEPLOYMENT_MODE:-standalone}" = standalone ] && [ "${HARNESS_NO_CUSTOM_CERT:-0}" != 1 ]; then printf 'install -d -m 0755 caddy/data/custom-certs\ninstall -m 0644 ~/harness-certs/domain.crt caddy/data/custom-certs/domain.crt\ninstall -m 0600 ~/harness-certs/domain.key caddy/data/custom-certs/domain.key'; fi)
 cp /tmp/users.yml .users.yml || { echo "harness: cannot copy /tmp/users.yml as $(id -un): $(ls -l /tmp/users.yml 2>&1 || true)"; exit 70; }
 ${install_command}

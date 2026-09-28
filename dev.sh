@@ -3390,6 +3390,7 @@ EOS
         bash "$WORKSPACE/test/install-recovery/tests/process-log-registration-test.sh"
         bash "$WORKSPACE/test/install-recovery/tests/scenario-helper-resolution-test.sh"
         bash "$WORKSPACE/test/install-recovery/tests/harness-failure-path-selftest.sh"
+        bash "$WORKSPACE/test/install-recovery/tests/github-token-era-test.sh"
         bash "$WORKSPACE/test/install-recovery/tests/lxd-default-domain-test.sh"
       ;;
     'test-assert-db-at-head' )
