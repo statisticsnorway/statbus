@@ -327,10 +327,6 @@ lxd_fork() {
     start=$(date +%s); _lxd_host lxc copy "$base/checkpoint" "$name"
     VM_NAME=$name; LXD_OWNED_BY_THIS_RUN=1
     _lxd_mark "copy $base/checkpoint -> $name $(($(date +%s)-start))s"
-    if [ "$scenario" = 4-install-40gb-disk ]; then
-        _lxd_host lxc config device override "$name" root size=40GiB
-        _lxd_mark "$name root Btrfs quota 40GiB"
-    fi
     start=$(date +%s); _lxd_host lxc start "$name"
     _lxd_host lxc exec "$name" -- cloud-init status --wait
     # First boot's cloud-init rewrites ubuntu.sources back to archive/security
@@ -531,11 +527,7 @@ set -e
 } > "$HOME/install-input.env" )
 case "$(umask)" in *[4567]) echo 'harness: umask strips other-read'; exit 70 ;; esac
 export STATBUS_ENV_CONFIG="$HOME/install-input.env"
-if [[ "$7" == *-4-install-40gb-disk ]]; then
-    unset STATBUS_MIN_DISK_GB
-else
-    export STATBUS_MIN_DISK_GB=5
-fi
+export STATBUS_MIN_DISK_GB=5
 if [ "$2" = standalone ] && [ "$4" != 1 ]; then export STATBUS_HARNESS_CERT_STAGING="$HOME/harness-certs"; fi
 export STATBUS_INSTALL_VERSION="$1"
 if [ "$6" = 1 ]; then

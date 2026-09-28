@@ -161,12 +161,6 @@ for slug in "${scenarios[@]}"; do
         rc=0
         LC_ALL="$scenario_locale" LXD_CANDIDATE="$TAG" LXD_LOG_DIR="$RUN_DIR" bash "$SHADOW_ROOT/test/install-recovery/scenarios/$slug.sh" "statbus-recovery-$slug" >"$RUN_DIR/$slug.log" 2>&1 || rc=$?
         verdict=$(lxd_scenario_verdict "$RUN_DIR/$slug.log" "$rc")
-        if [ "$slug" = 4-install-40gb-disk ] && [ "$verdict" = PASS ]; then
-            if ! awk '$1 ~ /^\/dev\// && $2 == "40G" {found=1} END {exit !found}' "$RUN_DIR/$slug.log"; then
-                verdict=INVALID
-                echo 'INVALID: guest df did not expose the 40G filesystem; LXD Btrfs quota alone is not a 40G VM proof' >> "$RUN_DIR/$slug.log"
-            fi
-        fi
         printf '%s\t\t\t%s\t%s\t%s\t%s\n' "$slug" "$verdict" "$(( $(date +%s) - started ))" "$rc" "$checkpoint" > "$RUN_DIR/$slug.row"
     ) &
     pids+=("$!")

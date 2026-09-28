@@ -26,7 +26,7 @@ Sister documents: [release-workflow-gates.md](release-workflow-gates.md)
 | 9 | Norway canary | a person installs the candidate on `rune` deliberately, against an observation card | human | the King, never automated |
 | 10 | `./sb release stable` | reads rungs 2 to 9 at the exact commit and promotes the LATEST rc | laptop | the King |
 
-Rungs 4 and 5 share one selected VM matrix run and one fleet lease; rung 8 is still a fresh-VM arc matrix. Rung 7 is the independent LXD checkpoint-tree fault gate. Its 40 GB disk scenario lacks a faithful guest filesystem proof without KVM and remains an explicit owner question, not an implicit pass. Rungs 4 to 8 are driven in order by `release-fleet-orchestrator.yaml`, which
+Rungs 4 and 5 share one selected VM matrix run and one fleet lease; rung 8 is still a fresh-VM arc matrix. Rung 7 is the independent LXD checkpoint-tree fault gate. The former 40 GB disk scenario was dropped (owner, 2026-09-28): its policy is unit-tested and smoke installs on real 40 GB VMs. Rungs 4 to 8 are driven in order by `release-fleet-orchestrator.yaml`, which
 owns the tag. A failure at any rung stops the chain before the next, more
 expensive rung is rented.
 
