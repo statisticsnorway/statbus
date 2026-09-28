@@ -19,6 +19,20 @@ access. Host accounts, firewall rules, and apt settings belong to host
 provisioning and are not removed. After full removal, run the regular
 `install.sh` command for a fresh installation.
 
+**Deletion boundary.** Docker 25 or newer is required. All recursive deletion
+of the checkout runs inside a Docker helper that sees your home directory
+through a private, non-recursive bind, so a directory mounted anywhere under
+`~/statbus` is never entered or deleted. The uninstaller refuses before
+stopping anything if it finds such a mount, or if Docker is older or cannot
+be checked. One narrow case remains, disclosed here: before the confirmation
+the uninstaller creates its own marker file `~/statbus/tmp/upgrade-in-progress.json`
+(and `~/statbus/tmp` if it is missing). An administrator with root who mounts
+another directory of the same filesystem onto `~/statbus` or `~/statbus/tmp`
+exactly between the uninstaller's checks and that write, and detaches it
+again, can make that one marker file (and `tmp`) be created, written or removed
+in the mounted directory instead. No other file outside `~/statbus` can be
+affected, and nothing outside it is deleted recursively.
+
 This guide is for **system administrators** deploying StatBus for a single country or organization.
 
 **Note**: For multi-tenant cloud deployments (hosting multiple countries), see [CLOUD.md](CLOUD.md).
