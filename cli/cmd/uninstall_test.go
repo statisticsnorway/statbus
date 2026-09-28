@@ -9,6 +9,44 @@ import (
 	"testing"
 )
 
+func TestUninstallNestedMountRefusesBeforeTeardown(t *testing.T) {
+	home := t.TempDir()
+	dir := filepath.Join(home, "statbus")
+	mountpoint := filepath.Join(dir, "caddy", "data")
+	external := filepath.Join(home, "external")
+	for _, path := range []string{mountpoint, external} {
+		if err := os.MkdirAll(path, 0700); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := os.WriteFile(filepath.Join(external, "sentinel"), []byte("untouched"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	bin := filepath.Join(home, "bin")
+	if err := os.Mkdir(bin, 0700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(bin, "findmnt"), []byte("#!/bin/sh\nprintf '%s\\n' \"$HOME/statbus/caddy/data\"\n"), 0700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(bin, "docker"), []byte("#!/bin/sh\necho called >> \"$HOME/teardown\"\n"), 0700); err != nil {
+		t.Fatal(err)
+	}
+	script, _ := filepath.Abs("../../uninstall.sh")
+	cmd := exec.Command("bash", script)
+	cmd.Env = append(os.Environ(), "HOME="+home, "PATH="+bin+":"+os.Getenv("PATH"), "STATBUS_UNINSTALL_CONFIRM=yes-delete-everything")
+	out, err := cmd.CombinedOutput()
+	if err == nil || !strings.Contains(string(out), mountpoint) || strings.Contains(string(out), "Step 2") {
+		t.Fatalf("nested mount refusal: %v %s", err, out)
+	}
+	if _, err := os.Stat(filepath.Join(home, "teardown")); !os.IsNotExist(err) {
+		t.Fatalf("Docker called before mount refusal: %v", err)
+	}
+	if data, err := os.ReadFile(filepath.Join(external, "sentinel")); err != nil || string(data) != "untouched" {
+		t.Fatalf("external sentinel: %v %s", err, data)
+	}
+}
+
 func TestUninstallScriptSelectionsAndRerun(t *testing.T) {
 	script, err := filepath.Abs("../../uninstall.sh")
 	if err != nil {

@@ -37,8 +37,39 @@ if ! perl -e 'use Fcntl ":flock"; open(my $f, "<&=8") or exit 2; exit(flock($f, 
 fi
 # The Go install/upgrade mutex and install.sh's statbus_repo_lock are the
 # exclusive flock on this exact inode. Never unlink it until the last operation.
+# A bind of the checkout can include submounts (even same-filesystem bind mounts).
+# Inspect mountpoints, not filesystem boundaries, before any service is stopped.
+refuse_nested_mounts() {
+    local mounts mountpoint
+    if command -v findmnt >/dev/null 2>&1; then
+        mounts=$(findmnt -rn -o TARGET) || { echo 'Cannot inspect mountpoints; refusing removal. Check findmnt and retry.'; return 1; }
+    elif [[ -r /proc/self/mountinfo ]]; then
+        mounts=$(perl -ne 'my @fields = split / /; my $target = $fields[4]; $target =~ s/\\([0-7]{3})/chr(oct($1))/ge; print "$target\n"' /proc/self/mountinfo) || { echo 'Cannot inspect mountpoints; refusing removal.'; return 1; }
+    elif [[ $(uname -s) == Linux ]]; then
+        echo 'Cannot inspect mountpoints; install findmnt and retry.'
+        return 1
+    else
+        # Non-Linux hosts are used by the CLI's mocked shell tests.
+        return 0
+    fi
+    mountpoint=$(printf '%s\n' "$mounts" | perl -MCwd=abs_path -e '
+        my $base = abs_path(shift) // die "Cannot resolve checkout\n";
+        $base =~ s{/$}{};
+        while (my $mount = <STDIN>) {
+            chomp $mount;
+            my $canonical = abs_path($mount);
+            next unless defined $canonical;
+            if (index($canonical, "$base/") == 0) { print "$mount\n"; last; }
+        }
+    ' "$DIR") || { echo 'Cannot resolve checkout mountpoints; refusing removal.'; return 1; }
+    if [[ -n $mountpoint ]]; then
+        echo "Mountpoint $mountpoint is inside $DIR; unmount it or move it outside the checkout, then retry removal."
+        return 1
+    fi
+}
 if [[ -d $DIR ]]; then
     [[ ! -L $DIR ]] || { echo 'Checkout is a symlink; refusing removal outside ~/statbus.'; exit 1; }
+    refuse_nested_mounts || exit 1
     [[ -d $DIR/tmp ]] || mkdir -p "$DIR/tmp"
     flag="$DIR/tmp/upgrade-in-progress.json"
     marker_owned=0
