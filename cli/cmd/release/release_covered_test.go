@@ -20,6 +20,7 @@ func TestParseScenario_FollowsTheScenarioDirectory(t *testing.T) {
 		"doc/readme.md",
 		upgradeArcDir+"postswap-mid-tx-kill"+upgradeArcSuffix,
 		"test/install-recovery/scenarios/5-install-stage-e-worker-busy.sh",
+		"test/install-recovery/scenarios/0-happy-install.sh",
 	)
 
 	cases := []struct {
@@ -27,7 +28,10 @@ func TestParseScenario_FollowsTheScenarioDirectory(t *testing.T) {
 		want     string
 	}{
 		{"postswap-mid-tx-kill", release.WorkflowUpgradeArcHarness},
-		{"5-install-stage-e-worker-busy", release.WorkflowInstallRecoveryHarness},
+		{"0-happy-install", release.WorkflowTestSmoke},
+	}
+	if _, err := release.ParseScenario(dir, head, "5-install-stage-e-worker-busy"); err == nil || !strings.Contains(err.Error(), "not a current scenario") {
+		t.Fatalf("retired VM fault must not have a current home, got %v", err)
 	}
 	for _, c := range cases {
 		got, err := release.ParseScenario(dir, head, c.scenario)
@@ -41,8 +45,24 @@ func TestParseScenario_FollowsTheScenarioDirectory(t *testing.T) {
 
 	if _, err := release.ParseScenario(dir, head, "no-such-scenario"); err == nil {
 		t.Fatal("an unknown scenario name must be refused, not looked up under a guessed workflow")
-	} else if !strings.Contains(err.Error(), "not a scenario at") {
+	} else if !strings.Contains(err.Error(), "not a current scenario at") {
 		t.Errorf("refusal must name the problem; got: %v", err)
+	}
+}
+
+func TestRetiredVMFaultWorkflowRefusedByLiveCLI(t *testing.T) {
+	workflow := release.WorkflowFleet
+	want := "VM fault workflow install-recovery-harness.yaml is retired; the LXD fleet is the release fault gate"
+	if err := releaseCoveredSubsetCmd.Args(releaseCoveredSubsetCmd, []string{workflow.String(), "HEAD"}); err == nil || err.Error() != want {
+		t.Fatalf("covered-subset refusal = %v, want %q", err, want)
+	}
+	if err := currentCoverageWorkflow(workflow); err == nil || err.Error() != want {
+		t.Fatalf("covered --workflow refusal = %v, want %q", err, want)
+	}
+	for _, live := range []release.Workflow{release.WorkflowArcs, release.WorkflowSmoke} {
+		if err := releaseCoveredSubsetCmd.Args(releaseCoveredSubsetCmd, []string{live.String(), "HEAD"}); err != nil {
+			t.Fatalf("current workflow %s refused: %v", live, err)
+		}
 	}
 }
 
@@ -74,8 +94,8 @@ func TestDecideScenarioCoverage_AsksTheScenarioHomeWorkflow(t *testing.T) {
 	if _, err := decideScenarioCoverageInWorkflow(dir, "0-happy-install", release.WorkflowSmoke, head); err != nil {
 		t.Fatalf("smoke happy install: %v", err)
 	}
-	if _, err := decideScenarioCoverage(dir, "0-happy-install", head); err == nil || !strings.Contains(err.Error(), "ambiguous") {
-		t.Fatalf("bare same-name scenario must be ambiguous, got %v", err)
+	if _, err := decideScenarioCoverage(dir, "0-happy-install", head); err != nil {
+		t.Fatalf("bare happy scenario must resolve to current smoke, got %v", err)
 	}
 	if asked["working"] != release.WorkflowUpgradeArcHarness {
 		t.Errorf("arc scenario asked under %q, want %q", asked["working"], release.WorkflowUpgradeArcHarness)

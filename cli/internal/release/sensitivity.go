@@ -206,12 +206,10 @@ func scenarioSensitivityRules(scenario Scenario) ([]sensitivityRule, error) {
 	var rules []sensitivityRule
 	switch scenario.Home {
 	case WorkflowFleet:
-		// Legacy VM scenario marks remain queryable for historical diagnostics.
-		// The current LXD stable gate reads one whole workflow result instead
-		// of applying these per-scenario rules to comparison.tsv.
+		// Historical VM marks can still be read in legacy diagnostics. Current
+		// LXD fault proofs are whole-workflow results, never this sensitivity walk.
 		ownPath = "test/install-recovery/scenarios/" + scenario.Name + ".sh"
 		rules = append(rules,
-			sensitivityRule{Kind: matchExact, Path: ".github/workflows/install-recovery-harness.yaml", Reason: ReasonSharedController},
 			sensitivityRule{Kind: matchExact, Path: "test/install-recovery/run.sh", Reason: ReasonSharedController},
 		)
 	case WorkflowArcs:
@@ -245,17 +243,19 @@ func scenarioSensitivityRules(scenario Scenario) ([]sensitivityRule, error) {
 }
 
 // happyPathCompatibilityRules makes the STATBUS-350 evidence union sound. The
-// two happy-path slugs may inherit a mark produced by ANY of their historical
-// producers (WorkflowsRunningScenario in evidence.go), so every producer's
-// wrapper and every consumer's wrapper must invalidate that inheritance,
-// regardless of which home is asking. Deleted legacy workflow files are listed
-// too: a diff that resurrects or edits one is a wrapper change.
+// two happy-path slugs may inherit historical evidence (evidence.go). The
+// deleted VM fault controller is NOT a current sensitivity rule; its old
+// evidence identity remains readable, but its wrapper no longer exists.
 func happyPathCompatibilityRules(name string) []sensitivityRule {
 	if happyPathCompatibilityWorkflows(name) == nil {
 		return nil
 	}
+	legacySmoke := WorkflowTestInstallLegacy
+	if name == "0-happy-upgrade" {
+		legacySmoke = WorkflowTestUpgradeLegacy
+	}
 	var rules []sensitivityRule
-	for _, w := range append([]string{WorkflowTestSmoke, WorkflowInstallRecoveryHarness}, happyPathCompatibilityWorkflows(name)...) {
+	for _, w := range []string{WorkflowTestSmoke, legacySmoke} {
 		rules = append(rules, sensitivityRule{Kind: matchExact, Path: ".github/workflows/" + w, Reason: ReasonSharedController})
 	}
 	rules = append(rules, sensitivityRule{Kind: matchExact, Path: "test/install-recovery/run.sh", Reason: ReasonSharedController})

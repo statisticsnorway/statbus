@@ -96,7 +96,7 @@ func TestMatchSensitivePath_UsesFullScenarioHomeAndOwnScript_STATBUS352(t *testi
 		{"fleet sibling", fleetA, "test/install-recovery/scenarios/scenario-b.sh", false, ""},
 		{"backup is not own", fleetA, "test/install-recovery/scenarios/scenario-a.sh.backup", false, ""},
 		{"fleet runner", fleetA, "test/install-recovery/run.sh", true, ReasonSharedController},
-		{"fleet workflow", fleetA, ".github/workflows/install-recovery-harness.yaml", true, ReasonSharedController},
+		{"retired VM controller", fleetA, ".github/workflows/install-recovery-harness.yaml", false, ""},
 		{"fleet ignores smoke wrapper", fleetA, ".github/workflows/test-smoke.yaml", false, ""},
 		{"smoke own", smokeInstall, "test/install-recovery/scenarios/0-happy-install.sh", true, ReasonOwnScenario},
 		{"smoke runner (select job runs the validator)", smokeInstall, "test/install-recovery/run.sh", true, ReasonSharedController},
@@ -169,10 +169,9 @@ func TestMatchSensitivePath_RejectsUndecidableScenarioAndPath_STATBUS352(t *test
 
 // TestHappyPathCompatibility_EveryProducerAndConsumerWrapperInvalidates_STATBUS350
 // is what makes WorkflowsRunningScenario's evidence union sound. A happy-path
-// mark may come from the current smoke workflow, a DELETED legacy smoke
-// workflow, or the install-recovery harness. Whichever home asks, a change to
-// ANY of those wrappers, to the runner, or to the own script must invalidate
-// inheritance. Ordinary scenarios gain none of these cross-home rules.
+// mark may come from a historical producer, but current sensitivity only
+// walks live wrappers, the runner and the own script. The retired VM
+// controller is not a runnable current workflow.
 func TestHappyPathCompatibility_EveryProducerAndConsumerWrapperInvalidates_STATBUS350(t *testing.T) {
 	dir := t.TempDir()
 	writeSensitivityPolicy(t, dir, testPolicy())
@@ -181,7 +180,7 @@ func TestHappyPathCompatibility_EveryProducerAndConsumerWrapperInvalidates_STATB
 		".github/workflows/test-smoke.yaml":               true,
 		".github/workflows/test-install.yaml":             true,
 		".github/workflows/test-upgrade.yaml":             false,
-		".github/workflows/install-recovery-harness.yaml": true,
+		".github/workflows/install-recovery-harness.yaml": false,
 		".github/workflows/upgrade-arc-harness.yaml":      false,
 		"test/install-recovery/run.sh":                    true,
 	}

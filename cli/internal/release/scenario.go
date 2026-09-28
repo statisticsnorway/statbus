@@ -8,7 +8,7 @@ import (
 	"strings"
 )
 
-// Scenario is a harness scenario that KNOWS which workflow runs it. It is a
+// Scenario is a harness scenario that KNOWS which workflow ran or runs it. It is a
 // value, not a string, so that "look this scenario up under the wrong
 // workflow" is not something a caller can write: the only ways to obtain one
 // are ScenariosAt (from the directory listing at a commit, the same listing
@@ -33,8 +33,9 @@ type Workflow string
 const (
 	// WorkflowArcs runs every test/install-recovery/arcs/<name>-arc.sh.
 	WorkflowArcs Workflow = WorkflowUpgradeArcHarness
-	// WorkflowFleet runs every test/install-recovery/scenarios/<name>.sh that
-	// is not marked skip-default.
+	// WorkflowFleet identifies OLD VM fault evidence only. The workflow file
+	// was deleted; current faults run as one LXD workflow result instead.
+	// Retained for reading pre-retirement marks, never offered by the live CLI.
 	WorkflowFleet Workflow = WorkflowInstallRecoveryHarness
 	// WorkflowSmoke runs the fixed two-scenario happy-path domain.
 	WorkflowSmoke Workflow = WorkflowTestSmoke
@@ -44,7 +45,7 @@ func (w Workflow) String() string { return string(w) }
 
 func (s Scenario) String() string { return s.Name }
 
-// Domain is the scenario set one harness workflow runs at a commit. It is
+// Domain is the scenario set one harness workflow runs (or historically ran) at a commit. It is
 // derived from git at that commit, never from the working tree, so a gate
 // evaluating an RC sees the RC's scenarios and not whatever HEAD has grown.
 type Domain struct {
@@ -69,14 +70,15 @@ const (
 	arcDir    = "test/install-recovery/arcs/"
 	arcSuffix = "-arc.sh"
 	fleetDir  = "test/install-recovery/scenarios/"
-	// FleetSkipDefaultMarker is the literal a scenario file carries to opt out
-	// of the default full suite. It must match test/install-recovery/run.sh's
-	// SKIP_DEFAULT_MARKER; cli/cmd's install_recovery_scenario_domain_test pins that.
+	// FleetSkipDefaultMarker belongs to historical VM domain lookups. The LXD
+	// driver independently uses the same marker for its candidate-pinned suite.
 	FleetSkipDefaultMarker = "HARNESS_SKIP_DEFAULT"
 )
 
-// ScenariosAt lists the scenarios a workflow runs at commit, by the same
-// directory listing the harness's own discover job uses. An EMPTY domain is an
+// ScenariosAt lists current smoke/arcs, or an explicitly requested historical
+// VM fault domain for pre-retirement evidence compatibility. The live CLI
+// refuses the historical identity; the LXD gate does not call this function.
+// An EMPTY listed domain is an
 // error, never a trivially-satisfied gate (STATBUS-216): the directory was
 // moved, the path is a typo, or every fleet scenario is marked skip-default.
 func ScenariosAt(projDir, commit string, workflow Workflow) (Domain, error) {
@@ -84,11 +86,13 @@ func ScenariosAt(projDir, commit string, workflow Workflow) (Domain, error) {
 	case WorkflowArcs:
 		return arcsAt(projDir, commit)
 	case WorkflowFleet:
+		// Historical fixture/evidence compatibility only. The current stable gate
+		// never calls this domain: it checks the complete LXD workflow at the RC.
 		return fleetAt(projDir, commit)
 	case WorkflowSmoke:
 		return SmokeDomain(), nil
 	}
-	return Domain{}, fmt.Errorf("%q is not a harness workflow that runs scenarios (want %s, %s, or %s)", workflow, WorkflowArcs, WorkflowFleet, WorkflowSmoke)
+	return Domain{}, fmt.Errorf("%q is not a current harness workflow that runs scenarios (want %s or %s)", workflow, WorkflowArcs, WorkflowSmoke)
 }
 
 // ScenarioAt resolves a name inside one explicit workflow domain. Callers must
@@ -121,7 +125,7 @@ func ParseScenario(projDir, commit, name string) (Scenario, error) {
 	}
 	var errs []string
 	var matches []Scenario
-	for _, wf := range []Workflow{WorkflowArcs, WorkflowFleet, WorkflowSmoke} {
+	for _, wf := range []Workflow{WorkflowArcs, WorkflowSmoke} {
 		domain, err := ScenariosAt(projDir, commit, wf)
 		if err != nil {
 			errs = append(errs, fmt.Sprintf("%s: %v", wf, err))
@@ -146,8 +150,8 @@ func ParseScenario(projDir, commit, name string) (Scenario, error) {
 	if len(errs) == 2 {
 		return Scenario{}, fmt.Errorf("could not list any scenario domain at %s: %s", shortSHA(commit), strings.Join(errs, "; "))
 	}
-	return Scenario{}, fmt.Errorf("%q is not a scenario at %s: not in %s (arcs), %s (default fleet suite), or %s%s",
-		name, shortSHA(commit), arcDir, fleetDir, WorkflowSmoke, notesSuffix(errs))
+	return Scenario{}, fmt.Errorf("%q is not a current scenario at %s: not in %s (arcs) or %s (smoke)%s",
+		name, shortSHA(commit), arcDir, WorkflowSmoke, notesSuffix(errs))
 }
 
 func notesSuffix(errs []string) string {

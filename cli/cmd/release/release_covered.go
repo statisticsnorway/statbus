@@ -39,11 +39,22 @@ import (
 
 var releaseCoveredWorkflow string
 
+func currentCoverageWorkflow(workflow release.Workflow) error {
+	if workflow == release.WorkflowFleet {
+		return fmt.Errorf("VM fault workflow %s is retired; the LXD fleet is the release fault gate", workflow)
+	}
+	if workflow != "" && workflow != release.WorkflowArcs && workflow != release.WorkflowSmoke {
+		return fmt.Errorf("unsupported workflow %q (want %s or %s)", workflow, release.WorkflowArcs, release.WorkflowSmoke)
+	}
+	return nil
+}
+
 var releaseCoveredCmd = &cobra.Command{
 	Use:   "covered <scenario> <commit>",
 	Short: "Report whether a scenario is already proven at a commit (exit 0 covered, 1 must-run, 2 undecidable)",
 	Long: "Report whether <scenario> is already proven at <commit>, either because it ran there\n" +
 		"or because it is covered by an earlier code-state with nothing relevant changed since.\n" +
+		"Current scenario domains are VM smoke and upgrade arcs; LXD faults use a whole-fleet gate.\n" +
 		"Fresh-install evidence is candidate-specific and cannot inherit across versions.\n\n" +
 		"Uses the same decision evaluator as the promotion gate and covered-subset.\n\n" +
 		"Exit codes: 0 = covered (may skip), 1 = not covered (must run), 2 = could not decide.",
@@ -53,6 +64,9 @@ var releaseCoveredCmd = &cobra.Command{
 		projDir := config.ProjectDir()
 
 		workflow := release.Workflow(releaseCoveredWorkflow)
+		if err := currentCoverageWorkflow(workflow); err != nil {
+			return err
+		}
 		verdict, err := decideScenarioCoverageInWorkflow(projDir, scenario, workflow, commit)
 		if err != nil {
 			// Undecidable is NOT "must run": say so, and exit 2.
@@ -112,19 +126,21 @@ var coveredSubsetDetailsFile string
 var releaseCoveredSubsetCmd = &cobra.Command{
 	Use:   "covered-subset <workflow> <commit>",
 	Short: "Print the scenarios in a harness workflow that are not already covered",
-	Long: "Evaluate every scenario in <workflow>'s domain at <commit> with the same coverage\n" +
+	Long: "Evaluate VM smoke or upgrade-arc scenarios at <commit> with the same coverage\n" +
 		"algorithm as the promotion gate, printing only uncovered scenario selectors on stdout.\n\n" +
+		"The VM fault workflow is retired; LXD faults use the whole-fleet gate.\n\n" +
 		"Exit codes: 0 = decision complete (stdout may be empty), 2 = any scenario was undecidable.",
 	Args: func(cmd *cobra.Command, args []string) error {
 		if err := cobra.ExactArgs(2)(cmd, args); err != nil {
 			return err
 		}
-		switch release.Workflow(args[0]) {
-		case release.WorkflowArcs, release.WorkflowFleet, release.WorkflowSmoke:
-			return nil
-		default:
-			return fmt.Errorf("unsupported workflow %q (want %s, %s, or %s)", args[0], release.WorkflowArcs, release.WorkflowFleet, release.WorkflowSmoke)
+		if args[0] == "" {
+			return fmt.Errorf("a workflow is required (want %s or %s)", release.WorkflowArcs, release.WorkflowSmoke)
 		}
+		if err := currentCoverageWorkflow(release.Workflow(args[0])); err != nil {
+			return err
+		}
+		return nil
 	},
 	RunE: func(_ *cobra.Command, args []string) error {
 		workflow := release.Workflow(args[0])

@@ -168,158 +168,34 @@ func runBuiltCoverage(t *testing.T, binary, dir, apiURL string, args ...string) 
 	return builtCoverageResult{stdout: stdout.String(), stderr: stderr.String(), exit: exit}
 }
 
-func TestBuiltReleaseCoveredAndSubset_ScenarioAwareSensitivity_STATBUS352(t *testing.T) {
+func TestBuiltReleaseCoveredAndSubset_CurrentDomains(t *testing.T) {
 	api := emptyEvidenceServer(t)
-	newFixture := func(t *testing.T, changedPaths ...string) (string, string, string) {
-		t.Helper()
-		dir, anchor, target := realCoverageFixture(t, changedPaths...)
-		return dir, anchor, buildSBForCoverageInterface(t, target)
+	dir, anchor, target := realCoverageFixture(t, "test/install-recovery/arcs/working-arc.sh")
+	binary := buildSBForCoverageInterface(t, target)
+	for _, name := range []string{"working", "failing", "deploy-status-proof"} {
+		markScenarioAt(t, dir, release.Scenario{Name: name, Home: release.WorkflowArcs}, anchor)
 	}
-
-	t.Run("own versus sibling and reasoned details", func(t *testing.T) {
-		dir, anchor, binary := newFixture(t, "test/install-recovery/scenarios/a.sh")
-		markScenarioAt(t, dir, release.Scenario{Name: "a", Home: release.WorkflowFleet}, anchor)
-		markScenarioAt(t, dir, release.Scenario{Name: "b", Home: release.WorkflowFleet}, anchor)
-		markScenarioAt(t, dir, release.Scenario{Name: "0-happy-install", Home: release.WorkflowFleet}, anchor)
-		markScenarioAt(t, dir, release.Scenario{Name: "0-happy-upgrade", Home: release.WorkflowFleet}, anchor)
-
-		own := runBuiltCoverage(t, binary, dir, api.URL, "release", "covered", "--workflow", release.WorkflowFleet.String(), "a", "HEAD")
-		if own.exit != exitMustRun || !strings.Contains(own.stdout, "test/install-recovery/scenarios/a.sh — own scenario") {
-			t.Fatalf("own result exit=%d stdout=%q stderr=%q", own.exit, own.stdout, own.stderr)
-		}
-		sibling := runBuiltCoverage(t, binary, dir, api.URL, "release", "covered", "--workflow", release.WorkflowFleet.String(), "b", "HEAD")
-		if sibling.exit != exitCovered || !strings.Contains(sibling.stdout, "already covered by") {
-			t.Fatalf("sibling result exit=%d stdout=%q stderr=%q", sibling.exit, sibling.stdout, sibling.stderr)
-		}
-
-		details := filepath.Join(dir, "tmp", "details.md")
-		subset := runBuiltCoverage(t, binary, dir, api.URL, "release", "covered-subset", "--details-file", details, release.WorkflowFleet.String(), "HEAD")
-		if subset.exit != exitCovered || strings.TrimSpace(subset.stdout) != "0-happy-install\na" {
-			t.Fatalf("subset exit=%d stdout=%q stderr=%q", subset.exit, subset.stdout, subset.stderr)
-		}
-		body, err := os.ReadFile(details)
-		if err != nil || !strings.Contains(string(body), "own scenario") {
-			t.Fatalf("details=%q err=%v", body, err)
-		}
-	})
-
-	t.Run("same-name fleet and smoke use different wrappers", func(t *testing.T) {
-		dir, anchor, binary := newFixture(t, ".github/workflows/upgrade-arc-harness.yaml")
-		fleetHappy := release.Scenario{Name: "0-happy-upgrade", Home: release.WorkflowFleet}
-		smokeHappy := release.Scenario{Name: "0-happy-upgrade", Home: release.WorkflowSmoke}
-		markScenarioAt(t, dir, fleetHappy, anchor)
-		markScenarioAt(t, dir, smokeHappy, anchor)
-
-		// An arc wrapper change is outside both happy-path homes: both stay covered.
-		fleetResult := runBuiltCoverage(t, binary, dir, api.URL, "release", "covered", "--workflow", release.WorkflowFleet.String(), fleetHappy.Name, "HEAD")
-		if fleetResult.exit != exitCovered {
-			t.Fatalf("fleet result exit=%d stdout=%q stderr=%q", fleetResult.exit, fleetResult.stdout, fleetResult.stderr)
-		}
-		smokeResult := runBuiltCoverage(t, binary, dir, api.URL, "release", "covered", "--workflow", release.WorkflowSmoke.String(), smokeHappy.Name, "HEAD")
-		if smokeResult.exit != exitCovered {
-			t.Fatalf("smoke result exit=%d stdout=%q stderr=%q", smokeResult.exit, smokeResult.stdout, smokeResult.stderr)
-		}
-		smokeSubset := runBuiltCoverage(t, binary, dir, api.URL, "release", "covered-subset", release.WorkflowSmoke.String(), "HEAD")
-		if smokeSubset.exit != exitCovered || smokeSubset.stdout != "0-happy-install\n" {
-			t.Fatalf("smoke subset exit=%d stdout=%q stderr=%q", smokeSubset.exit, smokeSubset.stdout, smokeSubset.stderr)
-		}
-		ambiguous := runBuiltCoverage(t, binary, dir, api.URL, "release", "covered", smokeHappy.Name, "HEAD")
-		if ambiguous.exit != exitUndecided || !strings.Contains(ambiguous.stderr, "ambiguous") {
-			t.Fatalf("ambiguous exit=%d stdout=%q stderr=%q", ambiguous.exit, ambiguous.stdout, ambiguous.stderr)
-		}
-	})
-
-	// STATBUS-369: use the inheritable baseline hop for wrapper sensitivity.
-	// STATBUS-350 compatibility: a happy-path mark may have been produced by
-	// the smoke workflow, a deleted legacy smoke workflow, or the harness. So a
-	// change to ANY of those wrappers must invalidate the slug in BOTH homes,
-	// while an ordinary fleet scenario ignores the smoke wrapper.
-	t.Run("happy-path producer wrapper invalidates both homes", func(t *testing.T) {
-		for _, wrapper := range []string{".github/workflows/install-recovery-harness.yaml", ".github/workflows/test-smoke.yaml", ".github/workflows/test-upgrade.yaml"} {
-			dir, anchor, binary := newFixture(t, wrapper)
-			for _, scenario := range []release.Scenario{
-				{Name: "0-happy-upgrade", Home: release.WorkflowFleet},
-				{Name: "0-happy-upgrade", Home: release.WorkflowSmoke},
-				{Name: "b", Home: release.WorkflowFleet},
-			} {
-				markScenarioAt(t, dir, scenario, anchor)
-			}
-			for _, home := range []release.Workflow{release.WorkflowFleet, release.WorkflowSmoke} {
-				result := runBuiltCoverage(t, binary, dir, api.URL, "release", "covered", "--workflow", home.String(), "0-happy-upgrade", "HEAD")
-				if result.exit != exitMustRun || !strings.Contains(result.stdout, wrapper+" — shared controller") {
-					t.Fatalf("%s %s: exit=%d stdout=%q stderr=%q", wrapper, home, result.exit, result.stdout, result.stderr)
-				}
-			}
-			ordinary := runBuiltCoverage(t, binary, dir, api.URL, "release", "covered", "--workflow", release.WorkflowFleet.String(), "b", "HEAD")
-			wantOrdinary := exitCovered
-			if wrapper == ".github/workflows/install-recovery-harness.yaml" {
-				wantOrdinary = exitMustRun
-			}
-			if ordinary.exit != wantOrdinary {
-				t.Fatalf("%s ordinary fleet b: exit=%d want %d stdout=%q", wrapper, ordinary.exit, wantOrdinary, ordinary.stdout)
-			}
-		}
-	})
-
-	for _, tc := range []struct {
-		name       string
-		changed    string
-		scenario   release.Scenario
-		wantReason release.SensitivityReason
-	}{
-		{"shared runner", "test/install-recovery/run.sh", release.Scenario{Name: "working", Home: release.WorkflowArcs}, release.ReasonSharedController},
-		{"shared library", "test/install-recovery/lib/assertions.sh", release.Scenario{Name: "a", Home: release.WorkflowFleet}, release.ReasonSharedHarnessInput},
-		{"shared fixture", "test/install-recovery/fixtures/stage-head.sh", release.Scenario{Name: "0-happy-upgrade", Home: release.WorkflowSmoke}, release.ReasonSharedHarnessInput},
-		{"arc deploy status", "ops/ci-deploy-status.sh", release.Scenario{Name: "failing", Home: release.WorkflowArcs}, release.ReasonSharedHarnessInput},
-		{"arc sshdo", "ops/niue/sshdoers", release.Scenario{Name: "deploy-status-proof", Home: release.WorkflowArcs}, release.ReasonSharedHarnessInput},
-		{"broad cli", "cli/internal/upgrade/service.go", release.Scenario{Name: "a", Home: release.WorkflowFleet}, release.ReasonBoxPayload},
-		{"proof interpreter", "cli/internal/release/sensitivity.go", release.Scenario{Name: "a", Home: release.WorkflowFleet}, release.ReasonProofInterpreter},
-	} {
-		t.Run(tc.name, func(t *testing.T) {
-			dir, anchor, binary := newFixture(t, tc.changed)
-			markScenarioAt(t, dir, tc.scenario, anchor)
-			result := runBuiltCoverage(t, binary, dir, api.URL, "release", "covered", "--workflow", tc.scenario.Home.String(), tc.scenario.Name, "HEAD")
-			if result.exit != exitMustRun || !strings.Contains(result.stdout, tc.changed+" — "+string(tc.wantReason)) {
-				t.Fatalf("exit=%d stdout=%q stderr=%q", result.exit, result.stdout, result.stderr)
-			}
-		})
+	own := runBuiltCoverage(t, binary, dir, api.URL, "release", "covered", "--workflow", release.WorkflowArcs.String(), "working", "HEAD")
+	if own.exit != exitMustRun || !strings.Contains(own.stdout, "working-arc.sh — own scenario") {
+		t.Fatalf("arc own result exit=%d stdout=%q stderr=%q", own.exit, own.stdout, own.stderr)
 	}
-
-	t.Run("arc helper subset is scoped to its actual callers", func(t *testing.T) {
-		dir, anchor, binary := newFixture(t, "ops/ci-deploy-status.sh")
-		for _, name := range []string{"working", "failing", "deploy-status-proof"} {
-			markScenarioAt(t, dir, release.Scenario{Name: name, Home: release.WorkflowArcs}, anchor)
-		}
-		result := runBuiltCoverage(t, binary, dir, api.URL, "release", "covered-subset", release.WorkflowArcs.String(), "HEAD")
-		if result.exit != exitCovered || strings.TrimSpace(result.stdout) != "deploy-status-proof\nfailing" {
-			t.Fatalf("arc subset exit=%d stdout=%q stderr=%q", result.exit, result.stdout, result.stderr)
-		}
-	})
-
-	t.Run("anchored false match stays covered", func(t *testing.T) {
-		dir, anchor, binary := newFixture(t, "tools/cli/example.go", "x/docker-compose.yml", "test/install-recovery/scenarios/a.sh.backup", "ops/niue/sshdo-not-used")
-		scenario := release.Scenario{Name: "a", Home: release.WorkflowFleet}
-		markScenarioAt(t, dir, scenario, anchor)
-		result := runBuiltCoverage(t, binary, dir, api.URL, "release", "covered", "--workflow", scenario.Home.String(), scenario.Name, "HEAD")
-		if result.exit != exitCovered {
-			t.Fatalf("exit=%d stdout=%q stderr=%q", result.exit, result.stdout, result.stderr)
-		}
-	})
-
-	t.Run("undecidable policy emits no partial subset", func(t *testing.T) {
-		dir, anchor, binary := newFixture(t, "doc/readme.md")
-		markScenarioAt(t, dir, release.Scenario{Name: "a", Home: release.WorkflowFleet}, anchor)
-		writeFixtureFile(t, dir, release.SensitivePathsFile, "old-substring-format\n")
-
-		one := runBuiltCoverage(t, binary, dir, api.URL, "release", "covered", "--workflow", release.WorkflowFleet.String(), "a", "HEAD")
-		if one.exit != exitUndecided || !strings.Contains(one.stderr, "could not decide") {
-			t.Fatalf("covered exit=%d stdout=%q stderr=%q", one.exit, one.stdout, one.stderr)
-		}
-		subset := runBuiltCoverage(t, binary, dir, api.URL, "release", "covered-subset", release.WorkflowFleet.String(), "HEAD")
-		if subset.exit != exitUndecided || subset.stdout != "" || !strings.Contains(subset.stderr, "sensitivity policy") {
-			t.Fatalf("subset exit=%d stdout=%q stderr=%q", subset.exit, subset.stdout, subset.stderr)
-		}
-	})
+	sibling := runBuiltCoverage(t, binary, dir, api.URL, "release", "covered", "--workflow", release.WorkflowArcs.String(), "failing", "HEAD")
+	if sibling.exit != exitCovered {
+		t.Fatalf("arc sibling result exit=%d stdout=%q stderr=%q", sibling.exit, sibling.stdout, sibling.stderr)
+	}
+	details := filepath.Join(dir, "tmp", "details.md")
+	subset := runBuiltCoverage(t, binary, dir, api.URL, "release", "covered-subset", "--details-file", details, release.WorkflowArcs.String(), "HEAD")
+	if subset.exit != exitCovered || strings.TrimSpace(subset.stdout) != "working" {
+		t.Fatalf("arc subset exit=%d stdout=%q stderr=%q", subset.exit, subset.stdout, subset.stderr)
+	}
+	body, err := os.ReadFile(details)
+	if err != nil || !strings.Contains(string(body), "own scenario") {
+		t.Fatalf("details=%q err=%v", body, err)
+	}
+	retired := runBuiltCoverage(t, binary, dir, api.URL, "release", "covered-subset", release.WorkflowFleet.String(), "HEAD")
+	if retired.exit == exitCovered || !strings.Contains(retired.stderr, "VM fault workflow") || !strings.Contains(retired.stderr, "LXD fleet") {
+		t.Fatalf("retired VM subset exit=%d stdout=%q stderr=%q", retired.exit, retired.stdout, retired.stderr)
+	}
 }
 
 func TestBuiltFreshInstallCoverage_STATBUS369(t *testing.T) {
@@ -327,7 +203,7 @@ func TestBuiltFreshInstallCoverage_STATBUS369(t *testing.T) {
 	dir, anchor, target := realCoverageFixture(t, "doc/readme.md")
 	runGitInCmd(t, dir, "tag", "v2026.09.0-rc.02")
 	binary := buildSBForCoverageInterface(t, target)
-	for _, home := range []release.Workflow{release.WorkflowSmoke, release.WorkflowFleet} {
+	for _, home := range []release.Workflow{release.WorkflowSmoke} {
 		install := release.Scenario{Name: "0-happy-install", Home: home}
 		markScenarioAt(t, dir, install, anchor)
 		markScenarioAt(t, dir, release.Scenario{Name: "0-happy-upgrade", Home: home}, anchor)
