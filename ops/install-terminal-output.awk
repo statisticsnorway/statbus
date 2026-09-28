@@ -49,10 +49,26 @@
     fflush()
     next
 }
+# Fixed consequential notices outside logInstallState (review2 findings 2, 3).
+# The configuration-refusal banner's heading and closing sentence pass, but
+# never the stored refusal message or its timestamp: those stay in the
+# installation diagnostics file the operator is pointed to. The restore
+# re-attempt legend, its success forecast and the degraded-outcome advice are
+# fixed text and pass verbatim.
+/^(⚠ The last start of the upgrade service refused its configuration:|If this run below fixes the config, the marker clears automatically\.|Re-attempting the restore from the retained snapshot \(this is what `\.\/sb install` does here\)\.\.\.|Restore complete — the system is running normally on the previous version\.|  The upgrade that failed has been rolled back\. To move forward:|    • Find a newer release:  \.\/sb upgrade check|    • The version that failed will fail the same way — try a LATER release when one is available\.|  The database restore could not be completed; the system is still degraded\.|  Next: contact SSB support and involve your IT staff\. Keep this box as-is for diagnosis;|  re-running `\.\/sb install` will re-attempt the same restore)$/ {
+    print
+    fflush()
+    next
+}
+/^A previous upgrade's rollback did not finish restoring the database \(row id=[0-9]+\)\.$/ {
+    print
+    fflush()
+    next
+}
 # upgrade.LiveInstallHolderRefusal: the one dynamic state line. Only its exact
 # grammar passes (RFC3339 time, optional numeric PID, fixed remedy), so no
 # other text can ride along to the operator's terminal.
-/^an installation (started at [0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\.[0-9]+)?(Z|[+-][0-9]{2}:[0-9]{2})( \(process [0-9]+\))? )?is still running\. Wait for it to finish, then run the same install command again$/ {
+/^an installation (started at 2[0-9]{3}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])T([01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9](Z|[+-]([01][0-9]|2[0-3]):[0-5][0-9])( \(process [1-9][0-9]*\))? )?is still running\. Wait for it to finish, then run the same install command again$/ {
     print
     fflush()
     next

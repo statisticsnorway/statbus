@@ -63,6 +63,7 @@ fi
 [ "${FORCE_TERMINAL:-}" != 1 ] || { mkdir -p tmp; printf 'INVARIANT TEST_GUARD violated: database did not become ready\n' > tmp/install-terminal.txt; }
 [ "${EMIT_ROLLBACK:-}" != 1 ] || { printf 'UPGRADE_FAILED_ROLLED_BACK\n'; exit 75; }
 [ "${EMIT_CLASSIFIED:-}" != 1 ] || { printf '[8/17] Services             FAILED: This part of installation could not finish.\nINSTALL_CAUSE: The database rejected its password.\nINSTALL_FIX: Check the saved database credentials and synchronize them with the running database, then retry.\n'; exit 47; }
+[ "${EMIT_DEGRADED_RESTORE:-}" != 1 ] || { printf 'A previous upgrade'"'"'s rollback did not finish restoring the database (row id=17).\n  The database restore could not be completed; the system is still degraded.\n  Next: contact SSB support and involve your IT staff. Keep this box as-is for diagnosis;\n'; exit 1; }
 [ "${EMIT_ROUTE_CAUSE:-}" != 1 ] || { printf '[17/17] Upgrade service      FAILED: This part of installation could not finish.\nINSTALL_CAUSE: The database route at 127.0.0.1:5431 is unavailable; the web entry point provides this route.\nINSTALL_FIX: Start or repair the web entry point, then retry the install.\n'; exit 47; }
 [ -z "${EMIT_PORT_CAUSE:-}" ] || { printf '[8/17] Services             FAILED: This part of installation could not finish.\nINSTALL_CAUSE: %s\n' "$EMIT_PORT_CAUSE"; exit 47; }
 [ "${FORCE_STEP_FAILURE:-}" != 1 ] || printf '[16/17] Trusted signers      FAILED: release signer approval was declined\n'
@@ -142,6 +143,18 @@ set -e
 grep -Fq 'Cause: The database route at 127.0.0.1:5431 is unavailable; the web entry point provides this route.' "$TMP_ROOT/route-output" || { cat "$TMP_ROOT/route-output" >&2; exit 1; }
 grep -Fq 'Outside fix: Start or repair the web entry point, then retry the install.' "$TMP_ROOT/route-output" || { cat "$TMP_ROOT/route-output" >&2; exit 1; }
 echo 'PASS: database-route cause and fix reach the wrapper'
+# A failed restore re-attempt is degraded on purpose: the wrapper must say
+# keep the box and contact support, never "run the same install command again".
+set +e
+EMIT_DEGRADED_RESTORE=1 STATBUS_ENV_CONFIG="$EXPECTED_CONFIG" STATBUS_USERS_FILE="$EXPECTED_USERS" \
+    bash "$ROOT/install.sh" --version v2026.09.0-rc.02 --non-interactive > "$TMP_ROOT/degraded-output" 2>&1
+rc=$?
+set -e
+[ "$rc" = 1 ] || { cat "$TMP_ROOT/degraded-output" >&2; exit 1; }
+grep -Fq 'Keep this box as it is and contact StatBus support' "$TMP_ROOT/degraded-output" || { cat "$TMP_ROOT/degraded-output" >&2; exit 1; }
+grep -Fq '  The database restore could not be completed; the system is still degraded.' "$TMP_ROOT/degraded-output" || { cat "$TMP_ROOT/degraded-output" >&2; exit 1; }
+if grep -Fq 'Then run the same install command again' "$TMP_ROOT/degraded-output"; then cat "$TMP_ROOT/degraded-output" >&2; exit 1; fi
+echo 'PASS: degraded restore keeps the box and points to support, no rerun advice'
 # Classified port failures have three product remedies. Only a single safe
 # owner token (or the literal fallback) and one of those remedies may cross
 # the wrapper's diagnostic boundary. Exit-78 preflight is tested below.

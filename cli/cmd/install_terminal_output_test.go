@@ -89,9 +89,12 @@ func TestInstallTerminalWriterShowsEveryInstallState(t *testing.T) {
 	}{
 		{"install holder with pid", install.StateLiveUpgrade, &install.Detail{Flag: &upgrade.UpgradeFlag{Holder: upgrade.HolderInstall, StartedAt: started, PID: 4242}}},
 		{"install holder without pid", install.StateLiveUpgrade, &install.Detail{Flag: &upgrade.UpgradeFlag{Holder: upgrade.HolderInstall, StartedAt: started}}},
+		{"install holder with offset zone", install.StateLiveUpgrade, &install.Detail{Flag: &upgrade.UpgradeFlag{Holder: upgrade.HolderInstall, StartedAt: started.In(time.FixedZone("CEST", 2*3600)), PID: 7}}},
 		{"service holder", install.StateLiveUpgrade, &install.Detail{Flag: &upgrade.UpgradeFlag{Holder: upgrade.HolderService, StartedAt: started}}},
 	}
-	for s := install.StateFresh; s <= install.StateFreshDBIncomplete; s++ {
+	// Iterate until State.String() stops naming a state, so a state appended
+	// to the enum is exercised without editing this loop (review2 finding 1).
+	for s := install.StateFresh; !strings.HasPrefix(s.String(), "unknown("); s++ {
 		if s == install.StateLiveUpgrade {
 			continue
 		}
@@ -123,11 +126,34 @@ func TestInstallTerminalWriterShowsEveryInstallState(t *testing.T) {
 	if got := runTerminalFilter(t, literals); got != literals {
 		t.Fatalf("fixed state lines hidden or duplicated:\n got:\n%s\nwant:\n%s", got, literals)
 	}
+	// Consequential notices outside logInstallState: the configuration-refusal
+	// banner passes, but never its stored message or timestamp; the restore
+	// re-attempt legend and both outcomes pass verbatim.
+	refusal := "⚠ The last start of the upgrade service refused its configuration:\n\n  (refused at 2026-09-28 03:44:05 UTC)\nUPGRADE_CHANNEL=foo token=secret is not a valid channel\n\nIf this run below fixes the config, the marker clears automatically.\n"
+	wantRefusal := "⚠ The last start of the upgrade service refused its configuration:\nIf this run below fixes the config, the marker clears automatically.\n"
+	if got := runTerminalFilter(t, refusal); got != wantRefusal {
+		t.Fatalf("configuration-refusal banner:\n got:\n%s\nwant:\n%s", got, wantRefusal)
+	}
+	restore := "A previous upgrade's rollback did not finish restoring the database (row id=17).\n" +
+		"Re-attempting the restore from the retained snapshot (this is what `./sb install` does here)...\n" +
+		"Restore complete — the system is running normally on the previous version.\n" +
+		"  The upgrade that failed has been rolled back. To move forward:\n" +
+		"    • Find a newer release:  ./sb upgrade check\n" +
+		"    • The version that failed will fail the same way — try a LATER release when one is available.\n" +
+		"  The database restore could not be completed; the system is still degraded.\n" +
+		"  Next: contact SSB support and involve your IT staff. Keep this box as-is for diagnosis;\n" +
+		"  re-running `./sb install` will re-attempt the same restore\n"
+	if got := runTerminalFilter(t, restore); got != restore {
+		t.Fatalf("restore re-attempt lines hidden or duplicated:\n got:\n%s\nwant:\n%s", got, restore)
+	}
 	// Only the exact holder grammar passes; appended or substituted text must not.
 	for _, hostile := range []string{
 		"an installation started at 2026-09-28T03:44:05Z (process 42) is still running. Wait for it to finish, then run the same install command again; token=secret",
 		"an installation started at yesterday is still running. Wait for it to finish, then run the same install command again",
 		"an installation started at 2026-09-28T03:44:05Z (process x) is still running. Wait for it to finish, then run the same install command again",
+		"an installation started at 2026-99-99T99:99:99+99:99 is still running. Wait for it to finish, then run the same install command again",
+		"an installation started at 2026-09-28T03:44:05.123Z is still running. Wait for it to finish, then run the same install command again",
+		"an installation started at 2026-09-28T03:44:05Z (process 0) is still running. Wait for it to finish, then run the same install command again",
 	} {
 		if got := runTerminalFilter(t, hostile+"\n"); got != "" {
 			t.Fatalf("non-grammar holder text reached the terminal: %q", got)

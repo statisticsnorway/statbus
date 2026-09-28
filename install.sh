@@ -906,6 +906,16 @@ else
     failure_detail="the installer could not finish"
 fi
 
+# A restore re-attempt that failed again leaves the box degraded on purpose:
+# the Go side already told the operator (lines passed by the terminal filter)
+# to keep the box as-is and contact support. The closing instruction below must
+# not contradict that with "run it again" (review2-state-lines finding 3).
+restore_degraded=0
+if grep -Fxq '  The database restore could not be completed; the system is still degraded.' "$install_output"; then
+    restore_degraded=1
+    failure_detail="the database restore could not be completed; the system is still degraded"
+fi
+
 # 2. Support bundle, gathered without printing internal diagnostics.
 bundle_path=""
 if bundle_path=$(./sb support gather --trigger=install 2>/tmp/sb-support-gather.err); then
@@ -920,6 +930,18 @@ fi
     >/dev/null 2>&1 || true
 
 # 4. Operator-facing instruction.
+if [ "$restore_degraded" = 1 ]; then
+    echo ""
+    echo "The database restore could not be completed; the system is still degraded."
+    echo "Keep this box as it is and contact StatBus support with your IT staff."
+    if [ -n "$bundle_path" ]; then
+        echo "Send this file to StatBus support: $bundle_path"
+    else
+        echo "Installation diagnostics: $install_output"
+    fi
+    echo "==============================================================================="
+    exit "$sb_rc"
+fi
 echo ""
 echo "The installation stopped before it could finish."
 echo "Cause: $failure_detail"
