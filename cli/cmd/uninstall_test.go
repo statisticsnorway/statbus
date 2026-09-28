@@ -949,7 +949,7 @@ case "$1 $2" in
       a2) echo ghcr.io/statisticsnorway/statbus-db:sha-own;;
       b2) echo ghcr.io/statisticsnorway/statbus-worker:sha-foreign;;
     esac;;
-  'image ls') printf '%s\n' ghcr.io/statisticsnorway/statbus-app:sha-shared ghcr.io/statisticsnorway/statbus-db:sha-own ghcr.io/statisticsnorway/statbus-worker:sha-foreign;;
+  'image ls') printf '%s\n' ghcr.io/statisticsnorway/statbus-app:sha-shared ghcr.io/statisticsnorway/statbus-db:sha-own ghcr.io/statisticsnorway/statbus-worker:sha-foreign ghcr.io/statisticsnorway/statbus-worker:sha-orphan;;
   'image rm') echo "$3" >> "$HOME/removed-images";;
   'rm -f') echo "$*" >> "$HOME/removed-containers";;
   'run --rm')
@@ -970,8 +970,11 @@ esac
 	if err != nil {
 		t.Fatalf("removed-images: %v; output: %s", err, out)
 	}
-	if strings.Contains(string(removed), "sha-shared") || strings.Contains(string(removed), "sha-foreign") || !strings.Contains(string(removed), "sha-own") {
+	if strings.Contains(string(removed), "sha-shared") || strings.Contains(string(removed), "sha-foreign") || strings.Contains(string(removed), "sha-orphan") || !strings.Contains(string(removed), "sha-own") {
 		t.Fatalf("wrong image scope: %s; output: %s", removed, out)
+	}
+	if strings.Contains(string(out), "sha-orphan") {
+		t.Fatalf("unreferenced foreign tag entered deletion plan: %s", out)
 	}
 	if !strings.Contains(string(out), "shared") {
 		t.Fatalf("no explanation for retained shared tag: %s", out)
