@@ -46,8 +46,8 @@ func TestEveryInstallerRerunHintUsesSavedCommand(t *testing.T) {
 			t.Errorf("install.sh:%d hardcodes a retry", n+1)
 		}
 	}
-	if strings.Count(string(shellSource), "Then run: $STATBUS_INSTALL_RERUN_COMMAND") != 2 {
-		t.Error("pull and git failure retry hints must use saved command")
+	if strings.Count(string(shellSource), "Then run: $STATBUS_INSTALL_RERUN_COMMAND") != 3 {
+		t.Error("pull, git and settings-restore failure retry hints must use saved command")
 	}
 	if strings.Count(string(shellSource), "echo \"    $STATBUS_INSTALL_RERUN_COMMAND\"") != 2 {
 		t.Error("rollback and step failure retry hints must use saved command")

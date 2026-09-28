@@ -61,6 +61,7 @@ var installFailureCauses = []installFailureCause{
 	{regexp.MustCompile(`(?i)(failed to connect to bus|systemd.*user.*(?:unavailable|not running)|no medium found|linger.*(?:disabled|unavailable))`), "The user service manager is unavailable.", "Enable linger for the installation user and start its systemd user manager, then retry."},
 	{regexp.MustCompile(`(?i)(git.*(?:fetch|remote).*?(?:failed|fatal:|could not|unable to)|(?:fatal:.*(?:could not read from remote repository|unable to access|couldn't find remote ref)))`), "The source update could not be fetched.", "Check network access and Git repository permissions, then retry."},
 	{regexp.MustCompile(`(?i)(signature verification failed|invalid signature|untrusted signer|no valid release signer|trusted release signer.*required|gpg: bad signature|signer approval was declined)`), "The release signature could not be verified.", "Verify the release signer and approve a trusted signer before retrying."},
+	{regexp.MustCompile(`TLS_(?:CERT|KEY)_FILE(?:="|\b).*(?:is not a valid Caddy container path|corresponding host (?:file|path)|must be set together)`), "The custom certificate settings are invalid.", "Put the certificate pair in ~/statbus/caddy/data/custom-certs/ and set TLS_CERT_FILE and TLS_KEY_FILE in .env.config to /data/custom-certs/... paths, then retry."},
 }
 
 func classifyInstallFailure(step string, err error) (cause, fix string) {

@@ -59,7 +59,9 @@ func TestAllInstallHeldMarkerWritersStampOwner(t *testing.T) {
 			return true
 		})
 	}
-	if count != 6 {
-		t.Errorf("found %d install-held production marker writers, want 6; audit newly added or removed writers", count)
+	// 7th: AcquireFreshInstallFlag, the fresh-only claim that serialises the
+	// settings restore before detection (review-detect-env-2 finding 2).
+	if count != 7 {
+		t.Errorf("found %d install-held production marker writers, want 7; audit newly added or removed writers", count)
 	}
 }

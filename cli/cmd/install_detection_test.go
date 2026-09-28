@@ -5,10 +5,12 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
 
+	"github.com/statisticsnorway/statbus/cli/internal/config"
 	"github.com/statisticsnorway/statbus/cli/internal/dotenv"
 	"github.com/statisticsnorway/statbus/cli/internal/install"
 	"github.com/statisticsnorway/statbus/cli/internal/upgrade"
@@ -481,7 +483,7 @@ func TestRunInstallSettingsRestoreFailureRefusesWithCause(t *testing.T) {
 	if !errors.As(err, &preflight) {
 		t.Fatalf("want preflight refusal, got %v", err)
 	}
-	for _, want := range []string{"TLS_CERT_FILE=\"/home/statbus/statbus.crt\" is not a valid Caddy container path", "Nothing else was changed", "curl -fsSL https://statbus.org/install.sh | bash"} {
+	for _, want := range []string{"TLS_CERT_FILE=\"/home/statbus/statbus.crt\" is not a valid Caddy container path", "The database and services were not touched", "curl -fsSL https://statbus.org/install.sh | bash"} {
 		if !strings.Contains(err.Error(), want) {
 			t.Errorf("refusal missing %q: %v", want, err)
 		}
@@ -574,5 +576,136 @@ func TestRestoreSettingsBeforeDetectWritesRealRoute(t *testing.T) {
 	}
 	if v, _ := creds.Get("GITHUB_TOKEN"); v != "arc-token" {
 		t.Fatalf("operator token changed: %q", v)
+	}
+}
+
+// Review finding 2: the restore is serialised through the install mutex,
+// claimed fresh-only. A marker held by another install or upgrade means this
+// run neither restores nor touches the marker; Detect classifies it.
+func TestRestoreSettingsBeforeDetectYieldsToAnotherHolder(t *testing.T) {
+	dir := withRunInstallDetectionHooks(t)
+	if err := os.WriteFile(filepath.Join(dir, ".env.credentials"), []byte("X=1\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	other, err := upgrade.AcquireInstallFlag(dir, "other-install")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer upgrade.ReleaseInstallFlag(other)
+	called := false
+	restoreGeneratedSettings = func(string) error { called = true; return nil }
+	if err := restoreSettingsBeforeDetect(dir); err != nil {
+		t.Fatal(err)
+	}
+	if called {
+		t.Fatal("restored settings while another installer held the mutex")
+	}
+	flag, err := upgrade.ReadFlagFile(dir)
+	if err != nil || flag == nil || flag.InvokedBy != "other-install" {
+		t.Fatalf("other holder's marker was disturbed: %+v, %v", flag, err)
+	}
+	if !upgrade.IsFlockHeld(dir) {
+		t.Fatal("other holder lost the mutex")
+	}
+}
+
+// While restoring, this run holds the mutex, so a concurrent install cannot
+// enter; afterwards the marker is gone, so Detect never sees its own claim.
+func TestRestoreSettingsBeforeDetectHoldsThenReleasesMutex(t *testing.T) {
+	dir := withRunInstallDetectionHooks(t)
+	if err := os.WriteFile(filepath.Join(dir, ".env.credentials"), []byte("X=1\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	restoreGeneratedSettings = func(d string) error {
+		if !upgrade.IsFlockHeld(d) {
+			t.Error("settings were restored without holding the install mutex")
+		}
+		if _, err := upgrade.AcquireInstallFlag(d, "concurrent-install"); err == nil {
+			t.Error("a concurrent install acquired the mutex during the restore")
+		}
+		return os.WriteFile(filepath.Join(d, ".env"), []byte("X=1\n"), 0o600)
+	}
+	if err := restoreSettingsBeforeDetect(dir); err != nil {
+		t.Fatal(err)
+	}
+	if flag, err := upgrade.ReadFlagFile(dir); err != nil || flag != nil {
+		t.Fatalf("marker left behind for Detect to misread: %+v, %v", flag, err)
+	}
+	if !settingsRestoredBeforeDetect {
+		t.Fatal("restore not recorded for Apply config changes")
+	}
+}
+
+// Review finding 1: after a restore the step-table snapshot is the restored
+// .env, so the forced set must recreate every service and the daemon.
+func TestRestartsAfterSettingsRestoreCoverEveryService(t *testing.T) {
+	got := restartsAfterSettingsRestore()
+	for _, c := range []config.RestartClass{config.RestartDB, config.RestartRest, config.RestartWorker, config.RestartApp, config.RestartProxyRestart, config.RestartUpgradeDaemon} {
+		if !got[c] {
+			t.Errorf("restart class %s not forced after a settings restore", c)
+		}
+	}
+	applied := map[string]bool{}
+	orig := composeApplyService
+	composeApplyService = func(_, service string) error { applied[service] = true; return nil }
+	defer func() { composeApplyService = orig }()
+	if err := applyPendingRestarts(t.TempDir(), got); err != nil {
+		t.Fatal(err)
+	}
+	for _, s := range []string{"db", "rest", "worker", "app", "proxy"} {
+		if !applied[s] {
+			t.Errorf("service %s not recreated", s)
+		}
+	}
+}
+
+// Review finding 3: what the operator sees. The real TLS validator errors
+// classify to the fixed certificate cause, and install.sh's exit-78 branch
+// (extracted verbatim) prints that cause and fix, never the raw error.
+func TestSettingsRestoreRefusalShowsCertificateCauseThroughInstallSh(t *testing.T) {
+	for _, raw := range []string{
+		`TLS_CERT_FILE="/home/statbus/statbus.crt" is not a valid Caddy container path. TLS_CERT_FILE and TLS_KEY_FILE are paths INSIDE the Caddy container`,
+		`TLS_KEY_FILE="/data/custom-certs/domain.key": corresponding host file /home/statbus/statbus/caddy/data/custom-certs/domain.key is unavailable: no such file`,
+		`both TLS_CERT_FILE and TLS_KEY_FILE must be set together. TLS_CERT_FILE and TLS_KEY_FILE are paths INSIDE the Caddy container`,
+	} {
+		if cause, _ := classifyInstallFailure("Settings", errors.New(raw)); cause != "The custom certificate settings are invalid." {
+			t.Errorf("TLS error not classified: %q -> %q", raw, cause)
+		}
+	}
+	script, err := os.ReadFile("../../install.sh")
+	if err != nil {
+		t.Fatal(err)
+	}
+	lines := strings.Split(string(script), "\n")
+	start, end := -1, -1
+	for i, l := range lines {
+		if start < 0 && l == `if [ "$sb_rc" -eq 78 ]; then` {
+			start = i
+		} else if start >= 0 && l == "fi" {
+			end = i
+			break
+		}
+	}
+	if start < 0 || end < 0 {
+		t.Fatal("exit-78 branch not found in install.sh")
+	}
+	dir := t.TempDir()
+	logPath := filepath.Join(dir, "install-last-run-output.txt")
+	cause, fix := classifyInstallFailure("Settings", errors.New(`TLS_CERT_FILE="/home/statbus/statbus.crt" is not a valid Caddy container path`))
+	log := "Restoring generated settings before checking the installation.\nINSTALL_CAUSE: " + cause + "\nINSTALL_FIX: " + fix + "\nthe settings could not be restored: TLS_CERT_FILE=\"/home/statbus/statbus.crt\" is not a valid Caddy container path. The database and services were not touched.\n"
+	if err := os.WriteFile(logPath, []byte(log), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	branch := strings.Join(lines[start:end+1], "\n")
+	cmd := exec.Command("bash", "-c", "sb_rc=78\ninstall_output=\"$1\"\nSTATBUS_DIR=\"$2\"\nSTATBUS_INSTALL_RERUN_COMMAND='curl -fsSL https://statbus.org/install.sh | bash'\n"+branch, "exit78", logPath, dir)
+	out, _ := cmd.Output()
+	got := string(out)
+	for _, want := range []string{"Installation cannot start: The custom certificate settings are invalid.", "caddy/data/custom-certs/", "/data/custom-certs/", "Then run: curl -fsSL https://statbus.org/install.sh | bash"} {
+		if !strings.Contains(got, want) {
+			t.Errorf("operator output missing %q:\n%s", want, got)
+		}
+	}
+	if strings.Contains(got, "/home/statbus/statbus.crt") {
+		t.Errorf("raw error text reached the operator:\n%s", got)
 	}
 }

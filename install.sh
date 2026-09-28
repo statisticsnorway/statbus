@@ -824,13 +824,24 @@ if [ "$sb_rc" -eq 0 ]; then
     exit 0
 fi
 
-# Exit 78 (sysexits EX_CONFIG): ./sb refused during read-only preflight, before
-# taking the install mutex or mutating the installation. Its stderr already
-# contains the exact remedy. This is not an invariant breach, so do not claim
-# the system is unusable and do not generate a support bundle.
+# Exit 78 (sysexits EX_CONFIG): ./sb refused during preflight, before the step
+# table and before touching the database or services. The settings restore
+# that precedes detection may already have written generated files and filled
+# missing credentials when it refuses. Its stderr contains the remedy. This is
+# not an invariant breach, so do not claim the system is unusable and do not
+# generate a support bundle.
 if [ "$sb_rc" -eq 78 ]; then
+    # A classified cause (same allowlist as a failed step) is the most specific
+    # remedy available: the settings restore before detection emits one.
+    preflight_cause=$(grep -E '^INSTALL_CAUSE: The custom certificate settings are invalid\.$' "$install_output" | tail -1 | sed 's/^INSTALL_CAUSE: //' || true)
+    preflight_fix=$(grep -E '^INSTALL_FIX: Put the certificate pair in ~/statbus/caddy/data/custom-certs/ and set TLS_CERT_FILE and TLS_KEY_FILE in \.env\.config to /data/custom-certs/\.\.\. paths, then retry\.$' "$install_output" | tail -1 | sed 's/^INSTALL_FIX: //' || true)
     if grep -Fq 'stdin is not a terminal (running under a pipe?). Run interactively with a terminal on stdin, or provide STATBUS_ENV_CONFIG for unattended install.' "$install_output"; then
         echo 'stdin is not a terminal (running under a pipe?). Run interactively with a terminal on stdin, or provide STATBUS_ENV_CONFIG for unattended install.'
+    elif [ -n "$preflight_cause" ]; then
+        echo "Installation cannot start: $preflight_cause"
+        if [ -n "$preflight_fix" ]; then echo "$preflight_fix"; fi
+        echo "Then run: $STATBUS_INSTALL_RERUN_COMMAND"
+        echo "Installation diagnostics: $install_output"
     elif grep -Eq '^(port [0-9]+ is in use by |Only [0-9]+ GB free on |cannot check disk space at |a restart is still running)' "$install_output"; then
         # Only these known, single-line operator remedies may cross the
         # install log boundary. Never print an arbitrary exception or traceback.
@@ -889,8 +900,8 @@ if [ -n "$failed_step" ]; then
     # 5-install-database-route-interrupted).
     # The following grep ERE is checked against every Go cause and fix sentence.
     # INSTALL_CAUSE_ALLOWLIST: exact classified operator grammar follows.
-    failure_detail=$(grep -E '^INSTALL_CAUSE: (port ([0-9]+) is in use by (([A-Za-z0-9_-]+)\. Free the port with sudo (systemctl disable --now \4|kill \$\(sudo lsof -tiTCP:\2 -sTCP:LISTEN\))|another program\. Find the listener with sudo ss -ltnp '"'"'\( sport = :\2 \)'"'"', then stop that program to free port \2)\.|The database route at (127\.0\.0\.1|localhost|\[::1\]):[0-9]{2,5} is unavailable; the web entry point provides this route\.|The disk ran out of free space\.|Docker is not running\.|The installer cannot access Docker\.|A required image could not be downloaded\.|The database did not become reachable after it started\.|The database rejected its password\.|The user service manager is unavailable\.|The source update could not be fetched\.|The release signature could not be verified\.|The [A-Za-z +]+ step could not finish; the details are in the support file\.)$' "$install_output" | tail -1 | sed 's/^INSTALL_CAUSE: //' || true)
-    failure_fix=$(grep -E '^INSTALL_FIX: (Start or repair the web entry point, then retry the install\.|Free space on the installation disk and Docker storage, then retry\.|Start Docker and then retry\.|Give this user access to the Docker socket, then retry\.|Check registry access, DNS and image credentials, then retry\.|Check Docker and database service health, then retry\.|Check the saved database credentials and synchronize them with the running database, then retry\.|Enable linger for the installation user and start its systemd user manager, then retry\.|Check network access and Git repository permissions, then retry\.|Verify the release signer and approve a trusted signer before retrying\.)$' "$install_output" | tail -1 | sed 's/^INSTALL_FIX: //' || true)
+    failure_detail=$(grep -E '^INSTALL_CAUSE: (port ([0-9]+) is in use by (([A-Za-z0-9_-]+)\. Free the port with sudo (systemctl disable --now \4|kill \$\(sudo lsof -tiTCP:\2 -sTCP:LISTEN\))|another program\. Find the listener with sudo ss -ltnp '"'"'\( sport = :\2 \)'"'"', then stop that program to free port \2)\.|The database route at (127\.0\.0\.1|localhost|\[::1\]):[0-9]{2,5} is unavailable; the web entry point provides this route\.|The disk ran out of free space\.|Docker is not running\.|The installer cannot access Docker\.|A required image could not be downloaded\.|The database did not become reachable after it started\.|The database rejected its password\.|The user service manager is unavailable\.|The source update could not be fetched\.|The release signature could not be verified\.|The custom certificate settings are invalid\.|The [A-Za-z +]+ step could not finish; the details are in the support file\.)$' "$install_output" | tail -1 | sed 's/^INSTALL_CAUSE: //' || true)
+    failure_fix=$(grep -E '^INSTALL_FIX: (Start or repair the web entry point, then retry the install\.|Free space on the installation disk and Docker storage, then retry\.|Start Docker and then retry\.|Give this user access to the Docker socket, then retry\.|Check registry access, DNS and image credentials, then retry\.|Check Docker and database service health, then retry\.|Check the saved database credentials and synchronize them with the running database, then retry\.|Enable linger for the installation user and start its systemd user manager, then retry\.|Check network access and Git repository permissions, then retry\.|Verify the release signer and approve a trusted signer before retrying\.|Put the certificate pair in ~/statbus/caddy/data/custom-certs/ and set TLS_CERT_FILE and TLS_KEY_FILE in \.env\.config to /data/custom-certs/\.\.\. paths, then retry\.)$' "$install_output" | tail -1 | sed 's/^INSTALL_FIX: //' || true)
     if [ -z "$failure_detail" ]; then
         failure_detail=$(printf '%s\n' "$failed_step" | sed -E 's/^\[([0-9]+\/[0-9]+)\] ([^ ]([^ ]| +[^ ])*) +FAILED: .*/step \1 (\2) failed: this part of installation could not finish/')
     fi

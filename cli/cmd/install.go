@@ -32,11 +32,15 @@ import (
 )
 
 var (
-	detectInstallState          = install.Detect
-	recoverCrashedInstall       = runCrashRecovery
-	checkInstallSigners         = checkSignersDone
-	restoreGeneratedSettings    = runGenerateEnv
-	writeDetectionSupportBundle = func(installDir string) (string, error) {
+	detectInstallState       = install.Detect
+	recoverCrashedInstall    = runCrashRecovery
+	checkInstallSigners      = checkSignersDone
+	restoreGeneratedSettings = runGenerateEnv
+	// settingsRestoredBeforeDetect records that .env was regenerated before
+	// the step-table snapshot, so the snapshot cannot show what running
+	// containers were started with.
+	settingsRestoredBeforeDetect bool
+	writeDetectionSupportBundle  = func(installDir string) (string, error) {
 		path := filepath.Join(installDir, fmt.Sprintf("support-bundle-%s.txt", time.Now().UTC().Format("20060102-150405")))
 		return path, writeSupportBundle(installDir, path, upgrade.TriggerInstall)
 	}
@@ -348,6 +352,7 @@ func signerPreflightRequired(dir string, state install.State) bool {
 // to signal "I am the upgrade service's own post-completion fixup, not a
 // conflicting actor."
 func runInstall() (installErr error) {
+	settingsRestoredBeforeDetect = false
 	previousAnswered, previousAccepted := signerPromptAnswered, signerPromptAccepted
 	signerPromptAnswered, signerPromptAccepted = false, false
 	defer func() { signerPromptAnswered, signerPromptAccepted = previousAnswered, previousAccepted }()
@@ -870,6 +875,10 @@ func runInstall() (installErr error) {
 		{"Apply config changes", func(dir string) bool {
 			if !wasAlreadyRunning {
 				return true // "Services" above already (re)started everything against the new config
+			}
+			if settingsRestoredBeforeDetect {
+				pendingRestarts = restartsAfterSettingsRestore()
+				return false
 			}
 			newEnvSnapshot, err := os.ReadFile(filepath.Join(dir, ".env"))
 			if err != nil {
@@ -3829,12 +3838,18 @@ func init() {
 // restored first and Detect then decides from the database, exactly as for
 // any other configured box (review tmp/review-detect-env.md, finding 1).
 //
-// Regeneration is the Settings step itself (runGenerateEnv): it writes only
-// generated files from the operator's own .env.config and .env.credentials,
-// plus the backup and maintenance directories, so the later Settings step,
-// now seen as done, loses nothing. It runs only when no upgrade flag is
-// present: a flagged box is the crash recovery path's to repair, and Detect
-// classifies it without the database.
+// Regeneration is the Settings step itself (runGenerateEnv), so the later
+// Settings step, now seen as done, loses nothing. It is serialised with every
+// other install and upgrade through the install mutex, claimed fresh-only: an
+// existing marker (a live holder, or a stale one awaiting crash recovery)
+// means this run does not restore, and Detect classifies the marker as usual.
+// The mutex is released before Detect so the probe never sees our own marker;
+// the step table re-acquires it (review tmp/review-detect-env-2.md, finding 2).
+//
+// The later "Apply config changes" step compares .env against a snapshot taken
+// at step-table start. After a restore that snapshot is the restored file, not
+// what running containers were started with, so settingsRestoredBeforeDetect
+// makes that step recreate every running service (finding 1).
 func restoreSettingsBeforeDetect(installDir string) error {
 	if _, err := os.Stat(filepath.Join(installDir, ".env")); err == nil || !os.IsNotExist(err) {
 		return nil
@@ -3844,13 +3859,45 @@ func restoreSettingsBeforeDetect(installDir string) error {
 			return nil
 		}
 	}
-	if _, err := os.Stat(filepath.Join(installDir, "tmp", "upgrade-in-progress.json")); !os.IsNotExist(err) {
+	invokedBy := "operator"
+	if u := os.Getenv("USER"); u != "" {
+		invokedBy = "operator:" + u
+	}
+	lock, err := upgrade.AcquireFreshInstallFlag(installDir, invokedBy)
+	if err != nil {
+		// Another actor holds or left the marker. Detect classifies it.
+		installDiagnostic(installDir, "Settings restore skipped: install mutex not free: %v", err)
 		return nil
+	}
+	defer upgrade.ReleaseInstallFlag(lock)
+	if _, err := os.Stat(filepath.Join(installDir, ".env")); err == nil {
+		return nil // restored by the actor that held the mutex before us
 	}
 	fmt.Println("Restoring generated settings before checking the installation.")
 	if err := restoreGeneratedSettings(installDir); err != nil {
 		installDiagnostic(installDir, "Settings could not be restored before detection: %v", err)
-		return &installPreflightRefusalError{err: fmt.Errorf("the settings could not be restored: %v. Nothing else was changed. Correct the settings, then run: %s", err, diskpolicy.RerunCommand())}
+		// The same classified cause/fix lines a failed Settings step prints;
+		// install.sh shows only allowlisted sentences, never the raw error.
+		if cause, fix := classifyInstallFailure("Settings", err); cause != "" {
+			fmt.Println("INSTALL_CAUSE: " + cause)
+			if fix != "" {
+				fmt.Println("INSTALL_FIX: " + fix)
+			}
+		}
+		return &installPreflightRefusalError{err: fmt.Errorf("the settings could not be restored: %v. The database and services were not touched. Correct the settings, then run: %s", err, diskpolicy.RerunCommand())}
 	}
+	settingsRestoredBeforeDetect = true
 	return nil
+}
+
+// restartsAfterSettingsRestore is what "Apply config changes" applies on a
+// running box whose .env was regenerated before the step-table snapshot. No
+// diff can say what the running containers were started with, so every
+// service is recreated (the same compose action a changed key triggers) and
+// the upgrade daemon restarts after the step table.
+func restartsAfterSettingsRestore() map[config.RestartClass]bool {
+	return map[config.RestartClass]bool{
+		config.RestartDB: true, config.RestartRest: true, config.RestartWorker: true,
+		config.RestartApp: true, config.RestartProxyRestart: true, config.RestartUpgradeDaemon: true,
+	}
 }

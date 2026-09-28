@@ -57,13 +57,17 @@ if (services up AND connection pool not clean?) then (yes)
 else (clean / fresh)
 endif
 
-if (.env.config + .env.credentials present, generated .env missing, no upgrade flag?) then (yes)
-  :restore generated settings (the Settings step)\nbefore Detect — install.go restoreSettingsBeforeDetect;
+if (.env.config + .env.credentials present, generated .env missing, install mutex free?) then (yes)
+  :restore generated settings (the Settings step) under the mutex,\nrelease it, then Detect — install.go restoreSettingsBeforeDetect;
   note right
     The DB probe reads its route from .env, so without it Detect could not classify
     and install refused on every rerun (rc.15 arc run 36442434055). Detect then decides
-    from the real database. A settings error refuses here with its cause.
-    TEST Go TestRunInstallRestoresSettingsBeforeDetect, TestRestoreSettingsBeforeDetectWritesRealRoute.
+    from the real database. A settings error refuses here (exit 78); a bad custom
+    certificate shows its classified cause and fix. A running box then has every
+    service recreated at "Apply config changes".
+    TEST Go TestRunInstallRestoresSettingsBeforeDetect, TestRestoreSettingsBeforeDetectWritesRealRoute,
+    TestRestoreSettingsBeforeDetectYieldsToAnotherHolder, TestRestartsAfterSettingsRestoreCoverEveryService,
+    TestSettingsRestoreRefusalShowsCertificateCauseThroughInstallSh.
   end note
 else (no)
 endif

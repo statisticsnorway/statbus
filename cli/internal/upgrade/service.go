@@ -1676,6 +1676,21 @@ func AcquireInstallFlag(projDir, invokedBy string) (*FlagLock, error) {
 	return acquireFlock(projDir, flag)
 }
 
+// AcquireFreshInstallFlag claims the install mutex only if no marker exists.
+// It never takes over an existing marker, so a concurrent install or upgrade
+// (or a stale marker awaiting recovery) always wins and is left untouched.
+// Install uses it for the short pre-detection window that restores the
+// generated .env, then releases it so Detect sees no marker of its own.
+func AcquireFreshInstallFlag(projDir, invokedBy string) (*FlagLock, error) {
+	return acquireFreshFlock(projDir, UpgradeFlag{
+		StartedAt: time.Now(),
+		PID:       os.Getpid(),
+		InvokedBy: invokedBy,
+		Trigger:   "install",
+		Holder:    HolderInstall,
+	})
+}
+
 // ReleaseInstallFlag releases the install flock AND removes the flag file.
 // Install flags (Holder="install") have no DB row to reconcile — they're
 // purely a mutex. Leaving them on disk creates a false "crashed-upgrade"
