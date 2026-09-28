@@ -448,8 +448,11 @@ func runInstall() (installErr error) {
 	} else if marker != nil {
 		fmt.Println("⚠ The last start of the upgrade service refused its configuration:")
 		fmt.Println()
-		fmt.Printf("  (refused at %s)\n", marker.RefusedAt.Format("2006-01-02 15:04:05 MST"))
-		fmt.Println(marker.Message)
+		// The stored message is untrusted data and may span lines. Keep it as
+		// ONE quoted line under a prefix no terminal-filter rule admits, so it
+		// reaches the installation diagnostics file but never the operator's
+		// terminal through an allowlisted prefix (review3-state-lines #1).
+		fmt.Printf("INSTALL_LOG_CONFIG_REFUSAL: refused_at=%s message=%q\n", marker.RefusedAt.Format(time.RFC3339), marker.Message)
 		fmt.Println()
 		fmt.Println("If this run below fixes the config, the marker clears automatically.")
 		fmt.Println()

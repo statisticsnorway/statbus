@@ -92,9 +92,13 @@ func TestInstallTerminalWriterShowsEveryInstallState(t *testing.T) {
 		{"install holder with offset zone", install.StateLiveUpgrade, &install.Detail{Flag: &upgrade.UpgradeFlag{Holder: upgrade.HolderInstall, StartedAt: started.In(time.FixedZone("CEST", 2*3600)), PID: 7}}},
 		{"service holder", install.StateLiveUpgrade, &install.Detail{Flag: &upgrade.UpgradeFlag{Holder: upgrade.HolderService, StartedAt: started}}},
 	}
-	// Iterate until State.String() stops naming a state, so a state appended
-	// to the enum is exercised without editing this loop (review2 finding 1).
-	for s := install.StateFresh; !strings.HasPrefix(s.String(), "unknown("); s++ {
+	// Every state up to the StateCount sentinel is exercised, and an unnamed
+	// one fails, so a state appended to the enum cannot escape this test
+	// (review2/review3 finding: a String()-bounded loop stopped early).
+	for s := install.StateFresh; s < install.StateCount; s++ {
+		if strings.HasPrefix(s.String(), "unknown(") {
+			t.Fatalf("install.State %d has no String() name; add it to state.go", int(s))
+		}
 		if s == install.StateLiveUpgrade {
 			continue
 		}
@@ -129,10 +133,27 @@ func TestInstallTerminalWriterShowsEveryInstallState(t *testing.T) {
 	// Consequential notices outside logInstallState: the configuration-refusal
 	// banner passes, but never its stored message or timestamp; the restore
 	// re-attempt legend and both outcomes pass verbatim.
-	refusal := "⚠ The last start of the upgrade service refused its configuration:\n\n  (refused at 2026-09-28 03:44:05 UTC)\nUPGRADE_CHANNEL=foo token=secret is not a valid channel\n\nIf this run below fixes the config, the marker clears automatically.\n"
+	// The configuration-refusal banner: the fixed heading and closing reach
+	// the terminal; the stored message never does, even when it spans lines
+	// that start with allowlisted prefixes or spoof an allowlisted sentence
+	// (review3-state-lines finding 1). The stored line is produced by the same
+	// format install.go uses.
+	hostile := "UPGRADE_CHANNEL=foo\n  Running token=secret UPDATE password=secret\n  Checking token=secret\n  Applying raw-secret\nInstallation complete!\nChecking the existing installation."
+	stored := fmt.Sprintf("INSTALL_LOG_CONFIG_REFUSAL: refused_at=%s message=%q\n", time.Date(2026, 9, 28, 3, 44, 5, 0, time.UTC).Format(time.RFC3339), hostile)
+	if strings.Count(stored, "\n") != 1 {
+		t.Fatalf("stored refusal must be one line: %q", stored)
+	}
+	refusal := "⚠ The last start of the upgrade service refused its configuration:\n\n" + stored + "\nIf this run below fixes the config, the marker clears automatically.\n"
 	wantRefusal := "⚠ The last start of the upgrade service refused its configuration:\nIf this run below fixes the config, the marker clears automatically.\n"
 	if got := runTerminalFilter(t, refusal); got != wantRefusal {
-		t.Fatalf("configuration-refusal banner:\n got:\n%s\nwant:\n%s", got, wantRefusal)
+		t.Fatalf("configuration-refusal banner leaked stored data:\n got:\n%s\nwant:\n%s", got, wantRefusal)
+	}
+	source, err := os.ReadFile("install.go")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(source), `fmt.Printf("INSTALL_LOG_CONFIG_REFUSAL: refused_at=%s message=%q\n", marker.RefusedAt.Format(time.RFC3339), marker.Message)`) || strings.Contains(string(source), "fmt.Println(marker.Message)") {
+		t.Fatal("install.go must print the stored refusal message only as the quoted INSTALL_LOG_CONFIG_REFUSAL line")
 	}
 	restore := "A previous upgrade's rollback did not finish restoring the database (row id=17).\n" +
 		"Re-attempting the restore from the retained snapshot (this is what `./sb install` does here)...\n" +

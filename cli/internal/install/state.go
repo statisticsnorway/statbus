@@ -62,6 +62,10 @@ const (
 	StateRestoreReattemptable
 	StateNothingScheduled
 	StateFreshDBIncomplete
+	// StateCount is not a state. It bounds iteration over every state (the
+	// install terminal-output test exercises each one), so a new state must
+	// be added ABOVE this line.
+	StateCount
 )
 
 func (s State) String() string {
