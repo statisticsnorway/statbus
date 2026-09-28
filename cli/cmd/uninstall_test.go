@@ -902,3 +902,38 @@ func TestUninstallReportsUnexpectedCheckoutLeftovers(t *testing.T) {
 		t.Fatalf("unexplained leftover: %v %s", err, out)
 	}
 }
+
+func TestUninstallKeepsPulledHelperUsedByAnotherContainer(t *testing.T) {
+	home := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(home, "statbus", "tmp"), 0700); err != nil {
+		t.Fatal(err)
+	}
+	bin := filepath.Join(home, "bin")
+	if err := os.Mkdir(bin, 0700); err != nil {
+		t.Fatal(err)
+	}
+	docker := `#!/bin/sh
+case "$1 $2" in
+  'version '*) echo 27.5.1;;
+  'image inspect') exit 1;;
+  'pull alpine:3.20') touch "$HOME/pulled";;
+  'ps -aq') [ ! -e "$HOME/pulled" ] || { case "$*" in *--filter*) :;; *) echo other-container;; esac; };;
+  'inspect --format') echo alpine:3.20;;
+  'image rm') echo "$3" > "$HOME/removed-image";;
+  'run --rm') case "$*" in *'rm -rf -- ./tmp'*) rm -rf -- "$HOME/statbus/tmp";; esac;;
+esac
+`
+	if err := os.WriteFile(filepath.Join(bin, "docker"), []byte(docker), 0700); err != nil {
+		t.Fatal(err)
+	}
+	script, _ := filepath.Abs("../../uninstall.sh")
+	cmd := exec.Command("bash", script)
+	cmd.Env = append(os.Environ(), "HOME="+home, "PATH="+bin+":"+os.Getenv("PATH"), "STATBUS_UNINSTALL_CONFIRM=yes-delete-everything")
+	out, err := cmd.CombinedOutput()
+	if err != nil || !strings.Contains(string(out), "Keeping shared image tag alpine:3.20") {
+		t.Fatalf("helper retention: %v %s", err, out)
+	}
+	if _, err := os.Stat(filepath.Join(home, "removed-image")); !os.IsNotExist(err) {
+		t.Fatalf("shared helper removed: %v", err)
+	}
+}

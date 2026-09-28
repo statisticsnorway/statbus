@@ -175,6 +175,15 @@ image_used_elsewhere() {
     done
     return 1
 }
+remove_pulled_helper() {
+    if [[ $PULLED_CLEANUP_IMAGE == 1 ]]; then
+        if image_used_elsewhere "$CLEANUP_IMAGE"; then
+            echo "Keeping shared image tag $CLEANUP_IMAGE: another project's container uses it."
+        else
+            docker image rm "$CLEANUP_IMAGE" >>"$LOG" 2>&1
+        fi
+    fi
+}
 if command -v docker >/dev/null 2>&1 && docker info >/dev/null 2>&1; then
     # Project labels include stopped containers, orphan volumes and networks.
     containers=$(docker ps -aq --filter "label=com.docker.compose.project=$project")
@@ -248,7 +257,7 @@ if [[ -d $DIR ]]; then
     # checkout beneath the nonrecursive parent bind, pins cwd and verifies its
     # inode before any write, including the preflight probe.
     if ! docker run --rm --network none --user 0:0 --entrypoint /bin/sh --mount "$DOCKER_BIND" "$CLEANUP_IMAGE" -c 'cd /home-root/statbus && test "$(stat -c %d:%i .)" = "$1" && test -d ./tmp && find . -mindepth 1 -exec test -r {} \; -exec test -w {} \; && mkdir ./tmp/.uninstall-preflight.$$ && rmdir ./tmp/.uninstall-preflight.$$' sh "$checkout_inode" >>"$LOG" 2>&1; then
-        [[ $PULLED_CLEANUP_IMAGE == 0 ]] || docker image rm "$CLEANUP_IMAGE" >>"$LOG" 2>&1 || true
+        remove_pulled_helper || true
         echo 'Docker cannot safely remove checkout files; upgrade Docker or repair its access and retry.'
         exit 1
     fi
@@ -344,7 +353,7 @@ if [[ $USE_DOCKER == 1 ]]; then
             fi
         fi
     done
-    [[ $PULLED_CLEANUP_IMAGE == 0 ]] || docker image rm "$CLEANUP_IMAGE" >>"$LOG" 2>&1
+    remove_pulled_helper
 fi
 if [[ -d $DIR ]]; then
     final_inode=$(perl -e 'my @s = stat(shift) or die "Cannot stat checkout\n"; print "$s[0]:$s[1]"' "$DIR") || exit 1
