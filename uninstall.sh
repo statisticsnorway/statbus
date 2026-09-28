@@ -144,6 +144,7 @@ USE_SUDO=0
 USE_DOCKER=0
 CLEANUP_IMAGE=
 PULLED_CLEANUP_IMAGE=0
+DOCKER_BIND="type=bind,src=$DIR,dst=/target"
 if [[ -d $DIR ]]; then
     if ! root_paths=$(find "$DIR" -mindepth 1 ! -user "$(id -u)" -print -quit 2>/dev/null); then
         root_paths=uninspectable
@@ -179,9 +180,20 @@ if [[ -d $DIR ]]; then
                     PULLED_CLEANUP_IMAGE=1
                 fi
             fi
+            # Docker CE is installed unpinned on Ubuntu 24.04/26.04. Engine
+            # 25+ and its CLI support bind-recursive=disabled; older installs
+            # keep the host-side mountpoint refusal without this extra barrier.
+            client_version=$(docker version --format '{{.Client.Version}}' 2>/dev/null || true)
+            server_version=$(docker version --format '{{.Server.Version}}' 2>/dev/null || true)
+            client_major=${client_version%%.*}
+            server_major=${server_version%%.*}
+            if [[ $client_major =~ ^[0-9]+$ && $server_major =~ ^[0-9]+$ ]] &&
+                ((client_major >= 25 && server_major >= 25)); then
+                DOCKER_BIND+=,bind-recursive=disabled
+            fi
             # The bind mount is exactly the checkout, and root must be able to
             # traverse it and create/remove a probe before any service stops.
-            if ! docker run --rm --network none --user 0:0 --entrypoint /bin/sh --mount "type=bind,src=$DIR,dst=/target" "$CLEANUP_IMAGE" -c 'test -d /target && find /target -mindepth 1 -exec test -r {} \; -exec test -w {} \; && mkdir /target/tmp/.uninstall-preflight.$$ && rmdir /target/tmp/.uninstall-preflight.$$' >>"$LOG" 2>&1; then
+            if ! docker run --rm --network none --user 0:0 --entrypoint /bin/sh --mount "$DOCKER_BIND" "$CLEANUP_IMAGE" -c 'test -d /target && find /target -mindepth 1 -exec test -r {} \; -exec test -w {} \; && mkdir /target/tmp/.uninstall-preflight.$$ && rmdir /target/tmp/.uninstall-preflight.$$' >>"$LOG" 2>&1; then
                 [[ $PULLED_CLEANUP_IMAGE == 0 ]] || docker image rm "$CLEANUP_IMAGE" >>"$LOG" 2>&1 || true
                 echo 'Docker cannot remove checkout files; ask an administrator for sudo access or fix Docker and retry.'
                 exit 1
@@ -249,14 +261,14 @@ if command -v systemctl >/dev/null 2>&1 && { ((${#units[@]} > 0)) || [[ -n $user
 fi
 for path in "${remaining[@]}"; do
     if [[ $USE_SUDO == 1 ]]; then sudo -n rm -rf -- "$path" >>"$LOG" 2>&1
-    elif [[ $USE_DOCKER == 1 ]]; then docker run --rm --network none --user 0:0 --entrypoint /bin/sh --mount "type=bind,src=$DIR,dst=/target" "$CLEANUP_IMAGE" -c 'chown "$1" /target && chmod u+rwx /target && rm -rf -- "/target/$2"' sh "$(id -u):$(id -g)" "${path##*/}" >>"$LOG" 2>&1
+    elif [[ $USE_DOCKER == 1 ]]; then docker run --rm --network none --user 0:0 --entrypoint /bin/sh --mount "$DOCKER_BIND" "$CLEANUP_IMAGE" -c 'chown "$1" /target && chmod u+rwx /target && rm -rf -- "/target/$2"' sh "$(id -u):$(id -g)" "${path##*/}" >>"$LOG" 2>&1
     else rm -rf -- "$path" >>"$LOG" 2>&1; fi
 done
 # tmp is the last checkout path deleted; the outer HOME lock remains held while
 # removing the helper image and the empty checkout directory afterward.
 if [[ -d $DIR/tmp ]]; then
     if [[ $USE_SUDO == 1 ]]; then sudo -n rm -rf -- "$DIR/tmp" >>"$LOG" 2>&1
-    elif [[ $USE_DOCKER == 1 ]]; then docker run --rm --network none --user 0:0 --entrypoint /bin/sh --mount "type=bind,src=$DIR,dst=/target" "$CLEANUP_IMAGE" -c 'chown "$1" /target && chmod u+rwx /target && rm -rf -- /target/tmp' sh "$(id -u):$(id -g)" >>"$LOG" 2>&1
+    elif [[ $USE_DOCKER == 1 ]]; then docker run --rm --network none --user 0:0 --entrypoint /bin/sh --mount "$DOCKER_BIND" "$CLEANUP_IMAGE" -c 'chown "$1" /target && chmod u+rwx /target && rm -rf -- /target/tmp' sh "$(id -u):$(id -g)" >>"$LOG" 2>&1
     else rm -rf -- "$DIR/tmp" >>"$LOG" 2>&1; fi
 fi
 if [[ $USE_DOCKER == 1 ]]; then

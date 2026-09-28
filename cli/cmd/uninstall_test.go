@@ -290,6 +290,7 @@ func TestUninstallNoSudoDockerRemovesUnwritableTree(t *testing.T) {
 	// Simulate Docker's root bind mount: check that the script passes the exact
 	// mount and top-level basename, without breaking paths containing spaces.
 	docker := `#!/bin/sh
+if [ "$1" = version ]; then echo 27.5.1; exit 0; fi
 case "$*" in
   'image ls'*) echo ghcr.io/statisticsnorway/statbus-db:sha-test; exit 0;;
 esac
@@ -319,7 +320,7 @@ if [ "$1" = image ] && [ "$2" = rm ]; then touch "$HOME/image-removed"; fi
 		t.Fatalf("checkout survived: %v %s", err, out)
 	}
 	argv, err := os.ReadFile(filepath.Join(home, "docker-argv"))
-	if err != nil || !strings.Contains(string(argv), "<type=bind,src="+dir+",dst=/target>") || !strings.Contains(string(argv), "<--user>") || !strings.Contains(string(argv), "<0:0>") || !strings.Contains(string(argv), "<caddy>") {
+	if err != nil || !strings.Contains(string(argv), "<type=bind,src="+dir+",dst=/target,bind-recursive=disabled>") || !strings.Contains(string(argv), "<--user>") || !strings.Contains(string(argv), "<0:0>") || !strings.Contains(string(argv), "<caddy>") {
 		t.Fatalf("Docker bind/paths: %v %s", err, argv)
 	}
 	if _, err := os.Stat(filepath.Join(home, "image-removed")); err != nil {
