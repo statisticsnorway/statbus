@@ -87,6 +87,19 @@ Also: the box's identity between runs is its NAME (statbus-lxd-fleet) resolved v
 
 The LXD host itself must be hardened while it lives: key-only SSH (incl. root), ufw default-deny with SSH only, CrowdSec (the project's existing tool — setup-ubuntu-lts.sh stage 4, with UFW + nftables bouncer; NOT fail2ban), unattended security upgrades — grounded in ops/setup-ubuntu-lts.sh's real stages. Found missing on the current box (ufw inactive, no fail2ban). The 3h reaper bounds exposure but does not replace hardening. Guests already run the full hardening via base.sh; the per-candidate Test Hardening gate proves the script.
 
+## Parity result, rc.11 (2026-09-28)
+
+rc.11 (`af345313b`): VM install-recovery run 36373335513 vs LXD fleet run 36373249889 gave **24/24 matching verdicts** on the comparable scenarios. The only failures, shared by both fleets, were two known product issues, both since fixed on master. LXD took 36 min from dispatch, including a cold ramp that recreated the reaped box on Ubuntu 26.04 (2.5 min) and base builds (4.2 min); the VM fleet took 1 h 53 min. Full table in the coordinator's `tmp/lxd-stage2.md`.
+
+## Owner ruling, 2026-09-28 07:21Z: drop 4-install-40gb-disk (option a)
+
+LXD cannot present a real 40 GB filesystem without KVM. A Btrfs root quota is invisible to `statfs(2)`, which `diskpolicy.Measure` uses, so the guest sees the 60 GB pool, and the ccx33 host has no `/dev/kvm` for an LXD VM. Every claim the scenario made is proven elsewhere:
+- the 20/40 GB thresholds by `TestSharedThresholdAcrossCallers` and `TestSavedDiskPolicySurvivesNewProcess`;
+- the persisted policy by `install_input_test.go`;
+- a real install on a real 40 GB cx23 disk with default thresholds by smoke `0-happy-install`, every candidate.
+
+The scenario and its LXD special cases are removed on `ci/lxd-only-gate`. Revisit (a KVM host) only if smoke itself leaves real VMs.
+
 <!-- SECTION:DESCRIPTION:END -->
 
 ## Acceptance Criteria
