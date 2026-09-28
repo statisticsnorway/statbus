@@ -369,6 +369,158 @@ fi
 	}
 }
 
+func TestUninstallInitialTmpPinDoesNotUnlinkDetachedMount(t *testing.T) {
+	home := t.TempDir()
+	dir := filepath.Join(home, "statbus")
+	underlay := filepath.Join(home, "underlay-tmp")
+	for _, path := range []string{dir, underlay} {
+		if err := os.Mkdir(path, 0700); err != nil {
+			t.Fatal(err)
+		}
+	}
+	// The initial visible tmp stands in for an external bind. Its empty marker
+	// must survive even when findmnt simulates lazy detachment of that mount.
+	if err := os.Mkdir(filepath.Join(dir, "tmp"), 0700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "tmp", "upgrade-in-progress.json"), nil, 0600); err != nil {
+		t.Fatal(err)
+	}
+	bin := filepath.Join(home, "bin")
+	if err := os.Mkdir(bin, 0700); err != nil {
+		t.Fatal(err)
+	}
+	findmnt := `#!/bin/sh
+if [ ! -e "$HOME/detached" ]; then
+  mv "$HOME/statbus/tmp" "$HOME/external-tmp"
+  mv "$HOME/underlay-tmp" "$HOME/statbus/tmp"
+  touch "$HOME/detached"
+fi
+`
+	if err := os.WriteFile(filepath.Join(bin, "findmnt"), []byte(findmnt), 0700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(bin, "docker"), []byte("#!/bin/sh\nif [ \"$1\" = version ]; then echo 24.0.0; fi\n"), 0700); err != nil {
+		t.Fatal(err)
+	}
+	script, _ := filepath.Abs("../../uninstall.sh")
+	cmd := exec.Command("bash", script)
+	cmd.Env = append(os.Environ(), "HOME="+home, "PATH="+bin+":"+os.Getenv("PATH"), "STATBUS_UNINSTALL_CONFIRM=yes-delete-everything")
+	out, err := cmd.CombinedOutput()
+	if _, detachErr := os.Stat(filepath.Join(home, "detached")); detachErr != nil {
+		t.Fatalf("detachment not exercised: %v %s", detachErr, out)
+	}
+	if err == nil || !strings.Contains(string(out), "Docker client and server version 25") {
+		t.Fatalf("expected old-Docker refusal: %v %s", err, out)
+	}
+	if _, markerErr := os.Stat(filepath.Join(home, "external-tmp", "upgrade-in-progress.json")); markerErr != nil {
+		t.Fatalf("external empty marker was removed: %v %s", markerErr, out)
+	}
+	if _, markerErr := os.Stat(filepath.Join(dir, "tmp", "upgrade-in-progress.json")); !os.IsNotExist(markerErr) {
+		t.Fatalf("refusal left new install marker: %v %s", markerErr, out)
+	}
+}
+
+func TestUninstallInitialCheckoutPinDoesNotUnlinkDetachedMount(t *testing.T) {
+	home := t.TempDir()
+	for _, root := range []string{"statbus", "underlay"} {
+		if err := os.MkdirAll(filepath.Join(home, root, "tmp"), 0700); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := os.WriteFile(filepath.Join(home, "statbus", "tmp", "upgrade-in-progress.json"), nil, 0600); err != nil {
+		t.Fatal(err)
+	}
+	bin := filepath.Join(home, "bin")
+	if err := os.Mkdir(bin, 0700); err != nil {
+		t.Fatal(err)
+	}
+	findmnt := `#!/bin/sh
+if [ ! -e "$HOME/detached" ]; then
+  mv "$HOME/statbus" "$HOME/external-checkout"
+  mv "$HOME/underlay" "$HOME/statbus"
+  touch "$HOME/detached"
+fi
+`
+	if err := os.WriteFile(filepath.Join(bin, "findmnt"), []byte(findmnt), 0700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(bin, "docker"), []byte("#!/bin/sh\nif [ \"$1\" = version ]; then echo 24.0.0; fi\n"), 0700); err != nil {
+		t.Fatal(err)
+	}
+	script, _ := filepath.Abs("../../uninstall.sh")
+	cmd := exec.Command("bash", script)
+	cmd.Env = append(os.Environ(), "HOME="+home, "PATH="+bin+":"+os.Getenv("PATH"), "STATBUS_UNINSTALL_CONFIRM=yes-delete-everything")
+	out, err := cmd.CombinedOutput()
+	if _, detachErr := os.Stat(filepath.Join(home, "detached")); detachErr != nil {
+		t.Fatalf("detachment not exercised: %v %s", detachErr, out)
+	}
+	if err == nil || !strings.Contains(string(out), "Docker client and server version 25") {
+		t.Fatalf("expected old-Docker refusal: %v %s", err, out)
+	}
+	if _, markerErr := os.Stat(filepath.Join(home, "external-checkout", "tmp", "upgrade-in-progress.json")); markerErr != nil {
+		t.Fatalf("external checkout marker was removed: %v %s", markerErr, out)
+	}
+	if _, markerErr := os.Stat(filepath.Join(home, "statbus", "tmp", "upgrade-in-progress.json")); !os.IsNotExist(markerErr) {
+		t.Fatalf("refusal left new install marker: %v %s", markerErr, out)
+	}
+}
+
+func TestUninstallPinnedTmpDetachedDuringSecondMountScan(t *testing.T) {
+	home := t.TempDir()
+	for _, path := range []string{filepath.Join(home, "statbus", "tmp"), filepath.Join(home, "external-tmp")} {
+		if err := os.MkdirAll(path, 0700); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := os.WriteFile(filepath.Join(home, "external-tmp", "upgrade-in-progress.json"), nil, 0600); err != nil {
+		t.Fatal(err)
+	}
+	bin := filepath.Join(home, "bin")
+	if err := os.Mkdir(bin, 0700); err != nil {
+		t.Fatal(err)
+	}
+	// The first scan reports clean but a same-filesystem bind arrives just
+	// afterward. The second scan detaches it while tmp is pinned, so only the
+	// post-scan inode comparison can prevent marker writes on that old cwd.
+	findmnt := `#!/bin/sh
+if [ ! -e "$HOME/first-scan" ]; then
+  mv "$HOME/statbus/tmp" "$HOME/underlay-tmp"
+  mv "$HOME/external-tmp" "$HOME/statbus/tmp"
+  touch "$HOME/first-scan"
+elif [ ! -e "$HOME/second-scan" ]; then
+  mv "$HOME/statbus/tmp" "$HOME/external-tmp"
+  mv "$HOME/underlay-tmp" "$HOME/statbus/tmp"
+  touch "$HOME/second-scan"
+fi
+`
+	if err := os.WriteFile(filepath.Join(bin, "findmnt"), []byte(findmnt), 0700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(bin, "docker"), []byte("#!/bin/sh\necho called > \"$HOME/docker-called\"\n"), 0700); err != nil {
+		t.Fatal(err)
+	}
+	script, _ := filepath.Abs("../../uninstall.sh")
+	cmd := exec.Command("bash", script)
+	cmd.Env = append(os.Environ(), "HOME="+home, "PATH="+bin+":"+os.Getenv("PATH"), "STATBUS_UNINSTALL_CONFIRM=yes-delete-everything")
+	out, err := cmd.CombinedOutput()
+	if _, scanErr := os.Stat(filepath.Join(home, "second-scan")); scanErr != nil {
+		t.Fatalf("second scan not exercised: %v %s", scanErr, out)
+	}
+	if _, markerErr := os.Stat(filepath.Join(home, "external-tmp", "upgrade-in-progress.json")); markerErr != nil {
+		t.Fatalf("detached external marker removed: %v %s", markerErr, out)
+	}
+	if _, markerErr := os.Stat(filepath.Join(home, "statbus", "tmp", "upgrade-in-progress.json")); !os.IsNotExist(markerErr) {
+		t.Fatalf("wrote marker to underlay: %v %s", markerErr, out)
+	}
+	if _, dockerErr := os.Stat(filepath.Join(home, "docker-called")); !os.IsNotExist(dockerErr) {
+		t.Fatalf("Docker reached despite unsafe pin: %v %s", dockerErr, out)
+	}
+	if err == nil || !strings.Contains(string(out), "Pinned checkout or tmp differs") {
+		t.Fatalf("expected post-scan provenance refusal: %v %s", err, out)
+	}
+}
+
 func TestUninstallSymlinkedInstallLockRefusesBeforeExternalWrite(t *testing.T) {
 	home := t.TempDir()
 	dir := filepath.Join(home, "statbus", "tmp")
@@ -388,6 +540,47 @@ func TestUninstallSymlinkedInstallLockRefusesBeforeExternalWrite(t *testing.T) {
 	}
 	if _, err := os.Stat(external); !os.IsNotExist(err) {
 		t.Fatalf("external lock file created: %v", err)
+	}
+}
+
+func TestUninstallMarkerOpenRejectsSymlinkIntroducedAfterPrecheck(t *testing.T) {
+	home := t.TempDir()
+	tmp := filepath.Join(home, "statbus", "tmp")
+	if err := os.MkdirAll(tmp, 0700); err != nil {
+		t.Fatal(err)
+	}
+	bin := filepath.Join(home, "bin")
+	if err := os.Mkdir(bin, 0700); err != nil {
+		t.Fatal(err)
+	}
+	realPerl, err := exec.LookPath("perl")
+	if err != nil {
+		t.Fatal(err)
+	}
+	// The wrapper runs only at marker-open time, after check_tmp_boundary.
+	// A swapped symlink must not make O_CREAT produce an outside file.
+	perl := `#!/bin/sh
+case "$*" in
+  *'Cannot write install marker'*)
+    ln -s "$HOME/external-marker" "$HOME/statbus/tmp/upgrade-in-progress.json";;
+esac
+exec "` + realPerl + `" "$@"
+`
+	if err := os.WriteFile(filepath.Join(bin, "perl"), []byte(perl), 0700); err != nil {
+		t.Fatal(err)
+	}
+	script, _ := filepath.Abs("../../uninstall.sh")
+	cmd := exec.Command("bash", script)
+	cmd.Env = append(os.Environ(), "HOME="+home, "PATH="+bin+":"+os.Getenv("PATH"), "STATBUS_UNINSTALL_CONFIRM=yes-delete-everything")
+	out, err := cmd.CombinedOutput()
+	if _, markerErr := os.Stat(filepath.Join(home, "external-marker")); !os.IsNotExist(markerErr) {
+		t.Fatalf("outside marker created by symlink race: %v %s", markerErr, out)
+	}
+	if err == nil || !strings.Contains(string(out), "Cannot open the install lock") {
+		t.Fatalf("expected no-follow marker refusal: %v %s", err, out)
+	}
+	if strings.Contains(string(out), "Step 2") {
+		t.Fatalf("teardown reached after marker swap: %s", out)
 	}
 }
 

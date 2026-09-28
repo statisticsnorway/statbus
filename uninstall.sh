@@ -103,43 +103,93 @@ check_tmp_boundary() {
         return 1
     fi
 }
+# Compare the pinned cwd against the currently reachable pathname. A detached
+# bind retains its cwd inode but exposes the underlay at the pathname. A mount
+# root from another filesystem differs from its pinned parent even while the
+# mount is present. Same-filesystem bind roots are covered by the mount scans.
+verify_pinned_dir() {
+    if ! perl -e '
+        my ($path, $expected) = @ARGV;
+        my @pinned = stat(".") or exit 1;
+        my @named = stat($path) or exit 1;
+        my @parent = stat("..") or exit 1;
+        exit 1 if -l $path || $pinned[0] != $named[0] || $pinned[1] != $named[1]
+               || $pinned[0] != $parent[0];
+        exit 1 if defined($expected) && "$pinned[0]:$pinned[1]" ne $expected;
+    ' "$@"; then
+        echo 'Pinned checkout or tmp differs from its path or is a mount root; refusing removal. Unmount it and retry.'
+        return 1
+    fi
+}
 if [[ -d $DIR ]]; then
     [[ ! -L $DIR ]] || { echo 'Checkout is a symlink; refusing removal outside ~/statbus.'; exit 1; }
-    # Pin checkout as cwd before creating tmp, then pin tmp as cwd before the
-    # mount scan. mkdir and marker operations below are relative to these
-    # directory inodes, never to a path which a late bind can replace. No
-    # parent-shell cd occurs afterward (Compose changes cwd in a subshell).
+    # Scan before either pin. Then verify each pinned cwd before any checkout
+    # write, rescan after both pins and verify their path identities again.
+    # A same-filesystem bind captured between the first scan and a pin can
+    # still detach after verification but before mkdir ./tmp (if missing) or
+    # before the guard's marker open/write. Those are the residual host-write
+    # windows; the second scan and post-scan inode checks catch detachment
+    # before them, but cannot make a hostile mount operation atomic with a
+    # write. Recursive deletion remains confined by Docker's private
+    # nonrecursive parent bind. No parent-shell cd occurs after pinning tmp.
+    refuse_nested_mounts || exit 1
     cd -P -- "$DIR" || exit 1
+    verify_pinned_dir "$DIR" || exit 1
     # Remember the directory before scanning mounts: a root mount arriving
     # between the scan and Docker's bind cannot become the trusted source.
     checkout_inode=$(perl -e 'my @s = stat(shift) or die "Cannot stat checkout\n"; print "$s[0]:$s[1]"' .) || exit 1
     [[ ! -L ./tmp ]] || { echo 'Checkout tmp is a symlink; move it inside ~/statbus and retry.'; exit 1; }
     [[ -d ./tmp ]] || mkdir ./tmp
     cd -P -- ./tmp || exit 1
+    verify_pinned_dir "$DIR/tmp" || exit 1
     refuse_nested_mounts || exit 1
+    # From the pinned tmp, also verify the original checkout inode by name.
+    # Both checks follow the second scan so a detachment during findmnt fails.
+    current_checkout_inode=$(perl -e 'my @s = stat(shift) or exit 1; print "$s[0]:$s[1]"' "$DIR") || exit 1
+    [[ $current_checkout_inode == "$checkout_inode" ]] || { echo 'Checkout changed during the mount scan; refusing removal.'; exit 1; }
+    verify_pinned_dir "$DIR/tmp" || exit 1
     check_tmp_boundary || exit 1
-    flag=./upgrade-in-progress.json
-    marker_owned=0
-    if ! { exec 9<>"$flag"; } 2>/dev/null; then
-        echo 'Cannot open the install lock in ~/statbus/tmp; repair its permissions or ask an administrator to restore ownership, then retry.'
+    # Bash's <> follows a symlink substituted after check_tmp_boundary. Keep
+    # the flock in a process-substitution guard: O_NOFOLLOW opens from pinned
+    # tmp, and the guard only unlinks a marker whose inode is still its fd.
+    # The parent retains HOME's repo mutex until this guard finishes.
+    exec 9< <(perl -e '
+        use Fcntl qw(:DEFAULT :flock);
+        select(STDOUT); $| = 1;
+        my $parent = shift;
+        my $done = 0;
+        $SIG{USR1} = sub { $done = 1 };
+        my $name = "./upgrade-in-progress.json";
+        my $f;
+        if (!sysopen($f, $name, O_RDWR|O_CREAT|O_NOFOLLOW, 0600)) { print "OPEN_ERROR\n"; exit 1; }
+        if (!-f $f) { print "OPEN_ERROR\n"; exit 1; }
+        if (!flock($f, LOCK_EX|LOCK_NB)) { print "HELD\n"; exit 1; }
+        my @opened = stat($f);
+        my @named = lstat($name);
+        if (!@named || $opened[0] != $named[0] || $opened[1] != $named[1]) { print "OPEN_ERROR\n"; exit 1; }
+        my $owned = !-s $f;
+        if ($owned) {
+            print {$f} qq({"id":0,"commit_sha":"","started_at":"","invoked_by":"uninstall.sh","trigger":"install","holder":"install"}\n)
+                or die "Cannot write install marker\n";
+        }
+        print "READY $$\n";
+        sleep 1 while !$done && kill(0, $parent);
+        @named = lstat($name);
+        unlink($name) if $owned && @named && $opened[0] == $named[0] && $opened[1] == $named[1];
+        print "DONE\n";
+    ' "$$")
+    if ! read -r marker_status marker_guard_pid <&9 || [[ $marker_status != READY ]]; then
+        if [[ ${marker_status:-} == HELD ]]; then
+            echo 'Install/upgrade mutex is held; refusing removal.'
+        else
+            echo 'Cannot open the install lock in ~/statbus/tmp; repair its permissions or ask an administrator to restore ownership, then retry.'
+        fi
         exit 1
-    fi
-    if ! perl -e 'use Fcntl ":flock"; open(my $f, "<&=9") or exit 2; exit(flock($f, LOCK_EX|LOCK_NB) ? 0 : 1);'; then
-        echo 'Install/upgrade mutex is held; refusing removal.'
-        exit 1
-    fi
-    if [[ ! -e $flag ]]; then
-        echo 'Install lock disappeared while being opened; refusing removal.'
-        exit 1
-    fi
-    if [[ ! -s $flag ]]; then
-        printf '{"id":0,"commit_sha":"","started_at":"","invoked_by":"uninstall.sh","trigger":"install","holder":"install"}\n' >&9
-        marker_owned=1
     fi
     # A refusal must not leave a free flag: install.Detect calls that a crash.
-    # cwd pins the original tmp inode, so unlink cannot reach a late host bind.
-    # Successful removal deletes tmp through the isolated Docker helper last.
-    trap 'if [[ $marker_owned == 1 ]]; then rm -f -- "$flag"; fi' EXIT
+    # The guard unlinks only its own marker in its original pinned directory;
+    # successful removal deletes tmp through the isolated Docker helper last.
+    trap 'kill -USR1 "$marker_guard_pid" 2>/dev/null || true; read -r marker_done <&9 || true' EXIT
 fi
 project=statbus
 if [[ -f "$DIR/.env" ]]; then
@@ -232,7 +282,7 @@ if [[ -d $DIR ]]; then
     server_major=${server_version%%.*}
     if [[ ! $client_major =~ ^[0-9]+$ || ! $server_major =~ ^[0-9]+$ ]] ||
         ((client_major < 25 || server_major < 25)); then
-        echo 'Safe checkout removal requires Docker client and server version 25 or newer. Upgrade Docker and retry; nothing has been deleted.'
+        echo 'Safe checkout removal requires Docker client and server version 25 or newer. Upgrade Docker and retry; no Docker resources or checkout files have been removed.'
         exit 1
     fi
     if [[ -e /etc/systemd/system/statbus-upgrade@.service && $USER != statbus_* ]] && ! sudo -n true >/dev/null 2>&1; then
@@ -269,7 +319,7 @@ echo 'StatBus removal plan (only listed resources will be deleted):'
 [[ -z ${networks:-} ]] || echo "  Project networks: $networks"
 for image in "${images[@]}"; do echo "  Image tag: $image"; done
 for image in "${retained_images[@]}"; do echo "  Keep shared image tag (used by another project's container): $image"; done
-[[ $USE_DOCKER == 0 ]] || echo "  Docker cleanup helper: $CLEANUP_IMAGE (removed last if pulled for this run)"
+[[ $USE_DOCKER == 0 ]] || echo "  Docker cleanup helper: $CLEANUP_IMAGE (removed last if pulled for this run, unless shared)"
 for unit in "${units[@]}"; do echo "  Unit file: $unit"; done
 for path in "${remaining[@]}"; do echo "  Path (recursively): $path"; done
 [[ ! -d $DIR/tmp ]] || echo "  Path (recursively, last): $DIR/tmp"
