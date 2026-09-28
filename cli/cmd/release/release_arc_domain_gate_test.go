@@ -279,29 +279,22 @@ func TestUpgradeArcHarnessGate_RunInProgressPrescribesWaitNotTrigger(t *testing.
 	}
 }
 
-// TestInstallRecoveryHarnessGate_NoEvidenceAnywhereRefuses is the same
-// STATBUS-252 defining case on the second consumer of runCoverageAuthority —
-// this gate GAINED the anchor walk with the switch (it had none before), so
-// its own "no evidence anywhere" refusal is asserted independently rather
-// than assumed to follow from the arc gate's test.
-func TestInstallRecoveryHarnessGate_NoEvidenceAnywhereRefuses(t *testing.T) {
-	dir, head := arcFixture(t, "doc/readme.md", "test/install-recovery/scenarios/working.sh")
-	writeSensitivePathsFile(t, dir)
-	addOriginRemote(t, dir)
-	stubScenarioEvidence(t, map[string]map[string]bool{})
-	stubWorkflowSeams(t, func(string, string) release.WorkflowCheckResult {
+// The LXD gate cannot inherit historical VM scenario marks. A missing whole
+// LXD workflow run at this exact RC commit must refuse promotion.
+func TestLXDFleetGate_MissingRunRefuses(t *testing.T) {
+	const commit = "1234567890123456789012345678901234567890"
+	stubWorkflowSeams(t, func(workflow, sha string) release.WorkflowCheckResult {
+		if workflow != release.WorkflowLXDFleet || sha != commit {
+			t.Fatalf("wrong evidence identity: %s at %s", workflow, sha)
+		}
 		return release.WorkflowCheckResult{Status: release.WorkflowCheckMissing}
 	}, trivialComplete)
-
 	var passed bool
 	out := captureStdout(t, func() {
-		passed = checkInstallRecoveryHarnessGate(dir, "v2026.08.0-rc.01", head, head[:7])
+		passed = checkInstallRecoveryHarnessGate("", "v2026.08.0-rc.01", commit, commit[:7])
 	})
-	if passed {
-		t.Fatalf("the install-recovery gate PASSED a required scenario with NO evidence anywhere; output:\n%s", out)
-	}
-	if !strings.Contains(out, "NOT COVERED") || !strings.Contains(out, "working") {
-		t.Errorf("the refusal must name the uncovered scenario; output:\n%s", out)
+	if passed || !strings.Contains(out, "gh workflow run lxd-fleet.yaml") {
+		t.Fatalf("missing LXD suite must refuse with trigger guidance: %s", out)
 	}
 }
 
@@ -549,26 +542,40 @@ func TestUpgradeArcHarnessGate_DifferingBlockedAnchorsNameEachAnchor(t *testing.
 	}
 }
 
-// TestInstallRecoveryHarnessGate_EmptyScenarioDomainRefuses is the same
-// STATBUS-216 hole on the second consumer of runCoverageAuthority.
-func TestInstallRecoveryHarnessGate_EmptyScenarioDomainRefuses(t *testing.T) {
-	// Build the empty fleet domain explicitly: arcFixture now seeds one
-	// default scenario so ordinary gate tests survive the STATBUS-352
-	// structural prerequisite, which this test deliberately does not want.
-	dir := t.TempDir()
-	runGitInCmd(t, dir, "init", "-q")
-	writeAndCommit(t, dir, "fixture", "doc/readme.md")
-	head := runGitInCmd(t, dir, "rev-parse", "HEAD")
-
-	var passed bool
-	out := captureStdout(t, func() {
-		passed = checkInstallRecoveryHarnessGate(dir, "v2026.08.0-rc.01", head, head[:7])
-	})
-	if passed {
-		t.Fatalf("the install-recovery gate PASSED with an empty scenario domain (STATBUS-216); output:\n%s", out)
+// A PASSED full LXD workflow is sufficient, while superseded/failure cannot
+// masquerade as green through a per-scenario historical mark.
+func TestLXDFleetGate_WorkflowResultAndBypass(t *testing.T) {
+	for _, tc := range []struct {
+		status release.WorkflowCheckStatus
+		want   bool
+	}{
+		{release.WorkflowCheckGreen, true},
+		{release.WorkflowCheckFailed, false},
+		{release.WorkflowCheckPending, false},
+		{release.WorkflowCheckUnknown, false},
+	} {
+		t.Run(string(tc.status), func(t *testing.T) {
+			stubWorkflowSeams(t, func(workflow, sha string) release.WorkflowCheckResult {
+				if workflow != release.WorkflowLXDFleet || sha != "sha" {
+					t.Fatalf("wrong query %s %s", workflow, sha)
+				}
+				return release.WorkflowCheckResult{Status: tc.status, Detail: "superseded", RunURL: "https://example.invalid/run/1"}
+			}, trivialComplete)
+			var passed bool
+			captureStdout(t, func() { passed = checkInstallRecoveryHarnessGate("", "rc", "sha", "sha") })
+			if passed != tc.want {
+				t.Fatalf("status %s: got %t, want %t", tc.status, passed, tc.want)
+			}
+		})
 	}
-	if !strings.Contains(out, "scenario domain") {
-		t.Errorf("the refusal must name the scenario domain as the cause; output:\n%s", out)
+	t.Setenv("SKIP_INSTALL_RECOVERY", "1")
+	out := captureStdout(t, func() {
+		if !checkInstallRecoveryHarnessGate("", "rc", "sha", "sha") {
+			t.Fatal("explicit bypass must permit operator override")
+		}
+	})
+	if !strings.Contains(out, "lxd-fleet SKIPPED") {
+		t.Fatalf("bypass must name LXD gate: %s", out)
 	}
 }
 

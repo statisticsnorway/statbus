@@ -1,5 +1,5 @@
 # yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
-name: LXD Fork Fleet (advisory parity)
+name: LXD Fork Fleet
 on:
   workflow_dispatch: {}
 permissions:
@@ -166,9 +166,13 @@ jobs:
         if: always()
         run: |
           if [ ! -f test/install-recovery/lxd/fleet-status.sh ]; then
-            echo '### LXD parity: ERROR (checkout unavailable, ADVISORY ONLY)' >> "$GITHUB_STEP_SUMMARY"
-            exit 0
+            echo '### LXD fault fleet: ERROR (checkout unavailable)' >> "$GITHUB_STEP_SUMMARY"
+            exit 1
           fi
           source test/install-recovery/lxd/fleet-status.sh
           fleet_status_read "$LXD_FLEET_ARTIFACT_DIR/fleet-status.txt"
-          echo "### LXD parity: $FLEET_STATUS (ADVISORY ONLY)" >> "$GITHUB_STEP_SUMMARY"
+          echo "### LXD fault fleet: $FLEET_STATUS" >> "$GITHUB_STEP_SUMMARY"
+          # A superseded child is neutral in the orchestrator, which reads the
+          # artifact first, but must never look green to `release stable`'s
+          # whole-workflow check. Only PASSED earns a successful conclusion.
+          [ "$FLEET_STATUS" = PASSED ]

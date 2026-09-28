@@ -115,7 +115,7 @@ func parsedYAMLMap(t *testing.T, rel string) map[string]any {
 }
 
 func TestPaidFleetWorkflowConcurrencyExactSet_STATBUS350(t *testing.T) {
-	want := []string{"install-recovery-harness.yaml", "test-smoke.yaml", "upgrade-arc-harness.yaml"}
+	want := []string{"test-smoke.yaml", "upgrade-arc-harness.yaml"}
 	entries, err := os.ReadDir(thisRepoFile(t, ".github/workflows"))
 	if err != nil {
 		t.Fatal(err)
@@ -169,17 +169,19 @@ func TestSmokeWorkflowFixedSelectedMatrix_STATBUS350(t *testing.T) {
 
 func TestFleetDispatcherClassificationRefusalAndNoCancellation_STATBUS350(t *testing.T) {
 	script := thisRepoFile(t, ".github/actions/dispatch-fleet-and-wait/dispatch.sh")
-	for _, workflow := range []string{"test-smoke.yaml", "install-recovery-harness.yaml", "upgrade-arc-harness.yaml"} {
+	for _, workflow := range []string{"test-smoke.yaml", "upgrade-arc-harness.yaml"} {
 		cmd := exec.Command("bash", script)
 		cmd.Env = append(os.Environ(), "STATBUS_DISPATCH_TEST_MODE=classify", "WORKFLOW_FILE="+workflow)
 		if out, err := cmd.CombinedOutput(); err != nil {
 			t.Fatalf("%s not classified as paid fleet: %v\n%s", workflow, err, out)
 		}
 	}
-	cmd := exec.Command("bash", script)
-	cmd.Env = append(os.Environ(), "STATBUS_DISPATCH_TEST_MODE=classify", "WORKFLOW_FILE=deploy-to-dev.yaml")
-	if err := cmd.Run(); err == nil {
-		t.Fatal("non-fleet deploy-to-dev must not be classified for group API queries")
+	for _, workflow := range []string{"install-recovery-harness.yaml", "lxd-fleet.yaml", "deploy-to-dev.yaml"} {
+		cmd := exec.Command("bash", script)
+		cmd.Env = append(os.Environ(), "STATBUS_DISPATCH_TEST_MODE=classify", "WORKFLOW_FILE="+workflow)
+		if err := cmd.Run(); err == nil {
+			t.Fatalf("%s must not join the paid VM concurrency group", workflow)
+		}
 	}
 
 	dir := t.TempDir()
@@ -197,7 +199,7 @@ fi
 	if err := os.WriteFile(mockPath, []byte(mock), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	cmd = exec.Command("bash", script)
+	cmd := exec.Command("bash", script)
 	cmd.Env = append(os.Environ(), "PATH="+dir+":"+os.Getenv("PATH"), "GH_TEST_LOG="+log,
 		"GH_REPO=statisticsnorway/statbus", "WORKFLOW_FILE=test-smoke.yaml",
 		`GH_RESPONSE={"group_name":"hetzner-vm-fleet","group_url":"https://api.github.com/repos/statisticsnorway/statbus/actions/concurrency_groups/hetzner-vm-fleet","total_count":2,"group_members":[{"run_id":111,"run_name":"owner","run_url":"https://api.github.com/runs/111","run_html_url":"https://runs/111","status":"in_progress"},{"run_id":222,"run_name":"ours","run_url":"https://api.github.com/runs/222","run_html_url":"https://runs/222","status":"pending"}]}`,
@@ -306,7 +308,7 @@ func TestFleetDispatcherRejectsMalformedSuccessfulGroupResponses_STATBUS350(t *t
 }
 
 func TestPaidFleetSharedAdmissionAndManualCompatibility_STATBUS350(t *testing.T) {
-	paid := []string{"test-smoke.yaml", "install-recovery-harness.yaml", "upgrade-arc-harness.yaml"}
+	paid := []string{"test-smoke.yaml", "upgrade-arc-harness.yaml"}
 	for _, name := range paid {
 		text, err := os.ReadFile(thisRepoFile(t, filepath.Join(".github/workflows", name)))
 		if err != nil {

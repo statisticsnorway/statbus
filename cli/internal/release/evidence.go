@@ -28,11 +28,12 @@ import (
 // dependency: the release gate already bets on this same API and this same
 // retention in checkWorkflowAt and in the path-sensitivity walk.
 //
-// Why not artifacts: their retention here is 14 days (upgrade-arc-harness.yaml,
-// install-recovery-harness.yaml) and 30 (test-install.yaml). Run and JOB records
-// outlive that by months — the oldest install-recovery run still answering is
-// twelve weeks old. A store that forgets would turn an inherited proof back into
-// a bare success on a timer, which is the defect this ticket removes.
+// Historical VM Fleet marks are retained only for compatibility lookups, not
+// for the current LXD stable gate. LXD's comparison.tsv is an artifact rather
+// than per-scenario GitHub jobs, so CheckWorkflowAtCommit(WorkflowLXDFleet)
+// supplies the full-suite promotion evidence at the candidate commit.
+// The old job records outlive the VM artifacts' 14-day retention (30 days
+// for test-install.yaml); historical compatibility never relies on downloads.
 //
 // AC#6 (nothing rides incomplete work) needs no new mechanism either: a
 // cancelled or skipped job carries a non-success conclusion, so it is not a
@@ -361,7 +362,7 @@ func scenarioProvenInCIAt(apiBase, workflow, scenario, commitSHA string) (bool, 
 // holds a CI mark for this scenario: its home first, then the compatibility
 // identities STATBUS-350 requires to stay discoverable (the current smoke
 // workflow, the DELETED legacy smoke workflows whose runs GitHub still serves,
-// and the install-recovery harness, all of which have run the two happy-path
+// and the archived install-recovery harness, all of which historically ran the two happy-path
 // scenarios by the same job name).
 //
 // Unioning across producers is only sound because sensitivity for those two

@@ -206,6 +206,9 @@ func scenarioSensitivityRules(scenario Scenario) ([]sensitivityRule, error) {
 	var rules []sensitivityRule
 	switch scenario.Home {
 	case WorkflowFleet:
+		// Legacy VM scenario marks remain queryable for historical diagnostics.
+		// The current LXD stable gate reads one whole workflow result instead
+		// of applying these per-scenario rules to comparison.tsv.
 		ownPath = "test/install-recovery/scenarios/" + scenario.Name + ".sh"
 		rules = append(rules,
 			sensitivityRule{Kind: matchExact, Path: ".github/workflows/install-recovery-harness.yaml", Reason: ReasonSharedController},

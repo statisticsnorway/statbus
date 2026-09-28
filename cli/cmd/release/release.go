@@ -1356,7 +1356,7 @@ Pre-flight — only what genuinely needs the RC TAG to exist:
   - upgrade-arc-harness FULL SUITE green at (or since) the RC's commit —
     path-sensitivity walk rides a prior green when nothing upgrade-
     sensitive changed (STATBUS-199 D2)
-  - install-recovery-harness FULL SUITE green at the RC's commit
+  - LXD fault fleet full suite green at the RC's commit
   - RC release artifacts (GitHub assets + ghcr manifests) all present
   - canary convergence (observational; per-slot bypass, see below)
 
@@ -1461,18 +1461,9 @@ SKIP_APP_BUILD_LINT) apply at the prerelease cut — see
 		// tag as the dispatch ref for the Missing remedy.
 		allPassed = checkStableWorkflowGate(release.WorkflowTestHardening, "test-hardening", "SKIP_TEST_HARDENING", latestRC, rcCommit, rcShort) && allPassed
 		allPassed = checkSmokeGate(projDir, latestRC, rcCommit, rcShort) && allPassed
-		// Install-recovery harness: every C-class with a paired scenario in
-		// test/install-recovery/scenarios/ gets exercised on a dedicated
-		// Hetzner cx23. The workflow at .github/workflows/install-recovery-
-		// harness.yaml fires on the RC's tag push and is the empirical
-		// half of the no-hotfix discipline — without this gate, the
-		// "release stable promotes a verified-recovery RC" invariant
-		// reduces to "release stable promotes a never-crashed-in-CI RC".
-		// STATBUS-199 §5 rider (comment #1, closed by comment #6's
-		// scenario-domain ruling): the same any-green softness latent in a
-		// plain check — a green workflow_dispatch named-subset run at the
-		// RC commit would also satisfy it — closes via the same
-		// jobs-completeness treatment as the arc-harness gate below.
+		// The LXD fleet runs the full fault suite against candidate-pinned bases.
+		// Its only successful conclusion is PASSED, so one whole-workflow
+		// result at this RC commit replaces per-scenario VM job marks.
 		allPassed = checkInstallRecoveryHarnessGate(projDir, latestRC, rcCommit, rcShort) && allPassed
 		// Upgrade-arc harness (STATBUS-199 D2): the 31 real-dispatch upgrade
 		// arcs (STATBUS-071) — serve-proven writers, park lifecycle, deploy
@@ -1842,16 +1833,17 @@ const (
 // checkPrereleaseWorkflowGate, but keyed on the RC's commit, with the RC
 // tag as the workflow_dispatch ref in the Missing remedy.
 //
-// No jobs-completeness verification (unlike the two harness gates): these
-// workflows have a fixed job set — no selector input can produce a
-// green-but-subset run.
+// The LXD fleet also uses this check: unlike the VM matrix, it has no
+// subset input, and its workflow concludes success only when the full suite
+// reports PASSED. A SUPERSEDED run concludes non-success even though the
+// orchestrator treats that status as neutral.
 func checkStableWorkflowGate(workflow, label, skipEnv, rcTag, rcCommit, rcShort string) bool {
 	if os.Getenv(skipEnv) == "1" {
 		fmt.Printf("  ⚠ %s SKIPPED (%s=1)\n", label, skipEnv)
 		fmt.Printf("    Operator bypass — ensure %s ran via CI or by hand on this commit.\n", label)
 		return true
 	}
-	result := release.CheckWorkflowAtCommit(workflow, rcCommit)
+	result := checkWorkflowAtCommit(workflow, rcCommit)
 	switch result.Status {
 	case release.WorkflowCheckGreen:
 		fmt.Printf("  ✓ %s green at %s\n", label, rcShort)
@@ -1895,51 +1887,21 @@ func checkStableWorkflowGate(workflow, label, skipEnv, rcTag, rcCommit, rcShort 
 // nothing. Production code must never assign these; tests restore them
 // via t.Cleanup.
 //
-// STATBUS-252: workflowJobsComplete is no longer called by either harness
-// coverage gate — both switched to per-scenario coverage
-// (runCoverageAuthority, release_coverage_authority.go), which asks
-// scenarioEvidence instead. The var (and its stubWorkflowSeams signature,
-// release_arc_domain_gate_test.go) is kept ALIVE only because
-// release_ci_exempt_ride_test.go's exempt-ride mechanism still stubs both
-// seams together even though it only consults checkWorkflowAtCommit — that
-// mechanism is STATBUS-219's, untouched by this switch. checkWorkflowAtCommit
-// itself remains live production code at several other call sites (see
-// findExemptRide, the fast-suite/images checks) — only workflowJobsComplete's
-// PRODUCTION call sites are gone.
+// checkWorkflowAtCommit is also used by the whole-suite LXD stable gate;
+// workflowJobsComplete remains a compatibility test seam for older callers.
 var (
 	checkWorkflowAtCommit = release.CheckWorkflowAtCommit
 	workflowJobsComplete  = release.WorkflowJobsCompleteAtCommit
 )
 
-// checkInstallRecoveryHarnessGate is the STATBUS-199 §5-rider stable gate
-// for install-recovery-harness.yaml.
-//
-// STATBUS-252 SWITCH: authority moved from whole-suite completeness (one run
-// whose job list covers every scenario) to per-scenario coverage
-// (runCoverageAuthority — release.DecideCoverage per required scenario,
-// derived from rcCommit's own tree). See runCoverageAuthority's doc comment
-// for the three preconditions and the AC#6 independence argument. This gate
-// now gains the walk-back capability it never had before the switch (its
-// prior design note — "no path-sensitivity walk-back needed, the tag-push
-// trigger guarantees a full run exists" — is superseded: per-scenario
-// coverage can inherit evidence from an older anchor exactly like the
-// arc-harness gate always could, and there is no reason this gate should be
-// less precise than that one now that both share one mechanism).
+// checkInstallRecoveryHarnessGate keeps the operator's SKIP_INSTALL_RECOVERY
+// override while replacing the VM scenario-job evidence with one full LXD suite.
+// The child workflow has no subset input and concludes success ONLY for PASSED;
+// SUPERSEDED deliberately concludes non-success (neutral to the orchestrator,
+// never promotable by this commit-scoped workflow check). The comparison.tsv
+// artifact remains diagnostic, not an independently indexed per-scenario mark.
 func checkInstallRecoveryHarnessGate(projDir, rcTag, rcCommit, rcShort string) bool {
-	const skipEnv = "SKIP_INSTALL_RECOVERY"
-	if os.Getenv(skipEnv) == "1" {
-		fmt.Printf("  ⚠ install-recovery SKIPPED (%s=1)\n", skipEnv)
-		fmt.Println("    Operator bypass — ensure install-recovery-harness ran via CI or by hand on this commit.")
-		return true
-	}
-
-	domain, err := release.ScenariosAt(projDir, rcCommit, release.WorkflowFleet)
-	if err != nil {
-		fmt.Printf("  ✗ install-recovery: the scenario domain at %s could not be listed\n", rcShort)
-		fmt.Printf("    Error: %v\n", err)
-		return false
-	}
-	return runCoverageAuthority(projDir, rcTag, rcCommit, rcShort, domain)
+	return checkStableWorkflowGate(release.WorkflowLXDFleet, "lxd-fleet", "SKIP_INSTALL_RECOVERY", rcTag, rcCommit, rcShort)
 }
 
 // checkSmokeGate applies the same per-scenario coverage authority as both

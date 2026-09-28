@@ -13,9 +13,6 @@ paths:
   .github/workflows/test-smoke.yaml:
     ignore:
       - 'unexpected key "queue" for "concurrency" section'
-  .github/workflows/install-recovery-harness.yaml:
-    ignore:
-      - 'unexpected key "queue" for "concurrency" section'
   .github/workflows/upgrade-arc-harness.yaml:
     ignore:
       - 'unexpected key "queue" for "concurrency" section'

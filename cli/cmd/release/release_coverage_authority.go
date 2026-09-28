@@ -33,15 +33,11 @@ type coverageBlockedGroup struct {
 	SensitiveChanges []release.SensitiveChange
 }
 
-// runCoverageAuthority is STATBUS-252's SWITCH: the per-scenario decision
-// (release.DecideCoverage) is now the promotion gate's OWN authority for
-// checkUpgradeArcHarnessGate and checkInstallRecoveryHarnessGate, replacing
-// the whole-suite completeness check (a single run's job list covering every
-// required scenario) that gated until now. The shadow that ran this same
-// algorithm advisorily beside the old authority (runShadowCoverage,
-// STATBUS-252 shadow half) is retired along with it — its job is done, and
-// its own log would only ever show "always agrees" from here on, which is
-// not a finding.
+// runCoverageAuthority remains the per-scenario promotion authority for
+// checkUpgradeArcHarnessGate and checkSmokeGate. The LXD fleet intentionally
+// does NOT call it: its comparison.tsv is an artifact, not GitHub job marks,
+// so the fault-suite gate checks one successful full workflow at the RC SHA.
+// The historical VM Fleet scenario home remains readable for old evidence.
 //
 // THE THREE PRECONDITIONS THIS SATISFIES (STATBUS-252 ticket description):
 //
@@ -79,20 +75,10 @@ type coverageBlockedGroup struct {
 //     operator auditing a refusal must be able to tell "nothing was there" from
 //     "something could not be read."
 //
-// AC#6 — THE INDEPENDENCE ARGUMENT, recorded here because this is the switch
-// site it must travel with: treating N scenarios as independently provable
-// is sound ONLY because both harnesses run every scenario on its own
-// throwaway VM with NO shared state between them (install-recovery-harness.yaml
-// and upgrade-arc-harness.yaml are both one-VM-per-scenario matrices) — so
-// "the whole suite passed" has never meant more than "each of the N passed
-// on its own," which is exactly what per-scenario coverage checks one at a
-// time, just without requiring they all happened in the same run. THIS
-// REASONING MUST BE RE-EXAMINED if either suite ever gains inter-scenario
-// dependencies (a shared fixture, an ordering requirement, state carried
-// between matrix jobs) — there, a scenario proven in isolation would no
-// longer imply it holds when run alongside the others, and per-scenario
-// coverage would silently drop the "passed together" property whole-suite
-// used to carry for free.
+// Arc scenarios run on independent throwaway VMs. Smoke scenarios also
+// have independent VM jobs. Their per-scenario marks may be inherited only
+// under the sensitivity policy below; the LXD fork suite is a different
+// whole-run evidence domain and does not borrow historical VM marks.
 //
 // requiredScenarios MUST already be derived from the TARGET commit's own
 // tree by the caller — see precondition 1. An empty domain refuses here too

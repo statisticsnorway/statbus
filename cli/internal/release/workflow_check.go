@@ -19,22 +19,19 @@ const (
 	WorkflowGoTest          = "go-test.yaml"
 	WorkflowTestHardening   = "test-hardening.yaml"
 	WorkflowTestSmoke       = "test-smoke.yaml"
-	// Deleted workflow identities remain queryable in GitHub Actions and hold
-	// historical scenario evidence. Never fold these into WorkflowTestSmoke.
+	// Archived VM workflow identities remain queryable in GitHub Actions and
+	// hold historical happy-path scenario evidence. None satisfies the LXD gate.
 	WorkflowTestInstallLegacy      = "test-install.yaml"
 	WorkflowTestUpgradeLegacy      = "test-upgrade.yaml"
-	WorkflowInstallRecoveryHarness = "install-recovery-harness.yaml"
+	WorkflowInstallRecoveryHarness = "install-recovery-harness.yaml" // Retired, historical happy-path marks only.
+	WorkflowLXDFleet               = "lxd-fleet.yaml"
 	// WorkflowAppBuildLint (STATBUS-199): app/ build + lint. Never gated
 	// anywhere before this — gains its first release-gate consumer at the
 	// prerelease preflight (D1 layer re-map).
 	WorkflowAppBuildLint = "app_build_and_lint-workflow.yaml"
-	// WorkflowUpgradeArcHarness (STATBUS-199): the 31 real-dispatch upgrade
-	// arcs (STATBUS-071). Gated at STABLE (needs the RC tag to exist), not
-	// prerelease — same reasoning as WorkflowInstallRecoveryHarness. A
-	// green run only satisfies the gate when its job list is COMPLETE
-	// against the arcs present in the tree at its commit (see
-	// WorkflowJobsCompleteAtCommit) — STATBUS-199 comment #4: the gate
-	// verifies what ran, not what the run claims via a self-reported label.
+	// WorkflowUpgradeArcHarness is the VM upgrade-arc workflow. Stable
+	// promotion uses per-scenario coverage from successful matrix jobs. The
+	// LXD fault fleet instead uses one complete workflow result at the RC SHA.
 	WorkflowUpgradeArcHarness = "upgrade-arc-harness.yaml"
 )
 

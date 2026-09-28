@@ -31,7 +31,6 @@ func TestSupersededCandidateStopsBeforeEachVMAndPropagatesFleetVerdict_STATBUS41
 	}
 	for _, tc := range []struct{ file, job, selector string }{
 		{".github/workflows/test-smoke.yaml", "smoke", "select"},
-		{".github/workflows/install-recovery-harness.yaml", "run-scenario", "discover"},
 		{".github/workflows/upgrade-arc-harness.yaml", "run-arc", "discover"},
 	} {
 		t.Run(tc.job, func(t *testing.T) {
@@ -78,20 +77,18 @@ func TestSupersededCandidateStopsBeforeEachVMAndPropagatesFleetVerdict_STATBUS41
 	}
 	orchestrator := workflowDoc(t, ".github/workflows/release-fleet-orchestrator.yaml")
 	jobs := orchestrator["jobs"].(map[string]any)
-	for _, job := range []string{"smoke", "install-recovery-harness", "upgrade-arc-harness"} {
+	for _, job := range []string{"smoke", "upgrade-arc-harness"} {
 		outputs := jobs[job].(map[string]any)["outputs"].(map[string]any)
 		if outputs["superseded"] != "${{ steps.dispatch.outputs.superseded }}" {
 			t.Errorf("%s must expose child fleet verdict", job)
 		}
 	}
 	if !strings.Contains(jobs["dev-canary"].(map[string]any)["if"].(string), "needs['smoke'].outputs.superseded != 'true'") ||
-		!strings.Contains(jobs["upgrade-arc-harness"].(map[string]any)["if"].(string), "needs['install-recovery-harness'].outputs.superseded != 'true'") {
+		!strings.Contains(jobs["upgrade-arc-harness"].(map[string]any)["if"].(string), "needs['lxd-fleet'].outputs.superseded != 'true'") {
 		t.Fatal("a superseded child fleet must not dispatch the next fleet")
 	}
 	final := jobSteps(t, ".github/workflows/release-fleet-orchestrator.yaml", "fleet-verdict")
-	// Locate the supersession-aware verdict step by content, not position:
-	// advisory reporting steps (e.g. the LXD parity report, STATBUS-417) may
-	// precede it without changing its contract.
+	// LXD supersession joins the surviving VM fleet verdicts.
 	check := ""
 	for _, step := range final {
 		if run, _ := step["run"].(string); strings.Contains(run, `[ "$SMOKE_SUPERSEDED" = true ]`) {
@@ -100,7 +97,7 @@ func TestSupersededCandidateStopsBeforeEachVMAndPropagatesFleetVerdict_STATBUS41
 		}
 	}
 	if !strings.Contains(check, `[ "$SMOKE_SUPERSEDED" = true ]`) ||
-		!strings.Contains(check, `[ "$INSTALL_SUPERSEDED" = true ]`) ||
+		!strings.Contains(check, `[ "$LXD_SUPERSEDED" = true ]`) ||
 		!strings.Contains(check, `[ "$UPGRADE_SUPERSEDED" = true ]`) ||
 		!strings.Contains(check, `echo "obsolete=true" >> "$GITHUB_OUTPUT"`) {
 		t.Fatal("final verdict must honor child-observed supersession when its own tag refresh fails")
@@ -119,7 +116,6 @@ func TestFleetHcloudInstallRetriesAreShared(t *testing.T) {
 	}
 	for _, tc := range []struct{ file, job string }{
 		{".github/workflows/test-smoke.yaml", "smoke"},
-		{".github/workflows/install-recovery-harness.yaml", "run-scenario"},
 		{".github/workflows/upgrade-arc-harness.yaml", "run-arc"},
 	} {
 		steps := jobSteps(t, tc.file, tc.job)
@@ -128,7 +124,7 @@ func TestFleetHcloudInstallRetriesAreShared(t *testing.T) {
 			t.Errorf("%s must use shared retry installer: %v", tc.file, install)
 		}
 	}
-	for _, file := range []string{".github/workflows/install-recovery-harness.yaml", ".github/workflows/upgrade-arc-harness.yaml"} {
+	for _, file := range []string{".github/workflows/upgrade-arc-harness.yaml"} {
 		steps := jobSteps(t, file, "cleanup")
 		if steps[0]["uses"] != "actions/checkout@v4" || !strings.Contains(steps[1]["run"].(string), "bash .github/scripts/install-hcloud.sh") {
 			t.Errorf("%s orphan sweep must use shared retry installer after checkout", file)
@@ -151,7 +147,7 @@ func TestHarnessDomainValidationPrecedesCoverageAndPaidEligibility_STATBUS352(t 
 	t.Run("orchestrator validates both target domains before coverage", func(t *testing.T) {
 		// Every paid joint, including the FIRST one (smoke): an all-covered
 		// answer that dispatches nothing must still have passed validation.
-		for _, job := range []string{"smoke", "install-recovery-harness", "upgrade-arc-harness"} {
+		for _, job := range []string{"smoke", "upgrade-arc-harness"} {
 			steps := jobSteps(t, ".github/workflows/release-fleet-orchestrator.yaml", job)
 			validation := stepIndexByRunContains(t, steps, authoritativeHarnessDomainValidation)
 			coverage := stepIndexByName(t, steps, "Decision point: which scenarios are uncovered?")
@@ -195,21 +191,15 @@ func TestHarnessDomainValidationPrecedesCoverageAndPaidEligibility_STATBUS352(t 
 		}
 	})
 
-	t.Run("install matrix uses exact mode only after successful discovery", func(t *testing.T) {
-		steps := jobSteps(t, ".github/workflows/install-recovery-harness.yaml", "run-scenario")
-		scripts := runScriptsWithoutComments(steps)
-		if !strings.Contains(scripts, `./dev.sh test-install-recovery --exact "$SCENARIO"`) {
-			t.Fatalf("paid install-recovery matrix job does not use the explicit exact boundary:\n%s", scripts)
+	t.Run("LXD fault fleet is a full-suite gate without a subset selector", func(t *testing.T) {
+		doc := workflowDoc(t, ".github/workflows/lxd-fleet.yaml")
+		if _, ok := doc["on"].(map[string]any)["workflow_dispatch"].(map[string]any)["inputs"]; ok {
+			t.Fatal("LXD gate must not expose a subset input")
 		}
-
-		doc := workflowDoc(t, ".github/workflows/install-recovery-harness.yaml")
-		jobs := doc["jobs"].(map[string]any)
-		runJob := jobs["run-scenario"].(map[string]any)
-		condition, _ := runJob["if"].(string)
-		for _, required := range []string{"needs.discover.result == 'success'", "needs.discover.outputs.count != '0'"} {
-			if !strings.Contains(condition, required) {
-				t.Errorf("paid install-recovery matrix lost discovery gate %q: if=%q", required, condition)
-			}
+		steps := jobSteps(t, ".github/workflows/lxd-fleet.yaml", "parity")
+		final := steps[len(steps)-1]["run"].(string)
+		if !strings.Contains(final, `[ "$FLEET_STATUS" = PASSED ]`) {
+			t.Fatal("only a PASSED full-suite status may conclude green")
 		}
 	})
 

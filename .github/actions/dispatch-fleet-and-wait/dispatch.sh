@@ -5,7 +5,7 @@ FLEET_GROUP=hetzner-vm-fleet
 
 is_paid_fleet_workflow() {
   case "$1" in
-    test-smoke.yaml|install-recovery-harness.yaml|upgrade-arc-harness.yaml) return 0 ;;
+    test-smoke.yaml|upgrade-arc-harness.yaml) return 0 ;;
     *) return 1 ;;
   esac
 }
