@@ -205,19 +205,37 @@ jobs:
         # this step is the net for when even that trap can't fire) and, for
         # 0-happy-install, a base copied-but-not-snapshotted by
         # lxd_snapshot_installed (review §1c). Best-effort, always exit 0.
+        #
+        # review H2: this step ran in BOTH matrix legs, but the base name it
+        # computes ("installed-$TAG-standalone") is ALWAYS the install leg's
+        # OWN checkpoint - the upgrade leg's baseline uses a different name
+        # entirely. An early-failing upgrade leg's reap could therefore race
+        # and delete the install leg's base out from under a concurrent
+        # `lxc copy` of the running fork mid-flight (a multi-GB operation),
+        # turning the install leg red for a reason that had nothing to do
+        # with its own scenario. Gate the base half on the matrix entry that
+        # actually owns that name, and serialize with the same host flock
+        # every other catalog mutation (prune, rerun-safe replace) already
+        # uses, so this defense-in-depth net cannot itself race a live copy.
         if: ${{ always() && steps.freshness.outputs.superseded != 'true' }}
         run: |
           [ -n "${LXD_HOST:-}" ] || exit 0
           vm="s2-${{ github.ref_name }}-${{ matrix.scenario }}"
           vm="${vm//[^a-zA-Z0-9-]/-}"
-          base="s2-base-${{ github.ref_name }}-installed-${{ github.ref_name }}-standalone"
-          base="${base//[^a-zA-Z0-9-]/-}"
           ssh -o BatchMode=yes -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null "$LXD_HOST" '
             if lxc info "'"$vm"'" >/dev/null 2>&1; then lxc delete "'"$vm"'" --force; fi
-            if lxc info "'"$base"'" >/dev/null 2>&1 && ! lxc info "'"$base"'" | grep -qE "^\| checkpoint(-pending)? +\|"; then
-              lxc delete "'"$base"'" --force
-            fi
           ' || true
+          if [ "${{ matrix.scenario }}" = "0-happy-install" ]; then
+            base="s2-base-${{ github.ref_name }}-installed-${{ github.ref_name }}-standalone"
+            base="${base//[^a-zA-Z0-9-]/-}"
+            ssh -o BatchMode=yes -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null "$LXD_HOST" '
+              flock /root/fleet-run.lock bash -c '\''
+                if lxc info "'"$base"'" >/dev/null 2>&1 && ! lxc info "'"$base"'" | grep -qE "^\| checkpoint(-pending)? +\|"; then
+                  lxc delete "'"$base"'" --force
+                fi
+              '\''
+            ' || true
+          fi
           exit 0
 
   fleet-verdict:

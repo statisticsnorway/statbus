@@ -693,10 +693,27 @@ bootstrap_install_test_vm() {
 VM_EXEC() { local q; printf -v q '%q ' "$@"; _lxd_host lxc exec "$VM_NAME" -- sudo -i -u statbus bash -c "$q"; }
 VM_ROOT_EXEC() { local q; printf -v q '%q ' "$@"; _lxd_host lxc exec "$VM_NAME" -- bash -c "$q"; }
 cleanup_vm() {
+    # review H1: the VM-harness cleanup_vm captures diagnostics on a nonzero
+    # scenario rc before it deletes the box (vm-bootstrap.sh's cleanup_vm,
+    # scenario_rc=${2:-${rc:-0}}). This LXD one deleted unconditionally, so
+    # every red smoke/fault/arc scenario's `tmp/lxd-*-failure-*.log` (the
+    # upload glob test-smoke.yaml already carries) was empty — a real
+    # regression against Hetzner, not merely a missing nicety: the docker-ps
+    # diagnostic added to lxd_capture_failure was unreachable from any
+    # scenario-level failure, only from a builder's own install failure.
+    # Every caller's trap is 'rc=$?; cleanup_vm "$VM_NAME"; exit $rc' (the
+    # VM-harness shape scenarios/arcs already use) - $1 here IS that
+    # positional VM_NAME echo, never the exit status, so the failure signal
+    # this function needs is the global $rc the SAME trap set one clause
+    # earlier, exactly as vm-bootstrap.sh's cleanup_vm defaults to it.
+    local scenario_rc=${rc:-0}
     [ "${KEEP_VM:-0}" = 1 ] && return 0
     [ "${LXD_OWNED_BY_THIS_RUN:-0}" = 1 ] || return 0
     case "$VM_NAME" in
-        "$LXD_FORK_PREFIX-${LXD_CANDIDATE//[^a-zA-Z0-9-]/-}-"*) _lxd_host lxc delete "$VM_NAME" --force ;;
+        "$LXD_FORK_PREFIX-${LXD_CANDIDATE//[^a-zA-Z0-9-]/-}-"*)
+            [ "$scenario_rc" = 0 ] || lxd_capture_failure "$VM_NAME" || true
+            _lxd_host lxc delete "$VM_NAME" --force
+            ;;
         *) echo "REFUSE: cleanup outside candidate namespace: $VM_NAME" >&2; return 1 ;;
     esac
 }
