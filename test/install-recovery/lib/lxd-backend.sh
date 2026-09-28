@@ -296,6 +296,24 @@ CONFIG
     _lxd_host lxc exec "$VM_NAME" -- chown statbus:statbus /tmp/env-config
     _lxd_host lxc exec "$VM_NAME" -- chmod 0600 /tmp/env-config
     rm -f "$fixture"
+    # Recovery arcs opt into authenticated GitHub access by exporting
+    # GITHUB_TOKEN in their workflow step (never happy install/upgrade proofs,
+    # which stay anonymous by construction - unchanged). Anonymous GitHub API
+    # rate limits (60 req/h) are a real risk once faults and arcs run
+    # concurrently on one box IP (STATBUS-425 review §1i.3). Mirrors
+    # vm-bootstrap.sh's harness_render_github_token exactly: post-361 code
+    # (which this LXD path only ever targets - it installs the current
+    # candidate's own release, never a pre-361 era) reads GITHUB_TOKEN from
+    # .env.credentials, never .env.config.
+    if [ -n "${GITHUB_TOKEN:-}" ]; then
+        fixture=$(mktemp "$LXD_LOG_DIR/s2-cred-XXXXXX")
+        printf 'GITHUB_TOKEN=%s\n' "$GITHUB_TOKEN" > "$fixture"
+        _lxd_upload "$fixture" /root/s2-env-credentials
+        _lxd_push /root/s2-env-credentials "$VM_NAME/tmp/env-credentials"
+        _lxd_host lxc exec "$VM_NAME" -- chown statbus:statbus /tmp/env-credentials
+        _lxd_host lxc exec "$VM_NAME" -- chmod 0600 /tmp/env-credentials
+        rm -f "$fixture"
+    fi
     fixture=$(mktemp "$LXD_LOG_DIR/s2-users-XXXXXX")
     printf '%s\n' '- email: test@statbus.org' '  password: test-install-password-2026' '  role: admin_user' '  display_name: Admin' > "$fixture"
     _lxd_upload "$fixture" /root/s2-users.yml
@@ -758,6 +776,9 @@ if [ "$2" = standalone ] && [ "$3" != 1 ]; then
     install -m 0600 "$HOME/harness-certs/domain.key" "$HOME/statbus/caddy/data/custom-certs/domain.key"
 fi
 cp /tmp/env-config "$HOME/statbus/.env.config"
+if [ -f /tmp/env-credentials ]; then
+    install -m 0600 /tmp/env-credentials "$HOME/statbus/.env.credentials"
+fi
 cp /tmp/users.yml "$HOME/statbus/.users.yml"
 STATBUS_MIN_DISK_GB=5 GIT_NETWORK_MAX_ATTEMPTS=8 GIT_NETWORK_RETRY_DELAY_S=45 DOCKER_PULL_MAX_ATTEMPTS=5 DOCKER_PULL_RETRY_DELAY_S=30 bash /tmp/statbus-install.sh --commit "$1" --trust-github-user jhf
 REMOTE
@@ -889,6 +910,9 @@ if [ "$2" = standalone ] && [ "$3" != 1 ]; then
     install -m 0600 "$HOME/harness-certs/domain.key" "$HOME/statbus/caddy/data/custom-certs/domain.key"
 fi
 cp /tmp/env-config "$HOME/statbus/.env.config"
+if [ -f /tmp/env-credentials ]; then
+    install -m 0600 /tmp/env-credentials "$HOME/statbus/.env.credentials"
+fi
 cp /tmp/users.yml "$HOME/statbus/.users.yml"
 STATBUS_MIN_DISK_GB=5 GIT_NETWORK_MAX_ATTEMPTS=8 GIT_NETWORK_RETRY_DELAY_S=45 DOCKER_PULL_MAX_ATTEMPTS=5 DOCKER_PULL_RETRY_DELAY_S=30 bash /tmp/statbus-install.sh --commit "$1" --trust-github-user jhf
 REMOTE
