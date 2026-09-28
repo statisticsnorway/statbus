@@ -86,14 +86,20 @@ check_tmp_boundary() {
 }
 if [[ -d $DIR ]]; then
     [[ ! -L $DIR ]] || { echo 'Checkout is a symlink; refusing removal outside ~/statbus.'; exit 1; }
+    # Pin checkout as cwd before creating tmp, then pin tmp as cwd before the
+    # mount scan. mkdir and marker operations below are relative to these
+    # directory inodes, never to a path which a late bind can replace. No
+    # parent-shell cd occurs afterward (Compose changes cwd in a subshell).
+    cd -P -- "$DIR" || exit 1
     # Remember the directory before scanning mounts: a root mount arriving
     # between the scan and Docker's bind cannot become the trusted source.
-    checkout_inode=$(perl -e 'my @s = stat(shift) or die "Cannot stat checkout\n"; print "$s[0]:$s[1]"' "$DIR") || exit 1
+    checkout_inode=$(perl -e 'my @s = stat(shift) or die "Cannot stat checkout\n"; print "$s[0]:$s[1]"' .) || exit 1
+    [[ ! -L ./tmp ]] || { echo 'Checkout tmp is a symlink; move it inside ~/statbus and retry.'; exit 1; }
+    [[ -d ./tmp ]] || mkdir ./tmp
+    cd -P -- ./tmp || exit 1
     refuse_nested_mounts || exit 1
-    [[ ! -L $DIR/tmp ]] || { echo 'Checkout tmp is a symlink; move it inside ~/statbus and retry.'; exit 1; }
-    [[ -d $DIR/tmp ]] || mkdir -p "$DIR/tmp"
     check_tmp_boundary || exit 1
-    flag="$DIR/tmp/upgrade-in-progress.json"
+    flag=./upgrade-in-progress.json
     marker_owned=0
     if ! { exec 9<>"$flag"; } 2>/dev/null; then
         echo 'Cannot open the install lock in ~/statbus/tmp; repair its permissions or ask an administrator to restore ownership, then retry.'
@@ -103,13 +109,18 @@ if [[ -d $DIR ]]; then
         echo 'Install/upgrade mutex is held; refusing removal.'
         exit 1
     fi
+    if [[ ! -e $flag ]]; then
+        echo 'Install lock disappeared while being opened; refusing removal.'
+        exit 1
+    fi
     if [[ ! -s $flag ]]; then
         printf '{"id":0,"commit_sha":"","started_at":"","invoked_by":"uninstall.sh","trigger":"install","holder":"install"}\n' >&9
         marker_owned=1
     fi
-    # On refusal, remove only our own marker while still holding its flock.
-    # The successful removal deletes tmp last, immediately before exit.
-    trap 'if [[ $marker_owned == 1 && -e $flag && ! -L $DIR/tmp && ! -L $flag ]]; then rm -f -- "$flag"; fi' EXIT
+    # A refusal must not leave a free flag: install.Detect calls that a crash.
+    # cwd pins the original tmp inode, so unlink cannot reach a late host bind.
+    # Successful removal deletes tmp through the isolated Docker helper last.
+    trap 'if [[ $marker_owned == 1 ]]; then rm -f -- "$flag"; fi' EXIT
 fi
 project=statbus
 if [[ -f "$DIR/.env" ]]; then

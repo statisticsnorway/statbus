@@ -245,6 +245,58 @@ func TestUninstallSymlinkedTmpRefusesBeforeExternalWrite(t *testing.T) {
 	}
 }
 
+func TestUninstallMarkerRefusalDoesNotUnlinkReplacedTmp(t *testing.T) {
+	home := t.TempDir()
+	dir := filepath.Join(home, "statbus")
+	external := filepath.Join(home, "external")
+	for _, path := range []string{dir, external} {
+		if err := os.Mkdir(path, 0700); err != nil {
+			t.Fatal(err)
+		}
+	}
+	marker := filepath.Join(external, "upgrade-in-progress.json")
+	if err := os.WriteFile(marker, []byte("external sentinel"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	bin := filepath.Join(home, "bin")
+	if err := os.Mkdir(bin, 0700); err != nil {
+		t.Fatal(err)
+	}
+	// Simulate a bind over tmp after the initial mount scan, before the second scan.
+	findmnt := `#!/bin/sh
+if [ ! -e "$HOME/scanned" ]; then
+  touch "$HOME/scanned"
+elif [ ! -e "$HOME/swapped" ]; then
+  mv "$HOME/statbus/tmp" "$HOME/original-tmp"
+  mv "$HOME/external" "$HOME/statbus/tmp"
+  echo swapped > "$HOME/swapped"
+  printf '%s\n' "$HOME/statbus/tmp"
+fi
+`
+	if err := os.WriteFile(filepath.Join(bin, "findmnt"), []byte(findmnt), 0700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(bin, "docker"), []byte("#!/bin/sh\nif [ \"$1\" = version ]; then echo 27.5.1; fi\n"), 0700); err != nil {
+		t.Fatal(err)
+	}
+	script, _ := filepath.Abs("../../uninstall.sh")
+	cmd := exec.Command("bash", script)
+	cmd.Env = append(os.Environ(), "HOME="+home, "PATH="+bin+":"+os.Getenv("PATH"), "STATBUS_UNINSTALL_CONFIRM=yes-delete-everything")
+	out, err := cmd.CombinedOutput()
+	if _, swapErr := os.Stat(filepath.Join(home, "swapped")); swapErr != nil {
+		t.Fatalf("race not exercised: %v %s", swapErr, out)
+	}
+	if err == nil {
+		t.Fatalf("expected refusal: %s", out)
+	}
+	if data, readErr := os.ReadFile(filepath.Join(dir, "tmp", "upgrade-in-progress.json")); readErr != nil || string(data) != "external sentinel" {
+		t.Fatalf("external marker changed: %v %q, uninstall: %s", readErr, data, out)
+	}
+	if _, statErr := os.Stat(filepath.Join(home, "original-tmp", "upgrade-in-progress.json")); !os.IsNotExist(statErr) {
+		t.Fatalf("refusal left an unlocked install marker (Detect would classify crashed): %v %s", statErr, out)
+	}
+}
+
 func TestUninstallSymlinkedInstallLockRefusesBeforeExternalWrite(t *testing.T) {
 	home := t.TempDir()
 	dir := filepath.Join(home, "statbus", "tmp")
