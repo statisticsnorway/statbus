@@ -30,7 +30,8 @@ finalize() {
     done
     if [ "$rc" -ne 0 ]; then
         printf '%s\t\t\tPHASE_FAILED\t\t%s\t\n' "$phase" "$rc" >> "$RUN_DIR/comparison.tsv"
-        printf 'STATUS=FAILED\nPHASE=%s\nDETAIL=exit %s\n' "$phase" "$rc" > "$RUN_DIR/fleet-status.txt"
+        # Preserve a specific failure diagnostic written before exiting.
+        [ -f "$RUN_DIR/fleet-status.txt" ] || printf 'STATUS=FAILED\nPHASE=%s\nDETAIL=exit %s\n' "$phase" "$rc" > "$RUN_DIR/fleet-status.txt"
     fi
     if [ -n "${LXD_FLEET_ARTIFACT_DIR:-}" ]; then
         mkdir -p "$LXD_FLEET_ARTIFACT_DIR"
@@ -101,6 +102,14 @@ else
         [ "$1" = --scenario ] && [ "$#" -ge 2 ] || { echo 'Expected --scenario slug' >&2; exit 2; }
         scenarios+=("$2"); shift 2
     done
+fi
+# The default domain is candidate-pinned. Never accept a successful fleet
+# result without at least one selected fault, even if the catalogue changes.
+phase=selection
+if [ "${#scenarios[@]}" -eq 0 ]; then
+    echo 'FAILED: no default fault scenarios selected at candidate tag' >&2
+    printf 'STATUS=FAILED\nPHASE=selection\nDETAIL=no default fault scenarios selected at candidate tag\n' > "$RUN_DIR/fleet-status.txt"
+    exit 1
 fi
 # A slug owns one container, log and row per invocation.
 # Portable duplicate check: macOS ships bash 3.2 (no associative arrays) and
