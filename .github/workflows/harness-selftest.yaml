@@ -34,3 +34,5 @@ jobs:
         run: bash test/install-recovery/tests/lxd-base-prune-test.sh
       - name: Prove LXD file push retries only the forkfile idle-exit race
         run: bash test/install-recovery/tests/lxd-push-retry-test.sh
+      - name: Prove smoke publishes only its own healthy running fork as a checkpoint
+        run: bash test/install-recovery/tests/lxd-smoke-checkpoint-test.sh

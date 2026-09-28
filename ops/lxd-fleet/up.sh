@@ -22,10 +22,14 @@ if [ -n "$server" ]; then
         echo "IMAGE DRIFT: fleet box image ID $current_image != $image ID $image_id; deleting and recreating $name (snapshots intentionally disposable)" >&2
         # Same lock/sentinel protocol as reap.sh. An active fork or a running
         # orphan is NOT a disposable idle base: refuse and let the operator
-        # inspect it, rather than destroying an in-progress proof.
+        # inspect it, rather than destroying an in-progress proof. "Active" is
+        # directory-non-empty: smoke, the fault driver and arc jobs each hold
+        # their OWN marker file under /root/fleet-active/ concurrently
+        # (STATBUS-425 M2').
         ssh "${opts[@]}" "root@$old_ip" 'flock -n /root/fleet-run.lock bash -s' <<'REMOTE'
 set -euo pipefail
-[ ! -e /root/fleet-run.active ] && [ ! -e /root/fleet-hardening.active ] && [ ! -e /root/fleet-reaping ] || { echo 'REFUSE: fleet, hardening or reaper active' >&2; exit 1; }
+active=$(ls -A /root/fleet-active 2>/dev/null || true)
+[ -z "$active" ] && [ ! -e /root/fleet-hardening.active ] && [ ! -e /root/fleet-reaping ] || { echo 'REFUSE: fleet, hardening or reaper active' >&2; exit 1; }
 guests=$(lxc list --format csv)
 ! grep -q RUNNING <<< "$guests" || { echo 'REFUSE: LXD guest still running' >&2; exit 1; }
 touch /root/fleet-reaping

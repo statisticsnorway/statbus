@@ -53,6 +53,15 @@
 # (default "statbus-recovery-"). This protects the production niue VM, which
 # lives in the same Hetzner project as the test VMs.
 
+# Smoke and upgrade arcs select the container backend before any Hetzner
+# credentials, name guards, or VM provisioning are evaluated. The scenario
+# assertions and upgrade-service path stay the same.
+if [ "${HARNESS_LXD_BACKEND:-0}" = 1 ]; then
+    # shellcheck source=lxd-backend.sh
+    source "$(dirname "${BASH_SOURCE[0]}")/lxd-backend.sh"
+    return
+fi
+
 set -euo pipefail
 # Propagate ERR trap into functions and subshells sourced from this lib.
 set -E

@@ -127,6 +127,13 @@ grep -Eq '^\[12/17\] Seed +OK$' "$RERUN_LOG" || { cat "$RERUN_LOG" >&2; echo "gr
 ! grep -Eq '^\[[0-9]+/17\].* +(RUNNING|DONE)$' "$RERUN_LOG" || { cat "$RERUN_LOG" >&2; echo "green rerun changed a step" >&2; exit 1; }
 rm -f "$RERUN_LOG"
 
+# Smoke owns the candidate checkpoint. Capture the proven installer state
+# before the separate operator-tuning phase changes its configuration.
+if [ "${HARNESS_LXD_CHECKPOINT:-0}" = 1 ]; then
+    [ "${HARNESS_LXD_BACKEND:-0}" = 1 ] || { echo 'checkpoint requested without LXD backend' >&2; exit 2; }
+    lxd_snapshot_installed "$INSTALL_TARGET_TAG" "$VM_NAME"
+fi
+
 # Phase 2 is deliberately separate and visible: the installed product owns its
 # config now. Apply tuning as an operator would, then prove generated and live
 # consumers picked it up. The helper never participates in first installation.
@@ -135,6 +142,14 @@ VM_SCRIPT "$LIB_DIR/configure-smoke-instance.sh"
 assert_health_passes "$VM_NAME"
 assert_harness_https_passes "$VM_NAME"
 assert_systemd_active "$VM_NAME"
+
+# The scenario's LAST act, only after every assertion above has passed:
+# promote the provisional checkpoint captured mid-scenario to the one forks
+# and base-reuse will actually see. A red Phase 2 leaves only
+# checkpoint-pending, which no fork accepts (STATBUS-425 M2', review §1a.2).
+if [ "${HARNESS_LXD_CHECKPOINT:-0}" = 1 ]; then
+    lxd_promote_checkpoint "$INSTALL_TARGET_TAG"
+fi
 
 echo ""
 echo "PASS: 0-happy-install"

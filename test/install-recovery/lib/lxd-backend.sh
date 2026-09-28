@@ -8,11 +8,13 @@ HARNESS_ROOT=$(git -C "$HARNESS_LIB_DIR" rev-parse --show-toplevel)
 LXD_LOG_DIR=${LXD_LOG_DIR:-$HARNESS_ROOT/tmp}
 mkdir -p "$LXD_LOG_DIR"
 LXD_SSH_OPTS=(-o BatchMode=yes -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR -o ServerAliveInterval=30)
+[ -z "${LXD_SSH_KEY_FILE:-}" ] || LXD_SSH_OPTS+=(-i "$LXD_SSH_KEY_FILE")
 # shellcheck disable=SC2034 # Sourced assertions consume this variable.
 # Nonempty because bash 3.2 with nounset treats an empty array expansion as unbound.
 SSH_OPTS=(-o BatchMode=yes)
 _lxd_host() { local q; printf -v q '%q ' "$@"; LC_ALL=C command ssh "${LXD_SSH_OPTS[@]}" "$LXD_HOST" "$q"; }
 LXD_BASE_PREFIX=${LXD_BASE_PREFIX:-s2-base}
+LXD_FORK_PREFIX=${LXD_FORK_PREFIX:-s2}
 _lxd_name() {
     [[ "$LXD_BASE_PREFIX" =~ ^[a-z][a-z0-9-]{0,12}$ ]] || { echo "Invalid LXD_BASE_PREFIX: $LXD_BASE_PREFIX" >&2; return 2; }
     printf '%s-%s' "$LXD_BASE_PREFIX" "${1//[^a-zA-Z0-9-]/-}"
@@ -34,12 +36,17 @@ _lxd_bases_to_prune() {
 _lxd_prune_other_bases() {
     local tag=$1 selector
     [[ "$tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+-rc\.[0-9]+$ ]] || return 2
-    # CI/driver acquired the occupancy marker before entering here. The flock
-    # serializes this destructive catalog maintenance with reaper and ramp-up.
+    # CI/driver acquired an occupancy marker (marker.sh) before entering here.
+    # The flock serializes this destructive catalog maintenance with reaper
+    # and ramp-up. "Active" is directory-non-empty: smoke, the fault driver
+    # and arc jobs each hold their OWN marker file concurrently (STATBUS-425
+    # M2'); a single marker file would let the first job to finish delete the
+    # file while a sibling job is still running.
     selector=$(declare -f _lxd_bases_to_prune)
     _lxd_host flock /root/fleet-run.lock bash -c "$selector"$'
 set -euo pipefail
-test -e /root/fleet-run.active && test ! -e /root/fleet-reaping && test ! -e /root/fleet-hardening.active
+active=$(ls -A /root/fleet-active 2>/dev/null || true)
+test -n "$active" && test ! -e /root/fleet-reaping && test ! -e /root/fleet-hardening.active
 names=$(lxc list -c n --format csv)
 while IFS= read -r name; do
     echo "prune superseded base $name"
@@ -213,15 +220,35 @@ CONFIG
     rm -f "$fixture"
 }
 _lxd_build_base_for_candidate() {
-    local tag=$1 checkpoint=${2:-installed-$1-standalone} base start fixture
+    local tag=$1 checkpoint=${2:-installed-$1-standalone} base start fixture channel
     [[ "$tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+-rc\.[0-9]+$ ]] || { echo "Invalid candidate tag: $tag" >&2; return 2; }
+    # The historical-baseline install (below) must match what the calling
+    # scenario declares (0-happy-upgrade.sh sets HARNESS_UPGRADE_CHANNEL=
+    # prerelease; the fault fleet's own fallback build leaves the harness
+    # default of stable), not silently hard-code stable regardless of caller
+    # (review §1a.5: the Norway prerelease hop must genuinely be a prerelease
+    # box, not merely announced as one after an explicit `register`).
+    channel=${HARNESS_UPGRADE_CHANNEL:-stable}
+    case "$channel" in stable|prerelease) ;; *) echo "Invalid HARNESS_UPGRADE_CHANNEL: $channel" >&2; return 2 ;; esac
     base=$(_lxd_name "$tag-$checkpoint")
     if _lxd_host lxc info "$base" 2>/dev/null | grep -qE '^\| checkpoint +\|'; then
         if [ "$(_lxd_host lxc config get "$base" image.version)" != 26.04 ]; then
             echo "REFUSE: $base/checkpoint predates Ubuntu 26.04; replace only after its active fleet drains." >&2
             return 1
         fi
-        _lxd_mark "$base/checkpoint exists, reusing candidate catalog entry"; return 0
+        # A cached base built for one channel must not be silently reused for
+        # the other: 0-happy-upgrade's prerelease hop and the fault fleet's
+        # stable fallback build the SAME checkpoint name from the SAME tag,
+        # but different .env.config content (review §1a.5). Bases built
+        # before this key carries no opinion and are trusted as-is (their
+        # single caller at the time was always stable).
+        local cached_channel
+        cached_channel=$(_lxd_host lxc config get "$base" user.statbus.channel 2>/dev/null || true)
+        if [ -n "$cached_channel" ] && [ "$cached_channel" != "$channel" ]; then
+            echo "REFUSE: $base/checkpoint was built for channel=$cached_channel, this build wants channel=$channel" >&2
+            return 1
+        fi
+        _lxd_mark "$base/checkpoint exists, reusing candidate catalog entry (channel=${cached_channel:-$channel})"; return 0
     fi
     if _lxd_host lxc info "$base" >/dev/null 2>&1; then
         echo "REFUSE: unsnapshotted base $base exists. Inspect or delete explicitly before retry." >&2; return 1
@@ -309,7 +336,7 @@ DEBUG=false
 PUBLIC_DEBUG=false
 TLS_CERT_FILE=/data/custom-certs/domain.crt
 TLS_KEY_FILE=/data/custom-certs/domain.key
-UPGRADE_CHANNEL=stable
+UPGRADE_CHANNEL=$channel
 ENVCONFIG
 )
 cp ~/users.yml .users.yml
@@ -329,6 +356,7 @@ SCRIPT
     start=$(date +%s)
     _lxd_host lxc stop "$base" || return
     _lxd_host lxc snapshot "$base" checkpoint || return
+    _lxd_host lxc config set "$base" user.statbus.channel "$channel" || return
     _lxd_mark "snapshot $base/checkpoint $(($(date +%s)-start))s"
 }
 lxd_base_for_candidate() {
@@ -347,11 +375,25 @@ lxd_base_for_candidate() {
     return "$rc"
 }
 lxd_fork() {
-    local tag=$1 scenario=$2 base name start checkpoint
+    local tag=$1 scenario=$2 base name start checkpoint provenance
     checkpoint=$(lxd_checkpoint_for_scenario "$scenario") || return
-    base=$(_lxd_name "$tag-$checkpoint"); name="s2-${tag//[^a-zA-Z0-9-]/-}-${scenario//[^a-zA-Z0-9-]/-}"
+    [[ "$LXD_FORK_PREFIX" =~ ^[a-z][a-z0-9-]{0,12}$ ]] || return 2
+    base=$(_lxd_name "$tag-$checkpoint"); name="$LXD_FORK_PREFIX-${tag//[^a-zA-Z0-9-]/-}-${scenario//[^a-zA-Z0-9-]/-}"
     [[ "$scenario" =~ ^[a-zA-Z0-9-]+$ ]] || return 2
     _lxd_host lxc info "$base" | grep -qE '^\| checkpoint +\|' || { echo "No checkpoint $base/checkpoint" >&2; return 1; }
+    # Provenance is a forensic log, not a hard gate here (M4 wires an
+    # orchestrator-dispatch flag that refuses a fleet/arc self-build; this is
+    # the read half, landed with the write half in lxd_snapshot_installed).
+    # A base with no provenance key predates this or was built by the
+    # fallback path (_lxd_build_base_for_candidate) - expected and not an error.
+    provenance=$(_lxd_host lxc config get "$base" user.statbus.candidate 2>/dev/null || true)
+    if [ -n "$provenance" ] && [ "$provenance" != "$tag" ]; then
+        echo "REFUSE: $base/checkpoint carries provenance candidate=$provenance, expected $tag" >&2
+        return 1
+    fi
+    if [ -n "$provenance" ]; then
+        _lxd_mark "$base/checkpoint provenance: candidate=$provenance producer=$(_lxd_host lxc config get "$base" user.statbus.producer 2>/dev/null || echo unknown) run_id=$(_lxd_host lxc config get "$base" user.statbus.run_id 2>/dev/null || echo unknown)"
+    fi
     if _lxd_host lxc info "$name" >/dev/null 2>&1; then echo "REFUSE: $name exists. Reset explicitly first." >&2; return 1; fi
     start=$(date +%s); _lxd_host lxc copy "$base/checkpoint" "$name"
     VM_NAME=$name; LXD_OWNED_BY_THIS_RUN=1
@@ -388,18 +430,91 @@ lxd_capture_failure() {
     _lxd_mark "capture $name -> $out"
     {
         _lxd_host lxc exec "$name" -- sudo -i -u statbus bash -lc 'cd ~/statbus && tail -100 tmp/install-last-run-output.txt; docker compose --profile all ps; docker compose --profile all logs --tail 60' || true
+        # Container ID, image and creation time answer "was the container
+        # RECREATED (new ID/CreatedAt) or merely restarted" from the artifact
+        # alone, without a live box to inspect (STATBUS-425 review §1h,
+        # tmp/crollback-rc16-rootcause.md: only install logs were uploaded,
+        # so this exact question was unanswerable after the fact).
+        _lxd_host lxc exec "$name" -- docker ps -a --format '{{.ID}} {{.Image}} {{.Names}} {{.CreatedAt}} {{.Status}}' || true
         _lxd_host lxc exec "$name" -- journalctl --no-pager -n 120 -u docker || true
         _lxd_host lxc exec "$name" -- journalctl --user --no-pager -n 100 _UID=1001 || true
     } > "$out" 2>&1
     echo "$out"
 }
 lxd_reset() {
-    local tag=$1 scenario=$2 name="s2-${1//[^a-zA-Z0-9-]/-}-${2//[^a-zA-Z0-9-]/-}" start
+    local tag=$1 scenario=$2 name="$LXD_FORK_PREFIX-${1//[^a-zA-Z0-9-]/-}-${2//[^a-zA-Z0-9-]/-}" start
     if _lxd_host lxc info "$name" >/dev/null 2>&1; then
         start=$(date +%s); _lxd_host lxc delete "$name" --force
         _lxd_mark "delete $name $(($(date +%s)-start))s"
     fi
     lxd_fork "$tag" "$scenario"
+}
+lxd_snapshot_installed() {
+    local tag=$1 name=$2 base run_id live fork_prefix_pattern
+    [ "$tag" = "$LXD_CANDIDATE" ] || return 2
+    [ "$name" = "$VM_NAME" ] && [ "${LXD_OWNED_BY_THIS_RUN:-0}" = 1 ] || return 2
+    run_id=${GITHUB_RUN_ID:-manual}
+    [[ "$run_id" =~ ^[a-zA-Z0-9._-]+$ ]] || return 2
+    base=$(_lxd_name "$tag-installed-$tag-standalone")
+    fork_prefix_pattern="$LXD_FORK_PREFIX-${tag//[^a-zA-Z0-9-]/-}-"
+    # Rerun-safe: a `gh run rerun` of an infra flake must not be permanently
+    # stuck behind "base already exists" until a human deletes it by hand
+    # (review §1a.3). Serialize the check-and-replace under the same host
+    # flock the pruning path uses, and only ever replace a base that has no
+    # live fork of THIS candidate currently RUNNING (a live fork means
+    # another job may still be reading that base's checkpoint).
+    live=$(_lxd_host flock /root/fleet-run.lock bash -c '
+set -euo pipefail
+base=$1 prefix=$2
+if lxc info "$base" >/dev/null 2>&1; then
+    running=$(lxc list -c n,s --format csv | awk -F, -v p="$prefix" "index(\$1,p)==1 && \$2==\"RUNNING\" {print \$1}")
+    if [ -n "$running" ]; then
+        printf "%s\n" "$running"
+    else
+        lxc delete "$base" --force
+    fi
+fi
+' _ "$base" "$fork_prefix_pattern") || return
+    if [ -n "$live" ]; then
+        echo "REFUSE: smoke checkpoint $base already exists and live forks of $tag are still RUNNING (will not replace): $live" >&2
+        return 1
+    fi
+    # Copy the RUNNING fork, never stop-then-start it: `/tmp` is tmpfs on these
+    # guests (systemd tmp.mount), so a restart would wipe /tmp/env-config
+    # before the scenario's separate Phase 2 (operator tuning) reads it back.
+    # `lxc copy` of a running instance produces an independent stopped copy
+    # without touching the source's live filesystem or process state.
+    _lxd_ready "$name" || return
+    _lxd_host lxc copy "$name" "$base" || return
+    # Snapshot as "checkpoint-pending", NOT "checkpoint": this call runs
+    # before the scenario's Phase 2 (operator tuning) assertions, so if Phase
+    # 2 fails after this point a real checkpoint must not already exist for a
+    # RED smoke run (review §1a.2). lxd_promote_checkpoint renames pending ->
+    # checkpoint as literally the scenario's last act, after every assertion
+    # has passed. lxd_fork and lxd_base_for_candidate only ever look for a
+    # snapshot named "checkpoint" (see their grep), so a pending-only base is
+    # invisible to every fork/reuse path until promoted.
+    _lxd_host lxc snapshot "$base" checkpoint-pending || return
+    _lxd_host lxc config set "$base" user.statbus.candidate "$tag" || return
+    _lxd_host lxc config set "$base" user.statbus.producer smoke || return
+    _lxd_host lxc config set "$base" user.statbus.run_id "$run_id" || return
+    _lxd_mark "smoke created $base/checkpoint-pending from real install $name (source left running)"
+}
+# Called as the scenario's LAST act, after every Phase 2 assertion has
+# passed. Turns a provisional checkpoint into the one forks/base-reuse will
+# actually see. A scenario that fails after lxd_snapshot_installed but before
+# this call leaves only checkpoint-pending: no fork accepts it, and the next
+# attempt's rerun-safe replace (above) cleans it up.
+lxd_promote_checkpoint() {
+    local tag=$1 base
+    [ "$tag" = "$LXD_CANDIDATE" ] || return 2
+    base=$(_lxd_name "$tag-installed-$tag-standalone")
+    _lxd_host lxc info "$base" | grep -qE '^\| checkpoint-pending +\|' || {
+        echo "REFUSE: $base has no checkpoint-pending snapshot to promote" >&2
+        return 1
+    }
+    _lxd_host lxc rename "$base/checkpoint-pending" "$base/checkpoint" || return
+    _lxd_mark "smoke promoted $base/checkpoint-pending -> checkpoint"
 }
 # VM-harness-compatible shims for direct scenario commands.
 bootstrap_install_test_vm() { lxd_fork "$LXD_CANDIDATE" "${1##statbus-recovery-}"; }
@@ -409,7 +524,7 @@ cleanup_vm() {
     [ "${KEEP_VM:-0}" = 1 ] && return 0
     [ "${LXD_OWNED_BY_THIS_RUN:-0}" = 1 ] || return 0
     case "$VM_NAME" in
-        "s2-${LXD_CANDIDATE//[^a-zA-Z0-9-]/-}-"*) _lxd_host lxc delete "$VM_NAME" --force ;;
+        "$LXD_FORK_PREFIX-${LXD_CANDIDATE//[^a-zA-Z0-9-]/-}-"*) _lxd_host lxc delete "$VM_NAME" --force ;;
         *) echo "REFUSE: cleanup outside candidate namespace: $VM_NAME" >&2; return 1 ;;
     esac
 }
@@ -447,6 +562,14 @@ upload_install_script_to_vm() {
     _lxd_push "/root/s2-install-script-$$" "$name$dest"
     _lxd_host lxc exec "$name" -- chmod 0755 "$dest"
     rm -f "$src"
+}
+VM_SCRIPT() {
+    local local_path=$1 remote_path; shift
+    remote_path="/tmp/vm-script-$(basename "$local_path")-$$.sh"
+    _lxd_upload "$local_path" "/root/s2-vm-script-$$.sh"
+    _lxd_push "/root/s2-vm-script-$$.sh" "$VM_NAME$remote_path"
+    _lxd_host lxc exec "$VM_NAME" -- chmod 0755 "$remote_path"
+    VM_EXEC bash "$remote_path" "$@"
 }
 VM_SCRIPT_INLINE() {
     local label=$1 path remote; shift
