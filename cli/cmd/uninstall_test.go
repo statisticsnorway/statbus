@@ -47,6 +47,169 @@ func TestUninstallNestedMountRefusesBeforeTeardown(t *testing.T) {
 	}
 }
 
+func TestUninstallMountBoundaryRefusals(t *testing.T) {
+	for _, tc := range []struct {
+		name, target string
+		inaccessible bool
+	}{
+		{"findmnt-hex-spaces", "$HOME/statbus/caddy\\x20data", false},
+		{"mountinfo-octal-spaces", "$HOME/statbus/caddy\\040data", false},
+		{"checkout-root", "$HOME/statbus", false},
+		{"unresolvable-missing", "$HOME/statbus/caddy data/missing", false},
+		{"unresolvable-permission", "$HOME/statbus/caddy data/hidden", true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			if tc.inaccessible && os.Geteuid() == 0 {
+				t.Skip("root can resolve paths beneath chmod 000")
+			}
+			parent := t.TempDir()
+			home := filepath.Join(parent, "home with space")
+			mount := filepath.Join(home, "statbus", "caddy data")
+			external := filepath.Join(parent, "external")
+			for _, path := range []string{mount, external} {
+				if err := os.MkdirAll(path, 0700); err != nil {
+					t.Fatal(err)
+				}
+			}
+			if err := os.WriteFile(filepath.Join(external, "sentinel"), []byte("untouched"), 0600); err != nil {
+				t.Fatal(err)
+			}
+			if tc.inaccessible {
+				if err := os.Mkdir(filepath.Join(mount, "hidden"), 0700); err != nil {
+					t.Fatal(err)
+				}
+				if err := os.Chmod(mount, 0000); err != nil {
+					t.Fatal(err)
+				}
+				t.Cleanup(func() { _ = os.Chmod(mount, 0700) })
+			}
+			bin := filepath.Join(home, "bin")
+			if err := os.Mkdir(bin, 0700); err != nil {
+				t.Fatal(err)
+			}
+			encodedHome := home
+			if strings.Contains(tc.name, "hex") {
+				encodedHome = strings.ReplaceAll(home, " ", "\\x20")
+			}
+			if strings.Contains(tc.name, "octal") {
+				encodedHome = strings.ReplaceAll(home, " ", "\\040")
+			}
+			findmnt := "#!/bin/sh\nprintf '%s\\n' '" + strings.ReplaceAll(tc.target, "$HOME", encodedHome) + "'\n"
+			if err := os.WriteFile(filepath.Join(bin, "findmnt"), []byte(findmnt), 0700); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.WriteFile(filepath.Join(bin, "docker"), []byte("#!/bin/sh\necho called >> \"$HOME/teardown\"\n"), 0700); err != nil {
+				t.Fatal(err)
+			}
+			script, _ := filepath.Abs("../../uninstall.sh")
+			cmd := exec.Command("bash", script)
+			cmd.Env = append(os.Environ(), "HOME="+home, "PATH="+bin+":"+os.Getenv("PATH"), "STATBUS_UNINSTALL_CONFIRM=yes-delete-everything")
+			out, err := cmd.CombinedOutput()
+			if err == nil || !strings.Contains(string(out), "refusing removal") && !strings.Contains(string(out), "Mountpoint") || strings.Contains(string(out), "Step 2") {
+				t.Fatalf("mount refusal: %v %s", err, out)
+			}
+			if _, err := os.Stat(filepath.Join(home, "teardown")); !os.IsNotExist(err) {
+				t.Fatalf("Docker called: %v", err)
+			}
+			if data, err := os.ReadFile(filepath.Join(external, "sentinel")); err != nil || string(data) != "untouched" {
+				t.Fatalf("sentinel: %v %s", err, data)
+			}
+		})
+	}
+}
+
+func TestUninstallLateMountRefusesBeforeFileDeletion(t *testing.T) {
+	home := t.TempDir()
+	dir := filepath.Join(home, "statbus")
+	mount := filepath.Join(dir, "caddy")
+	if err := os.MkdirAll(mount, 0700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(mount, "sentinel"), []byte("untouched"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	bin := filepath.Join(home, "bin")
+	if err := os.Mkdir(bin, 0700); err != nil {
+		t.Fatal(err)
+	}
+	findmnt := `#!/bin/sh
+count=0
+[ ! -f "$HOME/check-count" ] || count=$(cat "$HOME/check-count")
+count=$((count+1))
+echo "$count" > "$HOME/check-count"
+[ "$count" -lt 3 ] || printf '%s\n' "$HOME/statbus/caddy"
+`
+	if err := os.WriteFile(filepath.Join(bin, "findmnt"), []byte(findmnt), 0700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(bin, "docker"), []byte("#!/bin/sh\nif [ \"$1\" = version ]; then echo 27.5.1; fi\n"), 0700); err != nil {
+		t.Fatal(err)
+	}
+	script, _ := filepath.Abs("../../uninstall.sh")
+	cmd := exec.Command("bash", script)
+	cmd.Env = append(os.Environ(), "HOME="+home, "PATH="+bin+":"+os.Getenv("PATH"), "STATBUS_UNINSTALL_CONFIRM=yes-delete-everything")
+	out, err := cmd.CombinedOutput()
+	if err == nil || !strings.Contains(string(out), "Mountpoint") {
+		t.Fatalf("late mount refusal: %v %s", err, out)
+	}
+	if data, err := os.ReadFile(filepath.Join(mount, "sentinel")); err != nil || string(data) != "untouched" {
+		t.Fatalf("sentinel: %v %s", err, data)
+	}
+}
+
+func TestUninstallOldOrUnprobeableDockerRefusesWithoutDeletion(t *testing.T) {
+	for _, tc := range []struct{ name, client, server string }{
+		{"old-client", "24.0.9", "27.5.1"},
+		{"old-server", "27.5.1", "24.0.9"},
+		{"unprobeable", "", ""},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			home := t.TempDir()
+			owned := filepath.Join(home, "statbus", "caddy")
+			if err := os.MkdirAll(owned, 0700); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.WriteFile(filepath.Join(owned, "sentinel"), []byte("untouched"), 0600); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.Chmod(owned, 0500); err != nil {
+				t.Fatal(err)
+			}
+			t.Cleanup(func() { _ = os.Chmod(owned, 0700) })
+			bin := filepath.Join(home, "bin")
+			if err := os.Mkdir(bin, 0700); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.WriteFile(filepath.Join(bin, "sudo"), []byte("#!/bin/sh\nexit 1\n"), 0700); err != nil {
+				t.Fatal(err)
+			}
+			docker := `#!/bin/sh
+if [ "$1" = version ]; then
+  case "$*" in *Client*) printf '%s\n' '` + tc.client + `' ;; *Server*) printf '%s\n' '` + tc.server + `' ;; esac
+  exit 0
+fi
+if [ "$1" = run ]; then echo called > "$HOME/deleted"; fi
+`
+			if err := os.WriteFile(filepath.Join(bin, "docker"), []byte(docker), 0700); err != nil {
+				t.Fatal(err)
+			}
+			script, _ := filepath.Abs("../../uninstall.sh")
+			cmd := exec.Command("bash", script)
+			cmd.Env = append(os.Environ(), "HOME="+home, "PATH="+bin+":"+os.Getenv("PATH"), "STATBUS_UNINSTALL_CONFIRM=yes-delete-everything")
+			out, err := cmd.CombinedOutput()
+			if err == nil || !strings.Contains(string(out), "Upgrade Docker") || strings.Contains(string(out), "Step 2") {
+				t.Fatalf("version refusal: %v %s", err, out)
+			}
+			if _, err := os.Stat(filepath.Join(home, "deleted")); !os.IsNotExist(err) {
+				t.Fatalf("Docker helper called: %v", err)
+			}
+			if data, err := os.ReadFile(filepath.Join(owned, "sentinel")); err != nil || string(data) != "untouched" {
+				t.Fatalf("sentinel: %v %s", err, data)
+			}
+		})
+	}
+}
+
 func TestUninstallSymlinkedTmpRefusesBeforeExternalWrite(t *testing.T) {
 	home := t.TempDir()
 	dir := filepath.Join(home, "statbus")
@@ -104,6 +267,29 @@ func TestUninstallSymlinkedInstallLockRefusesBeforeExternalWrite(t *testing.T) {
 	}
 }
 
+func TestUninstallUnreadableInstallLockHasOperatorRemedy(t *testing.T) {
+	if os.Geteuid() == 0 {
+		t.Skip("root bypasses the lock file's permission bits")
+	}
+	home := t.TempDir()
+	tmp := filepath.Join(home, "statbus", "tmp")
+	if err := os.MkdirAll(tmp, 0700); err != nil {
+		t.Fatal(err)
+	}
+	lock := filepath.Join(tmp, "upgrade-in-progress.json")
+	if err := os.WriteFile(lock, []byte("existing"), 0000); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.Chmod(lock, 0600) })
+	script, _ := filepath.Abs("../../uninstall.sh")
+	cmd := exec.Command("bash", script)
+	cmd.Env = append(os.Environ(), "HOME="+home, "STATBUS_UNINSTALL_CONFIRM=yes-delete-everything")
+	out, err := cmd.CombinedOutput()
+	if err == nil || !strings.Contains(string(out), "repair its permissions") || strings.Contains(string(out), "Step 2") {
+		t.Fatalf("lock remedy: %v %s", err, out)
+	}
+}
+
 func TestUninstallNonWritableTmpUsesDockerWithoutMktempError(t *testing.T) {
 	home := t.TempDir()
 	dir := filepath.Join(home, "statbus")
@@ -126,10 +312,11 @@ func TestUninstallNonWritableTmpUsesDockerWithoutMktempError(t *testing.T) {
 		t.Fatal(err)
 	}
 	docker := `#!/bin/sh
+if [ "$1" = version ]; then echo 27.5.1; exit 0; fi
 case "$*" in
   'image ls'*) echo ghcr.io/statisticsnorway/statbus-db:sha-test;;
   *uninstall-preflight*) echo helper-probed > "$HOME/docker-probe";;
-  *'/target/tmp'*) chmod 0700 "$HOME/statbus/tmp"; rm -rf -- "$HOME/statbus/tmp";;
+  *'rm -rf -- ./tmp'*) chmod 0700 "$HOME/statbus/tmp"; rm -rf -- "$HOME/statbus/tmp";;
 esac
 `
 	if err := os.WriteFile(filepath.Join(bin, "docker"), []byte(docker), 0700); err != nil {
@@ -179,7 +366,15 @@ func TestUninstallScriptSelectionsAndRerun(t *testing.T) {
 	if err := os.Mkdir(bin, 0700); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(bin, "docker"), []byte("#!/bin/sh\nexit 0\n"), 0700); err != nil {
+	if err := os.WriteFile(filepath.Join(bin, "docker"), []byte(`#!/bin/sh
+if [ "$1" = version ]; then echo 27.5.1; exit 0; fi
+if [ "$1" = run ]; then
+  case "$*" in
+    *'rm -rf -- ./tmp'*) rm -rf -- "$HOME/statbus/tmp";;
+    *'rm -rf -- "./$2"'*) rm -rf -- "$HOME/statbus/dbdumps" "$HOME/statbus/.env.credentials";;
+  esac
+fi
+`), 0700); err != nil {
 		t.Fatal(err)
 	}
 	if err := os.WriteFile(filepath.Join(bin, "sudo"), []byte("#!/bin/sh\nshift\nexec \"$@\"\n"), 0700); err != nil {
@@ -253,7 +448,7 @@ func TestUninstallWholeTreePreflightRefusesBeforeDocker(t *testing.T) {
 	if err := os.Mkdir(bin, 0700); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(bin, "docker"), []byte("#!/bin/sh\nif [ \"$1\" = run ]; then exit 1; fi\nif [ \"$1\" = rm ]; then echo deleted > \"$HOME/deleted\"; fi\n"), 0700); err != nil {
+	if err := os.WriteFile(filepath.Join(bin, "docker"), []byte("#!/bin/sh\nif [ \"$1\" = version ]; then echo 27.5.1; exit 0; fi\nif [ \"$1\" = run ]; then exit 1; fi\nif [ \"$1\" = rm ]; then echo deleted > \"$HOME/deleted\"; fi\n"), 0700); err != nil {
 		t.Fatal(err)
 	}
 	script, _ := filepath.Abs("../../uninstall.sh")
@@ -261,7 +456,7 @@ func TestUninstallWholeTreePreflightRefusesBeforeDocker(t *testing.T) {
 	cmd.Env = append(os.Environ(), "HOME="+home, "PATH="+bin+":"+os.Getenv("PATH"), "STATBUS_UNINSTALL_CONFIRM=yes-delete-everything")
 	out, err := cmd.CombinedOutput()
 	_, deletedErr := os.Stat(filepath.Join(home, "deleted"))
-	if err == nil || !strings.Contains(string(out), "Docker cannot remove checkout files") || !os.IsNotExist(deletedErr) || strings.Contains(string(out), "Step 2") {
+	if err == nil || !strings.Contains(string(out), "Docker cannot safely remove checkout files") || !os.IsNotExist(deletedErr) || strings.Contains(string(out), "Step 2") {
 		t.Fatalf("preflight: %v %s", err, out)
 	}
 }
@@ -300,7 +495,7 @@ if [ "$1" = run ]; then
   case "$*" in
     *uninstall-preflight*) exit 0;;
     *' caddy') chmod -R u+w "$HOME/statbus/caddy"; rm -rf -- "$HOME/statbus/caddy";;
-    *'/target/tmp'*) rm -rf -- "$HOME/statbus/tmp";;
+    *'rm -rf -- ./tmp'*) rm -rf -- "$HOME/statbus/tmp";;
     *) exit 1;;
   esac
 fi
@@ -320,7 +515,7 @@ if [ "$1" = image ] && [ "$2" = rm ]; then touch "$HOME/image-removed"; fi
 		t.Fatalf("checkout survived: %v %s", err, out)
 	}
 	argv, err := os.ReadFile(filepath.Join(home, "docker-argv"))
-	if err != nil || !strings.Contains(string(argv), "<type=bind,src="+dir+",dst=/target,bind-recursive=disabled>") || !strings.Contains(string(argv), "<--user>") || !strings.Contains(string(argv), "<0:0>") || !strings.Contains(string(argv), "<caddy>") {
+	if err != nil || !strings.Contains(string(argv), "<type=bind,src="+home+",dst=/home-root,bind-recursive=disabled,bind-propagation=rprivate>") || !strings.Contains(string(argv), "<--user>") || !strings.Contains(string(argv), "<0:0>") || !strings.Contains(string(argv), "<caddy>") {
 		t.Fatalf("Docker bind/paths: %v %s", err, argv)
 	}
 	if _, err := os.Stat(filepath.Join(home, "image-removed")); err != nil {
@@ -347,13 +542,14 @@ func TestUninstallDockerPullsAndRemovesHelperOnPartialInstall(t *testing.T) {
 		t.Fatal(err)
 	}
 	docker := `#!/bin/sh
+if [ "$1" = version ]; then echo 27.5.1; exit 0; fi
 case "$*" in
   'image inspect alpine:3.20') exit 1;;
   'pull alpine:3.20') touch "$HOME/pulled";;
   'image rm alpine:3.20') touch "$HOME/helper-removed";;
   *uninstall-preflight*) [ -e "$HOME/pulled" ] || exit 1;;
   *' caddy') chmod 0700 "$HOME/statbus/caddy"; rm -rf -- "$HOME/statbus/caddy";;
-  *'/target/tmp'*) chmod 0700 "$HOME/statbus"; rm -rf -- "$HOME/statbus/tmp";;
+  *'rm -rf -- ./tmp'*) chmod 0700 "$HOME/statbus"; rm -rf -- "$HOME/statbus/tmp";;
 esac
 `
 	if err := os.WriteFile(filepath.Join(bin, "docker"), []byte(docker), 0700); err != nil {
