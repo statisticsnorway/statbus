@@ -44,6 +44,28 @@ done < <(_lxd_bases_to_prune "$1" <<< "$names")
 ' _ "$tag"
 }
 _lxd_upload() { command scp -q "${LXD_SSH_OPTS[@]}" "$1" "$LXD_HOST:$2"; }
+# `lxc file push` talks to a per-instance forkfile helper that LXD 5.21 exits
+# after 10s idle (lxd/main_forkfile.go). A push that connects while that helper
+# is exiting fails with "error receiving version packet ... forkfile.sock ...
+# connection reset by peer" (rc.15 LXD run 36433435451, 5-install-stage-c).
+# Only that transport race is retried: a push spawns a fresh helper, and the
+# copy is an idempotent overwrite. Every other failure surfaces at once.
+_lxd_push() {
+    local attempt err
+    for attempt in 1 2 3; do
+        if err=$(_lxd_host lxc file push "$@" 2>&1); then
+            [ -z "$err" ] || printf '%s\n' "$err" >&2
+            return 0
+        fi
+        printf '%s\n' "$err" >&2
+        case "$err" in
+            *forkfile.sock*) _lxd_mark "lxc file push hit the forkfile idle-exit race (attempt $attempt/3); retrying" ;;
+            *) return 1 ;;
+        esac
+        sleep 1
+    done
+    return 1
+}
 # Existing assertion/wedge helpers invoke ssh/scp directly rather than VM_EXEC.
 # Route only this fork's guest IP; refuse any unrelated destination.
 ssh() {
@@ -77,7 +99,7 @@ scp() {
     [[ "$destination" == "root@${VM_IP:-UNSET}:"/* ]] || { echo "REFUSE: guest SCP destination $destination" >&2; return 2; }
     staging="/root/s2-transfer-$$"
     _lxd_upload "$source" "$staging"
-    _lxd_host lxc file push "$staging" "$VM_NAME${destination#*:}"
+    _lxd_push "$staging" "$VM_NAME${destination#*:}"
 }
 _wait_for_ssh() {
     local ip=$1 max=${2:-90} i
@@ -176,14 +198,14 @@ CONFIG
         printf 'TLS_CERT_FILE=/data/custom-certs/domain.crt\nTLS_KEY_FILE=/data/custom-certs/domain.key\n' >> "$fixture"
     fi
     _lxd_upload "$fixture" /root/s2-env-config
-    _lxd_host lxc file push /root/s2-env-config "$VM_NAME/tmp/env-config"
+    _lxd_push /root/s2-env-config "$VM_NAME/tmp/env-config"
     _lxd_host lxc exec "$VM_NAME" -- chown statbus:statbus /tmp/env-config
     _lxd_host lxc exec "$VM_NAME" -- chmod 0600 /tmp/env-config
     rm -f "$fixture"
     fixture=$(mktemp "$LXD_LOG_DIR/s2-users-XXXXXX")
     printf '%s\n' '- email: test@statbus.org' '  password: test-install-password-2026' '  role: admin_user' '  display_name: Admin' > "$fixture"
     _lxd_upload "$fixture" /root/s2-users.yml
-    _lxd_host lxc file push /root/s2-users.yml "$VM_NAME/tmp/users.yml"
+    _lxd_push /root/s2-users.yml "$VM_NAME/tmp/users.yml"
     _lxd_host lxc exec "$VM_NAME" -- chmod 0644 /tmp/users.yml
     rm -f "$fixture"
 }
@@ -202,7 +224,7 @@ _lxd_build_base_for_candidate() {
     _lxd_host lxc launch ubuntu:24.04 "$base" --config security.nesting=true --config limits.cpu=2 --config limits.memory=6GiB || return
     LXD_BASE_OWNED_BY_THIS_BUILD=1
     _lxd_upload "$HARNESS_ROOT/ops/setup-ubuntu-lts.sh" /root/s2-setup.sh || return
-    _lxd_host lxc file push /root/s2-setup.sh "$base/root/setup.sh" || return
+    _lxd_push /root/s2-setup.sh "$base/root/setup.sh" || return
     _lxd_host lxc exec "$base" -- bash -c 'printf "ADMIN_EMAIL=test@statbus.org\nGITHUB_USERS=jhf\nEXTRA_LOCALES=\nCADDY_PLUGINS=\n" > /root/.setup-ubuntu.env; mkdir -p /run/sshd' || return
     _lxd_mark "hardening start $base (SKIP_STAGES=4 as VM harness)"
     _lxd_host lxc exec "$base" -- env SKIP_STAGES=4 bash /root/setup.sh --non-interactive || {
@@ -228,7 +250,7 @@ _lxd_build_base_for_candidate() {
     printf '%s\n' '- email: test@statbus.org' '  password: test-install-password-2026' '  role: admin_user' '  display_name: Admin' > "$fixture"
     _lxd_upload "$fixture" /root/s2-users.yml || return
     rm -f "$fixture"
-    _lxd_host lxc file push /root/s2-users.yml "$base/home/statbus/users.yml"
+    _lxd_push /root/s2-users.yml "$base/home/statbus/users.yml"
     _lxd_host lxc exec "$base" -- chown statbus:statbus /home/statbus/users.yml
     _lxd_host lxc exec "$base" -- bash -c 'printf "CADDY_DEPLOYMENT_MODE=standalone\nSITE_DOMAIN=statbus-test.local\nTLS_CERT_FILE=/data/custom-certs/domain.crt\nTLS_KEY_FILE=/data/custom-certs/domain.key\nDEPLOYMENT_SLOT_NAME=Install Test\nDEPLOYMENT_SLOT_CODE=test\nTRUST_GITHUB_USER=jhf\n" > /home/statbus/install-input.env; chown statbus:statbus /home/statbus/install-input.env; chmod 600 /home/statbus/install-input.env'
     start=$(date +%s)
@@ -288,7 +310,7 @@ STATBUS_MIN_DISK_GB=5 ./sb install --non-interactive --trust-github-user jhf
 SCRIPT
         _lxd_upload "$script" /root/s2-baseline.sh
         rm -f "$script"
-        _lxd_host lxc file push /root/s2-baseline.sh "$base/home/statbus/s2-baseline.sh"
+        _lxd_push /root/s2-baseline.sh "$base/home/statbus/s2-baseline.sh"
         _lxd_host lxc exec "$base" -- chown statbus:statbus /home/statbus/s2-baseline.sh
         _lxd_host lxc exec "$base" -- sudo -i -u statbus bash /home/statbus/s2-baseline.sh || { _lxd_mark "INSTALL FAILED $install_tag after $(($(date +%s)-start))s"; lxd_capture_failure "$base"; return 1; }
     else
@@ -415,7 +437,7 @@ upload_install_script_to_vm() {
     local name=$1 src=$2 dest=$3
     [ "$name" = "$VM_NAME" ] && [[ "$dest" == /tmp/* ]] || return 2
     _lxd_upload "$src" "/root/s2-install-script-$$"
-    _lxd_host lxc file push "/root/s2-install-script-$$" "$name$dest"
+    _lxd_push "/root/s2-install-script-$$" "$name$dest"
     _lxd_host lxc exec "$name" -- chmod 0755 "$dest"
     rm -f "$src"
 }
@@ -426,7 +448,7 @@ VM_SCRIPT_INLINE() {
     cat > "$path"
     remote="/home/statbus/s2-inline-${label}-$$.sh"
     _lxd_upload "$path" "/root/s2-inline-${label}-$$.sh"
-    _lxd_host lxc file push "/root/s2-inline-${label}-$$.sh" "$VM_NAME$remote" >/dev/null 2>&1
+    _lxd_push "/root/s2-inline-${label}-$$.sh" "$VM_NAME$remote" >/dev/null 2>&1
     _lxd_host lxc exec "$VM_NAME" -- chmod 0755 "$remote"
     local rc=0
     VM_EXEC bash "$remote" "$@" || rc=$?
