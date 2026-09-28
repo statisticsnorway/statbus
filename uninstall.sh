@@ -347,6 +347,29 @@ if [[ $USE_DOCKER == 1 ]]; then
     [[ $PULLED_CLEANUP_IMAGE == 0 ]] || docker image rm "$CLEANUP_IMAGE" >>"$LOG" 2>&1
 fi
 if [[ -d $DIR ]]; then
-    if [[ $KEEP_DUMPS == 0 && $KEEP_CREDENTIALS == 0 ]]; then rmdir "$DIR"; else rmdir "$DIR" 2>/dev/null || true; fi
+    final_inode=$(perl -e 'my @s = stat(shift) or die "Cannot stat checkout\n"; print "$s[0]:$s[1]"' "$DIR") || exit 1
+    [[ $final_inode == "$checkout_inode" ]] || { echo 'Checkout changed before final directory removal; refusing removal.'; exit 1; }
+    unexpected=()
+    retained=()
+    for path in "$DIR"/*; do
+        if [[ $KEEP_DUMPS == 1 && $path == "$DIR/dbdumps" ]] ||
+            [[ $KEEP_CREDENTIALS == 1 && $path == "$DIR/.env.credentials" ]]; then
+            retained+=("$path")
+        else
+            unexpected+=("$path")
+        fi
+    done
+    if ((${#unexpected[@]} > 0)); then
+        echo 'Unexpected checkout files remain; removal is incomplete. Inspect these paths before retrying:'
+        printf '  %s\n' "${unexpected[@]}"
+        exit 1
+    fi
+    if ((${#retained[@]} > 0)); then
+        echo 'Only selected backups or credentials remain; keeping the checkout directory:'
+        printf '  %s\n' "${retained[@]}"
+    elif ! rmdir "$DIR"; then
+        echo 'Cannot remove the empty checkout directory; check its permissions or any new files and retry.'
+        exit 1
+    fi
 fi
 echo "Removal complete. Details: $LOG"

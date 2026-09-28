@@ -875,3 +875,30 @@ helper=${helper//\/home-root\/statbus/$HOME\/mapped-root\/statbus}
 		})
 	}
 }
+
+func TestUninstallReportsUnexpectedCheckoutLeftovers(t *testing.T) {
+	home := t.TempDir()
+	dir := filepath.Join(home, "statbus")
+	if err := os.MkdirAll(filepath.Join(dir, "tmp"), 0700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "unexpected"), []byte("leftover"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	bin := filepath.Join(home, "bin")
+	if err := os.Mkdir(bin, 0700); err != nil {
+		t.Fatal(err)
+	}
+	// Fake helper omits an unexpected path, but does remove tmp.
+	docker := "#!/bin/sh\nif [ \"$1\" = version ]; then echo 27.5.1; fi\ncase \"$*\" in *'rm -rf -- ./tmp'*) rm -rf -- \"$HOME/statbus/tmp\";; esac\n"
+	if err := os.WriteFile(filepath.Join(bin, "docker"), []byte(docker), 0700); err != nil {
+		t.Fatal(err)
+	}
+	script, _ := filepath.Abs("../../uninstall.sh")
+	cmd := exec.Command("bash", script)
+	cmd.Env = append(os.Environ(), "HOME="+home, "PATH="+bin+":"+os.Getenv("PATH"), "STATBUS_UNINSTALL_CONFIRM=yes-delete-everything")
+	out, err := cmd.CombinedOutput()
+	if err == nil || !strings.Contains(string(out), "Unexpected checkout files remain") || strings.Contains(string(out), "Removal complete") {
+		t.Fatalf("unexplained leftover: %v %s", err, out)
+	}
+}

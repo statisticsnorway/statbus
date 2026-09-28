@@ -10,12 +10,14 @@ Interactive removal keeps `~/statbus/dbdumps/` and
 `~/statbus/.env.credentials` by default. Non-interactive removal deletes
 both and requires `STATBUS_UNINSTALL_CONFIRM=yes-delete-everything`.
 
-Details go to `~/statbus-uninstall.log`. The service account needs Docker access,
-not sudo, to remove container-owned checkout files. The uninstaller tests its
-Docker cleanup helper before stopping services. A legacy system-wide upgrade
-unit still requires an administrator with sudo access. Host accounts, firewall
-rules, and apt settings belong to host provisioning and are not removed. After full removal,
-run the regular `install.sh` command for a fresh installation.
+Details go to `~/statbus-uninstall.log`. The service account needs Docker
+access, not sudo, to remove container-owned checkout files. The uninstaller
+tests its Docker cleanup helper before stopping services and only removes
+image tags attributable to this project and unused by other containers. A
+legacy system-wide upgrade unit still requires an administrator with sudo
+access. Host accounts, firewall rules, and apt settings belong to host
+provisioning and are not removed. After full removal, run the regular
+`install.sh` command for a fresh installation.
 
 This guide is for **system administrators** deploying StatBus for a single country or organization.
 
