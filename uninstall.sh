@@ -53,7 +53,8 @@ refuse_nested_mounts() {
         return 0
     fi
     mountpoint=$(printf '%s\n' "$mounts" | perl -MCwd=abs_path -e '
-        my $base = abs_path(shift) // die "Cannot resolve checkout\n";
+        my $raw = shift;
+        my $base = abs_path($raw) // die "Cannot resolve checkout\n";
         $base =~ s{/$}{};
         while (my $mount = <STDIN>) {
             chomp $mount;
@@ -61,6 +62,24 @@ refuse_nested_mounts() {
             $mount =~ s/\\x([0-9a-fA-F]{2})/chr(hex($1))/ge; # findmnt -r
             $mount =~ s/\\([0-7]{3})/chr(oct($1))/ge;   # mountinfo
             die "Invalid mount target escape\n" if $mount =~ /\\/;
+            die "Invalid relative mount target\n" unless $mount =~ m{^/};
+            # Mountinfo names kernel-resolved paths. A distinct lexical branch
+            # beneath an ordinary directory cannot intersect the checkout.
+            # Check component boundaries (not string prefixes); a symlink in
+            # any ancestor may redirect into the checkout, so resolve those.
+            # Ambiguous relevant targets still fail closed in abs_path below.
+            my $candidate = $mount eq $raw || index($mount, "$raw/") == 0
+                         || $mount eq $base || index($mount, "$base/") == 0;
+            if (!$candidate) {
+                my $prefix = "";
+                for my $part (split m{/+}, $mount) {
+                    next unless length $part;
+                    $candidate = 1 if $part eq "." || $part eq "..";
+                    $prefix .= "/$part";
+                    $candidate = 1 if -l $prefix;
+                }
+            }
+            next unless $candidate;
             my $canonical = abs_path($mount) // die "Cannot resolve mount target: $mount\n";
             if ($canonical eq $base || index($canonical, "$base/") == 0) {
                 print "$mount\n"; last;

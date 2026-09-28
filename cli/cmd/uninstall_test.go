@@ -118,6 +118,77 @@ func TestUninstallMountBoundaryRefusals(t *testing.T) {
 	}
 }
 
+func TestUninstallUnrelatedInaccessibleMountReachesDocker(t *testing.T) {
+	if os.Geteuid() == 0 {
+		t.Skip("root can resolve paths beneath chmod 000")
+	}
+	parent := t.TempDir()
+	home := filepath.Join(parent, "home")
+	private := filepath.Join(parent, "private")
+	for _, path := range []string{filepath.Join(home, "statbus"), filepath.Join(private, "hidden")} {
+		if err := os.MkdirAll(path, 0700); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := os.Chmod(private, 0000); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.Chmod(private, 0700) })
+	bin := filepath.Join(home, "bin")
+	if err := os.Mkdir(bin, 0700); err != nil {
+		t.Fatal(err)
+	}
+	findmnt := "#!/bin/sh\nprintf '%s\\n' '" + filepath.Join(private, "hidden") + "'\n"
+	if err := os.WriteFile(filepath.Join(bin, "findmnt"), []byte(findmnt), 0700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(bin, "docker"), []byte("#!/bin/sh\necho called >> \"$HOME/docker-called\"\nif [ \"$1\" = version ]; then echo 24.0.9; fi\n"), 0700); err != nil {
+		t.Fatal(err)
+	}
+	script, _ := filepath.Abs("../../uninstall.sh")
+	cmd := exec.Command("bash", script)
+	cmd.Env = append(os.Environ(), "HOME="+home, "PATH="+bin+":"+os.Getenv("PATH"), "STATBUS_UNINSTALL_CONFIRM=yes-delete-everything")
+	out, err := cmd.CombinedOutput()
+	if err == nil || !strings.Contains(string(out), "Upgrade Docker") || strings.Contains(string(out), "Cannot resolve mount target") {
+		t.Fatalf("unrelated mount blocked Docker discovery: %v %s", err, out)
+	}
+	if _, err := os.Stat(filepath.Join(home, "docker-called")); err != nil {
+		t.Fatalf("Docker not reached: %v %s", err, out)
+	}
+}
+
+func TestUninstallMountSymlinkAncestorStillRefuses(t *testing.T) {
+	home := t.TempDir()
+	dir := filepath.Join(home, "statbus", "caddy")
+	if err := os.MkdirAll(dir, 0700); err != nil {
+		t.Fatal(err)
+	}
+	alias := filepath.Join(home, "outside-alias")
+	if err := os.Symlink(dir, alias); err != nil {
+		t.Fatal(err)
+	}
+	bin := filepath.Join(home, "bin")
+	if err := os.Mkdir(bin, 0700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(bin, "findmnt"), []byte("#!/bin/sh\nprintf '%s\\n' '"+alias+"'\n"), 0700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(bin, "docker"), []byte("#!/bin/sh\necho called >> \"$HOME/docker-called\"\n"), 0700); err != nil {
+		t.Fatal(err)
+	}
+	script, _ := filepath.Abs("../../uninstall.sh")
+	cmd := exec.Command("bash", script)
+	cmd.Env = append(os.Environ(), "HOME="+home, "PATH="+bin+":"+os.Getenv("PATH"), "STATBUS_UNINSTALL_CONFIRM=yes-delete-everything")
+	out, err := cmd.CombinedOutput()
+	if err == nil || !strings.Contains(string(out), "Mountpoint") {
+		t.Fatalf("symlink ancestor mount accepted: %v %s", err, out)
+	}
+	if _, err := os.Stat(filepath.Join(home, "docker-called")); !os.IsNotExist(err) {
+		t.Fatalf("Docker reached: %v", err)
+	}
+}
+
 func TestUninstallLateMountRefusesBeforeFileDeletion(t *testing.T) {
 	home := t.TempDir()
 	dir := filepath.Join(home, "statbus")
