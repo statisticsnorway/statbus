@@ -130,7 +130,21 @@ _lxd_prune_other_bases() {
     _lxd_host flock /root/fleet-run.lock bash -c "$selector"$'
 set -euo pipefail
 active=$(ls -A /root/fleet-active 2>/dev/null || true)
-test -n "$active" && test ! -e /root/fleet-reaping && test ! -e /root/fleet-hardening.active
+# review H3: a bare `A && B && C` statement list is NOT a guard under
+# set -e. Per bash'\''s errexit exception, the shell exits on the FAILURE
+# of the last command in an && list, but a failure of an EARLIER member
+# (here, an empty $active, meaning nobody holds an occupancy marker while
+# pruning is about to run) makes the whole list evaluate false WITHOUT
+# tripping errexit, because it is not itself the final element. Execution
+# then fell through to the destructive loop below regardless. Verified
+# live before this fix: this exact three-clause line with $active empty
+# printed nothing and returned 0, continuing to `names=$(lxc list ...)`.
+# The `|| { ...; exit 1; }` form used everywhere else in this codebase
+# (up.sh, harden-host.sh) is the one shape that is actually a guard.
+[ -n "$active" ] && [ ! -e /root/fleet-reaping ] && [ ! -e /root/fleet-hardening.active ] || {
+    echo "REFUSE: no active occupancy marker, or reaper/hardening active; refusing to prune" >&2
+    exit 1
+}
 names=$(lxc list -c n --format csv)
 while IFS= read -r name; do
     echo "prune superseded base $name"

@@ -25,6 +25,13 @@ active=$(ls -A /root/fleet-active 2>/dev/null || true)
 [ -z "$active" ] || { echo "REFUSE: fleet jobs active: $active" >&2; exit 1; }
 [ ! -e /root/fleet-hardening.active ] || { echo 'REFUSE: host hardening is active' >&2; exit 1; }
 [ ! -e /root/fleet-reaping ] || { echo 'REFUSE: reap already underway' >&2; exit 1; }
+# review H3: the marker directory and the 3h timestamp are both
+# process-level bookkeeping - either can go stale (a crashed job whose EXIT
+# trap never ran, a marker released early by a bug) while a real LXD guest
+# is still RUNNING underneath it. Check the actual guest state directly as
+# the last, most concrete guard before this box is deleted.
+guests=$(lxc list --format csv)
+! grep -q RUNNING <<< "$guests" || { echo 'REFUSE: LXD guest still running' >&2; exit 1; }
 touch /root/fleet-reaping
 REMOTE
 if ! hcloud server delete "$name"; then
