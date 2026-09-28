@@ -208,67 +208,108 @@ func TestDeferredDaemonRestart_FixupUsesParentHandoff(t *testing.T) {
 	}
 }
 
-// Both drift signals can occur in one install: the Upgrade service step has
-// already restarted the active drifted unit, while step 9 recorded a daemon
-// config change. The entire install must restart it exactly once.
+// Config drift and unit drift can coincide. Starting an inactive unit already
+// loads the new config, while enable --now on an active unit does not restart
+// it. A fixup child must leave all service lifecycle changes to its parent.
 func TestUpgradeServiceAndConfigDriftRestartExactlyOnce(t *testing.T) {
-	t.Setenv("STATBUS_POST_UPGRADE_FIXUP", "0")
-	t.Setenv("USER", "statbus")
-	oldFixup := postUpgradeFixup
-	postUpgradeFixup = false
-	t.Cleanup(func() { postUpgradeFixup = oldFixup })
-	oldPlatform := installServicePlatform
-	installServicePlatform = "linux"
-	t.Cleanup(func() { installServicePlatform = oldPlatform })
-	oldProbe := probeUpgradeDatabaseRoute
-	probeUpgradeDatabaseRoute = func(string) error { return nil }
-	t.Cleanup(func() { probeUpgradeDatabaseRoute = oldProbe })
-	unitDir, installedUnit := writeUnitFixture(t, "[Service]\nWatchdogSec=120\n")
-	if err := os.WriteFile(installedUnit, []byte("[Service]\nWatchdogSec=infinity\n"), 0o644); err != nil {
-		t.Fatal(err)
+	cases := []struct {
+		name         string
+		active       bool
+		unitDrift    bool
+		fixup        string
+		wantStarts   int
+		wantRestarts int
+	}{
+		{"inactive config drift", false, false, "", 1, 0},
+		{"inactive both drifts", false, true, "", 1, 0},
+		{"active config drift", true, false, "", 0, 1},
+		{"active both drifts", true, true, "", 0, 1},
+		{"fixup flag inactive both drifts", false, true, "flag", 0, 0},
+		{"fixup environment active both drifts", true, true, "environment", 0, 0},
 	}
-	bin := t.TempDir()
-	logPath := filepath.Join(bin, "systemctl.log")
-	t.Setenv("STATBUS_SYSTEMCTL_LOG", logPath)
-	if err := os.WriteFile(filepath.Join(bin, "systemctl"), []byte(`#!/bin/sh
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Setenv("STATBUS_POST_UPGRADE_FIXUP", "0")
+			if tc.fixup == "environment" {
+				t.Setenv("STATBUS_POST_UPGRADE_FIXUP", "1")
+			}
+			t.Setenv("USER", "statbus")
+			oldFixup := postUpgradeFixup
+			postUpgradeFixup = tc.fixup == "flag"
+			t.Cleanup(func() { postUpgradeFixup = oldFixup })
+			oldPlatform := installServicePlatform
+			installServicePlatform = "linux"
+			t.Cleanup(func() { installServicePlatform = oldPlatform })
+			oldProbe := probeUpgradeDatabaseRoute
+			probeUpgradeDatabaseRoute = func(string) error { return nil }
+			t.Cleanup(func() { probeUpgradeDatabaseRoute = oldProbe })
+			unitDir, installedUnit := writeUnitFixture(t, "[Service]\nWatchdogSec=120\n")
+			installedContent := "[Service]\nWatchdogSec=120\n"
+			if tc.unitDrift {
+				installedContent = "[Service]\nWatchdogSec=infinity\n"
+			}
+			if err := os.WriteFile(installedUnit, []byte(installedContent), 0o644); err != nil {
+				t.Fatal(err)
+			}
+			bin := t.TempDir()
+			logPath := filepath.Join(bin, "systemctl.log")
+			t.Setenv("STATBUS_SYSTEMCTL_LOG", logPath)
+			if tc.active {
+				t.Setenv("STATBUS_UNIT_STATE", "active")
+			} else {
+				t.Setenv("STATBUS_UNIT_STATE", "inactive")
+			}
+			if err := os.WriteFile(filepath.Join(bin, "systemctl"), []byte(`#!/bin/sh
 printf '%s\n' "$*" >> "$STATBUS_SYSTEMCTL_LOG"
 case "$*" in
+  *' is-active '*) test "$STATBUS_UNIT_STATE" = active ;;
   *' is-enabled '*) printf 'enabled\n' ;;
-  *' show '*) printf 'ActiveState=active\nResult=success\n' ;;
+  *' show '*) printf 'ActiveState=%s\nResult=success\n' "$STATBUS_UNIT_STATE" ;;
+  *' enable --now '*)
+    if [ "$STATBUS_UNIT_STATE" = inactive ]; then
+      printf 'START\n' >> "$STATBUS_SYSTEMCTL_LOG"
+    fi ;;
 esac
 `), 0o755); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(filepath.Join(bin, "loginctl"), []byte("#!/bin/sh\nexit 0\n"), 0o755); err != nil {
-		t.Fatal(err)
-	}
-	t.Setenv("PATH", bin+string(os.PathListSeparator)+os.Getenv("PATH"))
-
-	orig := restartUpgradeDaemon
-	deferredRestarts := 0
-	restartUpgradeDaemon = func(string) { deferredRestarts++ }
-	t.Cleanup(func() { restartUpgradeDaemon = orig })
-	pending := restartClassesForKeys([]string{"DAEMON_ONLY_KEY"}, map[string][]config.RestartClass{
-		"DAEMON_ONLY_KEY": {config.RestartUpgradeDaemon},
-	})
-	if err := applyPendingRestarts(unitDir, pending); err != nil {
-		t.Fatal(err)
-	}
-	var unitRestarted bool
-	if err := runInstallService(unitDir, &unitRestarted); err != nil {
-		t.Fatal(err)
-	}
-	if !unitRestarted {
-		t.Fatal("Upgrade service did not report its restart of the active drifted unit")
-	}
-	applyPendingUpgradeDaemonRestart(unitDir, pending, unitRestarted)
-	log, err := os.ReadFile(logPath)
-	if err != nil {
-		t.Fatal(err)
-	}
-	serviceRestarts := strings.Count(string(log), "--user restart statbus-upgrade@statbus.service")
-	if serviceRestarts+deferredRestarts != 1 {
-		t.Fatalf("unit drift and daemon config drift caused %d service plus %d deferred restarts, want exactly one; systemctl log: %s", serviceRestarts, deferredRestarts, log)
+				t.Fatal(err)
+			}
+			if err := os.WriteFile(filepath.Join(bin, "loginctl"), []byte("#!/bin/sh\nexit 0\n"), 0o755); err != nil {
+				t.Fatal(err)
+			}
+			t.Setenv("PATH", bin+string(os.PathListSeparator)+os.Getenv("PATH"))
+			orig := restartUpgradeDaemon
+			deferredRestarts := 0
+			restartUpgradeDaemon = func(string) { deferredRestarts++ }
+			t.Cleanup(func() { restartUpgradeDaemon = orig })
+			pending := restartClassesForKeys([]string{"DAEMON_ONLY_KEY"}, map[string][]config.RestartClass{
+				"DAEMON_ONLY_KEY": {config.RestartUpgradeDaemon},
+			})
+			if err := applyPendingRestarts(unitDir, pending); err != nil {
+				t.Fatal(err)
+			}
+			var unitRestarted bool
+			if err := runInstallService(unitDir, &unitRestarted); err != nil {
+				t.Fatal(err)
+			}
+			applyPendingUpgradeDaemonRestart(unitDir, pending, unitRestarted)
+			log, err := os.ReadFile(logPath)
+			if err != nil {
+				t.Fatal(err)
+			}
+			starts := strings.Count(string(log), "START\n")
+			restarts := strings.Count(string(log), "--user restart statbus-upgrade@statbus.service") + deferredRestarts
+			if tc.fixup != "" {
+				if strings.Contains(string(log), "--user enable --now ") {
+					t.Fatalf("fixup child started unit: %s", log)
+				}
+			} else if unitRestarted != (tc.active && tc.unitDrift || !tc.active) {
+				t.Errorf("unit lifecycle coalesced=%t, want %t", unitRestarted, tc.active && tc.unitDrift || !tc.active)
+			}
+			if starts != tc.wantStarts || restarts != tc.wantRestarts {
+				t.Fatalf("starts=%d restarts=%d (service=%d deferred=%d), want starts=%d restarts=%d; systemctl log: %s",
+					starts, restarts, restarts-deferredRestarts, deferredRestarts, tc.wantStarts, tc.wantRestarts, log)
+			}
+		})
 	}
 }
 
