@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 # Standalone StatBus removal: curl -fsSL https://statbus.org/uninstall.sh | bash
+# shellcheck disable=SC2024 # LOG is in the invoking user's home; sudo is only for the command.
 set -eo pipefail
 exec 2>&1
 DIR="${HOME}/statbus"
@@ -37,6 +38,7 @@ fi
 # The Go install/upgrade mutex and install.sh's statbus_repo_lock are the
 # exclusive flock on this exact inode. Never unlink it until the last operation.
 if [[ -d $DIR ]]; then
+    [[ ! -L $DIR ]] || { echo 'Checkout is a symlink; refusing removal outside ~/statbus.'; exit 1; }
     [[ -d $DIR/tmp ]] || mkdir -p "$DIR/tmp"
     flag="$DIR/tmp/upgrade-in-progress.json"
     marker_owned=0
@@ -91,22 +93,53 @@ if [[ -d $DIR ]]; then
         remaining+=("$path")
     done
 fi
-# Preflight the entire tree, including tmp, before stopping anything. sudo -n
-# must actually be able to traverse and remove the paths, not merely run true.
+# Preflight the entire tree, including tmp, before stopping anything. Exercise
+# the same privilege path used for deletion, not merely sudo true/docker info.
 USE_SUDO=0
+USE_DOCKER=0
+CLEANUP_IMAGE=
+PULLED_CLEANUP_IMAGE=0
 if [[ -d $DIR ]]; then
     if ! root_paths=$(find "$DIR" -mindepth 1 ! -user "$(id -u)" -print -quit 2>/dev/null); then
         root_paths=uninspectable
     fi
-    if [[ -n $root_paths ]] || [[ ! -w $DIR ]] || [[ -e /etc/systemd/system/statbus-upgrade@.service && $USER != statbus_* ]]; then
+    nonwritable=$(find "$DIR" -type d ! -perm -u+w -print -quit 2>/dev/null || true)
+    if [[ -n $root_paths || -n $nonwritable ]] || [[ ! -w $DIR ]] || [[ -e /etc/systemd/system/statbus-upgrade@.service && $USER != statbus_* ]]; then
         # Exercise the exact sudo rm command on a nested probe before teardown.
         probe=$(mktemp -d "$DIR/tmp/.uninstall-preflight.XXXXXXXX")
-        sudo -n sh -c 'test -d "$1" && find "$1" -mindepth 1 -exec test -r {} \; -exec test -w {} \; && test -w "$1"' sh "$DIR" >/dev/null 2>&1 && sudo -n rm -rf -- "$probe" || { echo 'Whole-tree removal requires working sudo access; run sudo -v and retry.'; exit 1; }
-        USE_SUDO=1
-    else
-        # Ownership alone is not sufficient: non-writable nested directories
-        # can prevent recursive deletion even for their owner.
-        find "$DIR" -type d ! -perm -u+w -print -quit | grep -q . && { echo 'Checkout contains non-writable directories; refusing removal.'; exit 1; }
+        if sudo -n sh -c 'test -d "$1" && find "$1" -mindepth 1 -exec test -r {} \; -exec test -w {} \; && test -w "$1"' sh "$DIR" >/dev/null 2>&1 && sudo -n rm -rf -- "$probe"; then
+            USE_SUDO=1
+        else
+            rm -rf -- "$probe" 2>/dev/null || true
+            if [[ -e /etc/systemd/system/statbus-upgrade@.service && $USER != statbus_* ]]; then
+                echo 'Removing the system upgrade unit requires sudo; ask an administrator to run sudo -v and retry.'
+                exit 1
+            fi
+            # A genuine install has the DB image locally. Use its shell as root
+            # through Docker before removing any StatBus image tags. On partial
+            # installs use a local Alpine image or pull it while still in preflight.
+            for image in "${images[@]}"; do
+                if [[ $image == ghcr.io/statisticsnorway/statbus-db:* ]]; then CLEANUP_IMAGE=$image; break; fi
+            done
+            if [[ -z $CLEANUP_IMAGE ]]; then
+                CLEANUP_IMAGE=alpine:3.20
+                if ! docker image inspect "$CLEANUP_IMAGE" >/dev/null 2>&1; then
+                    if ! docker pull "$CLEANUP_IMAGE" >>"$LOG" 2>&1; then
+                        echo 'Cannot prepare a Docker cleanup image; ask an administrator for sudo access or make Docker available and retry.'
+                        exit 1
+                    fi
+                    PULLED_CLEANUP_IMAGE=1
+                fi
+            fi
+            # The bind mount is exactly the checkout, and root must be able to
+            # traverse it and create/remove a probe before any service stops.
+            if ! docker run --rm --network none --user 0:0 --entrypoint /bin/sh --mount "type=bind,src=$DIR,dst=/target" "$CLEANUP_IMAGE" -c 'test -d /target && find /target -mindepth 1 -exec test -r {} \; -exec test -w {} \; && mkdir /target/tmp/.uninstall-preflight.$$ && rmdir /target/tmp/.uninstall-preflight.$$' >>"$LOG" 2>&1; then
+                [[ $PULLED_CLEANUP_IMAGE == 0 ]] || docker image rm "$CLEANUP_IMAGE" >>"$LOG" 2>&1 || true
+                echo 'Docker cannot remove checkout files; ask an administrator for sudo access or fix Docker and retry.'
+                exit 1
+            fi
+            USE_DOCKER=1
+        fi
     fi
 fi
 echo 'StatBus removal plan (only listed resources will be deleted):'
@@ -114,6 +147,7 @@ echo 'StatBus removal plan (only listed resources will be deleted):'
 [[ -z ${volumes:-} ]] || echo "  Project volumes: $volumes"
 [[ -z ${networks:-} ]] || echo "  Project networks: $networks"
 for image in "${images[@]}"; do echo "  Image tag: $image"; done
+[[ $USE_DOCKER == 0 ]] || echo "  Docker cleanup helper: $CLEANUP_IMAGE (removed last if pulled for this run)"
 for unit in "${units[@]}"; do echo "  Unit file: $unit"; done
 for path in "${remaining[@]}"; do echo "  Path (recursively): $path"; done
 [[ ! -d $DIR/tmp ]] || echo "  Path (recursively, last): $DIR/tmp"
@@ -148,7 +182,9 @@ if command -v docker >/dev/null 2>&1 && docker info >/dev/null 2>&1; then
         [[ -z ${volumes:-} ]] || docker volume rm $volumes >>"$LOG" 2>&1
         [[ -z ${networks:-} ]] || docker network rm $networks >>"$LOG" 2>&1
     fi
-    for image in "${images[@]}"; do docker image rm "$image" >>"$LOG" 2>&1; done
+    for image in "${images[@]}"; do
+        [[ $USE_DOCKER == 1 && $image == "$CLEANUP_IMAGE" ]] || docker image rm "$image" >>"$LOG" 2>&1
+    done
 fi
 echo 'Step 3: removing units and checkout files'
 for unit in "${units[@]}"; do
@@ -159,11 +195,24 @@ if command -v systemctl >/dev/null 2>&1 && { ((${#units[@]} > 0)) || [[ -n $user
     if [[ $USE_SUDO == 1 && $USER != statbus_* ]]; then sudo -n systemctl daemon-reload >>"$LOG" 2>&1; fi
 fi
 for path in "${remaining[@]}"; do
-    if [[ $USE_SUDO == 1 ]]; then sudo -n rm -rf -- "$path" >>"$LOG" 2>&1; else rm -rf -- "$path" >>"$LOG" 2>&1; fi
+    if [[ $USE_SUDO == 1 ]]; then sudo -n rm -rf -- "$path" >>"$LOG" 2>&1
+    elif [[ $USE_DOCKER == 1 ]]; then docker run --rm --network none --user 0:0 --entrypoint /bin/sh --mount "type=bind,src=$DIR,dst=/target" "$CLEANUP_IMAGE" -c 'chown "$1" /target && chmod u+rwx /target && rm -rf -- "/target/$2"' sh "$(id -u):$(id -g)" "${path##*/}" >>"$LOG" 2>&1
+    else rm -rf -- "$path" >>"$LOG" 2>&1; fi
 done
-# tmp is last, so the lock remains discoverable through all prior deletion.
+# tmp is the last checkout path deleted; the outer HOME lock remains held while
+# removing the helper image and the empty checkout directory afterward.
 if [[ -d $DIR/tmp ]]; then
-    if [[ $USE_SUDO == 1 ]]; then sudo -n rm -rf -- "$DIR/tmp" >>"$LOG" 2>&1; else rm -rf -- "$DIR/tmp" >>"$LOG" 2>&1; fi
+    if [[ $USE_SUDO == 1 ]]; then sudo -n rm -rf -- "$DIR/tmp" >>"$LOG" 2>&1
+    elif [[ $USE_DOCKER == 1 ]]; then docker run --rm --network none --user 0:0 --entrypoint /bin/sh --mount "type=bind,src=$DIR,dst=/target" "$CLEANUP_IMAGE" -c 'chown "$1" /target && chmod u+rwx /target && rm -rf -- /target/tmp' sh "$(id -u):$(id -g)" >>"$LOG" 2>&1
+    else rm -rf -- "$DIR/tmp" >>"$LOG" 2>&1; fi
 fi
-rmdir "$DIR" 2>/dev/null || true
+if [[ $USE_DOCKER == 1 ]]; then
+    for image in "${images[@]}"; do
+        [[ $image != "$CLEANUP_IMAGE" ]] || docker image rm "$image" >>"$LOG" 2>&1
+    done
+    [[ $PULLED_CLEANUP_IMAGE == 0 ]] || docker image rm "$CLEANUP_IMAGE" >>"$LOG" 2>&1
+fi
+if [[ -d $DIR ]]; then
+    if [[ $KEEP_DUMPS == 0 && $KEEP_CREDENTIALS == 0 ]]; then rmdir "$DIR"; else rmdir "$DIR" 2>/dev/null || true; fi
+fi
 echo "Removal complete. Details: $LOG"

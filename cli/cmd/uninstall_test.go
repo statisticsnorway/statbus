@@ -112,7 +112,7 @@ func TestUninstallWholeTreePreflightRefusesBeforeDocker(t *testing.T) {
 	if err := os.Mkdir(bin, 0700); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(bin, "docker"), []byte("#!/bin/sh\nif [ \"$1\" = rm ]; then echo deleted > \"$HOME/deleted\"; fi\n"), 0700); err != nil {
+	if err := os.WriteFile(filepath.Join(bin, "docker"), []byte("#!/bin/sh\nif [ \"$1\" = run ]; then exit 1; fi\nif [ \"$1\" = rm ]; then echo deleted > \"$HOME/deleted\"; fi\n"), 0700); err != nil {
 		t.Fatal(err)
 	}
 	script, _ := filepath.Abs("../../uninstall.sh")
@@ -120,8 +120,115 @@ func TestUninstallWholeTreePreflightRefusesBeforeDocker(t *testing.T) {
 	cmd.Env = append(os.Environ(), "HOME="+home, "PATH="+bin+":"+os.Getenv("PATH"), "STATBUS_UNINSTALL_CONFIRM=yes-delete-everything")
 	out, err := cmd.CombinedOutput()
 	_, deletedErr := os.Stat(filepath.Join(home, "deleted"))
-	if err == nil || !strings.Contains(string(out), "Whole-tree removal requires") && !strings.Contains(string(out), "non-writable") || !os.IsNotExist(deletedErr) {
+	if err == nil || !strings.Contains(string(out), "Docker cannot remove checkout files") || !os.IsNotExist(deletedErr) || strings.Contains(string(out), "Step 2") {
 		t.Fatalf("preflight: %v %s", err, out)
+	}
+}
+
+func TestUninstallNoSudoDockerRemovesUnwritableTree(t *testing.T) {
+	home := t.TempDir()
+	dir := filepath.Join(home, "statbus")
+	owned := filepath.Join(dir, "caddy", "data with spaces")
+	if err := os.MkdirAll(owned, 0700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(owned, "container-file"), []byte("secret"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chmod(owned, 0500); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.Chmod(owned, 0700) })
+	bin := filepath.Join(home, "bin")
+	if err := os.Mkdir(bin, 0700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(bin, "sudo"), []byte("#!/bin/sh\nexit 1\n"), 0700); err != nil {
+		t.Fatal(err)
+	}
+	// Simulate Docker's root bind mount: check that the script passes the exact
+	// mount and top-level basename, without breaking paths containing spaces.
+	docker := `#!/bin/sh
+case "$*" in
+  'image ls'*) echo ghcr.io/statisticsnorway/statbus-db:sha-test; exit 0;;
+esac
+if [ "$1" = run ]; then
+  [ ! -e "$HOME/image-removed" ] || exit 1
+  printf '<%s>\n' "$@" >> "$HOME/docker-argv"
+  case "$*" in
+    *uninstall-preflight*) exit 0;;
+    *' caddy') chmod -R u+w "$HOME/statbus/caddy"; rm -rf -- "$HOME/statbus/caddy";;
+    *'/target/tmp'*) rm -rf -- "$HOME/statbus/tmp";;
+    *) exit 1;;
+  esac
+fi
+if [ "$1" = image ] && [ "$2" = rm ]; then touch "$HOME/image-removed"; fi
+`
+	if err := os.WriteFile(filepath.Join(bin, "docker"), []byte(docker), 0700); err != nil {
+		t.Fatal(err)
+	}
+	script, _ := filepath.Abs("../../uninstall.sh")
+	cmd := exec.Command("bash", script)
+	cmd.Env = append(os.Environ(), "HOME="+home, "PATH="+bin+":"+os.Getenv("PATH"), "STATBUS_UNINSTALL_CONFIRM=yes-delete-everything")
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("no-sudo Docker removal: %v %s", err, out)
+	}
+	if _, err := os.Stat(dir); !os.IsNotExist(err) {
+		t.Fatalf("checkout survived: %v %s", err, out)
+	}
+	argv, err := os.ReadFile(filepath.Join(home, "docker-argv"))
+	if err != nil || !strings.Contains(string(argv), "<type=bind,src="+dir+",dst=/target>") || !strings.Contains(string(argv), "<--user>") || !strings.Contains(string(argv), "<0:0>") || !strings.Contains(string(argv), "<caddy>") {
+		t.Fatalf("Docker bind/paths: %v %s", err, argv)
+	}
+	if _, err := os.Stat(filepath.Join(home, "image-removed")); err != nil {
+		t.Fatalf("DB image not removed after cleanup: %v", err)
+	}
+}
+
+func TestUninstallDockerPullsAndRemovesHelperOnPartialInstall(t *testing.T) {
+	home := t.TempDir()
+	dir := filepath.Join(home, "statbus")
+	owned := filepath.Join(dir, "caddy")
+	if err := os.MkdirAll(owned, 0700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chmod(owned, 0500); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.Chmod(owned, 0700) })
+	bin := filepath.Join(home, "bin")
+	if err := os.Mkdir(bin, 0700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(bin, "sudo"), []byte("#!/bin/sh\nexit 1\n"), 0700); err != nil {
+		t.Fatal(err)
+	}
+	docker := `#!/bin/sh
+case "$*" in
+  'image inspect alpine:3.20') exit 1;;
+  'pull alpine:3.20') touch "$HOME/pulled";;
+  'image rm alpine:3.20') touch "$HOME/helper-removed";;
+  *uninstall-preflight*) [ -e "$HOME/pulled" ] || exit 1;;
+  *' caddy') chmod 0700 "$HOME/statbus/caddy"; rm -rf -- "$HOME/statbus/caddy";;
+  *'/target/tmp'*) chmod 0700 "$HOME/statbus"; rm -rf -- "$HOME/statbus/tmp";;
+esac
+`
+	if err := os.WriteFile(filepath.Join(bin, "docker"), []byte(docker), 0700); err != nil {
+		t.Fatal(err)
+	}
+	script, _ := filepath.Abs("../../uninstall.sh")
+	cmd := exec.Command("bash", script)
+	cmd.Env = append(os.Environ(), "HOME="+home, "PATH="+bin+":"+os.Getenv("PATH"), "STATBUS_UNINSTALL_CONFIRM=yes-delete-everything")
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("partial-install fallback: %v %s", err, out)
+	}
+	if _, err := os.Stat(dir); !os.IsNotExist(err) {
+		t.Fatalf("checkout survived: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(home, "helper-removed")); err != nil {
+		t.Fatalf("pulled helper not removed: %v", err)
 	}
 }
 
