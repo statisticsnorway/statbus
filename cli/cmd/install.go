@@ -35,6 +35,7 @@ var (
 	detectInstallState          = install.Detect
 	recoverCrashedInstall       = runCrashRecovery
 	checkInstallSigners         = checkSignersDone
+	restoreGeneratedSettings    = runGenerateEnv
 	writeDetectionSupportBundle = func(installDir string) (string, error) {
 		path := filepath.Join(installDir, fmt.Sprintf("support-bundle-%s.txt", time.Now().UTC().Format("20060102-150405")))
 		return path, writeSupportBundle(installDir, path, upgrade.TriggerInstall)
@@ -506,6 +507,9 @@ func runInstall() (installErr error) {
 
 	var detectedState install.State
 	if !bypass {
+		if err := restoreSettingsBeforeDetect(installDir); err != nil {
+			return err
+		}
 		state, detail, derr := detectInstallState(installDir, version)
 		if derr != nil {
 			if !errors.Is(derr, install.ErrDatabaseUnavailable) {
@@ -588,6 +592,10 @@ func runInstall() (installErr error) {
 				}()
 				if err := recoverCrashedInstall(installDir, &restartIfRecovered); err != nil {
 					return fmt.Errorf("crash recovery: %w", err)
+				}
+				// Recovery removed the flag; the re-probe needs the route too.
+				if err := restoreSettingsBeforeDetect(installDir); err != nil {
+					return err
 				}
 				state, detail, derr = detectInstallState(installDir, version)
 				if derr != nil {
@@ -3806,4 +3814,43 @@ func init() {
 		ViolationShape:   "conn.Exec(ctx, \"NOTIFY upgrade_check\") returns a non-nil error after the step-table completed healthily.",
 		TranscriptFormat: "INVARIANT NOTIFY_UPGRADE_CHECK_BEST_EFFORT_LOGGED violated (audit-only): NOTIFY upgrade_check failed post-install: <err> — next daemon tick will recover",
 	})
+}
+
+// restoreSettingsBeforeDetect regenerates the generated .env when the operator
+// files exist but .env does not, so Detect can read the database route and
+// classify the box by its real state.
+//
+// Settings writes .env.credentials before .env; a refused TLS path, a
+// misplaced secret or an interrupted first run stops it in between. Without
+// .env the database probe has no route and its failure proves nothing, so
+// install refused itself on every rerun ("could not be determined safely",
+// rc.15 arc run 36442434055). A missing .env is not evidence of an unfinished
+// database either: an established box can lose only .env. So the route is
+// restored first and Detect then decides from the database, exactly as for
+// any other configured box (review tmp/review-detect-env.md, finding 1).
+//
+// Regeneration is the Settings step itself (runGenerateEnv): it writes only
+// generated files from the operator's own .env.config and .env.credentials,
+// plus the backup and maintenance directories, so the later Settings step,
+// now seen as done, loses nothing. It runs only when no upgrade flag is
+// present: a flagged box is the crash recovery path's to repair, and Detect
+// classifies it without the database.
+func restoreSettingsBeforeDetect(installDir string) error {
+	if _, err := os.Stat(filepath.Join(installDir, ".env")); err == nil || !os.IsNotExist(err) {
+		return nil
+	}
+	for _, name := range []string{".env.config", ".env.credentials"} {
+		if _, err := os.Stat(filepath.Join(installDir, name)); err != nil {
+			return nil
+		}
+	}
+	if _, err := os.Stat(filepath.Join(installDir, "tmp", "upgrade-in-progress.json")); !os.IsNotExist(err) {
+		return nil
+	}
+	fmt.Println("Restoring generated settings before checking the installation.")
+	if err := restoreGeneratedSettings(installDir); err != nil {
+		installDiagnostic(installDir, "Settings could not be restored before detection: %v", err)
+		return &installPreflightRefusalError{err: fmt.Errorf("the settings could not be restored: %v. Nothing else was changed. Correct the settings, then run: %s", err, diskpolicy.RerunCommand())}
+	}
+	return nil
 }

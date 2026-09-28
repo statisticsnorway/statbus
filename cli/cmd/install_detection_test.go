@@ -9,6 +9,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/statisticsnorway/statbus/cli/internal/dotenv"
 	"github.com/statisticsnorway/statbus/cli/internal/install"
 	"github.com/statisticsnorway/statbus/cli/internal/upgrade"
 )
@@ -48,7 +49,9 @@ func withRunInstallDetectionHooks(t *testing.T) string {
 	originalNonInteractive := nonInteractive
 	originalTrust := trustGitHubUser
 	originalFixup := postUpgradeFixup
+	originalRestore := restoreGeneratedSettings
 	t.Cleanup(func() {
+		restoreGeneratedSettings = originalRestore
 		detectInstallState = originalDetect
 		recoverCrashedInstall = originalRecover
 		writeDetectionSupportBundle = originalBundle
@@ -404,33 +407,172 @@ func TestRunInstallKeepsUnavailableProbeStepTableFallback(t *testing.T) {
 	}
 }
 
-// rc.15 arc run 36442434055: .env.config and .env.credentials present, the
-// generated .env absent (Settings never completed). The real default probe
-// found no .env to read the database route from, and install refused itself
-// with "could not be determined safely" on every rerun. It must classify
-// the box half-configured and continue with the step table.
-func TestRunInstallContinuesWhenSettingsNeverRan(t *testing.T) {
-	installDir := withRunInstallDetectionHooks(t)
-	if err := os.WriteFile(filepath.Join(installDir, ".env.credentials"), []byte("GITHUB_TOKEN=arc-token\n"), 0o600); err != nil {
+// rc.15 arc run 36442434055 and review tmp/review-detect-env.md: with
+// .env.config and .env.credentials but no generated .env, the database probe
+// had no route and install refused itself on every rerun. The generated .env
+// is now restored first, and Detect decides from the real database state:
+// an established box keeps its refusals and dispatches (legacy shown here),
+// an unfinished one continues. Nothing is classified from the missing file.
+func TestRunInstallRestoresSettingsBeforeDetect(t *testing.T) {
+	for _, tc := range []struct {
+		name      string
+		state     install.State
+		wantSteps int
+		wantErr   string
+	}{
+		{"unfinished first install continues", install.StateFreshDBIncomplete, 1, ""},
+		{"established pre-1.0 database still refused", install.StateLegacyNoUpgradeTable, 0, "pre-1.0 install detected"},
+		{"established installation checked normally", install.StateNothingScheduled, 1, ""},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			dir := withRunInstallDetectionHooks(t)
+			if err := os.WriteFile(filepath.Join(dir, ".env.credentials"), []byte("GITHUB_TOKEN=arc-token\n"), 0o600); err != nil {
+				t.Fatal(err)
+			}
+			var order []string
+			restoreGeneratedSettings = func(d string) error {
+				order = append(order, "restore")
+				return os.WriteFile(filepath.Join(d, ".env"), []byte("POSTGRES_APP_DB=statbus_test\n"), 0o600)
+			}
+			detectInstallState = func(d, _ string) (install.State, *install.Detail, error) {
+				if _, err := os.Stat(filepath.Join(d, ".env")); err != nil {
+					t.Fatalf("Detect ran without the generated .env: %v", err)
+				}
+				order = append(order, "detect")
+				return tc.state, &install.Detail{}, nil
+			}
+			steps := 0
+			runInstallStepTableTestHook = func() error { steps++; return nil }
+			err := runInstall()
+			if strings.Join(order, ",") != "restore,detect" {
+				t.Fatalf("order = %v, want restore then detect", order)
+			}
+			if steps != tc.wantSteps {
+				t.Fatalf("steps = %d, want %d (err=%v)", steps, tc.wantSteps, err)
+			}
+			if tc.wantErr == "" && err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if tc.wantErr != "" && (err == nil || !strings.Contains(err.Error(), tc.wantErr)) {
+				t.Fatalf("error = %v, want %q", err, tc.wantErr)
+			}
+		})
+	}
+}
+
+// A settings error (for example a host path in TLS_CERT_FILE) stops before
+// detection, shows the actual cause and the rerun command, and changes
+// nothing else: no probe, no step table.
+func TestRunInstallSettingsRestoreFailureRefusesWithCause(t *testing.T) {
+	dir := withRunInstallDetectionHooks(t)
+	if err := os.WriteFile(filepath.Join(dir, ".env.credentials"), []byte("X=1\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	detectInstallState = install.Detect
-	t.Setenv("DOCKER_PSQL", "1")
-	bundleCalled := false
-	writeDetectionSupportBundle = func(string) (string, error) {
-		bundleCalled = true
-		return "", nil
+	restoreGeneratedSettings = func(string) error {
+		return errors.New(`TLS_CERT_FILE="/home/statbus/statbus.crt" is not a valid Caddy container path`)
 	}
-	steps := 0
-	runInstallStepTableTestHook = func() error { steps++; return nil }
+	detectInstallState = func(string, string) (install.State, *install.Detail, error) {
+		t.Fatal("Detect ran after settings could not be restored")
+		return 0, nil, nil
+	}
+	runInstallStepTableTestHook = func() error { t.Fatal("step table ran"); return nil }
+	err := runInstall()
+	var preflight *installPreflightRefusalError
+	if !errors.As(err, &preflight) {
+		t.Fatalf("want preflight refusal, got %v", err)
+	}
+	for _, want := range []string{"TLS_CERT_FILE=\"/home/statbus/statbus.crt\" is not a valid Caddy container path", "Nothing else was changed", "curl -fsSL https://statbus.org/install.sh | bash"} {
+		if !strings.Contains(err.Error(), want) {
+			t.Errorf("refusal missing %q: %v", want, err)
+		}
+	}
+}
 
-	if err := runInstall(); err != nil {
-		t.Fatalf("install refused a box whose Settings never ran: %v", err)
+// Settings restoration is only for a box missing exactly the generated file.
+func TestRestoreSettingsBeforeDetectOnlyWhenOnlyEnvIsMissing(t *testing.T) {
+	for _, tc := range []struct {
+		name        string
+		credentials bool
+		env         bool
+		flag        bool
+		want        bool
+	}{
+		{"config and credentials, no .env", true, false, false, true},
+		{"generated .env present", true, true, false, false},
+		{"credentials missing (half-configured path)", false, false, false, false},
+		{"upgrade flag present (crash recovery path)", true, false, true, false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			dir := withRunInstallDetectionHooks(t)
+			write := func(rel string) {
+				p := filepath.Join(dir, rel)
+				if err := os.MkdirAll(filepath.Dir(p), 0o700); err != nil {
+					t.Fatal(err)
+				}
+				if err := os.WriteFile(p, []byte("X=1\n"), 0o600); err != nil {
+					t.Fatal(err)
+				}
+			}
+			if tc.credentials {
+				write(".env.credentials")
+			}
+			if tc.env {
+				write(".env")
+			}
+			if tc.flag {
+				write("tmp/upgrade-in-progress.json")
+			}
+			called := false
+			restoreGeneratedSettings = func(string) error { called = true; return nil }
+			if err := restoreSettingsBeforeDetect(dir); err != nil {
+				t.Fatal(err)
+			}
+			if called != tc.want {
+				t.Fatalf("restore called = %v, want %v", called, tc.want)
+			}
+		})
 	}
-	if steps != 1 {
-		t.Fatalf("step table runs = %d, want 1", steps)
+}
+
+// The real Settings code turns the arc layout (.env.config plus a token-only
+// .env.credentials, no .env) into a generated .env carrying the database
+// route, without touching the operator's token.
+func TestRestoreSettingsBeforeDetectWritesRealRoute(t *testing.T) {
+	dir := withRunInstallDetectionHooks(t)
+	root := filepath.Join("..", "..")
+	example, err := os.ReadFile(filepath.Join(root, ".env.example"))
+	if err != nil {
+		t.Fatal(err)
 	}
-	if bundleCalled {
-		t.Fatal("a missing generated .env was treated as an unclassifiable state")
+	if err := os.WriteFile(filepath.Join(dir, ".env.example"), example, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.CopyFS(filepath.Join(dir, "caddy", "templates"), os.DirFS(filepath.Join(root, "caddy", "templates"))); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(filepath.Join(dir, "ops", "maintenance"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, ".env.credentials"), []byte("GITHUB_TOKEN=arc-token\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := restoreSettingsBeforeDetect(dir); err != nil {
+		t.Fatalf("restore: %v", err)
+	}
+	env, err := dotenv.Load(filepath.Join(dir, ".env"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, key := range []string{"POSTGRES_APP_DB", "POSTGRES_ADMIN_PASSWORD", "COMPOSE_INSTANCE_NAME"} {
+		if v, ok := env.Get(key); !ok || v == "" {
+			t.Errorf("generated .env lacks %s", key)
+		}
+	}
+	creds, err := dotenv.Load(filepath.Join(dir, ".env.credentials"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if v, _ := creds.Get("GITHUB_TOKEN"); v != "arc-token" {
+		t.Fatalf("operator token changed: %q", v)
 	}
 }

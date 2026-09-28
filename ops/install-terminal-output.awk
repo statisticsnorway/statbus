@@ -44,7 +44,7 @@
     fflush()
     next
 }
-/^(Recovery finished\. Checking the installation again\.|The database could not be checked\. Continuing with installation repair\.)$/ {
+/^(Recovery finished\. Checking the installation again\.|The database could not be checked\. Continuing with installation repair\.|Restoring generated settings before checking the installation\.)$/ {
     print
     fflush()
     next

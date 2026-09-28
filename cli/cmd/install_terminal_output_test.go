@@ -126,7 +126,7 @@ func TestInstallTerminalWriterShowsEveryInstallState(t *testing.T) {
 			}
 		})
 	}
-	literals := "  The database is up to date.\n  Database updates will be applied.\n  The database and installed program differ. Repair will reconcile them.\nRecovery finished. Checking the installation again.\nThe database could not be checked. Continuing with installation repair.\n"
+	literals := "  The database is up to date.\n  Database updates will be applied.\n  The database and installed program differ. Repair will reconcile them.\nRecovery finished. Checking the installation again.\nThe database could not be checked. Continuing with installation repair.\nRestoring generated settings before checking the installation.\n"
 	if got := runTerminalFilter(t, literals); got != literals {
 		t.Fatalf("fixed state lines hidden or duplicated:\n got:\n%s\nwant:\n%s", got, literals)
 	}
