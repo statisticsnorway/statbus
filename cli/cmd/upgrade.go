@@ -338,7 +338,11 @@ running migrations. Destructive — dev/demo servers only.
 Examples:
   sb upgrade schedule v2026.03.1
   sb upgrade schedule abc1234f
-  sb upgrade schedule v2026.03.1 --recreate`,
+  sb upgrade schedule v2026.03.1 --recreate
+
+A candidate that is failed, dismissed, or parked is scheduled again only by a
+named operator (STATBUS-382): pass --operator "<your name>" when no terminal
+is present to prompt for it.`,
 	Args: cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		// STATBUS-308: scheduling depends on the service to execute it. Queueing
@@ -1036,7 +1040,7 @@ func init() {
 	// STATBUS-317: who made this transition. Absent + a TTY present ->
 	// resolveOperator prompts; absent + no TTY (CI, e.g. apply over sshdo)
 	// -> proceeds and records 'absent', never blocks.
-	upgradeScheduleCmd.Flags().String("operator", "", "your name, for the audit log (prompted interactively if omitted and a terminal is present)")
+	upgradeScheduleCmd.Flags().String("operator", "", "your name, for the audit log (prompted interactively if omitted and a terminal is present); required to schedule a failed, dismissed, or parked candidate again")
 	upgradeDismissCmd.Flags().String("operator", "", "your name, for the audit log (prompted interactively if omitted and a terminal is present)")
 
 	trustKeyAddCmd.Flags().BoolVarP(&trustKeyAddYes, "yes", "y", false, "skip confirmation prompt (for scripted / AI-driven installs)")

@@ -91,7 +91,25 @@ assert_health_passes "$VM_NAME"
 assert_demo_data_counts_match_snapshot "$VM_NAME" "$DATA_SNAPSHOT"
 
 echo "── re-schedule the same candidate without injection ──"
-VM_EXEC bash -c "cd ~/statbus && ./sb upgrade schedule $B_FULL 2>&1 | tail -20"
+# STATBUS-382: a failed candidate is re-armed only by a NAMED operator, so no
+# automatic path can loop on a release that already stopped. rc.16 (run
+# 36468921894) failed here because this step scheduled with no --operator and
+# no TTY, got a raw "SQLSTATE 42501", and `| tail` hid the non-zero exit.
+# First prove the actorless refusal is plain and names its remedy while the row
+# stays failed, then re-schedule as the operator this harness is.
+REFUSAL_RC=0
+REFUSAL_OUT=$(VM_EXEC bash -c "cd ~/statbus && ./sb upgrade schedule $B_FULL 2>&1") || REFUSAL_RC=$?
+printf '%s\n' "$REFUSAL_OUT" | tail -20
+[ "$REFUSAL_RC" != "0" ] || { echo "✗ actorless re-schedule of a failed candidate was accepted (STATBUS-382 guard missing)" >&2; exit 1; }
+printf '%s\n' "$REFUSAL_OUT" | grep -qF -- '--operator "<your name>"' || { echo "✗ actorless refusal does not name the --operator remedy" >&2; exit 1; }
+if printf '%s\n' "$REFUSAL_OUT" | grep -qF 'SQLSTATE'; then echo "✗ actorless refusal leaks a raw SQLSTATE to the operator" >&2; exit 1; fi
+[ "$(row_field state)" = "failed" ] || { echo "✗ refused re-schedule changed the row state" >&2; exit 1; }
+VM_EXEC bash -c "set -o pipefail; cd ~/statbus && ./sb upgrade schedule $B_FULL --operator arc 2>&1 | tail -20"
+RESCHEDULED_STATE=$(row_field state)
+case "$RESCHEDULED_STATE" in
+    scheduled|in_progress|completed) ;;
+    *) echo "✗ operator re-schedule did not re-arm the failed row (state='$RESCHEDULED_STATE')" >&2; exit 1 ;;
+esac
 RC=0
 VM_EXEC bash -c "cd ~/statbus && STATBUS_MIN_DISK_GB=5 timeout $INSTALL_BUDGET_S ./sb install --non-interactive --trust-github-user jhf" || RC=$?
 [ "$RC" = "0" ] || { echo "✗ clean retry failed (rc=$RC)" >&2; exit 1; }

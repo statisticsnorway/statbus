@@ -1,9 +1,13 @@
 package upgrade
 
 import (
+	"errors"
+	"fmt"
 	"os"
 	"strings"
 	"testing"
+
+	"github.com/jackc/pgx/v5/pgconn"
 )
 
 // TestClassifyScheduleResult pins the complete result vocabulary owned by
@@ -51,6 +55,68 @@ func TestErrNotRegistered_Actionable(t *testing.T) {
 		if !strings.Contains(msg, want) {
 			t.Errorf("error %q is missing the actionable fragment %q", msg, want)
 		}
+	}
+}
+
+// TestOperatorRequiredScheduleError_NamesRemedy: rc.16 arc run 36468921894
+// showed a non-interactive `./sb upgrade schedule <failed-sha>` answered with
+// only "ERROR: operator actor required to schedule upgrade from state failed
+// (SQLSTATE 42501)". The STATBUS-382 refusal is correct, but it must reach the
+// operator as plain text naming its remedy (--operator), never as a raw
+// SQLSTATE. Other errors must pass through untouched.
+func TestOperatorRequiredScheduleError_NamesRemedy(t *testing.T) {
+	for _, state := range []string{"failed", "dismissed", "parked"} {
+		t.Run(state, func(t *testing.T) {
+			dbErr := &pgconn.PgError{
+				Severity: "ERROR",
+				Code:     "42501",
+				Message:  "operator actor required to schedule upgrade from state " + state,
+			}
+			// Wrapped exactly as withActorTx/scanScheduleResult deliver it.
+			err := operatorRequiredScheduleError("96134151", "9613415194ffba54e3cdc72a6971721b0278a194", fmt.Errorf("wrapped: %w", dbErr))
+			if err == nil {
+				t.Fatal("operator-actor refusal was not recognised; the raw SQLSTATE would reach the operator")
+			}
+			msg := err.Error()
+			for _, want := range []string{
+				"96134151 was not scheduled",
+				"it is " + state,
+				`./sb upgrade schedule 9613415194ffba54e3cdc72a6971721b0278a194 --operator "<your name>"`,
+			} {
+				if !strings.Contains(msg, want) {
+					t.Errorf("refusal %q is missing %q", msg, want)
+				}
+			}
+			for _, raw := range []string{"SQLSTATE", "42501", "ERROR:"} {
+				if strings.Contains(msg, raw) {
+					t.Errorf("refusal %q leaks raw database text %q", msg, raw)
+				}
+			}
+		})
+	}
+
+	t.Run("other permission error passes through", func(t *testing.T) {
+		other := &pgconn.PgError{Code: "42501", Message: "permission denied for table upgrade"}
+		if got := operatorRequiredScheduleError("x", "x", other); got != nil {
+			t.Errorf("unrelated 42501 was rewritten: %v", got)
+		}
+	})
+	t.Run("non-database error passes through", func(t *testing.T) {
+		if got := operatorRequiredScheduleError("x", "x", errors.New("connection reset")); got != nil {
+			t.Errorf("non-database error was rewritten: %v", got)
+		}
+	})
+}
+
+// TestScheduleStepMapsOperatorRefusal pins the wiring: scheduleStep (shared by
+// schedule, apply, and apply-latest) must route the transaction error through
+// operatorRequiredScheduleError before its generic "schedule %s: %w" wrap.
+func TestScheduleStepMapsOperatorRefusal(t *testing.T) {
+	body := extractFuncBody(t, readUpgradeServiceSource(t), "func (d *Service) scheduleStep(")
+	mapIdx := strings.Index(body, "operatorRequiredScheduleError(displayName, input, err)")
+	wrapIdx := strings.Index(body, `fmt.Errorf("schedule %s: %w", displayName, err)`)
+	if mapIdx < 0 || wrapIdx < 0 || mapIdx > wrapIdx {
+		t.Fatalf("scheduleStep must map the operator-actor refusal before the generic wrap (map=%d wrap=%d)", mapIdx, wrapIdx)
 	}
 }
 

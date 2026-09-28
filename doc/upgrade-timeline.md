@@ -908,6 +908,7 @@ why continuation is safe, not a silent swallow.
 | "Upgrade flag file present but unreadable" | JSON corruption or incompatible schema. | Inspect `~/statbus/tmp/upgrade-in-progress.json`. If truly garbage, remove it and start the service so `recoverFromFlag` operates cleanly next cycle. |
 | `public.upgrade.state='rolled_back'` | An upgrade failed fast and the snapshot restored. | Server is healthy at the old version. Investigate the `error` column, fix the cause, reschedule. |
 | `public.upgrade.state='failed'` | An upgrade failed fast **and the restore also failed**. | Hands-on recovery required. Read the `error` column + `journalctl`; the pre-upgrade snapshot is at `backup_path`. |
+| "`<version>` was not scheduled: it is failed / dismissed / parked, and only a named operator may schedule it again." | A failed, dismissed, or parked candidate is re-armed only by a named operator (STATBUS-382), so no automatic path loops on a release that already stopped. Over ssh there is no terminal to prompt for the name. | Once the cause is fixed: `./sb upgrade schedule <version> --operator "<your name>"`. A failed row that retained a backup is re-attempted with `./sb install` instead. |
 
 What the mutex does **not** cover: operator crash mid-install (SSH drop) leaves a dead-PID
 flag — re-running `./sb install` (or the idempotent `./cloud.sh install <server>`) reconciles
