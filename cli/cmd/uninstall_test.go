@@ -104,6 +104,52 @@ func TestUninstallSymlinkedInstallLockRefusesBeforeExternalWrite(t *testing.T) {
 	}
 }
 
+func TestUninstallNonWritableTmpUsesDockerWithoutMktempError(t *testing.T) {
+	home := t.TempDir()
+	dir := filepath.Join(home, "statbus")
+	tmp := filepath.Join(dir, "tmp")
+	if err := os.MkdirAll(tmp, 0700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(tmp, "upgrade-in-progress.json"), []byte("existing marker"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chmod(tmp, 0500); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.Chmod(tmp, 0700) })
+	bin := filepath.Join(home, "bin")
+	if err := os.Mkdir(bin, 0700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(bin, "sudo"), []byte("#!/bin/sh\nexit 1\n"), 0700); err != nil {
+		t.Fatal(err)
+	}
+	docker := `#!/bin/sh
+case "$*" in
+  'image ls'*) echo ghcr.io/statisticsnorway/statbus-db:sha-test;;
+  *uninstall-preflight*) echo helper-probed > "$HOME/docker-probe";;
+  *'/target/tmp'*) chmod 0700 "$HOME/statbus/tmp"; rm -rf -- "$HOME/statbus/tmp";;
+esac
+`
+	if err := os.WriteFile(filepath.Join(bin, "docker"), []byte(docker), 0700); err != nil {
+		t.Fatal(err)
+	}
+	script, _ := filepath.Abs("../../uninstall.sh")
+	cmd := exec.Command("bash", script)
+	cmd.Env = append(os.Environ(), "HOME="+home, "PATH="+bin+":"+os.Getenv("PATH"), "STATBUS_UNINSTALL_CONFIRM=yes-delete-everything")
+	out, err := cmd.CombinedOutput()
+	if err != nil || strings.Contains(string(out), "mktemp") {
+		t.Fatalf("Docker fallback from non-writable tmp: %v %s", err, out)
+	}
+	if _, err := os.Stat(filepath.Join(home, "docker-probe")); err != nil {
+		t.Fatalf("Docker probe not reached: %v %s", err, out)
+	}
+	if _, err := os.Stat(dir); !os.IsNotExist(err) {
+		t.Fatalf("checkout survived: %v %s", err, out)
+	}
+}
+
 func TestUninstallScriptSelectionsAndRerun(t *testing.T) {
 	script, err := filepath.Abs("../../uninstall.sh")
 	if err != nil {

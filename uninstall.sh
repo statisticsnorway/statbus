@@ -150,12 +150,15 @@ if [[ -d $DIR ]]; then
     fi
     nonwritable=$(find "$DIR" -type d ! -perm -u+w -print -quit 2>/dev/null || true)
     if [[ -n $root_paths || -n $nonwritable ]] || [[ ! -w $DIR ]] || [[ -e /etc/systemd/system/statbus-upgrade@.service && $USER != statbus_* ]]; then
-        # Exercise the exact sudo rm command on a nested probe before teardown.
-        probe=$(mktemp -d "$DIR/tmp/.uninstall-preflight.XXXXXXXX")
-        if sudo -n sh -c 'test -d "$1" && find "$1" -mindepth 1 -exec test -r {} \; -exec test -w {} \; && test -w "$1"' sh "$DIR" >/dev/null 2>&1 && sudo -n rm -rf -- "$probe"; then
+        # Create and remove the nested probe with the selected privilege path.
+        # The invoking user may not be able to create anything in tmp.
+        probe=
+        if sudo -n sh -c 'test -d "$1" && find "$1" -mindepth 1 -exec test -r {} \; -exec test -w {} \; && test -w "$1"' sh "$DIR" >/dev/null 2>&1 &&
+            probe=$(sudo -n mktemp -d "$DIR/tmp/.uninstall-preflight.XXXXXXXX" 2>>"$LOG") &&
+            sudo -n rm -rf -- "$probe" >>"$LOG" 2>&1; then
             USE_SUDO=1
         else
-            rm -rf -- "$probe" 2>/dev/null || true
+            [[ -z $probe ]] || sudo -n rm -rf -- "$probe" >>"$LOG" 2>&1 || true
             if [[ -e /etc/systemd/system/statbus-upgrade@.service && $USER != statbus_* ]]; then
                 echo 'Removing the system upgrade unit requires sudo; ask an administrator to run sudo -v and retry.'
                 exit 1
