@@ -13,7 +13,11 @@ ssh "${opts[@]}" "$host" 'test -s /root/.ssh/authorized_keys && id -u | grep -qx
 # A fleet can arrive via another runner at any time. The host-side lock covers
 # the complete hardening transaction (including all verification connections)
 # through an owned marker, and every starter checks the same marker.
-ssh "${opts[@]}" "$host" 'flock -n /root/fleet-run.lock bash -c '\''test ! -e /root/fleet-run.active && test ! -e /root/fleet-reaping && test ! -e /root/fleet-hardening.active && guests=$(lxc list --format csv) && ! grep -q RUNNING <<< "$guests" && touch /root/fleet-hardening.active'\''' || {
+# "Active" is directory-non-empty: smoke, the fault driver and arc jobs each
+# hold their OWN marker file under /root/fleet-active/ concurrently
+# (STATBUS-425 M2'/marker.sh); a single marker file would let the first job
+# to finish think hardening is safe while a sibling job is still running.
+ssh "${opts[@]}" "$host" 'flock -n /root/fleet-run.lock bash -c '\''active=$(ls -A /root/fleet-active 2>/dev/null || true); test -z "$active" && test ! -e /root/fleet-reaping && test ! -e /root/fleet-hardening.active && guests=$(lxc list --format csv) && ! grep -q RUNNING <<< "$guests" && touch /root/fleet-hardening.active'\''' || {
     echo 'REFUSE: active fleet, running guest, or reaper; defer host hardening' >&2; exit 1;
 }
 trap 'ssh "${opts[@]}" "$host" "rm -f /root/fleet-hardening.active" || true' EXIT
@@ -30,6 +34,15 @@ PubkeyAuthentication yes
 PasswordAuthentication no
 PermitEmptyPasswords no
 KbdInteractiveAuthentication no
+# STATBUS-425 M3a review §1i.4: 12+ forks (faults and arcs, once they run
+# together) polling every 3-5s from many runners, each a FRESH SSH connection
+# (LXD_SSH_OPTS carries no ControlMaster - _lxd_host's per-call SSH is
+# deliberately stateless so a stale control socket can never wedge a later
+# call), brushes sshd's compiled-in default MaxStartups 10:30:100 (the
+# unauthenticated-connection throttle, distinct from MaxSessions). Widen it
+# on this dedicated fleet host, which accepts connections only from CI
+# runners and this repo's own tooling, never the public internet.
+MaxStartups 30:30:100
 EOF
 if ! cmp -s "$config.stage" "$config"; then
     mv "$config.stage" "$config"
@@ -43,6 +56,7 @@ grep -Eq '^permitrootlogin (prohibit-password|without-password)$' <<<"$effective
 grep -qx 'pubkeyauthentication yes' <<<"$effective"
 grep -qx 'passwordauthentication no' <<<"$effective"
 grep -qx 'kbdinteractiveauthentication no' <<<"$effective"
+grep -qx 'maxstartups 30:30:100' <<<"$effective"
 systemctl reload ssh || systemctl reload sshd
 REMOTE
 # A genuinely new key-only connection proves SSH still works after reload.

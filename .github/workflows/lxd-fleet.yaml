@@ -58,8 +58,13 @@ jobs:
           for attempt in $(seq 1 120); do
             # Existing box may be absent before up.sh ramps it. A live active
             # marker belongs to the previous candidate; never race its forks.
+            # "Active" is directory-non-empty: smoke, this fault driver and
+            # arc jobs each hold their OWN marker file under
+            # /root/fleet-active/ concurrently (STATBUS-425 M2'/marker.sh) -
+            # a single marker file would drain past a sibling job that is
+            # still genuinely running.
             if ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new -o ConnectTimeout=5 "root@$ip" \
-                'test ! -e /root/fleet-run.active && test ! -e /root/fleet-hardening.active && guests=$(lxc list --format csv) && ! grep -q RUNNING <<< "$guests"' 2>/dev/null; then
+                'active=$(ls -A /root/fleet-active 2>/dev/null || true); test -z "$active" && test ! -e /root/fleet-hardening.active && guests=$(lxc list --format csv) && ! grep -q RUNNING <<< "$guests"' 2>/dev/null; then
               echo 'Previous LXD fleet drained.'
               exit 0
             fi
@@ -99,9 +104,16 @@ jobs:
         run: |
           set -euo pipefail
           exec > >(tee "$LXD_FLEET_ARTIFACT_DIR/driver.log") 2>&1
+          # Per-job marker under /root/fleet-active/ (STATBUS-425 M2'/
+          # marker.sh), not a single fleet-run.active file: smoke, this fault
+          # driver and arc jobs can be genuinely active on the box AT THE
+          # SAME TIME once faults and arcs overlap (M4), and a single marker
+          # file would let the first job to finish delete it while a sibling
+          # is still running.
+          MARKER_ID="${{ github.run_id }}-faultfleet-$$"
           ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new "$LXD_HOST" \
-            'flock /root/fleet-run.lock bash -c "test ! -e /root/fleet-run.active && test ! -e /root/fleet-hardening.active && touch /root/fleet-run.active"'
-          trap 'ssh -o BatchMode=yes "$LXD_HOST" "rm -f /root/fleet-run.active; date +%s > /root/last-fleet-activity"' EXIT
+            "mkdir -p /root/fleet-active && touch '/root/fleet-active/$MARKER_ID' && date +%s > /root/last-fleet-activity"
+          trap 'ssh -o BatchMode=yes "$LXD_HOST" "rm -f /root/fleet-active/$MARKER_ID; date +%s > /root/last-fleet-activity"' EXIT
           test/install-recovery/lxd/run-forks.sh "${{ github.ref_name }}"
       - name: Collect workflow phase outcome
         if: always()
