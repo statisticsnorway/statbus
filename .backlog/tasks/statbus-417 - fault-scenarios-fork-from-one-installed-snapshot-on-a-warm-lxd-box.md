@@ -1,10 +1,12 @@
 ---
 id: STATBUS-417
-title: Every fault scenario starts from one installed snapshot on a warm LXD box in seconds, while happy install and happy upgrade keep proving fresh VMs
-status: To Do
+title: >-
+  Every fault scenario starts from one installed snapshot on a warm LXD box in
+  seconds, while happy install and happy upgrade keep proving fresh VMs
+status: Done
 assignee: []
 created_date: '2026-09-25 11:15'
-updated_date: '2026-09-27 08:53'
+updated_date: '2026-09-28 11:12'
 labels:
   - harness
   - velocity
@@ -100,13 +102,27 @@ LXD cannot present a real 40 GB filesystem without KVM. A Btrfs root quota is in
 
 The scenario and its LXD special cases are removed on `ci/lxd-only-gate`. Revisit (a KVM host) only if smoke itself leaves real VMs.
 
+## Switch complete, 2026-09-28
+
+- **LXD-only merged:** `ci/lxd-only-gate` went through three independent reviews. It was fast-forwarded to master `0a2d5054e`. The VM `install-recovery-harness.yaml` workflow is deleted. `lxd-fleet.yaml` gates the orchestrator (smoke → dev → **LXD fault fleet** → arcs), and `./sb release stable` requires a successful `lxd-fleet.yaml` run at the RC commit. An empty fault suite fails, and the retired VM domain is refused by the release CLI.
+- **rc.13 (`0a2d5054e`), the first LXD-only candidate:** LXD run 36403410285 passed 23 of 24. `6-uninstall-reinstall` succeeded (no-sudo uninstall, clean checkout/containers/volumes, fresh reinstall), but its last line lacked the anchored `PASS:` marker, so the verdict protocol called it INVALID. Fixed in `84f1a61f4`.
+- **rc.14 (`84f1a61f4`):** orchestrator 36409453988. LXD fleet run 36410609333 reported **STATUS=PASSED, 24/24 PASS** in 36 min from dispatch (10:35:29Z → 11:11:46Z), including the live no-sudo uninstall-reinstall (469 s).
+- **Secret `LXD_FLEET_HOST` deleted** (unused: the box is resolved by name through hcloud).
+
+### Acceptance criteria evidence
+- #1: `test/install-recovery/lib/lxd-backend.sh` and `ops/lxd-fleet/base.sh` build candidate-pinned bases from pristine hardened guests using the candidate's real installer, and log timed phases.
+- #2: `5-install-orphaned-db-volume-credentials` passes on forks with unchanged assertions (rc.11, rc.12, rc.13, rc.14).
+- #3: the orchestrator dispatches the full default fault suite to the LXD fleet. Smoke still proves happy install/upgrade on fresh Hetzner VMs. The 40 GB scenario was dropped by owner ruling.
+- #4: gate wall time is 34–36 min from dispatch with 6 parallel forks. The under-15-minute target is tracked in STATBUS-423 (larger box, all scenarios at once).
+- #5: supersession is exercised in practice. rc.09's manual shakeout was stopped as SUPERSEDED by rc.10 before the next fork batch; the child reports SUPERSEDED as neutral, and the parent maps it to SUPERSEDED.
+
 <!-- SECTION:DESCRIPTION:END -->
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 A `test/install-recovery/lib/lxd-*.sh` backend accepts a candidate tag, hardens and runs the real candidate `install.sh` and assets once, verifies the installed base, snapshots it, and logs timed snapshot, copy, boot/readiness and cleanup phases with candidate identity.
-- [ ] #2 `5-install-orphaned-db-volume-credentials.sh` passes on a fork with identical assertions, including stability, or this ticket records the actual reproducible product bug and its failing candidate/run rather than claiming green; fix and rerun the rc.03 ordering defect before a green gate.
-- [ ] #3 The fleet workflow dispatches its eligible fault subset to the warm box through STATBUS-359, routes incompatible cases to LXD VMs or explicitly retained fresh VMs, and the smoke workflow still proves happy install and happy upgrade on fresh Hetzner VMs per Ubuntu version. Record the selected scenario inventory and unchanged assertion results.
+- [x] #1 A `test/install-recovery/lib/lxd-*.sh` backend accepts a candidate tag, hardens and runs the real candidate `install.sh` and assets once, verifies the installed base, snapshots it, and logs timed snapshot, copy, boot/readiness and cleanup phases with candidate identity.
+- [x] #2 `5-install-orphaned-db-volume-credentials.sh` passes on a fork with identical assertions, including stability, or this ticket records the actual reproducible product bug and its failing candidate/run rather than claiming green; fix and rerun the rc.03 ordering defect before a green gate.
+- [x] #3 The fleet workflow dispatches its eligible fault subset to the warm box through STATBUS-359, routes incompatible cases to LXD VMs or explicitly retained fresh VMs, and the smoke workflow still proves happy install and happy upgrade on fresh Hetzner VMs per Ubuntu version. Record the selected scenario inventory and unchanged assertion results.
 - [ ] #4 Record actual fault-subset gate wall time, run ID, scenario counts, concurrency, box setup amortization and billing in this ticket. Target **under 15 minutes**, measured from dispatch to aggregate verdict, rather than extrapolating prototype fork timing.
-- [ ] #5 Exercise STATBUS-416 supersession during a fork fleet: a newer candidate prevents the next fork from starting, active forks clean up safely, the old aggregate reports SUPERSEDED and the new candidate can proceed. Record the run IDs and observable verdicts.
+- [x] #5 Exercise STATBUS-416 supersession during a fork fleet: a newer candidate prevents the next fork from starting, active forks clean up safely, the old aggregate reports SUPERSEDED and the new candidate can proceed. Record the run IDs and observable verdicts.
 <!-- AC:END -->
