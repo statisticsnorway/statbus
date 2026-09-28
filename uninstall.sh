@@ -44,7 +44,7 @@ refuse_nested_mounts() {
     if command -v findmnt >/dev/null 2>&1; then
         mounts=$(findmnt -rn -o TARGET) || { echo 'Cannot inspect mountpoints; refusing removal. Check findmnt and retry.'; return 1; }
     elif [[ -r /proc/self/mountinfo ]]; then
-        mounts=$(perl -ne 'my @fields = split / /; my $target = $fields[4]; $target =~ s/\\([0-7]{3})/chr(oct($1))/ge; print "$target\n"' /proc/self/mountinfo) || { echo 'Cannot inspect mountpoints; refusing removal.'; return 1; }
+        mounts=$(perl -ne 'my @fields = split / /; print "$fields[4]\n"' /proc/self/mountinfo) || { echo 'Cannot inspect mountpoints; refusing removal.'; return 1; }
     elif [[ $(uname -s) == Linux ]]; then
         echo 'Cannot inspect mountpoints; install findmnt and retry.'
         return 1
@@ -57,18 +57,23 @@ refuse_nested_mounts() {
         $base =~ s{/$}{};
         while (my $mount = <STDIN>) {
             chomp $mount;
-            my $canonical = abs_path($mount);
-            next unless defined $canonical;
-            if (index($canonical, "$base/") == 0) { print "$mount\n"; last; }
+            next unless length $mount;
+            $mount =~ s/\\x([0-9a-fA-F]{2})/chr(hex($1))/ge; # findmnt -r
+            $mount =~ s/\\([0-7]{3})/chr(oct($1))/ge;   # mountinfo
+            die "Invalid mount target escape\n" if $mount =~ /\\/;
+            my $canonical = abs_path($mount) // die "Cannot resolve mount target: $mount\n";
+            if ($canonical eq $base || index($canonical, "$base/") == 0) {
+                print "$mount\n"; last;
+            }
         }
     ' "$DIR") || { echo 'Cannot resolve checkout mountpoints; refusing removal.'; return 1; }
     if [[ -n $mountpoint ]]; then
-        echo "Mountpoint $mountpoint is inside $DIR; unmount it or move it outside the checkout, then retry removal."
+        echo "Mountpoint $mountpoint is on or inside $DIR; unmount it or move it outside the checkout, then retry removal."
         return 1
     fi
 }
-# The marker, sudo probe and Docker probe all write through tmp. Reject any
-# symlink in these paths before opening the marker, and again under the lock.
+# The marker and Docker probe write through tmp. Reject any symlink in these
+# paths before opening the marker, and again under the lock.
 check_tmp_boundary() {
     [[ ! -L $DIR && ! -L $DIR/tmp && -d $DIR/tmp && ! -L $DIR/tmp/upgrade-in-progress.json ]] || {
         echo 'Checkout tmp or its install lock is a symlink or not a directory; repair ~/statbus/tmp and retry.'
@@ -81,13 +86,19 @@ check_tmp_boundary() {
 }
 if [[ -d $DIR ]]; then
     [[ ! -L $DIR ]] || { echo 'Checkout is a symlink; refusing removal outside ~/statbus.'; exit 1; }
+    # Remember the directory before scanning mounts: a root mount arriving
+    # between the scan and Docker's bind cannot become the trusted source.
+    checkout_inode=$(perl -e 'my @s = stat(shift) or die "Cannot stat checkout\n"; print "$s[0]:$s[1]"' "$DIR") || exit 1
     refuse_nested_mounts || exit 1
     [[ ! -L $DIR/tmp ]] || { echo 'Checkout tmp is a symlink; move it inside ~/statbus and retry.'; exit 1; }
     [[ -d $DIR/tmp ]] || mkdir -p "$DIR/tmp"
     check_tmp_boundary || exit 1
     flag="$DIR/tmp/upgrade-in-progress.json"
     marker_owned=0
-    exec 9<>"$flag"
+    if ! { exec 9<>"$flag"; } 2>/dev/null; then
+        echo 'Cannot open the install lock in ~/statbus/tmp; repair its permissions or ask an administrator to restore ownership, then retry.'
+        exit 1
+    fi
     if ! perl -e 'use Fcntl ":flock"; open(my $f, "<&=9") or exit 2; exit(flock($f, LOCK_EX|LOCK_NB) ? 0 : 1);'; then
         echo 'Install/upgrade mutex is held; refusing removal.'
         exit 1
@@ -138,69 +149,51 @@ if [[ -d $DIR ]]; then
         remaining+=("$path")
     done
 fi
-# Preflight the entire tree, including tmp, before stopping anything. Exercise
-# the same privilege path used for deletion, not merely sudo true/docker info.
-USE_SUDO=0
+# Every checkout deletion uses a nonrecursive private bind of HOME. Binding
+# the parent omits mounts even on the checkout root; cd pins the directory,
+# and the inode check rejects symlink substitutions before any file deletion.
 USE_DOCKER=0
 CLEANUP_IMAGE=
 PULLED_CLEANUP_IMAGE=0
-DOCKER_BIND="type=bind,src=$DIR,dst=/target"
+DOCKER_BIND="type=bind,src=$HOME,dst=/home-root,bind-recursive=disabled,bind-propagation=rprivate"
 if [[ -d $DIR ]]; then
-    if ! root_paths=$(find "$DIR" -mindepth 1 ! -user "$(id -u)" -print -quit 2>/dev/null); then
-        root_paths=uninspectable
+    # Docker must bind precisely the inode observed before the first mount scan.
+    client_version=$(docker version --format '{{.Client.Version}}' 2>/dev/null || true)
+    server_version=$(docker version --format '{{.Server.Version}}' 2>/dev/null || true)
+    client_major=${client_version%%.*}
+    server_major=${server_version%%.*}
+    if [[ ! $client_major =~ ^[0-9]+$ || ! $server_major =~ ^[0-9]+$ ]] ||
+        ((client_major < 25 || server_major < 25)); then
+        echo 'Safe checkout removal requires Docker client and server version 25 or newer. Upgrade Docker and retry; nothing has been deleted.'
+        exit 1
     fi
-    nonwritable=$(find "$DIR" -type d ! -perm -u+w -print -quit 2>/dev/null || true)
-    if [[ -n $root_paths || -n $nonwritable ]] || [[ ! -w $DIR ]] || [[ -e /etc/systemd/system/statbus-upgrade@.service && $USER != statbus_* ]]; then
-        # Create and remove the nested probe with the selected privilege path.
-        # The invoking user may not be able to create anything in tmp.
-        probe=
-        if sudo -n sh -c 'test -d "$1" && find "$1" -mindepth 1 -exec test -r {} \; -exec test -w {} \; && test -w "$1"' sh "$DIR" >/dev/null 2>&1 &&
-            probe=$(sudo -n mktemp -d "$DIR/tmp/.uninstall-preflight.XXXXXXXX" 2>>"$LOG") &&
-            sudo -n rm -rf -- "$probe" >>"$LOG" 2>&1; then
-            USE_SUDO=1
-        else
-            [[ -z $probe ]] || sudo -n rm -rf -- "$probe" >>"$LOG" 2>&1 || true
-            if [[ -e /etc/systemd/system/statbus-upgrade@.service && $USER != statbus_* ]]; then
-                echo 'Removing the system upgrade unit requires sudo; ask an administrator to run sudo -v and retry.'
+    if [[ -e /etc/systemd/system/statbus-upgrade@.service && $USER != statbus_* ]] && ! sudo -n true >/dev/null 2>&1; then
+        echo 'Removing the system upgrade unit requires sudo; ask an administrator to run sudo -v and retry.'
+        exit 1
+    fi
+    # On a partial install use Alpine; pull before stopping services.
+    for image in "${images[@]}"; do
+        if [[ $image == ghcr.io/statisticsnorway/statbus-db:* ]]; then CLEANUP_IMAGE=$image; break; fi
+    done
+    if [[ -z $CLEANUP_IMAGE ]]; then
+        CLEANUP_IMAGE=alpine:3.20
+        if ! docker image inspect "$CLEANUP_IMAGE" >/dev/null 2>&1; then
+            if ! docker pull "$CLEANUP_IMAGE" >>"$LOG" 2>&1; then
+                echo 'Cannot prepare a Docker cleanup image; fix Docker and retry.'
                 exit 1
             fi
-            # A genuine install has the DB image locally. Use its shell as root
-            # through Docker before removing any StatBus image tags. On partial
-            # installs use a local Alpine image or pull it while still in preflight.
-            for image in "${images[@]}"; do
-                if [[ $image == ghcr.io/statisticsnorway/statbus-db:* ]]; then CLEANUP_IMAGE=$image; break; fi
-            done
-            if [[ -z $CLEANUP_IMAGE ]]; then
-                CLEANUP_IMAGE=alpine:3.20
-                if ! docker image inspect "$CLEANUP_IMAGE" >/dev/null 2>&1; then
-                    if ! docker pull "$CLEANUP_IMAGE" >>"$LOG" 2>&1; then
-                        echo 'Cannot prepare a Docker cleanup image; ask an administrator for sudo access or make Docker available and retry.'
-                        exit 1
-                    fi
-                    PULLED_CLEANUP_IMAGE=1
-                fi
-            fi
-            # Docker CE is installed unpinned on Ubuntu 24.04/26.04. Engine
-            # 25+ and its CLI support bind-recursive=disabled; older installs
-            # keep the host-side mountpoint refusal without this extra barrier.
-            client_version=$(docker version --format '{{.Client.Version}}' 2>/dev/null || true)
-            server_version=$(docker version --format '{{.Server.Version}}' 2>/dev/null || true)
-            client_major=${client_version%%.*}
-            server_major=${server_version%%.*}
-            if [[ $client_major =~ ^[0-9]+$ && $server_major =~ ^[0-9]+$ ]] &&
-                ((client_major >= 25 && server_major >= 25)); then
-                DOCKER_BIND+=,bind-recursive=disabled
-            fi
-            # The bind mount is exactly the checkout, and root must be able to
-            # traverse it and create/remove a probe before any service stops.
-            if ! docker run --rm --network none --user 0:0 --entrypoint /bin/sh --mount "$DOCKER_BIND" "$CLEANUP_IMAGE" -c 'test -d /target && find /target -mindepth 1 -exec test -r {} \; -exec test -w {} \; && mkdir /target/tmp/.uninstall-preflight.$$ && rmdir /target/tmp/.uninstall-preflight.$$' >>"$LOG" 2>&1; then
-                [[ $PULLED_CLEANUP_IMAGE == 0 ]] || docker image rm "$CLEANUP_IMAGE" >>"$LOG" 2>&1 || true
-                echo 'Docker cannot remove checkout files; ask an administrator for sudo access or fix Docker and retry.'
-                exit 1
-            fi
-            USE_DOCKER=1
+            PULLED_CLEANUP_IMAGE=1
         fi
     fi
+    # Unsupported bind-recursive options fail closed. The helper enters the
+    # checkout beneath the nonrecursive parent bind, pins cwd and verifies its
+    # inode before any write, including the preflight probe.
+    if ! docker run --rm --network none --user 0:0 --entrypoint /bin/sh --mount "$DOCKER_BIND" "$CLEANUP_IMAGE" -c 'cd /home-root/statbus && test "$(stat -c %d:%i .)" = "$1" && test -d ./tmp && find . -mindepth 1 -exec test -r {} \; -exec test -w {} \; && mkdir ./tmp/.uninstall-preflight.$$ && rmdir ./tmp/.uninstall-preflight.$$' sh "$checkout_inode" >>"$LOG" 2>&1; then
+        [[ $PULLED_CLEANUP_IMAGE == 0 ]] || docker image rm "$CLEANUP_IMAGE" >>"$LOG" 2>&1 || true
+        echo 'Docker cannot safely remove checkout files; upgrade Docker or repair its access and retry.'
+        exit 1
+    fi
+    USE_DOCKER=1
 fi
 echo 'StatBus removal plan (only listed resources will be deleted):'
 [[ -z ${containers:-} ]] || echo "  Project containers: $containers"
@@ -217,7 +210,7 @@ if [[ $INTERACTIVE == 1 ]]; then
     read -r -u 3 -p 'Type DELETE to execute this exact plan: ' answer
     [[ $answer == DELETE ]] || { echo 'Removal cancelled.'; exit 1; }
 fi
-# Recheck while holding the install lock immediately before teardown.
+# Recheck under the install lock before teardown and again before each deletion.
 if [[ -d $DIR ]]; then
     check_tmp_boundary || exit 1
     refuse_nested_mounts || exit 1
@@ -252,24 +245,30 @@ if command -v docker >/dev/null 2>&1 && docker info >/dev/null 2>&1; then
     done
 fi
 echo 'Step 3: removing units and checkout files'
+system_unit_removed=0
 for unit in "${units[@]}"; do
-    if [[ $unit == /etc/* ]]; then sudo -n rm -f -- "$unit" >>"$LOG" 2>&1; else rm -f -- "$unit" >>"$LOG" 2>&1; fi
+    if [[ $unit == /etc/* ]]; then
+        sudo -n rm -f -- "$unit" >>"$LOG" 2>&1
+        system_unit_removed=1
+    else
+        rm -f -- "$unit" >>"$LOG" 2>&1
+    fi
 done
 if command -v systemctl >/dev/null 2>&1 && { ((${#units[@]} > 0)) || [[ -n $user_state && $user_state != inactive && $user_state != unknown ]]; }; then
     systemctl --user daemon-reload >>"$LOG" 2>&1
-    if [[ $USE_SUDO == 1 && $USER != statbus_* ]]; then sudo -n systemctl daemon-reload >>"$LOG" 2>&1; fi
+    if [[ $system_unit_removed == 1 ]]; then sudo -n systemctl daemon-reload >>"$LOG" 2>&1; fi
 fi
 for path in "${remaining[@]}"; do
-    if [[ $USE_SUDO == 1 ]]; then sudo -n rm -rf -- "$path" >>"$LOG" 2>&1
-    elif [[ $USE_DOCKER == 1 ]]; then docker run --rm --network none --user 0:0 --entrypoint /bin/sh --mount "$DOCKER_BIND" "$CLEANUP_IMAGE" -c 'chown "$1" /target && chmod u+rwx /target && rm -rf -- "/target/$2"' sh "$(id -u):$(id -g)" "${path##*/}" >>"$LOG" 2>&1
-    else rm -rf -- "$path" >>"$LOG" 2>&1; fi
+    check_tmp_boundary || exit 1
+    refuse_nested_mounts || exit 1
+    docker run --rm --network none --user 0:0 --entrypoint /bin/sh --mount "$DOCKER_BIND" "$CLEANUP_IMAGE" -c 'cd /home-root/statbus && test "$(stat -c %d:%i .)" = "$1" && rm -rf -- "./$2"' sh "$checkout_inode" "${path##*/}" >>"$LOG" 2>&1
 done
 # tmp is the last checkout path deleted; the outer HOME lock remains held while
 # removing the helper image and the empty checkout directory afterward.
 if [[ -d $DIR/tmp ]]; then
-    if [[ $USE_SUDO == 1 ]]; then sudo -n rm -rf -- "$DIR/tmp" >>"$LOG" 2>&1
-    elif [[ $USE_DOCKER == 1 ]]; then docker run --rm --network none --user 0:0 --entrypoint /bin/sh --mount "$DOCKER_BIND" "$CLEANUP_IMAGE" -c 'chown "$1" /target && chmod u+rwx /target && rm -rf -- /target/tmp' sh "$(id -u):$(id -g)" >>"$LOG" 2>&1
-    else rm -rf -- "$DIR/tmp" >>"$LOG" 2>&1; fi
+    check_tmp_boundary || exit 1
+    refuse_nested_mounts || exit 1
+    docker run --rm --network none --user 0:0 --entrypoint /bin/sh --mount "$DOCKER_BIND" "$CLEANUP_IMAGE" -c 'cd /home-root/statbus && test "$(stat -c %d:%i .)" = "$1" && rm -rf -- ./tmp' sh "$checkout_inode" >>"$LOG" 2>&1
 fi
 if [[ $USE_DOCKER == 1 ]]; then
     for image in "${images[@]}"; do
