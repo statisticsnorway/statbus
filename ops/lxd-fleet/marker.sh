@@ -20,21 +20,32 @@
 #
 # `command ssh`, never bare `ssh`: this talks to the FLEET HOST itself, not a
 # guest fork. test/install-recovery/lib/lxd-backend.sh (sourced by run-smoke.sh
-# before this file) shadows `ssh` with a shim that refuses any destination
-# other than the current fork's guest IP (its own VM_IP scoping guard) - a
-# bare `ssh` call here would be refused with "does not match fork IP" the
-# moment both files are sourced together, which is exactly run-smoke.sh's
-# case. `command` forces the real ssh binary regardless of what a caller has
-# sourced.
+# before this file) shadows `ssh` two ways once M3a landed: a bash FUNCTION
+# (refuses any destination but the current fork's guest IP) AND, for
+# `timeout ssh` support, an EXECUTABLE script placed on PATH ahead of the
+# system ssh — `command` only defeats the function shim, not the PATH one
+# (STATBUS-425 M3a: this file regressed the exact bug it names below the
+# moment lxd-backend.sh grew the executable shim; caught live re-running
+# this exact smoke flow before trusting it). _LXD_REAL_SSH, if
+# lxd-backend.sh has been sourced, is that file's own absolute-path capture
+# of the real binary, resolved before either shim existed — reuse it when
+# present; fall back to `command ssh` for any other caller of this file.
+_lxd_marker_ssh() {
+    if [ -n "${_LXD_REAL_SSH:-}" ]; then
+        "$_LXD_REAL_SSH" "$@"
+    else
+        command ssh "$@"
+    fi
+}
 lxd_marker_acquire() {
     local host=$1 id=$2
     [[ "$id" =~ ^[a-zA-Z0-9._-]+$ ]] || { echo "Invalid marker id: $id" >&2; return 2; }
-    command ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new "$host" \
+    _lxd_marker_ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new "$host" \
         "mkdir -p /root/fleet-active && touch '/root/fleet-active/$id' && date +%s > /root/last-fleet-activity"
 }
 lxd_marker_release() {
     local host=$1 id=$2
     [[ "$id" =~ ^[a-zA-Z0-9._-]+$ ]] || { echo "Invalid marker id: $id" >&2; return 2; }
-    command ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new "$host" \
+    _lxd_marker_ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new "$host" \
         "rm -f '/root/fleet-active/$id'; date +%s > /root/last-fleet-activity" || true
 }

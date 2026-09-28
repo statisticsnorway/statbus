@@ -12,7 +12,91 @@ LXD_SSH_OPTS=(-o BatchMode=yes -o StrictHostKeyChecking=no -o UserKnownHostsFile
 # shellcheck disable=SC2034 # Sourced assertions consume this variable.
 # Nonempty because bash 3.2 with nounset treats an empty array expansion as unbound.
 SSH_OPTS=(-o BatchMode=yes)
-_lxd_host() { local q; printf -v q '%q ' "$@"; LC_ALL=C command ssh "${LXD_SSH_OPTS[@]}" "$LXD_HOST" "$q"; }
+# Resolved BEFORE any PATH modification below: once the executable ssh/hcloud
+# shim directory is prepended to PATH, a bare `ssh` (even via `command ssh`,
+# which still does a PATH lookup) resolves to THIS FILE's own shim instead of
+# the real binary — the fleet host connection (_lxd_host, talks to LXD_HOST,
+# never a guest) would then wrongly route through the guest-only ssh shim and
+# get refused ("does not match fork IP"). Pin the absolute real path once,
+# here, before that happens (STATBUS-425 M3a: found and fixed by testing this
+# live, not merely written and trusted). Idempotent and cross-process-safe:
+# run-smoke.sh sources this file once, then runs the SCENARIO as a genuinely
+# separate `bash script.sh` child (not `source`), which inherits the
+# already-shimmed PATH and re-sources this same file again (via
+# vm-bootstrap.sh's HARNESS_LXD_BACKEND branch) — a second unconditional
+# `command -v ssh` there would resolve to the FIRST sourcing's shim, not the
+# real binary, corrupting every "real" ssh call transitively (caught live
+# rerunning the full smoke flow end-to-end before trusting this). Exporting
+# _LXD_REAL_SSH makes every re-sourcing, in any descendant process, reuse the
+# one true absolute path resolved by the very first sourcing.
+if [ -z "${_LXD_REAL_SSH:-}" ]; then
+    _LXD_REAL_SSH=$(command -v ssh)
+    export _LXD_REAL_SSH
+fi
+_lxd_host() { local q; printf -v q '%q ' "$@"; LC_ALL=C "$_LXD_REAL_SSH" "${LXD_SSH_OPTS[@]}" "$LXD_HOST" "$q"; }
+# Six arcs call `timeout N ssh ...` / `hcloud server ip ...` directly (their
+# Hetzner-era mechanism for a bounded remote command). `timeout` execve()s a
+# FRESH process for its argument, which loses every bash FUNCTION shim (ssh(),
+# scp(), hcloud() below) — those intercept only a direct shell call, never one
+# reached through another binary's exec (STATBUS-425 M3a review finding;
+# verified live: `timeout 5 ssh host cmd` tries the real network even with an
+# `ssh() { ... }` function defined in the same shell). A real EXECUTABLE
+# script on PATH survives an execve chain; a function shim does not. Generate
+# one once per sourcing, using the REAL ssh binary's absolute path resolved
+# above (never a bare `ssh` inside the generated script itself, which would
+# resolve back through this same PATH-prepended dir and recurse). VM_NAME and
+# VM_IP must be EXPORTED, not merely set, for a genuinely separate process to
+# see them.
+LXD_SHIM_DIR=$(mktemp -d "${TMPDIR:-/tmp}/lxd-ssh-shim-XXXXXX")
+trap 'rm -rf "$LXD_SHIM_DIR"' EXIT
+cat > "$LXD_SHIM_DIR/ssh" << SHIM
+#!/usr/bin/env bash
+set -euo pipefail
+host=''
+option=''
+while [ "\$#" -gt 0 ]; do
+    option=\$1; shift
+    case "\$option" in
+        -o|-i|-p|-F) shift ;;
+        -*) ;;
+        *@*) host=\$option; break ;;
+        *) echo "Unexpected SSH argument: \$option" >&2; exit 2 ;;
+    esac
+done
+[ "\${host#*@}" = "\${VM_IP:-UNSET}" ] || { echo "REFUSE: guest SSH destination \$host does not match fork IP" >&2; exit 2; }
+# Single-escape, matching _lxd_host's own printf -v q '%q ' "\$@" exactly: the
+# remote side re-parses this one %q-quoted string back into its original
+# tokens (verified live: a naive re-escape of an already-%q string here
+# corrupted every space/semicolon in the arc's remote command).
+q=\$(printf '%q ' lxc exec "\$VM_NAME" -- bash -lc "\$*")
+case "\$host" in
+    root@*) exec "$_LXD_REAL_SSH" $(printf '%q ' "${LXD_SSH_OPTS[@]}") "\$LXD_HOST" "\$q" ;;
+    statbus@*)
+        q=\$(printf '%q ' lxc exec "\$VM_NAME" -- sudo -u statbus -H env XDG_RUNTIME_DIR=/run/user/1001 bash -c "\$*")
+        exec "$_LXD_REAL_SSH" $(printf '%q ' "${LXD_SSH_OPTS[@]}") "\$LXD_HOST" "\$q" ;;
+    *) exit 2 ;;
+esac
+SHIM
+cat > "$LXD_SHIM_DIR/hcloud" << 'SHIM'
+#!/usr/bin/env bash
+set -euo pipefail
+if [ "${1:-}" = server ] && [ "${2:-}" = ip ] && [ "${3:-}" = "${VM_NAME:-}" ]; then
+    printf '%s\n' "${VM_IP:-}"
+else
+    echo "REFUSE: unsupported hcloud action in LXD scenario: $*" >&2
+    exit 2
+fi
+SHIM
+chmod +x "$LXD_SHIM_DIR/ssh" "$LXD_SHIM_DIR/hcloud"
+export PATH="$LXD_SHIM_DIR:$PATH"
+export LXD_HOST
+# `declare -x` marks the variable exported once; every later PLAIN assignment
+# (VM_NAME=$name, VM_IP=$ip — both already unqualified throughout this file)
+# then auto-exports too, with no need to touch each call site. The executable
+# ssh/hcloud shim above (and any other subprocess a scenario/arc spawns) is a
+# genuinely separate process and can only see VM_NAME/VM_IP if they cross
+# that boundary as real environment, not just shell-local variables.
+declare -x VM_NAME VM_IP
 LXD_BASE_PREFIX=${LXD_BASE_PREFIX:-s2-base}
 LXD_FORK_PREFIX=${LXD_FORK_PREFIX:-s2}
 _lxd_name() {
@@ -375,17 +459,11 @@ lxd_base_for_candidate() {
     return "$rc"
 }
 lxd_fork() {
-    local tag=$1 scenario=$2 base name start checkpoint provenance
+    local tag=$1 scenario=$2 base name checkpoint provenance
     checkpoint=$(lxd_checkpoint_for_scenario "$scenario") || return
     [[ "$LXD_FORK_PREFIX" =~ ^[a-z][a-z0-9-]{0,12}$ ]] || return 2
     base=$(_lxd_name "$tag-$checkpoint"); name="$LXD_FORK_PREFIX-${tag//[^a-zA-Z0-9-]/-}-${scenario//[^a-zA-Z0-9-]/-}"
     [[ "$scenario" =~ ^[a-zA-Z0-9-]+$ ]] || return 2
-    _lxd_host lxc info "$base" | grep -qE '^\| checkpoint +\|' || { echo "No checkpoint $base/checkpoint" >&2; return 1; }
-    # Provenance is a forensic log, not a hard gate here (M4 wires an
-    # orchestrator-dispatch flag that refuses a fleet/arc self-build; this is
-    # the read half, landed with the write half in lxd_snapshot_installed).
-    # A base with no provenance key predates this or was built by the
-    # fallback path (_lxd_build_base_for_candidate) - expected and not an error.
     provenance=$(_lxd_host lxc config get "$base" user.statbus.candidate 2>/dev/null || true)
     if [ -n "$provenance" ] && [ "$provenance" != "$tag" ]; then
         echo "REFUSE: $base/checkpoint carries provenance candidate=$provenance, expected $tag" >&2
@@ -394,6 +472,22 @@ lxd_fork() {
     if [ -n "$provenance" ]; then
         _lxd_mark "$base/checkpoint provenance: candidate=$provenance producer=$(_lxd_host lxc config get "$base" user.statbus.producer 2>/dev/null || echo unknown) run_id=$(_lxd_host lxc config get "$base" user.statbus.run_id 2>/dev/null || echo unknown)"
     fi
+    _lxd_fork_from_base "$base" "$name" "$checkpoint"
+}
+# _lxd_fork_from_base <base> <name> <checkpoint-kind> — the mechanical half of
+# lxd_fork (copy checkpoint -> boot -> ready), factored out so
+# bootstrap_install_test_vm's arc path (which has no scenario file to resolve
+# a base/name from) can drive the exact same guest-boot sequence directly.
+# checkpoint-kind is "hardened-nothing-installed" or anything else (installed
+# base); only that distinction changes what happens after boot.
+_lxd_fork_from_base() {
+    local base=$1 name=$2 checkpoint=$3 start
+    # Provenance is a forensic log, not a hard gate here (M4 wires an
+    # orchestrator-dispatch flag that refuses a fleet/arc self-build; this is
+    # the read half, landed with the write half in lxd_snapshot_installed).
+    # A base with no provenance key predates this or was built by the
+    # fallback path (_lxd_build_base_for_candidate) - expected and not an error.
+    _lxd_host lxc info "$base" | grep -qE '^\| checkpoint +\|' || { echo "No checkpoint $base/checkpoint" >&2; return 1; }
     if _lxd_host lxc info "$name" >/dev/null 2>&1; then echo "REFUSE: $name exists. Reset explicitly first." >&2; return 1; fi
     start=$(date +%s); _lxd_host lxc copy "$base/checkpoint" "$name"
     VM_NAME=$name; LXD_OWNED_BY_THIS_RUN=1
@@ -517,7 +611,31 @@ lxd_promote_checkpoint() {
     _lxd_mark "smoke promoted $base/checkpoint-pending -> checkpoint"
 }
 # VM-harness-compatible shims for direct scenario commands.
-bootstrap_install_test_vm() { lxd_fork "$LXD_CANDIDATE" "${1##statbus-recovery-}"; }
+#
+# arc_prepare_box (arc-helpers.sh) calls bootstrap_install_test_vm "$VM_NAME" ""
+# — the VM harness's no-version contract: provision only, install happens
+# separately via install_statbus_at_sha (below). Arc VM names (statbus-arc-*)
+# never carry the statbus-recovery- prefix scenarios use, and have no backing
+# scenario/<name>.sh file for lxd_checkpoint_for_scenario to resolve — the
+# original shim below (unconditional ${1##statbus-recovery-} + scenario-slug
+# fork) silently broke every arc (STATBUS-425 M3a review finding). An
+# empty/absent second arg is the same "provision only, no scenario, no
+# install yet" signal the VM harness itself uses; fork the plain
+# hardened-nothing-installed base under a name derived from the arc's own
+# VM_NAME, bypassing scenario resolution entirely.
+bootstrap_install_test_vm() {
+    if [ -z "${2:-}" ]; then
+        [[ "$LXD_FORK_PREFIX" =~ ^[a-z][a-z0-9-]{0,12}$ ]] || return 2
+        local slug=${1#statbus-arc-}
+        [[ "$slug" =~ ^[a-zA-Z0-9-]+$ ]] || return 2
+        local base name
+        base=$(_lxd_name "$LXD_CANDIDATE-hardened-nothing-installed")
+        name="$LXD_FORK_PREFIX-${LXD_CANDIDATE//[^a-zA-Z0-9-]/-}-arc-${slug}"
+        _lxd_fork_from_base "$base" "$name" hardened-nothing-installed
+        return
+    fi
+    lxd_fork "$LXD_CANDIDATE" "${1##statbus-recovery-}"
+}
 VM_EXEC() { local q; printf -v q '%q ' "$@"; _lxd_host lxc exec "$VM_NAME" -- sudo -i -u statbus bash -c "$q"; }
 VM_ROOT_EXEC() { local q; printf -v q '%q ' "$@"; _lxd_host lxc exec "$VM_NAME" -- bash -c "$q"; }
 cleanup_vm() {
@@ -660,13 +778,14 @@ REMOTE
     _lxd_install_exit "$rc"
 }
 install_statbus_at_sha() {
-    local tag=${3:?tag required} sha=${2:?sha required} log="$HARNESS_ROOT/tmp/install-recovery-${1}-install.log" rc
-    [ "$(git -C "$HARNESS_ROOT" rev-parse "$tag^{commit}")" = "$sha" ] || {
-        echo "REFUSE: $tag does not resolve to supplied commit $sha" >&2; return 2;
-    }
-    VM_EXEC test ! -e /home/statbus/statbus || { echo 'FRESH checkout already exists' >&2; return 70; }
-    _lxd_stage_candidate_install
-    VM_SCRIPT_INLINE tagged-install "$tag" "${HARNESS_DEPLOYMENT_MODE:-standalone}" "${HARNESS_SITE_DOMAIN:-statbus-test.local}" "${HARNESS_NO_CUSTOM_CERT:-0}" "${HARNESS_INSTALL_PRERELEASE_CHANNEL:-0}" "${HARNESS_INTERACTIVE_ADMIN:-0}" "$VM_NAME" <<'REMOTE' 2>&1 | tee -a "$log"
+    local name=$1 sha=$2 tag=${3:-} log="$HARNESS_ROOT/tmp/install-recovery-${1}-install.log" rc
+    if [ -n "$tag" ]; then
+        [ "$(git -C "$HARNESS_ROOT" rev-parse "$tag^{commit}")" = "$sha" ] || {
+            echo "REFUSE: $tag does not resolve to supplied commit $sha" >&2; return 2;
+        }
+        VM_EXEC test ! -e /home/statbus/statbus || { echo 'FRESH checkout already exists' >&2; return 70; }
+        _lxd_stage_candidate_install
+        VM_SCRIPT_INLINE tagged-install "$tag" "${HARNESS_DEPLOYMENT_MODE:-standalone}" "${HARNESS_SITE_DOMAIN:-statbus-test.local}" "${HARNESS_NO_CUSTOM_CERT:-0}" "${HARNESS_INSTALL_PRERELEASE_CHANNEL:-0}" "${HARNESS_INTERACTIVE_ADMIN:-0}" "$VM_NAME" <<'REMOTE' 2>&1 | tee -a "$log"
 #!/usr/bin/env bash
 set -e
 [ ! -e "$HOME/statbus" ] || { echo 'harness: FRESH requires absent ~/statbus'; exit 70; }
@@ -692,6 +811,86 @@ if [ "$5" = 1 ]; then
     exec bash /tmp/statbus-install.sh --channel prerelease --non-interactive
 fi
 exec bash /tmp/statbus-install.sh --non-interactive
+REMOTE
+        rc=${PIPESTATUS[0]}
+        _lxd_install_exit "$rc"
+        return
+    fi
+    # Two-arg form: arc-helpers.sh's arc_prepare_box calls
+    # install_statbus_at_sha "$VM_NAME" "$BASE_SHA" (STATBUS-071's contract —
+    # no release-tag argument at all; the VM harness's implementation
+    # (vm-bootstrap.sh) makes $3 optional and installs A via the toolchain-free
+    # per-commit statbus-sb image when absent). The original LXD shim required
+    # $3 unconditionally (`${3:?tag required}`), so every arc hit "tag
+    # required" here before ever reaching an assertion (STATBUS-425 M3a review
+    # finding). Every arc except cross-version-rename-handoff-arc.sh runs
+    # BASE_SHA=the candidate's own commit; that one pins a historical release
+    # commit instead (PRE_RENAME_BASE_SHA). Branch on which case this is: a
+    # release tag pointing exactly at $sha selects the historical-release
+    # install path (that release's own sb-linux asset + its own install.sh,
+    # matching _lxd_build_base_for_candidate's historical branch); otherwise
+    # $sha must be the candidate itself, installed via its per-commit image
+    # (matches install_statbus_in_vm's no-version branch exactly).
+    VM_EXEC test ! -e /home/statbus/statbus || { echo 'FRESH checkout already exists' >&2; return 70; }
+    local sha_tag
+    sha_tag=$(git -C "$HARNESS_ROOT" tag --points-at "$sha" | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+(-rc\.[0-9]+)?$' | head -n1 || true)
+    if [ -n "$sha_tag" ] && [ "$sha_tag" != "$LXD_CANDIDATE" ]; then
+        _lxd_mark "arc install_statbus_at_sha: historical base $sha_tag (${sha:0:8}) via its own released sb"
+        _lxd_stage_candidate_install
+        VM_SCRIPT_INLINE arc-historical-install "$sha_tag" "${HARNESS_DEPLOYMENT_MODE:-standalone}" "${HARNESS_NO_CUSTOM_CERT:-0}" <<REMOTE 2>&1 | tee -a "$log"
+#!/usr/bin/env bash
+set -e
+for attempt in 1 2 3 4 5 6 7 8; do
+    if curl -fsSL https://github.com/statisticsnorway/statbus/releases/download/$sha_tag/sb-linux-amd64 -o ~/sb.tmp; then break; fi
+    echo "GitHub sb-linux download retry \$attempt/8" >&2
+    [ "\$attempt" -eq 8 ] && exit 1
+    rm -f ~/sb.tmp; sleep 45
+done
+chmod +x ~/sb.tmp
+for attempt in 1 2 3 4 5 6 7 8; do
+    if git clone --quiet --depth 50 --branch $sha_tag https://github.com/statisticsnorway/statbus.git ~/statbus; then break; fi
+    echo "GitHub clone retry \$attempt/8" >&2
+    [ "\$attempt" -eq 8 ] && exit 1
+    rm -rf ~/statbus; sleep 45
+done
+mv ~/sb.tmp ~/statbus/sb
+cd ~/statbus
+if [ "\$2" = standalone ] && [ "\$3" != 1 ]; then
+    install -d -m 0755 caddy/data/custom-certs
+    install -m 0644 ~/harness-certs/domain.crt caddy/data/custom-certs/domain.crt
+    install -m 0600 ~/harness-certs/domain.key caddy/data/custom-certs/domain.key
+fi
+cp /tmp/env-config .env.config
+cp /tmp/users.yml .users.yml
+STATBUS_MIN_DISK_GB=5 ./sb install --non-interactive --trust-github-user jhf
+REMOTE
+        rc=${PIPESTATUS[0]}
+        _lxd_install_exit "$rc"
+        return
+    fi
+    [ "$sha" = "$(git -C "$HARNESS_ROOT" rev-parse "$LXD_CANDIDATE^{commit}")" ] || {
+        echo "REFUSE: install_statbus_at_sha with no tag needs sha=candidate commit or a release-tagged historical commit; got ${sha:0:8} (candidate ${LXD_CANDIDATE})" >&2
+        return 2
+    }
+    _lxd_stage_candidate_install
+    VM_SCRIPT_INLINE arc-head-install "$sha" "${HARNESS_DEPLOYMENT_MODE:-standalone}" "${HARNESS_NO_CUSTOM_CERT:-0}" <<'REMOTE' 2>&1 | tee -a "$log"
+#!/usr/bin/env bash
+set -e
+if [ ! -d "$HOME/statbus/.git" ]; then
+    for attempt in 1 2 3 4 5 6 7 8; do
+        if git clone --depth 50 https://github.com/statisticsnorway/statbus.git "$HOME/statbus"; then break; fi
+        [ "$attempt" -lt 8 ] || exit 1
+        rm -rf "$HOME/statbus"; sleep 45
+    done
+fi
+if [ "$2" = standalone ] && [ "$3" != 1 ]; then
+    install -d -m 0755 "$HOME/statbus/caddy/data/custom-certs"
+    install -m 0644 "$HOME/harness-certs/domain.crt" "$HOME/statbus/caddy/data/custom-certs/domain.crt"
+    install -m 0600 "$HOME/harness-certs/domain.key" "$HOME/statbus/caddy/data/custom-certs/domain.key"
+fi
+cp /tmp/env-config "$HOME/statbus/.env.config"
+cp /tmp/users.yml "$HOME/statbus/.users.yml"
+STATBUS_MIN_DISK_GB=5 GIT_NETWORK_MAX_ATTEMPTS=8 GIT_NETWORK_RETRY_DELAY_S=45 DOCKER_PULL_MAX_ATTEMPTS=5 DOCKER_PULL_RETRY_DELAY_S=30 bash /tmp/statbus-install.sh --commit "$1" --trust-github-user jhf
 REMOTE
     rc=${PIPESTATUS[0]}
     _lxd_install_exit "$rc"
