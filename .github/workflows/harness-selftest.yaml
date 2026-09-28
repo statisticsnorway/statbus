@@ -22,6 +22,10 @@ jobs:
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@v4
+        with:
+          # github-token-era-test.sh resolves historical era commits
+          # (626bc0d9b, 730b5001c, d53731ec5), exactly as the real arcs do.
+          fetch-depth: 0
       - name: Install localhost sshd and tmux
         run: sudo apt-get update && sudo apt-get install -y --no-install-recommends openssh-server tmux
       - name: Prove harness failure paths
