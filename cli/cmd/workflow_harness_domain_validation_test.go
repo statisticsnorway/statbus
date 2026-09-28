@@ -114,12 +114,17 @@ func TestFleetHcloudInstallRetriesAreShared(t *testing.T) {
 			t.Errorf("shared hcloud installer missing %q", required)
 		}
 	}
-	for _, tc := range []struct{ file, job string }{
-		{".github/workflows/test-smoke.yaml", "smoke"},
-		{".github/workflows/upgrade-arc-harness.yaml", "run-arc"},
+	for _, tc := range []struct{ file, job, step string }{
+		// STATBUS-425 M2' moved the paid host-ramp step (the only place
+		// test-smoke.yaml still shells out to hcloud) off the per-scenario
+		// "smoke" job onto the single shared "ramp" job (review B1): a
+		// second per-job up.sh call would race itself hardening the same
+		// host. The step keeps its historical name there.
+		{".github/workflows/test-smoke.yaml", "ramp", "Install hcloud CLI (fleet host discovery only)"},
+		{".github/workflows/upgrade-arc-harness.yaml", "run-arc", "Install hcloud CLI"},
 	} {
 		steps := jobSteps(t, tc.file, tc.job)
-		install := steps[stepIndexByName(t, steps, "Install hcloud CLI")]
+		install := steps[stepIndexByName(t, steps, tc.step)]
 		if install["run"] != "bash .github/scripts/install-hcloud.sh" {
 			t.Errorf("%s must use shared retry installer: %v", tc.file, install)
 		}
@@ -184,10 +189,33 @@ func TestHarnessDomainValidationPrecedesCoverageAndPaidEligibility_STATBUS352(t 
 
 		doc := workflowDoc(t, ".github/workflows/test-smoke.yaml")
 		jobs := doc["jobs"].(map[string]any)
+		// STATBUS-425 M2' (review B1): the paid host-ramp step moved off the
+		// per-scenario "smoke" job onto its own single "ramp" job so the
+		// warm host is prepared once, not raced by each matrix entry. "smoke"
+		// now depends on BOTH: "select" for its validated matrix, "ramp" for
+		// the warm host IP it needs to reach. The invariant this guards —
+		// every paid job's eligibility traces back through the validated
+		// select job, never around it — still holds: "ramp" itself depends
+		// only on "select" and runs no paid VM/LXD step before it.
+		ramp := jobs["ramp"].(map[string]any)
+		rampNeeds, ok := ramp["needs"].([]any)
+		if !ok || len(rampNeeds) != 1 || rampNeeds[0] != "select" {
+			t.Fatalf("paid ramp job must depend only on the validated select job; needs=%v", ramp["needs"])
+		}
+		rampSteps := jobSteps(t, ".github/workflows/test-smoke.yaml", "ramp")
+		if rampSteps[0]["uses"] != "actions/checkout@v4" {
+			t.Fatalf("ramp job must checkout before any paid step: %v", rampSteps[0])
+		}
+		for _, step := range rampSteps[1:] {
+			if uses, _ := step["uses"].(string); uses == "./.github/actions/orchestrator-fleet-admission" {
+				t.Fatal("ramp must not re-admit; it relies on select's validation, not its own")
+			}
+		}
+
 		smoke := jobs["smoke"].(map[string]any)
 		needs, ok := smoke["needs"].([]any)
-		if !ok || len(needs) != 1 || needs[0] != "select" {
-			t.Fatalf("paid smoke matrix must depend only on the validated select job; needs=%v", smoke["needs"])
+		if !ok || len(needs) != 2 || needs[0] != "select" || needs[1] != "ramp" {
+			t.Fatalf("paid smoke matrix must depend only on the validated select job and the shared ramp job; needs=%v", smoke["needs"])
 		}
 	})
 
