@@ -84,6 +84,7 @@ func TestDetectWith(t *testing.T) {
 	const projDir = "/proj"
 	cfgPath := filepath.Join(projDir, ".env.config")
 	credPath := filepath.Join(projDir, ".env.credentials")
+	envPath := filepath.Join(projDir, ".env")
 
 	cases := []struct {
 		name        string
@@ -105,7 +106,7 @@ func TestDetectWith(t *testing.T) {
 		{
 			name: "live upgrade: flag with flock held",
 			probe: fakeProbe{
-				files:     map[string]bool{cfgPath: true, credPath: true},
+				files:     map[string]bool{cfgPath: true, credPath: true, envPath: true},
 				flag:      &upgrade.UpgradeFlag{ID: 42, CommitTags: []string{"v2026.04.0"}},
 				flagAlive: true, // flock held → live
 			},
@@ -119,7 +120,7 @@ func TestDetectWith(t *testing.T) {
 		{
 			name: "crashed upgrade: flag with flock free",
 			probe: fakeProbe{
-				files:     map[string]bool{cfgPath: true, credPath: true},
+				files:     map[string]bool{cfgPath: true, credPath: true, envPath: true},
 				flag:      &upgrade.UpgradeFlag{ID: 1, CommitTags: []string{"v2026.04.0"}},
 				flagAlive: false,
 			},
@@ -128,7 +129,7 @@ func TestDetectWith(t *testing.T) {
 		{
 			name: "ghost flag: flock free → crashed (not live)",
 			probe: fakeProbe{
-				files:     map[string]bool{cfgPath: true, credPath: true},
+				files:     map[string]bool{cfgPath: true, credPath: true, envPath: true},
 				flag:      &upgrade.UpgradeFlag{CommitSHA: "abc1234f0000000000000000000000000000abcd"},
 				flagAlive: false, // flock free — ghost flag from completed upgrade
 			},
@@ -147,9 +148,20 @@ func TestDetectWith(t *testing.T) {
 			wantState: StateHalfConfigured,
 		},
 		{
+			// rc.15 arc run 36442434055: credentials placed before the first
+			// Settings run. The DB probe must not run without the .env route;
+			// its failure would prove nothing and the install refused itself.
+			name: "half-configured: config + credentials, generated .env absent",
+			probe: fakeProbe{
+				files: map[string]bool{cfgPath: true, credPath: true},
+				dbErr: errors.New("load .env: must not be probed"),
+			},
+			wantState: StateHalfConfigured,
+		},
+		{
 			name: "db unreachable: configured but DB down",
 			probe: fakeProbe{
-				files:       map[string]bool{cfgPath: true, credPath: true},
+				files:       map[string]bool{cfgPath: true, credPath: true, envPath: true},
 				dbReachable: false,
 			},
 			wantState: StateDBUnreachable,
@@ -157,7 +169,7 @@ func TestDetectWith(t *testing.T) {
 		{
 			name: "legacy: pre-1.0 DB, application schema without migration history",
 			probe: fakeProbe{
-				files:           map[string]bool{cfgPath: true, credPath: true},
+				files:           map[string]bool{cfgPath: true, credPath: true, envPath: true},
 				dbReachable:     true,
 				hasUpgradeTable: false,
 				history:         SchemaHistory{HasApplicationSchema: true},
@@ -167,7 +179,7 @@ func TestDetectWith(t *testing.T) {
 		{
 			name: "legacy: pre-1.0 DB migrated by an old release",
 			probe: fakeProbe{
-				files:           map[string]bool{cfgPath: true, credPath: true},
+				files:           map[string]bool{cfgPath: true, credPath: true, envPath: true},
 				dbReachable:     true,
 				hasUpgradeTable: false,
 				history: SchemaHistory{
@@ -181,7 +193,7 @@ func TestDetectWith(t *testing.T) {
 		{
 			name: "legacy: old migrations applied today remain pre-1.0",
 			probe: fakeProbe{
-				files:           map[string]bool{cfgPath: true, credPath: true},
+				files:           map[string]bool{cfgPath: true, credPath: true, envPath: true},
 				dbReachable:     true,
 				hasUpgradeTable: false,
 				history: SchemaHistory{
@@ -195,7 +207,7 @@ func TestDetectWith(t *testing.T) {
 		{
 			name: "legacy: enterprise-only schema without migration history",
 			probe: fakeProbe{
-				files:           map[string]bool{cfgPath: true, credPath: true},
+				files:           map[string]bool{cfgPath: true, credPath: true, envPath: true},
 				dbReachable:     true,
 				hasUpgradeTable: false,
 				history:         SchemaHistory{HasApplicationSchema: true},
@@ -205,7 +217,7 @@ func TestDetectWith(t *testing.T) {
 		{
 			name: "fresh-db-incomplete: init-db.sh only, install stopped before Seed",
 			probe: fakeProbe{
-				files:           map[string]bool{cfgPath: true, credPath: true},
+				files:           map[string]bool{cfgPath: true, credPath: true, envPath: true},
 				dbReachable:     true,
 				hasUpgradeTable: false,
 				history:         SchemaHistory{},
@@ -215,7 +227,7 @@ func TestDetectWith(t *testing.T) {
 		{
 			name: "fresh-db-incomplete: interrupted run has only post-upgrade-era versions",
 			probe: fakeProbe{
-				files:           map[string]bool{cfgPath: true, credPath: true},
+				files:           map[string]bool{cfgPath: true, credPath: true, envPath: true},
 				dbReachable:     true,
 				hasUpgradeTable: false,
 				history: SchemaHistory{
@@ -229,7 +241,7 @@ func TestDetectWith(t *testing.T) {
 		{
 			name: "migrated DB with public.upgrade never consults schema history",
 			probe: fakeProbe{
-				files:           map[string]bool{cfgPath: true, credPath: true},
+				files:           map[string]bool{cfgPath: true, credPath: true, envPath: true},
 				dbReachable:     true,
 				hasUpgradeTable: true,
 				historyErr:      errors.New("must not be called"),
@@ -239,7 +251,7 @@ func TestDetectWith(t *testing.T) {
 		{
 			name: "schema history probe error surfaces",
 			probe: fakeProbe{
-				files:           map[string]bool{cfgPath: true, credPath: true},
+				files:           map[string]bool{cfgPath: true, credPath: true, envPath: true},
 				dbReachable:     true,
 				hasUpgradeTable: false,
 				historyErr:      errors.New("psql exploded"),
@@ -249,7 +261,7 @@ func TestDetectWith(t *testing.T) {
 		{
 			name: "scheduled upgrade: row present",
 			probe: fakeProbe{
-				files:           map[string]bool{cfgPath: true, credPath: true},
+				files:           map[string]bool{cfgPath: true, credPath: true, envPath: true},
 				dbReachable:     true,
 				hasUpgradeTable: true,
 				scheduledRow: &ScheduledRow{
@@ -277,7 +289,7 @@ func TestDetectWith(t *testing.T) {
 		{
 			name: "nothing scheduled: configured, no row",
 			probe: fakeProbe{
-				files:           map[string]bool{cfgPath: true, credPath: true},
+				files:           map[string]bool{cfgPath: true, credPath: true, envPath: true},
 				dbReachable:     true,
 				hasUpgradeTable: true,
 				scheduledRow:    nil,
@@ -289,7 +301,7 @@ func TestDetectWith(t *testing.T) {
 			// retained backup_path) → re-attemptable, not a dead-end.
 			name: "restore re-attemptable: failed row with retained backup_path",
 			probe: fakeProbe{
-				files:           map[string]bool{cfgPath: true, credPath: true},
+				files:           map[string]bool{cfgPath: true, credPath: true, envPath: true},
 				dbReachable:     true,
 				hasUpgradeTable: true,
 				scheduledRow:    nil,
@@ -312,7 +324,7 @@ func TestDetectWith(t *testing.T) {
 			// order: scheduled before reattemptable).
 			name: "scheduled wins over a reattemptable restore-broke row",
 			probe: fakeProbe{
-				files:           map[string]bool{cfgPath: true, credPath: true},
+				files:           map[string]bool{cfgPath: true, credPath: true, envPath: true},
 				dbReachable:     true,
 				hasUpgradeTable: true,
 				scheduledRow:    &ScheduledRow{ID: 12, CommitSHA: "beef", Version: "v9"},
@@ -325,7 +337,7 @@ func TestDetectWith(t *testing.T) {
 		{
 			name: "flag-read error propagates",
 			probe: fakeProbe{
-				files:   map[string]bool{cfgPath: true, credPath: true},
+				files:   map[string]bool{cfgPath: true, credPath: true, envPath: true},
 				flagErr: errors.New("boom"),
 			},
 			wantErr: true,
@@ -333,7 +345,7 @@ func TestDetectWith(t *testing.T) {
 		{
 			name: "upgrade-table probe error propagates",
 			probe: fakeProbe{
-				files:         map[string]bool{cfgPath: true, credPath: true},
+				files:         map[string]bool{cfgPath: true, credPath: true, envPath: true},
 				dbReachable:   true,
 				hasUpgradeErr: errors.New("boom"),
 			},
@@ -342,7 +354,7 @@ func TestDetectWith(t *testing.T) {
 		{
 			name: "scheduled-row probe error propagates",
 			probe: fakeProbe{
-				files:           map[string]bool{cfgPath: true, credPath: true},
+				files:           map[string]bool{cfgPath: true, credPath: true, envPath: true},
 				dbReachable:     true,
 				hasUpgradeTable: true,
 				scheduledErr:    errors.New("boom"),

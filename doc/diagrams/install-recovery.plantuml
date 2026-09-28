@@ -104,11 +104,12 @@ partition "Detect — 9-state probe ladder (state.go:104, short-circuit: first m
       Recovery routes by observed-state — see the **upgrade-lifecycle** diagram for the full decision tree (§1–§4).
     end note
     :re-Detect -> resolves to a step-table state;
-  elseif (.env.credentials missing?) then (yes)
-    :**half-configured** (StateHalfConfigured)\nstep-table generates creds;
+  elseif (.env.credentials or generated .env missing?) then (yes)
+    :**half-configured** (StateHalfConfigured)\nstep-table generates creds + .env;
     note right #FFF9C4
-      NO TEST (gap): StateHalfConfigured (.env.credentials missing -> step-table
-      regenerates creds) has no dedicated scenario.
+      Without .env the DB probe has no route, so it is not run.
+      TEST Go TestRunInstallContinuesWhenSettingsNeverRan; every upgrade arc's
+      pinned install pre-places .env.credentials (rc.15 run 36442434055).
     end note
   elseif (DB unreachable?) then (yes)
     :**db-unreachable** (StateDBUnreachable)\nstep-table starts services;

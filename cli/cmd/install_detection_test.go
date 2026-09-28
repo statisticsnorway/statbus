@@ -403,3 +403,34 @@ func TestRunInstallKeepsUnavailableProbeStepTableFallback(t *testing.T) {
 		t.Fatal("unavailable probe incorrectly used the unclassifiable-response refusal path")
 	}
 }
+
+// rc.15 arc run 36442434055: .env.config and .env.credentials present, the
+// generated .env absent (Settings never completed). The real default probe
+// found no .env to read the database route from, and install refused itself
+// with "could not be determined safely" on every rerun. It must classify
+// the box half-configured and continue with the step table.
+func TestRunInstallContinuesWhenSettingsNeverRan(t *testing.T) {
+	installDir := withRunInstallDetectionHooks(t)
+	if err := os.WriteFile(filepath.Join(installDir, ".env.credentials"), []byte("GITHUB_TOKEN=arc-token\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	detectInstallState = install.Detect
+	t.Setenv("DOCKER_PSQL", "1")
+	bundleCalled := false
+	writeDetectionSupportBundle = func(string) (string, error) {
+		bundleCalled = true
+		return "", nil
+	}
+	steps := 0
+	runInstallStepTableTestHook = func() error { steps++; return nil }
+
+	if err := runInstall(); err != nil {
+		t.Fatalf("install refused a box whose Settings never ran: %v", err)
+	}
+	if steps != 1 {
+		t.Fatalf("step table runs = %d, want 1", steps)
+	}
+	if bundleCalled {
+		t.Fatal("a missing generated .env was treated as an unclassifiable state")
+	}
+}

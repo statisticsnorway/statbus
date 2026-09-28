@@ -6,7 +6,7 @@
 //  1. No .env.config ........................... StateFresh (use binary's version)
 //  2. Flag file present + flock held ........... StateLiveUpgrade (refuse)
 //  3. Flag file present + flock free ........... StateCrashedUpgrade (recover)
-//  4. Config present, credentials missing ...... StateHalfConfigured
+//  4. Config present, credentials or generated .env missing .. StateHalfConfigured
 //  5. Config + creds, DB down .................. StateDBUnreachable
 //  6. DB up, no public.upgrade:
 //     - this installer's own unfinished setup .. StateFreshDBIncomplete (continue)
@@ -160,6 +160,19 @@ func DetectWith(projDir, currentVersion string, probe Probe) (State, *Detail, er
 		return 0, nil, fmt.Errorf("check .env.credentials: %w", err)
 	}
 	if !hasCredentials {
+		return StateHalfConfigured, detail, nil
+	}
+	// The database route is read from the generated .env. Without it the probe
+	// has no route to try, so its failure proves nothing about the database.
+	// Settings writes .env last, after credentials (a refused TLS path or
+	// a misplaced secret stops it in between, and the arcs pre-place a token
+	// in .env.credentials): that box has never run Settings, so it is
+	// half-configured, not an unknown state (rc.15 arc run 36442434055).
+	hasEnv, err := probe.FileExists(filepath.Join(projDir, ".env"))
+	if err != nil {
+		return 0, nil, fmt.Errorf("check .env: %w", err)
+	}
+	if !hasEnv {
 		return StateHalfConfigured, detail, nil
 	}
 
