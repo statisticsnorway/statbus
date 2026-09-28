@@ -138,14 +138,43 @@ if ((${#units[@]} > 0)) && ! command -v systemctl >/dev/null 2>&1; then
     exit 1
 fi
 images=()
+retained_images=()
+add_project_image() {
+    local candidate=$1 existing
+    [[ $candidate == ghcr.io/statisticsnorway/statbus-*:* ]] || return 0
+    for existing in "${images[@]}"; do [[ $existing != "$candidate" ]] || return 0; done
+    images+=("$candidate")
+}
+# Stopped containers count too. Never remove a tag another project still names.
+image_used_elsewhere() {
+    local candidate=$1 id used all
+    all=$(docker ps -aq) || { echo 'Cannot inspect Docker containers; refusing image removal.'; exit 1; }
+    for id in $all; do
+        [[ $'\n'${containers}$'\n' != *$'\n'"$id"$'\n'* ]] || continue
+        used=$(docker inspect --format '{{.Config.Image}}' "$id") || { echo "Cannot inspect container $id; refusing image removal."; exit 1; }
+        [[ $used != "$candidate" ]] || return 0
+    done
+    return 1
+}
 if command -v docker >/dev/null 2>&1 && docker info >/dev/null 2>&1; then
-    while IFS= read -r image; do
-        [[ $image != ghcr.io/statisticsnorway/statbus-* ]] || images+=("$image")
-    done < <(docker image ls --format '{{.Repository}}:{{.Tag}}' | grep '^ghcr.io/statisticsnorway/statbus-' || true)
     # Project labels include stopped containers, orphan volumes and networks.
     containers=$(docker ps -aq --filter "label=com.docker.compose.project=$project")
     volumes=$(docker volume ls -q --filter "label=com.docker.compose.project=$project")
     networks=$(docker network ls -q --filter "label=com.docker.compose.project=$project")
+    for id in $containers; do
+        image=$(docker inspect --format '{{.Config.Image}}' "$id") || { echo "Cannot inspect project container $id; refusing removal."; exit 1; }
+        add_project_image "$image"
+    done
+    if [[ -f $DIR/docker-compose.yml && -f $DIR/.env ]]; then
+        # Include declared images for a partial install whose containers are gone.
+        configured_images=$(cd "$DIR" && docker compose config --images) || { echo 'Cannot inspect Compose images; refusing removal.'; exit 1; }
+        while IFS= read -r image; do add_project_image "$image"; done <<< "$configured_images"
+    fi
+    scoped_images=("${images[@]}")
+    images=()
+    for image in "${scoped_images[@]}"; do
+        if image_used_elsewhere "$image"; then retained_images+=("$image"); else images+=("$image"); fi
+    done
 elif [[ -d $DIR ]]; then
     echo 'Docker is unavailable. Refusing to leave containers or volumes behind; start Docker and retry.'
     exit 1
@@ -211,6 +240,7 @@ echo 'StatBus removal plan (only listed resources will be deleted):'
 [[ -z ${volumes:-} ]] || echo "  Project volumes: $volumes"
 [[ -z ${networks:-} ]] || echo "  Project networks: $networks"
 for image in "${images[@]}"; do echo "  Image tag: $image"; done
+for image in "${retained_images[@]}"; do echo "  Keep shared image tag (used by another project's container): $image"; done
 [[ $USE_DOCKER == 0 ]] || echo "  Docker cleanup helper: $CLEANUP_IMAGE (removed last if pulled for this run)"
 for unit in "${units[@]}"; do echo "  Unit file: $unit"; done
 for path in "${remaining[@]}"; do echo "  Path (recursively): $path"; done
@@ -252,7 +282,11 @@ if command -v docker >/dev/null 2>&1 && docker info >/dev/null 2>&1; then
         [[ -z ${networks:-} ]] || docker network rm $networks >>"$LOG" 2>&1
     fi
     for image in "${images[@]}"; do
-        [[ $USE_DOCKER == 1 && $image == "$CLEANUP_IMAGE" ]] || docker image rm "$image" >>"$LOG" 2>&1
+        if image_used_elsewhere "$image"; then
+            echo "Keeping shared image tag $image: another project's container uses it."
+        elif [[ $USE_DOCKER != 1 || $image != "$CLEANUP_IMAGE" ]]; then
+            docker image rm "$image" >>"$LOG" 2>&1
+        fi
     done
 fi
 echo 'Step 3: removing units and checkout files'
@@ -283,7 +317,13 @@ if [[ -d $DIR/tmp ]]; then
 fi
 if [[ $USE_DOCKER == 1 ]]; then
     for image in "${images[@]}"; do
-        [[ $image != "$CLEANUP_IMAGE" ]] || docker image rm "$image" >>"$LOG" 2>&1
+        if [[ $image == "$CLEANUP_IMAGE" ]]; then
+            if image_used_elsewhere "$image"; then
+                echo "Keeping shared image tag $image: another project's container uses it."
+            else
+                docker image rm "$image" >>"$LOG" 2>&1
+            fi
+        fi
     done
     [[ $PULLED_CLEANUP_IMAGE == 0 ]] || docker image rm "$CLEANUP_IMAGE" >>"$LOG" 2>&1
 fi

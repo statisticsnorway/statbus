@@ -365,6 +365,8 @@ func TestUninstallNonWritableTmpUsesDockerWithoutMktempError(t *testing.T) {
 	}
 	docker := `#!/bin/sh
 if [ "$1" = version ]; then echo 27.5.1; exit 0; fi
+if [ "$1" = ps ] && [ "$2" = -aq ]; then echo db1; exit 0; fi
+if [ "$1" = inspect ] && [ "$2" = --format ]; then echo ghcr.io/statisticsnorway/statbus-db:sha-test; exit 0; fi
 case "$*" in
   'image ls'*) echo ghcr.io/statisticsnorway/statbus-db:sha-test;;
   *uninstall-preflight*) echo helper-probed > "$HOME/docker-probe";;
@@ -538,6 +540,8 @@ func TestUninstallNoSudoDockerRemovesUnwritableTree(t *testing.T) {
 	// mount and top-level basename, without breaking paths containing spaces.
 	docker := `#!/bin/sh
 if [ "$1" = version ]; then echo 27.5.1; exit 0; fi
+if [ "$1" = ps ] && [ "$2" = -aq ]; then echo db1; exit 0; fi
+if [ "$1" = inspect ] && [ "$2" = --format ]; then echo ghcr.io/statisticsnorway/statbus-db:sha-test; exit 0; fi
 case "$*" in
   'image ls'*) echo ghcr.io/statisticsnorway/statbus-db:sha-test; exit 0;;
 esac
@@ -622,7 +626,7 @@ esac
 	}
 }
 
-func TestUninstallQuiescenceAndOrphanImage(t *testing.T) {
+func TestUninstallQuiescenceAndUnattributedImage(t *testing.T) {
 	script, _ := filepath.Abs("../../uninstall.sh")
 	for _, active := range []bool{true, false} {
 		home := t.TempDir()
@@ -650,8 +654,68 @@ func TestUninstallQuiescenceAndOrphanImage(t *testing.T) {
 			if err == nil || !strings.Contains(string(out), "not inactive") || !os.IsNotExist(removedErr) {
 				t.Fatalf("active unit: %v %s", err, out)
 			}
-		} else if err != nil || removedErr != nil {
-			t.Fatalf("orphan image: %v %s %v", err, out, removedErr)
+		} else if err != nil || !os.IsNotExist(removedErr) {
+			t.Fatalf("unattributed image must be retained: %v %s %v", err, out, removedErr)
 		}
+	}
+}
+
+func TestUninstallSharedDaemonKeepsOtherProjectImages(t *testing.T) {
+	home := t.TempDir()
+	dir := filepath.Join(home, "statbus")
+	if err := os.MkdirAll(filepath.Join(dir, "tmp"), 0700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, ".env"), []byte("COMPOSE_INSTANCE_NAME=statbus-a\n"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	bin := filepath.Join(home, "bin")
+	if err := os.Mkdir(bin, 0700); err != nil {
+		t.Fatal(err)
+	}
+	docker := `#!/bin/sh
+case "$1 $2" in
+  'version '*) echo 27.5.1;;
+  'ps -aq')
+    case "$*" in *'project=statbus-a'*) printf '%s\n' a1 a2;; *) printf '%s\n' a1 a2 b1 b2;; esac;;
+  'inspect --format')
+    case "$4" in
+      a1|b1) echo ghcr.io/statisticsnorway/statbus-app:sha-shared;;
+      a2) echo ghcr.io/statisticsnorway/statbus-db:sha-own;;
+      b2) echo ghcr.io/statisticsnorway/statbus-worker:sha-foreign;;
+    esac;;
+  'image ls') printf '%s\n' ghcr.io/statisticsnorway/statbus-app:sha-shared ghcr.io/statisticsnorway/statbus-db:sha-own ghcr.io/statisticsnorway/statbus-worker:sha-foreign;;
+  'image rm') echo "$3" >> "$HOME/removed-images";;
+  'rm -f') echo "$*" >> "$HOME/removed-containers";;
+  'run --rm')
+    case "$*" in *'rm -rf -- ./tmp'*) rm -rf -- "$HOME/statbus/tmp";; *' .env') rm -f -- "$HOME/statbus/.env";; esac;;
+esac
+`
+	if err := os.WriteFile(filepath.Join(bin, "docker"), []byte(docker), 0700); err != nil {
+		t.Fatal(err)
+	}
+	script, _ := filepath.Abs("../../uninstall.sh")
+	cmd := exec.Command("bash", script)
+	cmd.Env = append(os.Environ(), "HOME="+home, "PATH="+bin+":"+os.Getenv("PATH"), "STATBUS_UNINSTALL_CONFIRM=yes-delete-everything")
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("shared daemon uninstall: %v %s", err, out)
+	}
+	removed, err := os.ReadFile(filepath.Join(home, "removed-images"))
+	if err != nil {
+		t.Fatalf("removed-images: %v; output: %s", err, out)
+	}
+	if strings.Contains(string(removed), "sha-shared") || strings.Contains(string(removed), "sha-foreign") || !strings.Contains(string(removed), "sha-own") {
+		t.Fatalf("wrong image scope: %s; output: %s", removed, out)
+	}
+	if !strings.Contains(string(out), "shared") {
+		t.Fatalf("no explanation for retained shared tag: %s", out)
+	}
+	removedContainers, err := os.ReadFile(filepath.Join(home, "removed-containers"))
+	if err != nil || !strings.Contains(string(removedContainers), "a1 a2") || strings.Contains(string(removedContainers), "b1") {
+		t.Fatalf("other project containers touched: %v %s", err, removedContainers)
+	}
+	if _, err := os.Stat(dir); !os.IsNotExist(err) {
+		t.Fatalf("checkout remains: %v %s", err, out)
 	}
 }
