@@ -832,6 +832,7 @@ func runInstall() (installErr error) {
 	oldCaddySnapshot := snapshotCaddyConfig(installDir)
 	wasAlreadyRunning := checkServicesDone(installDir)
 	var pendingRestarts map[config.RestartClass]bool
+	var upgradeDaemonRestarted bool
 
 	steps := []step{
 		{"Prerequisites", checkPrereqDone, runPrereq},
@@ -907,7 +908,9 @@ func runInstall() (installErr error) {
 		{"JWT secret", checkJWTDone, runLoadJWT},
 		{"Administrator", checkUsersDone, runCreateUsers},
 		{"Trusted signers", checkSignersDone, runTrustSigners},
-		{"Upgrade service", checkServiceDone, runInstallService},
+		{"Upgrade service", checkServiceDone, func(dir string) error {
+			return runInstallService(dir, &upgradeDaemonRestarted)
+		}},
 	}
 
 	total := len(steps)
@@ -1056,7 +1059,7 @@ func runInstall() (installErr error) {
 	// writes up to DaemonSchemaFloor without owning the install flock.
 	// Restart after the step table so the Upgrade service step has also reconciled
 	// the on-disk unit before the daemon loads the new binary and configuration.
-	applyPendingUpgradeDaemonRestart(installDir, pendingRestarts)
+	applyPendingUpgradeDaemonRestart(installDir, pendingRestarts, upgradeDaemonRestarted)
 
 	// Final check (audit B10): every service is running and the API answers
 	// /ready. A step table that is all green over a restart-looping rest or a
@@ -1722,11 +1725,11 @@ func applyPendingRestarts(dir string, pending map[config.RestartClass]bool) erro
 // applyPendingUpgradeDaemonRestart performs the step-9 decision only after the
 // install's DDL window closes and the Upgrade service step has run. The helper
 // is a no-op for unchanged config and for fresh installs (no pending classes).
-func applyPendingUpgradeDaemonRestart(dir string, pending map[config.RestartClass]bool) {
+func applyPendingUpgradeDaemonRestart(dir string, pending map[config.RestartClass]bool, unitAlreadyRestarted bool) {
 	// This install may be the active daemon's post-upgrade child. The parent
 	// exits 42 after the child returns so systemd performs the one safe handoff.
 	// Restarting here would kill that parent before the fixup finishes.
-	if pending[config.RestartUpgradeDaemon] && !postUpgradeFixup && os.Getenv("STATBUS_POST_UPGRADE_FIXUP") != "1" {
+	if pending[config.RestartUpgradeDaemon] && !unitAlreadyRestarted && !postUpgradeFixup && os.Getenv("STATBUS_POST_UPGRADE_FIXUP") != "1" {
 		restartUpgradeDaemon(dir) // best-effort, own logging (install_upgrade.go)
 	}
 }
@@ -2971,8 +2974,12 @@ func runTrustSigners(dir string) error {
 	return nil
 }
 
-func runInstallService(dir string) error {
-	if runtime.GOOS != "linux" {
+// The platform seam lets the unit-reconciliation regression run with a fake
+// systemctl on non-Linux development hosts. Production always uses runtime.GOOS.
+var installServicePlatform = runtime.GOOS
+
+func runInstallService(dir string, upgradeDaemonRestarted *bool) error {
+	if installServicePlatform != "linux" {
 		fmt.Println("  Skipping systemd on non-Linux")
 		return nil
 	}
@@ -3029,6 +3036,7 @@ func runInstallService(dir string) error {
 		if err := runCmd("systemctl", "--user", "restart", instance); err != nil {
 			return serviceFailureWithJournal("restart service", instance, true, err)
 		}
+		*upgradeDaemonRestarted = true
 	}
 
 	// Enable linger so the user service runs even when not logged in.

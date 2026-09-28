@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 	"reflect"
 	"sort"
+	"strings"
 	"testing"
 
 	"github.com/statisticsnorway/statbus/cli/internal/config"
@@ -171,11 +172,11 @@ func TestApplyPendingRestarts_DefersDaemonUntilAfterMigrations(t *testing.T) {
 	}
 	// The installer calls this only after the Migrations and Upgrade service
 	// steps, using the original step-9 diff rather than recomputing .env.
-	applyPendingUpgradeDaemonRestart(t.TempDir(), pending)
+	applyPendingUpgradeDaemonRestart(t.TempDir(), pending, false)
 	if restarts != 1 {
 		t.Fatalf("after Migrations: daemon restarted %d time(s), want exactly one", restarts)
 	}
-	applyPendingUpgradeDaemonRestart(t.TempDir(), map[config.RestartClass]bool{config.RestartApp: true})
+	applyPendingUpgradeDaemonRestart(t.TempDir(), map[config.RestartClass]bool{config.RestartApp: true}, false)
 	if restarts != 1 {
 		t.Fatalf("app-only config restarted daemon: %d calls", restarts)
 	}
@@ -199,11 +200,75 @@ func TestDeferredDaemonRestart_FixupUsesParentHandoff(t *testing.T) {
 			if signal == "environment" {
 				t.Setenv("STATBUS_POST_UPGRADE_FIXUP", "1")
 			}
-			applyPendingUpgradeDaemonRestart(t.TempDir(), pending)
+			applyPendingUpgradeDaemonRestart(t.TempDir(), pending, false)
 			if restarts != 0 {
 				t.Fatalf("fixup %s restarted its active parent daemon %d time(s), want zero (exit-42 handoff)", signal, restarts)
 			}
 		})
+	}
+}
+
+// Both drift signals can occur in one install: the Upgrade service step has
+// already restarted the active drifted unit, while step 9 recorded a daemon
+// config change. The entire install must restart it exactly once.
+func TestUpgradeServiceAndConfigDriftRestartExactlyOnce(t *testing.T) {
+	t.Setenv("STATBUS_POST_UPGRADE_FIXUP", "0")
+	t.Setenv("USER", "statbus")
+	oldFixup := postUpgradeFixup
+	postUpgradeFixup = false
+	t.Cleanup(func() { postUpgradeFixup = oldFixup })
+	oldPlatform := installServicePlatform
+	installServicePlatform = "linux"
+	t.Cleanup(func() { installServicePlatform = oldPlatform })
+	oldProbe := probeUpgradeDatabaseRoute
+	probeUpgradeDatabaseRoute = func(string) error { return nil }
+	t.Cleanup(func() { probeUpgradeDatabaseRoute = oldProbe })
+	unitDir, installedUnit := writeUnitFixture(t, "[Service]\nWatchdogSec=120\n")
+	if err := os.WriteFile(installedUnit, []byte("[Service]\nWatchdogSec=infinity\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	bin := t.TempDir()
+	logPath := filepath.Join(bin, "systemctl.log")
+	t.Setenv("STATBUS_SYSTEMCTL_LOG", logPath)
+	if err := os.WriteFile(filepath.Join(bin, "systemctl"), []byte(`#!/bin/sh
+printf '%s\n' "$*" >> "$STATBUS_SYSTEMCTL_LOG"
+case "$*" in
+  *' is-enabled '*) printf 'enabled\n' ;;
+  *' show '*) printf 'ActiveState=active\nResult=success\n' ;;
+esac
+`), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(bin, "loginctl"), []byte("#!/bin/sh\nexit 0\n"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("PATH", bin+string(os.PathListSeparator)+os.Getenv("PATH"))
+
+	orig := restartUpgradeDaemon
+	deferredRestarts := 0
+	restartUpgradeDaemon = func(string) { deferredRestarts++ }
+	t.Cleanup(func() { restartUpgradeDaemon = orig })
+	pending := restartClassesForKeys([]string{"DAEMON_ONLY_KEY"}, map[string][]config.RestartClass{
+		"DAEMON_ONLY_KEY": {config.RestartUpgradeDaemon},
+	})
+	if err := applyPendingRestarts(unitDir, pending); err != nil {
+		t.Fatal(err)
+	}
+	var unitRestarted bool
+	if err := runInstallService(unitDir, &unitRestarted); err != nil {
+		t.Fatal(err)
+	}
+	if !unitRestarted {
+		t.Fatal("Upgrade service did not report its restart of the active drifted unit")
+	}
+	applyPendingUpgradeDaemonRestart(unitDir, pending, unitRestarted)
+	log, err := os.ReadFile(logPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	serviceRestarts := strings.Count(string(log), "--user restart statbus-upgrade@statbus.service")
+	if serviceRestarts+deferredRestarts != 1 {
+		t.Fatalf("unit drift and daemon config drift caused %d service plus %d deferred restarts, want exactly one; systemctl log: %s", serviceRestarts, deferredRestarts, log)
 	}
 }
 
