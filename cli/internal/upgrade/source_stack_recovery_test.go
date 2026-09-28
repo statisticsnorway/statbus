@@ -468,6 +468,14 @@ func TestCorruptMarkerRemovalRetainsSourceImageCarrierForFlaglessRecovery(t *tes
 
 	logPath := filepath.Join(t.TempDir(), "docker.log")
 	t.Setenv("STATBUS_TEST_DOCKER_LOG", logPath)
+	// The capture above modeled a serving box (app/worker/rest running). By the
+	// time recovery restarts the source stack the upgrade has stopped them
+	// (executeUpgrade's compose stop); the database convergence verifies that
+	// before it may recreate db. Live clients are covered by
+	// TestSourceDatabaseConvergenceStopsLiveClientsFirst.
+	for _, service := range sourceServingClientServices {
+		t.Setenv("STATBUS_TEST_"+strings.ToUpper(service)+"_STATE", "exited")
+	}
 	srv, rpcHits := sourceStackHealthServer(t)
 	d.cachedURL = srv.URL + "/rpc/auth_status"
 	d.cachedReadyURL = srv.URL + "/ready"
@@ -1301,6 +1309,7 @@ case "$*" in
 		;;
 	"compose up -d --no-build --no-deps app worker rest proxy")
 		# Model Compose starting part of the tier and then returning an error.
+		rm -f "$STATBUS_TEST_STOPPED"
 		exit 17
 		;;
 	"compose stop app worker rest") touch "$STATBUS_TEST_STOPPED" ;;
@@ -1329,7 +1338,14 @@ exit 0
 	}
 	log := string(logBytes)
 	upIdx := strings.Index(log, "compose up -d --no-build --no-deps app worker rest proxy\n")
-	stopIdx := strings.Index(log, "compose stop app worker rest\n")
+	// The database convergence stops the live target clients before db can be
+	// recreated (F2); the containment stop under test is the one AFTER the failed up.
+	stopIdx := -1
+	if upIdx >= 0 {
+		if rel := strings.Index(log[upIdx:], "compose stop app worker rest\n"); rel >= 0 {
+			stopIdx = upIdx + rel
+		}
+	}
 	postVerifyIdx := strings.LastIndex(log, "compose ps -a --format json\n")
 	if upIdx < 0 || stopIdx < upIdx || postVerifyIdx < stopIdx {
 		t.Fatalf("partial recreate containment order must be failed up -> stop -> positive reinspection:\n%s", log)
