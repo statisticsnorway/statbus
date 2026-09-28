@@ -96,7 +96,7 @@ rc.11 (`af345313b`): VM install-recovery run 36373335513 vs LXD fleet run 363732
 LXD cannot present a real 40 GB filesystem without KVM. A Btrfs root quota is invisible to `statfs(2)`, which `diskpolicy.Measure` uses, so the guest sees the 60 GB pool, and the ccx33 host has no `/dev/kvm` for an LXD VM. Every claim the scenario made is proven elsewhere:
 - the 20/40 GB thresholds by `TestSharedThresholdAcrossCallers` and `TestSavedDiskPolicySurvivesNewProcess`;
 - the persisted policy by `install_input_test.go`;
-- a real install on a real 40 GB cx23 disk with default thresholds by smoke `0-happy-install`, every candidate.
+- a real install on a real 40 GB cx23 disk by smoke `0-happy-install`, every candidate. The harness still exports `STATBUS_MIN_DISK_GB=5`, but current `diskpolicy` code does not read it, so the persisted 20/40 policy applies.
 
 The scenario and its LXD special cases are removed on `ci/lxd-only-gate`. Revisit (a KVM host) only if smoke itself leaves real VMs.
 
