@@ -37,8 +37,8 @@ func TestValidateTLSPaths(t *testing.T) {
 			if err == nil || !strings.Contains(err.Error(), tc.want) || !strings.Contains(err.Error(), "doc/DEPLOYMENT.md") {
 				t.Fatalf("got %v, want %q and documentation", err, tc.want)
 			}
-			if tc.name == "host path" && !strings.Contains(err.Error(), "cd ~/statbus && ./sb cert install") {
-				t.Fatalf("got %v, want the cd ~/statbus && ./sb cert install remedy (STATBUS-429 M4: bare ./sb does not resolve from ~ under curl|bash)", err)
+			if tc.name == "host path" && !strings.Contains(err.Error(), "cd "+dir+" && ./sb cert install") {
+				t.Fatalf("got %v, want the cd <real checkout> && ./sb cert install remedy (STATBUS-429 R-c: names the actual checkout, not a hardcoded ~/statbus)", err)
 			}
 		})
 	}

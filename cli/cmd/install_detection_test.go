@@ -665,9 +665,9 @@ func TestRestartsAfterSettingsRestoreCoverEveryService(t *testing.T) {
 // (extracted verbatim) prints that cause and fix, never the raw error.
 func TestSettingsRestoreRefusalShowsCertificateCauseThroughInstallSh(t *testing.T) {
 	for _, raw := range []string{
-		`TLS_CERT_FILE="/home/statbus/statbus.crt" is not a valid Caddy container path. TLS_CERT_FILE and TLS_KEY_FILE are paths INSIDE the Caddy container`,
+		`TLS_CERT_FILE="/home/statbus/statbus.crt" is not a valid Caddy container path. Run ` + "`cd /home/statbus/statbus && ./sb cert install <full path to certificate> <full path to key>`" + ` (or a single PFX/PKCS#12 file); it places the files, sets TLS_CERT_FILE/TLS_KEY_FILE, and restarts Caddy for you. See doc/DEPLOYMENT.md, Custom TLS Certificates.`,
 		`TLS_KEY_FILE="/data/custom-certs/domain.key": corresponding host file /home/statbus/statbus/caddy/data/custom-certs/domain.key is unavailable: no such file`,
-		`both TLS_CERT_FILE and TLS_KEY_FILE must be set together. TLS_CERT_FILE and TLS_KEY_FILE are paths INSIDE the Caddy container`,
+		`both TLS_CERT_FILE and TLS_KEY_FILE must be set together. Run ` + "`cd /home/statbus/statbus && ./sb cert install <full path to certificate> <full path to key>`" + ` (or a single PFX/PKCS#12 file); it places the files, sets TLS_CERT_FILE/TLS_KEY_FILE, and restarts Caddy for you. See doc/DEPLOYMENT.md, Custom TLS Certificates.`,
 	} {
 		if cause, _ := classifyInstallFailure("Settings", errors.New(raw)); cause != "The custom certificate settings are invalid." {
 			t.Errorf("TLS error not classified: %q -> %q", raw, cause)
