@@ -926,7 +926,7 @@ func TestEnsureCustomCertsDirWritable_DockerRepairFailureIsPlainRemedy(t *testin
 	msg := err.Error()
 	for _, want := range []string{
 		"is not writable by this user",
-		"Start Docker",
+		"could not repair it automatically",
 		"./sb cert install again",
 		"sudo install -d -o",
 	} {
@@ -936,6 +936,177 @@ func TestEnsureCustomCertsDirWritable_DockerRepairFailureIsPlainRemedy(t *testin
 	}
 	if strings.HasPrefix(strings.TrimSpace(msg), "exit status") {
 		t.Errorf("error must lead with the plain remedy sentence, not a raw exit status: %s", msg)
+	}
+	// STATBUS-429 C2: the sentence naming the next step must never contain a
+	// bare "exit status N" anywhere before the sudo line — only in the
+	// trailing "Repair container detail:" line, where it belongs alongside
+	// the raw Docker output for support bundles.
+	if before, _, found := strings.Cut(msg, "sudo install -d -o"); found && strings.Contains(before, "exit status") {
+		t.Errorf("error must not mention a bare exit status before the sudo remedy line; got:\n%s", msg)
+	}
+	if strings.Contains(msg, "Start Docker") {
+		t.Errorf("error must not tell the operator to \"Start Docker\" — Docker may already be running and merely unable to pull/run the repair container; got:\n%s", msg)
+	}
+}
+
+// TestLocalProxyImage_ReadsCommitShortFromEnv covers STATBUS-429 R-a: the
+// repair prefers the proxy image already on the box, named from .env's
+// COMMIT_SHORT — the same tag the running proxy container itself uses.
+func TestLocalProxyImage_ReadsCommitShortFromEnv(t *testing.T) {
+	projDir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(projDir, ".env"), []byte("COMMIT_SHORT=abcd1234\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	want := "ghcr.io/statisticsnorway/statbus-proxy:abcd1234"
+	if got := localProxyImage(projDir); got != want {
+		t.Errorf("localProxyImage() = %q, want %q", got, want)
+	}
+}
+
+// TestLocalProxyImage_EmptyWithoutEnv covers the fallback trigger: no .env
+// (fresh checkout that never ran config generate) or no COMMIT_SHORT in it
+// must return "" so runCertOwnershipRepair falls straight to alpine:3.20
+// rather than trying to build a malformed image reference.
+func TestLocalProxyImage_EmptyWithoutEnv(t *testing.T) {
+	if got := localProxyImage(t.TempDir()); got != "" {
+		t.Errorf("localProxyImage() with no .env = %q, want empty", got)
+	}
+	projDir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(projDir, ".env"), []byte("SITE_DOMAIN=example.org\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if got := localProxyImage(projDir); got != "" {
+		t.Errorf("localProxyImage() with no COMMIT_SHORT = %q, want empty", got)
+	}
+}
+
+// TestEnsureCustomCertsDirWritable_PrefersLocalProxyImage covers STATBUS-429
+// R-a: when .env names a COMMIT_SHORT, the repair must try that proxy image
+// with --pull=never BEFORE falling back to alpine:3.20 — proven here by a
+// fake docker that only answers the proxy-image invocation and fails (exit
+// 125, mirroring a real "no such image" refusal) on anything else, including
+// the alpine fallback. If the repair still succeeds via the proxy branch,
+// the fallback was never reached.
+func TestEnsureCustomCertsDirWritable_PrefersLocalProxyImage(t *testing.T) {
+	if os.Getuid() == 0 {
+		t.Skip("root ignores directory permission bits; cannot force EACCES")
+	}
+	projDir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(projDir, ".env"), []byte("COMMIT_SHORT=deadbeef\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	dataDir := filepath.Join(projDir, "caddy", "data")
+	if err := os.MkdirAll(dataDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chmod(dataDir, 0o555); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.Chmod(dataDir, 0o755) })
+	certsDir := filepath.Join(dataDir, "custom-certs")
+
+	argvLog := filepath.Join(t.TempDir(), "docker-argv.txt")
+	bin := t.TempDir()
+	wantImage := "ghcr.io/statisticsnorway/statbus-proxy:deadbeef"
+	script := fmt.Sprintf(`#!/bin/sh
+printf '%%s\n' "$*" >> %s
+case "$*" in
+  *%s*)
+    chmod 0755 %s 2>/dev/null || true
+    mkdir -p %s/custom-certs
+    chmod 0755 %s/custom-certs
+    exit 0
+    ;;
+  *)
+    echo 'fake docker: image not found' >&2
+    exit 125
+    ;;
+esac
+`, shellQuote(argvLog), wantImage, shellQuote(dataDir), shellQuote(dataDir), shellQuote(dataDir))
+	if err := os.WriteFile(filepath.Join(bin, "docker"), []byte(script), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("PATH", bin+string(os.PathListSeparator)+os.Getenv("PATH"))
+
+	if err := ensureCustomCertsDirWritable(projDir, certsDir); err != nil {
+		t.Fatalf("expected the proxy-image repair to succeed: %v", err)
+	}
+	raw, err := os.ReadFile(argvLog)
+	if err != nil {
+		t.Fatalf("fake docker was not invoked: %v", err)
+	}
+	argv := strings.TrimSpace(string(raw))
+	if !strings.Contains(argv, "--pull=never") {
+		t.Errorf("proxy-image repair must pass --pull=never; got argv %q", argv)
+	}
+	if !strings.Contains(argv, wantImage) {
+		t.Errorf("proxy-image repair must use %s; got argv %q", wantImage, argv)
+	}
+	if strings.Contains(argv, "\n") {
+		t.Errorf("alpine fallback must not have been invoked once the proxy-image repair succeeded; argv log:\n%s", argv)
+	}
+}
+
+// TestEnsureCustomCertsDirWritable_FallsBackToAlpineWhenProxyImageMissing
+// covers STATBUS-429 R-a's other half: when the proxy image is unavailable
+// locally (pruned, or a fresh checkout whose proxy never started), the
+// repair must still succeed via the alpine:3.20 fallback.
+func TestEnsureCustomCertsDirWritable_FallsBackToAlpineWhenProxyImageMissing(t *testing.T) {
+	if os.Getuid() == 0 {
+		t.Skip("root ignores directory permission bits; cannot force EACCES")
+	}
+	projDir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(projDir, ".env"), []byte("COMMIT_SHORT=deadbeef\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	dataDir := filepath.Join(projDir, "caddy", "data")
+	if err := os.MkdirAll(dataDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chmod(dataDir, 0o555); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.Chmod(dataDir, 0o755) })
+	certsDir := filepath.Join(dataDir, "custom-certs")
+
+	argvLog := filepath.Join(t.TempDir(), "docker-argv.txt")
+	bin := t.TempDir()
+	script := fmt.Sprintf(`#!/bin/sh
+printf '%%s\n' "$*" >> %s
+case "$*" in
+  *statbus-proxy:deadbeef*)
+    echo 'fake docker: no such image' >&2
+    exit 125
+    ;;
+  *%s*)
+    chmod 0755 %s 2>/dev/null || true
+    mkdir -p %s/custom-certs
+    chmod 0755 %s/custom-certs
+    exit 0
+    ;;
+esac
+`, shellQuote(argvLog), certOwnershipRepairImage, shellQuote(dataDir), shellQuote(dataDir), shellQuote(dataDir))
+	if err := os.WriteFile(filepath.Join(bin, "docker"), []byte(script), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("PATH", bin+string(os.PathListSeparator)+os.Getenv("PATH"))
+
+	if err := ensureCustomCertsDirWritable(projDir, certsDir); err != nil {
+		t.Fatalf("expected the alpine fallback to succeed: %v", err)
+	}
+	raw, err := os.ReadFile(argvLog)
+	if err != nil {
+		t.Fatalf("fake docker was not invoked: %v", err)
+	}
+	lines := strings.Split(strings.TrimSpace(string(raw)), "\n")
+	if len(lines) != 2 {
+		t.Fatalf("expected exactly 2 docker invocations (proxy attempt then alpine fallback); got %d:\n%s", len(lines), raw)
+	}
+	if !strings.Contains(lines[0], "statbus-proxy:deadbeef") || !strings.Contains(lines[0], "--pull=never") {
+		t.Errorf("first invocation must be the proxy image with --pull=never; got %q", lines[0])
+	}
+	if !strings.Contains(lines[1], certOwnershipRepairImage) || strings.Contains(lines[1], "--pull=never") {
+		t.Errorf("second invocation must be the alpine fallback without --pull=never; got %q", lines[1])
 	}
 }
 
@@ -980,7 +1151,7 @@ func assertOwnershipRepairArgv(t *testing.T, argvLog, dataDir string) {
 		t.Fatalf("fake docker was not invoked: %v", err)
 	}
 	argv := strings.TrimSpace(string(raw))
-	wantPrefix := "run --rm --network none -v " + dataDir + ":/data " + certOwnershipRepairImage + " sh -c mkdir -p /data/custom-certs && chown "
+	wantPrefix := "run --rm --network none -v " + dataDir + ":/data " + certOwnershipRepairImage + " sh -c mkdir -p /data/custom-certs && chmod u+rwx /data/custom-certs && chown "
 	if !strings.HasPrefix(argv, wantPrefix) {
 		t.Fatalf("docker argv = %q, want prefix %q", argv, wantPrefix)
 	}

@@ -855,9 +855,11 @@ func bytesEqual(a, b []byte) bool {
 //   - caddy/data/ or custom-certs/ already exists and is not writable by us
 //     (root-owned from an earlier "Services" run, OR a prior manual `sudo
 //     mkdir`): the install user cannot chown it directly. One throwaway
-//     alpine container, running as root, creates AND chowns ONLY
-//     custom-certs/ under the existing mount — deliberately NOT recursive
-//     over the parent caddy/data/, which also holds Caddy's own ACME state
+//     container (the box's own proxy image, preferred, or alpine:3.20 as a
+//     fallback — see runCertOwnershipRepair), running as root, creates AND
+//     chowns ONLY custom-certs/ under the existing mount — deliberately NOT
+//     recursive over the parent caddy/data/, which also holds Caddy's own
+//     ACME state
 //     (caddy/data/caddy/) that must stay exactly as Caddy left it.
 //
 // Idempotent: os.MkdirAll on an existing dir, and chown to the same uid:gid,
@@ -879,23 +881,85 @@ func ensureCustomCertsDirWritable(projDir, certsDir string) error {
 	dataDir := filepath.Join(projDir, "caddy", "data")
 	deployUID := os.Getuid()
 	deployGID := os.Getgid()
+	// STATBUS-429 R-b: chmod first (a root-owned dir that is merely
+	// non-writable, e.g. 0555 from an earlier manual `sudo mkdir`, needs its
+	// mode opened up, not just its owner changed), then re-run the same
+	// mkdir+chown the fresh-directory path already needs.
 	shellCmd := fmt.Sprintf(
-		"mkdir -p /data/custom-certs && chown %d:%d /data/custom-certs",
+		"mkdir -p /data/custom-certs && chmod u+rwx /data/custom-certs && chown %d:%d /data/custom-certs",
 		deployUID, deployGID,
 	)
+	out, err := runCertOwnershipRepair(projDir, dataDir, shellCmd)
+	if err != nil {
+		return &certsDirNotWritableError{dir: certsDir, dockerErr: err, dockerOutput: out}
+	}
+	// STATBUS-429 R-b: probe again after the repair. The repair container
+	// itself can exit 0 while still leaving the directory unwritable by this
+	// user (e.g. the chown's uid:gid was somehow rejected, or a mount
+	// propagation quirk left stale bits) — never claim success without
+	// re-checking the exact condition this function exists to guarantee.
+	if !probeDirWritable(certsDir) {
+		return &certsDirNotWritableError{dir: certsDir, dockerErr: fmt.Errorf("repair container exited 0 but %s is still not writable", certsDir), dockerOutput: out}
+	}
+	return nil
+}
+
+// runCertOwnershipRepair runs shellCmd as root inside a throwaway container
+// with dataDir bound at /data, --network none (the repair never needs the
+// network; keeping it off is defense in depth). STATBUS-429 R-a: prefers
+// the proxy image already on this box — present whenever this repair can
+// possibly be needed, because caddy/data/ is only root-owned BECAUSE the
+// proxy container ran — run with --pull=never so a missing image fails
+// fast instead of reaching the network. Falls back to certOwnershipRepairImage
+// (alpine:3.20) when the proxy image is unavailable locally, mirroring
+// uninstall.sh's own preferred-image-with-fallback pattern
+// (uninstall.sh:293-296). This matters on boxes whose egress allowlist
+// admits the image registry (ghcr.io, where StatBus images already came
+// from) but not Docker Hub (where a bare alpine pull would go).
+func runCertOwnershipRepair(projDir, dataDir, shellCmd string) ([]byte, error) {
+	if image := localProxyImage(projDir); image != "" {
+		cmd, buildErr := compose.DockerCommandContext(context.Background(), "", "run", "--rm",
+			"--network", "none", "--pull=never",
+			"-v", dataDir+":/data",
+			image, "sh", "-c", shellCmd,
+		)
+		if buildErr == nil {
+			if out, err := cmd.CombinedOutput(); err == nil {
+				return out, nil
+			}
+			// Falls through to the alpine:3.20 fallback below — the proxy
+			// image name was constructed from .env's COMMIT_SHORT but may not
+			// actually be present locally (e.g. pruned, or a fresh checkout
+			// whose proxy has never started).
+		}
+	}
 	cmd, buildErr := compose.DockerCommandContext(context.Background(), "", "run", "--rm",
 		"--network", "none",
 		"-v", dataDir+":/data",
 		certOwnershipRepairImage, "sh", "-c", shellCmd,
 	)
 	if buildErr != nil {
-		return fmt.Errorf("construct docker ownership repair for %s: %w", certsDir, buildErr)
+		return nil, fmt.Errorf("construct docker ownership repair: %w", buildErr)
 	}
-	out, err := cmd.CombinedOutput()
+	return cmd.CombinedOutput()
+}
+
+// localProxyImage returns the fully-qualified proxy image tag for this
+// checkout's currently-installed commit (read from .env's COMMIT_SHORT), or
+// "" if .env cannot be read or COMMIT_SHORT is unset. This image is present
+// on any box that could possibly need ensureCustomCertsDirWritable's Docker
+// repair, because caddy/data/ only becomes root-owned once the proxy
+// container using this exact image has already started.
+func localProxyImage(projDir string) string {
+	f, err := dotenv.Load(filepath.Join(projDir, ".env"))
 	if err != nil {
-		return &certsDirNotWritableError{dir: certsDir, dockerErr: err, dockerOutput: out}
+		return ""
 	}
-	return nil
+	commitShort, _ := f.Get("COMMIT_SHORT")
+	if commitShort == "" {
+		return ""
+	}
+	return "ghcr.io/statisticsnorway/statbus-proxy:" + commitShort
 }
 
 // probeDirWritable reports whether the current user can actually create a
@@ -935,11 +999,12 @@ type certsDirNotWritableError struct {
 
 func (e *certsDirNotWritableError) Error() string {
 	return fmt.Sprintf(
-		"%s is not writable by this user, and the automatic repair needs Docker: %v.\n"+
-			"Start Docker (or give this user access to it), then run ./sb cert install again.\n"+
+		"%s is not writable by this user, and StatBus could not repair it automatically: Docker could not run the repair container.\n"+
+			"Then run ./sb cert install again.\n"+
 			"If Docker cannot be used here, an administrator can run once:\n"+
-			"  sudo install -d -o %d -g %d %s\n%s",
-		e.dir, e.dockerErr, os.Getuid(), os.Getgid(), e.dir, e.dockerOutput,
+			"  sudo install -d -o %d -g %d %s\n"+
+			"Repair container detail: %v\n%s",
+		e.dir, os.Getuid(), os.Getgid(), e.dir, e.dockerErr, e.dockerOutput,
 	)
 }
 
