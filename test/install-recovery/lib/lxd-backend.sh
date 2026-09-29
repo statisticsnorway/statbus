@@ -296,7 +296,16 @@ lxd_checkpoint_for_scenario() {
         # Same selector as the scenario, relative to the candidate tag.
         source "$HARNESS_ROOT/test/install-recovery/lib/release-baseline.sh"
         baseline=$(select_release_baseline_from_repo "$HARNESS_ROOT" "$LXD_CANDIDATE") || return
-        printf 'installed-%s-standalone' "$baseline"
+        # review N1: run-smoke.sh's 0-happy-upgrade leg exports an explicit
+        # LXD_BASELINE_CHECKPOINT_SUFFIX (never keyed on HARNESS_UPGRADE_CHANNEL
+        # — the fault fleet's delegators 5-install-disk-threshold-repair and
+        # 0-https-only-egress also set that variable to prerelease while
+        # resolving through THIS same branch, and must still get the
+        # unsuffixed stable name the fault fleet's own fallback builder uses).
+        # Every other caller of this function (the fault fleet driver,
+        # lxd_checkpoint_for_scenario's own recursive delegator branch above)
+        # leaves the suffix unset and gets the historic unsuffixed name.
+        printf 'installed-%s-standalone%s' "$baseline" "${LXD_BASELINE_CHECKPOINT_SUFFIX:-}"
     else
         printf 'installed-%s-standalone' "$LXD_CANDIDATE"
     fi
@@ -709,18 +718,22 @@ VM_ROOT_EXEC() { local q; printf -v q '%q ' "$@"; _lxd_host lxc exec "$VM_NAME" 
 cleanup_vm() {
     # review H1: the VM-harness cleanup_vm captures diagnostics on a nonzero
     # scenario rc before it deletes the box (vm-bootstrap.sh's cleanup_vm,
-    # scenario_rc=${2:-${rc:-0}}). This LXD one deleted unconditionally, so
-    # every red smoke/fault/arc scenario's `tmp/lxd-*-failure-*.log` (the
+    # scenario_rc=${2:-${rc:-${RC:-0}}}). This LXD one deleted unconditionally,
+    # so every red smoke/fault/arc scenario's `tmp/lxd-*-failure-*.log` (the
     # upload glob test-smoke.yaml already carries) was empty — a real
     # regression against Hetzner, not merely a missing nicety: the docker-ps
     # diagnostic added to lxd_capture_failure was unreachable from any
     # scenario-level failure, only from a builder's own install failure.
-    # Every caller's trap is 'rc=$?; cleanup_vm "$VM_NAME"; exit $rc' (the
-    # VM-harness shape scenarios/arcs already use) - $1 here IS that
-    # positional VM_NAME echo, never the exit status, so the failure signal
-    # this function needs is the global $rc the SAME trap set one clause
-    # earlier, exactly as vm-bootstrap.sh's cleanup_vm defaults to it.
-    local scenario_rc=${rc:-0}
+    # Every caller's trap is one of two VM-harness shapes: most scenarios use
+    # 'rc=$?; cleanup_vm "$VM_NAME"; exit $rc' ($1 here is the positional
+    # VM_NAME, never the exit status), but two rollback-schema-floor arcs use
+    # 'RC=$?; cleanup_vm "$VM_NAME"; exit $RC' instead (a different variable
+    # name entirely), and the VM harness's own partial-allocation-cleanup
+    # contract passes the exit status explicitly as $2
+    # (tests/partial-allocation-cleanup-test.sh). Match vm-bootstrap.sh's
+    # cleanup_vm precedence exactly: an explicit $2 wins, then $rc, then $RC,
+    # then 0 — never hard-code one caller's variable name over another's.
+    local scenario_rc=${2:-${rc:-${RC:-0}}}
     [ "${KEEP_VM:-0}" = 1 ] && return 0
     [ "${LXD_OWNED_BY_THIS_RUN:-0}" = 1 ] || return 0
     case "$VM_NAME" in

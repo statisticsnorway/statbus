@@ -30,8 +30,6 @@ case "$SCENARIO" in
         export HARNESS_LXD_CHECKPOINT=1
         ;;
     0-happy-upgrade)
-        source "$ROOT/test/install-recovery/lib/release-baseline.sh"
-        baseline=$(select_release_baseline_from_repo "$ROOT" "$TAG")
         # 0-happy-upgrade.sh itself defaults HARNESS_UPGRADE_CHANNEL to
         # prerelease (the Norway hop this cell proves), but that default only
         # takes effect once the SCENARIO script runs, below - after the
@@ -40,27 +38,29 @@ case "$SCENARIO" in
         # channel the scenario declares, not the harness-wide stable default
         # (review §1a.5).
         export HARNESS_UPGRADE_CHANNEL=prerelease
-        # review B3: the channel rides in the checkpoint NAME, not only in a
-        # config key checked at build time. The fault fleet's own fallback
-        # build (lxd_checkpoint_for_scenario -> lxd_base_for_candidate, no
-        # HARNESS_UPGRADE_CHANNEL set, so channel=stable) wants the SAME
-        # instance name "installed-$baseline-standalone" this job would
-        # otherwise also claim for a DIFFERENT (prerelease) box state. Two
-        # producers, one candidate tag, one baseline tag, two genuinely
-        # different .env.config contents cannot share one checkpoint name:
-        # whichever runs second finds a base "built for the other channel"
-        # and REFUSES (a real run, not hypothetical - the fault fleet always
-        # runs after smoke). Suffix only the non-stable identity; the fault
-        # fleet's stable name is untouched, so its own parity history stays
-        # valid.
-        checkpoint="installed-$baseline-standalone-pre"
+        # review N1: the checkpoint identity, not just the channel used to
+        # BUILD it, must carry a suffix that only THIS producer emits.
+        # HARNESS_UPGRADE_CHANNEL is the wrong signal to key the suffix on:
+        # the fault fleet's own delegators (5-install-disk-threshold-repair,
+        # 0-https-only-egress) also set it to prerelease while resolving
+        # through lxd_checkpoint_for_scenario's identical baseline branch,
+        # and must still land on the fault fleet's unsuffixed stable name.
+        # LXD_BASELINE_CHECKPOINT_SUFFIX is an independent, explicit identity
+        # knob only this smoke leg sets. lxd_checkpoint_for_scenario's
+        # baseline branch appends it; deriving `checkpoint` FROM that
+        # function (instead of re-spelling the same string here) is what
+        # keeps producer and consumer from diverging again — this scenario's
+        # own bootstrap_install_test_vm call resolves through the exact same
+        # function.
+        export LXD_BASELINE_CHECKPOINT_SUFFIX=-pre
+        checkpoint=$(lxd_checkpoint_for_scenario "$SCENARIO")
         lxd_base_for_candidate "$TAG" "$checkpoint"
         ;;
 esac
 bash "$ROOT/test/install-recovery/scenarios/$SCENARIO.sh" "statbus-recovery-$SCENARIO"
 case "$SCENARIO" in
     0-happy-install) checkpoint="installed-$TAG-standalone" ;;
-    0-happy-upgrade) checkpoint="installed-$baseline-standalone-pre" ;;
+    0-happy-upgrade) checkpoint=$(lxd_checkpoint_for_scenario "$SCENARIO") ;;
 esac
 base=$(_lxd_name "$TAG-$checkpoint")
 [ "$(_lxd_host lxc config get "$base" image.version)" = 26.04 ]
