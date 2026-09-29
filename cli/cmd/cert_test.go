@@ -960,7 +960,7 @@ func assertCertsDirRemedyOrder(t *testing.T, msg string) {
 	sudo := strings.Index(msg, "sudo install -d -o")
 	rerun := strings.Index(msg, "Then run ./sb cert install again.")
 	detail := strings.Index(msg, "Repair container detail:")
-	if sudo < 0 || rerun < 0 || detail < 0 || !(sudo < rerun && rerun < detail) {
+	if sudo < 0 || rerun < 0 || detail < 0 || sudo >= rerun || rerun >= detail {
 		t.Errorf("remedy must read: sudo line, then rerun, then detail (sudo=%d rerun=%d detail=%d); got:\n%s", sudo, rerun, detail, msg)
 	}
 }
