@@ -74,9 +74,9 @@ func TestInstallScriptNeverStopsTheUpgradeUnit(t *testing.T) {
 		// and the exit-78 port-conflict bucket (double-quoted ERE, since it
 		// interpolates ${_statbus_rerun_ere}) — both spell "systemctl ...
 		// stop" only inside a grep pattern argument, never as a command.
-		if strings.HasPrefix(trimmed, "failure_detail=$(grep -E '") ||
-			strings.HasPrefix(trimmed, "elif grep -Eq \"^port ") ||
-			strings.HasPrefix(trimmed, "grep -E \"^port ") {
+		if (strings.HasPrefix(trimmed, "failure_detail=$(grep -E '") && strings.HasSuffix(trimmed, `sed 's/^INSTALL_CAUSE: //' || true)`)) ||
+			(strings.HasPrefix(trimmed, "elif grep -Eq \"^port ") && strings.HasSuffix(trimmed, `"$install_output"; then`)) ||
+			(strings.HasPrefix(trimmed, "grep -E \"^port ") && strings.HasSuffix(trimmed, `"$install_output" | tail -1`)) {
 			continue
 		}
 		if strings.Contains(line, "systemctl") && strings.Contains(line, "stop") {
