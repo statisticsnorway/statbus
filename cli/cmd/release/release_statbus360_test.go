@@ -22,12 +22,30 @@ func TestCheck7FailureMessagesNameFastTestsRunner_STATBUS360(t *testing.T) {
 				Detail: "failure",
 			}
 			out := captureStdout(t, func() {
-				printFastSuiteWorkflowFailure(result, "0123456789ab", strings.Repeat("0", 40))
+				printFastSuiteWorkflowFailure(t.TempDir(), result, "0123456789ab", strings.Repeat("0", 40))
 			})
 			if !strings.Contains(out, "Fast Tests") {
 				t.Errorf("check 7 %s message does not name the runner workflow:\n%s", status, out)
 			}
 		})
+	}
+}
+
+// TestFastTestsMissingNeverSuggestsDispatchAtRawSHA pins the workflow_dispatch
+// contract (WorkflowTriggerCommand: a ref must be a branch or tag, never a SHA;
+// GitHub answers 422). When the candidate commit is not origin/master's tip, a
+// Missing Fast Tests verdict must tell the operator to push, not print a
+// `gh workflow run --ref <sha>` that cannot work (review tmp/review-433.md §2).
+func TestFastTestsMissingNeverSuggestsDispatchAtRawSHA(t *testing.T) {
+	headFull := strings.Repeat("a", 40)
+	out := captureStdout(t, func() {
+		printFastSuiteWorkflowFailure(t.TempDir(), release.WorkflowCheckResult{Status: release.WorkflowCheckMissing}, headFull[:12], headFull)
+	})
+	if strings.Contains(out, "--ref "+headFull) {
+		t.Fatalf("Missing verdict suggests dispatching at a raw SHA, which GitHub rejects:\n%s", out)
+	}
+	if !strings.Contains(out, "is not origin/master's tip") {
+		t.Fatalf("Missing verdict off master's tip must say why no trigger command is offered:\n%s", out)
 	}
 }
 
