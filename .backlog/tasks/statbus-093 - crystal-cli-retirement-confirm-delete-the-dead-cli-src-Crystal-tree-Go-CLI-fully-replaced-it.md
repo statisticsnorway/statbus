@@ -3,10 +3,10 @@ id: STATBUS-093
 title: >-
   go-worker: recreate the Crystal worker in Go, then delete cli/src/ — end the
   Crystal/Go overlap
-status: In Progress
+status: To Do
 assignee: []
 created_date: '2026-06-18 17:05'
-updated_date: '2026-09-23 15:10'
+updated_date: '2026-09-29 08:05'
 labels:
   - feature-next
   - tooling
@@ -16,12 +16,6 @@ labels:
 dependencies: []
 ordinal: 93000
 ---
-
-## Status 2026-09-24
-
-**In Progress:** #1 met by the recorded architect design and `doc/worker-structured-concurrency.md` (`730b5001c` ticket history); #2-5 not met: `cli/src/worker.cr`, `cli/Dockerfile`, and shards remain live. **Remaining:** port worker orchestration to Go, prove derive concurrency on a real box, then retire Crystal and update docs.
-
-Baseline: `origin/master` at `373d15fc3`. Criterion disposition and remaining positive targets are above; the acceptance criteria below remain authoritative. An authored but unrun VM scenario is **proof pending**, not met.
 
 ## Description
 
@@ -46,6 +40,12 @@ SCOPE (engineer to detail, architect to review the port design first):
 NON-NEGOTIABLE: the Crystal worker is NOT deleted until the Go worker is proven equivalent on a real box. No overlap window where neither is authoritative.
 <!-- SECTION:DESCRIPTION:END -->
 
+## Status 2026-09-24
+
+**In Progress:** #1 met by the recorded architect design and `doc/worker-structured-concurrency.md` (`730b5001c` ticket history); #2-5 not met: `cli/src/worker.cr`, `cli/Dockerfile`, and shards remain live. **Remaining:** port worker orchestration to Go, prove derive concurrency on a real box, then retire Crystal and update docs.
+
+Baseline: `origin/master` at `373d15fc3`. Criterion disposition and remaining positive targets are above; the acceptance criteria below remain authoritative. An authored but unrun VM scenario is **proof pending**, not met.
+
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
 - [x] #1 Architect reviews the port design FIRST: the worker's real dependency surface (what it uses vs what Go already provides), and the structured-concurrency semantics the Go port must preserve (one-top-task-per-queue + scoped parallel children, per doc/worker-structured-concurrency.md)
@@ -54,6 +54,12 @@ NON-NEGOTIABLE: the Crystal worker is NOT deleted until the Go worker is proven 
 - [ ] #4 PROVEN on a real box: the Go worker processes tasks with the same concurrency semantics as Crystal (the derive pipeline runs correctly) — the run is the oracle
 - [ ] #5 Only after that proof: cli/src/, cli/lib/, shard.yml, shard.lock deleted and doc/comment references swept (doc/worker.md updated to the Go worker) — zero Crystal/Go overlap remains
 <!-- AC:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+Audit after v2026.09.3 (2026-09-29): no work in v2026.09.3 (git log v2026.09.2..v2026.09.3 has no commits for it). Set In Progress by the 2026-09-24 reconcile (b20dc1395); back to To Do until work starts.
+<!-- SECTION:NOTES:END -->
 
 ## Comments
 

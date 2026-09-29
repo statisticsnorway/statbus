@@ -4,7 +4,7 @@ title: One dispatcher runs four VM proof families named for their outcomes
 status: To Do
 assignee: []
 created_date: '2026-09-07 07:56'
-updated_date: '2026-09-24 18:47'
+updated_date: '2026-09-29 08:05'
 labels:
   - harness
   - release
@@ -14,14 +14,9 @@ dependencies:
 ordinal: 80
 ---
 
-## Status 2026-09-24
-
-**To Do:** #1-6 not met: `test/vm/run.sh` and all four-family dispatcher contract tests are absent (`93bc656fa` is ticket history only). The candidate-tag VM ladder is not run. **Remaining:** move proofs to four outcome families, wire one dispatcher/dev/release gate, audit vocabulary, and record a green paid four-cell candidate run.
-
-Baseline: `origin/master` at `373d15fc3`. Criterion disposition and remaining positive targets are above; the acceptance criteria below remain authoritative. An authored but unrun VM scenario is **proof pending**, not met.
-
 ## Description
 
+<!-- SECTION:DESCRIPTION:BEGIN -->
 The paid VM proofs live under `test/vm/` in four positive outcome families: `install-works`, `upgrade-works`, `install-recovers`, and `upgrade-recovers`. One `test/vm/run.sh` dispatches by family, name, or all. The development entry point is `./dev.sh test-vm <family|name|all>`, while the free local Multipass check is `./dev.sh test-install-local`.
 
 ## Dated inventory, 2026-09-24
@@ -29,6 +24,13 @@ The paid VM proofs live under `test/vm/` in four positive outcome families: `ins
 A repository inventory in this worktree found 16 `test/install-recovery/scenarios/*.sh` files and 35 `test/install-recovery/arcs/*-arc.sh` files. Those are source-file counts, not final family counts. The earlier 15, 33, and 98 counts and historical CI descriptions are withdrawn. The authoritative family counts are generated after classification by the named dispatcher contract test below.
 
 Current dispatch and release-gate entry points are `test/install-recovery/run.sh` and `cli/cmd/release/release.go:1463,1945,1972` at master `7a9cf707e`.
+<!-- SECTION:DESCRIPTION:END -->
+
+## Status 2026-09-24
+
+**To Do:** #1-6 not met: `test/vm/run.sh` and all four-family dispatcher contract tests are absent (`93bc656fa` is ticket history only). The candidate-tag VM ladder is not run. **Remaining:** move proofs to four outcome families, wire one dispatcher/dev/release gate, audit vocabulary, and record a green paid four-cell candidate run.
+
+Baseline: `origin/master` at `373d15fc3`. Criterion disposition and remaining positive targets are above; the acceptance criteria below remain authoritative. An authored but unrun VM scenario is **proof pending**, not met.
 
 ## Acceptance Criteria
 
@@ -38,3 +40,9 @@ Current dispatch and release-gate entry points are `test/install-recovery/run.sh
 - [ ] #4 `new: test/vm/tests/release-contract-test.sh` proves coverage homes, release gates, workflow matrices, orchestrator job IDs, and release-ladder labels use the four positive family names.
 - [ ] #5 `new: test/vm/tests/family-vocabulary-test.sh` lists every remaining historical vocabulary hit with its non-family reason and positively verifies every active proof and operator command uses one of the four target family names.
 - [ ] #6 `new: test/vm/run.sh all` paid scenario `STATBUS-359-four-cell-ladder-1`, selected and checked by `new: test/vm/tests/release-contract-test.sh`, runs the first candidate tag after landing and verifies `new: test/vm/evidence/STATBUS-359-four-cell-ladder-1.md` records all four families green through the release-candidate ladder.
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+Audit after v2026.09.3 (2026-09-29): The premise (paid Hetzner VM proof families under test/vm/) is being replaced by STATBUS-425 (LXD for smoke, faults and arcs). Reconcile or close after 425.
+<!-- SECTION:NOTES:END -->

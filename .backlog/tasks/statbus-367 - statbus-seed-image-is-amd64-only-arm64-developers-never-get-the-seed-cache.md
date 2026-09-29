@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-09-14 10:14'
-updated_date: '2026-09-23 15:10'
+updated_date: '2026-09-29 08:04'
 labels:
   - release-bug
   - ci
@@ -145,3 +145,9 @@ The Images workflow builds the payload once on amd64 and publishes an OCI index
 whose amd64 and arm64 descriptors reference the same build output digest. The
 published manifest and arm64 `./dev.sh build-sb` restore can only be proven by
 the next Images run on a pushed commit, so status remains **In Progress**.
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+Audit after v2026.09.3 (2026-09-29): Observed 2026-09-29: seed index statbus-seed:ebe058af has one digest (sha256:2282a54a...) for amd64 and arm64, 2 layers, and no --platform in seed.go. Remaining: an arm64 ./dev.sh build-sb showing one pg_restore, the unbuilt-commit message check, and an independent review.
+<!-- SECTION:NOTES:END -->

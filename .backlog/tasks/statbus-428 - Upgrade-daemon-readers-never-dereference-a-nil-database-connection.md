@@ -4,6 +4,7 @@ title: Upgrade daemon readers never dereference a nil database connection
 status: To Do
 assignee: []
 created_date: '2026-09-29 00:30'
+updated_date: '2026-09-29 08:05'
 labels:
   - upgrade
 dependencies: []
@@ -22,3 +23,9 @@ Non-blocking note N2 from the review of the rollback convergence fix (tmp/review
 - [ ] #1 Every queryConn/listenConn reader reachable after recovery is nil-safe with a named error
 - [ ] #2 A test drives each with nil connections and gets an error, not a panic
 <!-- AC:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+Audit after v2026.09.3 (2026-09-29): v2026.09.3 (ce089d416) made completeInProgressUpgrade and upgradeParkedReason nil-safe. The full sweep of queryConn/listenConn readers (AC1/AC2) remains.
+<!-- SECTION:NOTES:END -->

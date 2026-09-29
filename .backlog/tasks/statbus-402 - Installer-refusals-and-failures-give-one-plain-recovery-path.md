@@ -4,7 +4,7 @@ title: Installer refusals and failures give one plain recovery path
 status: In Progress
 assignee: []
 created_date: '2026-09-24 15:35'
-updated_date: '2026-09-25 10:28'
+updated_date: '2026-09-29 08:04'
 labels:
   - release-bug
   - install
@@ -15,6 +15,16 @@ priority: high
 type: bug
 ordinal: 355000
 ---
+
+## Description
+
+<!-- SECTION:DESCRIPTION:BEGIN -->
+A deliberate preflight refusal explains the reason and one outside fix before changes begin, exits 78, and prints the complete rerun command with selected channel and unattended options. A failure after work begins names the step, cause, fix, rerun command, and support-file path. Operator output avoids implementation vocabulary while detailed traces remain in the log.
+
+## Evidence, 2026-09-24
+
+The Finland disk refusal printed shell source, `SYSTEM UNUSABLE`, an unnamed invariant, and a directory-dependent command (`/Users/jhf/ssb/statbus/tmp/finland-transcript-actual.txt:14-35`). Current bootstrap refusal handling is at `install.sh:770-792`, and Go refusal classification is at `cli/cmd/install.go:95-101`, both at master `7a9cf707e`. The existing harness self-test path is `test/install-recovery/tests/harness-failure-path-selftest.sh` at master `7a9cf707e`.
+<!-- SECTION:DESCRIPTION:END -->
 
 ## Status 2026-09-24
 
@@ -30,19 +40,15 @@ Second review caught the other install-held marker writers: restart claim and pr
 
 Baseline: `origin/master` at `373d15fc3`. Criterion disposition and remaining positive targets are above; the acceptance criteria below remain authoritative. An authored but unrun VM scenario is **proof pending**, not met.
 
-## Description
-
-<!-- SECTION:DESCRIPTION:BEGIN -->
-A deliberate preflight refusal explains the reason and one outside fix before changes begin, exits 78, and prints the complete rerun command with selected channel and unattended options. A failure after work begins names the step, cause, fix, rerun command, and support-file path. Operator output avoids implementation vocabulary while detailed traces remain in the log.
-
-## Evidence, 2026-09-24
-
-The Finland disk refusal printed shell source, `SYSTEM UNUSABLE`, an unnamed invariant, and a directory-dependent command (`/Users/jhf/ssb/statbus/tmp/finland-transcript-actual.txt:14-35`). Current bootstrap refusal handling is at `install.sh:770-792`, and Go refusal classification is at `cli/cmd/install.go:95-101`, both at master `7a9cf707e`. The existing harness self-test path is `test/install-recovery/tests/harness-failure-path-selftest.sh` at master `7a9cf707e`.
-<!-- SECTION:DESCRIPTION:END -->
-
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
 - [ ] #1 `test/install-recovery/tests/harness-failure-path-selftest.sh` covers a deliberate preflight refusal and observes exit 78, plain reason, one outside fix, and the STATBUS-387 rerun command with selected options.
 - [ ] #2 `new: test/install-recovery/tests/installer-post-start-failure-output-test.sh` forces a post-start failure and observes the step, cause, one fix, rerun command, and support-file path with a non-78 failure exit.
 - [ ] #3 `new: test/install-recovery/tests/installer-output-vocabulary-test.sh` rejects `invariant`, `guard`, `flock`, shell source, and internal state names in operator output while confirming those traces remain in the install log.
 <!-- AC:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+Audit after v2026.09.3 (2026-09-29): v2026.09.3 routes named refusals to the operator (28c07da3e, add66cae9). The related Go tests are green. The ACs are not met: the self-test lacks an exit-78 case, and the post-start-failure and vocabulary tests do not exist.
+<!-- SECTION:NOTES:END -->

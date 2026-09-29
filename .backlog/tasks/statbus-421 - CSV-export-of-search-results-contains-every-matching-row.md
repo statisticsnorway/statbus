@@ -1,9 +1,10 @@
 ---
 id: STATBUS-421
 title: CSV export of search results contains every matching row
-status: To Do
+status: In Progress
 assignee: []
 created_date: '2026-09-25 14:02'
+updated_date: '2026-09-29 08:05'
 labels:
   - app
 dependencies: []
@@ -30,5 +31,10 @@ Reported by Erik 2026-09-25 (Slack): exporting all legal units + establishments 
 ## Fix merged, 2026-09-25 (commit bc8d94082)
 
 /app/src/app/api/search/export/route.ts now streams successive 100k-row PostgREST pages into the CSV response with backpressure; ordering is name.asc + tiebreakers unit_type, unit_id, valid_from, valid_to (unique per the view's UNION ALL timeline inputs). XLSX fails closed with 413 + CSV recommendation when the exact count is unavailable or exceeds 1,048,575 data rows, and accumulation is bounded by the up-front count. UI disables Excel above the threshold. Two independent review rounds; Jest coverage for multi-page assembly, refusals, ordering. Known limit (documented in code): offset pagination is not snapshot-consistent under concurrent writes; a stronger guarantee needs a snapshot/keyset design. Awaiting CI green + candidate gate as final evidence.
-
 <!-- SECTION:DESCRIPTION:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+Audit after v2026.09.3 (2026-09-29): v2026.09.3 streams every CSV page and refuses XLSX over the row limit (b13d82fe6, ff367df55). Jest route tests are green in app build & lint 36503468262. Done when a Norway export after v2026.09.3 yields the full row count (~1.9M) and Erik confirms.
+<!-- SECTION:NOTES:END -->

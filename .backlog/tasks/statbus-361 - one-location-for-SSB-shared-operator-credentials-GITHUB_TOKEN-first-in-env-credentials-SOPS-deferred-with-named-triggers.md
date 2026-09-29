@@ -7,7 +7,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-09-07 13:48'
-updated_date: '2026-09-25 20:58'
+updated_date: '2026-09-29 08:04'
 labels:
   - release-bug
   - ops
@@ -132,3 +132,9 @@ Remaining: Land secret-file enforcement and prove authenticated dev calls while 
 ## Notes 2026-09-25
 
 The upgrade service loads optional `GITHUB_TOKEN`, `SLACK_TOKEN`, and `SEQ_API_KEY` from `.env.credentials` at startup, before API requests, git fetches, or callback subprocesses. A nonempty process environment value wins over the credentials file. The user-level systemd unit does not source the file, avoiding systemd EnvironmentFile precedence over an explicit process environment. `GITHUB_TOKEN` reaches both GitHub API requests and the authenticated git-fetch header; `SLACK_TOKEN` reaches the callback subprocess. Generated `.env` continues to supply `SEQ_API_KEY` to app/worker containers. No token value is logged by the loader. Deployment observation for dev authentication and anonymous Norway/demo remains pending.
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+Audit after v2026.09.3 (2026-09-29): v2026.09.3 (f7b84a5d5, 31e4e5f37, 626bc0d9b, c514d4264, f8503adca): secrets are enforced in .env.credentials and legacy tokens migrate on regeneration. AC2/AC3 are green in Go Test, and smoke 0-happy-upgrade (36505292818) upgrades a v2026.09.2 placeholder config. Remaining: the AC1 grep and AC4 rate-limit observations on dev (and no/demo stay anonymous) after the rc.17 deploy.
+<!-- SECTION:NOTES:END -->

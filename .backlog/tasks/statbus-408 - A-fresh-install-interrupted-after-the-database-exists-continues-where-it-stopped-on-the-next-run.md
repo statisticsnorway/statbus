@@ -4,7 +4,7 @@ title: An interrupted first installation resumes from its first incomplete step
 status: In Progress
 assignee: []
 created_date: '2026-09-24 15:46'
-updated_date: '2026-09-24 18:44'
+updated_date: '2026-09-29 08:04'
 labels:
   - release-bug
   - install
@@ -17,12 +17,6 @@ type: bug
 ordinal: 361000
 ---
 
-## Status 2026-09-24
-
-**In Progress.** `474cf6119`: `cli/internal/install/state.go`, `state_test.go`, and `cli/cmd/install_detection_test.go` implement first-install vs legacy marker classification (#1-2 via equivalent tests). #3-4 named `5-install-interrupted-after-database-created.sh` are absent. **Remaining:** preserve a sentinel and volume across interrupted step-eight rerun, then prove full service readiness on a disposable VM.
-
-Baseline: `origin/master` at `373d15fc3`. Criterion disposition and remaining positive targets are above; the acceptance criteria below remain authoritative. An authored but unrun VM scenario is **proof pending**, not met.
-
 ## Description
 
 <!-- SECTION:DESCRIPTION:BEGIN -->
@@ -33,6 +27,12 @@ A rerun classifies a reachable database as an interrupted first installation whe
 Current detection returns legacy whenever the database is reachable and `public.upgrade` is absent (`cli/internal/install/state.go:138-148` at master `7a9cf707e`). Applied migrations are recorded in `db.migration` (`cli/internal/migrate/migrate.go:1-5`), and the existing seed gate distinguishes a missing table, an empty table, and one or more applied rows (`cli/cmd/seed_gate_test.go:25-58`), both at master `7a9cf707e`. On the disposable VM, a step-8 interruption left the original volume reachable without seed or migrations and every rerun was refused as legacy (`/Users/jhf/ssb/.jcode/scratch/rest-loop.md:45-48,163-175`).
 <!-- SECTION:DESCRIPTION:END -->
 
+## Status 2026-09-24
+
+**In Progress.** `474cf6119`: `cli/internal/install/state.go`, `state_test.go`, and `cli/cmd/install_detection_test.go` implement first-install vs legacy marker classification (#1-2 via equivalent tests). #3-4 named `5-install-interrupted-after-database-created.sh` are absent. **Remaining:** preserve a sentinel and volume across interrupted step-eight rerun, then prove full service readiness on a disposable VM.
+
+Baseline: `origin/master` at `373d15fc3`. Criterion disposition and remaining positive targets are above; the acceptance criteria below remain authoritative. An authored but unrun VM scenario is **proof pending**, not met.
+
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
 - [ ] #1 `new: cli/internal/install/state_markers_test.go::TestInterruptedFreshMarkers` classifies absent `public.upgrade`, null `to_regclass('public.statistical_unit')`, and missing or empty `db.migration` as interrupted first installation.
@@ -40,3 +40,9 @@ Current detection returns legacy whenever the database is reachable and `public.
 - [ ] #3 `new: test/install-recovery/scenarios/5-install-interrupted-after-database-created.sh` fails after database creation, writes a sentinel row before interruption, reruns installation, and observes resume from the first incomplete step with the volume and sentinel preserved.
 - [ ] #4 `new: test/install-recovery/scenarios/5-install-interrupted-after-database-created.sh` reaches ready services and records the final classification markers.
 <!-- AC:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+Audit after v2026.09.3 (2026-09-29): v2026.09.3 (0a3f2ff80, 3c76d6323) resumes an interrupted first install. rc.17 LXD 5-install-interrupted-first-run PASS. The discriminator shipped as migration provenance, so rewrite AC1/AC2 to it. The sentinel-preservation scenario (AC3/AC4) does not exist.
+<!-- SECTION:NOTES:END -->

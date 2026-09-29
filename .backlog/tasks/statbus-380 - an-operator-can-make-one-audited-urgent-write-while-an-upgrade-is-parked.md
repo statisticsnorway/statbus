@@ -4,7 +4,7 @@ title: An operator can make one audited urgent repair while an upgrade stays par
 status: In Progress
 assignee: []
 created_date: '2026-09-21 12:03'
-updated_date: '2026-09-24 18:45'
+updated_date: '2026-09-29 08:04'
 labels:
   - release-bug
   - upgrade
@@ -16,24 +16,33 @@ type: task
 ordinal: 22
 ---
 
+## Description
+
+<!-- SECTION:DESCRIPTION:BEGIN -->
+`./sb upgrade repair --file <sql> --reason <reason> --operator <name>` applies exactly one reviewed SQL statement while a genuinely parked upgrade remains parked. The same transaction records operator, reason, connection, and repair marker in `public.upgrade_state_log`. Client writes remain held throughout.
+
+## Evidence, 2026-09-24
+
+The repair command is merged at `cli/cmd/upgrade_repair.go:78-153` at master `7a9cf707e`. Its SQL requires a parked row, locks that row, writes the audit record, and runs the reviewed statement in one transaction (`cli/cmd/upgrade_repair.go:130-153` at master `7a9cf707e`). The parked window is a client hold rather than an administrator capability boundary (`doc/upgrade-recovery-model.md:60-74` and `doc/read-only-upgrade-window.md`, “Maintenance writes” section, at master `7a9cf707e`). The historical fixture commit is not asserted without a permitted primary record. Owner confirmation of this policy remains open.
+<!-- SECTION:DESCRIPTION:END -->
+
 ## Status 2026-09-24
 
 **In Progress:** `717368361` (`4069671b3`, `a0781aab7`) adds `cli/cmd/upgrade_repair.go` and `upgrade_repair_test.go` for one audited, bounded transaction and input refusal (#1-3 by equivalent tests). #4 real parked VM scenario and #5 owner-approved policy test/doc are absent. **Remaining:** agree the reviewed repair policy and demonstrate one audited repair with unchanged parked state and client-write hold on a VM.
 
 Baseline: `origin/master` at `373d15fc3`. Criterion disposition and remaining positive targets are above; the acceptance criteria below remain authoritative. An authored but unrun VM scenario is **proof pending**, not met.
 
-## Description
-
-`./sb upgrade repair --file <sql> --reason <reason> --operator <name>` applies exactly one reviewed SQL statement while a genuinely parked upgrade remains parked. The same transaction records operator, reason, connection, and repair marker in `public.upgrade_state_log`. Client writes remain held throughout.
-
-## Evidence, 2026-09-24
-
-The repair command is merged at `cli/cmd/upgrade_repair.go:78-153` at master `7a9cf707e`. Its SQL requires a parked row, locks that row, writes the audit record, and runs the reviewed statement in one transaction (`cli/cmd/upgrade_repair.go:130-153` at master `7a9cf707e`). The parked window is a client hold rather than an administrator capability boundary (`doc/upgrade-recovery-model.md:60-74` and `doc/read-only-upgrade-window.md`, “Maintenance writes” section, at master `7a9cf707e`). The historical fixture commit is not asserted without a permitted primary record. Owner confirmation of this policy remains open.
-
 ## Acceptance Criteria
-
-- [ ] #1 `cli/cmd/upgrade_repair_test.go::TestParkedRepairSQL_AuditsAndKeepsOneTransaction` proves one transaction contains the parked-row check, audit fields, and reviewed statement.
-- [ ] #2 `cli/cmd/upgrade_repair_test.go::TestParkedRepairSQL_RejectsMetaCommandsAndTransactionVariants` proves multi-statement, transaction-control, and meta-command inputs are refused.
-- [ ] #3 `cli/cmd/upgrade_repair_test.go::TestUpgradeRepairRequiresAuditInputs` requires file, reason, and operator.
+<!-- AC:BEGIN -->
+- [x] #1 `cli/cmd/upgrade_repair_test.go::TestParkedRepairSQL_AuditsAndKeepsOneTransaction` proves one transaction contains the parked-row check, audit fields, and reviewed statement.
+- [x] #2 `cli/cmd/upgrade_repair_test.go::TestParkedRepairSQL_RejectsMetaCommandsAndTransactionVariants` proves multi-statement, transaction-control, and meta-command inputs are refused.
+- [x] #3 `cli/cmd/upgrade_repair_test.go::TestUpgradeRepairRequiresAuditInputs` requires file, reason, and operator.
 - [ ] #4 `new: test/install-recovery/scenarios/7-parked-upgrade-audited-repair.sh` parks a real upgrade, performs one repair, observes one matching audit record, unchanged parked state, and continued client-write hold.
 - [ ] #5 `new: cli/cmd/upgrade_repair_policy_test.go::TestOwnerDecisionNamesApprovedParkedRepairPolicy` verifies `new: doc/upgrade-repair-policy.md::owner-decision` records owner confirmation or a concrete replacement policy before completion.
+<!-- AC:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+Audit after v2026.09.3 (2026-09-29): v2026.09.3 ships ./sb upgrade repair (4e8899f05, 4069671b3, a0781aab7). AC1-3 are green in Go Test 36503468493. Remaining: the AC4 VM/LXD parked-repair scenario and the AC5 owner-approved policy doc.
+<!-- SECTION:NOTES:END -->

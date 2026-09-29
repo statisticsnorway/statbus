@@ -4,7 +4,7 @@ title: A superseded candidate's fleet stops before its next VM boots
 status: In Progress
 assignee: []
 created_date: '2026-09-25 09:45'
-updated_date: '2026-09-25 16:35'
+updated_date: '2026-09-29 08:04'
 labels:
   - release-bug
   - ci
@@ -13,12 +13,6 @@ priority: high
 type: bug
 ordinal: 367000
 ---
-
-## Status 2026-09-25
-
-**Follow-up dispatch defect (rc.04, run 36121911613).** rc.04 (`2a27caf85`) was cut at 10:03:52Z. Its orchestrator smoke job failed at 10:05:08Z in `dispatch-fleet-and-wait/dispatch.sh` preflight, before any scenario ran, because the shared concurrency group still listed rc.03 Install Recovery Harness run 36116753412. That older run's last two jobs had ended at 10:04:07Z and 10:04:22Z, so GitHub was still releasing the group. REST reports its head_branch `v2026.09.3-rc.03`, event `workflow_dispatch`, actor `github-actions[bot]`; workflow run REST does not expose the orchestrator-run-id input. Newer candidate dispatch must wait a bounded 20 minutes for exclusively older bot-dispatched RC occupants, reporting remaining jobs and never cancelling. Same/newer candidate, manual human dispatch and unknown provenance still refuse. This is a classification fix, not evidence that tagged CI has passed; AC #5 remains open.
-
-**In Progress, tagged proof pending.** `ef32c20c5` (merge `21426f622`) adds the shared `scenario-superseded` check as the first post-checkout step in all three VM jobs (`.github/workflows/test-smoke.yaml:103`, `install-recovery-harness.yaml:480`, `upgrade-arc-harness.yaml:634`), plus marker aggregation (`.github/actions/scenario-fleet-verdict/aggregate.sh:34-35`), dispatch propagation and the structural test (`cli/cmd/workflow_harness_domain_validation_test.go:22-74`). This is not an observed supersession. AC #5 requires a real newer-tag exercise with job summary, artifact, orchestrator SUPERSEDED verdict, run IDs/conclusions and no new VM boots; keep all AC open until rc.03 gate evidence.
 
 ## Description
 
@@ -40,8 +34,13 @@ rc.04 exposed the opposite defect: its orchestrator run 36121911613 failed in 90
 ## rc.05 observation, 2026-09-25
 
 Run 36130286326 was the newest candidate's own fleet, so no scenario started after a newer cut: the supersession check remains unobserved in anger. First real opportunity is rc.06's fleet if rc.07 is cut while it runs.
-
 <!-- SECTION:DESCRIPTION:END -->
+
+## Status 2026-09-25
+
+**Follow-up dispatch defect (rc.04, run 36121911613).** rc.04 (`2a27caf85`) was cut at 10:03:52Z. Its orchestrator smoke job failed at 10:05:08Z in `dispatch-fleet-and-wait/dispatch.sh` preflight, before any scenario ran, because the shared concurrency group still listed rc.03 Install Recovery Harness run 36116753412. That older run's last two jobs had ended at 10:04:07Z and 10:04:22Z, so GitHub was still releasing the group. REST reports its head_branch `v2026.09.3-rc.03`, event `workflow_dispatch`, actor `github-actions[bot]`; workflow run REST does not expose the orchestrator-run-id input. Newer candidate dispatch must wait a bounded 20 minutes for exclusively older bot-dispatched RC occupants, reporting remaining jobs and never cancelling. Same/newer candidate, manual human dispatch and unknown provenance still refuse. This is a classification fix, not evidence that tagged CI has passed; AC #5 remains open.
+
+**In Progress, tagged proof pending.** `ef32c20c5` (merge `21426f622`) adds the shared `scenario-superseded` check as the first post-checkout step in all three VM jobs (`.github/workflows/test-smoke.yaml:103`, `install-recovery-harness.yaml:480`, `upgrade-arc-harness.yaml:634`), plus marker aggregation (`.github/actions/scenario-fleet-verdict/aggregate.sh:34-35`), dispatch propagation and the structural test (`cli/cmd/workflow_harness_domain_validation_test.go:22-74`). This is not an observed supersession. AC #5 requires a real newer-tag exercise with job summary, artifact, orchestrator SUPERSEDED verdict, run IDs/conclusions and no new VM boots; keep all AC open until rc.03 gate evidence.
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
@@ -51,3 +50,9 @@ Run 36130286326 was the newest candidate's own fleet, so no scenario started aft
 - [ ] #4 Live sibling VMs finish and self-clean, the shared noncancelling VM capacity lock remains, and no superseded fleet launches the next stage. A real failure with no superseding tag stays red.
 - [ ] #5 A tagged CI exercise verifies the observable job summary, artifact verdict, orchestrator SUPERSEDED verdict, and absence of new VM boots after a newer RC tag appears. Record run IDs and actual conclusions.
 <!-- AC:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+Audit after v2026.09.3 (2026-09-29): v2026.09.3: the freshness guard ships in smoke/arc jobs (ef32c20c5) and the LXD fleet (lxd-fleet.yaml freshness/after-wait). Supersession was never observed across rc.01–rc.17. Rescope the ACs to the LXD fleet and to 425's LXD arcs, then observe one.
+<!-- SECTION:NOTES:END -->

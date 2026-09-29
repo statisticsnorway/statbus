@@ -1,10 +1,12 @@
 ---
 id: STATBUS-398
-title: The install-failure banner explains that a later successful install or upgrade clears it
-status: In Progress
+title: >-
+  The install-failure banner explains that a later successful install or upgrade
+  clears it
+status: Done
 assignee: []
 created_date: '2026-09-24 16:44'
-updated_date: '2026-09-25 10:28'
+updated_date: '2026-09-29 08:04'
 labels:
   - release-bug
   - install
@@ -16,6 +18,16 @@ priority: medium
 type: task
 ordinal: 88
 ---
+
+## Description
+
+<!-- SECTION:DESCRIPTION:BEGIN -->
+Until the owner approves replacement wording, the banner says: “The last installation did not finish. Run the installer again. This message clears after a successful installation or upgrade.” Owner approval gates any wording change, not implementation of this provisional text.
+
+## Evidence, 2026-09-24
+
+Banner reading and writing is at `cli/cmd/support.go:169-170` at master `7a9cf707e`. Successful install clearing is at `cli/cmd/install.go:3042-3077`, and successful upgrade clearing is at `cli/internal/upgrade/service.go:4679-4683`, both at master `7a9cf707e`.
+<!-- SECTION:DESCRIPTION:END -->
 
 ## Status 2026-09-25
 
@@ -38,17 +50,16 @@ Progress pending an end-to-end install-clear observation if required for Done.
 
 Baseline: `origin/master` at `373d15fc3`. Criterion disposition and remaining positive targets are above; the acceptance criteria below remain authoritative. An authored but unrun VM scenario is **proof pending**, not met.
 
-## Description
-
-Until the owner approves replacement wording, the banner says: “The last installation did not finish. Run the installer again. This message clears after a successful installation or upgrade.” Owner approval gates any wording change, not implementation of this provisional text.
-
-## Evidence, 2026-09-24
-
-Banner reading and writing is at `cli/cmd/support.go:169-170` at master `7a9cf707e`. Successful install clearing is at `cli/cmd/install.go:3042-3077`, and successful upgrade clearing is at `cli/internal/upgrade/service.go:4679-4683`, both at master `7a9cf707e`.
-
 ## Acceptance Criteria
+<!-- AC:BEGIN -->
+- [x] #1 `new: app/src/app/admin/upgrades/install-failure-banner-wording.test.ts` asserts the provisional sentence exactly until a cited owner decision replaces it.
+- [x] #2 `cli/internal/upgrade/install_failure_banner_test.go` proves a successful upgrade clears the banner.
+- [x] #3 `new: cli/cmd/install_failure_banner_test.go::TestSuccessfulInstallClearsBanner` proves a successful install clears the banner.
+- [x] #4 `app/src/app/admin/upgrades/install-failure-banner.test.ts` proves the UI shows the current persisted banner and hides it after clearing.
+<!-- AC:END -->
 
-- [ ] #1 `new: app/src/app/admin/upgrades/install-failure-banner-wording.test.ts` asserts the provisional sentence exactly until a cited owner decision replaces it.
-- [ ] #2 `cli/internal/upgrade/install_failure_banner_test.go` proves a successful upgrade clears the banner.
-- [ ] #3 `new: cli/cmd/install_failure_banner_test.go::TestSuccessfulInstallClearsBanner` proves a successful install clears the banner.
-- [ ] #4 `app/src/app/admin/upgrades/install-failure-banner.test.ts` proves the UI shows the current persisted banner and hides it after clearing.
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+Audit after v2026.09.3 (2026-09-29): Done in v2026.09.3 (42be53b2e). All four named tests exist and ran green: Jest in app build & lint 36503468262, Go in Go Test 36503468493. The wording stays provisional until the owner replaces it.
+<!-- SECTION:NOTES:END -->

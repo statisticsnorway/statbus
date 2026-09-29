@@ -3,10 +3,10 @@ id: STATBUS-173
 title: >-
   standalone-pgadmin: local pgAdmin on the standalone host at /pgadmin, JWT/user
   model resolved (no superadmin)
-status: In Progress
+status: To Do
 assignee: []
 created_date: '2026-07-13 11:39'
-updated_date: '2026-09-23 15:10'
+updated_date: '2026-09-29 08:05'
 labels:
   - feature-next
   - standalone
@@ -16,12 +16,6 @@ dependencies: []
 priority: low
 ordinal: 174000
 ---
-
-## Status 2026-09-24
-
-**In Progress:** #1 documented and approved in this ticket (`0ccca148f` history); #2-5 not shipped on master: no pgAdmin service or real standalone proof. **Remaining:** port the retained branch's pgAdmin mechanics, wire scoped per-user RLS and webserver auth, and verify `/pgadmin` on a real standalone box.
-
-Baseline: `origin/master` at `373d15fc3`. Criterion disposition and remaining positive targets are above; the acceptance criteria below remain authoritative. An authored but unrun VM scenario is **proof pending**, not met.
 
 ## Description
 
@@ -40,6 +34,12 @@ REFERENCE (feature/pgadmin branch, tip 7b01c88... — actually the pgadmin tip; 
 CONSTRAINT: standalone-only initially (no.statbus.org shape); the multi-tenant cloud case is a later question. Path-based (/pgadmin), not a subdomain, per the King's framing.
 <!-- SECTION:DESCRIPTION:END -->
 
+## Status 2026-09-24
+
+**In Progress:** #1 documented and approved in this ticket (`0ccca148f` history); #2-5 not shipped on master: no pgAdmin service or real standalone proof. **Remaining:** port the retained branch's pgAdmin mechanics, wire scoped per-user RLS and webserver auth, and verify `/pgadmin` on a real standalone box.
+
+Baseline: `origin/master` at `373d15fc3`. Criterion disposition and remaining positive targets are above; the acceptance criteria below remain authoritative. An authored but unrun VM scenario is **proof pending**, not met.
+
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
 - [x] #1 Auth model ruled: how an operator authenticated to statbus reaches /pgadmin without a second credential (app-JWT reuse vs a forward_auth bridge), documented before build
@@ -48,6 +48,12 @@ CONSTRAINT: standalone-only initially (no.statbus.org shape); the multi-tenant c
 - [ ] #4 no.statbus.org/pgadmin serves pgAdmin path-based on the standalone host, proven on a real box (rune-no or a test standalone)
 - [ ] #5 BUILDS ON the feature/pgadmin branch (King, 2026-07-13): the branch is the working foundation — rebase/port its deployment mechanics forward (multi-tenant compose, custom pgAdmin image + SSLSNI patch, forward_auth handle_response, command-palette link, DEPLOYMENT.md doc) and resolve the auth model on top. The branch is KEPT, not retired, until this ships.
 <!-- AC:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+Audit after v2026.09.3 (2026-09-29): no work in v2026.09.3 (git log v2026.09.2..v2026.09.3 has no commits for it). Set In Progress by the 2026-09-24 reconcile (b20dc1395); back to To Do until work starts.
+<!-- SECTION:NOTES:END -->
 
 ## Comments
 

@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-09-14 11:41'
-updated_date: '2026-09-23 15:10'
+updated_date: '2026-09-29 08:04'
 labels:
   - release-bug
   - release
@@ -109,3 +109,9 @@ every Authorization header value. A sentinel-token failure test covers the
 returned error, a user-visible log buffer, and a collected diagnostic file.
 The release-workflow retry test also proves that a permanently empty runs page
 returns `Missing` after exactly three requests.
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+Audit after v2026.09.3 (2026-09-29): v2026.09.3 adds 1e96d380f and 6442f2b8a (Git auth header fixes). The 100-run 'via gh auth' proof is still unrecorded.
+<!-- SECTION:NOTES:END -->

@@ -1,12 +1,15 @@
 ---
 id: STATBUS-419
-title: An operator can remove a StatBus installation cleanly, from install.sh or from the installed system
-status: To Do
+title: >-
+  An operator can remove a StatBus installation cleanly, from install.sh or from
+  the installed system
+status: In Progress
 assignee: []
 created_date: '2026-09-25 13:08'
-updated_date: '2026-09-26 08:51'
+updated_date: '2026-09-29 08:05'
 labels:
   - installer
+dependencies: []
 priority: high
 type: feature
 ordinal: 368200
@@ -36,13 +39,18 @@ Purpose: when an installation is broken or the operator wants to start over (Fin
 - **Interactive:** asks what to delete — everything, or keep selected things (e.g. database dumps, credentials). Plain operator text.
 - **Non-interactive:** deletes everything, gated by an explicit confirmation environment variable (e.g. `STATBUS_UNINSTALL_CONFIRM=yes-delete-everything`); without it, refuse with instructions.
 - **Container-owned files:** rc.05's orphaned-volume scenario proved `caddy/data/` contains root-owned files — removal needs root or docker-mediated deletion; the uninstaller must handle that, not die on Permission denied.
-
 <!-- SECTION:DESCRIPTION:END -->
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
 - [ ] #1 `./sb uninstall` on an installed system removes containers, volumes, images, units and the checkout, printing exactly what will be deleted and requiring explicit confirmation first.
 - [ ] #2 The same removal is triggerable via a standalone `uninstall.sh` served at statbus.org, with identical behavior and output conventions (plain operator text, step lines visible).
-- [ ] #3 An install-recovery scenario proves: install, uninstall, fresh install succeeds on the same box.
-- [ ] #4 Documentation in doc/DEPLOYMENT.md.
+- [x] #3 An install-recovery scenario proves: install, uninstall, fresh install succeeds on the same box.
+- [x] #4 Documentation in doc/DEPLOYMENT.md.
 <!-- AC:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+Audit after v2026.09.3 (2026-09-29): v2026.09.3 ships ./sb uninstall + uninstall.sh (merge e223af347). AC3: 6-uninstall-reinstall PASS in rc.17 LXD 36506437069. AC4 documented. AC2 open: statbus.org/uninstall.sh redirects to www.statbus.org/uninstall.sh, which returns 404 (add the redirect beside install.sh on niue's Caddyfile). AC1 'prints exactly what will be deleted' is not yet asserted.
+<!-- SECTION:NOTES:END -->

@@ -4,7 +4,7 @@ title: A push that changes only generated doc/db/ files rides the parent's green
 status: In Progress
 assignee: []
 created_date: '2026-09-24 23:55'
-updated_date: '2026-09-25 13:36'
+updated_date: '2026-09-29 08:04'
 labels:
   - release-bug
   - ci
@@ -29,13 +29,18 @@ A commit that changes only generated database-reference Markdown under `doc/db/`
 ## Owner decision, 2026-09-25 13:35Z: option D — delete the guard
 
 The retired-role string guard (`TestRetiredUpgradeRoleAppearsNowhere`, cli/cmd/upgrade_role_retired_test.go) is deleted. Owner's analysis, confirmed by the coordinator: the test over-fires (the string in commentary or generated SQL is not the harm) and under-fires (the same design error under a different key name passes). It guards one historical string, not a principle; the design decision lives in the STATBUS-307 ticket and git history, and review is the actual gate. With the guard gone, this ticket's blocker is dissolved: doc/db-only pushes may ride the exemption list on their own merits, after verifying no OTHER Go test or build step consumes doc/db/ (memo: tmp/q1-docdb-exemption.md).
-
 <!-- SECTION:DESCRIPTION:END -->
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 A repository test establishes that only generated `doc/db/` paths join `.backlog/` in `ops/release/ci-exempt-paths.txt` and in the Go/app push filters; `doc/` generally, source inputs, migrations, `test/`, mixed commits, and the policy file itself require fresh checks.
+- [x] #1 A repository test establishes that only generated `doc/db/` paths join `.backlog/` in `ops/release/ci-exempt-paths.txt` and in the Go/app push filters; `doc/` generally, source inputs, migrations, `test/`, mixed commits, and the policy file itself require fresh checks.
 - [ ] #2 The release gate reports the parent SHA, exact green run IDs and changed-file count when a generated-doc-only commit rides green Go/app/Fast Tests verdicts; a red or pending parent cannot be ridden, and Images still requires an artifact at the new SHA.
 - [ ] #3 The Images workflow chooses its existing verified parent-retag path for a `doc/db/`-only push and publishes publicly verifiable service image tags at the tip, while preserving the seed-image publication invariant. A missing parent artifact fails toward full build.
 - [ ] #4 A pushed `doc/db/`-only commit is observed in Actions: Go/app omit redundant runs, Images uses retag rather than full service builds, and release preflight accepts the parent's recorded green content verdicts without confusing a missing tip run with a new green run. Record the run IDs and the exact parent/tip SHAs.
 <!-- AC:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+Audit after v2026.09.3 (2026-09-29): v2026.09.3 (2bdb7bdad, merge eec893ed2): generated doc/db/{table,view,function}/ joined the exempt list and path filters. Tests are green. Remaining: AC4, an observed doc/db-only push (Go/app skipped, Images retag, release preflight rides the parent), with run IDs.
+<!-- SECTION:NOTES:END -->

@@ -4,7 +4,7 @@ title: A box with outbound HTTPS-only policy installs and upgrades successfully
 status: In Progress
 assignee: []
 created_date: '2026-09-07 07:02'
-updated_date: '2026-09-24 18:47'
+updated_date: '2026-09-29 08:04'
 labels:
   - release-bug
   - install
@@ -16,12 +16,6 @@ priority: medium
 type: task
 ordinal: 50
 ---
-
-## Status 2026-09-24
-
-**In Progress:** `bdbcd8247` (`684945e11`, `3eb69eeca`) added private-destination nft exemption and `0-https-only-egress.sh`. #1 and #3 require named real-VM run `STATBUS-357-https-only-nat-1`, proof pending; #2 named mutation test absent; #4 default selection stays deliberately disabled. **Remaining:** run baseline+upgrade VM, run HTTP mutation control, record evidence, and select the scenario by default.
-
-Baseline: `origin/master` at `373d15fc3`. Criterion disposition and remaining positive targets are above; the acceptance criteria below remain authoritative. An authored but unrun VM scenario is **proof pending**, not met.
 
 ## Description
 
@@ -37,6 +31,12 @@ The current scenario is explicitly on demand through `HARNESS_SKIP_DEFAULT` (`te
 The proof identity is `STATBUS-357-https-only-nat-1`. Its evidence file is `new: test/install-recovery/evidence/STATBUS-357-https-only-nat-1.md`, which records candidate tag, harness run URL, Ubuntu image, firewall rules as listed by nft, the docker-proxy health path result, install result, and upgrade result.
 <!-- SECTION:DESCRIPTION:END -->
 
+## Status 2026-09-24
+
+**In Progress:** `bdbcd8247` (`684945e11`, `3eb69eeca`) added private-destination nft exemption and `0-https-only-egress.sh`. #1 and #3 require named real-VM run `STATBUS-357-https-only-nat-1`, proof pending; #2 named mutation test absent; #4 default selection stays deliberately disabled. **Remaining:** run baseline+upgrade VM, run HTTP mutation control, record evidence, and select the scenario by default.
+
+Baseline: `origin/master` at `373d15fc3`. Criterion disposition and remaining positive targets are above; the acceptance criteria below remain authoritative. An authored but unrun VM scenario is **proof pending**, not met.
+
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
 - [ ] #1 `new: test/install-recovery/scenarios/0-https-only-egress.sh` run `STATBUS-357-https-only-nat-1` first proves on a real Ubuntu 26.04 VM that the private-destination exemption preserves the Docker-published loopback health path (docker-proxy to the container IP) while TCP/80 to public destinations is rejected.
@@ -44,3 +44,9 @@ The proof identity is `STATBUS-357-https-only-nat-1`. Its evidence file is `new:
 - [ ] #3 `new: test/install-recovery/scenarios/0-https-only-egress.sh` run `STATBUS-357-https-only-nat-1` verifies that `new: test/install-recovery/evidence/STATBUS-357-https-only-nat-1.md` records its successful baseline install and candidate upgrade under the corrected real-VM rule.
 - [ ] #4 After criteria #1-#3, `test/install-recovery/scenarios/0-https-only-egress.sh` removes `HARNESS_SKIP_DEFAULT`, and `new: test/install-recovery/tests/https-only-egress-selection-test.sh` observes the scenario in `run.sh --print-selected`.
 <!-- AC:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+Audit after v2026.09.3 (2026-09-29): v2026.09.3 carries the private-destination nft exemption (684945e11, 61ece22d1, 3eb69eeca). No real run STATBUS-357-https-only-nat-1 exists. Evidence file, mutation test and default selection are still missing. Decide where it runs (LXD VM?) now that the fault fleet is LXD.
+<!-- SECTION:NOTES:END -->

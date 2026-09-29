@@ -3,9 +3,10 @@ id: STATBUS-420
 title: >-
   Remove the pg_regress CI workflow; keep a local command matching the GitHub
   Fast Tests run
-status: To Do
+status: Done
 assignee: []
 created_date: '2026-09-25 13:20'
+updated_date: '2026-09-29 08:05'
 labels:
   - ci
 dependencies: []
@@ -29,5 +30,10 @@ pg_regress.yaml runs `./dev.sh continous-integration-test` over SSH to niue's st
 4. Remove the now-unused allowlisted command in `ops/niue/sshdoers:42`.
 5. Update docs: `doc/release-workflow-gates.md` (lines ~48), `doc/release-ladder.md`, `doc/DEVELOPMENT.md`, `doc/STRATEGY.md`, `ops/github-runner/README.md`.
 6. KEEP `./dev.sh continous-integration-test` as the locally runnable equivalent of the GitHub Fast Tests run (owner requirement: run locally the same thing that runs on GitHub), but strip the remote-only assumptions: the STATBUS-162 in-band db-log channel existed only because the workflow's SSH key was pinned to one command; locally the trap can stay or be simplified. Document it as the local equivalent.
-
 <!-- SECTION:DESCRIPTION:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+Audit after v2026.09.3 (2026-09-29): Done in v2026.09.3 (2bdb7bdad). Workflow, extract-db-logs action, WorkflowPgRegress and the sshdoers entry are removed. The local equivalent is documented. Deployed: niue /etc/sshdoers.sha256 = 59e5045f…183c = sha256 of v2026.09.3:ops/niue/sshdoers, with 0 continous-integration-test lines (checked 2026-09-29 07:55Z).
+<!-- SECTION:NOTES:END -->

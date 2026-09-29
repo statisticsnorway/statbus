@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-09-15 07:48'
-updated_date: '2026-09-23 15:10'
+updated_date: '2026-09-29 08:04'
 labels:
   - testing
   - harness
@@ -155,3 +155,9 @@ localhost SSH, hcloud, and user-mapping seams. It asserts the real failure
 diagnostic, byte-identical registered-log capture, scp-before-delete ordering,
 and the real `KEEP_VM=1` branch. Its negative control mutates the copied
 `capture_failure_artifacts` scp and observes the same contract turn red.
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+Audit after v2026.09.3 (2026-09-29): v2026.09.3: Harness Selftest green at the release commit (36503485820) and consulted by release check. Remaining: record one red negative-control run URL, one layer-3 VM run, and restore master's Harness Selftest (red since a83039410, lxd-smoke-checkpoint-test).
+<!-- SECTION:NOTES:END -->

@@ -6,6 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-09-28 21:42'
+updated_date: '2026-09-29 08:05'
 labels:
   - upgrade
   - db
@@ -25,3 +26,9 @@ Found while fixing rc.16's c-rollback-resurrection (tmp/rollback-db-recreate.md,
 - [ ] #1 db service stops with SIGINT and a documented grace period
 - [ ] #2 A compose stop with live sessions ends with a clean shutdown (no crash recovery on next start), proven on an LXD fork
 <!-- AC:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+Audit after v2026.09.3 (2026-09-29): Not addressed in v2026.09.3.
+<!-- SECTION:NOTES:END -->

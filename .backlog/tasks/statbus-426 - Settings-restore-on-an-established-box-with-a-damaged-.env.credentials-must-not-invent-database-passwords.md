@@ -6,6 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-09-28 17:41'
+updated_date: '2026-09-29 08:04'
 labels:
   - install
 dependencies: []
@@ -25,3 +26,9 @@ Found in review of the rc.16 installer fix (tmp/review-detect-env-2.md, -3.md). 
 - [ ] #2 An interrupted fresh install with a token-only .env.credentials still resumes
 - [ ] #3 Test for each case
 <!-- AC:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+Audit after v2026.09.3 (2026-09-29): Still present in v2026.09.3 (install.go:3876 checks existence only). Schedule for the next candidate.
+<!-- SECTION:NOTES:END -->

@@ -1,10 +1,12 @@
 ---
 id: STATBUS-385
-title: Before starting StatBus, the installer names any program using a required port and how to free it
-status: In Progress
+title: >-
+  Before starting StatBus, the installer names any program using a required port
+  and how to free it
+status: Done
 assignee: []
 created_date: '2026-09-24 16:42'
-updated_date: '2026-09-27 10:14'
+updated_date: '2026-09-29 08:04'
 labels:
   - release-bug
   - install
@@ -13,20 +15,6 @@ priority: high
 type: bug
 ordinal: 1
 ---
-
-## Status 2026-09-24
-
-**In Progress.** `373d15fc3`: `cli/cmd/install_ports.go` and `cli/cmd/install_ports_test.go::TestPortConflictGuidance` cover port-owner diagnostics (#1 partly, non-80 named test pending). `4-install-port-80-taken.sh` is authored for #2-3, but a successful real-VM run is proof pending. **Remaining:** assert non-80 ownership, then execute Apache refusal and pasted rerun on a real VM.
-
-Baseline: `origin/master` at `373d15fc3`. Criterion disposition and remaining positive targets are above; the acceptance criteria below remain authoritative. An authored but unrun VM scenario is **proof pending**, not met.
-
-## Status 2026-09-25
-
-**Merged follow-up, proof pending.** `645a96236` (merge `56bfb8b36`) preserves a named Apache owner when the Docker ownership probe fails; `cli/cmd/install_ports_test.go:112-113` asserts the remedy and saved-answer rerun. rc.02 at `2198185bb` failed not only `4-install-port-80-taken` ([run 36104217764, job 107973800497](https://github.com/statisticsnorway/statbus/actions/runs/36104217764/job/107973800497)) but also phase a of `5-install-orphaned-db-volume-credentials` ([job 107973801514](https://github.com/statisticsnorway/statbus/actions/runs/36104217764/job/107973801514)), whose required port-80 cause/remedy is checked at `test/install-recovery/scenarios/5-install-orphaned-db-volume-credentials.sh:79-100`. Neither failed VM path proves AC #2-3. Await rc.03 reruns.
-
-**In Progress, release blocker.** Candidate `v2026.09.3-rc.02` failed scenario `4-install-port-80-taken.sh`, run `36104217764`, job `107973800497`: after Configuration DONE the terminal printed only the generic settings refusal (exit 78), not Apache's name and remedy. The installer wrapper admits only `port N is in use by ...` on this exit path; a failed Compose ownership probe instead says `port N is in use, but ... could not ask Docker`, which the wrapper replaces with the generic sentence. The job artifact did not collect `install-last-run-output.txt`, so the exact Go-side probe error is not available. The captured independent `docker compose ps` reports missing generated `.env` variables, evidence consistent with a Compose probe failure but not proof of its exact cause.
-
-The local reproducer fakes `apache2` owning port 80 and a failed Compose probe; before the repair it produced the Docker uncertainty error, and after the repair it produces `sudo systemctl disable --now apache2`, saved answers, and the complete rerun command. Unknown owners still retain conservative Docker-probe failure handling. VM acceptance criteria #2-3 remain **proof pending** until the next tagged candidate is run. No push or VM run in this change.
 
 ## Description
 
@@ -49,16 +37,35 @@ rc.03 run 36116753412: job 108013584931 (4-install-port-80-taken) printed the co
 ## rc.08 fleet outcome, 2026-09-27 (run 36306317962)
 
 Fleet: 19/23 green. The four reds are all harness-side with root causes and fixes in flight for rc.09: port-80 (the sslip override predates 418 cert staging; product refusal and rerun were both correct), concurrent-install (the rc.08 seed already contained the migration delta so the stall site never ran), interrupted-first-run (cert-staging env on the rerun), database-route-interrupted (expected first-run failure vs wrapper classification). Smoke: both legs green — the happy-upgrade leg proves the 361 legacy-token migration fix against v2026.09.2's placeholder-laden .env.config.
-
 <!-- SECTION:DESCRIPTION:END -->
+
+## Status 2026-09-24
+
+**In Progress.** `373d15fc3`: `cli/cmd/install_ports.go` and `cli/cmd/install_ports_test.go::TestPortConflictGuidance` cover port-owner diagnostics (#1 partly, non-80 named test pending). `4-install-port-80-taken.sh` is authored for #2-3, but a successful real-VM run is proof pending. **Remaining:** assert non-80 ownership, then execute Apache refusal and pasted rerun on a real VM.
+
+Baseline: `origin/master` at `373d15fc3`. Criterion disposition and remaining positive targets are above; the acceptance criteria below remain authoritative. An authored but unrun VM scenario is **proof pending**, not met.
+
+## Status 2026-09-25
+
+**Merged follow-up, proof pending.** `645a96236` (merge `56bfb8b36`) preserves a named Apache owner when the Docker ownership probe fails; `cli/cmd/install_ports_test.go:112-113` asserts the remedy and saved-answer rerun. rc.02 at `2198185bb` failed not only `4-install-port-80-taken` ([run 36104217764, job 107973800497](https://github.com/statisticsnorway/statbus/actions/runs/36104217764/job/107973800497)) but also phase a of `5-install-orphaned-db-volume-credentials` ([job 107973801514](https://github.com/statisticsnorway/statbus/actions/runs/36104217764/job/107973801514)), whose required port-80 cause/remedy is checked at `test/install-recovery/scenarios/5-install-orphaned-db-volume-credentials.sh:79-100`. Neither failed VM path proves AC #2-3. Await rc.03 reruns.
+
+**In Progress, release blocker.** Candidate `v2026.09.3-rc.02` failed scenario `4-install-port-80-taken.sh`, run `36104217764`, job `107973800497`: after Configuration DONE the terminal printed only the generic settings refusal (exit 78), not Apache's name and remedy. The installer wrapper admits only `port N is in use by ...` on this exit path; a failed Compose ownership probe instead says `port N is in use, but ... could not ask Docker`, which the wrapper replaces with the generic sentence. The job artifact did not collect `install-last-run-output.txt`, so the exact Go-side probe error is not available. The captured independent `docker compose ps` reports missing generated `.env` variables, evidence consistent with a Compose probe failure but not proof of its exact cause.
+
+The local reproducer fakes `apache2` owning port 80 and a failed Compose probe; before the repair it produced the Docker uncertainty error, and after the repair it produces `sudo systemctl disable --now apache2`, saved answers, and the complete rerun command. Unknown owners still retain conservative Docker-probe failure handling. VM acceptance criteria #2-3 remain **proof pending** until the next tagged candidate is run. No push or VM run in this change.
+
+## Acceptance Criteria
+<!-- AC:BEGIN -->
+- [x] #1 `cli/cmd/install_ports_test.go::TestCheckInstallPortsOwnAndForeign` covers a non-80 configured port (3014) held by another program and reports that port and owner, while StatBus's own published ports are accepted; `TestPortConflictGuidance` covers port 80 with its owning program and a sudo remedy; `4-install-port-80-taken.sh` observes zero StatBus services started before the refusal. Proven: Go Test 36503468493, rc.17 LXD 36506437069. (Amended 2026-09-29: the originally named `TestSelectedPortsAndOwners` was never written; these tests prove the same behaviour.)
+- [x] #2 `new: test/install-recovery/scenarios/4-install-port-80-taken.sh` installs Apache, observes zero StatBus service starts, and prints the fixture-specific `sudo systemctl disable --now apache2` recovery command plus the saved-answer rerun command.
+- [x] #3 `new: test/install-recovery/scenarios/4-install-port-80-taken.sh` applies the printed fix, pastes the same rerun command from the home directory, and reaches a ready installation.
+<!-- AC:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+Audit after v2026.09.3 (2026-09-29): Done in v2026.09.3 (08bcd2908, e6fc3f739, 931468bdb). AC1 is proven by TestCheckInstallPortsOwnAndForeign/TestPortConflictGuidance (Go Test 36503468493), not by the named TestSelectedPortsAndOwners. AC2/AC3: 4-install-port-80-taken PASS in rc.17 LXD fleet 36506437069.
+<!-- SECTION:NOTES:END -->
 
 ## Release blocker notes
 
 Candidate smoke 0-happy-install run 36063305786 (orchestrator 36063171711) installed successfully but the green-box rerun refused its own proxy port 3014. Docker's `Ports` string compressed 3014-3015, defeating substring matching. Preflight now uses this Compose project's structured per-port `Publishers`, preserving rejection of foreign listeners and other slots; Docker-probe failures report uncertainty rather than blaming another program. Keep In Progress until a candidate VM rerun proves the fix.
-
-## Acceptance Criteria
-<!-- AC:BEGIN -->
-- [ ] #1 `new: cli/cmd/install_ports_test.go::TestSelectedPortsAndOwners` covers port 80 and a non-80 configured port, reporting the discovered port and owning program before any StatBus service starts.
-- [ ] #2 `new: test/install-recovery/scenarios/4-install-port-80-taken.sh` installs Apache, observes zero StatBus service starts, and prints the fixture-specific `sudo systemctl disable --now apache2` recovery command plus the saved-answer rerun command.
-- [ ] #3 `new: test/install-recovery/scenarios/4-install-port-80-taken.sh` applies the printed fix, pastes the same rerun command from the home directory, and reaches a ready installation.
-<!-- AC:END -->

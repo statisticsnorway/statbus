@@ -4,7 +4,7 @@ title: Running the installer completes or waits for an earlier restart
 status: In Progress
 assignee: []
 created_date: '2026-09-24 15:47'
-updated_date: '2026-09-27 10:14'
+updated_date: '2026-09-29 08:04'
 labels:
   - release-bug
   - install
@@ -16,16 +16,6 @@ priority: high
 type: bug
 ordinal: 363000
 ---
-
-## Release gate observation 2026-09-25
-
-**In Progress.** rc.02 (`2198185bb`) failed `5-install-live-upgrade-wait` ([run 36104217764, job 107973801494](https://github.com/statisticsnorway/statbus/actions/runs/36104217764/job/107973801494)): the fixture's flock forked, so its child retained the lock instead of releasing it for the subsequent install retry. `1f84f55d4` (merge `51503fbbe`) changes the holder to `flock -F`, keeping the lock in the recorded process (`test/install-recovery/scenarios/5-install-live-upgrade-wait.sh:31`). This addresses the scenario's live-holder and recovery boundary for AC #2, but is not a successful VM observation. AC #1-4 remain open pending the rc.03 gate, including the absent start-limit scenario (#3).
-
-## Status 2026-09-24
-
-**In Progress.** `3fa3d744d`, `474cf6119`: `cli/cmd/service_restart.go`, `cli/internal/upgrade/restart_test.go` and authored `5-install-interrupted-restart.sh`, `5-install-live-upgrade-wait.sh` cover ownership and intent (#1-2 proof pending on VM; #4 partly). #3 start-limit scenario is absent. **Remaining:** run interrupted/live scenarios and prove cause-first repair before reset followed by ready service.
-
-Baseline: `origin/master` at `373d15fc3`. Criterion disposition and remaining positive targets are above; the acceptance criteria below remain authoritative. An authored but unrun VM scenario is **proof pending**, not met.
 
 ## Description
 
@@ -46,13 +36,28 @@ rc.03 run 36116753412 job 108013586646 (5-install-live-upgrade-wait): rerun refu
 ## rc.08 fleet outcome, 2026-09-27 (run 36306317962)
 
 Fleet: 19/23 green. The four reds are all harness-side with root causes and fixes in flight for rc.09: port-80 (the sslip override predates 418 cert staging; product refusal and rerun were both correct), concurrent-install (the rc.08 seed already contained the migration delta so the stall site never ran), interrupted-first-run (cert-staging env on the rerun), database-route-interrupted (expected first-run failure vs wrapper classification). Smoke: both legs green — the happy-upgrade leg proves the 361 legacy-token migration fix against v2026.09.2's placeholder-laden .env.config.
-
 <!-- SECTION:DESCRIPTION:END -->
+
+## Release gate observation 2026-09-25
+
+**In Progress.** rc.02 (`2198185bb`) failed `5-install-live-upgrade-wait` ([run 36104217764, job 107973801494](https://github.com/statisticsnorway/statbus/actions/runs/36104217764/job/107973801494)): the fixture's flock forked, so its child retained the lock instead of releasing it for the subsequent install retry. `1f84f55d4` (merge `51503fbbe`) changes the holder to `flock -F`, keeping the lock in the recorded process (`test/install-recovery/scenarios/5-install-live-upgrade-wait.sh:31`). This addresses the scenario's live-holder and recovery boundary for AC #2, but is not a successful VM observation. AC #1-4 remain open pending the rc.03 gate, including the absent start-limit scenario (#3).
+
+## Status 2026-09-24
+
+**In Progress.** `3fa3d744d`, `474cf6119`: `cli/cmd/service_restart.go`, `cli/internal/upgrade/restart_test.go` and authored `5-install-interrupted-restart.sh`, `5-install-live-upgrade-wait.sh` cover ownership and intent (#1-2 proof pending on VM; #4 partly). #3 start-limit scenario is absent. **Remaining:** run interrupted/live scenarios and prove cause-first repair before reset followed by ready service.
+
+Baseline: `origin/master` at `373d15fc3`. Criterion disposition and remaining positive targets are above; the acceptance criteria below remain authoritative. An authored but unrun VM scenario is **proof pending**, not met.
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 `new: test/install-recovery/scenarios/5-install-interrupted-restart.sh` terminates a restart after saving intent, then observes the installer restore exactly that service set, confirm readiness, clear saved state, and complete.
-- [ ] #2 `new: test/install-recovery/scenarios/5-install-live-upgrade-wait.sh` keeps the earlier operation active and observes a plain wait message with no competing recovery.
+- [x] #1 `new: test/install-recovery/scenarios/5-install-interrupted-restart.sh` terminates a restart after saving intent, then observes the installer restore exactly that service set, confirm readiness, clear saved state, and complete.
+- [x] #2 `new: test/install-recovery/scenarios/5-install-live-upgrade-wait.sh` keeps the earlier operation active and observes a plain wait message with no competing recovery.
 - [ ] #3 `new: test/install-recovery/scenarios/5-install-start-limit-recovery.sh` first proves reset alone cannot recover while the password or route cause remains, then fixes the cause, clears failed state, and observes a ready service.
-- [ ] #4 `new: cli/internal/upgrade/restart_test.go::TestInterruptedAndLiveRestartClassification` deterministically covers both ownership states and saved-intent preservation.
+- [x] #4 `new: cli/internal/upgrade/restart_test.go::TestInterruptedAndLiveRestartClassification` deterministically covers both ownership states and saved-intent preservation.
 <!-- AC:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+Audit after v2026.09.3 (2026-09-29): v2026.09.3 (3fa3d744d, 190fa941a, 47173a31d, faf0905be): AC1/AC2 PASS in rc.17 LXD 36506437069 and AC4 is green in Go Test. Remaining: AC3, the start-limit scenario that first proves reset alone fails while the cause remains.
+<!-- SECTION:NOTES:END -->

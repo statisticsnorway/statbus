@@ -1,10 +1,12 @@
 ---
 id: STATBUS-392
-title: Image-based starts run pulled images directly while source checkouts retain development builds
+title: >-
+  Image-based starts run pulled images directly while source checkouts retain
+  development builds
 status: In Progress
 assignee: []
 created_date: '2026-09-24 16:42'
-updated_date: '2026-09-24 18:40'
+updated_date: '2026-09-29 08:04'
 labels:
   - release-bug
   - install
@@ -40,3 +42,9 @@ Current `./sb start` selects build solely from development mode (`cli/cmd/servic
 - [ ] #2 `new: cli/cmd/service_test.go::TestStartSourceDevelopmentBuilds` observes the existing build invocation for a source checkout.
 - [ ] #3 `new: test/install-recovery/scenarios/4-image-start-no-build.sh` measures an image start against a baseline pull-plus-start run and requires it to stay within 20 percent of that baseline with zero local builds.
 - [ ] #4 `new: test/install-recovery/scenarios/4-image-start-no-build.sh` records whether the image-install path was exercised, rather than claiming an unobserved Finland result.
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+Audit after v2026.09.3 (2026-09-29): v2026.09.3 (05a4fe9dd): image-based starts skip builds. AC1/AC2 are green in Go Test as cli/cmd/service_start_test.go (rename the AC path). Remaining: 4-image-start-no-build.sh (AC3/AC4).
+<!-- SECTION:NOTES:END -->

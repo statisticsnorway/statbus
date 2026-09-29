@@ -1,10 +1,12 @@
 ---
 id: STATBUS-418
-title: The harness proofs of record install StatBus the way a national statistical office does
-status: To Do
+title: >-
+  The harness proofs of record install StatBus the way a national statistical
+  office does
+status: Done
 assignee: []
 created_date: '2026-09-25 12:20'
-updated_date: '2026-09-25 20:57'
+updated_date: '2026-09-29 08:05'
 labels:
   - harness
   - owner-decision
@@ -64,12 +66,17 @@ There will be **no harness test with real public DNS and a real certificate**. T
 ## Implemented, 2026-09-25 (merge 61f6df742, branch fix/418-harness-standalone d82fe6e32)
 
 vm-bootstrap defaults to standalone; VM-local CA + server cert generated pre-install and staged through the product's real TLS_CERT_FILE/TLS_KEY_FILE custom-cert path (install.sh staging is fail-closed behind an exact harness-only signal and verified-FRESH state); 0-happy-install, 0-happy-upgrade, 0-interactive-admin-password and the generic fault scenarios run standalone with CA-verified HTTPS health assertions; port probes are mode-appropriate (443, not 301x). 4-install-standalone-no-public-dns unchanged. Two review rounds. AC #3 (a candidate gate run proving it) pending on rc.06.
-
 <!-- SECTION:DESCRIPTION:END -->
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 Owner decision recorded here: the mode(s) of rung 4, rung 5 and the STATBUS-417 fault-fleet base, and the certificate approach.
-- [ ] #2 `0-happy-install.sh`, `0-happy-upgrade.sh`, `doc/release-ladder.md` and `vm-bootstrap.sh` defaults state and use the decided mode(s); comments match DEPLOYMENT.md.
-- [ ] #3 A candidate gate run proves the decided NSO path green (run id recorded here).
+- [x] #1 Owner decision recorded here: the mode(s) of rung 4, rung 5 and the STATBUS-417 fault-fleet base, and the certificate approach.
+- [x] #2 `0-happy-install.sh`, `0-happy-upgrade.sh`, `doc/release-ladder.md` and `vm-bootstrap.sh` defaults state and use the decided mode(s); comments match DEPLOYMENT.md.
+- [x] #3 A candidate gate run proves the decided NSO path green (run id recorded here).
 <!-- AC:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+Audit after v2026.09.3 (2026-09-29): Done in v2026.09.3 (merge 61f6df742, 3eca14b52). Harness defaults and ladder are standalone with pre-provisioned certificates. Proven by rc.17 smoke 36505292818 (0-happy-install, 0-happy-upgrade) and LXD fleet 36506437069 on standalone checkpoints.
+<!-- SECTION:NOTES:END -->

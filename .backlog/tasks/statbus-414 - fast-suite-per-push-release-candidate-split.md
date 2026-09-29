@@ -1,10 +1,12 @@
 ---
 id: STATBUS-414
-title: The fast suite holds the checks every push needs, and longer scenarios run for release candidates
+title: >-
+  The fast suite holds the checks every push needs, and longer scenarios run for
+  release candidates
 status: To Do
 assignee: []
 created_date: '2026-09-24 23:55'
-updated_date: '2026-09-24 23:55'
+updated_date: '2026-09-29 08:05'
 labels:
   - owner-decision
   - ci
@@ -34,3 +36,9 @@ The per-push Fast Tests lane gives a timely, meaningful regression verdict. Test
 - [ ] #3 The per-push Fast Tests lane still checks every owner-designated high-signal path and remains a required green gate where the current release contract requires it. `cli/cmd/release/release.go` stamp, migration and expected-file drift checks continue to reject stale coverage; prerelease and stable checks are exercised separately.
 - [ ] #4 Before/after Actions runs at comparable commits and environments record the new per-push wall time, candidate-tier wall time and test counts, with failed as well as successful outcomes retained. The owner confirms the latency/assurance tradeoff against the accepted matrix.
 <!-- AC:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+Audit after v2026.09.3 (2026-09-29): STATBUS-424 proposes sharding Fast Tests (same latency goal, no tests moved). Owner to pick one approach and close the other.
+<!-- SECTION:NOTES:END -->

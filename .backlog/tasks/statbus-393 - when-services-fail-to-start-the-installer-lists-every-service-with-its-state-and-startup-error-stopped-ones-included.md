@@ -4,7 +4,7 @@ title: The installer reports every service condition and collects every service 
 status: In Progress
 assignee: []
 created_date: '2026-09-24 16:42'
-updated_date: '2026-09-24 18:40'
+updated_date: '2026-09-29 08:04'
 labels:
   - release-bug
   - install
@@ -14,14 +14,9 @@ type: bug
 ordinal: 1
 ---
 
-## Status 2026-09-24
-
-**To Do.** #1-3 not met: `5-install-partial-services.sh`, `5-install-api-restart-loop.sh`, and `cli/cmd/support_test.go` are absent after `145c17292`. **Remaining:** report all six service states and logs, including stopped, absent, and restarting, in terminal and the named support bundle.
-
-Baseline: `origin/master` at `373d15fc3`. Criterion disposition and remaining positive targets are above; the acceptance criteria below remain authoritative. An authored but unrun VM scenario is **proof pending**, not met.
-
 ## Description
 
+<!-- SECTION:DESCRIPTION:BEGIN -->
 ## Implementation note, 2026-09-24
 
 Review follow-up: the allowlisted terminal now displays all six inventory entries, including the host update unit; early port, DB-health, and password-sync failures also print inventory. Bounded-readiness failures log each failing state and tail and show one plain diagnostic line per failing service. Fake-stack and AWK tests cover these paths. VM scenarios and support-file acceptance proof remain pending; criteria stay open.
@@ -35,6 +30,13 @@ The installer reports the condition of the database, web entry point, API, appli
 
 The Finland transcript shows the API restarting while the database remained healthy (`/Users/jhf/ssb/statbus/tmp/finland-transcript-actual.txt:144-148`). The automatic update service later remained activating while its database connection retried (`/Users/jhf/ssb/statbus/tmp/finland-transcript-2-actual.txt:131-154`). Current support enumeration starts in `cli/cmd/support.go:52` and compose status decoding in `cli/internal/compose/compose.go:273-280` at master `7a9cf707e`, while install completion checks only database health (`cli/cmd/install.go:1058-1078` at master `7a9cf707e`).
 <!-- SECTION:DESCRIPTION:END -->
+<!-- SECTION:DESCRIPTION:END -->
+
+## Status 2026-09-24
+
+**To Do.** #1-3 not met: `5-install-partial-services.sh`, `5-install-api-restart-loop.sh`, and `cli/cmd/support_test.go` are absent after `145c17292`. **Remaining:** report all six service states and logs, including stopped, absent, and restarting, in terminal and the named support bundle.
+
+Baseline: `origin/master` at `373d15fc3`. Criterion disposition and remaining positive targets are above; the acceptance criteria below remain authoritative. An authored but unrun VM scenario is **proof pending**, not met.
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
@@ -42,3 +44,9 @@ The Finland transcript shows the API restarting while the database remained heal
 - [ ] #2 `new: test/install-recovery/scenarios/5-install-api-restart-loop.sh` creates a restarting API and asserts the restarting condition, its startup error, the other five statuses, and all six log sections.
 - [ ] #3 `new: cli/cmd/support_test.go::TestSupportBundleIncludesEveryServiceStateAndLog` covers running, stopped, absent, and restarting states and verifies the terminal prints the support-file path.
 <!-- AC:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+Audit after v2026.09.3 (2026-09-29): v2026.09.3 prints the six-service inventory on failure (7277ff65a, b869c6c4a; TestStartEarlyFailuresPrintSixServiceInventory green). None of the three ACs is proven. The named scenarios and support-bundle test do not exist.
+<!-- SECTION:NOTES:END -->

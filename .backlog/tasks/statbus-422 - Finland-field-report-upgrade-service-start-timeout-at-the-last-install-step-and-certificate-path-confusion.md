@@ -3,9 +3,10 @@ id: STATBUS-422
 title: >-
   Finland field report: upgrade-service start timeout at the last install step,
   and certificate path confusion
-status: To Do
+status: In Progress
 assignee: []
 created_date: '2026-09-27 10:07'
+updated_date: '2026-09-29 08:06'
 labels:
   - installer
 dependencies: []
@@ -43,5 +44,17 @@ Ville's own guess: "I needed to remove a service beforehand" (a leftover failed 
 ## Triage (coordinator, 2026-09-27 10:10Z; owner: "build the clear ones now")
 
 Moving to implementation now: (1) step-17 failure must include the upgrade unit's journal tail so the operator sees the cause, and (2) TLS_CERT_FILE/TLS_KEY_FILE validation must catch host-path-vs-container-path confusion with a clear message. Waiting for owner discussion: the certificate UX flow (belongs to 399), whether the wedged-unit cleanup needs a design decision, and the db-unreachable audit classification.
-
 <!-- SECTION:DESCRIPTION:END -->
+
+## Acceptance Criteria
+<!-- AC:BEGIN -->
+- [ ] #1 The cause of the 24/25 Sep step-17 start timeout is reproduced on v2026.09.2 (LXD replay) and shown fixed or refused with a named cause on v2026.09.3
+- [ ] #2 The installer tells a standalone operator to set SITE_DOMAIN (or asks for it) before a certificate can be issued; Ville's hand-edit is not needed
+- [ ] #3 A short, confirmed instruction is sent to Ville for the stable v2026.09.3 install with his custom certificate
+<!-- AC:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+Audit after v2026.09.3 (2026-09-29): v2026.09.3 fixes items 1 (journal tail: 3672d2b1b, 758c3d127), 3 (TLS path validation: 3672d2b1b, 70c7169b6), 4 (361 migration: f8503adca, proven by smoke 0-happy-upgrade 36505292818) and the terminal side of 2 (breadcrumb now log-only, install.go:840). Item 2's db-unreachable was correct for a run that most likely started after `docker volume rm` (finland-answers-4.txt:94). Open: what timed out at step 17, item 5's SITE_DOMAIN guidance, and the cert UX flow (399).
+<!-- SECTION:NOTES:END -->

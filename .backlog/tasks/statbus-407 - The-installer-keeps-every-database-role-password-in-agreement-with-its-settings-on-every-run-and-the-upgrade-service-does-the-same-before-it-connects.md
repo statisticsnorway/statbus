@@ -1,10 +1,12 @@
 ---
 id: STATBUS-407
-title: Installation and automatic updates keep database role passwords aligned with saved settings
+title: >-
+  Installation and automatic updates keep database role passwords aligned with
+  saved settings
 status: In Progress
 assignee: []
 created_date: '2026-09-24 15:46'
-updated_date: '2026-09-27 10:14'
+updated_date: '2026-09-29 08:04'
 labels:
   - release-bug
   - install
@@ -16,12 +18,6 @@ priority: high
 type: bug
 ordinal: 360000
 ---
-
-## Status 2026-09-24
-
-**In Progress.** `474cf6119`, `145c17292`: `cli/internal/dbroles/dbroles.go` / `dbroles_test.go` and `cli/internal/upgrade/role_password_sync_test.go` cover four-role reconciliation, unchanged no-op, and service ordering (#1-3 by equivalent tests). #4 `5-install-orphaned-db-volume-credentials.sh` is authored, real-VM proof pending. **Remaining:** run surviving-volume recovery on a disposable VM, preserve users, and observe API and automatic-update readiness.
-
-Baseline: `origin/master` at `373d15fc3`. Criterion disposition and remaining positive targets are above; the acceptance criteria below remain authoritative. An authored but unrun VM scenario is **proof pending**, not met.
 
 ## Description
 
@@ -42,13 +38,24 @@ Phase b of 5-install-orphaned-db-volume-credentials PASSED on the VM fleet: rein
 ## rc.08 fleet outcome, 2026-09-27 (run 36306317962)
 
 Fleet: 19/23 green. The four reds are all harness-side with root causes and fixes in flight for rc.09: port-80 (the sslip override predates 418 cert staging; product refusal and rerun were both correct), concurrent-install (the rc.08 seed already contained the migration delta so the stall site never ran), interrupted-first-run (cert-staging env on the rerun), database-route-interrupted (expected first-run failure vs wrapper classification). Smoke: both legs green — the happy-upgrade leg proves the 361 legacy-token migration fix against v2026.09.2's placeholder-laden .env.config.
-
 <!-- SECTION:DESCRIPTION:END -->
+
+## Status 2026-09-24
+
+**In Progress.** `474cf6119`, `145c17292`: `cli/internal/dbroles/dbroles.go` / `dbroles_test.go` and `cli/internal/upgrade/role_password_sync_test.go` cover four-role reconciliation, unchanged no-op, and service ordering (#1-3 by equivalent tests). #4 `5-install-orphaned-db-volume-credentials.sh` is authored, real-VM proof pending. **Remaining:** run surviving-volume recovery on a disposable VM, preserve users, and observe API and automatic-update readiness.
+
+Baseline: `origin/master` at `373d15fc3`. Criterion disposition and remaining positive targets are above; the acceptance criteria below remain authoritative. An authored but unrun VM scenario is **proof pending**, not met.
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
 - [ ] #1 `new: cli/cmd/install_database_credentials_test.go::TestReconcileRolesBeforeAuthenticatedConnections` proves all four roles are reconciled through the local trusted connection before installer TCP authentication.
 - [ ] #2 `new: cli/internal/upgrade/database_credentials_test.go::TestServiceReconcilesBeforeConnect` proves automatic-update startup reconciles the same roles after database availability and before its authenticated connection.
 - [ ] #3 `new: cli/internal/databasecredentials/reconcile_test.go::TestMatchingPasswordsAreNoOp` records zero role changes when all four passwords already match.
-- [ ] #4 `new: test/install-recovery/scenarios/5-install-orphaned-db-volume-credentials.sh` preserves a disposable database volume and existing users, intentionally changes settings credentials, exercises both reconciliation paths, and observes API readiness plus completed automatic-update startup.
+- [x] #4 `new: test/install-recovery/scenarios/5-install-orphaned-db-volume-credentials.sh` preserves a disposable database volume and existing users, intentionally changes settings credentials, exercises both reconciliation paths, and observes API readiness plus completed automatic-update startup.
 <!-- AC:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+Audit after v2026.09.3 (2026-09-29): v2026.09.3 (06930a2d3, e8786019b, 46488ccb4): installer and daemon sync role passwords before connecting. AC3/AC4 proven (dbroles no-op test in Go Test, orphaned-volume PASS in rc.17 LXD). Remaining: accept the source-order tests as AC1/AC2 or add behavioural ones, and prove the daemon path against a real mismatch.
+<!-- SECTION:NOTES:END -->

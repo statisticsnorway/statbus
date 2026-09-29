@@ -4,7 +4,7 @@ title: 'live tests drive the mutable on-disk ./sb: pin the binary they start wit
 status: In Progress
 assignee: []
 created_date: '2026-09-07 17:26'
-updated_date: '2026-09-23 15:10'
+updated_date: '2026-09-29 08:04'
 labels:
   - harness
   - testing
@@ -207,3 +207,9 @@ Provisional, owner to confirm: selector `//go:build livedb`, tier name “live-d
 Rejected alternative: retain the runtime `STATBUS_LIVE_DB` environment selector and `TestLive*` family names. Runtime skips let the live-only files participate in ordinary package compilation and name the execution mode rather than the assertion claim.
 
 Implemented per-package detached worktrees, copied local configuration into the scratch tree, generated only the scratch `.env`, built an identity-bearing pinned `sb`, redirected direct subprocess execution to that pinned binary, removed the fake Git shim, added a project-`sb` replacement regression test, wired Fast Tests, and updated development documentation. The manual stable-release gate is isolated under `release_live`.
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+Audit after v2026.09.3 (2026-09-29): v2026.09.3 ships pinned-worktree live tests (ee25738b0, b0128bc7f, 240fa0a92, dbeec8153). The Live-database tests step is green in Fast Tests 36505196729. Remaining: a red-branch proof, verbose test listing, and the owner ruling on the livedb selector and names.
+<!-- SECTION:NOTES:END -->

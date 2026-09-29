@@ -3,10 +3,10 @@ id: STATBUS-174
 title: >-
   norway-ident-customization: hide non-tax external idents + rename
   tax_ident→"Org.Number" — reconciled with the live brreg loading it would break
-status: In Progress
+status: To Do
 assignee: []
 created_date: '2026-07-13 12:08'
-updated_date: '2026-09-23 15:10'
+updated_date: '2026-09-29 08:05'
 labels:
   - feature-next
   - norway
@@ -17,12 +17,6 @@ dependencies: []
 priority: medium
 ordinal: 175000
 ---
-
-## Status 2026-09-24
-
-**In Progress:** #1 and #5 documented/retired (`debfca0c7` ticket history); #2-4 and #6 not shipped or real-Norway-load proved. **Remaining:** use semantic code `tax_ident`, label it `Organisasjonsnummer`, hide other types safely, modernize `public.reset`, and run the Norway import/UI oracle.
-
-Baseline: `origin/master` at `373d15fc3`. Criterion disposition and remaining positive targets are above; the acceptance criteria below remain authoritative. An authored but unrun VM scenario is **proof pending**, not met.
 
 ## Description
 
@@ -52,6 +46,12 @@ WORK TO DO (the real design):
 SOURCE BRANCH (for archaeology, retired): fix-custom-scripts, tip 7b01c88cb, file custom/no.sql. custom/ke.sql on that branch is DEAD (master's ea721b8c5 superseded it + deleted the reset.sql it depends on) — do NOT port ke.sql; only no.sql's intent is live, and only after the reconciliation above.
 <!-- SECTION:DESCRIPTION:END -->
 
+## Status 2026-09-24
+
+**In Progress:** #1 and #5 documented/retired (`debfca0c7` ticket history); #2-4 and #6 not shipped or real-Norway-load proved. **Remaining:** use semantic code `tax_ident`, label it `Organisasjonsnummer`, hide other types safely, modernize `public.reset`, and run the Norway import/UI oracle.
+
+Baseline: `origin/master` at `373d15fc3`. Criterion disposition and remaining positive targets are above; the acceptance criteria below remain authoritative. An authored but unrun VM scenario is **proof pending**, not met.
+
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
 - [x] #1 The reconciliation is established: whether 'hide non-tax idents' must be presentation-only (UI) vs enabled=FALSE, decided against what the current brreg 2024/2025 import definitions actually create and use — with the answer that does NOT break brreg loading
@@ -61,6 +61,12 @@ SOURCE BRANCH (for archaeology, retired): fix-custom-scripts, tip 7b01c88cb, fil
 - [x] #5 fix-custom-scripts branch retired (its no.sql intent lives here; ke.sql confirmed dead)
 - [ ] #6 DESIGN CONSTRAINT (King, 2026-07-13): reference external_ident_type by its semantic CODE ('tax_ident'), NEVER by a hardcoded id — no magic numbers. Erik's branch used `WHERE id != 1`; the shipped form works in a semantical, clear world: `WHERE code = 'tax_ident'` / `WHERE code <> 'tax_ident'`. (Verified seeded codes: 'tax_ident', 'stat_ident'.)
 <!-- AC:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+Audit after v2026.09.3 (2026-09-29): no work in v2026.09.3 (git log v2026.09.2..v2026.09.3 has no commits for it). Set In Progress by the 2026-09-24 reconcile (b20dc1395); back to To Do until work starts.
+<!-- SECTION:NOTES:END -->
 
 ## Comments
 

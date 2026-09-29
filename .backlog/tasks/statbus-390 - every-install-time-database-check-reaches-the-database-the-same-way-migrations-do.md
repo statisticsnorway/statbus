@@ -4,7 +4,7 @@ title: Every install-time database operation uses a route whose readiness is ver
 status: In Progress
 assignee: []
 created_date: '2026-09-24 16:42'
-updated_date: '2026-09-24 18:40'
+updated_date: '2026-09-29 08:04'
 labels:
   - release-bug
   - install
@@ -14,14 +14,9 @@ type: bug
 ordinal: 1
 ---
 
-## Status 2026-09-24
-
-**To Do.** #1-3 not met: the named transport tests and `5-install-database-route-interrupted.sh` are absent; `cli/cmd/install.go` and `cli/internal/migrate/migrate.go` still have distinct connection paths after `145c17292`. **Remaining:** route every seed/state/migration/lock/readiness and upgrade startup call through a verified internal transport, with unit and VM checks.
-
-Baseline: `origin/master` at `373d15fc3`. Criterion disposition and remaining positive targets are above; the acceptance criteria below remain authoritative. An authored but unrun VM scenario is **proof pending**, not met.
-
 ## Description
 
+<!-- SECTION:DESCRIPTION:BEGIN -->
 ## Progress 2026-09-24 (proof pending)
 
 Migration subprocess *host mode*, migration and seed pgx locks, installer post-completion connection, and upgrade daemon share `dbroute.FromFile` for CADDY_DB_BIND_ADDRESS:CADDY_DB_PORT. No-Docker tests cover command builders, the seed-lock DSN and source-level caller wiring, but do not prove a real seed restore or daemon reconciliation. This is not Done: no `5-install-database-route-interrupted.sh` has been authored or run. A VM experiment must preserve Caddy's Layer4 database listener while interrupting only its web entry point. Acceptance criteria remain unchecked pending observed end-to-end proof.
@@ -35,6 +30,13 @@ Install-time seed restore, state checks, migrations, locks, final readiness, and
 
 The connection study shows seed and some repair work can use the database service directly, while migrations, locks, post-completion checks, and the automatic update service currently use the loopback route (`/Users/jhf/ssb/statbus/tmp/setup-connection-map.md:79-92`). Current post-completion code calls `migrate.AdminConnStr` (`cli/cmd/install.go:2888-2899` at master `7a9cf707e`) and migration subprocesses use the configured host route (`cli/internal/migrate/migrate.go:211-263` at master `7a9cf707e`).
 <!-- SECTION:DESCRIPTION:END -->
+<!-- SECTION:DESCRIPTION:END -->
+
+## Status 2026-09-24
+
+**To Do.** #1-3 not met: the named transport tests and `5-install-database-route-interrupted.sh` are absent; `cli/cmd/install.go` and `cli/internal/migrate/migrate.go` still have distinct connection paths after `145c17292`. **Remaining:** route every seed/state/migration/lock/readiness and upgrade startup call through a verified internal transport, with unit and VM checks.
+
+Baseline: `origin/master` at `373d15fc3`. Criterion disposition and remaining positive targets are above; the acceptance criteria below remain authoritative. An authored but unrun VM scenario is **proof pending**, not met.
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
@@ -42,3 +44,9 @@ The connection study shows seed and some repair work can use the database servic
 - [ ] #2 `TestRecoveryDSNUsesInternalRoute` checks DSN reload and source-level assertions pin the pre-start probe; actual daemon reconciliation still requires VM proof.
 - [ ] #3 `new: test/install-recovery/scenarios/5-install-database-route-interrupted.sh` stops the web entry point between seed and migrations and observes seed, migration, lock, final readiness, and automatic-update startup all succeed through the internal route.
 <!-- AC:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+Audit after v2026.09.3 (2026-09-29): v2026.09.3 centralises TCP route resolution (54e999bac) and documents the socket exceptions (d7b50aaa8). Tests are green in Go Test. AC3 is unmet: the rc.17 scenario proves 388's bounded-failure-then-rerun path, not internal-route success. Owner: keep 390's internal-route target, or accept 388's path and rewrite AC3.
+<!-- SECTION:NOTES:END -->

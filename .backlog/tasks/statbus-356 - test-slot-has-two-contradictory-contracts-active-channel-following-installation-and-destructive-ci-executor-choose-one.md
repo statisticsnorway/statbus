@@ -1,11 +1,12 @@
 ---
 id: STATBUS-356
 title: >-
-  test slot has two contradictory contracts: active channel-following installation and destructive CI executor; choose one and enforce it
+  test slot has two contradictory contracts: active channel-following
+  installation and destructive CI executor; choose one and enforce it
 status: To Do
 assignee: []
 created_date: '2026-09-04 19:52'
-updated_date: '2026-09-25 13:21'
+updated_date: '2026-09-29 08:05'
 labels:
   - owner-decision
   - ops
@@ -17,17 +18,13 @@ references:
   - doc/CLOUD.md
   - cloud.sh
   - ops/niue/sshdoers
-  - .backlog/completed/statbus-254 - fleet-channel-correction-production-boxes-are-being-offered-release-candidates-today-and-no-amount-of-reinstalling-will-fix-it.md
+  - >-
+    .backlog/completed/statbus-254 -
+    fleet-channel-correction-production-boxes-are-being-offered-release-candidates-today-and-no-amount-of-reinstalling-will-fix-it.md
 priority: high
 type: bug
 ordinal: 349000
 ---
-
-## Status 2026-09-24
-
-**To Do, owner decision:** neither serving-installation nor disposable-CI role has been selected, and no role-regression test or tag cleanup is merged. **Remaining:** declare one authoritative role, isolate the opposite machinery, reconcile conflicting refs, and prove healthy observable service/CI state.
-
-Baseline: `origin/master` at `373d15fc3`. Criterion disposition and remaining positive targets are above; the acceptance criteria below remain authoritative. An authored but unrun VM scenario is **proof pending**, not met.
 
 ## Description
 
@@ -78,9 +75,20 @@ The destructive CI executor side of this contract is `.github/workflows/pg_regre
 ## Destructive-executor half resolved, 2026-09-25 13:20Z
 
 Owner decision: remove the pg_regress workflow entirely (STATBUS-420). This resolves the destructive-CI-executor half of this ticket; the remaining half is the test slot's channel-following installation contract.
-
 <!-- SECTION:DESCRIPTION:END -->
+
+## Status 2026-09-24
+
+**To Do, owner decision:** neither serving-installation nor disposable-CI role has been selected, and no role-regression test or tag cleanup is merged. **Remaining:** declare one authoritative role, isolate the opposite machinery, reconcile conflicting refs, and prove healthy observable service/CI state.
+
+Baseline: `origin/master` at `373d15fc3`. Criterion disposition and remaining positive targets are above; the acceptance criteria below remain authoritative. An authored but unrun VM scenario is **proof pending**, not met.
 
 ## Reconciliation 2026-09-23
 
 Classification: OPEN. Evidence: test slot contradictory role and failed service remain recorded, with no repair commit. No part of the item's own done-when is complete beyond any design already recorded above.
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+Audit after v2026.09.3 (2026-09-29): The destructive-CI half is resolved in v2026.09.3 by removing pg_regress.yaml (STATBUS-420, 2bdb7bdad). Remaining: declare test.statbus.org's role (doc/CLOUD.md:31 still lists it as active), repair or quiesce it accordingly, and fix the two clobbering tags.
+<!-- SECTION:NOTES:END -->
