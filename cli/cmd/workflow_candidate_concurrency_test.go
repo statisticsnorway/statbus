@@ -159,18 +159,37 @@ func TestFastTestsCandidateConcurrency_STATBUS415(t *testing.T) {
 	}
 	const candidateA = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
 	const masterB = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
-	cases := []struct{ name, event, ref, sha, candidate, headSHA, want string }{
-		{"master A", "workflow_run", "refs/heads/master", candidateA, "false", candidateA, "fast-tests-master"},
-		{"master B", "workflow_run", "refs/heads/master", masterB, "false", masterB, "fast-tests-master"},
-		{"tagged A", "push", "refs/tags/v1.0-rc.1", candidateA, "true", "", "fast-tests-rc-" + candidateA},
-		{"later master B", "workflow_run", "refs/heads/master", masterB, "false", masterB, "fast-tests-master"},
-		{"PR 1", "pull_request", "refs/pull/1/merge", candidateA, "false", "", "fast-tests-refs/pull/1/merge"},
-		{"PR 2", "pull_request", "refs/pull/2/merge", masterB, "false", "", "fast-tests-refs/pull/2/merge"},
+	const fixtureSHA = "cccccccccccccccccccccccccccccccccccccccc"
+	const dispatchSHA = "dddddddddddddddddddddddddddddddddddddddd"
+	cases := []struct {
+		name, event, ref, sha, candidate, headSHA, headBranch, refName, want string
+	}{
+		{"master A", "workflow_run", "refs/heads/master", candidateA, "false", candidateA, "master", "", "fast-tests-master"},
+		{"master B", "workflow_run", "refs/heads/master", masterB, "false", masterB, "master", "", "fast-tests-master"},
+		{"tagged A", "push", "refs/tags/v1.0-rc.1", candidateA, "true", "", "", "v1.0-rc.1", "fast-tests-rc-" + candidateA},
+		{"later master B", "workflow_run", "refs/heads/master", masterB, "false", masterB, "master", "", "fast-tests-master"},
+		{"PR 1", "pull_request", "refs/pull/1/merge", candidateA, "false", "", "", "", "fast-tests-refs/pull/1/merge"},
+		{"PR 2", "pull_request", "refs/pull/2/merge", masterB, "false", "", "", "", "fast-tests-refs/pull/2/merge"},
+		// STATBUS-433: a fixture-branch workflow_run (upgrade-arc harness's Images
+		// dispatch on a throwaway test/upgrade-arc-* branch) must never share
+		// master's group.
+		{"fixture workflow_run", "workflow_run", "refs/heads/master", fixtureSHA, "false", fixtureSHA, "test/upgrade-arc-x", "", "fast-tests-test/upgrade-arc-x"},
+		// A manual `gh workflow run fast-tests.yaml --ref feature` dispatch on a
+		// non-master branch must also get its own group, not master's.
+		{"dispatch other branch", "workflow_dispatch", "refs/heads/feature", dispatchSHA, "false", "", "", "feature", "fast-tests-feature"},
 	}
 	keys := make(map[string]string)
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			context := map[string]string{"github.event_name": tc.event, "github.ref": tc.ref, "github.sha": tc.sha, "github.event.workflow_run.head_sha": tc.headSHA, "needs.classify.outputs.candidate": tc.candidate}
+			context := map[string]string{
+				"github.event_name":                     tc.event,
+				"github.ref":                            tc.ref,
+				"github.ref_name":                       tc.refName,
+				"github.sha":                            tc.sha,
+				"github.event.workflow_run.head_sha":    tc.headSHA,
+				"github.event.workflow_run.head_branch": tc.headBranch,
+				"needs.classify.outputs.candidate":      tc.candidate,
+			}
 			key, err := evaluateConcurrencyExpression(job.Concurrency.Group, context)
 			if err != nil {
 				t.Fatal(err)
@@ -189,6 +208,12 @@ func TestFastTestsCandidateConcurrency_STATBUS415(t *testing.T) {
 	}
 	if keys["PR 1"] == keys["PR 2"] {
 		t.Error("unrelated PRs must have separate groups")
+	}
+	if keys["fixture workflow_run"] == keys["master A"] {
+		t.Error("a fixture-branch workflow_run must not share master's cancellable group (STATBUS-433)")
+	}
+	if keys["dispatch other branch"] == keys["master A"] {
+		t.Error("a workflow_dispatch on a non-master branch must not share master's cancellable group (STATBUS-433)")
 	}
 }
 
