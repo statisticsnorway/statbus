@@ -36,3 +36,11 @@ jobs:
         run: bash test/install-recovery/tests/lxd-push-retry-test.sh
       - name: Prove smoke publishes only its own healthy running fork as a checkpoint
         run: bash test/install-recovery/tests/lxd-smoke-checkpoint-test.sh
+      - name: Prove smoke's upgrade-leg checkpoint identity matches what its own fork resolves
+        run: bash test/install-recovery/tests/lxd-checkpoint-identity-test.sh
+      - name: Prove cleanup_vm captures failure diagnostics before deleting, across every trap shape
+        run: bash test/install-recovery/tests/lxd-cleanup-capture-order-test.sh
+      - name: Prove base pruning refuses with no active occupancy marker
+        run: bash test/install-recovery/tests/lxd-prune-guard-test.sh
+      - name: Prove the fleet marker refuses while reaping or hardening is active
+        run: bash test/install-recovery/tests/lxd-marker-guard-test.sh
