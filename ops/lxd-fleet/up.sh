@@ -116,8 +116,44 @@ harden_marker="/root/fleet-hardened-$image_id-$harden_hash"
 if ssh "${opts[@]}" "root@$ip" "test -e $harden_marker"; then
     echo "Fleet host already hardened for image $image_id at harden-host.sh $harden_hash; skipping (review B4/M-B4)" >&2
 else
-    "$ROOT/ops/lxd-fleet/harden-host.sh" "root@$ip"
-    ssh "${opts[@]}" "root@$ip" "touch $harden_marker"
+    # review round-3 C1: harden-host.sh's OWN marker-acquire step refuses
+    # whenever any guest is RUNNING or a starter holds /root/fleet-active
+    # (by design: it must never touch sshd/UFW mid-fleet). Content-keying the
+    # marker (M-B4) means EVERY edit to harden-host.sh forces one more
+    # hardening pass on the box's NEXT ramp - and once two or more consumers
+    # share this host (smoke, the fault driver, arcs), that next ramp can
+    # easily land while a PRIOR candidate's fleet is still draining. Before
+    # this fix, that activity refusal failed the whole ramp outright: a
+    # content edit anywhere would have blocked every concurrent consumer
+    # until the box happened to be caught fully idle. Distinguish the exact
+    # activity-refusal shape (harden-host.sh's own marker-acquire message,
+    # emitted before any sshd/UFW change is attempted) from every other
+    # failure mode (a real error partway through hardening, which must still
+    # fail loud): if THIS box already carries a hardened marker for THIS
+    # image under ANY prior content hash, the box's sshd/UFW baseline is
+    # already sound from an earlier ramp - defer the content-drift re-harden
+    # with a warning and let this ramp's caller proceed, rather than blocking
+    # every consumer on hardening's own busy-refusal loop. Only fail outright
+    # when this image has NEVER been hardened on this box at all (no prior
+    # marker to fall back on) or when the failure is anything other than the
+    # activity refusal.
+    harden_out=$(mktemp)
+    if "$ROOT/ops/lxd-fleet/harden-host.sh" "root@$ip" >"$harden_out" 2>&1; then
+        cat "$harden_out" >&2
+        rm -f "$harden_out"
+        ssh "${opts[@]}" "root@$ip" "touch $harden_marker"
+    else
+        harden_rc=$?
+        cat "$harden_out" >&2
+        if grep -q 'REFUSE: active fleet, running guest, or reaper; defer host hardening' "$harden_out" \
+            && ssh "${opts[@]}" "root@$ip" "ls /root/fleet-hardened-$image_id-* >/dev/null 2>&1"; then
+            echo "::warning::Fleet host harden-host.sh deferred re-harden for image $image_id (content drift, hash $harden_hash): a guest or fleet job is active. A prior marker for this image exists, so this ramp proceeds without the pending content update; the next idle ramp will harden." >&2
+            rm -f "$harden_out"
+        else
+            rm -f "$harden_out"
+            exit "$harden_rc"
+        fi
+    fi
 fi
 # review H4: reap.sh's cron can fire between this ramp job finishing and the
 # NEXT job (a smoke leg, the fault driver, an arc matrix job) acquiring its

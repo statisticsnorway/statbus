@@ -44,3 +44,5 @@ jobs:
         run: bash test/install-recovery/tests/lxd-prune-guard-test.sh
       - name: Prove the fleet marker refuses while reaping or hardening is active
         run: bash test/install-recovery/tests/lxd-marker-guard-test.sh
+      - name: Prove LXD host staging paths are unique per invocation and cleaned up
+        run: bash test/install-recovery/tests/lxd-staging-path-test.sh

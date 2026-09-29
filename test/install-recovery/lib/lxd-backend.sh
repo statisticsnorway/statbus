@@ -316,7 +316,7 @@ lxd_certificates() {
 }
 _lxd_prepare_fresh_answers() {
     local mode=${HARNESS_DEPLOYMENT_MODE:-standalone} channel=${HARNESS_UPGRADE_CHANNEL:-stable}
-    local domain=${HARNESS_SITE_DOMAIN:-statbus-test.local} fixture
+    local domain=${HARNESS_SITE_DOMAIN:-statbus-test.local} fixture staging
     case "$mode" in development|private|standalone) ;; *) echo "Invalid deployment mode: $mode" >&2; return 2 ;; esac
     case "$channel" in stable|prerelease) ;; *) echo "Invalid upgrade channel: $channel" >&2; return 2 ;; esac
     [[ "$domain" =~ ^[a-zA-Z0-9.-]+$ ]] || return 2
@@ -337,8 +337,19 @@ CONFIG
     if [ "$mode" = standalone ] && [ "${HARNESS_NO_CUSTOM_CERT:-0}" != 1 ]; then
         printf 'TLS_CERT_FILE=/data/custom-certs/domain.crt\nTLS_KEY_FILE=/data/custom-certs/domain.key\n' >> "$fixture"
     fi
-    _lxd_upload "$fixture" /root/s2-env-config
-    _lxd_push /root/s2-env-config "$VM_NAME/tmp/env-config"
+    # STATBUS-425 round-3 review C2: a fixed host staging name
+    # (/root/s2-env-config) let two smoke legs racing under max-parallel: 2
+    # scp-truncate-and-rewrite the SAME host file concurrently, so a
+    # concurrent `lxc file push` could deliver a partially written upload to
+    # the WRONG guest. Suffix every staging name with this invocation's PID
+    # ($$, unique per scenario process, matching the existing -$$ convention
+    # at VM_SCRIPT/VM_SCRIPT_INLINE/upload_install_script_to_vm below), and
+    # remove the host-side copy once pushed so it cannot linger and confuse a
+    # later run.
+    staging="/root/s2-env-config-$$"
+    _lxd_upload "$fixture" "$staging"
+    _lxd_push "$staging" "$VM_NAME/tmp/env-config"
+    _lxd_host rm -f "$staging"
     _lxd_host lxc exec "$VM_NAME" -- chown statbus:statbus /tmp/env-config
     _lxd_host lxc exec "$VM_NAME" -- chmod 0600 /tmp/env-config
     rm -f "$fixture"
@@ -354,21 +365,30 @@ CONFIG
     if [ -n "${GITHUB_TOKEN:-}" ]; then
         fixture=$(mktemp "$LXD_LOG_DIR/s2-cred-XXXXXX")
         printf 'GITHUB_TOKEN=%s\n' "$GITHUB_TOKEN" > "$fixture"
-        _lxd_upload "$fixture" /root/s2-env-credentials
-        _lxd_push /root/s2-env-credentials "$VM_NAME/tmp/env-credentials"
+        # S1 (round-3 review §5, ticketed as a precondition of the first
+        # workflow to export GITHUB_TOKEN): the host-side staging copy of a
+        # real secret must not linger on $LXD_HOST after the push, and (same
+        # as env-config/users.yml above) must not collide with a concurrent
+        # leg's own upload under the same fixed name.
+        staging="/root/s2-env-credentials-$$"
+        _lxd_upload "$fixture" "$staging"
+        _lxd_push "$staging" "$VM_NAME/tmp/env-credentials"
+        _lxd_host rm -f "$staging"
         _lxd_host lxc exec "$VM_NAME" -- chown statbus:statbus /tmp/env-credentials
         _lxd_host lxc exec "$VM_NAME" -- chmod 0600 /tmp/env-credentials
         rm -f "$fixture"
     fi
     fixture=$(mktemp "$LXD_LOG_DIR/s2-users-XXXXXX")
     printf '%s\n' '- email: test@statbus.org' '  password: test-install-password-2026' '  role: admin_user' '  display_name: Admin' > "$fixture"
-    _lxd_upload "$fixture" /root/s2-users.yml
-    _lxd_push /root/s2-users.yml "$VM_NAME/tmp/users.yml"
+    staging="/root/s2-users-$$.yml"
+    _lxd_upload "$fixture" "$staging"
+    _lxd_push "$staging" "$VM_NAME/tmp/users.yml"
+    _lxd_host rm -f "$staging"
     _lxd_host lxc exec "$VM_NAME" -- chmod 0644 /tmp/users.yml
     rm -f "$fixture"
 }
 _lxd_build_base_for_candidate() {
-    local tag=$1 checkpoint=${2:-installed-$1-standalone} base start fixture channel
+    local tag=$1 checkpoint=${2:-installed-$1-standalone} base start fixture channel host_staging
     [[ "$tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+-rc\.[0-9]+$ ]] || { echo "Invalid candidate tag: $tag" >&2; return 2; }
     # The historical-baseline install (below) must match what the calling
     # scenario declares (0-happy-upgrade.sh sets HARNESS_UPGRADE_CHANNEL=
@@ -405,8 +425,16 @@ _lxd_build_base_for_candidate() {
     _lxd_mark "launch $base ubuntu:26.04 nesting=true cpu=2 memory=6GiB"
     _lxd_host lxc launch ubuntu:26.04 "$base" --config security.nesting=true --config limits.cpu=2 --config limits.memory=6GiB || return
     LXD_BASE_OWNED_BY_THIS_BUILD=1
-    _lxd_upload "$HARNESS_ROOT/ops/setup-ubuntu-lts.sh" /root/s2-setup.sh || return
-    _lxd_push /root/s2-setup.sh "$base/root/setup.sh" || return
+    # STATBUS-425 round-3 review C2: install and upgrade smoke legs build
+    # DIFFERENT bases concurrently (max-parallel: 2) but were sharing this
+    # fixed host staging name; a same-moment scp of both legs could interleave
+    # writes to /root/s2-setup.sh and hand a partially written script to
+    # whichever leg's `lxc file push` won the race. Per-invocation name,
+    # removed after push.
+    host_staging="/root/s2-setup-$$.sh"
+    _lxd_upload "$HARNESS_ROOT/ops/setup-ubuntu-lts.sh" "$host_staging" || return
+    _lxd_push "$host_staging" "$base/root/setup.sh" || return
+    _lxd_host rm -f "$host_staging"
     _lxd_host lxc exec "$base" -- bash -c 'printf "ADMIN_EMAIL=test@statbus.org\nGITHUB_USERS=jhf\nEXTRA_LOCALES=\nCADDY_PLUGINS=\n" > /root/.setup-ubuntu.env; mkdir -p /run/sshd' || return
     _lxd_mark "hardening start $base (SKIP_STAGES=4 as VM harness)"
     _lxd_host lxc exec "$base" -- env SKIP_STAGES=4 bash /root/setup.sh --non-interactive || {
@@ -436,9 +464,11 @@ _lxd_build_base_for_candidate() {
     [[ "$install_tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-rc\.[0-9]+)?$ ]] || { echo "Invalid checkpoint $checkpoint" >&2; return 2; }
     fixture=$(mktemp "$LXD_LOG_DIR/s2-users-XXXXXX")
     printf '%s\n' '- email: test@statbus.org' '  password: test-install-password-2026' '  role: admin_user' '  display_name: Admin' > "$fixture"
-    _lxd_upload "$fixture" /root/s2-users.yml || return
+    host_staging="/root/s2-users-$$.yml"
+    _lxd_upload "$fixture" "$host_staging" || return
     rm -f "$fixture"
-    _lxd_push /root/s2-users.yml "$base/home/statbus/users.yml"
+    _lxd_push "$host_staging" "$base/home/statbus/users.yml"
+    _lxd_host rm -f "$host_staging"
     _lxd_host lxc exec "$base" -- chown statbus:statbus /home/statbus/users.yml
     _lxd_host lxc exec "$base" -- bash -c 'printf "CADDY_DEPLOYMENT_MODE=standalone\nSITE_DOMAIN=statbus-test.local\nTLS_CERT_FILE=/data/custom-certs/domain.crt\nTLS_KEY_FILE=/data/custom-certs/domain.key\nDEPLOYMENT_SLOT_NAME=Install Test\nDEPLOYMENT_SLOT_CODE=test\nTRUST_GITHUB_USER=jhf\n" > /home/statbus/install-input.env; chown statbus:statbus /home/statbus/install-input.env; chmod 600 /home/statbus/install-input.env'
     start=$(date +%s)
@@ -496,9 +526,10 @@ ENVCONFIG
 cp ~/users.yml .users.yml
 STATBUS_MIN_DISK_GB=5 ./sb install --non-interactive --trust-github-user jhf
 SCRIPT
-        _lxd_upload "$script" /root/s2-baseline.sh
+        _lxd_upload "$script" "/root/s2-baseline-$$.sh"
         rm -f "$script"
-        _lxd_push /root/s2-baseline.sh "$base/home/statbus/s2-baseline.sh"
+        _lxd_push "/root/s2-baseline-$$.sh" "$base/home/statbus/s2-baseline.sh"
+        _lxd_host rm -f "/root/s2-baseline-$$.sh"
         _lxd_host lxc exec "$base" -- chown statbus:statbus /home/statbus/s2-baseline.sh
         _lxd_host lxc exec "$base" -- sudo -i -u statbus bash /home/statbus/s2-baseline.sh || { _lxd_mark "INSTALL FAILED $install_tag after $(($(date +%s)-start))s"; lxd_capture_failure "$base"; return 1; }
     else
