@@ -61,7 +61,11 @@
 # backend (lib/lxd-backend.sh) and assertion library, but never executed
 # against the paid LXD fleet (test/install-recovery/README.md) — doing so
 # requires a tagged release candidate at HEAD on that fleet. Run it via:
-#   HARNESS_LXD_BACKEND=1 ./test/install-recovery/scenarios/5-install-cert-repair-via-cert-install.sh
+#   test/install-recovery/lxd/run-forks.sh <candidate-tag> --scenario 5-install-cert-repair-via-cert-install
+# HARNESS_SKIP_DEFAULT: on demand only until its first real green run on the
+# paid LXD fleet (STATBUS-429 review C1/M1) — an unrun scenario must not be
+# able to turn the default RC fault gate red on the next candidate. Remove
+# this marker once a run has gone green.
 #
 # Usage:
 #   ./test/install-recovery/scenarios/5-install-cert-repair-via-cert-install.sh <vm_name>
@@ -117,13 +121,17 @@ echo "── hand-edit .env.config to an INVALID host-path cert (Ville's mistake
 VM_EXEC bash -c "cd ~/statbus && printf 'TLS_CERT_FILE=/home/statbus/harness-certs/domain.crt\nTLS_KEY_FILE=/home/statbus/harness-certs/domain.key\n' >> .env.config"
 
 REFUSAL_LOG=$(mktemp)
-if VM_EXEC bash -c "cd ~/statbus && ./sb install --non-interactive" >"$REFUSAL_LOG" 2>&1; then
+# STATBUS-429 R-h: run the refusal through the pinned install.sh (the exact
+# operator-visible form), not a bare `./sb install --non-interactive`. This
+# proves both the Go classification AND install.sh's INSTALL_FIX allowlist
+# match on a real box, not just the Go text in isolation.
+if VM_EXEC bash -c "cd ~ && export STATBUS_ENV_CONFIG=\"\$HOME/install-input.env\" STATBUS_USERS_FILE=/tmp/users.yml STATBUS_INSTALL_VERSION='$INSTALL_TARGET_TAG'; bash /tmp/statbus-install.sh --non-interactive" >"$REFUSAL_LOG" 2>&1; then
     cat "$REFUSAL_LOG" >&2
     echo 'FAIL: install should have refused on the invalid host-path certificate' >&2
     exit 1
 fi
-grep -Fq 'The custom certificate settings are invalid.' "$REFUSAL_LOG" || { cat "$REFUSAL_LOG" >&2; exit 1; }
-grep -Fq 'cd ~/statbus && ./sb cert install' "$REFUSAL_LOG" || { cat "$REFUSAL_LOG" >&2; echo 'FAIL: refusal must name cd ~/statbus && ./sb cert install (STATBUS-429 M4), not a manual mkdir/cp remedy or a bare ./sb' >&2; exit 1; }
+grep -Fq 'Cause: The custom certificate settings are invalid.' "$REFUSAL_LOG" || { cat "$REFUSAL_LOG" >&2; exit 1; }
+grep -Fq 'Outside fix: Run cd ~/statbus && ./sb cert install' "$REFUSAL_LOG" || { cat "$REFUSAL_LOG" >&2; echo 'FAIL: refusal must print the Outside fix: line naming cd ~/statbus && ./sb cert install (STATBUS-429 M4/R-h), not a manual mkdir/cp remedy or a bare ./sb' >&2; exit 1; }
 echo 'PASS: Settings refused the invalid host-path certificate and named cd ~/statbus && ./sb cert install'
 
 echo ""
@@ -145,9 +153,9 @@ CADDY_OWNER_AFTER=$(VM_EXEC bash -c "stat -c '%U:%G' ~/statbus/caddy/data/caddy 
 echo "  ✓ custom-certs/ is $NEW_OWNER; caddy/data/caddy/ is unchanged ($CADDY_OWNER_AFTER)"
 
 echo ""
-echo "── rerun via the exact operator command the printed remedy would have named (curl | bash form) ──"
+echo "── rerun via the exact operator command the printed remedy would have named (curl | bash form), pinned to the candidate ──"
 RERUN_LOG=$(mktemp)
-VM_EXEC bash -c "cd ~ && bash /tmp/statbus-install.sh --non-interactive" >"$RERUN_LOG" 2>&1 || { cat "$RERUN_LOG" >&2; exit 1; }
+VM_EXEC bash -c "cd ~ && export STATBUS_ENV_CONFIG=\"\$HOME/install-input.env\" STATBUS_USERS_FILE=/tmp/users.yml STATBUS_INSTALL_VERSION='$INSTALL_TARGET_TAG'; bash /tmp/statbus-install.sh --non-interactive" >"$RERUN_LOG" 2>&1 || { cat "$RERUN_LOG" >&2; exit 1; }
 grep -Eq '^\[[0-9]+/[0-9]+\] Settings +OK' "$RERUN_LOG" || { cat "$RERUN_LOG" >&2; echo 'FAIL: Settings should now pass with the corrected certificate paths' >&2; exit 1; }
 assert_health_passes "$VM_NAME"
 assert_harness_https_passes
