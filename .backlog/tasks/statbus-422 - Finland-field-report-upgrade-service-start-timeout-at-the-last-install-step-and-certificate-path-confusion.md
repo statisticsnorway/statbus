@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-09-27 10:07'
-updated_date: '2026-09-29 08:06'
+updated_date: '2026-09-29 08:24'
 labels:
   - installer
 dependencies: []
@@ -48,7 +48,7 @@ Moving to implementation now: (1) step-17 failure must include the upgrade unit'
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 The cause of the 24/25 Sep step-17 start timeout is reproduced on v2026.09.2 (LXD replay) and shown fixed or refused with a named cause on v2026.09.3
+- [x] #1 The cause of the 24/25 Sep step-17 start timeout is reproduced on v2026.09.2 (LXD replay) and shown fixed or refused with a named cause on v2026.09.3
 - [ ] #2 The installer tells a standalone operator to set SITE_DOMAIN (or asks for it) before a certificate can be issued; Ville's hand-edit is not needed
 - [ ] #3 A short, confirmed instruction is sent to Ville for the stable v2026.09.3 install with his custom certificate
 <!-- AC:END -->
@@ -57,4 +57,6 @@ Moving to implementation now: (1) step-17 failure must include the upgrade unit'
 
 <!-- SECTION:NOTES:BEGIN -->
 Audit after v2026.09.3 (2026-09-29): v2026.09.3 fixes items 1 (journal tail: 3672d2b1b, 758c3d127), 3 (TLS path validation: 3672d2b1b, 70c7169b6), 4 (361 migration: f8503adca, proven by smoke 0-happy-upgrade 36505292818) and the terminal side of 2 (breadcrumb now log-only, install.go:840). Item 2's db-unreachable was correct for a run that most likely started after `docker volume rm` (finland-answers-4.txt:94). Open: what timed out at step 17, item 5's SITE_DOMAIN guidance, and the cert UX flow (399).
+
+Replay 2026-09-29 (tmp/ville-replay-v2026.09.3.md, LXD forks of rc.17's hardened checkpoint): the step-17 timeout is PROVEN to be the host-path certificate. On v2026.09.2 with TLS_CERT_FILE=/home/statbus/statbus.crt, Caddy cannot open the file, the proxy container crash-loops (RestartCount climbing), 127.0.0.1:5431 is unbound, the upgrade daemon makes 60 connect attempts in its 5 min budget and systemd reports exactly 'Job ... failed because a timeout was exceeded'. ACME failure alone (name not in public DNS) was refuted as a cause: 17/17 in about 4 min. On the same box, the stable command (curl .../install.sh | bash) resolved v2026.09.3 and refused at step 6 Settings with the certificate cause and fix; after placing the files it reached 17/17 with a cert-verified HTTPS 200. Item 5 (SITE_DOMAIN): the v2026.09.2 refusal (upgrade_channel.go missingSiteDomainRefusal) names the key and an example, so the hand edit was the intended remedy. New defects from the replay: STATBUS-429 (caddy/data is root-owned after Services, so the printed remedy needs sudo), STATBUS-430 (a transient detection failure is shown as 'correct the settings').
 <!-- SECTION:NOTES:END -->
