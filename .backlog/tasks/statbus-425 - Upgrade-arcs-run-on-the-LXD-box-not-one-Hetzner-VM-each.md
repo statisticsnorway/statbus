@@ -57,4 +57,15 @@ Also found and fixed 4 real harness concurrency/correctness bugs live (none caug
 Full comparison table, per-arc notes, and the exact run/log paths are in tmp/lxd-all-gates-progress.md (2026-09-29T10:13-13:14Z entry). 45 commits total on ci/lxd-arcs, all G-signed, none pushed, none of the 6 previously-reviewed M3a commits rewritten.
 
 Explicit gaps for the next session: root-cause the 2 unresolved "superseded not failed" reds and the worker-wedge timing red; re-verify c-rollback-resurrection end-to-end post-fix; copy the comparison TSV into a durable repo location (not only gitignored tmp/) per rabbit's parity-evidence instruction - not done this session, time-boxed out.
+
+2026-09-29 15:15 UTC: M3b reds resolved. The final result is 33/35 verdicts matching Hetzner 36509925405. Evidence is committed at test/install-recovery/lxd/evidence/v2026.09.3-rc.17/ (d26b35449), with a 35-row final-comparison.tsv and a README.
+- worker-wedge-mid-derive, a timing class: the arc released the lock before Postgres noticed the SIGKILLed worker's client (client_connection_check_interval 5s). The derive then completed. Hetzner passed only through slower SSH. Fixed in 7edb2f275 to hold the lock until an abandoned row is observed. PASS on LXD.
+- rollback-pair-terminal and restore-broke-reattempt are a product behaviour that LXD exposes, not a harness bug.
+  - A=ebe058af has since been promoted to v2026.09.3. On LXD the daemon's tag discovery works: A's row becomes release_status='release', and after the PreSwap rollback (HEAD=A) the 4th install's runInstallSupersede supersedes B's 'failed' commit row. This is proven by a ledger dump (c128ea335).
+  - On every Hetzner arc VM, daemon discovery fails ("could not read Username for https://github.com"), so A stays 'commit' and B stays 'failed'. Rerun 36578946172 today was green.
+  - The coordinator decides the disposition. It was not filed by this worker.
+  - A related LXD fidelity bug was fixed along the way (8a57d5b5a: the candidate base had been installed through the historical-release path).
+- c-rollback-resurrection with the final R1 code: rc.16 RED (db .Created 31s after rolled_back_at), rc.17 GREEN.
+- postswap-health-park: infra, green on retest. working: green after 83b3b3b84.
+- The commits on ci/lxd-arcs are G-signed and unpushed. The box is clean (s2-base checkpoints only).
 <!-- SECTION:NOTES:END -->
