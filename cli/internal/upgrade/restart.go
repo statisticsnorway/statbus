@@ -52,7 +52,7 @@ func AcquireRestartFlag(dir, profile string) (*FlagLock, *RestartIntent, bool, e
 		if flag.Trigger != "restart" || flag.Holder != HolderInstall {
 			lock, _, err := acquireRecoveryFlock(dir, *flag)
 			if err != nil {
-				return nil, nil, false, fmt.Errorf("restart refused while recovery is live; no services were stopped; wait or run ./sb install for diagnosis: %w", err)
+				return nil, nil, false, fmt.Errorf("restart refused while recovery is live; no services were stopped; wait or run %s for diagnosis: %w", InstallCommand(dir), err)
 			}
 			// A free parked/crashed marker must not block an operator restart.
 			// Hold it verbatim for serialization and preserve it on release.

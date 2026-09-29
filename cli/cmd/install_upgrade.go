@@ -137,7 +137,7 @@ func runInlineRestoreReattempt(projDir string, detail *install.Detail) error {
 		detail.ReattemptRowID)
 
 	if err := svc.ReattemptRestore(ctx, detail.ReattemptRowID); err != nil {
-		return restoreReattemptFailure(err)
+		return restoreReattemptFailure(err, projDir)
 	}
 
 	// FORECAST (success): healthy at the OLD version. Do NOT re-schedule the same
@@ -325,10 +325,10 @@ func runCrashRecovery(projDir string, restartIfRecovered *func()) error {
 	if err := svc.EnsureDBReachable(ctx); err != nil {
 		fmt.Printf("crash recovery: DB not reachable, attempting `docker compose start db` (existing container, no recreate)…\n")
 		if startErr := svc.StartDatabaseRouteServingMayRun(ctx); startErr != nil {
-			return fmt.Errorf("crash recovery: %w", recoveryDBRouteRefusal(err, startErr))
+			return fmt.Errorf("crash recovery: %w", recoveryDBRouteRefusal(err, startErr, projDir))
 		}
 		if err := svc.EnsureDBReachable(ctx); err != nil {
-			return fmt.Errorf("crash recovery: %w", recoveryDBRouteRefusal(err, nil))
+			return fmt.Errorf("crash recovery: %w", recoveryDBRouteRefusal(err, nil, projDir))
 		}
 	}
 
@@ -359,7 +359,7 @@ func runCrashRecovery(projDir string, restartIfRecovered *func()) error {
 			return fmt.Errorf("crash recovery: %w", &upgrade.OperatorRefusalError{
 				Class: upgrade.RefusalUnparkFailed,
 				Text: fmt.Sprintf("could not clear the park marker for upgrade id=%d — "+
-					"if this upgrade is parked, install cannot resume it; fix DB access and re-run ./sb install", flag.ID),
+					"if this upgrade is parked, install cannot resume it; fix DB access and re-run %s", flag.ID, upgrade.InstallCommand(projDir)),
 				Detail: uerr,
 			})
 		}
@@ -368,7 +368,7 @@ func runCrashRecovery(projDir string, restartIfRecovered *func()) error {
 			if reason == "" {
 				reason = "(no reason recorded)"
 			}
-			fmt.Printf("crash recovery: UN-PARKED upgrade id=%d (was parked: %s) — ./sb install grants ONE fresh attempt with a reset budget.\n", flag.ID, reason)
+			fmt.Printf("crash recovery: UN-PARKED upgrade id=%d (was parked: %s) — this install run grants ONE fresh attempt with a reset budget.\n", flag.ID, reason)
 
 			// STATBUS-229: if this attempt's park restoration COMPLETED, the box is back
 			// at the source version and nothing is in flight — the whole flag is stale,
@@ -403,7 +403,7 @@ func runCrashRecovery(projDir string, restartIfRecovered *func()) error {
 					removeRetreatErr = svc.RemoveFlagAfterSourceEra()
 				}
 				if rerr := removeRetreatErr; rerr != nil {
-					fmt.Printf("crash recovery: warning — could not remove the completed-retreat flag for upgrade id=%d after un-park: %v (the fresh attempt will be treated as a recovery instead; re-run ./sb install)\n", flag.ID, rerr)
+					fmt.Printf("crash recovery: warning — could not remove the completed-retreat flag for upgrade id=%d after un-park: %v (the fresh attempt will be treated as a recovery instead; re-run %s)\n", flag.ID, rerr, upgrade.InstallCommand(projDir))
 				} else {
 					// No local bookkeeping to update: `flag` is scoped to this if-statement,
 					// and every downstream consumer (RecoveryBudgetGuard, the boot-migrate
@@ -420,7 +420,7 @@ func runCrashRecovery(projDir string, restartIfRecovered *func()) error {
 				// the flag's death history too (the unit is quiesced here → flock free).
 				// Unchanged for the era-REFUSED park, which still has a real in-flight
 				// upgrade to recover.
-				fmt.Printf("crash recovery: warning — could not clear the flag's death history for upgrade id=%d after un-park: %v (a fresh attempt may re-park via same-step-twice; re-run ./sb install)\n", flag.ID, cerr)
+				fmt.Printf("crash recovery: warning — could not clear the flag's death history for upgrade id=%d after un-park: %v (a fresh attempt may re-park via same-step-twice; re-run %s)\n", flag.ID, cerr, upgrade.InstallCommand(projDir))
 			}
 		}
 	}

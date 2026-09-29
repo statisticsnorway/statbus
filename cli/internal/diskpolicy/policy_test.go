@@ -61,3 +61,18 @@ func TestDiskRefusalRetainsOperatorRerun(t *testing.T) {
 		t.Fatalf("refusal: %q allowed=%t", message, ok)
 	}
 }
+
+// A direct `./sb install` has no saved install.sh invocation. Its rerun is the
+// same local program on the same checkout, never the public stable installer,
+// which would replace ./sb and move a prerelease or pinned box to another
+// release.
+func TestRerunWithoutSavedCommandKeepsTheLocalProgram(t *testing.T) {
+	t.Setenv("STATBUS_INSTALL_RERUN_COMMAND", "")
+	got := RerunCommand()
+	if !strings.HasPrefix(got, "cd ") || !strings.HasSuffix(got, " && ./sb install") {
+		t.Fatalf("fallback rerun = %q, want `cd <checkout> && ./sb install`", got)
+	}
+	if strings.Contains(got, "curl") || strings.Contains(got, "install.sh") {
+		t.Fatalf("fallback rerun must not be the public installer: %q", got)
+	}
+}

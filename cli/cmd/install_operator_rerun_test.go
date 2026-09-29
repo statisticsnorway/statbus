@@ -60,3 +60,26 @@ func TestEveryInstallerRerunHintUsesSavedCommand(t *testing.T) {
 		t.Error("unit repair hint must preserve the saved install command")
 	}
 }
+
+// TestInstallShSavesItsOwnInvocationForReruns: install.sh builds its own
+// invocation (starting from the public curl|bash line, plus the operator's
+// options) and exports it, and the Go installer prints that saved command.
+func TestInstallShSavesItsOwnInvocationForReruns(t *testing.T) {
+	shellData, err := os.ReadFile(thisRepoFile(t, "install.sh"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(shellData), "STATBUS_INSTALL_RERUN_COMMAND='curl -fsSL https://statbus.org/install.sh | bash'") {
+		t.Error("install.sh must seed STATBUS_INSTALL_RERUN_COMMAND with the public curl|bash invocation")
+	}
+	if !strings.Contains(string(shellData), "export STATBUS_INSTALL_RERUN_COMMAND\n") {
+		t.Error("install.sh must export STATBUS_INSTALL_RERUN_COMMAND to ./sb install")
+	}
+	policyData, err := os.ReadFile(thisRepoFile(t, "cli/internal/diskpolicy/policy.go"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(policyData), `os.Getenv("STATBUS_INSTALL_RERUN_COMMAND")`) {
+		t.Error("diskpolicy.RerunCommand() must read the saved STATBUS_INSTALL_RERUN_COMMAND")
+	}
+}

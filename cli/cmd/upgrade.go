@@ -493,7 +493,7 @@ file changes needed.`,
 		// comment for why reading the binary alone told a human "nothing to apply"
 		// while the box sat parked and dark (STATBUS-226).
 		rowState := applyLatestRowState(context.Background(), svc, resolvedCommit)
-		switch verdict := decideApplyLatest(latestVersion, resolvedCommit, commit, rowState); verdict.Action {
+		switch verdict := decideApplyLatest(latestVersion, resolvedCommit, commit, rowState, upgrade.InstallCommand(projDir)); verdict.Action {
 		case applyLatestSkip:
 			fmt.Println(verdict.Message)
 			return nil

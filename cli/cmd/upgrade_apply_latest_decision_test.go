@@ -23,6 +23,8 @@ const (
 	testTargetCommit = "abcdef1234567890abcdef1234567890abcdef12"
 	testSameBinary   = "abcdef1234567890abcdef1234567890abcdef12"
 	testOtherBinary  = "99999999999999999999999999999999deadbeef"
+	// testInstallCommand is what upgrade.InstallCommand renders for the box.
+	testInstallCommand = "cd /home/statbus/statbus && ./sb install"
 )
 
 func TestDecideApplyLatest_STATBUS226(t *testing.T) {
@@ -50,7 +52,7 @@ func TestDecideApplyLatest_STATBUS226(t *testing.T) {
 			build:      testSameBinary,
 			row:        applyLatestRow{Found: true, State: upgrade.UpgradeStateInProgress, Parked: true, ParkedReason: "some reason"},
 			wantAction: applyLatestRefuse,
-			wantInMsg:  "un-park",
+			wantInMsg:  "run " + testInstallCommand + " to un-park",
 			why:        "AC#2: an operator must be told what to DO, not merely that something is wrong",
 		},
 		{
@@ -112,7 +114,7 @@ func TestDecideApplyLatest_STATBUS226(t *testing.T) {
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			got := decideApplyLatest("v2026.08.0", tc.resolved, tc.build, tc.row)
+			got := decideApplyLatest("v2026.08.0", tc.resolved, tc.build, tc.row, testInstallCommand)
 			if got.Action != tc.wantAction {
 				t.Errorf("action = %v, want %v — %s\n  message: %s", got.Action, tc.wantAction, tc.why, got.Message)
 			}
@@ -143,7 +145,7 @@ func TestDecideApplyLatest_NeverSkipsWithoutACompletedRow_STATBUS226(t *testing.
 		{Found: true, State: upgrade.UpgradeStateCompleted, Parked: true, ParkedReason: "parked despite completed"},
 	}
 	for _, row := range rows {
-		got := decideApplyLatest("v2026.08.0", testTargetCommit, testSameBinary, row)
+		got := decideApplyLatest("v2026.08.0", testTargetCommit, testSameBinary, row, testInstallCommand)
 		if got.Action == applyLatestSkip {
 			t.Errorf("row %+v earned a SKIP — only a found, unparked, COMPLETED row may. A skip tells the operator the box is fine; on any other row that claim is unproven", row)
 		}
@@ -151,7 +153,7 @@ func TestDecideApplyLatest_NeverSkipsWithoutACompletedRow_STATBUS226(t *testing.
 	// And the one shape that MUST skip, so this property cannot be satisfied by
 	// simply never skipping.
 	converged := applyLatestRow{Found: true, State: upgrade.UpgradeStateCompleted}
-	if got := decideApplyLatest("v2026.08.0", testTargetCommit, testSameBinary, converged); got.Action != applyLatestSkip {
+	if got := decideApplyLatest("v2026.08.0", testTargetCommit, testSameBinary, converged, testInstallCommand); got.Action != applyLatestSkip {
 		t.Error("a found, unparked, completed row at the target MUST skip — otherwise every converged box pays for a no-op upgrade pipeline")
 	}
 }

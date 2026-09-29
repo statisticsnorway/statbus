@@ -1471,7 +1471,7 @@ func (d *Service) StartDatabaseRouteServingMustBeStopped(ctx context.Context) er
 // are not recreated with the current binary's image (the rc.66 -> rc.67 lesson).
 func (d *Service) startDatabaseAndItsProxy(ctx context.Context) error {
 	if missing, perr := d.proxyContainerMissing(ctx); perr == nil && missing {
-		return NewProxyRouteMissingError()
+		return NewProxyRouteMissingError(d.projDir)
 	}
 	if out, err := runCommandOutput(d.projDir, "docker", "compose", "start", "db"); err != nil {
 		return fmt.Errorf("docker compose start db: %w (%s)", err, strings.TrimSpace(out))
@@ -1498,7 +1498,7 @@ func (d *Service) proxyContainerID(ctx context.Context) (string, error) {
 	}
 	id := strings.TrimSpace(string(out))
 	if id == "" {
-		return "", NewProxyRouteMissingError()
+		return "", NewProxyRouteMissingError(d.projDir)
 	}
 	return id, nil
 }

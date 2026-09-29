@@ -101,11 +101,12 @@ func TestFlaglessDeterministicBootMigrateStaysAlive(t *testing.T) {
 	}
 
 	// It classifies on the numeric exit code (doc-022: never stderr text) and
-	// emits an actionable operator report (name the action; point at ./sb install).
+	// emits an actionable operator report (name the action; point at the box's
+	// own checkout command, d.installCommand()).
 	if !strings.Contains(branch, "migrate.ExitDeterministic") {
 		t.Error("the deterministic branch must reference migrate.ExitDeterministic (classify on the exit code, not text)")
 	}
-	for _, want := range []string{"./sb migrate up", "./sb install", "staying ALIVE"} {
+	for _, want := range []string{"./sb migrate up", "d.installCommand()", "staying ALIVE"} {
 		if !strings.Contains(branch, want) {
 			t.Errorf("the deterministic branch's loud report must be actionable — missing %q", want)
 		}

@@ -6,6 +6,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/statisticsnorway/statbus/cli/internal/diskpolicy"
 )
 
 // writeRepoTemplate lays down a project dir containing the shipped unit.
@@ -63,9 +65,10 @@ func TestMissingUnitIsDetectedAndAnnounced(t *testing.T) {
 	if msg == "" {
 		t.Fatal("a floor breach must produce an announcement")
 	}
-	// The whole point of the ticket: the message names the repair.
-	if !strings.Contains(msg, "curl -fsSL https://statbus.org/install.sh | bash") {
-		t.Errorf("announce must name the public install command, got:\n%s", msg)
+	// The whole point of the ticket: the message names the repair, the same
+	// install command the operator would run again.
+	if !strings.Contains(msg, "FIX — run:\n║     "+diskpolicy.RerunCommand()+"\n") {
+		t.Errorf("announce must name the install command, got:\n%s", msg)
 	}
 	// And it must say what the gap costs, without exposing implementation paths.
 	if !strings.Contains(msg, "will not discover new releases") {
@@ -89,7 +92,7 @@ func TestDriftedUnitIsDetected(t *testing.T) {
 	if r.Healthy() {
 		t.Fatal("a drifted unit must not report healthy")
 	}
-	if !strings.Contains(r.Announce(), "curl -fsSL https://statbus.org/install.sh | bash") {
+	if !strings.Contains(r.Announce(), diskpolicy.RerunCommand()) {
 		t.Error("drift announce must name the fix")
 	}
 }

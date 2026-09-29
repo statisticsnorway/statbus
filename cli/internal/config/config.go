@@ -24,6 +24,7 @@ import (
 	"time"
 
 	"github.com/statisticsnorway/statbus/cli/internal/dotenv"
+	"github.com/statisticsnorway/statbus/cli/internal/installcmd"
 )
 
 // ProjectDir walks up from cwd looking for the .statbus marker file.
@@ -366,7 +367,7 @@ func loadOrGenerateConfig(projDir string, verbose bool) (*ConfigEnv, error) {
 	for _, key := range []string{"GITHUB_TOKEN", "SLACK_TOKEN", "SEQ_API_KEY"} {
 		if _, found := f.Get(key); found {
 			if _, err := os.Stat(filepath.Join(projDir, ".env")); err == nil {
-				return nil, fmt.Errorf("%s in .env.config is a secret; run ./sb install to migrate it to .env.credentials", key)
+				return nil, fmt.Errorf("%s in .env.config is a secret; run %s to migrate it to .env.credentials", key, installcmd.Local(projDir))
 			} else if !os.IsNotExist(err) {
 				return nil, fmt.Errorf("stat generated config: %w", err)
 			}

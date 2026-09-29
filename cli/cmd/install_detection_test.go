@@ -11,6 +11,7 @@ import (
 	"testing"
 
 	"github.com/statisticsnorway/statbus/cli/internal/config"
+	"github.com/statisticsnorway/statbus/cli/internal/diskpolicy"
 	"github.com/statisticsnorway/statbus/cli/internal/dotenv"
 	"github.com/statisticsnorway/statbus/cli/internal/install"
 	"github.com/statisticsnorway/statbus/cli/internal/upgrade"
@@ -367,7 +368,7 @@ func TestRunInstallStopsBeforeStepsWhenDatabaseAnswerCannotBeClassified(t *testi
 	for _, want := range []string{
 		"the install state could not be determined",
 		"nothing was changed",
-		"Run the same install command again: curl -fsSL https://statbus.org/install.sh | bash",
+		"Run the same install command again: " + diskpolicy.RerunCommand(),
 		"send this file to StatBus support: " + bundlePath,
 	} {
 		if !strings.Contains(err.Error(), want) {
@@ -483,7 +484,7 @@ func TestRunInstallSettingsRestoreFailureRefusesWithCause(t *testing.T) {
 	if !errors.As(err, &preflight) {
 		t.Fatalf("want preflight refusal, got %v", err)
 	}
-	for _, want := range []string{"TLS_CERT_FILE=\"/home/statbus/statbus.crt\" is not a valid Caddy container path", "The database and services were not touched", "curl -fsSL https://statbus.org/install.sh | bash"} {
+	for _, want := range []string{"TLS_CERT_FILE=\"/home/statbus/statbus.crt\" is not a valid Caddy container path", "The database and services were not touched", "Correct the settings, then run: " + diskpolicy.RerunCommand()} {
 		if !strings.Contains(err.Error(), want) {
 			t.Errorf("refusal missing %q: %v", want, err)
 		}

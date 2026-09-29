@@ -36,7 +36,7 @@ func AcquireOperatorStartGuard(projDir, invokedBy string) (*OperatorStartGuard, 
 		if errors.Is(err, syscall.EWOULDBLOCK) || errors.Is(err, syscall.EAGAIN) {
 			flag, readErr := ReadFlagFile(projDir)
 			if readErr != nil {
-				return nil, fmt.Errorf("service start refused: recovery marker is live but unreadable: %w; run ./sb install for diagnosis", readErr)
+				return nil, fmt.Errorf("service start refused: recovery marker is live but unreadable: %w; run %s for diagnosis", readErr, InstallCommand(projDir))
 			}
 			if flag != nil && flag.Holder == HolderInstall {
 				return nil, LiveInstallHolderRefusal(flag)
@@ -45,10 +45,10 @@ func AcquireOperatorStartGuard(projDir, invokedBy string) (*OperatorStartGuard, 
 			if flag != nil {
 				label = flag.Label()
 			}
-			return nil, fmt.Errorf("service start refused while %s holds the recovery lock; wait for it to finish or run ./sb install for diagnosis", label)
+			return nil, fmt.Errorf("service start refused while %s holds the recovery lock; wait for it to finish or run %s for diagnosis", label, InstallCommand(projDir))
 		}
 		if !os.IsNotExist(err) {
-			return nil, fmt.Errorf("probe recovery lock before service start: %w; run ./sb install for diagnosis", err)
+			return nil, fmt.Errorf("probe recovery lock before service start: %w; run %s for diagnosis", err, InstallCommand(projDir))
 		}
 
 		marker := UpgradeFlag{
@@ -71,7 +71,7 @@ func AcquireOperatorStartGuard(projDir, invokedBy string) (*OperatorStartGuard, 
 		}
 		return &OperatorStartGuard{lock: lock, transient: true}, nil
 	}
-	return nil, fmt.Errorf("service start could not establish a stable recovery-lock view; run ./sb install for diagnosis")
+	return nil, fmt.Errorf("service start could not establish a stable recovery-lock view; run %s for diagnosis", InstallCommand(projDir))
 }
 
 // Release drops the serialization flock. A transient absent-path claim is

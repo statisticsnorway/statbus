@@ -73,7 +73,7 @@ func TestRemoteRestoreUsesRecoveryLockAwareServiceStart(t *testing.T) {
 	if strings.Contains(text, "docker compose start worker rest") {
 		t.Fatal("remote restore bypasses the recovery flock with raw docker compose start")
 	}
-	if !strings.Contains(text, "./sb start all_except_app") || !strings.Contains(text, "./sb install for recovery diagnosis") {
+	if !strings.Contains(text, "./sb start all_except_app") || !strings.Contains(text, "ssh %[5]s@%[6]s \\\"cd statbus && ./sb install\\\" for recovery diagnosis") {
 		t.Fatal("remote restore must use the recovery-lock-aware start command and preserve refusal guidance")
 	}
 }

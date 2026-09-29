@@ -146,16 +146,22 @@ func TestRecoveryRouteStartContracts(t *testing.T) {
 // TestProxyRouteMissingErrorText pins AC#3: the missing-proxy refusal names the
 // state and the operator's action (recreate deliberately, then re-run install)
 // so a re-run is an actionable path out, not a silent identical error loop.
+// The rerun is the box's own program on its own checkout, by absolute path
+// (InstallCommand): the refusal itself warns that a different binary could
+// start a different version, so it must never point at the public installer.
 func TestProxyRouteMissingErrorText(t *testing.T) {
-	msg := NewProxyRouteMissingError().Error()
+	msg := NewProxyRouteMissingError("/home/statbus/statbus").Error()
 	for _, want := range []string{
 		"proxy container — does not exist",
 		"docker compose up -d proxy",
-		"./sb install",
+		"then re-run `cd /home/statbus/statbus && ./sb install`",
 		"CADDY_DB_BIND_ADDRESS",
 	} {
 		if !strings.Contains(msg, want) {
 			t.Errorf("the missing-proxy refusal must be actionable — missing %q in:\n%s", want, msg)
 		}
+	}
+	if strings.Contains(msg, "curl ") {
+		t.Errorf("the missing-proxy refusal must not send the operator to the public installer, which replaces ./sb:\n%s", msg)
 	}
 }

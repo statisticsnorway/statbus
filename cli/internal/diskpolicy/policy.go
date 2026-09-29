@@ -13,6 +13,7 @@ import (
 
 	"github.com/statisticsnorway/statbus/cli/internal/compose"
 	"github.com/statisticsnorway/statbus/cli/internal/dotenv"
+	"github.com/statisticsnorway/statbus/cli/internal/installcmd"
 )
 
 const MinimumGB uint64 = 20
@@ -64,11 +65,17 @@ func (p Policy) Evaluate(m Measurement) (string, bool) {
 	return fmt.Sprintf("Disk space: %d GB free on %s; the %d GB recommendation is met.", m.FreeGB, m.Path, p.RecommendedGB), true
 }
 
+// RerunCommand is the command that repeats this install run. Under install.sh
+// it is the saved invocation (STATBUS_INSTALL_RERUN_COMMAND), which keeps the
+// operator's channel, version and answers-file options. A direct `./sb
+// install` has no saved invocation, so the rerun is the same local program on
+// the same checkout: `cd <checkout> && ./sb install`. It is never the public
+// curl installer, which would replace ./sb and change the checked-out release.
 func RerunCommand() string {
 	if command := os.Getenv("STATBUS_INSTALL_RERUN_COMMAND"); command != "" {
 		return command
 	}
-	return "curl -fsSL https://statbus.org/install.sh | bash"
+	return installcmd.ForRunningBinary()
 }
 
 // DockerRoot refuses to guess a storage location when Docker cannot report it.

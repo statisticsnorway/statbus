@@ -7,6 +7,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/statisticsnorway/statbus/cli/internal/diskpolicy"
 )
 
 func TestPortConflictGuidance(t *testing.T) {
@@ -109,7 +111,7 @@ func TestCheckInstallPortsOwnAndForeign(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Setenv("PATH", bin+string(os.PathListSeparator)+os.Getenv("PATH"))
-	if err := checkInstallPorts(dir); err == nil || !strings.Contains(err.Error(), "port 80 is in use by apache2. Free the port with sudo systemctl disable --now apache2.") || !strings.Contains(err.Error(), "Your answers are saved. Then run the same install command again: curl -fsSL https://statbus.org/install.sh") {
+	if err := checkInstallPorts(dir); err == nil || !strings.Contains(err.Error(), "port 80 is in use by apache2. Free the port with sudo systemctl disable --now apache2.") || !strings.Contains(err.Error(), "Your answers are saved. Then run the same install command again: "+diskpolicy.RerunCommand()) {
 		t.Fatalf("Apache remedy lost when Docker probe fails: %v", err)
 	}
 	for _, owner := range []string{"python3", "another program"} {

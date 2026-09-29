@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/statisticsnorway/statbus/cli/internal/config"
+	"github.com/statisticsnorway/statbus/cli/internal/installcmd"
 )
 
 func credentialInstallFixture(t *testing.T, legacy bool) string {
@@ -47,7 +48,7 @@ func TestInstallerFreshMisplacedSecretRejected_STATBUS361(t *testing.T) {
 				t.Fatal(err)
 			}
 			err := step.run(dir)
-			if err == nil || !strings.Contains(err.Error(), "GITHUB_TOKEN in .env.config is a secret; move it to .env.credentials") || strings.Contains(err.Error(), "run ./sb install") {
+			if err == nil || !strings.Contains(err.Error(), "GITHUB_TOKEN in .env.config is a secret; move it to .env.credentials") || strings.Contains(err.Error(), "./sb install") {
 				t.Fatalf("fresh install refusal: %v", err)
 			}
 			got, err := os.ReadFile(cfg)
@@ -96,7 +97,7 @@ func TestStandaloneGenerateLegacyPointsToInstall_STATBUS361(t *testing.T) {
 		t.Fatal(err)
 	}
 	err := config.GenerateInDir(dir, false)
-	if err == nil || !strings.Contains(err.Error(), "run ./sb install") {
+	if err == nil || !strings.Contains(err.Error(), "run "+installcmd.Local(dir)+" to migrate it to .env.credentials") {
 		t.Fatalf("standalone legacy guidance: %v", err)
 	}
 	got, readErr := os.ReadFile(cfg)
