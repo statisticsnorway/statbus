@@ -799,7 +799,21 @@ func TestStateDetectionFailureRerunsRatherThanBlamesSettings(t *testing.T) {
 	if err == nil {
 		t.Fatal("runInstall succeeded despite an unresolved detection probe error")
 	}
+	// In production, install.sh's own `tee -a` appends ./sb install's stdout
+	// to this same diagnostics file that installDiagnostic already wrote
+	// Ville's raw probe line into (install.go:542). Reproduce that ordering
+	// here: read what installDiagnostic wrote, then append what this test's
+	// sbOutput buffer would additionally contribute, before handing the
+	// combined file content to installShFailureTailIn. Without this, the
+	// diagnostics file installShFailureTailIn writes from sbOutput alone
+	// *replaces* the raw line instead of accumulating after it, and the
+	// negative assertion below can never observe a real leak.
+	priorDiagnostics, err2 := os.ReadFile(filepath.Join(installDir, "tmp", "install-last-run-output.txt"))
+	if err2 != nil {
+		t.Fatalf("reading installDiagnostic's file: %v", err2)
+	}
 	var sbOutput bytes.Buffer
+	sbOutput.Write(priorDiagnostics)
 	sbOutput.WriteString("Restoring generated settings before checking the installation.\n")
 	printInstallFailure(&sbOutput, err)
 	got := installShFailureTailIn(t, installDir, rerun, sbOutput.String(), 78)
@@ -821,6 +835,34 @@ func TestStateDetectionFailureRerunsRatherThanBlamesSettings(t *testing.T) {
 	// — only the fixed, product-authored sentence may cross this boundary.
 	if strings.Contains(got, villeRawLine) || strings.Contains(got, "shutting down") {
 		t.Errorf("raw probe diagnostic leaked to the operator:\n%s", got)
+	}
+}
+
+// TestDetectBundleGlobRejectsHostileExistingFile: install.sh's support-bundle
+// case pattern must reject an EXISTING file whose name fits the old, looser
+// glob (support-bundle-[0-9]*-[0-9]*.txt, which lets `*` absorb arbitrary
+// text including spaces and injected content) but not the real bundle name
+// shape (support-bundle-<8 digits>-<6 digits>.txt, from
+// writeDetectionSupportBundle / time.Now().UTC().Format("20060102-150405")).
+// Before the STATBUS-430 review-2 fix, the `[ -f ]` check alone let this
+// hostile-but-existing path through as if it were a validated bundle.
+func TestDetectBundleGlobRejectsHostileExistingFile(t *testing.T) {
+	const rerun = "curl -fsSL https://statbus.org/install.sh | bash"
+	installDir := withRunInstallDetectionHooks(t)
+	// Fits the old glob "support-bundle-[0-9]*-[0-9]*.txt" (digits, `*`,
+	// digits, `*`) but not "support-bundle-<8 digits>-<6 digits>.txt".
+	hostilePath := filepath.Join(installDir, "support-bundle-1 LEAKED psql: FATAL secret=hunter2 -2.txt")
+	if err := os.WriteFile(hostilePath, []byte("hostile"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	sbOutput := "the install state could not be determined safely; nothing was changed. Run the same install command again: " + rerun +
+		". If it stops again, send this file to StatBus support: " + hostilePath + "\n"
+	got := installShFailureTailIn(t, installDir, rerun, sbOutput, 78)
+	if strings.Contains(got, hostilePath) {
+		t.Errorf("hostile-named existing file passed the support-bundle case pattern:\n%s", got)
+	}
+	if strings.Contains(got, "LEAKED") || strings.Contains(got, "hunter2") || strings.Contains(got, "shutting down") {
+		t.Errorf("hostile file name's payload leaked into operator output:\n%s", got)
 	}
 }
 

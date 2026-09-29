@@ -891,7 +891,7 @@ if [ "$sb_rc" -eq 78 ]; then
         echo "the install state could not be determined safely; nothing was changed. Run the same install command again: $STATBUS_INSTALL_RERUN_COMMAND"
         detect_bundle=$(grep -E '^the install state could not be determined safely; ' "$install_output" | tail -1 | sed -E 's/^.*send this file to StatBus support: //' || true)
         case "$detect_bundle" in
-            "$STATBUS_DIR"/support-bundle-[0-9]*-[0-9]*.txt|"$STATBUS_DIR"/tmp/install-last-run-output.txt)
+            "$STATBUS_DIR"/support-bundle-[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]-[0-9][0-9][0-9][0-9][0-9][0-9].txt|"$STATBUS_DIR"/tmp/install-last-run-output.txt)
                 if [ -f "$detect_bundle" ]; then echo "If it stops again, send this file to StatBus support: $detect_bundle"; fi ;;
         esac
         echo "Installation diagnostics: $install_output"
@@ -904,7 +904,7 @@ if [ "$sb_rc" -eq 78 ]; then
         echo "Installation cannot start with the current settings. Correct the settings, then run: $STATBUS_INSTALL_RERUN_COMMAND"
         preflight_bundle=$(grep -F 'send this file to StatBus support: ' "$install_output" | tail -1 | sed -E 's/^.*send this file to StatBus support: //' || true)
         case "$preflight_bundle" in
-            "$STATBUS_DIR"/support-bundle-*.txt)
+            "$STATBUS_DIR"/support-bundle-[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]-[0-9][0-9][0-9][0-9][0-9][0-9].txt)
                 if [ -f "$preflight_bundle" ]; then echo "Support bundle: $preflight_bundle"; fi ;;
         esac
         echo "Installation diagnostics: $install_output"
