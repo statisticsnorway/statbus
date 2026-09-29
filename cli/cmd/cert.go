@@ -835,14 +835,26 @@ func bytesEqual(a, b []byte) bool {
 // user fails with "permission denied", because caddy/data/ itself is
 // root-owned even though custom-certs/ was never created.
 //
-// Two disjoint cases, mirroring healBackupOwnership's approach for the
-// analogous rsync-container leaked-ownership problem:
+// STATBUS-429 M2: custom-certs/ can also ALREADY EXIST and be unwritable —
+// an operator who ran `sudo mkdir -p .../custom-certs` (the least-effort
+// workaround before this fix existed) leaves a root-owned directory that
+// os.MkdirAll happily reports as already-present (MkdirAll succeeds on an
+// existing directory regardless of its owner). So success from MkdirAll is
+// not proof of writability: this function always follows it with a real
+// write probe (create+remove a temp file), and repairs through the same
+// Docker path whenever that probe fails, not only on EACCES from MkdirAll
+// itself.
+//
+// Two disjoint repair triggers, mirroring healBackupOwnership's approach for
+// the analogous rsync-container leaked-ownership problem:
 //   - caddy/data/ does not exist yet: plain os.MkdirAll succeeds, creating
-//     both caddy/data/ and custom-certs/ as the current user. Nothing
-//     Docker will ever rechown (it doesn't rechown pre-existing mount
-//     sources), so this ownership is permanent.
-//   - caddy/data/ already exists (root-owned from an earlier "Services"
-//     run): the install user cannot chown it directly. One throwaway
+//     both caddy/data/ and custom-certs/ as the current user, and the write
+//     probe then passes immediately. Nothing Docker will ever rechown (it
+//     doesn't rechown pre-existing mount sources), so this ownership is
+//     permanent.
+//   - caddy/data/ or custom-certs/ already exists and is not writable by us
+//     (root-owned from an earlier "Services" run, OR a prior manual `sudo
+//     mkdir`): the install user cannot chown it directly. One throwaway
 //     alpine container, running as root, creates AND chowns ONLY
 //     custom-certs/ under the existing mount — deliberately NOT recursive
 //     over the parent caddy/data/, which also holds Caddy's own ACME state
@@ -851,14 +863,19 @@ func bytesEqual(a, b []byte) bool {
 // Idempotent: os.MkdirAll on an existing dir, and chown to the same uid:gid,
 // are both no-ops.
 func ensureCustomCertsDirWritable(projDir, certsDir string) error {
-	if err := os.MkdirAll(certsDir, 0o755); err == nil {
-		return nil
-	} else if !os.IsPermission(err) {
-		return fmt.Errorf("create dir %s: %w", certsDir, err)
+	mkdirErr := os.MkdirAll(certsDir, 0o755)
+	if mkdirErr != nil && !os.IsPermission(mkdirErr) {
+		return fmt.Errorf("create dir %s: %w", certsDir, mkdirErr)
 	}
-	// Permission denied: caddy/data/ exists and is not owned by us. Heal it
-	// through a Docker container, exactly the escape hatch healBackupOwnership
-	// uses for the analogous root-owned-directory problem.
+	if mkdirErr == nil && probeDirWritable(certsDir) {
+		return nil
+	}
+	// Either MkdirAll hit EACCES (caddy/data/ exists, root-owned, custom-certs/
+	// never created), or MkdirAll reported success because custom-certs/
+	// already existed but a real write probe shows it is not writable (e.g.
+	// an earlier `sudo mkdir`). Heal it through a Docker container, exactly
+	// the escape hatch healBackupOwnership uses for the analogous
+	// root-owned-directory problem.
 	dataDir := filepath.Join(projDir, "caddy", "data")
 	deployUID := os.Getuid()
 	deployGID := os.Getgid()
@@ -867,19 +884,66 @@ func ensureCustomCertsDirWritable(projDir, certsDir string) error {
 		deployUID, deployGID,
 	)
 	cmd, buildErr := compose.DockerCommandContext(context.Background(), "", "run", "--rm",
+		"--network", "none",
 		"-v", dataDir+":/data",
-		"alpine", "sh", "-c", shellCmd,
+		certOwnershipRepairImage, "sh", "-c", shellCmd,
 	)
 	if buildErr != nil {
 		return fmt.Errorf("construct docker ownership repair for %s: %w", certsDir, buildErr)
 	}
 	out, err := cmd.CombinedOutput()
 	if err != nil {
-		return fmt.Errorf("%s is not writable (owned by another user after a prior install) "+
-			"and the automatic repair failed: %w\n%s", certsDir, err, out)
+		return &certsDirNotWritableError{dir: certsDir, dockerErr: err, dockerOutput: out}
 	}
 	return nil
 }
+
+// probeDirWritable reports whether the current user can actually create a
+// file in dir, by creating and removing one. This is a real write probe, not
+// an inference from MkdirAll's return value: MkdirAll succeeds on an
+// existing directory regardless of who owns it (STATBUS-429 M2), so it
+// cannot tell "already there and mine" apart from "already there, root's,
+// and permission-denied on every write inside it".
+func probeDirWritable(dir string) bool {
+	f, err := os.CreateTemp(dir, ".writable-probe-*")
+	if err != nil {
+		return false
+	}
+	name := f.Name()
+	_ = f.Close()
+	_ = os.Remove(name)
+	return true
+}
+
+// certOwnershipRepairImage is the image ensureCustomCertsDirWritable's
+// Docker fallback runs. Pinned to an exact digest-free tag (STATBUS-429 R1)
+// rather than a bare "alpine" so the repair does not depend on whatever
+// "latest" resolves to on the day it runs, and matches the same alpine
+// release uninstall.sh already pins for its own throwaway containers.
+const certOwnershipRepairImage = "alpine:3.20"
+
+// certsDirNotWritableError is returned when the Docker ownership repair
+// itself fails (Docker unavailable, denied, or the repair container errors).
+// Its Error() is a plain operator sentence naming the exact next step
+// (STATBUS-429 M3) — never a bare "exit status N" — with the raw Docker
+// output kept as trailing detail for support bundles.
+type certsDirNotWritableError struct {
+	dir          string
+	dockerErr    error
+	dockerOutput []byte
+}
+
+func (e *certsDirNotWritableError) Error() string {
+	return fmt.Sprintf(
+		"%s is not writable by this user, and the automatic repair needs Docker: %v.\n"+
+			"Start Docker (or give this user access to it), then run ./sb cert install again.\n"+
+			"If Docker cannot be used here, an administrator can run once:\n"+
+			"  sudo install -d -o %d -g %d %s\n%s",
+		e.dir, e.dockerErr, os.Getuid(), os.Getgid(), e.dir, e.dockerOutput,
+	)
+}
+
+func (e *certsDirNotWritableError) Unwrap() error { return e.dockerErr }
 
 // writeCertAndKey writes the cert chain (PEM, leaf first then any
 // intermediates) and the private key (PEM PKCS#8) to
@@ -1041,6 +1105,9 @@ func runCertRemove(projDir string) error {
 	// caddy/data/custom-certs/archive/<timestamp>/. Operator can
 	// rm -rf it later if they want to free space.
 	archiveDir := filepath.Join(projDir, customCertHostDir, "archive", time.Now().UTC().Format("20060102-150405"))
+	if err := ensureCustomCertsDirWritable(projDir, filepath.Join(projDir, customCertHostDir)); err != nil {
+		return err
+	}
 	if err := os.MkdirAll(archiveDir, 0o755); err != nil {
 		return fmt.Errorf("create archive dir: %w", err)
 	}

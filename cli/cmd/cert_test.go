@@ -817,6 +817,13 @@ func TestEnsureCustomCertsDirWritable_AlreadyWritable(t *testing.T) {
 // this test cannot actually chown to root without privileges). The
 // permission-denied MkdirAll must be caught and trigger the Docker repair
 // path, never silently succeed or silently fail with an unrelated error.
+//
+// A fake `docker` on PATH answers the repair invocation, so this pins the
+// exact argv (STATBUS-429 R2): bind source is <proj>/caddy/data, the image
+// is the pinned certOwnershipRepairImage (never a bare "alpine" that could
+// resolve to a different "latest" on different days), and the shell is
+// exactly "mkdir -p /data/custom-certs && chown <uid>:<gid> /data/custom-certs"
+// — non-recursive, custom-certs only, never touching caddy/data/caddy/.
 func TestEnsureCustomCertsDirWritable_PermissionDeniedFallsBackToDocker(t *testing.T) {
 	if os.Getuid() == 0 {
 		t.Skip("root ignores directory permission bits; cannot force EACCES")
@@ -834,20 +841,155 @@ func TestEnsureCustomCertsDirWritable_PermissionDeniedFallsBackToDocker(t *testi
 	}
 	t.Cleanup(func() { _ = os.Chmod(dataDir, 0o755) })
 	certsDir := filepath.Join(dataDir, "custom-certs")
-	err := ensureCustomCertsDirWritable(projDir, certsDir)
-	// No Docker daemon assumed available in unit tests. The function must
-	// reach the Docker fallback (not silently succeed against a directory
-	// still not owned by us) and its error, if any, must describe the
-	// repair attempt rather than a bare, unexplained permission error.
-	if err == nil {
-		info, statErr := os.Stat(certsDir)
-		if statErr != nil || !info.IsDir() {
-			t.Fatal("reported success but custom-certs/ was not actually created")
-		}
-		return // a real Docker daemon happened to be available and healed it
+
+	argvLog := filepath.Join(t.TempDir(), "docker-argv.txt")
+	installFakeDockerForOwnershipRepair(t, dataDir, argvLog)
+
+	if err := ensureCustomCertsDirWritable(projDir, certsDir); err != nil {
+		t.Fatalf("fake docker repair should succeed: %v", err)
 	}
-	if !strings.Contains(err.Error(), "docker") && !strings.Contains(err.Error(), "not writable") {
-		t.Errorf("permission-denied path should describe the docker repair attempt: %v", err)
+	info, statErr := os.Stat(certsDir)
+	if statErr != nil || !info.IsDir() {
+		t.Fatal("reported success but custom-certs/ was not actually created")
+	}
+	assertOwnershipRepairArgv(t, argvLog, dataDir)
+}
+
+// TestEnsureCustomCertsDirWritable_ExistingUnwritableDirIsRepaired covers
+// STATBUS-429 M2: custom-certs/ already EXISTS (e.g. a prior `sudo mkdir`)
+// but is not writable. os.MkdirAll reports success against an existing
+// directory regardless of owner, so the fix must not stop at "MkdirAll
+// returned nil" — it must probe real writability and still take the Docker
+// repair path when the probe fails.
+func TestEnsureCustomCertsDirWritable_ExistingUnwritableDirIsRepaired(t *testing.T) {
+	if os.Getuid() == 0 {
+		t.Skip("root ignores directory permission bits; cannot force EACCES")
+	}
+	projDir := t.TempDir()
+	dataDir := filepath.Join(projDir, "caddy", "data")
+	certsDir := filepath.Join(dataDir, "custom-certs")
+	// Simulate `sudo mkdir -p .../custom-certs`: the directory already
+	// exists (so plain os.MkdirAll succeeds) but this process cannot write
+	// into it.
+	if err := os.MkdirAll(certsDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chmod(certsDir, 0o555); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.Chmod(certsDir, 0o755) })
+
+	argvLog := filepath.Join(t.TempDir(), "docker-argv.txt")
+	installFakeDockerForOwnershipRepair(t, dataDir, argvLog)
+
+	if err := ensureCustomCertsDirWritable(projDir, certsDir); err != nil {
+		t.Fatalf("pre-existing unwritable custom-certs/ should still be repaired: %v", err)
+	}
+	if _, statErr := os.Stat(argvLog); statErr != nil {
+		t.Fatal("MkdirAll succeeding on the pre-existing directory must not skip the writability probe / Docker repair (STATBUS-429 M2)")
+	}
+	assertOwnershipRepairArgv(t, argvLog, dataDir)
+}
+
+// TestEnsureCustomCertsDirWritable_DockerRepairFailureIsPlainRemedy covers
+// STATBUS-429 M3: when the Docker repair itself fails (Docker unavailable,
+// denied, or the container errors), the operator must see a plain sentence
+// naming the exact next step, never a bare "exit status N".
+func TestEnsureCustomCertsDirWritable_DockerRepairFailureIsPlainRemedy(t *testing.T) {
+	if os.Getuid() == 0 {
+		t.Skip("root ignores directory permission bits; cannot force EACCES")
+	}
+	projDir := t.TempDir()
+	dataDir := filepath.Join(projDir, "caddy", "data")
+	if err := os.MkdirAll(dataDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chmod(dataDir, 0o555); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.Chmod(dataDir, 0o755) })
+	certsDir := filepath.Join(dataDir, "custom-certs")
+
+	bin := t.TempDir()
+	// Fake docker that always fails the repair (standing in for "Docker
+	// unavailable" / "container errors").
+	docker := "#!/bin/sh\necho 'fake docker: repair container failed' >&2\nexit 1\n"
+	if err := os.WriteFile(filepath.Join(bin, "docker"), []byte(docker), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("PATH", bin+string(os.PathListSeparator)+os.Getenv("PATH"))
+
+	err := ensureCustomCertsDirWritable(projDir, certsDir)
+	if err == nil {
+		t.Fatal("expected an error when the Docker repair fails")
+	}
+	msg := err.Error()
+	for _, want := range []string{
+		"is not writable by this user",
+		"Start Docker",
+		"./sb cert install again",
+		"sudo install -d -o",
+	} {
+		if !strings.Contains(msg, want) {
+			t.Errorf("operator remedy missing %q; got:\n%s", want, msg)
+		}
+	}
+	if strings.HasPrefix(strings.TrimSpace(msg), "exit status") {
+		t.Errorf("error must lead with the plain remedy sentence, not a raw exit status: %s", msg)
+	}
+}
+
+// installFakeDockerForOwnershipRepair puts a fake `docker` on PATH that
+// answers exactly the `docker run --rm --network none -v <dataDir>:/data
+// <image> sh -c <cmd>` invocation ensureCustomCertsDirWritable issues,
+// records the full argv to argvLog, and actually performs the mkdir+chown
+// against dataDir (as this unprivileged test process — sufficient to prove
+// the directory becomes writable, since the fake never needs real root).
+func installFakeDockerForOwnershipRepair(t *testing.T, dataDir, argvLog string) {
+	t.Helper()
+	bin := t.TempDir()
+	script := fmt.Sprintf(`#!/bin/sh
+printf '%%s\n' "$*" > %s
+# Perform the same effect a real repair container would: a real Docker
+# container runs as root and can write into dataDir regardless of the
+# host's permission bits on it (root bypasses the owner-write check this
+# unprivileged test process is otherwise subject to) — chmod first to
+# simulate that, then create and open up custom-certs/ exactly as the
+# real repair shell command does.
+chmod 0755 %s 2>/dev/null || true
+mkdir -p %s/custom-certs
+chmod 0755 %s/custom-certs
+exit 0
+`, shellQuote(argvLog), shellQuote(dataDir), shellQuote(dataDir), shellQuote(dataDir))
+	if err := os.WriteFile(filepath.Join(bin, "docker"), []byte(script), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("PATH", bin+string(os.PathListSeparator)+os.Getenv("PATH"))
+}
+
+// shellQuote wraps s in single quotes for embedding in a generated shell
+// script's literal text (test fixture paths never contain a single quote).
+func shellQuote(s string) string { return "'" + s + "'" }
+
+// assertOwnershipRepairArgv pins the exact Docker argv ensureCustomCertsDirWritable
+// builds (STATBUS-429 R2): non-recursive, custom-certs only, pinned image.
+func assertOwnershipRepairArgv(t *testing.T, argvLog, dataDir string) {
+	t.Helper()
+	raw, err := os.ReadFile(argvLog)
+	if err != nil {
+		t.Fatalf("fake docker was not invoked: %v", err)
+	}
+	argv := strings.TrimSpace(string(raw))
+	wantPrefix := "run --rm --network none -v " + dataDir + ":/data " + certOwnershipRepairImage + " sh -c mkdir -p /data/custom-certs && chown "
+	if !strings.HasPrefix(argv, wantPrefix) {
+		t.Fatalf("docker argv = %q, want prefix %q", argv, wantPrefix)
+	}
+	wantSuffix := " /data/custom-certs"
+	if !strings.HasSuffix(argv, wantSuffix) {
+		t.Fatalf("docker argv = %q, want suffix %q (non-recursive, custom-certs only)", argv, wantSuffix)
+	}
+	if strings.Contains(argv, "-R") || strings.Contains(argv, "caddy/data/caddy") {
+		t.Fatalf("docker argv must never be recursive or touch caddy/data/caddy/: %q", argv)
 	}
 }
 
