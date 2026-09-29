@@ -99,14 +99,25 @@ REMOTE
 # refusal, a genuine regression against the single-tenant Hetzner smoke this
 # replaces. Harden only when this box is genuinely new to this image - a
 # fresh create or a just-completed image-drift recreate, both of which leave
-# NO prior /root/fleet-hardened-<image_id> marker because the box (or its
+# NO prior /root/fleet-hardened-<marker_id> marker because the box (or its
 # prior marker set) did not exist a moment ago. An existing, already-hardened
-# box for the SAME image is a pure IP resolution for every later consumer.
-if ssh "${opts[@]}" "root@$ip" "test -e /root/fleet-hardened-$image_id"; then
-    echo "Fleet host already hardened for image $image_id; skipping (review B4)" >&2
+# box for the SAME image AND the SAME harden-host.sh content is a pure IP
+# resolution for every later consumer.
+#
+# review M-B4: keying the marker on image_id ALONE made a harden-host.sh edit
+# (this series' own MaxStartups 30:30:100 addition) invisible to an existing
+# warm box until an unrelated image drift or reap recreated it - the marker
+# would keep matching even though the box's actual sshd config had drifted
+# from what the CURRENT harden-host.sh would produce. Fold the script's own
+# content hash into the marker identity so a content change forces one more
+# hardening pass on the next ramp, exactly like an image change already does.
+harden_hash=$(sha256sum "$ROOT/ops/lxd-fleet/harden-host.sh" | cut -d' ' -f1)
+harden_marker="/root/fleet-hardened-$image_id-$harden_hash"
+if ssh "${opts[@]}" "root@$ip" "test -e $harden_marker"; then
+    echo "Fleet host already hardened for image $image_id at harden-host.sh $harden_hash; skipping (review B4/M-B4)" >&2
 else
     "$ROOT/ops/lxd-fleet/harden-host.sh" "root@$ip"
-    ssh "${opts[@]}" "root@$ip" "touch /root/fleet-hardened-$image_id"
+    ssh "${opts[@]}" "root@$ip" "touch $harden_marker"
 fi
 # review H4: reap.sh's cron can fire between this ramp job finishing and the
 # NEXT job (a smoke leg, the fault driver, an arc matrix job) acquiring its
