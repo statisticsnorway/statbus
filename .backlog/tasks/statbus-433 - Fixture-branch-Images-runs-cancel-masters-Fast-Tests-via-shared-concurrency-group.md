@@ -3,9 +3,10 @@ id: STATBUS-433
 title: >-
   Fixture-branch Images runs cancel master's Fast Tests via shared concurrency
   group
-status: To Do
+status: Done
 assignee: []
 created_date: '2026-09-29 14:00'
+updated_date: '2026-09-29 14:55'
 labels: []
 dependencies: []
 ordinal: 382200
@@ -39,3 +40,16 @@ branches filter is exactly `[master]`; TestFastTestsCandidateConcurrency_STATBUS
 table rows proving a fixture-branch workflow_run and a workflow_dispatch on another
 branch never land in master's concurrency group, while master A/B still share it.
 <!-- SECTION:DESCRIPTION:END -->
+
+## Acceptance Criteria
+<!-- AC:BEGIN -->
+- [x] #1 fast-tests.yaml starts no run for an Images completion on a non-master branch (workflow_run.branches: [master])
+- [x] #2 Only master's runs share the cancellable master concurrency group; other branches and manual dispatches get their own group (contract test rows)
+- [x] #3 Master's Fast Tests completes after the fix
+<!-- AC:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+Done 2026-09-29: merge e069fbcfe (reviews tmp/review-433.md, tmp/review-433-2.md MERGE, addendum for 956b8a0f4). Evidence: Go Test success at e069fbcfe (TestFastTestsExcludesFixtureBranch_STATBUS433 and the STATBUS-415 concurrency table incl. fixture and other-branch rows); Fast Tests 36584215345 at e069fbcfe completed success. Also fixed: a missing Fast Tests verdict no longer suggests 'gh workflow run --ref <raw SHA>' (956b8a0f4).
+<!-- SECTION:NOTES:END -->
