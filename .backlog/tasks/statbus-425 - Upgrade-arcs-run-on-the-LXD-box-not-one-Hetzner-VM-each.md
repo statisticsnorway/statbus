@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-09-28 13:07'
-updated_date: '2026-09-29 08:04'
+updated_date: '2026-09-29 13:15'
 labels:
   - ci
   - lxd
@@ -43,4 +43,18 @@ Plan review 2026-09-28 (Fable 5.1, one pass; Astra stopped on the OpenAI limit):
 2026-09-29 05:42: M1 + M2' + M3a merged to master (a83039410) after 4 Opus 5.5 review rounds (tmp/review-lxd-m2*.md; round 4 APPROVE + R4-1/R4-2 landed 0aaafeb52). Live evidence: both smoke legs green on the box against rc.16; fault fleet on the branch backend 24/24 against rc.17 (matching master's rc.17 LXD run 36506437069); harden-host completed live. From the next RC, smoke (rungs 4/5) and the fault fleet (rung 7) run on LXD; upgrade arcs (rung 8) stay on Hetzner until M3b (shadow run beside Hetzner) and M4 (orchestrator + gates + delete Hetzner steps). Low follow-ups: harden-host refusal wording conflates SSH-probe failure with activity; PATH ssh shim intercepts local git-over-SSH when an operator runs run-forks.sh; H2 residue (upgrade-leg rerun after a failed -pre build refuses); M6 checkpoint name length at vX.Y.10.
 
 Audit after v2026.09.3 (2026-09-29): Not in v2026.09.3. M1/M2'/M3a merged to master afterwards (a83039410). Harness Selftest red on master since (lxd-smoke-checkpoint-test, run 36534648749). Fix before the next candidate.
+
+2026-09-29 13:15 UTC: M3b full-suite comparison run completed (worker session, ci/lxd-arcs worktree). run-arcs.sh v2026.09.3-rc.17, no --arc filter, LXD_PARALLEL=6: 35/35 arcs executed, wall time 1h12m49s (11:48:42Z-13:01:31Z, includes ~19min lost to a genuine Docker Hub infra timeout, not harness/product). Box left clean after.
+
+Result: 30/35 confirmed green-parity against Hetzner rc.17 run 36509925405 (all 35 real-arc jobs). 5 reds:
+- c-rollback-resurrection: mechanism-not-bytes comparison (this session's own R1 fix landed mid-run; the deterministic-epoch check itself was already proven rc.16-red/rc.17-green in a PRIOR session's isolated verification, documented earlier in tmp/lxd-all-gates-progress.md - not yet re-verified end-to-end in a full run after today's hang-bug fixes).
+- postswap-health-park: confirmed pure infra (Docker Hub 502 on an unrelated image pull), not harness/product.
+- restore-broke-reattempt, rollback-pair-terminal: UNRESOLVED, same failure shape ("expected terminal state, got superseded" on a PreSwap pair-terminal / STATBUS-228 check), never occurs on Hetzner. Needs root-cause work.
+- worker-wedge-mid-derive: UNRESOLVED, "0 abandoned processing rows" - plausible LXD-vs-VM timing-fidelity gap (matches the original plan review's section-3 warning about CPU/timing differences), not yet root-caused.
+
+Also found and fixed 4 real harness concurrency/correctness bugs live (none caught by any prior offline test), on top of landing round-R1/R2/R3 from rabbit's M3a review: (1) PINNED_ROOT git race across overlapping run-arcs.sh invocations, silently producing B==C on the crollback lineage - fixed with an mkdir-based cross-process lock; (2) arc_wait_unit_active's R1 timestamp comparison hung indefinitely on its first real run (psql_scalar's whitespace-stripping broke the ::timestamptz cast) - fixed via epoch-seconds + remote date -d, no more SQL string round-trips; (3) working-arc.sh's non-standard PASS-line prefix read as FAIL_NO_PASS_LINE despite genuinely passing - fixed to the standard prefix; (4, found by a parallel sibling session in the same worktree) capture_db_fingerprint's fixed-label scratch file collided across concurrently-running arcs - scoped on VM_NAME.
+
+Full comparison table, per-arc notes, and the exact run/log paths are in tmp/lxd-all-gates-progress.md (2026-09-29T10:13-13:14Z entry). 45 commits total on ci/lxd-arcs, all G-signed, none pushed, none of the 6 previously-reviewed M3a commits rewritten.
+
+Explicit gaps for the next session: root-cause the 2 unresolved "superseded not failed" reds and the worker-wedge timing red; re-verify c-rollback-resurrection end-to-end post-fix; copy the comparison TSV into a durable repo location (not only gitignored tmp/) per rabbit's parity-evidence instruction - not done this session, time-boxed out.
 <!-- SECTION:NOTES:END -->
