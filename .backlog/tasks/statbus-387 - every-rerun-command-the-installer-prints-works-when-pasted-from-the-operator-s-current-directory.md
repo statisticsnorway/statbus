@@ -34,7 +34,7 @@ Baseline: `origin/master` at `373d15fc3`. Criterion disposition and remaining po
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 A Go test in `go test ./...` (replacing `test/install-rerun-messages.sh`, rewritten 2026-09-29 after review tmp/review-rerun-hints.md) finds no operator-facing string under cli/ or echo in install.sh containing a bare relative `./sb install`; install-time hints use the saved install.sh command, and upgrade/recovery hints use one local, version-preserving command for the box's checkout, never the stable curl installer, so the channel and version are preserved.
+- [ ] #1 `cli/cmd/install_command_literal_test.go::TestNoGoLiteralTellsTheOperatorToRunABareInstall` in `go test ./...` (replacing `test/install-rerun-messages.sh`, rewritten 2026-09-29 after review tmp/review-rerun-hints.md) finds no operator-facing string under cli/ or echo in install.sh containing a bare relative `./sb install`; install-time hints use the saved install.sh command, and upgrade/recovery hints use one local, version-preserving command for the box's checkout, never the stable curl installer, so the channel and version are preserved.
 - [x] #2 `new: cli/cmd/install_rerun_test.go::TestRerunCommandPreservesInvocationOptions` covers stable, `--channel prerelease`, and unattended invocations and observes the same options in each printed command.
 - [x] #3 `new: test/install-recovery/scenarios/4-install-port-80-taken.sh` pastes the printed prerelease unattended rerun command from the home directory and reaches the same selected installation.
 <!-- AC:END -->
