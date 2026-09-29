@@ -17,6 +17,7 @@
 package cmd
 
 import (
+	"context"
 	"crypto/ecdsa"
 	"crypto/ed25519"
 	"crypto/rsa"
@@ -34,6 +35,7 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
+	"github.com/statisticsnorway/statbus/cli/internal/compose"
 	"github.com/statisticsnorway/statbus/cli/internal/config"
 	"github.com/statisticsnorway/statbus/cli/internal/dotenv"
 	"golang.org/x/term"
@@ -821,6 +823,64 @@ func bytesEqual(a, b []byte) bool {
 	return true
 }
 
+// ensureCustomCertsDirWritable makes certsDir (caddy/data/custom-certs/)
+// exist and be writable by the current (install) user WITHOUT sudo, before
+// writeCertAndKey writes into it (STATBUS-429).
+//
+// Docker creates caddy/data/ owned root:root the first time the proxy
+// container starts against an absent bind-mount source (a pre-existing
+// directory is never rechowned by Docker — only ITS OWN creation of a
+// missing one defaults to root). On a box where "Services" has already run
+// at least once, a plain os.MkdirAll(customCertHostDir) from the statbus
+// user fails with "permission denied", because caddy/data/ itself is
+// root-owned even though custom-certs/ was never created.
+//
+// Two disjoint cases, mirroring healBackupOwnership's approach for the
+// analogous rsync-container leaked-ownership problem:
+//   - caddy/data/ does not exist yet: plain os.MkdirAll succeeds, creating
+//     both caddy/data/ and custom-certs/ as the current user. Nothing
+//     Docker will ever rechown (it doesn't rechown pre-existing mount
+//     sources), so this ownership is permanent.
+//   - caddy/data/ already exists (root-owned from an earlier "Services"
+//     run): the install user cannot chown it directly. One throwaway
+//     alpine container, running as root, creates AND chowns ONLY
+//     custom-certs/ under the existing mount — deliberately NOT recursive
+//     over the parent caddy/data/, which also holds Caddy's own ACME state
+//     (caddy/data/caddy/) that must stay exactly as Caddy left it.
+//
+// Idempotent: os.MkdirAll on an existing dir, and chown to the same uid:gid,
+// are both no-ops.
+func ensureCustomCertsDirWritable(projDir, certsDir string) error {
+	if err := os.MkdirAll(certsDir, 0o755); err == nil {
+		return nil
+	} else if !os.IsPermission(err) {
+		return fmt.Errorf("create dir %s: %w", certsDir, err)
+	}
+	// Permission denied: caddy/data/ exists and is not owned by us. Heal it
+	// through a Docker container, exactly the escape hatch healBackupOwnership
+	// uses for the analogous root-owned-directory problem.
+	dataDir := filepath.Join(projDir, "caddy", "data")
+	deployUID := os.Getuid()
+	deployGID := os.Getgid()
+	shellCmd := fmt.Sprintf(
+		"mkdir -p /data/custom-certs && chown %d:%d /data/custom-certs",
+		deployUID, deployGID,
+	)
+	cmd, buildErr := compose.DockerCommandContext(context.Background(), "", "run", "--rm",
+		"-v", dataDir+":/data",
+		"alpine", "sh", "-c", shellCmd,
+	)
+	if buildErr != nil {
+		return fmt.Errorf("construct docker ownership repair for %s: %w", certsDir, buildErr)
+	}
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("%s is not writable (owned by another user after a prior install) "+
+			"and the automatic repair failed: %w\n%s", certsDir, err, out)
+	}
+	return nil
+}
+
 // writeCertAndKey writes the cert chain (PEM, leaf first then any
 // intermediates) and the private key (PEM PKCS#8) to
 // caddy/data/custom-certs/<baseName>.{crt,key}. chmod 644 on cert,
@@ -832,8 +892,8 @@ func bytesEqual(a, b []byte) bool {
 // "cert written, key missing" state on a failed run.
 func writeCertAndKey(projDir, baseName string, chain []*x509.Certificate, key interface{}) (string, string, error) {
 	dir := filepath.Join(projDir, customCertHostDir)
-	if err := os.MkdirAll(dir, 0o755); err != nil {
-		return "", "", fmt.Errorf("create dir %s: %w", dir, err)
+	if err := ensureCustomCertsDirWritable(projDir, dir); err != nil {
+		return "", "", err
 	}
 	certPath := filepath.Join(dir, baseName+".crt")
 	keyPath := filepath.Join(dir, baseName+".key")

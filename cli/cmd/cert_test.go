@@ -771,6 +771,86 @@ func TestWriteCertAndKey_RollsBackCertOnKeyFailure(t *testing.T) {
 	}
 }
 
+// ─── ensureCustomCertsDirWritable (STATBUS-429) ──────────────────────────
+//
+// Reproduces the Ville replay defect D3: once the proxy container has
+// started, Docker creates caddy/data/ owned root:root, and a plain
+// os.MkdirAll(caddy/data/custom-certs/) from the unprivileged install user
+// fails with permission denied. cert install must repair this itself
+// rather than leaving the operator stuck with no next step.
+
+// TestEnsureCustomCertsDirWritable_FreshCheckout: caddy/data/ doesn't exist
+// yet → plain os.MkdirAll succeeds, creating both caddy/data/ and
+// custom-certs/ as the current user. No Docker involved.
+func TestEnsureCustomCertsDirWritable_FreshCheckout(t *testing.T) {
+	projDir := t.TempDir()
+	certsDir := filepath.Join(projDir, customCertHostDir)
+	if err := ensureCustomCertsDirWritable(projDir, certsDir); err != nil {
+		t.Fatalf("fresh checkout: %v", err)
+	}
+	info, err := os.Stat(certsDir)
+	if err != nil {
+		t.Fatalf("custom-certs/ not created: %v", err)
+	}
+	if !info.IsDir() {
+		t.Fatal("custom-certs/ is not a directory")
+	}
+}
+
+// TestEnsureCustomCertsDirWritable_AlreadyWritable: custom-certs/ already
+// exists and is writable by the current user → no-op success, matching the
+// steady-state / already-healed case.
+func TestEnsureCustomCertsDirWritable_AlreadyWritable(t *testing.T) {
+	projDir := t.TempDir()
+	certsDir := filepath.Join(projDir, customCertHostDir)
+	if err := os.MkdirAll(certsDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := ensureCustomCertsDirWritable(projDir, certsDir); err != nil {
+		t.Fatalf("already-writable dir: %v", err)
+	}
+}
+
+// TestEnsureCustomCertsDirWritable_PermissionDeniedFallsBackToDocker
+// simulates Ville's exact state: caddy/data/ exists but is not writable by
+// the current process (standing in for Docker's root:root chown, since
+// this test cannot actually chown to root without privileges). The
+// permission-denied MkdirAll must be caught and trigger the Docker repair
+// path, never silently succeed or silently fail with an unrelated error.
+func TestEnsureCustomCertsDirWritable_PermissionDeniedFallsBackToDocker(t *testing.T) {
+	if os.Getuid() == 0 {
+		t.Skip("root ignores directory permission bits; cannot force EACCES")
+	}
+	projDir := t.TempDir()
+	dataDir := filepath.Join(projDir, "caddy", "data")
+	if err := os.MkdirAll(dataDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	// 0555: read+execute (list/traverse) but not write — mkdir underneath
+	// fails EACCES exactly as it would against Docker's root:root 0755
+	// from this unprivileged process's point of view.
+	if err := os.Chmod(dataDir, 0o555); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.Chmod(dataDir, 0o755) })
+	certsDir := filepath.Join(dataDir, "custom-certs")
+	err := ensureCustomCertsDirWritable(projDir, certsDir)
+	// No Docker daemon assumed available in unit tests. The function must
+	// reach the Docker fallback (not silently succeed against a directory
+	// still not owned by us) and its error, if any, must describe the
+	// repair attempt rather than a bare, unexplained permission error.
+	if err == nil {
+		info, statErr := os.Stat(certsDir)
+		if statErr != nil || !info.IsDir() {
+			t.Fatal("reported success but custom-certs/ was not actually created")
+		}
+		return // a real Docker daemon happened to be available and healed it
+	}
+	if !strings.Contains(err.Error(), "docker") && !strings.Contains(err.Error(), "not writable") {
+		t.Errorf("permission-denied path should describe the docker repair attempt: %v", err)
+	}
+}
+
 // ─── Discoverability ─────────────────────────────────────────────────────
 //
 // Smoke-test that cobra's --help output for each subcommand contains

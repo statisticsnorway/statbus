@@ -1213,7 +1213,7 @@ func validateTLSPaths(checkoutDir, cert, key string) error {
 	if cert == "" && key == "" {
 		return nil
 	}
-	guidance := "TLS_CERT_FILE and TLS_KEY_FILE are paths INSIDE the Caddy container under /data/; place files on the host in caddy/data/custom-certs/ and use /data/custom-certs/... values. See doc/DEPLOYMENT.md, Custom TLS Certificates."
+	guidance := "Run `./sb cert install <certificate-file> <key-file>` (or a single PFX/PKCS#12 file) with your certificate; it places the files, sets TLS_CERT_FILE/TLS_KEY_FILE, and restarts Caddy for you. See doc/DEPLOYMENT.md, Custom TLS Certificates."
 	if cert == "" || key == "" {
 		return fmt.Errorf("both TLS_CERT_FILE and TLS_KEY_FILE must be set together. %s", guidance)
 	}
