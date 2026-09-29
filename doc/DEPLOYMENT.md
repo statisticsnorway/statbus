@@ -611,7 +611,7 @@ cd ~/statbus
 ./sb cert install ~/Downloads/your-cert.pfx
 
 # Separate PEM files — fullchain certificate + private key
-./sb cert install fullchain.pem privkey.pem
+./sb cert install ~/fullchain.pem ~/privkey.pem
 ```
 
 `./sb cert install` also repairs the operational snag that trips up existing boxes: once the proxy container has started at least once, Docker owns `caddy/data/` as `root:root`, so a normal user cannot write under it directly — whether `custom-certs/` was never created, or already exists (e.g. from an earlier manual `sudo mkdir`) but is still not writable. `./sb cert install` probes real writability and repairs `caddy/data/custom-certs/` itself (via a throwaway container, the same mechanism the installer uses to repair root-owned backup directories) — no `sudo` required, and Caddy's own certificate state under `caddy/data/caddy/` is left untouched.
@@ -736,19 +736,14 @@ PGSSLMODE=verify-full PGSSLNEGOTIATION=direct psql -h your-domain.com -p 5432 -U
 
 ### Switching Back to ACME
 
-To return to automatic Let's Encrypt certificates:
+To return to automatic Let's Encrypt certificates, run:
 
-1. Clear the certificate paths in `.env.config`:
-   ```bash
-   TLS_CERT_FILE=
-   TLS_KEY_FILE=
-   ```
+```bash
+cd ~/statbus
+./sb cert remove
+```
 
-2. Regenerate and restart:
-   ```bash
-   ./sb config generate
-   docker compose restart proxy
-   ```
+This archives the current certificate files to `caddy/data/custom-certs/archive/<timestamp>/` (not deleted — retrievable later), clears `TLS_CERT_FILE`/`TLS_KEY_FILE` in `.env.config`, regenerates Caddy's configuration, and restarts the proxy. Caddy then requests a fresh certificate from Let's Encrypt on the first HTTPS request, provided `SITE_DOMAIN` is publicly reachable on ports 80/443.
 
 ### Certificate Renewal
 
