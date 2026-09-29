@@ -1320,10 +1320,21 @@ func (d *Service) pruneUpgradeLogs(keep int) {
 const NewSbUpgradingDBHealthTimeout = 5 * time.Minute
 
 func (d *Service) waitForDBHealth(timeout time.Duration) error {
+	return d.waitForDBHealthProgress(timeout, nil)
+}
+
+// waitForDBHealthProgress is waitForDBHealth with an optional per-probe
+// callback. A caller under the gated watchdog ticker passes progress.bump so a
+// long but advancing readiness wait (each probe is a completed, bounded step)
+// is not mistaken for a stall.
+func (d *Service) waitForDBHealthProgress(timeout time.Duration, probed func()) error {
 	deadline := time.Now().Add(timeout)
 	for time.Now().Before(deadline) {
 		out, err := runCommandOutput(d.projDir, "docker", "compose", "exec", "db",
 			"pg_isready", "-U", "postgres")
+		if probed != nil {
+			probed()
+		}
 		if err == nil {
 			return nil
 		}

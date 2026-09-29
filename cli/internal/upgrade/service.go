@@ -4206,6 +4206,14 @@ func (d *Service) recoveryRollback(ctx context.Context, flag UpgradeFlag, displa
 // health and marks completed_at. This ensures "completed" truly means
 // the new version is running and verified.
 func (d *Service) completeInProgressUpgrade(ctx context.Context) error {
+	// A nil session is a real state, not a programming error: a recovery path
+	// whose database convergence failed and whose best-effort reconnect also
+	// failed returns here without one (and master already has the pre-reconnect
+	// StepImagePull park window). pgx dereferences a nil *Conn receiver, so name
+	// the condition instead of panicking the daemon.
+	if d.queryConn == nil {
+		return errQueryConnUnavailable("completeInProgressUpgrade: read the in-progress upgrade row")
+	}
 	var id int
 	var commitSHA string
 	var displayName string
@@ -9774,6 +9782,16 @@ func (d *Service) startSourceApplicationStack(ctx context.Context, progress *Pro
 		return &sourceServingEraUnknownError{Detail: fmt.Sprintf("derived unsupported serving era %q", era)}
 	}
 
+	// The database container is part of the source era too. A forward step that
+	// reached its db-up ran the TARGET compose model, and the rollback/park route
+	// start only resumes that existing container. Converge it to the restored
+	// source model now, inside the maintenance window, so no later ordinary
+	// `docker compose up -d db` (the daemon's next boot) recreates the database
+	// after recovery has reported success (rc.16 arc run 36468921894).
+	if err := d.convergeSourceDatabaseContainer(ctx, progress); err != nil {
+		return err
+	}
+
 	buildCommand := func(commandCtx context.Context) (*exec.Cmd, error) {
 		if recreated {
 			return compose.Up(commandCtx, d.projDir, composeArgs...)
@@ -9841,6 +9859,139 @@ func (d *Service) startSourceApplicationStack(ctx context.Context, progress *Pro
 	}
 	if err := d.healthCheck(progress, 5, 5*time.Second); err != nil {
 		return fmt.Errorf("source services did not pass the health gate: %w", err)
+	}
+	return nil
+}
+
+// sourceDatabaseConvergeHealthTimeout bounds the readiness wait after the
+// source database convergence (the NewSbUpgrading budget: a recreated container
+// may replay WAL). sourceDatabaseConvergeRestoreConnBudget bounds the
+// best-effort reconnect after a FAILED convergence; it is short because the
+// idle loop's ensureConnected keeps retrying and the terminal must not wait on
+// a database that may be truly gone. Package vars so tests can shrink them.
+var (
+	sourceDatabaseConvergeHealthTimeout     = NewSbUpgradingDBHealthTimeout
+	sourceDatabaseConvergeRestoreConnBudget = 60 * time.Second
+)
+
+// convergeSourceDatabaseContainer makes the database container match the
+// restored source compose model before any source-era serving claim.
+//
+// rc.16 arc run 36468921894 proved the gap: the forward step's db-up created the
+// db container from the TARGET model (image statbus-db:<target>, target config
+// hash). Rollback restored the volume, the source tree and the source .env, then
+// only resumed that same container. rolled_back was recorded while the db still
+// carried the target model, and the next daemon boot's EnsureDBUp
+// (`docker compose up -d db`) saw the drift and recreated the database 30 s
+// after success was reported.
+//
+// Rollback and park recovery have already restored source git and config, so
+// this is the controlled recreation the rc.66 -> rc.67 rule permits. Compose
+// leaves a container that already matches in place (no restart), so boxes whose
+// db never moved are unaffected. --no-deps keeps this to the database alone.
+//
+// Every client is removed before the database can be recreated. The db image
+// sets no stop signal, so a recreate stops PostgreSQL with SIGTERM (smart
+// shutdown), which waits for every session and is SIGKILLed after Compose's
+// 10 s grace. That unclean stop is what produced "the database system is
+// shutting down" and crash recovery in the rc.16 arc.
+//   - app/worker/rest: rollback and the budget parks have already stopped and
+//     verified them, but the deterministic park with an Unreadable position
+//     enters through StartDatabaseRouteServingMayRun, which does not prove the
+//     serving tier is stopped (a code-only release that failed its health check
+//     after Step 11 leaves the target tier running). ensureRecoveryClientsStopped
+//     observes first and stops only on a real violation, so the already-stopped
+//     paths issue no stop. The serving tier is started or recreated a few lines
+//     later by the caller, behind the still-active maintenance page.
+//   - the daemon's own sessions: closed here and reopened after, mirroring
+//     executeUpgrade's stopListenLoop + disconnect before it stops the database.
+//
+// The entry invariant on the daemon's sessions is restored on EVERY exit. The
+// park and PreSwap callers record their terminal through fresh connections and
+// then return into code that reads d.queryConn (completeInProgressUpgrade,
+// UpgradeParkedReason), so a failed convergence must not leave the service
+// disconnected. The reconnect after a failure is best effort and bounded; the
+// original error is always the one returned, so the caller still records a
+// failed or degraded terminal.
+func (d *Service) convergeSourceDatabaseContainer(ctx context.Context, progress *ProgressLog) (returnErr error) {
+	if err := d.ensureRecoveryClientsStopped(ctx, progress); err != nil {
+		if progress != nil {
+			progress.Write("  Converging the database container to the restored source configuration ... refused: application clients could not be stopped and verified: %v", err)
+		}
+		return fmt.Errorf("stop application clients before converging the database container: %w", err)
+	}
+	reconnectAfter := d.queryConn != nil || d.listenConn != nil
+	reconnectAttempted := false
+	defer func() {
+		if returnErr == nil || !reconnectAfter || reconnectAttempted || d.queryConn != nil {
+			return
+		}
+		restoreCtx, cancel := context.WithTimeout(ctx, sourceDatabaseConvergeRestoreConnBudget)
+		defer cancel()
+		if err := d.reconnect(restoreCtx); err != nil {
+			if progress != nil {
+				progress.Write("  Reconnecting after the failed database convergence ... failed: %v (the idle loop's ensureConnected retries)", err)
+			}
+			return
+		}
+		if progress != nil {
+			progress.Write("  Reconnecting after the failed database convergence ... ok")
+		}
+	}()
+	// Stop the listenLoop goroutine before closing the connection it reads, as
+	// executeUpgrade does. Otherwise the loop errors on the closed socket and the
+	// main loop's errCh arm reconnects a second time, closing the sessions this
+	// function reopens. The main loop restarts the listener when listenCancel is nil.
+	d.stopListenLoop()
+	if d.listenConn != nil {
+		_ = d.listenConn.Close(context.Background()) // best-effort; the session is being discarded
+		d.listenConn = nil
+	}
+	if d.queryConn != nil {
+		_ = d.queryConn.Close(context.Background()) // best-effort; the session is being discarded
+		d.queryConn = nil
+	}
+	args := []string{"-d", "--no-build", "--no-deps", "db"}
+	commandCtx, cancel := context.WithTimeout(ctx, 5*time.Minute)
+	defer cancel()
+	cmd, err := compose.Up(commandCtx, d.projDir, args...)
+	if err == nil {
+		var out string
+		if progress != nil {
+			out, err = runPreparedCommandToLogCapture(commandCtx, cmd, 5*time.Minute, progress.File(), "source-db-compose", progress.bump, "docker compose up", args)
+		} else {
+			out, err = runPreparedCommandOutput(commandCtx, cmd, 5*time.Minute, "docker compose up", args)
+		}
+		if err != nil {
+			err = fmt.Errorf("%w (%s)", err, strings.TrimSpace(out))
+		}
+	}
+	if err != nil {
+		if progress != nil {
+			progress.Write("  Converging the database container to the restored source configuration ... failed: %v", err)
+		}
+		return fmt.Errorf("converge database container to restored source configuration: %w", err)
+	}
+	// Bump progress on every completed readiness probe: the PreSwap caller runs
+	// under the gated watchdog ticker (3 min stall threshold), and this wait may
+	// legitimately take longer when the container was recreated.
+	if err := d.waitForDBHealthProgress(sourceDatabaseConvergeHealthTimeout, progress.bump); err != nil {
+		if progress != nil {
+			progress.Write("  Converging the database container to the restored source configuration ... unhealthy: %v", err)
+		}
+		return fmt.Errorf("database not healthy after converging to restored source configuration: %w", err)
+	}
+	if reconnectAfter {
+		reconnectAttempted = true
+		if err := d.reconnect(ctx); err != nil {
+			if progress != nil {
+				progress.Write("  Converging the database container to the restored source configuration ... reconnect failed: %v", err)
+			}
+			return fmt.Errorf("reconnect after converging database container to restored source configuration: %w", err)
+		}
+	}
+	if progress != nil {
+		progress.Write("  Converging the database container to the restored source configuration ... ok")
 	}
 	return nil
 }
@@ -10694,6 +10845,16 @@ func rollbackFinalError(failureCode *UpgradeFailureCode, reason string) string {
 		"The failure is recorded (log retained); report it to support. This version will fail the same way — do NOT re-schedule it; run `./sb upgrade check` and try a LATER release when one is available. No manual intervention needed."
 }
 
+// ErrQueryConnUnavailable names the state where the daemon holds no query
+// session (d.queryConn == nil). pgx v5 dereferences a nil *Conn receiver, so a
+// reader that can be reached in that state checks first and returns this
+// instead of panicking.
+var ErrQueryConnUnavailable = errors.New("query connection is not available")
+
+func errQueryConnUnavailable(operation string) error {
+	return fmt.Errorf("%s: %w", operation, ErrQueryConnUnavailable)
+}
+
 // isRollbackFinishPending reports whether the row for id is the cleanup-only
 // rollback-finish-pending shape. It runs on the recovery classify path before
 // phase routing, so the read is bounded by recoveryReadTimeout (STATBUS-190): a
@@ -10958,6 +11119,11 @@ func parkStateUnknown(err error) bool {
 }
 
 func (d *Service) upgradeParkedReason(ctx context.Context, id int) (parked bool, reason string, err error) {
+	if d.queryConn == nil {
+		// Not a 42703, so parkStateUnknown treats it as UNKNOWN (fail safe) and
+		// runCrashRecovery's shouldRestartAfterFailedRecovery declines to restart.
+		return false, "", errQueryConnUnavailable(fmt.Sprintf("read park state of upgrade %d", id))
+	}
 	var parkedAt sql.NullTime
 	var r sql.NullString
 	if err = d.queryConn.QueryRow(ctx,

@@ -75,6 +75,7 @@ var allowedComposeUpCalls = map[string]approvedLaunch{
 	"internal/upgrade/service.go:applyNewSbUpgrading":                    {Count: 2, Reason: "upgrade transition starts the target database and application stacks through compose.Up"},
 	"internal/upgrade/service.go:completeInProgressUpgrade":              {Count: 1, Reason: "successful upgrade completion starts the target application stack through compose.Up"},
 	"internal/upgrade/service.go:convergeParkedServingTierToCurrentTree": {Count: 1, Reason: "a successor claim against a displaced park reconciles the serving tier to the current tree before capturing its source baseline"},
+	"internal/upgrade/service.go:convergeSourceDatabaseContainer":        {Count: 1, Reason: "source-era recovery converges the database container to the restored source compose model before serving (rc.16 run 36468921894)"},
 	"internal/upgrade/service.go:startSourceApplicationStack":            {Count: 1, Reason: "recovery restores the verified source application stack through compose.Up"},
 }
 
@@ -199,7 +200,7 @@ var allowedProcessLaunches = map[string]approvedLaunch{
 	"internal/upgrade/exec.go:runInstallFixup|os/exec|./sb":                                           {Count: 1, Reason: "runInstallFixup invokes the target sb install repair step after recovery prepares the checkout"},
 	"internal/upgrade/exec.go:startDatabaseAndItsProxy|upgrade.runCommandOutput|docker":               {Count: 2, Reason: "startDatabaseAndItsProxy starts the database and proxy compose services needed for migration and health checks"},
 	"internal/upgrade/exec.go:verifyRecoveryClientsStopped|upgrade.commandContext|docker":             {Count: 1, Reason: "verifyRecoveryClientsStopped lists deployment containers to prove application clients are quiesced"},
-	"internal/upgrade/exec.go:waitForDBHealth|upgrade.runCommandOutput|docker":                        {Count: 1, Reason: "waitForDBHealth inspects database container health until the target reports ready"},
+	"internal/upgrade/exec.go:waitForDBHealthProgress|upgrade.runCommandOutput|docker":                {Count: 1, Reason: "waitForDBHealthProgress (waitForDBHealth's body) inspects database container health until the target reports ready, reporting each probe as progress"},
 	"internal/upgrade/github.go:DiscoverTagsViaGit|upgrade.runCommandOutputTimeoutEnv|git":            {Count: 1, Reason: "DiscoverTagsViaGit fetches release refs with bounded credentials and timeout handling"},
 	"internal/upgrade/github.go:DiscoverTagsViaGit|upgrade.runCommandOutput|git":                      {Count: 1, Reason: "DiscoverTagsViaGit lists fetched version tags to construct upgrade candidates without the API"},
 	"internal/upgrade/migrate_oom_probe.go:dbLogTail|upgrade.commandContext|docker":                   {Count: 1, Reason: "dbLogTail reads the database container's recent logs after a suspected migration OOM"},

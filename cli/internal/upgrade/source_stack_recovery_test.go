@@ -166,8 +166,106 @@ exit 0
 	if !strings.Contains(log, "compose start app worker rest proxy\n") {
 		t.Fatalf("verified source-era serving containers were not started in place:\n%s", logBytes)
 	}
-	if strings.Contains(log, "compose up") {
-		t.Fatalf("already-source-era containers must not be recreated:\n%s", logBytes)
+	// The only compose up allowed is the database convergence, which Compose
+	// turns into a no-op when db already matches the restored source model.
+	withoutDBConverge := strings.ReplaceAll(log, "compose up -d --no-build --no-deps db\n", "")
+	if strings.Contains(withoutDBConverge, "compose up") {
+		t.Fatalf("already-source-era serving containers must not be recreated:\n%s", logBytes)
+	}
+}
+
+// TestSourceRecoveryConvergesDatabaseSoNextDaemonBootDoesNotRecreateIt is the
+// regression for rc.16 arc run 36468921894 (c-rollback-resurrection). The
+// forward step's db-up left the db container on the TARGET compose model; the
+// rollback restored source git/.env and only resumed that container, then
+// reported rolled_back. The daemon's next boot ran EnsureDBUp
+// (`docker compose up -d db`), Compose saw the drift and recreated the
+// database 30 s after success had been reported ("the database system is
+// shutting down"). The shim models Compose's config-hash rule: `up` on db
+// recreates only while the container's model differs from the on-disk model.
+func TestSourceRecoveryConvergesDatabaseSoNextDaemonBootDoesNotRecreateIt(t *testing.T) {
+	setSourceStackImageIdentityEnv(t)
+	git := newGitRepoFixture(t)
+	sourceTag := git.newSHA[:8]
+	writeSourceStackRecoveryFlag(t, git.dir, sourceTag, nil)
+	srv, _ := sourceStackHealthServer(t)
+
+	shimDir := t.TempDir()
+	logPath := filepath.Join(shimDir, "docker.log")
+	eventsPath := filepath.Join(shimDir, "db-events.log")
+	modelPath := filepath.Join(shimDir, "db-model")
+	// The db container as the failed forward step left it: target model.
+	if err := os.WriteFile(modelPath, []byte("target\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	shim := `#!/bin/sh
+printf '%s\n' "$*" >> "$STATBUS_TEST_DOCKER_LOG"
+case "$*" in
+	` + sourceStackImageInspectCases + `
+	"compose --profile all config --format json")
+		printf '%s\n' '{"services":{"app":{"image":"ghcr.io/statisticsnorway/statbus-app:'"$STATBUS_TEST_SOURCE_TAG"'"},"worker":{"image":"ghcr.io/statisticsnorway/statbus-worker:'"$STATBUS_TEST_SOURCE_TAG"'"},"rest":{"image":"postgrest/postgrest:v12.2.8"},"proxy":{"image":"ghcr.io/statisticsnorway/statbus-proxy:'"$STATBUS_TEST_SOURCE_TAG"'"}}}'
+		;;
+	"compose ps -a --format json")
+		printf '%s\n' '{"ID":"'"$STATBUS_TEST_APP_SOURCE_ID"'","Service":"app","State":"exited","Image":"ghcr.io/statisticsnorway/statbus-app:'"$STATBUS_TEST_SOURCE_TAG"'","ImageID":"'"$STATBUS_TEST_APP_SOURCE_ID"'"}'
+		printf '%s\n' '{"ID":"'"$STATBUS_TEST_WORKER_SOURCE_ID"'","Service":"worker","State":"exited","Image":"ghcr.io/statisticsnorway/statbus-worker:'"$STATBUS_TEST_SOURCE_TAG"'","ImageID":"'"$STATBUS_TEST_WORKER_SOURCE_ID"'"}'
+		printf '%s\n' '{"ID":"'"$STATBUS_TEST_REST_SOURCE_ID"'","Service":"rest","State":"exited","Image":"postgrest/postgrest:v12.2.8","ImageID":"'"$STATBUS_TEST_REST_SOURCE_ID"'"}'
+		printf '%s\n' '{"ID":"'"$STATBUS_TEST_PROXY_SOURCE_ID"'","Service":"proxy","State":"exited","Image":"ghcr.io/statisticsnorway/statbus-proxy:'"$STATBUS_TEST_SOURCE_TAG"'","ImageID":"'"$STATBUS_TEST_PROXY_SOURCE_ID"'"}'
+		;;
+	"compose up "*" db")
+		if [ "$(cat "$STATBUS_TEST_DB_MODEL")" != source ]; then
+			printf 'recreate db: %s\n' "$*" >> "$STATBUS_TEST_DB_EVENTS"
+			printf 'source\n' > "$STATBUS_TEST_DB_MODEL"
+		fi
+		;;
+esac
+exit 0
+`
+	if err := os.WriteFile(filepath.Join(shimDir, "docker"), []byte(shim), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("PATH", shimDir+string(os.PathListSeparator)+os.Getenv("PATH"))
+	t.Setenv("STATBUS_TEST_DOCKER_LOG", logPath)
+	t.Setenv("STATBUS_TEST_DB_EVENTS", eventsPath)
+	t.Setenv("STATBUS_TEST_DB_MODEL", modelPath)
+	t.Setenv("STATBUS_TEST_SOURCE_TAG", sourceTag)
+
+	readEvents := func() string {
+		t.Helper()
+		data, err := os.ReadFile(eventsPath)
+		if err != nil && !os.IsNotExist(err) {
+			t.Fatal(err)
+		}
+		return string(data)
+	}
+
+	// Rollback / park recovery: the shared source-era serving gate.
+	d := &Service{projDir: git.dir, cachedURL: srv.URL + "/rpc/auth_status", cachedReadyURL: srv.URL + "/ready"}
+	if err := d.startSourceApplicationStack(context.Background(), nil); err != nil {
+		t.Fatalf("startSourceApplicationStack: %v", err)
+	}
+	duringRecovery := readEvents()
+
+	// The daemon's next boot (systemd restart after rolled_back, exit 75).
+	if err := d.EnsureDBUp(context.Background()); err != nil {
+		t.Fatalf("EnsureDBUp: %v", err)
+	}
+	afterBoot := strings.TrimPrefix(readEvents(), duringRecovery)
+
+	dockerLog, err := os.ReadFile(logPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if afterBoot != "" {
+		t.Fatalf("the daemon boot after a successful source recovery recreated the database (an outage after success was reported):\n%s\ndocker transcript:\n%s", afterBoot, dockerLog)
+	}
+	if strings.Count(duringRecovery, "recreate db:") != 1 || !strings.Contains(duringRecovery, "--no-deps db") {
+		t.Fatalf("source recovery must converge the target-era db container exactly once, db only, inside the recovery window; got:\n%s\ndocker transcript:\n%s", duringRecovery, dockerLog)
+	}
+	log := string(dockerLog)
+	convergeIdx := strings.Index(log, "compose up -d --no-build --no-deps db\n")
+	startIdx := strings.Index(log, "compose start app worker rest proxy\n")
+	if convergeIdx < 0 || startIdx < 0 || convergeIdx > startIdx {
+		t.Fatalf("db must converge before the source serving tier starts: converge=%d start=%d\n%s", convergeIdx, startIdx, dockerLog)
 	}
 }
 
@@ -370,6 +468,14 @@ func TestCorruptMarkerRemovalRetainsSourceImageCarrierForFlaglessRecovery(t *tes
 
 	logPath := filepath.Join(t.TempDir(), "docker.log")
 	t.Setenv("STATBUS_TEST_DOCKER_LOG", logPath)
+	// The capture above modeled a serving box (app/worker/rest running). By the
+	// time recovery restarts the source stack the upgrade has stopped them
+	// (executeUpgrade's compose stop); the database convergence verifies that
+	// before it may recreate db. Live clients are covered by
+	// TestSourceDatabaseConvergenceStopsLiveClientsFirst.
+	for _, service := range sourceServingClientServices {
+		t.Setenv("STATBUS_TEST_"+strings.ToUpper(service)+"_STATE", "exited")
+	}
 	srv, rpcHits := sourceStackHealthServer(t)
 	d.cachedURL = srv.URL + "/rpc/auth_status"
 	d.cachedReadyURL = srv.URL + "/ready"
@@ -1203,6 +1309,7 @@ case "$*" in
 		;;
 	"compose up -d --no-build --no-deps app worker rest proxy")
 		# Model Compose starting part of the tier and then returning an error.
+		rm -f "$STATBUS_TEST_STOPPED"
 		exit 17
 		;;
 	"compose stop app worker rest") touch "$STATBUS_TEST_STOPPED" ;;
@@ -1231,7 +1338,14 @@ exit 0
 	}
 	log := string(logBytes)
 	upIdx := strings.Index(log, "compose up -d --no-build --no-deps app worker rest proxy\n")
-	stopIdx := strings.Index(log, "compose stop app worker rest\n")
+	// The database convergence stops the live target clients before db can be
+	// recreated (F2); the containment stop under test is the one AFTER the failed up.
+	stopIdx := -1
+	if upIdx >= 0 {
+		if rel := strings.Index(log[upIdx:], "compose stop app worker rest\n"); rel >= 0 {
+			stopIdx = upIdx + rel
+		}
+	}
 	postVerifyIdx := strings.LastIndex(log, "compose ps -a --format json\n")
 	if upIdx < 0 || stopIdx < upIdx || postVerifyIdx < stopIdx {
 		t.Fatalf("partial recreate containment order must be failed up -> stop -> positive reinspection:\n%s", log)
