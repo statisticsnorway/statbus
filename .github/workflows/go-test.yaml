@@ -114,13 +114,12 @@ jobs:
         # zero-scope-green class, instance seven.
         run: go test ./... -count=1
 
-      # Two repo-level checks with no other runner (found by the v2026.09.3
-      # ticket audit): every operator-facing rerun instruction is the
-      # directory-independent command (STATBUS-387 AC1), and PostgREST
-      # receives the selected site settings (STATBUS-409 AC1).
-      - name: Operator rerun instructions are directory-independent
-        run: bash test/install-rerun-messages.sh
-
+      # One repo-level check with no other runner (found by the v2026.09.3
+      # ticket audit): PostgREST receives the selected site settings
+      # (STATBUS-409 AC1). The other check the same audit found —
+      # every operator-facing rerun instruction is the directory-independent
+      # command (STATBUS-387 AC1) — is covered above, by
+      # TestEveryInstallerRerunHintUsesTheSavedCommand in `go test ./...`.
       - name: PostgREST receives the selected site settings
         run: bash test/config/postgrest-environment-test.sh
 

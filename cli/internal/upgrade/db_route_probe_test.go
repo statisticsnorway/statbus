@@ -146,12 +146,16 @@ func TestRecoveryRouteStartContracts(t *testing.T) {
 // TestProxyRouteMissingErrorText pins AC#3: the missing-proxy refusal names the
 // state and the operator's action (recreate deliberately, then re-run install)
 // so a re-run is an actionable path out, not a silent identical error loop.
+// The rerun command is the saved, directory-independent one (STATBUS-387
+// AC1): diskpolicy.RerunCommand() falls back to the public curl|bash command
+// outside a real `./sb install` invocation (which sets
+// STATBUS_INSTALL_RERUN_COMMAND).
 func TestProxyRouteMissingErrorText(t *testing.T) {
 	msg := NewProxyRouteMissingError().Error()
 	for _, want := range []string{
 		"proxy container — does not exist",
 		"docker compose up -d proxy",
-		"./sb install",
+		"curl -fsSL https://statbus.org/install.sh | bash",
 		"CADDY_DB_BIND_ADDRESS",
 	} {
 		if !strings.Contains(msg, want) {

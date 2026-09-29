@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 
+	"github.com/statisticsnorway/statbus/cli/internal/diskpolicy"
 	"github.com/statisticsnorway/statbus/cli/internal/upgrade"
 )
 
@@ -108,7 +109,7 @@ func restoreReattemptFailure(err error) error {
 		Class: upgrade.RefusalRestoreDegraded,
 		Text: "  The database restore could not be completed; the system is still degraded.\n" +
 			"  Next: contact SSB support and involve your IT staff. Keep this box as-is for diagnosis;\n" +
-			"  re-running `./sb install` will re-attempt the same restore",
+			fmt.Sprintf("  re-running `%s` will re-attempt the same restore", diskpolicy.RerunCommand()),
 		Detail: err,
 	}
 }
@@ -126,7 +127,7 @@ func recoveryDBRouteRefusal(reachErr, startErr error) error {
 		Class: upgrade.RefusalRecoveryDBUnreachable,
 		Text: "the database cannot be reached on the upgrade service's own route (CADDY_DB_BIND_ADDRESS:CADDY_DB_PORT), and starting the existing db and proxy containers did not restore it.\n" +
 			"  Recovery will not recreate containers: the current program could start a different version than the interrupted upgrade.\n" +
-			"  Operator action: check that Docker is running and that both db and proxy are present and healthy, then re-run `./sb install`",
+			fmt.Sprintf("  Operator action: check that Docker is running and that both db and proxy are present and healthy, then re-run `%s`", diskpolicy.RerunCommand()),
 		Detail: errors.Join(reachErr, startErr),
 	}
 }

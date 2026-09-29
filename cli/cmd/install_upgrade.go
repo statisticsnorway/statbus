@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/statisticsnorway/statbus/cli/internal/diskpolicy"
 	"github.com/statisticsnorway/statbus/cli/internal/install"
 	"github.com/statisticsnorway/statbus/cli/internal/migrate"
 	"github.com/statisticsnorway/statbus/cli/internal/upgrade"
@@ -359,7 +360,7 @@ func runCrashRecovery(projDir string, restartIfRecovered *func()) error {
 			return fmt.Errorf("crash recovery: %w", &upgrade.OperatorRefusalError{
 				Class: upgrade.RefusalUnparkFailed,
 				Text: fmt.Sprintf("could not clear the park marker for upgrade id=%d — "+
-					"if this upgrade is parked, install cannot resume it; fix DB access and re-run ./sb install", flag.ID),
+					"if this upgrade is parked, install cannot resume it; fix DB access and re-run %s", flag.ID, diskpolicy.RerunCommand()),
 				Detail: uerr,
 			})
 		}
@@ -403,7 +404,7 @@ func runCrashRecovery(projDir string, restartIfRecovered *func()) error {
 					removeRetreatErr = svc.RemoveFlagAfterSourceEra()
 				}
 				if rerr := removeRetreatErr; rerr != nil {
-					fmt.Printf("crash recovery: warning — could not remove the completed-retreat flag for upgrade id=%d after un-park: %v (the fresh attempt will be treated as a recovery instead; re-run ./sb install)\n", flag.ID, rerr)
+					fmt.Printf("crash recovery: warning — could not remove the completed-retreat flag for upgrade id=%d after un-park: %v (the fresh attempt will be treated as a recovery instead; re-run %s)\n", flag.ID, rerr, diskpolicy.RerunCommand())
 				} else {
 					// No local bookkeeping to update: `flag` is scoped to this if-statement,
 					// and every downstream consumer (RecoveryBudgetGuard, the boot-migrate
@@ -420,7 +421,7 @@ func runCrashRecovery(projDir string, restartIfRecovered *func()) error {
 				// the flag's death history too (the unit is quiesced here → flock free).
 				// Unchanged for the era-REFUSED park, which still has a real in-flight
 				// upgrade to recover.
-				fmt.Printf("crash recovery: warning — could not clear the flag's death history for upgrade id=%d after un-park: %v (a fresh attempt may re-park via same-step-twice; re-run ./sb install)\n", flag.ID, cerr)
+				fmt.Printf("crash recovery: warning — could not clear the flag's death history for upgrade id=%d after un-park: %v (a fresh attempt may re-park via same-step-twice; re-run %s)\n", flag.ID, cerr, diskpolicy.RerunCommand())
 			}
 		}
 	}

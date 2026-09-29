@@ -1987,14 +1987,14 @@ func (d *Service) recoverFromFlag(ctx context.Context) (err error) {
 	// (runningAsService=false) and is the only deliberate retry entry.
 	if (flag.Phase == PhaseRollbackSchemaFloorFailed || flag.Phase == PhaseRollbackClientsLive || flag.Phase == PhaseRollbackRestoreFailed) && d.runningAsService {
 		if flag.Phase == PhaseRollbackClientsLive {
-			logRecover("ROLLBACK_FAILED_SERVICES_NOT_STOPPED: upgrade %d remains closed because app/worker/rest was observed live during database-only rollback recovery. The recovery pass attempted to stop and verify them; inspect docker compose ps -a, stop any remaining clients, then run ./sb install. (marker classification: %s; detail: %s)", flag.ID, flag.RollbackFailureCode, flag.RollbackFailure)
+			logRecover("ROLLBACK_FAILED_SERVICES_NOT_STOPPED: upgrade %d remains closed because app/worker/rest was observed live during database-only rollback recovery. The recovery pass attempted to stop and verify them; inspect docker compose ps -a, stop any remaining clients, then run %s. (marker classification: %s; detail: %s)", flag.ID, diskpolicy.RerunCommand(), flag.RollbackFailureCode, flag.RollbackFailure)
 			return nil
 		}
 		if flag.Phase == PhaseRollbackRestoreFailed {
-			logRecover("ROLLBACK_FAILED_DB_RESTORE: upgrade %d remains closed because the snapshot restore or restored database route failed. No serving containers were started. Repair the recorded restore/route cause, then run ./sb install. (marker classification: %s; detail: %s)", flag.ID, flag.RollbackFailureCode, flag.RollbackFailure)
+			logRecover("ROLLBACK_FAILED_DB_RESTORE: upgrade %d remains closed because the snapshot restore or restored database route failed. No serving containers were started. Repair the recorded restore/route cause, then run %s. (marker classification: %s; detail: %s)", flag.ID, diskpolicy.RerunCommand(), flag.RollbackFailureCode, flag.RollbackFailure)
 			return nil
 		}
-		logRecover("ROLLBACK_SCHEMA_FLOOR_FAILED: upgrade %d remains closed with target recovery assets retained. Fix the recorded migration/database cause, then run ./sb install. (marker classification: %s; detail: %s)", flag.ID, flag.RollbackFailureCode, flag.RollbackFailure)
+		logRecover("ROLLBACK_SCHEMA_FLOOR_FAILED: upgrade %d remains closed with target recovery assets retained. Fix the recorded migration/database cause, then run %s. (marker classification: %s; detail: %s)", flag.ID, diskpolicy.RerunCommand(), flag.RollbackFailureCode, flag.RollbackFailure)
 		return nil
 	}
 
@@ -2068,7 +2068,7 @@ func (d *Service) recoverFromFlag(ctx context.Context) (err error) {
 	if requiresConvergence {
 		if convergenceState == "failed" && d.runningAsService {
 			routeLock.Close()
-			logRecover("PARKED_SERVING_TREE_CONVERGENCE_FAILED: upgrade %d remains held with app/worker/rest contained after a failed serving-tree convergence. Run ./sb install for one deliberate retry after repairing the recorded image or Compose cause.", flag.ID)
+			logRecover("PARKED_SERVING_TREE_CONVERGENCE_FAILED: upgrade %d remains held with app/worker/rest contained after a failed serving-tree convergence. Run %s for one deliberate retry after repairing the recorded image or Compose cause.", flag.ID, diskpolicy.RerunCommand())
 			return nil
 		}
 		d.flagLock = routeLock
@@ -2169,8 +2169,8 @@ func (d *Service) recoverFromFlag(ctx context.Context) (err error) {
 					flag.ID, flag.Label(), obsReason)
 				closeAppend()
 				return d.recoveryRollback(ctx, flag, flag.Label(), logRelPath, fmt.Sprintf(
-					"%s: the upgrade was interrupted while finishing and was rolled back to the previous version (data restored). Re-run with ./sb install once the cause is fixed. (detail: observed-state=cannot-reach-new: %s)",
-					ErrResumeDied, obsReason))
+					"%s: the upgrade was interrupted while finishing and was rolled back to the previous version (data restored). Re-run with %s once the cause is fixed. (detail: observed-state=cannot-reach-new: %s)",
+					ErrResumeDied, diskpolicy.RerunCommand(), obsReason))
 
 			case ObservedPositionUnreadable:
 				var spec retrySpec
@@ -2208,8 +2208,8 @@ func (d *Service) recoverFromFlag(ctx context.Context) (err error) {
 						flag.ID, flag.Label(), spec.name, cause)
 					closeAppend()
 					return d.recoveryRollback(ctx, flag, flag.Label(), logRelPath, fmt.Sprintf(
-						"%s: %s recurred after a cleared backoff-retry and was rolled back to the previous version (data restored). Re-run with ./sb install once the cause is fixed. (detail: new-sb-upgrading, cause=%s)",
-						ErrResumeDied, spec.name, cause))
+						"%s: %s recurred after a cleared backoff-retry and was rolled back to the previous version (data restored). Re-run with %s once the cause is fixed. (detail: new-sb-upgrading, cause=%s)",
+						ErrResumeDied, spec.name, diskpolicy.RerunCommand(), cause))
 				}
 				retried[cause] = true
 				logRecover("Upgrade %d (%s) was interrupted while finishing; its position is temporarily unverifiable (%s) — retrying in-process before deciding, not exiting. Your data is safe. (detail: new-sb-upgrading, cause=%s)",
@@ -2220,8 +2220,8 @@ func (d *Service) recoverFromFlag(ctx context.Context) (err error) {
 						flag.ID, flag.Label(), spec.name, err, cause)
 					closeAppend()
 					return d.recoveryRollback(ctx, flag, flag.Label(), logRelPath, fmt.Sprintf(
-						"%s: %s did not clear within the retry budget and was rolled back to the previous version (data restored). Re-run with ./sb install once the cause is fixed. (detail: new-sb-upgrading, cause=%s, %v)",
-						ErrResumeDied, spec.name, cause, err))
+						"%s: %s did not clear within the retry budget and was rolled back to the previous version (data restored). Re-run with %s once the cause is fixed. (detail: new-sb-upgrading, cause=%s, %v)",
+						ErrResumeDied, spec.name, diskpolicy.RerunCommand(), cause, err))
 				}
 				// Cleared → loop re-reads the observed state and dispatches the resolved verdict.
 
@@ -2761,7 +2761,7 @@ func (d *Service) ExecuteUpgradeInline(ctx context.Context, id int, commitSHA, _
 		case imageClaimWait:
 			fmt.Printf("Upgrade row %d: scheduled, images still building — waiting for publication.\n", id)
 			d.verifyArtifacts(ctx) // one immediate re-probe, same as executeScheduled's gate
-			return &OperatorRefusalError{Class: RefusalClaimImagesBuilding, Text: fmt.Sprintf("upgrade row %d: images not yet verified ready (still building) — re-run ./sb install shortly", id)}
+			return &OperatorRefusalError{Class: RefusalClaimImagesBuilding, Text: fmt.Sprintf("upgrade row %d: images not yet verified ready (still building) — re-run %s shortly", id, diskpolicy.RerunCommand())}
 		case imageClaimPastGrace:
 			fmt.Printf("Upgrade row %d: images unverified past %s — proceeding; the warm-up pull will fail actionably if truly absent.\n", id, manifestTimeout)
 		case imageClaimReady:
@@ -2780,7 +2780,7 @@ func (d *Service) ExecuteUpgradeInline(ctx context.Context, id int, commitSHA, _
 	// stands. commit_tags comes from the claim's RETURNING here.
 	claim, claimErr := d.claimScheduledUpgrade(ctx, id)
 	if errors.Is(claimErr, pgx.ErrNoRows) {
-		return &OperatorRefusalError{Class: RefusalClaimTaken, Text: fmt.Sprintf("upgrade row %d no longer in 'scheduled' state (another actor claimed it first); re-run ./sb install after it finishes", id)}
+		return &OperatorRefusalError{Class: RefusalClaimTaken, Text: fmt.Sprintf("upgrade row %d no longer in 'scheduled' state (another actor claimed it first); re-run %s after it finishes", id, diskpolicy.RerunCommand())}
 	}
 	if claimErr != nil {
 		d.markPgInvariantTerminal(claimErr, "service.go:ExecuteUpgradeInline:claim")
@@ -7160,7 +7160,7 @@ func (d *Service) claimScheduledUpgrade(ctx context.Context, id int) (scheduledU
 	fmt.Printf("STATBUS-159: claim of upgrade id=%d must displace a standing park, but public.upgrade.tree_convergence_required is absent — applying the daemon schema floor %d before displacing (a displacement without a durable convergence obligation is never permitted)\n",
 		id, migrate.DaemonSchemaFloor)
 	if floorErr := d.applyClaimObligationSchemaFloor(ctx); floorErr != nil {
-		return scheduledUpgradeClaim{}, fmt.Errorf("refusing to claim upgrade id=%d: the standing park cannot be displaced until the daemon schema floor %d (public.upgrade.tree_convergence_required) is applied, and applying it failed: %w — the park stands and the candidate remains scheduled; resolve the migration, then re-run ./sb install or wait for the service's next tick", id, migrate.DaemonSchemaFloor, floorErr)
+		return scheduledUpgradeClaim{}, fmt.Errorf("refusing to claim upgrade id=%d: the standing park cannot be displaced until the daemon schema floor %d (public.upgrade.tree_convergence_required) is applied, and applying it failed: %w — the park stands and the candidate remains scheduled; resolve the migration, then re-run %s or wait for the service's next tick", id, migrate.DaemonSchemaFloor, floorErr, diskpolicy.RerunCommand())
 	}
 	claim, err = d.claimScheduledUpgradePass(ctx, id)
 	if errors.Is(err, errClaimParkNeedsObligationSchema) {
@@ -8386,7 +8386,7 @@ func (d *Service) parkForDeterministicFailure(ctx context.Context, id int, displ
 	}
 	progress.Write("Pausing automatic upgrade retries after a deterministic failure ... ok")
 	progress.Write("  Cause: %s", reason)
-	progress.Write("  The service remains available for a later release or a deliberate ./sb install retry.")
+	progress.Write("  The service remains available for a later release or a deliberate %s retry.", diskpolicy.RerunCommand())
 	if freshlyParked {
 		d.runCallback(displayName, map[string]string{"STATBUS_EVENT": "parked", "STATBUS_PARKED": "1", "STATBUS_PARK_REASON": reason})
 	}
@@ -11819,7 +11819,7 @@ func (d *Service) resumeNewSb(ctx context.Context, flag UpgradeFlag) error {
 			log.Printf("resumeNewSb: PARKED upgrade %d after %d attempt(s) — %s", flag.ID, attempts, reason)
 			progress.Write("Pausing automatic upgrade recovery after %d failed continuation attempt(s) ... ok", attempts)
 			progress.Write("  Cause: %s", reason)
-			progress.Write("  The service remains available for a later release or a deliberate ./sb install retry.")
+			progress.Write("  The service remains available for a later release or a deliberate %s retry.", diskpolicy.RerunCommand())
 			// STATBUS-204: route this budget park through the operable-box chokepoint too — bring
 			// the source version's services back (era-guarded, starts-only, narrative-only on
 			// refuse/failure) so a same-step-twice park is alive-idle AND operable, not dark. The
@@ -12622,7 +12622,7 @@ func (d *Service) restoreAndFinalize(ctx context.Context, id int, version string
 			progress.Write("ROLLBACK_FAILED_SERVICES_NOT_STOPPED")
 			progress.Write("The database snapshot was restored, but application clients were observed live during held-closed schema-floor recovery: %v", clientsLiveErr)
 			progress.Write("The durable rollback marker records whether containment stopped and positively verified app, worker, and rest. HTTP maintenance and SQL read-only remain active.")
-			progress.Write("Inspect docker compose ps -a, stop any remaining clients, then run: ./sb install")
+			progress.Write("Inspect docker compose ps -a, stop any remaining clients, then run: %s", diskpolicy.RerunCommand())
 			return true, nil
 		}
 		clientsStoppedErr := d.ensureRecoveryClientsStopped(ctx, progress)
@@ -12636,7 +12636,7 @@ func (d *Service) restoreAndFinalize(ctx context.Context, id int, version string
 		} else {
 			progress.Write("Application clients are stopped and positively verified. HTTP maintenance and SQL read-only remain active.")
 		}
-		progress.Write("Repair the restore/database route cause, then run: ./sb install")
+		progress.Write("Repair the restore/database route cause, then run: %s", diskpolicy.RerunCommand())
 		return true, nil
 	}
 	if backupPath != "" {
@@ -12653,7 +12653,7 @@ func (d *Service) restoreAndFinalize(ctx context.Context, id int, version string
 				progress.Write("Application clients are stopped and positively verified. HTTP maintenance and SQL read-only remain active.")
 			}
 			progress.Write("The target recovery binary and migration files were preserved.")
-			progress.Write("Fix the reported migration/database error, then run: ./sb install")
+			progress.Write("Fix the reported migration/database error, then run: %s", diskpolicy.RerunCommand())
 			progress.Write("Do not replace ./sb, check out another commit, or start the application services.")
 			return true, nil
 		}
@@ -13142,7 +13142,7 @@ func (d *Service) ReattemptRestore(ctx context.Context, rowID int64) error {
 		return fmt.Errorf("ReattemptRestore: acquire upgrade transaction lock for row %d: %w", rowID, err)
 	}
 	if !advisoryLockHeld {
-		return &OperatorRefusalError{Class: RefusalRestoreDaemonOwnsLock, Text: fmt.Sprintf("ReattemptRestore: refusing row %d because a running upgrade daemon owns the upgrade lock; stop/quiesce it and re-run ./sb install", rowID)}
+		return &OperatorRefusalError{Class: RefusalRestoreDaemonOwnsLock, Text: fmt.Sprintf("ReattemptRestore: refusing row %d because a running upgrade daemon owns the upgrade lock; stop/quiesce it and re-run %s", rowID, diskpolicy.RerunCommand())}
 	}
 
 	// Capture the commit label, snapshot identity, log, and recovery_attempts
@@ -13410,7 +13410,7 @@ func (d *Service) rollback(ctx context.Context, id int, version, restoreTargetSH
 		}
 		progress.Write("Manual recovery required:")
 		progress.Write("    1. Investigate why `docker compose stop` did not stop every service: docker compose ps -a")
-		progress.Write("    2. Stop the remaining service(s) manually, then decide whether to retry: ./sb install")
+		progress.Write("    2. Stop the remaining service(s) manually, then decide whether to retry: %s", diskpolicy.RerunCommand())
 		progress.Write("CATASTROPHIC FAILURE [%s]. One or more services were not confirmed stopped. Contact your administrator%s.",
 			ErrRollbackServicesNotStopped, contactSuffix(readAdministratorContact(d.projDir)))
 		if d.writeRollbackTerminal(id,
