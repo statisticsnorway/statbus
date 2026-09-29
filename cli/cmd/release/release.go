@@ -227,7 +227,7 @@ func preflightChecks(projDir string, checkOnly bool) bool {
 			stampBytes = []byte(stampContent)
 		case pgRegressResult.Status == release.WorkflowCheckPending,
 			pgRegressResult.Status == release.WorkflowCheckFailed:
-			printFastSuiteWorkflowFailure(pgRegressResult, headShort, headFull)
+			printFastSuiteWorkflowFailure(projDir, pgRegressResult, headShort, headFull)
 			allPassed = false
 		case pgRegressResult.Status == release.WorkflowCheckMissing && pgBlocker != nil:
 			// STATBUS-256: an ancestor carrying this exact code has already
@@ -241,10 +241,10 @@ func preflightChecks(projDir string, checkOnly bool) bool {
 			fmt.Println("    Or:  ./dev.sh migrate-and-test fast   (write local stamp from your machine)")
 			allPassed = false
 		case pgRegressResult.Status == release.WorkflowCheckMissing:
-			printFastSuiteWorkflowFailure(pgRegressResult, headShort, headFull)
+			printFastSuiteWorkflowFailure(projDir, pgRegressResult, headShort, headFull)
 			allPassed = false
 		case pgRegressResult.Status == release.WorkflowCheckUnknown:
-			printFastSuiteWorkflowFailure(pgRegressResult, headShort, headFull)
+			printFastSuiteWorkflowFailure(projDir, pgRegressResult, headShort, headFull)
 			allPassed = false
 		}
 		if pgRide == nil && pgRideNote != "" {
@@ -664,7 +664,7 @@ func runGoCLIBuild(projDir string) (string, error) {
 	return string(out), err
 }
 
-func printFastSuiteWorkflowFailure(result release.WorkflowCheckResult, headShort, headFull string) {
+func printFastSuiteWorkflowFailure(projDir string, result release.WorkflowCheckResult, headShort, headFull string) {
 	switch result.Status {
 	case release.WorkflowCheckPending:
 		fmt.Printf("  ✗ Fast Tests is still pending at %s (no local stamp)\n", headShort)
@@ -680,9 +680,14 @@ func printFastSuiteWorkflowFailure(result release.WorkflowCheckResult, headShort
 		fmt.Println("      Or push a fix to master, then re-run prerelease")
 	case release.WorkflowCheckMissing:
 		fmt.Printf("  ✗ Fast Tests has not run for %s (no local stamp)\n", headShort)
-		fmt.Printf("    Trigger: %s\n", release.WorkflowTriggerCommand(release.WorkflowFastTests, headFull))
-		fmt.Printf("    Watch:   %s\n", release.WorkflowURL(release.WorkflowFastTests))
-		fmt.Println("    Fix: run the trigger command above, wait for Fast Tests green, re-run prerelease")
+		if ref, ok := dispatchRefForMasterTip(projDir, headFull); ok {
+			fmt.Printf("    Trigger: %s\n", release.WorkflowTriggerCommand(release.WorkflowFastTests, ref))
+			fmt.Printf("    Watch:   %s\n", release.WorkflowURL(release.WorkflowFastTests))
+			fmt.Println("    Fix: run the trigger command above, wait for Fast Tests green, re-run prerelease")
+		} else {
+			fmt.Printf("    %s is not origin/master's tip — workflow_dispatch builds a branch/tag tip, not a bare SHA.\n", headShort)
+			fmt.Println("    Fix: push this commit to master (Fast Tests runs after its Images build), then re-run prerelease")
+		}
 	case release.WorkflowCheckUnknown:
 		fmt.Println("  ✗ Fast Tests status check failed (GitHub API error; no local stamp)")
 		fmt.Printf("    Detail: %s\n", result.Detail)
