@@ -8,6 +8,9 @@
 set -euo pipefail
 ROOT=$(git -C "$(dirname "$0")" rev-parse --show-toplevel)
 export LXD_CANDIDATE=v2026.09.3-rc.16 LXD_BASE_PREFIX=s2-26
+# Pin the provenance run id: CI exports GITHUB_RUN_ID, a local run does not,
+# and the expected calls below must be the same in both.
+export GITHUB_RUN_ID=12345678
 source "$ROOT/test/install-recovery/lib/lxd-backend.sh"
 VM_NAME=s2-v2026-09-3-rc-16-0-happy-install
 export LXD_OWNED_BY_THIS_RUN=1 # consumed by lxd_snapshot_installed's ownership guard
@@ -34,7 +37,7 @@ expected=(
     "lxc snapshot $BASE checkpoint-pending"
     "lxc config set $BASE user.statbus.candidate $LXD_CANDIDATE"
     "lxc config set $BASE user.statbus.producer smoke"
-    "lxc config set $BASE user.statbus.run_id manual"
+    "lxc config set $BASE user.statbus.run_id 12345678"
 )
 for ((i=0; i<${#expected[@]}; i++)); do
     [ "${calls[$i]:-}" = "${expected[$i]}" ] || { printf 'snapshot call %s: expected %s, got %s\n' "$i" "${expected[$i]}" "${calls[$i]:-MISSING}" >&2; exit 1; }
