@@ -124,6 +124,7 @@ Every entry leads with its **plain goal** — read it as **die HERE → the oper
 | Scenario | What it proves | Grounding |
 |---|---|---|
 | `5-install-bool-text-regression` | Re-run a healthy install with the worker active → the session-clean check doesn't misfire on a spurious bool→text cast. | Fix 11 (drop the `(...)::text` cast in `checkSessionsClean`) |
+| `5-install-cert-repair-via-cert-install` | A box whose Settings refuses on an invalid host-path certificate (Docker-created root-owned `caddy/data/`) is repaired end to end by `./sb cert install <crt> <key>` alone, unprivileged, no sudo → the printed remedy names `cd ~/statbus && ./sb cert install`, `caddy/data/caddy/` is left untouched, and a rerun reaches CA-verified HTTPS. | STATBUS-429 `ensureCustomCertsDirWritable` (Docker ownership repair scoped to `custom-certs/` only) |
 | `5-install-drifted-unit-reconciled` | Re-install on a *healthy* box whose systemd unit config has DRIFTED → the installer detects it (byte-compares the on-disk unit to the repo template) and rewrites + restarts the unit to re-arm the timers. | unit-reconcile fix; `checkServiceDone` byte-compare (a rewritten unit is inert until restart) |
 | `5-install-seed-on-populated` *(DATA-LOSS GRADE)* | Re-install over a POPULATED DB → the installer classifies it as populated and **never** runs the destructive seed-restore. | R5 content classifier (commit 5dc66c237); load-bearing: `assert_demo_data_present` |
 | `5-install-stage-a-killed-migrate` | Killed during a migrate subprocess (orphaned postgres backend) → re-run cleans up and completes, data intact. | Fix 3 Phase-1 cleanup + Fix 5b forward-recovery (Fix 1 prevents it in production) |
@@ -191,6 +192,7 @@ diagram's transitions, and the activity diagram's partitions/arms. The run-proof
 | `1-boot-startup-timeout` | upgrade-timeline § Service boot — TimeoutStartSec stays bounded |
 | `3-postswap-worker-ddl-deadlock` | install-recovery § step-table / [DDL] stop-app-services — quiesce before the DDL window |
 | `5-install-bool-text-regression` | install-recovery § step-table / Database sessions — bool::text parse |
+| `5-install-cert-repair-via-cert-install` | install-recovery § step-table / Settings — certificate refusal remedy (`./sb cert install`) and its Docker ownership repair |
 | `5-install-drifted-unit-reconciled` | install-recovery § step-table / Upgrade service — drift reconcile |
 | `5-install-orphaned-db-volume-credentials` | install-recovery § Detect / fresh-db-incomplete → continue; step-table / Services — role passwords match .env.credentials; final check — API ready |
 | `5-install-proxy-never-started` | install-recovery § step-table / Services — every service started and confirmed running |
