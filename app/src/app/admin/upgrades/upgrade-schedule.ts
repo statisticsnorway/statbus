@@ -130,7 +130,7 @@ export function scheduleRefusalMessage(result: UpgradeScheduleResult): string {
     case "in_progress":
       return "An upgrade is already in progress. This candidate was not queued.";
     case "restore_reattempt_required":
-      return "This failed upgrade has a retained backup. Retry it on the server with ./sb install.";
+      return "This failed upgrade has a retained backup. Retry it on the server with: cd ~/statbus && ./sb install";
     case "unregistered":
       return "This candidate is not registered. Run ./sb upgrade check or ./sb upgrade register <version> first.";
     case "superseded":

@@ -2,8 +2,6 @@ package upgrade
 
 import (
 	"fmt"
-
-	"github.com/statisticsnorway/statbus/cli/internal/diskpolicy"
 )
 
 // RefusalClass names one kind of upgrade refusal whose remedy the product
@@ -94,12 +92,12 @@ func (e *OperatorRefusalError) Unwrap() error { return e.Detail }
 // upgrade target (the rc.66 → rc.67 mismatch class). Names the state + the
 // manual operator option with that caveat, so a re-run of `./sb install` gives
 // an actionable path out rather than a silent identical connection-refused loop.
-func NewProxyRouteMissingError() error {
+func NewProxyRouteMissingError(projDir string) error {
 	return &OperatorRefusalError{
 		Class: RefusalProxyRouteMissing,
 		Text: "the db's connection route — the proxy container — does not exist; the crash that interrupted this upgrade may have removed it mid-recreate.\n" +
 			"  Recovery reaches PostgreSQL THROUGH this proxy (Caddy layer4 on CADDY_DB_BIND_ADDRESS:CADDY_DB_PORT), so it cannot connect, and it will not auto-recreate the proxy: `docker compose up -d proxy` under the current binary may pull a different image tag than the interrupted upgrade's target.\n" +
-			"  Operator action: inspect `docker compose ps -a`; recreate the proxy deliberately with `docker compose up -d proxy` (accepting that version caveat), then re-run `" + diskpolicy.RerunCommand() + "`",
+			"  Operator action: inspect `docker compose ps -a`; recreate the proxy deliberately with `docker compose up -d proxy` (accepting that version caveat), then re-run `" + InstallCommand(projDir) + "`",
 	}
 }
 

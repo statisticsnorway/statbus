@@ -59,7 +59,7 @@ type applyLatestRow struct {
 // The fall-through discipline is unchanged and still one-directional: every
 // uncertainty proceeds to register+schedule, so no path here can produce a FALSE
 // skip. Only a row that is positively `completed` earns the skip.
-func decideApplyLatest(latestVersion, resolvedCommit, buildCommit string, row applyLatestRow) applyLatestVerdict {
+func decideApplyLatest(latestVersion, resolvedCommit, buildCommit string, row applyLatestRow, installCommand string) applyLatestVerdict {
 	// Cannot compare → proceed (pre-226 behaviour, unchanged).
 	if buildCommit == "" || buildCommit == "unknown" || resolvedCommit == "" {
 		return applyLatestVerdict{Action: applyLatestProceed}
@@ -84,8 +84,8 @@ func decideApplyLatest(latestVersion, resolvedCommit, buildCommit string, row ap
 			Message: fmt.Sprintf(
 				"%s is the running binary, but this box has NOT converged: its upgrade row is PARKED (%s).\n"+
 					"  Services stay behind the maintenance page until the park is resolved — this is not \"nothing to apply\".\n"+
-					"  Fix: run ./sb install to un-park it for one fresh attempt, or schedule a fix release to supersede the park.",
-				latestVersion, reason),
+					"  Fix: run %s to un-park it for one fresh attempt, or schedule a fix release to supersede the park.",
+				latestVersion, reason, installCommand),
 		}
 	}
 	if row.State == upgrade.UpgradeStateCompleted {

@@ -21,6 +21,8 @@ name: Go Test
 # Strict gate (the King is firm on strict-gating, no hedges): `go vet` then
 # `go test ./...`. Both exit non-zero on any failure and fail the job — no
 # continue-on-error, no `|| true`. A red Go test blocks the merge.
+# One shell check rides along after `go test` (the PostgREST settings check
+# below): it is Docker-free and fast, and no other workflow runs it.
 
 # STATBUS-219 Stage 2 (doc-030, architect comment #11): this workflow is an
 # INDEPENDENT trigger — nothing chains off it — so a board-only push that
@@ -116,10 +118,12 @@ jobs:
 
       # One repo-level check with no other runner (found by the v2026.09.3
       # ticket audit): PostgREST receives the selected site settings
-      # (STATBUS-409 AC1). The other check the same audit found —
-      # every operator-facing rerun instruction is the directory-independent
-      # command (STATBUS-387 AC1) — is covered above, by
-      # TestEveryInstallerRerunHintUsesTheSavedCommand in `go test ./...`.
+      # (STATBUS-409 AC1). The other check the same audit found (STATBUS-387
+      # AC1) runs above in `go test ./...` as
+      # TestNoGoLiteralTellsTheOperatorToRunABareInstall: no non-test Go
+      # string literal under cli/, and no echo/printf in install.sh, names a
+      # bare `./sb install`; instructions use `cd <checkout> && ./sb install`
+      # (a short list of named descriptions is exempt).
       - name: PostgREST receives the selected site settings
         run: bash test/config/postgrest-environment-test.sh
 

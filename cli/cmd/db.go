@@ -1020,7 +1020,7 @@ docker compose exec -T db psql -U postgres -c \
 
 echo "Restarting worker and rest ..."
 if ! ./sb start all_except_app; then
-    echo "WARNING: services remain stopped; run: ssh %[5]s@%[6]s \"cd statbus && ./sb install\" for recovery diagnosis before retrying ./sb start all_except_app" >&2
+    echo "WARNING: services remain stopped; run: ssh %[5]s@%[6]s \"cd statbus && ./sb install\" for recovery diagnosis before retrying: ssh %[5]s@%[6]s \"cd statbus && ./sb start all_except_app\"" >&2
 fi
 
 echo "Cleaning up uploaded dump ..."

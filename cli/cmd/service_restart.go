@@ -153,7 +153,7 @@ func restartServicesWith(dir, profile string, ops restartOperations) (result err
 				fmt.Printf("Upgrade service %s had failed; it will be started again after the restart.\n", ops.unit)
 				startDaemon = true
 			default:
-				return fmt.Errorf("upgrade service %s has state %q; run ./sb install to repair it before restarting; no services were stopped", ops.unit, values["ActiveState"])
+				return fmt.Errorf("upgrade service %s has state %q; run %s to repair it before restarting; no services were stopped", ops.unit, values["ActiveState"], upgrade.InstallCommand(dir))
 			}
 		default:
 			return fmt.Errorf("cannot restart with upgrade service %s load state %q; no services were stopped", ops.unit, values["LoadState"])

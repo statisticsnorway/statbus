@@ -24,6 +24,8 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+
+	"github.com/statisticsnorway/statbus/cli/internal/installcmd"
 )
 
 // CommittedDrift reports whether the binary built from commitSHA differs from
@@ -98,16 +100,16 @@ func devToolchain(projDir string, lookPath func(string) (string, error)) bool {
 // machine devToolchain detected (STATBUS-203): a dev box leads with the
 // fast local rebuild; an operator/production box leads with the
 // toolchain-free image-procure refresh, exactly as before this ticket.
-func staleRemedy(devBox bool) string {
+func staleRemedy(devBox bool, projDir string) string {
 	if devBox {
 		return "  Refresh ./sb:\n" +
 			"    ./dev.sh build-sb\n" +
-			"  (dev box: ./dev.sh cross-build-sb builds all platforms; ./sb install also works — no\n" +
+			"  (dev box: ./dev.sh cross-build-sb builds all platforms; " + installcmd.Local(projDir) + " also works — no\n" +
 			"  toolchain needed, procures the HEAD-matching binary from the commit-tagged image)"
 	}
 	return "  Refresh ./sb — no host toolchain needed (procures the HEAD-matching binary\n" +
 		"  from the commit-tagged image, then re-execs):\n" +
-		"    ./sb install\n" +
+		"    " + installcmd.Local(projDir) + "\n" +
 		"  (dev box with a Go toolchain: ./dev.sh build-sb, or ./dev.sh cross-build-sb for all platforms)"
 }
 
@@ -241,7 +243,7 @@ func isStale(projDir, commitSHA string, lookPath func(string) (string, error)) s
 	}
 	return fmt.Sprintf(
 		"./sb is stale: built from %s, HEAD is now %s with cli/ changes.\n%s",
-		short, headShort, staleRemedy(devToolchain(projDir, lookPath)))
+		short, headShort, staleRemedy(devToolchain(projDir, lookPath), projDir))
 }
 
 // probeCommittedDrift runs `git diff --quiet <commitSHA> HEAD -- cli/`

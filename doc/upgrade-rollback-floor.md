@@ -216,9 +216,11 @@ ROLLBACK_SCHEMA_FLOOR_FAILED
 The database snapshot was restored, but the recovery schema floor could not be re-applied.
 Application services remain stopped. HTTP maintenance and SQL read-only remain active.
 The target recovery binary and migration files were preserved.
-Fix the reported migration/database error, then run: ./sb install
+Fix the reported migration/database error, then run: cd /home/statbus/statbus && ./sb install
 Do not replace ./sb, check out another commit, or start the application services.
 ```
+
+The rerun command names the box's own checkout by absolute path (`upgrade.InstallCommand`; `/home/statbus/statbus` above is the checkout of the example box). It runs the retained target `./sb` on the retained tree from any directory. It is never the public `curl ... | bash` installer, which would replace `./sb` and check out another release, exactly what the next line forbids.
 
 Include the migration filename, exit class/code, captured stderr tail, row ID, backup identity, and progress-log path.
 

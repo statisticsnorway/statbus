@@ -87,6 +87,8 @@ func TestInstallShowsSeveredProxyRemedy(t *testing.T) {
 		"the db's connection route — the proxy container — does not exist",
 		"docker compose up -d proxy",
 		"CADDY_DB_BIND_ADDRESS",
+		// The rerun keeps this box's program and tree, from any directory.
+		"then re-run `" + upgrade.InstallCommand(dir) + "`",
 		"INSTALL_CAUSE: " + installRefusalCatalogue[upgrade.RefusalProxyRouteMissing].cause,
 		"INSTALL_FIX: " + installRefusalCatalogue[upgrade.RefusalProxyRouteMissing].fix,
 	} {
@@ -113,10 +115,10 @@ func TestEveryNamedRefusalReachesTheOperator(t *testing.T) {
 		cases[class] = &upgrade.OperatorRefusalError{Class: class, Text: "named refusal " + string(class), Detail: errors.New(secret)}
 	}
 	// The real constructors and classifiers, wrapped as runInstall wraps them.
-	cases[upgrade.RefusalProxyRouteMissing] = fmt.Errorf("crash recovery: %w", recoveryDBRouteRefusal(errors.New(secret), upgrade.NewProxyRouteMissingError()))
-	cases[upgrade.RefusalRestoreGitCorrupt] = restoreReattemptFailure(upgrade.NewRestoreGitCorruptError(errors.New(secret), ""))
-	cases[upgrade.RefusalRecoveryDBUnreachable] = fmt.Errorf("crash recovery: %w", recoveryDBRouteRefusal(errors.New(secret), errors.New("docker compose start db: exit status 1")))
-	cases[upgrade.RefusalRestoreDegraded] = restoreReattemptFailure(errors.New(secret))
+	cases[upgrade.RefusalProxyRouteMissing] = fmt.Errorf("crash recovery: %w", recoveryDBRouteRefusal(errors.New(secret), upgrade.NewProxyRouteMissingError("/home/statbus/statbus"), "/home/statbus/statbus"))
+	cases[upgrade.RefusalRestoreGitCorrupt] = restoreReattemptFailure(upgrade.NewRestoreGitCorruptError(errors.New(secret), ""), "/home/statbus/statbus")
+	cases[upgrade.RefusalRecoveryDBUnreachable] = fmt.Errorf("crash recovery: %w", recoveryDBRouteRefusal(errors.New(secret), errors.New("docker compose start db: exit status 1"), "/home/statbus/statbus"))
+	cases[upgrade.RefusalRestoreDegraded] = restoreReattemptFailure(errors.New(secret), "/home/statbus/statbus")
 	for class, err := range cases {
 		t.Run(string(class), func(t *testing.T) {
 			var named *upgrade.OperatorRefusalError
@@ -143,7 +145,7 @@ func TestEveryNamedRefusalReachesTheOperator(t *testing.T) {
 // itself, not the degraded forecast that used to wrap it.
 func TestRestoreReattemptKeepsGitCorruptRefusal(t *testing.T) {
 	var stderr bytes.Buffer
-	printInstallFailure(&stderr, restoreReattemptFailure(upgrade.NewRestoreGitCorruptError(errors.New("unknown revision"), "")))
+	printInstallFailure(&stderr, restoreReattemptFailure(upgrade.NewRestoreGitCorruptError(errors.New("unknown revision"), ""), "/home/statbus/statbus"))
 	got := stderr.String()
 	// test/install-recovery/arcs/restore-broke-reattempt-arc.sh:620-622
 	for _, want := range []string{"ROLLBACK_FAILED_GIT_CORRUPT", "the git tree is corrupt", "do NOT proceed"} {
@@ -271,7 +273,7 @@ func TestInstallShShowsNamedRefusal(t *testing.T) {
 		refusal error
 		rerun   bool
 	}{
-		{upgrade.RefusalProxyRouteMissing, upgrade.NewProxyRouteMissingError(), true},
+		{upgrade.RefusalProxyRouteMissing, upgrade.NewProxyRouteMissingError("/home/statbus/statbus"), true},
 		{upgrade.RefusalRestoreGitCorrupt, upgrade.NewRestoreGitCorruptError(errors.New("unknown revision"), ""), false},
 	} {
 		t.Run(string(tc.class), func(t *testing.T) {

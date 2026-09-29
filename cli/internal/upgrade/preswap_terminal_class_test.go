@@ -25,7 +25,7 @@ import (
 // FIRST because an operator meeting this text is frightened before they are
 // curious, and the most valuable fact we hold is that their data is untouched.
 func TestPreSwapMessageIsTheApprovedText_STATBUS240(t *testing.T) {
-	msg := preSwapStoppedMessage(3)
+	msg := (&Service{projDir: "/home/statbus/statbus"}).preSwapStoppedMessage(3)
 
 	// The code is stored in failure_code; error begins with prose reassurance.
 	if !strings.HasPrefix(msg, "The upgrade stopped before it changed anything.") {
@@ -36,7 +36,7 @@ func TestPreSwapMessageIsTheApprovedText_STATBUS240(t *testing.T) {
 		"Your data was not modified and your installed version was not replaced.",
 		"This system is still running the version it was running before, and it is serving normally.",
 		"The upgrade was attempted twice and stopped at the same point both times, so it will not be tried again on its own.",
-		"To try again: run ",
+		"To try again: run cd /home/statbus/statbus && ./sb install\n",
 		"If it stops here again, the upgrade itself needs a fix.",
 		"Report this message together with the version you were upgrading to.",
 	} {
@@ -53,7 +53,7 @@ func TestPreSwapMessageIsTheApprovedText_STATBUS240(t *testing.T) {
 	}
 
 	// It must name the operator's one tool, and no speculative cause.
-	if !strings.Contains(msg, INSTALL_CMD) {
+	if !strings.Contains(msg, InstallCommand("/home/statbus/statbus")) {
 		t.Errorf("the message must name the operator's remedy; got:\n%s", msg)
 	}
 	for _, guess := range []string{"probably", "likely", "may have", "possibly"} {

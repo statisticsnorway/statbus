@@ -206,7 +206,8 @@ function UnitFloorWarning({
       </ul>
       <p className="mt-3 text-amber-900 dark:text-amber-200">
         To repair, run the install entrypoint on the server. It is idempotent
-        and safe to re-run: <code className="font-mono">./sb install</code>
+        and safe to re-run:{" "}
+        <code className="font-mono">cd ~/statbus &amp;&amp; ./sb install</code>
       </p>
     </div>
   );
@@ -1315,8 +1316,11 @@ function UpgradeCard({
             <p className="font-medium">Restore retry requires an operator.</p>
             <p className="mt-1 text-xs">
               This failed attempt retained its database backup. Repair the
-              cause, then run <code className="font-mono">./sb install</code> on
-              the server to retry the restore safely.
+              cause, then run{" "}
+              <code className="font-mono">
+                cd ~/statbus &amp;&amp; ./sb install
+              </code>{" "}
+              on the server to retry the restore safely.
             </p>
           </div>
         )}

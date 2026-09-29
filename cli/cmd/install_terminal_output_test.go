@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -160,12 +161,28 @@ func TestInstallTerminalWriterShowsEveryInstallState(t *testing.T) {
 		"Restore complete — the system is running normally on the previous version.\n" +
 		"  The upgrade that failed has been rolled back. To move forward:\n" +
 		"    • Find a newer release:  ./sb upgrade check\n" +
-		"    • The version that failed will fail the same way — try a LATER release when one is available.\n" +
-		"  The database restore could not be completed; the system is still degraded.\n" +
-		"  Next: contact SSB support and involve your IT staff. Keep this box as-is for diagnosis;\n" +
-		"  re-running `./sb install` will re-attempt the same restore\n"
+		"    • The version that failed will fail the same way — try a LATER release when one is available.\n"
 	if got := runTerminalFilter(t, restore); got != restore {
 		t.Fatalf("restore re-attempt lines hidden or duplicated:\n got:\n%s\nwant:\n%s", got, restore)
+	}
+	// The degraded outcome, exactly as ./sb install prints it: the real
+	// refusal text for a checkout by absolute path, followed by its
+	// INSTALL_CAUSE/INSTALL_FIX lines, which stay in the log. Every Text line,
+	// including the closing rerun command, must reach the terminal.
+	for _, checkout := range []string{"/home/statbus/statbus", "/srv/statbus-no/statbus"} {
+		var printed bytes.Buffer
+		printInstallFailure(&printed, restoreReattemptFailure(fmt.Errorf("rsync: no space left on device"), checkout))
+		var named *upgrade.OperatorRefusalError
+		if !errors.As(restoreReattemptFailure(fmt.Errorf("x"), checkout), &named) {
+			t.Fatal("restoreReattemptFailure is not a named refusal")
+		}
+		want := named.Text + "\n"
+		if !strings.Contains(want, "re-running `"+upgrade.InstallCommand(checkout)+"` will re-attempt the same restore") {
+			t.Fatalf("degraded restore must name the box's own checkout command:\n%s", want)
+		}
+		if got := runTerminalFilter(t, printed.String()); got != want {
+			t.Fatalf("degraded restore lines hidden, altered or leaked:\n got:\n%s\nwant:\n%s", got, want)
+		}
 	}
 	// Only the exact holder grammar passes; appended or substituted text must not.
 	for _, hostile := range []string{

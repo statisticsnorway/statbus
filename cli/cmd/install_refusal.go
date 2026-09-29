@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/statisticsnorway/statbus/cli/internal/diskpolicy"
 	"github.com/statisticsnorway/statbus/cli/internal/upgrade"
 )
 
@@ -101,7 +100,7 @@ func printInstallRefusal(w io.Writer, refusal *upgrade.OperatorRefusalError) {
 // changed and keeps its own remedy: rc.16's restore-broke arc (run
 // 36468921894) lost the git-corrupt refusal behind the generic line. Any other
 // failure is the degraded FORECAST: the restore failed again.
-func restoreReattemptFailure(err error) error {
+func restoreReattemptFailure(err error, projDir string) error {
 	if _, named := installRefusal(err); named {
 		return err
 	}
@@ -109,7 +108,7 @@ func restoreReattemptFailure(err error) error {
 		Class: upgrade.RefusalRestoreDegraded,
 		Text: "  The database restore could not be completed; the system is still degraded.\n" +
 			"  Next: contact SSB support and involve your IT staff. Keep this box as-is for diagnosis;\n" +
-			fmt.Sprintf("  re-running `%s` will re-attempt the same restore", diskpolicy.RerunCommand()),
+			fmt.Sprintf("  re-running `%s` will re-attempt the same restore", upgrade.InstallCommand(projDir)),
 		Detail: err,
 	}
 }
@@ -119,7 +118,7 @@ func restoreReattemptFailure(err error) error {
 // STATBUS-143) is returned as itself, so its remedy reaches the operator.
 // Anything else is the category-3 operator-investigate refusal; the probe and
 // start errors ride along as Detail for the log.
-func recoveryDBRouteRefusal(reachErr, startErr error) error {
+func recoveryDBRouteRefusal(reachErr, startErr error, projDir string) error {
 	if _, ok := installRefusal(startErr); ok {
 		return fmt.Errorf("%w (reachability probe: %v)", startErr, reachErr)
 	}
@@ -127,7 +126,7 @@ func recoveryDBRouteRefusal(reachErr, startErr error) error {
 		Class: upgrade.RefusalRecoveryDBUnreachable,
 		Text: "the database cannot be reached on the upgrade service's own route (CADDY_DB_BIND_ADDRESS:CADDY_DB_PORT), and starting the existing db and proxy containers did not restore it.\n" +
 			"  Recovery will not recreate containers: the current program could start a different version than the interrupted upgrade.\n" +
-			fmt.Sprintf("  Operator action: check that Docker is running and that both db and proxy are present and healthy, then re-run `%s`", diskpolicy.RerunCommand()),
+			fmt.Sprintf("  Operator action: check that Docker is running and that both db and proxy are present and healthy, then re-run `%s`", upgrade.InstallCommand(projDir)),
 		Detail: errors.Join(reachErr, startErr),
 	}
 }
