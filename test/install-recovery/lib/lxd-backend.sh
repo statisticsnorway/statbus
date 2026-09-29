@@ -726,23 +726,45 @@ lxd_promote_checkpoint() {
 # never carry the statbus-recovery- prefix scenarios use, and have no backing
 # scenario/<name>.sh file for lxd_checkpoint_for_scenario to resolve — the
 # original shim below (unconditional ${1##statbus-recovery-} + scenario-slug
-# fork) silently broke every arc (STATBUS-425 M3a review finding). An
-# empty/absent second arg is the same "provision only, no scenario, no
-# install yet" signal the VM harness itself uses; fork the plain
-# hardened-nothing-installed base under a name derived from the arc's own
-# VM_NAME, bypassing scenario resolution entirely.
+# fork) silently broke every arc (STATBUS-425 M3a review finding).
+#
+# STATBUS-425 round-3 C3 (found live, not offline: run-forks.sh v2026.09.3-rc.17
+# on this branch's backend hit "Invalid instance name ... Name must be 1-63
+# characters long" for 5-install-bool-text-regression and
+# 5-install-database-route-interrupted): "$2 empty" is NOT a reliable
+# arc-vs-scenario discriminator. INSTALL_VERSION="${INSTALL_VERSION:-}" is a
+# perfectly ordinary SCENARIO default (5-install-bool-text-regression,
+# 5-install-stage-{b,c,d,e}, and three scenarios literally pass "" as $2:
+# 5-install-orphaned-db-volume-credentials, 5-install-proxy-never-started,
+# 5-install-database-route-interrupted) — every one of those hit the arc
+# branch by accident, stripped a nonexistent "statbus-arc-" prefix from its
+# real statbus-recovery-* name (a no-op strip, since the prefix does not
+# match), and forked under an oversized, doubly-prefixed instance name
+# ("s2-<candidate>-arc-statbus-recovery-<slug>", consistently >63 chars for
+# any slug of ordinary length) — never a scenario resolution problem, an LXD
+# instance-name-length problem that surfaced as instance creation refusing
+# outright. Every scenario file's own $1 default is statbus-recovery-*
+# (24/24, verified exhaustively) and every arc file's is statbus-arc-*
+# (35/35, verified exhaustively) — these are the caller's OWN declared
+# identity (run-forks.sh passes exactly "statbus-recovery-$slug" as $1,
+# arc_prepare_box passes the arc's own $VM_NAME, already statbus-arc-*),
+# never ambiguous the way "$2 empty" turned out to be. Discriminate on $1's
+# prefix instead.
 bootstrap_install_test_vm() {
-    if [ -z "${2:-}" ]; then
-        [[ "$LXD_FORK_PREFIX" =~ ^[a-z][a-z0-9-]{0,12}$ ]] || return 2
-        local slug=${1#statbus-arc-}
-        [[ "$slug" =~ ^[a-zA-Z0-9-]+$ ]] || return 2
-        local base name
-        base=$(_lxd_name "$LXD_CANDIDATE-hardened-nothing-installed")
-        name="$LXD_FORK_PREFIX-${LXD_CANDIDATE//[^a-zA-Z0-9-]/-}-arc-${slug}"
-        _lxd_fork_from_base "$base" "$name" hardened-nothing-installed
-        return
-    fi
-    lxd_fork "$LXD_CANDIDATE" "${1##statbus-recovery-}"
+    case "$1" in
+        statbus-arc-*)
+            [[ "$LXD_FORK_PREFIX" =~ ^[a-z][a-z0-9-]{0,12}$ ]] || return 2
+            local slug=${1#statbus-arc-}
+            [[ "$slug" =~ ^[a-zA-Z0-9-]+$ ]] || return 2
+            local base name
+            base=$(_lxd_name "$LXD_CANDIDATE-hardened-nothing-installed")
+            name="$LXD_FORK_PREFIX-${LXD_CANDIDATE//[^a-zA-Z0-9-]/-}-arc-${slug}"
+            _lxd_fork_from_base "$base" "$name" hardened-nothing-installed
+            ;;
+        *)
+            lxd_fork "$LXD_CANDIDATE" "${1##statbus-recovery-}"
+            ;;
+    esac
 }
 VM_EXEC() { local q; printf -v q '%q ' "$@"; _lxd_host lxc exec "$VM_NAME" -- sudo -i -u statbus bash -c "$q"; }
 VM_ROOT_EXEC() { local q; printf -v q '%q ' "$@"; _lxd_host lxc exec "$VM_NAME" -- bash -c "$q"; }

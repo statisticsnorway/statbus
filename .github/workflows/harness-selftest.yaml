@@ -46,3 +46,5 @@ jobs:
         run: bash test/install-recovery/tests/lxd-marker-guard-test.sh
       - name: Prove LXD host staging paths are unique per invocation and cleaned up
         run: bash test/install-recovery/tests/lxd-staging-path-test.sh
+      - name: Prove bootstrap_install_test_vm routes on VM name, never on whether INSTALL_VERSION is empty
+        run: bash test/install-recovery/tests/lxd-bootstrap-discriminator-test.sh
