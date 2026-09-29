@@ -6,6 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-09-29 08:24'
+updated_date: '2026-09-29 09:28'
 labels:
   - install
 dependencies: []
@@ -25,3 +26,9 @@ Found by the Ville replay (tmp/ville-replay-v2026.09.3.md D3, 2026-09-29). Once 
 - [ ] #2 An existing box whose caddy/data/ is root-owned gets caddy/data/custom-certs/ repaired to the install user by the installer, without sudo
 - [ ] #3 A scenario on a box that has run Services follows the printed certificate remedy as the statbus user and reaches a ready installation
 <!-- AC:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+Replay 2026-09-29 (tmp/ville-cert-install-replay.md, LXD forks ville-c1/c2 of Ville's exact broken v2026.09.2 state): ./sb cert install itself fails on the root-owned caddy/data (mkdir custom-certs: permission denied, cert.go writeCertAndKey), on both v2026.09.2 and v2026.09.3 binaries, with no guidance (D5). After a one-time ownership fix it works end to end (files, .env.config, config, proxy restart, SHA-256 probe via /etc/hosts), and the stable installer then completes 17/17 with HTTPS 200. Cert-first (before upgrading) is the shortest path: one installer pass, no step-6 refusal. Fix under review on fix/429-custom-certs (063498e52): cert install repairs custom-certs itself; remedies name ./sb cert install.
+<!-- SECTION:NOTES:END -->
