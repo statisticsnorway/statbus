@@ -114,6 +114,16 @@ jobs:
         # zero-scope-green class, instance seven.
         run: go test ./... -count=1
 
+      # Two repo-level checks with no other runner (found by the v2026.09.3
+      # ticket audit): every operator-facing rerun instruction is the
+      # directory-independent command (STATBUS-387 AC1), and PostgREST
+      # receives the selected site settings (STATBUS-409 AC1).
+      - name: Operator rerun instructions are directory-independent
+        run: bash test/install-rerun-messages.sh
+
+      - name: PostgREST receives the selected site settings
+        run: bash test/config/postgrest-environment-test.sh
+
   # go-lint (STATBUS-176) — King-approved quality gate: staticcheck, errcheck,
   # ineffassign, nilness, exactly (cli/.golangci.yml pins the analyzer set and
   # disables golangci-lint's own default issue caps — max-issues-per-linter /
