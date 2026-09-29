@@ -110,10 +110,19 @@ jobs:
           # SAME TIME once faults and arcs overlap (M4), and a single marker
           # file would let the first job to finish delete it while a sibling
           # is still running.
+          #
+          # review M-H3a: acquire through marker.sh's lxd_marker_acquire, not
+          # a raw `mkdir -p && touch` inlined here - that shape never checked
+          # /root/fleet-reaping or /root/fleet-hardening.active, so this
+          # driver could win the race and acquire its slot in the exact
+          # window between reap.sh's own touch of /root/fleet-reaping and its
+          # actual delete (reap.sh deletes OUTSIDE its flock), losing the box
+          # out from under a fault run already in flight.
+          # shellcheck source=../../ops/lxd-fleet/marker.sh
+          source ops/lxd-fleet/marker.sh
           MARKER_ID="${{ github.run_id }}-faultfleet-$$"
-          ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new "$LXD_HOST" \
-            "mkdir -p /root/fleet-active && touch '/root/fleet-active/$MARKER_ID' && date +%s > /root/last-fleet-activity"
-          trap 'ssh -o BatchMode=yes "$LXD_HOST" "rm -f /root/fleet-active/$MARKER_ID; date +%s > /root/last-fleet-activity"' EXIT
+          lxd_marker_acquire "$LXD_HOST" "$MARKER_ID"
+          trap 'lxd_marker_release "$LXD_HOST" "$MARKER_ID"' EXIT
           test/install-recovery/lxd/run-forks.sh "${{ github.ref_name }}"
       - name: Collect workflow phase outcome
         if: always()

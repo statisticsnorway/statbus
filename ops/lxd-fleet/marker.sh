@@ -40,8 +40,23 @@ _lxd_marker_ssh() {
 lxd_marker_acquire() {
     local host=$1 id=$2
     [[ "$id" =~ ^[a-zA-Z0-9._-]+$ ]] || { echo "Invalid marker id: $id" >&2; return 2; }
+    # review M-H3a: a bare `mkdir -p && touch` is not a guard at all - it
+    # never checked /root/fleet-reaping or /root/fleet-hardening.active
+    # before this fix, a real regression against the marker file this
+    # directory replaced (the old fault-driver acquire DID check
+    # fleet-hardening.active). Without the check, a starter could acquire its
+    # slot in the exact window between reap.sh touching /root/fleet-reaping
+    # and it actually deleting the server (reap.sh:34 deletes OUTSIDE its own
+    # flock, after releasing it), losing its box out from under it, or
+    # between harden-host.sh's refuse-on-active-guest check and its own
+    # sshd/UFW edits. Acquire the marker under the SAME host flock every
+    # other catalog mutation (prune, rerun-safe replace, reap, harden) already
+    # serializes with, so the check-then-set is atomic with respect to every
+    # other guard in this file's family. The `[ A ] && [ B ] || { exit 1; }`
+    # form is deliberate (H3's own lesson: a bare && list is not a guard under
+    # errexit unless the LAST clause is the one that can fail).
     _lxd_marker_ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new "$host" \
-        "mkdir -p /root/fleet-active && touch '/root/fleet-active/$id' && date +%s > /root/last-fleet-activity"
+        "flock /root/fleet-run.lock bash -c 'set -euo pipefail; [ ! -e /root/fleet-reaping ] && [ ! -e /root/fleet-hardening.active ] || { echo \"REFUSE: reaper or hardening active\" >&2; exit 1; }; mkdir -p /root/fleet-active; touch \"/root/fleet-active/\$1\"; date +%s > /root/last-fleet-activity' _ '$id'"
 }
 lxd_marker_release() {
     local host=$1 id=$2
