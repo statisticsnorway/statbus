@@ -58,9 +58,13 @@ VM_NAME="${1:-statbus-recovery-0-happy-upgrade}"
 # Its pre-provisioned certificate avoids public ACME and exercises real TLS.
 HARNESS_DEPLOYMENT_MODE="${HARNESS_DEPLOYMENT_MODE:-standalone}"
 HARNESS_UPGRADE_CHANNEL="${HARNESS_UPGRADE_CHANNEL:-prerelease}"
-# The fleet runs Ubuntu 24.04. The happy-upgrade entry point proves that fleet
-# hop, while callers that deliberately reuse its flow (currently HTTPS-only
-# egress) retain the harness's Ubuntu 26.04 default.
+# HARNESS_VM_IMAGE only selects a Hetzner image (vm-bootstrap.sh); it has no
+# effect under the LXD backend (STATBUS-425's run-smoke.sh), which always
+# forks Ubuntu 26.04 guests regardless of this setting. Historically this
+# scenario ran on a fleet that still had a 24.04 image in circulation; kept
+# here only for a direct (non-LXD) Hetzner invocation. Callers that
+# deliberately reuse this flow (currently HTTPS-only egress) retain the
+# harness's Ubuntu 26.04 default even on Hetzner.
 if [ "${HARNESS_HTTPS_ONLY_EGRESS:-0}" != "1" ]; then
     HARNESS_VM_IMAGE="ubuntu-24.04"
 fi

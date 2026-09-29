@@ -53,6 +53,15 @@
 # (default "statbus-recovery-"). This protects the production niue VM, which
 # lives in the same Hetzner project as the test VMs.
 
+# Smoke and upgrade arcs select the container backend before any Hetzner
+# credentials, name guards, or VM provisioning are evaluated. The scenario
+# assertions and upgrade-service path stay the same.
+if [ "${HARNESS_LXD_BACKEND:-0}" = 1 ]; then
+    # shellcheck source=lxd-backend.sh
+    source "$(dirname "${BASH_SOURCE[0]}")/lxd-backend.sh"
+    return
+fi
+
 set -euo pipefail
 # Propagate ERR trap into functions and subshells sourced from this lib.
 set -E
@@ -134,6 +143,19 @@ SSH_OPTS=(
     -o ControlMaster=no
     -o ControlPath=none
 )
+
+# harness_real_ssh [ssh-args...] — the genuine OpenSSH client talking
+# DIRECTLY to a guest's real sshd, never a backend-internal shortcut. On the
+# Hetzner backend this is nothing special (VM_IP is already a real, directly
+# routable network address, and no ssh/scp shim exists in this file) — it's
+# plain `ssh`. It exists so a scenario/arc that needs the ACTUAL transport
+# (not a semantically-equivalent-but-different-mechanism substitute) has one
+# name that means the same thing on both backends. deploy-status-proof-arc.sh
+# is the first caller: its whole point is proving a REAL sshd/sshdo gate, so
+# it must never go through vm-bootstrap.sh's shims. lxd-backend.sh's own
+# ssh() intercepts everything else and reroutes through `lxc exec` (correct
+# for ordinary provisioning traffic, wrong for this one arc).
+harness_real_ssh() { command ssh "$@"; }
 
 _check_name_safety() {
     local name="$1"

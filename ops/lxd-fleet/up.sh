@@ -22,10 +22,14 @@ if [ -n "$server" ]; then
         echo "IMAGE DRIFT: fleet box image ID $current_image != $image ID $image_id; deleting and recreating $name (snapshots intentionally disposable)" >&2
         # Same lock/sentinel protocol as reap.sh. An active fork or a running
         # orphan is NOT a disposable idle base: refuse and let the operator
-        # inspect it, rather than destroying an in-progress proof.
+        # inspect it, rather than destroying an in-progress proof. "Active" is
+        # directory-non-empty: smoke, the fault driver and arc jobs each hold
+        # their OWN marker file under /root/fleet-active/ concurrently
+        # (STATBUS-425 M2').
         ssh "${opts[@]}" "root@$old_ip" 'flock -n /root/fleet-run.lock bash -s' <<'REMOTE'
 set -euo pipefail
-[ ! -e /root/fleet-run.active ] && [ ! -e /root/fleet-hardening.active ] && [ ! -e /root/fleet-reaping ] || { echo 'REFUSE: fleet, hardening or reaper active' >&2; exit 1; }
+active=$(ls -A /root/fleet-active 2>/dev/null || true)
+[ -z "$active" ] && [ ! -e /root/fleet-hardening.active ] && [ ! -e /root/fleet-reaping ] || { echo 'REFUSE: fleet, hardening or reaper active' >&2; exit 1; }
 guests=$(lxc list --format csv)
 ! grep -q RUNNING <<< "$guests" || { echo 'REFUSE: LXD guest still running' >&2; exit 1; }
 touch /root/fleet-reaping
@@ -86,5 +90,77 @@ REMOTE
 # Host security is part of the ramp, not an optional follow-up. In particular,
 # never change sshd/UFW while a fleet is executing on this host. The new SSH
 # connection in harden-host.sh verifies the key before and after each change.
-"$ROOT/ops/lxd-fleet/harden-host.sh" "root@$ip"
+#
+# review B4: harden-host.sh REFUSES while any guest is RUNNING or any starter
+# holds the marker directory (by design - it must never touch sshd/UFW mid-
+# fleet). Calling it unconditionally on every up.sh invocation therefore made
+# EVERY concurrent consumer after the first fail: rc.N+1's smoke ramping
+# while rc.N's fault fleet or arcs are still running on the SAME box hit this
+# refusal, a genuine regression against the single-tenant Hetzner smoke this
+# replaces. Harden only when this box is genuinely new to this image - a
+# fresh create or a just-completed image-drift recreate, both of which leave
+# NO prior /root/fleet-hardened-<marker_id> marker because the box (or its
+# prior marker set) did not exist a moment ago. An existing, already-hardened
+# box for the SAME image AND the SAME harden-host.sh content is a pure IP
+# resolution for every later consumer.
+#
+# review M-B4: keying the marker on image_id ALONE made a harden-host.sh edit
+# (this series' own MaxStartups 30:30:100 addition) invisible to an existing
+# warm box until an unrelated image drift or reap recreated it - the marker
+# would keep matching even though the box's actual sshd config had drifted
+# from what the CURRENT harden-host.sh would produce. Fold the script's own
+# content hash into the marker identity so a content change forces one more
+# hardening pass on the next ramp, exactly like an image change already does.
+harden_hash=$(sha256sum "$ROOT/ops/lxd-fleet/harden-host.sh" | cut -d' ' -f1)
+harden_marker="/root/fleet-hardened-$image_id-$harden_hash"
+if ssh "${opts[@]}" "root@$ip" "test -e $harden_marker"; then
+    echo "Fleet host already hardened for image $image_id at harden-host.sh $harden_hash; skipping (review B4/M-B4)" >&2
+else
+    # review round-3 C1: harden-host.sh's OWN marker-acquire step refuses
+    # whenever any guest is RUNNING or a starter holds /root/fleet-active
+    # (by design: it must never touch sshd/UFW mid-fleet). Content-keying the
+    # marker (M-B4) means EVERY edit to harden-host.sh forces one more
+    # hardening pass on the box's NEXT ramp - and once two or more consumers
+    # share this host (smoke, the fault driver, arcs), that next ramp can
+    # easily land while a PRIOR candidate's fleet is still draining. Before
+    # this fix, that activity refusal failed the whole ramp outright: a
+    # content edit anywhere would have blocked every concurrent consumer
+    # until the box happened to be caught fully idle. Distinguish the exact
+    # activity-refusal shape (harden-host.sh's own marker-acquire message,
+    # emitted before any sshd/UFW change is attempted) from every other
+    # failure mode (a real error partway through hardening, which must still
+    # fail loud): if THIS box already carries a hardened marker for THIS
+    # image under ANY prior content hash, the box's sshd/UFW baseline is
+    # already sound from an earlier ramp - defer the content-drift re-harden
+    # with a warning and let this ramp's caller proceed, rather than blocking
+    # every consumer on hardening's own busy-refusal loop. Only fail outright
+    # when this image has NEVER been hardened on this box at all (no prior
+    # marker to fall back on) or when the failure is anything other than the
+    # activity refusal.
+    harden_out=$(mktemp)
+    if "$ROOT/ops/lxd-fleet/harden-host.sh" "root@$ip" >"$harden_out" 2>&1; then
+        cat "$harden_out" >&2
+        rm -f "$harden_out"
+        ssh "${opts[@]}" "root@$ip" "touch $harden_marker"
+    else
+        harden_rc=$?
+        cat "$harden_out" >&2
+        if grep -q 'REFUSE: active fleet, running guest, or reaper; defer host hardening' "$harden_out" \
+            && ssh "${opts[@]}" "root@$ip" "ls /root/fleet-hardened-$image_id-* >/dev/null 2>&1"; then
+            echo "::warning::Fleet host harden-host.sh deferred re-harden for image $image_id (content drift, hash $harden_hash): a guest or fleet job is active. A prior marker for this image exists, so this ramp proceeds without the pending content update; the next idle ramp will harden." >&2
+            rm -f "$harden_out"
+        else
+            rm -f "$harden_out"
+            exit "$harden_rc"
+        fi
+    fi
+fi
+# review H4: reap.sh's cron can fire between this ramp job finishing and the
+# NEXT job (a smoke leg, the fault driver, an arc matrix job) acquiring its
+# own marker under /root/fleet-active/ - up.sh itself never stamped
+# /root/last-fleet-activity, so a box idle for close to 3h at ramp time could
+# be deleted by the reaper in that runner-pickup-plus-checkout window before
+# anyone holds a marker. Stamp activity as this ramp's last act so the
+# reaper's 3h clock restarts here, same as every other starter already does.
+ssh "${opts[@]}" "root@$ip" 'date +%s > /root/last-fleet-activity'
 printf '%s\n' "$ip"

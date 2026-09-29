@@ -8,6 +8,17 @@ opts=(-o BatchMode=yes -o StrictHostKeyChecking=accept-new)
 remote() { ssh "${opts[@]}" "$host" "$@"; }
 name="fleet-base-${tag//[^a-zA-Z0-9-]/-}"
 start=$(date +%s)
+# review H3: this script previously took/released the retired single file
+# /root/fleet-run.active. That marker stopped being what the reaper, up.sh
+# and harden-host.sh check the moment M2' introduced the per-job directory
+# (/root/fleet-active/<id>, one entry per concurrently-active job) - a
+# running base build here was therefore invisible to their guards, exposed
+# to the reaper deleting the box mid-build and to a concurrent ramp
+# re-hardening the host mid-build. Migrate to the same directory protocol
+# every other starter uses (lxd_marker_acquire/release in marker.sh).
+source "$ROOT/ops/lxd-fleet/marker.sh"
+MARKER_ID="${GITHUB_RUN_ID:-manual}-base-$$"
+LXD_HOST=$host
 # Serialize base creation and reaping with the same host-side lock.
 state=$(remote 'flock -n /root/fleet-run.lock bash -s' <<REMOTE
 set -euo pipefail
@@ -15,17 +26,18 @@ set -euo pipefail
 [ ! -e /root/fleet-hardening.active ] || { echo 'REFUSE: fleet host is being hardened' >&2; exit 1; }
 date +%s > /root/last-fleet-activity
 if lxc info '$name' 2>/dev/null | grep -Fq '| installed '; then
+    [ "\$(lxc config get '$name' image.version)" = 26.04 ] || { echo 'REFUSE: existing base $name predates Ubuntu 26.04' >&2; exit 1; }
     echo REUSED
     exit 0
 fi
 if lxc info '$name' >/dev/null 2>&1; then echo 'REFUSE: incomplete base $name exists' >&2; exit 1; fi
 # lxc launch reads stdin (would swallow the rest of this heredoc as YAML).
-lxc launch ubuntu:24.04 '$name' --config security.nesting=true --config limits.cpu=2 --config limits.memory=6GiB < /dev/null
-touch /root/fleet-run.active
+lxc launch ubuntu:26.04 '$name' --config security.nesting=true --config limits.cpu=2 --config limits.memory=6GiB < /dev/null
 REMOTE
 )
 if [ "$state" = REUSED ]; then printf 'base=%s snapshot=installed reused=true\n' "$name"; exit 0; fi
-trap 'remote "rm -f /root/fleet-run.active; date +%s > /root/last-fleet-activity"' EXIT
+lxd_marker_acquire "$LXD_HOST" "$MARKER_ID"
+trap 'lxd_marker_release "$LXD_HOST" "$MARKER_ID"' EXIT
 # Transfer the actual current hardening script. A stopped incomplete base is
 # intentionally retained on failure for diagnosis, never silently overwritten.
 scp "${opts[@]}" "$ROOT/ops/setup-ubuntu-lts.sh" "$host:/root/fleet-setup.sh"

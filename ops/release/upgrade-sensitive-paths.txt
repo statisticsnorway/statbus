@@ -49,6 +49,17 @@ exact | shared controller | .github/workflows/images.yaml
 exact | shared harness input | ops/setup-ubuntu-lts.sh
 directory | shared harness input | test/install-recovery/lib
 directory | shared harness input | test/install-recovery/fixtures
+# STATBUS-425: smoke now BUILDS the LXD checkpoint catalog fault forks and
+# upgrade arcs consume (test/install-recovery/lxd/run-smoke.sh, run-forks.sh,
+# lxd-backend.sh's own callers), and the fleet host lifecycle
+# (create/harden/reap/marker) is genuinely shared infrastructure every paid
+# scenario home now runs through. A later edit to either directory that
+# silently changed checkpoint identity, fork provisioning, or host lifecycle
+# semantics must force fresh proof for 0-happy-upgrade and every scenario
+# that resolves a checkpoint through lxd_checkpoint_for_scenario, not inherit
+# a stale mark from before the edit.
+directory | shared harness input | test/install-recovery/lxd
+directory | shared harness input | ops/lxd-fleet
 
 directory | proof interpreter | cli/internal/release
 directory | proof interpreter | cli/cmd/release
