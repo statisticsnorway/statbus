@@ -18,8 +18,8 @@ on:
         default: ''
         type: string
 
-# GitHub's native bounded queue is the atomic cross-tag fleet quota. The shared
-# dispatcher adds fail-fast owner diagnostics, but does not replace this lock.
+# Preserve the shared paid-fleet lock while arcs still use the old workflow
+# group. Faults and arcs start only after the orchestrator sees smoke's marks.
 concurrency:
   group: hetzner-vm-fleet
   cancel-in-progress: false
@@ -82,16 +82,70 @@ jobs:
           fi
           echo "matrix=$matrix" >> "$GITHUB_OUTPUT"
 
+  ramp:
+    name: Ramp hardened LXD fleet host
+    needs: [select]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    outputs:
+      ip: ${{ steps.ramp.outputs.ip }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install LXD fleet box key
+        env:
+          BOX_KEY: ${{ secrets.LXD_FLEET_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          printf '%s\n' "$BOX_KEY" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          ssh-keygen -lf ~/.ssh/id_ed25519 | awk '{ print "SSH key fingerprint:", $2 }'
+
+      - name: Install hcloud CLI (fleet host discovery only)
+        env:
+          HCLOUD_CLI_VERSION: "1.64.1"
+        run: bash .github/scripts/install-hcloud.sh
+
+      - name: Ramp warm box once for both smoke matrix jobs
+        # A single ramp job, not one per matrix job: up.sh/harden-host.sh
+        # refuse a second concurrent ramp against the same host (STATBUS-425
+        # M2', review §1a — the prior per-job up.sh call forced
+        # max-parallel:1 just to avoid racing itself).
+        id: ramp
+        env:
+          HCLOUD_TOKEN: ${{ secrets.HCLOUD_TOKEN }}
+          STATBUS_CREDENTIALS_FILE: ${{ runner.temp }}/lxd-smoke-credentials
+        run: |
+          set -euo pipefail
+          printf 'HCLOUD_TOKEN=%q\n' "$HCLOUD_TOKEN" > "$STATBUS_CREDENTIALS_FILE"
+          chmod 600 "$STATBUS_CREDENTIALS_FILE"
+          ops/lxd-fleet/up.sh > "$RUNNER_TEMP/lxd-up.log" 2>&1 || { cat "$RUNNER_TEMP/lxd-up.log"; exit 1; }
+          cat "$RUNNER_TEMP/lxd-up.log"
+          ip=$(tail -n 1 "$RUNNER_TEMP/lxd-up.log")
+          [[ "$ip" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]
+          echo "ip=$ip" >> "$GITHUB_OUTPUT"
+
   smoke:
     name: ${{ matrix.scenario }}
-    needs: [select]
+    needs: [select, ramp]
     strategy:
       fail-fast: false
+      # Install and upgrade smoke resolve the SAME box by name (ramp already
+      # ran) and hold their OWN marker (marker.sh) while active, so they can
+      # run genuinely in parallel; each writes a DIFFERENT checkpoint base
+      # (installed-<candidate>-standalone vs installed-<baseline>-standalone).
       max-parallel: 2
       matrix:
         include: ${{ fromJSON(needs.select.outputs.matrix) }}
     runs-on: ubuntu-24.04
     timeout-minutes: ${{ matrix.timeout }}
+    env:
+      LXD_HOST: root@${{ needs.ramp.outputs.ip }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -105,53 +159,29 @@ jobs:
           candidate-ref: ${{ github.ref_name }}
           scenario: ${{ matrix.scenario }}
 
-      - name: Set up Go
-        if: steps.freshness.outputs.superseded != 'true'
-        uses: actions/setup-go@v5
-        with:
-          go-version-file: cli/go.mod
-          cache-dependency-path: cli/go.sum
-
-      - name: Build sb binary (linux/amd64)
-        if: steps.freshness.outputs.superseded != 'true'
-        run: ./dev.sh build-sb linux/amd64
-
-      - name: Install hcloud CLI
+      - name: Install LXD fleet box key
         if: steps.freshness.outputs.superseded != 'true'
         env:
-          HCLOUD_CLI_VERSION: "1.64.1"
-        run: bash .github/scripts/install-hcloud.sh
-
-      - name: Install CI SSH private key
-        if: steps.freshness.outputs.superseded != 'true'
-        env:
-          STATBUS_CI_SSH_PRIVATE_KEY: ${{ secrets.STATBUS_CI_SSH_PRIVATE_KEY }}
+          BOX_KEY: ${{ secrets.LXD_FLEET_SSH_KEY }}
         run: |
           set -euo pipefail
           mkdir -p ~/.ssh
           chmod 700 ~/.ssh
-          printf '%s\n' "$STATBUS_CI_SSH_PRIVATE_KEY" > ~/.ssh/id_ed25519
+          printf '%s\n' "$BOX_KEY" > ~/.ssh/id_ed25519
           chmod 600 ~/.ssh/id_ed25519
           ssh-keygen -lf ~/.ssh/id_ed25519 | awk '{ print "SSH key fingerprint:", $2 }'
 
-      - name: Run selected smoke scenario on Hetzner VM
+      - name: Run real smoke scenario and create LXD checkpoints
         if: steps.freshness.outputs.superseded != 'true'
         env:
-          HCLOUD_TOKEN: ${{ secrets.HCLOUD_TOKEN }}
-          HCLOUD_SSH_KEY: statbus-ci
-          STATBUS_SB_BINARY: ${{ github.workspace }}/sb-linux-amd64
           SCENARIO: ${{ matrix.scenario }}
         run: |
-          case "$SCENARIO" in
-            0-happy-install) ./dev.sh test-install ;;
-            0-happy-upgrade) ./test/install-recovery/scenarios/0-happy-upgrade.sh ;;
-            *) echo "unreachable scenario: $SCENARIO" >&2; exit 1 ;;
-          esac
+          bash test/install-recovery/lxd/run-smoke.sh '${{ github.ref_name }}' "$SCENARIO"
 
       - name: Cat install log on failure
         if: ${{ failure() && steps.freshness.outputs.superseded != 'true' }}
         run: |
-          for log in tmp/install-recovery-*-install.log; do
+          for log in tmp/install-recovery-*-install.log tmp/lxd-*-failure-*.log; do
             [ -e "$log" ] || continue
             echo "::group::$log"
             cat "$log"
@@ -163,27 +193,48 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: install-recovery-log-${{ matrix.scenario }}-${{ github.run_id }}
-          path: tmp/install-recovery-*-install.log
+          path: |
+            tmp/install-recovery-*-install.log
+            tmp/lxd-*-failure-*.log
           retention-days: 30
           if-no-files-found: warn
 
-      - name: Reap own orphan VM (defense in depth)
+      - name: Reap own orphan LXD fork and unsnapshotted base (defense in depth)
+        # A cancelled/killed job can leave the fork RUNNING (the trap in
+        # run-smoke.sh normally releases the marker but not the fork/base;
+        # this step is the net for when even that trap can't fire) and, for
+        # 0-happy-install, a base copied-but-not-snapshotted by
+        # lxd_snapshot_installed (review §1c). Best-effort, always exit 0.
+        #
+        # review H2: this step ran in BOTH matrix legs, but the base name it
+        # computes ("installed-$TAG-standalone") is ALWAYS the install leg's
+        # OWN checkpoint - the upgrade leg's baseline uses a different name
+        # entirely. An early-failing upgrade leg's reap could therefore race
+        # and delete the install leg's base out from under a concurrent
+        # `lxc copy` of the running fork mid-flight (a multi-GB operation),
+        # turning the install leg red for a reason that had nothing to do
+        # with its own scenario. Gate the base half on the matrix entry that
+        # actually owns that name, and serialize with the same host flock
+        # every other catalog mutation (prune, rerun-safe replace) already
+        # uses, so this defense-in-depth net cannot itself race a live copy.
         if: ${{ always() && steps.freshness.outputs.superseded != 'true' }}
-        env:
-          HCLOUD_TOKEN: ${{ secrets.HCLOUD_TOKEN }}
-          SCENARIO: ${{ matrix.scenario }}
         run: |
-          if ! command -v hcloud >/dev/null 2>&1; then
-            echo "hcloud CLI not installed (earlier step likely failed) — skipping reap"
-            exit 0
-          fi
-          run_suffix="${GITHUB_RUN_ID: -8}"
-          vm="statbus-recovery-${SCENARIO}-${run_suffix}"
-          if hcloud server describe "$vm" >/dev/null 2>&1; then
-            echo "Reaping own VM: $vm"
-            hcloud server delete "$vm" || true
-          else
-            echo "Own VM $vm already gone (scenario trap cleaned up) — nothing to reap."
+          [ -n "${LXD_HOST:-}" ] || exit 0
+          vm="s2-${{ github.ref_name }}-${{ matrix.scenario }}"
+          vm="${vm//[^a-zA-Z0-9-]/-}"
+          ssh -o BatchMode=yes -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null "$LXD_HOST" '
+            if lxc info "'"$vm"'" >/dev/null 2>&1; then lxc delete "'"$vm"'" --force; fi
+          ' || true
+          if [ "${{ matrix.scenario }}" = "0-happy-install" ]; then
+            base="s2-base-${{ github.ref_name }}-installed-${{ github.ref_name }}-standalone"
+            base="${base//[^a-zA-Z0-9-]/-}"
+            ssh -o BatchMode=yes -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null "$LXD_HOST" '
+              flock /root/fleet-run.lock bash -c '\''
+                if lxc info "'"$base"'" >/dev/null 2>&1 && ! lxc info "'"$base"'" | grep -qE "^\| checkpoint(-pending)? +\|"; then
+                  lxc delete "'"$base"'" --force
+                fi
+              '\''
+            ' || true
           fi
           exit 0
 
