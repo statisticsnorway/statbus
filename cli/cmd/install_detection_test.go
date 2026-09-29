@@ -710,3 +710,59 @@ func TestSettingsRestoreRefusalShowsCertificateCauseThroughInstallSh(t *testing.
 		t.Errorf("raw error text reached the operator:\n%s", got)
 	}
 }
+
+// TestStateDetectionFailureRerunsRatherThanBlamesSettings drives install.sh's
+// exit-78 branch with the exact Go text produced when a state-detection probe
+// fails for a reason OTHER than a proven database outage (STATBUS-430, Ville
+// replay D4: "FATAL: the database system is shutting down" mid binary-swap).
+// The operator must see the rerun sentence runInstall actually returns, never
+// the generic "Correct the settings" line — nothing about the SETTINGS was
+// wrong; the probe simply could not run to a safe conclusion.
+func TestStateDetectionFailureRerunsRatherThanBlamesSettings(t *testing.T) {
+	script, err := os.ReadFile("../../install.sh")
+	if err != nil {
+		t.Fatal(err)
+	}
+	lines := strings.Split(string(script), "\n")
+	start, end := -1, -1
+	for i, l := range lines {
+		if start < 0 && l == `if [ "$sb_rc" -eq 78 ]; then` {
+			start = i
+		} else if start >= 0 && l == "fi" {
+			end = i
+			break
+		}
+	}
+	if start < 0 || end < 0 {
+		t.Fatal("exit-78 branch not found in install.sh")
+	}
+	dir := t.TempDir()
+	logPath := filepath.Join(dir, "install-last-run-output.txt")
+	bundlePath := filepath.Join(dir, "support-bundle-20260929-080619.txt")
+	if err := os.WriteFile(bundlePath, []byte("bundle"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	// The exact runInstall error text (install.go:548), reached via
+	// installPreflightRefusalError.Error() -> printInstallFailure's
+	// fmt.Fprintln(w, preflight.Error()) — this IS what reaches stdout/stderr
+	// for install.sh to capture into install_output.
+	refusal := fmt.Sprintf("the install state could not be determined safely; nothing was changed. Run the same install command again: %s. If it stops again, send this file to StatBus support: %s",
+		"curl -fsSL https://statbus.org/install.sh | bash", bundlePath)
+	log := "Restoring generated settings before checking the installation.\n" + refusal + "\n"
+	if err := os.WriteFile(logPath, []byte(log), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	branch := strings.Join(lines[start:end+1], "\n")
+	cmd := exec.Command("bash", "-c", "sb_rc=78\ninstall_output=\"$1\"\nSTATBUS_DIR=\"$2\"\nSTATBUS_INSTALL_RERUN_COMMAND='curl -fsSL https://statbus.org/install.sh | bash'\n"+branch, "exit78", logPath, dir)
+	out, _ := cmd.Output()
+	got := string(out)
+	if !strings.Contains(got, "the install state could not be determined safely") {
+		t.Errorf("operator output missing the state-detection rerun sentence:\n%s", got)
+	}
+	if !strings.Contains(got, "Run the same install command again: curl -fsSL https://statbus.org/install.sh | bash") {
+		t.Errorf("operator output missing the saved rerun command:\n%s", got)
+	}
+	if strings.Contains(got, "Correct the settings") {
+		t.Errorf("operator output blamed the settings for a transient detection failure:\n%s", got)
+	}
+}

@@ -846,10 +846,17 @@ if [ "$sb_rc" -eq 78 ]; then
         if [ -n "$preflight_fix" ]; then echo "$preflight_fix"; fi
         echo "Then run: $STATBUS_INSTALL_RERUN_COMMAND"
         echo "Installation diagnostics: $install_output"
-    elif grep -Eq '^(port [0-9]+ is in use by |Only [0-9]+ GB free on |cannot check disk space at |a restart is still running)' "$install_output"; then
+    elif grep -Eq '^(port [0-9]+ is in use by |Only [0-9]+ GB free on |cannot check disk space at |a restart is still running|the install state could not be determined safely)' "$install_output"; then
         # Only these known, single-line operator remedies may cross the
         # install log boundary. Never print an arbitrary exception or traceback.
-        grep -E '^(port [0-9]+ is in use by |Only [0-9]+ GB free on |cannot check disk space at |a restart is still running)' "$install_output" | tail -1
+        #
+        # "the install state could not be determined safely" (STATBUS-430) is a
+        # TRANSIENT probe failure (e.g. a DB restart mid-binary-swap) caught
+        # BEFORE detection classifies anything — it is not evidence the
+        # SETTINGS are wrong, so it must never fall through to the generic
+        # "Correct the settings" sentence below. Its own text already names
+        # the correct remedy (rerun) and the support-bundle path.
+        grep -E '^(port [0-9]+ is in use by |Only [0-9]+ GB free on |cannot check disk space at |a restart is still running|the install state could not be determined safely)' "$install_output" | tail -1
     elif grep -Eq '^STATBUS_ENV_CONFIG: (extra key [A-Za-z0-9_]+|missing key [A-Z_]+ \(.*\)|missing value for [A-Z_]+ \(.*\)|duplicate key [A-Za-z0-9_]+|TLS_CERT_FILE and TLS_KEY_FILE must be given together \(a certificate needs both parts\))$' "$install_output"; then
         # Answer-file refusals: FULL-LINE anchored, so nothing arbitrary can
         # trail the fixed diagnostic across the log boundary (review round 2).
