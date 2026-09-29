@@ -947,6 +947,59 @@ func TestEnsureCustomCertsDirWritable_DockerRepairFailureIsPlainRemedy(t *testin
 	if strings.Contains(msg, "Start Docker") {
 		t.Errorf("error must not tell the operator to \"Start Docker\" — Docker may already be running and merely unable to pull/run the repair container; got:\n%s", msg)
 	}
+	assertCertsDirRemedyOrder(t, msg)
+	if !strings.Contains(msg, "Docker could not run the repair container") {
+		t.Errorf("a failed repair container must say so; got:\n%s", msg)
+	}
+}
+
+// assertCertsDirRemedyOrder pins review 3 F1: the administrator command comes
+// first, then the rerun sentence, then the raw repair detail.
+func assertCertsDirRemedyOrder(t *testing.T, msg string) {
+	t.Helper()
+	sudo := strings.Index(msg, "sudo install -d -o")
+	rerun := strings.Index(msg, "Then run ./sb cert install again.")
+	detail := strings.Index(msg, "Repair container detail:")
+	if sudo < 0 || rerun < 0 || detail < 0 || !(sudo < rerun && rerun < detail) {
+		t.Errorf("remedy must read: sudo line, then rerun, then detail (sudo=%d rerun=%d detail=%d); got:\n%s", sudo, rerun, detail, msg)
+	}
+}
+
+// TestEnsureCustomCertsDirWritable_RepairExitsZeroButStillUnwritable covers the
+// re-probe after a repair container that exits 0 without fixing the directory
+// (review 3, R-i): the operator gets the plain remedy, and the reason is true
+// (the container DID run).
+func TestEnsureCustomCertsDirWritable_RepairExitsZeroButStillUnwritable(t *testing.T) {
+	projDir := t.TempDir()
+	dataDir := filepath.Join(projDir, "caddy", "data")
+	if err := os.MkdirAll(dataDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chmod(dataDir, 0o555); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.Chmod(dataDir, 0o755) })
+	certsDir := filepath.Join(dataDir, "custom-certs")
+
+	bin := t.TempDir()
+	// Fake docker that succeeds without touching the directory.
+	if err := os.WriteFile(filepath.Join(bin, "docker"), []byte("#!/bin/sh\nexit 0\n"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("PATH", bin+string(os.PathListSeparator)+os.Getenv("PATH"))
+
+	err := ensureCustomCertsDirWritable(projDir, certsDir)
+	if err == nil {
+		t.Fatal("expected an error when the repair leaves the directory unwritable")
+	}
+	msg := err.Error()
+	if !strings.Contains(msg, "the repair ran but the directory is still not writable") {
+		t.Errorf("reason must say the repair ran; got:\n%s", msg)
+	}
+	if strings.Contains(msg, "Docker could not run the repair container") {
+		t.Errorf("must not claim Docker failed when the container ran; got:\n%s", msg)
+	}
+	assertCertsDirRemedyOrder(t, msg)
 }
 
 // TestLocalProxyImage_ReadsCommitShortFromEnv covers STATBUS-429 R-a: the

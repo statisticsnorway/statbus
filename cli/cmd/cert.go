@@ -891,7 +891,7 @@ func ensureCustomCertsDirWritable(projDir, certsDir string) error {
 	)
 	out, err := runCertOwnershipRepair(projDir, dataDir, shellCmd)
 	if err != nil {
-		return &certsDirNotWritableError{dir: certsDir, dockerErr: err, dockerOutput: out}
+		return &certsDirNotWritableError{dir: certsDir, reason: "Docker could not run the repair container", dockerErr: err, dockerOutput: out}
 	}
 	// STATBUS-429 R-b: probe again after the repair. The repair container
 	// itself can exit 0 while still leaving the directory unwritable by this
@@ -899,7 +899,7 @@ func ensureCustomCertsDirWritable(projDir, certsDir string) error {
 	// propagation quirk left stale bits) — never claim success without
 	// re-checking the exact condition this function exists to guarantee.
 	if !probeDirWritable(certsDir) {
-		return &certsDirNotWritableError{dir: certsDir, dockerErr: fmt.Errorf("repair container exited 0 but %s is still not writable", certsDir), dockerOutput: out}
+		return &certsDirNotWritableError{dir: certsDir, reason: "the repair ran but the directory is still not writable", dockerErr: fmt.Errorf("repair container exited 0 but %s is still not writable", certsDir), dockerOutput: out}
 	}
 	return nil
 }
@@ -993,18 +993,21 @@ const certOwnershipRepairImage = "alpine:3.20"
 // output kept as trailing detail for support bundles.
 type certsDirNotWritableError struct {
 	dir          string
+	reason       string // why the automatic repair did not help, in plain words
 	dockerErr    error
 	dockerOutput []byte
 }
 
+// Error puts the fix first: the one administrator command, then the rerun,
+// then the raw repair detail for support (STATBUS-429 review 3, F1).
 func (e *certsDirNotWritableError) Error() string {
 	return fmt.Sprintf(
-		"%s is not writable by this user, and StatBus could not repair it automatically: Docker could not run the repair container.\n"+
-			"Then run ./sb cert install again.\n"+
-			"If Docker cannot be used here, an administrator can run once:\n"+
+		"%s is not writable by this user, and StatBus could not repair it automatically: %s.\n"+
+			"An administrator can fix it once with:\n"+
 			"  sudo install -d -o %d -g %d %s\n"+
+			"Then run ./sb cert install again.\n"+
 			"Repair container detail: %v\n%s",
-		e.dir, os.Getuid(), os.Getgid(), e.dir, e.dockerErr, e.dockerOutput,
+		e.dir, e.reason, os.Getuid(), os.Getgid(), e.dir, e.dockerErr, e.dockerOutput,
 	)
 }
 
