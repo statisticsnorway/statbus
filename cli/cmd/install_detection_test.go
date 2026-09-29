@@ -665,9 +665,9 @@ func TestRestartsAfterSettingsRestoreCoverEveryService(t *testing.T) {
 // (extracted verbatim) prints that cause and fix, never the raw error.
 func TestSettingsRestoreRefusalShowsCertificateCauseThroughInstallSh(t *testing.T) {
 	for _, raw := range []string{
-		`TLS_CERT_FILE="/home/statbus/statbus.crt" is not a valid Caddy container path. TLS_CERT_FILE and TLS_KEY_FILE are paths INSIDE the Caddy container`,
+		`TLS_CERT_FILE="/home/statbus/statbus.crt" is not a valid Caddy container path. Run ` + "`cd /home/statbus/statbus && ./sb cert install <full path to certificate> <full path to key>`" + ` (or a single PFX/PKCS#12 file); it places the files, sets TLS_CERT_FILE/TLS_KEY_FILE, and restarts Caddy for you. See doc/DEPLOYMENT.md, Custom TLS Certificates.`,
 		`TLS_KEY_FILE="/data/custom-certs/domain.key": corresponding host file /home/statbus/statbus/caddy/data/custom-certs/domain.key is unavailable: no such file`,
-		`both TLS_CERT_FILE and TLS_KEY_FILE must be set together. TLS_CERT_FILE and TLS_KEY_FILE are paths INSIDE the Caddy container`,
+		`both TLS_CERT_FILE and TLS_KEY_FILE must be set together. Run ` + "`cd /home/statbus/statbus && ./sb cert install <full path to certificate> <full path to key>`" + ` (or a single PFX/PKCS#12 file); it places the files, sets TLS_CERT_FILE/TLS_KEY_FILE, and restarts Caddy for you. See doc/DEPLOYMENT.md, Custom TLS Certificates.`,
 	} {
 		if cause, _ := classifyInstallFailure("Settings", errors.New(raw)); cause != "The custom certificate settings are invalid." {
 			t.Errorf("TLS error not classified: %q -> %q", raw, cause)
@@ -701,7 +701,7 @@ func TestSettingsRestoreRefusalShowsCertificateCauseThroughInstallSh(t *testing.
 	cmd := exec.Command("bash", "-c", "sb_rc=78\ninstall_output=\"$1\"\nSTATBUS_DIR=\"$2\"\nSTATBUS_INSTALL_RERUN_COMMAND='curl -fsSL https://statbus.org/install.sh | bash'\n"+branch, "exit78", logPath, dir)
 	out, _ := cmd.Output()
 	got := string(out)
-	for _, want := range []string{"Installation cannot start: The custom certificate settings are invalid.", "caddy/data/custom-certs/", "/data/custom-certs/", "Then run: curl -fsSL https://statbus.org/install.sh | bash"} {
+	for _, want := range []string{"Installation cannot start: The custom certificate settings are invalid.", "cd ~/statbus && ./sb cert install", "Then run: curl -fsSL https://statbus.org/install.sh | bash"} {
 		if !strings.Contains(got, want) {
 			t.Errorf("operator output missing %q:\n%s", want, got)
 		}

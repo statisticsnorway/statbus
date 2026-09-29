@@ -600,6 +600,33 @@ See [Integration Guide](INTEGRATE.md#postgresql-direct-access-level-3) for detai
 
 By default, standalone mode uses automatic ACME certificates from Let's Encrypt. If your organization requires using its own certificates (e.g., from an internal CA or a specific certificate provider), you can configure StatBus to use custom certificates instead.
 
+### Recommended: `./sb cert install`
+
+Use the certificate CLI, not manual `mkdir`/`cp`/`.env.config` edits. It validates the certificate/key pair, shows you the cert details before writing anything, places the files, updates `.env.config`, regenerates Caddy's configuration, restarts the proxy, and probes `https://SITE_DOMAIN` to confirm Caddy is actually serving the new certificate:
+
+```bash
+cd ~/statbus
+
+# PFX / PKCS#12 (single file, password-protected) — common CA export format
+./sb cert install ~/Downloads/your-cert.pfx
+
+# Separate PEM files — fullchain certificate + private key
+./sb cert install ~/fullchain.pem ~/privkey.pem
+```
+
+`./sb cert install` also repairs the operational snag that trips up existing boxes: once the proxy container has started at least once, Docker owns `caddy/data/` as `root:root`, so a normal user cannot write under it directly — whether `custom-certs/` was never created, or already exists (e.g. from an earlier manual `sudo mkdir`) but is still not writable. `./sb cert install` probes real writability and repairs `caddy/data/custom-certs/` itself (via a throwaway container, the same mechanism the installer uses to repair root-owned backup directories) — no `sudo` required, and Caddy's own certificate state under `caddy/data/caddy/` is left untouched.
+
+Other useful subcommands:
+
+```bash
+./sb cert show      # inspect the certificate Caddy is currently serving
+./sb cert remove     # revert to automatic Let's Encrypt (ACME) issuance
+```
+
+Run `./sb cert install --help` for the full detection rules (PFX vs PEM, content-based not extension-based) and `./sb cert show --help` / `./sb cert remove --help` for their details.
+
+The rest of this section documents the on-disk layout and the manual steps `./sb cert install` performs, for reference and troubleshooting — you should not need to run them by hand.
+
 ### Certificate Requirements
 
 Your certificate files must be:
@@ -621,7 +648,7 @@ caddy/data/
 
 The `caddy/data/` directory is gitignored to protect sensitive private keys.
 
-### Setup Instructions
+### Manual Setup (reference — prefer `./sb cert install` above)
 
 #### 1. Prepare Certificate Files
 
@@ -709,25 +736,21 @@ PGSSLMODE=verify-full PGSSLNEGOTIATION=direct psql -h your-domain.com -p 5432 -U
 
 ### Switching Back to ACME
 
-To return to automatic Let's Encrypt certificates:
+To return to automatic Let's Encrypt certificates, run:
 
-1. Clear the certificate paths in `.env.config`:
-   ```bash
-   TLS_CERT_FILE=
-   TLS_KEY_FILE=
-   ```
+```bash
+cd ~/statbus
+./sb cert remove
+```
 
-2. Regenerate and restart:
-   ```bash
-   ./sb config generate
-   docker compose restart proxy
-   ```
+This archives the current certificate files to `caddy/data/custom-certs/archive/<timestamp>/` (not deleted — retrievable later), clears `TLS_CERT_FILE`/`TLS_KEY_FILE` in `.env.config`, regenerates Caddy's configuration, and restarts the proxy. Caddy then requests a fresh certificate from Let's Encrypt on the first HTTPS request, provided `SITE_DOMAIN` is publicly reachable on ports 80/443.
 
 ### Certificate Renewal
 
-**Custom certificates**: You are responsible for renewing and replacing certificate files before expiry. After updating files in `caddy/data/custom-certs/`, restart Caddy:
+**Custom certificates**: You are responsible for renewing certificates before expiry. Renew by running `./sb cert install` again with the new files — it places them, updates `.env.config`, regenerates Caddy's configuration, restarts the proxy, and verifies the new certificate is being served:
 ```bash
-docker compose restart proxy
+cd ~/statbus
+./sb cert install <full path to certificate> <full path to key>
 ```
 
 **ACME certificates**: Caddy handles renewal automatically (no action needed).

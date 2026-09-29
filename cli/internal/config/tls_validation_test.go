@@ -21,7 +21,7 @@ func TestValidateTLSPaths(t *testing.T) {
 	for _, tc := range []struct{ name, cert, key, want string }{
 		{"unset", "", "", ""},
 		{"valid", "/data/custom-certs/site.crt", "/data/custom-certs/site.key", ""},
-		{"host path", "/home/statbus/statbus.crt", "/data/custom-certs/site.key", "INSIDE the Caddy container"},
+		{"host path", "/home/statbus/statbus.crt", "/data/custom-certs/site.key", "not a valid Caddy container path"},
 		{"missing", "/data/custom-certs/missing.crt", "/data/custom-certs/site.key", "corresponding host file"},
 		{"pair", "/data/custom-certs/site.crt", "", "both TLS_CERT_FILE and TLS_KEY_FILE"},
 		{"traversal", "/data/../etc/passwd", "/data/custom-certs/site.key", "not a valid Caddy container path"},
@@ -36,6 +36,9 @@ func TestValidateTLSPaths(t *testing.T) {
 			}
 			if err == nil || !strings.Contains(err.Error(), tc.want) || !strings.Contains(err.Error(), "doc/DEPLOYMENT.md") {
 				t.Fatalf("got %v, want %q and documentation", err, tc.want)
+			}
+			if tc.name == "host path" && !strings.Contains(err.Error(), "cd "+dir+" && ./sb cert install") {
+				t.Fatalf("got %v, want the cd <real checkout> && ./sb cert install remedy (STATBUS-429 R-c: names the actual checkout, not a hardcoded ~/statbus)", err)
 			}
 		})
 	}

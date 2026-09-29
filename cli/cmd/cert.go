@@ -17,6 +17,7 @@
 package cmd
 
 import (
+	"context"
 	"crypto/ecdsa"
 	"crypto/ed25519"
 	"crypto/rsa"
@@ -34,6 +35,7 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
+	"github.com/statisticsnorway/statbus/cli/internal/compose"
 	"github.com/statisticsnorway/statbus/cli/internal/config"
 	"github.com/statisticsnorway/statbus/cli/internal/dotenv"
 	"golang.org/x/term"
@@ -821,6 +823,196 @@ func bytesEqual(a, b []byte) bool {
 	return true
 }
 
+// ensureCustomCertsDirWritable makes certsDir (caddy/data/custom-certs/)
+// exist and be writable by the current (install) user WITHOUT sudo, before
+// writeCertAndKey writes into it (STATBUS-429).
+//
+// Docker creates caddy/data/ owned root:root the first time the proxy
+// container starts against an absent bind-mount source (a pre-existing
+// directory is never rechowned by Docker — only ITS OWN creation of a
+// missing one defaults to root). On a box where "Services" has already run
+// at least once, a plain os.MkdirAll(customCertHostDir) from the statbus
+// user fails with "permission denied", because caddy/data/ itself is
+// root-owned even though custom-certs/ was never created.
+//
+// STATBUS-429 M2: custom-certs/ can also ALREADY EXIST and be unwritable —
+// an operator who ran `sudo mkdir -p .../custom-certs` (the least-effort
+// workaround before this fix existed) leaves a root-owned directory that
+// os.MkdirAll happily reports as already-present (MkdirAll succeeds on an
+// existing directory regardless of its owner). So success from MkdirAll is
+// not proof of writability: this function always follows it with a real
+// write probe (create+remove a temp file), and repairs through the same
+// Docker path whenever that probe fails, not only on EACCES from MkdirAll
+// itself.
+//
+// Two disjoint repair triggers, mirroring healBackupOwnership's approach for
+// the analogous rsync-container leaked-ownership problem:
+//   - caddy/data/ does not exist yet: plain os.MkdirAll succeeds, creating
+//     both caddy/data/ and custom-certs/ as the current user, and the write
+//     probe then passes immediately. Nothing Docker will ever rechown (it
+//     doesn't rechown pre-existing mount sources), so this ownership is
+//     permanent.
+//   - caddy/data/ or custom-certs/ already exists and is not writable by us
+//     (root-owned from an earlier "Services" run, OR a prior manual `sudo
+//     mkdir`): the install user cannot chown it directly. One throwaway
+//     container (the box's own proxy image, preferred, or alpine:3.20 as a
+//     fallback — see runCertOwnershipRepair), running as root, creates AND
+//     chowns ONLY custom-certs/ under the existing mount — deliberately NOT
+//     recursive over the parent caddy/data/, which also holds Caddy's own
+//     ACME state
+//     (caddy/data/caddy/) that must stay exactly as Caddy left it.
+//
+// Idempotent: os.MkdirAll on an existing dir, and chown to the same uid:gid,
+// are both no-ops.
+func ensureCustomCertsDirWritable(projDir, certsDir string) error {
+	mkdirErr := os.MkdirAll(certsDir, 0o755)
+	if mkdirErr != nil && !os.IsPermission(mkdirErr) {
+		return fmt.Errorf("create dir %s: %w", certsDir, mkdirErr)
+	}
+	if mkdirErr == nil && probeDirWritable(certsDir) {
+		return nil
+	}
+	// Either MkdirAll hit EACCES (caddy/data/ exists, root-owned, custom-certs/
+	// never created), or MkdirAll reported success because custom-certs/
+	// already existed but a real write probe shows it is not writable (e.g.
+	// an earlier `sudo mkdir`). Heal it through a Docker container, exactly
+	// the escape hatch healBackupOwnership uses for the analogous
+	// root-owned-directory problem.
+	dataDir := filepath.Join(projDir, "caddy", "data")
+	deployUID := os.Getuid()
+	deployGID := os.Getgid()
+	// STATBUS-429 R-b: chmod first (a root-owned dir that is merely
+	// non-writable, e.g. 0555 from an earlier manual `sudo mkdir`, needs its
+	// mode opened up, not just its owner changed), then re-run the same
+	// mkdir+chown the fresh-directory path already needs.
+	shellCmd := fmt.Sprintf(
+		"mkdir -p /data/custom-certs && chmod u+rwx /data/custom-certs && chown %d:%d /data/custom-certs",
+		deployUID, deployGID,
+	)
+	out, err := runCertOwnershipRepair(projDir, dataDir, shellCmd)
+	if err != nil {
+		return &certsDirNotWritableError{dir: certsDir, reason: "Docker could not run the repair container", dockerErr: err, dockerOutput: out}
+	}
+	// STATBUS-429 R-b: probe again after the repair. The repair container
+	// itself can exit 0 while still leaving the directory unwritable by this
+	// user (e.g. the chown's uid:gid was somehow rejected, or a mount
+	// propagation quirk left stale bits) — never claim success without
+	// re-checking the exact condition this function exists to guarantee.
+	if !probeDirWritable(certsDir) {
+		return &certsDirNotWritableError{dir: certsDir, reason: "the repair ran but the directory is still not writable", dockerErr: fmt.Errorf("repair container exited 0 but %s is still not writable", certsDir), dockerOutput: out}
+	}
+	return nil
+}
+
+// runCertOwnershipRepair runs shellCmd as root inside a throwaway container
+// with dataDir bound at /data, --network none (the repair never needs the
+// network; keeping it off is defense in depth). STATBUS-429 R-a: prefers
+// the proxy image already on this box — present whenever this repair can
+// possibly be needed, because caddy/data/ is only root-owned BECAUSE the
+// proxy container ran — run with --pull=never so a missing image fails
+// fast instead of reaching the network. Falls back to certOwnershipRepairImage
+// (alpine:3.20) when the proxy image is unavailable locally, mirroring
+// uninstall.sh's own preferred-image-with-fallback pattern
+// (uninstall.sh:293-296). This matters on boxes whose egress allowlist
+// admits the image registry (ghcr.io, where StatBus images already came
+// from) but not Docker Hub (where a bare alpine pull would go).
+func runCertOwnershipRepair(projDir, dataDir, shellCmd string) ([]byte, error) {
+	if image := localProxyImage(projDir); image != "" {
+		cmd, buildErr := compose.DockerCommandContext(context.Background(), "", "run", "--rm",
+			"--network", "none", "--pull=never",
+			"-v", dataDir+":/data",
+			image, "sh", "-c", shellCmd,
+		)
+		if buildErr == nil {
+			if out, err := cmd.CombinedOutput(); err == nil {
+				return out, nil
+			}
+			// Falls through to the alpine:3.20 fallback below — the proxy
+			// image name was constructed from .env's COMMIT_SHORT but may not
+			// actually be present locally (e.g. pruned, or a fresh checkout
+			// whose proxy has never started).
+		}
+	}
+	cmd, buildErr := compose.DockerCommandContext(context.Background(), "", "run", "--rm",
+		"--network", "none",
+		"-v", dataDir+":/data",
+		certOwnershipRepairImage, "sh", "-c", shellCmd,
+	)
+	if buildErr != nil {
+		return nil, fmt.Errorf("construct docker ownership repair: %w", buildErr)
+	}
+	return cmd.CombinedOutput()
+}
+
+// localProxyImage returns the fully-qualified proxy image tag for this
+// checkout's currently-installed commit (read from .env's COMMIT_SHORT), or
+// "" if .env cannot be read or COMMIT_SHORT is unset. This image is present
+// on any box that could possibly need ensureCustomCertsDirWritable's Docker
+// repair, because caddy/data/ only becomes root-owned once the proxy
+// container using this exact image has already started.
+func localProxyImage(projDir string) string {
+	f, err := dotenv.Load(filepath.Join(projDir, ".env"))
+	if err != nil {
+		return ""
+	}
+	commitShort, _ := f.Get("COMMIT_SHORT")
+	if commitShort == "" {
+		return ""
+	}
+	return "ghcr.io/statisticsnorway/statbus-proxy:" + commitShort
+}
+
+// probeDirWritable reports whether the current user can actually create a
+// file in dir, by creating and removing one. This is a real write probe, not
+// an inference from MkdirAll's return value: MkdirAll succeeds on an
+// existing directory regardless of who owns it (STATBUS-429 M2), so it
+// cannot tell "already there and mine" apart from "already there, root's,
+// and permission-denied on every write inside it".
+func probeDirWritable(dir string) bool {
+	f, err := os.CreateTemp(dir, ".writable-probe-*")
+	if err != nil {
+		return false
+	}
+	name := f.Name()
+	_ = f.Close()
+	_ = os.Remove(name)
+	return true
+}
+
+// certOwnershipRepairImage is the image ensureCustomCertsDirWritable's
+// Docker fallback runs. Pinned to an exact digest-free tag (STATBUS-429 R1)
+// rather than a bare "alpine" so the repair does not depend on whatever
+// "latest" resolves to on the day it runs, and matches the same alpine
+// release uninstall.sh already pins for its own throwaway containers.
+const certOwnershipRepairImage = "alpine:3.20"
+
+// certsDirNotWritableError is returned when the Docker ownership repair
+// itself fails (Docker unavailable, denied, or the repair container errors).
+// Its Error() is a plain operator sentence naming the exact next step
+// (STATBUS-429 M3) — never a bare "exit status N" — with the raw Docker
+// output kept as trailing detail for support bundles.
+type certsDirNotWritableError struct {
+	dir          string
+	reason       string // why the automatic repair did not help, in plain words
+	dockerErr    error
+	dockerOutput []byte
+}
+
+// Error puts the fix first: the one administrator command, then the rerun,
+// then the raw repair detail for support (STATBUS-429 review 3, F1).
+func (e *certsDirNotWritableError) Error() string {
+	return fmt.Sprintf(
+		"%s is not writable by this user, and StatBus could not repair it automatically: %s.\n"+
+			"An administrator can fix it once with:\n"+
+			"  sudo install -d -o %d -g %d %s\n"+
+			"Then run ./sb cert install again.\n"+
+			"Repair container detail: %v\n%s",
+		e.dir, e.reason, os.Getuid(), os.Getgid(), e.dir, e.dockerErr, e.dockerOutput,
+	)
+}
+
+func (e *certsDirNotWritableError) Unwrap() error { return e.dockerErr }
+
 // writeCertAndKey writes the cert chain (PEM, leaf first then any
 // intermediates) and the private key (PEM PKCS#8) to
 // caddy/data/custom-certs/<baseName>.{crt,key}. chmod 644 on cert,
@@ -832,8 +1024,8 @@ func bytesEqual(a, b []byte) bool {
 // "cert written, key missing" state on a failed run.
 func writeCertAndKey(projDir, baseName string, chain []*x509.Certificate, key interface{}) (string, string, error) {
 	dir := filepath.Join(projDir, customCertHostDir)
-	if err := os.MkdirAll(dir, 0o755); err != nil {
-		return "", "", fmt.Errorf("create dir %s: %w", dir, err)
+	if err := ensureCustomCertsDirWritable(projDir, dir); err != nil {
+		return "", "", err
 	}
 	certPath := filepath.Join(dir, baseName+".crt")
 	keyPath := filepath.Join(dir, baseName+".key")
@@ -981,6 +1173,9 @@ func runCertRemove(projDir string) error {
 	// caddy/data/custom-certs/archive/<timestamp>/. Operator can
 	// rm -rf it later if they want to free space.
 	archiveDir := filepath.Join(projDir, customCertHostDir, "archive", time.Now().UTC().Format("20060102-150405"))
+	if err := ensureCustomCertsDirWritable(projDir, filepath.Join(projDir, customCertHostDir)); err != nil {
+		return err
+	}
 	if err := os.MkdirAll(archiveDir, 0o755); err != nil {
 		return fmt.Errorf("create archive dir: %w", err)
 	}

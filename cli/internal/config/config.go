@@ -1213,7 +1213,15 @@ func validateTLSPaths(checkoutDir, cert, key string) error {
 	if cert == "" && key == "" {
 		return nil
 	}
-	guidance := "TLS_CERT_FILE and TLS_KEY_FILE are paths INSIDE the Caddy container under /data/; place files on the host in caddy/data/custom-certs/ and use /data/custom-certs/... values. See doc/DEPLOYMENT.md, Custom TLS Certificates."
+	// STATBUS-429 R-c: name the REAL checkout (not a ~/statbus literal) —
+	// this guidance is reached directly by `./sb config generate` / a raw
+	// `./sb install` (validateTLSPaths' caller), which can run from a
+	// manual `git clone` anywhere, not only install.sh's `~/statbus`
+	// layout. install.sh's own INSTALL_FIX allowlist (install_failure_cause.go)
+	// is unaffected: install.sh never forwards this raw guidance string, it
+	// classifies the raw error and prints its own fixed `cd ~/statbus && ...`
+	// literal instead.
+	guidance := fmt.Sprintf("Run `cd %s && ./sb cert install <full path to certificate> <full path to key>` (or a single PFX/PKCS#12 file); it places the files, sets TLS_CERT_FILE/TLS_KEY_FILE, and restarts Caddy for you. See doc/DEPLOYMENT.md, Custom TLS Certificates.", checkoutDir)
 	if cert == "" || key == "" {
 		return fmt.Errorf("both TLS_CERT_FILE and TLS_KEY_FILE must be set together. %s", guidance)
 	}
