@@ -9,6 +9,13 @@ import (
 )
 
 type concurrencyWorkflow struct {
+	On struct {
+		WorkflowRun struct {
+			Workflows []string `yaml:"workflows"`
+			Types     []string `yaml:"types"`
+			Branches  []string `yaml:"branches"`
+		} `yaml:"workflow_run"`
+	} `yaml:"on"`
 	Concurrency struct {
 		Group  string `yaml:"group"`
 		Cancel bool   `yaml:"cancel-in-progress"`
@@ -182,5 +189,35 @@ func TestFastTestsCandidateConcurrency_STATBUS415(t *testing.T) {
 	}
 	if keys["PR 1"] == keys["PR 2"] {
 		t.Error("unrelated PRs must have separate groups")
+	}
+}
+
+// TestFastTestsExcludesFixtureBranch_STATBUS433 asserts fast-tests.yaml's
+// workflow_run trigger carries a `branches: [master]` filter.
+//
+// Without it, every Images completion on ANY branch — including the
+// throwaway test/upgrade-arc-* fixture branches the upgrade-arc harness
+// dispatches images.yaml against (`gh workflow run images.yaml --ref
+// <fixture-branch>`, test/install-recovery/lib/upgrade-target.sh) — started a
+// Fast Tests run. That run classified candidate=false (no RC tag on a
+// fixture branch, see TestFastTestsCandidateConcurrency_STATBUS415 above)
+// and so landed in the exact same 'fast-tests-master' concurrency group as
+// master's own runs, with cancel-in-progress: true silently cancelling
+// master's in-flight verdict. The fixture runs also fail by design
+// (deliberately-broken migrations), adding unrelated red noise.
+//
+// `branches` on workflow_run filters on the TRIGGERING run's head_branch —
+// per GitHub's on.workflow_run.<branches|branches-ignore> docs — so this does
+// not touch the push/pull_request triggers, and ordinary master-push Images
+// runs (images.yaml's own push trigger is already branches: [master]) are
+// unaffected.
+func TestFastTestsExcludesFixtureBranch_STATBUS433(t *testing.T) {
+	fast := loadConcurrencyWorkflow(t, "fast-tests.yaml")
+	wr := fast.On.WorkflowRun
+	if len(wr.Workflows) != 1 || wr.Workflows[0] != "Images" {
+		t.Fatalf("workflow_run.workflows = %v, want [Images]", wr.Workflows)
+	}
+	if len(wr.Branches) != 1 || wr.Branches[0] != "master" {
+		t.Fatalf("workflow_run.branches = %v, want [master] — without this, fixture-branch Images runs (upgrade-arc-harness) start Fast Tests runs that share master's cancellable concurrency group (STATBUS-433)", wr.Branches)
 	}
 }

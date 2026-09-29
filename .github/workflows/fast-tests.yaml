@@ -72,6 +72,36 @@ on:
   workflow_run:
     workflows: ["Images"]
     types: [completed]
+    # STATBUS-433: the upgrade-arc harness `gh workflow run images.yaml --ref
+    # <fixture-branch>`-dispatches Images on throwaway test/upgrade-arc-*
+    # branches (upgrade-target.sh). Without this filter EVERY such Images
+    # completion — success or the harness's deliberately-failing migrations —
+    # also started a Fast Tests run here, classified candidate=false (no RC
+    # tag on a fixture branch) and so landed in the SAME 'fast-tests-master'
+    # concurrency group as master's own runs (cancel-in-progress: true).
+    # That group is keyed purely off github.event_name/github.ref, not the
+    # workflow_run's head_branch, so a fixture-branch run silently cancelled
+    # master's in-flight verdict (observed: f22016803's Fast Tests cancelled
+    # twice by fixture runs within the same minute; 52 cancellations, 5
+    # false failures logged since 2026-09-27). The fixture runs also fail by
+    # design, adding red noise unrelated to master's health.
+    #
+    # `branches` on workflow_run filters on the TRIGGERING RUN's head_branch
+    # (github.event.workflow_run.head_branch), not on this workflow's own
+    # ref — confirmed against GitHub's docs (workflow-syntax.md
+    # `on.workflow_run.<branches|branches-ignore>` / the merge_group example
+    # showing the same filter keys off the upstream event, not the listener).
+    # Images' own `push` trigger is already `branches: [master]`, so every
+    # ordinary master-push Images run has head_branch=master and keeps
+    # triggering Fast Tests unchanged. RC tags don't go through this path at
+    # all (Fast Tests' `push: tags: ['v*-rc.*']` fires directly — STATBUS-415
+    # — images.yaml intentionally has no `tags:` push trigger). PRs use the
+    # separate `pull_request` trigger below, untouched. A manual
+    # `workflow_dispatch` of Images against master (the documented safety
+    # valve) also keeps head_branch=master and is unaffected; a manual
+    # dispatch against any other branch is correctly excluded, matching the
+    # fixture-branch case this filter exists for.
+    branches: [master]
   pull_request:
     branches-ignore:
       - 'ops/**'
