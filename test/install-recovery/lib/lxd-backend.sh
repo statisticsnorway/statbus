@@ -8,6 +8,12 @@ HARNESS_ROOT=$(git -C "$HARNESS_LIB_DIR" rev-parse --show-toplevel)
 LXD_LOG_DIR=${LXD_LOG_DIR:-$HARNESS_ROOT/tmp}
 mkdir -p "$LXD_LOG_DIR"
 LXD_SSH_OPTS=(-o BatchMode=yes -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR -o ServerAliveInterval=30)
+# Host staging names must be unique per JOB, not per PID: parallel smoke legs
+# run on separate runners whose PIDs can coincide (review round-4 R4-1).
+# Computed afresh per sourcing (never inherited: each scenario process needs
+# its own); every host staging site uses ${LXD_STAGE_ID}.
+LXD_STAGE_ID=${GITHUB_RUN_ID:-local}-${GITHUB_RUN_ATTEMPT:-0}-${GITHUB_JOB:-job}-$$-$RANDOM$RANDOM
+LXD_STAGE_ID=${LXD_STAGE_ID//[^a-zA-Z0-9-]/-}
 [ -z "${LXD_SSH_KEY_FILE:-}" ] || LXD_SSH_OPTS+=(-i "$LXD_SSH_KEY_FILE")
 # shellcheck disable=SC2034 # Sourced assertions consume this variable.
 # Nonempty because bash 3.2 with nounset treats an empty array expansion as unbound.
@@ -205,7 +211,7 @@ scp() {
         esac
     done
     [[ "$destination" == "root@${VM_IP:-UNSET}:"/* ]] || { echo "REFUSE: guest SCP destination $destination" >&2; return 2; }
-    staging="/root/s2-transfer-$$"
+    staging="/root/s2-transfer-${LXD_STAGE_ID}"
     _lxd_upload "$source" "$staging"
     _lxd_push "$staging" "$VM_NAME${destination#*:}"
 }
@@ -346,7 +352,7 @@ CONFIG
     # at VM_SCRIPT/VM_SCRIPT_INLINE/upload_install_script_to_vm below), and
     # remove the host-side copy once pushed so it cannot linger and confuse a
     # later run.
-    staging="/root/s2-env-config-$$"
+    staging="/root/s2-env-config-${LXD_STAGE_ID}"
     _lxd_upload "$fixture" "$staging"
     _lxd_push "$staging" "$VM_NAME/tmp/env-config"
     _lxd_host rm -f "$staging"
@@ -370,7 +376,7 @@ CONFIG
         # real secret must not linger on $LXD_HOST after the push, and (same
         # as env-config/users.yml above) must not collide with a concurrent
         # leg's own upload under the same fixed name.
-        staging="/root/s2-env-credentials-$$"
+        staging="/root/s2-env-credentials-${LXD_STAGE_ID}"
         _lxd_upload "$fixture" "$staging"
         _lxd_push "$staging" "$VM_NAME/tmp/env-credentials"
         _lxd_host rm -f "$staging"
@@ -380,7 +386,7 @@ CONFIG
     fi
     fixture=$(mktemp "$LXD_LOG_DIR/s2-users-XXXXXX")
     printf '%s\n' '- email: test@statbus.org' '  password: test-install-password-2026' '  role: admin_user' '  display_name: Admin' > "$fixture"
-    staging="/root/s2-users-$$.yml"
+    staging="/root/s2-users-${LXD_STAGE_ID}.yml"
     _lxd_upload "$fixture" "$staging"
     _lxd_push "$staging" "$VM_NAME/tmp/users.yml"
     _lxd_host rm -f "$staging"
@@ -431,7 +437,7 @@ _lxd_build_base_for_candidate() {
     # writes to /root/s2-setup.sh and hand a partially written script to
     # whichever leg's `lxc file push` won the race. Per-invocation name,
     # removed after push.
-    host_staging="/root/s2-setup-$$.sh"
+    host_staging="/root/s2-setup-${LXD_STAGE_ID}.sh"
     _lxd_upload "$HARNESS_ROOT/ops/setup-ubuntu-lts.sh" "$host_staging" || return
     _lxd_push "$host_staging" "$base/root/setup.sh" || return
     _lxd_host rm -f "$host_staging"
@@ -464,7 +470,7 @@ _lxd_build_base_for_candidate() {
     [[ "$install_tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-rc\.[0-9]+)?$ ]] || { echo "Invalid checkpoint $checkpoint" >&2; return 2; }
     fixture=$(mktemp "$LXD_LOG_DIR/s2-users-XXXXXX")
     printf '%s\n' '- email: test@statbus.org' '  password: test-install-password-2026' '  role: admin_user' '  display_name: Admin' > "$fixture"
-    host_staging="/root/s2-users-$$.yml"
+    host_staging="/root/s2-users-${LXD_STAGE_ID}.yml"
     _lxd_upload "$fixture" "$host_staging" || return
     rm -f "$fixture"
     _lxd_push "$host_staging" "$base/home/statbus/users.yml"
@@ -526,10 +532,10 @@ ENVCONFIG
 cp ~/users.yml .users.yml
 STATBUS_MIN_DISK_GB=5 ./sb install --non-interactive --trust-github-user jhf
 SCRIPT
-        _lxd_upload "$script" "/root/s2-baseline-$$.sh"
+        _lxd_upload "$script" "/root/s2-baseline-${LXD_STAGE_ID}.sh"
         rm -f "$script"
-        _lxd_push "/root/s2-baseline-$$.sh" "$base/home/statbus/s2-baseline.sh"
-        _lxd_host rm -f "/root/s2-baseline-$$.sh"
+        _lxd_push "/root/s2-baseline-${LXD_STAGE_ID}.sh" "$base/home/statbus/s2-baseline.sh"
+        _lxd_host rm -f "/root/s2-baseline-${LXD_STAGE_ID}.sh"
         _lxd_host lxc exec "$base" -- chown statbus:statbus /home/statbus/s2-baseline.sh
         _lxd_host lxc exec "$base" -- sudo -i -u statbus bash /home/statbus/s2-baseline.sh || { _lxd_mark "INSTALL FAILED $install_tag after $(($(date +%s)-start))s"; lxd_capture_failure "$base"; return 1; }
     else
@@ -827,16 +833,16 @@ hcloud() {
 upload_install_script_to_vm() {
     local name=$1 src=$2 dest=$3
     [ "$name" = "$VM_NAME" ] && [[ "$dest" == /tmp/* ]] || return 2
-    _lxd_upload "$src" "/root/s2-install-script-$$"
-    _lxd_push "/root/s2-install-script-$$" "$name$dest"
+    _lxd_upload "$src" "/root/s2-install-script-${LXD_STAGE_ID}"
+    _lxd_push "/root/s2-install-script-${LXD_STAGE_ID}" "$name$dest"
     _lxd_host lxc exec "$name" -- chmod 0755 "$dest"
     rm -f "$src"
 }
 VM_SCRIPT() {
     local local_path=$1 remote_path; shift
     remote_path="/tmp/vm-script-$(basename "$local_path")-$$.sh"
-    _lxd_upload "$local_path" "/root/s2-vm-script-$$.sh"
-    _lxd_push "/root/s2-vm-script-$$.sh" "$VM_NAME$remote_path"
+    _lxd_upload "$local_path" "/root/s2-vm-script-${LXD_STAGE_ID}.sh"
+    _lxd_push "/root/s2-vm-script-${LXD_STAGE_ID}.sh" "$VM_NAME$remote_path"
     _lxd_host lxc exec "$VM_NAME" -- chmod 0755 "$remote_path"
     VM_EXEC bash "$remote_path" "$@"
 }
@@ -846,8 +852,8 @@ VM_SCRIPT_INLINE() {
     path=$(mktemp "$LXD_LOG_DIR/s2-inline-${label}-XXXXXX") || return
     cat > "$path"
     remote="/home/statbus/s2-inline-${label}-$$.sh"
-    _lxd_upload "$path" "/root/s2-inline-${label}-$$.sh"
-    _lxd_push "/root/s2-inline-${label}-$$.sh" "$VM_NAME$remote" >/dev/null 2>&1
+    _lxd_upload "$path" "/root/s2-inline-${label}-${LXD_STAGE_ID}.sh"
+    _lxd_push "/root/s2-inline-${label}-${LXD_STAGE_ID}.sh" "$VM_NAME$remote" >/dev/null 2>&1
     _lxd_host lxc exec "$VM_NAME" -- chmod 0755 "$remote"
     local rc=0
     VM_EXEC bash "$remote" "$@" || rc=$?
