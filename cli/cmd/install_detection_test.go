@@ -866,6 +866,34 @@ func TestDetectBundleGlobRejectsHostileExistingFile(t *testing.T) {
 	}
 }
 
+// TestFallbackBundleGlobRejectsHostileExistingFile pins the generic exit-78
+// fallback's support-bundle case pattern the same way (review-430-2 round 3):
+// a line that matches no classified cause reaches the "Correct the settings"
+// fallback, whose bundle path must still be the exact
+// support-bundle-<8 digits>-<6 digits>.txt shape, never an arbitrary existing
+// file whose name carries a payload.
+func TestFallbackBundleGlobRejectsHostileExistingFile(t *testing.T) {
+	const rerun = "curl -fsSL https://statbus.org/install.sh | bash"
+	installDir := withRunInstallDetectionHooks(t)
+	hostilePath := filepath.Join(installDir, "support-bundle-LEAKED secret=hunter2.txt")
+	if err := os.WriteFile(hostilePath, []byte("hostile"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	goodPath := filepath.Join(installDir, "support-bundle-20260929-213000.txt")
+	if err := os.WriteFile(goodPath, []byte("bundle"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	unclassified := "some unclassified refusal. If it stops again, send this file to StatBus support: "
+	got := installShFailureTailIn(t, installDir, rerun, unclassified+hostilePath+"\n", 78)
+	if strings.Contains(got, "LEAKED") || strings.Contains(got, "hunter2") {
+		t.Errorf("hostile file name crossed the fallback's support-bundle pattern:\n%s", got)
+	}
+	got = installShFailureTailIn(t, installDir, rerun, unclassified+goodPath+"\n", 78)
+	if !strings.Contains(got, "Support bundle: "+goodPath) {
+		t.Errorf("a real support bundle must still be shown by the fallback:\n%s", got)
+	}
+}
+
 // TestExit78AllowlistRejectsSuffixInjection: a hostile process that can write
 // to install_output (or a bug that appends extra text after a legitimate
 // sentence) must not get anything beyond the fixed allowlisted sentence
