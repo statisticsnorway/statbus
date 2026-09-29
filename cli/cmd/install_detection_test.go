@@ -701,7 +701,7 @@ func TestSettingsRestoreRefusalShowsCertificateCauseThroughInstallSh(t *testing.
 	cmd := exec.Command("bash", "-c", "sb_rc=78\ninstall_output=\"$1\"\nSTATBUS_DIR=\"$2\"\nSTATBUS_INSTALL_RERUN_COMMAND='curl -fsSL https://statbus.org/install.sh | bash'\n"+branch, "exit78", logPath, dir)
 	out, _ := cmd.Output()
 	got := string(out)
-	for _, want := range []string{"Installation cannot start: The custom certificate settings are invalid.", "./sb cert install", "Then run: curl -fsSL https://statbus.org/install.sh | bash"} {
+	for _, want := range []string{"Installation cannot start: The custom certificate settings are invalid.", "cd ~/statbus && ./sb cert install", "Then run: curl -fsSL https://statbus.org/install.sh | bash"} {
 		if !strings.Contains(got, want) {
 			t.Errorf("operator output missing %q:\n%s", want, got)
 		}

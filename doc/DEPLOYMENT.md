@@ -605,6 +605,8 @@ By default, standalone mode uses automatic ACME certificates from Let's Encrypt.
 Use the certificate CLI, not manual `mkdir`/`cp`/`.env.config` edits. It validates the certificate/key pair, shows you the cert details before writing anything, places the files, updates `.env.config`, regenerates Caddy's configuration, restarts the proxy, and probes `https://SITE_DOMAIN` to confirm Caddy is actually serving the new certificate:
 
 ```bash
+cd ~/statbus
+
 # PFX / PKCS#12 (single file, password-protected) — common CA export format
 ./sb cert install ~/Downloads/your-cert.pfx
 
@@ -612,7 +614,7 @@ Use the certificate CLI, not manual `mkdir`/`cp`/`.env.config` edits. It validat
 ./sb cert install fullchain.pem privkey.pem
 ```
 
-`./sb cert install` also repairs the one operational snag that trips up existing boxes: once the proxy container has started at least once, Docker owns `caddy/data/` as `root:root`, so a normal user cannot `mkdir` under it directly. `./sb cert install` detects this and repairs `caddy/data/custom-certs/` itself (via a throwaway container, the same mechanism the installer uses to repair root-owned backup directories) — no `sudo` required, and Caddy's own certificate state under `caddy/data/caddy/` is left untouched.
+`./sb cert install` also repairs the operational snag that trips up existing boxes: once the proxy container has started at least once, Docker owns `caddy/data/` as `root:root`, so a normal user cannot write under it directly — whether `custom-certs/` was never created, or already exists (e.g. from an earlier manual `sudo mkdir`) but is still not writable. `./sb cert install` probes real writability and repairs `caddy/data/custom-certs/` itself (via a throwaway container, the same mechanism the installer uses to repair root-owned backup directories) — no `sudo` required, and Caddy's own certificate state under `caddy/data/caddy/` is left untouched.
 
 Other useful subcommands:
 
@@ -750,9 +752,10 @@ To return to automatic Let's Encrypt certificates:
 
 ### Certificate Renewal
 
-**Custom certificates**: You are responsible for renewing and replacing certificate files before expiry. After updating files in `caddy/data/custom-certs/`, restart Caddy:
+**Custom certificates**: You are responsible for renewing certificates before expiry. Renew by running `./sb cert install` again with the new files — it places them, updates `.env.config`, regenerates Caddy's configuration, restarts the proxy, and verifies the new certificate is being served:
 ```bash
-docker compose restart proxy
+cd ~/statbus
+./sb cert install <full path to certificate> <full path to key>
 ```
 
 **ACME certificates**: Caddy handles renewal automatically (no action needed).
