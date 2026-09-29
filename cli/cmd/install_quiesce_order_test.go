@@ -70,7 +70,13 @@ func TestInstallScriptNeverStopsTheUpgradeUnit(t *testing.T) {
 		}
 		// A quoted grep allowlist contains operator advice, not an executed
 		// systemctl command. Its literal "stop" must not trigger this guard.
-		if strings.HasPrefix(trimmed, "failure_detail=$(grep -E '") {
+		// This covers both the failure-detail catalogue (single-quoted ERE)
+		// and the exit-78 port-conflict bucket (double-quoted ERE, since it
+		// interpolates ${_statbus_rerun_ere}) — both spell "systemctl ...
+		// stop" only inside a grep pattern argument, never as a command.
+		if strings.HasPrefix(trimmed, "failure_detail=$(grep -E '") ||
+			strings.HasPrefix(trimmed, "elif grep -Eq \"^port ") ||
+			strings.HasPrefix(trimmed, "grep -E \"^port ") {
 			continue
 		}
 		if strings.Contains(line, "systemctl") && strings.Contains(line, "stop") {
