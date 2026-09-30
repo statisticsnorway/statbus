@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-09-28 13:07'
-updated_date: '2026-09-30 14:45'
+updated_date: '2026-09-30 15:14'
 labels:
   - ci
   - lxd
@@ -96,4 +96,9 @@ Requirement mappings to settle before completion, without changing AC text or ch
 - AC#7 literally says 'No release gate boots a Hetzner VM'. The shared LXD facility is itself a Hetzner ccx33 created on demand. Interpreting this as no per-scenario VMs is a requirement-mapping decision, not a verified literal fact.
 
 Validation references: `tmp/review-425-m4.md`, `tmp/test-lxd-m4-dd384-finalize-20260930.log`, and `tmp/lxd-m4-implementation-20260930.md` in main's diagnostic directory. All seven acceptance checkboxes remain open.
+
+2026-09-30 15:14 UTC, independent review Addendum 4:
+- R6 is resolved at signed `daa91056909c83791e7fa4d6112d6910fe26e188`: normal PASS/FAIL drops the process-group file, while status 125 retains cleanup ownership. Actual helper/reap tests pass, both reviewer removal mutants are killed, and the harness selftest passes. R4/R5 remain resolved. This is local code/regression evidence, not a guest or GitHub outcome.
+- F1 has a reproduced mechanism and remains a required code fix. The reviewer corrected the author's hook, which had intercepted the outer test's TERM and killed the driver before finalize ran. Against exact `83065bb80`, the corrected hook produces exactly the dead-PID safety failure with the other 24 checks passing, including exit 143, no surviving owned processes, and marker/fixture release. The no-hook control passes. The original failing log is unrecoverable, so identity with that event is not proven.
+- The actual defect is a check-then-signal race: a selected raw PID can be reaped and possibly reused before TERM/KILL. A new signed correction is commissioned to signal and wait through the shell's current jobspec table, preserving the safety assertion and adding the corrected deterministic green-fix/red-revert regression. The branch remains BLOCK pending that independent recheck and external acceptance. No SQL, release classification or acceptance assertion changed; all seven acceptance checkboxes remain open.
 <!-- SECTION:NOTES:END -->
