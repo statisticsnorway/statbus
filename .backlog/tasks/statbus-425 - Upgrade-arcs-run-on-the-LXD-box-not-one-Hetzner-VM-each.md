@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-09-28 13:07'
-updated_date: '2026-09-30 20:30'
+updated_date: '2026-09-30 21:04'
 labels:
   - ci
   - lxd
@@ -119,4 +119,12 @@ Validation references: `tmp/review-425-m4.md`, `tmp/test-lxd-m4-dd384-finalize-2
 - No supersession SQL, release classification or arc outcome assertion contract changed. All seven STATBUS-425 acceptance boxes remain open. No main source merge, push, new RC, provisioning or production repair occurred. Actual Linux CI and LXD guest outcomes follow the normal reviewed publication sequence, not a separate manual host-approval prerequisite.
 
 Evidence: MAIN `tmp/review-lxd-int-final-20260930.md`, MAIN `tmp/lxd-integration-candidate-20260930.md`, MAIN `tmp/lxd-integration-20260930-logs/finalize.log`; review prototypes retained in `/Users/jhf/ssb/.jcode/scratch/review-lxd-int-final-0930/tmp/proto-D/`.
+
+## Reviewed source integration (2026-09-30 21:04 UTC)
+
+- Signed main merge `508dbc163d002cfc8f8d65f80218f238c43be86d` has parents `b0757ef86` and independently reviewed `e5fa86e3b`. Its tree equals the non-destructive merge prototype `ef77d90ca80f87a291828c07c7a69dd8d8543c31`: non-backlog source is byte-identical to the approved correction, while the complete backlog tree (`b6d7f19529c0ffdb6e9445a3136289223acc6b04`) equals pre-merge main `b0757ef86`'s. No duplicate task draft is imported.
+- Independent re-review resolves the c339 BLOCK at exact signed `e5fa86e3b`, recorded in MAIN `tmp/review-lxd-int-final-20260930.md`. The finalizer passes 54 checks. The reviewer independently reverts only the helper-call hunk of `run-arcs.sh` on e5fa's tree (the other six changed files byte-identical): that pure mutation fails four ownership assertions (E2 owned alive; F post-marker admission, post-marker arc start, owned alive). The restored guard test passes on e5fa and gives five failures against c339's guard lines. Workflow/actionlint and the bounded existing CI deadline are reviewed.
+- The source integrates literal smoke-installed checkpoint reuse for 33 ordinary candidate-A arcs, exact-SHA bases for the two historical pins, and bounded shared-host admission for concurrent faults and arcs. This is source wiring, not an observed Linux/GitHub/LXD guest outcome. No per-arc VM, new gate, supersession SQL, release classification or arc outcome assertion change is introduced by this integration.
+- Serial full Go, vet and offline harness validation completed on exact merged508: background task `932934tkxv` exits 0 after 180 seconds. All 21 testable Go packages pass with `-count=1`, `go vet` exits 0, and `./dev.sh test-harness` passes. Logs are retained in MAIN `tmp/merged508-go-test.log`, `tmp/merged508-go-vet.log` and `tmp/merged508-harness.log`; the job also verifies unchanged HEAD and a clean tracked worktree. These are local macOS checks, not Linux or guest acceptance. The original first D failure's fixture event/PID trace remains unavailable despite the demonstrated unsafe mechanism and discriminating regression.
+- All seven STATBUS-425 acceptance boxes remain open. Linux runner execution, real guest checkpoint/fetch/config behavior, shared capacity and the unchanged STATBUS-435 disagreements must be observed after normal candidate publication. No push, candidate cut, stable promotion, host provision or production repair has occurred.
 <!-- SECTION:NOTES:END -->
