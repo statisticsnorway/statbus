@@ -119,4 +119,13 @@ assert_flag_file_absent "$VM_NAME"
 assert_health_passes "$VM_NAME"
 
 echo ""
-echo "PASS (PARTIAL): working arc A→B leg (V applied → completed; data intact; healthy). The C channel-bless re-stamp leg is PENDING the deployment-mode decision (STATBUS-102)."
+# STATBUS-425 M3b (found live: run-arcs.sh's own stricter grep for
+# "^PASS: " — deliberately narrower than CI's exit-code-only trust,
+# specifically to catch a silent early-exit — treated this line's own
+# "PASS (PARTIAL): " prefix as a FAIL_NO_PASS_LINE despite the arc
+# genuinely passing; this was the only one of 35+ arc scripts not to use
+# the "PASS: " prefix every other arc uses). Keep the "(PARTIAL)" and
+# STATBUS-102 caveat IN the message text, just after the standard prefix,
+# so both callers agree: CI's exit code (unaffected either way) and any
+# text-matching consumer (run-arcs.sh, a human grepping logs) alike.
+echo "PASS: working (PARTIAL) arc A→B leg (V applied → completed; data intact; healthy). The C channel-bless re-stamp leg is PENDING the deployment-mode decision (STATBUS-102)."

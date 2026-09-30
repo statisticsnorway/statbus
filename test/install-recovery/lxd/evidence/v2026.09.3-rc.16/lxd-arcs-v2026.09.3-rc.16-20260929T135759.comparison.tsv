@@ -1,0 +1,3 @@
+arc	hetzner_verdict	lxd_verdict	lxd_wall_s	lxd_rc	lineage
+c-rollback-resurrection		FAIL	538	1	crollback
+verdict		PHASE_FAILED		1	

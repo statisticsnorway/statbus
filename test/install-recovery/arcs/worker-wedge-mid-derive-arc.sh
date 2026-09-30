@@ -292,6 +292,29 @@ _wstate=$(VM_EXEC bash -c "cd ~/statbus && docker compose ps --status running --
 echo "  ✓ worker stopped and staying down"
 
 echo ""
+echo "── wait until Postgres has OBSERVED the dead claimant (lock still held) ──"
+# Killing the worker container does not end its backend: the backend is parked
+# in a lock wait and only notices the dead client on its next
+# client_connection_check_interval tick (5s, postgres/postgresql.conf). If the
+# lock is released BEFORE that tick, the blocked statement is granted the lock,
+# runs the derive to completion and commits the row 'completed', and there is
+# no wedge to test. That is what happened on LXD (STATBUS-425 M3b): the worker
+# was SIGKILLed at 13:23:19.47, the release came about 2s later, and backend
+# 1933's process_tasks finished at 13:23:21.36 (3015 ms), so there were 0
+# abandoned rows. Hetzner passed only because its slower SSH round trips put
+# about 3.5s between kill and release, which let the tick land first. Timing
+# must not decide this. Keep the lock until the abandoned state is OBSERVED:
+# a 'processing' row whose worker_pid is gone from pg_stat_activity.
+_abandoned_seen=0
+for _i in $(seq 1 60); do
+    _n=$(abandoned_processing_count)
+    case "$_n" in ''|*[!0-9]*) _n=0 ;; esac
+    [ "$_n" -ge 1 ] && { _abandoned_seen=1; echo "  ✓ $_n claimant backend(s) gone while the lock is still held (t+${_i}s)"; break; }
+    sleep 1
+done
+[ "$_abandoned_seen" = "1" ] || { echo "✗ the killed worker's backend was still alive 60s after the kill; Postgres never observed the dead client, so ingredient 1 cannot be constructed" >&2; exit 1; }
+
+echo ""
 echo "── release the lock (deterministic: remove the release file) ──"
 _release_hold
 echo "  ✓ release file removed; the holder commits and drops the lock"

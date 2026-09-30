@@ -1,0 +1,5 @@
+arc	hetzner_verdict	lxd_verdict	lxd_wall_s	lxd_rc	lineage
+restore-broke-reattempt		FAIL	342	1	failing
+rollback-pair-terminal		FAIL	343	1	working
+worker-wedge-mid-derive		PASS	333	0	working
+verdict		PHASE_FAILED		1	

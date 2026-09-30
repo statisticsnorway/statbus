@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 ROOT=$(cd "$(dirname "$0")/../.." && pwd)
+# shellcheck disable=SC1090
 source "${STATBUS_CREDENTIALS_FILE:-$ROOT/.env.credentials}"
 : "${HCLOUD_TOKEN:?HCLOUD_TOKEN required}"
 export HCLOUD_TOKEN
@@ -13,6 +14,10 @@ opts=(-o BatchMode=yes -o StrictHostKeyChecking=accept-new)
 # hold their OWN marker file under /root/fleet-active/ concurrently
 # (STATBUS-425 M2'); a single marker file would let the first job to finish
 # delete the file while a sibling job is still genuinely running.
+# Sweep what killed jobs left (markers/forks older than LXD_STALE_S, default 4h,
+# above every job timeout) so a dead job cannot block reaping forever. Touches
+# nothing younger, so it is safe at any time.
+ssh "${opts[@]}" "root@$ip" 'flock -n /root/fleet-run.lock bash -s' < "$ROOT/ops/lxd-fleet/fleet-sweep.sh" || true
 ssh "${opts[@]}" "root@$ip" 'flock -n /root/fleet-run.lock bash -s' <<'REMOTE'
 set -euo pipefail
 marker=/root/last-fleet-activity

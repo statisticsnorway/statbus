@@ -8,6 +8,7 @@ on:
     paths:
       - 'test/install-recovery/**'
       - 'ops/setup-ubuntu-lts.sh'
+      - 'ops/lxd-fleet/**'
       - 'install.sh'
       - '.github/actions/**'
       - '.github/workflows/harness-selftest.yaml'
@@ -48,3 +49,29 @@ jobs:
         run: bash test/install-recovery/tests/lxd-staging-path-test.sh
       - name: Prove bootstrap_install_test_vm routes on VM name, never on whether INSTALL_VERSION is empty
         run: bash test/install-recovery/tests/lxd-bootstrap-discriminator-test.sh
+      - name: Prove every env-config pre-copy install path creates ~/statbus-maintenance first
+        run: bash test/install-recovery/tests/lxd-maintenance-dir-ownership-test.sh
+      - name: Prove run-arcs.sh's fixture-lineage mapping never drifts from upgrade-arc-harness.yaml's
+        run: bash test/install-recovery/tests/lxd-arc-lineage-parity-test.sh
+      - name: Prove an arc's candidate base installs by commit identity, even when a stable tag also points at it
+        run: bash test/install-recovery/tests/lxd-arc-base-identity-test.sh
+      - name: Prove the pre-commit hook's upgrade-arc fixture exemption covers every V_N, never swallows a real migration
+        run: bash test/install-recovery/tests/precommit-arc-fixture-exemption-test.sh
+      - name: Prove capture_db_fingerprint scopes its schema scratch file per VM_NAME, never a fixed path
+        run: bash test/install-recovery/tests/arc-fingerprint-path-scope-test.sh
+      - name: Prove arc_wait_unit_active enforces its budget in every branch
+        run: bash test/install-recovery/tests/arc-wait-unit-active-test.sh
+      - name: Prove the LXD driver's bounded run, tree stop and stale-holder lock
+        run: bash test/install-recovery/tests/lxd-driver-lifecycle-test.sh
+      - name: Prove run-arcs finalize stops owned children first, restores the pinned tree only under its lock, and survives early exits
+        run: bash test/install-recovery/tests/lxd-run-arcs-finalize-test.sh
+      - name: LXD host admission (slots, busy, sweep)
+        run: bash test/install-recovery/tests/lxd-admission-test.sh
+      - name: LXD shared arc runner verdict
+        run: bash test/install-recovery/tests/lxd-arc-verdict-test.sh
+      - name: LXD exact-SHA arc A checkpoints
+        run: bash test/install-recovery/tests/lxd-arc-a-checkpoint-test.sh
+      - name: LXD arc always-reap (killed job ownership)
+        run: bash test/install-recovery/tests/lxd-arc-reap-test.sh
+      - name: LXD stop_running_jobs (finalize job stop)
+        run: bash test/install-recovery/tests/lxd-stop-running-jobs-test.sh

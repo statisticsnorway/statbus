@@ -15,6 +15,46 @@ LXD_SSH_OPTS=(-o BatchMode=yes -o StrictHostKeyChecking=no -o UserKnownHostsFile
 LXD_STAGE_ID=${GITHUB_RUN_ID:-local}-${GITHUB_RUN_ATTEMPT:-0}-${GITHUB_JOB:-job}-$$-$RANDOM$RANDOM
 LXD_STAGE_ID=${LXD_STAGE_ID//[^a-zA-Z0-9-]/-}
 [ -z "${LXD_SSH_KEY_FILE:-}" ] || LXD_SSH_OPTS+=(-i "$LXD_SSH_KEY_FILE")
+# STATBUS-425 M3a (plan review §1i.4/§4): a single scenario or arc process
+# makes MANY calls to the fleet host over its lifetime (VM_EXEC alone can be
+# dozens of calls per arc), each previously a fresh TCP+auth handshake -
+# ControlMaster reuses ONE authenticated connection for all of them, cutting
+# both wall time and the handshake load MaxStartups (harden-host.sh) was
+# widened to absorb. This is deliberately scoped to ONE PROCESS's lifetime,
+# not shared across jobs: ControlPath is keyed on LXD_STAGE_ID (unique per
+# job/PID/sourcing, computed above) inside a private, mktemp'd directory, and
+# ControlPersist is short (60s) so an already-exited job's multiplexed
+# connection cannot outlive it by more than a few seconds. This does NOT
+# contradict harden-host.sh's "per-call SSH is deliberately stateless"
+# comment: that describes the FORK-facing executable ssh shim further below
+# (guest connections routed through lxc exec, no real network hop to make
+# stateful) and harness_real_ssh's explicit `-F none` (which must ignore
+# every ambient default, including this one, to prove the genuine transport
+# deploy-status-proof-arc.sh needs — verified: -F none suppresses ControlPath
+# too, so that function's own hardcoded option set is untouched by this).
+# This ControlMaster applies only to _lxd_host/_lxd_upload's connection TO
+# the fleet host itself (LXD_HOST), never to a guest. No EXIT trap removes
+# LXD_CONTROL_DIR: every scenario/arc script sets its OWN `trap ... EXIT`
+# after sourcing this file (bash traps replace, never chain - the same
+# reason LXD_SHIM_DIR below is never actually removed by its trap either),
+# so ControlPersist=60s is the real bound here: the master process (and the
+# socket it holds) exits on its own shortly after the job's last SSH call,
+# independent of whether anything ever runs this file's own trap. The empty
+# mktemp'd directory is a few-KB leak on an ephemeral CI runner or LXD guest,
+# not a live resource.
+# The mktemp'd directory ALONE gives uniqueness (its own random suffix); the
+# socket filename inside it is a short, fixed literal, never LXD_STAGE_ID
+# embedded verbatim - a Unix domain socket path has a ~104-108 byte kernel
+# limit (AF_UNIX sun_path), and LXD_STAGE_ID (run-id + attempt + job name +
+# PID + two $RANDOMs) plus ssh's own per-connection suffix routinely blew
+# past it under a long $TMPDIR (found LIVE testing this against the real
+# box on a dev machine with TMPDIR=.../scratch: "unix_listener: path ...
+# too long for Unix domain socket", ssh exit 255 - every _lxd_host call
+# would have failed this way in CI too, on any runner whose TMPDIR isn't
+# the short /tmp default).
+LXD_CONTROL_DIR=$(mktemp -d "${TMPDIR:-/tmp}/lxd-ssh-control-XXXXXX")
+LXD_CONTROL_PATH="$LXD_CONTROL_DIR/m"
+LXD_SSH_OPTS+=(-o ControlMaster=auto -o ControlPath="$LXD_CONTROL_PATH" -o ControlPersist=60s)
 # shellcheck disable=SC2034 # Sourced assertions consume this variable.
 # Nonempty because bash 3.2 with nounset treats an empty array expansion as unbound.
 SSH_OPTS=(-o BatchMode=yes)
@@ -110,16 +150,22 @@ _lxd_name() {
     printf '%s-%s' "$LXD_BASE_PREFIX" "${1//[^a-zA-Z0-9-]/-}"
 }
 _lxd_mark() { printf '%s | %s\n' "$(date -u +%FT%TZ)" "$*" >&2; }
-# Pure selector: read instance names on stdin and print only other candidate
-# bases. Parse the tag BEFORE any checkpoint suffix, which itself may contain
-# a historical release name unrelated to the base's owning candidate.
+# Pure selector: read instance names on stdin and print only OLDER candidates'
+# bases (STATBUS-425 M4: a newer candidate's checkpoints may already exist on
+# the shared box while this candidate's faults run; never prune those). Parse
+# the tag BEFORE any checkpoint suffix, which itself may contain a historical
+# release name unrelated to the base's owning candidate. Ordering is numeric
+# on (year, month, patch, rc), never lexical.
 _lxd_bases_to_prune() {
-    local tag=$1 safe=${1//[^a-zA-Z0-9-]/-} name base_tag
-    [[ "$tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+-rc\.[0-9]+$ ]] || return 2
+    local tag=$1 name
+    [[ "$tag" =~ ^v([0-9]+)\.([0-9]+)\.([0-9]+)-rc\.([0-9]+)$ ]] || return 2
+    local cur
+    printf -v cur '%08d%08d%08d%08d' "$((10#${BASH_REMATCH[1]}))" "$((10#${BASH_REMATCH[2]}))" "$((10#${BASH_REMATCH[3]}))" "$((10#${BASH_REMATCH[4]}))"
     while IFS= read -r name; do
-        if [[ "$name" =~ ^(fleet|s2)-base-(v[0-9]+-[0-9]+-[0-9]+-rc-[0-9]+)(-[a-zA-Z0-9-]+)?$ ]]; then
-            base_tag=${BASH_REMATCH[2]}
-            [ "$base_tag" = "$safe" ] || printf '%s\n' "$name"
+        if [[ "$name" =~ ^(fleet|s2)-base-v([0-9]+)-([0-9]+)-([0-9]+)-rc-([0-9]+)(-[a-zA-Z0-9-]+)?$ ]]; then
+            local other
+            printf -v other '%08d%08d%08d%08d' "$((10#${BASH_REMATCH[2]}))" "$((10#${BASH_REMATCH[3]}))" "$((10#${BASH_REMATCH[4]}))" "$((10#${BASH_REMATCH[5]}))"
+            [[ "$other" < "$cur" ]] && printf '%s\n' "$name"
         fi
     done
 }
@@ -210,7 +256,20 @@ scp() {
             *) if [ -z "$source" ]; then source=$arg; else destination=$arg; fi ;;
         esac
     done
-    [[ "$destination" == "root@${VM_IP:-UNSET}:"/* ]] || { echo "REFUSE: guest SCP destination $destination" >&2; return 2; }
+    # STATBUS-425 M3a (found live: c-rollback-resurrection-arc.sh's own
+    # GUARD-PROBE step, the exit-criterion four-hardest-arcs run's fourth
+    # scp-shape - every arc before it only ever used root@). `lxc file push`
+    # (via _lxd_push) writes by CONTAINER PATH, not through any real SSH
+    # login - the scp destination's "user@" is purely this shim's own
+    # routing token, never consumed as an actual remote login identity
+    # (unlike the ssh() function below, which routes a statbus@ destination
+    # through `sudo -u statbus`, because THAT one really does need to run as
+    # a different in-guest user). Accept either fork user; refuse anything
+    # that names neither this fork's own IP.
+    case "$destination" in
+        root@"${VM_IP:-UNSET}":/*|statbus@"${VM_IP:-UNSET}":/*) ;;
+        *) echo "REFUSE: guest SCP destination $destination" >&2; return 2 ;;
+    esac
     staging="/root/s2-transfer-${LXD_STAGE_ID}"
     _lxd_upload "$source" "$staging"
     _lxd_push "$staging" "$VM_NAME${destination#*:}"
@@ -581,14 +640,20 @@ lxd_fork() {
     fi
     _lxd_fork_from_base "$base" "$name" "$checkpoint"
 }
-# _lxd_fork_from_base <base> <name> <checkpoint-kind> — the mechanical half of
-# lxd_fork (copy checkpoint -> boot -> ready), factored out so
-# bootstrap_install_test_vm's arc path (which has no scenario file to resolve
-# a base/name from) can drive the exact same guest-boot sequence directly.
-# checkpoint-kind is "hardened-nothing-installed" or anything else (installed
-# base); only that distinction changes what happens after boot.
+# _lxd_fork_from_base <base> <name> <checkpoint-kind> [storage-pool] — the
+# mechanical half of lxd_fork (copy checkpoint -> boot -> ready), factored
+# out so bootstrap_install_test_vm's arc path (which has no scenario file to
+# resolve a base/name from) can drive the exact same guest-boot sequence
+# directly. checkpoint-kind is "hardened-nothing-installed" or anything else
+# (installed base); only that distinction changes what happens after boot.
+# storage-pool (optional): forks the copy onto a NAMED pool instead of the
+# base's own pool (`lxc copy --storage`). Used by un-park-to-completion's
+# bounded arc-fill pool (STATBUS-425 M3a, plan review §1d risk 2) so that
+# arc's deliberate fallocate-to-near-full can never starve statbus-test's
+# shared free space for every other concurrent fork - statfs inside a guest
+# reports only ITS OWN pool's size, never the fleet-wide total.
 _lxd_fork_from_base() {
-    local base=$1 name=$2 checkpoint=$3 start
+    local base=$1 name=$2 checkpoint=$3 pool=${4:-} start
     # Provenance is a forensic log, not a hard gate here (M4 wires an
     # orchestrator-dispatch flag that refuses a fleet/arc self-build; this is
     # the read half, landed with the write half in lxd_snapshot_installed).
@@ -596,7 +661,13 @@ _lxd_fork_from_base() {
     # fallback path (_lxd_build_base_for_candidate) - expected and not an error.
     _lxd_host lxc info "$base" | grep -qE '^\| checkpoint +\|' || { echo "No checkpoint $base/checkpoint" >&2; return 1; }
     if _lxd_host lxc info "$name" >/dev/null 2>&1; then echo "REFUSE: $name exists. Reset explicitly first." >&2; return 1; fi
-    start=$(date +%s); _lxd_host lxc copy "$base/checkpoint" "$name"
+    start=$(date +%s)
+    if [ -n "$pool" ]; then
+        [[ "$pool" =~ ^[a-z][a-z0-9-]{0,30}$ ]] || { echo "Invalid storage pool: $pool" >&2; return 2; }
+        _lxd_host lxc copy "$base/checkpoint" "$name" --storage "$pool"
+    else
+        _lxd_host lxc copy "$base/checkpoint" "$name"
+    fi
     VM_NAME=$name; LXD_OWNED_BY_THIS_RUN=1
     _lxd_mark "copy $base/checkpoint -> $name $(($(date +%s)-start))s"
     start=$(date +%s); _lxd_host lxc start "$name"
@@ -726,6 +797,139 @@ lxd_promote_checkpoint() {
 }
 # VM-harness-compatible shims for direct scenario commands.
 #
+# STATBUS-425 M4: exact-SHA arc A checkpoints. An arc's A is NOT smoke's
+# installed-<candidate>-standalone: that one is installed by the tagged
+# installer, so A would be recorded release_status='prerelease', and the 4th
+# ./sb install would then supersede B's terminal 'failed' row (M3b:
+# rollback-pair-terminal, restore-broke-reattempt). The arcs' A is the
+# per-commit / historical-release install install_statbus_at_sha performs. It is
+# built ONCE per exact commit on top of smoke's hardened-nothing-installed
+# checkpoint (same function, same bytes as the per-arc install) and every arc
+# forks it. Identity is the FULL commit sha (provenance a_sha, re-verified in
+# the guest after every fork), never a tag name.
+_lxd_arc_a_base() {
+    local tag=$1 sha=$2
+    [[ "$sha" =~ ^[a-f0-9]{40}$ ]] || return 2
+    _lxd_name "$tag-arc-a-${sha:0:12}"
+}
+_lxd_arc_a_has_checkpoint() { _lxd_host lxc info "$1" 2>/dev/null | grep -qE '^\| checkpoint +\|'; }
+# Build (or wait for another arc job to build) the A checkpoint for SHA.
+# Remote reclaim of a half-built A base, run on the HOST under the same
+# /root/fleet-run.lock every other catalog mutation uses, so the decision and
+# the delete are one atomic step (the check is repeated under the lock):
+#   - checkpoint exists           -> keep
+#   - builder key set             -> delete only if that builder's marker is gone
+#   - builder key EMPTY (legacy   -> delete only if the base is older than
+#     base, or a claim that died     $2 seconds (Created: from lxc info, the
+#     before its config landed)      host is the authority); a fresh one is
+#                                    someone mid-claim: keep and wait
+_lxd_arc_a_reclaim_script='
+set -euo pipefail
+base=$1; min_age=$2; act=${FLEET_ACTIVE_DIR:-/root/fleet-active}
+lxc info "$base" >/dev/null 2>&1 || { echo gone; exit 0; }
+if lxc info "$base" | grep -qE "^\| checkpoint +\|"; then echo keep-ready; exit 0; fi
+builder=$(lxc config get "$base" user.statbus.builder 2>/dev/null || true)
+if [ -n "$builder" ]; then
+    if [ -e "$act/$builder" ]; then echo keep-builder-alive; exit 0; fi
+    lxc delete "$base" --force; echo "deleted builder-gone $builder"; exit 0
+fi
+created=$(lxc info "$base" | sed -n "s/^Created: //p" | head -n1)
+epoch=$(date -u -d "$created" +%s 2>/dev/null || true)
+[[ "$epoch" =~ ^[0-9]+$ ]] || { echo "keep-unparseable-age"; exit 0; }
+now=${FLEET_NOW:-$(date +%s)}
+if [ $((now - epoch)) -ge "$min_age" ]; then lxc delete "$base" --force; echo "deleted no-builder-stale"; else echo "keep-no-builder-fresh"; fi
+'
+lxd_arc_a_ensure() {
+    local tag=$1 sha=$2 base hard out waited=0 budget=${ARC_A_BUILD_WAIT_S:-2400} legacy=${ARC_A_LEGACY_STALE_S:-3600}
+    [ -n "${LXD_MARKER_ID:-}" ] || { echo "REFUSE: building an arc A checkpoint needs LXD_MARKER_ID (the builder's ownership marker)" >&2; return 2; }
+    base=$(_lxd_arc_a_base "$tag" "$sha") || return
+    hard=$(_lxd_name "$tag-hardened-nothing-installed")
+    _lxd_arc_a_has_checkpoint "$hard" || { echo "No checkpoint $hard/checkpoint (smoke's hardened base) to build arc A from" >&2; return 1; }
+    while :; do
+        if _lxd_arc_a_has_checkpoint "$base"; then
+            [ "$(_lxd_host lxc config get "$base" user.statbus.a_sha)" = "$sha" ] || {
+                echo "REFUSE: $base/checkpoint carries a_sha=$(_lxd_host lxc config get "$base" user.statbus.a_sha), expected $sha" >&2; return 1; }
+            return 0
+        fi
+        if ! _lxd_host lxc info "$base" >/dev/null 2>&1; then
+            # ONE atomic step: lxc copy refuses an existing name, so exactly one
+            # job wins, and the builder key lands WITH the instance. There is no
+            # window where the base exists without its owner, and a copy that
+            # cannot apply the config creates nothing.
+            if _lxd_host lxc copy "$hard/checkpoint" "$base" -c "user.statbus.builder=$LXD_MARKER_ID" 2>/dev/null; then
+                _lxd_arc_a_build "$tag" "$sha" "$base" && return 0
+                _lxd_host lxc delete "$base" --force || true
+                return 1
+            fi
+            # Lost a race (someone else created it) -> loop and wait. Anything
+            # else (config rejected, host error) leaves no base: fail loud.
+            _lxd_host lxc info "$base" >/dev/null 2>&1 || {
+                echo "REFUSE: could not claim $base (lxc copy with builder config failed and nothing was created)" >&2; return 1; }
+        else
+            out=$(_lxd_host flock /root/fleet-run.lock bash -c "$_lxd_arc_a_reclaim_script" _ "$base" "$legacy" 2>/dev/null || true)
+            case "$out" in deleted*) _lxd_mark "arc A base $base: $out";; esac
+        fi
+        [ "$waited" -lt "$budget" ] || { echo "arc A base $base not ready within ${budget}s" >&2; return 1; }
+        sleep 15; waited=$((waited + 15))
+    done
+}
+_lxd_arc_a_build() {
+    local tag=$1 sha=$2 base=$3 saved_vm=${VM_NAME:-} saved_ip=${VM_IP:-} saved_own=${LXD_OWNED_BY_THIS_RUN:-0} rc=0 i
+    _lxd_host lxc start "$base" || return
+    for ((i=0;i<90;i++)); do VM_IP=$(_lxd_guest_ip "$base" 2>/dev/null || true); [ -n "$VM_IP" ] && break; sleep 1; done
+    [ -n "$VM_IP" ] || { echo "No guest IP for $base" >&2; return 1; }
+    VM_NAME=$base
+    _lxd_host lxc exec "$base" -- cloud-init status --wait || true
+    _lxd_host lxc exec "$base" -- bash -c 'echo "export XDG_RUNTIME_DIR=/run/user/1001" >> /home/statbus/.profile'
+    _lxd_prepare_fresh_answers || rc=$?
+    [ "$rc" -ne 0 ] || install_statbus_at_sha "$base" "$sha" || rc=$?
+    if [ "$rc" -eq 0 ]; then
+        _lxd_ready "$base" || rc=$?
+    fi
+    if [ "$rc" -eq 0 ]; then
+        _lxd_arc_a_verify_head "$base" "$sha" || rc=$?
+    fi
+    VM_NAME=$saved_vm VM_IP=$saved_ip LXD_OWNED_BY_THIS_RUN=$saved_own
+    [ "$rc" -eq 0 ] || return "$rc"
+    _lxd_host lxc stop "$base" || return
+    _lxd_host lxc snapshot "$base" checkpoint || return
+    _lxd_host lxc config set "$base" user.statbus.a_sha "$sha" || return
+    _lxd_host lxc config set "$base" user.statbus.candidate "$tag" || return
+    _lxd_host lxc config set "$base" user.statbus.producer arc-a || return
+    _lxd_host lxc config set "$base" user.statbus.run_id "${GITHUB_RUN_ID:-manual}" || return
+    _lxd_mark "arc A checkpoint $base/checkpoint built for ${sha:0:12}"
+}
+# Hard identity check: the guest's checkout is EXACTLY the commit the arc asked for.
+_lxd_arc_a_verify_head() {
+    local name=$1 sha=$2 head
+    head=$(_lxd_host lxc exec "$name" -- sudo -i -u statbus git -C /home/statbus/statbus rev-parse HEAD | tr -d '[:space:]')
+    [ "$head" = "$sha" ] || { echo "REFUSE: $name checkout HEAD=$head, arc A requires $sha" >&2; return 1; }
+}
+# Which checkpoint is arc A forked from? Pure: candidate commit -> smoke's
+# installed checkpoint, any other full sha -> its exact-SHA checkpoint.
+_lxd_arc_a_kind() {
+    local tag=$1 sha=$2 cand
+    [[ "$sha" =~ ^[a-f0-9]{40}$ ]] || return 2
+    cand=$(git -C "$HARNESS_ROOT" rev-parse "$tag^{commit}") || return
+    if [ "$sha" = "$cand" ]; then echo smoke; else echo pin; fi
+}
+# Smoke's checkpoint must exist and be smoke's for THIS candidate. Never built here.
+_lxd_arc_a_check_smoke_base() {
+    local tag=$1 base=$2 prov producer
+    _lxd_arc_a_has_checkpoint "$base" || {
+        echo "REFUSE: no smoke checkpoint $base/checkpoint. Arcs fork smoke's installed candidate; they never reinstall A from a pristine base. Run/repair 0-happy-install for $tag first." >&2; return 1; }
+    prov=$(_lxd_host lxc config get "$base" user.statbus.candidate 2>/dev/null || true)
+    producer=$(_lxd_host lxc config get "$base" user.statbus.producer 2>/dev/null || true)
+    { [ "$prov" = "$tag" ] && [ "$producer" = smoke ]; } || {
+        echo "REFUSE: $base/checkpoint is not smoke's proven checkpoint for $tag (candidate='$prov' producer='$producer')" >&2; return 1; }
+}
+# The fork's per-job GITHUB_TOKEN goes INTO the complete .env.credentials the
+# installer wrote (secrets, DB identity keys intact); create-only if absent.
+_lxd_arc_a_merge_token() {
+    local name=$1
+    [ -n "${GITHUB_TOKEN:-}" ] || return 0
+    _lxd_host lxc exec "$name" -- sudo -i -u statbus env "T=$GITHUB_TOKEN" bash -c 'cd ~/statbus && test -s .env.credentials && ./sb dotenv -f .env.credentials set GITHUB_TOKEN "$T" >/dev/null && grep -q "^GITHUB_TOKEN=" .env.credentials'
+}
 # arc_prepare_box (arc-helpers.sh) calls bootstrap_install_test_vm "$VM_NAME" ""
 # — the VM harness's no-version contract: provision only, install happens
 # separately via install_statbus_at_sha (below). Arc VM names (statbus-arc-*)
@@ -762,10 +966,48 @@ bootstrap_install_test_vm() {
             [[ "$LXD_FORK_PREFIX" =~ ^[a-z][a-z0-9-]{0,12}$ ]] || return 2
             local slug=${1#statbus-arc-}
             [[ "$slug" =~ ^[a-zA-Z0-9-]+$ ]] || return 2
-            local base name
+            local base name pool=
             base=$(_lxd_name "$LXD_CANDIDATE-hardened-nothing-installed")
             name="$LXD_FORK_PREFIX-${LXD_CANDIDATE//[^a-zA-Z0-9-]/-}-arc-${slug}"
-            _lxd_fork_from_base "$base" "$name" hardened-nothing-installed
+            # STATBUS-425 M3a: un-park-to-completion is the SOLE rider that
+            # deliberately fallocates its own fork's disk down to a few GB
+            # free (arcs/un-park-to-completion-arc.sh:372-377) to force a
+            # deterministic pre-pull-check park. On the shared statbus-test
+            # pool, Btrfs statfs reports POOL-WIDE free space to every guest
+            # (plan review tmp/review-lxd-all-gates-plan.md §1d risk 2), so
+            # that fill would starve every sibling fork with ENOSPC, not just
+            # this arc's own guest. Route this one arc's fork onto the
+            # dedicated statbus-arc-fill pool ops/lxd-fleet/up.sh creates
+            # (bounded, separately loop-backed): statfs inside that guest
+            # then reports only ITS OWN pool's size, and the fill can never
+            # reach statbus-test. No other arc or scenario names this pool.
+            [ "$slug" = un-park-to-completion ] && pool=statbus-arc-fill
+            # STATBUS-425 M4: A is FORKED, never freshly installed per arc.
+            #  - A == the candidate commit: smoke's literal
+            #    installed-<candidate>-standalone checkpoint (no rewrite of its
+            #    release_status/version/tags). Missing, unproven or wrong-HEAD
+            #    fails loud; there is NO fallback to a pristine reinstall.
+            #  - A == another exact commit (the two genuine historical bases):
+            #    that commit's own exact-SHA checkpoint (lxd_arc_a_ensure).
+            # LXD_ARC_A_REUSE=0 keeps the old fresh per-arc install, diagnosis only.
+            if [ "${LXD_ARC_A_REUSE:-1}" = 1 ]; then
+                local a_base a_kind
+                [[ "${BASE_SHA:-}" =~ ^[a-f0-9]{40}$ ]] || { echo "REFUSE: arc A needs a full 40-hex BASE_SHA, got '${BASE_SHA:-}'" >&2; return 2; }
+                a_kind=$(_lxd_arc_a_kind "$LXD_CANDIDATE" "$BASE_SHA") || return
+                if [ "$a_kind" = smoke ]; then
+                    a_base=$(_lxd_name "$LXD_CANDIDATE-installed-$LXD_CANDIDATE-standalone")
+                    _lxd_arc_a_check_smoke_base "$LXD_CANDIDATE" "$a_base" || return
+                else
+                    a_base=$(_lxd_arc_a_base "$LXD_CANDIDATE" "$BASE_SHA")
+                    lxd_arc_a_ensure "$LXD_CANDIDATE" "$BASE_SHA" || return
+                fi
+                _lxd_fork_from_base "$a_base" "$name" installed "$pool" || return
+                _lxd_arc_a_verify_head "$name" "$BASE_SHA" || return
+                _lxd_arc_a_merge_token "$name" || return
+                LXD_ARC_A_PREINSTALLED=$BASE_SHA
+            else
+                _lxd_fork_from_base "$base" "$name" hardened-nothing-installed "$pool"
+            fi
             ;;
         *)
             lxd_fork "$LXD_CANDIDATE" "${1##statbus-recovery-}"
@@ -914,6 +1156,35 @@ if [ "$2" = standalone ] && [ "$3" != 1 ]; then
     install -m 0644 "$HOME/harness-certs/domain.crt" "$HOME/statbus/caddy/data/custom-certs/domain.crt"
     install -m 0600 "$HOME/harness-certs/domain.key" "$HOME/statbus/caddy/data/custom-certs/domain.key"
 fi
+# STATBUS-425 M3a (found live, not offline: un-park-to-completion-arc.sh's
+# real install through this exact path failed "write maintenance flag
+# .../statbus-maintenance/active: permission denied"): pre-planting
+# .env.config here makes install.go's checkConfigDone() (".env.config
+# exists") return true on the VERY FIRST run, so its "Configuration" step
+# (runCreateConfig, which os.MkdirAll()s ~/statbus-maintenance and
+# ~/statbus-backups AS THIS USER, statbus) never runs at all - the ONLY
+# reason `./sb install` ever creates either directory. Docker itself then
+# auto-creates the still-missing bind-mount source directory during
+# `docker compose up` (the "Services" step), but as root (the Docker
+# daemon's own uid), not statbus - so the later upgrade daemon (runs as
+# statbus) can never write the maintenance flag into it. The Hetzner VM
+# harness never hits this: its install_statbus_at_sha supplies an ANSWER
+# file (STATBUS_ENV_CONFIG) that the installer's own prompts consume, never
+# a pre-existing .env.config the "Configuration" step's own check would see.
+# Create both directories here, exactly as runCreateConfig would, so this
+# path produces the SAME ownership install.go's own step table guarantees
+# on every other path (the two callers below already ran the real
+# installer's full path through this exact fork model without this gap -
+# their base state, built by _lxd_build_base_for_candidate, is a genuinely
+# FRESH `./sb install` that runs runCreateConfig itself; only these three
+# blocks, which shortcut straight to a pre-populated .env.config, need it).
+# This is a HARNESS workaround, not a product fix - the underlying gap (only
+# runCreateConfig ever creates these directories, so ANY install path that
+# supplies a pre-existing .env.config skips them, on real boxes too, not
+# just this harness) is filed as STATBUS-431; keep this mkdir here until
+# that lands product-side.
+install -d -m 0755 "$HOME/statbus-maintenance"
+install -d -m 0755 "$HOME/statbus-backups"
 cp /tmp/env-config "$HOME/statbus/.env.config"
 if [ -f /tmp/env-credentials ]; then
     install -m 0600 /tmp/env-credentials "$HOME/statbus/.env.credentials"
@@ -939,6 +1210,12 @@ REMOTE
 }
 install_statbus_at_sha() {
     local name=$1 sha=$2 tag=${3:-} log="$HARNESS_ROOT/tmp/install-recovery-${1}-install.log" rc
+    # Arc A already present from the forked exact-SHA checkpoint: same commit
+    # only (bootstrap re-verified HEAD); any other sha installs normally.
+    if [ "${LXD_ARC_A_PREINSTALLED:-}" = "$sha" ] && [ -z "$tag" ]; then
+        _lxd_mark "install_statbus_at_sha: A ${sha:0:12} preinstalled from checkpoint, not reinstalling"
+        return 0
+    fi
     if [ -n "$tag" ]; then
         [ "$(git -C "$HARNESS_ROOT" rev-parse "$tag^{commit}")" = "$sha" ] || {
             echo "REFUSE: $tag does not resolve to supplied commit $sha" >&2; return 2;
@@ -992,9 +1269,23 @@ REMOTE
     # $sha must be the candidate itself, installed via its per-commit image
     # (matches install_statbus_in_vm's no-version branch exactly).
     VM_EXEC test ! -e /home/statbus/statbus || { echo 'FRESH checkout already exists' >&2; return 70; }
-    local sha_tag
-    sha_tag=$(git -C "$HARNESS_ROOT" tag --points-at "$sha" | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+(-rc\.[0-9]+)?$' | head -n1 || true)
-    if [ -n "$sha_tag" ] && [ "$sha_tag" != "$LXD_CANDIDATE" ]; then
+    # Decide by COMMIT identity, never by tag name. A candidate commit that is
+    # later promoted carries a second tag (v2026.09.3-rc.17's ebe058af is also
+    # v2026.09.3), `tag --points-at | head -n1` returns the stable one, and a
+    # name comparison against LXD_CANDIDATE then sent the candidate's OWN
+    # commit down the historical-release path. That path records A as
+    # release_status='release' (the VM harness's two-arg path records the
+    # per-commit identity), so the 4th ./sb install's runInstallSupersede
+    # ranked A above B's 'commit' row and superseded B's terminal 'failed'
+    # row (rollback-pair-terminal, restore-broke-reattempt: "got
+    # 'superseded'", STATBUS-425 M3b). Only a historical commit (not the
+    # candidate's) takes the release path.
+    local sha_tag='' candidate_commit
+    candidate_commit=$(git -C "$HARNESS_ROOT" rev-parse "$LXD_CANDIDATE^{commit}")
+    if [ "$sha" != "$candidate_commit" ]; then
+        sha_tag=$(git -C "$HARNESS_ROOT" tag --points-at "$sha" | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+(-rc\.[0-9]+)?$' | head -n1 || true)
+    fi
+    if [ -n "$sha_tag" ]; then
         _lxd_mark "arc install_statbus_at_sha: historical base $sha_tag (${sha:0:8}) via its own released sb"
         _lxd_stage_candidate_install
         VM_SCRIPT_INLINE arc-historical-install "$sha_tag" "${HARNESS_DEPLOYMENT_MODE:-standalone}" "${HARNESS_NO_CUSTOM_CERT:-0}" <<REMOTE 2>&1 | tee -a "$log"
@@ -1020,6 +1311,13 @@ if [ "\$2" = standalone ] && [ "\$3" != 1 ]; then
     install -m 0644 ~/harness-certs/domain.crt caddy/data/custom-certs/domain.crt
     install -m 0600 ~/harness-certs/domain.key caddy/data/custom-certs/domain.key
 fi
+# STATBUS-425 M3a: see the sibling arc-head-install block's comment (same
+# file, same root cause) - pre-planting .env.config short-circuits install.go's
+# "Configuration" step, which is the only place ~/statbus-maintenance and
+# ~/statbus-backups get created AS statbus. Recreate that ownership here.
+# Harness workaround only - product gap filed as STATBUS-431.
+install -d -m 0755 ~/statbus-maintenance
+install -d -m 0755 ~/statbus-backups
 cp /tmp/env-config .env.config
 cp /tmp/users.yml .users.yml
 STATBUS_MIN_DISK_GB=5 ./sb install --non-interactive --trust-github-user jhf
@@ -1048,6 +1346,13 @@ if [ "$2" = standalone ] && [ "$3" != 1 ]; then
     install -m 0644 "$HOME/harness-certs/domain.crt" "$HOME/statbus/caddy/data/custom-certs/domain.crt"
     install -m 0600 "$HOME/harness-certs/domain.key" "$HOME/statbus/caddy/data/custom-certs/domain.key"
 fi
+# STATBUS-425 M3a (found live, LIVE on this exact block, driving
+# un-park-to-completion-arc.sh's real install through arc_prepare_box ->
+# install_statbus_at_sha's no-tag branch): see the first occurrence's full
+# comment above (install_statbus_in_vm) for the root cause. Same fix here.
+# Harness workaround only - product gap filed as STATBUS-431.
+install -d -m 0755 "$HOME/statbus-maintenance"
+install -d -m 0755 "$HOME/statbus-backups"
 cp /tmp/env-config "$HOME/statbus/.env.config"
 if [ -f /tmp/env-credentials ]; then
     install -m 0600 /tmp/env-credentials "$HOME/statbus/.env.credentials"

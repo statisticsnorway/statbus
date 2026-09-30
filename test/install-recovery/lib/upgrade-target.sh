@@ -512,7 +512,7 @@ _ut_fixture_base() {
     if git diff --cached --quiet; then
         echo "_ut_fixture_base: nothing to commit — ${_base_sha:0:8}'s .github/workflows/ already equals ${_default_ref}'s; using ${_base_sha:0:8} directly." >&2
     else
-        git commit -S -q -m "test(upgrade-arc): fixture base — ${_base_sha:0:8} + ${_default_ref}'s .github/workflows/ (STATBUS-236, Shape A)" >/dev/null \
+        git "${GIT_SSH_ARC_OPTS[@]}" commit -S -q -m "test(upgrade-arc): fixture base — ${_base_sha:0:8} + ${_default_ref}'s .github/workflows/ (STATBUS-236, Shape A)" >/dev/null \
             || {
                 echo "_ut_fixture_base: FAILED — commit refused with changes staged (signing key? hook? disk?). The fixture base was NOT created; refusing to continue on an uncommitted tree." >&2
                 return 1
@@ -560,10 +560,42 @@ construct_upgrade_target() {
         ssh-keygen -t ed25519 -N '' -C 'upgrade-arc-ephemeral' -f "$_key_path" >/dev/null 2>&1
         export ARC_SIGNING_KEY="$_key_path"
     }
-    git config gpg.format ssh
-    git config user.signingkey "$ARC_SIGNING_KEY"
-    git config user.name  "statbus-upgrade-arc[bot]"
-    git config user.email "statbus-upgrade-arc@users.noreply.github.com"
+    # STATBUS-425 M3a (found live, real incident 2026-09-29: a hand-driven arc
+    # run from a WORKTREE writes the SHARED .git/config, since a linked
+    # worktree has no config of its own — `git config` here silently mutated
+    # /Users/jhf/ssb/statbus/.git/config, and every subsequent commit in
+    # EVERY worktree, including master, signed with this throwaway ephemeral
+    # key until caught by the release preflight's `git verify-commit HEAD`
+    # (3 master commits landed with %G?=U before the mutation was found and
+    # the shared config restored by hand). CI's checkout is disposable, so
+    # this never mattered there — but any local/manual arc run (exactly what
+    # this M3a exit-criterion verification is doing) shares the operator's
+    # real repo config. NEVER persist signing identity via `git config`;
+    # pass it per-invocation instead, on every commit call below, so a
+    # worktree run cannot leak into the shared config no matter how it is
+    # invoked. GIT_SSH_ARC_OPTS is a reusable `-c` array (gpg.format only —
+    # user.name/user.email travel via GIT_AUTHOR_*/GIT_COMMITTER_* env,
+    # which git already prefers over config and never touches any file).
+    #
+    # core.hooksPath="" (STATBUS-425 M3b, found live): the comment two lines
+    # below construct_upgrade_target's B commit ("CI runners have no hooks
+    # installed regardless") was true for CI but FALSE for a local/manual
+    # run through a linked worktree, which inherits the SHARED repo's
+    # core.hooksPath (set once in the main checkout's .git/config, applying
+    # to every worktree — confirmed live: `git config --local
+    # --show-origin core.hooksPath` from inside a linked worktree resolves
+    # to the shared .git/config, not a per-worktree file). A real local
+    # `git commit` here hit the real .githooks/pre-commit's doc/db pairing
+    # check and was REJECTED (the pinned worktree's checked-out tag predates
+    # any hook fix landing on this branch, and always will — the pinned
+    # worktree must stay byte-identical to its tag, so patching its checked-
+    # out hook copy is never the right fix). Overriding hooksPath to empty
+    # for this ONE invocation makes local behavior match CI's actual
+    # hookless checkout exactly, rather than depending on whatever hook
+    # state happens to exist wherever this function is called from.
+    GIT_SSH_ARC_OPTS=(-c gpg.format=ssh -c "user.signingkey=$ARC_SIGNING_KEY" -c core.hooksPath=)
+    export GIT_AUTHOR_NAME="statbus-upgrade-arc[bot]" GIT_COMMITTER_NAME="statbus-upgrade-arc[bot]"
+    export GIT_AUTHOR_EMAIL="statbus-upgrade-arc@users.noreply.github.com" GIT_COMMITTER_EMAIL="statbus-upgrade-arc@users.noreply.github.com"
     # ARC_PUBKEY: "<type> <key>" (2 fields — no trailing comment; allowed_signers
     # takes "<principal> <type> <key>" and a comment field is not standard there).
     # Exported so downstream subshells (e.g. scenario harnesses) see it without
@@ -635,7 +667,7 @@ construct_upgrade_target() {
     # pairing pre-commit hook by a NAMED in-guard rule (.githooks/pre-commit,
     # STATBUS-118 fixture exemption) — so NO call-site --no-verify is needed here.
     # (CI runners have no hooks installed regardless; these branches never merge.)
-    git commit -S -q -m "test(upgrade-arc): ${_spec} migration V (B)"
+    git "${GIT_SSH_ARC_OPTS[@]}" commit -S -q -m "test(upgrade-arc): ${_spec} migration V (B)"
     local _b_short _b_full
     _b_short="$(git rev-parse --short=8 HEAD)"
     _b_full="$(git rev-parse HEAD)"
@@ -652,14 +684,14 @@ construct_upgrade_target() {
             { echo "-- amended in place (STATBUS-102 channel-bless re-stamp; result-preserving)"; cat "$_v_up"; } > "$_tmp_v"
             mv "$_tmp_v" "$_v_up"
             git add migrations/
-            git commit -S -q -m "test(upgrade-arc): ${_spec} amend V in place (C)"
+            git "${GIT_SSH_ARC_OPTS[@]}" commit -S -q -m "test(upgrade-arc): ${_spec} amend V in place (C)"
             ;;
         failing)
             # C replaces V_fail with the working migration so it applies fresh after rollback.
             # Verbatim from upgrade-arc-harness.yaml:221-224.
             _ut_write_working_v "$_v_up" "$_v_down" "$_v2_up" "$_v2_down"
             git add migrations/
-            git commit -S -q -m "test(upgrade-arc): ${_spec} fix V in place (C, applies fresh)"
+            git "${GIT_SSH_ARC_OPTS[@]}" commit -S -q -m "test(upgrade-arc): ${_spec} fix V in place (C, applies fresh)"
             ;;
         oom)
             # No "fixed" phase for the OOM arc: it is single-phase (A→B only,
@@ -688,7 +720,7 @@ construct_upgrade_target() {
             # identical to B — untouched here.
             _ut_write_healthpark_fix_v3 "$_v3_up" "$_v3_down"
             git add migrations/
-            git commit -S -q -m "test(upgrade-arc): ${_spec} fix auth_status via NEW migration V3 (C)"
+            git "${GIT_SSH_ARC_OPTS[@]}" commit -S -q -m "test(upgrade-arc): ${_spec} fix auth_status via NEW migration V3 (C)"
             ;;
         crollback)
             # C is a fix release that FAILS: it displaces the parked B at claim
@@ -698,7 +730,7 @@ construct_upgrade_target() {
             # pending-migrations path and its RAISE is the deterministic rollback.
             _ut_write_failing_v "$_v3_up" "$_v3_down"
             git add migrations/
-            git commit -S -q -m "test(upgrade-arc): ${_spec} C = failing V3 (displaces B, then rolls back)"
+            git "${GIT_SSH_ARC_OPTS[@]}" commit -S -q -m "test(upgrade-arc): ${_spec} C = failing V3 (displaces B, then rolls back)"
             ;;
         codeonly)
             # No "fixed" phase: single-phase (A→B only). The un-park-to-completion

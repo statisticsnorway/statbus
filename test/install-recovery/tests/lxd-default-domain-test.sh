@@ -8,6 +8,8 @@ REPO="$TMP_ROOT/repo"
 mkdir -p "$REPO/test/install-recovery/"{lxd,lib,scenarios} "$TMP_ROOT/artifacts"
 cp "$ROOT/test/install-recovery/lxd/"{run-forks,verdict,fleet-status}.sh "$REPO/test/install-recovery/lxd/"
 cp "$ROOT/test/install-recovery/lxd/fleet-status.sh" "$REPO/test/install-recovery/lib/fleet-status.sh"
+mkdir -p "$REPO/ops/lxd-fleet"
+cp "$ROOT/ops/lxd-fleet/"{marker,admission}.sh "$REPO/ops/lxd-fleet/"
 cat > "$REPO/test/install-recovery/lib/lxd-backend.sh" <<'EOF'
 _lxd_prune_other_bases() { :; }
 lxd_checkpoint_for_scenario() { echo stub-base; }

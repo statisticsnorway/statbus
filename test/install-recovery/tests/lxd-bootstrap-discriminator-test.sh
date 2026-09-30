@@ -22,7 +22,19 @@ fail() { echo "FAIL: $*" >&2; exit 1; }
 
 calls=()
 lxd_fork() { calls+=("lxd_fork|$1|$2"); }
-_lxd_fork_from_base() { calls+=("_lxd_fork_from_base|$1|$2|$3"); }
+_lxd_fork_from_base() { calls+=("_lxd_fork_from_base|$1|$2|$3|${4:-}"); }
+# STATBUS-425 M4: candidate-A arcs fork smoke's installed checkpoint. The
+# candidate commit comes from a throwaway repo tagged as the candidate; the
+# guest-facing checks are recorders (their behaviour is lxd-arc-a-checkpoint-test).
+REPO=$(mktemp -d); trap 'rm -rf "$REPO"' EXIT
+git -C "$REPO" init -q
+git -C "$REPO" -c user.name=t -c user.email=t@t -c commit.gpgsign=false commit -q --allow-empty -m c
+git -C "$REPO" tag v2026.09.3-rc.17
+export HARNESS_ROOT=$REPO BASE_SHA
+BASE_SHA=$(git -C "$REPO" rev-parse HEAD)
+_lxd_arc_a_check_smoke_base() { :; }
+_lxd_arc_a_verify_head() { :; }
+_lxd_arc_a_merge_token() { :; }
 
 # Case 1: an ordinary scenario call with a NON-EMPTY $2 (the common shape:
 # 1-boot-advisory-too-early.sh, 0-happy-upgrade.sh, etc). Must resolve via
@@ -56,15 +68,16 @@ echo 'PASS: scenario call with $2 entirely ABSENT still resolves via lxd_fork'
 
 # Case 3: the real arc contract (arc_prepare_box calls
 # bootstrap_install_test_vm "$VM_NAME" "" with VM_NAME already statbus-arc-*).
-# Must resolve via _lxd_fork_from_base under the hardened-nothing-installed
-# base, exactly as the M3a fix intended.
+# Must resolve via _lxd_fork_from_base under smoke's installed-<candidate>
+# base (M4: A is forked, not reinstalled). Ordinary arcs pass no storage pool
+# (the 4th call arg is empty) - only un-park-to-completion does (case 5).
 calls=()
 bootstrap_install_test_vm statbus-arc-deploy-status-proof ""
 [ "${#calls[@]}" -eq 1 ] || fail "case 3: expected exactly 1 call, got ${#calls[*]}"
-expected_base="s2-base-v2026-09-3-rc-17-hardened-nothing-installed"
+expected_base="s2-base-v2026-09-3-rc-17-installed-v2026-09-3-rc-17-standalone"
 expected_name="s2-v2026-09-3-rc-17-arc-deploy-status-proof"
-[ "${calls[0]}" = "_lxd_fork_from_base|$expected_base|$expected_name|hardened-nothing-installed" ] || fail "case 3: wrong call: ${calls[0]}"
-echo 'PASS: arc call (statbus-arc-* name, empty $2) resolves via _lxd_fork_from_base under hardened-nothing-installed'
+[ "${calls[0]}" = "_lxd_fork_from_base|$expected_base|$expected_name|installed|" ] || fail "case 3: wrong call: ${calls[0]}"
+echo 'PASS: arc call (statbus-arc-* name, empty $2) resolves via _lxd_fork_from_base under the smoke installed checkpoint, no storage pool override'
 
 # Case 4: an arc name is never routed through the scenario branch even with
 # a non-empty $2 (no real caller does this, but the discriminator must be on
@@ -74,5 +87,18 @@ bootstrap_install_test_vm statbus-arc-c-rollback-resurrection some-tag
 [ "${#calls[@]}" -eq 1 ] || fail "case 4: expected exactly 1 call, got ${#calls[*]}"
 [[ "${calls[0]}" == _lxd_fork_from_base\|* ]] || fail "case 4: arc name with non-empty \$2 must still route via _lxd_fork_from_base: ${calls[0]}"
 echo 'PASS: arc call routes via _lxd_fork_from_base regardless of $2'
+
+# Case 5 (STATBUS-425 M3a bounded-disk fix): un-park-to-completion is the
+# SOLE arc that fallocates its own fork's disk to near-full (plan review
+# §1d risk 2 - on the shared statbus-test pool that would starve every
+# sibling fork's free space via pool-wide statfs). It alone must route
+# through the dedicated statbus-arc-fill pool as the 4th _lxd_fork_from_base
+# argument; no other arc name may match.
+calls=()
+bootstrap_install_test_vm statbus-arc-un-park-to-completion ""
+[ "${#calls[@]}" -eq 1 ] || fail "case 5: expected exactly 1 call, got ${#calls[*]}"
+expected_name="s2-v2026-09-3-rc-17-arc-un-park-to-completion"
+[ "${calls[0]}" = "_lxd_fork_from_base|$expected_base|$expected_name|installed|statbus-arc-fill" ] || fail "case 5: wrong call: ${calls[0]}"
+echo 'PASS: un-park-to-completion routes through the bounded statbus-arc-fill storage pool'
 
 echo 'PASS: bootstrap_install_test_vm discriminates on $1 (statbus-arc-* vs everything else), never on whether $2 is empty'

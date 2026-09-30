@@ -23,7 +23,7 @@ name: Upgrade Arc Harness
 #   image-wait → reuse the install-recovery discover-gate poll: wait until all 5
 #                per-commit images (app, worker, db, proxy, sb) exist at BOTH
 #                B_short and C_short.
-#   run-arc    → on a fresh Hetzner VM: install A=base_sha (install_statbus_at_sha)
+#   run-arc    → on its own LXD fork of the shared fleet box: install A=base_sha (install_statbus_at_sha)
 #                → register/schedule B (V applies, content_hash H_B) → register/
 #                schedule C (eager hash check sees the amendment → RE-STAMPS to
 #                H_C, no re-run). Driven entirely by the upgrade SERVICE (Albania
@@ -83,7 +83,7 @@ on:
         required: false
         default: ''
       scenarios:
-        description: 'Space-separated arc selectors (e.g. "working failing postswap-after-commit-kill") — blank or "all" runs EVERY arcs/*-arc.sh on its own Hetzner VM in parallel (the 5e full-suite matrix). One construct builds the shared working+failing fixtures once; each arc rides the right lineage.'
+        description: 'Space-separated arc selectors (e.g. "working failing postswap-after-commit-kill") — blank or "all" runs EVERY arcs/*-arc.sh on its own LXD fork of the shared box, bounded by host slots (the 5e full-suite matrix). One construct builds the shared working+failing fixtures once; each arc rides the right lineage.'
         required: false
         default: ''
       orchestrator-run-id:
@@ -91,17 +91,14 @@ on:
         required: false
         default: ''
 
-# STATBUS-208 (kept as defense in depth after STATBUS-214): the group is
-# SHARED (hetzner-vm-fleet) across all three VM-fleet workflows (this one,
-# the LXD fault fleet, test-smoke.yaml). It no longer does the
-# tag-push serialization job — the release-fleet-orchestrator's needs:
-# chain does that now, dispatching the three fleets strictly one at a time
-# — but it still stops a stray manual workflow_dispatch of one fleet from
-# running concurrently with the orchestrator's own sequential dispatch of
-# another, which would recreate the same VM-capacity collision (defect B)
-# this group was built to prevent. cancel-in-progress stays false for the
-# same reason it already was: cancelling mid-run would skip cleanup traps
-# and orphan live VMs.
+# STATBUS-425 M4: arcs run on the shared LXD fleet box, concurrently with the
+# LXD fault fleet of the same candidate. Box capacity is bounded on the HOST
+# (ops/lxd-fleet/admission.sh slots), not by a workflow lock. The group name
+# is historical (shared with test-smoke.yaml, which the dispatcher's admission
+# preflight and tests still key on); it orders whole smoke/arc runs across
+# candidates, and the LXD fault fleet is deliberately in a different group so
+# faults and arcs of one candidate overlap; cancel-in-progress stays false because cancelling mid-run skips the
+# per-job fork/marker cleanup.
 concurrency:
   group: hetzner-vm-fleet
   cancel-in-progress: false
@@ -582,9 +579,53 @@ jobs:
           echo "::error title=Zero arcs selected::discover produced count=0 — this run would execute nothing and prove nothing (STATBUS-215). A dispatched arc run must select at least one arc."
           exit 1
 
+  ramp:
+    name: Ramp hardened LXD fleet host
+    needs: [discover]
+    if: ${{ !cancelled() && needs.discover.result == 'success' && needs.discover.outputs.count != '0' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    outputs:
+      ip: ${{ steps.ramp.outputs.ip }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install LXD fleet box key
+        env:
+          BOX_KEY: ${{ secrets.LXD_FLEET_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          printf '%s\n' "$BOX_KEY" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+
+      - name: Install hcloud CLI (fleet host discovery only)
+        env:
+          HCLOUD_CLI_VERSION: "1.64.1"
+        run: bash .github/scripts/install-hcloud.sh
+
+      - name: Ramp warm box (shared with smoke and the fault fleet)
+        id: ramp
+        env:
+          HCLOUD_TOKEN: ${{ secrets.HCLOUD_TOKEN }}
+          STATBUS_CREDENTIALS_FILE: ${{ runner.temp }}/lxd-arc-credentials
+        run: |
+          set -euo pipefail
+          printf 'HCLOUD_TOKEN=%q\n' "$HCLOUD_TOKEN" > "$STATBUS_CREDENTIALS_FILE"
+          chmod 600 "$STATBUS_CREDENTIALS_FILE"
+          ops/lxd-fleet/up.sh > "$RUNNER_TEMP/lxd-up.log" 2>&1 || { cat "$RUNNER_TEMP/lxd-up.log"; exit 1; }
+          cat "$RUNNER_TEMP/lxd-up.log"
+          ip=$(tail -n 1 "$RUNNER_TEMP/lxd-up.log")
+          [[ "$ip" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]
+          echo "ip=$ip" >> "$GITHUB_OUTPUT"
+
   run-arc:
     name: ${{ matrix.scenario }}
-    needs: [construct, image-wait, discover]
+    needs: [construct, image-wait, discover, ramp]
     # STATBUS-215: a bare `if:` implicitly ANDs success(), and a transitively
     # skipped upstream job makes success() false — run-arc was once silently
     # skipped on EVERY dispatch this way, via the `decide` job (skipped by
@@ -605,22 +646,26 @@ jobs:
           needs.construct.result == 'success' &&
           needs['image-wait'].result == 'success' &&
           needs.discover.result == 'success' &&
+          needs.ramp.result == 'success' &&
           needs.discover.outputs.count != '0' }}
     strategy:
       # fail-fast: false is LOAD-BEARING (STATBUS-025) — a sibling arc failing
       # must NOT cancel the others (lose verdicts + skip cleanup traps → orphan VMs).
       fail-fast: false
-      # Each CX23 consumes 2 shared cores. rc.28 run 35771685548 showed that 3
-      # concurrent CX23s (6 shared cores) exhausted the project quota beside niue,
-      # so 2 concurrent arc VMs cap harness demand at 4 shared cores and leave
-      # headroom for the persistent host and teardown overlap.
-      max-parallel: 2
+      # Arc share of the shared LXD box. Total guest capacity across smoke,
+      # faults and arcs is enforced on the HOST (LXD_HOST_SLOTS, admission.sh);
+      # this only bounds how many arc jobs hold a runner and wait for a slot.
+      max-parallel: 4
       matrix:
         scenario: ${{ fromJson(needs.discover.outputs.matrix) }}
     runs-on: ubuntu-24.04
     # Per-arc ceiling: install A + two real upgrades (A→B applies V, B→C
     # re-stamps) on a fresh VM. Matches install-recovery's per-scenario budget.
-    timeout-minutes: 120
+    # Budget: host slot wait (ARC_SLOT_WAIT_S 2700) + the arc's own bound
+    # (ARC_TIMEOUT_S 7200, includes any A build) + its TERM/KILL grace (~160)
+    # = ~10060 s = 168 min, so run_bounded's own bounded stop always fits
+    # before GitHub's job kill. 180 leaves margin for checkout/upload/reap.
+    timeout-minutes: 180
     steps:
       - name: Checkout
         # ref github.sha so the arc script + lib match the run's commit.
@@ -636,47 +681,16 @@ jobs:
           candidate-ref: ${{ github.ref_name }}
           scenario: ${{ matrix.scenario }}
 
-      - name: Set up Go
-        if: steps.freshness.outputs.superseded != 'true'
-        uses: actions/setup-go@v5
-        with:
-          go-version-file: cli/go.mod
-          # STATBUS-235: go.mod/go.sum live in cli/, not the repo root —
-          # without this, setup-go's cache lookup silently never found
-          # go.sum, so GOCACHE was never restored (STATBUS-234 comment #1).
-          # This job never runs `go test`, only `go build` (via
-          # dev.sh build-sb) — Go's build cache is correctly keyed on
-          # source content with no outside-module blind spot, so caching
-          # it here carries none of STATBUS-234's staleness risk.
-          # If you ever ADD a `go test` step to this job, it must carry
-          # -count=1 (STATBUS-234) — that rule, not this job's current
-          # contents, is what keeps the cache safe.
-          cache-dependency-path: cli/go.sum
-
-      - name: Build sb binary (linux/amd64)
-        if: steps.freshness.outputs.superseded != 'true'
-        # bootstrap_install_test_vm's no-version path needs an sb binary for
-        # /tmp/sb; install_statbus_at_sha then docker-procures base_sha's binary
-        # on the VM (the authoritative one). Built once here.
-        run: ./dev.sh build-sb linux/amd64
-
-      - name: Install hcloud CLI
+      - name: Install LXD fleet box key
         if: steps.freshness.outputs.superseded != 'true'
         env:
-          HCLOUD_CLI_VERSION: "1.64.1"
-        run: bash .github/scripts/install-hcloud.sh
-
-      - name: Install CI SSH private key
-        if: steps.freshness.outputs.superseded != 'true'
-        env:
-          STATBUS_CI_SSH_PRIVATE_KEY: ${{ secrets.STATBUS_CI_SSH_PRIVATE_KEY }}
+          BOX_KEY: ${{ secrets.LXD_FLEET_SSH_KEY }}
         run: |
           set -euo pipefail
           mkdir -p ~/.ssh
           chmod 700 ~/.ssh
-          printf '%s\n' "$STATBUS_CI_SSH_PRIVATE_KEY" > ~/.ssh/id_ed25519
+          printf '%s\n' "$BOX_KEY" > ~/.ssh/id_ed25519
           chmod 600 ~/.ssh/id_ed25519
-          ssh-keygen -lf ~/.ssh/id_ed25519 | awk '{ print "SSH key fingerprint:", $2 }'
 
       - name: Resolve fixture lineage for the scenario
         if: steps.freshness.outputs.superseded != 'true'
@@ -835,48 +849,49 @@ jobs:
             } >> "$GITHUB_ENV"
           fi
 
-      - name: Run the arc on its own Hetzner VM
+      - name: Run the arc on its own LXD fork of the shared box
         if: steps.freshness.outputs.superseded != 'true'
-        # Drives install A(base_sha) → register/schedule B → register/schedule C
-        # entirely through the daemon (Albania autonomous; no quiesce, no ./sb
-        # install). VM prefix statbus-arc-* is DISJOINT from install-recovery's
-        # statbus-recovery-* so neither harness's sweep touches the other's VMs.
+        # Same helper run-arcs.sh uses (test/install-recovery/lxd/arc-job.sh):
+        # host slot claim, bounded run, PASS-line verdict. This job holds its
+        # own candidate-scoped marker so the reaper and the fault fleet's
+        # busy check see it. Fork name (backend): s2-<tag>-arc-<slug>.
         env:
-          HCLOUD_TOKEN: ${{ secrets.HCLOUD_TOKEN }}
+          LXD_HOST: root@${{ needs.ramp.outputs.ip }}
+          HARNESS_LXD_BACKEND: "1"
+          LXD_CANDIDATE: ${{ github.ref_name }}
           # Recovery machinery is the subject of these arcs; avoid anonymous
-          # GitHub rate-limit noise inside their VMs. The happy-proof workflow
-          # deliberately does not export this and remains customer-path anon.
+          # GitHub rate-limit noise inside their guests.
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          HCLOUD_SSH_KEY: statbus-ci
-          # The shared _check_name_safety guard (vm-bootstrap.sh) keys on
-          # HCLOUD_NAME_PREFIX (default 'statbus-recovery-') and REFUSES any other
-          # VM name — so bootstrap_install_test_vm + cleanup_vm reject our disjoint
-          # 'statbus-arc-*' names unless we override it here. Override → the guard,
-          # create, and cleanup all accept statbus-arc-* (still disjoint from
-          # install-recovery's statbus-recovery-*).
-          HCLOUD_NAME_PREFIX: statbus-arc-
-          STATBUS_SB_BINARY: ${{ github.workspace }}/sb-linux-amd64
-          # Ephemeral arc-signer pubkey → install_statbus_at_sha trusts it so the
-          # daemon's verifyCommitSignature accepts the (signed) B/C commits.
+          # Ephemeral arc-signer pubkey: the daemon's verifyCommitSignature
+          # accepts the (signed) B/C commits.
           SB_ARC_TRUSTED_SIGNER: ${{ needs.construct.outputs.arc_pubkey }}
           BASE_SHA: ${{ needs.construct.outputs.base_sha }}
-          # B_FULL / C_FULL / B_BRANCH / C_BRANCH (and, for healthpark, B_SHORT)
-          # are exported to $GITHUB_ENV by the "Resolve fixture lineage" step above
-          # (scenario→working|failing|oom|ceiling|healthpark pair).
+          # B_FULL / C_FULL / B_BRANCH / C_BRANCH (and B_SHORT) are exported to
+          # $GITHUB_ENV by the lineage step above.
           V_VERSION: ${{ needs.construct.outputs.v_version }}
           V_VERSION_2: ${{ needs.construct.outputs.v_version_2 }}
           V_VERSION_3: ${{ needs.construct.outputs.v_version_3 }}
           SCENARIO: ${{ matrix.scenario }}
         run: |
           set -euo pipefail
-          arc="test/install-recovery/arcs/${SCENARIO}-arc.sh"
-          [ -f "$arc" ] || { echo "::error::no arc script for scenario '${SCENARIO}' ($arc)"; exit 1; }
-          chmod +x sb-linux-amd64 "$arc"
-          # VM name: no run_id — the concurrency group (cancel-in-progress:false)
-          # serializes whole runs, and matrix.scenario is unique within a run, so
-          # statbus-arc-<scenario> can't collide (mirrors install-recovery's
-          # statbus-recovery-<scenario>). Keeps the name well under Hetzner's 63ch.
-          "./${arc}" "statbus-arc-${SCENARIO}"
+          [ -f "test/install-recovery/arcs/${SCENARIO}-arc.sh" ] || { echo "::error::no arc script for scenario '${SCENARIO}'"; exit 1; }
+          mkdir -p tmp
+          source test/install-recovery/lib/lxd-backend.sh
+          source ops/lxd-fleet/marker.sh
+          source test/install-recovery/lxd/arc-job.sh
+          MARKER_ID=$(lxd_marker_id "$LXD_CANDIDATE" "arc-${SCENARIO}")
+          # Ownership is persisted BEFORE anything is acquired. The always()
+          # step below is the single authority that frees it (fork, process
+          # group, slots, marker), so a cancelled job that never ran a trap is
+          # still cleaned up. No EXIT trap releases the marker here.
+          export RUN_BOUNDED_PGID_FILE="$RUNNER_TEMP/arc-${SCENARIO}.pgid"
+          lxd_arc_state_write "$RUNNER_TEMP/arc-${SCENARIO}.state" "$LXD_HOST" "$MARKER_ID" "$RUN_BOUNDED_PGID_FILE"
+          lxd_marker_acquire_wait "$LXD_HOST" "$MARKER_ID"
+          rc=0
+          verdict=$(lxd_arc_run "$SCENARIO" "tmp/install-recovery-arc-${SCENARIO}.log" "$MARKER_ID" | tail -n 1) || rc=$?
+          cat "tmp/install-recovery-arc-${SCENARIO}.log" || true
+          echo "arc ${SCENARIO} verdict: ${verdict} rc=${rc}"
+          [ "$verdict" = PASS ]
 
       - name: Upload arc log
         if: ${{ always() && steps.freshness.outputs.superseded != 'true' }}
@@ -885,39 +900,29 @@ jobs:
           name: upgrade-arc-log-${{ matrix.scenario }}-${{ github.run_id }}
           path: |
             tmp/install-recovery-*.log
+            tmp/lxd-*-failure-*.log
             tmp/arc-schema-*.sql
           retention-days: 14
           if-no-files-found: ignore
 
-      - name: Reap THIS arc's VM (defense in depth)
-        # THE STATBUS-025 TRAP: in a matrix, the per-job reap must delete ONLY this
-        # job's OWN VM — a global statbus-arc-* sweep here would murder sibling
-        # matrix jobs' LIVE VMs mid-run. The arc script's `trap cleanup_vm` reaps on
-        # normal exit; this is the net for when the trap can't fire (cancellation,
-        # runner SIGKILL). The cross-job global sweep lives only in `cleanup`.
-        # Best-effort, always exit 0 — pass/fail was decided by the arc run.
-        #
-        # STATBUS-208: the run-suffix MUST match vm-bootstrap.sh's
-        # _run_suffix() exactly (last 8 chars of GITHUB_RUN_ID) — this step
-        # reconstructs the name independently (the arc script's own process
-        # is already gone by the time this runs), so the two formulas can
-        # only stay in sync by staying textually identical. Without the
-        # suffix here this step would reap nothing (defect A's fix means
-        # the real VM name no longer matches this reconstruction).
+      - name: Reap THIS arc's own fork, process group, slots and marker
+        # Runs after success, failure AND cancellation. Deletes only this
+        # job's own fork (s2-<tag>-arc-<slug>), stops and verifies its owned
+        # local process group, and only then releases its slots and marker
+        # (lxd_arc_reap_own). If the group cannot be shown empty the marker and
+        # slots stay held and the step goes red, never silently freeing them.
         if: ${{ always() && steps.freshness.outputs.superseded != 'true' }}
         env:
-          HCLOUD_TOKEN: ${{ secrets.HCLOUD_TOKEN }}
           SCENARIO: ${{ matrix.scenario }}
+          LXD_HOST: root@${{ needs.ramp.outputs.ip }}
+          LXD_CANDIDATE: ${{ github.ref_name }}
         run: |
-          run_suffix="${GITHUB_RUN_ID: -8}"
-          vm="statbus-arc-${SCENARIO}-${run_suffix}"
-          if command -v hcloud >/dev/null 2>&1 && hcloud server describe "$vm" >/dev/null 2>&1; then
-            echo "Reaping own VM: $vm"
-            hcloud server delete "$vm" || true
-          else
-            echo "$vm already gone (arc trap cleaned up) or hcloud absent — nothing to reap."
-          fi
-          exit 0
+          set -euo pipefail
+          source test/install-recovery/lib/lxd-backend.sh
+          source ops/lxd-fleet/marker.sh
+          source test/install-recovery/lxd/arc-job.sh
+          fork="s2-${LXD_CANDIDATE}-arc-${SCENARIO}"
+          lxd_arc_reap_own "$RUNNER_TEMP/arc-${SCENARIO}.state" "${fork//[^a-zA-Z0-9-]/-}"
 
   fleet-verdict:
     name: Aggregate scenario freshness verdict
@@ -988,79 +993,4 @@ jobs:
           for spec in working failing oom ceiling healthpark codeonly crollback; do
             delete_throwaway_branches "$spec" "$RUN_ID"
           done
-          exit 0
-
-  cleanup:
-    name: Reap orphan arc VMs (final global sweep)
-    needs: [discover, run-arc]
-    # Runs after every matrix job regardless of outcome (or if the matrix was
-    # skipped). Catches orphans from any job that died before its own per-job
-    # reap.
-    #
-    # STATBUS-208: statbus-arc-* is disjoint from install-recovery/
-    # test-install's statbus-recovery-* prefix, so this sweep can never
-    # touch THEIR VMs. But the hetzner-vm-fleet concurrency group (shared
-    # across all three VM-fleet workflows, including repeat/re-dispatched
-    # runs of THIS one) only serializes — it doesn't guarantee an
-    # instantaneous handoff, so a straggler from the run just ahead in the
-    # queue (another upgrade-arc-harness run) could still be tearing down.
-    # Age-gated, not just prefix-matched, for the same reason
-    # the retired VM fault workflow's equivalent sweep was: only servers
-    # older than MIN_ORPHAN_AGE_MIN (comfortably above run-arc's own
-    # 120-minute timeout, line ~529, plus VM boot/SSH-wait margin) are ever
-    # reaped, so a genuinely-still-running arc's VM is never mistaken for
-    # an orphan.
-    if: always()
-    runs-on: ubuntu-24.04
-    timeout-minutes: 10
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-      - name: Install hcloud + reap aged-out statbus-arc-* orphans
-        # ONE fully best-effort step that ALWAYS exits 0 — housekeeping must never
-        # fail the workflow conclusion (a failed arc already reds its own run-arc
-        # matrix job, which the conclusion ANDs in; this can't MASK that). Scope:
-        # only statbus-arc-* — production hosts + install-recovery's
-        # statbus-recovery-* are not prefixed that way, so the filter is safe.
-        # AND (STATBUS-208) older than MIN_ORPHAN_AGE_MIN — see the job-level
-        # comment above.
-        env:
-          HCLOUD_CLI_VERSION: "1.64.1"
-          HCLOUD_TOKEN: ${{ secrets.HCLOUD_TOKEN }}
-        run: |
-          set +e
-          if ! bash .github/scripts/install-hcloud.sh; then
-            echo "hcloud CLI unavailable — skipping global reap (best-effort)."
-            exit 0
-          fi
-          if ! command -v jq >/dev/null 2>&1; then
-            echo "jq unavailable — skipping global reap (best-effort, avoids fragile column parsing)."
-            exit 0
-          fi
-          MIN_ORPHAN_AGE_MIN=150
-          now_epoch=$(date -u +%s)
-          candidates=$(hcloud server list -o json 2>/dev/null | jq -r --arg prefix "statbus-arc-" \
-            '.[] | select(.name | startswith($prefix)) | "\(.name)\t\(.created)"')
-          if [ -z "$candidates" ]; then
-            echo "No statbus-arc-* servers found."
-            exit 0
-          fi
-          reaped=0
-          while IFS=$'\t' read -r name created; do
-            [ -z "$name" ] && continue
-            created_epoch=$(date -u -d "$created" +%s 2>/dev/null)
-            if [ -z "$created_epoch" ]; then
-              echo "  Skipping $name — could not parse created timestamp '$created' (age-gate refuses to guess)"
-              continue
-            fi
-            age_min=$(( (now_epoch - created_epoch) / 60 ))
-            if [ "$age_min" -lt "$MIN_ORPHAN_AGE_MIN" ]; then
-              echo "  Skipping $name (age ${age_min}min < ${MIN_ORPHAN_AGE_MIN}min — could be a live sibling run)"
-              continue
-            fi
-            echo "  Reaping $name (age ${age_min}min >= ${MIN_ORPHAN_AGE_MIN}min)"
-            hcloud server delete "$name"
-            reaped=$((reaped + 1))
-          done <<< "$candidates"
-          echo "Reaped $reaped orphan arc VM(s)."
           exit 0

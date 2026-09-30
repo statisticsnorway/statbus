@@ -62,7 +62,7 @@ test/install-recovery/
 └── run.sh                   — dispatcher
 ```
 
-The manual runner uses a fresh Hetzner Cloud VM per scenario. The LXD release gate uses isolated forks of candidate-pinned installed guest checkpoints on one rented host. Smoke and arcs retain their own fresh-VM runs.
+The manual runner uses a fresh Hetzner Cloud VM per scenario. The LXD release gate uses isolated forks of candidate-pinned installed guest checkpoints on one rented host. Smoke, fault forks and upgrade arcs all run on that host in the release gate; only this manual runner uses fresh Hetzner VMs.
 
 ## Scenario catalogue (15 scenarios; retired rows kept as supersession records)
 
@@ -327,7 +327,7 @@ A VM left running by `--keep-vm` bills ~€0.17/day until deleted.
 
 The release fault gate is `.github/workflows/lxd-fleet.yaml`, dispatched by `release-fleet-orchestrator.yaml` after the dev canary. It ramps the named Ubuntu 26.04 `statbus-lxd-fleet` host on demand, builds candidate-pinned installed bases from pristine hardened guests using the real installer, and forks the required scenarios from checkpoints. Its `lxd-fleet-comparison` artifact holds `comparison.tsv`, per-scenario logs, and `fleet-status.txt`. The stable-release pre-flight requires a **successful whole LXD workflow at the RC commit** (`WorkflowLXDFleet`), not historical VM per-scenario marks. `SKIP_INSTALL_RECOVERY=1` is the retained operator bypass. A SUPERSEDED child is neutral to orchestration but cannot satisfy promotion. The former 40 GB disk scenario was dropped by owner decision on 2026-09-28 (STATBUS-417): LXD cannot present a real 40 GB filesystem without KVM, the 20/40 GB policy is unit-tested in `cli/internal/diskpolicy`, and smoke installs on real 40 GB VMs every candidate.
 
-The **separate** `test-smoke.yaml` happy install/upgrade proofs and `upgrade-arc-harness.yaml` arcs continue to use fresh Hetzner VMs. The local runner and `lib/vm-bootstrap.sh` are retained for those workflows and manual diagnosis. Each candidate needs its per-commit images built by `images.yaml` before the LXD base build.
+`test-smoke.yaml` and `upgrade-arc-harness.yaml` also run on the LXD host (M4). Each candidate-A arc forks smoke's literal `installed-<candidate>-standalone` (missing or unproven fails loud, never a pristine reinstall); the two historical bases fork an exact-SHA checkpoint (`lxd_arc_a_ensure`); `LXD_ARC_A_REUSE=0` restores a fresh per-arc install for diagnosis only; host capacity is bounded by slots (`ops/lxd-fleet/admission.sh`), and `run-arcs.sh` and the workflow's `run-arc` job share `lxd/arc-job.sh`. The local runner and `lib/vm-bootstrap.sh` are retained for manual diagnosis. Each candidate needs its per-commit images built by `images.yaml` before the LXD base build.
 
 ```bash
 gh workflow run lxd-fleet.yaml --ref <candidate-tag>

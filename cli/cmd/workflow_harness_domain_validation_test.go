@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"fmt"
 	"os"
 	"strings"
 	"testing"
@@ -84,8 +85,17 @@ func TestSupersededCandidateStopsBeforeEachVMAndPropagatesFleetVerdict_STATBUS41
 		}
 	}
 	if !strings.Contains(jobs["dev-canary"].(map[string]any)["if"].(string), "needs['smoke'].outputs.superseded != 'true'") ||
-		!strings.Contains(jobs["upgrade-arc-harness"].(map[string]any)["if"].(string), "needs['lxd-fleet'].outputs.superseded != 'true'") {
+		!strings.Contains(jobs["upgrade-arc-harness"].(map[string]any)["if"].(string), "needs['dev-canary'].result == 'success'") ||
+		!strings.Contains(jobs["lxd-fleet"].(map[string]any)["if"].(string), "needs['dev-canary'].result == 'success'") {
 		t.Fatal("a superseded child fleet must not dispatch the next fleet")
+	}
+	// STATBUS-425 M4: faults and arcs are siblings after dev. Neither may be
+	// serialized behind the other (the previous chain was smoke>dev>faults>arcs).
+	for job, other := range map[string]string{"upgrade-arc-harness": "lxd-fleet", "lxd-fleet": "upgrade-arc-harness"} {
+		j := jobs[job].(map[string]any)
+		if strings.Contains(fmt.Sprint(j["needs"]), other) || strings.Contains(j["if"].(string), other) {
+			t.Fatalf("%s must not depend on %s: faults and arcs run concurrently", job, other)
+		}
 	}
 	final := jobSteps(t, ".github/workflows/release-fleet-orchestrator.yaml", "fleet-verdict")
 	// LXD supersession joins the surviving VM fleet verdicts.
@@ -121,7 +131,10 @@ func TestFleetHcloudInstallRetriesAreShared(t *testing.T) {
 		// second per-job up.sh call would race itself hardening the same
 		// host. The step keeps its historical name there.
 		{".github/workflows/test-smoke.yaml", "ramp", "Install hcloud CLI (fleet host discovery only)"},
-		{".github/workflows/upgrade-arc-harness.yaml", "run-arc", "Install hcloud CLI"},
+		// STATBUS-425 M4: arcs ramp the shared box once in their own "ramp" job
+		// (discovery only); the per-arc job and the old global sweep no longer
+		// touch hcloud.
+		{".github/workflows/upgrade-arc-harness.yaml", "ramp", "Install hcloud CLI (fleet host discovery only)"},
 	} {
 		steps := jobSteps(t, tc.file, tc.job)
 		install := steps[stepIndexByName(t, steps, tc.step)]
@@ -129,10 +142,13 @@ func TestFleetHcloudInstallRetriesAreShared(t *testing.T) {
 			t.Errorf("%s must use shared retry installer: %v", tc.file, install)
 		}
 	}
-	for _, file := range []string{".github/workflows/upgrade-arc-harness.yaml"} {
-		steps := jobSteps(t, file, "cleanup")
-		if steps[0]["uses"] != "actions/checkout@v4" || !strings.Contains(steps[1]["run"].(string), "bash .github/scripts/install-hcloud.sh") {
-			t.Errorf("%s orphan sweep must use shared retry installer after checkout", file)
+	arcJobs := workflowDoc(t, ".github/workflows/upgrade-arc-harness.yaml")["jobs"].(map[string]any)
+	if _, exists := arcJobs["cleanup"]; exists {
+		t.Error("the global Hetzner orphan sweep is retired: arc forks are reaped per job and by the host sweep")
+	}
+	for _, step := range jobSteps(t, ".github/workflows/upgrade-arc-harness.yaml", "run-arc") {
+		if strings.Contains(fmt.Sprint(step), "hcloud") || strings.Contains(fmt.Sprint(step), "STATBUS_CI_SSH_PRIVATE_KEY") {
+			t.Errorf("run-arc must not use Hetzner tooling or the Hetzner CI key: %v", step["name"])
 		}
 	}
 }

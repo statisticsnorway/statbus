@@ -14,6 +14,9 @@ fleet-base-v2026-09-3-rc-04-installed-v2026-09-2-standalone
 s2-base-v2026-09-3-rc-04-hardened-nothing-installed
 s2-base-v2026-09-3-rc-04-installed-v2026-09-2-standalone
 s2-base-vmanual
+s2-base-v2026-09-3-rc-06-hardened-nothing-installed
+fleet-base-v2026-09-3-rc-10
+s2-base-v2026-09-4-rc-01-installed-v2026-09-2-standalone
 fleet-base-foo
 fleet-base-v2026-09-3-rc-04evil
 s2-base-v2026-09-3-rc-04evil-installed-v2026-09-2-standalone
@@ -37,4 +40,4 @@ if _lxd_bases_to_prune 'vmanual' <<< "$names" >/dev/null; then
     echo 'FAIL: invalid candidate tag accepted' >&2
     exit 1
 fi
-echo 'PASS: LXD prune selects only other valid candidate bases and preserves current checkpoints'
+echo 'PASS: LXD prune selects only OLDER valid candidate bases and preserves current and newer checkpoints'

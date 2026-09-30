@@ -6,10 +6,11 @@ name: Release Fleet Orchestrator
 # STATBUS-350: this is the only v*-rc.* fleet dispatcher. It asks the shared
 # per-scenario coverage authority for the fixed two-scenario smoke domain,
 # dispatches test-smoke.yaml at most once with only uncovered selectors, then
-# proceeds through dev, the LXD fault fleet, and upgrade arcs. Every arriving
+# proceeds through dev, then the LXD fault fleet and upgrade arcs concurrently. Every arriving
 # stage retains its own supersession check.
 #
-# The three paid fleet workflows (smoke, LXD, arcs) use GitHub's native hetzner-vm-fleet queue with
+# Smoke and arcs share GitHub's native hetzner-vm-fleet queue (historical name; LXD faults use their own
+# lxd-fork-fleet group so faults and arcs run concurrently) with
 # queue:max and cancel-in-progress:false. The dispatcher checks the ordered
 # concurrency-group membership before dispatch. It waits up to 20 minutes for
 # older superseded fleets to drain, but refuses same/newer or manual collisions.
@@ -384,18 +385,21 @@ jobs:
           echo "Child run: ${URL:-not dispatched}" >> "$GITHUB_STEP_SUMMARY"
 
   upgrade-arc-harness:
-    name: "4/4 (most expensive): dispatch Upgrade Arc Harness"
-    needs: [decide-obsolete, lxd-fleet]
+    name: "3/4 (concurrent with faults): dispatch Upgrade Arc Harness"
+    # STATBUS-425 M4: arcs start after dev, together with the LXD fault fleet
+    # (both fork smoke's checkpoints on the same box; capacity is bounded on
+    # the host). A red fault fleet no longer stops arcs from starting;
+    # fleet-verdict and the stable gate still require both to be green.
+    needs: [decide-obsolete, dev-canary]
     if: >-
       ${{ !cancelled() &&
           needs['decide-obsolete'].result == 'success' &&
           needs['decide-obsolete'].outputs.obsolete == 'false' &&
-          needs['lxd-fleet'].result == 'success' &&
-          needs['lxd-fleet'].outputs.superseded != 'true' }}
+          needs['dev-canary'].result == 'success' }}
     runs-on: ubuntu-24.04
     # upgrade-arc-harness.yaml's own stages: construct(15) + image-wait(50)
-    # + run-arc(120/job, max-parallel 3, 31 arcs -> up to 11 waves) +
-    # teardown(10) + cleanup(10) -> worst case comfortably under the 360min
+    # + run-arc(120/job, max-parallel 4 gated by host slots) +
+    # teardown(10) -> worst case comfortably under the 360min
     # per-job ceiling but the longest of the three fleets; budgeted with
     # the most headroom accordingly.
     timeout-minutes: 350

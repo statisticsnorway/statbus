@@ -284,6 +284,7 @@ REC_RC=0
 VM_EXEC bash -c "cd ~/statbus && STATBUS_MIN_DISK_GB=5 timeout ${INSTALL_BUDGET_S} ./sb install --non-interactive --trust-github-user jhf > ${ARC_DISPATCH_LOG} 2>&1" || REC_RC=$?
 VM_EXEC bash -c "cat ${ARC_DISPATCH_LOG} 2>/dev/null" || true
 echo "[OBSERVE] 4th dispatch exit: $REC_RC"
+arc_dump_ledger "after the 4th dispatch"
 [ "$REC_RC" = "0" ] || { echo "✗ 4th dispatch (pair-terminal + re-attempt, one clean pass, no crash) exited $REC_RC, expected 0" >&2; exit 1; }
 
 # The pair-terminal's own moment is checked via the process's stdlib `log`

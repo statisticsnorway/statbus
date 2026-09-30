@@ -71,6 +71,26 @@ if ! snap list lxd >/dev/null 2>&1; then snap install lxd </dev/null >/dev/null;
 if ! lxc storage show statbus-test >/dev/null 2>&1; then
     lxc storage create statbus-test btrfs size=60GiB </dev/null
 fi
+# STATBUS-425 M3a: un-park-to-completion-arc.sh fallocates the FORK's own
+# disk down to a few GB free (arcs/un-park-to-completion-arc.sh:372-377) to
+# force a deterministic pre-pull-check park. On a shared Btrfs pool, statfs
+# inside every guest reports POOL-WIDE free space (the same fact that took
+# the 40 GB real-disk scenario off LXD - see doc/release-ladder.md), so that
+# fill would starve every OTHER concurrent fork on statbus-test with ENOSPC,
+# not just this arc's own guest (plan review tmp/review-lxd-all-gates-plan.md
+# §1d, risk 2). A dedicated, separately-loop-backed Btrfs pool gives this one
+# arc's fork its OWN bounded filesystem: statfs inside that guest reports
+# ONLY this pool's size, and the fallocate can never touch statbus-test's
+# free space no matter how full it drives its own root. Sized for one guest's
+# full lifecycle (checkpoint copy ~5 GB + B/C fixture image pulls ~2-4 GB +
+# pre-swap backup + fill headroom down to the 4 GB target), not the whole
+# fleet - only un-park-to-completion routes a fork here (lxd-backend.sh's
+# bootstrap_install_test_vm arc branch), so there is never more than one
+# guest on this pool at a time by construction (the plan review's "solo
+# lane" mitigation, achieved via isolation instead of scheduling).
+if ! lxc storage show statbus-arc-fill >/dev/null 2>&1; then
+    lxc storage create statbus-arc-fill btrfs size=30GiB </dev/null
+fi
 if ! lxc network show lxdbr0 >/dev/null 2>&1; then
     lxc network create lxdbr0 ipv4.address=auto ipv4.nat=true ipv6.address=none </dev/null
 fi
@@ -78,6 +98,7 @@ fi
 # driver` prints nothing (observed on LXD 5.21 / Ubuntu 26.04), so read it
 # from the listing instead.
 [ "$(lxc storage list --format csv | awk -F, '$1 == "statbus-test" {print $2}')" = btrfs ] || { echo 'REFUSE: storage pool is not btrfs' >&2; exit 1; }
+[ "$(lxc storage list --format csv | awk -F, '$1 == "statbus-arc-fill" {print $2}')" = btrfs ] || { echo 'REFUSE: arc-fill storage pool is not btrfs' >&2; exit 1; }
 [ "$(lxc network get lxdbr0 ipv4.nat)" = true ] || { echo 'REFUSE: bridge NAT is disabled' >&2; exit 1; }
 [ "$(lxc network get lxdbr0 ipv6.address)" = none ] || { echo 'REFUSE: bridge IPv6 differs' >&2; exit 1; }
 # `device show` emits top-level keys; `device get` both checks and stays quiet
