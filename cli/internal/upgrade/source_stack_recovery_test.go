@@ -1384,3 +1384,32 @@ func TestPreSwapPairTerminalConvergesBeforeReassuringWrite(t *testing.T) {
 		t.Error("pair-terminal convergence failure must record a truthful degraded services-up terminal, not UPGRADE_STOPPED_NOTHING_CHANGED")
 	}
 }
+
+// Demo incident: compose ps prints the sha256 image ID in Image when the tag
+// display is lost. The container's Config.Image must be the reference used.
+func TestSourceServingContainerEntriesUsesConfigImageNotComposeDisplay(t *testing.T) {
+	setSourceStackImageIdentityEnv(t)
+	shimDir := t.TempDir()
+	shim := `#!/bin/sh
+case "$*" in
+	"compose ps -a --format json")
+		printf '%s\n' '{"ID":"worker-container","Service":"worker","State":"running","Image":"sha256:5207b175fa080e47a942e236a29fe801113df99c634aaef2272d9d5e34fa1645"}'
+		;;
+	"inspect --format {{.Image}} worker-container") printf '%s\n' "$STATBUS_TEST_WORKER_SOURCE_ID" ;;
+	"inspect --format {{.Config.Image}} worker-container") printf '%s\n' "ghcr.io/statisticsnorway/statbus-worker:fe4a769a" ;;
+esac
+exit 0
+`
+	if err := os.WriteFile(filepath.Join(shimDir, "docker"), []byte(shim), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("PATH", shimDir+string(os.PathListSeparator)+os.Getenv("PATH"))
+	d := &Service{projDir: t.TempDir()}
+	entries, err := d.sourceServingContainerEntries(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(entries) != 1 || entries[0].Image != "ghcr.io/statisticsnorway/statbus-worker:fe4a769a" {
+		t.Fatalf("entries = %+v, want Config.Image reference", entries)
+	}
+}

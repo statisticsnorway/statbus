@@ -9273,6 +9273,21 @@ func (d *Service) dockerContainerImageID(ctx context.Context, containerID string
 	return normalizedDockerImageID(string(out))
 }
 
+// dockerContainerConfigImage returns the image reference the container was
+// created from (Config.Image), unaffected by compose ps display fallbacks.
+func (d *Service) dockerContainerConfigImage(ctx context.Context, containerID string) (string, error) {
+	cmd, buildErr := commandContext(ctx, d.projDir, "docker", "inspect", "--format", "{{.Config.Image}}", containerID)
+	if buildErr != nil {
+		return "", fmt.Errorf("construct docker inspect for container %q: %w", containerID, buildErr)
+	}
+	prepareCmd(cmd)
+	out, stderr, err := commandOutputWithStderr(cmd)
+	if err != nil {
+		return "", fmt.Errorf("docker inspect container %q config image: %w (stderr: %s)", containerID, err, stderr)
+	}
+	return strings.TrimSpace(string(out)), nil
+}
+
 func (d *Service) dockerImageReferenceID(ctx context.Context, reference string) (string, error) {
 	cmd, buildErr := commandContext(ctx, d.projDir, "docker", "image", "inspect", "--format", "{{.Id}}", reference)
 	if buildErr != nil {
@@ -9618,6 +9633,16 @@ func (d *Service) sourceServingContainerEntries(ctx context.Context) ([]compose.
 			}
 		}
 		entry.ImageID = daemonImageID
+		// `docker compose ps` prints the image ID in Image when the tag was
+		// lost or moved; the container's Config.Image is the authoritative
+		// originally requested reference.
+		configImage, configErr := d.dockerContainerConfigImage(ctx, containerID)
+		if configErr != nil {
+			return nil, &sourceServingEraUnknownError{Detail: fmt.Sprintf("inspect %s container requested image reference: %v", entry.Service, configErr)}
+		}
+		if configImage != "" {
+			entry.Image = configImage
+		}
 		servingEntries = append(servingEntries, entry)
 	}
 	return servingEntries, nil
