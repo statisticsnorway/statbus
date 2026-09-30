@@ -31,8 +31,29 @@ cp "$SRC/test/install-recovery/lxd/run-arcs.sh" "$SRC/test/install-recovery/lxd/
 # Slot admission is tested by lxd-admission-test.sh; here it is a no-op stub.
 cat > "$R/ops/lxd-fleet/admission.sh" <<'EOS'
 lxd_marker_id() { printf '%s.manual-%s-%s' "${1//[^a-zA-Z0-9-]/-}" "$2" "$$"; }
-lxd_slot_acquire() { LXD_SLOT=1; }
+# STUB_ACQUIRE_BLOCK=1: acquire waits (like the real bounded poll) until the
+# test drops allow-acquire, then records slot-acquired.
+lxd_slot_acquire() {
+    if [ "${STUB_ACQUIRE_BLOCK:-0}" = 1 ]; then
+        echo "acquire-waiting" >> "$EV"
+        while [ ! -f "$WORK/allow-acquire" ]; do sleep 0.3; done
+        echo "slot-acquired" >> "$EV"
+    fi
+    LXD_SLOT=1
+}
 lxd_slot_release() { echo "slot-release" >> "$EV"; }
+EOS
+# STUB_TERM_IGNORE=1: the per-arc job shell itself genuinely ignores TERM and
+# never returns (a job only SIGKILL can stop). Replaces lxd_arc_run.
+cat >> "$R/test/install-recovery/lxd/arc-job.sh" <<'EOS'
+if [ "${STUB_TERM_IGNORE:-0}" = 1 ]; then
+    lxd_arc_run() {
+        trap '' TERM
+        sh -c 'echo $PPID' >> "$WORK/owned.pids"   # this job shell's own pid
+        touch "$WORK/prompt-started"
+        while :; do sleep 1; done
+    }
+fi
 EOS
 # STATBUS_RB125: run_bounded reports it could NOT empty the group (rc 125) while
 # a real, separate process group is still alive (the recorded pgid).
@@ -238,9 +259,9 @@ check "D: nothing released/deleted while owned alive" "$(grep -c 'owned_alive=[1
 # the deadline a roomy 60 s: a loaded host cannot flake it, the regression
 # (>= 140 s) is unmistakable. The arc finishes on its own after finalize has
 # selected and TERMed its job (the test drops a release file at that point).
-# Note (measured, not asserted): finalize's TERM to a job that is blocked in its
-# $(...) command substitution is deferred by bash, so a job still RUNNING its
-# arc is only stopped by the KILL after the cap plus the pgid stop; E2 covers it.
+# The per-arc job runs lxd_arc_run directly in the job shell (no $(...)), so its
+# run_bounded TERM trap handles finalize's TERM promptly. E2 separately covers a
+# job that genuinely ignores TERM.
 cat > "$R/test/install-recovery/arcs/promptarc-arc.sh" <<'EOS'
 #!/usr/bin/env bash
 echo "$$" >> "$WORK/owned.pids"
@@ -270,12 +291,12 @@ alive=0; while read -r p; do kill -0 "$p" 2>/dev/null && alive=$((alive+1)); don
 check "E: no owned process survives" "$alive" 0
 check "E: finalize never signalled an already-reaped pid" "$(grep -c '^signal-dead-pid' "$EV")" 0
 
-# ── E2: a job that does NOT finish is still forcibly stopped ────────────────
-# No release file: the arc never exits. After the (short) grace cap finalize
-# must send KILL THROUGH THE JOBSPEC (never a raw pid), and the pgid stop must
-# leave nothing alive.
+# ── E2: a job that genuinely IGNORES TERM is still forcibly stopped ─────────
+# The job shell itself runs `trap '' TERM` and never returns (STUB_TERM_IGNORE
+# replaces lxd_arc_run). After the (short) grace cap finalize must send KILL
+# THROUGH THE JOBSPEC (never a raw pid) and leave nothing alive.
 : > "$EV"; rm -f "$WORK/owned.pids" "$WORK/prompt-started" "$WORK/release"
-ARC_TIMEOUT_GRACE_S=3 bash "$DRV" "$TAGN" --arc promptarc >"$WORK/e2.out" 2>&1 &
+STUB_TERM_IGNORE=1 ARC_TIMEOUT_GRACE_S=3 bash "$DRV" "$TAGN" --arc promptarc >"$WORK/e2.out" 2>&1 &
 drv=$!
 w=0; while [ ! -f "$WORK/prompt-started" ] && [ "$w" -lt 60 ]; do sleep 1; w=$((w+1)); done
 check "E2: arc started" "$([ -f "$WORK/prompt-started" ] && echo y)" y
@@ -290,6 +311,35 @@ check "E2: a job that never finished was forcibly KILLed via its jobspec" "$([ "
 alive=0; while read -r p; do kill -0 "$p" 2>/dev/null && alive=$((alive+1)); done < "$WORK/owned.pids"
 check "E2: no owned process survives" "$alive" 0
 check "E2: finalize never signalled an already-reaped pid" "$(grep -c '^signal-dead-pid' "$EV")" 0
+
+# ── F: job LEADER killed while it waits for admission ───────────────────────
+# Ownership invariant: nothing the driver owns may touch admission (acquire /
+# release) or start an arc AFTER the driver released its marker. The job leader
+# is the process that owns the slot and runs run_bounded, so killing it must
+# leave no orphan that later claims a slot. The race hook KILLs the leader at
+# finalize's first signal while the acquire stub is still waiting.
+: > "$EV"; rm -f "$WORK/owned.pids" "$WORK/allow-acquire" "$WORK/race-fired" "$WORK/arc-started"
+RACE_HOOK=1; export RACE_HOOK
+STUB_ACQUIRE_BLOCK=1 ARC_TIMEOUT_GRACE_S=3 bash "$DRV" "$TAGN" --arc stubarc >"$WORK/f.out" 2>&1 &
+drv=$!
+w=0; while ! grep -q '^acquire-waiting' "$EV" && [ "$w" -lt 60 ]; do sleep 1; w=$((w+1)); done
+check "F: job is waiting for admission" "$([ "$(grep -c '^acquire-waiting' "$EV")" -ge 1 ] && echo y)" y
+kill -TERM "$drv"
+w=0; while kill -0 "$drv" 2>/dev/null && [ "$w" -lt 120 ]; do sleep 1; w=$((w+1)); done
+if kill -0 "$drv" 2>/dev/null; then echo "FAIL F: driver did not exit"; kill -KILL "$drv"; fails=$((fails+1)); fi
+wait "$drv" 2>/dev/null; rc=$?
+RACE_HOOK=0; export RACE_HOOK
+check "F: exit 143" "$rc" 143
+check "F: the leader kill hook fired" "$([ -e "$WORK/race-fired" ] && echo y)" y
+check "F: marker released" "$(grep -c '^marker-release' "$EV")" 1
+# Let any surviving waiter proceed, then see whether it touches admission.
+: > "$WORK/allow-acquire"
+sleep 4
+late=$(awk '/^marker-release/{m=1; next} m && /^(slot-acquired|slot-release)/{n++} END{print n+0}' "$EV")
+check "F: no slot acquire/release after the marker was released" "$late" 0
+check "F: no arc started after the marker was released" "$([ -f "$WORK/arc-started" ] && echo started || echo none)" none
+alive=0; if [ -f "$WORK/owned.pids" ]; then while read -r p; do kill -0 "$p" 2>/dev/null && alive=$((alive+1)); done < "$WORK/owned.pids"; fi
+check "F: no owned process survives" "$alive" 0
 
 unset -f kill
 [ "$fails" -eq 0 ] && echo "PASS: real run-arcs.sh finalize, signals and early exits" || { sed 's/^/  b.out: /' "$WORK/b.out" 2>/dev/null | tail -20; exit 1; }

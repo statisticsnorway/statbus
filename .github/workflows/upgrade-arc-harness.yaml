@@ -888,7 +888,11 @@ jobs:
           lxd_arc_state_write "$RUNNER_TEMP/arc-${SCENARIO}.state" "$LXD_HOST" "$MARKER_ID" "$RUN_BOUNDED_PGID_FILE"
           lxd_marker_acquire_wait "$LXD_HOST" "$MARKER_ID"
           rc=0
-          verdict=$(lxd_arc_run "$SCENARIO" "tmp/install-recovery-arc-${SCENARIO}.log" "$MARKER_ID" | tail -n 1) || rc=$?
+          # Direct call, output to a file (not $(...| tail)): the step shell
+          # itself owns the slot and run_bounded, so the always() reaper sees
+          # the real owner and no substitution child can outlive it.
+          lxd_arc_run "$SCENARIO" "tmp/install-recovery-arc-${SCENARIO}.log" "$MARKER_ID" >"$RUNNER_TEMP/arc-${SCENARIO}.verdict" || rc=$?
+          verdict=$(tail -n 1 "$RUNNER_TEMP/arc-${SCENARIO}.verdict")
           cat "tmp/install-recovery-arc-${SCENARIO}.log" || true
           echo "arc ${SCENARIO} verdict: ${verdict} rc=${rc}"
           [ "$verdict" = PASS ]

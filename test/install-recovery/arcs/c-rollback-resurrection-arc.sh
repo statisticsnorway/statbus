@@ -68,8 +68,8 @@ UNIT_ACTIVE_WAIT_BUDGET_S="${UNIT_ACTIVE_WAIT_BUDGET_S:-90}"
 : "${B_SHORT:?B_SHORT required - the park-reason regex names B short SHA}"
 # V2/V3 arrive via the run-arc job env (deterministic from BASE_SHA's migrations);
 # require them here so a manual invocation fails fast, not mid-arc (set -u).
-: "${V_VERSION_2:?V_VERSION_2 required - B's at-target anti-vacuity reads it}"
-: "${V_VERSION_3:?V_VERSION_3 required - C's not-applied assert reads it}"
+: "${V_VERSION_2:?V_VERSION_2 required - anti-vacuity check for B at target reads it}"
+: "${V_VERSION_3:?V_VERSION_3 required - not-applied assertion for C reads it}"
 
 LIB_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/lib"
 source "$LIB_DIR/vm-bootstrap.sh"

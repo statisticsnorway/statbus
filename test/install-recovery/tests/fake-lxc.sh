@@ -1,3 +1,4 @@
+# shellcheck shell=bash
 # Offline fake LXD host for the M4 lifecycle tests (SYNTHETIC: not a real host).
 # Creates a fake lxc/flock/date environment under $1. Store = $1/store.
 # lxc: info, copy (-c k=v), config get/set, snapshot, delete, start/stop/exec no-ops.

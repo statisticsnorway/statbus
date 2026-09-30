@@ -20,7 +20,10 @@ permissions:
 jobs:
   harness-selftest:
     runs-on: ubuntu-24.04
-    timeout-minutes: 5
+    # 20 min: the job runs dozens of tests; two carry their own bounded
+    # watchdogs (lxd-run-arcs-finalize-test 420 s, lxd-stop-running-jobs-test
+    # ~240 s), which alone exceeded the former 5 min cap. Not a performance gate.
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
         with:
@@ -75,3 +78,5 @@ jobs:
         run: bash test/install-recovery/tests/lxd-arc-reap-test.sh
       - name: LXD stop_running_jobs (finalize job stop)
         run: bash test/install-recovery/tests/lxd-stop-running-jobs-test.sh
+      - name: Prove c-rollback-resurrection's V_VERSION_2/V_VERSION_3 guards both fire
+        run: bash test/install-recovery/tests/arc-crollback-version-guard-test.sh

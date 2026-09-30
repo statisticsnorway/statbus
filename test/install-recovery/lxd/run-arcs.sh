@@ -480,9 +480,14 @@ for slug in "${arcs[@]}"; do
         esac
         # Shared per-arc runner (arc-job.sh, also used by the workflow's
         # run-arc job): slot claim, bounded run, verdict. rc is its PASS/FAIL.
+        # lxd_arc_run is called DIRECTLY in this job shell (output to a file),
+        # never inside $(...): a command-substitution child would own the slot
+        # and run_bounded while finalize only signals this job leader, so a
+        # killed leader left an orphan that could claim a slot or start an arc
+        # after the marker was released.
         rc=0
-        RUN_BOUNDED_PGID_FILE="$RUN_DIR/$slug.pgid" verdict=$(lxd_arc_run "$slug" "$RUN_DIR/$slug.log" "$MARKER_ID") || rc=$?
-        verdict=${verdict##*$'\n'}
+        RUN_BOUNDED_PGID_FILE="$RUN_DIR/$slug.pgid" lxd_arc_run "$slug" "$RUN_DIR/$slug.log" "$MARKER_ID" >"$RUN_DIR/$slug.verdict" || rc=$?
+        verdict=$(tail -n 1 "$RUN_DIR/$slug.verdict" 2>/dev/null)
         # lxd_arc_run returns run_bounded's real rc: 125 only when the group
         # could not be emptied (pgid file kept so finalize can still stop it,
         # slot stays held); otherwise the group is gone and its (now
