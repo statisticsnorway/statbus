@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-09-28 13:07'
-updated_date: '2026-09-30 17:53'
+updated_date: '2026-09-30 20:30'
 labels:
   - ci
   - lxd
@@ -107,4 +107,16 @@ Validation references: `tmp/review-425-m4.md`, `tmp/test-lxd-m4-dd384-finalize-2
 - Fresh independent GPT-6 Astra review (`tmp/review-425-n1b-final.md`) is MERGE for this exact three-file delta only. Sequential final-byte execution passes 28 helper checks and 47 driver checks, including strict B2 safety. Reverting only the two predicates produces nine actual assertion failures on the byte-identical final test, with the reverted function verified byte-identical to the 727 parent. The four real-file retained-job cases change from 12 polls/no-op KILL to one poll/no KILL. Named CAP=12, exact `%1`/`%10` and completed-before-selection preconditions are checked.
 - Evidence is preserved under `$JCODE_SCRATCH_DIR/review-425-n1b-evidence/`. Owned-test cleanup was verified after the reviewer reaped only its identified watchdog timer children; fixture self-cleanup was unchanged. Author staged mutation assertions and watchdog NONCOMPLETION are recorded separately, not an all-mutants final-byte rerun or a new gate. The earlier green `red-kill0.log` driver run is not cited as red proof.
 - This closes the native N1b code-review block, not whole-M4 integration or acceptance. Linux Bash 5, real LXD, GitHub CI and concurrent-capacity outcomes remain unrun; identity with the lost original F1 event remains unproven. M4 stays unmerged, restoration approval remains pending, and no SQL, release classification, arc assertion, requirement text or acceptance checkbox is changed. All seven acceptance checkboxes remain open.
+
+## Integration review and concrete driver ownership finding (2026-09-30 20:30 UTC)
+
+- Combined source candidate `c339f406eb8ff769a1582a843688f4d87d6f4814` is G-signed, unpushed, based on main `4282d6999`. Independent review verifies that its non-backlog source delta matches frozen `f6985dc91` and preserves main's newer changes. The entire `.backlog` tree matches main; no duplicate draft ticket was imported.
+- Independent code verdict is **BLOCK**, receipt MAIN `tmp/review-lxd-int-final-20260930.md`. The first combined finalizer run failed the D slot-release-count assertion; its passing rerun is not a waiver.
+- Deterministic prototypes establish a real ownership bug in the unmerged local driver: `verdict=$(lxd_arc_run ...)` puts admission and bounded execution in a child separate from the background job leader. Killing the leader can leave that child alive after marker release and driver exit. It can issue a late slot release, or claim a slot and start an arc after the driver exited. A direct helper call with verdict output redirected to a file removes the D reproduction and the post-exit arc start in the reviewer prototypes. The unmodified finalize test then fails only E2's forced-KILL check, because TERM is no longer deferred. That is why a genuinely TERM-ignoring fixture is required.
+- The original first-run `$EV`/`d.out` fixture state was not retained. The deterministic prototype reproduces a sufficient mechanism for the observed D failure and proves the unsafe code path, but the exact original process identity/event trace has not been recovered.
+- New signed corrections are commissioned, not yet completed: direct helper ownership, a genuinely TERM-ignoring forced-stop fixture, and a leader-KILL/queued-admission regression retaining the strict no-post-release ownership invariant. The existing workflow caller's matching substitution shape will be considered in the same bounded change.
+- Review also proves a pre-existing harness input-validation bug: apostrophes pair across the two c-rollback required-version guards, making the V_VERSION_3 guard inactive (set -u still stops later, at first use mid-arc). Restoring that guard and adding a behavioral regression are commissioned. This is harness behavior, not evidence of data corruption on a released installation. Existing Harness Selftest timeout wiring is also being corrected to accommodate its bounded tests without adding a gate or predicting Linux performance.
+- No supersession SQL, release classification or arc outcome assertion contract changed. All seven STATBUS-425 acceptance boxes remain open. No main source merge, push, new RC, provisioning or production repair occurred. Actual Linux CI and LXD guest outcomes follow the normal reviewed publication sequence, not a separate manual host-approval prerequisite.
+
+Evidence: MAIN `tmp/review-lxd-int-final-20260930.md`, MAIN `tmp/lxd-integration-candidate-20260930.md`, MAIN `tmp/lxd-integration-20260930-logs/finalize.log`; review prototypes retained in `/Users/jhf/ssb/.jcode/scratch/review-lxd-int-final-0930/tmp/proto-D/`.
 <!-- SECTION:NOTES:END -->
