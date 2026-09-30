@@ -1545,7 +1545,7 @@ func TestCaptureSourceServingImageIdentitiesRealFailureWritesNothing(t *testing.
 	t.Cleanup(func() { _ = d.removeUpgradeFlag() })
 	before, err := os.ReadFile(filepath.Join(git.dir, "tmp", "upgrade-in-progress.json"))
 	if err != nil {
-		t.Skipf("flag path differs: %v", err)
+		t.Fatalf("flag path differs: %v", err)
 	}
 	if err := d.captureSourceServingImageIdentities(context.Background()); err == nil {
 		t.Fatal("capture must fail")
