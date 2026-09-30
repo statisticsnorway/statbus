@@ -137,5 +137,18 @@ func (d *Service) containersAtFlagTarget(ctx context.Context, flag UpgradeFlag) 
 	if perr != nil {
 		return false, []containerCheckResult{{Service: "docker", Reason: fmt.Sprintf("parse compose ps json failed: %v", perr)}}
 	}
+	// compose ps prints a sha256 in Image when a tag display is lost; the
+	// container's Config.Image is the authoritative requested reference
+	// (STATBUS-436). Unprovable references are not "at target".
+	for i := range statuses {
+		if statuses[i].Service == "rest" || statuses[i].Service == "db" || strings.TrimSpace(statuses[i].ID) == "" {
+			continue
+		}
+		ref, refErr := d.dockerContainerConfigImage(ctx, strings.TrimSpace(statuses[i].ID))
+		if refErr != nil || ref == "" || strings.ContainsAny(ref, "\n\r \t") {
+			return false, []containerCheckResult{{Service: statuses[i].Service, Reason: fmt.Sprintf("requested image reference unprovable from Docker Config.Image (%v)", refErr)}}
+		}
+		statuses[i].Image = ref
+	}
 	return evaluateContainersAtFlagTarget(statuses, flag.CommitSHA, flag.Label())
 }

@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"reflect"
 	"strings"
@@ -1458,5 +1459,70 @@ func TestSourceServingContainerEntriesRefusesUnprovableConfigImage(t *testing.T)
 				t.Fatalf("error = %v, want sourceServingEraUnknownError", err)
 			}
 		})
+	}
+}
+
+// wrapDockerComposePsDisplay makes `docker compose ps` print a raw sha256 in
+// Image for every container (the demo incident), while the inner shim keeps
+// answering Config.Image with the real requested reference. When
+// emptyConfigImage is set, Config.Image inspection returns empty instead.
+func wrapDockerComposePsDisplay(t *testing.T, emptyConfigImage bool) {
+	t.Helper()
+	inner, err := exec.LookPath("docker")
+	if err != nil {
+		t.Fatal(err)
+	}
+	wrapDir := t.TempDir()
+	empty := "0"
+	if emptyConfigImage {
+		empty = "1"
+	}
+	wrapper := `#!/bin/sh
+if [ "$*" = "compose ps -a --format json" ]; then
+	` + inner + ` "$@" | sed '/"Service":"worker"/s/"Image":"[^"]*"/"Image":"sha256:5207b175fa080e47a942e236a29fe801113df99c634aaef2272d9d5e34fa1645"/'
+	exit 0
+fi
+if [ "` + empty + `" = 1 ] && [ "$2" = "--format" ] && [ "$3" = "{{.Config.Image}}" ]; then echo; exit 0; fi
+exec ` + inner + ` "$@"
+`
+	if err := os.WriteFile(filepath.Join(wrapDir, "docker"), []byte(wrapper), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("PATH", wrapDir+string(os.PathListSeparator)+os.Getenv("PATH"))
+}
+
+func TestCaptureSourceServingImageIdentitiesSurvivesLostComposeDisplay(t *testing.T) {
+	setSourceStackImageIdentityEnv(t)
+	git := newGitRepoFixture(t)
+	sourceTag := git.oldSHA[:8]
+	treeTag := git.newSHA[:8]
+	installSourceCaptureDockerShim(t, treeTag, sourceTag, sourceTag, sourceTag, nil)
+	wrapDockerComposePsDisplay(t, false)
+	d := &Service{projDir: git.dir}
+	if err := d.writeUpgradeFlag(21, git.newSHA, nil, "test", "test", false); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = d.removeUpgradeFlag() })
+	if err := d.captureSourceServingImageIdentities(context.Background()); err != nil {
+		t.Fatalf("real capture with lost compose display must succeed from Config.Image: %v", err)
+	}
+}
+
+func TestCaptureSourceServingImageIdentitiesRefusesEmptyConfigImage(t *testing.T) {
+	setSourceStackImageIdentityEnv(t)
+	git := newGitRepoFixture(t)
+	sourceTag := git.oldSHA[:8]
+	treeTag := git.newSHA[:8]
+	installSourceCaptureDockerShim(t, treeTag, sourceTag, sourceTag, sourceTag, nil)
+	wrapDockerComposePsDisplay(t, true)
+	d := &Service{projDir: git.dir}
+	if err := d.writeUpgradeFlag(22, git.newSHA, nil, "test", "test", false); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = d.removeUpgradeFlag() })
+	err := d.captureSourceServingImageIdentities(context.Background())
+	var eraErr *sourceServingEraUnknownError
+	if !errors.As(err, &eraErr) {
+		t.Fatalf("real capture error = %v, want sourceServingEraUnknownError (deterministic, parkable)", err)
 	}
 }
