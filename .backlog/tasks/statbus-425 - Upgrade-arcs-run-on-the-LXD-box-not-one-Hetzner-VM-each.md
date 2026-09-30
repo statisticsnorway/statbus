@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-09-28 13:07'
-updated_date: '2026-09-29 13:15'
+updated_date: '2026-09-30 12:31'
 labels:
   - ci
   - lxd
@@ -58,14 +58,22 @@ Full comparison table, per-arc notes, and the exact run/log paths are in tmp/lxd
 
 Explicit gaps for the next session: root-cause the 2 unresolved "superseded not failed" reds and the worker-wedge timing red; re-verify c-rollback-resurrection end-to-end post-fix; copy the comparison TSV into a durable repo location (not only gitignored tmp/) per rabbit's parity-evidence instruction - not done this session, time-boxed out.
 
-2026-09-29 15:15 UTC: M3b reds resolved. The final result is 33/35 verdicts matching Hetzner 36509925405. Evidence is committed at test/install-recovery/lxd/evidence/v2026.09.3-rc.17/ (d26b35449), with a 35-row final-comparison.tsv and a README.
+2026-09-29 15:15 UTC: M3b reds investigated. The final result is 33/35 verdicts matching Hetzner 36509925405, not complete identical-byte parity. Evidence is committed on ci/lxd-arcs at test/install-recovery/lxd/evidence/v2026.09.3-rc.17/ (d26b35449), with a 35-row final-comparison.tsv and a README.
 - worker-wedge-mid-derive, a timing class: the arc released the lock before Postgres noticed the SIGKILLed worker's client (client_connection_check_interval 5s). The derive then completed. Hetzner passed only through slower SSH. Fixed in 7edb2f275 to hold the lock until an abandoned row is observed. PASS on LXD.
 - rollback-pair-terminal and restore-broke-reattempt are a product behaviour that LXD exposes, not a harness bug.
   - A=ebe058af has since been promoted to v2026.09.3. On LXD the daemon's tag discovery works: A's row becomes release_status='release', and after the PreSwap rollback (HEAD=A) the 4th install's runInstallSupersede supersedes B's 'failed' commit row. This is proven by a ledger dump (c128ea335).
-  - On every Hetzner arc VM, daemon discovery fails ("could not read Username for https://github.com"), so A stays 'commit' and B stays 'failed'. Rerun 36578946172 today was green.
+  - Independent review correction: 21 failed tag fetches were captured in eight Hetzner jobs, not every VM. The two disputed arcs have no daemon journal/discovery output in 36509925405 or rerun 36578946172/artifacts. An unchanged 'commit' classification for A in those two arcs is inferred, not directly captured. cross-version-rename-handoff recorded successful discovery.
   - The coordinator decides the disposition. It was not filed by this worker.
   - A related LXD fidelity bug was fixed along the way (8a57d5b5a: the candidate base had been installed through the historical-release path).
 - c-rollback-resurrection with the final R1 code: rc.16 RED (db .Created 31s after rolled_back_at), rc.17 GREEN.
 - postswap-health-park: infra, green on retest. working: green after 83b3b3b84.
 - The commits on ci/lxd-arcs are G-signed and unpushed. The box is clean (s2-base checkpoints only).
+
+2026-09-30 independent-review follow-through (tmp/review-425-m3b.md, MERGE WITH CHANGES):
+- C1: arc_wait_unit_active still bypasses its deadline when the old invocation stays active or timestamps cannot be parsed. A bounded stub probe reproduced a hang; a worker is implementing deadline checks on every path and behavioral regression tests. Driver timeout, signal cleanup and stale construct-lock handling are also being corrected before re-review.
+- C2: final TSV 'match=yes' means verdict agreement only. c-rollback-resurrection, worker-wedge-mid-derive and working compare final LXD arc bytes to the reference's pre-change bytes. Existing reference 36509925405 has 42 listed jobs, 41 executed and one skipped zero-arc guard. Corrected README/TSV committed as c2415e19f on ci/lxd-arcs after independent Opus MERGE (tmp/review-evidence-and-430-final.md); raw runs and observed verdicts are unchanged.
+- C3(a), known fidelity work for M4/M5: the candidate base is now recorded by SHA, but historical LXD bases still take a release-install path (v2026.07.0-rc.05 and v2026.09.0) while Hetzner's two-argument path records 730b5001 and d53731ec. Align metadata identities or explicitly justify the retained difference before claiming full fidelity; the supersede procedure ranks that metadata.
+- C3(b): STATBUS-435 now requires controlled or asserted discovery/enrichment in the two disputed arcs so live GitHub success or failure cannot choose the expected terminal state on either backend.
+- Correct chronology: A=ebe058af was stable by about 07:14 UTC on 29 September, before synthetic untagged B=29986056 was created at 14:40:27. At 14:49:52, older installed stable-classified A superseded newer failed B by the tier-first rule. The earlier 'later promotion' narrative and blanket product-bug ruling were premature. Contract decision remains with the owner; procedure and assertions are unchanged.
+- All acceptance criteria remain unchecked until their actual CI/live workflow evidence exists. No RC or release has been cut by this follow-through.
 <!-- SECTION:NOTES:END -->

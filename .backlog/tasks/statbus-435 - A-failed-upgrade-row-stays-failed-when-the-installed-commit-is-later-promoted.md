@@ -1,9 +1,10 @@
 ---
 id: STATBUS-435
-title: A failed upgrade row stays failed when the installed commit is later promoted
+title: Define when installed release metadata supersedes a newer failed upgrade
 status: To Do
 assignee: []
 created_date: '2026-09-29 21:23'
+updated_date: '2026-09-30 12:30'
 labels:
   - upgrade
 dependencies: []
@@ -14,12 +15,20 @@ ordinal: 384200
 ## Description
 
 <!-- SECTION:DESCRIPTION:BEGIN -->
-Found by the LXD arc run (STATBUS-425 M3b, tmp/lxd-all-gates-progress.md 2026-09-29T14:00Z; evidence test/install-recovery/lxd/evidence/v2026.09.3-rc.17/ on ci/lxd-arcs). Arcs rollback-pair-terminal and restore-broke-reattempt install candidate A (ebe058af), break upgrade B on purpose, and expect B's row to stay 'failed' (the operator's evidence of what went wrong). On LXD it becomes 'superseded': the daemon's discovery enriches A's row to release_status='release' because A was promoted to v2026.09.3 (seen on an isolated fork: 'commit' -> 'release' within one 90 s tick), and the next ./sb install calls upgrade_supersede_older(A), which ranks release tier before version ('lower release tiers are always older', migration 1d857c6e6) and supersedes B's 'failed' commit row. On Hetzner the arcs pass only because their daemons cannot fetch tags ('could not read Username for https://github.com', 21 hits in run 36509925405), so A stays 'commit'. Owner decision pending: (a) supersede no longer touches 'failed' rows, which stay until the operator acts; or (b) current behaviour is intended and the two arcs expect 'superseded' once a release covers the installed commit.
+Found by the LXD arc run (STATBUS-425 M3b; durable evidence on ci/lxd-arcs at test/install-recovery/lxd/evidence/v2026.09.3-rc.17/). Arcs rollback-pair-terminal and restore-broke-reattempt expect their deliberately failed upgrade row B to stay 'failed'. The LXD ledger instead records 'superseded' after an installer rerun, with the checkout still at A.
+
+Both A and B are Git commits. A=ebe058af was committed on 29 September at 00:30:59 UTC and has both v2026.09.3-rc.17 and v2026.09.3 tags. The owner promoted stable around 07:14 UTC. The test created B=29986056 at 14:40:27 UTC, after promotion; B has no RC or stable tag. The ledger records A as release_status='release' and B as release_status='commit', with B superseded at 14:49:52 UTC. Promotion did not happen between B's creation and failure, and no newer fixing version was installed in this observed sequence.
+
+The database's release_status is recognized release metadata, not the Git object type. upgrade_supersede_older ranks that classification before version/date and includes 'failed' rows. Thus older installed stable A outranks newer untagged B. This is observed product behaviour; whether it violates the intended contract is an owner decision, not a proven defect from the red assertions alone. The row is retained with a changed state, not deleted.
+
+Evidence correction from independent review tmp/review-425-m3b.md: 21 failed tag fetches appear across eight Hetzner jobs in 36509925405. The two disputed arcs have no daemon journal/discovery output in that run or rerun 36578946172/artifacts. Failed discovery leaving A classified 'commit' in those two arcs is an inference, not a captured observation. cross-version-rename-handoff recorded successful discovery. Do not claim every Hetzner VM failed authentication.
+
+The contract question is whether installed higher-tier release metadata may supersede a newer lower-tier failed attempt, or supersession requires a newer version. Owner agreement that newly installed fixing code resolves an earlier failure does not by itself settle this older-A/newer-B sequence. No change to the procedure or either assertion has been approved.
 <!-- SECTION:DESCRIPTION:END -->
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 Owner decision on (a) or (b) recorded here
-- [ ] #2 The chosen behaviour is implemented as a forward migration with a pg_regress test covering a failed commit row and a later-promoted installed commit
-- [ ] #3 rollback-pair-terminal and restore-broke-reattempt give the same verdict on LXD and Hetzner, and the Hetzner arc VMs can fetch tags (or the gap is recorded)
+- [ ] #1 Owner decision on tier-first versus newer-version supersession is recorded against the actual older-A/newer-B chronology
+- [ ] #2 The chosen behaviour is implemented and pg_regress covers stable-classified installed A versus newer failed B and equal-tier ordering; use a forward migration only if shipped SQL semantics change
+- [ ] #3 The two arcs control or assert the discovery/enrichment outcome and give the intended verdict independently of live GitHub discovery success; record the limits of the existing Hetzner comparison evidence
 <!-- AC:END -->
