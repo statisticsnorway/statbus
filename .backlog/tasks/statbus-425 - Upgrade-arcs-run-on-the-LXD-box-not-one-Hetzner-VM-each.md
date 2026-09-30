@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-09-28 13:07'
-updated_date: '2026-09-30 12:31'
+updated_date: '2026-09-30 14:45'
 labels:
   - ci
   - lxd
@@ -76,4 +76,24 @@ Explicit gaps for the next session: root-cause the 2 unresolved "superseded not 
 - C3(b): STATBUS-435 now requires controlled or asserted discovery/enrichment in the two disputed arcs so live GitHub success or failure cannot choose the expected terminal state on either backend.
 - Correct chronology: A=ebe058af was stable by about 07:14 UTC on 29 September, before synthetic untagged B=29986056 was created at 14:40:27. At 14:49:52, older installed stable-classified A superseded newer failed B by the tier-first rule. The earlier 'later promotion' narrative and blanket product-bug ruling were premature. Contract decision remains with the owner; procedure and assertions are unchanged.
 - All acceptance criteria remain unchecked until their actual CI/live workflow evidence exists. No RC or release has been cut by this follow-through.
+
+2026-09-30 14:45 UTC, local review follow-through:
+- Lifecycle B1 is corrected in signed `8941353c5` and independently MERGE-able as code. Root's actual macOS Bash 3.2 tests pass. Linux execution remains unrun.
+- Independent M4 review (`tmp/review-425-m4.md`) is frozen at exact refs. Original `db5f9387e` was BLOCK: the shared runner lost status 125 and released a still-owned admission slot, the default-domain fixture lacked the newly sourced marker helper, and ordinary arcs did not reuse smoke's installed checkpoint. `24dd9c237` and `5f789a6d9` resolve the first two with independent behavioral observations.
+- Signed `83065bb80` selects the literal smoke-installed checkpoint for all 33 ordinary candidate-A arcs; the two historical bases retain exact full-SHA checkpoints. Independent Opus recheck resolves this requirement at code level. Fake-LXD checks are synthetic. Real guest boot, shallow-history B/C fetch, environment/certificate preparation and concurrent capacity remain unverified.
+- At `dd384a382`, trap-less cancellation leaked its marker/slot after reaping its fork (R4), and non-atomic historical-A builder registration stranded a half-built checkpoint without an owner key (R5). Independent recheck of signed `b0b36dbd5` resolves R4/R5 and kills all five reviewer mutants. It also establishes a new blocker R6: normal PASS/FAIL leaves a stale process-group file, so the always-step can signal an unrelated process group that has reused that id. A bounded new correction is commissioned. These are defects in new unmerged wiring, not released product regressions.
+- F1 remains open: a finalize-test return of 1 at exact `83065bb80` is unexplained because the initial failing log was lost. Seven reviewer passes and five further author passes with complete retained logs do not establish its cause. No 'flaky' waiver is taken. Signed `cfd3d61f8` removes the test's `ls | grep` warning and is independently MERGE-able as a test-only change, without changing the branch's BLOCK verdict.
+- Root's isolated exact `dd384a382` combined finalize test passed in 54.4 seconds, preserving B1 no-signal-to-reaped-PID and live-owned-group status-125 behavior. This is macOS execution with host collaborators substituted, not real Linux/LXD/GitHub acceptance.
+- According to the read-only control-plane/reaper investigation in `tmp/demo-installer-repair-proof-20260930.md`, the shared facility was reaped on 2026-09-29 at 18:36:23 UTC (run 36613191241), including its local checkpoints. That host-deletion receipt is attributed to the investigation, not the M4 code reviewer. Restoration approval is pending. No replacement host was provisioned, no code pushed and no candidate cut or promoted in this follow-through.
+- Literal smoke reuse preserves A's tagged-install release classification. The STATBUS-435 disagreements are expected by mechanism on this literal path but have not been observed on it in a guest. Historical M3b disagreements were observed under the earlier documented fixture conditions. No SQL, release classification or arc assertion was rewritten to manufacture parity. Main's corrected chronology and preserved raw evidence remain authoritative.
+
+Requirement mappings to settle before completion, without changing AC text or checkboxes:
+- AC#1 says one CI job, while M4 retains per-arc matrix jobs on the shared host. Those names are the verifier's per-scenario marks and drive covered-subset inheritance.
+- AC#2 calls for verdicts against a same-commit Hetzner run. The existing rc.17 reference is available, but new per-scenario Hetzner provisioning is forbidden; future-reference coverage cannot be assumed or created by violating that direction.
+- AC#3's historic '4/4' wording no longer describes the concurrent '3/4' orchestrator grouping.
+- AC#4 wall time is unmeasured on this wired path.
+- AC#5 installed-smoke reuse is wired and code-reviewed, but guest-UNRUN.
+- AC#7 literally says 'No release gate boots a Hetzner VM'. The shared LXD facility is itself a Hetzner ccx33 created on demand. Interpreting this as no per-scenario VMs is a requirement-mapping decision, not a verified literal fact.
+
+Validation references: `tmp/review-425-m4.md`, `tmp/test-lxd-m4-dd384-finalize-20260930.log`, and `tmp/lxd-m4-implementation-20260930.md` in main's diagnostic directory. All seven acceptance checkboxes remain open.
 <!-- SECTION:NOTES:END -->
