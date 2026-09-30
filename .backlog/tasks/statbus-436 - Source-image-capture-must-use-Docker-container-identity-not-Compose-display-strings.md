@@ -4,7 +4,7 @@ title: Source image capture must use Docker container identity, not Compose disp
 status: In Progress
 assignee: []
 created_date: '2026-09-30 13:03'
-updated_date: '2026-09-30 14:45'
+updated_date: '2026-09-30 14:56'
 labels:
   - upgrade
   - recovery
@@ -83,4 +83,6 @@ Evidence reports are being collected under `tmp/demo-upgrade-incident-20260930.m
 - AC#4/5/6 remain open. The facility is absent and restoration approval pending. The concrete official-installer sequence is prepared but unexecuted. Correct cloud syntax is `./cloud.sh install demo [version]`, checked against the actual dispatcher with production functions stubbed. No supported installer remedy is advertised as proven.
 
 Review and observation receipts: `tmp/review-demo-image-identity.md`, `tmp/demo-retry-feedback-20260930.md`, `tmp/demo-upgrade-schedule-definition-20260930.sql`, `tmp/demo-acceptance-sequence-20260930.md`, and the coordinator's read-only tool transcript.
+
+2026-09-30 14:56 UTC: test-only `51a8e8281` is independently MERGE-reviewed and integrated exactly as signed `6d4aef43e`; the relevant code tree equals the reviewed ref. The new test calls the real `promoteExistingCandidate` through an explicitly synthetic wire recorder: failed/dismissed/parked return operator-required with zero schedule calls, while available schedules exactly once. The previously surviving failed-case scheduling mutation and both parked-result/scheduling mutations are now killed. The recorder does not evaluate the SQL parked predicate (the false-predicate mutation survives), and unrecognised queries are not counted, so no real database-state or scheduler-tick outcome is inferred. Independent full Go suite at frozen `51a8e8281` passes 21/21 packages; `Skipf` is changed to `Fatalf` with no skipped test. AC#4/5/6 remain open, with no release or demo change.
 <!-- SECTION:NOTES:END -->
