@@ -41,6 +41,7 @@ case "$*" in
 		printf '%s\n' '{"ID":"rest-container","Service":"rest","State":"'"$rest_state"'","Image":"postgrest/postgrest:v12.2.8"}'
 		printf '%s\n' '{"ID":"proxy-container","Service":"proxy","State":"'"$proxy_state"'","Image":"ghcr.io/statisticsnorway/statbus-proxy:'"$STATBUS_TEST_CONTAINER_TAG"'"}'
 		;;
+	"inspect --format {{.Config.Image}} "*-container) "$0" compose ps -a --format json | grep "\"ID\":\"$4\"" | sed 's/.*"Image":"\([^"]*\)".*/\1/' ;;
 	"inspect --format {{.Image}} app-container") printf '%s\n' "$STATBUS_TEST_APP_CONTAINER_ID" ;;
 	"inspect --format {{.Image}} worker-container") printf '%s\n' "$STATBUS_TEST_WORKER_CONTAINER_ID" ;;
 	"inspect --format {{.Image}} rest-container") printf '%s\n' "$STATBUS_TEST_REST_CONTAINER_ID" ;;

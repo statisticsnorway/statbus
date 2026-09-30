@@ -65,6 +65,7 @@ const sourceStackImageInspectCases = `
 	"image inspect --format {{.Id}} "*postgrest*) printf '%s\n' "$STATBUS_TEST_REST_SOURCE_ID" ;;
 	"image inspect --format {{.Id}} "*statbus-proxy*) printf '%s\n' "$STATBUS_TEST_PROXY_SOURCE_ID" ;;
 	"inspect --format {{.Image}} "*) printf '%s\n' "$4" ;;
+	"inspect --format {{.Config.Image}} "*) "$0" compose ps -a --format json | grep "\"ID\":\"$4\"" | sed 's/.*"Image":"\([^"]*\)".*/\1/' ;;
 	`
 
 func installSourceCaptureDockerShim(t *testing.T, treeTag, appTag, workerTag, proxyTag string, states map[string]string) {
@@ -90,6 +91,7 @@ case "$*" in
 		[ "$STATBUS_TEST_REST_PRESENT" = 0 ] || printf '%s\n' '{"ID":"rest-container","Service":"rest","State":"'"$STATBUS_TEST_REST_STATE"'","Image":"postgrest/postgrest:v12.2.8"}'
 		[ "$STATBUS_TEST_PROXY_PRESENT" = 0 ] || printf '%s\n' '{"ID":"proxy-container","Service":"proxy","State":"'"$STATBUS_TEST_PROXY_STATE"'","Image":"ghcr.io/statisticsnorway/statbus-proxy:'"$STATBUS_TEST_PROXY_TAG"'"}'
 		;;
+	"inspect --format {{.Config.Image}} "*-container) "$0" compose ps -a --format json | grep "\"ID\":\"$4\"" | sed 's/.*"Image":"\([^"]*\)".*/\1/' ;;
 	"inspect --format {{.Image}} app-container") printf '%s\n' "$STATBUS_TEST_APP_SOURCE_ID" ;;
 	"inspect --format {{.Image}} worker-container") printf '%s\n' "$STATBUS_TEST_WORKER_SOURCE_ID" ;;
 	"inspect --format {{.Image}} rest-container") printf '%s\n' "$STATBUS_TEST_REST_SOURCE_ID" ;;
@@ -278,6 +280,7 @@ case "$*" in
 	"compose ps -a --format json")
 		printf '%s\n' '{"ID":"app-container","Service":"app","State":"running","Image":"ghcr.io/statisticsnorway/statbus-app:source","ImageID":"'"$STATBUS_TEST_APP_TARGET_ID"'"}'
 		;;
+	"inspect --format {{.Config.Image}} "*-container) "$0" compose ps -a --format json | grep "\"ID\":\"$4\"" | sed 's/.*"Image":"\([^"]*\)".*/\1/' ;;
 	"inspect --format {{.Image}} app-container") printf '%s\n' "$STATBUS_TEST_APP_SOURCE_ID" ;;
 esac
 exit 0
@@ -316,6 +319,7 @@ case "$*" in
 		printf '%s\n' '{"ID":"rest-container","Service":"rest","State":"running","Image":"postgrest/postgrest:v12.2.8"}'
 		printf '%s\n' '{"ID":"proxy-container","Service":"proxy","State":"running","Image":"ghcr.io/statisticsnorway/statbus-proxy:'"$STATBUS_TEST_SOURCE_TAG"'"}'
 		;;
+	"inspect --format {{.Config.Image}} "*-container) "$0" compose ps -a --format json | grep "\"ID\":\"$4\"" | sed 's/.*"Image":"\([^"]*\)".*/\1/' ;;
 	"inspect --format {{.Image}} app-container") printf '%s\n' "$STATBUS_TEST_APP_SOURCE_ID" ;;
 	"inspect --format {{.Image}} worker-container") printf '%s\n' "$STATBUS_TEST_WORKER_SOURCE_ID" ;;
 	"inspect --format {{.Image}} rest-container") printf '%s\n' "$STATBUS_TEST_REST_SOURCE_ID" ;;
@@ -1411,5 +1415,48 @@ exit 0
 	}
 	if len(entries) != 1 || entries[0].Image != "ghcr.io/statisticsnorway/statbus-worker:fe4a769a" {
 		t.Fatalf("entries = %+v, want Config.Image reference", entries)
+	}
+}
+
+func runServingEntriesWithConfigImage(t *testing.T, configCase string) error {
+	t.Helper()
+	setSourceStackImageIdentityEnv(t)
+	shimDir := t.TempDir()
+	shim := `#!/bin/sh
+case "$*" in
+	"compose ps -a --format json")
+		printf '%s\n' '{"ID":"worker-container","Service":"worker","State":"running","Image":"ghcr.io/statisticsnorway/statbus-worker:fe4a769a"}'
+		;;
+	"inspect --format {{.Image}} worker-container") printf '%s\n' "$STATBUS_TEST_WORKER_SOURCE_ID" ;;
+	"inspect --format {{.Config.Image}} worker-container")
+` + configCase + `
+		;;
+esac
+exit 0
+`
+	if err := os.WriteFile(filepath.Join(shimDir, "docker"), []byte(shim), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("PATH", shimDir+string(os.PathListSeparator)+os.Getenv("PATH"))
+	d := &Service{projDir: t.TempDir()}
+	_, err := d.sourceServingContainerEntries(context.Background())
+	return err
+}
+
+// Empty, malformed or failing Config.Image must refuse, never fall back to
+// the compose ps display string (STATBUS-436).
+func TestSourceServingContainerEntriesRefusesUnprovableConfigImage(t *testing.T) {
+	for name, c := range map[string]string{
+		"empty":     `printf '\n'`,
+		"multiline": `printf 'a:1\nb:2\n'`,
+		"failure":   `exit 9`,
+	} {
+		t.Run(name, func(t *testing.T) {
+			err := runServingEntriesWithConfigImage(t, c)
+			var eraErr *sourceServingEraUnknownError
+			if !errors.As(err, &eraErr) {
+				t.Fatalf("error = %v, want sourceServingEraUnknownError", err)
+			}
+		})
 	}
 }

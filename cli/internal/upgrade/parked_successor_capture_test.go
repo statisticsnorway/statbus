@@ -42,6 +42,9 @@ case "$*" in
 	    printf '%s\n' '{"ID":"rest-container","Service":"rest","State":"'"$client_state"'","Image":"postgrest/postgrest:v12.2.8","ImageID":"'"$rest_id"'"}'
     printf '%s\n' '{"ID":"proxy-container","Service":"proxy","State":"running","Image":"ghcr.io/statisticsnorway/statbus-proxy:'"$tag"'","ImageID":"'"$proxy_id"'"}'
     ;;
+  "inspect --format {{.Config.Image}} "*-container)
+    "$0" compose ps -a --format json | grep "\"ID\":\"$4\"" | sed 's/.*"Image":"\([^"]*\)".*/\1/'
+    ;;
   "inspect --format {{.Image}} app-container")
     if [ -f "$STATBUS_TEST_CONVERGED_PATH" ]; then printf '%s\n' "$STATBUS_TEST_APP_TREE_ID"; else printf '%s\n' "$STATBUS_TEST_APP_SOURCE_ID"; fi
     ;;

@@ -9640,9 +9640,10 @@ func (d *Service) sourceServingContainerEntries(ctx context.Context) ([]compose.
 		if configErr != nil {
 			return nil, &sourceServingEraUnknownError{Detail: fmt.Sprintf("inspect %s container requested image reference: %v", entry.Service, configErr)}
 		}
-		if configImage != "" {
-			entry.Image = configImage
+		if configImage == "" || strings.ContainsAny(configImage, "\n\r \t") {
+			return nil, &sourceServingEraUnknownError{Detail: fmt.Sprintf("%s container has an empty or malformed requested image reference %q in Docker Config.Image", entry.Service, configImage)}
 		}
+		entry.Image = configImage
 		servingEntries = append(servingEntries, entry)
 	}
 	return servingEntries, nil
