@@ -1526,3 +1526,39 @@ func TestCaptureSourceServingImageIdentitiesRefusesEmptyConfigImage(t *testing.T
 		t.Fatalf("real capture error = %v, want sourceServingEraUnknownError (deterministic, parkable)", err)
 	}
 }
+
+// A real capture failure (not the injected seam) must fail before ANY durable
+// write: the recovery marker keeps its pre-capture content and no carrier file
+// appears, so the caller's park path starts from an untouched source stack
+// and retry cannot resume from a half-captured state (STATBUS-436).
+func TestCaptureSourceServingImageIdentitiesRealFailureWritesNothing(t *testing.T) {
+	setSourceStackImageIdentityEnv(t)
+	git := newGitRepoFixture(t)
+	sourceTag := git.oldSHA[:8]
+	treeTag := git.newSHA[:8]
+	installSourceCaptureDockerShim(t, treeTag, sourceTag, sourceTag, sourceTag, nil)
+	wrapDockerComposePsDisplay(t, true)
+	d := &Service{projDir: git.dir}
+	if err := d.writeUpgradeFlag(23, git.newSHA, nil, "test", "test", false); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = d.removeUpgradeFlag() })
+	before, err := os.ReadFile(filepath.Join(git.dir, "tmp", "upgrade-in-progress.json"))
+	if err != nil {
+		t.Skipf("flag path differs: %v", err)
+	}
+	if err := d.captureSourceServingImageIdentities(context.Background()); err == nil {
+		t.Fatal("capture must fail")
+	}
+	after, err := os.ReadFile(filepath.Join(git.dir, "tmp", "upgrade-in-progress.json"))
+	if err != nil || string(before) != string(after) {
+		t.Fatalf("recovery marker changed by failed capture: err=%v", err)
+	}
+	if strings.Contains(string(after), "source_serving_images") {
+		t.Fatal("failed capture must not record source images in the marker")
+	}
+	flag, rerr := ReadFlagFile(git.dir)
+	if rerr != nil || flag == nil || flag.ID != 23 {
+		t.Fatalf("flag must remain readable for the park path: %v %+v", rerr, flag)
+	}
+}
