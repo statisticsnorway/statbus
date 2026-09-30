@@ -1,0 +1,1 @@
+lxd-arcs-v2026.09.3-rc.16-20260929T135759	c-rollback-resurrection	✗ db container .Created (2026-09-29T14:09:18.071768272Z) is AFTER rolled_back_at (2026-09-2914:08:47.21478+00) — the database was recreated from the TARGET compose model after the ledger already declared rolled_back (STATBUS-425 rc.16 class: EnsureDBUp's config-hash drift recreate on the next daemon boot)

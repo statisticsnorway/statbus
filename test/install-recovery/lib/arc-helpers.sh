@@ -242,7 +242,27 @@ _assert_fingerprint_usable() {
 capture_db_fingerprint() {
     local label="${1:-fp}"
     local schema_sha ledger_sha data_sha fp_db fp_user schema_file
-    schema_file="${HARNESS_ROOT}/tmp/arc-schema-${label}.sql"
+    # STATBUS-425 M3b (found live, real cross-arc data race — not a product
+    # bug, a harness one): every caller of this function across every arc
+    # passes the SAME literal label ("baseline", or "rollback-recheck" from
+    # assert_fingerprint_matches below) — schema_file was keyed ONLY on that
+    # label, never on which arc/fork it belongs to. On Hetzner this is
+    # invisible: each arc gets its own throwaway VM (its own filesystem), so
+    # a fixed path never collides. This driver (run-arcs.sh) runs many arcs
+    # CONCURRENTLY as sibling subshells sharing ONE host filesystem — two
+    # arcs calling capture_db_fingerprint baseline at the same moment
+    # overwrote each other's tmp/arc-schema-baseline.sql mid-write, and the
+    # loser observed a truncated/empty file → the CENTERPIECE GUARD below
+    # correctly refused it as INCONCLUSIVE-INFRA (fail-loud, not a silent
+    # false pass) but every genuinely-live arc that happened to race lost a
+    # real verdict to pure host-filesystem contention. VM_NAME is set by
+    # every caller before sourcing this file (each arc's own fork/VM name,
+    # already filesystem-safe — alphanumeric and hyphens only, verified
+    # across every arcs/*.sh) and is UNIQUE per concurrently-running
+    # instance by construction (LXD/Hetzner both refuse duplicate
+    # names) — scoping the path on it makes concurrent siblings write to
+    # genuinely disjoint files regardless of backend or concurrency.
+    schema_file="${HARNESS_ROOT}/tmp/arc-schema-${VM_NAME:-novm}-${label}.sql"
     mkdir -p "$(dirname "$schema_file")"
 
     # QUIESCE the worker before capturing (071 AC#2 schema-dim determinism; architect
@@ -324,8 +344,11 @@ assert_fingerprint_matches() {
             # residual determinism → quiesce harder; a migration table altered/missing
             # = a real recovery bug. Full dumps upload as artifacts (run-arc globs
             # tmp/arc-schema-*.sql).
-            local bf="${HARNESS_ROOT}/tmp/arc-schema-${baseline_schema_label}.sql"
-            local cf="${HARNESS_ROOT}/tmp/arc-schema-rollback-recheck.sql"
+            # Same VM_NAME-scoped path capture_db_fingerprint now writes (M3b
+            # fix above) — these two variables must stay in sync with it or
+            # this diagnostic silently diffs stale/wrong-arc files.
+            local bf="${HARNESS_ROOT}/tmp/arc-schema-${VM_NAME:-novm}-${baseline_schema_label}.sql"
+            local cf="${HARNESS_ROOT}/tmp/arc-schema-${VM_NAME:-novm}-rollback-recheck.sql"
             echo "    schema diff (${bf} vs ${cf}) — first 60 differing lines:" >&2
             diff "$bf" "$cf" 2>/dev/null | head -60 | sed 's/^/      /' >&2 || true
         fi
@@ -468,6 +491,138 @@ SCRIPT_EOF
 # arc_nrestarts — the unit's systemd NRestarts counter (for the bounded-restart assert).
 arc_nrestarts() {
     VM_EXEC systemctl --user show "$ARC_UPGRADE_UNIT" --property=NRestarts --value 2>/dev/null | tr -d ' \r\n' || echo "?"
+}
+
+arc_dump_ledger() {
+    # Observation only (no assertion): every public.upgrade row's identity and
+    # supersede fields plus the checkout's HEAD and tags, so a terminal-state
+    # difference between backends can be traced to the row that caused it
+    # (STATBUS-425 M3b: a B row went 'superseded' on LXD and stayed 'failed' on
+    # Hetzner, and neither log showed A's row).
+    local label=${1:-ledger}
+    echo "── [LEDGER] $label ──"
+    VM_EXEC bash -c "cd ~/statbus && git rev-parse HEAD && git tag --points-at HEAD | tr '\n' ' ' && echo && echo \"SELECT id, left(commit_sha,8) AS sha, state, release_status, commit_version, commit_tags, committed_at, superseded_at FROM public.upgrade ORDER BY id;\" | ./sb psql" 2>&1 || echo "  (could not read the ledger)"
+}
+
+# arc_wait_unit_active <budget_s> [unit] [after_ts] — poll until the daemon
+# unit reaches systemd state 'active' (sd_notify READY=1 observed) on a boot
+# that STARTED after <after_ts> (a Postgres ::timestamptz-parseable string,
+# e.g. rolled_back_at), or the budget expires.
+# STATBUS-425 M3a (rc.16 arc c-rollback-resurrection, run 36468921894 /
+# reproduced live on LXD): a rolled_back terminal write happens INSIDE the
+# rollback pass, which then exits (RestartForceExitStatus=42 for the
+# success path, or a plain non-zero TEMPFAIL exit after some rollback
+# shapes) — systemd's RestartSec=30 auto-restart then re-runs the daemon,
+# and THAT boot's own pre-READY=1 init (cli/internal/upgrade/service.go
+# Service.Run: EnsureDBUp runs strictly BEFORE sdNotify("READY=1")) is what
+# recreates the db container from whatever compose model the LAST swap left
+# on disk. Any caller that reads container/db state at a FIXED moment after
+# a terminal write (not gated on this) is racing that recreate — on Hetzner
+# it landed mid-recreate ("database is shutting down"); on LXD, reproduced
+# live, the SAME recreate fires about 40s after rolled_back, sometimes
+# finishing before a slow local driver's own next query, sometimes not: a
+# timing coincidence, not a discriminating check (AGENTS.md: no flaky
+# tests — pin the mechanism). is-active=='active' is a reliable AFTER
+# marker for BOTH backends because it requires READY=1, which the daemon
+# source code guarantees follows EnsureDBUp — never race a fixed sleep or a
+# single is-active sample instead (the first boot after ANY terminal write
+# passes through 'activating (auto-restart)' for a real, non-zero interval;
+# a bare one-shot check can sample inside that window and read false).
+#
+# STATBUS-425 M3b review round R1 (found by review, not live — a real gap
+# nonetheless): a bare is-active=='active' sample can ALSO be satisfied by
+# the OLD daemon process, which is still 'active' in the window between its
+# own rolled_back write and its later os.Exit(75) — the unit does not leave
+# 'active' until systemd actually reaps that process and restarts it, so a
+# poll landing in that window (a real possibility: nothing bounds how soon
+# after the terminal write this function is first called) would read
+# 'active' from the PRE-rollback boot and return immediately, before the
+# recreate-causing boot has even started — exactly the false-green shape
+# this function exists to rule out. When <after_ts> is given, also read the
+# unit's own ExecMainStartTimestamp (systemd's record of when THIS boot's
+# main process actually started — reset on every restart, immune to the
+# is-active string's own boot-identity ambiguity) and require it to be
+# later than <after_ts>: this discriminates "the OLD boot is still active"
+# from "a NEW boot, started after the fact we're waiting past, is active"
+# using the same already-happened-fact comparison style as the caller's own
+# .Created-vs-rolled_back_at check, not a second live race.
+arc_wait_unit_active() {
+    local budget="$1" unit="${2:-$ARC_UPGRADE_UNIT}" after_epoch="${3:-}"
+    local start now elapsed state start_ts start_epoch after_epoch_int
+    start=$(date +%s)
+    while true; do
+        now=$(date +%s); elapsed=$((now - start))
+        # Budget is enforced HERE, before any branch that can `continue`
+        # (STATBUS-425 M3b review C1): the old/unreadable/unparsable-boot
+        # branches all loop back, so a check placed after them never ran.
+        # The state is read first so the failure message reports it.
+        state=$(VM_EXEC bash -c "systemctl --user is-active '$unit' 2>/dev/null || true" 2>/dev/null | tr -d ' \r\n')
+        if [ "$elapsed" -ge "$budget" ] && ! { [ "$state" = "active" ] && [ -z "$after_epoch" ]; }; then
+            echo "✗ $unit did not reach a post-rollback 'active' within ${budget}s (last observed: '$state')" >&2
+            VM_EXEC systemctl --user status "$unit" --no-pager -l 2>/dev/null | tail -30 >&2 || true
+            return 1
+        fi
+        if [ "$state" = "active" ]; then
+            if [ -n "$after_epoch" ]; then
+                # STATBUS-425 M3b (found live, real incident: the FIRST real
+                # run through this comparison hung indefinitely, 800+s past
+                # its own 90s budget with the budget check never firing):
+                # the caller passes after_epoch as PLAIN EPOCH SECONDS (a
+                # number, not a raw timestamp string) precisely because
+                # psql_scalar's own `tr -d ' \r\n'` (every arc script's
+                # copy) strips the internal space out of a raw timestamp
+                # string before it ever reaches this function
+                # ('2026-09-29 11:32:07...' becomes the unparseable
+                # '2026-09-2911:32:07...'), which made the OLD version of
+                # this comparison's ::timestamptz cast silently error
+                # (stderr discarded) and $newer read empty forever — never
+                # 't', never a hard failure either, an infinite loop. A
+                # plain integer has no space to strip; read
+                # ExecMainStartTimestamp on THIS side and convert it to
+                # epoch too, inside the same query, so the whole comparison
+                # is two numbers, never a re-parsed date string.
+                start_ts=$(VM_EXEC systemctl --user show "$unit" --property=ExecMainStartTimestamp --value 2>/dev/null | tr -d '\r\n')
+                if [ -z "$start_ts" ] || [ "$start_ts" = "n/a" ]; then
+                    echo "  … $unit is active but ExecMainStartTimestamp is unreadable ('$start_ts') — waiting for a stable read (t+${elapsed}s)"
+                    sleep 3
+                    continue
+                fi
+                # STATBUS-425 M3b (found live, second real bug in this same
+                # wait, first attempt after the epoch fix): the FIRST fix
+                # still round-tripped start_ts (systemd's own format, e.g.
+                # 'Tue 2026-09-29 12:20:25 UTC' — an internal-space string
+                # again) through a fresh SQL string literal, nested three
+                # layers deep (VM_EXEC -> sudo -i -u statbus bash -c ->
+                # `echo ... | ./sb psql`) — genuinely produced an empty
+                # \$newer on the very first live attempt (this function's
+                # own new fail-loud path correctly caught it rather than
+                # hanging again, but the root cause was still unfixed).
+                # Convert start_ts to epoch on the REMOTE side directly via
+                # `date -d` (GNU coreutils, present on every Ubuntu guest
+                # this harness targets) instead of ever asking Postgres to
+                # re-parse a systemd-formatted date string — the whole
+                # comparison becomes two plain integers compared in bash,
+                # no SQL round-trip needed for this step at all.
+                start_epoch=$(VM_EXEC bash -c "date -d '$start_ts' +%s" 2>/dev/null | tr -d ' \r\n')
+                if ! [[ "$start_epoch" =~ ^[0-9]+$ ]]; then
+                    echo "  … $unit is active but ExecMainStartTimestamp ('$start_ts') did not convert to a valid epoch (got '$start_epoch') — waiting for a stable read (t+${elapsed}s)"
+                    sleep 3
+                    continue
+                fi
+                after_epoch_int=${after_epoch%%.*}
+                if [ "$start_epoch" -gt "$after_epoch_int" ]; then
+                    echo "  ✓ $unit active on a boot started ($start_ts, epoch $start_epoch) after epoch $after_epoch (t+${elapsed}s) — READY=1 observed on the POST-rollback boot, EnsureDBUp already completed this boot"
+                    return 0
+                fi
+                echo "  … $unit is active but its current boot started at '$start_ts' (epoch $start_epoch), not after epoch $after_epoch — still the pre-rollback process; waiting for the restart (t+${elapsed}s)"
+                sleep 3
+                continue
+            fi
+            echo "  ✓ $unit active (t+${elapsed}s) — READY=1 observed, EnsureDBUp already completed this boot"
+            return 0
+        fi
+        sleep 3
+    done
 }
 
 # arc_wait_row_state <sha> <want_state> [budget_s] — poll public.upgrade for <sha>

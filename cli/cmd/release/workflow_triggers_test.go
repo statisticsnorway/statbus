@@ -496,8 +496,14 @@ func TestLXDFleetGatesUpgradeArcs_STATBUS417(t *testing.T) {
 		t.Fatal("LXD dispatch must gate and pin candidate ref/SHA")
 	}
 	arcs := doc.Jobs["upgrade-arc-harness"]
-	if !strings.Contains(strings.Join(arcs.Needs, " "), "lxd-fleet") || !strings.Contains(arcs.If, "needs['lxd-fleet'].outputs.superseded != 'true'") {
-		t.Fatal("upgrade arcs must follow successful non-superseded LXD fleet")
+	// STATBUS-425 M4: faults and arcs run concurrently after dev. Arcs must NOT
+	// wait for the fault fleet, but must still be gated on a successful,
+	// non-obsolete candidate and a green dev canary.
+	if strings.Contains(strings.Join(arcs.Needs, " "), "lxd-fleet") || strings.Contains(arcs.If, "lxd-fleet") {
+		t.Fatal("upgrade arcs must not be serialized behind the LXD fault fleet")
+	}
+	if !strings.Contains(strings.Join(arcs.Needs, " "), "dev-canary") || !strings.Contains(arcs.If, "needs['dev-canary'].result == 'success'") {
+		t.Fatal("upgrade arcs must follow a successful dev canary")
 	}
 	if !strings.Contains(strings.Join(doc.Jobs["fleet-verdict"].Needs, " "), "lxd-fleet") {
 		t.Fatal("final verdict must await LXD")

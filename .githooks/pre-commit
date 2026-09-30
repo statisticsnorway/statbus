@@ -81,17 +81,30 @@ fi
 STAGED_MIGRATIONS=$(git diff --cached --name-only --diff-filter=ACM | grep -E '^migrations/.*\.sql$' || true)
 
 if [ -n "$STAGED_MIGRATIONS" ]; then
-    # EXEMPTION (STATBUS-118): synthetic upgrade-arc test fixtures
-    # (migrations/*_upgrade_arc*.{up,down}.sql) are throwaway, test-only migrations
-    # created by construct_upgrade_target on never-merged test/upgrade-arc-* branches.
-    # They have no schema-doc impact and never reach main, so the doc/db pairing
-    # requirement genuinely does not apply. If EVERY staged migration is such a
-    # fixture, skip ONLY this pairing check — every other check in this hook still
-    # runs. This is a NAMED in-guard exemption that REPLACES a call-site
-    # `git commit --no-verify` (which would also blow past the tmp/, PlantUML, and
-    # security-report checks): the policy is declared where it is enforced, not worked
-    # around at the commit site. Do NOT broaden this pattern to real migrations.
-    NON_FIXTURE_MIGRATIONS=$(echo "$STAGED_MIGRATIONS" | grep -vE '_upgrade_arc(_2)?\.(up|down)\.sql$' || true)
+    # EXEMPTION (STATBUS-118, widened STATBUS-425 M3b): synthetic upgrade-arc
+    # test fixtures (migrations/*_upgrade_arc[_N].{up,down}.sql) are
+    # throwaway, test-only migrations created by construct_upgrade_target on
+    # never-merged test/upgrade-arc-* branches. They have no schema-doc
+    # impact and never reach main, so the doc/db pairing requirement
+    # genuinely does not apply. If EVERY staged migration is such a
+    # fixture, skip ONLY this pairing check — every other check in this hook
+    # still runs. This is a NAMED in-guard exemption that REPLACES a
+    # call-site `git commit --no-verify` (which would also blow past the
+    # tmp/, PlantUML, and security-report checks): the policy is declared
+    # where it is enforced, not worked around at the commit site. Do NOT
+    # broaden this pattern to real migrations.
+    #
+    # Found live (STATBUS-425 M3b, first real local run of run-arcs.sh's
+    # full 7-lineage construct phase): the original `(_2)?` suffix covers
+    # only V1/V2 (upgrade-target.sh's _v_up/_v2_up), never V3
+    # (_v3_up="migrations/${V_VERSION_3}_upgrade_arc_3.up.sql" —
+    # upgrade-target.sh:606-607), which healthpark's fix migration and
+    # crollback's failing C migration both stage. CI never exercised this
+    # gap (its own checkout has no local hooks installed — upgrade-target.sh
+    # even notes this), so it was latent until a real local git commit ran
+    # against a real hooksPath. Widened to `(_[0-9]+)?` so any future V_N
+    # this fixture family adds is covered without another hand-edit here.
+    NON_FIXTURE_MIGRATIONS=$(echo "$STAGED_MIGRATIONS" | grep -vE '_upgrade_arc(_[0-9]+)?\.(up|down)\.sql$' || true)
     STAGED_DOCDB=$(git diff --cached --name-only --diff-filter=ACMD | grep -E '^doc/db/' || true)
     if [ -n "$NON_FIXTURE_MIGRATIONS" ] && [ -z "$STAGED_DOCDB" ]; then
         echo "COMMIT REJECTED"

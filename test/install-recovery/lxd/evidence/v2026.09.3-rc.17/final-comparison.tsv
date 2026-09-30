@@ -1,0 +1,36 @@
+arc	hetzner_36509925405	lxd_final	lxd_run	match	cause
+after-commit-before-recorded-kill	PASS	PASS	20260929T114842	yes	
+boot-migrate-churn-alive-idle	PASS	PASS	20260929T114842	yes	
+c-rollback-resurrection	PASS	PASS	20260929T131413	yes	LXD final bytes vs Hetzner pre-change bytes; full-run red was pre-fix arc code (R1 hang, fixed 069527732+fa7c17dbb); rc.16 RED on the same final LXD code (run rc.16-20260929T135759)
+claim-without-notify	PASS	PASS	20260929T114842	yes	
+cross-version-rename-handoff	PASS	PASS	20260929T114842	yes	
+deploy-status-proof	PASS	PASS	20260929T114842	yes	
+failing	PASS	PASS	20260929T114842	yes	
+flagless-selfheal-at-target	PASS	PASS	20260929T114842	yes	
+postswap-after-commit-kill	PASS	PASS	20260929T114842	yes	
+postswap-between-migrations-kill	PASS	PASS	20260929T114842	yes	
+postswap-container-restart-kill	PASS	PASS	20260929T114842	yes	
+postswap-converged-selfheal	PASS	PASS	20260929T114842	yes	
+postswap-health-park	PASS	PASS	20260929T131413	yes	full-run red was infra: Docker Hub timeout pulling postgrest v14.14
+postswap-mid-migration-kill	PASS	PASS	20260929T114842	yes	
+postswap-mid-tx-kill	PASS	PASS	20260929T114842	yes	
+postswap-migration-ceiling	PASS	PASS	20260929T114842	yes	
+postswap-migration-oom	PASS	PASS	20260929T114842	yes	
+postswap-migration-timeout	PASS	PASS	20260929T114842	yes	
+postswap-rollback-restore-watchdog	PASS	PASS	20260929T114842	yes	
+postswap-severed-proxy-refusal	PASS	PASS	20260929T114842	yes	
+postswap-stopped-proxy-recovery	PASS	PASS	20260929T114842	yes	
+postswap-watchdog-reconnect	PASS	PASS	20260929T114842	yes	
+preswap-backup-kill	PASS	PASS	20260929T114842	yes	
+preswap-binary-swap-kill	PASS	PASS	20260929T114842	yes	
+preswap-checkout-kill	PASS	PASS	20260929T114842	yes	
+preswap-fetch-returned-error	PASS	PASS	20260929T114842	yes	
+restore-broke-reattempt	PASS	FAIL	20260929T144023	NO	LXD ledger: stable-classified installed A supersedes newer untagged failed B; failed Hetzner discovery in this arc is inferred, not captured; see README
+rollback-kill	PASS	PASS	20260929T114842	yes	
+rollback-pair-terminal	PASS	FAIL	20260929T144023	NO	LXD ledger: stable-classified installed A supersedes newer untagged failed B; failed Hetzner discovery in this arc is inferred, not captured; see README
+rollback-schema-floor-adoption	PASS	PASS	20260929T114842	yes	
+rollback-schema-floor-failure	PASS	PASS	20260929T114842	yes	
+transient-db-backoff	PASS	PASS	20260929T114842	yes	
+un-park-to-completion	PASS	PASS	20260929T114842	yes	
+worker-wedge-mid-derive	PASS	PASS	20260929T133700	yes	LXD final bytes vs Hetzner pre-change bytes; class (c) timing: lock released before Postgres noticed the SIGKILLed client; fixed 7edb2f275
+working	PASS	PASS	20260929T150305	yes	LXD final bytes vs Hetzner pre-change bytes; full-run FAIL_NO_PASS_LINE was the arc's nonstandard PASS prefix; fixed 83b3b3b84

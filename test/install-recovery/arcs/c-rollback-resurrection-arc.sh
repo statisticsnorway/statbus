@@ -54,6 +54,11 @@ TICK_WAIT_S="${TICK_WAIT_S:-120}"
 PARK_WAIT_BUDGET_S="${PARK_WAIT_BUDGET_S:-600}"
 UPGRADE_BUDGET_S="${UPGRADE_BUDGET_S:-900}"
 INSTALL_BUDGET_S="${INSTALL_BUDGET_S:-1200}"
+# STATBUS-425 M3a: budget for arc_wait_unit_active after C's rolled_back terminal
+# write — one RestartSec=30 auto-restart cycle + boot + margin, mirroring the
+# identical budget postswap-health-park-arc.sh/un-park-to-completion-arc.sh
+# already use for the SAME auto-restart-hold-off class of wait.
+UNIT_ACTIVE_WAIT_BUDGET_S="${UNIT_ACTIVE_WAIT_BUDGET_S:-90}"
 
 : "${BASE_SHA:?BASE_SHA required}"
 : "${B_FULL:?B_FULL required}"
@@ -63,8 +68,8 @@ INSTALL_BUDGET_S="${INSTALL_BUDGET_S:-1200}"
 : "${B_SHORT:?B_SHORT required - the park-reason regex names B short SHA}"
 # V2/V3 arrive via the run-arc job env (deterministic from BASE_SHA's migrations);
 # require them here so a manual invocation fails fast, not mid-arc (set -u).
-: "${V_VERSION_2:?V_VERSION_2 required - B's at-target anti-vacuity reads it}"
-: "${V_VERSION_3:?V_VERSION_3 required - C's not-applied assert reads it}"
+: "${V_VERSION_2:?V_VERSION_2 required - anti-vacuity check for B at target reads it}"
+: "${V_VERSION_3:?V_VERSION_3 required - not-applied assertion for C reads it}"
 
 LIB_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/lib"
 source "$LIB_DIR/vm-bootstrap.sh"
@@ -112,6 +117,24 @@ row_cols_for() {
 psql_scalar() { VM_EXEC bash -c "cd ~/statbus && echo \"$1\" | ./sb psql -t -A" 2>/dev/null | tr -d ' \r\n' || echo "?"; }
 # git HEAD on the box — the observed running version (what the box actually runs).
 box_head() { VM_EXEC bash -c "cd ~/statbus && git rev-parse HEAD" 2>/dev/null | tr -d ' \r\n' || echo "?"; }
+# db_container_identity — "<container-id> <image-tag> <created-timestamp>" for the
+# db service, via `docker inspect` (never `docker ps`, whose CreatedAt column
+# has second, not nanosecond, resolution — too coarse to prove a container that
+# lived only tens of seconds was never replaced). Compared VERBATIM across the
+# wait window below: any change in ANY field is a recreate, whether or not the
+# image tag itself also changed (a same-tag recreate would still be a real
+# resurrection of the mechanism this arc proves is absent). Empty/failure reads
+# as "(unreadable)", never a false match against a real prior value.
+db_container_identity() {
+    # STATBUS-425 M3a (found live: this function returned empty on its first
+    # real run - "cd ~/statbus" under VM_ROOT_EXEC resolves against ROOT's
+    # home (/root), not the statbus checkout, because VM_ROOT_EXEC runs as
+    # root (lxc exec ... -- bash -c), unlike VM_EXEC's sudo -u statbus. Every
+    # other root-context caller in this codebase uses the absolute
+    # /home/statbus/statbus path for exactly this reason (lxd-backend.sh's
+    # own FRESH-checkout guards, sb-swap steps, etc.) - use it here too.
+    VM_ROOT_EXEC bash -c 'cd /home/statbus/statbus && docker compose ps -q db 2>/dev/null | xargs -r docker inspect --format "{{.Id}} {{.Config.Image}} {{.Created}}" 2>/dev/null' 2>/dev/null | tr -d '\r' || true
+}
 
 apply_sql_file_with_migration_write_access() {
     local sql_file="$1"
@@ -286,6 +309,84 @@ echo "  ✓ B superseded, park marker cleared, park narrative + displacement not
 # ── assert C rolled back onto B: C 'rolled_back' (arc_to already ruled it), and the
 #    box is on B — db.migration max is B's V2, NOT C's V3 (C's V3 rolled back), and
 #    git HEAD reconciled to B. ──
+#
+# STATBUS-425 M3a (rc.16 arc run 36468921894; reproduced live on LXD, watched
+# directly with a 3s-resolution docker-inspect poll across 3 separate real
+# runs, not inferred): arc_to's own terminal-state loop returns the INSTANT
+# the ledger writes rolled_back, but that write happens WHILE the rollback
+# pass is still mid-flight — its own process exit and the systemd
+# RestartSec=30 auto-restart it triggers land tens of seconds LATER. That
+# restart's pre-READY=1 init runs EnsureDBUp (cli/internal/upgrade/
+# service.go, Service.Run: strictly before sdNotify("READY=1")), which can
+# recreate the db container from whatever compose model the prior swap left
+# on disk — AFTER the ledger has already told the operator "rolled back,
+# running normally". Read live (evidence in the progress log): the
+# container's own .Created timestamp landed ~12-40s after rolled_back_at
+# across three separate rc.16 runs.
+#
+# THE DISCRIMINATOR IS NOT "does the box eventually settle correctly" — on
+# EVERY LXD run observed, including rc.16 ones, it did: the daemon's own
+# restart-and-recreate is itself convergent, so a check taken after waiting
+# long enough always sees a healthy box on the right commit, on BOTH
+# backends, defect or no defect (a verdict that depends on which side of a
+# timing window a run's OWN query lands is not a discriminating check,
+# AGENTS.md: no flaky tests). THE DISCRIMINATOR IS THE HISTORICAL FACT of
+# whether the container was ever recreated AFTER rolled_back_at was
+# written — a fixed instant already on the ledger, compared against the
+# container's own immutable .Created timestamp, both real timestamps, no
+# live race to lose: wait for the daemon to settle (arc_wait_unit_active;
+# ALSO still needed so the comparison itself reads a stable, non-mid-
+# transition container), then compare two facts that already happened.
+echo ""
+# STATBUS-425 M3b review round R1: capture rolled_back_at BEFORE the wait and
+# pass it to arc_wait_unit_active, so the wait discriminates the POST-rollback
+# boot (ExecMainStartTimestamp after this instant) from the OLD daemon
+# process, which the unit still reports 'active' for in the window between
+# its own rolled_back write and its later os.Exit(75) — is-active alone
+# cannot tell those two apart; see arc_wait_unit_active's own header comment.
+# STATBUS-425 M3b (found live: the FIRST real run through this wait hung
+# indefinitely): capture as EPOCH SECONDS via extract(epoch from ...), never
+# the raw timestamptz text — psql_scalar's own `tr -d ' \r\n'` (every arc
+# script's copy) strips the space between the date and time components of a
+# raw timestamp string ('2026-09-29 11:32:07...' -> '2026-09-2911:32:07...'),
+# which arc_wait_unit_active would then fail to parse. A plain integer has
+# no space to strip.
+ROLLED_BACK_AT_EPOCH=$(psql_scalar "SELECT extract(epoch from rolled_back_at) FROM public.upgrade WHERE commit_sha = '$C_FULL' ORDER BY id DESC LIMIT 1;")
+[[ "$ROLLED_BACK_AT_EPOCH" =~ ^[0-9]+(\.[0-9]+)?$ ]] || { echo "✗ rolled_back_at is not yet set for C, or did not read as a number (got '$ROLLED_BACK_AT_EPOCH') — arc_to should have already confirmed the 'rolled_back' terminal before this point" >&2; exit 1; }
+echo "── waiting out the daemon's post-rollback restart cycle (budget ${UNIT_ACTIVE_WAIT_BUDGET_S}s) before reading box state ──"
+arc_wait_unit_active "$UNIT_ACTIVE_WAIT_BUDGET_S" "$ARC_UPGRADE_UNIT" "$ROLLED_BACK_AT_EPOCH" || exit 1
+# Capture the db container's identity now (settled state) and again after a
+# short further settle window: if EnsureDBUp were somehow STILL in flight (or
+# fires a SECOND time on a later heartbeat tick), this catches it as a
+# genuine assertion failure rather than reading a container mid-replacement.
+# Mirrors postswap-health-park-arc.sh's own "before/after a settle window,
+# must match" NRestarts pattern (STATBUS-425 M3a; same false-vacuity class).
+DB_ID_SETTLED=$(db_container_identity)
+[ -n "$DB_ID_SETTLED" ] || { echo "✗ could not read db container identity after the settle wait (docker inspect empty/failed)" >&2; exit 1; }
+sleep 15
+DB_ID_RECHECK=$(db_container_identity)
+[ "$DB_ID_RECHECK" = "$DB_ID_SETTLED" ] || { echo "✗ db container identity changed during the post-settle recheck window: before='$DB_ID_SETTLED' after='$DB_ID_RECHECK' — a recreate is STILL happening after the unit reported active" >&2; exit 1; }
+echo "  ✓ db container identity stable across the settle+recheck window: $DB_ID_SETTLED"
+# ── THE mechanism-level assertion: the db container must NOT have been
+#    created after the ledger declared rolled_back. Both timestamps are
+#    real, already-written facts (Postgres now() at the UPDATE; Docker's own
+#    immutable .Created at container-create time) - comparing them inside
+#    Postgres itself (::timestamptz, not bash date arithmetic) sidesteps any
+#    local-vs-remote clock or format mismatch, and is itself a HISTORICAL
+#    fact-check, not a live race: it is true or false regardless of when
+#    this script happens to run it. ──
+DB_CREATED_AT=$(printf '%s' "$DB_ID_SETTLED" | awk '{print $3}')
+[ -n "$DB_CREATED_AT" ] || { echo "✗ could not parse db container .Created from identity: $DB_ID_SETTLED" >&2; exit 1; }
+RECREATED_AFTER_ROLLBACK=$(psql_scalar "SELECT (rolled_back_at IS NOT NULL AND '${DB_CREATED_AT}'::timestamptz > rolled_back_at) FROM public.upgrade WHERE commit_sha = '$C_FULL' ORDER BY id DESC LIMIT 1;")
+case "$RECREATED_AFTER_ROLLBACK" in
+    f) echo "  ✓ db container .Created ($DB_CREATED_AT) is NOT after rolled_back_at — the database was never recreated post-rollback" ;;
+    t)
+        ROLLED_BACK_AT=$(psql_scalar "SELECT rolled_back_at FROM public.upgrade WHERE commit_sha = '$C_FULL' ORDER BY id DESC LIMIT 1;")
+        echo "✗ db container .Created ($DB_CREATED_AT) is AFTER rolled_back_at ($ROLLED_BACK_AT) — the database was recreated from the TARGET compose model after the ledger already declared rolled_back (STATBUS-425 rc.16 class: EnsureDBUp's config-hash drift recreate on the next daemon boot)" >&2
+        exit 1
+        ;;
+    *) echo "✗ could not evaluate the recreate-after-rollback check (got '$RECREATED_AFTER_ROLLBACK')" >&2; exit 1 ;;
+esac
 echo ""
 echo "── assert C rolled back onto B: C rolled_back, box's DB + tree back on B ──"
 C_STATE=$(psql_scalar "SELECT state FROM public.upgrade WHERE commit_sha = '$C_FULL' ORDER BY id DESC LIMIT 1;")
@@ -296,6 +397,17 @@ DBMAX_AFTER_C=$(psql_scalar "SELECT max(version) FROM db.migration;")
 [ "$DBMAX_AFTER_C" = "${V_VERSION_2}" ] || { echo "✗ db.migration max is $DBMAX_AFTER_C, expected B's V2=${V_VERSION_2} — the box's DB is not on B" >&2; exit 1; }
 HEAD_AFTER_C=$(box_head)
 [ "$HEAD_AFTER_C" = "$B_FULL" ] || { echo "✗ git HEAD is $HEAD_AFTER_C, expected B ($B_FULL) — the rollback did not reconcile the tree to B" >&2; exit 1; }
+# The db container's running image must name B's own short SHA (the SOURCE
+# model), never C's — a resurrection that raced the read would show C's tag
+# (or a container the settled-identity check above already would have
+# caught changing). This is the DIRECT, mechanism-level form of "box's DB is
+# on B": not inferred from db.migration's version ledger, but read from the
+# container Docker itself is actually running.
+DB_IMAGE_TAG=$(printf '%s' "$DB_ID_SETTLED" | awk '{print $2}')
+case "$DB_IMAGE_TAG" in
+    *":${B_SHORT}") echo "  ✓ db container image tag names B's own short SHA (${B_SHORT}): $DB_IMAGE_TAG" ;;
+    *) echo "✗ db container image tag does not name B's short SHA (${B_SHORT}): got '$DB_IMAGE_TAG' (identity: $DB_ID_SETTLED) — the container is not genuinely on the source model" >&2; exit 1 ;;
+esac
 echo "  ✓ C rolled_back; box's DB at B's V2 (${V_VERSION_2}), C's V3 not applied, git HEAD == B"
 
 # ── operator runs `./sb install` — StateNothingScheduled: config refresh, no row

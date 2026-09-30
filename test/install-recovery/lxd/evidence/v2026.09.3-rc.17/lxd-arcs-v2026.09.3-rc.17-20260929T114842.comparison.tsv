@@ -1,0 +1,37 @@
+arc	hetzner_verdict	lxd_verdict	lxd_wall_s	lxd_rc	lineage
+after-commit-before-recorded-kill		PASS	423	0	working
+boot-migrate-churn-alive-idle		PASS	566	0	failing
+c-rollback-resurrection		FAIL	572	1	crollback
+claim-without-notify		PASS	454	0	working
+cross-version-rename-handoff		PASS	533	0	crossversion
+deploy-status-proof		PASS	471	0	failing
+failing		PASS	537	0	failing
+flagless-selfheal-at-target		PASS	361	0	working
+postswap-after-commit-kill		PASS	459	0	working
+postswap-between-migrations-kill		PASS	435	0	working
+postswap-container-restart-kill		PASS	437	0	working
+postswap-converged-selfheal		PASS	418	0	working
+postswap-health-park		FAIL	536	1	healthpark
+postswap-mid-migration-kill		PASS	349	0	working
+postswap-mid-tx-kill		PASS	437	0	working
+postswap-migration-ceiling		PASS	470	0	ceiling
+postswap-migration-oom		PASS	493	0	oom
+postswap-migration-timeout		PASS	556	0	working
+postswap-rollback-restore-watchdog		PASS	759	0	failing
+postswap-severed-proxy-refusal		PASS	478	0	working
+postswap-stopped-proxy-recovery		PASS	469	0	working
+postswap-watchdog-reconnect		PASS	603	0	working
+preswap-backup-kill		PASS	421	0	working
+preswap-binary-swap-kill		PASS	404	0	working
+preswap-checkout-kill		PASS	351	0	working
+preswap-fetch-returned-error		PASS	441	0	working
+restore-broke-reattempt		FAIL	455	1	failing
+rollback-kill		PASS	431	0	working
+rollback-pair-terminal		FAIL	402	1	working
+rollback-schema-floor-adoption		PASS	628	0	failing
+rollback-schema-floor-failure		PASS	439	0	failing
+transient-db-backoff		PASS	606	0	working
+un-park-to-completion		PASS	528	0	codeonly
+worker-wedge-mid-derive		FAIL	316	1	working
+working		FAIL_NO_PASS_LINE	404	0	working
+verdict		PHASE_FAILED		1	

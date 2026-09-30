@@ -9,6 +9,12 @@ export LXD_CANDIDATE=$TAG
 source "$ROOT/test/install-recovery/lib/lxd-backend.sh"
 source "$ROOT/test/install-recovery/lxd/verdict.sh"
 source "$ROOT/test/install-recovery/lxd/fleet-status.sh"
+source "$ROOT/ops/lxd-fleet/marker.sh"
+source "$ROOT/ops/lxd-fleet/admission.sh"
+# The caller (lxd-fleet.yaml driver step) holds this candidate-scoped marker.
+# Each fork claims a shared host slot under it, so faults and arcs together stay
+# within LXD_HOST_SLOTS guests. Unset (local manual runs) = no host admission.
+LXD_MARKER_ID=${LXD_MARKER_ID:-}
 PINNED_ROOT="${JCODE_SCRATCH_DIR:?JCODE_SCRATCH_DIR required}/lxd-s2-pinned-${TAG//[^a-zA-Z0-9-]/-}"
 if [ ! -d "$PINNED_ROOT/.git" ] && [ ! -f "$PINNED_ROOT/.git" ]; then
     git -C "$ROOT" worktree add --detach "$PINNED_ROOT" "$TAG"
@@ -159,7 +165,13 @@ for slug in "${scenarios[@]}"; do
         # Only our own prefixed instance, reset before every invocation.
         if _lxd_host lxc info "$name" >/dev/null 2>&1; then _lxd_host lxc delete "$name" --force; fi
         rc=0
-        LC_ALL="$scenario_locale" LXD_CANDIDATE="$TAG" LXD_LOG_DIR="$RUN_DIR" bash "$SHADOW_ROOT/test/install-recovery/scenarios/$slug.sh" "statbus-recovery-$slug" >"$RUN_DIR/$slug.log" 2>&1 || rc=$?
+        slot=
+        : > "$RUN_DIR/$slug.log"
+        if [ -n "$LXD_MARKER_ID" ]; then
+            lxd_slot_acquire "$LXD_HOST" "$LXD_MARKER_ID" "${FORK_SLOT_WAIT_S:-2700}" && slot=$LXD_SLOT || rc=1
+        fi
+        [ "$rc" -ne 0 ] || LC_ALL="$scenario_locale" LXD_CANDIDATE="$TAG" LXD_LOG_DIR="$RUN_DIR" bash "$SHADOW_ROOT/test/install-recovery/scenarios/$slug.sh" "statbus-recovery-$slug" >"$RUN_DIR/$slug.log" 2>&1 || rc=$?
+        [ -z "$slot" ] || lxd_slot_release "$LXD_HOST" "$slot" "$LXD_MARKER_ID"
         verdict=$(lxd_scenario_verdict "$RUN_DIR/$slug.log" "$rc")
         printf '%s\t\t\t%s\t%s\t%s\t%s\n' "$slug" "$verdict" "$(( $(date +%s) - started ))" "$rc" "$checkpoint" > "$RUN_DIR/$slug.row"
     ) &

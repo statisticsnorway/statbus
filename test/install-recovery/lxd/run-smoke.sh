@@ -12,13 +12,14 @@ case "$SCENARIO" in 0-happy-install|0-happy-upgrade) ;; *) echo "Unknown smoke s
 export LXD_CANDIDATE=$TAG HARNESS_LXD_BACKEND=1 INSTALL_TARGET_TAG=$TAG
 source "$ROOT/test/install-recovery/lib/lxd-backend.sh"
 source "$ROOT/ops/lxd-fleet/marker.sh"
+source "$ROOT/ops/lxd-fleet/admission.sh"
 # Smoke, the fault driver and (from M3 on) arc matrix jobs each hold their
 # OWN marker while genuinely active, so the reaper never deletes the box
 # out from under a job it cannot see (a single shared marker file cannot
 # represent "more than one job is active" - review §1e). Best-effort release
 # on any exit, including a failed/cancelled run.
-MARKER_ID="${GITHUB_RUN_ID:-manual}-smoke-${SCENARIO}-$$"
-lxd_marker_acquire "$LXD_HOST" "$MARKER_ID"
+MARKER_ID=$(lxd_marker_id "$TAG" "smoke-${SCENARIO}")
+lxd_marker_acquire_wait "$LXD_HOST" "$MARKER_ID"
 trap 'lxd_marker_release "$LXD_HOST" "$MARKER_ID"' EXIT
 case "$SCENARIO" in
     0-happy-install)

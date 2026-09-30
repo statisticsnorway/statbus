@@ -1,0 +1,7 @@
+arc	hetzner_verdict	lxd_verdict	lxd_wall_s	lxd_rc	lineage
+c-rollback-resurrection		PASS	619	0	crollback
+postswap-health-park		PASS	654	0	healthpark
+restore-broke-reattempt		FAIL	366	1	failing
+rollback-pair-terminal		FAIL	360	1	working
+worker-wedge-mid-derive		FAIL	277	1	working
+verdict		PHASE_FAILED		1	

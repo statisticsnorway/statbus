@@ -18,8 +18,10 @@ on:
         default: ''
         type: string
 
-# Preserve the shared paid-fleet lock while arcs still use the old workflow
-# group. Faults and arcs start only after the orchestrator sees smoke's marks.
+# Smoke builds the checkpoints; faults and arcs start only after the
+# orchestrator sees smoke's marks and dev is green, then run concurrently on
+# the same box. The group name is historical (shared with arcs; orders whole
+# runs across candidates).
 concurrency:
   group: hetzner-vm-fleet
   cancel-in-progress: false
