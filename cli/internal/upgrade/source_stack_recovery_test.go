@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"reflect"
 	"strings"
@@ -65,6 +66,7 @@ const sourceStackImageInspectCases = `
 	"image inspect --format {{.Id}} "*postgrest*) printf '%s\n' "$STATBUS_TEST_REST_SOURCE_ID" ;;
 	"image inspect --format {{.Id}} "*statbus-proxy*) printf '%s\n' "$STATBUS_TEST_PROXY_SOURCE_ID" ;;
 	"inspect --format {{.Image}} "*) printf '%s\n' "$4" ;;
+	"inspect --format {{.Config.Image}} "*) "$0" compose ps -a --format json | grep "\"ID\":\"$4\"" | sed 's/.*"Image":"\([^"]*\)".*/\1/' ;;
 	`
 
 func installSourceCaptureDockerShim(t *testing.T, treeTag, appTag, workerTag, proxyTag string, states map[string]string) {
@@ -90,6 +92,7 @@ case "$*" in
 		[ "$STATBUS_TEST_REST_PRESENT" = 0 ] || printf '%s\n' '{"ID":"rest-container","Service":"rest","State":"'"$STATBUS_TEST_REST_STATE"'","Image":"postgrest/postgrest:v12.2.8"}'
 		[ "$STATBUS_TEST_PROXY_PRESENT" = 0 ] || printf '%s\n' '{"ID":"proxy-container","Service":"proxy","State":"'"$STATBUS_TEST_PROXY_STATE"'","Image":"ghcr.io/statisticsnorway/statbus-proxy:'"$STATBUS_TEST_PROXY_TAG"'"}'
 		;;
+	"inspect --format {{.Config.Image}} "*-container) "$0" compose ps -a --format json | grep "\"ID\":\"$4\"" | sed 's/.*"Image":"\([^"]*\)".*/\1/' ;;
 	"inspect --format {{.Image}} app-container") printf '%s\n' "$STATBUS_TEST_APP_SOURCE_ID" ;;
 	"inspect --format {{.Image}} worker-container") printf '%s\n' "$STATBUS_TEST_WORKER_SOURCE_ID" ;;
 	"inspect --format {{.Image}} rest-container") printf '%s\n' "$STATBUS_TEST_REST_SOURCE_ID" ;;
@@ -278,6 +281,7 @@ case "$*" in
 	"compose ps -a --format json")
 		printf '%s\n' '{"ID":"app-container","Service":"app","State":"running","Image":"ghcr.io/statisticsnorway/statbus-app:source","ImageID":"'"$STATBUS_TEST_APP_TARGET_ID"'"}'
 		;;
+	"inspect --format {{.Config.Image}} "*-container) "$0" compose ps -a --format json | grep "\"ID\":\"$4\"" | sed 's/.*"Image":"\([^"]*\)".*/\1/' ;;
 	"inspect --format {{.Image}} app-container") printf '%s\n' "$STATBUS_TEST_APP_SOURCE_ID" ;;
 esac
 exit 0
@@ -316,6 +320,7 @@ case "$*" in
 		printf '%s\n' '{"ID":"rest-container","Service":"rest","State":"running","Image":"postgrest/postgrest:v12.2.8"}'
 		printf '%s\n' '{"ID":"proxy-container","Service":"proxy","State":"running","Image":"ghcr.io/statisticsnorway/statbus-proxy:'"$STATBUS_TEST_SOURCE_TAG"'"}'
 		;;
+	"inspect --format {{.Config.Image}} "*-container) "$0" compose ps -a --format json | grep "\"ID\":\"$4\"" | sed 's/.*"Image":"\([^"]*\)".*/\1/' ;;
 	"inspect --format {{.Image}} app-container") printf '%s\n' "$STATBUS_TEST_APP_SOURCE_ID" ;;
 	"inspect --format {{.Image}} worker-container") printf '%s\n' "$STATBUS_TEST_WORKER_SOURCE_ID" ;;
 	"inspect --format {{.Image}} rest-container") printf '%s\n' "$STATBUS_TEST_REST_SOURCE_ID" ;;
@@ -1382,5 +1387,178 @@ func TestPreSwapPairTerminalConvergesBeforeReassuringWrite(t *testing.T) {
 	}
 	if !strings.Contains(body, "ErrRollbackServicesUp") || !strings.Contains(body, "could not be restored to normal service") {
 		t.Error("pair-terminal convergence failure must record a truthful degraded services-up terminal, not UPGRADE_STOPPED_NOTHING_CHANGED")
+	}
+}
+
+// Demo incident: compose ps prints the sha256 image ID in Image when the tag
+// display is lost. The container's Config.Image must be the reference used.
+func TestSourceServingContainerEntriesUsesConfigImageNotComposeDisplay(t *testing.T) {
+	setSourceStackImageIdentityEnv(t)
+	shimDir := t.TempDir()
+	shim := `#!/bin/sh
+case "$*" in
+	"compose ps -a --format json")
+		printf '%s\n' '{"ID":"worker-container","Service":"worker","State":"running","Image":"sha256:5207b175fa080e47a942e236a29fe801113df99c634aaef2272d9d5e34fa1645"}'
+		;;
+	"inspect --format {{.Image}} worker-container") printf '%s\n' "$STATBUS_TEST_WORKER_SOURCE_ID" ;;
+	"inspect --format {{.Config.Image}} worker-container") printf '%s\n' "ghcr.io/statisticsnorway/statbus-worker:fe4a769a" ;;
+esac
+exit 0
+`
+	if err := os.WriteFile(filepath.Join(shimDir, "docker"), []byte(shim), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("PATH", shimDir+string(os.PathListSeparator)+os.Getenv("PATH"))
+	d := &Service{projDir: t.TempDir()}
+	entries, err := d.sourceServingContainerEntries(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(entries) != 1 || entries[0].Image != "ghcr.io/statisticsnorway/statbus-worker:fe4a769a" {
+		t.Fatalf("entries = %+v, want Config.Image reference", entries)
+	}
+}
+
+func runServingEntriesWithConfigImage(t *testing.T, configCase string) error {
+	t.Helper()
+	setSourceStackImageIdentityEnv(t)
+	shimDir := t.TempDir()
+	shim := `#!/bin/sh
+case "$*" in
+	"compose ps -a --format json")
+		printf '%s\n' '{"ID":"worker-container","Service":"worker","State":"running","Image":"ghcr.io/statisticsnorway/statbus-worker:fe4a769a"}'
+		;;
+	"inspect --format {{.Image}} worker-container") printf '%s\n' "$STATBUS_TEST_WORKER_SOURCE_ID" ;;
+	"inspect --format {{.Config.Image}} worker-container")
+` + configCase + `
+		;;
+esac
+exit 0
+`
+	if err := os.WriteFile(filepath.Join(shimDir, "docker"), []byte(shim), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("PATH", shimDir+string(os.PathListSeparator)+os.Getenv("PATH"))
+	d := &Service{projDir: t.TempDir()}
+	_, err := d.sourceServingContainerEntries(context.Background())
+	return err
+}
+
+// Empty, malformed or failing Config.Image must refuse, never fall back to
+// the compose ps display string (STATBUS-436).
+func TestSourceServingContainerEntriesRefusesUnprovableConfigImage(t *testing.T) {
+	for name, c := range map[string]string{
+		"empty":     `printf '\n'`,
+		"multiline": `printf 'a:1\nb:2\n'`,
+		"failure":   `exit 9`,
+	} {
+		t.Run(name, func(t *testing.T) {
+			err := runServingEntriesWithConfigImage(t, c)
+			var eraErr *sourceServingEraUnknownError
+			if !errors.As(err, &eraErr) {
+				t.Fatalf("error = %v, want sourceServingEraUnknownError", err)
+			}
+		})
+	}
+}
+
+// wrapDockerComposePsDisplay makes `docker compose ps` print a raw sha256 in
+// Image for every container (the demo incident), while the inner shim keeps
+// answering Config.Image with the real requested reference. When
+// emptyConfigImage is set, Config.Image inspection returns empty instead.
+func wrapDockerComposePsDisplay(t *testing.T, emptyConfigImage bool) {
+	t.Helper()
+	inner, err := exec.LookPath("docker")
+	if err != nil {
+		t.Fatal(err)
+	}
+	wrapDir := t.TempDir()
+	empty := "0"
+	if emptyConfigImage {
+		empty = "1"
+	}
+	wrapper := `#!/bin/sh
+if [ "$*" = "compose ps -a --format json" ]; then
+	` + inner + ` "$@" | sed '/"Service":"worker"/s/"Image":"[^"]*"/"Image":"sha256:5207b175fa080e47a942e236a29fe801113df99c634aaef2272d9d5e34fa1645"/'
+	exit 0
+fi
+if [ "` + empty + `" = 1 ] && [ "$2" = "--format" ] && [ "$3" = "{{.Config.Image}}" ]; then echo; exit 0; fi
+exec ` + inner + ` "$@"
+`
+	if err := os.WriteFile(filepath.Join(wrapDir, "docker"), []byte(wrapper), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("PATH", wrapDir+string(os.PathListSeparator)+os.Getenv("PATH"))
+}
+
+func TestCaptureSourceServingImageIdentitiesSurvivesLostComposeDisplay(t *testing.T) {
+	setSourceStackImageIdentityEnv(t)
+	git := newGitRepoFixture(t)
+	sourceTag := git.oldSHA[:8]
+	treeTag := git.newSHA[:8]
+	installSourceCaptureDockerShim(t, treeTag, sourceTag, sourceTag, sourceTag, nil)
+	wrapDockerComposePsDisplay(t, false)
+	d := &Service{projDir: git.dir}
+	if err := d.writeUpgradeFlag(21, git.newSHA, nil, "test", "test", false); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = d.removeUpgradeFlag() })
+	if err := d.captureSourceServingImageIdentities(context.Background()); err != nil {
+		t.Fatalf("real capture with lost compose display must succeed from Config.Image: %v", err)
+	}
+}
+
+func TestCaptureSourceServingImageIdentitiesRefusesEmptyConfigImage(t *testing.T) {
+	setSourceStackImageIdentityEnv(t)
+	git := newGitRepoFixture(t)
+	sourceTag := git.oldSHA[:8]
+	treeTag := git.newSHA[:8]
+	installSourceCaptureDockerShim(t, treeTag, sourceTag, sourceTag, sourceTag, nil)
+	wrapDockerComposePsDisplay(t, true)
+	d := &Service{projDir: git.dir}
+	if err := d.writeUpgradeFlag(22, git.newSHA, nil, "test", "test", false); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = d.removeUpgradeFlag() })
+	err := d.captureSourceServingImageIdentities(context.Background())
+	var eraErr *sourceServingEraUnknownError
+	if !errors.As(err, &eraErr) {
+		t.Fatalf("real capture error = %v, want sourceServingEraUnknownError (deterministic, parkable)", err)
+	}
+}
+
+// A real capture failure (not the injected seam) must fail before ANY durable
+// write: the recovery marker keeps its pre-capture content and no carrier file
+// appears, so the caller's park path starts from an untouched source stack
+// and retry cannot resume from a half-captured state (STATBUS-436).
+func TestCaptureSourceServingImageIdentitiesRealFailureWritesNothing(t *testing.T) {
+	setSourceStackImageIdentityEnv(t)
+	git := newGitRepoFixture(t)
+	sourceTag := git.oldSHA[:8]
+	treeTag := git.newSHA[:8]
+	installSourceCaptureDockerShim(t, treeTag, sourceTag, sourceTag, sourceTag, nil)
+	wrapDockerComposePsDisplay(t, true)
+	d := &Service{projDir: git.dir}
+	if err := d.writeUpgradeFlag(23, git.newSHA, nil, "test", "test", false); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = d.removeUpgradeFlag() })
+	before, err := os.ReadFile(filepath.Join(git.dir, "tmp", "upgrade-in-progress.json"))
+	if err != nil {
+		t.Skipf("flag path differs: %v", err)
+	}
+	if err := d.captureSourceServingImageIdentities(context.Background()); err == nil {
+		t.Fatal("capture must fail")
+	}
+	after, err := os.ReadFile(filepath.Join(git.dir, "tmp", "upgrade-in-progress.json"))
+	if err != nil || string(before) != string(after) {
+		t.Fatalf("recovery marker changed by failed capture: err=%v", err)
+	}
+	if strings.Contains(string(after), "source_serving_images") {
+		t.Fatal("failed capture must not record source images in the marker")
+	}
+	flag, rerr := ReadFlagFile(git.dir)
+	if rerr != nil || flag == nil || flag.ID != 23 {
+		t.Fatalf("flag must remain readable for the park path: %v %+v", rerr, flag)
 	}
 }

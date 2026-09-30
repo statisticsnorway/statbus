@@ -137,5 +137,36 @@ func (d *Service) containersAtFlagTarget(ctx context.Context, flag UpgradeFlag) 
 	if perr != nil {
 		return false, []containerCheckResult{{Service: "docker", Reason: fmt.Sprintf("parse compose ps json failed: %v", perr)}}
 	}
+	// compose ps prints a sha256 in Image when a tag display is lost; the
+	// container's Config.Image is the authoritative requested reference
+	// (STATBUS-436). Every version-tracked service is inspected (only the
+	// state-only rest is skipped); anything unprovable is not "at target".
+	tracked := make(map[string]bool, len(versionTrackedServices))
+	for _, svc := range versionTrackedServices {
+		tracked[svc] = true
+	}
+	for i := range statuses {
+		svc := statuses[i].Service
+		if !tracked[svc] {
+			continue
+		}
+		unprovable := func(detail string) (bool, []containerCheckResult) {
+			return false, []containerCheckResult{{Service: svc, State: statuses[i].State, Reason: "requested image reference unprovable: " + detail}}
+		}
+		id := strings.TrimSpace(statuses[i].ID)
+		if id == "" {
+			return unprovable("container has no ID to inspect Docker Config.Image")
+		}
+		ref, refErr := d.dockerContainerConfigImage(ctx, id)
+		switch {
+		case refErr != nil:
+			return unprovable(fmt.Sprintf("docker inspect Config.Image failed: %v", refErr))
+		case ref == "" || strings.ContainsAny(ref, "\n\r \t"):
+			return unprovable(fmt.Sprintf("Docker Config.Image is empty or malformed (%q)", ref))
+		case strings.HasPrefix(ref, "sha256:"):
+			return unprovable(fmt.Sprintf("Docker Config.Image is a bare image ID (%s), not a tagged reference", ref))
+		}
+		statuses[i].Image = ref
+	}
 	return evaluateContainersAtFlagTarget(statuses, flag.CommitSHA, flag.Label())
 }
