@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-09-28 13:07'
-updated_date: '2026-09-30 15:14'
+updated_date: '2026-09-30 17:53'
 labels:
   - ci
   - lxd
@@ -101,4 +101,10 @@ Validation references: `tmp/review-425-m4.md`, `tmp/test-lxd-m4-dd384-finalize-2
 - R6 is resolved at signed `daa91056909c83791e7fa4d6112d6910fe26e188`: normal PASS/FAIL drops the process-group file, while status 125 retains cleanup ownership. Actual helper/reap tests pass, both reviewer removal mutants are killed, and the harness selftest passes. R4/R5 remain resolved. This is local code/regression evidence, not a guest or GitHub outcome.
 - F1 has a reproduced mechanism and remains a required code fix. The reviewer corrected the author's hook, which had intercepted the outer test's TERM and killed the driver before finalize ran. Against exact `83065bb80`, the corrected hook produces exactly the dead-PID safety failure with the other 24 checks passing, including exit 143, no surviving owned processes, and marker/fixture release. The no-hook control passes. The original failing log is unrecoverable, so identity with that event is not proven.
 - The actual defect is a check-then-signal race: a selected raw PID can be reaped and possibly reused before TERM/KILL. A new signed correction is commissioned to signal and wait through the shell's current jobspec table, preserving the safety assertion and adding the corrected deterministic green-fix/red-revert regression. The branch remains BLOCK pending that independent recheck and external acceptance. No SQL, release classification or acceptance assertion changed; all seven acceptance checkboxes remain open.
+
+2026-09-30 17:53 UTC, independently reviewed native finalizer correction (code only):
+- Signed `f6985dc91f27bda5efff3a31a327eb6ded114d66`, parent `72705d4ff`, resolves the N1b retained-finished-job predicate defect. With an explicit jobspec, `jobs -rp %N` still returns a retained finished job's PID on macOS Bash 3.2. Both wait and pre-KILL predicates now use exact job-number membership in plain `jobs -r`. Jobspec selection, TERM/KILL/wait and ownership/leak gating are preserved, and the comments distinguish removed jobspec refusal from retained-finished PALIVE skipping.
+- Fresh independent GPT-6 Astra review (`tmp/review-425-n1b-final.md`) is MERGE for this exact three-file delta only. Sequential final-byte execution passes 28 helper checks and 47 driver checks, including strict B2 safety. Reverting only the two predicates produces nine actual assertion failures on the byte-identical final test, with the reverted function verified byte-identical to the 727 parent. The four real-file retained-job cases change from 12 polls/no-op KILL to one poll/no KILL. Named CAP=12, exact `%1`/`%10` and completed-before-selection preconditions are checked.
+- Evidence is preserved under `$JCODE_SCRATCH_DIR/review-425-n1b-evidence/`. Owned-test cleanup was verified after the reviewer reaped only its identified watchdog timer children; fixture self-cleanup was unchanged. Author staged mutation assertions and watchdog NONCOMPLETION are recorded separately, not an all-mutants final-byte rerun or a new gate. The earlier green `red-kill0.log` driver run is not cited as red proof.
+- This closes the native N1b code-review block, not whole-M4 integration or acceptance. Linux Bash 5, real LXD, GitHub CI and concurrent-capacity outcomes remain unrun; identity with the lost original F1 event remains unproven. M4 stays unmerged, restoration approval remains pending, and no SQL, release classification, arc assertion, requirement text or acceptance checkbox is changed. All seven acceptance checkboxes remain open.
 <!-- SECTION:NOTES:END -->
