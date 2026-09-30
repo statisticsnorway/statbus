@@ -835,6 +835,16 @@ fi
 # not an invariant breach, so do not claim the system is unusable and do not
 # generate a support bundle.
 if [ "$sb_rc" -eq 78 ]; then
+    # ERE-escape a literal value so it can be spliced into a `$`-anchored
+    # grep pattern as itself, not as regex syntax. Used below to require an
+    # EXACT match of $STATBUS_INSTALL_RERUN_COMMAND at end-of-line — a
+    # prefix-only check on a fixed sentence lets arbitrary text ride after
+    # that sentence across the install-log boundary (STATBUS-430 review).
+    _statbus_ere_escape() {
+        printf '%s' "$1" | sed -e 's/[][\.^$*+?(){}|]/\\&/g'
+    }
+    _statbus_rerun_ere=$(_statbus_ere_escape "$STATBUS_INSTALL_RERUN_COMMAND")
+
     # A classified cause (same allowlist as a failed step) is the most specific
     # remedy available: the settings restore before detection emits one.
     preflight_cause=$(grep -E '^INSTALL_CAUSE: The custom certificate settings are invalid\.$' "$install_output" | tail -1 | sed 's/^INSTALL_CAUSE: //' || true)
@@ -846,10 +856,45 @@ if [ "$sb_rc" -eq 78 ]; then
         if [ -n "$preflight_fix" ]; then echo "$preflight_fix"; fi
         echo "Then run: $STATBUS_INSTALL_RERUN_COMMAND"
         echo "Installation diagnostics: $install_output"
-    elif grep -Eq '^(port [0-9]+ is in use by |Only [0-9]+ GB free on |cannot check disk space at |a restart is still running)' "$install_output"; then
+    elif grep -Eq "^port [0-9]+ is in use by ([A-Za-z0-9_-]{1,64}\\. Free the port with sudo (systemctl disable --now [A-Za-z0-9_-]{1,64}|kill \\\$\\(sudo lsof -tiTCP:[0-9]+ -sTCP:LISTEN\\))|another program\\. Find the listener with sudo ss -ltnp '\\( sport = :[0-9]+ \\)', then stop that program to free port [0-9]+)\\. (Docker service ownership could not be checked\\. )?Your answers are saved\\. Then run the same install command again: ${_statbus_rerun_ere}\$" "$install_output"; then
         # Only these known, single-line operator remedies may cross the
-        # install log boundary. Never print an arbitrary exception or traceback.
-        grep -E '^(port [0-9]+ is in use by |Only [0-9]+ GB free on |cannot check disk space at |a restart is still running)' "$install_output" | tail -1
+        # install log boundary. Never print an arbitrary exception or
+        # traceback. Every member is now FULL-LINE anchored (`^`...`$`),
+        # including an exact match of the rerun command itself, so nothing
+        # arbitrary can trail a real sentence across this boundary
+        # (STATBUS-430 review: the prior prefix-only form let it through).
+        grep -E "^port [0-9]+ is in use by ([A-Za-z0-9_-]{1,64}\\. Free the port with sudo (systemctl disable --now [A-Za-z0-9_-]{1,64}|kill \\\$\\(sudo lsof -tiTCP:[0-9]+ -sTCP:LISTEN\\))|another program\\. Find the listener with sudo ss -ltnp '\\( sport = :[0-9]+ \\)', then stop that program to free port [0-9]+)\\. (Docker service ownership could not be checked\\. )?Your answers are saved\\. Then run the same install command again: ${_statbus_rerun_ere}\$" "$install_output" | tail -1
+    elif grep -Eq "^Only [0-9]+ GB free on [A-Za-z0-9_./~+-]+\\. StatBus needs at least [0-9]+ GB to install\\. Free some space, then run the same install command again: ${_statbus_rerun_ere}\$" "$install_output"; then
+        grep -E "^Only [0-9]+ GB free on [A-Za-z0-9_./~+-]+\\. StatBus needs at least [0-9]+ GB to install\\. Free some space, then run the same install command again: ${_statbus_rerun_ere}\$" "$install_output" | tail -1
+    elif grep -Eq '^cannot check disk space at (Docker storage: Docker root unavailable|[A-Za-z0-9_./~+-]+: measurement unavailable)$' "$install_output"; then
+        grep -E '^cannot check disk space at (Docker storage: Docker root unavailable|[A-Za-z0-9_./~+-]+: measurement unavailable)$' "$install_output" | tail -1
+    elif grep -Eq "^a restart is still running(, or its services could not be restored)?\\. Wait for it to finish, then run the same install command again: ${_statbus_rerun_ere}\$" "$install_output"; then
+        grep -E "^a restart is still running(, or its services could not be restored)?\\. Wait for it to finish, then run the same install command again: ${_statbus_rerun_ere}\$" "$install_output" | tail -1
+    elif grep -Eq '^the install state could not be determined safely; nothing was changed\. Run the same install command again: ' "$install_output"; then
+        # STATBUS-430: a state-detection probe failed for a reason OTHER than
+        # a proven database outage (e.g. a DB restart mid binary-swap catches
+        # it as "the database system is shutting down"). This is caught
+        # BEFORE detection classifies anything — it is not evidence the
+        # SETTINGS are wrong, and it must never fall through to the generic
+        # "Correct the settings" sentence below. It is not necessarily
+        # transient either: the same refusal covers malformed flag JSON,
+        # permission-denied reads and unexpected probe output, none of which
+        # self-heals on rerun. Nothing was changed either way; the remedy is
+        # rerun, then support if it recurs — this is not evidence the
+        # settings are wrong.
+        #
+        # We do NOT echo the raw log line here (unlike the bucket above):
+        # its trailing support-bundle path is validated below with the same
+        # case-pattern technique the generic fallback uses, so it is
+        # constructed from trusted shell values, never printed verbatim from
+        # the log.
+        echo "the install state could not be determined safely; nothing was changed. Run the same install command again: $STATBUS_INSTALL_RERUN_COMMAND"
+        detect_bundle=$(grep -E '^the install state could not be determined safely; ' "$install_output" | tail -1 | sed -E 's/^.*send this file to StatBus support: //' || true)
+        case "$detect_bundle" in
+            "$STATBUS_DIR"/support-bundle-[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]-[0-9][0-9][0-9][0-9][0-9][0-9].txt|"$STATBUS_DIR"/tmp/install-last-run-output.txt)
+                if [ -f "$detect_bundle" ]; then echo "If it stops again, send this file to StatBus support: $detect_bundle"; fi ;;
+        esac
+        echo "Installation diagnostics: $install_output"
     elif grep -Eq '^STATBUS_ENV_CONFIG: (extra key [A-Za-z0-9_]+|missing key [A-Z_]+ \(.*\)|missing value for [A-Z_]+ \(.*\)|duplicate key [A-Za-z0-9_]+|TLS_CERT_FILE and TLS_KEY_FILE must be given together \(a certificate needs both parts\))$' "$install_output"; then
         # Answer-file refusals: FULL-LINE anchored, so nothing arbitrary can
         # trail the fixed diagnostic across the log boundary (review round 2).
@@ -859,7 +904,7 @@ if [ "$sb_rc" -eq 78 ]; then
         echo "Installation cannot start with the current settings. Correct the settings, then run: $STATBUS_INSTALL_RERUN_COMMAND"
         preflight_bundle=$(grep -F 'send this file to StatBus support: ' "$install_output" | tail -1 | sed -E 's/^.*send this file to StatBus support: //' || true)
         case "$preflight_bundle" in
-            "$STATBUS_DIR"/support-bundle-*.txt)
+            "$STATBUS_DIR"/support-bundle-[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]-[0-9][0-9][0-9][0-9][0-9][0-9].txt)
                 if [ -f "$preflight_bundle" ]; then echo "Support bundle: $preflight_bundle"; fi ;;
         esac
         echo "Installation diagnostics: $install_output"

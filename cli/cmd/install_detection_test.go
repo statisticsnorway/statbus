@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -708,5 +709,212 @@ func TestSettingsRestoreRefusalShowsCertificateCauseThroughInstallSh(t *testing.
 	}
 	if strings.Contains(got, "/home/statbus/statbus.crt") {
 		t.Errorf("raw error text reached the operator:\n%s", got)
+	}
+}
+
+// TestExit78AllowlistMatchesRealGoSentences drives install.sh's exit-78
+// bucket (port / disk-shortfall / disk-unmeasurable / restart-still-running)
+// with the REAL error strings the Go producers construct, not hand-copied
+// literals — portConflictGuidance's two remedy shapes plus the
+// probe-could-not-check variant, diskpolicy.Evaluate's shortfall sentence,
+// diskpolicy.DockerRoot's unmeasurable sentence, and install.go's two restart
+// sentences (preflight barrier vs. the install.sh bootstrap mutex). Confirms
+// the STATBUS-430 review's full-line anchoring (change A) did not silently
+// stop matching any real production sentence.
+func TestExit78AllowlistMatchesRealGoSentences(t *testing.T) {
+	const rerun = "curl -fsSL https://statbus.org/install.sh | bash -s --version v2026.09.3"
+	t.Setenv("STATBUS_INSTALL_RERUN_COMMAND", rerun)
+	dir := t.TempDir()
+	real := []struct {
+		name string
+		line string
+	}{
+		{"port systemctl remedy", fmt.Sprintf("%s Your answers are saved. Then run the same install command again: %s", portConflictGuidance(80, "nginx"), rerun)},
+		{"port kill remedy", fmt.Sprintf("%s Your answers are saved. Then run the same install command again: %s", portConflictGuidance(3014, "python3"), rerun)},
+		{"port another-program remedy", fmt.Sprintf("%s Your answers are saved. Then run the same install command again: %s", portConflictGuidance(3014, "another program"), rerun)},
+		{"port ownership could not be checked", fmt.Sprintf("%s Docker service ownership could not be checked. Your answers are saved. Then run the same install command again: %s", portConflictGuidance(3014, "another program"), rerun)},
+	}
+	shortfall, ok := diskpolicy.Evaluate(diskpolicy.Measurement{Path: "/var/lib/docker", FreeGB: 4})
+	if ok {
+		t.Fatal("expected a disk shortfall (ok=false) at 4 GB free")
+	}
+	real = append(real, struct {
+		name string
+		line string
+	}{"disk shortfall", shortfall})
+	real = append(real,
+		struct{ name, line string }{"disk unmeasurable (Docker root)", "cannot check disk space at Docker storage: Docker root unavailable"},
+		struct{ name, line string }{"disk unmeasurable (measurement)", "cannot check disk space at /home/statbus/statbus-backups: measurement unavailable"},
+		struct{ name, line string }{"restart preflight barrier", fmt.Sprintf("a restart is still running, or its services could not be restored. Wait for it to finish, then run the same install command again: %s", rerun)},
+		struct{ name, line string }{"restart bootstrap mutex", fmt.Sprintf("a restart is still running. Wait for it to finish, then run the same install command again: %s", rerun)},
+	)
+	for _, tc := range real {
+		t.Run(tc.name, func(t *testing.T) {
+			got := installShFailureTailIn(t, dir, rerun, tc.line+"\n", 78)
+			if !strings.Contains(got, tc.line) {
+				t.Errorf("full-line anchoring stopped matching a real Go sentence:\n  sentence: %s\n  output:   %s", tc.line, got)
+			}
+			if strings.Contains(got, "Correct the settings") {
+				t.Errorf("a real allowlisted sentence fell through to the generic settings refusal:\n%s", got)
+			}
+		})
+	}
+}
+
+// TestStateDetectionFailureRerunsRatherThanBlamesSettings drives the REAL
+// Go path: a probe error (Ville replay D4's exact raw psql text: "FATAL: the
+// database system is shutting down" mid binary-swap, which is not a proven
+// outage — install.DetectWith wraps it as an ordinary error, not
+// install.ErrDatabaseUnavailable) reaches runInstall, whose returned error is
+// rendered by the real printInstallFailure exactly as ./sb install would
+// print it to stdout/stderr, then piped through install.sh's own exit-78
+// branch (installShFailureTail, the same extraction technique as
+// TestInstallShShowsNamedRefusal). Nothing here re-types install.go's format
+// string: if a future edit changes runInstall's wording, this test observes
+// that changed text landing (or failing to land) on the operator, not a
+// frozen copy of the old text.
+func TestStateDetectionFailureRerunsRatherThanBlamesSettings(t *testing.T) {
+	const rerun = "curl -fsSL https://statbus.org/install.sh | bash"
+	installDir := withRunInstallDetectionHooks(t)
+	t.Setenv("STATBUS_INSTALL_RERUN_COMMAND", rerun)
+	bundlePath := filepath.Join(installDir, "support-bundle-20260929-080619.txt")
+	writeDetectionSupportBundle = func(string) (string, error) {
+		if err := os.WriteFile(bundlePath, []byte("bundle"), 0o600); err != nil {
+			return "", err
+		}
+		return bundlePath, nil
+	}
+	// Ville's raw probe failure, byte for byte (replay D4): a DB restart
+	// mid binary-swap answers a detection query with this, and
+	// connectionUnavailable's marker list does NOT include it, so
+	// install.DetectWith wraps it as an ordinary (non-Unavailable) error —
+	// exactly the "not a proven outage" branch this refusal exists for.
+	const villeRawLine = `psql: FATAL: the database system is shutting down`
+	detectInstallState = func(dir, v string) (install.State, *install.Detail, error) {
+		return install.DetectWith(dir, v, installProbe{dbErr: errors.New(villeRawLine)})
+	}
+	runInstallStepTableTestHook = func() error { t.Fatal("step table reached after an unresolved detection probe error"); return nil }
+
+	err := runInstall()
+	if err == nil {
+		t.Fatal("runInstall succeeded despite an unresolved detection probe error")
+	}
+	// In production, install.sh's own `tee -a` appends ./sb install's stdout
+	// to this same diagnostics file that installDiagnostic already wrote
+	// Ville's raw probe line into (install.go:542). Reproduce that ordering
+	// here: read what installDiagnostic wrote, then append what this test's
+	// sbOutput buffer would additionally contribute, before handing the
+	// combined file content to installShFailureTailIn. Without this, the
+	// diagnostics file installShFailureTailIn writes from sbOutput alone
+	// *replaces* the raw line instead of accumulating after it, and the
+	// negative assertion below can never observe a real leak.
+	priorDiagnostics, err2 := os.ReadFile(filepath.Join(installDir, "tmp", "install-last-run-output.txt"))
+	if err2 != nil {
+		t.Fatalf("reading installDiagnostic's file: %v", err2)
+	}
+	var sbOutput bytes.Buffer
+	sbOutput.Write(priorDiagnostics)
+	sbOutput.WriteString("Restoring generated settings before checking the installation.\n")
+	printInstallFailure(&sbOutput, err)
+	got := installShFailureTailIn(t, installDir, rerun, sbOutput.String(), 78)
+
+	for _, want := range []string{
+		"the install state could not be determined safely",
+		"nothing was changed",
+		"Run the same install command again: " + rerun,
+		"If it stops again, send this file to StatBus support: " + bundlePath,
+	} {
+		if !strings.Contains(got, want) {
+			t.Errorf("operator output missing %q:\n%s", want, got)
+		}
+	}
+	if strings.Contains(got, "Correct the settings") {
+		t.Errorf("operator output blamed the settings for a non-proven-outage detection failure:\n%s", got)
+	}
+	// Negative: Ville's raw psql line must never reach the operator verbatim
+	// — only the fixed, product-authored sentence may cross this boundary.
+	if strings.Contains(got, villeRawLine) || strings.Contains(got, "shutting down") {
+		t.Errorf("raw probe diagnostic leaked to the operator:\n%s", got)
+	}
+}
+
+// TestDetectBundleGlobRejectsHostileExistingFile: install.sh's support-bundle
+// case pattern must reject an EXISTING file whose name fits the old, looser
+// glob (support-bundle-[0-9]*-[0-9]*.txt, which lets `*` absorb arbitrary
+// text including spaces and injected content) but not the real bundle name
+// shape (support-bundle-<8 digits>-<6 digits>.txt, from
+// writeDetectionSupportBundle / time.Now().UTC().Format("20060102-150405")).
+// Before the STATBUS-430 review-2 fix, the `[ -f ]` check alone let this
+// hostile-but-existing path through as if it were a validated bundle.
+func TestDetectBundleGlobRejectsHostileExistingFile(t *testing.T) {
+	const rerun = "curl -fsSL https://statbus.org/install.sh | bash"
+	installDir := withRunInstallDetectionHooks(t)
+	// Fits the old glob "support-bundle-[0-9]*-[0-9]*.txt" (digits, `*`,
+	// digits, `*`) but not "support-bundle-<8 digits>-<6 digits>.txt".
+	hostilePath := filepath.Join(installDir, "support-bundle-1 LEAKED psql: FATAL secret=hunter2 -2.txt")
+	if err := os.WriteFile(hostilePath, []byte("hostile"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	sbOutput := "the install state could not be determined safely; nothing was changed. Run the same install command again: " + rerun +
+		". If it stops again, send this file to StatBus support: " + hostilePath + "\n"
+	got := installShFailureTailIn(t, installDir, rerun, sbOutput, 78)
+	if strings.Contains(got, hostilePath) {
+		t.Errorf("hostile-named existing file passed the support-bundle case pattern:\n%s", got)
+	}
+	if strings.Contains(got, "LEAKED") || strings.Contains(got, "hunter2") || strings.Contains(got, "shutting down") {
+		t.Errorf("hostile file name's payload leaked into operator output:\n%s", got)
+	}
+}
+
+// TestFallbackBundleGlobRejectsHostileExistingFile pins the generic exit-78
+// fallback's support-bundle case pattern the same way (review-430-2 round 3):
+// a line that matches no classified cause reaches the "Correct the settings"
+// fallback, whose bundle path must still be the exact
+// support-bundle-<8 digits>-<6 digits>.txt shape, never an arbitrary existing
+// file whose name carries a payload.
+func TestFallbackBundleGlobRejectsHostileExistingFile(t *testing.T) {
+	const rerun = "curl -fsSL https://statbus.org/install.sh | bash"
+	installDir := withRunInstallDetectionHooks(t)
+	hostilePath := filepath.Join(installDir, "support-bundle-LEAKED secret=hunter2.txt")
+	if err := os.WriteFile(hostilePath, []byte("hostile"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	goodPath := filepath.Join(installDir, "support-bundle-20260929-213000.txt")
+	if err := os.WriteFile(goodPath, []byte("bundle"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	unclassified := "some unclassified refusal. If it stops again, send this file to StatBus support: "
+	got := installShFailureTailIn(t, installDir, rerun, unclassified+hostilePath+"\n", 78)
+	if strings.Contains(got, "LEAKED") || strings.Contains(got, "hunter2") {
+		t.Errorf("hostile file name crossed the fallback's support-bundle pattern:\n%s", got)
+	}
+	got = installShFailureTailIn(t, installDir, rerun, unclassified+goodPath+"\n", 78)
+	if !strings.Contains(got, "Support bundle: "+goodPath) {
+		t.Errorf("a real support bundle must still be shown by the fallback:\n%s", got)
+	}
+}
+
+// TestExit78AllowlistRejectsSuffixInjection: a hostile process that can write
+// to install_output (or a bug that appends extra text after a legitimate
+// sentence) must not get anything beyond the fixed allowlisted sentence
+// through install.sh's exit-78 branch. Each case pairs a real allowlisted
+// prefix with injected trailing text; before the STATBUS-430 review fix the
+// bucket regex was prefix-only and let all of these through verbatim.
+func TestExit78AllowlistRejectsSuffixInjection(t *testing.T) {
+	const rerun = "curl -fsSL https://statbus.org/install.sh | bash"
+	injections := []string{
+		"port 80 is in use by nginx. Free the port with sudo systemctl disable --now nginx. Your answers are saved. Then run the same install command again: " + rerun + " EXTRA $(id) secret=hunter2",
+		"Only 4 GB free on /var/lib/docker. StatBus needs at least 20 GB to install. Free some space, then run the same install command again: " + rerun + " ; rm -rf /",
+		"a restart is still running. Wait for it to finish, then run the same install command again: " + rerun + " FATAL: the database system is shutting down",
+		"the install state could not be determined safely; nothing was changed. Run the same install command again: " + rerun + ". If it stops again, send this file to StatBus support: /tmp/../../etc/passwd",
+	}
+	for _, line := range injections {
+		t.Run(line, func(t *testing.T) {
+			got := installShFailureTail(t, line+"\n", 78)
+			if strings.Contains(got, "EXTRA") || strings.Contains(got, "rm -rf") ||
+				strings.Contains(got, "shutting down") || strings.Contains(got, "/etc/passwd") {
+				t.Errorf("suffix injection crossed the install-log boundary:\n%s", got)
+			}
+		})
 	}
 }

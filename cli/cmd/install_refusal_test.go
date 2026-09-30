@@ -238,6 +238,21 @@ func TestInstallRefusalGuidanceMatchesShellAllowlist(t *testing.T) {
 // the support commands.
 func installShFailureTail(t *testing.T, sbOutput string, rc int) string {
 	t.Helper()
+	return installShFailureTailIn(t, t.TempDir(), "curl -fsSL https://statbus.org/install.sh | bash", sbOutput, rc)
+}
+
+// shellSingleQuote produces a single-quoted shell word for splicing a test
+// value into a `bash -c` prelude, escaping any embedded single quote.
+func shellSingleQuote(s string) string {
+	return "'" + strings.ReplaceAll(s, "'", `'\''`) + "'"
+}
+
+// installShFailureTailIn is installShFailureTail with an explicit STATBUS_DIR
+// and STATBUS_INSTALL_RERUN_COMMAND, for callers that need install.sh's
+// support-bundle path validation (case "$STATBUS_DIR"/support-bundle-*.txt)
+// to match a bundle they wrote themselves, or an exact rerun command.
+func installShFailureTailIn(t *testing.T, dir, rerun, sbOutput string, rc int) string {
+	t.Helper()
 	script, err := os.ReadFile("../../install.sh")
 	if err != nil {
 		t.Fatal(err)
@@ -247,7 +262,6 @@ func installShFailureTail(t *testing.T, sbOutput string, rc int) string {
 	if start < 0 {
 		t.Fatal("install.sh post-run handling not found")
 	}
-	dir := t.TempDir()
 	if err := os.MkdirAll(filepath.Join(dir, "tmp"), 0o700); err != nil {
 		t.Fatal(err)
 	}
@@ -258,7 +272,7 @@ func installShFailureTail(t *testing.T, sbOutput string, rc int) string {
 	if err := os.WriteFile(output, []byte(sbOutput), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	prelude := fmt.Sprintf("set -e\nsb_rc=%d\nSTATBUS_DIR=\"$1\"\ninstall_output=\"$2\"\nSTATBUS_INSTALL_RERUN_COMMAND='curl -fsSL https://statbus.org/install.sh | bash'\ncd \"$STATBUS_DIR\"\n", rc)
+	prelude := fmt.Sprintf("set -e\nsb_rc=%d\nSTATBUS_DIR=\"$1\"\ninstall_output=\"$2\"\nSTATBUS_INSTALL_RERUN_COMMAND=%s\ncd \"$STATBUS_DIR\"\n", rc, shellSingleQuote(rerun))
 	cmd := exec.Command("bash", "-c", prelude+source[start:], "install-tail", dir, output)
 	got, _ := cmd.CombinedOutput()
 	return string(got)
