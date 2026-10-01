@@ -47,7 +47,37 @@ var (
 		return path, writeSupportBundle(installDir, path, upgrade.TriggerInstall)
 	}
 	runInstallStepTableTestHook func() error
+	// missingCredentialKeysBeforeInstall records identity keys that were absent before
+	// the Credentials step filled them. It lets later database reconciliation
+	// explain that a rotation was caused by a damaged/incomplete credentials
+	// file, without treating an ordinary fresh install as an adoption.
+	missingCredentialKeysBeforeInstall map[string]bool
 )
+
+var databaseIdentityCredentialKeys = []string{
+	"POSTGRES_ADMIN_PASSWORD",
+	"POSTGRES_APP_PASSWORD",
+	"POSTGRES_AUTHENTICATOR_PASSWORD",
+	"POSTGRES_NOTIFY_PASSWORD",
+	"JWT_SECRET",
+}
+
+func snapshotMissingDatabaseCredentials(dir string) map[string]bool {
+	missing := make(map[string]bool)
+	credentials, err := dotenv.Load(filepath.Join(dir, ".env.credentials"))
+	if err != nil {
+		for _, key := range databaseIdentityCredentialKeys {
+			missing[key] = true
+		}
+		return missing
+	}
+	for _, key := range databaseIdentityCredentialKeys {
+		if value, ok := credentials.Get(key); !ok || value == "" {
+			missing[key] = true
+		}
+	}
+	return missing
+}
 
 // markTerminal is a thin wrapper over invariants.MarkTerminal that pins
 // the projDir to the install dir. Every fail-fast guard site in this file
@@ -866,6 +896,7 @@ func runInstall() (installErr error) {
 	// otherwise misclassify every key as "changed" and restart nothing not
 	// yet running anyway).
 	oldEnvSnapshot, _ := os.ReadFile(filepath.Join(installDir, ".env"))
+	missingCredentialKeysBeforeInstall = snapshotMissingDatabaseCredentials(installDir)
 	if runInstallStepTableTestHook != nil {
 		return runInstallStepTableTestHook()
 	}
@@ -1297,19 +1328,47 @@ func checkMigrationsDone(dir string) bool {
 }
 
 func checkJWTDone(dir string) bool {
-	psqlPath, prefix, env, err := migrate.PsqlCommand(dir)
+	desired, err := desiredJWTSecret(dir)
 	if err != nil {
 		return false
 	}
+	stored, err := readStoredJWTSecret(dir)
+	return err == nil && jwtSecretsMatch(stored, desired)
+}
+
+func desiredJWTSecret(dir string) (string, error) {
+	credentials, err := dotenv.Load(filepath.Join(dir, ".env.credentials"))
+	if err != nil {
+		return "", fmt.Errorf("load .env.credentials: %w", err)
+	}
+	secret, ok := credentials.Get("JWT_SECRET")
+	if !ok || secret == "" {
+		return "", fmt.Errorf("JWT_SECRET not found in .env.credentials")
+	}
+	return secret, nil
+}
+
+func jwtSecretsMatch(stored, desired string) bool {
+	return desired != "" && stored == desired
+}
+
+var readStoredJWTSecret = func(dir string) (string, error) {
+	psqlPath, prefix, env, err := migrate.PsqlCommand(dir)
+	if err != nil {
+		return "", err
+	}
 	args := append(prefix, "-t", "-A", "-c",
-		"SELECT COUNT(*) FROM auth.secrets WHERE key = 'jwt_secret' AND value != '';")
+		"SELECT value FROM auth.secrets WHERE key = 'jwt_secret';")
 	cmd, buildErr := migrate.Command(dir, psqlPath, args...)
 	if buildErr != nil {
-		return false
+		return "", buildErr
 	}
 	cmd.Env = env
 	out, err := cmd.Output()
-	return err == nil && strings.TrimSpace(string(out)) == "1"
+	if err != nil {
+		return "", err
+	}
+	return strings.TrimSpace(string(out)), nil
 }
 
 func checkUsersDone(dir string) bool {
@@ -2875,9 +2934,29 @@ func runMigrations(dir string) error {
 }
 
 func runLoadJWT(dir string) error {
-	// Reuse the ensureJWTSecret function from users.go
-	return ensureJWTSecret(dir)
+	desired, err := desiredJWTSecret(dir)
+	if err != nil {
+		return err
+	}
+	stored, _ := readStoredJWTSecret(dir)
+	if err := writeJWTSecret(dir); err != nil {
+		return err
+	}
+	repaired, err := readStoredJWTSecret(dir)
+	if err != nil || !jwtSecretsMatch(repaired, desired) {
+		return fmt.Errorf("JWT signing secret was not reconciled with .env.credentials")
+	}
+	if stored != "" && stored != desired {
+		if missingCredentialKeysBeforeInstall["JWT_SECRET"] {
+			fmt.Println("  The JWT signing secret was rotated because .env.credentials was damaged or incomplete; the database now matches the replacement secret.")
+		} else {
+			fmt.Println("  The JWT signing secret differed from .env.credentials; the database now matches it.")
+		}
+	}
+	return nil
 }
+
+var writeJWTSecret = ensureJWTSecret
 
 func runCreateUsers(dir string) error {
 	if _, err := os.Stat(filepath.Join(dir, ".users.yml")); err == nil {

@@ -521,6 +521,9 @@ func runStartServices(dir string) (result error) {
 	}
 	if len(changed) > 0 {
 		fmt.Printf("  The database held older passwords for %s; they now match .env.credentials.\n", dbroles.RoleNames(changed))
+		if passwordReconciliationWasCredentialAdoption(changed, missingCredentialKeysBeforeInstall) {
+			fmt.Printf("  Rotated database passwords for %s because .env.credentials was damaged or incomplete and those passwords had to be regenerated.\n", dbroles.RoleNames(changed))
+		}
 		if err := restartPasswordClients(dir, passwordClients); err != nil {
 			fmt.Printf("  Restarting the services that use those passwords did not finish cleanly: %v\n", err)
 		}
@@ -552,6 +555,23 @@ func runStartServices(dir string) (result error) {
 	}
 	fmt.Println("  All services are running.")
 	return nil
+}
+
+func passwordReconciliationWasCredentialAdoption(changed []dbroles.Mismatch, regenerated map[string]bool) bool {
+	if len(changed) == 0 {
+		return false
+	}
+	for _, key := range []string{
+		"POSTGRES_ADMIN_PASSWORD",
+		"POSTGRES_APP_PASSWORD",
+		"POSTGRES_AUTHENTICATOR_PASSWORD",
+		"POSTGRES_NOTIFY_PASSWORD",
+	} {
+		if regenerated[key] {
+			return true
+		}
+	}
+	return false
 }
 
 // checkDBHealthy is the database-only readiness predicate: the db container's
