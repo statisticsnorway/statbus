@@ -15,11 +15,11 @@ import (
 // and the unit never reaches READY=1 (Finland, step 17 timeout).
 func TestDaemonSyncsRolePasswordsBeforeFirstConnect(t *testing.T) {
 	run := funcBody(t, "service.go", "func (d *Service) Run(")
-	up := strings.Index(run, "d.EnsureDBUp(ctx)")
+	up := strings.Index(run, "ensureDatabaseForBoot(ctx, bootFlag, d.EnsureDBUp, d.StartDatabaseRouteServingMayRun)")
 	sync := strings.Index(run, "d.syncRolePasswordsBeforeConnect(ctx)")
 	conn := strings.Index(run, "d.connectWithBudget(ctx, startupConnectTimeout)")
 	if up < 0 || sync < 0 || conn < 0 || up > sync || sync > conn {
-		t.Fatalf("Run must call EnsureDBUp, then syncRolePasswordsBeforeConnect, then connect (positions %d, %d, %d)", up, sync, conn)
+		t.Fatalf("Run must select its boot DB strategy, then syncRolePasswordsBeforeConnect, then connect (positions %d, %d, %d)", up, sync, conn)
 	}
 	inline := funcBody(t, "service.go", "func (d *Service) LoadConfigAndConnect(")
 	sync = strings.Index(inline, "d.syncRolePasswordsBeforeConnect(ctx)")

@@ -2928,7 +2928,20 @@ func (d *Service) Run(ctx context.Context) error {
 		return err
 	}
 
-	// Pre-flight A — regenerate config UNCONDITIONALLY, before any docker
+	// STATBUS-432: classify the canonical mutex owner before the first mutating
+	// pre-flight. A restart-looping daemon must not rewrite config or touch
+	// containers while ./sb install owns the box.
+	bootFlag, err := d.waitForInstallHolderBeforeBoot(ctx)
+	if errors.Is(err, errInstallHeldBootWaitExpired) {
+		fmt.Printf("Upgrade daemon boot remains deferred after %s; exiting with non-restarting status %d so systemd does not consume StartLimitBurst\n",
+			installHeldBootWaitLimit, exitInstallHeldBootWait)
+		os.Exit(exitInstallHeldBootWait)
+	}
+	if err != nil {
+		return err
+	}
+
+	// Pre-flight A — regenerate config before any docker
 	// compose call. The daemon's .env must match THIS binary's compose template
 	// before EnsureDBUp's `docker compose up -d db`, which config-load-parses the
 	// WHOLE project (docker-compose.yml `include:`s docker-compose.rest.yml) and
@@ -2947,7 +2960,7 @@ func (d *Service) Run(ctx context.Context) error {
 	// which already regenerates unconditionally before its DB probe. Fatal on
 	// failure: EnsureDBUp would fail anyway, and a clear "regenerate config"
 	// error is the actionable signal.
-	if flag, ferr := ReadFlagFile(d.projDir); ferr == nil && flag.IsServiceNewSbRecovery() {
+	if flag := bootFlag; flag != nil && flag.IsServiceNewSbRecovery() {
 		// Recovery boot, FORWARD phases ONLY (post_swap / resuming). executeUpgrade
 		// defers the target checkout to here (STATBUS-060) so the OLD binary never
 		// materializes target-compose. A post-swap/resuming recovery resumes
@@ -3053,13 +3066,15 @@ func (d *Service) Run(ctx context.Context) error {
 	// correctly so; it stays present until a later config generate actually
 	// succeeds.
 
-	// Pre-flight B — ensure DB is up. Idempotent (no-op when already up).
+	// Pre-flight B — ensure DB is reachable. Only a service-held forward recovery
+	// may recreate the db container because it needs the target image. Every other
+	// boot starts the existing db+proxy route and cannot change container identity.
 	// Covers the post-swap recovery path where the prior process image exited
 	// 42 after stamping Phase=post_swap and intentionally stopped the DB
 	// (applyNewSbUpgrading step 2 for the consistent backup). Without this pre-start,
 	// connect() would fail against the stopped DB and systemd would loop-restart
 	// us before recoverFromFlag → resumeNewSb → applyNewSbUpgrading ever runs.
-	if err := d.EnsureDBUp(ctx); err != nil {
+	if err := ensureDatabaseForBoot(ctx, bootFlag, d.EnsureDBUp, d.StartDatabaseRouteServingMayRun); err != nil {
 		return fmt.Errorf("ensure DB up: %w", err)
 	}
 
