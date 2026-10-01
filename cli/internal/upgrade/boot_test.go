@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"path/filepath"
 	"regexp"
 	"strconv"
 	"strings"
@@ -160,6 +161,62 @@ func TestBootStaleInstallFlagWithoutFlockAllowsNormalBoot(t *testing.T) {
 	}
 	if log.Len() != 0 || notifications.Load() != 0 {
 		t.Fatalf("stale marker unexpectedly waited: log=%q notifications=%d", log.String(), notifications.Load())
+	}
+}
+
+func writeCorruptUpgradeFlag(t *testing.T, dir string) {
+	t.Helper()
+	path := flagFilePath(dir)
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	// A truncated prefix of a real marker — the arcs' 24-byte partial write.
+	if err := os.WriteFile(path, []byte(`{"id":0,"commit_sha":""`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestBootCorruptFlagFreeFlockProceedsToCorruptFlagRecovery(t *testing.T) {
+	dir := t.TempDir()
+	writeCorruptUpgradeFlag(t, dir)
+
+	var log bytes.Buffer
+	var notifications atomic.Int32
+	flag, err := (&Service{projDir: dir}).waitForInstallHolderBeforeBootWithOptions(
+		context.Background(), testInstallHeldBootWaitOptions(&log, &notifications),
+	)
+	if err != nil {
+		t.Fatalf("corrupt flag with a free flock must not fatal (rc.07 flagless-selfheal wedge): %v", err)
+	}
+	if flag != nil {
+		t.Fatalf("corrupt flag proceeded with flag=%+v, want nil so recoverFromFlag owns the removal", flag)
+	}
+	if !strings.Contains(log.String(), "corrupt-flag recovery") {
+		t.Fatalf("expected the continue-to-recovery log line, got %q", log.String())
+	}
+	if notifications.Load() != 0 {
+		t.Fatalf("corrupt flag with a free flock unexpectedly pinged the watchdog %d times", notifications.Load())
+	}
+}
+
+func TestBootCorruptFlagHeldFlockStaysFatal(t *testing.T) {
+	dir, owner := acquireTestInstallFlock(t)
+	defer owner.Close()
+	// A live holder whose marker was truncated mid-write: the boot cannot
+	// identify the holder, so proceeding would be the race the interlock
+	// forbids. Fatal is the only safe answer.
+	writeCorruptUpgradeFlag(t, dir)
+
+	var log bytes.Buffer
+	var notifications atomic.Int32
+	_, err := (&Service{projDir: dir}).waitForInstallHolderBeforeBootWithOptions(
+		context.Background(), testInstallHeldBootWaitOptions(&log, &notifications),
+	)
+	if err == nil {
+		t.Fatal("corrupt flag with a HELD flock must stay fatal — the holder cannot be identified")
+	}
+	if !strings.Contains(err.Error(), "inspect upgrade mutex before daemon boot pre-flight") {
+		t.Fatalf("fatal error lost its mutex-inspection framing: %v", err)
 	}
 }
 

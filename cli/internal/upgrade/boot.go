@@ -68,6 +68,19 @@ func (d *Service) waitForInstallHolderBeforeBootWithOptions(ctx context.Context,
 	for {
 		flag, err := ReadFlagFile(d.projDir)
 		if err != nil {
+			// A corrupt flag cannot prove an install hold. When the canonical
+			// flock is FREE there is no live install: proceed with a nil flag
+			// so recoverFromFlag's FLAG_CORRUPT path removes the marker and
+			// self-heals (the flagless-selfheal-at-target and
+			// boot-migrate-churn-alive-idle arcs — rc.07 proved that fatalling
+			// here wedges the daemon into a StartLimitBurst restart loop
+			// before that reader ever runs). When the flock IS held the
+			// holder cannot be identified, so fatalling remains the only safe
+			// answer: proceeding is exactly the race this interlock forbids.
+			if !IsFlockHeld(d.projDir) {
+				opts.logf("Upgrade flag unreadable before daemon boot pre-flight (%v); no install flock held — continuing to corrupt-flag recovery\n", err)
+				return nil, nil
+			}
 			return nil, fmt.Errorf("inspect upgrade mutex before daemon boot pre-flight: %w", err)
 		}
 		if flag == nil || flag.Holder != HolderInstall || flag.Trigger != "install" || !IsFlockHeld(d.projDir) {
