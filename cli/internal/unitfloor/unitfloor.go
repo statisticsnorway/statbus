@@ -237,7 +237,25 @@ func isActiveSystemd(instance string) bool {
 	return systemdActivityIsRunning(string(out), err)
 }
 
-func systemdActivityIsRunning(output string, err error) bool {
+type systemdActivity int
+
+const (
+	systemdInactive systemdActivity = iota
+	systemdActivating
+	systemdReady
+)
+
+func classifySystemdActivity(output string, err error) systemdActivity {
 	state := strings.TrimSpace(output)
-	return err == nil || state == "active" || state == "activating"
+	if state == "activating" {
+		return systemdActivating
+	}
+	if err == nil || state == "active" {
+		return systemdReady
+	}
+	return systemdInactive
+}
+
+func systemdActivityIsRunning(output string, err error) bool {
+	return classifySystemdActivity(output, err) != systemdInactive
 }

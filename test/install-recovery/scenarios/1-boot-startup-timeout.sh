@@ -228,6 +228,8 @@ RECOVERED_START_JOURNAL=$(mktemp)
 VM_EXEC journalctl --user -u statbus-upgrade@statbus.service --since "$RECOVERY_SINCE" --no-pager >"$RECOVERED_START_JOURNAL"
 ! grep -Fq 'THIS BOX CANNOT FOLLOW ITS UPGRADE CHANNEL' "$RECOVERED_START_JOURNAL" || { cat "$RECOVERED_START_JOURNAL" >&2; echo "active daemon printed channel-following failure box" >&2; exit 1; }
 ! grep -Fq 'The upgrade service is NOT RUNNING' "$RECOVERED_START_JOURNAL" || { cat "$RECOVERED_START_JOURNAL" >&2; echo "active daemon called itself not running" >&2; exit 1; }
+! grep -Fq 'Automatic update checks are not running.' "$RECOVERED_START_JOURNAL" || { cat "$RECOVERED_START_JOURNAL" >&2; echo "activating daemon printed the current inactive alarm" >&2; exit 1; }
+! grep -Fq 'AUTOMATIC UPDATE CHECKS NEED REPAIR' "$RECOVERED_START_JOURNAL" || { cat "$RECOVERED_START_JOURNAL" >&2; echo "activating daemon printed an automatic-update repair alarm" >&2; exit 1; }
 
 # STATBUS-405: prove the observable startup sequence, not merely the final
 # active state. systemd emits Starting while the Type=notify unit is

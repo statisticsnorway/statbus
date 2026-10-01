@@ -118,30 +118,26 @@ func TestActivatingIsStartupProgressUntilReady(t *testing.T) {
 	withHome(t, &body)
 
 	observations := []struct {
-		state string
-		err   error
+		output string
+		err    error
 	}{
-		{state: "activating", err: errors.New("systemctl exits nonzero while activating")},
-		{state: "active"},
+		{output: "activating\n", err: errors.New("systemctl exits nonzero while activating")},
+		{output: "active\n"},
 	}
-	var events []string
-	for i, observation := range observations {
+	var observed []systemdActivity
+	for _, observation := range observations {
+		activity := classifySystemdActivity(observation.output, observation.err)
+		observed = append(observed, activity)
 		report := inspectWith(dir, "statbus_demo", "linux", func(string) bool {
-			return systemdActivityIsRunning(observation.state+"\n", observation.err)
+			return activity != systemdInactive
 		})
 		if !report.Healthy() || report.Announce() != "" {
-			t.Fatalf("%s observation produced an alarm: state=%s announcement=%q", observation.state, report.State, report.Announce())
-		}
-		if i == 0 {
-			events = append(events, "startup progress")
-		} else {
-			events = append(events, "ready success")
+			t.Fatalf("systemd activity %v produced an alarm: state=%s announcement=%q", activity, report.State, report.Announce())
 		}
 	}
-
-	want := []string{"startup progress", "ready success"}
-	if strings.Join(events, " -> ") != strings.Join(want, " -> ") {
-		t.Fatalf("events = %v, want ordered %v", events, want)
+	want := []systemdActivity{systemdActivating, systemdReady}
+	if len(observed) != len(want) || observed[0] != want[0] || observed[1] != want[1] {
+		t.Fatalf("observed activity sequence = %v, want startup progress then readiness success %v", observed, want)
 	}
 }
 
