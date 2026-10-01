@@ -5,9 +5,10 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
-	"regexp"
 	"strconv"
 	"strings"
+
+	"github.com/statisticsnorway/statbus/cli/internal/redact"
 )
 
 type GitHubAuthMode string
@@ -24,13 +25,7 @@ type GitHubAuthentication struct {
 }
 
 func redactCommandStderr(text string) string {
-	redacted := authorizationHeaderPattern.ReplaceAllString(text, "${1}[REDACTED]")
-	if token := strings.TrimSpace(os.Getenv("GITHUB_TOKEN")); token != "" {
-		for _, secret := range []string{token, base64.StdEncoding.EncodeToString([]byte(token)), base64.StdEncoding.EncodeToString([]byte("x-access-token:" + token))} {
-			redacted = strings.ReplaceAll(redacted, secret, "[REDACTED]")
-		}
-	}
-	return redacted
+	return redact.GitHubCredentials(text, os.Getenv("GITHUB_TOKEN"))
 }
 
 func commandOutput(cmd *exec.Cmd) ([]byte, error) {
@@ -45,8 +40,6 @@ func commandOutput(cmd *exec.Cmd) ([]byte, error) {
 	}
 	return out, err
 }
-
-var authorizationHeaderPattern = regexp.MustCompile(`(?i)(authorization\s*[:=]\s*)[^\r\n]+`)
 
 // GitHubAuth is the single resolver for release-time GitHub reads.
 func GitHubAuth() GitHubAuthentication {
@@ -110,12 +103,5 @@ func GitHubGitEnv(base []string) []string {
 // match the current token, because transports may normalize or replace them.
 func RedactGitHubCredentials(text string) string {
 	auth := GitHubAuth()
-	redacted := redactCommandStderr(text)
-	if auth.Token == "" {
-		return redacted
-	}
-	for _, secret := range []string{auth.Token, base64.StdEncoding.EncodeToString([]byte(auth.Token)), base64.StdEncoding.EncodeToString([]byte("x-access-token:" + auth.Token))} {
-		redacted = strings.ReplaceAll(redacted, secret, "[REDACTED]")
-	}
-	return redacted
+	return redact.GitHubCredentials(text, auth.Token)
 }
