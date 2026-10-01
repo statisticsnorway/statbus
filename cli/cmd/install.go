@@ -250,9 +250,29 @@ For operator installation or repair, use the public installer:
 // generic line.
 func reportInstallFailure(w io.Writer, err error) {
 	if dir, dirErr := installProjectDir(); dirErr == nil {
+		// One fail-closed record for every returned install failure. Keep raw
+		// errors out of this record: failures can contain command arguments or
+		// broken credential-file contents, and the detailed diagnostic directly
+		// below is collected separately under the support-log redaction policy.
+		installDiagnostic(dir, "install_failed_no_row: class=%s", installFailureClass(err))
 		installDiagnostic(dir, "Installation stopped: %v", err)
+		defer func() {
+			_, _ = fmt.Fprintf(w, "Installation diagnostics: %s\n", filepath.Join(dir, "tmp", "install-last-run-output.txt"))
+		}()
 	}
 	printInstallFailure(w, err)
+}
+
+func installFailureClass(err error) string {
+	var preflight *installPreflightRefusalError
+	var logged *installStateLoggedRefusalError
+	if errors.As(err, &preflight) {
+		return "preflight"
+	}
+	if errors.As(err, &logged) {
+		return "state-refusal"
+	}
+	return "step"
 }
 
 // printInstallFailure renders runInstall's error for the operator.
@@ -910,19 +930,6 @@ func runInstall() (installErr error) {
 				runInstallCallback(installDir)
 			}
 
-			// Secondary log-only breadcrumb for failures without an upgrade row.
-			// for failures where no upgrade row was ever created (fresh install
-			// that died before DB reachable; upgradeRowID stays 0 for every
-			// current caller under capability separation). The primary
-			// `installErr` return already drives the shell fail-fast; this
-			// log-only line guarantees the bundle has a greppable invariant
-			// anchor even when the DB has no row for SSB triage to grep against.
-			if installErr != nil && upgradeRowID == 0 {
-				if installLog != nil {
-					_, _ = fmt.Fprintf(installLog.File(), "install_failed_no_row: detectedState=%s: %v (install.go:%d, pid=%d)\n",
-						detectedState, installErr, thisLine(), os.Getpid())
-				}
-			}
 		}()
 	}
 
@@ -4025,11 +4032,11 @@ func init() {
 	invariants.Register(invariants.Invariant{
 		Name:             "install_failed_no_row",
 		Class:            invariants.LogOnly,
-		SourceLocation:   "cli/cmd/install.go:runInstall (post-completion defer, audit branch)",
-		ExpectedToHold:   "Every failed install leaves a greppable breadcrumb in the install log when no upgrade row was created.",
-		WhyExpected:      "The primary installErr return drives the operator-facing failure message. This separate line is support context and must never reach stdout or stderr.",
-		ViolationShape:   "runInstall returns a non-nil installErr while upgradeRowID == 0; install_failed_no_row is appended directly to installLog.File().",
-		TranscriptFormat: "install_failed_no_row: detectedState=<state>: <err>",
+		SourceLocation:   "cli/cmd/install.go:reportInstallFailure",
+		ExpectedToHold:   "Every failed install leaves exactly one greppable classification-only breadcrumb in the install diagnostics log, including failures before the step-table or progress log exists.",
+		WhyExpected:      "reportInstallFailure is the single command boundary for every non-nil runInstall result. It writes the private record before rendering the plain operator recovery outcome, and excludes raw errors and command arguments so credential safety is fail-closed.",
+		ViolationShape:   "reportInstallFailure receives a non-nil error and appends one install_failed_no_row record through installDiagnostic, classified as preflight, state-refusal, or step.",
+		TranscriptFormat: "install_failed_no_row: class=<class>",
 	})
 	invariants.Register(invariants.Invariant{
 		Name:             "NOTIFY_UPGRADE_CHECK_BEST_EFFORT_LOGGED",

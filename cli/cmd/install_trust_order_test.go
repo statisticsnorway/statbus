@@ -68,7 +68,7 @@ func TestFailedInstallBreadcrumbIsLogOnlyAndPlainlyNamed(t *testing.T) {
 	if strings.Contains(body, "FAILED_INSTALL_HAS_AUDIT_TRAIL") {
 		t.Fatal("old alarming invariant name remains in installer source")
 	}
-	if !strings.Contains(body, `fmt.Fprintf(installLog.File(), "install_failed_no_row:`) {
-		t.Fatal("failed-install breadcrumb must write directly to the install log")
+	if !strings.Contains(body, `installDiagnostic(dir, "install_failed_no_row: class=%s", installFailureClass(err))`) {
+		t.Fatal("failed-install breadcrumb must be owned by the all-failures report boundary")
 	}
 }
