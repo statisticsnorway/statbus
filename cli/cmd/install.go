@@ -3983,11 +3983,11 @@ func init() {
 	invariants.Register(invariants.Invariant{
 		Name:             "install_failed_no_row",
 		Class:            invariants.LogOnly,
-		SourceLocation:   "cli/cmd/install.go:runInstall (post-completion defer, audit branch)",
-		ExpectedToHold:   "Every failed install leaves a greppable breadcrumb in the install log when no upgrade row was created.",
-		WhyExpected:      "The primary installErr return drives the operator-facing failure message. This separate line is support context and must never reach stdout or stderr.",
-		ViolationShape:   "runInstall returns a non-nil installErr while upgradeRowID == 0; install_failed_no_row is appended directly to installLog.File().",
-		TranscriptFormat: "install_failed_no_row: detectedState=<state>: <err>",
+		SourceLocation:   "cli/cmd/install.go:reportInstallFailure",
+		ExpectedToHold:   "Every failed install leaves exactly one greppable classification-only breadcrumb in the install diagnostics log, including failures before the step-table or progress log exists.",
+		WhyExpected:      "reportInstallFailure is the single command boundary for every non-nil runInstall result. It writes the private record before rendering the plain operator recovery outcome, and excludes raw errors and command arguments so credential safety is fail-closed.",
+		ViolationShape:   "reportInstallFailure receives a non-nil error and appends one install_failed_no_row record through installDiagnostic, classified as preflight, state-refusal, or step.",
+		TranscriptFormat: "install_failed_no_row: class=<class>",
 	})
 	invariants.Register(invariants.Invariant{
 		Name:             "NOTIFY_UPGRADE_CHECK_BEST_EFFORT_LOGGED",
