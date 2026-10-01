@@ -3,7 +3,6 @@ package cmd
 import (
 	"bytes"
 	"errors"
-	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -12,59 +11,104 @@ import (
 	"github.com/statisticsnorway/statbus/cli/internal/install"
 )
 
-func TestFailedInstallWritesOneQuietRedactedRecordAndPlainRecoveryOutcome(t *testing.T) {
+func TestFailedInstallWritesOneQuietFailClosedRecordAndRealRecoveryOutcome(t *testing.T) {
 	const (
-		credential = "fixture-password-403"
+		credential = "postgres://admin:fixture-password-403@db/statbus"
 		rerun      = "curl -fsSL https://statbus.org/install.sh | bash -s -- --version v2026.09.3 --slot no"
 	)
 
 	for _, tc := range []struct {
 		name        string
-		state       install.State
-		cause       string
-		supportPath string
+		configure   func(t *testing.T, installDir string)
+		wantClass   string
+		wantCause   string
+		wantSupport func(installDir string) string
 	}{
 		{
-			name:        "preflight failure",
-			state:       install.StateNothingScheduled,
-			cause:       "The custom certificate settings are invalid.",
-			supportPath: "/srv/statbus/tmp/install-last-run-output.txt",
+			name: "preflight failure",
+			configure: func(t *testing.T, installDir string) {
+				bundlePath := filepath.Join(installDir, "support-bundle-test.txt")
+				detectInstallState = func(string, string) (install.State, *install.Detail, error) {
+					return 0, nil, errors.New("probe command argument " + credential)
+				}
+				writeDetectionSupportBundle = func(string) (string, error) {
+					if err := os.WriteFile(bundlePath, []byte("diagnostics"), 0o600); err != nil {
+						t.Fatal(err)
+					}
+					return bundlePath, nil
+				}
+			},
+			wantClass: "preflight",
+			wantCause: "the install state could not be determined safely; nothing was changed",
+			wantSupport: func(installDir string) string {
+				return filepath.Join(installDir, "support-bundle-test.txt")
+			},
 		},
 		{
-			name:        "step failure",
-			state:       install.StateFreshDBIncomplete,
-			cause:       "The services step could not finish; the details are in the support file.",
-			supportPath: "/srv/statbus/support-bundle-20261001-175555.txt",
+			name: "step failure",
+			configure: func(t *testing.T, _ string) {
+				detectInstallState = func(string, string) (install.State, *install.Detail, error) {
+					return install.StateFreshDBIncomplete, &install.Detail{}, nil
+				}
+				runInstallStepTableTestHook = func() error {
+					return errors.New("failing command argument " + credential)
+				}
+			},
+			wantClass: "step",
+			wantCause: "The installation stopped before it could finish. Check the installation log, correct the problem",
+			wantSupport: func(installDir string) string {
+				return filepath.Join(installDir, "tmp", "install-last-run-output.txt")
+			},
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			installDir := t.TempDir()
-			if err := os.WriteFile(filepath.Join(installDir, ".env.credentials"), []byte("POSTGRES_ADMIN_PASSWORD="+credential+"\n"), 0o600); err != nil {
+			installDir := withRunInstallDetectionHooks(t)
+			t.Setenv("STATBUS_INSTALL_RERUN_COMMAND", rerun)
+			// The record must remain safe even when the credential file needed for
+			// value-based redaction is absent and the failing argument contains a URI.
+			if err := os.Remove(filepath.Join(installDir, ".env.credentials")); err != nil && !os.IsNotExist(err) {
 				t.Fatal(err)
 			}
+			tc.configure(t, installDir)
 
-			var log bytes.Buffer
-			writeFailedInstallRecord(&log, installDir, tc.state, errors.New(tc.cause+" detail="+credential))
-			record := log.String()
-			if got := strings.Count(record, "install_failed_no_row:"); got != 1 {
-				t.Fatalf("failed-install records = %d, want exactly one:\n%s", got, record)
+			err := runInstall()
+			if err == nil {
+				t.Fatal("runInstall unexpectedly succeeded")
 			}
-			if strings.Contains(record, credential) {
-				t.Fatalf("failed-install record contains fixture credential:\n%s", record)
-			}
-			if !strings.Contains(record, tc.cause) {
-				t.Fatalf("failed-install record missing plain cause %q:\n%s", tc.cause, record)
-			}
+			var terminal bytes.Buffer
+			reportInstallFailure(&terminal, err)
 
-			terminal := fmt.Sprintf("Installation failed: %s\nThen run: %s\nInstallation diagnostics: %s\n", tc.cause, rerun, tc.supportPath)
-			for _, forbidden := range []string{"audit", "install_failed_no_row", credential} {
-				if strings.Contains(strings.ToLower(terminal), strings.ToLower(forbidden)) {
-					t.Fatalf("terminal output contains private/internal wording %q:\n%s", forbidden, terminal)
+			logPath := filepath.Join(installDir, "tmp", "install-last-run-output.txt")
+			logData, readErr := os.ReadFile(logPath)
+			if readErr != nil {
+				t.Fatalf("read production install log: %v", readErr)
+			}
+			logText := string(logData)
+			if got := strings.Count(logText, "install_failed_no_row:"); got != 1 {
+				t.Fatalf("failed-install records = %d, want exactly one:\n%s", got, logText)
+			}
+			if !strings.Contains(logText, "install_failed_no_row: class="+tc.wantClass) {
+				t.Fatalf("record missing class %q:\n%s", tc.wantClass, logText)
+			}
+			var record string
+			for _, line := range strings.Split(logText, "\n") {
+				if strings.HasPrefix(line, "install_failed_no_row:") {
+					record = line
 				}
 			}
-			for _, want := range []string{tc.cause, rerun, tc.supportPath} {
-				if !strings.Contains(terminal, want) {
-					t.Fatalf("terminal output missing %q:\n%s", want, terminal)
+			if strings.Contains(record, credential) {
+				t.Fatalf("production failure record contains credential-shaped failing argument: %s", record)
+			}
+
+			terminalText := terminal.String()
+			for _, forbidden := range []string{"audit", "install_failed_no_row", credential} {
+				if strings.Contains(strings.ToLower(terminalText), strings.ToLower(forbidden)) {
+					t.Fatalf("terminal contains private/internal wording %q:\n%s", forbidden, terminalText)
+				}
+			}
+			for _, want := range []string{tc.wantCause, rerun, tc.wantSupport(installDir)} {
+				if !strings.Contains(terminalText, want) {
+					t.Fatalf("terminal missing %q:\n%s", want, terminalText)
 				}
 			}
 		})

@@ -106,19 +106,6 @@ func installDiagnostic(installDir, format string, args ...any) {
 	_, _ = fmt.Fprintf(f, format+"\n", args...)
 }
 
-func writeFailedInstallRecord(w io.Writer, installDir string, detectedState install.State, installErr error) {
-	message := installErr.Error()
-	if credentials, err := dotenv.Load(filepath.Join(installDir, ".env.credentials")); err == nil {
-		for _, value := range credentials.Parse() {
-			if value != "" {
-				message = strings.ReplaceAll(message, value, "***REDACTED***")
-			}
-		}
-	}
-	_, _ = fmt.Fprintf(w, "install_failed_no_row: detectedState=%s: %s (install.go:%d, pid=%d)\n",
-		detectedState, message, thisLine(), os.Getpid())
-}
-
 // installTTYPrompt shows only explicit questions when install.sh captures all
 // other output in the support log. Other CLI callers retain ordinary stdout.
 func installTTYPrompt(format string, args ...any) {
@@ -263,9 +250,29 @@ For operator installation or repair, use the public installer:
 // generic line.
 func reportInstallFailure(w io.Writer, err error) {
 	if dir, dirErr := installProjectDir(); dirErr == nil {
+		// One fail-closed record for every returned install failure. Keep raw
+		// errors out of this record: failures can contain command arguments or
+		// broken credential-file contents, and the detailed diagnostic directly
+		// below is collected separately under the support-log redaction policy.
+		installDiagnostic(dir, "install_failed_no_row: class=%s", installFailureClass(err))
 		installDiagnostic(dir, "Installation stopped: %v", err)
+		defer func() {
+			_, _ = fmt.Fprintf(w, "Installation diagnostics: %s\n", filepath.Join(dir, "tmp", "install-last-run-output.txt"))
+		}()
 	}
 	printInstallFailure(w, err)
+}
+
+func installFailureClass(err error) string {
+	var preflight *installPreflightRefusalError
+	var logged *installStateLoggedRefusalError
+	if errors.As(err, &preflight) {
+		return "preflight"
+	}
+	if errors.As(err, &logged) {
+		return "state-refusal"
+	}
+	return "step"
 }
 
 // printInstallFailure renders runInstall's error for the operator.
@@ -879,18 +886,6 @@ func runInstall() (installErr error) {
 				runInstallCallback(installDir)
 			}
 
-			// Secondary log-only breadcrumb for failures without an upgrade row.
-			// for failures where no upgrade row was ever created (fresh install
-			// that died before DB reachable; upgradeRowID stays 0 for every
-			// current caller under capability separation). The primary
-			// `installErr` return already drives the shell fail-fast; this
-			// log-only line guarantees the bundle has a greppable invariant
-			// anchor even when the DB has no row for SSB triage to grep against.
-			if installErr != nil && upgradeRowID == 0 {
-				if installLog != nil {
-					writeFailedInstallRecord(installLog.File(), installDir, detectedState, installErr)
-				}
-			}
 		}()
 	}
 
