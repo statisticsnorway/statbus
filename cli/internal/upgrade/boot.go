@@ -40,8 +40,10 @@ func productionInstallHeldBootWaitOptions() installHeldBootWaitOptions {
 }
 
 // waitForInstallHolderBeforeBoot keeps every mutating daemon pre-flight behind
-// the canonical install mutex. The holder is logged once, then the bounded wait
-// stays watchdog-visible until the install releases the flock.
+// the canonical install mutex. A restart also uses HolderInstall for lifecycle
+// serialization, but its final act is starting this daemon, so only the install
+// trigger defers boot. The holder is logged once, then the bounded wait stays
+// watchdog-visible until the install releases the flock.
 func (d *Service) waitForInstallHolderBeforeBoot(ctx context.Context) (*UpgradeFlag, error) {
 	return d.waitForInstallHolderBeforeBootWithOptions(ctx, productionInstallHeldBootWaitOptions())
 }
@@ -60,7 +62,7 @@ func (d *Service) waitForInstallHolderBeforeBootWithOptions(ctx context.Context,
 		if err != nil {
 			return nil, fmt.Errorf("inspect upgrade mutex before daemon boot pre-flight: %w", err)
 		}
-		if flag == nil || flag.Holder != HolderInstall || !IsFlockHeld(d.projDir) {
+		if flag == nil || flag.Holder != HolderInstall || flag.Trigger != "install" || !IsFlockHeld(d.projDir) {
 			return flag, nil
 		}
 		if !logged {

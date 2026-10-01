@@ -31,11 +31,15 @@ func testInstallHeldBootWaitOptions(log *bytes.Buffer, notifications *atomic.Int
 }
 
 func acquireTestInstallFlock(t *testing.T) (string, *FlagLock) {
+	return acquireTestInstallFlockWithTrigger(t, "install")
+}
+
+func acquireTestInstallFlockWithTrigger(t *testing.T, trigger string) (string, *FlagLock) {
 	t.Helper()
 	dir := t.TempDir()
 	owner, err := acquireFreshFlock(dir, UpgradeFlag{
 		Holder:    HolderInstall,
-		Trigger:   "install",
+		Trigger:   trigger,
 		StartedAt: time.Date(2026, 10, 1, 12, 0, 0, 0, time.UTC),
 		PID:       os.Getpid(),
 	})
@@ -43,6 +47,46 @@ func acquireTestInstallFlock(t *testing.T) (string, *FlagLock) {
 		t.Fatal(err)
 	}
 	return dir, owner
+}
+
+func TestBootRestartTriggeredHeldFlockDoesNotDefer(t *testing.T) {
+	dir, owner := acquireTestInstallFlockWithTrigger(t, "restart")
+	defer owner.Close()
+
+	var log bytes.Buffer
+	var notifications atomic.Int32
+	flag, err := (&Service{projDir: dir}).waitForInstallHolderBeforeBootWithOptions(
+		context.Background(), testInstallHeldBootWaitOptions(&log, &notifications),
+	)
+	if err != nil {
+		t.Fatalf("restart-triggered hold deferred daemon boot: %v", err)
+	}
+	if flag == nil || flag.Trigger != "restart" {
+		t.Fatalf("restart marker = %+v, want preserved restart trigger", flag)
+	}
+	if log.Len() != 0 || notifications.Load() != 0 {
+		t.Fatalf("restart-triggered hold unexpectedly waited: log=%q notifications=%d", log.String(), notifications.Load())
+	}
+}
+
+func TestBootLegacyEmptyTriggerHeldFlockDoesNotDeferBecauseNoInstallWriterOmittedTrigger(t *testing.T) {
+	dir, owner := acquireTestInstallFlockWithTrigger(t, "")
+	defer owner.Close()
+
+	var log bytes.Buffer
+	var notifications atomic.Int32
+	flag, err := (&Service{projDir: dir}).waitForInstallHolderBeforeBootWithOptions(
+		context.Background(), testInstallHeldBootWaitOptions(&log, &notifications),
+	)
+	if err != nil {
+		t.Fatalf("empty-trigger hold deferred daemon boot: %v", err)
+	}
+	if flag == nil || flag.Trigger != "" {
+		t.Fatalf("empty-trigger marker = %+v, want preserved empty trigger", flag)
+	}
+	if log.Len() != 0 || notifications.Load() != 0 {
+		t.Fatalf("empty-trigger hold unexpectedly waited: log=%q notifications=%d", log.String(), notifications.Load())
+	}
 }
 
 func TestBootInstallHeldLiveFlockExpiresWithWatchdogAndOneHolderLog(t *testing.T) {
