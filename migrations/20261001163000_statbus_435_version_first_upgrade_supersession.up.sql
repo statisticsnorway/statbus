@@ -1,8 +1,9 @@
-```sql
+BEGIN;
+
 CREATE OR REPLACE PROCEDURE public.upgrade_supersede_older(IN p_commit_sha text, INOUT p_superseded integer DEFAULT 0)
  LANGUAGE plpgsql
  SET search_path TO 'public', 'pg_temp'
-AS $procedure$
+AS $upgrade_supersede_older$
 DECLARE
     _committed   timestamptz;
     _version_key integer[];
@@ -40,5 +41,6 @@ BEGIN
             p_superseded, p_commit_sha;
     END IF;
 END;
-$procedure$
-```
+$upgrade_supersede_older$;
+
+END;
