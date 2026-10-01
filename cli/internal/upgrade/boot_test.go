@@ -163,13 +163,19 @@ func TestBootStaleInstallFlagWithoutFlockAllowsNormalBoot(t *testing.T) {
 	}
 }
 
-func TestInstallHeldBootExpiryMapsToRestartPreventedExit75(t *testing.T) {
+func TestInstallHeldBootExpiryMapsToRestartPreventedExit76(t *testing.T) {
 	code, ok := installHeldBootWaitExitCode(fmt.Errorf("wrapped: %w", errInstallHeldBootWaitExpired))
-	if !ok || code != 75 {
-		t.Fatalf("expiry mapping = (%d, %t), want (75, true)", code, ok)
+	if !ok || code != 76 {
+		t.Fatalf("expiry mapping = (%d, %t), want (76, true)", code, ok)
 	}
-	if exitInstallHeldBootWait != 75 {
-		t.Fatalf("exitInstallHeldBootWait = %d, want 75", exitInstallHeldBootWait)
+	if exitInstallHeldBootWait != 76 {
+		t.Fatalf("exitInstallHeldBootWait = %d, want 76", exitInstallHeldBootWait)
+	}
+	// 75 is owned by the rollback-complete tail (service.go's os.Exit(75),
+	// rc.67 trifecta) which MUST keep Restart=always. The boot-wait code
+	// colliding with it is exactly the rc.07 arc failure.
+	if code == 75 {
+		t.Fatal("boot-wait exit must never be 75: that code means rollback-complete and must restart")
 	}
 	if code, ok := installHeldBootWaitExitCode(context.Canceled); ok || code != 0 {
 		t.Fatalf("non-expiry mapping = (%d, %t), want (0, false)", code, ok)
@@ -187,15 +193,21 @@ func TestInstallHeldBootExpiryMapsToRestartPreventedExit75(t *testing.T) {
 	}
 }
 
-func TestUpgradeUnitPreventsExit75RestartAndLeavesStartupBudget(t *testing.T) {
+func TestUpgradeUnitPreventsExit76RestartAndLeavesStartupBudget(t *testing.T) {
 	unit, err := os.ReadFile(thisRepoFile(t, "ops/statbus-upgrade.service"))
 	if err != nil {
 		t.Fatal(err)
 	}
 	text := string(unit)
 	prevent := regexp.MustCompile(`(?m)^RestartPreventExitStatus=(.*)$`).FindStringSubmatch(text)
-	if len(prevent) != 2 || !strings.Contains(" "+prevent[1]+" ", " 75 ") {
-		t.Fatalf("RestartPreventExitStatus must contain 75, got %q", prevent)
+	if len(prevent) != 2 || !strings.Contains(" "+prevent[1]+" ", " 76 ") {
+		t.Fatalf("RestartPreventExitStatus must contain 76, got %q", prevent)
+	}
+	// 75 (rollback-complete) in the prevent list leaves the upgrade service
+	// permanently down after every successful rollback — the rc.07 arc
+	// failure. It must never be prevented.
+	if len(prevent) == 2 && strings.Contains(" "+prevent[1]+" ", " 75 ") {
+		t.Fatalf("RestartPreventExitStatus must NOT contain 75 (rollback-complete must restart), got %q", prevent)
 	}
 	timeoutMatch := regexp.MustCompile(`(?m)^TimeoutStartSec=([0-9]+)$`).FindStringSubmatch(text)
 	if len(timeoutMatch) != 2 {

@@ -14,7 +14,15 @@ const (
 	installHeldBootWaitLimit = 30 * time.Second
 	installHeldBootPoll      = 500 * time.Millisecond
 	installHeldWatchdogPing  = 10 * time.Second
-	exitInstallHeldBootWait  = 75 // EX_TEMPFAIL; RestartPreventExitStatus names it explicitly
+	// EX_TEMPFAIL (75) is NOT free: service.go's rollback-complete tail has
+	// exited 75 since the rc.67 trifecta, and that path NEEDS systemd to
+	// restart the daemon (its own comment: "Under systemd Restart=always
+	// cycles cleanly regardless of code"). The rc.07 upgrade arcs proved the
+	// collision live: naming 75 in the unit's RestartPreventExitStatus left
+	// every box's upgrade service DOWN after any successful rollback. The
+	// boot-wait deferral therefore uses 76, and the two codes must never
+	// share a value (boot_test.go pins both sides).
+	exitInstallHeldBootWait  = 76 // RestartPreventExitStatus names it explicitly
 )
 
 var errInstallHeldBootWaitExpired = errors.New("installation still owns the upgrade mutex after the daemon boot wait limit")

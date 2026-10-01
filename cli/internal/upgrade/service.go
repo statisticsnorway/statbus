@@ -13505,6 +13505,10 @@ func (d *Service) rollback(ctx context.Context, id int, version, restoreTargetSH
 	// counts toward StartLimitBurst (Item L: 10/600s), which is the
 	// correct behaviour — repeated rollbacks indicate something
 	// structurally wrong that warrants stopping the unit.
+	// 75 must NEVER enter the unit's RestartPreventExitStatus: doing so
+	// once (STATBUS-432's boot-wait, before it moved to 76) left every
+	// box's upgrade service down after a successful rollback — the rc.07
+	// upgrade-arc failure. boot_test.go pins the disjointness.
 	progress.Close()
 	os.Exit(75)
 	return nil

@@ -58,22 +58,25 @@ RestartForceExitStatus=42
 SuccessExitStatus=42
 
 # STATBUS-298: exit 78 (EX_CONFIG, sysexits.h) marks a PRINCIPLED, non-
-# retriable configuration refusal. STATBUS-432 adds exit 75 (EX_TEMPFAIL) for
-# the bounded daemon-boot wait expiring while a live ./sb install still owns
-# the canonical flock. Both states need operator-visible failure without a
-# restart loop consuming StartLimitBurst.
+# retriable configuration refusal. STATBUS-432's bounded daemon-boot wait
+# (a live ./sb install owns the canonical flock) exits 76: it needs
+# operator-visible failure without a restart loop consuming StartLimitBurst.
+# Exit 75 is NOT in this list on purpose: it is the rc.67 rollback-complete
+# code (cli/internal/upgrade/service.go's os.Exit(75)), and that path needs
+# Restart=always to bring the daemon back — the rc.07 upgrade arcs proved
+# that preventing 75 leaves the upgrade service down after every rollback.
 #
 # Exit 78 covers an unknown UPGRADE_CHANNEL value, a standalone box with no
 # SITE_DOMAIN, and similar recovery-boot config refusals hit BEFORE the db is
 # touched (cli/internal/upgrade/service.go, Run()'s config-generate pre-flight;
 # the refusal itself is selected in cli/cmd/config.go). Before this directive,
 # systemd retried the identical refusal every RestartSec (30s), five times into
-# StartLimitBurst. Exit 75 likewise means retrying while the install still owns
+# StartLimitBurst. Exit 76 likewise means retrying while the install still owns
 # the box would be both destructive and pointless. Every other failure keeps
 # its existing Restart=always policy unchanged. The exit-78 refusal reaches the
-# operator via the journal and tmp/config-refused.json; exit 75 names the live
+# operator via the journal and tmp/config-refused.json; exit 76 names the live
 # install holder in the journal before its bounded watchdog-pinged wait.
-RestartPreventExitStatus=75 78
+RestartPreventExitStatus=76 78
 
 Environment=PATH=/home/linuxbrew/.linuxbrew/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 
