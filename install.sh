@@ -366,6 +366,21 @@ procure_sb_from_commit_image() {
 # The edge path sets $VERSION to "sha-<short>" and builds from source
 # (see edge block further down — it doesn't use $BINARY_URL).
 STATBUS_DIR="${HOME}/statbus"
+
+# Pure/local seam for the installer-log regression test. Production never sets
+# this variable. It writes through install.sh's real public log path, independently
+# of the caller's terminal capture, while skipping unrelated bootstrap work.
+if [ "${STATBUS_INSTALL_TEST_RUN_GO_INSTALLER:-}" = 1 ]; then
+    install_output="$STATBUS_DIR/tmp/install-last-run-output.txt"
+    mkdir -p "$STATBUS_DIR/tmp"
+    : > "$install_output"
+    trap - ERR
+    set +e
+    "$STATBUS_INSTALL_TEST_SB_PATH" install 2>&1 | tee -a "$install_output"
+    sb_rc=${PIPESTATUS[0]}
+    exit "$sb_rc"
+fi
+
 HARNESS_CERT_FRESH=0
 if [ "${STATBUS_HARNESS_CERT_STAGING+x}" = x ]; then
     if [ "$STATBUS_HARNESS_CERT_STAGING" != "$HOME/harness-certs" ] ||

@@ -4,10 +4,11 @@ import (
 	"bytes"
 	"fmt"
 	"io"
+	"os"
 	"os/exec"
 	"strings"
 
-	"github.com/statisticsnorway/statbus/cli/internal/release"
+	"github.com/statisticsnorway/statbus/cli/internal/redact"
 )
 
 // Run executes Git while ensuring that only redacted output reaches operator
@@ -20,8 +21,8 @@ func Run(cmd *exec.Cmd, stdout, stderr io.Writer) error {
 	cmd.Stderr = &stderrCapture
 
 	err := cmd.Run()
-	redactedStdout := release.RedactGitHubCredentials(stdoutCapture.String())
-	redactedStderr := release.RedactGitHubCredentials(stderrCapture.String())
+	redactedStdout := redact.GitHubCredentials(stdoutCapture.String(), os.Getenv("GITHUB_TOKEN"))
+	redactedStderr := redact.GitHubCredentials(stderrCapture.String(), os.Getenv("GITHUB_TOKEN"))
 	if stdout != nil && redactedStdout != "" {
 		_, _ = io.WriteString(stdout, redactedStdout)
 	}

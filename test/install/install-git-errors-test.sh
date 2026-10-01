@@ -36,6 +36,7 @@ exit 1
 FAKE_GIT
 chmod +x "$tmpdir/bin/git"
 export PATH="$tmpdir/bin:$PATH"
+export HOME="$tmpdir/home"
 
 assert_contains() {
     local file="$1" text="$2" name="$3"
@@ -57,13 +58,25 @@ assert_absent() {
 
 run_case() {
     local mode="$1" message="$2" secret="${3:-}"
-    local terminal="$tmpdir/$mode.terminal" install_log="$tmpdir/$mode.install.log"
+    local terminal="$tmpdir/$mode.terminal"
+    local install_log="$HOME/statbus/tmp/install-last-run-output.txt"
     set +e
-    (cd "$REPO_ROOT" && STATBUS_INJECT_AT=preswap-fetch-returns-error STATBUS_INSTALL_TEST_GIT_ERROR="$mode" "$tmpdir/sb" install) 2>&1 | tee "$terminal" > "$install_log"
-    local rc=${PIPESTATUS[0]}
+    (cd "$REPO_ROOT" && \
+        STATBUS_INJECT_AT=preswap-fetch-returns-error \
+        STATBUS_INSTALL_TEST_GIT_ERROR="$mode" \
+        STATBUS_INSTALL_TEST_RUN_GO_INSTALLER=1 \
+        STATBUS_INSTALL_TEST_SB_PATH="$tmpdir/sb" \
+        bash "$REPO_ROOT/install.sh") > "$terminal" 2>&1
+    local rc=$?
     set -e
     if [ "$rc" -eq 0 ]; then
         echo "FAIL: $mode Git failure unexpectedly passed" >&2
+        cat "$terminal" >&2
+        exit 1
+    fi
+    if [ ! -f "$install_log" ]; then
+        echo "FAIL: $mode did not create the public installer log $install_log" >&2
+        cat "$terminal" >&2
         exit 1
     fi
     for surface in "$terminal" "$install_log"; do
