@@ -152,3 +152,89 @@ then
     fail "self-test did not catch a deleted mkdir at the last copy site — the fix does not actually discriminate per-block"
 fi
 echo "PASS: self-test confirms a mkdir removed from the last block's own scope is caught (was silently missed by the pre-R2 version of this test)"
+
+# ── Fourth site: the historical-baseline heredoc (STATBUS-431) ─────────────
+#
+# _lxd_build_base_for_candidate's baseline branch builds its guest script with
+# an UNQUOTED `cat > "$script" <<SCRIPT` heredoc and writes the guest's
+# .env.config via `cat > .env.config <<'ENVCONFIG'` — no `cp /tmp/env-config`
+# line, so the three-site detector above structurally cannot see it. That site
+# escaped BOTH the STATBUS-425 M3a guard and this test, and it is exactly
+# where rc.01's and rc.02's smoke 0-happy-upgrade bases lost their
+# ~/statbus-maintenance ownership (runs 36851924215 and 36877708943, both
+# "write maintenance flag ... permission denied" in the OLD binary's pre-swap
+# phase). Pin it: the heredoc must create ~/statbus-maintenance (and
+# ~/statbus-backups) BEFORE writing .env.config.
+
+python3 - "$FILE" <<'PY'
+import re, sys
+lines = open(sys.argv[1]).read().split('\n')
+
+envconfig_re = re.compile(r"cat > \.env\.config <<'ENVCONFIG'")
+block_open_re = re.compile(r"cat > \"\$script\" <<SCRIPT$")
+mkdir_re = re.compile(r'install -d .*statbus-maintenance')
+backups_re = re.compile(r'install -d .*statbus-backups')
+
+sites = [i for i, l in enumerate(lines) if envconfig_re.search(l)]
+if len(sites) != 1:
+    print(f"FAIL: expected exactly 1 ENVCONFIG heredoc site, found {len(sites)}", file=sys.stderr)
+    sys.exit(1)
+site = sites[0]
+
+block_start = None
+for j in range(site, -1, -1):
+    if block_open_re.search(lines[j]):
+        block_start = j
+        break
+if block_start is None:
+    print(f"FAIL: ENVCONFIG write at line {site+1} has no preceding '<<SCRIPT' heredoc start — cannot bound the baseline block", file=sys.stderr)
+    sys.exit(1)
+
+block = lines[block_start:site]
+if not any(mkdir_re.search(l) for l in block):
+    print(f"FAIL: baseline heredoc (starts line {block_start+1}) writes .env.config without first creating ~/statbus-maintenance — the rc.01/rc.02 smoke failure shape", file=sys.stderr)
+    sys.exit(1)
+if not any(backups_re.search(l) for l in block):
+    print(f"FAIL: baseline heredoc (starts line {block_start+1}) writes .env.config without first creating ~/statbus-backups", file=sys.stderr)
+    sys.exit(1)
+print(f"PASS: baseline heredoc creates ~/statbus-maintenance and ~/statbus-backups before writing .env.config (block starts line {block_start+1})")
+PY
+
+# Live self-test for the fourth site: delete ITS mkdir only and the check
+# above must fail (proving the boundary is the baseline block, not the file).
+TMPFILE2=$(mktemp)
+trap 'rm -f "$TMPFILE" "$TMPFILE2"' EXIT
+python3 - "$FILE" "$TMPFILE2" <<'PY'
+import re, sys
+src, dst = sys.argv[1], sys.argv[2]
+lines = open(src).read().split('\n')
+envconfig_re = re.compile(r"cat > \.env\.config <<'ENVCONFIG'")
+mkdir_re = re.compile(r'install -d .*statbus-maintenance')
+site = [i for i, l in enumerate(lines) if envconfig_re.search(l)][0]
+for j in range(site, -1, -1):
+    if mkdir_re.search(lines[j]):
+        del lines[j]
+        break
+open(dst, 'w').write('\n'.join(lines))
+PY
+if python3 - "$TMPFILE2" <<'PY' >/dev/null 2>&1
+import re, sys
+lines = open(sys.argv[1]).read().split('\n')
+envconfig_re = re.compile(r"cat > \.env\.config <<'ENVCONFIG'")
+block_open_re = re.compile(r"cat > \"\$script\" <<SCRIPT$")
+mkdir_re = re.compile(r'install -d .*statbus-maintenance')
+site = [i for i, l in enumerate(lines) if envconfig_re.search(l)][0]
+block_start = 0
+for j in range(site, -1, -1):
+    if block_open_re.search(lines[j]):
+        block_start = j
+        break
+block = lines[block_start:site]
+if not any(mkdir_re.search(l) for l in block):
+    sys.exit(1)
+sys.exit(0)
+PY
+then
+    fail "self-test did not catch a deleted mkdir in the baseline heredoc — the fourth-site check does not discriminate"
+fi
+echo "PASS: self-test confirms deleting the baseline heredoc's own mkdir is caught"

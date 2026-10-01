@@ -56,7 +56,7 @@ Found by review tmp/review-425-m3a.md R3 (2026-09-29), first hit live on LXD arc
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
 - [ ] #1 Every install path (interactive, answer file, pre-seeded .env.config, rerun) leaves ~/statbus-maintenance and ~/statbus-backups owned by and writable by the install user before the first compose up, verified by guest runs on each path
-- [ ] #2 A box installed by v2026.09.3 (root-owned ~/statbus-maintenance) upgrades to the fixed candidate: the daemon repairs ownership via the shared container mechanism, writes and clears the maintenance flag, and the upgrade completes (this is exactly what rc.01 smoke run 36851924215 proved broken)
+- [ ] #2 (a) A fleet-faithful v2026.09.3 base (directories statbus-owned, as every production box is) upgrades to the fixed candidate and completes — the smoke gate. (b) A post-regression box (root-owned ~/statbus-maintenance) is healed by `./sb install` of the candidate, which repairs ownership via the shared container mechanism without sudo, and the pending upgrade then proceeds to completion. rc.02 (run 36877708943) proved the daemon cannot self-rescue on a 09.3 base: the maintenance write runs in the OLD binary's pre-swap phase (PhaseOldSbUpgrading), before the new binary exists
 - [ ] #3 Directory creation and repair failures fail their step loudly; no log.Printf swallow
 - [ ] #4 Directory creation no longer rides on the Settings or Configuration steps' done-checks; those checks verify their own outcomes only
 <!-- AC:END -->

@@ -571,6 +571,23 @@ cd ~/statbus
 install -d -m 0755 caddy/data/custom-certs
 install -m 0644 ~/harness-certs/domain.crt caddy/data/custom-certs/domain.crt
 install -m 0600 ~/harness-certs/domain.key caddy/data/custom-certs/domain.key
+# STATBUS-431 (proven live TWICE: rc.01 and rc.02 smoke 0-happy-upgrade, runs
+# 36851924215 and 36877708943, both "write maintenance flag ... permission
+# denied"): this baseline pre-writes .env.config, so the historical
+# installer's Configuration step is skipped — and since 2026-09-24/25 its
+# Settings step is skipped on every fresh install too (Credentials generates
+# .env first, making checkEnvDone true), and the only mkdir of these
+# directories rode inside it. Docker then creates ~/statbus-maintenance as
+# ROOT at compose up and the upgrade daemon's maintenance-flag write fails
+# in the OLD binary's pre-swap phase (PhaseOldSbUpgrading — the new binary
+# only takes over after replaceBinaryOnDisk), so no candidate-side code can
+# rescue this guest. Create both directories here as the statbus user,
+# exactly as every pre-regression production box looks (dev/no/demo are all
+# statbus-owned), so this base is fleet-faithful. The v2026.10+ Directories
+# step makes this unnecessary for installs it performs itself; the harness
+# guard stays until the gate has proven green with it.
+install -d -m 0755 ~/statbus-maintenance
+install -d -m 0755 ~/statbus-backups
 # Same content as vm-bootstrap.sh's env-config fixture for a current-era box.
 ( umask 077; cat > .env.config <<'ENVCONFIG'
 DEPLOYMENT_SLOT_NAME=Install Test
