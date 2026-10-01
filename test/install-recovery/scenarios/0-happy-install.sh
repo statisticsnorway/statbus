@@ -116,15 +116,23 @@ VM_EXEC bash -c "export STATBUS_ENV_CONFIG=\"\$HOME/install-input.env\" STATBUS_
     cat "$RERUN_LOG" >&2
     exit 1
 }
-STEP_OK_COUNT=$(grep -Ec '^\[[0-9]+/17\] .+ +OK$' "$RERUN_LOG" || true)
-[ "$STEP_OK_COUNT" -eq 17 ] || { cat "$RERUN_LOG" >&2; echo "green rerun reported $STEP_OK_COUNT/17 steps OK" >&2; exit 1; }
-for step_index in $(seq 1 17); do
-    INDEX_COUNT=$(grep -Ec "^\\[$step_index/17\\] .+ +OK$" "$RERUN_LOG" || true)
+# The step total is derived from the rerun's own output, never hardcoded:
+# STATBUS-431 added the Directories step (17 → 18) and rc.05's run 36913891287
+# failed here on the stale 17 pin while every step was OK. The invariants are
+# the quiet-rerun contract, not the count: one consistent denominator, every
+# index OK exactly once, Seed present, no RUNNING/DONE, no image pulls.
+STEP_TOTALS=$(grep -Eo '^\[[0-9]+/[0-9]+\] .+ +OK$' "$RERUN_LOG" | sed -E 's|^\[[0-9]+/([0-9]+)\].*|\1|' | sort -u)
+[ "$(printf '%s\n' "$STEP_TOTALS" | grep -c .)" -eq 1 ] || { cat "$RERUN_LOG" >&2; echo "green rerun reported inconsistent step totals: $STEP_TOTALS" >&2; exit 1; }
+STEP_TOTAL="$STEP_TOTALS"
+STEP_OK_COUNT=$(grep -Ec "^\[[0-9]+/$STEP_TOTAL\] .+ +OK$" "$RERUN_LOG" || true)
+[ "$STEP_OK_COUNT" -eq "$STEP_TOTAL" ] || { cat "$RERUN_LOG" >&2; echo "green rerun reported $STEP_OK_COUNT/$STEP_TOTAL steps OK" >&2; exit 1; }
+for step_index in $(seq 1 "$STEP_TOTAL"); do
+    INDEX_COUNT=$(grep -Ec "^\\[$step_index/$STEP_TOTAL\\] .+ +OK$" "$RERUN_LOG" || true)
     [ "$INDEX_COUNT" -eq 1 ] || { cat "$RERUN_LOG" >&2; echo "green rerun reported step $step_index OK $INDEX_COUNT times" >&2; exit 1; }
 done
-grep -Eq '^\[12/17\] Seed +OK$' "$RERUN_LOG" || { cat "$RERUN_LOG" >&2; echo "green rerun did not report Seed OK" >&2; exit 1; }
+grep -Eq "^\[[0-9]+/$STEP_TOTAL\] Seed +OK$" "$RERUN_LOG" || { cat "$RERUN_LOG" >&2; echo "green rerun did not report Seed OK" >&2; exit 1; }
 ! grep -Eqi '(^|[[:space:]])(pull|pulling|pulled)([[:space:]]|$)' "$RERUN_LOG" || { cat "$RERUN_LOG" >&2; echo "green rerun pulled images" >&2; exit 1; }
-! grep -Eq '^\[[0-9]+/17\].* +(RUNNING|DONE)$' "$RERUN_LOG" || { cat "$RERUN_LOG" >&2; echo "green rerun changed a step" >&2; exit 1; }
+! grep -Eq "^\[[0-9]+/$STEP_TOTAL\].* +(RUNNING|DONE)$" "$RERUN_LOG" || { cat "$RERUN_LOG" >&2; echo "green rerun changed a step" >&2; exit 1; }
 rm -f "$RERUN_LOG"
 
 # Smoke owns the candidate checkpoint. Capture the proven installer state
