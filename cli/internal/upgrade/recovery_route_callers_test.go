@@ -55,8 +55,8 @@ func TestRecoveryRouteCallersSplitByContract(t *testing.T) {
 	if got := strings.Count(serviceSource, "d.StartDatabaseRouteServingMustBeStopped"); got != 3 {
 		t.Fatalf("held-closed startup must have exactly the two park source-restoration selections plus rollback schema-floor replay; got %d", got)
 	}
-	if got := strings.Count(serviceSource, "d.StartDatabaseRouteServingMayRun"); got != 3 {
-		t.Fatalf("service.go route-only startup must appear only in unreadable-position deterministic park, AtNew source-schema proof, and rollback ABORT; got %d", got)
+	if got := strings.Count(serviceSource, "d.StartDatabaseRouteServingMayRun"); got != 4 {
+		t.Fatalf("service.go route-only startup must appear only in ordinary daemon boot, unreadable-position deterministic park, AtNew source-schema proof, and rollback ABORT; got %d", got)
 	}
 	if got := strings.Count(serviceSource, "d.StartDatabaseRouteServingMustBeStopped, false"); got != 2 {
 		t.Fatalf("the two held-closed park recovery callers must pair MustBeStopped with the non-MayRun narrative discriminator; got %d", got)
