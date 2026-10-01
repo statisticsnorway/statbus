@@ -64,7 +64,7 @@ test/install-recovery/
 
 The manual runner uses a fresh Hetzner Cloud VM per scenario. The LXD release gate uses isolated forks of candidate-pinned installed guest checkpoints on one rented host. Smoke, fault forks and upgrade arcs all run on that host in the release gate; only this manual runner uses fresh Hetzner VMs.
 
-## Scenario catalogue (15 scenarios; retired rows kept as supersession records)
+## Scenario catalogue (16 scenarios; retired rows kept as supersession records)
 
 Every entry leads with its **plain goal** — read it as **die HERE → the operator's `./sb install` re-run must end at THIS terminal state, data intact.** The goal is what the test is *for*; the *Grounding* column is the mechanism (inject site, C-class, the fix it guards) for the engineer. The full per-scenario detail lives in each `scenarios/<slug>.sh` header. The **phase prefix** says *when* in the timeline the wedge lands: `0` happy · `1-boot` pre-READY/startup · `2-preswap` before the binary+migration swap · `3-postswap` after the swap (migrate/restart/resume) · `4-rollback` during the built-in rollback · `5-install` the inline `./sb install` operator path.
 
@@ -127,6 +127,7 @@ Every entry leads with its **plain goal** — read it as **die HERE → the oper
 | `5-install-cert-repair-via-cert-install` | A box whose Settings refuses on an invalid host-path certificate (Docker-created root-owned `caddy/data/`) is repaired end to end by `./sb cert install <crt> <key>` alone, unprivileged, no sudo → the printed remedy names `cd ~/statbus && ./sb cert install`, `caddy/data/caddy/` is left untouched, and a rerun reaches CA-verified HTTPS. | STATBUS-429 `ensureCustomCertsDirWritable` (Docker ownership repair scoped to `custom-certs/` only) |
 | `5-install-drifted-unit-reconciled` | Re-install on a *healthy* box whose systemd unit config has DRIFTED → the installer detects it (byte-compares the on-disk unit to the repo template) and rewrites + restarts the unit to re-arm the timers. | unit-reconcile fix; `checkServiceDone` byte-compare (a rewritten unit is inert until restart) |
 | `5-install-seed-on-populated` *(DATA-LOSS GRADE)* | Re-install over a POPULATED DB → the installer classifies it as populated and **never** runs the destructive seed-restore. | R5 content classifier (commit 5dc66c237); load-bearing: `assert_demo_data_present` |
+| `5-install-source-image-identity-proof` *(EXPLICIT ONLY)* | A real v2026.09.2 box loses local source-tag metadata while its containers retain coherent `.Config.Image` and immutable `.Image` identities → the old daemon's exact repeated false refusal is recorded, then the named fixed candidate's official installer must capture daemon identity and complete through the db/app/worker/proxy canary without retagging or ledger edits. | STATBUS-436 AC#4/#5; `HARNESS_SKIP_DEFAULT` because this is a long candidate-addressed acceptance observation, not the default fault battery |
 | `5-install-stage-a-killed-migrate` | Killed during a migrate subprocess (orphaned postgres backend) → re-run cleans up and completes, data intact. | Fix 3 Phase-1 cleanup + Fix 5b forward-recovery (Fix 1 prevents it in production) |
 | `5-install-stage-b-pool-exhaustion` | Install while all DB connections are exhausted → install still proceeds (via the docker-exec bypass). | Fix 3 docker-exec when external connections fail |
 | `5-install-stage-c-systemd-failed` | Install after the unit tripped systemd's start-limit (>10 starts / 600 s) → re-run resets the failed unit and proceeds. | Fix 4 `systemctl reset-failed` |
@@ -197,6 +198,7 @@ diagram's transitions, and the activity diagram's partitions/arms. The run-proof
 | `5-install-orphaned-db-volume-credentials` | install-recovery § Detect / fresh-db-incomplete → continue; step-table / Services — role passwords match .env.credentials; final check — API ready |
 | `5-install-proxy-never-started` | install-recovery § step-table / Services — every service started and confirmed running |
 | `5-install-seed-on-populated` | install-recovery § step-table / Seed gate (data-loss grade) |
+| `5-install-source-image-identity-proof` | install-recovery § Detect / scheduled-upgrade + upgrade-timeline § old-sb-upgrading source capture → official-installer takeover → completed (STATBUS-436) |
 | `5-install-stage-a-killed-migrate` | install-recovery § step-table / Database sessions — orphan backend cleanup |
 | `5-install-stage-b-pool-exhaustion` | install-recovery § pre-detect cleanOrphanSessions — docker-exec bypass |
 | `5-install-stage-c-systemd-failed` | install-recovery § step-table / Upgrade service — reset-failed |

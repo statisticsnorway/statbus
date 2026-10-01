@@ -22,13 +22,14 @@ HARNESS_ROOT="$(cd "$HARNESS_DIR/../.." && pwd)"
 SCENARIOS_DIR="$HARNESS_DIR/scenarios"
 STAMP_FILE="$HARNESS_ROOT/tmp/install-recovery-test-passed-sha"
 
-# Marker for known-RED reproducers (deliberate failing scenarios that prove an
-# open product bug — e.g. STATBUS-017). A scenario file containing this marker is
-# EXCLUDED from the default/full run and from broad phase-prefix runs, so the
-# strict-green gating suite (the stamp below is written ONLY on a full run) never
-# goes red on an expected failure. Such a scenario still runs when a selector
-# names it specifically (a non-phase-prefix substring — its slug or a unique
-# fragment), which is how an operator captures the bug on demand.
+# Marker for scenarios that run only when named explicitly. This includes known
+# RED reproducers for open product bugs and long or specialized acceptance proofs
+# that do not belong in the strict-green default battery. A marked scenario is
+# EXCLUDED from the default/full run and from broad phase-prefix runs. This keeps
+# the strict-green gating suite bounded and prevents an intentionally failing
+# reproducer from making the full-run stamp red. Such a scenario still runs when
+# a selector names it specifically (a non-phase-prefix substring, its slug, or a
+# fragment), which is how an operator executes the scenario on demand.
 SKIP_DEFAULT_MARKER="HARNESS_SKIP_DEFAULT"
 _is_skip_default() { grep -q "$SKIP_DEFAULT_MARKER" "$1" 2>/dev/null; }
 
@@ -167,7 +168,7 @@ Flags:
   --list             List available scenarios and exit
   --print-selected   Print the base names the SAME selection would run (one per
                      line) and exit WITHOUT running anything. Honours selectors
-                     and the known-RED exclusion — the CI matrix consumes this so
+                     and the on-demand exclusion — the CI matrix consumes this so
                      scenario selection lives in exactly one place (here).
   --exact SLUG       Execute exactly one safe slug emitted by a successful
                      same-commit --print-selected discovery. Does not enumerate
@@ -229,7 +230,7 @@ else
         echo "Available scenarios:"
         for s in "${ALL_SCENARIOS[@]}"; do
             if _is_skip_default "$s"; then
-                echo "  $(basename "$s" .sh)   [known-RED — on-demand only, excluded from default run]"
+                echo "  $(basename "$s" .sh)   [on-demand only, excluded from default run]"
             else
                 echo "  $(basename "$s" .sh)"
             fi
@@ -239,7 +240,7 @@ else
 
     # Filter by selectors (phase prefix or substring matches).
     if [ ${#SELECTORS[@]} -eq 0 ]; then
-        # Default/full run: every scenario EXCEPT the known-RED reproducers, so the
+        # Default/full run: every scenario EXCEPT on-demand scenarios, so the
         # strict-green gating suite stays green (the stamp is gated on this branch).
         for s in "${ALL_SCENARIOS[@]}"; do
             if _is_skip_default "$s"; then
@@ -247,7 +248,7 @@ else
                 # chosen names on stdout as DATA (the CI matrix captures it); a
                 # notice on stdout here would become bogus matrix entries → 2
                 # always-failing jobs → the gate could never go green.
-                echo "  (excluding known-RED reproducer from default run: $(basename "$s" .sh))" >&2
+                echo "  (excluding on-demand scenario from default run: $(basename "$s" .sh))" >&2
                 continue
             fi
             SELECTED+=("$s")
@@ -261,7 +262,7 @@ else
             # "2-preswap-checkout-kill-legacy", which sorted FIRST since '-' < '.')
             # and — with the old first-match-then-`break` — resolve to the WRONG
             # scenario while the intended exact file never ran. An exact name also
-            # legitimately selects a known-RED reproducer (it is named specifically).
+            # legitimately selects an on-demand scenario (it is named specifically).
             exact=""
             for s in "${ALL_SCENARIOS[@]}"; do
                 [ "$(basename "$s" .sh)" = "$sel" ] && { exact="$s"; break; }
@@ -281,10 +282,11 @@ else
                 if [ "$phase_match" = 0 ] && [ "$substr_match" = 0 ]; then
                     continue
                 fi
-                # A known-RED reproducer is pulled in ONLY by a selector that names it
+                # An on-demand scenario is pulled in ONLY by a selector that names it
                 # specifically (the exact name above, or a non-phase-prefix substring).
                 # A bare phase prefix (e.g. "3-postswap") must NOT drag it into a group
-                # run, or the group goes red on an expected failure.
+                # run, or the group unexpectedly gains an intentionally failing or
+                # long specialized proof.
                 if _is_skip_default "$s" && [ "$phase_match" = 1 ]; then
                     continue
                 fi
