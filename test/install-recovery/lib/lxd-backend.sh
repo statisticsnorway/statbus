@@ -490,6 +490,15 @@ _lxd_build_base_for_candidate() {
     _lxd_mark "launch $base ubuntu:26.04 nesting=true cpu=2 memory=6GiB"
     _lxd_host lxc launch ubuntu:26.04 "$base" --config security.nesting=true --config limits.cpu=2 --config limits.memory=6GiB || return
     LXD_BASE_OWNED_BY_THIS_BUILD=1
+    # First boot's cloud-init re-renders /etc/apt/sources.list.d/ubuntu.sources
+    # LATE. Hardening's Stage 0 rewrites http:// URIs to HTTPS and immediately
+    # verifies; when cloud-init's render lands after that sed, verification
+    # sees the restored http:// URIs and fails ("HTTPS sources configured",
+    # rc.03 smoke 0-happy-install, run 36883001232). The arc path already
+    # waits (cloud-init status --wait below); the base path must wait BEFORE
+    # hardening, not after. `|| true` matches the arc path's tolerance of a
+    # degraded-but-finished cloud-init.
+    _lxd_host lxc exec "$base" -- cloud-init status --wait || true
     # STATBUS-425 round-3 review C2: install and upgrade smoke legs build
     # DIFFERENT bases concurrently (max-parallel: 2) but were sharing this
     # fixed host staging name; a same-moment scp of both legs could interleave
