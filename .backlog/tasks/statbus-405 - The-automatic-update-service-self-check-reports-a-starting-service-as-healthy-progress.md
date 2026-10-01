@@ -43,4 +43,6 @@ Baseline: `origin/master` at `373d15fc3`. Criterion disposition and remaining po
 
 <!-- SECTION:NOTES:BEGIN -->
 Audit after v2026.09.3 (2026-09-29): v2026.09.3: activating counts as running (TestActivatingUnitIsTreatedAsRunning). 1-boot-startup-timeout PASS in rc.17 LXD shows no false NOT RUNNING. The progress-then-success ordering tests (AC1/AC2) and journal-order assertion (AC3) do not exist.
+
+Implementation Notes, 2026-10-01: Added the ticket-named ordered unit tests `TestActivatingIsStartupProgressUntilReady` and `TestInactiveProducesAlarmBeforeRecoveryGuidance`. The first observes activating before active/readiness, requires both observations to remain alarm-free, and records success only for the second observation. The second requires the inactive alarm to precede the complete channel-preserving installer recovery command. Extended `1-boot-startup-timeout.sh` to capture one recovery boot and require journal order `Starting StatBus Upgrade Service` → daemon `Upgrade service started` (immediately before `READY=1`) → systemd `Started StatBus Upgrade Service`, while rejecting both historical false-alarm texts across that same window. Local shell syntax and focused Go tests are green; the real LXD scenario assertion remains to be exercised by its install-recovery runner.
 <!-- SECTION:NOTES:END -->
