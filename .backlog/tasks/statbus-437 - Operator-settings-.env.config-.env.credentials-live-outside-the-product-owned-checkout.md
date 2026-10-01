@@ -18,7 +18,16 @@ ordinal: 385200
 <!-- SECTION:DESCRIPTION:BEGIN -->
 Owner question 2026-10-01, during the STATBUS-431 strategy discussion. Direction DECIDED by the owner 2026-10-01 12:04 UTC: **A-directory — `~/.statbus/`, same name everywhere, user-managed directory, no conflicts.**
 
-### The layout
+### The framing (owner, 2026-10-01 12:23 UTC)
+
+Distinguish two file categories and never mix them:
+
+1. **Provided inputs** — operator data handed to the product and consumed by copy at a moment in time: certificate files, the answer file, the users file, provisioning pre-seeds. They live wherever the operator keeps them and reach the product **by path** (`./sb cert install <path>`, `STATBUS_ENV_CONFIG=<path>`). The product never assumes their location and never treats them as authority.
+2. **Managed state** — what the installation owns and maintains over its lifetime: `env.config`, `env.credentials`, `statbus-backups/`, `statbus-maintenance/`. These need an authoritative home, and `~` cannot be assumed (developer boxes, custom install directories).
+
+**Location rule:** managed operator state lives outside any product-owned checkout, derived from the install root, never hardcoded. Server installs (install.sh-managed `~/statbus`, product-owned and wipeable) use `~/.statbus/` — the layout below. Dev boxes and custom-directory checkouts are operator-owned, so in-checkout settings remain correct there; nothing changes. The deciding question is "may the product delete and recreate this checkout?", not the path string. The generated `.env` render stays in the checkout in both worlds (Compose reads it from the project dir; it is regenerable).
+
+### The layout (server installs)
 
 ```
 ~/.statbus/                  mode 0700, owned by the install user, created by the operator or the installer
