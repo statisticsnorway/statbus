@@ -127,7 +127,7 @@ SELECT id, state,
 \echo '=== supersede: call procedure ==='
 === supersede: call procedure ===
 CALL public.upgrade_supersede_older(lpad(to_hex(100), 40, '0'), 0);
-NOTICE:  upgrade_supersede_older: superseded 4 row(s) older than 0000000000000000000000000000000000000064
+NOTICE:  upgrade_supersede_older: superseded 4 row(s) older than 0000000000000000000000000000000000000064 (status=release)
  p_superseded 
 --------------
             4
@@ -214,7 +214,7 @@ INSERT INTO public.upgrade (commit_sha, committed_at, release_status, state, sum
 VALUES (lpad(to_hex(70), 40, '0'), now() - '7 days'::interval, 'commit', 'available',
         'older commit');
 CALL public.upgrade_supersede_older(lpad(to_hex(110), 40, '0'), 0);
-NOTICE:  upgrade_supersede_older: superseded 3 row(s) older than 000000000000000000000000000000000000006e
+NOTICE:  upgrade_supersede_older: superseded 3 row(s) older than 000000000000000000000000000000000000006e (status=commit)
  p_superseded 
 --------------
             3
@@ -253,7 +253,7 @@ INSERT INTO public.upgrade (commit_sha, committed_at, release_status, state, sum
 VALUES (lpad(to_hex(80), 40, '0'), now() - '10 days'::interval, 'release', 'available',
         'release v2026.03.0', ARRAY['v2026.03.0']);
 CALL public.upgrade_supersede_older(lpad(to_hex(120), 40, '0'), 0);
-NOTICE:  upgrade_supersede_older: superseded 3 row(s) older than 0000000000000000000000000000000000000078
+NOTICE:  upgrade_supersede_older: superseded 3 row(s) older than 0000000000000000000000000000000000000078 (status=prerelease)
  p_superseded 
 --------------
             3
