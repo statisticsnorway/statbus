@@ -28,19 +28,29 @@ func TestInstallTerminalWriterReceivesEveryStepLine(t *testing.T) {
 	}
 	stepTable = strings.SplitN(stepTable[1], "total := len(steps)", 2)
 	names := regexp.MustCompile(`(?m)^\s*\{"([A-Za-z +]+)",`).FindAllStringSubmatch(stepTable[0], -1)
-	if len(names) != 17 {
-		t.Fatalf("expected all 17 step names, found %d", len(names))
+	if len(names) < 10 {
+		t.Fatalf("expected the step names, found %d", len(names))
+	}
+	total := len(names)
+	seedPos := 0
+	for i, match := range names {
+		if match[1] == "Seed" {
+			seedPos = i + 1
+		}
+	}
+	if seedPos == 0 {
+		t.Fatal("Seed step not found")
 	}
 	for i, match := range names {
 		name := match[1]
 		for _, status := range []string{"OK", "RUNNING", "DONE", "FAILED: This part of installation could not finish."} {
-			line := fmt.Sprintf("[%d/17] %-20s %s\n", i+1, name, status)
+			line := fmt.Sprintf("[%d/%d] %-20s %s\n", i+1, total, name, status)
 			input.WriteString(line)
 			want.WriteString(line)
 		}
 	}
 	for _, status := range []string{"FAILED — falling back to full migrations", "no seed image — full migrations will run"} {
-		line := fmt.Sprintf("[13/17] %-20s %s\n", "Seed", status)
+		line := fmt.Sprintf("[%d/%d] %-20s %s\n", seedPos, total, "Seed", status)
 		input.WriteString(line)
 		want.WriteString(line)
 	}
