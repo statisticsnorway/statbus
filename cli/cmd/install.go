@@ -106,6 +106,19 @@ func installDiagnostic(installDir, format string, args ...any) {
 	_, _ = fmt.Fprintf(f, format+"\n", args...)
 }
 
+func writeFailedInstallRecord(w io.Writer, installDir string, detectedState install.State, installErr error) {
+	message := installErr.Error()
+	if credentials, err := dotenv.Load(filepath.Join(installDir, ".env.credentials")); err == nil {
+		for _, value := range credentials.Parse() {
+			if value != "" {
+				message = strings.ReplaceAll(message, value, "***REDACTED***")
+			}
+		}
+	}
+	_, _ = fmt.Fprintf(w, "install_failed_no_row: detectedState=%s: %s (install.go:%d, pid=%d)\n",
+		detectedState, message, thisLine(), os.Getpid())
+}
+
 // installTTYPrompt shows only explicit questions when install.sh captures all
 // other output in the support log. Other CLI callers retain ordinary stdout.
 func installTTYPrompt(format string, args ...any) {
@@ -875,8 +888,7 @@ func runInstall() (installErr error) {
 			// anchor even when the DB has no row for SSB triage to grep against.
 			if installErr != nil && upgradeRowID == 0 {
 				if installLog != nil {
-					_, _ = fmt.Fprintf(installLog.File(), "install_failed_no_row: detectedState=%s: %v (install.go:%d, pid=%d)\n",
-						detectedState, installErr, thisLine(), os.Getpid())
+					writeFailedInstallRecord(installLog.File(), installDir, detectedState, installErr)
 				}
 			}
 		}()

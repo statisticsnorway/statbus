@@ -43,4 +43,6 @@ Baseline: `origin/master` at `373d15fc3`. Criterion disposition and remaining po
 
 <!-- SECTION:NOTES:BEGIN -->
 Audit after v2026.09.3 (2026-09-29): v2026.09.3 writes the failed-install breadcrumb to the install log only (install.go:840; TestFailedInstallBreadcrumbIsLogOnlyAndPlainlyNamed). AC1-3 tests do not exist. Once-only and no-credential are unproven.
+
+2026-10-01: Added one table-driven regression test covering representative preflight and step failures. It proves one consistently named `install_failed_no_row` record, credential-value redaction, no internal audit wording in the operator outcome, and preservation of the plain cause, complete saved rerun command, and support path. The production record writer now redacts values loaded from `.env.credentials` before appending the failure detail.
 <!-- SECTION:NOTES:END -->
