@@ -2932,10 +2932,10 @@ func (d *Service) Run(ctx context.Context) error {
 	// pre-flight. A restart-looping daemon must not rewrite config or touch
 	// containers while ./sb install owns the box.
 	bootFlag, err := d.waitForInstallHolderBeforeBoot(ctx)
-	if errors.Is(err, errInstallHeldBootWaitExpired) {
+	if exitCode, shouldExit := installHeldBootWaitExitCode(err); shouldExit {
 		fmt.Printf("Upgrade daemon boot remains deferred after %s; exiting with non-restarting status %d so systemd does not consume StartLimitBurst\n",
-			installHeldBootWaitLimit, exitInstallHeldBootWait)
-		os.Exit(exitInstallHeldBootWait)
+			installHeldBootWaitLimit, exitCode)
+		os.Exit(exitCode)
 	}
 	if err != nil {
 		return err
