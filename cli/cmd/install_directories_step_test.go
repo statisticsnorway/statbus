@@ -135,10 +135,10 @@ func TestDirectoriesStepPosition(t *testing.T) {
 		return -1
 	}
 	directories := indexOf("Directories")
-	if !(indexOf("Credentials") < directories && directories < indexOf("Settings")) {
+	if indexOf("Credentials") >= directories || directories >= indexOf("Settings") {
 		t.Errorf("Directories must sit between Credentials and Settings; order: %v", order)
 	}
-	if !(directories < indexOf("Services")) {
+	if directories >= indexOf("Services") {
 		t.Errorf("Directories must precede Services (first compose up); order: %v", order)
 	}
 }

@@ -89,12 +89,20 @@ var dockerRun = func(mountDir, shellCmd, image string, pullNever bool) ([]byte, 
 // keeping the STATBUS-429 R2 pinned argv byte-identical), single-quoted
 // otherwise. Never interpolate an unquoted unsafe name into a root shell.
 func shellWord(s string) string {
-	if s != "" && strings.IndexFunc(s, func(r rune) bool {
-		return !(r >= 'a' && r <= 'z' || r >= 'A' && r <= 'Z' || r >= '0' && r <= '9' || r == '-' || r == '_' || r == '.')
-	}) == -1 {
+	if s != "" && strings.IndexFunc(s, isUnsafeShellRune) == -1 {
 		return s
 	}
 	return "'" + strings.ReplaceAll(s, `'`, `'\''`) + `'` // '
+}
+
+// isUnsafeShellRune reports whether r is outside the portable bare-word set
+// [A-Za-z0-9._-] (De Morgan form; staticcheck QF1001).
+func isUnsafeShellRune(r rune) bool {
+	isLower := r >= 'a' && r <= 'z'
+	isUpper := r >= 'A' && r <= 'Z'
+	isDigit := r >= '0' && r <= '9'
+	isPunct := r == '-' || r == '_' || r == '.'
+	return !isLower && !isUpper && !isDigit && !isPunct
 }
 
 // RepairViaContainer makes dir exist, owner-writable and owned by the current
