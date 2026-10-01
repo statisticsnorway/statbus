@@ -578,7 +578,7 @@ func checkDBHealthy(dir string) bool { return checkDBHealthyFn(dir) }
 
 // The daemon connects to the app database through the host's Caddy TCP port,
 // not the container socket used by the earlier install steps. Probe that same
-// authenticated route before systemctl enable --now can block for 120 seconds.
+// authenticated route before the unit is enabled and queued for final dispatch.
 var probeUpgradeDatabaseRoute = func(dir string) error {
 	return upgrade.NewService(dir, false, "", "").EnsureDBReachable(context.Background())
 }

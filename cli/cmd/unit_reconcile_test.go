@@ -86,13 +86,11 @@ func TestUnitFileMatchesRepo_MissingDestIsMismatch(t *testing.T) {
 
 // TestRunInstallService_RestartsOnDriftToArmTimers is the #4 re-arm guard
 // (plan de-risk #2): a rewritten unit is INERT until daemon-reload + restart —
-// `enable --now` does not restart an already-running unit, so a drifted-but-
-// running box would keep stale timers. This pins, at the source level (the
-// systemctl calls shell out, so a behavioral test would need real systemd —
-// covered by the Hetzner scenario), that runInstallService restarts the unit
-// when it was drifted AND active, gated off postUpgradeFixup, AFTER
-// daemon-reload. Matches the source-order-guard pattern of the other install
-// guards (e.g. TestRunInstallService_GatesNowOnPostUpgradeFixup).
+// enabling does not restart an already-running unit, so a drifted-but-
+// running box would keep stale timers. This pins, at the source level, that
+// runInstallService queues a final restart when the unit was drifted AND active,
+// gated off postUpgradeFixup, AFTER daemon-reload. The final dispatcher submits
+// that restart with --no-block after completion mutations.
 func TestRunInstallService_RestartsOnDriftToArmTimers(t *testing.T) {
 	src, err := os.ReadFile(thisRepoFile(t, "cli/cmd/install.go"))
 	if err != nil {
@@ -119,8 +117,8 @@ func TestRunInstallService_RestartsOnDriftToArmTimers(t *testing.T) {
 	if reloadIdx < 0 {
 		t.Fatal("runInstallService missing daemon-reload — test is stale")
 	}
-	// The re-arm restart must be gated on drifted AND active AND not-inside-
-	// active-upgrade, and must issue `systemctl --user restart`.
+	// The re-arm action must be gated on drifted AND active AND not-inside-
+	// active-upgrade, and must queue a final restart rather than run it here.
 	guardIdx := strings.Index(fn, "unitWasDrifted && unitWasActive && !postUpgradeFixup")
 	if guardIdx < 0 {
 		t.Fatal("runInstallService missing the re-arm gate `unitWasDrifted && unitWasActive && !postUpgradeFixup`. " +
@@ -128,9 +126,9 @@ func TestRunInstallService_RestartsOnDriftToArmTimers(t *testing.T) {
 			"(rune would keep 90/infinity). Restarting unconditionally would churn healthy units / kill an in-flight " +
 			"upgrade (postUpgradeFixup), so the gate is load-bearing.")
 	}
-	restartIdx := strings.Index(fn[guardIdx:], `"restart", instance`)
+	restartIdx := strings.Index(fn[guardIdx:], "mergeUpgradeDaemonFinalAction(*finalAction, upgradeDaemonRestart)")
 	if restartIdx < 0 {
-		t.Error("the re-arm gate must issue `systemctl --user restart <instance>` to arm the reconciled timers.")
+		t.Error("the re-arm gate must queue a final restart to arm the reconciled timers")
 	}
 	// Ordering: the restart gate must come AFTER daemon-reload (a restart
 	// before reload would re-arm the OLD config).
