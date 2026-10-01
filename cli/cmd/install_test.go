@@ -93,19 +93,15 @@ func TestEveryInvariantHasTriadDocumented(t *testing.T) {
 	}
 }
 
-// TestRunInstallService_GatesNowOnPostUpgradeFixup is the structural
-// guard for Item H (plan-rc.66): runInstallService must conditionally
-// drop --now when invoked from inside an active upgrade. The Type=notify
-// statbus-upgrade unit goes into a SDNOTIFY collision when systemctl
-// --user enable --now joins the existing start job from a child PID;
-// the parent times out at ~47s and is terminated. Skip --now in that
-// case and let the parent's exit-42 → systemd auto-restart pick up the
-// new binary.
+// TestRunInstallServiceNeverStartsSynchronously pins both the post-upgrade
+// SDNOTIFY rule and STATBUS-432: reconciliation enables the unit but never
+// starts or restarts it while install owns the flock. A separate final defer
+// submits the lifecycle action with --no-block after completion mutations.
 //
 // Source-level assertion (rather than a mocked runCmd) keeps the test
 // honest about WHERE in the function the gate sits and matches the
 // pattern other install-path guards use.
-func TestRunInstallService_GatesNowOnPostUpgradeFixup(t *testing.T) {
+func TestRunInstallServiceNeverStartsSynchronously(t *testing.T) {
 	src, err := os.ReadFile(thisRepoFile(t, "cli/cmd/install.go"))
 	if err != nil {
 		t.Fatalf("read install.go: %v", err)
@@ -124,9 +120,7 @@ func TestRunInstallService_GatesNowOnPostUpgradeFixup(t *testing.T) {
 
 	gateIdx := strings.Index(fn, "if postUpgradeFixup || os.Getenv(\"STATBUS_POST_UPGRADE_FIXUP\") == \"1\" {")
 	if gateIdx < 0 {
-		t.Fatal("runInstallService missing `if postUpgradeFixup {` gate. " +
-			"Without it, step 14/14's `systemctl --user enable --now` " +
-			"collides with the active service's SDNOTIFY contract — see Item H.")
+		t.Fatal("runInstallService missing post-upgrade handoff gate")
 	}
 
 	// The gate must come BEFORE the is-enabled verification call
@@ -142,7 +136,7 @@ func TestRunInstallService_GatesNowOnPostUpgradeFixup(t *testing.T) {
 			gateIdx, verifyIdx)
 	}
 
-	// Find the gate's true-branch body and assert it omits "--now".
+	// Find the gate's true-branch body and assert it only enables.
 	gateBody := fn[gateIdx:]
 	openBrace := strings.Index(gateBody, "{")
 	if openBrace < 0 {
@@ -176,14 +170,17 @@ func TestRunInstallService_GatesNowOnPostUpgradeFixup(t *testing.T) {
 		t.Errorf("true branch must NOT pass --now (Item H). Body:\n%s", trueBranch)
 	}
 
-	// And after the gate (else branch / fall-through), `--now` must
-	// still be present so the cold-install path keeps starting the
-	// service. We check the rest of the function up to the
-	// is-enabled verification.
+	// The cold-install branch must also only enable. Starting while the install
+	// flock is held recreates the rc.04 self-deadlock.
 	remainder := fn[gateIdx+closeIdx : verifyIdx]
-	if !strings.Contains(remainder, `"systemctl", "--user", "enable", "--now", instance`) {
-		t.Errorf("else/fall-through branch must keep `systemctl --user enable --now <instance>` " +
-			"for cold installs. Otherwise nothing starts the service on a fresh box.")
+	if !strings.Contains(remainder, `"systemctl", "--user", "enable", instance`) {
+		t.Errorf("cold-install branch must enable the unit before final dispatch")
+	}
+	if strings.Contains(fn, `"--now"`) || strings.Contains(fn, `"restart", instance`) {
+		t.Errorf("runInstallService must not synchronously start/restart while the install flock is held")
+	}
+	if !strings.Contains(body, `"--user", "--no-block", string(action), instance`) {
+		t.Errorf("final nonblocking lifecycle dispatch is missing")
 	}
 }
 

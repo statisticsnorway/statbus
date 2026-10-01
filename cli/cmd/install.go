@@ -289,6 +289,35 @@ type step struct {
 	run   func(dir string) error
 }
 
+// executeInstallStep is the single production path from a step's done-check to
+// its runner. Tests use this same boundary so ordering assertions cannot pass
+// while the real step loop bypasses them.
+func executeInstallStep(s step, dir string, beforeRun func()) (alreadyDone bool, err error) {
+	if s.check(dir) {
+		return true, nil
+	}
+	beforeRun()
+	return false, s.run(dir)
+}
+
+type upgradeDaemonFinalAction string
+
+const (
+	upgradeDaemonNoAction upgradeDaemonFinalAction = ""
+	upgradeDaemonStart    upgradeDaemonFinalAction = "start"
+	upgradeDaemonRestart  upgradeDaemonFinalAction = "restart"
+)
+
+func mergeUpgradeDaemonFinalAction(current, requested upgradeDaemonFinalAction) upgradeDaemonFinalAction {
+	if current == upgradeDaemonRestart || requested == upgradeDaemonRestart {
+		return upgradeDaemonRestart
+	}
+	if current == upgradeDaemonStart || requested == upgradeDaemonStart {
+		return upgradeDaemonStart
+	}
+	return upgradeDaemonNoAction
+}
+
 // acquireOrBypass enforces the install ↔ upgrade-service mutual exclusion.
 //
 // Both the upgrade service and `./sb install` acquire the same marker file
@@ -802,6 +831,16 @@ func runInstall() (installErr error) {
 		}
 	}()
 
+	var upgradeDaemonFinalAction upgradeDaemonFinalAction
+	defer func() {
+		if installErr != nil || upgradeDaemonFinalAction == upgradeDaemonNoAction {
+			return
+		}
+		if err := dispatchUpgradeDaemonFinalAction(installDir, upgradeDaemonFinalAction); err != nil {
+			installErr = err
+		}
+	}()
+
 	if !bypass && version != "dev" {
 		defer func() {
 			// Post-completion DB ops use pgx (parameter binding, no shell
@@ -910,7 +949,6 @@ func runInstall() (installErr error) {
 	oldCaddySnapshot := snapshotCaddyConfig(installDir)
 	wasAlreadyRunning := checkServicesDone(installDir)
 	var pendingRestarts map[config.RestartClass]bool
-	var upgradeDaemonStartedOrRestarted bool
 
 	steps := []step{
 		{"Prerequisites", checkPrereqDone, runPrereq},
@@ -997,7 +1035,7 @@ func runInstall() (installErr error) {
 		{"Administrator", checkUsersDone, runCreateUsers},
 		{"Trusted signers", checkSignersDone, runTrustSigners},
 		{"Upgrade service", checkServiceDone, func(dir string) error {
-			return runInstallService(dir, &upgradeDaemonStartedOrRestarted)
+			return runInstallService(dir, &upgradeDaemonFinalAction)
 		}},
 	}
 
@@ -1070,7 +1108,11 @@ func runInstall() (installErr error) {
 			quiesced = true
 		}
 
-		if s.check(installDir) {
+		alreadyDone, stepErr := executeInstallStep(s, installDir, func() {
+			allDone = false
+			fmt.Printf("%s RUNNING\n", prefix)
+		})
+		if alreadyDone {
 			fmt.Printf("%s OK\n", prefix)
 			if s.name == "Trusted signers" {
 				if err := clearFirstInstallSignerPending(installDir); err != nil {
@@ -1092,11 +1134,8 @@ func runInstall() (installErr error) {
 			continue
 		}
 
-		allDone = false
-		fmt.Printf("%s RUNNING\n", prefix)
-
-		if err := s.run(installDir); err != nil {
-			line, fatal := stepRunOutcome(err)
+		if stepErr != nil {
+			line, fatal := stepRunOutcome(stepErr)
 			if !fatal {
 				// Non-fatal degrade (the Seed fast-path was lost or no seed
 				// image existed): report honestly — NEVER "DONE" over a
@@ -1106,13 +1145,13 @@ func runInstall() (installErr error) {
 				fmt.Printf("%s %s\n", prefix, line)
 				continue
 			}
-			printInstallStepFailure(s.name, prefix, err, i < total-1)
+			printInstallStepFailure(s.name, prefix, stepErr, i < total-1)
 			// DO NOT auto-resume on failure: clients restarted on top of
 			// a half-done DDL state could compound damage. The operator
 			// re-runs ./sb install, which re-evaluates the quiesce window
 			// from scratch (Migrations check fails → quiesce → run →
 			// resume on success).
-			return err
+			return stepErr
 		}
 
 		fmt.Printf("%s DONE\n", prefix)
@@ -1147,7 +1186,7 @@ func runInstall() (installErr error) {
 	// writes up to DaemonSchemaFloor without owning the install flock.
 	// Restart after the step table so the Upgrade service step has also reconciled
 	// the on-disk unit before the daemon loads the new binary and configuration.
-	applyPendingUpgradeDaemonRestart(installDir, pendingRestarts, upgradeDaemonStartedOrRestarted)
+	applyPendingUpgradeDaemonRestart(pendingRestarts, &upgradeDaemonFinalAction)
 
 	// Final check (audit B10): every service is running and the API answers
 	// /ready. A step table that is all green over a restart-looping rest or a
@@ -1788,9 +1827,6 @@ func composeApplyServiceDefault(dir, service string) error {
 
 var composeApplyService = composeApplyServiceDefault
 
-// Unit tests observe restart timing without invoking systemd.
-var restartUpgradeDaemon = restartUpgradeService
-
 // applyPendingRestarts applies only compose classes at step 9. The daemon is
 // deferred to after the step table because its boot-migrate is a DDL writer.
 // Order among compose services remains db first, then rest/worker/app/proxy.
@@ -1828,15 +1864,15 @@ func applyPendingRestarts(dir string, pending map[config.RestartClass]bool) erro
 }
 
 // applyPendingUpgradeDaemonRestart performs the step-9 decision only after the
-// install's DDL window closes and the Upgrade service step has run. The helper
-// is a no-op for unchanged config, fresh installs (no pending classes), or a
-// unit already started/restarted by the Upgrade service step.
-func applyPendingUpgradeDaemonRestart(dir string, pending map[config.RestartClass]bool, unitAlreadyStartedOrRestarted bool) {
+// install's DDL window closes and the Upgrade service step has reconciled the
+// unit. The helper only coalesces the final action; lifecycle dispatch remains
+// deferred until after serving verification and completion mutations.
+func applyPendingUpgradeDaemonRestart(pending map[config.RestartClass]bool, action *upgradeDaemonFinalAction) {
 	// This install may be the active daemon's post-upgrade child. The parent
 	// exits 42 after the child returns so systemd performs the one safe handoff.
-	// Restarting here would kill that parent before the fixup finishes.
-	if pending[config.RestartUpgradeDaemon] && !unitAlreadyStartedOrRestarted && !postUpgradeFixup && os.Getenv("STATBUS_POST_UPGRADE_FIXUP") != "1" {
-		restartUpgradeDaemon(dir) // best-effort, own logging (install_upgrade.go)
+	// Queuing a restart here would duplicate that parent handoff.
+	if pending[config.RestartUpgradeDaemon] && !postUpgradeFixup && os.Getenv("STATBUS_POST_UPGRADE_FIXUP") != "1" {
+		*action = mergeUpgradeDaemonFinalAction(*action, upgradeDaemonRestart)
 	}
 }
 
@@ -3167,7 +3203,7 @@ func runTrustSigners(dir string) error {
 // systemctl on non-Linux development hosts. Production always uses runtime.GOOS.
 var installServicePlatform = runtime.GOOS
 
-func runInstallService(dir string, upgradeDaemonStartedOrRestarted *bool) error {
+func runInstallService(dir string, finalAction *upgradeDaemonFinalAction) error {
 	if installServicePlatform != "linux" {
 		fmt.Println("  Skipping systemd on non-Linux")
 		return nil
@@ -3193,8 +3229,8 @@ func runInstallService(dir string, upgradeDaemonStartedOrRestarted *bool) error 
 	// #4 unit-reconcile re-arm (plan de-risk #2): capture whether the on-disk
 	// unit is about to CHANGE while the unit is already running. A rewritten
 	// unit file is INERT — systemd keeps running with the old WatchdogSec/
-	// TimeoutStartSec until daemon-reload + a RESTART. `enable --now` below
-	// does NOT restart an already-active unit, so without an explicit restart
+	// TimeoutStartSec until daemon-reload + a RESTART. Enabling an already-active
+	// unit does NOT restart it, so without an explicit final restart
 	// a drifted-but-running box (rune's 90/infinity) would keep its stale
 	// timers even after we rewrite the file to 120/120. Detect drift-on-active
 	// here so we can restart only when needed (never churn a healthy,
@@ -3212,20 +3248,13 @@ func runInstallService(dir string, upgradeDaemonStartedOrRestarted *bool) error 
 		return fmt.Errorf("systemctl --user daemon-reload: %w", err)
 	}
 
-	// Re-arm the timers: if we just rewrote a DRIFTED unit that was actively
-	// running, restart it so the new WatchdogSec/TimeoutStartSec take effect
-	// (daemon-reload alone only reloads systemd's view, not the running unit's
-	// armed deadlines). Skip when postUpgradeFixup — that path is the
-	// active upgrade's own main PID and relies on the exit-42 → systemd
-	// auto-restart handoff (Item H below); restarting it here would kill the
-	// in-flight upgrade. The enable --now path below covers the not-running
-	// and fresh-install cases.
+	// Re-arm the timers only at process exit. Starting or restarting here while
+	// the installer holds the STATBUS-432 flock makes the daemon synchronously
+	// wait on its own installer. Record the final action instead; the installer's
+	// final defer submits it with --no-block after completion mutations finish.
 	if unitWasDrifted && unitWasActive && !postUpgradeFixup && os.Getenv("STATBUS_POST_UPGRADE_FIXUP") != "1" {
-		fmt.Printf("  Unit %s drifted from the repo template and was running — restarting to arm the reconciled timers\n", instance)
-		if err := runCmd("systemctl", "--user", "restart", instance); err != nil {
-			return serviceFailureWithJournal("restart service", instance, true, err)
-		}
-		*upgradeDaemonStartedOrRestarted = true
+		fmt.Printf("  Unit %s drifted from the repo template and was running — restart queued for install exit\n", instance)
+		*finalAction = mergeUpgradeDaemonFinalAction(*finalAction, upgradeDaemonRestart)
 	}
 
 	// Enable linger so the user service runs even when not logged in.
@@ -3248,8 +3277,8 @@ func runInstallService(dir string, upgradeDaemonStartedOrRestarted *bool) error 
 	// Recovery: if the unit is in `failed` state from a prior crashed
 	// upgrade (e.g. the rune wedge — systemd hit StartLimitBurst after
 	// repeated SIGKILL → restart cycles trying to satisfy
-	// TimeoutStartSec for an at-scale migrate-up), `enable --now`
-	// won't restart it. Probe ActiveState/Result and run reset-failed
+	// TimeoutStartSec for an at-scale migrate-up), a later start request
+	// won't recover it. Probe ActiveState/Result and run reset-failed
 	// first if needed. Idempotent: on a healthy unit the probe finds
 	// active/inactive and reset is skipped.
 	if probeOut, probeErr := exec.Command("systemctl", "--user", "show",
@@ -3266,14 +3295,15 @@ func runInstallService(dir string, upgradeDaemonStartedOrRestarted *bool) error 
 
 	// Item H (plan-rc.66): step 14/14 SDNOTIFY collision. When this
 	// install runs as a child of the active upgrade service (Type=notify
-	// unit, parent PID is the main daemon), `enable --now` joins the
+	// unit, parent PID is the main daemon), a child start joins the
 	// existing start job and waits for READY=1 from a new main PID.
 	// systemctl's helper PIDs send READY=1; systemd rejects them as
 	// not-main-PID; start times out at ~47s and terminates the parent.
-	// Skip --now in that case — the unit declares
+	// Skip a child start in that case — the unit declares
 	// SuccessExitStatus=42/RestartForceExitStatus=42/Restart=always so
 	// the parent's exit-42 → systemd auto-restart picks up the new
-	// binary. The is-enabled verification below still fires.
+	// binary. The is-enabled verification below still fires, and no final
+	// lifecycle action is queued by this child.
 	if postUpgradeFixup || os.Getenv("STATBUS_POST_UPGRADE_FIXUP") == "1" {
 		fmt.Printf("  Enabling %s (start deferred — service is the active main PID, will exit-42 → systemd auto-restart)\n", instance)
 		if err := runCmd("systemctl", "--user", "enable", instance); err != nil {
@@ -3287,15 +3317,12 @@ func runInstallService(dir string, upgradeDaemonStartedOrRestarted *bool) error 
 		if err := checkUpgradeDatabaseRoute(dir); err != nil {
 			return err
 		}
-		fmt.Printf("  Enabling and starting %s\n", instance)
-		if err := runCmd("systemctl", "--user", "enable", "--now", instance); err != nil {
+		fmt.Printf("  Enabling %s (start queued for install exit)\n", instance)
+		if err := runCmd("systemctl", "--user", "enable", instance); err != nil {
 			return serviceFailureWithJournal("enable service", instance, true, err)
 		}
-		// An inactive unit was genuinely started against the reconciled unit
-		// and config. An already-active unit only got enabled, so it still
-		// needs the deferred config restart unless we restarted it above.
 		if !unitWasActive {
-			*upgradeDaemonStartedOrRestarted = true
+			*finalAction = mergeUpgradeDaemonFinalAction(*finalAction, upgradeDaemonStart)
 		}
 	}
 
@@ -3312,7 +3339,19 @@ func runInstallService(dir string, upgradeDaemonStartedOrRestarted *bool) error 
 		return fmt.Errorf("enable reported success but is-enabled=%q (err=%v); service will not start on boot — investigate systemctl user-bus / loginctl linger", state, isEnabledErr)
 	}
 
-	fmt.Printf("  Upgrade service installed and started: %s (is-enabled=%s)\n", instance, state)
+	fmt.Printf("  Upgrade service installed and enabled: %s (is-enabled=%s)\n", instance, state)
+	return nil
+}
+
+var dispatchUpgradeDaemonFinalAction = func(dir string, action upgradeDaemonFinalAction) error {
+	instance := serviceInstance(dir)
+	if instance == "" {
+		return fmt.Errorf("could not determine service instance name for final %s", action)
+	}
+	fmt.Printf("  Submitting final upgrade daemon %s: %s\n", action, instance)
+	if err := runCmd("systemctl", "--user", "--no-block", string(action), instance); err != nil {
+		return serviceFailureWithJournal(string(action)+" service", instance, true, err)
+	}
 	return nil
 }
 

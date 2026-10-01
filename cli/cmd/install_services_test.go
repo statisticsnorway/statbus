@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/statisticsnorway/statbus/cli/internal/dbroles"
+	"github.com/statisticsnorway/statbus/cli/internal/upgrade"
 )
 
 var allFive = []string{"app", "db", "proxy", "rest", "worker"}
@@ -120,6 +121,73 @@ func TestUpgradeServiceRoutePreflight(t *testing.T) {
 	}
 }
 
+func TestProductionStepLoopQueuesFinalStartWhileInstallFlockHeld(t *testing.T) {
+	dir := t.TempDir()
+	lock, err := upgrade.AcquireInstallFlag(dir, "test-installer")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer upgrade.ReleaseInstallFlag(lock)
+
+	action := upgradeDaemonNoAction
+	ran := false
+	s := step{
+		name:  "Upgrade service",
+		check: func(string) bool { return false },
+		run: func(stepDir string) error {
+			if !upgrade.IsFlockHeld(stepDir) {
+				t.Fatal("production step runner lost the install flock before reconciliation")
+			}
+			action = mergeUpgradeDaemonFinalAction(action, upgradeDaemonStart)
+			return nil
+		},
+	}
+	alreadyDone, err := executeInstallStep(s, dir, func() { ran = true })
+	if err != nil || alreadyDone || !ran {
+		t.Fatalf("executeInstallStep = done:%t ran:%t err:%v", alreadyDone, ran, err)
+	}
+	if action != upgradeDaemonStart {
+		t.Fatalf("step queued %q, want start", action)
+	}
+
+	completionMutationsDone := true
+	originalDispatch := dispatchUpgradeDaemonFinalAction
+	dispatchUpgradeDaemonFinalAction = func(dispatchDir string, got upgradeDaemonFinalAction) error {
+		if !completionMutationsDone {
+			t.Fatal("daemon lifecycle dispatched before completion mutations")
+		}
+		if !upgrade.IsFlockHeld(dispatchDir) {
+			t.Fatal("final daemon dispatch did not retain the install flock")
+		}
+		if got != upgradeDaemonStart {
+			t.Fatalf("final action = %q, want start", got)
+		}
+		return nil
+	}
+	t.Cleanup(func() { dispatchUpgradeDaemonFinalAction = originalDispatch })
+	if err := dispatchUpgradeDaemonFinalAction(dir, action); err != nil {
+		t.Fatal(err)
+	}
+	if contender, acquireErr := upgrade.AcquireInstallFlag(dir, "second-installer"); acquireErr == nil {
+		upgrade.ReleaseInstallFlag(contender)
+		t.Fatal("second installer acquired before the first installer released")
+	}
+}
+
+func TestFinalDaemonDispatchDeferRunsAfterCompletionAndBeforeFlockRelease(t *testing.T) {
+	src, err := os.ReadFile("install.go")
+	if err != nil {
+		t.Fatal(err)
+	}
+	body := funcBody(t, string(src), "func runInstall()")
+	release := strings.Index(body, "defer releaseFlag()")
+	dispatch := strings.Index(body, "dispatchUpgradeDaemonFinalAction(installDir, upgradeDaemonFinalAction)")
+	completion := strings.Index(body, "completeInstallUpgradeRow(installDir, conn, logRelPath)")
+	if release < 0 || dispatch < release || completion < dispatch {
+		t.Fatalf("defer registration order must be release, final dispatch, completion so unwind is completion, dispatch, release (release=%d dispatch=%d completion=%d)", release, dispatch, completion)
+	}
+}
+
 func TestInstallProbesDatabaseRouteBeforeStartingUpgradeUnit(t *testing.T) {
 	src, err := os.ReadFile("install.go")
 	if err != nil {
@@ -132,9 +200,12 @@ func TestInstallProbesDatabaseRouteBeforeStartingUpgradeUnit(t *testing.T) {
 		start = handoff + strings.Index(body[handoff:], "} else {")
 	}
 	probe := strings.Index(body, "checkUpgradeDatabaseRoute(dir)")
-	enable := strings.Index(body, `runCmd("systemctl", "--user", "enable", "--now", instance)`)
+	enable := -1
+	if start >= 0 {
+		enable = start + strings.Index(body[start:], `runCmd("systemctl", "--user", "enable", instance)`)
+	}
 	if handoff < 0 || start < handoff || probe < start || enable < probe {
-		t.Fatalf("route probe must precede enable --now but not block active service handoff (handoff=%d start=%d probe=%d enable=%d)", handoff, start, probe, enable)
+		t.Fatalf("route probe must precede enable but not block active service handoff (handoff=%d start=%d probe=%d enable=%d)", handoff, start, probe, enable)
 	}
 }
 

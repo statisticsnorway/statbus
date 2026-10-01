@@ -153,10 +153,6 @@ func withFakeComposeApplyService(t *testing.T) *[]string {
 // the daemon from step 9 lets it steal the migration before step 13 runs.
 func TestApplyPendingRestarts_DefersDaemonUntilAfterMigrations(t *testing.T) {
 	calls := withFakeComposeApplyService(t)
-	orig := restartUpgradeDaemon
-	restarts := 0
-	restartUpgradeDaemon = func(string) { restarts++ }
-	t.Cleanup(func() { restartUpgradeDaemon = orig })
 	pending := map[config.RestartClass]bool{
 		config.RestartApp:           true,
 		config.RestartUpgradeDaemon: true,
@@ -167,18 +163,16 @@ func TestApplyPendingRestarts_DefersDaemonUntilAfterMigrations(t *testing.T) {
 	if !reflect.DeepEqual(*calls, []string{"app"}) {
 		t.Errorf("step 9 compose calls = %v, want app only", *calls)
 	}
-	if restarts != 0 {
-		t.Fatalf("step 9 restarted the daemon %d time(s) before Seed/Migrations; boot-migrate can consume the installer migration delta", restarts)
-	}
+	action := upgradeDaemonNoAction
 	// The installer calls this only after the Migrations and Upgrade service
 	// steps, using the original step-9 diff rather than recomputing .env.
-	applyPendingUpgradeDaemonRestart(t.TempDir(), pending, false)
-	if restarts != 1 {
-		t.Fatalf("after Migrations: daemon restarted %d time(s), want exactly one", restarts)
+	applyPendingUpgradeDaemonRestart(pending, &action)
+	if action != upgradeDaemonRestart {
+		t.Fatalf("after Migrations: final action = %q, want restart", action)
 	}
-	applyPendingUpgradeDaemonRestart(t.TempDir(), map[config.RestartClass]bool{config.RestartApp: true}, false)
-	if restarts != 1 {
-		t.Fatalf("app-only config restarted daemon: %d calls", restarts)
+	applyPendingUpgradeDaemonRestart(map[config.RestartClass]bool{config.RestartApp: true}, &action)
+	if action != upgradeDaemonRestart {
+		t.Fatalf("app-only config changed final daemon action: %q", action)
 	}
 }
 
@@ -186,10 +180,6 @@ func TestApplyPendingRestarts_DefersDaemonUntilAfterMigrations(t *testing.T) {
 // handoff may restart that daemon, even when regenerated config changed a
 // daemon-classified key.
 func TestDeferredDaemonRestart_FixupUsesParentHandoff(t *testing.T) {
-	orig := restartUpgradeDaemon
-	restarts := 0
-	restartUpgradeDaemon = func(string) { restarts++ }
-	t.Cleanup(func() { restartUpgradeDaemon = orig })
 	pending := map[config.RestartClass]bool{config.RestartUpgradeDaemon: true}
 	for _, signal := range []string{"flag", "environment"} {
 		t.Run(signal, func(t *testing.T) {
@@ -200,9 +190,10 @@ func TestDeferredDaemonRestart_FixupUsesParentHandoff(t *testing.T) {
 			if signal == "environment" {
 				t.Setenv("STATBUS_POST_UPGRADE_FIXUP", "1")
 			}
-			applyPendingUpgradeDaemonRestart(t.TempDir(), pending, false)
-			if restarts != 0 {
-				t.Fatalf("fixup %s restarted its active parent daemon %d time(s), want zero (exit-42 handoff)", signal, restarts)
+			action := upgradeDaemonNoAction
+			applyPendingUpgradeDaemonRestart(pending, &action)
+			if action != upgradeDaemonNoAction {
+				t.Fatalf("fixup %s queued %q for its active parent, want no action (exit-42 handoff)", signal, action)
 			}
 		})
 	}
@@ -213,19 +204,18 @@ func TestDeferredDaemonRestart_FixupUsesParentHandoff(t *testing.T) {
 // it. A fixup child must leave all service lifecycle changes to its parent.
 func TestUpgradeServiceAndConfigDriftRestartExactlyOnce(t *testing.T) {
 	cases := []struct {
-		name         string
-		active       bool
-		unitDrift    bool
-		fixup        string
-		wantStarts   int
-		wantRestarts int
+		name       string
+		active     bool
+		unitDrift  bool
+		fixup      string
+		wantAction upgradeDaemonFinalAction
 	}{
-		{"inactive config drift", false, false, "", 1, 0},
-		{"inactive both drifts", false, true, "", 1, 0},
-		{"active config drift", true, false, "", 0, 1},
-		{"active both drifts", true, true, "", 0, 1},
-		{"fixup flag inactive both drifts", false, true, "flag", 0, 0},
-		{"fixup environment active both drifts", true, true, "environment", 0, 0},
+		{"inactive config drift", false, false, "", upgradeDaemonRestart},
+		{"inactive both drifts", false, true, "", upgradeDaemonRestart},
+		{"active config drift", true, false, "", upgradeDaemonRestart},
+		{"active both drifts", true, true, "", upgradeDaemonRestart},
+		{"fixup flag inactive both drifts", false, true, "flag", upgradeDaemonNoAction},
+		{"fixup environment active both drifts", true, true, "environment", upgradeDaemonNoAction},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -277,37 +267,32 @@ esac
 				t.Fatal(err)
 			}
 			t.Setenv("PATH", bin+string(os.PathListSeparator)+os.Getenv("PATH"))
-			orig := restartUpgradeDaemon
-			deferredRestarts := 0
-			restartUpgradeDaemon = func(string) { deferredRestarts++ }
-			t.Cleanup(func() { restartUpgradeDaemon = orig })
 			pending := restartClassesForKeys([]string{"DAEMON_ONLY_KEY"}, map[string][]config.RestartClass{
 				"DAEMON_ONLY_KEY": {config.RestartUpgradeDaemon},
 			})
 			if err := applyPendingRestarts(unitDir, pending); err != nil {
 				t.Fatal(err)
 			}
-			var unitRestarted bool
-			if err := runInstallService(unitDir, &unitRestarted); err != nil {
+			action := upgradeDaemonNoAction
+			if err := runInstallService(unitDir, &action); err != nil {
 				t.Fatal(err)
 			}
-			applyPendingUpgradeDaemonRestart(unitDir, pending, unitRestarted)
+			applyPendingUpgradeDaemonRestart(pending, &action)
 			log, err := os.ReadFile(logPath)
 			if err != nil {
 				t.Fatal(err)
 			}
 			starts := strings.Count(string(log), "START\n")
-			restarts := strings.Count(string(log), "--user restart statbus-upgrade@statbus.service") + deferredRestarts
 			if tc.fixup != "" {
 				if strings.Contains(string(log), "--user enable --now ") {
 					t.Fatalf("fixup child started unit: %s", log)
 				}
-			} else if unitRestarted != (tc.active && tc.unitDrift || !tc.active) {
-				t.Errorf("unit lifecycle coalesced=%t, want %t", unitRestarted, tc.active && tc.unitDrift || !tc.active)
 			}
-			if starts != tc.wantStarts || restarts != tc.wantRestarts {
-				t.Fatalf("starts=%d restarts=%d (service=%d deferred=%d), want starts=%d restarts=%d; systemctl log: %s",
-					starts, restarts, restarts-deferredRestarts, deferredRestarts, tc.wantStarts, tc.wantRestarts, log)
+			if action != tc.wantAction {
+				t.Errorf("final action=%q, want %q", action, tc.wantAction)
+			}
+			if starts != 0 || strings.Contains(string(log), "--user restart ") {
+				t.Fatalf("service step executed lifecycle early; systemctl log: %s", log)
 			}
 		})
 	}
