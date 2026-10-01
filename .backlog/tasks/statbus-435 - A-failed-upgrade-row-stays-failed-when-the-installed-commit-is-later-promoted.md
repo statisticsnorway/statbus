@@ -4,7 +4,7 @@ title: Define when installed release metadata supersedes a newer failed upgrade
 status: To Do
 assignee: []
 created_date: '2026-09-29 21:23'
-updated_date: '2026-09-30 12:30'
+updated_date: '2026-10-01 13:26'
 labels:
   - upgrade
 dependencies: []
@@ -27,12 +27,20 @@ The contract question is whether installed higher-tier release metadata may supe
 
 **Conditional owner ruling, 2026-10-01 12:24 UTC** (approved in principle, conditional on the presentation matching the details): three facts must not be conflated. (1) What B IS — release_status enrichment when an untagged commit later becomes an RC/release is fine metadata refresh. (2) What HAPPENED to B — it failed; that historical fact is never rewritten. (3) What SUPERSEDES B — only a genuinely newer version that actually gets installed; "the already-installed A is tagged and B is not" is never supersession. A failed row stays failed until something newer succeeds, including B itself succeeding on retry after promotion. Under this rule the arcs' failed-stays-failed assertions are correct and today's tier-first ranking is the bug.
 
-**Owner caveat to verify before implementing (same timestamp):** the Norwegian installation never installs bare commits — it always installs an RC or a release. The arc's B=29986056 is a synthetic untagged commit created by the test. Verify whether the observed older-A/newer-B sequence is production-shaped or a harness artifact, and whether the tier-first branch of upgrade_supersede_older can fire at all in real RC/release-only sequences. If it cannot, the fix may be smaller (arc fidelity) than the SQL change.
+**Owner ruling, 2026-10-01 13:24 UTC (final, supersedes the conditional sketch above): option (i) — supersede at SCHEDULE time, but version-first.** Reasoning: if the only thing you can upgrade to is failing, that is a problem and must stay visible; but once new code is released that replaces the failed attempt, hiding the old failure visually is correct — the row is retained (superseded, never deleted) and inspectable in history, and the operator can run the new upgrade without being stuck on the old failure. Concretely:
+
+1. Supersession requires a strictly NEWER version/chronology (version key, else committed_at), compared ACROSS tiers — release_status never ranks anything.
+2. It fires at schedule/registration time of the newer candidate, including over 'failed' rows (that is the visual-hide the owner approved).
+3. An older installed release NEVER supersedes a newer failed row (the arc observation — older A superseding newer failed B — remains a bug under this rule and is what the fix removes).
+4. release_status stays pure metadata; enrichment when a commit later becomes an RC/release is fine.
+5. The arcs' failed-stays-failed assertions are correct for sequences where nothing newer has been scheduled, and must be updated only where they assert failed-survives-a-newer-schedule.
+
+This is shipped SQL semantics: forward migration only, with pg_regress covering installed-release-A vs newer-failed-RC-B (B survives) and newer-C-scheduled supersedes failed B.
 <!-- SECTION:DESCRIPTION:END -->
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 Owner decision on tier-first versus newer-version supersession is recorded against the actual older-A/newer-B chronology
-- [ ] #2 The chosen behaviour is implemented and pg_regress covers stable-classified installed A versus newer failed B and equal-tier ordering; use a forward migration only if shipped SQL semantics change
-- [ ] #3 The two arcs control or assert the discovery/enrichment outcome and give the intended verdict independently of live GitHub discovery success; record the limits of the existing Hetzner comparison evidence
+- [x] #1 Owner decision recorded (2026-10-01 13:24 UTC): supersede at schedule time, strictly newer version across tiers, release_status never ranks, failed rows superseded only by a newer scheduled candidate, rows retained
+- [ ] #2 upgrade_supersede_older drops the tier term and orders purely by (version key, committed_at); forward migration only (shipped SQL); pg_regress covers installed-release-A vs newer-failed-RC-B (B survives), newer-C-scheduled supersedes failed B, and equal-version ordering
+- [ ] #3 The two arcs control or assert the discovery/enrichment outcome and give the intended verdict independently of live GitHub discovery success; record the limits of the existing Hetzner comparison evidence; assertions match the ruling (failed survives when nothing newer is scheduled)
 <!-- AC:END -->

@@ -1,0 +1,124 @@
+---
+id: STATBUS-107
+title: >-
+  plain-upgrade-language: de-jargon the upgrade/recovery vocabulary — "booting
+  the new binary", one by one
+status: In Progress
+assignee: []
+created_date: '2026-06-21 19:41'
+updated_date: '2026-06-28 12:44'
+labels:
+  - upgrade
+  - recovery
+  - docs
+  - clarity
+  - de-jargon
+dependencies: []
+references:
+  - doc/upgrade-timeline.md
+  - doc/recovery/
+  - cli/internal/upgrade/service.go
+  - doc/upgrade-vocabulary.md
+priority: medium
+ordinal: 107000
+---
+
+## Description
+
+<!-- SECTION:DESCRIPTION:BEGIN -->
+## Why
+The upgrade + recovery vocabulary is obtuse — "pre-swap", "post-swap", "Resuming", "positively-behind", "at-target". The King's standard: plain language a reader gets without a glossary. "Booting the new binary" beats "the binary-swap commit boundary". The upgrade is the most safety-critical, most-reviewed code we have — its words must be the clearest.
+
+## The plain forward-vs-rollback decision (the worked example + style anchor — DONE in the doc)
+An upgrade has ONE point of no return: the moment the box BOOTS THE NEW BINARY. Before it = reversible prep (incl. the DB backup). After it = committed to new. On a crash-restart, recovery picks FORWARD (finish to new) or ROLL BACK (restore backup -> old). Rule: go forward whenever still possible; roll back only when CONFIRMED stuck behind.
+- Crashed before booting the new binary -> roll back (trivial; no backup taken, restart on old).
+- Crashed after booting the new binary -> is it already AT the new version?
+  - Already at new -> finish forward; NEVER roll back (it may have served new + taken data the backup predates).
+  - Confirmed behind -> roll back once to this upgrade's backup -> old.
+  - Can't tell (DB unreachable) -> go forward (never destroy on a guess).
+- Torn window (killed between a migration committing + being recorded) -> behind -> forward fails "relation already exists" -> roll back -> operator retries.
+Landed as the "Forward vs rollback — in plain terms" subsection in doc/upgrade-timeline.md.
+
+## Jargon -> plain map
+- pre-swap / post-swap / "the binary-swap" -> before / after BOOTING THE NEW BINARY
+- Resuming -> CONTINUING AFTER A CRASH-RESTART
+- positively-behind / Behind -> CONFIRMED STUCK BEHIND THE NEW VERSION
+- at-target / AtTarget -> ALREADY AT THE NEW VERSION
+- ground truth -> WHAT'S ACTUALLY ON DISK (the binary + which migrations ran)
+- rollback -> ROLL BACK TO THE OLD VERSION; forward / resume -> FINISH FORWARD TO THE NEW VERSION
+
+## ONE BY ONE — and WHY (do NOT blind-sweep / ruplacer)
+Classify EACH site: cosmetic vs load-bearing.
+- SAFE (cosmetic): doc prose, code comments, operator-facing log/error strings, Go identifiers, ticket language. Rename freely.
+- LOAD-BEARING (careful): the `Phase` enum WIRE values ("post_swap", "resuming") are serialized into the on-disk upgrade flag (UpgradeFlag JSON) by the OLD binary and read back by the NEW binary during recovery. Renaming the wire value BREAKS cross-version recovery (a box mid-upgrade carries the old-format flag). -> rename the Go IDENTIFIERS for clarity but KEEP the wire values (or read both old+new). Per-site judgment, never a sweep.
+- The doc references the code's actual Phase values, so doc + code de-jargon are COUPLED: plain prose may name the wire value parenthetically until/unless the code rename lands.
+
+## Targets (one by one)
+1. doc/upgrade-timeline.md — the "five phases" + recovery-contract sections -> plain prose (the forward-vs-rollback subsection is the worked example).
+2. doc/recovery/* — the recovery design docs -> plain.
+3. STATBUS-046's escalation design -> plain language (when it is ratified / built).
+4. Code: the `Phase` enum + recover/resume function names -> plain Go identifiers; KEEP the serialized wire values (load-bearing).
+5. Operator-facing log + error strings on the upgrade/recovery path -> plain.
+6. doc/diagrams/ — the THREE upgrade/recovery diagrams ONLY: upgrade-timeline.plantuml, upgrade-lifecycle.plantuml, install-recovery.plantuml. Plain prose in the labels/notes (de-jargon: pre-swap/post-swap, "ground truth decides direction", positively-behind, at-target, exit-42-handoff, QuiesceClients, flock, wedge -> the jargon->plain map above). COUPLED to target #4: the function-name + Phase references update WITH the code rename (don't half-rename). Regenerate each .svg from its .plantuml after editing. (The architecture / infra / git / domains diagrams are a DIFFERENT domain — NOT this jargon, OUT OF SCOPE.)
+
+Each target = one commit; classify cosmetic-vs-load-bearing first; verify NO serialized/on-disk value changed (the flag must still round-trip old<->new).
+<!-- SECTION:DESCRIPTION:END -->
+
+## Acceptance Criteria
+<!-- AC:BEGIN -->
+- [ ] #1 doc/upgrade-timeline.md + doc/recovery/* + the 3 upgrade diagrams (upgrade-timeline / upgrade-lifecycle / install-recovery .plantuml, with .svg regenerated) read in plain language (no pre-swap/post-swap/Resuming/positively-behind/at-target jargon in prose); the forward-vs-rollback plain subsection is the style anchor
+- [ ] #2 Code Go identifiers de-jargoned for clarity, but the serialized Phase WIRE values are PRESERVED (or both old+new read) — verified the on-disk upgrade flag still round-trips between an old and a new binary
+- [ ] #3 Operator-facing log + error strings on the upgrade/recovery path are plain
+- [ ] #4 Each site was classified cosmetic-vs-load-bearing and changed one-by-one (no blind sweep); STATBUS-046's escalation design de-jargoned when it lands
+<!-- AC:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+## Glossary walkthrough — LIVE STATE (architect; King-driven; updated 2026-06-26)
+
+REGIME: "establish + apply a SLUG REGIME" (concept → kebab slug → plain message). Registry: doc/upgrade-vocabulary.md.
+
+⚠️ PARKED (arc-gated): on-disk Phase serialization changes to match slugs (clean break, no read-both) + CLEAN RESTART on old/unrecognized sentinel. Safety hinges on restart-safety from a post-swap partial state — provable only by install-recovery arcs (STATBUS-071). Doc constraint section marked UNDER REVISION.
+
+LOCKED (in the registry):
+- PHASES: old-sb-upgrading ("") → old-sb-swap (exit 42) → new-sb-swapped (post_swap; arrived/self-heal) → new-sb-upgrading (resuming; running post-swap migrations). "Resuming" slug dissolved.
+- UPGRADE STATES (9, snake_case): available → scheduled → in_progress → (completed|failed|rolled_back) → (skipped|dismissed|superseded). Full actor map (CLI/web/service) + 26 cols.
+- SCHEDULING: claim-upgrade = sb claims + runs (executeUpgrade), runner = systemd service OR ./sb install (race-safe atomic claim).
+- RECOVERY read pair: recorded-state (what was written down) vs observed-state (binary+migrations+flock, measured now).
+
+RECOVERY DECISION TREE — fully mapped (11 paths), names HELD pending the model decision (STATBUS-110):
+- acquire-retry: recovery-new-sb-retrying-db, recovery-new-sb-fetching-commit
+- known recovery: recovery-old-sb-never-swapped, recovery-new-sb-completed-migrations, recovery-new-sb-pending-migrations
+- human: recovery-stuck-needs-human, recovery-unexpected-state
+- housekeeping: recovery-nothing-pending, recovery-discard-corrupt-flag, recovery-clear-install-flag
+- edge: recovery-binary-mismatch
+
+DESIGN SPIN-OUTS (discovered during the walkthrough — the conservative recovery model was a likely under-ratified agent assumption):
+- STATBUS-109: in-process backoff for transient recovery errors (exit-restart creates noise).
+- STATBUS-110: DB read-only window → rollback always data-safe → relaxes STATBUS-039 "never restore on a guess" → SIMPLIFIES the recovery tree. AUTHORITATIVE recovery-correctness plan; carries the King decision. THE recovery names depend on its outcome.
+
+FINDINGS: liveness = flock not PID (install/state.go:5-8); the direct-PG path is ungated during the maintenance window (maintenance is HTTP-only) = the data-safety hole (STATBUS-110).
+
+PRINCIPLES: name the subject (sb) · one emitter/slug · -ing=state, swap/swapped=event · where-we-are=Phase, where-we're-going=Action · invoker=audit field · name by STRATEGY (transient / known-recovery / human).
+
+REMAINING vocabulary sections: Recovery ACTIONS (continue-upgrade / complete-upgrade / roll-back — gated on the STATBUS-110 model decision) → Mechanisms & artifacts (upgrade-sentinel, flock, db-snapshot/backup/restore, stop-clients, restart-loop, heartbeat).
+
+DELIVERY: after each section locks, apply docs → diagrams → code → logs, one site at a time; foreman commits pathspec-scoped; code/wire rename LAST.
+
+DIAGRAM CROSS-REF + 2 KING RATIFICATIONS (2026-06-26; mechanic-traced, foreman grep-verified; tmp/operator-recovery-cases-vs-diagrams.md).
+
+Coverage of the 11 recovery cases vs the 3 upgrade/recovery diagrams: DRAWN as branches = cases 3,4,5,6,7,11; NOTE-ONLY (prose, not a drawn branch) = 8 (git-error→Unknown, upgrade-timeline:162-163) + 10 (FLAG_PHASE_UNKNOWN, :163-164/:204); TRUE GAPS (absent) = 2 (corrupt-flag), 1 (only the trivial clean-boot baseline; no-flag HANDLING is drawn at timeline:53/:202), 9 (stuck-needs-human ARRIVAL path; only the systemd reset-failed escape noted at install-recovery:174).
+
+RATIFIED (King): (1) CORRUPT-FLAG (recovery-discard-corrupt-flag) = DISCARD-AND-LOG → boot normally (autonomous). Was undrawn AND unspecified — now SPECIFIED. (2) recovery-failed (the `failed` upgrade-state: a rollback was chosen but its RESTORE itself broke — rsync/disk) = NEEDS A HUMAN. DISTINCT from unexpected-state (can't-read-state) and from the dissolved stuck-needs-human; read-only does NOT help it (a broken restore is hands-on regardless).
+
+FINAL simplified recovery model (post read-only window): autonomous in every case EXCEPT TWO human terminals — (a) unexpected-state (can't READ the phase; a decision), (b) recovery-failed (rollback RESTORE broke; an action-failure).
+
+DIAGRAM DE-JARGON WORK (this task, target #6): draw the corrupt-flag case; promote git-Unknown + unrecognized-phase from prose footnotes to drawn branches; SPLIT the single failed/human blob into its two distinct reasons. + install-recovery:114 self-declares a test gap (pre-1.0 legacy-refuse path has no scenario).
+
+GLOSSARY — RECOVERY SECTIONS CRYSTALLISED (King, 2026-06-27); doc/upgrade-vocabulary.md now carries, ratified:
+• 'Recovery — when a step fails': `intermittent-error`/`persistent-error`/`unknown-error`; ONE `backoff-retry` strategy, two cases — `db-unreachable` (wall-clock-5s connect probe) + `commit-not-fetched` (STALL-not-deadline `git fetch`, ~60s no-progress, ~15min); container-not-ready EXCLUDED (own health loops); composition note (in front of systemd backstop; exhaust→roll-back; backstop=unknown only).
+• 'Recovery — the two human stops': `unknown` (unrecognised error OR unreadable phase) + `restore-broke` (rollback's restore broke→hands-on; operator UX agreed in principle — print error + snapshot-path + re-run `./sb install`; impl grounding pending).
+• Direction: the stale `state-unknown` ('continue forward, never destroy on a guess' — the OVERTURNED model) REPLACED by `position-unreadable` → routes to the error classifier.
+Full crystallised model also in doc-019 §3-§4. Recovery slug names now UN-HELD (the 110 model is ratified). STILL OPEN in 107: the Mechanisms & artifacts names (entry 1 = the on-disk marker, in review; architect lean `upgrade-marker`) + the 3-diagram de-jargon (target #6).
+<!-- SECTION:NOTES:END -->

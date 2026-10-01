@@ -1,0 +1,70 @@
+---
+id: STATBUS-131
+title: >-
+  upgrade-callback-wiped: config generate silently wipes UPGRADE_CALLBACK —
+  operator siren/callback structurally disarmed
+status: Done
+assignee:
+  - mechanic
+created_date: '2026-07-03 21:42'
+updated_date: '2026-07-04 23:22'
+labels:
+  - upgrade
+  - operator-ux
+  - product
+  - silent-loss
+dependencies: []
+references:
+  - cli/internal/config/config.go
+  - cli/internal/upgrade/service.go
+  - cli/cmd/install.go
+  - ops/notify-slack.sh
+priority: high
+ordinal: 132000
+---
+
+## Description
+
+<!-- SECTION:DESCRIPTION:BEGIN -->
+FOUND during the STATBUS-044 park-scenario build (mechanic's callback-marker injection workaround exposed it); VERIFIED first-hand by the architect (2026-07-03, overnight — for the King's morning review).
+
+THE GAP (same silent-loss class as the doc-025 role GUCs — operator state living in a regenerated artifact instead of the durable home):
+- `UPGRADE_CALLBACK` is READ from `.env` (service.go:5876 runCallback; install.go:2198 runInstallCallback) and `ops/notify-slack.sh` documents setting it (`UPGRADE_CALLBACK=./ops/notify-slack.sh`).
+- `sb config generate` FULLY OVERWRITES `.env` (config.go:922) from `.env.example` + an ENUMERATED Set list; `UPGRADE_CALLBACK` appears in NEITHER (verified: zero refs in config.go, zero in .env.example), and there is no unknown-key passthrough from `.env.config`.
+- config generate runs at EVERY install AND at applyPostSwap step 3.1 of EVERY upgrade — i.e. the callback key is wiped BEFORE the completion/failure/rollback callbacks would fire later in that same upgrade.
+
+CONSEQUENCE: any operator who follows the documented setup loses the callback on the next install/upgrade — silently. URGENT-ADJACENT: STATBUS-046's PARK SIREN (STATBUS_EVENT=parked, the once-only degraded alert that replaces rune's loop-forever) rides runCallback → it is structurally DISARMED on any real box today. Why nobody noticed: production Slack notification rides SLACK_TOKEN, which IS in the enumerated set and survives — a different mechanism.
+
+FIX SHAPE (architect): make UPGRADE_CALLBACK a first-class enumerated `.env.config` → `.env` key — config.go `gen("UPGRADE_CALLBACK", "")` + example.Set carry-through; document the key in the .env.config template; update ops/notify-slack.sh's header to say .env.config (the durable operator-owned home), not .env. Optionally the STATBUS-044 scenario then injects into .env.config instead of the post-kill .env timing workaround.
+
+VERIFICATION: the park scenario's siren assertion is the natural oracle once the key survives config generate; plus a unit-level check that generateEnvContent carries the key.
+<!-- SECTION:DESCRIPTION:END -->
+
+## Acceptance Criteria
+<!-- AC:BEGIN -->
+- [x] #1 UPGRADE_CALLBACK set in .env.config survives sb config generate into .env (enumerated carry-through)
+- [x] #2 ops/notify-slack.sh header + deployment docs name .env.config as the home
+- [x] #3 the 046 park siren fires on a box whose callback was configured only in .env.config (scenario or arc evidence)
+<!-- AC:END -->
+
+## Comments
+
+<!-- COMMENTS:BEGIN -->
+author: foreman
+created: 2026-07-04 12:17
+---
+SHIPPED as commit a5b9474cd (2026-07-04). AC#1 + AC#2 done and checked: carry-through via the upgrade-settings block's getOrDefault mechanism (architect confirmed the deviation from the ticket's example.Set wording — that block's convention is Fprintf+getOrDefault, same as all four neighbors); docs re-homed with the wipe reason on both surfaces. Verification: Go build + config unit tests green in three independent runs (foreman, tester, architect); fast SQL sweep not run — blocked by the STATBUS-133 hook bootstrap gap, and the diff contains no SQL/migrations for it to exercise. AC#3 (park siren fires from a .env.config-only box) stays open — it rides the park-scenario VM oracle, sequenced in STATBUS-044 comment #6 (budget hoist → scenario rebuild → run). Task stays In Progress until AC#3's run.
+---
+
+author: foreman
+created: 2026-07-04 23:22
+---
+AC#3 CHECKED on r18+r19 run evidence (siren once via .env.config-only callback; r19 fully green end-to-end). Task DONE.
+---
+<!-- COMMENTS:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+Shipped a5b9474cd (carry-through + docs + unit tests) and proven live twice: r15 autopsy observed UPGRADE_CALLBACK surviving a real `sb config generate` into .env on a real box; r18 and r19 observed the park siren firing EXACTLY ONCE via a callback configured only in .env.config, across three real recovery boots each running config generate (r19: full scenario PASS, including two post-park restarts with no re-siren and the un-park completion callback). All three acceptance criteria met with run evidence. The operator contract is now: set UPGRADE_CALLBACK in .env.config (ops/notify-slack.sh header + doc/DEPLOYMENT.md document this); it survives every regeneration.
+<!-- SECTION:FINAL_SUMMARY:END -->
