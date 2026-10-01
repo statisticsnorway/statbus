@@ -91,7 +91,15 @@ package migrate
 // the tree after STATBUS-349 and therefore sorted differently
 // on full replay than on incremental databases. Its replacement above the 349
 // migration is now the floor because the daemon requires the column.
-const DaemonSchemaFloor int64 = 20260923202403
+//
+// 20261001163000 (STATBUS-435 version-first supersession): the migration
+// replaces upgrade_supersede_older's body, dropping the release_status tier
+// term. The daemon only ever CALLS the procedure (via upgrade_schedule); it
+// embeds no ranking logic of its own, so an old daemon against the new body
+// simply gets the corrected ledger classification — no daemon query or write
+// shape changes. The floor moves so the guard stops flagging this migration;
+// the re-decision is this paragraph, per the guard's contract.
+const DaemonSchemaFloor int64 = 20261001163000
 
 // DaemonRelationNames is the schema surface the daemon's OWN SQL touches — the
 // set whose shape the floor must satisfy. The bump guard flags any migration
