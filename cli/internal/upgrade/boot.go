@@ -22,7 +22,7 @@ const (
 	// every box's upgrade service DOWN after any successful rollback. The
 	// boot-wait deferral therefore uses 76, and the two codes must never
 	// share a value (boot_test.go pins both sides).
-	exitInstallHeldBootWait  = 76 // RestartPreventExitStatus names it explicitly
+	exitInstallHeldBootWait = 76 // RestartPreventExitStatus names it explicitly
 )
 
 var errInstallHeldBootWaitExpired = errors.New("installation still owns the upgrade mutex after the daemon boot wait limit")
