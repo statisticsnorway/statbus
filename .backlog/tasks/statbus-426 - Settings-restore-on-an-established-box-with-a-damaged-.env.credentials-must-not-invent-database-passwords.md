@@ -1,12 +1,12 @@
 ---
 id: STATBUS-426
 title: >-
-  Settings restore on an established box with a damaged .env.credentials must
-  not invent database passwords
+  Settings restore on an established box with a damaged .env.credentials adopts
+  the surviving database by reconciling regenerated secrets
 status: In Progress
 assignee: []
 created_date: '2026-09-28 17:41'
-updated_date: '2026-10-01 10:29'
+updated_date: '2026-10-01 13:19'
 labels:
   - install
 dependencies: []
@@ -17,14 +17,22 @@ ordinal: 375200
 ## Description
 
 <!-- SECTION:DESCRIPTION:BEGIN -->
-Found in review of the rc.16 installer fix (tmp/review-detect-env-2.md, -3.md). restoreSettingsBeforeDetect (cli/cmd/install.go) regenerates the generated .env when .env.config and .env.credentials exist and .env is missing. It checks that .env.credentials exists, not that it is complete. On an established box whose .env AND .env.credentials content were both damaged, loadOrGenerateCredentials fills missing keys with new random passwords/JWT secret, and the Services step then synchronises database role passwords to them. The intended case (an interrupted fresh install with a token-only credentials file, e.g. the upgrade arcs) needs that generation, so a blanket completeness refusal is wrong. Decide: distinguish an established box (DB volume exists / database answers) from a fresh one before generating secrets, and refuse with a plain operator remedy on an established box with incomplete credentials.
+Found in review of the rc.16 installer fix (tmp/review-detect-env-2.md, -3.md). restoreSettingsBeforeDetect (cli/cmd/install.go) regenerates the generated .env when .env.config and .env.credentials exist and .env is missing. It checks that .env.credentials exists, not that it is complete. On an established box whose .env AND .env.credentials content were both damaged, loadOrGenerateCredentials fills missing keys with new random passwords/JWT secret, and the Services step then synchronises database role passwords to them.
+
+**Owner ruling 2026-10-01 13:17 UTC: ADOPT.** The installer adopts the surviving database by reconciling it to the regenerated credentials — the shipped STATBUS-407 contract (scenario 5-install-orphaned-db-volume-credentials phase c) and the only sane option, since the manual recovery would be the same operations by hand. Adoption must be complete and reported:
+
+1. Missing database passwords are generated, the surviving database's roles are ALTERed to match, and the adoption is reported plainly (what was rotated and why).
+2. The JWT split found in review is fixed as part of this: checkJWTDone (install.go:1292-1306) currently checks only that auth.secrets.jwt_secret is non-empty, so after adoption the DB would keep the OLD JWT secret while PostgREST gets the new one. The check must compare the stored secret against the credentials file, and adoption must write the new secret into auth.secrets.
+
+The earlier refuse-shaped branch (fix/426-credentials, 3f2566e22) was BLOCK-reviewed for contradicting exactly this contract and is superseded by the ruling.
 <!-- SECTION:DESCRIPTION:END -->
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 An established box with a damaged .env.credentials is refused with a plain remedy, never given new database passwords
-- [ ] #2 An interrupted fresh install with a token-only .env.credentials still resumes
-- [ ] #3 Test for each case
+- [ ] #1 An established box with a damaged .env.credentials is adopted: new secrets generated, surviving database roles reconciled to them, auth.secrets.jwt_secret updated, and the rotation reported in plain language
+- [ ] #2 checkJWTDone compares the stored JWT secret to the credentials file (not non-empty), so a split is detected and repaired rather than missed
+- [ ] #3 An interrupted fresh install with a token-only .env.credentials still resumes
+- [ ] #4 Tests for each case, including the STATBUS-407 phase-c adopt path running green under the fixed checkJWTDone
 <!-- AC:END -->
 
 ## Implementation Notes

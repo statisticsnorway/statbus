@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-09-29 08:24'
-updated_date: '2026-10-01 10:29'
+updated_date: '2026-10-01 13:19'
 labels:
   - install
 dependencies: []
@@ -22,9 +22,9 @@ Found by the Ville replay (tmp/ville-replay-v2026.09.3.md D3, 2026-09-29). Once 
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 A fresh install creates caddy/data/custom-certs/ owned by the install user before any container starts
-- [ ] #2 An existing box whose caddy/data/ is root-owned gets caddy/data/custom-certs/ repaired to the install user by the installer, without sudo
-- [ ] #3 A scenario on a box that has run Services follows the printed certificate remedy as the statbus user and reaches a ready installation
+- [ ] #1 `./sb cert install` succeeds as the install user when caddy/data is root-owned, repairing only custom-certs via a container without sudo (shipped in v2026.10.0-rc.01; the box-level proof runs with AC#3)
+- [ ] #2 The installer accepts certificate material as arguments compatible with the cert CLI (certificate+key pair or a single PFX/PKCS#12, PFX password via a non-interactive env var) and installs it through the SAME shared code path (loadCertMaterial → match check → write → .env.config → config generate); during install the restart/probe is replaced by Caddy starting with the cert at first compose up; the arguments are refused in private and development modes with the same message cert install uses
+- [ ] #3 An explicit (non-default) LXD run of 5-install-cert-repair-via-cert-install on a built candidate: a box that has run Services follows the printed certificate remedy as the statbus user and reaches a ready installation, and a fresh install with certificate arguments is born serving that certificate
 <!-- AC:END -->
 
 ## Implementation Notes
