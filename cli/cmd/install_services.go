@@ -520,7 +520,13 @@ func runStartServices(dir string) (result error) {
 		return fmt.Errorf("could not make the database passwords match .env.credentials: %w", err)
 	}
 	if len(changed) > 0 {
-		fmt.Printf("  The database held older passwords for %s; they now match .env.credentials.\n", dbroles.RoleNames(changed))
+		adopted, drifted := partitionPasswordReconciliation(changed, missingCredentialKeysBeforeInstall)
+		if len(drifted) > 0 {
+			fmt.Printf("  The database held older passwords for %s; they now match .env.credentials.\n", dbroles.RoleNames(drifted))
+		}
+		if len(adopted) > 0 {
+			fmt.Printf("  Rotated database passwords for %s because .env.credentials was damaged or incomplete and those passwords had to be regenerated.\n", dbroles.RoleNames(adopted))
+		}
 		if err := restartPasswordClients(dir, passwordClients); err != nil {
 			fmt.Printf("  Restarting the services that use those passwords did not finish cleanly: %v\n", err)
 		}
@@ -552,6 +558,17 @@ func runStartServices(dir string) (result error) {
 	}
 	fmt.Println("  All services are running.")
 	return nil
+}
+
+func partitionPasswordReconciliation(changed []dbroles.Mismatch, regenerated map[string]bool) (adopted, drifted []dbroles.Mismatch) {
+	for _, mismatch := range changed {
+		if regenerated[mismatch.PasswordKey] {
+			adopted = append(adopted, mismatch)
+		} else {
+			drifted = append(drifted, mismatch)
+		}
+	}
+	return adopted, drifted
 }
 
 // checkDBHealthy is the database-only readiness predicate: the db container's
