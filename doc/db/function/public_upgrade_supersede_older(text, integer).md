@@ -5,10 +5,11 @@ CREATE OR REPLACE PROCEDURE public.upgrade_supersede_older(IN p_commit_sha text,
 AS $procedure$
 DECLARE
     _committed   timestamptz;
+    _status      public.release_status_type;
     _version_key integer[];
 BEGIN
-    SELECT committed_at, public.upgrade_version_key(commit_version)
-      INTO _committed, _version_key
+    SELECT committed_at, release_status, public.upgrade_version_key(commit_version)
+      INTO _committed, _status, _version_key
       FROM public.upgrade
      WHERE commit_sha = p_commit_sha
      LIMIT 1;
@@ -36,8 +37,11 @@ BEGIN
     SELECT count(*) INTO p_superseded FROM superseded;
 
     IF p_superseded > 0 THEN
-        RAISE NOTICE 'upgrade_supersede_older: superseded % row(s) older than %',
-            p_superseded, p_commit_sha;
+        -- release_status no longer RANKS anything (STATBUS-435 ruling), but
+        -- stays in the notice as operator-visible metadata; pg_regress
+        -- expectations (330 et al.) pin this exact text.
+        RAISE NOTICE 'upgrade_supersede_older: superseded % row(s) older than % (status=%)',
+            p_superseded, p_commit_sha, _status;
     END IF;
 END;
 $procedure$

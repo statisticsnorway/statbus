@@ -48,7 +48,7 @@ VALUES
      'scheduled C', 'v2026.09.4-rc.1', ARRAY['v2026.09.4-rc.1'],
      '2026-09-30 10:05:00+00');
 CALL public.upgrade_supersede_older(repeat('c', 40), 0);
-NOTICE:  upgrade_supersede_older: superseded 1 row(s) older than cccccccccccccccccccccccccccccccccccccccc
+NOTICE:  upgrade_supersede_older: superseded 1 row(s) older than cccccccccccccccccccccccccccccccccccccccc (status=prerelease)
  p_superseded 
 --------------
             1
@@ -74,7 +74,7 @@ VALUES
     (repeat('e', 40), '2026-09-30 09:00:00+00', 'commit', 'scheduled',
      'equal version newer', 'v2026.09.5', ARRAY[]::text[], '2026-09-30 09:05:00+00');
 CALL public.upgrade_supersede_older(repeat('e', 40), 0);
-NOTICE:  upgrade_supersede_older: superseded 1 row(s) older than eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+NOTICE:  upgrade_supersede_older: superseded 1 row(s) older than eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee (status=commit)
  p_superseded 
 --------------
             1
@@ -99,7 +99,7 @@ VALUES
     (repeat('1', 40), '2026-09-30 08:00:00+00', 'commit', 'scheduled',
      'unkeyed newer target', repeat('1', 8), ARRAY[]::text[], '2026-09-30 08:05:00+00');
 CALL public.upgrade_supersede_older(repeat('1', 40), 0);
-NOTICE:  upgrade_supersede_older: superseded 1 row(s) older than 1111111111111111111111111111111111111111
+NOTICE:  upgrade_supersede_older: superseded 1 row(s) older than 1111111111111111111111111111111111111111 (status=commit)
  p_superseded 
 --------------
             1
@@ -122,7 +122,7 @@ VALUES
     (repeat('3', 40), '2026-09-30 08:00:00+00', 'release', 'scheduled',
      'tagged newer target', 'v2020.01.0', ARRAY['v2020.01.0'], '2026-09-30 08:05:00+00');
 CALL public.upgrade_supersede_older(repeat('3', 40), 0);
-NOTICE:  upgrade_supersede_older: superseded 1 row(s) older than 3333333333333333333333333333333333333333
+NOTICE:  upgrade_supersede_older: superseded 1 row(s) older than 3333333333333333333333333333333333333333 (status=release)
  p_superseded 
 --------------
             1
