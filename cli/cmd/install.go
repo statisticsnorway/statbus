@@ -52,6 +52,10 @@ var (
 	// explain that a rotation was caused by a damaged/incomplete credentials
 	// file, without treating an ordinary fresh install as an adoption.
 	missingCredentialKeysBeforeInstall map[string]bool
+	// freshDatabaseBeforeInstall distinguishes the expected first JWT write on a
+	// new database from a repair to an established database. The latter must
+	// always be reported, including absent, empty, and initially unreadable state.
+	freshDatabaseBeforeInstall bool
 )
 
 var databaseIdentityCredentialKeys = []string{
@@ -405,6 +409,7 @@ func signerPreflightRequired(dir string, state install.State) bool {
 // conflicting actor."
 func runInstall() (installErr error) {
 	settingsRestoredBeforeDetect = false
+	freshDatabaseBeforeInstall = false
 	previousAnswered, previousAccepted := signerPromptAnswered, signerPromptAccepted
 	signerPromptAnswered, signerPromptAccepted = false, false
 	defer func() { signerPromptAnswered, signerPromptAccepted = previousAnswered, previousAccepted }()
@@ -603,6 +608,7 @@ func runInstall() (installErr error) {
 			}
 			preflightInstallSigner(installDir)
 			detectedState = state
+			freshDatabaseBeforeInstall = installStateHasFreshDatabase(state)
 			logInstallState(installDir, state, detail)
 			// Safe takeover (STATBUS-039): a live flock + a crash-looping
 			// unit is not a progressing upgrade — it is a wedge cycling
@@ -659,6 +665,7 @@ func runInstall() (installErr error) {
 					return fmt.Errorf("re-detect after recovery: %w", derr)
 				}
 				detectedState = state
+				freshDatabaseBeforeInstall = installStateHasFreshDatabase(state)
 				// A stale install-held flag masks first-install provenance at the
 				// initial probe. Only after recovery removes it can Detect see the
 				// unfinished database. Import consent from the answer file now,
@@ -2938,7 +2945,7 @@ func runLoadJWT(dir string) error {
 	if err != nil {
 		return err
 	}
-	stored, _ := readStoredJWTSecret(dir)
+	stored, storedErr := readStoredJWTSecret(dir)
 	if err := writeJWTSecret(dir); err != nil {
 		return err
 	}
@@ -2946,14 +2953,23 @@ func runLoadJWT(dir string) error {
 	if err != nil || !jwtSecretsMatch(repaired, desired) {
 		return fmt.Errorf("JWT signing secret was not reconciled with .env.credentials")
 	}
-	if stored != "" && stored != desired {
+	repairedExistingDatabase := !freshDatabaseBeforeInstall && (storedErr != nil || stored != desired)
+	if repairedExistingDatabase {
 		if missingCredentialKeysBeforeInstall["JWT_SECRET"] {
 			fmt.Println("  The JWT signing secret was rotated because .env.credentials was damaged or incomplete; the database now matches the replacement secret.")
+		} else if storedErr != nil {
+			fmt.Printf("  The stored JWT signing secret could not be read before repair (%v); the database now matches .env.credentials.\n", storedErr)
+		} else if stored == "" {
+			fmt.Println("  The stored JWT signing secret was missing or empty; the database now matches .env.credentials.")
 		} else {
 			fmt.Println("  The JWT signing secret differed from .env.credentials; the database now matches it.")
 		}
 	}
 	return nil
+}
+
+func installStateHasFreshDatabase(state install.State) bool {
+	return state == install.StateFresh || state == install.StateHalfConfigured || state == install.StateFreshDBIncomplete
 }
 
 var writeJWTSecret = ensureJWTSecret

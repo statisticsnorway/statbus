@@ -520,9 +520,12 @@ func runStartServices(dir string) (result error) {
 		return fmt.Errorf("could not make the database passwords match .env.credentials: %w", err)
 	}
 	if len(changed) > 0 {
-		fmt.Printf("  The database held older passwords for %s; they now match .env.credentials.\n", dbroles.RoleNames(changed))
-		if passwordReconciliationWasCredentialAdoption(changed, missingCredentialKeysBeforeInstall) {
-			fmt.Printf("  Rotated database passwords for %s because .env.credentials was damaged or incomplete and those passwords had to be regenerated.\n", dbroles.RoleNames(changed))
+		adopted, drifted := partitionPasswordReconciliation(changed, missingCredentialKeysBeforeInstall)
+		if len(drifted) > 0 {
+			fmt.Printf("  The database held older passwords for %s; they now match .env.credentials.\n", dbroles.RoleNames(drifted))
+		}
+		if len(adopted) > 0 {
+			fmt.Printf("  Rotated database passwords for %s because .env.credentials was damaged or incomplete and those passwords had to be regenerated.\n", dbroles.RoleNames(adopted))
 		}
 		if err := restartPasswordClients(dir, passwordClients); err != nil {
 			fmt.Printf("  Restarting the services that use those passwords did not finish cleanly: %v\n", err)
@@ -557,21 +560,15 @@ func runStartServices(dir string) (result error) {
 	return nil
 }
 
-func passwordReconciliationWasCredentialAdoption(changed []dbroles.Mismatch, regenerated map[string]bool) bool {
-	if len(changed) == 0 {
-		return false
-	}
-	for _, key := range []string{
-		"POSTGRES_ADMIN_PASSWORD",
-		"POSTGRES_APP_PASSWORD",
-		"POSTGRES_AUTHENTICATOR_PASSWORD",
-		"POSTGRES_NOTIFY_PASSWORD",
-	} {
-		if regenerated[key] {
-			return true
+func partitionPasswordReconciliation(changed []dbroles.Mismatch, regenerated map[string]bool) (adopted, drifted []dbroles.Mismatch) {
+	for _, mismatch := range changed {
+		if regenerated[mismatch.PasswordKey] {
+			adopted = append(adopted, mismatch)
+		} else {
+			drifted = append(drifted, mismatch)
 		}
 	}
-	return false
+	return adopted, drifted
 }
 
 // checkDBHealthy is the database-only readiness predicate: the db container's

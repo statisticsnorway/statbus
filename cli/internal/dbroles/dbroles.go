@@ -125,8 +125,9 @@ func LoadTarget(projDir string) (Target, error) {
 
 // Mismatch names a role whose stored password differs from .env.
 type Mismatch struct {
-	Role   string
-	Reason string // "differs", "missing role", "no password set"
+	Role        string
+	PasswordKey string
+	Reason      string // "differs", "missing role", "no password set"
 }
 
 func (m Mismatch) String() string { return m.Role + " (" + m.Reason + ")" }
@@ -140,11 +141,11 @@ func Compare(t Target, storedVerifiers map[string]string) []Mismatch {
 		stored, exists := storedVerifiers[r.Name]
 		switch {
 		case !exists:
-			out = append(out, Mismatch{Role: r.Name, Reason: "missing role"})
+			out = append(out, Mismatch{Role: r.Name, PasswordKey: r.PasswordKey, Reason: "missing role"})
 		case stored == "":
-			out = append(out, Mismatch{Role: r.Name, Reason: "no password set"})
+			out = append(out, Mismatch{Role: r.Name, PasswordKey: r.PasswordKey, Reason: "no password set"})
 		case !VerifierMatches(stored, r.Name, r.Password):
-			out = append(out, Mismatch{Role: r.Name, Reason: "differs"})
+			out = append(out, Mismatch{Role: r.Name, PasswordKey: r.PasswordKey, Reason: "differs"})
 		}
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i].Role < out[j].Role })
