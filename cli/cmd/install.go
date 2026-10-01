@@ -23,6 +23,7 @@ import (
 	"github.com/statisticsnorway/statbus/cli/internal/config"
 	"github.com/statisticsnorway/statbus/cli/internal/diskpolicy"
 	"github.com/statisticsnorway/statbus/cli/internal/dotenv"
+	"github.com/statisticsnorway/statbus/cli/internal/hostrepair"
 	"github.com/statisticsnorway/statbus/cli/internal/install"
 	"github.com/statisticsnorway/statbus/cli/internal/installinput"
 	"github.com/statisticsnorway/statbus/cli/internal/invariants"
@@ -879,6 +880,12 @@ func runInstall() (installErr error) {
 		{"Program", checkBinaryDone, runInstallBinary},
 		{"Configuration", checkConfigDone, runCreateConfig},
 		{"Credentials", checkCredsDone, runCreateCreds},
+		// Directories owns ~/statbus-maintenance and ~/statbus-backups. It must
+		// not ride on Configuration's or Settings' done-checks (STATBUS-431):
+		// those proxies (".env.config exists", "generated files match") can be
+		// satisfied by other steps while the directories are never created, and
+		// Docker then creates the bind-mount sources as root at compose up.
+		{"Directories", checkDirectoriesDone, runEnsureDirectories},
 		{"Settings", checkEnvDone, runGenerateEnv},
 		{"Images", checkImagesDone, runPullImages},
 		{"Services", checkServicesDone, runStartServices},
@@ -1589,20 +1596,9 @@ func runGenerateEnv(dir string) error {
 	}
 	// Now that config exists, normalize the product-owned fetch configuration.
 	normalizeGitRemote(dir)
-	// Create backup directory for upgrade service (systemd unit expects it)
-	home, err := os.UserHomeDir()
-	if err != nil {
-		return fmt.Errorf("cannot determine home directory (HOME unset?): %w", err)
-	}
-	backupDir := filepath.Join(home, "statbus-backups")
-	if err := os.MkdirAll(backupDir, 0755); err != nil {
-		log.Printf("Could not create backup dir %s: %v", backupDir, err)
-	}
-	// Create maintenance directory for Caddy volume mount
-	maintDir := filepath.Join(home, "statbus-maintenance")
-	if err := os.MkdirAll(maintDir, 0755); err != nil {
-		log.Printf("Could not create maintenance dir %s: %v", maintDir, err)
-	}
+	// Directory creation is NOT this step's side effect (STATBUS-431): it lives
+	// in the Directories step, whose outcome-based check cannot be satisfied by
+	// this step's generated files.
 	return nil
 }
 
@@ -1810,6 +1806,60 @@ func applyPendingUpgradeDaemonRestart(dir string, pending map[config.RestartClas
 // blindness meant the cleanup never ran and the next migrate stalled on the held
 // lock (a bounded multi-minute recovery delay). The gate and the action now use
 // one detection, so they can never diverge again.
+// installerManagedHomeDirs are the directories the installation itself must
+// own under the install user's home: the upgrade service's maintenance flag
+// dir (bind-mounted into the proxy; Caddy's @maintenance matcher) and the
+// pre-upgrade backup root (the systemd upgrade unit expects it). Both are
+// bind-mount sources or service state that Docker would otherwise create as
+// ROOT at compose up (STATBUS-431, proven live by rc.01 smoke run
+// 36851924215: the upgrade daemon's maintenance-flag write failed with
+// permission denied on a box whose install skipped every creation site).
+var installerManagedHomeDirs = []string{"statbus-maintenance", "statbus-backups"}
+
+// checkDirectoriesDone is outcome-based on purpose (STATBUS-431): true iff
+// every managed home directory exists, is a directory, is owned by the
+// install user, and passes a real write probe. It never consults proxy
+// artifacts (.env.config/.env presence), so no other step's side effects can
+// mark this one done.
+func checkDirectoriesDone(_ string) bool {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return false
+	}
+	for _, name := range installerManagedHomeDirs {
+		dir := filepath.Join(home, name)
+		info, err := os.Stat(dir)
+		if err != nil || !info.IsDir() {
+			return false
+		}
+		if stat, ok := info.Sys().(*syscall.Stat_t); ok && stat.Uid != uint32(os.Getuid()) {
+			return false
+		}
+		if !hostrepair.Writable(dir) {
+			return false
+		}
+	}
+	return true
+}
+
+// runEnsureDirectories creates (or repairs) the managed home directories as
+// the install user. A root-owned or unwritable one is repaired through the
+// shared container mechanism (hostrepair, the STATBUS-429 pattern) without
+// sudo. Failures are fatal to the step — never log.Printf-and-continue,
+// which is how the swallowed runGenerateEnv mkdirs hid this class for a week.
+func runEnsureDirectories(dir string) error {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return fmt.Errorf("cannot determine home directory (HOME unset?): %w", err)
+	}
+	for _, name := range installerManagedHomeDirs {
+		if err := hostrepair.EnsureWritable(dir, filepath.Join(home, name)); err != nil {
+			return fmt.Errorf("directories step: %s: %w", name, err)
+		}
+	}
+	return nil
+}
+
 // checkBackupOwnershipDone returns true iff every pre-upgrade-* dir
 // in ~/statbus-backups/ is owned by the deploy user. False (need to
 // heal) iff at least one is owned by someone else — typically the

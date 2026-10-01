@@ -22,6 +22,7 @@ import (
 	"github.com/statisticsnorway/statbus/cli/internal/compose"
 	"github.com/statisticsnorway/statbus/cli/internal/dbroles"
 	"github.com/statisticsnorway/statbus/cli/internal/dotenv"
+	"github.com/statisticsnorway/statbus/cli/internal/hostrepair"
 	"github.com/statisticsnorway/statbus/cli/internal/inject"
 	"github.com/statisticsnorway/statbus/cli/internal/testguard"
 )
@@ -451,6 +452,14 @@ func maintenanceFlagContainerPath() string {
 	return maintenanceMountTarget + "/" + maintenanceFlagName
 }
 
+// ensureHostDirWritable is hostrepair.EnsureWritable, replaceable in tests.
+// The daemon uses it before writing the maintenance flag: on boxes installed
+// by v2026.09.x installers the Settings step was skipped on every fresh
+// install (STATBUS-431), so Docker created ~/statbus-maintenance as root at
+// compose up and a plain MkdirAll is a no-op against the existing root-owned
+// directory. The shared container repair fixes ownership without sudo.
+var ensureHostDirWritable = hostrepair.EnsureWritable
+
 func (d *Service) setMaintenance(active bool, content string) error {
 	// The flag file lives under $HOME/statbus-maintenance/ — the host directory
 	// bind-mounted into the proxy container at /statbus-maintenance. Caddy's
@@ -460,10 +469,11 @@ func (d *Service) setMaintenance(active bool, content string) error {
 	file := maintenanceFlagHostPath()
 
 	if active {
-		// Ensure the bind-mounted dir exists before writing the flag into it
-		// (install.go creates it; defensive for older boxes / a fresh mount).
-		if mkErr := os.MkdirAll(filepath.Dir(file), 0o755); mkErr != nil {
-			return fmt.Errorf("create maintenance directory %s: %w", filepath.Dir(file), mkErr)
+		// Ensure the bind-mounted dir exists AND is writable by this user
+		// before writing the flag into it. Exists-but-root-owned is the
+		// STATBUS-431 case and must be repaired, not probed around.
+		if mkErr := ensureHostDirWritable(d.projDir, filepath.Dir(file)); mkErr != nil {
+			return fmt.Errorf("ensure maintenance directory %s writable: %w", filepath.Dir(file), mkErr)
 		}
 		if content == "" {
 			return fmt.Errorf("maintenance content is empty")
