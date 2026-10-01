@@ -112,6 +112,35 @@ func TestActivatingUnitIsTreatedAsRunning(t *testing.T) {
 	}
 }
 
+func TestActivatingIsStartupProgressUntilReady(t *testing.T) {
+	dir := writeRepoTemplate(t, shipped)
+	body := shipped
+	withHome(t, &body)
+
+	observations := []struct {
+		output string
+		err    error
+	}{
+		{output: "activating\n", err: errors.New("systemctl exits nonzero while activating")},
+		{output: "active\n"},
+	}
+	var observed []systemdActivity
+	for _, observation := range observations {
+		activity := classifySystemdActivity(observation.output, observation.err)
+		observed = append(observed, activity)
+		report := inspectWith(dir, "statbus_demo", "linux", func(string) bool {
+			return activity != systemdInactive
+		})
+		if !report.Healthy() || report.Announce() != "" {
+			t.Fatalf("systemd activity %v produced an alarm: state=%s announcement=%q", activity, report.State, report.Announce())
+		}
+	}
+	want := []systemdActivity{systemdActivating, systemdReady}
+	if len(observed) != len(want) || observed[0] != want[0] || observed[1] != want[1] {
+		t.Fatalf("observed activity sequence = %v, want startup progress then readiness success %v", observed, want)
+	}
+}
+
 // Unit correct but not running: the page still goes stale, so this is a breach.
 func TestInactiveUnitIsDetected(t *testing.T) {
 	dir := writeRepoTemplate(t, shipped)
@@ -128,6 +157,25 @@ func TestInactiveUnitIsDetected(t *testing.T) {
 	}
 	if strings.Contains(r.Announce(), r.Instance) {
 		t.Errorf("inactive announce must not expose the internal instance %q", r.Instance)
+	}
+}
+
+func TestInactiveProducesAlarmBeforeRecoveryGuidance(t *testing.T) {
+	command := "curl -fsSL https://statbus.org/install.sh | bash -s -- --channel prerelease"
+	t.Setenv("STATBUS_INSTALL_RERUN_COMMAND", command)
+
+	msg := (Report{State: Inactive}).Announce()
+	alarm := "Automatic update checks are not running."
+	alarmIndex := strings.Index(msg, alarm)
+	commandIndex := strings.Index(msg, command)
+	if alarmIndex < 0 {
+		t.Fatalf("inactive announcement missing alarm %q:\n%s", alarm, msg)
+	}
+	if commandIndex < 0 {
+		t.Fatalf("inactive announcement missing complete recovery command %q:\n%s", command, msg)
+	}
+	if alarmIndex >= commandIndex {
+		t.Fatalf("inactive alarm must precede recovery guidance (alarm index %d, command index %d):\n%s", alarmIndex, commandIndex, msg)
 	}
 }
 

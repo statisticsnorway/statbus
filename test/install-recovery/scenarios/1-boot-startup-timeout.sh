@@ -228,6 +228,29 @@ RECOVERED_START_JOURNAL=$(mktemp)
 VM_EXEC journalctl --user -u statbus-upgrade@statbus.service --since "$RECOVERY_SINCE" --no-pager >"$RECOVERED_START_JOURNAL"
 ! grep -Fq 'THIS BOX CANNOT FOLLOW ITS UPGRADE CHANNEL' "$RECOVERED_START_JOURNAL" || { cat "$RECOVERED_START_JOURNAL" >&2; echo "active daemon printed channel-following failure box" >&2; exit 1; }
 ! grep -Fq 'The upgrade service is NOT RUNNING' "$RECOVERED_START_JOURNAL" || { cat "$RECOVERED_START_JOURNAL" >&2; echo "active daemon called itself not running" >&2; exit 1; }
+! grep -Fq 'Automatic update checks are not running.' "$RECOVERED_START_JOURNAL" || { cat "$RECOVERED_START_JOURNAL" >&2; echo "activating daemon printed the current inactive alarm" >&2; exit 1; }
+! grep -Fq 'AUTOMATIC UPDATE CHECKS NEED REPAIR' "$RECOVERED_START_JOURNAL" || { cat "$RECOVERED_START_JOURNAL" >&2; echo "activating daemon printed an automatic-update repair alarm" >&2; exit 1; }
+
+# STATBUS-405: prove the observable startup sequence, not merely the final
+# active state. systemd emits Starting while the Type=notify unit is
+# activating; the daemon prints its readiness line immediately before
+# sdNotify("READY=1"); only then may systemd emit Started. The three lines must
+# all exist in this recovery boot and appear in that order, with the alarm
+# checks above covering the full same window.
+STARTING_LINE=$(grep -nF -m1 'Starting StatBus Upgrade Service' "$RECOVERED_START_JOURNAL" | cut -d: -f1 || true)
+READY_LINE=$(grep -nF -m1 'Upgrade service started (channel=' "$RECOVERED_START_JOURNAL" | cut -d: -f1 || true)
+STARTED_LINE=$(grep -nF -m1 'Started StatBus Upgrade Service' "$RECOVERED_START_JOURNAL" | cut -d: -f1 || true)
+if [ -z "$STARTING_LINE" ] || [ -z "$READY_LINE" ] || [ -z "$STARTED_LINE" ]; then
+    cat "$RECOVERED_START_JOURNAL" >&2
+    echo "recovery journal missing activation/readiness/success evidence (Starting=$STARTING_LINE Ready=$READY_LINE Started=$STARTED_LINE)" >&2
+    exit 1
+fi
+if [ "$STARTING_LINE" -ge "$READY_LINE" ] || [ "$READY_LINE" -ge "$STARTED_LINE" ]; then
+    cat "$RECOVERED_START_JOURNAL" >&2
+    echo "recovery journal out of order: activating line $STARTING_LINE, readiness line $READY_LINE, success line $STARTED_LINE" >&2
+    exit 1
+fi
+echo "  ✓ journal order: activating ($STARTING_LINE) → readiness ($READY_LINE) → success ($STARTED_LINE), with no alarm"
 rm -f "$RECOVERED_START_JOURNAL"
 
 # ─────────────────────────────────────────────────────────────────────────
