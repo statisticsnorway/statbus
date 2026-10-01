@@ -4,7 +4,7 @@ title: Source image capture must use Docker container identity, not Compose disp
 status: In Progress
 assignee: []
 created_date: '2026-09-30 13:03'
-updated_date: '2026-09-30 14:56'
+updated_date: '2026-10-01 10:29'
 labels:
   - upgrade
   - recovery
@@ -22,6 +22,8 @@ type: bug
 ## Description
 
 <!-- SECTION:DESCRIPTION:BEGIN -->
+**Current status, 2026-10-01 10:29 UTC:** the identity/canary fix is merged as `b7890ddd4`, with the test-only follow-up merged as `6d4aef43e`. Both are ancestors of published master `4eba1149e`, the source prepared for the first candidate. Neither is in stable `v2026.09.3`. AC#4-6 remain open for the real old-daemon/official-installer guest proof, built-candidate guest proof, and supported demo repair with sustained observation. The diagnosis and initial prototype paragraphs below are dated history, not the current implementation state. Candidate CI provisions the on-demand `statbus-lxd-fleet` host itself (`ops/lxd-fleet/up.sh`, reaped after idle), so guest proof waits on candidate publication, not on a separate manual fleet-restoration approval.
+
 Demo's v2026.09.2 daemon repeatedly attempts the upgrade to stable v2026.09.3. The owner observed continual front-page/maintenance-page switching on 2026-09-30. Source inspection explains the redirect window: each claim briefly exposes an `in_progress` row with `started_at` set and no error, which the app's upgrade guard redirects to the maintenance page. This mechanism is source inference, not a captured browser trace. The refusal occurs before Caddy's maintenance flag is set, so neither that flag nor the upgrade lock file explains the redirect. Read-only server inspection confirms a false source-version mismatch: Docker Compose's display image string is an image ID, but the container's original image reference still names the correct source commit.
 
 ### Live observations, 2026-09-30 12:58-13:02 UTC
@@ -85,4 +87,5 @@ Evidence reports are being collected under `tmp/demo-upgrade-incident-20260930.m
 Review and observation receipts: `tmp/review-demo-image-identity.md`, `tmp/demo-retry-feedback-20260930.md`, `tmp/demo-upgrade-schedule-definition-20260930.sql`, `tmp/demo-acceptance-sequence-20260930.md`, and the coordinator's read-only tool transcript.
 
 2026-09-30 14:56 UTC: test-only `51a8e8281` is independently MERGE-reviewed and integrated exactly as signed `6d4aef43e`; the relevant code tree equals the reviewed ref. The new test calls the real `promoteExistingCandidate` through an explicitly synthetic wire recorder: failed/dismissed/parked return operator-required with zero schedule calls, while available schedules exactly once. The previously surviving failed-case scheduling mutation and both parked-result/scheduling mutations are now killed. The recorder does not evaluate the SQL parked predicate (the false-predicate mutation survives), and unrecognised queries are not counted, so no real database-state or scheduler-tick outcome is inferred. Independent full Go suite at frozen `51a8e8281` passes 21/21 packages; `Skipf` is changed to `Fatalf` with no skipped test. AC#4/5/6 remain open, with no release or demo change.
+2026-10-01 10:29 UTC, factual reconciliation: the code and test merges above are included in the source prepared for the first candidate. Go Test, app build & lint and Linux Harness Selftest have passed at `4eba1149e`; Images is running and the automatic Fast Tests verdict is pending before the normal RC cut. The specific missing-tag/old-daemon guest sequence is not an existing default catalogue scenario and still must be exercised explicitly after candidate publication. No guest, live demo repair or stable release outcome is claimed, and AC#4-6 stay unchecked.
 <!-- SECTION:NOTES:END -->
