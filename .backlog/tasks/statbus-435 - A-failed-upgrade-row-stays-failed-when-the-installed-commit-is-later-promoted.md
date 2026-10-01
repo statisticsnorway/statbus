@@ -44,3 +44,9 @@ This is shipped SQL semantics: forward migration only, with pg_regress covering 
 - [ ] #2 upgrade_supersede_older drops the tier term and orders purely by (version key, committed_at); forward migration only (shipped SQL); pg_regress covers installed-release-A vs newer-failed-RC-B (B survives), newer-C-scheduled supersedes failed B, and equal-version ordering
 - [ ] #3 The two arcs control or assert the discovery/enrichment outcome and give the intended verdict independently of live GitHub discovery success; record the limits of the existing Hetzner comparison evidence; assertions match the ruling (failed survives when nothing newer is scheduled)
 <!-- AC:END -->
+
+## Implementation Notes
+
+- Added forward migration `20261001163000_statbus_435_version_first_upgrade_supersession`: `upgrade_supersede_older` no longer reads or compares `release_status`. Parseable versions compare by `(upgrade_version_key(commit_version), committed_at)` across all statuses; if either side is unversioned, the comparison falls back to `committed_at`.
+- Added focused pg_regress coverage for the observed older installed A/newer failed B shape, newer scheduled C superseding B, equal-version tie-breaking, and both mixed-version-key fallback directions. Updated the existing procedure regression to assert version-first behavior across statuses.
+- Verified `rollback-pair-terminal-arc.sh` and `restore-broke-reattempt-arc.sh` already assert `failed` after sequences where no newer candidate is scheduled. No arc changes were needed.

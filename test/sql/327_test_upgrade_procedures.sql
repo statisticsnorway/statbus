@@ -15,8 +15,8 @@
 --  10. Does NOT supersede newer rows
 --  11. Returns correct count via INOUT p_superseded
 --  12. Idempotent: second call returns 0
---  13. Hierarchy: commit does NOT supersede prerelease or release
---  14. Hierarchy: prerelease supersedes commits but NOT releases
+--  13. Mixed version keys fall back to committed_at across release statuses
+--  14. Parseable version keys order candidates across release statuses
 --
 -- The BEFORE-INSERT trigger upgrade_block_obsolete_pending_trigger is
 -- disabled inside this test's transaction so fixture inserts don't
@@ -148,10 +148,10 @@ CALL public.upgrade_supersede_older('0000000000000000000000000000000000000000', 
 
 CALL public.upgrade_supersede_older(lpad(to_hex(100), 40, '0'), 0);
 
-\echo '=== supersede: hierarchy — commit cannot supersede prerelease or release ==='
+\echo '=== supersede: mixed keys use committed_at across release statuses ==='
 
--- Fresh fixture for hierarchy check. Triggering row is a plain commit; older
--- prerelease and release rows must remain available (commit < prerelease < release).
+-- The triggering plain commit has no version key, so every comparison falls
+-- back to committed_at regardless of release_status.
 TRUNCATE public.upgrade RESTART IDENTITY;
 
 -- Row 1: a newer COMMIT (the triggering row)
@@ -159,31 +159,31 @@ INSERT INTO public.upgrade (commit_sha, committed_at, release_status, state, sum
 VALUES (lpad(to_hex(110), 40, '0'), now(), 'commit', 'completed',
         'newer plain commit (dev.sh fix)', now(), 'test-fixture-log.txt');
 
--- Row 2: older available PRERELEASE (should NOT be superseded by a commit)
+-- Row 2: older available PRERELEASE (superseded by committed_at fallback)
 INSERT INTO public.upgrade (commit_sha, committed_at, release_status, state, summary, commit_tags)
 VALUES (lpad(to_hex(90), 40, '0'), now() - '2 days'::interval, 'prerelease', 'available',
         'rc.30 prerelease', ARRAY['v2026.04.0-rc.30']);
 
--- Row 3: older available RELEASE (should NOT be superseded by a commit)
+-- Row 3: older available RELEASE (superseded by committed_at fallback)
 INSERT INTO public.upgrade (commit_sha, committed_at, release_status, state, summary, commit_tags)
 VALUES (lpad(to_hex(80), 40, '0'), now() - '5 days'::interval, 'release', 'available',
         'release v2026.03.0', ARRAY['v2026.03.0']);
 
--- Row 4: older available COMMIT (should be superseded — same status)
+-- Row 4: older available COMMIT (superseded by committed_at fallback)
 INSERT INTO public.upgrade (commit_sha, committed_at, release_status, state, summary)
 VALUES (lpad(to_hex(70), 40, '0'), now() - '7 days'::interval, 'commit', 'available',
         'older commit');
 
 CALL public.upgrade_supersede_older(lpad(to_hex(110), 40, '0'), 0);
 
--- Only the older commit (id=4) should be superseded; prerelease and release are untouched
+-- All three older rows are superseded; release_status does not rank them.
 SELECT id, state, release_status, superseded_at IS NOT NULL AS has_superseded_at
   FROM public.upgrade ORDER BY id;
 
-\echo '=== supersede: hierarchy — prerelease supersedes commits but not releases ==='
+\echo '=== supersede: version keys order across release statuses ==='
 
--- Fresh fixture. Triggering row is a prerelease; it must supersede older commits
--- and same-channel prereleases, but NOT an older release.
+-- The triggering prerelease has a newer calendar version than the tagged rows.
+-- The unversioned commit falls back to committed_at. All are older.
 TRUNCATE public.upgrade RESTART IDENTITY;
 
 -- Row 1: a newer PRERELEASE (the triggering row)
@@ -201,14 +201,14 @@ INSERT INTO public.upgrade (commit_sha, committed_at, release_status, state, sum
 VALUES (lpad(to_hex(90), 40, '0'), now() - '5 days'::interval, 'prerelease', 'available',
         'rc.29 older prerelease', ARRAY['v2026.04.0-rc.29']);
 
--- Row 4: older available RELEASE (should NOT be superseded — release > prerelease)
+-- Row 4: older available RELEASE (superseded by its older version key)
 INSERT INTO public.upgrade (commit_sha, committed_at, release_status, state, summary, commit_tags)
 VALUES (lpad(to_hex(80), 40, '0'), now() - '10 days'::interval, 'release', 'available',
         'release v2026.03.0', ARRAY['v2026.03.0']);
 
 CALL public.upgrade_supersede_older(lpad(to_hex(120), 40, '0'), 0);
 
--- Commit (id=2) and prerelease (id=3) superseded; release (id=4) untouched
+-- All three older rows are superseded across release statuses.
 SELECT id, state, release_status, superseded_at IS NOT NULL AS has_superseded_at
   FROM public.upgrade ORDER BY id;
 
