@@ -31,7 +31,7 @@ VM_EXEC() {{ echo 'live-upgrade'; }}
 a = s.index('if ! MIGRATE_PID=')
 b = s.index('# The PID is diagnostic', a)
 guard = s[s.index('assert_migration_delta() {'):a]
-for line, success in [('[13/17] Migrations  RUNNING', True), ('[13/17] Migrations  OK', False), ('[13/17] Seed  OK', False)]:
+for line, success in [('[14/18] Migrations  RUNNING', True), ('[13/17] Migrations  RUNNING', True), ('[14/18] Migrations  OK', False), ('[13/17] Seed  OK', False)]:
     check(f'migration fixture guard {line}', f'''ip=unused
 SSH_OPTS=(dummy)
 ssh() {{ printf '%s\\n' '{line}'; }}

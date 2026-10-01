@@ -154,10 +154,16 @@ if [ "$FINGERPRINT_BEFORE" = "$FINGERPRINT_AFTER" ]; then
 fi
 echo "  ✓ phase c precondition: .env.credentials regenerated over the surviving volume"
 
-grep -F 'The database held older passwords for' <<<"$DETAIL_LOG" >/dev/null || {
+# STATBUS-426 split the reconciliation report by cause: a COMPLETE-but-stale
+# .env.credentials prints the drift line, a regenerated-from-absent one (this
+# phase: the harness plants a GITHUB_TOKEN-only file, so every identity key is
+# missing before install) prints the adoption line. Both report the re-applied
+# passwords in plain language; either satisfies the contract.
+if ! grep -qF 'The database held older passwords for' <<<"$DETAIL_LOG" &&
+   ! grep -qF 'Rotated database passwords for' <<<"$DETAIL_LOG"; then
     echo "✗ phase c: the install did not report re-applying the database passwords" >&2
     exit 1
-}
+fi
 grep -F 'All services are running and the API is ready.' <<<"$DETAIL_LOG" >/dev/null || {
     echo "✗ phase c: the install did not confirm the API is ready" >&2
     exit 1

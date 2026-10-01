@@ -165,11 +165,14 @@ echo "  stall watch starts with first install (${STALL_MAX_WAIT_S}s including im
 assert_migration_delta() {
     local log
     log=$(ssh "${SSH_OPTS[@]}" root@"$ip" 'cat /tmp/install-c10-first.log 2>/dev/null') || return 1
-    if printf '%s\n' "$log" | grep -Eq '^\[13/17\] Migrations +OK'; then
+    # Step indices are NOT pinned (STATBUS-431 inserted a step and renumbered
+    # the table 17→18; a pinned [13/17] went stale exactly like the rc.05
+    # smoke pin). The contract is the step NAME and state, not its position.
+    if printf '%s\n' "$log" | grep -Eq '^\[[0-9]+/[0-9]+\] Migrations +OK'; then
         echo '✗ seed obviated the migration delta: Migrations was skipped' >&2
         return 1
     fi
-    if ! printf '%s\n' "$log" | grep -Eq '^\[13/17\] Migrations +RUNNING'; then
+    if ! printf '%s\n' "$log" | grep -Eq '^\[[0-9]+/[0-9]+\] Migrations +RUNNING'; then
         echo '✗ seed obviated the migration delta: Migrations RUNNING line absent' >&2
         return 1
     fi

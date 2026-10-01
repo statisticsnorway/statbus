@@ -237,9 +237,13 @@ VM_EXEC journalctl --user -u statbus-upgrade@statbus.service --since "$RECOVERY_
 # sdNotify("READY=1"); only then may systemd emit Started. The three lines must
 # all exist in this recovery boot and appear in that order, with the alarm
 # checks above covering the full same window.
-STARTING_LINE=$(grep -nF -m1 'Starting StatBus Upgrade Service' "$RECOVERED_START_JOURNAL" | cut -d: -f1 || true)
+# systemd's activation lines carry the UNIT name first, then the description
+# ("Starting statbus-upgrade@statbus.service - StatBus Upgrade Service..."),
+# never "Starting <Description>" — the rc.07 fleet proved the description-first
+# form matches nothing in a real guest journal.
+STARTING_LINE=$(grep -nF -m1 'Starting statbus-upgrade@statbus.service' "$RECOVERED_START_JOURNAL" | cut -d: -f1 || true)
 READY_LINE=$(grep -nF -m1 'Upgrade service started (channel=' "$RECOVERED_START_JOURNAL" | cut -d: -f1 || true)
-STARTED_LINE=$(grep -nF -m1 'Started StatBus Upgrade Service' "$RECOVERED_START_JOURNAL" | cut -d: -f1 || true)
+STARTED_LINE=$(grep -nF -m1 'Started statbus-upgrade@statbus.service' "$RECOVERED_START_JOURNAL" | cut -d: -f1 || true)
 if [ -z "$STARTING_LINE" ] || [ -z "$READY_LINE" ] || [ -z "$STARTED_LINE" ]; then
     cat "$RECOVERED_START_JOURNAL" >&2
     echo "recovery journal missing activation/readiness/success evidence (Starting=$STARTING_LINE Ready=$READY_LINE Started=$STARTED_LINE)" >&2
