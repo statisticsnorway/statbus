@@ -34,13 +34,15 @@ Baseline: `origin/master` at `373d15fc3`. Criterion disposition and remaining po
 
 ## Acceptance Criteria
 
-- [ ] #1 `new: cli/internal/gitexec/errors_test.go::TestAuthenticationFailurePreservesMessageAndRedactsSecret` sends a credential-bearing URL and observes `fatal: Authentication failed` plus `[REDACTED]` in terminal and log output, with no fixture-secret substring surviving.
-- [ ] #2 `new: cli/internal/gitexec/errors_test.go::TestMissingRefPreservesMessage` observes `fatal: couldn't find remote ref <ref>` in terminal and log output.
-- [ ] #3 `new: cli/internal/gitexec/errors_test.go::TestNetworkFailurePreservesMessageAndRedactsURLCredentials` observes `Could not resolve host` and `[REDACTED]` in both outputs with no fixture-secret substring surviving.
-- [ ] #4 `new: test/install/install-git-errors-test.sh` exercises the three named Git failures through the installer and verifies the same terminal and install-log assertions.
+- [x] #1 `new: cli/internal/gitexec/errors_test.go::TestAuthenticationFailurePreservesMessageAndRedactsSecret` sends a credential-bearing URL and observes `fatal: Authentication failed` plus `[REDACTED]` in terminal and log output, with no fixture-secret substring surviving.
+- [x] #2 `new: cli/internal/gitexec/errors_test.go::TestMissingRefPreservesMessage` observes `fatal: couldn't find remote ref <ref>` in terminal and log output.
+- [x] #3 `new: cli/internal/gitexec/errors_test.go::TestNetworkFailurePreservesMessageAndRedactsURLCredentials` observes `Could not resolve host` and `[REDACTED]` in both outputs with no fixture-secret substring surviving.
+- [x] #4 `new: test/install/install-git-errors-test.sh` exercises the three named Git failures through the installer and verifies the same terminal and install-log assertions.
 
 ## Implementation Notes
 
 <!-- SECTION:NOTES:BEGIN -->
 Audit after v2026.09.3 (2026-09-29): v2026.09.3: release-package Git errors carry Git's text with secrets redacted (9fcbe2ae6, 6442f2b8a). The installer path is untouched: cli/internal/gitexec and the AC1-4 tests do not exist.
+
+2026-10-01: Added `cli/internal/gitexec` as the installer Git execution adapter. It captures Git stdout/stderr, passes both through the existing `release.RedactGitHubCredentials` implementation, and only then writes terminal/log output or wraps the command error. The shared release redactor now also removes credential-bearing URL userinfo. Installer Git commands use the adapter, the three named unit tests cover authentication/missing-ref/DNS diagnostics, and `test/install/install-git-errors-test.sh` proves the same text and redaction through `sb install`. `go build`, `go vet`, and `go test ./cmd/ ./internal/...` all pass.
 <!-- SECTION:NOTES:END -->

@@ -5,9 +5,12 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"regexp"
 	"strings"
 	"sync"
+
+	"github.com/statisticsnorway/statbus/cli/internal/gitexec"
 )
 
 // Tee command output to the diagnostic log and retain a bounded copy for
@@ -34,8 +37,13 @@ func (c *installDiagnosticCapture) Write(p []byte) (int, error) {
 
 func runInstallCommandWithDiagnostic(cmd *exec.Cmd) error {
 	capture := &installDiagnosticCapture{}
-	cmd.Stdout = io.MultiWriter(os.Stdout, capture)
-	cmd.Stderr = io.MultiWriter(os.Stderr, capture)
+	stdout := io.MultiWriter(os.Stdout, capture)
+	stderr := io.MultiWriter(os.Stderr, capture)
+	if filepath.Base(cmd.Path) == "git" {
+		return gitexec.Run(cmd, stdout, stderr)
+	}
+	cmd.Stdout = stdout
+	cmd.Stderr = stderr
 	if err := cmd.Run(); err != nil {
 		return fmt.Errorf("%w: %s", err, capture.text)
 	}

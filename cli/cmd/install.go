@@ -408,6 +408,11 @@ func signerPreflightRequired(dir string, state install.State) bool {
 // to signal "I am the upgrade service's own post-completion fixup, not a
 // conflicting actor."
 func runInstall() (installErr error) {
+	// Pure/local regression seam for installer Git diagnostics. Production
+	// invocations never set this variable.
+	if mode := os.Getenv("STATBUS_INSTALL_TEST_GIT_ERROR"); mode != "" {
+		return runCmd("git", "statbus-install-test-git-error", mode)
+	}
 	settingsRestoredBeforeDetect = false
 	freshDatabaseBeforeInstall = false
 	previousAnswered, previousAccepted := signerPromptAnswered, signerPromptAccepted
@@ -3824,9 +3829,14 @@ func runCmdDirTimeout(dir string, timeout time.Duration, name string, args ...st
 	if buildErr != nil {
 		return buildErr
 	}
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	err := cmd.Run()
+	var err error
+	if name == "git" {
+		err = runInstallCommandWithDiagnostic(cmd)
+	} else {
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
+		err = cmd.Run()
+	}
 	if ctx.Err() == context.DeadlineExceeded {
 		return fmt.Errorf("%s %s timed out after %s", name, strings.Join(args, " "), timeout)
 	}

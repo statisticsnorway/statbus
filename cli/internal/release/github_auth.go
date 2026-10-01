@@ -25,6 +25,7 @@ type GitHubAuthentication struct {
 
 func redactCommandStderr(text string) string {
 	redacted := authorizationHeaderPattern.ReplaceAllString(text, "${1}[REDACTED]")
+	redacted = credentialURLPattern.ReplaceAllString(redacted, "${1}[REDACTED]@")
 	if token := strings.TrimSpace(os.Getenv("GITHUB_TOKEN")); token != "" {
 		for _, secret := range []string{token, base64.StdEncoding.EncodeToString([]byte(token)), base64.StdEncoding.EncodeToString([]byte("x-access-token:" + token))} {
 			redacted = strings.ReplaceAll(redacted, secret, "[REDACTED]")
@@ -47,6 +48,7 @@ func commandOutput(cmd *exec.Cmd) ([]byte, error) {
 }
 
 var authorizationHeaderPattern = regexp.MustCompile(`(?i)(authorization\s*[:=]\s*)[^\r\n]+`)
+var credentialURLPattern = regexp.MustCompile(`(?i)([a-z][a-z0-9+.-]*://)[^/@\s]+@`)
 
 // GitHubAuth is the single resolver for release-time GitHub reads.
 func GitHubAuth() GitHubAuthentication {
