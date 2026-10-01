@@ -16,7 +16,16 @@ ordinal: 385200
 ## Description
 
 <!-- SECTION:DESCRIPTION:BEGIN -->
-Owner question 2026-10-01, during the STATBUS-431 strategy discussion. Direction DECIDED by the owner 2026-10-01 12:04 UTC: **A-directory — `~/.statbus/`, same name everywhere, user-managed directory, no conflicts.**
+Owner question 2026-10-01, during the STATBUS-431 strategy discussion. Direction DECIDED by the owner across 12:04-12:27 UTC (the 12:04 `~/.statbus/` directory form and the 12:24 "single live authority in ~" sketch are superseded by the 12:27 ruling below).
+
+### The decision (2026-10-01 12:27 UTC)
+
+Two locations, two roles, never mixed:
+
+1. **Input convention — flat visible files in the install user's home:** `~/statbus.env.config`, `~/statbus.env.credentials`, `~/statbus.users.yml`. The operator (or provisioning, or tests by the same convention) places them in `~` BEFORE install. They survive wholesale checkout deletion, so a reinstall re-imports identity and settings from them (STATBUS-426's adopt scenario keeps its inputs).
+2. **Live authority — inside the installation:** during install the information is copied INTO the installation, and thereafter the authority is `~/statbus/.env.config` (regular deployments) or the working checkout (local development). After install the product reads and writes the in-checkout files (cert install edits, config generate reads), exactly as today. The checkout stays the managed home of settings on a live box; the `~` files are the operator-facing input and recovery record.
+
+Consequences: no operator file is hidden; no new directory; dev and custom-directory flows are unchanged; server installs gain a wipe-surviving input source. Open implementation detail to settle in this ticket: whether `cert install` and other post-install writers also refresh the `~` input copies so they do not silently go stale (lean yes — the ~ copy is the operator's recovery record and must reflect reality).
 
 ### The framing (owner, 2026-10-01 12:23 UTC)
 
