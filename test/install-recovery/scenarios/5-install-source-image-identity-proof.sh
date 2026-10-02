@@ -199,7 +199,17 @@ while true; do
     sleep 10
 done
 printf '%s\n' "$LOG" | grep -F 'source serving era cannot be established: pre-upgrade source containers have mixed tags:' >/dev/null
-printf '%s\n' "$LOG" | grep -F "want common source tag \"$OLD_SHORT\"" >/dev/null
+# The "want common source tag" value is NOT the source commit tag: the old
+# daemon compares Compose DISPLAY strings, so each sha256 display fallback
+# extracts as a distinct hex "tag" (extractImageTag takes everything after
+# the last colon — the bare digest, no sha256: prefix). The wanted "common
+# tag" is therefore the FIRST service's own display digest, and demanding a
+# digest as the common tag IS the false refusal: .Config.Image held one
+# coherent source the whole time (this proof already asserted
+# IDENTITIES_MISSING_TAG == IDENTITIES_BEFORE). The second live run died
+# here on the guessed '"$OLD_SHORT"' shape; the real message shape is
+# '<svc> uses "<hex>", want common source tag "<hex>"'.
+printf '%s\n' "$LOG" | grep -E 'uses "[0-9a-f]{12,64}", want common source tag "[0-9a-f]{12,64}"' >/dev/null
 RESTARTS_DURING_LOOP=$(unit_restarts)
 [ "$RESTARTS_DURING_LOOP" = "$RESTARTS_BEFORE" ] || {
     echo "old loop restarted the systemd unit: before=$RESTARTS_BEFORE during=$RESTARTS_DURING_LOOP" >&2
