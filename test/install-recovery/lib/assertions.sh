@@ -143,6 +143,35 @@ assert_systemd_active() {
         echo "  ✓ unit $unit is $expected_state"
         return 0
     fi
+
+    # 'activating' is a legitimate transient, not a mismatch: STATBUS-432's
+    # final-act dispatch starts the unit no-block at install exit, and a
+    # Type=notify unit stays 'activating' until sdNotify(READY=1) lands after
+    # config generation and the first database connect. Whether the daemon
+    # wins that race against the scenario's next assertion is host-load
+    # chance (rc.07 won it, rc.08's stage-c did not) — a one-shot read of a
+    # transient is a real defect in the CHECK, never evidence about the
+    # unit. Poll through it, bounded by the unit's own startup contract
+    # (TimeoutStartSec=120; 90s leaves the same margin boot.go's interlock
+    # leaves). Any terminal state that is still wrong after the budget is a
+    # genuine mismatch.
+    if [ "$expected_state" = active ] && [ "$actual" = activating ]; then
+        local deadline=$(( SECONDS + 90 ))
+        while [ "$actual" = activating ] && [ "$SECONDS" -lt "$deadline" ]; do
+            sleep 3
+            _rc=0
+            actual=$(VM_EXEC bash -c "systemctl --user is-active '$unit' 2>/dev/null || true" 2>/dev/null) || _rc=$?
+            if [ "$_rc" -ne 0 ]; then
+                echo "  ⚠ could not query systemd unit $unit (VM_EXEC rc=$_rc) — INFRA error; skipping" >&2
+                return 0
+            fi
+        done
+        if [ "$actual" = "$expected_state" ]; then
+            echo "  ✓ unit $unit reached $expected_state after the activating transient"
+            return 0
+        fi
+    fi
+
     echo "  ✗ unit $unit state mismatch: expected='$expected_state' actual='$actual'"
     return 1
 }

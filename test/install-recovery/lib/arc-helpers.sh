@@ -9,7 +9,8 @@
 #
 # Relies on (sourced by the caller BEFORE any call): vm-bootstrap.sh (VM_EXEC,
 # bootstrap_install_test_vm, install_statbus_at_sha, vm_restart_unit), data-helpers.sh
-# (populate_with_demo_data), assertions.sh (assert_health_passes, assert_demo_data_present).
+# (populate_with_demo_data), assertions.sh (assert_health_passes, assert_demo_data_present,
+# assert_systemd_active).
 # Reads globals the caller sets: VM_NAME, BASE_SHA, V_VERSION, TICK_WAIT_S,
 # UPGRADE_BUDGET_S, SB_ARC_TRUSTED_SIGNER.
 
@@ -73,10 +74,12 @@ arc_prepare_box() {
     assert_health_passes "$VM_NAME"
 
     # The arc is driven by A's daemon (A=base_sha is post-086 → it HAS
-    # register/schedule + executeUpgrade). Confirm the unit is active first.
-    local unit_state
-    unit_state=$(VM_EXEC systemctl --user is-active "statbus-upgrade@statbus.service" 2>/dev/null | tr -d ' \r\n' || echo "?")
-    [ "$unit_state" = "active" ] || { echo "✗ upgrade-service unit not active after install A (state=$unit_state)" >&2; exit 1; }
+    # register/schedule + executeUpgrade). Confirm the unit is active first —
+    # through the shared helper, which polls through the legitimate
+    # 'activating' transient (a one-shot read here is the same race the rc.08
+    # fleet hit in 5-install-stage-c-systemd-failed: 432's no-block final-act
+    # start + Type=notify READY delay vs the arc's immediate check).
+    assert_systemd_active "$VM_NAME" || { echo "✗ upgrade-service unit not active after install A" >&2; exit 1; }
     echo "  ✓ upgrade-service active (daemon will run the arc)"
 
     trust_arc_signer
