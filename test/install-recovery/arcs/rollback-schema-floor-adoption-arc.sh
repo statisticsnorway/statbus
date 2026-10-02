@@ -91,5 +91,5 @@ mkdir -p tmp
 VM_EXEC cat -- "$REMOTE_LOG" > "$LOCAL_LOG"
 LOG=$(cat "$LOCAL_LOG")
 assert_schema_floor_adoption_progress "$LOG" "$ROLLBACK_DAEMON_FLOOR"
-NR0=$(arc_nrestarts); sleep 5; NR1=$(arc_nrestarts); [ "$NR0" = "$NR1" ] || { echo '✗ automatic restart loop after rollback' >&2; exit 1; }
+arc_wait_daemon_steady || { echo '✗ automatic restart loop after rollback' >&2; exit 1; }
 echo 'PASS: rollback schema floor adoption replayed and returned byte-identically to A'

@@ -514,6 +514,48 @@ arc_nrestarts() {
     VM_EXEC systemctl --user show "$ARC_UPGRADE_UNIT" --property=NRestarts --value 2>/dev/null | tr -d ' \r\n' || echo "?"
 }
 
+# arc_wait_daemon_steady [budget_s] — the daemon is steady: at most ONE
+# NRestarts increment over the whole observation window. Exactly one increment
+# is legitimate: the rollback-complete path deliberately exits 75 once and
+# systemd's Restart=always + RestartSec=30 lands that ONE designed restart
+# whenever the arc happens to be looking (rc.10's adoption arc caught it inside
+# a one-shot 5s pair at 04:34:01 — exactly 30s after 'Rollback to the previous
+# version complete' at 04:33:31 — and misread the designed restart as a crash
+# loop). A genuine crash loop has period RestartSec + failed-process runtime
+# (~30-60s) and therefore increments at least twice within any 150s window —
+# a stability-streak formulation can miss that cadence entirely (review
+# finding: three unchanged 10s samples fit inside one loop period), so the
+# discriminator is the increment COUNT, never consecutive-stable-samples.
+# '?' transport reads are skipped, and a counter reset (unit re-creation)
+# re-baselines without counting. An observation window with too few valid
+# reads to judge (persistent SSH/systemctl failure) is an INFRA failure,
+# never a pass: blind acceptance would certify stability nobody observed.
+arc_wait_daemon_steady() {
+    local budget="${1:-150}" first current increments=0 valid=0 deadline
+    first=$(arc_nrestarts)
+    [ "$first" != "?" ] && valid=$((valid + 1))
+    deadline=$((SECONDS + budget))
+    while [ "$SECONDS" -lt "$deadline" ]; do
+        sleep 10
+        current=$(arc_nrestarts)
+        [ "$current" = "?" ] && continue
+        valid=$((valid + 1))
+        if [ "$first" = "?" ] || [ "$current" -lt "$first" ] 2>/dev/null; then
+            first="$current"
+            continue
+        fi
+        if [ "$current" -gt "$first" ] 2>/dev/null; then
+            increments=$((increments + current - first))
+            first="$current"
+        fi
+    done
+    if [ "$valid" -lt 2 ]; then
+        echo "  ⚠ arc_wait_daemon_steady: only $valid valid NRestarts read(s) in ${budget}s — INFRA error, no verdict possible" >&2
+        return 1
+    fi
+    [ "$increments" -le 1 ]
+}
+
 arc_dump_ledger() {
     # Observation only (no assertion): every public.upgrade row's identity and
     # supersede fields plus the checkout's HEAD and tags, so a terminal-state
