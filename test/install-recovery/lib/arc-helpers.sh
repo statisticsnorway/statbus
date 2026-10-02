@@ -145,7 +145,7 @@ arc_to() {
     echo "  schedule ${label} (DB trigger → daemon claims + runs executeUpgrade)"
     VM_EXEC bash -c "cd ~/statbus && ./sb upgrade schedule $sha 2>&1 | tail -20"
 
-    local start_ts elapsed state final=""
+    local start_ts elapsed state_line state pending final=""
     start_ts=$(date +%s)
     while true; do
         elapsed=$(( $(date +%s) - start_ts ))
@@ -154,9 +154,27 @@ arc_to() {
             VM_EXEC bash -c "cd ~/statbus && echo 'SELECT id, state, commit_sha, error FROM public.upgrade ORDER BY id DESC LIMIT 5;' | ./sb psql" >&2 || true
             exit 1
         fi
-        state=$(VM_EXEC bash -c "cd ~/statbus && echo \"SELECT state FROM public.upgrade WHERE commit_sha = '$sha' ORDER BY id DESC LIMIT 1;\" | ./sb psql -t -A" 2>/dev/null | tr -d ' \r\n' || echo "?")
+        # 'failed' is NOT always terminal: the rollback flow deliberately writes
+        # state='failed' WITH rollback_finish_pending_at set as the cleanup-only
+        # intermediate (cli/internal/upgrade/service.go's
+        # LabelFailedRollbackPendingFinish — "the lock and final rolled_back
+        # transition are still pending"), then completes failed → rolled_back
+        # (or a crash-window heartbeat completes it later,
+        # LabelRolledBackFinishRecovery). Breaking on the intermediate misreads
+        # designed state as a terminal failure — the rc.09 'failing' arc caught
+        # exactly that at t+114s while the row reached rolled_back seconds later.
+        # Terminal 'failed' carries rollback_finish_pending_at NULL.
+        state_line=$(VM_EXEC bash -c "cd ~/statbus && echo \"SELECT state || '|' || (rollback_finish_pending_at IS NOT NULL)::text FROM public.upgrade WHERE commit_sha = '$sha' ORDER BY id DESC LIMIT 1;\" | ./sb psql -t -A" 2>/dev/null | tr -d ' \r\n' || echo "?")
+        state=${state_line%%|*}
+        pending=${state_line##*|}
         case "$state" in
-            completed|failed|rolled_back) final="$state"; echo "  ${label}: state='$state' (t+${elapsed}s)"; break ;;
+            completed|rolled_back) final="$state"; echo "  ${label}: state='$state' (t+${elapsed}s)"; break ;;
+            failed)
+                if [ "$pending" = t ]; then
+                    : # rollback finish pending — designed intermediate, keep polling
+                else
+                    final="$state"; echo "  ${label}: state='$state' (t+${elapsed}s)"; break
+                fi ;;
         esac
         sleep 5
     done
