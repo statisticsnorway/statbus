@@ -1,7 +1,14 @@
 ---
 id: STATBUS-441
-title: Inline scheduled-upgrade dispatch claims with post-382 SQL against a pre-382 schema and stops at 42703
-status: To Do
+title: >-
+  Inline scheduled-upgrade dispatch claims with post-382 SQL against a pre-382
+  schema and stops at 42703
+status: In Progress
+assignee: []
+created_date: '2026-10-02 12:10'
+updated_date: '2026-10-02 16:16'
+labels: []
+dependencies: []
 priority: high
 ---
 
@@ -50,12 +57,21 @@ column is nullable, and the old binary tolerates it. A migrate-first failure
 leaves the upgrade unclaimed — forward-only migration semantics, same as the
 step table's own failure mode.
 
-## Acceptance criteria
-
-- [ ] #1 An inline scheduled-upgrade dispatch from a box whose schema predates migration 20260923202403 claims and completes the upgrade (the 42703 class is gone), exercised by a logical/livedb test with a pre-382 schema fixture — not a full guest install.
+## Acceptance Criteria
+<!-- AC:BEGIN -->
+- [x] #1 An inline scheduled-upgrade dispatch from a box whose schema predates migration 20260923202403 claims and completes the upgrade (the 42703 class is gone), exercised by a logical/livedb test with a pre-382 schema fixture — not a full guest install.
 - [ ] #2 The migration output appears in the dispatch's operator transcript before the claim line.
-- [ ] #3 The daemon-driven path and the 09.3→candidate inline path keep their current behavior (no double-migration harm; migrate up no-ops when current).
+- [x] #3 The daemon-driven path and the 09.3→candidate inline path keep their current behavior (no double-migration harm; migrate up no-ops when current).
+<!-- AC:END -->
+
+## Implementation Notes
 
 2026-10-02 rework after independent-review BLOCK (fix/441-floor-claim): the first implementation incorrectly ran the entire target migration set before ExecuteUpgradeInline acquired the upgrade serialization flag and before the pipeline snapshot. That widened rollback and old-serving-binary compatibility beyond what the fix needed. runInlineUpgradeScheduled now uses the codebase's existing bounded compatibility mechanism, `migrate up --to migrate.DaemonSchemaFloor --verbose`, with the operator-visible line `Bringing the database schema up to the daemon floor before the upgrade claim ...` ahead of the claim (AC#2). The daemon floor is the declared schema on which this binary's upgrade SQL may operate; its current value 20261001163000 includes migration 20260923202403, so claim_token exists for the claim while every migration above the floor remains inside executeUpgrade's serialized, snapshotted Migrations step (AC#3). The seams were renamed to reflect the floor scope and still pin load → floor bump → execute, abort-before-claim, and scheduled-row identity forwarding.
 
 AC#1 is no longer claimed from seam tests. `TestInlineScheduledClaimPre382UndefinedColumnClosedByDaemonFloor` is a `//go:build livedb` fixture in cli/internal/upgrade. It creates and robustly drops a throwaway database on the local dev cluster, full-replays migrations only through the largest version below 20260923202403, inserts a scheduled public.upgrade row, proves the exact predecessor-schema production claim statement from service.go fails with SQLSTATE 42703, raises that same database only to DaemonSchemaFloor, then proves the identical claim succeeds and leaves the row in_progress with the expected claim_token. The shared development database's schema is never changed.
+
+2026-10-02 16:15 UTC, second review round and merge. The 6862e26d7 fixture was BLOCKed again (tmp/441-floor-review.md): it ran a copied legacy claim statement, while production selects the tree-convergence branch on this schema, and it stopped at the claim instead of completing. Rework bd266b10b: the fixture now calls the real `(*Service).claimScheduledUpgrade` before the floor bump (SQLSTATE 42703 from the production branch) and after it (claim succeeds, stored token equals the claim snapshot). It then runs the real full-delta entry point `runMigrateUpToLog(... "migrate", "up")` and completes through the real `terminalUpdate` with `completedUpgradeSQL`, a byte-identical hoist of the two former inline completion strings (behavior-preserving; rewind-audit count 3→2 re-describes the same sites). Docker/git/health steps of executeUpgrade are not faked and not run. Mutation: dropping the floor bump makes the post-floor claim fail 42703. Independent re-review: MERGE (tmp/441-floor-rereview.md, reviewer reran the livedb test). Merged to master as 4a4590d12 + fd97ebf8f (patch-ids equal the reviewed commits), pushed in 7ec86ac2b; merged-tree `go test ./cmd ./internal/upgrade ./internal/install` passed.
+
+AC#1 met by the livedb fixture. AC#3 met by the seam tests (load → floor migrate → execute; abort before claim on floor failure) plus the floor contract (above-floor migrations stay inside executeUpgrade). AC#2 is only pinned by call order, not by a captured operator transcript; it stays unchecked until the rc.12 guest proof (436 scheduled path, which drives exactly this dispatch on a v2026.09.2 schema) shows the floor line before the claim.
+
+Known tooling gap found here: `./dev.sh test-livedb` refuses in a fresh worktree whose `.env.config` still carries SLACK_TOKEN (config validation wants it in `.env.credentials`); the targeted run used the direct livedb tier instead.
