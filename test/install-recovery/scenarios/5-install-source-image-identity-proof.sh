@@ -68,8 +68,20 @@ unit_restarts() {
     VM_EXEC systemctl --user show statbus-upgrade@statbus.service --property=NRestarts --value 2>/dev/null | tr -d ' \r\n'
 }
 
+# Literal-$ bodies MUST NOT go through VM_EXEC bash -c: vm-bootstrap.sh's own
+# header documents the sudo -i re-quoting trap that silently expands a bare
+# `$` to empty (the first run of this proof died exactly there — 'no such
+# service: ' from an emptied $service). VM_SCRIPT_INLINE is the sanctioned
+# carrier for such bodies.
 capture_identity_table() {
-    VM_EXEC bash -c 'cd ~/statbus && for service in db app worker rest proxy; do container=$(docker compose ps -q "$service"); [ -n "$container" ] || { echo "missing|$service"; exit 1; }; docker inspect --format "$service|{{.Id}}|{{.Config.Image}}|{{.Image}}|{{.State.Status}}" "$container"; done'
+    VM_SCRIPT_INLINE capture-identity-table <<'REMOTE'
+cd ~/statbus || exit 1
+for service in db app worker rest proxy; do
+    container=$(docker compose ps -q "$service")
+    [ -n "$container" ] || { echo "missing|$service"; exit 1; }
+    docker inspect --format "$service|{{.Id}}|{{.Config.Image}}|{{.Image}}|{{.State.Status}}" "$container"
+done
+REMOTE
 }
 
 echo "════════════════════════════════════════════════════════════════"
@@ -109,14 +121,16 @@ for service in app worker proxy; do
 done
 
 echo "── removing source tags while preserving image content under neutral aliases ──"
-VM_EXEC bash -c 'cd ~/statbus
+VM_SCRIPT_INLINE remove-source-tags <<'REMOTE'
+cd ~/statbus || exit 1
 for service in app worker proxy; do
     container=$(docker compose ps -q "$service")
     config_image=$(docker inspect --format "{{.Config.Image}}" "$container")
     image_id=$(docker inspect --format "{{.Image}}" "$container")
     docker tag "$image_id" "statbus-proof-preserve/$service:source"
     docker image rm "$config_image"
-done'
+done
+REMOTE
 
 IDENTITIES_MISSING_TAG=$(capture_identity_table)
 printf '%s\n' "$IDENTITIES_MISSING_TAG"
@@ -172,7 +186,10 @@ echo "  ✓ observed $REFUSALS exact source-capture refusals in one resident dae
 query_upgrade "SELECT id, commit_version, commit_sha, state, started_at, error, recovery_parked_at FROM public.upgrade WHERE commit_sha = '$OLD_TARGET_SHA' ORDER BY id DESC LIMIT 1;"
 
 # Preserve the candidate's pre-pull identity carrier before terminal cleanup.
-VM_EXEC bash -c 'rm -f ~/statbus/tmp/statbus-436-captured-source-images.json; nohup bash -c '\''for i in $(seq 1 24000); do if [ -s "$HOME/statbus/tmp/upgrade-source-images.json" ]; then cp "$HOME/statbus/tmp/upgrade-source-images.json" "$HOME/statbus/tmp/statbus-436-captured-source-images.json"; exit 0; fi; sleep 0.05; done; exit 1'\'' >~/statbus/tmp/statbus-436-carrier-watch.log 2>&1 &'
+VM_SCRIPT_INLINE arm-carrier-watch <<'REMOTE'
+rm -f ~/statbus/tmp/statbus-436-captured-source-images.json
+nohup bash -c 'for i in $(seq 1 24000); do if [ -s "$HOME/statbus/tmp/upgrade-source-images.json" ]; then cp "$HOME/statbus/tmp/upgrade-source-images.json" "$HOME/statbus/tmp/statbus-436-captured-source-images.json"; exit 0; fi; sleep 0.05; done; exit 1' >~/statbus/tmp/statbus-436-carrier-watch.log 2>&1 &
+REMOTE
 harness_register_log statbus-436-carrier-watch /home/statbus/statbus/tmp/statbus-436-carrier-watch.log
 
 CANDIDATE_INSTALL_SCRIPT=$(mktemp)
