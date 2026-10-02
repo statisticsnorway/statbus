@@ -95,4 +95,21 @@ Review and observation receipts: `tmp/review-demo-image-identity.md`, `tmp/demo-
 - Candidate acceptance requires a copied pre-pull `upgrade-source-images.json` proving the app/worker/rest/proxy daemon identities, terminal `completed`, data preservation, final db/app/worker/proxy target references, final checkout/binary/resident-program identity, and four health/data/ledger/restart checks spaced across scheduler ticks.
 - Registered as `HARNESS_SKIP_DEFAULT` and documented as explicit-only. Generalized the runner's old “known-RED” label to the truthful “on-demand” contract and extended the selection self-test so this long candidate proof cannot enter the default battery but remains explicitly selectable.
 - Offline verification passed: `bash -n` for all libraries/scenarios via `scenario-helper-resolution-test.sh`; helper resolution; `scenario-selection-test.sh`; `run-boundary-test.sh`; direct list/exact/default-exclusion checks; and `git diff --check`. The actual LXD guest execution was deliberately not run while rc.07's fleet chain is busy. AC#4/#5 remain unchecked until the named-candidate guest run records the real outcome. Evidence: `tmp/fix-436-proof.md` and `tmp/fix-436-*.log`.
+2026-10-02 17:25 UTC, guest proofs against v2026.10.0-rc.12 (7ec86ac2b):
+
+- **AC#4: met.** `CANDIDATE_PATH=operator` is exactly `./cloud.sh install <box> <tag>`'s pinned path: version-pinned install.sh with the old loop running, then cloud.sh's post-steps. It PASSED on a guest reproducing demo:
+  - real v2026.09.2; app/worker/proxy source tags removed, so Compose shows `sha256:`
+  - 3 exact false digest-shaped refusals in one resident daemon, NRestarts unchanged
+  - installer 18/18 with the loop running; the old daemon's one concurrent attempt was refused on the install flock
+  - final state: checkout `7ec86ac2`, resident daemon is `~/statbus/sb` at rc.12, db/app/worker/proxy on `:7ec86ac2`, data counts unchanged, health 200 ×4 across 65 s ticks with NRestarts unchanged
+  - v2026.09.3 row `superseded`, zero refusals and zero re-attempts after the install
+  - Outcome classification: **completes the upgrade**; automatic retries stop.
+  - Log: `tmp/436-operator-rc12.PASS.log`; reviewed scenario mode: `tmp/436-operator-path-review.md`.
+  - Side finding: the installed rc.12 row itself stayed `superseded` on that prerelease-channel guest. Filed as STATBUS-442; demo (stable, no rc.12 row) is not exposed.
+- **AC#5: not met.** `CANDIDATE_PATH=scheduled` (register, schedule with the daemon down, then pinned install.sh, so the installer inline-dispatches the row through the fixed capture) found STATBUS-443:
+  - After `install.sh` checks out the target without regenerating `.env`, `sourceServingExpectedImageReferences` demands the rendered tag equal HEAD and refuses ("restored source compose image for app is …:fe4a769a, want source commit 7ec86ac2"). It refuses before the containers-match comparison runs.
+  - The 441 floor bump itself worked (2 migrations applied, claim succeeded).
+  - Pre-destructive park; nothing destroyed.
+  - Evidence: `tmp/436-scheduled-rc12-evidence/`. AC#5 waits on the 443 fix plus a rerun.
+- **AC#6:** the demo repair card is `doc/observations/demo-repair-v2026.10.0-rc.12.md`. It uses the AC#4-proven path (`./cloud.sh install demo v2026.10.0-rc.12`), which does not touch the 443 path. Owner-run.
 <!-- SECTION:NOTES:END -->
