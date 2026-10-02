@@ -239,12 +239,22 @@ echo "── official candidate installer against the unchanged missing-tag cond
 # Retry the SAME official command through the collisions; any refusal that is
 # NOT the upgrade-in-progress class is terminal.
 INSTALL_START=$(date +%s)
+ATTEMPT=0
 while true; do
-    if VM_EXEC bash -c "cd ~ && STATBUS_INSTALL_VERSION='$INSTALL_TARGET_TAG' bash /tmp/statbus-install.sh --non-interactive" >"$INSTALL_LOG" 2>&1; then
-        break
-    fi
+    ATTEMPT=$((ATTEMPT + 1))
+    rc=0
+    VM_EXEC bash -c "cd ~ && STATBUS_INSTALL_VERSION='$INSTALL_TARGET_TAG' bash /tmp/statbus-install.sh --non-interactive" >"$INSTALL_LOG" 2>&1 || rc=$?
+    [ "$rc" -eq 0 ] && break
     if grep -qF 'An upgrade is already running' "$INSTALL_LOG" && [ $(( $(date +%s) - INSTALL_START )) -lt 1800 ]; then
-        echo "  … old daemon's loop holds the mutex; retrying the official installer in 30s"
+        # The acceptance plan requires EVERY official attempt's full exit
+        # status and output, not a synthesized retry line (review finding):
+        # a discarded log would also hide any diagnostics that accompanied
+        # the matched phrase. Print the whole refused attempt, indexed,
+        # before the next try.
+        echo "  … old daemon's loop holds the mutex — attempt $ATTEMPT refused (exit $rc); retrying the official installer in 30s"
+        echo "  ── attempt $ATTEMPT full output ──"
+        sed 's/^/  │ /' "$INSTALL_LOG"
+        echo "  ── end attempt $ATTEMPT (exit $rc) ──"
         sleep 30
         continue
     fi
