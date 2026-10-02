@@ -14,18 +14,18 @@ import (
 // BEFORE ExecuteUpgradeInline's claim, because the claim's SQL sets
 // claim_token (migration 20260923202403) and a box whose schema predates that
 // migration dies at the claim with SQLSTATE 42703 — with the pipeline's own
-// Migrations step unreachable behind it. These tests pin the ordering and the
-// abort semantics through the dispatch's seams, no schema fixture needed.
+// Migrations step unreachable behind it. These tests pin the floor-before-claim
+// ordering and abort semantics; the livedb fixture proves the SQL/schema edge.
 func withInlineDispatchSeams(t *testing.T) (calls *[]string) {
 	t.Helper()
 	record := []string{}
 	calls = &record
 
-	prevMigrate := inlineDispatchMigrateUp
+	prevMigrate := inlineDispatchMigrateToFloor
 	prevLoad := inlineDispatchLoadConfig
 	prevExecute := inlineDispatchExecute
 	t.Cleanup(func() {
-		inlineDispatchMigrateUp = prevMigrate
+		inlineDispatchMigrateToFloor = prevMigrate
 		inlineDispatchLoadConfig = prevLoad
 		inlineDispatchExecute = prevExecute
 	})
@@ -34,7 +34,7 @@ func withInlineDispatchSeams(t *testing.T) (calls *[]string) {
 		record = append(record, "load")
 		return nil
 	}
-	inlineDispatchMigrateUp = func(string) error {
+	inlineDispatchMigrateToFloor = func(string) error {
 		record = append(record, "migrate")
 		return nil
 	}
@@ -67,7 +67,7 @@ func TestInlineDispatchMigratesBeforeClaim(t *testing.T) {
 
 func TestInlineDispatchMigrateFailureAbortsBeforeClaim(t *testing.T) {
 	calls := withInlineDispatchSeams(t)
-	inlineDispatchMigrateUp = func(string) error {
+	inlineDispatchMigrateToFloor = func(string) error {
 		*calls = append(*calls, "migrate")
 		return errors.New("psql: connection refused")
 	}
@@ -76,7 +76,7 @@ func TestInlineDispatchMigrateFailureAbortsBeforeClaim(t *testing.T) {
 	if err == nil {
 		t.Fatal("a failed pre-claim migration must abort the dispatch")
 	}
-	if !strings.Contains(err.Error(), "migrate the database schema before the scheduled upgrade claim") {
+	if !strings.Contains(err.Error(), "migrate the database schema to the daemon floor before the scheduled upgrade claim") {
 		t.Fatalf("abort lost its cause framing: %v", err)
 	}
 	if got := strings.Join(*calls, ","); got != "load,migrate" {

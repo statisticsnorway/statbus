@@ -60,10 +60,13 @@ func dispatchInstallState(projDir string, state install.State, detail *install.D
 // its own HolderService flag internally before any destructive step,
 // serialising against any concurrent ./sb install or service via the kernel
 // flock on tmp/upgrade-in-progress.json.
-// inlineDispatchMigrateUp and inlineDispatchExecute are seams over the
-// migration run and the inline dispatch itself, so tests can pin their
-// ordering without a schema fixture (STATBUS-441).
-var inlineDispatchMigrateUp = runMigrations
+// inlineDispatchMigrateToFloor and inlineDispatchExecute are seams over the
+// daemon-floor migration run and the inline dispatch itself, so tests can pin
+// their ordering. The livedb fixture proves the real SQL/schema contract.
+var inlineDispatchMigrateToFloor = func(projDir string) error {
+	sb := filepath.Join(projDir, "sb")
+	return runCmdDirTimeout(projDir, upgrade.MigrateUpTimeout, sb, "migrate", "up", "--to", strconv.FormatInt(migrate.DaemonSchemaFloor, 10), "--verbose")
+}
 var inlineDispatchLoadConfig = func(ctx context.Context, svc *upgrade.Service) error {
 	return svc.LoadConfigAndConnect(ctx)
 }
@@ -91,25 +94,18 @@ func runInlineUpgradeScheduled(projDir string, detail *install.Detail) error {
 		upgrade.ShortForDisplay(detail.TargetCommitSHA))
 
 	// STATBUS-441: ExecuteUpgradeInline's claim uses the NEW binary's claim
-	// SQL, which sets claim_token (STATBUS-382's actor-guarded claim,
-	// migration 20260923202403). A box whose schema predates that migration
-	// (v2026.09.2 and earlier; v2026.09.3 carries it) dies at the claim with
-	// SQLSTATE 42703 — and the pipeline's own Migrations step runs only AFTER
-	// the claim, so no operator re-run could ever get past it. The daemon
-	// path gets the ordering for free (the old binary claims with its own
-	// older SQL, migrations run inside executeUpgrade, the new binary takes
-	// over afterward); the inline path must migrate BEFORE claiming. The
-	// tree and binary are already the target's at this point (the checkout
-	// precedes the dispatch), so `migrate up` applies exactly the set the
-	// claim needs and then no-ops inside the pipeline. Rollback semantics
-	// are untouched: the pre-upgrade snapshot is still taken inside
-	// executeUpgrade, and the added column is nullable — the old binary
-	// tolerates it if a rollback later restores the snapshot. Idempotent
-	// when the schema is already current (0 pending), so the supported
-	// previous-release path is unchanged.
-	fmt.Println("Bringing the database schema up to date before the upgrade claim ...")
-	if err := inlineDispatchMigrateUp(projDir); err != nil {
-		return fmt.Errorf("migrate the database schema before the scheduled upgrade claim: %w", err)
+	// SQL, including claim_token from migration 20260923202403. A pre-382
+	// schema therefore dies at the claim with SQLSTATE 42703 before the guarded
+	// pipeline can apply its full migration delta. Bring the database only to
+	// migrate.DaemonSchemaFloor here, using the same bounded boot-migrate
+	// contract as the daemon and crash-recovery paths. The floor is the declared
+	// schema on which this binary's upgrade SQL may operate and currently includes
+	// 20260923202403, so it supplies claim_token without applying later target
+	// migrations before the upgrade's serialization and snapshot boundary. The
+	// full target delta remains inside executeUpgrade's Migrations step.
+	fmt.Println("Bringing the database schema up to the daemon floor before the upgrade claim ...")
+	if err := inlineDispatchMigrateToFloor(projDir); err != nil {
+		return fmt.Errorf("migrate the database schema to the daemon floor before the scheduled upgrade claim: %w", err)
 	}
 
 	if err := inlineDispatchExecute(ctx, svc, int(detail.ScheduledRowID), detail.TargetCommitSHA, detail.TargetDisplayName); err != nil {
