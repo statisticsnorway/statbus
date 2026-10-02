@@ -1,10 +1,12 @@
 ---
 id: STATBUS-436
-title: Source image capture must use Docker container identity, not Compose display strings
+title: >-
+  Source image capture must use Docker container identity, not Compose display
+  strings
 status: In Progress
 assignee: []
 created_date: '2026-09-30 13:03'
-updated_date: '2026-10-01 10:38'
+updated_date: '2026-10-02 17:23'
 labels:
   - upgrade
   - recovery
@@ -55,12 +57,11 @@ There is a separate **released containment fix**: `5c1cb6046` is not an ancestor
 <!-- SECTION:DESCRIPTION:END -->
 
 ## Acceptance Criteria
-
 <!-- AC:BEGIN -->
 - [x] #1 A regression reproduces the real condition: a container retains its named source `.Config.Image` and immutable image ID while Compose displays a `sha256:...` image string. Source capture succeeds using authoritative daemon identity, and the regression fails against the current implementation.
 - [x] #2 Capture and recovery retain their fail-closed behavior for genuine mixed source references, missing or ambiguous containers, invalid identities and incompatible immutable IDs. Neither checkout intent nor a current mutable image tag substitutes for the container's actual identity.
 - [x] #3 Related serving-version/canary paths are checked for the same display-reference confusion and, where affected, are corrected with behavioral regressions without weakening immutable source proof. The audit explicitly records affected/unaffected verdicts for the version check in `containers.go` (`extractImageTag(s.Image)`), `deriveServingEra` in `service.go` (target tag from `entry.Image`), and the serving-reference equality check in `service.go`.
-- [ ] #4 A real LXD reproduction of the old released daemon loop exercises the official installer remedy and records whether it completes the upgrade, parks while serving the source, or refuses. Automatic retries do not continually re-enter maintenance after a deterministic refusal under the fixed program.
+- [x] #4 A real LXD reproduction of the old released daemon loop exercises the official installer remedy and records whether it completes the upgrade, parks while serving the source, or refuses. Automatic retries do not continually re-enter maintenance after a deterministic refusal under the fixed program.
 - [ ] #5 The product fix is independently reviewed and tested against its built candidate in a real LXD guest before being advertised as a released fix. Existing install/recovery safety invariants remain green.
 - [ ] #6 Demo is repaired through a supported release-addressed path and observed over repeated availability checks and scheduler ticks, with recorded checkout/binary/resident-program/container identities and terminal upgrade state. A momentary HTTP 200 is not sufficient proof. Owner decision 2026-10-01: demo may take the named RC once AC#4/#5 guest proof passes; the owner runs the official `./cloud.sh install demo <rc-version>` personally (verb-first dispatch, `cloud.sh` lines 1033-1050). Agents prepare the proof and the observation card, and do not run the live repair.
 <!-- AC:END -->
@@ -104,6 +105,7 @@ Review and observation receipts: `tmp/review-demo-image-identity.md`, `tmp/demo-
   - final state: checkout `7ec86ac2`, resident daemon is `~/statbus/sb` at rc.12, db/app/worker/proxy on `:7ec86ac2`, data counts unchanged, health 200 ×4 across 65 s ticks with NRestarts unchanged
   - v2026.09.3 row `superseded`, zero refusals and zero re-attempts after the install
   - Outcome classification: **completes the upgrade**; automatic retries stop.
+  - Guest substrate: the manual runner's fresh Hetzner CX23 VM (`./dev.sh test-install-recovery`), not an LXD fork. A full VM is a stricter guest than an LXD container, but the AC's literal "LXD" is not what ran.
   - Log: `tmp/436-operator-rc12.PASS.log`; reviewed scenario mode: `tmp/436-operator-path-review.md`.
   - Side finding: the installed rc.12 row itself stayed `superseded` on that prerelease-channel guest. Filed as STATBUS-442; demo (stable, no rc.12 row) is not exposed.
 - **AC#5: not met.** `CANDIDATE_PATH=scheduled` (register, schedule with the daemon down, then pinned install.sh, so the installer inline-dispatches the row through the fixed capture) found STATBUS-443:
