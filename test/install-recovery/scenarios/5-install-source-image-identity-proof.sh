@@ -270,6 +270,19 @@ while true; do
 done
 cat "$INSTALL_LOG"
 
+# The daemon-down schedule (required so the OLD daemon could not claim the
+# target row and run its own broken capture) leaves the unit INACTIVE, and
+# the inline dispatch deliberately does not start an inactive unit
+# (restartUpgradeService's is-active gate; the inline handoff leaves service
+# orchestration to the caller). The official reactivation is the installer's
+# own lifecycle: a plain ./sb install re-run is idempotent, detects
+# nothing-scheduled, refreshes the step table, and queues the daemon start
+# at install exit (STATBUS-432's final-act dispatch). No manual systemctl
+# restart — the operator's own command, exactly as on a real box.
+echo "── official daemon reactivation (idempotent ./sb install re-run) ──"
+VM_EXEC bash -c "cd ~/statbus && ./sb install --non-interactive"
+assert_systemd_active "$VM_NAME"
+
 START=$(date +%s)
 while true; do
     elapsed=$(( $(date +%s) - START ))
@@ -318,10 +331,23 @@ echo "  ✓ carrier binds exact reference + immutable ID for app, worker, rest, 
 echo "── terminal identity, canary, data, and sustained-availability checks ──"
 [ "$(VM_EXEC git -C /home/statbus/statbus rev-parse HEAD | tr -d ' \r\n')" = "$TARGET_SHA" ]
 FINAL_PID=$(VM_EXEC systemctl --user show statbus-upgrade@statbus.service --property=MainPID --value | tr -d ' \r\n')
+[ -n "$FINAL_PID" ] && [ "$FINAL_PID" != 0 ] || { echo "no resident upgrade daemon after the official reactivation (MainPID=$FINAL_PID)" >&2; exit 1; }
 FINAL_RESIDENT=$(VM_EXEC readlink -f "/proc/$FINAL_PID/exe" | tr -d '\r')
 FINAL_BINARY=$(VM_EXEC bash -c 'cd ~/statbus && ./sb --version' | tr -d '\r')
 echo "  final binary: $FINAL_BINARY"
 echo "  final resident executable: $FINAL_RESIDENT (pid $FINAL_PID)"
+# The fixed candidate must be the RESIDENT program, not merely the checkout:
+# the on-disk binary names the candidate commit, and the daemon's own
+# executable is that same binary.
+case "$FINAL_BINARY" in
+    *"$TARGET_SHORT"*) ;;
+    *) echo "on-disk binary is not the candidate: $FINAL_BINARY (want commit $TARGET_SHORT)" >&2; exit 1 ;;
+esac
+case "$FINAL_RESIDENT" in
+    */statbus/sb) ;;
+    *) echo "resident daemon executable is not the checkout's sb: $FINAL_RESIDENT" >&2; exit 1 ;;
+esac
+echo "  ✓ resident program is the fixed candidate ($FINAL_BINARY at $FINAL_RESIDENT)"
 query_upgrade "SELECT id, commit_version, commit_sha, state, error FROM public.upgrade WHERE commit_sha = '$TARGET_SHA' ORDER BY id DESC LIMIT 1;"
 assert_demo_data_counts_match_snapshot "$VM_NAME" "$DATA_SNAPSHOT"
 assert_flag_file_absent "$VM_NAME"
@@ -344,7 +370,15 @@ for check in $(seq 1 "$SUSTAINED_CHECKS"); do
     assert_health_passes "$VM_NAME"
     assert_demo_data_counts_match_snapshot "$VM_NAME" "$DATA_SNAPSHOT"
     state=$(query_upgrade "SELECT state FROM public.upgrade WHERE commit_sha = '$TARGET_SHA' ORDER BY id DESC LIMIT 1;" | tr -d ' ')
-    [ "$state" = completed ] || { echo "candidate left completed state during sustained check $check: $state" >&2; exit 1; }
+    # Same terminal contract as the completion watch above: 'completed' (the
+    # inline dispatch's own row) or the ledger-bookkeeping 'superseded' (the
+    # old daemon's ancestor auto-supersede, which predates the candidate run)
+    # pass; failed/rolled_back/dismissed fail. Requiring exactly 'completed'
+    # here would reintroduce the fifth run's misread one phase later.
+    case "$state" in
+        completed|superseded) ;;
+        *) echo "candidate left a passing terminal state during sustained check $check: $state" >&2; exit 1 ;;
+    esac
     current_restarts=$(unit_restarts)
     [ "$current_restarts" = "$RESTARTS_AFTER" ] || { echo "upgrade daemon restarted during sustained observation: $RESTARTS_AFTER -> $current_restarts" >&2; exit 1; }
     [ "$check" -eq "$SUSTAINED_CHECKS" ] || sleep "$SUSTAINED_INTERVAL_S"
