@@ -2843,6 +2843,11 @@ const (
 // UPDATE. Returns the full row as JSON for greppable state-transition logging.
 const upgradeRowReturning = ` RETURNING to_jsonb(upgrade.*)`
 
+// completedUpgradeSQL is the shared normal completion transition. Keeping it
+// production-owned lets recovery and livedb pipeline harnesses exercise the
+// exact SQL used by applyNewSbUpgrading without copying the statement.
+const completedUpgradeSQL = "UPDATE public.upgrade SET state = 'completed', completed_at = now(), docker_images_status = 'ready', failure_code = NULL, error = NULL, log_relative_file_path = COALESCE(log_relative_file_path, $2) WHERE id = $1" + upgradeRowReturning
+
 // logUpgradeRow prints the full upgrade row snapshot at a terminal state
 // transition. Uses raw %s (never %q) so the JSON is greppable:
 //
@@ -4649,12 +4654,11 @@ func (d *Service) completeInProgressUpgrade(ctx context.Context) error {
 	// STATBUS-081: log_relative_file_path = COALESCE(...) — chk_upgrade_state_attributes
 	// requires it NOT NULL on completed. Real upgrades are stamped at claim time
 	// (LOG_POINTER_STAMPED invariant) so $2 is a no-op fallback for legacy NULL rows only.
-	completedSQL := "UPDATE public.upgrade SET state = 'completed', completed_at = now(), docker_images_status = 'ready', failure_code = NULL, error = NULL, log_relative_file_path = COALESCE(log_relative_file_path, $2) WHERE id = $1" + upgradeRowReturning
 	// STATBUS-154: teardown-immune completed write (fresh daemon-tagged conn +
 	// context.Background + bounded retry). Best-effort — on failure it marks the
 	// invariant + bundle and continues to cleanup (removeUpgradeFlag etc.), as
 	// before; the row stays in_progress for the next pass.
-	fromInProgressJSON, scanErr := d.terminalUpdate(completedSQL, id, appendLog.RelPath())
+	fromInProgressJSON, scanErr := d.terminalUpdate(completedUpgradeSQL, id, appendLog.RelPath())
 	completionRecorded := scanErr == nil
 	finishingClean := completionRecorded
 	if scanErr == nil {
@@ -10683,14 +10687,13 @@ func (d *Service) applyNewSbUpgrading(ctx context.Context, id int, commitSHA, di
 	// STATBUS-046: Phase 4.2 — record the dying step so a crash during the terminal
 	// write reports StepComplete (not the prior maintenance-off) for same-step-twice.
 	d.markStep(StepComplete)
-	completedSQL := "UPDATE public.upgrade SET state = 'completed', completed_at = now(), docker_images_status = 'ready', failure_code = NULL, error = NULL, log_relative_file_path = COALESCE(log_relative_file_path, $2) WHERE id = $1" + upgradeRowReturning
 	// STATBUS-154: the completed terminal write goes through the teardown-immune
 	// terminalUpdate (fresh daemon-tagged conn + context.Background + bounded
 	// retry — this generalizes the former inline C6 047-H reconnect save). The
 	// bespoke terminal escalation (DB-invariant naming + diagnostic bundle) stays
 	// here.
 	var cerr error
-	normalJSON, cerr = d.terminalUpdate(completedSQL, id, progress.RelPath())
+	normalJSON, cerr = d.terminalUpdate(completedUpgradeSQL, id, progress.RelPath())
 	if cerr != nil {
 		// C7: terminal UPDATE errored. If it's a DB-enforced invariant (e.g.
 		// chk_upgrade_state_attributes log-pointer arm), prefer the specific name

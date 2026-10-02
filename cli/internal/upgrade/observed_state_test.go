@@ -362,7 +362,7 @@ func TestApplyNewSbUpgrading_FinishingOrder(t *testing.T) {
 	}{
 		{"Finishing headline", `progress.Write("%s", finishing.heading())`},
 		{"maintenance lift", `d.setMaintenance(false, "")`},
-		{"completed terminal UPDATE", `normalJSON, cerr = d.terminalUpdate(completedSQL`},
+		{"completed terminal UPDATE", `normalJSON, cerr = d.terminalUpdate(completedUpgradeSQL`},
 		{"successful-upgrade row message", `finishing.recordedLine()`},
 		{"read-only lift", `d.liftReadOnlyWindow("upgrade completion")`},
 		{"marker and source-image carrier release", `d.removeUpgradeArtifacts()`},

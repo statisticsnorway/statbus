@@ -201,8 +201,8 @@ var rewindAudit = map[siteKey]rewindDisposition{
 	},
 	// ── D. SUCCESS PATH ONLY — no restore occurs on these paths ──
 	{"cli/internal/upgrade/service.go", "UPDATE", "completed_at,docker_images_status,error,failure_code,log_relative_file_path,state"}: {
-		Class: classSuccessPathOnly, Count: 3,
-		Why: "The completion writes. A completed upgrade never rolls back, so no rewind can follow them.",
+		Class: classSuccessPathOnly, Count: 2,
+		Why: "The shared normal/flagless completion write and guarded self-heal write. A completed upgrade never rolls back, so no rewind can follow them.",
 	},
 
 	// ── E. SELF-HEALING DERIVED — discovery re-derives from an external truth ──

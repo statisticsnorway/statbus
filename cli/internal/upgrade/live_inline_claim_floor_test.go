@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"sort"
@@ -16,7 +17,6 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
-	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/statisticsnorway/statbus/cli/internal/dotenv"
 	"github.com/statisticsnorway/statbus/cli/internal/migrate"
 )
@@ -25,9 +25,10 @@ const claimTokenMigration int64 = 20260923202403
 
 // TestInlineScheduledClaimPre382UndefinedColumnClosedByDaemonFloor is the
 // STATBUS-441 AC#1 fixture. It full-replays a throwaway database only through
-// the largest migration before claim_token, proves the production claim SQL
+// the largest migration before claim_token, proves the real production claim
 // fails with SQLSTATE 42703, raises that same database only to the declared
-// daemon floor, then proves the identical claim succeeds and owns the row.
+// daemon floor, then drives the DB-side remainder of the production pipeline:
+// real claim, real full-delta migrate entry point, and real terminal completion.
 func TestInlineScheduledClaimPre382UndefinedColumnClosedByDaemonFloor(t *testing.T) {
 	if os.Getenv("STATBUS_LIVEDB_TEST_TIER") != "1" {
 		t.Skip("requires ./dev.sh test-livedb")
@@ -91,7 +92,7 @@ func TestInlineScheduledClaimPre382UndefinedColumnClosedByDaemonFloor(t *testing
 		t.Fatalf("full replay throwaway database to pre-claim_token version %d: %v", preClaimVersion, err)
 	}
 
-	fixtureProjDir := writeFixtureProjectEnv(t, envValues, dbName)
+	fixtureProjDir := writeFixtureProjectEnv(t, projDir, envValues, dbName)
 	svc := NewService(fixtureProjDir, false, "v2026.10.0-rc.11", "bcb1d568efa201eb76bfe2f9d124f8a29c7dacf5")
 	if err := svc.LoadConfigAndConnect(ctx); err != nil {
 		t.Fatalf("LoadConfigAndConnect throwaway database: %v", err)
@@ -108,18 +109,37 @@ func TestInlineScheduledClaimPre382UndefinedColumnClosedByDaemonFloor(t *testing
 		t.Fatalf("insert scheduled upgrade row: %v", err)
 	}
 
-	claimToken := "44100000-0000-4000-8000-000000000001"
-	err = executePredecessorSchemaProductionClaim(ctx, svc.queryConn, id, claimToken)
+	var preFloorSawTreeConvergence bool
+	svc.claimSchemaProbeForTest = func(hasTreeConvergenceColumn bool) {
+		preFloorSawTreeConvergence = hasTreeConvergenceColumn
+	}
+	_, err = svc.claimScheduledUpgrade(ctx, id)
 	var pgErr *pgconn.PgError
 	if !errors.As(err, &pgErr) || pgErr.Code != "42703" {
 		t.Fatalf("pre-382 production claim error = %v, want SQLSTATE 42703 undefined_column", err)
+	}
+	if !preFloorSawTreeConvergence {
+		t.Fatal("pre-floor production claim did not select the tree_convergence_required branch")
 	}
 
 	if err := migrate.Up(projDir, migrate.DaemonSchemaFloor, true, true); err != nil {
 		t.Fatalf("raise throwaway database to daemon floor %d: %v", migrate.DaemonSchemaFloor, err)
 	}
-	if err := executePredecessorSchemaProductionClaim(ctx, svc.queryConn, id, claimToken); err != nil {
+	var postFloorSawTreeConvergence bool
+	svc.claimSchemaProbeForTest = func(hasTreeConvergenceColumn bool) {
+		postFloorSawTreeConvergence = hasTreeConvergenceColumn
+	}
+	claim, err := svc.claimScheduledUpgrade(ctx, id)
+	if err != nil {
 		t.Fatalf("production claim after daemon-floor bump: %v", err)
+	}
+	if !postFloorSawTreeConvergence {
+		t.Fatal("post-floor production claim did not select the tree_convergence_required branch")
+	}
+	floorVersions := appliedMigrationVersionsBetween(t, ctx, svc.queryConn, preClaimVersion, migrate.DaemonSchemaFloor)
+	wantFloorVersions := []int64{claimTokenMigration, migrate.DaemonSchemaFloor}
+	if fmt.Sprint(floorVersions) != fmt.Sprint(wantFloorVersions) {
+		t.Fatalf("daemon-floor migrations = %v, want exactly %v", floorVersions, wantFloorVersions)
 	}
 
 	var state string
@@ -127,44 +147,59 @@ func TestInlineScheduledClaimPre382UndefinedColumnClosedByDaemonFloor(t *testing
 	if err := svc.queryConn.QueryRow(ctx, "SELECT state::text, claim_token::text FROM public.upgrade WHERE id = $1", id).Scan(&state, &storedToken); err != nil {
 		t.Fatalf("read claimed row: %v", err)
 	}
-	if state != "in_progress" || storedToken != claimToken {
-		t.Fatalf("claimed row state/token = %s/%s, want in_progress/%s", state, storedToken, claimToken)
+	if state != "in_progress" || storedToken != claim.Snapshot.ClaimToken {
+		t.Fatalf("claimed row state/token = %s/%s, want in_progress/%s", state, storedToken, claim.Snapshot.ClaimToken)
+	}
+
+	diskVersions, err := migrate.DiskVersions(projDir)
+	if err != nil {
+		t.Fatalf("list on-disk migrations: %v", err)
+	}
+	wantRemaining := 0
+	for _, version := range diskVersions {
+		if version > migrate.DaemonSchemaFloor {
+			wantRemaining++
+		}
+	}
+	pendingMigrations, err := runMigrateUpToLog(fixtureProjDir, MigrateUpTimeout, io.Discard, nil, "migrate", "up", "--verbose")
+	if err != nil {
+		t.Fatalf("production full-delta migration entry point: %v", err)
+	}
+	if pendingMigrations != wantRemaining {
+		t.Fatalf("full-delta pending migration count = %d, want %d", pendingMigrations, wantRemaining)
+	}
+
+	if _, err := svc.terminalUpdate(completedUpgradeSQL, id, "statbus-441-livedb.log"); err != nil {
+		t.Fatalf("production terminal completion path: %v", err)
+	}
+	var completedAt *time.Time
+	if err := svc.queryConn.QueryRow(ctx, "SELECT state::text, completed_at FROM public.upgrade WHERE id = $1", id).Scan(&state, &completedAt); err != nil {
+		t.Fatalf("read completed row: %v", err)
+	}
+	if state != "completed" || completedAt == nil {
+		t.Fatalf("completed row state/completed_at = %s/%v, want completed/non-NULL", state, completedAt)
 	}
 }
 
-// This is the exact no-tree-convergence-column claim statement shape from
-// claimScheduledUpgrade in service.go. Keeping the production shape here makes
-// the fixture fail on the actual claim_token resolution boundary, not a proxy.
-func executePredecessorSchemaProductionClaim(ctx context.Context, conn *pgx.Conn, id int, claimToken string) error {
-	var commitTags []string
-	var recreate bool
-	var returnedID int
-	var commitVersion pgtype.Text
-	var commitSHA, fromCommitVersion string
-	var startedAt time.Time
-	var immutableJSON string
-	return conn.QueryRow(ctx, `WITH claimed AS (
-		UPDATE public.upgrade
-		   SET state = 'in_progress',
-		       started_at = now(),
-		       from_commit_version = $1,
-		       claim_token = $3::uuid
-		 WHERE id = $2 AND state = 'scheduled' AND started_at IS NULL
-		 RETURNING commit_tags, recreate, id, commit_version, commit_sha, from_commit_version, started_at
-	),
-	labelled AS (
-		SELECT c.commit_tags, c.recreate, c.id, c.commit_version, c.commit_sha,
-		       COALESCE(c.from_commit_version, '') AS from_commit_version, c.started_at
-		  FROM claimed AS c
-	)
-	SELECT l.commit_tags, l.recreate, l.id, l.commit_version, l.commit_sha,
-	       l.from_commit_version, l.started_at,
-	       (SELECT to_json(t)::text FROM (SELECT l.id AS id, l.commit_version AS commit_version,
-	        l.commit_sha AS commit_sha, l.from_commit_version AS from_commit_version,
-	        l.started_at AS started_at) AS t)
-	  FROM labelled AS l`, "v2026.09.2", id, claimToken).Scan(
-		&commitTags, &recreate, &returnedID, &commitVersion, &commitSHA,
-		&fromCommitVersion, &startedAt, &immutableJSON)
+func appliedMigrationVersionsBetween(t *testing.T, ctx context.Context, conn *pgx.Conn, after, through int64) []int64 {
+	t.Helper()
+	rows, err := conn.Query(ctx, "SELECT version FROM db.migration WHERE version > $1 AND version <= $2 ORDER BY version", after, through)
+	if err != nil {
+		t.Fatalf("query daemon-floor migration versions: %v", err)
+	}
+	defer rows.Close()
+	var versions []int64
+	for rows.Next() {
+		var version int64
+		if err := rows.Scan(&version); err != nil {
+			t.Fatalf("scan daemon-floor migration version: %v", err)
+		}
+		versions = append(versions, version)
+	}
+	if err := rows.Err(); err != nil {
+		t.Fatalf("read daemon-floor migration versions: %v", err)
+	}
+	return versions
 }
 
 func largestMigrationBelow(t *testing.T, projDir string, ceiling int64) int64 {
@@ -212,7 +247,7 @@ func liveDatabaseDSNs(t *testing.T, projDir string) (adminDSN, appDSN string, va
 	return base + " dbname=" + values["POSTGRES_ADMIN_DB"], base + " dbname=" + values["POSTGRES_APP_DB"], values
 }
 
-func writeFixtureProjectEnv(t *testing.T, values map[string]string, dbName string) string {
+func writeFixtureProjectEnv(t *testing.T, sourceProjDir string, values map[string]string, dbName string) string {
 	t.Helper()
 	dir := t.TempDir()
 	contents := fmt.Sprintf("CADDY_DB_BIND_ADDRESS=%s\nCADDY_DB_PORT=%s\nPOSTGRES_ADMIN_DB=%s\nPOSTGRES_ADMIN_USER=%s\nPOSTGRES_ADMIN_PASSWORD=%s\nPOSTGRES_APP_DB=%s\n",
@@ -220,6 +255,11 @@ func writeFixtureProjectEnv(t *testing.T, values map[string]string, dbName strin
 		values["POSTGRES_ADMIN_USER"], values["POSTGRES_ADMIN_PASSWORD"], dbName)
 	if err := os.WriteFile(filepath.Join(dir, ".env"), []byte(contents), 0o600); err != nil {
 		t.Fatal(err)
+	}
+	for _, name := range []string{"sb", "migrations", "dbseed"} {
+		if err := os.Symlink(filepath.Join(sourceProjDir, name), filepath.Join(dir, name)); err != nil {
+			t.Fatalf("link %s into fixture project: %v", name, err)
+		}
 	}
 	return dir
 }
