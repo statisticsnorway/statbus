@@ -60,6 +60,17 @@ func dispatchInstallState(projDir string, state install.State, detail *install.D
 // its own HolderService flag internally before any destructive step,
 // serialising against any concurrent ./sb install or service via the kernel
 // flock on tmp/upgrade-in-progress.json.
+// inlineDispatchMigrateUp and inlineDispatchExecute are seams over the
+// migration run and the inline dispatch itself, so tests can pin their
+// ordering without a schema fixture (STATBUS-441).
+var inlineDispatchMigrateUp = runMigrations
+var inlineDispatchLoadConfig = func(ctx context.Context, svc *upgrade.Service) error {
+	return svc.LoadConfigAndConnect(ctx)
+}
+var inlineDispatchExecute = func(ctx context.Context, svc *upgrade.Service, id int, commitSHA, displayName string) error {
+	return svc.ExecuteUpgradeInline(ctx, id, commitSHA, displayName)
+}
+
 func runInlineUpgradeScheduled(projDir string, detail *install.Detail) error {
 	ctx := context.Background()
 	svc := upgrade.NewService(projDir, true /* verbose */, version, commit)
@@ -71,7 +82,7 @@ func runInlineUpgradeScheduled(projDir string, detail *install.Detail) error {
 		svc.SetUnitInstance(serviceInstance(projDir))
 	}
 
-	if err := svc.LoadConfigAndConnect(ctx); err != nil {
+	if err := inlineDispatchLoadConfig(ctx, svc); err != nil {
 		return fmt.Errorf("load upgrade config: %w", err)
 	}
 
@@ -79,7 +90,29 @@ func runInlineUpgradeScheduled(projDir string, detail *install.Detail) error {
 		detail.ScheduledRowID, detail.TargetDisplayName,
 		upgrade.ShortForDisplay(detail.TargetCommitSHA))
 
-	if err := svc.ExecuteUpgradeInline(ctx, int(detail.ScheduledRowID), detail.TargetCommitSHA, detail.TargetDisplayName); err != nil {
+	// STATBUS-441: ExecuteUpgradeInline's claim uses the NEW binary's claim
+	// SQL, which sets claim_token (STATBUS-382's actor-guarded claim,
+	// migration 20260923202403). A box whose schema predates that migration
+	// (v2026.09.2 and earlier; v2026.09.3 carries it) dies at the claim with
+	// SQLSTATE 42703 — and the pipeline's own Migrations step runs only AFTER
+	// the claim, so no operator re-run could ever get past it. The daemon
+	// path gets the ordering for free (the old binary claims with its own
+	// older SQL, migrations run inside executeUpgrade, the new binary takes
+	// over afterward); the inline path must migrate BEFORE claiming. The
+	// tree and binary are already the target's at this point (the checkout
+	// precedes the dispatch), so `migrate up` applies exactly the set the
+	// claim needs and then no-ops inside the pipeline. Rollback semantics
+	// are untouched: the pre-upgrade snapshot is still taken inside
+	// executeUpgrade, and the added column is nullable — the old binary
+	// tolerates it if a rollback later restores the snapshot. Idempotent
+	// when the schema is already current (0 pending), so the supported
+	// previous-release path is unchanged.
+	fmt.Println("Bringing the database schema up to date before the upgrade claim ...")
+	if err := inlineDispatchMigrateUp(projDir); err != nil {
+		return fmt.Errorf("migrate the database schema before the scheduled upgrade claim: %w", err)
+	}
+
+	if err := inlineDispatchExecute(ctx, svc, int(detail.ScheduledRowID), detail.TargetCommitSHA, detail.TargetDisplayName); err != nil {
 		return err
 	}
 	restartUpgradeService(projDir)
