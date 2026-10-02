@@ -269,7 +269,19 @@ while true; do
     FINAL_STATE=$(query_upgrade "SELECT state FROM public.upgrade WHERE commit_sha = '$TARGET_SHA' ORDER BY id DESC LIMIT 1;" | tr -d ' ')
     case "$FINAL_STATE" in
         completed) break ;;
-        failed|rolled_back|dismissed|superseded)
+        superseded)
+            # NOT a proof failure: the OLD daemon's verifyArtifacts auto-supersede
+            # (v2026.09.2's "intermediate commit rows that are ancestors of a
+            # verified commit") marked the target's pre-existing commit row when
+            # a NEWER master commit's images verified — ledger bookkeeping, fired
+            # before the candidate install ever ran. The install itself completed
+            # ('Installation complete!'), and the at-target assertions below
+            # (HEAD == TARGET_SHA, resident binary, serving health) are the
+            # completion evidence — the fifth live run died here on exactly this
+            # misread. A failure row remains terminal.
+            echo "  (target row is superseded by ledger bookkeeping — the box itself installed and serves the target; continuing)"
+            break ;;
+        failed|rolled_back|dismissed)
             query_upgrade "SELECT id, state, error, recovery_parked_at, recovery_parked_reason FROM public.upgrade WHERE commit_sha = '$TARGET_SHA' ORDER BY id DESC LIMIT 1;" >&2
             exit 1
             ;;
