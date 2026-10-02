@@ -85,20 +85,14 @@ autopilot.
 
 ### systemd (recommended for production)
 
-The unit file is at `ops/statbus-upgrade.service`. It uses a template (`%i`) so each deployment slot gets its own instance.
+The unit file is at `ops/statbus-upgrade.service`. It uses a template (`%i`) so each deployment slot gets its own instance, named after the slot's Linux user (`statbus-upgrade@<user>.service`, e.g. `statbus-upgrade@statbus` on a standalone box, `statbus-upgrade@statbus_demo` on a cloud slot).
 
-Install and enable:
+`./sb install` installs and enables it for you, as a **user** unit: it copies the template to `~/.config/systemd/user/statbus-upgrade@.service`, runs `systemctl --user daemon-reload`, enables the instance, and turns on lingering (`loginctl enable-linger`) so it runs without a login session. No `sudo` and no system unit are involved.
 
-```bash
-sudo cp ops/statbus-upgrade.service /etc/systemd/system/statbus-upgrade@.service
-sudo systemctl daemon-reload
-sudo systemctl enable --now statbus-upgrade@statbus_no
-```
-
-View logs:
+View logs (as the slot's user):
 
 ```bash
-sudo journalctl -u statbus-upgrade@statbus_no -f
+journalctl --user -u statbus-upgrade@$USER -f
 ```
 
 The service restarts automatically on failure (`Restart=always`, `RestartSec=30`). Exit code 42 signals a binary self-update -- systemd treats it as a success (`SuccessExitStatus=42`) and restarts the service with the new binary.

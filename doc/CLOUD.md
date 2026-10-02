@@ -433,7 +433,7 @@ ssh statbus_ma@niue.statbus.org "cd statbus && ./sb upgrade register v2026.03.1 
 ssh statbus_ma@niue.statbus.org "cd statbus && ./sb upgrade check"
 ```
 
-The upgrade service handles: image pull, backup, migrations, restart, health check, and classify-then-act recovery (automatic data-safe rollback behind target; a park awaiting a fix release at target — `doc/upgrade-recovery-model.md`). Progress is visible in the admin UI and via `journalctl -u statbus-upgrade@<user>`.
+The upgrade service handles: image pull, backup, migrations, restart, health check, and classify-then-act recovery (automatic data-safe rollback behind target; a park awaiting a fix release at target — `doc/upgrade-recovery-model.md`). Progress is visible in the admin UI and via `journalctl --user -u statbus-upgrade@<user>` (run as the slot's user; the service is a user unit).
 
 ### Managing Host-Level Caddy
 
