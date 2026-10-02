@@ -225,19 +225,31 @@ nohup bash -c 'for i in $(seq 1 24000); do if [ -s "$HOME/statbus/tmp/upgrade-so
 REMOTE
 harness_register_log statbus-436-carrier-watch /home/statbus/statbus/tmp/statbus-436-carrier-watch.log
 
+# The capture under test lives in executeUpgrade's pipeline (source capture
+# before the target pull), reached by the daemon OR by ./sb install's inline
+# dispatch of a 'scheduled' row — NOT by a plain version install (the sixth
+# live run proved it: the installer completed and no carrier existed). The
+# official choreography that exercises it THROUGH the missing-tag condition is
+# the arc-proven daemon-down pattern: register + wait ready with the old
+# daemon UP (its verify flips docker_images_status in seconds), stop the old
+# daemon so it cannot claim the row, schedule, then let the official installer
+# swap the binary and inline-dispatch the row through the NEW code while the
+# source containers still display sha256.
+echo "── register $INSTALL_TARGET_TAG (old daemon up, then down for the schedule) ──"
+VM_EXEC bash -c "cd ~/statbus && ./sb upgrade register '$INSTALL_TARGET_TAG'"
+wait_for_upgrade_candidate_ready "$VM_NAME" "$TARGET_SHA" 900
+VM_EXEC systemctl --user stop statbus-upgrade@statbus.service
+VM_EXEC bash -c "cd ~/statbus && ./sb upgrade schedule '$INSTALL_TARGET_TAG'"
+
 CANDIDATE_INSTALL_SCRIPT=$(mktemp)
 cp "$REPO_ROOT/install.sh" "$CANDIDATE_INSTALL_SCRIPT"
 upload_install_script_to_vm "$VM_NAME" "$CANDIDATE_INSTALL_SCRIPT" /tmp/statbus-install.sh
 INSTALL_LOG=$(mktemp)
-echo "── official candidate installer against the unchanged missing-tag condition ──"
-# The old daemon's refusal loop keeps RE-ATTEMPTING the doomed v2026.09.3 row
-# on its own cadence (the third live run: the ledger read 'failed' at
-# 08:22:16, the daemon had re-attempted by 08:22:35, and the candidate
-# installer probing at 08:22:36 hit 'An upgrade is already running'). The
-# installer's own instruction is 'wait, then retry' — and a re-run continues
-# where the last stopped, which is the operator surface the product sells.
-# Retry the SAME official command through the collisions; any refusal that is
-# NOT the upgrade-in-progress class is terminal.
+echo "── official candidate installer: inline dispatch of the scheduled row through the missing-tag condition ──"
+# With the old daemon down there is no loop to collide with; the retry belt
+# stays for the same operator-surface reason (a transient refusal of the
+# upgrade-in-progress class gets the installer's own documented retry, with
+# every attempt's full output preserved).
 INSTALL_START=$(date +%s)
 ATTEMPT=0
 while true; do
@@ -246,12 +258,7 @@ while true; do
     VM_EXEC bash -c "cd ~ && STATBUS_INSTALL_VERSION='$INSTALL_TARGET_TAG' bash /tmp/statbus-install.sh --non-interactive" >"$INSTALL_LOG" 2>&1 || rc=$?
     [ "$rc" -eq 0 ] && break
     if grep -qF 'An upgrade is already running' "$INSTALL_LOG" && [ $(( $(date +%s) - INSTALL_START )) -lt 1800 ]; then
-        # The acceptance plan requires EVERY official attempt's full exit
-        # status and output, not a synthesized retry line (review finding):
-        # a discarded log would also hide any diagnostics that accompanied
-        # the matched phrase. Print the whole refused attempt, indexed,
-        # before the next try.
-        echo "  … old daemon's loop holds the mutex — attempt $ATTEMPT refused (exit $rc); retrying the official installer in 30s"
+        echo "  … an upgrade hold blocks the installer — attempt $ATTEMPT refused (exit $rc); retrying the official installer in 30s"
         echo "  ── attempt $ATTEMPT full output ──"
         sed 's/^/  │ /' "$INSTALL_LOG"
         echo "  ── end attempt $ATTEMPT (exit $rc) ──"
