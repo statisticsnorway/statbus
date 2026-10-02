@@ -44,6 +44,7 @@ _release_tag_parts "$INSTALL_TARGET_TAG" >/dev/null || {
     exit 1
 }
 TARGET_SHA=$(git -C "$REPO_ROOT" rev-parse "${INSTALL_TARGET_TAG}^{commit}")
+TARGET_SHORT=${TARGET_SHA:0:8}
 HEAD_SHA=$(git -C "$REPO_ROOT" rev-parse HEAD)
 [ "$TARGET_SHA" = "$HEAD_SHA" ] || {
     echo "ERROR: INSTALL_TARGET_TAG '$INSTALL_TARGET_TAG' must point at HEAD ($HEAD_SHA), got $TARGET_SHA" >&2
@@ -354,7 +355,6 @@ assert_flag_file_absent "$VM_NAME"
 assert_health_passes "$VM_NAME"
 assert_systemd_active "$VM_NAME"
 
-TARGET_SHORT=${TARGET_SHA:0:8}
 FINAL_IDENTITIES=$(capture_identity_table)
 printf '%s\n' "$FINAL_IDENTITIES"
 for service in db app worker proxy; do
