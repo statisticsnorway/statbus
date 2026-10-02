@@ -14,6 +14,19 @@
 # a named candidate, and a long bounded observation window. Run it explicitly:
 #   INSTALL_TARGET_TAG=v2026.10.0-rc.07 \
 #     ./dev.sh test-install-recovery 5-install-source-image-identity-proof
+#
+# CANDIDATE_PATH selects which official path carries the candidate onto the
+# looping box:
+#   scheduled (default) — register + daemon-down schedule + installer inline
+#     dispatch. Exercises the fixed source-identity capture itself (AC#5): the
+#     carrier must bind every serving service's exact pre-pull identity.
+#   operator — exactly what `./cloud.sh install demo <tag>` runs (AC#4, the
+#     owner's demo remedy): a version-pinned install.sh with the old daemon
+#     still looping, then cloud.sh's own post-steps (config generate + app up,
+#     ensure the upgrade unit is started). No register, no schedule, no stop.
+#     This path never reaches executeUpgrade, so there is no capture carrier;
+#     instead it proves the false loop ENDS: the falsely-refused v2026.09.3 row
+#     is superseded and no refusal appears after the install.
 
 set -euo pipefail
 
@@ -26,6 +39,11 @@ OLD_LOOP_BUDGET_S="${OLD_LOOP_BUDGET_S:-4500}"
 CANDIDATE_BUDGET_S="${CANDIDATE_BUDGET_S:-1200}"
 SUSTAINED_CHECKS="${SUSTAINED_CHECKS:-4}"
 SUSTAINED_INTERVAL_S="${SUSTAINED_INTERVAL_S:-65}"
+CANDIDATE_PATH="${CANDIDATE_PATH:-scheduled}"
+case "$CANDIDATE_PATH" in
+    scheduled|operator) ;;
+    *) echo "ERROR: CANDIDATE_PATH must be 'scheduled' or 'operator', got '$CANDIDATE_PATH'" >&2; exit 1 ;;
+esac
 
 LIB_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/lib"
 REPO_ROOT="$(cd "$LIB_DIR/../../.." && pwd)"
@@ -90,6 +108,7 @@ echo "  Scenario: 5-install-source-image-identity-proof (explicit only)"
 echo "  Old daemon: $OLD_RELEASE ($OLD_SHA)"
 echo "  False target: $OLD_TARGET ($OLD_TARGET_SHA)"
 echo "  Fixed candidate: $INSTALL_TARGET_TAG ($TARGET_SHA)"
+echo "  Candidate path: $CANDIDATE_PATH"
 echo "════════════════════════════════════════════════════════════════"
 
 bootstrap_install_test_vm "$VM_NAME" "$OLD_RELEASE"
@@ -219,6 +238,37 @@ RESTARTS_DURING_LOOP=$(unit_restarts)
 echo "  ✓ observed $REFUSALS exact source-capture refusals in one resident daemon"
 query_upgrade "SELECT id, commit_version, commit_sha, state, started_at, error, recovery_parked_at FROM public.upgrade WHERE commit_sha = '$OLD_TARGET_SHA' ORDER BY id DESC LIMIT 1;"
 
+CANDIDATE_INSTALL_SCRIPT=$(mktemp)
+cp "$REPO_ROOT/install.sh" "$CANDIDATE_INSTALL_SCRIPT"
+upload_install_script_to_vm "$VM_NAME" "$CANDIDATE_INSTALL_SCRIPT" /tmp/statbus-install.sh
+INSTALL_LOG=$(mktemp)
+
+# The official version-pinned installer, with the installer's own documented
+# retry for the upgrade-in-progress class (an operator who meets that message
+# waits and re-runs). Every refused attempt's full output is preserved.
+run_official_installer() {
+    local attempt=0 rc started
+    started=$(date +%s)
+    while true; do
+        attempt=$((attempt + 1))
+        rc=0
+        VM_EXEC bash -c "cd ~ && STATBUS_INSTALL_VERSION='$INSTALL_TARGET_TAG' bash /tmp/statbus-install.sh --non-interactive" >"$INSTALL_LOG" 2>&1 || rc=$?
+        [ "$rc" -eq 0 ] && break
+        if grep -qF 'An upgrade is already running' "$INSTALL_LOG" && [ $(( $(date +%s) - started )) -lt 1800 ]; then
+            echo "  … an upgrade hold blocks the installer — attempt $attempt refused (exit $rc); retrying the official installer in 30s"
+            echo "  ── attempt $attempt full output ──"
+            sed 's/^/  │ /' "$INSTALL_LOG"
+            echo "  ── end attempt $attempt (exit $rc) ──"
+            sleep 30
+            continue
+        fi
+        cat "$INSTALL_LOG" >&2
+        exit 1
+    done
+    cat "$INSTALL_LOG"
+}
+
+if [ "$CANDIDATE_PATH" = scheduled ]; then
 # Preserve the candidate's pre-pull identity carrier before terminal cleanup.
 VM_SCRIPT_INLINE arm-carrier-watch <<'REMOTE'
 rm -f ~/statbus/tmp/statbus-436-captured-source-images.json
@@ -242,34 +292,12 @@ wait_for_upgrade_candidate_ready "$VM_NAME" "$TARGET_SHA" 900
 VM_EXEC systemctl --user stop statbus-upgrade@statbus.service
 VM_EXEC bash -c "cd ~/statbus && ./sb upgrade schedule '$INSTALL_TARGET_TAG'"
 
-CANDIDATE_INSTALL_SCRIPT=$(mktemp)
-cp "$REPO_ROOT/install.sh" "$CANDIDATE_INSTALL_SCRIPT"
-upload_install_script_to_vm "$VM_NAME" "$CANDIDATE_INSTALL_SCRIPT" /tmp/statbus-install.sh
-INSTALL_LOG=$(mktemp)
 echo "── official candidate installer: inline dispatch of the scheduled row through the missing-tag condition ──"
 # With the old daemon down there is no loop to collide with; the retry belt
 # stays for the same operator-surface reason (a transient refusal of the
 # upgrade-in-progress class gets the installer's own documented retry, with
 # every attempt's full output preserved).
-INSTALL_START=$(date +%s)
-ATTEMPT=0
-while true; do
-    ATTEMPT=$((ATTEMPT + 1))
-    rc=0
-    VM_EXEC bash -c "cd ~ && STATBUS_INSTALL_VERSION='$INSTALL_TARGET_TAG' bash /tmp/statbus-install.sh --non-interactive" >"$INSTALL_LOG" 2>&1 || rc=$?
-    [ "$rc" -eq 0 ] && break
-    if grep -qF 'An upgrade is already running' "$INSTALL_LOG" && [ $(( $(date +%s) - INSTALL_START )) -lt 1800 ]; then
-        echo "  … an upgrade hold blocks the installer — attempt $ATTEMPT refused (exit $rc); retrying the official installer in 30s"
-        echo "  ── attempt $ATTEMPT full output ──"
-        sed 's/^/  │ /' "$INSTALL_LOG"
-        echo "  ── end attempt $ATTEMPT (exit $rc) ──"
-        sleep 30
-        continue
-    fi
-    cat "$INSTALL_LOG" >&2
-    exit 1
-done
-cat "$INSTALL_LOG"
+run_official_installer
 
 # The daemon-down schedule (required so the OLD daemon could not claim the
 # target row and run its own broken capture) leaves the unit INACTIVE, and
@@ -283,6 +311,20 @@ cat "$INSTALL_LOG"
 echo "── official daemon reactivation (idempotent ./sb install re-run) ──"
 VM_EXEC bash -c "cd ~/statbus && ./sb install --non-interactive"
 assert_systemd_active "$VM_NAME"
+else
+# Operator remedy: cloud.sh's cmd_install_one with a pinned version, verbatim
+# in substance — the pinned install.sh over SSH while the old daemon keeps
+# looping (no stop: cloud.sh forbids the SIGTERM pre-stop), then its two
+# post-steps. The install's own final act restarts the drifted unit onto the
+# candidate binary; cloud.sh's ensure_service_started is a no-op start then.
+echo "── operator remedy: version-pinned official installer with the false loop still running (./cloud.sh install <box> $INSTALL_TARGET_TAG) ──"
+run_official_installer
+INSTALL_END_SINCE=$(date -u '+%Y-%m-%d %H:%M:%S UTC')
+echo "── cloud.sh post-steps: config generate + app up, ensure the upgrade unit is started ──"
+VM_EXEC bash -c "cd ~/statbus && ./sb config generate && docker compose up -d app"
+VM_EXEC systemctl --user start statbus-upgrade@statbus.service
+assert_systemd_active "$VM_NAME"
+fi
 
 START=$(date +%s)
 while true; do
@@ -311,6 +353,7 @@ while true; do
     sleep 5
 done
 
+if [ "$CANDIDATE_PATH" = scheduled ]; then
 CARRIER=$(VM_EXEC cat /home/statbus/statbus/tmp/statbus-436-captured-source-images.json 2>/dev/null || true)
 [ -n "$CARRIER" ] || { echo "candidate source-image carrier was not captured" >&2; exit 1; }
 printf '%s\n' "$CARRIER"
@@ -328,6 +371,7 @@ for service in app worker rest proxy; do
     [ "$got" = "$old_ref|$old_id" ] || { echo "carrier $service identity mismatch: got '$got' want '$old_ref|$old_id'" >&2; exit 1; }
 done
 echo "  ✓ carrier binds exact reference + immutable ID for app, worker, rest, proxy"
+fi
 
 echo "── terminal identity, canary, data, and sustained-availability checks ──"
 [ "$(VM_EXEC git -C /home/statbus/statbus rev-parse HEAD | tr -d ' \r\n')" = "$TARGET_SHA" ]
@@ -384,4 +428,24 @@ for check in $(seq 1 "$SUSTAINED_CHECKS"); do
     [ "$check" -eq "$SUSTAINED_CHECKS" ] || sleep "$SUSTAINED_INTERVAL_S"
 done
 
-echo "PASS: old v2026.09.2 false loop reproduced; $INSTALL_TARGET_TAG captured daemon identities and completed through the official installer"
+if [ "$CANDIDATE_PATH" = operator ]; then
+    # The loop is over only if the falsely-refused row can no longer be
+    # rescheduled (terminal 'superseded', written by the install's post-
+    # completion upgrade_supersede_older) and the resident candidate daemon
+    # logged no refusal at all after the install, across every sustained tick.
+    OLD_TARGET_STATE=$(query_upgrade "SELECT state FROM public.upgrade WHERE commit_sha = '$OLD_TARGET_SHA' ORDER BY id DESC LIMIT 1;" | tr -d ' ')
+    query_upgrade "SELECT id, commit_version, state, superseded_at, error FROM public.upgrade WHERE commit_sha = '$OLD_TARGET_SHA' ORDER BY id DESC LIMIT 1;"
+    [ "$OLD_TARGET_STATE" = superseded ] || { echo "the falsely-refused $OLD_TARGET row was not superseded by the remedy: state=$OLD_TARGET_STATE" >&2; exit 1; }
+    POST_LOG=$(VM_EXEC journalctl --user -u statbus-upgrade@statbus.service --since "$INSTALL_END_SINCE" --no-pager 2>/dev/null || true)
+    POST_REFUSALS=$(printf '%s\n' "$POST_LOG" | grep -c 'Could not record immutable source image identities before target pull:' || true)
+    POST_ATTEMPTS=$(printf '%s\n' "$POST_LOG" | grep -c "Executing upgrade to $OLD_TARGET" || true)
+    [ "$POST_REFUSALS" -eq 0 ] && [ "$POST_ATTEMPTS" -eq 0 ] || {
+        printf '%s\n' "$POST_LOG" >&2
+        echo "the false loop continued after the remedy: refusals=$POST_REFUSALS attempts=$POST_ATTEMPTS since $INSTALL_END_SINCE" >&2
+        exit 1
+    }
+    echo "  ✓ false loop ended: $OLD_TARGET row superseded, zero refusals and zero re-attempts since the install"
+    echo "PASS: old v2026.09.2 false loop reproduced; the operator remedy (pinned $INSTALL_TARGET_TAG install) completed and ended the loop"
+else
+    echo "PASS: old v2026.09.2 false loop reproduced; $INSTALL_TARGET_TAG captured daemon identities and completed through the official installer"
+fi
