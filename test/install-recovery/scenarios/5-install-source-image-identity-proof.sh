@@ -22,7 +22,7 @@ HARNESS_DEPLOYMENT_MODE="${HARNESS_DEPLOYMENT_MODE:-private}"
 HARNESS_UPGRADE_CHANNEL="${HARNESS_UPGRADE_CHANNEL:-prerelease}"
 OLD_RELEASE="${OLD_RELEASE:-v2026.09.2}"
 OLD_TARGET="${OLD_TARGET:-v2026.09.3}"
-OLD_LOOP_BUDGET_S="${OLD_LOOP_BUDGET_S:-180}"
+OLD_LOOP_BUDGET_S="${OLD_LOOP_BUDGET_S:-4500}"
 CANDIDATE_BUDGET_S="${CANDIDATE_BUDGET_S:-1200}"
 SUSTAINED_CHECKS="${SUSTAINED_CHECKS:-4}"
 SUSTAINED_INTERVAL_S="${SUSTAINED_INTERVAL_S:-65}"
@@ -156,9 +156,20 @@ wait_for_upgrade_candidate_ready "$VM_NAME" "$OLD_TARGET_SHA" 900
 VM_EXEC bash -c "cd ~/statbus && ./sb upgrade schedule '$OLD_TARGET'"
 
 echo "── bounded observation of the released false-refusal loop ──"
+# The claim is NOT quick on v2026.09.2 (traced, per the plan's open
+# hypothesis): the old daemon's discovery verifyArtifacts backlog runs ON THE
+# MAIN GOROUTINE (~12s per candidate over hundreds of freshly discovered rows),
+# and every claim path — boot, 30s heartbeat, NOTIFY — waits behind it. The
+# first live run of this proof expired at 180s with refusals=0 while the
+# journal showed nothing but one-verify-per-12s the whole window. The watch
+# therefore spans the backlog: each 'Images verified' line IS the daemon's own
+# designed progress (STATBUS-195 watchdog-feeding), so a stall means no new
+# journal line at all, not merely no refusal yet.
 START=$(date +%s)
 REFUSALS=0
 ATTEMPTS=0
+LAST_LOG_LINES=0
+STALL_S=0
 while true; do
     elapsed=$(( $(date +%s) - START ))
     LOG=$(VM_EXEC journalctl --user -u statbus-upgrade@statbus.service --since "$OLD_LOG_SINCE" --no-pager 2>/dev/null || true)
@@ -168,12 +179,24 @@ while true; do
     if [ "$REFUSALS" -ge 2 ] && [ "$ATTEMPTS" -eq 1 ]; then
         break
     fi
+    LOG_LINES=$(printf '%s\n' "$LOG" | grep -c . || true)
+    if [ "$LOG_LINES" -gt "$LAST_LOG_LINES" ]; then
+        LAST_LOG_LINES=$LOG_LINES
+        STALL_S=0
+    else
+        STALL_S=$((STALL_S + 10))
+        [ "$STALL_S" -lt 300 ] || {
+            printf '%s\n' "$LOG" >&2
+            echo "old daemon journal silent for ${STALL_S}s without a refusal — wedged, not backlog-slow (refusals=$REFUSALS attempt_started=$ATTEMPTS)" >&2
+            exit 1
+        }
+    fi
     [ "$elapsed" -lt "$OLD_LOOP_BUDGET_S" ] || {
         printf '%s\n' "$LOG" >&2
         echo "old daemon did not expose two false refusals within ${OLD_LOOP_BUDGET_S}s (refusals=$REFUSALS attempt_started=$ATTEMPTS)" >&2
         exit 1
     }
-    sleep 2
+    sleep 10
 done
 printf '%s\n' "$LOG" | grep -F 'source serving era cannot be established: pre-upgrade source containers have mixed tags:' >/dev/null
 printf '%s\n' "$LOG" | grep -F "want common source tag \"$OLD_SHORT\"" >/dev/null
