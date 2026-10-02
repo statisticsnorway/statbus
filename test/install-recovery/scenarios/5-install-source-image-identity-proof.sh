@@ -230,10 +230,27 @@ cp "$REPO_ROOT/install.sh" "$CANDIDATE_INSTALL_SCRIPT"
 upload_install_script_to_vm "$VM_NAME" "$CANDIDATE_INSTALL_SCRIPT" /tmp/statbus-install.sh
 INSTALL_LOG=$(mktemp)
 echo "── official candidate installer against the unchanged missing-tag condition ──"
-if ! VM_EXEC bash -c "cd ~ && STATBUS_INSTALL_VERSION='$INSTALL_TARGET_TAG' bash /tmp/statbus-install.sh --non-interactive" >"$INSTALL_LOG" 2>&1; then
+# The old daemon's refusal loop keeps RE-ATTEMPTING the doomed v2026.09.3 row
+# on its own cadence (the third live run: the ledger read 'failed' at
+# 08:22:16, the daemon had re-attempted by 08:22:35, and the candidate
+# installer probing at 08:22:36 hit 'An upgrade is already running'). The
+# installer's own instruction is 'wait, then retry' — and a re-run continues
+# where the last stopped, which is the operator surface the product sells.
+# Retry the SAME official command through the collisions; any refusal that is
+# NOT the upgrade-in-progress class is terminal.
+INSTALL_START=$(date +%s)
+while true; do
+    if VM_EXEC bash -c "cd ~ && STATBUS_INSTALL_VERSION='$INSTALL_TARGET_TAG' bash /tmp/statbus-install.sh --non-interactive" >"$INSTALL_LOG" 2>&1; then
+        break
+    fi
+    if grep -qF 'An upgrade is already running' "$INSTALL_LOG" && [ $(( $(date +%s) - INSTALL_START )) -lt 1800 ]; then
+        echo "  … old daemon's loop holds the mutex; retrying the official installer in 30s"
+        sleep 30
+        continue
+    fi
     cat "$INSTALL_LOG" >&2
     exit 1
-fi
+done
 cat "$INSTALL_LOG"
 
 START=$(date +%s)
