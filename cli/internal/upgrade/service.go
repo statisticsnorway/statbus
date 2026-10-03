@@ -9320,12 +9320,12 @@ func (d *Service) dockerImageReferenceID(ctx context.Context, reference string) 
 	return normalizedDockerImageID(string(out))
 }
 
-// sourceServingExpectedImageReferences renders the compose model from the
-// CURRENT working tree and proves that app/worker/proxy name that tree's source
-// commit, an immutable digest, or the explicit local development sentinel.
-// Immutable image IDs are captured separately before the target pull and kept
-// in the recovery marker. A mutable reference is never itself Source proof.
-func (d *Service) sourceServingExpectedImageReferences(ctx context.Context) (map[string]string, string, error) {
+// sourceServingRenderedImageReferences renders and parses the compose model from
+// the CURRENT working tree without deciding whether its version-tagged images
+// name HEAD. Capture uses this raw model as corroboration because installer
+// inline dispatch can check out Target while the generated environment still
+// renders the running Source references.
+func (d *Service) sourceServingRenderedImageReferences(ctx context.Context) (map[string]string, string, error) {
 	shaOut, err := runCommandOutput(d.projDir, "git", "rev-parse", "--short=8", "HEAD")
 	if err != nil {
 		return nil, "", &sourceServingEraUnknownError{Detail: fmt.Sprintf("read restored source commit: %v (%s)", err, strings.TrimSpace(shaOut))}
@@ -9355,6 +9355,19 @@ func (d *Service) sourceServingExpectedImageReferences(ctx context.Context) (map
 			return nil, "", &sourceServingEraUnknownError{Detail: fmt.Sprintf("restored source compose config has no image for %s", service)}
 		}
 		expected[service] = reference
+	}
+	return expected, sourceTag, nil
+}
+
+// sourceServingExpectedImageReferences renders the compose model from the
+// CURRENT working tree and proves that app/worker/proxy name that tree's source
+// commit, an immutable digest, or the explicit local development sentinel.
+// Immutable image IDs are captured separately before the target pull and kept
+// in the recovery marker. A mutable reference is never itself Source proof.
+func (d *Service) sourceServingExpectedImageReferences(ctx context.Context) (map[string]string, string, error) {
+	expected, sourceTag, err := d.sourceServingRenderedImageReferences(ctx)
+	if err != nil {
+		return nil, "", err
 	}
 	for _, service := range sourceVersionTaggedServingServices {
 		reference := expected[service]
@@ -9438,7 +9451,7 @@ func (d *Service) resolveSourceServingImageIdentities(ctx context.Context, targe
 		}
 	}
 
-	treeReferences, treeTag, err := d.sourceServingExpectedImageReferences(ctx)
+	treeReferences, treeTag, err := d.sourceServingRenderedImageReferences(ctx)
 	if err != nil {
 		return nil, err
 	}

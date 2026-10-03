@@ -385,6 +385,31 @@ func TestCaptureSourceServingImageIdentitiesAcceptsInlineTargetTree(t *testing.T
 	}
 }
 
+func TestCaptureSourceServingImageIdentitiesAcceptsInlineTargetCheckoutWithSourceRender(t *testing.T) {
+	setSourceStackImageIdentityEnv(t)
+	git := newGitRepoFixture(t)
+	sourceTag := git.oldSHA[:8]
+	installSourceCaptureDockerShim(t, sourceTag, sourceTag, sourceTag, sourceTag, nil)
+	t.Setenv("STATBUS_TEST_TREE_REST_IMAGE", "postgrest/postgrest:v12.2.8")
+
+	d := &Service{projDir: git.dir}
+	if err := d.writeUpgradeFlag(180, git.newSHA, nil, "test", "test", false); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = d.removeUpgradeFlag() })
+	if err := d.captureSourceServingImageIdentities(context.Background()); err != nil {
+		t.Fatalf("captureSourceServingImageIdentities with target checkout and source render: %v", err)
+	}
+	flag, err := ReadFlagFile(git.dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := servingEraExpected(sourceTag)
+	if flag == nil || !reflect.DeepEqual(flag.SourceServingImages, want) {
+		t.Fatalf("recorded source identities = %#v, want container-derived %#v", flag, want)
+	}
+}
+
 func TestCaptureSourceServingImageIdentitiesWritesIndependentAtomicCarrier(t *testing.T) {
 	setSourceStackImageIdentityEnv(t)
 	git := newGitRepoFixture(t)
