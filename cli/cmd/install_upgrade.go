@@ -60,9 +60,13 @@ func dispatchInstallState(projDir string, state install.State, detail *install.D
 // its own HolderService flag internally before any destructive step,
 // serialising against any concurrent ./sb install or service via the kernel
 // flock on tmp/upgrade-in-progress.json.
-// inlineDispatchMigrateToFloor and inlineDispatchExecute are seams over the
-// daemon-floor migration run and the inline dispatch itself, so tests can pin
-// their ordering. The livedb fixture proves the real SQL/schema contract.
+// inlineDispatchHasPendingAtOrBelowFloor, inlineDispatchMigrateToFloor, and
+// inlineDispatchExecute are seams over the daemon-floor check, migration run,
+// and inline dispatch itself, so tests can pin their ordering. The livedb
+// fixture proves the real SQL/schema contract.
+var inlineDispatchHasPendingAtOrBelowFloor = func(projDir string) (bool, error) {
+	return migrate.HasPendingAtOrBelow(projDir, migrate.DaemonSchemaFloor)
+}
 var inlineDispatchMigrateToFloor = func(projDir string) error {
 	sb := filepath.Join(projDir, "sb")
 	return runCmdDirTimeout(projDir, upgrade.MigrateUpTimeout, sb, "migrate", "up", "--to", strconv.FormatInt(migrate.DaemonSchemaFloor, 10), "--verbose")
@@ -102,10 +106,16 @@ func runInlineUpgradeScheduled(projDir string, detail *install.Detail) error {
 	// schema on which this binary's upgrade SQL may operate and currently includes
 	// 20260923202403, so it supplies claim_token without applying later target
 	// migrations before the upgrade's serialization and snapshot boundary. The
-	// full target delta remains inside executeUpgrade's Migrations step.
-	fmt.Println("Bringing the database schema up to the daemon floor before the upgrade claim ...")
-	if err := inlineDispatchMigrateToFloor(projDir); err != nil {
-		return fmt.Errorf("migrate the database schema to the daemon floor before the scheduled upgrade claim: %w", err)
+	// full target delta remains inside executeUpgrade's Migrations step. Avoid a
+	// no-op migrate subprocess because it still runs post_restore.sql outside the
+	// guarded upgrade pipeline. If the pending check fails, fail closed by
+	// retaining the previous behavior and running the floor migration.
+	pendingAtOrBelowFloor, pendingErr := inlineDispatchHasPendingAtOrBelowFloor(projDir)
+	if pendingAtOrBelowFloor || pendingErr != nil {
+		fmt.Println("Bringing the database schema up to the daemon floor before the upgrade claim ...")
+		if err := inlineDispatchMigrateToFloor(projDir); err != nil {
+			return fmt.Errorf("migrate the database schema to the daemon floor before the scheduled upgrade claim: %w", err)
+		}
 	}
 
 	if err := inlineDispatchExecute(ctx, svc, int(detail.ScheduledRowID), detail.TargetCommitSHA, detail.TargetDisplayName); err != nil {

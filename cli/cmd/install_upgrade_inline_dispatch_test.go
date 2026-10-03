@@ -22,10 +22,12 @@ func withInlineDispatchSeams(t *testing.T) (calls *[]string) {
 	calls = &record
 
 	prevMigrate := inlineDispatchMigrateToFloor
+	prevHasPending := inlineDispatchHasPendingAtOrBelowFloor
 	prevLoad := inlineDispatchLoadConfig
 	prevExecute := inlineDispatchExecute
 	t.Cleanup(func() {
 		inlineDispatchMigrateToFloor = prevMigrate
+		inlineDispatchHasPendingAtOrBelowFloor = prevHasPending
 		inlineDispatchLoadConfig = prevLoad
 		inlineDispatchExecute = prevExecute
 	})
@@ -33,6 +35,9 @@ func withInlineDispatchSeams(t *testing.T) (calls *[]string) {
 	inlineDispatchLoadConfig = func(context.Context, *upgrade.Service) error {
 		record = append(record, "load")
 		return nil
+	}
+	inlineDispatchHasPendingAtOrBelowFloor = func(string) (bool, error) {
+		return true, nil
 	}
 	inlineDispatchMigrateToFloor = func(string) error {
 		record = append(record, "migrate")
@@ -62,6 +67,34 @@ func TestInlineDispatchMigratesBeforeClaim(t *testing.T) {
 	got := strings.Join(*calls, ",")
 	if got != "load,migrate,execute" {
 		t.Fatalf("dispatch order = %q, want load,migrate,execute — the claim must never precede the schema catch-up (STATBUS-441's 42703)", got)
+	}
+}
+
+func TestInlineDispatchSkipsFloorMigrationWhenNothingPending(t *testing.T) {
+	calls := withInlineDispatchSeams(t)
+	inlineDispatchHasPendingAtOrBelowFloor = func(string) (bool, error) {
+		return false, nil
+	}
+
+	if err := runInlineUpgradeScheduled(t.TempDir(), scheduledDetail()); err != nil {
+		t.Fatalf("dispatch with faked seams: %v", err)
+	}
+	if got := strings.Join(*calls, ","); got != "load,execute" {
+		t.Fatalf("dispatch order = %q, want load,execute", got)
+	}
+}
+
+func TestInlineDispatchPendingCheckFailureRunsFloorMigration(t *testing.T) {
+	calls := withInlineDispatchSeams(t)
+	inlineDispatchHasPendingAtOrBelowFloor = func(string) (bool, error) {
+		return false, errors.New("could not inspect applied migrations")
+	}
+
+	if err := runInlineUpgradeScheduled(t.TempDir(), scheduledDetail()); err != nil {
+		t.Fatalf("dispatch with faked seams: %v", err)
+	}
+	if got := strings.Join(*calls, ","); got != "load,migrate,execute" {
+		t.Fatalf("dispatch order = %q, want load,migrate,execute on pending-check failure", got)
 	}
 }
 
