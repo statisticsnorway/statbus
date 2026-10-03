@@ -75,3 +75,14 @@ AC#1 is no longer claimed from seam tests. `TestInlineScheduledClaimPre382Undefi
 AC#1 met by the livedb fixture. AC#3 met by the seam tests (load → floor migrate → execute; abort before claim on floor failure) plus the floor contract (above-floor migrations stay inside executeUpgrade). AC#2 is only pinned by call order, not by a captured operator transcript; it stays unchecked until the rc.12 guest proof (436 scheduled path, which drives exactly this dispatch on a v2026.09.2 schema) shows the floor line before the claim.
 
 Known tooling gap found here: `./dev.sh test-livedb` refuses in a fresh worktree whose `.env.config` still carries SLACK_TOKEN (config validation wants it in `.env.credentials`); the targeted run used the direct livedb tier instead.
+
+2026-10-03 09:00 UTC, regression found by the rc.12 upgrade arcs (run 37036597900, 38/40 green). `postswap-mid-migration-kill` ("B reached 'scheduled', expected 'completed'") and `postswap-mid-tx-kill` ("expected flag file present after kill") failed. Logs: `tmp/rc12-arc-midmig.log`, `tmp/rc12-arc-midtx.log`.
+
+Mechanism:
+- The pre-claim floor step always runs `migrate up --to floor`.
+- With 0 pending, `migrate up` still runs `post_restore.sql` through `runPsqlFile`. That function hosts both harness kill sites.
+- The subprocess inherits `STATBUS_INJECT_AT` and the one-shot arming file. So the kill fired before the claim: no flag, row still `scheduled`. It should have fired inside the upgrade's guarded Migrations step.
+
+Production impact: none. Injection is harness-only, and a real crash at that point leaves the box untouched. The test impact is real, though: the arcs lost their intended crash placement.
+
+Fix (rc.13, branch `fix/441-floor-skip-when-current`): run the pre-claim floor step only when a migration at or below the floor is unapplied. That restores the exact pre-441 behavior on every 09.3+ box.
