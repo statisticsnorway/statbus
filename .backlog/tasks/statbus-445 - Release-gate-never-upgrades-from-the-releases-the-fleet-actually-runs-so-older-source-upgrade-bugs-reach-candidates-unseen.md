@@ -47,31 +47,27 @@ rc.12 and rc.13 passed every machine gate (rc.13: arcs 41/41, fleet, smoke, hard
 
 The gate's only upgrade source (09.3) matches 2 of the 7 boxes.
 
-## Principled fix: one rung, "upgrade from every supported source"
+## Principled fix (owner ruling 2026-10-03: no big steps)
 
-1. **Source matrix:** the distinct stable releases the fleet runs, with a declared floor (owner decides: the fleet's oldest, or a support window). Today that is 08.0, 09.0, 09.2 and 09.3. Each source is installed with that release's own installer, so it carries its era's real `.env.config`, credentials, schema and ledger. Nothing is synthesized.
-2. **Paths per source:**
-   - (a) **service path:** register + schedule, and the box's own daemon upgrades (the production norm)
-   - (b) **operator path:** `./cloud.sh install <box> <tag>`'s pinned `install.sh` (the 436 `CANDIDATE_PATH=operator` shape)
-   - (c) **schedule-then-installer:** the 436 `CANDIDATE_PATH=scheduled` shape, if the owner keeps it a supported route
-3. **Pass criteria (436's tail):**
-   - the target row is `completed`
-   - data counts unchanged
-   - checkout, binary and resident daemon all at the target
-   - db/app/worker/proxy at the target
-   - healthy across ≥3 scheduler ticks with no unit restarts
-   - no retry loop
-4. **Execution:** the existing LXD fleet host. One installed checkpoint per source release (built once per candidate cycle, reusable while the source is unchanged), forked per path. The cost is about 5–10 min per cell, inside the existing `LXD_HOST_SLOTS` budget.
-5. **Gate:** `./sb release stable` requires the whole matrix green at the candidate commit, same contract as the arc harness (`WorkflowLXDFleet` style, no per-cell inheritance until STATBUS-352/353 coverage says otherwise).
+The class is narrow: **an old release's on-disk files meet new install, upgrade or recovery code.** That calls for small tests that feed each supported release's real file shapes to every entry point that reads them, not a VM matrix.
 
-## Owner questions (block only the parts noted)
+1. **Fixtures with provenance.** Capture the `.env.config` (and `.env.credentials` where one exists) that each supported release actually generates (v2026.08.0, v2026.09.0, v2026.09.2, v2026.09.3), using that release's own generator. A checked-in capture script and README record the tag, commit and command. Secret values become placeholders, but the keys stay exactly where that release puts them.
+2. **One table-driven Go test:** every fixture against every config-generation entry point used by install, upgrade and recovery:
+   - the Settings step (`GenerateForInstallInDir`)
+   - the service's `config generate --migrate-legacy-secrets`
+   - the install crash-recovery call
+   - any other site in the STATBUS-444 audit
 
-- Q1: is "schedule, then `install.sh` / `./sb install`" a supported operator route? AGENTS.md documents "schedule, then `./sb install` to dispatch immediately". If yes, path (c) is in every cell. If no, the docs change and (c) leaves the matrix.
-- Q2: what is the source floor: whatever the fleet runs (jo's 08.0 today), or a declared window (e.g. the last 3 stables)?
+   Generation must succeed and the secrets must land in `.env.credentials`. Drive the real entry points, not copies.
+3. **Same pattern for the other two old-era shapes, which already have this layer:**
+   - **old schema:** the STATBUS-441 livedb fixture replays migrations through the predecessor and runs the real claim
+   - **old `.env` tag vs new HEAD:** the STATBUS-443 shim regression
+
+   New old-era inputs join the same table when found.
 
 ## Acceptance criteria
 
-- [ ] #1 A source-matrix workflow on the LXD host installs each source release with its own installer, upgrades each to the candidate by every supported path, and asserts the pass criteria above per cell.
-- [ ] #2 The source list is derived, not hand-maintained: the fleet's distinct stable versions plus the declared floor, resolved at cut time and printed in the run summary.
-- [ ] #3 Proven RED/GREEN: against v2026.10.0-rc.13, the 09.2 source cell on path (c) fails with STATBUS-444's refusal, and against the candidate carrying the 444 fix it passes.
-- [ ] #4 `./sb release stable` refuses unless the matrix run is green at the candidate commit. The ladder doc gains the rung with what it proves and what it may skip.
+- [ ] #1 Per-release config fixtures exist with recorded provenance, produced by each release's own generator.
+- [ ] #2 A table-driven Go test runs every fixture through every install/upgrade/recovery config-generation entry point and asserts success plus secret migration.
+- [ ] #3 Proven RED on master for the 09.2/09.0/08.0 fixtures through install crash recovery (STATBUS-444), and GREEN with the 444 fix.
+- [ ] #4 When a new stable is released, its fixture is added. This is recorded as a step in doc/releases.md (the stable-promotion checklist).
