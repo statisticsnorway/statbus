@@ -3,9 +3,10 @@ id: STATBUS-443
 title: >-
   Inline scheduled dispatch after an installer checkout refuses source capture,
   because the tree renders neither the containers nor the target
-status: To Do
+status: In Progress
 assignee: []
 created_date: '2026-10-02 17:25'
+updated_date: '2026-10-03 09:16'
 labels:
   - upgrade
   - install
@@ -57,11 +58,12 @@ The capture's job is to record what the containers run. The tree is corroboratio
 
 Option 1 is the narrower change and matches the documented intent ("the current tree is only corroboration").
 
-## Acceptance criteria
-
-- [ ] #1 A unit test with the docker shim reproduces the real shape (HEAD = target, rendered compose tag = source = containers' `.Config.Image`), fails on current master with this exact error, and passes after the fix.
-- [ ] #2 The genuine-ambiguity refusals stay fail-closed: a render that matches neither the containers nor the target, mixed container tags, a digest without a tag, and a tagless reference all still refuse.
+## Acceptance Criteria
+<!-- AC:BEGIN -->
+- [x] #1 A unit test with the docker shim reproduces the real shape (HEAD = target, rendered compose tag = source = containers' `.Config.Image`), fails on current master with this exact error, and passes after the fix.
+- [x] #2 The genuine-ambiguity refusals stay fail-closed: a render that matches neither the containers nor the target, mixed container tags, a digest without a tag, and a tagless reference all still refuse.
 - [ ] #3 The STATBUS-436 scheduled-path guest proof (`CANDIDATE_PATH=scheduled`) passes against a candidate carrying the fix: the carrier binds every service's exact pre-pull identity, the upgrade completes, the box stays healthy across scheduler ticks, and the 441 floor line precedes the claim in the transcript (closes 441 AC#2).
+<!-- AC:END -->
 
 ## Implementation Notes
 
