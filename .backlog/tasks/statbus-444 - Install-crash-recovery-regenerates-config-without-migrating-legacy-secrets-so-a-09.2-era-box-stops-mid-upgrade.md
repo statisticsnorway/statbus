@@ -1,0 +1,61 @@
+---
+id: STATBUS-444
+title: >-
+  Install crash recovery regenerates config without migrating legacy secrets,
+  so a 09.2-era box stops mid-upgrade
+status: In Progress
+assignee: []
+created_date: '2026-10-03 10:05'
+labels:
+  - upgrade
+  - install
+  - recovery
+  - config
+dependencies: []
+references:
+  - STATBUS-361
+  - STATBUS-436
+  - STATBUS-445
+priority: high
+---
+
+## Issue
+
+The official sequence is register, then schedule (daemon down), then a version-pinned `install.sh`, then `./sb install` inline-dispatches the row. On a box whose `.env.config` still holds legacy secrets, it stops after the binary swap, inside maintenance:
+
+    M 09:52:00   Replacing ./sb with the v2026.10.0-rc.13 binary (./sb.old kept for rollback) ... ok
+    M 09:52:00   Old binary exiting so the new binary can take over ...
+    The previous upgrade stopped unexpectedly. Recovery will run now.
+    Error: SLACK_TOKEN in .env.config is a secret; run cd /home/statbus/statbus && ./sb install to migrate it to .env.credentials
+    Installation stopped: crash recovery: crash recovery: regenerate config: exit status 1: ...
+
+v2026.09.2 and earlier write `SLACK_TOKEN` and `SEQ_API_KEY` into `.env.config` themselves.
+
+## Mechanism
+
+- After the swap the old binary `syscall.Exec`s the new one. The new binary re-enters `./sb install`, and `runCrashRecovery` (cli/cmd/install_upgrade.go ~336) runs `./sb config generate` **without** `--migrate-legacy-secrets`.
+- `loadOrGenerateConfig` (cli/internal/config/config.go ~368) refuses on the secret.
+- The upgrade service's own recovery boot already passes the flag (service.go ~3001, ~10255; f8503adca, STATBUS-361). The install recovery path was missed.
+- The plain install path is unaffected: its Settings step uses `GenerateForInstallInDir`, which migrates first.
+
+## Scope
+
+- **Affected:** any box whose `.env.config` still holds legacy tokens when `./sb install` inline-dispatches a scheduled upgrade. Probe 2026-10-03 shows these boxes in that state: demo (09.2), et (09.0), ug (09.0), jo (08.0).
+- **Not affected:**
+  - the version-pinned install with no scheduled row (`./cloud.sh install`): the 436 operator path passed on rc.12 and rc.13
+  - the daemon's own upgrade
+  - 09.3+ boxes, whose secrets have already moved
+
+## Evidence
+
+The 436 scheduled-path proof against v2026.10.0-rc.13 (2026-10-03 09:42–10:00 UTC), guest `…-39285`. Evidence: `tmp/436-scheduled-rc13-evidence/` (`statbus-tmp/install-last-run-output.txt`). The same run confirmed the 441 and 443 fixes live: the floor applied, the claim succeeded, and capture said "Recording immutable source image identities ... ok".
+
+## Principled fix
+
+Pass `--migrate-legacy-secrets` at the install crash-recovery `config generate`. That is an install/upgrade context, exactly what the flag is for, and it matches the service path. Audit every other `config generate` call site for the same exposure, and record a verdict per site.
+
+## Acceptance criteria
+
+- [ ] #1 The install crash-recovery path invokes config generation with legacy-secret migration, pinned by a behavioral test (recorded command line or seam), not a source grep.
+- [ ] #2 Every `config generate` call site in cli/ has a recorded verdict (needs the flag / cannot see legacy secrets / old binary that lacks the flag), and those that need it pass it.
+- [ ] #3 The STATBUS-436 scheduled-path guest proof passes against the candidate carrying the fix (this also closes 443 AC#3, 441 AC#2 and 436 AC#5).
