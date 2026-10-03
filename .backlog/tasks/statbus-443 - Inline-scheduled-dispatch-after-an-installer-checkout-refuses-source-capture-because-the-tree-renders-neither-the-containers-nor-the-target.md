@@ -62,3 +62,11 @@ Option 1 is the narrower change and matches the documented intent ("the current 
 - [ ] #1 A unit test with the docker shim reproduces the real shape (HEAD = target, rendered compose tag = source = containers' `.Config.Image`), fails on current master with this exact error, and passes after the fix.
 - [ ] #2 The genuine-ambiguity refusals stay fail-closed: a render that matches neither the containers nor the target, mixed container tags, a digest without a tag, and a tagless reference all still refuse.
 - [ ] #3 The STATBUS-436 scheduled-path guest proof (`CANDIDATE_PATH=scheduled`) passes against a candidate carrying the fix: the carrier binds every service's exact pre-pull identity, the upgrade completes, the box stays healthy across scheduler ticks, and the 441 floor line precedes the claim in the transcript (closes 441 AC#2).
+
+## Implementation Notes
+
+2026-10-03 09:16 UTC: fixed with option 1. `resolveSourceServingImageIdentities` now corroborates against `sourceServingRenderedImageReferences`, the raw compose render with no HEAD-tag requirement. It accepts exactly two shapes: all-service equality between the render and the containers' references, or the existing strict target render. Every other render still refuses. The target-era and restored-source callers keep the strict `sourceServingExpectedImageReferences`.
+
+New shim regression: HEAD is the target, while the rendered tree, the containers' Config.Image and the immutable IDs are all the source. It reproduces the field refusal on the parent and passes with the fix. The mixed-tag and unrelated-tree refusals still hold.
+
+Independent review: MERGE (`tmp/443-review.md`). Merged as eb99b03a9 (patch-id equal to the reviewed 682b41d09); merged-tree `go test ./cmd ./internal/migrate ./internal/upgrade ./internal/install` passed. AC#3 (scheduled-path guest proof against the candidate) runs against rc.13.
