@@ -332,8 +332,7 @@ func runCrashRecovery(projDir string, restartIfRecovered *func()) error {
 	// Regenerate .env from .env.config so current-binary-expected keys
 	// (e.g. COMMIT_SHORT added in rc.62) are present before EnsureDBReachable,
 	// which uses .env's connection settings to verify the DB is reachable.
-	sb := filepath.Join(projDir, "sb")
-	if err := runCmdDir(projDir, sb, "config", "generate"); err != nil {
+	if err := regenerateCrashRecoveryConfig(projDir, runCmdDir); err != nil {
 		return fmt.Errorf("crash recovery: regenerate config: %w", err)
 	}
 
@@ -497,6 +496,7 @@ func runCrashRecovery(projDir string, restartIfRecovered *func()) error {
 	// ran above) but this path does not #14-terminate an orphan — the orphan
 	// self-resolves on client-gone, or the next service start's boot-migrate
 	// timeout handler reaps it.
+	sb := filepath.Join(projDir, "sb")
 	if !skipBootMigrate && bootMigrate {
 		if err := runCmdDirTimeout(projDir, upgrade.MigrateUpTimeout, sb, "migrate", "up", "--to", strconv.FormatInt(migrate.DaemonSchemaFloor, 10), "--verbose"); err != nil {
 			// STATBUS-017: symmetric to service.go's boot-migrate-up handler. A
@@ -538,6 +538,11 @@ func runCrashRecovery(projDir string, restartIfRecovered *func()) error {
 	}
 	recovered = true
 	return nil
+}
+
+func regenerateCrashRecoveryConfig(projDir string, run func(string, string, ...string) error) error {
+	sb := filepath.Join(projDir, "sb")
+	return run(projDir, sb, "config", "generate", "--migrate-legacy-secrets")
 }
 
 // An install-held marker only needs its stale mutex cleared. Boot-migrating
