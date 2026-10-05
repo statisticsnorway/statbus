@@ -14,10 +14,10 @@ import (
 	statbusconfig "github.com/statisticsnorway/statbus/cli/internal/config"
 )
 
-func prepareLegacyConfigFixture(t *testing.T) (string, []byte, []byte) {
+func prepareLegacyConfigFixture(t *testing.T, release string) (string, []byte, []byte) {
 	t.Helper()
 	dir := t.TempDir()
-	fixtureDir := filepath.Join("..", "config", "testdata", "legacy-config", "v2026.09.2")
+	fixtureDir := filepath.Join("..", "config", "testdata", "legacy-config", release)
 	for _, name := range []string{".env.config", ".env.credentials"} {
 		contents, err := os.ReadFile(filepath.Join(fixtureDir, name))
 		if err != nil {
@@ -53,35 +53,39 @@ func prepareLegacyConfigFixture(t *testing.T) (string, []byte, []byte) {
 }
 
 func TestOperatorConfigSnapshotRestoresLegacyPlacementAfterTargetMigration(t *testing.T) {
-	projDir, configBefore, credentialsBefore := prepareLegacyConfigFixture(t)
-	backupPath := filepath.Join(t.TempDir(), backupActiveName)
-	if err := os.Mkdir(backupPath, 0700); err != nil {
-		t.Fatal(err)
-	}
-	if err := snapshotOperatorConfig(projDir, backupPath); err != nil {
-		t.Fatal(err)
-	}
-	if err := statbusconfig.GenerateForInstallInDir(projDir, false); err != nil {
-		t.Fatal(err)
-	}
-	migratedConfig, err := os.ReadFile(filepath.Join(projDir, ".env.config"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if strings.Contains(string(migratedConfig), "SLACK_TOKEN=fixture-slack_token") || strings.Contains(string(migratedConfig), "SEQ_API_KEY=fixture-seq_api_key") {
-		t.Fatalf("target migration did not move legacy tokens: %s", migratedConfig)
-	}
-	if err := restoreOperatorConfig(projDir, backupPath); err != nil {
-		t.Fatal(err)
-	}
-	assertFileBytes(t, filepath.Join(projDir, ".env.config"), configBefore)
-	assertFileBytes(t, filepath.Join(projDir, ".env.credentials"), credentialsBefore)
-	credentialsInfo, err := os.Stat(filepath.Join(projDir, ".env.credentials"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if got := credentialsInfo.Mode().Perm(); got != 0600 {
-		t.Fatalf("credentials mode = %o, want 600", got)
+	for _, release := range []string{"v2026.08.0", "v2026.09.0", "v2026.09.2"} {
+		t.Run(release, func(t *testing.T) {
+			projDir, configBefore, credentialsBefore := prepareLegacyConfigFixture(t, release)
+			backupPath := filepath.Join(t.TempDir(), backupSyncingName)
+			if err := os.Mkdir(backupPath, 0700); err != nil {
+				t.Fatal(err)
+			}
+			if err := snapshotOperatorConfig(projDir, backupPath); err != nil {
+				t.Fatal(err)
+			}
+			if err := statbusconfig.GenerateForInstallInDir(projDir, false); err != nil {
+				t.Fatal(err)
+			}
+			migratedConfig, err := os.ReadFile(filepath.Join(projDir, ".env.config"))
+			if err != nil {
+				t.Fatal(err)
+			}
+			if strings.Contains(string(migratedConfig), "SLACK_TOKEN=fixture-slack_token") || strings.Contains(string(migratedConfig), "SEQ_API_KEY=fixture-seq_api_key") {
+				t.Fatalf("target migration did not move legacy tokens: %s", migratedConfig)
+			}
+			if err := restoreOperatorConfig(projDir, backupPath); err != nil {
+				t.Fatal(err)
+			}
+			assertFileBytes(t, filepath.Join(projDir, ".env.config"), configBefore)
+			assertFileBytes(t, filepath.Join(projDir, ".env.credentials"), credentialsBefore)
+			credentialsInfo, err := os.Stat(filepath.Join(projDir, ".env.credentials"))
+			if err != nil {
+				t.Fatal(err)
+			}
+			if got := credentialsInfo.Mode().Perm(); got != 0600 {
+				t.Fatalf("credentials mode = %o, want 600", got)
+			}
+		})
 	}
 }
 
@@ -110,7 +114,7 @@ func TestOperatorConfigSnapshotRestoresAbsentFiles(t *testing.T) {
 }
 
 func TestForwardCompletionKeepsMigratedConfig(t *testing.T) {
-	projDir, configBefore, _ := prepareLegacyConfigFixture(t)
+	projDir, configBefore, _ := prepareLegacyConfigFixture(t, "v2026.09.2")
 	backupPath := filepath.Join(t.TempDir(), backupActiveName)
 	if err := os.Mkdir(backupPath, 0700); err != nil {
 		t.Fatal(err)

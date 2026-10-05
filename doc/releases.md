@@ -28,6 +28,8 @@ git tag v2026.03.0
 git push origin v2026.03.0
 ```
 
+After publishing a stable, capture its generated config fixture with `cli/internal/config/testdata/legacy-config/capture.sh <tag>` and commit the result.
+
 ### Pre-release
 
 ```bash
