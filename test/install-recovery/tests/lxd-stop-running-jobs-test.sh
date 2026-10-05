@@ -26,7 +26,13 @@ if [ -z "${_SRJ_OWNED:-}" ]; then
     # descendants of the test process, by walking ppid (its nested scenario scripts
     # run in their own groups, so the group alone would leave them behind).
     _desc() { local p k; for p in "$@"; do for k in $(ps -axo pid=,ppid= | awk -v p="$p" '$2==p{print $1}'); do echo "$k"; _desc "$k"; done; done; }
-    ( sleep "$WATCHDOG_S"
+    # The watchdog's sleep must die with the watchdog: the outer shell kills the
+    # watchdog subshell when the test finishes, and a foreground `sleep` child
+    # would outlive it holding the caller's stdout (a `| tee` then never sees EOF;
+    # observed twice on 2026-10-05). Background the sleep and kill it on TERM.
+    ( sleep "$WATCHDOG_S" & sleeper=$!
+      trap 'kill "$sleeper" 2>/dev/null; exit 0' TERM
+      wait "$sleeper"
       if kill -0 "$child" 2>/dev/null; then
           echo "WATCHDOG: test did not finish in ${WATCHDOG_S}s; stopping ITS OWN group and descendants (NOT an assertion failure)"
           # KILL at once, in the same step: the outer shell kills this watchdog as
