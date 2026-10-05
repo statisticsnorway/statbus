@@ -463,9 +463,23 @@ echo "  ✓ daemon alive-idle, healthy + data intact under the park"
 echo ""
 echo "── freeing the disk (removing the fill file) — the external resource fix ──"
 VM_EXEC bash -c "cd ~/statbus && rm -f ${FILL_FILE}"
+# The guest's root is a btrfs subvolume (LXD pool statbus-arc-fill). btrfs frees
+# an unlinked file's extents in a later transaction commit, so statfs can still
+# report the old free space for a short while after `rm` returns. rc.14's run
+# 37295764118 read "3 GB" one instant after the rm while its own diagnostics,
+# ~0.05 s later, showed 18 GB free on the same 30 GB disk. Wait for the freed
+# space to become visible (bounded), as the un-park attempt itself would see it,
+# instead of judging one racy read.
+FREE_WAIT_BUDGET_S=60
+FREE_WAITED=0
 AVAIL_FREED_GB=$(( $(avail_bytes) / 1024 / 1024 / 1024 ))
-echo "  free after removal: ${AVAIL_FREED_GB} GB"
-[ "$AVAIL_FREED_GB" -ge 5 ] || { echo "✗ disk still below 5 GB after removing the fill file (${AVAIL_FREED_GB} GB) — the un-park attempt would re-park" >&2; exit 1; }
+while [ "$AVAIL_FREED_GB" -lt 5 ] && [ "$FREE_WAITED" -lt "$FREE_WAIT_BUDGET_S" ]; do
+    sleep 2
+    FREE_WAITED=$(( FREE_WAITED + 2 ))
+    AVAIL_FREED_GB=$(( $(avail_bytes) / 1024 / 1024 / 1024 ))
+done
+echo "  free after removal: ${AVAIL_FREED_GB} GB (visible after ${FREE_WAITED}s)"
+[ "$AVAIL_FREED_GB" -ge 5 ] || { echo "✗ disk still below 5 GB ${FREE_WAITED}s after removing the fill file (${AVAIL_FREED_GB} GB) — the un-park attempt would re-park" >&2; exit 1; }
 echo "  ✓ disk freed above the 5 GB floor"
 
 # ── UN-PARK: ./sb install → one fresh attempt → the SAME row runs to completed. ──
