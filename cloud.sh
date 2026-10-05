@@ -567,6 +567,7 @@ cmd_install_one() {
     local server="$1"
     local version="${2:-}"
     local exit_code=0
+    local install_out=""
 
     # Resolve trust key user: explicit env var first, then remote .env.config
     # written by a prior successful run — operator sets it once, remembered forever.
@@ -645,8 +646,8 @@ cmd_install_one() {
             return 1
         fi
         echo "Installing $server at $version via $INSTALL_URL ..."
-        ssh_entry "$server" \
-            "curl -fsSL ${INSTALL_URL} | bash -s -- --version $version $(trust_flag "$resolved_trust_user")" 2>&1 \
+        install_out=$(ssh_entry "$server" \
+            "curl -fsSL ${INSTALL_URL} | bash -s -- --version $version $(trust_flag "$resolved_trust_user")" 2>&1) \
             || exit_code=$?
     else
         # Gate: verify release artifacts are fully published before touching
@@ -666,14 +667,15 @@ cmd_install_one() {
         # `./sb install` refuses-or-takes-over a running upgrade itself
         # (STATBUS-039/-041).
         # Exit code 42 = service needs root (not a failure).
-        ssh_entry "$server" \
-            "curl -fsSL ${INSTALL_URL} | bash -s -- --channel prerelease $(trust_flag "$resolved_trust_user")" 2>&1 \
+        install_out=$(ssh_entry "$server" \
+            "curl -fsSL ${INSTALL_URL} | bash -s -- --channel prerelease $(trust_flag "$resolved_trust_user")" 2>&1) \
             || exit_code=$?
     fi
+    printf '%s\n' "$install_out"
 
     if [ "$exit_code" -ne 0 ]; then
         echo "--- $server install FAILED (exit code $exit_code) ---"
-        if [ -z "$resolved_trust_user" ]; then
+        if [ -z "$resolved_trust_user" ] && printf '%s\n' "$install_out" | grep -Eqi 'failed signature verification|signature verification failed|release signature could not be verified'; then
             echo ""
             echo "If this failed because of an invalid signing key, re-run with:"
             echo "  FLEET_TRUST_KEY_USER=jhf ./cloud.sh install $server"
