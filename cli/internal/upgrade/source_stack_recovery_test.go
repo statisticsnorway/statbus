@@ -46,7 +46,14 @@ func writeSourceStackRecoveryFlag(t *testing.T, projDir, sourceTag string, ident
 	if identities == nil {
 		identities = servingEraExpected(sourceTag)
 	}
-	flag := UpgradeFlag{ID: 1, Holder: HolderService, Phase: PhaseOldSbUpgrading, SourceServingImages: identities}
+	backupPath := filepath.Join(projDir, "test-pre-upgrade-active")
+	if err := os.MkdirAll(backupPath, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := snapshotOperatorConfig(projDir, backupPath); err != nil {
+		t.Fatal(err)
+	}
+	flag := UpgradeFlag{ID: 1, Holder: HolderService, Phase: PhaseOldSbUpgrading, BackupPath: backupPath, SourceServingImages: identities}
 	data, err := json.Marshal(flag)
 	if err != nil {
 		t.Fatal(err)

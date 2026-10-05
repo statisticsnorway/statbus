@@ -8518,7 +8518,13 @@ func (d *Service) parkServiceRecovery(ctx context.Context, id int, restoreTarget
 		d.appendParkNarrative(id, refusal)
 		return nil
 	}
-	if err := d.restoreSourceServices(ctx, restoreTargetSHA, progress); err != nil {
+	backupPathValue, backupPathSource := d.flagSourcedBackupPath()
+	if backupPathValue == nil || strings.TrimSpace(*backupPathValue) == "" {
+		d.appendParkNarrative(id, fmt.Sprintf("services held down: the source-era operator configuration snapshot identity is unavailable from %s; refusing to regenerate source config without it", backupPathSource))
+		return nil
+	}
+	backupPath := *backupPathValue
+	if err := d.restoreSourceServices(ctx, restoreTargetSHA, backupPath, progress); err != nil {
 		d.appendParkNarrative(id, fmt.Sprintf("source-version service restore did not complete (%v) — the box stays behind the maintenance page until the cause is fixed and the upgrade re-triggered", err))
 		return nil
 	}
@@ -8710,12 +8716,15 @@ func migrationMaxInGitTree(projDir, sha string) (int64, error) {
 // so a pre-checkout park needs no special case (ruling Q2 rider i). The 197 boundary (rider ii):
 // this runs only in attempts that got past backup — their pin and sb.old are their own, so
 // identity holds; the never-ran class (empty backupPath) is 197's guard and the two never collide.
-func (d *Service) restoreSourceServices(ctx context.Context, restoreTargetSHA string, progress *ProgressLog) error {
+func (d *Service) restoreSourceServices(ctx context.Context, restoreTargetSHA, backupPath string, progress *ProgressLog) error {
 	progress.Write("Restoring source-version services:")
 	if err := d.restoreGitState(restoreTargetSHA, progress); err != nil {
 		return fmt.Errorf("restore git tree to source: %w", err)
 	}
 	d.restoreBinary(progress)
+	if err := restoreOperatorConfig(d.projDir, backupPath); err != nil {
+		return fmt.Errorf("restore operator configuration: %w", err)
+	}
 	if err := runCommandToLog(d.projDir, 2*time.Minute, progress.File(), "park-config-generate", progress.bump, "./sb", "config", "generate"); err != nil {
 		return fmt.Errorf("config generate at source: %w", err)
 	}
@@ -12720,6 +12729,14 @@ func (d *Service) restoreAndFinalize(ctx context.Context, id int, version string
 	var sourceRestoreErr, configGenerateErr error
 	if backupPath != "" {
 		sourceRestoreErr = d.restoreGitState("", progress)
+	}
+	if backupPath != "" && sourceRestoreErr == nil {
+		sourceRestoreErr = restoreOperatorConfig(projDir, backupPath)
+		if sourceRestoreErr != nil {
+			progress.Write("  Restoring operator configuration for the source version ... failed: %v", sourceRestoreErr)
+		} else {
+			progress.Write("  Restoring operator configuration for the source version ... ok")
+		}
 	}
 	if backupPath != "" && sourceRestoreErr == nil {
 		configGenerateErr = runCommandToLog(projDir, 2*time.Minute, progress.File(), "rollback-config-generate", nil,

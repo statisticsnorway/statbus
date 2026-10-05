@@ -143,7 +143,7 @@ func TestFailedSourceRecreateContainmentCoversEverySourceStackCaller(t *testing.
 		t.Fatal("failed source recreation must use the shared stop-and-positive-verification containment shape")
 	}
 
-	if !strings.Contains(bodies["parkServiceRecovery"].body, "d.restoreSourceServices(ctx, restoreTargetSHA, progress)") {
+	if !strings.Contains(bodies["parkServiceRecovery"].body, "d.restoreSourceServices(ctx, restoreTargetSHA, backupPath, progress)") {
 		t.Fatal("park recovery no longer reaches the contained source-stack boundary")
 	}
 	if !strings.Contains(bodies["recoveryRollback"].body, "d.convergeUnchangedSourceServices(ctx,") {

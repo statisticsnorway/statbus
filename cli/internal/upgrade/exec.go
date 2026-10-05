@@ -864,6 +864,16 @@ func (d *Service) backupDatabase(progress *ProgressLog, stamp string) (databaseB
 		return databaseBackup{}, fmt.Errorf("rsync backup: %w", rsyncErr)
 	}
 
+	// Snapshot the operator-owned configuration into the same directory that the
+	// database backup is about to publish. The syncing→active rename below commits
+	// both artifacts under one backup identity, before target-era code can rewrite
+	// legacy secret placement. restoreDatabase excludes this private subtree from
+	// PGDATA while rollback restores it before source config generation.
+	if err := snapshotOperatorConfig(d.projDir, syncingDir); err != nil {
+		close(rsyncDone)
+		return databaseBackup{}, fmt.Errorf("snapshot operator configuration: %w", err)
+	}
+
 	// fsync the syncing dir's FILE DATA before the commit rename. rsync does not
 	// fsync by default, and an os.Rename of the dir entry persists only the
 	// NAME, not the file contents — a crash after the rename but before the
@@ -1071,7 +1081,7 @@ func (d *Service) restoreDatabase(progress *ProgressLog, backupPath string) erro
 		"docker", "run", "--rm",
 		"-v", backupDir+":/source:ro",
 		"-v", volumeName+":/dest",
-		"alpine", "sh", "-c", "apk add --no-cache rsync >/dev/null 2>&1 && rsync -a --delete /source/ /dest/",
+		"alpine", "sh", "-c", "apk add --no-cache rsync >/dev/null 2>&1 && rsync -a --delete --exclude=/"+operatorConfigSnapshotDirName+"/ /source/ /dest/",
 	); err != nil {
 		progress.Write("Restoring database from %s ... failed: %v", homeRelativePath(backupDir), err)
 		return fmt.Errorf("%s: %w", ErrRollbackDBRestore, err)
