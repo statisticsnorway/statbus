@@ -756,8 +756,9 @@ func runInstall() (installErr error) {
 				}()
 				var recoveryErr error
 				if adoptedUpgradeLock != nil {
+					// Ownership of the adopted lock passes to crash recovery,
+					// which installs it on its Service and releases it there.
 					recoveryErr = runCrashRecoveryWithLock(installDir, &restartIfRecovered, adoptedUpgradeLock)
-					adoptedUpgradeLock = nil
 				} else {
 					recoveryErr = recoverCrashedInstall(installDir, &restartIfRecovered)
 				}

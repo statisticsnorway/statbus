@@ -91,18 +91,18 @@ func TestAdoptInheritedInstallFlag(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			dir, fd := inheritedInstallFixture(t, tc.holder, tc.token, tc.held)
-			defer syscall.Close(fd)
+			defer func(fd int) { _ = syscall.Close(fd) }(fd)
 			if tc.wrong {
 				other, err := os.Create(filepath.Join(dir, "other-lock"))
 				if err != nil {
 					t.Fatal(err)
 				}
-				defer other.Close()
+				defer func() { _ = other.Close() }()
 				fd, err = syscall.Dup(int(other.Fd()))
 				if err != nil {
 					t.Fatal(err)
 				}
-				defer syscall.Close(fd)
+				defer func(fd int) { _ = syscall.Close(fd) }(fd)
 			}
 			setInstallHandoffEnv(t, fd, token)
 			lock, attempted, err := AdoptInheritedInstallFlag(dir)
@@ -123,7 +123,7 @@ func TestRejectedForgedHandoffPreservesUnrelatedFD(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		defer unrelated.Close()
+		defer func() { _ = unrelated.Close() }()
 		setInstallHandoffEnv(t, int(unrelated.Fd()), "forged-token")
 		lock, attempted, err := AdoptInheritedInstallFlag(dir)
 		if !attempted || err == nil || lock != nil {
@@ -176,12 +176,12 @@ func TestChildReusingAdoptedOriginalFDIsUnaffected(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		defer unrelated.Close()
+		defer func() { _ = unrelated.Close() }()
 		if int(unrelated.Fd()) != targetFD {
 			if err := unix.Dup2(int(unrelated.Fd()), targetFD); err != nil {
 				t.Fatal(err)
 			}
-			defer unix.Close(targetFD)
+			defer func() { _ = unix.Close(targetFD) }()
 		}
 		lock, _, _ := AdoptInheritedInstallFlag(os.Getenv("STATBUS_TEST_REUSE_PROJ_DIR"))
 		if lock != nil {
