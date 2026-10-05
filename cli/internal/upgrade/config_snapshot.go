@@ -20,6 +20,19 @@ type operatorConfigSnapshotManifest struct {
 	EnvCredentials operatorConfigSnapshotEntry `json:"env_credentials"`
 }
 
+type operatorConfigSnapshotError struct {
+	oldFormat bool
+	err       error
+}
+
+func (e *operatorConfigSnapshotError) Error() string {
+	return e.err.Error()
+}
+
+func (e *operatorConfigSnapshotError) Unwrap() error {
+	return e.err
+}
+
 func operatorConfigSnapshotPath(backupPath string) string {
 	return filepath.Join(backupPath, operatorConfigSnapshotDirName)
 }
@@ -94,22 +107,46 @@ func snapshotOperatorConfig(projDir, backupPath string) error {
 
 func restoreOperatorConfig(projDir, backupPath string) error {
 	snapshotPath := operatorConfigSnapshotPath(backupPath)
+	if _, err := os.Stat(snapshotPath); err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return &operatorConfigSnapshotError{
+				oldFormat: true,
+				err:       fmt.Errorf("operator config was not snapshotted by the binary that created backup %s", backupPath),
+			}
+		}
+		return &operatorConfigSnapshotError{err: fmt.Errorf("stat operator config snapshot directory: %w", err)}
+	}
 	manifestContents, err := os.ReadFile(filepath.Join(snapshotPath, "manifest.json"))
 	if err != nil {
-		return fmt.Errorf("read operator config snapshot manifest: %w", err)
+		return &operatorConfigSnapshotError{err: fmt.Errorf("read operator config snapshot manifest: %w", err)}
 	}
 	var manifest operatorConfigSnapshotManifest
 	if err := json.Unmarshal(manifestContents, &manifest); err != nil {
-		return fmt.Errorf("decode operator config snapshot manifest: %w", err)
+		return &operatorConfigSnapshotError{err: fmt.Errorf("decode operator config snapshot manifest: %w", err)}
 	}
 
 	files := []struct {
-		name  string
-		entry operatorConfigSnapshotEntry
-		mode  os.FileMode
+		name     string
+		entry    operatorConfigSnapshotEntry
+		mode     os.FileMode
+		contents []byte
 	}{
 		{name: ".env.config", entry: manifest.EnvConfig},
 		{name: ".env.credentials", entry: manifest.EnvCredentials, mode: 0600},
+	}
+	// Validate the complete snapshot before changing either destination. A
+	// missing payload must never restore one file and then discover that the
+	// other half is unusable.
+	for i := range files {
+		file := &files[i]
+		if !file.entry.Present {
+			continue
+		}
+		contents, err := os.ReadFile(filepath.Join(snapshotPath, file.name))
+		if err != nil {
+			return &operatorConfigSnapshotError{err: fmt.Errorf("read %s operator config snapshot: %w", file.name, err)}
+		}
+		file.contents = contents
 	}
 	for _, file := range files {
 		destinationPath := filepath.Join(projDir, file.name)
@@ -119,10 +156,6 @@ func restoreOperatorConfig(projDir, backupPath string) error {
 			}
 			continue
 		}
-		contents, err := os.ReadFile(filepath.Join(snapshotPath, file.name))
-		if err != nil {
-			return fmt.Errorf("read %s operator config snapshot: %w", file.name, err)
-		}
 		mode := file.mode
 		if mode == 0 {
 			mode = file.entry.Mode.Perm()
@@ -130,7 +163,7 @@ func restoreOperatorConfig(projDir, backupPath string) error {
 		if mode == 0 {
 			mode = 0600
 		}
-		if err := atomicWriteFile(destinationPath, contents, mode); err != nil {
+		if err := atomicWriteFile(destinationPath, file.contents, mode); err != nil {
 			return fmt.Errorf("restore %s from operator config snapshot: %w", file.name, err)
 		}
 	}

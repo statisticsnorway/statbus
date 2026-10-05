@@ -8722,9 +8722,7 @@ func (d *Service) restoreSourceServices(ctx context.Context, restoreTargetSHA, b
 		return fmt.Errorf("restore git tree to source: %w", err)
 	}
 	d.restoreBinary(progress)
-	if err := restoreOperatorConfig(d.projDir, backupPath); err != nil {
-		return fmt.Errorf("restore operator configuration: %w", err)
-	}
+	d.restoreOperatorConfigForSourceReturn(backupPath, progress)
 	if err := runCommandToLog(d.projDir, 2*time.Minute, progress.File(), "park-config-generate", progress.bump, "./sb", "config", "generate"); err != nil {
 		return fmt.Errorf("config generate at source: %w", err)
 	}
@@ -8740,6 +8738,20 @@ func (d *Service) restoreSourceServices(ctx context.Context, restoreTargetSHA, b
 		return fmt.Errorf("source services are up and healthy but the read-only window did not lift (%v) — reads serve, writes are refused until `%s` or the next boot clears it", err, d.installCommand())
 	}
 	return nil
+}
+
+func (d *Service) restoreOperatorConfigForSourceReturn(backupPath string, progress *ProgressLog) {
+	err := restoreOperatorConfig(d.projDir, backupPath)
+	if err == nil {
+		progress.Write("  Restoring operator configuration for the source version ... ok")
+		return
+	}
+	var snapshotErr *operatorConfigSnapshotError
+	if errors.As(err, &snapshotErr) && snapshotErr.oldFormat {
+		progress.Write("OPERATOR_CONFIG_SNAPSHOT_UNAVAILABLE_OLD_BACKUP: backup %s was created by a binary that did not snapshot operator config; leaving current .env.config and .env.credentials untouched. Re-check Slack/Seq tokens after rollback if the target binary migrated them.", backupPath)
+		return
+	}
+	progress.Write("OPERATOR_CONFIG_SNAPSHOT_DEGRADED: backup %s has an unreadable, malformed, or incomplete operator-config snapshot (%v); leaving current .env.config and .env.credentials untouched and continuing source restoration. Re-check Slack/Seq tokens after rollback.", backupPath, err)
 }
 
 // sourceServingServices is the complete HTTP/application serving tier that must
@@ -12731,12 +12743,7 @@ func (d *Service) restoreAndFinalize(ctx context.Context, id int, version string
 		sourceRestoreErr = d.restoreGitState("", progress)
 	}
 	if backupPath != "" && sourceRestoreErr == nil {
-		sourceRestoreErr = restoreOperatorConfig(projDir, backupPath)
-		if sourceRestoreErr != nil {
-			progress.Write("  Restoring operator configuration for the source version ... failed: %v", sourceRestoreErr)
-		} else {
-			progress.Write("  Restoring operator configuration for the source version ... ok")
-		}
+		d.restoreOperatorConfigForSourceReturn(backupPath, progress)
 	}
 	if backupPath != "" && sourceRestoreErr == nil {
 		configGenerateErr = runCommandToLog(projDir, 2*time.Minute, progress.File(), "rollback-config-generate", nil,

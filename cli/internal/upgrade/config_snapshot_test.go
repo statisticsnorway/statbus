@@ -2,6 +2,7 @@ package upgrade
 
 import (
 	"bytes"
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"strings"
@@ -158,6 +159,120 @@ func TestNewSnapshotReplacesStaleOperatorConfig(t *testing.T) {
 		t.Fatal(err)
 	}
 	assertFileBytes(t, filepath.Join(projDir, ".env.config"), []byte("SITE_DOMAIN=fresh.example\n"))
+}
+
+func TestSourceReturnOperatorConfigSnapshotDegradesWithoutBlocking(t *testing.T) {
+	source := string(packageGoSources(t)["service.go"])
+	for name, body := range map[string]string{
+		"restoreSourceServices": extractFuncBody(t, source, "func (d *Service) restoreSourceServices("),
+		"restoreAndFinalize":    extractFuncBody(t, source, "func (d *Service) restoreAndFinalize("),
+	} {
+		if !strings.Contains(body, "d.restoreOperatorConfigForSourceReturn(backupPath, progress)") {
+			t.Fatalf("%s does not route operator-config restoration through the nonblocking source-return policy", name)
+		}
+	}
+
+	cases := []struct {
+		name           string
+		prepareBackup  func(*testing.T, string)
+		wantDiagnostic string
+	}{
+		{
+			name:           "old backup without snapshot directory",
+			prepareBackup:  func(*testing.T, string) {},
+			wantDiagnostic: "OPERATOR_CONFIG_SNAPSHOT_UNAVAILABLE_OLD_BACKUP",
+		},
+		{
+			name: "malformed manifest",
+			prepareBackup: func(t *testing.T, backupPath string) {
+				t.Helper()
+				snapshotPath := operatorConfigSnapshotPath(backupPath)
+				if err := os.Mkdir(snapshotPath, 0700); err != nil {
+					t.Fatal(err)
+				}
+				if err := os.WriteFile(filepath.Join(snapshotPath, "manifest.json"), []byte("{not-json"), 0600); err != nil {
+					t.Fatal(err)
+				}
+			},
+			wantDiagnostic: "OPERATOR_CONFIG_SNAPSHOT_DEGRADED",
+		},
+		{
+			name: "manifest payload missing",
+			prepareBackup: func(t *testing.T, backupPath string) {
+				t.Helper()
+				snapshotPath := operatorConfigSnapshotPath(backupPath)
+				if err := os.Mkdir(snapshotPath, 0700); err != nil {
+					t.Fatal(err)
+				}
+				manifest := operatorConfigSnapshotManifest{
+					EnvConfig:      operatorConfigSnapshotEntry{Present: true, Mode: 0644},
+					EnvCredentials: operatorConfigSnapshotEntry{Present: true, Mode: 0600},
+				}
+				manifestContents, err := json.Marshal(manifest)
+				if err != nil {
+					t.Fatal(err)
+				}
+				if err := os.WriteFile(filepath.Join(snapshotPath, "manifest.json"), manifestContents, 0600); err != nil {
+					t.Fatal(err)
+				}
+				if err := os.WriteFile(filepath.Join(snapshotPath, ".env.config"), []byte("SITE_DOMAIN=snapshot.example\n"), 0600); err != nil {
+					t.Fatal(err)
+				}
+			},
+			wantDiagnostic: "OPERATOR_CONFIG_SNAPSHOT_DEGRADED",
+		},
+	}
+	for _, chokepoint := range []string{"restoreAndFinalize tail", "restoreSourceServices park"} {
+		for _, tc := range cases {
+			t.Run(chokepoint+"/"+tc.name, func(t *testing.T) {
+				projDir := t.TempDir()
+				backupPath := filepath.Join(t.TempDir(), backupActiveName)
+				if err := os.Mkdir(backupPath, 0700); err != nil {
+					t.Fatal(err)
+				}
+				configCurrent := []byte("SITE_DOMAIN=current.example\n")
+				credentialsCurrent := []byte("SLACK_TOKEN=current\n")
+				if err := os.WriteFile(filepath.Join(projDir, ".env.config"), configCurrent, 0644); err != nil {
+					t.Fatal(err)
+				}
+				if err := os.WriteFile(filepath.Join(projDir, ".env.credentials"), credentialsCurrent, 0600); err != nil {
+					t.Fatal(err)
+				}
+				tc.prepareBackup(t, backupPath)
+
+				d := &Service{projDir: projDir}
+				output := captureOperatorConfigOutput(t, func() {
+					d.restoreOperatorConfigForSourceReturn(backupPath, nil)
+				})
+				if !strings.Contains(output, tc.wantDiagnostic) || !strings.Contains(output, backupPath) {
+					t.Fatalf("diagnostic = %q, want %q and backup path %q", output, tc.wantDiagnostic, backupPath)
+				}
+				assertFileBytes(t, filepath.Join(projDir, ".env.config"), configCurrent)
+				assertFileBytes(t, filepath.Join(projDir, ".env.credentials"), credentialsCurrent)
+			})
+		}
+	}
+}
+
+func captureOperatorConfigOutput(t *testing.T, fn func()) string {
+	t.Helper()
+	original := os.Stdout
+	reader, writer, err := os.Pipe()
+	if err != nil {
+		t.Fatal(err)
+	}
+	os.Stdout = writer
+	t.Cleanup(func() { os.Stdout = original })
+	fn()
+	if err := writer.Close(); err != nil {
+		t.Fatal(err)
+	}
+	os.Stdout = original
+	var output bytes.Buffer
+	if _, err := output.ReadFrom(reader); err != nil {
+		t.Fatal(err)
+	}
+	return output.String()
 }
 
 func assertFileBytes(t *testing.T, path string, want []byte) {
