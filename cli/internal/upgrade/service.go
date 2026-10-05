@@ -243,6 +243,7 @@ type Service struct {
 	// tested serving-container capture precondition. Production leaves this nil.
 	captureSourceServingImageIdentitiesForTest func(context.Context) error
 	startSourceApplicationStackForTest         func(context.Context, *ProgressLog) error
+	sourceConfigGenerateForTest                func() error
 	// removeFile is a test seam for the two filesystem cleanup boundaries whose
 	// failure changes recovery direction. Production leaves it nil and uses
 	// os.Remove through removePath.
@@ -8723,8 +8724,14 @@ func (d *Service) restoreSourceServices(ctx context.Context, restoreTargetSHA, b
 	}
 	d.restoreBinary(progress)
 	d.restoreOperatorConfigForSourceReturn(backupPath, progress)
-	if err := runCommandToLog(d.projDir, 2*time.Minute, progress.File(), "park-config-generate", progress.bump, "./sb", "config", "generate"); err != nil {
-		return fmt.Errorf("config generate at source: %w", err)
+	var configGenerateErr error
+	if d.sourceConfigGenerateForTest != nil {
+		configGenerateErr = d.sourceConfigGenerateForTest()
+	} else {
+		configGenerateErr = runCommandToLog(d.projDir, 2*time.Minute, progress.File(), "park-config-generate", progress.bump, "./sb", "config", "generate")
+	}
+	if configGenerateErr != nil {
+		return fmt.Errorf("config generate at source: %w", configGenerateErr)
 	}
 	if err := d.startSourceApplicationStack(ctx, progress); err != nil {
 		return err

@@ -2,11 +2,15 @@ package upgrade
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
+	"errors"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	statbusconfig "github.com/statisticsnorway/statbus/cli/internal/config"
 )
@@ -205,8 +209,9 @@ func TestSourceReturnOperatorConfigSnapshotDegradesWithoutBlocking(t *testing.T)
 					t.Fatal(err)
 				}
 				manifest := operatorConfigSnapshotManifest{
-					EnvConfig:      operatorConfigSnapshotEntry{Present: true, Mode: 0644},
-					EnvCredentials: operatorConfigSnapshotEntry{Present: true, Mode: 0600},
+					Version:        operatorConfigSnapshotFormatVersion,
+					EnvConfig:      &operatorConfigSnapshotEntry{Present: true, Mode: 0644},
+					EnvCredentials: &operatorConfigSnapshotEntry{Present: true, Mode: 0600},
 				}
 				manifestContents, err := json.Marshal(manifest)
 				if err != nil {
@@ -252,6 +257,140 @@ func TestSourceReturnOperatorConfigSnapshotDegradesWithoutBlocking(t *testing.T)
 			})
 		}
 	}
+}
+
+func TestOperatorConfigSnapshotRejectsIncompleteManifestBeforeMutation(t *testing.T) {
+	cases := []struct {
+		name     string
+		manifest string
+	}{
+		{name: "empty object", manifest: `{}`},
+		{name: "only env config", manifest: `{"version":1,"env_config":{"present":false}}`},
+		{name: "only env credentials", manifest: `{"version":1,"env_credentials":{"present":false}}`},
+		{name: "missing version", manifest: `{"env_config":{"present":false},"env_credentials":{"present":false}}`},
+		{name: "wrong version", manifest: `{"version":2,"env_config":{"present":false},"env_credentials":{"present":false}}`},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			projDir := t.TempDir()
+			backupPath := filepath.Join(t.TempDir(), backupActiveName)
+			snapshotPath := operatorConfigSnapshotPath(backupPath)
+			if err := os.MkdirAll(snapshotPath, 0700); err != nil {
+				t.Fatal(err)
+			}
+			configCurrent := []byte("SITE_DOMAIN=current.example\n")
+			credentialsCurrent := []byte("SLACK_TOKEN=current\n")
+			if err := os.WriteFile(filepath.Join(projDir, ".env.config"), configCurrent, 0644); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.WriteFile(filepath.Join(projDir, ".env.credentials"), credentialsCurrent, 0600); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.WriteFile(filepath.Join(snapshotPath, "manifest.json"), []byte(tc.manifest), 0600); err != nil {
+				t.Fatal(err)
+			}
+
+			d := &Service{projDir: projDir}
+			output := captureOperatorConfigOutput(t, func() {
+				d.restoreOperatorConfigForSourceReturn(backupPath, nil)
+			})
+			if !strings.Contains(output, "OPERATOR_CONFIG_SNAPSHOT_DEGRADED") {
+				t.Fatalf("diagnostic = %q, want degraded diagnostic", output)
+			}
+			assertFileBytes(t, filepath.Join(projDir, ".env.config"), configCurrent)
+			assertFileBytes(t, filepath.Join(projDir, ".env.credentials"), credentialsCurrent)
+		})
+	}
+}
+
+func TestRestoreSourceServicesContinuesPastDegradedOperatorConfigSnapshot(t *testing.T) {
+	for _, tc := range []struct {
+		name            string
+		prepareSnapshot bool
+		wantDiagnostic  string
+	}{
+		{name: "old format backup", wantDiagnostic: "OPERATOR_CONFIG_SNAPSHOT_UNAVAILABLE_OLD_BACKUP"},
+		{name: "corrupt manifest", prepareSnapshot: true, wantDiagnostic: "OPERATOR_CONFIG_SNAPSHOT_DEGRADED"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			testRestoreSourceServicesContinuesPastOperatorConfigSnapshot(t, tc.prepareSnapshot, tc.wantDiagnostic)
+		})
+	}
+}
+
+func testRestoreSourceServicesContinuesPastOperatorConfigSnapshot(t *testing.T, prepareSnapshot bool, wantDiagnostic string) {
+	t.Helper()
+	projDir := t.TempDir()
+	runGit := func(args ...string) string {
+		t.Helper()
+		cmd := exec.Command("git", args...)
+		cmd.Dir = projDir
+		out, err := cmd.CombinedOutput()
+		if err != nil {
+			t.Fatalf("git %v: %v\n%s", args, err, out)
+		}
+		return strings.TrimSpace(string(out))
+	}
+	runGit("init", "-q")
+	runGit("config", "user.name", "STATBUS test")
+	runGit("config", "user.email", "statbus-test@example.invalid")
+	if err := os.WriteFile(filepath.Join(projDir, "tracked"), []byte("source\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	runGit("add", "tracked")
+	runGit("commit", "-q", "-m", "source")
+	sourceSHA := runGit("rev-parse", "HEAD")
+
+	configCurrent := []byte("SITE_DOMAIN=current.example\n")
+	credentialsCurrent := []byte("SLACK_TOKEN=current\n")
+	if err := os.WriteFile(filepath.Join(projDir, ".env.config"), configCurrent, 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(projDir, ".env.credentials"), credentialsCurrent, 0600); err != nil {
+		t.Fatal(err)
+	}
+	backupPath := filepath.Join(t.TempDir(), backupActiveName)
+	if err := os.MkdirAll(backupPath, 0700); err != nil {
+		t.Fatal(err)
+	}
+	if prepareSnapshot {
+		snapshotPath := operatorConfigSnapshotPath(backupPath)
+		if err := os.MkdirAll(snapshotPath, 0700); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(snapshotPath, "manifest.json"), []byte(`{}`), 0600); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	reachedStack := errors.New("reached source stack after config generation")
+	configGenerateReached := false
+	d := &Service{projDir: projDir}
+	d.sourceConfigGenerateForTest = func() error {
+		configGenerateReached = true
+		return nil
+	}
+	d.startSourceApplicationStackForTest = func(context.Context, *ProgressLog) error {
+		return reachedStack
+	}
+	progress := NewUpgradeLog(projDir, 444, "config-snapshot-test", time.Now().UTC())
+	t.Cleanup(progress.Close)
+	err := d.restoreSourceServices(context.Background(), sourceSHA, backupPath, progress)
+	if !errors.Is(err, reachedStack) {
+		t.Fatalf("restoreSourceServices error = %v, want proof it continued to source stack", err)
+	}
+	if !configGenerateReached {
+		t.Fatal("source config generation seam was not reached")
+	}
+	logContents, err := os.ReadFile(progress.AbsPath())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(logContents), wantDiagnostic) {
+		t.Fatalf("progress log lacks %s diagnostic:\n%s", wantDiagnostic, logContents)
+	}
+	assertFileBytes(t, filepath.Join(projDir, ".env.config"), configCurrent)
+	assertFileBytes(t, filepath.Join(projDir, ".env.credentials"), credentialsCurrent)
 }
 
 func captureOperatorConfigOutput(t *testing.T, fn func()) string {

@@ -8,7 +8,10 @@ import (
 	"path/filepath"
 )
 
-const operatorConfigSnapshotDirName = ".statbus-operator-config-snapshot"
+const (
+	operatorConfigSnapshotDirName       = ".statbus-operator-config-snapshot"
+	operatorConfigSnapshotFormatVersion = 1
+)
 
 type operatorConfigSnapshotEntry struct {
 	Present bool        `json:"present"`
@@ -16,8 +19,9 @@ type operatorConfigSnapshotEntry struct {
 }
 
 type operatorConfigSnapshotManifest struct {
-	EnvConfig      operatorConfigSnapshotEntry `json:"env_config"`
-	EnvCredentials operatorConfigSnapshotEntry `json:"env_credentials"`
+	Version        int                          `json:"version"`
+	EnvConfig      *operatorConfigSnapshotEntry `json:"env_config"`
+	EnvCredentials *operatorConfigSnapshotEntry `json:"env_credentials"`
 }
 
 type operatorConfigSnapshotError struct {
@@ -53,14 +57,18 @@ func snapshotOperatorConfig(projDir, backupPath string) error {
 		}
 	}()
 
-	manifest := operatorConfigSnapshotManifest{}
+	manifest := operatorConfigSnapshotManifest{
+		Version:        operatorConfigSnapshotFormatVersion,
+		EnvConfig:      &operatorConfigSnapshotEntry{},
+		EnvCredentials: &operatorConfigSnapshotEntry{},
+	}
 	files := []struct {
 		name  string
 		entry *operatorConfigSnapshotEntry
 		mode  os.FileMode
 	}{
-		{name: ".env.config", entry: &manifest.EnvConfig, mode: 0600},
-		{name: ".env.credentials", entry: &manifest.EnvCredentials, mode: 0600},
+		{name: ".env.config", entry: manifest.EnvConfig, mode: 0600},
+		{name: ".env.credentials", entry: manifest.EnvCredentials, mode: 0600},
 	}
 	for _, file := range files {
 		sourcePath := filepath.Join(projDir, file.name)
@@ -124,6 +132,12 @@ func restoreOperatorConfig(projDir, backupPath string) error {
 	if err := json.Unmarshal(manifestContents, &manifest); err != nil {
 		return &operatorConfigSnapshotError{err: fmt.Errorf("decode operator config snapshot manifest: %w", err)}
 	}
+	if manifest.Version != operatorConfigSnapshotFormatVersion {
+		return &operatorConfigSnapshotError{err: fmt.Errorf("operator config snapshot manifest version %d is unsupported; expected %d", manifest.Version, operatorConfigSnapshotFormatVersion)}
+	}
+	if manifest.EnvConfig == nil || manifest.EnvCredentials == nil {
+		return &operatorConfigSnapshotError{err: fmt.Errorf("operator config snapshot manifest is incomplete: both env_config and env_credentials records are required")}
+	}
 
 	files := []struct {
 		name     string
@@ -131,8 +145,8 @@ func restoreOperatorConfig(projDir, backupPath string) error {
 		mode     os.FileMode
 		contents []byte
 	}{
-		{name: ".env.config", entry: manifest.EnvConfig},
-		{name: ".env.credentials", entry: manifest.EnvCredentials, mode: 0600},
+		{name: ".env.config", entry: *manifest.EnvConfig},
+		{name: ".env.credentials", entry: *manifest.EnvCredentials, mode: 0600},
 	}
 	// Validate the complete snapshot before changing either destination. A
 	// missing payload must never restore one file and then discover that the
