@@ -243,28 +243,15 @@ cp "$REPO_ROOT/install.sh" "$CANDIDATE_INSTALL_SCRIPT"
 upload_install_script_to_vm "$VM_NAME" "$CANDIDATE_INSTALL_SCRIPT" /tmp/statbus-install.sh
 INSTALL_LOG=$(mktemp)
 
-# The official version-pinned installer, with the installer's own documented
-# retry for the upgrade-in-progress class (an operator who meets that message
-# waits and re-runs). Every refused attempt's full output is preserved.
+# The official version-pinned installer is a one-command acceptance boundary.
+# Any refusal is a failure and its complete output is preserved.
 run_official_installer() {
-    local attempt=0 rc started
-    started=$(date +%s)
-    while true; do
-        attempt=$((attempt + 1))
-        rc=0
-        VM_EXEC bash -c "cd ~ && STATBUS_INSTALL_VERSION='$INSTALL_TARGET_TAG' bash /tmp/statbus-install.sh --non-interactive" >"$INSTALL_LOG" 2>&1 || rc=$?
-        [ "$rc" -eq 0 ] && break
-        if grep -qF 'An upgrade is already running' "$INSTALL_LOG" && [ $(( $(date +%s) - started )) -lt 1800 ]; then
-            echo "  … an upgrade hold blocks the installer — attempt $attempt refused (exit $rc); retrying the official installer in 30s"
-            echo "  ── attempt $attempt full output ──"
-            sed 's/^/  │ /' "$INSTALL_LOG"
-            echo "  ── end attempt $attempt (exit $rc) ──"
-            sleep 30
-            continue
-        fi
+    local rc=0
+    VM_EXEC bash -c "cd ~ && STATBUS_INSTALL_VERSION='$INSTALL_TARGET_TAG' bash /tmp/statbus-install.sh --non-interactive" >"$INSTALL_LOG" 2>&1 || rc=$?
+    if [ "$rc" -ne 0 ]; then
         cat "$INSTALL_LOG" >&2
         exit 1
-    done
+    fi
     cat "$INSTALL_LOG"
 }
 
@@ -293,10 +280,8 @@ VM_EXEC systemctl --user stop statbus-upgrade@statbus.service
 VM_EXEC bash -c "cd ~/statbus && ./sb upgrade schedule '$INSTALL_TARGET_TAG'"
 
 echo "── official candidate installer: inline dispatch of the scheduled row through the missing-tag condition ──"
-# With the old daemon down there is no loop to collide with; the retry belt
-# stays for the same operator-surface reason (a transient refusal of the
-# upgrade-in-progress class gets the installer's own documented retry, with
-# every attempt's full output preserved).
+# With the old daemon down there is no loop to collide with. The same one-command
+# acceptance boundary applies here.
 run_official_installer
 
 # The daemon-down schedule (required so the OLD daemon could not claim the

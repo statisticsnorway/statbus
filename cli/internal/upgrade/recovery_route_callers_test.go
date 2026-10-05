@@ -28,7 +28,7 @@ func TestRecoveryRouteCallersSplitByContract(t *testing.T) {
 	park := extractFuncBody(t, serviceSource, "func (d *Service) parkEraVerdict(")
 	rollbackDB := extractFuncBody(t, serviceSource, "func (d *Service) startRollbackDatabaseOnly(")
 	rollback := extractFuncBody(t, serviceSource, "func (d *Service) rollback(")
-	install := extractFuncBody(t, installSource, "func runCrashRecovery(")
+	install := extractFuncBody(t, installSource, "func runCrashRecoveryWithLock(")
 
 	if !strings.Contains(deterministicPark, "d.StartDatabaseRouteServingMayRun") {
 		t.Error("unreadable-position deterministic park must use route-only startup because serving clients may legitimately be live")

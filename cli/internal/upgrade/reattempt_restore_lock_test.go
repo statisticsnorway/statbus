@@ -86,7 +86,10 @@ func TestReattemptRestore_GitCorruptRefusesBeforeDestructiveWorkAndRecordsFailur
 	body := extractFuncBody(t, src, "func (d *Service) ReattemptRestore(")
 	preflight := strings.Index(body, `resolveGitRestoreTarget(d.projDir, "")`)
 	failureUpdate := strings.Index(body, "SET failure_code = $1")
-	authorizeMarker := strings.Index(body, "d.mutateHeldFlag")
+	// The first mutation may rewrite an inherited install.sh marker into the
+	// tentative pre-authorization marker. The final mutation is the durable
+	// authorized marker whose ordering this invariant pins.
+	authorizeMarker := strings.LastIndex(body, "d.mutateHeldFlag")
 	serviceStop := strings.Index(body, `runCommand(d.projDir, "docker"`)
 	restore := strings.Index(body, "d.restoreAndFinalize(")
 	for name, idx := range map[string]int{

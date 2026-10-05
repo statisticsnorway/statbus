@@ -34,6 +34,9 @@ if [[ "$*" = *"config show"* ]]; then
     [ -n "$code" ] || code=no
     printf 'sb version test (commit local)|%s|%s name\n' "$channel" "$code"
 fi
+if [[ "$*" = *"curl -fsSL"* ]] && [ -n "${SSH_INSTALL_OUTPUT:-}" ]; then
+    printf '%s\n' "$SSH_INSTALL_OUTPUT"
+fi
 exit "${SSH_EXIT:-0}"
 STUB
 chmod +x "$BIN/ssh"
@@ -168,6 +171,20 @@ assert_contains "$output" "METADATA READ FAILED" "status marks unreadable row"
 output=$(run_cloud install no --version vX 2>&1) || fail "pinned install should succeed: $output"
 assert_eq "release verify-artifacts --tag vX" "$(cat "$SB_LOG")" "install --version value reaches release verify-artifacts"
 assert_contains "$(cat "$SSH_LOG")" "bash -s -- --version vX" "install --version value reaches transport"
+
+set +e
+output=$(SSH_EXIT=47 SSH_INSTALL_OUTPUT='database route unavailable' run_cloud install no --version vX 2>&1); rc=$?
+set -e
+[ "$rc" -ne 0 ] || fail "generic install failure must fail"
+assert_contains "$output" 'database route unavailable' "captured generic install output is preserved"
+assert_not_contains "$output" 'FLEET_TRUST_KEY_USER=jhf' "generic install failure prints no signing-key hint"
+
+set +e
+output=$(SSH_EXIT=47 SSH_INSTALL_OUTPUT='The release signature could not be verified.' run_cloud install no --version vX 2>&1); rc=$?
+set -e
+[ "$rc" -ne 0 ] || fail "signature install failure must fail"
+assert_contains "$output" 'The release signature could not be verified.' "captured signature failure output is preserved"
+assert_contains "$output" 'FLEET_TRUST_KEY_USER=jhf' "signature failure prints signing-key hint"
 
 for help_arg in help -h --help; do
     output=$(run_cloud upgrade "$help_arg" 2>&1) || fail "upgrade $help_arg should exit 0"

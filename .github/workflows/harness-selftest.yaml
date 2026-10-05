@@ -34,6 +34,8 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y --no-install-recommends openssh-server tmux
       - name: Prove harness failure paths
         run: ./dev.sh test-harness
+      - name: Prove install mutex handoff is gapless and never steals a healthy hold
+        run: bash test/install-recovery/tests/install-gapless-handoff-test.sh
       - name: Prove LXD base pruning selects only superseded candidates
         run: bash test/install-recovery/tests/lxd-base-prune-test.sh
       - name: Prove LXD file push retries only the forkfile idle-exit race

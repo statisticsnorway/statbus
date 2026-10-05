@@ -276,9 +276,9 @@ fi
 echo 'PASS: no-TTY piped install prints exact remedy without catastrophic banner'
 
 for advice in \
-    'port 80 is in use by apache2. sudo systemctl disable --now apache2. Your answers are saved. Then run the same install command again: curl -fsSL https://statbus.org/install.sh | bash' \
-    'Only 12 GB free on /var/lib/docker. StatBus needs at least 20 GB to install. Free some space, then run the same install command again: curl -fsSL https://statbus.org/install.sh | bash' \
-    'a restart is still running, or its services could not be restored. Wait for it to finish, then run the same install command again: curl -fsSL https://statbus.org/install.sh | bash'; do
+    'port 80 is in use by apache2. Free the port with sudo systemctl disable --now apache2. Your answers are saved. Then run the same install command again: curl -fsSL https://statbus.org/install.sh | bash -s -- --version v2026.09.0-rc.02' \
+    'Only 12 GB free on /var/lib/docker. StatBus needs at least 20 GB to install. Free some space, then run the same install command again: curl -fsSL https://statbus.org/install.sh | bash -s -- --version v2026.09.0-rc.02' \
+    'a restart is still running, or its services could not be restored. Wait for it to finish, then run the same install command again: curl -fsSL https://statbus.org/install.sh | bash -s -- --version v2026.09.0-rc.02'; do
     set +e
     printf '' | EXPECT_STDIN=pipe PIPE_MESSAGE="$advice" python3 -c \
         'import os, sys; os.setsid(); os.execv("/bin/bash", ["bash", sys.argv[1], "--version", "v2026.09.0-rc.02"])' \

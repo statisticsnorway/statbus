@@ -35,7 +35,7 @@ func TestTrustGitHubUserRunsBeforeDispatch(t *testing.T) {
 	if trustIdx < 0 {
 		t.Fatal("could not find the --trust-github-user processing (trustSignerNonInteractive) in install.go — test is stale")
 	}
-	dispatchIdx := strings.Index(body, "dispatchInstallState(installDir, state, detail)")
+	dispatchIdx := strings.Index(body, "dispatchInstallStateWithLock(installDir, state, detail, adoptedInstallLock)")
 	if dispatchIdx < 0 {
 		t.Fatal("could not find the dispatchInstallState call in runInstall — test is stale")
 	}

@@ -379,6 +379,28 @@ func TestDetectWith(t *testing.T) {
 	}
 }
 
+func TestDetectWithAdoptedInstallHoldIsNotLiveUpgrade(t *testing.T) {
+	const projDir = "/proj"
+	probe := &fakeProbe{
+		files: map[string]bool{
+			filepath.Join(projDir, ".env.config"):      true,
+			filepath.Join(projDir, ".env.credentials"): true,
+		},
+		flag:      &upgrade.UpgradeFlag{Holder: upgrade.HolderInstall, HandoffToken: "owned"},
+		flagAlive: true,
+	}
+	state, _, err := DetectWith(projDir, "test", heldFlagProbe{Probe: probe, holder: upgrade.HolderInstall})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if state == StateLiveUpgrade {
+		t.Fatal("the current process's adopted install hold was classified as a live competing upgrade")
+	}
+	if state != StateDBUnreachable {
+		t.Fatalf("state = %s, want normal ladder result %s", state, StateDBUnreachable)
+	}
+}
+
 func TestStateString(t *testing.T) {
 	cases := []struct {
 		state State
