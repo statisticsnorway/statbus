@@ -108,10 +108,10 @@ Decision: **gapless handoff**. `install.sh` keeps the mutex and hands it to `./s
 
 ## Acceptance criteria
 
-- [ ] #1 install.sh hands the held mutex to `./sb install` with no release in between, and `./sb install` adopts it only when the inherited fd, inode, flock and token all prove it is ours.
-- [ ] #2 Scenario A (alive looping holder at demo's cadence): one installer run completes, no retry, RED on master. Scenario B (healthy holder after manual failures): the installer waits and never kills or steals the lock.
+- [x] #1 install.sh hands the held mutex to `./sb install` with no release in between, and `./sb install` adopts it only when the inherited fd, inode, flock and token all prove it is ours.
+- [x] #2 Scenario A (alive looping holder at demo's cadence): one installer run completes, no retry, RED on master. Scenario B (healthy holder after manual failures): the installer waits and never kills or steals the lock.
 - [ ] #3 The STATBUS-436 rehearsal no longer retries, and the operator path passes against the candidate in a single installer run.
-- [ ] #4 cloud.sh prints the signing-key hint only on a signature-verification failure.
+- [x] #4 cloud.sh prints the signing-key hint only on a signature-verification failure.
 - [ ] #5 The owner's official `./cloud.sh install demo <candidate>` repairs demo in one run, observed over ≥10 min: binary, checkout and resident daemon at the candidate; v2026.09.3 row superseded; zero refusals; **the site is usable** (a page loads and stays; not judged by HTTP status).
 
 ## Implementation Notes
@@ -131,3 +131,10 @@ The worker also corrected `fresh-installer-test.sh` expectations. That test was 
 Fix in progress: validate on a duplicate fd, never close the original on rejection, and unset both environment pairs on every attempt. Subprocess tests are required.
 
 Separate: the un-park arc's false failure on rc.14 (a statfs read immediately after `rm` on btrfs) is fixed on branch `test/unpark-arc-btrfs-free` with a poll of up to 60 s. Review: MERGE (`tmp/unpark-arc-review.md`).
+
+2026-10-05 ~14:30 UTC: the fd-ownership fix landed (3328112e0): validation on a duplicate fd, the original never closed on rejection, and both env pairs consumed on every attempt, with subprocess tests. Re-review: MERGE (`tmp/447-review.md`). Merged onto master as 483824feb, cafa33889, 784ee8a3d and 7cf1cfe5a (patch-ids equal to the reviewed commits) and pushed 7cf1cfe5a. AC1, AC2 and AC4 are met by the reviewed code and the harness-selftest scenarios (Harness Selftest green at 7cf1cfe5a).
+
+2026-10-05 17:50 UTC: Go Test went red at 7cf1cfe5a on golangci-lint, not on go test: 8 errcheck (unchecked Close in the new tests) and 1 ineffassign (a dead `adoptedUpgradeLock = nil` after runCrashRecoveryWithLock; ownership already passes via svc.AdoptFlagLock, and recovery's flag lifecycle releases it). Root cause of the miss: the pre-push check ran go test and go vet but not `cd cli && golangci-lint run`; that is now part of the pre-push routine. Fixed on fix/447-lint (b7f4a0337) with no behaviour change. Review: MERGE (`tmp/447-lint-review.md`). Cherry-picked onto master as 8fab44933 (patch-id equal), together with the reviewed arc test fixes 87b3a3b87, e3040444e and 99534b001 (`tmp/arc-test-fixes-review.md`). Push waits for Fast Tests at 7cf1cfe5a to finish.
+
+Remaining: AC3 (the rc.15 operator rehearsal in one installer run) and AC5 (the owner's demo install of rc.15, observed for at least 10 minutes).
+
