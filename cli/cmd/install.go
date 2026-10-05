@@ -459,6 +459,42 @@ func signerPreflightRequired(dir string, state install.State) bool {
 // fixup, which passes --post-upgrade-fixup / STATBUS_POST_UPGRADE_FIXUP=1
 // to signal "I am the upgrade service's own post-completion fixup, not a
 // conflicting actor."
+func adoptInheritedMutexes(installDir string) (adoptedInstallLock, adoptedUpgradeLock *upgrade.FlagLock) {
+	installFD, installToken := os.Getenv(upgrade.InstallMutexFDEnv), os.Getenv(upgrade.InstallMutexTokenEnv)
+	upgradeAttempted := false
+	if lock, attempted, adoptErr := upgrade.AdoptInheritedUpgradeFlag(installDir); attempted {
+		upgradeAttempted = true
+		if adoptErr != nil {
+			log.Printf("Ignoring inherited upgrade mutex handoff: %v", adoptErr)
+		} else {
+			adoptedUpgradeLock = lock
+			fmt.Println("Continuing with the inherited upgrade mutex across the binary handoff.")
+		}
+	}
+	if adoptedUpgradeLock == nil {
+		// Every attempted adoption consumes both private pairs before returning.
+		// Restore only the install pair captured before a rejected upgrade attempt
+		// so stale upgrade metadata cannot interfere with a valid install handoff.
+		if upgradeAttempted {
+			if installFD != "" {
+				_ = os.Setenv(upgrade.InstallMutexFDEnv, installFD)
+			}
+			if installToken != "" {
+				_ = os.Setenv(upgrade.InstallMutexTokenEnv, installToken)
+			}
+		}
+		if lock, attempted, adoptErr := upgrade.AdoptInheritedInstallFlag(installDir); attempted {
+			if adoptErr != nil {
+				log.Printf("Ignoring inherited install mutex handoff: %v", adoptErr)
+			} else {
+				adoptedInstallLock = lock
+				fmt.Println("Adopted the upgrade mutex inherited from install.sh.")
+			}
+		}
+	}
+	return adoptedInstallLock, adoptedUpgradeLock
+}
+
 func runInstall() (installErr error) {
 	// Pure/local regression seam for installer Git diagnostics. Production
 	// invocations never set this variable.
@@ -510,25 +546,7 @@ func runInstall() (installErr error) {
 	if err != nil {
 		return installPreflightRefusal(err.Error())
 	}
-	var adoptedInstallLock, adoptedUpgradeLock *upgrade.FlagLock
-	if lock, attempted, adoptErr := upgrade.AdoptInheritedUpgradeFlag(installDir); attempted {
-		if adoptErr != nil {
-			log.Printf("Ignoring inherited upgrade mutex handoff: %v", adoptErr)
-		} else {
-			adoptedUpgradeLock = lock
-			fmt.Println("Continuing with the inherited upgrade mutex across the binary handoff.")
-		}
-	}
-	if adoptedUpgradeLock == nil {
-		if lock, attempted, adoptErr := upgrade.AdoptInheritedInstallFlag(installDir); attempted {
-			if adoptErr != nil {
-				log.Printf("Ignoring inherited install mutex handoff: %v", adoptErr)
-			} else {
-				adoptedInstallLock = lock
-				fmt.Println("Adopted the upgrade mutex inherited from install.sh.")
-			}
-		}
-	}
+	adoptedInstallLock, adoptedUpgradeLock := adoptInheritedMutexes(installDir)
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return fmt.Errorf("cannot determine home directory (HOME unset?): %w", err)

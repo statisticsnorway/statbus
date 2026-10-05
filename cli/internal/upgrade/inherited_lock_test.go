@@ -3,10 +3,13 @@ package upgrade
 import (
 	"encoding/json"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strconv"
 	"syscall"
 	"testing"
+
+	"golang.org/x/sys/unix"
 )
 
 func inheritedInstallFixture(t *testing.T, holder, token string, held bool) (string, int) {
@@ -37,7 +40,6 @@ func inheritedInstallFixture(t *testing.T, holder, token string, held bool) (str
 	if err != nil {
 		t.Fatal(err)
 	}
-	t.Cleanup(func() { _ = syscall.Close(fd) })
 	return dir, fd
 }
 
@@ -45,6 +47,15 @@ func setInstallHandoffEnv(t *testing.T, fd int, token string) {
 	t.Helper()
 	t.Setenv(InstallMutexFDEnv, strconv.Itoa(fd))
 	t.Setenv(InstallMutexTokenEnv, token)
+}
+
+func runInheritedLockTestChild(t *testing.T, testName string, extraEnv ...string) {
+	t.Helper()
+	cmd := exec.Command(os.Args[0], "-test.run", "^"+testName+"$")
+	cmd.Env = append(os.Environ(), extraEnv...)
+	if output, err := cmd.CombinedOutput(); err != nil {
+		t.Fatalf("child failed: %v\n%s", err, output)
+	}
 }
 
 func TestAdoptInheritedInstallFlag(t *testing.T) {
@@ -56,9 +67,12 @@ func TestAdoptInheritedInstallFlag(t *testing.T) {
 		if err != nil || !attempted || lock == nil {
 			t.Fatalf("lock=%v attempted=%v err=%v", lock, attempted, err)
 		}
-		flags, _, errno := syscall.Syscall(syscall.SYS_FCNTL, uintptr(fd), uintptr(syscall.F_GETFD), 0)
+		if _, _, errno := syscall.Syscall(syscall.SYS_FCNTL, uintptr(fd), uintptr(syscall.F_GETFD), 0); errno != syscall.EBADF {
+			t.Fatalf("successful adoption must close original fd %d: errno=%v", fd, errno)
+		}
+		flags, _, errno := syscall.Syscall(syscall.SYS_FCNTL, lock.file.Fd(), uintptr(syscall.F_GETFD), 0)
 		if errno != 0 || flags&syscall.FD_CLOEXEC == 0 {
-			t.Fatalf("adopted fd must be close-on-exec for ordinary children: flags=%#x errno=%v", flags, errno)
+			t.Fatalf("adopted duplicate must be close-on-exec for ordinary children: flags=%#x errno=%v", flags, errno)
 		}
 		lock.Close()
 	})
@@ -77,6 +91,7 @@ func TestAdoptInheritedInstallFlag(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			dir, fd := inheritedInstallFixture(t, tc.holder, tc.token, tc.held)
+			defer syscall.Close(fd)
 			if tc.wrong {
 				other, err := os.Create(filepath.Join(dir, "other-lock"))
 				if err != nil {
@@ -96,6 +111,102 @@ func TestAdoptInheritedInstallFlag(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestRejectedForgedHandoffPreservesUnrelatedFD(t *testing.T) {
+	if os.Getenv("STATBUS_TEST_REJECTED_FD_CHILD") == "1" {
+		dir := t.TempDir()
+		if err := os.MkdirAll(filepath.Join(dir, "tmp"), 0755); err != nil {
+			t.Fatal(err)
+		}
+		unrelated, err := os.Create(filepath.Join(t.TempDir(), "unrelated"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer unrelated.Close()
+		setInstallHandoffEnv(t, int(unrelated.Fd()), "forged-token")
+		lock, attempted, err := AdoptInheritedInstallFlag(dir)
+		if !attempted || err == nil || lock != nil {
+			t.Fatalf("forged handoff result: lock=%v attempted=%v err=%v", lock, attempted, err)
+		}
+		if _, err := unrelated.Stat(); err != nil {
+			t.Fatalf("rejected forged handoff closed unrelated fd %d: %v", unrelated.Fd(), err)
+		}
+		return
+	}
+
+	runInheritedLockTestChild(t, "TestRejectedForgedHandoffPreservesUnrelatedFD", "STATBUS_TEST_REJECTED_FD_CHILD=1")
+}
+
+func TestSuccessfulAdoptionConsumesPrivateEnvironmentBeforeChild(t *testing.T) {
+	if os.Getenv("STATBUS_TEST_ENV_CHILD") == "1" {
+		for _, name := range []string{InstallMutexFDEnv, InstallMutexTokenEnv, upgradeMutexFDEnv, upgradeMutexTokenEnv} {
+			if value, ok := os.LookupEnv(name); ok {
+				t.Fatalf("child inherited consumed private environment %s=%q", name, value)
+			}
+		}
+		return
+	}
+
+	const token = "consume-env-447"
+	dir, fd := inheritedInstallFixture(t, HolderInstall, token, true)
+	setInstallHandoffEnv(t, fd, token)
+	t.Setenv(upgradeMutexFDEnv, "999")
+	t.Setenv(upgradeMutexTokenEnv, "stale-upgrade-token")
+	lock, attempted, err := AdoptInheritedInstallFlag(dir)
+	if err != nil || !attempted || lock == nil {
+		t.Fatalf("lock=%v attempted=%v err=%v", lock, attempted, err)
+	}
+	defer lock.Close()
+	for _, name := range []string{InstallMutexFDEnv, InstallMutexTokenEnv, upgradeMutexFDEnv, upgradeMutexTokenEnv} {
+		if value, ok := os.LookupEnv(name); ok {
+			t.Fatalf("successful adoption left %s=%q exported", name, value)
+		}
+	}
+	runInheritedLockTestChild(t, "TestSuccessfulAdoptionConsumesPrivateEnvironmentBeforeChild", "STATBUS_TEST_ENV_CHILD=1")
+}
+
+func TestChildReusingAdoptedOriginalFDIsUnaffected(t *testing.T) {
+	if os.Getenv("STATBUS_TEST_REUSE_FD_CHILD") == "1" {
+		targetFD, err := strconv.Atoi(os.Getenv("STATBUS_TEST_REUSE_FD"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		unrelated, err := os.Create(filepath.Join(t.TempDir(), "child-unrelated"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer unrelated.Close()
+		if int(unrelated.Fd()) != targetFD {
+			if err := unix.Dup2(int(unrelated.Fd()), targetFD); err != nil {
+				t.Fatal(err)
+			}
+			defer unix.Close(targetFD)
+		}
+		lock, _, _ := AdoptInheritedInstallFlag(os.Getenv("STATBUS_TEST_REUSE_PROJ_DIR"))
+		if lock != nil {
+			lock.Close()
+			t.Fatal("stale child environment unexpectedly adopted an unrelated fd")
+		}
+		if _, err := unix.FcntlInt(uintptr(targetFD), unix.F_GETFD, 0); err != nil {
+			t.Fatalf("stale handoff closed child fd %d reused for an unrelated file: %v", targetFD, err)
+		}
+		return
+	}
+
+	const token = "reuse-fd-447"
+	dir, fd := inheritedInstallFixture(t, HolderInstall, token, true)
+	setInstallHandoffEnv(t, fd, token)
+	lock, attempted, err := AdoptInheritedInstallFlag(dir)
+	if err != nil || !attempted || lock == nil {
+		t.Fatalf("lock=%v attempted=%v err=%v", lock, attempted, err)
+	}
+	defer lock.Close()
+	runInheritedLockTestChild(t, "TestChildReusingAdoptedOriginalFDIsUnaffected",
+		"STATBUS_TEST_REUSE_FD_CHILD=1",
+		"STATBUS_TEST_REUSE_FD="+strconv.Itoa(fd),
+		"STATBUS_TEST_REUSE_PROJ_DIR="+dir,
+	)
 }
 
 func TestPrepareInheritedUpgradeLockForExec(t *testing.T) {

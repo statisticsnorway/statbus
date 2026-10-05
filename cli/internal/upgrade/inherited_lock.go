@@ -8,6 +8,8 @@ import (
 	"os"
 	"strconv"
 	"syscall"
+
+	"golang.org/x/sys/unix"
 )
 
 const (
@@ -35,6 +37,7 @@ func adoptInheritedFlag(projDir, fdEnv, tokenEnv, expectedHolder string) (*FlagL
 	if !attempted {
 		return nil, false, nil
 	}
+	consumeInheritedMutexEnvironment()
 	if fdText == "" || token == "" {
 		return nil, true, fmt.Errorf("both %s and %s are required", fdEnv, tokenEnv)
 	}
@@ -43,8 +46,16 @@ func adoptInheritedFlag(projDir, fdEnv, tokenEnv, expectedHolder string) (*FlagL
 		return nil, true, fmt.Errorf("%s is not a valid inherited descriptor", fdEnv)
 	}
 	path := flagFilePath(projDir)
-	file := os.NewFile(uintptr(fd), path)
+	// The environment-nominated fd is untrusted until every proof below has
+	// succeeded. Validate a close-on-exec duplicate so rejection can close only
+	// the duplicate, never a descriptor the process reused for unrelated work.
+	dupFD, err := unix.FcntlInt(uintptr(fd), unix.F_DUPFD_CLOEXEC, 3)
+	if err != nil {
+		return nil, true, fmt.Errorf("duplicate inherited descriptor %d: %v", fd, err)
+	}
+	file := os.NewFile(uintptr(dupFD), path)
 	if file == nil {
+		_ = unix.Close(dupFD)
 		return nil, true, fmt.Errorf("descriptor %d is not open", fd)
 	}
 	reject := func(format string, args ...any) (*FlagLock, bool, error) {
@@ -81,7 +92,7 @@ func adoptInheritedFlag(projDir, fdEnv, tokenEnv, expectedHolder string) (*FlagL
 	}
 	// Re-locking the inherited open file description succeeds only when it is
 	// the description that owns the flock proved above.
-	if err := syscall.Flock(fd, syscall.LOCK_EX|syscall.LOCK_NB); err != nil {
+	if err := syscall.Flock(dupFD, syscall.LOCK_EX|syscall.LOCK_NB); err != nil {
 		return reject("descriptor %d does not own the held upgrade mutex: %v", fd, err)
 	}
 	flag, err := ReadFlagFile(projDir)
@@ -94,10 +105,21 @@ func adoptInheritedFlag(projDir, fdEnv, tokenEnv, expectedHolder string) (*FlagL
 	if flag.HandoffToken != token {
 		return reject("upgrade mutex handoff token does not match")
 	}
-	// Ordinary subprocesses must never retain the mutex. The one deliberate
-	// syscall.Exec handoff clears this bit immediately before exec.
-	syscall.CloseOnExec(fd)
+	// file is already close-on-exec from F_DUPFD_CLOEXEC. The duplicate shares
+	// the inherited fd's open-file description, so its flock survives closing
+	// the original. Close the original only now, after complete validation, to
+	// leave FlagLock as the process's sole owner of this description.
+	if err := unix.Close(fd); err != nil {
+		return reject("close adopted original descriptor %d: %v", fd, err)
+	}
 	return &FlagLock{file: file, markerPath: path}, true, nil
+}
+
+func consumeInheritedMutexEnvironment() {
+	_ = os.Unsetenv(InstallMutexFDEnv)
+	_ = os.Unsetenv(InstallMutexTokenEnv)
+	_ = os.Unsetenv(upgradeMutexFDEnv)
+	_ = os.Unsetenv(upgradeMutexTokenEnv)
 }
 
 func holderOf(flag *UpgradeFlag) string {
