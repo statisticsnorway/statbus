@@ -918,6 +918,62 @@ func acquireRecoveryFlock(projDir string, classified UpgradeFlag) (*FlagLock, Up
 	return &FlagLock{file: f, markerPath: path}, held, nil
 }
 
+// recoveryFlock reuses the Service's already-held canonical marker when one was
+// adopted across an exec handoff. Opening the canonical path again would create
+// a different open file description and conflict with our own flock. The held
+// descriptor is still revalidated with the same identity and marker strictness
+// as acquireRecoveryFlock. acquired is true only when this call opened the lock.
+func (d *Service) recoveryFlock(classified UpgradeFlag) (lock *FlagLock, held UpgradeFlag, acquired bool, err error) {
+	if d.flagLock == nil || d.flagLock.file == nil {
+		lock, held, err = acquireRecoveryFlock(d.projDir, classified)
+		return lock, held, true, err
+	}
+
+	lock = d.flagLock
+	heldInfo, err := lock.file.Stat()
+	if err != nil {
+		return nil, UpgradeFlag{}, false, fmt.Errorf("stat held recovery marker: %w", err)
+	}
+	path := lock.canonicalPath()
+	pathInfo, err := os.Stat(path)
+	if err != nil {
+		return nil, UpgradeFlag{}, false, fmt.Errorf("stat canonical recovery marker: %w", err)
+	}
+	if !os.SameFile(heldInfo, pathInfo) {
+		return nil, UpgradeFlag{}, false, fmt.Errorf("canonical recovery marker changed inode while its flock was held — refusing stale intent")
+	}
+	held, err = readUpgradeFlagFromOpenFile(lock.file)
+	if err != nil {
+		return nil, UpgradeFlag{}, false, fmt.Errorf("read held recovery marker: %w", err)
+	}
+	if held.ID != classified.ID || held.Holder != classified.Holder || held.Phase != classified.Phase {
+		return nil, UpgradeFlag{}, false, fmt.Errorf(
+			"recovery marker changed after classification: classified upgrade %d holder %q phase %q, held marker is upgrade %d holder %q phase %q — refusing stale intent",
+			classified.ID, classified.Holder, classified.Phase, held.ID, held.Holder, held.Phase)
+	}
+	return lock, held, false, nil
+}
+
+// recoveryBudgetFlagHold owns the RecoveryBudgetGuard lock boundary. A service
+// with an inherited lock revalidates and keeps it. A lock-less service preserves
+// the guard's existing acquireFlock behavior, including its verbatim rewrite,
+// and receives a release that closes only the lock acquired here.
+func (d *Service) recoveryBudgetFlagHold(classified UpgradeFlag) (UpgradeFlag, func(), error) {
+	if d.flagLock != nil && d.flagLock.file != nil {
+		_, held, _, err := d.recoveryFlock(classified)
+		return held, func() {}, err
+	}
+	lock, err := acquireFlock(d.projDir, classified)
+	if err != nil {
+		return UpgradeFlag{}, nil, err
+	}
+	d.flagLock = lock
+	return classified, func() {
+		d.flagLock = nil
+		lock.Close()
+	}, nil
+}
+
 // removeRecoveredInstallFlag consumes only the install marker whose inode and
 // metadata recovery holds. In particular, a restart marker that replaced an
 // earlier classification must survive even when its flock is now free.
@@ -1974,11 +2030,13 @@ func (d *Service) recoverFromFlag(ctx context.Context) (err error) {
 		// The early check only avoids restart churn for ordinary contention.
 		// Authorization comes from acquiring/revalidating the actual inode,
 		// not from the check: another holder may have arrived in between.
-		lock, held, lockErr := acquireRecoveryFlock(d.projDir, flag)
+		lock, held, acquired, lockErr := d.recoveryFlock(flag)
 		if lockErr != nil {
 			return fmt.Errorf("acquire install marker for recovery cleanup: %w", lockErr)
 		}
-		defer lock.Close()
+		if acquired {
+			defer lock.Close()
+		}
 		removed, removeErr := removeRecoveredInstallFlag(lock, held)
 		if removeErr != nil {
 			return removeErr
@@ -2009,7 +2067,7 @@ func (d *Service) recoverFromFlag(ctx context.Context) (err error) {
 	// rollback_finishing is routed before observed/destructive recovery. Its held
 	// phase authorizes cleanup only, never another snapshot restore.
 	if flag.Phase == PhaseRollbackFinishing {
-		finishLock, heldFlag, lockErr := acquireRecoveryFlock(d.projDir, flag)
+		finishLock, heldFlag, _, lockErr := d.recoveryFlock(flag)
 		if lockErr != nil {
 			return fmt.Errorf("acquire and revalidate rollback finishing marker: %w", lockErr)
 		}
@@ -2063,19 +2121,23 @@ func (d *Service) recoverFromFlag(ctx context.Context) (err error) {
 	// S2 authorization is taken from the descriptor whose flock we actually hold,
 	// never from the pre-lock classification. Step is deliberately not compared:
 	// it is mutable recovery direction, and the held value must win either race.
-	routeLock, heldFlag, lockErr := acquireRecoveryFlock(d.projDir, flag)
+	routeLock, heldFlag, routeLockAcquired, lockErr := d.recoveryFlock(flag)
 	if lockErr != nil {
 		return fmt.Errorf("acquire and revalidate recovery marker before routing: %w", lockErr)
 	}
 	flag = heldFlag
 	requiresConvergence, convergenceState, convergenceErr := d.servingTreeConvergenceObligation(ctx, flag.ID)
 	if convergenceErr != nil {
-		routeLock.Close()
+		if routeLockAcquired {
+			routeLock.Close()
+		}
 		return fmt.Errorf("read serving-tree convergence obligation for upgrade %d: %w", flag.ID, convergenceErr)
 	}
 	if requiresConvergence {
 		if convergenceState == "failed" && d.runningAsService {
-			routeLock.Close()
+			if routeLockAcquired {
+				routeLock.Close()
+			}
 			logRecover("PARKED_SERVING_TREE_CONVERGENCE_FAILED: upgrade %d remains held with app/worker/rest contained after a failed serving-tree convergence. Run %s for one deliberate retry after repairing the recorded image or Compose cause.", flag.ID, d.installCommand())
 			return nil
 		}
@@ -2105,7 +2167,9 @@ func (d *Service) recoverFromFlag(ctx context.Context) (err error) {
 		d.flagLock = routeLock
 		return d.recoveryRollback(ctx, flag, flag.Label(), logRelPath, reason)
 	}
-	routeLock.Close()
+	if routeLockAcquired {
+		routeLock.Close()
+	}
 
 	// Resuming-phase flag → the planned post-swap resume began (resumeNewSb
 	// re-acquired the flock and stamped Resuming) and THAT process died before
@@ -4082,21 +4146,16 @@ func migrationObservedStateFromVersions(appliedVersions, diskVersions []int64) (
 func (d *Service) recoveryRollback(ctx context.Context, flag UpgradeFlag, displayName, logRelPath, reason string) error {
 	id := flag.ID
 
-	lock := d.flagLock
-	if lock == nil {
-		var held UpgradeFlag
-		var lerr error
-		lock, held, lerr = acquireRecoveryFlock(d.projDir, flag)
-		if lerr == nil {
-			flag = held
-		}
-		if lerr != nil {
-			// Contention, a disappeared marker, a replaced inode, or changed
-			// ID/phase all revoke this caller's pre-lock authorization. Yield and
-			// touch nothing; the durable state owns the decision, not `flag`.
-			fmt.Printf("recoveryRollback: could not acquire and revalidate the existing recovery marker — yielding without rollback (id=%d): %v\n", id, lerr)
-			return nil
-		}
+	lock, held, _, lerr := d.recoveryFlock(flag)
+	if lerr == nil {
+		flag = held
+	}
+	if lerr != nil {
+		// Contention, a disappeared marker, a replaced inode, or changed
+		// ID/phase all revoke this caller's pre-lock authorization. Yield and
+		// touch nothing; the durable state owns the decision, not `flag`.
+		fmt.Printf("recoveryRollback: could not acquire and revalidate the existing recovery marker — yielding without rollback (id=%d): %v\n", id, lerr)
+		return nil
 	}
 	// Hand the lock to the Service so rollback()'s existing terminal
 	// machinery (removeUpgradeFlag on success / keep-flag on failed write)
@@ -11319,16 +11378,12 @@ func (d *Service) RecoveryBudgetGuard(ctx context.Context) (skipBootMigrate bool
 	// stored PID, is what matters — STATBUS-111); the step is stamped below, only
 	// if we continue to the boot migrate.
 	base := *flag
-	lock, lerr := acquireFlock(d.projDir, base)
+	held, release, lerr := d.recoveryBudgetFlagHold(base)
 	if lerr != nil {
-		log.Printf("RecoveryBudgetGuard: upgrade flock held by another actor (id=%d) — skipping early counting; downstream recovery still bounds this pass: %v", flag.ID, lerr)
+		log.Printf("RecoveryBudgetGuard: upgrade flock unavailable or invalid (id=%d) — skipping early counting; downstream recovery still bounds this pass: %v", flag.ID, lerr)
 		return false
 	}
-	d.flagLock = lock
-	release := func() {
-		d.flagLock = nil
-		lock.Close()
-	}
+	flag = &held
 
 	// Parked rows skip the boot migrate → alive-idle for this failure class.
 	parked, _, perr := d.upgradeParkedReason(ctx, flag.ID)
@@ -11446,9 +11501,8 @@ func (d *Service) RecoveryBudgetGuard(ctx context.Context) (skipBootMigrate bool
 	}); err != nil {
 		log.Printf("RecoveryBudgetGuard: could not stamp boot-migrate step (id=%d): %v — same-step-twice detection degraded; the attempt budget still bounds the loop", flag.ID, err)
 	}
-	// Release before the boot migrate: the downstream resumeNewSb /
-	// recoveryRollback re-acquire the flock on their own fd (a second flock on the
-	// held fd would EWOULDBLOCK). The stamped step is already persisted on disk.
+	// Release only a lock acquired by this guard. An inherited lock stays held for
+	// the post-swap continuation and is reused by downstream recovery routing.
 	release()
 	return false
 }
@@ -11981,13 +12035,28 @@ func (d *Service) resumeNewSb(ctx context.Context, flag UpgradeFlag) error {
 		SourceServingStates: flag.SourceServingStates,
 		PriorDeathStep:      priorDeathStep,
 	}
-	lock, lerr := acquireFlock(d.projDir, reacquired)
-	if lerr != nil {
-		progress.Write("Reacquiring the upgrade lock before continuing ... failed: %v", lerr)
-		progress.Close()
-		return fmt.Errorf("resumeNewSb: re-acquire flock: %w", lerr)
+	if d.flagLock != nil && d.flagLock.file != nil {
+		if _, held, _, lerr := d.recoveryFlock(flag); lerr != nil {
+			progress.Write("Revalidating the inherited upgrade lock before continuing ... failed: %v", lerr)
+			progress.Close()
+			return fmt.Errorf("resumeNewSb: revalidate inherited flock: %w", lerr)
+		} else {
+			reacquired.HandoffToken = held.HandoffToken
+		}
+		if err := d.mutateHeldFlag(func(held *UpgradeFlag) { *held = reacquired }); err != nil {
+			progress.Write("Advancing the inherited upgrade lock before continuing ... failed: %v", err)
+			progress.Close()
+			return fmt.Errorf("resumeNewSb: advance inherited flock: %w", err)
+		}
+	} else {
+		lock, lerr := acquireFlock(d.projDir, reacquired)
+		if lerr != nil {
+			progress.Write("Reacquiring the upgrade lock before continuing ... failed: %v", lerr)
+			progress.Close()
+			return fmt.Errorf("resumeNewSb: re-acquire flock: %w", lerr)
+		}
+		d.flagLock = lock
 	}
-	d.flagLock = lock
 	d.upgrading = true
 	defer func() { d.upgrading = false }()
 

@@ -94,14 +94,17 @@ func TestInstallTerminalWriterReceivesEveryStepLine(t *testing.T) {
 func TestInstallTerminalWriterShowsEveryInstallState(t *testing.T) {
 	started := time.Date(2026, 9, 28, 3, 44, 5, 0, time.UTC)
 	cases := []struct {
-		name   string
-		state  install.State
-		detail *install.Detail
+		name    string
+		state   install.State
+		detail  *install.Detail
+		adopted bool
 	}{
-		{"install holder with pid", install.StateLiveUpgrade, &install.Detail{Flag: &upgrade.UpgradeFlag{Holder: upgrade.HolderInstall, StartedAt: started, PID: 4242}}},
-		{"install holder without pid", install.StateLiveUpgrade, &install.Detail{Flag: &upgrade.UpgradeFlag{Holder: upgrade.HolderInstall, StartedAt: started}}},
-		{"install holder with offset zone", install.StateLiveUpgrade, &install.Detail{Flag: &upgrade.UpgradeFlag{Holder: upgrade.HolderInstall, StartedAt: started.In(time.FixedZone("CEST", 2*3600)), PID: 7}}},
-		{"service holder", install.StateLiveUpgrade, &install.Detail{Flag: &upgrade.UpgradeFlag{Holder: upgrade.HolderService, StartedAt: started}}},
+		{"install holder with pid", install.StateLiveUpgrade, &install.Detail{Flag: &upgrade.UpgradeFlag{Holder: upgrade.HolderInstall, StartedAt: started, PID: 4242}}, false},
+		{"install holder without pid", install.StateLiveUpgrade, &install.Detail{Flag: &upgrade.UpgradeFlag{Holder: upgrade.HolderInstall, StartedAt: started}}, false},
+		{"install holder with offset zone", install.StateLiveUpgrade, &install.Detail{Flag: &upgrade.UpgradeFlag{Holder: upgrade.HolderInstall, StartedAt: started.In(time.FixedZone("CEST", 2*3600)), PID: 7}}, false},
+		{"service holder", install.StateLiveUpgrade, &install.Detail{Flag: &upgrade.UpgradeFlag{Holder: upgrade.HolderService, StartedAt: started}}, false},
+		{"ordinary crashed upgrade", install.StateCrashedUpgrade, &install.Detail{Flag: &upgrade.UpgradeFlag{Holder: upgrade.HolderService, Phase: upgrade.PhaseNewSbSwapped, HandoffToken: "stale"}}, false},
+		{"planned post-swap handoff", install.StateCrashedUpgrade, &install.Detail{Flag: &upgrade.UpgradeFlag{Holder: upgrade.HolderService, Phase: upgrade.PhaseNewSbSwapped, HandoffToken: "handoff-450"}}, true},
 	}
 	// Every state up to the StateCount sentinel is exercised, and an unnamed
 	// one fails, so a state appended to the enum cannot escape this test
@@ -110,19 +113,20 @@ func TestInstallTerminalWriterShowsEveryInstallState(t *testing.T) {
 		if strings.HasPrefix(s.String(), "unknown(") {
 			t.Fatalf("install.State %d has no String() name; add it to state.go", int(s))
 		}
-		if s == install.StateLiveUpgrade {
+		if s == install.StateLiveUpgrade || s == install.StateCrashedUpgrade {
 			continue
 		}
 		cases = append(cases, struct {
-			name   string
-			state  install.State
-			detail *install.Detail
-		}{s.String(), s, &install.Detail{}})
+			name    string
+			state   install.State
+			detail  *install.Detail
+			adopted bool
+		}{s.String(), s, &install.Detail{}, false})
 	}
 	projDir := t.TempDir()
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			out := captureStdout(t, func() { logInstallState(projDir, c.state, c.detail) })
+			out := captureStdout(t, func() { logInstallState(projDir, c.state, c.detail, c.adopted) })
 			var want strings.Builder
 			for _, line := range strings.Split(out, "\n") {
 				if strings.TrimSpace(line) != "" {

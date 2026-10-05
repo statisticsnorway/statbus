@@ -39,7 +39,7 @@
 # this line; it was filtered out). Whole-line fixed literals only.
 # TestInstallTerminalWriterShowsEveryInstallState runs logInstallState for
 # every state and checks each line reaches the terminal exactly once.
-/^(Preparing a new StatBus installation\.|An upgrade is already running\. Wait for it to finish, then retry if needed\.|The previous upgrade stopped unexpectedly\. Recovery will run now\.|Installation settings are incomplete\. Repair will run now\.|The database is not available\. Repair will run now\.|The database exists but setup stopped before it was finished\. Continuing where it stopped\.|This installation is too old for automatic repair\. Follow the documented manual upgrade path\.|A scheduled upgrade is ready and will run now\.|A previous database restore did not finish\. It will be retried now\.|Checking the existing installation\.|  The database and installed program differ\. Repair will reconcile them\.)$/ {
+/^(Preparing a new StatBus installation\.|An upgrade is already running\. Wait for it to finish, then retry if needed\.|The previous upgrade stopped unexpectedly\. Recovery will run now\.|Continuing the upgrade on the new binary after the planned handoff\.|Installation settings are incomplete\. Repair will run now\.|The database is not available\. Repair will run now\.|The database exists but setup stopped before it was finished\. Continuing where it stopped\.|This installation is too old for automatic repair\. Follow the documented manual upgrade path\.|A scheduled upgrade is ready and will run now\.|A previous database restore did not finish\. It will be retried now\.|Checking the existing installation\.|  The database and installed program differ\. Repair will reconcile them\.)$/ {
     print
     fflush()
     next

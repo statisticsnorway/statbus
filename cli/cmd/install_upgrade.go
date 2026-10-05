@@ -165,7 +165,7 @@ func runInlineRestoreReattemptWithLock(projDir string, detail *install.Detail, a
 	if runtime.GOOS == "linux" {
 		instance := serviceInstance(projDir)
 		if instance != "" {
-			restartIfEnabled = stopRestartUpgradeUnit(projDir, instance)
+			restartIfEnabled = stopRestartUpgradeUnit(projDir, instance, adopted != nil)
 			defer func() {
 				if upgrade.IsFlockHeld(projDir) {
 					fmt.Printf("Restore re-attempt: another install still owns the upgrade flock; leaving %s stopped for that owner to restart.\n", instance)
@@ -307,7 +307,7 @@ func runCrashRecoveryWithLock(projDir string, restartIfRecovered *func(), adopte
 	if runtime.GOOS == "linux" {
 		instance := serviceInstance(projDir)
 		if instance != "" {
-			restartIfEnabled = stopRestartUpgradeUnit(projDir, instance)
+			restartIfEnabled = stopRestartUpgradeUnit(projDir, instance, adopted != nil)
 			if restartIfRecovered != nil {
 				defer func() {
 					if recovered {
@@ -647,7 +647,7 @@ func shouldRestartAfterFailedRecovery(parked bool, parkStateReadErr error) bool 
 //
 // All errors are logged + swallowed — recovery itself is the load-bearing
 // path; systemd plumbing is best-effort observability around it.
-func stopRestartUpgradeUnit(projDir, instance string) func() {
+func stopRestartUpgradeUnit(projDir, instance string, flockHeldByCaller bool) func() {
 	wasEnabled := exec.Command("systemctl", "--user", "is-enabled", "--quiet", instance).Run() == nil
 
 	// Diagnostic WHO for the audit log. Holder is DIAGNOSTIC ONLY — liveness is
@@ -679,7 +679,7 @@ func stopRestartUpgradeUnit(projDir, instance string) func() {
 	// concurrent destructive restore, so correctness holds either way (and
 	// halting here would force operator investigation, against the
 	// unattended-self-heal goal).
-	if confirmUpgradeDeathViaFlock(projDir, flockConfirmTimeout) {
+	if confirmUpgradeDeathViaFlock(projDir, flockConfirmTimeout, flockHeldByCaller) {
 		fmt.Printf("Crash recovery: confirmed dead — upgrade flock on %s released; proceeding with takeover.\n", instance)
 	} else {
 		fmt.Printf("WARNING: upgrade flock STILL HELD %s after SIGKILL of %s — the upgrade holder may still be alive (%s). Proceeding anyway: recoveryRollback's flock gate is the authoritative serializer and will yield rather than risk a concurrent destructive restore; if recovery then yields, investigate the surviving process.\n", flockConfirmTimeout, instance, who)
@@ -726,7 +726,10 @@ const (
 // check — which the service's post-swap PID survival makes unreliable
 // (service.go:784-789). Extracted as a pure helper (no systemd) so it is
 // unit-testable with a real Flock fixture.
-func confirmUpgradeDeathViaFlock(projDir string, timeout time.Duration) bool {
+func confirmUpgradeDeathViaFlock(projDir string, timeout time.Duration, flockHeldByCaller bool) bool {
+	if flockHeldByCaller {
+		return true
+	}
 	deadline := time.Now().Add(timeout)
 	for {
 		if !upgrade.IsFlockHeld(projDir) {

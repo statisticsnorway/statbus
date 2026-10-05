@@ -710,7 +710,7 @@ func runInstall() (installErr error) {
 			preflightInstallSigner(installDir)
 			detectedState = state
 			freshDatabaseBeforeInstall = installStateHasFreshDatabase(state)
-			logInstallState(installDir, state, detail)
+			logInstallState(installDir, state, detail, adoptedUpgradeLock != nil)
 			// Safe takeover (STATBUS-039): a live flock + a crash-looping
 			// unit is not a progressing upgrade — it is a wedge cycling
 			// through watchdog kills (rune: NRestarts=10229 over 18 days),
@@ -787,7 +787,7 @@ func runInstall() (installErr error) {
 				}
 				installDiagnostic(installDir, "State after recovery: %s (target=%s)", state, detail.TargetVersion)
 				fmt.Println("Recovery finished. Checking the installation again.")
-				logInstallState(installDir, state, detail)
+				logInstallState(installDir, state, detail, false)
 			}
 			if handled, err := dispatchInstallStateWithLock(installDir, state, detail, adoptedInstallLock); handled {
 				// logInstallState already printed these refusals' remedy
@@ -3983,7 +3983,7 @@ func migrateConfigPaths(dir string) {
 // projDir is passed in so the StateNothingScheduled branch can probe
 // for DB-vs-disk migration drift (best-effort; failure stays quiet so
 // a DB blip never breaks the install output).
-func logInstallState(projDir string, state install.State, detail *install.Detail) {
+func logInstallState(projDir string, state install.State, detail *install.Detail, adoptedUpgradeLock bool) {
 	switch state {
 	case install.StateFresh:
 		fmt.Println("Preparing a new StatBus installation.")
@@ -3994,7 +3994,11 @@ func logInstallState(projDir string, state install.State, detail *install.Detail
 			fmt.Println("An upgrade is already running. Wait for it to finish, then retry if needed.")
 		}
 	case install.StateCrashedUpgrade:
-		fmt.Println("The previous upgrade stopped unexpectedly. Recovery will run now.")
+		if adoptedUpgradeLock {
+			fmt.Println("Continuing the upgrade on the new binary after the planned handoff.")
+		} else {
+			fmt.Println("The previous upgrade stopped unexpectedly. Recovery will run now.")
+		}
 	case install.StateHalfConfigured:
 		fmt.Println("Installation settings are incomplete. Repair will run now.")
 	case install.StateDBUnreachable:

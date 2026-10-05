@@ -59,7 +59,7 @@ func TestLiveInstallStateLogNamesHolder(t *testing.T) {
 			defer func() { os.Stdout = stdout }()
 			logInstallState(t.TempDir(), install.StateLiveUpgrade, &install.Detail{Flag: &upgrade.UpgradeFlag{
 				Holder: tc.holder, PID: 4242, StartedAt: started,
-			}})
+			}}, false)
 			if err := writer.Close(); err != nil {
 				t.Fatal(err)
 			}

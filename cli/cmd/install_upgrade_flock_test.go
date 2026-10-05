@@ -24,7 +24,7 @@ func TestConfirmUpgradeDeathViaFlock(t *testing.T) {
 	flagPath := filepath.Join(projDir, "tmp", "upgrade-in-progress.json")
 
 	// No flag file at all → no live upgrade → confirmed dead immediately.
-	if !confirmUpgradeDeathViaFlock(projDir, time.Second) {
+	if !confirmUpgradeDeathViaFlock(projDir, time.Second, false) {
 		t.Error("no flag file present, but confirmUpgradeDeathViaFlock reported NOT-dead; absent flag ⇒ confirmed dead (true)")
 	}
 
@@ -45,7 +45,7 @@ func TestConfirmUpgradeDeathViaFlock(t *testing.T) {
 
 	// Held → holder alive → NOT confirmed dead. Short timeout: the poll exhausts
 	// it while the lock is held.
-	if confirmUpgradeDeathViaFlock(projDir, 600*time.Millisecond) {
+	if confirmUpgradeDeathViaFlock(projDir, 600*time.Millisecond, false) {
 		t.Error("flock held by a live holder, but confirmUpgradeDeathViaFlock reported confirmed-dead (true); must be false so the observer warns and proceeds")
 	}
 
@@ -53,7 +53,18 @@ func TestConfirmUpgradeDeathViaFlock(t *testing.T) {
 	if err := syscall.Flock(int(f.Fd()), syscall.LOCK_UN); err != nil {
 		t.Fatalf("release flock: %v", err)
 	}
-	if !confirmUpgradeDeathViaFlock(projDir, 2*time.Second) {
+	if !confirmUpgradeDeathViaFlock(projDir, 2*time.Second, false) {
 		t.Error("flock released (holder gone), but confirmUpgradeDeathViaFlock did not report confirmed-dead (true)")
+	}
+
+	if err := syscall.Flock(int(f.Fd()), syscall.LOCK_EX|syscall.LOCK_NB); err != nil {
+		t.Fatalf("re-hold flock: %v", err)
+	}
+	started := time.Now()
+	if !confirmUpgradeDeathViaFlock(projDir, 2*time.Second, true) {
+		t.Error("caller's adopted flock must not be treated as evidence that the killed unit is alive")
+	}
+	if elapsed := time.Since(started); elapsed > 100*time.Millisecond {
+		t.Fatalf("adopted-lock confirmation waited %s, want immediate success", elapsed)
 	}
 }
