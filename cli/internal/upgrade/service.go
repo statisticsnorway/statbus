@@ -262,10 +262,12 @@ type Service struct {
 	// They bypass only database/docker observations around the real
 	// recoverFromFlag -> resumeNewSb routing, held-flock revalidation, phase
 	// mutation, and terminal artifact cleanup.
-	rollbackFinishPendingForTest    func(context.Context, int) (bool, error)
-	servingTreeObligationForTest    func(context.Context, int) (bool, string, error)
-	resumeNewSbSkipExternalForTest  bool
-	resumeNewSbPhaseAdvancedForTest func(UpgradeFlag) error
+	rollbackFinishPendingForTest     func(context.Context, int) (bool, error)
+	servingTreeObligationForTest     func(context.Context, int) (bool, string, error)
+	upgradeParkedReasonForTest       func(context.Context, int) (bool, string, error)
+	incrementRecoveryAttemptsForTest func(context.Context, int) (int, error)
+	resumeNewSbSkipExternalForTest   bool
+	resumeNewSbPhaseAdvancedForTest  func(UpgradeFlag) error
 }
 
 // SetUnitInstance records the systemd unit name for the deployment's
@@ -11290,6 +11292,9 @@ func parkStateUnknown(err error) bool {
 }
 
 func (d *Service) upgradeParkedReason(ctx context.Context, id int) (parked bool, reason string, err error) {
+	if d.upgradeParkedReasonForTest != nil {
+		return d.upgradeParkedReasonForTest(ctx, id)
+	}
 	if d.queryConn == nil {
 		// Not a 42703, so parkStateUnknown treats it as UNKNOWN (fail safe) and
 		// runCrashRecovery's shouldRestartAfterFailedRecovery declines to restart.
@@ -11319,6 +11324,9 @@ func (d *Service) UpgradeParkedReason(ctx context.Context, id int) (parked bool,
 // re-runs so a dead process self-counts — no post-hoc bookkeeping). Counts
 // PROCESS DEATHS only; class-A in-place waits never call this.
 func (d *Service) incrementRecoveryAttempts(ctx context.Context, id int) (int, error) {
+	if d.incrementRecoveryAttemptsForTest != nil {
+		return d.incrementRecoveryAttemptsForTest(ctx, id)
+	}
 	var attempts int
 	if err := d.queryConn.QueryRow(ctx,
 		"UPDATE public.upgrade SET recovery_attempts = recovery_attempts + 1 WHERE id = $1 RETURNING recovery_attempts", id).

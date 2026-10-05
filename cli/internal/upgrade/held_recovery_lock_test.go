@@ -23,14 +23,21 @@ func TestAdoptedLockRunsRealPostSwapRecoveryRoute(t *testing.T) {
 	}
 	dir, lock := heldRecoveryFixture(t, classified)
 	d := &Service{
-		projDir:                        dir,
-		rollbackFinishPendingForTest:   func(context.Context, int) (bool, error) { return false, nil },
-		servingTreeObligationForTest:   func(context.Context, int) (bool, string, error) { return false, "", nil },
-		resumeNewSbSkipExternalForTest: true,
-		recoveryPassCounted:            true,
-		recoveryPassAttempts:           1,
+		projDir:                          dir,
+		rollbackFinishPendingForTest:     func(context.Context, int) (bool, error) { return false, nil },
+		servingTreeObligationForTest:     func(context.Context, int) (bool, string, error) { return false, "", nil },
+		upgradeParkedReasonForTest:       func(context.Context, int) (bool, string, error) { return false, "", nil },
+		incrementRecoveryAttemptsForTest: func(context.Context, int) (int, error) { return 1, nil },
+		resumeNewSbSkipExternalForTest:   true,
 	}
 	d.AdoptFlagLock(lock)
+	ctx := context.Background()
+	if skip := d.RecoveryBudgetGuard(ctx); skip {
+		t.Fatal("RecoveryBudgetGuard unexpectedly skipped the post-swap continuation")
+	}
+	guardCounted := d.recoveryPassCounted
+	guardAttempts := d.recoveryPassAttempts
+	guardKeptLock := d.flagLock == lock && lock.file != nil
 
 	var advanced UpgradeFlag
 	d.resumeNewSbPhaseAdvancedForTest = func(flag UpgradeFlag) error {
@@ -51,11 +58,17 @@ func TestAdoptedLockRunsRealPostSwapRecoveryRoute(t *testing.T) {
 		return nil
 	}
 
-	if err := d.recoverFromFlag(context.Background()); err != nil {
+	if err := d.recoverFromFlag(ctx); err != nil {
 		t.Fatalf("real post-swap recovery route contended with its adopted lock: %v", err)
 	}
-	if advanced.Phase != PhaseNewSbUpgrading || advanced.PriorDeathStep != classified.PriorDeathStep {
-		t.Fatalf("advanced marker = %#v, want new-sb-upgrading with RecoveryBudgetGuard history %q", advanced, classified.PriorDeathStep)
+	if !guardCounted || guardAttempts != 1 {
+		t.Fatalf("RecoveryBudgetGuard count = counted=%v attempts=%d, want true/1", guardCounted, guardAttempts)
+	}
+	if !guardKeptLock {
+		t.Fatal("RecoveryBudgetGuard released or replaced the adopted lock")
+	}
+	if advanced.Phase != PhaseNewSbUpgrading || advanced.PriorDeathStep != classified.Step {
+		t.Fatalf("advanced marker = %#v, want new-sb-upgrading with RecoveryBudgetGuard-rolled history %q", advanced, classified.Step)
 	}
 	if d.recoveryPassAttempts != 1 {
 		t.Fatalf("recovery pass attempts = %d, want guard-counted pass retained", d.recoveryPassAttempts)
