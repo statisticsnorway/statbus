@@ -145,7 +145,7 @@ func TestNewSnapshotReplacesStaleOperatorConfig(t *testing.T) {
 	if err := os.Mkdir(staleDir, 0700); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(staleDir, ".env.credentials"), []byte("SLACK_TOKEN=stale\n"), 0600); err != nil {
+	if err := os.WriteFile(filepath.Join(staleDir, "env.credentials.present"), []byte("SLACK_TOKEN=stale\n"), 0600); err != nil {
 		t.Fatal(err)
 	}
 	projDir := t.TempDir()
@@ -155,7 +155,7 @@ func TestNewSnapshotReplacesStaleOperatorConfig(t *testing.T) {
 	if err := snapshotOperatorConfig(projDir, backupPath); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := os.Stat(filepath.Join(staleDir, ".env.credentials")); !os.IsNotExist(err) {
+	if _, err := os.Stat(filepath.Join(staleDir, "env.credentials.present")); !os.IsNotExist(err) {
 		t.Fatalf("stale credentials survived replacement: %v", err)
 	}
 	if err := restoreOperatorConfig(projDir, backupPath); err != nil {
@@ -186,32 +186,34 @@ func TestSourceReturnOperatorConfigSnapshotDegradesWithoutBlocking(t *testing.T)
 			wantDiagnostic: "OPERATOR_CONFIG_SNAPSHOT_UNAVAILABLE_OLD_BACKUP",
 		},
 		{
-			name: "malformed manifest",
+			name: "missing FORMAT",
 			prepareBackup: func(t *testing.T, backupPath string) {
 				t.Helper()
 				snapshotPath := operatorConfigSnapshotPath(backupPath)
 				if err := os.Mkdir(snapshotPath, 0700); err != nil {
 					t.Fatal(err)
 				}
-				if err := os.WriteFile(filepath.Join(snapshotPath, "manifest.json"), []byte("{not-json"), 0600); err != nil {
+				if err := os.WriteFile(filepath.Join(snapshotPath, "env.config.absent"), nil, 0600); err != nil {
+					t.Fatal(err)
+				}
+				if err := os.WriteFile(filepath.Join(snapshotPath, "env.credentials.absent"), nil, 0600); err != nil {
 					t.Fatal(err)
 				}
 			},
 			wantDiagnostic: "OPERATOR_CONFIG_SNAPSHOT_DEGRADED",
 		},
 		{
-			name: "manifest payload missing",
+			name: "ambiguous config presence",
 			prepareBackup: func(t *testing.T, backupPath string) {
 				t.Helper()
 				snapshotPath := operatorConfigSnapshotPath(backupPath)
 				if err := os.Mkdir(snapshotPath, 0700); err != nil {
 					t.Fatal(err)
 				}
-				manifestContents := []byte(`{"version":1,"env_config":{"present":true},"env_credentials":{"present":true}}`)
-				if err := os.WriteFile(filepath.Join(snapshotPath, "manifest.json"), manifestContents, 0600); err != nil {
+				if err := os.WriteFile(filepath.Join(snapshotPath, "FORMAT"), []byte(operatorConfigSnapshotFormat), 0600); err != nil {
 					t.Fatal(err)
 				}
-				if err := os.WriteFile(filepath.Join(snapshotPath, ".env.config"), []byte("SITE_DOMAIN=snapshot.example\n"), 0600); err != nil {
+				if err := os.WriteFile(filepath.Join(snapshotPath, "env.credentials.absent"), nil, 0600); err != nil {
 					t.Fatal(err)
 				}
 			},
@@ -250,59 +252,74 @@ func TestSourceReturnOperatorConfigSnapshotDegradesWithoutBlocking(t *testing.T)
 	}
 }
 
-func TestOperatorConfigSnapshotRejectsInvalidManifestBeforeMutation(t *testing.T) {
-	valid := `"version":1,"env_config":{"present":false},"env_credentials":{"present":false}`
+func TestOperatorConfigSnapshotRejectsInvalidLayoutBeforeMutation(t *testing.T) {
 	cases := []struct {
-		name     string
-		manifest string
+		name   string
+		mutate func(*testing.T, string)
 	}{
-		{name: "version omitted", manifest: `{"env_config":{"present":false},"env_credentials":{"present":false}}`},
-		{name: "version null", manifest: `{"version":null,"env_config":{"present":false},"env_credentials":{"present":false}}`},
-		{name: "version wrong type", manifest: `{"version":"1","env_config":{"present":false},"env_credentials":{"present":false}}`},
-		{name: "version unsupported", manifest: `{"version":2,"env_config":{"present":false},"env_credentials":{"present":false}}`},
-		{name: "env config omitted", manifest: `{"version":1,"env_credentials":{"present":false}}`},
-		{name: "env config null", manifest: `{"version":1,"env_config":null,"env_credentials":{"present":false}}`},
-		{name: "env config wrong type", manifest: `{"version":1,"env_config":false,"env_credentials":{"present":false}}`},
-		{name: "env credentials omitted", manifest: `{"version":1,"env_config":{"present":false}}`},
-		{name: "env credentials null", manifest: `{"version":1,"env_config":{"present":false},"env_credentials":null}`},
-		{name: "env credentials wrong type", manifest: `{"version":1,"env_config":{"present":false},"env_credentials":false}`},
-		{name: "both present fields omitted", manifest: `{"version":1,"env_config":{},"env_credentials":{}}`},
-		{name: "env config present omitted", manifest: `{"version":1,"env_config":{},"env_credentials":{"present":false}}`},
-		{name: "env config present null", manifest: `{"version":1,"env_config":{"present":null},"env_credentials":{"present":false}}`},
-		{name: "env config present wrong type", manifest: `{"version":1,"env_config":{"present":"false"},"env_credentials":{"present":false}}`},
-		{name: "env credentials present omitted", manifest: `{"version":1,"env_config":{"present":false},"env_credentials":{}}`},
-		{name: "env credentials present null", manifest: `{"version":1,"env_config":{"present":false},"env_credentials":{"present":null}}`},
-		{name: "env credentials present wrong type", manifest: `{"version":1,"env_config":{"present":false},"env_credentials":{"present":"false"}}`},
-		{name: "unknown top level field", manifest: `{` + valid + `,"unexpected":true}`},
-		{name: "unknown env config field", manifest: `{"version":1,"env_config":{"present":false,"unexpected":true},"env_credentials":{"present":false}}`},
-		{name: "unknown env credentials field", manifest: `{"version":1,"env_config":{"present":false},"env_credentials":{"present":false,"unexpected":true}}`},
-		{name: "duplicate top level key", manifest: `{"version":1,"version":1,"env_config":{"present":false},"env_credentials":{"present":false}}`},
-		{name: "duplicate env config key", manifest: `{"version":1,"env_config":{"present":false,"present":false},"env_credentials":{"present":false}}`},
-		{name: "duplicate env credentials key", manifest: `{"version":1,"env_config":{"present":false},"env_credentials":{"present":false,"present":false}}`},
-		{name: "trailing JSON value", manifest: `{` + valid + `} {}`},
-		{name: "trailing garbage", manifest: `{` + valid + `} garbage`},
-		{name: "empty file", manifest: ``},
-		{name: "valid JSON non-object", manifest: `[]`},
+		{name: "missing FORMAT", mutate: func(t *testing.T, path string) { mustRemove(t, filepath.Join(path, "FORMAT")) }},
+		{name: "FORMAT trailing space", mutate: func(t *testing.T, path string) {
+			mustWriteFile(t, filepath.Join(path, "FORMAT"), []byte("statbus-operator-config-snapshot v2 \n"))
+		}},
+		{name: "FORMAT v1", mutate: func(t *testing.T, path string) {
+			mustWriteFile(t, filepath.Join(path, "FORMAT"), []byte("statbus-operator-config-snapshot v1\n"))
+		}},
+		{name: "FORMAT empty", mutate: func(t *testing.T, path string) { mustWriteFile(t, filepath.Join(path, "FORMAT"), nil) }},
+		{name: "both present and absent", mutate: func(t *testing.T, path string) {
+			mustWriteFile(t, filepath.Join(path, "env.config.present"), []byte("snapshot\n"))
+		}},
+		{name: "neither present nor absent", mutate: func(t *testing.T, path string) { mustRemove(t, filepath.Join(path, "env.config.absent")) }},
+		{name: "absent marker non-empty", mutate: func(t *testing.T, path string) {
+			mustWriteFile(t, filepath.Join(path, "env.config.absent"), []byte("not empty"))
+		}},
+		{name: "present entry is directory", mutate: func(t *testing.T, path string) {
+			mustRemove(t, filepath.Join(path, "env.config.absent"))
+			if err := os.Mkdir(filepath.Join(path, "env.config.present"), 0700); err != nil {
+				t.Fatal(err)
+			}
+		}},
+		{name: "present entry is symlink", mutate: func(t *testing.T, path string) {
+			mustRemove(t, filepath.Join(path, "env.config.absent"))
+			target := filepath.Join(t.TempDir(), "payload")
+			mustWriteFile(t, target, []byte("snapshot\n"))
+			if err := os.Symlink(target, filepath.Join(path, "env.config.present")); err != nil {
+				t.Fatal(err)
+			}
+		}},
+		{name: "unknown extra entry", mutate: func(t *testing.T, path string) { mustWriteFile(t, filepath.Join(path, "unexpected"), nil) }},
+		{name: "case-variant extra entry", mutate: func(t *testing.T, path string) {
+			mustWriteFile(t, filepath.Join(path, "ENV.CONFIG.ABSENT"), nil)
+			entries, err := os.ReadDir(path)
+			if err != nil {
+				t.Fatal(err)
+			}
+			seenLower := false
+			seenUpper := false
+			for _, entry := range entries {
+				seenLower = seenLower || entry.Name() == "env.config.absent"
+				seenUpper = seenUpper || entry.Name() == "ENV.CONFIG.ABSENT"
+			}
+			if !seenLower || !seenUpper {
+				t.Skip("filesystem cannot represent case-variant sibling names")
+			}
+		}},
+		{name: "old JSON manifest", mutate: func(t *testing.T, path string) {
+			manifest := `{"version":1,"env_config":{"Present":false},"env_credentials":{"present":false}}`
+			mustWriteFile(t, filepath.Join(path, "manifest.json"), []byte(manifest))
+		}},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			projDir := t.TempDir()
 			backupPath := filepath.Join(t.TempDir(), backupActiveName)
 			snapshotPath := operatorConfigSnapshotPath(backupPath)
-			if err := os.MkdirAll(snapshotPath, 0700); err != nil {
-				t.Fatal(err)
-			}
+			writeAbsentOperatorConfigSnapshot(t, snapshotPath)
+			tc.mutate(t, snapshotPath)
+
 			configCurrent := []byte("SITE_DOMAIN=current.example\n")
 			credentialsCurrent := []byte("SLACK_TOKEN=current\n")
-			if err := os.WriteFile(filepath.Join(projDir, ".env.config"), configCurrent, 0644); err != nil {
-				t.Fatal(err)
-			}
-			if err := os.WriteFile(filepath.Join(projDir, ".env.credentials"), credentialsCurrent, 0600); err != nil {
-				t.Fatal(err)
-			}
-			if err := os.WriteFile(filepath.Join(snapshotPath, "manifest.json"), []byte(tc.manifest), 0600); err != nil {
-				t.Fatal(err)
-			}
+			mustWriteFile(t, filepath.Join(projDir, ".env.config"), configCurrent)
+			mustWriteFile(t, filepath.Join(projDir, ".env.credentials"), credentialsCurrent)
 
 			d := &Service{projDir: projDir}
 			output := captureOperatorConfigOutput(t, func() {
@@ -321,17 +338,11 @@ func TestOperatorConfigSnapshotExplicitAbsenceRemovesTargetCreatedFiles(t *testi
 	projDir := t.TempDir()
 	backupPath := filepath.Join(t.TempDir(), backupActiveName)
 	snapshotPath := operatorConfigSnapshotPath(backupPath)
-	if err := os.MkdirAll(snapshotPath, 0700); err != nil {
-		t.Fatal(err)
-	}
+	writeAbsentOperatorConfigSnapshot(t, snapshotPath)
 	for _, name := range []string{".env.config", ".env.credentials"} {
 		if err := os.WriteFile(filepath.Join(projDir, name), []byte("target-created\n"), 0600); err != nil {
 			t.Fatal(err)
 		}
-	}
-	manifest := `{"version":1,"env_config":{"present":false},"env_credentials":{"present":false}}`
-	if err := os.WriteFile(filepath.Join(snapshotPath, "manifest.json"), []byte(manifest), 0600); err != nil {
-		t.Fatal(err)
 	}
 
 	if err := restoreOperatorConfig(projDir, backupPath); err != nil {
@@ -345,41 +356,101 @@ func TestOperatorConfigSnapshotExplicitAbsenceRemovesTargetCreatedFiles(t *testi
 }
 
 func TestOperatorConfigSnapshotWriterReaderRoundTrip(t *testing.T) {
-	projDir := t.TempDir()
-	backupPath := filepath.Join(t.TempDir(), backupActiveName)
-	if err := os.Mkdir(backupPath, 0700); err != nil {
-		t.Fatal(err)
-	}
-	want := map[string][]byte{
-		".env.config":      []byte("SITE_DOMAIN=roundtrip.example\n# exact bytes\n"),
-		".env.credentials": []byte("SLACK_TOKEN=roundtrip-secret\n"),
-	}
-	for name, contents := range want {
-		if err := os.WriteFile(filepath.Join(projDir, name), contents, 0644); err != nil {
-			t.Fatal(err)
-		}
-	}
-	if err := snapshotOperatorConfig(projDir, backupPath); err != nil {
-		t.Fatal(err)
-	}
-	for name := range want {
-		if err := os.WriteFile(filepath.Join(projDir, name), []byte("target-era\n"), 0644); err != nil {
-			t.Fatal(err)
-		}
-	}
-	if err := restoreOperatorConfig(projDir, backupPath); err != nil {
-		t.Fatal(err)
-	}
-	for name, contents := range want {
-		path := filepath.Join(projDir, name)
-		assertFileBytes(t, path, contents)
-		info, err := os.Stat(path)
-		if err != nil {
-			t.Fatal(err)
-		}
-		if got := info.Mode().Perm(); got != 0600 {
-			t.Fatalf("%s mode = %o, want 600", name, got)
-		}
+	for _, tc := range []struct {
+		name               string
+		configPresent      bool
+		credentialsPresent bool
+	}{
+		{name: "both present", configPresent: true, credentialsPresent: true},
+		{name: "config present credentials absent", configPresent: true},
+		{name: "config absent credentials present", credentialsPresent: true},
+		{name: "both absent"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			projDir := t.TempDir()
+			backupPath := filepath.Join(t.TempDir(), backupActiveName)
+			if err := os.Mkdir(backupPath, 0700); err != nil {
+				t.Fatal(err)
+			}
+			want := map[string][]byte{
+				".env.config":      []byte("SITE_DOMAIN=roundtrip.example\n# exact bytes\n"),
+				".env.credentials": []byte("SLACK_TOKEN=roundtrip-secret\n"),
+			}
+			presence := map[string]bool{
+				".env.config":      tc.configPresent,
+				".env.credentials": tc.credentialsPresent,
+			}
+			for name, present := range presence {
+				if present {
+					mustWriteFile(t, filepath.Join(projDir, name), want[name])
+				}
+			}
+			if err := snapshotOperatorConfig(projDir, backupPath); err != nil {
+				t.Fatal(err)
+			}
+			snapshotPath := operatorConfigSnapshotPath(backupPath)
+			assertFileBytes(t, filepath.Join(snapshotPath, "FORMAT"), []byte(operatorConfigSnapshotFormat))
+			snapshotInfo, err := os.Stat(snapshotPath)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if got := snapshotInfo.Mode().Perm(); got != 0700 {
+				t.Fatalf("snapshot directory mode = %o, want 700", got)
+			}
+			wantEntries := map[string]bool{
+				"FORMAT": true,
+			}
+			for name, present := range presence {
+				base := name[1:]
+				suffix := ".absent"
+				if present {
+					suffix = ".present"
+				}
+				wantEntries[base+suffix] = true
+			}
+			entries, err := os.ReadDir(snapshotPath)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if len(entries) != len(wantEntries) {
+				t.Fatalf("snapshot entries = %v, want exactly %v", entries, wantEntries)
+			}
+			for _, entry := range entries {
+				if !wantEntries[entry.Name()] {
+					t.Fatalf("unexpected snapshot entry %q", entry.Name())
+				}
+				info, err := os.Lstat(filepath.Join(snapshotPath, entry.Name()))
+				if err != nil {
+					t.Fatal(err)
+				}
+				if !info.Mode().IsRegular() || info.Mode().Perm() != 0600 {
+					t.Fatalf("snapshot entry %s mode = %v, want regular 0600", entry.Name(), info.Mode())
+				}
+			}
+			for name := range presence {
+				mustWriteFile(t, filepath.Join(projDir, name), []byte("target-era\n"))
+			}
+			if err := restoreOperatorConfig(projDir, backupPath); err != nil {
+				t.Fatal(err)
+			}
+			for name, present := range presence {
+				path := filepath.Join(projDir, name)
+				if !present {
+					if _, err := os.Stat(path); !errors.Is(err, os.ErrNotExist) {
+						t.Fatalf("%s exists after absence restore: %v", name, err)
+					}
+					continue
+				}
+				assertFileBytes(t, path, want[name])
+				info, err := os.Stat(path)
+				if err != nil {
+					t.Fatal(err)
+				}
+				if got := info.Mode().Perm(); got != 0600 {
+					t.Fatalf("%s mode = %o, want 600", name, got)
+				}
+			}
+		})
 	}
 }
 
@@ -390,7 +461,7 @@ func TestRestoreSourceServicesContinuesPastDegradedOperatorConfigSnapshot(t *tes
 		wantDiagnostic  string
 	}{
 		{name: "old format backup", wantDiagnostic: "OPERATOR_CONFIG_SNAPSHOT_UNAVAILABLE_OLD_BACKUP"},
-		{name: "corrupt manifest", prepareSnapshot: true, wantDiagnostic: "OPERATOR_CONFIG_SNAPSHOT_DEGRADED"},
+		{name: "invalid layout", prepareSnapshot: true, wantDiagnostic: "OPERATOR_CONFIG_SNAPSHOT_DEGRADED"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			testRestoreSourceServicesContinuesPastOperatorConfigSnapshot(t, tc.prepareSnapshot, tc.wantDiagnostic)
@@ -438,7 +509,7 @@ func testRestoreSourceServicesContinuesPastOperatorConfigSnapshot(t *testing.T, 
 		if err := os.MkdirAll(snapshotPath, 0700); err != nil {
 			t.Fatal(err)
 		}
-		if err := os.WriteFile(filepath.Join(snapshotPath, "manifest.json"), []byte(`{}`), 0600); err != nil {
+		if err := os.WriteFile(filepath.Join(snapshotPath, "env.config.absent"), nil, 0600); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -502,5 +573,29 @@ func assertFileBytes(t *testing.T, path string, want []byte) {
 	}
 	if !bytes.Equal(got, want) {
 		t.Fatalf("%s changed byte-exact contents\ngot:  %q\nwant: %q", path, got, want)
+	}
+}
+
+func writeAbsentOperatorConfigSnapshot(t *testing.T, snapshotPath string) {
+	t.Helper()
+	if err := os.MkdirAll(snapshotPath, 0700); err != nil {
+		t.Fatal(err)
+	}
+	mustWriteFile(t, filepath.Join(snapshotPath, "FORMAT"), []byte(operatorConfigSnapshotFormat))
+	mustWriteFile(t, filepath.Join(snapshotPath, "env.config.absent"), nil)
+	mustWriteFile(t, filepath.Join(snapshotPath, "env.credentials.absent"), nil)
+}
+
+func mustWriteFile(t *testing.T, path string, contents []byte) {
+	t.Helper()
+	if err := os.WriteFile(path, contents, 0600); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func mustRemove(t *testing.T, path string) {
+	t.Helper()
+	if err := os.Remove(path); err != nil {
+		t.Fatal(err)
 	}
 }

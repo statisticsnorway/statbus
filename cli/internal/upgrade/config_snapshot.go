@@ -2,28 +2,16 @@ package upgrade
 
 import (
 	"bytes"
-	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"os"
 	"path/filepath"
 )
 
 const (
-	operatorConfigSnapshotDirName       = ".statbus-operator-config-snapshot"
-	operatorConfigSnapshotFormatVersion = 1
+	operatorConfigSnapshotDirName = ".statbus-operator-config-snapshot"
+	operatorConfigSnapshotFormat  = "statbus-operator-config-snapshot v2\n"
 )
-
-type operatorConfigSnapshotEntry struct {
-	Present *bool `json:"present"`
-}
-
-type operatorConfigSnapshotManifest struct {
-	Version        *int                         `json:"version"`
-	EnvConfig      *operatorConfigSnapshotEntry `json:"env_config"`
-	EnvCredentials *operatorConfigSnapshotEntry `json:"env_credentials"`
-}
 
 type operatorConfigSnapshotError struct {
 	oldFormat bool
@@ -58,50 +46,39 @@ func snapshotOperatorConfig(projDir, backupPath string) error {
 		}
 	}()
 
-	version := operatorConfigSnapshotFormatVersion
-	configPresent := false
-	credentialsPresent := false
-	manifest := operatorConfigSnapshotManifest{
-		Version:        &version,
-		EnvConfig:      &operatorConfigSnapshotEntry{Present: &configPresent},
-		EnvCredentials: &operatorConfigSnapshotEntry{Present: &credentialsPresent},
+	if err := os.WriteFile(filepath.Join(stagingPath, "FORMAT"), []byte(operatorConfigSnapshotFormat), 0600); err != nil {
+		return fmt.Errorf("write operator config snapshot format: %w", err)
 	}
-	files := []struct {
-		name  string
-		entry *operatorConfigSnapshotEntry
+	for _, file := range []struct {
+		destinationName string
+		snapshotBase    string
 	}{
-		{name: ".env.config", entry: manifest.EnvConfig},
-		{name: ".env.credentials", entry: manifest.EnvCredentials},
-	}
-	for _, file := range files {
-		sourcePath := filepath.Join(projDir, file.name)
+		{destinationName: ".env.config", snapshotBase: "env.config"},
+		{destinationName: ".env.credentials", snapshotBase: "env.credentials"},
+	} {
+		sourcePath := filepath.Join(projDir, file.destinationName)
 		info, err := os.Stat(sourcePath)
 		if errors.Is(err, os.ErrNotExist) {
+			if err := os.WriteFile(filepath.Join(stagingPath, file.snapshotBase+".absent"), nil, 0600); err != nil {
+				return fmt.Errorf("write %s operator config absence marker: %w", file.destinationName, err)
+			}
 			continue
 		}
 		if err != nil {
-			return fmt.Errorf("stat %s for operator config snapshot: %w", file.name, err)
+			return fmt.Errorf("stat %s for operator config snapshot: %w", file.destinationName, err)
 		}
 		if !info.Mode().IsRegular() {
 			return fmt.Errorf("snapshot operator config %s: not a regular file", sourcePath)
 		}
 		contents, err := os.ReadFile(sourcePath)
 		if err != nil {
-			return fmt.Errorf("read %s for operator config snapshot: %w", file.name, err)
+			return fmt.Errorf("read %s for operator config snapshot: %w", file.destinationName, err)
 		}
-		*file.entry.Present = true
-		if err := os.WriteFile(filepath.Join(stagingPath, file.name), contents, 0600); err != nil {
-			return fmt.Errorf("write %s operator config snapshot: %w", file.name, err)
+		if err := os.WriteFile(filepath.Join(stagingPath, file.snapshotBase+".present"), contents, 0600); err != nil {
+			return fmt.Errorf("write %s operator config snapshot: %w", file.destinationName, err)
 		}
 	}
 
-	manifestContents, err := json.Marshal(manifest)
-	if err != nil {
-		return fmt.Errorf("encode operator config snapshot manifest: %w", err)
-	}
-	if err := os.WriteFile(filepath.Join(stagingPath, "manifest.json"), manifestContents, 0600); err != nil {
-		return fmt.Errorf("write operator config snapshot manifest: %w", err)
-	}
 	if err := syncTree(stagingPath); err != nil {
 		return fmt.Errorf("sync operator config snapshot: %w", err)
 	}
@@ -117,7 +94,8 @@ func snapshotOperatorConfig(projDir, backupPath string) error {
 
 func restoreOperatorConfig(projDir, backupPath string) error {
 	snapshotPath := operatorConfigSnapshotPath(backupPath)
-	if _, err := os.Stat(snapshotPath); err != nil {
+	snapshotInfo, err := os.Lstat(snapshotPath)
+	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
 			return &operatorConfigSnapshotError{
 				oldFormat: true,
@@ -126,152 +104,103 @@ func restoreOperatorConfig(projDir, backupPath string) error {
 		}
 		return &operatorConfigSnapshotError{err: fmt.Errorf("stat operator config snapshot directory: %w", err)}
 	}
-	manifestContents, err := os.ReadFile(filepath.Join(snapshotPath, "manifest.json"))
-	if err != nil {
-		return &operatorConfigSnapshotError{err: fmt.Errorf("read operator config snapshot manifest: %w", err)}
-	}
-	manifest, err := decodeOperatorConfigSnapshotManifest(manifestContents)
-	if err != nil {
-		return &operatorConfigSnapshotError{err: fmt.Errorf("decode operator config snapshot manifest: %w", err)}
+	if !snapshotInfo.IsDir() {
+		return &operatorConfigSnapshotError{err: fmt.Errorf("operator config snapshot path %s is not a directory", snapshotPath)}
 	}
 
-	files := []struct {
-		name     string
-		present  bool
-		contents []byte
-	}{
-		{name: ".env.config", present: *manifest.EnvConfig.Present},
-		{name: ".env.credentials", present: *manifest.EnvCredentials.Present},
-	}
-	// Validate the complete snapshot before changing either destination. A
-	// missing payload must never restore one file and then discover that the
-	// other half is unusable.
-	for i := range files {
-		file := &files[i]
-		if !file.present {
-			continue
-		}
-		contents, err := os.ReadFile(filepath.Join(snapshotPath, file.name))
-		if err != nil {
-			return &operatorConfigSnapshotError{err: fmt.Errorf("read %s operator config snapshot: %w", file.name, err)}
-		}
-		file.contents = contents
+	files, err := validateOperatorConfigSnapshot(snapshotPath)
+	if err != nil {
+		return &operatorConfigSnapshotError{err: err}
 	}
 	for _, file := range files {
-		destinationPath := filepath.Join(projDir, file.name)
+		destinationPath := filepath.Join(projDir, file.destinationName)
 		if !file.present {
 			if err := os.Remove(destinationPath); err != nil && !errors.Is(err, os.ErrNotExist) {
-				return fmt.Errorf("restore absence of %s: %w", file.name, err)
+				return fmt.Errorf("restore absence of %s: %w", file.destinationName, err)
 			}
 			continue
 		}
 		if err := atomicWriteFile(destinationPath, file.contents, 0600); err != nil {
-			return fmt.Errorf("restore %s from operator config snapshot: %w", file.name, err)
+			return fmt.Errorf("restore %s from operator config snapshot: %w", file.destinationName, err)
 		}
 	}
 	return nil
 }
 
-func decodeOperatorConfigSnapshotManifest(contents []byte) (operatorConfigSnapshotManifest, error) {
-	var manifest operatorConfigSnapshotManifest
-	if err := rejectDuplicateJSONKeys(contents); err != nil {
-		return manifest, err
-	}
-
-	decoder := json.NewDecoder(bytes.NewReader(contents))
-	decoder.DisallowUnknownFields()
-	if err := decoder.Decode(&manifest); err != nil {
-		return manifest, err
-	}
-	var trailing any
-	if err := decoder.Decode(&trailing); !errors.Is(err, io.EOF) {
-		if err == nil {
-			return manifest, errors.New("trailing JSON value after manifest")
-		}
-		return manifest, fmt.Errorf("trailing data after manifest: %w", err)
-	}
-	if manifest.Version == nil {
-		return manifest, errors.New("version is required and must not be null")
-	}
-	if *manifest.Version != operatorConfigSnapshotFormatVersion {
-		return manifest, fmt.Errorf("manifest version %d is unsupported; expected %d", *manifest.Version, operatorConfigSnapshotFormatVersion)
-	}
-	if manifest.EnvConfig == nil || manifest.EnvCredentials == nil {
-		return manifest, errors.New("both env_config and env_credentials records are required and must not be null")
-	}
-	if manifest.EnvConfig.Present == nil {
-		return manifest, errors.New("env_config.present is required and must not be null")
-	}
-	if manifest.EnvCredentials.Present == nil {
-		return manifest, errors.New("env_credentials.present is required and must not be null")
-	}
-	return manifest, nil
+type validatedOperatorConfigSnapshotFile struct {
+	destinationName string
+	present         bool
+	contents        []byte
 }
 
-func rejectDuplicateJSONKeys(contents []byte) error {
-	decoder := json.NewDecoder(bytes.NewReader(contents))
-	if err := scanUniqueJSONValue(decoder); err != nil {
-		return err
-	}
-	if _, err := decoder.Token(); !errors.Is(err, io.EOF) {
-		if err == nil {
-			return errors.New("trailing JSON value after manifest")
-		}
-		return fmt.Errorf("trailing data after manifest: %w", err)
-	}
-	return nil
-}
-
-func scanUniqueJSONValue(decoder *json.Decoder) error {
-	token, err := decoder.Token()
+func validateOperatorConfigSnapshot(snapshotPath string) ([]validatedOperatorConfigSnapshotFile, error) {
+	entries, err := os.ReadDir(snapshotPath)
 	if err != nil {
-		return err
+		return nil, fmt.Errorf("read operator config snapshot directory: %w", err)
 	}
-	delim, ok := token.(json.Delim)
-	if !ok {
-		return nil
+	names := make(map[string]struct{}, len(entries))
+	for _, entry := range entries {
+		names[entry.Name()] = struct{}{}
 	}
-	switch delim {
-	case '{':
-		keys := make(map[string]struct{})
-		for decoder.More() {
-			keyToken, err := decoder.Token()
-			if err != nil {
-				return err
-			}
-			key, ok := keyToken.(string)
-			if !ok {
-				return fmt.Errorf("object key has type %T, want string", keyToken)
-			}
-			if _, duplicate := keys[key]; duplicate {
-				return fmt.Errorf("duplicate object key %q", key)
-			}
-			keys[key] = struct{}{}
-			if err := scanUniqueJSONValue(decoder); err != nil {
-				return err
-			}
+	if len(names) != 3 {
+		return nil, fmt.Errorf("operator config snapshot has %d entries; expected exactly 3", len(names))
+	}
+	if _, ok := names["FORMAT"]; !ok {
+		return nil, errors.New("operator config snapshot FORMAT is missing")
+	}
+
+	files := []validatedOperatorConfigSnapshotFile{
+		{destinationName: ".env.config"},
+		{destinationName: ".env.credentials"},
+	}
+	for i := range files {
+		file := &files[i]
+		base := file.destinationName[1:]
+		presentName := base + ".present"
+		absentName := base + ".absent"
+		_, hasPresent := names[presentName]
+		_, hasAbsent := names[absentName]
+		if hasPresent == hasAbsent {
+			return nil, fmt.Errorf("operator config snapshot must contain exactly one of %s and %s", presentName, absentName)
 		}
-	case '[':
-		for decoder.More() {
-			if err := scanUniqueJSONValue(decoder); err != nil {
-				return err
-			}
+		entryName := absentName
+		if hasPresent {
+			entryName = presentName
+			file.present = true
 		}
-	default:
-		return fmt.Errorf("unexpected JSON delimiter %q", delim)
+		info, err := os.Lstat(filepath.Join(snapshotPath, entryName))
+		if err != nil {
+			return nil, fmt.Errorf("stat operator config snapshot entry %s: %w", entryName, err)
+		}
+		if !info.Mode().IsRegular() {
+			return nil, fmt.Errorf("operator config snapshot entry %s is not a regular file", entryName)
+		}
+		contents, err := os.ReadFile(filepath.Join(snapshotPath, entryName))
+		if err != nil {
+			return nil, fmt.Errorf("read operator config snapshot entry %s: %w", entryName, err)
+		}
+		if !hasPresent && len(contents) != 0 {
+			return nil, fmt.Errorf("operator config snapshot absence marker %s is not empty", entryName)
+		}
+		file.contents = contents
 	}
-	closing, err := decoder.Token()
+
+	formatPath := filepath.Join(snapshotPath, "FORMAT")
+	formatInfo, err := os.Lstat(formatPath)
 	if err != nil {
-		return err
+		return nil, fmt.Errorf("stat operator config snapshot FORMAT: %w", err)
 	}
-	want := json.Delim('}')
-	if delim == '[' {
-		want = ']'
+	if !formatInfo.Mode().IsRegular() {
+		return nil, errors.New("operator config snapshot FORMAT is not a regular file")
 	}
-	if closing != want {
-		return fmt.Errorf("JSON delimiter %q closed by %q", delim, closing)
+	formatContents, err := os.ReadFile(formatPath)
+	if err != nil {
+		return nil, fmt.Errorf("read operator config snapshot FORMAT: %w", err)
 	}
-	return nil
+	if !bytes.Equal(formatContents, []byte(operatorConfigSnapshotFormat)) {
+		return nil, fmt.Errorf("operator config snapshot FORMAT has unexpected contents %q", formatContents)
+	}
+	return files, nil
 }
 
 func atomicWriteFile(path string, contents []byte, mode os.FileMode) error {
