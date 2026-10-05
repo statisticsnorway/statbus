@@ -113,3 +113,21 @@ Decision: **gapless handoff**. `install.sh` keeps the mutex and hands it to `./s
 - [ ] #3 The STATBUS-436 rehearsal no longer retries, and the operator path passes against the candidate in a single installer run.
 - [ ] #4 cloud.sh prints the signing-key hint only on a signature-verification failure.
 - [ ] #5 The owner's official `./cloud.sh install demo <candidate>` repairs demo in one run, observed over ≥10 min: binary, checkout and resident daemon at the candidate; v2026.09.3 row superseded; zero refusals; **the site is usable** (a page loads and stays; not judged by HTTP status).
+
+## Implementation Notes
+
+2026-10-05 12:59 UTC: first implementation on branch `fix/447-gapless-handoff` (worktree `$JCODE_SCRATCH_DIR/fix-447`):
+- d5f71126e `install:` the gapless fd-9 handoff, with Go adoption after inode, flock, holder and token proof; held-aware detection; reuse on the inline dispatch, recovery and restore paths; a private re-exec continuation; CLOEXEC on ordinary children.
+- 805c244ce `ops:` the cloud.sh signing hint, shown only on a signature failure.
+- 97320803f `test:` `test/install-recovery/tests/install-gapless-handoff-test.sh`, added to harness-selftest.yaml. With real flocks, scenario A fails on master ("already running") and passes on the branch in one run. Scenario B waits for a 12 s healthy holder. The rehearsal retry is removed.
+
+The worker also corrected `fresh-installer-test.sh` expectations. That test was already red on master (verified independently), and the new strings match the current product output.
+
+2026-10-05 13:09 UTC: adversarial review BLOCK (`tmp/447-review.md`). The core design passed: inode replacement keeps the canonical path continuously locked, there is no self-deadlock, and both scenarios hold. It blocked on fd ownership, in three ways:
+1. The adoption wrapped the environment-nominated fd with `os.NewFile` and closed it on rejection, which can close an unrelated reused descriptor (reproduced).
+2. A successful adoption left the private fd/token environment exported to later children.
+3. A stale `STATBUS_UPGRADE_MUTEX_FD=9` alongside a valid install handoff on fd 9 closes the valid fd and recreates the refusal.
+
+Fix in progress: validate on a duplicate fd, never close the original on rejection, and unset both environment pairs on every attempt. Subprocess tests are required.
+
+Separate: the un-park arc's false failure on rc.14 (a statfs read immediately after `rm` on btrfs) is fixed on branch `test/unpark-arc-btrfs-free` with a poll of up to 60 s. Review: MERGE (`tmp/unpark-arc-review.md`).
