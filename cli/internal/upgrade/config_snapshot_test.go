@@ -12,6 +12,7 @@ import (
 	"time"
 
 	statbusconfig "github.com/statisticsnorway/statbus/cli/internal/config"
+	"github.com/statisticsnorway/statbus/cli/internal/testgit"
 )
 
 func prepareLegacyConfigFixture(t *testing.T, release string) (string, []byte, []byte) {
@@ -478,7 +479,8 @@ func testRestoreSourceServicesContinuesPastOperatorConfigSnapshot(t *testing.T, 
 	projDir := t.TempDir()
 	runGit := func(args ...string) string {
 		t.Helper()
-		cmd := exec.Command("git", args...)
+		cmd := exec.Command("git", testgit.Args(args...)...)
+		cmd.Env = testgit.Env()
 		cmd.Dir = projDir
 		out, err := cmd.CombinedOutput()
 		if err != nil {
