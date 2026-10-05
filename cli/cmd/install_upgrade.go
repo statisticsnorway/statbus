@@ -679,7 +679,9 @@ func stopRestartUpgradeUnit(projDir, instance string, flockHeldByCaller bool) fu
 	// concurrent destructive restore, so correctness holds either way (and
 	// halting here would force operator investigation, against the
 	// unattended-self-heal goal).
-	if confirmUpgradeDeathViaFlock(projDir, flockConfirmTimeout, flockHeldByCaller) {
+	if flockHeldByCaller {
+		fmt.Println("Crash recovery: this process owns the adopted upgrade lock; the unit's flock is not liveness evidence. Unit stopped.")
+	} else if confirmUpgradeDeathViaFlock(projDir, flockConfirmTimeout, false) {
 		fmt.Printf("Crash recovery: confirmed dead — upgrade flock on %s released; proceeding with takeover.\n", instance)
 	} else {
 		fmt.Printf("WARNING: upgrade flock STILL HELD %s after SIGKILL of %s — the upgrade holder may still be alive (%s). Proceeding anyway: recoveryRollback's flock gate is the authoritative serializer and will yield rather than risk a concurrent destructive restore; if recovery then yields, investigate the surviving process.\n", flockConfirmTimeout, instance, who)

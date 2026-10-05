@@ -153,10 +153,10 @@ func TestResumeNewSbReacquireCopiesCapturedSourceServingImages(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	body := extractFuncBody(t, string(src), "func (d *Service) resumeNewSb(")
+	body := extractFuncBody(t, string(src), "func (d *Service) advanceResumePhase(")
 	literalStart := strings.Index(body, "reacquired := UpgradeFlag{")
 	if literalStart < 0 {
-		t.Fatal("resumeNewSb no longer constructs its reacquired recovery marker")
+		t.Fatal("advanceResumePhase no longer constructs resumeNewSb's reacquired recovery marker")
 	}
 	literalEnd := strings.Index(body[literalStart:], "\n\t}")
 	if literalEnd < 0 {

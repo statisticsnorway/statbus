@@ -258,6 +258,14 @@ type Service struct {
 	// leaves it nil. The concurrency regression test pauses immediately after
 	// the catalog observation while a migration attempts the shared lock.
 	claimSchemaProbeForTest func(bool)
+	// Narrow STATBUS-450 route-test seams. Production leaves these zero-valued.
+	// They bypass only database/docker observations around the real
+	// recoverFromFlag -> resumeNewSb routing, held-flock revalidation, phase
+	// mutation, and terminal artifact cleanup.
+	rollbackFinishPendingForTest    func(context.Context, int) (bool, error)
+	servingTreeObligationForTest    func(context.Context, int) (bool, string, error)
+	resumeNewSbSkipExternalForTest  bool
+	resumeNewSbPhaseAdvancedForTest func(UpgradeFlag) error
 }
 
 // SetUnitInstance records the systemd unit name for the deployment's
@@ -9190,6 +9198,9 @@ func (d *Service) convergeParkedServingTierToCurrentTree(ctx context.Context, pr
 }
 
 func (d *Service) servingTreeConvergenceObligation(ctx context.Context, id int) (required bool, state string, err error) {
+	if d.servingTreeObligationForTest != nil {
+		return d.servingTreeObligationForTest(ctx, id)
+	}
 	err = d.queryConn.QueryRow(ctx,
 		`SELECT COALESCE(bool_or(tree_convergence_required), false),
 		        COALESCE((SELECT claimant.state::text FROM public.upgrade AS claimant WHERE claimant.id = $1), '')
@@ -11017,6 +11028,9 @@ func errQueryConnUnavailable(operation string) error {
 // phase routing, so the read is bounded by recoveryReadTimeout (STATBUS-190): a
 // paused database must classify as an error quickly, never hang recovery.
 func (d *Service) isRollbackFinishPending(ctx context.Context, id int) (bool, error) {
+	if d.rollbackFinishPendingForTest != nil {
+		return d.rollbackFinishPendingForTest(ctx, id)
+	}
 	if d.queryConn == nil {
 		return false, fmt.Errorf("query connection is not available")
 	}
@@ -11619,6 +11633,9 @@ func (d *Service) UnparkByID(ctx context.Context, id int) (unparked bool, oldRea
 }
 
 func (d *Service) resumeNewSb(ctx context.Context, flag UpgradeFlag) error {
+	if d.resumeNewSbSkipExternalForTest {
+		return d.resumeNewSbAdvanceHeldPhaseForTest(flag)
+	}
 	var logRelPath sql.NullString
 	err := d.queryConn.QueryRow(ctx,
 		"SELECT log_relative_file_path FROM public.upgrade WHERE id = $1", flag.ID).
@@ -12016,6 +12033,30 @@ func (d *Service) resumeNewSb(ctx context.Context, flag UpgradeFlag) error {
 	// same-step comparison for a death that occurs AFTER the boot migrate (it would
 	// wrongly read boot-migrate as the prior death). Only the un-guarded fallback
 	// path (guard was a no-op) rolls flag.Step here.
+	reacquired, advanceErr := d.advanceResumePhase(flag, guardCounted)
+	if advanceErr != nil {
+		if d.flagLock != nil && d.flagLock.file != nil {
+			progress.Write("Revalidating or advancing the inherited upgrade lock before continuing ... failed: %v", advanceErr)
+		} else {
+			progress.Write("Reacquiring the upgrade lock before continuing ... failed: %v", advanceErr)
+		}
+		progress.Close()
+		return fmt.Errorf("resumeNewSb: advance recovery flock: %w", advanceErr)
+	}
+	_ = reacquired
+	d.upgrading = true
+	defer func() { d.upgrading = false }()
+
+	if applyErr := d.applyNewSbUpgrading(ctx, flag.ID, flag.CommitSHA, flag.Label(), restoreTargetSHA, flag.BackupPath, flag.Recreate, progress); applyErr != nil {
+		// rollback() already ran inside applyNewSbUpgrading and (post-rc.67)
+		// exits the process unconditionally. If we somehow got here
+		// without exiting, propagate the error to the caller.
+		return applyErr
+	}
+	return nil
+}
+
+func (d *Service) advanceResumePhase(flag UpgradeFlag, guardCounted bool) (UpgradeFlag, error) {
 	priorDeathStep := flag.Step
 	if guardCounted {
 		priorDeathStep = flag.PriorDeathStep
@@ -12037,36 +12078,34 @@ func (d *Service) resumeNewSb(ctx context.Context, flag UpgradeFlag) error {
 	}
 	if d.flagLock != nil && d.flagLock.file != nil {
 		if _, held, _, lerr := d.recoveryFlock(flag); lerr != nil {
-			progress.Write("Revalidating the inherited upgrade lock before continuing ... failed: %v", lerr)
-			progress.Close()
-			return fmt.Errorf("resumeNewSb: revalidate inherited flock: %w", lerr)
+			return UpgradeFlag{}, fmt.Errorf("revalidate inherited flock: %w", lerr)
 		} else {
 			reacquired.HandoffToken = held.HandoffToken
 		}
 		if err := d.mutateHeldFlag(func(held *UpgradeFlag) { *held = reacquired }); err != nil {
-			progress.Write("Advancing the inherited upgrade lock before continuing ... failed: %v", err)
-			progress.Close()
-			return fmt.Errorf("resumeNewSb: advance inherited flock: %w", err)
+			return UpgradeFlag{}, fmt.Errorf("advance inherited flock: %w", err)
 		}
 	} else {
 		lock, lerr := acquireFlock(d.projDir, reacquired)
 		if lerr != nil {
-			progress.Write("Reacquiring the upgrade lock before continuing ... failed: %v", lerr)
-			progress.Close()
-			return fmt.Errorf("resumeNewSb: re-acquire flock: %w", lerr)
+			return UpgradeFlag{}, fmt.Errorf("re-acquire flock: %w", lerr)
 		}
 		d.flagLock = lock
 	}
-	d.upgrading = true
-	defer func() { d.upgrading = false }()
+	return reacquired, nil
+}
 
-	if applyErr := d.applyNewSbUpgrading(ctx, flag.ID, flag.CommitSHA, flag.Label(), restoreTargetSHA, flag.BackupPath, flag.Recreate, progress); applyErr != nil {
-		// rollback() already ran inside applyNewSbUpgrading and (post-rc.67)
-		// exits the process unconditionally. If we somehow got here
-		// without exiting, propagate the error to the caller.
-		return applyErr
+func (d *Service) resumeNewSbAdvanceHeldPhaseForTest(flag UpgradeFlag) error {
+	advanced, err := d.advanceResumePhase(flag, d.recoveryPassCounted)
+	if err != nil {
+		return err
 	}
-	return nil
+	if d.resumeNewSbPhaseAdvancedForTest != nil {
+		if err := d.resumeNewSbPhaseAdvancedForTest(advanced); err != nil {
+			return err
+		}
+	}
+	return d.removeUpgradeArtifacts()
 }
 
 // runUpgradeCallback notifies external systems after a successful upgrade.

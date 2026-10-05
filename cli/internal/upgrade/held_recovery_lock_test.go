@@ -1,6 +1,7 @@
 package upgrade
 
 import (
+	"context"
 	"encoding/json"
 	"os"
 	"path/filepath"
@@ -8,6 +9,64 @@ import (
 	"syscall"
 	"testing"
 )
+
+func TestAdoptedLockRunsRealPostSwapRecoveryRoute(t *testing.T) {
+	classified := UpgradeFlag{
+		ID:             0,
+		CommitSHA:      strings.Repeat("4", 40),
+		CommitTags:     []string{"v2026.10.0-rc.15"},
+		Holder:         HolderService,
+		Phase:          PhaseNewSbSwapped,
+		HandoffToken:   "handoff-route-450",
+		Step:           "previous-death-step",
+		PriorDeathStep: "guard-rolled-step",
+	}
+	dir, lock := heldRecoveryFixture(t, classified)
+	d := &Service{
+		projDir:                        dir,
+		rollbackFinishPendingForTest:   func(context.Context, int) (bool, error) { return false, nil },
+		servingTreeObligationForTest:   func(context.Context, int) (bool, string, error) { return false, "", nil },
+		resumeNewSbSkipExternalForTest: true,
+		recoveryPassCounted:            true,
+		recoveryPassAttempts:           1,
+	}
+	d.AdoptFlagLock(lock)
+
+	var advanced UpgradeFlag
+	d.resumeNewSbPhaseAdvancedForTest = func(flag UpgradeFlag) error {
+		advanced = flag
+		onDisk, err := ReadFlagFile(dir)
+		if err != nil {
+			return err
+		}
+		if onDisk == nil || onDisk.Phase != PhaseNewSbUpgrading {
+			t.Fatalf("resumeNewSb phase mutation = %#v, want %q", onDisk, PhaseNewSbUpgrading)
+		}
+		if onDisk.HandoffToken != classified.HandoffToken {
+			t.Fatalf("resumeNewSb lost adopted handoff token: got %q want %q", onDisk.HandoffToken, classified.HandoffToken)
+		}
+		if _, _, err := acquireRecoveryFlock(dir, *onDisk); err == nil || !strings.Contains(err.Error(), "orchestrated upgrade is in progress") {
+			t.Fatalf("real adopted flock was not retained through phase mutation: %v", err)
+		}
+		return nil
+	}
+
+	if err := d.recoverFromFlag(context.Background()); err != nil {
+		t.Fatalf("real post-swap recovery route contended with its adopted lock: %v", err)
+	}
+	if advanced.Phase != PhaseNewSbUpgrading || advanced.PriorDeathStep != classified.PriorDeathStep {
+		t.Fatalf("advanced marker = %#v, want new-sb-upgrading with RecoveryBudgetGuard history %q", advanced, classified.PriorDeathStep)
+	}
+	if d.recoveryPassAttempts != 1 {
+		t.Fatalf("recovery pass attempts = %d, want guard-counted pass retained", d.recoveryPassAttempts)
+	}
+	if d.flagLock != nil {
+		t.Fatal("terminal cleanup retained adopted lock")
+	}
+	if _, err := os.Stat(flagFilePath(dir)); !os.IsNotExist(err) {
+		t.Fatalf("terminal cleanup left canonical marker: %v", err)
+	}
+}
 
 func heldRecoveryFixture(t *testing.T, flag UpgradeFlag) (string, *FlagLock) {
 	t.Helper()

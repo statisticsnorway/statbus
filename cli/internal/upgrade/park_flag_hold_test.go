@@ -328,17 +328,20 @@ func TestParkServiceRecovery_OwnsItsFlagHold_STATBUS212(t *testing.T) {
 func TestBudgetParkSites_EnterWithoutTheHold_STATBUS212(t *testing.T) {
 	src := string(packageGoSources(t)["service.go"])
 
-	// SITE 2 — resumeNewSb: the helper call precedes the function's ONLY acquireFlock.
+	// SITE 2 — resumeNewSb: the park helper precedes the call into the extracted
+	// phase-transition helper, whose only acquireFlock therefore remains unreachable
+	// on the park branch.
 	resume := extractFuncBody(t, src, "func (d *Service) resumeNewSb(")
 	helperIdx := strings.Index(resume, "d.parkServiceRecovery(")
-	acquireIdx := strings.Index(resume, "acquireFlock(")
-	if helperIdx < 0 || acquireIdx < 0 {
-		t.Fatal("resumeNewSb must contain both the park-recovery call and its flock re-acquire")
+	advanceIdx := strings.Index(resume, "d.advanceResumePhase(")
+	if helperIdx < 0 || advanceIdx < 0 {
+		t.Fatal("resumeNewSb must contain both the park-recovery call and its phase-transition call")
 	}
-	if strings.Count(resume, "acquireFlock(") != 1 {
-		t.Errorf("resumeNewSb is expected to touch the flock EXACTLY ONCE (found %d) — if that changed, re-verify which sites reach parkServiceRecovery unheld", strings.Count(resume, "acquireFlock("))
+	advance := extractFuncBody(t, src, "func (d *Service) advanceResumePhase(")
+	if strings.Count(advance, "acquireFlock(") != 1 {
+		t.Errorf("advanceResumePhase is expected to touch the flock EXACTLY ONCE (found %d) — if that changed, re-verify which sites reach parkServiceRecovery unheld", strings.Count(advance, "acquireFlock("))
 	}
-	if helperIdx > acquireIdx {
+	if helperIdx > advanceIdx {
 		t.Error("STATBUS-212: the same-step-twice park calls parkServiceRecovery BEFORE resumeNewSb's only acquireFlock — on that branch the flock is never held, so the helper must own the hold itself (a call-site reorder cannot fix this site)")
 	}
 
