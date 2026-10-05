@@ -360,7 +360,7 @@ func mergeUpgradeDaemonFinalAction(current, requested upgradeDaemonFinalAction) 
 //     stale-flag path is handled by RecoverFromFlag, not here.
 //
 // Returns (releaseFunc, nil) on success; (nil-no-op, err) on contention.
-func acquireOrBypass(installDir string, bypass bool) (release func(), err error) {
+func acquireOrBypass(installDir string, bypass bool, adopted *upgrade.FlagLock) (release func(), err error) {
 	if bypass {
 		// Verify-only diagnostic — the bypass child neither acquires nor
 		// releases the mutex. Three cases:
@@ -390,6 +390,9 @@ func acquireOrBypass(installDir string, bypass bool) (release func(), err error)
 				"INVARIANT OPPORTUNISTIC_CLEANUP_BEST_EFFORT_LOGGED violated (A17 — unexpected-bypass): --post-upgrade-fixup passed by hand (no STATBUS_POST_UPGRADE_FIXUP env signature) and no upgrade flag found; this flag is internal — do not pass it. Proceeding (install.go:%d, pid=%d)",
 				thisLine(), os.Getpid())
 		}
+		return func() {}, nil
+	}
+	if adopted != nil {
 		return func() {}, nil
 	}
 
@@ -507,6 +510,25 @@ func runInstall() (installErr error) {
 	if err != nil {
 		return installPreflightRefusal(err.Error())
 	}
+	var adoptedInstallLock, adoptedUpgradeLock *upgrade.FlagLock
+	if lock, attempted, adoptErr := upgrade.AdoptInheritedUpgradeFlag(installDir); attempted {
+		if adoptErr != nil {
+			log.Printf("Ignoring inherited upgrade mutex handoff: %v", adoptErr)
+		} else {
+			adoptedUpgradeLock = lock
+			fmt.Println("Continuing with the inherited upgrade mutex across the binary handoff.")
+		}
+	}
+	if adoptedUpgradeLock == nil {
+		if lock, attempted, adoptErr := upgrade.AdoptInheritedInstallFlag(installDir); attempted {
+			if adoptErr != nil {
+				log.Printf("Ignoring inherited install mutex handoff: %v", adoptErr)
+			} else {
+				adoptedInstallLock = lock
+				fmt.Println("Adopted the upgrade mutex inherited from install.sh.")
+			}
+		}
+	}
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return fmt.Errorf("cannot determine home directory (HOME unset?): %w", err)
@@ -601,13 +623,10 @@ func runInstall() (installErr error) {
 	// Dispatch policy:
 	//   StateLiveUpgrade      → refuse BEFORE acquireOrBypass so the message
 	//                           is an authoritative refusal, not a flock error.
-	//   StateScheduledUpgrade → hand off to executeUpgrade (the upgrade
-	//                           service's pipeline) WITHOUT acquiring the
-	//                           install flag — executeUpgrade writes its own
-	//                           HolderService flag internally before any
-	//                           destructive step. This is Option A of the
-	//                           flag-lock ownership design: ownership transfer
-	//                           matches the flock primitive.
+	//   StateScheduledUpgrade → hand off to executeUpgrade using the adopted
+	//                           install mutex when present. writeUpgradeFlag
+	//                           changes that held record to HolderService without
+	//                           a gap; callers without a handoff acquire there.
 	//   StateCrashedUpgrade   → run RecoverFromFlag (clears stale flag,
 	//                           reconciles the DB row), re-detect, re-dispatch.
 	//                           The re-detect may land us in any other state.
@@ -626,7 +645,17 @@ func runInstall() (installErr error) {
 		if err := restoreSettingsBeforeDetect(installDir); err != nil {
 			return err
 		}
-		state, detail, derr := detectInstallState(installDir, version)
+		var state install.State
+		var detail *install.Detail
+		var derr error
+		switch {
+		case adoptedUpgradeLock != nil:
+			state, detail, derr = install.DetectHoldingUpgradeFlag(installDir, version)
+		case adoptedInstallLock != nil:
+			state, detail, derr = install.DetectHoldingInstallFlag(installDir, version)
+		default:
+			state, detail, derr = detectInstallState(installDir, version)
+		}
 		if derr != nil {
 			if !errors.Is(derr, install.ErrDatabaseUnavailable) {
 				installDiagnostic(installDir, "State detection failed: %v", derr)
@@ -707,8 +736,15 @@ func runInstall() (installErr error) {
 						restartIfRecovered()
 					}
 				}()
-				if err := recoverCrashedInstall(installDir, &restartIfRecovered); err != nil {
-					return fmt.Errorf("crash recovery: %w", err)
+				var recoveryErr error
+				if adoptedUpgradeLock != nil {
+					recoveryErr = runCrashRecoveryWithLock(installDir, &restartIfRecovered, adoptedUpgradeLock)
+					adoptedUpgradeLock = nil
+				} else {
+					recoveryErr = recoverCrashedInstall(installDir, &restartIfRecovered)
+				}
+				if recoveryErr != nil {
+					return fmt.Errorf("crash recovery: %w", recoveryErr)
 				}
 				// Recovery removed the flag; the re-probe needs the route too.
 				if err := restoreSettingsBeforeDetect(installDir); err != nil {
@@ -734,7 +770,7 @@ func runInstall() (installErr error) {
 				fmt.Println("Recovery finished. Checking the installation again.")
 				logInstallState(installDir, state, detail)
 			}
-			if handled, err := dispatchInstallState(installDir, state, detail); handled {
+			if handled, err := dispatchInstallStateWithLock(installDir, state, detail, adoptedInstallLock); handled {
 				// logInstallState already printed these refusals' remedy
 				// (wait for the running upgrade; follow the manual path).
 				if err != nil && (state == install.StateLiveUpgrade || state == install.StateLegacyNoUpgradeTable) {
@@ -765,7 +801,7 @@ func runInstall() (installErr error) {
 		}
 	}
 
-	releaseFlag, err := acquireOrBypass(installDir, bypass)
+	releaseFlag, err := acquireOrBypass(installDir, bypass, adoptedInstallLock)
 	if err != nil {
 		return err
 	}

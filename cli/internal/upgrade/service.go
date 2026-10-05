@@ -419,17 +419,18 @@ func normalizePhaseBytes(phase string) string {
 // deserialize with zero values; Holder also defaults to empty (treated as
 // "service"). Older flags lacking PID deserialize with PID=0.
 type UpgradeFlag struct {
-	ID         int       `json:"id"`                    // 0 when Holder=="install"
-	CommitSHA  string    `json:"commit_sha"`            // "" when Holder=="install"
-	CommitTags []string  `json:"commit_tags,omitempty"` // release tags at CommitSHA; empty for install-held and untagged commits
-	StartedAt  time.Time `json:"started_at"`            // time.Now() at write time
-	PID        int       `json:"pid,omitempty"`         // install holder process identity for diagnostics only; flock proves liveness
-	InvokedBy  string    `json:"invoked_by"`            // specific trigger (e.g. "notify:v2026.04.1", "operator:jhf")
-	Trigger    string    `json:"trigger"`               // coarse bucket ("notify"|"scheduled"|"recovery"|"install")
-	Holder     string    `json:"holder"`                // HolderService or HolderInstall
-	Phase      string    `json:"phase,omitempty"`       // PhaseOldSbUpgrading (default) or PhaseNewSbSwapped
-	Recreate   bool      `json:"recreate,omitempty"`    // durable recreate intent (from public.upgrade.recreate) so resumeNewSb can replay --recreate
-	BackupPath string    `json:"backup_path,omitempty"` // finalized backup dir, populated at Phase=PhaseNewSbSwapped so resumeNewSb can roll back without DB
+	ID           int       `json:"id"`                      // 0 when Holder=="install"
+	CommitSHA    string    `json:"commit_sha"`              // "" when Holder=="install"
+	CommitTags   []string  `json:"commit_tags,omitempty"`   // release tags at CommitSHA; empty for install-held and untagged commits
+	StartedAt    time.Time `json:"started_at"`              // time.Now() at write time
+	PID          int       `json:"pid,omitempty"`           // install holder process identity for diagnostics only; flock proves liveness
+	InvokedBy    string    `json:"invoked_by"`              // specific trigger (e.g. "notify:v2026.04.1", "operator:jhf")
+	Trigger      string    `json:"trigger"`                 // coarse bucket ("notify"|"scheduled"|"recovery"|"install")
+	Holder       string    `json:"holder"`                  // HolderService or HolderInstall
+	HandoffToken string    `json:"handoff_token,omitempty"` // proves inherited mutex ownership across process handoffs
+	Phase        string    `json:"phase,omitempty"`         // PhaseOldSbUpgrading (default) or PhaseNewSbSwapped
+	Recreate     bool      `json:"recreate,omitempty"`      // durable recreate intent (from public.upgrade.recreate) so resumeNewSb can replay --recreate
+	BackupPath   string    `json:"backup_path,omitempty"`   // finalized backup dir, populated at Phase=PhaseNewSbSwapped so resumeNewSb can roll back without DB
 	// SourceServingImages records the source containers' references and immutable
 	// daemon image IDs before any target image pull can move a local tag. The
 	// current tree corroborates capture but does not define Source.
@@ -1061,6 +1062,12 @@ func (d *Service) writeUpgradeFlag(id int, commitSHA string, commitTags []string
 		Holder:     HolderService,
 		Phase:      PhaseOldSbUpgrading,
 		Recreate:   recreate,
+	}
+	if d.flagLock != nil && d.flagLock.file != nil {
+		return d.mutateHeldFlag(func(previous *UpgradeFlag) {
+			flag.HandoffToken = previous.HandoffToken
+			*previous = flag
+		})
 	}
 	lock, err := acquireFlock(d.projDir, flag)
 	if err != nil {
@@ -2714,16 +2721,22 @@ func (d *Service) Close() {
 	}
 }
 
+// AdoptFlagLock transfers an already-proven inherited mutex into the service
+// pipeline. The caller must not close the lock after this call.
+func (d *Service) AdoptFlagLock(lock *FlagLock) {
+	d.flagLock = lock
+}
+
 // ExecuteUpgradeInline runs executeUpgrade from a one-shot caller (./sb install
 // inline upgrade dispatch). Caller is responsible for:
 //   - opening DB connections via LoadConfigAndConnect,
 //   - ensuring the public.upgrade row at `id` exists and is in 'scheduled'
 //     state with started_at IS NULL (the claim UPDATE below enforces this).
 //
-// This function does NOT acquire the install flag-lock: executeUpgrade writes
-// its own HolderService flag internally before any destructive step
-// (service.go:writeUpgradeFlag), which serialises against concurrent actors
-// via the kernel flock.
+// ExecuteUpgradeInline reuses a proven inherited install flag-lock when one
+// was adopted by its Service. Without one, executeUpgrade writes and acquires
+// its own HolderService flag internally before any destructive step. The
+// writeUpgradeFlag transition is gapless in either case.
 //
 // Concurrency: the claim UPDATE mirrors executeScheduled's claim with the
 // same state guard. If a racing upgrade service claimed the row first,
@@ -8298,12 +8311,16 @@ func (d *Service) executeUpgrade(ctx context.Context, claim upgradeClaimSnapshot
 		// systemd-managed daemon: exit-42 → unit restarts on the new binary.
 		os.Exit(42)
 	}
+	if err := d.prepareInheritedUpgradeLockForExec(); err != nil {
+		return fmt.Errorf("prepare upgrade mutex for exec handoff: %w", err)
+	}
 	// Install-inline (one-shot foreground): replace this process image
 	// with the new ./sb in-place. argv/env preserved; the new binary
 	// hits recoverFromFlag at startup and resumes at applyNewSbUpgrading.
 	sbPath := filepath.Join(d.projDir, "sb")
 	// authority:pinned-reexec
 	if err := syscall.Exec(sbPath, os.Args, os.Environ()); err != nil {
+		d.cancelInheritedUpgradeLockAfterExecFailure()
 		// exec is rare-fail (ENOEXEC on a corrupted just-built binary,
 		// EACCES on a perm bug). Surface rather than fall back to the
 		// in-process orchestrator — the post-swap flag is set, so the
@@ -13180,10 +13197,6 @@ const preRestoreStopVerifyBudget = 30 * time.Second
 // against a second install with the filesystem flock and proves the daemon is
 // absent with the same advisory transaction lock claimScheduledUpgrade uses.
 func (d *Service) ReattemptRestore(ctx context.Context, rowID int64) error {
-	if d.flagLock != nil {
-		return fmt.Errorf("ReattemptRestore: upgrade flock is already held in this process; refusing a second restore replay claim for row %d", rowID)
-	}
-
 	// The restore-broke terminal deliberately removed the original marker so
 	// no daemon could auto-thrash the snapshot. This operator invocation is a
 	// NEW replay claim, so it legitimately creates a marker. Start it as an
@@ -13197,11 +13210,20 @@ func (d *Service) ReattemptRestore(ctx context.Context, rowID int64) error {
 		Trigger:   "install-cli",
 		Holder:    HolderInstall,
 	}
-	lock, lockErr := acquireFreshFlock(d.projDir, tentative)
-	if lockErr != nil {
-		return fmt.Errorf("ReattemptRestore: acquire fresh replay marker for row %d: %w", rowID, lockErr)
+	if d.flagLock != nil && d.flagLock.file != nil {
+		if err := d.mutateHeldFlag(func(previous *UpgradeFlag) {
+			tentative.HandoffToken = previous.HandoffToken
+			*previous = tentative
+		}); err != nil {
+			return fmt.Errorf("ReattemptRestore: rewrite inherited replay marker for row %d: %w", rowID, err)
+		}
+	} else {
+		lock, lockErr := acquireFreshFlock(d.projDir, tentative)
+		if lockErr != nil {
+			return fmt.Errorf("ReattemptRestore: acquire fresh replay marker for row %d: %w", rowID, lockErr)
+		}
+		d.flagLock = lock
 	}
-	d.flagLock = lock
 	removeTentativeMarker := true
 	defer func() {
 		if removeTentativeMarker {

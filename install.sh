@@ -430,19 +430,26 @@ fi
 # DESCRIPTION, so the kernel releases it on process-tree death even under SIGKILL,
 # and no EXIT trap can be forgotten.
 #
-# RELEASED BEFORE THE GO INSTALLER RUNS, deliberately: that command acquires this
-# same mutex itself (acquireOrBypass), and holding it here would make it fail
-# EWOULDBLOCK against us. One holder, one contract, handed over cleanly.
+# The descriptor is inherited by the Go installer and adopted only after it
+# proves inode identity, flock ownership, holder identity, and this run's token.
 STATBUS_REPO_LOCK_HELD=""
 STATBUS_REPO_LOCK_OWN_FLAG=""
+unset STATBUS_INSTALL_MUTEX_FD STATBUS_INSTALL_MUTEX_TOKEN
+STATBUS_INSTALL_MUTEX_TOKEN=""
 
 # Write the install-held record — field-compatible with what AcquireInstallFlag
 # writes on the Go side (id/commit_sha/started_at/invoked_by/trigger/holder), so
 # every reader classifies this the same way whichever side took the lock.
 _statbus_write_install_flag() {
     _now="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-    printf '{"id":0,"commit_sha":"","started_at":"%s","invoked_by":"install.sh:%s","trigger":"install","holder":"install"}\n' \
-        "$_now" "${USER:-unknown}" >&9 2>/dev/null || true
+    STATBUS_INSTALL_MUTEX_TOKEN=$(od -An -N16 -tx1 /dev/urandom | tr -d ' \n')
+    : >&9
+    printf '{"id":0,"commit_sha":"","started_at":"%s","invoked_by":"install.sh:%s","trigger":"install","holder":"install","handoff_token":"%s"}\n' \
+        "$_now" "${USER:-unknown}" "$STATBUS_INSTALL_MUTEX_TOKEN" >&9 2>/dev/null || true
+}
+
+_statbus_fd9_is_canonical() {
+    perl -e 'my ($path) = @ARGV; open(my $fd, "<&=9") or exit 1; my @fd = stat($fd); my @path = stat($path); exit(!(@fd && @path && $fd[0] == $path[0] && $fd[1] == $path[1]));' "$1"
 }
 
 statbus_repo_lock_acquire() {
@@ -467,45 +474,50 @@ statbus_repo_lock_acquire() {
     _flag="$STATBUS_DIR/tmp/upgrade-in-progress.json"
 
     # O_RDWR|O_CREAT WITHOUT truncation: an EXISTING record (a live upgrade's)
-    # must survive our opening it. We write our own record only after winning.
-    exec 9<>"$_flag" || return 0
-
-    if perl -e 'use Fcntl ":flock"; open(my $f, "<&=9") or exit 2; exit(flock($f, LOCK_EX|LOCK_NB) ? 0 : 1);'; then
-        # A freed restart intent belongs to Go recovery. Never overwrite it.
-        if [ ! -s "$_flag" ]; then
-            _statbus_write_install_flag
-            STATBUS_REPO_LOCK_OWN_FLAG=1
+    # must survive our opening it. A holder removes the marker while locked, so
+    # a waiter can wake holding the now-unlinked inode. Retry immediately until
+    # fd 9 and the canonical path are the same inode, matching Go's lock rule.
+    _waited=""
+    while true; do
+        exec 9<>"$_flag" || return 0
+        if perl -e 'use Fcntl ":flock"; open(my $f, "<&=9") or exit 2; exit(flock($f, LOCK_EX|LOCK_NB) ? 0 : 1);'; then
+            if _statbus_fd9_is_canonical "$_flag"; then
+                break
+            fi
+            exec 9>&-
+            continue
         fi
-        STATBUS_REPO_LOCK_HELD=1
-        return 0
-    fi
 
-    # A live restart must be reported immediately, not waited out and erased.
-    if grep -Eq '"trigger"[[:space:]]*:[[:space:]]*"restart"' "$_flag"; then
-        echo "a restart is still running. Wait for it to finish, then run the same install command again: $STATBUS_INSTALL_RERUN_COMMAND" >&2
-        exit 78
-    fi
-
-    # CONTENDED. Never wait silently: an upgrade can hold this for many minutes,
-    # and a twenty-minute silent hang is indistinguishable from a crash. Say what
-    # is happening and who holds it BEFORE blocking.
-    echo "Waiting for the upgrade mutex — another party holds it." >&2
-    if [ -s "$_flag" ]; then
-        echo "  Holder record: $(tr -d '\n' < "$_flag" | cut -c1-300)" >&2
-    fi
-    echo "  (an upgrade in progress can hold this for several minutes)" >&2
-    echo "  Inspect with: lsof $_flag" >&2
-
-    if perl -e 'use Fcntl ":flock"; open(my $f, "<&=9") or exit 2; exit(flock($f, LOCK_EX) ? 0 : 1);'; then
-        echo "Upgrade mutex acquired; continuing." >&2
-        if [ ! -s "$_flag" ]; then
-            _statbus_write_install_flag
-            STATBUS_REPO_LOCK_OWN_FLAG=1
+        # A live restart must be reported immediately, not waited out and erased.
+        if grep -Eq '"trigger"[[:space:]]*:[[:space:]]*"restart"' "$_flag"; then
+            echo "a restart is still running. Wait for it to finish, then run the same install command again: $STATBUS_INSTALL_RERUN_COMMAND" >&2
+            exit 78
         fi
-        STATBUS_REPO_LOCK_HELD=1
-    else
-        echo "Warning: could not acquire the upgrade mutex; continuing without it." >&2
+        if [ -z "$_waited" ]; then
+            echo "Waiting for the upgrade mutex — another party holds it." >&2
+            if [ -s "$_flag" ]; then
+                echo "  Holder record: $(tr -d '\n' < "$_flag" | cut -c1-300)" >&2
+            fi
+            echo "  (an upgrade in progress can hold this for several minutes)" >&2
+            echo "  Inspect with: lsof $_flag" >&2
+            _waited=1
+        fi
+        if ! perl -e 'use Fcntl ":flock"; open(my $f, "<&=9") or exit 2; exit(flock($f, LOCK_EX) ? 0 : 1);'; then
+            echo "Warning: could not acquire the upgrade mutex; continuing without it." >&2
+            return 0
+        fi
+        if _statbus_fd9_is_canonical "$_flag"; then
+            break
+        fi
+        exec 9>&-
+    done
+
+    [ -z "$_waited" ] || echo "Upgrade mutex acquired; continuing." >&2
+    if [ ! -s "$_flag" ]; then
+        _statbus_write_install_flag
+        STATBUS_REPO_LOCK_OWN_FLAG=1
     fi
+    STATBUS_REPO_LOCK_HELD=1
     return 0
 }
 
@@ -514,11 +526,33 @@ statbus_repo_lock_acquire() {
 statbus_repo_lock_release() {
     [ -n "$STATBUS_REPO_LOCK_HELD" ] || return 0
     if [ -n "$STATBUS_REPO_LOCK_OWN_FLAG" ]; then
-        rm -f "$STATBUS_DIR/tmp/upgrade-in-progress.json" 2>/dev/null || true
+        # The Go upgrade pipeline may have atomically replaced the canonical
+        # marker and transferred the flock to a new inode. Remove only the inode
+        # still held on fd 9, never a successor's fresh mutex.
+        perl -e 'my ($path) = @ARGV; open(my $fd, "<&=9") or exit 0; my @fd = stat($fd); my @path = stat($path); unlink($path) if @fd && @path && $fd[0] == $path[0] && $fd[1] == $path[1];' \
+            "$STATBUS_DIR/tmp/upgrade-in-progress.json" 2>/dev/null || true
     fi
     exec 9>&- 2>/dev/null || true
     STATBUS_REPO_LOCK_HELD=""
     STATBUS_REPO_LOCK_OWN_FLAG=""
+    unset STATBUS_INSTALL_MUTEX_FD STATBUS_INSTALL_MUTEX_TOKEN
+    STATBUS_INSTALL_MUTEX_TOKEN=""
+}
+
+statbus_repo_lock_prepare_handoff() {
+    unset STATBUS_INSTALL_MUTEX_FD
+    if [ -n "$STATBUS_REPO_LOCK_HELD" ] && [ -n "$STATBUS_REPO_LOCK_OWN_FLAG" ] && [ -n "$STATBUS_INSTALL_MUTEX_TOKEN" ]; then
+        export STATBUS_INSTALL_MUTEX_FD=9
+        export STATBUS_INSTALL_MUTEX_TOKEN
+    else
+        unset STATBUS_INSTALL_MUTEX_TOKEN
+        if [ -n "$STATBUS_REPO_LOCK_HELD" ]; then
+            # A stale pre-existing marker is recovery state, not an install.sh-owned
+            # mutex record. Preserve today's detect/recover behavior for that case.
+            exec 9>&- 2>/dev/null || true
+            STATBUS_REPO_LOCK_HELD=""
+        fi
+    fi
 }
 
 statbus_repo_lock_acquire
@@ -777,11 +811,10 @@ fi
 # only reflects invariants fired during THIS install, not ghosts from before.
 rm -f "$STATBUS_DIR/tmp/install-terminal.txt" 2>/dev/null || true
 
-# STATBUS-323: hand the mutex over. Every repository operation above is done,
-# and the Go installer acquires this SAME lock itself (acquireOrBypass). Holding
-# it here would make it fail EWOULDBLOCK against us — the self-deadlock the
-# flag-ownership contract explicitly warns about. One holder at a time.
-statbus_repo_lock_release
+# Hand the exact held descriptor to the Go installer. A stale pre-existing flag
+# is recovery state rather than ours, so it is not eligible for handoff and the
+# old detect/recover behavior is retained without publishing handoff variables.
+statbus_repo_lock_prepare_handoff
 
 # `curl | bash` uses stdin to carry this script, but the documented quick install
 # is interactive. Reconnect the Go installer's stdin to the caller's controlling
@@ -828,11 +861,8 @@ set -e
 # ERR trap fired and printed the failing command. If sb_rc != 0 the
 # failure was inside the Go binary — not a bash-level exit.
 
-# STATBUS-323: belt — release again on the failure path. The release above is
-# the normal hand-over and has already run, so this is a no-op then; it exists
-# because an early `exit` added below this line in future would otherwise leave
-# our install-held record on disk for the next run to reason about. The function
-# is idempotent and only ever removes a record we wrote and still hold.
+# Release only after ./sb install returns. The child reuses this hold rather than
+# taking a competing flock, so there is no daemon-sized gap in the handoff.
 statbus_repo_lock_release
 
 if [ "$sb_rc" -eq 0 ]; then

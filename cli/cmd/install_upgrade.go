@@ -26,6 +26,10 @@ import (
 // dispatch logic in one place avoids duplicating the error strings across
 // the two call sites.
 func dispatchInstallState(projDir string, state install.State, detail *install.Detail) (bool, error) {
+	return dispatchInstallStateWithLock(projDir, state, detail, nil)
+}
+
+func dispatchInstallStateWithLock(projDir string, state install.State, detail *install.Detail, adopted *upgrade.FlagLock) (bool, error) {
 	switch state {
 	case install.StateLiveUpgrade:
 		if detail.Flag != nil {
@@ -37,9 +41,9 @@ func dispatchInstallState(projDir string, state install.State, detail *install.D
 		}
 		return true, fmt.Errorf("upgrade in progress; wait for it to finish")
 	case install.StateScheduledUpgrade:
-		return true, runInlineUpgradeScheduled(projDir, detail)
+		return true, runInlineUpgradeScheduledWithLock(projDir, detail, adopted)
 	case install.StateRestoreReattemptable:
-		return true, runInlineRestoreReattempt(projDir, detail)
+		return true, runInlineRestoreReattemptWithLock(projDir, detail, adopted)
 	case install.StateLegacyNoUpgradeTable:
 		return true, fmt.Errorf("pre-1.0 install detected (public.upgrade table absent). Automatic upgrade from pre-1.0 is not yet implemented (tracked as #65.6). Contact support or follow the manual upgrade path in doc/CLOUD.md")
 	}
@@ -56,10 +60,10 @@ func dispatchInstallState(projDir string, state install.State, detail *install.D
 // returns zero rows affected and this function surfaces a clear error — the
 // operator can re-run ./sb install once the other path finishes.
 //
-// This path does NOT acquire the install flag-lock. executeUpgrade writes
-// its own HolderService flag internally before any destructive step,
-// serialising against any concurrent ./sb install or service via the kernel
-// flock on tmp/upgrade-in-progress.json.
+// This path reuses a proven inherited install lock when install.sh handed one
+// across. Otherwise executeUpgrade acquires its own HolderService flag before
+// destructive work. In both cases writeUpgradeFlag transitions the held record
+// to service ownership without opening a lock gap.
 // inlineDispatchHasPendingAtOrBelowFloor, inlineDispatchMigrateToFloor, and
 // inlineDispatchExecute are seams over the daemon-floor check, migration run,
 // and inline dispatch itself, so tests can pin their ordering. The livedb
@@ -79,8 +83,15 @@ var inlineDispatchExecute = func(ctx context.Context, svc *upgrade.Service, id i
 }
 
 func runInlineUpgradeScheduled(projDir string, detail *install.Detail) error {
+	return runInlineUpgradeScheduledWithLock(projDir, detail, nil)
+}
+
+func runInlineUpgradeScheduledWithLock(projDir string, detail *install.Detail, adopted *upgrade.FlagLock) error {
 	ctx := context.Background()
 	svc := upgrade.NewService(projDir, true /* verbose */, version, commit)
+	if adopted != nil {
+		svc.AdoptFlagLock(adopted)
+	}
 	defer svc.Close()
 	if runtime.GOOS == "linux" {
 		// Unit name for the per-dispatch NRestarts reset (STATBUS-039
@@ -138,6 +149,10 @@ func runInlineUpgradeScheduled(projDir string, detail *install.Detail) error {
 // what is being done, and — on success — the forward path (report + try a LATER
 // release; NEVER re-schedule the same version, a hard failure repeats).
 func runInlineRestoreReattempt(projDir string, detail *install.Detail) error {
+	return runInlineRestoreReattemptWithLock(projDir, detail, nil)
+}
+
+func runInlineRestoreReattemptWithLock(projDir string, detail *install.Detail, adopted *upgrade.FlagLock) error {
 	ctx := context.Background()
 
 	// The daemon owns a session-level advisory lock for its lifetime. Quiesce
@@ -162,6 +177,9 @@ func runInlineRestoreReattempt(projDir string, detail *install.Detail) error {
 	}
 
 	svc := upgrade.NewService(projDir, true /* verbose */, version, commit)
+	if adopted != nil {
+		svc.AdoptFlagLock(adopted)
+	}
 	defer svc.Close()
 	if runtime.GOOS == "linux" {
 		svc.SetUnitInstance(serviceInstance(projDir))
@@ -264,8 +282,15 @@ func restartUpgradeService(projDir string) {
 // wasEnabled=false stays the no-op closure stopRestartUpgradeUnit already
 // returns) — it does NOT invoke the closure itself anymore.
 func runCrashRecovery(projDir string, restartIfRecovered *func()) error {
+	return runCrashRecoveryWithLock(projDir, restartIfRecovered, nil)
+}
+
+func runCrashRecoveryWithLock(projDir string, restartIfRecovered *func(), adopted *upgrade.FlagLock) error {
 	ctx := context.Background()
 	svc := upgrade.NewService(projDir, true /* verbose */, version, commit)
+	if adopted != nil {
+		svc.AdoptFlagLock(adopted)
+	}
 	defer svc.Close()
 
 	// PART 1: stop the looping upgrade unit before any recovery work.

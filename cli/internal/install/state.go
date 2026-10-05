@@ -131,6 +131,34 @@ func Detect(projDir, currentVersion string) (State, *Detail, error) {
 	return DetectWith(projDir, currentVersion, defaultProbe{})
 }
 
+// DetectHoldingInstallFlag runs the normal ladder while ignoring the caller's
+// own proven install-held marker. The marker is a mutex, not an upgrade state.
+func DetectHoldingInstallFlag(projDir, currentVersion string) (State, *Detail, error) {
+	return DetectWith(projDir, currentVersion, heldFlagProbe{Probe: defaultProbe{}, holder: upgrade.HolderInstall})
+}
+
+// DetectHoldingUpgradeFlag runs the normal ladder while treating the caller's
+// inherited service-held mutex as the crashed-upgrade state it is resuming.
+func DetectHoldingUpgradeFlag(projDir, currentVersion string) (State, *Detail, error) {
+	return DetectWith(projDir, currentVersion, heldFlagProbe{Probe: defaultProbe{}, holder: upgrade.HolderService})
+}
+
+type heldFlagProbe struct {
+	Probe
+	holder string
+}
+
+func (p heldFlagProbe) ReadFlag(projDir string) (*upgrade.UpgradeFlag, bool, error) {
+	flag, _, err := p.Probe.ReadFlag(projDir)
+	if err != nil || flag == nil {
+		return flag, false, err
+	}
+	if p.holder == upgrade.HolderInstall {
+		return nil, false, nil
+	}
+	return flag, false, nil
+}
+
 // DetectWith runs the ladder with a caller-supplied probe.
 func DetectWith(projDir, currentVersion string, probe Probe) (State, *Detail, error) {
 	detail := &Detail{CurrentVersion: currentVersion, TargetVersion: currentVersion}
