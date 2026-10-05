@@ -462,24 +462,30 @@ echo "  ✓ daemon alive-idle, healthy + data intact under the park"
 # ── FREE the disk — the external fix. ──
 echo ""
 echo "── freeing the disk (removing the fill file) — the external resource fix ──"
-VM_EXEC bash -c "cd ~/statbus && rm -f ${FILL_FILE}"
-# The guest's root is a btrfs subvolume (LXD pool statbus-arc-fill). btrfs frees
-# an unlinked file's extents in a later transaction commit, so statfs can still
-# report the old free space for a short while after `rm` returns. rc.14's run
-# 37295764118 read "3 GB" one instant after the rm while its own diagnostics,
-# ~0.05 s later, showed 18 GB free on the same 30 GB disk. Wait for the freed
-# space to become visible (bounded), as the un-park attempt itself would see it,
-# instead of judging one racy read.
-FREE_WAIT_BUDGET_S=60
-FREE_WAITED=0
+# Freeing the disk is "remove the file AND commit the filesystem": the guest root
+# is a btrfs subvolume (LXD pool statbus-arc-fill), which releases an unlinked
+# file's extents in a later transaction, so statfs right after `rm` can still
+# report the old value. rc.14's run 37295764118 read 3 GB one instant after the
+# rm while its own diagnostics ~0.05 s later showed 18 GB free on the same disk.
+# `sync -f` (unprivileged syncfs on the filesystem holding ~/statbus) commits
+# that transaction, so the next statfs — the same call the product's DiskFree
+# makes — reflects the freed space. The precondition is then asserted once.
+VM_EXEC bash -c "cd ~/statbus && rm -f ${FILL_FILE} && sync -f ~/statbus"
 AVAIL_FREED_GB=$(( $(avail_bytes) / 1024 / 1024 / 1024 ))
-while [ "$AVAIL_FREED_GB" -lt 5 ] && [ "$FREE_WAITED" -lt "$FREE_WAIT_BUDGET_S" ]; do
+# Backstop, reported rather than silent: if the committed filesystem still shows
+# less than the floor, re-read for up to 30 s and SAY that it was needed, so a
+# case where `sync -f` alone is insufficient becomes a visible measurement.
+BACKSTOP_WAITED=0
+while [ "$AVAIL_FREED_GB" -lt 5 ] && [ "$BACKSTOP_WAITED" -lt 30 ]; do
     sleep 2
-    FREE_WAITED=$(( FREE_WAITED + 2 ))
+    BACKSTOP_WAITED=$(( BACKSTOP_WAITED + 2 ))
     AVAIL_FREED_GB=$(( $(avail_bytes) / 1024 / 1024 / 1024 ))
 done
-echo "  free after removal: ${AVAIL_FREED_GB} GB (visible after ${FREE_WAITED}s)"
-[ "$AVAIL_FREED_GB" -ge 5 ] || { echo "✗ disk still below 5 GB ${FREE_WAITED}s after removing the fill file (${AVAIL_FREED_GB} GB) — the un-park attempt would re-park" >&2; exit 1; }
+if [ "$BACKSTOP_WAITED" -gt 0 ]; then
+    echo "  NOTE: free space was still below 5 GB after rm + sync -f; it became ${AVAIL_FREED_GB} GB after a further ${BACKSTOP_WAITED}s (backstop used)"
+fi
+echo "  free after removal: ${AVAIL_FREED_GB} GB"
+[ "$AVAIL_FREED_GB" -ge 5 ] || { echo "✗ disk still below 5 GB after removing the fill file and committing the filesystem (${AVAIL_FREED_GB} GB) — the un-park attempt would re-park" >&2; exit 1; }
 echo "  ✓ disk freed above the 5 GB floor"
 
 # ── UN-PARK: ./sb install → one fresh attempt → the SAME row runs to completed. ──
