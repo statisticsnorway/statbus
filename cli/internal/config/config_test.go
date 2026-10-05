@@ -568,6 +568,33 @@ func TestPlainGenerateRejectsFreshSecret_STATBUS361(t *testing.T) {
 	}
 }
 
+func TestStrictGenerationRefusalDoesNotShadowLegacySecret_STATBUS445(t *testing.T) {
+	dir := t.TempDir()
+	const original = "operator-seq-api-key"
+	if err := os.WriteFile(filepath.Join(dir, ".env.config"), []byte("SEQ_API_KEY="+original+"\n"), 0600); err != nil {
+		t.Fatal(err)
+	}
+
+	err := GenerateInDir(dir, false)
+	if err == nil || !strings.Contains(err.Error(), "SEQ_API_KEY in .env.config is a secret") {
+		t.Fatalf("strict generation must refuse the misplaced secret, got %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, ".env.credentials")); !os.IsNotExist(err) {
+		t.Fatalf("strict refusal created credentials before validating config: %v", err)
+	}
+
+	if err := migrateLegacySecrets(dir); err != nil {
+		t.Fatal(err)
+	}
+	credentials, err := dotenv.Load(filepath.Join(dir, ".env.credentials"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got, ok := credentials.Get("SEQ_API_KEY"); !ok || got != original {
+		t.Fatalf("SEQ_API_KEY = %q, present=%v, want original value %q", got, ok, original)
+	}
+}
+
 func TestInstallerGenerationMigratesLegacySecret_STATBUS361(t *testing.T) {
 	dir := t.TempDir()
 	configPath := filepath.Join(dir, ".env.config")

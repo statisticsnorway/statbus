@@ -1307,13 +1307,12 @@ func migrateLegacySecrets(projDir string) error {
 // gitDir. GeneratedFilesMatch uses an isolated destination but the real checkout
 // as the identity source.
 func generateInDir(projDir, gitDir string, verbose bool) error {
-
-	creds, err := loadOrGenerateCredentials(projDir, verbose)
+	cfg, err := loadOrGenerateConfig(projDir, verbose)
 	if err != nil {
 		return err
 	}
 
-	cfg, err := loadOrGenerateConfig(projDir, verbose)
+	creds, err := loadOrGenerateCredentials(projDir, verbose)
 	if err != nil {
 		return err
 	}
