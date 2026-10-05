@@ -71,3 +71,5 @@ Pass `--migrate-legacy-secrets` at the install crash-recovery `config generate`.
 Owner requirement on the same day: **delete the snapshot once the upgrade is terminal**, both on completion and after a rollback has restored from it. Secret-bearing leftovers are a real risk. Keep it while any recovery could still need it. When a new upgrade finds a stale snapshot, it replaces it atomically.
 
 Implementing on branch `fix/444-config-snapshot` (carries 4575c5e22 as 5f59a6762).
+
+2026-10-05 owner refinement (supersedes the separate-cleanup design): store the config snapshot **inside the database backup** (`pre-upgrade-active/operator-config/`, written into the syncing dir after rsync and before the fsync + atomic rename), so it follows the backup's existing lifecycle: committed atomically with it, replaced by the next backup, and pruned with it. No separate retention or deletion logic. Every rollback path that restores from `backup_path` also restores the two files before the source's config generate runs.
