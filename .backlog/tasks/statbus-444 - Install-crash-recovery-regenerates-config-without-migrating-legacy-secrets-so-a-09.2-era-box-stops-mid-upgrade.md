@@ -59,3 +59,15 @@ Pass `--migrate-legacy-secrets` at the install crash-recovery `config generate`.
 - [ ] #1 The install crash-recovery path invokes config generation with legacy-secret migration, pinned by a behavioral test (recorded command line or seam), not a source grep.
 - [ ] #2 Every `config generate` call site in cli/ has a recorded verdict (needs the flag / cannot see legacy secrets / old binary that lacks the flag), and those that need it pass it.
 - [ ] #3 The STATBUS-436 scheduled-path guest proof passes against the candidate carrying the fix (this also closes 443 AC#3, 441 AC#2 and 436 AC#5).
+
+## Implementation Notes
+
+2026-10-03 19:22 UTC: the first fix (4575c5e22, `--migrate-legacy-secrets` in install crash recovery) was BLOCKED in review (`tmp/444-review.md`).
+- Moving SLACK_TOKEN/SEQ_API_KEY into `.env.credentials` mid-upgrade breaks rollback to v2026.09.2. 09.2 reads them only from `.env.config`, so after a rollback its config generate writes placeholders back, and Slack/Seq credentials are silently lost.
+- The same defect has been latent in shipped code since STATBUS-361 (f8503adca), in v2026.09.3 and rc.13. The service path already does this move, and rollback restores the DB and git but never the operator config files.
+
+2026-10-05 owner decision: snapshot. Snapshot `.env.config` and `.env.credentials` before target code can rewrite them, and restore both on every rollback to the source.
+
+Owner requirement on the same day: **delete the snapshot once the upgrade is terminal**, both on completion and after a rollback has restored from it. Secret-bearing leftovers are a real risk. Keep it while any recovery could still need it. When a new upgrade finds a stale snapshot, it replaces it atomically.
+
+Implementing on branch `fix/444-config-snapshot` (carries 4575c5e22 as 5f59a6762).
