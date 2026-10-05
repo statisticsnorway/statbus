@@ -80,3 +80,13 @@ Implementing on branch `fix/444-config-snapshot` (carries 4575c5e22 as 5f59a6762
 - STATBUS-445 (8bebcad33 config ordering fix + 402789fcf fixtures/rollback test): MERGE (`tmp/445-review.md`).
 
 Review files: `tmp/444-review.md`, `tmp/444-snapshot-review.md`, `tmp/445-review.md`.
+
+2026-10-05 09:20 UTC: two more review rounds, both BLOCK, on the same destructive class.
+- d08cefdfd: a record's `present` could be omitted and zero-fill to false.
+- db8d86549: Go `encoding/json` matches keys case-insensitively, so `"Present"` or `"Env_Config"` satisfy or shadow the canonical keys and slip past the duplicate check. In every case a manifest can be read as "absent" and delete the current `.env.config`.
+
+Decision: stop hardening the JSON decode. Replace it with a layout where absence is a positive marker and cannot be the result of parsing:
+- each file is exactly one of `<name>.present` (the byte-exact content) or `<name>.absent` (an empty marker)
+- a fixed `FORMAT` file holds a version string
+- validation checks the exact set of entry names, regular files only (no symlinks)
+- any deviation → degraded, both files untouched, the rollback continues
