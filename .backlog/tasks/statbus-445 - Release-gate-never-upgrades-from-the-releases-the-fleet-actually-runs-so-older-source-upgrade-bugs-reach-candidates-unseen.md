@@ -3,9 +3,10 @@ id: STATBUS-445
 title: >-
   Release gate never upgrades from the releases the fleet actually runs, so
   older-source upgrade bugs reach candidates unseen
-status: To Do
+status: Done
 assignee: []
 created_date: '2026-10-03 14:55'
+updated_date: '2026-10-05 09:38'
 labels:
   - release
   - testing
@@ -65,9 +66,19 @@ The class is narrow: **an old release's on-disk files meet new install, upgrade 
 
    New old-era inputs join the same table when found.
 
-## Acceptance criteria
+## Acceptance Criteria
+<!-- AC:BEGIN -->
+- [x] #1 Per-release config fixtures exist with recorded provenance, produced by each release's own generator.
+- [x] #2 A table-driven Go test runs every fixture through every install/upgrade/recovery config-generation entry point and asserts success plus secret migration.
+- [x] #3 Proven RED on master for the 09.2/09.0/08.0 fixtures through install crash recovery (STATBUS-444), and GREEN with the 444 fix.
+- [x] #4 When a new stable is released, its fixture is added. This is recorded as a step in doc/releases.md (the stable-promotion checklist).
+<!-- AC:END -->
 
-- [ ] #1 Per-release config fixtures exist with recorded provenance, produced by each release's own generator.
-- [ ] #2 A table-driven Go test runs every fixture through every install/upgrade/recovery config-generation entry point and asserts success plus secret migration.
-- [ ] #3 Proven RED on master for the 09.2/09.0/08.0 fixtures through install crash recovery (STATBUS-444), and GREEN with the 444 fix.
-- [ ] #4 When a new stable is released, its fixture is added. This is recorded as a step in doc/releases.md (the stable-promotion checklist).
+## Implementation Notes
+
+2026-10-05 09:38 UTC: the work is two commits, independently reviewed (MERGE, `tmp/445-review.md`), merged on top of the STATBUS-444 commits.
+
+- **40bef6ae3 `config:` product fix.** Strict generation used to create `.env.credentials`, with a generated SEQ_API_KEY, before it refused on legacy secrets. The later migration then kept that generated value, so the operator's real key was lost. Config is now validated first. A focused test fails with the old order and passes with the fix.
+- **c38b2a83c fixtures and table test.** It holds the real `.env.config`/`.env.credentials` that v2026.08.0, 09.0, 09.2 and 09.3 generate, captured with each tag's own generator. A provenance README and `capture.sh` record how. The table test feeds every fixture to every install, upgrade and recovery config-generation entry point, plus rollback cases (08.0, 09.0, 09.2) through the real snapshot and restore functions: byte-exact, 0600. A line in `doc/releases.md` adds a new stable's fixture to the promotion checklist.
+
+Without the 444 fix the crash-recovery cases fail (on master the seam did not exist; the test was red at build time). With it they pass.
