@@ -73,3 +73,10 @@ Owner requirement on the same day: **delete the snapshot once the upgrade is ter
 Implementing on branch `fix/444-config-snapshot` (carries 4575c5e22 as 5f59a6762).
 
 2026-10-05 owner refinement (supersedes the separate-cleanup design): store the config snapshot **inside the database backup** (`pre-upgrade-active/operator-config/`, written into the syncing dir after rsync and before the fsync + atomic rename), so it follows the backup's existing lifecycle: committed atomically with it, replaced by the next backup, and pruned with it. No separate retention or deletion logic. Every rollback path that restores from `backup_path` also restores the two files before the source's config generate runs.
+
+2026-10-05 08:52 UTC, review trail on branch `fix/444-config-snapshot`:
+- 7f805e801 (snapshot inside backup): BLOCK. An old-format backup without a snapshot hard-failed rollback, park restoration, and the STATBUS-111 replay. Everything else passed: ordering, PGDATA exclusion, lifecycle, 0700/0600 security, and source-return ordering.
+- aac7cb2cd (degrade safely): BLOCK. The old-backup case is fixed, but a valid-JSON incomplete manifest (`{}`) would zero-fill missing entries to "absent" and DELETE both current operator files. The fix being built: a versioned manifest with required explicit records, everything validated before any write, invalid → degraded with files untouched, plus behavioral tests through both chokepoints.
+- STATBUS-445 (8bebcad33 config ordering fix + 402789fcf fixtures/rollback test): MERGE (`tmp/445-review.md`).
+
+Review files: `tmp/444-review.md`, `tmp/444-snapshot-review.md`, `tmp/445-review.md`.
