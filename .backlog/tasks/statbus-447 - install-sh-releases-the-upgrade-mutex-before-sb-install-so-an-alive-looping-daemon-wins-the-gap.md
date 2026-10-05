@@ -68,7 +68,7 @@ A count-based takeover ("> 5 failed in 5 min → SIGKILL the lock holder") was r
 
 The counter-example: a person makes 6 manual attempts that fail, then starts a HEALTHY upgrade, which holds the lock mid-migration when the installer runs. The failure count describes the past, but a takeover kills the CURRENT holder. That would kill a legitimate upgrade.
 
-Simulation (real flock in Perl, demo's measured cadence: lock held 1.7 s of every 1.9 s; script `$JCODE_SCRATCH_DIR/lock-sim/sim3.pl`, with `sim2.pl` for the inverse):
+Simulation (real flock in Perl, demo's measured cadence: lock held 1.7 s of every 1.9 s; script `tmp/lock-sim-447/sim3.pl`, with `sim2.pl` for the inverse; copy in tmp/ because scratch is ephemeral):
 
 | design | A: alive looping daemon | B: inverse (manual failures, then a healthy holder) |
 |---|---|---|
@@ -103,7 +103,7 @@ Decision: **gapless handoff**. `install.sh` keeps the mutex and hands it to `./s
 - **Shell test (test/install or the harness self-test tier, no VM):**
   - **(A)** a fake looping holder takes and releases the flock on demo's measured cadence (1.7 s held, 0.2 s free), while install.sh's lock functions plus a stub `./sb install` (which records whether it saw the lock as free, live, or inherited) run once. It must complete with no retry. It must be RED on current master (reproduces "already running").
   - **(B)** the inverse: 6 quick holder cycles, then a holder keeping the lock 12 s. The installer must WAIT and never kill or steal; it starts only after the holder releases.
-  - Reuse the Perl flock model from `$JCODE_SCRATCH_DIR/lock-sim/` as the starting point.
+  - Reuse the Perl flock model from `tmp/lock-sim-447/` as the starting point.
 - **Guest proof:** the STATBUS-436 operator path (`CANDIDATE_PATH=operator`), with retries removed, against the candidate carrying this fix. One installer run must complete against the live loop.
 
 ## Acceptance criteria
