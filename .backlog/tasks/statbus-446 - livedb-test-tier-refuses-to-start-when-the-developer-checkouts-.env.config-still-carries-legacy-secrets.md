@@ -3,7 +3,7 @@ id: STATBUS-446
 title: >-
   livedb test tier refuses to start when the developer checkout's .env.config
   still carries legacy secrets
-status: In Progress
+status: Done
 assignee: []
 created_date: '2026-10-05 09:10'
 labels:
@@ -37,8 +37,8 @@ The fixture is an install of a project directory from operator files, so it shou
 
 ## Acceptance criteria
 
-- [ ] #1 The livedb fixture setup succeeds from a checkout whose `.env.config` carries legacy secrets. A unit test with a temp source checkout holding `SLACK_TOKEN` proves fixture config generation succeeds and leaves the source files byte-identical.
-- [ ] #2 `TestRollbackFinalizeHealthyTailCommitsAndUnlinks` (or a sibling) runs in the direct livedb tier on this machine.
+- [x] #1 The livedb fixture setup succeeds from a checkout whose `.env.config` carries legacy secrets. A unit test with a temp source checkout holding `SLACK_TOKEN` proves fixture config generation succeeds and leaves the source files byte-identical.
+- [x] #2 `TestRollbackFinalizeHealthyTailCommitsAndUnlinks` (or a sibling) runs in the direct livedb tier on this machine.
 
 ## Implementation steering (2026-10-06)
 
@@ -55,3 +55,9 @@ Actual read-only psqlTCP and pgxTCP verify127.0.0.1:3014 postgres PG18.6 and abs
 Fresh Whale Solxhigh independent review of exact97f24 delegated19:01:20, full tmp/446-fixture-review.md verdict pending. No source integration, push or AC completion from green notifications. Implementation report tmp/446-fixture-implementation.md and raw logs in author's tmp/446/ retain exact old/final evidence.
 
 At19:03 coordinator read the full51-line updated report and raw target/preflight/postflight/filesystem logs. Existing TestRollbackFinalizeHealthyTailCommitsAndUnlinks executed once at97f24, PASS0. Only new statbus_446_fixture_tail_1006 cloned, floor remains20261001163000. Actual held marker, ALTER DATABASE read-only teardown, terminal rolled_back stamp/pending cleared, maintenance removal and flock release passed; cleanup leaves no probe row or target audit/log/bundle/marker. All five runtime exits0, source still clean97f24. Ordered audit assertion passed, but its printed list also contains retained inherited seed history for reused id1, so this is not claimed as isolated exactly-two-event provenance. Mocked Docker/start and no snapshot/binary restore remain explicit limits. Owned DB retained, no shared or role mutations. Independent review still pending before integration/Done.
+
+At19:06:32 the full175-line Whale independent review was read: explicit MERGE exact97f24, both bounded ticket criteria demonstrated, no concrete source blocker. Source integrated19:07:04 as bfab97dfc014f851ef765c3ebcb5a650014f718f and e697355ccb66dcf05ed29f101701b3530e160d00. Both stable patch IDs and complete non-backlog source equality verified in tmp/446-reviewed-source-proof-20261006.log. Coordinator sole full ordinary Go suite659142lmqr runs at exact integrated source, explicit log/exit pending. No tagged TestMain repeat or push. Ticket closure and normal source CI are separate milestones; future guest/deployed gates remain unchanged.
+
+### Completion, 2026-10-06 19:10 UTC
+
+The sole full ordinary `go test ./... -count=1` passed at exact integrated e697355ccb66dcf05ed29f101701b3530e160d00, process exit0,150.93s. Logs tmp/446-full-go-e697355cc.{log,exit}; cmd51.879s, upgrade142.113s, copied-generation package5.410s. Final build/vet/full regular and tagged lint were already green at reviewed source, and independent checks passed. AC1 is demonstrated at the actual shared copied-generation boundary with synthetic real CLI and byte-identical originals. AC2 is the existing actual direct-livedb target PASS0 with all explicit runtime limits above. Both criteria and reviewed integration are complete, so status Done. This does not mark future named-candidate, snapshot restoration or deployment gates complete. Fresh all-CI-idle check, source push and hosted gate evidence remain separate release tasks.
