@@ -31,6 +31,10 @@ func restartServices(profile string) error {
 }
 
 func restartServicesInDir(dir, profile string) error {
+	return restartServicesInDirWithLock(dir, profile, nil)
+}
+
+func restartServicesInDirWithLock(dir, profile string, adopted *upgrade.FlagLock) error {
 	ops := restartOperations{
 		systemd: runtime.GOOS == "linux", unit: serviceInstance(dir),
 		systemctl: func(args ...string) (string, error) {
@@ -78,16 +82,21 @@ func restartServicesInDir(dir, profile string) error {
 			ops.systemd = false
 		}
 	}
-	return restartServicesWith(dir, profile, ops)
+	return restartServicesWithLock(dir, profile, ops, adopted)
 }
 
 func restartServicesWith(dir, profile string, ops restartOperations) (result error) {
+	return restartServicesWithLock(dir, profile, ops, nil)
+}
+
+func restartServicesWithLock(dir, profile string, ops restartOperations, adopted *upgrade.FlagLock) (result error) {
+	defer adopted.Close() // Refusal and early failures retain the original marker.
 	switch profile {
 	case "all", "all_except_app", "app":
 	default:
 		return fmt.Errorf("unknown restart profile %q; expected all, all_except_app or app", profile)
 	}
-	lock, prior, preserveRecoveryMarker, err := upgrade.AcquireRestartFlag(dir, profile)
+	lock, prior, preserveRecoveryMarker, err := upgrade.AcquireRestartFlagWithLock(dir, profile, adopted)
 	if err != nil {
 		return err
 	}
@@ -117,7 +126,7 @@ func restartServicesWith(dir, profile string, ops restartOperations) (result err
 		}
 		if preserveRecoveryMarker {
 			lock.Close()
-		} else if prepared && result != nil {
+		} else if result != nil && (prepared || adopted != nil) {
 			lock.Close() // retain restart intent, never expose ordinary repair
 			result = errors.Join(result, fmt.Errorf("restart incomplete; fix the reported cause, then retry ./sb restart %s; the restart barrier was retained", profile))
 		} else {
@@ -159,7 +168,7 @@ func restartServicesWith(dir, profile string, ops restartOperations) (result err
 			return fmt.Errorf("cannot restart with upgrade service %s load state %q; no services were stopped", ops.unit, values["LoadState"])
 		}
 	}
-	if !preserveRecoveryMarker {
+	if !preserveRecoveryMarker && !prepared {
 		intent := upgrade.RestartIntent{Profile: profile, Unit: unit, Daemon: startDaemon}
 		if err := upgrade.PrepareRestart(lock, intent); err != nil {
 			return fmt.Errorf("persist restart intent: %w", err)

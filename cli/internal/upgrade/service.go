@@ -2033,7 +2033,7 @@ func (d *Service) recoverFromFlag(ctx context.Context) (err error) {
 	// the marker (install's config step restarts the service). A previous
 	// classification is not permission to unlink another actor's live mutex.
 	if holder == HolderInstall {
-		if IsFlockHeld(d.projDir) {
+		if (d.flagLock == nil || d.flagLock.file == nil) && IsFlockHeld(d.projDir) {
 			logRecover("An install still holds the upgrade mutex; leaving its marker intact.")
 			return nil
 		}

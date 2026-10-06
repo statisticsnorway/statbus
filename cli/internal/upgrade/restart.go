@@ -44,13 +44,27 @@ func CheckRestartBarrier(dir string) error {
 // AcquireRestartFlag claims idle state atomically or re-acquires ONLY matching
 // restart intent verbatim. All unrelated recovery markers remain untouched.
 func AcquireRestartFlag(dir, profile string) (*FlagLock, *RestartIntent, bool, error) {
+	return AcquireRestartFlagWithLock(dir, profile, nil)
+}
+
+// AcquireRestartFlagWithLock revalidates an inherited hold without opening a
+// competing description. Its caller retains close-only ownership on refusal.
+func AcquireRestartFlagWithLock(dir, profile string, adopted *FlagLock) (*FlagLock, *RestartIntent, bool, error) {
 	flag, err := ReadFlagFile(dir)
 	if err != nil {
 		return nil, nil, false, fmt.Errorf("restart refused: %w. No services were stopped", err)
 	}
+	acquire := func(flag UpgradeFlag) (*FlagLock, UpgradeFlag, error) {
+		if adopted == nil {
+			return acquireRecoveryFlock(dir, flag)
+		}
+		svc := &Service{projDir: dir, flagLock: adopted}
+		lock, held, _, err := svc.recoveryFlock(flag)
+		return lock, held, err
+	}
 	if flag != nil {
 		if flag.Trigger != "restart" || flag.Holder != HolderInstall {
-			lock, _, err := acquireRecoveryFlock(dir, *flag)
+			lock, _, err := acquire(*flag)
 			if err != nil {
 				return nil, nil, false, fmt.Errorf("restart refused while recovery is live; no services were stopped; wait or run %s for diagnosis: %w", InstallCommand(dir), err)
 			}
@@ -58,7 +72,7 @@ func AcquireRestartFlag(dir, profile string) (*FlagLock, *RestartIntent, bool, e
 			// Hold it verbatim for serialization and preserve it on release.
 			return lock, nil, true, nil
 		}
-		lock, held, err := acquireRecoveryFlock(dir, *flag)
+		lock, held, err := acquire(*flag)
 		if err != nil {
 			return nil, nil, false, err
 		}
@@ -70,6 +84,9 @@ func AcquireRestartFlag(dir, profile string) (*FlagLock, *RestartIntent, bool, e
 			return lock, nil, false, nil
 		}
 		return lock, held.Restart, false, nil
+	}
+	if adopted != nil {
+		return nil, nil, false, fmt.Errorf("held restart marker disappeared; no services were stopped")
 	}
 	lock, err := acquireFreshFlock(dir, UpgradeFlag{StartedAt: time.Now(), PID: os.Getpid(), InvokedBy: "operator:restart", Trigger: "restart", Holder: HolderInstall, Restart: &RestartIntent{Profile: profile}})
 	return lock, nil, false, err

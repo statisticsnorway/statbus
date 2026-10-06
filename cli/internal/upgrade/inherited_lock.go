@@ -27,7 +27,21 @@ func AdoptInheritedInstallFlag(projDir string) (lock *FlagLock, attempted bool, 
 // AdoptInheritedUpgradeFlag resumes the private mutex handoff across the
 // inline upgrade pipeline's syscall.Exec boundary.
 func AdoptInheritedUpgradeFlag(projDir string) (lock *FlagLock, attempted bool, err error) {
-	return adoptInheritedFlag(projDir, upgradeMutexFDEnv, upgradeMutexTokenEnv, HolderService)
+	fdText, token := os.Getenv(upgradeMutexFDEnv), os.Getenv(upgradeMutexTokenEnv)
+	consumeInheritedMutexEnvironment()
+	return AdoptInheritedRecoveryFlagDescriptor(projDir, fdText, fdText != "" || token != "")
+}
+
+// AdoptInheritedRecoveryFlagDescriptor routes an unchanged pre-existing marker.
+// Empty holder is the existing legacy service interpretation, not a rewrite.
+func AdoptInheritedRecoveryFlagDescriptor(projDir, fdText string, attempted bool) (lock *FlagLock, tried bool, err error) {
+	for _, holder := range []string{HolderService, HolderInstall, ""} {
+		lock, tried, err = AdoptInheritedFlagDescriptor(projDir, fdText, attempted, holder)
+		if err == nil {
+			return lock, tried, nil
+		}
+	}
+	return lock, tried, err
 }
 
 func adoptInheritedFlag(projDir, fdEnv, tokenEnv, expectedHolder string) (*FlagLock, bool, error) {

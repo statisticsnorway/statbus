@@ -435,6 +435,7 @@ fi
 STATBUS_REPO_LOCK_HELD=""
 STATBUS_REPO_LOCK_OWN_FLAG=""
 unset STATBUS_INSTALL_MUTEX_FD STATBUS_INSTALL_MUTEX_TOKEN
+unset STATBUS_UPGRADE_MUTEX_FD STATBUS_UPGRADE_MUTEX_TOKEN
 STATBUS_INSTALL_MUTEX_TOKEN=""
 
 # Write the install-held record — field-compatible with what AcquireInstallFlag
@@ -537,21 +538,28 @@ statbus_repo_lock_release() {
     STATBUS_REPO_LOCK_HELD=""
     STATBUS_REPO_LOCK_OWN_FLAG=""
     unset STATBUS_INSTALL_MUTEX_FD STATBUS_INSTALL_MUTEX_TOKEN
+    unset STATBUS_UPGRADE_MUTEX_FD STATBUS_UPGRADE_MUTEX_TOKEN
     STATBUS_INSTALL_MUTEX_TOKEN=""
 }
 
 statbus_repo_lock_prepare_handoff() {
     unset STATBUS_INSTALL_MUTEX_FD
+    unset STATBUS_UPGRADE_MUTEX_FD STATBUS_UPGRADE_MUTEX_TOKEN
     if [ -n "$STATBUS_REPO_LOCK_HELD" ] && [ -n "$STATBUS_REPO_LOCK_OWN_FLAG" ] && [ -n "$STATBUS_INSTALL_MUTEX_TOKEN" ]; then
         export STATBUS_INSTALL_MUTEX_FD=9
         export STATBUS_INSTALL_MUTEX_TOKEN
     else
         unset STATBUS_INSTALL_MUTEX_TOKEN
         if [ -n "$STATBUS_REPO_LOCK_HELD" ]; then
-            # A stale pre-existing marker is recovery state, not an install.sh-owned
-            # mutex record. Preserve today's detect/recover behavior for that case.
-            exec 9>&- 2>/dev/null || true
-            STATBUS_REPO_LOCK_HELD=""
+            # Older target receivers (including rc.16) cannot resume a held
+            # restart. Check the actual checked-out entrypoint, just as the
+            # terminal filter below falls back for older target source trees.
+            if grep -q '^func restartServicesInDirWithLock(' "$STATBUS_DIR/cli/cmd/service_restart.go" 2>/dev/null; then
+                export STATBUS_UPGRADE_MUTEX_FD=9
+            else
+                exec 9>&- 2>/dev/null || true
+                STATBUS_REPO_LOCK_HELD=""
+            fi
         fi
     fi
 }
@@ -812,9 +820,8 @@ fi
 # only reflects invariants fired during THIS install, not ghosts from before.
 rm -f "$STATBUS_DIR/tmp/install-terminal.txt" 2>/dev/null || true
 
-# Hand the exact held descriptor to the Go installer. A stale pre-existing flag
-# is recovery state rather than ours, so it is not eligible for handoff and the
-# old detect/recover behavior is retained without publishing handoff variables.
+# Hand the exact held descriptor to the matching target binary. Pre-existing
+# recovery/restart intent is carried verbatim only to capable target receivers.
 statbus_repo_lock_prepare_handoff
 
 # `curl | bash` uses stdin to carry this script, but the documented quick install

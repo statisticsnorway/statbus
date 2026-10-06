@@ -465,7 +465,16 @@ func adoptInheritedMutexes(installDir string) (adoptedInstallLock, adoptedUpgrad
 	for _, name := range []string{upgrade.InstallMutexFDEnv, upgrade.InstallMutexTokenEnv, "STATBUS_UPGRADE_MUTEX_FD", "STATBUS_UPGRADE_MUTEX_TOKEN"} {
 		_ = os.Unsetenv(name)
 	}
-	if lock, attempted, adoptErr := upgrade.AdoptInheritedFlagDescriptor(installDir, upgradeFD, upgradeFD != "" || upgradeToken != "", upgrade.HolderService); attempted {
+	installAttempted := installFD != "" || installToken != ""
+	adoptUpgrade := upgrade.AdoptInheritedRecoveryFlagDescriptor
+	if installAttempted {
+		// Stale upgrade metadata must not turn a valid fresh INSTALL handoff
+		// into pre-existing install recovery. Service upgrades still route first.
+		adoptUpgrade = func(dir, fd string, attempted bool) (*upgrade.FlagLock, bool, error) {
+			return upgrade.AdoptInheritedFlagDescriptor(dir, fd, attempted, upgrade.HolderService)
+		}
+	}
+	if lock, attempted, adoptErr := adoptUpgrade(installDir, upgradeFD, upgradeFD != "" || upgradeToken != ""); attempted {
 		if adoptErr != nil {
 			log.Printf("Ignoring inherited upgrade mutex handoff: %v", adoptErr)
 		} else {
@@ -474,13 +483,18 @@ func adoptInheritedMutexes(installDir string) (adoptedInstallLock, adoptedUpgrad
 		}
 	}
 	if adoptedUpgradeLock == nil {
-		if lock, attempted, adoptErr := upgrade.AdoptInheritedFlagDescriptor(installDir, installFD, installFD != "" || installToken != "", upgrade.HolderInstall); attempted {
+		if lock, attempted, adoptErr := upgrade.AdoptInheritedFlagDescriptor(installDir, installFD, installAttempted, upgrade.HolderInstall); attempted {
 			if adoptErr != nil {
 				log.Printf("Ignoring inherited install mutex handoff: %v", adoptErr)
 			} else {
 				adoptedInstallLock = lock
 				fmt.Println("Adopted the upgrade mutex inherited from install.sh.")
 			}
+		}
+	}
+	if adoptedUpgradeLock == nil && adoptedInstallLock == nil && installAttempted {
+		if lock, _, err := upgrade.AdoptInheritedRecoveryFlagDescriptor(installDir, upgradeFD, upgradeFD != "" || upgradeToken != ""); err == nil {
+			adoptedUpgradeLock = lock
 		}
 	}
 	return adoptedInstallLock, adoptedUpgradeLock
@@ -548,6 +562,23 @@ func runInstall() (installErr error) {
 	}
 
 	if !bypass {
+		if adoptedUpgradeLock != nil {
+			flag, readErr := upgrade.ReadFlagFile(installDir)
+			if readErr != nil {
+				return fmt.Errorf("inspect inherited recovery marker: %w", readErr)
+			}
+			if flag != nil && flag.Holder == upgrade.HolderInstall && flag.Trigger == "restart" {
+				profile := "all"
+				if flag.Restart != nil {
+					profile = flag.Restart.Profile
+				}
+				lock := adoptedUpgradeLock
+				adoptedUpgradeLock = nil
+				if err := restartServicesInDirWithLock(installDir, profile, lock); err != nil {
+					return &installPreflightRefusalError{err: err}
+				}
+			}
+		}
 		if err := upgrade.CheckRestartBarrier(installDir); err != nil {
 			flag, readErr := upgrade.ReadFlagFile(installDir)
 			if readErr == nil && flag != nil && flag.Trigger == "restart" && flag.Restart != nil {
