@@ -348,7 +348,7 @@ lxd_checkpoint_for_scenario() {
         return
     fi
     case "$slug" in
-        0-happy-install|0-interactive-admin-password|4-install-*|5-install-cert-repair-via-cert-install|5-install-interrupted-*|5-install-live-upgrade-wait|6-uninstall-reinstall)
+        0-happy-install|0-interactive-admin-password|4-install-*|5-install-cert-repair-via-cert-install|5-install-interrupted-*|5-install-live-upgrade-wait|5-install-source-image-identity-proof|6-uninstall-reinstall)
             printf 'hardened-nothing-installed'; return ;;
     esac
     if grep -Eq 'bootstrap_install_test_vm "\$VM_NAME" ""' "$file"; then

@@ -98,3 +98,48 @@ fault_stable=$(lxd_checkpoint_for_scenario 5-install-disk-threshold-repair)
     exit 1
 }
 echo "PASS: fault-fleet baseline scenarios resolve the unsuffixed checkpoint regardless of channel"
+
+# Resolve the real shared body and wrappers, not a paraphrased selector.
+cp "$ROOT/test/install-recovery/scenarios/5-install-source-image-identity-proof.sh" "$REPO/test/install-recovery/scenarios/"
+cp "$ROOT/test/install-recovery/scenarios/5-install-source-identity-"{operator,scheduled}.sh "$REPO/test/install-recovery/scenarios/"
+for slug in 5-install-source-image-identity-proof 5-install-source-identity-operator 5-install-source-identity-scheduled; do
+    checkpoint=$(lxd_checkpoint_for_scenario "$slug")
+    [ "$checkpoint" = hardened-nothing-installed ]
+    printf 'PASS: %s resolves to %s\n' "$slug" "$checkpoint"
+done
+
+# Capture, never execute, the real historical helper's remote install body.
+# Unstubbed transports refuse every external operation.
+_lxd_upload() {
+    case "$2" in
+        /root/s2-env-config-*) cp "$1" "$TMP/fresh-config" ;;
+        /root/s2-users-*.yml) : ;;
+        *) return 97 ;;
+    esac
+}
+_lxd_push() { :; }
+VM_EXEC() { [ "$*" = 'test ! -e /home/statbus/statbus' ] || return 97; }
+VM_SCRIPT_INLINE() { printf '%s\n' "$*" > "$TMP/helper-args"; cat > "$TMP/helper-body"; }
+_lxd_stage_candidate_install() { :; }
+_lxd_mark() { printf '%s\n' "$*"; }
+export HARNESS_DEPLOYMENT_MODE=private HARNESS_UPGRADE_CHANNEL=prerelease
+VM_NAME=statbus-recovery-source-proof
+export LXD_LOG_DIR="$TMP"
+_lxd_host() {
+    case "$*" in
+        'rm -f '*|'lxc exec '*'/tmp/env-config'|'lxc exec '*'/tmp/users.yml') return 0 ;;
+        *) echo "REFUSE unexpected host operation: $*" >&2; return 97 ;;
+    esac
+}
+unset GITHUB_TOKEN
+_lxd_prepare_fresh_answers
+grep -Fxq 'CADDY_DEPLOYMENT_MODE=private' "$TMP/fresh-config"
+grep -Fxq 'UPGRADE_CHANNEL=prerelease' "$TMP/fresh-config"
+old_sha=$(git -C "$REPO" rev-parse v2099.01.0)
+install_statbus_at_sha "$VM_NAME" "$old_sha"
+grep -Fxq 'arc-historical-install v2099.01.0 private 0' "$TMP/helper-args"
+grep -Fq 'releases/download/v2099.01.0/sb-linux-amd64' "$TMP/helper-body"
+grep -Fq 'git clone --quiet --depth 50 --branch v2099.01.0' "$TMP/helper-body"
+grep -Fq 'cp /tmp/env-config .env.config' "$TMP/helper-body"
+grep -Fq './sb install --non-interactive --trust-github-user jhf' "$TMP/helper-body"
+echo 'PASS: actual historical helper chooses released binary/checkout with fresh private/prerelease answers (captured, not executed)'

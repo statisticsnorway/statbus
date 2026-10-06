@@ -6,6 +6,7 @@ TAG=${1:?usage: run-forks.sh <tag> [--scenario slug ...]}
 shift
 [[ "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+-rc\.[0-9]+$ ]] || exit 2
 export LXD_CANDIDATE=$TAG
+export INSTALL_TARGET_TAG=$TAG
 source "$ROOT/test/install-recovery/lib/lxd-backend.sh"
 source "$ROOT/test/install-recovery/lxd/verdict.sh"
 source "$ROOT/test/install-recovery/lxd/fleet-status.sh"
