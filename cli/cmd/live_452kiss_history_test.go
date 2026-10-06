@@ -30,7 +30,7 @@ func Test452KissHistoricalRepairNormalInstall(t *testing.T) {
 		t.Fatal(err)
 	}
 	ctx := context.Background()
-	defer conn.Close(ctx)
+	defer func() { _ = conn.Close(ctx) }()
 	var database string
 	if err := conn.QueryRow(ctx, "SELECT current_database()").Scan(&database); err != nil {
 		t.Fatal(err)

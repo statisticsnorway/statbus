@@ -29,7 +29,7 @@ func Test452KissNormalInstallRetiresAttempts(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer conn.Close(context.Background())
+	defer func() { _ = conn.Close(context.Background()) }()
 	ctx := context.Background()
 	var database string
 	if err := conn.QueryRow(ctx, "SELECT current_database()").Scan(&database); err != nil {
