@@ -851,7 +851,27 @@ func runInstall() (installErr error) {
 		}
 	}
 
-	releaseFlag, err := acquireOrBypass(installDir, bypass, adoptedInstallLock)
+	stepLock := adoptedInstallLock
+	if detectedState == install.StateFresh && adoptedUpgradeLock != nil {
+		flag, err := upgrade.ReadFlagFile(installDir)
+		if err != nil {
+			return err
+		}
+		if flag != nil && flag.Holder == upgrade.HolderInstall && flag.Trigger == "install" {
+			held, err := adoptedUpgradeLock.RevalidateRecoveryFlag(installDir, *flag)
+			if err != nil {
+				return err
+			}
+			if held.Trigger != "install" {
+				return fmt.Errorf("inherited install marker changed trigger before continuation")
+			}
+			stepLock = adoptedUpgradeLock
+			// Unlike a fresh shell-owned marker, recovery has OWN_FLAG unset.
+			// The step-table continuation now owns the existing install cleanup.
+			defer upgrade.ReleaseInstallFlag(stepLock)
+		}
+	}
+	releaseFlag, err := acquireOrBypass(installDir, bypass, stepLock)
 	if err != nil {
 		return err
 	}

@@ -928,6 +928,17 @@ func acquireRecoveryFlock(projDir string, classified UpgradeFlag) (*FlagLock, Up
 	return &FlagLock{file: f, markerPath: path}, held, nil
 }
 
+// RevalidateRecoveryFlag checks the already-owned description against the
+// canonical marker and classified intent without acquiring another description.
+func (l *FlagLock) RevalidateRecoveryFlag(projDir string, classified UpgradeFlag) (UpgradeFlag, error) {
+	if l == nil || l.file == nil {
+		return UpgradeFlag{}, fmt.Errorf("recovery mutex is not held")
+	}
+	svc := &Service{projDir: projDir, flagLock: l}
+	_, held, _, err := svc.recoveryFlock(classified)
+	return held, err
+}
+
 // recoveryFlock reuses the Service's already-held canonical marker when one was
 // adopted across an exec handoff. Opening the canonical path again would create
 // a different open file description and conflict with our own flock. The held
