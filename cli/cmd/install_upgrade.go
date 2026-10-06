@@ -91,6 +91,7 @@ func runInlineUpgradeScheduledWithLock(projDir string, detail *install.Detail, a
 	svc := upgrade.NewService(projDir, true /* verbose */, version, commit)
 	if adopted != nil {
 		svc.AdoptFlagLock(adopted)
+		defer adopted.Close() // Close only, preserving recovery metadata on abandoned paths.
 	}
 	defer svc.Close()
 	if runtime.GOOS == "linux" {
@@ -179,6 +180,7 @@ func runInlineRestoreReattemptWithLock(projDir string, detail *install.Detail, a
 	svc := upgrade.NewService(projDir, true /* verbose */, version, commit)
 	if adopted != nil {
 		svc.AdoptFlagLock(adopted)
+		defer adopted.Close() // Close only, preserving recovery metadata on abandoned paths.
 	}
 	defer svc.Close()
 	if runtime.GOOS == "linux" {
@@ -290,6 +292,7 @@ func runCrashRecoveryWithLock(projDir string, restartIfRecovered *func(), adopte
 	svc := upgrade.NewService(projDir, true /* verbose */, version, commit)
 	if adopted != nil {
 		svc.AdoptFlagLock(adopted)
+		defer adopted.Close() // Close only, preserving recovery metadata on abandoned paths.
 	}
 	defer svc.Close()
 

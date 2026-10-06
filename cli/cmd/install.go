@@ -461,9 +461,11 @@ func signerPreflightRequired(dir string, state install.State) bool {
 // conflicting actor."
 func adoptInheritedMutexes(installDir string) (adoptedInstallLock, adoptedUpgradeLock *upgrade.FlagLock) {
 	installFD, installToken := os.Getenv(upgrade.InstallMutexFDEnv), os.Getenv(upgrade.InstallMutexTokenEnv)
-	upgradeAttempted := false
-	if lock, attempted, adoptErr := upgrade.AdoptInheritedUpgradeFlag(installDir); attempted {
-		upgradeAttempted = true
+	upgradeFD, upgradeToken := os.Getenv("STATBUS_UPGRADE_MUTEX_FD"), os.Getenv("STATBUS_UPGRADE_MUTEX_TOKEN")
+	for _, name := range []string{upgrade.InstallMutexFDEnv, upgrade.InstallMutexTokenEnv, "STATBUS_UPGRADE_MUTEX_FD", "STATBUS_UPGRADE_MUTEX_TOKEN"} {
+		_ = os.Unsetenv(name)
+	}
+	if lock, attempted, adoptErr := upgrade.AdoptInheritedFlagDescriptor(installDir, upgradeFD, upgradeFD != "" || upgradeToken != "", upgrade.HolderService); attempted {
 		if adoptErr != nil {
 			log.Printf("Ignoring inherited upgrade mutex handoff: %v", adoptErr)
 		} else {
@@ -472,18 +474,7 @@ func adoptInheritedMutexes(installDir string) (adoptedInstallLock, adoptedUpgrad
 		}
 	}
 	if adoptedUpgradeLock == nil {
-		// Every attempted adoption consumes both private pairs before returning.
-		// Restore only the install pair captured before a rejected upgrade attempt
-		// so stale upgrade metadata cannot interfere with a valid install handoff.
-		if upgradeAttempted {
-			if installFD != "" {
-				_ = os.Setenv(upgrade.InstallMutexFDEnv, installFD)
-			}
-			if installToken != "" {
-				_ = os.Setenv(upgrade.InstallMutexTokenEnv, installToken)
-			}
-		}
-		if lock, attempted, adoptErr := upgrade.AdoptInheritedInstallFlag(installDir); attempted {
+		if lock, attempted, adoptErr := upgrade.AdoptInheritedFlagDescriptor(installDir, installFD, installFD != "" || installToken != "", upgrade.HolderInstall); attempted {
 			if adoptErr != nil {
 				log.Printf("Ignoring inherited install mutex handoff: %v", adoptErr)
 			} else {
@@ -547,6 +538,10 @@ func runInstall() (installErr error) {
 		return installPreflightRefusal(err.Error())
 	}
 	adoptedInstallLock, adoptedUpgradeLock := adoptInheritedMutexes(installDir)
+	defer func() {
+		adoptedInstallLock.Close()
+		adoptedUpgradeLock.Close()
+	}()
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return fmt.Errorf("cannot determine home directory (HOME unset?): %w", err)
@@ -758,7 +753,9 @@ func runInstall() (installErr error) {
 				if adoptedUpgradeLock != nil {
 					// Ownership of the adopted lock passes to crash recovery,
 					// which installs it on its Service and releases it there.
-					recoveryErr = runCrashRecoveryWithLock(installDir, &restartIfRecovered, adoptedUpgradeLock)
+					lock := adoptedUpgradeLock
+					adoptedUpgradeLock = nil
+					recoveryErr = runCrashRecoveryWithLock(installDir, &restartIfRecovered, lock)
 				} else {
 					recoveryErr = recoverCrashedInstall(installDir, &restartIfRecovered)
 				}
@@ -790,6 +787,9 @@ func runInstall() (installErr error) {
 				logInstallState(installDir, state, detail, false)
 			}
 			if handled, err := dispatchInstallStateWithLock(installDir, state, detail, adoptedInstallLock); handled {
+				if state == install.StateScheduledUpgrade || state == install.StateRestoreReattemptable {
+					adoptedInstallLock = nil
+				}
 				// logInstallState already printed these refusals' remedy
 				// (wait for the running upgrade; follow the manual path).
 				if err != nil && (state == install.StateLiveUpgrade || state == install.StateLegacyNoUpgradeTable) {

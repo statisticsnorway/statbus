@@ -431,7 +431,7 @@ fi
 # and no EXIT trap can be forgotten.
 #
 # The descriptor is inherited by the Go installer and adopted only after it
-# proves inode identity, flock ownership, holder identity, and this run's token.
+# validates canonical inode and holder routing, then retains exclusive ownership.
 STATBUS_REPO_LOCK_HELD=""
 STATBUS_REPO_LOCK_OWN_FLAG=""
 unset STATBUS_INSTALL_MUTEX_FD STATBUS_INSTALL_MUTEX_TOKEN
@@ -442,7 +442,8 @@ STATBUS_INSTALL_MUTEX_TOKEN=""
 # every reader classifies this the same way whichever side took the lock.
 _statbus_write_install_flag() {
     _now="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-    STATBUS_INSTALL_MUTEX_TOKEN=$(od -An -N16 -tx1 /dev/urandom | tr -d ' \n')
+    # Fixed legacy bridge for rc.16 receivers, not authentication.
+    STATBUS_INSTALL_MUTEX_TOKEN="statbus-fd-handoff"
     : >&9
     printf '{"id":0,"commit_sha":"","started_at":"%s","invoked_by":"install.sh:%s","trigger":"install","holder":"install","handoff_token":"%s"}\n' \
         "$_now" "${USER:-unknown}" "$STATBUS_INSTALL_MUTEX_TOKEN" >&9 2>/dev/null || true
@@ -848,10 +849,10 @@ mkdir -p "$STATBUS_DIR/tmp"
 # overwrites them with later output.
 : > "$install_output"
 if [ "$tty_available" = true ]; then
-    (exec </dev/tty; STATBUS_INSTALL_PROMPTS_TO_TTY=1 ./sb install ${SB_INSTALL_ARGS[@]+"${SB_INSTALL_ARGS[@]}"}) 2>&1 | tee -a "$install_output" | if [ "$awk_filter" = cat ]; then cat; else awk -f "$awk_filter"; fi
+    (exec </dev/tty; STATBUS_INSTALL_PROMPTS_TO_TTY=1 ./sb install ${SB_INSTALL_ARGS[@]+"${SB_INSTALL_ARGS[@]}"}) 2>&1 | (exec 9>&-; tee -a "$install_output") | (exec 9>&-; if [ "$awk_filter" = cat ]; then cat; else awk -f "$awk_filter"; fi)
     sb_rc=${PIPESTATUS[0]}
 else
-    ./sb install ${SB_INSTALL_ARGS[@]+"${SB_INSTALL_ARGS[@]}"} 2>&1 | tee -a "$install_output" | if [ "$awk_filter" = cat ]; then cat; else awk -f "$awk_filter"; fi
+    ./sb install ${SB_INSTALL_ARGS[@]+"${SB_INSTALL_ARGS[@]}"} 2>&1 | (exec 9>&-; tee -a "$install_output") | (exec 9>&-; if [ "$awk_filter" = cat ]; then cat; else awk -f "$awk_filter"; fi)
     sb_rc=${PIPESTATUS[0]}
 fi
 trap 'rc=$?; echo "" >&2; echo "install.sh FAILED at line $LINENO: $BASH_COMMAND (exit $rc)" >&2' ERR

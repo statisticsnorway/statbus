@@ -1,8 +1,6 @@
 package upgrade
 
 import (
-	"crypto/rand"
-	"encoding/hex"
 	"errors"
 	"fmt"
 	"os"
@@ -13,13 +11,14 @@ import (
 )
 
 const (
+	legacyHandoffToken   = "statbus-fd-handoff"
 	InstallMutexFDEnv    = "STATBUS_INSTALL_MUTEX_FD"
 	InstallMutexTokenEnv = "STATBUS_INSTALL_MUTEX_TOKEN"
 	upgradeMutexFDEnv    = "STATBUS_UPGRADE_MUTEX_FD"
 	upgradeMutexTokenEnv = "STATBUS_UPGRADE_MUTEX_TOKEN"
 )
 
-// AdoptInheritedInstallFlag proves and adopts install.sh's inherited mutex.
+// AdoptInheritedInstallFlag adopts install.sh's inherited mutex.
 // attempted is true whenever either handoff environment variable was present.
 func AdoptInheritedInstallFlag(projDir string) (lock *FlagLock, attempted bool, err error) {
 	return adoptInheritedFlag(projDir, InstallMutexFDEnv, InstallMutexTokenEnv, HolderInstall)
@@ -33,17 +32,19 @@ func AdoptInheritedUpgradeFlag(projDir string) (lock *FlagLock, attempted bool, 
 
 func adoptInheritedFlag(projDir, fdEnv, tokenEnv, expectedHolder string) (*FlagLock, bool, error) {
 	fdText, token := os.Getenv(fdEnv), os.Getenv(tokenEnv)
-	attempted := fdText != "" || token != ""
+	consumeInheritedMutexEnvironment()
+	return AdoptInheritedFlagDescriptor(projDir, fdText, fdText != "" || token != "", expectedHolder)
+}
+
+// AdoptInheritedFlagDescriptor validates a captured routing candidate. Metadata
+// must already have been consumed by the caller before attempting adoption.
+func AdoptInheritedFlagDescriptor(projDir, fdText string, attempted bool, expectedHolder string) (*FlagLock, bool, error) {
 	if !attempted {
 		return nil, false, nil
 	}
-	consumeInheritedMutexEnvironment()
-	if fdText == "" || token == "" {
-		return nil, true, fmt.Errorf("both %s and %s are required", fdEnv, tokenEnv)
-	}
 	fd, err := strconv.Atoi(fdText)
 	if err != nil || fd < 3 {
-		return nil, true, fmt.Errorf("%s is not a valid inherited descriptor", fdEnv)
+		return nil, true, fmt.Errorf("%q is not a valid inherited descriptor", fdText)
 	}
 	path := flagFilePath(projDir)
 	// The environment-nominated fd is untrusted until every proof below has
@@ -74,27 +75,6 @@ func adoptInheritedFlag(projDir, fdEnv, tokenEnv, expectedHolder string) (*FlagL
 		return reject("descriptor %d does not name the canonical upgrade mutex", fd)
 	}
 
-	// First prove another open file description is blocked. If this succeeds,
-	// the inherited description was not holding LOCK_EX before adoption.
-	probe, err := os.OpenFile(path, os.O_RDWR, 0)
-	if err != nil {
-		return reject("open canonical upgrade mutex for hold proof: %v", err)
-	}
-	probeErr := syscall.Flock(int(probe.Fd()), syscall.LOCK_EX|syscall.LOCK_NB)
-	if probeErr == nil {
-		_ = syscall.Flock(int(probe.Fd()), syscall.LOCK_UN)
-		_ = probe.Close()
-		return reject("descriptor %d was not holding the upgrade mutex", fd)
-	}
-	_ = probe.Close()
-	if !errors.Is(probeErr, syscall.EWOULDBLOCK) && !errors.Is(probeErr, syscall.EAGAIN) {
-		return reject("verify canonical upgrade mutex contention: %v", probeErr)
-	}
-	// Re-locking the inherited open file description succeeds only when it is
-	// the description that owns the flock proved above.
-	if err := syscall.Flock(dupFD, syscall.LOCK_EX|syscall.LOCK_NB); err != nil {
-		return reject("descriptor %d does not own the held upgrade mutex: %v", fd, err)
-	}
 	flag, err := ReadFlagFile(projDir)
 	if err != nil {
 		return reject("read inherited upgrade mutex record: %v", err)
@@ -102,8 +82,14 @@ func adoptInheritedFlag(projDir, fdEnv, tokenEnv, expectedHolder string) (*FlagL
 	if flag == nil || flag.Holder != expectedHolder {
 		return reject("upgrade mutex holder is %q, want %q", holderOf(flag), expectedHolder)
 	}
-	if flag.HandoffToken != token {
-		return reject("upgrade mutex handoff token does not match")
+	// Holder is routing data, not authentication. Acquire or retain exclusive
+	// ownership on the actual inherited open-file description, without waiting.
+	if err := syscall.Flock(dupFD, syscall.LOCK_EX|syscall.LOCK_NB); err != nil {
+		return reject("descriptor %d cannot own the upgrade mutex: %v", fd, err)
+	}
+	pathInfo, err = os.Stat(path)
+	if err != nil || !os.SameFile(heldInfo, pathInfo) {
+		return reject("canonical upgrade mutex changed during adoption")
 	}
 	// file is already close-on-exec from F_DUPFD_CLOEXEC. The duplicate shares
 	// the inherited fd's open-file description, so its flock survives closing
@@ -129,14 +115,6 @@ func holderOf(flag *UpgradeFlag) string {
 	return flag.Holder
 }
 
-func randomHandoffToken() (string, error) {
-	buf := make([]byte, 16)
-	if _, err := rand.Read(buf); err != nil {
-		return "", err
-	}
-	return hex.EncodeToString(buf), nil
-}
-
 func clearCloseOnExec(fd int) error {
 	flags, _, errno := syscall.Syscall(syscall.SYS_FCNTL, uintptr(fd), uintptr(syscall.F_GETFD), 0)
 	if errno != 0 {
@@ -153,12 +131,8 @@ func (d *Service) prepareInheritedUpgradeLockForExec() error {
 	if d.flagLock == nil || d.flagLock.file == nil {
 		return errors.New("upgrade mutex is not held")
 	}
-	token, err := randomHandoffToken()
-	if err != nil {
-		return fmt.Errorf("generate handoff token: %w", err)
-	}
 	if err := d.mutateHeldFlag(func(flag *UpgradeFlag) {
-		flag.HandoffToken = token
+		flag.HandoffToken = legacyHandoffToken
 	}); err != nil {
 		return err
 	}
@@ -166,7 +140,7 @@ func (d *Service) prepareInheritedUpgradeLockForExec() error {
 	if err := os.Setenv(upgradeMutexFDEnv, strconv.Itoa(fd)); err != nil {
 		return err
 	}
-	if err := os.Setenv(upgradeMutexTokenEnv, token); err != nil {
+	if err := os.Setenv(upgradeMutexTokenEnv, legacyHandoffToken); err != nil {
 		_ = os.Unsetenv(upgradeMutexFDEnv)
 		return err
 	}
