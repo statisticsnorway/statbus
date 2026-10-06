@@ -117,7 +117,7 @@ func repairOvertakenCompletion(ctx context.Context, tx pgx.Tx, c overtakenComple
 		return false, err
 	}
 	// Persist attribution in the existing installer log before retracting it.
-	if auditLog == nil {
+	if auditLog == nil || auditLog == io.Discard {
 		return false, nil
 	}
 	if _, err := fmt.Fprintf(auditLog, "  Correcting overtaken attempt %d (%s): retract completed_at=%s, witness=%d/%s completed_at=%s, claim_event=%d completion_event=%d\n", c.id, c.sha, c.completed.UTC().Format(time.RFC3339Nano), c.witnessID, c.witnessSHA, c.witnessCompleted.UTC().Format(time.RFC3339Nano), c.claimEvent, c.finishEvent); err != nil {

@@ -6,6 +6,7 @@ import (
 	"bytes"
 	"context"
 	"database/sql"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -148,6 +149,9 @@ func Test452KissHistoricalRepairNormalInstall(t *testing.T) {
 					}
 					if selected == nil {
 						t.Fatal("missing positive candidate")
+					}
+					if changed, err := repairOvertakenCompletion(ctx, tx, *selected, io.Discard); err != nil || changed {
+						t.Fatalf("unavailable log gave correction authority: %v %v", changed, err)
 					}
 					if _, err := tx.Exec(ctx, "UPDATE public.upgrade SET "+mutation+" WHERE id=$1", id); err != nil {
 						t.Fatal(err)
