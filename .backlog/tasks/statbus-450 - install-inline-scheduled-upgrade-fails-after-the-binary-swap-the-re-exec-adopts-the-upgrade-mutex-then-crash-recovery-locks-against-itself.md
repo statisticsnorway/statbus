@@ -3,7 +3,7 @@ id: STATBUS-450
 title: >-
   install-inline scheduled upgrade fails after the binary swap: the re-exec
   adopts the upgrade mutex, then crash recovery locks against itself
-status: To Do
+status: In Progress
 assignee: []
 created_date: '2026-10-05 19:00'
 labels:
@@ -67,8 +67,37 @@ Also consider: when the lock was adopted across the binary handoff, the narrativ
 
 ## Acceptance criteria
 <!-- AC:BEGIN -->
-- [ ] #1 A Go test drives the post-swap continuation with an adopted service lock at phase `new-sb-swapped` through recovery routing. It is RED on ebc77c5f5 (contention error) and GREEN with the fix. A sibling test proves a lock-less caller still refuses on real contention from another open file description.
-- [ ] #2 No recovery-side path opens a second open file description on the canonical flag while `d.flagLock` holds it. The quiesce step no longer prints the false "STILL HELD" warning or waits 10 s, and `RecoveryBudgetGuard` counts the pass.
+- [x] #1 A Go test drives the post-swap continuation with an adopted service lock at phase `new-sb-swapped` through recovery routing. It is RED on ebc77c5f5 (contention error) and GREEN with the fix. A sibling test proves a lock-less caller still refuses on real contention from another open file description.
+- [x] #2 No recovery-side path opens a second open file description on the canonical flag while `d.flagLock` holds it. The quiesce step no longer prints the false "STILL HELD" warning or waits 10 s, and `RecoveryBudgetGuard` counts the pass.
 - [ ] #3 The STATBUS-436 rehearsal `CANDIDATE_PATH=scheduled` passes on the next candidate, along with `CANDIDATE_PATH=operator` (no retry).
-- [ ] #4 Independent review MERGE before landing on master.
+- [x] #4 Independent review MERGE before landing on master.
 <!-- AC:END -->
+
+## Implementation Notes
+
+2026-10-05 19:00 UTC: filed from the rc.15 scheduled rehearsal FAIL (`tmp/436-scheduled-rc15.FAIL.log`). The same day the rc.15 arc harness (run 37357691556) failed 9 arcs with the identical signature: postswap-between-migrations-kill, postswap-mid-migration-kill, boot-migrate-churn-alive-idle, flagless-selfheal-at-target, postswap-converged-selfheal, postswap-container-restart-kill, postswap-mid-tx-kill, preswap-fetch-returned-error and restore-broke-reattempt. Logs are in `tmp/rc15-arcs/<jobid>.log`. Separately, 8 arcs on that run were never executed: GitHub cancelled them with "The job was not acquired by Runner of type hosted even after multiple attempts", during the githubstatus.com incident "Incident with Actions" (19:11 to about 21:58 UTC).
+
+Fix, on branch `fix/450-held-lock-recovery` (worktree `$JCODE_SCRATCH_DIR/fix-450`):
+- 8a0804bb2 `upgrade: reuse adopted recovery lock`:
+  - `Service.recoveryFlock` reuses `d.flagLock` when it is held, and revalidates the canonical inode plus ID/Holder/Phase from the held fd. Otherwise it falls back to `acquireRecoveryFlock` unchanged.
+  - `recoveryBudgetFlagHold` does the same for `RecoveryBudgetGuard`.
+  - `stopRestartUpgradeUnit` gets `flockHeldByCaller`.
+  - On the adopted path, the narrative "Continuing the upgrade on the new binary after the planned handoff." replaces "The previous upgrade stopped unexpectedly."
+- 705dfb139 `upgrade: test adopted lock recovery route`:
+  - Narrow ForTest seams that bypass only DB/docker observations.
+  - The `advanceResumePhase` extraction.
+  - An honest quiesce line: "Crash recovery: this process owns the adopted upgrade lock; the unit's flock is not liveness evidence. Unit stopped."
+- 55dc51487 `upgrade: exercise recovery budget on adopted route`: `TestAdoptedLockRunsRealPostSwapRecoveryRoute` drives the real `RecoveryBudgetGuard`, then the real `recoverFromFlag` → `resumeNewSb` phase mutation → `removeUpgradeArtifacts`, with an adopted real flock.
+
+Proof:
+- RED on a seams-only origin/master base: the guard self-contends, and route authorization fails with "acquire and revalidate recovery marker before routing" (`$JCODE_SCRATCH_DIR/fix-450/tmp/statbus-450-route-red.txt` and the `-note.txt` listing what was applied).
+- GREEN on the branch.
+- golangci-lint reports 0 issues, and `go test ./cmd ./internal/upgrade ./internal/install` passes.
+
+Reviews:
+- Round 1 BLOCK (`tmp/450-review.md`): the tests called helpers, not the real route. The production trace was clean on all 9 arc paths.
+- Round 2 MERGE (`tmp/450-review-2.md`): the reviewer independently reproduced RED on a fresh origin/master and GREEN on the branch, and found no remaining self-contention, fd leak, double-close or reachable seam.
+
+2026-10-06 06:13 UTC: cherry-picked onto master as 234ea00db, 70161714b and 7e92d1151 (patch-ids EQUAL to the reviewed commits), and pushed 7e92d1151. The overnight gap (20:38 UTC to 06:10 UTC) was a server reload that ended the coordinating session; no work ran in it.
+
+Remaining: AC#3, which needs both STATBUS-436 rehearsal paths to pass on v2026.10.0-rc.16, plus a green rc.16 arc harness, especially the 9 arcs above and the 8 that never ran.

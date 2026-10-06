@@ -138,3 +138,8 @@ Separate: the un-park arc's false failure on rc.14 (a statfs read immediately af
 
 Remaining: AC3 (the rc.15 operator rehearsal in one installer run) and AC5 (the owner's demo install of rc.15, observed for at least 10 minutes).
 
+
+2026-10-06 06:20 UTC: rc.15 (`ebc77c5f5`) carried this fix.
+- The STATBUS-436 operator rehearsal PASSED in a single installer run with no retry (`tmp/436-operator-rc15.PASS.log`). The old v2026.09.2 daemon's one attempt during the install was refused with "another ./sb install is already running (install, invoked_by=install.sh:statbus)", and that row then ended `superseded`.
+- The same candidate exposed a regression in this fix's exec continuation, tracked as STATBUS-450. On the inline scheduled path, the post-swap re-exec adopted the upgrade mutex, and recovery then contended with it. 450 is fixed on master at 7e92d1151.
+- AC#3 is re-proven on rc.16 (the operator rehearsal again), and AC#5 is the owner's demo install of rc.16.
