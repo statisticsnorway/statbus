@@ -80,6 +80,9 @@ source "$LIB_DIR/arc-helpers.sh"
 source "$LIB_DIR/arc-state-assertions.sh"
 
 UPGRADE_UNIT="statbus-upgrade@statbus.service"
+C_ARC_PID=""
+C_ARC_LOG=""
+C_ORIGINAL_LOG=""
 
 # _dump_crollback_failure_diagnostics — on ANY non-zero exit, pull the B+C rows +
 # the daemon journal + both state-logs + git HEAD to STDERR before cleanup reaps
@@ -97,10 +100,25 @@ _dump_crollback_failure_diagnostics() {
     # The run-2 unexplained-heal probes, duplicated here so a red at ANY site (not
     # just the health assert) captures the end-state function/ledger/backup evidence.
     _crollback_instrumentation "failure diagnostics" >&2 || true
+    if [ -n "$C_ORIGINAL_LOG" ]; then
+        echo "── original C claim log (retained across the retry's new row pointer) ──" >&2
+        VM_EXEC bash -c "cat ~/statbus/tmp/upgrade-logs/$C_ORIGINAL_LOG" >&2 || true
+    fi
     echo "══════════ end failure diagnostics ══════════" >&2
 }
 
-trap 'rc=$?; if [ "$rc" -ne 0 ]; then _dump_crollback_failure_diagnostics; fi; cleanup_vm "$VM_NAME"; exit $rc' EXIT
+_cleanup_crollback_arc() {
+    local rc=$?
+    if [ -n "$C_ARC_PID" ]; then
+        kill "$C_ARC_PID" 2>/dev/null || true
+        wait "$C_ARC_PID" 2>/dev/null || true
+    fi
+    if [ -n "$C_ARC_LOG" ]; then cat "$C_ARC_LOG" || true; fi
+    if [ "$rc" -ne 0 ]; then _dump_crollback_failure_diagnostics; fi
+    cleanup_vm "$VM_NAME" "$rc"
+    exit "$rc"
+}
+trap _cleanup_crollback_arc EXIT
 
 echo "════════════════════════════════════════════════════════════════"
 echo "  Arc: c-rollback-resurrection  (C fails → rolls back onto B → install must NOT resurrect B)"
@@ -284,10 +302,116 @@ B_DBMAX_AFTER_NEUTRALIZE=$(psql_scalar "SELECT max(version) FROM db.migration;")
 assert_direct_auth_status_healthy "after park-only fixture cleanup, before C"
 echo "  ✓ B row and V1/V2 ledger unchanged; C will snapshot a healthy B source"
 
-# ── C: register + schedule while B sits parked. C displaces B at claim (STATBUS-159
-#    → B superseded), swaps in, V3 RAISES, the daemon rolls C back onto B. arc_to
-#    drives C to its ruled terminal 'rolled_back'. ──
-arc_to "$C_FULL" "$C_BRANCH" "C (replacement that DISPLACES B then FAILS post-swap)" rolled_back
+# ── C: the ONE original register/schedule/terminal operation. Hold only its
+# genuine daemon-owned Git call after claim/log stamping, before the canonical
+# marker or source capture. All other Git calls delegate untouched. A missed
+# window fails this arc, never falls back to the old rollback-only proof.
+C_WINDOW=tmp/crollback-claim-window
+VM_SCRIPT_INLINE crollback-arm-claim "$C_FULL" "$UPGRADE_UNIT" "$C_WINDOW" <<'ARM_C_CLAIM'
+#!/bin/bash
+set -euo pipefail
+target=$1 unit=$2 window="$HOME/statbus/$3"
+systemctl --user stop "$unit"
+mkdir "$window"
+mkdir "$window/bin"
+unit_path=$(systemctl --user show "$unit" --property=Environment --value | tr ' ' '\n' | sed -n 's/^PATH=//p')
+[ -n "$unit_path" ]
+PATH="$unit_path" command -v git > "$window/real-git"
+printf '%s\n' "$target" > "$window/target"
+printf '%s\n' "$unit" > "$window/unit"
+cat > "$window/bin/git" <<'CLAIM_GIT'
+#!/bin/bash
+set -euo pipefail
+window=$(cd "$(dirname "$0")/.." && pwd)
+if [ "$#" -eq 6 ] && [ "$1" = -c ] && [ "$2" = log.showSignature=false ] &&
+    [ "$3" = log ] && [ "$4" = -1 ] && [ "$5" = --pretty=%h ] &&
+    [ "$6" = "$(cat "$window/target")" ] && [ "$PWD" = "$HOME/statbus" ]; then
+    owner=$(systemctl --user show "$(cat "$window/unit")" --property=MainPID --value)
+    if [ "$PPID" = "$owner" ] && mkdir "$window/claimed" 2>/dev/null; then
+        printf '%s %s\n' "$$" "$PPID" > "$window/reached"
+        exec sleep 600
+    fi
+fi
+exec "$(cat "$window/real-git")" "$@"
+CLAIM_GIT
+chmod 755 "$window/bin/git"
+dropin="$HOME/.config/systemd/user/$unit.d"
+mkdir -p "$dropin"
+cat > "$dropin/crollback-claim.conf" <<DROPIN
+[Service]
+Environment="PATH=$window/bin:$unit_path"
+Restart=no
+DROPIN
+systemctl --user daemon-reload
+ARM_C_CLAIM
+vm_start_unit "$UPGRADE_UNIT"
+C_ARC_LOG=$(mktemp)
+(
+    trap - EXIT
+    arc_to "$C_FULL" "$C_BRANCH" "C (replacement that DISPLACES B then FAILS post-swap)" rolled_back
+) > "$C_ARC_LOG" 2>&1 &
+C_ARC_PID=$!
+C_WINDOW_START=$(date +%s)
+while ! VM_EXEC bash -c "test -s ~/statbus/$C_WINDOW/reached"; do
+    kill -0 "$C_ARC_PID" 2>/dev/null || { echo "✗ original C operation exited without reaching the claim window" >&2; exit 1; }
+    [ "$(( $(date +%s) - C_WINDOW_START ))" -lt "$UPGRADE_BUDGET_S" ] || { echo "✗ C claim window missed within ${UPGRADE_BUDGET_S}s" >&2; exit 1; }
+    sleep 1
+done
+read -r C_HELD_PID C_OWNER_PID < <(VM_EXEC bash -c "cat ~/statbus/$C_WINDOW/reached")
+[[ "$C_HELD_PID" =~ ^[1-9][0-9]*$ && "$C_OWNER_PID" =~ ^[1-9][0-9]*$ ]] || { echo "✗ invalid owned claim-window PIDs" >&2; exit 1; }
+VM_EXEC bash -c "test \"\$(systemctl --user show '$UPGRADE_UNIT' --property=MainPID --value)\" = '$C_OWNER_PID' && kill -0 '$C_HELD_PID' && cd ~/statbus && cmp -s /proc/$C_OWNER_PID/exe ./sb && /proc/$C_OWNER_PID/exe --version | grep -F '(commit $B_SHORT)' && test ! -e tmp/upgrade-in-progress.json"
+[ "$(box_head)" = "$B_FULL" ] || { echo "✗ tree is not B at C's pre-marker claim" >&2; exit 1; }
+C_CUT_SQL="SELECT id || '|' || extract(epoch from started_at)::text || '|' || claim_token::text || '|' || log_relative_file_path FROM public.upgrade WHERE commit_sha = '$C_FULL' AND state = 'in_progress' AND tree_convergence_required AND started_at IS NOT NULL AND claim_token IS NOT NULL AND COALESCE(backup_path,'') = '' AND recovery_parked_at IS NULL;"
+C_CUT=$(psql_scalar "$C_CUT_SQL")
+IFS='|' read -r C_ROW_ID C_STARTED_EPOCH C_CLAIM_TOKEN C_ORIGINAL_LOG <<< "$C_CUT"
+[[ "$C_ROW_ID" =~ ^[1-9][0-9]*$ && "$C_STARTED_EPOCH" =~ ^[0-9]+(\.[0-9]+)?$ && "$C_CLAIM_TOKEN" =~ ^[0-9a-f-]{36}$ && "$C_ORIGINAL_LOG" =~ ^[A-Za-z0-9_.-]+\.log$ ]] || { echo "✗ C has no genuine claimed, logged, snapshot-free convergence obligation: $C_CUT" >&2; exit 1; }
+C_CLAIM_AUDIT_ID=$(psql_scalar "SELECT max(id) FROM public.upgrade_state_log WHERE upgrade_id = $C_ROW_ID AND old_state = 'scheduled' AND new_state = 'in_progress' AND logged_at >= to_timestamp($C_STARTED_EPOCH);")
+[[ "$C_CLAIM_AUDIT_ID" =~ ^[1-9][0-9]*$ ]] || { echo "✗ C's claim has no durable state audit" >&2; exit 1; }
+B_DISPLACED_SQL="SELECT count(*) FROM public.upgrade AS u WHERE u.id = $B_ROW_ID AND u.state = 'superseded' AND u.recovery_parked_at IS NULL AND u.error LIKE '%displaced by the claim of upgrade id=$C_ROW_ID%' AND (SELECT count(*) FROM public.upgrade_state_log AS l WHERE l.upgrade_id = u.id AND l.old_state = 'in_progress' AND l.new_state = 'superseded' AND l.old_parked_at IS NOT NULL AND l.new_parked_at IS NULL) = 1;"
+[ "$(psql_scalar "$B_DISPLACED_SQL")" = 1 ] || { echo "✗ C did not genuinely displace B's park before the cut" >&2; exit 1; }
+echo "  ✓ genuine C=$C_FULL pre-marker claim: $C_CUT; audit=$C_CLAIM_AUDIT_ID; B displaced"
+VM_EXEC bash -c "cat ~/statbus/tmp/upgrade-logs/$C_ORIGINAL_LOG"
+
+# Kill the CURRENT unit owner, then confirm its held Git subprocess is gone too.
+# Never disarm on a missed kill. Restart=no keeps post-crash evidence immutable.
+arc_kill_confirmed "$VM_NAME" daemon-mainpid || exit 1
+C_KILL_START=$(date +%s)
+while true; do
+    C_HELD_STATE=$(VM_EXEC bash -c "if kill -0 '$C_HELD_PID' 2>/dev/null; then echo alive; else echo gone; fi")
+    [ "$C_HELD_STATE" = gone ] && break
+    [ "$C_HELD_STATE" = alive ] || { echo "✗ held Git subprocess death is unreadable: $C_HELD_STATE" >&2; exit 1; }
+    [ "$(( $(date +%s) - C_KILL_START ))" -lt 30 ] || { echo "✗ held Git subprocess $C_HELD_PID survived the daemon SIGKILL" >&2; exit 1; }
+    sleep 1
+done
+VM_EXEC bash -c "test \"\$(systemctl --user show '$UPGRADE_UNIT' --property=MainPID --value)\" = 0 && ! kill -0 '$C_OWNER_PID' 2>/dev/null"
+[ "$(psql_scalar "$C_CUT_SQL")" = "$C_CUT" ] && [ "$(psql_scalar "$B_DISPLACED_SQL")" = 1 ] || { echo "✗ claim/displacement evidence changed before ordinary recovery" >&2; exit 1; }
+VM_EXEC bash -c "test ! -e ~/statbus/tmp/upgrade-in-progress.json"
+
+# A genuinely nonrunning serving tier makes recovery's Compose repair observable,
+# even when the original park happened to leave B already serving. No second hold.
+VM_EXEC bash -c 'cd ~/statbus && app=$(docker compose ps -a -q app) && test -n "$app" && docker compose stop app && test "$(docker inspect --format "{{.State.Running}}" "$app")" = false'
+VM_SCRIPT_INLINE crollback-disarm-claim "$UPGRADE_UNIT" "$C_WINDOW" <<'DISARM_C_CLAIM'
+#!/bin/bash
+set -euo pipefail
+unit=$1 window="$HOME/statbus/$2"
+rm "$window/bin/git" "$HOME/.config/systemd/user/$unit.d/crollback-claim.conf"
+systemctl --user daemon-reload
+test "$(systemctl --user show "$unit" --property=Restart --value)" = always
+systemctl --user reset-failed "$unit"
+DISARM_C_CLAIM
+vm_start_unit "$UPGRADE_UNIT"
+wait "$C_ARC_PID"
+C_ARC_PID=""
+cat "$C_ARC_LOG"
+C_ARC_LOG=""
+
+# The original log, not the retry's overwritten row pointer, proves this precise
+# flagless route completed convergence. Its durable audit survives immediate retry.
+VM_EXEC bash -c "cat ~/statbus/tmp/upgrade-logs/$C_ORIGINAL_LOG; grep -F \"Recovering the displaced park's serving tier against the checked-out tree before retrying source capture ...\" ~/statbus/tmp/upgrade-logs/$C_ORIGINAL_LOG && grep -F \"Recovering the displaced park's serving tier against the checked-out tree ... converged and returned to scheduled retry\" ~/statbus/tmp/upgrade-logs/$C_ORIGINAL_LOG"
+C_RETRY_AUDIT=$(psql_scalar "SELECT count(*) FROM public.upgrade_state_log AS reschedule JOIN public.upgrade_state_log AS retry ON retry.upgrade_id = reschedule.upgrade_id AND retry.id > reschedule.id AND retry.old_state = 'scheduled' AND retry.new_state = 'in_progress' WHERE reschedule.upgrade_id = $C_ROW_ID AND reschedule.id > $C_CLAIM_AUDIT_ID AND reschedule.old_state = 'in_progress' AND reschedule.new_state = 'scheduled' AND reschedule.old_log_relative_file_path = '$C_ORIGINAL_LOG';")
+[ "$C_RETRY_AUDIT" = 1 ] || { echo "✗ original C claim did not converge through exactly one audited scheduled retry (got '$C_RETRY_AUDIT')" >&2; exit 1; }
+[ "$(psql_scalar "SELECT count(*) FROM public.upgrade_state_log WHERE upgrade_id = $C_ROW_ID AND new_state = 'completed';")" = 0 ] || { echo "✗ C was falsely completed instead of recovering its convergence obligation" >&2; exit 1; }
+echo "  ✓ original C log and durable claim → scheduled → claim audit prove flagless convergence recovery"
 
 # ── assert the displacement (reuses the postswap-health-park STATBUS-159 oracle):
 #    B superseded, park marker cleared, park narrative + displacement note in error,
@@ -454,6 +578,12 @@ echo "  ✓ B superseded, C rolled_back, zero terminal→completed; box runs B (
 echo ""
 echo "── source app health remains green after C rollback and install ──"
 assert_direct_auth_status_healthy "after C rolled back and install refused resurrection"
+[ "$(psql_scalar 'SELECT count(*) FROM public.upgrade WHERE tree_convergence_required;')" = 0 ] || { echo "✗ durable convergence obligation was not cleared" >&2; exit 1; }
+VM_EXEC bash -c "cd ~/statbus && test ! -e tmp/upgrade-in-progress.json && daemon=\$(systemctl --user show '$UPGRADE_UNIT' --property=MainPID --value) && test \"\$daemon\" -gt 0 && cmp -s /proc/\$daemon/exe ./sb && /proc/\$daemon/exe --version | grep -F '(commit $B_SHORT)'"
+# Read the responding app artifact, not .env tags or the checkout's identity.
+APP_SITE_DOMAIN="${HARNESS_SITE_DOMAIN:-statbus-test.local}"
+VM_EXEC curl -fksS --max-time 10 --resolve "$APP_SITE_DOMAIN:443:127.0.0.1" -H 'Cache-Control: no-store' "https://$APP_SITE_DOMAIN/_statbus-build.json" |
+    python3 -c 'import json,sys; actual=json.load(sys.stdin).get("commit_sha"); expected=sys.argv[1]; print("responding app commit_sha=" + str(actual)); sys.exit(0 if actual == expected else 1)' "$B_FULL"
 
 # Data intact throughout.
 assert_demo_data_counts_match_snapshot "$VM_NAME" "$DATA_SNAPSHOT"
