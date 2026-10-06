@@ -20,7 +20,7 @@ references:
 priority: high
 ---
 
-## Status: OWNER DECISION PENDING. No code until the owner picks an approach (owner, 2026-10-06 08:35).
+## Status: OWNER DECIDED 2026-10-06 09:24 UTC: A + B + C in rc.17, then D happens by deploying rc.17 to demo. Norway waits for rc.17. Work is delegated (coordinator does not implement).
 
 ## Zoom out
 
