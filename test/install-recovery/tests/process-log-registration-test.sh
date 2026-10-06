@@ -40,12 +40,23 @@ for path in files:
         if "harness_register_log" not in nearby:
             failures.append(f"{path.relative_to(root)}:{index + 1}: .log is not registered near its process launch")
 
-# Foreground commands may also intentionally write scenario-owned logs. Guard
-# all /tmp or variable .log redirections in scenarios/arcs, not just launch lines.
+# Foreground guest payloads also write logs. Outer-shell redirects are host
+# artifacts, collected locally, and must not enter the guest manifest.
+inline_script_re = re.compile(
+    r"^[ \t]*VM_SCRIPT_INLINE[^\n]*<<['\"]?(\w+)['\"]?\n(.*?)^\1[ \t]*$",
+    re.MULTILINE | re.DOTALL,
+)
 for directory in (root / "scenarios", root / "arcs"):
     for path in sorted(directory.glob("*.sh")):
-        lines = path.read_text().splitlines()
+        text = path.read_text()
+        lines = text.splitlines()
+        guest_lines = set()
+        for script in inline_script_re.finditer(text):
+            start = text.count("\n", 0, script.start(2))
+            guest_lines.update(range(start, start + script.group(2).count("\n")))
         for index, line in enumerate(lines):
+            if index not in guest_lines and not re.match(r"\s*VM_(?:ROOT_)?EXEC\s+bash\s+-c\s", line):
+                continue
             if line.lstrip().startswith("#") or not log_write_re.search(line):
                 continue
             nearby = "\n".join(lines[max(0, index - 8):min(len(lines), index + 9)])
@@ -110,3 +121,5 @@ grep -Fq 'ls -1t ~/statbus/tmp/upgrade-logs/*.log ~/statbus/tmp/upgrade-progress
 grep -Fq 'tail -n 200' "$TMP_ROOT/progress-command"
 grep -Fq 'Starting services for the previous version ... failed: inner cause' "$TMP_ROOT/progress.stderr"
 echo 'PASS: shared failure visibility prints the newest 200-line progress tail'
+
+bash "$TEST_DIR/process-log-host-guest-test.sh" "$HARNESS_DIR/../.." "$TMP_ROOT/host-guest"

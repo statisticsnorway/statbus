@@ -145,6 +145,7 @@ case "$BINARY_BEFORE" in *"$OLD_SHORT"*) ;; *) echo "old binary mismatch: $BINAR
 [ "$(VM_EXEC bash -c 'cd ~/statbus && ./sb dotenv -f .env.config get CADDY_DEPLOYMENT_MODE' | tr -d '\r\n')" = private ]
 [ "$(VM_EXEC bash -c 'cd ~/statbus && ./sb dotenv -f .env.config get UPGRADE_CHANNEL' | tr -d '\r\n')" = prerelease ]
 # Guest-local recorder outside checkout survives swaps and never uses network.
+harness_register_log source-proof-callback /home/statbus/statbus-proof-callback.log
 VM_SCRIPT_INLINE arm-local-callback <<'REMOTE'
 set -euo pipefail
 cat > ~/statbus-proof-callback.sh <<'CALLBACK'
