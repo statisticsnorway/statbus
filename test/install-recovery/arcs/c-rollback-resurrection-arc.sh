@@ -389,7 +389,11 @@ VM_EXEC bash -c "test ! -e ~/statbus/tmp/upgrade-in-progress.json"
 
 # A genuinely nonrunning serving tier makes recovery's Compose repair observable,
 # even when the original park happened to leave B already serving. No second hold.
-VM_EXEC bash -c 'cd ~/statbus && app=$(docker compose ps -a -q app) && test -n "$app" && docker compose stop app && test "$(docker inspect --format "{{.State.Running}}" "$app")" = false'
+VM_SCRIPT_INLINE crollback-stop-serving-app <<'STOP_C_SERVING_APP'
+#!/bin/bash
+set -euo pipefail
+cd ~/statbus && app=$(docker compose ps -a -q app) && test -n "$app" && docker compose stop app && test "$(docker inspect --format "{{.State.Running}}" "$app")" = false
+STOP_C_SERVING_APP
 VM_SCRIPT_INLINE crollback-disarm-claim "$UPGRADE_UNIT" "$C_WINDOW" <<'DISARM_C_CLAIM'
 #!/bin/bash
 set -euo pipefail
