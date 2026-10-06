@@ -328,7 +328,12 @@ func TestCompleteInProgressUpgrade_RollbackFailureKeepsMarkerAndReturnsNamedTerm
 	body := extractFuncBody(t, string(src), "func (d *Service) completeInProgressUpgrade(")
 	deferGuardIdx := strings.Index(body, "if !keepFlagExit {")
 	rollbackIdx := strings.Index(body, "if rollbackErr := d.rollback(")
-	keepIdx := strings.Index(body, "keepFlagExit = true")
+	keepIdx := -1
+	if rollbackIdx >= 0 {
+		if relative := strings.Index(body[rollbackIdx:], "keepFlagExit = true"); relative >= 0 {
+			keepIdx = rollbackIdx + relative
+		}
+	}
 	terminalIdx := strings.Index(body, `d.markTerminal("FLAGLESS_ROLLBACK_FAILED"`)
 	returnIdx := strings.Index(body, "return fmt.Errorf(\"completeInProgressUpgrade: rollback for upgrade")
 	for name, idx := range map[string]int{

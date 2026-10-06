@@ -393,13 +393,22 @@ func TestH2_FlagBackupPathSetOnlyAtNewSbSwapped(t *testing.T) {
 	flagless := extractFuncBody(t, s, "func (d *Service) completeInProgressUpgrade(")
 	for _, required := range []string{
 		"acquireFreshFlock",
-		"backup_path IS NOT DISTINCT FROM $3::text",
+		"d.authorizeRecoveryAttempt(attemptIdentity)",
 		"state = 'in_progress'",
 		"flag.BackupPath = authorizedBackupPath",
 		"flag.Phase = PhaseNewSbUpgrading",
 	} {
 		if !strings.Contains(flagless, required) {
 			t.Errorf("completeInProgressUpgrade's flagless snapshot claim is missing %q; it must re-authorize the exact durable row under a fresh flock and persist only a post-swap recovery marker", required)
+		}
+	}
+	attemptSource, err := os.ReadFile(thisRepoFile(t, "cli/internal/upgrade/recovery_attempt.go"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, required := range []string{"backup_path IS NOT DISTINCT FROM $5::text", "started_at IS NOT DISTINCT FROM $3::timestamptz", "claim_token::text IS NOT DISTINCT FROM $4::text", "state = 'in_progress' AND recovery_parked_at IS NULL", "FOR UPDATE"} {
+		if !strings.Contains(string(attemptSource), required) {
+			t.Errorf("attempt authorization lacks %q", required)
 		}
 	}
 }

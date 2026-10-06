@@ -4332,16 +4332,22 @@ func (d *Service) completeInProgressUpgrade(ctx context.Context) error {
 	var commitSHA string
 	var displayName string
 	var rowBackupPath sql.NullString
+	var startedAt sql.NullTime
+	var claimToken *string
 	err := d.queryConn.QueryRow(ctx,
 		`SELECT id, commit_sha,
 		        COALESCE(commit_tags[array_upper(commit_tags, 1)], left(commit_sha, 8)) as display_name,
-		        backup_path
+		        backup_path, started_at, claim_token::text
 		 FROM public.upgrade
 		 WHERE state = 'in_progress'
-		 LIMIT 1`).Scan(&id, &commitSHA, &displayName, &rowBackupPath)
-	if err != nil {
-		return nil // no in-progress upgrade
+		 LIMIT 1`).Scan(&id, &commitSHA, &displayName, &rowBackupPath, &startedAt, &claimToken)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil
 	}
+	if err != nil {
+		return fmt.Errorf("read interrupted upgrade attempt: %w", err)
+	}
+	attemptIdentity := recoveryAttempt{id: id, sha: commitSHA, started: startedAt, claim: claimToken, backup: rowBackupPath}
 
 	// STATBUS-135 — PARKED-SKIP, before the defer arms. A parked row is
 	// state='in_progress' by design, so the SELECT above matches it. This routine
@@ -4379,31 +4385,31 @@ func (d *Service) completeInProgressUpgrade(ctx context.Context) error {
 	if convergenceState != "" && convergenceState != "in_progress" {
 		return nil // a concurrent actor changed the row after the initial read
 	}
-	if requiresServingTreeConvergence {
-		// The process died after the displacement+claim transaction committed but
-		// before convergence acquired its ordinary service marker. Re-establish the
-		// canonical flock from durable row identity, converge B's tree/tier, and put
-		// the still-unstarted successor back in the scheduled queue.
-		tentative := UpgradeFlag{
-			ID:        id,
-			CommitSHA: commitSHA,
-			StartedAt: time.Now(),
-			InvokedBy: "recovery:serving-tree-convergence",
-			Trigger:   "recovery",
-			Holder:    HolderService,
-		}
-		lock, lockErr := acquireFreshFlock(d.projDir, tentative)
+	attemptIdentity.convergence = requiresServingTreeConvergence
+
+	// Own the real mutex before health, service changes or recovery writes.
+	// An inherited/handle-owned descriptor is reused, never separately opened.
+	if d.flagLock == nil || d.flagLock.file == nil {
+		lock, lockErr := acquireFreshFlock(d.projDir, UpgradeFlag{
+			ID: id, StartedAt: time.Now(), PID: os.Getpid(),
+			InvokedBy: "recovery:completeInProgressUpgrade-authorization", Trigger: "recovery", Holder: HolderInstall,
+		})
 		if lockErr != nil {
-			return fmt.Errorf("acquire flagless serving-tree convergence marker for upgrade %d: %w", id, lockErr)
+			log.Printf("completeInProgressUpgrade: mutex unavailable for upgrade %d; yielding: %v", id, lockErr)
+			return nil
 		}
 		d.flagLock = lock
-		logRelPath := d.loadLogRelPath(ctx, int64(id))
-		progress := AppendProgressLog(d.projDir, logRelPath)
-		if progress == nil {
-			progress = NewUpgradeLog(d.projDir, int64(id), displayName, time.Now().UTC())
+	} else {
+		held, readErr := readUpgradeFlagFromOpenFile(d.flagLock.file)
+		if readErr != nil {
+			return readErr
 		}
-		defer progress.Close()
-		return d.recoverServingTreeConvergence(ctx, id, progress)
+		if _, _, _, lockErr := d.recoveryFlock(held); lockErr != nil {
+			return lockErr
+		}
+		if held.Holder == HolderService && (held.ID != id || held.CommitSHA != commitSHA) {
+			return nil
+		}
 	}
 
 	// Guarantee flag cleanup on every exit path of this recovery routine.
@@ -4431,6 +4437,40 @@ func (d *Service) completeInProgressUpgrade(ctx context.Context) error {
 			_ = d.removeUpgradeFlag()
 		}
 	}()
+
+	authorized, overtaken, authErr := d.authorizeRecoveryAttempt(attemptIdentity)
+	if authErr != nil {
+		log.Printf("completeInProgressUpgrade: attempt evidence unreadable for upgrade %d; yielding without recovery: %v", id, authErr)
+		return nil
+	}
+	if overtaken {
+		log.Printf("completeInProgressUpgrade: upgrade %d superseded by independently completed executable %s; no completion callback", id, ShortForDisplay(d.binaryCommit))
+		return nil
+	}
+	if !authorized {
+		return nil
+	}
+	if requiresServingTreeConvergence {
+		// Promote the already-owned hold, including across an inherited handle.
+		// This path preserves its existing durable recovery intent on failure.
+		if err := d.mutateHeldFlag(func(flag *UpgradeFlag) {
+			flag.ID = id
+			flag.CommitSHA = commitSHA
+			flag.InvokedBy = "recovery:serving-tree-convergence"
+			flag.Trigger = "recovery"
+			flag.Holder = HolderService
+		}); err != nil {
+			return err
+		}
+		keepFlagExit = true
+		logRelPath := d.loadLogRelPath(ctx, int64(id))
+		progress := AppendProgressLog(d.projDir, logRelPath)
+		if progress == nil {
+			progress = NewUpgradeLog(d.projDir, int64(id), displayName, time.Now().UTC())
+		}
+		defer progress.Close()
+		return d.recoverServingTreeConvergence(ctx, id, progress)
+	}
 
 	// Append recovery narrative to the prior run's progress log so the
 	// on-disk log (served via /upgrade-logs/<name>) captures both the
@@ -4526,61 +4566,11 @@ func (d *Service) completeInProgressUpgrade(ctx context.Context) error {
 			appendLog = nil
 		}
 
-		// This branch legitimately ORIGINATES durable recovery intent: the marker
-		// was absent when completeInProgressUpgrade classified the row, unlike
-		// recoveryRollback's callers which classified an existing marker. Create a
-		// fresh O_EXCL claim so a marker that appeared after classification wins
-		// rather than being overwritten. The tentative holder is install-like on
-		// purpose: a death before the durable row re-read below leaves a harmless
-		// pre-authorization marker that the next boot removes instead of treating
-		// stale memory as permission to restore.
-		tentative := UpgradeFlag{
-			ID:        id,
-			StartedAt: time.Now(),
-			PID:       os.Getpid(),
-			InvokedBy: "recovery:completeInProgressUpgrade-authorization",
-			Trigger:   "recovery",
-			Holder:    HolderInstall,
-		}
-		lock, lockErr := acquireFreshFlock(d.projDir, tentative)
-		if lockErr != nil {
-			logRecover("Flagless rollback claim for %s lost the fresh-marker race; yielding without rollback: %v", displayName, lockErr)
-			return nil
-		}
-		d.flagLock = lock
-
-		// The row read that produced `id` happened before the filesystem claim.
-		// Re-authorize from durable state while holding that claim, including the
-		// snapshot identity: another actor may have completed, superseded, parked,
-		// or otherwise changed the row during the classify→flock gap. A mismatch or
-		// unreadable row revokes this actor before it stops a service or touches the
-		// database volume. The outer defer removes the tentative marker on return.
-		var expectedSnapshotPath *string
-		if rowBackupPath.Valid {
-			expectedSnapshotPath = &rowBackupPath.String
-		}
-		readCtx, readCancel := context.WithTimeout(ctx, recoveryReadTimeout)
-		var authorized bool
-		authorizeErr := d.queryConn.QueryRow(readCtx, `
-			SELECT EXISTS (
-				SELECT 1
-				  FROM public.upgrade
-				 WHERE id = $1
-				   AND commit_sha = $2
-				   AND backup_path IS NOT DISTINCT FROM $3::text
-				   AND state = 'in_progress'
-				   AND recovery_parked_at IS NULL
-			)`, id, commitSHA, expectedSnapshotPath).Scan(&authorized)
-		readCancel()
-		if authorizeErr != nil || !authorized {
-			if authorizeErr != nil {
-				logRecover("Flagless rollback claim for %s could not re-read its authorizing row; removing the tentative marker and yielding without rollback: %v", displayName, authorizeErr)
-			} else {
-				logRecover("Flagless rollback claim for %s is no longer authorized by the same in-progress row and snapshot; removing the tentative marker and yielding without rollback.", displayName)
-			}
-			if removeErr := d.removeUpgradeFlag(); removeErr != nil {
-				log.Printf("completeInProgressUpgrade: could not remove revoked tentative marker for upgrade %d: %v", id, removeErr)
-			}
+		// Reuse the temporary hold acquired before verification. Re-read the
+		// exact attempt again before promoting it to destructive recovery intent.
+		authorized, overtaken, authorizeErr := d.authorizeRecoveryAttempt(attemptIdentity)
+		if authorizeErr != nil || !authorized || overtaken {
+			logRecover("Flagless rollback attempt no longer authorized for %s: %v", displayName, authorizeErr)
 			return nil
 		}
 
@@ -4668,14 +4658,24 @@ func (d *Service) completeInProgressUpgrade(ctx context.Context) error {
 			Phase:      PhaseNewSbSwapped,
 			BackupPath: rowBackupPath.String,
 		}
-		if lock, werr := acquireFreshFlock(d.projDir, flag); werr != nil {
+		if werr := d.mutateHeldFlag(func(held *UpgradeFlag) {
+			held.ID = flag.ID
+			held.CommitSHA = flag.CommitSHA
+			held.InvokedBy = flag.InvokedBy
+			held.Trigger = flag.Trigger
+			held.Holder = flag.Holder
+			held.Phase = flag.Phase
+			held.BackupPath = flag.BackupPath
+		}); werr != nil {
 			logRecover("WARNING: could not write the recovery flag before parking %s (%v) — `%s` un-park is UNAVAILABLE for this park; schedule a fix release to retrigger. Parking anyway.", displayName, werr, d.installCommand())
 		} else {
-			lock.Close()
 			keepFlagExit = true // the defer must NOT strip this flag (STATBUS-192/135)
 		}
 		if parkErr := d.parkForDeterministicFailure(ctx, id, displayName, restoreTargetSHA, commitSHA, rowBackupPath.String, failureCode, reason, appendLog); parkErr != nil {
 			logRecover("Park recovery did not complete cleanly: %v", parkErr)
+		}
+		if keepFlagExit {
+			d.releaseUpgradeFlagLockKeepingFile()
 		}
 	}
 
@@ -4752,7 +4752,11 @@ func (d *Service) completeInProgressUpgrade(ctx context.Context) error {
 	// context.Background + bounded retry). Best-effort — on failure it marks the
 	// invariant + bundle and continues to cleanup (removeUpgradeFlag etc.), as
 	// before; the row stays in_progress for the next pass.
-	fromInProgressJSON, scanErr := d.terminalUpdate(completedUpgradeSQL, id, appendLog.RelPath())
+	fromInProgressJSON, scanErr := d.completeRecoveryAttempt(attemptIdentity, appendLog.RelPath())
+	if errors.Is(scanErr, pgx.ErrNoRows) {
+		logRecover("Upgrade %s attempt changed before terminal completion; yielding without callback or failure-banner erasure.", displayName)
+		return nil
+	}
 	completionRecorded := scanErr == nil
 	finishingClean := completionRecorded
 	if scanErr == nil {
