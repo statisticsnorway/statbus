@@ -99,7 +99,12 @@ package migrate
 // simply gets the corrected ledger classification — no daemon query or write
 // shape changes. The floor moves so the guard stops flagging this migration;
 // the re-decision is this paragraph, per the guard's contract.
-const DaemonSchemaFloor int64 = 20261001163000
+//
+// 20261006132000 (STATBUS-452 exact release identity): the read-only RPC
+// references public.upgrade and public.release_status_type without changing
+// their shape or the daemon's SQL. As with running_identity above, advance the
+// reviewed floor rather than exempting this guarded relation footprint.
+const DaemonSchemaFloor int64 = 20261006132000
 
 // DaemonRelationNames is the schema surface the daemon's OWN SQL touches — the
 // set whose shape the floor must satisfy. The bump guard flags any migration
