@@ -114,6 +114,18 @@ Decision: **gapless handoff**. `install.sh` keeps the mutex and hands it to `./s
 - [x] #4 cloud.sh prints the signing-key hint only on a signature-verification failure.
 - [ ] #5 The owner's official `./cloud.sh install demo <candidate>` repairs demo in one run, observed over ≥10 min: binary, checkout and resident daemon at the candidate; v2026.09.3 row superseded; zero refusals; **the site is usable** (a page loads and stays; not judged by HTTP status).
 
+## KISS cleanup queue: owner direction, 2026-10-06 12:10-12:18 UTC
+
+The owner requested cleanup of the flock handover, then the separate ledger repair, with low-level todos and delegation driving autonomous progress. Detailed plan: `tmp/kiss-handoff-and-ledger-plan.md`. Coordinator todo group `Handoff cleanup`, F1-F7, records mapping, implementation, real-FD checks, local gates, independent review, integration/CI-idle push and observed CI.
+
+Contract: keep the actual open descriptor across the process boundary and pass the owned `FlagLock` within Go. Remove token authentication and the independently opened contention proof from the new receiver. Keep only checks tied to observed descriptor lifetime failures, plus ordinary close-on-exec hygiene and canonical-file identity. Recovery holder/phase are routing data, not a second ownership credential.
+
+Two concrete boundaries prevent a blind deletion:
+- `install.sh:542-554` currently closes fd9 for a pre-existing recovery marker. The previously stated gapless property applies to install-owned records and inline exec, not every marker case. Any extension must preserve the original recorded recovery/restart intent and use the existing held-lock recovery path, rather than overwrite it as an ordinary install.
+- Released rc.16 receivers require the legacy FD/TOKEN format. Sender removal must not break them. A small compatibility bridge may remain while new code no longer authenticates ownership with the token.
+
+Fresh GPT-6.1 Sol engineer frog (`session_frog_1791289010522_6666a31e6e9659df`) is mapping the exact small change in `tmp/447-kiss-handoff-plan.md`, with a five-minute read-only budget. Next is delegated narrow implementation, real-lock child/exec regressions, local Go/shell gates, and independent MERGE review. No database identity or retention redesign in this task. No candidate cut for demo until STATBUS-452 is also fixed. No production install by agents.
+
 ## Implementation Notes
 
 2026-10-05 12:59 UTC: first implementation on branch `fix/447-gapless-handoff` (worktree `$JCODE_SCRATCH_DIR/fix-447`):
