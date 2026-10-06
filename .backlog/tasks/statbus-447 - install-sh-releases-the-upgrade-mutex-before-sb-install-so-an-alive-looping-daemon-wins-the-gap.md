@@ -152,7 +152,9 @@ F2i completed at 13:10 UTC: independent `tmp/447-existing-marker-review-2.md` sa
 
 F6b integrated locally at 13:11 UTC, without conflicts: `8df231e23 -> 6cbee8295`, `d85a4a5e7 -> c8b6e7a05`, `f8e6a6367 -> fd7a6476c`, `4cdedb8ec -> ddcc4bb93`, `111bc1e5b -> 3f8c2b88a`. All five stable patch IDs equal their reviewed originals, all sixteen changed source/test paths equal frozen111, whitespace and tracked-tree cleanliness pass. Proof: `tmp/447-existing-marker-integration-20261006.log`. Unrelated untracked `.yarn/` untouched. Final local source has no intermediate RED left unresolved.
 
-Next: perform a fresh all-CI-idle check immediately before push, then follow explicit CI conclusions including Fast Tests. No database identity or retention redesign in this task. No candidate cut for demo until STATBUS-452 is also fixed. No production install by agents.
+F6c completed at 13:12:23 UTC: queued, in_progress, requested, waiting and pending GitHub runs were all empty immediately before pushing reviewed master `cbaff1c5ab17a31f5472993bf2fd810cd60dc4ab`. Remote master SHA was verified equal. Saved proof: `tmp/447-kiss-master-push-20261006.log`. F7 watcher `414710lqkk` follows explicit conclusions, including Fast Tests attributed by its exercised SHA rather than the workflow API's default-branch head. At 13:22:46 UTC five expected product workflows were successful, Fast Tests remained pending, and no product failure was reported. This is not yet an all-green claim. No further push while any CI is active.
+
+Next: observe the exact Fast Tests terminal conclusion, then finish the separately delegated minimal STATBUS-452 A/B/C/D repair. No database identity singleton or retention redesign in this task. No candidate cut for demo until STATBUS-452 is also fixed. No production install by agents.
 
 ## Implementation Notes
 
