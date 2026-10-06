@@ -76,7 +76,7 @@ The agent's recommendation is A + B (both ends of the race), and C as its own de
   - The proxy container was Created at 08:30:29.934 and Started at 08:30:31.251. That overlaps the old daemon's last claim (08:30:29.486, which landed) and its lost `failed` write.
   - The DB had been ready since 08:30:18. `pg_stat_database.sessions_killed = 0`.
   - Status: strong inference. The exact socket close is not recorded.
-- **Q2, the false notification:** the callback ran successfully (exit 0) with `STATBUS_EVENT=completed` for v2026.09.3. **Whether Slack actually received it is not established:** the script discards the HTTP response and logs nothing locally. The owner can check the Slack channel.
+- **Q2, the false notification:** the callback ran successfully (exit 0) with `STATBUS_EVENT=completed` for v2026.09.3. **CONFIRMED DELIVERED (owner's Slack screenshot, 2026-10-06 09:22 UTC):** "The Workspace Reporter" posted at 10:30 local (08:30 UTC): "Upgraded **niue** from `v2026.10.0-rc.16` to `v2026.09.3` — https://demo.statbus.org". It reads as a **downgrade** of demo, which is false: demo runs rc.16. The "from" value is rc.16 because that was the latest completed row at the moment of the callback.
 - **Q3, every reader of "running version":**
   - Reads v2026.09.3 now:
     - `public.running_identity()` (`completed_at DESC`), and through it the app footer (its only consumer)
