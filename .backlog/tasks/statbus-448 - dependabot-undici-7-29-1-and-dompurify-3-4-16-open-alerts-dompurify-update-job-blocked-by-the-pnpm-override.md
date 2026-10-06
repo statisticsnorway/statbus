@@ -54,3 +54,26 @@ Conclusion: nothing is exploitable in the deployed app. Per the STATBUS-363 owne
 - [ ] #3 The app tests, typecheck, lint and build pass, and a token refresh works end to end against a running stack.
 - [ ] #4 GitHub shows 0 open Dependabot alerts for `app/pnpm-lock.yaml`, and PR #321 is closed.
 <!-- AC:END -->
+
+## Reviewed compatible updates, 2026-10-06 20:18 UTC
+
+The owner approved source merge/push for normal CI at 20:17 UTC. The independently reviewed commit `52ef8436868e7cb0cc4f887968f34d2e02e2bdcb` is integrated on master as `84011c82d3c2b8f43a8ba9f8e7099e1592ee8a4d`. Only `app/package.json` and the generated `app/pnpm-lock.yaml` changed. Stable patch IDs and the complete non-backlog source match the reviewed commit. Proof: `tmp/448-reviewed-source-proof-20261006T2018.log`. This source approval does not waive the remaining findings or authorize a release or installation.
+
+### Observed validation
+
+- Resolved undici 7.29.1, direct and Next sharp 0.35.5, Mermaid DOMPurify 3.4.16, and Tailwind/PostCSS source-map-js 1.2.2. The source-map floor was added after observing that the first targeted-update prototype retained vulnerable 1.2.1. Pinned pnpm 10.28.1 is unchanged.
+- Owned frozen install, typecheck, lint, corrected Jest invocation (10 suites / 56 tests), and production Next build passed on the eventual committed source. Five existing lint warnings remain. The initial malformed Jest invocation failed without running tests and is retained, not counted as a passing run.
+- Actual Next PNG-to-WebP and benign SVG smoke passed with identical direct/Next sharp. This was macOS arm64 in-process evidence, not HTTP, Linux deployment or token-refresh acceptance.
+- Independent exact-pin review returned MERGE: `tmp/448-compatible-patches-review.md`. Whole-lock, consumer resolution and source checks passed. Raw regenerated-lock comparison was not byte-identical: the two inspected differences are an already-existing compatible semver edge dedupe and unchanged-version ESLint registry metadata. Every other parsed field matched. The raw failure is retained.
+
+### Remaining findings and boundaries
+
+The recorded local audit fell from 17 findings to 3 and still exits 1: HIGH braces 3.0.3, MODERATE sprintf-js 1.0.3, and LOW KaTeX 0.16.47. No advisories are muted, no audit-zero claim is made, and no earlier exception is extended.
+
+Published-parent investigation found no supported parent-only fix for sprintf-js or KaTeX. An expect update can remove one braces path, not all locked paths. No unsupported override, replacement test toolchain or vendored patch was introduced. Evidence: `tmp/448-parent-compatibility.md`.
+
+Inspected braces patterns and sprintf formats originate in local tooling/parser configuration; an application HTTP input path was not established. KaTeX is present in the schema-derived client ER renderer, with early math and final strict-mode SVG sanitization. No controllable metadata/prototype-pollution chain or sanitizer bypass was demonstrated. Static inspection and the local packaging inventory are not deployed exploitability proof or a waiver. Evidence: `tmp/448-residual-exposure.md`.
+
+### Acceptance status at integration
+
+AC1 remains unmet because audit is not zero. AC2 awaits actual updated Dependabot results after the approved push. AC3 is partial: app gates passed, but real login, access-token expiry and refresh against an owned stack have not run. AC4 remains unmet: no zero-alert observation and no PR321 closure. The ticket stays open. Normal source CI on the new master SHA is pending; previous 619 gates do not transfer. No RC, production install, callback, alert dismissal or PR action occurred.
