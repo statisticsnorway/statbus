@@ -57,7 +57,7 @@ func (d *Service) authorizeRecoveryAttempt(a recoveryAttempt) (authorized, overt
 		if e != nil {
 			return e
 		}
-		defer tx.Rollback(ctx)
+		defer func() { _ = tx.Rollback(ctx) }()
 		var id int
 		if e = tx.QueryRow(ctx, "SELECT id FROM public.upgrade WHERE "+recoveryAttemptPredicate+" FOR UPDATE", a.args()...).Scan(&id); errors.Is(e, pgx.ErrNoRows) {
 			return nil
@@ -76,7 +76,7 @@ func (d *Service) authorizeRecoveryAttempt(a recoveryAttempt) (authorized, overt
 			if e == nil {
 				_, ancestryErr := runCommandOutput(d.projDir, "git", "merge-base", "--is-ancestor", a.sha, d.binaryCommit)
 				var exitErr *exec.ExitError
-				if ancestryErr != nil && !(errors.As(ancestryErr, &exitErr) && exitErr.ExitCode() == 1) {
+				if ancestryErr != nil && (!errors.As(ancestryErr, &exitErr) || exitErr.ExitCode() != 1) {
 					return fmt.Errorf("verify intervening installation ancestry: %w", ancestryErr)
 				}
 				if ancestryErr == nil {

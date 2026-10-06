@@ -3595,7 +3595,7 @@ func completeInstallUpgradeRow(installDir string, conn *pgx.Conn, logRelPath str
 	if err != nil {
 		return err
 	}
-	defer tx.Rollback(ctx)
+	defer func() { _ = tx.Rollback(ctx) }()
 	var rowJSON string
 	err = tx.QueryRow(ctx,
 		`INSERT INTO public.upgrade (
