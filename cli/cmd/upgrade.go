@@ -223,7 +223,8 @@ var upgradeListCmd = &cobra.Command{
 		// notice. Without this, the list looks merely uneventful — the demo box
 		// showed exactly that for nine days.
 		announceUnitFloor()
-		sql := `SELECT public.display_name(u) AS version,
+		sql := programReleaseMetadataSQL(commitSHA) + `
+		SELECT public.display_name(u) AS version,
 			CASE
 				WHEN commit_version IS DISTINCT FROM public.display_name(u)
 				 AND commit_version IS DISTINCT FROM summary
@@ -583,7 +584,7 @@ func newUpgradeService(projDir string) *upgrade.Service {
 			serviceVersion = "dev"
 		}
 	}
-	d := upgrade.NewService(projDir, verbose, serviceVersion, commit)
+	d := upgrade.NewService(projDir, verbose, serviceVersion, string(commitSHA))
 	// Unit name for the per-dispatch NRestarts reset (STATBUS-039 review
 	// finding 2) — derivable only here in cmd; internal/upgrade must not
 	// guess it.
