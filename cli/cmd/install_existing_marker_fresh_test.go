@@ -70,7 +70,7 @@ func TestExistingInstallBeforeConfigReusesInheritedLock(t *testing.T) {
 				if err != nil {
 					t.Fatal(err)
 				}
-				defer contender.Close()
+				defer func() { _ = contender.Close() }()
 				if err := syscall.Flock(int(contender.Fd()), syscall.LOCK_EX|syscall.LOCK_NB); err == nil {
 					t.Fatal("contender acquired marker during first step")
 				}
@@ -96,7 +96,7 @@ func TestExistingInstallBeforeConfigReusesInheritedLock(t *testing.T) {
 				if openErr != nil {
 					t.Fatal(openErr)
 				}
-				defer contender.Close()
+				defer func() { _ = contender.Close() }()
 				if lockErr := syscall.Flock(int(contender.Fd()), syscall.LOCK_EX|syscall.LOCK_NB); lockErr != nil {
 					t.Fatalf("early return leaked hold: %v", lockErr)
 				}
