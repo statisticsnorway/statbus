@@ -5,21 +5,10 @@ import { getStatisticalUnits } from "@/app/search/search-requests";
 import { toCSV } from "@/lib/csv-utils";
 import { getServerRestClient } from "@/context/RestClientStore";
 import { baseDataStore } from "@/context/BaseDataStore";
+import { exportOrder } from "./export-order";
 
 const PAGE_SIZE = 100_000;
 const EXCEL_MAX_ROWS = 1_048_576;
-
-// A unit can have multiple temporal rows. Together these columns identify a
-// row of statistical_unit_def, even when names and dates are shared.
-export function exportOrder(order: string | null): string {
-  const columns = (order || "name.asc").split(",").map((part) => part.trim());
-  for (const key of ["unit_type", "unit_id", "valid_from", "valid_to"]) {
-    if (!columns.some((column) => column.split(".")[0] === key)) {
-      columns.push(`${key}.asc`);
-    }
-  }
-  return columns.join(",");
-}
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);

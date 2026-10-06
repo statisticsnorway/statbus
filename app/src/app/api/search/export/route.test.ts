@@ -1,5 +1,6 @@
 import { NextRequest } from "next/server";
-import { GET, exportOrder } from "./route";
+import { GET } from "./route";
+import { exportOrder } from "./export-order";
 import { getStatisticalUnits } from "@/app/search/search-requests";
 
 jest.mock("@/app/search/search-requests", () => ({
