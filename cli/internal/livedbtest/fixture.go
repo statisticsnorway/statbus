@@ -137,7 +137,7 @@ func Setup(packageName string) (cleanup func(), err error) {
 	if copyErr := copyFile(pinnedSB, filepath.Join(projectDir, "sb"), 0o755); copyErr != nil {
 		return fail("install fixture sb: %v", copyErr)
 	}
-	if out, cmdErr := run(projectDir, filepath.Join(projectDir, "sb"), "config", "generate"); cmdErr != nil {
+	if out, cmdErr := generateFixtureConfig(projectDir); cmdErr != nil {
 		return fail("generate fixture config: %v: %s", cmdErr, out)
 	}
 	if out, cmdErr := run(projectDir, filepath.Join(projectDir, "sb"), "psql", "-d", "postgres", "-c", "CREATE DATABASE "+fixtureDB+" TEMPLATE statbus_seed"); cmdErr != nil {
@@ -162,6 +162,10 @@ func Setup(packageName string) (cleanup func(), err error) {
 	}
 	homeChanged = true
 	return cleanup, nil
+}
+
+func generateFixtureConfig(projectDir string) (string, error) {
+	return run(projectDir, filepath.Join(projectDir, "sb"), "config", "generate", "--migrate-legacy-secrets")
 }
 
 func ProjectDir() string { return os.Getenv(projectDirEnv) }
