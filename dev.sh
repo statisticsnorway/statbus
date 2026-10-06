@@ -1653,6 +1653,8 @@ EOS
         # So the refusal is actionable rather than merely obstructive.
         ./sb assert-db-content-hash "$SEED_NAME_PRECHECK" "./dev.sh test" || exit 1
 
+        # Start one current-run inventory after selection and seed preconditions.
+        : > "$PG_REGRESS_DIR/regression.out"
         OVERALL_EXIT_CODE=0
 
         # STATBUS-278 Part 2: snapshot tracked-file status BEFORE the suite
@@ -1717,7 +1719,7 @@ EOF
                 --outputdir=$CONTAINER_REGRESS_DIR \
                 --dbname="$SHARED_TEST_DB" \
                 --user=$PGUSER \
-                $SHARED_TESTS || OVERALL_EXIT_CODE=$?
+                $SHARED_TESTS | tee -a "$PG_REGRESS_DIR/regression.out" || OVERALL_EXIT_CODE=$?
 
             # STATBUS-158 AC#2: an embedded NUL is never a legitimate test
             # failure — check regardless of pass/fail above.
@@ -1732,7 +1734,7 @@ EOF
                 if [ "$update_expected" = "true" ]; then
                     update_arg="--update-expected"
                 fi
-                ./dev.sh test-isolated "$test_basename" $update_arg || OVERALL_EXIT_CODE=$?
+                STATBUS_REGRESSION_APPEND=1 ./dev.sh test-isolated "$test_basename" $update_arg || OVERALL_EXIT_CODE=$?
             done
         fi
 
@@ -1850,16 +1852,17 @@ EOF
     'diff-fail-first' )
       if [ ! -f "$WORKSPACE/test/regression.out" ]; then
           echo "Error: File $WORKSPACE/test/regression.out not found."
-          echo "Run tests first: ./dev.sh test fast"
+          echo "Inspect the SQL step output if pg_regress did not start."
           exit 1
       fi
 
       if [ ! -r "$WORKSPACE/test/regression.out" ]; then
           echo "Error: Cannot read $WORKSPACE/test/regression.out"
+          echo "Inspect the SQL step output if pg_regress did not start."
           exit 1
       fi
 
-      test_line=$(grep -a -E '^not ok' "$WORKSPACE/test/regression.out" | head -n 1)
+      test_line=$(grep -a -m1 -E '^not ok' "$WORKSPACE/test/regression.out") || { lookup_status=$?; [ "$lookup_status" -eq 1 ] || exit "$lookup_status"; }
 
       if [[ "$test_line" =~ ^Binary\ file.*matches$ ]]; then
           echo "Error: Cannot parse test results. The regression.out file may be corrupted."
@@ -1905,19 +1908,20 @@ EOF
     'diff-fail-all' )
       if [ ! -f "$WORKSPACE/test/regression.out" ]; then
           echo "Error: File $WORKSPACE/test/regression.out not found."
-          echo "Run tests first: ./dev.sh test fast"
+          echo "Inspect the SQL step output if pg_regress did not start."
           exit 1
       fi
 
       if [ ! -r "$WORKSPACE/test/regression.out" ]; then
           echo "Error: Cannot read $WORKSPACE/test/regression.out"
+          echo "Inspect the SQL step output if pg_regress did not start."
           exit 1
       fi
 
       ui_choice=${1:-pipe}
       line_limit=${2:-}
 
-      first_line=$(grep -a -E '^not ok' "$WORKSPACE/test/regression.out" | head -n 1)
+      first_line=$(grep -a -m1 -E '^not ok' "$WORKSPACE/test/regression.out") || { lookup_status=$?; [ "$lookup_status" -eq 1 ] || exit "$lookup_status"; }
       if [[ "$first_line" =~ ^Binary\ file.*matches$ ]]; then
           echo "Error: Cannot parse test results. The regression.out file may be corrupted."
           echo "Try running tests again: ./dev.sh test fast"
@@ -2807,6 +2811,10 @@ EOF
         TRACKED_STATUS_BEFORE_TEST=$(mktemp)
         tracked_files_status_snapshot > "$TRACKED_STATUS_BEFORE_TEST"
 
+        # Children retain the parent's inventory. Standalone runs start fresh.
+        if [ "${STATBUS_REGRESSION_APPEND:-0}" != "1" ]; then
+            : > "$PG_REGRESS_DIR/regression.out"
+        fi
         TEST_EXIT_CODE=0
         docker compose exec --workdir "/statbus" db \
             $PG_REGRESS $debug_arg \
@@ -2816,7 +2824,7 @@ EOF
             --outputdir=$CONTAINER_REGRESS_DIR \
             --dbname="$TEST_DB" \
             --user=$PGUSER \
-            "$TEST_NAME" || TEST_EXIT_CODE=$?
+            "$TEST_NAME" | tee -a "$PG_REGRESS_DIR/regression.out" || TEST_EXIT_CODE=$?
 
         # STATBUS-158 AC#2: an embedded NUL is never a legitimate test
         # failure — check regardless of pass/fail above. Also covers the

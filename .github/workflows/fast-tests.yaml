@@ -259,6 +259,7 @@ jobs:
           exit 1
 
       - name: Run fast test suite
+        id: sql_tests
         # workflow_run: fetch the published seed image (statbus-seed:<commit_short>)
         # — ~30s restore, and exercises the image-based seed-consume path end-to-end.
         # PR / dispatch: no published seed for this commit, so FULL_REPLAY from
@@ -314,9 +315,13 @@ jobs:
           ./dev.sh test-livedb
 
       - name: Show regression diffs on failure
-        if: failure()
+        if: failure() && steps.sql_tests.outcome == 'failure'
         run: |
-          ./dev.sh diff-fail-all pipe
+          if [ -f test/regression.out ] && [ -r test/regression.out ]; then
+            ./dev.sh diff-fail-all pipe
+          else
+            echo "SQL step failed with no readable pg_regress summary. Inspect the SQL step output."
+          fi
 
       - name: Cleanup
         if: always()
