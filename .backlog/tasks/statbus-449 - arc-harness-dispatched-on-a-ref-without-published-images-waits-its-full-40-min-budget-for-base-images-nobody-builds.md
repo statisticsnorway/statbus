@@ -3,7 +3,7 @@ id: STATBUS-449
 title: >-
   arc harness dispatched on a ref without published images waits its full 40 min
   budget for base images nobody builds
-status: To Do
+status: In Progress
 assignee: []
 created_date: '2026-10-05 18:16'
 labels:
@@ -32,7 +32,7 @@ So a dispatch on a feature branch (any ref whose head was never pushed to master
 
 Consequence: arc-touching test fixes cannot be proven before they reach master. In practice they wait for the next RC's own arc run, which is what happened with the un-park arc's btrfs fix in v2026.10.0-rc.15.
 
-## Fix options (decide when picked up)
+## Fix options
 
 1. **Build base images when missing (preferred):** in `construct`, check ghcr for `statbus-*:<base_short>`. If any are missing, `gh workflow run images.yaml --ref <dispatched ref>` as well, so a branch dispatch becomes a real pre-merge arc proof. Cost: one extra cold image build (about 5 to 8 minutes, as observed for the fixtures).
 2. **Fail fast:** if base images are missing and the ref is not reachable from master, error at once with a message that names the cause. This is cheaper, but keeps arcs unprovable before merge.
@@ -47,3 +47,13 @@ Every arc run builds about 11 fixture branches' images from cold (about 5 to 8 m
 - [ ] #2 The RC path (orchestrator dispatch at a tag whose commit was pushed to master) is unchanged in behaviour and duration.
 - [ ] #3 Proven by one real feature-branch dispatch and one RC arc run.
 <!-- AC:END -->
+
+## Selected fix and source evidence | October 6, 2026
+
+Owner-permitted option 2 is implemented: construct resolves A to its full SHA, refreshes master ancestry, and checks A's five app/worker/db/proxy/sb image manifests only when A is off master. An unavailable off-master base fails before any fixture construction with its actual cause. There is no automatic cold base build or new fixture protocol. A master ancestor retains the normal image-publication wait. The entire existing wait job and every later job are byte-identical to the original source.
+
+Seven cases execute the checked-in YAML scripts with real local Git and controlled registry/workflow boundaries. The original unavailable-base behavior was RED. The final source also preserves actual Git/authentication/transport errors and the existing wait-retry behavior. Two actual lint/unit failures were corrected in the test only, using an equivalent tagged switch and the existing canonical testgit Args/Env helper. No assertion, guard or workflow was weakened.
+
+Full independent Unicorn MERGE at `775464d387518789ab9018d7463c2a4d17d01dc4` is recorded in `tmp/449-overnight-review.md`. Both reviewed paths are byte-identical at current master. The final local full CLI gates passed at the source-equivalent `d61ba605` child.
+
+Runtime acceptance remains open: one real unpublished feature-branch `workflow_dispatch` must refuse in construct with zero fixtures/image-wait/guest jobs, and one real named RC arc run must retain normal publication waiting and guest behavior. Local script checks do not satisfy AC #3 or prove elapsed RC duration. No feature dispatch, release cut or guest acceptance is claimed here.
