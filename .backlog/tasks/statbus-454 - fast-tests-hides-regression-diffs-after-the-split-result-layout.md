@@ -43,3 +43,9 @@ Panda's MERGE at exact 5b277d6d4 was read in full, tmp/454-regression-diffs-revi
 ## Reviewed integration, 2026-10-06 15:22 UTC
 
 Integrated only 5b277d6d4c918e71913c3a3674590c62af091c7d as 23eaa9af880461696d2f6eae0f6cca3081653b00. Stable patch ID a3abc9c49cade7ca0ffb8b5af1c50c02f3c43f15 matches, the whole workflow equals the reviewed source, and unrelated product source is unchanged. Actual source proof is retained in tmp/452-contract-reviewed-integration-20261006-retry.log. AC #3 is now satisfied. AC #4 still needs the next hosted exact-source conclusion, not an artificial failure injection or a fixture treated as live acceptance.
+
+## Actual producer/step boundary exposed, 2026-10-06 15:48 UTC
+
+Exact488f Fast37487821209 passed SQL102 shared plus1 isolated and daemon-floor, then failed the Go livedb fixture guard. Global if:failure() consequently invokes the SQL diff helper, which fails on missing test/regression.out. The hosted test conclusion remains failure; AC4 is not met. Earlier offline fixture evidence did not reproduce the actual result producer and cannot establish that this global failure diagnostic is correct.
+
+Read-only delegated preparation now maps the actual shared/isolated dev.sh output producers and the workflow's SQL-versus-Go step boundary, with exact file/line evidence in tmp/452-ci-fixture-diagnostics-map.md. Select the smallest producer-grounded correction only after that map. No invented result adapter, masking of the original Go failure, helper rewrite, DB/test operation or implementation is authorized by this preparation. Preserve the current failure and prior reviewed fixture limits.
