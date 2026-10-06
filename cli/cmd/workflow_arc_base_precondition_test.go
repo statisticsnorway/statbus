@@ -10,6 +10,25 @@ import (
 	"github.com/statisticsnorway/statbus/cli/internal/testgit"
 )
 
+// Check the actual job admission graph, not GitHub runtime scheduling.
+// The hosted off-master control rejected A in construct while ramp ran anyway.
+func TestArcRampRequiresSuccessfulConstruct(t *testing.T) {
+	doc := workflowDoc(t, ".github/workflows/upgrade-arc-harness.yaml")
+	jobs := doc["jobs"].(map[string]any)
+	ramp := jobs["ramp"].(map[string]any)
+	needs, ok := ramp["needs"].([]any)
+	if !ok || len(needs) != 2 || needs[0] != "discover" || needs[1] != "construct" {
+		t.Errorf("ramp must wait for discover and construct before fleet side effects; needs=%v", ramp["needs"])
+	}
+	// !cancelled() suppresses implicit success(), so the direct dependency
+	// alone does not exclude failed or skipped construction.
+	condition, _ := ramp["if"].(string)
+	const admission = "${{ !cancelled() && needs.discover.result == 'success' && needs.construct.result == 'success' && needs.discover.outputs.count != '0' }}"
+	if condition != admission {
+		t.Errorf("ramp must require successful construction and nonzero discovery; if=%q, want %q", condition, admission)
+	}
+}
+
 // Execute the actual workflow scripts, with real local Git and stubbed external boundaries.
 func TestArcBaseImagePrecondition(t *testing.T) {
 	const workflow = ".github/workflows/upgrade-arc-harness.yaml"

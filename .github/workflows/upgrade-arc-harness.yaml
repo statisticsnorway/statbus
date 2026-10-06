@@ -617,8 +617,8 @@ jobs:
 
   ramp:
     name: Ramp hardened LXD fleet host
-    needs: [discover]
-    if: ${{ !cancelled() && needs.discover.result == 'success' && needs.discover.outputs.count != '0' }}
+    needs: [discover, construct]
+    if: ${{ !cancelled() && needs.discover.result == 'success' && needs.construct.result == 'success' && needs.discover.outputs.count != '0' }}
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     outputs:
