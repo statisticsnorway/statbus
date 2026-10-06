@@ -70,15 +70,36 @@ In the rc.16 operator rehearsal, the old daemon's refusal was recorded as `faile
 
 The agent's recommendation is A + B (both ends of the race), and C as its own decision, then D through the release that carries them.
 
-## Open facts being verified (investigator, read-only)
+## Investigation findings (buffalo, gpt-6.1-sol xhigh, read-only, 2026-10-06 08:53; full report `tmp/452-investigation.md`)
 
-- What cut the old daemon's DB connection at 08:30:30.
-- Whether `ops/notify-slack.sh` actually posted a "v2026.09.3 complete" message.
-- Every reader of "current/running version" (SQL, Go, app).
-- Whether the guard allows `in_progress → superseded`, and for which actor.
-- Whether the same race can hit the service path or Norway's canary.
-
-Report: `tmp/452-investigation.md`.
+- **Q1, what cut the old daemon's connection:** most likely step 10 recreating the **proxy**, not the "Database sessions" cleanup or the migration pause.
+  - The proxy container was Created at 08:30:29.934 and Started at 08:30:31.251. That overlaps the old daemon's last claim (08:30:29.486, which landed) and its lost `failed` write.
+  - The DB had been ready since 08:30:18. `pg_stat_database.sessions_killed = 0`.
+  - Status: strong inference. The exact socket close is not recorded.
+- **Q2, the false notification:** the callback ran successfully (exit 0) with `STATBUS_EVENT=completed` for v2026.09.3. **Whether Slack actually received it is not established:** the script discards the HTTP response and logs nothing locally. The owner can check the Slack channel.
+- **Q3, every reader of "running version":**
+  - Reads v2026.09.3 now:
+    - `public.running_identity()` (`completed_at DESC`), and through it the app footer (its only consumer)
+    - the next install's `from_commit_version` (`install.go:3554`, `completed_at DESC`, no tie-break)
+    - the admin stale-install-failure banner cutoff (`page.tsx:243-258`, 08:30:57)
+  - Reads rc.16 now: `/admin/upgrades` "Currently running", which orders by `committed_at DESC` and is a different selector.
+  - Readers based on the binary or HEAD are unaffected.
+- **Q4, the transition guard:** it already allows unparked `in_progress → superseded`, with or without an operator actor. The only thing that excluded row 25829 is `upgrade_supersede_older`'s state filter (`available`, `scheduled`, `failed`, `rolled_back`).
+- **Q5, why the rehearsal differed, and exposure:**
+  - The operator rehearsal avoided the lost-write window: the refusal was persisted, then superseded. It also accepted rc.16's own row ending `superseded`, so it never proved the running-version ledger correct (a test gap).
+  - The service path alone cannot produce two in_progress rows (partial UNIQUE index `upgrade_single_in_progress`).
+  - **Norway (healthy v2026.09.3 daemon, `./sb upgrade schedule`) is not expected to hit this.** It is a one-row pipeline, and 09.3 has the pre-claim flock check. This is a source-based conditional conclusion, not a live rune run.
+  - The recovery bug can still be reached by any daemon that finds a stale in_progress row after an independent newer install completed. That needs a box with an old looping or crashed claimant plus an operator install, as demo had.
+- **Q6, predicate candidates for "overtaken, not finished" (sketches; r is the stale in_progress row, c is a different completed row):**
+  - **P1:**
+    - `r.commit_sha != binaryCommit`
+    - AND a completed c exists with `c.commit_sha == binaryCommit` AND `c.completed_at > r.started_at`
+    - AND r is a proven ancestor of the binary
+    - Matches demo. A genuine crash-after-swap of r's own target does not match, because binary == r.
+  - **P2:** P1 plus `c.started_at > r.started_at`. Stricter, but it can miss a reinstall of an existing row, because COALESCE keeps the old started_at (`install.go:3562`).
+  - **P3:** the successor is an ancestor of the binary when the binary has moved on again. Weaker attribution.
+  - **Not safe alone:** binary is a descendant of r, any or the latest completed row, id order, committed_at or version order, error text.
+  - Evaluate against a re-read current row, because the completion UPDATE is keyed by id and not a CAS.
 
 ## Acceptance criteria (draft, finalize after the owner's decision)
 <!-- AC:BEGIN -->
