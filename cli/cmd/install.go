@@ -3555,8 +3555,7 @@ func connectInstallDB(dir string) (*pgx.Conn, error) {
 //
 // Under A20 capability separation, install itself NEVER authors an in_progress
 // row — so the UPDATE branch that used to exist here was removed in rc.38.
-// StateNothingScheduled takes a separate code path that emits NOTIFY
-// upgrade_check instead of calling this function.
+// StateNothingScheduled also calls this function on a successful refresh.
 //
 // Guards three named invariants:
 //   - A6 COMPLETION_CONN_NON_NIL — nil conn is a bug-class assert (A3's
@@ -3589,8 +3588,16 @@ func completeInstallUpgradeRow(installDir string, conn *pgx.Conn, logRelPath str
 		return fmt.Errorf("GIT_HEAD_RESOLVABLE: gitHeadInfo returned empty (sha=%q commitDate=%q)", sha, commitDate)
 	}
 
+	// Normal-success bookkeeping runs before runInstall's owned mutex release,
+	// including StateNothingScheduled refreshes. Retirement must not depend on
+	// whether this SHA's immutable terminal row makes the upsert a no-op.
+	tx, err := conn.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
 	var rowJSON string
-	err := conn.QueryRow(ctx,
+	err = tx.QueryRow(ctx,
 		`INSERT INTO public.upgrade (
 		   commit_sha, committed_at, summary, state, completed_at,
 		   commit_version, release_status, scheduled_at, started_at, from_commit_version,
@@ -3602,7 +3609,7 @@ func completeInstallUpgradeRow(installDir string, conn *pgx.Conn, logRelPath str
 		   $3, 'completed', clock_timestamp(),
 		   $4, $5::release_status_type,
 		   clock_timestamp(), clock_timestamp(),
-		   (SELECT commit_version FROM public.upgrade WHERE state = 'completed' ORDER BY completed_at DESC NULLS LAST LIMIT 1),
+		   NULL, -- the invoked target is not evidence of the previous serving app
 		   ARRAY[$4]::text[], false,
 		   'ready', 'ready',
 		   NULLIF($6, '')
@@ -3644,21 +3651,33 @@ func completeInstallUpgradeRow(installDir string, conn *pgx.Conn, logRelPath str
 		version,
 		upgrade.ClassifyReleaseShape(version).ReleaseStatus(),
 		logRelPath).Scan(&rowJSON)
-	if errors.Is(err, pgx.ErrNoRows) {
-		// ON CONFLICT no-op: a completed row for this SHA already exists
-		// (idempotent re-install). The upsert's WHERE (state != 'completed') was
-		// false, so RETURNING yielded no row — not an error, nothing changed.
-		fmt.Printf("  Installed version %s already recorded in upgrade table (no change)\n", version)
-		return nil
-	}
-	if err != nil {
+	unchanged := errors.Is(err, pgx.ErrNoRows)
+	if err != nil && !unchanged {
 		// A9: POST_COMPLETION_UPGRADE_ROW_INSERT_SUCCEEDS
 		log.Printf("Could not record completed installation: %v", err)
 		markTerminal(installDir, "POST_COMPLETION_UPGRADE_ROW_INSERT_SUCCEEDS",
 			fmt.Sprintf("sha=%s; INSERT err=%v", sha, err))
 		return fmt.Errorf("POST_COMPLETION_UPGRADE_ROW_INSERT_SUCCEEDS: %w", err)
 	}
-	fmt.Printf("  Recorded installed version %s in upgrade table\n", version)
+	retired, err := tx.Exec(ctx, `UPDATE public.upgrade
+		SET state = 'superseded', superseded_at = clock_timestamp()
+		WHERE state = 'in_progress' AND recovery_parked_at IS NULL AND commit_sha <> $1`, sha)
+	if err != nil {
+		return fmt.Errorf("retire interrupted attempts after successful install: %w", err)
+	}
+	// Historical repair integrates here once its retained-event predicate is
+	// proven. This success transaction owns the mutex and preserves audit data.
+	if err := tx.Commit(ctx); err != nil {
+		return err
+	}
+	if retired.RowsAffected() > 0 {
+		fmt.Printf("  Superseded %d interrupted upgrade attempt(s) after successful install\n", retired.RowsAffected())
+	}
+	if unchanged {
+		fmt.Printf("  Installed version %s already recorded in upgrade table (no change)\n", version)
+	} else {
+		fmt.Printf("  Recorded installed version %s in upgrade table\n", version)
+	}
 	return nil
 }
 
