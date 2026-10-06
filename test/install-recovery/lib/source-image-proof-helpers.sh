@@ -57,9 +57,14 @@ REMOTE
 # The host verifier is the named candidate's published executable, not a copied
 # verify recipe or a fixture. Only the SSH carrier is adapted to the owned guest.
 source_proof_operator_install() (
-    local host_dir arch rc=0
+    # Subshell scope keeps staging state available to EXIT after function unwind.
+    rc=0
     host_dir=$(mktemp -d "${TMPDIR:-/tmp}/statbus-proof-host.XXXXXX")
-    trap 'rm -rf "$host_dir"' EXIT
+    : > "$INSTALL_LOG"
+    # EXIT may still inherit the failed handler's output redirection.
+    # Replay to the saved original output, never back into the install log.
+    exec 3>&1
+    trap 'rc=$?; trap - EXIT; cat "$INSTALL_LOG" >&3 || true; rm -rf "$host_dir" || true; exit "$rc"' EXIT
     case "$(uname -s)/$(uname -m)" in
         Linux/x86_64) arch=linux-amd64 ;;
         Linux/aarch64) arch=linux-arm64 ;;
@@ -80,7 +85,7 @@ source_proof_operator_install() (
         [ "$#" = 1 ] || return 2
         VM_EXEC bash -c "$1"
     }
-    cmd_install proof "$INSTALL_TARGET_TAG" >"$INSTALL_LOG" 2>&1 || rc=$?
-    cat "$INSTALL_LOG"
-    exit "$rc"
+    # Preserve the real handler's direct errexit boundary. A conditional call
+    # disables errexit throughout cmd_install and can swallow poststep failures.
+    cmd_install proof "$INSTALL_TARGET_TAG" >"$INSTALL_LOG" 2>&1
 )

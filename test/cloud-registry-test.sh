@@ -329,6 +329,9 @@ VM_EXEC() {
         'systemctl --user start statbus-upgrade@statbus.service') printf '%s\n' "$3" >> "$PROOF_TRANSPORT_LOG" ;;
         *) echo "REFUSE unexpected fixture transport: $3" >&2; return 97 ;;
     esac
+    if [ "$3" = 'cd statbus && ./sb config generate && docker compose up -d app' ]; then
+        return "${SOURCE_POSTSTEP_RC:-0}"
+    fi
 }
 : > "$PROOF_TRANSPORT_LOG"; : > "$PROOF_VERIFY_LOG"
 source_proof_operator_install
@@ -340,10 +343,31 @@ cd statbus && ./sb config generate && docker compose up -d app
 systemctl --user start statbus-upgrade@statbus.service
 EXPECTED
 assert_eq "$(cat "$TMP/expected-proof-transport")" "$(cat "$PROOF_TRANSPORT_LOG")" 'actual pinned handler and poststep order'
+export TMP REPO_ROOT VM_IP INSTALL_TARGET_TAG INSTALL_LOG PROOF_TRANSPORT_LOG
+export -f curl VM_EXEC
+# The new process makes the same bare helper call as the scenario. Calling the
+# helper itself under if/|| would disable errexit and invalidate this control.
+run_proof_handler_control() {
+    bash -c 'set -euo pipefail; source "$REPO_ROOT/test/install-recovery/lib/source-image-proof-helpers.sh"; source_proof_operator_install'
+}
+: > "$PROOF_TRANSPORT_LOG"
+export SOURCE_POSTSTEP_RC=47
+poststep_rc=0
+run_proof_handler_control > "$TMP/proof-poststep.log" 2>&1 || poststep_rc=$?
+cat "$TMP/proof-poststep.log"
+assert_eq 47 "$poststep_rc" 'config/app failure preserves real direct handler exit'
+assert_eq "$(head -n 3 "$TMP/expected-proof-transport")" "$(cat "$PROOF_TRANSPORT_LOG")" 'failed config/app never starts the service'
+assert_not_contains "$(cat "$TMP/proof-poststep.log")" 'install complete' 'failed handler never reports completion'
+printf 'handler failing-poststep control: exit=%s, no service start or completion\n' "$poststep_rc"
+unset SOURCE_POSTSTEP_RC
 : > "$PROOF_TRANSPORT_LOG"
 export SOURCE_VERIFY_RC=1
-if source_proof_operator_install; then fail 'proof handler accepted unavailable artifacts'; fi
+verify_rc=0
+run_proof_handler_control > "$TMP/proof-refusal.log" 2>&1 || verify_rc=$?
+assert_eq 1 "$verify_rc" 'unavailable artifact refusal exit'
 assert_eq '' "$(cat "$PROOF_TRANSPORT_LOG")" 'artifact refusal precedes guest transport'
+cat "$TMP/proof-refusal.log"
+printf 'handler artifact-refusal sibling: exit=%s, zero guest transports\n' "$verify_rc"
 unset -f curl
 echo 'PASS: real isolated cloud handler, artifact refusal, pinned args and poststep sequence'
 
