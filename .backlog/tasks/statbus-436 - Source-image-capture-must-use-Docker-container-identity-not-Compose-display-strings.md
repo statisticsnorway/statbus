@@ -62,7 +62,7 @@ There is a separate **released containment fix**: `5c1cb6046` is not an ancestor
 - [x] #2 Capture and recovery retain their fail-closed behavior for genuine mixed source references, missing or ambiguous containers, invalid identities and incompatible immutable IDs. Neither checkout intent nor a current mutable image tag substitutes for the container's actual identity.
 - [x] #3 Related serving-version/canary paths are checked for the same display-reference confusion and, where affected, are corrected with behavioral regressions without weakening immutable source proof. The audit explicitly records affected/unaffected verdicts for the version check in `containers.go` (`extractImageTag(s.Image)`), `deriveServingEra` in `service.go` (target tag from `entry.Image`), and the serving-reference equality check in `service.go`.
 - [x] #4 A real LXD reproduction of the old released daemon loop exercises the official installer remedy and records whether it completes the upgrade, parks while serving the source, or refuses. Automatic retries do not continually re-enter maintenance after a deterministic refusal under the fixed program.
-- [ ] #5 The product fix is independently reviewed and tested against its built candidate in a real LXD guest before being advertised as a released fix. Existing install/recovery safety invariants remain green.
+- [x] #5 The product fix is independently reviewed and tested against its built candidate in a real LXD guest before being advertised as a released fix. Existing install/recovery safety invariants remain green.
 - [ ] #6 Demo is repaired through a supported release-addressed path and observed over repeated availability checks and scheduler ticks, with recorded checkout/binary/resident-program/container identities and terminal upgrade state. A momentary HTTP 200 is not sufficient proof. Owner decision 2026-10-01: demo may take the named RC once AC#4/#5 guest proof passes; the owner runs the official `./cloud.sh install demo <rc-version>` personally (verb-first dispatch, `cloud.sh` lines 1033-1050). Agents prepare the proof and the observation card, and do not run the live repair.
 <!-- AC:END -->
 
@@ -114,4 +114,15 @@ Review and observation receipts: `tmp/review-demo-image-identity.md`, `tmp/demo-
   - Pre-destructive park; nothing destroyed.
   - Evidence: `tmp/436-scheduled-rc12-evidence/`. AC#5 waits on the 443 fix plus a rerun.
 - **AC#6:** the demo repair card is `doc/observations/demo-repair-v2026.10.0-rc.12.md`. It uses the AC#4-proven path (`./cloud.sh install demo v2026.10.0-rc.12`), which does not touch the 443 path. Owner-run.
+2026-10-06 08:05 UTC, v2026.10.0-rc.16 (`7e92d1151`) evidence:
+- Release gates all green. Orchestrator run 37424897889: decision, smoke, dev canary, LXD fault fleet (run 37426559632) and arc harness (run 37426638674, 06:56 to 07:51 UTC, 41 success, 0 failure).
+  - The 9 arcs that failed on rc.15 all passed: postswap-between-migrations-kill, postswap-mid-migration-kill, boot-migrate-churn-alive-idle, flagless-selfheal-at-target, postswap-converged-selfheal, postswap-container-restart-kill, postswap-mid-tx-kill, preswap-fetch-returned-error and restore-broke-reattempt.
+  - So did the 8 that never ran on rc.15: preswap-checkout-kill, rollback-pair-terminal, rollback-kill, un-park-to-completion, transient-db-backoff, worker-wedge-mid-derive, rollback-schema-floor-failure and working.
+- STATBUS-436 operator rehearsal: PASS 06:42 to 07:00 UTC, single installer run, no retry (`tmp/436-operator-rc16.PASS.log`). The old daemon was refused during the install with "another ./sb install is already running (install, invoked_by=install.sh:statbus)", the v2026.09.3 row ended superseded, and there were zero refusals and zero re-attempts afterwards.
+- STATBUS-436 scheduled rehearsal: run 1 (06:42 to 06:57) completed the product path, but the test's own carrier check ran `jq` inside the hardened guest, which has none (rc=127). That line had never been reached before. The check was fixed test-only to parse the carrier on the host (`test: parse the 436 capture carrier on the host`, review `tmp/436-jq-review.md` MERGE). Run 2 (07:01 to about 07:15) used the rc.16 product with only that test file overlaid, and PASSED (`tmp/436-scheduled-rc16.PASS.log`):
+  - "Continuing the upgrade on the new binary after the planned handoff."
+  - 18/18 steps.
+  - The carrier binds the exact reference and immutable ID for app, worker, rest and proxy.
+  - The resident program is v2026.10.0-rc.16 at ~/statbus/sb.
+  - The health check passed at all 4 sustained checks, with no daemon restart.
 <!-- SECTION:NOTES:END -->

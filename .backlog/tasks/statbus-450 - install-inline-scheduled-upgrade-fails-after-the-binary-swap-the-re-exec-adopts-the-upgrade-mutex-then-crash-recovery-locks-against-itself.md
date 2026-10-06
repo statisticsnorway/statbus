@@ -3,7 +3,7 @@ id: STATBUS-450
 title: >-
   install-inline scheduled upgrade fails after the binary swap: the re-exec
   adopts the upgrade mutex, then crash recovery locks against itself
-status: In Progress
+status: Done
 assignee: []
 created_date: '2026-10-05 19:00'
 labels:
@@ -69,7 +69,7 @@ Also consider: when the lock was adopted across the binary handoff, the narrativ
 <!-- AC:BEGIN -->
 - [x] #1 A Go test drives the post-swap continuation with an adopted service lock at phase `new-sb-swapped` through recovery routing. It is RED on ebc77c5f5 (contention error) and GREEN with the fix. A sibling test proves a lock-less caller still refuses on real contention from another open file description.
 - [x] #2 No recovery-side path opens a second open file description on the canonical flag while `d.flagLock` holds it. The quiesce step no longer prints the false "STILL HELD" warning or waits 10 s, and `RecoveryBudgetGuard` counts the pass.
-- [ ] #3 The STATBUS-436 rehearsal `CANDIDATE_PATH=scheduled` passes on the next candidate, along with `CANDIDATE_PATH=operator` (no retry).
+- [x] #3 The STATBUS-436 rehearsal `CANDIDATE_PATH=scheduled` passes on the next candidate, along with `CANDIDATE_PATH=operator` (no retry).
 - [x] #4 Independent review MERGE before landing on master.
 <!-- AC:END -->
 
@@ -101,3 +101,15 @@ Reviews:
 2026-10-06 06:13 UTC: cherry-picked onto master as 234ea00db, 70161714b and 7e92d1151 (patch-ids EQUAL to the reviewed commits), and pushed 7e92d1151. The overnight gap (20:38 UTC to 06:10 UTC) was a server reload that ended the coordinating session; no work ran in it.
 
 Remaining: AC#3, which needs both STATBUS-436 rehearsal paths to pass on v2026.10.0-rc.16, plus a green rc.16 arc harness, especially the 9 arcs above and the 8 that never ran.
+
+2026-10-06 08:05 UTC, v2026.10.0-rc.16 (`7e92d1151`) evidence:
+- Release gates all green. Orchestrator run 37424897889: decision, smoke, dev canary, LXD fault fleet (run 37426559632) and arc harness (run 37426638674, 06:56 to 07:51 UTC, 41 success, 0 failure).
+  - The 9 arcs that failed on rc.15 all passed: postswap-between-migrations-kill, postswap-mid-migration-kill, boot-migrate-churn-alive-idle, flagless-selfheal-at-target, postswap-converged-selfheal, postswap-container-restart-kill, postswap-mid-tx-kill, preswap-fetch-returned-error and restore-broke-reattempt.
+  - So did the 8 that never ran on rc.15: preswap-checkout-kill, rollback-pair-terminal, rollback-kill, un-park-to-completion, transient-db-backoff, worker-wedge-mid-derive, rollback-schema-floor-failure and working.
+- STATBUS-436 operator rehearsal: PASS 06:42 to 07:00 UTC, single installer run, no retry (`tmp/436-operator-rc16.PASS.log`). The old daemon was refused during the install with "another ./sb install is already running (install, invoked_by=install.sh:statbus)", the v2026.09.3 row ended superseded, and there were zero refusals and zero re-attempts afterwards.
+- STATBUS-436 scheduled rehearsal: run 1 (06:42 to 06:57) completed the product path, but the test's own carrier check ran `jq` inside the hardened guest, which has none (rc=127). That line had never been reached before. The check was fixed test-only to parse the carrier on the host (`test: parse the 436 capture carrier on the host`, review `tmp/436-jq-review.md` MERGE). Run 2 (07:01 to about 07:15) used the rc.16 product with only that test file overlaid, and PASSED (`tmp/436-scheduled-rc16.PASS.log`):
+  - "Continuing the upgrade on the new binary after the planned handoff."
+  - 18/18 steps.
+  - The carrier binds the exact reference and immutable ID for app, worker, rest and proxy.
+  - The resident program is v2026.10.0-rc.16 at ~/statbus/sb.
+  - The health check passed at all 4 sustained checks, with no daemon restart.

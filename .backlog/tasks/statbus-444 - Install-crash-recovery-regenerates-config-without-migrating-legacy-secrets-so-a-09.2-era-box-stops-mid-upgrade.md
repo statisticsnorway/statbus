@@ -3,7 +3,7 @@ id: STATBUS-444
 title: >-
   Install crash recovery regenerates config without migrating legacy secrets, so
   a 09.2-era box stops mid-upgrade
-status: In Progress
+status: Done
 assignee: []
 created_date: '2026-10-03 10:05'
 updated_date: '2026-10-05 09:38'
@@ -59,7 +59,7 @@ Pass `--migrate-legacy-secrets` at the install crash-recovery `config generate`.
 <!-- AC:BEGIN -->
 - [x] #1 The install crash-recovery path invokes config generation with legacy-secret migration, pinned by a behavioral test (recorded command line or seam), not a source grep.
 - [x] #2 Every `config generate` call site in cli/ has a recorded verdict (needs the flag / cannot see legacy secrets / old binary that lacks the flag), and those that need it pass it.
-- [ ] #3 The STATBUS-436 scheduled-path guest proof passes against the candidate carrying the fix (this also closes 443 AC#3, 441 AC#2 and 436 AC#5).
+- [x] #3 The STATBUS-436 scheduled-path guest proof passes against the candidate carrying the fix (this also closes 443 AC#3, 441 AC#2 and 436 AC#5).
 <!-- AC:END -->
 
 ## Implementation Notes
@@ -104,3 +104,15 @@ Merged onto master as 02439a311, 177e62434, 6739fa480, f521a32d4, 9635cd56d and 
 The full `go test ./...` on the merged tree first failed on `TestEveryTestGitHelperUsesThisPackage`: the snapshot test called git directly instead of through the sanctioned helper. Fixed in a separate test commit that routes it through `internal/testgit`, independently checked. After that, all packages pass.
 
 AC#1 and AC#2 are met. AC#3 (the scheduled-path guest proof) runs against rc.14.
+
+2026-10-06 08:05 UTC, v2026.10.0-rc.16 (`7e92d1151`) evidence:
+- Release gates all green. Orchestrator run 37424897889: decision, smoke, dev canary, LXD fault fleet (run 37426559632) and arc harness (run 37426638674, 06:56 to 07:51 UTC, 41 success, 0 failure).
+  - The 9 arcs that failed on rc.15 all passed: postswap-between-migrations-kill, postswap-mid-migration-kill, boot-migrate-churn-alive-idle, flagless-selfheal-at-target, postswap-converged-selfheal, postswap-container-restart-kill, postswap-mid-tx-kill, preswap-fetch-returned-error and restore-broke-reattempt.
+  - So did the 8 that never ran on rc.15: preswap-checkout-kill, rollback-pair-terminal, rollback-kill, un-park-to-completion, transient-db-backoff, worker-wedge-mid-derive, rollback-schema-floor-failure and working.
+- STATBUS-436 operator rehearsal: PASS 06:42 to 07:00 UTC, single installer run, no retry (`tmp/436-operator-rc16.PASS.log`). The old daemon was refused during the install with "another ./sb install is already running (install, invoked_by=install.sh:statbus)", the v2026.09.3 row ended superseded, and there were zero refusals and zero re-attempts afterwards.
+- STATBUS-436 scheduled rehearsal: run 1 (06:42 to 06:57) completed the product path, but the test's own carrier check ran `jq` inside the hardened guest, which has none (rc=127). That line had never been reached before. The check was fixed test-only to parse the carrier on the host (`test: parse the 436 capture carrier on the host`, review `tmp/436-jq-review.md` MERGE). Run 2 (07:01 to about 07:15) used the rc.16 product with only that test file overlaid, and PASSED (`tmp/436-scheduled-rc16.PASS.log`):
+  - "Continuing the upgrade on the new binary after the planned handoff."
+  - 18/18 steps.
+  - The carrier binds the exact reference and immutable ID for app, worker, rest and proxy.
+  - The resident program is v2026.10.0-rc.16 at ~/statbus/sb.
+  - The health check passed at all 4 sustained checks, with no daemon restart.

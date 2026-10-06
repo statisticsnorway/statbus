@@ -3,7 +3,7 @@ id: STATBUS-441
 title: >-
   Inline scheduled-upgrade dispatch claims with post-382 SQL against a pre-382
   schema and stops at 42703
-status: In Progress
+status: Done
 assignee: []
 created_date: '2026-10-02 12:10'
 updated_date: '2026-10-02 16:16'
@@ -60,7 +60,7 @@ step table's own failure mode.
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
 - [x] #1 An inline scheduled-upgrade dispatch from a box whose schema predates migration 20260923202403 claims and completes the upgrade (the 42703 class is gone), exercised by a logical/livedb test with a pre-382 schema fixture — not a full guest install.
-- [ ] #2 The migration output appears in the dispatch's operator transcript before the claim line.
+- [x] #2 The migration output appears in the dispatch's operator transcript before the claim line.
 - [x] #3 The daemon-driven path and the 09.3→candidate inline path keep their current behavior (no double-migration harm; migrate up no-ops when current).
 <!-- AC:END -->
 
@@ -86,3 +86,24 @@ Mechanism:
 Production impact: none. Injection is harness-only, and a real crash at that point leaves the box untouched. The test impact is real, though: the arcs lost their intended crash placement.
 
 Fix (rc.13, branch `fix/441-floor-skip-when-current`): run the pre-claim floor step only when a migration at or below the floor is unapplied. That restores the exact pre-441 behavior on every 09.3+ box.
+
+2026-10-06 08:05 UTC, v2026.10.0-rc.16 (`7e92d1151`) evidence:
+- Release gates all green. Orchestrator run 37424897889: decision, smoke, dev canary, LXD fault fleet (run 37426559632) and arc harness (run 37426638674, 06:56 to 07:51 UTC, 41 success, 0 failure).
+  - The 9 arcs that failed on rc.15 all passed: postswap-between-migrations-kill, postswap-mid-migration-kill, boot-migrate-churn-alive-idle, flagless-selfheal-at-target, postswap-converged-selfheal, postswap-container-restart-kill, postswap-mid-tx-kill, preswap-fetch-returned-error and restore-broke-reattempt.
+  - So did the 8 that never ran on rc.15: preswap-checkout-kill, rollback-pair-terminal, rollback-kill, un-park-to-completion, transient-db-backoff, worker-wedge-mid-derive, rollback-schema-floor-failure and working.
+- STATBUS-436 operator rehearsal: PASS 06:42 to 07:00 UTC, single installer run, no retry (`tmp/436-operator-rc16.PASS.log`). The old daemon was refused during the install with "another ./sb install is already running (install, invoked_by=install.sh:statbus)", the v2026.09.3 row ended superseded, and there were zero refusals and zero re-attempts afterwards.
+- STATBUS-436 scheduled rehearsal: run 1 (06:42 to 06:57) completed the product path, but the test's own carrier check ran `jq` inside the hardened guest, which has none (rc=127). That line had never been reached before. The check was fixed test-only to parse the carrier on the host (`test: parse the 436 capture carrier on the host`, review `tmp/436-jq-review.md` MERGE). Run 2 (07:01 to about 07:15) used the rc.16 product with only that test file overlaid, and PASSED (`tmp/436-scheduled-rc16.PASS.log`):
+  - "Continuing the upgrade on the new binary after the planned handoff."
+  - 18/18 steps.
+  - The carrier binds the exact reference and immutable ID for app, worker, rest and proxy.
+  - The resident program is v2026.10.0-rc.16 at ~/statbus/sb.
+  - The health check passed at all 4 sustained checks, with no daemon restart.
+
+441 AC#2 evidence (operator transcript, floor before claim). The full `./sb install` transcript of the scheduled dispatch on a v2026.09.2 schema (`tmp/450-capture-scheduled-rc15/statbus-tmp/install-last-run-output.txt`, lines 9 to 21) shows, in order:
+1. `Dispatching scheduled upgrade id=2 to ebc77c5f…`
+2. `Bringing the database schema up to the daemon floor before the upgrade claim ...`
+3. `[migrate] Applying 20260923202403_statbus_382_…` ok, then `20261001163000_statbus_435_…` ok
+4. `Applying database migrations ... ok (2 applied)`
+5. Then the pipeline: `Upgrading to …`, `Writing lock file for exclusive upgrade`
+
+That transcript is from rc.15. The rc.16 PASS run's harness log shows only the condensed step table. The floor code (`cli/cmd/install_upgrade.go:126`) is unchanged between rc.15 and rc.16: the only rc.15→rc.16 diff in that file is the 450 quiesce flag. The rc.16 scheduled PASS completed the same dispatch on the same v2026.09.2 schema with no 42703.

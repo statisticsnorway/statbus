@@ -110,7 +110,7 @@ Decision: **gapless handoff**. `install.sh` keeps the mutex and hands it to `./s
 
 - [x] #1 install.sh hands the held mutex to `./sb install` with no release in between, and `./sb install` adopts it only when the inherited fd, inode, flock and token all prove it is ours.
 - [x] #2 Scenario A (alive looping holder at demo's cadence): one installer run completes, no retry, RED on master. Scenario B (healthy holder after manual failures): the installer waits and never kills or steals the lock.
-- [ ] #3 The STATBUS-436 rehearsal no longer retries, and the operator path passes against the candidate in a single installer run.
+- [x] #3 The STATBUS-436 rehearsal no longer retries, and the operator path passes against the candidate in a single installer run.
 - [x] #4 cloud.sh prints the signing-key hint only on a signature-verification failure.
 - [ ] #5 The owner's official `./cloud.sh install demo <candidate>` repairs demo in one run, observed over ≥10 min: binary, checkout and resident daemon at the candidate; v2026.09.3 row superseded; zero refusals; **the site is usable** (a page loads and stays; not judged by HTTP status).
 
@@ -143,3 +143,15 @@ Remaining: AC3 (the rc.15 operator rehearsal in one installer run) and AC5 (the 
 - The STATBUS-436 operator rehearsal PASSED in a single installer run with no retry (`tmp/436-operator-rc15.PASS.log`). The old v2026.09.2 daemon's one attempt during the install was refused with "another ./sb install is already running (install, invoked_by=install.sh:statbus)", and that row then ended `superseded`.
 - The same candidate exposed a regression in this fix's exec continuation, tracked as STATBUS-450. On the inline scheduled path, the post-swap re-exec adopted the upgrade mutex, and recovery then contended with it. 450 is fixed on master at 7e92d1151.
 - AC#3 is re-proven on rc.16 (the operator rehearsal again), and AC#5 is the owner's demo install of rc.16.
+
+2026-10-06 08:05 UTC, v2026.10.0-rc.16 (`7e92d1151`) evidence:
+- Release gates all green. Orchestrator run 37424897889: decision, smoke, dev canary, LXD fault fleet (run 37426559632) and arc harness (run 37426638674, 06:56 to 07:51 UTC, 41 success, 0 failure).
+  - The 9 arcs that failed on rc.15 all passed: postswap-between-migrations-kill, postswap-mid-migration-kill, boot-migrate-churn-alive-idle, flagless-selfheal-at-target, postswap-converged-selfheal, postswap-container-restart-kill, postswap-mid-tx-kill, preswap-fetch-returned-error and restore-broke-reattempt.
+  - So did the 8 that never ran on rc.15: preswap-checkout-kill, rollback-pair-terminal, rollback-kill, un-park-to-completion, transient-db-backoff, worker-wedge-mid-derive, rollback-schema-floor-failure and working.
+- STATBUS-436 operator rehearsal: PASS 06:42 to 07:00 UTC, single installer run, no retry (`tmp/436-operator-rc16.PASS.log`). The old daemon was refused during the install with "another ./sb install is already running (install, invoked_by=install.sh:statbus)", the v2026.09.3 row ended superseded, and there were zero refusals and zero re-attempts afterwards.
+- STATBUS-436 scheduled rehearsal: run 1 (06:42 to 06:57) completed the product path, but the test's own carrier check ran `jq` inside the hardened guest, which has none (rc=127). That line had never been reached before. The check was fixed test-only to parse the carrier on the host (`test: parse the 436 capture carrier on the host`, review `tmp/436-jq-review.md` MERGE). Run 2 (07:01 to about 07:15) used the rc.16 product with only that test file overlaid, and PASSED (`tmp/436-scheduled-rc16.PASS.log`):
+  - "Continuing the upgrade on the new binary after the planned handoff."
+  - 18/18 steps.
+  - The carrier binds the exact reference and immutable ID for app, worker, rest and proxy.
+  - The resident program is v2026.10.0-rc.16 at ~/statbus/sb.
+  - The health check passed at all 4 sustained checks, with no daemon restart.
