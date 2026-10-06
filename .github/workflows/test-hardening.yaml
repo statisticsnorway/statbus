@@ -119,9 +119,10 @@ jobs:
 
           ./sb migrate up --verbose
 
-      - name: Verify services healthy
+      - name: Verify services running and database ready
         run: |
-          docker compose ps --format json | jq -e '.[] | select(.State != "running")' && exit 1 || true
+          set -euo pipefail
+          docker compose ps --format json | jq -se 'length > 0 and all(.State == "running")'
           docker compose exec db pg_isready -U postgres
           echo "SELECT COUNT(*) FROM public.upgrade;" | ./sb psql
           # jsonb_stats is the canary for the postgres/Dockerfile pgrx copy
@@ -129,7 +130,7 @@ jobs:
           # would have failed earlier during migrations, and this line would
           # also fail.
           echo "SELECT extname, extversion FROM pg_extension WHERE extname = 'jsonb_stats';" | ./sb psql
-          echo "All services healthy"
+          echo "All services running and database ready"
 
       - name: Cleanup
         if: always()
