@@ -345,14 +345,16 @@ printf '%s\n' "$CARRIER"
 printf '%s\n' "$CARRIER" | grep -F "\"commit_sha\": \"$TARGET_SHA\"" >/dev/null
 # Every serving service's carrier entry must bind the EXACT pre-pull identity
 # (reference + immutable ID) recorded in IDENTITIES_BEFORE — rest included.
-# Parse the JSON per service inside the guest (jq-on-guest is an accepted
-# harness assumption, cf. 3-postswap-resume-died-parked.sh): a missing key
-# yields '|' and mismatches, an exact match proves the canary/source carrier
-# side of AC#5 for all four services, not just three.
+# Parse the carrier JSON already fetched into $CARRIER on the HOST: the
+# hardened guest has no jq (rc.16's first scheduled run to reach this check
+# died here with rc=127, after a successful upgrade). A missing key yields
+# '|' and mismatches; an exact match proves the canary/source carrier side of
+# AC#5 for all four services, not just three.
+command -v jq >/dev/null 2>&1 || { echo "host jq is required to parse the capture carrier" >&2; exit 1; }
 for service in app worker rest proxy; do
     old_ref=$(printf '%s\n' "$IDENTITIES_BEFORE" | grep "^$service|" | cut -d'|' -f3)
     old_id=$(printf '%s\n' "$IDENTITIES_BEFORE" | grep "^$service|" | cut -d'|' -f4)
-    got=$(VM_EXEC bash -c "jq -r '.source_serving_images[\"$service\"].reference + \"|\" + .source_serving_images[\"$service\"].image_id' ~/statbus/tmp/statbus-436-captured-source-images.json" | tr -d '\r')
+    got=$(printf '%s\n' "$CARRIER" | jq -r --arg s "$service" '.source_serving_images[$s].reference + "|" + .source_serving_images[$s].image_id' | tr -d '\r')
     [ "$got" = "$old_ref|$old_id" ] || { echo "carrier $service identity mismatch: got '$got' want '$old_ref|$old_id'" >&2; exit 1; }
 done
 echo "  ✓ carrier binds exact reference + immutable ID for app, worker, rest, proxy"
