@@ -4,7 +4,7 @@ title: >-
   installer overtakes an orphaned in_progress row; the new daemon's flagless
   recovery then marks that older version completed, so the ledger and footer
   report the wrong running version
-status: To Do
+status: In Progress
 assignee: []
 created_date: '2026-10-06 08:45'
 labels:
@@ -223,3 +223,7 @@ Both final independent MERGE reports at exact551de were read: koala C/export/flo
 All14 approved commits were cherry-picked conflict-free after ticket-only checkpoint5208656f6. Integrated product HEAD1766403fda37491291799eb3e44f12d8c98c99e5. Each original/integrated stable patch ID matches; all47 changed paths and the complete repository outside backlog notes are byte-identical to tested/reviewed551de. Strict source/scoped generated-output diff checks pass. Tracked tree was clean; unrelated untracked .yarn preserved. Proof/mapping: tmp/452-reviewed-integration-20261006.log and tmp/452-patch-source-proof-20261006.log.
 
 Integrated commits in order: b4acfeb70, cda000a81, d7fb34fc5, 885aabafd, ede6945d8, b994c30a1, 13959bd6a, c0878c1d1, 568bb248f, 6c0e46b68, 08cb26582, 576f7d9a1, 5d995fa6a, 1766403fd. No rejected broad branch or unreleased side change was imported. Next: fresh all-CI-idle check, one push and exact-SHA conclusions including Fast Tests, then remaining blocker gate and ordinary named-candidate guest machinery. Integration is not a demo repair or release acceptance claim.
+
+At14:40:24 UTC the final inline query found queued/in_progress/requested/waiting/pending all empty, including every event type. One push completed14:40:41 and origin/master was positively verified as49bb3f1a5817cd25d8986c9da2b581fd83258653. Source still equals reviewed551de; final SHA adds only the merge-record ticket commit. Exact-SHA watcher646741rtpl started with sufficient deadline/notification/wake. At14:41:26 the five initial product workflows were queued/in_progress; Fast Tests must later be attributed by exact exercised-SHA title. No CI success, candidate cut or deployment is inferred. Push evidence tmp/452-master-push-20261006.log; observer tmp/452-ci-49bb3f1a5.log/latest.json/exit. No second push until every CI run is terminal.
+
+At14:48 UTC the watcher was confirmed terminal exit1 after app run37480974869 was cancelled. Its annotation identifies a competing app-build-lint-master request; run37481254979 is a Dependabot sharp branch push, not another master push. Both app/Go non-PR groups incorrectly share master across branches, now bounded STATBUS-453. Original cancellation evidence remains tmp/452-ci-app-cancellation-20261006.log. Go, Harness, Images and Notify passed; exact Fast Tests37481764536 remains active. The app run is not counted as successful, and neither a release nor demo repair is claimed. Corrected-source CI and normal candidate-image guest acceptance are still required.
