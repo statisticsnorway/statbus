@@ -3696,6 +3696,13 @@ func rearmRankingRetiredInstallation(ctx context.Context, tx pgx.Tx, sha, logRel
 		return nil // no attributable successful installation
 	}
 	var id int
+	// Acquire the exact row before reading retirement history. At READ COMMITTED,
+	// a waiter must use a fresh statement snapshot after an operator commits.
+	if err := tx.QueryRow(ctx, `SELECT id FROM public.upgrade WHERE commit_sha=$1 FOR UPDATE`, sha).Scan(&id); errors.Is(err, pgx.ErrNoRows) {
+		return nil
+	} else if err != nil {
+		return err
+	}
 	var eventID int64
 	err := tx.QueryRow(ctx, `SELECT u.id, retirement.id
 	 FROM public.upgrade AS u
@@ -3713,7 +3720,7 @@ func rearmRankingRetiredInstallation(ctx context.Context, tx pgx.Tx, sha, logRel
 	          'CALL public.upgrade_supersede_older(')
 	     OR starts_with(regexp_replace(trim(retirement.query), '[[:space:]]+', ' ', 'g'),
 	          'SELECT schedule_result, upgrade_id, landed_state, superseded_count FROM public.upgrade_schedule('))
-	 FOR UPDATE OF u`, sha).Scan(&id, &eventID)
+	`, sha).Scan(&id, &eventID)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil
 	}
@@ -3727,7 +3734,7 @@ func rearmRankingRetiredInstallation(ctx context.Context, tx pgx.Tx, sha, logRel
 	// A scheduling operator may have caused ranking retirement of OTHER rows,
 	// so actor presence is not grounds to misclassify that as direct retirement.
 	if _, err := tx.Exec(ctx, `SELECT set_config('statbus.actor', $1, true)`,
-		fmt.Sprintf("successful pinned ./sb install: sha=%s log=%s ranking-retired-row=%d", sha, logRelPath, id)); err != nil {
+		fmt.Sprintf("successful pinned install: sha=%s log=%s ranking-retired-row=%d", sha, logRelPath, id)); err != nil {
 		return err
 	}
 	var result string

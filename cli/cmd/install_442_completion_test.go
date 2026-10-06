@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/statisticsnorway/statbus/cli/internal/dotenv"
@@ -51,7 +52,7 @@ func Test442PinnedInstallCompletion(t *testing.T) {
 	if dsn != "" && database != "statbus_442_overnight_1006" || dsn == "" && !strings.HasPrefix(database, "statbus_livedb_") {
 		t.Fatalf("refuse non-owned database %q", database)
 	}
-	for _, mode := range []string{"legacy-call", "legacy-schedule-operator", "operator-retired", "no-event", "cross-sha-event", "stale-event", "failed-install", "normal-candidate"} {
+	for _, mode := range []string{"legacy-call", "legacy-schedule-operator", "operator-retired", "no-event", "cross-sha-event", "stale-event", "failed-install", "normal-candidate", "waiting-operator-retired"} {
 		t.Run(mode, func(t *testing.T) {
 			dir := withRunInstallDetectionHooks(t)
 			version = "v2026.10.0-rc.12"
@@ -167,7 +168,74 @@ func Test442PinnedInstallCompletion(t *testing.T) {
 				}
 				return nil
 			}
-			err = runInstall()
+			if mode == "waiting-operator-retired" {
+				operatorTx, beginErr := conn.Begin(ctx)
+				if beginErr != nil {
+					t.Fatal(beginErr)
+				}
+				var id int
+				if err := operatorTx.QueryRow(ctx, "SELECT id FROM public.upgrade WHERE commit_sha=$1 FOR UPDATE", sha).Scan(&id); err != nil {
+					_ = operatorTx.Rollback(ctx)
+					t.Fatal(err)
+				}
+				done := make(chan error, 1)
+				joined := false
+				go func() { done <- runInstall() }()
+				defer func() {
+					_ = operatorTx.Rollback(ctx)
+					if !joined {
+						select {
+						case <-done:
+						case <-time.After(15 * time.Second):
+							t.Error("waiting installation did not finish during cleanup")
+						}
+					}
+				}()
+				var waitingPID int
+				deadline := time.Now().Add(5 * time.Second)
+				for time.Now().Before(deadline) {
+					// Statistics views cache within a transaction, independently of
+					// READ COMMITTED row snapshots. Observe this newly opened backend.
+					if _, err := operatorTx.Exec(ctx, "SELECT pg_stat_clear_snapshot()"); err != nil {
+						t.Fatal(err)
+					}
+					if err := operatorTx.QueryRow(ctx, `SELECT COALESCE((SELECT pid FROM pg_stat_activity
+					 WHERE datname=current_database() AND wait_event_type='Lock'
+					 AND pg_backend_pid()=ANY(pg_blocking_pids(pid)) LIMIT 1),0)`).Scan(&waitingPID); err != nil {
+						t.Fatal(err)
+					}
+					if waitingPID != 0 {
+						break
+					}
+					time.Sleep(10 * time.Millisecond)
+				}
+				if waitingPID == 0 {
+					t.Fatal("actual runInstall completion did not wait on the operator-owned exact row")
+				}
+				t.Logf("observed actual install backend=%d waiting on operator backend=%d exact row=%d", waitingPID, conn.PgConn().PID(), id)
+				if _, err := operatorTx.Exec(ctx, "SELECT set_config('statbus.actor','442 concurrent retiring operator',true)"); err != nil {
+					t.Fatal(err)
+				}
+				for _, q := range []string{
+					"UPDATE public.upgrade SET state='available',superseded_at=NULL WHERE commit_sha=$1",
+					"UPDATE public.upgrade SET state='superseded',superseded_at=clock_timestamp() WHERE commit_sha=$1",
+				} {
+					if _, err := operatorTx.Exec(ctx, q, sha); err != nil {
+						t.Fatal(err)
+					}
+				}
+				if err := operatorTx.Commit(ctx); err != nil {
+					t.Fatal(err)
+				}
+				select {
+				case err = <-done:
+					joined = true
+				case <-time.After(15 * time.Second):
+					t.Fatal("actual installation did not finish after operator commit")
+				}
+			} else {
+				err = runInstall()
+			}
 			if mode == "failed-install" {
 				if !errors.Is(err, failure) {
 					t.Fatalf("actual install failure lost: %v", err)
@@ -186,6 +254,17 @@ func Test442PinnedInstallCompletion(t *testing.T) {
 			if state != want {
 				t.Fatalf("actual runInstall %s SHA=%s state=%s want=%s", mode, sha, state, want)
 			}
+			if mode == "waiting-operator-retired" {
+				var actor string
+				if err := conn.QueryRow(ctx, `SELECT COALESCE(actor,'') FROM public.upgrade_state_log
+				 WHERE upgrade_id=(SELECT id FROM public.upgrade WHERE commit_sha=$1)
+				 ORDER BY id DESC LIMIT 1`, sha).Scan(&actor); err != nil {
+					t.Fatal(err)
+				}
+				if actor != "442 concurrent retiring operator" {
+					t.Fatalf("waiting install overwrote operator attribution: %q", actor)
+				}
+			}
 			if want == "superseded" {
 				guardTx, err := conn.Begin(ctx)
 				if err != nil {
@@ -199,7 +278,7 @@ func Test442PinnedInstallCompletion(t *testing.T) {
 			}
 			if strings.HasPrefix(mode, "legacy-") {
 				var events int
-				if err := conn.QueryRow(ctx, `SELECT count(*) FROM public.upgrade_state_log WHERE upgrade_id=(SELECT id FROM public.upgrade WHERE commit_sha=$1) AND new_state IN ('scheduled','completed') AND actor LIKE 'successful pinned ./sb install:%' AND actor_source='self-reported'`, sha).Scan(&events); err != nil {
+				if err := conn.QueryRow(ctx, `SELECT count(*) FROM public.upgrade_state_log WHERE upgrade_id=(SELECT id FROM public.upgrade WHERE commit_sha=$1) AND new_state IN ('scheduled','completed') AND actor LIKE 'successful pinned install:%' AND actor_source='self-reported'`, sha).Scan(&events); err != nil {
 					t.Fatal(err)
 				}
 				if events != 2 {
