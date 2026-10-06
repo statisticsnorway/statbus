@@ -28,11 +28,11 @@ on:
       - 'ops/**'  # Ignore any branch prefixed with ops/
 
 # STATBUS-364: one run in flight on master, newest push wins. PR runs keep
-# per-ref groups (cancel superseded commits); non-PR push and manual dispatch
-# share a FIXED group, so a newer push cancels the in-flight run and GitHub
-# keeps at most one pending run.
+# per-ref groups (cancel superseded commits); master push and manual dispatch
+# share a FIXED group. Other branches keep per-ref groups, so only a newer
+# master run cancels the in-flight master run and GitHub keeps one pending run.
 concurrency:
-  group: ${{ github.event_name == 'pull_request' && format('app-build-lint-{0}', github.ref) || 'app-build-lint-master' }}
+  group: ${{ (github.event_name == 'pull_request' || github.ref != 'refs/heads/master') && format('app-build-lint-{0}', github.ref) || 'app-build-lint-master' }}
   cancel-in-progress: true
 
 jobs:

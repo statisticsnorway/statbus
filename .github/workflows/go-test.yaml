@@ -54,10 +54,10 @@ on:
 
 # STATBUS-364: one run in flight on master, newest push wins. PR runs keep
 # per-ref groups (cancel superseded commits); master push and manual dispatch
-# share a FIXED group, so a newer push cancels the in-flight run and GitHub
-# keeps at most one pending run.
+# share a FIXED group. Other branches keep per-ref groups, so only a newer
+# master run cancels the in-flight master run and GitHub keeps one pending run.
 concurrency:
-  group: ${{ github.event_name == 'pull_request' && format('go-test-{0}', github.ref) || 'go-test-master' }}
+  group: ${{ (github.event_name == 'pull_request' || github.ref != 'refs/heads/master') && format('go-test-{0}', github.ref) || 'go-test-master' }}
   cancel-in-progress: true
 
 permissions:
