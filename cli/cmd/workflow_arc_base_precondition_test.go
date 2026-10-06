@@ -6,6 +6,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/statisticsnorway/statbus/cli/internal/testgit"
 )
 
 // Execute the actual workflow scripts, with real local Git and stubbed external boundaries.
@@ -27,8 +29,9 @@ func TestArcBaseImagePrecondition(t *testing.T) {
 			dir := t.TempDir()
 			runGit := func(args ...string) string {
 				t.Helper()
-				c := exec.Command("git", args...)
+				c := exec.Command("git", testgit.Args(args...)...)
 				c.Dir = dir
+				c.Env = testgit.Env()
 				out, err := c.CombinedOutput()
 				if err != nil {
 					t.Fatalf("git %v: %v\n%s", args, err, out)
@@ -90,7 +93,7 @@ func TestArcBaseImagePrecondition(t *testing.T) {
 			write(filepath.Join(bin, "sleep"), "#!/bin/bash\necho poll >> \"$CALL_LOG\"\nexit 1\n")
 			c := exec.Command("bash", "-c", script)
 			c.Dir = dir
-			c.Env = append(os.Environ(), "PATH="+bin+":"+os.Getenv("PATH"), "BASE_SHA_INPUT="+base, "GITHUB_SHA="+master, "GH_TOKEN=fake", "ACTOR=test", "REGISTRY=ghcr.io", "ORG=statisticsnorway", "MODE="+tc.mode, "CALL_LOG="+log, "GITHUB_OUTPUT="+filepath.Join(dir, "output"))
+			c.Env = append(testgit.Env(), "PATH="+bin+":"+os.Getenv("PATH"), "BASE_SHA_INPUT="+base, "GITHUB_SHA="+master, "GH_TOKEN=fake", "ACTOR=test", "REGISTRY=ghcr.io", "ORG=statisticsnorway", "MODE="+tc.mode, "CALL_LOG="+log, "GITHUB_OUTPUT="+filepath.Join(dir, "output"))
 			out, err := c.CombinedOutput()
 			calls, _ := os.ReadFile(log)
 			t.Logf("base=%s exit=%v\n%s\ncalls:\n%s", base, err, out, calls)
@@ -147,7 +150,7 @@ func TestArcBaseImagePrecondition(t *testing.T) {
 			}
 		}
 		c := exec.Command("bash", "-c", script)
-		c.Env = append(os.Environ(), "PATH="+dir+":"+os.Getenv("PATH"), "GH_TOKEN=fake", "REGISTRY=ghcr.io", "ORG=statisticsnorway", "ACTOR=test", "SHORTS=aaaa bbbb cccc", "IMAGES_WAIT_BUDGET_S=2400", "IMAGES_WAIT_INTERVAL_S=30", "CALL_LOG="+log, "READY="+ready)
+		c.Env = append(testgit.Env(), "PATH="+dir+":"+os.Getenv("PATH"), "GH_TOKEN=fake", "REGISTRY=ghcr.io", "ORG=statisticsnorway", "ACTOR=test", "SHORTS=aaaa bbbb cccc", "IMAGES_WAIT_BUDGET_S=2400", "IMAGES_WAIT_INTERVAL_S=30", "CALL_LOG="+log, "READY="+ready)
 		out, err := c.CombinedOutput()
 		calls, _ := os.ReadFile(log)
 		t.Logf("exit=%v\n%s\n%s", err, out, calls)
