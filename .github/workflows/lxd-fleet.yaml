@@ -187,6 +187,21 @@ jobs:
           source test/install-recovery/lxd/fleet-status.sh
           fleet_status_read "$LXD_FLEET_ARTIFACT_DIR/fleet-status.txt"
           echo "### LXD fault fleet: $FLEET_STATUS" >> "$GITHUB_STEP_SUMMARY"
+          {
+            echo 'Both source-identity paths use this same exact-commit full-fleet gate:'
+            # shellcheck disable=SC2016 # Markdown backticks, not shell commands.
+            echo '- operator: `5-install-source-identity-operator` (actual cloud install handler)'
+            # shellcheck disable=SC2016 # Markdown backticks, not shell commands.
+            echo '- scheduled: `5-install-source-identity-scheduled` (scheduled inline install)'
+            echo
+            echo '| Scenario | Result | Exit | Checkpoint |'
+            echo '| --- | --- | --- | --- |'
+            if [ -f "$LXD_FLEET_ARTIFACT_DIR/comparison.tsv" ]; then
+              awk -F '\t' 'NR > 1 {printf "| %s | %s | %s | %s |\n", $1, $4, $6, $7}' "$LXD_FLEET_ARTIFACT_DIR/comparison.tsv"
+            else
+              echo '| Fleet | comparison unavailable | | |'
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
           # A superseded child is neutral in the orchestrator, which reads the
           # artifact first, but must never look green to `release stable`'s
           # whole-workflow check. Only PASSED earns a successful conclusion.

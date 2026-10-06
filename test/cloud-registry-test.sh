@@ -6,7 +6,8 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 TMP=$(mktemp -d)
 trap 'rm -rf "$TMP"' EXIT
 cp "$ROOT/cloud.sh" "$TMP/cloud.sh"
-cp "$ROOT/sb" "$TMP/sb"
+# The fixture below writes its own sb double. Do not require or copy a local
+# ignored executable, which may be absent in an isolated source worktree.
 mkdir -p "$TMP/ops"
 
 fail() { echo "FAIL: $*" >&2; exit 1; }
@@ -291,4 +292,124 @@ assert_dispatch_refusal import dev selection test@example.com
 assert_dispatch_refusal reimport dev selection test@example.com
 assert_dispatch_refusal ssh dev
 
+# STATBUS-451 uses the same helper as the actual fleet proof. These local
+# transport/binary doubles are source checks, never guest acceptance.
+source "$ROOT/test/install-recovery/lib/source-image-proof-helpers.sh"
+REPO_ROOT=$ROOT
+VM_IP=fixture.invalid
+TARGET_SHA=0123456789abcdef0123456789abcdef01234567
+TARGET_SHORT=${TARGET_SHA:0:8}
+INSTALL_TARGET_TAG=v2099.01.0-rc.1
+INSTALL_LOG="$TMP/proof-install.log"
+PROOF_TRANSPORT_LOG="$TMP/proof-transport.log"
+PROOF_VERIFY_LOG="$TMP/proof-verifier.log"
+export PROOF_VERIFY_LOG TARGET_SHORT SOURCE_VERIFY_RC=0
+cat > "$TMP/proof-sb" <<'STUB'
+#!/usr/bin/env bash
+if [ "$1" = --version ]; then echo "sb version fixture (commit $TARGET_SHORT)"; exit 0; fi
+[ "$*" = 'release verify-artifacts --tag v2099.01.0-rc.1' ] || exit 97
+printf '%s\n' "$*" >> "$PROOF_VERIFY_LOG"
+exit "$SOURCE_VERIFY_RC"
+STUB
+curl() {
+    [ "$1 $2 $3" = '-fsSL --retry 3' ] && [ "$5" = -o ] || return 97
+    case "$4" in
+        https://github.com/statisticsnorway/statbus/releases/download/v2099.01.0-rc.1/sb-darwin-arm64|\
+        https://github.com/statisticsnorway/statbus/releases/download/v2099.01.0-rc.1/sb-linux-amd64|\
+        https://github.com/statisticsnorway/statbus/releases/download/v2099.01.0-rc.1/sb-linux-arm64) cp "$TMP/proof-sb" "$6" ;;
+        *) echo 'REFUSE external fixture download' >&2; return 97 ;;
+    esac
+}
+VM_EXEC() {
+    [ "$1 $2" = 'bash -c' ] && [ "$#" = 3 ] || return 97
+    case "$3" in
+        'curl -fsSL file:///tmp/statbus-install.sh | bash -s -- --version v2099.01.0-rc.1 --trust-github-user jhf'|\
+        "cd statbus && ./sb dotenv -f .env.config set TRUST_GITHUB_USER 'jhf'"|\
+        'cd statbus && ./sb config generate && docker compose up -d app'|\
+        'systemctl --user start statbus-upgrade@statbus.service') printf '%s\n' "$3" >> "$PROOF_TRANSPORT_LOG" ;;
+        *) echo "REFUSE unexpected fixture transport: $3" >&2; return 97 ;;
+    esac
+}
+: > "$PROOF_TRANSPORT_LOG"; : > "$PROOF_VERIFY_LOG"
+source_proof_operator_install
+assert_eq 'release verify-artifacts --tag v2099.01.0-rc.1' "$(cat "$PROOF_VERIFY_LOG")" 'actual handler verifier'
+cat > "$TMP/expected-proof-transport" <<'EXPECTED'
+curl -fsSL file:///tmp/statbus-install.sh | bash -s -- --version v2099.01.0-rc.1 --trust-github-user jhf
+cd statbus && ./sb dotenv -f .env.config set TRUST_GITHUB_USER 'jhf'
+cd statbus && ./sb config generate && docker compose up -d app
+systemctl --user start statbus-upgrade@statbus.service
+EXPECTED
+assert_eq "$(cat "$TMP/expected-proof-transport")" "$(cat "$PROOF_TRANSPORT_LOG")" 'actual pinned handler and poststep order'
+: > "$PROOF_TRANSPORT_LOG"
+export SOURCE_VERIFY_RC=1
+if source_proof_operator_install; then fail 'proof handler accepted unavailable artifacts'; fi
+assert_eq '' "$(cat "$PROOF_TRANSPORT_LOG")" 'artifact refusal precedes guest transport'
+unset -f curl
+echo 'PASS: real isolated cloud handler, artifact refusal, pinned args and poststep sequence'
+
+artifact=$(jq -cn --arg sha "$TARGET_SHA" '{commit_sha:$sha}')
+metadata=$(jq -cn --arg sha "$TARGET_SHA" --arg tag "$INSTALL_TARGET_TAG" '[{commit_sha:$sha,resolved_name:$tag,release_status:"prerelease",build_name:$tag}]')
+headers=$'HTTP/1.1 200 OK\r\nCache-Control: no-store\r'
+# Execute the helper's actual inline bodies, not a copied HTTP recipe. The
+# local curl fixture refuses all non-loopback URLs and requires Host/no-store.
+mkdir -p "$TMP/serving/statbus"
+cat > "$TMP/serving/statbus/sb" <<'STUB'
+#!/usr/bin/env bash
+case "$*" in
+    'dotenv -f .env get CADDY_HTTP_PORT') echo 3010 ;;
+    'dotenv -f .env.config get SITE_DOMAIN') echo statbus-test.local ;;
+    *) exit 97 ;;
+esac
+STUB
+chmod +x "$TMP/serving/statbus/sb"
+export PROOF_ARTIFACT=$artifact PROOF_METADATA=$metadata PROOF_HEADERS=$headers TARGET_SHA
+curl() {
+    local dest='' url='' host=0 cache=0
+    while [ "$#" -gt 0 ]; do
+        case "$1" in
+            --fail|--silent|--show-error) shift ;;
+            --max-time) [ "$2" = 30 ] || return 97; shift 2 ;;
+            -H)
+                case "$2" in 'Host: statbus-test.local') host=1 ;; 'Cache-Control: no-store') cache=1 ;; *) return 97 ;; esac
+                shift 2 ;;
+            -D) dest=$2; shift 2 ;;
+            http://127.0.0.1:3010/*) url=$1; shift ;;
+            *) echo 'REFUSE external serving fixture request' >&2; return 97 ;;
+        esac
+    done
+    [ "$host$cache" = 11 ] || return 97
+    case "$url" in
+        http://127.0.0.1:3010/_statbus-build.json)
+            [ -n "$dest" ] || return 97
+            printf '%s\n' "$PROOF_HEADERS" > "$dest"
+            printf '%s\n' "$PROOF_ARTIFACT" ;;
+        "http://127.0.0.1:3010/rest/rpc/release_identity?p_commit_sha=$TARGET_SHA") printf '%s\n' "$PROOF_METADATA" ;;
+        *) return 97 ;;
+    esac
+}
+export -f curl
+VM_SCRIPT_INLINE() {
+    local label=$1; shift
+    cat > "$TMP/$label.sh"
+    HOME="$TMP/serving" bash "$TMP/$label.sh" "$@"
+}
+source_proof_serving_identity
+unset -f curl
+echo 'PASS: actual serving requests use proxy port, real Host, no-store and exact full-SHA metadata lookup'
+source_proof_assert_identity "$artifact" "$metadata" "$TARGET_SHA" "$INSTALL_TARGET_TAG" "$headers"
+for bad in '{"commit_sha":"01234567"}' '{"commit_sha":"ffffffffffffffffffffffffffffffffffffffff"}' '{}' 'not-json'; do
+    if source_proof_assert_identity "$bad" "$metadata" "$TARGET_SHA" "$INSTALL_TARGET_TAG" "$headers"; then fail 'invalid served SHA passed'; fi
+done
+for bad in '[]' "[$metadata,$metadata]" "${metadata//$TARGET_SHA/ffffffffffffffffffffffffffffffffffffffff}" "${metadata//prerelease/release}" "${metadata//$INSTALL_TARGET_TAG/v2099.01.0-rc.2}"; do
+    if source_proof_assert_identity "$artifact" "$bad" "$TARGET_SHA" "$INSTALL_TARGET_TAG" "$headers"; then fail 'invalid exact metadata passed'; fi
+done
+if source_proof_assert_identity "$artifact" "$metadata" "$TARGET_SHA" "$INSTALL_TARGET_TAG" 'Cache-Control: public'; then fail 'cached identity passed'; fi
+for path in operator scheduled; do
+    case "$path" in operator) event=install_completed ;; scheduled) event=completed ;; esac
+    events="$event|$INSTALL_TARGET_TAG"
+    source_proof_assert_callbacks "$events" "$INSTALL_TARGET_TAG" "$TARGET_SHORT" v2026.09.3 abcdef01 "$path"
+    if source_proof_assert_callbacks '' "$INSTALL_TARGET_TAG" "$TARGET_SHORT" v2026.09.3 abcdef01 "$path"; then fail 'missing candidate callback passed'; fi
+    if source_proof_assert_callbacks "$events"$'\ncompleted|v2026.09.3' "$INSTALL_TARGET_TAG" "$TARGET_SHORT" v2026.09.3 abcdef01 "$path"; then fail 'old success callback passed'; fi
+done
+echo 'PASS: full serving SHA/exact metadata/no-store and both callback routes have positive and negative controls'
 echo "cloud registry tests: PASS"

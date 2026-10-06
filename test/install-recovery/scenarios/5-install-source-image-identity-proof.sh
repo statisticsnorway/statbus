@@ -10,8 +10,8 @@
 #   immutable .Image identities, exercise the db/app/worker/proxy target canary,
 #   complete, preserve data, and remain healthy across scheduler ticks.
 #
-# This is deliberately on-demand. It consumes two historical release artifacts,
-# a named candidate, and a long bounded observation window. Run it explicitly:
+# The full fault fleet invokes two thin delegators independently. This shared
+# selector remains explicit, without a third default run. Run it explicitly:
 #   INSTALL_TARGET_TAG=v2026.10.0-rc.07 \
 #     ./dev.sh test-install-recovery 5-install-source-image-identity-proof
 #
@@ -20,10 +20,10 @@
 #   scheduled (default) — register + daemon-down schedule + installer inline
 #     dispatch. Exercises the fixed source-identity capture itself (AC#5): the
 #     carrier must bind every serving service's exact pre-pull identity.
-#   operator — exactly what `./cloud.sh install demo <tag>` runs (AC#4, the
-#     owner's demo remedy): a version-pinned install.sh with the old daemon
-#     still looping, then cloud.sh's own post-steps (config generate + app up,
-#     ensure the upgrade unit is started). No register, no schedule, no stop.
+#   operator — actual sourceable cloud.sh cmd_install in an isolated host
+#     subshell, one harness registry and only SSH transport adapted. Proves the
+#     handler, not outer CLI parsing or public HTTP download. No register,
+#     schedule or pre-stop.
 #     This path never reaches executeUpgrade, so there is no capture carrier;
 #     instead it proves the false loop ENDS: the falsely-refused v2026.09.3 row
 #     is superseded and no refusal appears after the install.
@@ -31,8 +31,8 @@
 set -euo pipefail
 
 VM_NAME="${1:-statbus-recovery-5-install-source-image-identity-proof}"
-HARNESS_DEPLOYMENT_MODE="${HARNESS_DEPLOYMENT_MODE:-private}"
-HARNESS_UPGRADE_CHANNEL="${HARNESS_UPGRADE_CHANNEL:-prerelease}"
+export HARNESS_DEPLOYMENT_MODE="${HARNESS_DEPLOYMENT_MODE:-private}"
+export HARNESS_UPGRADE_CHANNEL="${HARNESS_UPGRADE_CHANNEL:-prerelease}"
 OLD_RELEASE="${OLD_RELEASE:-v2026.09.2}"
 OLD_TARGET="${OLD_TARGET:-v2026.09.3}"
 OLD_LOOP_BUDGET_S="${OLD_LOOP_BUDGET_S:-4500}"
@@ -75,8 +75,23 @@ OLD_SHORT=${OLD_SHA:0:8}
 source "$LIB_DIR/vm-bootstrap.sh"
 source "$LIB_DIR/data-helpers.sh"
 source "$LIB_DIR/assertions.sh"
+source "$LIB_DIR/source-image-proof-helpers.sh"
+command -v jq >/dev/null || { echo 'host jq is required' >&2; exit 1; }
+PROOF_LOG_DIR="${LXD_LOG_DIR:-$REPO_ROOT/tmp}"
+PROOF_LOG_PREFIX="$PROOF_LOG_DIR/${VM_NAME##statbus-recovery-}"
+printf 'path=%s tag=%s sha=%s run=%s attempt=%s\n' "$CANDIDATE_PATH" "$INSTALL_TARGET_TAG" "$TARGET_SHA" "${GITHUB_RUN_ID:-local}" "${GITHUB_RUN_ATTEMPT:-0}" > "$PROOF_LOG_PREFIX-identity.log"
 
-trap 'rc=$?; cleanup_vm "$VM_NAME"; exit $rc' EXIT
+PROOF_CALLBACK_ARMED=0
+proof_cleanup() {
+    local rc=$?
+    trap - EXIT
+    if [ "$PROOF_CALLBACK_ARMED" = 1 ]; then
+        VM_EXEC cat /home/statbus/statbus-proof-callback.log > "$PROOF_LOG_PREFIX-callback.log" 2>&1 || true
+    fi
+    cleanup_vm "$VM_NAME" "$rc"
+    exit "$rc"
+}
+trap proof_cleanup EXIT
 
 query_upgrade() {
     local sql=$1
@@ -104,7 +119,7 @@ REMOTE
 }
 
 echo "════════════════════════════════════════════════════════════════"
-echo "  Scenario: 5-install-source-image-identity-proof (explicit only)"
+echo "  Scenario: ${VM_NAME##statbus-recovery-} (shared source-image proof)"
 echo "  Old daemon: $OLD_RELEASE ($OLD_SHA)"
 echo "  False target: $OLD_TARGET ($OLD_TARGET_SHA)"
 echo "  Fixed candidate: $INSTALL_TARGET_TAG ($TARGET_SHA)"
@@ -112,7 +127,13 @@ echo "  Candidate path: $CANDIDATE_PATH"
 echo "════════════════════════════════════════════════════════════════"
 
 bootstrap_install_test_vm "$VM_NAME" "$OLD_RELEASE"
-install_statbus_in_vm "$VM_NAME" "$OLD_RELEASE"
+# LXD must install the historical released binary into its pristine fork.
+# Keep the existing native VM historical setup unchanged.
+if declare -F lxd_checkpoint_for_scenario >/dev/null; then
+    install_statbus_at_sha "$VM_NAME" "$OLD_SHA"
+else
+    install_statbus_in_vm "$VM_NAME" "$OLD_RELEASE"
+fi
 assert_health_passes "$VM_NAME"
 populate_with_demo_data "$VM_NAME"
 DATA_SNAPSHOT=$(snapshot_demo_data_counts "$VM_NAME")
@@ -120,6 +141,23 @@ DATA_SNAPSHOT=$(snapshot_demo_data_counts "$VM_NAME")
 CHECKOUT_BEFORE=$(VM_EXEC git -C /home/statbus/statbus rev-parse HEAD | tr -d ' \r\n')
 [ "$CHECKOUT_BEFORE" = "$OLD_SHA" ] || { echo "old checkout mismatch: $CHECKOUT_BEFORE" >&2; exit 1; }
 BINARY_BEFORE=$(VM_EXEC bash -c 'cd ~/statbus && ./sb --version' | tr -d '\r')
+case "$BINARY_BEFORE" in *"$OLD_SHORT"*) ;; *) echo "old binary mismatch: $BINARY_BEFORE" >&2; exit 1 ;; esac
+[ "$(VM_EXEC bash -c 'cd ~/statbus && ./sb dotenv -f .env.config get CADDY_DEPLOYMENT_MODE' | tr -d '\r\n')" = private ]
+[ "$(VM_EXEC bash -c 'cd ~/statbus && ./sb dotenv -f .env.config get UPGRADE_CHANNEL' | tr -d '\r\n')" = prerelease ]
+# Guest-local recorder outside checkout survives swaps and never uses network.
+VM_SCRIPT_INLINE arm-local-callback <<'REMOTE'
+set -euo pipefail
+cat > ~/statbus-proof-callback.sh <<'CALLBACK'
+#!/bin/sh
+printf '%s|%s\n' "$STATBUS_EVENT" "$STATBUS_VERSION" >> "$HOME/statbus-proof-callback.log"
+CALLBACK
+chmod 0700 ~/statbus-proof-callback.sh
+: > ~/statbus-proof-callback.log
+cd ~/statbus
+./sb dotenv -f .env.config set UPGRADE_CALLBACK /home/statbus/statbus-proof-callback.sh
+./sb config generate
+REMOTE
+PROOF_CALLBACK_ARMED=1
 SERVICE_PID=$(VM_EXEC systemctl --user show statbus-upgrade@statbus.service --property=MainPID --value | tr -d ' \r\n')
 RESIDENT_BEFORE=$(VM_EXEC readlink -f "/proc/$SERVICE_PID/exe" | tr -d '\r')
 RESTARTS_BEFORE=$(unit_restarts)
@@ -297,17 +335,10 @@ echo "── official daemon reactivation (idempotent ./sb install re-run) ─�
 VM_EXEC bash -c "cd ~/statbus && ./sb install --non-interactive"
 assert_systemd_active "$VM_NAME"
 else
-# Operator remedy: cloud.sh's cmd_install_one with a pinned version, verbatim
-# in substance — the pinned install.sh over SSH while the old daemon keeps
-# looping (no stop: cloud.sh forbids the SIGTERM pre-stop), then its two
-# post-steps. The install's own final act restarts the drifted unit onto the
-# candidate binary; cloud.sh's ensure_service_started is a no-op start then.
-echo "── operator remedy: version-pinned official installer with the false loop still running (./cloud.sh install <box> $INSTALL_TARGET_TAG) ──"
-run_official_installer
+# Actual host handler, with only SSH transport adapted to the owned guest.
+echo "── operator remedy: actual cloud cmd_install at $INSTALL_TARGET_TAG ──"
+source_proof_operator_install
 INSTALL_END_SINCE=$(date -u '+%Y-%m-%d %H:%M:%S UTC')
-echo "── cloud.sh post-steps: config generate + app up, ensure the upgrade unit is started ──"
-VM_EXEC bash -c "cd ~/statbus && ./sb config generate && docker compose up -d app"
-VM_EXEC systemctl --user start statbus-upgrade@statbus.service
 assert_systemd_active "$VM_NAME"
 fi
 
@@ -317,19 +348,7 @@ while true; do
     FINAL_STATE=$(query_upgrade "SELECT state FROM public.upgrade WHERE commit_sha = '$TARGET_SHA' ORDER BY id DESC LIMIT 1;" | tr -d ' ')
     case "$FINAL_STATE" in
         completed) break ;;
-        superseded)
-            # NOT a proof failure: the OLD daemon's verifyArtifacts auto-supersede
-            # (v2026.09.2's "intermediate commit rows that are ancestors of a
-            # verified commit") marked the target's pre-existing commit row when
-            # a NEWER master commit's images verified — ledger bookkeeping, fired
-            # before the candidate install ever ran. The install itself completed
-            # ('Installation complete!'), and the at-target assertions below
-            # (HEAD == TARGET_SHA, resident binary, serving health) are the
-            # completion evidence — the fifth live run died here on exactly this
-            # misread. A failure row remains terminal.
-            echo "  (target row is superseded by ledger bookkeeping — the box itself installed and serves the target; continuing)"
-            break ;;
-        failed|rolled_back|dismissed)
+        superseded|failed|rolled_back|dismissed)
             query_upgrade "SELECT id, state, error, recovery_parked_at, recovery_parked_reason FROM public.upgrade WHERE commit_sha = '$TARGET_SHA' ORDER BY id DESC LIMIT 1;" >&2
             exit 1
             ;;
@@ -397,19 +416,20 @@ for service in db app worker proxy; do
 done
 
 RESTARTS_AFTER=$(unit_restarts)
+source_proof_serving_identity | tee -a "$PROOF_LOG_PREFIX-identity.log"
 for check in $(seq 1 "$SUSTAINED_CHECKS"); do
     assert_health_passes "$VM_NAME"
     assert_demo_data_counts_match_snapshot "$VM_NAME" "$DATA_SNAPSHOT"
     state=$(query_upgrade "SELECT state FROM public.upgrade WHERE commit_sha = '$TARGET_SHA' ORDER BY id DESC LIMIT 1;" | tr -d ' ')
-    # Same terminal contract as the completion watch above: 'completed' (the
-    # inline dispatch's own row) or the ledger-bookkeeping 'superseded' (the
-    # old daemon's ancestor auto-supersede, which predates the candidate run)
-    # pass; failed/rolled_back/dismissed fail. Requiring exactly 'completed'
-    # here would reintroduce the fifth run's misread one phase later.
+    # The candidate's own completed row remains mandatory after ticks.
     case "$state" in
-        completed|superseded) ;;
+        completed) ;;
         *) echo "candidate left a passing terminal state during sustained check $check: $state" >&2; exit 1 ;;
     esac
+    source_proof_serving_identity | tee -a "$PROOF_LOG_PREFIX-identity.log"
+    CALLBACK_EVENTS=$(VM_EXEC cat /home/statbus/statbus-proof-callback.log | tr -d '\r')
+    printf '%s\n' "$CALLBACK_EVENTS" > "$PROOF_LOG_PREFIX-callback.log"
+    source_proof_assert_callbacks "$CALLBACK_EVENTS" "$INSTALL_TARGET_TAG" "$TARGET_SHORT" "$OLD_TARGET" "${OLD_TARGET_SHA:0:8}" "$CANDIDATE_PATH"
     current_restarts=$(unit_restarts)
     [ "$current_restarts" = "$RESTARTS_AFTER" ] || { echo "upgrade daemon restarted during sustained observation: $RESTARTS_AFTER -> $current_restarts" >&2; exit 1; }
     [ "$check" -eq "$SUSTAINED_CHECKS" ] || sleep "$SUSTAINED_INTERVAL_S"
