@@ -133,16 +133,30 @@ func progressLogWithFile(projDir, relPath, absPath string, f *os.File) *Progress
 	return &ProgressLog{projDir: projDir, relPath: relPath, absPath: absPath, file: f}
 }
 
-// createProgressLogFile creates one named log file and writes the legend header.
-// Install logs use this fixed-path helper. Upgrade logs use exclusive creation
-// below because a same-second retry must never truncate the prior attempt.
+// createProgressLogFile uses the same exclusive numbered collision policy as
+// upgrade logs, so a same-second install retry cannot truncate prior evidence.
 func createProgressLogFile(projDir, relPath, absPath string) *ProgressLog {
-	f, err := os.Create(absPath)
-	if err != nil {
+	dir := filepath.Dir(absPath)
+	ext := filepath.Ext(relPath)
+	stem := strings.TrimSuffix(relPath, ext)
+	base := relPath
+	for suffix := 0; ; suffix++ {
+		if suffix > 0 {
+			relPath = fmt.Sprintf("%s-%d%s", stem, suffix, ext)
+			absPath = filepath.Join(dir, relPath)
+		} else {
+			relPath = base
+		}
+		f, err := os.OpenFile(absPath, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0644)
+		if err == nil {
+			return progressLogWithFile(projDir, relPath, absPath, f)
+		}
+		if errors.Is(err, os.ErrExist) {
+			continue
+		}
 		fmt.Fprintf(os.Stderr, "Warning: cannot create progress log %s: %v\n", absPath, err)
 		return &ProgressLog{projDir: projDir, relPath: relPath, absPath: absPath}
 	}
-	return progressLogWithFile(projDir, relPath, absPath, f)
 }
 
 // NewUpgradeLog creates a new per-upgrade log under tmp/upgrade-logs/. Use
@@ -181,7 +195,7 @@ func NewUpgradeLog(projDir string, id int64, version string, startTime time.Time
 // successful completion.
 func NewInstallLog(projDir string, version string, startTime time.Time) *ProgressLog {
 	dir := installLogsDir(projDir)
-	_ = os.MkdirAll(dir, 0755) // best-effort; the os.Create right after surfaces any real failure
+	_ = os.MkdirAll(dir, 0755) // best-effort; exclusive OpenFile below surfaces any real failure
 
 	relPath := buildInstallLogRelPath(version, startTime)
 	absPath := filepath.Join(dir, relPath)

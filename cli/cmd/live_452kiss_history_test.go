@@ -12,6 +12,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/statisticsnorway/statbus/cli/internal/dotenv"
 	"github.com/statisticsnorway/statbus/cli/internal/install"
@@ -167,6 +168,10 @@ func Test452KissHistoricalRepairNormalInstall(t *testing.T) {
 				}
 			}
 			exec("SET application_name='statbus-cli'")
+			if mode == "demo-null-claim" || mode == "stale-cas" {
+				// Exercise the actual same-second normal-install log producer.
+				time.Sleep(time.Until(time.Now().Truncate(time.Second).Add(time.Second)))
+			}
 			if err := runInstall(); err != nil {
 				t.Fatal(err)
 			}
@@ -217,6 +222,10 @@ func Test452KissHistoricalRepairNormalInstall(t *testing.T) {
 				}
 				if err := runInstall(); err != nil {
 					t.Fatal(err)
+				}
+				retained, err := os.ReadFile(upgrade.InstallLogAbsPath(dir, currentLog))
+				if err != nil || !bytes.Equal(retained, audit) {
+					t.Fatalf("normal retry changed original attribution log %s: err=%v", currentLog, err)
 				}
 				if e = conn.QueryRow(ctx, "SELECT count(*) FROM public.upgrade_state_log WHERE upgrade_id=$1", id).Scan(&eventsAfter); e != nil {
 					t.Fatal(e)
