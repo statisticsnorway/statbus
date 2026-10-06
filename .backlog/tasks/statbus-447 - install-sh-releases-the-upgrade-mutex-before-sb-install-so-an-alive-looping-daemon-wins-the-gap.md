@@ -148,7 +148,11 @@ F2g completed on frozen `111bc1e5b4f5e6b5a619ed3bbd1e38e57508211d`: regression `
 
 F2h completed at 13:08 UTC: coordinator directly read `tmp/go-test-all-111-final.exit` = 0 and background task `945997phcx` completed exit 0, elapsed 145.55 s, upgrade package 140.991 s. Build, vet, bash, diff and gofmt all exit 0 at exact111, lint 0 issues. Earlier 4cd suite also passed, but only final111 is the final-source gate. F2i independent re-review has reproduced the formerly failing reviewer test GREEN and passed actual first-install/refusal/service/restart siblings, with final verdict pending publication. No guest acceptance claimed.
 
-Next: obtain exact final follow-on MERGE, integrate matching patch IDs/source and perform a fresh all-CI-idle check before push. Follow explicit CI conclusions. No database identity or retention redesign in this task. No candidate cut for demo until STATBUS-452 is also fixed. No production install by agents.
+F2i completed at 13:10 UTC: independent `tmp/447-existing-marker-review-2.md` says MERGE exact111. Reviewer copied the original d85 regression byte-identically and observed actual runInstall steps1/cleanup, verified all four first-install cases and configured/restart/validation siblings, ran affected vet/Linux build, and independently read the exact final full-suite success artifact. The original BLOCK remains preserved for d85. No real guest acceptance is claimed.
+
+F6b integrated locally at 13:11 UTC, without conflicts: `8df231e23 -> 6cbee8295`, `d85a4a5e7 -> c8b6e7a05`, `f8e6a6367 -> fd7a6476c`, `4cdedb8ec -> ddcc4bb93`, `111bc1e5b -> 3f8c2b88a`. All five stable patch IDs equal their reviewed originals, all sixteen changed source/test paths equal frozen111, whitespace and tracked-tree cleanliness pass. Proof: `tmp/447-existing-marker-integration-20261006.log`. Unrelated untracked `.yarn/` untouched. Final local source has no intermediate RED left unresolved.
+
+Next: perform a fresh all-CI-idle check immediately before push, then follow explicit CI conclusions including Fast Tests. No database identity or retention redesign in this task. No candidate cut for demo until STATBUS-452 is also fixed. No production install by agents.
 
 ## Implementation Notes
 
