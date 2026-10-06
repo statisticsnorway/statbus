@@ -34,7 +34,14 @@ docker compose stop app
 REMOTE
 RERUN_LOG=$(mktemp)
 VM_EXEC bash -c "cd ~ && export STATBUS_ENV_CONFIG=\"\$HOME/install-input.env\" STATBUS_USERS_FILE=/tmp/users.yml STATBUS_INSTALL_VERSION='$INSTALL_TARGET_TAG'; bash /tmp/statbus-install.sh --non-interactive" >"$RERUN_LOG" 2>&1 || { cat "$RERUN_LOG" >&2; exit 1; }
-grep -q 'previous restart finished' "$RERUN_LOG" || { cat "$RERUN_LOG" >&2; exit 1; }
+VM_SCRIPT_INLINE restarted-app <<'REMOTE'
+#!/usr/bin/env bash
+set -euo pipefail
+cd "$HOME/statbus"
+app=$(docker compose ps -q app)
+test -n "$app"
+test "$(docker inspect -f '{{.State.Running}}' "$app")" = true
+REMOTE
 VM_EXEC bash -c 'test ! -e ~/statbus/tmp/upgrade-in-progress.json'
 assert_health_passes "$VM_NAME"
 rm -f "$RERUN_LOG"
