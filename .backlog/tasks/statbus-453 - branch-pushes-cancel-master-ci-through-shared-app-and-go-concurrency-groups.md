@@ -32,8 +32,16 @@ Delegate a bounded source change in those two workflows, with one small real-exp
 
 - [ ] #1 Master push and master dispatch group together; PR refs and other branch refs remain distinct, including the observed Dependabot branch.
 - [ ] #2 Baseline reproduces the grouping collision; corrected expressions pass behavioral checks and actionlint, preserving newest-master-wins.
-- [ ] #3 Independent exact-source review accepts the bounded correction; integrate with patch/source proof and no push during active CI.
+- [x] #3 Independent exact-source review accepts the bounded correction; integrate with patch/source proof and no push during active CI.
 - [ ] #4 Exact corrected master CI, including app and Go, finishes successfully. Preserve the original cancellation evidence rather than calling it a passing run.
+
+## Reviewed source integration, 2026-10-06 15:00 UTC
+
+Otter froze clean235aab129c92fc923765e1d5c4a611da6173b5e8: two group expressions and comments plus one37-line positive parsed-expression/cancellation contract test. No trigger, exemption, permission or dependency changes. Existing real app cancellation proves the baseline defect. Local RED contract pin and manually transcribed event/ref model are retained separately from actual actionlint; the model does not evaluate GitHub YAML. Focused package tests, build, vet and lint0issues passed.
+
+Independent panda MERGE report tmp/453-concurrency-review.md was read in full. It independently checked both actual workflow sources with actionlint, existing exemption and coverage tests, exact source blobs and unchanged policy boundaries. Hosted corrected CI is explicitly pending, not waived by source MERGE.
+
+The coordinator integrated only this reviewed commit as b8a9d0e33216c8ae3f200026a14352c2e27bd2b6. Stable patch IDs match and the full repository outside backlog notes equals reviewed235aab. Evidence tmp/453-reviewed-integration-20261006.log. No push occurred. Separate Fast Tests on49bb then failed exactly008/016, so the next push waits for their observed, reviewed schema-contract correction as well. Original app cancellation is never counted as green.
 
 ## Safety and next action
 
