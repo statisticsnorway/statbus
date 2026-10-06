@@ -15153,6 +15153,12 @@ export type Database = {
         Args: Record<string, never>
         Returns: unknown
       },
+      release_identity: {
+        Args: {
+          p_commit_sha?: string
+        }
+        Returns: Record<string, unknown>[]
+      },
       relevant_statistical_units: {
         Args: {
           unit_type?: Database["public"]["Enums"]["statistical_unit_type"]
@@ -15193,15 +15199,6 @@ export type Database = {
           refresh_session_jti?: string
         }
         Returns: boolean
-      },
-      release_identity: {
-        Args: { p_commit_sha: string }
-        Returns: {
-          commit_sha: string
-          resolved_name: string
-          release_status: Database["public"]["Enums"]["release_status_type"]
-          build_name: string | null
-        }[]
       },
       running_identity: {
         Args: Record<string, never>

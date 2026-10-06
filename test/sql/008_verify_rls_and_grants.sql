@@ -150,6 +150,10 @@ DECLARE
 
     -- Upgrade: Trigger functions and RPC for upgrade service notifications
     v_upgrade_funcs TEXT[] := ARRAY[
+        -- STATBUS-452: exact-SHA public read metadata only. SECURITY DEFINER
+        -- bypasses upgrade RLS so anon can resolve artifact-owned provenance
+        -- without access to upgrade history or any lifecycle mutation.
+        'public.release_identity',
         -- STATBUS-355: public four-column read model for the footer. SECURITY
         -- DEFINER intentionally bypasses upgrade RLS so anon can resolve the
         -- installed commit without gaining access to upgrade history.
