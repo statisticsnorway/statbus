@@ -137,7 +137,17 @@ func TestInlineScheduledClaimPre382UndefinedColumnClosedByDaemonFloor(t *testing
 		t.Fatal("post-floor production claim did not select the tree_convergence_required branch")
 	}
 	floorVersions := appliedMigrationVersionsBetween(t, ctx, svc.queryConn, preClaimVersion, migrate.DaemonSchemaFloor)
-	wantFloorVersions := []int64{claimTokenMigration, migrate.DaemonSchemaFloor}
+	diskVersions, err := migrate.DiskVersions(projDir)
+	if err != nil {
+		t.Fatalf("list on-disk migrations: %v", err)
+	}
+	var wantFloorVersions []int64
+	for _, version := range diskVersions {
+		if version > preClaimVersion && version <= migrate.DaemonSchemaFloor {
+			wantFloorVersions = append(wantFloorVersions, version)
+		}
+	}
+	sort.Slice(wantFloorVersions, func(i, j int) bool { return wantFloorVersions[i] < wantFloorVersions[j] })
 	if fmt.Sprint(floorVersions) != fmt.Sprint(wantFloorVersions) {
 		t.Fatalf("daemon-floor migrations = %v, want exactly %v", floorVersions, wantFloorVersions)
 	}
@@ -151,10 +161,6 @@ func TestInlineScheduledClaimPre382UndefinedColumnClosedByDaemonFloor(t *testing
 		t.Fatalf("claimed row state/token = %s/%s, want in_progress/%s", state, storedToken, claim.Snapshot.ClaimToken)
 	}
 
-	diskVersions, err := migrate.DiskVersions(projDir)
-	if err != nil {
-		t.Fatalf("list on-disk migrations: %v", err)
-	}
 	wantRemaining := 0
 	for _, version := range diskVersions {
 		if version > migrate.DaemonSchemaFloor {
