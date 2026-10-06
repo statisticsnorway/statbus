@@ -25,7 +25,7 @@ Use the existing read-only `./dev.sh diff-fail-all pipe` helper in the failure s
 
 - [x] #1 Observe the old file-reading payload producing no diff from an offline fixture with failure inventory/result files. The Docker wrapper and live producer are not claimed reproduced.
 - [x] #2 Corrected diagnostic invokes the actual unchanged helper and prints both representative failing test diffs. No database access or mutation in this fixture.
-- [ ] #3 Changed workflow passes actionlint; independent exact-source review and patch/source proof before integration.
+- [x] #3 Changed workflow passes actionlint; independent exact-source review and patch/source proof before integration.
 - [ ] #4 Next exact-source CI retains its true test conclusion. A future failing run's diff step is useful without making the test pass or replacing actual schema-contract repair.
 
 ## Safety
@@ -38,4 +38,8 @@ Otter froze one workflow-only commit 5b277d6d4c918e71913c3a3674590c62af091c7d fr
 
 ## Independent review, 2026-10-06 15:12 UTC
 
-Panda's MERGE at exact 5b277d6d4 was read in full, tmp/454-regression-diffs-review.md. Its own source archive matched every inspected blob and the complete one-file delta. It independently executed the actual unchanged full helper in a safe fixture, observed old payload exit 0/zero bytes and both real diff outputs, checked actual bootstrap trace and unchanged retained-input hashes. Actionlint, syntax, source-boundary checks all exit 0. The original strict migrate-and-test step, failure gating and always-cleanup are byte-identical. This is diagnostic fixture evidence, not live producer or SQL repair proof. Integration/source equality and next real CI remain pending, so AC #3/#4 are not yet complete.
+Panda's MERGE at exact 5b277d6d4 was read in full, tmp/454-regression-diffs-review.md. Its own source archive matched every inspected blob and the complete one-file delta. It independently executed the actual unchanged full helper in a safe fixture, observed old payload exit 0/zero bytes and both real diff outputs, checked actual bootstrap trace and unchanged retained-input hashes. Actionlint, syntax, source-boundary checks all exit 0. The original strict migrate-and-test step, failure gating and always-cleanup are byte-identical. This is diagnostic fixture evidence, not live producer or SQL repair proof. At that checkpoint integration/source equality and next real CI remained pending.
+
+## Reviewed integration, 2026-10-06 15:22 UTC
+
+Integrated only 5b277d6d4c918e71913c3a3674590c62af091c7d as 23eaa9af880461696d2f6eae0f6cca3081653b00. Stable patch ID a3abc9c49cade7ca0ffb8b5af1c50c02f3c43f15 matches, the whole workflow equals the reviewed source, and unrelated product source is unchanged. Actual source proof is retained in tmp/452-contract-reviewed-integration-20261006-retry.log. AC #3 is now satisfied. AC #4 still needs the next hosted exact-source conclusion, not an artificial failure injection or a fixture treated as live acceptance.
