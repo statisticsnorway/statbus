@@ -316,8 +316,7 @@ jobs:
       - name: Show regression diffs on failure
         if: failure()
         run: |
-          docker compose exec --workdir /statbus db \
-            cat /statbus/test/regression.diffs 2>/dev/null || true
+          ./dev.sh diff-fail-all pipe
 
       - name: Cleanup
         if: always()
