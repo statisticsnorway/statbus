@@ -193,6 +193,8 @@ func TestFlagInvariant_EveryPhaseAndBackupPathWriterIsAccountedFor_STATBUS232(t 
 		"BackupPath:          flag.BackupPath":   "resumeNewSb's reacquire — carries the identity forward across NewSbSwapped→NewSbUpgrading; both are post-swap phases",
 		"BackupPath: rowBackupPath.String":       "parkAtTarget's persisted recovery marker — paired with PhaseNewSbSwapped in the same literal, so the snapshot identity is carried only by a post-swap phase",
 
+		"held.BackupPath = flag.BackupPath": "parkAtTarget copies the row snapshot from its PhaseNewSbSwapped literal in the SAME mutateHeldFlag callback as held.Phase = flag.Phase; the already-owned handle is persisted once with both fields, never with a pre-swap phase",
+		"held.Phase = flag.Phase":           "parkAtTarget copies only PhaseNewSbSwapped from the immediately preceding recovery-marker literal, paired in the SAME owned-handle mutateHeldFlag callback with the row snapshot BackupPath; no pre-swap marker is formed",
 		// ── Phase writers (the STATBUS-210 door, the half that was missing) ──
 		"f.Phase = normalizePhaseBytes(f.Phase)":      "UnmarshalJSON's decode chokepoint — re-labels a legacy wire spelling to its canonical slug; it never changes WHICH state is meant, so it cannot create the illegal pair",
 		"Phase:      PhaseOldSbUpgrading":             "writeUpgradeFlag's initial flag — no snapshot exists yet, so nothing has been backed up",
