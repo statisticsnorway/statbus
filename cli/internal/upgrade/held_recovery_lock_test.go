@@ -202,3 +202,52 @@ func TestRecoveryBudgetGuardHoldReusesAndRetainsAdoptedLock(t *testing.T) {
 		t.Fatalf("inherited lock was not reusable after budget counting boundary: acquired=%v err=%v", acquired, err)
 	}
 }
+
+func TestLegacyEmptyHolderUsesHeldPostSwapRecovery(t *testing.T) {
+	dir, lock := heldRecoveryFixture(t, UpgradeFlag{ID: 0, CommitSHA: strings.Repeat("4", 40), Phase: PhaseNewSbSwapped})
+	d := &Service{
+		projDir: dir, flagLock: lock,
+		rollbackFinishPendingForTest:     func(context.Context, int) (bool, error) { return false, nil },
+		servingTreeObligationForTest:     func(context.Context, int) (bool, string, error) { return false, "", nil },
+		incrementRecoveryAttemptsForTest: func(context.Context, int) (int, error) { return 1, nil },
+		resumeNewSbSkipExternalForTest:   true,
+	}
+	advanced := false
+	d.resumeNewSbPhaseAdvancedForTest = func(flag UpgradeFlag) error {
+		advanced = true
+		if flag.Phase != PhaseNewSbUpgrading || !IsFlockHeld(dir) {
+			t.Fatal("legacy service continuation lost held lock")
+		}
+		return nil
+	}
+	if err := d.recoverFromFlag(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	if !advanced {
+		t.Fatal("empty holder did not use existing service interpretation")
+	}
+}
+
+func TestInheritedInstallRecoveryConsumesOnlyNonRestartMarker(t *testing.T) {
+	for _, trigger := range []string{"install", "restart"} {
+		t.Run(trigger, func(t *testing.T) {
+			dir, lock := heldRecoveryFixture(t, UpgradeFlag{Holder: HolderInstall, Trigger: trigger})
+			before, err := os.ReadFile(flagFilePath(dir))
+			if err != nil {
+				t.Fatal(err)
+			}
+			d := &Service{projDir: dir, flagLock: lock}
+			if err := d.recoverFromFlag(context.Background()); err != nil {
+				t.Fatal(err)
+			}
+			after, err := os.ReadFile(flagFilePath(dir))
+			if trigger == "restart" {
+				if err != nil || string(after) != string(before) || !IsFlockHeld(dir) {
+					t.Fatal("generic recovery consumed held restart intent")
+				}
+			} else if !os.IsNotExist(err) {
+				t.Fatalf("stale install suppressed instead of cleaned: %v", err)
+			}
+		})
+	}
+}

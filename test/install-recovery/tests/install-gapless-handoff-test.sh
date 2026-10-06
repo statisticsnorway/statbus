@@ -158,3 +158,58 @@ scenario_a
 if [ "$EXPECT_SCENARIO_A_REFUSAL" != 1 ]; then
     scenario_b
 fi
+
+# No timers: the inherited description and an independent contender decide the
+# result synchronously. Use actual target source, including shipped rc.16.
+scenario_existing_marker() (
+    local capability="$1" holder="$2" trigger="$3"
+    make_fixture "existing-$capability-$holder-$trigger"
+    mkdir -p "$STATBUS_DIR/cli/cmd"
+    case "$capability" in
+        current) cp "$ROOT/cli/cmd/service_restart.go" "$STATBUS_DIR/cli/cmd/service_restart.go" ;;
+        rc16) git -C "$ROOT" show v2026.10.0-rc.16:cli/cmd/service_restart.go > "$STATBUS_DIR/cli/cmd/service_restart.go" ;;
+        unreadable) mkdir "$STATBUS_DIR/cli/cmd/service_restart.go" ;;
+        missing) ;;
+    esac
+    local flag="$STATBUS_DIR/tmp/upgrade-in-progress.json"
+    printf '{"id":0,"holder":"%s","trigger":"%s","phase":"new-sb-swapped","commit_sha":"original","backup_path":"/backup","recreate":true,"restart":{"profile":"all","prepared":true,"unit":"saved","daemon":true},"preserved_unknown":1}\n' "$holder" "$trigger" > "$flag"
+    cp "$flag" "$FIXTURE/before"
+    source "$FIXTURE/lock-functions.sh"
+    statbus_repo_lock_acquire
+    [ -z "$STATBUS_REPO_LOCK_OWN_FLAG" ]
+    STATBUS_INSTALL_MUTEX_FD=9
+    STATBUS_INSTALL_MUTEX_TOKEN=stale
+    STATBUS_UPGRADE_MUTEX_TOKEN=stale
+    statbus_repo_lock_prepare_handoff
+    [ -z "${STATBUS_INSTALL_MUTEX_FD:-}" ]
+    [ -z "${STATBUS_INSTALL_MUTEX_TOKEN:-}" ]
+    [ -z "${STATBUS_UPGRADE_MUTEX_TOKEN:-}" ]
+    cmp "$flag" "$FIXTURE/before"
+    if [ "$capability" = current ]; then
+        [ "${STATBUS_UPGRADE_MUTEX_FD:-}" = 9 ]
+        perl -MFcntl=:flock -e '
+            open(my $held, "+<&=9") or die "missing inherited fd9";
+            my @held=stat($held); my @path=stat($ARGV[0]);
+            die "noncanonical descriptor" unless $held[0]==$path[0] && $held[1]==$path[1];
+            flock($held, LOCK_EX|LOCK_NB) or die "same description could not retain hold";
+            open(my $contender, "+<", $ARGV[0]) or die;
+            die "contender entered" if flock($contender, LOCK_EX|LOCK_NB);
+        ' "$flag"
+    else
+        [ -z "${STATBUS_UPGRADE_MUTEX_FD:-}" ]
+        perl -MFcntl=:flock -e 'open(my $f,"+<",$ARGV[0]) or die; flock($f,LOCK_EX|LOCK_NB) or die "released fallback still held"' "$flag"
+    fi
+    statbus_repo_lock_release
+    cmp "$flag" "$FIXTURE/before"
+    echo "existing marker: $capability holder='$holder' trigger=$trigger preserved exact bytes"
+)
+
+if [ "$EXPECT_SCENARIO_A_REFUSAL" != 1 ]; then
+    scenario_existing_marker missing install restart
+    scenario_existing_marker unreadable install restart
+    scenario_existing_marker rc16 service install-cli
+    scenario_existing_marker current service install-cli
+    scenario_existing_marker current install install
+    scenario_existing_marker current install restart
+    scenario_existing_marker current '' install-cli
+fi

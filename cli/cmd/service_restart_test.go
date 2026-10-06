@@ -6,9 +6,12 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"strconv"
 	"strings"
+	"syscall"
 	"testing"
 
+	"github.com/statisticsnorway/statbus/cli/internal/install"
 	"github.com/statisticsnorway/statbus/cli/internal/upgrade"
 )
 
@@ -369,5 +372,153 @@ func TestRestartRetryClearsStartLimitBeforeStarting(t *testing.T) {
 	}
 	if !reflect.DeepEqual(calls, []string{"show", "stop", "reset-failed", "start"}) {
 		t.Fatalf("calls=%v", calls)
+	}
+}
+
+func TestInheritedRestartReusesHoldAndPreparedIntent(t *testing.T) {
+	for _, tc := range []struct {
+		name, fail string
+		prepared   bool
+	}{
+		{"prepared ready", "", true},
+		{"prepared stack failure", "stack", true},
+		{"prepared readiness failure", "start", true},
+		{"unprepared ready", "", false},
+		{"unprepared inspect failure", "show", false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			dir := t.TempDir()
+			lock, _, _, err := upgrade.AcquireRestartFlag(dir, "all")
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer lock.Close()
+			if tc.prepared {
+				if err := upgrade.PrepareRestart(lock, upgrade.RestartIntent{Profile: "all", Unit: "saved-unit", Daemon: true}); err != nil {
+					t.Fatal(err)
+				}
+			}
+			path := filepath.Join(dir, "tmp", "upgrade-in-progress.json")
+			before, err := os.ReadFile(path)
+			if err != nil {
+				t.Fatal(err)
+			}
+			var calls []string
+			checkHeld := func() {
+				t.Helper()
+				if other, _, _, err := upgrade.AcquireRestartFlag(dir, "all"); err == nil {
+					other.Close()
+					t.Fatal("contender entered inherited restart")
+				}
+				if tc.prepared {
+					now, err := os.ReadFile(path)
+					if err != nil || string(now) != string(before) {
+						t.Fatalf("prepared intent rewritten: %s %v", now, err)
+					}
+				}
+			}
+			ops := restartOperations{systemd: true, unit: "current-unit"}
+			ops.systemctl = func(args ...string) (string, error) {
+				checkHeld()
+				calls = append(calls, args[0])
+				if tc.prepared && args[1] != "saved-unit" {
+					t.Fatalf("saved unit lost: %v", args)
+				}
+				if args[0] == tc.fail {
+					return "failure", errors.New(tc.fail)
+				}
+				return "LoadState=loaded\nActiveState=active\n", nil
+			}
+			ops.stack = func(profile string) error {
+				checkHeld()
+				calls = append(calls, "stack:"+profile)
+				flag, err := upgrade.ReadFlagFile(dir)
+				if err != nil || flag.Restart == nil || !flag.Restart.Prepared || flag.Restart.Profile != "all" {
+					t.Fatalf("restart not prepared before stack: %+v %v", flag, err)
+				}
+				if tc.fail == "stack" {
+					return errors.New("stack")
+				}
+				return nil
+			}
+			err = restartServicesWithLock(dir, "all", ops, lock)
+			if (err != nil) != (tc.fail != "") {
+				t.Fatalf("restart result: %v", err)
+			}
+			if tc.prepared && !reflect.DeepEqual(calls, []string{"stop", "stack:all", "reset-failed", "start"}) {
+				t.Fatalf("prepared retry operations: %v", calls)
+			}
+			if !tc.prepared && tc.fail == "" && !reflect.DeepEqual(calls, []string{"show", "stop", "stack:all", "reset-failed", "start"}) {
+				t.Fatalf("unprepared retry operations: %v", calls)
+			}
+			if tc.fail != "" {
+				if _, err := os.ReadFile(path); err != nil {
+					t.Fatal("failure discarded restart intent")
+				}
+				if upgrade.IsFlockHeld(dir) {
+					t.Fatal("failure retained adopted descriptor")
+				}
+			} else if _, err := os.Stat(path); !os.IsNotExist(err) {
+				t.Fatalf("successful readiness retained marker: %v", err)
+			}
+		})
+	}
+}
+
+func TestInstallRoutesInheritedRestartBeforeBarrier(t *testing.T) {
+	dir := withRunInstallDetectionHooks(t)
+	t.Setenv("STATBUS_POST_UPGRADE_FIXUP", "")
+	path := filepath.Join(dir, "tmp", "upgrade-in-progress.json")
+	if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
+		t.Fatal(err)
+	}
+	marker := `{"holder":"install","trigger":"restart","restart":{"profile":"app","prepared":true,"daemon":false}}`
+	if err := os.WriteFile(path, []byte(marker), 0644); err != nil {
+		t.Fatal(err)
+	}
+	held, err := os.OpenFile(path, os.O_RDWR, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := syscall.Flock(int(held.Fd()), syscall.LOCK_EX|syscall.LOCK_NB); err != nil {
+		t.Fatal(err)
+	}
+	fd, err := syscall.Dup(int(held.Fd()))
+	if err != nil {
+		t.Fatal(err)
+	}
+	_ = held.Close()
+	t.Setenv("STATBUS_UPGRADE_MUTEX_FD", strconv.Itoa(fd))
+	t.Setenv("STATBUS_UPGRADE_MUTEX_TOKEN", "")
+	t.Setenv(upgrade.InstallMutexFDEnv, "")
+	t.Setenv(upgrade.InstallMutexTokenEnv, "")
+	bin := t.TempDir()
+	logPath := filepath.Join(bin, "docker.log")
+	script := `#!/bin/sh
+set -eu
+[ -z "${STATBUS_UPGRADE_MUTEX_FD:-}" ]
+perl -MFcntl=:flock -e 'open(my $f,"+<",$ARGV[0]) or die; die "contender entered" if flock($f,LOCK_EX|LOCK_NB)' "$PWD/tmp/upgrade-in-progress.json"
+printf '%s\n' "$*" >> "$STATBUS_TEST_RESTART_LOG"
+`
+	if err := os.WriteFile(filepath.Join(bin, "docker"), []byte(script), 0700); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("PATH", bin+string(os.PathListSeparator)+os.Getenv("PATH"))
+	t.Setenv("STATBUS_TEST_RESTART_LOG", logPath)
+	detections := 0
+	detectInstallState = func(string, string) (install.State, *install.Detail, error) {
+		detections++
+		return 0, nil, errors.New("stop after restart, before any DB probe")
+	}
+	writeDetectionSupportBundle = func(string) (string, error) { return "fixture-support", nil }
+	if err := runInstall(); err == nil || detections != 1 {
+		t.Fatalf("inherited restart self-contended: %v detections=%d", err, detections)
+	}
+	data, err := os.ReadFile(logPath)
+	if err != nil || strings.Count(string(data), "\n") != 2 {
+		t.Fatalf("actual stop/start route: %s %v", data, err)
+	}
+	if _, err := os.Stat(path); !os.IsNotExist(err) {
+		t.Fatalf("ready restart marker retained: %v", err)
 	}
 }
