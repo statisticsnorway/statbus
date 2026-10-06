@@ -2,6 +2,7 @@ package upgrade
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -77,6 +78,44 @@ func TestAdoptInheritedInstallFlag(t *testing.T) {
 		lock.Close()
 	})
 
+	for _, held := range []bool{true, false} {
+		t.Run(fmt.Sprintf("exclusive acquisition held=%t", held), func(t *testing.T) {
+			dir, fd := inheritedInstallFixture(t, HolderInstall, "", held)
+			setInstallHandoffEnv(t, fd, "")
+			lock, attempted, err := AdoptInheritedInstallFlag(dir)
+			if err != nil || !attempted || lock == nil {
+				t.Fatalf("adoption: %v", err)
+			}
+			defer lock.Close()
+			probe, err := os.OpenFile(flagFilePath(dir), os.O_RDWR, 0)
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer func() { _ = probe.Close() }()
+			if err := syscall.Flock(int(probe.Fd()), syscall.LOCK_EX|syscall.LOCK_NB); err == nil {
+				t.Fatal("independent description entered adopted mutex")
+			}
+		})
+	}
+
+	t.Run("independent canonical description cannot take another hold", func(t *testing.T) {
+		dir, heldFD := inheritedInstallFixture(t, HolderInstall, "", true)
+		defer func() { _ = syscall.Close(heldFD) }()
+		other, err := os.OpenFile(flagFilePath(dir), os.O_RDWR, 0)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer func() { _ = other.Close() }()
+		setInstallHandoffEnv(t, int(other.Fd()), "")
+		lock, attempted, err := AdoptInheritedInstallFlag(dir)
+		if !attempted || err == nil || lock != nil {
+			t.Fatal("independent descriptor took another owner's hold")
+		}
+		if _, err := other.Stat(); err != nil {
+			t.Fatalf("rejection closed nominated original: %v", err)
+		}
+	})
+
 	for _, tc := range []struct {
 		name   string
 		holder string
@@ -84,8 +123,6 @@ func TestAdoptInheritedInstallFlag(t *testing.T) {
 		held   bool
 		wrong  bool
 	}{
-		{name: "token mismatch", holder: HolderInstall, token: "other", held: true},
-		{name: "flock not held", holder: HolderInstall, token: token, held: false},
 		{name: "holder is not install", holder: HolderService, token: token, held: true},
 		{name: "wrong inode", holder: HolderInstall, token: token, held: true, wrong: true},
 	} {
@@ -140,6 +177,17 @@ func TestRejectedForgedHandoffPreservesUnrelatedFD(t *testing.T) {
 
 func TestSuccessfulAdoptionConsumesPrivateEnvironmentBeforeChild(t *testing.T) {
 	if os.Getenv("STATBUS_TEST_ENV_CHILD") == "1" {
+		fd, err := strconv.Atoi(os.Getenv("STATBUS_TEST_OWNED_FD"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		var inherited, canonical unix.Stat_t
+		if err := unix.Stat(os.Getenv("STATBUS_TEST_OWNED_PATH"), &canonical); err != nil {
+			t.Fatal(err)
+		}
+		if err := unix.Fstat(fd, &inherited); err == nil && inherited.Dev == canonical.Dev && inherited.Ino == canonical.Ino {
+			t.Fatal("ordinary exec child retained owned mutex descriptor")
+		}
 		for _, name := range []string{InstallMutexFDEnv, InstallMutexTokenEnv, upgradeMutexFDEnv, upgradeMutexTokenEnv} {
 			if value, ok := os.LookupEnv(name); ok {
 				t.Fatalf("child inherited consumed private environment %s=%q", name, value)
@@ -163,7 +211,8 @@ func TestSuccessfulAdoptionConsumesPrivateEnvironmentBeforeChild(t *testing.T) {
 			t.Fatalf("successful adoption left %s=%q exported", name, value)
 		}
 	}
-	runInheritedLockTestChild(t, "TestSuccessfulAdoptionConsumesPrivateEnvironmentBeforeChild", "STATBUS_TEST_ENV_CHILD=1")
+	runInheritedLockTestChild(t, "TestSuccessfulAdoptionConsumesPrivateEnvironmentBeforeChild", "STATBUS_TEST_ENV_CHILD=1",
+		"STATBUS_TEST_OWNED_FD="+strconv.Itoa(int(lock.file.Fd())), "STATBUS_TEST_OWNED_PATH="+flagFilePath(dir))
 }
 
 func TestChildReusingAdoptedOriginalFDIsUnaffected(t *testing.T) {
