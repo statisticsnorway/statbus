@@ -205,6 +205,11 @@ jobs:
           # base_sha input wins; blank → this run's triggering SHA.
           BASE_SHA_INPUT: ${{ github.event.inputs.base_sha }}
           RUN_ID: ${{ github.run_id }}
+          REGISTRY: ghcr.io
+          ORG: statisticsnorway
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ACTOR: ${{ github.actor }}
+          DOCKER_CLI_EXPERIMENTAL: enabled
         run: |
           set -euo pipefail
           # Single source of truth for B/C branch construction (STATBUS-118).
@@ -231,6 +236,37 @@ jobs:
 
           base_short="$(git rev-parse --short=8 "$base_sha")"
           echo "A (base) = ${base_sha}"
+
+          # Refuse an unavailable off-master A before creating any fixtures.
+          if ! master_fetch_error=$(git fetch origin +refs/heads/master:refs/remotes/origin/master 2>&1); then
+            echo "::error title=Arc base master fetch failed::base_sha=${base_sha}; cannot determine master ancestry: ${master_fetch_error}" >&2
+            exit 1
+          fi
+          if git merge-base --is-ancestor "$base_sha" refs/remotes/origin/master; then
+            echo "A is on master ancestry; normal image publication wait applies."
+          else
+            ancestry_status=$?
+            if [ "$ancestry_status" -ne 1 ]; then
+              echo "::error title=Arc base ancestry check failed::base_sha=${base_sha}; git merge-base exited ${ancestry_status}, not an off-master result" >&2
+              exit 1
+            fi
+            if ! login_error=$(echo "${GH_TOKEN}" | docker login "$REGISTRY" -u "$ACTOR" --password-stdin 2>&1); then
+              echo "::error title=Arc base registry login failed::base_sha=${base_sha}; ${REGISTRY}/${ORG}/statbus-{app,worker,db,proxy,sb}:${base_short}; ${login_error}" >&2
+              exit 1
+            fi
+            unavailable=""
+            for svc in app worker db proxy sb; do
+              ref="${REGISTRY}/${ORG}/statbus-${svc}:${base_short}"
+              if ! inspect_error=$(docker manifest inspect "$ref" 2>&1); then
+                unavailable="${unavailable} ${ref}"
+                echo "Manifest unavailable: ${ref}; docker manifest inspect said: ${inspect_error}" >&2
+              fi
+            done
+            if [ -n "$unavailable" ]; then
+              echo "::error title=Arc off-master base images unavailable::base_sha=${base_sha}; unavailable manifests:${unavailable}. Registry errors above may indicate absence, authentication, or transport failure. This harness does not automatically build off-master A. Merge/push A to master or explicitly run images.yaml for a ref resolving to A, then retry." >&2
+              exit 1
+            fi
+          fi
 
           # Ephemeral SSH signing key: B/C are CI commits → unsigned → the daemon's
           # MANDATORY verifyCommitSignature rejects them. Sign B+C with a throwaway
