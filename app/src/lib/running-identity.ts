@@ -10,7 +10,23 @@ export interface RunningVersionDisplay {
   commit: string | null;
 }
 
-export function parseRunningIdentity(payload: unknown): RunningIdentity | null {
+export function parseArtifactSHA(payload: unknown): string | null {
+  if (
+    typeof payload !== "object" ||
+    payload === null ||
+    !("commit_sha" in payload)
+  )
+    return null;
+  return typeof payload.commit_sha === "string" &&
+    /^[0-9a-f]{40}$/.test(payload.commit_sha)
+    ? payload.commit_sha
+    : null;
+}
+
+export function parseRunningIdentity(
+  payload: unknown,
+  artifactSHA: string | null
+): RunningIdentity | null {
   if (!Array.isArray(payload) || payload.length !== 1) {
     return null;
   }
@@ -29,11 +45,13 @@ export function parseRunningIdentity(payload: unknown): RunningIdentity | null {
 
   const candidate = row as Record<string, unknown>;
   if (
-    typeof candidate.commit_sha !== "string" ||
+    !artifactSHA ||
+    candidate.commit_sha !== artifactSHA ||
+    !/^[0-9a-f]{40}$/.test(artifactSHA) ||
     typeof candidate.resolved_name !== "string" ||
-    !["commit", "prerelease", "release"].includes(
-      String(candidate.release_status)
-    ) ||
+    candidate.resolved_name.trim().length === 0 ||
+    typeof candidate.release_status !== "string" ||
+    !["commit", "prerelease", "release"].includes(candidate.release_status) ||
     (candidate.build_name !== null && typeof candidate.build_name !== "string")
   ) {
     return null;
@@ -51,18 +69,10 @@ function displayCommit(commit: string): string | null {
 
 export function runningVersionDisplay(
   runningIdentity: RunningIdentity | null,
-  fallbackName: string,
-  fallbackCommit: string
+  artifactSHA: string | null
 ): RunningVersionDisplay {
-  if (runningIdentity) {
-    return {
-      name: runningIdentity.resolved_name,
-      commit: displayCommit(runningIdentity.commit_sha),
-    };
-  }
-
   return {
-    name: fallbackName,
-    commit: displayCommit(fallbackCommit),
+    name: runningIdentity?.resolved_name ?? "unknown",
+    commit: artifactSHA ? displayCommit(artifactSHA) : null,
   };
 }

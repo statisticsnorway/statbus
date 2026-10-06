@@ -28,7 +28,8 @@ FROM install AS build
 # NEXT_PUBLIC_* vars are no longer inlined at build time.
 # They are injected at request time by layout.tsx via window.__STATBUS_CONFIG__.
 # The ENABLE_EFFECT_GUARD is dev-only and not used in production builds.
-RUN pnpm run build
+ARG COMMIT
+RUN node scripts/stamp-app-build.mjs --image "$COMMIT" && NODE_ENV=production pnpm exec next build
 
 # Run the tests with
 #   docker build --target test -t statbus-app-test .

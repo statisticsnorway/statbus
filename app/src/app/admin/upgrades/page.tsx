@@ -6,6 +6,7 @@ import useSWR, { useSWRConfig } from "swr";
 import { logger } from "@/lib/client-logger";
 import { describeError } from "@/lib/error-format";
 import { pendingUpgradeStatusAtom } from "@/atoms/upgrade-status";
+import { artifactSHAAtom, runningIdentityAtom } from "@/atoms/running-identity";
 import { useGuardedEffect } from "@/hooks/use-guarded-effect";
 import {
   installedAsLabel,
@@ -18,6 +19,7 @@ import {
   upgradeStateLabel,
 } from "./upgrade-schedule";
 import { compareUpgradeCandidates } from "./upgrade-ordering";
+import { currentAppRow, newerThanCurrentApp } from "./current-app";
 import {
   filterStaleInstallFailure,
   INSTALL_FAILURE_BANNER_WORDING,
@@ -280,6 +282,16 @@ async function patchUpgrade(
 }
 
 export default function UpgradesPage() {
+  const artifactSHA = useAtomValue(artifactSHAAtom);
+  const runningIdentity = useAtomValue(runningIdentityAtom);
+  const { data: currentRows } = useSWR<Upgrade[]>(
+    artifactSHA
+      ? `/rest/upgrade?select=*,display_name,display_state&commit_sha=eq.${artifactSHA}`
+      : null,
+    fetcher,
+    { refreshInterval: 30000, revalidateOnFocus: true }
+  );
+  const currentUpgrade = currentAppRow(artifactSHA, currentRows);
   const [hasActiveUpgradeForPolling, setHasActiveUpgradeForPolling] =
     useState(false);
   const {
@@ -686,6 +698,11 @@ export default function UpgradesPage() {
         </p>
       )}
 
+      <div className="mb-4 rounded-md border p-4 text-sm">
+        Currently responding app: {runningIdentity?.resolved_name ?? "unknown"}
+        {artifactSHA && <span className="ml-2 font-mono">{artifactSHA}</span>}
+      </div>
+
       {error && (
         <Card className="mb-4 border-red-200 bg-red-50">
           <CardContent className="pt-6">
@@ -747,19 +764,14 @@ export default function UpgradesPage() {
             }
           }
 
-          // The currently-running version. Used to filter the available list
-          // (don't recommend a downgrade) and as the anchor for the history
-          // section below.
-          const latestCompleted = history.find((u) => u.state === "completed");
-
           // Drop available rows that aren't newer than what's running. Without
           // this filter, an older prerelease (say rc.64) outranks newer edge
           // commits via the tier-first sort below, surfacing a downgrade as
           // "Recommended". Mirrors the backend's supersede semantics in
           // migrations/20260418204304_supersede_respects_release_status_hierarchy.up.sql.
-          if (latestCompleted) {
-            available = available.filter(
-              (u) => u.committed_at > latestCompleted.committed_at
+          if (currentUpgrade) {
+            available = available.filter((u) =>
+              newerThanCurrentApp(u, currentUpgrade)
             );
           }
 
@@ -793,13 +805,8 @@ export default function UpgradesPage() {
               ? { ...latestAvailable, has_migrations: true }
               : latestAvailable;
 
-          // The currently-running row stays visible at all times so operators
-          // always have an anchor for "what version am I on right now?". The rest
-          // of history (older completions, superseded, skipped, failed) stays in
-          // the collapsible.
-          const historyRest = latestCompleted
-            ? history.filter((u) => u.id !== latestCompleted.id)
-            : history;
+          // History records attempts, independently of the responding artifact.
+          const historyRest = history;
 
           const filteredHistory = showSuperseded
             ? historyRest
@@ -817,9 +824,7 @@ export default function UpgradesPage() {
             variant?: "recommended" | "superseded"
           ) => {
             const status = u.state;
-            const canRestore = latestCompleted
-              ? u.committed_at > latestCompleted.committed_at
-              : true;
+            const canRestore = newerThanCurrentApp(u, currentUpgrade);
             return (
               <UpgradeCard
                 key={u.id}
@@ -870,7 +875,14 @@ export default function UpgradesPage() {
           }[] = [
             ...actionable.map((u) => ({ u })),
             ...(latestWithMigrations
-              ? [{ u: latestWithMigrations, variant: "recommended" as const }]
+              ? [
+                  {
+                    u: latestWithMigrations,
+                    variant: currentUpgrade
+                      ? ("recommended" as const)
+                      : undefined,
+                  },
+                ]
               : []),
           ].sort((a, b) => b.u.id - a.u.id);
 
@@ -894,19 +906,6 @@ export default function UpgradesPage() {
                     {olderAvailable.map((u) => renderCard(u, "superseded"))}
                   </CollapsibleContent>
                 </Collapsible>
-              )}
-
-              {/* Currently-running version — always visible so operators have an
-                anchor for "what version am I on right now?". Labeled above the
-                card to distinguish it from actionable/available rows. */}
-              {latestCompleted && (
-                <div className="space-y-2">
-                  <div className="flex items-center gap-2 px-1 text-sm font-medium text-emerald-800">
-                    <CheckCircle2 className="h-4 w-4" />
-                    Currently running
-                  </div>
-                  {renderCard(latestCompleted)}
-                </div>
               )}
 
               {/* Rest of past upgrades (older completions, superseded, skipped, failed) */}

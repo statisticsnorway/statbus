@@ -41,6 +41,9 @@ if (!process.env.DEBUG_STATUS_REPORTED) {
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
+  async headers() {
+    return [{ source: '/_statbus-build.json', headers: [{ key: 'Cache-Control', value: 'no-store' }] }];
+  },
   // Keep @protobi/exceljs as a Node.js require (not bundled by webpack) so the
   // worker thread's require('@protobi/exceljs') resolves from node_modules
   // in standalone output. This is more robust than the void-expression trick.

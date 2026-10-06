@@ -6,8 +6,8 @@ import { CommandPaletteTriggerButton } from "@/components/command-palette/comman
 import { useAtomValue, useSetAtom } from "jotai";
 import { useGuardedEffect } from "@/hooks/use-guarded-effect";
 import { isAuthenticatedStrictAtom } from "@/atoms/auth";
-import { statbusConfig } from "@/lib/statbus-config";
 import {
+  artifactSHAAtom,
   refreshRunningIdentityAtom,
   runningIdentityAtom,
 } from "@/atoms/running-identity";
@@ -29,6 +29,7 @@ export default function Footer() {
   const [mounted, setMounted] = useState(false);
   // Use derived isAuthenticatedAtom which handles loading state internally
   const isAuthenticated = useAtomValue(isAuthenticatedStrictAtom);
+  const artifactSHA = useAtomValue(artifactSHAAtom);
   const runningIdentity = useAtomValue(runningIdentityAtom);
   const refreshRunningIdentity = useSetAtom(refreshRunningIdentityAtom);
 
@@ -46,7 +47,14 @@ export default function Footer() {
       const refreshInterval = window.setInterval(() => {
         void refreshRunningIdentity();
       }, 30000);
-      return () => window.clearInterval(refreshInterval);
+      window.addEventListener("focus", refresh);
+      function refresh() {
+        void refreshRunningIdentity();
+      }
+      return () => {
+        window.clearInterval(refreshInterval);
+        window.removeEventListener("focus", refresh);
+      };
     },
     [refreshRunningIdentity],
     "Footer:refreshRunningIdentity"
@@ -58,19 +66,17 @@ export default function Footer() {
   const justificationClass = showAuthenticatedLayout
     ? "justify-between"
     : "justify-center";
-  const version = runningVersionDisplay(
-    runningIdentity,
-    statbusConfig.fallbackVersion,
-    statbusConfig.fallbackCommit
-  );
+  const version = runningVersionDisplay(runningIdentity, artifactSHA);
   const versionHref =
     runningIdentity?.release_status === "commit"
       ? `https://github.com/statisticsnorway/statbus/commit/${runningIdentity.commit_sha}`
-      : `https://github.com/statisticsnorway/statbus/releases/tag/${version.name}`;
+      : runningIdentity
+        ? `https://github.com/statisticsnorway/statbus/releases/tag/${version.name}`
+        : "https://github.com/statisticsnorway/statbus/";
   const buildDetails =
     runningIdentity?.build_name &&
     runningIdentity.build_name !== runningIdentity.resolved_name
-      ? `Built as ${runningIdentity.build_name}`
+      ? `Registered as ${runningIdentity.build_name}`
       : undefined;
 
   return (
@@ -99,7 +105,7 @@ export default function Footer() {
                 <>
                   {" ("}
                   <Link
-                    href={`https://github.com/statisticsnorway/statbus/commit/${runningIdentity?.commit_sha ?? version.commit}`}
+                    href={`https://github.com/statisticsnorway/statbus/commit/${artifactSHA}`}
                     className="hover:text-ssb-neon underline"
                   >
                     {version.commit}

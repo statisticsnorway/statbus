@@ -13,6 +13,7 @@ export async function proxy(request: NextRequest) {
   // Skip auth check for login page, public assets and API endpoints
   if (
     pathname === "/login" ||
+    pathname === "/_statbus-build.json" ||
     pathname.startsWith("/jotai-state-management-reference") || // Allow access to the example auth setup
     pathname.startsWith("/_next/") ||
     pathname.startsWith("/favicon.ico") ||

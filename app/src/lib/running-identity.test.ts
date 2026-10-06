@@ -1,65 +1,139 @@
 import { createStore } from "jotai";
 import {
+  artifactSHAAtom,
   refreshRunningIdentityAtom,
   runningIdentityAtom,
 } from "@/atoms/running-identity";
 import {
+  parseArtifactSHA,
   parseRunningIdentity,
   runningVersionDisplay,
   type RunningIdentity,
 } from "./running-identity";
 
-const promotedIdentity: RunningIdentity = {
-  commit_sha: "d53731ec539b03b9378ff8828bb2be938d9e2e0f",
+const source = "a".repeat(40);
+const target = "b".repeat(40);
+const identity: RunningIdentity = {
+  commit_sha: source,
   resolved_name: "v2026.09.0",
   release_status: "release",
   build_name: "v2026.09.0-rc.14",
 };
+const response = (payload: unknown, ok = true) =>
+  ({ ok, json: async () => payload }) as Response;
 
-describe("running identity", () => {
-  afterEach(() => {
-    jest.restoreAllMocks();
+describe("artifact-bound release metadata", () => {
+  afterEach(() => jest.restoreAllMocks());
+
+  test("legacy, short, dirty/unproven artifact cannot claim configured identity", () => {
+    for (const value of [
+      null,
+      {},
+      { commit_sha: null },
+      { commit_sha: "abcdef12" },
+      { commit_sha: target + "-dirty" },
+    ]) {
+      expect(parseArtifactSHA(value)).toBeNull();
+    }
+    expect(runningVersionDisplay(null, null)).toEqual({
+      name: "unknown",
+      commit: null,
+    });
   });
 
-  test("uses the resolved current name while retaining the running commit", () => {
-    expect(
-      runningVersionDisplay(promotedIdentity, "v2026.09.0-rc.14", "d53731ec")
-    ).toEqual({ name: "v2026.09.0", commit: "d53731ec" });
+  test("exact shape, cardinality and equality required", () => {
+    for (const rows of [
+      [],
+      [identity, identity],
+      [{ ...identity, commit_sha: target }],
+      [{ ...identity, release_status: "bad" }],
+      [{ ...identity, release_status: ["release"] }],
+      [{ ...identity, resolved_name: " " }],
+      [{ ...identity, resolved_name: "" }],
+      [{ ...identity, build_name: 42 }],
+    ]) {
+      expect(parseRunningIdentity(rows, source)).toBeNull();
+    }
+    expect(parseRunningIdentity([identity], source)).toEqual(identity);
+    expect(parseRunningIdentity([identity], null)).toBeNull();
   });
 
-  test("falls back to injected build/install identity when resolution is unavailable", () => {
-    expect(runningVersionDisplay(null, "v2026.09.0-rc.14", "d53731ec")).toEqual(
-      { name: "v2026.09.0-rc.14", commit: "d53731ec" }
+  test("pruned metadata retains positive full artifact proof", () => {
+    expect(runningVersionDisplay(null, source)).toEqual({
+      name: "unknown",
+      commit: "aaaaaaaa",
+    });
+  });
+
+  test("open tab follows restored source app, not configured target program", async () => {
+    const fetchMock = jest
+      .spyOn(global, "fetch")
+      .mockResolvedValueOnce(response({ commit_sha: target }))
+      .mockResolvedValueOnce(response([{ ...identity, commit_sha: target }]))
+      .mockResolvedValueOnce(response({ commit_sha: source }))
+      .mockResolvedValueOnce(response([identity]));
+    const store = createStore();
+    await store.set(refreshRunningIdentityAtom);
+    expect(store.get(artifactSHAAtom)).toBe(target);
+    await store.set(refreshRunningIdentityAtom);
+    expect(store.get(artifactSHAAtom)).toBe(source);
+    expect(store.get(runningIdentityAtom)).toEqual(identity);
+    expect(fetchMock).toHaveBeenCalledWith("/_statbus-build.json", {
+      cache: "no-store",
+    });
+    expect(fetchMock).toHaveBeenCalledWith(
+      `/rest/rpc/release_identity?p_commit_sha=${source}`,
+      { credentials: "include", cache: "no-store" }
     );
   });
 
-  test("rejects missing or malformed resolver rows", () => {
-    expect(parseRunningIdentity([])).toBeNull();
-    expect(parseRunningIdentity([{ resolved_name: "v2026.09.0" }])).toBeNull();
-  });
-
-  test("fetches the public REST resolver into the Jotai atom", async () => {
-    const fetchMock = jest.spyOn(global, "fetch").mockResolvedValue({
-      ok: true,
-      json: async () => [promotedIdentity],
-    } as Response);
+  test.each(
+    [
+      [],
+      [{ ...identity, commit_sha: target }],
+      [identity, identity],
+      [{ ...identity, resolved_name: 42 }],
+    ].map((rows) => [rows])
+  )("unproven metadata clears old labels: %j", async (rows) => {
+    jest
+      .spyOn(global, "fetch")
+      .mockResolvedValueOnce(response({ commit_sha: source }))
+      .mockResolvedValueOnce(response(rows));
     const store = createStore();
-
+    store.set(runningIdentityAtom, identity);
     await store.set(refreshRunningIdentityAtom);
-
-    expect(fetchMock).toHaveBeenCalledWith("/rest/rpc/running_identity", {
-      credentials: "include",
-    });
-    expect(store.get(runningIdentityAtom)).toEqual(promotedIdentity);
-  });
-
-  test("clears a stale resolved value when REST becomes unavailable", async () => {
-    jest.spyOn(global, "fetch").mockRejectedValue(new Error("offline"));
-    const store = createStore();
-    store.set(runningIdentityAtom, promotedIdentity);
-
-    await store.set(refreshRunningIdentityAtom);
-
+    expect(store.get(artifactSHAAtom)).toBe(source);
     expect(store.get(runningIdentityAtom)).toBeNull();
+  });
+
+  test("promotion changes label without rewriting artifact/build provenance", async () => {
+    jest
+      .spyOn(global, "fetch")
+      .mockResolvedValueOnce(response({ commit_sha: source }))
+      .mockResolvedValueOnce(
+        response([
+          { ...identity, resolved_name: "rc.14", release_status: "prerelease" },
+        ])
+      )
+      .mockResolvedValueOnce(response({ commit_sha: source }))
+      .mockResolvedValueOnce(response([identity]));
+    const store = createStore();
+    await store.set(refreshRunningIdentityAtom);
+    await store.set(refreshRunningIdentityAtom);
+    expect(store.get(artifactSHAAtom)).toBe(source);
+    expect(store.get(runningIdentityAtom)).toEqual(identity);
+  });
+
+  test("missing old artifact clears proof and does not ask history", async () => {
+    const fetchMock = jest
+      .spyOn(global, "fetch")
+      .mockResolvedValue(response(null, false));
+    const store = createStore();
+    store.set(artifactSHAAtom, target);
+    store.set(runningIdentityAtom, identity);
+    await store.set(refreshRunningIdentityAtom);
+    expect(store.get(artifactSHAAtom)).toBeNull();
+    expect(store.get(runningIdentityAtom)).toBeNull();
+    expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 });

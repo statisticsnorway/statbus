@@ -86,12 +86,23 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Prove app build checkout
+        if: matrix.service.name == 'app'
+        id: app-provenance
+        run: |
+          test -z "$(git status --porcelain)"
+          COMMIT_SHA=$(git rev-parse HEAD)
+          test "$COMMIT_SHA" = "${{ needs.metadata.outputs.commit_sha }}"
+          echo "commit_sha=$COMMIT_SHA" >> "$GITHUB_OUTPUT"
+
       - name: Build and push (${{ matrix.platform.arch }})
         uses: docker/build-push-action@v6
         with:
           context: ${{ matrix.service.context }}
           file: ${{ matrix.service.file }}
           platforms: linux/${{ matrix.platform.arch }}
+          build-args: |
+            COMMIT=${{ steps.app-provenance.outputs.commit_sha }}
           push: true
           tags: |
             ${{ env.REGISTRY }}/${{ env.ORG }}/statbus-${{ matrix.service.name }}:${{ needs.metadata.outputs.commit_short }}-${{ matrix.platform.arch }}

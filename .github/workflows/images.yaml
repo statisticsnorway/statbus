@@ -275,6 +275,13 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Prove app build checkout
+        if: matrix.service.name == 'app'
+        id: app-provenance
+        run: |
+          test -z "$(git status --porcelain)"
+          echo "commit_sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
       - name: Build and push (${{ matrix.platform.arch }})
         uses: docker/build-push-action@v6
         with:
@@ -285,10 +292,10 @@ jobs:
           tags: |
             ${{ env.REGISTRY }}/${{ env.ORG }}/statbus-${{ matrix.service.name }}:${{ needs.describe.outputs.commit_short }}-${{ matrix.platform.arch }}
           # Pass VERSION + COMMIT build-args for services that use them
-          # (currently sb only; the four service images don't use ARGs).
+          # (sb binary and app static provenance consume COMMIT).
           build-args: |
             VERSION=${{ needs.describe.outputs.commit_short }}
-            COMMIT=${{ github.sha }}
+            COMMIT=${{ matrix.service.name == 'app' && steps.app-provenance.outputs.commit_sha || github.sha }}
           cache-from: type=registry,ref=${{ env.REGISTRY }}/${{ env.ORG }}/statbus-${{ matrix.service.name }}:buildcache-${{ matrix.platform.arch }}
           cache-to: type=registry,ref=${{ env.REGISTRY }}/${{ env.ORG }}/statbus-${{ matrix.service.name }}:buildcache-${{ matrix.platform.arch }},mode=max
 
