@@ -205,6 +205,43 @@ var rewindAudit = map[siteKey]rewindDisposition{
 		Why: "The shared normal/flagless completion write and guarded self-heal write. A completed upgrade never rolls back, so no rewind can follow them.",
 	},
 
+	// STATBUS-452: successful-install and overtaken-attempt terminal bookkeeping.
+	{"cli/cmd/install.go", "UPDATE", "state,superseded_at"}: {
+		Class: classSuccessPathOnly, Count: 1,
+		Why: "B retires other unparked interrupted attempts only in the normal successful install transaction, " +
+			"under its owned filesystem mutex after all ordinary install steps succeeded. Failed/dev/bypass " +
+			"paths do not enter this hook, and no snapshot restore follows this success bookkeeping. " +
+			"Any later upgrade captures these dispositions in its own new snapshot.",
+	},
+	{"cli/cmd/install_ledger_repair.go", "UPDATE", "completed_at,state,superseded_at"}: {
+		Class: classSuccessPathOnly, Count: 1,
+		Why: "D retracts an attributed overtaken completion in the same normal-success install transaction as B, " +
+			"before cleanup and mutex release. It does not enter a restore path or alter a live upgrade's " +
+			"snapshot. A subsequent upgrade snapshots the corrected state; its rollback does not use the " +
+			"retired historical attempt's retained backup.",
+	},
+	{"cli/cmd/install_ledger_repair.go", "UPDATE", "completed_at,docker_images_status,error,failure_code,log_relative_file_path,new_state,old_state,state"}: {
+		Class: classOutsideWindow, Count: 1,
+		Why: "Scanner-only SQL-looking source fingerprint, NOT an executed UPDATE: overtakenCompletedEvidenceSQL " +
+			"is a SELECT predicate comparing normalized retained upgrade_state_log.query via LIKE. " +
+			"The quoted released daemon completion text and adjacent event-state tests perform no writes " +
+			"in any snapshot window. The actual D UPDATE is classified separately above.",
+	},
+	{"cli/internal/upgrade/recovery_attempt.go", "UPDATE", "completed_at,docker_images_status,error,failure_code,log_relative_file_path,state"}: {
+		Class: classSuccessPathOnly, Count: 1,
+		Why: "A's exact-attempt CAS is the successful flagless recovery terminal after positive observed-state " +
+			"checks, using the teardown-safe terminal writer. The Behind branch restores and returns separately; " +
+			"this completion cannot be followed by that attempt's rollback. This moved terminal does not replace " +
+			"or exempt any in-window snapshot recorder.",
+	},
+	{"cli/internal/upgrade/recovery_attempt.go", "UPDATE", "state,superseded_at"}: {
+		Class: classSuccessPathOnly, Count: 1,
+		Why: "A terminally retires an overtaken exact attempt only after an independently completed, " +
+			"executable-matching strict descendant installation is locked as witness. The caller returns " +
+			"without running health actions, completion or the Behind rollback branch. No restore of this " +
+			"retired attempt follows the disposition; future upgrades take new snapshots containing it.",
+	},
+
 	// ── E. SELF-HEALING DERIVED — discovery re-derives from an external truth ──
 	{"cli/internal/upgrade/service.go", "UPDATE", "docker_images_status"}: {
 		Class: classSelfHealing, Count: 1,
