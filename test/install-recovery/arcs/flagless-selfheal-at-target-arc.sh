@@ -189,7 +189,11 @@ echo ""
 echo "── assert refinement 1: the tail lifted the read-only window itself (backstop silent) + box accepts writes ──"
 [ "$(journal_has "STATBUS-163 BACKSTOP" "$SINCE")" = "no" ] || { echo "✗ boot backstop 'STATBUS-163 BACKSTOP' fired in the arm window — the serve-proof tail did NOT lift the read-only window itself (refinement 1 regressed)" >&2; exit 1; }
 echo "  ✓ no STATBUS-163 BACKSTOP in the arm window — the tail lifted the window itself"
-WRITE_PROBE=$(VM_EXEC bash -c "cd ~/statbus && printf 'BEGIN;\nUPDATE public.system_info SET value = value;\nROLLBACK;\n' | ./sb psql 2>&1" || true)
+if ! WRITE_PROBE=$(VM_EXEC bash -c "cd ~/statbus && printf 'BEGIN;\nUPDATE public.system_info SET value = value;\nROLLBACK;\n' | ./sb psql -v ON_ERROR_STOP=1 2>&1"); then
+    echo "✗ write probe failed: the box has not been proved to accept writes:" >&2
+    echo "$WRITE_PROBE" >&2
+    exit 1
+fi
 if echo "$WRITE_PROBE" | grep -qiE "read_only_sql_transaction|read-only transaction|25006"; then
     echo "✗ write probe hit read-only (25006) — the window is still ON after completion (refinement 1 did not lift it):" >&2
     echo "$WRITE_PROBE" >&2
