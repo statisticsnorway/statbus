@@ -1002,7 +1002,7 @@ func runInstall() (installErr error) {
 				if installLog != nil {
 					logRelPath = installLog.RelPath()
 				}
-				if err := completeInstallUpgradeRow(installDir, conn, logRelPath); err != nil {
+				if err := completeInstallUpgradeRow(installDir, conn, logRelPath, installLog.File()); err != nil {
 					installErr = err
 					return
 				}
@@ -3567,7 +3567,7 @@ func connectInstallDB(dir string) (*pgx.Conn, error) {
 //   - A9 POST_COMPLETION_UPGRADE_ROW_INSERT_SUCCEEDS — the fresh-install INSERT
 //     creating the `completed` row succeeds when conn is live and schema is
 //     migrated.
-func completeInstallUpgradeRow(installDir string, conn *pgx.Conn, logRelPath string) error {
+func completeInstallUpgradeRow(installDir string, conn *pgx.Conn, logRelPath string, auditLogs ...io.Writer) error {
 	// A6: COMPLETION_CONN_NON_NIL — bug-class panic. A3's post-completion defer
 	// returns early on connect failure so this function is reached only when
 	// conn is non-nil. If a future refactor drops that guard, fail loudly.
@@ -3659,14 +3659,19 @@ func completeInstallUpgradeRow(installDir string, conn *pgx.Conn, logRelPath str
 			fmt.Sprintf("sha=%s; INSERT err=%v", sha, err))
 		return fmt.Errorf("POST_COMPLETION_UPGRADE_ROW_INSERT_SUCCEEDS: %w", err)
 	}
+	var auditLog io.Writer
+	if len(auditLogs) > 0 {
+		auditLog = auditLogs[0]
+	}
+	if err := repairOvertakenCompletedAttempts(ctx, tx, installDir, sha, auditLog); err != nil {
+		return fmt.Errorf("repair attributable overtaken completions after successful install: %w", err)
+	}
 	retired, err := tx.Exec(ctx, `UPDATE public.upgrade
 		SET state = 'superseded', superseded_at = clock_timestamp()
 		WHERE state = 'in_progress' AND recovery_parked_at IS NULL AND commit_sha <> $1`, sha)
 	if err != nil {
 		return fmt.Errorf("retire interrupted attempts after successful install: %w", err)
 	}
-	// Historical repair integrates here once its retained-event predicate is
-	// proven. This success transaction owns the mutex and preserves audit data.
 	if err := tx.Commit(ctx); err != nil {
 		return err
 	}

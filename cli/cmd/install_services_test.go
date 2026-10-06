@@ -182,7 +182,7 @@ func TestFinalDaemonDispatchDeferRunsAfterCompletionAndBeforeFlockRelease(t *tes
 	body := funcBody(t, string(src), "func runInstall()")
 	release := strings.Index(body, "defer releaseFlag()")
 	dispatch := strings.Index(body, "dispatchUpgradeDaemonFinalAction(installDir, upgradeDaemonFinalAction)")
-	completion := strings.Index(body, "completeInstallUpgradeRow(installDir, conn, logRelPath)")
+	completion := strings.Index(body, "completeInstallUpgradeRow(installDir, conn, logRelPath, installLog.File())")
 	if release < 0 || dispatch < release || completion < dispatch {
 		t.Fatalf("defer registration order must be release, final dispatch, completion so unwind is completion, dispatch, release (release=%d dispatch=%d completion=%d)", release, dispatch, completion)
 	}

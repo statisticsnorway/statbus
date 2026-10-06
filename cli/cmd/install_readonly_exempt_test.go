@@ -33,7 +33,7 @@ func TestInstallCompletion_ClearsStaleWindow_STATBUS209(t *testing.T) {
 		t.Error("ARM A: the install completion must invoke svc.ClearStaleReadOnlyWindowIfUnowned — reuse the boot backstop as the install ladder's second invoker")
 	}
 	// It must be reached only after a successful completion INSERT (installErr==nil path).
-	complIdx := strings.Index(src, "completeInstallUpgradeRow(installDir, conn, logRelPath)")
+	complIdx := strings.Index(src, "completeInstallUpgradeRow(installDir, conn, logRelPath, installLog.File())")
 	clearIdx := strings.Index(src, "ClearStaleReadOnlyWindowIfUnowned(")
 	if complIdx < 0 || clearIdx < 0 || clearIdx < complIdx {
 		t.Errorf("ARM A: the stale-window clear must follow the completion INSERT (complete@%d, clear@%d)", complIdx, clearIdx)
