@@ -42,7 +42,9 @@ func TestInlineScheduledClaimPre382UndefinedColumnClosedByDaemonFloor(t *testing
 	if err != nil {
 		t.Fatalf("connect to maintenance database: %v", err)
 	}
-	defer adminConn.Close(context.Background())
+	defer func(conn *pgx.Conn, closeCtx context.Context) {
+		_ = conn.Close(closeCtx)
+	}(adminConn, context.Background())
 
 	dbName := fmt.Sprintf("statbus_test_template_441_%d", time.Now().UnixNano())
 	quotedDB := pgx.Identifier{dbName}.Sanitize()
@@ -57,7 +59,9 @@ func TestInlineScheduledClaimPre382UndefinedColumnClosedByDaemonFloor(t *testing
 			t.Errorf("connect for throwaway database cleanup: %v", connectErr)
 			return
 		}
-		defer cleanupConn.Close(context.Background())
+		defer func(conn *pgx.Conn, closeCtx context.Context) {
+			_ = conn.Close(closeCtx)
+		}(cleanupConn, context.Background())
 		_, _ = cleanupConn.Exec(cleanupCtx, "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = $1 AND pid <> pg_backend_pid()", dbName)
 		if _, dropErr := cleanupConn.Exec(cleanupCtx, "DROP DATABASE IF EXISTS "+quotedDB); dropErr != nil {
 			t.Errorf("drop throwaway database %s: %v", dbName, dropErr)
