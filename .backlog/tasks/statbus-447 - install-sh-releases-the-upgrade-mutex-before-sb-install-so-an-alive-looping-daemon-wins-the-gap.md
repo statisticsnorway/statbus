@@ -78,7 +78,7 @@ Simulation (real flock in Perl, demo's measured cadence: lock held 1.7 s of ever
 
 Decision: **gapless handoff**. `install.sh` keeps the mutex and hands it to `./sb install` without releasing it. No thresholds, no heuristics, nothing box-specific: it is the official installer for every box. The existing NRestarts crash-loop takeover stays as it is (a crash-looping holder is by definition not progressing).
 
-## Implementation plan (each step concrete)
+## Original implementation plan (released in rc.16, cleanup supersedes the ownership protocol below)
 
 1. **install.sh:** do not release the mutex before `./sb install`. Keep fd 9 open (no `statbus_repo_lock_release` before line ~818/821). Pass the handoff to the child explicitly: export an env var naming the inherited descriptor and the holder token, e.g. `STATBUS_INSTALL_MUTEX_FD=9` plus `STATBUS_INSTALL_MUTEX_TOKEN=<random>`. Write the same token into the flag record `install.sh` writes (`_statbus_write_install_flag`, line ~442; add a `handoff_token` field). Release only after `./sb install` returns (the existing release at line ~836 stays as the final release).
    - Edge: when install.sh **did not** win the lock (the perl-missing path, "continuing without it", line ~507), it sets no handoff env, so `./sb install` behaves as today.
@@ -124,7 +124,15 @@ Two concrete boundaries prevent a blind deletion:
 - `install.sh:542-554` currently closes fd9 for a pre-existing recovery marker. The previously stated gapless property applies to install-owned records and inline exec, not every marker case. Any extension must preserve the original recorded recovery/restart intent and use the existing held-lock recovery path, rather than overwrite it as an ordinary install.
 - Released rc.16 receivers require the legacy FD/TOKEN format. Sender removal must not break them. A small compatibility bridge may remain while new code no longer authenticates ownership with the token.
 
-Fresh GPT-6.1 Sol engineer frog (`session_frog_1791289010522_6666a31e6e9659df`) is mapping the exact small change in `tmp/447-kiss-handoff-plan.md`, with a five-minute read-only budget. Next is delegated narrow implementation, real-lock child/exec regressions, local Go/shell gates, and independent MERGE review. No database identity or retention redesign in this task. No candidate cut for demo until STATBUS-452 is also fixed. No production install by agents.
+Source mapping finished in `tmp/447-kiss-handoff-plan.md`. Implementation delegated to goat (`session_goat_1791289388801_237574acefd7e0d0`), isolated branch `fix/447-kiss-handoff` from origin/master `cf158dbd5`. At 12:32 UTC, coordinator inspected production commit `7322acf29`: four files, +44/-66. The new receiver keeps the inherited open-file description, removes token authentication and the separately opened probe, captures/consumes private inputs once, owns close-only cleanup on early/service returns, and closes fd9 in tee/filter children. Sender uses a fixed matching compatibility token for the released rc.16 receiver.
+
+Observed prototypes before edits: real same-description flock excludes an independent open; baseline scheduled WithLock config-error leaks the adopted lock while leaving recovery marker intact. Focused GREEN logs inspected at 12:33 UTC in `scratch/fix-447-kiss-handoff/tmp/`: `focused-final.log` (FD adoption/exclusion, stale/rejected candidate survival, child FD/environment hygiene, failed-exec restoration, held recovery); `rc16-bridge.log` (original rc.16 receiver, real install/service children); `pipeline-fd.log` (baseline tee/filter fd9 held, current both closed); `shell-gapless.log` (single looping-holder attempt and healthy-holder wait). New config-error test proves descriptor release without changing marker bytes.
+
+Full ordinary Go package validation is still finishing, and test changes are not yet frozen. A cancelled run misread intentionally synthetic connection-refused output as a DB problem. Worker corrected this from source/logs and reruns normal untagged packages. No real DB blockage or database mutation occurred. The current commit is not reviewed, merged, pushed or deployed, and no released-image acceptance claim follows from these small checks.
+
+Frog is separately mapping the pre-existing-marker gap in `tmp/447-existing-marker-next.md`, five-minute read-only scope. Initial distinction: service markers can reuse held-upgrade recovery; restart markers use holder=install, trigger=restart and must retain restart semantics, not be suppressed as ordinary installs. F2b/F2c track this explicitly before candidate readiness.
+
+Next: freeze tests and local gates, fresh independent MERGE review, reviewed integration and CI-idle push, then observe CI. No database identity or retention redesign in this task. No candidate cut for demo until STATBUS-452 is also fixed. No production install by agents.
 
 ## Implementation Notes
 
