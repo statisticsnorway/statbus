@@ -22,10 +22,29 @@ launch_output_re = re.compile(r">\s*(?:[\"']?)(?:[^\s\"']*\.log|\$[A-Za-z_][A-Za
 failures = []
 launches = []
 
+# Reuse heredoc body scope for background operators. cat-built scripts are
+# conservatively checked too, including the WEDGE scripts sent over SSH stdin.
+# tmux/nohup remain checked even when their remote quoting spans several lines.
+background_script_re = re.compile(
+    r"^[ \t]*(?:VM_SCRIPT_INLINE|cat)\b[^\n]*<<[ \t]*['\"]?(\w+)['\"]?\n(.*?)^\1[ \t]*$",
+    re.MULTILINE | re.DOTALL,
+)
+
 for path in files:
-    lines = path.read_text().splitlines()
+    text = path.read_text()
+    lines = text.splitlines()
+    script_lines = set()
+    for script in background_script_re.finditer(text):
+        start = text.count("\n", 0, script.start(2))
+        script_lines.update(range(start, start + script.group(2).count("\n")))
     for index, line in enumerate(lines):
         if (not launch_re.search(line) and not background_re.search(line)) or line.lstrip().startswith("#"):
+            continue
+        if (background_re.search(line) and not launch_re.search(line)
+                and index not in script_lines
+                and not re.match(r"\s*VM_(?:ROOT_)?EXEC\s+bash\s+-c\s", line)
+                and "arc_install_dispatch_with_inject" not in line):
+            # Host stdout is retained by the caller, not the guest manifest.
             continue
         launches.append(f"{path.relative_to(root)}:{index + 1}")
         if "arc_install_dispatch_with_inject" in line:
