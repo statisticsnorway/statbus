@@ -35,7 +35,7 @@ func Test452KissFlaglessAttempt(t *testing.T) {
 			if err := d.queryConn.QueryRow(ctx, "SELECT current_database()").Scan(&db); err != nil {
 				t.Fatal(err)
 			}
-			if !strings.HasPrefix(db, "statbus_452kiss_ab_") {
+			if !is452KissAttemptDatabase(db) {
 				t.Fatalf("refuse non-owned DB %q", db)
 			}
 			t.Logf("owned database=%s mode=%s", db, mode)
