@@ -3596,6 +3596,13 @@ func completeInstallUpgradeRow(installDir string, conn *pgx.Conn, logRelPath str
 		return err
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
+	var auditLog io.Writer
+	if len(auditLogs) > 0 {
+		auditLog = auditLogs[0]
+	}
+	if err := rearmRankingRetiredInstallation(ctx, tx, sha, logRelPath, auditLog); err != nil {
+		return fmt.Errorf("rearm ranking-retired installed version: %w", err)
+	}
 	var rowJSON string
 	err = tx.QueryRow(ctx,
 		`INSERT INTO public.upgrade (
@@ -3636,13 +3643,10 @@ func completeInstallUpgradeRow(installDir string, conn *pgx.Conn, logRelPath str
 		   release_builds_status = 'ready',
 		   commit_version = COALESCE(EXCLUDED.commit_version, upgrade.commit_version),
 		   log_relative_file_path = COALESCE(EXCLUDED.log_relative_file_path, upgrade.log_relative_file_path)
-		 -- STATBUS-160: install bookkeeping may complete ONLY a never-attempted row
-		 -- (available / scheduled). A terminal row is NEVER resurrected to completed
-		 -- by bookkeeping — 'completed' means THIS VERSION VERIFIABLY SERVES, which
-		 -- only the pipeline's post-healthCheck completion may assert. The deliberate
-		 -- route back to a displaced/failed version is register/schedule → claim →
-		 -- pipeline → an honest completion. (chk enforced DB-wide by the trigger
-		 -- upgrade_block_terminal_resurrection.)
+		 -- STATBUS-160: terminal rows still cannot be rewritten to completed.
+		 -- STATBUS-442: positive ranking retirement of this exact installed SHA
+		 -- is re-armed through upgrade_schedule before this ordinary upsert.
+		 -- Unattributed/operator-retired terminal rows remain immutable here.
 		 WHERE upgrade.state NOT IN ('completed','superseded','failed','rolled_back','skipped','dismissed')
 		 RETURNING to_jsonb(upgrade.*)`,
 		sha,
@@ -3658,10 +3662,6 @@ func completeInstallUpgradeRow(installDir string, conn *pgx.Conn, logRelPath str
 		markTerminal(installDir, "POST_COMPLETION_UPGRADE_ROW_INSERT_SUCCEEDS",
 			fmt.Sprintf("sha=%s; INSERT err=%v", sha, err))
 		return fmt.Errorf("POST_COMPLETION_UPGRADE_ROW_INSERT_SUCCEEDS: %w", err)
-	}
-	var auditLog io.Writer
-	if len(auditLogs) > 0 {
-		auditLog = auditLogs[0]
 	}
 	if err := repairOvertakenCompletedAttempts(ctx, tx, installDir, sha, auditLog); err != nil {
 		return fmt.Errorf("repair attributable overtaken completions after successful install: %w", err)
@@ -3682,6 +3682,60 @@ func completeInstallUpgradeRow(installDir string, conn *pgx.Conn, logRelPath str
 		fmt.Printf("  Installed version %s already recorded in upgrade table (no change)\n", version)
 	} else {
 		fmt.Printf("  Recorded installed version %s in upgrade table\n", version)
+	}
+	return nil
+}
+
+// rearmRankingRetiredInstallation is authority only for a successful install's
+// exact SHA. A retained ranking invocation must be the latest transition from a
+// never-attempted available row. Missing history, direct operator retirement and
+// attempted terminal rows are not evidence. The existing row lock and audited
+// schedule transition suffice, with no terminal-trigger exception.
+func rearmRankingRetiredInstallation(ctx context.Context, tx pgx.Tx, sha, logRelPath string, auditLog io.Writer) error {
+	if logRelPath == "" || auditLog == nil || auditLog == io.Discard {
+		return nil // no attributable successful installation
+	}
+	var id int
+	var eventID int64
+	err := tx.QueryRow(ctx, `SELECT u.id, retirement.id
+	 FROM public.upgrade AS u
+	 JOIN LATERAL (SELECT l.* FROM public.upgrade_state_log AS l
+	   WHERE l.upgrade_id=u.id ORDER BY l.id DESC LIMIT 1 FOR SHARE) AS retirement ON true
+	 WHERE u.commit_sha=$1 AND u.state='superseded'
+	   AND u.scheduled_at IS NULL AND u.started_at IS NULL AND u.completed_at IS NULL
+	   AND u.backup_path IS NULL AND u.claim_token IS NULL AND u.error IS NULL
+	   AND u.recovery_attempts=0
+	   AND retirement.old_error IS NULL AND retirement.old_backup_path IS NULL
+	   AND retirement.old_log_relative_file_path IS NULL AND retirement.old_recovery_attempts=0
+	   AND retirement.old_state='available' AND retirement.new_state='superseded'
+	   AND retirement.old_parked_at IS NULL AND retirement.new_parked_at IS NULL
+	   AND (starts_with(regexp_replace(trim(retirement.query), '[[:space:]]+', ' ', 'g'),
+	          'CALL public.upgrade_supersede_older(')
+	     OR starts_with(regexp_replace(trim(retirement.query), '[[:space:]]+', ' ', 'g'),
+	          'SELECT schedule_result, upgrade_id, landed_state, superseded_count FROM public.upgrade_schedule('))
+	 FOR UPDATE OF u`, sha).Scan(&id, &eventID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	if _, err := fmt.Fprintf(auditLog, "  Re-arming ranking-retired installed row %d (%s): retirement_event=%d, install_log=%s\n", id, sha, eventID, logRelPath); err != nil {
+		return fmt.Errorf("record ranking retirement attribution: %w", err)
+	}
+	// The actor labels both re-arming and completion in the existing state log.
+	// A scheduling operator may have caused ranking retirement of OTHER rows,
+	// so actor presence is not grounds to misclassify that as direct retirement.
+	if _, err := tx.Exec(ctx, `SELECT set_config('statbus.actor', $1, true)`,
+		fmt.Sprintf("successful pinned ./sb install: sha=%s log=%s ranking-retired-row=%d", sha, logRelPath, id)); err != nil {
+		return err
+	}
+	var result string
+	if err := tx.QueryRow(ctx, `SELECT schedule_result FROM public.upgrade_schedule($1, false)`, sha).Scan(&result); err != nil {
+		return err
+	}
+	if result != "scheduled" {
+		return fmt.Errorf("ranking-retired installed row %d could not be re-armed: %s", id, result)
 	}
 	return nil
 }
