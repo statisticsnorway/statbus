@@ -98,15 +98,16 @@ func TestArcBaseImagePrecondition(t *testing.T) {
 				if err == nil || !strings.Contains(string(out), base) || strings.Contains(string(calls), "fixture") || strings.Contains(string(calls), "dispatch") || strings.Contains(string(calls), "poll") {
 					t.Fatalf("must refuse before fixtures: exit=%v\n%s\n%s", err, out, calls)
 				}
-				if tc.mode == "ancestry" {
+				switch tc.mode {
+				case "ancestry":
 					if !strings.Contains(string(out), "ancestry check failed") || !strings.Contains(string(out), "128") || strings.Contains(string(out), "off-master base images") || len(calls) != 0 {
 						t.Fatalf("ancestry error misclassified: %s\n%s", out, calls)
 					}
-				} else if tc.mode == "fetch" {
+				case "fetch":
 					if !strings.Contains(string(out), "master fetch failed") || strings.Contains(string(out), "off-master base images") || len(calls) != 0 {
 						t.Fatalf("fetch error misclassified: %s\n%s", out, calls)
 					}
-				} else {
+				default:
 					for _, svc := range []string{"app", "worker", "db", "proxy", "sb"} {
 						if !strings.Contains(string(calls), "statbus-"+svc+":") {
 							t.Errorf("did not inspect %s", svc)
