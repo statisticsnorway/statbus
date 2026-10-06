@@ -15194,6 +15194,15 @@ export type Database = {
         }
         Returns: boolean
       },
+      release_identity: {
+        Args: { p_commit_sha: string }
+        Returns: {
+          commit_sha: string
+          resolved_name: string
+          release_status: Database["public"]["Enums"]["release_status_type"]
+          build_name: string | null
+        }[]
+      },
       running_identity: {
         Args: Record<string, never>
         Returns: Record<string, unknown>[]
