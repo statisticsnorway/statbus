@@ -78,8 +78,32 @@ var inlineDispatchMigrateToFloor = func(projDir string) error {
 var inlineDispatchLoadConfig = func(ctx context.Context, svc *upgrade.Service) error {
 	return svc.LoadConfigAndConnect(ctx)
 }
-var inlineDispatchExecute = func(ctx context.Context, svc *upgrade.Service, id int, commitSHA, displayName string) error {
+
+// The default executor owns the arriving recovery boundary. Existing floor and
+// inherited-lock seams retain their normal ordering before this executor.
+var inlineDispatchReconcile = func(ctx context.Context, svc *upgrade.Service, afterRecovery func(string) error) error {
+	return svc.ReconcileInterruptedForInline(ctx, afterRecovery)
+}
+var inlineDispatchClaim = func(ctx context.Context, svc *upgrade.Service, id int, commitSHA, displayName string) error {
 	return svc.ExecuteUpgradeInline(ctx, id, commitSHA, displayName)
+}
+var inlineDispatchExecute = func(ctx context.Context, svc *upgrade.Service, id int, commitSHA, displayName string) error {
+	if err := inlineDispatchReconcile(ctx, svc, func(projDir string) error {
+		if err := restoreSettingsBeforeDetect(projDir); err != nil {
+			return err
+		}
+		state, fresh, err := detectInstallState(projDir, version)
+		if err != nil {
+			return fmt.Errorf("re-detect after interrupted inline recovery: %w", err)
+		}
+		if state != install.StateScheduledUpgrade || fresh == nil || fresh.ScheduledRowID != int64(id) || fresh.TargetCommitSHA != commitSHA {
+			return fmt.Errorf("scheduled candidate changed after recovery; leave it unclaimed and re-run the pinned candidate installer")
+		}
+		return nil
+	}); err != nil {
+		return err
+	}
+	return inlineDispatchClaim(ctx, svc, id, commitSHA, displayName)
 }
 
 func runInlineUpgradeScheduled(projDir string, detail *install.Detail) error {

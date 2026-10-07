@@ -2830,6 +2830,60 @@ func (d *Service) AdoptFlagLock(lock *FlagLock) {
 //
 // invokedBy / trigger are hardcoded to distinguish operator-driven inline
 // upgrades from scheduler-driven service runs in post-mortem queries.
+// ReconcileInterruptedForInline handles only a non-parked orphan before the
+// installer's ordinary claim. Parks remain the shared claim's displacement duty.
+// afterRecovery belongs to the installer, which must re-detect restored settings
+// and selected state before dispatch. It is not called on ordinary upgrade paths.
+func (d *Service) ReconcileInterruptedForInline(ctx context.Context, afterRecovery func(string) error) error {
+	if d.queryConn == nil {
+		return errQueryConnUnavailable("inline interrupted-attempt observation")
+	}
+	var a recoveryAttempt
+	err := d.queryConn.QueryRow(ctx, `SELECT id,commit_sha,started_at,claim_token::text,backup_path,tree_convergence_required FROM public.upgrade WHERE state='in_progress' AND recovery_parked_at IS NULL`).Scan(&a.id, &a.sha, &a.started, &a.claim, &a.backup, &a.convergence)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil
+	}
+	if err != nil {
+		return fmt.Errorf("observe interrupted inline attempt: %w", err)
+	}
+	if afterRecovery == nil {
+		return fmt.Errorf("inline recovery requires installer re-detection")
+	}
+	if err := d.completeInProgressUpgrade(ctx, true); err != nil {
+		return fmt.Errorf("inline interrupted recovery: %w", err)
+	}
+	if d.queryConn == nil {
+		return errQueryConnUnavailable("re-read interrupted inline attempt")
+	}
+	var state string
+	var clean bool
+	err = d.queryConn.QueryRow(ctx, `SELECT state::text, commit_sha=$2 AND started_at IS NOT DISTINCT FROM $3::timestamptz AND claim_token::text IS NOT DISTINCT FROM $4::text AND backup_path IS NOT DISTINCT FROM $5::text AND recovery_parked_at IS NULL AND NOT tree_convergence_required AND rollback_finish_pending_at IS NULL FROM public.upgrade WHERE id=$1`, a.args()[:5]...).Scan(&state, &clean)
+	if err != nil || !clean || (state != "completed" && state != "rolled_back") {
+		return fmt.Errorf("inline recovery did not settle the exact attempt id=%d (state=%s clean=%t): %v; leave the candidate scheduled and re-run %s", a.id, state, clean, err, d.installCommand())
+	}
+	var pending bool
+	if err := d.queryConn.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM public.upgrade WHERE (state='in_progress' AND recovery_parked_at IS NULL) OR rollback_finish_pending_at IS NOT NULL OR tree_convergence_required)`).Scan(&pending); err != nil || pending {
+		return fmt.Errorf("inline recovery finishing or convergence is unresolved: %v", err)
+	}
+	if flag, err := ReadFlagFile(d.projDir); err != nil || flag != nil || IsFlockHeld(d.projDir) {
+		return fmt.Errorf("inline recovery intent is still present or unreadable: %v", err)
+	}
+	var readOnly bool
+	if err := d.queryConn.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM pg_db_role_setting WHERE setdatabase=(SELECT oid FROM pg_database WHERE datname=current_database()) AND 'default_transaction_read_only=on'=ANY(setconfig))`).Scan(&readOnly); err != nil || readOnly {
+		return fmt.Errorf("inline recovery read-only window is unresolved: %v", err)
+	}
+	// Only recovery needs this guard. The ordinary old CLI may dispatch a NEW
+	// target and let executeUpgrade procure/hand off the binary as before.
+	head, err := runCommandOutput(d.projDir, "git", "rev-parse", "HEAD")
+	if err != nil || strings.TrimSpace(head) != d.binaryCommit {
+		return fmt.Errorf("recovery changed the working tree beneath this executable; re-run the pinned candidate installer before dispatch: %v", err)
+	}
+	if _, ok := sbAlreadyAtCommit(d.projDir, d.binaryCommit, ""); !ok {
+		return fmt.Errorf("recovery changed the installed executable; re-run the pinned candidate installer before dispatch")
+	}
+	return afterRecovery(d.projDir)
+}
+
 func (d *Service) ExecuteUpgradeInline(ctx context.Context, id int, commitSHA, _ string) error {
 	// STATBUS-046 slice 3c — images-ready CLAIM GATE (evaluateImageClaimGate,
 	// image_claim_gate.go), identical to executeScheduled's gate. Read-only
@@ -4336,7 +4390,7 @@ func (d *Service) recoveryRollback(ctx context.Context, flag UpgradeFlag, displa
 // completed (e.g., service restarted after self-update). If found, verifies
 // health and marks completed_at. This ensures "completed" truly means
 // the new version is running and verified.
-func (d *Service) completeInProgressUpgrade(ctx context.Context) error {
+func (d *Service) completeInProgressUpgrade(ctx context.Context, strictFinishing ...bool) error {
 	// A nil session is a real state, not a programming error: a recovery path
 	// whose database convergence failed and whose best-effort reconnect also
 	// failed returns here without one (and master already has the pre-reconnect
@@ -4776,6 +4830,7 @@ func (d *Service) completeInProgressUpgrade(ctx context.Context) error {
 	}
 	completionRecorded := scanErr == nil
 	finishingClean := completionRecorded
+	finishingErr := scanErr
 	if scanErr == nil {
 		logUpgradeRow(LabelCompletedFromInProgress, fromInProgressJSON)
 		d.clearInstallFailureBanner(ctx)
@@ -4805,6 +4860,7 @@ func (d *Service) completeInProgressUpgrade(ctx context.Context) error {
 	// after :2312, so the escalation is the signal. terminalExec is the teardown-immune
 	// fresh-conn writer.
 	if _, werr := d.liftReadOnlyWindow("flagless-recovery completion"); werr != nil {
+		finishingErr = errors.Join(finishingErr, werr)
 		finishingClean = false
 		fmt.Fprintf(os.Stderr,
 			"INVARIANT COMPLETION_READ_ONLY_WINDOW_LIFTED violated: the read-only window did not lift at flagless-recovery completion after %d attempts (err=%v) — the database default is still read-only, so every fresh non-exempt session fails with 25006 (read_only_sql_transaction). Remedy: run `%s` to clear it (or the daemon's boot backstop clears it on the next start). (service.go:%d, pid=%d)\n",
@@ -4815,6 +4871,7 @@ func (d *Service) completeInProgressUpgrade(ctx context.Context) error {
 	}
 
 	if err := d.removeUpgradeArtifacts(); err != nil {
+		finishingErr = errors.Join(finishingErr, err)
 		finishingClean = false
 		logRecover("FATAL: the upgrade lock did NOT release at flagless-recovery completion (%v) — run `%s` to reconcile it.", err, d.installCommand())
 	}
@@ -4833,6 +4890,9 @@ func (d *Service) completeInProgressUpgrade(ctx context.Context) error {
 		logRecover("Upgrade to %s was recorded as successful, but flagless-recovery finishing did not complete; see the failed step(s) above.", displayName)
 	} else {
 		logRecover("Upgrade to %s was not recorded as complete; automatic reconciliation will retry the database transition.", displayName)
+	}
+	if len(strictFinishing) > 0 && strictFinishing[0] && finishingErr != nil {
+		return fmt.Errorf("flagless recovery finishing failed: %w", finishingErr)
 	}
 	return nil
 }
@@ -12698,6 +12758,9 @@ func (d *Service) terminalExec(execSQL string, args ...any) error {
 // `where` names the terminal that lifted it, because five sites clear this
 // window and "which one ran" is the next question a responder asks.
 func (d *Service) liftReadOnlyWindow(where string) (string, error) {
+	if d.liftReadOnlyWindowForTest != nil {
+		return d.liftReadOnlyWindowForTest(where)
+	}
 	var statement string
 	err := d.terminalConnDo(func(ctx context.Context, conn *pgx.Conn) error {
 		var dbName string
