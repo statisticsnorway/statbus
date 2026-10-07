@@ -220,9 +220,9 @@ jobs:
           ./sb config generate
 
       - name: Log in to GHCR
-        # Only the workflow_run path pulls published images + the seed image;
+        # workflow_run and RC-tag push reuse published images + request the seed;
         # PR/dispatch build locally and seed via FULL_REPLAY.
-        if: github.event_name == 'workflow_run'
+        if: github.event_name == 'workflow_run' || github.event_name == 'push'
         uses: docker/login-action@v3
         with:
           registry: ghcr.io
@@ -232,11 +232,11 @@ jobs:
       - name: Start services
         run: |
           set -euxo pipefail
-          if [ "${{ github.event_name }}" = "workflow_run" ]; then
-            # Images concluded success (job-level if gates on it). Reuse the
-            # commit_short-tagged images it published — pull (authed above), no
-            # local build. Strict: a pull failure fails the job rather than
-            # silently rebuilding.
+          if [ "${{ github.event_name }}" = "workflow_run" ] || [ "${{ github.event_name }}" = "push" ]; then
+            # workflow_run follows successful Images; RC-tag push relies on
+            # the tag-cut publication preflight, without an artifact wait here.
+            # Reuse commit_short-tagged images: authenticated pull, no build.
+            # Strict: a pull failure fails the job rather than rebuilding.
             docker compose pull --quiet
             docker compose --profile all up -d
           else
@@ -260,8 +260,9 @@ jobs:
 
       - name: Run fast test suite
         id: sql_tests
-        # workflow_run: fetch the published seed image (statbus-seed:<commit_short>)
-        # — ~30s restore, and exercises the image-based seed-consume path end-to-end.
+        # workflow_run / RC-tag push: request the published seed image
+        # (statbus-seed:<commit_short>), exercising the seed-consume path.
+        # The existing seed-fetch fallback to FULL_REPLAY remains unchanged.
         # PR / dispatch: no published seed for this commit, so FULL_REPLAY from
         # on-disk migrations (STATBUS_DB_SEED_NO_FETCH=1, ~3 min).
         #
@@ -269,7 +270,7 @@ jobs:
         # statbus_test_template (fast clone), runs pg_regress on all tests except
         # 4xx/5xx (large imports). Exits non-zero on any failure — no `|| true`.
         env:
-          STATBUS_DB_SEED_NO_FETCH: ${{ github.event_name == 'workflow_run' && '0' || '1' }}
+          STATBUS_DB_SEED_NO_FETCH: ${{ (github.event_name == 'workflow_run' || github.event_name == 'push') && '0' || '1' }}
         run: |
           set -euxo pipefail
           ./dev.sh migrate-and-test fast

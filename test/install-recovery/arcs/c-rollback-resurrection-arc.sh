@@ -583,7 +583,15 @@ echo ""
 echo "── source app health remains green after C rollback and install ──"
 assert_direct_auth_status_healthy "after C rolled back and install refused resurrection"
 [ "$(psql_scalar 'SELECT count(*) FROM public.upgrade WHERE tree_convergence_required;')" = 0 ] || { echo "✗ durable convergence obligation was not cleared" >&2; exit 1; }
-VM_EXEC bash -c "cd ~/statbus && test ! -e tmp/upgrade-in-progress.json && daemon=\$(systemctl --user show '$UPGRADE_UNIT' --property=MainPID --value) && test \"\$daemon\" -gt 0 && cmp -s /proc/\$daemon/exe ./sb && /proc/\$daemon/exe --version | grep -F '(commit $B_SHORT)'"
+VM_SCRIPT_INLINE crollback-confirm-source-daemon "$UPGRADE_UNIT" "$B_SHORT" <<'CONFIRM_SOURCE_DAEMON'
+set -euo pipefail
+cd ~/statbus
+test ! -e tmp/upgrade-in-progress.json
+daemon=$(systemctl --user show "$1" --property=MainPID --value)
+test "$daemon" -gt 0
+cmp -s /proc/$daemon/exe ./sb
+/proc/$daemon/exe --version | grep -F "(commit $2)"
+CONFIRM_SOURCE_DAEMON
 # Read the responding app artifact, not .env tags or the checkout's identity.
 APP_SITE_DOMAIN="${HARNESS_SITE_DOMAIN:-statbus-test.local}"
 VM_EXEC curl -fksS --max-time 10 --resolve "$APP_SITE_DOMAIN:443:127.0.0.1" -H 'Cache-Control: no-store' "https://$APP_SITE_DOMAIN/_statbus-build.json" |
