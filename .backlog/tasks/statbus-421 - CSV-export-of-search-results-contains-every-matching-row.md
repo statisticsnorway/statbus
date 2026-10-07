@@ -38,3 +38,122 @@ Reported by Erik 2026-09-25 (Slack): exporting all legal units + establishments 
 <!-- SECTION:NOTES:BEGIN -->
 Audit after v2026.09.3 (2026-09-29): v2026.09.3 streams every CSV page and refuses XLSX over the row limit (b13d82fe6, ff367df55). Jest route tests are green in app build & lint 36503468262. Done when a Norway export after v2026.09.3 yields the full row count (~1.9M) and Erik confirms.
 <!-- SECTION:NOTES:END -->
+
+## 2026-10-07: the export still cannot deliver — owner-observed failure on no.statbus.org, diagnosed
+
+Status correction: **the ticket is NOT finished.** The merged fix removed the 100k cap but the
+real export on the production data fails, silently, in four independent ways. Evidence below is
+from the actual failed downloads plus the code deployed in rc.20 (`bce5bf39`); nothing was
+changed on the box.
+
+### Observation
+
+Owner ran the export on `no.statbus.org` (rc.20, `/search?...&unit_type=establishment`,
+"Showing 1-10 of total 825 126 results", page 1 of 82 513). The Firefox downloads panel showed
+both attempts failed ("Mislykket") and left partial files:
+
+| file | bytes | records | of 825,126 | trailing newline |
+|---|---|---|---|---|
+| `establishments.oBbFLgCQ.csv.part` | 77,361,463 | 400,000 | 48% | no |
+| `establishments(1).vmuT8S7_.csv.part` | 19,299,981 | 100,000 | 12% | no |
+| `establishments.csv` | 0 | 0 | — | — |
+| `establishments(1).csv` | 0 | 0 | — | — |
+
+Both partials parsed with a real CSV reader: **zero malformed rows**, 37 columns, every record
+complete. So the data that arrived is valid; it is simply truncated.
+
+### Finding 1 — truncation happens exactly at a PAGE boundary
+
+100,000 and 400,000 are exact multiples of `PAGE_SIZE = 100_000`
+(`app/src/app/api/search/export/route.ts:15`). The streaming loop explains why:
+
+```ts
+const stream = new ReadableStream<Uint8Array>({
+  async pull(controller) {
+    if (offset < total) {
+      const { header, body } = toCSV(page);
+      controller.enqueue(encoder.encode((first ? header : "\n") + body));   // separator is the NEXT chunk's prefix
+      first = false;
+      offset += page.length;
+      if (offset < total) {
+        page = await fetchPage(offset);   // page N+1 fetched AFTER page N was flushed
+      }
+    }
+    if (offset >= total) controller.close();
+```
+
+`fetchPage` runs inside the *same* `pull` after page N has been enqueued, so when the fetch for
+page N+1 throws, the client has exactly N complete pages — and no trailing newline, because the
+`"\n"` separator belongs to the chunk that never came. A mid-page network cut could not produce
+these counts; a failure while fetching page N+1 produces them precisely.
+
+### Finding 2 — the page fetch exceeds a 120-second statement timeout
+
+```
+postgres/init-db.sh:167          ALTER ROLE authenticated SET statement_timeout = '120s';
+migrations/post_restore.sql:41   (same)
+migrations/20240102000000_create_schema_admin.up.sql:33   (origin)
+```
+
+The export runs as `authenticated` (the user's JWT), so every statement is capped at 120 s. Each
+page request is expensive for two compounding reasons:
+
+1. `getStatisticalUnits` sets `Prefer: count=exact`
+   (`app/src/app/search/search-requests.ts:165-172`), so **every page repeats a full exact
+   COUNT over the whole filtered set** (825,126 rows) in addition to returning 100k rows.
+2. `fetchPage` uses `offset`/`limit` (route.ts `searchParams.set("offset", …)`), i.e. deep
+   `OFFSET` over `statistical_unit` — a UNION ALL over the temporal tables — so page N forces
+   PostgreSQL to build and discard N×100k rows before returning any.
+
+Page cost grows with depth; the first page to cross 120 s is cancelled (SQLSTATE 57014),
+PostgREST returns an error, `fetchPage` throws, and the stream dies at that boundary. Four pages
+fit inside the budget, the fifth did not — which is why one attempt reached 400,000 records and
+the other only 100,000. Timing variance, not data.
+
+### Finding 3 — the failure is invisible to the operator
+
+The streaming `pull`'s catch calls `controller.error(error)` and **logs nothing**; only the outer
+catch, which runs before streaming begins, has `console.error`. That is exactly why
+`log.statbus.org` showed no exception for a failed export. An export that dies mid-stream is
+unobservable by construction.
+
+### Finding 4 — Excel is offered, then cannot possibly work
+
+The row limit in both UI and route is `EXCEL_MAX_ROWS - 1 = 1,048,575` — the *xlsx format* limit,
+not a practical one (`app/src/app/search/components/search-export-csv-link.tsx:14,40-47`;
+route.ts `EXCEL_MAX_ROWS`). At 825,126 rows Excel is therefore **offered**, and the route then
+builds an entire ExcelJS workbook in memory for 825k rows × 37 columns before writing a single
+byte (`workbook.xlsx.write(passThrough)` happens only after the whole loop). The two 0-byte
+files are consistent with those Excel attempts: nothing to stream while the workbook is being
+built (inference from file sizes/timestamps, not a server observation). It looks like a no-op
+download; in truth it is an unbounded in-memory build.
+
+### Consequences for the acceptance criterion
+
+The ticket's finish line ("a Norway export after v2026.09.3 yields the full row count and Erik
+confirms") is **unmet**. The 825,126-establishment export has never been delivered by any
+version, so the multi-page path has still only ever been proven by Jest assembly tests, never
+against 825k real rows.
+
+### Remaining work (owner-approved direction 2026-10-07)
+
+1. **Count once.** Use `count=exact` for the first request only; subsequent pages use
+   `count=estimated` or no count. Removes 8 of 9 full counts on this dataset.
+2. **Keyset pagination instead of deep OFFSET**, on the export order
+   (`app/src/app/api/search/export/export-order.ts`: name.asc + unit_type, unit_id, valid_from,
+   valid_to). This removes both the growing scan (Finding 2) and the skip/duplicate flaw the
+   current code already documents as its known limit.
+3. **Log mid-stream failures** with the page offset and the underlying error — a failed export
+   must be findable afterwards.
+4. **Practical XLSX bound** (memory/time, far below 1,048,575) plus a *visible* refusal in the UI,
+   not a JSON body and not an offered-then-hung download.
+5. **Managed progress** (owner ask: "it should probably be more managed, i.e. to see progress").
+   Options to decide: a job-based export (generate to a file, then download with progress) or a
+   chunked client-side download that reports page progress. Split from 1-4 if it grows: 1-4 are
+   correctness, 5 is experience.
+6. **Verification**: restore the Norway dump locally, time each page, and catch the 57014 at
+   ~120 s — then repeat after the fix and count records end to end.
+
+Ticket split (owner to confirm): keep 1-4 here as the correctness fix, and cut a separate ticket
+for 5 if it is not a small addition.
+
