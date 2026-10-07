@@ -164,6 +164,40 @@ an error box.
 - Commit with a `db:` / `upgrades:` prefix. Leave `.backlog/tasks/statbus-448` and
   `.yarn/` alone.
 
+## Considered and rejected: rsync instead of a tar archive (2026-10-07)
+
+Raised by the owner ("must of course use rsync, and with delete"), and rejected on
+measurement:
+
+```
+tmp/upgrade-logs payload          64 KB
+tar -C . -czf /dev/null …         0.015 s      (fifteen milliseconds)
+for scale, a Norway dump          1.1 GB       (dbdumps/no_20260210_105613.pg_dump)
+```
+
+The logs are ~0.006 % of the transfer, and `tmp/upgrade-logs/` is bounded by
+`pruneUpgradeLogs(20)` with only referenced install-logs travelling, so the payload
+stays in the KB-to-low-MB range. A single streamed `tar` is therefore not a cost, and
+rsync would add three real costs: `--delete` contradicts this ticket's merge-never-
+delete restore rule (it would wipe a local box's own evidence when pulling someone
+else's dump), `rsync` must exist on every box (`tar` always does), and a mirrored
+directory loses the one-artifact-tied-to-one-dump-instant provenance. If download
+speed ever matters, the levers are on the dump side (`pg_dump -j`, faster compression,
+resumable transfer), not here.
+
+## Verification: test with the DEMO dump, not Norway (owner, 2026-10-07)
+
+Owner direction to save time: prove this feature against a `demo` dump, not the
+1.1 GB Norway dump. Correct scope split:
+
+- **STATBUS-456 (this ticket)** — demo is sufficient and is the chosen path:
+  `./sb db download demo`, restore locally, then confirm the serving card renders the
+  rc.20 log inline instead of "not available".
+- **STATBUS-421 (export timeout)** — demo CANNOT prove that: it has only 144
+  statistical units, so deep `OFFSET` + `count=exact` never approaches the 120 s
+  statement timeout. 421's local repro needs the Norway dump or a synthetic
+  >100k-row set; do not let a green demo run stand in for it.
+
 ## Local verification recipe (used to open this ticket)
 
 ```
