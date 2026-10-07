@@ -1,9 +1,10 @@
 ---
 id: STATBUS-454
 title: Fast Tests hides regression diffs after the split result layout
-status: In Progress
+status: Done
 assignee: []
 created_date: '2026-10-06 15:03'
+updated_date: '2026-10-07 10:26'
 labels:
   - ci
   - testing
@@ -26,7 +27,7 @@ Use the existing read-only `./dev.sh diff-fail-all pipe` helper in the failure s
 - [x] #1 Observe the old file-reading payload producing no diff from an offline fixture with failure inventory/result files. The Docker wrapper and live producer are not claimed reproduced.
 - [x] #2 Corrected diagnostic invokes the actual unchanged helper and prints both representative failing test diffs. No database access or mutation in this fixture.
 - [x] #3 Changed workflow passes actionlint; independent exact-source review and patch/source proof before integration.
-- [ ] #4 Next exact-source CI retains its true test conclusion. A future failing run's diff step is useful without making the test pass or replacing actual schema-contract repair.
+- [x] #4 Next exact-source CI retains its true test conclusion. A future failing run's diff step is useful without making the test pass or replacing actual schema-contract repair. (Owner closed this on 2026-10-07 as decision A: green runs after integration retain the true conclusion, and the failure-path payload is established by the AC2 fixture plus the TTY-free host-file reading in the closing review. The first real red run will exercise it in CI; that specific hosted observation is not claimed.)
 
 ## Safety
 
@@ -71,6 +72,45 @@ At16:28:46 the coordinator authorized Sloth's own detached independent review on
 Read the full 101-line Sloth report tmp/454-actual-producer-review.md before integration. Verdict MERGE applies only to exact 1db224caaf10a2f4bb6e8e946f2f56e258c566e1, sole parent 72e9f4607fda2a14b1906c5e4716ce0c73f5244e. The reviewer independently reproduced the parent inverse, mixed and multiple failing producers followed by passing children, prior-failure selection before reset, both capture refusals, actual unreadable/missing input, lookup status 2, literal diagnostic payload and source-body equality. No concrete source blocker. Full parent/final dev.sh ShellCheck each remains 1 for retained existing diagnostics. This is bounded shell-source approval, not a hosted SQL, Go, guest or candidate result.
 
 Integrated only that patch as dc1a8de68d16477a5df3f6fee5477860e8e9f573. Both stable patch IDs are 419b7a42f78b3d206fcc7e9dcede7558758871fd. All three paths and the complete non-backlog source equal the independently reviewed commit. Unrelated source and the dirty STATBUS-448 notes were verified unchanged, the index is empty, and untracked .yarn was preserved. Evidence: tmp/454-reviewed-integration-20261006.log and tmp/454-reviewed-source-proof-20261006.log. No push yet at this checkpoint. Next is one combined reviewed push only after a fresh all-CI-idle check, then the normal exact-source lane. Original hosted failures and all acceptance limits remain retained, AC4 is still pending.
+
+## Closing review, 2026-10-07 10:25 UTC (owner decision A)
+
+Owner question on review: "this has always worked before, how can it now fail?" The
+retained run logs answer it: it never worked. Checked three failing runs — two from
+*before* this ticket existed:
+
+- `36887222017` 2026-10-01 15:49 failing
+- `36891859453` 2026-10-01 16:25 failing
+- `37481764536` 2026-10-06 14:46 failing (this ticket's baseline)
+
+In **all three**, the `Show regression diffs on failure` step log is the command echo
+followed immediately by `Cleanup` — zero diff bytes, and the step concluded **success**.
+It was a silent no-op.
+
+Root cause, visible in the old command itself:
+
+    docker compose exec --workdir /statbus db \
+      cat /statbus/test/regression.diffs 2>/dev/null || true
+
+`docker compose exec` without `-T` requires a TTY. CI has none, so docker errors
+("the input device is not a TTY"), `2>/dev/null` discards it, and `|| true` converts
+the failure into a green step with empty output. Every other non-interactive exec in
+`dev.sh` passes `-T` (830, 1046, 1226, 2088); only the two `cat regression.diffs`
+helpers (1305, 1309) omit it.
+
+The integration (`dc1a8de6`, pushed as `ff31419a`, both ancestors of `bce5bf39`)
+replaces it with `./dev.sh diff-fail-all pipe`, which reads HOST files
+(`test/regression.out`, `test/expected/*.out`, `test/results/*.out`) with plain `diff`
+— no container, no TTY dependency, and an explicit message when the summary is absent.
+The step is scoped `if: failure() && steps.sql_tests.outcome == 'failure'`, so a Go
+livedb-guard failure (the run 37487821209 defect) no longer invokes the SQL helper.
+
+AC4 scope, stated honestly: the "retains its true test conclusion" half is verified
+(Fast Tests green on `bce5bf39` runs 37575118574 and 37577158086, and the diagnostic no
+longer fires on non-SQL failures). The "a future failing run's diff step is useful" half
+rests on the fixture-level proof (AC2) plus the source argument above; it has not been
+exercised by a hosted red run since integration, and the suite is currently green.
+Owner chose to close on that basis rather than manufacture a red run (option B).
 
 ## Hosted checkpoint, 2026-10-06 16:43 UTC
 

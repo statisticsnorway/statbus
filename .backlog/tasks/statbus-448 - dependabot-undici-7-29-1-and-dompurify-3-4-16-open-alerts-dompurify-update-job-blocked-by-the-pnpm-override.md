@@ -77,3 +77,17 @@ Inspected braces patterns and sprintf formats originate in local tooling/parser 
 ### Acceptance status at integration
 
 AC1 remains unmet because audit is not zero. AC2 awaits actual updated Dependabot results after the approved push. AC3 is partial: app gates passed, but real login, access-token expiry and refresh against an owned stack have not run. AC4 remains unmet: no zero-alert observation and no PR321 closure. The ticket stays open. Normal source CI on the new master SHA is pending; previous 619 gates do not transfer. No RC, production install, callback, alert dismissal or PR action occurred.
+
+## Fresh read-only inventory, 2026-10-06 15:38 UTC
+
+The actual GitHub alert API now returns 16 open alerts for `app/pnpm-lock.yaml`: 4 high, 6 medium and 6 low. Raw selected metadata is retained in `tmp/448-open-alerts-20261006T1538.jsonl`. The prior 11-alert reachability triage is not evidence about these five additional alerts:
+
+| Alert | Package | Severity | Advisory | First patched version |
+| --- | --- | --- | --- | --- |
+| 700 | sharp | high | GHSA-wq5f-xc86-pv6w, librsvg dependency CVE-2026-96889 | 0.35.5 |
+| 699 | sprintf-js | medium | GHSA-hp3w-g68c-fv3c, unbounded precision denial of service | none reported |
+| 698 | dompurify | low | GHSA-6688-9rhm-gjv2, IN_PLACE rawtext-root reparse | 3.4.16 |
+| 697 | katex | low | GHSA-238p-pmpm-9mq7, prior prototype pollution bypasses trust restrictions | 0.18.2 |
+| 696 | source-map-js | high | GHSA-68fv-2mgg-jv7q, indexed source-map offset denial of service | 1.2.2 |
+
+The existing 10 undici alerts and dompurify alert694 remain open. Current dompurify, katex and source-map-js Dependabot update runs failed separately from the product CI. This inventory is not a new exploitability assessment, `pnpm audit`, dependency fix or extension of the owner's STATBUS-363 exception. A bounded source-reachability review of the additional alerts is required before claiming the same exception applies. No dependencies, lockfile, installation, PR or security-alert state changed.
