@@ -1302,11 +1302,11 @@ EOS
 
             if command -v delta >/dev/null 2>&1; then
                 echo "Showing the color-coded diff:"
-                docker compose exec --workdir /statbus db cat /statbus/test/regression.diffs | delta
+                docker compose exec -T --workdir /statbus db cat /statbus/test/regression.diffs | delta
             else
                 echo "Error: 'delta' tool is not installed. Install with: brew install git-delta"
                 echo "Showing raw diff:"
-                docker compose exec --workdir /statbus db cat /statbus/test/regression.diffs
+                docker compose exec -T --workdir /statbus db cat /statbus/test/regression.diffs
             fi
             exit 1
         else
