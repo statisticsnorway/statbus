@@ -3,11 +3,11 @@ id: STATBUS-457
 title: >-
   stamp the local artifact identity: pnpm dev/build write _statbus-build.json
   from HEAD plus a dirty flag, kept fresh by a dev-only watcher
-status: In Progress
+status: Done
 assignee:
   - '@macaque'
 created_date: '2026-10-07 11:20'
-updated_date: '2026-10-07 13:10'
+updated_date: '2026-10-07 13:18'
 labels:
   - cli
   - frontend
@@ -81,6 +81,12 @@ Evidence on this commit:
 2. Independent of real git, proof A: run with a failing-git stub prepended to PATH -> 10/10 pass and the stub's invocation log is never created.
 3. Independent of real git, proof B (strongest): `env -i PATH=<dir containing only a sh symlink>` + `node node_modules/jest/bin/jest.js app-build` -> 10/10 pass; `command -v git` under that PATH prints nothing.
 4. `pnpm run lint` -> 0 errors (5 pre-existing warnings); `pnpm run tsc` -> clean; `pnpm run test` -> 16 suites / 101 tests pass.
+
+VERIFIED 2026-10-07 on commit 851e9dbd6b93a5f0187522670e6b51f11705064e.
+
+Real CI, the exact job that failed 6/6 before: workflow `app build & lint`, run 37626469575 -> success, job `build-app` -> success, step `Run App Tests` -> success (2m45s).
+
+Independent local reproduction of the same acceptance path (Docker available here): `docker build --target test -f app/Dockerfile app` then `docker run --rm` -> exit 0 (runs tsc && lint --quiet && jest --ci && next build). Inside that container `command -v git` prints nothing, and `pnpm test -- app-build --ci --verbose` reports 10/10 PASS. So the suite is green in an image that has no git binary at all, which is the condition that broke it.
 <!-- SECTION:NOTES:END -->
 
 ## Status: OWNER APPROVED 2026-10-07 (option (iii) + dev watcher). Implement as specified.
