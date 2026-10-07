@@ -157,7 +157,14 @@ func DumpsToPurge(projDir string, keepN int) ([]string, error) {
 		if len(paths) <= keepN {
 			continue
 		}
-		toDelete = append(toDelete, paths[:len(paths)-keepN]...)
+		for _, dump := range paths[:len(paths)-keepN] {
+			toDelete = append(toDelete, dump)
+			// The log companion (STATBUS-456) is one unit with its dump:
+			// never delete one without the other.
+			if companion := FindLogsCompanion(dump); companion != "" {
+				toDelete = append(toDelete, companion)
+			}
+		}
 	}
 	sort.Strings(toDelete)
 	return toDelete, nil

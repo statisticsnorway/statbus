@@ -20,6 +20,7 @@ import {
 } from "./upgrade-schedule";
 import { compareUpgradeCandidates } from "./upgrade-ordering";
 import { currentAppRow, newerThanCurrentApp } from "./current-app";
+import { upgradeLogFetchFailureText } from "./upgrade-log-message";
 import {
   HISTORY_PILLS,
   historyRowsForPill,
@@ -1128,6 +1129,7 @@ function UpgradeLogViewer({
   const [open, setOpen] = useState(defaultOpen);
   const [rawContent, setRawContent] = useState<string | null>(null);
   const [fetchError, setFetchError] = useState<string | null>(null);
+  const [fetchStatus, setFetchStatus] = useState<number | null>(null);
   const [showRaw, setShowRaw] = useState(false);
 
   useGuardedEffect(
@@ -1137,7 +1139,12 @@ function UpgradeLogViewer({
       let cancelled = false;
       fetch(`/upgrade-logs/${relPath}`, { credentials: "include" })
         .then(async (resp) => {
-          if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+          if (!resp.ok) {
+            // Remember the status so a genuine 404 renders as "not available
+            // in this copy" (STATBUS-456) instead of a red error box.
+            if (!cancelled) setFetchStatus(resp.status);
+            throw new Error(`HTTP ${resp.status}`);
+          }
           return resp.text();
         })
         .then((text) => {
@@ -1163,7 +1170,7 @@ function UpgradeLogViewer({
   }
 
   const displayContent = (() => {
-    if (fetchError) return `Failed to load log: ${fetchError}`;
+    if (fetchError) return upgradeLogFetchFailureText(fetchStatus, fetchError);
     if (rawContent === null) return "Loading...";
     if (showRaw) return rawContent.split("\n").slice(-50).join("\n");
     // Default: show only main-narrative lines (M prefix), strip the 2-char code prefix.

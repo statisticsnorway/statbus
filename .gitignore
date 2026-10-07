@@ -76,6 +76,8 @@ migrations/seeds/*.pg_list
 
 ### Database dumps for debugging (large binary files) ###
 dbdumps/*.pg_dump
+dbdumps/*.logs.tar.zst
+dbdumps/*.logs.tar.gz
 !dbdumps/.gitkeep
 
 ### Go CLI binary (built from cli/ to repo root) ###

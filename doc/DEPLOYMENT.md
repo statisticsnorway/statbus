@@ -441,6 +441,21 @@ After editing, regenerate:
 ./sb db restore <file>          # Restore from dump
 ```
 
+**Upgrade logs travel with the dump** (STATBUS-456): `./sb db dump` and
+`./sb db download <code>` also write a companion archive
+`dbdumps/<stem>.logs.tar.zst` (gzip when the `zstd` binary is unavailable)
+beside the `.pg_dump`. It carries `tmp/upgrade-logs/` (minus the `latest`
+symlink) plus only the `tmp/install-logs/` files the dumped database actually
+references, so a restored copy can show the logs its `public.upgrade` rows
+point at. `./sb db restore <file>` unpacks the companion into `tmp/`,
+merging with what is already on disk; when no companion exists the restore
+still succeeds and prints that logs were not included. `db dumps list` shows
+whether a dump carries its logs, and `db dumps purge` deletes dump and
+companion as one unit. The companion contains log content from the source
+box — treat it as exactly as sensitive as the dump itself.
+`./sb db restore <file> --to <code>` (remote restore) does not upload the
+companion.
+
 **Built-in scheduled backup** (standalone): the always-on upgrade service takes a
 regular logical backup automatically — no cron, systemd timer, or external
 scheduler to install (it is part of the service you already run). On standalone

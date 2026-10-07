@@ -102,6 +102,13 @@ if (isDevelopment) {
         source: '/rest/:path*',
         destination: `${caddyTargetForRewriteRule}/rest/:path*`,
       },
+      {
+        // STATBUS-456: in dev the browser must reach the same log route a
+        // real box serves via Caddy (handle /upgrade-logs/*), not a
+        // dev-only 404.
+        source: '/upgrade-logs/:path*',
+        destination: `${caddyTargetForRewriteRule}/upgrade-logs/:path*`,
+      },
     ];
   };
 }

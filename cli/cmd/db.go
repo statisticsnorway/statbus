@@ -258,9 +258,42 @@ var dbDumpCmd = &cobra.Command{
 			return err
 		}
 		fmt.Printf("Done: %s (%s)\n", outPath, humanSize(info.Size()))
+
+		// STATBUS-456: the upgrade/install logs travel WITH the dump — a
+		// restored copy must be able to show the logs its rows reference.
+		// Archived AFTER pg_dump succeeds, so the archive can only be newer
+		// than the rows. A companion failure never fails the dump itself.
+		if err := writeLogsCompanionForLocalDump(projDir, outPath); err != nil {
+			fmt.Fprintf(os.Stderr, "Warning: could not write log companion archive: %v\n", err)
+		}
+
 		warnIfManyDumps(dbdump.DumpsDir(projDir))
 		return nil
 	},
+}
+
+// writeLogsCompanionForLocalDump archives tmp/upgrade-logs/ (minus symlinks)
+// plus the tmp/install-logs/ files the database references into
+// <stem>.logs.tar.zst (gzip fallback) beside the dump.
+func writeLogsCompanionForLocalDump(projDir, dumpPath string) error {
+	refs, err := dbdump.ReferencedInstallLogs(projDir)
+	if err != nil {
+		return err
+	}
+	companion, count, err := dbdump.WriteLogsCompanion(projDir, dumpPath, refs)
+	if err != nil {
+		return err
+	}
+	info, err := os.Stat(companion)
+	if err != nil {
+		return err
+	}
+	if count == 0 {
+		fmt.Printf("Logs:  %s (empty — no upgrade/install logs found) (%s)\n", companion, humanSize(info.Size()))
+	} else {
+		fmt.Printf("Logs:  %s (%d files, %s)\n", companion, count, humanSize(info.Size()))
+	}
+	return nil
 }
 
 // ── db download ──────────────────────────────────────────────────────────────
@@ -329,9 +362,72 @@ Connects to statbus_{code}@niue.statbus.org and streams a pg_dump.`,
 		}
 
 		fmt.Printf("Done: %s (%s)\n", outPath, humanSize(info.Size()))
+
+		// STATBUS-456: fetch the log companion too, streamed straight off the
+		// box (no remote temp file). A failed/empty stream leaves NO companion
+		// file and never fails the download.
+		downloadLogsCompanion(projDir, outPath, sshUser, sshHost, remoteDB)
+
 		warnIfManyDumps(dumpsDir)
 		return nil
 	},
+}
+
+// downloadLogsCompanion streams the remote tmp/upgrade-logs/ (regular files
+// only — the `latest` symlink never crosses) plus the tmp/install-logs/ files
+// the remote database references into <stem>.logs.tar.gz beside the dump. The
+// remote side produces the tar stream; nothing is staged on the box. A
+// zero-byte or failed stream is cleaned up and reported, not fatal.
+func downloadLogsCompanion(projDir, dumpPath, sshUser, sshHost, remoteDB string) {
+	companionPath := dbdump.LogsCompanionPathFor(dumpPath, false) // remote streams gzip
+	fmt.Println("Downloading log companion ...")
+
+	// Resolve the referenced install-logs set on the box (it has psql via
+	// docker compose), normalize both stored shapes ("install-logs/<name>"
+	// and bare basename) to member paths rooted at the project dir, and
+	// stream one tar.gz. find -type f skips the `latest` symlink.
+	// --ignore-failed-read: a reference whose file is already gone degrades
+	// to a warning, not a failed stream.
+	// The SQL is double-quoted here; it contains single quotes but no $, "
+	// or backticks. The script goes over stdin (bash -s), so no outer
+	// quoting layer is needed.
+	remoteScript := fmt.Sprintf(`cd statbus
+{ find tmp/upgrade-logs -mindepth 1 -type f 2>/dev/null
+  docker compose exec -T db psql -U postgres -d %[1]s -At -c "%[2]s" \
+    | tr -d '\r' \
+    | sed -e 's#^tmp/install-logs/##' -e 's#^install-logs/##' \
+    | grep -E '^[A-Za-z0-9._-]+$' \
+    | sed -e 's#^#tmp/install-logs/#'
+} | sort -u | tar -czf - --ignore-failed-read --files-from -
+`,
+		remoteDB, strings.TrimSpace(dbdump.ReferencedInstallLogsSQL))
+
+	sshCmd := exec.Command("ssh",
+		fmt.Sprintf("%s@%s", sshUser, sshHost),
+		"bash", "-s")
+
+	outFile, err := os.Create(companionPath)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Warning: could not create log companion file: %v\n", err)
+		return
+	}
+	defer func() { _ = outFile.Close() }()
+
+	sshCmd.Stdin = strings.NewReader(remoteScript)
+	sshCmd.Stdout = outFile
+	sshCmd.Stderr = os.Stderr
+	if err := sshCmd.Run(); err != nil {
+		_ = os.Remove(companionPath) // never leave a bogus companion
+		fmt.Fprintf(os.Stderr, "Warning: log companion stream failed (logs not included): %v\n", err)
+		return
+	}
+	info, err := os.Stat(companionPath)
+	if err != nil || info.Size() == 0 {
+		_ = os.Remove(companionPath) // a zero-byte stream is not a companion
+		fmt.Println("Logs:  remote stream produced nothing — no log companion written")
+		return
+	}
+	fmt.Printf("Logs:  %s (%s)\n", companionPath, humanSize(info.Size()))
 }
 
 // ── db dumps list ────────────────────────────────────────────────────────────
@@ -363,7 +459,15 @@ var dumpsListCmd = &cobra.Command{
 			if err != nil {
 				continue
 			}
-			fmt.Printf("  %-50s %s\n", filepath.Base(path), humanSize(info.Size()))
+			// The log companion (STATBUS-456) travels with the dump; show
+			// whether this dump carries one.
+			logs := "(no logs)"
+			if companion := dbdump.FindLogsCompanion(path); companion != "" {
+				if cinfo, err := os.Stat(companion); err == nil {
+					logs = fmt.Sprintf("+ logs %s", humanSize(cinfo.Size()))
+				}
+			}
+			fmt.Printf("  %-50s %10s  %s\n", filepath.Base(path), humanSize(info.Size()), logs)
 		}
 		fmt.Printf("\n%d dump file(s)\n", len(entries))
 		return nil
@@ -862,6 +966,21 @@ END $$;
 	startServices.Stderr = os.Stderr
 	if err := startServices.Run(); err != nil {
 		fmt.Fprintf(os.Stderr, "Warning: could not restart services: %v\n", err)
+	}
+
+	// STATBUS-456: unpack the log companion (if the dump carries one) into
+	// tmp/, merging with what is already on disk. This NEVER fails the
+	// database restore — the database is already restored at this point and
+	// the logs are supplementary evidence.
+	fmt.Println("Restoring log companion ...")
+	found, logCount, logErr := dbdump.RestoreLogsCompanion(projDir, dumpFile)
+	switch {
+	case logErr != nil:
+		fmt.Fprintf(os.Stderr, "Warning: could not unpack log companion: %v\n", logErr)
+	case !found:
+		fmt.Println("Logs:  no companion archive beside this dump — logs were not included in this dump")
+	default:
+		fmt.Printf("Logs:  restored %d file(s) into %s (merged with existing)\n", logCount, filepath.Join(projDir, "tmp"))
 	}
 
 	fmt.Println("Restore complete")
