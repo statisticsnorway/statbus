@@ -3,7 +3,7 @@ id: STATBUS-451
 title: >-
   release chain never runs the demo-state proof
   (5-install-source-image-identity-proof); it is re-run by hand for every candidate
-status: In Progress
+status: Done
 assignee: []
 created_date: '2026-10-05 20:15'
 labels:
@@ -48,9 +48,9 @@ Value it delivered on rc.15: the scheduled path showed STATBUS-450 at 18:40, 10 
 
 ## Acceptance criteria
 <!-- AC:BEGIN -->
-- [ ] #1 Cutting an RC runs the demo-state proof on both paths automatically, against that RC tag, with no agent action.
-- [ ] #2 Its result appears with the other gates (run link and pass/fail), and the stable release gate refuses to promote without a pass.
-- [ ] #3 Proven on one real RC: both paths pass in the chain, and no hand-launched rehearsal is needed.
+- [x] #1 Cutting an RC runs the demo-state proof on both paths automatically, against that RC tag, with no agent action.
+- [x] #2 Its result appears with the other gates (run link and pass/fail), and the stable release gate refuses to promote without a pass.
+- [x] #3 Proven on one real RC: both paths pass in the chain, and no hand-launched rehearsal is needed.
 <!-- AC:END -->
 
 ## Grounded implementation plan, 2026-10-06 15:26 UTC
@@ -126,3 +126,13 @@ At17:10 UTC actual corrected Harness37500765074 completed SUCCESS. Full job step
 At17:16:25 observer445135q1at reached its540s process deadline, exit124. Fresh actual Fast37501348438 still has SQL in progress and preceding steps successful, floor/livedb pending. This is NOT a hosted failure. With no other monitor active, sole continuation999309cpfk started17:16:39,600s deadline. No hosted rerun/dispatch or push. Evidence tmp/452-fast-b594-20261006T1716.json. Current fallback sched_e8d1a3d4 due17:26:53 reads real state before any next action.
 
 At17:22:57 UTC continuation999309cpfk completed0. All six expected source workflows passed at exactb594: Harness37500765074, App37500765070, Images37500765132, Notify37500765178, Go37500765195 and attributed Fast37501348438. Read final actual Fast jobs/logs:102 shared+1 isolated SQL passed, real daemon-floor oracle passed, upgrade163.507s/install3.244s livedb packages and separate Docker probes passed. SQL failure diagnostics correctly skipped because SQL passed, not credited as exercised. Evidence tmp/452-fast-b594-final-20261006.{json,log} and tmp/452-ci-b594a2f01-latest.json. All451 actual named-candidate guest ACs remain unchecked. Source green does not resolve other release blockers or authorize a production install. Original failed sources and monitoring deadline remain retained.
+
+## Actual automatic named-candidate proof, observed UTC October 7, 2026 00:15
+
+The normal checked cut of `v2026.10.0-rc.17`, full `24ed72065a25e925aeac09189f0be29990403d31`, automatically ran BOTH mandatory cells in fault fleet37543545837 through release-fleet37542050305, with no hand-launched rehearsal. Operator1110s/rc0 and scheduled1109s/rc0 are PASS in retained comparison artifact11450424639, digest `ce9d43cbd9510d40423c8b8ab29e3897e9ea4c19c3e51b19a79e369acf1408c7`. Primary job112542005832 lines809-826 maps both rows and exposes the comparison table. Full saved evidence: `tmp/overnight-rc17-source-identity-evidence.md` and `tmp/451-actual-rc17-evidence-addendum.md`.
+
+Operator actually executes sourced production `cloud.sh cmd_install`; scheduled uses the legitimate schedule and official installer. Both prove their own completed candidate row, preserved data/health, resident binary, responding artifact full24ed and exact rc17 metadata over five rounds, plus guest-local event|version callbacks. Both serve the same immutable app image `sha256:50d0e2d895b37743b79def08740d456e9110d7f480477c7a1aaeb811b366a430`. Callback output is NOT a full environment/SHA/row-id envelope; four-round row/restart assertions ran but not every raw value is individually printed.
+
+The unchanged `checkInstallRecoveryHarnessGate` at release.go1902-1909 requires the full LXD workflow to succeed at the exact commit. Existing `TestLXDFleetGate_WorkflowResultAndBypass` preserves failed/pending/unknown refusal and was included in the complete ordinary Go gate. Result exposure is actual guest-run evidence; refusal wiring is inspected source and synthetic test evidence, not a live stable promotion attempt. Its explicit compatibility bypass was never used.
+
+AC1/AC3 now have real automatic-RC proof; AC2 has actual result mapping plus the unchanged tested exact-commit gate. The duplicated manual rehearsal is no longer part of the release path, so this wiring ticket is Done. The fleet itself genuinely FAILED25PASS/oneERROR and selected arcs FAILED32PASS/threeFAIL. Those other failures remain blocking for rc17 readiness and stable promotion. No owner demo/Norway installation, blanket candidate approval, security waiver or future-candidate acceptance is inferred from these two cell passes.
