@@ -1,6 +1,7 @@
 package upgrade
 
 import (
+	"context"
 	"strings"
 	"testing"
 )
@@ -50,9 +51,37 @@ func TestRunClaimsScheduledOnStartupAndTick(t *testing.T) {
 	if next := strings.Index(hbBlock, "case <-"); next >= 0 {
 		hbBlock = hbBlock[:next]
 	}
-	if !strings.Contains(hbBlock, "d.executeScheduled(ctx)") {
-		t.Error("Run()'s heartbeatTicker.C (30s) case must call d.executeScheduled(ctx) — " +
+	if !strings.Contains(hbBlock, "d.idleHeartbeat(ctx)") {
+		t.Error("Run()'s heartbeatTicker.C (30s) case must call d.idleHeartbeat(ctx): " +
 			"STATBUS-098 ≤30s claim: a lost NOTIFY must still be claimed within 30s, not wait " +
 			"for the 6h discovery tick")
+	}
+
+	// Follow the real helper, so relocating the claim cannot silently drop it.
+	// Reconnection must precede its DB consumers after a failed recovery reconnect.
+	heartbeat := funcBody(t, "service.go", "func (d *Service) idleHeartbeat(")
+	previous := strings.Index(heartbeat, "d.ensureConnected(ctx)")
+	if previous < 0 {
+		t.Fatal("idle heartbeat must reconnect before reading candidate state")
+	}
+	for _, call := range []string{"d.finalizePendingRollbacks(ctx)", "d.verifyArtifacts(ctx)", "d.executeScheduled(ctx, true)"} {
+		position := strings.Index(heartbeat, call)
+		if position <= previous {
+			t.Fatalf("idle heartbeat must call %s after its preceding connection or recovery step", call)
+		}
+		previous = position
+	}
+}
+
+// A recovery reconnect may leave queryConn nil. An unavailable configuration
+// must yield safely, not dereference it before the normal reconnect gate.
+func TestIdleHeartbeatUnavailableConnection(t *testing.T) {
+	d := &Service{projDir: t.TempDir()}
+	if _, err := d.recoveryDSN(); err == nil {
+		t.Fatal("empty private project unexpectedly has a connection route")
+	}
+	d.idleHeartbeat(context.Background())
+	if d.queryConn != nil || d.listenConn != nil {
+		t.Fatal("unavailable private project must not establish database sessions")
 	}
 }

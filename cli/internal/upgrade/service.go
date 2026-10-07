@@ -7619,6 +7619,9 @@ func (d *Service) claimScheduledUpgradePass(ctx context.Context, id int) (schedu
 // NOTIFY. Keep this on Run's main goroutine: the verifier's existing per-candidate
 // progress feeds the watchdog, while a stuck single probe remains detectable.
 func (d *Service) idleHeartbeat(ctx context.Context) {
+	if err := d.ensureConnected(ctx); err != nil {
+		return
+	}
 	d.finalizePendingRollbacks(ctx)
 	d.verifyArtifacts(ctx)
 	d.executeScheduled(ctx, true)
