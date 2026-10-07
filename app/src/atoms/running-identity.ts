@@ -14,12 +14,10 @@ export const refreshRunningIdentityAtom = atom(null, async (get, set) => {
   set(refreshingAtom, true);
   let artifactSHA: string | null = null;
   let runningIdentity: RunningIdentity | null = null;
+  const previousIdentity = get(runningIdentityAtom);
   try {
     const artifact = await fetch("/_statbus-build.json", { cache: "no-store" });
     if (artifact.ok) artifactSHA = parseArtifactSHA(await artifact.json());
-    // Clear old labels as soon as the responding artifact changes.
-    set(artifactSHAAtom, artifactSHA);
-    set(runningIdentityAtom, null);
     if (artifactSHA) {
       const response = await fetch(
         `/rest/rpc/release_identity?p_commit_sha=${artifactSHA}`,
@@ -38,7 +36,15 @@ export const refreshRunningIdentityAtom = atom(null, async (get, set) => {
     // Missing legacy artifacts and unavailable metadata never prove a label.
   } finally {
     set(artifactSHAAtom, artifactSHA);
-    set(runningIdentityAtom, runningIdentity);
+    // Keep the last PROVEN label while a refresh is in flight (previously the
+    // 30s poll blanked it to "unknown" mid-refresh). Replace it only with a
+    // newly proven one; drop it only when the artifact itself changed — an
+    // old label must never describe a new artifact.
+    if (runningIdentity) {
+      set(runningIdentityAtom, runningIdentity);
+    } else if (previousIdentity?.commit_sha !== artifactSHA) {
+      set(runningIdentityAtom, null);
+    }
     set(refreshingAtom, false);
   }
 });

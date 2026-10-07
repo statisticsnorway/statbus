@@ -21,6 +21,13 @@ import {
 import { compareUpgradeCandidates } from "./upgrade-ordering";
 import { currentAppRow, newerThanCurrentApp } from "./current-app";
 import {
+  HISTORY_PILLS,
+  historyRowsForPill,
+  partitionUpgradeRows,
+  type HistoryPill,
+} from "./upgrade-history";
+import type { RunningIdentity } from "@/lib/running-identity";
+import {
   filterStaleInstallFailure,
   INSTALL_FAILURE_BANNER_WORDING,
   SystemInfoRow,
@@ -74,7 +81,7 @@ type UpgradeState =
   | "skipped"
   | "superseded";
 
-interface Upgrade {
+export interface Upgrade {
   id: number;
   commit_sha: string;
   committed_at: string;
@@ -419,7 +426,7 @@ export default function UpgradesPage() {
   )?.value;
 
   const [actionError, setActionError] = useState<string | null>(null);
-  const [showSuperseded, setShowSuperseded] = useState(false);
+  const [historyPill, setHistoryPill] = useState<HistoryPill>("applied");
 
   // Detect when an upgrade takes the app down — show the maintenance page inline.
   const hasActiveUpgrade = upgrades?.some(
@@ -682,26 +689,17 @@ export default function UpgradesPage() {
         </Card>
       )}
 
-      {!installLastError && installLastAt && (
-        <p className="mb-4 text-center text-xs text-muted-foreground">
-          Last install invocation: {new Date(installLastAt).toLocaleString()}
-          {installLastLogRelativeFilePath && (
-            <>
-              {" "}
-              (log:{" "}
-              <span className="font-mono">
-                tmp/install-logs/{installLastLogRelativeFilePath}
-              </span>
-              )
-            </>
-          )}
-        </p>
-      )}
-
-      <div className="mb-4 rounded-md border p-4 text-sm">
-        Currently responding app: {runningIdentity?.resolved_name ?? "unknown"}
-        {artifactSHA && <span className="ml-2 font-mono">{artifactSHA}</span>}
-      </div>
+      {/* STATBUS-455: the one card that answers "what is serving right now",
+          keyed on the exact-SHA match of the responding artifact — never on
+          "newest completed", which lies after a rollback. The install
+          invocation and full SHA live inside the card's disclosures. */}
+      <RunningCard
+        artifactSHA={artifactSHA}
+        runningIdentity={runningIdentity}
+        currentRows={currentRows}
+        installLastAt={installLastError ? undefined : installLastAt}
+        installLastLogRelativeFilePath={installLastLogRelativeFilePath}
+      />
 
       {error && (
         <Card className="mb-4 border-red-200 bg-red-50">
@@ -739,30 +737,14 @@ export default function UpgradesPage() {
       {upgrades &&
         upgrades.length > 0 &&
         (() => {
-          // Categorize upgrades
-          const actionable: Upgrade[] = []; // in_progress, scheduled, failed, rolled_back
-          let available: Upgrade[] = [];
-          const history: Upgrade[] = [];
-
-          for (const u of upgrades) {
-            const s = u.state;
-            if (
-              s === "completed" ||
-              s === "skipped" ||
-              s === "dismissed" ||
-              s === "superseded"
-            ) {
-              history.push(u);
-            } else if (s === "available") {
-              available.push(u);
-            } else {
-              // in_progress, scheduled, failed, rolled_back — all stay actionable.
-              // Failed/rolled_back remain visible on the main page so operators
-              // see what went wrong without expanding history; clicking Dismiss
-              // sets state='dismissed' and moves them to history.
-              actionable.push(u);
-            }
-          }
+          // Categorize upgrades. The row matching the responding artifact is
+          // excluded from every bucket — it appears once, in the Running card.
+          const {
+            history,
+            available: discovered,
+            actionable,
+          } = partitionUpgradeRows(upgrades, currentUpgrade?.id ?? null);
+          let available = discovered;
 
           // Drop available rows that aren't newer than what's running. Without
           // this filter, an older prerelease (say rc.64) outranks newer edge
@@ -808,16 +790,7 @@ export default function UpgradesPage() {
           // History records attempts, independently of the responding artifact.
           const historyRest = history;
 
-          const filteredHistory = showSuperseded
-            ? historyRest
-            : historyRest.filter((u) => u.state !== "superseded");
-
-          const appliedCount = historyRest.filter(
-            (u) => u.state !== "superseded"
-          ).length;
-          const supersededCount = historyRest.filter(
-            (u) => u.state === "superseded"
-          ).length;
+          const filteredHistory = historyRowsForPill(historyRest, historyPill);
 
           const renderCard = (
             u: Upgrade,
@@ -908,37 +881,41 @@ export default function UpgradesPage() {
                 </Collapsible>
               )}
 
-              {/* Rest of past upgrades (older completions, superseded, skipped, failed) */}
+              {/* Past attempts (completions, superseded, skipped/dismissed),
+                  filtered by pill. The running row is not here — it is in the
+                  Running card above. */}
               {historyRest.length > 0 && (
                 <Collapsible>
                   <CollapsibleTrigger className="flex w-full items-center gap-2 rounded-md border border-dashed border-muted-foreground/25 px-4 py-2 text-sm text-muted-foreground hover:bg-muted/50 transition-colors">
                     <ChevronDown className="h-4 w-4" />
-                    {appliedCount > 0 && supersededCount > 0
-                      ? `${appliedCount} applied · ${supersededCount} superseded`
-                      : appliedCount > 0
-                        ? `${appliedCount} applied`
-                        : `${supersededCount} superseded`}
+                    History
                     <div
                       className="ml-auto flex items-center gap-1"
                       onClick={(e) => e.stopPropagation()}
                     >
-                      <span className="rounded px-1.5 py-0.5 text-xs bg-green-100 text-green-800">
-                        History
-                      </span>
-                      <span
-                        onClick={() => setShowSuperseded((v) => !v)}
-                        className={`cursor-pointer rounded px-1.5 py-0.5 text-xs bg-gray-100 transition-opacity ${
-                          showSuperseded
-                            ? "text-gray-500"
-                            : "text-gray-400 opacity-40"
-                        }`}
-                      >
-                        Superseded
-                      </span>
+                      {HISTORY_PILLS.map((pill) => (
+                        <span
+                          key={pill.id}
+                          onClick={() => setHistoryPill(pill.id)}
+                          className={`cursor-pointer rounded px-1.5 py-0.5 text-xs transition-opacity ${
+                            historyPill === pill.id
+                              ? "bg-green-100 text-green-800"
+                              : "bg-gray-100 text-gray-400 opacity-40"
+                          }`}
+                        >
+                          {pill.label}
+                        </span>
+                      ))}
                     </div>
                   </CollapsibleTrigger>
                   <CollapsibleContent className="space-y-3 mt-3">
-                    {filteredHistory.map((u) => renderCard(u))}
+                    {filteredHistory.length > 0 ? (
+                      filteredHistory.map((u) => renderCard(u))
+                    ) : (
+                      <p className="px-1 text-xs italic text-muted-foreground">
+                        No {historyPill} upgrades.
+                      </p>
+                    )}
                   </CollapsibleContent>
                 </Collapsible>
               )}
@@ -946,6 +923,192 @@ export default function UpgradesPage() {
           );
         })()}
     </main>
+  );
+}
+
+/** The one card that answers "what is serving right now, and did its install
+ *  work" (STATBUS-455). Keyed on the exact-SHA match of the responding
+ *  artifact against the ledger — never on "newest completed", which lies
+ *  after a rollback. A matched but non-completed row keeps its real state
+ *  badge; only a completed row (or a proven artifact with no ledger row at
+ *  all) earns the "Running" label. */
+function RunningCard({
+  artifactSHA,
+  runningIdentity,
+  currentRows,
+  installLastAt,
+  installLastLogRelativeFilePath,
+}: {
+  artifactSHA: string | null;
+  runningIdentity: RunningIdentity | null;
+  currentRows: Upgrade[] | undefined;
+  installLastAt: string | undefined;
+  installLastLogRelativeFilePath: string | undefined;
+}) {
+  const row = currentAppRow(artifactSHA, currentRows);
+  // The exact-SHA query is still in flight — say so rather than disappearing.
+  const loading = artifactSHA !== null && currentRows === undefined;
+  const name =
+    row?.display_name ?? runningIdentity?.resolved_name ?? "unknown name";
+  const releaseStatus = row?.release_status ?? runningIdentity?.release_status;
+
+  const badge = loading ? (
+    <Badge className="bg-gray-100 text-gray-600">
+      <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+      Loading…
+    </Badge>
+  ) : row && row.state !== "completed" ? (
+    // The ledger row exists but its install never completed — show the row's
+    // true state, never relabelled "Running".
+    <StateBadge
+      state={row.state}
+      label={upgradeStateLabel(row, row.display_state)}
+    />
+  ) : artifactSHA ? (
+    // Completed row, or the artifact provably serves but has no matching
+    // install record — either way this is what answers the browser.
+    <StateBadge state="completed" label="Running" />
+  ) : (
+    <Badge className="bg-gray-100 text-gray-600">Unknown</Badge>
+  );
+
+  return (
+    <Card className="mb-4 border-green-200 ring-2 ring-green-200">
+      <CardHeader className="pb-3">
+        <div className="flex items-start justify-between">
+          <CardTitle className="flex items-center gap-2 text-base">
+            {name}
+            {artifactSHA && (
+              <a
+                href={`https://github.com/statisticsnorway/statbus/commit/${artifactSHA}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="font-mono text-xs font-normal text-muted-foreground hover:underline"
+              >
+                ({artifactSHA.substring(0, 8)})
+              </a>
+            )}
+            {releaseStatus === "release" && (
+              <Badge
+                variant="outline"
+                className="text-xs border-green-300 text-green-600"
+              >
+                release
+              </Badge>
+            )}
+            {releaseStatus === "prerelease" && (
+              <Badge
+                variant="outline"
+                className="text-xs border-blue-300 text-blue-600"
+              >
+                pre-release
+              </Badge>
+            )}
+          </CardTitle>
+          {badge}
+        </div>
+      </CardHeader>
+      <CardContent className="pt-0">
+        <div className="mb-3 flex flex-wrap gap-4 text-xs text-muted-foreground">
+          <span>Serving now</span>
+          {row ? (
+            <span>#{row.id}</span>
+          ) : loading ? (
+            <span>Resolving the install record…</span>
+          ) : artifactSHA ? (
+            <span>no matching install record</span>
+          ) : (
+            <span>responding artifact unknown</span>
+          )}
+          {row && (
+            <span>
+              Committed: {new Date(row.committed_at).toLocaleDateString()}
+            </span>
+          )}
+          {row?.scheduled_at && (
+            <span className="flex items-center gap-1">
+              <Calendar className="h-3 w-3" />
+              Scheduled: {new Date(row.scheduled_at).toLocaleString()}
+            </span>
+          )}
+          {row?.completed_at && (
+            <span className="flex items-center gap-1">
+              <CheckCircle2 className="h-3 w-3 text-green-600" />
+              Completed: {new Date(row.completed_at).toLocaleString()}
+            </span>
+          )}
+        </div>
+
+        {artifactSHA && (
+          <Collapsible>
+            <CollapsibleTrigger className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground">
+              <ChevronDown className="h-3 w-3" />
+              Details
+            </CollapsibleTrigger>
+            <CollapsibleContent className="mt-2 text-xs text-muted-foreground">
+              Commit:{" "}
+              <a
+                href={`https://github.com/statisticsnorway/statbus/commit/${artifactSHA}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="font-mono hover:underline"
+              >
+                {artifactSHA}
+              </a>
+            </CollapsibleContent>
+          </Collapsible>
+        )}
+
+        <Collapsible>
+          <CollapsibleTrigger className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground">
+            <ChevronDown className="h-3 w-3" />
+            Installs
+          </CollapsibleTrigger>
+          <CollapsibleContent className="mt-2 text-xs text-muted-foreground">
+            {installLastAt ? (
+              <p>
+                Last ./sb install invocation:{" "}
+                {new Date(installLastAt).toLocaleString()}
+                {installLastLogRelativeFilePath && (
+                  <>
+                    {" "}
+                    (log:{" "}
+                    <span className="font-mono">
+                      tmp/install-logs/{installLastLogRelativeFilePath}
+                    </span>
+                    )
+                  </>
+                )}
+              </p>
+            ) : (
+              <p className="italic">(no ./sb install invocation recorded)</p>
+            )}
+          </CollapsibleContent>
+        </Collapsible>
+
+        {/* The serving release's log is the first thing an operator wants —
+            open by default here (unlike history cards). */}
+        {row?.started_at && (
+          <UpgradeLogViewer
+            id={row.id}
+            relPath={row.log_relative_file_path}
+            defaultOpen={true}
+          />
+        )}
+
+        {row?.changes && (
+          <Collapsible>
+            <CollapsibleTrigger className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground">
+              <ChevronDown className="h-3 w-3" />
+              Changelog
+            </CollapsibleTrigger>
+            <CollapsibleContent className="mt-2 rounded-md bg-muted p-3 text-xs whitespace-pre-wrap [&_a]:text-blue-600 [&_a]:underline [&_a]:hover:text-blue-800">
+              <ChangelogContent text={row.changes} />
+            </CollapsibleContent>
+          </Collapsible>
+        )}
+      </CardContent>
+    </Card>
   );
 }
 

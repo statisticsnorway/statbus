@@ -94,15 +94,33 @@ describe("artifact-bound release metadata", () => {
       [identity, identity],
       [{ ...identity, resolved_name: 42 }],
     ].map((rows) => [rows])
-  )("unproven metadata clears old labels: %j", async (rows) => {
+  )(
+    "unproven metadata keeps the last proven label for the same artifact: %j",
+    async (rows) => {
+      jest
+        .spyOn(global, "fetch")
+        .mockResolvedValueOnce(response({ commit_sha: source }))
+        .mockResolvedValueOnce(response(rows));
+      const store = createStore();
+      store.set(runningIdentityAtom, identity);
+      await store.set(refreshRunningIdentityAtom);
+      expect(store.get(artifactSHAAtom)).toBe(source);
+      // STATBUS-455: keep the last PROVEN label until a new one is proven —
+      // blanking it here flashed "unknown <full sha>" on every 30s refresh.
+      expect(store.get(runningIdentityAtom)).toEqual(identity);
+    }
+  );
+
+  test("unproven metadata clears the old label when the artifact itself changed", async () => {
     jest
       .spyOn(global, "fetch")
-      .mockResolvedValueOnce(response({ commit_sha: source }))
-      .mockResolvedValueOnce(response(rows));
+      .mockResolvedValueOnce(response({ commit_sha: target }))
+      .mockResolvedValueOnce(response([]));
     const store = createStore();
     store.set(runningIdentityAtom, identity);
     await store.set(refreshRunningIdentityAtom);
-    expect(store.get(artifactSHAAtom)).toBe(source);
+    expect(store.get(artifactSHAAtom)).toBe(target);
+    // An old label must never describe a new artifact.
     expect(store.get(runningIdentityAtom)).toBeNull();
   });
 
