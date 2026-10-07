@@ -1,9 +1,10 @@
 ---
 id: STATBUS-453
 title: Branch pushes cancel master CI through shared app and Go concurrency groups
-status: In Progress
+status: Done
 assignee: []
 created_date: '2026-10-06 14:49'
+updated_date: '2026-10-07 10:38'
 labels:
   - ci
   - release
@@ -30,10 +31,22 @@ Delegate a bounded source change in those two workflows, with one small real-exp
 
 ## Acceptance Criteria
 
-- [ ] #1 Master push and master dispatch group together; PR refs and other branch refs remain distinct, including the observed Dependabot branch.
-- [ ] #2 Baseline reproduces the grouping collision; corrected expressions pass behavioral checks and actionlint, preserving newest-master-wins.
+- [x] #1 Master push and master dispatch group together; PR refs and other branch refs remain distinct, including the observed Dependabot branch. (Verified at source: both workflows carry `(event_name == 'pull_request' || github.ref != 'refs/heads/master') && format('<prefix>-{0}', github.ref) || '<prefix>-master'`, pinned by `cli/cmd/release/workflow_branch_concurrency_test.go`. NOT observed live: every app/go run since the fix has been a `push` to master, so no branch push has exercised the per-ref group in real CI yet. `github.ref` for a PR is `refs/pull/N/merge`, hence distinct per PR.)
+- [x] #2 Baseline reproduces the grouping collision; corrected expressions pass behavioral checks and actionlint, preserving newest-master-wins. (Baseline is the real cancellation: master run 37480974869/job112328682457 cancelled by the Dependabot branch push 37481254979 at 14:42:43. `cancel-in-progress: true` retained. actionlint checked by the test itself. Note: the check pins the expression string; it computes no group equality — see the North Star below for why that was accepted rather than papered over with a second model of GitHub's semantics.)
 - [x] #3 Independent exact-source review accepts the bounded correction; integrate with patch/source proof and no push during active CI.
-- [ ] #4 Exact corrected master CI, including app and Go, finishes successfully. Preserve the original cancellation evidence rather than calling it a passing run.
+- [x] #4 Exact corrected master CI, including app and Go, finishes successfully. Preserve the original cancellation evidence rather than calling it a passing run. (App run37487037267 and Go run37487037416 both concluded success at exactly488f7569; every master push since, through bce5bf39, is green in both. The original cancellation remains recorded as a failure.)
+
+## North Star
+
+**What this is really about.** Master CI is the release gate's evidence: an RC is cut on a commit whose CI is green. A concurrency group is an identity claim — "these runs are the same thing, keep only the newest". `app-build-lint-master` asserted that a Dependabot branch push and a master push were the same thing. They are not, so the bot cancelled the run that was producing the evidence for master, and the tip's green either vanished (Missing) or had to be re-earned. The fix makes the claim true: only a newer *master* push can cancel an in-flight *master* run.
+
+**What it provides.** A green on master means "this exact commit ran its own complete app and Go CI", not "some run eventually won". That is the property the release ladder spends the rest of its machinery protecting; here it cost one expression in two workflows.
+
+**Why this closed without a semantic test.** The remaining AC1 gap is live behaviour, not source correctness: whether GitHub actually keeps master alive under a concurrent branch push. A hand-written evaluator of `&&`/`||`/`format()` would be a second, private copy of GitHub's semantics — it would agree with the expression whenever both share the same mistake, which is precisely the failure it claims to catch. So the choice is the cheap pin plus a live observation at the next real branch push, not a bigger test that cannot do what it claims.
+
+## Closing review, 2026-10-07 10:38 UTC (owner decision A)
+
+Owner reviewed 453 on 2026-10-07. Asked whether strengthening the concurrency check into an event/ref evaluator was worth it, and concluded: no — anything beyond the current pin plus live observation is over-engineering. Closed on that basis. The live branch-push observation (a non-`ops/**` branch push while a master run is in flight, confirming master is not cancelled) is booked as an observation of the next natural occurrence — Dependabot pushes periodically — not as a task and not as a reason to hold the ticket open. `tmp/452-ci-app-cancellation-20261006.log` remains the baseline evidence.
 
 ## Reviewed source integration, 2026-10-06 15:00 UTC
 
