@@ -7,7 +7,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-10-07 11:13'
-updated_date: '2026-10-07 11:13'
+updated_date: '2026-10-07 11:44'
 labels:
   - cli
   - db
@@ -129,27 +129,6 @@ must render a plain statement such as
 message. The serving card's log-open-by-default must not present a missing log as
 an error box.
 
-## Acceptance criteria
-
-- [ ] `./sb db dump` writes `<stem>.pg_dump` + `<stem>.logs.tar.zst`; the archive
-      contains `tmp/upgrade-logs/**` (minus the `latest` symlink) and only the
-      referenced `tmp/install-logs/**` files; count and size printed.
-- [ ] `./sb db download <code>` produces both files locally, with the archive's
-      member paths rooted at the project dir (`tmp/upgrade-logs/...`).
-- [ ] `./sb db restore <stem>.pg_dump` unpacks the companion into `tmp/`, merges,
-      prints counts, and succeeds with an explicit note when the companion is absent.
-- [ ] A dump without logs, and a dump whose companion is deleted, both restore cleanly.
-- [ ] `dumps list` and `dumps purge` treat the pair as one unit.
-- [ ] In `pnpm run dev`, `http://local.statbus.org:3000/upgrade-logs/<existing file>`
-      returns the file (rewrite works), and a missing file still 404s.
-- [ ] The admin page shows "not available in this copy" for a missing log, and the
-      serving card no longer renders a red HTTP 404 on load.
-- [ ] Tests: Go tests for archive creation/restore/merge/missing-companion and for
-      the referenced-install-logs selection; Jest tests for the 404 wording and for
-      a non-404 error still showing its real message.
-- [ ] Docs: `doc/DEPLOYMENT.md` (or the CLI help text) states that dump/download
-      carry the logs and `restore` unpacks them, and what happens when they are absent.
-
 ## Constraints and non-goals
 
 - Local code and tests only: no live boxes, no SSH to Demo/Norway, no installs,
@@ -206,3 +185,41 @@ cd app && pnpm run dev                            # http://local.statbus.org:300
 # /admin/upgrades → serving card → Log → "Failed to load log: HTTP 404"
 ```
 After this work the same sequence must show the rc.20 log inline.
+
+## Acceptance Criteria
+<!-- AC:BEGIN -->
+- [x] #1 `./sb db dump` writes `<stem>.pg_dump` + `<stem>.logs.tar.zst`; the archive
+      contains `tmp/upgrade-logs/**` (minus the `latest` symlink) and only the
+      referenced `tmp/install-logs/**` files; count and size printed.
+- [x] #2 `./sb db download <code>` produces both files locally, with the archive's
+      member paths rooted at the project dir (`tmp/upgrade-logs/...`).
+- [x] #3 `./sb db restore <stem>.pg_dump` unpacks the companion into `tmp/`, merges,
+      prints counts, and succeeds with an explicit note when the companion is absent.
+- [x] #4 A dump without logs, and a dump whose companion is deleted, both restore cleanly.
+- [x] #5 `dumps list` and `dumps purge` treat the pair as one unit.
+- [x] #6 In `pnpm run dev`, `http://local.statbus.org:3000/upgrade-logs/<existing file>`
+      returns the file (rewrite works), and a missing file still 404s.
+- [x] #7 The admin page shows "not available in this copy" for a missing log, and the
+      serving card no longer renders a red HTTP 404 on load.
+- [x] #8 Tests: Go tests for archive creation/restore/merge/missing-companion and for
+      the referenced-install-logs selection; Jest tests for the 404 wording and for
+      a non-404 error still showing its real message.
+- [x] #9 Docs: `doc/DEPLOYMENT.md` (or the CLI help text) states that dump/download
+      carry the logs and `restore` unpacks them, and what happens when they are absent.
+<!-- AC:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+Implemented in commit 5dbf0f4f60885708ca4cbf2cf53c4f2d41700a96 (db: upgrade logs travel with the DB dump).
+
+A1: new cli/internal/dbdump/logarchive.go core (WriteLogsCompanion / RestoreLogsCompanion / FindLogsCompanion / ReferencedInstallLogsSQL). db dump writes <stem>.logs.tar.zst (gzip fallback when zstd binary absent) after pg_dump succeeds; db download streams the remote tar.gz straight into the companion via ssh bash -s (no remote temp file, zero-byte stream leaves no file); db restore unpacks into tmp/ merging, never fails on absent logs; dumps list shows companion size; DumpsToPurge/PurgeDumps treat the pair as one unit. .gitignore now ignores companion archives.
+A2: /upgrade-logs/:path* dev rewrite added beside /rest in app/next.config.js, same guard.
+A3: UpgradeLogViewer tracks fetch status and renders 'This log is not available in this copy of the database.' on 404 via app/src/app/admin/upgrades/upgrade-log-message.ts; other failures keep the real message.
+
+Verified live locally: real db dump wrote companion (6 files, 11.8 KB, incl. nested .containers/ logs); real restore unpacked it (6 files merged); a companion-less copy restored cleanly with the explicit note; dev proxy served an existing log (200) and 404'd a missing one with an authenticated session.
+
+Validation: go test ./internal/dbdump/ ./cmd/ ok; go test ./internal/upgrade/ has one pre-existing failure (TestTypedComposeAuthorityGate) also failing on clean HEAD; app pnpm lint 0 errors (5 pre-existing warnings), tsc clean, jest 74/74 pass; prettier clean on touched files (repo-wide prettier has 248 pre-existing failures).
+
+Not done per constraints: db restore --to <code> does not upload the companion (out of scope); db download not run against a real box (no SSH per constraints) - remote streaming path is code-reviewed but only the local tar fixture path is executed.
+<!-- SECTION:FINAL_SUMMARY:END -->

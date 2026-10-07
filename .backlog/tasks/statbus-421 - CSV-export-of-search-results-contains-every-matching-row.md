@@ -102,13 +102,31 @@ page request is expensive for two compounding reasons:
    (`app/src/app/search/search-requests.ts:165-172`), so **every page repeats a full exact
    COUNT over the whole filtered set** (825,126 rows) in addition to returning 100k rows.
 2. `fetchPage` uses `offset`/`limit` (route.ts `searchParams.set("offset", …)`), i.e. deep
-   `OFFSET` over `statistical_unit` — a UNION ALL over the temporal tables — so page N forces
-   PostgreSQL to build and discard N×100k rows before returning any.
+   `OFFSET` with a filter the index cannot serve as a prefix — see the corrected schema note
+   below — so each page re-scans/re-sorts the filtered set and discards N×100k rows.
 
 Page cost grows with depth; the first page to cross 120 s is cancelled (SQLSTATE 57014),
 PostgREST returns an error, `fetchPage` throws, and the stream dies at that boundary. Four pages
 fit inside the budget, the fifth did not — which is why one attempt reached 400,000 records and
 the other only 100,000. Timing variance, not data.
+
+**Schema correction (verified 2026-10-07, local DB).** An earlier draft of this note called
+`statistical_unit` "a UNION ALL over the temporal tables". That is wrong:
+`statistical_unit` is a **plain table** (`relkind = 'r'`) rebuilt by the
+`public.statistical_unit_refresh()` procedure (migration `20240311000000`), with useful btree
+indexes: `idx_statistical_unit_name (name)`, `idx_statistical_unit_establishment_id (unit_id)`,
+`idx_statistical_unit_unit_type (unit_type)`, plus filter columns (region, sector, activity
+category, …). Consequences that shape the fix:
+
+- The data is snapshot-stable between refreshes, so the "offset pagination is not
+  snapshot-consistent under concurrent writes" caveat in the current code is weaker than
+  assumed — the real defects are cost and observability, not write skew.
+- `ORDER BY name` **can** use an index, so a keyset cursor on the order key is practical rather
+  than merely theoretical, and so is batching on `unit_id` ranges (constant cost per batch,
+  independently parallelizable and resumable).
+- A filter that is not a prefix of the chosen index still makes each deep `OFFSET` page do a
+  scan/sort of the filtered set — which is the cost that must go.
+
 
 ### Finding 3 — the failure is invisible to the operator
 
