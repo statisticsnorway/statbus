@@ -4,7 +4,7 @@ title: CSV export of search results contains every matching row
 status: In Progress
 assignee: []
 created_date: '2026-09-25 14:02'
-updated_date: '2026-10-07 13:22'
+updated_date: '2026-10-07 22:18'
 labels:
   - app
 dependencies: []
@@ -226,5 +226,5 @@ stream's catch, which is why `log.statbus.org` showed nothing for a dead export.
 ## Implementation Notes
 
 <!-- SECTION:NOTES:BEGIN -->
-IMPLEMENTATION LANDED (inadvertently) AND VERIFIED GREEN, 2026-10-07. Coordinator incident: worker hatchling had staged its 421 files in the shared index, and the coordinator's bare 'git commit' (preceded only by 'git add .backlog') committed all of them under the misleading message 'backlog: author ticket content through the CLI (455-459...)'; that is 1e5ac2ccf, 1358 insertions: app/src/app/search/components/search-export-csv-link.tsx, app/src/app/search/export/{csv-row-counter,export-query,export-logger,use-statistical-unit-export}.ts plus two test files, app/src/components/statistical-unit-details/unit-history-export-button.tsx, and removal of the old toCSV in app/src/lib/csv-utils.ts. The code IS in master and pushed; only the commit message misdescribes it. Root cause recorded in AGENTS.md: all agents share one checkout and one index, so commit with an explicit pathspec. GATES at dad476346: app tsc 0 errors; jest (app-build|search/export) 36/36; eslint 0 errors (5 pre-existing warnings). REMAINING BEFORE Done: (1) the acceptance measurement is coordinator work on real data - the local DB has 144 units and zero establishments, so restore the latest 'no' dump and run tmp/421-benchmark.md steps 1-4 (read-only) to time a full 825,126-row export and compare CSV row-for-row; (2) confirm in the UI the >100k confirm dialog and the honest XLSX refusal above the sheet bound; (3) reconcile this ticket's acceptance criteria with what actually shipped (D1 text/csv via PostgREST, D2 browser calls /rest directly, D4 1M cap).
+REAL-DATA MEASUREMENT DELEGATED (worker @tigress, 2026-10-07): restore the 1.1 GB no_20260210_105613.pg_dump locally, then run tmp/421-benchmark.md read-only (exact row count of the all-legal-units+establishments export, a full text/csv export timed, row-for-row CSV comparison, statement_timeout left at the 120s default), results into tmp/421-realdata-results.md. The worker is instructed not to commit or change product code. Also note: the history was rewritten on the owner's instruction, so this ticket's earlier notes should read the new SHAs - the export implementation is 1e5ac2ccf (the backlog content it was accidentally mixed with is now 1fc09b92a).
 <!-- SECTION:NOTES:END -->
