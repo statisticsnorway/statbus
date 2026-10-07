@@ -169,12 +169,14 @@ test("serving release renders as one Running card with id, meta, disclosures and
   expect(html).toContain("Scheduled:");
   expect(html).toContain("Completed:");
 
-  // Disclosures present; the full SHA and the install invocation are behind
-  // them, not loose on the page.
-  expect(html).toContain("Details");
-  expect(html).toContain("Installs");
+  // Both one-line facts are shown inline with a bolded label — collapsing a
+  // single line hid the entire content behind a click.
+  expect(html).toContain("Commit:");
+  expect(html).toContain("bce5bf39b73fcb87ee55900fab927c36872e23c0");
+  expect(html).toContain("Last ./sb install invocation:");
+  expect(html).not.toContain(">Details<");
+  expect(html).not.toContain(">Installs<");
   expect(html).not.toContain("Currently responding app");
-  expect(html).not.toContain("Last install invocation:");
 
   // Log open by default: the content area rendered, fetch pending.
   expect(html).toContain("Loading...");

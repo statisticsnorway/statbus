@@ -1040,52 +1040,47 @@ function RunningCard({
           )}
         </div>
 
+        {/* Both of these are one line each: a collapsible would hide the whole
+            content behind a click, so the label is simply bolded and the value
+            shown after it. */}
         {artifactSHA && (
-          <Collapsible>
-            <CollapsibleTrigger className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground">
-              <ChevronDown className="h-3 w-3" />
-              Details
-            </CollapsibleTrigger>
-            <CollapsibleContent className="mt-2 text-xs text-muted-foreground">
-              Commit:{" "}
-              <a
-                href={`https://github.com/statisticsnorway/statbus/commit/${artifactSHA}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="font-mono hover:underline"
-              >
-                {artifactSHA}
-              </a>
-            </CollapsibleContent>
-          </Collapsible>
+          <p className="text-xs text-muted-foreground">
+            <span className="font-medium text-foreground">Commit:</span>{" "}
+            <a
+              href={`https://github.com/statisticsnorway/statbus/commit/${artifactSHA}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="font-mono hover:underline"
+            >
+              {artifactSHA}
+            </a>
+          </p>
         )}
 
-        <Collapsible>
-          <CollapsibleTrigger className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground">
-            <ChevronDown className="h-3 w-3" />
-            Installs
-          </CollapsibleTrigger>
-          <CollapsibleContent className="mt-2 text-xs text-muted-foreground">
-            {installLastAt ? (
-              <p>
-                Last ./sb install invocation:{" "}
-                {new Date(installLastAt).toLocaleString()}
-                {installLastLogRelativeFilePath && (
-                  <>
-                    {" "}
-                    (log:{" "}
-                    <span className="font-mono">
-                      tmp/install-logs/{installLastLogRelativeFilePath}
-                    </span>
-                    )
-                  </>
-                )}
-              </p>
-            ) : (
-              <p className="italic">(no ./sb install invocation recorded)</p>
-            )}
-          </CollapsibleContent>
-        </Collapsible>
+        <p className="text-xs text-muted-foreground">
+          {installLastAt ? (
+            <>
+              <span className="font-medium text-foreground">
+                Last ./sb install invocation:
+              </span>{" "}
+              {new Date(installLastAt).toLocaleString()}
+              {installLastLogRelativeFilePath && (
+                <>
+                  {" "}
+                  (log:{" "}
+                  <span className="font-mono">
+                    tmp/install-logs/{installLastLogRelativeFilePath}
+                  </span>
+                  )
+                </>
+              )}
+            </>
+          ) : (
+            <span className="italic">
+              (no ./sb install invocation recorded)
+            </span>
+          )}
+        </p>
 
         {/* The serving release's log is the first thing an operator wants —
             open by default here (unlike history cards). */}
