@@ -7,7 +7,7 @@ title: >-
 status: Done
 assignee: []
 created_date: '2026-10-07 11:13'
-updated_date: '2026-10-07 12:58'
+updated_date: '2026-10-07 13:03'
 labels:
   - cli
   - db
@@ -64,16 +64,6 @@ Verified end to end on the demo path: `db dump` wrote a 6-file companion (11.8 K
       a non-404 error still showing its real message.
 - [x] #9 Docs: `doc/DEPLOYMENT.md` (or the CLI help text) states that dump/download
       carry the logs and `restore` unpacks them, and what happens when they are absent.
-
-- [ ] #10 ./sb db dump writes <stem>.pg_dump + <stem>.logs.tar.zst; the archive holds tmp/upgrade-logs/** minus symlinks and only the referenced tmp/install-logs/** files; count and size are printed.
-- [ ] #11 ./sb db download <code> produces both files locally, with member paths rooted at the project dir.
-- [ ] #12 ./sb db restore <stem>.pg_dump unpacks the companion into tmp/, merges, prints counts, and succeeds with an explicit note when the companion is absent.
-- [ ] #13 A dump without logs, and a dump whose companion is deleted, both restore cleanly.
-- [ ] #14 dumps list and dumps purge treat dump+companion as one unit.
-- [ ] #15 In pnpm run dev, /upgrade-logs/<existing file> returns the file and a missing file still 404s.
-- [ ] #16 The admin page shows 'not available in this copy' for a missing log, and the serving card never renders a red HTTP 404 on load.
-- [ ] #17 Go tests cover archive creation/restore/merge/missing-companion and referenced-install-logs; Jest covers the 404 wording and real errors.
-- [ ] #18 doc/DEPLOYMENT.md documents the companion, the gzip fallback and merge-on-restore.
 <!-- AC:END -->
 
 ## Status: OWNER APPROVED 2026-10-07 ("A1++ approved"). Implement as specified; the design was agreed in discussion and is not open for re-litigation.

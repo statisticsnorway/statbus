@@ -6,7 +6,7 @@ title: >-
 status: Done
 assignee: []
 created_date: '2026-10-07 11:20'
-updated_date: '2026-10-07 13:01'
+updated_date: '2026-10-07 13:03'
 labels:
   - cli
   - frontend
@@ -59,19 +59,9 @@ The stamp script run in a dirty `app/` writes the commit with `dirty:true`; the 
       dirty tracked → flag, dirty untracked → flag, `--image` precedence, non-git →
       null, and that the one-shot output equals the watcher's computed content.
 - [x] #9 `cd app && pnpm run lint && pnpm run tsc && pnpm run test` green.
-- [ ] #10 Note in `doc/DEVELOPMENT.md` (or the script header) that local identity is
+- [x] #10 Note in `doc/DEVELOPMENT.md` (or the script header) that local identity is
       HEAD + dirty flag, that the dev watcher keeps it fresh, and that images always
       use the checkout SHA.
-
-- [ ] #11 pnpm run build in a clean app/ writes {"commit_sha":"<HEAD>","dirty":false}.
-- [ ] #12 pnpm run build with an uncommitted app/ change writes dirty:true, including when the only change is a new untracked file.
-- [ ] #13 node scripts/stamp-app-build.mjs --image <40-hex> still writes the image SHA and wins; invalid or missing --image yields null.
-- [ ] #14 Outside a git work tree the script writes {"commit_sha":null} and exits 0.
-- [ ] #15 pnpm run dev writes the stamp at start and updates it within ~10s of a commit, branch switch or file edit, without restarting the dev server.
-- [ ] #16 The watcher is not referenced from any file under app/src/.
-- [ ] #17 public/_statbus-build.json is in .dockerignore and the Dockerfile still stamps with --image before next build.
-- [ ] #18 app-build.test.ts covers clean HEAD, dirty tracked, dirty untracked, --image precedence, non-git, and one-shot == watcher content.
-- [ ] #19 cd app && pnpm run lint && pnpm run tsc && pnpm run test is green, and the behaviour is noted in doc/DEVELOPMENT.md.
 <!-- AC:END -->
 
 ## Status: OWNER APPROVED 2026-10-07 (option (iii) + dev watcher). Implement as specified.
