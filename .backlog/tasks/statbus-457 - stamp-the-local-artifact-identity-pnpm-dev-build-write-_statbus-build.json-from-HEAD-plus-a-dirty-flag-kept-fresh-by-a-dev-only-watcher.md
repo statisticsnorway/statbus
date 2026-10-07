@@ -1,0 +1,123 @@
+---
+id: STATBUS-457
+title: >-
+  stamp the local artifact identity: pnpm dev/build write _statbus-build.json
+  from HEAD plus a dirty flag, kept fresh by a dev-only watcher
+status: To Do
+assignee: []
+created_date: '2026-10-07 11:20'
+labels:
+  - cli
+  - frontend
+  - devx
+dependencies: []
+priority: medium
+ordinal: 386202
+---
+
+## Status: OWNER APPROVED 2026-10-07 (option (iii) + dev watcher). Implement as specified.
+
+## Zoom out: why this exists
+
+`public/_statbus-build.json` answers one question: *which commit is this artifact
+built from?* Today only image publication answers it (`app/Dockerfile:31-32`:
+`ARG COMMIT` → `node scripts/stamp-app-build.mjs --image "$COMMIT"`), so every local
+run writes `{"commit_sha":null}` and the whole identity chain (footer version, and
+the admin Upgrades "serving" card added in STATBUS-455) degrades to
+`unknown` / "no matching install record" while developing.
+
+Owner decision 2026-10-07, after reviewing the concrete per-option rendering:
+
+- Local stamp = **HEAD plus a `dirty` flag** (option (iii)), never a bare
+  unqualified HEAD while the tree is modified.
+- `pnpm run dev` and `pnpm run build` both stamp; the **dev server keeps it
+  current** without a restart.
+- No dynamic route, no dev-only branch inside the app bundle.
+
+## Requirements
+
+### R1 — one implementation of the stamp
+
+`app/scripts/stamp-app-build.mjs` keeps `--image <sha>` precedence (invalid/missing
+→ `commit_sha: null`, unchanged) and gains the local fallback:
+
+```
+{ "commit_sha": "<40-hex HEAD>", "dirty": true|false }   // local
+{ "commit_sha": "<40-hex>", "dirty": false }             // --image
+{ "commit_sha": null }                                   // no git work tree
+```
+
+- `commit_sha` stays exactly 40 lowercase hex or `null`; `parseArtifactSHA` ignores
+  extra keys, so the `dirty` flag is additive and cannot break existing readers.
+- Dirty is decided by `git status --porcelain -- .` run from `app/` — **untracked
+  files count**. (This differs deliberately from `scripts/stamp-if-clean.sh`, whose
+  `git diff`-only rule feeds the release gate and stays as it is.)
+- No git work tree (docker build, tarball) → `{"commit_sha":null}`.
+- Extract the content computation so the one-shot script and the watcher share it.
+
+### R2 — pnpm owns both entry points
+
+- `pnpm run build` stamps once before `next build` (already does; keep `--image`
+  precedence intact for the Dockerfile).
+- `pnpm run dev` starts the watcher and the dev server together, e.g.
+  `node scripts/watch-app-build.mjs & next dev --turbopack`.
+
+### R3 — the dev-only watcher
+
+New `app/scripts/watch-app-build.mjs`:
+
+- writes the stamp once at start, then polls every ~5s;
+- polls `git rev-parse HEAD` and `git status --porcelain -- .`;
+- **writes only when the content changes**, and prints one line when it does,
+  e.g. `stamp: d98bfb96 (+dirty)`;
+- exits on SIGINT/SIGTERM with the dev server;
+- is never imported by any app/Next code: it must not appear in the server or
+  client bundle.
+
+### R4 — production cannot be polluted
+
+- The image keeps its authority: the Dockerfile stamps with `--image "$COMMIT"`
+  before `next build`, so anything a dev session left behind is overwritten.
+- Add `public/_statbus-build.json` to `.dockerignore` (it is generated and
+  gitignored) so a dev-written file never even enters the build context.
+
+### R5 — freshness end to end
+
+Nothing else is needed: the identity atom already fetches `/_statbus-build.json`
+with `cache: 'no-store'` on mount, every 30s and on window focus
+(`app/src/atoms/running-identity.ts`), so a changed stamp shows up within ~30s or
+immediately on focus. Do not add polling inside the app.
+
+## Acceptance criteria
+
+- [ ] `pnpm run build` in a clean `app/` writes `{"commit_sha":"<HEAD>","dirty":false}`.
+- [ ] `pnpm run build` with an uncommitted `app/` change writes
+      `{"commit_sha":"<HEAD>","dirty":true}`, including when the only change is a new
+      **untracked** file.
+- [ ] `node scripts/stamp-app-build.mjs --image <40-hex>` still writes exactly the
+      image SHA and wins over any local state; invalid/missing `--image` → `null`.
+- [ ] Outside a git work tree the script writes `{"commit_sha":null}` and exits 0.
+- [ ] `pnpm run dev` writes the stamp at start; committing, switching branch, or
+      editing a file updates it within ~10s without restarting the dev server, and
+      the running page reflects it within ~30s or on focus.
+- [ ] The watcher is not referenced from any file under `app/src/`.
+- [ ] `public/_statbus-build.json` is in `.dockerignore`; the Dockerfile still stamps
+      with `--image` before `next build`.
+- [ ] `app/src/lib/app-build.test.ts` (and any new script test) covers: clean → HEAD,
+      dirty tracked → flag, dirty untracked → flag, `--image` precedence, non-git →
+      null, and that the one-shot output equals the watcher's computed content.
+- [ ] `cd app && pnpm run lint && pnpm run tsc && pnpm run test` green.
+- [ ] Note in `doc/DEVELOPMENT.md` (or the script header) that local identity is
+      HEAD + dirty flag, that the dev watcher keeps it fresh, and that images always
+      use the checkout SHA.
+
+## Constraints and non-goals
+
+- No change to `parseArtifactSHA`/`parseRunningIdentity` semantics, no change to the
+  serving card's matching rule (still exact SHA), no schema or REST change.
+- No dynamic identity route, no polling added to the app, no new npm dependency
+  (polling beats a file-watcher dependency here).
+- Do not modify `scripts/stamp-if-clean.sh` or `tmp/*-passed-sha` gating.
+- Local code and tests only: no live boxes, installs, upgrades or config changes.
+- Commit with a `devx:`/`ui:` prefix; leave `.backlog/tasks/statbus-448` and
+  `.yarn/` alone.
