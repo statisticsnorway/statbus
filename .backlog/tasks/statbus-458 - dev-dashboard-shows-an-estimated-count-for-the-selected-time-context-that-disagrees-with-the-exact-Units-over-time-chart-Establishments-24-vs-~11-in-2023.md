@@ -8,7 +8,7 @@ status: Done
 assignee:
   - '@wyvern'
 created_date: '2026-10-07 12:43'
-updated_date: '2026-10-07 13:22'
+updated_date: '2026-10-07 13:23'
 labels:
   - app
   - dashboard
@@ -73,6 +73,11 @@ A short report with **evidence, not inference**:
 - [x] #4 A recommended fix and its risk are stated for owner approval; no product code is changed and nothing is committed.
 - [x] #5 The report exists at tmp/458-dashboard-estimate-investigation.md and the ticket summarises it.
 <!-- AC:END -->
+
+## Definition of Done
+<!-- DOD:BEGIN -->
+- [ ] #1 Report exists at tmp/458-dashboard-estimate-investigation.md; the verdict, the numbers that decide it, the recommendation with its risks, and the one question only the owner can settle are all in the ticket; 5/5 acceptance criteria checked; no product code changed and nothing committed by the investigation.
+<!-- DOD:END -->
 
 ## Implementation Notes
 
