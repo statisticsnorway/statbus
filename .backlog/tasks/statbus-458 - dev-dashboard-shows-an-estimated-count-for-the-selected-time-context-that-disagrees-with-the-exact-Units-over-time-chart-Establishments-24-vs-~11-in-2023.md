@@ -8,7 +8,7 @@ status: In Progress
 assignee:
   - '@wyvern'
 created_date: '2026-10-07 12:43'
-updated_date: '2026-10-07 12:44'
+updated_date: '2026-10-07 12:55'
 labels:
   - app
   - dashboard
@@ -17,6 +17,62 @@ dependencies: []
 priority: medium
 ordinal: 386203
 ---
+
+## Description
+
+<!-- SECTION:DESCRIPTION:BEGIN -->
+## North Star
+
+A dashboard number and a chart on the same box disagree (Establishments 24 vs 2023 ≈ 11), so one of them is wrong or they count different things. The owner needs to know which, with numbers rather than argument, before anything is changed: the answer decides whether this is a wrong *estimate* (a display-honesty bug), a wrong *label* on the time context (a data bug), or two different populations (a wording bug).
+
+## Owner observation, 2026-10-07 (dev.statbus.org)
+
+Time-context selector reads `2023 (Data)`.
+
+- **Dashboard** (`/dashboard`, "Statbus Status Dashboard" → DATA METRICS) says **Establishments 24** (also Enterprises 23, Legal Units 23; last update `2026-10-02 15:41:47 by erik.soberg`; footer `v2026.10.0 (bce5bf39)`).
+- **Reports → Units over time**, Establishments, `All Years`, shows bars of roughly **2023 ≈ 11**, 2024 ≈ 24, 2025 ≈ 24, 2026 ≈ 24.
+
+## What is already known (coordinator, read from the code)
+
+`app/src/app/dashboard/statistical-unit-count-card.tsx`:
+
+- it **does** apply the time-context filter (`.lte('valid_from', validOn).gte('valid_to', validOn)` with `valid_on` from `useTimeContext()`), so "the card failed to date filter" is not obviously the cause;
+- but it requests `count: "estimated"` and renders that — PostgREST's planner estimate, not a count. The exact value is only fetched on demand (`EstimatedCount` popover → `onGetExact` → `count: "exact"`), cached in `localStorage` under `statbus:exactCount:<key>`.
+
+`app/src/app/reports/unit-count-chart.tsx` renders the per-period series behind the chart (exact period values, `All Years` selector) — a different data path from the dashboard card.
+
+## Hypotheses to test, in order
+
+- **H1 — the estimate is simply wrong.** `count=estimated` derives from the query plan; on a table this small the planner's estimate can be a rounded guess. The real 2023 value is then the chart's ~11, and the dashboard is displaying an estimate as though it were a fact.
+- **H2 — label/value mismatch on the time context.** The selected context's `valid_on` may not be a 2023 instant (e.g. the 2026-10-02 import date), so the card counts a different instant than its `2023 (Data)` label implies. The numbers would then be "consistent" but the label would be lying.
+- **H3 — different populations.** The chart's period series and the dashboard predicate select different rows (different temporal-inclusion rules), so both are right for their own definition and the wording is what needs fixing.
+
+## What the investigation must produce
+
+A short report with **evidence, not inference**:
+
+1. dev's actual time-context rows: `ident` and `valid_on` for the context shown as `2023 (Data)` (`time_context` is not anon-readable; use the owner's session).
+2. the **exact** establishment count on dev for that `valid_on`.
+3. what PostgREST returns for `count=estimated` for the very same predicate — if it differs from (2), H1 is demonstrated.
+4. which hypothesis holds, stated plainly, with the numbers.
+5. the recommended fix and its risk, for the owner to approve.
+
+## Constraints
+
+- Read-only on dev: no writes, no imports, no migrations, no installs. Use the owner's browser session for the authenticated reads; never extract, store or print cookies or tokens.
+- Local reproduction is welcome (local box, `localhost:3014/statbus_local`) — say honestly if local data cannot show the divergence.
+- **No product-code change and no commit until the owner approves the fix.** This is an investigation first.
+- Report as `tmp/458-dashboard-estimate-investigation.md` and summarise in this ticket.
+<!-- SECTION:DESCRIPTION:END -->
+
+## Acceptance Criteria
+<!-- AC:BEGIN -->
+- [ ] #1 dev's real time-context rows (ident, valid_on) are recorded, with the exact establishment count for that valid_on.
+- [ ] #2 count=estimated is compared against count=exact for the identical predicate, and the two numbers are shown.
+- [ ] #3 The verdict names which hypothesis holds (H1/H2/H3) with the numbers that decide it.
+- [ ] #4 A recommended fix and its risk are stated for owner approval; no product code is changed and nothing is committed.
+- [ ] #5 The report exists at tmp/458-dashboard-estimate-investigation.md and the ticket summarises it.
+<!-- AC:END -->
 
 ## Owner observation, 2026-10-07 (dev.statbus.org)
 

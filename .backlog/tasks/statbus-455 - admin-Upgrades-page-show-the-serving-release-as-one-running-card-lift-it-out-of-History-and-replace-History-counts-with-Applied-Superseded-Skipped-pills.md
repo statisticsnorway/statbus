@@ -6,7 +6,7 @@ title: >-
 status: Done
 assignee: []
 created_date: '2026-10-07 10:15'
-updated_date: '2026-10-07 12:21'
+updated_date: '2026-10-07 12:57'
 labels:
   - ui
   - upgrades
@@ -15,6 +15,44 @@ dependencies: []
 priority: high
 ordinal: 386200
 ---
+
+## Description
+
+<!-- SECTION:DESCRIPTION:BEGIN -->
+## North Star
+
+The admin Upgrades page was showing loose debug text (a raw 40-char SHA banner, a stale "Last install invocation" line) and hiding the one fact an operator wants: what is actually running, and did its install work. An operator should see the serving release as one clear card, with its install record and its log, and the history should be readable rather than a wall of counters.
+
+## What was done
+
+- One **Running** card at the top of /admin/upgrades, keyed on the **exact-SHA match** of the responding artifact against the ledger (`commit_sha=eq.<artifactSHA>`), never on "newest completed" — so it stays truthful after a rollback. It carries the display name, short SHA, the real state badge, `Serving now` + id, Committed/Scheduled/Completed, the full SHA under a bold `Commit:` label, the last `./sb install` invocation under a bold label, the log viewer open by default, and the changelog collapsed.
+- The running row is excluded from History (it appears once, in the card). The two loose text lines were deleted.
+- History's header is exactly `History` (no counts) with one pill per badge word: `Completed` (default) / `Superseded` / `Skipped` / `Dismissed`, each selecting exactly the rows whose card carries that word.
+- Honest edge states: no unique matching row renders "no matching install record"; a non-completed row shows its true state, never relabelled "Running".
+- `running-identity.ts` keeps the last **proven** label during a refresh instead of blanking it to `unknown`.
+
+## How you know it is done
+
+Owner-verified in Firefox against the restored Demo database: the card renders the rc.20 row, the log opens with real content on a fresh load, the four pills are present, and #227495 does not appear in History. `pnpm run lint` (0 errors), `pnpm run tsc`, and `pnpm test` (14 suites, 74 tests) are green.
+
+## Out of scope
+
+- The upgrade pipeline, the ledger, migrations, REST and SQL were not changed.
+- The export work is STATBUS-421; the log-archive work is STATBUS-456.
+<!-- SECTION:DESCRIPTION:END -->
+
+## Acceptance Criteria
+<!-- AC:BEGIN -->
+- [x] #1 A single Running card at the top shows the release matching the responding artifact SHA, with display name, short SHA, real state badge, Serving now, id and Committed/Scheduled/Completed.
+- [x] #2 The full 40-char SHA is shown inline under a bold Commit: label; the raw loose banner is gone.
+- [x] #3 The last ./sb install invocation and log path are shown inline under a bold label; the loose paragraph is gone.
+- [x] #4 The card's log is open by default and the changelog stays collapsed.
+- [x] #5 The running row does not also appear in History.
+- [x] #6 No unique exact-SHA row renders 'no matching install record'; a non-completed row shows its true state, never relabelled Running.
+- [x] #7 History's header is exactly History (no counts) with pills Completed / Superseded / Skipped / Dismissed, one per badge word, Completed active by default.
+- [x] #8 While the exact-SHA query is in flight the card shows a loading/unknown state instead of disappearing.
+- [x] #9 Nothing about the upgrade pipeline, ledger, migrations, REST or SQL changed.
+<!-- AC:END -->
 
 ## Status: OWNER DECIDED 2026-10-07 (all design questions answered; implement, do not re-litigate)
 
