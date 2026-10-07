@@ -1,4 +1,8 @@
-import { historyRowsForPill, partitionUpgradeRows } from "./upgrade-history";
+import {
+  HISTORY_PILLS,
+  historyRowsForPill,
+  partitionUpgradeRows,
+} from "./upgrade-history";
 
 const row = (id: number, state: string) => ({ id, state });
 
@@ -29,23 +33,29 @@ test("partition keeps everything when no running row is identified", () => {
   expect(actionable).toHaveLength(0);
 });
 
-test("applied pill means completed only — never skipped or dismissed", () => {
+test("each pill selects exactly the rows carrying that badge word", () => {
   const rows = [
     row(1, "completed"),
     row(2, "skipped"),
     row(3, "dismissed"),
     row(4, "superseded"),
   ];
-  expect(historyRowsForPill(rows, "applied").map((r) => r.id)).toEqual([1]);
+  expect(historyRowsForPill(rows, "completed").map((r) => r.id)).toEqual([1]);
+  expect(historyRowsForPill(rows, "skipped").map((r) => r.id)).toEqual([2]);
+  expect(historyRowsForPill(rows, "dismissed").map((r) => r.id)).toEqual([3]);
+  expect(historyRowsForPill(rows, "superseded").map((r) => r.id)).toEqual([4]);
 });
 
-test("skipped pill groups skipped and dismissed", () => {
-  const rows = [
-    row(1, "completed"),
-    row(2, "skipped"),
-    row(3, "dismissed"),
-    row(4, "superseded"),
-  ];
-  expect(historyRowsForPill(rows, "skipped").map((r) => r.id)).toEqual([2, 3]);
-  expect(historyRowsForPill(rows, "superseded").map((r) => r.id)).toEqual([4]);
+test("every pill label is the display_state word the card shows", () => {
+  // public.display_state(): Completed, Superseded, Skipped, Dismissed.
+  expect(HISTORY_PILLS.map((p) => p.label)).toEqual([
+    "Completed",
+    "Superseded",
+    "Skipped",
+    "Dismissed",
+  ]);
+  // No compound label the user cannot point at on a card.
+  for (const pill of HISTORY_PILLS) {
+    expect(pill.label).not.toContain("/");
+  }
 });

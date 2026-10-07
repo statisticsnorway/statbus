@@ -427,7 +427,7 @@ export default function UpgradesPage() {
   )?.value;
 
   const [actionError, setActionError] = useState<string | null>(null);
-  const [historyPill, setHistoryPill] = useState<HistoryPill>("applied");
+  const [historyPill, setHistoryPill] = useState<HistoryPill>("completed");
 
   // Detect when an upgrade takes the app down — show the maintenance page inline.
   const hasActiveUpgrade = upgrades?.some(

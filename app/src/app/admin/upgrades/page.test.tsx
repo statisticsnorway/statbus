@@ -185,9 +185,11 @@ test("serving release renders as one Running card with id, meta, disclosures and
 
   // History header: exactly "History", pills, no counts.
   expect(html).toContain(">History<");
-  expect(html).toContain(">Applied<");
+  expect(html).toContain(">Completed<");
   expect(html).toContain(">Superseded<");
   expect(html).toContain(">Skipped<");
+  expect(html).toContain(">Dismissed<");
+  expect(html).not.toContain(">Applied<");
   expect(html).not.toContain("applied ·");
 
   // History is collapsed by default: its rows are not in the markup.
@@ -243,5 +245,5 @@ test("the running row is lifted out of History entirely", () => {
   const html = renderPage({ currentRows: [runningRow], rows: [runningRow] });
   expect(html).toContain(">Running<");
   expect(html).not.toContain(">History<");
-  expect(html).not.toContain(">Applied<");
+  expect(html).not.toContain(">Completed<");
 });

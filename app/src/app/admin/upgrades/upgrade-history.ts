@@ -2,12 +2,22 @@
 // (STATBUS-455). Pure functions so the page's render tests can pin the exact
 // filtering contract without a DOM.
 
-export type HistoryPill = "applied" | "superseded" | "skipped";
+export type HistoryPill =
+  | "completed"
+  | "superseded"
+  | "skipped"
+  | "dismissed";
 
+// One pill per word that actually appears on a card's state badge
+// (public.display_state(): Completed, Superseded, Skipped, Dismissed). The
+// filter is never a compound the user cannot point at on screen — the earlier
+// "Applied" pill and the skipped+dismissed union both asked the reader to
+// translate between the pill and the badge.
 export const HISTORY_PILLS: { id: HistoryPill; label: string }[] = [
-  { id: "applied", label: "Applied" },
+  { id: "completed", label: "Completed" },
   { id: "superseded", label: "Superseded" },
   { id: "skipped", label: "Skipped" },
+  { id: "dismissed", label: "Dismissed" },
 ];
 
 export interface PartitionedUpgrades<T> {
@@ -51,20 +61,13 @@ export function partitionUpgradeRows<T extends { id: number; state: string }>(
   return partitioned;
 }
 
-// "Applied" means actually applied: completed only. (The old header counted
-// every non-superseded row as "applied", mislabeling skipped/dismissed rows.)
+// Each pill selects exactly the rows whose card carries that word, so
+// "Completed" is completed only — never skipped, dismissed or superseded. (The
+// old header counted every non-superseded row as "applied", mislabeling
+// skipped/dismissed rows.)
 export function historyRowsForPill<T extends { state: string }>(
   rows: T[],
   pill: HistoryPill
 ): T[] {
-  switch (pill) {
-    case "applied":
-      return rows.filter((r) => r.state === "completed");
-    case "superseded":
-      return rows.filter((r) => r.state === "superseded");
-    case "skipped":
-      return rows.filter(
-        (r) => r.state === "skipped" || r.state === "dismissed"
-      );
-  }
+  return rows.filter((r) => r.state === pill);
 }
