@@ -3,9 +3,10 @@ id: STATBUS-457
 title: >-
   stamp the local artifact identity: pnpm dev/build write _statbus-build.json
   from HEAD plus a dirty flag, kept fresh by a dev-only watcher
-status: To Do
+status: In Progress
 assignee: []
 created_date: '2026-10-07 11:20'
+updated_date: '2026-10-07 12:33'
 labels:
   - cli
   - frontend
