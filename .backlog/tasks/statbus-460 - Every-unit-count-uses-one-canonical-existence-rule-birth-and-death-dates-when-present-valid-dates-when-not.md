@@ -6,6 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-10-07 22:27'
+updated_date: '2026-10-07 22:35'
 labels:
   - app
   - dashboard
@@ -38,3 +39,9 @@ NORTH STAR: one documented SQL definition decides whether a unit EXISTS at an in
 - [ ] #2 doc/data-model.md (or the closest data-model doc) names the canonical existence rule and lists the screens that use it.
 - [ ] #3 The 458 example rows are used as the worked example in the test, so the regression is traceable to this ticket.
 <!-- DOD:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+APPROVED BY OWNER 2026-10-07 ('sensible to do'). Companion ticket STATBUS-461 adds the import-side gate that keeps data consistent with this rule (a unit's life must overlap each record's window). Sequencing note: this ticket's DoD wants a timing measurement on the largest dataset, and a worker is currently restoring the no dump locally for the STATBUS-421 measurement, so the local timing run comes after that finishes.
+<!-- SECTION:NOTES:END -->
