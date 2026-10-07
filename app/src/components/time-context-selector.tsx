@@ -39,6 +39,8 @@ export default function TimeContextSelector({
             "space-x-2 border-dashed bg-transparent",
             className
           )}
+          data-time-context-ident={selectedTimeContext?.ident ?? undefined}
+          data-time-context-valid-on={selectedTimeContext?.valid_on ?? undefined}
         >
           <CalendarClock className="mr-2 h-4 w-4" />
           {selectedTimeContext?.name_when_query ?? title}
