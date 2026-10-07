@@ -69,7 +69,7 @@ Verified end to end on the demo path: `db dump` wrote a 6-file companion (11.8 K
 ## Implementation Notes
 
 <!-- SECTION:NOTES:BEGIN -->
-CLOSED AGAIN 2026-10-07 13:07: the ineffassign is fixed (cli/internal/dbdump/logarchive.go: var reader io.Reader with no initialiser; both branches assign it). Verified with the same tool CI runs: ./dev.sh lint -> golangci-lint: 0 issues across 28 package(s) in cli/, exit 0. Pushed as c2c74a6a6. The worker's original 'go test ./internal/dbdump/ ./cmd/ ok' was true but insufficient: lint is a separate gate. Local gate for Go changes is now explicitly ./dev.sh lint.
+CLOSED AGAIN 2026-10-07 13:07: the ineffassign is fixed (cli/internal/dbdump/logarchive.go: var reader io.Reader with no initialiser; both branches assign it). Verified with the same tool CI runs: ./dev.sh lint -> golangci-lint: 0 issues across 28 package(s) in cli/, exit 0. Pushed as 6abce8d68. The worker's original 'go test ./internal/dbdump/ ./cmd/ ok' was true but insufficient: lint is a separate gate. Local gate for Go changes is now explicitly ./dev.sh lint.
 <!-- SECTION:NOTES:END -->
 
 ## Final Summary
