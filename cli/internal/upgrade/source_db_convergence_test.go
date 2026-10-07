@@ -19,16 +19,20 @@ package upgrade
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"io"
 	"net"
 	"os"
 	"path/filepath"
 	"regexp"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgproto3"
 	"github.com/jackc/pgx/v5/pgtype"
 )
@@ -38,9 +42,10 @@ import (
 // cached statements. It answers exactly the statements the source-recovery
 // paths issue and records everything else as unexpected.
 type fakeUpgradePG struct {
-	t          *testing.T
-	addr       string
-	fromCommit string
+	t              *testing.T
+	addr           string
+	fromCommit     string
+	queryErrorCode string
 
 	mu            sync.Mutex
 	connections   int
@@ -245,6 +250,10 @@ func (s *fakeUpgradePG) serve(conn net.Conn) {
 			current = portal{sql: statements[m.PreparedStatement], params: append([][]byte(nil), m.Parameters...), formats: append([]int16(nil), m.ResultFormatCodes...)}
 			b.Send(&pgproto3.BindComplete{})
 		case *pgproto3.Execute:
+			if s.queryErrorCode != "" && strings.Contains(current.sql, "WHERE state = 'in_progress'") {
+				b.Send(&pgproto3.ErrorResponse{Severity: "ERROR", Code: s.queryErrorCode, Message: "fixture missing upgrade schema"})
+				continue
+			}
 			result := s.respond(current.sql, current.params, true)
 			if result.values != nil {
 				b.Send(encodeRow(result, current.formats))
@@ -406,6 +415,208 @@ func assertDaemonSessionsUsable(t *testing.T, f *sourceDBConvergeFixture, connec
 	if err := d.completeInProgressUpgrade(ctx); err != nil {
 		t.Fatalf("completeInProgressUpgrade after the failed convergence: %v", err)
 	}
+}
+
+func startupRecoveryServiceFixture(t *testing.T, dir, addr string) *Service {
+	t.Helper()
+	host, port, err := net.SplitHostPort(addr)
+	if err != nil {
+		t.Fatal(err)
+	}
+	env := fmt.Sprintf("CADDY_DB_BIND_ADDRESS=%s\nCADDY_DB_PORT=%s\nPOSTGRES_APP_DB=statbus_fixture\nPOSTGRES_ADMIN_USER=postgres\nPOSTGRES_ADMIN_PASSWORD=fixture\n", host, port)
+	if err := os.WriteFile(filepath.Join(dir, ".env"), []byte(env), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	d := &Service{projDir: dir}
+	t.Cleanup(d.Close)
+	return d
+}
+
+// These controls exercise the actual startup recovery helper and production
+// sessions over the existing wire fixture, not a whole service or guest boot.
+func TestStartupFlagRecoveryReconnectsAndReplays(t *testing.T) {
+	refusingDir := t.TempDir()
+	for _, command := range []string{"docker", "sb", "systemctl", "ssh", "git"} {
+		if err := os.WriteFile(filepath.Join(refusingDir, command), []byte("#!/bin/sh\necho REFUSED >&2\nexit 97\n"), 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
+	t.Setenv("PATH", refusingDir)
+	t.Run("unavailable-then-return", func(t *testing.T) {
+		pg := startFakeUpgradePG(t, "fixture")
+		ln, err := net.Listen("tcp", "127.0.0.1:0")
+		if err != nil {
+			t.Fatal(err)
+		}
+		t.Cleanup(func() { _ = ln.Close() })
+		var refused atomic.Int32
+		go func() {
+			for {
+				c, e := ln.Accept()
+				if e != nil {
+					return
+				}
+				if refused.Load() < 2 {
+					refused.Add(1)
+					_ = c.Close()
+					continue
+				}
+				go func() {
+					defer func() { _ = c.Close() }()
+					upstream, e := net.Dial("tcp", pg.addr)
+					if e != nil {
+						return
+					}
+					defer func() { _ = upstream.Close() }()
+					go func() { _, _ = io.Copy(upstream, c) }()
+					_, _ = io.Copy(c, upstream)
+				}()
+			}
+		}()
+		oldAfter := connectRetryAfter
+		connectRetryAfter = func(time.Duration) <-chan time.Time { ch := make(chan time.Time, 1); ch <- time.Now(); return ch }
+		t.Cleanup(func() { connectRetryAfter = oldAfter })
+		d := startupRecoveryServiceFixture(t, t.TempDir(), ln.Addr().String())
+		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+		defer cancel()
+		if err := d.recoverStartupFlag(ctx); err != nil {
+			t.Fatal(err)
+		}
+		if refused.Load() != 2 {
+			t.Fatalf("refused attempts=%d", refused.Load())
+		}
+		if err := d.completeInProgressUpgrade(ctx); err != nil {
+			t.Fatal(err)
+		}
+	})
+	t.Run("cancel-while-unavailable", func(t *testing.T) {
+		ln, err := net.Listen("tcp", "127.0.0.1:0")
+		if err != nil {
+			t.Fatal(err)
+		}
+		t.Cleanup(func() { _ = ln.Close() })
+		go func() {
+			for {
+				c, e := ln.Accept()
+				if e != nil {
+					return
+				}
+				_ = c.Close()
+			}
+		}()
+		flag := UpgradeFlag{ID: 0, Holder: HolderService, Phase: PhaseNewSbUpgrading, Step: StepRollback}
+		dir, lock := heldRecoveryFixture(t, flag)
+		lock.Close()
+		before, err := os.ReadFile(flagFilePath(dir))
+		if err != nil {
+			t.Fatal(err)
+		}
+		d := startupRecoveryServiceFixture(t, dir, ln.Addr().String())
+		d.rollbackFinishPendingForTest = func(context.Context, int) (bool, error) { return false, nil }
+		d.servingTreeObligationForTest = func(context.Context, int) (bool, string, error) { return false, "", nil }
+		ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
+		defer cancel()
+		start := time.Now()
+		if err := d.recoverStartupFlag(ctx); err == nil {
+			t.Fatal("down startup succeeded")
+		}
+		if time.Since(start) > time.Second {
+			t.Fatal("cancel not prompt")
+		}
+		if d.queryConn != nil && !d.queryConn.IsClosed() {
+			t.Fatal("down startup created usable query session")
+		}
+		after, err := os.ReadFile(flagFilePath(dir))
+		if err != nil || string(before) != string(after) || IsFlockHeld(dir) {
+			t.Fatalf("canceled unavailable recovery changed marker or retained flock: %v", err)
+		}
+	})
+	t.Run("retained-service-marker-replayed", func(t *testing.T) {
+		flag := UpgradeFlag{ID: 0, Holder: HolderService, Phase: PhaseNewSbUpgrading, Step: StepRollback}
+		dir, lock := heldRecoveryFixture(t, flag)
+		lock.Close()
+		before, err := os.ReadFile(flagFilePath(dir))
+		if err != nil {
+			t.Fatal(err)
+		}
+		pg := startFakeUpgradePG(t, "fixture")
+		d := startupRecoveryServiceFixture(t, dir, pg.addr)
+		var reads int
+		d.rollbackFinishPendingForTest = func(context.Context, int) (bool, error) { reads++; return false, nil }
+		d.servingTreeObligationForTest = func(context.Context, int) (bool, string, error) { return false, "", nil }
+		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+		defer cancel()
+		if err := d.connect(ctx); err != nil {
+			t.Fatal(err)
+		}
+		if err := d.queryConn.Close(ctx); err != nil {
+			t.Fatal(err)
+		}
+		if err := d.recoverStartupFlag(ctx); err != nil {
+			t.Fatal(err)
+		}
+		if reads != 2 {
+			t.Fatalf("actual flag recovery passes=%d want2", reads)
+		}
+		after, err := os.ReadFile(flagFilePath(dir))
+		if err != nil || string(before) != string(after) {
+			t.Fatalf("marker changed: %v", err)
+		}
+		if IsFlockHeld(dir) {
+			t.Fatal("parked marker retained live flock")
+		}
+		_, _, narratives, alters, unexpected := pg.snapshot()
+		if len(narratives)+len(alters)+len(unexpected) != 0 {
+			t.Fatalf("unexpected writes/queries: %v %v %v", narratives, alters, unexpected)
+		}
+	})
+	t.Run("phase-drift-remains-fatal", func(t *testing.T) {
+		flag := UpgradeFlag{ID: 0, Holder: HolderService, Phase: "unrecognized-probe-phase"}
+		dir, lock := heldRecoveryFixture(t, flag)
+		lock.Close()
+		before, err := os.ReadFile(flagFilePath(dir))
+		if err != nil {
+			t.Fatal(err)
+		}
+		pg := startFakeUpgradePG(t, "fixture")
+		d := startupRecoveryServiceFixture(t, dir, pg.addr)
+		d.rollbackFinishPendingForTest = func(context.Context, int) (bool, error) { return false, nil }
+		d.servingTreeObligationForTest = func(context.Context, int) (bool, string, error) { return false, "", nil }
+		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+		defer cancel()
+		if err := d.connect(ctx); err != nil {
+			t.Fatal(err)
+		}
+		if err := d.recoverStartupFlag(ctx); err == nil {
+			t.Fatal("unknown recovery phase swallowed")
+		}
+		after, err := os.ReadFile(flagFilePath(dir))
+		if err != nil || string(after) != string(before) {
+			t.Fatalf("divergence mutated marker: %v", err)
+		}
+		connections, locks, _, _, _ := pg.snapshot()
+		if connections != 2 || locks != 0 {
+			t.Fatalf("divergence retried connection: connections=%d locks=%d", connections, locks)
+		}
+	})
+	t.Run("actual-wire-schema-error-remains-fatal", func(t *testing.T) {
+		pg := startFakeUpgradePG(t, "fixture")
+		pg.queryErrorCode = "42P01"
+		d := startupRecoveryServiceFixture(t, t.TempDir(), pg.addr)
+		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+		defer cancel()
+		if err := d.recoverStartupFlag(ctx); err != nil {
+			t.Fatal(err)
+		}
+		err := d.completeInProgressUpgrade(ctx)
+		var sqlErr *pgconn.PgError
+		if !errors.As(err, &sqlErr) || sqlErr.Code != "42P01" {
+			t.Fatalf("actual reader error=%v", err)
+		}
+		if isConnError(err) {
+			t.Fatal("schema error misclassified as reconnectable")
+		}
+	})
 }
 
 func TestSourceDatabaseConvergenceFailureRestoresDaemonSessions(t *testing.T) {

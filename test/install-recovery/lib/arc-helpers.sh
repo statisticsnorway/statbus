@@ -170,7 +170,7 @@ arc_to() {
         case "$state" in
             completed|rolled_back) final="$state"; echo "  ${label}: state='$state' (t+${elapsed}s)"; break ;;
             failed)
-                if [ "$pending" = t ]; then
+                if [ "$pending" = true ]; then
                     : # rollback finish pending — designed intermediate, keep polling
                 else
                     final="$state"; echo "  ${label}: state='$state' (t+${elapsed}s)"; break

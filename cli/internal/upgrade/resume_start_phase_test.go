@@ -59,17 +59,17 @@ func TestRunStartupOrder_B1AndBootMigrateActivePhase(t *testing.T) {
 	run := extractFuncBody(t, string(src), "func (d *Service) Run(")
 
 	readyIdx := strings.Index(run, `sdNotify("READY=1")`)
-	recoverIdx := strings.Index(run, "d.recoverFromFlag(ctx)")
+	recoverIdx := strings.Index(run, "d.recoverStartupFlag(ctx)")
 	listenCheckIdx := strings.Index(run, `"LISTEN upgrade_check"`)
 	listenApplyIdx := strings.Index(run, `"LISTEN upgrade_apply"`)
 	bootMigrateIdx := strings.Index(run, `"boot-migrate-up"`)
 
 	for name, idx := range map[string]int{
-		`sdNotify("READY=1")`:    readyIdx,
-		"d.recoverFromFlag(ctx)": recoverIdx,
-		`"LISTEN upgrade_check"`: listenCheckIdx,
-		`"LISTEN upgrade_apply"`: listenApplyIdx,
-		`"boot-migrate-up"`:      bootMigrateIdx,
+		`sdNotify("READY=1")`:       readyIdx,
+		"d.recoverStartupFlag(ctx)": recoverIdx,
+		`"LISTEN upgrade_check"`:    listenCheckIdx,
+		`"LISTEN upgrade_apply"`:    listenApplyIdx,
+		`"boot-migrate-up"`:         bootMigrateIdx,
 	} {
 		if idx < 0 {
 			t.Fatalf("Service.Run missing %s — test is stale", name)
@@ -77,12 +77,12 @@ func TestRunStartupOrder_B1AndBootMigrateActivePhase(t *testing.T) {
 	}
 
 	if readyIdx > recoverIdx {
-		t.Errorf(`sdNotify("READY=1") must be BEFORE d.recoverFromFlag(ctx) (B1): readyIdx=%d recoverIdx=%d.`+
+		t.Errorf(`sdNotify("READY=1") must be BEFORE d.recoverStartupFlag(ctx) (B1): readyIdx=%d recoverIdx=%d.`+
 			" The exit-42 resume must run active-phase under WatchdogSec, not start-phase under TimeoutStartSec "+
 			"(the NO/rune wedge). See plan upgrade-resume-structural-whole.md piece #2.", readyIdx, recoverIdx)
 	}
 	if listenCheckIdx > recoverIdx || listenApplyIdx > recoverIdx {
-		t.Errorf("both LISTEN calls must be BEFORE d.recoverFromFlag(ctx) (B1 Option Y): "+
+		t.Errorf("both LISTEN calls must be BEFORE d.recoverStartupFlag(ctx) (B1 Option Y): "+
 			"check=%d apply=%d recover=%d. Registering LISTEN before recovery means a NOTIFY arriving "+
 			"mid-recovery buffers on the session (drained by the main loop) rather than being lost.",
 			listenCheckIdx, listenApplyIdx, recoverIdx)
@@ -93,7 +93,7 @@ func TestRunStartupOrder_B1AndBootMigrateActivePhase(t *testing.T) {
 			"start-phase TimeoutStartSec. See plan piece #2 boot-migrate fold-in.", bootMigrateIdx, readyIdx)
 	}
 	if bootMigrateIdx > recoverIdx {
-		t.Errorf("boot-migrate-up must be BEFORE d.recoverFromFlag(ctx) (schema-skew guard): bootMigrate=%d recover=%d. "+
+		t.Errorf("boot-migrate-up must be BEFORE d.recoverStartupFlag(ctx) (schema-skew guard): bootMigrate=%d recover=%d. "+
 			"recoverFromFlag's first public.upgrade query needs the schema migrated to HEAD, or it fails SQLSTATE 42703.",
 			bootMigrateIdx, recoverIdx)
 	}
@@ -137,7 +137,7 @@ func TestBootMigrateWatchdogCover_SourceOrder(t *testing.T) {
 	bootMigrateIdx := strings.Index(run, `"boot-migrate-up"`)
 	timeoutIdx := strings.Index(run, "MigrateUpTimeout, io.Discard")
 	joinIdx := strings.Index(run, "<-bootMigrateTickerDone")
-	recoverIdx := strings.Index(run, "d.recoverFromFlag(ctx)")
+	recoverIdx := strings.Index(run, "d.recoverStartupFlag(ctx)")
 
 	for name, idx := range map[string]int{
 		`sdNotify("READY=1")`:                       readyIdx,
@@ -145,7 +145,7 @@ func TestBootMigrateWatchdogCover_SourceOrder(t *testing.T) {
 		`"boot-migrate-up"`:                         bootMigrateIdx,
 		"MigrateUpTimeout at the boot-migrate call": timeoutIdx,
 		"<-bootMigrateTickerDone join":              joinIdx,
-		"d.recoverFromFlag(ctx)":                    recoverIdx,
+		"d.recoverStartupFlag(ctx)":                 recoverIdx,
 	} {
 		if idx < 0 {
 			t.Fatalf("Service.Run missing %s — test is stale (STATBUS-012 cover removed or renamed?)", name)

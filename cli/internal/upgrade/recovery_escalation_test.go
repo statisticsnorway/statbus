@@ -200,8 +200,12 @@ func TestRecoveryRollbackErrorsPropagateThroughEveryFlagRecoveryCaller(t *testin
 		t.Fatalf("every recoverFromFlag rollback call must return its error: calls=%d returned=%d", calls, returned)
 	}
 	run := extractFuncBody(t, source, "func (d *Service) Run(")
-	if !strings.Contains(run, "if err := d.recoverFromFlag(ctx); err != nil") || !strings.Contains(run, `return fmt.Errorf("recover from flag: %w", err)`) {
-		t.Fatal("Run must exit through its existing recovery-error path when rollback reconciliation fails")
+	if !strings.Contains(run, "if err := d.recoverStartupFlag(ctx); err != nil {\n\t\treturn err\n\t}") {
+		t.Fatal("Run must return its startup recovery helper error when rollback reconciliation fails")
+	}
+	startupRecovery := extractFuncBody(t, source, "func (d *Service) recoverStartupFlag(")
+	if !strings.Contains(startupRecovery, "if err := d.recoverFromFlag(ctx); err != nil {\n\t\t\treturn fmt.Errorf(\"recover from flag: %w\", err)\n\t\t}") {
+		t.Fatal("startup recovery must return the wrapped recoverFromFlag error when rollback reconciliation fails")
 	}
 }
 

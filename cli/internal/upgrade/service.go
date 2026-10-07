@@ -2974,6 +2974,24 @@ const ErrResumeDied = "UPGRADE_DIED_DURING_RESUME"
 // boundary itself (STATBUS-298).
 const exitPrincipledConfigRefusal = 78
 
+// recoverStartupFlag restores usable daemon sessions after a recovery pass
+// yielded with an unverifiable database, then replays the durable flag before
+// startup can perform DB-only reconciliation or consider new work.
+func (d *Service) recoverStartupFlag(ctx context.Context) error {
+	for {
+		if err := d.recoverFromFlag(ctx); err != nil {
+			return fmt.Errorf("recover from flag: %w", err)
+		}
+		if d.queryConn != nil && !d.queryConn.IsClosed() && d.listenConn != nil && !d.listenConn.IsClosed() {
+			return nil
+		}
+		if err := d.reconnect(ctx); err != nil {
+			return fmt.Errorf("reconnect after flag recovery: %w", err)
+		}
+		// Re-read durable recovery intent before any DB-only reconciliation.
+	}
+}
+
 // Run starts the upgrade service main loop.
 func (d *Service) Run(ctx context.Context) error {
 	d.runningAsService = true
@@ -3480,8 +3498,8 @@ func (d *Service) Run(ctx context.Context) error {
 	// (rc.67) — exit so systemd's StartLimit (Item L: 10 in 600s) catches a
 	// thrashing daemon that can't reconcile its own state instead of letting
 	// the loop schedule new upgrades against a broken world.
-	if err := d.recoverFromFlag(ctx); err != nil {
-		return fmt.Errorf("recover from flag: %w", err)
+	if err := d.recoverStartupFlag(ctx); err != nil {
+		return err
 	}
 	// A crash or unlink failure after rollback restored the previous version but
 	// before the final failed -> rolled_back UPDATE leaves a deliberately marked
