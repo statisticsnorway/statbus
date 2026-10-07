@@ -2,6 +2,7 @@ package upgrade
 
 import (
 	"context"
+	"encoding/binary"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -10,6 +11,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"sync"
 	"testing"
@@ -46,12 +48,27 @@ type astraClaimDB struct {
 	floorAppliedPath                 string
 	state, target, from, lastFailure string
 	queries                          []string
+	claimToken                       string
+	claimID                          int
+	connections                      int
+	sessionExemptions                int
+	terminalWrites                   int
 }
 
 func (s *astraClaimDB) snapshot() (bool, bool, string, string) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	return s.parked, s.convergenceRequired || s.otherConvergenceRequired, s.state, s.lastFailure
+}
+
+func (s *astraClaimDB) assertFreshTerminalWriter(t *testing.T) {
+	t.Helper()
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.connections != 2 || s.sessionExemptions != 1 || s.terminalWrites != 1 || s.claimToken != "" || !strings.Contains(s.lastFailure, "WHERE id = $3 AND state = 'in_progress' AND claim_token = $4::uuid") {
+		t.Fatalf("fresh terminal route/SET/CAS mismatch: connections=%d exemptions=%d writes=%d token=%q SQL=%s", s.connections, s.sessionExemptions, s.terminalWrites, s.claimToken, s.lastFailure)
+	}
+	t.Logf("actual fresh terminal writer: connections=%d SET exemptions=%d guarded RETURNING writes=%d", s.connections, s.sessionExemptions, s.terminalWrites)
 }
 
 func (s *astraClaimDB) scheduleReplacement(target string) {
@@ -219,24 +236,39 @@ func readClaimFloorShimLog(t *testing.T, paths claimFloorShimPaths) string {
 	return string(data)
 }
 
-func astraClaimConnection(t *testing.T, s *astraClaimDB) *pgx.Conn {
+func astraClaimConnection(t *testing.T, s *astraClaimDB, projects ...string) *pgx.Conn {
 	t.Helper()
 	ln, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = ln.Close() })
-	go func() {
-		conn, err := ln.Accept()
+	claimTokenPattern := regexp.MustCompile(`claim_token\s*=\s*'([0-9a-f-]+)'\s*::uuid`)
+	serve := func(conn net.Conn) {
+		defer func() { _ = conn.Close() }()
+		b := pgproto3.NewBackend(conn, conn)
+		startup, err := b.ReceiveStartupMessage()
 		if err != nil {
 			return
 		}
-		defer func() { _ = conn.Close() }()
-		b := pgproto3.NewBackend(conn, conn)
-		if _, err = b.ReceiveStartupMessage(); err != nil {
+		if _, ssl := startup.(*pgproto3.SSLRequest); ssl {
+			t.Log("synthetic listener observed SSLRequest, explicitly refuses TLS before real startup")
+			if _, err := conn.Write([]byte("N")); err != nil {
+				return
+			}
+			startup, err = b.ReceiveStartupMessage()
+			if err != nil {
+				return
+			}
+		}
+		if _, ok := startup.(*pgproto3.StartupMessage); !ok {
+			t.Errorf("unexpected PG startup message %T", startup)
 			return
 		}
 		b.Send(&pgproto3.AuthenticationOk{})
+		s.mu.Lock()
+		s.connections++
+		s.mu.Unlock()
 		b.Send(&pgproto3.ParameterStatus{Name: "server_version", Value: "18.0"})
 		b.Send(&pgproto3.ParameterStatus{Name: "client_encoding", Value: "UTF8"})
 		b.Send(&pgproto3.ParameterStatus{Name: "standard_conforming_strings", Value: "on"})
@@ -244,6 +276,14 @@ func astraClaimConnection(t *testing.T, s *astraClaimDB) *pgx.Conn {
 		if b.Flush() != nil {
 			return
 		}
+		// Fresh pgx terminal writers use extended protocol, unlike the original
+		// simple-protocol claim session. Accept only this guarded writer shape.
+		terminalBase := "UPDATE public.upgrade SET state = 'failed', failure_code = $1, error = $2, scheduled_at = NULL, claim_token = NULL WHERE id = $3 AND state = 'in_progress'"
+		statements := make(map[string]string)
+		var terminalSQL string
+		var terminalParams [][]byte
+		var terminalFormats []int16
+		exempt := false
 		for {
 			m, err := b.Receive()
 			if err != nil {
@@ -252,10 +292,86 @@ func astraClaimConnection(t *testing.T, s *astraClaimDB) *pgx.Conn {
 			if _, ok := m.(*pgproto3.Terminate); ok {
 				return
 			}
-			q, ok := m.(*pgproto3.Query)
-			if !ok {
+			switch msg := m.(type) {
+			case *pgproto3.Parse:
+				if msg.Query != terminalBase+upgradeRowReturning && msg.Query != terminalBase+" AND claim_token = $4::uuid"+upgradeRowReturning {
+					t.Errorf("unexpected prepared SQL at review protocol boundary: %s", msg.Query)
+					return
+				}
+				statements[msg.Name] = msg.Query
+				b.Send(&pgproto3.ParseComplete{})
+			case *pgproto3.Describe:
+				if msg.ObjectType == 'S' {
+					terminalSQL = statements[msg.Name]
+					oids := []uint32{25, 25, 23}
+					if strings.Contains(terminalSQL, "$4") {
+						oids = append(oids, 25)
+					}
+					b.Send(&pgproto3.ParameterDescription{ParameterOIDs: oids})
+				}
+				b.Send(&pgproto3.RowDescription{Fields: []pgproto3.FieldDescription{{Name: []byte("row"), DataTypeOID: 25, DataTypeSize: -1, TypeModifier: -1}}})
+			case *pgproto3.Bind:
+				terminalSQL = statements[msg.PreparedStatement]
+				terminalParams = msg.Parameters
+				terminalFormats = msg.ParameterFormatCodes
+				b.Send(&pgproto3.BindComplete{})
+			case *pgproto3.Execute:
+				wantParams := 3
+				if strings.Contains(terminalSQL, "$4") {
+					wantParams = 4
+				}
+				if terminalSQL == "" || len(terminalParams) != wantParams || !exempt {
+					t.Errorf("terminal writer missing exact SQL/parameters/session exemption")
+					return
+				}
+				id := string(terminalParams[2])
+				format := int16(0)
+				if len(terminalFormats) == 1 {
+					format = terminalFormats[0]
+				} else if len(terminalFormats) > 2 {
+					format = terminalFormats[2]
+				}
+				if format == 1 {
+					if len(terminalParams[2]) != 4 {
+						t.Errorf("invalid binary terminal id")
+						return
+					}
+					id = fmt.Sprint(int32(binary.BigEndian.Uint32(terminalParams[2])))
+				}
+				s.mu.Lock()
+				s.queries = append(s.queries, terminalSQL)
+				matched := s.state == "in_progress" && id == fmt.Sprint(s.claimID) && (wantParams == 3 || string(terminalParams[3]) == s.claimToken)
+				rowID := s.claimID
+				if matched {
+					s.state = "failed"
+					s.lastFailure = terminalSQL + " error=" + string(terminalParams[1])
+					s.claimToken = ""
+					s.terminalWrites++
+				}
+				s.mu.Unlock()
+				if matched {
+					b.Send(&pgproto3.DataRow{Values: [][]byte{[]byte(fmt.Sprintf(`{"id":%d,"state":"failed"}`, rowID))}})
+					b.Send(&pgproto3.CommandComplete{CommandTag: []byte("UPDATE 1")})
+				} else {
+					b.Send(&pgproto3.CommandComplete{CommandTag: []byte("UPDATE 0")})
+				}
+			case *pgproto3.Close:
+				b.Send(&pgproto3.CloseComplete{})
+			case *pgproto3.Sync:
+				b.Send(&pgproto3.ReadyForQuery{TxStatus: 'I'})
+			case *pgproto3.Flush:
+			case *pgproto3.Query:
+				// Existing exact simple-protocol dispatch remains below.
+			default:
 				t.Errorf("unexpected PG message %T", m)
 				return
+			}
+			q, ok := m.(*pgproto3.Query)
+			if !ok {
+				if b.Flush() != nil {
+					return
+				}
+				continue
 			}
 			s.mu.Lock()
 			s.queries = append(s.queries, q.String)
@@ -265,6 +381,10 @@ func astraClaimConnection(t *testing.T, s *astraClaimDB) *pgx.Conn {
 			var oids []uint32
 			var pgErrorCode string
 			switch {
+			case text == "SET default_transaction_read_only = off":
+				exempt = true
+				s.sessionExemptions++
+				tag = "SET"
 			case text == "begin":
 				tag = "BEGIN"
 			case text == "commit":
@@ -311,6 +431,9 @@ func astraClaimConnection(t *testing.T, s *astraClaimDB) *pgx.Conn {
 				fallthrough
 			case strings.HasPrefix(text, "WITH box_obligation AS MATERIALIZED"):
 				if s.state == "scheduled" {
+					if match := claimTokenPattern.FindStringSubmatch(text); match != nil {
+						s.claimToken = match[1]
+					}
 					s.state = "in_progress"
 					usesDurableObligation := strings.Contains(text, "tree_convergence_required")
 					if s.preColumn && usesDurableObligation {
@@ -330,6 +453,7 @@ func astraClaimConnection(t *testing.T, s *astraClaimDB) *pgx.Conn {
 						claimID = 44
 						commitVersion = "v2026.09.100"
 					}
+					s.claimID = claimID
 					snap, _ := json.Marshal(map[string]any{"id": claimID, "commit_version": commitVersion, "commit_sha": s.target, "from_commit_version": s.from, "started_at": "2026-09-21T22:00:00Z"})
 					row = []string{"{" + commitVersion + "}", "f", fmt.Sprint(claimID), commitVersion, s.target, s.from, "2026-09-21 22:00:00+00"}
 					oids = []uint32{1009, 16, 23, 25, 25, 25, 1184}
@@ -367,17 +491,16 @@ func astraClaimConnection(t *testing.T, s *astraClaimDB) *pgx.Conn {
 				tag = "UPDATE 1"
 			case strings.HasPrefix(text, "SELECT to_jsonb(u)::text"):
 				// A missing optional diagnostic row avoids exercising the bundle shell.
-			case strings.HasPrefix(text, "UPDATE public.upgrade SET state = 'failed'"):
-				s.state = "failed"
-				s.lastFailure = text
-				row = []string{`{"id":33,"state":"failed"}`}
-				oids = []uint32{25}
-				tag = "UPDATE 1"
 			default:
 				t.Errorf("unexpected SQL at review protocol boundary: %s", text)
+				pgErrorCode = "0A000"
 			}
 			if pgErrorCode != "" {
-				b.Send(&pgproto3.ErrorResponse{Severity: "ERROR", Code: pgErrorCode, Message: `column "tree_convergence_required" does not exist`})
+				message := "unexpected SQL at review protocol boundary"
+				if pgErrorCode == "42703" {
+					message = `column "tree_convergence_required" does not exist`
+				}
+				b.Send(&pgproto3.ErrorResponse{Severity: "ERROR", Code: pgErrorCode, Message: message})
 				b.Send(&pgproto3.ReadyForQuery{TxStatus: 'I'})
 				s.mu.Unlock()
 				if b.Flush() != nil {
@@ -402,7 +525,32 @@ func astraClaimConnection(t *testing.T, s *astraClaimDB) *pgx.Conn {
 				return
 			}
 		}
+	}
+	go func() {
+		for {
+			conn, err := ln.Accept()
+			if err != nil {
+				return
+			}
+			go serve(conn)
+		}
 	}()
+	// Only these private test projects route fresh terminal writers here.
+	for _, project := range projects {
+		host, port, err := net.SplitHostPort(ln.Addr().String())
+		if err != nil {
+			t.Fatal(err)
+		}
+		path := filepath.Join(project, ".env")
+		env, err := os.ReadFile(path)
+		if err != nil && !os.IsNotExist(err) {
+			t.Fatal(err)
+		}
+		env = append(env, []byte(fmt.Sprintf("\nCADDY_DB_BIND_ADDRESS=%s\nCADDY_DB_PORT=%s\nPOSTGRES_APP_DB=review\nPOSTGRES_ADMIN_USER=review\nPOSTGRES_ADMIN_PASSWORD=\n", host, port))...)
+		if err := os.WriteFile(path, env, 0600); err != nil {
+			t.Fatal(err)
+		}
+	}
 	cfg, err := pgx.ParseConfig("postgres://review@" + ln.Addr().String() + "/review?sslmode=disable")
 	if err != nil {
 		t.Fatal(err)
@@ -459,7 +607,7 @@ func TestAstraClosureActualConvergenceFailureIsTerminal(t *testing.T) {
 	unavailable := false
 	astraManifestBoundary(t, &unavailable)
 	db := &astraClaimDB{parked: true, state: "scheduled", target: strings.Repeat("c", 40), from: git.newSHA}
-	d := &Service{projDir: git.dir, version: git.newSHA, queryConn: astraClaimConnection(t, db), allowedSignersPath: "review-boundary"}
+	d := &Service{projDir: git.dir, version: git.newSHA, queryConn: astraClaimConnection(t, db, git.dir), allowedSignersPath: "review-boundary"}
 	claim, err := d.claimScheduledUpgrade(context.Background(), 33)
 	if err != nil {
 		t.Fatal(err)
@@ -471,6 +619,7 @@ func TestAstraClosureActualConvergenceFailureIsTerminal(t *testing.T) {
 	if err == nil || !strings.Contains(err.Error(), "PARKED_SERVING_TREE_CONVERGENCE_FAILED") {
 		t.Fatalf("wrong terminal: %v", err)
 	}
+	db.assertFreshTerminalWriter(t)
 	parked, required, state, failure := db.snapshot()
 	if parked || !required || state != "failed" || !strings.Contains(failure, "PARKED_SERVING_TREE_CONVERGENCE_FAILED") {
 		t.Fatalf("terminal did not land with durable retry: parked=%t required=%t state=%s SQL=%s", parked, required, state, failure)
@@ -504,7 +653,7 @@ func TestAstraClosureManifestRetryMustRetainConvergence(t *testing.T) {
 	unavailable := true
 	astraManifestBoundary(t, &unavailable)
 	db := &astraClaimDB{parked: true, state: "scheduled", target: strings.Repeat("c", 40), from: git.newSHA}
-	d := &Service{projDir: git.dir, version: git.newSHA, queryConn: astraClaimConnection(t, db), allowedSignersPath: "review-boundary", cachedURL: srv.URL + "/rpc/auth_status", cachedReadyURL: srv.URL + "/ready"}
+	d := &Service{projDir: git.dir, version: git.newSHA, queryConn: astraClaimConnection(t, db, git.dir), allowedSignersPath: "review-boundary", cachedURL: srv.URL + "/rpc/auth_status", cachedReadyURL: srv.URL + "/ready"}
 	first, err := d.claimScheduledUpgrade(context.Background(), 33)
 	if err != nil {
 		t.Fatal(err)
@@ -549,7 +698,7 @@ func TestNewCandidateInheritsBoxConvergenceAfterManifestRetry(t *testing.T) {
 	unavailable := true
 	astraManifestBoundary(t, &unavailable)
 	db := &astraClaimDB{parked: true, state: "scheduled", target: strings.Repeat("c", 40), from: git.newSHA}
-	d := &Service{projDir: git.dir, version: git.newSHA, queryConn: astraClaimConnection(t, db), allowedSignersPath: "review-boundary", cachedURL: srv.URL + "/rpc/auth_status", cachedReadyURL: srv.URL + "/ready"}
+	d := &Service{projDir: git.dir, version: git.newSHA, queryConn: astraClaimConnection(t, db, git.dir), allowedSignersPath: "review-boundary", cachedURL: srv.URL + "/rpc/auth_status", cachedReadyURL: srv.URL + "/ready"}
 
 	claimC, err := d.claimScheduledUpgrade(context.Background(), 33)
 	if err != nil {
@@ -978,7 +1127,7 @@ func TestDisplacedParkMissingTreeImagesContainsAndRetainsObligation(t *testing.T
 	unavailable := false
 	astraManifestBoundary(t, &unavailable)
 	db := &astraClaimDB{parked: true, state: "scheduled", target: strings.Repeat("c", 40), from: git.newSHA}
-	d := &Service{projDir: git.dir, version: git.newSHA, queryConn: astraClaimConnection(t, db), allowedSignersPath: "review-boundary"}
+	d := &Service{projDir: git.dir, version: git.newSHA, queryConn: astraClaimConnection(t, db, git.dir), allowedSignersPath: "review-boundary"}
 	claim, err := d.claimScheduledUpgrade(context.Background(), 33)
 	if err != nil {
 		t.Fatal(err)
@@ -987,6 +1136,7 @@ func TestDisplacedParkMissingTreeImagesContainsAndRetainsObligation(t *testing.T
 	if err == nil || !strings.Contains(err.Error(), "PARKED_SERVING_TREE_CONVERGENCE_FAILED") {
 		t.Fatalf("missing current-tree images terminal = %v", err)
 	}
+	db.assertFreshTerminalWriter(t)
 	_, required, state, _ := db.snapshot()
 	if !required || state != "failed" {
 		t.Fatalf("missing-image terminal lost durable repair: required=%t state=%s", required, state)

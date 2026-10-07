@@ -84,6 +84,7 @@ var allowedComposeUpCalls = map[string]approvedLaunch{
 // an existing site, or rerouting a tool through another launcher all fail until
 // the specific combination is reviewed.
 var allowedProcessLaunches = map[string]approvedLaunch{
+	"internal/upgrade/service.go:ReconcileInterruptedForInline|upgrade.runCommandOutput|git":          {Count: 1, Reason: "read-only git rev-parse HEAD verifies the recovered tree still matches the running executable before arriving installer dispatch; no checkout, fetch, shell or compose-launch permission"},
 	"cmd/install_ledger_repair.go:installationIncludesCommit|os/exec|git":                             {Count: 1, Reason: "read-only git merge-base --is-ancestor proves retained witness ancestry bounded by the successful installed target for historical ledger repair; no checkout, fetch, mutation or compose-launch permission"},
 	"internal/upgrade/recovery_attempt.go:authorizeRecoveryAttempt|upgrade.runCommandOutput|git":      {Count: 1, Reason: "read-only git merge-base --is-ancestor proves the independently completed executable-matching witness is a strict descendant before exact-attempt retirement; exit1 means non-descendant and grants no compose-launch permission"},
 	"cmd/db.go:backupCreateCmd.RunE|os/exec|tar":                                                      {Count: 1, Reason: "backupCreateCmd packages the selected dump and metadata files into the operator-requested tar archive"},
