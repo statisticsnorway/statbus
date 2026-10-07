@@ -1,5 +1,7 @@
+"use client";
+
 import { buttonVariants } from "@/components/ui/button";
-import { Download } from "lucide-react";
+import { Download, Loader2, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
   DropdownMenu,
@@ -7,6 +9,16 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  formatExportProgress,
+  useStatisticalUnitExport,
+} from "@/app/search/export/use-statistical-unit-export";
+
+/**
+ * Export the temporal history of one unit. Uses the same single-request
+ * streaming export as the search page (STATBUS-421); a unit's history is
+ * small, so no confirmation gates apply.
+ */
 export function UnitHistoryExportButton({
   unitId,
   unitType,
@@ -14,12 +26,53 @@ export function UnitHistoryExportButton({
   readonly unitId: number;
   readonly unitType: string;
 }) {
-  const params = new URLSearchParams({
-    unit_id: `eq.${unitId}`,
-    unit_type: `in.(${unitType})`,
-    order: "valid_from.asc",
-  });
-  const baseUrl = `/api/search/export?${params.toString()}`;
+  const { progress, startExport, cancelExport } = useStatisticalUnitExport();
+
+  const begin = (format: "csv" | "xlsx") => {
+    const params = new URLSearchParams({
+      unit_id: `eq.${unitId}`,
+      unit_type: `in.(${unitType})`,
+      order: "valid_from.asc",
+    });
+    void startExport({
+      format,
+      searchParams: params,
+      filenameBase: `unit_${unitId}_history`,
+      expectedTotal: null,
+      totalIsExact: false,
+    });
+  };
+
+  if (progress.phase === "downloading" || progress.phase === "processing") {
+    return (
+      <div className="flex items-center gap-1">
+        <span className="text-xs text-gray-500">
+          <Loader2 className="inline h-3 w-3 mr-1 animate-spin" />
+          {formatExportProgress(progress)}
+        </span>
+        <button
+          onClick={cancelExport}
+          className="text-gray-400 hover:text-gray-600"
+          title="Cancel export"
+        >
+          <X className="h-3 w-3" />
+        </button>
+      </div>
+    );
+  }
+
+  if (progress.phase === "error") {
+    return (
+      <span
+        className="text-xs text-red-600"
+        title={progress.error}
+        role="alert"
+      >
+        Export failed
+      </span>
+    );
+  }
+
   return (
     <DropdownMenu>
       <DropdownMenuTrigger
@@ -32,15 +85,11 @@ export function UnitHistoryExportButton({
         <span>Export unit history</span>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
-        <DropdownMenuItem asChild>
-          <a href={`${baseUrl}&format=csv`} download>
-            Download CSV
-          </a>
+        <DropdownMenuItem onClick={() => begin("csv")}>
+          Download CSV
         </DropdownMenuItem>
-        <DropdownMenuItem asChild>
-          <a href={`${baseUrl}&format=xlsx`} download>
-            Download XLSX
-          </a>
+        <DropdownMenuItem onClick={() => begin("xlsx")}>
+          Download XLSX
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
