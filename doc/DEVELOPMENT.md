@@ -472,6 +472,27 @@ pnpm run test          # Run Jest tests
 pnpm run test:watch    # Watch mode
 ```
 
+### Local Build Identity
+
+`public/_statbus-build.json` records which commit an artifact was built from.
+Published images always stamp the checkout SHA (`--image "$COMMIT"` in
+`app/Dockerfile`), which is authoritative and wins over any local state.
+
+Local runs stamp `HEAD` plus a `dirty` flag instead:
+
+- `pnpm run build` writes `{ "commit_sha": "<HEAD>", "dirty": true|false }`
+  once before `next build`. `dirty` is decided by `git status --porcelain -- .`
+  from `app/`, so untracked files count.
+- `pnpm run dev` starts `app/scripts/watch-app-build.mjs` next to
+  `next dev`. It stamps once, then re-stamps whenever `HEAD` or the dirty state
+  changes (polled every ~5s), so a branch switch or an edit is reflected without
+  restarting the dev server. It exits with the dev server (SIGINT/SIGTERM).
+- Outside a git work tree (Docker build, tarball) the stamp is
+  `{ "commit_sha": null }`.
+
+The running page reads this file with `cache: 'no-store'` on mount, every 30s and
+on window focus, so a changed stamp shows up within ~30s or immediately on focus.
+
 ### State Management with Jotai
 
 **Critical Rules**:
