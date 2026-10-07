@@ -523,6 +523,7 @@ export const loginAtom = atom(null, async (get, set, credentials) => {
 - Use `tmp/` directory for diagnostic SQL, journals, debug scripts (gitignored)
 - Don't delete files from `tmp/` - they serve as useful logs
 - Commit messages: `prefix: description` (e.g., `auth: Fix JWT verification`)
+- **Name your paths when committing: all agents share ONE checkout and ONE index (incident, 2026-10-07).** A bare `git commit` commits *everything staged*, by anyone. A coordinator's `git add .backlog` + `git commit` swept 1,358 lines of an in-flight worker's staged STATBUS-421 export code into a commit labelled `backlog: author ticket content through the CLI` (`740addf21`), so the history now misdescribes that code. Commit with an explicit pathspec, e.g. `git commit -m "backlog: ..." -- .backlog`, and check `git diff --cached --stat` before committing. Never `git add -A`/`.` in this tree.
 - For nested `format()`, use named dollar quotes: `$SQL$`, `$jsonb_expr$`
 
 ## Full Documentation

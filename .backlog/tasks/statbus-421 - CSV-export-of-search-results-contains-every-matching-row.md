@@ -4,7 +4,7 @@ title: CSV export of search results contains every matching row
 status: In Progress
 assignee: []
 created_date: '2026-09-25 14:02'
-updated_date: '2026-09-29 08:05'
+updated_date: '2026-10-07 13:22'
 labels:
   - app
 dependencies: []
@@ -32,12 +32,6 @@ Reported by Erik 2026-09-25 (Slack): exporting all legal units + establishments 
 
 /app/src/app/api/search/export/route.ts now streams successive 100k-row PostgREST pages into the CSV response with backpressure; ordering is name.asc + tiebreakers unit_type, unit_id, valid_from, valid_to (unique per the view's UNION ALL timeline inputs). XLSX fails closed with 413 + CSV recommendation when the exact count is unavailable or exceeds 1,048,575 data rows, and accumulation is bounded by the up-front count. UI disables Excel above the threshold. Two independent review rounds; Jest coverage for multi-page assembly, refusals, ordering. Known limit (documented in code): offset pagination is not snapshot-consistent under concurrent writes; a stronger guarantee needs a snapshot/keyset design. Awaiting CI green + candidate gate as final evidence.
 <!-- SECTION:DESCRIPTION:END -->
-
-## Implementation Notes
-
-<!-- SECTION:NOTES:BEGIN -->
-Audit after v2026.09.3 (2026-09-29): v2026.09.3 streams every CSV page and refuses XLSX over the row limit (b13d82fe6, ff367df55). Jest route tests are green in app build & lint 36503468262. Done when a Norway export after v2026.09.3 yields the full row count (~1.9M) and Erik confirms.
-<!-- SECTION:NOTES:END -->
 
 ## 2026-10-07: the export still cannot deliver — owner-observed failure on no.statbus.org, diagnosed
 
@@ -126,7 +120,6 @@ category, …). Consequences that shape the fix:
   independently parallelizable and resumable).
 - A filter that is not a prefix of the chosen index still makes each deep `OFFSET` page do a
   scan/sort of the filtered set — which is the cost that must go.
-
 
 ### Finding 3 — the failure is invisible to the operator
 
@@ -230,3 +223,8 @@ stream's catch, which is why `log.statbus.org` showed nothing for a dead export.
       see, with a test proving it.
 - [ ] Timing measured on real data and stated in the report (the whole point of D1).
 
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+IMPLEMENTATION LANDED (inadvertently) AND VERIFIED GREEN, 2026-10-07. Coordinator incident: worker hatchling had staged its 421 files in the shared index, and the coordinator's bare 'git commit' (preceded only by 'git add .backlog') committed all of them under the misleading message 'backlog: author ticket content through the CLI (455-459...)'; that is 740addf21, 1358 insertions: app/src/app/search/components/search-export-csv-link.tsx, app/src/app/search/export/{csv-row-counter,export-query,export-logger,use-statistical-unit-export}.ts plus two test files, app/src/components/statistical-unit-details/unit-history-export-button.tsx, and removal of the old toCSV in app/src/lib/csv-utils.ts. The code IS in master and pushed; only the commit message misdescribes it. Root cause recorded in AGENTS.md: all agents share one checkout and one index, so commit with an explicit pathspec. GATES at d5be30f41: app tsc 0 errors; jest (app-build|search/export) 36/36; eslint 0 errors (5 pre-existing warnings). REMAINING BEFORE Done: (1) the acceptance measurement is coordinator work on real data - the local DB has 144 units and zero establishments, so restore the latest 'no' dump and run tmp/421-benchmark.md steps 1-4 (read-only) to time a full 825,126-row export and compare CSV row-for-row; (2) confirm in the UI the >100k confirm dialog and the honest XLSX refusal above the sheet bound; (3) reconcile this ticket's acceptance criteria with what actually shipped (D1 text/csv via PostgREST, D2 browser calls /rest directly, D4 1M cap).
+<!-- SECTION:NOTES:END -->

@@ -4,11 +4,11 @@ title: >-
   dev dashboard shows an estimated count for the selected time context that
   disagrees with the exact Units-over-time chart (Establishments 24 vs ~11 in
   2023)
-status: In Progress
+status: Done
 assignee:
   - '@wyvern'
 created_date: '2026-10-07 12:43'
-updated_date: '2026-10-07 12:55'
+updated_date: '2026-10-07 13:22'
 labels:
   - app
   - dashboard
@@ -67,12 +67,18 @@ A short report with **evidence, not inference**:
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 dev's real time-context rows (ident, valid_on) are recorded, with the exact establishment count for that valid_on.
-- [ ] #2 count=estimated is compared against count=exact for the identical predicate, and the two numbers are shown.
-- [ ] #3 The verdict names which hypothesis holds (H1/H2/H3) with the numbers that decide it.
-- [ ] #4 A recommended fix and its risk are stated for owner approval; no product code is changed and nothing is committed.
-- [ ] #5 The report exists at tmp/458-dashboard-estimate-investigation.md and the ticket summarises it.
+- [x] #1 dev's real time-context rows (ident, valid_on) are recorded, with the exact establishment count for that valid_on.
+- [x] #2 count=estimated is compared against count=exact for the identical predicate, and the two numbers are shown.
+- [x] #3 The verdict names which hypothesis holds (H1/H2/H3) with the numbers that decide it.
+- [x] #4 A recommended fix and its risk are stated for owner approval; no product code is changed and nothing is committed.
+- [x] #5 The report exists at tmp/458-dashboard-estimate-investigation.md and the ticket summarises it.
 <!-- AC:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+INVESTIGATION COMPLETE (delegated to wyvern; full report tmp/458-dashboard-estimate-investigation.md). Verdict: H3 HOLDS - two different definitions, neither number is a bug. Card predicate valid_from <= valid_on <= valid_to over statistical_unit records: at valid_on=2023-12-31 exactly 24 establishment records, 13 of which have birth_date=2024-11-01 (not yet born in 2023). Reports/Units-over-time uses statistical_history_def's existence rule (COALESCE(birth_date,valid_from) <= period_end AND valid_until > period_end AND (death_date IS NULL OR death_date > period_end), deduplicated, used_for_counting): 11 for 2023, 24 for 2024/2025/2026. H2 FAILS: y_2023.valid_on = 2023-12-31 (time_context sets year rows to Dec 31). H1 is NOT the cause, though the estimate is genuinely wrong: on dev count=estimated for the same predicate is 23 vs exact 24 (PostgREST returns the planner root Plan Rows), and the card displays the EXACT count (24, no ~ prefix) because EstimatedCount auto-fetches the exact value within seconds. Local box cannot show the business divergence (no establishments; 23 vs 23) but does show estimates being wildly wrong on small tables (0 matching rows -> estimate 72). RECOMMENDATION (owner decision): introduce one server-side definition of 'units existing at an instant' - public.statistical_unit_count(unit_type, valid_on), SECURITY INVOKER, using the same rule as statistical_history_def - and point the three dashboard cards at it (also removes the estimated/exact flapping and the statbus:exactCount localStorage cache). Validated read-only on dev: 2023-12-31 -> establishment 11 / legal_unit 23 / enterprise 23; 2024-12-31 -> 24/23/23, i.e. reproduces the chart bar-for-bar. Costs: count(DISTINCT unit_id) is a real aggregate, measure on the largest deployment; the 2023 card changes 24 -> 11 on purpose; two data-quality cards share the predicate. ALTERNATIVES: (A) if birth_date=2024-11-01 on those 15 source rows is a placeholder rather than a real birth date, fix the data instead and the chart's 2023 rises to 24; (B) relabel the cards to state the validity-window definition, cheapest and zero data risk. OPEN QUESTION ONLY THE OWNER CAN SETTLE: is birth_date 01.11.2024 real? It chooses between the primary fix and Alternative A. SCOPE: the same predicate is used app-wide (Statistical Units list, unit detail pages, both missing-* cards), so this is a convention decision, not a one-card typo. The fix itself is OUT of this investigation ticket (AC4 forbids code changes); a follow-up ticket is needed once the owner picks.
+<!-- SECTION:NOTES:END -->
 
 ## Owner observation, 2026-10-07 (dev.statbus.org)
 
