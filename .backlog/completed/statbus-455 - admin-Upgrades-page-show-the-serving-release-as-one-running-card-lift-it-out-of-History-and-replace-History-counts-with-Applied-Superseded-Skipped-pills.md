@@ -3,10 +3,10 @@ id: STATBUS-455
 title: >-
   admin Upgrades page: show the serving release as one running card, lift it out
   of History, and replace History counts with Applied/Superseded/Skipped pills
-status: In Progress
+status: Done
 assignee: []
 created_date: '2026-10-07 10:15'
-updated_date: '2026-10-07 10:16'
+updated_date: '2026-10-07 12:21'
 labels:
   - ui
   - upgrades
@@ -159,24 +159,28 @@ Optional small fix (do it, it is 2 lines and it is the same complaint):
 on every 30s refresh, so a healthy page can flash `unknown <full sha>`. Keep the last
 PROVEN label until a new one is proven; never keep an unproven one.
 
-## Acceptance criteria
+## Acceptance criteria (final, after owner review 2026-10-07; superseded wording kept in the closing note)
 
-- [ ] A single card at the top shows the release matching the responding artifact SHA
-      (`bce5bf39…` on Demo today): display name, short SHA, real state badge, id and
+- [x] A single card at the top shows the release matching the responding artifact SHA
+      (`bce5bf39…`): display name, short SHA, real state badge, id and
       Committed/Scheduled/Completed inside it.
-- [ ] `Details` reveals the full 40-char SHA; the raw inline banner is gone.
-- [ ] `Installs` reveals the last `./sb install` invocation time and log path; the
-      loose paragraph is gone.
-- [ ] The card's log is open by default; changelog remains collapsed.
-- [ ] The running row does not also appear in History.
-- [ ] No unique exact-SHA row → the card still renders with "no matching install
+- [x] The full 40-char SHA is shown inline under a bolded `Commit:` label; the raw
+      loose banner is gone. (Owner 2026-10-07: a single line must not be collapsed —
+      the `Details` disclosure this AC originally asked for was replaced.)
+- [x] The last `./sb install` invocation time and log path are shown inline under a
+      bolded `Last ./sb install invocation:` label; the loose paragraph is gone.
+- [x] The card's log is open by default; changelog remains collapsed.
+- [x] The running row does not also appear in History (excluded by the UI).
+- [x] No unique exact-SHA row → the card still renders with "no matching install
       record"; a non-completed row shows its true state, never "Running".
-- [ ] History header is exactly `History` (no counts), still collapsible, with pills
-      `Applied` (default active) / `Superseded` / `Skipped`; each pill filters what is
-      listed; `Applied` = completed only; `Skipped` = skipped + dismissed.
-- [ ] While the exact-SHA query is in flight the card shows a loading/unknown state
+- [x] History header is exactly `History` (no counts), still collapsible, with one
+      pill per badge word: `Completed` (default active) / `Superseded` / `Skipped` /
+      `Dismissed`; each pill selects exactly the rows whose card carries that word.
+      (Owner 2026-10-07: the original `Applied` label and the skipped+dismissed union
+      both asked the reader to translate between pill and card.)
+- [x] While the exact-SHA query is in flight the card shows a loading/unknown state
       instead of disappearing.
-- [ ] Nothing about the upgrade pipeline, ledger, migrations, REST or SQL changed.
+- [x] Nothing about the upgrade pipeline, ledger, migrations, REST or SQL changed.
 
 ## Constraints / rules
 
