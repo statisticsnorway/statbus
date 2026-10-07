@@ -3,10 +3,11 @@ id: STATBUS-457
 title: >-
   stamp the local artifact identity: pnpm dev/build write _statbus-build.json
   from HEAD plus a dirty flag, kept fresh by a dev-only watcher
-status: Done
-assignee: []
+status: In Progress
+assignee:
+  - '@macaque'
 created_date: '2026-10-07 11:20'
-updated_date: '2026-10-07 13:03'
+updated_date: '2026-10-07 13:07'
 labels:
   - cli
   - frontend
@@ -63,6 +64,12 @@ The stamp script run in a dirty `app/` writes the commit with `dirty:true`; the 
       HEAD + dirty flag, that the dev watcher keeps it fresh, and that images always
       use the checkout SHA.
 <!-- AC:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+REOPENED 2026-10-07: CI proved this ticket's work incomplete. app build & lint run 37624277184 failed 6 of 6 git-dependent tests in src/lib/app-build.test.ts with spawnSync git ENOENT: the app CI image has no git binary at all. The tests pass locally only because the developer machine has git. Required fix: make the tests hermetic (put a fake git executable on PATH and script its rev-parse HEAD / status --porcelain responses) rather than skipping them, so they run in CI and still pin HEAD, dirty, --image precedence and the no-git case.
+<!-- SECTION:NOTES:END -->
 
 ## Status: OWNER APPROVED 2026-10-07 (option (iii) + dev watcher). Implement as specified.
 

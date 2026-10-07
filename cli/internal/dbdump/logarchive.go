@@ -311,7 +311,9 @@ func RestoreLogsCompanion(projDir, dumpPath string) (found bool, fileCount int, 
 	}
 	defer func() { _ = f.Close() }()
 
-	var reader io.Reader = f
+	// Both branches below assign reader before it is used; declaring it here
+	// without an initialiser keeps the linter honest about that.
+	var reader io.Reader
 	var zcmd *exec.Cmd
 	if strings.HasSuffix(companion, LogsCompanionZstdExt) {
 		if !zstdAvailable() {

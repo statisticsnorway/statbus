@@ -4,10 +4,10 @@ title: >-
   upgrade logs travel with the DB dump: dump/download carry a companion log
   archive, restore unpacks it, dev serves /upgrade-logs, and the log viewer
   degrades honestly
-status: Done
+status: In Progress
 assignee: []
 created_date: '2026-10-07 11:13'
-updated_date: '2026-10-07 13:03'
+updated_date: '2026-10-07 13:06'
 labels:
   - cli
   - db
@@ -65,6 +65,28 @@ Verified end to end on the demo path: `db dump` wrote a 6-file companion (11.8 K
 - [x] #9 Docs: `doc/DEPLOYMENT.md` (or the CLI help text) states that dump/download
       carry the logs and `restore` unpacks them, and what happens when they are absent.
 <!-- AC:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+REOPENED 2026-10-07: CI proved this ticket's work incomplete. Go Test run 37624277239 failed on ./dev.sh lint: internal/dbdump/logarchive.go:314:6 ineffectual assignment to reader (ineffassign). Local go test passed because lint is a separate gate the worker did not run. Fixed by declaring var reader io.Reader with no initialiser (both branches assign it). Lesson: the local gate for Go changes is ./dev.sh lint, not just go test.
+<!-- SECTION:NOTES:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+Implemented in commit 5dbf0f4f60885708ca4cbf2cf53c4f2d41700a96 (db: upgrade logs travel with the DB dump).
+
+A1: new cli/internal/dbdump/logarchive.go core (WriteLogsCompanion / RestoreLogsCompanion / FindLogsCompanion / ReferencedInstallLogsSQL). db dump writes <stem>.logs.tar.zst (gzip fallback when zstd binary absent) after pg_dump succeeds; db download streams the remote tar.gz straight into the companion via ssh bash -s (no remote temp file, zero-byte stream leaves no file); db restore unpacks into tmp/ merging, never fails on absent logs; dumps list shows companion size; DumpsToPurge/PurgeDumps treat the pair as one unit. .gitignore now ignores companion archives.
+A2: /upgrade-logs/:path* dev rewrite added beside /rest in app/next.config.js, same guard.
+A3: UpgradeLogViewer tracks fetch status and renders 'This log is not available in this copy of the database.' on 404 via app/src/app/admin/upgrades/upgrade-log-message.ts; other failures keep the real message.
+
+Verified live locally: real db dump wrote companion (6 files, 11.8 KB, incl. nested .containers/ logs); real restore unpacked it (6 files merged); a companion-less copy restored cleanly with the explicit note; dev proxy served an existing log (200) and 404'd a missing one with an authenticated session.
+
+Validation: go test ./internal/dbdump/ ./cmd/ ok; go test ./internal/upgrade/ has one pre-existing failure (TestTypedComposeAuthorityGate) also failing on clean HEAD; app pnpm lint 0 errors (5 pre-existing warnings), tsc clean, jest 74/74 pass; prettier clean on touched files (repo-wide prettier has 248 pre-existing failures).
+
+Not done per constraints: db restore --to <code> does not upload the companion (out of scope); db download not run against a real box (no SSH per constraints) - remote streaming path is code-reviewed but only the local tar fixture path is executed.
+<!-- SECTION:FINAL_SUMMARY:END -->
 
 ## Status: OWNER APPROVED 2026-10-07 ("A1++ approved"). Implement as specified; the design was agreed in discussion and is not open for re-litigation.
 
@@ -233,22 +255,6 @@ cd app && pnpm run dev                            # http://local.statbus.org:300
 # /admin/upgrades → serving card → Log → "Failed to load log: HTTP 404"
 ```
 After this work the same sequence must show the rc.20 log inline.
-
-## Final Summary
-
-<!-- SECTION:FINAL_SUMMARY:BEGIN -->
-Implemented in commit 5dbf0f4f60885708ca4cbf2cf53c4f2d41700a96 (db: upgrade logs travel with the DB dump).
-
-A1: new cli/internal/dbdump/logarchive.go core (WriteLogsCompanion / RestoreLogsCompanion / FindLogsCompanion / ReferencedInstallLogsSQL). db dump writes <stem>.logs.tar.zst (gzip fallback when zstd binary absent) after pg_dump succeeds; db download streams the remote tar.gz straight into the companion via ssh bash -s (no remote temp file, zero-byte stream leaves no file); db restore unpacks into tmp/ merging, never fails on absent logs; dumps list shows companion size; DumpsToPurge/PurgeDumps treat the pair as one unit. .gitignore now ignores companion archives.
-A2: /upgrade-logs/:path* dev rewrite added beside /rest in app/next.config.js, same guard.
-A3: UpgradeLogViewer tracks fetch status and renders 'This log is not available in this copy of the database.' on 404 via app/src/app/admin/upgrades/upgrade-log-message.ts; other failures keep the real message.
-
-Verified live locally: real db dump wrote companion (6 files, 11.8 KB, incl. nested .containers/ logs); real restore unpacked it (6 files merged); a companion-less copy restored cleanly with the explicit note; dev proxy served an existing log (200) and 404'd a missing one with an authenticated session.
-
-Validation: go test ./internal/dbdump/ ./cmd/ ok; go test ./internal/upgrade/ has one pre-existing failure (TestTypedComposeAuthorityGate) also failing on clean HEAD; app pnpm lint 0 errors (5 pre-existing warnings), tsc clean, jest 74/74 pass; prettier clean on touched files (repo-wide prettier has 248 pre-existing failures).
-
-Not done per constraints: db restore --to <code> does not upload the companion (out of scope); db download not run against a real box (no SSH per constraints) - remote streaming path is code-reviewed but only the local tar fixture path is executed.
-<!-- SECTION:FINAL_SUMMARY:END -->
 
 ## Coordinator verification, 2026-10-07 12:20 UTC
 
