@@ -4,10 +4,10 @@ title: >-
   upgrade logs travel with the DB dump: dump/download carry a companion log
   archive, restore unpacks it, dev serves /upgrade-logs, and the log viewer
   degrades honestly
-status: In Progress
+status: Done
 assignee: []
 created_date: '2026-10-07 11:13'
-updated_date: '2026-10-07 13:06'
+updated_date: '2026-10-07 13:07'
 labels:
   - cli
   - db
@@ -69,7 +69,7 @@ Verified end to end on the demo path: `db dump` wrote a 6-file companion (11.8 K
 ## Implementation Notes
 
 <!-- SECTION:NOTES:BEGIN -->
-REOPENED 2026-10-07: CI proved this ticket's work incomplete. Go Test run 37624277239 failed on ./dev.sh lint: internal/dbdump/logarchive.go:314:6 ineffectual assignment to reader (ineffassign). Local go test passed because lint is a separate gate the worker did not run. Fixed by declaring var reader io.Reader with no initialiser (both branches assign it). Lesson: the local gate for Go changes is ./dev.sh lint, not just go test.
+CLOSED AGAIN 2026-10-07 13:07: the ineffassign is fixed (cli/internal/dbdump/logarchive.go: var reader io.Reader with no initialiser; both branches assign it). Verified with the same tool CI runs: ./dev.sh lint -> golangci-lint: 0 issues across 28 package(s) in cli/, exit 0. Pushed as c2c74a6a6. The worker's original 'go test ./internal/dbdump/ ./cmd/ ok' was true but insufficient: lint is a separate gate. Local gate for Go changes is now explicitly ./dev.sh lint.
 <!-- SECTION:NOTES:END -->
 
 ## Final Summary
