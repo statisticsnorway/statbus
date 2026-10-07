@@ -517,6 +517,7 @@ export const loginAtom = atom(null, async (get, set, credentials) => {
 ## Notes
 
 - Tickets are Backlog.md files under `.backlog/tasks/`, read with the `backlog` CLI, the `backlog` MCP server (`mcp__backlog__task_view`, `task_edit`, `task_list`, ...), or `rg`. Never guess or open ticket-tracker URLs (no Linear, no YouTrack for STATBUS); never open browser tabs to look up a ticket (owner decision 2026-09-25 after workers opened linear.app tabs in the owner's browser).
+- **Ticket lifecycle (owner decision 2026-10-07)**: a finished ticket is set to `Done` and **left on the board** (`backlog task edit <id> -s "Done"`). `backlog task complete <id>` is the *periodic cleanup* that moves it to `.backlog/completed/` and off the board — do NOT use it to close a ticket you just finished, because the Done column is how the owner sees what is in the current release. Agents wrongly archiving freshly-closed tickets is a real, repeated mistake.
 - Use `tmp/` directory for diagnostic SQL, journals, debug scripts (gitignored)
 - Don't delete files from `tmp/` - they serve as useful logs
 - Commit messages: `prefix: description` (e.g., `auth: Fix JWT verification`)

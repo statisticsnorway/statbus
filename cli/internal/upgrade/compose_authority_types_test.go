@@ -84,6 +84,9 @@ var allowedComposeUpCalls = map[string]approvedLaunch{
 // an existing site, or rerouting a tool through another launcher all fail until
 // the specific combination is reviewed.
 var allowedProcessLaunches = map[string]approvedLaunch{
+	"cmd/db.go:downloadLogsCompanion|os/exec|ssh":                                                     {Count: 1, Reason: "downloadLogsCompanion streams the remote upgrade/install log companion as a tar.gz over SSH stdin (bash -s) so a restored copy can show the logs its ledger rows reference; read-only on the box, no remote temp file (STATBUS-456)"},
+	"internal/dbdump/logarchive.go:writeCompressedTar|os/exec|zstd":                                   {Count: 1, Reason: "writeCompressedTar pipes the companion tar through the host zstd binary when present; the archive carries only upgrade/install log files and never touches the database, compose stack or guest (STATBUS-456)"},
+	"internal/dbdump/logarchive.go:RestoreLogsCompanion|os/exec|zstd":                                 {Count: 1, Reason: "RestoreLogsCompanion decompresses a zstd companion with the host zstd binary before merging its log files into tmp/; a missing binary refuses with guidance and never affects the database restore (STATBUS-456)"},
 	"internal/upgrade/service.go:ReconcileInterruptedForInline|upgrade.runCommandOutput|git":          {Count: 1, Reason: "read-only git rev-parse HEAD verifies the recovered tree still matches the running executable before arriving installer dispatch; no checkout, fetch, shell or compose-launch permission"},
 	"cmd/install_ledger_repair.go:installationIncludesCommit|os/exec|git":                             {Count: 1, Reason: "read-only git merge-base --is-ancestor proves retained witness ancestry bounded by the successful installed target for historical ledger repair; no checkout, fetch, mutation or compose-launch permission"},
 	"internal/upgrade/recovery_attempt.go:authorizeRecoveryAttempt|upgrade.runCommandOutput|git":      {Count: 1, Reason: "read-only git merge-base --is-ancestor proves the independently completed executable-matching witness is a strict descendant before exact-attempt retirement; exit1 means non-descendant and grants no compose-launch permission"},
@@ -335,6 +338,7 @@ var allowedProcessExecutables = map[string]authorityExecutableClass{
 	"sudo":         authorityTool,
 	"systemctl":    authorityTool,
 	"tar":          authorityTool,
+	"zstd":         authorityTool,
 }
 
 const pinnedReexecMarker = "authority:pinned-reexec"
