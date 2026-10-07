@@ -175,3 +175,58 @@ against 825k real rows.
 Ticket split (owner to confirm): keep 1-4 here as the correctness fix, and cut a separate ticket
 for 5 if it is not a small addition.
 
+## FINAL AGREED SCOPE (owner decisions 2026-10-07) — implement this, do not redesign
+
+Full reasoning and rejected alternatives: `tmp/421-export-plan-20261007.md`.
+
+**D1 — PostgREST `text/csv` first, measured.** Replace the page loop with a single streaming
+request asking PostgREST for CSV (verified: `GET /` advertises `text/csv` on postgrest/14.14):
+
+```
+GET /rest/statistical_unit?<filters>&select=<composed>&order=<exportOrder>
+Accept: text/csv
+```
+
+Keep `/api/search/export` as a thin proxy (adds the composed `select` and the `Accept` header),
+or delete it — but the composed select must stay in exactly one shared place.
+Benchmark it on real data. If the single statement exceeds the 120 s role timeout, the measured
+fallback is `COPY (…) TO STDOUT WITH CSV HEADER` over a direct session that connects as the
+**authenticator**, `SET LOCAL role` to the token's role and
+`set_config('request.jwt.claims', …, true)` — i.e. the *user's own* JWT (the one the command
+palette's "Show API Key" shows), never the app's broader owner credential — with a test that a
+restricted user receives a restricted export.
+
+**D2 — the browser calls `/rest` directly** (owner: "better transparency, less to debug"). No
+`/api` proxy in the browser path.
+
+**D3 — progress is in scope; resume only if it is nearly free.** Rows-received against the total
+the search page already has. A keyset re-issue for resume is optional; if it is more than a few
+lines, leave it out and say so.
+
+**D4 — hard cap stays 1,048,575 rows; require confirmation above ~100k** (Excel itself will
+struggle). Consequence: an xlsx built *server-side* at that size is a shared-container OOM risk,
+so build it client-side (ExcelJS runs in the browser) or keep a much lower server-side bound.
+
+**D5 — ordering:** the single-request form makes `ORDER BY` cheap (one index-ordered scan).
+If batching turns out to be necessary, batch by keyset on the order key using
+`or=(name.gt.<LAST>,and(name.eq.<LAST>,unit_id.gt.<LAST_ID>))`; do NOT detour through
+"gather every id then request `unit_id=in.(…)`" — that hits URL-length limits at roughly a
+thousand ids per request.
+
+**Observability is part of the fix:** a mid-stream failure must be logged with enough context
+(page/offset and the underlying error) to be found afterwards. Today it is swallowed by the
+stream's catch, which is why `log.statbus.org` showed nothing for a dead export.
+
+**Acceptance for this work**
+
+- [ ] The 825,126-establishment export completes and the CSV record count matches the search
+      page's total.
+- [ ] PostgREST's CSV output is compared row-for-row with today's `toCSV` output (quoting, NULLs,
+      dates, embedded newlines) before the old path is removed.
+- [ ] A failing export is visible afterwards in the logs with the page/offset and error.
+- [ ] XLSX refuses honestly above the practical bound, and the refusal is visible in the UI.
+- [ ] Progress is visible while the export runs.
+- [ ] No RLS or permission change: an export by a restricted user returns only what that user can
+      see, with a test proving it.
+- [ ] Timing measured on real data and stated in the report (the whole point of D1).
+
