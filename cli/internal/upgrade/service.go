@@ -12437,22 +12437,27 @@ func (d *Service) failUpgradeWithFlagDisposition(ctx context.Context, id int, fa
 	// Bundle BEFORE the terminal UPDATE so inspecting a `failed` row on
 	// disk is guaranteed to have a sibling .bundle.txt. Non-fatal.
 	d.writeDiagnosticBundle(ctx, id, progress)
-	if d.queryConn != nil {
+	{
+		// Persist independently of the failed operation's canceled context or
+		// cached connection. Never erase recovery intent after an unsettled write.
 		// The on-disk log (referenced by log_relative_file_path) holds the
 		// full narrative; the admin UI fetches it via /upgrade-logs/<name>.
 		// state='failed' requires started_at IS NOT NULL — executeScheduled
 		// always sets started_at before executeUpgrade runs, so that holds.
-		var failJSON string
 		where := "WHERE id = $3 AND state = 'in_progress'"
 		args := []any{failureCode, errMsg, id}
 		if d.activeClaimToken != "" {
 			where += " AND claim_token = $4::uuid"
 			args = append(args, d.activeClaimToken)
 		}
-		if scanErr := d.queryConn.QueryRow(ctx,
+		failJSON, scanErr := d.terminalUpdate(
 			"UPDATE public.upgrade SET state = 'failed', failure_code = $1, error = $2, scheduled_at = NULL, claim_token = NULL "+where+upgradeRowReturning,
-			args...).Scan(&failJSON); scanErr == nil {
+			args...)
+		if scanErr == nil {
 			logUpgradeRow(LabelFailed, failJSON)
+		} else {
+			keepFlag = true
+			progress.Write("Terminal failure persistence did not settle the owned attempt: %v; preserving recovery intent", scanErr)
 		}
 	}
 	// Normally release the mutex on failure paths, even those that don't run
