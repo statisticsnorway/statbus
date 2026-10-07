@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - '@macaque'
 created_date: '2026-10-07 11:20'
-updated_date: '2026-10-07 13:07'
+updated_date: '2026-10-07 13:10'
 labels:
   - cli
   - frontend
@@ -69,6 +69,18 @@ The stamp script run in a dirty `app/` writes the commit with `dirty:true`; the 
 
 <!-- SECTION:NOTES:BEGIN -->
 REOPENED 2026-10-07: CI proved this ticket's work incomplete. app build & lint run 37624277184 failed 6 of 6 git-dependent tests in src/lib/app-build.test.ts with spawnSync git ENOENT: the app CI image has no git binary at all. The tests pass locally only because the developer machine has git. Required fix: make the tests hermetic (put a fake git executable on PATH and script its rev-parse HEAD / status --porcelain responses) rather than skipping them, so they run in CI and still pin HEAD, dirty, --image precedence and the no-git case.
+
+CI FIX 2026-10-07 (run 37624277184: 6/6 git-dependent tests died with `spawnSync git ENOENT`; the app CI image has no git binary). `app/src/lib/app-build.test.ts` is now hermetic: no real git, no real repository, nothing skipped.
+
+- Module scope writes a scripted fake `git` (`#!/bin/sh`) into a temp dir; every child gets `PATH = <fakeBin>:<inherited>`, so the `execFileSync("git", ...)` calls inside the real `scripts/stamp-app-build.mjs` resolve to the fake. The fake appends every invocation to `$FAKE_GIT_LOG`, answers `rev-parse HEAD` from `$FAKE_GIT_HEAD` (empty => exit 128, i.e. no work tree) and `status --porcelain -- .` from `$FAKE_GIT_STATUS` + `$FAKE_GIT_STATUS_EXIT` (non-zero => execFileSync throws => dirty stays false).
+- 10 tests: clean HEAD, dirty tracked, dirty untracked, failing status, non-40-hex HEAD, rev-parse failure (no work tree), no git binary on PATH at all, `--image` precedence, invalid/missing `--image`, one-shot == watcher content.
+- Fake-actually-used proof: the clean and dirty-tracked tests assert the exact two-line invocation log (`rev-parse HEAD`, `status --porcelain -- .`); the two `--image` tests assert the log is EMPTY, pinning that precedence short-circuits before git. `--image` precedence is still exercised through the real script.
+
+Evidence on this commit:
+1. `cd app && pnpm run test -- app-build` -> 10/10 pass.
+2. Independent of real git, proof A: run with a failing-git stub prepended to PATH -> 10/10 pass and the stub's invocation log is never created.
+3. Independent of real git, proof B (strongest): `env -i PATH=<dir containing only a sh symlink>` + `node node_modules/jest/bin/jest.js app-build` -> 10/10 pass; `command -v git` under that PATH prints nothing.
+4. `pnpm run lint` -> 0 errors (5 pre-existing warnings); `pnpm run tsc` -> clean; `pnpm run test` -> 16 suites / 101 tests pass.
 <!-- SECTION:NOTES:END -->
 
 ## Status: OWNER APPROVED 2026-10-07 (option (iii) + dev watcher). Implement as specified.
