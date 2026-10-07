@@ -68,7 +68,7 @@ _dump_failing_failure_diagnostics() {
     echo "── flag file at exit ──" >&2
     VM_EXEC bash -c "cat ~/statbus/tmp/upgrade-in-progress.json 2>/dev/null || echo '(flag absent)'" >&2 || true
     local log_rel
-    log_rel=$(VM_EXEC bash -c "cd ~/statbus && echo \"SELECT COALESCE(log_relative_file_path,'') FROM public.upgrade WHERE commit_sha IN ('${B_FULL:-}', '${C_FULL:-}') ORDER BY id DESC LIMIT 1;\" | ./sb psql -t -A" 2>/dev/null | tr -d ' \r\n') || { echo "  (could not query B/C's row log path — VM/DB unreachable)" >&2; log_rel=""; }
+    log_rel=$(VM_EXEC bash -c "cd ~/statbus && echo \"SELECT COALESCE(log_relative_file_path,'') FROM public.upgrade WHERE commit_sha IN ('${B_FULL:-}', '${C_FULL:-}') AND COALESCE(log_relative_file_path,'') <> '' ORDER BY id DESC LIMIT 1;\" | ./sb psql -t -A" 2>/dev/null | tr -d ' \r\n') || { echo "  (could not query B/C's row log path — VM/DB unreachable)" >&2; log_rel=""; }
     if [ -n "$log_rel" ]; then
         echo "── latest (B or C) upgrade progress log (tmp/upgrade-logs/$log_rel) ──" >&2
         VM_EXEC bash -c "cat ~/statbus/tmp/upgrade-logs/'$log_rel' 2>/dev/null" >&2 || echo "  (could not read the progress log)" >&2

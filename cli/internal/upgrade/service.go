@@ -3621,8 +3621,7 @@ func (d *Service) Run(ctx context.Context) error {
 			// upgrade keeps the watchdog alive via executeUpgrade's heartbeats. The
 			// claim is atomic; the 6h ticker stays for DISCOVERY only.
 			if !d.upgrading {
-				d.finalizePendingRollbacks(ctx)
-				d.executeScheduled(ctx)
+				d.idleHeartbeat(ctx)
 				if d.listenCancel == nil { // executeUpgrade may have stopped the loop
 					d.startListenLoop(ctx, notifyCh, errCh)
 				}
@@ -7616,7 +7615,18 @@ func (d *Service) claimScheduledUpgradePass(ctx context.Context, id int) (schedu
 	return claim, nil
 }
 
-func (d *Service) executeScheduled(ctx context.Context) {
+// idleHeartbeat retries registered artifacts without tag discovery or a new
+// NOTIFY. Keep this on Run's main goroutine: the verifier's existing per-candidate
+// progress feeds the watchdog, while a stuck single probe remains detectable.
+func (d *Service) idleHeartbeat(ctx context.Context) {
+	d.finalizePendingRollbacks(ctx)
+	d.verifyArtifacts(ctx)
+	d.executeScheduled(ctx, true)
+}
+
+// artifactsChecked is supplied only by the idle heartbeat, which already ran
+// the same verifier this pass. Other entrypoints retain their independent retry.
+func (d *Service) executeScheduled(ctx context.Context, artifactsChecked ...bool) {
 	if err := d.ensureConnected(ctx); err != nil {
 		return
 	}
@@ -7652,14 +7662,11 @@ func (d *Service) executeScheduled(ctx context.Context) {
 		return
 	case imageClaimWait:
 		fmt.Printf("Scheduled upgrade id=%d: scheduled, images still building — waiting for publication.\n", id)
-		// Re-probe now rather than waiting for the next 6h/NOTIFY discovery
-		// cycle: executeScheduled runs every 30s off the daemon's
-		// heartbeatTicker, but verifyArtifacts only runs from discover()
-		// (6h ticker or a NOTIFY), so without this explicit call a
-		// 'building' row could sit unclaimed for up to 6h even after CI
-		// actually finishes. verifyArtifacts is cheap/idempotent by design
-		// ("Runs on every discovery cycle") — safe to call an extra time here.
-		d.verifyArtifacts(ctx)
+		// The heartbeat already verified all pending rows in this pass. Startup,
+		// discovery and notification callers still retry independently here.
+		if len(artifactsChecked) == 0 || !artifactsChecked[0] {
+			d.verifyArtifacts(ctx)
+		}
 		return
 	case imageClaimPastGrace:
 		fmt.Printf("Scheduled upgrade id=%d: images unverified past %s — proceeding; the warm-up pull will fail actionably if truly absent.\n", id, manifestTimeout)
