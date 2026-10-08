@@ -64,13 +64,31 @@ StatBus supports three deployment modes, controlled by the `CADDY_DEPLOYMENT_MOD
 **Purpose**: Local development with hot-reload
 
 **Characteristics**:
-- HTTP only (no HTTPS)
-- Self-signed internal CA certificates
+- HTTP on the slot's HTTP port, and HTTPS with a self-signed internal CA on the slot's HTTPS port
 - PostgreSQL accessible on custom port (default: 3024)
 - Domain: `local.statbus.org` (resolves to 127.0.0.1)
 - Next.js runs separately on host machine (`pnpm run dev`)
 
 **Use case**: Developers working on StatBus source code
+
+#### Ports (slot offset 1, the usual local layout)
+
+The web entry point serves **plain HTTP and TLS on two different ports**. Sending
+TLS to the HTTP port produces the browser error `SSL_ERROR_RX_RECORD_TOO_LONG`,
+because the server answers in plaintext.
+
+| Port | Service | Notes |
+| :--- | :--- | :--- |
+| 3010 | Caddy proxy, **HTTP** | Use `http://local.statbus.org:3010` |
+| 3011 | Caddy proxy, **HTTPS** | Use `https://local.statbus.org:3011`; self-signed internal CA, so the browser warns |
+| 3012 | Next.js app directly | Bypasses the proxy |
+| 3013 | PostgREST (`/rest`) | The API the browser calls |
+| 3014 | PostgreSQL, plaintext | Convenient for local tooling |
+| 3015 | PostgreSQL, TLS + SNI | Production-like connections |
+| 3016 | PostgREST admin server | Loopback only, internal readiness signal |
+
+Each deployment slot adds 10 to 3000 for its own set of ports, so slot offset 2
+uses 3020-3026 and so on.
 
 ### 2. Standalone Mode
 
