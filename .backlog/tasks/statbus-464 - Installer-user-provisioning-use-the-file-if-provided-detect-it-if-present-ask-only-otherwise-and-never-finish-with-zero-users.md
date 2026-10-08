@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-10-08 11:57'
-updated_date: '2026-10-08 12:39'
+updated_date: '2026-10-08 13:21'
 labels:
   - installer
   - docs
@@ -36,15 +36,15 @@ FOR THE INSTALLER IMPLEMENTATION: the current code deliberately does not discove
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 STATBUS_USERS_FILE set and readable: it is used, the interactive user question is skipped entirely, the file is copied into the project as .users.yml, and the output states the path and the number of users created; unattended runs never prompt in this case.
-- [ ] #2 STATBUS_USERS_FILE set but missing or unreadable: hard error naming the path, with no silent fallback to the prompt.
-- [ ] #3 No explicit path but a users file exists in the conventional operator location: it is DETECTED and ANNOUNCED ('Found <path> with N users; using it'), then used. Interactive runs may confirm once; unattended runs use it and say so. It is never silently ignored, which is the field failure this ticket exists to prevent.
-- [ ] #4 No explicit path and no file, interactive: the installer asks for the first administrator (email, name, password entered without echo) and then states what was created.
-- [ ] #5 No explicit path and no file, unattended: the installer fails fast with the exact remedy (set STATBUS_USERS_FILE or place a users file in the conventional location) instead of completing an install with no users.
-- [ ] #6 After provisioning, if the resulting user count is zero, or lower than the number of entries in the supplied file, a loud actionable warning names the command that fixes it (./sb users create after placing the file at the conventional path).
-- [ ] #7 Conflicts resolve explicitly and are tested: an explicit path beats a detected file, a detected file beats the prompt, and a contradiction between two explicit inputs is an error rather than a silent preference.
-- [ ] #8 Each provisioning case above has a test that fails without the behaviour, including the detected-file case and the zero-user end state, and the tests are run by the implementer with the output recorded in the ticket.
-- [ ] #9 After the first administrator is created interactively, with no users file supplied anywhere, the installer persists that entry to the operator-home users file at the documented STATBUS-437 location with mode 0600 and states in its output that it did so, without printing the password. A subsequent install on the same box reuses it and does not ask for the first administrator again.
+- [x] #1 STATBUS_USERS_FILE set and readable: it is used, the interactive user question is skipped entirely, the file is copied into the project as .users.yml, and the output states the path and the number of users created; unattended runs never prompt in this case.
+- [x] #2 STATBUS_USERS_FILE set but missing or unreadable: hard error naming the path, with no silent fallback to the prompt.
+- [x] #3 No explicit path but a users file exists in the conventional operator location: it is DETECTED and ANNOUNCED ('Found <path> with N users; using it'), then used. Interactive runs may confirm once; unattended runs use it and say so. It is never silently ignored, which is the field failure this ticket exists to prevent.
+- [x] #4 No explicit path and no file, interactive: the installer asks for the first administrator (email, name, password entered without echo) and then states what was created.
+- [x] #5 No explicit path and no file, unattended: the installer fails fast with the exact remedy (set STATBUS_USERS_FILE or place a users file in the conventional location) instead of completing an install with no users.
+- [x] #6 After provisioning, if the resulting user count is zero, or lower than the number of entries in the supplied file, a loud actionable warning names the command that fixes it (./sb users create after placing the file at the conventional path).
+- [x] #7 Conflicts resolve explicitly and are tested: an explicit path beats a detected file, a detected file beats the prompt, and a contradiction between two explicit inputs is an error rather than a silent preference.
+- [x] #8 Each provisioning case above has a test that fails without the behaviour, including the detected-file case and the zero-user end state, and the tests are run by the implementer with the output recorded in the ticket.
+- [x] #9 After the first administrator is created interactively, with no users file supplied anywhere, the installer persists that entry to the operator-home users file at the documented STATBUS-437 location with mode 0600 and states in its output that it did so, without printing the password. A subsequent install on the same box reuses it and does not ask for the first administrator again.
 <!-- AC:END -->
 
 ## Definition of Done
@@ -57,4 +57,10 @@ FOR THE INSTALLER IMPLEMENTATION: the current code deliberately does not discove
 
 <!-- SECTION:NOTES:BEGIN -->
 RE-DISPATCH 2026-10-08, recorded before acting. The first delegated worker ran 40 minutes and consumed about 5.0 million tokens with ZERO artifacts: no cli/ edits, no tmp/464-* files, none of its 7 todos ticked, and no answer to a status request. It was stopped and the ticket re-dispatched with a tighter brief rather than left to spin. The replacement must land this ticket INCREMENTALLY: case 3 first, that is detecting a users file in the conventional operator location, announcing it and using it, with its test; commit and push that slice with an explicit pathspec, record the evidence here, then continue with the remaining cases. If the ticket still proves too large for one pass it will be split into a case-3 ticket plus a follow-up. No product decision changed: this is a dispatch correction.
+
+EVIDENCE 2026-10-08 13:20 UTC (re-dispatched worker). All seven cases plus AC #9 are already landed on master in 442b0b38b 'install: principled user provisioning (STATBUS-464)' (cli/cmd/install_users.go, install_users_test.go, install.go, users.go, DEPLOYMENT.md, install.sh, ops/install-terminal-output.awk), so this pass verified it instead of re-implementing. Case 3: resolveUsersSource detects ~/statbus.users.yml (STATBUS-437 operator-home convention) with the legacy ~/statbus/.users.yml as fallback, announceUsersSource prints 'Found <path> with N users; using it.', the file is copied into the project as .users.yml. The reversal of the 'never discovered' rule is stated in the comment at install.go runCreateConfig (DoD #1).
+Local gates: cd cli && go test ./cmd/... -count=1 -> ok cmd 75.4s, ok cmd/release 105.7s (one earlier run failed TestPhase1BackendTerminationFailsHonestlyWhenDatabaseStaysDown on its 4s wall-clock budget at load average 31; unrelated to users code, passed alone in 3.5s and in the full rerun). ./dev.sh lint -> 'golangci-lint: 0 issues across 28 package(s)'. TestUsers* all 10 PASS (tmp/464-users-tests.log).
+Mutation checks in a scratch copy of HEAD (AC #8): removing home-file detection fails TestUsersCase3DetectedHomeFileIsAnnouncedAndUsed (preflight refuses although a file is present); deleting only the 'Found ... using it' print fails the same test (announcement missing); disabling the unattended refusal, the zero-user warning and the home-vs-project conflict check fails Case5, Case6, LinesPassTheTerminalFilter and Case7.
+CI for 442b0b38b: Go Test success (run 37782825338), Harness Selftest, app build & lint, Images, Push on master all success; its Fast Tests run was cancelled by the next push (superseded, run 37783342953), the follow-on Fast Tests for 889bcf6f9 (which contains 442b0b38b) was pending at time of writing.
+REMAINING: DoD #2, a real install-path run (test/install-recovery interactive-admin scenario plus the unattended path) with observed output recorded. Ticket stays In Progress until then.
 <!-- SECTION:NOTES:END -->
