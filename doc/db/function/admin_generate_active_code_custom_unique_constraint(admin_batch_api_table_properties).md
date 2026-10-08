@@ -42,6 +42,29 @@ $$, index_name, table_properties.table_name, array_to_string(unique_columns, ', 
             RAISE NOTICE 'Created identity key % for table %', index_name, table_properties.table_name;
         END IF;
     END IF;
+
+    -- STATBUS-477: a path table's identity is path alone, the key the
+    -- generated path upserts conflict on. Created only when absent (sector and
+    -- tag already carry <table>_path_key), so drop + regenerate stays
+    -- idempotent.
+    IF table_properties.has_path THEN
+        index_name := table_properties.table_name || '_path_key';
+        IF NOT EXISTS (
+            SELECT 1
+              FROM pg_catalog.pg_index AS i
+              JOIN pg_catalog.pg_attribute AS a
+                ON a.attrelid = i.indrelid AND a.attnum = i.indkey[0]
+             WHERE i.indrelid = format('%I.%I', table_properties.schema_name, table_properties.table_name)::regclass
+               AND i.indisunique
+               AND i.indnkeyatts = 1
+               AND i.indpred IS NULL
+               AND a.attname = 'path')
+        THEN
+            EXECUTE format('ALTER TABLE %I.%I ADD CONSTRAINT %I UNIQUE (path)'
+                , table_properties.schema_name, table_properties.table_name, index_name);
+            RAISE NOTICE 'Created identity key % for table %', index_name, table_properties.table_name;
+        END IF;
+    END IF;
 END;
 $function$
 ```
