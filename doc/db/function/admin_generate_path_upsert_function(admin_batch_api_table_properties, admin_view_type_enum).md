@@ -33,14 +33,20 @@ BEGIN
         RAISE EXCEPTION 'Invalid view type: %', view_type;
     END IF;
 
-    -- STATBUS-477: a path table's identity is path alone (UNIQUE (path), which
-    -- admin.generate_active_code_custom_unique_constraint ensures), so a path
-    -- belongs to exactly one kind, system or custom. The upsert conflicts on
-    -- (path), updates only a row of its own kind, and refuses a path the other
-    -- kind owns with an error the operator can act on. (enabled, path) missed
-    -- disabled rows (a system reload after a custom-only upload failed on the
-    -- path key), and the id = EXCLUDED.id predicate never fired.
-    unique_columns := ARRAY['path'];
+    -- STATBUS-477: a path table's identity key is resolved, not assumed:
+    -- admin.batch_api_identity_key returns (path) when the path alone is
+    -- unique (sector, tag: one row per path, owned by one kind) and
+    -- (path, custom) otherwise. The upsert conflicts on it, and where identity
+    -- is the path alone it updates only a row of its own kind and refuses a
+    -- path the other kind owns with an error the operator can act on.
+    -- (enabled, path) missed disabled rows (a system reload after a
+    -- custom-only upload failed on the path key), and the id = EXCLUDED.id
+    -- predicate never fired.
+    unique_columns := admin.batch_api_identity_key(table_properties);
+    IF unique_columns <> ARRAY['path'] THEN
+        RAISE EXCEPTION 'STATBUS-477: %.% has identity key (%), but generated path upserts need one row per path (they derive parent_id by path); give the table UNIQUE (path)'
+            , schema_name_str, table_name_str, array_to_string(unique_columns, ', ');
+    END IF;
 
     -- A custom upload is visible: it inserts and keeps its row enabled. (The
     -- template used NOT custom_value, so generated custom rows were invisible.)
@@ -78,7 +84,8 @@ DECLARE
 BEGIN
     SELECT t.custom INTO existing_custom
       FROM %3$I.%4$I AS t
-     WHERE t.path OPERATOR(public.=) NEW.path;
+     WHERE t.path OPERATOR(public.=) NEW.path
+       AND %13$L;
     IF FOUND AND existing_custom IS DISTINCT FROM %5$L THEN
         RAISE EXCEPTION %6$L, NEW.path
             USING ERRCODE = 'unique_violation', HINT = %7$L;
@@ -91,7 +98,7 @@ BEGIN
     )
     INSERT INTO %3$I.%4$I (path, parent_id, name%8$s, enabled, custom, updated_at)
     VALUES (NEW.path, (SELECT id FROM parent), NEW.name%9$s, %10$s, %5$L, statement_timestamp())
-    ON CONFLICT (path) DO UPDATE SET
+    ON CONFLICT (%14$s) DO UPDATE SET
         parent_id = (SELECT id FROM parent),
         name = EXCLUDED.name%11$s%12$s,
         updated_at = statement_timestamp();
@@ -112,6 +119,8 @@ $function$
 , insert_enabled               -- %10$: enabled on insert
 , description_update           -- %11$: description on update
 , update_enabled               -- %12$: enabled on update (custom only)
+, unique_columns = ARRAY['path'] -- %13$: identity is the path alone, so a path has one owning kind
+, array_to_string(unique_columns, ', ') -- %14$: the identity key to conflict on
 );
 
     EXECUTE function_sql;

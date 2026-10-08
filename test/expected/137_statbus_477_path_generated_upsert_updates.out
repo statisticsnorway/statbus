@@ -106,12 +106,12 @@ SAVEPOINT cross_kind;
 INSERT INTO public.sector_system(path, name) VALUES ('zzop', 'system takeover attempt');
 ERROR:  sector path "zzop" already exists as a custom entry, so this system (standard) upload cannot add or change it
 HINT:  The standard list cannot overwrite an entry an operator uploaded. Remove or rename the custom entry first.
-CONTEXT:  PL/pgSQL function admin.upsert_sector_system() line 9 at RAISE
+CONTEXT:  PL/pgSQL function admin.upsert_sector_system() line 10 at RAISE
 ROLLBACK TO SAVEPOINT cross_kind;
 INSERT INTO public.sector_custom(path, name) VALUES ('domestic', 'custom takeover attempt');
 ERROR:  sector path "domestic" already exists as a system (standard) entry, so this custom upload cannot add or change it
 HINT:  A custom entry cannot replace a standard one with the same path. Use a path that is not in the standard list.
-CONTEXT:  PL/pgSQL function admin.upsert_sector_custom() line 9 at RAISE
+CONTEXT:  PL/pgSQL function admin.upsert_sector_custom() line 10 at RAISE
 ROLLBACK TO SAVEPOINT cross_kind;
 \set ON_ERROR_STOP on
 SELECT s.path, s.custom, s.name FROM public.sector AS s WHERE s.path::text IN ('domestic', 'zzop') ORDER BY s.path;

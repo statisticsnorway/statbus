@@ -8,7 +8,8 @@ DECLARE
 BEGIN
     SELECT t.custom INTO existing_custom
       FROM public.tag AS t
-     WHERE t.path OPERATOR(public.=) NEW.path;
+     WHERE t.path OPERATOR(public.=) NEW.path
+       AND 't';
     IF FOUND AND existing_custom IS DISTINCT FROM 't' THEN
         RAISE EXCEPTION 'tag path "%" already exists as a system (standard) entry, so this custom upload cannot add or change it', NEW.path
             USING ERRCODE = 'unique_violation', HINT = 'A custom entry cannot replace a standard one with the same path. Use a path that is not in the standard list.';

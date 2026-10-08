@@ -8,7 +8,8 @@ DECLARE
 BEGIN
     SELECT t.custom INTO existing_custom
       FROM public.sector AS t
-     WHERE t.path OPERATOR(public.=) NEW.path;
+     WHERE t.path OPERATOR(public.=) NEW.path
+       AND 't';
     IF FOUND AND existing_custom IS DISTINCT FROM 'f' THEN
         RAISE EXCEPTION 'sector path "%" already exists as a custom entry, so this system (standard) upload cannot add or change it', NEW.path
             USING ERRCODE = 'unique_violation', HINT = 'The standard list cannot overwrite an entry an operator uploaded. Remove or rename the custom entry first.';

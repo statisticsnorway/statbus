@@ -5,19 +5,32 @@ CREATE OR REPLACE FUNCTION admin.upsert_legal_rel_type_custom()
 AS $function$
 DECLARE
     row RECORD;
+    _constraint text;
+    _detail text;
 BEGIN
-    INSERT INTO public.legal_rel_type (code, name, description, enabled, custom, updated_at)
-    VALUES (NEW.code, NEW.name, NEW.description, TRUE, 't', statement_timestamp())
-    ON CONFLICT (enabled, code) DO UPDATE SET
-        name = NEW.name, description = NEW.description, enabled = TRUE,
-        custom = 't',
-        updated_at = statement_timestamp()
-    WHERE legal_rel_type.id = EXCLUDED.id
-    RETURNING * INTO row;
+    IF EXISTS (SELECT 1 FROM public.legal_rel_type AS t WHERE t.code = NEW.code AND t.custom IS DISTINCT FROM 't') THEN
+        RAISE EXCEPTION 'legal_rel_type code "%" already exists as a system (standard) entry, so this custom upload cannot add or change it', NEW.code
+            USING ERRCODE = 'unique_violation', HINT = 'A custom entry cannot replace a standard one with the same code. Use a code that is not in the standard list.';
+    END IF;
+
+    BEGIN
+        INSERT INTO public.legal_rel_type (code, name, description, enabled, custom, updated_at)
+        VALUES (NEW.code, NEW.name, NEW.description, TRUE, 't', statement_timestamp())
+        ON CONFLICT (code) DO UPDATE SET
+            name = NEW.name, description = NEW.description, enabled = TRUE,
+            updated_at = statement_timestamp()
+        RETURNING * INTO row;
+    EXCEPTION WHEN unique_violation THEN
+        -- Any other unique key (e.g. name) collides: say which, for this row.
+        GET STACKED DIAGNOSTICS _constraint = CONSTRAINT_NAME, _detail = PG_EXCEPTION_DETAIL;
+        RAISE EXCEPTION 'legal_rel_type code "%" cannot be stored: another entry already has a value that must be unique (%)', NEW.code, _detail
+            USING ERRCODE = 'unique_violation', CONSTRAINT = _constraint, HINT = 'Each value in a unique column (such as name) may be used by only one entry. Change the uploaded value, or change the existing entry first.';
+    END;
 
     RAISE DEBUG 'UPSERTED %', to_json(row);
 
-    RETURN NULL;
+    -- Report the written row, so the statement's row count is what was stored.
+    RETURN NEW;
 END;
 $function$
 ```
