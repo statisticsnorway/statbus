@@ -1080,6 +1080,17 @@ func runInstall() (installErr error) {
 		// satisfied by other steps while the directories are never created, and
 		// Docker then creates the bind-mount sources as root at compose up.
 		{"Directories", checkDirectoriesDone, runEnsureDirectories},
+		// "Trusted signers" writes UPGRADE_TRUSTED_SIGNER_* into .env.config,
+		// but the upgrade daemon reads the GENERATED .env. It therefore runs
+		// BEFORE "Settings", the one step that generates .env, so the signer
+		// is applied through the same path as every other .env.config key:
+		// Settings renders it, Services/"Apply config changes" act on it
+		// (RestartUpgradeDaemon is declared per signer key), and the daemon
+		// started by "Upgrade service" loads it. When it ran after Settings,
+		// a fresh install printed "Added ... to .env.config" and then its
+		// daemon reported no trusted signers (STATBUS-468). It needs only the
+		// checkout (git verify-commit HEAD) and .env.config, both present here.
+		{"Trusted signers", checkSignersDone, runTrustSigners},
 		{"Settings", checkEnvDone, runGenerateEnv},
 		{"Images", checkImagesDone, runPullImages},
 		{"Services", checkServicesDone, runStartServices},
@@ -1151,7 +1162,6 @@ func runInstall() (installErr error) {
 		{"Migrations", checkMigrationsDone, runMigrations},
 		{"JWT secret", checkJWTDone, runLoadJWT},
 		{"Administrator", checkUsersDone, runCreateUsers},
-		{"Trusted signers", checkSignersDone, runTrustSigners},
 		{"Upgrade service", checkServiceDone, func(dir string) error {
 			return runInstallService(dir, &upgradeDaemonFinalAction)
 		}},
@@ -1305,6 +1315,12 @@ func runInstall() (installErr error) {
 	// Restart after the step table so the Upgrade service step has also reconciled
 	// the on-disk unit before the daemon loads the new binary and configuration.
 	applyPendingUpgradeDaemonRestart(pendingRestarts, &upgradeDaemonFinalAction)
+
+	// STATBUS-468: the signer the install approved must be the signer the
+	// daemon loads. Checked before the completion banner can claim success.
+	if err := verifyTrustedSignersApplied(installDir); err != nil {
+		return err
+	}
 
 	// Final check (audit B10): every service is running and the API answers
 	// /ready. A step table that is all green over a restart-looping rest or a
@@ -3300,6 +3316,39 @@ func checkSignersDone(dir string) bool {
 		return false
 	}
 	return true
+}
+
+// verifyTrustedSignersApplied is STATBUS-468's end-state check: every signer
+// in .env.config must be in the generated .env, read through the SAME reader
+// the upgrade daemon uses (upgrade.TrustedSignersFromEnv). A disagreement is
+// an install failure with the exact fix, never "Added ... to .env.config"
+// followed by a daemon that trusts nobody.
+func verifyTrustedSignersApplied(dir string) error {
+	cfg, err := dotenv.Load(filepath.Join(dir, ".env.config"))
+	if err != nil {
+		return fmt.Errorf("load .env.config: %w", err)
+	}
+	applied, err := upgrade.TrustedSignersFromEnv(dir)
+	if err != nil {
+		return err
+	}
+	have := make(map[string]string, len(applied))
+	for _, s := range applied {
+		have[s.Name] = s.Key
+	}
+	for _, key := range cfg.Keys() {
+		if !strings.HasPrefix(key, trustedSignerPrefix) {
+			continue
+		}
+		want, _ := cfg.Get(key)
+		if want == "" {
+			continue
+		}
+		if have[strings.TrimPrefix(key, trustedSignerPrefix)] != want {
+			return fmt.Errorf("the trusted signer %s is in .env.config but not in the generated settings the upgrade service reads, so upgrades would be refused. Run cd %s && ./sb config generate, then run: %s", key, dir, diskpolicy.RerunCommand())
+		}
+	}
+	return nil
 }
 
 func runTrustSigners(dir string) error {

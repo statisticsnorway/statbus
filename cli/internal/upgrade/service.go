@@ -5055,29 +5055,47 @@ func (d *Service) loadConfig() error {
 	return nil
 }
 
+// TrustedSigner is one UPGRADE_TRUSTED_SIGNER_<Name>=<Key> entry.
+type TrustedSigner struct{ Name, Key string }
+
+// TrustedSignersFromEnv is the daemon's ONE reader of trusted signers: the
+// GENERATED .env, never .env.config. The installer's end-state check
+// (STATBUS-468) calls this same function, so "the signer was applied" is
+// asserted against exactly what the daemon will load.
+func TrustedSignersFromEnv(projDir string) ([]TrustedSigner, error) {
+	f, err := dotenv.Load(filepath.Join(projDir, ".env"))
+	if err != nil {
+		return nil, fmt.Errorf("load .env for signers: %w", err)
+	}
+	var signers []TrustedSigner
+	for _, key := range f.Keys() {
+		if !strings.HasPrefix(key, "UPGRADE_TRUSTED_SIGNER_") {
+			continue
+		}
+		val, _ := f.Get(key)
+		if val == "" {
+			continue
+		}
+		signers = append(signers, TrustedSigner{Name: strings.TrimPrefix(key, "UPGRADE_TRUSTED_SIGNER_"), Key: val})
+	}
+	return signers, nil
+}
+
 // loadTrustedSigners reads UPGRADE_TRUSTED_SIGNER_* keys from .env and
 // writes an allowed-signers file for git verify-commit.
 // Signing enforcement: if keys are configured, verification is enforced at
 // upgrade time (#114). If no keys, the service starts but upgrades refuse to
 // execute until at least one signer is added.
 func (d *Service) loadTrustedSigners() error {
-	envPath := filepath.Join(d.projDir, ".env")
-	f, err := dotenv.Load(envPath)
+	signers, err := TrustedSignersFromEnv(d.projDir)
 	if err != nil {
-		return fmt.Errorf("load .env for signers: %w", err)
+		return err
 	}
 
 	// Collect trusted signers
 	var signerLines []string
-	for _, key := range f.Keys() {
-		if !strings.HasPrefix(key, "UPGRADE_TRUSTED_SIGNER_") {
-			continue
-		}
-		name := strings.TrimPrefix(key, "UPGRADE_TRUSTED_SIGNER_")
-		val, _ := f.Get(key)
-		if val == "" {
-			continue
-		}
+	for _, signer := range signers {
+		name, val := signer.Name, signer.Key
 		// Log each signer with fingerprint
 		cmd := exec.Command("ssh-keygen", "-l", "-f", "/dev/stdin")
 		cmd.Stdin = strings.NewReader(val)
