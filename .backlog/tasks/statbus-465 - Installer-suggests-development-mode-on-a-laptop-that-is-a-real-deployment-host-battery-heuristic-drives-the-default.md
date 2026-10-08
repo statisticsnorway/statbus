@@ -42,7 +42,7 @@ REQUIRED BEHAVIOUR.
 
 ## Definition of Done
 <!-- DOD:BEGIN -->
-- [ ] #1 The deployment-mode suggestion is the compile-time constant SuggestedMode = standalone: both the interactive prompt's fallback and the value installinput.Ask suggests are that constant, asserted by cli/cmd/install_mode_suggestion_test.go, while development and private remain selectable with their explanations. Running the installer IS the standalone installation, by owner decision.
+- [x] #1 The deployment-mode suggestion is the compile-time constant SuggestedMode = standalone: both the interactive prompt's fallback and the value installinput.Ask suggests are that constant, asserted by cli/cmd/install_mode_suggestion_test.go, while development and private remain selectable with their explanations. Running the installer IS the standalone installation, by owner decision.
 - [ ] #2 TestModeSuggestionIsTheSuggestedModeConstant is shown CONSEQUENTIAL: at 054611d1d^ (which still had the development fallback in the field table) it FAILS on any host, battery or not, and at HEAD it passes, with both outputs recorded in the ticket. This supersedes the earlier battery-fixture evidence, which could not fail on battery-less CI.
 <!-- DOD:END -->
 
@@ -79,4 +79,6 @@ NOT SHOWN, stated exactly: the real install.sh prompt observed on a Linux host t
 CLOSED per the owner's point (2026-10-08): the battery heuristic is REMOVED, so there is nothing host-derived left to observe. Verified read-only: rg finds no power_supply, Battery, /sys or installIsLaptop reference in cli/ or install.sh outside tests, and cli/internal/installinput/config.go documents and uses the constant SuggestedMode = 'standalone'. The earlier DoD#2 (an observation on a host presenting a battery) asked for evidence of a behaviour that no longer exists; the consequential test remains DoD#1 (the suggestion test fails at 054611d1d^ and passes at HEAD).
 
 DoD reworked (2026-10-08, owner's point): a test that asserts removed code is ABSENT is not a real invariant, so the criterion now asserts the positive behaviour - the suggestion IS the constant SuggestedMode and the prompt falls back to it - which is what the test checks, and DoD#1 now names the renamed test (TestModeSuggestionIsTheSuggestedModeConstant, commit ac2c7b866) instead of the deleted battery-fixture test.
+
+DoD state: item #1 (the suggestion IS the constant, asserted by the test and by installinput.Ask's fallback) is verified and checked. Item #2 (the renamed test shown failing at 054611d1d^ and passing at HEAD) stays OPEN until vole records those two outputs; the code change is landed (ac2c7b866) but the red output for the renamed test has not been pasted in yet.
 <!-- SECTION:NOTES:END -->
