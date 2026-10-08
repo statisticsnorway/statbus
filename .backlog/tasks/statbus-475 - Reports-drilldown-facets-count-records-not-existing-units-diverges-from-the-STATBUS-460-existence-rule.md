@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-10-08 16:00'
-updated_date: '2026-10-08 21:12'
+updated_date: '2026-10-08 22:12'
 labels:
   - reports
   - data-model
@@ -52,4 +52,6 @@ SCREEN INVENTORY (what each count-showing screen counts; rule = STATBUS-460 exis
 | Dashboard Regions / Activity Categories / Custom Activity Categories / Statistical Variables cards | region, activity_category_enabled(_custom), stat_definition | CLASSIFICATION rows (codes), not units | distinct case: classification counts |
 | *_used views (region_used, sector_used, ...) | statistical_unit any record | which classification codes are used by any unit at any time | distinct case: code usage, time-independent by design |
 AC #2 (dev drilldown = card = chart) awaits a candidate containing a64f4ad38 and c459edf82 reaching dev; dev is at migration 20261006132000 today.
+
+CI: c459edf82 Images 37844915411 SUCCESS (the seed round trip, effective-ACL digest and restored-seed types check passed with the 475 migration), and Go Test, app build & lint and Harness Selftest succeeded. Fast Tests 37845723194 on a8faa8142 (first-parent descendant; c459edf82's own run 37845546975 was cancelled by that push) ran job 'pg_regress fast suite' = SUCCESS: seed restored (migration 20261008202243), '# All 117 tests passed.' including ok 117 353_statbus_475_drilldown_facets_follow_existence_rule, ok 29 107_load_and_verify_history_functions and ok 14 016. Left In Progress until AC #2 is observed on dev (same as 460).
 <!-- SECTION:NOTES:END -->
