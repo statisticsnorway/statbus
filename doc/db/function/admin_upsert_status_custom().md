@@ -9,10 +9,10 @@ DECLARE
     _detail text;
 BEGIN
     BEGIN
-        INSERT INTO public.status (code, name, enabled, custom, updated_at)
-        VALUES (NEW.code, NEW.name, TRUE, 't', statement_timestamp())
+        INSERT INTO public.status (code, name, priority, assigned_by_default, used_for_counting, enabled, custom, updated_at)
+        VALUES (NEW.code, NEW.name, NEW.priority, NEW.assigned_by_default, NEW.used_for_counting, TRUE, 't', statement_timestamp())
         ON CONFLICT (code, custom) DO UPDATE SET
-            name = NEW.name, enabled = TRUE,
+            name = NEW.name, priority = NEW.priority, assigned_by_default = NEW.assigned_by_default, used_for_counting = NEW.used_for_counting, enabled = TRUE,
             updated_at = statement_timestamp()
         RETURNING * INTO row;
     EXCEPTION WHEN unique_violation THEN

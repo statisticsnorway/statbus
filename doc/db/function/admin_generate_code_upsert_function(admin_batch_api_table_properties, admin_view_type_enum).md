@@ -43,6 +43,21 @@ BEGIN
         content_update_sets := content_update_sets || ', description = NEW.description';
     END IF;
 
+    -- STATBUS-478: write every other column the generated view accepts:
+    -- priority, and the required columns admin.generate_view exposes
+    -- (admin.batch_api_required_columns). Dropping them failed every insert
+    -- (NOT NULL) or silently discarded the value.
+    IF table_properties.has_priority THEN
+        content_columns := content_columns || ', priority';
+        content_values := content_values || ', NEW.priority';
+        content_update_sets := content_update_sets || ', priority = NEW.priority';
+    END IF;
+    SELECT content_columns || coalesce(string_agg(', ' || quote_ident(c), '' ORDER BY o), '')
+         , content_values || coalesce(string_agg(', NEW.' || quote_ident(c), '' ORDER BY o), '')
+         , content_update_sets || coalesce(string_agg(format(', %1$I = NEW.%1$I', c), '' ORDER BY o), '')
+      INTO content_columns, content_values, content_update_sets
+      FROM unnest(admin.batch_api_required_columns(table_properties)) WITH ORDINALITY AS r(c, o);
+
     IF table_properties.has_enabled THEN
         content_columns := content_columns || ', enabled';
         -- A custom upload enables its row. A system load enables a NEW system

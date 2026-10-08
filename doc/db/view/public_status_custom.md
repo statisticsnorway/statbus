@@ -1,14 +1,18 @@
 ```sql
-                              View "public.status_custom"
-  Column  |       Type        | Collation | Nullable | Default | Storage  | Description 
-----------+-------------------+-----------+----------+---------+----------+-------------
- code     | character varying |           |          |         | extended | 
- name     | text              |           |          |         | extended | 
- priority | integer           |           |          |         | plain    | 
+                                    View "public.status_custom"
+       Column        |       Type        | Collation | Nullable | Default | Storage  | Description 
+---------------------+-------------------+-----------+----------+---------+----------+-------------
+ code                | character varying |           |          |         | extended | 
+ name                | text              |           |          |         | extended | 
+ priority            | integer           |           |          |         | plain    | 
+ assigned_by_default | boolean           |           |          |         | plain    | 
+ used_for_counting   | boolean           |           |          |         | plain    | 
 View definition:
  SELECT code,
     name,
-    priority
+    priority,
+    assigned_by_default,
+    used_for_counting
    FROM status_enabled
   WHERE custom = true;
 Triggers:

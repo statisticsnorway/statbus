@@ -10024,19 +10024,25 @@ export type Database = {
       },
       status_custom: {
         Row: {
+          assigned_by_default: boolean | null
           code: string | null
           name: string | null
           priority: number | null
+          used_for_counting: boolean | null
         },
         Insert: {
+          assigned_by_default?: boolean | null
           code?: string | null
           name?: string | null
           priority?: number | null
+          used_for_counting?: boolean | null
         },
         Update: {
+          assigned_by_default?: boolean | null
           code?: string | null
           name?: string | null
           priority?: number | null
+          used_for_counting?: boolean | null
         },
         Relationships: []
       },
@@ -10120,19 +10126,25 @@ export type Database = {
       },
       status_system: {
         Row: {
+          assigned_by_default: boolean | null
           code: string | null
           name: string | null
           priority: number | null
+          used_for_counting: boolean | null
         },
         Insert: {
+          assigned_by_default?: boolean | null
           code?: string | null
           name?: string | null
           priority?: number | null
+          used_for_counting?: boolean | null
         },
         Update: {
+          assigned_by_default?: boolean | null
           code?: string | null
           name?: string | null
           priority?: number | null
+          used_for_counting?: boolean | null
         },
         Relationships: []
       },

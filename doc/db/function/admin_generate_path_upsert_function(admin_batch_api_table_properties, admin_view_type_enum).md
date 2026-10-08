@@ -75,6 +75,18 @@ BEGIN
         description_update := ',' || E'\n        ' || 'description = EXCLUDED.description';
     END IF;
 
+    -- STATBUS-478: also write priority and the required columns the view
+    -- exposes (admin.batch_api_required_columns), so a path table that has
+    -- them is not broken the way status was. (No path table has any today.)
+    SELECT description_column || coalesce(string_agg(', ' || quote_ident(c), '' ORDER BY o), '')
+         , description_value || coalesce(string_agg(', NEW.' || quote_ident(c), '' ORDER BY o), '')
+         , description_update || coalesce(string_agg(format(',' || E'\n        ' || '%1$I = EXCLUDED.%1$I', c), '' ORDER BY o), '')
+      INTO description_column, description_value, description_update
+      FROM unnest(
+             CASE WHEN table_properties.has_priority THEN ARRAY['priority'] ELSE ARRAY[]::text[] END
+             || admin.batch_api_required_columns(table_properties)
+           ) WITH ORDINALITY AS r(c, o);
+
     -- Construct the SQL statement for the upsert function
     function_sql := format($function$
 CREATE FUNCTION %1$I.%2$I()

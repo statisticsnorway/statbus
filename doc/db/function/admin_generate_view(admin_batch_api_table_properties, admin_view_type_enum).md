@@ -68,6 +68,11 @@ BEGIN
           columns := array_append(columns, 'description');
       END IF;
 
+      -- STATBUS-478: a system/custom view must accept every column an insert
+      -- needs, or every insert through it fails on a NOT NULL constraint.
+      -- The set is derived, not listed: admin.batch_api_required_columns.
+      columns := columns || admin.batch_api_required_columns(table_properties);
+
       -- Combine columns into a comma-separated string for SQL query
       columns_str := array_to_string(columns, ', ');
     END IF;

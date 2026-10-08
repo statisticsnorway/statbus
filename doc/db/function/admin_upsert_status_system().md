@@ -9,10 +9,10 @@ DECLARE
     _detail text;
 BEGIN
     BEGIN
-        INSERT INTO public.status (code, name, enabled, custom, updated_at)
-        VALUES (NEW.code, NEW.name, NOT EXISTS (SELECT 1 FROM public.status AS override WHERE override.code = NEW.code AND override.custom AND override.enabled), 'f', statement_timestamp())
+        INSERT INTO public.status (code, name, priority, assigned_by_default, used_for_counting, enabled, custom, updated_at)
+        VALUES (NEW.code, NEW.name, NEW.priority, NEW.assigned_by_default, NEW.used_for_counting, NOT EXISTS (SELECT 1 FROM public.status AS override WHERE override.code = NEW.code AND override.custom AND override.enabled), 'f', statement_timestamp())
         ON CONFLICT (code, custom) DO UPDATE SET
-            name = NEW.name,
+            name = NEW.name, priority = NEW.priority, assigned_by_default = NEW.assigned_by_default, used_for_counting = NEW.used_for_counting,
             updated_at = statement_timestamp()
         RETURNING * INTO row;
     EXCEPTION WHEN unique_violation THEN
