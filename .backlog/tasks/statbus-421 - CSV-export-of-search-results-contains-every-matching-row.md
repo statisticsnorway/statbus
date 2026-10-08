@@ -4,7 +4,7 @@ title: CSV export of search results contains every matching row
 status: In Progress
 assignee: []
 created_date: '2026-09-25 14:02'
-updated_date: '2026-10-08 10:10'
+updated_date: '2026-10-08 10:26'
 labels:
   - app
 dependencies: []
@@ -55,7 +55,30 @@ Reported by Erik 2026-09-25 (Slack): exporting all legal units + establishments 
 ## Implementation Notes
 
 <!-- SECTION:NOTES:BEGIN -->
-INDEPENDENT VERIFICATION BY THE COORDINATOR, 2026-10-08. The worker's corrected-export artifact was re-checked with a DIFFERENT method than the app's row counter, so the claim does not rest on the code under test. tmp/421-corrected-full.csv: 426,331,946 bytes, HTTP 200, Content-Range 0-1976462/1976463, wall time 21.60s. A Python csv.reader (which handles embedded newlines and quoted fields properly) counted exactly 1,976,463 data rows over 41 columns: MATCH. Conclusion, verified: the spread-syntax projection fix delivers the entire export in ONE request, and the 29,470-row shortfall of the current implementation is caused by the SETOF computed-relationship projection in export-query.ts. Note: the corrected artifact is a 426 MB file in tmp (gitignored) if anyone wants to re-verify; it can be deleted when the work is done.
+TRANSPORT DESIGN RECONCILIATION, 2026-10-08 (owner asked to lay out the options and resolve).
+
+FACTS ON THE TABLE.
+* Search export today (1e5ac2ccf): the BROWSER calls PostgREST /rest with Accept: text/csv, one request, streamed with getReader(), with a row counter for progress. It delivered 1,946,993 of 1,976,463 rows because of our projection bug, and with the projection fixed it delivers all rows in 21.6s / 426 MB. Its hard ceiling is PostgREST's own CSV construction: the whole body is one string_agg value (confirmed in PostgREST 14.14 source, SqlFragment.hs), so it breaks near PostgreSQL's ~1 GiB limit and the database holds the entire body in memory while it is produced.
+* The IMPORT DOWNLOAD route already streams CSV from PostgreSQL through a Next.js route with COPY: app/src/app/api/import/download/route.ts line 296: COPY (select) TO STDOUT WITH (FORMAT CSV, HEADER) executed with pg-copy-streams (copyTo) and piped into a ReadableStream response (line 299). The same file also shows the cursor alternative, DECLARE download_cursor CURSOR + FETCH 5000 in a loop, which it uses for XLSX generation. Both paths authenticate by connecting as authenticator and calling SELECT auth.jwt_switch_role(<statbus cookie access token>) (lines 133-139), so ROW LEVEL SECURITY STILL APPLIES with the user's own role and claims. So COPY is not a new idea here; it is a proven in-repo mechanism, and it does not require a service-role bypass.
+
+OPTIONS.
+A. Stay pure REST (browser to /rest, one request).
+   + No server code; RLS through the user's cookie; browser progress; verified fast at today's size.
+   - Hard ~1 GiB ceiling from the string_agg body; database memory holds the whole response; no resume; one more row-width or row-count growth step breaks it again.
+B. Server-side streaming export route reusing the import-download mechanism (COPY TO STDOUT, user JWT).
+   + Constant memory in the database and in the app (COPY streams; pg-copy-streams applies backpressure to the browser); no aggregate ceiling, so it scales the whole way; the received byte stream carries the same row counter for progress; RLS preserved via jwt_switch_role; fastest serialisation PostgreSQL offers; the pattern is already proven in this codebase.
+   - Costs one new route and the SQL equivalent of the composed select (the three computed relationships become function calls such as public.primary_activity_category(su)); the app process carries the streaming load for the duration; a long export occupies one app connection.
+C. Browser to /rest with keyset paging, assembled client side.
+   + Arbitrarily large; resumable; per-page progress; no server code.
+   - N requests with a stable keyset ordering, duplicate and gap detection, and the browser must hold every part in memory unless we stream to disk (File System Access API). Most complexity and the least reuse.
+
+RESOLUTION (proposed plan).
+Phase 1, now, small: apply the three-line projection fix in export-query.ts, keep the single-request browser-to-/rest streaming export for the current size, and make the completeness guard compare against the server's announced Content-Range total. XLSX stays client side and bounded. This unblocks the field immediately and is independent of the transport decision.
+Phase 2, the whole way: move the export onto a server-side streaming route that uses COPY (SELECT ...) TO STDOUT with the user's JWT, mirroring app/src/app/api/import/download/route.ts. Constant memory, no ceiling, same browser progress, RLS intact. With that in place the direct-REST single request can either be retired for one mechanism or kept for small exports; that is the one open choice.
+Phase 3, only if exports ever exceed browser memory: stream the response to disk in the browser with the File System Access API. Because Phase 2 already yields a byte stream, this becomes a client-only change.
+Before writing Phase 2 code: run a short benchmark on the restored Norway dump comparing COPY TO STDOUT against PostgREST text/csv (wall time, memory, completeness) so the transport choice is measured rather than assumed. Both mechanisms must be checked for identical content.
+
+NOTE: Phase 1 does not depend on this reconciliation, and the field fix should not wait for Phase 2.
 <!-- SECTION:NOTES:END -->
 
 ## 2026-10-07: the export still cannot deliver — owner-observed failure on no.statbus.org, diagnosed
