@@ -3,6 +3,11 @@ import { fetchWithAuth, getServerRestClient } from "@/context/RestClientStore";
 import { revalidatePath } from "next/cache";
 
 import { createServerLogger } from "@/lib/server-logger";
+import {
+  explainUploadFailure,
+  prepareUpload,
+  viewColumnsFromOpenApi,
+} from "./upload-csv-check";
 
 interface State {
   readonly error: string | null;
@@ -26,9 +31,14 @@ export async function uploadFile(
 ): Promise<State> {
   "use server";
 
+  // STATBUS-470: say plainly what is wrong with the file. Check it before
+  // sending anything, and translate PostgREST's rejection (schema cache,
+  // varchar, not-null) into the columns, row and limit involved.
+  const prepared = await prepareUpload(formData.get(filename));
+  if (!prepared.ok) return { error: prepared.error };
+
   try {
     const logger = await createServerLogger();
-    const file = formData.get(filename) as File;
     const client = await getServerRestClient();
 
     // Get the base URL from the client
@@ -36,28 +46,50 @@ export async function uploadFile(
 
     // Use fetchWithAuth which correctly prepares headers including Authorization and X-Forwarded-*.
     // We override Content-Type for CSV upload.
-    const response = await fetchWithAuth(
-      `${postgrestUrl}/${uploadView}`,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "text/csv",
-        },
-        body: file,
-      }
-    );
+    const response = await fetchWithAuth(`${postgrestUrl}/${uploadView}`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "text/csv",
+      },
+      // The checked text: a UTF-8 byte-order mark is already removed, so it
+      // cannot become part of the first column's name.
+      body: prepared.text,
+    });
     if (!response.ok) {
-      const data = await response.json();
+      const body = await response.text().catch(() => "");
       logger.error(
-        { data },
+        { status: response.status, body: body.slice(0, 2000) },
         `upload to ${uploadView} failed with status ${response.status} ${response.statusText}`
       );
-      return { error: data.message.replace(/,/g, ", ").replace(/;/g, "; ") };
+      // The view's columns, to name what IS accepted and which columns a
+      // length limit applies to. Best effort: without them the message
+      // still names what the file got wrong.
+      const columns = await (async () => {
+        try {
+          const openapi = await fetchWithAuth(`${postgrestUrl}/`, {
+            headers: { Accept: "application/openapi+json" },
+          });
+          return openapi?.ok
+            ? viewColumnsFromOpenApi(await openapi.json(), uploadView)
+            : null;
+        } catch {
+          return null;
+        }
+      })();
+      return {
+        error: explainUploadFailure(
+          { status: response.status, statusText: response.statusText, body },
+          prepared.records,
+          columns
+        ),
+      };
     }
 
     return { error: null, success: true };
   } catch (e) {
-    return { error: `failed to upload in view ${uploadView}` };
+    return {
+      error: `The upload could not be sent: ${e instanceof Error ? e.message : String(e)}`,
+    };
   }
 }
 
