@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-09-27 10:07'
-updated_date: '2026-10-08 10:17'
+updated_date: '2026-10-08 10:25'
 labels:
   - installer
 dependencies: []
@@ -51,10 +51,17 @@ Moving to implementation now: (1) step-17 failure must include the upgrade unit'
 - [x] #1 The cause of the 24/25 Sep step-17 start timeout is reproduced on v2026.09.2 (LXD replay) and shown fixed or refused with a named cause on v2026.09.3
 - [ ] #2 The installer tells a standalone operator to set SITE_DOMAIN (or asks for it) before a certificate can be issued; Ville's hand-edit is not needed
 - [ ] #3 A short, confirmed instruction is sent to Ville for the stable v2026.09.3 install with his custom certificate
+- [ ] #4 The footer never shows 'unknown' when the commit is known: on an install with no release metadata (VERSION empty, COMMIT_SHORT set) it renders something informative such as 'commit bce5bf39' or the commit alone, and the same fallback logic is used everywhere the version is displayed.
+- [ ] #5 Where the install path knows the release (install.sh or upgrade from a tagged release), PUBLIC_STATBUS_VERSION is populated so the footer shows the release (for example v2026.10.0); verified on a fresh install, not only in tests.
 <!-- AC:END -->
+
+## Definition of Done
+<!-- DOD:BEGIN -->
+- [ ] #1 A test covers the unknown-version/known-commit case and the known-version case; the local install renders an informative footer; the change is small and does not touch the other 422 items (the install-timeout and certificate-path issues stay separate).
+<!-- DOD:END -->
 
 ## Implementation Notes
 
 <!-- SECTION:NOTES:BEGIN -->
-NEW FIELD REPORT FROM FINLAND, 2026-10-08 (Ville-Mattis Pilvio, fresh install of the bce5bf39 images, the v2026.10.0/rc.20 commit). Different symptoms from the 2026-09-25 report: uninstall and install now run without issues, but the box is not usable. Evidence: http://local.statbus.org/ does not work; http://127.0.0.1:3012/login fails with 'Login failed: UNKNOWN_FAILURE'; the footer shows 'Statbus version unknown (bce5bf39)'; Erik asks 'cannot connect to database??'. Ville's docker compose ps, as pasted, lists only statbus-local-app (3012), statbus-local-db (healthy) and statbus-local-proxy (3010/3011/3014/3015) and does NOT list rest or worker. DIAGNOSTIC INSIGHT (coordinator, from the compose profiles): app requires profile 'all' or 'app'; db, proxy, rest and worker all require 'all' or 'all_except_app'. A listing that contains db, proxy AND app is therefore only consistent with profile 'all', which also starts rest and worker. So their absence means one of: (a) the pasted output is incomplete, (b) rest and/or worker exited and docker compose ps hides stopped containers by default, or (c) an unusual start. The most likely cause of the login failure is that PostgREST (rest) is not running or not reachable, because the app authenticates through /rest/rpc/login; its absence produces exactly 'UNKNOWN_FAILURE' plus 'cannot connect to database'. ASKED FOR FROM THE FIELD (not yet received): ./sb ps or docker compose ps --all, to include stopped containers; ./sb logs rest, ./sb logs proxy, ./sb logs app tails; curl -sS -o /dev/null -w '%{http_code}' http://127.0.0.1:3013/ (PostgREST direct) and http://127.0.0.1:3012/login; ./sb config show to confirm mode, slot and ports; and whether the stack was started with ./sb start all. SEPARATE DISPLAY DEFECT worth its own ticket: the footer reads 'Statbus version unknown (bce5bf39)'. The commit SHA is known, so the version string should be informative; the version metadata is not resolvable on that install.
+DELIVERABLE ADDED BY THE OWNER 2026-10-08 (from the Finland report): the footer version display. MECHANISM, for the implementer: docker-compose.app.yml sets PUBLIC_STATBUS_VERSION: ${VERSION:-local} and PUBLIC_STATBUS_COMMIT_SHORT: ${COMMIT_SHORT:-unknown}; app/src/app/layout.tsx passes fallbackVersion = process.env.PUBLIC_STATBUS_VERSION || '' and fallbackCommit = process.env.PUBLIC_STATBUS_COMMIT_SHORT || ''; app/src/components/footer.tsx renders 'Statbus version {name} ({commit})'. On the Finland install VERSION was empty, so the name rendered as 'unknown' while the commit bce5bf39 was known. Files in scope: app/src/components/footer.tsx, app/src/app/layout.tsx, docker-compose.app.yml, cli/internal/config/config.go (the generated .env template). DELEGATED to a worker on model claude-opus-5-5. This is a display and metadata-plumbing fix only: it must not be bundled with the install-timeout or certificate-path defects in this ticket.
 <!-- SECTION:NOTES:END -->
