@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-09-27 10:07'
-updated_date: '2026-10-08 10:25'
+updated_date: '2026-10-08 10:32'
 labels:
   - installer
 dependencies: []
@@ -53,6 +53,8 @@ Moving to implementation now: (1) step-17 failure must include the upgrade unit'
 - [ ] #3 A short, confirmed instruction is sent to Ville for the stable v2026.09.3 install with his custom certificate
 - [ ] #4 The footer never shows 'unknown' when the commit is known: on an install with no release metadata (VERSION empty, COMMIT_SHORT set) it renders something informative such as 'commit bce5bf39' or the commit alone, and the same fallback logic is used everywhere the version is displayed.
 - [ ] #5 Where the install path knows the release (install.sh or upgrade from a tagged release), PUBLIC_STATBUS_VERSION is populated so the footer shows the release (for example v2026.10.0); verified on a fresh install, not only in tests.
+- [ ] #6 An official installation displays its release: after install.sh from a tagged release or a channel (stable or prerelease), the footer shows that version (for example v2026.10.0) and never the word unknown. A development or local install may show local or dev. The two cases must be distinguishable rather than conflated, and a test must cover the released-install case.
+- [ ] #7 DEPLOYMENT.md documents the first steps the field had to discover: downloading install.sh and uninstall.sh from the repository, making them executable with chmod +x, and running them. It must also state the supported channels. (Ville-Mattis Pilvio, 2026-10-08.)
 <!-- AC:END -->
 
 ## Definition of Done
@@ -63,5 +65,6 @@ Moving to implementation now: (1) step-17 failure must include the upgrade unit'
 ## Implementation Notes
 
 <!-- SECTION:NOTES:BEGIN -->
-DELIVERABLE ADDED BY THE OWNER 2026-10-08 (from the Finland report): the footer version display. MECHANISM, for the implementer: docker-compose.app.yml sets PUBLIC_STATBUS_VERSION: ${VERSION:-local} and PUBLIC_STATBUS_COMMIT_SHORT: ${COMMIT_SHORT:-unknown}; app/src/app/layout.tsx passes fallbackVersion = process.env.PUBLIC_STATBUS_VERSION || '' and fallbackCommit = process.env.PUBLIC_STATBUS_COMMIT_SHORT || ''; app/src/components/footer.tsx renders 'Statbus version {name} ({commit})'. On the Finland install VERSION was empty, so the name rendered as 'unknown' while the commit bce5bf39 was known. Files in scope: app/src/components/footer.tsx, app/src/app/layout.tsx, docker-compose.app.yml, cli/internal/config/config.go (the generated .env template). DELEGATED to a worker on model claude-opus-5-5. This is a display and metadata-plumbing fix only: it must not be bundled with the install-timeout or certificate-path defects in this ticket.
+VERSION PLUMBING EVIDENCE (coordinator, 2026-10-08), for whoever fixes the version display. cli/internal/config/config.go writes VERSION=%[22]s, COMMIT_SHORT=%[23]s, PUBLIC_STATBUS_VERSION=%[22]s and PUBLIC_STATBUS_COMMIT_SHORT=%[23]s into the generated .env, so the displayed version is the config Version value. install.sh DOES know the release: it accepts --version, honours STATBUS_INSTALL_VERSION, and resolves the tag from the GitHub releases API for channel stable or prerelease (around lines 670-690), with a development fallback to git rev-parse --short=8 HEAD (line 727). So the installer is not unable to know the version; the defect is in how that known release version reaches ./sb config generate and config.Version. That is the owner's point: the development path and the released-install path are being conflated, which is why an official installation showed 'unknown (bce5bf39)'.
+UNINSTALLER POINT (owner asked to capture it, 2026-10-08): NO COMPLAINT FOUND IN THE REPORT AS RECEIVED. Ville's message says the opposite, 'short answer: uninstall and install (deployment) run without issues', and his only ask was to document the download and chmod step, which is now an acceptance criterion here. The earlier 2026-09-25 report does mention a leftover failed systemd unit that needed manual removal before step 17 passed, so the recollection may come from there or from a later message not yet forwarded. Action: do NOT invent a symptom. The uninstall path is already covered by test/install-recovery/scenarios/6-uninstall-reinstall.sh, so the honest next step is to run that scenario or review uninstall.sh against the state install.sh creates, and to add the exact error text here if the owner has it.
 <!-- SECTION:NOTES:END -->
