@@ -6,7 +6,7 @@ title: >-
 status: Done
 assignee: []
 created_date: '2026-10-08 12:01'
-updated_date: '2026-10-08 15:51'
+updated_date: '2026-10-08 15:57'
 labels:
   - installer
 dependencies: []
@@ -43,7 +43,7 @@ REQUIRED BEHAVIOUR.
 ## Definition of Done
 <!-- DOD:BEGIN -->
 - [x] #1 The deployment-mode suggestion is the compile-time constant SuggestedMode = standalone: both the interactive prompt's fallback and the value installinput.Ask suggests are that constant, asserted by cli/cmd/install_mode_suggestion_test.go, while development and private remain selectable with their explanations. Running the installer IS the standalone installation, by owner decision.
-- [ ] #2 TestModeSuggestionIsTheSuggestedModeConstant is shown CONSEQUENTIAL: at 054611d1d^ (which still had the development fallback in the field table) it FAILS on any host, battery or not, and at HEAD it passes, with both outputs recorded in the ticket. This supersedes the earlier battery-fixture evidence, which could not fail on battery-less CI.
+- [x] #2 TestModeSuggestionIsTheSuggestedModeConstant is shown CONSEQUENTIAL: at 054611d1d^ (which still had the development fallback in the field table) it FAILS on any host, battery or not, and at HEAD it passes, with both outputs recorded in the ticket. This supersedes the earlier battery-fixture evidence, which could not fail on battery-less CI.
 <!-- DOD:END -->
 
 ## Implementation Notes
@@ -81,4 +81,42 @@ CLOSED per the owner's point (2026-10-08): the battery heuristic is REMOVED, so 
 DoD reworked (2026-10-08, owner's point): a test that asserts removed code is ABSENT is not a real invariant, so the criterion now asserts the positive behaviour - the suggestion IS the constant SuggestedMode and the prompt falls back to it - which is what the test checks, and DoD#1 now names the renamed test (TestModeSuggestionIsTheSuggestedModeConstant, commit ac2c7b866) instead of the deleted battery-fixture test.
 
 DoD state: item #1 (the suggestion IS the constant, asserted by the test and by installinput.Ask's fallback) is verified and checked. Item #2 (the renamed test shown failing at 054611d1d^ and passing at HEAD) stays OPEN until vole records those two outputs; the code change is landed (ac2c7b866) but the red output for the renamed test has not been pasted in yet.
+
+## 2026-10-08: battery fixture replaced by the constant assertion (ac2c7b866). This supersedes the battery-fixture evidence.
+
+Commit ac2c7b866 changes only cli/cmd/install_mode_suggestion_test.go. It removes TestSuggestedModeIsStandaloneWithOrWithoutBattery: that test fabricated a temp sys/class/power_supply tree, but the removed installIsLaptop read the hard-coded /sys/class/power_supply, so the fixture never reached the code it claimed to test and could not fail on battery-less CI. In its place, TestModeSuggestionIsTheSuggestedModeConstant asserts three things: SuggestedMode == standalone, installinput.Ask offers SuggestedMode, and the installer's interactive Configuration step (runCreateConfig) offers SuggestedMode and pressing Enter configures it. TestOtherModesStaySelectableAndExplained is kept: development and private stay selectable and explained, and the suggestion does not move. Nothing about the host is read or faked. No product code under cli/ references power_supply, Battery or /sys/class; the remaining "laptop" words are comments in unitfloor/config/testgit.
+
+### RED at 054611d1d^ (= 059fafe59)
+Run in a scratch git worktree on jhf's Mac (arm64, no battery-shaped /sys at all; Go only, no database). The parent cannot compile the cleaned test, so these declaration-only shims were added:
+- installinput: the constants SuggestedMode="standalone" (the value the test claims, so the shim cannot mask the parent), CountryNamePrompt/CountryCodePrompt/DevelopmentNamePrompt/DevelopmentCodePrompt.
+- cmd: the two seams 054611d1d itself introduced (questionnairePrompt = prompt, installDomainLookup = publicDomainLookup), routed exactly as 054611d1d routes them, plus the test helper countryAnswer.
+The parent's Ask/AskWithMode, its field table (CADDY_DEPLOYMENT_MODE fallback "development") and installIsLaptop are untouched. The failing assertion is on installinput.Ask, which reads no host state at all, so it fails on any host, battery or not.
+```
+=== RUN   TestModeSuggestionIsTheSuggestedModeConstant
+    install_mode_suggestion_test.go:103: installinput.Ask suggests "development", want SuggestedMode "standalone"
+--- FAIL: TestModeSuggestionIsTheSuggestedModeConstant (0.00s)
+=== RUN   TestOtherModesStaySelectableAndExplained
+=== RUN   TestOtherModesStaySelectableAndExplained/development
+=== RUN   TestOtherModesStaySelectableAndExplained/private
+=== RUN   TestOtherModesStaySelectableAndExplained/standalone
+--- PASS: TestOtherModesStaySelectableAndExplained (0.01s)
+FAIL
+FAIL	github.com/statisticsnorway/statbus/cli/cmd	0.507s
+FAIL
+```
+### GREEN at HEAD (ac2c7b866), same Mac, real checkout
+```
+=== RUN   TestModeSuggestionIsTheSuggestedModeConstant
+--- PASS: TestModeSuggestionIsTheSuggestedModeConstant (0.01s)
+=== RUN   TestOtherModesStaySelectableAndExplained
+=== RUN   TestOtherModesStaySelectableAndExplained/development
+=== RUN   TestOtherModesStaySelectableAndExplained/private
+=== RUN   TestOtherModesStaySelectableAndExplained/standalone
+--- PASS: TestOtherModesStaySelectableAndExplained (0.01s)
+ok  	github.com/statisticsnorway/statbus/cli/cmd	0.548s
+```
+### CI for ac2c7b866
+- Go Test 37803293000: success (cli go test ./... success, cli golangci-lint success).
+- Images, app build & lint, Harness Selftest, Push on master and Notify: all success.
+- Fast Tests (pg_regress) was superseded by later master pushes. This change has no SQL.
 <!-- SECTION:NOTES:END -->
