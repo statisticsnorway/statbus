@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-10-08 12:01'
-updated_date: '2026-10-08 12:08'
+updated_date: '2026-10-08 13:53'
 labels:
   - installer
 dependencies: []
@@ -33,23 +33,25 @@ REQUIRED BEHAVIOUR.
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 The suggested deployment mode is always standalone; no hardware signal, checkout state, hostname or other input changes it.
-- [ ] #2 installIsLaptop, installIsLaptopAt and their tests are removed, since nothing consults them any more.
-- [ ] #3 The CADDY_DEPLOYMENT_MODE fallback in the field table is standalone, so no code path can suggest development by accident.
-- [ ] #4 development and private remain selectable, the prompt keeps explaining each mode, and private is never suggested automatically.
-- [ ] #5 Tests assert the suggestion is standalone with a battery directory present and absent, without depending on the hardware of the machine running the suite.
+- [x] #1 The suggested deployment mode is always standalone; no hardware signal, checkout state, hostname or other input changes it.
+- [x] #2 installIsLaptop, installIsLaptopAt and their tests are removed, since nothing consults them any more.
+- [x] #3 The CADDY_DEPLOYMENT_MODE fallback in the field table is standalone, so no code path can suggest development by accident.
+- [x] #4 development and private remain selectable, the prompt keeps explaining each mode, and private is never suggested automatically.
+- [x] #5 Tests assert the suggestion is standalone with a battery directory present and absent, without depending on the hardware of the machine running the suite.
 <!-- AC:END -->
 
 ## Definition of Done
 <!-- DOD:BEGIN -->
-- [ ] #1 Verified through the interactive install path with the observed prompt recorded, not only by a unit test.
-- [ ] #2 Verified through the interactive install path with the observed prompt recorded, not only by a unit test.
-- [ ] #3 Verified through the interactive install path with the observed prompt for each context recorded, not only by a unit test.
-- [ ] #4 Verified through the interactive install path with the observed prompt recorded, not only by a unit test.
+- [ ] #1 Interactive install on a host that presents a battery: the recorded prompt suggests standalone, and nothing about the host changes it.
+- [ ] #2 Interactive install on a host with no battery: the recorded prompt suggests standalone, and nothing about the host changes it.
+- [ ] #3 The recorded prompt shows development and private as selectable with their explanations, and private is never suggested automatically.
+- [ ] #4 An unattended run's recipe shows standalone, with no development value (StatBus/local) appearing anywhere.
 <!-- DOD:END -->
 
 ## Implementation Notes
 
 <!-- SECTION:NOTES:BEGIN -->
 Origin: the owner reviewing the Finland installer log on 2026-10-08 asked whether our default is development; the answer is that the code intends standalone and the battery heuristic made his laptop host default to development. Related field context: STATBUS-422.
+
+COORDINATOR VERIFICATION of the landed code (054611d1d, verified against the tree at 6c4786a18 on 2026-10-08). AC1/AC3: cli/internal/installinput/config.go now has 'const SuggestedMode = "standalone"' and the field table's CADDY_DEPLOYMENT_MODE row uses SuggestedMode, so no code path can suggest development by accident. AC2: rg finds no installIsLaptop, installIsLaptopAt or install_host references anywhere in cli/; the commit removed cli/cmd/install_host.go and cli/cmd/install_guidance_test.go. AC4/AC5: cli/cmd/install_mode_suggestion_test.go holds TestSuggestedModeIsStandaloneWithOrWithoutBattery (asserts the fallback is standalone both with a synthetic Battery power_supply entry in a temp dir and without it) and TestOtherModesStaySelectableAndExplained. The Definition of Done is still open: it requires the interactive install path with the observed prompt recorded, which is being captured by the 464/465 real-install evidence run.
 <!-- SECTION:NOTES:END -->
