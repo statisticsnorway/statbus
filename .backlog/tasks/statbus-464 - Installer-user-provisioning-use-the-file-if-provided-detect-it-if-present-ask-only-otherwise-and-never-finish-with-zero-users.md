@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-10-08 11:57'
-updated_date: '2026-10-08 12:12'
+updated_date: '2026-10-08 12:39'
 labels:
   - installer
   - docs
@@ -56,5 +56,5 @@ FOR THE INSTALLER IMPLEMENTATION: the current code deliberately does not discove
 ## Implementation Notes
 
 <!-- SECTION:NOTES:BEGIN -->
-ADDED CASE (owner question 2026-10-08: 'Will it also populate the .users.yml for the next time?'). TODAY THE ANSWER IS NO. runCreateUsers in cli/cmd/install.go lines 3131-3159: if <dir>/.users.yml exists it calls applyUsersYML and returns; otherwise it prompts for Email, Name and Password and then runs 'SELECT public.user_create(p_display_name => ..., p_email => ..., p_statbus_role => "admin_user", p_password => ...)'. It creates the database user and never writes a users file. Consequence: the credentials the operator typed exist only in the database, so a later install on the same box asks for the first administrator again, and the identity does not survive a fresh checkout. The installer only ever writes .users.yml when an explicit STATBUS_USERS_FILE was supplied, in which case it copies that file into the project (install.go line 1781). REQUIRED BEHAVIOUR TO ADD: after an interactive first-administrator creation, persist the entry to the operator-home users file at the documented STATBUS-437 location with mode 0600, and say so in the output without printing the password, so the next install reuses it and STATBUS-437's survive-the-checkout property holds. Note the trust level is unchanged: the users file format already holds plaintext passwords at 0600, and the documented warning is about not putting passwords in guides or shell commands, not about the sanctioned answers file. This also feeds the detection case above: the file this writes is the file that case then finds.
+RE-DISPATCH 2026-10-08, recorded before acting. The first delegated worker ran 40 minutes and consumed about 5.0 million tokens with ZERO artifacts: no cli/ edits, no tmp/464-* files, none of its 7 todos ticked, and no answer to a status request. It was stopped and the ticket re-dispatched with a tighter brief rather than left to spin. The replacement must land this ticket INCREMENTALLY: case 3 first, that is detecting a users file in the conventional operator location, announcing it and using it, with its test; commit and push that slice with an explicit pathspec, record the evidence here, then continue with the remaining cases. If the ticket still proves too large for one pass it will be split into a case-3 ticket plus a follow-up. No product decision changed: this is a dispatch correction.
 <!-- SECTION:NOTES:END -->
