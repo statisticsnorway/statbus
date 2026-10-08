@@ -66,7 +66,11 @@ fi
 [ "${EMIT_DEGRADED_RESTORE:-}" != 1 ] || { printf 'A previous upgrade'"'"'s rollback did not finish restoring the database (row id=17).\n  The database restore could not be completed; the system is still degraded.\n  Next: contact SSB support and involve your IT staff. Keep this box as-is for diagnosis;\n'; exit 1; }
 [ "${EMIT_ROUTE_CAUSE:-}" != 1 ] || { printf '[17/17] Upgrade service      FAILED: This part of installation could not finish.\nINSTALL_CAUSE: The database route at 127.0.0.1:5431 is unavailable; the web entry point provides this route.\nINSTALL_FIX: Start or repair the web entry point, then retry the install.\n'; exit 47; }
 [ -z "${EMIT_PORT_CAUSE:-}" ] || { printf '[8/17] Services             FAILED: This part of installation could not finish.\nINSTALL_CAUSE: %s\n' "$EMIT_PORT_CAUSE"; exit 47; }
-[ "${FORCE_STEP_FAILURE:-}" != 1 ] || printf '[16/17] Trusted signers      FAILED: release signer approval was declined\n'
+# The Trusted signers decline as ./sb prints it: the prompt's decline line,
+# then the step failure with its classified cause. The step's position is
+# whatever the step table says; install.sh must match the NAME (STATBUS-468).
+[ "${FORCE_STEP_FAILURE:-}" != 1 ] || printf '  Approval declined. The installer will stop before changing signer settings.\n[7/18] Trusted signers      FAILED: This part of installation could not finish.\nINSTALL_CAUSE: The release signature could not be verified.\nINSTALL_FIX: Verify the release signer and approve a trusted signer before retrying.\n'
+[ "${FORCE_SIGNER_NOT_APPLIED:-}" != 1 ] || printf '[7/18] Trusted signers      FAILED: This part of installation could not finish.\nINSTALL_CAUSE: The approved release signer did not reach the settings the update service reads.\nINSTALL_FIX: Run cd ~/statbus && ./sb config generate, then retry.\n'
 [ "${STATBUS_ENV_CONFIG:-}" = "$EXPECTED_CONFIG" ]
 [ "${STATBUS_USERS_FILE:-}" = "$EXPECTED_USERS" ]
 # Shell bootstrap must leave input validation and importing to the product.
@@ -240,12 +244,23 @@ rc=$?
 set -e
 [ "$rc" = 47 ] || { echo "FAIL: sb failure became $rc"; exit 1; }
 grep -Fq 'The installation stopped before it could finish.' "$TMP_ROOT/output"
-grep -Fq 'Cause: step 16/17 (Trusted signers) failed: release signer approval was declined' "$TMP_ROOT/output"
+grep -Fq 'Cause: step 7/18 (Trusted signers) failed: release signer approval was declined' "$TMP_ROOT/output"
 grep -Fq 'curl -fsSL https://statbus.org/install.sh | bash' "$TMP_ROOT/output"
 grep -Fq 'bash -s -- --version v2026.09.0-rc.02 --non-interactive' "$TMP_ROOT/output"
 ! grep -Fq 'SYSTEM UNUSABLE' "$TMP_ROOT/output"
 ! grep -Fq 'install.sh FAILED at line' "$TMP_ROOT/output"
 echo 'PASS: sb validation/installation failure propagates'
+
+# A Trusted signers failure that is NOT a decline keeps its own cause and fix.
+set +e
+FORCE_SIGNER_NOT_APPLIED=1 INSTALL_EXIT=47 bash "$ROOT/install.sh" --version v2026.09.0-rc.02 --non-interactive > "$TMP_ROOT/output" 2>&1
+rc=$?
+set -e
+[ "$rc" = 47 ] || { echo "FAIL: signer-not-applied failure became $rc"; exit 1; }
+grep -Fq 'Cause: The approved release signer did not reach the settings the update service reads.' "$TMP_ROOT/output"
+grep -Fq 'Outside fix: Run cd ~/statbus && ./sb config generate, then retry.' "$TMP_ROOT/output"
+! grep -Fq 'approval was declined' "$TMP_ROOT/output"
+echo 'PASS: a signer that did not reach the settings is reported with its remedy'
 
 set +e
 FORCE_TERMINAL=1 INSTALL_EXIT=47 bash "$ROOT/install.sh" --version v2026.09.0-rc.02 --non-interactive > "$TMP_ROOT/terminal-output" 2>&1

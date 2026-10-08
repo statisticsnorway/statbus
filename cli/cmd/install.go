@@ -201,6 +201,10 @@ var trustGitHubUser string
 var signerPromptAnswered bool
 var signerPromptAccepted bool
 
+// signerPromptDeclined records an explicit "n" at the signer prompt, as
+// distinct from a key fetch that failed (which stays non-fatal).
+var signerPromptDeclined bool
+
 // postUpgradeFixup signals that this install invocation is a post-upgrade
 // fixup spawned by the upgrade service itself. It is NOT a user-facing flag —
 // operators must never pass it. The service at service.go:executeUpgrade sets
@@ -508,9 +512,11 @@ func runInstall() (installErr error) {
 	}
 	settingsRestoredBeforeDetect = false
 	freshDatabaseBeforeInstall = false
-	previousAnswered, previousAccepted := signerPromptAnswered, signerPromptAccepted
-	signerPromptAnswered, signerPromptAccepted = false, false
-	defer func() { signerPromptAnswered, signerPromptAccepted = previousAnswered, previousAccepted }()
+	previousAnswered, previousAccepted, previousDeclined := signerPromptAnswered, signerPromptAccepted, signerPromptDeclined
+	signerPromptAnswered, signerPromptAccepted, signerPromptDeclined = false, false, false
+	defer func() {
+		signerPromptAnswered, signerPromptAccepted, signerPromptDeclined = previousAnswered, previousAccepted, previousDeclined
+	}()
 	// Resolve once, before fresh setup or existing-install recovery dispatch.
 	effectiveTrust, err := installinput.ResolveTrust(trustGitHubUser, "")
 	if err != nil {
@@ -1090,7 +1096,12 @@ func runInstall() (installErr error) {
 		// a fresh install printed "Added ... to .env.config" and then its
 		// daemon reported no trusted signers (STATBUS-468). It needs only the
 		// checkout (git verify-commit HEAD) and .env.config, both present here.
-		{"Trusted signers", checkSignersDone, runTrustSigners},
+		//
+		// Asking here puts the interactive signer prompt BEFORE the image
+		// pull. That order is deliberate and accepted (STATBUS-468): the
+		// operator answers every question up front and the long pull runs
+		// unattended afterwards.
+		{"Trusted signers", checkSignersDone, runTrustSignersStep},
 		{"Settings", checkEnvDone, runGenerateEnv},
 		{"Images", checkImagesDone, runPullImages},
 		{"Services", checkServicesDone, runStartServices},
@@ -1317,8 +1328,17 @@ func runInstall() (installErr error) {
 	applyPendingUpgradeDaemonRestart(pendingRestarts, &upgradeDaemonFinalAction)
 
 	// STATBUS-468: the signer the install approved must be the signer the
-	// daemon loads. Checked before the completion banner can claim success.
+	// daemon loads. Checked before the completion banner can claim success,
+	// and reported as the Trusted signers step's failure so the operator gets
+	// the classified cause and remedy, not the generic stop line.
 	if err := verifyTrustedSignersApplied(installDir); err != nil {
+		prefix := "Trusted signers"
+		for i, s := range steps {
+			if s.name == "Trusted signers" {
+				prefix = fmt.Sprintf("[%d/%d] %-20s", i+1, total, s.name)
+			}
+		}
+		printInstallStepFailure("Trusted signers", prefix, err, true)
 		return err
 	}
 
@@ -3346,8 +3366,31 @@ func verifyTrustedSignersApplied(dir string) error {
 			continue
 		}
 		if have[strings.TrimPrefix(key, trustedSignerPrefix)] != want {
-			return fmt.Errorf("the trusted signer %s is in .env.config but not in the generated settings the upgrade service reads, so upgrades would be refused. Run cd %s && ./sb config generate, then run: %s", key, dir, diskpolicy.RerunCommand())
+			return fmt.Errorf("the trusted signer %s is in .env.config but not in the generated settings the upgrade service reads (%s), so upgrades would be refused", key, errSignerNotApplied)
 		}
+	}
+	return nil
+}
+
+// errSignerNotApplied and signerDeclinedError carry the fixed phrases
+// classifyInstallFailure maps to an operator cause and remedy.
+var errSignerNotApplied = errors.New("trusted signer not applied to the generated settings")
+
+func signerDeclinedError() error {
+	return errors.New("release signer approval was declined, so installation cannot continue.\n" +
+		"Run the installer again when you are ready to approve one:\n    " + diskpolicy.RerunCommand())
+}
+
+// runTrustSignersStep is the step-table runner. An explicit decline stops
+// the install here, as the prompt says it will; before this, a decline on a
+// fresh install returned nil, the step printed DONE, and the install finished
+// with no signer and a daemon that refuses every upgrade (STATBUS-468).
+func runTrustSignersStep(dir string) error {
+	if err := runTrustSigners(dir); err != nil {
+		return err
+	}
+	if signerPromptDeclined {
+		return signerDeclinedError()
 	}
 	return nil
 }
@@ -3371,8 +3414,7 @@ func runTrustSigners(dir string) error {
 		if signerPromptAccepted {
 			return nil
 		}
-		return errors.New("a trusted release signer was not approved, so installation cannot continue.\n" +
-			"Run the installer again when you are ready to approve one:\n    " + diskpolicy.RerunCommand())
+		return signerDeclinedError()
 	}
 
 	cfgPath := filepath.Join(dir, ".env.config")
@@ -3399,6 +3441,7 @@ func runTrustSigners(dir string) error {
 		return nil // Non-fatal: don't block installation
 	}
 	if !trusted {
+		signerPromptDeclined = true
 		fmt.Println("  Approval declined. The installer will stop before changing signer settings.")
 		return nil
 	}

@@ -5081,6 +5081,15 @@ func TrustedSignersFromEnv(projDir string) ([]TrustedSigner, error) {
 	return signers, nil
 }
 
+// LoadTrustedSigners runs the daemon's start-up signer load and returns the
+// allowed-signers file it will verify commits against ("" when no signer is
+// configured). It exists so the installer's tests can drive the generated
+// .env all the way into the daemon (STATBUS-468) without starting it.
+func (d *Service) LoadTrustedSigners() (string, error) {
+	err := d.loadTrustedSigners()
+	return d.allowedSignersPath, err
+}
+
 // loadTrustedSigners reads UPGRADE_TRUSTED_SIGNER_* keys from .env and
 // writes an allowed-signers file for git verify-commit.
 // Signing enforcement: if keys are configured, verification is enforced at

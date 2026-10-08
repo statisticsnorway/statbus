@@ -27,10 +27,13 @@ import (
 // STATBUS-321's funcBodiesContaining). The fingerprint is the substring
 // "generate": every real regeneration path — the `"config", "generate"`
 // subprocess args runCreateCreds/runGenerateEnv use, config.Generate, and
-// generateEnvContent — contains it, and none of the 8 steps currently
+// generateEnvContent — contains it, and none of the 7 steps currently
 // positioned after "Apply config changes" (Backup ownership, Database
-// sessions, Seed, Migrations, JWT secret, Users, Trusted signers, Upgrade
-// service) do.
+// sessions, Seed, Migrations, JWT secret, Administrator, Upgrade service) do.
+// "Trusted signers" is no longer among them: STATBUS-468 moved it BEFORE
+// "Settings", because it writes UPGRADE_TRUSTED_SIGNER_* into .env.config and
+// only a step ahead of the generator gets that key into the .env the upgrade
+// daemon reads.
 func TestNoStepAfterApplyConfigChangesRegeneratesEnv(t *testing.T) {
 	path := thisRepoFile(t, "cli/cmd/install.go")
 	src, err := os.ReadFile(path)

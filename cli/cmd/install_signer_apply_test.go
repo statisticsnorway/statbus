@@ -110,6 +110,42 @@ func TestApprovedSignerReachesTheDaemonsSettings(t *testing.T) {
 	}
 }
 
+// The whole chain the field log broke: run the install's two signer-relevant
+// steps in the step table's ACTUAL order, then start the daemon's own trust
+// load on the resulting .env and read the allowed-signers file it would verify
+// commits against. Before STATBUS-468's reorder (Settings, then Trusted
+// signers) the daemon found no signer and wrote no file.
+func TestInstallStepOrderGivesTheDaemonTheApprovedSigner(t *testing.T) {
+	dir := signerInstallFixture(t)
+	for _, name := range stepTableOrder(t) {
+		switch name {
+		case "Trusted signers":
+			if err := runTrustSigners(dir); err != nil {
+				t.Fatal(err)
+			}
+		case "Settings":
+			if err := runGenerateEnv(dir); err != nil {
+				t.Fatal(err)
+			}
+		}
+	}
+	daemon := upgrade.NewService(dir, false, "test", "unknown")
+	allowedSigners, err := daemon.LoadTrustedSigners()
+	if err != nil {
+		t.Fatalf("daemon trust load: %v", err)
+	}
+	if allowedSigners == "" {
+		t.Fatal("daemon loaded no trusted signer from the .env this install generated, so it would refuse every upgrade")
+	}
+	got, err := os.ReadFile(allowedSigners)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := "jhf " + fixtureSignerKey + "\n"; string(got) != want {
+		t.Fatalf("daemon allowed-signers content:\n got %q\nwant %q", got, want)
+	}
+}
+
 // The pre-fix order (Settings, then signers) is the field defect. The
 // end-state check catches it truthfully instead of the banner contradiction.
 func TestSignerWrittenAfterGenerationIsReportedNotHidden(t *testing.T) {
@@ -124,7 +160,70 @@ func TestSignerWrittenAfterGenerationIsReportedNotHidden(t *testing.T) {
 		t.Fatalf("fixture did not reproduce the stale .env: %+v", signers)
 	}
 	err := verifyTrustedSignersApplied(dir)
-	if err == nil || !strings.HasPrefix(err.Error(), "the trusted signer UPGRADE_TRUSTED_SIGNER_jhf is in .env.config but not in the generated settings the upgrade service reads, so upgrades would be refused. Run cd "+dir+" && ./sb config generate") {
+	if err == nil || !strings.HasPrefix(err.Error(), "the trusted signer UPGRADE_TRUSTED_SIGNER_jhf is in .env.config but not in the generated settings the upgrade service reads") {
 		t.Fatalf("stale signer not reported: %v", err)
 	}
+	// The operator sees the classified cause and its remedy (install.sh
+	// relays exactly these INSTALL_CAUSE/INSTALL_FIX lines), not the generic
+	// "could not finish" line.
+	out := captureStdout(t, func() { printInstallStepFailure("Trusted signers", "[7/18] Trusted signers     ", err, true) })
+	for _, want := range []string{
+		"[7/18] Trusted signers      FAILED: This part of installation could not finish.\n",
+		"INSTALL_CAUSE: The approved release signer did not reach the settings the update service reads.\n",
+		"INSTALL_FIX: Run cd ~/statbus && ./sb config generate, then retry.\n",
+	} {
+		if !strings.Contains(out, want) {
+			t.Fatalf("operator output lacks %q:\n%s", want, out)
+		}
+	}
+}
+
+// An explicit "n" at the signer prompt stops the install at the Trusted
+// signers step, as the prompt promises. Before, a fresh-install decline
+// returned nil: the step printed DONE and the install finished with no signer
+// and a daemon that refuses every upgrade. The step's error is the phrase
+// install.sh reports as "release signer approval was declined".
+func TestDeclinedSignerFailsTheTrustedSignersStep(t *testing.T) {
+	dir := signerInstallFixture(t)
+	trustGitHubUser = ""
+	stdin, err := os.CreateTemp(t.TempDir(), "stdin")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := stdin.WriteString("n\n"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := stdin.Seek(0, 0); err != nil {
+		t.Fatal(err)
+	}
+	oldStdin := os.Stdin
+	os.Stdin = stdin
+	t.Cleanup(func() { os.Stdin = oldStdin })
+	signerPromptAnswered, signerPromptAccepted, signerPromptDeclined = false, false, false
+	t.Cleanup(func() { signerPromptAnswered, signerPromptAccepted, signerPromptDeclined = false, false, false })
+
+	if !strings.Contains(installStepTableSource(t), `{"Trusted signers", checkSignersDone, runTrustSignersStep},`) {
+		t.Fatal("the step table no longer runs runTrustSignersStep for Trusted signers")
+	}
+	trusted := step{"Trusted signers", checkSignersDone, runTrustSignersStep}
+	alreadyDone, err := executeInstallStep(trusted, dir, func() {})
+	if alreadyDone || err == nil || !strings.HasPrefix(err.Error(), "release signer approval was declined") {
+		t.Fatalf("declined signer: alreadyDone=%v err=%v", alreadyDone, err)
+	}
+	if cause, _ := classifyInstallFailure("Trusted signers", err); cause != "The release signature could not be verified." {
+		t.Fatalf("decline classified as %q", cause)
+	}
+	cfg, _ := os.ReadFile(filepath.Join(dir, ".env.config"))
+	if strings.Contains(string(cfg), "UPGRADE_TRUSTED_SIGNER_") {
+		t.Fatalf("declined signer was written:\n%s", cfg)
+	}
+}
+
+func installStepTableSource(t *testing.T) string {
+	t.Helper()
+	source, err := os.ReadFile("install.go")
+	if err != nil {
+		t.Fatal(err)
+	}
+	return string(source)
 }
