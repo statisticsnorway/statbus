@@ -103,12 +103,13 @@ GRANT EXECUTE ON FUNCTION test.sudo_exec(text) TO PUBLIC;
 -- full replay disagree on which ids the fixture users land on — unless
 -- every sequence is normalized back to the data on each setup, as here.
 --
--- client_min_messages suppresses the procedure's own NOTICE for this call
--- only (the procedure itself is unchanged — it still RAISEs on every call).
--- The unowned-sequence skip-reason belongs on the OPERATIONAL surface (the
--- Go restore paths, which call it via QueryDB and print what comes back)
--- and pinned in exactly one test (127_statbus_316_normalize_all_sequences,
--- which calls the procedure directly and still sees the NOTICE). Left
+-- client_min_messages keeps this call quiet. Since STATBUS-467 the
+-- procedure's unowned-sequence skip report is raised at DEBUG (by-design
+-- behaviour, not a warning), so it is already invisible at default
+-- verbosity; the SET stays so any other notice the call might raise does
+-- not leak either. The skip report is pinned in exactly one test
+-- (127_statbus_316_normalize_all_sequences, which sets
+-- client_min_messages=debug around its own CALLs to assert it). Left
 -- unquieted here, it would leak into every one of the ~90 shared tests'
 -- expected output — turning all of them into accidental pins on the
 -- current unowned set, so a future new unowned sequence would redden the

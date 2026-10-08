@@ -1,4 +1,10 @@
-```sql
+-- Down Migration 20261008121306: statbus_467_normalize_all_sequences_skip_at_debug
+--
+-- Restores public.normalize_all_sequences() exactly as it was before this
+-- migration (dumped with \sf from a database at HEAD), i.e. the
+-- unowned-sequence skip raised at NOTICE again.
+BEGIN;
+
 CREATE OR REPLACE PROCEDURE public.normalize_all_sequences()
  LANGUAGE plpgsql
 AS $procedure$
@@ -47,8 +53,9 @@ BEGIN
     ) unowned;
 
     IF v_skipped IS NOT NULL THEN
-        RAISE DEBUG 'normalize_all_sequences: skipped % (no owning column to derive an authoritative max from -- this procedure only ever normalizes column-owned sequences)', v_skipped;
+        RAISE NOTICE 'normalize_all_sequences: skipped % (no owning column to derive an authoritative max from -- this procedure only ever normalizes column-owned sequences)', v_skipped;
     END IF;
 END;
-$procedure$
-```
+$procedure$;
+
+END;

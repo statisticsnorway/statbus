@@ -11,6 +11,12 @@ BEGIN;
 -- BIDIRECTIONALITY (ahead pulled back, behind pushed forward), and
 -- DETERMINISM (two different burn states on the same data converge to the
 -- identical final position).
+--
+-- STATBUS-467: the unowned-sequence skip report is raised at DEBUG (it is
+-- by-design behaviour, not a warning, so it must not print during a clean
+-- seed restore). This test still pins it: each CALL below is wrapped in
+-- SET client_min_messages TO debug / RESET, scoped to the CALL alone so no
+-- other statement's debug output leaks into the expected file.
 
 \echo -- CORRECTNESS: the exact unowned-sequence set, pinned. A sequence
 \echo -- landing here or leaving here is a real schema change that this
@@ -61,7 +67,9 @@ SELECT :actual_max_n AS actual_max_user_id;
 -- setting the sequence far ahead of the data it actually holds.
 SELECT setval(pg_get_serial_sequence('auth."user"', 'id'), :actual_max_n + 500, true);
 SELECT last_value AS n FROM auth.user_id_seq \gset ahead_before_
+SET client_min_messages TO debug;
 CALL public.normalize_all_sequences();
+RESET client_min_messages;
 SELECT last_value AS n FROM auth.user_id_seq \gset ahead_after_
 
 \echo -- SCENARIO 1 assertion: was artificially ahead, pulled back to the actual max.
@@ -74,7 +82,9 @@ SELECT :ahead_before_n AS forced_ahead, :ahead_after_n AS after_normalize, :actu
 -- (e.g. a restored dump's COPY) by setting the sequence far below the data.
 SELECT setval(pg_get_serial_sequence('auth."user"', 'id'), 1, true);
 SELECT last_value AS n FROM auth.user_id_seq \gset behind_before_
+SET client_min_messages TO debug;
 CALL public.normalize_all_sequences();
+RESET client_min_messages;
 SELECT last_value AS n FROM auth.user_id_seq \gset behind_after_
 
 \echo -- SCENARIO 2 assertion: was artificially behind, pushed forward to the actual max.
@@ -95,7 +105,9 @@ SELECT :ahead_after_n = :behind_after_n AS determinism_holds,
 -- SCENARIO 4 -- ALREADY-CORRECT -> UNTOUCHED (the settled-database negative,
 -- same discipline as 312/314): calling it again when nothing has drifted
 -- must not move anything.
+SET client_min_messages TO debug;
 CALL public.normalize_all_sequences();
+RESET client_min_messages;
 SELECT last_value AS n FROM auth.user_id_seq \gset settled_
 
 \echo -- SCENARIO 4 assertion: an extra call on an already-correct sequence changes nothing.

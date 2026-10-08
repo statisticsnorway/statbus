@@ -1,4 +1,18 @@
-```sql
+-- Migration 20261008121306: statbus_467_normalize_all_sequences_skip_at_debug
+--
+-- STATBUS-467. public.normalize_all_sequences() (migration 20260829114700,
+-- STATBUS-316) reports the sequences it skips because no column owns them.
+-- Skipping those is the procedure's documented, intended behaviour, yet it
+-- was raised at NOTICE, the level clients show by default, so every seed
+-- restore printed it in otherwise clean output where it read like a warning.
+--
+-- The only change: that report is raised at DEBUG instead of NOTICE. The
+-- message text is byte-for-byte unchanged and the normalisation itself is
+-- untouched (body dumped with \sf from a database at HEAD). The skip stays
+-- observable on demand with SET client_min_messages TO debug, which is how
+-- test/sql/127_statbus_316_normalize_all_sequences.sql keeps asserting it.
+BEGIN;
+
 CREATE OR REPLACE PROCEDURE public.normalize_all_sequences()
  LANGUAGE plpgsql
 AS $procedure$
@@ -50,5 +64,6 @@ BEGIN
         RAISE DEBUG 'normalize_all_sequences: skipped % (no owning column to derive an authoritative max from -- this procedure only ever normalizes column-owned sequences)', v_skipped;
     END IF;
 END;
-$procedure$
-```
+$procedure$;
+
+END;

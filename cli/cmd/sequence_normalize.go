@@ -23,11 +23,12 @@ import (
 // *exec.Cmd with no database name and no notion of "the restore, as a
 // whole, is done."
 //
-// Uses QueryDB (not ExecOnDB) deliberately: the procedure's RAISE NOTICE
-// for skipped (unowned) sequences must be VISIBLE, not silently discarded
-// -- ExecOnDB's own doc comment says it "discards stdout and returns only
-// an error", which would swallow exactly the skip-with-reason signal this
-// ticket requires.
+// Uses QueryDB (not ExecOnDB) deliberately: whatever the CALL prints must
+// stay visible, not silently discarded -- ExecOnDB's own doc comment says
+// it "discards stdout and returns only an error". STATBUS-467: the
+// procedure's report of skipped (unowned) sequences is by-design and is
+// raised at DEBUG, so a clean restore prints nothing for it; set
+// client_min_messages=debug to see it on demand.
 //
 // ABSENCE TOLERANCE (found by CI, run 33275592180): a restored artifact can
 // predate migration 20260829114700 -- CI's restore path (and install.sh's
