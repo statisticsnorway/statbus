@@ -1,4 +1,18 @@
-```sql
+-- Migration: statbus_476 reset reparents activity categories within their own standard
+--
+-- STATBUS-476. public.reset scope getting-started/all deletes the custom
+-- activity_category overrides and reparents their non-custom children to the
+-- system row of the same path. Its replacement join matched the path in EVERY
+-- standard: with isic_v4 and nace_v2.1 sharing 424 paths, the UPDATE ... FROM
+-- picked an arbitrary replacement for ambiguous paths and an other-standard
+-- one where that was the only candidate, so children were reparented across
+-- standards. This was invisible only because public.lookup_parent_and_derive_code
+-- (BEFORE UPDATE, scoped to the row's standard by STATBUS-473) re-derives
+-- parent_id and overwrites whatever reset wrote. The join now matches within
+-- the override's own standard, so reset's result no longer depends on the
+-- trigger correcting it.
+BEGIN;
+
 CREATE OR REPLACE FUNCTION public.reset(confirmed boolean, scope reset_scope)
  RETURNS jsonb
  LANGUAGE plpgsql
@@ -451,4 +465,6 @@ BEGIN
     RETURN result;
 END;
 $function$
-```
+;
+
+END;

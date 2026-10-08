@@ -1,4 +1,6 @@
-```sql
+-- Down Migration: restores public.reset exactly as dumped (\sf) before the up migration.
+BEGIN;
+
 CREATE OR REPLACE FUNCTION public.reset(confirmed boolean, scope reset_scope)
  RETURNS jsonb
  LANGUAGE plpgsql
@@ -177,7 +179,6 @@ BEGIN
             FROM public.activity_category AS to_delete
             LEFT JOIN public.activity_category AS replacement
               ON to_delete.path = replacement.path
-             AND to_delete.standard_id = replacement.standard_id
              AND NOT replacement.custom
             WHERE to_delete.custom
               AND to_delete.enabled
@@ -451,4 +452,6 @@ BEGIN
     RETURN result;
 END;
 $function$
-```
+;
+
+END;
