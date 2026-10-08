@@ -4,7 +4,7 @@ title: CSV export of search results contains every matching row
 status: In Progress
 assignee: []
 created_date: '2026-09-25 14:02'
-updated_date: '2026-10-08 13:22'
+updated_date: '2026-10-08 13:25'
 labels:
   - app
 dependencies: []
@@ -55,8 +55,7 @@ Reported by Erik 2026-09-25 (Slack): exporting all legal units + establishments 
 ## Implementation Notes
 
 <!-- SECTION:NOTES:BEGIN -->
-CONSTANT CONSOLIDATION AND THE CAP QUESTION, 2026-10-08. Owner decision: a single source of truth for the constants. EXCEL_MAX_ROWS = 1_048_576 is currently duplicated in app/src/app/search/export/export-query.ts, app/src/components/progress-download-button.tsx and app/src/components/command-palette.tsx; consolidate into one exported constant that the others import, and fold that into slice S3 rather than opening a ticket of its own.
-THE CAP IS BY DESIGN, NOT COINCIDENCE: one sheet holds at most 1,048,576 rows INCLUDING the header row, so the export caps DATA rows at EXCEL_MAX_DATA_ROWS = EXCEL_MAX_ROWS - 1 = 1,048,575, which is why the last row index of a maximum-size export is exactly 1048576. The refusal is therefore testable locally and visibly: the restored Norway dump has 1,976,463 rows in the export filter, roughly 928,000 above the cap, so the Excel option is unavailable with the message that Excel supports at most 1,048,575 data rows, while CSV proceeds. That is the intended behaviour, not a bug.
+PROTOTYPE REUSE IS EXPLICIT, recorded 2026-10-08 at the owner's request. The work in tmp/421-xlsx-proto/ is FEASIBILITY ONLY: it is gitignored, was not written against the app's types or test harness, and must NOT be committed as-is. Slice S3 must PORT it rather than reinvent it. Lift and adapt: streaming-xlsx.mjs, the incremental writer with a streaming ZIP container and streamed sheet XML, including the Excel serial-date rule with the pre-1900-03-01 adjustment for the fictitious 1900-02-29, the C0-character escaping, and the cell and row limit refusals; browser/worker.mjs and browser-run.mjs, the dedicated Worker shape with native CompressionStream deflate-raw and fflate supplying only the ZIP container and CRC; slice-csv.mjs, quote-aware record slicing for exact-row-count fixtures; and validate.py with validate-all.sh, the independent readers (zipfile CRC, expat, openpyxl cell by cell, headless LibreOffice). The report tmp/421-client-xlsx-feasibility.md carries the measured numbers and the constraints, including the Firefox OPFS fallback and its measured copy cost. Reusing those algorithms is expected; rewriting them from scratch is the waste this note exists to prevent. What IS new in the product version: it runs inside the real export route with the user's JWT and the real search filters, uses the app's types and test harness, and ships tests plus docs.
 <!-- SECTION:NOTES:END -->
 
 ## 2026-10-07: the export still cannot deliver — owner-observed failure on no.statbus.org, diagnosed
