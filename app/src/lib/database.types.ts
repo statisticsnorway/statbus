@@ -12009,13 +12009,13 @@ export type Database = {
       },
       citext: {
         Args: {
-          arg0?: unknown
+          arg0?: boolean
         }
         Returns: string
       }
         | {
         Args: {
-          arg0?: boolean
+          arg0?: unknown
         }
         Returns: string
       }
@@ -12311,7 +12311,7 @@ export type Database = {
       },
       existence_from: {
         Args: {
-          arg0?: Database["public"]["Tables"]["statistical_unit"]["Row"]
+          arg0?: Database["public"]["Tables"]["establishment"]["Row"]
         }
         Returns: string
       }
@@ -12323,13 +12323,13 @@ export type Database = {
       }
         | {
         Args: {
-          arg0?: Database["public"]["Tables"]["establishment"]["Row"]
+          arg0?: Database["public"]["Tables"]["statistical_unit"]["Row"]
         }
         Returns: string
       },
       existence_until: {
         Args: {
-          arg0?: Database["public"]["Tables"]["statistical_unit"]["Row"]
+          arg0?: Database["public"]["Tables"]["establishment"]["Row"]
         }
         Returns: string
       }
@@ -12341,7 +12341,7 @@ export type Database = {
       }
         | {
         Args: {
-          arg0?: Database["public"]["Tables"]["establishment"]["Row"]
+          arg0?: Database["public"]["Tables"]["statistical_unit"]["Row"]
         }
         Returns: string
       },
@@ -14113,14 +14113,14 @@ export type Database = {
       },
       hash_slot: {
         Args: {
-          p_unit_type?: string
+          p_unit_type?: Database["public"]["Enums"]["statistical_unit_type"]
           p_unit_id?: number
         }
         Returns: number
       }
         | {
         Args: {
-          p_unit_type?: Database["public"]["Enums"]["statistical_unit_type"]
+          p_unit_type?: string
           p_unit_id?: number
         }
         Returns: number
@@ -14358,6 +14358,12 @@ export type Database = {
       }
         | {
         Args: {
+          arg0?: number[]
+        }
+        Returns: string
+      }
+        | {
+        Args: {
           arg0?: number
           arg1?: string
         }
@@ -14365,7 +14371,22 @@ export type Database = {
       }
         | {
         Args: {
+          arg0?: number[]
+          arg1?: string
+        }
+        Returns: string
+      }
+        | {
+        Args: {
           arg0?: number
+          arg1?: string
+          arg2?: number
+        }
+        Returns: string
+      }
+        | {
+        Args: {
+          arg0?: number[]
           arg1?: string
           arg2?: number
         }
@@ -14377,27 +14398,6 @@ export type Database = {
           arg1?: string
           arg2?: number
           arg3?: string
-        }
-        Returns: string
-      }
-        | {
-        Args: {
-          arg0?: number[]
-        }
-        Returns: string
-      }
-        | {
-        Args: {
-          arg0?: number[]
-          arg1?: string
-        }
-        Returns: string
-      }
-        | {
-        Args: {
-          arg0?: number[]
-          arg1?: string
-          arg2?: number
         }
         Returns: string
       }
@@ -15494,14 +15494,14 @@ export type Database = {
       },
       stats: {
         Args: {
-          input?: Json
+          code?: string
+          val?: unknown
         }
         Returns: Json
       }
         | {
         Args: {
-          code?: string
-          val?: unknown
+          input?: Json
         }
         Returns: Json
       },
@@ -15577,7 +15577,6 @@ export type Database = {
         Args: {
           arg0?: string
           arg1?: number
-          arg2?: number
         }
         Returns: string
       }
@@ -15585,6 +15584,7 @@ export type Database = {
         Args: {
           arg0?: string
           arg1?: number
+          arg2?: number
         }
         Returns: string
       },
@@ -15789,19 +15789,19 @@ export type Database = {
       },
       urlencode: {
         Args: {
-          string?: string
-        }
-        Returns: string
-      }
-        | {
-        Args: {
-          string?: string
-        }
-        Returns: string
-      }
-        | {
-        Args: {
           data?: Json
+        }
+        Returns: string
+      }
+        | {
+        Args: {
+          string?: string
+        }
+        Returns: string
+      }
+        | {
+        Args: {
+          string?: string
         }
         Returns: string
       },

@@ -38,14 +38,20 @@ import (
 
 // seedACLDigestSQL is one md5 over every relation ACL and every function ACL
 // outside the system schemas, keyed by object identity, so it is stable across
-// OIDs and detects any grant difference.
+// OIDs and detects any grant difference. It digests the EFFECTIVE ACL
+// (COALESCE(acl, acldefault(...))): pg_dump omits an ACL that equals the
+// owner's default, so a migrated database that stores the default explicitly
+// (e.g. auth.secrets after REVOKE ALL ... FROM PUBLIC, {postgres=arwdDxtm/postgres})
+// restores it as NULL, which grants exactly the same privileges. Comparing the
+// stored form would report that as a lost grant (it did, on the first FULL
+// seed build after the check landed).
 const seedACLDigestSQL = `SELECT md5(
-  (SELECT string_agg(c.oid::regclass::text || '=' || coalesce(c.relacl::text, '-'), '|' ORDER BY c.oid::regclass::text)
+  (SELECT string_agg(c.oid::regclass::text || '=' || COALESCE(c.relacl, acldefault(CASE WHEN c.relkind = 'S' THEN 's'::"char" ELSE 'r'::"char" END, c.relowner))::text, '|' ORDER BY c.oid::regclass::text)
      FROM pg_class AS c JOIN pg_namespace AS n ON n.oid = c.relnamespace
     WHERE n.nspname NOT IN ('pg_catalog', 'information_schema', 'pg_toast')
       AND n.nspname NOT LIKE 'pg_temp%' AND n.nspname NOT LIKE 'pg_toast_temp%')
   || '#' ||
-  (SELECT string_agg(p.oid::regprocedure::text || '=' || coalesce(p.proacl::text, '-'), '|' ORDER BY p.oid::regprocedure::text)
+  (SELECT string_agg(p.oid::regprocedure::text || '=' || COALESCE(p.proacl, acldefault('f', p.proowner))::text, '|' ORDER BY p.oid::regprocedure::text)
      FROM pg_proc AS p JOIN pg_namespace AS n ON n.oid = p.pronamespace
     WHERE n.nspname NOT IN ('pg_catalog', 'information_schema')))`
 
@@ -139,5 +145,5 @@ func verifySeedRoundTrip(projDir, seedDbName string) (result error) {
 	}
 	fmt.Printf("seed round trip (STATBUS-481): OK — seed -> restore -> dump -> restore; ACL digest %s identical; event triggers enabled %s\n",
 		wantDigest, wantTriggers)
-	return nil
+	return seedRestoredTypesCheck(projDir, rt1)
 }

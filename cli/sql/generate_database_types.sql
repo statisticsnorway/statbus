@@ -133,9 +133,13 @@ export type Database = {
                 con.conrelid,
                 con.conname,
                 con.conkey, -- FK column numbers for isOneToOne check
-                (SELECT string_agg(a.attname, '", "') FROM pg_attribute AS a WHERE a.attrelid = con.conrelid AND a.attnum = ANY(con.conkey)) AS columns,
+                -- Column lists ordered explicitly (STATBUS-481): an unordered
+                -- string_agg follows the scan order, which is not guaranteed
+                -- stable across a migrated and a restored database. By name,
+                -- which is the order the committed file already carries.
+                (SELECT string_agg(a.attname, '", "' ORDER BY a.attname) FROM pg_attribute AS a WHERE a.attrelid = con.conrelid AND a.attnum = ANY(con.conkey)) AS columns,
                 con.confrelid,
-                (SELECT string_agg(a.attname, '", "') FROM pg_attribute AS a WHERE a.attrelid = con.confrelid AND a.attnum = ANY(con.confkey)) AS referenced_columns,
+                (SELECT string_agg(a.attname, '", "' ORDER BY a.attname) FROM pg_attribute AS a WHERE a.attrelid = con.confrelid AND a.attnum = ANY(con.confkey)) AS referenced_columns,
                 referenced_class.relname as referenced_relation_name,
                 referenced_class.relkind as referenced_relation_kind,
                 referenced_ns.nspname as referenced_schema_name,
@@ -155,9 +159,9 @@ export type Database = {
                 con.conrelid,
                 con.conname,
                 con.conkey,
-                (SELECT string_agg(a.attname, '", "') FROM pg_attribute AS a WHERE a.attrelid = con.conrelid AND a.attnum = ANY(con.conkey)) AS columns,
+                (SELECT string_agg(a.attname, '", "' ORDER BY a.attname) FROM pg_attribute AS a WHERE a.attrelid = con.conrelid AND a.attnum = ANY(con.conkey)) AS columns,
                 con.confrelid,
-                (SELECT string_agg(a.attname, '", "') FROM pg_attribute AS a WHERE a.attrelid = con.confrelid AND a.attnum = ANY(con.confkey)) AS referenced_columns,
+                (SELECT string_agg(a.attname, '", "' ORDER BY a.attname) FROM pg_attribute AS a WHERE a.attrelid = con.confrelid AND a.attnum = ANY(con.confkey)) AS referenced_columns,
                 -- Remap auth.user -> public.user
                 CASE 
                     WHEN referenced_ns.nspname = 'auth' AND referenced_class.relname = 'user'
@@ -803,7 +807,11 @@ export type Database = {
                         WHERE fso.oid = fs.oid
                     ), '') || E'\n' ||
                     '      }'
-                    ORDER BY fs.oid
+                    -- Overloads in a schema-derived order, never by OID: a migrated
+                    -- database assigns OIDs in migration order, a restored one in
+                    -- pg_dump order, so ORDER BY oid made the file depend on how
+                    -- the database was built (STATBUS-481, test 016 on a restored seed).
+                    ORDER BY pg_get_function_identity_arguments(fs.oid)
                 ) AS signatures
             FROM function_signatures fs
             GROUP BY fs.function_name

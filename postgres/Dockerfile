@@ -446,6 +446,9 @@ CMD ["postgres"]
 #
 # Multi-context build (same command locally and in CI):
 #   --build-context migrations=./migrations
+#   --build-context dbseed=./dbseed
+#   --build-context typesgen=./cli/sql          (STATBUS-481 restored-seed types check)
+#   --build-context typescommitted=./app/src/lib
 #   --build-context statbus-sb=docker-image://ghcr.io/.../statbus-sb:<commit_short>
 #   --build-context prior-seed=<dir>   (REQUIRED; pass an EMPTY dir for a full
 #                                       rebuild — the default. STATBUS-116 AC#1.)
@@ -469,6 +472,11 @@ COPY --from=migrations . /build/migrations/
 # Reference-data CSVs the migrations \copy from (dbseed/, repo root, ~2.5MB).
 # Migrations resolve these relative to projDir, so they must land at /build/dbseed/.
 COPY --from=dbseed . /build/dbseed/
+# STATBUS-481: the seed build's round trip generates the TypeScript types from
+# the RESTORED seed and requires them to equal the committed file, so a
+# generator whose output depends on how the database was built fails here.
+COPY --from=typesgen generate_database_types.sql /build/cli/sql/generate_database_types.sql
+COPY --from=typescommitted database.types.ts /build/app/src/lib/database.types.ts
 # STATBUS-116 AC#1 — the incremental base. ALWAYS present (build-context is
 # required), but EMPTY when CI finds no published ancestor → no
 # /build/.prior-seed/seed.json → `sb db seed build` sees no prior → full rebuild.

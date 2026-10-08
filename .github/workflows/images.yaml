@@ -527,6 +527,8 @@ jobs:
           build-contexts: |
             migrations=./migrations
             dbseed=./dbseed
+            typesgen=./cli/sql
+            typescommitted=./app/src/lib
             statbus-sb=docker-image://${{ env.REGISTRY }}/${{ env.ORG }}/statbus-sb:${{ needs.describe.outputs.commit_short }}
             prior-seed=${{ steps.prior.outputs.dir }}
           # Full 40-char SHA: feeds seed.json's CommitSHA (the seed-builder has
