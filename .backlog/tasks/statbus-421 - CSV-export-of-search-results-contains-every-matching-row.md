@@ -4,7 +4,7 @@ title: CSV export of search results contains every matching row
 status: In Progress
 assignee: []
 created_date: '2026-09-25 14:02'
-updated_date: '2026-10-08 11:34'
+updated_date: '2026-10-08 12:30'
 labels:
   - app
 dependencies: []
@@ -55,7 +55,14 @@ Reported by Erik 2026-09-25 (Slack): exporting all legal units + establishments 
 ## Implementation Notes
 
 <!-- SECTION:NOTES:BEGIN -->
-OWNER DECISION 2026-10-08: the CSV column-order caveat (the three *_name columns moving to the end because PostgREST writes embedded columns after plain ones) NEEDS NO ACTION. The owner considers it irrelevant because we are leaving this design for the COPY route, where column order is explicit. Do not spend work on reordering the CSV in the PostgREST path. The broader question of whether the arrow-syntax construct bites elsewhere is filed as its own ticket.
+CLIENT-SIDE XLSX FALLBACK DEFINED (owner asked to define it, 2026-10-08). Prototype evidence in tmp/421-xlsx-proto/out/: a streamed XLSX of 1,048,575 rows was written in 24.9 s with tailAfterLastInputMs 16, so there is no pause after the last input byte, and progress was reported in bytes and rows. Measured browser support: Chromium has showSaveFilePicker, so chunks stream straight to the user's chosen file with flat memory; Firefox 142 has no showSaveFilePicker but does have OPFS and createWritable.
+
+THE DEFINITION.
+1. PREFERRED (showSaveFilePicker available): stream workbook chunks directly to the chosen file as rows arrive. Flat memory at any size. Progress = received bytes, bytes written, rows written.
+2. FALLBACK (Firefox; OPFS available): write the streamed workbook progressively to the origin private file system, so memory stays flat while the export runs, then offer it for saving by reading it back as a Blob. Document the one-off read-back cost (memory equal to the file, measured about 113 MB at 1,048,575 rows) and warn above a threshold such as 500 MB instead of failing silently.
+3. DEGRADED (neither API): refuse XLSX above a small bound and point the operator at CSV, rather than buffering a large workbook without saying so.
+4. DATES: keep sentinel and historical date columns as TEXT, never date-typed cells. The prototype found 29 cells where the sentinel 1900-01-01 returned a day off through Excel's 1900 date system, and it already keeps pre-1900 values as text (1,362 cells). Our data uses 1900-01-01 as a sentinel, so the rule is: write date columns as text unless the value is a real date in Excel's unambiguous range.
+5. XLSX stays capped at the sheet limit with the existing honest refusal; CSV remains the primary path for large exports.
 <!-- SECTION:NOTES:END -->
 
 ## 2026-10-07: the export still cannot deliver — owner-observed failure on no.statbus.org, diagnosed
