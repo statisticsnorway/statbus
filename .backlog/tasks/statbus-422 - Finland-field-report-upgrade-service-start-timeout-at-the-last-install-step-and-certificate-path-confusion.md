@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-09-27 10:07'
-updated_date: '2026-10-08 11:53'
+updated_date: '2026-10-08 11:57'
 labels:
   - installer
 dependencies: []
@@ -67,5 +67,5 @@ Moving to implementation now: (1) step-17 failure must include the upgrade unit'
 ## Implementation Notes
 
 <!-- SECTION:NOTES:BEGIN -->
-CROSS-REFERENCE 2026-10-08: the DEPLOYMENT.md uninstall shorthand was a dead URL. https://statbus.org/uninstall.sh redirected to https://www.statbus.org/uninstall.sh and returned 404, while the install shorthand worked (302 to raw.githubusercontent master, 200). The doc line was corrected immediately to the verified raw URL. The site-side redirect fix is filed as its own ticket, because the shorthand rules live in the host-side web configuration on niue (statbus-web deploys by SSH and runs a server-side deploy.sh; its tree contains no redirect files and no *.sh).
+SHORTHAND 404 FIXED AT THE SOURCE, 2026-10-08 (owner-directed). The missing redirect was host-side, not in any repository: /etc/caddy/Caddyfile on niue, in the statbus.org block, handled /install.sh explicitly and sent everything else to https://www.statbus.org{uri}, which does not carry uninstall.sh. Added the mirror block 'handle /uninstall.sh { redir https://raw.githubusercontent.com/statisticsnorway/statbus/refs/heads/master/uninstall.sh 302 }' before the catch-all. Procedure: backup to /etc/caddy/Caddyfile.bak.20261008115655, caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile (OK), systemctl reload caddy (OK). Verified from outside: https://statbus.org/install.sh and https://statbus.org/uninstall.sh both return 200, and the uninstall shorthand delivers the script (first line #!/usr/bin/env bash). The temporary documentation workaround was reverted, so DEPLOYMENT.md advertises the shorthand again now that it works. NOTE for the next person: these shorthand rules live in the host-side Caddyfile, not in the statbus-web checkout, whose deployment SSHes to niue and runs a server-side deploy.sh.
 <!-- SECTION:NOTES:END -->
