@@ -4,7 +4,7 @@ title: CSV export of search results contains every matching row
 status: In Progress
 assignee: []
 created_date: '2026-09-25 14:02'
-updated_date: '2026-10-08 14:41'
+updated_date: '2026-10-08 14:42'
 labels:
   - app
 dependencies: []
@@ -193,6 +193,8 @@ LOCAL-ONLY SHIM: the February dump predates the external_ident_type_enabled / st
 VALIDATION: jest src/app/search/export 66/66, tsc clean, eslint clean, prettier applied. CI for 54be3d809 is recorded in the next note.
 
 S1 CI AND RED/GREEN PROOF, 2026-10-08. CI for 54be3d809: app build & lint success, Images success, Go Test success, Harness Selftest success, Push on master success, Notify success. The Fast Tests (pg_regress) run for it was cancelled by workflow concurrency when the next master push superseded it. That is the SQL suite, which this commit does not touch. Tests for the stream committed in 0a3c5b6 (export-copy-stream.test.ts, 8 tests, fake pg plus COPY). Each load-bearing test was SEEN FAILING with the guarded code removed, then passing with it restored. UNIT: (a) row-count guard disabled -> 2 tests fail ('errors the stream when COPY's row count differs', 'errors when the streamed records differ'). (b) max_rows refusal disabled -> 'refuses before streaming when the count exceeds maxRows' fails. (c) auth.jwt_switch_role call removed -> 'runs as the user's role' and 'propagates an authentication failure' fail. Restored -> 8/8 pass. ROUTE against the dev server and the Norway dump (tmp/421-p2/route-redgreen.sh): GREEN anonymous 401, expired 401, over max_rows 413, at max_rows 200. RED with the route's max_rows dropped -> 'over max_rows -> 413' FAILS (got 200). RED with the role switch removed -> 'expired token -> 401' FAILS (got 500, the token was never verified). Restored -> all PASS. The local-only alias views were created for that run and dropped in the same command (0 left, verified).
+
+CORRECTION: the stream tests named in the previous note landed in commit 699d0409b, not '0a3c5b6'.
 <!-- SECTION:NOTES:END -->
 
 ## 2026-10-07: the export still cannot deliver — owner-observed failure on no.statbus.org, diagnosed
