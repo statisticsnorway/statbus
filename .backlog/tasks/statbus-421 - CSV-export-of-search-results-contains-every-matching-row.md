@@ -4,7 +4,7 @@ title: CSV export of search results contains every matching row
 status: In Progress
 assignee: []
 created_date: '2026-09-25 14:02'
-updated_date: '2026-10-08 10:08'
+updated_date: '2026-10-08 10:10'
 labels:
   - app
 dependencies: []
@@ -55,7 +55,29 @@ Reported by Erik 2026-09-25 (Slack): exporting all legal units + establishments 
 ## Implementation Notes
 
 <!-- SECTION:NOTES:BEGIN -->
-SWARM DEFAULT FIXED, 2026-10-08: the configured default was ~/.jcode/config.toml [agents] swarm_model = 'gpt-5.6-luna', an obsolete generation, which is why the first delegated design worker landed on gpt-5.6-sol and produced nothing. It is now set to 'gpt-6.1-sol' so no future worker inherits an obsolete model. Owner guidance: GPT 5.6 is obsolete, GPT 6 and 6.1 replaced it, and Sol is the only 6.1 variant. Design work runs on gpt-6.1-sol (@mizaru), implementation on claude-opus-5-5.
+DESIGN FINDING, 2026-10-08 (worker @mizaru on gpt-6.1-sol, design-only, no product code changed). THE ROOT CAUSE IS OURS, NOT POSTGREST'S, AND IT IS A SILENT ROW-LOSS BUG IN OUR OWN SELECT.
+
+WHAT HAPPENS. The export select in app/src/app/search/export/export-query.ts lines 96, 98 and 106 uses arrow syntax on three computed relationships:
+  primary_activity_category_name:primary_activity_category->>name
+  secondary_activity_category_name:secondary_activity_category->>name
+  physical_region_name:physical_region->>name
+Those three names are computed-relationship functions returning SETOF (public.primary_activity_category(statistical_unit) RETURNS SETOF activity_category STABLE ROWS 1, likewise secondary_activity_category and physical_region). PostgreSQL evaluates set-returning functions in a select list in lockstep, and a row produces NO output row when all such functions return an empty set. So rows whose activity categories and region are all absent are silently dropped from the response.
+
+EVIDENCE. Direct SQL under SET ROLE authenticated on the restored Norway dump: base count 1,976,463; the same query with all three SRFs projected returns 1,946,993. The shortfall, 29,470, is exactly the number the export lost and exactly what the server reported as Content-Range 0-1946992/1976463. PostgREST's active config has db-max-rows = "" (verified with postgrest --dump-config and docker inspect; no PGRST_DB_MAX_ROWS), and its CSV path builds the body with string_agg while computing page_total from count(_postgrest_t) in the same statement, which is why the page query genuinely produced 1,946,993 rows while the count query counted 1,976,463. There is no cap, no timeout and no truncation involved.
+
+THE FIX (one projection change, no paging needed). Use PostgREST's documented spread syntax for to-one relationships:
+  primary_activity_category(primary_activity_category_name:name)
+  secondary_activity_category(secondary_activity_category_name:name)
+  physical_region(physical_region_name:name)
+With that correction a single CSV request returned ALL 1,976,463 rows: HTTP 200, Content-Range 0-1976462/1976463, 426,331,946 bytes, in 21.60 seconds. So a single request does deliver the entire export at the current size (about 2 million rows, 426 MB), and it is FASTER than the broken version (21.60s versus 114.64s). Paging is therefore NOT required for correctness now. If paging is ever added for future growth, keyset paging measured materially faster than Range/OFFSET paging.
+
+SCOPE CHECK (coordinator): the arrow-style projection appears ONLY in export-query.ts (lines 96, 98, 106). No other app query uses that form, so the silent row loss is confined to the export select; the search page's own display query is unaffected.
+
+FUTURE CEILING TO KNOW ABOUT (not today's bug): PostgREST's CSV path assembles the whole body with string_agg in one value, so a response approaching PostgreSQL's roughly 1 GiB varlena limit is unsafe as one aggregated response. That is the same class of limit that killed the old JSON comparison path at 1,073,741,823 bytes. At 426 MB there is headroom, but the design should record the ceiling alongside the fix.
+
+KEEP REGARDLESS OF THE FIX: compare the rows received against the total the SERVER announces in Content-Range, not against the search page's expected total, which can be a planner estimate. That turns any future shortfall into a visible error instead of a silently short file. The existing guard's idea is right; its reference value is wrong.
+
+AC WORDING NOW SUPERSEDED: the criterion 'completes reliably within the production 120s statement timeout' should be replaced by 'delivers exactly the announced total, and any shortfall is an error the user sees'. The 120s timeout was never the binding constraint.
 <!-- SECTION:NOTES:END -->
 
 ## 2026-10-07: the export still cannot deliver — owner-observed failure on no.statbus.org, diagnosed
