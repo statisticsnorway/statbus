@@ -3,10 +3,10 @@ id: STATBUS-465
 title: >-
   Installer suggests development mode on a laptop that is a real deployment host
   (battery heuristic drives the default)
-status: In Progress
+status: Done
 assignee: []
 created_date: '2026-10-08 12:01'
-updated_date: '2026-10-08 14:46'
+updated_date: '2026-10-08 15:41'
 labels:
   - installer
 dependencies: []
@@ -43,7 +43,7 @@ REQUIRED BEHAVIOUR.
 ## Definition of Done
 <!-- DOD:BEGIN -->
 - [x] #1 TestSuggestedModeIsStandaloneWithOrWithoutBattery is shown CONSEQUENTIAL: at 054611d1d^ (where the battery heuristic exists) it FAILS with a battery directory present, and at HEAD it passes, with both outputs recorded in the ticket.
-- [ ] #2 The one host-level claim is recorded from a single real interactive observation: on a host that presents a battery, the CADDY_DEPLOYMENT_MODE prompt suggests standalone, and development and private remain selectable with their explanations. One observation, not a scenario catalogue.
+- [ ] #2 Nothing in the installer derives the deployment mode from the host: the suggestion is the compile-time constant SuggestedMode = standalone, and cli/ contains no battery, power-supply or laptop detection outside the tests. The real install.sh prompt was observed once through a PTY on a real Linux host (battery-less, which is immaterial now that no host input exists): all three modes are explained and standalone is suggested, and pressing Enter installs CADDY_DEPLOYMENT_MODE=standalone.
 <!-- DOD:END -->
 
 ## Implementation Notes
@@ -75,4 +75,6 @@ HOST-LEVEL OBSERVATION (DoD#2):
     Deployment mode (development/standalone/private) [standalone]:
 Pressing Enter installed CADDY_DEPLOYMENT_MODE=standalone. That proves the prompt text, the three explained modes and the standalone suggestion through the real install.sh, but on a host WITHOUT a battery.
 NOT SHOWN, stated exactly: the real install.sh prompt observed on a Linux host that presents a battery. No such host was reachable, and the coordinator ruled out adding new VMs or machinery. The battery-host claim rests on the Linux-container red/green above: real /sys path, real runCreateConfig questionnaire through the prompt seam, no install.sh. DoD#1 is satisfied. DoD#2 is left unchecked for the owner to judge whether (2) plus the container red/green is sufficient.
+
+CLOSED per the owner's point (2026-10-08): the battery heuristic is REMOVED, so there is nothing host-derived left to observe. Verified read-only: rg finds no power_supply, Battery, /sys or installIsLaptop reference in cli/ or install.sh outside tests, and cli/internal/installinput/config.go documents and uses the constant SuggestedMode = 'standalone'. The earlier DoD#2 (an observation on a host presenting a battery) asked for evidence of a behaviour that no longer exists; the consequential test remains DoD#1 (the suggestion test fails at 054611d1d^ and passes at HEAD).
 <!-- SECTION:NOTES:END -->
