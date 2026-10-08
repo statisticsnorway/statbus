@@ -34,7 +34,9 @@ func runInteractiveConfiguration(t *testing.T, answers map[string]string) questi
 	t.Setenv(installinput.EnvConfig, "")
 	t.Setenv(installinput.UsersFile, "")
 	oldNonInteractive, oldPrompt, oldLookup := nonInteractive, questionnairePrompt, installDomainLookup
-	t.Cleanup(func() { nonInteractive, questionnairePrompt, installDomainLookup = oldNonInteractive, oldPrompt, oldLookup })
+	t.Cleanup(func() {
+		nonInteractive, questionnairePrompt, installDomainLookup = oldNonInteractive, oldPrompt, oldLookup
+	})
 	nonInteractive = false
 	installDomainLookup = func(context.Context, string) ([]net.IP, error) { return nil, errors.New("offline test") }
 	run := questionnaireRun{fallbacks: map[string]string{}}
