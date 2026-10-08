@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-10-08 11:57'
-updated_date: '2026-10-08 11:58'
+updated_date: '2026-10-08 12:12'
 labels:
   - installer
   - docs
@@ -44,6 +44,7 @@ FOR THE INSTALLER IMPLEMENTATION: the current code deliberately does not discove
 - [ ] #6 After provisioning, if the resulting user count is zero, or lower than the number of entries in the supplied file, a loud actionable warning names the command that fixes it (./sb users create after placing the file at the conventional path).
 - [ ] #7 Conflicts resolve explicitly and are tested: an explicit path beats a detected file, a detected file beats the prompt, and a contradiction between two explicit inputs is an error rather than a silent preference.
 - [ ] #8 Each provisioning case above has a test that fails without the behaviour, including the detected-file case and the zero-user end state, and the tests are run by the implementer with the output recorded in the ticket.
+- [ ] #9 After the first administrator is created interactively, with no users file supplied anywhere, the installer persists that entry to the operator-home users file at the documented STATBUS-437 location with mode 0600 and states in its output that it did so, without printing the password. A subsequent install on the same box reuses it and does not ask for the first administrator again.
 <!-- AC:END -->
 
 ## Definition of Done
@@ -55,5 +56,5 @@ FOR THE INSTALLER IMPLEMENTATION: the current code deliberately does not discove
 ## Implementation Notes
 
 <!-- SECTION:NOTES:BEGIN -->
-Owner directive 2026-10-08: handle every case principled, and do not document ourselves into a corner where a supplied file is silently unused and the operator is told it is their fault. Origin: the Finland install finished with the operator's users file unused, so no account he had supplied could log in. Related: STATBUS-422 (the field report) and STATBUS-437 (the operator-home input convention).
+ADDED CASE (owner question 2026-10-08: 'Will it also populate the .users.yml for the next time?'). TODAY THE ANSWER IS NO. runCreateUsers in cli/cmd/install.go lines 3131-3159: if <dir>/.users.yml exists it calls applyUsersYML and returns; otherwise it prompts for Email, Name and Password and then runs 'SELECT public.user_create(p_display_name => ..., p_email => ..., p_statbus_role => "admin_user", p_password => ...)'. It creates the database user and never writes a users file. Consequence: the credentials the operator typed exist only in the database, so a later install on the same box asks for the first administrator again, and the identity does not survive a fresh checkout. The installer only ever writes .users.yml when an explicit STATBUS_USERS_FILE was supplied, in which case it copies that file into the project (install.go line 1781). REQUIRED BEHAVIOUR TO ADD: after an interactive first-administrator creation, persist the entry to the operator-home users file at the documented STATBUS-437 location with mode 0600, and say so in the output without printing the password, so the next install reuses it and STATBUS-437's survive-the-checkout property holds. Note the trust level is unchanged: the users file format already holds plaintext passwords at 0600, and the documented warning is about not putting passwords in guides or shell commands, not about the sanctioned answers file. This also feeds the detection case above: the file this writes is the file that case then finds.
 <!-- SECTION:NOTES:END -->
