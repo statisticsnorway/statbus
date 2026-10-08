@@ -268,6 +268,85 @@ export function saveBlob(blob: Blob, filename: string) {
   setTimeout(() => URL.revokeObjectURL(url), 60_000);
 }
 
+/** The parts of the Origin Private File System the OPFS sink uses. */
+export interface OpfsDirectory {
+  getFileHandle(
+    name: string,
+    options?: { create?: boolean }
+  ): Promise<{
+    createWritable(): Promise<WritableLike>;
+    getFile(): Promise<Blob>;
+  }>;
+  removeEntry(name: string): Promise<void>;
+}
+
+/** The OPFS root where the browser offers it with createWritable, else null. */
+export async function opfsDirectory(): Promise<OpfsDirectory | null> {
+  if (typeof navigator === "undefined" || !navigator.storage?.getDirectory)
+    return null;
+  if (
+    typeof FileSystemFileHandle === "undefined" ||
+    !("createWritable" in FileSystemFileHandle.prototype)
+  )
+    return null;
+  try {
+    return (await navigator.storage.getDirectory()) as unknown as OpfsDirectory;
+  } catch {
+    // e.g. a private window without storage access.
+    return null;
+  }
+}
+
+/**
+ * Stream into the Origin Private File System, then hand the finished file to
+ * a normal download (STATBUS-421 S4). The fallback where there is no save
+ * picker (Firefox): memory stays flat while the
+ * export streams, because the bytes go to disk, not to an array.
+ *
+ * close() commits the OPFS file, then downloads it. The File handed to the
+ * download is disk-backed, so no RAM copy is made; the browser copies it to
+ * Downloads, which is a measured one-off cost after completion (Firefox 142:
+ * 7.7 s for a 117 MB workbook, 3.6 s at 500k rows). The OPFS entry is removed
+ * after the download had time to start; abort() discards the bytes and
+ * removes the entry at once, so a failed export leaves nothing behind.
+ *
+ * `onSaving` is called between the last byte and the hand-off, so the UI can
+ * say "Saving file…" for that copy instead of looking stuck.
+ */
+export async function createOpfsSink(
+  root: OpfsDirectory,
+  filename: string,
+  options: {
+    onSaving?: () => void;
+    download?: (file: Blob, filename: string) => void;
+    removeAfterMs?: number;
+  } = {}
+): Promise<ExportSink> {
+  const { onSaving, download = saveBlob, removeAfterMs = 60_000 } = options;
+  // Unique per export, so two exports never write into one entry.
+  const entry = `statbus-export-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+  const handle = await root.getFileHandle(entry, { create: true });
+  const remove = () => root.removeEntry(entry).catch(() => {});
+  const writable = createWritableSink(
+    await handle.createWritable(),
+    "opfs",
+    async () => {
+      onSaving?.();
+      download(await handle.getFile(), filename);
+      setTimeout(() => void remove(), removeAfterMs);
+    }
+  );
+  return {
+    kind: "opfs",
+    write: (chunk) => writable.write(chunk),
+    close: () => writable.close(),
+    async abort(reason) {
+      await writable.abort(reason).catch(() => {});
+      await remove();
+    },
+  };
+}
+
 /** Last-resort sink: hold the chunks, download them as one Blob on close. */
 export function createMemorySink(
   filename: string,

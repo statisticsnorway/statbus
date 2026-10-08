@@ -1,5 +1,6 @@
 import {
   createMemorySink,
+  createOpfsSink,
   createWritableSink,
   EXPORT_FILE_TYPES,
   ExportCancelledError,
@@ -8,11 +9,13 @@ import {
   ExportStreamError,
   excelRowLimitError,
   exportRequestUrl,
+  opfsDirectory,
   parseAnnouncedTotal,
   requestFailureMessage,
   pickSaveFile,
   pumpExportToSink,
   type ExportSink,
+  type OpfsDirectory,
 } from "./export-download";
 
 const encoder = new TextEncoder();
@@ -412,5 +415,122 @@ describe("pumpExportToSink: refusals and commit failures", () => {
       pumpExportToSink(streamOf(["name\n", "a\n"]), sink, 1)
     ).rejects.toThrow("workbook could not be finished");
     expect(log).toEqual(["close-failed", "abort"]);
+  });
+});
+
+/** An in-memory stand-in for the OPFS root, recording what happens to it. */
+function fakeOpfs() {
+  const files = new Map<string, Uint8Array[]>();
+  const log: string[] = [];
+  const root: OpfsDirectory = {
+    async getFileHandle(name) {
+      log.push(`open ${name}`);
+      files.set(name, []);
+      let staged: Uint8Array[] = [];
+      return {
+        async createWritable() {
+          return {
+            async write(data: Uint8Array<ArrayBuffer>) {
+              staged.push(data.slice());
+            },
+            async close() {
+              files.set(name, staged); // committed only on close
+              log.push("commit");
+            },
+            async abort() {
+              staged = [];
+              log.push("abort");
+            },
+          };
+        },
+        async getFile() {
+          return new Blob((files.get(name) ?? []) as BlobPart[]);
+        },
+      };
+    },
+    async removeEntry(name) {
+      files.delete(name);
+      log.push(`remove ${name}`);
+    },
+  };
+  return { root, files, log };
+}
+
+describe("createOpfsSink (no save picker: Firefox)", () => {
+  afterEach(() => jest.useRealTimers());
+
+  it("streams to OPFS, then downloads the committed file under the export's name and removes the entry", async () => {
+    jest.useFakeTimers();
+    const { root, files, log } = fakeOpfs();
+    const downloads: Array<{ name: string; text: string }> = [];
+    const events: string[] = [];
+    const sink = await createOpfsSink(root, "establishments.csv", {
+      onSaving: () => events.push("saving"),
+      download: (file, name) => {
+        events.push("download");
+        void file.text().then((text) => downloads.push({ name, text }));
+      },
+    });
+    expect(sink.kind).toBe("opfs");
+    await sink.write(encoder.encode("name\n"));
+    await sink.write(encoder.encode("a\n"));
+    expect(events).toEqual([]); // nothing is saved before close
+    await sink.close();
+    await Promise.resolve();
+    expect(events).toEqual(["saving", "download"]);
+    await new Promise(jest.requireActual("timers").setImmediate);
+    expect(downloads).toEqual([
+      { name: "establishments.csv", text: "name\na\n" },
+    ]);
+    const entry = log[0].replace("open ", "");
+    expect(files.has(entry)).toBe(true); // kept while the download starts
+    jest.runAllTimers();
+    await Promise.resolve();
+    expect(files.has(entry)).toBe(false);
+    expect(log).toEqual([`open ${entry}`, "commit", `remove ${entry}`]);
+  });
+
+  it("on abort, discards the bytes, removes the entry at once and never downloads", async () => {
+    const { root, files, log } = fakeOpfs();
+    const events: string[] = [];
+    const sink = await createOpfsSink(root, "x.csv", {
+      onSaving: () => events.push("saving"),
+      download: () => events.push("download"),
+    });
+    await sink.write(encoder.encode("name\na\n"));
+    await sink.abort();
+    const entry = log[0].replace("open ", "");
+    expect(events).toEqual([]);
+    expect(files.has(entry)).toBe(false);
+    expect(log).toEqual([`open ${entry}`, "abort", `remove ${entry}`]);
+  });
+
+  it("gives every export its own OPFS entry", async () => {
+    const { root, log } = fakeOpfs();
+    await createOpfsSink(root, "a.csv");
+    await createOpfsSink(root, "b.csv");
+    expect(new Set(log).size).toBe(2);
+  });
+
+  it("is never committed for a short export when driven by the pump", async () => {
+    const { root, log } = fakeOpfs();
+    const events: string[] = [];
+    const sink = await createOpfsSink(root, "x.csv", {
+      download: () => events.push("download"),
+    });
+    await expect(
+      pumpExportToSink(streamOf(["name\n", "a\n"]), sink, 2)
+    ).rejects.toBeInstanceOf(ExportIncompleteError);
+    expect(events).toEqual([]);
+    expect(log.slice(1)).toEqual([
+      "abort",
+      `remove ${log[0].replace("open ", "")}`,
+    ]);
+  });
+});
+
+describe("opfsDirectory", () => {
+  it("is null where the browser offers no OPFS (e.g. an insecure origin)", async () => {
+    await expect(opfsDirectory()).resolves.toBeNull();
   });
 });

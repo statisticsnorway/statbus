@@ -38,6 +38,7 @@ import { EXPORT_TOTAL_ROWS_HEADER } from "./export-sql";
 import {
   canPickSaveFile,
   createMemorySink,
+  createOpfsSink,
   createWritableSink,
   EXPORT_FILE_TYPES,
   ExportCancelledError,
@@ -46,6 +47,7 @@ import {
   ExportStreamError,
   excelRowLimitError,
   exportRequestUrl,
+  opfsDirectory,
   parseAnnouncedTotal,
   pickSaveFile,
   pumpExportToSink,
@@ -60,7 +62,7 @@ import { reportExportEvent } from "./export-logger";
 export type { ExportFormat };
 
 export interface SearchExportProgress {
-  phase: "idle" | "waiting" | "downloading" | "complete" | "error";
+  phase: "idle" | "waiting" | "downloading" | "saving" | "complete" | "error";
   rowsReceived: number;
   bytesReceived: number;
   /** Total the search page displays; null when no count is available. */
@@ -111,6 +113,8 @@ export function formatExportProgress(progress: SearchExportProgress): string {
       return `Preparing export… (${elapsed})`;
     case "downloading":
       return `Downloading… ${formatCount(progress.rowsReceived)}${ofTotal} rows, ${formatMegabytes(progress.bytesReceived)} (${elapsed})`;
+    case "saving":
+      return `Saving file… ${formatMegabytes(progress.bytesReceived)} (${elapsed})`;
     case "complete":
       return `Downloaded ${formatCount(progress.rowsReceived)} rows in ${elapsed}`;
     case "error":
@@ -138,7 +142,11 @@ function formatMegabytes(bytes: number): string {
 
 /** True when the export is still running (show progress and Cancel). */
 export function isExportActive(progress: SearchExportProgress): boolean {
-  return progress.phase === "waiting" || progress.phase === "downloading";
+  return (
+    progress.phase === "waiting" ||
+    progress.phase === "downloading" ||
+    progress.phase === "saving"
+  );
 }
 
 function describe(error: unknown): string {
@@ -236,24 +244,40 @@ export function useStatisticalUnitExport() {
     let sink: ExportSink | null = null;
     try {
       // The save dialog needs the click's user activation, so it is the
-      // FIRST await. Where there is no picker (Firefox, Safari) the file is
-      // collected and handed to a normal download at the end.
-      const file: ExportSink = canPickSaveFile()
-        ? createWritableSink(
-            await (
-              await pickSaveFile(
-                filename,
-                fileType.description,
-                fileType.mime,
-                fileType.extension
-              )
-            ).createWritable(),
-            "file-picker"
-          )
-        : createMemorySink(
-            filename,
-            format === "csv" ? `${fileType.mime};charset=utf-8` : fileType.mime
-          );
+      // FIRST await. Where there is no picker (Firefox) the file
+      // streams into the Origin Private File System and is
+      // handed to a normal download at the end (flat memory); only where
+      // OPFS is unavailable too is it collected in memory.
+      const onSaving = () =>
+        setProgress((current) => ({
+          ...current,
+          phase: "saving",
+          elapsedMs: Date.now() - startTime,
+        }));
+      let file: ExportSink;
+      if (canPickSaveFile()) {
+        file = createWritableSink(
+          await (
+            await pickSaveFile(
+              filename,
+              fileType.description,
+              fileType.mime,
+              fileType.extension
+            )
+          ).createWritable(),
+          "file-picker"
+        );
+      } else {
+        const opfs = await opfsDirectory();
+        file = opfs
+          ? await createOpfsSink(opfs, filename, { onSaving })
+          : createMemorySink(
+              filename,
+              format === "csv"
+                ? `${fileType.mime};charset=utf-8`
+                : fileType.mime
+            );
+      }
       if (format === "xlsx") {
         const { statDefinitions } = await baseDataStore.getBaseData();
         sink = createXlsxSink(

@@ -605,10 +605,16 @@ Both export formats (CSV and Excel) use ONE server mechanism, the app route
   a message pointing to CSV.
 - **Where the file goes.** Browsers with `showSaveFilePicker` (Chromium,
   Edge; requires HTTPS) write straight to the chosen file with flat memory.
-  Other browsers (Firefox, Safari, or plain HTTP) collect the file in memory
-  and hand it to a normal download at the end, which costs memory equal to
-  the file (about 415 MB for a full Norway CSV, about 113 MB for an Excel
-  file at the sheet limit).
+  Browsers without it (Firefox) stream into the Origin Private File System
+  (OPFS, disk-backed, flat memory) and hand the finished file to a normal
+  download; the browser then copies it to Downloads, a one-off cost after
+  completion measured at 7.7 s for a 117 MB workbook in Firefox 142 (3.6 s at
+  500k rows), during which the UI says "Saving file…". The OPFS entry is
+  removed a minute after the hand-off, or at once if the export fails. Only
+  where neither exists (plain HTTP, which is not a secure context in any
+  browser, and some private windows) is the file collected in memory, which
+  costs memory equal to the file (about 415 MB for a full Norway CSV, about
+  113 MB for an Excel file at the sheet limit). Serve StatBus over HTTPS.
 - **Proxy.** The response is a long-lived streamed download
   (`X-Accel-Buffering: no`, `Cache-Control: no-store`); a reverse proxy in
   front of StatBus must not buffer it or cut it with a short read timeout.
