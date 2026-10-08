@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-10-08 13:12'
-updated_date: '2026-10-08 13:12'
+updated_date: '2026-10-08 13:14'
 labels:
   - sql
   - import
@@ -18,26 +18,17 @@ ordinal: 398204
 ## Description
 
 <!-- SECTION:DESCRIPTION:BEGIN -->
-NORTH STAR: real classification labels import unedited, and the bound is a deliberate, documented choice with an honest failure above it. The multi-language design, where a custom override carries the local name and the official English name is revealed on demand, is DEFERRED by the owner and recorded in STATBUS-471. Until we support it, a longer field is the pragmatic workaround, and how an operator slices several languages into that field is their business.
+NORTH STAR: real classification labels import unedited, and the bound is a deliberate, documented number with an honest failure above it. Double activity_category.name from character varying(256) to character varying(512). That is the whole change.
 
-WHY THE DOUBLED FIELD IS ENOUGH FOR NOW. activity_category.name is currently character varying(256). Real bilingual labels reach 252 characters in the field file (ClassificationsSBVer2_ActivityCategoris_TCC.csv, 997 rows, path/name, and that copy is already hand-trimmed by the operator to fit), and the longest single-language official label we hold is 136 characters (ISIC4, 766 rows). In PostgreSQL, character varying(n) is a length CHECK, not a storage layout, so doubling it costs nothing in row size or disk. It removes an arbitrary rejection without letting in anything worse than we already tolerate.
-
-WHAT TO DO.
-1. Double the bound for activity_category.name to 512, as a new forward migration. Never edit a released migration.
-2. Check the activity_category_* views and the upsert functions for dependent varchar(256) casts and handle or record any found.
-3. Document the bound where the length policy lives, with the measurement evidence beside it. There is currently NO length-policy document anywhere, so this means creating that place.
-4. Keep the honest failure: a value above the new bound must still be reported with the row, the column and the limit.
-
-NOTE FROM THE EARLIER ANALYSIS, so it is not rediscovered: classification CSVs do NOT pass through the import pipeline's length_limits step. The getting-started upload COPYs into activity_category_enabled_custom, so a too-long value surfaces as PostgreSQL's 22001 and that message does not name the column, the line number is only in CONTEXT. Making that message actionable is STATBUS-470's family; do not duplicate it here, but do not assume our own validation reports it either.
+WHY. Real bilingual labels reach 252 characters in the field file (ClassificationsSBVer2_ActivityCategoris_TCC.csv, 997 rows, path/name, already hand-trimmed by the operator to fit), while the longest single-language official label we hold is 136 (ISIC4, 766 rows). In PostgreSQL, character varying(n) is a length CHECK, not a storage layout, so doubling it costs nothing in row size or disk. The multi-language design is deferred; a longer text is the interim workaround, and how an operator slices several languages into it is their business. That discussion is preserved in the notes below as history.
 <!-- SECTION:DESCRIPTION:END -->
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 activity_category.name is character varying(512) and a label longer than 256 characters, for example a 300-character bilingual label, is accepted.
-- [ ] #2 The field file, or a fixture containing a 300+ character label, imports unedited.
-- [ ] #3 The bound and the measurement evidence are documented where the length policy lives, creating that document if none exists.
-- [ ] #4 Dependent activity_category_* views and upsert functions are checked for varchar(256) casts, and anything found is handled or explicitly recorded.
-- [ ] #5 A test covers the long-label case at the new bound.
+- [ ] #1 activity_category.name is character varying(512), and a label longer than 256 characters, for example a 300-character bilingual label, is accepted.
+- [ ] #2 Dependent activity_category_* views and upsert functions are checked for varchar(256) casts, and anything found is handled or explicitly recorded.
+- [ ] #3 The bound and its measurement evidence are documented where the length policy lives, creating that document if none exists.
+- [ ] #4 A test covers the long-label case at the new bound.
 <!-- AC:END -->
 
 ## Definition of Done
