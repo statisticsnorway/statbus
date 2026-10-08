@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-10-08 12:36'
-updated_date: '2026-10-08 12:37'
+updated_date: '2026-10-08 12:50'
 labels:
   - sql
   - import
@@ -18,33 +18,44 @@ ordinal: 397204
 ## Description
 
 <!-- SECTION:DESCRIPTION:BEGIN -->
-NORTH STAR: real classification labels import unedited. Our declared bound is chosen from evidence and written down, and a value that exceeds it produces a message the operator can act on.
+NORTH STAR: one name per language. A user-provided (custom) activity category overrides the system-provided one for the same path and carries the LOCAL-language name; the system entry keeps the OFFICIAL English name; the interface shows the local name with a marker that reveals the official English label, taken from the replaced non-custom entry of the same path. Nobody concatenates two languages into one name, and the length bound does not move.
 
-EVIDENCE (measured 2026-10-08). Ville's field file /Users/jhf/Downloads/ClassificationsSBVer2_ActivityCategoris_TCC.csv: 997 data rows, columns path,name, comma-delimited. IMPORTANT: the copy he attached is his TRIMMED version. In it the name column reaches 252 characters (mean 92) while path stays at 5. He reported the untrimmed file failing with 'varchar is set to 256, at least 1 of my lines is too long', and that trimming a few lines made it work, so real bilingual labels sit exactly at the 256 edge and anything slightly longer is rejected outright. For comparison, the longest single-language official label we hold is 136 characters (ISIC4, 766 labels, mean 42); the other classifications are far shorter (SectorCodes 65, LegalForms 62, DataSources 24, Regions 23, our shipped demo 29). The house default is character varying(256) on essentially every name column (activity_category.name, tag.name, establishment.name, legal_unit.name, enterprise_group.name, relative_period names).
+WHY THE BOUND RAISE WAS REJECTED (owner decision 2026-10-08). Raising varchar(256) treats only the symptom and actively invites abuse: it lets multiple languages be crammed into one field, which breaks display, sorting, matching and translation quality. The file that triggered this is exactly that abuse: ClassificationsSBVer2_ActivityCategoris_TCC.csv concatenates the Turkish label, a '---' separator, then the English label (its longest is 252 characters, mean 92, and the operator had already hand-trimmed it to fit 256). The official English label for the same code is at most 136 characters in the ISIC4 data we hold, so nothing about one-language names needs a bigger bound.
 
-THE FACT THAT SETTLES THE 'BLOAT' QUESTION. In PostgreSQL, character varying(n) is a length CHECK, not a storage layout: values are stored as varlena exactly like text. A bound therefore has no effect on row size or disk use. Its only effect is rejecting or truncating values, so a too-small bound buys nothing and costs the field real work, which is what happened here.
+THE DESIGN.
+1. Model. Activity categories belong to an activity category type, and are either SYSTEM-provided or USER-provided (custom). The data model and the interface already distinguish them: the upload table is activity_category_enabled_custom and the list has a Custom column.
+2. Override. A custom row overrides the system row of the same path. The override is the local-language name for that code; the system row keeps the official English name.
+3. Alternate label. The official English label for an overridden code comes from the REPLACED non-custom entry of the same path, resolved rather than copied, so no concatenation and no duplication are needed.
+4. Interface. Show the local name by default, with a clear, discoverable marker or affordance that reveals the official English name when wanted. The Activity Categories list is the minimum; anywhere a name is shown should behave the same.
+5. Identity and search. The official English name stays the stable identity for matching and search; a search should match either the local or the official name for an overridden code.
+6. Import and template. The custom CSV carries LOCAL names only. The template and its guidance must say so, and a value that looks like two languages in one field (for example joined by '---') is detected and flagged with an actionable message rather than silently stored. This is the same family as the getting-started upload work in STATBUS-470.
+7. The 256 bound stays as it is. The rejected alternative is recorded above with its reason.
 
-RECOMMENDATION: set the classification-name bound to 512 and adopt 512 as the documented bound for name columns generally. That is twice the largest label ever seen in the field (252) and 3.8 times the longest single-language official label (136), while still bounding absurd input. Keep the existing honest import behaviour: when a value exceeds the bound, the message names the row, the column and the limit (acceptance criterion 3 of STATBUS-470).
-
-SCOPE: activity_category.name first, because that is the observed failure, plus the length-limit policy that references the current bound. Not a blanket rewrite of every text column.
+OPEN QUESTIONS FOR THE OWNER BEFORE IMPLEMENTATION.
+(a) Should a custom row store only the local name, with the official English resolved by path, or store both? The sketch suggests resolved-by-path.
+(b) Where exactly should the marker appear beyond the Activity Categories list: search results, unit detail pages, pickers, import preview?
+(c) Should a concatenated value be rejected outright or accepted with a warning?
 <!-- SECTION:DESCRIPTION:END -->
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 A classification label longer than 256 characters, for example a 300-character bilingual label, imports successfully, and activity_category.name enforces the new documented bound.
-- [ ] #2 The field file imports unedited: the attached TCC CSV, or an equivalent fixture containing a 300+ character label, is accepted without the operator trimming lines.
-- [ ] #3 The bound is 512 for classification names, documented where the length policy lives, with the measurement evidence recorded next to it.
-- [ ] #4 A value exceeding the new bound still fails with a message naming the row, the column and the limit.
-- [ ] #5 Tests cover the long-label case at the new bound.
+- [ ] #1 A custom activity category carries a single-language local name while the system entry of the same path keeps the official English name, and no name field in the documented flow holds two languages concatenated.
+- [ ] #2 The interface shows the local name by default with a visible marker, and reveals the official English name on demand; the marker is discoverable and works at minimum in the Activity Categories list.
+- [ ] #3 The official English label is resolved from the replaced non-custom entry of the same path rather than duplicated into the custom row, verified against the field's file.
+- [ ] #4 Search and matching match both the local and the official name for an overridden code.
+- [ ] #5 The import template and its guidance state that custom rows carry local-language names and that the official English name comes from the system entry, and they do not invite concatenation.
+- [ ] #6 A value that looks like two languages in one field, for example joined by '---', is detected and flagged with an actionable message rather than silently stored.
+- [ ] #7 The 256 bound is unchanged, and the rejected bound raise is recorded in the ticket with its reason.
 <!-- AC:END -->
 
 ## Definition of Done
 <!-- DOD:BEGIN -->
 - [ ] #1 The field file, or a fixture derived from it, is imported in a test and its longest label is accepted; the doc/db pairing is regenerated in the same commit as the schema change.
+- [ ] #2 The field's file imports into this shape and the list shows local names with the official English available on demand, with screenshot evidence recorded.
 <!-- DOD:END -->
 
 ## Implementation Notes
 
 <!-- SECTION:NOTES:BEGIN -->
-ON HOLD 2026-10-08 pending the owner's principled solution to two languages in one column. Read-only findings from the paused worker, reusable if the decision turns out to be 'just raise the bound': (1) classification CSVs arrive through /api/import/upload and are COPYed into activity_category_enabled_custom by the getting-started upload; they do NOT pass through the job-based length_limits step that test 347 covers, so the criterion 'the error names the row, column and limit' cannot be assumed from our own validation: PostgreSQL's COPY reports the line number in CONTEXT, and the 22001 message itself does not name the column. That needs checking and possibly deliberate handling. (2) The change itself is ALTER activity_category.name to varchar(512), and the activity_category_* views and upsert functions still need checking for dependent varchar(256) casts. (3) NO length-policy document exists anywhere (nothing in doc/*.md or .claude/rules mentions the 256 bound), so 'document the bound' means creating that place rather than editing one. Nothing was touched, staged or committed before the hold; the tree is clean.
+REWRITTEN 2026-10-08 on the owner's instruction: the previous content of this ticket (raise activity_category.name to varchar(512)) is the INCORRECT solution and is explicitly not to be implemented, because a bigger bound invites multi-language abuse. The description and criteria above are the owner's principled design, dictated in the same message: use the replaced non-custom entry of the same path as the alternate label, show the local name with a marker, and keep the official English name as the canonical one. NOT DISPATCHED: the owner confirms this write-up first, and only then is implementation assigned. Open questions (a), (b) and (c) in the description need answers.
 <!-- SECTION:NOTES:END -->
