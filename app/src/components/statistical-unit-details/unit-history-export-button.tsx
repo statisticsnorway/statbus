@@ -16,8 +16,8 @@ import {
 } from "@/app/search/export/use-statistical-unit-export";
 
 /**
- * Export the temporal history of one unit. Uses the same single-request
- * streaming export as the search page (STATBUS-421); a unit's history is
+ * Export the temporal history of one unit. Uses the same streaming export
+ * route as the search page (STATBUS-421); a unit's history is
  * small, so no confirmation gates apply.
  */
 export function UnitHistoryExportButton({

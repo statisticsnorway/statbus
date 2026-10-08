@@ -22,7 +22,7 @@ export interface CsvRowCounter {
 export function createCsvRowCounter(): CsvRowCounter {
   let inQuotes = false;
   let lines = 0;
-  // PostgREST does not terminate the last record with a newline, so a line
+  // A CSV need not terminate its last record with a newline, so a line
   // with content but no trailing \n still counts.
   let hasDataOnCurrentLine = false;
   return {

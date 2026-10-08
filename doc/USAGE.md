@@ -295,7 +295,7 @@ Contact Statistics Norway (SSB) to request:
 ### FAQ
 
 **Q: Can I export data to Excel?**  
-A: Yes, use the export functionality or connect Excel directly via PostgreSQL ODBC driver.
+A: Yes. On the search page (and on a unit's history), **Export** offers CSV and Excel for exactly the rows your search shows. An Excel sheet holds at most 1,048,575 data rows below its header, so larger results offer CSV only. The file is saved only when every row has arrived; an interrupted export shows how many rows were received and saves nothing, so try again. You can also connect Excel directly via the PostgreSQL ODBC driver.
 
 **Q: How do I query historical data?**  
 A: Use temporal queries with valid_from/valid_to dates. Example: `SELECT * FROM legal_unit WHERE '2023-01-01' BETWEEN valid_from AND valid_to;`

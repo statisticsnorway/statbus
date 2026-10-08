@@ -574,6 +574,45 @@ Updates are handled automatically by the upgrade service. To manually trigger:
 
 `./sb install` is the unified entrypoint — safe to run on a healthy install (acts as an idempotent config refresh), and it routes to inline upgrade when a scheduled row is pending. See `doc/upgrade-timeline.md` for the full dispatch ladder.
 
+### Statistical unit export (search page and unit history)
+
+Both export formats (CSV and Excel) use ONE server mechanism, the app route
+`GET /api/search/export` (STATBUS-421):
+
+- **How it runs.** The app opens a dedicated connection as `authenticator`
+  (`POSTGRES_AUTHENTICATOR_PASSWORD`, already in the app container's
+  environment), starts a `READ ONLY REPEATABLE READ` transaction, switches to
+  the user's own role with `auth.jwt_switch_role(<statbus cookie>)` (so Row
+  Level Security applies exactly as on `/rest`), counts the rows, and streams
+  `COPY (SELECT ...) TO STDOUT WITH (FORMAT CSV, HEADER)`. The count and the
+  COPY share one snapshot; the count is sent as `X-Export-Total-Rows`.
+- **Resources.** Memory is constant on the database and the app (COPY
+  streams with backpressure to the browser); there is no response-size
+  ceiling. A long export holds one database connection for its duration, and
+  runs under an export-specific `statement_timeout` of 30 minutes (a slow
+  client's backpressure legitimately keeps the statement open). Measured on
+  the Norway dump: 1,976,463 rows, 415 MB, about 22 s.
+- **Completeness.** The browser counts the CSV records it receives and keeps
+  the file only when they equal `X-Export-Total-Rows`; any shortfall, network
+  failure or server abort discards the file and shows rows received against
+  expected. The server logs every mid-stream failure (`Search export failed
+  mid-stream`, with URL, rows sent, expected rows, bytes, elapsed time); the
+  browser reports its own failures through `/api/logger`.
+- **Excel.** The browser converts the same CSV stream into a workbook while
+  it arrives, in a Web Worker, so there is no waiting after the download.
+  One sheet holds 1,048,576 rows including the header, so Excel is refused
+  above **1,048,575 data rows** (the route answers 413 for `max_rows`), with
+  a message pointing to CSV.
+- **Where the file goes.** Browsers with `showSaveFilePicker` (Chromium,
+  Edge; requires HTTPS) write straight to the chosen file with flat memory.
+  Other browsers (Firefox, Safari, or plain HTTP) collect the file in memory
+  and hand it to a normal download at the end, which costs memory equal to
+  the file (about 415 MB for a full Norway CSV, about 113 MB for an Excel
+  file at the sheet limit).
+- **Proxy.** The response is a long-lived streamed download
+  (`X-Accel-Buffering: no`, `Cache-Control: no-store`); a reverse proxy in
+  front of StatBus must not buffer it or cut it with a short read timeout.
+
 ---
 
 ## Configuration

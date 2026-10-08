@@ -1,18 +1,18 @@
 /**
  * Observability for search exports (STATBUS-421).
  *
- * The old `/api/search/export` route swallowed mid-stream failures
- * (`controller.error` with no logging), which is why a dead export was
- * invisible in log.statbus.org. With the browser calling `/rest` directly,
- * the client is the only place that knows the export failed mid-stream — so
- * failures (and completions of large exports, for timing measurement) are
- * reported to `/api/logger`, which forwards them to the server log with the
- * user's session context.
+ * The export route (`/api/search/export`) logs its own failures with rows
+ * sent, expected rows, bytes and elapsed time. Some failures are only
+ * visible in the browser (a short stream, a disk-write failure, an Excel
+ * refusal, a cancelled save), so the client additionally reports failures
+ * (and completions of large exports, for timing measurement) to
+ * `/api/logger`, which forwards them to the server log with the user's
+ * session context.
  */
 
 export interface ExportLogContext {
   format: "csv" | "xlsx";
-  /** Full PostgREST request URL (path + query), the export's definition. */
+  /** The export request URL (path + query), the export's definition. */
   url: string;
   rowsReceived: number;
   expectedRows: number | null;
