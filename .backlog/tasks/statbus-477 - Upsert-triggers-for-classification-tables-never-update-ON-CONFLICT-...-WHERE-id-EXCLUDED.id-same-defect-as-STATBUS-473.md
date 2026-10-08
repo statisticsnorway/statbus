@@ -6,7 +6,7 @@ title: >-
 status: Done
 assignee: []
 created_date: '2026-10-08 16:35'
-updated_date: '2026-10-08 17:56'
+updated_date: '2026-10-08 19:24'
 labels:
   - sql
   - import
@@ -32,7 +32,7 @@ FOUND during STATBUS-473. The predicate WHERE <table>.id = EXCLUDED.id makes ON 
 
 ## Definition of Done
 <!-- DOD:BEGIN -->
-- [ ] #1 Fast Tests (pg_regress actually run, not skipped) green on a commit containing 1aac424c5 and 054bd18fe, recorded here; blocked by STATBUS-481
+- [x] #1 Fast Tests (pg_regress actually run, not skipped) green on a commit containing 1aac424c5 and 054bd18fe, recorded here; blocked by STATBUS-481
 <!-- DOD:END -->
 
 ## Implementation Notes
@@ -177,4 +177,6 @@ CI EVIDENCE WITHHELD: every 477 commit (27d652b03, f8553dd00, 194608712, b4f1291
 AC CHECK (2026-10-08). AC#1: no live function contains the predicate. pg_proc shows the text only in explanatory comments of generate_code_upsert_function and generate_path_upsert_function, and tests 136-138 assert has_id_predicate = f for generated functions. AC#2: every affected custom view has an upload/correct/re-upload test that asserts the stored name and the reported row: legal_form_custom_only and legal_form_custom (134), country_view (135), data_source_custom, foreign_participation_custom (added in 054bd18fe) and unit_size_custom (136), sector_custom, tag_custom and sector_custom_only (137), legal_rel_type_custom, legal_reorg_type_custom, person_role_custom, power_group_type_custom and region_version_custom (138). The one exception is status_custom: its view omits NOT NULL columns, so no insert can succeed through it until STATBUS-478 lands. Its functions and key are fixed and asserted here, and 478 carries the behaviour test. AC#3: see the inventory (delete_stale_country fixed and tested in 135; the generated families have no stale delete). DoD 'CI evidence' stays open: withheld until STATBUS-481 restores Images.
 
 AC#2 EXCEPTION CLOSED (2026-10-08): the recorded gap for status_custom (its view could not accept an insert) is closed by STATBUS-478, landed as c4203d184. Test 140.1 uploads, corrects and re-uploads through status_custom and asserts that code, name, priority, assigned_by_default and used_for_counting are stored on the same row. 140.2 does the same for status_system. Every affected custom view now has a re-upload test.
+
+CI EVIDENCE (recorded by the coordinator; the ticket's owner was reaped). Fast Tests run 37829021787 on 6d2ec4027: the 'pg_regress fast suite' JOB is SUCCESS and RAN rather than being skipped, the seed was RESTORED rather than replayed (no FULL_REPLAY), and the run reports all 116 tests passed plus the isolated test. 6d2ec4027 is on master and contains every commit this item names. Note the broader point: this is the first complete suite since STATBUS-460, so it covers 460, 461, 473, 476, 477, 478, 479 and STATBUS-481 B together.
 <!-- SECTION:NOTES:END -->

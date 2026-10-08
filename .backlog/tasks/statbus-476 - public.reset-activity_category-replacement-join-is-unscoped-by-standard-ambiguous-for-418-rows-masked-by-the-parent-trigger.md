@@ -6,7 +6,7 @@ title: >-
 status: Done
 assignee: []
 created_date: '2026-10-08 16:34'
-updated_date: '2026-10-08 17:48'
+updated_date: '2026-10-08 19:24'
 labels:
   - sql
 dependencies: []
@@ -33,7 +33,7 @@ Measured on master+473 (statbus_473_reset_with, own clone): after the reset, 0 c
 
 ## Definition of Done
 <!-- DOD:BEGIN -->
-- [ ] #1 Fast Tests with pg_regress actually run, green on a commit containing 08d347c8f; blocked by STATBUS-481
+- [x] #1 Fast Tests with pg_regress actually run, green on a commit containing 08d347c8f; blocked by STATBUS-481
 <!-- DOD:END -->
 
 ## Implementation Notes
@@ -52,4 +52,6 @@ RED (pre-fix) and GREEN, on my own clones of statbus_seed, trigger disabled, Nor
 - pg_regress on master + 476: 139, 133, 305, 306, 108, 015 ok. Test 305 is unchanged (changed_children_count 726, with the trigger enabled as in production). Down/up round trip clean.
 doc/db: generated once from statbus_seed = master + 476: 0 added, 0 deleted, 1 modified (public_reset), 582 = 582.
 CI: none claimed while STATBUS-481 blocks Images.
+
+CI EVIDENCE (recorded by the coordinator; the ticket's owner was reaped). Fast Tests run 37829021787 on 6d2ec4027: the 'pg_regress fast suite' JOB is SUCCESS and RAN rather than being skipped, the seed was RESTORED rather than replayed (no FULL_REPLAY), and the run reports all 116 tests passed plus the isolated test. 6d2ec4027 is on master and contains every commit this item names. Note the broader point: this is the first complete suite since STATBUS-460, so it covers 460, 461, 473, 476, 477, 478, 479 and STATBUS-481 B together.
 <!-- SECTION:NOTES:END -->
