@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-09-27 10:07'
-updated_date: '2026-10-08 11:34'
+updated_date: '2026-10-08 11:43'
 labels:
   - installer
 dependencies: []
@@ -65,5 +65,5 @@ Moving to implementation now: (1) step-17 failure must include the upgrade unit'
 ## Implementation Notes
 
 <!-- SECTION:NOTES:BEGIN -->
-OWNER QUESTION ANSWERED 2026-10-08 ('is there any more to do, or is this done?'). THE REVIEW PORTION IS DONE: findings delivered, DEPLOYMENT.md committed (c5222eb16), and the uninstaller is CLEARED by evidence (the current uninstaller did not exist at the time of the September report; git cat-file -e v2026.09.2:uninstall.sh fails, and uninstall.sh was introduced 44e26cae2 on 2026-09-26). WHAT REMAINS IN THIS TICKET: (1) the two ORIGINAL field defects are still open, the upgrade-service start timeout at the last install step and the certificate path confusion, neither of which the review touched; (2) the FOOTER VERSION fix is committed (3df96b7bf) but AC #5 still needs a fresh-install observation on a release that contains it, which is a field step and not code; (3) the review's recommended fixes were deliberately NOT made: G6 preserve retained operator credentials and dumps across the fresh-clone deletion boundary, G2 failed-state cleanup unverified on real systemd, G4 cleanup blocked by a damaged .env, plus scenario coverage. The owner will only approve the scenario work once its cost is known, so a separate cost investigation is running.
+ADMIN-USER VERSUS .users.yml MISMATCH (owner pointed it out 2026-10-08; mechanism verified in the code). There is no interactive 'admin user' prompt and no separate admin account: users, the admin included, come from .users.yml or from STATBUS_USERS_FILE passed at install time. Evidence: cli/cmd/users.go 'users create' reads .users.yml from the PROJECT DIRECTORY and fails with '.users.yml not found in <projectDir>' when it is absent; install.sh (lines 126-145) accepts STATBUS_USERS_FILE as an explicit unattended input path, resolves it to an absolute path, and passes it to ./sb install, which performs the import. The earlier Finland transcript in STATBUS-376 already recorded that step 15 failed without .users.yml. Consequence for Ville: if his users file was never applied (or lives outside ~/statbus so 'users create' cannot see it), that database has NO user, and a login attempt fails while the rest of the stack is healthy, which matches 'the app renders but the login fails'. ALSO: /getting-started is NOT public. app/src/proxy.ts runs the auth check for every path except /login, /_next/, /rest/, _statbus-build.json, pev2.html and the Jotai reference page, redirecting unauthenticated requests to /login. So his screenshot of /getting-started proves a session existed, which means a login DID succeed at some point and the reported UNKNOWN_FAILURE is the post-login canary failing rather than the credentials, or a second attempt with a different email.
 <!-- SECTION:NOTES:END -->
