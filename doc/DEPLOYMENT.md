@@ -2,13 +2,16 @@
 
 ## Removing an installation
 
-Run `./sb uninstall` as the installation's service user, or run
-`curl -fsSL https://statbus.org/uninstall.sh | bash` from that user's shell.
-Both entry points use the same standalone script. It lists every selected
+Run `./uninstall.sh` from the service user's home after downloading it as shown
+in [Quick Install](#quick-install), or run `./sb uninstall` from `~/statbus`.
+The hosted alternative is `curl -fsSL https://statbus.org/uninstall.sh | bash`.
+All entry points use the same standalone script. It lists every selected
 Docker resource, unit file, and checkout path before asking for `DELETE`.
 Interactive removal keeps `~/statbus/dbdumps/` and
 `~/statbus/.env.credentials` by default. Non-interactive removal deletes
 both and requires `STATBUS_UNINSTALL_CONFIRM=yes-delete-everything`.
+Before reinstalling, copy any preserved dumps and credentials outside
+`~/statbus`: the fresh installer replaces a non-Git checkout directory.
 
 Details go to `~/statbus-uninstall.log`. The service account needs Docker
 access, not sudo, to remove container-owned checkout files. The uninstaller
@@ -201,13 +204,23 @@ ubuntu) and run the StatBus installer:
 
 ```bash
 ssh statbus@<your-host>
-curl -fsSL https://statbus.org/install.sh | bash
+cd "$HOME"
+curl -fsSL https://raw.githubusercontent.com/statisticsnorway/statbus/master/install.sh -o install.sh
+curl -fsSL https://raw.githubusercontent.com/statisticsnorway/statbus/master/uninstall.sh -o uninstall.sh
+chmod +x install.sh uninstall.sh
+./install.sh --channel stable
 ```
 
-This is an interactive install. Although `curl` initially supplies the script on
-standard input, the installer reconnects standard input to the controlling
-terminal before asking its questions. If no terminal is available, it refuses
-before making installation changes and points to the unattended form below.
+Supported channels are `stable` (the default, latest stable release) and
+`prerelease` (latest release candidate). To choose the latter, run
+`./install.sh --channel prerelease` instead. Keep the downloaded uninstaller
+outside `~/statbus`; to remove the installation later, run
+`cd "$HOME" && ./uninstall.sh` as the same service user.
+
+This is an interactive install. The hosted alternative,
+`curl -fsSL https://statbus.org/install.sh | bash`, reconnects standard input
+to the controlling terminal before asking its questions. Without a terminal,
+use the unattended form below.
 
 #### Unattended install
 
