@@ -3,9 +3,10 @@ id: STATBUS-462
 title: >-
   Audit all PostgREST query composition for silently dropped or multiplied rows
   (computed-relationship arrow syntax and friends)
-status: To Do
+status: In Progress
 assignee: []
 created_date: '2026-10-08 11:34'
+updated_date: '2026-10-08 11:35'
 labels:
   - app
   - data-model
