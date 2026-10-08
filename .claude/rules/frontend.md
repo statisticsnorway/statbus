@@ -88,6 +88,46 @@ Core conventions for the Next.js (v15) application. For SQL and infrastructure c
 - Webhook handlers from external systems
 - Operations requiring server-side rate limiting beyond database capabilities
 
+### PostgREST Select Lists Must Preserve Parent Cardinality
+
+**Never apply `->` or `->>` to a computed relationship.** For example,
+`primary_activity_category(statistical_unit)` returns `SETOF activity_category`
+with `ROWS 1`. The projection
+`primary_activity_category_name:primary_activity_category->>name` places a
+set-returning function in the SQL select list, not a left relationship join.
+When all such calls return an empty set, PostgreSQL emits no parent row. This
+silently lost 29,470 of 1,976,463 export rows on the Norway dump (STATBUS-421/462).
+
+Use an ordinary embed when you want a nested object:
+`primary_activity_category(code,name)`. To lift a to-one relationship's field
+into the parent object, use **spread**:
+`...primary_activity_category(primary_activity_category_name:name)`. The three
+dots matter. `relationship(alias:name)` alone nests the field. Both left embeds
+preserve a parent with no match. `ROWS 1` is only a planner estimate, so the
+function must actually return at most one row, normally through a unique key,
+or even a to-one embed can multiply parent rows.
+
+Arrows on stored JSON columns are different and safe for row cardinality:
+`tax_ident:external_idents->>tax_ident` and
+`employees:stats_summary->employees->sum` produce a scalar or NULL. Do not treat
+a to-many relationship as JSON or spread it as though it were to-one. Keep
+to-many values in an ordinary array embed, and verify spread support/array
+semantics against the deployed PostgREST version before using it.
+
+`relationship!inner(...)` intentionally removes parents without a matching
+child. Use it only when that filtering is required, with the same filters in
+the count query. An RPC, aggregate, temporal-row query, or count-only HEAD may
+have a different counting unit than business units or nested children. Name
+that counting unit explicitly. Pagination returns a page, not the server total.
+
+For an unpaged row-preserving query, request `Prefer: count=exact` and compare
+the actual returned row count with **that response's** `Content-Range` total.
+An estimate or a count from an earlier request cannot prove completeness.
+Test composed query output across its branches, including parents with absent
+relationships. The export composer regression is in
+`app/src/app/search/export/export-query.test.ts`, and the dated query inventory
+is in `doc/postgrest-query-audit.md`.
+
 ### Security: JWT Role Switching in `/api` Routes
 
 **CRITICAL**: When using direct database connections in `/api` routes, `auth.jwt_switch_role()` **MUST** be called **BEFORE** `BEGIN`:

@@ -198,6 +198,52 @@ describe("exportBaseName", () => {
 });
 
 describe("composeExportSearchParams", () => {
+  it.each([
+    null,
+    "in.(legal_unit)",
+    "in.(establishment)",
+    "in.(enterprise)",
+    "in.(legal_unit,establishment)",
+  ])("only applies arrow projections to stored JSON for %s", (unitType) => {
+    // Check the select actually sent, not source text or a particular field
+    // token. SETOF relationship arrows can change the number of export rows
+    // even when projecting a field other than name (STATBUS-462).
+    const input = new URLSearchParams({
+      select: "old_alias:physical_region->>name",
+      limit: "10",
+      offset: "20",
+    });
+    if (unitType) input.set("unit_type", unitType);
+
+    for (const definitions of [emptyBaseData, baseData]) {
+      const params = composeExportSearchParams(input, definitions);
+      const select = params.get("select")!;
+      const arrowRoots = Array.from(
+        select.matchAll(/(?:^|,)\s*(?:[^:(),]+:)?([a-z_][a-z_0-9]*)\s*->/g),
+        (match) => match[1]
+      );
+      // These are jsonb columns, not functions returning SETOF. Checking
+      // every root also rejects arrows on any other computed relationship.
+      expect(arrowRoots).toEqual(
+        definitions === emptyBaseData
+          ? []
+          : [
+              "external_idents",
+              "external_idents",
+              "stats_summary",
+              "stats_summary",
+            ]
+      );
+      expect(select.split(",")).toEqual(
+        expect.arrayContaining([
+          "...primary_activity_category(primary_activity_category_name:name)",
+          "...secondary_activity_category(secondary_activity_category_name:name)",
+          "...physical_region(physical_region_name:name)",
+        ])
+      );
+    }
+  });
+
   it("keeps filters, replaces order/select, and strips pagination and format", () => {
     const input = new URLSearchParams({
       unit_type: "in.(establishment)",
