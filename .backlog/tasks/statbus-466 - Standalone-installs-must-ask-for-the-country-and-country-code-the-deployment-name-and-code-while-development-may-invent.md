@@ -3,9 +3,10 @@ id: STATBUS-466
 title: >-
   Standalone installs must ask for the country and country code (the deployment
   name and code), while development may invent
-status: To Do
+status: In Progress
 assignee: []
 created_date: '2026-10-08 12:07'
+updated_date: '2026-10-08 12:08'
 labels:
   - installer
 dependencies: []

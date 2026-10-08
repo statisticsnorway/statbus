@@ -3,10 +3,10 @@ id: STATBUS-465
 title: >-
   Installer suggests development mode on a laptop that is a real deployment host
   (battery heuristic drives the default)
-status: To Do
+status: In Progress
 assignee: []
 created_date: '2026-10-08 12:01'
-updated_date: '2026-10-08 12:04'
+updated_date: '2026-10-08 12:08'
 labels:
   - installer
 dependencies: []
