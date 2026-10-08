@@ -4,7 +4,7 @@
 
 Run `./uninstall.sh` from the service user's home after downloading it as shown
 in [Quick Install](#quick-install), or run `./sb uninstall` from `~/statbus`.
-The hosted alternative is `curl -fsSL https://statbus.org/uninstall.sh | bash`.
+The hosted alternative is `curl -fsSL https://raw.githubusercontent.com/statisticsnorway/statbus/master/uninstall.sh | bash`.
 All entry points use the same standalone script. It lists every selected
 Docker resource, unit file, and checkout path before asking for `DELETE`.
 Interactive removal keeps `~/statbus/dbdumps/` and

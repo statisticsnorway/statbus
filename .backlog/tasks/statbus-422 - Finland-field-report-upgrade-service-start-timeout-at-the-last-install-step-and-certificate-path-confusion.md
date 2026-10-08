@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-09-27 10:07'
-updated_date: '2026-10-08 11:49'
+updated_date: '2026-10-08 11:53'
 labels:
   - installer
 dependencies: []
@@ -67,18 +67,5 @@ Moving to implementation now: (1) step-17 failure must include the upgrade unit'
 ## Implementation Notes
 
 <!-- SECTION:NOTES:BEGIN -->
-PRINCIPLED USER PROVISIONING (owner directive 2026-10-08: handle each case, do not document ourselves into a corner). The installer must never silently ignore an operator-supplied users file and must never ask for a user it already has. Every path below states what is used, what is created, and how many users resulted.
-
-INPUTS: an explicit file path via STATBUS_USERS_FILE; an interactive first-administrator answer (email, name, password entered without echo); a file present in the conventional operator location; or nothing.
-
-CASES AND REQUIRED BEHAVIOUR.
-1. STATBUS_USERS_FILE set and readable: use it, skip the interactive user question entirely, copy it into the project as .users.yml, and print the path plus the number of users created. Unattended runs never prompt when this is set.
-2. STATBUS_USERS_FILE set but missing or unreadable: hard error naming the path (this is already the behaviour, 'read STATBUS_USERS_FILE %q'). Never fall back to a prompt silently.
-3. No explicit path, but a users file EXISTS in the conventional operator location: DETECT it and SAY SO, then use it, for example 'Found ~/statbus.users.yml with 3 users; using it.' In an interactive run it may ask once to confirm; in an unattended run it uses it and says so. It must not be ignored, which is the failure the field hit today. This is the case that previously ended with the operator's file quietly unused and a box that could not be logged into.
-4. No explicit path and no file, interactive: ask for the first administrator as today, then state what was created, for example 'Created administrator admin@example.com.'
-5. No explicit path and no file, unattended: fail fast with the exact remedy (set STATBUS_USERS_FILE, or place a users file in the conventional location), instead of completing an install with no users.
-6. After either path: if the resulting user count is zero, or lower than the number of entries in the file that was supplied, print a loud actionable warning with the command to fix it (./sb users create after placing the file at ~/statbus/.users.yml). An install that ends unable to log in must say so at the end, not leave the operator to discover it.
-7. Conflicts are resolved explicitly, in the same spirit as the existing --version versus STATBUS_INSTALL_VERSION conflict: an explicit path wins over a detected file and over the prompt, and a detected file wins over the prompt. A contradiction between two explicit inputs is an error, not a silent preference.
-
-FOR THE INSTALLER IMPLEMENTATION: the current code deliberately does not discover a file ('explicit and optional, never discovered by a hidden home-directory name', cli/cmd/install.go around lines 1773-1783). Case 3 changes that decision deliberately, using the operator location documented in STATBUS-437 rather than a hidden name. That ticket's convention (flat files in the operator's home) is the sane place to land it.
+CROSS-REFERENCE 2026-10-08: the DEPLOYMENT.md uninstall shorthand was a dead URL. https://statbus.org/uninstall.sh redirected to https://www.statbus.org/uninstall.sh and returned 404, while the install shorthand worked (302 to raw.githubusercontent master, 200). The doc line was corrected immediately to the verified raw URL. The site-side redirect fix is filed as its own ticket, because the shorthand rules live in the host-side web configuration on niue (statbus-web deploys by SSH and runs a server-side deploy.sh; its tree contains no redirect files and no *.sh).
 <!-- SECTION:NOTES:END -->
