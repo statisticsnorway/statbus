@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-09-27 10:07'
-updated_date: '2026-10-08 11:57'
+updated_date: '2026-10-08 11:58'
 labels:
   - installer
 dependencies: []
@@ -67,5 +67,5 @@ Moving to implementation now: (1) step-17 failure must include the upgrade unit'
 ## Implementation Notes
 
 <!-- SECTION:NOTES:BEGIN -->
-SPLIT OUT 2026-10-08: the principled user-provisioning work now lives in its own ticket (statbus-463) with the full case matrix, per-case tests and the field origin recorded there. This ticket keeps the Finland field report itself (the install-step timeout, the certificate path confusion, the footer version observation and the DEPLOYMENT.md item). The uninstall shorthand defect was fixed host-side on niue and its ticket was dropped; both shorthands verified 200.
+RENUMBERED 2026-10-08: the split-out provisioning ticket was created as STATBUS-463, the same id as the site-shorthand ticket that had just been archived, because archiving freed the number. It is now STATBUS-464 and is In Progress. Cross-reference there instead of 463.
 <!-- SECTION:NOTES:END -->
