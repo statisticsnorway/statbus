@@ -1,4 +1,19 @@
-```sql
+-- Migration 20261008175729: statbus_479 sector custom upload reports the real unique violation
+--
+-- STATBUS-479. admin.sector_custom_only_upsert (the getting-started sector
+-- upload) caught unique_violation and rebuilt the error as
+--   '% for row %' with data := jsonb_set(data, '{code}', code::jsonb)
+-- where code was the path's digits with a dot inserted after two. A path
+-- without digits gave code '' and ''::jsonb failed, replacing the real
+-- duplicate key with "invalid input syntax for type json"; a path with
+-- digits reported a fabricated code ("11.10", parsed as a JSON number)
+-- that is not the stored sector.code ("1110"). Either way the SQLSTATE
+-- became P0001 and the constraint name and its key detail were lost.
+-- The handler now re-raises the original error intact (SQLSTATE 23505,
+-- constraint name, the original DETAIL) and adds the uploaded row's path
+-- and name and a HINT for the constraint that was hit.
+BEGIN;
+
 CREATE OR REPLACE FUNCTION admin.sector_custom_only_upsert()
  RETURNS trigger
  LANGUAGE plpgsql
@@ -101,4 +116,6 @@ BEGIN
     RETURN NULL;
 END;
 $function$
-```
+;
+
+END;

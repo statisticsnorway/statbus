@@ -91,14 +91,46 @@ BEGIN
 
     EXCEPTION WHEN unique_violation THEN
         DECLARE
-            code varchar := regexp_replace(regexp_replace(NEW.path::TEXT, '[^0-9]', '', 'g'),'^([0-9]{2})(.+)$','\1.\2','');
-            data JSONB := to_jsonb(NEW);
+            _constraint text;
+            _detail text;
         BEGIN
-           data := jsonb_set(data, '{code}', code::jsonb, true);
-            RAISE EXCEPTION '% for row %', SQLERRM, data
-                USING
-                DETAIL = 'Failed during UPSERT operation',
-                HINT = 'Check for path derived numeric code violations';
+            GET STACKED DIAGNOSTICS _constraint = CONSTRAINT_NAME, _detail = PG_EXCEPTION_DETAIL;
+            -- The original message, SQLSTATE, constraint and DETAIL are kept
+            -- exactly as PostgreSQL emitted them; the uploaded row is appended.
+            -- (Under row level security PostgreSQL omits the key DETAIL; it is
+            -- then omitted here too, and the appended path names the row.)
+            -- A HINT is given only for the constraints whose meaning is known.
+            IF _constraint IN ('sector_path_key', 'sector_code_enabled_key') AND _detail <> '' THEN
+                RAISE EXCEPTION '% (uploaded sector path "%", name "%")', SQLERRM, NEW.path, NEW.name
+                    USING ERRCODE = 'unique_violation'
+                        , CONSTRAINT = _constraint
+                        , DETAIL = _detail
+                        , HINT = CASE _constraint
+                            WHEN 'sector_path_key' THEN
+                                'This path already exists as a standard (system) sector or earlier in the upload. Use a path that is not in the standard list, and list each path once.'
+                            ELSE
+                                'Another enabled sector already has the same code (the digits of the path). Give this sector a path whose digits differ.'
+                          END;
+            ELSIF _constraint IN ('sector_path_key', 'sector_code_enabled_key') THEN
+                RAISE EXCEPTION '% (uploaded sector path "%", name "%")', SQLERRM, NEW.path, NEW.name
+                    USING ERRCODE = 'unique_violation'
+                        , CONSTRAINT = _constraint
+                        , HINT = CASE _constraint
+                            WHEN 'sector_path_key' THEN
+                                'This path already exists as a standard (system) sector or earlier in the upload. Use a path that is not in the standard list, and list each path once.'
+                            ELSE
+                                'Another enabled sector already has the same code (the digits of the path). Give this sector a path whose digits differ.'
+                          END;
+            ELSIF _detail <> '' THEN
+                RAISE EXCEPTION '% (uploaded sector path "%", name "%")', SQLERRM, NEW.path, NEW.name
+                    USING ERRCODE = 'unique_violation'
+                        , CONSTRAINT = coalesce(_constraint, '')
+                        , DETAIL = _detail;
+            ELSE
+                RAISE EXCEPTION '% (uploaded sector path "%", name "%")', SQLERRM, NEW.path, NEW.name
+                    USING ERRCODE = 'unique_violation'
+                        , CONSTRAINT = coalesce(_constraint, '');
+            END IF;
         END;
     END;
 
@@ -108,9 +140,9 @@ $function$
 \echo "User uploads the sectors with errors"
 "User uploads the sectors with errors"
 \copy public.sector_custom_only(path,name,description) FROM 'test/data/30_ug_sectorcodes_with_index_error.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
-ERROR:  duplicate key value violates unique constraint "sector_code_enabled_key" for row {"code": 1, "name": "er ror,part2 ", "path": "s1", "description": "desc works"}
-DETAIL:  Failed during UPSERT operation
-HINT:  Check for path derived numeric code violations
-CONTEXT:  PL/pgSQL function admin.sector_custom_only_upsert() line 58 at RAISE
+ERROR:  duplicate key value violates unique constraint "sector_code_enabled_key" (uploaded sector path "s1", name "er ror,part2 ")
+DETAIL:  Key (code)=(1) already exists.
+HINT:  Another enabled sector already has the same code (the digits of the path). Give this sector a path whose digits differ.
+CONTEXT:  PL/pgSQL function admin.sector_custom_only_upsert() line 64 at RAISE
 COPY sector_custom_only, line 9: "s1,"er ror,part2 ",desc works"
 ROLLBACK;
