@@ -4,7 +4,7 @@ title: CSV export of search results contains every matching row
 status: Done
 assignee: []
 created_date: '2026-09-25 14:02'
-updated_date: '2026-10-08 18:24'
+updated_date: '2026-10-08 19:24'
 labels:
   - app
 dependencies: []
@@ -243,6 +243,8 @@ AC#7 MET: rows received against the total and MB received are shown while stream
 AC#8 MET: count phase 158 ms, export 21.8 s / 16.6 s, 415 MB (S1 and FINAL ACCEPTANCE).
 DoD#1 MET (FINAL ACCEPTANCE). DoD#2 MET (TRANSPORT DECISION plus S1 timeout note). DoD#3 MET (the 2026-10-08 measurement with the 29,470 shortfall is retained above).
 CAVEATS, recorded rather than dropped: (1) CI. No green pg_regress covers these commits. Fast Tests skipped pg_regress until 481 landed. The first run that executed it, for 5bf1dc967 (37820685605), failed 2 of 113 in 016_generate_typescript_types_from_db and 351_statbus_460_unit_existence_rule. 421 touches no SQL, migration or generated types; those belong to 478's regenerated types and to 460. The first real suite run after 3ce591f16 is the one that can confirm them (guppy is reading it). The app gates (app build & lint, Go Test) are green on descendants, with the tree differences stated in each note. (2) The browser runs intercepted the export response, because the February dump lacks the *_enabled views and the DB was kept read-only, so the live route was never driven end to end by a browser on this dump. The route itself was driven by curl in S1 and the core by Node harnesses. (3) A real-Excel open of a sheet-limit workbook is still the owner's acceptance; LibreOffice and openpyxl accepted it. (4) The 7.7 s OPFS-to-Downloads copy is the feasibility measurement, not re-measured in this session.
+
+CI FOLLOW-UP, 2026-10-08: the first green pg_regress covering the 421 commits. 642876ce0, 1dbc263e8, 323aef9e3 and 5bf1dc967 are all ancestors of 6d2ec4027, whose Fast Tests run 37829021787 RAN 'pg_regress fast suite' and passed (116/116 plus 1 isolated). The earlier caveat (pg_regress skipped, then 2 failures in 016/351 on 5bf1dc967, neither in 421 code) is now closed by a passing suite on a descendant.
 <!-- SECTION:NOTES:END -->
 
 ## 2026-10-07: the export still cannot deliver — owner-observed failure on no.statbus.org, diagnosed
