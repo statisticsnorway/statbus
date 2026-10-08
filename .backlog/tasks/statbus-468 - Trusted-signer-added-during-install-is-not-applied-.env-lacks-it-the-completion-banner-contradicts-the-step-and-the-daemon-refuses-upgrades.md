@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-10-08 12:13'
-updated_date: '2026-10-08 12:13'
+updated_date: '2026-10-08 14:29'
 labels:
   - installer
   - upgrade
@@ -49,7 +49,8 @@ EVIDENCE TO RECORD: from a real install or the closest integration path, the UPG
 
 ## Definition of Done
 <!-- DOD:BEGIN -->
-- [ ] #1 Evidence from a real install, or the closest integration path available, is recorded in the ticket: the .env line, the absent banner, and the daemon's loaded signers.
+- [ ] #1 The new tests are shown CONSEQUENTIAL: at 059fafe59^ they FAIL, at minimum the upgrade-package test asserting the daemon's allowed_signers content and the step-name matching that lets the decline branch fire; at HEAD they pass. Both outputs recorded.
+- [ ] #2 The end-state claims that are genuinely about a running host (.env carrying the signer, no contradicting completion banner, the daemon's loaded signers) are recorded from ONE real install observation, not a scenario catalogue.
 <!-- DOD:END -->
 
 ## Implementation Notes

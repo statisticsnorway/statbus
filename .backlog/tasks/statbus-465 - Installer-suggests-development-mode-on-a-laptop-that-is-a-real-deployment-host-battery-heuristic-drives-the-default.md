@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-10-08 12:01'
-updated_date: '2026-10-08 13:53'
+updated_date: '2026-10-08 14:29'
 labels:
   - installer
 dependencies: []
@@ -42,10 +42,8 @@ REQUIRED BEHAVIOUR.
 
 ## Definition of Done
 <!-- DOD:BEGIN -->
-- [ ] #1 Interactive install on a host that presents a battery: the recorded prompt suggests standalone, and nothing about the host changes it.
-- [ ] #2 Interactive install on a host with no battery: the recorded prompt suggests standalone, and nothing about the host changes it.
-- [ ] #3 The recorded prompt shows development and private as selectable with their explanations, and private is never suggested automatically.
-- [ ] #4 An unattended run's recipe shows standalone, with no development value (StatBus/local) appearing anywhere.
+- [ ] #1 TestSuggestedModeIsStandaloneWithOrWithoutBattery is shown CONSEQUENTIAL: at 054611d1d^ (where the battery heuristic exists) it FAILS with a battery directory present, and at HEAD it passes, with both outputs recorded in the ticket.
+- [ ] #2 The one host-level claim is recorded from a single real interactive observation: on a host that presents a battery, the CADDY_DEPLOYMENT_MODE prompt suggests standalone, and development and private remain selectable with their explanations. One observation, not a scenario catalogue.
 <!-- DOD:END -->
 
 ## Implementation Notes

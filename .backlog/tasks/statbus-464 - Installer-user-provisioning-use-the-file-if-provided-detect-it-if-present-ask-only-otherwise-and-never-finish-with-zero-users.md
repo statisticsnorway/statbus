@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-10-08 11:57'
-updated_date: '2026-10-08 13:21'
+updated_date: '2026-10-08 14:29'
 labels:
   - installer
   - docs
@@ -50,7 +50,8 @@ FOR THE INSTALLER IMPLEMENTATION: the current code deliberately does not discove
 ## Definition of Done
 <!-- DOD:BEGIN -->
 - [ ] #1 The detection rule uses the operator-home convention documented in STATBUS-437 (a documented location, not a hidden filename), and the decision that the current 'never discovered' behaviour is being reversed is stated in the code comment it replaces.
-- [ ] #2 Verified on a real install path, not only unit tests: at minimum the interactive-admin scenario in test/install-recovery and the unattended path, with the observed output recorded.
+- [ ] #2 The provisioning tests are shown CONSEQUENTIAL, not merely green: at 442b0b38b^ (before the fix) the current tests are run and each failing case is recorded - explicit STATBUS_USERS_FILE used and reported, a broken users file a hard error, an unattended run with no users refusing up front and naming the remedy, contradicting files refusing - and the same tests are then recorded passing at HEAD.
+- [ ] #3 The two install-path claims that are genuinely about the host are recorded as ONE observation each from the real install path (the interactive first-administrator prompt, and the unattended refusal), not built out into a scenario catalogue.
 <!-- DOD:END -->
 
 ## Implementation Notes
