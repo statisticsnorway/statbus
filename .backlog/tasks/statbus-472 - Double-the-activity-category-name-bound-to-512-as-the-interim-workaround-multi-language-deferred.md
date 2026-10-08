@@ -6,7 +6,7 @@ title: >-
 status: Done
 assignee: []
 created_date: '2026-10-08 13:12'
-updated_date: '2026-10-08 15:10'
+updated_date: '2026-10-08 15:44'
 labels:
   - sql
   - import
@@ -102,4 +102,6 @@ CI for 8e7a9cf5f (read via gh run list, not run watch): Go Test, app build & lin
 CORRECTIONS (2026-10-08, after landing). (1) doc/text-length-bounds.md listed enterprise_group.name among the remaining 256-bound columns, but that table no longer exists (it is power_group now). Fixed in 3e678f8d0, a doc-only commit. (2) Provenance of the doc/db alias change in public_statistical_unit_def.md was verified: pg_get_viewdef on statbus_seed (PostgreSQL 18.6) itself emits 'legal_unit'::statistical_unit_type AS statistical_unit_type, so it is generator output and not a hand edit. (3) Process note: the local full fast suite (13 min) was more than needed. Test 132 plus the schema-shape tests (002/015/016/101) would have found the one expectation that moved (002), and CI runs the fast suite on push. (4) The doc/db and types freshness stamps under tmp/ were withheld because the tree had uncommitted migrations when the generators ran. They are local only and get written by the next generator run on a clean tree.
 
 RED/GREEN FOR TEST 132 (consequential-test evidence). RED: on a scratch clone of the test template with this migration reverted by its own down.sql (activity_category.name back to character varying(256), the parent-commit schema), the committed test/sql/132 diverges from its expected output (64-line diff). 132.1 reports all 7 relations as character varying(256), and 132.3 fails with 'ERROR: value too long for type character varying(256)' on the 300-character bilingual label, aborting the rest. The 13-row field excerpt (longest 252) still loads at 256, consistent with the operator having hand-trimmed it to fit. GREEN: the same test is ok locally at the 512 schema and ok in CI Fast Tests run 37789331297 (104/104 at 937707b92, a descendant of 8e7a9cf5f).
+
+HANDOVER (2026-10-08). The doc/db and types freshness stamps under tmp/ were withheld during 472 because migrations/ was dirty when the generators ran. On the owner's instruction they are delegated to the swarm leader (rabbit), to be written by one generator run on a clean tree after STATBUS-473 lands. Nothing else from 472 is open. Operator note: re-uploading full-length custom labels over existing custom rows reports success but changes nothing until STATBUS-473 lands (the upsert never updates an existing row).
 <!-- SECTION:NOTES:END -->
