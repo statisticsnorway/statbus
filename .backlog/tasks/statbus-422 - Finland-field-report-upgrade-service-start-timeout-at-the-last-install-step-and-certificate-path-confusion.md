@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-09-27 10:07'
-updated_date: '2026-10-08 11:58'
+updated_date: '2026-10-08 12:07'
 labels:
   - installer
 dependencies: []
@@ -67,5 +67,9 @@ Moving to implementation now: (1) step-17 failure must include the upgrade unit'
 ## Implementation Notes
 
 <!-- SECTION:NOTES:BEGIN -->
-RENUMBERED 2026-10-08: the split-out provisioning ticket was created as STATBUS-463, the same id as the site-shorthand ticket that had just been archived, because archiving freed the number. It is now STATBUS-464 and is In Progress. Cross-reference there instead of 463.
+INSTALLER-LOG REVIEW CLUSTER (owner's read of Ville's install log, 2026-10-08). Three questionnaire defects were found from this field report and are tracked as their own tickets so each can be implemented and tested on its own, with all three cross-referenced here as parts of this Ville issue:
+* STATBUS-464 - principled user provisioning: use the file if provided, detect it if present, ask only otherwise, never finish with zero users. Origin: the install finished with the operator's users file unused, so the account he supplied could not log in.
+* STATBUS-465 - the installer suggested development mode because a battery was detected (installIsLaptop reads /sys/class/power_supply). Owner decision: the installer always suggests standalone, no heuristics and no detection; development and private are deliberate choices; the battery helpers are removed.
+* STATBUS-466 - for a standalone install the display name and deployment code ARE the country and its country code (our own slots are no, pk, et, jo, ma, ug), but the prompts offer the development defaults StatBus and local with no validation, so pressing Enter in the official installer yields development values on a country deployment. Development may invent; standalone must ask the real question.
+All three touch cli/cmd/install.go and cli/internal/installinput/config.go and are assigned to one worker so the shared checkout keeps a single writer per file.
 <!-- SECTION:NOTES:END -->
