@@ -4,16 +4,24 @@ CREATE OR REPLACE FUNCTION admin.delete_stale_activity_category()
  LANGUAGE plpgsql
 AS $function$
 BEGIN
-    -- All the `standard_id` with a recent update must be complete.
-    WITH changed_activity_category AS (
-      SELECT DISTINCT standard_id
-      FROM public.activity_category
-      WHERE updated_at = statement_timestamp()
-    )
-    -- Delete activities that have a stale updated_at
-    DELETE FROM public.activity_category
-    WHERE standard_id IN (SELECT standard_id FROM changed_activity_category)
-    AND updated_at < statement_timestamp();
+    -- A load through a standard view is the complete standard: the system
+    -- codes of that standard the statement did NOT address are stale.
+    -- admin.upsert_activity_category recorded every addressed code; a
+    -- statement that addressed none (empty load) deletes nothing. Custom
+    -- overrides are never stale here, they are not part of the standard.
+    IF to_regclass('pg_temp.activity_category_addressed') IS NULL THEN
+        RETURN NULL;
+    END IF;
+
+    DELETE FROM public.activity_category AS ac
+    WHERE ac.standard_id IN (SELECT DISTINCT standard_id FROM pg_temp.activity_category_addressed)
+      AND NOT ac.custom
+      AND NOT EXISTS (
+          SELECT 1 FROM pg_temp.activity_category_addressed AS addressed
+           WHERE addressed.standard_id = ac.standard_id
+             AND addressed.path OPERATOR(public.=) ac.path);
+
+    DROP TABLE pg_temp.activity_category_addressed;
     RETURN NULL;
 END;
 $function$

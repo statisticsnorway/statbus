@@ -2248,7 +2248,7 @@ ORDER BY standard_code, path;
  nace_v2.1     | 99.00  | U.99.0.0   | U.99.0      | U9900  | Internasjonale organisasjoner og organer
  nace_v2.1     | 99.000 | U.99.0.0.0 | U.99.0.0    | U99000 | Internasjonale organisasjoner og organer
  nace_v2.1     |        | V          |             | V      | ACTIVITIES OF EXTRATERRITORIAL ORGANISATIONS AND BODIES
- nace_v2.1     | 99     | V.99       |             | V99    | Activities of extraterritorial organisations and bodies
+ nace_v2.1     | 99     | V.99       | V           | V99    | Activities of extraterritorial organisations and bodies
  nace_v2.1     | 99.0   | V.99.0     | V.99        | V990   | Activities of extraterritorial organisations and bodies
  nace_v2.1     | 99.00  | V.99.0.0   | V.99.0      | V9900  | Activities of extraterritorial organisations and bodies
 (2215 rows)
@@ -3418,7 +3418,7 @@ reset_getting_started
     "activity_category": {
         "changed_count": 643,
         "deleted_count": 1811,
-        "changed_children_count": 73
+        "changed_children_count": 726
     },
     "import_definition": {
         "deleted_count": 0
@@ -3588,7 +3588,7 @@ reset_all
     "activity_category": {
         "changed_count": 643,
         "deleted_count": 1811,
-        "changed_children_count": 73
+        "changed_children_count": 726
     },
     "import_definition": {
         "deleted_count": 0

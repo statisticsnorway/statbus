@@ -7,29 +7,32 @@ DECLARE
     setting_standard_id int;
     found_parent_id int;
     existing_category_id int;
+    row RECORD;
 BEGIN
     -- Retrieve the setting_standard_id from public.settings
-    SELECT standard_id INTO setting_standard_id FROM public.settings;
+    SELECT activity_category_standard_id INTO setting_standard_id FROM public.settings;
     IF NOT FOUND THEN
-        RAISE EXCEPTION 'Missing public.settings.standard_id';
+        RAISE EXCEPTION 'Missing public.settings.activity_category_standard_id';
     END IF;
 
-    -- Find parent category based on NEW.parent_code or NEW.path
-    IF NEW.parent_code IS NOT NULL THEN
-        -- If NEW.parent_code is provided, use it to find the parent category
+    -- Find parent category based on NEW.parent_path or NEW.path
+    IF NEW.parent_path IS NOT NULL THEN
+        -- If NEW.parent_path is provided, use it to find the parent category
         SELECT id INTO found_parent_id
           FROM public.activity_category
-         WHERE code = NEW.parent_code
-           AND standard_id = setting_standard_id;
+         WHERE path OPERATOR(public.=) NEW.parent_path
+           AND standard_id = setting_standard_id
+           AND enabled;
         IF NOT FOUND THEN
-          RAISE EXCEPTION 'Could not find parent_code %', NEW.parent_code;
+          RAISE EXCEPTION 'Could not find parent_path %', NEW.parent_path;
         END IF;
     ELSIF public.nlevel(NEW.path) > 1 THEN
-        -- If NEW.parent_code is not provided, use NEW.path to find the parent category
+        -- If NEW.parent_path is not provided, use NEW.path to find the parent category
         SELECT id INTO found_parent_id
           FROM public.activity_category
          WHERE standard_id = setting_standard_id
-           AND path OPERATOR(public.=) public.subltree(NEW.path, 0, public.nlevel(NEW.path) - 1);
+           AND path OPERATOR(public.=) public.subltree(NEW.path, 0, public.nlevel(NEW.path) - 1)
+           AND enabled;
         IF NOT FOUND THEN
           RAISE EXCEPTION 'Could not find parent for path %', NEW.path;
         END IF;
@@ -71,17 +74,24 @@ BEGIN
         , TRUE -- Active
         , TRUE -- Custom
         )
-    ON CONFLICT (standard_id, path)
+    ON CONFLICT (standard_id, path, custom)
     DO UPDATE SET
             parent_id = found_parent_id
           , name = NEW.name
           , description = NEW.description
           , updated_at = statement_timestamp()
           , enabled = TRUE
-          , custom = TRUE
-       WHERE activity_category.id = EXCLUDED.id;
+       RETURNING * INTO row;
 
-    RETURN NULL;
+    -- Connect any children of the existing row to the newly inserted row.
+    IF existing_category_id IS NOT NULL THEN
+        UPDATE public.activity_category
+           SET parent_id = row.id
+        WHERE parent_id = existing_category_id;
+    END IF;
+
+    -- Report the written row, so the statement's row count is what was stored.
+    RETURN NEW;
 END;
 $function$
 ```

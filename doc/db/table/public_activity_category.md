@@ -17,6 +17,7 @@
  updated_at  | timestamp with time zone |           | not null | statement_timestamp()                                                 | plain    |             |              | 
 Indexes:
     "activity_category_pkey" PRIMARY KEY, btree (id)
+    "activity_category_standard_id_path_custom_key" UNIQUE CONSTRAINT, btree (standard_id, path, custom)
     "activity_category_standard_id_path_enabled_key" UNIQUE CONSTRAINT, btree (standard_id, path, enabled)
     "idx_activity_category_standard_code_enabled" btree (standard_id, code) WHERE enabled = true
     "ix_activity_category_enabled" btree (enabled)

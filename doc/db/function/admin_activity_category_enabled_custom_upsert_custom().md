@@ -46,7 +46,8 @@ BEGIN
         RAISE DEBUG 'EXISTING %', to_json(existing_category);
     END IF;
 
-    -- Perform an upsert operation on public.activity_category
+    -- Perform an upsert operation on public.activity_category, keyed on the
+    -- real key (standard_id, path, custom): a re-upload updates the override.
     INSERT INTO public.activity_category
         ( standard_id
         , path
@@ -67,15 +68,13 @@ BEGIN
         , TRUE -- Active
         , TRUE -- Custom
         )
-    ON CONFLICT (standard_id, path, enabled)
+    ON CONFLICT (standard_id, path, custom)
     DO UPDATE SET
             parent_id = found_parent_id
           , name = NEW.name
           , description = NEW.description
           , updated_at = statement_timestamp()
           , enabled = TRUE
-          , custom = TRUE
-       WHERE activity_category.id = EXCLUDED.id
        RETURNING * INTO row;
     RAISE DEBUG 'UPSERTED %', to_json(row);
 
@@ -86,7 +85,9 @@ BEGIN
         WHERE parent_id = existing_category_id;
     END IF;
 
-    RETURN NULL;
+    -- Report the written row, so the statement's row count (INSERT 0 n,
+    -- COPY n) is what was stored, never a silent 0.
+    RETURN NEW;
 END;
 $function$
 ```

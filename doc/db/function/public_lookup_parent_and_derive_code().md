@@ -31,8 +31,13 @@ BEGIN
     IF public.nlevel(NEW.path) > 1 THEN
         SELECT id INTO NEW.parent_id
         FROM public.activity_category
-        WHERE path OPERATOR(public.=) public.subltree(NEW.path, 0, public.nlevel(NEW.path) - 1)
-          AND enabled
+        WHERE standard_id = NEW.standard_id
+          AND path OPERATOR(public.=) public.subltree(NEW.path, 0, public.nlevel(NEW.path) - 1)
+        -- (standard_id, path, enabled) is unique, so this is the enabled
+        -- parent, or the disabled one mid-swap (public.reset re-parents
+        -- children before it re-enables the system row).
+        ORDER BY enabled DESC
+        LIMIT 1
         ;
     ELSE
         NEW.parent_id := NULL; -- No parent, set parent_id to NULL
