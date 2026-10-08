@@ -4,7 +4,7 @@ title: CSV export of search results contains every matching row
 status: In Progress
 assignee: []
 created_date: '2026-09-25 14:02'
-updated_date: '2026-10-08 09:24'
+updated_date: '2026-10-08 10:07'
 labels:
   - app
 dependencies: []
@@ -55,7 +55,7 @@ Reported by Erik 2026-09-25 (Slack): exporting all legal units + establishments 
 ## Implementation Notes
 
 <!-- SECTION:NOTES:BEGIN -->
-IMPLEMENTATION STATUS AS OF 2026-10-08 (read from the code, not from memory). WHAT EXISTS, landed in 1e5ac2ccf: app/src/app/search/export/use-statistical-unit-export.ts performs ONE fetch against /rest with Accept: text/csv, streams the body with response.body.getReader() and counts records with csv-row-counter.ts for the progress bar, supports cancellation, refuses XLSX above the sheet limit, confirms above 100k rows, logs start/success/failure via export-logger.ts, and ends with a completeness guard: if rowsReceived !== expectedTotal it errors with 'Export incomplete: received X of Y rows. The download was not saved - please try again.' export-query.ts composes the select and the deterministic order. WHAT DOES NOT EXIST: any piece-by-piece fetch, paging or client-side assembly. There is no Range header, no offset, no keyset page loop anywhere in the export path, so nothing is downloaded in parts and reassembled. A comment in search-export-csv-link.tsx mentioning 'paging' is stale and describes no code. Two further notes on the guard: it compares against the search's expected total, which can be a planner estimate rather than an exact count, and it never consults the total the server announces in Content-Range. DESIGN INVESTIGATION UNDER WAY, delegated to worker @duckling on 2026-10-08: establish the root cause of the partial response, test whether any single request can return the entire set, measure HTTP Range paging versus keyset paging including a rigorous coverage proof that the union is exactly 1,976,463 distinct rows with no gaps or duplicates, and recommend the client-side design (page size, progress, completeness proof, memory and time estimates) with rejected alternatives. Deliverable tmp/421-export-design.md. Design first: no product code is being changed while that runs. WORKING PRINCIPLE FROM THE OWNER: do not design to failure - the guard stays as a safety net, but the design must deliver every row.
+MODEL DECISIONS AND DELEGATION, 2026-10-08 (owner instruction). The export DESIGN investigation runs on gpt-6.1-sol (worker @mizaru, spawned 10:07). The first attempt was delegated at 09:24 to @duckling, which came up on the configured swarm default gpt-5.6-sol and produced nothing in 30 minutes (never touched a file, no output), so it was stopped and the task re-delegated. The IMPLEMENTATION that follows the design is to be done on claude-opus-5-5, per the owner. The owner's standing guidance for this work: do not design to failure - the completeness guard stays as a safety net, but the design must deliver every row, fetched from the client side with progress.
 <!-- SECTION:NOTES:END -->
 
 ## 2026-10-07: the export still cannot deliver — owner-observed failure on no.statbus.org, diagnosed
