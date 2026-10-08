@@ -85,10 +85,9 @@ so they need no change. `timeline_establishment_def` and
 
 ## Other bounded text columns
 
-These still carry their original 2024 bound of 256 and have not been
-measured or decided under this policy: `legal_unit.name`,
-`establishment.name`, `enterprise_group.name`, `power_group.name`,
-`tag.name`, `contact.web_address`, `relative_period.name_when_query` and
-`relative_period.name_when_input` (and the timeline, statistical_unit and
-view columns derived from them). When one of them needs to move, measure the
-real data, decide, and record it here.
+These still carry the original 256 bound and have not been measured or
+decided under this policy: `legal_unit.name`, `establishment.name`,
+`power_group.name`, `tag.name`, `contact.web_address`,
+`relative_period.name_when_query` and `relative_period.name_when_input` (and
+the timeline, statistical_unit and view columns derived from them). When one
+of them needs to move, measure the real data, decide, and record it here.
