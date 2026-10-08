@@ -81,9 +81,9 @@ SELECT c.d, c.unit_type, c.card_count, h.countable_count AS chart_count,
        c.card_count = h.countable_count AS card_matches_chart,
        c.card_count = c.distinct_units AS one_record_per_unit
 FROM card AS c
-FULL JOIN public.statistical_history AS h
-  ON h.resolution = 'year' AND make_date(h.year, 12, 31) = c.d AND h.unit_type = c.unit_type
-WHERE h.year IN (2023, 2024) OR h.year IS NULL
+FULL JOIN (SELECT * FROM public.statistical_history
+            WHERE resolution = 'year' AND year IN (2023, 2024) AND hash_partition IS NULL) AS h
+  ON make_date(h.year, 12, 31) = c.d AND h.unit_type = c.unit_type
 ORDER BY 1, array_position(ARRAY['enterprise','legal_unit','establishment']::public.statistical_unit_type[], c.unit_type);
 
 \echo
@@ -145,7 +145,7 @@ ORDER BY 1, 2;
 SELECT c.d, c.unit_type, c.card_count, h.countable_count AS chart_count, c.card_count = h.countable_count AS card_matches_chart
 FROM card AS c
 JOIN public.statistical_history AS h
-  ON h.resolution = 'year' AND make_date(h.year, 12, 31) = c.d AND h.unit_type = c.unit_type
+  ON h.resolution = 'year' AND h.hash_partition IS NULL AND make_date(h.year, 12, 31) = c.d AND h.unit_type = c.unit_type
 WHERE c.unit_type = 'legal_unit'
 ORDER BY 1;
 

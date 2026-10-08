@@ -98,9 +98,9 @@ SELECT c.d, c.unit_type, c.card_count, h.countable_count AS chart_count,
        c.card_count = h.countable_count AS card_matches_chart,
        c.card_count = c.distinct_units AS one_record_per_unit
 FROM card AS c
-FULL JOIN public.statistical_history AS h
-  ON h.resolution = 'year' AND make_date(h.year, 12, 31) = c.d AND h.unit_type = c.unit_type
-WHERE h.year IN (2023, 2024) OR h.year IS NULL
+FULL JOIN (SELECT * FROM public.statistical_history
+            WHERE resolution = 'year' AND year IN (2023, 2024) AND hash_partition IS NULL) AS h
+  ON make_date(h.year, 12, 31) = c.d AND h.unit_type = c.unit_type
 ORDER BY 1, array_position(ARRAY['enterprise','legal_unit','establishment']::public.statistical_unit_type[], c.unit_type);
      d      |   unit_type   | card_count | chart_count | card_matches_chart | one_record_per_unit 
 ------------+---------------+------------+-------------+--------------------+---------------------
@@ -110,79 +110,7 @@ ORDER BY 1, array_position(ARRAY['enterprise','legal_unit','establishment']::pub
  2024-12-31 | enterprise    |         23 |          23 | t                  | t
  2024-12-31 | legal_unit    |         23 |          23 | t                  | t
  2024-12-31 | establishment |         22 |          22 | t                  | t
-            |               |            |          12 |                    | 
-            |               |            |          23 |                    | 
-            |               |            |          23 |                    | 
-            |               |            |          23 |                    | 
-            |               |            |          12 |                    | 
-            |               |            |          23 |                    | 
-            |               |            |          12 |                    | 
-            |               |            |          23 |                    | 
-            |               |            |          12 |                    | 
-            |               |            |          23 |                    | 
-            |               |            |          23 |                    | 
-            |               |            |          23 |                    | 
-            |               |            |          11 |                    | 
-            |               |            |          23 |                    | 
-            |               |            |          11 |                    | 
-            |               |            |          23 |                    | 
-            |               |            |          23 |                    | 
-            |               |            |          23 |                    | 
-            |               |            |          23 |                    | 
-            |               |            |          23 |                    | 
-            |               |            |          23 |                    | 
-            |               |            |          12 |                    | 
-            |               |            |          11 |                    | 
-            |               |            |          23 |                    | 
-            |               |            |          23 |                    | 
-            |               |            |          23 |                    | 
-            |               |            |          23 |                    | 
-            |               |            |          12 |                    | 
-            |               |            |          23 |                    | 
-            |               |            |          12 |                    | 
-            |               |            |          23 |                    | 
-            |               |            |          23 |                    | 
-            |               |            |          22 |                    | 
-            |               |            |          12 |                    | 
-            |               |            |          23 |                    | 
-            |               |            |          23 |                    | 
-            |               |            |          23 |                    | 
-            |               |            |          23 |                    | 
-            |               |            |          23 |                    | 
-            |               |            |          23 |                    | 
-            |               |            |          23 |                    | 
-            |               |            |          23 |                    | 
-            |               |            |          23 |                    | 
-            |               |            |          11 |                    | 
-            |               |            |          23 |                    | 
-            |               |            |          23 |                    | 
-            |               |            |          23 |                    | 
-            |               |            |          11 |                    | 
-            |               |            |          23 |                    | 
-            |               |            |          23 |                    | 
-            |               |            |          11 |                    | 
-            |               |            |          23 |                    | 
-            |               |            |          23 |                    | 
-            |               |            |          23 |                    | 
-            |               |            |          11 |                    | 
-            |               |            |          11 |                    | 
-            |               |            |          23 |                    | 
-            |               |            |          12 |                    | 
-            |               |            |          12 |                    | 
-            |               |            |          23 |                    | 
-            |               |            |          23 |                    | 
-            |               |            |          12 |                    | 
-            |               |            |          23 |                    | 
-            |               |            |          12 |                    | 
-            |               |            |          23 |                    | 
-            |               |            |          23 |                    | 
-            |               |            |          23 |                    | 
-            |               |            |          11 |                    | 
-            |               |            |          11 |                    | 
-            |               |            |          23 |                    | 
-            |               |            |          22 |                    | 
-            |               |            |          23 |                    | 
-(78 rows)
+(6 rows)
 
 \echo
 
@@ -288,7 +216,7 @@ ORDER BY 1, 2;
 SELECT c.d, c.unit_type, c.card_count, h.countable_count AS chart_count, c.card_count = h.countable_count AS card_matches_chart
 FROM card AS c
 JOIN public.statistical_history AS h
-  ON h.resolution = 'year' AND make_date(h.year, 12, 31) = c.d AND h.unit_type = c.unit_type
+  ON h.resolution = 'year' AND h.hash_partition IS NULL AND make_date(h.year, 12, 31) = c.d AND h.unit_type = c.unit_type
 WHERE c.unit_type = 'legal_unit'
 ORDER BY 1;
      d      | unit_type  | card_count | chart_count | card_matches_chart 
