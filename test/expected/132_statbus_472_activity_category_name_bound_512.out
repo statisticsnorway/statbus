@@ -1,0 +1,132 @@
+-- STATBUS-472: activity_category.name is bounded at character varying(512).
+--
+-- Real classification labels must import unedited. The trigger was a
+-- bilingual (Turkish --- English) custom activity category file whose longest
+-- label is 252 characters, already hand-trimmed by the operator to squeeze
+-- under the old 256 bound. The fixture test/data/472_... is a verbatim excerpt
+-- of that field file (sections T and U, including its longest label).
+--
+-- Invariants checked:
+--   1. The column and every view/derived table that exposes it carry the
+--      same 512 bound.
+--   2. The field labels load through the real upload view
+--      (activity_category_enabled_custom), the one the getting-started page
+--      posts CSV to, and are stored byte-for-byte.
+--   3. A label longer than the old bound (300 characters: the untrimmed
+--      Turkish + English label for section T is 285) is accepted.
+--   4. Exactly 512 is accepted, and 513 still fails honestly with
+--      SQLSTATE 22001 rather than being truncated.
+BEGIN;
+\i test/setup.sql
+\echo -- test/setup.sql output suppressed for cleaner test output
+-- test/setup.sql output suppressed for cleaner test output
+\set ECHO none
+\echo -- test/setup.sql done, test output follows
+-- test/setup.sql done, test output follows
+\echo "Test 132: activity_category.name bound is 512 (STATBUS-472)"
+"Test 132: activity_category.name bound is 512 (STATBUS-472)"
+CALL test.set_user_from_email('test.admin@statbus.org');
+INSERT INTO public.settings(activity_category_standard_id, country_id, region_version_id)
+SELECT (SELECT id FROM public.activity_category_standard WHERE code = 'nace_v2.1')
+     , (SELECT id FROM public.country WHERE iso_2 = 'TR')
+     , (SELECT id FROM public.region_version WHERE code = 'initial');
+\echo "132.1: the name column and everything exposing it share the 512 bound"
+"132.1: the name column and everything exposing it share the 512 bound"
+SELECT a.attrelid::regclass AS relation
+     , format_type(a.atttypid, a.atttypmod) AS name_type
+  FROM pg_catalog.pg_attribute AS a
+ WHERE a.attname = 'name'
+   AND a.attrelid IN ( 'public.activity_category'::regclass
+                     , 'public.activity_category_used'::regclass
+                     , 'public.activity_category_used_def'::regclass
+                     , 'public.activity_category_enabled'::regclass
+                     , 'public.activity_category_enabled_custom'::regclass
+                     , 'public.activity_category_isic_v4'::regclass
+                     , 'public.activity_category_nace_v2_1'::regclass )
+ ORDER BY a.attrelid::regclass::text;
+             relation             |       name_type        
+----------------------------------+------------------------
+ activity_category                | character varying(512)
+ activity_category_enabled        | character varying(512)
+ activity_category_enabled_custom | character varying(512)
+ activity_category_isic_v4        | character varying(512)
+ activity_category_nace_v2_1      | character varying(512)
+ activity_category_used           | character varying(512)
+ activity_category_used_def       | character varying(512)
+(7 rows)
+
+\echo "132.2: the field file excerpt loads unedited through the upload view"
+"132.2: the field file excerpt loads unedited through the upload view"
+CREATE TEMP TABLE field_label(path text, name text);
+\copy field_label(path, name) FROM 'test/data/472_bilingual_activity_categories_excerpt.csv' WITH (FORMAT csv, HEADER true)
+\copy public.activity_category_enabled_custom(path, name) FROM 'test/data/472_bilingual_activity_categories_excerpt.csv' WITH (FORMAT csv, HEADER true)
+SELECT count(*) AS fixture_rows
+     , max(length(fl.name)) AS longest_fixture_label
+     , count(*) FILTER (WHERE ace.name IS NOT DISTINCT FROM fl.name) AS stored_unedited
+  FROM field_label AS fl
+  LEFT JOIN public.activity_category_enabled_custom AS ace ON ace.path::text = fl.path;
+ fixture_rows | longest_fixture_label | stored_unedited 
+--------------+-----------------------+-----------------
+           13 |                   252 |              13
+(1 row)
+
+SELECT ace.path, length(ace.name) AS name_length
+  FROM public.activity_category_enabled_custom AS ace
+ WHERE ace.path::text IN ('T', 'U')
+ ORDER BY ace.path;
+ path | name_length 
+------+-------------
+ T    |         252
+ U    |         116
+(2 rows)
+
+-- Each case below uses a path not yet customised (S, R, Q of NACE 2.1), so
+-- every insert is a fresh custom override of the system entry.
+\echo "132.3: a 300 character bilingual label, longer than the old 256 bound, is accepted"
+"132.3: a 300 character bilingual label, longer than the old 256 bound, is accepted"
+INSERT INTO public.activity_category_enabled_custom(path, name)
+VALUES ('S', rpad('SANAT, SPOR VE EĞLENCE --- Arts, sports and recreation ', 300, '.'));
+SELECT ac.path, ac.custom, ac.enabled, length(ac.name) AS name_length, left(ac.name, 54) AS name_start
+  FROM public.activity_category AS ac
+  JOIN public.activity_category_standard AS acs ON acs.id = ac.standard_id
+ WHERE acs.code = 'nace_v2.1' AND ac.path::text = 'S'
+ ORDER BY ac.custom;
+ path | custom | enabled | name_length |                       name_start                       
+------+--------+---------+-------------+--------------------------------------------------------
+ S    | f      | f       |          27 | ARTS, SPORTS AND RECREATION
+ S    | t      | t       |         300 | SANAT, SPOR VE EĞLENCE --- Arts, sports and recreation
+(2 rows)
+
+\echo "132.4: exactly 512 characters is accepted"
+"132.4: exactly 512 characters is accepted"
+INSERT INTO public.activity_category_enabled_custom(path, name)
+VALUES ('R', repeat('r', 512));
+SELECT ace.path, length(ace.name) AS name_length
+  FROM public.activity_category_enabled_custom AS ace
+ WHERE ace.path::text = 'R';
+ path | name_length 
+------+-------------
+ R    |         512
+(1 row)
+
+\echo "132.5: 513 characters fails honestly (22001), nothing is truncated or stored"
+"132.5: 513 characters fails honestly (22001), nothing is truncated or stored"
+SAVEPOINT over_bound;
+\set ON_ERROR_STOP off
+\set VERBOSITY sqlstate
+INSERT INTO public.activity_category_enabled_custom(path, name)
+VALUES ('Q', repeat('q', 513));
+ERROR:  22001
+\set VERBOSITY default
+\set ON_ERROR_STOP on
+ROLLBACK TO SAVEPOINT over_bound;
+SELECT ac.path, ac.custom, ac.enabled, ac.name
+  FROM public.activity_category AS ac
+  JOIN public.activity_category_standard AS acs ON acs.id = ac.standard_id
+ WHERE acs.code = 'nace_v2.1' AND ac.path::text = 'Q';
+ path | custom | enabled |   name    
+------+--------+---------+-----------
+ Q    | f      | t       | EDUCATION
+(1 row)
+
+ROLLBACK;

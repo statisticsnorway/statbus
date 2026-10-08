@@ -8,7 +8,7 @@
  parent_path   | ltree                  |           |          |         | extended |             |              | 
  code          | character varying      |           |          |         | extended |             |              | 
  label         | character varying      |           |          |         | extended |             |              | 
- name          | character varying(256) |           |          |         | extended |             |              | 
+ name          | character varying(512) |           |          |         | extended |             |              | 
  description   | text                   |           |          |         | extended |             |              | 
 Indexes:
     "activity_category_used_key" UNIQUE, btree (path)

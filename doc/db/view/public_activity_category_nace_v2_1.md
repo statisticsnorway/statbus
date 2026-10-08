@@ -6,7 +6,7 @@
  path        | ltree                  |           |          |         | extended | 
  label       | character varying      |           |          |         | extended | 
  code        | character varying      |           |          |         | extended | 
- name        | character varying(256) |           |          |         | extended | 
+ name        | character varying(512) |           |          |         | extended | 
  description | text                   |           |          |         | extended | 
 View definition:
  SELECT acs.code AS standard,

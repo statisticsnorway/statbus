@@ -9,7 +9,7 @@
  level       | integer                  |           |          | generated always as (nlevel(path)) stored                             | plain    |             |              | 
  label       | character varying        |           | not null | generated always as (replace(path::text, '.'::text, ''::text)) stored | extended |             |              | 
  code        | character varying        |           | not null |                                                                       | extended |             |              | 
- name        | character varying(256)   |           | not null |                                                                       | extended |             |              | 
+ name        | character varying(512)   |           | not null |                                                                       | extended |             |              | 
  description | text                     |           |          |                                                                       | extended |             |              | 
  enabled     | boolean                  |           | not null |                                                                       | plain    |             |              | 
  custom      | boolean                  |           | not null |                                                                       | plain    |             |              | 

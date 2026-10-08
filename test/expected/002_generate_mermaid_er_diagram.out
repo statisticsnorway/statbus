@@ -95,7 +95,7 @@ erDiagram
 		integer level
 		character_varying label
 		character_varying code
-		character_varying(256) name
+		character_varying(512) name
 		text description
 		boolean enabled
 		boolean custom
@@ -123,7 +123,7 @@ erDiagram
 		ltree parent_path
 		character_varying code
 		character_varying label
-		character_varying(256) name
+		character_varying(512) name
 		text description
 	}
 	contact["contact"] {

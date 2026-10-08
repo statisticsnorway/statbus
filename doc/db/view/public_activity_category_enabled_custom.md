@@ -3,7 +3,7 @@
    Column    |          Type          | Collation | Nullable | Default | Storage  | Description 
 -------------+------------------------+-----------+----------+---------+----------+-------------
  path        | ltree                  |           |          |         | extended | 
- name        | character varying(256) |           |          |         | extended | 
+ name        | character varying(512) |           |          |         | extended | 
  description | text                   |           |          |         | extended | 
 View definition:
  SELECT path,
