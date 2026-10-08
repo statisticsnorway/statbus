@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-10-08 12:30'
-updated_date: '2026-10-08 12:37'
+updated_date: '2026-10-08 12:38'
 labels:
   - app
   - import
@@ -50,5 +50,5 @@ SCOPE: the upload UX in the getting-started/bootstrap steps, from file selection
 ## Implementation Notes
 
 <!-- SECTION:NOTES:BEGIN -->
-CORRECTION TO A PREMISE, 2026-10-08, from the paused 471 analysis: the getting-started classification upload does NOT go through the import pipeline's length_limits step. It posts to /api/import/upload and COPYs into activity_category_enabled_custom, so a too-long value surfaces as PostgreSQL's 22001 string_data_right_truncation, whose message does not name the offending column; the line number appears only in CONTEXT. Acceptance criterion 3 (a too-long value names the row, the column and the limit) therefore needs deliberate handling rather than assuming our own validation reports it: validate before the COPY, or translate the COPY error. The earlier schema-cache error Ville hit, 'Could not find the ActivityCategoryLevel column', comes from the same path, a file whose columns do not match the expected template, and belongs to this ticket's family too.
+COORDINATOR VERIFICATION OF THE UPLOAD PATH, 2026-10-08 (read-only, no dispatch). app/src/app/api/import/upload/route.ts: it requires a job slug and streams the file into PostgreSQL with pg-copy-streams, running 'COPY <job.upload_table_name> (<columns>) FROM STDIN WITH (FORMAT csv, HEADER true, DELIMITER ,)' at line 365, where <columns> is built from the UPLOADED FILE'S OWN HEADER. So an unexpected column fails at COPY time, and a too-long value fails as PostgreSQL 22001, with the error logged and returned through describeError with status 500. TWO CONSEQUENCES FOR THIS TICKET: (1) because the column list comes from the file header, a file carrying an extra column (such as ActivityCategoryLevel) is rejected by the database rather than by our own validation, which is why Ville's first failure looked like a schema complaint; (2) NOTE A DISCREPANCY to settle during the local reproduction: the message he saw said '... in the schema cache', which is POSTGREST phrasing (PGRST204), while this route talks to PostgreSQL directly and would say 'column ... of relation ... does not exist'. That suggests the getting-started classification upload may reach the database through a different surface than this route, or through an additional PostgREST call. Confirm which surface serves the getting-started upload when reproducing, because it decides where the sensible error must be produced.
 <!-- SECTION:NOTES:END -->
