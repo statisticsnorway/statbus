@@ -21,17 +21,17 @@ BEGIN
         , TRUE -- Active
         , TRUE -- Custom
         )
-    ON CONFLICT (code, enabled, custom)
+    ON CONFLICT (code, custom)
     DO UPDATE
         SET name = NEW.name
           , updated_at = statement_timestamp()
           , enabled = TRUE
-          , custom = TRUE
-       WHERE legal_form.id = EXCLUDED.id
        RETURNING * INTO row;
     RAISE DEBUG 'UPSERTED %', to_json(row);
 
-    RETURN NULL;
+    -- Report the written row, so the statement's row count (INSERT 0 n,
+    -- COPY n) is what was stored, never a silent 0.
+    RETURN NEW;
 END;
 $function$
 ```

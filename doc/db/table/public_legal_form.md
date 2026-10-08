@@ -14,6 +14,7 @@ Indexes:
     "ix_legal_form_code" UNIQUE, btree (code) WHERE enabled
     "ix_legal_form_enabled" btree (enabled)
     "ix_legal_form_enabled_code" UNIQUE, btree (enabled, code)
+    "legal_form_code_custom_key" UNIQUE CONSTRAINT, btree (code, custom)
     "legal_form_code_enabled_custom_key" UNIQUE CONSTRAINT, btree (code, enabled, custom)
 Referenced by:
     TABLE "legal_unit" CONSTRAINT "legal_unit_legal_form_id_fkey" FOREIGN KEY (legal_form_id) REFERENCES legal_form(id)
