@@ -22,12 +22,15 @@ func assessInstallDomain(domain string, lookup func(context.Context, string) ([]
 }
 
 func showInstallDomainAdvice(domain string) {
-	message := "  " + assessInstallDomain(domain, publicDomainLookup)
+	message := "  " + assessInstallDomain(domain, installDomainLookup)
 	fmt.Println(message)
 	// install.sh logs stdout while the questionnaire talks directly to /dev/tty.
 	// This recommendation is part of that questionnaire, not an internal log.
 	installTTYPrompt("%s\n", message)
 }
+
+// installDomainLookup is the seam over the public-DNS observation.
+var installDomainLookup = publicDomainLookup
 
 // Query the public resolver directly instead of net.Resolver.LookupIP, whose
 // host lookup order may consult /etc/hosts even with a custom Dial function.

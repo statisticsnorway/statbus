@@ -210,7 +210,7 @@ func TestSetupChoiceExplanationsAndDefaults(t *testing.T) {
 		}
 		return fallback
 	})
-	if modeDefault != "development" || domainDefault != "" || codeDefault != "finland" {
+	if modeDefault != "standalone" || domainDefault != "" || codeDefault != "finland" {
 		t.Fatalf("defaults: %q %q %q", modeDefault, domainDefault, codeDefault)
 	}
 	for _, choice := range []string{"development: testing on this computer only", "standalone: this computer serves the public website", "private: another web server forwards visitors"} {

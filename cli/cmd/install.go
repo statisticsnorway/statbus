@@ -1772,16 +1772,14 @@ func runCreateConfig(dir string) error {
 	} else {
 		fmt.Println()
 		mode := ""
-		modeDefault := "standalone"
-		if installIsLaptop() {
-			modeDefault = "development"
-		}
-		content, err = installinput.Validate(installinput.AskWithMode(func(label, fallback string) string {
-			answer := prompt(label, fallback)
+		// The suggested mode is installinput.SuggestedMode for every host;
+		// no hardware or checkout signal is consulted (STATBUS-465).
+		content, err = installinput.Validate(installinput.Ask(func(label, fallback string) string {
+			answer := questionnairePrompt(label, fallback)
 			if strings.HasSuffix(label, "Domain name") {
 				for attempts := 0; answer == "" && attempts < 3; attempts++ {
 					fmt.Println("  Please enter the web address people will use. For local testing, use local.statbus.org.")
-					answer = prompt(label, fallback)
+					answer = questionnairePrompt(label, fallback)
 				}
 			}
 			if strings.HasSuffix(label, "Deployment mode (development/standalone/private)") {
@@ -1791,7 +1789,7 @@ func runCreateConfig(dir string) error {
 				showInstallDomainAdvice(answer)
 			}
 			return answer
-		}, modeDefault))
+		}))
 	}
 	if err != nil {
 		return err
@@ -3206,6 +3204,9 @@ func runCreateUsers(dir string) error {
 	}
 	return nil
 }
+
+// questionnairePrompt is the seam for the interactive deployment questions.
+var questionnairePrompt = prompt
 
 // administratorPrompt and askAdministratorPasswordFn are the seams for the
 // first-administrator questions (visible email/name, hidden password).

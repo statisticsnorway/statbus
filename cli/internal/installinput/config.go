@@ -30,7 +30,8 @@ type field struct {
 // One definition drives deployment prompts, input keys and the setup recipe.
 // Trust is asked at the signers step, where fingerprints can be displayed.
 var fields = []field{
-	{"CADDY_DEPLOYMENT_MODE", "Deployment mode (development/standalone/private)", "development", false, false},
+	// SuggestedMode, never a machine-derived value (STATBUS-465).
+	{"CADDY_DEPLOYMENT_MODE", "Deployment mode (development/standalone/private)", SuggestedMode, false, false},
 	{"SITE_DOMAIN", "Domain name", "", false, false},
 	{"DEPLOYMENT_SLOT_NAME", "Display name", "StatBus", false, false},
 	{"DEPLOYMENT_SLOT_CODE", "Deployment code (short, lowercase)", "local", false, false},
@@ -76,20 +77,21 @@ func Requirement() string {
 	return b.String()
 }
 
-func Ask(prompt func(label, fallback string) string) string {
-	return AskWithMode(prompt, "development")
-}
+// SuggestedMode is the ONE deployment-mode suggestion, for every run and every
+// machine (owner decision, STATBUS-465): running the installer IS a
+// standalone installation. development and private remain selectable and are
+// explained in the question, but are chosen on purpose, never suggested.
+// Nothing about the host (battery, hostname, checkout) changes this. Checkout
+// detection cannot work anyway: install.sh always creates ~/statbus by git
+// clone, so every real install already runs inside a checkout.
+const SuggestedMode = "standalone"
 
-// AskWithMode supplies a host-appropriate mode without changing unattended inputs.
-func AskWithMode(prompt func(label, fallback string) string, modeDefault string) string {
+func Ask(prompt func(label, fallback string) string) string {
 	var b strings.Builder
 	domain := ""
 	for _, f := range fields {
 		if !f.installationOnly && !f.optional {
 			fallback := f.fallback
-			if f.key == "CADDY_DEPLOYMENT_MODE" {
-				fallback = modeDefault
-			}
 			label := "  " + f.prompt
 			switch f.key {
 			case "CADDY_DEPLOYMENT_MODE":
