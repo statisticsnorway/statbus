@@ -7,6 +7,7 @@ import {
   quoteLiteral,
   splitListValues,
 } from "./export-sql";
+import { setExistenceSearchParams } from "@/lib/unit-existence";
 
 const config = {
   externalIdentCodes: ["tax_ident", "stat_ident"],
@@ -54,6 +55,25 @@ describe("filterCondition: the search page's PostgREST syntax", () => {
     expect(filterCondition("stats_summary->employees->sum", "in.(7,8)")).toBe(
       `(su.stats_summary->'employees'->'sum') = ANY('{"7","8"}'::jsonb[])`
     );
+  });
+
+  it("translates the canonical existence filter (STATBUS-460) through the computed fields", () => {
+    const params = new URLSearchParams();
+    setExistenceSearchParams(params, "2024-12-31");
+    expect([...params.entries()].map(([k, v]) => filterCondition(k, v))).toEqual([
+      `public."existence_from"(su) <= '2024-12-31'`,
+      `public."existence_until"(su) > '2024-12-31'`,
+    ]);
+    // The same filter reaches the COPY select AND the announced count, so the
+    // export returns exactly the units the Statistical Units list shows.
+    const { selectSql, countSql } = composeExportSql(params, config);
+    for (const condition of [
+      `public."existence_from"(su) <= '2024-12-31'`,
+      `public."existence_until"(su) > '2024-12-31'`,
+    ]) {
+      expect(selectSql).toContain(condition);
+      expect(countSql).toContain(condition);
+    }
   });
 
   it("translates boolean is.true / is.false", () => {

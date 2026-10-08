@@ -18,6 +18,7 @@ import { isEqual } from 'moderndash'
 import type { Database, Tables } from '@/lib/database.types'
 import type { TableColumn, AdaptableTableColumn, ColumnProfile, SearchResult as ApiSearchResultType, SearchAction, SetQuery } from '../app/search/search.d'
 import { getStatisticalUnitsData, getStatisticalUnitsEstimatedCount, getStatisticalUnitsExactCount } from '../app/search/search-requests'
+import { setExistenceSearchParams } from '@/lib/unit-existence'
 import {
   fullTextSearchDeriveStateUpdateFromValue,
   unitTypeDeriveStateUpdateFromValues,
@@ -1163,10 +1164,10 @@ const derivedApiSearchParamsAtomUnstable = atom((get) => {
     // If api_param_value is null, the parameter is intentionally not added.
   });
 
-  // 3. Time context
+  // 3. Time context: list the units that EXIST at valid_on by the canonical
+  // rule (STATBUS-460, lib/unit-existence.ts), not every record that covers it.
   if (selectedTimeContext && selectedTimeContext.valid_on) {
-    params.set("valid_from", `lte.${selectedTimeContext.valid_on}`);
-    params.set("valid_to", `gte.${selectedTimeContext.valid_on}`);
+    setExistenceSearchParams(params, selectedTimeContext.valid_on);
   }
 
   // 4. Sorting

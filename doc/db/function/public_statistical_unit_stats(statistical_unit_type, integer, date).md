@@ -11,7 +11,7 @@ AS $function$
         FROM public.statistical_unit AS su
         WHERE su.unit_type = 'enterprise'
           AND su.unit_id = public.statistical_unit_enterprise_id($1, $2, $3)
-          AND su.valid_from <= $3 AND $3 < su.valid_until
+          AND public.existence_from(su) <= $3 AND $3 < public.existence_until(su)
     ), relevant_ids AS (
         SELECT 'enterprise'::statistical_unit_type AS unit_type, ru.unit_id FROM root_unit AS ru
         UNION ALL
@@ -24,7 +24,7 @@ AS $function$
     JOIN public.statistical_unit AS su
       ON su.unit_type = ri.unit_type
      AND su.unit_id = ri.unit_id
-     AND su.valid_from <= $3 AND $3 < su.valid_until
+     AND public.existence_from(su) <= $3 AND $3 < public.existence_until(su)
     ORDER BY su.unit_type, su.unit_id;
 $function$
 ```

@@ -47,15 +47,15 @@ BEGIN
     ),
     stock_at_end_of_curr AS (
         SELECT * FROM latest_versions_curr lvc
-        WHERE lvc.valid_until > v_curr_stop
-          AND COALESCE(lvc.birth_date, lvc.valid_from) <= v_curr_stop
-          AND (lvc.death_date IS NULL OR lvc.death_date > v_curr_stop)
+        -- STATBUS-460 canonical existence rule (public.unit_existence_from/until).
+        WHERE public.unit_existence_from(lvc.valid_from, lvc.birth_date) <= v_curr_stop
+          AND v_curr_stop < public.unit_existence_until(lvc.valid_until, lvc.death_date)
     ),
     stock_at_end_of_prev AS (
         SELECT * FROM latest_versions_prev lvp
-        WHERE lvp.valid_until > v_prev_stop
-          AND COALESCE(lvp.birth_date, lvp.valid_from) <= v_prev_stop
-          AND (lvp.death_date IS NULL OR lvp.death_date > v_prev_stop)
+        -- STATBUS-460 canonical existence rule (public.unit_existence_from/until).
+        WHERE public.unit_existence_from(lvp.valid_from, lvp.birth_date) <= v_prev_stop
+          AND v_prev_stop < public.unit_existence_until(lvp.valid_until, lvp.death_date)
     ),
     -- PERF: pre-aggregate per-(slot, facet) stats for fast hash join.
     -- hash_slot is a pure function of (unit_type, unit_id) so every lvc row

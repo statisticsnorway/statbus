@@ -12297,6 +12297,42 @@ export type Database = {
         }
         Returns: Json
       },
+      existence_from: {
+        Args: {
+          arg0?: Database["public"]["Tables"]["statistical_unit"]["Row"]
+        }
+        Returns: string
+      }
+        | {
+        Args: {
+          arg0?: Database["public"]["Tables"]["legal_unit"]["Row"]
+        }
+        Returns: string
+      }
+        | {
+        Args: {
+          arg0?: Database["public"]["Tables"]["establishment"]["Row"]
+        }
+        Returns: string
+      },
+      existence_until: {
+        Args: {
+          arg0?: Database["public"]["Tables"]["statistical_unit"]["Row"]
+        }
+        Returns: string
+      }
+        | {
+        Args: {
+          arg0?: Database["public"]["Tables"]["legal_unit"]["Row"]
+        }
+        Returns: string
+      }
+        | {
+        Args: {
+          arg0?: Database["public"]["Tables"]["establishment"]["Row"]
+        }
+        Returns: string
+      },
       external_ident_derive_shape_labels: {
         Args: Record<string, never>
         Returns: unknown
@@ -15646,6 +15682,20 @@ export type Database = {
         Args: {
           arg0?: string
           arg1?: string
+        }
+        Returns: string
+      },
+      unit_existence_from: {
+        Args: {
+          valid_from?: string
+          birth_date?: string
+        }
+        Returns: string
+      },
+      unit_existence_until: {
+        Args: {
+          valid_until?: string
+          death_date?: string
         }
         Returns: string
       },

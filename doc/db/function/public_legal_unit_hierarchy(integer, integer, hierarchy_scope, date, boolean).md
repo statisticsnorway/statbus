@@ -25,7 +25,7 @@ AS $function$
    WHERE (  (legal_unit_id IS NOT NULL AND lu.id = legal_unit_id)
          OR (parent_enterprise_id IS NOT NULL AND lu.enterprise_id = parent_enterprise_id)
          )
-     AND lu.valid_from <= valid_on AND valid_on < lu.valid_until
+     AND public.existence_from(lu) <= valid_on AND valid_on < public.existence_until(lu)
    ORDER BY lu.primary_for_enterprise DESC, lu.name
   ), data_list AS (
       SELECT jsonb_agg(data) AS data FROM ordered_data

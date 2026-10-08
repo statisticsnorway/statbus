@@ -7,7 +7,11 @@ import { useTimeContext } from "@/atoms/app-derived";
 import { useState, useCallback } from "react";
 import { useGuardedEffect } from "@/hooks/use-guarded-effect";
 import { PostgrestError } from "@supabase/postgrest-js";
+import { EXISTENCE_FROM, EXISTENCE_UNTIL } from "@/lib/unit-existence";
 
+// STATBUS-460: counts legal units and establishments that EXIST at the selected
+// instant (canonical rule, lib/unit-existence.ts) and lack a primary activity
+// category, so the number matches what the Statistical Units list shows when clicked.
 export const MissingActivityCategoryCard = () => {
   const { selectedTimeContext } = useTimeContext();
 
@@ -22,8 +26,8 @@ export const MissingActivityCategoryCard = () => {
         .select("", { count: "estimated" })
         .is("primary_activity_category_path", null)
         .neq("unit_type", "enterprise")
-        .lte('valid_from', validOn)
-        .gte('valid_to', validOn)
+        .lte(EXISTENCE_FROM, validOn)
+        .gt(EXISTENCE_UNTIL, validOn)
         .limit(0);
 
       return { count, error };
@@ -50,8 +54,8 @@ export const MissingActivityCategoryCard = () => {
       .select("", { count: "exact" })
       .is("primary_activity_category_path", null)
       .neq("unit_type", "enterprise")
-      .lte('valid_from', selectedTimeContext.valid_on)
-      .gte('valid_to', selectedTimeContext.valid_on)
+      .lte(EXISTENCE_FROM, selectedTimeContext.valid_on)
+      .gt(EXISTENCE_UNTIL, selectedTimeContext.valid_on)
       .limit(0);
     return exactCount;
   }, [selectedTimeContext]);

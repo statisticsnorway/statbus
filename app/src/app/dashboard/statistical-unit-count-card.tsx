@@ -9,6 +9,7 @@ import { useState, useCallback } from "react";
 import { useAtomValue } from "jotai";
 import { useGuardedEffect } from "@/hooks/use-guarded-effect";
 import { PostgrestError } from "@supabase/postgrest-js";
+import { EXISTENCE_FROM, EXISTENCE_UNTIL } from "@/lib/unit-existence";
 
 export const StatisticalUnitCountCard = ({
   unitType,
@@ -28,6 +29,10 @@ export const StatisticalUnitCountCard = ({
       return;
     }
 
+    // STATBUS-460: the card counts units that EXIST at valid_on by the canonical
+    // rule (existence_from/existence_until, see lib/unit-existence.ts) and are
+    // used for counting (status), which is exactly the Reports Units-over-time
+    // chart's countable_count, so card and chart agree bar for bar.
     const fetchData = async (validOn: string) => {
       const client = await getBrowserRestClient();
       // Use estimated count for fast loading
@@ -35,8 +40,9 @@ export const StatisticalUnitCountCard = ({
         .from("statistical_unit")
         .select("", { count: "estimated" })
         .eq("unit_type", unitType)
-        .lte('valid_from', validOn)
-        .gte('valid_to', validOn)
+        .lte(EXISTENCE_FROM, validOn)
+        .gt(EXISTENCE_UNTIL, validOn)
+        .eq("used_for_counting", true)
         .limit(0);
 
       return { count, error };
@@ -63,8 +69,9 @@ export const StatisticalUnitCountCard = ({
       .from("statistical_unit")
       .select("", { count: "exact" })
       .eq("unit_type", unitType)
-      .lte('valid_from', selectedTimeContext.valid_on)
-      .gte('valid_to', selectedTimeContext.valid_on)
+      .lte(EXISTENCE_FROM, selectedTimeContext.valid_on)
+      .gt(EXISTENCE_UNTIL, selectedTimeContext.valid_on)
+      .eq("used_for_counting", true)
       .limit(0);
     return exactCount;
   }, [selectedTimeContext, unitType, hasStatisticalUnits]);

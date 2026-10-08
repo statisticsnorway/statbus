@@ -149,6 +149,15 @@ const ARRAY_COLUMNS = new Set([
 
 const TSVECTOR_COLUMNS = new Set(["search"]);
 
+/**
+ * PostgREST computed fields on statistical_unit usable in filters: the
+ * canonical unit existence window (STATBUS-460, lib/unit-existence.ts). The
+ * search page selects "units that exist at valid_on" with
+ * existence_from=lte.d&existence_until=gt.d, so the export must accept exactly
+ * those keys and evaluate them with the same SQL functions PostgREST calls.
+ */
+const COMPUTED_FIELDS = new Set(["existence_from", "existence_until"]);
+
 const COMPARISON_OPERATORS: Record<string, string> = {
   eq: "=",
   neq: "<>",
@@ -246,6 +255,8 @@ function resolveKey(key: string): ResolvedKey {
     return { sql: `su.${quoteIdent(key)}`, kind: "array" };
   if (TSVECTOR_COLUMNS.has(key))
     return { sql: `su.${quoteIdent(key)}`, kind: "tsvector" };
+  if (COMPUTED_FIELDS.has(key))
+    return { sql: `public.${quoteIdent(key)}(su)`, kind: "scalar" };
 
   const externalIdent = /^external_idents->>(.+)$/.exec(key);
   if (externalIdent && CODE_PATTERN.test(externalIdent[1])) {

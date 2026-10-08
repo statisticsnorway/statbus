@@ -4,6 +4,7 @@ import {
 } from "@/context/RestClientStore";
 import { PostgrestError } from "@supabase/postgrest-js";
 import { UnitHistory } from "./unit-history-table";
+import { whereExistsOn } from "@/lib/unit-existence";
 
 export async function getEnterpriseById(id: string) {
   const client = await getBrowserRestClient();
@@ -17,15 +18,19 @@ export async function getEnterpriseById(id: string) {
   return { enterprise: enterprises?.[0], error: errorWithName };
 }
 
+// The unit detail pages show a unit only while it EXISTS at the selected
+// instant (canonical rule, STATBUS-460, lib/unit-existence.ts): a unit whose
+// record covers the instant but which is not yet born, or already dead, is
+// "not found" for that time context, exactly as statistical_unit_details says.
 export async function getEstablishmentById(id: string, validOn: string) {
   const client = await getBrowserRestClient();
-  const { data: establishments, error } = await client
-    .from("establishment")
-    .select("*")
-    .eq("id", parseInt(id, 10))
-    .lte("valid_from", validOn)
-    .gte("valid_to", validOn)
-    .limit(1);
+  const { data: establishments, error } = await whereExistsOn(
+    client
+      .from("establishment")
+      .select("*")
+      .eq("id", parseInt(id, 10)),
+    validOn
+  ).limit(1);
 
   const errorWithName = error ? { ...error, name: "supabase-error" } : null;
   return { establishment: establishments?.[0], error: errorWithName };
@@ -33,13 +38,13 @@ export async function getEstablishmentById(id: string, validOn: string) {
 
 export async function getLegalUnitById(id: string, validOn: string) {
   const client = await getBrowserRestClient();
-  const { data: legalUnits, error } = await client
-    .from("legal_unit")
-    .select("*")
-    .eq("id", parseInt(id, 10))
-    .lte("valid_from", validOn)
-    .gte("valid_to", validOn)
-    .limit(1);
+  const { data: legalUnits, error } = await whereExistsOn(
+    client
+      .from("legal_unit")
+      .select("*")
+      .eq("id", parseInt(id, 10)),
+    validOn
+  ).limit(1);
 
   const errorWithName = error ? { ...error, name: "supabase-error" } : null;
   return { legalUnit: legalUnits?.[0], error: errorWithName };

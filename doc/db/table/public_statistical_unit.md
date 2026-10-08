@@ -138,6 +138,8 @@ Policies:
     POLICY "statistical_unit_regular_user_read" FOR SELECT
       TO regular_user
       USING (true)
+Statistics objects:
+    "public.statistical_unit_existence_stat" ON GREATEST(valid_from, birth_date), LEAST(valid_until, death_date) FROM statistical_unit
 Not-null constraints:
     "statistical_unit_unit_type_not_null" NOT NULL "unit_type"
     "statistical_unit_unit_id_not_null" NOT NULL "unit_id"
