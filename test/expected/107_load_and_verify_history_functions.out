@@ -7361,11 +7361,11 @@ SELECT valid_from
 ;
 -[ RECORD 1 ]------------------+---------------------------------------------
 valid_from                     | 2010-01-01
-valid_to                       | 2012-12-31
-unit_type                      | establishment
+valid_to                       | 2012-12-30
+unit_type                      | legal_unit
 physical_region_path           | 11.21
 primary_activity_category_path | H.49.4.1.0
-sector_path                    | 
+sector_path                    | innl.a_ikke_fin.2100
 count                          | 1
 stats_summary                  | {                                           +
                                |     "type": "stats_agg",                    +
@@ -7396,8 +7396,8 @@ stats_summary                  | {                                           +
                                | }
 -[ RECORD 2 ]------------------+---------------------------------------------
 valid_from                     | 2010-01-01
-valid_to                       | 2012-12-31
-unit_type                      | legal_unit
+valid_to                       | 2012-12-30
+unit_type                      | enterprise
 physical_region_path           | 11.21
 primary_activity_category_path | H.49.4.1.0
 sector_path                    | innl.a_ikke_fin.2100
@@ -7432,10 +7432,10 @@ stats_summary                  | {                                           +
 -[ RECORD 3 ]------------------+---------------------------------------------
 valid_from                     | 2010-01-01
 valid_to                       | 2012-12-31
-unit_type                      | enterprise
+unit_type                      | establishment
 physical_region_path           | 11.21
 primary_activity_category_path | H.49.4.1.0
-sector_path                    | innl.a_ikke_fin.2100
+sector_path                    | 
 count                          | 1
 stats_summary                  | {                                           +
                                |     "type": "stats_agg",                    +
