@@ -4,7 +4,7 @@ title: CSV export of search results contains every matching row
 status: In Progress
 assignee: []
 created_date: '2026-09-25 14:02'
-updated_date: '2026-10-07 22:18'
+updated_date: '2026-10-08 07:56'
 labels:
   - app
 dependencies: []
@@ -32,6 +32,48 @@ Reported by Erik 2026-09-25 (Slack): exporting all legal units + establishments 
 
 /app/src/app/api/search/export/route.ts now streams successive 100k-row PostgREST pages into the CSV response with backpressure; ordering is name.asc + tiebreakers unit_type, unit_id, valid_from, valid_to (unique per the view's UNION ALL timeline inputs). XLSX fails closed with 413 + CSV recommendation when the exact count is unavailable or exceeds 1,048,575 data rows, and accumulation is bounded by the up-front count. UI disables Excel above the threshold. Two independent review rounds; Jest coverage for multi-page assembly, refusals, ordering. Known limit (documented in code): offset pagination is not snapshot-consistent under concurrent writes; a stronger guarantee needs a snapshot/keyset design. Awaiting CI green + candidate gate as final evidence.
 <!-- SECTION:DESCRIPTION:END -->
+
+## Acceptance Criteria
+<!-- AC:BEGIN -->
+- [ ] #1 A full export on the largest real dataset returns exactly the exact count for its filter (1,976,463 rows for unit_type in (legal_unit, establishment) on the restored Norway dump), or fails loudly. The current silent shortfall of 29,470 rows (98.5 percent delivered while reporting HTTP 200) is not acceptable.
+- [ ] #2 The export completes reliably within the production authenticated-role statement_timeout of 120s, whether by chunked keyset paging, a deliberate export-specific timeout, or another mechanism, and the chosen mechanism and its measured wall time are recorded in this ticket.
+- [ ] #3 A mid-stream failure is visible to the user: the UI shows the error with rows received versus expected and does not save a partial file, and the log receives the request URL, rows received, expected rows, bytes and elapsed time.
+- [ ] #4 Excel refuses honestly above the sheet limit with a clear message instead of building an unbounded workbook in memory (this dataset exceeds it: 1,976,463 rows against 1,048,575).
+- [x] #5 No RLS change: the export uses the same /rest path and cookie JWT as the search page, and an anonymous request is still rejected.
+- [ ] #6 Equivalence with the old export is verified as a bounded row-for-row comparison on a subset plus an exact row count on the full dataset. A full-set row-for-row comparison is explicitly NOT required, because the old JSON path cannot run at this size (PostgreSQL 1 GiB string-buffer limit, measured 2026-10-08).
+- [ ] #7 Progress is visible while the export streams, showing rows received against the search total.
+- [ ] #8 Real-data timing is recorded for the exact count and for the export, on the restored Norway dump.
+<!-- AC:END -->
+
+## Definition of Done
+<!-- DOD:BEGIN -->
+- [ ] #1 The fix is re-measured on the restored Norway dump and rows received equals expected, with wall time and bytes recorded in the ticket.
+- [ ] #2 The ticket states which mechanism was chosen, why the alternatives were rejected, and the measured margin under the 120s statement timeout.
+- [ ] #3 The 2026-10-08 measurement is retained in the ticket as the before-state evidence, including the shortfall number.
+<!-- DOD:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+REAL-DATA MEASUREMENT, 2026-10-08 (collected from the delegated worker's read-only run on the restored no_20260210_105613 dump). Verdict: the shipped single-request text/csv export DOES NOT meet the goal on real data. Restore took 1,323s; dataset is the February artifact, so it still exposes the legacy metadata view names (external_ident_type_active, stat_definition_active) and was not migrated (an unrelated migration attempt failed on a missing public.power_group, no product source changed).
+
+MEASURED NUMBERS.
+* Exact count for the export filter unit_type in (legal_unit, establishment), confirmed independently by the coordinator in psql: 1,976,463 rows.
+* Full composed CSV export via PostgREST text/csv, no timeout override: HTTP 200, 421,121,756 bytes (about 402 MiB), wall time 114.64s, rows received 1,946,993, expected 1,976,463, SHORT BY 29,470 (98.509%), curl exit 0, no error text anywhere.
+* The server's own Content-Range (0-1946992/*) agrees with the received row count, so this is not a row-counter artifact.
+* Timeout margin: 5.36s under the unchanged 120s authenticated-role statement_timeout. The ticket's assumption that one request finishes comfortably under the timeout is contradicted.
+* The db log shows no statement-timeout cancellation for this request, and the request is not configured with any PostgREST max-rows that we could confirm. So the shortfall cannot be attributed to a logged timeout, and the cause is still open.
+
+OPEN QUESTION THAT DECIDES THE FIX (owner steering requested, do not code past it). Are the 29,470 rows cut off by the statement timeout at the transport layer, or does the query/serialisation path itself return fewer rows? Chunked keyset paging fixes the first and does nothing for the second, so the next experiment must settle it first. Note the composed select reads JSONB columns on statistical_unit itself (external_idents, primary_activity_category, physical_region, stats_summary, and CAST(... AS float8) on the coordinates), so the export query performs no joins that could drop rows; that makes a query-side row loss less likely and a transport-level cut more likely, but this is inference, not measurement.
+
+BLOCKED ACCEPTANCE ITEM. The old-vs-new row-for-row CSV comparison cannot run on this dataset: the old JSON path dies with 500 "54000: string buffer exceeds maximum allowed length (1073741823 bytes)" (PostgreSQL's 1 GiB limit) after about 47s. The criterion must be redefined, for example a bounded subset compared row-for-row plus an exact count on the full set.
+
+NOT RE-MEASURED YET: the deliberate mid-stream failure surfacing in the UI and in the logs; the Excel refusal above the sheet limit (this dataset's 1,976,463 rows are above Excel's 1,048,575 limit); in-browser progress.
+
+PASSING: no RLS change (the measurement used the normal authenticated PostgREST path); the production createCsvRowCounter counted the downloaded body correctly.
+
+RELATED, MEASURED THE SAME DAY: the STATBUS-461 violator scan on this same real dataset returns ZERO rows (1,137,041 legal units, 839,422 establishments, 1,137,041 enterprises; 13 establishments with the legitimate birth_date > valid_from). So the data-side gate would not block a real import, and the fleet-posture question for 461 is answered by measurement rather than speculation.
+<!-- SECTION:NOTES:END -->
 
 ## 2026-10-07: the export still cannot deliver — owner-observed failure on no.statbus.org, diagnosed
 
@@ -222,9 +264,3 @@ stream's catch, which is why `log.statbus.org` showed nothing for a dead export.
 - [ ] No RLS or permission change: an export by a restricted user returns only what that user can
       see, with a test proving it.
 - [ ] Timing measured on real data and stated in the report (the whole point of D1).
-
-## Implementation Notes
-
-<!-- SECTION:NOTES:BEGIN -->
-REAL-DATA MEASUREMENT DELEGATED (worker @tigress, 2026-10-07): restore the 1.1 GB no_20260210_105613.pg_dump locally, then run tmp/421-benchmark.md read-only (exact row count of the all-legal-units+establishments export, a full text/csv export timed, row-for-row CSV comparison, statement_timeout left at the 120s default), results into tmp/421-realdata-results.md. The worker is instructed not to commit or change product code. Also note: the history was rewritten on the owner's instruction, so this ticket's earlier notes should read the new SHAs - the export implementation is 1e5ac2ccf (the backlog content it was accidentally mixed with is now 1fc09b92a).
-<!-- SECTION:NOTES:END -->
