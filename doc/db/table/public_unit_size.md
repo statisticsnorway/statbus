@@ -14,6 +14,7 @@ Indexes:
     "ix_unit_size_code" UNIQUE, btree (code) WHERE enabled
     "ix_unit_size_enabled" btree (enabled)
     "ix_unit_size_enabled_code" UNIQUE, btree (enabled, code)
+    "unit_size_code_custom_key" UNIQUE CONSTRAINT, btree (code, custom)
 Referenced by:
     TABLE "establishment" CONSTRAINT "establishment_unit_size_id_fkey" FOREIGN KEY (unit_size_id) REFERENCES unit_size(id)
     TABLE "legal_unit" CONSTRAINT "legal_unit_unit_size_id_fkey" FOREIGN KEY (unit_size_id) REFERENCES unit_size(id)

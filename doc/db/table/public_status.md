@@ -17,6 +17,7 @@ Indexes:
     "ix_status_enabled" btree (enabled)
     "ix_status_enabled_code" UNIQUE, btree (enabled, code)
     "ix_status_only_one_assigned_by_default" UNIQUE, btree (assigned_by_default) WHERE enabled AND assigned_by_default
+    "status_code_custom_key" UNIQUE CONSTRAINT, btree (code, custom)
     "status_code_enabled_custom_key" UNIQUE CONSTRAINT, btree (code, enabled, custom)
 Referenced by:
     TABLE "establishment" CONSTRAINT "establishment_status_id_fkey" FOREIGN KEY (status_id) REFERENCES status(id) ON DELETE RESTRICT

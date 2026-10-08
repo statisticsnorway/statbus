@@ -8,16 +8,15 @@ DECLARE
 BEGIN
     INSERT INTO public.foreign_participation (code, name, enabled, custom, updated_at)
     VALUES (NEW.code, NEW.name, TRUE, 't', statement_timestamp())
-    ON CONFLICT (enabled, code) DO UPDATE SET
+    ON CONFLICT (code, custom) DO UPDATE SET
         name = NEW.name, enabled = TRUE,
-        custom = 't',
         updated_at = statement_timestamp()
-    WHERE foreign_participation.id = EXCLUDED.id
     RETURNING * INTO row;
 
     RAISE DEBUG 'UPSERTED %', to_json(row);
 
-    RETURN NULL;
+    -- Report the written row, so the statement's row count is what was stored.
+    RETURN NEW;
 END;
 $function$
 ```

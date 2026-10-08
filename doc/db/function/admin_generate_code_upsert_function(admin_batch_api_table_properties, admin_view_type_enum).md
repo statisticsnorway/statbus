@@ -25,8 +25,18 @@ BEGIN
 
     IF table_properties.has_enabled THEN
         content_columns := content_columns || ', enabled';
-        content_values := content_values || ', TRUE';
-        content_update_sets := content_update_sets || ', enabled = TRUE';
+        -- A custom upload enables its row. A system load enables a NEW system
+        -- row unless an enabled custom override of the code exists, and on
+        -- update corrects the label only, never the enabled flag (the custom
+        -- upload disables system rows on purpose).
+        IF view_type = 'custom' THEN
+            content_values := content_values || ', TRUE';
+            content_update_sets := content_update_sets || ', enabled = TRUE';
+        ELSE
+            content_values := content_values || format(
+                ', NOT EXISTS (SELECT 1 FROM %I.%I AS override WHERE override.code = NEW.code AND override.custom AND override.enabled)'
+                , table_properties.schema_name, table_properties.table_name);
+        END IF;
     END IF;
 
     function_name_str := 'upsert_' || table_name_str || '_' || view_type::text;
@@ -40,7 +50,16 @@ BEGIN
         RAISE EXCEPTION 'Invalid view type: %', view_type;
     END IF;
 
-    unique_columns := admin.get_unique_columns(table_properties);
+    -- STATBUS-477: conflict on the row's identity, (code, custom): one system
+    -- row and at most one custom override per code. (enabled, code) would
+    -- treat an enabled custom override and an enabled system row as one row,
+    -- and an id = EXCLUDED.id predicate never fires for an identity id.
+    -- admin.generate_active_code_custom_unique_constraint creates the key.
+    IF table_properties.has_custom THEN
+        unique_columns := ARRAY['code', 'custom'];
+    ELSE
+        unique_columns := ARRAY['code'];
+    END IF;
 
     -- Construct the SQL statement for the upsert function
 function_sql := format($function$
@@ -53,14 +72,13 @@ BEGIN
     VALUES (NEW.code, %6$s, %7$L, statement_timestamp())
     ON CONFLICT (%9$s) DO UPDATE SET
         %8$s,
-        custom = %7$L,
         updated_at = statement_timestamp()
-    WHERE %4$I.id = EXCLUDED.id
     RETURNING * INTO row;
 
     RAISE DEBUG 'UPSERTED %%', to_json(row);
 
-    RETURN NULL;
+    -- Report the written row, so the statement's row count is what was stored.
+    RETURN NEW;
 END;
 $body$;
 $function$

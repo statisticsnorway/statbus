@@ -11,6 +11,7 @@
  updated_at | timestamp with time zone |           | not null | statement_timestamp()        | plain    |             |              | 
 Indexes:
     "foreign_participation_pkey" PRIMARY KEY, btree (id)
+    "foreign_participation_code_custom_key" UNIQUE CONSTRAINT, btree (code, custom)
     "ix_foreign_participation_code" UNIQUE, btree (code) WHERE enabled
     "ix_foreign_participation_enabled" btree (enabled)
     "ix_foreign_participation_enabled_code" UNIQUE, btree (enabled, code)

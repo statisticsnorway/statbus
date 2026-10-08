@@ -11,6 +11,7 @@
  updated_at | timestamp with time zone |           | not null | statement_timestamp()        | plain    |             |              | 
 Indexes:
     "data_source_pkey" PRIMARY KEY, btree (id)
+    "data_source_code_custom_key" UNIQUE CONSTRAINT, btree (code, custom)
     "ix_data_source_code" UNIQUE, btree (code) WHERE enabled
     "ix_data_source_enabled" btree (enabled)
     "ix_data_source_enabled_code" UNIQUE, btree (enabled, code)
