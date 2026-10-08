@@ -4,7 +4,7 @@ title: CSV export of search results contains every matching row
 status: In Progress
 assignee: []
 created_date: '2026-09-25 14:02'
-updated_date: '2026-10-08 10:07'
+updated_date: '2026-10-08 10:08'
 labels:
   - app
 dependencies: []
@@ -55,7 +55,7 @@ Reported by Erik 2026-09-25 (Slack): exporting all legal units + establishments 
 ## Implementation Notes
 
 <!-- SECTION:NOTES:BEGIN -->
-MODEL DECISIONS AND DELEGATION, 2026-10-08 (owner instruction). The export DESIGN investigation runs on gpt-6.1-sol (worker @mizaru, spawned 10:07). The first attempt was delegated at 09:24 to @duckling, which came up on the configured swarm default gpt-5.6-sol and produced nothing in 30 minutes (never touched a file, no output), so it was stopped and the task re-delegated. The IMPLEMENTATION that follows the design is to be done on claude-opus-5-5, per the owner. The owner's standing guidance for this work: do not design to failure - the completeness guard stays as a safety net, but the design must deliver every row, fetched from the client side with progress.
+SWARM DEFAULT FIXED, 2026-10-08: the configured default was ~/.jcode/config.toml [agents] swarm_model = 'gpt-5.6-luna', an obsolete generation, which is why the first delegated design worker landed on gpt-5.6-sol and produced nothing. It is now set to 'gpt-6.1-sol' so no future worker inherits an obsolete model. Owner guidance: GPT 5.6 is obsolete, GPT 6 and 6.1 replaced it, and Sol is the only 6.1 variant. Design work runs on gpt-6.1-sol (@mizaru), implementation on claude-opus-5-5.
 <!-- SECTION:NOTES:END -->
 
 ## 2026-10-07: the export still cannot deliver — owner-observed failure on no.statbus.org, diagnosed
