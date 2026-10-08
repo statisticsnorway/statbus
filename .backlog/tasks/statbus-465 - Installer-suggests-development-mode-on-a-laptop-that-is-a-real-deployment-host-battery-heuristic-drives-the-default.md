@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-10-08 12:01'
-updated_date: '2026-10-08 12:02'
+updated_date: '2026-10-08 12:04'
 labels:
   - installer
 dependencies: []
@@ -17,29 +17,27 @@ ordinal: 391204
 ## Description
 
 <!-- SECTION:DESCRIPTION:BEGIN -->
-DECISION (owner, 2026-10-08): REMOVE THE HARDWARE HEURISTIC AND LET THE SUGGESTED MODE FOLLOW HOW THE INSTALL IS INVOKED. The modes describe audiences, not hardware:
-* Someone running the OFFICIAL INSTALLER from the internet is doing a STANDALONE installation, so standalone is what we suggest to them.
-* Someone with code access runs from a GIT CHECKOUT, and development is a sensible suggestion for them.
-* PRIVATE CLOUD is OUR installation shape (SSB runs the multi-tenant cloud), so it is never suggested; it is chosen deliberately.
-A battery, or any other hardware signal, must never influence the suggestion.
+DECISION (owner, 2026-10-08, FINAL): THE INSTALLER ALWAYS SUGGESTS STANDALONE. No heuristics and no detection of any kind. Running the installer IS a standalone installation. Anything else, development or private, is something the operator does on purpose, so the operator chooses it explicitly. The modes keep their explanations, so nobody is misled about what they are picking.
 
-CURRENT ALGORITHM, FOR THE RECORD. 1) cli/cmd/install_host.go: installIsLaptopAt reads /sys/class/power_supply and returns true when an entry whose name begins with BAT (case-insensitive) has a type file containing Battery. 2) cli/cmd/install.go around line 1750: modeDefault := standalone, then set to development when installIsLaptop() returns true. 3) cli/internal/installinput/config.go around lines 88-92: AskWithMode replaces the CADDY_DEPLOYMENT_MODE question's own fallback with that value, which is why the field table's static default (development) does not appear in interactive runs. The Finland log showing [development] proves the battery check returned true on that host, whose name PB14250 is Lenovo-style.
+WHY DETECTION IS NOT THE ANSWER (owner's question, verified 2026-10-08). The installer is itself invoked inside a git checkout: install.sh line 14 records that a fresh install has no ~/statbus/.git and therefore clones the repository, and line 21 states that the directory is ALWAYS created by git clone, never mkdir. ./sb install then runs inside that clone. A normal standalone installation therefore IS a checkout, so 'is this a git checkout' cannot distinguish a developer from an operator. Detect nothing.
+
+CURRENT ALGORITHM, FOR THE RECORD. 1) cli/cmd/install_host.go: installIsLaptopAt reads /sys/class/power_supply and returns true when an entry whose name begins with BAT (case-insensitive) has a type file containing Battery. 2) cli/cmd/install.go around line 1750: modeDefault := standalone, then set to development when installIsLaptop() returns true. 3) cli/internal/installinput/config.go around lines 88-92: AskWithMode replaces the CADDY_DEPLOYMENT_MODE question's own fallback with that value, which is why the field table's static default (development) does not appear in interactive runs. The Finland log showing [development] proves the battery check returned true on that host, whose name PB14250 is Lenovo-style, and the operator then accepted it, which is how a country deployment ended up as a self-hosting-only box.
 
 REQUIRED BEHAVIOUR.
-1. The battery check is removed: installIsLaptop, installIsLaptopAt and their tests go with it, and nothing about the suggested mode depends on the machine's hardware.
-2. The suggested mode is derived from the invocation context. Running from a git checkout (code access) may suggest development. Running the installer that did not come from a checkout, such as the downloaded or piped official installer, suggests standalone. The signal used must be explicit in the code and covered by tests.
-3. private is never the suggested value. It stays an explicit choice, and the prompt keeps explaining what each mode means.
-4. The CADDY_DEPLOYMENT_MODE fallback in the field table is standalone, so no code path can suggest development by accident.
-5. Tests cover both invocation contexts and assert hardware independence, meaning the presence or absence of a battery directory changes nothing, and they must not depend on the hardware of the machine running the suite.
+1. The suggested deployment mode is constant: standalone. Nothing about hardware, checkout state, hostname, or any other input changes it.
+2. installIsLaptop, installIsLaptopAt and their tests are removed, since nothing consults them any more.
+3. The CADDY_DEPLOYMENT_MODE fallback in the field table is standalone, so no code path, interactive or not, can suggest development by accident.
+4. development and private remain selectable, the prompt keeps explaining what each mode means, and private is never suggested automatically.
+5. Tests assert the suggestion is standalone with a battery directory present and absent, and do not depend on the hardware of the machine running the suite.
 <!-- SECTION:DESCRIPTION:END -->
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 The battery check and its helpers are removed, and no hardware signal influences the suggested deployment mode.
-- [ ] #2 The suggested mode follows the invocation context: a git checkout suggests development, while the official installer path that did not come from a checkout suggests standalone; the signal used is explicit in the code.
-- [ ] #3 private is never suggested automatically; it remains an explicit choice, and the prompt keeps explaining what each mode means.
-- [ ] #4 The CADDY_DEPLOYMENT_MODE fallback in the field table is standalone, so no code path can suggest development by accident.
-- [ ] #5 Tests cover both invocation contexts and assert hardware independence, without depending on the hardware of the suite host.
+- [ ] #1 The suggested deployment mode is always standalone; no hardware signal, checkout state, hostname or other input changes it.
+- [ ] #2 installIsLaptop, installIsLaptopAt and their tests are removed, since nothing consults them any more.
+- [ ] #3 The CADDY_DEPLOYMENT_MODE fallback in the field table is standalone, so no code path can suggest development by accident.
+- [ ] #4 development and private remain selectable, the prompt keeps explaining each mode, and private is never suggested automatically.
+- [ ] #5 Tests assert the suggestion is standalone with a battery directory present and absent, without depending on the hardware of the machine running the suite.
 <!-- AC:END -->
 
 ## Definition of Done
@@ -47,6 +45,7 @@ REQUIRED BEHAVIOUR.
 - [ ] #1 Verified through the interactive install path with the observed prompt recorded, not only by a unit test.
 - [ ] #2 Verified through the interactive install path with the observed prompt recorded, not only by a unit test.
 - [ ] #3 Verified through the interactive install path with the observed prompt for each context recorded, not only by a unit test.
+- [ ] #4 Verified through the interactive install path with the observed prompt recorded, not only by a unit test.
 <!-- DOD:END -->
 
 ## Implementation Notes
