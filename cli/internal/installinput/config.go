@@ -100,7 +100,7 @@ func Requirement() string {
 // machine (owner decision, STATBUS-465): running the installer IS a
 // standalone installation. development and private remain selectable and are
 // explained in the question, but are chosen on purpose, never suggested.
-// Nothing about the host (battery, hostname, checkout) changes this. Checkout
+// Nothing about the host or the checkout changes this. Checkout
 // detection cannot work anyway: install.sh always creates ~/statbus by git
 // clone, so every real install already runs inside a checkout.
 const SuggestedMode = "standalone"
