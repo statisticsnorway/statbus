@@ -1315,6 +1315,9 @@ func runInstall() (installErr error) {
 	}
 
 	fmt.Println()
+	// STATBUS-464: the last word on every install is whether anyone can sign
+	// in, loudly when nobody can or a supplied file's users are absent.
+	reportInstallUsers(installDir)
 	if allDone {
 		fmt.Println("All steps complete. Nothing to do.")
 	} else {
@@ -1535,24 +1538,31 @@ var readStoredJWTSecret = func(dir string) (string, error) {
 	return strings.TrimSpace(string(out)), nil
 }
 
+// checkUsersDone: the Administrator step is done when someone can sign in,
+// unless this run was given an explicit STATBUS_USERS_FILE whose entries do
+// not all exist: an explicit file is the operator asking for those accounts,
+// so its missing entries are created. A DETECTED file is applied only while
+// nobody exists; on an established box it never silently resurrects an
+// account an administrator deleted. Its absent users are reported loudly at
+// the end instead (reportInstallUsers), with the command that adds them.
+//
+// Files are not even read on an established box without an explicit path: a
+// later edit to one copy (home vs. installation) must never make the upgrade
+// service's post-upgrade install fail. reportInstallUsers still warns about it.
 func checkUsersDone(dir string) bool {
-	psqlPath, prefix, env, err := migrate.PsqlCommand(dir)
+	count, err := countInstallUsers(dir)
+	if err != nil || count == 0 {
+		return false
+	}
+	if os.Getenv(installinput.UsersFile) == "" {
+		return true
+	}
+	src, err := resolveUsersSource(dir)
 	if err != nil {
 		return false
 	}
-	args := append(prefix, "-t", "-A", "-c",
-		"SELECT COUNT(*) FROM auth.\"user\";")
-	cmd, buildErr := migrate.Command(dir, psqlPath, args...)
-	if buildErr != nil {
-		return false
-	}
-	cmd.Env = env
-	out, err := cmd.Output()
-	if err != nil {
-		return false
-	}
-	count := strings.TrimSpace(string(out))
-	return count != "0" && count != ""
+	missing, err := missingFileUsers(dir, src.users)
+	return err == nil && len(missing) == 0
 }
 
 // userUnitPath returns the install destination for the user-level upgrade
@@ -1703,12 +1713,11 @@ func validateFreshInstallInput(dir string, bypass bool) error {
 	if configPath != "" && trustGitHubUser == "" {
 		return installinput.MissingTrustInConfig(configPath)
 	}
-	if path := os.Getenv(installinput.UsersFile); path != "" {
-		if _, err := os.ReadFile(path); err != nil {
-			return fmt.Errorf("read STATBUS_USERS_FILE %q: %w", path, err)
-		}
-	}
-	return nil
+	// STATBUS-464: the users input is resolved before anything is changed. A
+	// supplied file that is unreadable, empty or contradicted refuses here, and
+	// an unattended run with no users file refuses instead of finishing with
+	// nobody able to sign in.
+	return validateUsersInput(dir)
 }
 
 func importPendingSignerConsent(dir string) error {
@@ -1771,16 +1780,20 @@ func runCreateConfig(dir string) error {
 	if err != nil {
 		return err
 	}
-	// The harness needs a user to verify the resulting installation. The file is
-	// explicit and optional, never discovered by a hidden home-directory name.
-	if path := os.Getenv(installinput.UsersFile); path != "" {
-		users, err := os.ReadFile(path)
-		if err != nil {
-			return fmt.Errorf("read STATBUS_USERS_FILE %q: %w", path, err)
-		}
-		if err := os.WriteFile(filepath.Join(dir, ".users.yml"), users, 0600); err != nil {
-			return err
-		}
+	// STATBUS-464 REVERSES the earlier rule that the users file was "explicit
+	// and optional, never discovered by a hidden home-directory name". That rule
+	// let the Finland install finish with the operator's file never read and no
+	// account able to sign in. The installer now also DETECTS and announces the
+	// visible operator-home input ~/statbus.users.yml (STATBUS-437's documented
+	// convention, not a hidden name); STATBUS_USERS_FILE still wins over it.
+	// The chosen file is copied into the installation as .users.yml here; the
+	// Administrator step announces it and creates its users.
+	usersSrc, err := resolveUsersSource(dir)
+	if err != nil {
+		return err
+	}
+	if err := importUsersSourceIntoProject(dir, usersSrc); err != nil {
+		return err
 	}
 	// Slot spacing is an NSO default, not a questionnaire input.
 	content += "DEPLOYMENT_SLOT_PORT_OFFSET=1\n" + diskpolicy.PolicyConfig
@@ -3129,34 +3142,61 @@ func installStateHasFreshDatabase(state install.State) bool {
 var writeJWTSecret = ensureJWTSecret
 
 func runCreateUsers(dir string) error {
-	if _, err := os.Stat(filepath.Join(dir, ".users.yml")); err == nil {
-		return applyUsersYML(dir)
-	} else if !os.IsNotExist(err) {
+	src, err := resolveUsersSource(dir)
+	if err != nil {
 		return err
 	}
-	if !stdinIsTerminal() {
-		return installPreflightRefusal("The first administrator must be created in a terminal. Open a terminal on this computer, then run: " + diskpolicy.RerunCommand())
+	if src.isFile() {
+		announceUsersSource(src)
+		if err := importUsersSourceIntoProject(dir, src); err != nil {
+			return err
+		}
+		missing, err := missingFileUsers(dir, src.users)
+		if err != nil {
+			return err
+		}
+		// Existing accounts are left unchanged: an operator who changed a
+		// password in the web interface keeps it.
+		if len(missing) > 0 {
+			if err := createInstallUsers(dir, missing); err != nil {
+				return err
+			}
+		}
+		fmt.Printf("  Created %d users from %s; %d already existed and were left unchanged.\n", len(missing), src.path, len(src.users)-len(missing))
+		return nil
+	}
+	if !installCanAsk() {
+		return missingUsersRefusal()
 	}
 	fmt.Println("  Create the first administrator. Everyone else is invited from the web interface.")
-	email := prompt("  Email", "")
-	name := prompt("  Name", "")
+	email := administratorPrompt("  Email", "")
+	name := administratorPrompt("  Name", "")
 	if email == "" || name == "" {
 		return fmt.Errorf("enter both an email and a name; run the same install command again")
 	}
-	password, err := askAdministratorPassword(readAdministratorPassword)
+	password, err := askAdministratorPasswordFn()
 	if err != nil {
 		return err
 	}
-	if err := ensureJWTSecret(dir); err != nil {
+	admin := userEntry{email: email, displayName: name, password: password, role: "admin_user"}
+	if err := createInstallUsers(dir, []userEntry{admin}); err != nil {
 		return err
 	}
-	psqlArgs, env, err := migrate.PsqlArgs(dir)
-	if err != nil {
-		return err
+	fmt.Printf("  Created administrator %s.\n", email)
+	// A failure to save is reported loudly but does not stop the install: the
+	// administrator exists and can sign in; only the reuse record is missing.
+	if err := persistInteractiveAdministrator(dir, admin); err != nil {
+		fmt.Printf("⚠ USERS: %v\n", err)
 	}
-	sql := fmt.Sprintf("SELECT public.user_create(p_display_name => %s, p_email => %s, p_statbus_role => 'admin_user', p_password => %s);", pgQuote(name), pgQuote(email), pgQuote(password))
-	return runPsqlSQL(dir, psqlArgs, env, sql)
+	return nil
 }
+
+// administratorPrompt and askAdministratorPasswordFn are the seams for the
+// first-administrator questions (visible email/name, hidden password).
+var administratorPrompt = prompt
+
+// askAdministratorPasswordFn is the seam for the hidden-password prompt.
+var askAdministratorPasswordFn = func() (string, error) { return askAdministratorPassword(readAdministratorPassword) }
 
 // readAdministratorPassword disables terminal echo before publishing the prompt.
 // A PTY client may send input as soon as it sees the prompt, before ReadPassword

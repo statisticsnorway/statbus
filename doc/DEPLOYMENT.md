@@ -272,6 +272,7 @@ it with mode `0600` and explicitly export its path before running the installer:
 chmod 0600 "$HOME/install-input.env"
 export STATBUS_ENV_CONFIG="$HOME/install-input.env"
 # Optional: explicitly provide your existing user definitions for first install.
+# (Without it, a users file at ~/statbus.users.yml is found and used.)
 export STATBUS_USERS_FILE="$HOME/initial-users.yml"
 # Optional: choose a release instead of latest stable.
 export STATBUS_INSTALL_VERSION='<release-tag>'
@@ -283,7 +284,9 @@ compatible `--version <candidate-tag>` flag) and use that candidate's `install.s
 file if the hosted script does not yet carry this feature. Different explicit
 version answers refuse before downloads; matching values are accepted. Relative
 paths resolve from the invoking directory, before the script changes directory.
-No well-known home filename is searched. The shell passes these paths through;
+The answers file is never searched for; its path is always given explicitly.
+The users file is the one exception, see "How the installer provisions users"
+below. The shell passes these paths through;
 `./sb install` validates and imports them, so direct CLI installs have the same
 contract. A missing key names both the key and its prompt. Extra keys, duplicate
 keys, empty values and malformed declarations are refused. With no input path,
@@ -374,11 +377,36 @@ git config core.hooksPath .githooks
 
 #### 3. Create the first administrator during installation
 
-Run `./sb install` as the application user. If no `.users.yml` is present, it
+Run `./sb install` as the application user. If no users file is present, it
 asks for the first administrator's email and name, then reads and confirms the
 password without echoing it. Do not put a plaintext password in the deployment
 guide or a shell command. For automated installation only, supply an explicit
 `STATBUS_USERS_FILE` path to a protected answers file.
+
+##### How the installer provisions users
+
+The installer never finishes silently with a users file unused, and never asks
+for a user it already has. It uses the first of these that applies, and says
+which one in its output:
+
+1. `STATBUS_USERS_FILE`, when set. A missing, unreadable or empty file is an
+   error naming the path; the installer does not fall back to asking.
+2. A users file you placed before installing: `~/statbus.users.yml` (the
+   operator-home input file, mode `0600`) or `~/statbus/.users.yml`. The
+   installer prints `Found <path> with N users; using it.` If both exist and
+   list different users, the installer refuses until you keep one. When
+   `STATBUS_USERS_FILE` is also set it wins, and the installer names the home
+   file it did not use.
+3. Otherwise, in a terminal, it asks for the first administrator, prints
+   `Created administrator <email>.` and saves that entry to
+   `~/statbus.users.yml` (mode `0600`, never printed), so a later install,
+   even on a fresh checkout, reuses it instead of asking again.
+
+An unattended run (`--non-interactive`, or no terminal) with none of these
+stops before changing anything and names both remedies. Every install ends
+with `User accounts: N`; if nobody can sign in, or a supplied file lists users
+that do not exist, it prints a `⚠ USERS:` warning with the fix: place the file
+at `~/statbus/.users.yml`, then run `cd ~/statbus && ./sb users create`.
 
 #### 4. Generate Configuration
 

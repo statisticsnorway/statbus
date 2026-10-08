@@ -78,13 +78,31 @@ func applyUsersYML(projDir string) error {
 //     password: secret
 //     role: admin_user
 func usersYAMLToSQL(yaml string) (string, error) {
-	type userEntry struct {
-		email       string
-		displayName string
-		password    string
-		role        string
+	users, err := parseUsersYAML(yaml)
+	if err != nil {
+		return "", err
 	}
+	var sql string
+	for _, u := range users {
+		sql += fmt.Sprintf(
+			"SELECT * FROM public.user_create(p_display_name => %s, p_email => %s, p_statbus_role => %s, p_password => %s);\n",
+			pgQuote(u.displayName), pgQuote(u.email), pgQuote(u.role), pgQuote(u.password))
+	}
+	return sql, nil
+}
 
+type userEntry struct {
+	email       string
+	displayName string
+	password    string
+	role        string
+}
+
+// parseUsersYAML is the one reader of the users-file format. The installer
+// uses it to count and validate a supplied file BEFORE install starts, so a
+// file that would create nobody is refused up front (STATBUS-464), and
+// usersYAMLToSQL uses it to apply the same entries.
+func parseUsersYAML(yaml string) ([]userEntry, error) {
 	var users []userEntry
 	var current userEntry
 	inEntry := false
@@ -122,20 +140,33 @@ func usersYAMLToSQL(yaml string) (string, error) {
 	}
 
 	if len(users) == 0 {
-		return "", fmt.Errorf("no users found in .users.yml")
+		return nil, fmt.Errorf("no users found in .users.yml")
 	}
-
-	var sql string
 	for _, u := range users {
 		if u.email == "" || u.displayName == "" || u.password == "" {
-			return "", fmt.Errorf("user entry missing required fields (email, display_name, password)")
+			return nil, fmt.Errorf("user entry missing required fields (email, display_name, password)")
 		}
-		sql += fmt.Sprintf(
-			"SELECT * FROM public.user_create(p_display_name => %s, p_email => %s, p_statbus_role => %s, p_password => %s);\n",
-			pgQuote(u.displayName), pgQuote(u.email), pgQuote(u.role), pgQuote(u.password))
 	}
+	return users, nil
+}
 
-	return sql, nil
+// usersYAMLEntry renders one entry so parseUsersYAML reads back exactly the
+// same values. That parser strips one pair of outer quotes and never
+// unescapes, so a value is wrapped, never escaped: double quotes when it holds
+// no quote or backslash (also valid YAML), single quotes when it holds no
+// single quote, otherwise plain outer double quotes, which the parser still
+// reads verbatim. Newlines cannot round-trip and are refused by the caller.
+func usersYAMLEntry(u userEntry) string {
+	q := func(s string) string {
+		if !strings.ContainsAny(s, `"\`) {
+			return `"` + s + `"`
+		}
+		if !strings.Contains(s, "'") {
+			return "'" + s + "'"
+		}
+		return `"` + s + `"`
+	}
+	return fmt.Sprintf("- display_name: %s\n  email: %s\n  password: %s\n  role: %s\n", q(u.displayName), q(u.email), q(u.password), u.role)
 }
 
 func pgQuote(s string) string {

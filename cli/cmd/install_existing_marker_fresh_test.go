@@ -28,7 +28,7 @@ func TestExistingInstallBeforeConfigReusesInheritedLock(t *testing.T) {
 				t.Fatal(err)
 			}
 			t.Setenv(installinput.EnvConfig, answers)
-			t.Setenv(installinput.UsersFile, "")
+			t.Setenv(installinput.UsersFile, usersFixture(t, t.TempDir()))
 			t.Setenv("STATBUS_POST_UPGRADE_FIXUP", "")
 			path := filepath.Join(dir, "tmp", "upgrade-in-progress.json")
 			if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {

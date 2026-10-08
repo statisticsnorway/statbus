@@ -18,7 +18,11 @@ func unattendedFixture(t *testing.T) (string, string) {
 	nonInteractive = true
 	t.Cleanup(func() { nonInteractive = old })
 	t.Setenv(installinput.EnvConfig, "")
-	t.Setenv(installinput.UsersFile, "")
+	// Never read the developer's real ~/statbus.users.yml (STATBUS-464), and
+	// supply a valid users file: an unattended fresh install without one now
+	// refuses instead of finishing with nobody able to sign in.
+	t.Setenv("HOME", t.TempDir())
+	t.Setenv(installinput.UsersFile, usersFixture(t, t.TempDir()))
 	dir := t.TempDir()
 	content := installinput.Ask(func(label, fallback string) string {
 		if strings.HasSuffix(label, "Domain name") {
@@ -36,7 +40,7 @@ func TestUnattendedConfigImport(t *testing.T) {
 		t.Fatal(err)
 	}
 	users := filepath.Join(t.TempDir(), "users.yml")
-	if err := os.WriteFile(users, []byte("users fixture"), 0600); err != nil {
+	if err := os.WriteFile(users, []byte(usersFixtureContent), 0600); err != nil {
 		t.Fatal(err)
 	}
 	t.Setenv(installinput.EnvConfig, input)
@@ -47,7 +51,7 @@ func TestUnattendedConfigImport(t *testing.T) {
 	if err := runCreateConfig(dir); err != nil {
 		t.Fatal(err)
 	}
-	for name, want := range map[string]string{".env.config": content + "DEPLOYMENT_SLOT_PORT_OFFSET=1\nSTATBUS_DISK_MIN_GB=20\nSTATBUS_DISK_RECOMMENDED_GB=40\n", ".users.yml": "users fixture"} {
+	for name, want := range map[string]string{".env.config": content + "DEPLOYMENT_SLOT_PORT_OFFSET=1\nSTATBUS_DISK_MIN_GB=20\nSTATBUS_DISK_RECOMMENDED_GB=40\n", ".users.yml": usersFixtureContent} {
 		path := filepath.Join(dir, name)
 		got, err := os.ReadFile(path)
 		if err != nil || string(got) != want {
