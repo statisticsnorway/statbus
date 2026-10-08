@@ -158,6 +158,13 @@ func runSeedBuild(projDir, commit string) error {
 			return fmt.Errorf("seed build produced no %s (%v)", p, statErr)
 		}
 	}
+
+	// STATBUS-481: never publish a seed that cannot be restored, or whose
+	// restore cannot be dumped and restored again. Fails the build loudly
+	// here instead of surfacing later as a silent FULL_REPLAY fallback.
+	if err := verifySeedRoundTrip(projDir, seedDbName); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -202,7 +209,7 @@ func restoreSeedDump(projDir, dbName, dumpPath string) error {
 	}
 	args := append(append([]string{}, prefix...),
 		"-U", "postgres", "--clean", "--if-exists", "--no-owner", "--disable-triggers",
-		"--single-transaction", "-d", dbName)
+		"--single-transaction", "-d", restoreTargetConninfo(dbName))
 	cmd, buildErr := migrate.Command(projDir, pgRestorePath, args...)
 	if buildErr != nil {
 		return fmt.Errorf("construct seed build restore: %w", buildErr)

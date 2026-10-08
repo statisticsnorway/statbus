@@ -787,7 +787,7 @@ cat /tmp/restore-data-other.list /tmp/restore-post.list /tmp/restore-acl.list > 
 	// Phase 1: pre-data WITHOUT ACLs (deferred to Phase 3).
 	fmt.Println("Phase 1: Restoring schema (pre-data, no ACLs) ...")
 	phase1, buildErr := composeCommand(projDir, "exec", "-T", "db",
-		"pg_restore", "-U", "postgres", "-d", dbName,
+		"pg_restore", "-U", "postgres", "-d", restoreTargetConninfo(dbName),
 		"--no-owner", "--no-acl", "--single-transaction",
 		"--section=pre-data",
 		"/tmp/restore.pg_dump")
@@ -816,7 +816,7 @@ cat /tmp/restore-data-other.list /tmp/restore-post.list /tmp/restore-acl.list > 
 	// fire during this targeted COPY.
 	fmt.Println("Phase 2.5: Loading auth.user data ...")
 	phase25, buildErr := composeCommand(projDir, "exec", "-T", "db",
-		"pg_restore", "-U", "postgres", "-d", dbName,
+		"pg_restore", "-U", "postgres", "-d", restoreTargetConninfo(dbName),
 		"--no-owner", "--single-transaction",
 		"-L", "/tmp/restore-auth-user.list",
 		"/tmp/restore.pg_dump")
@@ -850,7 +850,7 @@ cat /tmp/restore-data-other.list /tmp/restore-post.list /tmp/restore-acl.list > 
 	// last in the TOC list order, after every grantee role has been created.
 	fmt.Println("Phase 3: Restoring remaining data + post-data + ACLs (single transaction) ...")
 	phase3, buildErr := composeCommand(projDir, "exec", "-T", "db",
-		"pg_restore", "-U", "postgres", "-d", dbName,
+		"pg_restore", "-U", "postgres", "-d", restoreTargetConninfo(dbName),
 		"--no-owner", "--single-transaction",
 		"-L", "/tmp/restore-phase3.list",
 		"/tmp/restore.pg_dump")

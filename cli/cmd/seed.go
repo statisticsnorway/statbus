@@ -316,7 +316,7 @@ func runSeedRestoreCmd(cmd *cobra.Command, args []string) error {
 		"--clean", "--if-exists",
 		"--no-owner", "--disable-triggers",
 		"--single-transaction",
-		"-d", dbName)
+		"-d", restoreTargetConninfo(dbName))
 	if buildErr != nil {
 		return fmt.Errorf("construct seed restore command: %w", buildErr)
 	}
