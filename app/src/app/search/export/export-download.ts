@@ -15,7 +15,9 @@
  */
 
 import { createCsvRowCounter } from "./csv-row-counter";
-import { EXCEL_MAX_DATA_ROWS } from "./export-query";
+import { EXCEL_MAX_DATA_ROWS } from "@/lib/excel-limits";
+
+export type ExportFormat = "csv" | "xlsx";
 
 export interface ExportSink {
   readonly kind: "file-picker" | "opfs" | "memory";
@@ -42,6 +44,18 @@ export class ExportIncompleteError extends Error {
       `Export incomplete: received ${formatCount(rowsReceived)} of ${formatCount(expectedRows)} rows. The file was not saved. Please try again.`
     );
     this.name = "ExportIncompleteError";
+  }
+}
+
+/**
+ * The file format cannot hold this export (e.g. Excel's sheet limit). Its
+ * message is the honest refusal shown to the user as is, never wrapped as an
+ * "interrupted" network failure.
+ */
+export class ExportRefusedError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "ExportRefusedError";
   }
 }
 
@@ -121,6 +135,7 @@ export async function pumpExportToSink(
   } catch (error) {
     await reader.cancel().catch(() => {});
     await sink.abort(error).catch(() => {});
+    if (error instanceof ExportRefusedError) throw error;
     const message = error instanceof Error ? error.message : String(error);
     throw new ExportStreamError(
       `Export interrupted after ${formatCount(counter.records)} of ${formatCount(expectedRows)} rows: ${message}. The file was not saved.`,
@@ -138,8 +153,55 @@ export async function pumpExportToSink(
       bytesReceived
     );
   }
-  await sink.close();
+  try {
+    await sink.close();
+  } catch (error) {
+    // Finishing failed (e.g. the workbook could not be completed, or the
+    // file could not be committed): discard rather than leave it half-made.
+    await sink.abort(error).catch(() => {});
+    throw error;
+  }
   return progress();
+}
+
+/** File type per format: what the save dialog offers and the Blob carries. */
+export const EXPORT_FILE_TYPES: Record<
+  ExportFormat,
+  { extension: string; mime: string; description: string }
+> = {
+  csv: { extension: ".csv", mime: "text/csv", description: "CSV file" },
+  xlsx: {
+    extension: ".xlsx",
+    mime: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    description: "Excel workbook",
+  },
+};
+
+/**
+ * The export route URL for the search page's params. XLSX asks the route to
+ * refuse (413, before a single row) when its exact count exceeds the sheet.
+ */
+export function exportRequestUrl(
+  searchParams: URLSearchParams,
+  format: ExportFormat
+): string {
+  const params = new URLSearchParams(searchParams);
+  params.delete("limit");
+  params.delete("offset");
+  params.delete("max_rows");
+  if (format === "xlsx") params.set("max_rows", String(EXCEL_MAX_DATA_ROWS));
+  return `/api/search/export?${params}`;
+}
+
+/**
+ * What the user reads when the route answers with an error. A 413 is the
+ * route's honest refusal ("... at most N are allowed for this format. Use
+ * CSV instead."), shown as is; anything else names the status.
+ */
+export function requestFailureMessage(status: number, detail: string): string {
+  return status === 413
+    ? detail
+    : `Export request failed (${status}): ${detail}`;
 }
 
 /** Coalesce small network chunks into larger disk writes. */

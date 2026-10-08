@@ -10,9 +10,8 @@
 
 import type { Tables } from "@/lib/database.types";
 
-/** The xlsx file format supports at most 1,048,576 rows; one is the header. */
-export const EXCEL_MAX_ROWS = 1_048_576;
-export const EXCEL_MAX_DATA_ROWS = EXCEL_MAX_ROWS - 1;
+// The xlsx row limits are defined once, in @/lib/excel-limits.
+export { EXCEL_MAX_ROWS, EXCEL_MAX_DATA_ROWS } from "@/lib/excel-limits";
 
 /**
  * Above this many rows an .xlsx export requires explicit confirmation:

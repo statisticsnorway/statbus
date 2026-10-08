@@ -63,7 +63,6 @@ export function ExportCSVLink() {
       searchParams,
       filenameBase,
       expectedTotal: total,
-      totalIsExact: !searchResult.countIsEstimate,
     });
 
   const onCsvClick = () => void begin("csv");
@@ -167,8 +166,8 @@ export function ExportCSVLink() {
             <AlertDialogDescription>
               This export has {formatRowCount(total)} rows. Excel struggles to
               open workbooks above {formatRowCount(EXCEL_CONFIRM_ROWS)} rows —
-              the workbook is built in your browser and may take minutes and use
-              a lot of memory. CSV is recommended for large exports.
+              the workbook is written to disk as it downloads, but opening it in
+              Excel may be slow. CSV is recommended for large exports.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

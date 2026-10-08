@@ -1,11 +1,15 @@
 import {
   createMemorySink,
   createWritableSink,
+  EXPORT_FILE_TYPES,
   ExportCancelledError,
   ExportIncompleteError,
+  ExportRefusedError,
   ExportStreamError,
   excelRowLimitError,
+  exportRequestUrl,
   parseAnnouncedTotal,
+  requestFailureMessage,
   pickSaveFile,
   pumpExportToSink,
   type ExportSink,
@@ -328,5 +332,85 @@ describe("createWritableSink", () => {
     await sink.abort();
     expect(writes).toEqual([]);
     expect(calls).toEqual(["abort"]);
+  });
+});
+
+describe("exportRequestUrl", () => {
+  it("asks the route to refuse an Excel export above the sheet's data rows", () => {
+    const url = new URL(
+      exportRequestUrl(
+        new URLSearchParams("unit_type=in.(establishment)&limit=10&offset=20"),
+        "xlsx"
+      ),
+      "http://x"
+    );
+    expect(url.pathname).toBe("/api/search/export");
+    expect(url.searchParams.get("max_rows")).toBe("1048575");
+    // The export never pages.
+    expect(url.searchParams.has("limit")).toBe(false);
+    expect(url.searchParams.has("offset")).toBe(false);
+    expect(url.searchParams.get("unit_type")).toBe("in.(establishment)");
+  });
+
+  it("sets no row cap for CSV, even if one was passed in", () => {
+    const url = new URL(
+      exportRequestUrl(new URLSearchParams("max_rows=5"), "csv"),
+      "http://x"
+    );
+    expect(url.searchParams.has("max_rows")).toBe(false);
+  });
+});
+
+describe("requestFailureMessage", () => {
+  it("shows the route's 413 refusal as is, so the user reads 'Use CSV instead.'", () => {
+    const refusal =
+      "This export has 1976463 rows; at most 1048575 are allowed for this format. Use CSV instead.";
+    expect(requestFailureMessage(413, refusal)).toBe(refusal);
+  });
+
+  it("names the status of any other failure", () => {
+    expect(requestFailureMessage(401, "Token has expired")).toBe(
+      "Export request failed (401): Token has expired"
+    );
+  });
+});
+
+describe("EXPORT_FILE_TYPES", () => {
+  it("offers the right extension and MIME type per format", () => {
+    expect(EXPORT_FILE_TYPES.csv).toMatchObject({
+      extension: ".csv",
+      mime: "text/csv",
+    });
+    expect(EXPORT_FILE_TYPES.xlsx).toMatchObject({
+      extension: ".xlsx",
+      mime: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    });
+  });
+});
+
+describe("pumpExportToSink: refusals and commit failures", () => {
+  it("passes a format refusal through unwrapped, after aborting the file", async () => {
+    const { sink, log } = recordingSink();
+    sink.write = async () => {
+      throw new ExportRefusedError("Excel supports at most 1 data rows");
+    };
+    const pumped = pumpExportToSink(streamOf(["name\n", "a\n"]), sink, 1);
+    await expect(pumped).rejects.toBeInstanceOf(ExportRefusedError);
+    await expect(pumped).rejects.toThrow(
+      /^Excel supports at most 1 data rows$/
+    );
+    expect(log).toEqual(["abort"]);
+  });
+
+  it("aborts the file when committing it fails", async () => {
+    const { sink, log } = recordingSink();
+    sink.close = async () => {
+      log.push("close-failed");
+      throw new Error("workbook could not be finished");
+    };
+    await expect(
+      pumpExportToSink(streamOf(["name\n", "a\n"]), sink, 1)
+    ).rejects.toThrow("workbook could not be finished");
+    expect(log).toEqual(["close-failed", "abort"]);
   });
 });

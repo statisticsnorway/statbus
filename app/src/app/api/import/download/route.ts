@@ -8,6 +8,7 @@ import { getDbHostPort } from "@/lib/db-listener";
 import type { DefinitionSnapshot } from "@/atoms/import";
 import { fetchReferenceData, writeReferenceSheets, getColumnValidationMap } from '@/lib/excel-reference-sheets';
 import { describeError } from "@/lib/error-format";
+import { EXCEL_MAX_DATA_ROWS, excelDataRowsFit } from "@/lib/excel-limits";
 
 const getDbConfig = () => {
   const { dbHost, dbPort, dbName } = getDbHostPort();
@@ -161,15 +162,16 @@ export async function GET(request: NextRequest) {
       const boolOid = 16;
       const CURSOR_BATCH_SIZE = 5000;
 
-      // Check row count — Excel has a hard limit of 1,048,576 rows per sheet
+      // Excel holds 1,048,576 rows per sheet INCLUDING the header row, so at
+      // most EXCEL_MAX_DATA_ROWS data rows.
       const countResult = await pgClient.query(
         `SELECT COUNT(*)::int AS total FROM ${quoteIdent(dataTable)} ${whereClause}`
       );
       const totalRows: number = countResult.rows[0].total;
-      if (totalRows > 1_048_576) {
+      if (!excelDataRowsFit(totalRows)) {
         cleanup();
         return NextResponse.json(
-          { message: `Dataset has ${totalRows.toLocaleString()} rows, exceeding Excel's ~1M row limit. Please download as CSV.` },
+          { message: `Dataset has ${totalRows.toLocaleString()} rows; Excel holds at most ${EXCEL_MAX_DATA_ROWS.toLocaleString()} data rows. Please download as CSV.` },
           { status: 400 }
         );
       }

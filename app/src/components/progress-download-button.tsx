@@ -10,8 +10,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useProgressDownload, formatDownloadProgress } from "@/hooks/use-progress-download";
-
-const EXCEL_MAX_ROWS = 1_048_576;
+import { excelDataRowsFit } from "@/lib/excel-limits";
 
 interface ProgressDownloadButtonProps {
   slug: string;
@@ -41,7 +40,8 @@ export function ProgressDownloadButton({
     startDownload(url, filename);
   };
 
-  const excelDisabled = rowCount != null && rowCount > EXCEL_MAX_ROWS;
+  // rowCount counts data rows; the sheet also needs a header row.
+  const excelDisabled = rowCount != null && !excelDataRowsFit(rowCount);
 
   if (progress.phase === 'downloading') {
     return (

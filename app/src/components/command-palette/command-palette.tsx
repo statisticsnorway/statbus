@@ -10,6 +10,7 @@ import { debugInspectorVisibleAtom } from "@/atoms/app";
 import { importDownloadContextAtom } from "@/atoms/import-download-context";
 import { loadAllImportDefinitionsAtom, createImportJobFromDefinitionAtom } from "@/atoms/import";
 import { useBaseData } from "@/atoms/base-data";
+import { excelDataRowsFit } from "@/lib/excel-limits";
 import { getBrowserRestClient } from "@/context/RestClientStore";
 import { toast } from "@/hooks/use-toast";
 import { useProgressDownload } from "@/hooks/use-progress-download";
@@ -156,7 +157,6 @@ export function CommandPalette() {
   };
 
   // --- Download flow ---
-  const EXCEL_MAX_ROWS = 1_048_576;
   const { startDownload } = useProgressDownload();
   const handleDownload = (filter: string, format: string) => {
     if (!importDownloadContext) return;
@@ -613,7 +613,8 @@ export function CommandPalette() {
           {/* ===== DOWNLOAD: PICK FORMAT ===== */}
           {page === 'download-format' && importDownloadContext && (() => {
             const filterRows = getFilterRowCount(downloadFilter);
-            const excelDisabled = filterRows > EXCEL_MAX_ROWS;
+            // filterRows counts data rows; the sheet also needs a header row.
+            const excelDisabled = !excelDataRowsFit(filterRows);
             return (
               <CommandGroup heading={crumbHeading(
                 { label: `Job ${importDownloadContext.jobId}`, goToDepth: 0 },

@@ -40,7 +40,6 @@ export function UnitHistoryExportButton({
       searchParams: params,
       filenameBase: `unit_${unitId}_history`,
       expectedTotal: null,
-      totalIsExact: false,
     });
   };
 
