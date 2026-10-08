@@ -4,7 +4,7 @@ title: CSV export of search results contains every matching row
 status: In Progress
 assignee: []
 created_date: '2026-09-25 14:02'
-updated_date: '2026-10-08 08:00'
+updated_date: '2026-10-08 09:24'
 labels:
   - app
 dependencies: []
@@ -55,26 +55,7 @@ Reported by Erik 2026-09-25 (Slack): exporting all legal units + establishments 
 ## Implementation Notes
 
 <!-- SECTION:NOTES:BEGIN -->
-SECOND PASS, 2026-10-08 (coordinator, on the restored Norway dump). The first pass blamed the 120s statement timeout because the export took 114.64s. That reading is WRONG, and the corrected diagnosis changes the fix.
-
-DECISIVE EXPERIMENTS.
-1. Auth on the restored (old) artifact no longer comes from /rpc/login (the documented dev credential returns USER_NOT_FOUND there); a token can be minted in SQL with SELECT auth.generate_jwt(auth.build_jwt_claims('jorgen@veridit.no')). That is how these requests were made.
-2. Narrow select, same filter (select=unit_id, order=unit_id.asc, Prefer: count=exact): HTTP 200, Content-Range 0-1976462/1976463, 13,722,928 bytes, ALL 1,976,463 rows delivered. So the filter and the connection can carry the full row count.
-3. Wide export select, same filter, Prefer: count=exact: HTTP 206 Partial Content, Content-Range 0-1946992/1976463, Content-Length 421,121,756 bytes, i.e. 1,946,993 rows sent while the server ANNOUNCES the true total 1,976,463.
-4. Repeat of the wide export: wall time 62.15s where the first pass measured 114.64s, with a BYTE-IDENTICAL response (421,121,756 bytes, same row count). A timeout cut would vary between runs; this does not.
-5. db log for the wide request: duration 60407.766 ms execute, completed, and NO statement-timeout cancellation anywhere in the window. The database finished the query.
-6. PostgREST configuration: the rest container has no PGRST_DB_MAX_ROWS and no MAX_ROWS in .env/.env.config/compose; port 3013 is published by the rest container itself, not by Caddy, so no proxy truncation is involved. PGRST_DB_CONFIG=true is set but this old artifact has no pgrst.db_config table.
-
-CORRECTED DIAGNOSIS. The shortfall is a deterministic PARTIAL RESPONSE from PostgREST for this wide select: it applies a limit that correlates with row width/payload (a one-column select is complete at 13.7 MB; the full select is cut at 421 MB), it announces the true total in Content-Range, and it is reproducible byte for byte. It is not a statement timeout, not a data or filter problem, and not a row-count cap on the table.
-
-WHAT THIS MEANS FOR THE FIX.
-* The app must never treat one request as a complete export. It must page and it must verify: compare the rows actually received against the total the server announces in Content-Range, and fail loudly on a mismatch. That check alone would have turned this into a visible error on the user's very first attempt.
-* Paging over the recorded total is the natural mechanism and PostgREST already exposes exactly what is needed: Content-Range with the true total, HTTP 206 for a partial range, and Range headers to request the next slice. Keyset paging (the existing D5 decision) is the alternative and avoids deep offsets.
-* The acceptance criterion "completes reliably within the production 120s statement timeout" needs rewording: the timeout was never the binding constraint. The real criterion is "the export delivers every row, and any shortfall is an error the user sees".
-
-STILL TO DO ONCE THE DIRECTION IS CONFIRMED: re-measure with the chosen paging mechanism until rows received equals the announced total; rework the equivalence criterion (full-set row-for-row against the old path is impossible, see below); re-measure the UI failure and progress paths.
-
-UNCHANGED FROM PASS 1: the old-vs-new full row-for-row comparison cannot run at this size (the old JSON path dies with 54000 string buffer exceeds maximum allowed length, PostgreSQL 1 GiB limit); no RLS change (PASS); the restored artifact is the February dump with legacy metadata view names.
+IMPLEMENTATION STATUS AS OF 2026-10-08 (read from the code, not from memory). WHAT EXISTS, landed in 1e5ac2ccf: app/src/app/search/export/use-statistical-unit-export.ts performs ONE fetch against /rest with Accept: text/csv, streams the body with response.body.getReader() and counts records with csv-row-counter.ts for the progress bar, supports cancellation, refuses XLSX above the sheet limit, confirms above 100k rows, logs start/success/failure via export-logger.ts, and ends with a completeness guard: if rowsReceived !== expectedTotal it errors with 'Export incomplete: received X of Y rows. The download was not saved - please try again.' export-query.ts composes the select and the deterministic order. WHAT DOES NOT EXIST: any piece-by-piece fetch, paging or client-side assembly. There is no Range header, no offset, no keyset page loop anywhere in the export path, so nothing is downloaded in parts and reassembled. A comment in search-export-csv-link.tsx mentioning 'paging' is stale and describes no code. Two further notes on the guard: it compares against the search's expected total, which can be a planner estimate rather than an exact count, and it never consults the total the server announces in Content-Range. DESIGN INVESTIGATION UNDER WAY, delegated to worker @duckling on 2026-10-08: establish the root cause of the partial response, test whether any single request can return the entire set, measure HTTP Range paging versus keyset paging including a rigorous coverage proof that the union is exactly 1,976,463 distinct rows with no gaps or duplicates, and recommend the client-side design (page size, progress, completeness proof, memory and time estimates) with rejected alternatives. Deliverable tmp/421-export-design.md. Design first: no product code is being changed while that runs. WORKING PRINCIPLE FROM THE OWNER: do not design to failure - the guard stays as a safety net, but the design must deliver every row.
 <!-- SECTION:NOTES:END -->
 
 ## 2026-10-07: the export still cannot deliver — owner-observed failure on no.statbus.org, diagnosed
