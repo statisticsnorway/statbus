@@ -27,7 +27,11 @@ import {
   partitionUpgradeRows,
   type HistoryPill,
 } from "./upgrade-history";
-import type { RunningIdentity } from "@/lib/running-identity";
+import {
+  runningVersionDisplay,
+  type RunningIdentity,
+} from "@/lib/running-identity";
+import { statbusConfig } from "@/lib/statbus-config";
 import {
   filterStaleInstallFailure,
   INSTALL_FAILURE_BANNER_WORDING,
@@ -949,8 +953,18 @@ function RunningCard({
   const row = currentAppRow(artifactSHA, currentRows);
   // The exact-SHA query is still in flight — say so rather than disappearing.
   const loading = artifactSHA !== null && currentRows === undefined;
+  // Same name resolution as the footer (STATBUS-422): ledger row, release
+  // identity, then the install-time configured name bound to the artifact;
+  // with only the commit proven, the SHA link beside it is the identity.
   const name =
-    row?.display_name ?? runningIdentity?.resolved_name ?? "unknown name";
+    row?.display_name ??
+    runningVersionDisplay(
+      runningIdentity,
+      artifactSHA,
+      statbusConfig.fallbackVersion,
+      statbusConfig.fallbackCommit
+    ).name ??
+    (artifactSHA ? "commit" : "unknown name");
   const releaseStatus = row?.release_status ?? runningIdentity?.release_status;
 
   const badge = loading ? (

@@ -11,7 +11,11 @@ import {
   refreshRunningIdentityAtom,
   runningIdentityAtom,
 } from "@/atoms/running-identity";
-import { runningVersionDisplay } from "@/lib/running-identity";
+import {
+  runningVersionDisplay,
+  runningVersionLabel,
+} from "@/lib/running-identity";
+import { statbusConfig } from "@/lib/statbus-config";
 
 export function FooterSkeleton() {
   return (
@@ -66,13 +70,12 @@ export default function Footer() {
   const justificationClass = showAuthenticatedLayout
     ? "justify-between"
     : "justify-center";
-  const version = runningVersionDisplay(runningIdentity, artifactSHA);
-  const versionHref =
-    runningIdentity?.release_status === "commit"
-      ? `https://github.com/statisticsnorway/statbus/commit/${runningIdentity.commit_sha}`
-      : runningIdentity
-        ? `https://github.com/statisticsnorway/statbus/releases/tag/${version.name}`
-        : "https://github.com/statisticsnorway/statbus/";
+  const version = runningVersionDisplay(
+    runningIdentity,
+    artifactSHA,
+    statbusConfig.fallbackVersion,
+    statbusConfig.fallbackCommit
+  );
   const buildDetails =
     runningIdentity?.build_name &&
     runningIdentity.build_name !== runningIdentity.resolved_name
@@ -96,12 +99,12 @@ export default function Footer() {
             <span className="text-xs text-gray-300" title={buildDetails}>
               Statbus version{" "}
               <Link
-                href={versionHref}
+                href={version.href}
                 className="hover:text-ssb-neon underline"
               >
-                {version.name}
+                {runningVersionLabel(version)}
               </Link>
-              {version.commit && (
+              {version.name && version.commit && (
                 <>
                   {" ("}
                   <Link

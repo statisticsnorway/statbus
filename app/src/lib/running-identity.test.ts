@@ -8,6 +8,7 @@ import {
   parseArtifactSHA,
   parseRunningIdentity,
   runningVersionDisplay,
+  runningVersionLabel,
   type RunningIdentity,
 } from "./running-identity";
 
@@ -36,9 +37,13 @@ describe("artifact-bound release metadata", () => {
       expect(parseArtifactSHA(value)).toBeNull();
     }
     expect(runningVersionDisplay(null, null)).toEqual({
-      name: "unknown",
+      name: null,
       commit: null,
+      href: "https://github.com/statisticsnorway/statbus/",
     });
+    expect(runningVersionLabel(runningVersionDisplay(null, null))).toBe(
+      "unknown"
+    );
   });
 
   test("exact shape, cardinality and equality required", () => {
@@ -60,9 +65,65 @@ describe("artifact-bound release metadata", () => {
 
   test("pruned metadata retains positive full artifact proof", () => {
     expect(runningVersionDisplay(null, source)).toEqual({
-      name: "unknown",
+      name: null,
       commit: "aaaaaaaa",
+      href: `https://github.com/statisticsnorway/statbus/commit/${source}`,
     });
+  });
+
+  // STATBUS-422 (Finland, bce5bf39): the footer read "unknown (bce5bf39)".
+  const bce = "bce5bf39b73fcb87ee55900fab927c36872e23c0";
+
+  test("released install with no ledger metadata shows its configured release", () => {
+    const display = runningVersionDisplay(null, bce, "v2026.10.0", "bce5bf39");
+    expect(display).toEqual({
+      name: "v2026.10.0",
+      commit: "bce5bf39",
+      href: "https://github.com/statisticsnorway/statbus/releases/tag/v2026.10.0",
+    });
+    expect(runningVersionLabel(display)).toBe("v2026.10.0");
+  });
+
+  test("ledger release identity wins over the configured name", () => {
+    const display = runningVersionDisplay(
+      { ...identity, commit_sha: bce, resolved_name: "v2026.10.0" },
+      bce,
+      "v2026.10.0-rc.20",
+      "bce5bf39"
+    );
+    expect(runningVersionLabel(display)).toBe("v2026.10.0");
+    expect(display.commit).toBe("bce5bf39");
+  });
+
+  test.each(["", "local", "unknown", "bce5bf39"])(
+    "unknown version (%j) with a known commit shows the commit, never 'unknown'",
+    (configured) => {
+      const display = runningVersionDisplay(null, bce, configured, "bce5bf39");
+      expect(display.name).toBeNull();
+      expect(runningVersionLabel(display)).toBe("commit bce5bf39");
+      expect(display.href).toBe(
+        `https://github.com/statisticsnorway/statbus/commit/${bce}`
+      );
+    }
+  );
+
+  test("a configured name for another commit never labels this artifact", () => {
+    // Rollback: .env still names the failed target while the source serves.
+    const display = runningVersionDisplay(null, bce, "v2026.10.1", "deadbeef");
+    expect(runningVersionLabel(display)).toBe("commit bce5bf39");
+  });
+
+  test("a dev describe names the build and links the exact commit", () => {
+    const display = runningVersionDisplay(
+      null,
+      bce,
+      "v2026.10.0-48-gbce5bf39b",
+      "bce5bf39"
+    );
+    expect(runningVersionLabel(display)).toBe("v2026.10.0-48-gbce5bf39b");
+    expect(display.href).toBe(
+      `https://github.com/statisticsnorway/statbus/commit/${bce}`
+    );
   });
 
   test("open tab follows restored source app, not configured target program", async () => {
