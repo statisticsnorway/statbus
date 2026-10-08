@@ -6,6 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-10-08 12:30'
+updated_date: '2026-10-08 12:37'
 labels:
   - app
   - import
@@ -49,5 +50,5 @@ SCOPE: the upload UX in the getting-started/bootstrap steps, from file selection
 ## Implementation Notes
 
 <!-- SECTION:NOTES:BEGIN -->
-Owner report 2026-10-08 from the Finland getting-started run. Timing: do this after the in-flight work and once the local database is ready to reproduce the flow; it is scheduled, not forgotten.
+CORRECTION TO A PREMISE, 2026-10-08, from the paused 471 analysis: the getting-started classification upload does NOT go through the import pipeline's length_limits step. It posts to /api/import/upload and COPYs into activity_category_enabled_custom, so a too-long value surfaces as PostgreSQL's 22001 string_data_right_truncation, whose message does not name the offending column; the line number appears only in CONTEXT. Acceptance criterion 3 (a too-long value names the row, the column and the limit) therefore needs deliberate handling rather than assuming our own validation reports it: validate before the COPY, or translate the COPY error. The earlier schema-cache error Ville hit, 'Could not find the ActivityCategoryLevel column', comes from the same path, a file whose columns do not match the expected template, and belongs to this ticket's family too.
 <!-- SECTION:NOTES:END -->

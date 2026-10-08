@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-10-08 12:36'
-updated_date: '2026-10-08 12:36'
+updated_date: '2026-10-08 12:37'
 labels:
   - sql
   - import
@@ -46,5 +46,5 @@ SCOPE: activity_category.name first, because that is the observed failure, plus 
 ## Implementation Notes
 
 <!-- SECTION:NOTES:BEGIN -->
-CLARIFICATION FROM THE OWNER 2026-10-08: the data is running TWO LANGUAGES IN ONE COLUMN. That is confirmed by measurement: Ville's TCC file writes the Turkish label, a '---' separator, then the English label in the single name column (his longest is 252 characters, e.g. 'HANEHALKLARININ ISVERENLER OLARAK FAALIYETLERI; ... --- Activities of households as employers'), because our import template offers only one name column. Tellingly, the Danish ISIC4 classification source we hold carries Name, NameLanguage1 and NameLanguage2 as SEPARATE columns, so the concatenation is the operator's workaround rather than the shape of the source data. CONSEQUENCES: (1) the length bound is only the symptom, and the 512 recommendation above still stands as the cheap unblock; (2) the real design question, which is deliberately OUT OF SCOPE here and needs an owner decision, is whether StatBus should accept per-language names so operators do not have to concatenate, since two languages in one field also degrades display, sorting and matching. Do not redesign the model in this ticket: raise the bound, document it with the evidence, and keep the honest error.
+ON HOLD 2026-10-08 pending the owner's principled solution to two languages in one column. Read-only findings from the paused worker, reusable if the decision turns out to be 'just raise the bound': (1) classification CSVs arrive through /api/import/upload and are COPYed into activity_category_enabled_custom by the getting-started upload; they do NOT pass through the job-based length_limits step that test 347 covers, so the criterion 'the error names the row, column and limit' cannot be assumed from our own validation: PostgreSQL's COPY reports the line number in CONTEXT, and the 22001 message itself does not name the column. That needs checking and possibly deliberate handling. (2) The change itself is ALTER activity_category.name to varchar(512), and the activity_category_* views and upsert functions still need checking for dependent varchar(256) casts. (3) NO length-policy document exists anywhere (nothing in doc/*.md or .claude/rules mentions the 256 bound), so 'document the bound' means creating that place rather than editing one. Nothing was touched, staged or committed before the hold; the tree is clean.
 <!-- SECTION:NOTES:END -->
