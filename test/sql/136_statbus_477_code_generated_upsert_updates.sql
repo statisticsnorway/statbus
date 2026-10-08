@@ -70,6 +70,10 @@ SELECT fp.code AS fp_code FROM public.foreign_participation AS fp ORDER BY fp.id
 INSERT INTO public.foreign_participation_system(code, name) VALUES (:'fp_code', 'renamed by system reload') RETURNING code, name;
 SELECT fp.code, fp.custom, fp.enabled, fp.name
   FROM public.foreign_participation AS fp WHERE fp.code = :'fp_code' ORDER BY fp.custom;
+INSERT INTO public.foreign_participation_custom(code, name) VALUES ('q136', 'first') RETURNING code, name;
+INSERT INTO public.foreign_participation_custom(code, name) VALUES ('q136', 'second (corrected)') RETURNING code, name;
+SELECT fp.code, fp.custom, fp.enabled, fp.name
+  FROM public.foreign_participation AS fp WHERE fp.code = 'q136';
 
 \echo "136.4: every family B table has the (code, custom) key"
 SELECT con.conrelid::regclass AS table_name, pg_get_constraintdef(con.oid) AS key

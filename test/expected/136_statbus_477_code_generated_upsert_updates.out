@@ -134,6 +134,25 @@ SELECT fp.code, fp.custom, fp.enabled, fp.name
  a    | f      | t       | renamed by system reload
 (1 row)
 
+INSERT INTO public.foreign_participation_custom(code, name) VALUES ('q136', 'first') RETURNING code, name;
+ code | name  
+------+-------
+ q136 | first
+(1 row)
+
+INSERT INTO public.foreign_participation_custom(code, name) VALUES ('q136', 'second (corrected)') RETURNING code, name;
+ code |        name        
+------+--------------------
+ q136 | second (corrected)
+(1 row)
+
+SELECT fp.code, fp.custom, fp.enabled, fp.name
+  FROM public.foreign_participation AS fp WHERE fp.code = 'q136';
+ code | custom | enabled |        name        
+------+--------+---------+--------------------
+ q136 | t      | t       | second (corrected)
+(1 row)
+
 \echo "136.4: every family B table has the (code, custom) key"
 "136.4: every family B table has the (code, custom) key"
 SELECT con.conrelid::regclass AS table_name, pg_get_constraintdef(con.oid) AS key
