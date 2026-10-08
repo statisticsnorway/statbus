@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-10-08 12:36'
-updated_date: '2026-10-08 12:50'
+updated_date: '2026-10-08 13:00'
 labels:
   - sql
   - import
@@ -57,5 +57,10 @@ OPEN QUESTIONS FOR THE OWNER BEFORE IMPLEMENTATION.
 ## Implementation Notes
 
 <!-- SECTION:NOTES:BEGIN -->
-REWRITTEN 2026-10-08 on the owner's instruction: the previous content of this ticket (raise activity_category.name to varchar(512)) is the INCORRECT solution and is explicitly not to be implemented, because a bigger bound invites multi-language abuse. The description and criteria above are the owner's principled design, dictated in the same message: use the replaced non-custom entry of the same path as the alternate label, show the local name with a marker, and keep the official English name as the canonical one. NOT DISPATCHED: the owner confirms this write-up first, and only then is implementation assigned. Open questions (a), (b) and (c) in the description need answers.
+SCHEMA ANSWER TO THE OWNER'S QUESTION, 2026-10-08 (read-only investigation, no dispatch). Question: can we efficiently list the new name and the old name in one query, matching on path and standard? YES, and the mechanism already exists.
+(1) BOTH ROWS LIVE IN ONE TABLE. public.activity_category holds system and user-provided rows alike, with standard_id, path ltree, name varchar(256), description, enabled boolean and custom boolean. Unique btree constraint activity_category_standard_id_path_enabled_key on (standard_id, path, enabled).
+(2) THE ORIGINAL IS ALREADY RETAINED. admin.activity_category_enabled_upsert_custom (the INSTEAD OF INSERT trigger behind activity_category_enabled) looks up the existing 'enabled AND NOT custom' row for the same standard and path, sets that row to enabled = FALSE, and then upserts the custom row with enabled = TRUE, custom = TRUE. So the replaced non-custom entry is retained rather than deleted: that is exactly the 'replaced non-custom entry of the same path' the design calls the alternate label, and it is available today.
+(3) THE JOIN IS A SELF-JOIN on (standard_id, path): custom = false gives the official English label, custom = true gives the local one. The existing unique index covers the (standard_id, path) index prefix, so this is an index lookup per row, not a scan. Exposing both columns from a view (or extending activity_category_enabled with the original name) lets the list fetch both in one request, for example: SELECT c.path, c.name AS local_name, o.name AS original_name FROM activity_category c LEFT JOIN activity_category o ON o.standard_id = c.standard_id AND o.path = c.path AND o.custom = false WHERE c.custom AND c.enabled.
+(4) REGIONS ARE DIFFERENT, as the owner suspected: public_region has no custom flag, no enabled flag and no override sibling (only _used, _version, _access variants), so no original exists to reveal. That supports the owner's pragmatic line that where no override exists, the single field is all there is, and per-locale columns or a locale table would be a much larger project.
+CONSEQUENCE FOR THE DESIGN: no migration is needed. The work is a view/query change to expose both names, the UI affordance to reveal the official English label, import guidance that the custom CSV carries the local name only, and detection of a concatenated value. Still NOT DISPATCHED, and the open questions (a) store local only versus both, (b) where the marker appears, (c) reject or warn on concatenation remain for the owner.
 <!-- SECTION:NOTES:END -->
