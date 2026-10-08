@@ -1606,8 +1606,8 @@ WHERE command = 'derive_statistical_history'
 ORDER BY id;
  id  |   state   |                    info                    | valid_from | valid_until 
 -----+-----------+--------------------------------------------+------------+-------------
- 121 | completed | {"child_count": 168, "rows_inserted": 252} | 2020-01-01 | infinity
- 584 | completed | {"child_count": 252, "rows_inserted": 252} | 2020-01-01 | infinity
+ 127 | completed | {"child_count": 168, "rows_inserted": 252} | 2020-01-01 | infinity
+ 596 | completed | {"child_count": 252, "rows_inserted": 252} | 2020-01-01 | infinity
 (2 rows)
 
 ROLLBACK TO SAVEPOINT diag;
@@ -1651,11 +1651,11 @@ WHERE command = 'derive_statistical_history_period'
 ORDER BY lower(NULLIF(payload->>'hash_partition', '')::int4range) NULLS FIRST;
  id  |   state   | hash_partition | inserted 
 -----+-----------+----------------+----------
- 130 | completed | [0,4096)       | 2
- 131 | completed | [4096,8192)    | 1
- 594 | completed | [7113,7114)    | 1
- 595 | completed | [12292,12293)  | 1
- 596 | completed | [14449,14450)  | 1
+ 136 | completed | [0,4096)       | 2
+ 137 | completed | [4096,8192)    | 1
+ 606 | completed | [7113,7114)    | 1
+ 607 | completed | [12292,12293)  | 1
+ 608 | completed | [14449,14450)  | 1
 (5 rows)
 
 ROLLBACK TO SAVEPOINT diag;

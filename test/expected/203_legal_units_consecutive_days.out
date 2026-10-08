@@ -49,7 +49,7 @@ SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registr
    queue   |   state   | count 
 -----------+-----------+-------
  analytics | pending   |     1
- import    | completed |    51
+ import    | completed |    54
 (2 rows)
 
 \echo "Checking unit counts after import processing (Day 1)"
@@ -70,7 +70,7 @@ SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registr
    queue   |   state   | count 
 -----------+-----------+-------
  analytics | completed |    48
- import    | completed |    51
+ import    | completed |    54
 (2 rows)
 
 \echo "Checking related table counts after Day 1 analytics"
@@ -130,7 +130,7 @@ SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registr
 -----------+-----------+-------
  analytics | pending   |     1
  analytics | completed |    48
- import    | completed |   102
+ import    | completed |   108
 (3 rows)
 
 \echo "Checking unit counts after import processing (Day 4)"
@@ -151,7 +151,7 @@ SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registr
    queue   |   state   | count 
 -----------+-----------+-------
  analytics | completed |   131
- import    | completed |   102
+ import    | completed |   108
 (2 rows)
 
 \echo "Checking related table counts after Day 4 analytics"
@@ -211,7 +211,7 @@ SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registr
 -----------+-----------+-------
  analytics | pending   |     1
  analytics | completed |   131
- import    | completed |   153
+ import    | completed |   162
 (3 rows)
 
 \echo "Checking unit counts after import processing (Day 3)"
@@ -232,7 +232,7 @@ SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registr
    queue   |   state   | count 
 -----------+-----------+-------
  analytics | completed |   214
- import    | completed |   153
+ import    | completed |   162
 (2 rows)
 
 \echo "Checking related table counts after Day 3 analytics"
@@ -301,7 +301,7 @@ SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registr
    queue   |   state   | count 
 -----------+-----------+-------
  analytics | pending   |     1
- import    | completed |    51
+ import    | completed |    54
 (2 rows)
 
 \echo "Checking unit counts after import processing (Scenario 2 - Day 1)"
@@ -333,7 +333,7 @@ SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registr
    queue   |   state   | count 
 -----------+-----------+-------
  analytics | pending   |     1
- import    | completed |   102
+ import    | completed |   108
 (2 rows)
 
 \echo "Checking unit counts after import processing (Scenario 2 - Day 3)"
@@ -354,7 +354,7 @@ SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registr
    queue   |   state   | count 
 -----------+-----------+-------
  analytics | completed |    48
- import    | completed |   102
+ import    | completed |   108
 (2 rows)
 
 \echo "Checking related table counts after Scenario 2 (Day 1 & 3) analytics"
@@ -414,7 +414,7 @@ SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registr
 -----------+-----------+-------
  analytics | pending   |     1
  analytics | completed |    48
- import    | completed |   153
+ import    | completed |   162
 (3 rows)
 
 \echo "Checking unit counts after import processing (Scenario 2 - Day 4)"
@@ -435,7 +435,7 @@ SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registr
    queue   |   state   | count 
 -----------+-----------+-------
  analytics | completed |   131
- import    | completed |   153
+ import    | completed |   162
 (2 rows)
 
 \echo "Checking related table counts after Scenario 2 (Day 1, 3 & 4) analytics"

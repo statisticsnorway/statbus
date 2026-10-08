@@ -49,7 +49,7 @@ SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registr
    queue   |   state   | count 
 -----------+-----------+-------
  analytics | pending   |     1
- import    | completed |    51
+ import    | completed |    54
 (2 rows)
 
 \echo "Checking import job status for import_42_lu_era_b1_death_end_y"
@@ -61,7 +61,7 @@ WHERE slug = 'import_42_lu_era_b1_death_end_y'
 ORDER BY slug;
               slug               |  state   | total_rows | imported_rows | has_error | error_rows 
 ---------------------------------+----------+------------+---------------+-----------+------------
- import_42_lu_era_b1_death_end_y | finished |          4 |             4 | f         |          0
+ import_42_lu_era_b1_death_end_y | finished |          2 |             2 | f         |          0
 (1 row)
 
 \echo Run worker processing for analytics tasks - Block 1
@@ -71,7 +71,7 @@ SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registr
    queue   |   state   | count 
 -----------+-----------+-------
  analytics | completed |   171
- import    | completed |    51
+ import    | completed |    54
 (2 rows)
 
 SELECT
@@ -91,11 +91,9 @@ WHERE unit_type = 'legal_unit'
 ORDER BY external_idents ->> 'tax_ident', valid_from;
  tax_ident |       name        | valid_from |  valid_to  | birth_date | death_date 
 -----------+-------------------+------------+------------+------------+------------
- 823573673 | Kranløft Vestland | 2010-01-01 | 2012-12-30 | 2010-01-01 | 
- 823573673 | Kranløft Vestland | 2012-12-31 | 2012-12-31 | 2010-01-01 | 2012-12-31
- 921835809 | Kranløft Østland  | 2010-01-01 | 2011-12-30 | 2010-01-01 | 
- 921835809 | Kranløft Østland  | 2011-12-31 | 2011-12-31 | 2010-01-01 | 2011-12-31
-(4 rows)
+ 823573673 | Kranløft Vestland | 2010-01-01 | 2012-12-31 | 2010-01-01 | 2012-12-31
+ 921835809 | Kranløft Østland  | 2010-01-01 | 2011-12-31 | 2010-01-01 | 2011-12-31
+(2 rows)
 
 \echo "Check statistical unit history by year - deaths should be 1 for year 2011 and 2012"
 "Check statistical unit history by year - deaths should be 1 for year 2011 and 2012"
@@ -194,7 +192,7 @@ SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registr
    queue   |   state   | count 
 -----------+-----------+-------
  analytics | pending   |     1
- import    | completed |    51
+ import    | completed |    54
 (2 rows)
 
 \echo "Checking import job status for import_42_lu_era_b2_death_end_m1"
@@ -206,7 +204,7 @@ WHERE slug = 'import_42_lu_era_b2_death_end_m1'
 ORDER BY slug;
                slug               |  state   | total_rows | imported_rows | has_error | error_rows 
 ----------------------------------+----------+------------+---------------+-----------+------------
- import_42_lu_era_b2_death_end_m1 | finished |          3 |             3 | f         |          0
+ import_42_lu_era_b2_death_end_m1 | finished |          2 |             2 | f         |          0
 (1 row)
 
 \echo Run worker processing for analytics tasks - Block 2
@@ -216,7 +214,7 @@ SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registr
    queue   |   state   | count 
 -----------+-----------+-------
  analytics | completed |   250
- import    | completed |    51
+ import    | completed |    54
 (2 rows)
 
 SELECT
@@ -236,10 +234,9 @@ WHERE unit_type = 'legal_unit'
 ORDER BY external_idents ->> 'tax_ident', valid_from;
  tax_ident |       name        | valid_from |  valid_to  | birth_date | death_date 
 -----------+-------------------+------------+------------+------------+------------
- 823573673 | Kranløft Vestland | 2010-01-01 | 2012-12-30 | 2010-01-01 | 
- 823573673 | Kranløft Vestland | 2012-12-31 | 2012-12-31 | 2010-01-01 | 2012-12-31
+ 823573673 | Kranløft Vestland | 2010-01-01 | 2012-12-31 | 2010-01-01 | 2012-12-31
  921835809 | Kranløft Østland  | 2010-01-01 | 2011-01-31 | 2010-01-01 | 2011-01-31
-(3 rows)
+(2 rows)
 
 \echo "Check statistical unit history by year - deaths should be 1 for year 2011 and 2012"
 "Check statistical unit history by year - deaths should be 1 for year 2011 and 2012"
@@ -338,7 +335,7 @@ SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registr
    queue   |   state   | count 
 -----------+-----------+-------
  analytics | pending   |     1
- import    | completed |    51
+ import    | completed |    54
 (2 rows)
 
 \echo "Checking import job status for import_42_lu_era_b3_death_start_m"
@@ -350,7 +347,7 @@ WHERE slug = 'import_42_lu_era_b3_death_start_m'
 ORDER BY slug;
                slug                |  state   | total_rows | imported_rows | has_error | error_rows 
 -----------------------------------+----------+------------+---------------+-----------+------------
- import_42_lu_era_b3_death_start_m | finished |          3 |             3 | f         |          0
+ import_42_lu_era_b3_death_start_m | finished |          2 |             2 | f         |          0
 (1 row)
 
 \echo Run worker processing for analytics tasks - Block 3
@@ -360,7 +357,7 @@ SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registr
    queue   |   state   | count 
 -----------+-----------+-------
  analytics | completed |   184
- import    | completed |    51
+ import    | completed |    54
 (2 rows)
 
 SELECT
@@ -380,10 +377,9 @@ WHERE unit_type = 'legal_unit'
 ORDER BY external_idents ->> 'tax_ident', valid_from;
  tax_ident |       name        | valid_from |  valid_to  | birth_date | death_date 
 -----------+-------------------+------------+------------+------------+------------
- 823573673 | Kranløft Vestland | 2010-01-01 | 2011-12-31 | 2010-01-01 | 
- 823573673 | Kranløft Vestland | 2012-01-01 | 2012-01-01 | 2010-01-01 | 2012-01-01
+ 823573673 | Kranløft Vestland | 2010-01-01 | 2012-01-01 | 2010-01-01 | 2012-01-01
  921835809 | Kranløft Østland  | 2010-01-01 | 2011-01-01 | 2010-01-01 | 2011-01-01
-(3 rows)
+(2 rows)
 
 \echo "Check statistical unit history by year - deaths should be 1 for year 2011 and 2012"
 "Check statistical unit history by year - deaths should be 1 for year 2011 and 2012"

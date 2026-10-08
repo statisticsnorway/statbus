@@ -166,6 +166,7 @@ Enumerated types used across the schema, with their possible values.
 
 
 ## Temporal Data & History
+**Unit existence and record validity.** A unit exists at an instant d iff `COALESCE(birth_date, valid_from) <= d AND (death_date IS NULL OR death_date > d) AND valid_until > d` for the record covering d; this canonical existence rule is introduced by STATBUS-460. The import side keeps data consistent with that rule: a unit's life must overlap the validity period of every record that claims it, so the `date_consistency` import step rejects a row iff `birth_date >= valid_until` or `death_date <= valid_from`. This is overlap, not containment: a birth or death inside the record's period is legal (STATBUS-461, see doc/import-system.md).
 
 
 ### Derivations to create statistical_unit for a complete picture of every EN,LU,ES for every atomic segment. (/search)

@@ -124,7 +124,7 @@ LIMIT 3;
 SELECT * FROM _victims ORDER BY lu_id;
  lu_id | ent_id 
 -------+--------
-     1 |      2
+     1 |      1
      2 |      5
      3 |      6
 (3 rows)

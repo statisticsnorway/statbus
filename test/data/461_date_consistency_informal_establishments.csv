@@ -1,0 +1,6 @@
+valid_from,valid_to,tax_ident,name,birth_date,death_date
+2023-01-01,2023-12-31,461100001,E01 Drill Down informal,2024-11-01,
+2024-01-01,infinity,461100001,E01 Drill Up informal,2024-11-01,
+2023-01-01,infinity,461100002,E02 Died before window start,,2022-12-31
+2024-01-01,infinity,461100003,E03 Born during window,2024-11-01,
+2023-01-01,2023-12-31,461100004,E04 Died mid-window,2020-01-01,2023-06-30

@@ -1,0 +1,23 @@
+valid_from,valid_to,tax_ident,name,birth_date,death_date
+2023-01-01,2023-12-31,461000001,C01 Born after window end,2024-11-01,
+2023-01-01,2023-12-31,461000002,C02 Born on valid_until,2024-01-01,
+2023-01-01,infinity,461000003,C03 Died before window start,,2022-06-30
+2023-01-01,infinity,461000004,C04 Died on valid_from,,2023-01-01
+2023-01-01,2023-12-31,461000005,C05 Born after end and died before start,2024-03-01,2022-12-31
+2024-01-01,infinity,461000006,C06 Born during window,2024-11-01,
+2023-01-01,2023-12-31,461000007,C07 Born on valid_from,2023-01-01,
+2023-01-01,2023-12-31,461000008,C08 Died mid-window,2020-01-01,2023-06-30
+2023-01-01,2023-12-31,461000009,C09 Died on valid_until,,2024-01-01
+2023-01-01,2023-12-31,461000010,C10a Birth only consistent,2023-12-31,
+2022-01-01,2022-12-31,461000011,C10b Birth only after end,2025-05-05,
+2023-01-01,2023-12-31,461000012,C11a Death only consistent,,2023-01-02
+2024-01-01,infinity,461000013,C11b Death only before start,,2020-01-01
+2023-01-01,infinity,461000014,C12 Neither date,,
+2023-01-01,infinity,461000015,C13 Open-ended born later year,2024-11-01,
+2023-01-01,2023-12-31,461000016,C14a Violating founder first,2024-11-01,
+2024-01-01,infinity,461000016,C14a Valid successor,2024-11-01,
+2023-01-01,2023-12-31,461000017,C14b Valid founder,2020-01-01,
+2024-01-01,infinity,461000017,C14b Violating successor,2020-01-01,2023-06-30
+2024-01-01,infinity,461000018,C14c Valid row listed first,2024-11-01,
+2023-01-01,2023-12-31,461000018,C14c Violating founder listed second,2024-11-01,
+2023-12-31,2023-01-01,461000019,C15 Inverted window,2025-01-01,2020-01-01

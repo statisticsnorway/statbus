@@ -330,6 +330,14 @@ SELECT jsonb_pretty(public.remove_ephemeral_data_from_hierarchy(definition_snaps
              "process_procedure": null                                            +
          },                                                                       +
          {                                                                        +
+             "code": "date_consistency",                                          +
+             "name": "Unit Life Overlaps Record Period",                          +
+             "priority": 12,                                                      +
+             "is_holistic": false,                                                +
+             "analyse_procedure": "import.analyse_date_consistency",              +
+             "process_procedure": null                                            +
+         },                                                                       +
+         {                                                                        +
              "code": "external_idents",                                           +
              "name": "External Identifiers",                                      +
              "priority": 15,                                                      +
@@ -2461,6 +2469,14 @@ SELECT jsonb_pretty(public.remove_ephemeral_data_from_hierarchy(definition_snaps
              "priority": 10,                                                        +
              "is_holistic": false,                                                  +
              "analyse_procedure": "import.analyse_valid_time",                      +
+             "process_procedure": null                                              +
+         },                                                                         +
+         {                                                                          +
+             "code": "date_consistency",                                            +
+             "name": "Unit Life Overlaps Record Period",                            +
+             "priority": 12,                                                        +
+             "is_holistic": false,                                                  +
+             "analyse_procedure": "import.analyse_date_consistency",                +
              "process_procedure": null                                              +
          },                                                                         +
          {                                                                          +
@@ -4773,7 +4789,31 @@ select queue,t.command,state,error from worker.tasks as t join worker.command_re
  import | import_job_process | completed | 
  import | import_job_process | completed | 
  import | import_job_process | completed | 
-(376 rows)
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+(400 rows)
 
 select slug, state, error is not null as failed,total_rows,imported_rows, import_completed_pct from public.import_job ORDER BY slug;
         slug        |  state   | failed | total_rows | imported_rows | import_completed_pct 
@@ -5027,7 +5067,7 @@ SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registr
    queue   |   state   | count 
 -----------+-----------+-------
  analytics | pending   |     1
- import    | completed |   384
+ import    | completed |   408
 (2 rows)
 
 -- Once the Imports are finished, then all the analytics can be processed, but only once.
@@ -5038,7 +5078,7 @@ SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registr
    queue   |   state   | count 
 -----------+-----------+-------
  analytics | completed |  1209
- import    | completed |   384
+ import    | completed |   408
 (2 rows)
 
 \echo Run any remaining tasks, there should be none.
@@ -5050,7 +5090,7 @@ SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registr
    queue   |   state   | count 
 -----------+-----------+-------
  analytics | completed |  1209
- import    | completed |   384
+ import    | completed |   408
 (2 rows)
 
 \echo Overview of statistical units, but not details, there are too many units.

@@ -79,7 +79,7 @@ SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registr
    queue   |   state   | count 
 -----------+-----------+-------
  analytics | pending   |     1
- import    | completed |    51
+ import    | completed |    54
 (2 rows)
 
 -- Create Import Job for Establishments (Era for LU)
@@ -102,7 +102,7 @@ SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registr
    queue   |   state   | count 
 -----------+-----------+-------
  analytics | pending   |     1
- import    | completed |   102
+ import    | completed |   108
 (2 rows)
 
 \echo "Checking unit counts after import processing"
@@ -220,7 +220,7 @@ SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registr
    queue   |   state   | count 
 -----------+-----------+-------
  analytics | completed |  1300
- import    | completed |   102
+ import    | completed |   108
 (2 rows)
 
 \echo "Inspecting import job data for import_03_lu_era (showing error rows first)"

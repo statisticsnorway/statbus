@@ -75,7 +75,7 @@ SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registr
    queue   |   state   | count 
 -----------+-----------+-------
  analytics | pending   |     1
- import    | completed |    51
+ import    | completed |    54
 (2 rows)
 
 \echo "Checking unit counts after history import"
@@ -122,7 +122,7 @@ SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registr
    queue   |   state   | count 
 -----------+-----------+-------
  analytics | completed |   172
- import    | completed |    51
+ import    | completed |    54
 (2 rows)
 
 \echo "Checking legal units - should have multiple time periods for same ident"

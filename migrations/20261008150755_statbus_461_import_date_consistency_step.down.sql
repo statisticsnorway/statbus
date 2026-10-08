@@ -1,4 +1,14 @@
-```sql
+-- Down Migration 20261008150755: statbus_461 import date_consistency step
+--
+-- Removes the date_consistency step (its definition links cascade) and its
+-- procedure, and restores import.analyse_valid_time exactly as dumped before
+-- the change.
+BEGIN;
+
+DELETE FROM public.import_step WHERE code = 'date_consistency';
+
+DROP PROCEDURE import.analyse_date_consistency(integer, integer, text);
+
 CREATE OR REPLACE PROCEDURE import.analyse_valid_time(IN p_job_id integer, IN p_batch_seq integer, IN p_step_code text)
  LANGUAGE plpgsql
 AS $procedure$
@@ -79,16 +89,7 @@ BEGIN
         UPDATE public.%1$I dt SET
             valid_from = fcc.casted_vf,
             valid_to = fcc.casted_vt,
-            -- STATBUS-461: an inverted period (valid_from > valid_until) cannot be
-            -- stored as-is, because the _data table's GIST index on
-            -- daterange(valid_from, valid_until) raises 'range lower bound must be
-            -- less than or equal to range upper bound' and fails the WHOLE batch.
-            -- Leave valid_until NULL for such a row; it is rejected below with the
-            -- 'Resulting period is invalid' error and skipped like any other.
-            valid_until = CASE
-                              WHEN fcc.casted_vf IS NOT NULL AND fcc.casted_vu IS NOT NULL AND fcc.casted_vf > fcc.casted_vu THEN NULL
-                              ELSE fcc.casted_vu
-                          END,
+            valid_until = fcc.casted_vu,
             state = CASE
                         WHEN NULLIF(fcc.original_vf, '') IS NULL OR fcc.vf_error_msg IS NOT NULL OR
                              NULLIF(fcc.original_vt, '') IS NULL OR fcc.vt_error_msg IS NOT NULL OR
@@ -168,4 +169,6 @@ BEGIN
     RAISE DEBUG '[Job %] analyse_valid_time (Batch): Finished analysis for batch. Errors newly marked in this step: %', p_job_id, v_error_count;
 END;
 $procedure$
-```
+;
+
+END;

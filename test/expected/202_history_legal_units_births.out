@@ -49,7 +49,7 @@ SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registr
    queue   |   state   | count 
 -----------+-----------+-------
  analytics | pending   |     1
- import    | completed |    51
+ import    | completed |    54
 (2 rows)
 
 \echo "Checking import job status for import_41_lu_era_b1_birth_start_y"
@@ -71,7 +71,7 @@ SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registr
    queue   |   state   | count 
 -----------+-----------+-------
  analytics | completed |   871
- import    | completed |    51
+ import    | completed |    54
 (2 rows)
 
 SELECT
@@ -193,7 +193,7 @@ SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registr
    queue   |   state   | count 
 -----------+-----------+-------
  analytics | pending   |     1
- import    | completed |    51
+ import    | completed |    54
 (2 rows)
 
 \echo "Checking import job status for import_41_lu_era_b2_birth_start_m2"
@@ -215,7 +215,7 @@ SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registr
    queue   |   state   | count 
 -----------+-----------+-------
  analytics | completed |  1294
- import    | completed |    51
+ import    | completed |    54
 (2 rows)
 
 SELECT
@@ -335,7 +335,7 @@ SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registr
    queue   |   state   | count 
 -----------+-----------+-------
  analytics | pending   |     1
- import    | completed |    51
+ import    | completed |    54
 (2 rows)
 
 \echo "Checking import job status for import_41_lu_era_b3_birth_mid_m"
@@ -357,7 +357,7 @@ SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registr
    queue   |   state   | count 
 -----------+-----------+-------
  analytics | completed |  1300
- import    | completed |    51
+ import    | completed |    54
 (2 rows)
 
 SELECT

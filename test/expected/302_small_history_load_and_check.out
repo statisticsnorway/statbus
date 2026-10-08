@@ -249,7 +249,7 @@ SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registr
    queue   |   state   | count 
 -----------+-----------+-------
  analytics | pending   |     1
- import    | completed |   384
+ import    | completed |   408
 (2 rows)
 
 \echo Check import job states after import
@@ -386,7 +386,7 @@ SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registr
    queue   |   state   | count 
 -----------+-----------+-------
  analytics | completed |  1209
- import    | completed |   384
+ import    | completed |   408
 (2 rows)
 
 \echo "Checking time_context view for correct dynamic names and filtering"
@@ -516,7 +516,7 @@ SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registr
    queue   |   state   | count 
 -----------+-----------+-------
  analytics | completed |  1209
- import    | completed |   384
+ import    | completed |   408
 (2 rows)
 
 \echo "High-level check of statistical units after import"
