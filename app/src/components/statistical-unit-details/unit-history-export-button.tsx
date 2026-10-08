@@ -11,6 +11,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import {
   formatExportProgress,
+  isExportActive,
   useStatisticalUnitExport,
 } from "@/app/search/export/use-statistical-unit-export";
 
@@ -43,7 +44,7 @@ export function UnitHistoryExportButton({
     });
   };
 
-  if (progress.phase === "downloading" || progress.phase === "processing") {
+  if (isExportActive(progress)) {
     return (
       <div className="flex items-center gap-1">
         <span className="text-xs text-gray-500">
@@ -68,7 +69,7 @@ export function UnitHistoryExportButton({
         title={progress.error}
         role="alert"
       >
-        Export failed
+        {formatExportProgress(progress)}
       </span>
     );
   }

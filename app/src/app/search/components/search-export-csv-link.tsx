@@ -30,6 +30,7 @@ import {
 } from "@/app/search/export/export-query";
 import {
   formatExportProgress,
+  isExportActive,
   useStatisticalUnitExport,
 } from "@/app/search/export/use-statistical-unit-export";
 
@@ -38,9 +39,10 @@ function formatRowCount(n: number): string {
 }
 
 /**
- * Search result export (STATBUS-421). The browser streams the whole result
- * set from PostgREST in a single `text/csv` request — no `/api` proxy, no
- * paging — with row progress, cancellation, and honest failure reporting.
+ * Search result export (STATBUS-421). One streaming request to the server's
+ * COPY export route (`/api/search/export`, the user's own role), written to
+ * disk as it arrives, with row and byte progress, cancellation, and honest
+ * failure reporting: an incomplete export is never saved.
  */
 export function ExportCSVLink() {
   const searchResult = useAtomValue(searchResultAtom);
@@ -73,7 +75,7 @@ export function ExportCSVLink() {
     }
   };
 
-  if (progress.phase === "downloading" || progress.phase === "processing") {
+  if (isExportActive(progress)) {
     const percent =
       progress.expectedRows != null && progress.expectedRows > 0
         ? Math.min(100, (progress.rowsReceived / progress.expectedRows) * 100)

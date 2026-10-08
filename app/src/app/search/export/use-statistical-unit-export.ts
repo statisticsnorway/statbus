@@ -3,25 +3,24 @@
 /**
  * Streaming statistical-unit export (STATBUS-421).
  *
- * ONE request to PostgREST per export — the browser calls
- * `/rest/statistical_unit` directly with `Accept: text/csv` (CSV) or
- * `Accept: application/json` (XLSX, built client-side so a large workbook
- * can never exhaust the shared app container's memory). This replaces the
- * old `/api/search/export` page loop, which repeated `count=exact` and a
- * deep-OFFSET sort per 100k rows until a page crossed the 120 s statement
- * timeout and the download died silently at a page boundary.
+ * CSV (Phase 2): ONE request to `/api/search/export`, the server route that
+ * streams `COPY (SELECT ...) TO STDOUT` as the user's own database role. The
+ * response is written chunk by chunk to a file the user chose with
+ * showSaveFilePicker (straight to disk, flat memory) or, where no picker
+ * exists, collected and handed to a normal download.
  *
- * - Progress: rows received (quote-aware CSV record counter) against the
- *   total the search page already displays.
- * - Integrity: the request sends `Prefer: count=exact`, so PostgREST
- *   announces the exact total of THIS response in `Content-Range`
- *   (`0-1976462/1976463`). A CSV whose row count differs from it is
- *   reported as an error and never saved. Only when that header carries no
- *   total does the guard fall back to the search page's total, and only if
- *   that total is exact (a planner estimate cannot judge completeness).
- * - Observability: failures (and completions of large exports) are reported
- *   to /api/logger with the request URL, row counts and elapsed time, so a
- *   failed export is findable in the server logs afterwards.
+ * - Progress: bytes received and rows received (quote-aware CSV record
+ *   counter) against the exact total the server announces in
+ *   `X-Export-Total-Rows` (counted in the same snapshot as the COPY).
+ * - Integrity: the file is committed only when the records received equal
+ *   that total; any shortfall, network failure or server abort calls
+ *   abort() on the file, so a partial export is never saved.
+ * - Observability: the server logs every failure with rows sent, expected
+ *   rows, bytes and elapsed time; the client additionally reports failures
+ *   (and completions of large exports) to /api/logger.
+ *
+ * XLSX still reads JSON from `/rest` and builds the workbook in memory until
+ * STATBUS-421 S3 replaces it with a streaming Worker fed by the same route.
  */
 
 import { useCallback, useRef, useState } from "react";
@@ -37,7 +36,21 @@ import {
   EXCEL_MAX_DATA_ROWS,
   EXCEL_CONFIRM_ROWS,
 } from "./export-query";
-import { createCsvRowCounter } from "./csv-row-counter";
+import { EXPORT_TOTAL_ROWS_HEADER } from "./export-sql";
+import {
+  canPickSaveFile,
+  createMemorySink,
+  createWritableSink,
+  ExportCancelledError,
+  ExportIncompleteError,
+  ExportStreamError,
+  excelRowLimitError,
+  parseAnnouncedTotal,
+  pickSaveFile,
+  pumpExportToSink,
+  saveBlob,
+  type ExportSink,
+} from "./export-download";
 import {
   EXACT_COUNT_PREFER,
   exportIncompleteError,
@@ -49,7 +62,13 @@ import { reportExportEvent } from "./export-logger";
 export type ExportFormat = "csv" | "xlsx";
 
 export interface SearchExportProgress {
-  phase: "idle" | "downloading" | "processing" | "complete" | "error";
+  phase:
+    | "idle"
+    | "waiting"
+    | "downloading"
+    | "processing"
+    | "complete"
+    | "error";
   rowsReceived: number;
   bytesReceived: number;
   /** Total the search page displays; null when no count is available. */
@@ -98,8 +117,10 @@ export function formatExportProgress(progress: SearchExportProgress): string {
       ? ` of ${formatCount(progress.expectedRows)}`
       : "";
   switch (progress.phase) {
+    case "waiting":
+      return `Preparing export… (${elapsed})`;
     case "downloading":
-      return `Downloading… ${formatCount(progress.rowsReceived)}${ofTotal} rows (${elapsed})`;
+      return `Downloading… ${formatCount(progress.rowsReceived)}${ofTotal} rows, ${formatMegabytes(progress.bytesReceived)} (${elapsed})`;
     case "processing":
       return `Building Excel workbook… ${formatCount(progress.rowsReceived)} rows (${elapsed})`;
     case "complete":
@@ -111,15 +132,32 @@ export function formatExportProgress(progress: SearchExportProgress): string {
   }
 }
 
-function saveBlob(blob: Blob, filename: string) {
-  const url = URL.createObjectURL(blob);
-  const anchor = document.createElement("a");
-  anchor.href = url;
-  anchor.download = filename;
-  document.body.appendChild(anchor);
-  anchor.click();
-  document.body.removeChild(anchor);
-  URL.revokeObjectURL(url);
+/** The JSON `message` of a failed response, or its raw text. */
+async function responseErrorText(response: Response): Promise<string> {
+  const text = await response.text().catch(() => "");
+  try {
+    const parsed = JSON.parse(text);
+    return typeof parsed?.message === "string"
+      ? parsed.message
+      : describeError(parsed);
+  } catch {
+    return text || response.statusText;
+  }
+}
+
+function formatMegabytes(bytes: number): string {
+  return `${(bytes / 1_000_000).toFixed(1)} MB`;
+}
+
+const CSV_MIME = "text/csv";
+
+/** True when the export is still running (show progress and Cancel). */
+export function isExportActive(progress: SearchExportProgress): boolean {
+  return (
+    progress.phase === "waiting" ||
+    progress.phase === "downloading" ||
+    progress.phase === "processing"
+  );
 }
 
 export function useStatisticalUnitExport() {
@@ -200,17 +238,112 @@ export function useStatisticalUnitExport() {
     };
 
     try {
-      if (
-        format === "xlsx" &&
-        expectedTotal != null &&
-        expectedTotal > EXCEL_MAX_DATA_ROWS
-      ) {
-        fail(
-          `Excel supports at most ${formatCount(EXCEL_MAX_DATA_ROWS)} data rows; this export has ${formatCount(expectedTotal)}. Use CSV instead.`,
-          0,
-          0
+      if (format === "csv") {
+        // The save dialog needs the click's user activation, so it is the
+        // FIRST await. Where there is no picker (Firefox, Safari) the CSV is
+        // collected and handed to a normal download at the end.
+        const sink: ExportSink = canPickSaveFile()
+          ? createWritableSink(
+              await (
+                await pickSaveFile(
+                  `${filenameBase}.csv`,
+                  "CSV file",
+                  CSV_MIME,
+                  ".csv"
+                )
+              ).createWritable(),
+              "file-picker"
+            )
+          : createMemorySink(
+              `${filenameBase}.csv`,
+              `${CSV_MIME};charset=utf-8`
+            );
+        controller.signal.addEventListener(
+          "abort",
+          () => void sink.abort(new ExportCancelledError()).catch(() => {}),
+          { once: true }
         );
+
+        const params = new URLSearchParams(searchParams);
+        params.delete("limit");
+        params.delete("offset");
+        requestUrl = `/api/search/export?${params}`;
+        setProgress({
+          phase: "waiting",
+          rowsReceived: 0,
+          bytesReceived: 0,
+          expectedRows: expectedTotal,
+          elapsedMs: 0,
+        });
+        const ticker = setInterval(
+          () =>
+            setProgress((current) =>
+              current.phase === "waiting"
+                ? { ...current, elapsedMs: Date.now() - startTime }
+                : current
+            ),
+          1000
+        );
+        let response: Response;
+        try {
+          response = await fetch(requestUrl, {
+            signal: controller.signal,
+            credentials: "same-origin",
+          });
+        } finally {
+          clearInterval(ticker);
+        }
+        if (!response.ok || !response.body) {
+          await sink.abort().catch(() => {});
+          fail(
+            `Export request failed (${response.status}): ${await responseErrorText(response)}`,
+            0,
+            0
+          );
+          return;
+        }
+        const announced = parseAnnouncedTotal(
+          response.headers.get(EXPORT_TOTAL_ROWS_HEADER)
+        );
+        if (announced === null) {
+          await response.body.cancel().catch(() => {});
+          await sink.abort().catch(() => {});
+          fail("Export response did not announce its row count", 0, 0);
+          return;
+        }
+        expectedRows = announced;
+
+        let lastUpdate = 0;
+        const result = await pumpExportToSink(
+          response.body,
+          sink,
+          announced,
+          (pumped) => {
+            latestRows = pumped.rowsReceived;
+            latestBytes = pumped.bytesReceived;
+            const now = Date.now();
+            if (now - lastUpdate > PROGRESS_UPDATE_INTERVAL_MS) {
+              lastUpdate = now;
+              setProgress({
+                phase: "downloading",
+                rowsReceived: pumped.rowsReceived,
+                bytesReceived: pumped.bytesReceived,
+                expectedRows: announced,
+                elapsedMs: now - startTime,
+              });
+            }
+          }
+        );
+        succeed(result.rowsReceived, result.bytesReceived);
         return;
+      }
+
+      if (format === "xlsx") {
+        const tooLarge = excelRowLimitError(expectedTotal);
+        if (tooLarge) {
+          fail(tooLarge, 0, 0);
+          return;
+        }
       }
 
       const client = await getBrowserRestClient();
@@ -231,7 +364,7 @@ export function useStatisticalUnitExport() {
         method: "GET",
         signal: controller.signal,
         headers: {
-          Accept: format === "csv" ? "text/csv" : "application/json",
+          Accept: "application/json",
           // The exact total of this very response, counted by the same
           // statement, in Content-Range: the completeness guard's reference.
           Prefer: EXACT_COUNT_PREFER,
@@ -261,7 +394,6 @@ export function useStatisticalUnitExport() {
       }
 
       const chunks: Uint8Array[] = [];
-      const counter = createCsvRowCounter();
       let bytesReceived = 0;
       let lastUpdate = 0;
 
@@ -270,41 +402,19 @@ export function useStatisticalUnitExport() {
         if (done) break;
         chunks.push(value);
         bytesReceived += value.length;
-        if (format === "csv") counter.push(value);
         latestBytes = bytesReceived;
-        latestRows = format === "csv" ? counter.records : latestRows;
 
         const now = Date.now();
         if (now - lastUpdate > PROGRESS_UPDATE_INTERVAL_MS) {
           lastUpdate = now;
           setProgress({
             phase: "downloading",
-            rowsReceived: format === "csv" ? counter.records : 0,
+            rowsReceived: 0,
             bytesReceived,
             expectedRows,
             elapsedMs: now - startTime,
           });
         }
-      }
-
-      if (format === "csv") {
-        const rowsReceived = counter.records;
-        // A short stream is a failed export, not a file: the historical bugs
-        // were exactly silent partial downloads.
-        const incomplete = exportIncompleteError(
-          rowsReceived,
-          resolveExpectedRows(contentRange, expectedTotal, totalIsExact)
-        );
-        if (incomplete) {
-          fail(incomplete, rowsReceived, bytesReceived);
-          return;
-        }
-        saveBlob(
-          new Blob(chunks as BlobPart[], { type: "text/csv;charset=utf-8" }),
-          `${filenameBase}.csv`
-        );
-        succeed(rowsReceived, bytesReceived);
-        return;
       }
 
       // XLSX: parse the JSON rows and build the workbook in the browser.
@@ -329,12 +439,9 @@ export function useStatisticalUnitExport() {
         return;
       }
 
-      if (rows.length > EXCEL_MAX_DATA_ROWS) {
-        fail(
-          `Excel supports at most ${formatCount(EXCEL_MAX_DATA_ROWS)} data rows; this export has ${formatCount(rows.length)}. Use CSV instead.`,
-          rows.length,
-          bytesReceived
-        );
+      const tooLarge = excelRowLimitError(rows.length);
+      if (tooLarge) {
+        fail(tooLarge, rows.length, bytesReceived);
         return;
       }
 
@@ -375,7 +482,18 @@ export function useStatisticalUnitExport() {
       );
       succeed(rows.length, bytesReceived);
     } catch (error) {
-      if (controller.signal.aborted) return; // cancelled by the user
+      // Cancelled by the user: either the Cancel button or the save dialog.
+      if (controller.signal.aborted || error instanceof ExportCancelledError) {
+        setProgress(IDLE);
+        return;
+      }
+      if (
+        error instanceof ExportStreamError ||
+        error instanceof ExportIncompleteError
+      ) {
+        fail(error.message, error.rowsReceived, error.bytesReceived);
+        return;
+      }
       fail(describeError(error), latestRows, latestBytes);
     }
   }, []);
