@@ -4,7 +4,7 @@ title: CSV export of search results contains every matching row
 status: In Progress
 assignee: []
 created_date: '2026-09-25 14:02'
-updated_date: '2026-10-08 10:42'
+updated_date: '2026-10-08 11:34'
 labels:
   - app
 dependencies: []
@@ -55,11 +55,7 @@ Reported by Erik 2026-09-25 (Slack): exporting all legal units + establishments 
 ## Implementation Notes
 
 <!-- SECTION:NOTES:BEGIN -->
-TRANSPORT DECISION, 2026-10-08 (owner): ONE mechanism only, the COPY route. Rationale: it is already secure because it authenticates with auth.jwt_switch_role on the user cookie, so RLS still applies, and it is already proven in this repository for import downloads. Phase 1 (the projection fix plus a guard against the server-announced Content-Range total) still ships first and is independent of this decision.
-CLIENT PROGRESS AND STREAMING TO DISK (owner question: can the stream go all the way to disk in the first pass?). Yes, as a progressive enhancement. Where the File System Access API is available (Chromium browsers), the client can let the user choose a file and write each received chunk straight to it, so browser memory stays constant. Where it is not available (Firefox), fall back to assembling in memory as today. Progress by RECEIVED BYTES is the right indicator, because the total byte count is not known in advance; rows-received stays available as a secondary line for CSV, since the row counter already exists. Practically this means the response carries no meaningful total, and the UI shows 'received N MB' plus rows.
-XLSX (owner: think about the delay after all bytes are received). Generate XLSX SERVER-SIDE with a streaming writer over DECLARE cursor plus FETCH batches, exactly as app/src/app/api/import/download/route.ts already does, and stream it to the client. That removes the delay: the bytes the client receives ARE the finished workbook, so there is no client-side conversion step after the transfer and 'received bytes' is honest progress for Excel too. Browser-side workbook assembly must not be the mechanism for large exports, because the user would otherwise watch all bytes arrive and then wait with no explanation.
-
-PHASE 1 SHIPPED, commit 7d89a032a (2026-10-08). (1) export-query.ts: the three name columns use the spread syntax ...primary_activity_category(primary_activity_category_name:name), ...secondary_activity_category(secondary_activity_category_name:name), ...physical_region(physical_region_name:name). exportFieldNames resolves the spread's inner alias so XLSX keeps names and order. (2) Guard: the request now sends Prefer: count=exact (without it PostgREST answers Content-Range 0-N/* with no total). Rows received are checked against the Content-Range denominator, counted by the same statement as the rows. The search page total is the fallback only when the header has no total AND that total is exact. A mismatch errors with both counts and saves nothing; the check also covers XLSX. MEASURED on the restored Norway dump, unit_type=in.(legal_unit,establishment): new select, HTTP 200, Content-Range 0-1976462/1976463, 1,976,463 rows (python csv reader), 426,331,946 bytes, 28.1s with count=exact (33.6s on another run without it), byte-identical to tmp/421-corrected-full.csv. Old arrow select under the same request: HTTP 206, Content-Range 0-1946992/1976463, 1,946,993 rows, 80.2s, so the guard rejects it. COLUMN ORDER CAVEAT: PostgREST writes embedded/spread columns after all plain columns, so in the CSV the three *_name columns are now the LAST columns, after the stat variables (names unchanged; XLSX order unchanged). Restoring the historical CSV position is left for Phase 2, where the COPY route controls the column order.
+OWNER DECISION 2026-10-08: the CSV column-order caveat (the three *_name columns moving to the end because PostgREST writes embedded columns after plain ones) NEEDS NO ACTION. The owner considers it irrelevant because we are leaving this design for the COPY route, where column order is explicit. Do not spend work on reordering the CSV in the PostgREST path. The broader question of whether the arrow-syntax construct bites elsewhere is filed as its own ticket.
 <!-- SECTION:NOTES:END -->
 
 ## 2026-10-07: the export still cannot deliver — owner-observed failure on no.statbus.org, diagnosed
