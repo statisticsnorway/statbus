@@ -4,7 +4,7 @@ title: CSV export of search results contains every matching row
 status: In Progress
 assignee: []
 created_date: '2026-09-25 14:02'
-updated_date: '2026-10-08 13:21'
+updated_date: '2026-10-08 13:22'
 labels:
   - app
 dependencies: []
@@ -55,7 +55,12 @@ Reported by Erik 2026-09-25 (Slack): exporting all legal units + establishments 
 ## Implementation Notes
 
 <!-- SECTION:NOTES:BEGIN -->
-CLIENT-SIDE XLSX FEASIBILITY CONFIRMED AND MEASURED, 2026-10-08 (report tmp/421-client-xlsx-feasibility.md, prototype kept in tmp/421-xlsx-proto/). VERDICT: feasible, with ONE server mechanism (COPY CSV streamed with the user's JWT) feeding both formats; the browser converts that same stream to XLSX while it arrives and writes the workbook straight to disk. At the full Excel limit in headless Chromium 141: 17.5 s wall, a 113 MB file, a 14 ms tail after the last network byte, completed under a 64 MB V8 heap cap which is proven to kill a Worker that buffers. Firefox native works and the fflate fallback works; Firefox lacks showSaveFilePicker, so its fallback streams into OPFS and then hands the finished file to a normal download, a measured 7.7 s copy for a 117 MB workbook. Independent readers all accept the output: zipfile CRC, expat, openpyxl cell by cell with 0 mismatches, and LibreOffice 7.6 in headless mode, which sees 1,048,575 data rows and the last row 993998656 LYSTGAARDEN BAR & RESTAURANT AS. IT ALSO EXPLAINS THE EARLIER MISMATCH LOG: the first full run had 29 mismatches, all dates 1900-01-01 to 1900-02-28 arriving one day late, because Excel's serial numbers include the fictitious 1900-02-29 (serial 60, the Lotus compatibility quirk), so dates before 1900-03-01 must be one lower. Fixed in the prototype and the rerun shows 0 mismatches; a production writer needs a unit test for 1900-01-01 -> 1, 1900-02-28 -> 59 and 1900-03-01 -> 61. CONSTRAINTS RECORDED: run the conversion in a dedicated Worker; use native CompressionStream deflate-raw with fflate supplying only the ZIP container and CRC; refuse above EXCEL_MAX_DATA_ROWS both before the request and on the fly; abort() on any failure; Firefox OPFS fallback. A real-Excel acceptance check remains the owner's to perform.
+PHASE 2 SLICES, 2026-10-08, now that the XLSX feasibility question is answered. One mechanism: a server-side streaming export route authenticated with the user's JWT, feeding both formats, with the client writing to disk. Land each slice as its own commit with its own evidence; stop and report if a slice turns out much larger than it looks.
+S1, the server route: authenticate with auth.jwt_switch_role on the user's cookie exactly as app/src/app/api/import/download/route.ts does, run COPY (SELECT ...) TO STDOUT WITH (FORMAT CSV, HEADER) with pg-copy-streams, and stream it to the response with backpressure. Constant memory, no aggregate, no 1 GiB ceiling. The composed select moves into SQL, where column order is explicit, which also settles the CSV column-order caveat from Phase 1.
+S2, the client CSV path: fetch that route, stream with getReader, write chunks straight to a file chosen through showSaveFilePicker where available, report progress in received bytes AND rows, abort() on any failure, and keep the completeness check against the server-announced total.
+S3, the client XLSX path: a dedicated Worker converting the incoming CSV records into XLSX while they arrive, using native CompressionStream('deflate-raw') with fflate supplying only the ZIP container and CRC; write straight to disk; refuse above EXCEL_MAX_DATA_ROWS both before the request and on the fly. Include the unit test the feasibility report calls for: 1900-01-01 -> serial 1, 1900-02-28 -> 59, 1900-03-01 -> 61, because Excel's serials include the fictitious 1900-02-29.
+S4, the Firefox fallback: no showSaveFilePicker there, so stream into OPFS and then hand the finished file to a normal download, documenting the measured copy cost (7.7 s for a 117 MB workbook).
+S5, retire the direct-REST single-request path per the single-mechanism decision, and update doc/DEPLOYMENT.md and the export docs. The 421 criteria authored on 2026-10-08 remain the acceptance bar.
 <!-- SECTION:NOTES:END -->
 
 ## 2026-10-07: the export still cannot deliver — owner-observed failure on no.statbus.org, diagnosed
