@@ -6,7 +6,7 @@ title: >-
 status: Done
 assignee: []
 created_date: '2026-10-08 13:12'
-updated_date: '2026-10-08 14:57'
+updated_date: '2026-10-08 15:10'
 labels:
   - sql
   - import
@@ -98,4 +98,6 @@ DOD2. The full field file ClassificationsSBVer2_ActivityCategoris_TCC.csv (997 r
 FOUND ALONG THE WAY, filed as STATBUS-473 (not fixed here): the activity category upserts end in ON CONFLICT ... DO UPDATE ... WHERE activity_category.id = EXCLUDED.id, which never matches, so (a) re-uploading a custom file with corrected labels is silently ignored (INSERT 0 0), and (b) a standard reload through activity_category_nace_v2_1/isic_v4 is followed by delete_stale_activity_category deleting every pre-existing code (observed 1047 -> 1 in a rolled-back transaction). activity_category_enabled's insert trigger reads a nonexistent settings.standard_id. This matters for 472's operator: re-uploading the untrimmed labels over existing custom rows will NOT update them until 473 lands.
 
 CI for 8e7a9cf5f (read via gh run list, not run watch): Go Test, app build & lint, Images, Harness Selftest, Push on master and Notify cloud services all success. Its own Fast Tests run (37788818185) was cancelled by supersession from later pushes. Fast Tests run 37789331297 at descendant 937707b92 (contains 8e7a9cf5f) concluded success, so the suite including test 132 is green on master.
+
+CORRECTIONS (2026-10-08, after landing). (1) doc/text-length-bounds.md listed enterprise_group.name among the remaining 256-bound columns, but that table no longer exists (it is power_group now). Fixed in 3e678f8d0, a doc-only commit. (2) Provenance of the doc/db alias change in public_statistical_unit_def.md was verified: pg_get_viewdef on statbus_seed (PostgreSQL 18.6) itself emits 'legal_unit'::statistical_unit_type AS statistical_unit_type, so it is generator output and not a hand edit. (3) Process note: the local full fast suite (13 min) was more than needed. Test 132 plus the schema-shape tests (002/015/016/101) would have found the one expectation that moved (002), and CI runs the fast suite on push. (4) The doc/db and types freshness stamps under tmp/ were withheld because the tree had uncommitted migrations when the generators ran. They are local only and get written by the next generator run on a clean tree.
 <!-- SECTION:NOTES:END -->
