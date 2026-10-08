@@ -4,7 +4,7 @@ title: CSV export of search results contains every matching row
 status: In Progress
 assignee: []
 created_date: '2026-09-25 14:02'
-updated_date: '2026-10-08 12:30'
+updated_date: '2026-10-08 13:21'
 labels:
   - app
 dependencies: []
@@ -55,14 +55,7 @@ Reported by Erik 2026-09-25 (Slack): exporting all legal units + establishments 
 ## Implementation Notes
 
 <!-- SECTION:NOTES:BEGIN -->
-CLIENT-SIDE XLSX FALLBACK DEFINED (owner asked to define it, 2026-10-08). Prototype evidence in tmp/421-xlsx-proto/out/: a streamed XLSX of 1,048,575 rows was written in 24.9 s with tailAfterLastInputMs 16, so there is no pause after the last input byte, and progress was reported in bytes and rows. Measured browser support: Chromium has showSaveFilePicker, so chunks stream straight to the user's chosen file with flat memory; Firefox 142 has no showSaveFilePicker but does have OPFS and createWritable.
-
-THE DEFINITION.
-1. PREFERRED (showSaveFilePicker available): stream workbook chunks directly to the chosen file as rows arrive. Flat memory at any size. Progress = received bytes, bytes written, rows written.
-2. FALLBACK (Firefox; OPFS available): write the streamed workbook progressively to the origin private file system, so memory stays flat while the export runs, then offer it for saving by reading it back as a Blob. Document the one-off read-back cost (memory equal to the file, measured about 113 MB at 1,048,575 rows) and warn above a threshold such as 500 MB instead of failing silently.
-3. DEGRADED (neither API): refuse XLSX above a small bound and point the operator at CSV, rather than buffering a large workbook without saying so.
-4. DATES: keep sentinel and historical date columns as TEXT, never date-typed cells. The prototype found 29 cells where the sentinel 1900-01-01 returned a day off through Excel's 1900 date system, and it already keeps pre-1900 values as text (1,362 cells). Our data uses 1900-01-01 as a sentinel, so the rule is: write date columns as text unless the value is a real date in Excel's unambiguous range.
-5. XLSX stays capped at the sheet limit with the existing honest refusal; CSV remains the primary path for large exports.
+CLIENT-SIDE XLSX FEASIBILITY CONFIRMED AND MEASURED, 2026-10-08 (report tmp/421-client-xlsx-feasibility.md, prototype kept in tmp/421-xlsx-proto/). VERDICT: feasible, with ONE server mechanism (COPY CSV streamed with the user's JWT) feeding both formats; the browser converts that same stream to XLSX while it arrives and writes the workbook straight to disk. At the full Excel limit in headless Chromium 141: 17.5 s wall, a 113 MB file, a 14 ms tail after the last network byte, completed under a 64 MB V8 heap cap which is proven to kill a Worker that buffers. Firefox native works and the fflate fallback works; Firefox lacks showSaveFilePicker, so its fallback streams into OPFS and then hands the finished file to a normal download, a measured 7.7 s copy for a 117 MB workbook. Independent readers all accept the output: zipfile CRC, expat, openpyxl cell by cell with 0 mismatches, and LibreOffice 7.6 in headless mode, which sees 1,048,575 data rows and the last row 993998656 LYSTGAARDEN BAR & RESTAURANT AS. IT ALSO EXPLAINS THE EARLIER MISMATCH LOG: the first full run had 29 mismatches, all dates 1900-01-01 to 1900-02-28 arriving one day late, because Excel's serial numbers include the fictitious 1900-02-29 (serial 60, the Lotus compatibility quirk), so dates before 1900-03-01 must be one lower. Fixed in the prototype and the rerun shows 0 mismatches; a production writer needs a unit test for 1900-01-01 -> 1, 1900-02-28 -> 59 and 1900-03-01 -> 61. CONSTRAINTS RECORDED: run the conversion in a dedicated Worker; use native CompressionStream deflate-raw with fflate supplying only the ZIP container and CRC; refuse above EXCEL_MAX_DATA_ROWS both before the request and on the fly; abort() on any failure; Firefox OPFS fallback. A real-Excel acceptance check remains the owner's to perform.
 <!-- SECTION:NOTES:END -->
 
 ## 2026-10-07: the export still cannot deliver — owner-observed failure on no.statbus.org, diagnosed
