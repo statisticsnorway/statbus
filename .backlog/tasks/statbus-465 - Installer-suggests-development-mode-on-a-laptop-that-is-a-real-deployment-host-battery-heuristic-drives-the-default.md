@@ -6,7 +6,7 @@ title: >-
 status: Done
 assignee: []
 created_date: '2026-10-08 12:01'
-updated_date: '2026-10-08 15:41'
+updated_date: '2026-10-08 15:51'
 labels:
   - installer
 dependencies: []
@@ -42,8 +42,8 @@ REQUIRED BEHAVIOUR.
 
 ## Definition of Done
 <!-- DOD:BEGIN -->
-- [x] #1 TestSuggestedModeIsStandaloneWithOrWithoutBattery is shown CONSEQUENTIAL: at 054611d1d^ (where the battery heuristic exists) it FAILS with a battery directory present, and at HEAD it passes, with both outputs recorded in the ticket.
-- [ ] #2 Nothing in the installer derives the deployment mode from the host: the suggestion is the compile-time constant SuggestedMode = standalone, and cli/ contains no battery, power-supply or laptop detection outside the tests. The real install.sh prompt was observed once through a PTY on a real Linux host (battery-less, which is immaterial now that no host input exists): all three modes are explained and standalone is suggested, and pressing Enter installs CADDY_DEPLOYMENT_MODE=standalone.
+- [ ] #1 The deployment-mode suggestion is the compile-time constant SuggestedMode = standalone: both the interactive prompt's fallback and the value installinput.Ask suggests are that constant, asserted by cli/cmd/install_mode_suggestion_test.go, while development and private remain selectable with their explanations. Running the installer IS the standalone installation, by owner decision.
+- [ ] #2 TestModeSuggestionIsTheSuggestedModeConstant is shown CONSEQUENTIAL: at 054611d1d^ (which still had the development fallback in the field table) it FAILS on any host, battery or not, and at HEAD it passes, with both outputs recorded in the ticket. This supersedes the earlier battery-fixture evidence, which could not fail on battery-less CI.
 <!-- DOD:END -->
 
 ## Implementation Notes
@@ -77,4 +77,6 @@ Pressing Enter installed CADDY_DEPLOYMENT_MODE=standalone. That proves the promp
 NOT SHOWN, stated exactly: the real install.sh prompt observed on a Linux host that presents a battery. No such host was reachable, and the coordinator ruled out adding new VMs or machinery. The battery-host claim rests on the Linux-container red/green above: real /sys path, real runCreateConfig questionnaire through the prompt seam, no install.sh. DoD#1 is satisfied. DoD#2 is left unchecked for the owner to judge whether (2) plus the container red/green is sufficient.
 
 CLOSED per the owner's point (2026-10-08): the battery heuristic is REMOVED, so there is nothing host-derived left to observe. Verified read-only: rg finds no power_supply, Battery, /sys or installIsLaptop reference in cli/ or install.sh outside tests, and cli/internal/installinput/config.go documents and uses the constant SuggestedMode = 'standalone'. The earlier DoD#2 (an observation on a host presenting a battery) asked for evidence of a behaviour that no longer exists; the consequential test remains DoD#1 (the suggestion test fails at 054611d1d^ and passes at HEAD).
+
+DoD reworked (2026-10-08, owner's point): a test that asserts removed code is ABSENT is not a real invariant, so the criterion now asserts the positive behaviour - the suggestion IS the constant SuggestedMode and the prompt falls back to it - which is what the test checks, and DoD#1 now names the renamed test (TestModeSuggestionIsTheSuggestedModeConstant, commit ac2c7b866) instead of the deleted battery-fixture test.
 <!-- SECTION:NOTES:END -->
