@@ -13,8 +13,12 @@
  *
  * - Progress: rows received (quote-aware CSV record counter) against the
  *   total the search page already displays.
- * - Integrity: when the search page's total is exact, a truncated stream is
- *   detected by row count and reported as an error — never saved silently.
+ * - Integrity: the request sends `Prefer: count=exact`, so PostgREST
+ *   announces the exact total of THIS response in `Content-Range`
+ *   (`0-1976462/1976463`). A CSV whose row count differs from it is
+ *   reported as an error and never saved. Only when that header carries no
+ *   total does the guard fall back to the search page's total, and only if
+ *   that total is exact (a planner estimate cannot judge completeness).
  * - Observability: failures (and completions of large exports) are reported
  *   to /api/logger with the request URL, row counts and elapsed time, so a
  *   failed export is findable in the server logs afterwards.
@@ -34,6 +38,12 @@ import {
   EXCEL_CONFIRM_ROWS,
 } from "./export-query";
 import { createCsvRowCounter } from "./csv-row-counter";
+import {
+  EXACT_COUNT_PREFER,
+  exportIncompleteError,
+  parseContentRangeTotal,
+  resolveExpectedRows,
+} from "./export-completeness";
 import { reportExportEvent } from "./export-logger";
 
 export type ExportFormat = "csv" | "xlsx";
@@ -136,6 +146,8 @@ export function useStatisticalUnitExport() {
     // Local tallies so the catch below never reads stale React state.
     let latestRows = 0;
     let latestBytes = 0;
+    // The search page's total until the server announces the exact one.
+    let expectedRows = expectedTotal;
 
     const fail = (
       error: string,
@@ -147,7 +159,7 @@ export function useStatisticalUnitExport() {
         phase: "error",
         rowsReceived,
         bytesReceived,
-        expectedRows: expectedTotal,
+        expectedRows,
         elapsedMs,
         error,
       });
@@ -155,7 +167,7 @@ export function useStatisticalUnitExport() {
         format,
         url: requestUrl,
         rowsReceived,
-        expectedRows: expectedTotal,
+        expectedRows,
         bytesReceived,
         elapsedMs,
         error,
@@ -168,7 +180,7 @@ export function useStatisticalUnitExport() {
         phase: "complete",
         rowsReceived,
         bytesReceived,
-        expectedRows: expectedTotal,
+        expectedRows,
         elapsedMs,
       });
       if (rowsReceived >= COMPLETION_LOG_ROWS) {
@@ -179,7 +191,7 @@ export function useStatisticalUnitExport() {
             format,
             url: requestUrl,
             rowsReceived,
-            expectedRows: expectedTotal,
+            expectedRows,
             bytesReceived,
             elapsedMs,
           }
@@ -220,6 +232,9 @@ export function useStatisticalUnitExport() {
         signal: controller.signal,
         headers: {
           Accept: format === "csv" ? "text/csv" : "application/json",
+          // The exact total of this very response, counted by the same
+          // statement, in Content-Range: the completeness guard's reference.
+          Prefer: EXACT_COUNT_PREFER,
         },
       });
 
@@ -235,6 +250,9 @@ export function useStatisticalUnitExport() {
         fail(`Export request failed (${response.status}): ${detail}`, 0, 0);
         return;
       }
+
+      const contentRange = response.headers.get("Content-Range");
+      expectedRows = parseContentRangeTotal(contentRange) ?? expectedTotal;
 
       const reader = response.body?.getReader();
       if (!reader) {
@@ -263,7 +281,7 @@ export function useStatisticalUnitExport() {
             phase: "downloading",
             rowsReceived: format === "csv" ? counter.records : 0,
             bytesReceived,
-            expectedRows: expectedTotal,
+            expectedRows,
             elapsedMs: now - startTime,
           });
         }
@@ -271,18 +289,14 @@ export function useStatisticalUnitExport() {
 
       if (format === "csv") {
         const rowsReceived = counter.records;
-        // A truncated stream is a failed export, not a file: the historical
-        // bug was exactly a silent partial download.
-        if (
-          totalIsExact &&
-          expectedTotal != null &&
-          rowsReceived !== expectedTotal
-        ) {
-          fail(
-            `Export incomplete: received ${formatCount(rowsReceived)} of ${formatCount(expectedTotal)} rows. The download was not saved — please try again.`,
-            rowsReceived,
-            bytesReceived
-          );
+        // A short stream is a failed export, not a file: the historical bugs
+        // were exactly silent partial downloads.
+        const incomplete = exportIncompleteError(
+          rowsReceived,
+          resolveExpectedRows(contentRange, expectedTotal, totalIsExact)
+        );
+        if (incomplete) {
+          fail(incomplete, rowsReceived, bytesReceived);
           return;
         }
         saveBlob(
@@ -302,9 +316,18 @@ export function useStatisticalUnitExport() {
         phase: "processing",
         rowsReceived: rows.length,
         bytesReceived,
-        expectedRows: expectedTotal,
+        expectedRows,
         elapsedMs: Date.now() - startTime,
       });
+
+      const incomplete = exportIncompleteError(
+        rows.length,
+        resolveExpectedRows(contentRange, expectedTotal, totalIsExact)
+      );
+      if (incomplete) {
+        fail(incomplete, rows.length, bytesReceived);
+        return;
+      }
 
       if (rows.length > EXCEL_MAX_DATA_ROWS) {
         fail(

@@ -90,6 +90,68 @@ describe("composeExportSelect", () => {
     expect(select).toContain("sector_code");
     expect(select).toContain("legal_form_code");
   });
+
+  // STATBUS-421: the arrow form (`alias:rel->>name`) on a SETOF computed
+  // relationship drops the row when every such call returns an empty set.
+  it("projects relationship names with the spread syntax, never the arrow form", () => {
+    const columns = composeExportSelect(emptyBaseData, null).split(",");
+    expect(columns).toEqual(
+      expect.arrayContaining([
+        "...primary_activity_category(primary_activity_category_name:name)",
+        "...secondary_activity_category(secondary_activity_category_name:name)",
+        "...physical_region(physical_region_name:name)",
+      ])
+    );
+    expect(columns.filter((column) => column.includes("->>name"))).toEqual([]);
+  });
+
+  it("keeps the full column list and order for a mixed export", () => {
+    expect(composeExportSelect(baseData, "in.(legal_unit,establishment)")).toBe(
+      [
+        "org_no:external_idents->>org_no",
+        "tax_ident:external_idents->>tax_ident",
+        "valid_from",
+        "valid_to",
+        "name",
+        "unit_type",
+        "birth_date",
+        "death_date",
+        "primary_activity_category_code",
+        "...primary_activity_category(primary_activity_category_name:name)",
+        "secondary_activity_category_code",
+        "...secondary_activity_category(secondary_activity_category_name:name)",
+        "sector_code",
+        "legal_form_code",
+        "physical_address_part1",
+        "physical_address_part2",
+        "physical_address_part3",
+        "physical_postcode",
+        "physical_postplace",
+        "physical_region_code",
+        "...physical_region(physical_region_name:name)",
+        "physical_country_iso_2",
+        "physical_latitude:physical_latitude::float8",
+        "physical_longitude:physical_longitude::float8",
+        "physical_altitude:physical_altitude::float8",
+        "postal_address_part1",
+        "postal_address_part2",
+        "postal_address_part3",
+        "postal_postcode",
+        "postal_postplace",
+        "postal_country_iso_2",
+        "web_address",
+        "email_address",
+        "phone_number",
+        "landline",
+        "mobile_number",
+        "fax_number",
+        "status_code",
+        "unit_size_code",
+        "employees:stats_summary->employees->sum",
+        "turnover:stats_summary->turnover->sum",
+      ].join(",")
+    );
+  });
 });
 
 describe("exportFieldNames", () => {
@@ -104,6 +166,21 @@ describe("exportFieldNames", () => {
     expect(fields).toContain("primary_activity_category_name");
     expect(fields).toContain("sector_code");
     expect(fields.slice(-2)).toEqual(["employees", "turnover"]);
+  });
+
+  it("names spread columns by their inner alias, keeping the historical order", () => {
+    const fields = exportFieldNames(emptyBaseData, "in.(establishment)");
+    const primary = fields.indexOf("primary_activity_category_code");
+    expect(fields.slice(primary, primary + 4)).toEqual([
+      "primary_activity_category_code",
+      "primary_activity_category_name",
+      "secondary_activity_category_code",
+      "secondary_activity_category_name",
+    ]);
+    const region = fields.indexOf("physical_region_name");
+    expect(fields[region - 1]).toBe("physical_region_code");
+    expect(fields[region + 1]).toBe("physical_country_iso_2");
+    expect(fields.filter((field) => /[.(]/.test(field))).toEqual([]);
   });
 });
 
