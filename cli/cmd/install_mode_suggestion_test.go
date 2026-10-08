@@ -13,11 +13,10 @@ import (
 	"github.com/statisticsnorway/statbus/cli/internal/installinput"
 )
 
-// STATBUS-465: the installer ALWAYS suggests standalone. The removed battery
-// heuristic made a Linux laptop host (the Finland box) suggest development,
-// which the operator accepted. No host input is consulted any more, so these
-// tests drive the real interactive Configuration step and record what each
-// question suggested.
+// STATBUS-465: the installer ALWAYS suggests standalone, the constant
+// installinput.SuggestedMode, on every host. These tests drive the real
+// interactive Configuration step and record what each question suggested;
+// nothing about the machine running them is read or faked.
 
 type questionnaireRun struct {
 	labels    []string
@@ -80,39 +79,41 @@ func pressEnterOnMode() map[string]string {
 	}
 }
 
-// A battery-shaped tree present or absent on disk changes nothing: there is
-// no hardware input left for it to influence. The fixture is a temp tree, so
-// the suite host's own hardware never matters either.
-func TestSuggestedModeIsStandaloneWithOrWithoutBattery(t *testing.T) {
-	for _, battery := range []bool{false, true} {
-		name := "no battery"
-		if battery {
-			name = "battery present"
+// The mode suggestion IS the constant SuggestedMode, which is standalone:
+// both where the questions are defined (installinput.Ask) and where the
+// installer asks them (runCreateConfig), and pressing Enter configures it.
+func TestModeSuggestionIsTheSuggestedModeConstant(t *testing.T) {
+	if installinput.SuggestedMode != "standalone" {
+		t.Fatalf("SuggestedMode = %q, want standalone", installinput.SuggestedMode)
+	}
+	var askFallback string
+	installinput.Ask(func(label, fallback string) string {
+		if strings.HasSuffix(label, modeQuestion) {
+			askFallback = fallback
 		}
-		t.Run(name, func(t *testing.T) {
-			powerSupply := filepath.Join(t.TempDir(), "sys", "class", "power_supply")
-			if battery {
-				if err := os.MkdirAll(filepath.Join(powerSupply, "BAT0"), 0o755); err != nil {
-					t.Fatal(err)
-				}
-				if err := os.WriteFile(filepath.Join(powerSupply, "BAT0", "type"), []byte("Battery\n"), 0o644); err != nil {
-					t.Fatal(err)
-				}
-			}
-			run := runInteractiveConfiguration(t, pressEnterOnMode())
-			if got := run.fallbacks[modeQuestion]; got != "standalone" {
-				t.Fatalf("suggested mode %q, want standalone", got)
-			}
-			mode, _ := dotenv.FromString(run.config).Get("CADDY_DEPLOYMENT_MODE")
-			if mode != "standalone" {
-				t.Fatalf("pressing Enter configured %q, want standalone:\n%s", mode, run.config)
-			}
-		})
+		if strings.HasSuffix(label, "Domain name") {
+			return "example.org"
+		}
+		if answer, ok := countryAnswer(label); ok {
+			return answer
+		}
+		return fallback
+	})
+	if askFallback != installinput.SuggestedMode {
+		t.Fatalf("installinput.Ask suggests %q, want SuggestedMode %q", askFallback, installinput.SuggestedMode)
+	}
+	run := runInteractiveConfiguration(t, pressEnterOnMode())
+	if got := run.fallbacks[modeQuestion]; got != installinput.SuggestedMode {
+		t.Fatalf("installer suggests %q, want SuggestedMode %q", got, installinput.SuggestedMode)
+	}
+	mode, _ := dotenv.FromString(run.config).Get("CADDY_DEPLOYMENT_MODE")
+	if mode != installinput.SuggestedMode {
+		t.Fatalf("pressing Enter configured %q, want %q:\n%s", mode, installinput.SuggestedMode, run.config)
 	}
 }
 
-// development and private stay selectable and explained; private is never the
-// suggestion; the field table's own fallback is standalone too.
+// development and private stay selectable and explained, and choosing one
+// never changes what is suggested.
 func TestOtherModesStaySelectableAndExplained(t *testing.T) {
 	for _, mode := range []string{"development", "private", "standalone"} {
 		t.Run(mode, func(t *testing.T) {
@@ -133,21 +134,5 @@ func TestOtherModesStaySelectableAndExplained(t *testing.T) {
 				}
 			}
 		})
-	}
-	var tableFallback string
-	installinput.Ask(func(label, fallback string) string {
-		if strings.HasSuffix(label, modeQuestion) {
-			tableFallback = fallback
-		}
-		if strings.HasSuffix(label, "Domain name") {
-			return "example.org"
-		}
-		if answer, ok := countryAnswer(label); ok {
-			return answer
-		}
-		return fallback
-	})
-	if tableFallback != "standalone" || installinput.SuggestedMode != "standalone" {
-		t.Fatalf("field-table fallback %q / SuggestedMode %q, want standalone", tableFallback, installinput.SuggestedMode)
 	}
 }
