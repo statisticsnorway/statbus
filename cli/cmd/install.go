@@ -1788,6 +1788,13 @@ func runCreateConfig(dir string) error {
 			if mode == "standalone" {
 				showInstallDomainAdvice(domain)
 			}
+			// STATBUS-466: the same non-blocking country-code warning the
+			// interactive question gives; a deliberate test code proceeds.
+			name, _ := answers.Get("DEPLOYMENT_SLOT_NAME")
+			code, _ := answers.Get("DEPLOYMENT_SLOT_CODE")
+			if advice := installinput.AnswerAdvice(mode, name, code); advice != "" {
+				fmt.Println("  " + advice)
+			}
 		}
 	} else {
 		fmt.Println()

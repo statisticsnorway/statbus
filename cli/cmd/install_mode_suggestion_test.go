@@ -71,10 +71,12 @@ const modeQuestion = "Deployment mode (development/standalone/private)"
 
 func pressEnterOnMode() map[string]string {
 	return map[string]string{
-		modeQuestion:                         "",
-		"Domain name":                        "statbus.example.org",
-		"Display name":                       "Example",
-		"Deployment code (short, lowercase)": "ex",
+		modeQuestion:                       "",
+		"Domain name":                      "statbus.example.org",
+		installinput.DevelopmentNamePrompt: "Example",
+		installinput.DevelopmentCodePrompt: "ex",
+		installinput.CountryNamePrompt:     "Norway",
+		installinput.CountryCodePrompt:     "no",
 	}
 }
 
@@ -139,6 +141,9 @@ func TestOtherModesStaySelectableAndExplained(t *testing.T) {
 		}
 		if strings.HasSuffix(label, "Domain name") {
 			return "example.org"
+		}
+		if answer, ok := countryAnswer(label); ok {
+			return answer
 		}
 		return fallback
 	})

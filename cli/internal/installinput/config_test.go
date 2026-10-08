@@ -9,6 +9,17 @@ import (
 	"github.com/statisticsnorway/statbus/cli/internal/dotenv"
 )
 
+// countryAnswer answers the standalone country questions like an operator.
+func countryAnswer(label string) (string, bool) {
+	switch {
+	case strings.HasSuffix(label, CountryNamePrompt):
+		return "Norway", true
+	case strings.HasSuffix(label, CountryCodePrompt):
+		return "no", true
+	}
+	return "", false
+}
+
 func TestPromptsAndRequiredKeysAreSameSet(t *testing.T) {
 	asked := map[string]bool{}
 	content := Ask(func(label, fallback string) string {
@@ -19,6 +30,9 @@ func TestPromptsAndRequiredKeysAreSameSet(t *testing.T) {
 		}
 		if strings.HasSuffix(label, "Domain name") {
 			return "example.org"
+		}
+		if answer, ok := countryAnswer(label); ok {
+			return answer
 		}
 		return fallback
 	})
@@ -80,6 +94,9 @@ func TestExplicitInputRefusals(t *testing.T) {
 		if strings.HasSuffix(label, "Domain name") {
 			return "example.org"
 		}
+		if answer, ok := countryAnswer(label); ok {
+			return answer
+		}
 		return fallback
 	})
 	tests := []struct{ name, input, want string }{
@@ -105,11 +122,7 @@ func TestExplicitInputRefusals(t *testing.T) {
 		t.Errorf("missing signer trust explanation: %v", err)
 	}
 	for _, f := range fields {
-		fallback := f.fallback
-		if f.key == "SITE_DOMAIN" {
-			fallback = "example.org"
-		}
-		if !strings.Contains(err.Error(), f.key+"="+fallback+"  # "+f.prompt) {
+		if !strings.Contains(err.Error(), f.key+"="+RecipeExample(f.key)+"  # "+f.prompt) {
 			t.Errorf("missing help for %s", f.key)
 		}
 	}
@@ -176,6 +189,9 @@ func TestTrustAnswersAndConflicts(t *testing.T) {
 		if strings.HasSuffix(label, "Domain name") {
 			return "example.org"
 		}
+		if answer, ok := countryAnswer(label); ok {
+			return answer
+		}
 		return defaultValue
 	}) + "TRUST_GITHUB_USER=jhf\n"
 	a, err := parse(content, "")
@@ -194,28 +210,41 @@ func TestTrustAnswersAndConflicts(t *testing.T) {
 }
 
 func TestSetupChoiceExplanationsAndDefaults(t *testing.T) {
+	noHostZone(t)
 	var labels []string
-	var domainDefault, modeDefault, codeDefault string
-	Ask(func(label, fallback string) string {
+	var domainDefault, modeDefault, nameDefault, codeDefault string
+	content := Ask(func(label, fallback string) string {
 		labels = append(labels, label)
-		if strings.HasSuffix(label, "Deployment mode (development/standalone/private)") {
+		switch {
+		case strings.HasSuffix(label, "Deployment mode (development/standalone/private)"):
 			modeDefault = fallback
-		}
-		if strings.HasSuffix(label, "Domain name") {
+		case strings.HasSuffix(label, "Domain name"):
 			domainDefault = fallback
-			return "finland.example.org"
-		}
-		if strings.HasSuffix(label, "Deployment code (short, lowercase)") {
+			return "statbus.stat.fi"
+		case strings.HasSuffix(label, CountryNamePrompt):
+			nameDefault = fallback
+		case strings.HasSuffix(label, CountryCodePrompt):
 			codeDefault = fallback
 		}
 		return fallback
 	})
-	if modeDefault != "standalone" || domainDefault != "" || codeDefault != "finland" {
-		t.Fatalf("defaults: %q %q %q", modeDefault, domainDefault, codeDefault)
+	if modeDefault != "standalone" || domainDefault != "" || nameDefault != "Finland" || codeDefault != "fi" {
+		t.Fatalf("defaults: mode %q domain %q name %q code %q", modeDefault, domainDefault, nameDefault, codeDefault)
 	}
-	for _, choice := range []string{"development: testing on this computer only", "standalone: this computer serves the public website", "private: another web server forwards visitors"} {
-		if !strings.Contains(strings.Join(labels, "\n"), choice) {
-			t.Errorf("missing choice %q", choice)
+	if _, err := Validate(content); err != nil {
+		t.Fatalf("pressing Enter after the domain must give a valid answer set: %v\n%s", err, content)
+	}
+	all := strings.Join(labels, "\n")
+	for _, explained := range []string{
+		"development: testing on this computer only", "standalone: this computer serves the public website", "private: another web server forwards visitors",
+		"The web address people will use",
+		"Which country does this installation serve? Its name is shown in the web interface",
+		"Suggested from the domain statbus.stat.fi; press Enter to accept it.",
+		"used in container names and the subdomain",
+		"Suggested from Finland; press Enter to accept it.",
+	} {
+		if !strings.Contains(all, explained) {
+			t.Errorf("missing explanation %q in:\n%s", explained, all)
 		}
 	}
 }

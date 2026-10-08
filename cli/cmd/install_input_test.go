@@ -9,6 +9,17 @@ import (
 	"github.com/statisticsnorway/statbus/cli/internal/installinput"
 )
 
+// countryAnswer answers the standalone country questions (STATBUS-466).
+func countryAnswer(label string) (string, bool) {
+	switch {
+	case strings.HasSuffix(label, installinput.CountryNamePrompt):
+		return "Norway", true
+	case strings.HasSuffix(label, installinput.CountryCodePrompt):
+		return "no", true
+	}
+	return "", false
+}
+
 func unattendedFixture(t *testing.T) (string, string) {
 	t.Helper()
 	oldTrust := trustGitHubUser
@@ -27,6 +38,9 @@ func unattendedFixture(t *testing.T) (string, string) {
 	content := installinput.Ask(func(label, fallback string) string {
 		if strings.HasSuffix(label, "Domain name") {
 			return "example.org"
+		}
+		if answer, ok := countryAnswer(label); ok {
+			return answer
 		}
 		return fallback
 	})
@@ -133,6 +147,9 @@ func TestFreshInstallInputDistinguishesExplicitEnvAndPipe(t *testing.T) {
 	content := installinput.Ask(func(label, fallback string) string {
 		if strings.HasSuffix(label, "Domain name") {
 			return "example.org"
+		}
+		if answer, ok := countryAnswer(label); ok {
+			return answer
 		}
 		return fallback
 	})

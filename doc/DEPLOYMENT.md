@@ -247,9 +247,9 @@ questions asked by the interactive installer:
 
 ```dotenv
 CADDY_DEPLOYMENT_MODE=standalone
-SITE_DOMAIN=statbus.nso.eu
-DEPLOYMENT_SLOT_NAME=StatBus
-DEPLOYMENT_SLOT_CODE=nso
+SITE_DOMAIN=statbus.ssb.no
+DEPLOYMENT_SLOT_NAME=Norway
+DEPLOYMENT_SLOT_CODE=no
 TRUST_GITHUB_USER=jhf
 ```
 
@@ -257,11 +257,22 @@ TRUST_GITHUB_USER=jhf
 |---|---|
 | `CADDY_DEPLOYMENT_MODE` | Deployment mode (development/standalone/private) |
 | `SITE_DOMAIN` | Domain name |
-| `DEPLOYMENT_SLOT_NAME` | Display name |
-| `DEPLOYMENT_SLOT_CODE` | Deployment code (short, lowercase) |
+| `DEPLOYMENT_SLOT_NAME` | Country name |
+| `DEPLOYMENT_SLOT_CODE` | Country code |
 | `TLS_CERT_FILE` | TLS certificate fullchain file (custom certificate) |
 | `TLS_KEY_FILE` | TLS certificate private key file (custom certificate) |
 | `TRUST_GITHUB_USER` | Release signer to trust (GitHub username). Releases are signed; this names the GitHub user whose published signing key the installer verifies release tags against; jhf is the SSB release signer. |
+
+A standalone or private installation serves one country: `DEPLOYMENT_SLOT_NAME` is the
+country name shown in the web interface and `DEPLOYMENT_SLOT_CODE` is its lowercase
+country code (ISO 3166, for example `no`), used in container names and the subdomain.
+The interactive installer suggests the country from the domain (`no.statbus.org`,
+`statbus.ssb.no`) or this computer's time zone, and the code from the country. A code
+that is not that country's code is accepted with a warning, so a deliberate test
+installation can proceed. The code must always be lowercase letters and digits,
+starting with a letter, at most 20 characters. A `development` installation asks
+the same keys as "Display name" and "Deployment code (short, lowercase)" and may
+invent them (defaults `StatBus` and `local`).
 
 `TLS_CERT_FILE` and `TLS_KEY_FILE` are optional and must be given together; they select the custom-certificate path (see Custom TLS Certificates below) and are never asked interactively.
 
@@ -429,8 +440,8 @@ nano .env.config
 
 ```bash
 # Deployment identification
-DEPLOYMENT_SLOT_NAME="Your Country StatBus"
-DEPLOYMENT_SLOT_CODE="your_country"  # Short code (lowercase, no spaces)
+DEPLOYMENT_SLOT_NAME="Norway"  # The country this installation serves
+DEPLOYMENT_SLOT_CODE="no"      # Its lowercase country code (ISO 3166)
 
 # Deployment mode
 CADDY_DEPLOYMENT_MODE=standalone
