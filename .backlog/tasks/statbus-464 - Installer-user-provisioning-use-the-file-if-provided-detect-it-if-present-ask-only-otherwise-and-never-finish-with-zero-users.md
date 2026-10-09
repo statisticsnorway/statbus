@@ -3,10 +3,10 @@ id: STATBUS-464
 title: >-
   Installer user provisioning: use the file if provided, detect it if present,
   ask only otherwise, and never finish with zero users
-status: In Progress
+status: Done
 assignee: []
 created_date: '2026-10-08 11:57'
-updated_date: '2026-10-08 14:46'
+updated_date: '2026-10-08 15:05'
 labels:
   - installer
   - docs
