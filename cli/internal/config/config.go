@@ -352,6 +352,22 @@ func notifyUserCollisionWarning(appUser, notifyUser string) string {
 		"in .env.config.\n", appUser)
 }
 
+// externalURL is the instance's real external address for a deployment mode:
+// the public HTTPS URL on a standalone box, which terminates its own TLS, and
+// the slot's own address elsewhere (development, and private slots served by
+// the host-level proxy).
+//
+// It is deliberately the only place that decides this, so that the browser's
+// API URL (BROWSER_REST_URL), the upgrade callback's STATBUS_URL and anything
+// else external cannot drift apart: a box that announces itself in a
+// notification must name the same address a visitor would open (STATBUS-484).
+func externalURL(mode, siteDomain string, httpPort int) string {
+	if mode == "standalone" {
+		return "https://" + siteDomain
+	}
+	return fmt.Sprintf("http://%s:%d", siteDomain, httpPort)
+}
+
 // loadOrGenerateConfig reads .env.config, generating missing values with defaults.
 func loadOrGenerateConfig(projDir string, verbose bool) (*ConfigEnv, error) {
 	cfgPath := filepath.Join(projDir, ".env.config")
@@ -450,12 +466,11 @@ func loadOrGenerateConfig(projDir string, verbose bool) (*ConfigEnv, error) {
 	basePort := 3000
 	httpPort := basePort + (offset * 10)
 
-	var defaultBrowserURL string
-	if mode == "standalone" {
-		defaultBrowserURL = "https://" + siteDomain
-	} else {
-		defaultBrowserURL = fmt.Sprintf("http://%s:%d", siteDomain, httpPort)
-	}
+	// ONE derivation of the instance's real external address, shared by every
+	// external URL this function produces. STATBUS_URL used to be a hardcoded
+	// http://localhost:3010, so a standalone box's upgrade callback announced the
+	// developer's laptop to whoever read the notification (STATBUS-484).
+	defaultBrowserURL := externalURL(mode, siteDomain, httpPort)
 
 	var defaultServerURL string
 	if mode == "development" {
@@ -468,7 +483,7 @@ func loadOrGenerateConfig(projDir string, verbose bool) (*ConfigEnv, error) {
 		DeploymentSlotCode:       slotCode,
 		DeploymentSlotName:       slotName,
 		DeploymentSlotPortOffset: offsetStr,
-		StatbusURL:               gen("STATBUS_URL", "http://localhost:3010"),
+		StatbusURL:               gen("STATBUS_URL", defaultBrowserURL),
 		BrowserAPIURL:            gen("BROWSER_REST_URL", defaultBrowserURL),
 		ServerAPIURL:             gen("SERVER_REST_URL", defaultServerURL),
 		SeqServerURL:             gen("SEQ_SERVER_URL", "https://log.statbus.org"),
