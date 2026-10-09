@@ -6,6 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-10-08 20:31'
+updated_date: '2026-10-09 07:31'
 labels: []
 dependencies: []
 ordinal: 409204
@@ -30,3 +31,9 @@ NORTH STAR: we know how slow the 4xx and 5xx pg_regress suites really are on a r
 - [ ] #1 Timings recorded from a real run on a real machine, not estimated
 - [ ] #2 The automation design and its cost recorded with the owner's approval
 <!-- DOD:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+DEFERRED BY THE OWNER (2026-10-09): park this until every other in-progress ticket has been resolved and tried, then take it up when it is the only thing left. It is explicitly NOT a priority now. When it is picked up, the first step is unchanged: run these by hand, one at a time, in the dedicated instance at /Users/jhf/ssb/statbus_test (a full checkout at the current tip with its own environment), recording wall time and peak memory per test, starting with 404 as a short calibration and then 402 and 400 as the heavy ones, holding the 500 family for a genuinely quiet machine. The set is small: 400_import_benchmark, 401_import_jobs_for_brreg_selection, 402_import_jobs_for_norway_history, 403_cross_border_power_group, 404_regression_albania_import, 500_import_jobs_for_brreg_downloads - all six already have expected outputs. A start was deliberately NOT made on 2026-10-09 because several unrelated containers were running and free memory was about 120 MB; the owner stopped it before any run.
+<!-- SECTION:NOTES:END -->
