@@ -154,7 +154,9 @@ expect_mutation_red() {
     local mutated_events mutation_output mutation_rc
     mutated_events=$(mktemp)
     set +e
-    mutation_output=$(source "$mutated_bootstrap"; trap - ERR EXIT; set +e; run_contract "$mutated_events" 2>&1)
+    # Unset first: the top-level source of vm-bootstrap.sh would otherwise leak
+    # its definition into a backend that lacks one (a false green).
+    mutation_output=$(unset -f apply_https_only_egress; source "$mutated_bootstrap"; trap - ERR EXIT; set +e; run_contract "$mutated_events" 2>&1)
     mutation_rc=$?
     set -e
     [ "$mutation_rc" -ne 0 ] || { rm -f "$mutated_events"; die "$description did not turn the offline contract red"; }
@@ -162,27 +164,29 @@ expect_mutation_red() {
     rm -f "$mutated_events"
 }
 
+# The mutation cases that must turn this contract red live in
+# https-only-egress-mutation-test.sh, which sources this file for the harness
+# (stubs, run_contract, expect_mutation_red). In library mode, stop here.
+if [ "${HTTPS_ONLY_TEST_LIB:-0}" = "1" ]; then
+    return 0
+fi
+
 events=$(mktemp)
-missing_rule=$(mktemp "$ROOT/test/install-recovery/lib/.https-only-missing.XXXXXX")
-widened_rule=$(mktemp "$ROOT/test/install-recovery/lib/.https-only-widened.XXXXXX")
-no_ipv6=$(mktemp "$ROOT/test/install-recovery/lib/.https-only-no-ipv6.XXXXXX")
-no_docker_bridge=$(mktemp "$ROOT/test/install-recovery/lib/.https-only-no-docker-bridge.XXXXXX")
-trap 'rm -f "$events" "$missing_rule" "$widened_rule" "$no_ipv6" "$no_docker_bridge"' EXIT
+trap 'rm -f "$events"' EXIT
 
-output=$(run_contract "$events")
-assert_https_only_contract "$events" "$output"
-
-sed '/^[[:space:]]*VM_ROOT_EXEC nft add rule inet statbus_https_only output ip daddr/d' "$BOOTSTRAP" > "$missing_rule"
-expect_mutation_red 'missing IPv4 nft rule' "$missing_rule" 'nftables HTTPS-only output rule was not installed'
-
-sed 's/tcp dport 80 reject/tcp dport 80 accept/g' "$BOOTSTRAP" > "$widened_rule"
-expect_mutation_red 'widened accept rule' "$widened_rule" 'IPv4 HTTPS-only egress probe expected connection refusal'
-
-sed '/^[[:space:]]*VM_ROOT_EXEC nft add rule inet statbus_https_only output ip6 daddr/d' "$BOOTSTRAP" > "$no_ipv6"
-expect_mutation_red 'missing IPv6 rule' "$no_ipv6" 'nftables HTTPS-only output rule was not installed'
-
-sed 's/, 172\.16\.0\.0\/12//g' "$BOOTSTRAP" > "$no_docker_bridge"
-expect_mutation_red 'exempt set lacks 172.16.0.0/12' "$no_docker_bridge" 'HTTPS-only rule rejected docker-proxy host -> 172.18.0.3:80'
+# The contract must hold for the backend that SHIPS (the LXD one) as well as the
+# retired VM backend. The scenario calls this rule on whichever backend the
+# runner installs in place of vm-bootstrap.sh (lxd/run-forks.sh symlinks
+# lxd-backend.sh over it), so a rule that exists in only one of them is a
+# scenario that cannot run on the other — which is how the LXD migration left
+# STATBUS-357's scenario dead while it still looked like coverage.
+for backend in vm-bootstrap lxd-backend; do
+    backend_lib="$ROOT/test/install-recovery/lib/$backend.sh"
+    output=$(unset -f apply_https_only_egress; source "$backend_lib"; trap - ERR EXIT; run_contract "$events") \
+        || die "the HTTPS-only contract does not hold for $backend"
+    assert_https_only_contract "$events" "$output"
+    echo "  ✓ contract holds for $backend"
+done
 
 grep -q 'HARNESS_HTTPS_ONLY_EGRESS=1' "$SCENARIO"
 grep -Fq 'HARNESS_HARDENING_SKIP_STAGES=""' "$SCENARIO"
@@ -191,4 +195,4 @@ grep -q '0-happy-upgrade.sh' "$SCENARIO"
 grep -Fq 'at-install docker-proxy health path allowed' "$HAPPY_UPGRADE" \
     || die 'shared install flow lacks the fast at-install docker-proxy positive probe'
 
-echo 'PASS: HTTPS-only egress allows Docker bridge destinations without NAT, rejects public IPv4+IPv6 TCP/80, keeps the scenario on-demand, and required mutations turn red'
+echo 'PASS: HTTPS-only egress allows Docker bridge destinations without NAT, rejects public IPv4+IPv6 TCP/80, keeps the scenario on-demand, and holds on both backends'

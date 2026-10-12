@@ -1042,6 +1042,65 @@ bootstrap_install_test_vm() {
 }
 VM_EXEC() { local q; printf -v q '%q ' "$@"; _lxd_host lxc exec "$VM_NAME" -- sudo -i -u statbus bash -c "$q"; }
 VM_ROOT_EXEC() { local q; printf -v q '%q ' "$@"; _lxd_host lxc exec "$VM_NAME" -- bash -c "$q"; }
+# apply_https_only_egress: LXD port of vm-bootstrap.sh's implementation
+# (STATBUS-485). The body is verbatim: VM_EXEC/VM_ROOT_EXEC above have the same
+# names and semantics, implemented through `lxc exec`. It allows loopback and
+# private-destination HTTP (docker-proxy opens non-NATed host -> container-IP:80
+# connections, so Docker bridge space is exempt) and REJECTs public TCP/80 on
+# IPv4 and IPv6. The offline contract (tests/https-only-egress-test.sh) and its
+# mutations (tests/https-only-egress-mutation-test.sh) exercise both backends,
+# so the two copies cannot drift apart silently.
+apply_https_only_egress() {
+    local ipv4_literal="93.184.216.34"
+    local ipv6_literal="2606:2800:220:1:248:1893:25c8:1946"
+    local ipv4_url="http://${ipv4_literal}/statbus-http-egress-mutation"
+    local ipv6_url="http://[${ipv6_literal}]/statbus-http-egress-mutation"
+    local probe_rc installed_rules
+
+    echo "Applying HTTPS-only egress policy (allow loopback/private destinations; reject public TCP/80 on IPv4 and IPv6)"
+
+    # This scenario enables setup-ubuntu-lts.sh stage 4. That stage installs the
+    # CrowdSec nftables bouncer and configures UFW, so use the same nftables
+    # mechanism as the hardened box rather than bringing a parallel firewall.
+    if ! VM_EXEC bash -c 'command -v nft >/dev/null 2>&1'; then
+        echo "ERROR: hardened VM has no nft command after CrowdSec/UFW security setup" >&2
+        return 1
+    fi
+    VM_ROOT_EXEC nft --version || {
+        echo "ERROR: nft exists but is not usable after hardening" >&2
+        return 1
+    }
+    VM_ROOT_EXEC nft list table inet statbus_https_only >/dev/null 2>&1 && \
+        VM_ROOT_EXEC nft delete table inet statbus_https_only || true
+    VM_ROOT_EXEC nft add table inet statbus_https_only
+    VM_ROOT_EXEC nft 'add chain inet statbus_https_only output { type filter hook output priority 0; policy accept; }'
+    VM_ROOT_EXEC nft add rule inet statbus_https_only output ip daddr '!=' '{ 10.0.0.0/8, 127.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16 }' tcp dport 80 reject
+    VM_ROOT_EXEC nft add rule inet statbus_https_only output ip6 daddr '!=' '{ ::1, fc00::/7, fe80::/10 }' tcp dport 80 reject
+    installed_rules=$(VM_ROOT_EXEC nft list chain inet statbus_https_only output) || return 1
+    grep -Fq 'ip daddr != { 10.0.0.0/8, 127.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16 } tcp dport 80 reject' <<<"$installed_rules" && \
+        grep -Fq 'ip6 daddr != { ::1, fc00::/7, fe80::/10 } tcp dport 80 reject' <<<"$installed_rules" || {
+        echo "ERROR: nftables HTTPS-only output rule was not installed" >&2
+        return 1
+    }
+
+    VM_EXEC curl --noproxy '*' -4 --fail --silent --show-error --connect-timeout 3 --max-time 5 "$ipv4_url" >/dev/null 2>&1 && probe_rc=0 || probe_rc=$?
+    if [ "$probe_rc" -ne 7 ]; then
+        echo "ERROR: IPv4 HTTPS-only egress probe expected connection refusal (curl rc=7), got rc=$probe_rc: $ipv4_url" >&2
+        return 1
+    fi
+    echo "  ✓ deliberate IPv4 TCP/80 connection refused: $ipv4_url"
+
+    if ! VM_EXEC ip -6 route get "$ipv6_literal" >/dev/null 2>&1; then
+        echo "  VACUOUS: VM has no IPv6 route to $ipv6_literal; the inet-family nft rule was installed and checked, but no IPv6 TCP/80 connection can be attempted"
+        return 0
+    fi
+    VM_EXEC curl --noproxy '*' -6 --fail --silent --show-error --connect-timeout 3 --max-time 5 "$ipv6_url" >/dev/null 2>&1 && probe_rc=0 || probe_rc=$?
+    if [ "$probe_rc" -ne 7 ]; then
+        echo "ERROR: IPv6 HTTPS-only egress probe expected connection refusal (curl rc=7), got rc=$probe_rc: $ipv6_url" >&2
+        return 1
+    fi
+    echo "  ✓ deliberate IPv6 TCP/80 connection refused: $ipv6_url"
+}
 cleanup_vm() {
     # review H1: the VM-harness cleanup_vm captures diagnostics on a nonzero
     # scenario rc before it deletes the box (vm-bootstrap.sh's cleanup_vm,
