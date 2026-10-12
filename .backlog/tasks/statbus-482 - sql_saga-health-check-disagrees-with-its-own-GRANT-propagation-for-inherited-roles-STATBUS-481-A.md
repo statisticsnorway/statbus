@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-10-08 19:24'
-updated_date: '2026-10-09 14:47'
+updated_date: '2026-10-12 19:31'
 labels:
   - sql_saga
   - sql
@@ -53,4 +53,6 @@ THE ESCALATION IS WORSE THAN THE PLAN SAID: a SELECT-only grantee on one table r
 AMENDMENTS REQUIRED BEFORE IMPLEMENTATION: (1) reject D1 - do NOT set mirror_fn = default ACL, because that is wrong for hardened databases that REVOKE EXECUTE FROM PUBLIC; instead mirror function EXECUTE from base SELECT grantees and treat PUBLIC EXECUTE as pass-through (never add, never remove), comparing the symmetric difference while excluding grantee 0 for functions. (2) One mirror definition PER DERIVED OBJECT KIND, written as a table in the plan (FOR PORTION OF view and current view: all base privileges; history table: SELECT only; _with_history view: SELECT only; as-of functions: EXECUTE) - without this the first implementation will reuse the FOR-PORTION-OF projection for history tables and recreate the escalation. (3) Accept the derived-object check when the base ACL is NULL, which makes serial and parallel restore work without a GUC and without weakening live protection; add a pg_restore -j 4 round trip to the tests, it fails today. (4) Reconcile on ALTER TABLE ... OWNER TO as well, not only GRANT/REVOKE, since ownership resets derived ACLs. (5) Use the xmin scan rather than the full check as the gate fallback (about 3 ms versus about 30 ms). (6) One NOTICE per reconcile that actually changed something, formatted as the exact GRANT/REVOKE executed and prefixed 'sql_saga: ' - today propagation is silent, which is how the next defect went unnoticed. Also state the pre-existing RLS limitation of owner-rights views in the docs.
 
 NEW DEFECTS FOUND IN TODAY'S CODE, not in the plan: F11 an unrelated REVOKE on any object silently strips PUBLIC EXECUTE from the as-of functions of every system-versioned table in the database, even tables never granted; F12 parallel pg_restore (-j N) of an otherwise-healthy dump fails today; F13 default-privilege-hardened databases materialise EXECUTE per grantee today; F14 owner-rights _with_history views and as-of functions bypass RLS (pre-existing). NOT VERIFIED: the plan's ~1-1.5 ms scoped managed-family timing (no scoped-check prototype exists, so it is a lower bound), behaviour on any PG major other than 18.3, and whether F11 also contributed to the downstream incident sequence. Awaiting the owner's approval of the amended design before any source change.
+
+BLOCKING, recorded 2026-10-12 on the owner's instruction: the next statbus release candidate waits on this ticket landing AND on STATBUS-486 (removing statbus's restore-time workaround: the session_replication_role suppression from 3ce591f16), in that order. The owner is following this up with another agent. Plan A was agreed on 2026-10-12: machinery first, candidate afterwards, so nothing is tagged while the workaround is still needed.
 <!-- SECTION:NOTES:END -->
