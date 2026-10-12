@@ -1,10 +1,10 @@
 ---
 id: STATBUS-484
 title: 'The upgrade callback URL defaults to localhost:3010 on a standalone box'
-status: To Do
+status: Done
 assignee: []
 created_date: '2026-10-09 07:20'
-updated_date: '2026-10-09 16:28'
+updated_date: '2026-10-12 10:01'
 labels: []
 dependencies: []
 ordinal: 410204
@@ -18,14 +18,14 @@ FOUND during STATBUS-474's first real install run (a fresh local guest, 2026-10-
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 The value the upgrade callback reports is derived from the configured domain, not a hardcoded localhost:3010, in standalone and private modes
-- [ ] #2 The local development mode keeps a working default
-- [ ] #3 A test pins the derivation for standalone, private and development
+- [x] #1 The value the upgrade callback reports is derived from the configured domain, not a hardcoded localhost:3010, in standalone and private modes
+- [x] #2 The local development mode keeps a working default
+- [x] #3 A test pins the derivation for standalone, private and development
 <!-- AC:END -->
 
 ## Definition of Done
 <!-- DOD:BEGIN -->
-- [ ] #1 The observed wrong value and the corrected one are recorded in the ticket
+- [x] #1 The observed wrong value and the corrected one are recorded in the ticket
 <!-- DOD:END -->
 
 ## Implementation Notes
@@ -44,4 +44,6 @@ RED, recorded before the fix, cli/internal/config/statbus_url_test.go through lo
 GREEN after the fix: externalURL(mode, siteDomain, httpPort) is now the single derivation (standalone -> https://<domain>, otherwise http://<domain>:<port>) and both StatbusURL and BrowserAPIURL take their default from it, so the callback URL and the browser URL cannot drift apart again. All three subtests pass; go test ./internal/config/ ok; go build ./... clean; go test ./internal/... ./cmd/... ok.
 
 Blast radius, as predicted: gen() only supplies a default for a missing key, so no live box changes - not our own .env.config (local.statbus.org:3000) and not any installed box. Only a fresh installation gets the corrected default, which is exactly the case the ticket was found in (474's first real install run). DoD #1: observed wrong value http://localhost:3010 on a standalone box; corrected value https://<SITE_DOMAIN>.
+
+CI READ AT JOB LEVEL, 2026-10-12: master tip 99cf9e338 (the 484 code commit ee23bf013 plus its ticket note) - Fast Tests run 37959720139 completed SUCCESS with the pg_regress fast suite actually running (classify success, pg_regress fast suite success, not a skipped job). Go Test and app build & lint succeeded on ee23bf013 before the note push superseded that run's fast suite. Marking Done; left on the board.
 <!-- SECTION:NOTES:END -->
