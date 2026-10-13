@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-10-13 12:17'
-updated_date: '2026-10-13 13:05'
+updated_date: '2026-10-13 13:29'
 labels:
   - install
   - fidelity
@@ -105,4 +105,6 @@ GREEN (after): all of the above PASS, plus TestDockerRootUnavailableFailsClosed,
 The install.sh tests run the REAL script end to end with stub docker/git/curl and assert: exact sentence printed, no 'Docker root unavailable', no git/curl call recorded, ~/statbus not created.
 
 AC#5 stays open: needs the next real run on the Uganda box (owner).
+
+CI for d5f7b6503 (job level): its own Go Test run 38402262627 was CANCELLED (superseded by bbeefa563, which contains d5f7b6503). On bbeefa563: Go Test 38402510153 'cli go test ./...' success + golangci-lint success; app build & lint 38402510344 build-app success; Harness Selftest 38402510198 success. On d5f7b6503 itself: Images 38402262707 success, Harness Selftest 38402262886 success, CodeQL success. Fast Tests (pg_regress) cancelled on every SHA since by newer pushes in the same concurrency group (38402819859, 38403121002, 38403771288); this change touches no SQL. AC#5 open (Uganda box rerun).
 <!-- SECTION:NOTES:END -->
