@@ -82,3 +82,7 @@ jobs:
         run: bash test/install-recovery/tests/lxd-stop-running-jobs-test.sh
       - name: Prove c-rollback-resurrection's V_VERSION_2/V_VERSION_3 guards both fire
         run: bash test/install-recovery/tests/arc-crollback-version-guard-test.sh
+      - name: Prove the HTTPS-only egress contract holds on both backends (STATBUS-357/485)
+        run: bash test/install-recovery/tests/https-only-egress-test.sh
+      - name: Prove each HTTPS-only egress rule mutation turns the contract red on both backends (STATBUS-485)
+        run: bash test/install-recovery/tests/https-only-egress-mutation-test.sh
