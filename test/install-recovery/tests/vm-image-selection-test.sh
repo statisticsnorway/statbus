@@ -11,12 +11,13 @@ ARCS="$ROOT/test/install-recovery/arcs"
 grep -Fq 'HARNESS_VM_IMAGE="${HARNESS_VM_IMAGE:-ubuntu-26.04}"' "$BOOTSTRAP" \
     || { echo 'FAIL: vm-bootstrap does not default HARNESS_VM_IMAGE to ubuntu-26.04' >&2; exit 1; }
 
-if rg -n 'HCLOUD_IMAGE' "$ROOT/test/install-recovery/lib" "$SCENARIOS" "$ARCS"; then
+# grep -r, not rg: the Harness Selftest runner has no ripgrep (STATBUS-485).
+if grep -rn 'HCLOUD_IMAGE' "$ROOT/test/install-recovery/lib" "$SCENARIOS" "$ARCS"; then
     echo 'FAIL: legacy HCLOUD_IMAGE selector remains in the harness' >&2
     exit 1
 fi
 
-overrides=$(rg -l '^[[:space:]]*HARNESS_VM_IMAGE=' "$SCENARIOS" "$ARCS" | sort)
+overrides=$(grep -rlE '^[[:space:]]*HARNESS_VM_IMAGE=' "$SCENARIOS" "$ARCS" | sort)
 override_count=$(printf '%s\n' "$overrides" | grep -c .)
 [ "$override_count" -eq 1 ] || {
     printf 'FAIL: expected exactly one scenario/arc VM image override, found %d:\n' "$override_count" >&2
