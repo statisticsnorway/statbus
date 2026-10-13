@@ -104,6 +104,8 @@ jobs:
         run: bash test/install-recovery/tests/setup-crowdsec-bouncer-order-test.sh
       - name: Prove the Docker stage grants and verifies access for the account that will use it (STATBUS-500)
         run: bash test/install-recovery/tests/setup-docker-access-test.sh
+      - name: Prove cloud configuration is applied only with cloud intent (STATBUS-501)
+        run: bash test/install-recovery/tests/setup-cloud-only-config-test.sh
       - name: Prove the setup prompts state their purpose and that a blank email is safe (STATBUS-490)
         run: bash test/install-recovery/tests/setup-prompt-purpose-test.sh
       - name: Prove the CI deploy-key question is asked only with --cloud (STATBUS-491)

@@ -59,7 +59,7 @@ chmod +x setup.sh
 | 3 | Auto Updates | unattended-upgrades with nightly schedule, email notifications |
 | 4 | Security Tools *(optional)* | CrowdSec IDS + firewall bouncer, UFW firewall |
 | 5 | Core Tools | neovim, htop, ripgrep, Docker CE + compose plugin |
-| 6 | User Setup | `devops` user (ops/admin), GitHub SSH keys, Homebrew, helix/bottom/zellij |
+| 6 | User Setup *(cloud-only; needs `--cloud`)* | `devops` user (ops/admin), GitHub SSH keys, Homebrew, helix/bottom/zellij |
 | 7 | StatBus Service Account | `${SERVICE_USER}` (default `statbus`): docker group, SSH keys, systemd linger |
 
 ## Configuration
@@ -118,7 +118,7 @@ After running:
    ssh "${SERVICE_USER:-statbus}@<host>"
    ```
    This must work before the install phase can proceed.
-2. **Test SSH as `devops`** — confirm ops access too.
+2. **Test SSH as `devops`** — confirm ops access too. This applies to OUR boxes only: Stage 6 is cloud-only, so a customer standalone prepared without `--cloud` has no `devops` account, and none is expected (STATBUS-501).
 3. **Install StatBus** as the service account (see
    [install-statbus.md](install-statbus.md)):
    ```bash
@@ -160,7 +160,7 @@ After running:
 
 | User | Created by | Role | Groups | sudo |
 |------|-----------|------|--------|------|
-| `devops` | Stage 6 | Ops/admin | `devops`, `docker` | yes (passwordless) |
+| `devops` | Stage 6 (cloud-only, `--cloud`) | Ops/admin | `devops`, `docker` | yes (passwordless) |
 | `${SERVICE_USER}` (default `statbus`) | Stage 7 | StatBus deployment | `<user>`, `docker` | no |
 
 The separation is intentional:

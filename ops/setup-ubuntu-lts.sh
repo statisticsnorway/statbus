@@ -343,6 +343,14 @@ populate_authorized_keys() {
     log_success "populate_authorized_keys: $(wc -l < "$auth_keys") key(s) written to $auth_keys"
 }
 
+# STATBUS-501: the deploy keys to install for THIS run. Empty unless cloud
+# intent is declared, so no call site can install our CI keys on a box that is
+# not ours. One function, used by every call site.
+deploy_keys_for_this_run() {
+    [[ "${CLOUD:-false}" == "true" ]] && printf '%s' "${GITHUB_DEPLOY_KEYS:-}"
+    return 0
+}
+
 # STATBUS-495: prove someone can still get in BEFORE password authentication is
 # turned off. The owner's order, and the three cases it must tell apart:
 #   1. the login account already has keys -> say so, install nothing;
@@ -370,7 +378,7 @@ ensure_remote_access() {
         log "I can see remote access is already set up for $user ($(grep -c '^ssh-' "$keys" 2>/dev/null || echo 0) key(s) in $keys)."
     elif [[ -n "${GITHUB_USERS:-}" ]]; then
         log "No keys are installed for $user yet; installing them from GITHUB_USERS (${GITHUB_USERS})..."
-        if ! populate_authorized_keys "$user" "$GITHUB_USERS" "${GITHUB_DEPLOY_KEYS:-}"; then
+        if ! populate_authorized_keys "$user" "$GITHUB_USERS" "$(deploy_keys_for_this_run)"; then
             log_error "Could not install keys for $user. Nothing has been changed; fix the access, then run this script again."
             return 1
         fi
@@ -422,8 +430,8 @@ declare -A STAGE_ENV_REQUIREMENTS=(
     [3]="ADMIN_EMAIL"                                     # Automatic Updates
     [4]=""                                                # Security Tools
     [5]=""                                                # Core Tools
-    [6]="GITHUB_USERS GITHUB_DEPLOY_KEYS"                 # User Setup
-    [7]="GITHUB_USERS GITHUB_DEPLOY_KEYS SERVICE_USER"    # StatBus Service Account
+    [6]="GITHUB_USERS"                                   # User Setup (cloud-only stage)
+    [7]="GITHUB_USERS SERVICE_USER"                       # StatBus Service Account
     [8]=""                                                # CI Command Allowlist —
                                                            # SSHDOERS_REF/SSHDOERS_HOST
                                                            # only; validated inside the
@@ -483,10 +491,12 @@ GITHUB_USERS="${GITHUB_USERS:-}"
 
 # Space-separated GitHub repo deploy-key sources in <org>/<repo> form,
 # fetched from https://github.com/<org>/<repo>.keys. Used to authorize
-# CI deploy access (the deploy-to-rune-no GitHub Actions workflow needs
-# its repo deploy key in ~statbus/.ssh/authorized_keys to ssh in).
-# SSB-operated default is "statisticsnorway/statbus".
-GITHUB_DEPLOY_KEYS="${GITHUB_DEPLOY_KEYS:-statisticsnorway/statbus}"
+# CI deploy access (the GitHub Actions deploy workflows need the repository
+# deploy key in the account's ~/.ssh/authorized_keys to ssh in).
+# STATBUS-501: CLOUD-ONLY. That is our cloud and CI access model, so there is NO
+# default here: a standalone installation must not carry a deploy-key source at
+# all. Cloud runs get the SSB default in setup_env, behind the cloud-intent gate.
+GITHUB_DEPLOY_KEYS="${GITHUB_DEPLOY_KEYS:-}"
 
 # Space-separated extra locale codes without .UTF-8 suffix (e.g., "sq_AL nb_NO")
 # The script adds .UTF-8 automatically. C.UTF-8 and en_US.UTF-8 are always included.
@@ -579,8 +589,13 @@ setup_env() {
 
     prompt_env_value "ADMIN_EMAIL" "Email address for system notifications (unattended-upgrades). Optional: leave blank for no unattended-upgrade notification emails:"
     prompt_env_value "GITHUB_USERS" "GitHub usernames for SSH key fetching (space-separated, ED25519-only). This is operator/DevOps SSH access to the box for hardening and administration, not anything to do with StatBus data:"
-    GITHUB_DEPLOY_KEYS="${GITHUB_DEPLOY_KEYS:-statisticsnorway/statbus}"
-    [[ "$CLOUD" == "true" ]] && prompt_env_value "GITHUB_DEPLOY_KEYS" "GitHub repo deploy-key sources for CI access (space-separated <org>/<repo>; default: statisticsnorway/statbus):"
+    # STATBUS-501: the deploy-key source is cloud-only, and it is gated HERE,
+    # where both the default and the question live. A standalone run leaves it
+    # empty and is never asked about it.
+    if [[ "$CLOUD" == "true" ]]; then
+        GITHUB_DEPLOY_KEYS="${GITHUB_DEPLOY_KEYS:-statisticsnorway/statbus}"
+        prompt_env_value "GITHUB_DEPLOY_KEYS" "GitHub repo deploy-key sources for CI access (space-separated <org>/<repo>; default: statisticsnorway/statbus):"
+    fi
     prompt_env_value "EXTRA_LOCALES" "Extra locales to enable without .UTF-8 suffix (e.g., 'sq_AL nb_NO'):"
     SERVICE_USER="${SERVICE_USER:-statbus}"
     prompt_env_value "SERVICE_USER" "Deployment service-account username for Stage 7 (default: statbus):"
@@ -1270,6 +1285,17 @@ stage_user_setup() {
         return 0
     fi
 
+    # STATBUS-501: this stage exists for OUR cloud boxes: it creates the devops
+    # account with passwordless sudo and installs keys derived from our GitHub
+    # users and our repository deploy keys. A standalone installation must not
+    # receive any of that, so it is skipped unless cloud intent is declared.
+    if [[ "${CLOUD:-false}" != "true" ]]; then
+        log "Stage 6 is cloud-only: it creates the devops account with passwordless sudo"
+        log "and installs keys from the SSB GitHub accounts. Nothing is created here."
+        log "Declare cloud intent with --cloud (or CLOUD=true) to run it."
+        return 0
+    fi
+
     echo "This stage will:"
     echo "  - Create 'devops' user with passwordless sudo"
     echo "  - Fetch SSH keys (ED25519-only) from GitHub:"
@@ -1299,7 +1325,7 @@ stage_user_setup() {
     chmod 440 /etc/sudoers.d/devops
     
     log "Setting up SSH for devops..."
-    populate_authorized_keys "devops" "$GITHUB_USERS" "$GITHUB_DEPLOY_KEYS"
+    populate_authorized_keys "devops" "$GITHUB_USERS" "$(deploy_keys_for_this_run)"
 
     # Generate ed25519 SSH keypair for devops if not present, and ensure
     # mode/ownership on the resulting files.
@@ -1428,7 +1454,7 @@ stage_service_account() {
     fi
 
     log "Populating SSH keys for '$user'..."
-    populate_authorized_keys "$user" "$GITHUB_USERS" "$GITHUB_DEPLOY_KEYS"
+    populate_authorized_keys "$user" "$GITHUB_USERS" "$(deploy_keys_for_this_run)"
 
     log "Enabling systemd --user linger for '$user' (so systemctl --user services persist)..."
     loginctl enable-linger "$user"
