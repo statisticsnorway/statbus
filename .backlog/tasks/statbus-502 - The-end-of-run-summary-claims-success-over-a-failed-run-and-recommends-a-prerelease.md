@@ -3,10 +3,10 @@ id: STATBUS-502
 title: >-
   The end-of-run summary claims success over a failed run and recommends a
   prerelease
-status: In Progress
+status: Done
 assignee: []
 created_date: '2026-10-13 15:35'
-updated_date: '2026-10-13 15:35'
+updated_date: '2026-10-13 15:44'
 labels:
   - install
   - ux
@@ -36,4 +36,6 @@ FOUND 2026-10-13 in the final summary of the owner Uganda prepare run, and it ha
 
 <!-- SECTION:NOTES:BEGIN -->
 Filed and fixed 2026-10-13 by the coordinator. Implementation: the failure report moved above the headline; the headline is "Setup finished WITH PROBLEMS: N verification(s) failed" when N > 0; the devops and CI-allowlist summary lines and the "(ops) log in as devops" step sit behind the cloud-intent check; the step list is numbered dynamically so a standalone run has no gap; and the install guidance is the plain command with no channel, per the owner ruling that stable is the default and our internal channels are not an ordinary operator business. The owner caught the last point in review - my first version spelled out "STABLE channel" and explained prerelease and canary, which is the same leak STATBUS-501 removed from the stages. EVIDENCE: RED against HEAD shows seven FAIL lines including the ordering (failure list at 1762 vs headline at 1727) and the prerelease recommendation; GREEN shows six PASS lines; bash -n parses; all 15 setup-* tests pass together; the test is wired into .github/workflows/harness-selftest.yaml.
+
+GREEN and closed 2026-10-13: Harness Selftest SUCCESS at b2d2c910f (job level read), app build & lint success; Go Test for that SHA was cancelled by the later pushes, which is the usual supersession. Criterion 5 (the next real preparation on the Uganda box either ends with a clean "Setup Complete!" or leads with its failures) rides with STATBUS-497.
 <!-- SECTION:NOTES:END -->
