@@ -95,20 +95,44 @@ See **[User Guide](doc/USAGE.md)** for detailed instructions.
 
 ### For Administrators (Single Instance Deployment)
 
-StatBus server setup supports Ubuntu 24.04 LTS and Ubuntu 26.04 LTS.
+StatBus server setup supports Ubuntu 24.04 LTS and Ubuntu 26.04 LTS. Two steps:
+harden the server, then install StatBus on it.
+
+**1. Harden the server.** Do this in a **root login shell** (plain
+`sudo ./setup.sh` from your own home is refused: root must not write root-owned
+files into a non-root home). This creates the service account and installs the
+tools and services StatBus runs on.
 
 ```bash
+sudo -i
+
+# the setup script OF THE RELEASE you are going to install
+# (left unset, the version resolves the stable channel)
+VERSION="$(curl -sL https://api.github.com/repos/statisticsnorway/statbus/releases/latest | grep '"tag_name"' | cut -d'"' -f4)"
+curl -fsSL "https://raw.githubusercontent.com/statisticsnorway/statbus/${VERSION}/ops/setup-ubuntu-lts.sh" -o setup.sh
+chmod +x setup.sh
+./setup.sh
+```
+
+**2. Install StatBus** as the service account that step 1 created:
+
+```bash
+ssh statbus@<your-host>
 curl -fsSL https://statbus.org/install.sh | bash
 ```
 
-For a specific version (pre-release or pinned):
+For a pinned version (pass the same one you prepared the server with):
+
 ```bash
-curl -fsSL https://statbus.org/install.sh | bash -s -- --version v2026.03.0-rc.25
+curl -fsSL https://statbus.org/install.sh | bash -s -- --version v2026.03.0
 ```
 
-This downloads the `sb` CLI and bootstraps the full environment. Follow the on-screen prompts to configure your deployment.
+Both steps are interactive: they explain what they will do and ask before each
+stage, and the hardening script prints a summary at the end. This downloads the
+`sb` CLI and bootstraps the full environment.
 
-See **[Deployment Guide](doc/DEPLOYMENT.md)** for detailed instructions.
+See **[Deployment Guide](doc/DEPLOYMENT.md)** for detailed instructions, and
+**[Server setup](doc/setup-ubuntu-lts.md)** for what the hardening stages do.
 
 ### For Developers (Local Development)
 
