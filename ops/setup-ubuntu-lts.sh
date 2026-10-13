@@ -1025,7 +1025,13 @@ stage_security_tools() {
     fi
     
     log "Adding CrowdSec repository..."
-    curl -s https://install.crowdsec.net | sudo bash
+    # STATBUS-499 owner decision, 2026-10-13: keep the vendor installer pipe. The
+    # trust in the security vendor is unavoidable either way, so downloading the
+    # script first would buy nothing but a round trip. No sudo here: this script
+    # refuses a plain sudo from an operator home and requires a root login shell
+    # (STATBUS-492), so by now we ARE root and HOME is root's -- the vendor script
+    # cannot inherit an operator home.
+    curl -s https://install.crowdsec.net | bash
     
     # STATBUS-498: CrowdSec FIRST, wait for its configuration, and only then the
     # firewall bouncer. Installing both in one transaction (what this stage did)
