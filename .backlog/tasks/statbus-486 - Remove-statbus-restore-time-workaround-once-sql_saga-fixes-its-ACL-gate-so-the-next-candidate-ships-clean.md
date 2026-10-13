@@ -6,6 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-10-12 19:31'
+updated_date: '2026-10-13 16:25'
 labels:
   - release
   - upgrade
@@ -48,4 +49,6 @@ WHAT MUST NOT BE REMOVED: the seed round-trip guard (a guard, not a workaround: 
 
 <!-- SECTION:NOTES:BEGIN -->
 Filed 2026-10-12 on the owners instruction to record clearly that plan option B (cut the candidate first) is waiting on sql_saga. Owner is following up sql_saga through another agent; STATBUS-482 holds the upstream design and review. Do not start the removal before the upstream fix is in.
+
+PREPARED 2026-10-13 (coordinator, read-only inventory). The whole suppression is ONE helper plus six call sites, all under cli/cmd: helper restoreTargetConninfo at cli/cmd/restore_replica.go:36 (returns dbname plus options='-c session_replication_role=replica'); call sites db.go:790 (phase 1 pre-data), db.go:819 (phase 2.5 auth.user list), db.go:853 (phase 3 data+post-data+ACLs), seed.go:319 (seed restore with --disable-triggers), seed_build.go:212 (--single-transaction), seed_verify.go:485 (--single-transaction); unit test restore_replica_test.go:15. WHEN THE sql_saga FIX IS IN: replace each call with the plain quoted dbname (the helper's only other job is quoting dbName for the conninfo grammar, so keep that half), delete restore_replica.go and restore_replica_test.go, then run the restore round-trip WITHOUT session_replication_role in both serial and pg_restore -j 4 (AC#1), the fast suite plus Go Test at job level (AC#2). KEEP: verifySeedRoundTrip and migration 20261008183553_statbus_481_for_portion_of_views_carry_their_table_acl (AC#3). Before pushing the tag, register the candidate citing 486 and STATBUS-482 as satisfied (AC#4). Blocked on: the upstream sql_saga ACL-gate fix via STATBUS-482; the owner is following that up.
 <!-- SECTION:NOTES:END -->
