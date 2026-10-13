@@ -94,5 +94,7 @@ jobs:
         run: bash test/install-recovery/tests/lxd-checkpoint-identity-test.sh
       - name: Prove setup-ubuntu-lts.sh refuses plain sudo from an operator home (STATBUS-492)
         run: bash test/install-recovery/tests/setup-plain-sudo-guard-test.sh
+      - name: Prove the setup script retries apt, refreshes the index, and stops at its bound (STATBUS-494)
+        run: bash test/install-recovery/tests/setup-apt-retry-test.sh
       - name: Prove setup-ubuntu-lts.sh Stage 0 decides by HTTP probe, not by asking (STATBUS-493)
         run: bash test/install-recovery/tests/setup-stage0-http-probe-test.sh

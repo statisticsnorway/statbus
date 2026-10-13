@@ -115,6 +115,59 @@ pkg_installed() {
     [ "$(dpkg-query -W -f='${db:Status-Status}' "$1" 2>/dev/null)" = "installed" ]
 }
 
+# STATBUS-494: every apt operation goes through these two helpers.
+#
+# WHY. On a lossy or intervening network apt fails transiently in two shapes
+# that both look fatal and both clear on a retry with a fresh index: a
+# connection closed mid-fetch ("Remote end closed connection"), and a
+# complete-size file whose checksum does not match ("Hash Sum mismatch"). The
+# second is what an intermediary rewriting the stream looks like — observed on
+# a real installation in Uganda on 2026-10-13, where the operator's manual
+# rerun of the same install then succeeded.
+#
+# Acquire::Retries makes apt itself re-fetch. Acquire::http::No-Cache tells an
+# intermediary it must revalidate rather than serve its own copy.
+# Acquire::http::Pipeline-Depth=0 avoids pipelining that older proxies mishandle.
+# The retry is BOUNDED and then stops, with the cause named, instead of
+# hammering a mirror that is genuinely serving something wrong.
+APT_RETRY_ATTEMPTS="${APT_RETRY_ATTEMPTS:-3}"
+APT_RETRY_DELAY_S="${APT_RETRY_DELAY_S:-5}"
+
+apt_retry() {          # apt_retry <label> <apt-get args...>
+    local label="$1" attempt rc=0
+    shift
+    for (( attempt=1; attempt<=APT_RETRY_ATTEMPTS; attempt++ )); do
+        if apt-get -o Acquire::Retries=3 \
+                   -o Acquire::http::No-Cache=true \
+                   -o Acquire::http::Pipeline-Depth=0 "$@"; then
+            [[ $attempt -gt 1 ]] && log_success "apt $label succeeded on attempt $attempt"
+            return 0
+        else
+            rc=$?
+        fi
+        log_warn "apt $label failed (attempt $attempt/$APT_RETRY_ATTEMPTS, rc=$rc)"
+        [[ $attempt -lt $APT_RETRY_ATTEMPTS ]] || break
+        sleep $(( attempt * APT_RETRY_DELAY_S ))
+        log "refreshing package lists before the next attempt"
+        apt-get -qq -o Acquire::Retries=3 update >/dev/null 2>&1 || true
+    done
+    log_error "apt $label failed after $APT_RETRY_ATTEMPTS attempts (rc=$rc)."
+    log_error "If the error above is a checksum mismatch, or a connection that closed mid-download, an intermediary is altering the download; the HTTPS sources stage (0) avoids it."
+    return 1
+}
+
+# apt_install <label> <package...> — retried, and a failure is RECORDED like a
+# verify() failure so main() exits non-zero, while the caller can stop before
+# using a binary that was never installed.
+apt_install() {
+    local label="$1"
+    shift
+    apt_retry "$label" install -y "$@" || {
+        verify "$label installed" "false"
+        return 1
+    }
+}
+
 ask_yes_no() {
     local prompt="$1"
     local default="${2:-n}"
@@ -633,16 +686,18 @@ stage_base_system() {
     fi
     
     log "Installing etckeeper..."
-    apt-get update -qq
-    apt-get install -y etckeeper
-    
-    if [[ -d /etc/.git ]]; then
-        log "etckeeper already initialized"
+    apt_retry "update" update -qq || true
+    if apt_install "etckeeper" etckeeper; then
+        if [[ -d /etc/.git ]]; then
+            log "etckeeper already initialized"
+        else
+            pushd /etc > /dev/null
+            etckeeper init
+            etckeeper commit "Initial commit before hardening"
+            popd > /dev/null
+        fi
     else
-        pushd /etc > /dev/null
-        etckeeper init
-        etckeeper commit "Initial commit before hardening"
-        popd > /dev/null
+        log_error "etckeeper is not installed; skipping its initialization (the stage continues so its later checks still run)"
     fi
     
     log "Configuring eternal bash history..."
@@ -801,7 +856,7 @@ stage_auto_updates() {
     fi
     
     log "Installing unattended-upgrades..."
-    apt-get install -y unattended-upgrades
+    apt_install "unattended-upgrades" unattended-upgrades
     
     log "Configuring apt-daily timers..."
     cat > /etc/apt/apt.conf.d/20auto-upgrades <<'EOF'
@@ -901,7 +956,7 @@ stage_security_tools() {
     curl -s https://install.crowdsec.net | sudo bash
     
     log "Installing CrowdSec..."
-    apt-get install -y crowdsec crowdsec-firewall-bouncer-nftables
+    apt_install "crowdsec" crowdsec crowdsec-firewall-bouncer-nftables
     
     log "Installing CrowdSec collections..."
     # Wait for CrowdSec config to be fully written before running cscli
@@ -915,7 +970,7 @@ stage_security_tools() {
     systemctl reload crowdsec
     
     log "Configuring UFW..."
-    apt-get install -y ufw
+    apt_install "ufw" ufw
     ufw allow OpenSSH
     ufw allow 80/tcp comment 'HTTP'
     ufw allow 443/tcp comment 'HTTPS'
@@ -974,7 +1029,7 @@ stage_core_tools() {
     # list. Plain install: no auto-attach profile.d hook. An operator opts
     # in with `tmux` / `tmux attach` like any other server; this is a
     # deliberate default, reversible later, not an oversight.
-    apt-get install -y neovim htop net-tools jnettop git acl ripgrep aptitude tmux
+    apt_install "core tools" neovim htop net-tools jnettop git acl ripgrep aptitude tmux
     
     log "Configuring neovim..."
     if [[ -f /etc/vim/vimrc ]] && ! grep -q "colorscheme elflord" /etc/vim/vimrc; then
@@ -1009,7 +1064,7 @@ EOF
     sysctl --system > /dev/null
     
     log "Installing Docker..."
-    apt-get install -y ca-certificates curl gnupg
+    apt_install "docker prerequisites" ca-certificates curl gnupg
     
     install -m 0755 -d /etc/apt/keyrings
     if [[ ! -f /etc/apt/keyrings/docker.gpg ]]; then
@@ -1021,8 +1076,8 @@ EOF
         echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu $(. /etc/os-release && echo "$VERSION_CODENAME") stable" | tee /etc/apt/sources.list.d/docker.list
     fi
     
-    apt-get update -qq
-    apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+    apt_retry "update" update -qq
+    apt_install "docker" docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
     
     # Verification
     echo ""
