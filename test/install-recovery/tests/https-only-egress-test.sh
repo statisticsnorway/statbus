@@ -194,9 +194,12 @@ done
 
 grep -q 'HARNESS_HTTPS_ONLY_EGRESS=1' "$SCENARIO"
 grep -Fq 'HARNESS_HARDENING_SKIP_STAGES=""' "$SCENARIO"
-grep -Fq 'HARNESS_SKIP_DEFAULT' "$SCENARIO"
+# STATBUS-485: the scenario runs in the default fault set; an on-demand marker
+# would park it where no gate sees it again.
+! grep -Fq 'HARNESS_SKIP_DEFAULT' "$SCENARIO" \
+    || die 'scenario carries HARNESS_SKIP_DEFAULT; it must stay in the default set'
 grep -q '0-happy-upgrade.sh' "$SCENARIO"
 grep -Fq 'at-install docker-proxy health path allowed' "$HAPPY_UPGRADE" \
     || die 'shared install flow lacks the fast at-install docker-proxy positive probe'
 
-echo 'PASS: HTTPS-only egress allows Docker bridge destinations without NAT, rejects public IPv4+IPv6 TCP/80, keeps the scenario on-demand, and holds on both backends'
+echo 'PASS: HTTPS-only egress allows Docker bridge destinations without NAT, rejects public IPv4+IPv6 TCP/80, keeps the scenario in the default set, and holds on both backends'

@@ -86,6 +86,12 @@ jobs:
         run: bash test/install-recovery/tests/https-only-egress-test.sh
       - name: Prove each HTTPS-only egress rule mutation turns the contract red on both backends (STATBUS-485)
         run: bash test/install-recovery/tests/https-only-egress-mutation-test.sh
+      - name: Prove 0-https-only-egress is in the default scenario set and on-demand cases stay out (STATBUS-357/485)
+        run: bash test/install-recovery/tests/scenario-selection-test.sh
+      - name: Prove the HTTPS-only scenario resolves to Ubuntu 26.04 and is not parked on-demand (STATBUS-485)
+        run: bash test/install-recovery/tests/vm-image-selection-test.sh
+      - name: Prove LXD checkpoint resolution follows every scenario delegation spelling (STATBUS-485)
+        run: bash test/install-recovery/tests/lxd-checkpoint-identity-test.sh
       - name: Prove setup-ubuntu-lts.sh refuses plain sudo from an operator home (STATBUS-492)
         run: bash test/install-recovery/tests/setup-plain-sudo-guard-test.sh
       - name: Prove setup-ubuntu-lts.sh Stage 0 decides by HTTP probe, not by asking (STATBUS-493)

@@ -7,7 +7,8 @@
 # channel and runs that checkout's ./sb install, so this scenario does not claim
 # that every installation transport is HTTPS. Albania's network may DROP instead;
 # REJECT is the stricter, faster regression proxy.
-# HARNESS_SKIP_DEFAULT: on-demand until corrected private-destination exemptions pass a real VM run
+# Default set since STATBUS-485: first green real LXD run against
+# v2026.10.0-rc.20 is evidence/STATBUS-357-https-only-nat-1.md.
 set -euo pipefail
 
 SCENARIO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
