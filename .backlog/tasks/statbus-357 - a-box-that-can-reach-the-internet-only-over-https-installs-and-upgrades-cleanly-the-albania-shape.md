@@ -4,7 +4,7 @@ title: A box with outbound HTTPS-only policy installs and upgrades successfully
 status: In Progress
 assignee: []
 created_date: '2026-09-07 07:02'
-updated_date: '2026-09-29 08:04'
+updated_date: '2026-10-13 11:58'
 labels:
   - release-bug
   - install
@@ -49,4 +49,8 @@ Baseline: `origin/master` at `373d15fc3`. Criterion disposition and remaining po
 
 <!-- SECTION:NOTES:BEGIN -->
 Audit after v2026.09.3 (2026-09-29): v2026.09.3 carries the private-destination nft exemption (684945e11, 61ece22d1, 3eb69eeca). No real run STATBUS-357-https-only-nat-1 exists. Evidence file, mutation test and default selection are still missing. Decide where it runs (LXD VM?) now that the fault fleet is LXD.
+
+2026-10-13: the port landed. The mutation test this ticket's AC 2 names (test/install-recovery/tests/https-only-egress-mutation-test.sh) exists, and both it and the two-backend contract test pass, committed in fc95698cf with CI green at job level (Harness Selftest 38297872803, Go Test 38297872863, app build & lint 38297872683). The worker that landed it also found the contract test had been FALSE-GREEN for the LXD backend — the VM backend's function leaked into the LXD subshell — and fixed that.
+
+Remaining for this ticket: AC 1 (one real on-demand LXD run against v2026.10.0-rc.20), AC 2 is satisfied, AC 3 (the evidence file test/install-recovery/evidence/STATBUS-357-https-only-nat-1.md), AC 4 (leave the on-demand set). Those are owned and broken down as STATBUS-485 AC 3-6. Under plan A (machinery before candidate) the single host run happens after STATBUS-425 M4, with the candidate work.
 <!-- SECTION:NOTES:END -->

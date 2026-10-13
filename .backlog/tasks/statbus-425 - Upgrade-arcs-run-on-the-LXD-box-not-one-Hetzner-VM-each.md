@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-09-28 13:07'
-updated_date: '2026-09-30 21:04'
+updated_date: '2026-10-13 11:58'
 labels:
   - ci
   - lxd
@@ -127,4 +127,15 @@ Evidence: MAIN `tmp/review-lxd-int-final-20260930.md`, MAIN `tmp/lxd-integration
 - The source integrates literal smoke-installed checkpoint reuse for 33 ordinary candidate-A arcs, exact-SHA bases for the two historical pins, and bounded shared-host admission for concurrent faults and arcs. This is source wiring, not an observed Linux/GitHub/LXD guest outcome. No per-arc VM, new gate, supersession SQL, release classification or arc outcome assertion change is introduced by this integration.
 - Serial full Go, vet and offline harness validation completed on exact merged508: background task `932934tkxv` exits 0 after 180 seconds. All 21 testable Go packages pass with `-count=1`, `go vet` exits 0, and `./dev.sh test-harness` passes. Logs are retained in MAIN `tmp/merged508-go-test.log`, `tmp/merged508-go-vet.log` and `tmp/merged508-harness.log`; the job also verifies unchanged HEAD and a clean tracked worktree. These are local macOS checks, not Linux or guest acceptance. The original first D failure's fixture event/PID trace remains unavailable despite the demonstrated unsafe mechanism and discriminating regression.
 - All seven STATBUS-425 acceptance boxes remain open. Linux runner execution, real guest checkpoint/fetch/config behavior, shared capacity and the unchanged STATBUS-435 disagreements must be observed after normal candidate publication. No push, candidate cut, stable promotion, host provision or production repair has occurred.
+
+RESUME PLAN (owner, 2026-10-13; plan A: machinery before candidate). Take it ONE milestone at a time, each with its own evidence and each with CI read at job level. No milestone is marked done from prose.
+
+Current facts (not prose): the ticket's own notes say M1, M2' and M3a merged at a83039410, the M3b comparison runs were done, and M4 is owed. It has 0 of 7 criteria checked. upgrade-arc-harness.yaml still declares the hetzner-vm-fleet concurrency group and HCLOUD_TOKEN, so rung 8 still boots Hetzner VMs today.
+
+Steps:
+1. Verify M3b parity: the LXD shadow arc run's verdicts match the Hetzner arc run at the same candidate commit, and every disagreement is explained rather than waved away. Record the candidate commit and both run URLs.
+2. M4 wiring: release-fleet-orchestrator dispatches smoke always and bounds guests with the box-slot semaphore; the stable gate consumes the LXD arc run; the Hetzner arc steps are deleted from upgrade-arc-harness.yaml.
+3. Then AC 7 (no release gate boots a Hetzner VM) is true and the Hetzner arc path can be retired.
+
+Ordering: it follows STATBUS-485, which restores the one scenario the VM to LXD migration left unrunnable, and it precedes the next release candidate, so the candidate runs on finished machinery.
 <!-- SECTION:NOTES:END -->

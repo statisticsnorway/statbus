@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-10-12 19:26'
-updated_date: '2026-10-12 19:32'
+updated_date: '2026-10-13 11:58'
 labels:
   - ci
   - lxd
@@ -50,6 +50,7 @@ BACKGROUND (not criteria): tmp/gate-map-2026-10-12.md, tmp/walk-2026-10-12-groun
 - [x] #2 test/install-recovery/tests/https-only-egress-mutation-test.sh turns the contract red on both backends for each mutation: missing IPv4 rule, widened rule (the failure names the refused URL), missing IPv6 rule, and an exempt set without 172.16.0.0/12. Checked by running it; the output is recorded in this ticket.
 - [ ] #3 One real on-demand LXD fork of scenarios/0-https-only-egress.sh against v2026.10.0-rc.20 passes and writes test/install-recovery/evidence/STATBUS-357-https-only-nat-1.md. The file records the candidate tag, run URL, Ubuntu image, nft rules as listed, docker-proxy health result, install result and upgrade result. Checked by: the file is committed and the run URL resolves to a green run.
 - [ ] #4 scenarios/0-https-only-egress.sh no longer contains HARNESS_SKIP_DEFAULT. Checked by: run.sh --print-selected lists 0-https-only-egress, the selection test (STATBUS-357 AC 4) asserts this, and tests/https-only-egress-test.sh and tests/scenario-selection-test.sh no longer require on-demand.
+- [ ] #5 The two offline tests (tests/https-only-egress-test.sh and tests/https-only-egress-mutation-test.sh) are executed by the Harness Selftest workflow, so breaking the rule turns CI red instead of only a hand run. Checked by: the workflow log lists both tests on a push touching test/install-recovery/**. Today it runs neither (found 2026-10-12).
 <!-- AC:END -->
 
 ## Definition of Done
@@ -64,4 +65,6 @@ BACKGROUND (not criteria): tmp/gate-map-2026-10-12.md, tmp/walk-2026-10-12-groun
 2026-10-12: steps 1-2 landed in fc95698cf (port, two-backend contract, mutation test). Steps 3-4 and AC evidence remain.
 
 Steps 1+2 done in fc95698cf (2026-10-12). TEST DEFECT FOUND AND FIXED: the contract test sourced vm-bootstrap.sh at top level, so its apply_https_only_egress leaked into the lxd-backend subshell and the contract was FALSE-GREEN for lxd-backend before any port. Both tests now unset -f apply_https_only_egress before sourcing each backend. Also fixed the mutation test's URL-naming probe, which aborted under set -e on its expected red (now '|| true' with the grep still asserting the URL). RED (port absent): contract 'line 141: apply_https_only_egress: command not found / FAIL: the HTTPS-only contract does not hold for lxd-backend'. Mutation: 'vm-bootstrap ok; FAIL: missing IPv4 nft rule [lxd-backend] failed for the wrong reason: command not found'. GREEN: both PASS on both backends (four mutations plus the URL-naming check). CI for fc95698cf at job level: Harness Selftest 38297872803 success, Go Test 38297872863 (lint+test) success, app build & lint 38297872683 success, CodeQL 38297872753 success. GAP: the harness-selftest log has no mention of https-only, so CI does NOT run these two offline tests. Wiring them in belongs with AC 5. No Fast Tests run was triggered for this SHA (path filter).
+
+2026-10-13 (coordinator, before a planned divert): state is AC 1-2 done, AC 3-6 open. Plan A was agreed (machinery before candidate), so AC 3's single host run is taken on the settled harness, after STATBUS-425 M4, together with the candidate work. The worker that landed steps 1-2 also found that the offline contract had been FALSE-GREEN for the LXD backend (the VM backend's function leaked into the LXD subshell; both tests now unset it before sourcing each backend) and that CI runs neither offline test, which is why AC 6 exists.
 <!-- SECTION:NOTES:END -->
