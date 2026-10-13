@@ -1024,19 +1024,61 @@ stage_security_tools() {
     log "Adding CrowdSec repository..."
     curl -s https://install.crowdsec.net | sudo bash
     
+    # STATBUS-498: CrowdSec FIRST, wait for its configuration, and only then the
+    # firewall bouncer. Installing both in one transaction (what this stage did)
+    # makes the bouncer postinst run before /etc/crowdsec/config.yaml exists: it
+    # then reports "Error: while reading yaml file ... no such file or directory"
+    # and "failed to create API key", so the bouncer runs with no credentials,
+    # bans nothing, and still ticked green in this stage verification.
     log "Installing CrowdSec..."
-    apt_install "crowdsec" crowdsec crowdsec-firewall-bouncer-nftables
-    
-    log "Installing CrowdSec collections..."
-    # Wait for CrowdSec config to be fully written before running cscli
-    for i in $(seq 1 10); do
+    apt_install "crowdsec" crowdsec
+
+    log "Waiting for the CrowdSec configuration..."
+    for i in $(seq 1 30); do
         [ -f /etc/crowdsec/config.yaml ] && break
         sleep 1
     done
+    if [[ ! -f /etc/crowdsec/config.yaml ]]; then
+        log_error "CrowdSec did not write /etc/crowdsec/config.yaml; a bouncer installed without it would be inert."
+        verify "CrowdSec wrote its configuration" "false"
+        pause
+        return 1
+    fi
+
+    log "Installing the CrowdSec firewall bouncer..."
+    apt_install "crowdsec firewall bouncer" crowdsec-firewall-bouncer-nftables
+
+    # The bouncer needs an API key to talk to the local API, and its package only
+    # creates one when the configuration already exists. If it is still missing
+    # (an older package, or a configuration kept from a previous run), create it
+    # here so that "installed" can never quietly mean "inert".
+    BOUNCER_NAME="statbus-firewall-bouncer"
+    BOUNCER_CONFIG="/etc/crowdsec/bouncers/crowdsec-firewall-bouncer.yaml"
+    if [[ -f "$BOUNCER_CONFIG" ]] && ! grep -Eq '^api_key:[[:space:]]*[^[:space:]]' "$BOUNCER_CONFIG"; then
+        log "No bouncer API key present; creating one for $BOUNCER_NAME..."
+        bouncer_key="$(cscli bouncers add "$BOUNCER_NAME" -o raw 2>/dev/null | grep -v '^[[:space:]]*$' | tail -1)"
+        if [[ -n "$bouncer_key" ]]; then
+            if grep -Eq '^api_key:' "$BOUNCER_CONFIG"; then
+                sed -i "s|^api_key:.*|api_key: ${bouncer_key}|" "$BOUNCER_CONFIG"
+            else
+                printf 'api_key: %s\n' "$bouncer_key" >> "$BOUNCER_CONFIG"
+            fi
+            log_success "Bouncer API key written to $BOUNCER_CONFIG"
+        else
+            log_error "Could not create a bouncer API key; the bouncer would be inert."
+        fi
+    fi
+
+    log "Installing CrowdSec collections..."
     cscli collections install crowdsecurity/sshd
 
     log "Reloading CrowdSec..."
     systemctl reload crowdsec
+    for i in $(seq 1 10); do
+        cscli bouncers list 2>/dev/null | grep "$BOUNCER_NAME" >/dev/null && break
+        sleep 1
+    done
+    systemctl restart crowdsec-firewall-bouncer 2>/dev/null || true
     
     log "Configuring UFW..."
     apt_install "ufw" ufw
@@ -1057,6 +1099,11 @@ stage_security_tools() {
     # to the `ii` install state prefix so we don't false-positive on config-kept
     # entries (`rc`), and include either the plain or -nftables variant.
     verify "Firewall bouncer installed" "pkg_installed crowdsec-firewall-bouncer || pkg_installed crowdsec-firewall-bouncer-nftables"
+    # Installed is not the same as able to ban anything: without a key the bouncer
+    # runs but is refused by the local API. These two fail the run rather than
+    # ticking a box for a control that cannot work (STATBUS-498).
+    verify "Firewall bouncer has an API key" "grep -Eq '^api_key:[[:space:]]*[^[:space:]]' /etc/crowdsec/bouncers/crowdsec-firewall-bouncer.yaml"
+    verify "Firewall bouncer registered with the local API" "cscli bouncers list 2>/dev/null | grep -q statbus-firewall-bouncer"
     verify "SSHD collection installed" "cscli collections list | grep sshd"
     verify "UFW active" "ufw status | grep 'Status: active'"
     verify "SSH allowed in UFW" "ufw status | grep 'OpenSSH'"
