@@ -1,10 +1,10 @@
 ---
 id: STATBUS-496
 title: Automatic reboots were advertised by the setup script but never enabled
-status: In Progress
+status: Done
 assignee: []
 created_date: '2026-10-13 13:12'
-updated_date: '2026-10-13 13:13'
+updated_date: '2026-10-13 13:24'
 labels:
   - install
   - hardening

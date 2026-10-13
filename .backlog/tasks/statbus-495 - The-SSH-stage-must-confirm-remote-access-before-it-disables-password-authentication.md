@@ -3,10 +3,10 @@ id: STATBUS-495
 title: >-
   The SSH stage must confirm remote access before it disables password
   authentication
-status: In Progress
+status: Done
 assignee: []
 created_date: '2026-10-13 13:07'
-updated_date: '2026-10-13 13:07'
+updated_date: '2026-10-13 13:24'
 labels:
   - install
   - hardening

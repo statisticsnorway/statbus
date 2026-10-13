@@ -1,10 +1,10 @@
 ---
 id: STATBUS-494
 title: Every apt operation in the prepare script retries and stops at a bound
-status: In Progress
+status: Done
 assignee: []
 created_date: '2026-10-13 12:42'
-updated_date: '2026-10-13 12:42'
+updated_date: '2026-10-13 13:24'
 labels:
   - install
   - hardening
