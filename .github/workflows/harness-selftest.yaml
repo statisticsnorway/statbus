@@ -88,3 +88,5 @@ jobs:
         run: bash test/install-recovery/tests/https-only-egress-mutation-test.sh
       - name: Prove setup-ubuntu-lts.sh refuses plain sudo from an operator home (STATBUS-492)
         run: bash test/install-recovery/tests/setup-plain-sudo-guard-test.sh
+      - name: Prove setup-ubuntu-lts.sh Stage 0 decides by HTTP probe, not by asking (STATBUS-493)
+        run: bash test/install-recovery/tests/setup-stage0-http-probe-test.sh

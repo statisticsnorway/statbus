@@ -127,10 +127,9 @@ After running:
 ## What Gets Set Up
 
 ### APT Sources (Stage 0)
-- Switches from HTTP to HTTPS mirror (`mirrors.edge.kernel.org`)
-- Required for networks that block unencrypted HTTP traffic
-
-> **Note**: Skip Stage 0 if your network allows HTTP or you prefer a different mirror.
+- Probes outbound HTTP and HTTPS first (bounded, 8s max each) and prints the finding
+- HTTP reachable: asks nothing and changes nothing
+- HTTP blocked: says so and offers to switch to the HTTPS mirror (`mirrors.edge.kernel.org`), default yes
 
 ### SSH (`/etc/ssh/sshd_config.d/hardening.conf`)
 - Root login: key-only (no password)
@@ -183,8 +182,8 @@ interactive and non-interactive mode.
 
 When using this script to prepare a server for STATBUS deployment:
 
-1. **Stage 0 (HTTPS Sources)** — Run if your network blocks HTTP traffic (skip
-   otherwise, e.g. `SKIP_STAGES="0"` on Hetzner dedicated).
+1. **Stage 0 (HTTPS Sources)** — Decides itself by probing HTTP egress; it only
+   acts (default yes) when HTTP is blocked.
 2. **Stages 1-3, 5-7** — Essential setup, run all of them.
 3. **Stage 4 (Security Tools)** — Run on public-internet hosts; skip on hosts
    behind an external firewall with its own IDS.

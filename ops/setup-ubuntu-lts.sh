@@ -509,16 +509,25 @@ stage_https_sources() {
         return 0
     fi
 
-    echo "This stage will:"
-    echo "  - Ensure APT sources are HTTPS (the goal — no http:// URI left)"
+    # STATBUS-493: measure the network instead of asking the operator to guess.
+    # Bounded probe: at most 5s connect / 8s total per URL.
+    local http_ok=false https_ok=false
+    log "Probing outbound HTTP and HTTPS (8s max each)..."
+    curl -sS -o /dev/null --connect-timeout 5 --max-time 8 http://archive.ubuntu.com/ubuntu/ 2>/dev/null && http_ok=true
+    curl -sS -o /dev/null --connect-timeout 5 --max-time 8 https://mirrors.edge.kernel.org/ubuntu/ 2>/dev/null && https_ok=true
+    log "Probe: HTTP $([[ $http_ok == true ]] && echo reachable || echo blocked), HTTPS $([[ $https_ok == true ]] && echo reachable || echo blocked)"
+
+    if [[ "$http_ok" == "true" ]]; then
+        log "HTTP egress is reachable, HTTPS sources are unnecessary. Skipping Stage 0"
+        return 0
+    fi
+
+    echo "Outbound HTTP is blocked, so APT over http:// will fail. This stage will:"
     echo "  - Rewrite any http://.../ubuntu URI to mirrors.edge.kernel.org (reliable HTTPS mirror)"
     echo "  - Leave already-HTTPS sources untouched (e.g. the image's own shipped mirror)"
     echo ""
-    echo -e "${YELLOW}NOTE: Required if your network blocks HTTP traffic.${NC}"
-    echo -e "${YELLOW}      Ubuntu's default mirrors use HTTP for package updates.${NC}"
-    echo ""
 
-    if ! ask_yes_no "Run this stage?"; then
+    if ! ask_yes_no "Switch APT sources to HTTPS?" y; then
         log "Skipping Stage 0"
         return 0
     fi
