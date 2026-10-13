@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-09-28 13:07'
-updated_date: '2026-10-13 15:17'
+updated_date: '2026-10-13 15:49'
 labels:
   - ci
   - lxd
@@ -169,4 +169,6 @@ AC 2 (verdicts match the Hetzner arc run at the same candidate commit): OPEN and
 AC 7 (no release gate boots a Hetzner VM): TRUE for test VMs - no workflow creates one - but the shared fleet HOST is itself a Hetzner machine, provisioned by ops/lxd-fleet/up.sh. The owner should settle whether the criterion means "no per-test VM" (met) or "no Hetzner machine at all" (not met, and deliberately so).
 
 2026-10-13, while checking that nothing of ours is unmerged (owner question): the current checkout is on master, level with origin/master, nothing unpushed, and every ticket from today is landed. But local branches exist that carry commits NOT on master, and two of them are the likely home of this ticket AC 2 parity evidence: ci/lxd-m4 (42 commits off master) and ci/lxd-arcs (28 commits off master). Others are older experiments/review branches (db-seed 56, feature/*, backup/*, agent/*). SO: when AC 2 is taken, start by auditing ci/lxd-m4 and ci/lxd-arcs for the M3b shadow-run comparison and for any unlanded code we still want; a merge of either is an owner decision, not a coordinator one. This is recorded here because AC 2 is the one criterion that cannot be produced fresh (the Hetzner run-arc path no longer exists).
+
+2026-10-13, owner instruction to run a clean code ship: the two candidate branches were REVIEWED and then DELETED. Two independent read-only reviews (deepseek-flash, one per branch) both returned ABANDON: ci/lxd-m4 and ci/lxd-arcs contain nothing to merge, their substantive content already being on master in a more developed form. My own check agreed - of the files each branch touched, 42 and 23 respectively are byte-identical to master today, and the rest are files master has since moved past (workflows, arc scripts, lxd-backend.sh, and this ticket file itself). `git branch -D ci/lxd-m4 ci/lxd-arcs` is run and neither had a worktree, so nothing was lost from disk. CONSEQUENCE FOR THIS TICKET: neither branch carried the LXD-versus-Hetzner arc comparison, so AC 2 is NOT rescued by them; it still needs surviving historical artefacts or the owner wording as a deliberate acceptance.
 <!-- SECTION:NOTES:END -->
