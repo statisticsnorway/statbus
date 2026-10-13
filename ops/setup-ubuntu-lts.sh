@@ -29,6 +29,9 @@ NON_INTERACTIVE=false
 # Space-separated list of stage numbers to skip (e.g. "0 4"). Honored in both
 # interactive and non-interactive mode. Also settable via --skip-stages.
 SKIP_STAGES="${SKIP_STAGES:-}"
+# STATBUS-491: cloud intent. Only a cloud installation is asked for CI
+# deploy-key sources. Set by --cloud or CLOUD=true.
+CLOUD="${CLOUD:-false}"
 # STATBUS-207: verify() failures, collected across every stage. main() runs
 # every stage to completion regardless (maximal diagnostics — the VM is
 # torn down after this run, so a fail-fast here would hide whatever came
@@ -577,7 +580,7 @@ setup_env() {
     prompt_env_value "ADMIN_EMAIL" "Email address for system notifications (unattended-upgrades). Optional: leave blank for no unattended-upgrade notification emails:"
     prompt_env_value "GITHUB_USERS" "GitHub usernames for SSH key fetching (space-separated, ED25519-only). This is operator/DevOps SSH access to the box for hardening and administration, not anything to do with StatBus data:"
     GITHUB_DEPLOY_KEYS="${GITHUB_DEPLOY_KEYS:-statisticsnorway/statbus}"
-    prompt_env_value "GITHUB_DEPLOY_KEYS" "GitHub repo deploy-key sources for CI access (space-separated <org>/<repo>; default: statisticsnorway/statbus):"
+    [[ "$CLOUD" == "true" ]] && prompt_env_value "GITHUB_DEPLOY_KEYS" "GitHub repo deploy-key sources for CI access (space-separated <org>/<repo>; default: statisticsnorway/statbus):"
     prompt_env_value "EXTRA_LOCALES" "Extra locales to enable without .UTF-8 suffix (e.g., 'sq_AL nb_NO'):"
     SERVICE_USER="${SERVICE_USER:-statbus}"
     prompt_env_value "SERVICE_USER" "Deployment service-account username for Stage 7 (default: statbus):"
@@ -1830,6 +1833,10 @@ main() {
                 SKIP_STAGES="${1#*=}"
                 shift
                 ;;
+            --cloud)
+                CLOUD=true
+                shift
+                ;;
             --help|-h)
                 show_banner
                 echo "Usage: $0 [OPTIONS]"
@@ -1838,6 +1845,8 @@ main() {
                 echo "  --non-interactive          Run all stages without prompting (requires .env file)"
                 echo "  --skip-stages \"N [N ...]\"  Skip the given stages (space-separated numbers)."
                 echo "                              Also settable via SKIP_STAGES env var."
+                echo "  --cloud                    Cloud installation: also ask for CI deploy-key"
+                echo "                              sources (GITHUB_DEPLOY_KEYS). Also CLOUD=true."
                 echo "  --help, -h                 Show this help message"
                 echo ""
                 echo "Stages:"

@@ -44,6 +44,10 @@ chmod +x setup.sh
 - **Non-interactive mode** — `--non-interactive` for automation.
 - **Per-stage skip** — `SKIP_STAGES` env var or `--skip-stages` flag to
   short-circuit specific stages in either mode.
+- **Cloud intent** — `--cloud` (or `CLOUD=true`) declares a cloud
+  installation. Only then is the CI question "GitHub repo deploy-key
+  sources" (`GITHUB_DEPLOY_KEYS`) asked; a plain standalone preparation
+  never asks it. The value can still be set in `~/.setup-ubuntu.env`.
 
 ## Stages
 

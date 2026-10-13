@@ -104,5 +104,7 @@ jobs:
         run: bash test/install-recovery/tests/setup-crowdsec-bouncer-order-test.sh
       - name: Prove the setup prompts state their purpose and that a blank email is safe (STATBUS-490)
         run: bash test/install-recovery/tests/setup-prompt-purpose-test.sh
+      - name: Prove the CI deploy-key question is asked only with --cloud (STATBUS-491)
+        run: bash test/install-recovery/tests/setup-cloud-deploy-key-prompt-test.sh
       - name: Prove setup-ubuntu-lts.sh Stage 0 decides by HTTP probe, not by asking (STATBUS-493)
         run: bash test/install-recovery/tests/setup-stage0-http-probe-test.sh
