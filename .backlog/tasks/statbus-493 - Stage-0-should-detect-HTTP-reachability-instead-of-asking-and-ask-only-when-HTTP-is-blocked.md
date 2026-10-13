@@ -6,6 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-10-13 12:32'
+updated_date: '2026-10-13 12:33'
 labels:
   - install
   - hardening
@@ -27,4 +28,11 @@ FOUND 2026-10-13 in the Uganda prepare run. Owner decision 2026-10-13: the HTTPS
 - [ ] #2 When HTTP egress works, the stage asks nothing and rewrites nothing. Checked by a run transcript on a box with HTTP access.
 - [ ] #3 When HTTP egress does not work, the stage states the finding and proceeds to HTTPS sources with the default answer yes. Checked by a run transcript on a box without HTTP access.
 - [ ] #4 The decision is the probe result, not operator guesswork: no code path asks the question before probing. Checked by reading the stage.
+- [ ] #5 Unconditional HTTPS-only behaviour comes only from a declaration in the interactive configuration or the environment configuration, which the script already supports. Checked by a run where the declaration is set on a box whose HTTP works: the rewrite happens without a question.
 <!-- AC:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+2026-10-13 owner clarification, recorded after dispatch: the ONLY way to obtain the HTTPS-only behaviour unconditionally is a declaration made in the interactive configuration or the environment configuration. Without such a declaration the script detects, and it asks only when the detection says HTTP is blocked (default yes). All three paths therefore exist: declared, detected-and-unnecessary, detected-and-necessary.
+<!-- SECTION:NOTES:END -->
