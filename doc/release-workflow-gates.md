@@ -23,7 +23,7 @@ case release.WorkflowCheckUnknown:  // GitHub API error; tell operator to retry
 
 The generic workflow check has **any-green semantics**. Smoke and upgrade-arc scenario gates are stricter: each required scenario needs its own successful job mark. The LXD fault fleet runs without a subset selector and reports PASSED only after its complete checkpoint tree; stable promotion checks a successful `lxd-fleet.yaml` run at the RC commit, not scenario job marks in `comparison.tsv`. This trades per-scenario evidence inheritance for an honest whole-suite gate on each RC. A SUPERSEDED child is neutral to the orchestrator but concludes non-success and cannot satisfy stable promotion.
 
-The VM smoke and upgrade-arc stages in `release-fleet-orchestrator.yaml` make their dispatch decision per scenario with the same coverage evaluator their promotion gates use. They call `./sb release covered-subset` with their workflow identities and dispatch only the returned selectors. The LXD fault fleet instead always runs its entire checkpoint tree. The evaluator passes each full `Scenario{Name, Home}` to the one sensitivity matcher, which combines the broad checked policy with home-specific controller and own-script rules for the surviving scenario gates.
+The LXD smoke and upgrade-arc stages in `release-fleet-orchestrator.yaml` make their dispatch decision per scenario with the same coverage evaluator their promotion gates use. They call `./sb release covered-subset` with their workflow identities and dispatch only the returned selectors. The LXD fault fleet instead always runs its entire checkpoint tree. The evaluator passes each full `Scenario{Name, Home}` to the one sensitivity matcher, which combines the broad checked policy with home-specific controller and own-script rules for the surviving scenario gates.
 
 ## Naming convention
 
@@ -40,7 +40,7 @@ Every gate uses the same chain of names — workflow filename, Go constant, env-
 | `lxd-fleet.yaml` | `WorkflowLXDFleet` | `SKIP_INSTALL_RECOVERY=1` (compatibility name) | `release stable` pre-flight (full RC suite) |
 | `upgrade-arc-harness.yaml` | `WorkflowUpgradeArcHarness` | `SKIP_UPGRADE_ARCS=1` | `release stable` pre-flight (tag-fired; path-sensitive ride, STATBUS-199 D2) |
 
-Workflow constants track filenames. Historical operator bypasses are retained for compatibility: `SKIP_INSTALL_RECOVERY=1` bypasses the LXD fault gate and `SKIP_TEST_INSTALL=1` bypasses VM smoke.
+Workflow constants track filenames. Historical operator bypasses are retained for compatibility: `SKIP_INSTALL_RECOVERY=1` bypasses the LXD fault gate and `SKIP_TEST_INSTALL=1` bypasses LXD smoke.
 
 ## Where each gate fires
 
