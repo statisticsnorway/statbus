@@ -70,7 +70,7 @@ On first run, you'll be prompted for:
 |----------|-------------|
 | `ADMIN_EMAIL` | Email for unattended-upgrades notifications |
 | `GITHUB_USERS` | Space-separated GitHub usernames for SSH key fetching (populates both `devops` and the service account) |
-| `EXTRA_LOCALES` | Extra locales to enable, without `.UTF-8` suffix (e.g., `sq_AL nb_NO`) |
+| `EXTRA_LOCALES` | Extra locales to enable, e.g. `sq_AL nb_NO` (a `.UTF-8` suffix is accepted). Declaring `nb_NO` also adds `no_NO.UTF-8 nb_NO.UTF-8` to `/etc/locale.alias` (unless a `no_NO.UTF-8` alias already exists), so a Mac's forwarded `LC_ALL=no_NO.UTF-8` stops printing a setlocale warning on every SSH login. For other client locales the box lacks, declare that locale here. |
 | `SERVICE_USER` | Username for the Stage 7 service account (default: `statbus`) |
 
 Configuration is saved to `~/.setup-ubuntu.env` and reused on subsequent runs.

@@ -593,6 +593,31 @@ setup_env() {
 # Stage 0: HTTPS APT Sources
 # =============================================================================
 
+# Enable each EXTRA_LOCALES entry in locale.gen. Accepts "nb_NO" or
+# "nb_NO.UTF-8"/"nb_NO.utf8" (STATBUS-489). macOS sends LC_ALL=no_NO.UTF-8 for
+# Norwegian, which glibc does not ship, so when nb_NO is declared we alias
+# no_NO.UTF-8 to it unless the operator already defined a no_NO.UTF-8 alias.
+enable_extra_locales() {
+    local locales="$1" gen="$2" alias_file="$3" locale base pattern
+    for locale in $locales; do
+        base="${locale%%.*}"
+        pattern="${base}.UTF-8 UTF-8"
+        if grep -q "^# *${pattern}\$" "$gen"; then
+            sed -i -e "s/^# *${pattern}\$/${pattern}/" "$gen"
+            log "Enabled locale: ${base}.UTF-8"
+        elif grep -q "^${pattern}\$" "$gen"; then
+            log "Locale already enabled: ${base}.UTF-8"
+        else
+            log_warn "Locale not found in locale.gen: ${base}.UTF-8"
+            continue
+        fi
+        if [[ "$base" == "nb_NO" ]] && ! grep -q '^no_NO.UTF-8[[:space:]]' "$alias_file" 2>/dev/null; then
+            echo "no_NO.UTF-8 nb_NO.UTF-8" >> "$alias_file"
+            log "Aliased no_NO.UTF-8 (sent by macOS ssh) to nb_NO.UTF-8"
+        fi
+    done
+}
+
 apt_http_sources() {
     local sources_dir="${1:-/etc/apt/sources.list.d}"
     local legacy_sources="${2:-/etc/apt/sources.list}"
@@ -785,19 +810,7 @@ EOF
     sed -i -e 's/# en_US.UTF-8 UTF-8/en_US.UTF-8 UTF-8/' /etc/locale.gen
     
     # Enable extra locales from config
-    if [[ -n "$EXTRA_LOCALES" ]]; then
-        for locale in $EXTRA_LOCALES; do
-            locale_pattern="${locale}.UTF-8 UTF-8"
-            if grep -q "# $locale_pattern" /etc/locale.gen; then
-                sed -i -e "s/# $locale_pattern/$locale_pattern/" /etc/locale.gen
-                log "Enabled locale: $locale"
-            elif grep -q "$locale_pattern" /etc/locale.gen; then
-                log "Locale already enabled: $locale"
-            else
-                log_warn "Locale not found in locale.gen: $locale"
-            fi
-        done
-    fi
+    enable_extra_locales "$EXTRA_LOCALES" /etc/locale.gen /etc/locale.alias
     
     dpkg-reconfigure --frontend=noninteractive locales
     

@@ -110,3 +110,5 @@ jobs:
         run: bash test/install-recovery/tests/setup-cloud-deploy-key-prompt-test.sh
       - name: Prove setup-ubuntu-lts.sh Stage 0 decides by HTTP probe, not by asking (STATBUS-493)
         run: bash test/install-recovery/tests/setup-stage0-http-probe-test.sh
+      - name: Prove EXTRA_LOCALES accepts a .UTF-8 suffix and makes macOS no_NO.UTF-8 resolve (STATBUS-489)
+        run: bash test/install-recovery/tests/setup-extra-locales-test.sh
