@@ -3,9 +3,13 @@ package diskpolicy
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
+	"os/exec"
+	"os/user"
 	"path/filepath"
+	"regexp"
 	"strconv"
 	"strings"
 	"syscall"
@@ -78,16 +82,95 @@ func RerunCommand() string {
 	return installcmd.ForRunningBinary()
 }
 
+// STATBUS-487: Docker is a PREREQUISITE, not something StatBus installs.
+//
+// DECISION: the installer refuses with the specific remedy and points at the
+// documented prerequisite (ops/setup-ubuntu-lts.sh, doc/setup-ubuntu-lts.md)
+// instead of installing Docker itself. install.sh runs as the unprivileged
+// install user, and both installing Docker and joining the docker group need
+// root and then a NEW login session, which no single install run can provide;
+// the setup script already does it together with the OS hardening StatBus
+// expects.
+//
+// Three causes, three sentences. Each is ONE line that install.sh's exit-78
+// allow-list matches FULL-LINE anchored, and install.sh's own pre-download
+// preflight prints the identical text (pinned by
+// TestInstallShRefusesEachDockerCauseBeforeAnyWork).
+const DockerSetupGuide = "https://github.com/statisticsnorway/statbus/blob/master/doc/setup-ubuntu-lts.md"
+
+// dockerDeniedQuote extracts the daemon's own permission sentence, restricted to
+// a fixed shape so nothing arbitrary can ride it across the install-log boundary.
+var dockerDeniedQuote = regexp.MustCompile(`(?i)permission denied while trying to connect to the docker (?:api|daemon socket) at unix:///[A-Za-z0-9_./-]+`)
+var dockerStoppedText = regexp.MustCompile(`(?i)(cannot connect to the docker daemon|is the docker daemon running|docker daemon is not running)`)
+var safeUserName = regexp.MustCompile(`^[a-z_][a-z0-9_-]{0,31}$`)
+
+func DockerAbsentRefusal(rerun string) string {
+	return fmt.Sprintf("Docker is not installed. StatBus needs Docker before it can install: run the server setup script as root, which installs it (%s), then run the same install command again: %s", DockerSetupGuide, rerun)
+}
+
+func DockerStoppedRefusal(rerun string) string {
+	return fmt.Sprintf("Docker is installed but its service is not running. Start it with sudo systemctl enable --now docker, then run the same install command again: %s", rerun)
+}
+
+// DockerDeniedRefusal names both steps IN ORDER: membership, then a new login.
+// A stale session and a non-member look identical from `groups` in the current
+// shell, so it also says how to tell them apart (getent reads the group file).
+func DockerDeniedRefusal(userName, quote, rerun string) string {
+	if !safeUserName.MatchString(userName) {
+		userName = "$USER"
+	}
+	if quote == "" {
+		quote = "permission denied"
+	}
+	return fmt.Sprintf("The user %s may not use Docker (Docker said: %s). If getent group docker does not list %s, run sudo usermod -aG docker %s. Then log out and log in again so id -nG lists docker, and run the same install command again: %s", userName, quote, userName, userName, rerun)
+}
+
+// DockerAccessRefusal classifies a failed `docker` answer into one of the three
+// causes, or "" when it is none of them.
+func DockerAccessRefusal(output, userName, rerun string) string {
+	if quote := dockerDeniedQuote.FindString(output); quote != "" {
+		return DockerDeniedRefusal(userName, quote, rerun)
+	}
+	if strings.Contains(strings.ToLower(output), "permission denied") && strings.Contains(output, "docker.sock") {
+		return DockerDeniedRefusal(userName, "", rerun)
+	}
+	if dockerStoppedText.MatchString(output) {
+		return DockerStoppedRefusal(rerun)
+	}
+	return ""
+}
+
+func currentUserName() string {
+	if u, err := user.Current(); err == nil {
+		return u.Username
+	}
+	return os.Getenv("USER")
+}
+
 // DockerRoot refuses to guess a storage location when Docker cannot report it.
 func DockerRoot(ctx context.Context, dir string) (string, error) {
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
+	// STATBUS-487: a Docker cause must be named, never masked by the disk
+	// sentence below (the Uganda box saw only "Docker root unavailable").
+	if _, lookErr := exec.LookPath("docker"); lookErr != nil {
+		return "", fmt.Errorf("%s", DockerAbsentRefusal(RerunCommand()))
+	}
 	command, err := compose.DockerCommandContext(ctx, dir, "info", "--format", "{{.DockerRootDir}}")
 	if err != nil {
 		return "", fmt.Errorf("cannot check disk space at Docker storage: Docker root unavailable")
 	}
 	output, err := command.Output()
-	if err != nil || strings.TrimSpace(string(output)) == "" {
+	if err != nil {
+		var exitErr *exec.ExitError
+		if errors.As(err, &exitErr) {
+			if refusal := DockerAccessRefusal(string(output)+"\n"+string(exitErr.Stderr), currentUserName(), RerunCommand()); refusal != "" {
+				return "", fmt.Errorf("%s", refusal)
+			}
+		}
+		return "", fmt.Errorf("cannot check disk space at Docker storage: Docker root unavailable")
+	}
+	if strings.TrimSpace(string(output)) == "" {
 		return "", fmt.Errorf("cannot check disk space at Docker storage: Docker root unavailable")
 	}
 	root := strings.TrimSpace(string(output))

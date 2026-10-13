@@ -304,13 +304,71 @@ fi
 echo "StatBus Installer"
 echo "================="
 
+# ── DOCKER PREFLIGHT (STATBUS-487) ───────────────────────────────────────────
+#
+# OBSERVED on the owner's Uganda box, 2026-10-13: Docker was installed and its
+# daemon was running, but the install user was not in the docker group. This
+# script downloaded the binary, fetched and checked out the release, and only
+# then ./sb's disk check stopped with "cannot check disk space at Docker
+# storage: Docker root unavailable", which names neither the cause nor a remedy.
+#
+# So Docker is checked FIRST, before any download, clone or state change:
+# the CLI exists, the daemon answers, and THIS user may use it. Each cause gets
+# its own sentence and remedy.
+#
+# DECISION: refuse and point at the documented prerequisite; never install
+# Docker here. This script runs as the unprivileged install user, and both
+# installing Docker and joining the docker group need root and then a NEW login
+# session, which one install run cannot provide; ops/setup-ubuntu-lts.sh
+# (doc/setup-ubuntu-lts.md) already does it together with the OS hardening
+# StatBus expects.
+#
+# The three sentences are IDENTICAL to cli/internal/diskpolicy's
+# DockerAbsentRefusal / DockerStoppedRefusal / DockerDeniedRefusal, which ./sb
+# raises if it meets the same cause later; the exit-78 allow-list below carries
+# them anchored. TestInstallShRefusesEachDockerCauseBeforeAnyWork pins both.
+STATBUS_DOCKER_SETUP_GUIDE='https://github.com/statisticsnorway/statbus/blob/master/doc/setup-ubuntu-lts.md'
+statbus_docker_preflight() {
+    local output quote user_name
+    if ! command -v docker >/dev/null 2>&1; then
+        echo "Docker is not installed. StatBus needs Docker before it can install: run the server setup script as root, which installs it (${STATBUS_DOCKER_SETUP_GUIDE}), then run the same install command again: ${STATBUS_INSTALL_RERUN_COMMAND}"
+        exit 1
+    fi
+    if output=$(docker info --format '{{.DockerRootDir}}' 2>&1); then
+        return 0
+    fi
+    quote=$(printf '%s\n' "$output" | grep -oiE 'permission denied while trying to connect to the docker (api|daemon socket) at unix:///[A-Za-z0-9_./-]+' | head -1 || true)
+    if [ -z "$quote" ] && printf '%s\n' "$output" | grep -qi 'permission denied' && printf '%s\n' "$output" | grep -q 'docker\.sock'; then
+        quote='permission denied'
+    fi
+    if [ -n "$quote" ]; then
+        user_name=$(id -un 2>/dev/null || true)
+        if ! [[ "$user_name" =~ ^[a-z_][a-z0-9_-]{0,31}$ ]]; then
+            user_name='$USER'
+        fi
+        echo "The user ${user_name} may not use Docker (Docker said: ${quote}). If getent group docker does not list ${user_name}, run sudo usermod -aG docker ${user_name}. Then log out and log in again so id -nG lists docker, and run the same install command again: ${STATBUS_INSTALL_RERUN_COMMAND}"
+        exit 1
+    fi
+    if printf '%s\n' "$output" | grep -qiE 'cannot connect to the docker daemon|is the docker daemon running|docker daemon is not running'; then
+        echo "Docker is installed but its service is not running. Start it with sudo systemctl enable --now docker, then run the same install command again: ${STATBUS_INSTALL_RERUN_COMMAND}"
+        exit 1
+    fi
+    # Not one of the three known causes: show Docker's own words rather than
+    # guess a remedy. This is the operator's terminal, not the install log.
+    echo "Docker did not answer docker info, so StatBus cannot install yet. Docker said:"
+    printf '%s\n' "$output" | sed 's/^/    /'
+    echo "Make docker info work for this user, then run the same install command again: ${STATBUS_INSTALL_RERUN_COMMAND}"
+    exit 1
+}
+
 # Prerequisites
-for cmd in git docker curl; do
+for cmd in git curl; do
     if ! command -v "$cmd" >/dev/null 2>&1; then
         echo "Error: $cmd is required but not installed."
         exit 1
     fi
 done
+statbus_docker_preflight
 
 # Detect OS and architecture
 OS=$(uname -s | tr '[:upper:]' '[:lower:]')
@@ -919,6 +977,15 @@ if [ "$sb_rc" -eq 78 ]; then
         grep -E "^port [0-9]+ is in use by ([A-Za-z0-9_-]{1,64}\\. Free the port with sudo (systemctl disable --now [A-Za-z0-9_-]{1,64}|kill \\\$\\(sudo lsof -tiTCP:[0-9]+ -sTCP:LISTEN\\))|another program\\. Find the listener with sudo ss -ltnp '\\( sport = :[0-9]+ \\)', then stop that program to free port [0-9]+)\\. (Docker service ownership could not be checked\\. )?Your answers are saved\\. Then run the same install command again: ${_statbus_rerun_ere}\$" "$install_output" | tail -1
     elif grep -Eq "^Only [0-9]+ GB free on [A-Za-z0-9_./~+-]+\\. StatBus needs at least [0-9]+ GB to install\\. Free some space, then run the same install command again: ${_statbus_rerun_ere}\$" "$install_output"; then
         grep -E "^Only [0-9]+ GB free on [A-Za-z0-9_./~+-]+\\. StatBus needs at least [0-9]+ GB to install\\. Free some space, then run the same install command again: ${_statbus_rerun_ere}\$" "$install_output" | tail -1
+    elif grep -Eq "^(Docker is not installed\\. StatBus needs Docker before it can install: run the server setup script as root, which installs it \\(https://github\\.com/statisticsnorway/statbus/blob/master/doc/setup-ubuntu-lts\\.md\\), then|Docker is installed but its service is not running\\. Start it with sudo systemctl enable --now docker, then|The user ([a-z_][a-z0-9_-]{0,31}|\\\$USER) may not use Docker \\(Docker said: [Pp]ermission denied( while trying to connect to the [Dd]ocker ([Aa][Pp][Ii]|[Dd]aemon socket) at unix:///[A-Za-z0-9_./-]+)?\\)\\. If getent group docker does not list ([a-z_][a-z0-9_-]{0,31}|\\\$USER), run sudo usermod -aG docker ([a-z_][a-z0-9_-]{0,31}|\\\$USER)\\. Then log out and log in again so id -nG lists docker, and) run the same install command again: ${_statbus_rerun_ere}\$" "$install_output"; then
+        # STATBUS-487: the three Docker causes (absent, daemon stopped, user
+        # not permitted on the socket), as diskpolicy.DockerAbsentRefusal /
+        # DockerStoppedRefusal / DockerDeniedRefusal build them. FULL-LINE
+        # anchored: fixed sentences, a charset-limited user name, the daemon's
+        # own permission sentence reduced to a fixed shape, and an EXACT rerun
+        # command at end-of-line. Placed BEFORE the disk-unmeasurable bucket so
+        # a Docker cause can never be masked by it.
+        grep -E "^(Docker is not installed\\. StatBus needs Docker before it can install: run the server setup script as root, which installs it \\(https://github\\.com/statisticsnorway/statbus/blob/master/doc/setup-ubuntu-lts\\.md\\), then|Docker is installed but its service is not running\\. Start it with sudo systemctl enable --now docker, then|The user ([a-z_][a-z0-9_-]{0,31}|\\\$USER) may not use Docker \\(Docker said: [Pp]ermission denied( while trying to connect to the [Dd]ocker ([Aa][Pp][Ii]|[Dd]aemon socket) at unix:///[A-Za-z0-9_./-]+)?\\)\\. If getent group docker does not list ([a-z_][a-z0-9_-]{0,31}|\\\$USER), run sudo usermod -aG docker ([a-z_][a-z0-9_-]{0,31}|\\\$USER)\\. Then log out and log in again so id -nG lists docker, and) run the same install command again: ${_statbus_rerun_ere}\$" "$install_output" | tail -1
     elif grep -Eq '^cannot check disk space at (Docker storage: Docker root unavailable|[A-Za-z0-9_./~+-]+: measurement unavailable)$' "$install_output"; then
         grep -E '^cannot check disk space at (Docker storage: Docker root unavailable|[A-Za-z0-9_./~+-]+: measurement unavailable)$' "$install_output" | tail -1
     elif grep -Eq "^a restart is still running(, or its services could not be restored)?\\. Wait for it to finish, then run the same install command again: ${_statbus_rerun_ere}\$" "$install_output"; then
