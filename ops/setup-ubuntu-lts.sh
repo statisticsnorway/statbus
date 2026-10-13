@@ -1203,6 +1203,27 @@ EOF
     
     apt_retry "update" update -qq
     apt_install "docker" docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+
+    # STATBUS-500: the account that will RUN StatBus needs the socket NOW, not two
+    # stages later, and this stage's checks cannot see the difference: which docker,
+    # systemctl is-active docker and docker compose version are all true for root
+    # while an ordinary user is refused. That gap blocked a real installation in
+    # Uganda: Docker installed, daemon running, socket permission denied.
+    docker_user="${SERVICE_USER:-statbus}"
+    if id "$docker_user" >/dev/null 2>&1; then
+        # A case match, not a grep in a pipeline: this file runs under pipefail and
+        # a grep exiting early can fail the pipeline it matched (STATBUS-227).
+        case " $(id -nG "$docker_user") " in
+            *" docker "*) log "$docker_user already has docker access" ;;
+            *)
+                log "Adding $docker_user to the docker group"
+                usermod -aG docker "$docker_user"
+                log_warn "$docker_user needs a NEW login session before it can use Docker; a fresh process (and runuser below) sees the group immediately"
+                ;;
+        esac
+    else
+        log_warn "$docker_user does not exist yet (it is created in a later stage); docker access is granted there"
+    fi
     
     # Verification
     echo ""
@@ -1216,6 +1237,10 @@ EOF
     verify "Docker installed" "which docker"
     verify "Docker running" "systemctl is-active docker"
     verify "Docker Compose installed" "docker compose version"
+    # Checked AS the account that will use it, not as root. A just-added group
+    # member sees the group in a fresh process, which is what runuser gives us, so
+    # this is a real check rather than a restatement of the daemon being up.
+    verify "Docker usable by ${SERVICE_USER:-statbus}" "runuser -u ${SERVICE_USER:-statbus} -- docker info"
     
     pause
 }
