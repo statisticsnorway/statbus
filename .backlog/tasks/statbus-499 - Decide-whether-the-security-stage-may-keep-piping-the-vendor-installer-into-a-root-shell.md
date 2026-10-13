@@ -3,9 +3,10 @@ id: STATBUS-499
 title: >-
   Decide whether the security stage may keep piping the vendor installer into a
   root shell
-status: To Do
+status: In Progress
 assignee: []
 created_date: '2026-10-13 13:44'
+updated_date: '2026-10-13 13:51'
 labels:
   - install
   - hardening
@@ -32,4 +33,6 @@ QUESTION, raised by the coordinator reviewing the Uganda prepare run on 2026-10-
 
 <!-- SECTION:NOTES:BEGIN -->
 Filed 2026-10-13 while fixing STATBUS-498 in the same stage. Not a bug report: the owner has already said the trust in the security vendor is unavoidable, so this exists to make the choice explicit and to capture the two small details (the operator-home HOME, and the consistency with the Docker repository setup) rather than to argue for a change.
+
+OWNER DECISION 2026-10-13: keep the vendor pipe. Use sudo appropriately, or not at all - we are already root when this runs. Consequence, and why this is now a one-line change rather than a redesign: STATBUS-492 added a guard so the script refuses a plain sudo from an operator home and requires a root login shell, so by the time Stage 4 runs HOME is /root and the vendor script no longer inherits an operator home. That concern is therefore already closed by the guard, which has its own pinned test. What remains is only the redundant sudo in the pipeline, to be dropped once the same file is free (STATBUS-491 is being edited in it right now). Deliberately NOT done: no test asserting that sudo is absent from that line - that would assert about removed code rather than behaviour, and the behaviour that makes the line safe is already pinned by the 492 test.
 <!-- SECTION:NOTES:END -->
