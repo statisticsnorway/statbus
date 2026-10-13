@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-10-13 15:39'
-updated_date: '2026-10-13 15:39'
+updated_date: '2026-10-13 15:42'
 labels:
   - release
   - docs
@@ -40,4 +40,12 @@ OPTIONS: (A) keep master deliberately, recorded as THE one documented bootstrap 
 Filed 2026-10-13. The Caddyfile on niue is outside this repository (caddy/templates only renders slot deployments), so any change there is a production edit requiring the owner go and a caddy reload.
 
 2026-10-13: STATBUS-504 (a statbus.org/setup.sh) is folded into this ticket - same decision, tracked once. So the single question here is: (A) keep master deliberately as the documented bootstrap exception, or (B) publish install.sh, uninstall.sh and the prepare script as release assets and point the Caddy redirects at releases/latest/download/, which makes both commands one-liners and removes the last master dependency from the operator path, or (C) serve a resolving snippet from the domain. Coordinator recommendation: B.
+
+OWNER DECISION 2026-10-13: option B. The shortcuts always serve the LATEST RELEASE; master is reachable on GitHub for anyone who deliberately wants unreleased code.
+
+STEP 1 DONE (this commit): .github/workflows/release.yaml now stages install.sh, uninstall.sh and ops/setup-ubuntu-lts.sh into dist/ and passes them to gh release create, so every future release carries them as assets. Safe against the release verification: cli/internal/release/check.go CheckAssets builds its result list from requiredAssets and only asks whether each REQUIRED asset is present, so extra assets are allowed (checked, not assumed).
+
+SEQUENCING, and this is why the redirects are NOT flipped yet: until a release actually carries those assets, releases/latest/download/install.sh does not exist, so pointing statbus.org at it now would 404 the public installer for everyone. Order: (2) at the next release, verify the asset list carries the three scripts (gh release view <tag> --json assets); (3) THEN, with the owner go, edit the Caddyfile on niue: /install.sh and /uninstall.sh to releases/latest/download/<name>, and add a /setup.sh handle for the prepare script; validate and reload, then verify each shortcut with curl -I; (4) update the README and docs to the one-line shortcuts, keeping the pinned two-line form for a specific version.
+
+NOT DONE, deliberately: the install scripts are not added to checksums.txt (that file covers the sb binaries, generated in the build-binaries job). Note for a later pass if we want the verifier to cover the scripts too.
 <!-- SECTION:NOTES:END -->

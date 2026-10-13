@@ -201,6 +201,19 @@ jobs:
           name: binaries
           path: dist/
 
+      # STATBUS-505: the public shortcuts (statbus.org/install.sh, /uninstall.sh,
+      # and a /setup.sh) must serve a RELEASED artifact, never the master branch.
+      # These scripts therefore travel with every release, and the domain
+      # redirects point at releases/latest/download/<name>. Fetching master stays
+      # possible by hand, from GitHub, for anyone who deliberately wants it.
+      - name: Stage the install scripts as release assets
+        run: |
+          cp install.sh dist/install.sh
+          cp uninstall.sh dist/uninstall.sh
+          cp ops/setup-ubuntu-lts.sh dist/setup-ubuntu-lts.sh
+          chmod +x dist/install.sh dist/uninstall.sh dist/setup-ubuntu-lts.sh
+          ls -l dist/
+
       - name: Detect migrations
         id: migrations
         run: |
@@ -259,6 +272,9 @@ jobs:
             dist/sb-darwin-arm64
             dist/checksums.txt
             dist/release-manifest.json
+            dist/install.sh
+            dist/uninstall.sh
+            dist/setup-ubuntu-lts.sh
           )
           if [ "${{ needs.metadata.outputs.prerelease }}" = "true" ]; then
             ARGS+=(--prerelease)
