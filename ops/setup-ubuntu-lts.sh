@@ -340,6 +340,55 @@ populate_authorized_keys() {
     log_success "populate_authorized_keys: $(wc -l < "$auth_keys") key(s) written to $auth_keys"
 }
 
+# STATBUS-495: prove someone can still get in BEFORE password authentication is
+# turned off. The owner's order, and the three cases it must tell apart:
+#   1. the login account already has keys -> say so, install nothing;
+#   2. no keys, but GITHUB_USERS names people -> install their keys and say what
+#      was installed;
+#   3. no keys and no GITHUB_USERS -> refuse, name the configuration entry, and
+#      change nothing. A box with no keys must never be hardened into a lockout.
+#
+# Whatever happened above, the operator then has to confirm a real login from a
+# second terminal. The default answer is NO, and NO means nothing is changed.
+# The confirmation is a human step on purpose: only the person can prove it.
+# In non-interactive runs ask_yes_no answers yes, so unattended preparations are
+# unaffected.
+
+# The login account's home directory, resolved in one place so the access gate
+# can be exercised without touching a real home directory.
+remote_access_home() { eval echo "~$1"; }
+
+ensure_remote_access() {
+    local user="${1:-${SERVICE_USER:-statbus}}" home keys
+    home="$(remote_access_home "$user")"
+    keys="$home/.ssh/authorized_keys"
+
+    if [[ -s "$keys" ]]; then
+        log "I can see remote access is already set up for $user ($(grep -c '^ssh-' "$keys" 2>/dev/null || echo 0) key(s) in $keys)."
+    elif [[ -n "${GITHUB_USERS:-}" ]]; then
+        log "No keys are installed for $user yet; installing them from GITHUB_USERS (${GITHUB_USERS})..."
+        if ! populate_authorized_keys "$user" "$GITHUB_USERS" "${GITHUB_DEPLOY_KEYS:-}"; then
+            log_error "Could not install keys for $user. Nothing has been changed; fix the access, then run this script again."
+            return 1
+        fi
+    else
+        log_error "No keys are installed for $user and GITHUB_USERS is empty, so I cannot establish that anyone can log in."
+        log_error "Set GITHUB_USERS in the setup configuration to the GitHub accounts whose keys may log in, then run this script again. Nothing has been changed."
+        return 1
+    fi
+
+    echo ""
+    log "Confirm you can still get in, before password authentication is disabled."
+    echo "  In a second terminal, connect with: ssh $user@$(hostname -f 2>/dev/null || hostname)"
+    echo "  Answering no changes nothing: fix the access, then run this script again."
+    if ! ask_yes_no "Did that connect?" n; then
+        log_error "Remote access was not confirmed, so SSH has not been changed."
+        return 1
+    fi
+    log_success "Remote access confirmed for $user"
+    return 0
+}
+
 # =============================================================================
 # Per-Stage Input Declarations (STATBUS-259)
 # =============================================================================
@@ -787,14 +836,21 @@ stage_ssh_hardening() {
     echo "  - Disable empty passwords"
     echo "  - Disable keyboard-interactive authentication"
     echo ""
-    echo -e "${YELLOW}WARNING: Ensure you have console access or SSH keys set up!${NC}"
+    echo "Before it changes anything, this stage makes sure someone can still log in,"
+    echo "and asks you to prove it from a second terminal. Answering no changes nothing."
     echo ""
-    
+
     if ! ask_yes_no "Run this stage?"; then
         log "Skipping Stage 2"
         return 0
     fi
-    
+
+    if ! ensure_remote_access "${SERVICE_USER:-statbus}"; then
+        verify "Remote access confirmed before hardening" "false"
+        pause
+        return 0
+    fi
+
     log "Configuring SSH..."
     cat > /etc/ssh/sshd_config.d/hardening.conf <<'EOF'
 # SSH Hardening Configuration
@@ -811,6 +867,9 @@ EOF
     if sshd -t; then
         log_success "SSH configuration valid"
         log "Restarting SSH service..."
+        # The drop-in is a unit input change, so reload units before restarting;
+        # without this systemd warns "unit file ... changed on disk" here.
+        systemctl daemon-reload
         systemctl restart ssh || systemctl restart sshd
     else
         log_error "SSH configuration test failed! Rolling back..."
@@ -826,6 +885,9 @@ EOF
     verify "SSH service running" "systemctl is-active ssh || systemctl is-active sshd"
     verify "Root password login disabled" "grep -q 'PermitRootLogin prohibit-password' /etc/ssh/sshd_config.d/hardening.conf"
     verify "Password auth disabled" "grep -q 'PasswordAuthentication no' /etc/ssh/sshd_config.d/hardening.conf"
+    local login_home
+    login_home="$(eval echo "~${SERVICE_USER:-statbus}")"
+    verify "At least one authorized key exists for ${SERVICE_USER:-statbus}" "test -s '$login_home/.ssh/authorized_keys'"
     
     pause
 }
