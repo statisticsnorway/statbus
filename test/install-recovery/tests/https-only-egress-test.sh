@@ -4,6 +4,10 @@ ROOT=$(cd "$(dirname "$0")/../../.." && pwd)
 BOOTSTRAP="$ROOT/test/install-recovery/lib/vm-bootstrap.sh"
 SCENARIO="$ROOT/test/install-recovery/scenarios/0-https-only-egress.sh"
 HAPPY_UPGRADE="$ROOT/test/install-recovery/scenarios/0-happy-upgrade.sh"
+# vm-bootstrap.sh refuses to load without HCLOUD_TOKEN. This test calls no cloud
+# API (every VM_EXEC is stubbed), so a placeholder keeps it runnable in CI, where
+# no .env.credentials exists (STATBUS-485: first CI run failed here).
+export HCLOUD_TOKEN=offline-https-only-egress-test
 source "$BOOTSTRAP"
 trap - ERR
 
