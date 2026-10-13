@@ -1984,7 +1984,20 @@ main() {
     stage_service_account
     stage_ci_allowlist
 
-    log_header "Setup Complete!"
+    # STATBUS-502: never print a success headline over a failed run, and never
+    # describe work this run did not do. The failure list comes FIRST, and the
+    # headline follows from it.
+    local problems=${#FAILED_VERIFICATIONS[@]}
+    if [[ "$problems" -gt 0 ]]; then
+        log_error "$problems verification(s) failed across the run:"
+        for failed in "${FAILED_VERIFICATIONS[@]}"; do
+            echo "  ✗ $failed"
+        done
+        echo ""
+        log_header "Setup finished WITH PROBLEMS: $problems verification(s) failed"
+    else
+        log_header "Setup Complete!"
+    fi
 
     echo "Summary of configuration:"
     echo "  - SSH hardened (key-only authentication)"
@@ -1992,18 +2005,30 @@ main() {
     echo "  - CrowdSec intrusion detection active"
     echo "  - UFW firewall enabled"
     echo "  - Docker installed"
-    echo "  - devops user created (ops/admin)"
+    # STATBUS-501/502: cloud-only work is mentioned only when THIS run did it.
+    if [[ "${CLOUD:-false}" == "true" ]]; then
+        echo "  - devops user created (ops/admin)"
+    fi
     echo "  - ${SERVICE_USER:-statbus} service account created (for StatBus install)"
-    echo "  - CI command allowlist installed from the repo, with a published hash"
+    if [[ "${CLOUD:-false}" == "true" ]]; then
+        echo "  - CI command allowlist installed from the repo, with a published hash"
+    fi
     echo ""
     echo "Recommended next steps:"
-    echo "  1. Log in as '${SERVICE_USER:-statbus}' and verify SSH key access"
-    echo "  2. Run the StatBus installer as that user:"
+    local step=1
+    echo "  $step. Log in as '${SERVICE_USER:-statbus}' and verify SSH key access"
+    step=$(( step + 1 ))
+    echo "  $step. Run the StatBus installer as that user:"
+    step=$(( step + 1 ))
     echo "       ssh ${SERVICE_USER:-statbus}@\$(hostname --fqdn)"
-    echo "       curl -fsSL https://statbus.org/install.sh | bash -s -- --channel prerelease"
-    echo "  3. (ops) Log in as 'devops' for host administration tasks"
-    echo "  4. Review CrowdSec with: cscli metrics"
-    echo "  5. Check firewall status with: ufw status"
+    echo "       curl -fsSL https://statbus.org/install.sh | bash"
+    if [[ "${CLOUD:-false}" == "true" ]]; then
+        echo "  $step. (ops) Log in as 'devops' for host administration tasks"
+        step=$(( step + 1 ))
+    fi
+    echo "  $step. Review CrowdSec with: cscli metrics"
+    step=$(( step + 1 ))
+    echo "  $step. Check firewall status with: ufw status"
     echo ""
 
     if [[ -f /var/run/reboot-required ]]; then
@@ -2016,13 +2041,9 @@ main() {
     # torn down right after this run, so fail-fast would hide whatever
     # came after the first ✗) so a real regression anywhere finally
     # reaches the caller's (harness's) exit code instead of vanishing into
-    # stage output nobody's automation checks.
-    if [[ ${#FAILED_VERIFICATIONS[@]} -gt 0 ]]; then
-        echo ""
-        log_error "${#FAILED_VERIFICATIONS[@]} verification(s) failed across the run:"
-        for failed in "${FAILED_VERIFICATIONS[@]}"; do
-            echo "  ✗ $failed"
-        done
+    # stage output nobody's automation checks. The failure LIST is printed
+    # above, before the summary headline (STATBUS-502).
+    if [[ "$problems" -gt 0 ]]; then
         exit 1
     fi
 }

@@ -106,6 +106,8 @@ jobs:
         run: bash test/install-recovery/tests/setup-docker-access-test.sh
       - name: Prove cloud configuration is applied only with cloud intent (STATBUS-501)
         run: bash test/install-recovery/tests/setup-cloud-only-config-test.sh
+      - name: Prove the end-of-run summary is true and names no channel (STATBUS-502)
+        run: bash test/install-recovery/tests/setup-summary-truth-test.sh
       - name: Prove the setup prompts state their purpose and that a blank email is safe (STATBUS-490)
         run: bash test/install-recovery/tests/setup-prompt-purpose-test.sh
       - name: Prove the CI deploy-key question is asked only with --cloud (STATBUS-491)
