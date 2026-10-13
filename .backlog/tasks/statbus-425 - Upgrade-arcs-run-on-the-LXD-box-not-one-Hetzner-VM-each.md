@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-09-28 13:07'
-updated_date: '2026-10-13 12:01'
+updated_date: '2026-10-13 12:02'
 labels:
   - ci
   - lxd
@@ -24,12 +24,12 @@ The 4/4 upgrade-arc stage boots one Hetzner CX23 per arc, max-parallel 2 (projec
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 Every arcs/*-arc.sh runs on the LXD box from one CI job with bounded parallelism
+- [x] #1 Every arcs/*-arc.sh runs on the LXD box from one CI job with bounded parallelism
 - [ ] #2 Verdicts match the Hetzner arc run at the same candidate commit
-- [ ] #3 Orchestrator 4/4 and the stable gate use the LXD arc run; the Hetzner run-arc matrix is deleted
-- [ ] #4 Full arc suite wall time under 60 min
-- [ ] #5 Smoke 0-happy-install and 0-happy-upgrade run on the LXD box and leave the checkpoints the fault checks and arcs fork from
-- [ ] #6 LXD guests are ubuntu:26.04
+- [x] #3 Orchestrator 4/4 and the stable gate use the LXD arc run; the Hetzner run-arc matrix is deleted
+- [x] #4 Full arc suite wall time under 60 min
+- [x] #5 Smoke 0-happy-install and 0-happy-upgrade run on the LXD box and leave the checkpoints the fault checks and arcs fork from
+- [x] #6 LXD guests are ubuntu:26.04
 - [ ] #7 No release gate boots a Hetzner VM
 <!-- AC:END -->
 
@@ -151,4 +151,20 @@ Evidence:
 Genuinely open:
 - AC 2, verdict parity with the Hetzner arc run at the same candidate commit. The comparison the notes assert (rc.16 arcs run 36468921894 = FAILURE at 59bdaed88) is not recorded anywhere durable as a per-arc comparison, and the Hetzner run-arc path no longer exists, so parity can only be evidenced from historical artefacts if they are still retrievable, or else restated as a deliberate documented acceptance rather than a comparison.
 - The criteria need checking against the evidence above: AC 1, 3, 4, 5, 6 look satisfied, and AC 7 is true in the meaningful sense (no release gate boots a TEST VM; the fleet host itself is a Hetzner machine and the ticket should say so).
+
+2026-10-13 AC-BY-AC CHECK against evidence (coordinator). Checked AC 1, 3, 4, 5, 6 with the evidence below. AC 2 remains genuinely open; AC 7 needs its wording settled by the owner.
+
+AC 1 (every arcs/*-arc.sh runs on the LXD box from one CI job with bounded parallelism): MET. Upgrade Arc Harness run 37578475601 at bce5bf39b completed SUCCESS with 42 jobs, including "Ramp hardened LXD fleet host" and the per-arc jobs (claim-without-notify, un-park-to-completion, working, ...). The workflow creates no per-arc VM: `rg 'hcloud server create' .github/workflows` finds nothing, and the run-arc job installs through install_statbus_at_sha on an LXD fork. Its own comment records that capacity is bounded on the host by ops/lxd-fleet/admission.sh slots, not by a workflow lock.
+
+AC 3 (orchestrator and the stable gate use the LXD arc run; the Hetzner run-arc matrix is deleted): MET. release-fleet-orchestrator.yaml has an `upgrade-arc-harness` stage 3/4 that `needs: [decide-obsolete, dev-canary]` and documents "fleet-verdict and the stable gate still require both to be green". The Hetzner run-arc matrix is gone (nothing under .github/workflows creates servers; the only hcloud use is ops/lxd-fleet/up.sh ramping the fleet HOST).
+
+AC 4 (full arc suite wall time under 60 min): MET. Same run: created-to-updated 59 min 41 s, success.
+
+AC 5 (smoke 0-happy-install and 0-happy-upgrade run on the LXD box and leave the checkpoints the faults and arcs fork from): MET for the LXD legs. Test Smoke run 37577261099 at bce5bf39b: "Ramp hardened LXD fleet host", "0-happy-install", "0-happy-upgrade" and "Aggregate scenario freshness verdict" all success. The arcs of the same commit (37578475601) run concurrently and fork those checkpoints, which is the leaving-and-forking half in practice.
+
+AC 6 (LXD guests are ubuntu:26.04): MET. ops/lxd-fleet/base.sh:35 launches ubuntu:26.04, ops/lxd-fleet/up.sh:8 sets image=ubuntu-26.04, ops/lxd-fleet/harden-host.sh:147 likewise.
+
+AC 2 (verdicts match the Hetzner arc run at the same candidate commit): OPEN and possibly not satisfiable. The comparison the notes name (rc.16 arcs run 36468921894) is a FAILURE at 59bdaed88, and no per-arc LXD-vs-Hetzner comparison is recorded durably anywhere; the Hetzner run-arc path no longer exists, so a fresh comparison cannot be produced. Options for the owner: (a) recover the historical artefacts if they survive and write the comparison, or (b) replace the criterion with a deliberate documented acceptance that the Hetzner path is retired and parity was the basis on which it was retired, citing the M3b shadow runs.
+
+AC 7 (no release gate boots a Hetzner VM): TRUE for test VMs - no workflow creates one - but the shared fleet HOST is itself a Hetzner machine, provisioned by ops/lxd-fleet/up.sh. The owner should settle whether the criterion means "no per-test VM" (met) or "no Hetzner machine at all" (not met, and deliberately so).
 <!-- SECTION:NOTES:END -->
