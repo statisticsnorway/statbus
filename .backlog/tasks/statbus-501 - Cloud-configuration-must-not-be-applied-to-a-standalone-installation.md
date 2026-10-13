@@ -1,10 +1,10 @@
 ---
 id: STATBUS-501
 title: Cloud configuration must not be applied to a standalone installation
-status: In Progress
+status: Done
 assignee: []
 created_date: '2026-10-13 14:24'
-updated_date: '2026-10-13 14:38'
+updated_date: '2026-10-13 14:45'
 labels:
   - install
   - cloud
@@ -52,4 +52,6 @@ EVIDENCE: the red half still fails at the missing helper; the green half is now 
 POST-LANDING FAILURE AND FIX (2026-10-13), recorded because it is exactly the class of mistake this project keeps paying for: the harness selftest went RED at b79461a43, on the STATBUS-495 test. Root cause was mine, not a flake: this ticket changed the third argument of populate_authorized_keys from the raw variable to deploy_keys_for_this_run(), and the 495 test still asserted the OLD value, so it saw an empty deploy-key argument and failed. It passed on my machine because that commit ran only the NEW test and bash -n, never the 495 test whose contract I had just changed.
 
 FIX: the 495 test now extracts deploy_keys_for_this_run alongside the access gate (without it the gate ran against an undefined command, which is why the argument was empty for the wrong reason), asserts that a STANDALONE run passes no deploy keys, and adds the missing CLOUD=true case asserting the configured deploy keys DO pass through. All thirteen setup-* tests now pass locally, run together rather than individually - the check I should have made in the first place.
+
+GREEN and closed 2026-10-13. Harness Selftest run at bb3c21e42 (the commit that follows the cloud-gated deploy keys with the corrected 495 test) reports SUCCESS, read at job level; the earlier red at b79461a43 is explained above and fixed. All thirteen setup-* tests pass locally when run together. Criteria 1-4 are checked; criterion 5 (the real standalone preparation showing no deploy-key or CI setup) rides with STATBUS-497.
 <!-- SECTION:NOTES:END -->
