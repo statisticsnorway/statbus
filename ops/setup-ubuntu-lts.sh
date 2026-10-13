@@ -574,8 +574,8 @@ setup_env() {
         log "No configuration found. Let's set up your preferences."
     fi
 
-    prompt_env_value "ADMIN_EMAIL" "Email address for system notifications (unattended-upgrades):"
-    prompt_env_value "GITHUB_USERS" "GitHub usernames for SSH key fetching (space-separated, ED25519-only):"
+    prompt_env_value "ADMIN_EMAIL" "Email address for system notifications (unattended-upgrades). Optional: leave blank for no unattended-upgrade notification emails:"
+    prompt_env_value "GITHUB_USERS" "GitHub usernames for SSH key fetching (space-separated, ED25519-only). This is operator/DevOps SSH access to the box for hardening and administration, not anything to do with StatBus data:"
     GITHUB_DEPLOY_KEYS="${GITHUB_DEPLOY_KEYS:-statisticsnorway/statbus}"
     prompt_env_value "GITHUB_DEPLOY_KEYS" "GitHub repo deploy-key sources for CI access (space-separated <org>/<repo>; default: statisticsnorway/statbus):"
     prompt_env_value "EXTRA_LOCALES" "Extra locales to enable without .UTF-8 suffix (e.g., 'sq_AL nb_NO'):"
