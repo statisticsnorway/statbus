@@ -6,6 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-10-13 15:39'
+updated_date: '2026-10-13 15:39'
 labels:
   - release
   - docs
@@ -37,4 +38,6 @@ OPTIONS: (A) keep master deliberately, recorded as THE one documented bootstrap 
 
 <!-- SECTION:NOTES:BEGIN -->
 Filed 2026-10-13. The Caddyfile on niue is outside this repository (caddy/templates only renders slot deployments), so any change there is a production edit requiring the owner go and a caddy reload.
+
+2026-10-13: STATBUS-504 (a statbus.org/setup.sh) is folded into this ticket - same decision, tracked once. So the single question here is: (A) keep master deliberately as the documented bootstrap exception, or (B) publish install.sh, uninstall.sh and the prepare script as release assets and point the Caddy redirects at releases/latest/download/, which makes both commands one-liners and removes the last master dependency from the operator path, or (C) serve a resolving snippet from the domain. Coordinator recommendation: B.
 <!-- SECTION:NOTES:END -->

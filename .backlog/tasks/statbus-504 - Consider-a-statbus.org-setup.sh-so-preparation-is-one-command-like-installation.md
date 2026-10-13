@@ -3,9 +3,10 @@ id: STATBUS-504
 title: >-
   Consider a statbus.org/setup.sh so preparation is one command like
   installation
-status: To Do
+status: Done
 assignee: []
 created_date: '2026-10-13 15:38'
+updated_date: '2026-10-13 15:39'
 labels:
   - docs
   - install
@@ -37,4 +38,6 @@ THE CONSTRAINT THAT MAKES THIS NON-TRIVIAL: a plain redirect of setup.sh must NO
 
 <!-- SECTION:NOTES:BEGIN -->
 Filed 2026-10-13 by the coordinator, deliberately left To Do. Blocked on an answer only the owner has: where statbus.org is served from, since nothing in this repository routes it.
+
+FOLDED INTO STATBUS-505 on 2026-10-13 (owner: do not create administration for small things). The one-command prepare and the bootstrap source are a single decision, so it is tracked once, in 505. This ticket is closed as folded.
 <!-- SECTION:NOTES:END -->
