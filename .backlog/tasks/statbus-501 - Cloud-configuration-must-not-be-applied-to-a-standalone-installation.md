@@ -1,10 +1,10 @@
 ---
 id: STATBUS-501
 title: Cloud configuration must not be applied to a standalone installation
-status: To Do
+status: In Progress
 assignee: []
 created_date: '2026-10-13 14:24'
-updated_date: '2026-10-13 14:35'
+updated_date: '2026-10-13 14:38'
 labels:
   - install
   - cloud
@@ -48,4 +48,8 @@ THE RULE NOW IMPLEMENTED: cloud intent decides which run this is, and cloud-only
 Stage 8 was UNGATED before this and is now gated the same way: /etc/sshdoers is our inbound CI access policy, so it belongs to cloud runs. Consequence worth knowing: ops/lxd-fleet/base.sh prepares the shared validation host WITHOUT --cloud, so that host will no longer get /etc/sshdoers or the devops account. Nothing in the harness relies on either (checked: no reference to devops outside this test), and the host is a fixture; if it ever needs them, base.sh must pass --cloud explicitly.
 
 EVIDENCE: the red half still fails at the missing helper; the green half is now TEN passes, including "stage 6 (devops) is invisible without cloud intent: the gate precedes the header / says nothing" and the same two for stage 8. bash -n parses.
+
+POST-LANDING FAILURE AND FIX (2026-10-13), recorded because it is exactly the class of mistake this project keeps paying for: the harness selftest went RED at b79461a43, on the STATBUS-495 test. Root cause was mine, not a flake: this ticket changed the third argument of populate_authorized_keys from the raw variable to deploy_keys_for_this_run(), and the 495 test still asserted the OLD value, so it saw an empty deploy-key argument and failed. It passed on my machine because that commit ran only the NEW test and bash -n, never the 495 test whose contract I had just changed.
+
+FIX: the 495 test now extracts deploy_keys_for_this_run alongside the access gate (without it the gate ran against an undefined command, which is why the argument was empty for the wrong reason), asserts that a STANDALONE run passes no deploy keys, and adds the missing CLOUD=true case asserting the configured deploy keys DO pass through. All thirteen setup-* tests now pass locally, run together rather than individually - the check I should have made in the first place.
 <!-- SECTION:NOTES:END -->

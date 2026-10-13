@@ -3,10 +3,10 @@ id: STATBUS-500
 title: >-
   Docker arrives two stages before the account that runs StatBus can use it, and
   the checks cannot see it
-status: In Progress
+status: Done
 assignee: []
 created_date: '2026-10-13 14:04'
-updated_date: '2026-10-13 14:04'
+updated_date: '2026-10-13 14:38'
 labels:
   - install
   - hardening
@@ -36,4 +36,6 @@ FOUND 2026-10-13 reviewing the Uganda prepare run, Stage 5 (Core Tools & System 
 
 <!-- SECTION:NOTES:BEGIN -->
 2026-10-13, fixed and evidenced by the coordinator directly (owner asked for it now rather than delegated). RED: STATBUS_SETUP_SCRIPT=<HEAD copy> bash test/install-recovery/tests/setup-docker-access-test.sh -> four FAIL lines, rc=1. GREEN: four PASS lines, rc=0; bash -n parses. Wired into .github/workflows/harness-selftest.yaml. The group check uses a case match rather than a grep in a pipeline because this file runs under pipefail and a grep exiting early can fail the pipeline it matched (STATBUS-227). The later-vintage usermod calls in stage_user_setup (devops) and stage_service_account ($user) are left in place: they are idempotent and the second still serves boxes where the service account is created late.
+
+Marked Done 2026-10-13. AC 5 (the next real preparation reporting "Docker usable by <user>") rides with STATBUS-497. CI coverage: this commit own runs have aged out of the visible window, but STATBUS-489 later commit 7e38edfc4 has Harness Selftest SUCCESS and contains this code, and that workflow runs this test - so the code is covered green.
 <!-- SECTION:NOTES:END -->
