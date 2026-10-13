@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-09-28 13:07'
-updated_date: '2026-10-13 12:02'
+updated_date: '2026-10-13 15:17'
 labels:
   - ci
   - lxd
@@ -167,4 +167,6 @@ AC 6 (LXD guests are ubuntu:26.04): MET. ops/lxd-fleet/base.sh:35 launches ubunt
 AC 2 (verdicts match the Hetzner arc run at the same candidate commit): OPEN and possibly not satisfiable. The comparison the notes name (rc.16 arcs run 36468921894) is a FAILURE at 59bdaed88, and no per-arc LXD-vs-Hetzner comparison is recorded durably anywhere; the Hetzner run-arc path no longer exists, so a fresh comparison cannot be produced. Options for the owner: (a) recover the historical artefacts if they survive and write the comparison, or (b) replace the criterion with a deliberate documented acceptance that the Hetzner path is retired and parity was the basis on which it was retired, citing the M3b shadow runs.
 
 AC 7 (no release gate boots a Hetzner VM): TRUE for test VMs - no workflow creates one - but the shared fleet HOST is itself a Hetzner machine, provisioned by ops/lxd-fleet/up.sh. The owner should settle whether the criterion means "no per-test VM" (met) or "no Hetzner machine at all" (not met, and deliberately so).
+
+2026-10-13, while checking that nothing of ours is unmerged (owner question): the current checkout is on master, level with origin/master, nothing unpushed, and every ticket from today is landed. But local branches exist that carry commits NOT on master, and two of them are the likely home of this ticket AC 2 parity evidence: ci/lxd-m4 (42 commits off master) and ci/lxd-arcs (28 commits off master). Others are older experiments/review branches (db-seed 56, feature/*, backup/*, agent/*). SO: when AC 2 is taken, start by auditing ci/lxd-m4 and ci/lxd-arcs for the M3b shadow-run comparison and for any unlanded code we still want; a merge of either is an owner decision, not a coordinator one. This is recorded here because AC 2 is the one criterion that cannot be produced fresh (the Hetzner run-arc path no longer exists).
 <!-- SECTION:NOTES:END -->
