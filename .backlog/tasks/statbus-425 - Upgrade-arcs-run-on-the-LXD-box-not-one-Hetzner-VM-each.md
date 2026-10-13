@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-09-28 13:07'
-updated_date: '2026-10-13 11:58'
+updated_date: '2026-10-13 12:01'
 labels:
   - ci
   - lxd
@@ -138,4 +138,17 @@ Steps:
 3. Then AC 7 (no release gate boots a Hetzner VM) is true and the Hetzner arc path can be retired.
 
 Ordering: it follows STATBUS-485, which restores the one scenario the VM to LXD migration left unrunnable, and it precedes the next release candidate, so the candidate runs on finished machinery.
+
+2026-10-13 GROUNDED STATUS CORRECTION (coordinator), from checking CI and the workflows rather than this ticket's own prose. Most of this ticket is already landed in master; the 0/7 criteria reflect a stale ticket, not missing work. My earlier statement that rung 8 still boots Hetzner VMs was WRONG.
+
+Evidence:
+- upgrade-arc-harness.yaml creates no per-arc VM at all: no `hcloud server create` exists anywhere under .github/workflows. The only remaining Hetzner API use is ops/lxd-fleet/up.sh, which ramps the shared LXD fleet host itself (a Hetzner machine, not a test VM). The workflow's own comment says: "STATBUS-425 M4: arcs run on the shared LXD fleet box, concurrently with the LXD fault fleet of the same candidate. Box capacity is bounded on the HOST (ops/lxd-fleet/admission.sh slots), not by a workflow lock."
+- The run-arc job installs through install_statbus_at_sha on an LXD fork, and the workflow has a "Ramp hardened LXD fleet host" job.
+- release-fleet-orchestrator.yaml dispatches upgrade-arc-harness as stage 3/4 after dev-canary, and states: "fleet-verdict and the stable gate still require both to be green", with the comment "STATBUS-425 M4: arcs start after dev, together with the LXD fault fleet".
+- AC 4 evidence: Upgrade Arc Harness run 37578475601 at bce5bf39b (which is v2026.10.0-rc.20, the v2026.10.0 commit) completed SUCCESS with 42 jobs and a measured wall time of 59 min 41 s, under the 60-minute criterion.
+- The concurrency group name "hetzner-vm-fleet" is historical and documented as such in the workflow.
+
+Genuinely open:
+- AC 2, verdict parity with the Hetzner arc run at the same candidate commit. The comparison the notes assert (rc.16 arcs run 36468921894 = FAILURE at 59bdaed88) is not recorded anywhere durable as a per-arc comparison, and the Hetzner run-arc path no longer exists, so parity can only be evidenced from historical artefacts if they are still retrievable, or else restated as a deliberate documented acceptance rather than a comparison.
+- The criteria need checking against the evidence above: AC 1, 3, 4, 5, 6 look satisfied, and AC 7 is true in the meaningful sense (no release gate boots a TEST VM; the fleet host itself is a Hetzner machine and the ticket should say so).
 <!-- SECTION:NOTES:END -->
