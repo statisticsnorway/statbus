@@ -26,8 +26,15 @@ This script is the **first of two phases** in a fresh StatBus install:
 sudo -i
 
 # Download
-curl -fsSL https://raw.githubusercontent.com/statisticsnorway/statbus/master/ops/setup-ubuntu-lts.sh -o setup.sh
+# STATBUS-488 prepare fetch: use the setup script of the release you install.
+# Set VERSION to the tag you will install (e.g. VERSION=v2026.03.0, then pass the
+# same --version to install.sh); left unset it resolves the stable channel the
+# same way install.sh does.
+VERSION="${VERSION:-$(curl -sL https://api.github.com/repos/statisticsnorway/statbus/releases/latest | grep '"tag_name"' | cut -d'"' -f4)}"
+curl -fsSL "https://raw.githubusercontent.com/statisticsnorway/statbus/${VERSION}/ops/setup-ubuntu-lts.sh" -o setup.sh
 chmod +x setup.sh
+
+# Releases before v2026.09.2 ship the script as ops/setup-ubuntu-lts-24.sh.
 
 # Run (will prompt for configuration, then each stage)
 ./setup.sh

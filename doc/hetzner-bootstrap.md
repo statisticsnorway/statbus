@@ -181,7 +181,12 @@ setup script, which detects Ubuntu 24.04 or 26.04 from `/etc/os-release` and
 handles the OS hardening + account creation:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/statisticsnorway/statbus/master/ops/setup-ubuntu-lts.sh -o setup.sh
+# STATBUS-488 prepare fetch: use the setup script of the release you install.
+# Set VERSION to the tag you will install (e.g. VERSION=v2026.03.0, then pass the
+# same --version to install.sh); left unset it resolves the stable channel the
+# same way install.sh does.
+VERSION="${VERSION:-$(curl -sL https://api.github.com/repos/statisticsnorway/statbus/releases/latest | grep '"tag_name"' | cut -d'"' -f4)}"
+curl -fsSL "https://raw.githubusercontent.com/statisticsnorway/statbus/${VERSION}/ops/setup-ubuntu-lts.sh" -o setup.sh
 chmod +x setup.sh
 # Skip Stage 0 on Hetzner — HTTP APT sources work fine here.
 SKIP_STAGES="0" ./setup.sh

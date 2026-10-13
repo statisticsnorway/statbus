@@ -189,7 +189,12 @@ supported. This is step 1 of a two-phase install:
 
 ```bash
 sudo -i   # root login shell: HOME=/root, clean environment
-curl -fsSL https://raw.githubusercontent.com/statisticsnorway/statbus/master/ops/setup-ubuntu-lts.sh -o setup.sh
+# STATBUS-488 prepare fetch: use the setup script of the release you install.
+# Set VERSION to the tag you will install (e.g. VERSION=v2026.03.0, then pass the
+# same --version to install.sh); left unset it resolves the stable channel the
+# same way install.sh does.
+VERSION="${VERSION:-$(curl -sL https://api.github.com/repos/statisticsnorway/statbus/releases/latest | grep '"tag_name"' | cut -d'"' -f4)}"
+curl -fsSL "https://raw.githubusercontent.com/statisticsnorway/statbus/${VERSION}/ops/setup-ubuntu-lts.sh" -o setup.sh
 chmod +x setup.sh
 ./setup.sh
 ```
