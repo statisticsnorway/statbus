@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-10-13 15:39'
-updated_date: '2026-10-13 15:46'
+updated_date: '2026-10-13 16:26'
 labels:
   - release
   - docs
@@ -58,4 +58,6 @@ BEFORE-STATE captured 2026-10-13 from OUTSIDE, before any change (this is the ot
 SMALL DISCOVERY worth recording: there is NO setup.sh handler on niue at all. `grep -n setup.sh /etc/caddy/Caddyfile` finds nothing; what answers /setup.sh is the statbus.org block catch-all `redir https://www.statbus.org{uri} 302`, and the www host is a static file server (root /home/statbus_www/public_html, file_server with try_files) which has no setup.sh. So that path 404s by accident today, not by design - anyone who guessed the natural shortcut got a broken page.
 
 WHAT STEP 3 THEREFORE IS, exactly: in the statbus.org block, replace the two raw-master `handle` redirect targets with https://github.com/statisticsnorway/statbus/releases/latest/download/<name> for install.sh and uninstall.sh, and ADD a `handle /setup.sh` for setup-ubuntu-lts.sh pointing at the same latest-download form. Then `caddy validate` and reload, and re-run the three curl -I checks above to record the after-state.
+
+BEFORE-STATE RECORDED 2026-10-13 (read-only, no host change made). statbus.org/install.sh and /uninstall.sh both 302 to raw.githubusercontent.com/statisticsnorway/statbus/refs/heads/master/<script> - i.e. MASTER, the exact thing the only-a-named-candidate rule forbids. statbus.org/setup.sh 302s to www.statbus.org/setup.sh, which is a 404, so that shortcut serves no script at all today. TARGET: https://github.com/statisticsnorway/statbus/releases/latest/download/<script> (asset publishing added at .github/workflows/release.yaml:204-282 by 7e8253a46). NOT YET AVAILABLE: those three asset URLs 404 right now - the latest release is v2026.10.0 (2026-10-07, before 7e8253a46) and publishes only checksums.txt, release-manifest.json and the four sb-* binaries. HENCE the flip must wait for a release cut after 7e8253a46; flipping today would 404 the installer for operators. Full before-state saved at tmp/505-shortcut-before-state.txt.
 <!-- SECTION:NOTES:END -->
