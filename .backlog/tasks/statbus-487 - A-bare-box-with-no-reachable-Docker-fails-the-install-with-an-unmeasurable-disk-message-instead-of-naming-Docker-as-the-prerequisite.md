@@ -6,6 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-10-13 12:17'
+updated_date: '2026-10-13 12:19'
 labels:
   - install
   - fidelity
@@ -61,4 +62,21 @@ RELATED: STATBUS-376 (a third-party operator installs from the published instruc
 
 <!-- SECTION:NOTES:BEGIN -->
 Filed 2026-10-13 from the owner's live Uganda installation, which is otherwise ready. Immediate operator-side diagnosis sent to the owner: check `command -v docker`, `docker info --format {{.DockerRootDir}}` as the install user, `systemctl is-active docker` and `groups`; the three outcomes map to the three causes. Owner instruction: report the issue, ticket it, and assign an agent.
+
+2026-10-13 LIVE EVIDENCE from the Uganda box, confirming WHICH of the three causes it is (operator ran the coordinator's diagnostic commands):
+
+  $ command -v docker && docker info --format '{{.DockerRootDir}}' ; echo "rc=$?"
+  /usr/bin/docker
+  permission denied while trying to connect to the docker API at unix:///var/run/docker.sock
+  rc=1
+  $ systemctl is-active docker
+  active
+  $ groups
+  statbus adm cdrom sudo dip plugdev users lpadmin lxd
+
+So: Docker is INSTALLED, the daemon is RUNNING, and the install user is NOT PERMITTED on the socket. The installer could have said precisely that, and instead said "cannot check disk space at Docker storage: Docker root unavailable".
+
+Two refinements the fix needs, both visible in this evidence:
+1. The remedy has an order. "Log in again" alone is wrong when the account is not a member yet, and "add the user to the docker group" alone does nothing until a new session. The message must name both steps in order, and tell the operator how to find out which one they are in, e.g. `id -nG` or `getent group docker` (a stale session and a non-member look identical from `groups` in the current shell).
+2. The refusal should quote the daemon's own words when it has them ("permission denied while trying to connect to the docker API at unix:///var/run/docker.sock"), reduced to the single anchored line the install-log boundary permits, rather than swallowing them behind the disk-space sentence.
 <!-- SECTION:NOTES:END -->
