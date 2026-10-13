@@ -20,12 +20,17 @@ This script is the **first of two phases** in a fresh StatBus install:
 ## Quick Start
 
 ```bash
+# Open a root login shell (HOME=/root, clean environment). Plain
+# `sudo ./setup.sh` from your own home is refused: root must not write
+# root-owned files into a non-root home.
+sudo -i
+
 # Download
 curl -fsSL https://raw.githubusercontent.com/statisticsnorway/statbus/master/ops/setup-ubuntu-lts.sh -o setup.sh
 chmod +x setup.sh
 
 # Run (will prompt for configuration, then each stage)
-sudo ./setup.sh
+./setup.sh
 ```
 
 ## Features
@@ -68,7 +73,7 @@ Configuration is saved to `~/.setup-ubuntu.env` and reused on subsequent runs.
 
 ## Non-Interactive Mode
 
-For automation, create the env file first:
+For automation, create the env file first (inside the `sudo -i` root shell, so `~` is `/root`):
 
 ```bash
 cat > ~/.setup-ubuntu.env << 'EOF'
@@ -78,7 +83,7 @@ EXTRA_LOCALES="sq_AL nb_NO"
 SERVICE_USER="statbus"
 EOF
 
-sudo ./setup.sh --non-interactive
+./setup.sh --non-interactive
 ```
 
 ### Skipping specific stages
@@ -88,13 +93,13 @@ Both interactive and non-interactive runs honor `SKIP_STAGES` and
 
 ```bash
 # Skip stage 0 (keep HTTP APT sources) — typical for Hetzner dedicated hosts
-SKIP_STAGES="0" sudo ./setup.sh --non-interactive
+SKIP_STAGES="0" ./setup.sh --non-interactive
 
 # Equivalent CLI form
-sudo ./setup.sh --non-interactive --skip-stages "0"
+./setup.sh --non-interactive --skip-stages "0"
 
 # Skip multiple
-SKIP_STAGES="0 4" sudo ./setup.sh --non-interactive
+SKIP_STAGES="0 4" ./setup.sh --non-interactive
 ```
 
 Stages to skip are a space-separated list of the numbers from the Stages table.

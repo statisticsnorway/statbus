@@ -188,9 +188,10 @@ the accounts StatBus expects. Ubuntu 24.04 LTS and Ubuntu 26.04 LTS are
 supported. This is step 1 of a two-phase install:
 
 ```bash
+sudo -i   # root login shell: HOME=/root, clean environment
 curl -fsSL https://raw.githubusercontent.com/statisticsnorway/statbus/master/ops/setup-ubuntu-lts.sh -o setup.sh
 chmod +x setup.sh
-sudo ./setup.sh
+./setup.sh
 ```
 
 The script configures:

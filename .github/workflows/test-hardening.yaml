@@ -45,7 +45,7 @@ jobs:
           SERVICE_USER="statbus"
           EOF
           sudo chmod +x ops/setup-ubuntu-lts.sh
-          sudo SKIP_STAGES="0 1 2 3 4 5 6" ops/setup-ubuntu-lts.sh --non-interactive
+          sudo -H SKIP_STAGES="0 1 2 3 4 5 6" ops/setup-ubuntu-lts.sh --non-interactive
 
       - name: Verify Stage 7 outcomes
         run: |

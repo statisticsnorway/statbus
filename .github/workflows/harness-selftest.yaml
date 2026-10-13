@@ -86,3 +86,5 @@ jobs:
         run: bash test/install-recovery/tests/https-only-egress-test.sh
       - name: Prove each HTTPS-only egress rule mutation turns the contract red on both backends (STATBUS-485)
         run: bash test/install-recovery/tests/https-only-egress-mutation-test.sh
+      - name: Prove setup-ubuntu-lts.sh refuses plain sudo from an operator home (STATBUS-492)
+        run: bash test/install-recovery/tests/setup-plain-sudo-guard-test.sh

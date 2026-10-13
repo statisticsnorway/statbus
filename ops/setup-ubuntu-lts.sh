@@ -4,12 +4,13 @@
 # Ubuntu LTS Server Setup Script
 #
 # Usage:
+#   sudo -i      # root login shell (HOME=/root); plain sudo is refused
 #   curl -fsSL https://raw.githubusercontent.com/statisticsnorway/statbus/master/ops/setup-ubuntu-lts.sh -o harden.sh
 #   chmod +x harden.sh
-#   sudo ./harden.sh
+#   ./harden.sh
 #
 # Non-interactive mode (uses .env values, runs all stages):
-#   sudo ./harden.sh --non-interactive
+#   ./harden.sh --non-interactive
 #
 # Configuration is stored in ~/.setup-ubuntu.env
 #
@@ -1624,6 +1625,12 @@ check_supported_os() {
 }
 
 main() {
+    # STATBUS-492: plain `sudo ./setup.sh` keeps HOME at the invoking user's
+    # home, so root would write root-owned files there. Require a login shell.
+    if [[ -n "${SUDO_USER:-}" && "$HOME" == "$(eval echo "~${SUDO_USER}")" ]]; then
+        echo "Refusing to run with HOME=$HOME (the home of $SUDO_USER): open a root login shell with 'sudo -i' and run the script from there." >&2
+        exit 1
+    fi
     # Parse arguments
     while [[ $# -gt 0 ]]; do
         case "$1" in
