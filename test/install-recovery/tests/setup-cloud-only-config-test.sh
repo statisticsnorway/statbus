@@ -1,9 +1,10 @@
 #!/usr/bin/env bash
 # STATBUS-501: cloud configuration must not be applied to a standalone
-# installation. The deploy-key source, its fetch and the devops account exist to
-# serve OUR cloud and CI model, so they must happen only when cloud intent is
-# declared (--cloud / CLOUD=true), and no call site may install our CI keys on a
-# box that is not ours.
+# installation, and cloud-only work must not even be VISIBLE to one. The
+# deploy-key source, its fetch, the devops account and the CI command allowlist
+# exist to serve OUR cloud and CI model, so they happen only when cloud intent is
+# declared (--cloud / CLOUD=true) - and without it the stages are not part of the
+# run at all: no header, no prompt, no explanation of how to enable them.
 #
 # Point STATBUS_SETUP_SCRIPT at an older copy to see this test fail, which makes
 # the red half of the evidence.
@@ -21,7 +22,7 @@ eval "$helper"
 
 present() { if [[ -n "$2" ]]; then echo "PASS $1"; else echo "FAIL $1 (not found)"; fail=1; fi; }
 
-# 1. Behaviour: the gate itself, exercised for the three states of cloud intent.
+# 1. Behaviour: the gate itself, for the three states of cloud intent.
 GITHUB_DEPLOY_KEYS="statisticsnorway/statbus"
 unset CLOUD
 got="$(deploy_keys_for_this_run)"
@@ -47,8 +48,7 @@ else
     echo "FAIL cloud intent lost the deploy keys (got '$got')"; fail=1
 fi
 
-# 2. Contract: every fetch goes through that one gate, so no call site can use
-#    the raw variable on a standalone box.
+# 2. Contract: every fetch goes through that one gate.
 raw_sites="$(grep -c 'populate_authorized_keys .*"\$GITHUB_DEPLOY_KEYS"' "$SCRIPT" || true)"
 if [[ "$raw_sites" == "0" ]]; then
     echo "PASS no call site passes the raw deploy-key variable"
@@ -69,7 +69,30 @@ else
     echo "PASS stage 7 does not require GITHUB_DEPLOY_KEYS"
 fi
 
-# 4. Contract: the devops stage is skipped without cloud intent.
-present "the devops stage is gated on cloud intent" "$(grep -n 'Stage 6 is cloud-only' <<<"$(sed -n '/^stage_user_setup()/,/^}$/p' "$SCRIPT")")"
+# 4. Contract: a cloud-only stage is INVISIBLE without cloud intent. The gate
+#    precedes the stage header, so nothing is printed at all, and the gate itself
+#    is silent. Announcing the stage and explaining how to enable it would tell a
+#    customer about our support access model - the leak this ticket is about.
+gate_is_invisible() {
+    local fn="$1" label="$2" text gate header body start
+    text="$(awk "/^${fn}\\(\\)/,/^}$/" "$SCRIPT")"
+    gate="$(grep -n 'CLOUD:-false' <<<"$text" | head -1 | cut -d: -f1)"
+    header="$(grep -n 'log_header "Stage' <<<"$text" | head -1 | cut -d: -f1)"
+    if [[ -n "$gate" && -n "$header" && "$gate" -lt "$header" ]]; then
+        echo "PASS $label: the gate precedes the header"
+    else
+        echo "FAIL $label: gate=${gate:-missing} header=${header:-missing}"; fail=1
+    fi
+    start="${gate:-1}"
+    body="$(sed -n "${start},$(( start + 3 ))p" <<<"$text")"
+    if grep -Eq '(^|[[:space:]])(log|log_warn|log_error|log_header|echo)[[:space:]]' <<<"$body"; then
+        echo "FAIL $label: the gate prints something before returning"; fail=1
+    else
+        echo "PASS $label: the gate says nothing"
+    fi
+}
+
+gate_is_invisible stage_user_setup "stage 6 (devops) is invisible without cloud intent"
+gate_is_invisible stage_ci_allowlist "stage 8 (CI allowlist) is invisible without cloud intent"
 
 exit $fail

@@ -1278,21 +1278,19 @@ EOF
 # =============================================================================
 
 stage_user_setup() {
+    # STATBUS-501: this stage is for OUR boxes only - the devops account with
+    # passwordless sudo, and keys derived from our GitHub accounts. Without cloud
+    # intent it is not part of the run AT ALL: no header, no prompt, no
+    # explanation, because a customer's installation must never be told about our
+    # support access model. Cloud intent lives in --help and doc/CLOUD.md.
+    if [[ "${CLOUD:-false}" != "true" ]]; then
+        return 0
+    fi
+
     log_header "Stage 6: User Setup (devops)"
 
     if stage_skipped 6; then
         log_warn "Stage 6 skipped via SKIP_STAGES"
-        return 0
-    fi
-
-    # STATBUS-501: this stage exists for OUR cloud boxes: it creates the devops
-    # account with passwordless sudo and installs keys derived from our GitHub
-    # users and our repository deploy keys. A standalone installation must not
-    # receive any of that, so it is skipped unless cloud intent is declared.
-    if [[ "${CLOUD:-false}" != "true" ]]; then
-        log "Stage 6 is cloud-only: it creates the devops account with passwordless sudo"
-        log "and installs keys from the SSB GitHub accounts. Nothing is created here."
-        log "Declare cloud intent with --cloud (or CLOUD=true) to run it."
         return 0
     fi
 
@@ -1480,6 +1478,13 @@ stage_service_account() {
 # =============================================================================
 
 stage_ci_allowlist() {
+    # STATBUS-501: /etc/sshdoers is OUR inbound CI access policy, so this stage
+    # belongs to cloud runs only. Without cloud intent it is not part of the run
+    # and says nothing - same rule as stage_user_setup above.
+    if [[ "${CLOUD:-false}" != "true" ]]; then
+        return 0
+    fi
+
     log_header "Stage 8: CI Command Allowlist (sshdo)"
 
     if stage_skipped 8; then

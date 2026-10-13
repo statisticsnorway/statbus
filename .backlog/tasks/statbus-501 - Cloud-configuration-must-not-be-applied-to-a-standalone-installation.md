@@ -4,7 +4,7 @@ title: Cloud configuration must not be applied to a standalone installation
 status: To Do
 assignee: []
 created_date: '2026-10-13 14:24'
-updated_date: '2026-10-13 14:27'
+updated_date: '2026-10-13 14:35'
 labels:
   - install
   - cloud
@@ -40,4 +40,12 @@ Implemented 2026-10-13 by the coordinator. WHAT CHANGED: (1) GITHUB_DEPLOY_KEYS 
 A REGRESSION I CAUGHT BEFORE LANDING, worth recording: no caller passed --cloud (its only introduction was 491 help text), so gating Stage 6 would have silently stopped creating devops and installing deploy keys on OUR OWN boxes (doc/CLOUD.md step 2 runs the script without it). Fixed by making the cloud provisioning step declare the intent. ops/lxd-fleet/base.sh prepares the shared validation host and is deliberately left WITHOUT --cloud: nothing in the harness relies on devops (checked), and that host is a fixture, not one of our production boxes. If it ever needs devops, it should pass the flag explicitly.
 
 EVIDENCE: RED against HEAD -> "FAIL deploy_keys_for_this_run is not defined", rc=1. GREEN -> seven PASS lines (no cloud intent installs no deploy keys; CLOUD=false likewise; cloud intent installs the configured keys; no call site passes the raw variable; all three fetch sites use the gate; stage 7 does not require GITHUB_DEPLOY_KEYS; the devops stage is gated), rc=0. bash -n parses; the test is wired into .github/workflows/harness-selftest.yaml. Criterion 5 needs the real Uganda rerun and rides with STATBUS-497.
+
+REFINEMENT after the owner review of this fix (2026-10-13), recorded because it corrected my own incoherence: gating the EFFECTS was not enough. The first version of the gate ANNOUNCED itself on a standalone box - it named the devops account, passwordless sudo and the SSB GitHub accounts, and told the operator to pass --cloud to enable them. That is the same leak one level softer: a customer was told our support access model exists and offered the switch. The owner called it a contradiction, and it was.
+
+THE RULE NOW IMPLEMENTED: cloud intent decides which run this is, and cloud-only work is INVISIBLE, not announced-and-skipped. Stages 6 (devops) and 8 (CI command allowlist) return 0 from the very first line when cloud intent is absent - BEFORE their headers - so a standalone run prints nothing about them, prompts for nothing and mentions no flag. The switch lives only in --help, doc/CLOUD.md and the stage table note. There is no third state for customer-facing output: a stage is in the run or it is not.
+
+Stage 8 was UNGATED before this and is now gated the same way: /etc/sshdoers is our inbound CI access policy, so it belongs to cloud runs. Consequence worth knowing: ops/lxd-fleet/base.sh prepares the shared validation host WITHOUT --cloud, so that host will no longer get /etc/sshdoers or the devops account. Nothing in the harness relies on either (checked: no reference to devops outside this test), and the host is a fixture; if it ever needs them, base.sh must pass --cloud explicitly.
+
+EVIDENCE: the red half still fails at the missing helper; the green half is now TEN passes, including "stage 6 (devops) is invisible without cloud intent: the gate precedes the header / says nothing" and the same two for stage 8. bash -n parses.
 <!-- SECTION:NOTES:END -->
