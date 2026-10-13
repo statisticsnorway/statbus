@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-10-13 15:39'
-updated_date: '2026-10-13 15:42'
+updated_date: '2026-10-13 15:46'
 labels:
   - release
   - docs
@@ -48,4 +48,14 @@ STEP 1 DONE (this commit): .github/workflows/release.yaml now stages install.sh,
 SEQUENCING, and this is why the redirects are NOT flipped yet: until a release actually carries those assets, releases/latest/download/install.sh does not exist, so pointing statbus.org at it now would 404 the public installer for everyone. Order: (2) at the next release, verify the asset list carries the three scripts (gh release view <tag> --json assets); (3) THEN, with the owner go, edit the Caddyfile on niue: /install.sh and /uninstall.sh to releases/latest/download/<name>, and add a /setup.sh handle for the prepare script; validate and reload, then verify each shortcut with curl -I; (4) update the README and docs to the one-line shortcuts, keeping the pinned two-line form for a specific version.
 
 NOT DONE, deliberately: the install scripts are not added to checksums.txt (that file covers the sb binaries, generated in the build-binaries job). Note for a later pass if we want the verifier to cover the scripts too.
+
+BEFORE-STATE captured 2026-10-13 from OUTSIDE, before any change (this is the other half of the evidence for step 3, so there is a before and after pair):
+
+  curl -sI https://statbus.org/install.sh    -> 302, location: https://raw.githubusercontent.com/statisticsnorway/statbus/refs/heads/master/install.sh
+  curl -sI https://statbus.org/uninstall.sh  -> 302, location: https://raw.githubusercontent.com/statisticsnorway/statbus/refs/heads/master/uninstall.sh
+  curl -sI https://statbus.org/setup.sh      -> 302, location: https://www.statbus.org/setup.sh  -> which is 404 (verified)
+
+SMALL DISCOVERY worth recording: there is NO setup.sh handler on niue at all. `grep -n setup.sh /etc/caddy/Caddyfile` finds nothing; what answers /setup.sh is the statbus.org block catch-all `redir https://www.statbus.org{uri} 302`, and the www host is a static file server (root /home/statbus_www/public_html, file_server with try_files) which has no setup.sh. So that path 404s by accident today, not by design - anyone who guessed the natural shortcut got a broken page.
+
+WHAT STEP 3 THEREFORE IS, exactly: in the statbus.org block, replace the two raw-master `handle` redirect targets with https://github.com/statisticsnorway/statbus/releases/latest/download/<name> for install.sh and uninstall.sh, and ADD a `handle /setup.sh` for setup-ubuntu-lts.sh pointing at the same latest-download form. Then `caddy validate` and reload, and re-run the three curl -I checks above to record the after-state.
 <!-- SECTION:NOTES:END -->
