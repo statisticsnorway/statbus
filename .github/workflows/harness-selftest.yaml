@@ -98,5 +98,7 @@ jobs:
         run: bash test/install-recovery/tests/setup-apt-retry-test.sh
       - name: Prove the SSH stage confirms remote access before disabling password auth (STATBUS-495)
         run: bash test/install-recovery/tests/setup-remote-access-gate-test.sh
+      - name: Prove the setup script enables automatic reboots and announces the configured hour (STATBUS-496)
+        run: bash test/install-recovery/tests/setup-auto-reboot-test.sh
       - name: Prove setup-ubuntu-lts.sh Stage 0 decides by HTTP probe, not by asking (STATBUS-493)
         run: bash test/install-recovery/tests/setup-stage0-http-probe-test.sh

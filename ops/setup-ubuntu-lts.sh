@@ -908,7 +908,7 @@ stage_auto_updates() {
     echo "  - Install unattended-upgrades"
     echo "  - Configure automatic security updates"
     echo "  - Set up nightly update schedule (01:00 + random delay)"
-    echo "  - Configure reboot time if needed (03:00 + random delay)"
+    echo "  - Reboot at 03:15 when an update requires it (automatic reboots enabled)"
     echo "  - Set notification email: ${ADMIN_EMAIL:-<not configured>}"
     echo ""
     
@@ -952,6 +952,13 @@ Unattended-Upgrade::Package-Blacklist {
 Unattended-Upgrade::DevRelease "auto";
 $email_config
 Unattended-Upgrade::Remove-Unused-Dependencies "true";
+
+# STATBUS-496: reboot when an update requires it, at a fixed hour. The TIME alone
+# does nothing without this switch -- unattended-upgrades defaults Automatic-Reboot
+# to false -- so the stage used to advertise a reboot window that never happened.
+# Owner decision 2026-10-13: enable it deliberately. With this on, the box reboots
+# at the time below when /var/run/reboot-required is present after an upgrade run.
+Unattended-Upgrade::Automatic-Reboot "true";
 Unattended-Upgrade::Automatic-Reboot-Time "03:15";
 EOF
     
