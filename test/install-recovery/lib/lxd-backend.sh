@@ -341,7 +341,10 @@ lxd_checkpoint_for_scenario() {
     [ -f "$file" ] || { echo "Unknown scenario $slug" >&2; return 2; }
     # Delegators execute another scenario without changing the VM name. Select
     # the checkpoint that the executed script actually bootstraps from.
-    delegated=$(sed -nE 's@^[[:space:]]*exec (bash )?"\$\(dirname "\$0"\)/([a-zA-Z0-9-]+)\.sh".*@\2@p' "$file" | head -n 1)
+    # Both directory spellings in use: $(dirname "$0") and $SCENARIO_DIR
+    # (0-https-only-egress, STATBUS-485: missing it forked the candidate's own
+    # installed checkpoint, making the cross-version upgrade a no-op).
+    delegated=$(sed -nE 's@^[[:space:]]*exec (bash )?"(\$\(dirname "\$0"\)|\$SCENARIO_DIR|\$\{SCENARIO_DIR\})/([a-zA-Z0-9-]+)\.sh".*@\3@p' "$file" | head -n 1)
     if [ -n "$delegated" ]; then
         [ "$delegated" != "$slug" ] || { echo "Self-delegating scenario $slug" >&2; return 2; }
         lxd_checkpoint_for_scenario "$delegated"

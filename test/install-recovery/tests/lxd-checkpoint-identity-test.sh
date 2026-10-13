@@ -99,6 +99,19 @@ fault_stable=$(lxd_checkpoint_for_scenario 5-install-disk-threshold-repair)
 }
 echo "PASS: fault-fleet baseline scenarios resolve the unsuffixed checkpoint regardless of channel"
 
+# STATBUS-485: the REAL 0-https-only-egress.sh delegates through
+# `exec bash "$SCENARIO_DIR/0-happy-upgrade.sh"`, not the $(dirname "$0")
+# spelling. It must fork the release BASELINE checkpoint like its delegate;
+# resolving the candidate's own installed checkpoint turns the cross-version
+# upgrade into a candidate -> candidate no-op (observed on a real rc.20 run).
+cp "$ROOT/test/install-recovery/scenarios/0-https-only-egress.sh" "$REPO/test/install-recovery/scenarios/"
+egress=$(lxd_checkpoint_for_scenario 0-https-only-egress)
+[ "$egress" = "installed-v2099.01.0-standalone" ] || {
+    echo "FAIL: 0-https-only-egress checkpoint = $egress (expected the baseline installed-v2099.01.0-standalone, as its delegate 0-happy-upgrade resolves)" >&2
+    exit 1
+}
+echo "PASS: 0-https-only-egress resolves its delegate's baseline checkpoint ($egress)"
+
 # Resolve the real shared body and wrappers, not a paraphrased selector.
 cp "$ROOT/test/install-recovery/scenarios/5-install-source-image-identity-proof.sh" "$REPO/test/install-recovery/scenarios/"
 cp "$ROOT/test/install-recovery/scenarios/5-install-source-identity-"{operator,scheduled}.sh "$REPO/test/install-recovery/scenarios/"
