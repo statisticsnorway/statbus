@@ -63,7 +63,7 @@ entry point, not a claim. Terra (pristine) judged the draft against each
 test body: 15 accurate, 6 underclaim, 3 overclaim, 1 wrong subject; the
 eight corrected names below are Terra's (`tmp/STATBUS-362-naming-judgment.md`).
 
-| # | today | final | |
+| # | before 2026-09-24 | now (provisional) | |
 |---|---|---|---|
 | 1 | `TestLiveAbortFailedPreBackupStop` | `TestUpgradeAbortBeforeBackupLeavesRowFailedWithNoBackupPath` |  |
 | 2 | `TestLiveCleanupActorRaceStaleLoserCannotMutate_STATBUS354` | `TestCleanupRaceStaleLoserCannotMutate` |  |
