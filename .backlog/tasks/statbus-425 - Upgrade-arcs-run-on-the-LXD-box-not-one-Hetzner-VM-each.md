@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-09-28 13:07'
-updated_date: '2026-10-15 19:24'
+updated_date: '2026-10-15 19:49'
 labels:
   - ci
   - lxd
@@ -32,7 +32,7 @@ Moving the arcs is only safe if LXD sees what Hetzner saw. So the move was gated
 
 ### Zoom in
 - **Before, 2026-09:** Hetzner arc runs took 3.5 hours (green run `35975471099`, 08:28-12:07) and 1.5 hours (rc.14 run `36414310454`).
-- **Parity (M3b, 2026-09-29):** a full LXD run at v2026.09.3-rc.17 compared with Hetzner run `36509925405`. Result: 33 of 35 verdicts match. Durable evidence on master: `test/install-recovery/lxd/evidence/v2026.09.3-rc.17/final-comparison.tsv` with its README (integrated in `c339f406e`). The two mismatches, `rollback-pair-terminal` and `restore-broke-reattempt`, were a product behaviour that LXD exposed: tag discovery worked on LXD, so an installed release superseded a newer failed row (proven by a ledger dump; the Hetzner side is inferred). That behaviour is STATBUS-435. Three other early reds were harness timing or infrastructure, fixed in `7edb2f275`, `83b3b3b84` and by retest.
+- **Parity (M3b, 2026-09-29):** a full LXD run at v2026.09.3-rc.17 compared with Hetzner run `36509925405`. Result: 33 of 35 verdicts match. Durable evidence on master: `test/install-recovery/lxd/evidence/v2026.09.3-rc.17/final-comparison.tsv` with its README (integrated in `c339f406e`). The two mismatches, `rollback-pair-terminal` and `restore-broke-reattempt`, were a product behaviour that LXD exposed: tag discovery worked on LXD, so an installed release superseded a newer failed row (proven by a ledger dump; the Hetzner side is inferred). That behaviour is STATBUS-435. Three other early reds were harness timing or infrastructure, fixed on the branch as `7edb2f275` and `83b3b3b84` (reaching master in the integration commit `c339f406e`) and by retest.
 - **Shipped (M1 to M4):** `a83039410` (M1, M2', M3a) and the integration merge `508dbc163` (2026-09-30). `upgrade-arc-harness.yaml` runs arcs on LXD forks via `install_statbus_at_sha` and creates no VM (`hcloud server create` appears nowhere under `.github/workflows`). `release-fleet-orchestrator.yaml` dispatches the arcs as stage 3/4 beside the LXD fault fleet, and the stable gate needs both green. LXD guests are `ubuntu:26.04` (`ops/lxd-fleet/base.sh`).
 - **Observed (v2026.10.0, `bce5bf39b`):** Upgrade Arc Harness `37578475601` SUCCESS, 42 jobs, 59 min 41 s, including the two arcs that disagreed in M3b. Test Smoke `37577261099` SUCCESS with both LXD legs.
 - **Leftover:** the workflow concurrency group is still named `hetzner-vm-fleet`, documented in the workflow as historical.
