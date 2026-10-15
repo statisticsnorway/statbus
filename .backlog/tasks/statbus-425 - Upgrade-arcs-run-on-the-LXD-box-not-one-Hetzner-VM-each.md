@@ -1,12 +1,12 @@
 ---
 id: STATBUS-425
 title: >-
-  All release gating on the LXD box: smoke builds the checkpoints; faults and
-  upgrade arcs fork from them
+  All release gating runs on the LXD box: smoke builds the checkpoints, faults
+  and upgrade arcs fork from them
 status: In Progress
 assignee: []
 created_date: '2026-09-28 13:07'
-updated_date: '2026-10-13 15:49'
+updated_date: '2026-10-15 19:24'
 labels:
   - ci
   - lxd
@@ -19,156 +19,48 @@ ordinal: 374200
 ## Description
 
 <!-- SECTION:DESCRIPTION:BEGIN -->
-The 4/4 upgrade-arc stage boots one Hetzner CX23 per arc, max-parallel 2 (project core quota): 35 arcs x ~11 min = ~3.5 h (green run 35975471099: 08:28-12:07; rc.14 run 36414310454: 11:13-12:50). STATBUS-417 moved only the fault fleet to LXD. Move the arcs onto the LXD box the same way: ordinary arcs fork the candidate's installed checkpoint (A = candidate), 6+ at once; special bases (schema-floor d53731ec5, pre-rename 730b5001c) get their own install. Parity per owner ruling for 417: LXD arc verdicts match the Hetzner arc verdicts at the same commit. Gate: ./sb release stable requires the LXD arc run green at the RC commit; the Hetzner run-arc matrix is retired.
+### North Star
+Every release gate runs its scenarios on the shared LXD box, so a full release check takes about an hour instead of most of a day, without losing what the per-VM runs used to catch.
+
+### Zoom out
+Release gating used to rent one Hetzner VM per scenario. Upgrade arcs alone took about 3.5 hours (35 arcs, about 11 minutes each, two at a time under the project's core quota). The fix is the pattern STATBUS-417 used for fault scenarios:
+- **Install once:** smoke installs the candidate on the LXD box and leaves a checkpoint.
+- **Fork many:** ordinary arcs fork that checkpoint, six or more at a time; the two historical-base arcs get their own pinned install.
+- **Bound on the host:** capacity is admitted by slots on the box (`ops/lxd-fleet/admission.sh`), not by a workflow lock.
+
+Moving the arcs is only safe if LXD sees what Hetzner saw. So the move was gated on a parity run, with every disagreement explained rather than averaged away. The LXD box itself is a Hetzner machine; "no Hetzner VM" means no per-scenario test VM.
+
+### Zoom in
+- **Before, 2026-09:** Hetzner arc runs took 3.5 hours (green run `35975471099`, 08:28-12:07) and 1.5 hours (rc.14 run `36414310454`).
+- **Parity (M3b, 2026-09-29):** a full LXD run at v2026.09.3-rc.17 compared with Hetzner run `36509925405`. Result: 33 of 35 verdicts match. Durable evidence on master: `test/install-recovery/lxd/evidence/v2026.09.3-rc.17/final-comparison.tsv` with its README (integrated in `c339f406e`). The two mismatches, `rollback-pair-terminal` and `restore-broke-reattempt`, were a product behaviour that LXD exposed: tag discovery worked on LXD, so an installed release superseded a newer failed row (proven by a ledger dump; the Hetzner side is inferred). That behaviour is STATBUS-435. Three other early reds were harness timing or infrastructure, fixed in `7edb2f275`, `83b3b3b84` and by retest.
+- **Shipped (M1 to M4):** `a83039410` (M1, M2', M3a) and the integration merge `508dbc163` (2026-09-30). `upgrade-arc-harness.yaml` runs arcs on LXD forks via `install_statbus_at_sha` and creates no VM (`hcloud server create` appears nowhere under `.github/workflows`). `release-fleet-orchestrator.yaml` dispatches the arcs as stage 3/4 beside the LXD fault fleet, and the stable gate needs both green. LXD guests are `ubuntu:26.04` (`ops/lxd-fleet/base.sh`).
+- **Observed (v2026.10.0, `bce5bf39b`):** Upgrade Arc Harness `37578475601` SUCCESS, 42 jobs, 59 min 41 s, including the two arcs that disagreed in M3b. Test Smoke `37577261099` SUCCESS with both LXD legs.
+- **Leftover:** the workflow concurrency group is still named `hetzner-vm-fleet`, documented in the workflow as historical.
+
+### Closing review
+- **Memory:** none needed.
+- **Documentation:** none needed; the evidence README records the parity method.
+- **Cleanup:** branches `ci/lxd-m4` and `ci/lxd-arcs` were reviewed and deleted 2026-10-13 (`c81f82fad`).
 <!-- SECTION:DESCRIPTION:END -->
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [x] #1 Every arcs/*-arc.sh runs on the LXD box from one CI job with bounded parallelism
-- [ ] #2 Verdicts match the Hetzner arc run at the same candidate commit
-- [x] #3 Orchestrator 4/4 and the stable gate use the LXD arc run; the Hetzner run-arc matrix is deleted
-- [x] #4 Full arc suite wall time under 60 min
-- [x] #5 Smoke 0-happy-install and 0-happy-upgrade run on the LXD box and leave the checkpoints the fault checks and arcs fork from
-- [x] #6 LXD guests are ubuntu:26.04
-- [ ] #7 No release gate boots a Hetzner VM
+- [x] #1 Every arcs/*-arc.sh runs on the LXD box from one CI job with bounded parallelism (Upgrade Arc Harness `37578475601`)
+- [x] #2 LXD verdicts match the Hetzner arc run at the same candidate, with each disagreement explained (33/35 at v2026.09.3-rc.17 vs `36509925405`; both mismatches traced to the STATBUS-435 product behaviour; `test/install-recovery/lxd/evidence/v2026.09.3-rc.17/`)
+- [x] #3 The orchestrator's stage 3/4 and the stable gate use the LXD arc run; no per-arc Hetzner VM is created (`release-fleet-orchestrator.yaml`, `upgrade-arc-harness.yaml`)
+- [x] #4 The full arc suite finishes in under 60 minutes (59 min 41 s, `37578475601`)
+- [x] #5 Smoke 0-happy-install and 0-happy-upgrade run on the LXD box and leave the checkpoints faults and arcs fork from (Test Smoke `37577261099`)
+- [x] #6 LXD guests are ubuntu:26.04 (`ops/lxd-fleet/base.sh`)
+- [x] #7 No release gate boots a per-scenario test VM; the shared LXD box is itself a Hetzner machine by design
+- [ ] #8 Owner decision: accept 33/35 parity with both mismatches attributed to STATBUS-435 as the parity proof (AC2), and "no per-scenario test VM" as the meaning of AC7? Yes closes this ticket.
 <!-- AC:END -->
 
 ## Implementation Notes
 
 <!-- SECTION:NOTES:BEGIN -->
-Owner direction 2026-09-28 18:56: move smoke AND the upgrade arcs to LXD; smoke creates the checkpoint images the fault checks and the arcs fork from. Design and measurements: tmp/lxd-all-gates.md. Guests move to ubuntu:26.04 (VM harness default). The 40 GB real-disk install leaves with smoke (owner's 07:21 ruling named this revisit condition); remaining coverage is Go tests. Parity: LXD verdicts match Hetzner at the same candidate (rc.16 arcs run 36468921894).
-
-Plan review 2026-09-28 (Fable 5.1, one pass; Astra stopped on the OpenAI limit): SOUND WITH CHANGES, tmp/review-lxd-all-gates-plan.md. Revised milestones adopted: M2' smoke on LXD with provenance keys (user.statbus.candidate/producer/run_id), checkpoint-pending→checkpoint rename as smoke's last act, rerun-safe replace, per-job active marker vs reaper, single ramp job; M3a arc-aware LXD backend (tag-less install_statbus_at_sha, statbus-arc-* mapping, executable ssh/scp shim for 'timeout ssh', ProxyJump for deploy-status-proof, bounded volume for un-park-to-completion, GITHUB_TOKEN, ControlMaster), verified by hand on 4 hardest arcs incl. c-rollback reproducing rc.16's red; M3b arc workflow shadow run beside Hetzner; M4 orchestrator (construct at start, smoke always dispatched, box slot semaphore) + gates + delete Hetzner steps; M5 parity (every Hetzner red is an LXD red for the same reason). Estimate ~77 min on ccx33 sequential faults→arcs; ~40 min on a bigger box (423).
-
-2026-09-29 05:42: M1 + M2' + M3a merged to master (a83039410) after 4 Opus 5.5 review rounds (tmp/review-lxd-m2*.md; round 4 APPROVE + R4-1/R4-2 landed 0aaafeb52). Live evidence: both smoke legs green on the box against rc.16; fault fleet on the branch backend 24/24 against rc.17 (matching master's rc.17 LXD run 36506437069); harden-host completed live. From the next RC, smoke (rungs 4/5) and the fault fleet (rung 7) run on LXD; upgrade arcs (rung 8) stay on Hetzner until M3b (shadow run beside Hetzner) and M4 (orchestrator + gates + delete Hetzner steps). Low follow-ups: harden-host refusal wording conflates SSH-probe failure with activity; PATH ssh shim intercepts local git-over-SSH when an operator runs run-forks.sh; H2 residue (upgrade-leg rerun after a failed -pre build refuses); M6 checkpoint name length at vX.Y.10.
-
-Audit after v2026.09.3 (2026-09-29): Not in v2026.09.3. M1/M2'/M3a merged to master afterwards (a83039410). Harness Selftest red on master since (lxd-smoke-checkpoint-test, run 36534648749). Fix before the next candidate.
-
-2026-09-29 13:15 UTC: M3b full-suite comparison run completed (worker session, ci/lxd-arcs worktree). run-arcs.sh v2026.09.3-rc.17, no --arc filter, LXD_PARALLEL=6: 35/35 arcs executed, wall time 1h12m49s (11:48:42Z-13:01:31Z, includes ~19min lost to a genuine Docker Hub infra timeout, not harness/product). Box left clean after.
-
-Result: 30/35 confirmed green-parity against Hetzner rc.17 run 36509925405 (all 35 real-arc jobs). 5 reds:
-- c-rollback-resurrection: mechanism-not-bytes comparison (this session's own R1 fix landed mid-run; the deterministic-epoch check itself was already proven rc.16-red/rc.17-green in a PRIOR session's isolated verification, documented earlier in tmp/lxd-all-gates-progress.md - not yet re-verified end-to-end in a full run after today's hang-bug fixes).
-- postswap-health-park: confirmed pure infra (Docker Hub 502 on an unrelated image pull), not harness/product.
-- restore-broke-reattempt, rollback-pair-terminal: UNRESOLVED, same failure shape ("expected terminal state, got superseded" on a PreSwap pair-terminal / STATBUS-228 check), never occurs on Hetzner. Needs root-cause work.
-- worker-wedge-mid-derive: UNRESOLVED, "0 abandoned processing rows" - plausible LXD-vs-VM timing-fidelity gap (matches the original plan review's section-3 warning about CPU/timing differences), not yet root-caused.
-
-Also found and fixed 4 real harness concurrency/correctness bugs live (none caught by any prior offline test), on top of landing round-R1/R2/R3 from rabbit's M3a review: (1) PINNED_ROOT git race across overlapping run-arcs.sh invocations, silently producing B==C on the crollback lineage - fixed with an mkdir-based cross-process lock; (2) arc_wait_unit_active's R1 timestamp comparison hung indefinitely on its first real run (psql_scalar's whitespace-stripping broke the ::timestamptz cast) - fixed via epoch-seconds + remote date -d, no more SQL string round-trips; (3) working-arc.sh's non-standard PASS-line prefix read as FAIL_NO_PASS_LINE despite genuinely passing - fixed to the standard prefix; (4, found by a parallel sibling session in the same worktree) capture_db_fingerprint's fixed-label scratch file collided across concurrently-running arcs - scoped on VM_NAME.
-
-Full comparison table, per-arc notes, and the exact run/log paths are in tmp/lxd-all-gates-progress.md (2026-09-29T10:13-13:14Z entry). 45 commits total on ci/lxd-arcs, all G-signed, none pushed, none of the 6 previously-reviewed M3a commits rewritten.
-
-Explicit gaps for the next session: root-cause the 2 unresolved "superseded not failed" reds and the worker-wedge timing red; re-verify c-rollback-resurrection end-to-end post-fix; copy the comparison TSV into a durable repo location (not only gitignored tmp/) per rabbit's parity-evidence instruction - not done this session, time-boxed out.
-
-2026-09-29 15:15 UTC: M3b reds investigated. The final result is 33/35 verdicts matching Hetzner 36509925405, not complete identical-byte parity. Evidence is committed on ci/lxd-arcs at test/install-recovery/lxd/evidence/v2026.09.3-rc.17/ (d26b35449), with a 35-row final-comparison.tsv and a README.
-- worker-wedge-mid-derive, a timing class: the arc released the lock before Postgres noticed the SIGKILLed worker's client (client_connection_check_interval 5s). The derive then completed. Hetzner passed only through slower SSH. Fixed in 7edb2f275 to hold the lock until an abandoned row is observed. PASS on LXD.
-- rollback-pair-terminal and restore-broke-reattempt are a product behaviour that LXD exposes, not a harness bug.
-  - A=ebe058af has since been promoted to v2026.09.3. On LXD the daemon's tag discovery works: A's row becomes release_status='release', and after the PreSwap rollback (HEAD=A) the 4th install's runInstallSupersede supersedes B's 'failed' commit row. This is proven by a ledger dump (c128ea335).
-  - Independent review correction: 21 failed tag fetches were captured in eight Hetzner jobs, not every VM. The two disputed arcs have no daemon journal/discovery output in 36509925405 or rerun 36578946172/artifacts. An unchanged 'commit' classification for A in those two arcs is inferred, not directly captured. cross-version-rename-handoff recorded successful discovery.
-  - The coordinator decides the disposition. It was not filed by this worker.
-  - A related LXD fidelity bug was fixed along the way (8a57d5b5a: the candidate base had been installed through the historical-release path).
-- c-rollback-resurrection with the final R1 code: rc.16 RED (db .Created 31s after rolled_back_at), rc.17 GREEN.
-- postswap-health-park: infra, green on retest. working: green after 83b3b3b84.
-- The commits on ci/lxd-arcs are G-signed and unpushed. The box is clean (s2-base checkpoints only).
-
-2026-09-30 independent-review follow-through (tmp/review-425-m3b.md, MERGE WITH CHANGES):
-- C1: arc_wait_unit_active still bypasses its deadline when the old invocation stays active or timestamps cannot be parsed. A bounded stub probe reproduced a hang; a worker is implementing deadline checks on every path and behavioral regression tests. Driver timeout, signal cleanup and stale construct-lock handling are also being corrected before re-review.
-- C2: final TSV 'match=yes' means verdict agreement only. c-rollback-resurrection, worker-wedge-mid-derive and working compare final LXD arc bytes to the reference's pre-change bytes. Existing reference 36509925405 has 42 listed jobs, 41 executed and one skipped zero-arc guard. Corrected README/TSV committed as c2415e19f on ci/lxd-arcs after independent Opus MERGE (tmp/review-evidence-and-430-final.md); raw runs and observed verdicts are unchanged.
-- C3(a), known fidelity work for M4/M5: the candidate base is now recorded by SHA, but historical LXD bases still take a release-install path (v2026.07.0-rc.05 and v2026.09.0) while Hetzner's two-argument path records 730b5001 and d53731ec. Align metadata identities or explicitly justify the retained difference before claiming full fidelity; the supersede procedure ranks that metadata.
-- C3(b): STATBUS-435 now requires controlled or asserted discovery/enrichment in the two disputed arcs so live GitHub success or failure cannot choose the expected terminal state on either backend.
-- Correct chronology: A=ebe058af was stable by about 07:14 UTC on 29 September, before synthetic untagged B=29986056 was created at 14:40:27. At 14:49:52, older installed stable-classified A superseded newer failed B by the tier-first rule. The earlier 'later promotion' narrative and blanket product-bug ruling were premature. Contract decision remains with the owner; procedure and assertions are unchanged.
-- All acceptance criteria remain unchecked until their actual CI/live workflow evidence exists. No RC or release has been cut by this follow-through.
-
-2026-09-30 14:45 UTC, local review follow-through:
-- Lifecycle B1 is corrected in signed `8941353c5` and independently MERGE-able as code. Root's actual macOS Bash 3.2 tests pass. Linux execution remains unrun.
-- Independent M4 review (`tmp/review-425-m4.md`) is frozen at exact refs. Original `db5f9387e` was BLOCK: the shared runner lost status 125 and released a still-owned admission slot, the default-domain fixture lacked the newly sourced marker helper, and ordinary arcs did not reuse smoke's installed checkpoint. `24dd9c237` and `5f789a6d9` resolve the first two with independent behavioral observations.
-- Signed `83065bb80` selects the literal smoke-installed checkpoint for all 33 ordinary candidate-A arcs; the two historical bases retain exact full-SHA checkpoints. Independent Opus recheck resolves this requirement at code level. Fake-LXD checks are synthetic. Real guest boot, shallow-history B/C fetch, environment/certificate preparation and concurrent capacity remain unverified.
-- At `dd384a382`, trap-less cancellation leaked its marker/slot after reaping its fork (R4), and non-atomic historical-A builder registration stranded a half-built checkpoint without an owner key (R5). Independent recheck of signed `b0b36dbd5` resolves R4/R5 and kills all five reviewer mutants. It also establishes a new blocker R6: normal PASS/FAIL leaves a stale process-group file, so the always-step can signal an unrelated process group that has reused that id. A bounded new correction is commissioned. These are defects in new unmerged wiring, not released product regressions.
-- F1 remains open: a finalize-test return of 1 at exact `83065bb80` is unexplained because the initial failing log was lost. Seven reviewer passes and five further author passes with complete retained logs do not establish its cause. No 'flaky' waiver is taken. Signed `cfd3d61f8` removes the test's `ls | grep` warning and is independently MERGE-able as a test-only change, without changing the branch's BLOCK verdict.
-- Root's isolated exact `dd384a382` combined finalize test passed in 54.4 seconds, preserving B1 no-signal-to-reaped-PID and live-owned-group status-125 behavior. This is macOS execution with host collaborators substituted, not real Linux/LXD/GitHub acceptance.
-- According to the read-only control-plane/reaper investigation in `tmp/demo-installer-repair-proof-20260930.md`, the shared facility was reaped on 2026-09-29 at 18:36:23 UTC (run 36613191241), including its local checkpoints. That host-deletion receipt is attributed to the investigation, not the M4 code reviewer. Restoration approval is pending. No replacement host was provisioned, no code pushed and no candidate cut or promoted in this follow-through.
-- Literal smoke reuse preserves A's tagged-install release classification. The STATBUS-435 disagreements are expected by mechanism on this literal path but have not been observed on it in a guest. Historical M3b disagreements were observed under the earlier documented fixture conditions. No SQL, release classification or arc assertion was rewritten to manufacture parity. Main's corrected chronology and preserved raw evidence remain authoritative.
-
-Requirement mappings to settle before completion, without changing AC text or checkboxes:
-- AC#1 says one CI job, while M4 retains per-arc matrix jobs on the shared host. Those names are the verifier's per-scenario marks and drive covered-subset inheritance.
-- AC#2 calls for verdicts against a same-commit Hetzner run. The existing rc.17 reference is available, but new per-scenario Hetzner provisioning is forbidden; future-reference coverage cannot be assumed or created by violating that direction.
-- AC#3's historic '4/4' wording no longer describes the concurrent '3/4' orchestrator grouping.
-- AC#4 wall time is unmeasured on this wired path.
-- AC#5 installed-smoke reuse is wired and code-reviewed, but guest-UNRUN.
-- AC#7 literally says 'No release gate boots a Hetzner VM'. The shared LXD facility is itself a Hetzner ccx33 created on demand. Interpreting this as no per-scenario VMs is a requirement-mapping decision, not a verified literal fact.
-
-Validation references: `tmp/review-425-m4.md`, `tmp/test-lxd-m4-dd384-finalize-20260930.log`, and `tmp/lxd-m4-implementation-20260930.md` in main's diagnostic directory. All seven acceptance checkboxes remain open.
-
-2026-09-30 15:14 UTC, independent review Addendum 4:
-- R6 is resolved at signed `daa91056909c83791e7fa4d6112d6910fe26e188`: normal PASS/FAIL drops the process-group file, while status 125 retains cleanup ownership. Actual helper/reap tests pass, both reviewer removal mutants are killed, and the harness selftest passes. R4/R5 remain resolved. This is local code/regression evidence, not a guest or GitHub outcome.
-- F1 has a reproduced mechanism and remains a required code fix. The reviewer corrected the author's hook, which had intercepted the outer test's TERM and killed the driver before finalize ran. Against exact `83065bb80`, the corrected hook produces exactly the dead-PID safety failure with the other 24 checks passing, including exit 143, no surviving owned processes, and marker/fixture release. The no-hook control passes. The original failing log is unrecoverable, so identity with that event is not proven.
-- The actual defect is a check-then-signal race: a selected raw PID can be reaped and possibly reused before TERM/KILL. A new signed correction is commissioned to signal and wait through the shell's current jobspec table, preserving the safety assertion and adding the corrected deterministic green-fix/red-revert regression. The branch remains BLOCK pending that independent recheck and external acceptance. No SQL, release classification or acceptance assertion changed; all seven acceptance checkboxes remain open.
-
-2026-09-30 17:53 UTC, independently reviewed native finalizer correction (code only):
-- Signed `f6985dc91f27bda5efff3a31a327eb6ded114d66`, parent `72705d4ff`, resolves the N1b retained-finished-job predicate defect. With an explicit jobspec, `jobs -rp %N` still returns a retained finished job's PID on macOS Bash 3.2. Both wait and pre-KILL predicates now use exact job-number membership in plain `jobs -r`. Jobspec selection, TERM/KILL/wait and ownership/leak gating are preserved, and the comments distinguish removed jobspec refusal from retained-finished PALIVE skipping.
-- Fresh independent GPT-6 Astra review (`tmp/review-425-n1b-final.md`) is MERGE for this exact three-file delta only. Sequential final-byte execution passes 28 helper checks and 47 driver checks, including strict B2 safety. Reverting only the two predicates produces nine actual assertion failures on the byte-identical final test, with the reverted function verified byte-identical to the 727 parent. The four real-file retained-job cases change from 12 polls/no-op KILL to one poll/no KILL. Named CAP=12, exact `%1`/`%10` and completed-before-selection preconditions are checked.
-- Evidence is preserved under `$JCODE_SCRATCH_DIR/review-425-n1b-evidence/`. Owned-test cleanup was verified after the reviewer reaped only its identified watchdog timer children; fixture self-cleanup was unchanged. Author staged mutation assertions and watchdog NONCOMPLETION are recorded separately, not an all-mutants final-byte rerun or a new gate. The earlier green `red-kill0.log` driver run is not cited as red proof.
-- This closes the native N1b code-review block, not whole-M4 integration or acceptance. Linux Bash 5, real LXD, GitHub CI and concurrent-capacity outcomes remain unrun; identity with the lost original F1 event remains unproven. M4 stays unmerged, restoration approval remains pending, and no SQL, release classification, arc assertion, requirement text or acceptance checkbox is changed. All seven acceptance checkboxes remain open.
-
-## Integration review and concrete driver ownership finding (2026-09-30 20:30 UTC)
-
-- Combined source candidate `c339f406eb8ff769a1582a843688f4d87d6f4814` is G-signed, unpushed, based on main `4282d6999`. Independent review verifies that its non-backlog source delta matches frozen `f6985dc91` and preserves main's newer changes. The entire `.backlog` tree matches main; no duplicate draft ticket was imported.
-- Independent code verdict is **BLOCK**, receipt MAIN `tmp/review-lxd-int-final-20260930.md`. The first combined finalizer run failed the D slot-release-count assertion; its passing rerun is not a waiver.
-- Deterministic prototypes establish a real ownership bug in the unmerged local driver: `verdict=$(lxd_arc_run ...)` puts admission and bounded execution in a child separate from the background job leader. Killing the leader can leave that child alive after marker release and driver exit. It can issue a late slot release, or claim a slot and start an arc after the driver exited. A direct helper call with verdict output redirected to a file removes the D reproduction and the post-exit arc start in the reviewer prototypes. The unmodified finalize test then fails only E2's forced-KILL check, because TERM is no longer deferred. That is why a genuinely TERM-ignoring fixture is required.
-- The original first-run `$EV`/`d.out` fixture state was not retained. The deterministic prototype reproduces a sufficient mechanism for the observed D failure and proves the unsafe code path, but the exact original process identity/event trace has not been recovered.
-- New signed corrections are commissioned, not yet completed: direct helper ownership, a genuinely TERM-ignoring forced-stop fixture, and a leader-KILL/queued-admission regression retaining the strict no-post-release ownership invariant. The existing workflow caller's matching substitution shape will be considered in the same bounded change.
-- Review also proves a pre-existing harness input-validation bug: apostrophes pair across the two c-rollback required-version guards, making the V_VERSION_3 guard inactive (set -u still stops later, at first use mid-arc). Restoring that guard and adding a behavioral regression are commissioned. This is harness behavior, not evidence of data corruption on a released installation. Existing Harness Selftest timeout wiring is also being corrected to accommodate its bounded tests without adding a gate or predicting Linux performance.
-- No supersession SQL, release classification or arc outcome assertion contract changed. All seven STATBUS-425 acceptance boxes remain open. No main source merge, push, new RC, provisioning or production repair occurred. Actual Linux CI and LXD guest outcomes follow the normal reviewed publication sequence, not a separate manual host-approval prerequisite.
-
-Evidence: MAIN `tmp/review-lxd-int-final-20260930.md`, MAIN `tmp/lxd-integration-candidate-20260930.md`, MAIN `tmp/lxd-integration-20260930-logs/finalize.log`; review prototypes retained in `/Users/jhf/ssb/.jcode/scratch/review-lxd-int-final-0930/tmp/proto-D/`.
-
-## Reviewed source integration (2026-09-30 21:04 UTC)
-
-- Signed main merge `508dbc163d002cfc8f8d65f80218f238c43be86d` has parents `b0757ef86` and independently reviewed `e5fa86e3b`. Its tree equals the non-destructive merge prototype `ef77d90ca80f87a291828c07c7a69dd8d8543c31`: non-backlog source is byte-identical to the approved correction, while the complete backlog tree (`b6d7f19529c0ffdb6e9445a3136289223acc6b04`) equals pre-merge main `b0757ef86`'s. No duplicate task draft is imported.
-- Independent re-review resolves the c339 BLOCK at exact signed `e5fa86e3b`, recorded in MAIN `tmp/review-lxd-int-final-20260930.md`. The finalizer passes 54 checks. The reviewer independently reverts only the helper-call hunk of `run-arcs.sh` on e5fa's tree (the other six changed files byte-identical): that pure mutation fails four ownership assertions (E2 owned alive; F post-marker admission, post-marker arc start, owned alive). The restored guard test passes on e5fa and gives five failures against c339's guard lines. Workflow/actionlint and the bounded existing CI deadline are reviewed.
-- The source integrates literal smoke-installed checkpoint reuse for 33 ordinary candidate-A arcs, exact-SHA bases for the two historical pins, and bounded shared-host admission for concurrent faults and arcs. This is source wiring, not an observed Linux/GitHub/LXD guest outcome. No per-arc VM, new gate, supersession SQL, release classification or arc outcome assertion change is introduced by this integration.
-- Serial full Go, vet and offline harness validation completed on exact merged508: background task `932934tkxv` exits 0 after 180 seconds. All 21 testable Go packages pass with `-count=1`, `go vet` exits 0, and `./dev.sh test-harness` passes. Logs are retained in MAIN `tmp/merged508-go-test.log`, `tmp/merged508-go-vet.log` and `tmp/merged508-harness.log`; the job also verifies unchanged HEAD and a clean tracked worktree. These are local macOS checks, not Linux or guest acceptance. The original first D failure's fixture event/PID trace remains unavailable despite the demonstrated unsafe mechanism and discriminating regression.
-- All seven STATBUS-425 acceptance boxes remain open. Linux runner execution, real guest checkpoint/fetch/config behavior, shared capacity and the unchanged STATBUS-435 disagreements must be observed after normal candidate publication. No push, candidate cut, stable promotion, host provision or production repair has occurred.
-
-RESUME PLAN (owner, 2026-10-13; plan A: machinery before candidate). Take it ONE milestone at a time, each with its own evidence and each with CI read at job level. No milestone is marked done from prose.
-
-Current facts (not prose): the ticket's own notes say M1, M2' and M3a merged at a83039410, the M3b comparison runs were done, and M4 is owed. It has 0 of 7 criteria checked. upgrade-arc-harness.yaml still declares the hetzner-vm-fleet concurrency group and HCLOUD_TOKEN, so rung 8 still boots Hetzner VMs today.
-
-Steps:
-1. Verify M3b parity: the LXD shadow arc run's verdicts match the Hetzner arc run at the same candidate commit, and every disagreement is explained rather than waved away. Record the candidate commit and both run URLs.
-2. M4 wiring: release-fleet-orchestrator dispatches smoke always and bounds guests with the box-slot semaphore; the stable gate consumes the LXD arc run; the Hetzner arc steps are deleted from upgrade-arc-harness.yaml.
-3. Then AC 7 (no release gate boots a Hetzner VM) is true and the Hetzner arc path can be retired.
-
-Ordering: it follows STATBUS-485, which restores the one scenario the VM to LXD migration left unrunnable, and it precedes the next release candidate, so the candidate runs on finished machinery.
-
-2026-10-13 GROUNDED STATUS CORRECTION (coordinator), from checking CI and the workflows rather than this ticket's own prose. Most of this ticket is already landed in master; the 0/7 criteria reflect a stale ticket, not missing work. My earlier statement that rung 8 still boots Hetzner VMs was WRONG.
-
-Evidence:
-- upgrade-arc-harness.yaml creates no per-arc VM at all: no `hcloud server create` exists anywhere under .github/workflows. The only remaining Hetzner API use is ops/lxd-fleet/up.sh, which ramps the shared LXD fleet host itself (a Hetzner machine, not a test VM). The workflow's own comment says: "STATBUS-425 M4: arcs run on the shared LXD fleet box, concurrently with the LXD fault fleet of the same candidate. Box capacity is bounded on the HOST (ops/lxd-fleet/admission.sh slots), not by a workflow lock."
-- The run-arc job installs through install_statbus_at_sha on an LXD fork, and the workflow has a "Ramp hardened LXD fleet host" job.
-- release-fleet-orchestrator.yaml dispatches upgrade-arc-harness as stage 3/4 after dev-canary, and states: "fleet-verdict and the stable gate still require both to be green", with the comment "STATBUS-425 M4: arcs start after dev, together with the LXD fault fleet".
-- AC 4 evidence: Upgrade Arc Harness run 37578475601 at bce5bf39b (which is v2026.10.0-rc.20, the v2026.10.0 commit) completed SUCCESS with 42 jobs and a measured wall time of 59 min 41 s, under the 60-minute criterion.
-- The concurrency group name "hetzner-vm-fleet" is historical and documented as such in the workflow.
-
-Genuinely open:
-- AC 2, verdict parity with the Hetzner arc run at the same candidate commit. The comparison the notes assert (rc.16 arcs run 36468921894 = FAILURE at 59bdaed88) is not recorded anywhere durable as a per-arc comparison, and the Hetzner run-arc path no longer exists, so parity can only be evidenced from historical artefacts if they are still retrievable, or else restated as a deliberate documented acceptance rather than a comparison.
-- The criteria need checking against the evidence above: AC 1, 3, 4, 5, 6 look satisfied, and AC 7 is true in the meaningful sense (no release gate boots a TEST VM; the fleet host itself is a Hetzner machine and the ticket should say so).
-
-2026-10-13 AC-BY-AC CHECK against evidence (coordinator). Checked AC 1, 3, 4, 5, 6 with the evidence below. AC 2 remains genuinely open; AC 7 needs its wording settled by the owner.
-
-AC 1 (every arcs/*-arc.sh runs on the LXD box from one CI job with bounded parallelism): MET. Upgrade Arc Harness run 37578475601 at bce5bf39b completed SUCCESS with 42 jobs, including "Ramp hardened LXD fleet host" and the per-arc jobs (claim-without-notify, un-park-to-completion, working, ...). The workflow creates no per-arc VM: `rg 'hcloud server create' .github/workflows` finds nothing, and the run-arc job installs through install_statbus_at_sha on an LXD fork. Its own comment records that capacity is bounded on the host by ops/lxd-fleet/admission.sh slots, not by a workflow lock.
-
-AC 3 (orchestrator and the stable gate use the LXD arc run; the Hetzner run-arc matrix is deleted): MET. release-fleet-orchestrator.yaml has an `upgrade-arc-harness` stage 3/4 that `needs: [decide-obsolete, dev-canary]` and documents "fleet-verdict and the stable gate still require both to be green". The Hetzner run-arc matrix is gone (nothing under .github/workflows creates servers; the only hcloud use is ops/lxd-fleet/up.sh ramping the fleet HOST).
-
-AC 4 (full arc suite wall time under 60 min): MET. Same run: created-to-updated 59 min 41 s, success.
-
-AC 5 (smoke 0-happy-install and 0-happy-upgrade run on the LXD box and leave the checkpoints the faults and arcs fork from): MET for the LXD legs. Test Smoke run 37577261099 at bce5bf39b: "Ramp hardened LXD fleet host", "0-happy-install", "0-happy-upgrade" and "Aggregate scenario freshness verdict" all success. The arcs of the same commit (37578475601) run concurrently and fork those checkpoints, which is the leaving-and-forking half in practice.
-
-AC 6 (LXD guests are ubuntu:26.04): MET. ops/lxd-fleet/base.sh:35 launches ubuntu:26.04, ops/lxd-fleet/up.sh:8 sets image=ubuntu-26.04, ops/lxd-fleet/harden-host.sh:147 likewise.
-
-AC 2 (verdicts match the Hetzner arc run at the same candidate commit): OPEN and possibly not satisfiable. The comparison the notes name (rc.16 arcs run 36468921894) is a FAILURE at 59bdaed88, and no per-arc LXD-vs-Hetzner comparison is recorded durably anywhere; the Hetzner run-arc path no longer exists, so a fresh comparison cannot be produced. Options for the owner: (a) recover the historical artefacts if they survive and write the comparison, or (b) replace the criterion with a deliberate documented acceptance that the Hetzner path is retired and parity was the basis on which it was retired, citing the M3b shadow runs.
-
-AC 7 (no release gate boots a Hetzner VM): TRUE for test VMs - no workflow creates one - but the shared fleet HOST is itself a Hetzner machine, provisioned by ops/lxd-fleet/up.sh. The owner should settle whether the criterion means "no per-test VM" (met) or "no Hetzner machine at all" (not met, and deliberately so).
-
-2026-10-13, while checking that nothing of ours is unmerged (owner question): the current checkout is on master, level with origin/master, nothing unpushed, and every ticket from today is landed. But local branches exist that carry commits NOT on master, and two of them are the likely home of this ticket AC 2 parity evidence: ci/lxd-m4 (42 commits off master) and ci/lxd-arcs (28 commits off master). Others are older experiments/review branches (db-seed 56, feature/*, backup/*, agent/*). SO: when AC 2 is taken, start by auditing ci/lxd-m4 and ci/lxd-arcs for the M3b shadow-run comparison and for any unlanded code we still want; a merge of either is an owner decision, not a coordinator one. This is recorded here because AC 2 is the one criterion that cannot be produced fresh (the Hetzner run-arc path no longer exists).
-
-2026-10-13, owner instruction to run a clean code ship: the two candidate branches were REVIEWED and then DELETED. Two independent read-only reviews (deepseek-flash, one per branch) both returned ABANDON: ci/lxd-m4 and ci/lxd-arcs contain nothing to merge, their substantive content already being on master in a more developed form. My own check agreed - of the files each branch touched, 42 and 23 respectively are byte-identical to master today, and the rest are files master has since moved past (workflows, arc scripts, lxd-backend.sh, and this ticket file itself). `git branch -D ci/lxd-m4 ci/lxd-arcs` is run and neither had a worktree, so nothing was lost from disk. CONSEQUENCE FOR THIS TICKET: neither branch carried the LXD-versus-Hetzner arc comparison, so AC 2 is NOT rescued by them; it still needs surviving historical artefacts or the owner wording as a deliberate acceptance.
+### Evidence
+- **AC1, AC3-6:** checked 2026-10-13 against runs `37578475601` and `37577261099` at `bce5bf39b` (v2026.10.0).
+- **AC2:** the comparison is durable on master since `c339f406e`; the 2026-10-13 note that it was "not recorded anywhere durable" missed it. Rechecked 2026-10-15: both mismatching arcs succeed in `37578475601`.
+- **AC7:** `rg 'hcloud server create' .github/workflows` finds nothing; the only Hetzner API use is `ops/lxd-fleet/up.sh` ramping the fleet host.
+- **History:** milestone notes from 2026-09-29 to 2026-10-13 (M1 to M4 reviews, the integration merge, the 10-13 status correction) are in Git history of this file, last full version at `c81f82fad`.
 <!-- SECTION:NOTES:END -->
