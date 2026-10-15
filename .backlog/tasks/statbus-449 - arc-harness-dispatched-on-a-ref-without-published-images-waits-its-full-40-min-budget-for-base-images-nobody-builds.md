@@ -6,7 +6,7 @@ title: >-
 status: Done
 assignee: []
 created_date: '2026-10-05 18:16'
-updated_date: '2026-10-15 19:44'
+updated_date: '2026-10-15 20:25'
 labels:
   - ci
   - testing
@@ -43,7 +43,7 @@ The arc harness only works when the base commit's images exist, and those are bu
 <!-- AC:BEGIN -->
 - [x] #1 A `workflow_dispatch` of the arc harness on a feature-branch ref whose base images are unpublished fails within construct, naming the missing images, and never waits out the image budget (run `37541454901`, failed in 22 s)
 - [x] #2 The RC path (orchestrator dispatch at a tag on master) keeps its normal image wait and guest runs (`37578475601` at v2026.10.0-rc.20, `38740570520` at v2026.10.1-rc.04, both success)
-- [x] #3 Proven by one real feature-branch dispatch and one real RC arc run (the two runs above)
+- [x] #3 The two proving runs (feature-branch dispatch `37541454901`, RC arc run `38740570520`) are recorded in the description
 <!-- AC:END -->
 
 ## Implementation Notes
