@@ -4,7 +4,7 @@ title: 'Nudge agents to keep tickets and todos in shape, right after they write 
 status: Done
 assignee: []
 created_date: '2026-10-15 16:15'
-updated_date: '2026-10-15 16:31'
+updated_date: '2026-10-15 16:34'
 labels: []
 dependencies: []
 priority: medium
@@ -61,4 +61,8 @@ Known limits: the reviewer varies run to run (same ticket gave different finding
 - **Docs:** none needed beyond the script docstrings; ops/jcode/install.py --help documents install and uninstall.
 - **Memory:** none needed; the hook itself carries the rule into every session.
 - **Cleanup:** the sandbox under /Users/jhf/ssb/.jcode/scratch and the tmp/ logs stay as diagnostics (tmp/ is never deleted). Nothing else left behind.
+
+### Installer finds the instance by walking up (2026-10-15)
+Owner asked that the installer not assume a fixed layout. install.py now walks up from the current directory to the nearest `.jcode/config.toml`, skips `.jcode/` folders without a config (like this repo's MCP folder), and never auto-picks the home instance; `--jcode-home` overrides. No hardcoded paths remain in either script; the installed hook path comes from where the checkout is.
+Checked: from the repo root, ops/jcode and a sibling project under ~/ssb it finds the STATBUS instance; from ~ it refuses (exit 1); on a synthetic layout the nearest config wins and falls through to the outer one. Re-running the real install from ops/jcode reported nothing to change.
 <!-- SECTION:NOTES:END -->

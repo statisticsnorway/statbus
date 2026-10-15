@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Jcode post_tool_feedback hook: nudge agents right after they write tickets or todos.
 
-Configured in the STATBUS Jcode instance (/Users/jhf/ssb/.jcode/config.toml).
+Installed by ops/jcode/install.py into the nearest Jcode instance above the checkout.
 Acts only when the session works inside the repository that contains this file.
 Whatever it prints is appended to the tool result the agent sees. See STATBUS-510.
 """

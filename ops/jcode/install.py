@@ -3,13 +3,13 @@
 
 Usage: python3 ops/jcode/install.py [--uninstall] [--jcode-home DIR]
 
-The STATBUS instance's home is $JCODE_HOME when set (the zsh `jcode` wrapper sets it to
-/Users/jhf/ssb/.jcode for this checkout), else <checkout parent>/.jcode. Only that instance's
-config.toml is changed; other Jcode instances are untouched. Existing hooks are preserved.
+Finds the Jcode instance by walking up from the current directory to the nearest `.jcode/config.toml`
+(a `.jcode/` folder without config.toml, like a project's MCP settings, is skipped). The home instance
+(~/.jcode) is never chosen by the walk; pass --jcode-home to target it or any other instance explicitly.
+Only that instance's config.toml is changed; existing hooks are kept and a backup is written first.
 Running it twice is harmless. See STATBUS-510.
 """
 import argparse
-import os
 import re
 import shutil
 import sys
@@ -90,15 +90,29 @@ def uninstall(text):
     return text[:start] + section + text[end:]
 
 
+def find_instance(start):
+    """Nearest ancestor of start holding .jcode/config.toml, stopping before the home directory."""
+    home = Path.home().resolve()
+    for directory in (start, *start.parents):
+        if directory == home:
+            return None
+        if (directory / ".jcode/config.toml").is_file():
+            return directory / ".jcode"
+    return None
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--uninstall", action="store_true", help="remove the hook again")
-    parser.add_argument("--jcode-home", type=Path, help="Jcode instance home (default: $JCODE_HOME)")
+    parser.add_argument("--jcode-home", type=Path, help="Jcode instance home (default: nearest .jcode/config.toml upward)")
     args = parser.parse_args()
-    home = args.jcode_home or Path(os.environ.get("JCODE_HOME") or HOOK.parents[3] / ".jcode")
+    home = args.jcode_home or find_instance(Path.cwd().resolve())
+    if home is None:
+        sys.exit(f"No .jcode/config.toml found above {Path.cwd()} (the home instance is never picked automatically). "
+                 "Run this from inside the project, or pass --jcode-home.")
     config = home.expanduser().resolve() / "config.toml"
     if not config.is_file():
-        sys.exit(f"No Jcode config at {config}. Pass --jcode-home for the STATBUS instance.")
+        sys.exit(f"No Jcode config at {config}.")
     if not HOOK.is_file():
         sys.exit(f"Hook script missing: {HOOK}")
     before = config.read_text()
