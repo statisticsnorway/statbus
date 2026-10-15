@@ -3,10 +3,10 @@ id: STATBUS-370
 title: >-
   the harness proves its own failure path: every diagnostic, capture and keep
   branch is exercised on a stub box, on the laptop and on every push, with no VM
-status: In Progress
+status: Done
 assignee: []
 created_date: '2026-09-15 07:48'
-updated_date: '2026-09-29 08:04'
+updated_date: '2026-10-15 13:00'
 labels:
   - testing
   - harness
@@ -16,6 +16,33 @@ priority: high
 type: task
 ordinal: 10
 ---
+
+## Description
+
+<!-- SECTION:DESCRIPTION:BEGIN -->
+North Star: when a scenario fails on a box, everything the box knows reaches the job log before the box is destroyed, and the harness proves this about itself cheaply, without a VM.
+
+Why: failure paths (ERR traps, capture-before-reap, KEEP_VM) only run when something is already wrong, an hour into a paid run. In the 2026-09-14/15 batch four of six harness defects were in failure paths (4284eeca2, df6727be4, d888ea443, 586ebf4d2), each costing a run that taught nothing.
+
+Design: layer 1 static checks; layer 2 a localhost-sshd stub box driving the real harness library (timeout diagnostic, byte-identical log capture, capture before delete, KEEP_VM keeps the box), with a built-in mutation control; layer 3 one real-host observation of the failure capture.
+<!-- SECTION:DESCRIPTION:END -->
+
+## Acceptance Criteria
+<!-- AC:BEGIN -->
+- [x] #1 ./dev.sh test-harness runs the stub-box contract green on the laptop with no network beyond localhost
+- [x] #2 Harness Selftest runs on every master push and relevant PR, is green at the release commit, and release check consults it
+- [x] #3 Negative proof: a mutation of the real capture step turns the contract red, inside the test itself
+- [x] #4 test/install-recovery/README.md states that no scenario or harness change merges without its failure branch covered
+- [x] #5 The failure capture is observed on a real host (LXD fleet, which replaced Hetzner gating per STATBUS-425)
+<!-- AC:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+Audit after v2026.09.3 (2026-09-29): v2026.09.3: Harness Selftest green at the release commit (36503485820) and consulted by release check. Remaining: record one red negative-control run URL, one layer-3 VM run, and restore master's Harness Selftest (red since a83039410, lxd-smoke-checkpoint-test).
+
+Reviewed 2026-10-15 against current master. AC1: ./dev.sh test-harness (dev.sh test-harness verb). AC2: .github/workflows/harness-selftest.yaml, green at rc.04 3b17af171 (run 38729929511) and earlier 11d7e5317..996384160; consulted as WorkflowHarnessSelftest in cli/internal/release/workflow_check.go. AC3: harness-failure-path-selftest.sh mutates the real capture scp and requires the contract to go red (every run). AC4: README line 341ff. AC5: the original 'one Hetzner layer-3 run' is obsolete since gating moved to the LXD fleet (STATBUS-425); real failures on rc.01/rc.02/rc.03 (run 38714275075) produced on-runner failure captures. Those captures exposed truncation and a missing daemon journal, fixed in 4c88d3509, 436c6ba2e and 6f7ecb2ea. The hand-written prose above is the original design record.
+<!-- SECTION:NOTES:END -->
 
 ## Status 2026-09-24
 
@@ -155,9 +182,3 @@ localhost SSH, hcloud, and user-mapping seams. It asserts the real failure
 diagnostic, byte-identical registered-log capture, scp-before-delete ordering,
 and the real `KEEP_VM=1` branch. Its negative control mutates the copied
 `capture_failure_artifacts` scp and observes the same contract turn red.
-
-## Implementation Notes
-
-<!-- SECTION:NOTES:BEGIN -->
-Audit after v2026.09.3 (2026-09-29): v2026.09.3: Harness Selftest green at the release commit (36503485820) and consulted by release check. Remaining: record one red negative-control run URL, one layer-3 VM run, and restore master's Harness Selftest (red since a83039410, lxd-smoke-checkpoint-test).
-<!-- SECTION:NOTES:END -->
