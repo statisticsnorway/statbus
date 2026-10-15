@@ -6,6 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-10-13 13:16'
+updated_date: '2026-10-15 19:31'
 labels:
   - install
   - uganda
@@ -19,19 +20,40 @@ ordinal: 423204
 ## Description
 
 <!-- SECTION:DESCRIPTION:BEGIN -->
-WHY THIS EXISTS. Four findings from the Uganda installation have acceptance criteria that only a real box can satisfy, and the owner will rerun the installer on that remote machine after the next release. This ticket is the concrete step so it is not forgotten, and so each dependent ticket can name where its observation comes from. It is deliberately In Progress: the work is scheduled, not done. WHAT TO COLLECT on that rerun: (1) STATBUS-492 criterion 1, the published preparation instruction shown running in a root login shell with a transcript showing the HOME in effect; (2) STATBUS-492 criterion 3, an ownership inspection proving no file owned by root is left anywhere in the operator home after a fresh preparation; (3) STATBUS-487 criterion 5, the operator-facing output of the install on a box where Docker is unreachable, which must name Docker and the remedy instead of the disk-space sentence. Paste the raw output into this ticket and into each dependent ticket, then check that ticket criteria there.
+### North Star
+The Uganda installation becomes the real-box proof for three fixes that only a real box can confirm, so those fixes close on observation instead of on reasoning.
+
+### Zoom out
+Some acceptance criteria can only be met by watching the product on a real, unprepared machine: what a published instruction does in a real root login shell, what the home directory looks like after preparation, what an operator actually reads when Docker is missing. Uganda hit these problems first, and the owner will rerun the installer there after the next release. This ticket schedules that rerun and says exactly what to collect, so the dependent tickets each have a named source for their last criterion. It is a task, not a fix, so it stays open until the rerun is done.
+
+### Zoom in
+- **Origin, 2026-10-13:** filed on the owner's instruction so the Uganda rerun is tracked, not remembered.
+- **What to collect on the rerun:**
+  1. **STATBUS-492 criterion 1:** a transcript of the published preparation instruction running in a root login shell, showing the `HOME` in effect.
+  2. **STATBUS-492 criterion 3:** an ownership inspection showing no root-owned file anywhere in the operator home after a fresh preparation.
+  3. **STATBUS-487 criterion 5:** the install's operator output, verbatim, naming Docker and its remedy rather than the unmeasurable-disk sentence (only if Docker is unreachable on that box).
+- **Where things stand:** STATBUS-487 and 492 are marked Done although those observation criteria are still unchecked; this ticket is where they will be satisfied. The release the rerun waits for is v2026.10.1 (stable, 2026-10-15) or later.
+- **Related:** STATBUS-486 (removing the restore-time workaround) is part of the release path, not part of the rerun.
+
+### Closing review
+- **Memory:** none needed.
+- **Documentation:** none needed.
+- **Cleanup:** none.
 <!-- SECTION:DESCRIPTION:END -->
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
 - [ ] #1 STATBUS-492 criterion 1 is satisfied with a real transcript from the box: the preparation ran in a root login shell and the HOME in effect is recorded.
 - [ ] #2 STATBUS-492 criterion 3 is satisfied with an ownership inspection from that box showing no root-owned file in the operator home.
-- [ ] #3 STATBUS-487 criterion 5 is satisfied with the install output from that box, quoted verbatim, showing the Docker cause named with its remedy.
-- [ ] #4 Each dependent ticket names this ticket as the source of its observation.
+- [ ] #3 STATBUS-487 criterion 5 is satisfied with the install output from that box, quoted verbatim, showing the Docker cause named with its remedy (or recorded as not applicable if Docker was reachable).
+- [x] #4 Each dependent ticket names this ticket as the source of its observation.
+- [ ] #5 Owner decision: is v2026.10.1 the release this rerun waits for? Yes means the rerun can be scheduled now.
 <!-- AC:END -->
 
 ## Implementation Notes
 
 <!-- SECTION:NOTES:BEGIN -->
-Filed 2026-10-13 on the owner instruction: the installer rerun on the remote Uganda machine happens after the next release, and this must exist as a tracked item rather than a remembered intention. Related: 487 (Docker prerequisite named), 492 (root login shell and no root-owned files in the home), 486 (workaround removal) and the release path.
+### Evidence
+- **AC4:** STATBUS-487 and STATBUS-492 each reference STATBUS-497 (checked 2026-10-15).
+- **AC1-3:** open; they wait for the Uganda rerun.
 <!-- SECTION:NOTES:END -->
