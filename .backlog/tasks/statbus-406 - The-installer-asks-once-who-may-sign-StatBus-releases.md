@@ -4,7 +4,7 @@ title: The installer asks once whether to trust the Statistics Norway release si
 status: In Progress
 assignee: []
 created_date: '2026-09-24 15:35'
-updated_date: '2026-10-15 19:13'
+updated_date: '2026-10-15 20:08'
 labels:
   - release-bug
   - install
@@ -42,7 +42,7 @@ Every StatBus release is signed, and the installer only accepts releases signed 
 - [x] #1 One plain trust question shows the signer and fingerprint before anything is saved (`TestFreshUnattendedConfigThenTrust`; real guest transcript in STATBUS-474)
 - [x] #2 The saved answer satisfies the later Trusted signers step and every rerun, with no second prompt and no additional-signer loop (`TestInteractiveSignerQuestionHasOneOwnerAndNoAdditionalLoop`, `TestTrustGitHubUserRunsBeforeDispatch`)
 - [x] #3 A real interactive install on a PTY asks the signer question exactly once and completes (`0-interactive-setup-choices.sh`, green 2026-10-08, STATBUS-474)
-- [ ] #4 Owner decision: the original ticket said further signers are managed in the web interface after installation; the 2026-09-24 restyle dropped that. Still wanted? Yes opens a new ticket for it and closes this one. No closes this one.
+- [ ] #4 [Owner] Decide whether web-interface management of further release signers is still wanted, and record it in Implementation Notes. Yes: file it as a new ticket. Then check this and set Done.
 <!-- AC:END -->
 
 ## Implementation Notes
@@ -53,4 +53,3 @@ Every StatBus release is signed, and the installer only accepts releases signed 
 - **AC3:** the scenario still carries `HARNESS_SKIP_DEFAULT`, so it is not in the default release gate; its one run is the local 2026-10-08 guest recorded on STATBUS-474.
 - **Superseded criterion:** the restyle named `0-interactive-trusted-signer.sh`, never written; `0-interactive-setup-choices.sh` covers it.
 <!-- SECTION:NOTES:END -->
-
