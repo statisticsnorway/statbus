@@ -11,7 +11,7 @@ STATBUS is SSB's statistical business registry: PostgreSQL 18+, PostgREST 12+, N
 
 ## Workflow
 
-- For multi-step work, keep an ordered todo list with one item in progress. Include implementation, verification, commit/push, CI review, ticket evidence, and closure when applicable. Add newly discovered work to the plan.
+- Todos are the agent's execution plan, not the ticket tracker. Order the full workflow: implement, test, commit/merge, push, inspect CI, record ticket evidence, then close the ticket. Keep one step in progress, update it as work happens, and continue to the next step. Include ticket updates where they belong in that sequence.
 - For defects, record the hypothesis in `tmp/journal.md`, reproduce the failure, and run a non-destructive prototype before implementing. Keep diagnostic scripts and logs in `tmp/`. Do not delete them.
 - Demonstrate that regression tests detect the defect: record failure before the fix and success after it. If necessary, test against the fix's parent commit without disturbing the shared checkout.
 - Run the relevant regression suite. Match verification to the claim: documentation edits need diff/link checks, SQL behavior needs database tests, and host behavior needs an observed host run.
@@ -27,8 +27,8 @@ STATBUS is SSB's statistical business registry: PostgreSQL 18+, PostgREST 12+, N
 
 ## Backlog
 
-- Tickets live in `.backlog/tasks/`. Read with the `backlog` CLI, Backlog MCP, or `rg`. Do not look up tickets in a browser or guess tracker URLs.
-- Author ticket content through the CLI. Put the goal, work, acceptance criteria, and evidence in the ticket, not only in agent prompts.
+- Backlog is the durable ticket tracker. Each ticket's scope, acceptance criteria, status, and evidence live in its Markdown file under `.backlog/tasks/`, not only in todos or agent prompts.
+- Use the Backlog MCP or `backlog` CLI to create and update tickets. Read with either tool or `rg`. Do not hand-edit structured ticket sections, look up tickets in a browser, or guess tracker URLs.
 - Set `In Progress` when work starts, including delegation. After verification, set `Done` with `backlog task edit <id> -s "Done"` and leave it on the board. Do not use `backlog task complete` for newly finished work.
 - Use `--append-notes` to add evidence. `--notes` replaces existing notes. Use `--check-ac <n>` to mark verified criteria.
 
