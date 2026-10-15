@@ -1,10 +1,10 @@
 ---
 id: STATBUS-509
 title: Keep install completion from scheduling another upgrade
-status: In Progress
+status: Done
 assignee: []
 created_date: '2026-10-15 11:16'
-updated_date: '2026-10-15 13:27'
+updated_date: '2026-10-15 16:11'
 labels:
   - upgrade
   - install
@@ -36,7 +36,7 @@ Bookkeeping must not schedule work. Reusing the scheduler to revive an installed
 - [x] #1 Test442PinnedInstallCompletion observes upgrade_apply from a separate session and fails if install completion notifies its own installed SHA; recorded RED on the parent code (legacy-call, legacy-schedule-operator)
 - [x] #2 With the fix the same test is GREEN in all nine modes; pg_regress 131 expects superseded->available->completed with scheduled_at NULL
 - [x] #3 LXD failure capture contains the statbus user's daemon journal and the upgrade rows with their state log
-- [ ] #4 The next candidate's LXD fleet passes 5-install-source-identity-operator
+- [x] #4 The next candidate's LXD fleet passes 5-install-source-identity-operator
 <!-- AC:END -->
 
 ## Implementation Notes
@@ -71,4 +71,7 @@ Record “none needed” where appropriate, plus any other required cleanup.
 - `cli/cmd` got the shared livedb fixture; `./dev.sh test-livedb` (Fast Tests) now runs 442 and both 452 tests. All 25 subtests pass through the fixture.
 - The `scheduled_at` comment was corrected to hold for every writer (./sb install inserts completed rows with it set).
 - AGENTS.md: tests assert the state the system must reach (`30b920ffc`).
+
+### Closed 2026-10-15
+rc.04 v2026.10.1-rc.04 (3b17af171): Release Fleet Orchestrator 38738675941 success; LXD Fork Fleet 38740447079 STATUS=PASSED, 27/27 scenarios PASS (comparison.tsv); Upgrade Arc Harness 38740570520 41 jobs success; Test Smoke 38738884092 and Fast Tests 38738677811 success. 5-install-source-identity-operator PASS (1261 s). Done; ships with the next promoted release.
 <!-- SECTION:NOTES:END -->

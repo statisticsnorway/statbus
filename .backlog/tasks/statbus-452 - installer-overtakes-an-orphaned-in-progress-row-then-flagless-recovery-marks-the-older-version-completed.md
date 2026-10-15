@@ -4,10 +4,10 @@ title: >-
   installer overtakes an orphaned in_progress row; the new daemon's flagless
   recovery then marks that older version completed, so the ledger and footer
   report the wrong running version
-status: In Progress
+status: Done
 assignee: []
 created_date: '2026-10-06 08:45'
-updated_date: '2026-10-15 09:02'
+updated_date: '2026-10-15 16:11'
 labels:
   - upgrade
   - install
@@ -381,11 +381,14 @@ Next: exact source proof, freshly global all-pages five-state CI idle and ONE or
 <!-- AC:BEGIN -->
 - [x] #1 An older program's in_progress attempt that never committed its snapshot (backup_path NULL), whose target is a strict ancestor of the running executable, is superseded untouched: no rollback, no completion, no success callback
 - [x] #2 Inline dispatch treats that superseded attempt as settled and proceeds to claim the candidate
-- [ ] #3 The LXD fault fleet's 5-install-source-identity-scheduled and -operator scenarios pass on the next candidate
+- [x] #3 The LXD fault fleet's 5-install-source-identity-scheduled and -operator scenarios pass on the next candidate
 <!-- AC:END -->
 
 ## Implementation Notes
 
 <!-- SECTION:NOTES:BEGIN -->
 2026-10-15, root cause of rc.01/rc.02's red LXD fault fleet (both source-identity twins). The old daemon's attempt (row 25, v2026.09.3, ebe058afc) died before committing its snapshot, so by STATBUS-197 C1/C2 it changed nothing; the newer installed program judged it against the box's CURRENT (candidate) state. Scheduled path: candidate migration 20261008121306 absent -> CannotReachNew -> rollback of a healthy box, database stopped and never restarted (ROLLBACK_TERMINAL_WRITE_FAILED). Operator path: AtNew -> the old release marked completed with its success callback ('completed|v2026.09.3' in the proof's callback file). Evidence: rc.02 fleet run 38696133051, untruncated captures. FIX 255a41d72: authorizeRecoveryAttempt treats an un-snapshotted attempt whose target is a strict ancestor of the running executable as overtaken (superseded untouched); unresolvable ancestry declines this evidence; ReconcileInterruptedForInline accepts superseded. RED on the unfixed code: livedb mode stale-unsnapshotted ended state=completed callback='completed' (tmp/fix1-red.log). GREEN after: superseded, no callback; full livedb tier + unit + golangci-lint pass.
+
+### Closed 2026-10-15
+rc.04 v2026.10.1-rc.04 (3b17af171): Release Fleet Orchestrator 38738675941 success; LXD Fork Fleet 38740447079 STATUS=PASSED, 27/27 scenarios PASS (comparison.tsv); Upgrade Arc Harness 38740570520 41 jobs success; Test Smoke 38738884092 and Fast Tests 38738677811 success. 5-install-source-identity-scheduled PASS (1225 s) and -operator PASS (1261 s). Done; ships with the next promoted release.
 <!-- SECTION:NOTES:END -->

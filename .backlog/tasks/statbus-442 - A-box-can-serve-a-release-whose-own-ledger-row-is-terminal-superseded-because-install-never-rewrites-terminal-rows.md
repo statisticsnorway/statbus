@@ -1,11 +1,12 @@
 ---
 id: STATBUS-442
 title: >-
-  A box can serve a release whose own ledger row is terminal superseded,
-  because install never rewrites terminal rows
-status: In Progress
+  A box can serve a release whose own ledger row is terminal superseded, because
+  install never rewrites terminal rows
+status: Done
 assignee: []
 created_date: '2026-10-02 17:05'
+updated_date: '2026-10-15 16:11'
 labels:
   - upgrade
   - ledger
@@ -41,12 +42,6 @@ The ledger is how the admin UI, `./sb upgrade list`, the canary gate (`checkOneC
 
 When an install completes at commit X and makes it the serving version, the ledger must say X is completed. That needs a deliberate, logged transition out of `superseded` for **exactly the row being installed**, and only when that row was superseded by a ranking rule rather than by an operator's act. The resurrection trigger exists to keep terminal history honest, so the exception needs a recorded reason (e.g. `completed_via = 'install'`, or a state-log entry naming the install). An alternative is to record a fresh completed fact elsewhere. Pick one with an independent review. Do not weaken the trigger generally.
 
-## Acceptance criteria
-
-- [ ] #1 A pg_regress test reproduces it: v2026.09.2-era supersede rule retires a newer prerelease row, then the install completion at that commit leaves the box with no completed row for its serving version (RED on current master).
-- [x] #2 After the fix, the same sequence ends with the serving commit's row `completed`, the transition is attributable in the state log, and `upgrade_block_terminal_resurrection` still refuses every other terminal-to-completed rewrite.
-- [x] #3 The canary gate's view of Norway is unaffected for the normal path (pinned install of a candidate that has no prior terminal row).
-
 ## Implementation and evidence | October 6, 2026
 
 Selected correction uses the existing audited `upgrade_schedule` route for exactly the successfully installed full SHA, only when the latest retained event proves ranking retirement and the row has no attempt/backup/park evidence. It synchronously records the installed SHA, log and ranking-event reference before the transition. Other terminal rows and the terminal-resurrection trigger are unchanged. Production correction is committed at `d61ba605fd985275faf80d453e99f4f014357612`.
@@ -59,3 +54,17 @@ Selected correction uses the existing audited `upgrade_schedule` route for exact
 - AC #2 and #3 are supported by real PostgreSQL/actual-install-route observations and unchanged terminal guards. AC #1's SQL reproduction is present, but its literal baseline pg_regress RED requirement is not claimed complete: baseline RED is the actual Go install/completion route, while SQL131's golden transparently records the before-fix state and audited remedy. New-source hosted CI and named-candidate shipped-image acceptance remain pending.
 
 The deleted rc.12 guest's historical supersession cause remains unproven. These controlled reproductions do not retroactively establish that lost history or certify a released-image guest installation.
+
+## Acceptance Criteria
+<!-- AC:BEGIN -->
+- [x] #1 #1 A pg_regress test reproduces it: v2026.09.2-era supersede rule retires a newer prerelease row, then the install completion at that commit leaves the box with no completed row for its serving version (RED on current master).
+- [x] #2 #2 After the fix, the same sequence ends with the serving commit's row `completed`, the transition is attributable in the state log, and `upgrade_block_terminal_resurrection` still refuses every other terminal-to-completed rewrite.
+- [x] #3 #3 The canary gate's view of Norway is unaffected for the normal path (pinned install of a candidate that has no prior terminal row).
+<!-- AC:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+### Closed 2026-10-15
+AC1: pg_regress 131 reproduces it; its 'pre_fix_completed = f' step shows the legacy supersede rule followed by the ordinary completion leaving no completed row for the serving version. The re-arm was changed by STATBUS-509 to superseded->available->completed (no scheduling); 131 and Test442PinnedInstallCompletion assert that path, and both run in CI (Fast Tests, test-livedb). rc.04 v2026.10.1-rc.04 (3b17af171): Release Fleet Orchestrator 38738675941 success; LXD Fork Fleet 38740447079 STATUS=PASSED, 27/27 scenarios PASS (comparison.tsv); Upgrade Arc Harness 38740570520 41 jobs success; Test Smoke 38738884092 and Fast Tests 38738677811 success.
+<!-- SECTION:NOTES:END -->

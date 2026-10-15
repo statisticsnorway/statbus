@@ -3,10 +3,10 @@ id: STATBUS-485
 title: >-
   The 0-https-only-egress scenario cannot run on the LXD backend and is parked
   where no gate sees it
-status: In Progress
+status: Done
 assignee: []
 created_date: '2026-10-12 19:26'
-updated_date: '2026-10-13 12:44'
+updated_date: '2026-10-15 16:11'
 labels:
   - ci
   - lxd
@@ -55,8 +55,8 @@ BACKGROUND (not criteria): tmp/gate-map-2026-10-12.md, tmp/walk-2026-10-12-groun
 
 ## Definition of Done
 <!-- DOD:BEGIN -->
-- [ ] #1 AC 1-4 checked, each with its evidence (test output, evidence file path, run URL) recorded in this ticket
-- [ ] #2 The scenario runs in the default fault set of the next release candidate's gate
+- [x] #1 AC 1-4 checked, each with its evidence (test output, evidence file path, run URL) recorded in this ticket
+- [x] #2 The scenario runs in the default fault set of the next release candidate's gate
 <!-- DOD:END -->
 
 ## Implementation Notes
@@ -80,4 +80,7 @@ AC 4 (ebb0ee66f): HARNESS_SKIP_DEFAULT removed. Flipped https-only-egress-test.s
 AC 5 (f0137449d, 99c181e61, 79bf5908c): harness-selftest.yaml runs https-only-egress-test, https-only-egress-mutation-test, scenario-selection-test, vm-image-selection-test and lxd-checkpoint-identity-test. Two CI-only reds were fixed along the way. Run 38396184475 failed with 'HCLOUD_TOKEN not set' (sourcing vm-bootstrap.sh; a dev checkout's .env.credentials had masked it), fixed in 99c181e61 with an offline placeholder. Run 38398317003 failed with 'rg: command not found' in vm-image-selection-test, fixed in 79bf5908c with grep. GREEN at 79bf5908c, job level: Harness Selftest 38398909511 harness-selftest success, all 5 new steps success with PASS lines in the log. Go Test 38398909577 (lint, test) success. app build & lint 38398909682 success. CodeQL 38398908175 (4 analyses) success. Images 38398909474 all builds/manifests/seed success.
 
 OPEN: DoD #2, the scenario running in the default fault set of the NEXT candidate's gate (lxd-fleet.yaml), is not yet observed. Not closed, not Done.
+
+### Closed 2026-10-15
+DoD 1: AC 1-5 checked with evidence above (tests, test/install-recovery/evidence/STATBUS-357-https-only-nat-1.md). DoD 2: rc.04 v2026.10.1-rc.04 (3b17af171): Release Fleet Orchestrator 38738675941 success; LXD Fork Fleet 38740447079 STATUS=PASSED, 27/27 scenarios PASS (comparison.tsv); Upgrade Arc Harness 38740570520 41 jobs success; Test Smoke 38738884092 and Fast Tests 38738677811 success. 0-https-only-egress ran in the default fault set and PASSED (229 s).
 <!-- SECTION:NOTES:END -->
