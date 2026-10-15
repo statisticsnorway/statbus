@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-09-29 10:28'
-updated_date: '2026-10-15 19:25'
+updated_date: '2026-10-15 20:09'
 labels:
   - install
 dependencies: []
@@ -52,7 +52,7 @@ Moving `.env.config` out of the checkout is a separate design question, out of s
 - [x] #4 A v2026.09.3 base upgrades to the candidate on a real box (smoke `0-happy-upgrade`, `37577261099`)
 - [ ] #5 The Configuration step's done-check verifies a valid and complete `.env.config`, not only that the file exists
 - [ ] #6 A real-box run without the harness's directory pre-creation, on a box whose `~/statbus-maintenance` is root-owned, is healed by `./sb install` and by the upgrade service
-- [ ] #7 Owner decision: AC5 and AC6 are the unfinished parts of the approved plan. Finish them here, or close this ticket on AC1-4 and move AC5-6 into a follow-up?
+- [ ] #7 [Owner] Decide whether AC5 and AC6 are finished here or moved to a follow-up ticket, and record it in Implementation Notes. Moved: file and link the follow-up, remove AC5-6, check this and set Done.
 <!-- AC:END -->
 
 ## Implementation Notes
