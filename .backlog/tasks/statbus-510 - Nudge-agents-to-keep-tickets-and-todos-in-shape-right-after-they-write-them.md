@@ -4,7 +4,7 @@ title: 'Nudge agents to keep tickets and todos in shape, right after they write 
 status: Done
 assignee: []
 created_date: '2026-10-15 16:15'
-updated_date: '2026-10-15 16:30'
+updated_date: '2026-10-15 16:31'
 labels: []
 dependencies: []
 priority: medium
@@ -56,4 +56,9 @@ Known limits: the reviewer varies run to run (same ticket gave different finding
 - `python3 ops/jcode/install.py` adds the hook to the STATBUS instance config (/Users/jhf/ssb/.jcode/config.toml), keeping existing hooks and a timestamped backup; `--uninstall` removes it. A repeat run changes nothing. Checked on copies of this instance, the home instance (other hooks kept), a config with an existing feedback hook, and one with no [hooks] section: install, repeat and uninstall all round-trip.
 - Home instance config hash unchanged after the install.
 - Real new session using only the installed config (tmp/510-installed-check.log): a task_edit of this ticket returned a review in the same tool result. Its two findings were correct (stale "only after owner approval" in AC5; a vague notes line) and were fixed in this edit.
+
+### Closing review (2026-10-15)
+- **Docs:** none needed beyond the script docstrings; ops/jcode/install.py --help documents install and uninstall.
+- **Memory:** none needed; the hook itself carries the rule into every session.
+- **Cleanup:** the sandbox under /Users/jhf/ssb/.jcode/scratch and the tmp/ logs stay as diagnostics (tmp/ is never deleted). Nothing else left behind.
 <!-- SECTION:NOTES:END -->
