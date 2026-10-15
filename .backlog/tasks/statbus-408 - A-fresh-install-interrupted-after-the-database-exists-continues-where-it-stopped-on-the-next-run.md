@@ -4,7 +4,7 @@ title: An interrupted first install finishes when the install command is run aga
 status: In Progress
 assignee: []
 created_date: '2026-09-24 15:46'
-updated_date: '2026-10-15 19:16'
+updated_date: '2026-10-15 20:08'
 labels:
   - release-bug
   - install
@@ -43,7 +43,7 @@ So a rerun recognises its own unfinished work and continues it. Each step checks
 <!-- AC:BEGIN -->
 - [x] #1 A rerun after a first install stopped at the Services boundary classifies the database as unfinished, reports OK for finished steps and runs Seed and Migrations (`5-install-interrupted-first-run.sh`, rc.17 LXD PASS)
 - [x] #2 The resumed install ends with `public.upgrade` present, the release-signer consent kept and every service running (same scenario)
-- [ ] #3 Owner decision: should the scenario also prove the same volume was kept, for example by volume identity or a sentinel written before the interruption? No closes this ticket. Yes adds that assertion as the open criterion.
+- [ ] #3 [Owner] Decide whether the interrupted-first-run scenario must also prove the same database volume was kept (volume identity or a pre-interruption sentinel), and record it in Implementation Notes. No: check this and set Done. Yes: add that assertion as a new criterion.
 <!-- AC:END -->
 
 ## Implementation Notes
