@@ -3,10 +3,10 @@ id: STATBUS-505
 title: >-
   The public bootstrap is served from master because no release carries the
   install scripts
-status: To Do
+status: Done
 assignee: []
 created_date: '2026-10-13 15:39'
-updated_date: '2026-10-15 16:33'
+updated_date: '2026-10-15 19:39'
 labels:
   - release
   - docs
@@ -30,8 +30,8 @@ OPTIONS: (A) keep master deliberately, recorded as THE one documented bootstrap 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
 - [x] #1 The decision is recorded: either the bootstrap exception is documented as deliberate, or the scripts become release assets and the redirects move to the tagged artifact.
-- [ ] #2 If the scripts become release assets: a release carries them, the redirect targets are updated on niue, and fetching statbus.org/install.sh can no longer serve code from a branch. Checked by the asset list of a real release and by the redirect target.
-- [ ] #3 Whether or not this changes, STATBUS-504 answer records how preparation becomes one command, consistently with STATBUS-488 release matching.
+- [x] #2 If the scripts become release assets: a release carries them, the redirect targets are updated on niue, and fetching statbus.org/install.sh can no longer serve code from a branch. Checked by the asset list of a real release and by the redirect target.
+- [x] #3 Whether or not this changes, STATBUS-504 answer records how preparation becomes one command, consistently with STATBUS-488 release matching.
 <!-- AC:END -->
 
 ## Implementation Notes
@@ -81,4 +81,9 @@ Then `sudo caddy validate --config /etc/caddy/Caddyfile && sudo systemctl reload
 
 ### Step 4: check from outside
 `curl -sI https://statbus.org/{install,uninstall,setup}.sh` each 302 to releases/latest/download/<asset>, and following it returns 200.
+
+### Step 3-4 done (2026-10-15, owner granted root)
+Backup /etc/caddy/Caddyfile.bak-505-20261015T193855Z. Exact-text edit (tmp/505-caddy-edit.py, refuses unless the block matches the before-state): install.sh and uninstall.sh now redirect to releases/latest/download/<name>, and /setup.sh is a new handler to releases/latest/download/setup-ubuntu-lts.sh. `caddy validate` ok, `systemctl reload caddy` active.
+After, from outside: statbus.org/install.sh, /uninstall.sh and /setup.sh each 302 to releases/latest/download and return 200 with content byte-identical to v2026.10.1:install.sh, :uninstall.sh and :ops/setup-ubuntu-lts.sh. statbus.org/ still redirects to www (catch-all unchanged). No shortcut serves a branch any more.
+AC3 (one-command preparation): `curl -fsSL https://statbus.org/setup.sh | ...` now exists and serves the released setup script, matching the release that install.sh installs.
 <!-- SECTION:NOTES:END -->
