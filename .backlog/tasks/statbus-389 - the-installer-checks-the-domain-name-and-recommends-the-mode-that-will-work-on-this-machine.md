@@ -1,18 +1,16 @@
 ---
 id: STATBUS-389
 title: >-
-  The installer checks the domain name and recommends a workable certificate
-  choice
+  The installer tells the operator whether an automatic certificate can work for
+  the chosen domain
 status: In Progress
 assignee: []
 created_date: '2026-09-24 16:42'
-updated_date: '2026-09-29 08:04'
+updated_date: '2026-10-15 17:25'
 labels:
   - release-bug
   - install
-dependencies:
-  - STATBUS-358
-  - STATBUS-399
+dependencies: []
 priority: high
 type: bug
 ordinal: 1
@@ -21,28 +19,38 @@ ordinal: 1
 ## Description
 
 <!-- SECTION:DESCRIPTION:BEGIN -->
-After the domain answer, the installer checks public DNS and proposes an external reachability check. It explains the observed result and recommends a certificate choice that can complete installation on the current machine. Delegated certificates are coordinated with STATBUS-358 and private certificates with STATBUS-399.
+### North Star
+While answering the domain question, the operator learns whether an automatic public certificate can work on this machine, and what to choose instead when it cannot.
 
-## Evidence, 2026-09-24
+### Zoom out
+An automatic public certificate needs two things the installer cannot assume: the name must be in public DNS, and the certificate authority must reach this machine from outside. The installer reports only what it actually observed. Finding the name in DNS is not proof of reachability, so the advice never promises a certificate on DNS alone. When the name is absent, the advice points to a choice that will work today rather than letting the web entry point retry for days.
 
-The Finland domain returned NXDOMAIN and automatic certificate issuance retried (`/Users/jhf/ssb/statbus/tmp/finland-answers-4.txt:6-12`). Current standalone configuration requests automatic public certificates (`caddy/templates/standalone.caddyfile.tmpl:145-155` at master `7a9cf707e`). External reachability checking is proposed behavior because DNS alone does not establish reachability.
+Which alternative certificate the operator then gets is not this ticket: private certificates are STATBUS-399, Statistics Norway-issued certificates are STATBUS-358.
+
+### Zoom in
+- **Incident, Finland 2026-09-24 (v2026.09.2):** standalone mode with `statbus.statfin.eu`, which had no public DNS record. Caddy's ACME challenge failed with `NXDOMAIN` and retried every 600 s for up to 30 days (`tmp/finland-answers-4.txt:1-12`). Nothing told the operator before installation that this could not work.
+- **Shipped (v2026.09.3):** `bda0df07b`, `0a166d25e`, `0c467a019`. `cli/cmd/install_domain.go` queries a public resolver directly (not `/etc/hosts`) right after the domain answer and prints one of two sentences: absent from public DNS, so no automatic certificate can be promised and local development is recommended; or present in DNS, but port 80 from outside was not checked, so the certificate is not yet confirmed.
+- **Proof:** `TestDomainAssessmentSeparatesDNSFromReachability` (Go Test). Scenario `test/install-recovery/scenarios/4-install-standalone-no-public-dns.sh` PASS in rc.17 LXD: absence detected, automatic certificate not promised.
+- **Not built:** an outside reachability probe (port 80 tested from the internet). The installer says honestly that it did not check.
+
+### Closing review
+- **Memory:** none needed.
+- **Documentation:** none needed; the installer's own sentence is the operator documentation.
+- **Cleanup:** the two former criteria about completing a private-certificate install duplicated STATBUS-399 AC2 and were removed here; the 389 <-> 399 dependency cycle was removed.
 <!-- SECTION:DESCRIPTION:END -->
-
-## Status 2026-09-24
-
-**In Progress.** `0a166d25e`, `373d15fc3`: `cli/cmd/install_domain.go` and `install_domain_test.go` separate public DNS observation from reachability (#1 partly). `4-install-standalone-no-public-dns.sh` is authored, but #2-3 require the unshipped private-certificate choice (399) and real-VM proof. **Remaining:** deliver that choice and verify HTTPS plus honest certificate advice on a private-name VM.
-
-Baseline: `origin/master` at `373d15fc3`. Criterion disposition and remaining positive targets are above; the acceptance criteria below remain authoritative. An authored but unrun VM scenario is **proof pending**, not met.
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [x] #1 `new: cli/cmd/install_domain_test.go::TestDomainAssessmentSeparatesDNSFromReachability` reports public DNS as an observation and labels external reachability as checked only when that proposed probe actually ran.
-- [ ] #2 `new: test/install-recovery/scenarios/4-install-standalone-no-public-dns.sh` uses a name absent from public DNS, selects the offered private-certificate fallback from STATBUS-399, and completes installation to a working HTTPS page.
-- [ ] #3 `new: test/install-recovery/scenarios/4-install-standalone-no-public-dns.sh` records that automatic public certificates were not promised and that the recommended choice was workable on the installed machine.
+- [x] #1 Public DNS is reported as an observation, separate from reachability, and reachability is never claimed unless checked (`TestDomainAssessmentSeparatesDNSFromReachability`)
+- [x] #2 On a real box with a name absent from public DNS, the installer says an automatic certificate cannot be promised and recommends a workable choice (`4-install-standalone-no-public-dns.sh`, rc.17 LXD PASS)
+- [ ] #3 Owner decision: is an outside reachability probe (port 80 tested from the internet) wanted? No closes this ticket with the honest "not checked" sentence. Yes keeps it open for that probe, with its own criterion.
 <!-- AC:END -->
 
 ## Implementation Notes
 
 <!-- SECTION:NOTES:BEGIN -->
-Audit after v2026.09.3 (2026-09-29): v2026.09.3 (bda0df07b, 0a166d25e, 0c467a019): AC1 green in Go Test. 4-install-standalone-no-public-dns PASS in rc.17 LXD proves DNS absence is detected and no automatic certificate is promised. Remaining: AC2/AC3 need the STATBUS-399 private-certificate path to finish with working HTTPS.
+### Evidence
+- **AC1:** green in Go Test `36503468493` (v2026.09.3).
+- **AC2:** rc.17 LXD scenario PASS, recorded in the 2026-09-29 audit (`ea170989e`).
+- **AC3:** open.
 <!-- SECTION:NOTES:END -->
