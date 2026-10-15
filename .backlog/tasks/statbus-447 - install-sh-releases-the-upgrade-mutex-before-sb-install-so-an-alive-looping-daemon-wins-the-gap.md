@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-10-05 10:20'
-updated_date: '2026-10-15 19:27'
+updated_date: '2026-10-15 19:45'
 labels:
   - install
   - upgrade
@@ -49,8 +49,8 @@ Owner decision (2026-10-05): **remove the race, do not detect and kill.** A coun
 - [x] #2 Scenario A (an alive looping holder at demo's cadence) completes in one installer run and fails on the old code; scenario B (a healthy holder after manual failures) waits and never kills (`install-gapless-handoff-test.sh`)
 - [x] #3 The STATBUS-436 operator rehearsal passes in a single installer run with no retry (rc.15 and rc.16)
 - [x] #4 cloud.sh prints the signing-key hint only on a signature-verification failure (`cafa33889`)
-- [x] #5 The owner's `./cloud.sh install demo <candidate>` repairs demo in one run: binary, checkout and resident daemon at the candidate, the old loop stopped, zero refusals, the site usable (rc.16, 2026-10-06 08:29:50 UTC, recorded on STATBUS-452)
-- [ ] #6 Owner decision: accept the 2026-10-06 rc.16 demo install as AC5's proof (the ledger defect it exposed was STATBUS-452, now Done)? Yes closes this ticket.
+- [x] #5 The owner's `./cloud.sh install demo <candidate>` repairs demo in one run: binary, checkout, resident daemon and containers at the candidate, the old loop stopped, `NRestarts` 0 (rc.16, 2026-10-06 08:29:50 UTC, recorded on STATBUS-452)
+- [ ] #6 Owner decision: the original AC5 also asked for a 10-minute observation that a page loads and stays, which was not recorded. Accept the rc.16 demo install as proof without it (the ledger defect it exposed was STATBUS-452, now Done)? Yes closes this ticket.
 <!-- AC:END -->
 
 ## Implementation Notes
