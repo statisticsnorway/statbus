@@ -374,6 +374,33 @@ deploy_keys_for_this_run() {
 # can be exercised without touching a real home directory.
 remote_access_home() { eval echo "~$1"; }
 
+# The TCP port(s) sshd actually listens on, one per line, from sshd's own
+# effective configuration (`sshd -T`), so a port moved in sshd_config or a
+# drop-in is seen. Empty output means the port could not be determined.
+# Never assume 22: in Uganda the local operator had moved sshd to 713 on the
+# server itself, and a firewall that opened only 22 locked the operator out.
+ssh_listen_ports() {
+    sshd -T 2>/dev/null | awk '$1 == "port" && $2 ~ /^[0-9]+$/ {print $2}' | sort -un
+}
+
+# Allow every port sshd listens on through UFW, and say which. Refuse (return 1,
+# no firewall change) when the ports cannot be determined: guessing is how an
+# operator gets locked out of their own server.
+ufw_allow_ssh_ports() {
+    local ports port
+    ports="$(ssh_listen_ports)"
+    if [[ -z "$ports" ]]; then
+        log_error "Could not determine which port SSH listens on ('sshd -T' gave no port)."
+        log_error "Refusing to enable the firewall, because it could close your SSH access."
+        log_error "Check that sshd is installed and its configuration is valid (sudo sshd -t), then run this stage again."
+        return 1
+    fi
+    for port in $ports; do
+        log "Allowing SSH on port $port/tcp (the port sshd listens on)."
+        ufw allow "$port/tcp" comment 'SSH'
+    done
+}
+
 ensure_remote_access() {
     local user="${1:-${SERVICE_USER:-statbus}}" home keys
     home="$(remote_access_home "$user")"
@@ -395,7 +422,10 @@ ensure_remote_access() {
 
     echo ""
     log "Confirm you can still get in, before password authentication is disabled."
-    echo "  In a second terminal, connect with: ssh $user@$(hostname -f 2>/dev/null || hostname)"
+    local connect_port connect_hint=""
+    connect_port="$(ssh_listen_ports | head -1)"
+    [[ -n "$connect_port" && "$connect_port" != 22 ]] && connect_hint="-p $connect_port "
+    echo "  In a second terminal, connect with: ssh $connect_hint$user@$(hostname -f 2>/dev/null || hostname)"
     echo "  Answering no changes nothing: fix the access, then run this script again."
     if ! ask_yes_no "Did that connect?" n; then
         log_error "Remote access was not confirmed, so SSH has not been changed."
@@ -1124,7 +1154,14 @@ stage_security_tools() {
     
     log "Configuring UFW..."
     apt_install "ufw" ufw
-    ufw allow OpenSSH
+    # Open the port(s) SSH really listens on, never an assumed 22. Refuse before
+    # the firewall is enabled if they cannot be determined: enabling a
+    # default-deny firewall that closes SSH locks the operator out (Uganda field
+    # report, sshd on 713).
+    if ! ufw_allow_ssh_ports; then
+        log_error "The firewall was NOT enabled, so remote access is unchanged."
+        return 1
+    fi
     ufw allow 80/tcp comment 'HTTP'
     ufw allow 443/tcp comment 'HTTPS'
     ufw allow 5432/tcp comment 'PostgreSQL'
@@ -1148,7 +1185,10 @@ stage_security_tools() {
     verify "Firewall bouncer registered with the local API" "cscli bouncers list 2>/dev/null | grep -q statbus-firewall-bouncer"
     verify "SSHD collection installed" "cscli collections list | grep sshd"
     verify "UFW active" "ufw status | grep 'Status: active'"
-    verify "SSH allowed in UFW" "ufw status | grep 'OpenSSH'"
+    local ssh_port
+    for ssh_port in $(ssh_listen_ports); do
+        verify "SSH port $ssh_port allowed in UFW" "ufw status | grep -E '^$ssh_port/tcp[[:space:]]+ALLOW'"
+    done
     verify "HTTP allowed in UFW" "ufw status | grep '80/tcp'"
     verify "HTTPS allowed in UFW" "ufw status | grep '443/tcp'"
     verify "PostgreSQL allowed in UFW" "ufw status | grep '5432/tcp'"
