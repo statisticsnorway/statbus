@@ -6,6 +6,7 @@ STATBUS is SSB's statistical business registry: PostgreSQL 18+, PostgREST 12+, N
 
 - Lead with the answer or result. Include only decision-relevant rationale, verification, and blockers. Do not repeat context or narrate routine steps.
 - Keep instructions actionable: one rule per bullet, with examples only where needed. Put procedures in linked guides and incident histories in tickets or Git history.
+- Document meaning at its definition: a column, type or function states what it is for, and why, in its own comment (`COMMENT ON` for schema objects). A reader who finds the definition then understands the use without a separate rule. Comments at use sites point to that definition and describe the positive design, never a bare "never X".
 - Read the topic guides below when relevant, not all at session start.
 - Use memory for preferences and historical lessons, not as the only source of mandatory project rules. Keep those in version-controlled instructions. Never store secrets in memory.
 
