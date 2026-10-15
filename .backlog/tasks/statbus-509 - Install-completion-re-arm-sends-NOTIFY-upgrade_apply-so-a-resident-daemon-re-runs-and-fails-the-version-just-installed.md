@@ -1,12 +1,10 @@
 ---
 id: STATBUS-509
-title: >-
-  Install completion re-arm sends NOTIFY upgrade_apply, so a resident daemon
-  re-runs and fails the version just installed
+title: Keep install completion from scheduling another upgrade
 status: In Progress
 assignee: []
 created_date: '2026-10-15 11:16'
-updated_date: '2026-10-15 11:32'
+updated_date: '2026-10-15 13:02'
 labels:
   - upgrade
   - install
@@ -18,15 +16,19 @@ ordinal: 435204
 ## Description
 
 <!-- SECTION:DESCRIPTION:BEGIN -->
-North Star: a successful install's bookkeeping never tells any daemon to run anything. Only an operator or the channel schedules work.
+### North Star
+A successful install records completion without scheduling another upgrade. Only an operator or the channel schedules work.
 
-Defect (rc.03 LXD fleet, run 38714275075, 5-install-source-identity-operator): the operator remedy installed v2026.10.1-rc.03 cleanly ('Recorded installed version v2026.10.1-rc.03', callback install_completed), yet the candidate's own row ended failed: 'Could not acquire upgrade-mutex flag file: another ./sb install is already running (install, invoked_by=install.sh:statbus)'.
+### Zoom out
+Bookkeeping must not schedule work. Reusing the scheduler to revive an installed version woke a resident daemon, turning a successful install into a failed upgrade. Keep completion inside its own transaction.
 
-Cause: STATBUS-442's rearmRankingRetiredInstallation re-armed the ranking-retired installed row through public.upgrade_schedule. That stamps scheduled_at, and upgrade_notify_daemon_trigger turns it into NOTIFY upgrade_apply for the installed SHA at commit. The still-resident v2026.09.2 daemon received it, called upgrade_schedule on the now-completed row (completed is reschedulable), claimed it, met the install's mutex and its old code ran failUpgrade with no state guard. It contradicts install.go's own stated invariant for this path: install bookkeeping never touches scheduled_at. rc.02 passed the same scenario by timing only.
+### Zoom in
+- **Observed:** rc.03 LXD run `38714275075`, `5-install-source-identity-operator`, recorded `v2026.10.1-rc.03` installed (`install_completed`), but its row failed: “Could not acquire upgrade-mutex flag file”.
+- **Cause:** `rearmRankingRetiredInstallation` (`cli/cmd/install.go`) called `public.upgrade_schedule`, setting `scheduled_at`. `upgrade_notify_daemon_trigger` emitted `NOTIFY upgrade_apply`. The resident `v2026.09.2` daemon rescheduled the completed row, claimed it, hit the install mutex, and called unguarded `failUpgrade`. The earlier rc.02 pass did not establish safety against this race.
+- **Implemented:** `6f7ecb2ea` re-arms only eligible ranking-retired rows: `superseded → available → completed`, retaining the row lock, positive retirement evidence, audited actor and transaction. `scheduled_at` stays NULL: no notification.
 
-Fix: re-arm in place superseded -> available (same audited actor, same transaction, same positive retirement evidence under the row lock); the completion upsert then takes it to completed. scheduled_at stays NULL, so no NOTIFY.
-
-Also: the LXD failure capture ran 'journalctl --user _UID=1001' as root, which reads root's user journal and printed 'No entries', so the daemon that failed the row left no trace. It now reads the system journal by UID and dumps public.upgrade plus upgrade_state_log (actor, application_name, backend_pid, query).
+### Diagnostic fix
+`test/install-recovery/lib/lxd-backend.sh` ran `journalctl --user _UID=1001` as root, returning “No entries”. The same commit reads the system journal by UID and captures `public.upgrade` plus `upgrade_state_log` (actor, application name, backend PID, query).
 <!-- SECTION:DESCRIPTION:END -->
 
 ## Acceptance Criteria
@@ -40,10 +42,17 @@ Also: the LXD failure capture ran 'journalctl --user _UID=1001' as root, which r
 ## Implementation Notes
 
 <!-- SECTION:NOTES:BEGIN -->
-Landed 6f7ecb2ea (2026-10-15).
-RED (parent code, tmp/opt-red.log): Test442PinnedInstallCompletion legacy-call and legacy-schedule-operator FAIL, 'install completion sent NOTIFY upgrade_apply for its own installed SHA'; the other seven modes pass. Observer note: a pgx ConnConfig copy carries the source conn's OnNotification hook, so the listener clears it, otherwise it is blind (first run passed falsely for that reason).
-GREEN (tmp/opt-green.log): all nine modes pass. pg_regress 131 now expects superseded->available->completed with scheduled_at NULL, both transitions attributed to the install actor.
-Shared-code set: ./dev.sh test-livedb exit 0 (upgrade + install + livedocker), go test ./internal/... 22 packages ok, go test ./cmd ok, golangci-lint 0 issues. The STATBUS-242 rewind audit flagged the new write site; dispositioned as success-path-only (Count 2) with reason.
-Gap noticed: cli/cmd livedb tests (442, 452kiss) are not in any tier; they need an owned DSN. 442 was run against statbus_442_overnight_1006 recreated from the current statbus_seed.
-AC4 waits for the next candidate's LXD fleet.
+### Evidence
+Landed `6f7ecb2ea`, 2026-10-15. Recorded results, not rerun during this cleanup:
+- **Red:** `tmp/opt-red.log`, parent code: `Test442PinnedInstallCompletion` fails in `legacy-call` and `legacy-schedule-operator` for notifying its own SHA; seven modes pass.
+- **Green:** `tmp/opt-green.log`: all nine modes pass. Test: `cli/cmd/install_442_completion_test.go`. pg_regress 131 expects `superseded → available → completed`, NULL `scheduled_at`, both transitions attributed to the install actor.
+- **Broader checks:** `./dev.sh test-livedb` exit 0 (upgrade, install, livedocker); `go test ./internal/...` 22 packages pass; `go test ./cmd` passes; `golangci-lint` zero issues. STATBUS-242 rewind audit: new write classified success-path-only (Count 2), with reason.
+- **Observer pitfall:** pgx `ConnConfig` copies `OnNotification`. Clear the copied hook so the listener sees notifications; the initial run falsely passed without this correction.
+
+### Closing review
+AC4 remains open. Before marking Done, record decisions on:
+- **Memory:** should the observer lesson be retained?
+- **Documentation:** does the bookkeeping/scheduling boundary need permanent guidance?
+- **Cleanup:** resolve or link an owned follow-up for untiered `cli/cmd` livedb tests (442, 452kiss), requiring an owned DSN. The recorded 442 run used `statbus_442_overnight_1006`, recreated from current `statbus_seed`.
+Record “none needed” where appropriate, plus any other required cleanup.
 <!-- SECTION:NOTES:END -->
