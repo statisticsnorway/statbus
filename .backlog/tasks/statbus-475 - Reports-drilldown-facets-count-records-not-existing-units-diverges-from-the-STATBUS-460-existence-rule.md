@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-10-08 16:00'
-updated_date: '2026-10-08 22:12'
+updated_date: '2026-10-15 19:29'
 labels:
   - reports
   - data-model
@@ -18,7 +18,25 @@ ordinal: 401204
 ## Description
 
 <!-- SECTION:DESCRIPTION:BEGIN -->
-NORTH STAR: the Reports drilldown (statistical_unit_facet_drilldown) answers 'how many units exist' with the same canonical existence rule as the dashboard cards, the Statistical Units list and the Units-over-time chart (STATBUS-460). EVIDENCE: public.statistical_unit_facet_def groups statistical_unit by (valid_from, valid_to, valid_until, unit_type, facets) WHERE used_for_counting, and public.statistical_unit_facet_drilldown filters suf.valid_from <= valid_on AND valid_on < suf.valid_until. Neither looks at birth_date or death_date, so the drilldown counts RECORDS whose window covers the instant, which is exactly the predicate STATBUS-460 retires from the other screens. On dev at valid_on 2023-12-31 that means the drilldown counts the 13 demo establishments whose record window starts 2023-01-01 but whose birth_date is 2024-11-01 (the STATBUS-458 rows), so after 460 lands the drilldown total (24) and the dashboard card / chart (11) disagree visibly. WHY SEPARATE: the facet table pre-aggregates by validity window, so applying the rule needs the existence window (GREATEST(valid_from, birth_date), LEAST(valid_until, death_date)) carried into the facet grouping key or the facet derivation, plus a facet rebuild; that is a derivation change with its own performance budget, not a predicate swap. Cross-reference: STATBUS-460 (canonical rule, computed fields public.existence_from/existence_until).
+### North Star
+The Reports drilldown counts existing units by the same rule as the dashboard, the Statistical Units list and the Units-over-time chart, so every "how many units" screen agrees.
+
+### Zoom out
+STATBUS-460 made one SQL definition of "a unit exists at an instant" (birth and death dates bound a unit's life inside each record's window) and switched every unit-count screen to it, except the Reports drilldown. The drilldown reads a precomputed facet table built from each record's validity window, so it kept counting records, not existing units, and disagreed with the chart for units born after their record starts or dead before it ends.
+
+The fix moves the rule into the facet derivation itself: each record contributes over its existence window, not its record window. Records whose life never overlaps their window exist at no instant and contribute nothing. Event counts, variable aggregates, one unit's own timeline and classification counts answer different questions and are deliberately not this rule (screen inventory in the notes).
+
+### Zoom in
+- **Found:** while implementing STATBUS-460 on 2026-10-08. `public.statistical_unit_facet_def` grouped by record window, and `statistical_unit_facet_drilldown` filtered `valid_from <= valid_on < valid_until`, with no birth or death date. On dev at 2023-12-31 that kept counting the 13 not-yet-born STATBUS-458 demo establishments.
+- **Shipped:** `c459edf82` (migration `20261008202243_statbus_475_drilldown_facets_follow_the_existence_rule`). Both derivation paths, `worker.derive_statistical_unit_facet_partition` (production) and the `statistical_unit_facet_def` view, use `[unit_existence_from, unit_existence_until)`. Table shape, unique key and reduce are unchanged. In v2026.10.1.
+- **Proof:** test `353_statbus_475_drilldown_facets_follow_existence_rule` on the 458 demo rows plus a legal unit that dies inside its window. RED with the old derivation (2023-12-31 establishments 22 vs chart 12; the dead unit still counted); GREEN with drilldown equal to chart in every bar (2023: 24/24/12; 2024: 23/23/22), and region, status and country breakdowns each summing to the total. Fast Tests `37845723194`, 117/117. One existing expected output moved by the rule itself (107: a unit dying on 2012-12-31 now ends its facet on 2012-12-30).
+- **Timing, Norway dump (3.1 million rows, real worker procedures):** derive 110.5/101.1 s before, 85.8/95.8 s after; reduce about 29-41 s before and 39 s after; drilldown query 0.44-0.57 s.
+- **Now observable:** v2026.10.1 contains `c459edf82` and was deployed to dev on 2026-10-15 13:08 UTC.
+
+### Closing review
+- **Memory:** none needed.
+- **Documentation:** `doc/data-model.md` "Unit existence and record validity" names the drilldown (STATBUS-460 section).
+- **Cleanup:** none.
 <!-- SECTION:DESCRIPTION:END -->
 
 ## Acceptance Criteria
