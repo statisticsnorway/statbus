@@ -1,17 +1,16 @@
 ---
 id: STATBUS-410
-title: Running the installer completes or waits for an earlier restart
+title: 'After an unfinished restart, the install command finishes it or says to wait'
 status: In Progress
 assignee: []
 created_date: '2026-09-24 15:47'
-updated_date: '2026-09-29 08:04'
+updated_date: '2026-10-15 19:17'
 labels:
   - release-bug
   - install
   - restart
   - recovery
-dependencies:
-  - STATBUS-407
+dependencies: []
 priority: high
 type: bug
 ordinal: 363000
@@ -20,44 +19,43 @@ ordinal: 363000
 ## Description
 
 <!-- SECTION:DESCRIPTION:BEGIN -->
-When an earlier restart is no longer running, the installer restores the saved service set, confirms readiness, clears the saved restart state, and continues. When the restart is still running, the installer asks the operator to wait. Recovery from a start-rate limit occurs after the underlying password or route cause is corrected.
+### North Star
+After a restart that did not finish, the install command is always a way forward: it finishes the restart itself when nobody else is doing it, and says "wait" only when a restart really is still running.
 
-## Evidence, 2026-09-24
+### Zoom out
+`./sb restart all` stops services and records what it intends to bring back before it starts them again. If it fails or is killed in between, that record stays behind. The record exists to protect a restart in progress from a competing install, not to block every later action. What matters is whether the restart still holds its lock:
+- **Lock free:** the restart is dead. The installer brings back exactly the saved set of services, confirms they are ready, clears the record and continues.
+- **Lock held:** a restart is running. The installer says so in plain words and asks the operator to wait, without competing.
 
-Finland retained a saved restart after restart failure and later refused installer recovery (`/Users/jhf/ssb/statbus/tmp/finland-answers-4.txt:69-75`). Current restart refusal and saved intent are at `cli/internal/upgrade/restart.go:19-87` at master `7a9cf707e`. The local replay recovered from the start-rate limit only after the password cause was corrected (`/Users/jhf/ssb/statbus/tmp/local-ville-replay.md:964-980,1017-1018`).
-## rc.03 evidence, 2026-09-25
+A restart often fails for a cause outside itself, such as a password mismatch (STATBUS-407). After repeated failures systemd stops trying to start the upgrade service for ten minutes (its start limit). A retry after the cause is fixed must clear that state, or the operator stays stuck for no reason.
 
-rc.03 run 36116753412 job 108013586646 (5-install-live-upgrade-wait): rerun refused `a restart is still running, or its services could not be restored`. Review established the marker writer (PID 16498) was the installer's own stale-restart recovery and the refusal came from an invalid fixture that requested a daemon restart for an app-only restart with no unit, not a product bug; scenario fixed in `faf0905be`, merged in `a3526f832` (rc.05). VM proof pending.
+### Zoom in
+- **Incident, Finland 2026-09-24 (v2026.09.2):** `./sb restart all` stopped services and failed starting the upgrade service on the stale database password. The restart record stayed, and `./sb install` refused: `a restart is running or did not finish ... retry with ./sb restart all ... do not delete the restart marker` (`tmp/finland-answers-4.txt:66-74`). In the local replay, after the password was fixed, `./sb restart all` kept failing with `Start request repeated too quickly` and install kept refusing; only `systemctl --user reset-failed` escaped, and no message mentioned it (`tmp/local-ville-replay.md:964-980`).
+- **Shipped (v2026.09.3):** `3fa3d744d` keeps the restart intent and lets the installer finish a dead restart. `190fa941a` makes a retried restart clear the upgrade unit's failed and start-limit state before starting it (`cli/cmd/service_restart.go`). `47173a31d` records PID and start time on every install-held marker, so a refusal names who is running. `faf0905be` corrected the live-wait fixture.
+- **Proof, unit:** `TestInterruptedAndLiveRestartClassification`, `TestRestartMarkerSurvivesDaemonRecovery` (`cli/internal/upgrade/restart_test.go`); `TestRestartRetryClearsStartLimitBeforeStarting`, `TestInstallRestoresStaleRestartOnlyInFixtureProject`, `TestRestartRefusesLiveButBorrowsFreeRecoveryIntent` (`cli/cmd/service_restart_test.go`). Green 2026-10-15.
+- **Proof, real box:** `5-install-interrupted-restart.sh` (a stale app-only restart restored, intent cleared, installer completed) and `5-install-live-upgrade-wait.sh` (a live restart refused with no competing recovery, then converged), both PASS in rc.17 LXD `36506437069`.
+- **Not proven on a box:** recovery from the start limit. No scenario drives the upgrade service into `Start request repeated too quickly` and shows the retry clearing it.
 
-## VM proof, 2026-09-25 (rc.05, run 36130286326)
-
-5-install-live-upgrade-wait: GREEN. The corrected fixture (faf0905be) ran the full wait path on a VM: the installer's rerun now waits out a live restart instead of hitting the stale-recovery false positive.
-
-## rc.08 fleet outcome, 2026-09-27 (run 36306317962)
-
-Fleet: 19/23 green. The four reds are all harness-side with root causes and fixes in flight for rc.09: port-80 (the sslip override predates 418 cert staging; product refusal and rerun were both correct), concurrent-install (the rc.08 seed already contained the migration delta so the stall site never ran), interrupted-first-run (cert-staging env on the rerun), database-route-interrupted (expected first-run failure vs wrapper classification). Smoke: both legs green — the happy-upgrade leg proves the 361 legacy-token migration fix against v2026.09.2's placeholder-laden .env.config.
+### Closing review
+- **Memory:** none needed.
+- **Documentation:** none needed.
+- **Cleanup:** none.
 <!-- SECTION:DESCRIPTION:END -->
-
-## Release gate observation 2026-09-25
-
-**In Progress.** rc.02 (`2198185bb`) failed `5-install-live-upgrade-wait` ([run 36104217764, job 107973801494](https://github.com/statisticsnorway/statbus/actions/runs/36104217764/job/107973801494)): the fixture's flock forked, so its child retained the lock instead of releasing it for the subsequent install retry. `1f84f55d4` (merge `51503fbbe`) changes the holder to `flock -F`, keeping the lock in the recorded process (`test/install-recovery/scenarios/5-install-live-upgrade-wait.sh:31`). This addresses the scenario's live-holder and recovery boundary for AC #2, but is not a successful VM observation. AC #1-4 remain open pending the rc.03 gate, including the absent start-limit scenario (#3).
-
-## Status 2026-09-24
-
-**In Progress.** `3fa3d744d`, `474cf6119`: `cli/cmd/service_restart.go`, `cli/internal/upgrade/restart_test.go` and authored `5-install-interrupted-restart.sh`, `5-install-live-upgrade-wait.sh` cover ownership and intent (#1-2 proof pending on VM; #4 partly). #3 start-limit scenario is absent. **Remaining:** run interrupted/live scenarios and prove cause-first repair before reset followed by ready service.
-
-Baseline: `origin/master` at `373d15fc3`. Criterion disposition and remaining positive targets are above; the acceptance criteria below remain authoritative. An authored but unrun VM scenario is **proof pending**, not met.
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [x] #1 `new: test/install-recovery/scenarios/5-install-interrupted-restart.sh` terminates a restart after saving intent, then observes the installer restore exactly that service set, confirm readiness, clear saved state, and complete.
-- [x] #2 `new: test/install-recovery/scenarios/5-install-live-upgrade-wait.sh` keeps the earlier operation active and observes a plain wait message with no competing recovery.
-- [ ] #3 `new: test/install-recovery/scenarios/5-install-start-limit-recovery.sh` first proves reset alone cannot recover while the password or route cause remains, then fixes the cause, clears failed state, and observes a ready service.
-- [x] #4 `new: cli/internal/upgrade/restart_test.go::TestInterruptedAndLiveRestartClassification` deterministically covers both ownership states and saved-intent preservation.
+- [x] #1 When the earlier restart's lock is free, the installer restores exactly the saved service set, confirms readiness, clears the record and completes (`5-install-interrupted-restart.sh`, rc.17 LXD PASS)
+- [x] #2 When the earlier restart still holds its lock, the installer prints a plain wait message and starts no competing recovery (`5-install-live-upgrade-wait.sh`, rc.17 LXD PASS)
+- [x] #3 Live and interrupted restarts are classified correctly and the saved intent survives (`TestInterruptedAndLiveRestartClassification`, `TestRestartMarkerSurvivesDaemonRecovery`)
+- [x] #4 A retried restart clears the upgrade service's failed and start-limit state before starting it (`TestRestartRetryClearsStartLimitBeforeStarting`)
+- [ ] #5 Owner decision: is a real-box proof of start-limit recovery required (drive the upgrade service into the start limit with a real cause, fix the cause, retry, observe it running)? No closes this ticket. Yes adds that scenario as the open criterion.
 <!-- AC:END -->
 
 ## Implementation Notes
 
 <!-- SECTION:NOTES:BEGIN -->
-Audit after v2026.09.3 (2026-09-29): v2026.09.3 (3fa3d744d, 190fa941a, 47173a31d, faf0905be): AC1/AC2 PASS in rc.17 LXD 36506437069 and AC4 is green in Go Test. Remaining: AC3, the start-limit scenario that first proves reset alone fails while the cause remains.
+### Evidence
+- **AC1-2:** rc.17 LXD PASS, fleet `36506437069`; first green rc.05 run `36130286326`.
+- **AC3-4:** green locally on master, 2026-10-15.
+- **Superseded criterion:** the restyle named `5-install-start-limit-recovery.sh`, never written; that is what AC5 asks about. The 410 -> 407 dependency was removed: 407 fixes the usual cause, not a precondition of this behaviour.
 <!-- SECTION:NOTES:END -->
