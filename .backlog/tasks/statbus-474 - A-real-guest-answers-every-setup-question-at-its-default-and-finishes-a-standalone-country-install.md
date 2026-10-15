@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-10-08 15:16'
-updated_date: '2026-10-15 19:52'
+updated_date: '2026-10-15 20:09'
 labels:
   - install
   - installer
@@ -44,7 +44,7 @@ Unit tests and a PTY run of the binary prove the questions exist and parse. They
 - [x] #1 0-interactive-setup-choices.sh presses Enter at the mode question and observes standalone as the default, with all three modes explained
 - [x] #2 With a country-coded domain, the scenario presses Enter at the country name and code, observes the domain-derived suggestions, and the finished install has DEPLOYMENT_SLOT_NAME/DEPLOYMENT_SLOT_CODE set to that country, never StatBus/local
 - [x] #3 The install completes and the site passes its health and HTTPS checks; the observed prompts are recorded in this ticket
-- [ ] #4 Owner decision: add the scenario to the default LXD release catalogue (remove `HARNESS_SKIP_DEFAULT`, about 11 minutes per candidate), or keep it on demand? Either answer closes this ticket.
+- [ ] #4 [Owner] Decide whether `0-interactive-setup-choices.sh` joins the default LXD release set (remove `HARNESS_SKIP_DEFAULT`, about 11 minutes per candidate) or stays on demand, and record it in Implementation Notes; then set Done
 <!-- AC:END -->
 
 ## Implementation Notes
