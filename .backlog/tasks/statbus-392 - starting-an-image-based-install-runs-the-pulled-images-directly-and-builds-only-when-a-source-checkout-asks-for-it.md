@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-09-24 16:42'
-updated_date: '2026-10-15 19:36'
+updated_date: '2026-10-15 20:09'
 labels:
   - release-bug
   - install
@@ -41,8 +41,8 @@ Two kinds of box can both run the web entry point in development mode: a develop
 <!-- AC:BEGIN -->
 - [x] #1 `./sb start` on a release installation in development mode passes `--no-build` (`TestStartImageBasedDevelopmentSkipsBuild`)
 - [x] #2 `./sb start` in a source development checkout still builds (`TestStartSourceDevelopmentBuilds`)
-- [ ] #3 `./sb restart` follows the same rule: no build on a release installation, build in a source checkout (today it builds whenever the mode is development)
-- [ ] #4 Owner decision: is the original real-box timing scenario (`4-image-start-no-build.sh`, image start within 20% of a pull-plus-start baseline) still wanted, or do the unit tests plus AC3 close this? No closes on AC1-3.
+- [ ] #3 `./sb restart` builds from source only in a source checkout and passes `--no-build` on a release installation, by the same rule as `./sb start` (`startBuildsFromSource`)
+- [ ] #4 [Owner] Decide whether the real-box timing scenario (`4-image-start-no-build.sh`, image start within 20% of a pull-plus-start baseline) is required, and record it in Implementation Notes. No: check this and set Done after AC3. Yes: add that scenario as a new criterion.
 <!-- AC:END -->
 
 ## Implementation Notes
