@@ -738,7 +738,27 @@ lxd_capture_failure() {
         # reason. Capture in full (parity with vm-bootstrap.sh's capture_file); if
         # a log is ever genuinely enormous, keep BOTH ends behind an explicit,
         # quantified marker so nothing disappears silently (owner ruling 2026-10-15).
-        _lxd_host lxc exec "$name" -- sudo -i -u statbus bash -lc 'cd ~/statbus && if [ -f tmp/install-last-run-output.txt ]; then total=$(wc -l < tmp/install-last-run-output.txt); if [ "$total" -le 20000 ]; then cat tmp/install-last-run-output.txt; else echo "[capture] install-last-run-output.txt has $total lines; head 10000 and tail 10000 follow, middle omitted by this cap"; head -10000 tmp/install-last-run-output.txt; echo "[capture] ---- middle omitted: $((total-20000)) lines ----"; tail -10000 tmp/install-last-run-output.txt; fi; else echo "[capture] tmp/install-last-run-output.txt is absent"; fi; docker compose --profile all ps; docker compose --profile all logs --tail 500' || true
+        #
+        # No shell expansion inside the guest: `sudo -i` re-escapes every
+        # character of its command EXCEPT `$` (sudo(8), -i), so any `$...` is
+        # expanded by the login shell BEFORE `cd ~/statbus` runs. rc.02's capture
+        # computed the line count in the wrong directory, printed "has  lines"
+        # with "[: : integer expected", and fell into the head/tail branch. Each
+        # step below is therefore a fixed argv run in the right directory; the
+        # line count and the cap decision are made HERE, on the runner.
+        local install_log=/home/statbus/statbus/tmp/install-last-run-output.txt total
+        total=$(_lxd_host lxc exec "$name" -- wc -l "$install_log" 2>/dev/null | awk '{print $1}')
+        if ! [[ "$total" =~ ^[0-9]+$ ]]; then
+            echo "[capture] $install_log is absent or unreadable"
+        elif [ "$total" -le 20000 ]; then
+            _lxd_host lxc exec "$name" -- cat "$install_log" || true
+        else
+            echo "[capture] $install_log has $total lines; head 10000 and tail 10000 follow, middle omitted by this cap"
+            _lxd_host lxc exec "$name" -- head -n 10000 "$install_log" || true
+            echo "[capture] ---- middle omitted: $((total-20000)) lines ----"
+            _lxd_host lxc exec "$name" -- tail -n 10000 "$install_log" || true
+        fi
+        _lxd_host lxc exec "$name" -- sudo -i -u statbus bash -lc 'cd ~/statbus && docker compose --profile all ps; docker compose --profile all logs --tail 500' || true
         # Container ID, image and creation time answer "was the container
         # RECREATED (new ID/CreatedAt) or merely restarted" from the artifact
         # alone, without a live box to inspect (STATBUS-425 review §1h,
