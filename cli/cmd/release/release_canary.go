@@ -167,9 +167,7 @@ func checkCanaryGates(rcTag, rcCommit string) bool {
 }
 
 // checkOneCanary probes one slot and renders the outcome. Returns true only for
-// COMPLETED. STATBUS-247/King's ruling: recording the observation card on the
-// operator slot is discipline, not a promotion gate — a completed install is
-// sufficient here for every slot.
+// COMPLETED: a completed install is sufficient for every slot.
 func checkOneCanary(slot canarySlot, rcTag, rcCommit string) bool {
 	rcShort := rcCommit
 	if len(rcShort) > 12 {
@@ -258,11 +256,6 @@ func printCanaryExplanation(slot canarySlot, outcome canaryOutcome, probe canary
 			fmt.Printf("        The exact command they run on the box — it NAMES this candidate:\n")
 			fmt.Printf("          cd statbus && ./sb upgrade register %s && ./sb upgrade schedule %s\n", target, target)
 			fmt.Printf("        Or, if you have access yourself: %s\n", operatorInstall)
-			// STATBUS-247/King's ruling: the observation card is the point of
-			// this slot's whole existence, so its path is offered here as
-			// discipline to follow through on — it is not something the gate
-			// checks or refuses on.
-			fmt.Printf("        Record your observations for this candidate: doc/observations/%s.md (copy doc/observations/TEMPLATE.md if it does not exist yet).\n", target)
 		} else {
 			// Same row, opposite meaning.
 			fmt.Printf("      THIS IS A FAULT ON THIS SLOT: %s is installed by the release chain, so it should never sit waiting for a person.\n", slot.label)
