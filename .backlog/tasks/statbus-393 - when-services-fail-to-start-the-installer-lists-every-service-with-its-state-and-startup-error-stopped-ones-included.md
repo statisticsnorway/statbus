@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-09-24 16:42'
-updated_date: '2026-10-15 19:08'
+updated_date: '2026-10-15 20:08'
 labels:
   - release-bug
   - install
@@ -44,7 +44,7 @@ STATBUS-394 owns the later moment: waiting for client services to become ready a
 <!-- AC:BEGIN -->
 - [x] #1 A failed start or final readiness prints all six services by plain name with running, restarting, exited, stopped, absent or inactive (`TestStartEarlyFailuresPrintSixServiceInventory`, `TestVerifyInstallServing`)
 - [x] #2 The support file contains `docker compose ps -a`, per-service logs for db, proxy, rest, app and worker, and the automatic update service journal (`TestWriteBundleSections_Composition`)
-- [ ] #3 Owner decision: do the fake-stack tests close this, or is one real-box partial start required (for example a service that cannot start for a reason preflight does not catch)? The answer either closes the ticket or adds that scenario as the open criterion.
+- [ ] #3 [Owner] Decide whether a real-box partial start (a service failing for a reason preflight does not catch) is required beyond the fake-stack tests, and record it in Implementation Notes. No: check this and set Done. Yes: add that scenario as a new criterion.
 <!-- AC:END -->
 
 ## Implementation Notes
