@@ -104,7 +104,12 @@ package migrate
 // references public.upgrade and public.release_status_type without changing
 // their shape or the daemon's SQL. As with running_identity above, advance the
 // reviewed floor rather than exempting this guarded relation footprint.
-const DaemonSchemaFloor int64 = 20261006132000
+//
+// 20261015131116 (STATBUS-509): COMMENT ON COLUMN public.upgrade.scheduled_at
+// and .completed_at, stating what each records. Comment-only, the same
+// acknowledged false positive as the system_info comment above: no daemon
+// query or write changes shape.
+const DaemonSchemaFloor int64 = 20261015131116
 
 // DaemonRelationNames is the schema surface the daemon's OWN SQL touches — the
 // set whose shape the floor must satisfy. The bump guard flags any migration
