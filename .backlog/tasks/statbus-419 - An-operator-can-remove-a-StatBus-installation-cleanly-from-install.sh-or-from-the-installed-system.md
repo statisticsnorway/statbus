@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-09-25 13:08'
-updated_date: '2026-09-29 08:05'
+updated_date: '2026-10-15 19:21'
 labels:
   - installer
 dependencies: []
@@ -18,39 +18,47 @@ ordinal: 368200
 ## Description
 
 <!-- SECTION:DESCRIPTION:BEGIN -->
-Finland wants to do another installation and needs a clean removal path first (owner, 2026-09-25). Today there is no uninstaller: nothing removes what `install.sh` and `ops/setup-ubuntu-lts.sh` put down. The owner wants removal triggerable **from the installer directly** and **from the local installation** (`./sb uninstall`). Owner decision 13:12Z: a **separate `uninstall.sh`** script (served like `install.sh`, e.g. `curl -fsSL https://statbus.org/uninstall.sh | bash`), not flags inside install.sh.
+### North Star
+An operator who wants to start over can remove StatBus from a box with one command and then install again on the same box as if it were new.
 
-## What an installation puts down (grounded 2026-09-25)
+### Zoom out
+Finland needed to reinstall and had no way to remove what the installer had put down. Deleting things by hand is how the 407 credential split happens, so removal must be a product feature, not advice. It has two entry points with one behaviour: `./sb uninstall` from the installed system, and a standalone `uninstall.sh` served beside `install.sh` for a box whose installation is too broken to run `./sb`.
 
-- Docker: containers `statbus-<code>-{db,rest,app,proxy,worker}`, named volumes (database data, caddy data incl. certificates), networks, pulled images (`sha-<commit>` tags).
-- Files: the `~/statbus` checkout incl. `.env`, `.env.config`, `.env.credentials`, `caddy/data/custom-certs/` (operator-provided private keys), `dbdumps/` (backups), logs, `tmp/`.
-- Systemd: user units (`ops/statbus-upgrade.service`, restart units) and enabled linger for the service account.
-- Accounts/host: the `statbus` service account (`ops/setup-ubuntu-lts.sh:1192`), host hardening (firewall, apt timers) from step 1 of DEPLOYMENT.md.
+Removal is destructive, so the defaults protect what cannot be recreated:
+- **Interactive:** backups and credentials are kept unless the operator says otherwise.
+- **Unattended:** everything goes, but only with an explicit confirmation variable; without it the script refuses and says how.
+- **Scope:** only the StatBus deployment (containers, volumes, images, user units, the checkout). The service account and host hardening belong to host setup and stay.
+- **Safety:** it refuses while an install or upgrade holds the lock, refuses at mount and symlink boundaries rather than deleting outside the tree, and removes container-owned files without needing sudo.
 
-## Open design questions (owner)
+### Zoom in
+- **Origin, 2026-09-25:** owner request for Finland's reinstall; owner chose a separate `uninstall.sh` (13:12Z) and the interaction design (2026-09-26 08:50Z).
+- **Shipped (v2026.09.3):** merge `e223af347`. `uninstall.sh` (repo root) asks `Delete database dumps too? [y/N]` and `Delete credentials too? [y/N]`; unattended needs `STATBUS_UNINSTALL_CONFIRM=yes-delete-everything`. `./sb uninstall` runs `~/statbus/uninstall.sh` (`cli/cmd/uninstall.go`). Documented in `doc/DEPLOYMENT.md`.
+- **Proof, unit:** 25 `TestUninstall*` cases (`cli/cmd/uninstall_test.go`): lock held, mount and symlink boundaries, no-sudo removal of container-owned files, shared images kept, keep-choices and rerun. Green 2026-10-15.
+- **Proof, real box:** `6-uninstall-reinstall.sh` removes checkout, containers and volumes without sudo, then a fresh install on the same box succeeds. PASS in rc.17 LXD `36506437069`.
+- **Hosted URL:** `https://statbus.org/uninstall.sh` returns a 302 to `master/uninstall.sh` on raw.githubusercontent.com, which serves the script (checked 2026-10-15). The 2026-09-29 audit's 404 is fixed. Whether it should serve master or a release asset is STATBUS-505.
+- **Gap:** before deleting, the script does not list what it is about to remove; it asks only about dumps and credentials.
 
-- Default preservation: keep `dbdumps/` and `.env.credentials` unless a flag says delete? Or delete everything with a typed confirmation?
-- Does removal include the `statbus` user and host hardening, or only the StatBus deployment (user/hardening belong to host provisioning, step 1)?
-- Naming: `./sb uninstall` locally and a standalone `uninstall.sh` served at statbus.org (owner decision: separate script, 2026-09-25 13:12Z).
-## Owner interaction design, 2026-09-26 08:50Z
-
-Purpose: when an installation is broken or the operator wants to start over (Finland's reinstall case), one command cleans the system so a fresh install works.
-
-- **Interactive:** asks what to delete — everything, or keep selected things (e.g. database dumps, credentials). Plain operator text.
-- **Non-interactive:** deletes everything, gated by an explicit confirmation environment variable (e.g. `STATBUS_UNINSTALL_CONFIRM=yes-delete-everything`); without it, refuse with instructions.
-- **Container-owned files:** rc.05's orphaned-volume scenario proved `caddy/data/` contains root-owned files — removal needs root or docker-mediated deletion; the uninstaller must handle that, not die on Permission denied.
+### Closing review
+- **Memory:** none needed.
+- **Documentation:** `doc/DEPLOYMENT.md` covers it.
+- **Cleanup:** none.
 <!-- SECTION:DESCRIPTION:END -->
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 `./sb uninstall` on an installed system removes containers, volumes, images, units and the checkout, printing exactly what will be deleted and requiring explicit confirmation first.
-- [ ] #2 The same removal is triggerable via a standalone `uninstall.sh` served at statbus.org, with identical behavior and output conventions (plain operator text, step lines visible).
-- [x] #3 An install-recovery scenario proves: install, uninstall, fresh install succeeds on the same box.
-- [x] #4 Documentation in doc/DEPLOYMENT.md.
+- [x] #1 `./sb uninstall` and `uninstall.sh` behave the same: interactive keeps backups and credentials by default, unattended requires `STATBUS_UNINSTALL_CONFIRM=yes-delete-everything`, and both refuse safely at locks and filesystem boundaries (`TestUninstall*`, `cli/cmd/uninstall_test.go`)
+- [x] #2 `curl -fsSL https://statbus.org/uninstall.sh | bash` fetches the uninstaller (302 to master's `uninstall.sh`, 200, checked 2026-10-15)
+- [x] #3 On a real box, install, uninstall, and a fresh install on the same box all succeed (`6-uninstall-reinstall.sh`, rc.17 LXD PASS)
+- [x] #4 `doc/DEPLOYMENT.md` documents both entry points and the hosted URL
+- [ ] #5 Owner decision: should the uninstaller print the list of what it will delete before asking for confirmation (the original criterion), or are the two keep-questions enough? Yes adds that as the open criterion; no closes this ticket.
 <!-- AC:END -->
 
 ## Implementation Notes
 
 <!-- SECTION:NOTES:BEGIN -->
-Audit after v2026.09.3 (2026-09-29): v2026.09.3 ships ./sb uninstall + uninstall.sh (merge e223af347). AC3: 6-uninstall-reinstall PASS in rc.17 LXD 36506437069. AC4 documented. AC2 open: statbus.org/uninstall.sh redirects to www.statbus.org/uninstall.sh, which returns 404 (add the redirect beside install.sh on niue's Caddyfile). AC1 'prints exactly what will be deleted' is not yet asserted.
+### Evidence
+- **AC1:** green locally on master, 2026-10-15.
+- **AC2:** checked with `curl` 2026-10-15. The 2026-09-29 audit had found a 404; the niue Caddyfile now redirects `/uninstall.sh` (recorded on STATBUS-505).
+- **AC3:** rc.17 LXD PASS (2026-09-29 audit).
+- **AC4:** `doc/DEPLOYMENT.md`, uninstall section.
 <!-- SECTION:NOTES:END -->
