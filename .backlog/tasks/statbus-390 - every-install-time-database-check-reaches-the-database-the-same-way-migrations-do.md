@@ -1,10 +1,12 @@
 ---
 id: STATBUS-390
-title: Every install-time database operation uses a route whose readiness is verified
+title: >-
+  A database check that passes during install means the next database step can
+  connect too
 status: In Progress
 assignee: []
 created_date: '2026-09-24 16:42'
-updated_date: '2026-09-29 08:04'
+updated_date: '2026-10-15 19:07'
 labels:
   - release-bug
   - install
@@ -17,36 +19,42 @@ ordinal: 1
 ## Description
 
 <!-- SECTION:DESCRIPTION:BEGIN -->
-## Progress 2026-09-24 (proof pending)
+### North Star
+A database check that passes during install means the next database step can connect too, and when the route is down the operator is told which service provides it.
 
-Migration subprocess *host mode*, migration and seed pgx locks, installer post-completion connection, and upgrade daemon share `dbroute.FromFile` for CADDY_DB_BIND_ADDRESS:CADDY_DB_PORT. No-Docker tests cover command builders, the seed-lock DSN and source-level caller wiring, but do not prove a real seed restore or daemon reconciliation. This is not Done: no `5-install-database-route-interrupted.sh` has been authored or run. A VM experiment must preserve Caddy's Layer4 database listener while interrupting only its web entry point. Acceptance criteria remain unchecked pending observed end-to-end proof.
+### Zoom out
+The installer reaches the database in two ways, for two reasons:
+- **The route:** every normal client (migrations, locks, the final connection, the upgrade daemon) connects over TCP to the address the web entry point publishes for the database. They share one definition of that address, so one passing check speaks for all of them.
+- **Recovery exceptions:** a few operations go straight into the database container over its local socket on purpose, so they still work when the published route is broken. These are seed restore, repairing role passwords, and clearing leftover connections when the pool is exhausted. They are named exceptions, not a second route.
 
-**Deliberate socket exception, not a second host endpoint:** `cli/cmd/seed.go:301-319` runs the *actual* installer seed restore as `docker compose exec -T db pg_restore`, independently of `migrate.PgRestoreCommand`; `cli/internal/dbroles/dbroles.go:1-18,273-281` uses the same trusted local socket to repair stale role passwords when TCP authentication fails. `cli/cmd/install.go:2044-2059` likewise uses local Unix-socket `local all postgres trust` authentication (still occupying a PostgreSQL slot, with superuser access to reserved slots) for orphan cleanup when the external connection pool is exhausted. `cli/internal/migrate/migrate.go:101-109,114-139,194-196` selects that socket when host `psql` is absent or `DOCKER_PSQL=1`; its host mode resolves CADDY_DB_BIND_ADDRESS:CADDY_DB_PORT. Forcing these rescue operations through the Caddy TCP route would remove their recovery property. Thus there is **not** one physical route for every operation, despite the shared resolver for TCP clients. `cli/cmd/install_services.go:497-519` explicitly verifies the upgrade daemon's own TCP route before service startup; container DB health alone (`:523-544`) does not verify TCP reachability. Unit test `TestDockerDatabaseCommandsUseLocalSocket` pins this distinction without Docker. The web/DB separation and full install timeline still require VM proof.
+The failure to prevent is a check that passes through one route while the next step uses another and fails late. Making everything use the internal route instead would hide a broken published route that the upgrade daemon and operators still depend on.
 
-<!-- SECTION:DESCRIPTION:BEGIN -->
-Install-time seed restore, state checks, migrations, locks, final readiness, and automatic-update startup use the database service's internal socket or Docker-network route. Host-route use is removed from these installer-owned operations, so their readiness does not depend on the web entry point.
+### Zoom in
+- **Incident, Finland 2026-09-24 (v2026.09.2):** seed restored through the container (`docker compose exec`), then Migrations failed: `dial tcp 127.0.0.1:5431: connect: connection refused`. The database was healthy; the web entry point publishing 5431 was not (`tmp/finland-transcript-actual.txt:119-147`).
+- **Shipped (v2026.09.3, merged 2026-09-25):** `54e999bac` gives all TCP clients one resolver, `dbroute.FromFile` (`CADDY_DB_BIND_ADDRESS:CADDY_DB_PORT`). `d7b50aaa8` documents the socket exceptions (`cli/cmd/seed.go`, `cli/internal/dbroles/dbroles.go`, orphan cleanup in `cli/cmd/install.go`, `DOCKER_PSQL` mode in `cli/internal/migrate/migrate.go`). Step 8 checks the published ports (`reconcilePublishedPorts`) and the daemon's own route (`checkUpgradeDatabaseRoute`) before starting it. Merge `00704540c`.
+- **Operator outcome:** STATBUS-388 (Done) names the unavailable route and its providing service. Its scenario `5-install-database-route-interrupted.sh` cuts the published route before migrations, observes a bounded failure naming the web entry point, then a rerun through seed, migrations and readiness: PASS in rc.17 LXD `36506437069`.
+- **Branch:** `fix/db-transport-390` is fully merged.
 
-## Evidence, 2026-09-24
-
-The connection study shows seed and some repair work can use the database service directly, while migrations, locks, post-completion checks, and the automatic update service currently use the loopback route (`/Users/jhf/ssb/statbus/tmp/setup-connection-map.md:79-92`). Current post-completion code calls `migrate.AdminConnStr` (`cli/cmd/install.go:2888-2899` at master `7a9cf707e`) and migration subprocesses use the configured host route (`cli/internal/migrate/migrate.go:211-263` at master `7a9cf707e`).
+### Closing review
+- **Memory:** none needed.
+- **Documentation:** the exceptions are documented at their definitions (`d7b50aaa8`); no separate doc.
+- **Cleanup:** the merged local branch `fix/db-transport-390` was deleted 2026-10-15 (tip `a100dd261`, on master).
 <!-- SECTION:DESCRIPTION:END -->
-<!-- SECTION:DESCRIPTION:END -->
-
-## Status 2026-09-24
-
-**To Do.** #1-3 not met: the named transport tests and `5-install-database-route-interrupted.sh` are absent; `cli/cmd/install.go` and `cli/internal/migrate/migrate.go` still have distinct connection paths after `145c17292`. **Remaining:** route every seed/state/migration/lock/readiness and upgrade startup call through a verified internal transport, with unit and VM checks.
-
-Baseline: `origin/master` at `373d15fc3`. Criterion disposition and remaining positive targets are above; the acceptance criteria below remain authoritative. An authored but unrun VM scenario is **proof pending**, not met.
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 No-Docker builder/source-level tests pin seed, state, migration, lock, and final-readiness wiring; actual install operations require VM proof.
-- [ ] #2 `TestRecoveryDSNUsesInternalRoute` checks DSN reload and source-level assertions pin the pre-start probe; actual daemon reconciliation still requires VM proof.
-- [ ] #3 `new: test/install-recovery/scenarios/5-install-database-route-interrupted.sh` stops the web entry point between seed and migrations and observes seed, migration, lock, final readiness, and automatic-update startup all succeed through the internal route.
+- [x] #1 Every installer and daemon TCP client resolves the same `CADDY_DB_BIND_ADDRESS:CADDY_DB_PORT` route and ignores `SITE_DOMAIN` and ambient `PGHOST`/`PGPORT` (`TestInstallerDatabaseOperationsUseInternalRoute`, `TestResolveIgnoresSiteDomainAndRequiresInternalEndpoint`, `TestRecoveryDSNUsesInternalRoute`)
+- [x] #2 The recovery operations that must survive a broken route use the database local socket (`TestDockerDatabaseCommandsUseLocalSocket`)
+- [x] #3 On a real box with the published database route cut before migrations, the installer fails bounded naming the web entry point, and a rerun completes seed, migrations and readiness (`5-install-database-route-interrupted.sh`, rc.17 LXD `36506437069`, owned by STATBUS-388)
+- [ ] #4 Owner confirms the two-way design (shared published route plus named socket exceptions) as the target, which closes this ticket
 <!-- AC:END -->
 
 ## Implementation Notes
 
 <!-- SECTION:NOTES:BEGIN -->
-Audit after v2026.09.3 (2026-09-29): v2026.09.3 centralises TCP route resolution (54e999bac) and documents the socket exceptions (d7b50aaa8). Tests are green in Go Test. AC3 is unmet: the rc.17 scenario proves 388's bounded-failure-then-rerun path, not internal-route success. Owner: keep 390's internal-route target, or accept 388's path and rewrite AC3.
+### Evidence
+- **AC1-2:** green in Go Test `36503468493` (v2026.09.3); re-run green locally on master, 2026-10-15.
+- **AC3:** rc.17 LXD PASS recorded on STATBUS-388.
+- **Naming:** in the test names, "internal route" means the published `CADDY_DB_BIND_ADDRESS` address as opposed to the public `SITE_DOMAIN`, not the container socket.
+- **Superseded criterion:** the 2026-09-24 restyle had asked for seed, migrations, locks, readiness and daemon all to succeed with the published route down. That reverses the design above and was dropped; the original goal (`67735dd8f`) is what this ticket now states.
 <!-- SECTION:NOTES:END -->
