@@ -3,9 +3,10 @@ id: STATBUS-432
 title: >-
   Upgrade daemon boot must not rewrite config or recreate the database while an
   install owns the box
-status: To Do
+status: In Progress
 assignee: []
 created_date: '2026-09-29 13:29'
+updated_date: '2026-10-15 19:47'
 labels:
   - upgrade
   - install
@@ -17,22 +18,45 @@ ordinal: 381200
 ## Description
 
 <!-- SECTION:DESCRIPTION:BEGIN -->
-Found by the Ville replay D4 (tmp/ville-replay-v2026.09.3.md, STATBUS-430) and confirmed by review tmp/review-430.md section 3. Service.Run() Pre-flight A (config generate, service.go:2982) and Pre-flight B (EnsureDBUp -> docker compose up -d db, service.go:3062 / exec.go:1366) run on every unit (re)start and take no mutex. After install.sh has swapped the binary and checked out the target, a restarting unit (e.g. a 09.2 unit in a Restart=always loop after a failed step 17) regenerates .env with the target COMMIT_SHORT and recreates PostgreSQL. ./sb install then sees 'FATAL: the database system is shutting down' during detection or later steps. Crash recovery already avoids this hazard with the non-recreating EnsureDBReachable (exec.go:1358-1365).
-<!-- SECTION:DESCRIPTION:END -->
+### North Star
+While an installer owns the box, a restarting upgrade service neither rewrites settings nor recreates the database underneath it.
 
-Owner note 2026-10-01 13:17 UTC: prefer logical/unit tests over full installation sequences wherever the mechanism can be pinned without a guest; AC#5 (Go unit tests) is the primary coverage and AC#4's LXD repro yields wherever the unit tests genuinely take over. Implementer argues the coverage boundary in this ticket.
+### Zoom out
+The upgrade service is restarted by systemd whenever it exits. On every boot it used to regenerate `.env` and bring the database up with `docker compose up -d db`, without taking any lock. If that boot happened while `./sb install` was working (for example an old unit in a restart loop after the installer swapped the binary), it could change the settings the installer was reading and replace the database container mid-detection. The installer then saw `the database system is shutting down`.
+
+Two rules close the race:
+- **Defer to an install:** if the canonical upgrade flag is held by a live install, boot touches nothing. It logs the holder once, waits briefly, then exits with a code that does not use up systemd's restart budget.
+- **Start, don't recreate:** outside a forward recovery after a binary swap, which needs the new image, boot only starts the existing database and web entry containers and never replaces them.
+
+Then the installer's own final act starts the daemon after its last change, so it never waits on its own lock.
+
+### Zoom in
+- **Found:** Finland replay D4 (`tmp/ville-replay-v2026.09.3.md`), review `tmp/review-430.md` section 3; the symptom is STATBUS-430's.
+- **Shipped (all 2026-10-01/02, in v2026.10.1):** `5eb47af5e` (boot interlock; review `tmp/review-432.md` MERGE); `a2f8dff50` (the installer starts the daemon as its final act after completion changes, fixing an rc.04 smoke self-deadlock, run `36897459913`); `c893c1f02` (only a holder with trigger `install` defers; a restart barrier does not, fixing rc.06 smoke run `36919339624`); `341f61dee` (the deferral exit moved from 75 to 76, because 75 is the rollback-complete code that must restart, found by the rc.07 arcs, run `36931202990`).
+- **Detection window (AC3):** closed by the start-only rule rather than by widening the install lock: before the installer holds the lock, the only overlapping boot action can no longer replace the database.
+- **Proof, unit:** `TestBootInstallHeldLiveFlockExpiresWithWatchdogAndOneHolderLog`, `TestBootInstallHeldFlockReleaseAllowsContinuation`, `TestBootRestartTriggeredHeldFlockDoesNotDefer`, `TestInstallHeldBootExpiryMapsToRestartPreventedExit76`, `TestUpgradeUnitPreventsExit76RestartAndLeavesStartupBudget`, `TestRunBootInterlockPrecedesConfigAndDatabaseActions`, `TestBootDatabaseStrategyStartsExistingOutsideForwardRecovery`, `TestBootDatabaseStrategyRecreatesForPostSwapRecovery` (`cli/internal/upgrade/boot_test.go`). Green 2026-10-15.
+- **Proof, real box:** the smoke and LXD fault fleets at v2026.10.1 are green, including `1-boot-concurrent-install`, `1-boot-flag-stale-handoff` and `5-install-stage-c-systemd-failed` (LXD fleet `38740447079`).
+- **Not built:** the LXD reproduction of the replay itself. The implementer argued that the decision lives entirely at the Go dispatch boundary the unit tests pin, in line with the owner's 2026-10-01 preference for logical tests over full installation sequences.
+
+### Closing review
+- **Memory:** "exit codes are a shared namespace: a new one must not collide with an existing meaning" (the 75 collision) is a lesson worth keeping.
+- **Documentation:** `ops/statbus-upgrade.service` comments explain 76 versus 75.
+- **Cleanup:** none.
+<!-- SECTION:DESCRIPTION:END -->
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 When tmp/upgrade-in-progress.json is install-held and its flock is held, daemon boot performs neither config generate nor any docker compose up; it logs one line naming the holder and waits (watchdog-pinged, bounded) or exits with a code that does not consume StartLimitBurst
-- [ ] #2 Outside a service-held forward recovery (flag.IsServiceNewSbRecovery()), boot's DB bring-up never recreates the db container (start only); post_swap recovery keeps today's recreate because it needs the target image
-- [ ] #3 The detection window is closed: ./sb install holds the install mutex across detectInstallState (Detect tolerates its own holder), or criterion 2 alone is shown to make detection safe; the choice is argued in the ticket
-- [ ] #4 LXD reproduction of the replay's shape (failed Settings after the binary swap, unit restart-looping, operator fixes config and reruns): the db container ID and StartedAt stay unchanged from detection through step 16; before the fix the same arc reproduces 'the database system is shutting down' or a db recreate
-- [ ] #5 Go unit tests: boot with an install-held live flock does not call config-generate/compose; a non-recovery boot uses the non-recreating bring-up; a post_swap recovery boot still recreates
+- [x] #1 With a live install-held flag, daemon boot performs neither config generate nor any compose up; it logs the holder once, waits bounded with watchdog pings, and exits 76, which systemd does not restart (`TestBootInstallHeldLiveFlockExpiresWithWatchdogAndOneHolderLog`, `TestInstallHeldBootExpiryMapsToRestartPreventedExit76`, `TestUpgradeUnitPreventsExit76RestartAndLeavesStartupBudget`)
+- [x] #2 Outside a forward recovery after a binary swap, boot starts the existing database without recreating it; post-swap recovery still recreates (`TestBootDatabaseStrategyStartsExistingOutsideForwardRecovery`, `TestBootDatabaseStrategyRecreatesForPostSwapRecovery`)
+- [x] #3 The detection window is closed by the start-only rule, argued in the ticket
+- [ ] #4 LXD reproduction of the replay's shape keeps the db container ID and StartedAt unchanged from detection through the last step
+- [x] #5 Go unit tests pin the interlock order and both database strategies (`TestRunBootInterlockPrecedesConfigAndDatabaseActions` and the tests above)
+- [ ] #6 Owner decision: accept the unit tests plus green v2026.10.1 fleets in place of AC4's dedicated LXD reproduction, as argued in the ticket and in line with your 2026-10-01 note? Yes closes this ticket.
 <!-- AC:END -->
 
 ## Implementation Notes
 
+<!-- SECTION:NOTES:BEGIN -->
 ### 2026-10-01
 
 - `Service.Run` now classifies the canonical flag and live flock before recovery checkout, config generation, or database bring-up. A live install holder is named once in the journal. Boot then waits for at most 30 seconds, pings the watchdog during the wait, and exits 75 if the install still owns the flock. This leaves 90 seconds of the unit's 120-second `TimeoutStartSec` for normal startup, and a unit test parses the shipped unit to require at least 60 seconds of remaining budget. The systemd unit lists 75 in `RestartPreventExitStatus`, so this outcome does not consume `StartLimitBurst`.
@@ -57,3 +81,8 @@ Owner note 2026-10-01 13:17 UTC: prefer logical/unit tests over full installatio
 - Focused tests use real held flocks to prove restart-triggered and empty-trigger markers do not wait or emit exit 75 behavior, while the existing install-triggered test continues to pin the bounded wait, watchdog pings, exit 75 sentinel, and exactly one holder log line. `CheckRestartBarrier` remains consistent: it explicitly treats `Trigger: "restart"` as the operator restart barrier for install/upgrade entrants, not as an installation boot interlock.
 
 2026-10-01 correction (found by rc.07's upgrade arcs, run 36931202990): the boot-wait exit code 75 COLLIDED with the rc.67 rollback-complete `os.Exit(75)` (service.go). Naming 75 in the unit's `RestartPreventExitStatus` made systemd refuse to restart the daemon after ANY successful rollback — c-rollback-resurrection and rollback-schema-floor-adoption proved the upgrade service stays `failed` post-rollback (exit 75 is designed to cycle under Restart=always; install.sh's "UPGRADE FAILED, ROLLED BACK" banner also keys on it). The boot-wait deferral moved to exit 76; `RestartPreventExitStatus=76 78`; boot_test.go now pins both that the unit prevents 76 and that it never prevents 75. The install-hold boot deferral semantics are otherwise unchanged.
+
+2026-10-15 vetting: status was To Do although merges 5eb47af5e, a2f8dff50, c893c1f02 and 341f61dee are on master and in v2026.10.1. Set In Progress with AC1-3 and AC5 checked: the boot tests listed in the description pass locally on master, and the v2026.10.1 LXD fleet 38740447079 passed 1-boot-concurrent-install, 1-boot-flag-stale-handoff and 5-install-stage-c-systemd-failed. AC4 awaits the owner answer in AC6.
+<!-- SECTION:NOTES:END -->
+
+Owner note 2026-10-01 13:17 UTC: prefer logical/unit tests over full installation sequences wherever the mechanism can be pinned without a guest; AC#5 (Go unit tests) is the primary coverage and AC#4's LXD repro yields wherever the unit tests genuinely take over. Implementer argues the coverage boundary in this ticket.
