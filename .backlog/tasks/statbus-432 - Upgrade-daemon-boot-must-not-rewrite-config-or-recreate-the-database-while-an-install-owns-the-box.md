@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-09-29 13:29'
-updated_date: '2026-10-15 19:47'
+updated_date: '2026-10-15 20:09'
 labels:
   - upgrade
   - install
@@ -51,7 +51,7 @@ Then the installer's own final act starts the daemon after its last change, so i
 - [x] #3 The detection window is closed by the start-only rule, argued in the ticket
 - [ ] #4 LXD reproduction of the replay's shape keeps the db container ID and StartedAt unchanged from detection through the last step
 - [x] #5 Go unit tests pin the interlock order and both database strategies (`TestRunBootInterlockPrecedesConfigAndDatabaseActions` and the tests above)
-- [ ] #6 Owner decision: accept the unit tests plus green v2026.10.1 fleets in place of AC4's dedicated LXD reproduction, as argued in the ticket and in line with your 2026-10-01 note? Yes closes this ticket.
+- [ ] #6 [Owner] Accept the unit tests plus the green v2026.10.1 fleets in place of AC4's dedicated LXD reproduction, and record it in Implementation Notes. Accepted: remove AC4, check this and set Done.
 <!-- AC:END -->
 
 ## Implementation Notes
