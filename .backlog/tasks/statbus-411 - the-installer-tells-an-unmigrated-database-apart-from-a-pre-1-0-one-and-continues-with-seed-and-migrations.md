@@ -1,12 +1,12 @@
 ---
 id: STATBUS-411
 title: >-
-  The installer continues an initialized database through seed and migrations
-  while preserving legacy data
+  The installer tells its own unfinished database from a pre-1.0 database with
+  data
 status: In Progress
 assignee: []
 created_date: '2026-09-24 15:59'
-updated_date: '2026-09-29 08:04'
+updated_date: '2026-10-15 19:16'
 labels:
   - release-bug
   - install
@@ -21,28 +21,43 @@ ordinal: 361100
 ## Description
 
 <!-- SECTION:DESCRIPTION:BEGIN -->
-An init-db-only database with no `public.upgrade`, null `to_regclass('public.statistical_unit')`, and missing or empty `db.migration` is a first installation ready for seed and migrations. A database with `public.statistical_unit` present or at least one applied `db.migration` row but no `public.upgrade` is legacy, and its data is preserved with manual-upgrade guidance. STATBUS-408 shares this exact discriminator for interrupted first installation.
+### North Star
+When the installer finds a database without StatBus's upgrade table, it tells correctly whether that is its own unfinished work, which it simply continues, or an old StatBus database with real data, which it refuses to touch.
 
-## Evidence, 2026-09-24
+### Zoom out
+"No `public.upgrade` table" has two very different meanings:
+- **Our own unfinished install:** the database container created an empty cluster, or the install stopped part-way through migrations. Continuing is correct and loses nothing.
+- **A pre-1.0 StatBus database:** it holds a country's register. Writing over it would destroy data, so the installer refuses and points to the manual upgrade path.
 
-Current state detection treats every reachable database without `public.upgrade` as legacy (`cli/internal/install/state.go:138-148` at master `7a9cf707e`), with current fake-probe coverage at `cli/internal/install/state_test.go:46-77`. Applied migrations are recorded in `db.migration` (`cli/internal/migrate/migrate.go:1-5`), and the existing seed-gate matrix defines missing, empty, and populated ledger semantics (`cli/cmd/seed_gate_test.go:25-58`), both at master `7a9cf707e`. Finland recreated a fresh database volume and received the legacy refusal (`/Users/jhf/ssb/statbus/tmp/finland-answers-4.txt:69-89`).
+The two are told apart by how the database was built, not by the current date or by guessing from table counts. Migration versions are permanent provenance: a version applied today from an old release is still an old version. So a database counts as our unfinished install only if it has no migrations and no application tables, or if every applied migration is newer than the one that introduced `public.upgrade`. Anything else, including application tables with no migration history, is pre-1.0. When unsure, the installer refuses.
+
+STATBUS-408 is the same rule seen from an interrupted first install; it owns proving the resume path.
+
+### Zoom in
+- **Incident, Finland 2026-09-24 (v2026.09.2):** the operator removed `statbus-local-db-data`, ran `./sb restart all` (which created an empty database), then `./sb install`. It was refused: `Detected install state: legacy-no-upgrade-table ... pre-1.0 install detected (public.upgrade table absent)` (`tmp/finland-answers-4.txt:66-89`). Detection then treated every reachable database without `public.upgrade` as pre-1.0.
+- **Shipped (v2026.09.3):** `0a3f2ff80` continues an install stopped after the database was created. `3c76d6323` classifies from migration provenance: `SchemaHistory.IsUnfinishedFreshInstall` against `upgradeTableMigrationVersion = 20260311174120` (`cli/internal/install/state.go`). `da2be2fde` and `f786999bd` refuse unclassifiable states and require proof that the database is really unavailable. The operator sees `The database exists but setup stopped before it was finished. Continuing where it stopped.` or `This installation is too old for automatic repair. Follow the documented manual upgrade path.`
+- **Proof, unit:** `TestDetectWith` (`cli/internal/install/state_test.go`) covers init-db only and post-upgrade-era-only history as unfinished; application schema without history, old-release migrations, old migrations applied today and enterprise-only schema as pre-1.0; and a database with `public.upgrade` never consulting history. `TestParseSchemaHistory` covers the probe. Green 2026-10-15.
+- **Proof, real box:** `5-install-interrupted-first-run.sh` (see STATBUS-408) shows the continue path. No real-box scenario exercises the refusal path with real legacy data.
+
+### Closing review
+- **Memory:** none needed.
+- **Documentation:** none needed; the detection policy is the doc comment at the top of `state.go`.
+- **Cleanup:** none.
 <!-- SECTION:DESCRIPTION:END -->
-
-## Status 2026-09-24
-
-**In Progress.** `3c76d6323`, `474cf6119`: `cli/internal/install/state.go` and `state_test.go::TestDetectWith` distinguish init-db-only and legacy by schema/migration provenance (#1 partly). #2-3 named disposable-VM scenarios are absent. **Remaining:** prove seed/migration resumes a bare initialized volume and legacy sentinel data survives a refusal unchanged.
-
-Baseline: `origin/master` at `373d15fc3`. Criterion disposition and remaining positive targets are above; the acceptance criteria below remain authoritative. An authored but unrun VM scenario is **proof pending**, not met.
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 `cli/internal/install/state_test.go::TestDetectWith` plus `new: cli/internal/install/state_markers_test.go::TestDetectWithSchemaAndSeedMarkers` classifies init-db-only, both conflicting fake-probe edges, established legacy, and migrated states using `public.statistical_unit` presence and `db.migration` row count.
-- [ ] #2 `new: test/install-recovery/scenarios/5-install-init-db-only-recovery.sh` uses a disposable volume, observes seed and migrations complete, and finishes with every required service ready.
-- [ ] #3 `new: test/install-recovery/scenarios/5-install-legacy-data-preservation.sh` creates representative legacy data, observes manual-upgrade guidance, and proves every sentinel row remains unchanged.
+- [x] #1 A database with no migrations and no application tables, or whose every applied migration is newer than the one that introduced `public.upgrade`, is classified as an unfinished install and continued (`TestDetectWith` fresh-db-incomplete cases)
+- [x] #2 A database without `public.upgrade` that has application tables without migration history, or any migration at or before `20260311174120`, is classified pre-1.0 and refused before anything is written (`TestDetectWith` legacy cases)
+- [x] #3 On a real box, an init-db-only database (an install stopped after Services, the same shape Finland's `./sb restart all` produced) is continued through Seed and Migrations to a serving site (`5-install-interrupted-first-run.sh`, rc.17 LXD PASS, owned by STATBUS-408)
+- [ ] #4 Owner decision: is a real-box proof that a pre-1.0 database with sentinel data is refused and left byte-identical required? No closes this ticket on the unit coverage. Yes adds that scenario as the open criterion.
 <!-- AC:END -->
 
 ## Implementation Notes
 
 <!-- SECTION:NOTES:BEGIN -->
-Audit after v2026.09.3 (2026-09-29): v2026.09.3 (3c76d6323, da2be2fde, f786999bd): init-db-only continues, and unclassifiable states refuse safely. AC1 by TestDetectWith (Go Test). AC2 by 5-install-interrupted-first-run PASS in rc.17 LXD. Remaining: AC3 legacy-data sentinel scenario.
+### Evidence
+- **AC1-2:** green locally on master, 2026-10-15 (`go test ./internal/install/`).
+- **AC3:** rc.17 LXD PASS (2026-09-29 audit, `ea170989e`).
+- **Superseded criteria:** the restyle named `state_markers_test.go::TestDetectWithSchemaAndSeedMarkers`, `5-install-init-db-only-recovery.sh` and `5-install-legacy-data-preservation.sh`, none written. Its proposed discriminator (`to_regclass('public.statistical_unit')` plus a `db.migration` row count) was superseded by migration provenance, which also refuses an old release replayed today.
 <!-- SECTION:NOTES:END -->
