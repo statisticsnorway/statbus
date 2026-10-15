@@ -4,7 +4,7 @@ title: Live-database tests drive a pinned sb in their own scratch worktree
 status: In Progress
 assignee: []
 created_date: '2026-09-07 17:26'
-updated_date: '2026-10-15 19:53'
+updated_date: '2026-10-15 20:09'
 labels:
   - harness
   - testing
@@ -45,7 +45,7 @@ These tests are also a distinct tier, so they are selected by what they need (a 
 - [x] #1 No live-database test executes the project `./sb`; each drives a pinned binary built once in its own scratch worktree, and never writes the project `.env`
 - [x] #2 `TestPinnedSBIgnoresProjectBinaryReplacement` proves a mid-run replacement of the project `./sb` does not change the binary under test
 - [x] #3 Live tests are selected by the `livedb` build tag, compiled out of ordinary `go test ./...`, and run as the "Live-database tests" step of Fast Tests (green in `36505196729` and on master `f1e7dcfba`, run `38771500938`, 2026-10-15)
-- [ ] #4 Owner decision: confirm the provisional build tag `livedb`, tier name "live-database tests" and the 25 claim-based test names (notes), or name what to change. Confirmation closes this ticket.
+- [ ] #4 [Owner] Confirm the build tag `livedb`, the tier name "live-database tests" and the 25 claim-based test names in the notes table, or name the changes, and record it in Implementation Notes; then set Done
 <!-- AC:END -->
 
 ## Implementation Notes
