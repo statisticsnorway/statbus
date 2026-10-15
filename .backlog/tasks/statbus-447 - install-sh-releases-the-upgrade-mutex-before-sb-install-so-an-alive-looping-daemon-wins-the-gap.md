@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-10-05 10:20'
-updated_date: '2026-10-15 20:09'
+updated_date: '2026-10-15 20:16'
 labels:
   - install
   - upgrade
@@ -50,7 +50,7 @@ Owner decision (2026-10-05): **remove the race, do not detect and kill.** A coun
 - [x] #3 The STATBUS-436 operator rehearsal passes in a single installer run with no retry (rc.15 and rc.16)
 - [x] #4 cloud.sh prints the signing-key hint only on a signature-verification failure (`cafa33889`)
 - [x] #5 The owner's `./cloud.sh install demo <candidate>` repairs demo in one run: binary, checkout, resident daemon and containers at the candidate, the old loop stopped, `NRestarts` 0 (rc.16, 2026-10-06 08:29:50 UTC, recorded on STATBUS-452)
-- [ ] #6 [Owner] Accept the 2026-10-06 rc.16 demo install as AC5's proof without the 10-minute page observation, recorded in Implementation Notes; then set Done
+- [ ] #6 [Owner] Decide whether the 2026-10-06 rc.16 demo install proves AC5 without the 10-minute page observation, and record it in Implementation Notes. Accepted: check this and set Done. Not accepted: uncheck AC5 and add the 10-minute observation on the next demo install as a new criterion.
 <!-- AC:END -->
 
 ## Implementation Notes
