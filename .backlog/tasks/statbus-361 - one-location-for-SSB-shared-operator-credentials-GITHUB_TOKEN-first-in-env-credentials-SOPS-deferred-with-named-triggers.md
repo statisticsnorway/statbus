@@ -4,7 +4,7 @@ title: Every secret lives in .env.credentials; .env.config holds none
 status: In Progress
 assignee: []
 created_date: '2026-09-07 13:48'
-updated_date: '2026-10-15 20:09'
+updated_date: '2026-10-15 20:25'
 labels:
   - release-bug
   - ops
@@ -41,12 +41,12 @@ Owner ruling (2026-09-07): no encryption layer yet. SOPS+age is deferred until o
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 On dev, `grep -E '^(GITHUB_TOKEN|SLACK_TOKEN|SEQ_API_KEY)=' .env.config` returns nothing and the same names in `.env.credentials` work
+- [ ] #1 On dev, `grep -E '^(GITHUB_TOKEN|SLACK_TOKEN|SEQ_API_KEY)=' .env.config` prints nothing, and the same keys are set in `.env.credentials`
 - [x] #2 Settings generation exits non-zero naming the key and the file it belongs in when a secret is in `.env.config`, and install reruns migrate legacy placements once (`TestConfigRejectsMisplacedSecrets_STATBUS361`, `TestLegacySecretsMigrateOnce_STATBUS361`, `TestInstallerRerunMigratesDuplicatesOnce_STATBUS361`)
 - [x] #3 STATBUS-341's tests pass with the token read from `.env.credentials`
 - [ ] #4 Dev's upgrade service makes authenticated GitHub calls (5000/h); `no` and `demo` stay anonymous
 - [ ] #5 `doc/CLOUD.md` has a "Where credentials live" paragraph with the rule and the table of values
-- [ ] #6 [Owner] Check AC1 and AC4 on dev yourself or delegate an agent to read (not change) dev's `.env.config` and upgrade journal, and record the result in Implementation Notes
+- [ ] #6 [Owner] Check AC1 and AC4 on dev, or delegate an agent to read (not change) dev's `.env.config`, `.env.credentials` key names and upgrade journal, and record the result in Implementation Notes. Both hold: check AC1 and AC4. A secret found in `.env.config`: move it and record the fix.
 <!-- AC:END -->
 
 ## Implementation Notes
