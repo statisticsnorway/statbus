@@ -7,6 +7,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-10-06 08:45'
+updated_date: '2026-10-15 09:02'
 labels:
   - upgrade
   - install
@@ -375,3 +376,16 @@ The first complete CLI851224 failed three real fixture controls and remains reta
 Sole corrected complete CLI9911108x1e passed156.04s at frozen exact71, completed04:59:07. All seven gofmt/build/vet/regularlint/livedb-taggedlint/ordinaryfullGo/overall exits0 and complete stage output were physically read. All previously reviewed production/new-test blobs are unchanged in the test child. Source review and local validation are complete, not a replacement candidate or whole guest verdict.
 
 Next: exact source proof, freshly global all-pages five-state CI idle and ONE ordinary master push; all six new-source oracles; then normal checked replacement and its existing automatic real guest ladder. No old-green transfer, CI rerun, raw tag, dirty bypass or extra manual rehearsal. Deployed Demo ACs stay unchecked. Owner Demo/Norway installs, stable promotion and the three unwaived security findings remain human holds. Owner448 fourteen inventory lines and .yarn remain unchanged.
+
+## Acceptance Criteria
+<!-- AC:BEGIN -->
+- [x] #1 An older program's in_progress attempt that never committed its snapshot (backup_path NULL), whose target is a strict ancestor of the running executable, is superseded untouched: no rollback, no completion, no success callback
+- [x] #2 Inline dispatch treats that superseded attempt as settled and proceeds to claim the candidate
+- [ ] #3 The LXD fault fleet's 5-install-source-identity-scheduled and -operator scenarios pass on the next candidate
+<!-- AC:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+2026-10-15, root cause of rc.01/rc.02's red LXD fault fleet (both source-identity twins). The old daemon's attempt (row 25, v2026.09.3, ebe058afc) died before committing its snapshot, so by STATBUS-197 C1/C2 it changed nothing; the newer installed program judged it against the box's CURRENT (candidate) state. Scheduled path: candidate migration 20261008121306 absent -> CannotReachNew -> rollback of a healthy box, database stopped and never restarted (ROLLBACK_TERMINAL_WRITE_FAILED). Operator path: AtNew -> the old release marked completed with its success callback ('completed|v2026.09.3' in the proof's callback file). Evidence: rc.02 fleet run 38696133051, untruncated captures. FIX 255a41d72: authorizeRecoveryAttempt treats an un-snapshotted attempt whose target is a strict ancestor of the running executable as overtaken (superseded untouched); unresolvable ancestry declines this evidence; ReconcileInterruptedForInline accepts superseded. RED on the unfixed code: livedb mode stale-unsnapshotted ended state=completed callback='completed' (tmp/fix1-red.log). GREEN after: superseded, no callback; full livedb tier + unit + golangci-lint pass.
+<!-- SECTION:NOTES:END -->
