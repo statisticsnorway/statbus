@@ -4,7 +4,7 @@ title: Live-database tests drive a pinned sb in their own scratch worktree
 status: In Progress
 assignee: []
 created_date: '2026-09-07 17:26'
-updated_date: '2026-10-15 19:33'
+updated_date: '2026-10-15 19:53'
 labels:
   - harness
   - testing
@@ -90,4 +90,6 @@ eight corrected names below are Terra's (`tmp/STATBUS-362-naming-judgment.md`).
 | 23 | `TestLiveRollbackFinishing_ExternalWritesReopen` | `TestRollbackFinishReopensExternalWrites` |  |
 | 24 | `TestLiveStablePreflight` | `TestReleaseStablePreflightGates` |  |
 | 25 | `TestLiveTerminalRowCleanupMarkerPublishesSourceBinary_STATBUS354` | `TestCleanupAfterTerminalRowRemovesMarkerAndRetainsRow` | Terra-corrected |
+
+2026-10-15 count check: all 25 provisional names in the table exist as test functions on master. The livedb tier now has 38 tests in 25 files; the other 13 were added after the table under their own claim-based names, so the table covers the original 25 renames only.
 <!-- SECTION:NOTES:END -->
