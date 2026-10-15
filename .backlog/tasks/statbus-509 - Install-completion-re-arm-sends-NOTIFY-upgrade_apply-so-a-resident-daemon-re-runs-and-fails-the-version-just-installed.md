@@ -4,7 +4,7 @@ title: Keep install completion from scheduling another upgrade
 status: In Progress
 assignee: []
 created_date: '2026-10-15 11:16'
-updated_date: '2026-10-15 13:13'
+updated_date: '2026-10-15 13:27'
 labels:
   - upgrade
   - install
@@ -64,4 +64,11 @@ Record “none needed” where appropriate, plus any other required cleanup.
 ### Closing review, corrected (owner review 2026-10-15)
 - **Documentation:** the earlier "install bookkeeping never sets scheduled_at" proposal was withdrawn: a prohibition in an unrelated doc is never found from the definition. Instead `cd3b6ada8` defines the meaning on the columns: `scheduled_at` is a request for the daemon to run a version, `completed_at` records an outcome (`COMMENT ON COLUMN`, migration `20261015131116`, doc/db regenerated). The install's re-arm comment and both tests now point to the column. AGENTS.md gained the general rule (`4ec000714`).
 - **Verification:** pg_regress 131 ok; Test442PinnedInstallCompletion ok (all modes) on a database cloned from the current seed; cli builds and vets.
+
+### Tests made positive, and run in CI (2026-10-15, b6f688237)
+- The 442 NOTIFY watch and its install-log grep are replaced by one assertion on the install's exact transitions: `superseded>available,available>completed`. Red on the fix's parent (`superseded>scheduled,scheduled>completed`, tmp/opt-red2.log), green on the fix (tmp/opt-green2.log).
+- The 452 installer-log grep is removed; its row, timestamp and event assertions already prove the repair.
+- `cli/cmd` got the shared livedb fixture; `./dev.sh test-livedb` (Fast Tests) now runs 442 and both 452 tests. All 25 subtests pass through the fixture.
+- The `scheduled_at` comment was corrected to hold for every writer (./sb install inserts completed rows with it set).
+- AGENTS.md: tests assert the state the system must reach (`30b920ffc`).
 <!-- SECTION:NOTES:END -->
