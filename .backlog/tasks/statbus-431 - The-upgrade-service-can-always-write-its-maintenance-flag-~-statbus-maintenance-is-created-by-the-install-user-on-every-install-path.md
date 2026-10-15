@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-09-29 10:28'
-updated_date: '2026-10-15 20:09'
+updated_date: '2026-10-15 20:25'
 labels:
   - install
 dependencies: []
@@ -50,9 +50,9 @@ Moving `.env.config` out of the checkout is a separate design question, out of s
 - [x] #2 Directory creation no longer rides on the Settings step (`TestRunGenerateEnvHasNoDirectorySideEffect`)
 - [x] #3 The upgrade service repairs a root-owned maintenance directory before writing its flag, and says so loudly if it cannot (`TestSetMaintenanceRepairsViaEnsureWritable`, `TestSetMaintenanceRepairFailureIsLoud`)
 - [x] #4 A v2026.09.3 base upgrades to the candidate on a real box (smoke `0-happy-upgrade`, `37577261099`)
-- [ ] #5 The Configuration step's done-check verifies a valid and complete `.env.config`, not only that the file exists
+- [ ] #5 `checkConfigDone` passes only for a `.env.config` that holds every required setting with a valid value, shown by a unit test with a present-but-incomplete file that fails the check
 - [ ] #6 A real-box run without the harness's directory pre-creation, on a box whose `~/statbus-maintenance` is root-owned, is healed by `./sb install` and by the upgrade service
-- [ ] #7 [Owner] Decide whether AC5 and AC6 are finished here or moved to a follow-up ticket, and record it in Implementation Notes. Moved: file and link the follow-up, remove AC5-6, check this and set Done.
+- [ ] #7 [Owner] Decide whether AC5 and AC6 are finished here or moved to a follow-up ticket, and record it in Implementation Notes. Here: AC5-6 remain open work. Moved: file and link the follow-up, remove AC5-6, check this and set Done.
 <!-- AC:END -->
 
 ## Implementation Notes
