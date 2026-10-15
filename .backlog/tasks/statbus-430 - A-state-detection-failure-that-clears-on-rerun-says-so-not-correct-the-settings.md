@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-09-29 08:24'
-updated_date: '2026-10-15 20:09'
+updated_date: '2026-10-15 20:25'
 labels:
   - install
 dependencies: []
@@ -40,9 +40,9 @@ Why the database was restarting is a separate question. The likely cause, an old
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
 - [x] #1 install.sh shows the state-detection rerun remedy from trusted command and path values, not the settings sentence and not an echoed log line
-- [ ] #2 The database restart between detection attempts is prevented by STATBUS-432's boot interlock (`c893c1f02`); the original Finland run's correlated trace is recorded as unavailable in Implementation Notes
+- [ ] #2 STATBUS-432's boot interlock (`c893c1f02`) is on master and its boot tests pass, and Implementation Notes record that no correlated trace from the original Finland run exists
 - [x] #3 A test covers the detection-failure message path (`TestStateDetectionFailureRerunsRatherThanBlamesSettings`)
-- [ ] #4 [Owner] Accept STATBUS-432's merged interlock as AC2's prevention without a trace from the original Finland run, and record it in Implementation Notes; then set Done
+- [ ] #4 [Owner] Decide whether STATBUS-432's merged interlock is AC2's prevention without a trace from the original Finland run, and record it in Implementation Notes. Accepted: check this and set Done. Not accepted: add an LXD reproduction of the replay as a new criterion.
 <!-- AC:END -->
 
 ## Implementation Notes
