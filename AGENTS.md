@@ -16,7 +16,7 @@ STATBUS is SSB's statistical business registry: PostgreSQL 18+, PostgREST 12+, N
 - For defects, record the hypothesis in `tmp/journal.md`, reproduce the failure, and run a non-destructive prototype before implementing. Keep diagnostic scripts and logs in `tmp/`. Do not delete them.
 - Demonstrate that regression tests detect the defect: record failure before the fix and success after it. If necessary, test against the fix's parent commit without disturbing the shared checkout.
 - Run the relevant regression suite. Match verification to the claim: documentation edits need diff/link checks, SQL behavior needs database tests, and host behavior needs an observed host run.
-- Test real behavior or invariants, not the absence of an arbitrary retired token. Diagnose every failure rather than dismissing it as flaky or transient.
+- A test asserts the state or behavior the system must reach: the rows, transitions and outputs it is defined to produce. A check that some known bad thing is absent, or that a string appears in text, is a claim to predict the future: the next defect takes another form and passes it, while the check adds bloat. Delete such checks when a positive assertion covers the behavior. Diagnose every failure rather than dismissing it as flaky or transient.
 - Fix discovered bugs immediately or schedule their fix as the next step. Fail clearly on unexpected errors. Enforce data invariants with constraints and fix races.
 
 ## Shared checkout and Git
