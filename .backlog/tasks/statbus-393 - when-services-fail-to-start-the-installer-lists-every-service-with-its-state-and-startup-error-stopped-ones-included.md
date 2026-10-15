@@ -1,10 +1,12 @@
 ---
 id: STATBUS-393
-title: The installer reports every service condition and collects every service log
+title: >-
+  When starting services fails, the installer names every service's state and
+  the support file holds every service's logs
 status: In Progress
 assignee: []
 created_date: '2026-09-24 16:42'
-updated_date: '2026-09-29 08:04'
+updated_date: '2026-10-15 19:08'
 labels:
   - release-bug
   - install
@@ -17,36 +19,38 @@ ordinal: 1
 ## Description
 
 <!-- SECTION:DESCRIPTION:BEGIN -->
-## Implementation note, 2026-09-24
+### North Star
+When starting services fails, the operator sees in the terminal which of the six StatBus services is not running and why, and the support file holds every service's logs.
 
-Review follow-up: the allowlisted terminal now displays all six inventory entries, including the host update unit; early port, DB-health, and password-sync failures also print inventory. Bounded-readiness failures log each failing state and tail and show one plain diagnostic line per failing service. Fake-stack and AWK tests cover these paths. VM scenarios and support-file acceptance proof remain pending; criteria stay open.
+### Zoom out
+A partial start is the normal shape of an install failure: some containers are healthy, one could not start, and others never got that far. `docker ps` hides stopped and never-started containers, so the operator cannot tell which part failed. The installer therefore reports all six services by plain name and state (running, restarting, exited, stopped, absent, inactive), and puts the full logs where support will look, not in the terminal.
 
-The installer now prints a five-container inventory on service-start and final-readiness failures, and the support bundle has `ps -a` and separate recent log sections for all five containers plus the automatic update unit. This is partial: the terminal inventory does not yet include the host automatic-update unit, startup errors are available in logs but not summarized per status, and neither disposable-VM scenario has been run. All three acceptance criteria remain open.
+STATBUS-394 owns the later moment: waiting for client services to become ready after migrations. This ticket owns the failure report and the support file.
 
-<!-- SECTION:DESCRIPTION:BEGIN -->
-The installer reports the condition of the database, web entry point, API, application, worker, and automatic update service. A failure report distinguishes running, stopped, absent, and restarting services and writes logs for all six services to the support file.
+### Zoom in
+- **Incident, Finland 2026-09-24 (v2026.09.2):** step 8 Services failed because Apache held port 80: `statbus-local-proxy` failed with `failed to bind host port for 0.0.0.0:80 ... address already in use`, while `db` was healthy and `rest` had started (`tmp/finland-transcript-actual.txt:67-74`). Later `docker ps` showed only `db` and a restarting `rest`; app, worker and proxy were invisible (`:145-148`).
+- **Shipped (v2026.09.3):** `7277ff65a` and `b869c6c4a`. On a services or final-readiness failure the installer prints all six services with plain names, for example `the web server (proxy): restarting` and `the automatic update service (upgrade): inactive` (`cli/cmd/install_services.go`). The support bundle now holds `docker compose ps -a`, 200-line logs for db, proxy, rest, app and worker, and the automatic update service's journal (`cli/internal/upgrade/bundle.go`).
+- **Proof:** `TestStartEarlyFailuresPrintSixServiceInventory`, `TestVerifyInstallServing` (`cli/cmd/install_services_test.go`), `TestWriteBundleSections_Composition` (`cli/internal/upgrade/bundle_test.go`), all green 2026-10-15. Fake-stack tests, no real box.
+- **Real box:** the Finland trigger no longer reaches this report: `4-install-port-80-taken.sh` shows a port-80 conflict is now refused before services start, naming `sudo systemctl disable --now apache2`. No scenario on a real box produces a partial start and observes the six-service report.
+- **Branch:** `fix/services-392-394` is fully merged.
 
-## Evidence, 2026-09-24
-
-The Finland transcript shows the API restarting while the database remained healthy (`/Users/jhf/ssb/statbus/tmp/finland-transcript-actual.txt:144-148`). The automatic update service later remained activating while its database connection retried (`/Users/jhf/ssb/statbus/tmp/finland-transcript-2-actual.txt:131-154`). Current support enumeration starts in `cli/cmd/support.go:52` and compose status decoding in `cli/internal/compose/compose.go:273-280` at master `7a9cf707e`, while install completion checks only database health (`cli/cmd/install.go:1058-1078` at master `7a9cf707e`).
+### Closing review
+- **Memory:** none needed.
+- **Documentation:** `./sb support gather --help` still lists `docker compose ps`; update it to `ps -a` plus per-service logs.
+- **Cleanup:** delete the merged branch `fix/services-392-394` once STATBUS-392 and 394 no longer reference it.
 <!-- SECTION:DESCRIPTION:END -->
-<!-- SECTION:DESCRIPTION:END -->
-
-## Status 2026-09-24
-
-**To Do.** #1-3 not met: `5-install-partial-services.sh`, `5-install-api-restart-loop.sh`, and `cli/cmd/support_test.go` are absent after `145c17292`. **Remaining:** report all six service states and logs, including stopped, absent, and restarting, in terminal and the named support bundle.
-
-Baseline: `origin/master` at `373d15fc3`. Criterion disposition and remaining positive targets are above; the acceptance criteria below remain authoritative. An authored but unrun VM scenario is **proof pending**, not met.
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 `new: test/install-recovery/scenarios/5-install-partial-services.sh` creates stopped and absent services and asserts a terminal status for all six named services plus all six log sections in the support file.
-- [ ] #2 `new: test/install-recovery/scenarios/5-install-api-restart-loop.sh` creates a restarting API and asserts the restarting condition, its startup error, the other five statuses, and all six log sections.
-- [ ] #3 `new: cli/cmd/support_test.go::TestSupportBundleIncludesEveryServiceStateAndLog` covers running, stopped, absent, and restarting states and verifies the terminal prints the support-file path.
+- [x] #1 A failed start or final readiness prints all six services by plain name with running, restarting, exited, stopped, absent or inactive (`TestStartEarlyFailuresPrintSixServiceInventory`, `TestVerifyInstallServing`)
+- [x] #2 The support file contains `docker compose ps -a`, per-service logs for db, proxy, rest, app and worker, and the automatic update service journal (`TestWriteBundleSections_Composition`)
+- [ ] #3 Owner decision: do the fake-stack tests close this, or is one real-box partial start required (for example a service that cannot start for a reason preflight does not catch)? The answer either closes the ticket or adds that scenario as the open criterion.
 <!-- AC:END -->
 
 ## Implementation Notes
 
 <!-- SECTION:NOTES:BEGIN -->
-Audit after v2026.09.3 (2026-09-29): v2026.09.3 prints the six-service inventory on failure (7277ff65a, b869c6c4a; TestStartEarlyFailuresPrintSixServiceInventory green). None of the three ACs is proven. The named scenarios and support-bundle test do not exist.
+### Evidence
+- **AC1-2:** green in Go Test (v2026.09.3); re-run green locally on master, 2026-10-15.
+- **Superseded criteria:** the 2026-09-24 restyle named two scenarios and a support test that were never written (`5-install-partial-services.sh`, `5-install-api-restart-loop.sh`, `support_test.go`). The tests that did land are cited instead. The restart-loop case belongs to STATBUS-394.
 <!-- SECTION:NOTES:END -->
