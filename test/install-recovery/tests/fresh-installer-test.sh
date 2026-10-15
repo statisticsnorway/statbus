@@ -80,6 +80,10 @@ SB
 MOCK
 cat > "$TMP_ROOT/bin/docker" <<'MOCK'
 #!/bin/bash
+# install.sh's Docker preflight (STATBUS-487) asks `docker info` before any work;
+# a reachable daemon answers with its root dir. Anything else must not be called
+# by the shell bootstrap, so it still fails loudly.
+if [ "${1:-}" = info ]; then echo /var/lib/docker; exit 0; fi
 exit 99
 MOCK
 chmod +x "$TMP_ROOT/bin/"*

@@ -118,3 +118,38 @@ jobs:
         run: bash test/install-recovery/tests/setup-stage0-http-probe-test.sh
       - name: Prove EXTRA_LOCALES accepts a .UTF-8 suffix and makes macOS no_NO.UTF-8 resolve (STATBUS-489)
         run: bash test/install-recovery/tests/setup-extra-locales-test.sh
+      - name: Prove the hardening firewall opens the port sshd really listens on, or refuses (STATBUS-506)
+        run: bash test/install-recovery/tests/setup-ssh-port-firewall-test.sh
+      # These standalone harness tests existed but no workflow ran them, so
+      # fresh-installer-test.sh went red with STATBUS-487 (d5f7b6503, its fixture
+      # docker failed the new `docker info` preflight) and stayed red for a week
+      # unnoticed. Run every standalone test here. Excluded: fake-lxc.sh (a sourced
+      # helper) and process-log-host-guest-test.sh (driven with its arguments by
+      # process-log-registration-test.sh via ./dev.sh test-harness).
+      - name: Prove the remaining standalone install-recovery harness tests
+        run: |
+          set -euo pipefail
+          for t in \
+            arc-state-assertions-test.sh \
+            c-rollback-resurrection-fixture-test.sh \
+            concurrent-install-observation-test.sh \
+            db-query-retry-test.sh \
+            dev-seed-restore-test.sh \
+            fresh-installer-test.sh \
+            happy-install-test.sh \
+            inject-stall-probe-test.sh \
+            install-at-sha-test.sh \
+            location-fallback-test.sh \
+            lxd-verdict-test.sh \
+            operator-config-test.sh \
+            partial-allocation-cleanup-test.sh \
+            rc10-schema-floor-family-test.sh \
+            release-baseline-test.sh \
+            run-boundary-test.sh \
+            setup-apt-sources-test.sh \
+            setup-supported-version-test.sh \
+            watch-decisions-test.sh; do
+            echo "::group::$t"
+            bash "test/install-recovery/tests/$t"
+            echo "::endgroup::"
+          done
