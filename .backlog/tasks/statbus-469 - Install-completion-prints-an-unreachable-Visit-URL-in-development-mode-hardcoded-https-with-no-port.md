@@ -20,11 +20,11 @@ ordinal: 395204
 <!-- SECTION:DESCRIPTION:BEGIN -->
 NORTH STAR: the completion banner prints the origin the installation actually serves. It never prints a URL the install cannot answer on.
 
+ZOOM OUT. Printed origins are derived from the same generated settings the services bind to (mode and effective ports), never assembled from a hardcoded scheme. Then the banner can only name what the box actually serves.
+
 THE DEFECT (field log 2026-10-08). The banner printed 'Visit: https://local.statbus.org' and the operator got 'unable to connect'. That install is in DEVELOPMENT mode, where the web entry serves plain HTTP on 3010 and TLS on 3011, so port 443 has no listener. The URL is also wrong to be TLS-only there, since both origins exist.
 
 THE MECHANISM. `cli/cmd/install.go` (line 1364 on master `cb34436b4`) load .env.config, read SITE_DOMAIN, and print 'Visit: https://%s' with a hardcoded scheme and no port. The ports the installation actually binds are generated configuration: CADDY_HTTP_PORT and CADDY_HTTPS_PORT (cli/internal/config/config.go lines 811-812), derived from DEPLOYMENT_SLOT_PORT_OFFSET (config.go lines 424 and 617). So in development the banner names port 443 while the services listen elsewhere; in standalone (80 and 443) the portless URL happens to be right; in private mode the box sits behind a host-level proxy, so the external origin is portless again even though the local listeners are slot ports.
-
-REQUIRED BEHAVIOUR: the acceptance criteria below.
 
 CLOSING REVIEW. Memory: none needed. Documentation: none needed; the banner is the operator text. Cleanup: none.
 <!-- SECTION:DESCRIPTION:END -->
