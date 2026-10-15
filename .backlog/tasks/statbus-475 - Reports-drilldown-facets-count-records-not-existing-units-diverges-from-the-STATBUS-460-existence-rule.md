@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-10-08 16:00'
-updated_date: '2026-10-15 19:29'
+updated_date: '2026-10-15 19:52'
 labels:
   - reports
   - data-model
@@ -69,9 +69,8 @@ SCREEN INVENTORY (what each count-showing screen counts; rule = STATBUS-460 exis
 | Unit history chart on a detail page | statistical_unit_history_highcharts | one unit's own variables over its record windows | distinct case: a single unit's timeline, not a count of units |
 | Dashboard Regions / Activity Categories / Custom Activity Categories / Statistical Variables cards | region, activity_category_enabled(_custom), stat_definition | CLASSIFICATION rows (codes), not units | distinct case: classification counts |
 | *_used views (region_used, sector_used, ...) | statistical_unit any record | which classification codes are used by any unit at any time | distinct case: code usage, time-independent by design |
-AC #2 (dev drilldown = card = chart) awaits a candidate containing a64f4ad38 and c459edf82 reaching dev; dev is at migration 20261006132000 today.
 
 CI: c459edf82 Images 37844915411 SUCCESS (the seed round trip, effective-ACL digest and restored-seed types check passed with the 475 migration), and Go Test, app build & lint and Harness Selftest succeeded. Fast Tests 37845723194 on a8faa8142 (first-parent descendant; c459edf82's own run 37845546975 was cancelled by that push) ran job 'pg_regress fast suite' = SUCCESS: seed restored (migration 20261008202243), '# All 117 tests passed.' including ok 117 353_statbus_475_drilldown_facets_follow_existence_rule, ok 29 107_load_and_verify_history_functions and ok 14 016. Left In Progress until AC #2 is observed on dev (same as 460).
 
-2026-10-15: the 'AC #2 awaits a candidate reaching dev' line above is superseded. v2026.10.1 contains a64f4ad38 (460) and c459edf82 (475) and was deployed to dev on 2026-10-15 13:08 UTC (Deploy to dev run on 3b17af171, success). AC #2 can now be observed: dev drilldown total vs dashboard card vs Units-over-time chart at 2023-12-31 and 2024-12-31.
+2026-10-15: v2026.10.1 contains a64f4ad38 (460) and c459edf82 (475) and was deployed to dev on 2026-10-15 13:08 UTC (Deploy to dev run on 3b17af171, success). AC #2 can now be observed: dev drilldown total vs dashboard card vs Units-over-time chart at 2023-12-31 and 2024-12-31.
 <!-- SECTION:NOTES:END -->
