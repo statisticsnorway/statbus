@@ -4,7 +4,7 @@ title: Every secret lives in .env.credentials; .env.config holds none
 status: In Progress
 assignee: []
 created_date: '2026-09-07 13:48'
-updated_date: '2026-10-15 19:44'
+updated_date: '2026-10-15 20:09'
 labels:
   - release-bug
   - ops
@@ -46,7 +46,7 @@ Owner ruling (2026-09-07): no encryption layer yet. SOPS+age is deferred until o
 - [x] #3 STATBUS-341's tests pass with the token read from `.env.credentials`
 - [ ] #4 Dev's upgrade service makes authenticated GitHub calls (5000/h); `no` and `demo` stay anonymous
 - [ ] #5 `doc/CLOUD.md` has a "Where credentials live" paragraph with the rule and the table of values
-- [ ] #6 Owner decision: AC1 and AC4 need someone with SSH to dev to look. Will you check them, or delegate an agent to read (not change) dev's files and journal?
+- [ ] #6 [Owner] Check AC1 and AC4 on dev yourself or delegate an agent to read (not change) dev's `.env.config` and upgrade journal, and record the result in Implementation Notes
 <!-- AC:END -->
 
 ## Implementation Notes
