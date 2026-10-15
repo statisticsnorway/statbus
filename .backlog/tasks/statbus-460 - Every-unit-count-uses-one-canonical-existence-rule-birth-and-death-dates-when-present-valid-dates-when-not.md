@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-10-07 22:27'
-updated_date: '2026-10-15 19:28'
+updated_date: '2026-10-15 20:09'
 labels:
   - app
   - dashboard
@@ -46,7 +46,7 @@ The rule: a unit exists at `d` iff `COALESCE(birth_date, valid_from) <= d AND (d
 - [x] #1 One canonical SQL definition of 'unit exists at instant d' is documented in the repo and implemented once (for example public.statistical_unit_exists_(unit_type, instant) or an equivalent view), using COALESCE(birth_date, valid_from) <= d, (death_date IS NULL OR death_date > d) and valid_until > d, deduplicated per unit.
 - [ ] #2 The dashboard cards (Establishments, Legal Units, Enterprises) use that definition: on dev at 2023-12-31 they show 11 / 23 / 23 and at 2024-12-31 they show 24 / 23 / 23, matching the Reports chart bar for bar.
 - [x] #3 The Statistical Units list and the unit detail pages use the same rule, so a unit born after the selected context instant is not listed for that context.
-- [x] #4 The two data-quality cards that share the old record-validity predicate are either switched to the same rule or explicitly documented as deliberately counting records rather than existing units.
+- [x] #4 The two data-quality cards that shared the old record-validity predicate (Units Missing Region, Units Missing Activity Category) use the existence rule, so they count what the Statistical Units list shows
 - [x] #5 A pg_regress test covers a unit whose record window is valid_from 2023-01-01 with valid_to infinity and birth_date 2024-11-01: absent from the 2023 count, present in the 2024 count. A second case covers birth_date inside its own window (valid_from 2024-01-01, birth_date 2024-11-01) and IS counted for 2024.
 - [x] #6 Two tests prove a birth date can no longer leak into an earlier period: (1) the case above with a later year, (2) a death date in the window (existence ends, the unit is gone from later counts even though the record still covers the instant).
 - [x] #7 The estimated-vs-exact flapping is resolved: the card no longer shows a count that can disagree with the chart in kind, and any remaining estimate uses the same predicate.
