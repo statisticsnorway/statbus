@@ -1,12 +1,12 @@
 ---
 id: STATBUS-508
 title: >-
-  Rollback reads the source era from the recorded identity, not from the
-  checked-out tree
+  A settings/tree version mismatch during rollback is reported as that, not as a
+  missing image
 status: In Progress
 assignee: []
 created_date: '2026-10-15 09:16'
-updated_date: '2026-10-15 09:26'
+updated_date: '2026-10-15 10:16'
 labels:
   - upgrade
   - rollback
@@ -23,7 +23,13 @@ NORTH STAR: rollback restores the version recorded when the upgrade started; it 
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 Rollback derives the source serving images from the recorded identity in the upgrade flag
-- [ ] #2 A tree that does not match the recorded source is reported as that, by name, instead of producing a wrong source era
-- [ ] #3 Test written first and recorded red on the current code, then green
+- [x] #1 A tree that does not match the recorded source is reported as that, by name, instead of producing a wrong source era
+- [x] #2 Test written first and recorded red on the current code, then green
+- [x] #3 When the recorded source identity exists, it governs the source images and the tree is only cross-checked against it (verified already true in the code: sourceServingExpectedImagesWithProof reads the flag's SourceServingImages)
 <!-- AC:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+CORRECTION + FIXED 40ef0ca29. Reading the code against rc.02 showed my ticket premise was wrong: rollback does NOT take 'source' from the tree when the identity was recorded. sourceServingExpectedImagesWithProof already reads the flag's SourceServingImages (reference + immutable image ID) and only cross-checks the tree's rendered compose references against it; the tree governs alone only for legacy pre-capture releases. The rc.02 refusal ('restored source compose image for app is ...:fe4a769a (tag fe4a769a), want source commit 4c88d350') was CORRECT: the generated compose settings named one version (fe4a769a) while the checked-out tree was another (4c88d350), a mixed-era box with no coherent source to start. The real defect was the wording: it read as a missing/unresolvable image and sent the diagnosis down the image path for hours while the db container and image were intact. FIX: when the model's tag is itself an 8-char commit that differs from the tree, the refusal names both versions as a settings/tree mismatch and says how to resolve it; local/digest/other tags keep their message. RED/GREEN: TestSourceServingExpectedImageReferencesNamesModelTreeMismatch - red on the unfixed code with rc.02's exact wording (tmp/fix508-red.log), green after. Full livedb tier + unit + golangci-lint pass. The mixed-era state itself in rc.02 came from the STATBUS-452 defect (fixed in 255a41d72), which is what put the box there.
+<!-- SECTION:NOTES:END -->
