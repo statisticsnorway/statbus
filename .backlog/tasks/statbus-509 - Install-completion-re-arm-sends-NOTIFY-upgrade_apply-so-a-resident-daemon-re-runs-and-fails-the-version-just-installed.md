@@ -4,7 +4,7 @@ title: Keep install completion from scheduling another upgrade
 status: In Progress
 assignee: []
 created_date: '2026-10-15 11:16'
-updated_date: '2026-10-15 13:05'
+updated_date: '2026-10-15 13:13'
 labels:
   - upgrade
   - install
@@ -60,4 +60,8 @@ Record “none needed” where appropriate, plus any other required cleanup.
 - **Memory:** yes, stored: a pgx `ConnConfig` copy keeps `OnNotification`; clear it on a LISTEN observer or it sees nothing.
 - **Documentation:** yes. The boundary is now stated where it is enforced: the comment in `rearmRankingRetiredInstallation` and pg_regress 131. Proposed for doc/upgrade-recovery-model.md: "install bookkeeping never sets scheduled_at" (awaiting owner choice).
 - **Cleanup:** `cli/cmd` livedb tests (442, 452kiss) are in no tier; needs a follow-up ticket (owner to confirm before I file it).
+
+### Closing review, corrected (owner review 2026-10-15)
+- **Documentation:** the earlier "install bookkeeping never sets scheduled_at" proposal was withdrawn: a prohibition in an unrelated doc is never found from the definition. Instead `cd3b6ada8` defines the meaning on the columns: `scheduled_at` is a request for the daemon to run a version, `completed_at` records an outcome (`COMMENT ON COLUMN`, migration `20261015131116`, doc/db regenerated). The install's re-arm comment and both tests now point to the column. AGENTS.md gained the general rule (`4ec000714`).
+- **Verification:** pg_regress 131 ok; Test442PinnedInstallCompletion ok (all modes) on a database cloned from the current seed; cli builds and vets.
 <!-- SECTION:NOTES:END -->
