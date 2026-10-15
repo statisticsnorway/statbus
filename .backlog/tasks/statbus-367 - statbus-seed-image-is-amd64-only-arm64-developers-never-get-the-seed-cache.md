@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-09-14 10:14'
-updated_date: '2026-10-15 19:34'
+updated_date: '2026-10-15 20:09'
 labels:
   - release-bug
   - ci
@@ -47,7 +47,7 @@ A fetch that fails must also say why: "not built for this commit" is a different
 - [x] #1 The published seed for a post-fix commit is one OCI index whose amd64 and arm64 entries reference one image digest with only the two data layers (observed for `statbus-seed:3b17af17`, 2026-10-15)
 - [ ] #2 `./dev.sh build-sb` on an arm64 Mac at a published commit restores the fetched seed (one pg_restore, no full replay), with no `--platform` in `cli/cmd/seed.go`
 - [x] #3 A fetch at an unbuilt commit says the seed is not built; a fetch failing for another reason prints that reason (`TestSeedPullErrorDistinguishesMissingManifest`)
-- [ ] #4 Owner decision: the original also asked for an adversarial review by a different session. Still wanted now that the design is shipped and observed? No drops it; yes adds it as the open criterion.
+- [ ] #4 [Owner] Decide whether an adversarial review by a different session is still required, and record it in Implementation Notes. No: check this. Yes: add the review as a new criterion.
 <!-- AC:END -->
 
 ## Implementation Notes
