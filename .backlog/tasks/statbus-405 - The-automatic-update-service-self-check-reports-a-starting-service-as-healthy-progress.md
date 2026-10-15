@@ -1,10 +1,10 @@
 ---
 id: STATBUS-405
 title: The automatic update self-check reports a starting service as healthy progress
-status: In Progress
+status: Done
 assignee: []
 created_date: '2026-09-24 15:35'
-updated_date: '2026-09-29 08:04'
+updated_date: '2026-10-15 19:38'
 labels:
   - release-bug
   - upgrade
@@ -19,32 +19,36 @@ ordinal: 358000
 ## Description
 
 <!-- SECTION:DESCRIPTION:BEGIN -->
-The automatic update self-check reports activation as startup progress, reports success only after readiness, and reports a truthful alarm for an actually inactive service. Messages appear in that observable order.
+### North Star
+The automatic update service's startup message tells the truth: while it is starting it reports progress, it reports success only once it is ready, and it raises an alarm only when it is really not running.
 
-## Evidence, 2026-09-24
+### Zoom out
+A systemd service passes through `activating` on its way to `active`. A self-check that treats every state other than `active` as failure prints a frightening "NOT RUNNING" box during a perfectly normal start, and the operator learns to ignore alarms. The check must therefore classify what systemd reports: activating is progress, active and ready is success, inactive or failed is the alarm. Messages appear in that order, and the alarm is followed by the one install command that repairs it.
 
-Finland printed `The upgrade service is NOT RUNNING` while the unit was activating (`/Users/jhf/ssb/statbus/tmp/finland-transcript-2-actual.txt:131-169`). Current unit-floor classification is at `cli/internal/unitfloor/unitfloor.go:110-139`, and installer readiness is at `cli/cmd/install.go:2804-2823`, both at master `7a9cf707e`.
+### Zoom in
+- **Incident, Finland 2026-09-24 (v2026.09.2):** the journal showed `The upgrade service is NOT RUNNING: statbus-upgrade@statbus.service` while the unit was activating and later reached READY (`tmp/finland-transcript-2-actual.txt:162`).
+- **Shipped (merge `70741d8a4`, 2026-10-01, in v2026.10.1):** `classifySystemdActivity` (`cli/internal/unitfloor`) is the production classifier used by `systemdActivityIsRunning`; activating is progress, and success is recorded only after readiness.
+- **Proof, unit:** `TestActivatingIsStartupProgressUntilReady` (the real `activating` then `ready` sequence, alarm-free, success only on the second) and `TestInactiveProducesAlarmBeforeRecoveryGuidance` (alarm first, then the complete install command). Green 2026-10-15.
+- **Proof, real box:** `1-boot-startup-timeout.sh` reads the recovered service's journal, rejects `The upgrade service is NOT RUNNING`, the inactive alarm and the repair box, and requires `Starting`, `Upgrade service started (channel=` and `Started` in that order. PASS in the v2026.10.1 LXD fleet, run `38740447079` (2026-10-15, 379 s).
+
+### Closing review
+- **Memory:** none needed.
+- **Documentation:** none needed.
+- **Cleanup:** none.
 <!-- SECTION:DESCRIPTION:END -->
-
-## Status 2026-09-24
-
-**In Progress.** `8543f493a`: `cli/internal/unitfloor/unitfloor.go` and `unitfloor_test.go` distinguish activating from inactive (#1-2 partly). `1-boot-startup-timeout.sh` records the path, but #3 requires a real-VM ordered journal run. **Remaining:** assert exact alarm/recovery ordering and run startup-through-readiness on a VM.
-
-Baseline: `origin/master` at `373d15fc3`. Criterion disposition and remaining positive targets are above; the acceptance criteria below remain authoritative. An authored but unrun VM scenario is **proof pending**, not met.
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 `new: cli/internal/unitfloor/unitfloor_test.go::TestActivatingIsStartupProgressUntilReady` observes progress and no alarm while activating, then success only after readiness.
-- [ ] #2 `new: cli/internal/unitfloor/unitfloor_test.go::TestInactiveProducesAlarmBeforeRecoveryGuidance` observes an inactive-state alarm followed by the complete installer recovery command.
-- [ ] #3 `test/install-recovery/scenarios/1-boot-startup-timeout.sh` records no alarm from activation through readiness, then success in journal order.
+- [x] #1 While the service is activating the self-check reports progress and no alarm, and reports success only after readiness (`TestActivatingIsStartupProgressUntilReady`)
+- [x] #2 An inactive service produces the alarm followed by the complete install recovery command (`TestInactiveProducesAlarmBeforeRecoveryGuidance`)
+- [x] #3 On a real box, the journal from activation through readiness has no alarm and shows start, ready and started in order (`1-boot-startup-timeout.sh`, PASS in LXD fleet `38740447079` at v2026.10.1)
 <!-- AC:END -->
 
 ## Implementation Notes
 
 <!-- SECTION:NOTES:BEGIN -->
-Audit after v2026.09.3 (2026-09-29): v2026.09.3: activating counts as running (TestActivatingUnitIsTreatedAsRunning). 1-boot-startup-timeout PASS in rc.17 LXD shows no false NOT RUNNING. The progress-then-success ordering tests (AC1/AC2) and journal-order assertion (AC3) do not exist.
-
-Implementation Notes, 2026-10-01: Added the ticket-named ordered unit tests `TestActivatingIsStartupProgressUntilReady` and `TestInactiveProducesAlarmBeforeRecoveryGuidance`. The first observes activating before active/readiness, requires both observations to remain alarm-free, and records success only for the second observation. The second requires the inactive alarm to precede the complete channel-preserving installer recovery command. Extended `1-boot-startup-timeout.sh` to capture one recovery boot and require journal order `Starting StatBus Upgrade Service` → daemon `Upgrade service started` (immediately before `READY=1`) → systemd `Started StatBus Upgrade Service`, while rejecting both historical false-alarm texts across that same window. Local shell syntax and focused Go tests are green; the real LXD scenario assertion remains to be exercised by its install-recovery runner.
-
-Review correction, 2026-10-01: Replaced the unit test's synthetic loop-index labels with `classifySystemdActivity`, the production classifier now used by `systemdActivityIsRunning`; the test observes the actual `activating` → `ready` classification sequence and verifies neither real transition emits a unit-floor alarm. The scenario now also rejects the exact current inactive text `Automatic update checks are not running.` and the enclosing `AUTOMATIC UPDATE CHECKS NEED REPAIR` alarm over the same activation-through-success journal window.
+### Evidence
+- **AC1-2:** green locally on master, 2026-10-15.
+- **AC3:** LXD fleet `38740447079` (v2026.10.1, `3b17af171`), `comparison.tsv`: `1-boot-startup-timeout PASS 379 s`.
+- **Done:** all criteria met.
 <!-- SECTION:NOTES:END -->
