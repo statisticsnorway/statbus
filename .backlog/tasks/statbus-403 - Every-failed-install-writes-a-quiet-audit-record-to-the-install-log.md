@@ -1,10 +1,10 @@
 ---
 id: STATBUS-403
 title: Every failed installation writes one quiet audit record to the install log
-status: In Progress
+status: Done
 assignee: []
 created_date: '2026-09-24 15:35'
-updated_date: '2026-09-29 08:04'
+updated_date: '2026-10-15 19:37'
 labels:
   - release-bug
   - install
@@ -19,30 +19,34 @@ ordinal: 356000
 ## Description
 
 <!-- SECTION:DESCRIPTION:BEGIN -->
-Each failed installation writes exactly one consistently named audit record to the install log and no audit wording to the terminal. The record contains no credentials. The terminal instead prints the positive recovery outcome defined by STATBUS-402: what to fix, the complete rerun command, and the support-file path when applicable.
+### North Star
+Every failed installation leaves exactly one plain, credential-free audit line in the install log for support, and the operator's terminal shows only the recovery path.
 
-## Evidence, 2026-09-24
+### Zoom out
+Support needs to know that an install failed and how it was classified, even when it failed before any upgrade row existed. The operator needs to know what to do next. These are two audiences, and mixing them is what went wrong: internal audit wording leaked into the terminal, sometimes twice. So the audit record lives only in the install log, is written exactly once per failed run through one reporting boundary, and carries a classification, never raw errors or command arguments that might hold a password. The terminal shows the cause, the fix, the rerun command and the support-file path (STATBUS-402).
 
-Finland terminal output duplicated internal `FAILED_INSTALL_HAS_AUDIT_TRAIL` wording on separate failures (`/Users/jhf/ssb/statbus/tmp/finland-transcript-2-actual.txt:58-65,114-124`). Successful installation records completion in an upgrade row (`cli/cmd/install.go:2938-3039` at master `7a9cf707e`), while `upgradeRowID == 0` applies only to failures before that write (`cli/cmd/install.go:682-692` at master `7a9cf707e`).
+### Zoom in
+- **Incident, Finland 2026-09-24/25 (v2026.09.2):** the terminal repeated `INVARIANT FAILED_INSTALL_HAS_AUDIT_TRAIL violated (audit-only): install failed with no upgrade row ...` on separate failures (`tmp/finland-transcript-2-actual.txt:58-65,114-124`; also `tmp/finland-transcript-actual.txt`).
+- **Shipped:** v2026.09.3 moved the breadcrumb to the install log only (`TestFailedInstallBreadcrumbIsLogOnlyAndPlainlyNamed`). Merge `7f231a5f6` (2026-10-01, in v2026.10.1) routes every returned failure through `reportInstallFailure`, writing exactly one classification-only `install_failed_no_row` record, including failures before the step log exists.
+- **Proof:** `TestFailedInstallWritesOneQuietFailClosedRecordAndRealRecoveryOutcome` (`cli/cmd/install_failure_audit_test.go`) drives real `runInstall` preflight and step failures with a fixture credential (`postgres://admin:fixture-password-403@db/statbus`) in the error. It requires exactly one `install_failed_no_row:` line in the log, no credential in it, and the terminal showing cause, rerun command and support path. Green 2026-10-15.
+
+### Closing review
+- **Memory:** none needed.
+- **Documentation:** none needed.
+- **Cleanup:** none.
 <!-- SECTION:DESCRIPTION:END -->
-
-## Status 2026-09-24
-
-**In Progress.** `8543f493a`, `373d15fc3`: `cli/cmd/install.go` and `support.go` move internal failure diagnostics to the install/support log, with plain terminal remedies. #1-3 not yet proved as written: `cli/cmd/install_failure_audit_test.go` is absent, so exactly-once and no-credential properties remain unverified. **Remaining:** assert one private audit record at preflight and post-start failure and a plain recovery-only terminal result.
-
-Baseline: `origin/master` at `373d15fc3`. Criterion disposition and remaining positive targets are above; the acceptance criteria below remain authoritative. An authored but unrun VM scenario is **proof pending**, not met.
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 `new: cli/cmd/install_failure_audit_test.go::TestPreflightFailureWritesOneAuditRecord` observes exactly one install-log record, zero terminal copies, and no fixture credential.
-- [ ] #2 `new: cli/cmd/install_failure_audit_test.go::TestStepFailureWritesOneAuditRecord` observes the same once-only and zero-credential properties after work begins.
-- [ ] #3 `new: cli/cmd/install_failure_audit_test.go::TestFailureTerminalShowsRecoveryOutcome` observes the plain fix, complete rerun command, and support-file path instead of audit vocabulary.
+- [x] #1 A preflight failure writes exactly one `install_failed_no_row` record to the install log, none to the terminal, with no credential in it (`TestFailedInstallWritesOneQuietFailClosedRecordAndRealRecoveryOutcome`, preflight case)
+- [x] #2 A failure after work begins does the same (same test, step case)
+- [x] #3 The terminal shows the cause, the complete rerun command and the support-file path instead of audit vocabulary (same test; `TestFailedInstallBreadcrumbIsLogOnlyAndPlainlyNamed`)
 <!-- AC:END -->
 
 ## Implementation Notes
 
 <!-- SECTION:NOTES:BEGIN -->
-Audit after v2026.09.3 (2026-09-29): v2026.09.3 writes the failed-install breadcrumb to the install log only (install.go:840; TestFailedInstallBreadcrumbIsLogOnlyAndPlainlyNamed). AC1-3 tests do not exist. Once-only and no-credential are unproven.
-
-2026-10-01: Added one table-driven regression test that drives real `runInstall` preflight and step failures through the production `reportInstallFailure` boundary. Every returned failure now writes exactly one classification-only `install_failed_no_row` record to the install diagnostics log, including failures before the step log exists. Keeping raw errors and command arguments out of that record makes credential exclusion fail-closed even when `.env.credentials` is absent or unreadable. The same test captures actual terminal rendering and proves no internal audit wording, plus the plain cause, complete saved rerun command, and support path.
+### Evidence
+- **AC1-3:** merge `7f231a5f6` (in v2026.10.1); test green locally on master, 2026-10-15.
+- **Done:** all criteria met and nothing open.
 <!-- SECTION:NOTES:END -->
