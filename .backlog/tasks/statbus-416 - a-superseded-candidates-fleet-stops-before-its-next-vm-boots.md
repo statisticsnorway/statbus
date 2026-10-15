@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-09-25 09:45'
-updated_date: '2026-10-15 19:20'
+updated_date: '2026-10-15 20:09'
 labels:
   - release-bug
   - ci
@@ -43,8 +43,8 @@ Release candidates are tested by long fleets (smoke, the LXD fault fleet, upgrad
 <!-- AC:BEGIN -->
 - [x] #1 Smoke and upgrade-arc scenario jobs check freshness as the first step after checkout, gate every later step (including cleanup) on it, and aggregate a SUPERSEDED verdict (`TestSupersededCandidateStopsBeforeEachVMAndPropagatesFleetVerdict_STATBUS416`)
 - [ ] #2 The LXD fault fleet is held to the same rule by a test: freshness before any paid operation and again after the occupancy wait, with a SUPERSEDED verdict distinct from failure
-- [ ] #3 A real supersession is observed once: a newer RC tagged while the older fleet is queued, the older fleet's queued scenarios stop before taking a box, its verdict is SUPERSEDED, and the newer fleet proceeds; run IDs recorded
-- [ ] #4 Owner decision: is AC3 worth forcing (tag a throwaway RC on top of a queued one), or should this ticket wait for a natural occurrence? Forcing closes it soon; waiting may take many releases.
+- [ ] #3 One real supersession is observed: a newer RC is tagged while the older RC's fleet is queued; the older fleet's queued scenarios stop before taking a box, its verdict is SUPERSEDED and the newer fleet proceeds; run IDs recorded in Implementation Notes
+- [ ] #4 [Owner] Decide whether AC3 is forced now (tag a throwaway RC on top of a queued one) or waits for a natural occurrence, and record it in Implementation Notes
 <!-- AC:END -->
 
 ## Implementation Notes
