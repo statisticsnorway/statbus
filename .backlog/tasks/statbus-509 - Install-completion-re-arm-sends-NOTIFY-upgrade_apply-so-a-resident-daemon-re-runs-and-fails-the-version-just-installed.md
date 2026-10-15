@@ -4,7 +4,7 @@ title: Keep install completion from scheduling another upgrade
 status: In Progress
 assignee: []
 created_date: '2026-10-15 11:16'
-updated_date: '2026-10-15 13:02'
+updated_date: '2026-10-15 13:05'
 labels:
   - upgrade
   - install
@@ -55,4 +55,9 @@ AC4 remains open. Before marking Done, record decisions on:
 - **Documentation:** does the bookkeeping/scheduling boundary need permanent guidance?
 - **Cleanup:** resolve or link an owned follow-up for untiered `cli/cmd` livedb tests (442, 452kiss), requiring an owned DSN. The recorded 442 run used `statbus_442_overnight_1006`, recreated from current `statbus_seed`.
 Record “none needed” where appropriate, plus any other required cleanup.
+
+### Closing review answers (2026-10-15)
+- **Memory:** yes, stored: a pgx `ConnConfig` copy keeps `OnNotification`; clear it on a LISTEN observer or it sees nothing.
+- **Documentation:** yes. The boundary is now stated where it is enforced: the comment in `rearmRankingRetiredInstallation` and pg_regress 131. Proposed for doc/upgrade-recovery-model.md: "install bookkeeping never sets scheduled_at" (awaiting owner choice).
+- **Cleanup:** `cli/cmd` livedb tests (442, 452kiss) are in no tier; needs a follow-up ticket (owner to confirm before I file it).
 <!-- SECTION:NOTES:END -->
