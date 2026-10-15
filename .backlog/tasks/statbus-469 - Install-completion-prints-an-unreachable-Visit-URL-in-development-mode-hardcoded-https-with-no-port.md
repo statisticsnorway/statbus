@@ -3,10 +3,10 @@ id: STATBUS-469
 title: >-
   Install completion prints an unreachable Visit URL in development mode:
   hardcoded https:// with no port
-status: In Progress
+status: To Do
 assignee: []
 created_date: '2026-10-08 12:15'
-updated_date: '2026-10-08 12:15'
+updated_date: '2026-10-15 19:41'
 labels:
   - installer
   - devx
@@ -54,4 +54,6 @@ EVIDENCE TO RECORD: the observed banner for a development install and for a stan
 
 <!-- SECTION:NOTES:BEGIN -->
 Owner report 2026-10-08: are we really bound to that, or should we show the port we are bound to? Answer: show the bound port; the install serves 3010/3011 in development mode, so the portless TLS URL is unreachable. Related: STATBUS-465 removes the battery-driven development default that put this field install in development mode at all.
+
+2026-10-15 vetting: not implemented. cli/cmd/install.go still prints `Visit: https://%s` from SITE_DOMAIN with no port or mode (line 1364 on master cb34436b4). No commit references this ticket besides its filing (bfbeea61e). Status set to To Do: the description is already clear and owner-shaped, and nobody is working on it.
 <!-- SECTION:NOTES:END -->
