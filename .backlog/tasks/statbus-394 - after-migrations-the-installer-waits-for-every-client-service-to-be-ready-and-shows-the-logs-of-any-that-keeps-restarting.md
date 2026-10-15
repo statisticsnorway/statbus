@@ -4,7 +4,7 @@ title: The installer reports success only when every service runs and the API an
 status: In Progress
 assignee: []
 created_date: '2026-09-24 16:42'
-updated_date: '2026-10-15 19:09'
+updated_date: '2026-10-15 20:08'
 labels:
   - release-bug
   - install
@@ -42,7 +42,7 @@ What makes a client crash-loop is a separate concern: role-password drift is STA
 - [x] #1 `Installation complete!` is printed only after every service is running and the API admin `/ready` returns 200 within a bounded budget (`TestVerifyInstallServing`)
 - [x] #2 A client that keeps restarting past the budget is named in plain words in the terminal, with its own startup error and recent logs in the install log (`TestRestartingClientsReportOwnLogsAfterBoundedReadiness`)
 - [x] #3 On a real standalone box, the advertised site answers CA-verified HTTPS after install (`0-happy-install.sh`, `assert_harness_https_passes`)
-- [ ] #4 Owner decision: should the final gate itself probe the advertised `https://<domain>` before printing success, rather than only the local API admin address? No closes this ticket. Yes keeps it open for that probe.
+- [ ] #4 [Owner] Decide whether the final readiness gate must also probe the advertised `https://<domain>` before printing success, and record it in Implementation Notes. No: check this and set Done. Yes: add that probe as a new criterion.
 <!-- AC:END -->
 
 ## Implementation Notes
@@ -53,4 +53,3 @@ What makes a client crash-loop is a separate concern: role-password drift is STA
 - **AC3:** smoke `0-happy-install` green on the rc ladder (recorded in the 2026-09-29 audit, `ea170989e`).
 - **Superseded criteria:** the 2026-09-24 restyle grew this ticket to five unwritten scenarios. Credential reconciliation went back to STATBUS-407 (its own scenario passes), the private plain-HTTP mode criterion was dropped as obsolete under STATBUS-418's standalone-only harness, and the daemon route check is STATBUS-390's `checkUpgradeDatabaseRoute`. The 394 -> 407 dependency was removed: 407 fixes a cause, not a precondition.
 <!-- SECTION:NOTES:END -->
-
