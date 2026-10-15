@@ -1,12 +1,12 @@
 ---
 id: STATBUS-429
 title: >-
-  The certificate remedy works for the install user: caddy/data/custom-certs is
-  writable without sudo
+  An operator installs a certificate with ./sb cert install as the install user,
+  without sudo
 status: In Progress
 assignee: []
 created_date: '2026-09-29 08:24'
-updated_date: '2026-10-01 13:19'
+updated_date: '2026-10-15 19:26'
 labels:
   - install
 dependencies: []
@@ -17,21 +17,46 @@ ordinal: 378200
 ## Description
 
 <!-- SECTION:DESCRIPTION:BEGIN -->
-Found by the Ville replay (tmp/ville-replay-v2026.09.3.md D3, 2026-09-29). Once the proxy has started, Docker creates caddy/data/ as root:root 755 (bind mount ./data of caddy/docker-compose.yml; observed on LXD forks ville-r1b and ville-r2). The v2026.09.3 certificate refusal (cli/internal/config/config.go validateTLSPaths guidance, INSTALL_FIX in cli/cmd/install_failure_cause.go and install.sh:841) and doc/DEPLOYMENT.md Custom TLS Certificates tell the operator to put files in ~/statbus/caddy/data/custom-certs/, which then fails with Permission denied for the statbus user. Every box that fixes a certificate after its first install hits it (Ville's exact case). Fix in the product: the install user owns caddy/data/custom-certs/ on new installs (created before the first compose up) and on existing boxes (repaired as a step, like Backup ownership), so the printed remedy works as written.
+### North Star
+An operator can put a certificate on a StatBus box as the install user with the one command the product prints, `./sb cert install`, and never needs sudo or a manual copy.
+
+### Zoom out
+Once the web entry point has started, Docker owns `caddy/data/` as root because it bind-mounts it. The certificate remedy the installer printed told the operator to place files under `caddy/data/custom-certs/`, which the install user then could not do. A remedy that cannot be followed as written is worse than none.
+
+Owner direction (2026-09-29): operators fix certificates only with `./sb cert install`, never by copying files. So the product must make that command work on every box:
+- **Repair:** it makes `caddy/data/custom-certs/` writable itself, through a container, without sudo.
+- **One remedy:** every certificate refusal names `./sb cert install` with full paths.
+
+A second, later step: let the installer accept the certificate up front, through the same code path, so a fresh install is born serving it. The private-certificate choice is STATBUS-399, a separate ticket.
+
+### Zoom in
+- **Incident, Finland replay, 2026-09-29:** LXD forks of Ville's exact broken v2026.09.2 state (`tmp/ville-replay-v2026.09.3.md` D3, `tmp/ville-cert-install-replay.md`). `caddy/data/` was `root:root 755`; `./sb cert install` failed with `mkdir custom-certs: permission denied` (`cert.go writeCertAndKey`) on both v2026.09.2 and v2026.09.3, with no guidance. After a one-time ownership fix it worked end to end.
+- **Shipped (v2026.10.0):** merge `8579e6e61` (+ `a0ee1f2ed`). `./sb cert install` repairs an unwritable `custom-certs` through a container (the box's proxy image, alpine fallback, no network) via the shared `cli/internal/hostrepair`, also used by STATBUS-431. Every certificate remedy now names `./sb cert install <full path to certificate> <full path to key>` (`ad7876f0b`, `828b04984`); `doc/DEPLOYMENT.md` renewal uses full paths (`7bd5fd612`).
+- **Proof, unit:** `TestEnsureCustomCertsDirWritable_ExistingUnwritableDirIsRepaired`, `..._DockerRepairFailureIsPlainRemedy`, `..._RepairExitsZeroButStillUnwritable` (`cli/cmd/cert_test.go`), `TestEnsureWritable*` (`cli/internal/hostrepair`). Green 2026-10-15.
+- **Not yet run:** `test/install-recovery/scenarios/5-install-cert-repair-via-cert-install.sh` is written and reviewed but carries `HARNESS_SKIP_DEFAULT` and its own header says it has never run on the LXD fleet.
+- **Not built:** installer certificate arguments. `install.sh` and `./sb install` take no certificate inputs today; only `./sb cert install` calls `loadCertMaterial`.
+
+### Closing review
+- **Memory:** none needed.
+- **Documentation:** `doc/DEPLOYMENT.md` covers `./sb cert install`; installer arguments need a line there when built.
+- **Cleanup:** remove `HARNESS_SKIP_DEFAULT` from the scenario after its first green run.
 <!-- SECTION:DESCRIPTION:END -->
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 `./sb cert install` succeeds as the install user when caddy/data is root-owned, repairing only custom-certs via a container without sudo (shipped in v2026.10.0-rc.01; the box-level proof runs with AC#3)
-- [ ] #2 The installer accepts certificate material as arguments compatible with the cert CLI (certificate+key pair or a single PFX/PKCS#12, PFX password via a non-interactive env var) and installs it through the SAME shared code path (loadCertMaterial → match check → write → .env.config → config generate); during install the restart/probe is replaced by Caddy starting with the cert at first compose up; the arguments are refused in private and development modes with the same message cert install uses
-- [ ] #3 An explicit (non-default) LXD run of 5-install-cert-repair-via-cert-install on a built candidate: a box that has run Services follows the printed certificate remedy as the statbus user and reaches a ready installation, and a fresh install with certificate arguments is born serving that certificate
+- [x] #1 `./sb cert install` succeeds as the install user when `caddy/data` is root-owned, repairing only `custom-certs` through a container without sudo, and fails with a plain remedy when it cannot (`TestEnsureCustomCertsDirWritable_*`, `TestEnsureWritable*`)
+- [x] #2 Every certificate refusal names `./sb cert install` with full paths (`ad7876f0b`, `828b04984`; install.sh `INSTALL_FIX` allowlist)
+- [ ] #3 An explicit LXD run of `5-install-cert-repair-via-cert-install.sh` on a built candidate: a box that has run Services follows the printed remedy as the install user and reaches a ready installation with CA-verified HTTPS
+- [ ] #4 The installer accepts a certificate and key pair, or one PFX/PKCS#12 file with its password from an environment variable, through the same code path as `./sb cert install`, refuses them in private and development modes, and a fresh install is born serving that certificate
+- [ ] #5 Owner decision: is AC4 (installer certificate arguments) still wanted now that `./sb cert install` works, or does it move to STATBUS-399, which redesigns the certificate choice? Moving it lets this ticket close on AC1-3.
 <!-- AC:END -->
 
 ## Implementation Notes
 
 <!-- SECTION:NOTES:BEGIN -->
-Replay 2026-09-29 (tmp/ville-cert-install-replay.md, LXD forks ville-c1/c2 of Ville's exact broken v2026.09.2 state): ./sb cert install itself fails on the root-owned caddy/data (mkdir custom-certs: permission denied, cert.go writeCertAndKey), on both v2026.09.2 and v2026.09.3 binaries, with no guidance (D5). After a one-time ownership fix it works end to end (files, .env.config, config, proxy restart, SHA-256 probe via /etc/hosts), and the stable installer then completes 17/17 with HTTPS 200. Cert-first (before upgrading) is the shortest path: one installer pass, no step-6 refusal. Fix under review on fix/429-custom-certs (063498e52): cert install repairs custom-certs itself; remedies name ./sb cert install.
-
-Merged 2026-09-29: merge 8579e6e61 (+ lint fix a0ee1f2ed; Go Test 36569376957 success, Harness Selftest success). Direction per owner: operators fix certificates with ./sb cert install, never manual copying. What shipped to master: ./sb cert install repairs a root-owned or unwritable caddy/data/custom-certs itself through a container (the box's proxy image, alpine:3.20 fallback, no network), probes writability after; a failed repair prints the reason, the one sudo line, the rerun, then detail. Every certificate remedy (install_failure_cause.go, install.sh allowlists, validateTLSPaths guidance, doc/DEPLOYMENT.md incl. renewal and cert remove) names cd ~/statbus && ./sb cert install. Reviews: tmp/review-429.md, -2.md, -3.md (MERGE). Scenario 5-install-cert-repair-via-cert-install is HARNESS_SKIP_DEFAULT until its first green explicit LXD run. ACs #1/#2 still describe the superseded installer-step plan: owner to approve rewording to the cert install direction. AC#3 needs the explicit LXD run at the next candidate. Open non-blocking: R-i first half, R-j (cert install --help examples), R-f, README on-demand note.
-2026-10-01 10:29 UTC, factual reconciliation: `8579e6e61` and `a0ee1f2ed` are ancestors of published master `4eba1149e`, the source prepared for the first candidate. They are not in stable `v2026.09.3`. Status is In Progress, not Done. AC#3 needs an explicit non-default run of `5-install-cert-repair-via-cert-install` against the built candidate. AC#1/#2 retain their current wording and remain unchecked until the owner decides whether to reword them to the merged `./sb cert install` design.
+### Evidence
+- **AC1-2:** green locally on master, 2026-10-15; shipped in v2026.10.0.
+- **AC3:** open; scenario never run (its header, 2026-10-15).
+- **AC4:** open; no installer certificate inputs on master `cb34436b4`.
+- **History:** the 2026-09-29 replay notes, merge notes and 2026-10-01 reconciliation are folded into Zoom in; full text in Git history.
 <!-- SECTION:NOTES:END -->
