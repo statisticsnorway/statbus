@@ -4,7 +4,7 @@ title: The installer asks once whether to trust the Statistics Norway release si
 status: In Progress
 assignee: []
 created_date: '2026-09-24 15:35'
-updated_date: '2026-09-29 08:04'
+updated_date: '2026-10-15 19:13'
 labels:
   - release-bug
   - install
@@ -19,28 +19,38 @@ ordinal: 359000
 ## Description
 
 <!-- SECTION:DESCRIPTION:BEGIN -->
-Installation asks one plain question about trusting the Statistics Norway release signer, shows the key fingerprint, persists the answer, and later reports the signer step complete. The terminal does not enter an additional-signer loop.
+### North Star
+On a first install the operator is asked once, in plain words, whether to trust the Statistics Norway release signer, sees the key fingerprint before answering, and is never asked again.
 
-## Evidence, 2026-09-24
+### Zoom out
+Every StatBus release is signed, and the installer only accepts releases signed by a key the operator has chosen to trust. That trust is a deliberate decision, so it is asked, not assumed. It is also a one-time decision: once given, the answer is saved and every later run, including a rerun after an interrupted install, uses it silently. Showing the fingerprint lets the operator check the key out of band. Managing further signers is not part of installing; the installer offers exactly one.
 
-The Finland flow asked for trust before the step table, showed the fingerprint, offered an additional-signer prompt, and later ran the signer step (`/Users/jhf/ssb/statbus/tmp/finland-transcript-actual.txt:88-102`, `/Users/jhf/ssb/statbus/tmp/finland-transcript-2-actual.txt:107-114`). Master separates early input and step-16 handling at `cli/cmd/install.go:107,163,2572-2588` at `7a9cf707e`. No verified web signer-management feature is part of this ticket.
+### Zoom in
+- **Incident, Finland 2026-09-24 (v2026.09.2):** the signer question came before the step table, used GitHub and key-management wording, then opened `Add additional trusted signer? (GitHub username, or Enter to skip)`; a separate Trusted signers step ran later (`tmp/finland-transcript-actual.txt:88-104`).
+- **Shipped (v2026.09.3):** `436628aed` (saved consent needs first-install signer provenance), `67cfa7e6d` (consent kept on interrupted rerun), `333434efa` (first-run consent resumes after crash recovery, VM job `108718085344`). The question now sits inside the Trusted signers step, after the setup questions, with no additional-signer loop.
+- **Proof, unit:** `TestInteractiveSignerQuestionHasOneOwnerAndNoAdditionalLoop`, `TestTrustGitHubUserRunsBeforeDispatch` (`cli/cmd/install_trust_order_test.go`), `TestFreshUnattendedConfigThenTrust` (`cli/cmd/install_trust_input_test.go`), green 2026-10-15.
+- **Proof, real guest (STATBUS-474, 2026-10-08):** `0-interactive-setup-choices.sh` drives the real `install.sh` on a PTY and fails on any unexpected question. Observed: the plain explanation, `jhf (Jorgen H. Fjeld)`, fingerprint `SHA256:MU8OCWwTrZ6zkh0nZp/jmZpdgxe6rgBRDdlV87TqMIE`, one `Trust key(s) from github.com/jhf? [Y/n]`, then `[7/18] Trusted signers DONE`; driver count `signer=1`, no re-ask, no additional-signer prompt.
+
+### Closing review
+- **Memory:** none needed.
+- **Documentation:** none needed.
+- **Cleanup:** none.
 <!-- SECTION:DESCRIPTION:END -->
-
-## Status 2026-09-24
-
-**In Progress.** `8543f493a`: `cli/cmd/install_trust_input_test.go` and `install_trust_order_test.go` cover #1-2, one fingerprinted choice persisted before the signer step. #3's `0-interactive-trusted-signer.sh` is absent. **Remaining:** exercise exactly one choice and a later OK step without an additional-signer loop on a VM.
-
-Baseline: `origin/master` at `373d15fc3`. Criterion disposition and remaining positive targets are above; the acceptance criteria below remain authoritative. An authored but unrun VM scenario is **proof pending**, not met.
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 `cli/cmd/install_trust_input_test.go` observes one plain trust choice with fingerprint before persistence.
-- [ ] #2 `cli/cmd/install_trust_order_test.go` observes the persisted choice before the later signer step and no second prompt.
-- [ ] #3 `new: test/install-recovery/scenarios/0-interactive-trusted-signer.sh` records exactly one trusted-signer choice, the fingerprint, a later OK result, and no additional-signer terminal loop.
+- [x] #1 One plain trust question shows the signer and fingerprint before anything is saved (`TestFreshUnattendedConfigThenTrust`; real guest transcript in STATBUS-474)
+- [x] #2 The saved answer satisfies the later Trusted signers step and every rerun, with no second prompt and no additional-signer loop (`TestInteractiveSignerQuestionHasOneOwnerAndNoAdditionalLoop`, `TestTrustGitHubUserRunsBeforeDispatch`)
+- [x] #3 A real interactive install on a PTY asks the signer question exactly once and completes (`0-interactive-setup-choices.sh`, green 2026-10-08, STATBUS-474)
+- [ ] #4 Owner decision: the original ticket said further signers are managed in the web interface after installation; the 2026-09-24 restyle dropped that. Still wanted? Yes opens a new ticket for it and closes this one. No closes this one.
 <!-- AC:END -->
 
 ## Implementation Notes
 
 <!-- SECTION:NOTES:BEGIN -->
-Audit after v2026.09.3 (2026-09-29): v2026.09.3 (436628aed, 67cfa7e6d, 333434efa): signer consent persists across interrupted reruns. AC1/AC2 are green in Go Test. Remaining: 0-interactive-trusted-signer.sh (AC3).
+### Evidence
+- **AC1-2:** green locally on master, 2026-10-15.
+- **AC3:** the scenario still carries `HARNESS_SKIP_DEFAULT`, so it is not in the default release gate; its one run is the local 2026-10-08 guest recorded on STATBUS-474.
+- **Superseded criterion:** the restyle named `0-interactive-trusted-signer.sh`, never written; `0-interactive-setup-choices.sh` covers it.
 <!-- SECTION:NOTES:END -->
+
