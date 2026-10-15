@@ -3877,18 +3877,14 @@ func rearmRankingRetiredInstallation(ctx context.Context, tx pgx.Tx, sha, logRel
 		fmt.Sprintf("successful pinned install: sha=%s log=%s ranking-retired-row=%d", sha, logRelPath, id)); err != nil {
 		return err
 	}
-	// Re-arm in place to 'available', never through upgrade_schedule. Scheduling
-	// stamps scheduled_at, and upgrade_notify_daemon_trigger turns that into
-	// NOTIFY upgrade_apply for this SHA at commit: every daemon on the box then
-	// treats the version just installed as a fresh request. rc.03's operator
-	// remedy showed the cost. The still-running v2026.09.2 daemon rescheduled
-	// the completed row, claimed it, met this install's mutex and recorded the
-	// candidate itself as failed. The completion upsert below takes the row from
-	// available to completed in this same transaction; the state log records
-	// both transitions under the actor set above. The positive retirement
-	// evidence read under the row lock is the whole authority here, so the
-	// ordinary obsolete-pending trigger may still decline (it re-supersedes a
-	// row a newer completed release outranks); that is then reported, not forced.
+	// The install records an outcome, so it re-arms the row to 'available' and
+	// the completion upsert below sets completed_at. scheduled_at is a request
+	// for the daemon to run a version (see its column comment), and nobody is
+	// requesting anything here. The state log records both transitions under the
+	// actor set above. The positive retirement evidence read under the row lock
+	// is the whole authority, so the ordinary obsolete-pending trigger may still
+	// decline (it re-supersedes a row a newer completed release outranks); that
+	// is then reported, not forced.
 	var landed string
 	if err := tx.QueryRow(ctx, `UPDATE public.upgrade
 		SET state='available', superseded_at=NULL

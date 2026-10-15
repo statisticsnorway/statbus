@@ -90,10 +90,9 @@ UPDATE public.upgrade SET state = 'completed', completed_at = now(), log_relativ
 WHERE commit_sha = repeat('a', 40);
 ROLLBACK TO SAVEPOINT terminal_control;
 
-\echo '=== positive successful install re-arms in place to available, never scheduled ==='
--- Scheduling would stamp scheduled_at, which upgrade_notify_daemon_trigger turns
--- into NOTIFY upgrade_apply: every resident daemon would re-run the version just
--- installed (rc.03 operator remedy). scheduled_at must stay NULL throughout.
+\echo '=== a successful install records its outcome: superseded -> available -> completed ==='
+-- An install records an outcome (completed_at); scheduled_at is a request for
+-- the daemon to run a version, so it stays NULL (see the column comments).
 SET LOCAL statbus.actor = 'successful pinned ./sb install: pg_regress442';
 UPDATE public.upgrade SET state = 'available', superseded_at = NULL
 WHERE commit_sha = repeat('a', 40) AND state = 'superseded'

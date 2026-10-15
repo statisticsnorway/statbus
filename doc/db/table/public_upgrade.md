@@ -12,9 +12,9 @@
  release_url                | text                       |           |          |                                        | extended |             |              | 
  has_migrations             | boolean                    |           | not null | false                                  | plain    |             |              | 
  discovered_at              | timestamp with time zone   |           | not null | clock_timestamp()                      | plain    |             |              | 
- scheduled_at               | timestamp with time zone   |           |          |                                        | plain    |             |              | 
+ scheduled_at               | timestamp with time zone   |           |          |                                        | plain    |             |              | When someone asked for this version to be installed: an operator via ./sb upgrade schedule, or the release channel. Setting it is the request itself: upgrade_notify_daemon_trigger turns it into NOTIFY upgrade_apply, and the upgrade daemon runs the request. It records intent, so it is NULL on a row nobody asked to run, such as a version ./sb install put on the box directly.
  started_at                 | timestamp with time zone   |           |          |                                        | plain    |             |              | 
- completed_at               | timestamp with time zone   |           |          |                                        | plain    |             |              | 
+ completed_at               | timestamp with time zone   |           |          |                                        | plain    |             |              | When this version was confirmed running on the box: an upgrade finished, or ./sb install installed it. It records an outcome.
  error                      | text                       |           |          |                                        | extended |             |              | 
  rolled_back_at             | timestamp with time zone   |           |          |                                        | plain    |             |              | 
  skipped_at                 | timestamp with time zone   |           |          |                                        | plain    |             |              | 

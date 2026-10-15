@@ -168,13 +168,14 @@ func Test442PinnedInstallCompletion(t *testing.T) {
 				}
 				return nil
 			}
-			// Every daemon on the box listens on upgrade_apply, including an OLDER
-			// resident daemon that a pinned install is in the middle of replacing.
-			// Install bookkeeping must never send it: rc.03's operator remedy
-			// re-armed its own row through upgrade_schedule, the still-running
-			// v2026.09.2 daemon reacted by rescheduling the just-completed row,
-			// claimed it, met the install's mutex and recorded the candidate
-			// itself as failed. Observe with a separate session, as a daemon does.
+			// upgrade_apply is the request channel: every daemon on the box listens
+			// on it, including an OLDER resident daemon that a pinned install is in
+			// the middle of replacing. An install records an outcome, so nothing it
+			// does is a request (see the scheduled_at column comment). rc.03's
+			// operator remedy showed what a stray request costs: the still-running
+			// v2026.09.2 daemon rescheduled the just-completed row, claimed it, met
+			// the install's mutex and recorded the candidate itself as failed.
+			// Observe with a separate session, as a daemon does.
 			// A copied ConnConfig carries the original connection's notification
 			// buffer as its OnNotification hook; clear it so this session buffers
 			// its own (otherwise every notification lands on conn, unseen here).
