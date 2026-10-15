@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-09-14 11:41'
-updated_date: '2026-10-15 19:35'
+updated_date: '2026-10-15 20:09'
 labels:
   - release-bug
   - release
@@ -44,7 +44,7 @@ Developers here log in with `gh auth login`; nobody exports `GITHUB_TOKEN`. A ga
 - [x] #1 Every GitHub read in the release code resolves its token as `GITHUB_TOKEN`, then `gh auth token`, then anonymous (`TestGitHubAuthPrecedenceAndFallback`)
 - [x] #2 The gate prints which identity it used; on a machine with only `gh auth login` it says "authenticated via gh auth" (observed 2026-10-15)
 - [x] #3 The token never appears in Git argv, errors, logs or diagnostic files (`TestGitHubGitEnvUsesExtraHeaderNotArgv`, `TestAuthenticatedGitFailureRedactsCredentialsBeforeErrorsLogsAndDiagnostics`, `TestCommandOutputRedactsGitStderr`)
-- [ ] #4 Owner decision: the original asked for 100 consecutive green runs through `gh auth` to prove no 403. Authenticated reads get 5,000 requests per hour, so is the single observed authenticated run enough? Yes closes this ticket.
+- [ ] #4 [Owner] Accept the single observed authenticated run in place of the original 100 consecutive runs, and record it in Implementation Notes; then set Done. Not accepted: add the 100-run observation as a new criterion.
 <!-- AC:END -->
 
 ## Implementation Notes
