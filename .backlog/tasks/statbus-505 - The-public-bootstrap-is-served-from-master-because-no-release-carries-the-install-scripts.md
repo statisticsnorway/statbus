@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-10-13 15:39'
-updated_date: '2026-10-13 16:26'
+updated_date: '2026-10-15 16:33'
 labels:
   - release
   - docs
@@ -29,7 +29,7 @@ OPTIONS: (A) keep master deliberately, recorded as THE one documented bootstrap 
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 The decision is recorded: either the bootstrap exception is documented as deliberate, or the scripts become release assets and the redirects move to the tagged artifact.
+- [x] #1 The decision is recorded: either the bootstrap exception is documented as deliberate, or the scripts become release assets and the redirects move to the tagged artifact.
 - [ ] #2 If the scripts become release assets: a release carries them, the redirect targets are updated on niue, and fetching statbus.org/install.sh can no longer serve code from a branch. Checked by the asset list of a real release and by the redirect target.
 - [ ] #3 Whether or not this changes, STATBUS-504 answer records how preparation becomes one command, consistently with STATBUS-488 release matching.
 <!-- AC:END -->
@@ -60,4 +60,25 @@ SMALL DISCOVERY worth recording: there is NO setup.sh handler on niue at all. `g
 WHAT STEP 3 THEREFORE IS, exactly: in the statbus.org block, replace the two raw-master `handle` redirect targets with https://github.com/statisticsnorway/statbus/releases/latest/download/<name> for install.sh and uninstall.sh, and ADD a `handle /setup.sh` for setup-ubuntu-lts.sh pointing at the same latest-download form. Then `caddy validate` and reload, and re-run the three curl -I checks above to record the after-state.
 
 BEFORE-STATE RECORDED 2026-10-13 (read-only, no host change made). statbus.org/install.sh and /uninstall.sh both 302 to raw.githubusercontent.com/statisticsnorway/statbus/refs/heads/master/<script> - i.e. MASTER, the exact thing the only-a-named-candidate rule forbids. statbus.org/setup.sh 302s to www.statbus.org/setup.sh, which is a 404, so that shortcut serves no script at all today. TARGET: https://github.com/statisticsnorway/statbus/releases/latest/download/<script> (asset publishing added at .github/workflows/release.yaml:204-282 by 7e8253a46). NOT YET AVAILABLE: those three asset URLs 404 right now - the latest release is v2026.10.0 (2026-10-07, before 7e8253a46) and publishes only checksums.txt, release-manifest.json and the four sb-* binaries. HENCE the flip must wait for a release cut after 7e8253a46; flipping today would 404 the installer for operators. Full before-state saved at tmp/505-shortcut-before-state.txt.
+
+### Step 2 verified (2026-10-15, after v2026.10.1 stable)
+`releases/latest` is v2026.10.1. `releases/latest/download/{install.sh,uninstall.sh,setup-ubuntu-lts.sh}` all 200; the served install.sh is byte-identical to `git show v2026.10.1:install.sh`. Shortcuts still point at master (unchanged from the before-state).
+
+### Step 3: the edit on niue (needs root; devops has no passwordless sudo)
+In `/etc/caddy/Caddyfile`, block `statbus.org {` (line 201):
+```
+	handle /install.sh {
+		redir https://github.com/statisticsnorway/statbus/releases/latest/download/install.sh 302
+	}
+	handle /uninstall.sh {
+		redir https://github.com/statisticsnorway/statbus/releases/latest/download/uninstall.sh 302
+	}
+	handle /setup.sh {
+		redir https://github.com/statisticsnorway/statbus/releases/latest/download/setup-ubuntu-lts.sh 302
+	}
+```
+Then `sudo caddy validate --config /etc/caddy/Caddyfile && sudo systemctl reload caddy`.
+
+### Step 4: check from outside
+`curl -sI https://statbus.org/{install,uninstall,setup}.sh` each 302 to releases/latest/download/<asset>, and following it returns 200.
 <!-- SECTION:NOTES:END -->
