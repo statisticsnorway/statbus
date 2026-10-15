@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-09-27 10:07'
-updated_date: '2026-10-15 19:23'
+updated_date: '2026-10-15 20:09'
 labels:
   - installer
 dependencies: []
@@ -46,7 +46,7 @@ This ticket is a field report, not a feature. A field report is done when each f
 - [x] #3 The footer shows the release when the configured version's commit matches the served artifact, otherwise `commit <sha8>`, never `unknown` (`running-identity.test.ts`, `footer.test.tsx`, `TestDerivedVersion_ReleaseCheckoutVsDevCheckout`)
 - [ ] #4 A fresh install of a release containing `3df96b7bf` (v2026.10.1 or later) shows that release in the footer, observed on a real box
 - [x] #5 `doc/DEPLOYMENT.md` documents downloading `install.sh` and `uninstall.sh`, `chmod +x`, and the supported channels (`c5222eb16`)
-- [ ] #6 Owner decision: send Ville a short instruction for a stable install with his custom certificate now (the fixes are in v2026.10.1), or wait for STATBUS-429 and 399? Sending now closes the field loop.
+- [ ] #6 [Owner] Send Ville the stable-install instruction with his custom certificate now, or record in Implementation Notes that it waits for STATBUS-429 and 399
 <!-- AC:END -->
 
 ## Implementation Notes
