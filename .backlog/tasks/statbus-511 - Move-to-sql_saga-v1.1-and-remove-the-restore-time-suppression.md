@@ -4,7 +4,7 @@ title: Move to sql_saga v1.1 and remove the restore-time suppression
 status: In Progress
 assignee: []
 created_date: '2026-10-15 16:26'
-updated_date: '2026-10-15 16:27'
+updated_date: '2026-10-15 16:41'
 labels:
   - sql_saga
   - release
@@ -32,8 +32,8 @@ sql_saga v1.1 (tag `v1.1`, 54 commits after our pin `9e39fcc` = v1.0) fixes the 
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 The db image builds from sql_saga v1.1; a fresh database reports extversion 1.1 and native_library_version 1.1
-- [ ] #2 A database at 1.0 is upgraded by a forward migration and passes upgrade.md's verify queries (1.1, 1.1, 1, NULL, 0)
+- [x] #1 The db image builds from sql_saga v1.1; a fresh database reports extversion 1.1 and native_library_version 1.1
+- [x] #2 A database at 1.0 is upgraded by a forward migration and passes upgrade.md's verify queries (1.1, 1.1, 1, NULL, 0)
 - [ ] #3 A dump restores without session_replication_role, serial and via the seed path; the seed round-trip guard passes
 - [ ] #4 Full fast suite, test-livedb and Go Test green at job level; the next candidate's ladder green
 <!-- AC:END -->
@@ -53,4 +53,18 @@ sql_saga v1.1 (tag `v1.1`, 54 commits after our pin `9e39fcc` = v1.0) fixes the 
 - Migration `20261008183553` (481-B): released, immutable. Its effect is undone by v1.1's normalization.
 
 **Steps:** 1) Dockerfile: `sql_saga_release=v1.1`, one `make install` with Rust and libclang, drop the separate native stage. 2) Forward migration: `ALTER EXTENSION sql_saga UPDATE TO '1.1'` (preflight run locally: 161 derived grants listed for removal, no history-table policies, no cache API use). 3) Remove the suppression and test 352. 4) Seed rebuild, full fast suite, test-livedb, Go Test, then CI. STATBUS-486 closes with this ticket; STATBUS-482 (upstream) closes when v1.1 ships.
+
+### Upgrade proof, box-shaped (2026-10-15, tmp/saga11-upgrade-proof.sh, log tmp/saga11-upgrade-proof.log)
+Throwaway volume; dev stack untouched.
+1. Current image `statbus-db:b6d81049` restores the dev dump: extversion 1.0, 233 grants on the for-portion-of views.
+2. Same volume restarted on the new image (`saga11`, sql_saga v1.1 libraries): still 1.0, as a box is after its image swap and before migrations.
+3. v1.1 preflight passes, listing the derived grants it will remove.
+4. Migration `20261015163419` (guarded `ALTER EXTENSION sql_saga UPDATE TO '1.1'`) commits.
+5. upgrade.md verify: 1.1, 1.1, 1, NULL, then 15 instead of 0. The 15 are pg_stat_monitor/pg_stat_statements objects (another extension's own init privileges), not sql_saga's: the same query restricted to objects belonging to no extension returns 0. upgrade.md's query counts every extension's rows; on a database with other extensions read it as "0 detached rows".
+6. Access is unchanged: regular_user and admin_user can select and update through `legal_unit`/`establishment` `__for_portion_of_valid` (all 9 views are security_invoker). restricted_user's view has PUBLIC grants but reading it raises `permission denied for table legal_unit`, so the base table still decides.
+7. The REVOKE that failed under 1.0 (STATBUS-481) succeeds with checks active.
+8. The 1.1 database dumps and restores into an empty database with NO session_replication_role: extversion 1.1, event triggers 7/7 enabled.
+AC1 (fresh 1.1 from the image) and AC2 (1.0 upgraded by a forward migration, verified) checked.
+
+AC1 verified separately: a fresh database on the new image reports extversion 1.1, native_library_version 1.1.
 <!-- SECTION:NOTES:END -->
