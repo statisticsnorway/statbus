@@ -30,7 +30,7 @@ The fix moves the rule into the facet derivation itself: each record contributes
 - **Found:** while implementing STATBUS-460 on 2026-10-08. `public.statistical_unit_facet_def` grouped by record window, and `statistical_unit_facet_drilldown` filtered `valid_from <= valid_on < valid_until`, with no birth or death date. On dev at 2023-12-31 that kept counting the 13 not-yet-born STATBUS-458 demo establishments.
 - **Shipped:** `c459edf82` (migration `20261008202243_statbus_475_drilldown_facets_follow_the_existence_rule`). Both derivation paths, `worker.derive_statistical_unit_facet_partition` (production) and the `statistical_unit_facet_def` view, use `[unit_existence_from, unit_existence_until)`. Table shape, unique key and reduce are unchanged. In v2026.10.1.
 - **Proof:** test `353_statbus_475_drilldown_facets_follow_existence_rule` on the 458 demo rows plus a legal unit that dies inside its window. RED with the old derivation (2023-12-31 establishments 22 vs chart 12; the dead unit still counted); GREEN with drilldown equal to chart in every bar (2023: 24/24/12; 2024: 23/23/22), and region, status and country breakdowns each summing to the total. Fast Tests `37845723194`, 117/117. One existing expected output moved by the rule itself (107: a unit dying on 2012-12-31 now ends its facet on 2012-12-30).
-- **Timing, Norway dump (3.1 million rows, real worker procedures):** derive 110.5/101.1 s before, 85.8/95.8 s after; reduce about 29-41 s before and 39 s after; drilldown query 0.44-0.57 s.
+- **Timing:** measured on the Norway dump before and after (notes); derivation got no slower.
 - **Now observable:** v2026.10.1 contains `c459edf82` and was deployed to dev on 2026-10-15 13:08 UTC.
 
 ### Closing review
@@ -72,4 +72,6 @@ SCREEN INVENTORY (what each count-showing screen counts; rule = STATBUS-460 exis
 AC #2 (dev drilldown = card = chart) awaits a candidate containing a64f4ad38 and c459edf82 reaching dev; dev is at migration 20261006132000 today.
 
 CI: c459edf82 Images 37844915411 SUCCESS (the seed round trip, effective-ACL digest and restored-seed types check passed with the 475 migration), and Go Test, app build & lint and Harness Selftest succeeded. Fast Tests 37845723194 on a8faa8142 (first-parent descendant; c459edf82's own run 37845546975 was cancelled by that push) ran job 'pg_regress fast suite' = SUCCESS: seed restored (migration 20261008202243), '# All 117 tests passed.' including ok 117 353_statbus_475_drilldown_facets_follow_existence_rule, ok 29 107_load_and_verify_history_functions and ok 14 016. Left In Progress until AC #2 is observed on dev (same as 460).
+
+2026-10-15: the 'AC #2 awaits a candidate reaching dev' line above is superseded. v2026.10.1 contains a64f4ad38 (460) and c459edf82 (475) and was deployed to dev on 2026-10-15 13:08 UTC (Deploy to dev run on 3b17af171, success). AC #2 can now be observed: dev drilldown total vs dashboard card vs Units-over-time chart at 2023-12-31 and 2024-12-31.
 <!-- SECTION:NOTES:END -->
