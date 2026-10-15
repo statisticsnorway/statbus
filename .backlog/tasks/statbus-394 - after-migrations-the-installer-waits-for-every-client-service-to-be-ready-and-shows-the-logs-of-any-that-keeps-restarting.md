@@ -1,17 +1,14 @@
 ---
 id: STATBUS-394
-title: >-
-  After database setup, the installer confirms every client service and the
-  advertised site are ready
+title: The installer reports success only when every service runs and the API answers
 status: In Progress
 assignee: []
 created_date: '2026-09-24 16:42'
-updated_date: '2026-09-29 08:04'
+updated_date: '2026-10-15 19:09'
 labels:
   - release-bug
   - install
-dependencies:
-  - STATBUS-407
+dependencies: []
 priority: high
 type: bug
 ordinal: 1
@@ -20,40 +17,40 @@ ordinal: 1
 ## Description
 
 <!-- SECTION:DESCRIPTION:BEGIN -->
-## Implementation note, 2026-09-24
+### North Star
+The installer prints "Installation complete!" only when StatBus actually serves: every service running and the API answering, and when a client service will not come up, the operator is told which one and why.
 
-Review follow-up: bounded-readiness diagnostics now include plain per-failing-service terminal lines and state plus recent logs in the install log, with six-entry inventory. Go vet, command tests and gofmt passed. Advertised HTTP/TLS, worker functional readiness, update route and disposable-VM scenarios remain proof-pending; no acceptance criteria closed.
+### Zoom out
+Containers that "started" are not a working site. A client service (API, web app, worker) can start and then crash-loop, for example on a password the database does not accept, and a step table that ends all green over that is a lie. So the installer ends with a bounded readiness gate: wait a fixed budget for every service to run and the API to answer, and on timeout name the failing service in plain words, with its own startup error and recent logs kept in the install log.
 
-Existing step-8 and final checks bound container-running and API `/ready` waits. A failed wait now records the complete container inventory and recent logs for services that failed to start, rather than only returning a condition. The automatic-update route, advertised HTTP/TLS endpoint proofs, and all disposable-VM scenarios remain pending; none of the five acceptance criteria is claimed complete.
+What makes a client crash-loop is a separate concern: role-password drift is STATBUS-407, the daemon's database route is STATBUS-390. STATBUS-393 owns the six-service failure report and the support file.
 
-Continuation: a bounded final readiness failure now emits an allowlisted plain restarting-service line for rest, app, worker, or proxy in the operator terminal. Its state and recent logs remain in the install log. Guarded tests exercise each restart loop, and the terminal filter was checked with synthetic input. No VM proof has been run; all five acceptance criteria remain open.
+### Zoom in
+- **Incident, Finland 2026-09-24 (v2026.09.2):** after Migrations, `statbus-local-rest` was `Restarting (1)` while `db` was healthy, and the installer gave no focused diagnosis (`tmp/finland-transcript-actual.txt:144-148`). In the second session the automatic update service sat in `activating` retrying `127.0.0.1:5431` (`tmp/finland-transcript-2-actual.txt:131-154`). The original gap: `cli/internal/compose/compose.go` treated restarting as not-running.
+- **Shipped (v2026.09.3):** `f3889e5e8` makes step 8 start every service and adds the final gate `verifyInstallServing` (`cli/cmd/install.go`, before `Installation complete!`), which requires all services running and `http://$REST_ADMIN_BIND_ADDRESS/ready` = 200. `da7e8acfe` names restarting clients (`the API service (rest) keeps restarting`) and keeps their own logs.
+- **Proof:** `TestVerifyInstallServing`, `TestRestartingClientsReportOwnLogsAfterBoundedReadiness` (`cli/cmd/install_services_test.go`), green 2026-10-15. On real boxes, `0-happy-install.sh` asserts CA-verified HTTPS on `https://<domain>/rest/` after install, and `5-install-orphaned-db-volume-credentials.sh` (STATBUS-407) shows the rest crash-loop cause fixed and `/ready 200`.
+- **Not checked by the gate:** the advertised `https://<domain>` itself (the gate uses the local API admin address) and worker functional readiness beyond running.
 
-<!-- SECTION:DESCRIPTION:BEGIN -->
-After STATBUS-407 reconciles database role passwords, this ticket confirms API, application, worker, automatic-update route, and advertised-site readiness. The selected certificate mode determines whether the final site check uses trusted HTTPS or plain HTTP, and the installer prints success only after that response.
-
-## Evidence, 2026-09-24
-
-The customer's API log establishes authenticator password failure but does not establish how the customer credentials diverged (`/Users/jhf/ssb/statbus/tmp/finland-answers-4.txt:52-58`). Database role creation is in `postgres/init-db.sh:135-141,223` at master `7a9cf707e`. A disposable VM reproduced the surviving-volume and regenerated-settings mechanism (`/Users/jhf/ssb/.jcode/scratch/rest-loop.md:3-16,43-52`), while the normal local replay did not reproduce the loop (`/Users/jhf/ssb/statbus/tmp/local-ville-replay.md:984-987`). Its mismatch was deliberately injected (`/Users/jhf/ssb/statbus/tmp/local-ville-replay.md:914-962`). The customer step-17 timeout followed an unavailable host route (`/Users/jhf/ssb/statbus/tmp/finland-transcript-2-actual.txt:114-154`), and current readiness points are `cli/cmd/install.go:2557-2559,2819-2823` at master `7a9cf707e`.
+### Closing review
+- **Memory:** none needed.
+- **Documentation:** none needed.
+- **Cleanup:** delete the merged branch `fix/services-392-394` once STATBUS-392 no longer references it.
 <!-- SECTION:DESCRIPTION:END -->
-<!-- SECTION:DESCRIPTION:END -->
-
-## Status 2026-09-24
-
-**To Do.** #1-5 not met: none of the five named client-restart and endpoint-readiness scenarios/tests exists. `145c17292` added database/service reachability checks (`cli/cmd/install_services.go`), not the advertised TLS/HTTP client proof. **Remaining:** reconcile credentials, bound each client restart loop with its own logs, and verify advertised HTTPS or HTTP before announcing success.
-
-Baseline: `origin/master` at `373d15fc3`. Criterion disposition and remaining positive targets are above; the acceptance criteria below remain authoritative. An authored but unrun VM scenario is **proof pending**, not met.
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 `new: test/install-recovery/scenarios/5-install-api-restart-loop.sh` depends on STATBUS-407, changes credentials only on a disposable database, and observes API, application, and worker ready after reconciliation.
-- [ ] #2 `new: test/install-recovery/scenarios/5-install-client-restart-loop-diagnostic.sh` deliberately leaves the API, application, and worker in a restart loop one at a time on a disposable VM, observes the installer fail within its bounded readiness timeout, and verifies the diagnostic names the restarting service and includes that service's own startup error and recent logs. The fixture does not assert how the customer's credentials diverged.
-- [ ] #3 `new: cli/cmd/install_readiness_test.go::TestAutomaticUpdateRouteBeforeEnable` holds the selected route unavailable, observes a bounded actionable failure with logs, restores it, and confirms reachability before enablement.
-- [ ] #4 `new: test/install-recovery/scenarios/5-install-standalone-https-readiness.sh` selects public or operator-supplied trust, proves a trusted TLS handshake and HTTP response at the advertised address, then observes the success banner afterward.
-- [ ] #5 `new: test/install-recovery/scenarios/5-install-private-http-readiness.sh` selects a mode whose advertised endpoint is plain HTTP, proves the HTTP response, and observes no false HTTPS requirement.
+- [x] #1 `Installation complete!` is printed only after every service is running and the API admin `/ready` returns 200 within a bounded budget (`TestVerifyInstallServing`)
+- [x] #2 A client that keeps restarting past the budget is named in plain words in the terminal, with its own startup error and recent logs in the install log (`TestRestartingClientsReportOwnLogsAfterBoundedReadiness`)
+- [x] #3 On a real standalone box, the advertised site answers CA-verified HTTPS after install (`0-happy-install.sh`, `assert_harness_https_passes`)
+- [ ] #4 Owner decision: should the final gate itself probe the advertised `https://<domain>` before printing success, rather than only the local API admin address? No closes this ticket. Yes keeps it open for that probe.
 <!-- AC:END -->
 
 ## Implementation Notes
 
 <!-- SECTION:NOTES:BEGIN -->
-Audit after v2026.09.3 (2026-09-29): v2026.09.3 adds bounded readiness diagnostics (da7e8acfe, f3889e5e8). Smoke 0-happy-install proves CA-verified HTTPS on standalone but not banner ordering. AC1-5 remain unproven. AC5 (private HTTP) may be obsolete under 418's standalone-only harness decision.
+### Evidence
+- **AC1-2:** green in Go Test (v2026.09.3); re-run green locally on master, 2026-10-15.
+- **AC3:** smoke `0-happy-install` green on the rc ladder (recorded in the 2026-09-29 audit, `ea170989e`).
+- **Superseded criteria:** the 2026-09-24 restyle grew this ticket to five unwritten scenarios. Credential reconciliation went back to STATBUS-407 (its own scenario passes), the private plain-HTTP mode criterion was dropped as obsolete under STATBUS-418's standalone-only harness, and the daemon route check is STATBUS-390's `checkUpgradeDatabaseRoute`. The 394 -> 407 dependency was removed: 407 fixes a cause, not a precondition.
 <!-- SECTION:NOTES:END -->
+
