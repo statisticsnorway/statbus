@@ -3387,6 +3387,10 @@ EOS
         # scratch worktrees and pinned sb binaries, while this dev-only entrypoint
         # keeps all local DB test execution behind ./dev.sh.
         STATBUS_LIVEDB_TEST_TIER=1 go test -C "$WORKSPACE/cli" -tags livedb -count=1 ./internal/upgrade ./internal/install "$@"
+        # cmd's live tests drive the real ./sb install completion against the
+        # same kind of throwaway database. Only those run here: cmd's ordinary
+        # unit tests run in Go Test, under the unit-test guard.
+        STATBUS_LIVEDB_TEST_TIER=1 go test -C "$WORKSPACE/cli" -tags livedb -count=1 -run '^(Test442PinnedInstallCompletion|Test452KissNormalInstallRetiresAttempts|Test452KissHistoricalRepairNormalInstall)$' ./cmd "$@"
         # Run the real Docker probes separately: never allow the live-Docker
         # exception while the DB tests or the remaining unit tests run.
         bash "$WORKSPACE/ops/test-livedocker.sh"

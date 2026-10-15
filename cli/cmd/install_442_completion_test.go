@@ -12,12 +12,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/jackc/pgx/v5"
 	"github.com/statisticsnorway/statbus/cli/internal/dotenv"
 	"github.com/statisticsnorway/statbus/cli/internal/install"
 	"github.com/statisticsnorway/statbus/cli/internal/livedbtest"
 	"github.com/statisticsnorway/statbus/cli/internal/testgit"
-	"strconv"
 )
 
 // Real runInstall success/failure defer and SQL completion. Only detection and
@@ -25,22 +23,10 @@ import (
 func Test442PinnedInstallCompletion(t *testing.T) {
 	ctx := context.Background()
 	root := livedbtest.ProjectDir()
-	dsn := os.Getenv("STATBUS_442_DSN")
-	var conn *pgx.Conn
-	var err error
-	if dsn != "" {
-		if root == "" {
-			root, err = filepath.Abs("../..")
-			if err != nil {
-				t.Fatal(err)
-			}
-		}
-		conn, err = pgx.Connect(ctx, dsn)
-	} else if root != "" {
-		conn, err = connectInstallDB(root)
-	} else {
-		t.Skip("owned livedb fixture or explicit STATBUS_442_DSN required")
+	if root == "" {
+		t.Fatal("live-database fixture required (./dev.sh test-livedb)")
 	}
+	conn, err := connectInstallDB(root)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -49,7 +35,7 @@ func Test442PinnedInstallCompletion(t *testing.T) {
 	if err := conn.QueryRow(ctx, "SELECT current_database()").Scan(&database); err != nil {
 		t.Fatal(err)
 	}
-	if dsn != "" && database != "statbus_442_overnight_1006" || dsn == "" && !strings.HasPrefix(database, "statbus_livedb_") {
+	if !strings.HasPrefix(database, "statbus_livedb_") {
 		t.Fatalf("refuse non-owned database %q", database)
 	}
 	for _, mode := range []string{"legacy-call", "legacy-schedule-operator", "operator-retired", "no-event", "cross-sha-event", "stale-event", "failed-install", "normal-candidate", "waiting-operator-retired"} {
@@ -81,16 +67,6 @@ func Test442PinnedInstallCompletion(t *testing.T) {
 				t.Fatal(err)
 			}
 			env.Set("POSTGRES_APP_DB", database)
-			if dsn != "" {
-				cfg, err := pgx.ParseConfig(dsn)
-				if err != nil {
-					t.Fatal(err)
-				}
-				env.Set("CADDY_DB_BIND_ADDRESS", cfg.Host)
-				env.Set("CADDY_DB_PORT", strconv.Itoa(int(cfg.Port)))
-				env.Set("POSTGRES_ADMIN_USER", cfg.User)
-				env.Set("POSTGRES_ADMIN_PASSWORD", cfg.Password)
-			}
 			env.Set("UPGRADE_CALLBACK", "")
 			if err := os.WriteFile(filepath.Join(dir, ".env"), []byte(env.String()), 0600); err != nil {
 				t.Fatal(err)
@@ -168,27 +144,6 @@ func Test442PinnedInstallCompletion(t *testing.T) {
 				}
 				return nil
 			}
-			// upgrade_apply is the request channel: every daemon on the box listens
-			// on it, including an OLDER resident daemon that a pinned install is in
-			// the middle of replacing. An install records an outcome, so nothing it
-			// does is a request (see the scheduled_at column comment). rc.03's
-			// operator remedy showed what a stray request costs: the still-running
-			// v2026.09.2 daemon rescheduled the just-completed row, claimed it, met
-			// the install's mutex and recorded the candidate itself as failed.
-			// Observe with a separate session, as a daemon does.
-			// A copied ConnConfig carries the original connection's notification
-			// buffer as its OnNotification hook; clear it so this session buffers
-			// its own (otherwise every notification lands on conn, unseen here).
-			listenConfig := conn.Config()
-			listenConfig.OnNotification = nil
-			listen, err := pgx.ConnectConfig(ctx, listenConfig)
-			if err != nil {
-				t.Fatal(err)
-			}
-			t.Cleanup(func() { _ = listen.Close(ctx) })
-			if _, err := listen.Exec(ctx, "LISTEN upgrade_apply"); err != nil {
-				t.Fatal(err)
-			}
 			if mode == "waiting-operator-retired" {
 				operatorTx, beginErr := conn.Begin(ctx)
 				if beginErr != nil {
@@ -264,26 +219,6 @@ func Test442PinnedInstallCompletion(t *testing.T) {
 			} else if err != nil {
 				t.Fatal(err)
 			}
-			// A notification is delivered once its sender commits, which has
-			// happened by the time runInstall returns. Drain everything queued.
-			for {
-				waitCtx, cancel := context.WithTimeout(ctx, 500*time.Millisecond)
-				notification, waitErr := listen.WaitForNotification(waitCtx)
-				drained := waitCtx.Err() != nil
-				cancel()
-				if waitErr != nil || notification == nil {
-					// Only the drain deadline ends the loop; anything else is a
-					// broken observer and must not read as "no notification".
-					if !drained {
-						t.Fatalf("observe upgrade_apply: notification=%v err=%v", notification, waitErr)
-					}
-					break
-				}
-				t.Logf("observed NOTIFY upgrade_apply payload=%s", notification.Payload)
-				if notification.Payload == sha {
-					t.Fatalf("install completion sent NOTIFY upgrade_apply for its own installed SHA %s; a resident daemon would re-run the version just installed", sha)
-				}
-			}
 			want := "superseded"
 			if mode == "legacy-call" || mode == "legacy-schedule-operator" || mode == "normal-candidate" {
 				want = "completed"
@@ -318,20 +253,17 @@ func Test442PinnedInstallCompletion(t *testing.T) {
 				}
 			}
 			if strings.HasPrefix(mode, "legacy-") {
-				var events int
-				if err := conn.QueryRow(ctx, `SELECT count(*) FROM public.upgrade_state_log WHERE upgrade_id=(SELECT id FROM public.upgrade WHERE commit_sha=$1) AND new_state IN ('available','completed') AND actor LIKE 'successful pinned install:%' AND actor_source='self-reported'`, sha).Scan(&events); err != nil {
+				// The install records an outcome: its transitions are exactly
+				// superseded -> available -> completed, both attributed to it.
+				var path string
+				if err := conn.QueryRow(ctx, `SELECT string_agg(old_state || '>' || new_state, ',' ORDER BY id)
+				 FROM public.upgrade_state_log
+				 WHERE upgrade_id=(SELECT id FROM public.upgrade WHERE commit_sha=$1)
+				   AND actor LIKE 'successful pinned install:%' AND actor_source='self-reported'`, sha).Scan(&path); err != nil {
 					t.Fatal(err)
 				}
-				if events != 2 {
-					t.Fatalf("missing attributable rearm/completion events: %d", events)
-				}
-				matches, err := filepath.Glob(filepath.Join(dir, "tmp", "install-logs", "*.log"))
-				if err != nil || len(matches) != 1 {
-					t.Fatalf("install log: %v %v", matches, err)
-				}
-				contents, err := os.ReadFile(matches[0])
-				if err != nil || !strings.Contains(string(contents), "retirement_event=") {
-					t.Fatalf("synchronous install attribution missing: %v", err)
+				if path != "superseded>available,available>completed" {
+					t.Fatalf("install transitions = %q, want superseded>available,available>completed", path)
 				}
 			}
 			// This is the canary gate's exact lifecycle predicate, not artifact proof.

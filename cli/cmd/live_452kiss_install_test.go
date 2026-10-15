@@ -35,7 +35,7 @@ func Test452KissNormalInstallRetiresAttempts(t *testing.T) {
 	if err := conn.QueryRow(ctx, "SELECT current_database()").Scan(&database); err != nil {
 		t.Fatal(err)
 	}
-	if !strings.HasPrefix(database, "statbus_452kiss_ab_") {
+	if !strings.HasPrefix(database, "statbus_livedb_") {
 		t.Fatalf("refuse non-owned database %q", database)
 	}
 	for _, mode := range []string{"new-row", "terminal-refresh", "older-install", "parked", "failed", "dev", "bypass"} {

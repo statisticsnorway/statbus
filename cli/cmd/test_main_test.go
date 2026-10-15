@@ -1,3 +1,5 @@
+//go:build !livedb
+
 package cmd
 
 import (
