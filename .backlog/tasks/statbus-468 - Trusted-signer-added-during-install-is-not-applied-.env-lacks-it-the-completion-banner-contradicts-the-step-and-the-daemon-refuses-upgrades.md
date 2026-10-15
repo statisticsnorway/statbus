@@ -6,7 +6,7 @@ title: >-
 status: Done
 assignee: []
 created_date: '2026-10-08 12:13'
-updated_date: '2026-10-08 15:00'
+updated_date: '2026-10-15 09:08'
 labels:
   - installer
   - upgrade
@@ -86,4 +86,6 @@ EOF
 CI for 39f322aa7: Go Test success (run 37796359382), Harness Selftest success (37796359571), Images success, app build & lint success, Push on master success. Fast Tests (pg_regress, run 37797056820) was still queued behind 3311dd863's run when this was recorded. This commit changes no SQL. DoD #1 is met through the closest integration path, the red/green test chain above. A real install was deliberately not run, per the owner's 2026-10-08 direction.
 
 DoD reconciliation (the DoD was reworded while this work was in flight). DoD #1 is checked with one caveat stated plainly: the allowed_signers assertion that turns RED at 059fafe59^ is the cmd test TestInstallStepOrderGivesTheDaemonTheApprovedSigner, which asserts the content of the file written by the daemon's own Service.LoadTrustedSigners. The upgrade-package tests stay green at the parent, because the daemon's reader was never the defect. The step-name match is red/green through fresh-installer-test.sh. DoD #2 is deliberately LEFT UNCHECKED: per the owner's 2026-10-08 direction no real install or VM was run, so no host observation exists. The status was set to Done as instructed. DoD #2 is the one open item, and it needs one real install observation.
+
+2026-10-15: follow-on found by the rc.01/rc.02 LXD fault fleet. This ticket moved Trusted signers before Services (059fafe59), and that step's completion clears .first-install-signer-pending. Scenario 5-install-interrupted-first-run (STATBUS-384) still asserted the marker PRESENT at the Services boundary, so it went red on correct product behaviour (green at v2026.10.0, red at rc.01 and rc.02). Fixed in a425435a7: the scenario asserts the post-468 truth (marker gone, UPGRADE_TRUSTED_SIGNER_ recorded). The LXD backend now also captures registered guest logs, so such a failure carries its reason.
 <!-- SECTION:NOTES:END -->
