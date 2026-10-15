@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-09-25 13:08'
-updated_date: '2026-10-15 19:21'
+updated_date: '2026-10-15 20:09'
 labels:
   - installer
 dependencies: []
@@ -50,7 +50,7 @@ Removal is destructive, so the defaults protect what cannot be recreated:
 - [x] #2 `curl -fsSL https://statbus.org/uninstall.sh | bash` fetches the uninstaller (302 to master's `uninstall.sh`, 200, checked 2026-10-15)
 - [x] #3 On a real box, install, uninstall, and a fresh install on the same box all succeed (`6-uninstall-reinstall.sh`, rc.17 LXD PASS)
 - [x] #4 `doc/DEPLOYMENT.md` documents both entry points and the hosted URL
-- [ ] #5 Owner decision: should the uninstaller print the list of what it will delete before asking for confirmation (the original criterion), or are the two keep-questions enough? Yes adds that as the open criterion; no closes this ticket.
+- [ ] #5 [Owner] Decide whether the uninstaller must print the list of what it will delete before asking for confirmation, and record it in Implementation Notes. No: check this and set Done. Yes: add that listing as a new criterion.
 <!-- AC:END -->
 
 ## Implementation Notes
