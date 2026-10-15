@@ -3,9 +3,10 @@ id: STATBUS-508
 title: >-
   Rollback reads the source era from the recorded identity, not from the
   checked-out tree
-status: To Do
+status: In Progress
 assignee: []
 created_date: '2026-10-15 09:16'
+updated_date: '2026-10-15 09:26'
 labels:
   - upgrade
   - rollback

@@ -1,9 +1,10 @@
 ---
 id: STATBUS-507
 title: Rollback leaves the database stopped when an earlier rollback step fails
-status: To Do
+status: In Progress
 assignee: []
 created_date: '2026-10-15 09:16'
+updated_date: '2026-10-15 09:26'
 labels:
   - upgrade
   - rollback
