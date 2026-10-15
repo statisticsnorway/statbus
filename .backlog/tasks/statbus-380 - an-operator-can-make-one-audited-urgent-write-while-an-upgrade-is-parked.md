@@ -4,7 +4,7 @@ title: An operator can make one audited urgent repair while an upgrade stays par
 status: In Progress
 assignee: []
 created_date: '2026-09-21 12:03'
-updated_date: '2026-10-15 19:42'
+updated_date: '2026-10-15 20:09'
 labels:
   - release-bug
   - upgrade
@@ -45,7 +45,7 @@ The product answer is one verb, `./sb upgrade repair --file <sql> --reason <reas
 - [x] #2 Multiple statements, transaction control and psql meta-commands are refused (`TestParkedRepairSQL_RejectsMetaCommandsAndTransactionVariants`)
 - [x] #3 File, reason and operator are required (`TestUpgradeRepairRequiresAuditInputs`)
 - [ ] #4 A real parked upgrade receives one repair through `./sb upgrade repair`, with one matching audit record, the row still parked, and client writes still held
-- [ ] #5 Owner decision: is `./sb upgrade repair` the approved policy for writing to a parked database (as the two docs now state)? Yes, plus an answer on whether AC4 is required, closes this ticket.
+- [ ] #5 [Owner] Confirm `./sb upgrade repair` as the approved policy for writing to a parked database, and decide whether AC4's real-box run is required; record both in Implementation Notes. AC4 not required: remove it, check this and set Done.
 <!-- AC:END -->
 
 ## Implementation Notes
