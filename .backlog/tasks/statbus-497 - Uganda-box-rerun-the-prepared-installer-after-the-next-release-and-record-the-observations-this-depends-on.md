@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-10-13 13:16'
-updated_date: '2026-10-15 20:09'
+updated_date: '2026-10-15 20:16'
 labels:
   - install
   - uganda
@@ -47,7 +47,7 @@ Some acceptance criteria can only be met by watching the product on a real, unpr
 - [ ] #2 STATBUS-492 criterion 3 is satisfied with an ownership inspection from that box showing no root-owned file in the operator home.
 - [ ] #3 STATBUS-487 criterion 5 is satisfied with the install output from that box, quoted verbatim, showing the Docker cause named with its remedy (or recorded as not applicable if Docker was reachable).
 - [x] #4 Each dependent ticket names this ticket as the source of its observation.
-- [ ] #5 [Owner] Confirm v2026.10.1 (or name a later release) as the release the Uganda rerun waits for, and record it in Implementation Notes
+- [ ] #5 [Owner] Confirm v2026.10.1, or name a later release, as the release the Uganda rerun waits for, and record it in Implementation Notes. The confirmed release lets the rerun be scheduled; AC1-3 are filled from that run.
 <!-- AC:END -->
 
 ## Implementation Notes
