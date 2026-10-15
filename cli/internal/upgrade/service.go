@@ -9629,6 +9629,13 @@ func (d *Service) sourceServingExpectedImageReferences(ctx context.Context) (map
 		}
 		tag := extractImageTag(reference)
 		if tag != sourceTag && tag != "local" {
+			// STATBUS-508: when the model's tag is itself a commit, the refusal is
+			// a model/tree MISMATCH (the generated settings name one version, the
+			// checked-out tree another: a mixed-era box), not a missing image.
+			// rc.02 read as the latter and sent the diagnosis down the image path.
+			if commitShortShapeRe.MatchString(tag) {
+				return nil, "", &sourceServingEraUnknownError{Detail: fmt.Sprintf("the generated compose settings name version %s for %s, which does not match the checked-out tree at %s; the box is mixed-era, so no coherent source can be started (regenerate settings for the checked-out version, or check out the version the settings name)", tag, service, sourceTag)}
+			}
 			return nil, "", &sourceServingEraUnknownError{Detail: fmt.Sprintf("restored source compose image for %s is %q (tag %q), want source commit %s, immutable digest, or explicit local image", service, reference, tag, sourceTag)}
 		}
 	}

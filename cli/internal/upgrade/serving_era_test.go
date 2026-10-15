@@ -251,6 +251,38 @@ func TestSourceServingExpectedImageReferencesHandlesDigestAndLocal(t *testing.T)
 	}
 }
 
+// TestSourceServingExpectedImageReferencesNamesModelTreeMismatch is STATBUS-508.
+// The rc.02 fleet reported "source serving era cannot be established: restored
+// source compose image for app is ...:fe4a769a, want source commit 4c88d350".
+// Refusing was RIGHT: the compose model (from .env) named one version while the
+// checked-out tree was another, so the box was mixed-era and nothing named a
+// coherent source to start. What was wrong is that the refusal did not SAY so:
+// it read as a missing image, which sent the diagnosis down the image path for
+// hours. When the model's tag is itself an 8-character commit and differs from
+// the tree, the refusal must name both sides as the mismatch they are.
+func TestSourceServingExpectedImageReferencesNamesModelTreeMismatch(t *testing.T) {
+	git := newGitRepoFixture(t)
+	const modelCommit = "fe4a769a" // what the generated .env / compose model names
+	shimDir := t.TempDir()
+	config := fmt.Sprintf(`{"services":{"app":{"image":"ghcr.io/statisticsnorway/statbus-app:%[1]s"},"worker":{"image":"ghcr.io/statisticsnorway/statbus-worker:%[1]s"},"rest":{"image":"postgrest/postgrest:v12.2.8"},"proxy":{"image":"ghcr.io/statisticsnorway/statbus-proxy:%[1]s"}}}`, modelCommit)
+	shim := "#!/bin/sh\ncase \"$*\" in\n  \"compose --profile all config --format json\") printf '%s\\n' '" + config + "' ;;\nesac\n"
+	if err := os.WriteFile(filepath.Join(shimDir, "docker"), []byte(shim), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("PATH", shimDir+string(os.PathListSeparator)+os.Getenv("PATH"))
+	d := &Service{projDir: git.dir}
+	_, _, err := d.sourceServingExpectedImageReferences(context.Background())
+	if err == nil {
+		t.Fatal("a compose model naming another commit than the checked-out tree must refuse (mixed era)")
+	}
+	treeCommit := git.newSHA[:8]
+	for _, want := range []string{"does not match the checked-out tree", modelCommit, treeCommit} {
+		if !strings.Contains(err.Error(), want) {
+			t.Fatalf("refusal must name the model/tree mismatch (%q), got: %v", want, err)
+		}
+	}
+}
+
 func TestSourceServingExpectedImageReferencesIgnoresStderrWarnings(t *testing.T) {
 	git := newGitRepoFixture(t)
 	shimDir := t.TempDir()
