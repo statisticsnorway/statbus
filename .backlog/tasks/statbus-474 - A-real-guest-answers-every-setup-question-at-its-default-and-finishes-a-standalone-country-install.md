@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-10-08 15:16'
-updated_date: '2026-10-15 19:28'
+updated_date: '2026-10-15 19:52'
 labels:
   - install
   - installer
@@ -153,4 +153,6 @@ SITE AFTERWARDS: after `./sb cert install`, which printed "Verified: https://et.
 ONE OBSERVATION FOR THE OWNER (not fixed here; it is not a question this ticket drives): .env.config and .env carry STATBUS_URL=http://localhost:3010 on this standalone et.statbus-test.local install. config.go:471 defaults it to "http://localhost:3010" whatever the mode or domain, while BROWSER_REST_URL is derived from the domain. Its only reader in cli/ is the upgrade callback (service.go:12383, passed as STATBUS_URL to UPGRADE_CALLBACK, e.g. ops/notify-slack.sh "Instance: <...>"). So a standalone box with a callback would announce itself as localhost:3010.
 
 NOT CHANGED: the committed scenario (its header still says STATUS: UNRUN, and HARNESS_SKIP_DEFAULT stays as instructed), the default gate, and product code. The LXD-fleet run named in the precondition chain remains the owner's funding decision. This local run is the observation.
+
+2026-10-15 vetting: the precondition chain above (written before the run) called the LXD-fleet run 'the real run' and said 'Not Done until that run is green'. Superseded: the 2026-10-08 local guest run is the real-guest proof (AC1-3 checked). What remains is only the catalogue decision in AC4; either answer closes the ticket.
 <!-- SECTION:NOTES:END -->
