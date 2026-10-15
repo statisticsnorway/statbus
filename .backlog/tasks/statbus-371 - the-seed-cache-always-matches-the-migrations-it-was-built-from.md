@@ -4,7 +4,7 @@ title: A cached seed never holds a migration version the code no longer has
 status: In Progress
 assignee: []
 created_date: '2026-09-16 22:34'
-updated_date: '2026-10-15 16:48'
+updated_date: '2026-10-15 20:08'
 labels:
   - release-bug
   - migrations
@@ -47,7 +47,7 @@ Prevention needs one authority for "versions that may live in a retained seed". 
 - [x] #1 A release candidate that removes or renumbers a version seen on first-parent history since the previous release is refused, naming the version, first commit and original path (`TestMissingSeedLineageMigrationsRejectsPrereleaseRenumber`, `...RejectsPrereleaseRemoval` in `cli/internal/release/seed_lineage_test.go`)
 - [x] #2 Additions and description-only renames that keep the version pass the guard (`TestMissingSeedLineageMigrationsAllowsAdditionsAndSameVersionRename`)
 - [x] #3 An incompatible cached seed is rejected before restore mutates anything, and the build falls back to full replay where permitted (`TestRunSeedRestoreCmd_ValidatesCacheBeforeRestoreMutation`, `TestClassifySeedRestoreErrorFallsBackForIncompatibleCache` in `cli/cmd/`)
-- [ ] #4 Owner decision: first-parent master history since the previous release tag is the authority for versions that may live in a retained seed. Yes closes this ticket. No names the replacement authority and reopens the guard work.
+- [ ] #4 [Owner] Decide whether first-parent master history since the previous release tag is the authority for migration versions a retained seed may hold, and record the answer in Implementation Notes. Confirmed: check this and set Done. Rejected: name the replacement authority as a new criterion.
 <!-- AC:END -->
 
 ## Implementation Notes
