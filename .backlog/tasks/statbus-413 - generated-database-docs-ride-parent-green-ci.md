@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-09-24 23:55'
-updated_date: '2026-10-15 20:09'
+updated_date: '2026-10-15 20:16'
 labels:
   - release-bug
   - ci
@@ -48,7 +48,7 @@ The exemption is narrow by design. Hand-written files elsewhere under `doc/db/`,
 - [x] #2 The Go and app workflow `paths-ignore` lists match the exempt list (`TestPathsIgnoreMatchesExemptList_STATBUS224`)
 - [x] #3 The release gate rides only a green first-parent ancestor and refuses a red or missing one (`TestFindExemptRide_*`)
 - [ ] #4 One doc/db-only push on master is observed in Actions: Go and app workflows do not run, Images retags the parent, and release preflight rides the parent's green runs; parent and tip SHAs and run IDs recorded in Implementation Notes
-- [ ] #5 [Owner] Decide whether AC4 waits for a natural doc/db-only push or is produced deliberately (regenerated docs committed on their own after the next migration), and record it in Implementation Notes
+- [ ] #5 [Owner] Decide whether AC4 waits for a natural doc/db-only push or is produced deliberately, and record it in Implementation Notes. Wait: leave AC4 open. Produce: add "commit regenerated docs on their own after the next migration" as a new criterion.
 <!-- AC:END -->
 
 ## Implementation Notes
