@@ -4,7 +4,7 @@ title: Move to sql_saga v1.1 and remove the restore-time suppression
 status: In Progress
 assignee: []
 created_date: '2026-10-15 16:26'
-updated_date: '2026-10-15 19:27'
+updated_date: '2026-10-15 20:45'
 labels:
   - sql_saga
   - release
@@ -76,4 +76,8 @@ Note: images.yaml's comment names a local `./sb build seed` that only prints "No
 Local verification on the v1.1 db image: fast suite 117/117 in one run (tmp/saga11-test-fast.log), ./dev.sh test-livedb exit 0, go test ./... exit 0, golangci-lint 0 issues. Expected-output changes are v1.1's documented catalog change: test 002 gains sql_saga.installation and loses temporal_merge_cache; doc/db-security-report.md gains __internal_reconcile_system_versioning_family and loses temporal_merge_cache_maybe_purge.
 Found on the way: Go Test had been red on master since cd3b6ada8 (my column-comment migration sat above DaemonSchemaFloor). Fixed in c5d1dae35 by the reviewed floor bump.
 AC4 open: CI at job level for 42739f5f9 (Images builds the db image and the seed with the round trip, Fast Tests, test-livedb, Go Test), then the next candidate's ladder.
+
+### CI green (2026-10-15)
+CI on 42739f5f9 at job level: Images 38794026480 success (db image amd64+arm64 with sql_saga v1.1; seed job round trip without suppression: ACL digest identical, event triggers 7/7, types equal), Go Test 38794026570 success (go test + golangci-lint), Harness Selftest 38794026593 success, app build & lint 38794026656 success. Fast Tests 38802563803 success (pg_regress fast suite) at 3380e9ac0, which contains 42739f5f9 with identical suite inputs (migrations, test, cli, postgres, dev.sh, app/src/lib); the runs at 42739f5f9 itself were cancelled by later pushes.
+AC4 remains for the next release candidate's ladder. Owner notes sql_saga v1.2 is coming (a fix in progress); it is expected to be a quick pin bump on top of this.
 <!-- SECTION:NOTES:END -->

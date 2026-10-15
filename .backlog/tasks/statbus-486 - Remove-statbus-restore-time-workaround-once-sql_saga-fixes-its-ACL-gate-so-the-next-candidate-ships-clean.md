@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-10-12 19:31'
-updated_date: '2026-10-15 19:27'
+updated_date: '2026-10-15 20:45'
 labels:
   - release
   - upgrade
@@ -56,4 +56,7 @@ OWNER DECISION 2026-10-14: the upstream sql_saga ACL-gate fix (STATBUS-482) did 
 
 ### Done through STATBUS-511 (42739f5f9, 2026-10-15)
 sql_saga v1.1 shipped the ACL-gate fix. The suppression is removed from every restore path (restore_replica.go and its six call sites), with the seed round trip passing without it and test 352 retired. The seed round-trip guard and migration 20261008183553 are kept (reasons on STATBUS-511). Closes with 511 once CI and the next candidate are green.
+
+### CI green (2026-10-15)
+CI on 42739f5f9 at job level: Images 38794026480 success (db image amd64+arm64 with sql_saga v1.1; seed job round trip without suppression: ACL digest identical, event triggers 7/7, types equal), Go Test 38794026570 success (go test + golangci-lint), Harness Selftest 38794026593 success, app build & lint 38794026656 success. Fast Tests 38802563803 success (pg_regress fast suite) at 3380e9ac0, which contains 42739f5f9 with identical suite inputs (migrations, test, cli, postgres, dev.sh, app/src/lib); the runs at 42739f5f9 itself were cancelled by later pushes. Closes with STATBUS-511 after the next candidate's ladder.
 <!-- SECTION:NOTES:END -->
