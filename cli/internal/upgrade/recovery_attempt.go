@@ -68,18 +68,40 @@ func (d *Service) authorizeRecoveryAttempt(a recoveryAttempt) (authorized, overt
 			return fmt.Errorf("upgrade %d has no attempt start chronology", a.id)
 		}
 		if d.binaryCommit != a.sha {
+			// Overtaken by an independent install, on either of two positive
+			// evidences, each requiring that the attempt's target be a strict
+			// ancestor of the executable now running:
+			//   (1) a completed row for this executable, finished after the
+			//       attempt started; or
+			//   (2) the attempt never committed its snapshot (backup_path NULL).
+			//       By STATBUS-197 C1/C2 that attempt changed nothing on any axis,
+			//       so the box's present state belongs to this newer program, not
+			//       to the attempt. Judging it against this tree's migrations or
+			//       binary can only mislead: rc.02's fleet rolled back a healthy
+			//       box (scheduled path) and marked an older release completed with
+			//       its success callback (operator path) on exactly this shape,
+			//       before the newer install had written its own completed row.
 			var witness int
 			e = tx.QueryRow(ctx, `SELECT id FROM public.upgrade WHERE id <> $1 AND commit_sha=$2 AND state='completed' AND completed_at > $3 FOR UPDATE`, a.id, d.binaryCommit, a.started.Time).Scan(&witness)
 			if e != nil && !errors.Is(e, pgx.ErrNoRows) {
 				return e
 			}
-			if e == nil {
+			if e == nil || !a.backup.Valid {
+				witnessed := e == nil
 				_, ancestryErr := runCommandOutput(d.projDir, "git", "merge-base", "--is-ancestor", a.sha, d.binaryCommit)
 				var exitErr *exec.ExitError
+				strictAncestor := ancestryErr == nil
 				if ancestryErr != nil && (!errors.As(ancestryErr, &exitErr) || exitErr.ExitCode() != 1) {
-					return fmt.Errorf("verify intervening installation ancestry: %w", ancestryErr)
+					// A completed witness makes ancestry mandatory evidence, so an
+					// unresolvable commit stays a hard stop there. The no-snapshot
+					// evidence is only an additional route to "overtaken": when its
+					// ancestry cannot be established, decline it and let the ordinary
+					// recovery verdict decide, exactly as before this evidence existed.
+					if witnessed {
+						return fmt.Errorf("verify intervening installation ancestry: %w", ancestryErr)
+					}
 				}
-				if ancestryErr == nil {
+				if strictAncestor {
 					tag, e := tx.Exec(ctx, "UPDATE public.upgrade SET state='superseded', superseded_at=clock_timestamp() WHERE "+recoveryAttemptPredicate, a.args()...)
 					if e != nil {
 						return e

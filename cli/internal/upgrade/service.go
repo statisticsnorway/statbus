@@ -2858,7 +2858,10 @@ func (d *Service) ReconcileInterruptedForInline(ctx context.Context, afterRecove
 	var state string
 	var clean bool
 	err = d.queryConn.QueryRow(ctx, `SELECT state::text, commit_sha=$2 AND started_at IS NOT DISTINCT FROM $3::timestamptz AND claim_token::text IS NOT DISTINCT FROM $4::text AND backup_path IS NOT DISTINCT FROM $5::text AND recovery_parked_at IS NULL AND NOT tree_convergence_required AND rollback_finish_pending_at IS NULL FROM public.upgrade WHERE id=$1`, a.args()[:5]...).Scan(&state, &clean)
-	if err != nil || !clean || (state != "completed" && state != "rolled_back") {
+	// superseded is settled too: an older program's attempt that never committed
+	// its snapshot is overtaken by the candidate now dispatching (STATBUS-452), and
+	// retiring it untouched is exactly what lets that candidate proceed.
+	if err != nil || !clean || (state != "completed" && state != "rolled_back" && state != "superseded") {
 		return fmt.Errorf("inline recovery did not settle the exact attempt id=%d (state=%s clean=%t): %v; leave the candidate scheduled and re-run %s", a.id, state, clean, err, d.installCommand())
 	}
 	var pending bool

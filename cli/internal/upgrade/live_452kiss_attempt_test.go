@@ -17,7 +17,7 @@ import (
 // Exercise the production recovery entry, real PostgreSQL and Git. Docker and
 // HTTP are local serving fixtures. The callback writes a file, never a network.
 func Test452KissFlaglessAttempt(t *testing.T) {
-	for _, mode := range []string{"overtaken", "exact-crash", "descendant-crash", "held-handoff", "mutex-busy", "late-claim", "unknown-binary", "park-resource"} {
+	for _, mode := range []string{"overtaken", "stale-unsnapshotted", "exact-crash", "descendant-crash", "held-handoff", "mutex-busy", "late-claim", "unknown-binary", "park-resource"} {
 		t.Run(mode, func(t *testing.T) {
 			t.Setenv("HOME", t.TempDir())
 			ctx := context.Background()
@@ -78,7 +78,17 @@ func Test452KissFlaglessAttempt(t *testing.T) {
 			if mode == "exact-crash" {
 				target = git.newSHA
 			}
-			if err := d.queryConn.QueryRow(ctx, `INSERT INTO public.upgrade(commit_sha,committed_at,commit_tags,summary,state,scheduled_at,started_at,log_relative_file_path) VALUES($1,now()-interval '2 days','{}','452 owned route','in_progress',now()-interval '1 hour',now()-interval '59 minutes','452-owned.log') RETURNING id`, target).Scan(&id); err != nil {
+			// A genuine crash of THIS program's own attempt always has a committed
+			// snapshot: STATBUS-197 C1 records backup_path at the commit moment, and
+			// every destructive step sits after it. The un-snapshotted shape is the
+			// rc.01/rc.02 fleet failure: an OLDER program's attempt that died before
+			// its snapshot (so, by C2, it changed nothing), found by the newer
+			// installed program before any completed row exists for that program.
+			var backup any = "/var/lib/statbus-452-owned-snapshot"
+			if mode == "stale-unsnapshotted" {
+				backup = nil
+			}
+			if err := d.queryConn.QueryRow(ctx, `INSERT INTO public.upgrade(commit_sha,committed_at,commit_tags,summary,state,scheduled_at,started_at,backup_path,log_relative_file_path) VALUES($1,now()-interval '2 days','{}','452 owned route','in_progress',now()-interval '1 hour',now()-interval '59 minutes',$2,'452-owned.log') RETURNING id`, target, backup).Scan(&id); err != nil {
 				t.Fatal(err)
 			}
 			ids := []int{id}
@@ -127,10 +137,12 @@ func Test452KissFlaglessAttempt(t *testing.T) {
 			}
 			out, readErr := os.ReadFile(callback)
 			want := "completed"
-			if mode == "overtaken" {
+			if mode == "overtaken" || mode == "stale-unsnapshotted" {
+				// Both are superseded untouched: no completion, no callback, no
+				// rollback, and the later failure stays the operator's last word.
 				want = "superseded"
 				if !os.IsNotExist(readErr) {
-					t.Errorf("overtaken callback=%q err=%v", out, readErr)
+					t.Errorf("%s callback=%q err=%v", mode, out, readErr)
 				}
 				if failure != "452 later failure" {
 					t.Errorf("later failure erased=%q", failure)
