@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-09-24 15:35'
-updated_date: '2026-10-15 19:11'
+updated_date: '2026-10-15 20:08'
 labels:
   - release-bug
   - install
@@ -49,7 +49,7 @@ In both cases operator output is written for an operator. Implementation vocabul
 - [x] #1 A preflight refusal exits 78 and prints the plain reason, one outside fix and the saved rerun command, with no breakdown banner or support bundle (`fresh-installer-test.sh`: no-TTY, port, disk, restart cases)
 - [x] #2 A failure after work began prints the step, cause, outside fix, rerun command and support-file path with a non-78 exit (`fresh-installer-test.sh`: classified cause and database-route cases)
 - [x] #3 Operator-facing output contains no implementation vocabulary while the install log keeps the traces (`TestInstallOperatorOutputContainsNoInternalDiagnostics`, `TestInstallFailureCauseOperatorTextContainsNoInternalDiagnostics`)
-- [ ] #4 Owner decision: do the wrapper and Go tests plus the real-box port-80 refusal close this, or is one real-box post-start failure scenario required? The answer closes the ticket or adds that scenario.
+- [ ] #4 [Owner] Decide whether one real-box post-start failure scenario is required beyond the wrapper and Go tests, and record it in Implementation Notes. No: check this and set Done. Yes: add that scenario as a new criterion.
 <!-- AC:END -->
 
 ## Implementation Notes
