@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-09-28 13:07'
-updated_date: '2026-10-15 19:49'
+updated_date: '2026-10-15 20:09'
 labels:
   - ci
   - lxd
@@ -52,7 +52,7 @@ Moving the arcs is only safe if LXD sees what Hetzner saw. So the move was gated
 - [x] #5 Smoke 0-happy-install and 0-happy-upgrade run on the LXD box and leave the checkpoints faults and arcs fork from (Test Smoke `37577261099`)
 - [x] #6 LXD guests are ubuntu:26.04 (`ops/lxd-fleet/base.sh`)
 - [x] #7 No release gate boots a per-scenario test VM; the shared LXD box is itself a Hetzner machine by design
-- [ ] #8 Owner decision: accept 33/35 parity with both mismatches attributed to STATBUS-435 as the parity proof (AC2), and "no per-scenario test VM" as the meaning of AC7? Yes closes this ticket.
+- [ ] #8 [Owner] Accept the 33/35 parity (both mismatches attributed to STATBUS-435) as AC2's proof and "no per-scenario test VM" as AC7's meaning, recorded in Implementation Notes; then set Done
 <!-- AC:END -->
 
 ## Implementation Notes
