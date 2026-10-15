@@ -1,10 +1,12 @@
 ---
 id: STATBUS-409
-title: Each installed site gives the API its selected site settings
-status: In Progress
+title: >-
+  Each site passes its site code to database functions through PostgREST app
+  settings
+status: Done
 assignee: []
 created_date: '2026-09-24 15:46'
-updated_date: '2026-09-29 11:54'
+updated_date: '2026-10-15 19:39'
 labels:
   - release-bug
   - api
@@ -22,32 +24,35 @@ ordinal: 362000
 ## Description
 
 <!-- SECTION:DESCRIPTION:BEGIN -->
-The API receives the selected deployment slot as `app.settings.deployment_slot_code`, and its in-database configuration switch is a Boolean. Database functions therefore read the correct non-default site code.
+### North Star
+Database functions on every StatBus site can read which site they serve, because the API passes the site code to PostgreSQL the way PostgREST defines it.
 
-## Evidence, 2026-09-24
+### Zoom out
+PostgREST forwards `PGRST_APP_SETTINGS_<NAME>` environment variables into each database session as `app.settings.<name>`, readable with `current_setting`. `PGRST_DB_CONFIG` is something else: a true/false switch for reading configuration from the database. The site code had been put into `PGRST_DB_CONFIG`, so every site silently fell back to the default code. Each setting must go through the variable PostgREST defines for it.
 
-Current compose configuration assigns the site-setting expression to `PGRST_DB_CONFIG` (`docker-compose.rest.yml:28-30,37-40`, especially line 38, at master `7a9cf707e`). PostgREST 14 documentation, sections “Environment Variables”, “app.settings.*”, and “db-config”, states that `PGRST_APP_SETTINGS_*` maps to `app.settings.*`, while `PGRST_DB_CONFIG` is Boolean and enables in-database configuration: <https://docs.postgrest.org/en/v14/references/configuration.html#app-settings> and <https://docs.postgrest.org/en/v14/references/configuration.html#db-config>.
+### Zoom in
+- **Finding, 2026-09-24:** `docker-compose.rest.yml` set `PGRST_DB_CONFIG` to an `app.settings.deployment_slot_code=...` expression. PostgREST 14 documents `db-config` as Boolean and `app.settings.*` as coming from `PGRST_APP_SETTINGS_*` (https://docs.postgrest.org/en/v14/references/configuration.html#app-settings, `#db-config`). Database code reads it as `coalesce(current_setting('app.settings.deployment_slot_code', true), 'dev')` (for example `public.auth_test()`), so the fallback `dev` was returned everywhere.
+- **Shipped:** `598b35e1b` (2026-09-24, v2026.09.3): `PGRST_APP_SETTINGS_DEPLOYMENT_SLOT_CODE: ${DEPLOYMENT_SLOT_CODE}` and `PGRST_DB_CONFIG: "true"`.
+- **Proof, CI:** `test/config/postgrest-environment-test.sh` checks both variables; it runs in Go Test (`ac660d02e`, merge `367966083`), green in `36564358788`, and locally 2026-10-15.
+- **Proof, live (2026-10-15, read-only anonymous call):** `POST https://demo.statbus.org/rest/rpc/auth_test` returns `deployment_slot = demo`, a non-default value read through `current_setting` in a database function. Dev returns `dev`, which equals the fallback and so proves nothing on its own.
+
+### Closing review
+- **Memory:** none needed.
+- **Documentation:** the compose file comment explains the mapping.
+- **Cleanup:** none.
 <!-- SECTION:DESCRIPTION:END -->
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [x] #1 `new: test/config/postgrest-environment-test.sh` asserts `PGRST_APP_SETTINGS_DEPLOYMENT_SLOT_CODE` carries the selected slot and `PGRST_DB_CONFIG` is exactly `true` or `false`.
-- [ ] #2 `new: cli/internal/config/postgrest_test.go::TestPostgRESTDBConfigBooleanCases` covers both true and false switch values.
-- [ ] #3 `new: test/integration/postgrest-deployment-slot-test.sh` starts a non-default slot and observes that `current_setting('app.settings.deployment_slot_code', true)` returns that slot through a database function.
+- [x] #1 The API passes the site code as `PGRST_APP_SETTINGS_DEPLOYMENT_SLOT_CODE` and `PGRST_DB_CONFIG` is exactly `true` or `false` (`test/config/postgrest-environment-test.sh`, in Go Test)
+- [x] #2 A database function on a site with a non-default code reads that code from `app.settings.deployment_slot_code` (demo returns `deployment_slot = demo` from `rpc/auth_test`, 2026-10-15)
 <!-- AC:END -->
 
 ## Implementation Notes
 
 <!-- SECTION:NOTES:BEGIN -->
-Audit after v2026.09.3 (2026-09-29): v2026.09.3 (598b35e1b): PGRST_APP_SETTINGS_DEPLOYMENT_SLOT_CODE passes the slot and PGRST_DB_CONFIG is boolean. AC1's shell test passed when run by hand but is not in CI. AC2 may be moot (the value is literal). AC3 (non-default slot through a DB function) is not done.
-
-Coordinator 2026-09-29: AC1 left unchecked until CI runs test/config/postgrest-environment-test.sh (wired in go-test.yaml on fix/selftest-runid, with its dead '! grep' line removed per review C2).
-
-AC1 proven 2026-09-29: test/config/postgrest-environment-test.sh now runs in Go Test (merge 367966083); run 36564358788 step 'PostgREST receives the selected site settings' success. Its dead '! grep' line was removed per review.
+### Evidence
+- **AC1:** Go Test `36564358788`, step "PostgREST receives the selected site settings"; local pass 2026-10-15.
+- **AC2:** live, read-only anonymous `rpc/auth_test` on demo, 2026-10-15.
+- **Superseded:** the restyle named `cli/internal/config/postgrest_test.go` (Boolean cases) and `test/integration/postgrest-deployment-slot-test.sh`, neither written. The shell test covers the Boolean value, and the live demo call is the end-to-end proof.
 <!-- SECTION:NOTES:END -->
-
-## Status 2026-09-24
-
-**In Progress.** `598b35e1b`: `docker-compose.rest.yml` uses `PGRST_APP_SETTINGS_DEPLOYMENT_SLOT_CODE`; `test/config/postgrest-environment-test.sh` covers #1. #2 `cli/internal/config/postgrest_test.go` and #3 non-default-slot integration proof are absent. **Remaining:** cover both `PGRST_DB_CONFIG` Boolean cases and observe the selected slot via PostgREST/SQL on a non-default installation.
-
-Baseline: `origin/master` at `373d15fc3`. Criterion disposition and remaining positive targets are above; the acceptance criteria below remain authoritative. An authored but unrun VM scenario is **proof pending**, not met.
