@@ -6,7 +6,7 @@ title: >-
 status: Done
 assignee: []
 created_date: '2026-10-13 12:17'
-updated_date: '2026-10-13 13:44'
+updated_date: '2026-10-15 10:28'
 labels:
   - install
   - fidelity
@@ -109,4 +109,6 @@ AC#5 stays open: needs the next real run on the Uganda box (owner).
 CI for d5f7b6503 (job level): its own Go Test run 38402262627 was CANCELLED (superseded by bbeefa563, which contains d5f7b6503). On bbeefa563: Go Test 38402510153 'cli go test ./...' success + golangci-lint success; app build & lint 38402510344 build-app success; Harness Selftest 38402510198 success. On d5f7b6503 itself: Images 38402262707 success, Harness Selftest 38402262886 success, CodeQL success. Fast Tests (pg_regress) cancelled on every SHA since by newer pushes in the same concurrency group (38402819859, 38403121002, 38403771288); this change touches no SQL. AC#5 open (Uganda box rerun).
 
 Criterion 5 (the operator-facing output on the Uganda box) is deferred to STATBUS-497, which carries the rerun. Owner instruction 2026-10-13: tickets that are landed with green tests move to Done, with the box observation tracked in 497.
+
+2026-10-15 follow-on: d5f7b6503 broke test/install-recovery/tests/fresh-installer-test.sh (its fixture docker answered every call with exit 99, so install.sh's new docker-info preflight refused before any work). Bisected: green at d5f7b6503^, red at d5f7b6503. It stayed red unnoticed because no workflow ran it: 21 of 69 harness test files were run by nothing. Fixed in 11d7e5317: the fixture docker answers 'docker info' like a reachable daemon (all other docker calls still fail), and harness-selftest.yaml now runs every standalone harness test.
 <!-- SECTION:NOTES:END -->
