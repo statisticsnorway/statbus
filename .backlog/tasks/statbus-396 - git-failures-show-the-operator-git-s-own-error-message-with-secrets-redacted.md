@@ -4,7 +4,7 @@ title: Git failures show Git's useful error text with every secret redacted
 status: In Progress
 assignee: []
 created_date: '2026-09-24 16:44'
-updated_date: '2026-10-15 19:36'
+updated_date: '2026-10-15 20:09'
 labels:
   - release-bug
   - cli
@@ -43,7 +43,7 @@ Two failure modes pull in opposite directions. Swallowing Git's output leaves th
 - [x] #2 A missing ref keeps `fatal: couldn't find remote ref <ref>` in terminal and log (`TestMissingRefPreservesMessage`)
 - [x] #3 A network failure keeps `Could not resolve host` and redacts URL credentials (`TestNetworkFailurePreservesMessageAndRedactsURLCredentials`)
 - [x] #4 The three failures through the public installer show the same in terminal and install log (`test/install/install-git-errors-test.sh`)
-- [ ] #5 Owner decision: `test/install/*.sh` is not run by any CI workflow. Add it to Harness Selftest (or another workflow), or accept manual runs? Either answer closes this ticket.
+- [ ] #5 [Owner] Decide whether `test/install/*.sh` runs in a CI workflow (for example Harness Selftest) or stays manual, and record it in Implementation Notes. CI: add the wiring as a new criterion. Manual: check this and set Done.
 <!-- AC:END -->
 
 ## Implementation Notes
