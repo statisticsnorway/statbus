@@ -4,7 +4,7 @@ title: Database role passwords always match the saved settings
 status: In Progress
 assignee: []
 created_date: '2026-09-24 15:46'
-updated_date: '2026-10-15 19:15'
+updated_date: '2026-10-15 20:08'
 labels:
   - release-bug
   - install
@@ -46,7 +46,7 @@ The settings file is the authority. So whoever is about to connect with a passwo
 - [x] #1 The installer re-applies every login role password from the settings over the local socket before its first password connection, and changes nothing when they agree (`TestRunStartServicesSyncsPasswordsBeforePublishedPorts`, `TestSyncIsNoOpWhenPasswordsAgree`, `TestSyncReappliesOrphanedVolumePasswords`)
 - [x] #2 The upgrade service does the same before its first connection, and a sync failure never stops its boot (`TestDaemonSyncsRolePasswordsBeforeFirstConnect`, `TestSyncRolePasswordsBeforeConnectNeverFailsTheBoot`)
 - [x] #3 On a real box, reinstalling over a surviving volume with regenerated credentials leaves the API steady and ready, users intact and the upgrade service running (`5-install-orphaned-db-volume-credentials.sh`, rc.17 LXD PASS)
-- [ ] #4 Owner decision: is a real-box proof of the upgrade service repairing a mismatch on its own (no installer first) required? No closes this ticket. Yes adds that scenario as the open criterion.
+- [ ] #4 [Owner] Decide whether a real-box proof of the upgrade service repairing a password mismatch on its own (no installer first) is required, and record it in Implementation Notes. No: check this and set Done. Yes: add that scenario as a new criterion.
 <!-- AC:END -->
 
 ## Implementation Notes
