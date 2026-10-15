@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-09-24 16:42'
-updated_date: '2026-10-15 19:10'
+updated_date: '2026-10-15 20:08'
 labels:
   - release-bug
   - install
@@ -46,7 +46,7 @@ The failure to prevent is a check that passes through one route while the next s
 - [x] #1 Every installer and daemon TCP client resolves the same `CADDY_DB_BIND_ADDRESS:CADDY_DB_PORT` route and ignores `SITE_DOMAIN` and ambient `PGHOST`/`PGPORT` (`TestInstallerDatabaseOperationsUseInternalRoute`, `TestResolveIgnoresSiteDomainAndRequiresInternalEndpoint`, `TestRecoveryDSNUsesInternalRoute`)
 - [x] #2 The recovery operations that must survive a broken route use the database local socket (`TestDockerDatabaseCommandsUseLocalSocket`)
 - [x] #3 On a real box with the published database route cut before migrations, the installer fails bounded naming the web entry point, and a rerun completes seed, migrations and readiness (`5-install-database-route-interrupted.sh`, rc.17 LXD `36506437069`, owned by STATBUS-388)
-- [ ] #4 Owner confirms the two-way design (shared published route plus named socket exceptions) as the target, which closes this ticket
+- [ ] #4 [Owner] Confirm the two-way design (one shared published route plus the named socket exceptions) as the target and record it in Implementation Notes. Confirmed: check this and set Done. Rejected: add the internal-route design as a new criterion.
 <!-- AC:END -->
 
 ## Implementation Notes
