@@ -1,10 +1,10 @@
 ---
 id: STATBUS-362
-title: 'live tests drive the mutable on-disk ./sb: pin the binary they start with'
+title: Live-database tests drive a pinned sb in their own scratch worktree
 status: In Progress
 assignee: []
 created_date: '2026-09-07 17:26'
-updated_date: '2026-09-29 08:04'
+updated_date: '2026-10-15 19:33'
 labels:
   - harness
   - testing
@@ -16,111 +16,46 @@ type: task
 ordinal: 70
 ---
 
-## Status 2026-09-24
+## Description
 
-**In Progress:** `ee25738b0`, `b0128bc7f`, `240fa0a92` added `cli/internal/livedbtest/fixture.go`, `//go:build livedb`, pinned scratch worktrees, private HOME, and CI fast-tests step. The broader done-when requires every listed live test, no project `.env` mutation, and green complete tier; the targeted merged checks cover only the exercised paths. **Remaining:** verify the whole live-database matrix, selector/naming, source-binary pinning, and owner approval of the provisional tier rule.
+<!-- SECTION:DESCRIPTION:BEGIN -->
+### North Star
+A live-database test always drives the exact `sb` binary it started with, in its own scratch checkout, so nothing else on the machine can change what is under test halfway through.
 
-Baseline: `origin/master` at `373d15fc3`. Criterion disposition and remaining positive targets are above; the acceptance criteria below remain authoritative. An authored but unrun VM scenario is **proof pending**, not met.
+### Zoom out
+Live-database tests run real `sb` subcommands against a real local database. They used to execute the project's own `./sb`, a file that a concurrent rebuild or a raw `go build` can replace at any moment. Then the test silently drives a different program, which can leave the developer's database in a state no test meant to create. The cure is isolation: each test package gets a detached worktree with its own generated settings, builds an identity-bearing `sb` once, and drives only that pinned copy. Tests never write the developer's own `.env`.
 
-## Ground truth (2026-09-07)
+These tests are also a distinct tier, so they are selected by what they need (a real database), not by a runtime environment flag that lets them compile and skip silently in ordinary runs.
 
-`live_statbus354_crash_twins_test.go` (and other `STATBUS_LIVE_DB=1` tests) invoke
-`filepath.Join(projDir, "sb")` directly. That file is mutable: any concurrent
-rebuild, or a raw `go build` without dev.sh's `cmd.commit` ldflag, changes what
-the test is driving mid-run. Observed 2026-09-07 during the 354 review: an
-identity-less `./sb` (`vcs.modified=true`, no `cmd.commit`) made every mutating
-subcommand exit 69 after twin 1 had applied a real down migration, leaving
-`statbus_local` below the daemon floor. Investigation:
-`tmp/STATBUS-354-stale-sb-investigation.md`.
+### Zoom in
+- **Incident, 2026-09-07 (STATBUS-354 review):** an identity-less `./sb` (no `cmd.commit`) appeared mid-run; every mutating subcommand then exited 69 after the first test had applied a real down migration, leaving `statbus_local` below the daemon floor (`tmp/STATBUS-354-stale-sb-investigation.md`).
+- **Owner-approved design (2026-09-07):** a git worktree per test package, part of the Fast Tests workflow.
+- **Shipped (v2026.09.3):** `ee25738b0`, `b0128bc7f`, `240fa0a92`, `dbeec8153`: `cli/internal/livedbtest` builds pinned scratch worktrees with a private `HOME` and generated scratch `.env`; 25 live files carry `//go:build livedb` (38 tests); `./dev.sh test-livedb` runs them, and Fast Tests calls it. The manual stable-release check is isolated under its own `release_live` tag.
+- **Proof:** `TestPinnedSBIgnoresProjectBinaryReplacement` (`cli/internal/upgrade/live_prune_test.go`) replaces the project `./sb` with a script that exits 99 and requires the run to be unaffected. The Fast Tests step "Live-database tests" is green (`36505196729`). The two remaining `filepath.Join(projDir, "sb")` uses in live tests are fixtures that deliberately read or replace the project file, not execution.
+- **Provisional names:** build tag `livedb`, tier name "live-database tests", and 25 claim-based test names (table in the notes), implemented 2026-09-24 as provisional until the owner confirms.
 
-## What to do
+### Closing review
+- **Memory:** none needed.
+- **Documentation:** `doc/DEVELOPMENT.md` describes `./dev.sh test-livedb`.
+- **Cleanup:** the 2026-09-07 to 09-24 design and sequencing sections were folded in here; full text in Git history.
+<!-- SECTION:DESCRIPTION:END -->
 
-Live tests build (via the same ldflags dev.sh uses) or copy the binary once at
-test start into a temp path and drive THAT for the whole run. Add one test that
-proves a mid-run replacement of `./sb` does not change the binary under test.
+## Acceptance Criteria
+<!-- AC:BEGIN -->
+- [x] #1 No live-database test executes the project `./sb`; each drives a pinned binary built once in its own scratch worktree, and never writes the project `.env`
+- [x] #2 `TestPinnedSBIgnoresProjectBinaryReplacement` proves a mid-run replacement of the project `./sb` does not change the binary under test
+- [x] #3 Live tests are selected by the `livedb` build tag, compiled out of ordinary `go test ./...`, and run as the "Live-database tests" step of Fast Tests (green in `36505196729` and on master `f1e7dcfba`, run `38771500938`, 2026-10-15)
+- [ ] #4 Owner decision: confirm the provisional build tag `livedb`, tier name "live-database tests" and the 25 claim-based test names (notes), or name what to change. Confirmation closes this ticket.
+<!-- AC:END -->
 
-## Done when
+## Implementation Notes
 
-- No live test references `filepath.Join(projDir, "sb")` for execution.
-- The pinning test passes; full live suite green.
+<!-- SECTION:NOTES:BEGIN -->
+### Evidence
+- **AC1-3:** shipped in v2026.09.3; Live-database tests step green on master run `38771500938` (2026-10-15).
+- **AC4:** open.
 
-## Not this ticket
-
-The freshness guard itself is correct (`cli/`-scoped). Do not widen or weaken it.
-
-## Scope addition (2026-09-07 21:03): tests must never write the project's .env
-
-`TestLiveReattemptRestore_DelayedSecondInstallCannotRestoreAgain`
-(`cli/internal/upgrade/live_reattempt_race_test.go`) puts a fake `git` on
-PATH that answers `rev-parse` with `1111…1111`, then lets the code under test
-run `sb config generate` against the REAL project dir. Result on 2026-09-07:
-the developer's `.env` carried `COMMIT_SHORT=1111…` and `VERSION=shim git:
-describe …` from 16:38 until the RC cut at 20:47, and `build-sb` tried to
-pull seed image `statbus-seed:1111…`. Owner ruling: unprincipled. Rule: a
-live test gets a scratch project dir (copy of the tree, own `.env`) or it
-does not exercise config generation. Same family as the stale-`./sb`
-problem this ticket already covers; fix together.
-
-## Design (owner-approved 2026-09-07 21:33): git worktree per test package
-
-Root cause of both symptoms: live tests use the developer's checkout as the
-daemon's project directory, so the daemon's ordinary behaviour (execute
-`./sb`, `config generate` writing `.env`, publish `sb.old` over `sb`)
-mutates the tree the developer is working in.
-
-The daemon's project-dir surface is small and known (`grep filepath.Join
-(projDir` in non-test code): `tmp/`, `.env`, `.env.config`,
-`.env.credentials`, `sb`, `sb.old`, `migrations/`, `ops/`, `caddy/`,
-`.db-seed/`, `dbdumps/`.
-
-Per package, once, in `TestMain` when `STATBUS_LIVE_DB=1`:
-
-1. `git worktree add --detach $tmp HEAD` (exactly one commit; uncommitted
-   edits excluded by construction).
-2. Copy `.env.credentials` from the real tree; run `sb config generate` in
-   the worktree so the worktree's `.env` is written by real `git`, no fake
-   SHAs. The generated `.env` points at the same local database as today.
-3. `go build` with the ldflags dev.sh uses (`cmd.commit`, version) to
-   `$tmp/sb`. Every test drives that path; the real `./sb` is never executed
-   by a test again.
-4. `findProjDir` returns `$tmp`; cleanup is `git worktree remove --force`.
-
-Unchanged: `docker compose` stays shimmed on PATH (tests never touch the
-developer's containers); the shared local DB and the cross-package flock
-stay. Containerising the daemon was considered and rejected: it buys nothing
-the worktree does not and makes the shims harder.
-
-Consequences: `live_reattempt_race_test.go` drops its fake `git` entirely
-(the version it wants is the worktree's real HEAD). The freshness guard on
-`./sb` is untouched.
-
-Guard tests:
-- Replace the real `./sb` with `exit 99` while a live test runs; the test's
-  binary is unaffected.
-- After the live suite: `git status --porcelain` in the real tree is empty
-  and `.env` is byte-identical to before.
-
-## Workflow integration (owner-approved 2026-09-07 21:35): part of this ticket
-
-Fast Tests (`fast-tests.yaml`, GitHub runner `ubuntu-24.04`) already has
-services up, a migrated DB, and one Go test against that live DB (the daemon
-floor oracle). Add one step after it:
-
-    STATBUS_LIVE_DB=1 go test -C cli -count=1 -run 'TestLive' \
-      ./internal/upgrade ./internal/install
-
-Runtime ~2-4 min on top of the run. No change to `release prerelease`:
-check 7 already reads Fast Tests green at HEAD, so the live tier joins that
-single oracle. The worktree fixture above is the prerequisite (the runner's
-checkout is the project dir too). `TestLiveStablePreflight` stays manual: it
-needs a real RC tag and a token. Update `doc/DEVELOPMENT.md` ~620 to say the
-tier now runs per commit and how to run it locally.
-
-Done when, in addition to the above: a Fast Tests run at HEAD shows the live
-step green with the 24 tests listed, and a deliberately red live test on a
-branch turns Fast Tests red.
-
-## Names, final table (coordinator draft 2026-09-14, Terra pristine judgment applied)
+### Provisional names (implemented 2026-09-24, awaiting owner confirmation)
 
 Rule: a name states the claim the assertions prove, nothing more or less.
 Provenance (ticket numbers) goes in a comment. `_Helper` marks a subprocess
@@ -155,61 +90,4 @@ eight corrected names below are Terra's (`tmp/STATBUS-362-naming-judgment.md`).
 | 23 | `TestLiveRollbackFinishing_ExternalWritesReopen` | `TestRollbackFinishReopensExternalWrites` |  |
 | 24 | `TestLiveStablePreflight` | `TestReleaseStablePreflightGates` |  |
 | 25 | `TestLiveTerminalRowCleanupMarkerPublishesSourceBinary_STATBUS354` | `TestCleanupAfterTerminalRowRemovesMarkerAndRetainsRow` | Terra-corrected |
-
-## Selector and tier name (Terra-corrected)
-
-- Selector: build tag named for the MECHANISM, `//go:build livedb`. `go test
-  ./...` compiles the tier out; `go test -tags livedb ./internal/upgrade
-  ./internal/install` runs it. The `STATBUS_LIVE_DB` env var and every
-  `t.Skip` guard go. `TestReleaseStablePreflightGates` (row 24) needs a real
-  tag and a token and stays manual under its own tag `release_live`.
-- Tier name in docs and the Fast Tests step: **live-database tests**. Terra:
-  "recovery" is the majority subject, not the set's property; what the 25
-  share is a real local database. STATBUS-359's four-cell rule (install/
-  upgrade x works/recovers) does not transfer as a family label here; only
-  its per-test "name the claim" discipline does.
-- Workflow step (fast-tests.yaml, after the daemon floor oracle):
-  `go test -tags livedb -count=1 ./internal/upgrade ./internal/install`.
-
-## Why not in the current batch
-
-Owner rule from 2026-09-07: no renaming before the ruling, and the ruling
-was deferred. It also touches 19 test files under cli/internal/upgrade
-while that package is the one the ladder is proving; landing it mid-ladder
-would move the code under the candidate. It is the first item after the
-batch RC is green and the owner has ruled Q1 (build tag `livedb`).
-
-## Ruling needed, one question
-
-Q1: selector = build tag `livedb`, tier name "live-database tests", names as
-in the table above. Yes, or name what to change.
-
-## Batch sequencing (owner ruling 2026-09-15)
-
-This ticket lands in the ONE batch after the current release: it does not
-touch master until v2026.09.1-rc.08 (or the first later rc that goes fully
-green) has been installed on Norway and promoted to stable. Then all batch
-tickets land in one push, one candidate, one ladder. Position in that push:
-**7 of 8**. live-database tests: worktree sandbox, livedb build tag, Fast Tests step, 25 renames; needs owner Q1 ruling first
-
-Batch order: 370 -> 368 -> 367 -> 363 -> 357 -> 361 -> 362 -> 359.
-
-## Reconciliation 2026-09-23
-
-Classification: PARTIAL. Evidence: design/scratch work only; live tests still need isolated pinned worktrees and green suite.
-
-Remaining: Land per-package scratch worktrees and pinned binaries, prevent project .env writes, and pass the full live suite.
-
-## Implementation note 2026-09-24
-
-Provisional, owner to confirm: selector `//go:build livedb`, tier name “live-database tests”, and the 25 claim-based names in the table above.
-
-Rejected alternative: retain the runtime `STATBUS_LIVE_DB` environment selector and `TestLive*` family names. Runtime skips let the live-only files participate in ordinary package compilation and name the execution mode rather than the assertion claim.
-
-Implemented per-package detached worktrees, copied local configuration into the scratch tree, generated only the scratch `.env`, built an identity-bearing pinned `sb`, redirected direct subprocess execution to that pinned binary, removed the fake Git shim, added a project-`sb` replacement regression test, wired Fast Tests, and updated development documentation. The manual stable-release gate is isolated under `release_live`.
-
-## Implementation Notes
-
-<!-- SECTION:NOTES:BEGIN -->
-Audit after v2026.09.3 (2026-09-29): v2026.09.3 ships pinned-worktree live tests (ee25738b0, b0128bc7f, 240fa0a92, dbeec8153). The Live-database tests step is green in Fast Tests 36505196729. Remaining: a red-branch proof, verbose test listing, and the owner ruling on the livedb selector and names.
 <!-- SECTION:NOTES:END -->
