@@ -129,7 +129,7 @@ func TestRestoreAndFinalizeClientsLiveReturnsBeforeFullStackStartup(t *testing.T
 	if strings.Contains(body, `"docker", "compose", "--profile", "all", "up"`) {
 		t.Fatal("restoreAndFinalize must never use an unscoped full-profile compose up; source-tier convergence belongs only in startSourceApplicationStack")
 	}
-	startIdx := strings.Index(body, "d.startRollbackDatabaseOnly(ctx, progress)")
+	startIdx := strings.Index(body, "d.startRollbackDatabaseOnly(ctx, progress,")
 	holdIdx := strings.Index(body, "d.holdRollbackClientsLive(id, backupPath, attemptsAtCall, progress, clientsLiveErr)")
 	returnIdx := -1
 	if holdIdx >= 0 {

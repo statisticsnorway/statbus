@@ -30,7 +30,9 @@ func TestRollbackFinalizeUnlinkFailureRecoversCleanupOnly(t *testing.T) {
 		}
 	}
 	shimDir := t.TempDir()
-	if err := os.WriteFile(filepath.Join(shimDir, "docker"), []byte("#!/bin/sh\ncase \"$*\" in *pg_isready*) echo 'accepting connections';; *) echo \"shim: $*\";; esac\nexit 0\n"), 0755); err != nil {
+	// The db's route (the Caddy proxy) exists on every real box; rollback's
+	// database start looks it up (STATBUS-507) before starting the containers.
+	if err := os.WriteFile(filepath.Join(shimDir, "docker"), []byte("#!/bin/sh\ncase \"$*\" in *pg_isready*) echo 'accepting connections';; *'compose ps -a -q proxy'*) echo statbus-test-proxy-id;; *'compose ps -a --format json'*) echo '[{\"ID\":\"statbus-test-proxy-id\",\"Service\":\"proxy\",\"State\":\"running\",\"Image\":\"statbus-proxy\"}]';; *'compose ps'*) echo '[]';; *) echo \"shim: $*\";; esac\nexit 0\n"), 0755); err != nil {
 		t.Fatal(err)
 	}
 	t.Setenv("PATH", shimDir+string(os.PathListSeparator)+os.Getenv("PATH"))

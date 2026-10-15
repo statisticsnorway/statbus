@@ -46,7 +46,12 @@ case "$*" in
   *"compose exec db pg_isready"*|*"compose exec"*"pg_isready"*) echo "accepting connections"; exit 0 ;;
   *"compose --profile all up -d --remove-orphans"*) echo "shim: services up"; exit 0 ;;
   *"compose stop"*) echo "shim: stopped"; exit 0 ;;
+  # The db's route (the Caddy proxy) exists on every real box; rollback's
+  # database start looks it up (STATBUS-507) before starting the containers.
+  *"compose ps -a -q proxy"*) echo "statbus-test-proxy-id"; exit 0 ;;
+  *"compose ps -a --format json"*) echo '[{"ID":"statbus-test-proxy-id","Service":"proxy","State":"running","Image":"statbus-proxy"}]'; exit 0 ;;
   *"compose ps"*) echo "[]"; exit 0 ;;
+  *"compose start db"*|*"start statbus-test-proxy-id"*) echo "shim: started"; exit 0 ;;
   *) echo "shim: unexpected docker call: $*" >&2; exit 0 ;;
 esac
 `), 0755); err != nil {

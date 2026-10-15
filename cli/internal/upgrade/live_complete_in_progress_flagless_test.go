@@ -24,6 +24,21 @@ import (
 //
 // go test -tags livedb -count=1 ./internal/upgrade ./internal/install
 func TestUpgradeFlaglessBehindRowRollsBack(t *testing.T) {
+	runFlaglessBehindRollback(t, false)
+}
+
+// TestUpgradeFlaglessBehindRowServingFailureKeepsDatabaseUp is STATBUS-507: the
+// rc.02 fleet shape. A rollback with NO snapshot (nothing was restored) whose
+// serving-tier start fails must still leave the database running, so the
+// outcome is recorded and the box is not left dark. On the unfixed code the
+// rollback stops the database up front and only the serving-tier start brings
+// it back, so this failure left it down (rc.02: "DB not ready: service db is
+// not running", then ROLLBACK_TERMINAL_WRITE_FAILED).
+func TestUpgradeFlaglessBehindRowServingFailureKeepsDatabaseUp(t *testing.T) {
+	runFlaglessBehindRollback(t, true)
+}
+
+func runFlaglessBehindRollback(t *testing.T, servingFails bool) {
 	realProjDir := findProjDir(t)
 	for _, path := range []string{flagFilePath(realProjDir), filepath.Join(realProjDir, "sb.old"), maintenanceFlagHostPath()} {
 		if _, err := os.Stat(path); err == nil {
@@ -60,6 +75,10 @@ func TestUpgradeFlaglessBehindRowRollsBack(t *testing.T) {
 printf '%s\n' "$*" >> "$STATBUS_TEST_DOCKER_LOG"
 case "$*" in
   *"compose exec db pg_isready"*|*"compose exec"*"pg_isready"*) echo "accepting connections"; exit 0 ;;
+  # The db's route (the Caddy proxy) exists on every real box; the rollback's
+  # database start looks it up before starting the existing containers.
+  *"compose ps -a -q proxy"*) echo "statbus-test-proxy-id"; exit 0 ;;
+  *"compose ps -a --format json"*) echo '[{"ID":"statbus-test-proxy-id","Service":"proxy","State":"running","Image":"statbus-proxy"}]'; exit 0 ;;
   *"compose ps"*) echo "[]"; exit 0 ;;
   *) echo "shim: $*"; exit 0 ;;
 esac
@@ -96,12 +115,48 @@ esac
 		"STATBUS_FLAGLESS_BEHIND_PROJ_DIR="+git.dir,
 		"STATBUS_FLAGLESS_BEHIND_BINARY_COMMIT="+git.oldSHA,
 	)
+	if servingFails {
+		cmd.Env = append(cmd.Env, "STATBUS_FLAGLESS_BEHIND_SERVING_FAILS=1")
+	}
 	output, runErr := cmd.CombinedOutput()
 	t.Logf("flagless Behind helper output:\n%s", output)
 
 	var state string
 	if err := control.queryConn.QueryRow(ctx, "SELECT state::text FROM public.upgrade WHERE id = $1", id).Scan(&state); err != nil {
 		t.Fatalf("read recovery outcome: %v", err)
+	}
+	dockerCalls, _ := os.ReadFile(dockerLog)
+	t.Logf("docker calls:\n%s", dockerCalls)
+	if servingFails {
+		// The database is the box's own record. With no snapshot nothing was
+		// restored, so it must never be left stopped: either rollback did not
+		// stop it, or it started it again independently of the serving tier.
+		stoppedDB, startedDB := false, false
+		for _, call := range strings.Split(string(dockerCalls), "\n") {
+			fields := strings.Fields(call)
+			if len(fields) < 2 || fields[0] != "compose" {
+				continue
+			}
+			hasDB := false
+			for _, f := range fields[2:] {
+				if f == "db" {
+					hasDB = true
+				}
+			}
+			switch {
+			case fields[1] == "stop" && hasDB:
+				stoppedDB, startedDB = true, false
+			case (fields[1] == "start" || fields[1] == "up") && hasDB:
+				startedDB = true
+			}
+		}
+		if stoppedDB && !startedDB {
+			t.Fatalf("STATBUS-507: the rollback stopped the database and never started it again after the serving tier failed; docker calls:\n%s", dockerCalls)
+		}
+		if state != "failed" {
+			t.Fatalf("STATBUS-507: a failed serving-tier start must record the degraded outcome (state=failed), got state=%s; output:\n%s", state, output)
+		}
+		return
 	}
 	var exitErr *exec.ExitError
 	exit75 := errors.As(runErr, &exitErr) && exitErr.ExitCode() == 75
@@ -139,6 +194,11 @@ func TestUpgradeFlaglessBehindRow_Helper(t *testing.T) {
 	// filesystem, git, progress-log, and flock effect in the synthetic repo.
 	d.projDir = os.Getenv("STATBUS_FLAGLESS_BEHIND_PROJ_DIR")
 	d.startSourceApplicationStackForTest = func(context.Context, *ProgressLog) error { return nil }
+	if os.Getenv("STATBUS_FLAGLESS_BEHIND_SERVING_FAILS") == "1" {
+		d.startSourceApplicationStackForTest = func(context.Context, *ProgressLog) error {
+			return errors.New("serving tier refused to start (STATBUS-507 fixture)")
+		}
+	}
 	if err := d.completeInProgressUpgrade(ctx); err != nil {
 		t.Fatalf("completeInProgressUpgrade: %v", err)
 	}

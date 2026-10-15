@@ -12966,7 +12966,17 @@ func (d *Service) restoreAndFinalize(ctx context.Context, id int, version string
 		progress.Write("Checking for this upgrade's database snapshot ... ok (none recorded; leaving the live volume unchanged)")
 	}
 	if backupPath != "" && dbRestoreErr == nil {
-		dbRestoreErr = d.startRollbackDatabaseOnly(ctx, progress)
+		dbRestoreErr = d.startRollbackDatabaseOnly(ctx, progress, "restored database for schema-floor replay")
+	}
+	if backupPath == "" {
+		// STATBUS-507: rollback stopped the database before it knew there was
+		// nothing to restore. The volume is untouched, so the database is simply
+		// the SAME container started again; it must not wait on the later
+		// serving-tier start, which can fail for its own reasons (rc.02 fleet:
+		// the database stayed down, the outcome could not be recorded, and the
+		// box was left needing manual recovery). A failure here is reported as a
+		// database failure through the ordinary degraded terminal below.
+		dbRestoreErr = d.startRollbackDatabaseOnly(ctx, progress, "existing database again (nothing was restored)")
 	}
 	if dbRestoreErr != nil {
 		var clientsLiveErr *RecoveryClientsLiveError
@@ -13398,7 +13408,7 @@ func (d *Service) restoreRollbackSnapshotWithTargetAssets(progress *ProgressLog,
 	return d.restoreDatabase(progress, backupPath)
 }
 
-func (d *Service) startRollbackDatabaseOnly(ctx context.Context, progress *ProgressLog) error {
+func (d *Service) startRollbackDatabaseOnly(ctx context.Context, progress *ProgressLog, what string) error {
 	if err := d.StartDatabaseRouteServingMustBeStopped(ctx); err != nil {
 		return fmt.Errorf("start existing restored database: %w", err)
 	}
@@ -13408,7 +13418,7 @@ func (d *Service) startRollbackDatabaseOnly(ctx context.Context, progress *Progr
 	if err := d.reconnect(ctx); err != nil {
 		return fmt.Errorf("reconnect target recovery process: %w", err)
 	}
-	progress.Write("  Starting only the restored database for schema-floor replay ... healthy")
+	progress.Write("  Starting only the %s ... healthy", what)
 	return nil
 }
 

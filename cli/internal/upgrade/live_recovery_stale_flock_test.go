@@ -42,6 +42,10 @@ if [ "$*" = 'compose exec -T db psql -X -q -A -t -F | -v ON_ERROR_STOP=1 -U post
 fi
 case "$*" in
   *"compose exec db pg_isready"*|*"compose exec"*"pg_isready"*) echo "accepting connections"; exit 0 ;;
+  # The db's route (the Caddy proxy) exists on every real box; rollback's
+  # database start looks it up (STATBUS-507) before starting the containers.
+  *"compose ps -a -q proxy"*) echo "statbus-test-proxy-id"; exit 0 ;;
+  *"compose ps -a --format json"*) echo '[{"ID":"statbus-test-proxy-id","Service":"proxy","State":"running","Image":"statbus-proxy"}]'; exit 0 ;;
   *"compose ps"*) echo "[]"; exit 0 ;;
   *) echo "shim: $*"; exit 0 ;;
 esac
