@@ -4,7 +4,7 @@ title: Running the install command again changes only what an answer changed
 status: In Progress
 assignee: []
 created_date: '2026-09-24 15:35'
-updated_date: '2026-10-15 19:13'
+updated_date: '2026-10-15 20:08'
 labels:
   - release-bug
   - install
@@ -42,8 +42,8 @@ For a changed setting, each generated setting declares which services read it (i
 <!-- AC:BEGIN -->
 - [x] #1 A second run on a ready unchanged box reports every step OK, none RUNNING or DONE, and pulls no image (`0-happy-install.sh` green-box rerun)
 - [x] #2 Image detection recognises present images from Compose JSON `ContainerName` (`TestComposeServicesHaveImagesRequiresEachNamedService`)
-- [ ] #3 Changing only the display name restarts the app and nothing else, and the app then shows the new name; today it restarts nothing (defect above)
-- [ ] #4 Owner decision: is AC3 fixed here (declare the restart class, prove it with a rerun), or split into its own bug ticket so this one closes on AC1-2?
+- [ ] #3 Changing only the display name in the installer restarts the app and no other service, and the app then shows the new name (a rerun with only `DEPLOYMENT_SLOT_NAME` changed)
+- [ ] #4 [Owner] Decide whether AC3 is fixed in this ticket or split into its own bug ticket, and record it in Implementation Notes. Here: AC3 stays. Split: file the bug, link it, remove AC3, then set Done.
 <!-- AC:END -->
 
 ## Implementation Notes
@@ -55,4 +55,3 @@ For a changed setting, each generated setting declares which services read it (i
 - **AC3:** unmet; defect identified from source on 2026-10-15, not yet reproduced on a box.
 - **Superseded criteria:** the restyle asked for captured Compose v2 and v5 JSON fixtures and a `0-rerun-display-name-change.sh` scenario that were never written.
 <!-- SECTION:NOTES:END -->
-
