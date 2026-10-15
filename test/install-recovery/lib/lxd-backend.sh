@@ -767,6 +767,14 @@ lxd_capture_failure() {
         _lxd_host lxc exec "$name" -- docker ps -a --format '{{.ID}} {{.Image}} {{.Names}} {{.CreatedAt}} {{.Status}}' || true
         _lxd_host lxc exec "$name" -- journalctl --no-pager -n 1000 -u docker || true
         _lxd_host lxc exec "$name" -- journalctl --user --no-pager -n 2000 _UID=1001 || true
+        # Every guest log the scenario registered, whole (fixed argv, no guest
+        # shell expansion). This is where a scenario's own failure reason lives.
+        local entry label path
+        for entry in "${LXD_REGISTERED_LOGS[@]+"${LXD_REGISTERED_LOGS[@]}"}"; do
+            label=${entry%%|*}; path=${entry#*|}
+            echo "[capture] ==== registered guest log: $label $path ===="
+            _lxd_host lxc exec "$name" -- cat "$path" || echo "[capture] $path is absent or unreadable"
+        done
     } > "$out" 2>&1
     echo "$out"
 }
@@ -1162,7 +1170,16 @@ cleanup_vm() {
     esac
 }
 capture_failure_artifacts() { lxd_capture_failure "$VM_NAME"; }
-harness_register_log() { _lxd_mark "registered guest log: $1 ${2:-}"; }
+# Parity with vm-bootstrap.sh's harness_register_log: remember each guest log a
+# scenario registers so lxd_capture_failure can pull it whole. Before this, the
+# LXD backend only printed a marker, so a scenario's own log (e.g. the watcher's
+# first-install.log, which carries the "boundary not observed" reason) never
+# reached the artifact, and rc.02's interrupted-first-run ERROR had no message.
+LXD_REGISTERED_LOGS=()
+harness_register_log() {
+    _lxd_mark "registered guest log: $1 ${2:-}"
+    case "${2:-}" in /*) LXD_REGISTERED_LOGS+=("$1|$2") ;; esac
+}
 _lxd_unit_op() {
     local op=$1 unit=${2:-statbus-upgrade@statbus.service} wait_s=${3:-5} state
     if ! VM_EXEC systemctl --user "$op" "$unit"; then

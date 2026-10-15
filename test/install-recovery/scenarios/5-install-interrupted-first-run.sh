@@ -61,7 +61,12 @@ wait "$pid" 2>/dev/null || true
 cd "$HOME/statbus"
 test -f .env.config
 test -f .env.credentials
-test -f .first-install-signer-pending
+# Trusted signers runs BEFORE Services since STATBUS-468 (059fafe59), and its
+# completion clears the first-install signer marker. So at the Services boundary
+# the marker must already be GONE and the approved signer recorded. Asserting the
+# marker present (the pre-468 order) failed rc.01/rc.02 on correct behaviour.
+test ! -e .first-install-signer-pending
+grep -q '^UPGRADE_TRUSTED_SIGNER_' .env.config
 # A genuine interrupted database has no upgrade table and no application
 # schema. If Seed raced ahead of the watcher, reject the fixture.
 ./sb psql -X -t -A -c "SELECT to_regclass('public.upgrade') IS NULL AND NOT EXISTS (SELECT 1 FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='public' AND c.relkind IN ('r','p'));" | grep -qx t
