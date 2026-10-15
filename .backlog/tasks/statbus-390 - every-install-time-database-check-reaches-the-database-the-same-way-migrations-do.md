@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-09-24 16:42'
-updated_date: '2026-10-15 19:07'
+updated_date: '2026-10-15 19:10'
 labels:
   - release-bug
   - install
@@ -53,8 +53,7 @@ The failure to prevent is a check that passes through one route while the next s
 
 <!-- SECTION:NOTES:BEGIN -->
 ### Evidence
-- **AC1-2:** green in Go Test `36503468493` (v2026.09.3); re-run green locally on master, 2026-10-15.
-- **AC3:** rc.17 LXD PASS recorded on STATBUS-388.
+- **AC1-2:** green in Go Test `36503468493`; re-run green locally on master, 2026-10-15.
 - **Naming:** in the test names, "internal route" means the published `CADDY_DB_BIND_ADDRESS` address as opposed to the public `SITE_DOMAIN`, not the container socket.
-- **Superseded criterion:** the 2026-09-24 restyle had asked for seed, migrations, locks, readiness and daemon all to succeed with the published route down. That reverses the design above and was dropped; the original goal (`67735dd8f`) is what this ticket now states.
+- **Superseded criterion:** the 2026-09-24 restyle had asked for every step to succeed with the published route down. That reverses the design above and was dropped; the original goal (`67735dd8f`) is what this ticket states.
 <!-- SECTION:NOTES:END -->
