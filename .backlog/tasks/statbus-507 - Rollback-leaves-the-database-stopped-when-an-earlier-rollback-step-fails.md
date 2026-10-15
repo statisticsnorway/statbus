@@ -1,10 +1,10 @@
 ---
 id: STATBUS-507
 title: Rollback leaves the database stopped when an earlier rollback step fails
-status: In Progress
+status: Done
 assignee: []
 created_date: '2026-10-15 09:16'
-updated_date: '2026-10-15 09:54'
+updated_date: '2026-10-15 10:23'
 labels:
   - upgrade
   - rollback
@@ -32,4 +32,6 @@ NORTH STAR: a rollback never ends with the database down; 'database running and 
 
 <!-- SECTION:NOTES:BEGIN -->
 FIXED 9bb4949c7. restoreAndFinalize now starts the SAME database container again on the no-snapshot path through the existing held-closed route (startRollbackDatabaseOnly: compose start db + its proxy, health wait, reconnect), before and independent of the serving tier; a failure there reports as a database failure through the existing degraded terminal. The snapshot path already had this (startRollbackDatabaseOnly after the volume restore). Criterion #1 was reworded from 'does not stop the database': the stop stays one verified set (STATBUS-187), and the snapshot decision comes after it, so the right fix is to start it again immediately, not to split the stop. RED/GREEN: TestUpgradeFlaglessBehindRowServingFailureKeepsDatabaseUp (livedb) - no snapshot + serving tier fails. Red on the unfixed code: docker saw only 'compose stop app worker rest db' (tmp/fix507-red2.log). Green: 'compose start db' follows, state=failed recorded. Four existing tests' docker shims claimed no proxy container (a state no real box is in) and were corrected; one source-order pin follows the renamed call. Full livedb tier + unit + golangci-lint pass. Fleet proof: rides the next candidate after rc.03.
+
+CI green at job level for 9bb4949c7: Fast Tests, Go Test, app build & lint, Harness Selftest, Images, CodeQL. Done.
 <!-- SECTION:NOTES:END -->

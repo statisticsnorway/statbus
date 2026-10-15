@@ -3,10 +3,10 @@ id: STATBUS-508
 title: >-
   A settings/tree version mismatch during rollback is reported as that, not as a
   missing image
-status: In Progress
+status: Done
 assignee: []
 created_date: '2026-10-15 09:16'
-updated_date: '2026-10-15 10:16'
+updated_date: '2026-10-15 10:23'
 labels:
   - upgrade
   - rollback
@@ -32,4 +32,6 @@ NORTH STAR: rollback restores the version recorded when the upgrade started; it 
 
 <!-- SECTION:NOTES:BEGIN -->
 CORRECTION + FIXED 40ef0ca29. Reading the code against rc.02 showed my ticket premise was wrong: rollback does NOT take 'source' from the tree when the identity was recorded. sourceServingExpectedImagesWithProof already reads the flag's SourceServingImages (reference + immutable image ID) and only cross-checks the tree's rendered compose references against it; the tree governs alone only for legacy pre-capture releases. The rc.02 refusal ('restored source compose image for app is ...:fe4a769a (tag fe4a769a), want source commit 4c88d350') was CORRECT: the generated compose settings named one version (fe4a769a) while the checked-out tree was another (4c88d350), a mixed-era box with no coherent source to start. The real defect was the wording: it read as a missing/unresolvable image and sent the diagnosis down the image path for hours while the db container and image were intact. FIX: when the model's tag is itself an 8-char commit that differs from the tree, the refusal names both versions as a settings/tree mismatch and says how to resolve it; local/digest/other tags keep their message. RED/GREEN: TestSourceServingExpectedImageReferencesNamesModelTreeMismatch - red on the unfixed code with rc.02's exact wording (tmp/fix508-red.log), green after. Full livedb tier + unit + golangci-lint pass. The mixed-era state itself in rc.02 came from the STATBUS-452 defect (fixed in 255a41d72), which is what put the box there.
+
+CI green at job level for 40ef0ca29: Go Test, app build & lint, Harness Selftest, Images, CodeQL. Done.
 <!-- SECTION:NOTES:END -->
