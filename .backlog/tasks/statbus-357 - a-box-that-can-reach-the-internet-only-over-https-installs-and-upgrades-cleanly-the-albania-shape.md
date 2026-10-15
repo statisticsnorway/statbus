@@ -1,10 +1,10 @@
 ---
 id: STATBUS-357
 title: A box with outbound HTTPS-only policy installs and upgrades successfully
-status: In Progress
+status: Done
 assignee: []
 created_date: '2026-09-07 07:02'
-updated_date: '2026-10-13 11:58'
+updated_date: '2026-10-15 19:32'
 labels:
   - release-bug
   - install
@@ -20,37 +20,39 @@ ordinal: 50
 ## Description
 
 <!-- SECTION:DESCRIPTION:BEGIN -->
-The paid VM proof applies the production Ubuntu hardening, refuses TCP port 80 to public destinations while allowing loopback and private destinations (so Docker-published health traffic keeps working), installs the baseline, and upgrades to the candidate using ordinary operator paths. It remains on demand until one real-VM run with the private-destination rule is green. After that proof and a deliberate HTTP mutation control pass, it joins the default selected set.
+### North Star
+StatBus installs and upgrades on a box whose firewall allows outbound HTTPS only, the policy many national offices run.
 
-## Evidence, 2026-09-24
+### Zoom out
+Some offices block outbound plain HTTP. The installer and upgrade must then never depend on fetching anything over port 80. A test that simply blocks port 80 also breaks StatBus's own health checks, because Docker reaches its containers through local and private addresses. So the proof blocks port 80 to public destinations only, while loopback and private ranges stay open: exactly the policy an office would have. The proof must run on a real hardened guest, and a deliberate HTTP fetch must turn it red, or a passing run proves nothing.
 
-Packet model (merged in `bdbcd8247`, commits `684945e11` and `3eb69eeca`): with Docker's default `userland-proxy=true`, Docker's nat OUTPUT jump excludes loopback, so a request to `127.0.0.1:3010` is not DNATed; `docker-proxy` accepts it and opens a new host connection to the container IP (for example `172.18.0.3:80`), with no NAT. The rule therefore exempts destination scopes, not original destinations: `ip daddr != { 10.0.0.0/8, 127.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16 } tcp dport 80 reject` and `ip6 daddr != { ::1, fc00::/7, fe80::/10 } tcp dport 80 reject` (`test/install-recovery/lib/vm-bootstrap.sh:1313-1317` at master `1e96d380f`). nft 1.1.6 on the Ubuntu 26.04 VM lists the IPv4 rule in exactly that form, without `meta nfproto` (`tmp/egress-mech-check.log:33`, rc.03 mechanism run), and the rule check greps that listing.
+### Zoom in
+- **Packet model (`bdbcd8247`, from `684945e11` and `3eb69eeca`):** with Docker's default `userland-proxy`, a request to `127.0.0.1:3010` is not NATed; `docker-proxy` opens a new connection to the container's private IP. The rule therefore exempts destination ranges: `ip daddr != { 10.0.0.0/8, 127.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16 } tcp dport 80 reject`, with the IPv6 equivalent.
+- **Ported to LXD and finished under STATBUS-485 (Done):** `lib/lxd-backend.sh` applies the same rule as `lib/vm-bootstrap.sh`; `https-only-egress-test.sh` and `https-only-egress-mutation-test.sh` run in Harness Selftest (`fc95698cf`); the mutation test fetches a public HTTP URL and requires the contract to fail naming it.
+- **Real run:** `test/install-recovery/evidence/STATBUS-357-https-only-nat-1.md`. Verdict PASS: on-demand LXD fork against `v2026.10.0-rc.20`, upgrade from a v2026.09.3 checkpoint, 2026-10-13 12:26-12:32 UTC, Ubuntu 26.04.1, nft rules as listed inside the guest. It was driven from a workstation, so there is no Actions run URL.
+- **In the gate:** `ebb0ee66f` removed `HARNESS_SKIP_DEFAULT`; `0-https-only-egress` is now in the default LXD fault set.
+- **Re-run 2026-10-15:** both offline tests pass locally.
 
-The current scenario is explicitly on demand through `HARNESS_SKIP_DEFAULT` (`test/install-recovery/scenarios/0-https-only-egress.sh:10` at master `1e96d380f`) and delegates to the shared happy-upgrade flow. The rule and its IPv4 and IPv6 rejection probes are in `test/install-recovery/lib/vm-bootstrap.sh:1281-1334`; the offline mutation contract that checks external rejection and the loopback health path is in `test/install-recovery/tests/https-only-egress-test.sh:26-180`; and the shared Ubuntu 26.04 default is selected at `test/install-recovery/lib/vm-bootstrap.sh:91-94`, all at master `7a9cf707e`. Product external fetches use HTTPS in the bootstrap (`install.sh:624-685`), release-manifest download (`cli/internal/upgrade/github.go:202-206`), and registry base URL (`cli/internal/upgrade/ghcr.go:10-14`), all at master `7a9cf707e`. No line-specific primary Albania record or checked-in Albania workaround has been located, so earlier Albania historical assertions are withdrawn rather than treated as evidence.
-
-The proof identity is `STATBUS-357-https-only-nat-1`. Its evidence file is `new: test/install-recovery/evidence/STATBUS-357-https-only-nat-1.md`, which records candidate tag, harness run URL, Ubuntu image, firewall rules as listed by nft, the docker-proxy health path result, install result, and upgrade result.
+### Closing review
+- **Memory:** none needed.
+- **Documentation:** the evidence file records the method and result.
+- **Cleanup:** none.
 <!-- SECTION:DESCRIPTION:END -->
-
-## Status 2026-09-24
-
-**In Progress:** `bdbcd8247` (`684945e11`, `3eb69eeca`) added private-destination nft exemption and `0-https-only-egress.sh`. #1 and #3 require named real-VM run `STATBUS-357-https-only-nat-1`, proof pending; #2 named mutation test absent; #4 default selection stays deliberately disabled. **Remaining:** run baseline+upgrade VM, run HTTP mutation control, record evidence, and select the scenario by default.
-
-Baseline: `origin/master` at `373d15fc3`. Criterion disposition and remaining positive targets are above; the acceptance criteria below remain authoritative. An authored but unrun VM scenario is **proof pending**, not met.
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 `new: test/install-recovery/scenarios/0-https-only-egress.sh` run `STATBUS-357-https-only-nat-1` first proves on a real Ubuntu 26.04 VM that the private-destination exemption preserves the Docker-published loopback health path (docker-proxy to the container IP) while TCP/80 to public destinations is rejected.
-- [ ] #2 `new: test/install-recovery/tests/https-only-egress-mutation-test.sh` introduces `http://example.com/statbus-http-egress-mutation` and observes the scenario fail while naming that URL.
-- [ ] #3 `new: test/install-recovery/scenarios/0-https-only-egress.sh` run `STATBUS-357-https-only-nat-1` verifies that `new: test/install-recovery/evidence/STATBUS-357-https-only-nat-1.md` records its successful baseline install and candidate upgrade under the corrected real-VM rule.
-- [ ] #4 After criteria #1-#3, `test/install-recovery/scenarios/0-https-only-egress.sh` removes `HARNESS_SKIP_DEFAULT`, and `new: test/install-recovery/tests/https-only-egress-selection-test.sh` observes the scenario in `run.sh --print-selected`.
+- [x] #1 On a real Ubuntu 26.04 guest with port 80 refused to public destinations, the private-destination exemption keeps the Docker-published health path working, and the v2026.09.3 baseline upgrades to the candidate (`STATBUS-357-https-only-nat-1.md`, PASS at v2026.10.0-rc.20)
+- [x] #2 `test/install-recovery/tests/https-only-egress-mutation-test.sh` introduces a public HTTP fetch and observes the contract fail naming that URL, on both backends
+- [x] #3 `test/install-recovery/evidence/STATBUS-357-https-only-nat-1.md` records the candidate, the guest image, the nft rules as listed, the health path, and the install and upgrade results
+- [x] #4 `0-https-only-egress.sh` no longer carries `HARNESS_SKIP_DEFAULT` and runs in the default LXD fault set (`ebb0ee66f`)
 <!-- AC:END -->
 
 ## Implementation Notes
 
 <!-- SECTION:NOTES:BEGIN -->
-Audit after v2026.09.3 (2026-09-29): v2026.09.3 carries the private-destination nft exemption (684945e11, 61ece22d1, 3eb69eeca). No real run STATBUS-357-https-only-nat-1 exists. Evidence file, mutation test and default selection are still missing. Decide where it runs (LXD VM?) now that the fault fleet is LXD.
-
-2026-10-13: the port landed. The mutation test this ticket's AC 2 names (test/install-recovery/tests/https-only-egress-mutation-test.sh) exists, and both it and the two-backend contract test pass, committed in fc95698cf with CI green at job level (Harness Selftest 38297872803, Go Test 38297872863, app build & lint 38297872683). The worker that landed it also found the contract test had been FALSE-GREEN for the LXD backend — the VM backend's function leaked into the LXD subshell — and fixed that.
-
-Remaining for this ticket: AC 1 (one real on-demand LXD run against v2026.10.0-rc.20), AC 2 is satisfied, AC 3 (the evidence file test/install-recovery/evidence/STATBUS-357-https-only-nat-1.md), AC 4 (leave the on-demand set). Those are owned and broken down as STATBUS-485 AC 3-6. Under plan A (machinery before candidate) the single host run happens after STATBUS-425 M4, with the candidate work.
+### Evidence
+- **AC1, AC3:** `test/install-recovery/evidence/STATBUS-357-https-only-nat-1.md`, PASS 2026-10-13.
+- **AC2:** mutation test in Harness Selftest (`fc95698cf`; Harness Selftest `38297872803`); re-run locally 2026-10-15, pass.
+- **AC4:** `ebb0ee66f`; no `HARNESS_SKIP_DEFAULT` in the scenario on master.
+- **Done:** all criteria met; the remaining work had been broken down and finished as STATBUS-485 (Done).
 <!-- SECTION:NOTES:END -->
