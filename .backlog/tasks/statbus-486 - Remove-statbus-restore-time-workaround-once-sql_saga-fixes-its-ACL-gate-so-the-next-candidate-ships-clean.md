@@ -3,10 +3,10 @@ id: STATBUS-486
 title: >-
   Remove statbus restore-time workaround once sql_saga fixes its ACL gate, so
   the next candidate ships clean
-status: To Do
+status: In Progress
 assignee: []
 created_date: '2026-10-12 19:31'
-updated_date: '2026-10-14 22:10'
+updated_date: '2026-10-15 19:27'
 labels:
   - release
   - upgrade
@@ -53,4 +53,7 @@ Filed 2026-10-12 on the owners instruction to record clearly that plan option B 
 PREPARED 2026-10-13 (coordinator, read-only inventory). The whole suppression is ONE helper plus six call sites, all under cli/cmd: helper restoreTargetConninfo at cli/cmd/restore_replica.go:36 (returns dbname plus options='-c session_replication_role=replica'); call sites db.go:790 (phase 1 pre-data), db.go:819 (phase 2.5 auth.user list), db.go:853 (phase 3 data+post-data+ACLs), seed.go:319 (seed restore with --disable-triggers), seed_build.go:212 (--single-transaction), seed_verify.go:485 (--single-transaction); unit test restore_replica_test.go:15. WHEN THE sql_saga FIX IS IN: replace each call with the plain quoted dbname (the helper's only other job is quoting dbName for the conninfo grammar, so keep that half), delete restore_replica.go and restore_replica_test.go, then run the restore round-trip WITHOUT session_replication_role in both serial and pg_restore -j 4 (AC#1), the fast suite plus Go Test at job level (AC#2). KEEP: verifySeedRoundTrip and migration 20261008183553_statbus_481_for_portion_of_views_carry_their_table_acl (AC#3). Before pushing the tag, register the candidate citing 486 and STATBUS-482 as satisfied (AC#4). Blocked on: the upstream sql_saga ACL-gate fix via STATBUS-482; the owner is following that up.
 
 OWNER DECISION 2026-10-14: the upstream sql_saga ACL-gate fix (STATBUS-482) did NOT land, and v2026.10.1-rc.01 was cut anyway because the Uganda box is waiting. CONSEQUENCE, recorded so the ticket does not pretend otherwise: this candidate SHIPS WITH the restore-time suppression, so AC#4 ('no candidate ships with the workaround present') is knowingly NOT met by v2026.10.1-rc.01. The suppression inventory above is unaffected: when the fix does land, this ticket's job is unchanged - swap the six call sites, delete restore_replica.go and its test, prove the round trip without session_replication_role in serial and pg_restore -j 4, keep verifySeedRoundTrip and migration 20261008183553.
+
+### Done through STATBUS-511 (42739f5f9, 2026-10-15)
+sql_saga v1.1 shipped the ACL-gate fix. The suppression is removed from every restore path (restore_replica.go and its six call sites), with the seed round trip passing without it and test 352 retired. The seed round-trip guard and migration 20261008183553 are kept (reasons on STATBUS-511). Closes with 511 once CI and the next candidate are green.
 <!-- SECTION:NOTES:END -->

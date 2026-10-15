@@ -4,7 +4,7 @@ title: Move to sql_saga v1.1 and remove the restore-time suppression
 status: In Progress
 assignee: []
 created_date: '2026-10-15 16:26'
-updated_date: '2026-10-15 16:41'
+updated_date: '2026-10-15 19:27'
 labels:
   - sql_saga
   - release
@@ -34,7 +34,7 @@ sql_saga v1.1 (tag `v1.1`, 54 commits after our pin `9e39fcc` = v1.0) fixes the 
 <!-- AC:BEGIN -->
 - [x] #1 The db image builds from sql_saga v1.1; a fresh database reports extversion 1.1 and native_library_version 1.1
 - [x] #2 A database at 1.0 is upgraded by a forward migration and passes upgrade.md's verify queries (1.1, 1.1, 1, NULL, 0)
-- [ ] #3 A dump restores without session_replication_role, serial and via the seed path; the seed round-trip guard passes
+- [x] #3 A dump restores without session_replication_role, serial and via the seed path; the seed round-trip guard passes
 - [ ] #4 Full fast suite, test-livedb and Go Test green at job level; the next candidate's ladder green
 <!-- AC:END -->
 
@@ -67,4 +67,13 @@ Throwaway volume; dev stack untouched.
 AC1 (fresh 1.1 from the image) and AC2 (1.0 upgraded by a forward migration, verified) checked.
 
 AC1 verified separately: a fresh database on the new image reports extversion 1.1, native_library_version 1.1.
+
+### Seed round trip without the suppression (2026-10-15, tmp/saga11-seed-image.log)
+The hermetic seed stage, built CI-shaped (tmp/saga11-seed-image.sh: same named contexts as images.yaml, Linux sb from the working tree, empty prior so PATH=FULL from empty), ran `sb db seed build` with `restoreTargetConninfo` removed: "seed round trip OK, seed -> restore -> dump -> restore; ACL digest identical; event triggers enabled 7/7", and types generated from the restored seed equal the committed database.types.ts. AC3 checked.
+Note: images.yaml's comment names a local `./sb build seed` that only prints "No services to build"; the script above is the working local equivalent.
+
+### Landed 42739f5f9 (2026-10-15)
+Local verification on the v1.1 db image: fast suite 117/117 in one run (tmp/saga11-test-fast.log), ./dev.sh test-livedb exit 0, go test ./... exit 0, golangci-lint 0 issues. Expected-output changes are v1.1's documented catalog change: test 002 gains sql_saga.installation and loses temporal_merge_cache; doc/db-security-report.md gains __internal_reconcile_system_versioning_family and loses temporal_merge_cache_maybe_purge.
+Found on the way: Go Test had been red on master since cd3b6ada8 (my column-comment migration sat above DaemonSchemaFloor). Fixed in c5d1dae35 by the reviewed floor bump.
+AC4 open: CI at job level for 42739f5f9 (Images builds the db image and the seed with the round trip, Fast Tests, test-livedb, Go Test), then the next candidate's ladder.
 <!-- SECTION:NOTES:END -->
