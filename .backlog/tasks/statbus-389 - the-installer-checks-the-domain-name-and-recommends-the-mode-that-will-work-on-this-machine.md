@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-09-24 16:42'
-updated_date: '2026-10-15 17:25'
+updated_date: '2026-10-15 20:08'
 labels:
   - release-bug
   - install
@@ -43,7 +43,7 @@ Which alternative certificate the operator then gets is not this ticket: private
 <!-- AC:BEGIN -->
 - [x] #1 Public DNS is reported as an observation, separate from reachability, and reachability is never claimed unless checked (`TestDomainAssessmentSeparatesDNSFromReachability`)
 - [x] #2 On a real box with a name absent from public DNS, the installer says an automatic certificate cannot be promised and recommends a workable choice (`4-install-standalone-no-public-dns.sh`, rc.17 LXD PASS)
-- [ ] #3 Owner decision: is an outside reachability probe (port 80 tested from the internet) wanted? No closes this ticket with the honest "not checked" sentence. Yes keeps it open for that probe, with its own criterion.
+- [ ] #3 [Owner] Decide whether an outside reachability probe (port 80 tested from the internet) is wanted, and record it in Implementation Notes. No: check this and set Done. Yes: add the probe as a new criterion.
 <!-- AC:END -->
 
 ## Implementation Notes
