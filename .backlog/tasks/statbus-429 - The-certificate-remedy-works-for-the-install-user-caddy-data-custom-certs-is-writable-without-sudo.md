@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-09-29 08:24'
-updated_date: '2026-10-15 20:09'
+updated_date: '2026-10-15 20:25'
 labels:
   - install
 dependencies: []
@@ -48,7 +48,7 @@ A second, later step: let the installer accept the certificate up front, through
 - [x] #2 Every certificate refusal names `./sb cert install` with full paths (`ad7876f0b`, `828b04984`; install.sh `INSTALL_FIX` allowlist)
 - [ ] #3 An explicit LXD run of `5-install-cert-repair-via-cert-install.sh` on a built candidate: a box that has run Services follows the printed remedy as the install user and reaches a ready installation with CA-verified HTTPS
 - [ ] #4 The installer accepts a certificate and key pair, or one PFX/PKCS#12 file with its password from an environment variable, through the same code path as `./sb cert install`, refuses them in private and development modes, and a fresh install is born serving that certificate
-- [ ] #5 [Owner] Decide whether AC4 (installer certificate arguments) stays here or moves to STATBUS-399, and record it in Implementation Notes. Moved: remove AC4, check this and set Done once AC3 passes.
+- [ ] #5 [Owner] Decide whether AC4 (installer certificate arguments) stays here or moves to STATBUS-399, and record it in Implementation Notes. Stays: AC4 remains open work here. Moved: remove AC4, check this, and set Done once AC3 passes.
 <!-- AC:END -->
 
 ## Implementation Notes
