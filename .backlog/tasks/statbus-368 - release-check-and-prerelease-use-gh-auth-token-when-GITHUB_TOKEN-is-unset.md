@@ -1,12 +1,12 @@
 ---
 id: STATBUS-368
 title: >-
-  release check / prerelease: use `gh auth token` when GITHUB_TOKEN is unset,
-  and say which identity the gate is reading GitHub as
+  The release gate reads GitHub as the person running it and says which identity
+  it used
 status: In Progress
 assignee: []
 created_date: '2026-09-14 11:41'
-updated_date: '2026-09-29 08:04'
+updated_date: '2026-10-15 19:35'
 labels:
   - release-bug
   - release
@@ -18,100 +18,40 @@ type: bug
 ordinal: 20
 ---
 
-## Status 2026-09-24
+## Description
 
-**In Progress:** `0aa5a982f`, `baf6f64fb`, `1e96d380f`: `cli/internal/release/github_auth.go` resolves environment, `gh auth token`, anonymous fallback and redacts Git transport errors; `github_auth_test.go` checks core behavior. The specified next-candidate 100-run proof and installed-box mode report are not evidenced. **Remaining:** record the 100-run next-cut rate/identity checks and authenticated/anonymous release behavior on their intended boxes.
+<!-- SECTION:DESCRIPTION:BEGIN -->
+### North Star
+The release gate reads GitHub as the person running it, and says which identity it used, so a rate limit can never look like a CI failure.
 
-Baseline: `origin/master` at `373d15fc3`. Criterion disposition and remaining positive targets are above; the acceptance criteria below remain authoritative. An authored but unrun VM scenario is **proof pending**, not met.
+### Zoom out
+Developers here log in with `gh auth login`; nobody exports `GITHUB_TOKEN`. A gate that only knows `GITHUB_TOKEN` therefore reads GitHub anonymously, sharing 60 requests per hour with everything else on that address, and its 403s look like broken CI. The cure is one resolver for every GitHub read in the release code, in a fixed order: `GITHUB_TOKEN`, then `gh auth token`, then anonymous. The gate prints which one it chose, and a 403 while anonymous names `gh auth login` as the fix. The token must never leak into Git argv, logs or diagnostic files. Container-registry probes deliberately stay anonymous, so a privately readable image can never pass the public-deployability check.
 
-## Ground truth
+### Zoom in
+- **Incident, 2026-09-14:** polling `./sb release check` every 30 s hit HTTP 403 after about 20 minutes, and the gate reported all three workflow checks as "GitHub API error HTTP 403". `githubAuthHeader()` (`cli/internal/release/check.go`) sent a token only when `GITHUB_TOKEN` was set.
+- **Shipped (v2026.09.3):** `baf6f64fb` adds `cli/internal/release/github_auth.go` (modes "authenticated via GITHUB_TOKEN", "authenticated via gh auth", "anonymous, 60/h"); all release HTTP reads use it, and Git `ls-remote`/`fetch` carry the token as an extraheader in the environment, not argv. `0aa5a982f`, `1e96d380f` and `6442f2b8a` redact the token, its base64 forms and every Authorization header from errors, logs and diagnostics. STATBUS-379 was the narrower duplicate, closed as superseded.
+- **Proof, unit:** `TestGitHubAuthPrecedenceAndFallback`, `TestGitHubGitEnvUsesExtraHeaderNotArgv`, `TestGitHubGitEnvResetsInheritedAuthorizationBeforeAddingItsOwn`, `TestAuthenticatedGitFailureRedactsCredentialsBeforeErrorsLogsAndDiagnostics`, `TestCommandOutputRedactsGitStderr` (`cli/internal/release/github_auth_test.go`), green 2026-10-15.
+- **Observed 2026-10-15:** on a machine with `gh auth login` and no `GITHUB_TOKEN`, `./sb release check` printed `(GitHub: authenticated via gh auth)` and every GitHub-reading gate answered (`tmp/vet/368-release-check.log`). Its red lines were unrelated, about uncommitted migrations in the shared checkout.
 
-`githubAuthHeader()` in `cli/internal/release/check.go:332` sends a Bearer
-token only when `GITHUB_TOKEN` is set. Every developer machine here is
-logged in via `gh auth login`; none exports `GITHUB_TOKEN`. So the release
-gate reads GitHub anonymously: 60 requests/hour shared by every process on
-the host's IP. On 2026-09-14 a 30 s poll of `./sb release check` hit 403
-after ~20 minutes and the gate reported all three workflow checks as
-"GitHub API error HTTP 403", which reads like a CI problem.
+### Closing review
+- **Memory:** none needed.
+- **Documentation:** none needed; the gate prints its identity.
+- **Cleanup:** none.
+<!-- SECTION:DESCRIPTION:END -->
 
-## Work
-
-1. Token resolution order: `GITHUB_TOKEN` env, else `gh auth token` (exec,
-   ignore failure), else anonymous. Same helper for every GitHub read in
-   `cli/internal/release` and `cli/cmd/release`.
-2. The preflight table's first GitHub-reading line says which identity it
-   used: `(GitHub: authenticated via GITHUB_TOKEN | via gh auth | anonymous,
-   60/h)`. On a 403 with anonymous auth the Fix line says `gh auth login` or
-   `GITHUB_TOKEN`, not "check network connectivity".
-3. Tests: helper returns env token first; falls back to a stubbed `gh`
-   on PATH; anonymous when neither. 403 message names the auth mode.
-
-## Done when
-
-`./sb release check` on a machine with only `gh auth login` reports
-"via gh auth" and stays green through 100 consecutive runs (no 403).
-
-## Built and accepted, held in scratch until rc.05 is cut (2026-09-14 13:37)
-
-Scratch `$JCODE_SCRATCH_DIR/statbus-368`, branch `statbus-368`, commits
-`f6d4ae2f7` (one `GitHubAuth()` helper, GITHUB_TOKEN -> `gh auth token` ->
-anonymous; preflight prints the mode once; anonymous 403 says `gh auth
-login`) and `1fe04e1a9` (every git ls-remote/fetch of GitHub in the release
-code carries the resolved token via STATBUS-341's GIT_CONFIG_* extraheader
-env; anonymous inherits the env byte-for-byte; stub-git test proves env not
-argv). Luna (pawprint) round 1 REJECT (git reads bypassed the helper), round
-2 ACCEPT: `tmp/STATBUS-368-367-review.md`. `upgrade.gitFetchEnv()` stays
-env-only on purpose: boxes have no `gh`.
-
-Done-when's 100-run test is the coordinator's poller on the next cut.
-
-## Batch sequencing (owner ruling 2026-09-15)
-
-This ticket lands in the ONE batch after the current release: it does not
-touch master until v2026.09.1-rc.08 (or the first later rc that goes fully
-green) has been installed on Norway and promoted to stable. Then all batch
-tickets land in one push, one candidate, one ladder. Position in that push:
-**2 of 8**. release gate uses gh auth token; built and Luna-accepted in scratch (f6d4ae2f7 + 1fe04e1a9)
-
-Batch order: 370 -> 368 -> 367 -> 363 -> 357 -> 361 -> 362 -> 359.
-
-## Update 2026-09-22
-
-**Duplicate:** STATBUS-379 records the same `GITHUB_TOKEN` then `gh auth token`
-fallback defect for release preflight. Keep both files for history. STATBUS-368
-is the broader form because it also requires identity reporting and authenticated
-Git transport coverage. Neither duplicate is deleted or closed by this sweep.
-
-## Reconciliation 2026-09-23
-
-Classification: PARTIAL. Evidence: scratch fallback implementation only; not on master and no next-candidate proof.
-
-Remaining: Land GH_TOKEN fallback in both release checks, add tests, and prove it in the next release.
-
-## Implementation 2026-09-23
-
-Added one release-package resolver with the required order: `GITHUB_TOKEN`,
-then `gh auth token`, then anonymous. All release HTTP reads use it, release Git
-`ls-remote` and `fetch` carry the same token through a Git extraheader in the
-environment, and preflight prints the selected mode once. The release workflow
-readiness probe now retries an empty API page three times before reporting
-`Missing`.
-
-STATBUS-379 is the narrower duplicate and remains closed as superseded by this
-item. The 100-run operator proof can only be recorded after this commit is in the
-next candidate.
-
-## Fix-forward 2026-09-23
-
-Authenticated Git failure output is now redacted before it is wrapped or
-retained. The shared redactor removes the resolved token, its base64 forms, and
-every Authorization header value. A sentinel-token failure test covers the
-returned error, a user-visible log buffer, and a collected diagnostic file.
-The release-workflow retry test also proves that a permanently empty runs page
-returns `Missing` after exactly three requests.
+## Acceptance Criteria
+<!-- AC:BEGIN -->
+- [x] #1 Every GitHub read in the release code resolves its token as `GITHUB_TOKEN`, then `gh auth token`, then anonymous (`TestGitHubAuthPrecedenceAndFallback`)
+- [x] #2 The gate prints which identity it used; on a machine with only `gh auth login` it says "authenticated via gh auth" (observed 2026-10-15)
+- [x] #3 The token never appears in Git argv, errors, logs or diagnostic files (`TestGitHubGitEnvUsesExtraHeaderNotArgv`, `TestAuthenticatedGitFailureRedactsCredentialsBeforeErrorsLogsAndDiagnostics`, `TestCommandOutputRedactsGitStderr`)
+- [ ] #4 Owner decision: the original asked for 100 consecutive green runs through `gh auth` to prove no 403. Authenticated reads get 5,000 requests per hour, so is the single observed authenticated run enough? Yes closes this ticket.
+<!-- AC:END -->
 
 ## Implementation Notes
 
 <!-- SECTION:NOTES:BEGIN -->
-Audit after v2026.09.3 (2026-09-29): v2026.09.3 adds 1e96d380f and 6442f2b8a (Git auth header fixes). The 100-run 'via gh auth' proof is still unrecorded.
+### Evidence
+- **AC1, AC3:** green locally on master, 2026-10-15.
+- **AC2:** `env -u GITHUB_TOKEN ./sb release check` on the owner's workstation, 2026-10-15, line 7: `(GitHub: authenticated via gh auth)`.
+- **History:** the 2026-09-14 build-and-hold notes, batch sequencing and 09-22/23 implementation notes are in Git history.
 <!-- SECTION:NOTES:END -->
