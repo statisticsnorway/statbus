@@ -1,10 +1,10 @@
 ---
 id: STATBUS-511
 title: Move to sql_saga v1.1 and remove the restore-time suppression
-status: In Progress
+status: Done
 assignee: []
 created_date: '2026-10-15 16:26'
-updated_date: '2026-10-15 20:45'
+updated_date: '2026-10-15 23:54'
 labels:
   - sql_saga
   - release
@@ -35,7 +35,7 @@ sql_saga v1.1 (tag `v1.1`, 54 commits after our pin `9e39fcc` = v1.0) fixes the 
 - [x] #1 The db image builds from sql_saga v1.1; a fresh database reports extversion 1.1 and native_library_version 1.1
 - [x] #2 A database at 1.0 is upgraded by a forward migration and passes upgrade.md's verify queries (1.1, 1.1, 1, NULL, 0)
 - [x] #3 A dump restores without session_replication_role, serial and via the seed path; the seed round-trip guard passes
-- [ ] #4 Full fast suite, test-livedb and Go Test green at job level; the next candidate's ladder green
+- [x] #4 Full fast suite, test-livedb and Go Test green at job level; the next candidate's ladder green
 <!-- AC:END -->
 
 ## Implementation Notes
@@ -80,4 +80,7 @@ AC4 open: CI at job level for 42739f5f9 (Images builds the db image and the seed
 ### CI green (2026-10-15)
 CI on 42739f5f9 at job level: Images 38794026480 success (db image amd64+arm64 with sql_saga v1.1; seed job round trip without suppression: ACL digest identical, event triggers 7/7, types equal), Go Test 38794026570 success (go test + golangci-lint), Harness Selftest 38794026593 success, app build & lint 38794026656 success. Fast Tests 38802563803 success (pg_regress fast suite) at 3380e9ac0, which contains 42739f5f9 with identical suite inputs (migrations, test, cli, postgres, dev.sh, app/src/lib); the runs at 42739f5f9 itself were cancelled by later pushes.
 AC4 remains for the next release candidate's ladder. Owner notes sql_saga v1.2 is coming (a fix in progress); it is expected to be a quick pin bump on top of this.
+
+### Closed 2026-10-16
+v2026.10.2-rc.01 (840d3970c) ladder, all green at job level: Release 38818198739 (15/15), Test Hardening 38818198673 (3/3), Fast Tests 38818198705, Test Smoke 38818339306 (5/5), dev canary 38819635051 (2/2, dev reports v2026.10.2-rc.01), LXD Fork Fleet 38819807364 STATUS=PASSED 27/27 scenarios PASS, Upgrade Arc Harness 38819893048 (41 success, 1 skipped), Release Fleet Orchestrator 38818198690 success. The candidate ships sql_saga v1.1, migration 20261015163419 and the restore path without suppression; every install and upgrade scenario in the fleet and the arcs ran on it. Done; ships with the next promoted release.
 <!-- SECTION:NOTES:END -->

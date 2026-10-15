@@ -3,10 +3,10 @@ id: STATBUS-486
 title: >-
   Remove statbus restore-time workaround once sql_saga fixes its ACL gate, so
   the next candidate ships clean
-status: In Progress
+status: Done
 assignee: []
 created_date: '2026-10-12 19:31'
-updated_date: '2026-10-15 20:45'
+updated_date: '2026-10-15 23:54'
 labels:
   - release
   - upgrade
@@ -33,16 +33,16 @@ WHAT MUST NOT BE REMOVED: the seed round-trip guard (a guard, not a workaround: 
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 With the fixed sql_saga installed, a dump restore round-trips cleanly WITHOUT setting session_replication_role, in both a serial restore and pg_restore -j 4, proven by the same checks that require the suppression today (cli/cmd/restore_replica_test.go, the seed round-trip guard, and the seed step in Fast Tests)
-- [ ] #2 The suppression is removed from statbuss restore path (cli/cmd/restore_replica.go and its callers in db.go and seed.go), and the full fast suite plus Go Test are green without it at job level
-- [ ] #3 The seed round-trip guard and migration 20261008183553 (481-B) are deliberately retained, with the reason recorded in the ticket
-- [ ] #4 The candidate register step cites both this ticket and STATBUS-482 as satisfied before the next tag is pushed, so no candidate ships with the workaround present
+- [x] #1 With the fixed sql_saga installed, a dump restore round-trips cleanly WITHOUT setting session_replication_role, in both a serial restore and pg_restore -j 4, proven by the same checks that require the suppression today (cli/cmd/restore_replica_test.go, the seed round-trip guard, and the seed step in Fast Tests)
+- [x] #2 The suppression is removed from statbuss restore path (cli/cmd/restore_replica.go and its callers in db.go and seed.go), and the full fast suite plus Go Test are green without it at job level
+- [x] #3 The seed round-trip guard and migration 20261008183553 (481-B) are deliberately retained, with the reason recorded in the ticket
+- [x] #4 The candidate register step cites both this ticket and STATBUS-482 as satisfied before the next tag is pushed, so no candidate ships with the workaround present
 <!-- AC:END -->
 
 ## Definition of Done
 <!-- DOD:BEGIN -->
-- [ ] #1 The removal commit names the upstream commit it depends on, and the release candidate that follows records both this ticket and STATBUS-482 as Done
-- [ ] #2 The ticket states what was removed, what was kept, and the observed restore evidence without the suppression
+- [x] #1 The removal commit names the upstream commit it depends on, and the release candidate that follows records both this ticket and STATBUS-482 as Done
+- [x] #2 The ticket states what was removed, what was kept, and the observed restore evidence without the suppression
 <!-- DOD:END -->
 
 ## Implementation Notes
@@ -59,4 +59,7 @@ sql_saga v1.1 shipped the ACL-gate fix. The suppression is removed from every re
 
 ### CI green (2026-10-15)
 CI on 42739f5f9 at job level: Images 38794026480 success (db image amd64+arm64 with sql_saga v1.1; seed job round trip without suppression: ACL digest identical, event triggers 7/7, types equal), Go Test 38794026570 success (go test + golangci-lint), Harness Selftest 38794026593 success, app build & lint 38794026656 success. Fast Tests 38802563803 success (pg_regress fast suite) at 3380e9ac0, which contains 42739f5f9 with identical suite inputs (migrations, test, cli, postgres, dev.sh, app/src/lib); the runs at 42739f5f9 itself were cancelled by later pushes. Closes with STATBUS-511 after the next candidate's ladder.
+
+### Closed 2026-10-16
+Removed: restoreTargetConninfo (session_replication_role=replica) at all six restore call sites and test 352 (42739f5f9, sql_saga v1.1). Kept: the seed round-trip guard (now proving restores with checks active) and migration 20261008183553 (released). Restore evidence without the suppression: local seed build and CI's seed job both report the round trip OK with event triggers 7/7. v2026.10.2-rc.01 (840d3970c) ladder, all green at job level: Release 38818198739 (15/15), Test Hardening 38818198673 (3/3), Fast Tests 38818198705, Test Smoke 38818339306 (5/5), dev canary 38819635051 (2/2, dev reports v2026.10.2-rc.01), LXD Fork Fleet 38819807364 STATUS=PASSED 27/27 scenarios PASS, Upgrade Arc Harness 38819893048 (41 success, 1 skipped), Release Fleet Orchestrator 38818198690 success. Done.
 <!-- SECTION:NOTES:END -->
