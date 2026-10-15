@@ -16,7 +16,7 @@ ARG wal2json_release=wal2json_2_6
 ARG pg_hashids_release=cd0e1b31d52b394a0df64079406a14a4f7387cd6
 ARG pgsql_http_release=v1.6.3
 ARG pg_trgm_release=1.6
-ARG sql_saga_release=9e39fcc
+ARG sql_saga_release=v1.1
 ARG pg_stat_monitor_release=cd0feaf215e7236e3ffbe03458ce84c98b883a3f
 ARG pg_repack_release=23aac05f059e37fcbb9e006ab35fb376d79f434a
 ARG hypopg_release=1.4.1
@@ -197,18 +197,6 @@ RUN git clone https://github.com/pramsey/pgsql-http.git && \
   make DESTDIR=/tmp/pgsql_http-dist install
 
 ####################
-# Build sql_saga
-####################
-FROM builder as sql_saga-builder
-ARG sql_saga_release
-WORKDIR /tmp
-RUN git clone https://github.com/veridit/sql_saga.git && \
-  cd sql_saga && \
-  git checkout ${sql_saga_release} && \
-  make install && \
-  make DESTDIR=/tmp/sql_saga-dist install
-
-####################
 # Build pg_stat_monitor
 ####################
 FROM builder as pg_stat_monitor-builder
@@ -269,7 +257,7 @@ RUN git clone https://github.com/michelp/pgjwt.git && \
   make DESTDIR=/tmp/pgjwt-dist install
 
 ####################
-# Shared Rust/pgrx builder (used by pg_graphql, jsonb_stats, and sql_saga_native)
+# Shared Rust/pgrx builder (used by pg_graphql, jsonb_stats, and sql_saga)
 ####################
 FROM builder as pgrx-builder
 ARG postgresql_major
@@ -346,33 +334,19 @@ RUN mkdir -p /tmp/jsonb_stats-dist/usr/lib/postgresql/${postgresql_major}/lib \
        -exec cp {} /tmp/jsonb_stats-dist/usr/share/postgresql/${postgresql_major}/extension/ \;
 
 ####################
-# Build sql_saga_native (Rust native planner for sql_saga temporal_merge)
+# Build sql_saga
 ####################
-FROM pgrx-builder as sql_saga_native-builder
+# v1.1's `make install` builds both of its libraries: the C extension and the
+# Rust `sql_saga_native` planner, an internal library (not an extension). The
+# Rust half needs cargo and libclang, so this builds on the shared pgrx builder.
+FROM pgrx-builder as sql_saga-builder
 ARG sql_saga_release
-ARG postgresql_major
 WORKDIR /tmp
-
 RUN git clone https://github.com/veridit/sql_saga.git && \
   cd sql_saga && \
   git checkout ${sql_saga_release} && \
-  cd native && \
-  cargo pgrx install --release --features pg18
-
-# See pg_graphql-builder above for the full rationale on scoped-find + sanity.
-# sql_saga_native is a pgrx extension with NO generated SQL file (only .so and
-# .control), which is why the previous literal-glob `cp <name>--*.sql` failed:
-# the unexpanded glob reached `cp` and errored.  Scoped find handles this
-# correctly — if no .sql file exists, find just doesn't invoke cp on it.
-RUN grep -qE "default_version = '[0-9]" \
-      /usr/share/postgresql/${postgresql_major}/extension/sql_saga_native.control
-RUN mkdir -p /tmp/sql_saga_native-dist/usr/lib/postgresql/${postgresql_major}/lib \
-             /tmp/sql_saga_native-dist/usr/share/postgresql/${postgresql_major}/extension && \
-  cp /usr/lib/postgresql/${postgresql_major}/lib/sql_saga_native.so \
-     /tmp/sql_saga_native-dist/usr/lib/postgresql/${postgresql_major}/lib/ && \
-  find /usr/share/postgresql/${postgresql_major}/extension -maxdepth 1 \
-       \( -name "sql_saga_native.control" -o -name "sql_saga_native--*.sql" \) \
-       -exec cp {} /tmp/sql_saga_native-dist/usr/share/postgresql/${postgresql_major}/extension/ \;
+  make && \
+  make DESTDIR=/tmp/sql_saga-dist install
 
 ####################
 # pg-runtime-base — assembled pg + extensions + entrypoint.
@@ -396,7 +370,6 @@ COPY --from=wal2json-builder /tmp/wal2json-dist/ /
 COPY --from=pg_hashids-builder /tmp/pg_hashids-dist/ /
 COPY --from=pgsql_http-builder /tmp/pgsql_http-dist/ /
 COPY --from=sql_saga-builder /tmp/sql_saga-dist/ /
-COPY --from=sql_saga_native-builder /tmp/sql_saga_native-dist/ /
 COPY --from=pg_stat_monitor-builder /tmp/pg_stat_monitor-dist/ /
 COPY --from=pg_repack-builder /tmp/pg_repack-dist/ /
 COPY --from=hypopg-builder /tmp/hypopg-dist/ /

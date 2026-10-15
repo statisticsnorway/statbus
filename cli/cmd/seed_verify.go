@@ -482,7 +482,7 @@ func restoreVerifyDB(projDir, dbName, dumpPath string) error {
 	cmd, buildErr := composeCommand(projDir, "exec", "-T", "db",
 		"pg_restore", "-U", "postgres",
 		"--clean", "--if-exists", "--no-owner", "--disable-triggers",
-		"--single-transaction", "-d", restoreTargetConninfo(dbName))
+		"--single-transaction", "-d", dbName)
 	if buildErr != nil {
 		return fmt.Errorf("construct seed-verify restore: %w", buildErr)
 	}

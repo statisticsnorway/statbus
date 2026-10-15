@@ -370,6 +370,7 @@ DDL operations (CREATE/ALTER/DROP on tables, views, triggers). Matched by schema
 
 - `sql_saga.__internal_add_system_time_era`
 - `sql_saga.__internal_ddl_command_affects_managed_object`
+- `sql_saga.__internal_reconcile_system_versioning_family`
 - `sql_saga.add_current_view`
 - `sql_saga.add_era`
 - `sql_saga.add_for_portion_of_view`
@@ -395,7 +396,6 @@ DDL operations (CREATE/ALTER/DROP on tables, views, triggers). Matched by schema
 - `sql_saga.rename_following`
 - `sql_saga.set_era_ephemeral_columns`
 - `sql_saga.set_system_time_era_excluded_columns`
-- `sql_saga.temporal_merge_cache_maybe_purge`
 - `sql_saga.truncate_system_versioning`
 - `sql_saga.write_history`
 

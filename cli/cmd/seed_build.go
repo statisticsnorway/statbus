@@ -209,7 +209,7 @@ func restoreSeedDump(projDir, dbName, dumpPath string) error {
 	}
 	args := append(append([]string{}, prefix...),
 		"-U", "postgres", "--clean", "--if-exists", "--no-owner", "--disable-triggers",
-		"--single-transaction", "-d", restoreTargetConninfo(dbName))
+		"--single-transaction", "-d", dbName)
 	cmd, buildErr := migrate.Command(projDir, pgRestorePath, args...)
 	if buildErr != nil {
 		return fmt.Errorf("construct seed build restore: %w", buildErr)

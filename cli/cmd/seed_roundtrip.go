@@ -28,9 +28,9 @@ import (
 //   3. requires the ACL digest (every relation and function ACL) of the seed,
 //      of round trip 1 and of round trip 2 to be identical, so a restore that
 //      "succeeds" by losing or mangling grants is also caught;
-//   4. requires every DDL event trigger to still be ENABLED after the restores,
-//      so the replica-role restore accommodation can never be mistaken for, or
-//      silently turn into, a disabled sql_saga health check.
+//   4. requires every DDL event trigger to still be ENABLED after the restores:
+//      sql_saga's health checks guard every later session on the box, so a
+//      restore must leave them as active as they were in the seed.
 //
 // It reuses the restore the build already performs for incremental seeds, at
 // the cost of two schema-sized restores (a few seconds for a seed), and is

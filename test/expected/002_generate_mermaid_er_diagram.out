@@ -1470,6 +1470,9 @@ erDiagram
 		name uk_delete_trigger
 		name fk_index_name
 	}
+	sql_saga_installation["sql_saga.installation"] {
+		text token
+	}
 	sql_saga_system_time_era["sql_saga.system_time_era"] {
 		name table_schema
 		name table_name
@@ -1492,14 +1495,6 @@ erDiagram
 		text func_between
 		text func_between_symmetric
 		text func_from_to
-	}
-	sql_saga_temporal_merge_cache["sql_saga.temporal_merge_cache"] {
-		text cache_key
-		text source_columns_hash
-		jsonb plan_sqls
-		timestamp_with_time_zone created_at
-		timestamp_with_time_zone last_used_at
-		integer use_count
 	}
 	sql_saga_unique_keys["sql_saga.unique_keys"] {
 		name unique_key_name
