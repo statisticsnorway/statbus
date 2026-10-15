@@ -1,17 +1,16 @@
 ---
 id: STATBUS-408
-title: An interrupted first installation resumes from its first incomplete step
+title: An interrupted first install finishes when the install command is run again
 status: In Progress
 assignee: []
 created_date: '2026-09-24 15:46'
-updated_date: '2026-09-29 08:04'
+updated_date: '2026-10-15 19:16'
 labels:
   - release-bug
   - install
   - recovery
   - database
-dependencies:
-  - STATBUS-411
+dependencies: []
 priority: high
 type: bug
 ordinal: 361000
@@ -20,29 +19,37 @@ ordinal: 361000
 ## Description
 
 <!-- SECTION:DESCRIPTION:BEGIN -->
-A rerun classifies a reachable database as an interrupted first installation when `public.upgrade` is absent, `to_regclass('public.statistical_unit')` is null, and `db.migration` is missing or contains zero applied rows. It resumes the first incomplete persisted step and preserves the original database volume and its data. A database with no `public.upgrade` but with either `public.statistical_unit` present or at least one `db.migration` row is classified as legacy and preserved for STATBUS-411 guidance.
+### North Star
+A first install that stops part-way can be finished by running the same install command again: it picks up at the first unfinished step and keeps the database it already created.
 
-## Evidence, 2026-09-24
+### Zoom out
+A first install creates things before it can finish: settings, credentials, the database volume. If it stops in between (a busy port, a lost connection, Ctrl-C), the box is neither empty nor installed. The worst response is a refusal that leaves the operator no path except deleting things by hand, because deleting the installation directory while the volume survives creates the password split of STATBUS-407.
 
-Current detection returns legacy whenever the database is reachable and `public.upgrade` is absent (`cli/internal/install/state.go:138-148` at master `7a9cf707e`). Applied migrations are recorded in `db.migration` (`cli/internal/migrate/migrate.go:1-5`), and the existing seed gate distinguishes a missing table, an empty table, and one or more applied rows (`cli/cmd/seed_gate_test.go:25-58`), both at master `7a9cf707e`. On the disposable VM, a step-8 interruption left the original volume reachable without seed or migrations and every rerun was refused as legacy (`/Users/jhf/ssb/.jcode/scratch/rest-loop.md:45-48,163-175`).
+So a rerun recognises its own unfinished work and continues it. Each step checks whether its result is already there, so "continue" simply means the finished steps report OK and the first unfinished one runs. Recognising the unfinished database is the classification STATBUS-411 owns; this ticket owns the operator's path from interrupted to serving.
+
+### Zoom in
+- **Incident, Hetzner reproduction and Finland, 2026-09-24:** a port-80 failure at step 8 left the database reachable without `public.upgrade`. Every rerun was refused as pre-1.0 (then `install/state.go:141-147`), so the only way forward looked like removing the installation directory, which with a surviving volume causes the 407 credential split.
+- **Shipped (v2026.09.3):** `0a3f2ff80` continues a fresh install stopped after the database was created; `3c76d6323` classifies from migration provenance (STATBUS-411). The rerun prints `The database exists but setup stopped before it was finished. Continuing where it stopped.`
+- **Proof, real box:** `5-install-interrupted-first-run.sh` runs a genuine first install, interrupts it at the `Services DONE` boundary, checks the database has no `public.upgrade` and no application tables, reruns, and requires that message, `Services OK`, Seed or Migrations `DONE`, `public.upgrade` present, the signer consent kept, and every service running. PASS in rc.17 LXD; scenario last touched `a425435a7` (2026-10-15, STATBUS-468 follow-on).
+- **Not asserted:** that the rerun used the same database volume rather than a new one, and that data written before the interruption survived. On an init-db-only database there is no data yet to lose.
+
+### Closing review
+- **Memory:** none needed.
+- **Documentation:** none needed.
+- **Cleanup:** none.
 <!-- SECTION:DESCRIPTION:END -->
-
-## Status 2026-09-24
-
-**In Progress.** `474cf6119`: `cli/internal/install/state.go`, `state_test.go`, and `cli/cmd/install_detection_test.go` implement first-install vs legacy marker classification (#1-2 via equivalent tests). #3-4 named `5-install-interrupted-after-database-created.sh` are absent. **Remaining:** preserve a sentinel and volume across interrupted step-eight rerun, then prove full service readiness on a disposable VM.
-
-Baseline: `origin/master` at `373d15fc3`. Criterion disposition and remaining positive targets are above; the acceptance criteria below remain authoritative. An authored but unrun VM scenario is **proof pending**, not met.
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 `new: cli/internal/install/state_markers_test.go::TestInterruptedFreshMarkers` classifies absent `public.upgrade`, null `to_regclass('public.statistical_unit')`, and missing or empty `db.migration` as interrupted first installation.
-- [ ] #2 `new: cli/internal/install/state_markers_test.go::TestLegacyMarkerEdges` classifies both fake-probe edges, `public.statistical_unit` present with no applied migration row and schema absent with at least one `db.migration` row, as legacy requiring preservation.
-- [ ] #3 `new: test/install-recovery/scenarios/5-install-interrupted-after-database-created.sh` fails after database creation, writes a sentinel row before interruption, reruns installation, and observes resume from the first incomplete step with the volume and sentinel preserved.
-- [ ] #4 `new: test/install-recovery/scenarios/5-install-interrupted-after-database-created.sh` reaches ready services and records the final classification markers.
+- [x] #1 A rerun after a first install stopped at the Services boundary classifies the database as unfinished, reports OK for finished steps and runs Seed and Migrations (`5-install-interrupted-first-run.sh`, rc.17 LXD PASS)
+- [x] #2 The resumed install ends with `public.upgrade` present, the release-signer consent kept and every service running (same scenario)
+- [ ] #3 Owner decision: should the scenario also prove the same volume was kept, for example by volume identity or a sentinel written before the interruption? No closes this ticket. Yes adds that assertion as the open criterion.
 <!-- AC:END -->
 
 ## Implementation Notes
 
 <!-- SECTION:NOTES:BEGIN -->
-Audit after v2026.09.3 (2026-09-29): v2026.09.3 (0a3f2ff80, 3c76d6323) resumes an interrupted first install. rc.17 LXD 5-install-interrupted-first-run PASS. The discriminator shipped as migration provenance, so rewrite AC1/AC2 to it. The sentinel-preservation scenario (AC3/AC4) does not exist.
+### Evidence
+- **AC1-2:** rc.17 LXD PASS (2026-09-29 audit, `ea170989e`).
+- **Superseded criteria:** the restyle named `state_markers_test.go` cases and `5-install-interrupted-after-database-created.sh` with a sentinel row, none written. The marker cases moved to STATBUS-411 (`TestDetectWith`); the scenario that exists is `5-install-interrupted-first-run.sh`. The 408 -> 411 dependency was removed: 411 is the classification both tickets rely on, already shipped.
 <!-- SECTION:NOTES:END -->
