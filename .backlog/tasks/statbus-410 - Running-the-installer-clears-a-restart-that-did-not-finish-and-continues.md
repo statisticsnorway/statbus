@@ -4,7 +4,7 @@ title: 'After an unfinished restart, the install command finishes it or says to 
 status: In Progress
 assignee: []
 created_date: '2026-09-24 15:47'
-updated_date: '2026-10-15 19:17'
+updated_date: '2026-10-15 20:08'
 labels:
   - release-bug
   - install
@@ -48,7 +48,7 @@ A restart often fails for a cause outside itself, such as a password mismatch (S
 - [x] #2 When the earlier restart still holds its lock, the installer prints a plain wait message and starts no competing recovery (`5-install-live-upgrade-wait.sh`, rc.17 LXD PASS)
 - [x] #3 Live and interrupted restarts are classified correctly and the saved intent survives (`TestInterruptedAndLiveRestartClassification`, `TestRestartMarkerSurvivesDaemonRecovery`)
 - [x] #4 A retried restart clears the upgrade service's failed and start-limit state before starting it (`TestRestartRetryClearsStartLimitBeforeStarting`)
-- [ ] #5 Owner decision: is a real-box proof of start-limit recovery required (drive the upgrade service into the start limit with a real cause, fix the cause, retry, observe it running)? No closes this ticket. Yes adds that scenario as the open criterion.
+- [ ] #5 [Owner] Decide whether a real-box proof of start-limit recovery is required (drive the upgrade service into the start limit with a real cause, fix it, retry, observe it running), and record it in Implementation Notes. No: check this and set Done. Yes: add that scenario as a new criterion.
 <!-- AC:END -->
 
 ## Implementation Notes
