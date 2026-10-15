@@ -1,12 +1,10 @@
 ---
 id: STATBUS-407
-title: >-
-  Installation and automatic updates keep database role passwords aligned with
-  saved settings
+title: Database role passwords always match the saved settings
 status: In Progress
 assignee: []
 created_date: '2026-09-24 15:46'
-updated_date: '2026-09-29 08:04'
+updated_date: '2026-10-15 19:15'
 labels:
   - release-bug
   - install
@@ -22,40 +20,40 @@ ordinal: 360000
 ## Description
 
 <!-- SECTION:DESCRIPTION:BEGIN -->
-After the database is available, installation reconciles administrator, application, API, and notification role passwords through the database-local trusted connection before any password-authenticated connection. Automatic-update startup performs the same reconciliation before its authenticated connection. Matching passwords produce a verified no-op.
+### North Star
+The database role passwords always match the saved settings, so the API, the app and the upgrade service can log in after any install, reinstall or restart.
 
-## Evidence, 2026-09-24
+### Zoom out
+PostgreSQL sets role passwords only once, when an empty data volume is first initialized. The settings file can be regenerated later while the volume survives: a reinstall after deleting the installation directory, a damaged credentials file, a restore. From then on the settings and the database disagree, and every client that logs in with a password fails while the database itself looks healthy.
 
-Role passwords are initially set only during empty-volume initialization (`postgres/init-db.sh:135-141,223` at master `7a9cf707e`). The disposable VM showed a surviving volume with regenerated settings, API authenticator failure, and automatic-update administrator failure (`/Users/jhf/ssb/.jcode/scratch/rest-loop.md:45-58`). The prototype reconciled all four roles locally and restored API and automatic-update readiness (`/Users/jhf/ssb/.jcode/scratch/rest-loop.md:55-67`). Password-authenticated consumers and the database-local ordering are documented at `/Users/jhf/ssb/.jcode/scratch/rest-loop.md:22-31,34-43,60-67`. How credentials diverged on the customer box remains undetermined (`/Users/jhf/ssb/.jcode/scratch/rest-loop.md:16-18`).
-## rc.03 evidence and fix, 2026-09-25
+The settings file is the authority. So whoever is about to connect with a password first makes the database agree with it, through the database's own local socket, which needs no password. The installer does this before its first password connection, and so does the upgrade service before its first connection. When the passwords already agree nothing is changed.
 
-rc.03 install-recovery run 36116753412, job 108013586533 (5-install-orphaned-db-volume-credentials). The LXD fork prototype (tmp/throwaway-lxd-prototype.md lines 43-46) reproduced phase b in 2 minutes: reinstall over a surviving database volume with new credentials failed step 8 in 15 s, PostgREST looping on `password authentication failed for user "authenticator"`, because `reconcilePublishedPorts` ran before `syncRolePasswords` in cli/cmd/install_services.go. Fixed in `46488ccb4` (step 8 order: DB health -> syncRolePasswords -> restart clients -> reconcilePublishedPorts -> readiness), with a source-order test and a behavioral regression (red before, green after), merged to master in `a3526f832`, first candidate carrying it: v2026.09.3-rc.05. VM proof pending on rc.05's install-recovery run.
+### Zoom in
+- **Incident, Finland 2026-09-24 (v2026.09.2):** after `statbus-local-db-data` was removed and recreated, the API logged `password authentication failed for user "authenticator"` and restart-looped (`tmp/finland-answers-4.txt:52-58`). How the operator's credentials diverged is not established. A disposable Hetzner VM reproduced the mechanism with a surviving volume and regenerated `.env.credentials`: the API failed on `authenticator` and the upgrade service on the administrator (SQLSTATE `28P01`), timing out at step 17. Role passwords are set only in `postgres/init-db.sh` (lines 135-141, 223).
+- **Shipped (v2026.09.3):** `06930a2d3` adds `dbroles.Sync` (`cli/internal/dbroles/dbroles.go`), comparing each login role's SCRAM verifier with `.env` and re-applying mismatches over the local socket. `e8786019b` makes the upgrade service call it before its first connection (`syncRolePasswordsBeforeConnect`, `cli/internal/upgrade/exec.go`). `46488ccb4` moves the installer's sync before published-port reconciliation in step 8, after rc.03 showed the old order failing (`cli/cmd/install_services.go`).
+- **Proof, unit:** `TestSyncIsNoOpWhenPasswordsAgree`, `TestSyncReappliesOrphanedVolumePasswords`, `TestTargetFromEnvListsEveryInitDbLoginRole`, `TestVerifierMatchesRealPostgres18` (`cli/internal/dbroles/`); `TestRunStartServicesSyncsPasswordsBeforePublishedPorts`, `TestRunStartServicesOrphanedVolumeRepairsBeforePortProbe` (`cli/cmd/install_services_test.go`); `TestDaemonSyncsRolePasswordsBeforeFirstConnect`, `TestSyncRolePasswordsBeforeConnectNeverFailsTheBoot` (`cli/internal/upgrade/role_password_sync_test.go`). All green 2026-10-15.
+- **Proof, real box:** `5-install-orphaned-db-volume-credentials.sh` deletes the installation directory, keeps the volume, regenerates credentials and reinstalls. Phase c requires the install to report re-applying the passwords, rest steady, `/ready` 200, `/rpc/auth_status` 200, existing users intact and the upgrade service step completed. PASS in rc.17 LXD.
+- **Not proven on a box:** the upgrade service meeting a mismatch on its own, when no installer ran first. In the scenario the installer always syncs first, so the daemon's own sync finds nothing to do. The daemon's ordering is proven only by source position.
 
-## VM proof, 2026-09-25 (rc.05, run 36130286326, job 108056846431)
-
-Phase b of 5-install-orphaned-db-volume-credentials PASSED on the VM fleet: reinstall over a surviving database volume with new credentials reached `published 5431/80/443, upgrade service active, /ready 200` — the step-8 ordering fix (46488ccb4) holds on real VMs, not only on the LXD fork. The scenario then failed in phase c for a harness reason (unprivileged rm of container-owned caddy files, fixed in fix/rc05-harness). The product defect this ticket tracks is proven fixed; the scenario's own repair is in flight.
-
-## rc.08 fleet outcome, 2026-09-27 (run 36306317962)
-
-Fleet: 19/23 green. The four reds are all harness-side with root causes and fixes in flight for rc.09: port-80 (the sslip override predates 418 cert staging; product refusal and rerun were both correct), concurrent-install (the rc.08 seed already contained the migration delta so the stall site never ran), interrupted-first-run (cert-staging env on the rerun), database-route-interrupted (expected first-run failure vs wrapper classification). Smoke: both legs green — the happy-upgrade leg proves the 361 legacy-token migration fix against v2026.09.2's placeholder-laden .env.config.
+### Closing review
+- **Memory:** none needed.
+- **Documentation:** none needed; the `dbroles` package comment already states the rule and why.
+- **Cleanup:** none.
 <!-- SECTION:DESCRIPTION:END -->
-
-## Status 2026-09-24
-
-**In Progress.** `474cf6119`, `145c17292`: `cli/internal/dbroles/dbroles.go` / `dbroles_test.go` and `cli/internal/upgrade/role_password_sync_test.go` cover four-role reconciliation, unchanged no-op, and service ordering (#1-3 by equivalent tests). #4 `5-install-orphaned-db-volume-credentials.sh` is authored, real-VM proof pending. **Remaining:** run surviving-volume recovery on a disposable VM, preserve users, and observe API and automatic-update readiness.
-
-Baseline: `origin/master` at `373d15fc3`. Criterion disposition and remaining positive targets are above; the acceptance criteria below remain authoritative. An authored but unrun VM scenario is **proof pending**, not met.
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 `new: cli/cmd/install_database_credentials_test.go::TestReconcileRolesBeforeAuthenticatedConnections` proves all four roles are reconciled through the local trusted connection before installer TCP authentication.
-- [ ] #2 `new: cli/internal/upgrade/database_credentials_test.go::TestServiceReconcilesBeforeConnect` proves automatic-update startup reconciles the same roles after database availability and before its authenticated connection.
-- [ ] #3 `new: cli/internal/databasecredentials/reconcile_test.go::TestMatchingPasswordsAreNoOp` records zero role changes when all four passwords already match.
-- [x] #4 `new: test/install-recovery/scenarios/5-install-orphaned-db-volume-credentials.sh` preserves a disposable database volume and existing users, intentionally changes settings credentials, exercises both reconciliation paths, and observes API readiness plus completed automatic-update startup.
+- [x] #1 The installer re-applies every login role password from the settings over the local socket before its first password connection, and changes nothing when they agree (`TestRunStartServicesSyncsPasswordsBeforePublishedPorts`, `TestSyncIsNoOpWhenPasswordsAgree`, `TestSyncReappliesOrphanedVolumePasswords`)
+- [x] #2 The upgrade service does the same before its first connection, and a sync failure never stops its boot (`TestDaemonSyncsRolePasswordsBeforeFirstConnect`, `TestSyncRolePasswordsBeforeConnectNeverFailsTheBoot`)
+- [x] #3 On a real box, reinstalling over a surviving volume with regenerated credentials leaves the API steady and ready, users intact and the upgrade service running (`5-install-orphaned-db-volume-credentials.sh`, rc.17 LXD PASS)
+- [ ] #4 Owner decision: is a real-box proof of the upgrade service repairing a mismatch on its own (no installer first) required? No closes this ticket. Yes adds that scenario as the open criterion.
 <!-- AC:END -->
 
 ## Implementation Notes
 
 <!-- SECTION:NOTES:BEGIN -->
-Audit after v2026.09.3 (2026-09-29): v2026.09.3 (06930a2d3, e8786019b, 46488ccb4): installer and daemon sync role passwords before connecting. AC3/AC4 proven (dbroles no-op test in Go Test, orphaned-volume PASS in rc.17 LXD). Remaining: accept the source-order tests as AC1/AC2 or add behavioural ones, and prove the daemon path against a real mismatch.
+### Evidence
+- **AC1-2:** green locally on master, 2026-10-15. AC2's ordering test checks call position in source, not behaviour.
+- **AC3:** rc.17 LXD PASS (2026-09-29 audit, `ea170989e`); earlier phase-b PASS rc.05 run `36130286326`.
+- **Superseded criteria:** the restyle named three test files that were never written (`install_database_credentials_test.go`, `upgrade/database_credentials_test.go`, `databasecredentials/reconcile_test.go`); the tests above landed instead. The stacked rc.03/rc.05/rc.08 progress notes were folded into Zoom in and AC3.
 <!-- SECTION:NOTES:END -->
