@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-09-24 23:55'
-updated_date: '2026-10-15 19:18'
+updated_date: '2026-10-15 20:09'
 labels:
   - release-bug
   - ci
@@ -47,8 +47,8 @@ The exemption is narrow by design. Hand-written files elsewhere under `doc/db/`,
 - [x] #1 Only generated `doc/db/{table,view,function}/` paths join `.backlog/` as exempt; hand-written `doc/db/` files, other docs, code, migrations, mixed commits and the policy file itself are not (`TestFileIsCIExempt_AnchoredPrefixNotSubstring`, `TestChangedFilesAllExempt_OneOffenderForbidsTheRide`, `TestCIExemptPathsFile_IsNotItselfExempt`)
 - [x] #2 The Go and app workflow `paths-ignore` lists match the exempt list (`TestPathsIgnoreMatchesExemptList_STATBUS224`)
 - [x] #3 The release gate rides only a green first-parent ancestor and refuses a red or missing one (`TestFindExemptRide_*`)
-- [ ] #4 A real doc/db-only push on master is observed: Go and app do not run, Images retags the parent, and release preflight rides the parent's green runs; parent and tip SHAs and run IDs recorded
-- [ ] #5 Owner decision: wait for a natural doc/db-only push to satisfy AC4, or make one deliberately (regenerate docs as its own commit next time a migration lands)? Either way AC4 is the last open item.
+- [ ] #4 One doc/db-only push on master is observed in Actions: Go and app workflows do not run, Images retags the parent, and release preflight rides the parent's green runs; parent and tip SHAs and run IDs recorded in Implementation Notes
+- [ ] #5 [Owner] Decide whether AC4 waits for a natural doc/db-only push or is produced deliberately (regenerated docs committed on their own after the next migration), and record it in Implementation Notes
 <!-- AC:END -->
 
 ## Implementation Notes
