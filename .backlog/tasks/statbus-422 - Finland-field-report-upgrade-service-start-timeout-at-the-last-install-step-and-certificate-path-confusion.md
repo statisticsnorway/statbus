@@ -1,12 +1,12 @@
 ---
 id: STATBUS-422
 title: >-
-  Finland field report: upgrade-service start timeout at the last install step,
-  and certificate path confusion
+  Finland field report 2026-09-25: each finding fixed, proven or handed to its
+  owner
 status: In Progress
 assignee: []
 created_date: '2026-09-27 10:07'
-updated_date: '2026-10-08 12:07'
+updated_date: '2026-10-15 19:23'
 labels:
   - installer
 dependencies: []
@@ -17,59 +17,47 @@ ordinal: 371200
 ## Description
 
 <!-- SECTION:DESCRIPTION:BEGIN -->
-Ville-Mattis Pilvio, 2026-09-25 (v2026.09.2 era). Owner asked to capture for discussion on his return.
-## The report (Ville, 2026-09-25, v2026.09.2-era binary)
+### North Star
+Every problem Finland's operator hit on the 2026-09-24/25 install either is fixed and proven, or has a named home, so this field report can close.
 
-Fresh install on statbus.statfin.eu. Steps 1-16 all green; step 17 failed:
+### Zoom out
+This ticket is a field report, not a feature. A field report is done when each finding is traced to a cause and either fixed here or handed to the ticket that owns it. Mixing several features into one ticket hides which part is still open, so findings that grew into their own work moved out (STATBUS-429, 430, 464, 465, 466, 469). What remains here is only what is not owned elsewhere.
 
-```
-[17/17] Upgrade service      RUNNING
-  Unit statbus-upgrade@statbus.service is in failed state — running reset-failed
-  Enabling and starting statbus-upgrade@statbus.service
-Job ... failed because a timeout was exceeded.
-[17/17] Upgrade service      FAILED: enable service: exit status 1
-INVARIANT FAILED_INSTALL_HAS_AUDIT_TRAIL violated (audit-only): install failed with no upgrade row (detectedState=db-unreachable) ...
-```
+### Zoom in
+- **Report, Ville-Mattis Pilvio, 2026-09-25 (v2026.09.2):** fresh install on `statbus.statfin.eu`; steps 1-16 green, step 17 `Upgrade service FAILED: enable service: exit status 1` after `Job ... failed because a timeout was exceeded`; his `.env.config` had `TLS_CERT_FILE=/home/statbus/statbus.crt` (a host path) and a hand-added `SITE_DOMAIN`.
+- **Step-17 cause, proven:** LXD replay 2026-09-29 (`tmp/ville-replay-v2026.09.3.md`): with a host-path certificate Caddy cannot open the file, the proxy crash-loops, `127.0.0.1:5431` stays unbound, the upgrade service exhausts its 5-minute connect budget and systemd reports exactly that timeout. On v2026.09.3 it is refused with a named cause.
+- **Shipped (merge `afd59955a`, v2026.09.3):** service failures include the unit's journal tail (`serviceFailureWithJournal`, `cli/cmd/install.go`); `TLS_CERT_FILE`/`TLS_KEY_FILE` are validated as container paths with a clear message (`cli/internal/config/config.go`).
+- **Footer showing `unknown` (found while checking his install log, 2026-10-08):** `ede6945d8` (STATBUS-457) had dropped the configured version from the footer. `3df96b7bf` restores it: ledger identity first, then `PUBLIC_STATBUS_VERSION` when its commit matches the served artifact, else `commit <sha8>`. In v2026.10.1.
+- **`SITE_DOMAIN`:** the installer has asked `Domain name` since `b362474b0` (v2026.09.1), so v2026.09.2 already asked; why it was hand-added is not established. The domain advice itself is STATBUS-389.
+- **First steps undocumented:** `c5222eb16` (2026-10-08) documents downloading `install.sh`/`uninstall.sh`, `chmod +x`, and the stable and prerelease channels in `doc/DEPLOYMENT.md`.
+- **Moved out:** custom-certs writable without sudo (STATBUS-429), transient detection failure shown as a settings error (430), users file silently unused (464, Done), battery heuristic suggesting development (465, Done), development defaults on a country install (466, Done), unreachable Visit URL (469). The private-certificate flow is STATBUS-399.
+- **Left as-is:** the audit line `detectedState=db-unreachable` on a healthy database (audit-only wording; STATBUS-402 removed audit vocabulary from operator output).
 
-Ville's own guess: "I needed to remove a service beforehand" (a leftover failed unit from a previous attempt).
-
-## Defects/questions this exposes (for owner discussion)
-
-1. **Step 17 robustness:** a previously failed unit gets reset-failed but the start still timed out. The installer needs the unit's actual journal in the failure output (the log says "See systemctl status" — the operator gets no cause), and the start must tolerate/clean a wedged prior unit. What timed out — the service's first-boot work (config generate, recovery scan) exceeding TimeoutStartSec?
-2. **detectedState=db-unreachable is wrong-looking:** the DB was healthy at step 8 (services all healthy) yet the audit invariant classified db-unreachable. Audit-only, but the classification deserves a look.
-3. **Certificate path confusion:** his .env.config has `TLS_CERT_FILE=/home/statbus/statbus.crt` — HOST paths. The documented values are CONTAINER paths (/data/custom-certs/...). The installer/config should validate that the cert files exist at the container path and print the mapping expectation, instead of failing later and mysteriously.
-4. **Legacy placeholder placement:** his .env.config carries SEQ_API_KEY/SLACK_TOKEN placeholder values — exactly what STATBUS-361 migrates. His box is the migration's target case; the rc.07-era crash-loop fix (service-side migration) covers the upgrade path.
-5. He had to hand-add SITE_DOMAIN to .env.config — worth checking whether the flow told him to (the FRESH refusal leaves the documented file to edit — did the guidance reach him?).
-
-## Triage (coordinator, 2026-09-27 10:10Z; owner: "build the clear ones now")
-
-Moving to implementation now: (1) step-17 failure must include the upgrade unit's journal tail so the operator sees the cause, and (2) TLS_CERT_FILE/TLS_KEY_FILE validation must catch host-path-vs-container-path confusion with a clear message. Waiting for owner discussion: the certificate UX flow (belongs to 399), whether the wedged-unit cleanup needs a design decision, and the db-unreachable audit classification.
+### Closing review
+- **Memory:** none needed.
+- **Documentation:** `doc/DEPLOYMENT.md` (done in `c5222eb16`).
+- **Cleanup:** the former Definition of Done item (footer test plus local render) duplicated AC3 and was removed.
 <!-- SECTION:DESCRIPTION:END -->
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [x] #1 The cause of the 24/25 Sep step-17 start timeout is reproduced on v2026.09.2 (LXD replay) and shown fixed or refused with a named cause on v2026.09.3
-- [ ] #2 The installer tells a standalone operator to set SITE_DOMAIN (or asks for it) before a certificate can be issued; Ville's hand-edit is not needed
-- [ ] #3 A short, confirmed instruction is sent to Ville for the stable v2026.09.3 install with his custom certificate
-- [x] #4 The footer never shows 'unknown' when the commit is known: on an install with no release metadata (VERSION empty, COMMIT_SHORT set) it renders something informative such as 'commit bce5bf39' or the commit alone, and the same fallback logic is used everywhere the version is displayed.
-- [ ] #5 Where the install path knows the release (install.sh or upgrade from a tagged release), PUBLIC_STATBUS_VERSION is populated so the footer shows the release (for example v2026.10.0); verified on a fresh install, not only in tests.
-- [ ] #6 An official installation displays its release: after install.sh from a tagged release or a channel (stable or prerelease), the footer shows that version (for example v2026.10.0) and never the word unknown. A development or local install may show local or dev. The two cases must be distinguishable rather than conflated, and a test must cover the released-install case.
-- [ ] #7 DEPLOYMENT.md documents the first steps the field had to discover: downloading install.sh and uninstall.sh from the repository, making them executable with chmod +x, and running them. It must also state the supported channels. (Ville-Mattis Pilvio, 2026-10-08.)
-- [ ] #8 User provisioning behaves correctly in every case: explicit STATBUS_USERS_FILE is used and reported; a missing or unreadable explicit path is a hard error; a users file present in the conventional operator location is DETECTED, announced and used rather than ignored; with no file and no path an interactive run asks for the first administrator and reports what was created; an unattended run fails fast with the remedy instead of finishing with no users; and a finished install whose user count is zero, or lower than the supplied file's entries, prints a loud actionable warning.
-- [ ] #9 A test covers each provisioning case, including the detected-file case that the field hit, so that a supplied users file can never again be silently unused.
+- [x] #1 The step-17 timeout is traced to its cause (host-path certificate leaves the database route unbound) by an LXD replay, and v2026.09.3 refuses it with a named cause (`tmp/ville-replay-v2026.09.3.md`)
+- [x] #2 A failed service start shows the unit's journal tail, and host-path certificate settings are refused with the container-path expectation (`TestServiceFailureWithJournal`, `TestReconcileRestartUsesJournalHelper_STATBUS422`, `TestValidateTLSPaths`)
+- [x] #3 The footer shows the release when the configured version's commit matches the served artifact, otherwise `commit <sha8>`, never `unknown` (`running-identity.test.ts`, `footer.test.tsx`, `TestDerivedVersion_ReleaseCheckoutVsDevCheckout`)
+- [ ] #4 A fresh install of a release containing `3df96b7bf` (v2026.10.1 or later) shows that release in the footer, observed on a real box
+- [x] #5 `doc/DEPLOYMENT.md` documents downloading `install.sh` and `uninstall.sh`, `chmod +x`, and the supported channels (`c5222eb16`)
+- [ ] #6 Owner decision: send Ville a short instruction for a stable install with his custom certificate now (the fixes are in v2026.10.1), or wait for STATBUS-429 and 399? Sending now closes the field loop.
 <!-- AC:END -->
-
-## Definition of Done
-<!-- DOD:BEGIN -->
-- [ ] #1 A test covers the unknown-version/known-commit case and the known-version case; the local install renders an informative footer; the change is small and does not touch the other 422 items (the install-timeout and certificate-path issues stay separate).
-<!-- DOD:END -->
 
 ## Implementation Notes
 
 <!-- SECTION:NOTES:BEGIN -->
-INSTALLER-LOG REVIEW CLUSTER (owner's read of Ville's install log, 2026-10-08). Three questionnaire defects were found from this field report and are tracked as their own tickets so each can be implemented and tested on its own, with all three cross-referenced here as parts of this Ville issue:
-* STATBUS-464 - principled user provisioning: use the file if provided, detect it if present, ask only otherwise, never finish with zero users. Origin: the install finished with the operator's users file unused, so the account he supplied could not log in.
-* STATBUS-465 - the installer suggested development mode because a battery was detected (installIsLaptop reads /sys/class/power_supply). Owner decision: the installer always suggests standalone, no heuristics and no detection; development and private are deliberate choices; the battery helpers are removed.
-* STATBUS-466 - for a standalone install the display name and deployment code ARE the country and its country code (our own slots are no, pk, et, jo, ma, ug), but the prompts offer the development defaults StatBus and local with no validation, so pressing Enter in the official installer yields development values on a country deployment. Development may invent; standalone must ask the real question.
-All three touch cli/cmd/install.go and cli/internal/installinput/config.go and are assigned to one worker so the shared checkout keeps a single writer per file.
+### Evidence
+- **AC1:** LXD replay 2026-09-29, recorded in `22c8fddcf`.
+- **AC2-3:** green locally on master, 2026-10-15 (Go tests and 27 app tests).
+- **AC4:** open; v2026.10.1 contains `3df96b7bf` but no fresh-install footer observation is recorded.
+- **AC5:** `doc/DEPLOYMENT.md` lines 194-240.
+- **AC6:** open.
+- **Consolidated:** former AC5 and AC6 (both "the footer shows the release on a fresh install") are now AC4. Former AC8 and AC9 (users file) were done by STATBUS-464 and removed here. Former AC2 (`SITE_DOMAIN`) was already asked in v2026.09.2; the domain advice is STATBUS-389.
+- **Installer-log review cluster (2026-10-08):** three defects from Ville's install log became STATBUS-464, 465 and 466; all three are Done.
 <!-- SECTION:NOTES:END -->
