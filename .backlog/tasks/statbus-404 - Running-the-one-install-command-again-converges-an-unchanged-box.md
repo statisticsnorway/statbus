@@ -1,10 +1,10 @@
 ---
 id: STATBUS-404
-title: Running the install command again preserves an unchanged ready installation
+title: Running the install command again changes only what an answer changed
 status: In Progress
 assignee: []
 created_date: '2026-09-24 15:35'
-updated_date: '2026-09-29 08:04'
+updated_date: '2026-10-15 19:13'
 labels:
   - release-bug
   - install
@@ -18,34 +18,41 @@ ordinal: 357000
 ## Description
 
 <!-- SECTION:DESCRIPTION:BEGIN -->
-A second install run on a ready unchanged box reports settled steps and performs zero image pulls, zero settings or certificate regeneration, and zero service restarts. A named display-name change regenerates only affected settings and restarts only the application and web entry point.
+### North Star
+Running the install command again on a ready box changes nothing that does not need changing: an unchanged box stays exactly as it is, and a changed answer touches only what depends on it.
 
-## Evidence, 2026-09-24
+### Zoom out
+The one install command is also the repair and reconfigure command, so operators run it often and should be able to run it without fear. That works only if every step is convergent: it checks whether its result is already in place, reports OK and does no work when it is, and acts only on a real difference. A rerun that pulls images, regenerates settings or restarts services on a healthy box costs downtime and hides which change actually mattered.
 
-Current image and step convergence logic is at `cli/cmd/install.go:990-1034` at master `7a9cf707e`. The audit records real Compose JSON using `ContainerName` and the mismatch with the parsed field (`/Users/jhf/ssb/statbus/tmp/installer-message-audit.md:144,268-272`). Finland reruns visibly pulled images again (`/Users/jhf/ssb/statbus/tmp/finland-transcript-2-actual.txt:31-48,83-100`).
+For a changed setting, each generated setting declares which services read it (its restart class). A changed answer then restarts exactly those services and nothing else. A setting with a wrong declaration either restarts too much or, worse, leaves a service running with the old value.
 
-Failed evidence, 2026-09-24: v2026.09.3-rc.01 (`10f094f2b`) smoke run `36063305786` (`0-happy-install`) failed its idempotent rerun on a healthy box: `cli/cmd/install_ports.go:113-119` string-matched `docker ps` Ports output for `:3014->`, while Docker prints consecutive ports as a range (`127.0.0.1:3014-3015->3014-3015/tcp`), so StatBus's own database port was refused as another program's. A fix is in review on `fix/port-preflight-own-ports` (`e6fc3f739`); real-VM proof remains pending.
+### Zoom in
+- **Incident, Finland 2026-09-24 (v2026.09.2):** reruns pulled every image again (`tmp/finland-transcript-2-actual.txt:31-48,83-100`). The image check read a `Container` field while Compose's JSON uses `ContainerName`, so present images looked absent.
+- **Shipped:** `8d8f48704`, `224c99c5d` (v2026.09.3) make unchanged reruns quiet. Image detection reads `ContainerName` (`cli/cmd/install.go`, `composeServicesHaveImages`). `e6fc3f739` fixed the port preflight refusing StatBus's own port ranges on rerun (rc.01 smoke run `36063305786`). Restart classes are declared per key in `cli/internal/config/config.go` (`classes.declare`), and `TestGenerateEnvContent_EveryKeyHasARestartClass` keeps every generated key declared.
+- **Proof:** `0-happy-install.sh` reruns the install command on a green box and requires every step OK exactly once, no RUNNING/DONE, and no image pull (smoke `36505292818` PASS). `TestComposeServicesHaveImagesRequiresEachNamedService` (`cli/cmd/statbus_349_test.go`) covers `ContainerName`. `TestRestartClassesForKeys_*` (`cli/cmd/install_apply_config_changes_logic_test.go`) covers key-to-service mapping.
+- **Defect found 2026-10-15:** the country display name `DEPLOYMENT_SLOT_NAME` is declared with no restart class ("no verified consumer"), but `docker-compose.app.yml` passes it to the app as `PUBLIC_DEPLOYMENT_SLOT_NAME`, which `app/src/app/layout.tsx` renders. A rerun that changes only the display name therefore restarts nothing, and the app keeps showing the old name until something else restarts it. Declared that way since `9fead5e3c` (STATBUS-332).
+
+### Closing review
+- **Memory:** none needed.
+- **Documentation:** none needed.
+- **Cleanup:** merged branch `fix/port-preflight-own-ports` deleted 2026-10-15.
 <!-- SECTION:DESCRIPTION:END -->
-
-## Release gate observation 2026-09-25
-
-**In Progress.** rc.02 (`2198185bb`) smoke [run 36102984100, `0-happy-install` job 107969435877](https://github.com/statisticsnorway/statbus/actions/runs/36102984100/job/107969435877) concluded **success**, including the scenario's unchanged healthy-install rerun (`test/install-recovery/scenarios/0-happy-install.sh`). This is observed-green VM evidence for AC #2, superseding rc.01's failed rerun below. It does not prove the missing Compose v2/v5 fixture (#1) or display-name-only rerun (#3), so do not mark Done.
-
-## Status 2026-09-24
-
-**In Progress.** `8543f493a`, `474cf6119`: `cli/cmd/install.go` and `test/install-recovery/scenarios/0-happy-install.sh` implement an unchanged-rerun check (#2 authored, real-VM proof pending). #1 named Compose v2/v5 fixtures and #3 display-name-only scenario are absent. **Remaining:** test image detection with both Compose formats and prove zero-pull/no-restart unchanged and selective display-name reruns on a VM.
-
-Baseline: `origin/master` at `373d15fc3`. Criterion disposition and remaining positive targets are above; the acceptance criteria below remain authoritative. An authored but unrun VM scenario is **proof pending**, not met.
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 `new: cli/cmd/install_images_test.go::TestComposeV2AndV5ContainerNameFixtures` uses captured v2 and v5 JSON fixtures and recognizes every already-present image.
-- [ ] #2 `test/install-recovery/scenarios/0-happy-install.sh` performs an unchanged second run and measures zero image pulls, zero settings or certificate regeneration, and zero service restarts.
-- [ ] #3 `new: test/install-recovery/scenarios/0-rerun-display-name-change.sh` changes only the display name and observes only settings regeneration plus application and web-entry-point restart, with zero image pulls and no database, API, worker, or automatic-update restart.
+- [x] #1 A second run on a ready unchanged box reports every step OK, none RUNNING or DONE, and pulls no image (`0-happy-install.sh` green-box rerun)
+- [x] #2 Image detection recognises present images from Compose JSON `ContainerName` (`TestComposeServicesHaveImagesRequiresEachNamedService`)
+- [ ] #3 Changing only the display name restarts the app and nothing else, and the app then shows the new name; today it restarts nothing (defect above)
+- [ ] #4 Owner decision: is AC3 fixed here (declare the restart class, prove it with a rerun), or split into its own bug ticket so this one closes on AC1-2?
 <!-- AC:END -->
 
 ## Implementation Notes
 
 <!-- SECTION:NOTES:BEGIN -->
-Audit after v2026.09.3 (2026-09-29): v2026.09.3 makes unchanged reruns quiet (8d8f48704, 224c99c5d). Smoke 0-happy-install PASS (36505292818) shows 17/17 OK and no pulls. Remaining: AC1 v2/v5 fixtures test, direct restart/regeneration measurement, and the display-name rerun scenario.
+### Evidence
+- **AC1:** smoke `0-happy-install` PASS `36505292818` (v2026.09.3), and on the rc ladder since.
+- **AC2:** green locally on master, 2026-10-15.
+- **AC3:** unmet; defect identified from source on 2026-10-15, not yet reproduced on a box.
+- **Superseded criteria:** the restyle asked for captured Compose v2 and v5 JSON fixtures and a `0-rerun-display-name-change.sh` scenario that were never written.
 <!-- SECTION:NOTES:END -->
+
