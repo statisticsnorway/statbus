@@ -1,10 +1,12 @@
 ---
 id: STATBUS-416
-title: A superseded candidate's fleet stops before its next VM boots
+title: >-
+  When a newer release candidate appears, the older candidate's fleet stops
+  before taking another box
 status: In Progress
 assignee: []
 created_date: '2026-09-25 09:45'
-updated_date: '2026-09-29 08:04'
+updated_date: '2026-10-15 19:20'
 labels:
   - release-bug
   - ci
@@ -17,42 +19,40 @@ ordinal: 367000
 ## Description
 
 <!-- SECTION:DESCRIPTION:BEGIN -->
-A newer RC does not interrupt an already running VM, but each queued scenario of the older RC checks freshness before it rents its own VM. The older fleet reports SUPERSEDED, neither failed nor green promotable proof, while the newer candidate's independent orchestrator proceeds without a capacity collision.
+### North Star
+When a newer release candidate is tagged, the older candidate's test fleet stops starting new work, reports itself as superseded rather than failed or green, and leaves the capacity to the newer one.
 
-## Grounded evidence, 2026-09-25
+### Zoom out
+Release candidates are tested by long fleets (smoke, the LXD fault fleet, upgrade arcs). If rc.N+1 is tagged while rc.N's fleet is still queued, every further rc.N scenario is wasted time on shared capacity. Two rules follow:
+- **Stop before, not during:** each scenario checks for a newer candidate just before it would take a box. A scenario already running is left to finish and clean up after itself, because cancelling mid-run strands boxes and contends with the newer fleet.
+- **A third verdict:** a stopped fleet is SUPERSEDED, distinct from failed and from green. It never counts as release proof, a real failure with no newer tag stays red, and a missing marker never turns into green.
 
-- Install Recovery Harness [run 36104217764](https://github.com/statisticsnorway/statbus/actions/runs/36104217764) for rc.02 had three failed scenarios by 07:23Z and 12 scenario jobs still queued at 07:30Z (`gh run view 36104217764 --json jobs`). Completed job step lists contained no per-scenario freshness check. A newly queued scenario started with checkout and artifact download, then provisioned its VM.
-- `.github/workflows/release-fleet-orchestrator.yaml:107-125,281-295,380-394,529-543` checks the newest tag at the initial decision and between fleet stages, never between matrix scenarios. Its final Fleet verdict at `:732-816` independently rechecks tags and distinguishes SUPERSEDED from a genuine failure.
-- `.github/actions/orchestrator-fleet-admission/admit.sh:81-88` checks newest RC once before each child fleet starts, not when an individual scenario later gets a VM slot. Its supersession refusal exits 1, so it is not a neutral per-scenario outcome.
-- `.github/workflows/install-recovery-harness.yaml:110-113`, `upgrade-arc-harness.yaml:105-108`, and `test-smoke.yaml:23-26` share `hetzner-vm-fleet`, `cancel-in-progress: false`, `queue: max` (STATBUS-208). Cancelling in-flight VMs would strand cleanup and contend with the newer fleet.
-## Observations and follow-up fix, 2026-09-25
+### Zoom in
+- **Incident, 2026-09-25:** rc.02's install-recovery run `36104217764` had three failed scenarios by 07:23Z and 12 still queued at 07:30Z; queued scenarios checked out and then rented a Hetzner VM with no freshness check. The orchestrator checked the newest tag only between stages.
+- **Shipped:** `ef32c20c5` (v2026.09.3) adds the shared action `.github/actions/scenario-superseded` (`check.sh`) as the first step after checkout, gates every later step on its output, and aggregates a SUPERSEDED verdict in `test-smoke.yaml` and `upgrade-arc-harness.yaml`. When the fault fleet moved to LXD (`06d2395c2`, 2026-09-28, which also retired `install-recovery-harness.yaml`), `lxd-fleet.yaml` gained the check before any paid operation and again after waiting for box occupancy.
+- **Proof, unit:** `TestSupersededCandidateStopsBeforeEachVMAndPropagatesFleetVerdict_STATBUS416` (`cli/cmd/workflow_harness_domain_validation_test.go`) pins the step order and gating for smoke and arcs. Green 2026-10-15. It does not cover `lxd-fleet.yaml`.
+- **Observed in CI:** the check runs in every LXD fleet run (for example `38714275075`, `38696133051`, 2026-10-15) but has never fired: none of the 27 LXD fleet runs on record (2026-09-28 to 2026-10-15) logs `SUPERSEDED by`.
 
-The per-scenario supersession check (merged `ef32c20c5`) has not yet had a chance to fire: rc.04 was cut 10:03:52Z while rc.03's last two scenarios were already running (ended 10:04:07Z/10:04:22Z); no rc.03 scenario started after the cut.
-
-rc.04 exposed the opposite defect: its orchestrator run 36121911613 failed in 90 s at 10:05:08Z because `.github/actions/dispatch-fleet-and-wait/dispatch.sh` preflight_fleet_group refused (`Hetzner VM fleet occupied`) while rc.03's fleet (run 36116753412) was draining. Fixed in `2feb30f29`: an older candidate's occupying run -> bounded wait (30 s polls, 20 min cap, owner id and remaining jobs logged); same/newer/manual/unknown occupant -> refuse as before; the occupant is never cancelled. Merged in `a3526f832`; rc.05's orchestrator dispatched its smoke normally. Proof of the per-scenario stop still pending: needs a cut while a fleet has scenarios still queued.
-
-## rc.05 observation, 2026-09-25
-
-Run 36130286326 was the newest candidate's own fleet, so no scenario started after a newer cut: the supersession check remains unobserved in anger. First real opportunity is rc.06's fleet if rc.07 is cut while it runs.
+### Closing review
+- **Memory:** none needed.
+- **Documentation:** none needed.
+- **Cleanup:** none.
 <!-- SECTION:DESCRIPTION:END -->
-
-## Status 2026-09-25
-
-**Follow-up dispatch defect (rc.04, run 36121911613).** rc.04 (`2a27caf85`) was cut at 10:03:52Z. Its orchestrator smoke job failed at 10:05:08Z in `dispatch-fleet-and-wait/dispatch.sh` preflight, before any scenario ran, because the shared concurrency group still listed rc.03 Install Recovery Harness run 36116753412. That older run's last two jobs had ended at 10:04:07Z and 10:04:22Z, so GitHub was still releasing the group. REST reports its head_branch `v2026.09.3-rc.03`, event `workflow_dispatch`, actor `github-actions[bot]`; workflow run REST does not expose the orchestrator-run-id input. Newer candidate dispatch must wait a bounded 20 minutes for exclusively older bot-dispatched RC occupants, reporting remaining jobs and never cancelling. Same/newer candidate, manual human dispatch and unknown provenance still refuse. This is a classification fix, not evidence that tagged CI has passed; AC #5 remains open.
-
-**In Progress, tagged proof pending.** `ef32c20c5` (merge `21426f622`) adds the shared `scenario-superseded` check as the first post-checkout step in all three VM jobs (`.github/workflows/test-smoke.yaml:103`, `install-recovery-harness.yaml:480`, `upgrade-arc-harness.yaml:634`), plus marker aggregation (`.github/actions/scenario-fleet-verdict/aggregate.sh:34-35`), dispatch propagation and the structural test (`cli/cmd/workflow_harness_domain_validation_test.go:22-74`). This is not an observed supersession. AC #5 requires a real newer-tag exercise with job summary, artifact, orchestrator SUPERSEDED verdict, run IDs/conclusions and no new VM boots; keep all AC open until rc.03 gate evidence.
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 `TestSupersededCandidateStopsBeforeEachVMAndPropagatesFleetVerdict_STATBUS416` pins the shared freshness action as the first post-checkout step in all three VM matrix jobs and requires every subsequent step, including `always()` cleanup, to respect its output.
-- [ ] #2 Each scenario queries the remote newest RC at its own arrival. On a newer tag, its log contains `SUPERSEDED by <tag>: stopping before VM boot`, its job summary names the newer tag, and it creates no VM. Non-RC manual refs and unknown remote lookup proceed.
-- [ ] #3 An aggregate of *all* selected matrix scenario markers emits a distinct SUPERSEDED verdict and exposes it to the orchestrator through its dispatch-and-wait action. Missing marker/artifact never produces a green proof. The final Fleet verdict respects child-observed supersession even if its own tag refresh fails.
-- [ ] #4 Live sibling VMs finish and self-clean, the shared noncancelling VM capacity lock remains, and no superseded fleet launches the next stage. A real failure with no superseding tag stays red.
-- [ ] #5 A tagged CI exercise verifies the observable job summary, artifact verdict, orchestrator SUPERSEDED verdict, and absence of new VM boots after a newer RC tag appears. Record run IDs and actual conclusions.
+- [x] #1 Smoke and upgrade-arc scenario jobs check freshness as the first step after checkout, gate every later step (including cleanup) on it, and aggregate a SUPERSEDED verdict (`TestSupersededCandidateStopsBeforeEachVMAndPropagatesFleetVerdict_STATBUS416`)
+- [ ] #2 The LXD fault fleet is held to the same rule by a test: freshness before any paid operation and again after the occupancy wait, with a SUPERSEDED verdict distinct from failure
+- [ ] #3 A real supersession is observed once: a newer RC tagged while the older fleet is queued, the older fleet's queued scenarios stop before taking a box, its verdict is SUPERSEDED, and the newer fleet proceeds; run IDs recorded
+- [ ] #4 Owner decision: is AC3 worth forcing (tag a throwaway RC on top of a queued one), or should this ticket wait for a natural occurrence? Forcing closes it soon; waiting may take many releases.
 <!-- AC:END -->
 
 ## Implementation Notes
 
 <!-- SECTION:NOTES:BEGIN -->
-Audit after v2026.09.3 (2026-09-29): v2026.09.3: the freshness guard ships in smoke/arc jobs (ef32c20c5) and the LXD fleet (lxd-fleet.yaml freshness/after-wait). Supersession was never observed across rc.01–rc.17. Rescope the ACs to the LXD fleet and to 425's LXD arcs, then observe one.
+### Evidence
+- **AC1:** green locally on master, 2026-10-15.
+- **AC2:** open; `lxd-fleet.yaml` has the checks but no test pins them.
+- **AC3:** open; never observed (2026-09-29 audit, rechecked 2026-10-15 against recent LXD fleet logs).
+- **Superseded criteria:** the original five criteria targeted the Hetzner install-recovery workflow, retired in `06d2395c2`. The audit asked to rescope to LXD; that is done above.
 <!-- SECTION:NOTES:END -->
