@@ -1,555 +1,87 @@
-# AI Agent Guide for STATBUS
+# STATBUS agent guide
 
-This guide is for AI coding assistants working in the STATBUS codebase. STATBUS is a statistical business registry with temporal tables for tracking business activity throughout history. Built by Statistics Norway (SSB) using PostgreSQL 18+, PostgREST 12+, and Next.js 15+.
+STATBUS is SSB's statistical business registry: PostgreSQL 18+, PostgREST 12+, Next.js 15+, and a Go CLI. PostgreSQL is the backend. PostgREST exposes the schema directly, with authorization enforced by database roles and RLS.
 
-**Architecture**: Database-centric progressive disclosure (NOT microservices). PostgreSQL IS the backend—PostgREST exposes the schema directly. Security happens entirely at the database layer via Row Level Security (RLS).
+## Communication and context
 
-## Quick Commands
+- Lead with the answer or result. Include only decision-relevant rationale, verification, and blockers. Do not repeat context or narrate routine steps.
+- Keep instructions actionable: one rule per bullet, with examples only where needed. Put procedures in linked guides and incident histories in tickets or Git history.
+- Read the topic guides below when relevant, not all at session start.
+- Use memory for preferences and historical lessons, not as the only source of mandatory project rules. Keep those in version-controlled instructions. Never store secrets in memory.
 
-StatBus has two command-line tools:
-- **`./sb`** — Go CLI for ops/production commands (start, stop, psql, migrate, upgrade, etc.)
-- **`./dev.sh`** — Bash script for development-only commands (test, create-db, etc.)
+## Workflow
 
-The legacy `manage-statbus.sh` has been deleted. All references should use `./sb` or `./dev.sh` instead.
+- For multi-step work, keep an ordered todo list with one item in progress. Include implementation, verification, commit/push, CI review, ticket evidence, and closure when applicable. Add newly discovered work to the plan.
+- For defects, record the hypothesis in `tmp/journal.md`, reproduce the failure, and run a non-destructive prototype before implementing. Keep diagnostic scripts and logs in `tmp/`. Do not delete them.
+- Demonstrate that regression tests detect the defect: record failure before the fix and success after it. If necessary, test against the fix's parent commit without disturbing the shared checkout.
+- Run the relevant regression suite. Match verification to the claim: documentation edits need diff/link checks, SQL behavior needs database tests, and host behavior needs an observed host run.
+- Test real behavior or invariants, not the absence of an arbitrary retired token. Diagnose every failure rather than dismissing it as flaky or transient.
+- Fix discovered bugs immediately or schedule their fix as the next step. Fail clearly on unexpected errors. Enforce data invariants with constraints and fix races.
 
-### Operations (./sb)
-```bash
-# Service management (profiles: all, all_except_app, app)
-./sb start all                  # Start all services (db, rest, worker, app)
-./sb stop all                   # Stop all services
-./sb restart all                # Restart all services
-./sb ps                         # List running containers
-./sb logs [service...]          # Follow service logs
-./sb build [profile]            # Build Docker images from source (development only)
+## Shared checkout and Git
 
-# Database connection
-./sb psql                       # Open psql shell
-./sb psql < file.sql            # Run SQL file (use < redirection!)
-echo "SELECT ..." | ./sb psql   # Single-line query
+- Agents share one checkout and index. Coordinate file ownership and preserve unrelated changes.
+- Commit only your files using explicit paths: `git commit -m "prefix: description" -- path/to/file`. Check `git diff --cached --stat` and the staged diff first. Never use `git add -A` or `git add .`.
+- Commit and push ordinary changes to master without waiting for idle CI or asking permission, unless the user requested a review-only diff. Inspect CI for that exact SHA afterwards. Release gates are separate.
+- Read GitHub Actions `status` and `conclusion` explicitly using `gh run list --json status,conclusion`. Do not rely on `gh run watch --exit-status`.
 
-# Configuration
-./sb config generate            # Regenerate .env and Caddyfiles from .env.config
-./sb config show                # Show current config (verbose)
-./sb config show --postgres     # Print shell-evaluable PG vars: eval $(./sb config show --postgres)
+## Backlog
 
-# Environment files
-./sb dotenv -f .env get KEY            # Read a key from .env file
-./sb dotenv -f .env set KEY VALUE      # Set a key (also accepts KEY=VALUE)
-./sb dotenv -f .env set KEY +DEFAULT   # Set only if key doesn't exist
+- Tickets live in `.backlog/tasks/`. Read with the `backlog` CLI, Backlog MCP, or `rg`. Do not look up tickets in a browser or guess tracker URLs.
+- Author ticket content through the CLI. Put the goal, work, acceptance criteria, and evidence in the ticket, not only in agent prompts.
+- Set `In Progress` when work starts, including delegation. After verification, set `Done` with `backlog task edit <id> -s "Done"` and leave it on the board. Do not use `backlog task complete` for newly finished work.
+- Use `--append-notes` to add evidence. `--notes` replaces existing notes. Use `--check-ac <n>` to mark verified criteria.
 
-# Users and types
-./sb users create               # Create users from .users.yml
-./sb types generate             # Generate TypeScript types from schema
+## Commands and configuration
 
-# Database operations
-./sb db status                  # Check if database is running
-./sb db dump                    # Dump local database to dbdumps/
-./sb db download <code>         # Download database dump from remote server
-./sb db dumps list              # List available database dumps
-./sb db dumps purge [N]         # Delete old dumps, keeping newest N per source
-./sb db restore <file>          # Restore dump to local database
-./sb db restore <file> --to no  # Restore dump to remote server
-```
+- `./sb` is the Go operations CLI. `./dev.sh` handles development tasks. Do not use the retired `manage-statbus.sh`.
+- Edit `.env.config`, then run `./sb config generate`. Do not edit generated `.env`. Keep `.env.credentials` secure.
+- Inspect the database with `./sb psql < file.sql` or `echo "SELECT ..." | ./sb psql`.
+- For offline database definitions, search `doc/db/` before chronological migrations.
+- Run SQL tests with `./dev.sh test fast` or `./dev.sh test <prefix>`. Save output with `2>&1 | tee tmp/test-<name>.log` and preserve the test exit status with `set -o pipefail`.
+- Frontend checks run from `app/`: `pnpm run lint`, `pnpm run format`, `pnpm run tsc`, `pnpm run test`, and `pnpm run build`.
+- Database deletion/recreation commands are local-development only, never production. Confirm the target and authorization before destructive operations.
+- Additional commands and connection examples: [development reference](doc/development-reference.md).
 
-### Database Inspection Patterns
-```bash
-echo "\d tablename" | ./sb psql           # Table structure
-echo "\dt pattern*" | ./sb psql           # Find tables by pattern
-echo "\dv viewname" | ./sb psql           # View definition
-echo "SELECT ..." | ./sb psql             # Single queries
-```
+## Database changes
 
-**Offline inspection via `doc/db/`**: The `doc/db/` directory contains dumps of all database functions, tables, and views in markdown format. Use `grep` / `rg` on these files when you need to search function bodies without a running database. Prefer this over grepping `migrations/` — migrations are chronological, so the first match is the oldest and least relevant version.
+Before SQL work, read [SQL conventions](.claude/rules/sql.md). Before migrations, also read the [migration procedure](doc/development-reference.md#migrations).
 
-### Testing (./dev.sh)
-```bash
-./dev.sh test fast 2>&1 | tee tmp/test-fast.log         # Run fast tests only (good for quick iteration)
-./dev.sh test 015_my_test                                # Run single test (prefix number)
-./dev.sh test 300_test 2>&1 | tee tmp/test-300_test.log  # Save output to log file for later review
-./dev.sh diff-fail-all pipe                              # Show diffs for all failed tests
-./dev.sh test all                                        # Run all pg_regress tests (EXTREMELY SLOW)
+- Dump the current function/procedure with `\sf` before editing. Use it as the base for both migration directions, then change only the required lines. Never mix stderr into the SQL dump.
+- Released migrations are immutable. Repair wrong data in a forward migration, testing both migrated seed rows and rows written while the bad state existed.
+- Migration data operations must be deterministic across full replay and incremental upgrades. Do not derive values from aggregates of unrelated current state such as `MAX(priority)` or `COUNT(*)`.
+- Regenerate `doc/db/` with migration changes. Let `./dev.sh generate-doc-db` finish and verify it left no unintended deletions before committing.
+- Preserve the authentication split: JWT verification uses `SECURITY DEFINER`, role switching uses `SECURITY INVOKER`. Protect secrets with RLS and review definer privileges and search paths.
 
-# IMPORTANT: Use tee to save output - prevents wasting time re-running slow tests
-# Test results are in test/results/*.out and can be compared to test/expected/*.out
-```
+## Frontend changes
 
-**Install-recovery runner** (`./dev.sh test-install-recovery [selector]`): the RC fault gate runs the full scenario catalogue as LXD forks on the on-demand, hardened Ubuntu 26.04 `statbus-lxd-fleet` host. A candidate's pristine hardened guests run the real candidate installer, create installed snapshots, then scenario-specific forks execute the original assertions. The box is reaped after roughly three idle hours. `HCLOUD_TOKEN` and `LXD_FLEET_SSH_KEY` are required by CI; local VM execution of the runner remains available for diagnosis. See `test/install-recovery/README.md`. **Smoke (`test-smoke.yaml`) builds its checkpoints on the same LXD fleet host (`test/install-recovery/lxd/run-smoke.sh`), which the fault fleet and the upgrade arcs (`upgrade-arc-harness.yaml`, one job per arc) then consume concurrently on the same host, bounded by host slots (`LXD_HOST_SLOTS`, default 8; STATBUS-425 M4).** Those first real runs are green: smoke ~13 min, arcs 59 min 41 s at rc.20.
+Before editing `app/`, read [frontend conventions](.claude/rules/frontend.md).
 
-> **Before touching install/upgrade/recovery, read [doc/install-upgrade-testing.md](doc/install-upgrade-testing.md): the only way to know if these paths work is to RUN them.** Unlike SQL/Go/integration tests (runnable before pushing), install/upgrade require commit → push → CI builds the per-commit image → run in a real guest, observe, iterate. You cannot reason out the result and you cannot run the released-image path locally before pushing; stalling before a run yields zero knowledge.
+- Prefer direct browser-to-`/rest` requests. Use `/api` only when server-side work is necessary, such as bulk COPY or webhooks.
+- Keep independently changing state in separate Jotai atoms. Use `atomEffect` for set-if-null patterns and `useGuardedEffect` instead of `useEffect`. State-machine effects depend on primitives, not whole state objects.
+- Match local variable names to their atoms. Use `@/` imports from `app/src/` and prefer named exports.
+- Generate database types with `./sb types generate`. Use `Tables<'name'>` and `Enums<'name'>` from `app/src/lib/database.types.ts`.
 
-**⚠️ DESTRUCTIVE Operations (LOCAL DEVELOPMENT ONLY - NEVER IN PRODUCTION):**
-```bash
-./dev.sh create-db           # Create database with migrations
-./dev.sh delete-db           # ⚠️ DESTROYS ALL DATA
-./dev.sh delete-db-structure # ⚠️ Drops schema, keeps container
-./dev.sh recreate-database   # ⚠️ Delete + Create (fresh start)
-```
+## Install, upgrade, and deployment
 
-### Migrations (./sb)
-```bash
-./sb migrate new --description "my change"  # Create migration
-./sb migrate up                             # Apply migrations
-./sb migrate down                           # ⚠️ Rollback (destructive)
-```
+Before touching these paths, read [install/upgrade testing](doc/install-upgrade-testing.md), the [upgrade timeline](doc/upgrade-timeline.md), and the [recovery model](doc/upgrade-recovery-model.md).
 
-### Install / Upgrade (./sb)
-```bash
-./sb install                      # Unified entrypoint — detects state and dispatches
-./sb upgrade check                # Fetch GitHub releases and register them as candidates
-./sb upgrade list                 # List registered upgrade candidates and their status
-./sb upgrade register <version>   # Record a release tag or commit as a candidate (prereq for schedule)
-./sb upgrade schedule <version>   # Queue an already-registered candidate to run (service executes it)
-./sb upgrade service              # Run upgrade service (usually via systemd)
-```
+- Validate released-image behavior by committing, pushing, waiting for the per-commit image, then running it in a real guest. Local reasoning or unit tests alone do not establish install/upgrade success.
+- Deploy named release candidates, never master's untagged tip. Register the version, schedule it, then let the service run or invoke `./sb install` to dispatch immediately. Check the remote working tree is clean first.
+- `./sb install` is the unified first-install, repair, and pending-upgrade entrypoint. Follow its recovery contract rather than inventing manual recovery steps.
+- Dev is the automatic canary. Norway is the human-operated prerelease canary and must not receive automated pushes. Demo and ordinary production slots follow the stable channel.
+- Deployment mode controls Caddy behavior. Deployment slot controls instance isolation and port allocation. Do not conflate them.
+- Internal database clients use `CADDY_DB_BIND_ADDRESS` and `CADDY_DB_PORT`, not the external `SITE_DOMAIN`. Keep the PostgREST admin port loopback-only, with no public Caddy route.
 
-`./sb install` is the single operator-facing entrypoint for first-install, repair, and applying a pending upgrade without waiting for the service. On each run it probes install state and dispatches:
+## Topic guides
 
-| Detected state                     | Action                                                                                  |
-|------------------------------------|-----------------------------------------------------------------------------------------|
-| fresh (no `.env.config`)           | Run the step-table to set up a clean install                                            |
-| half-configured / DB unreachable   | Run the step-table to repair / continue setup                                           |
-| nothing-scheduled                  | Run the step-table as an idempotent config refresh                                      |
-| scheduled-upgrade                  | Dispatch the pending `public.upgrade` row through the same pipeline the service uses    |
-| crashed-upgrade (flag present, flock free) | Crash recovery: quiesce the unit, un-park a parked row, `RecoverFromFlag`, re-detect, re-dispatch |
-| live-upgrade (flag present, flock held) | Progressing → refuse with diagnostic. Crash-LOOPING unit → reclassified to crashed-upgrade and taken over SIGKILL-class (STATBUS-039; never SIGTERM) |
-| restore-reattemptable (`failed` row + retained `backup_path`) | Replay the restore — human-gated via `./sb install`, never the auto service (STATBUS-111) |
-| legacy pre-1.0 (no `public.upgrade` table) | Refuse with pointer to manual upgrade path (`doc/CLOUD.md`)                     |
-
-Canonical operator upgrade workflow: `./sb upgrade schedule <version>` to queue, then either wait for the service's next tick (production norm) or run `./sb install` to dispatch immediately. After a successful inline upgrade the systemd upgrade unit (if active) is restarted so it picks up the new binary + migrations. A PARKED upgrade (deterministic failure at target — row `in_progress` + `recovery_parked_at`, box alive-idle) resolves by scheduling a fix release (its claim atomically displaces the park to `superseded`, STATBUS-159) or by `./sb install` (un-parks for one fresh attempt); parked rows are skipped by every automatic resume. Full contract in `doc/upgrade-timeline.md` and `doc/upgrade-recovery-model.md`.
-
-**Repairing a released migration that succeeded but left WRONG DATA (STATBUS-172):**
-
-A released migration is immutable — you cannot edit it to fix bad data it already
-wrote (boxes have applied it). The remedy is a **forward repair migration**, and it
-must be correct against data written *under* the corruption, not just seed state —
-because a box may have run the app for weeks with live writes against the bad state
-before the repair arrives. Test the repair in **pg_regress**, not a VM arc (the
-upgrade machinery just applies two green migrations; the substance is the SQL vs
-data): apply the wrong migration V → INSERT/UPDATE rows that exploit the bad state →
-apply the repair migration W → assert the state is now correct for BOTH the migrated
-seed rows and the app-written rows. (A restamp/bless repairs the file hash, never the
-fleet's applied state — see `IntentionallyFixBrokenImmutableMigrationEnvVar`.)
-
-**A migration's data operations must not derive values from aggregate reads of
-current state (STATBUS-312, STATBUS-314):** `MAX(priority)`, `COUNT(*)`, "the
-highest so far" make the result a function of WHEN the migration runs in the
-sequence — and released history keeps that shape forever. A full-from-scratch
-replay then builds a different database than the fleet's incrementally-migrated
-boxes hold, silently (install.sh's seed-restore has a full-replay fallback, so
-this reaches real installations, not just test fixtures). Two released
-migrations were caught doing this in one day, found only because someone did a
-genuine full replay. Express data operations so the result is independent of
-position in the replay sequence: derive from the source definitions, use fixed
-values, or compute deterministically from inputs the migration itself creates.
-
-**Migration Best Practice for Modifying Existing Functions/Procedures:**
-
-When modifying an existing database function or procedure, **always dump the current definition first** rather than rewriting from scratch:
-
-```bash
-# Dump function definition to use as base for both up and down migrations
-echo "\sf schema.function_name" | ./sb psql > tmp/function_def.sql
-
-# For procedures
-echo "\sf schema.procedure_name" | ./sb psql > tmp/procedure_def.sql
-```
-
-**Never redirect stderr into the dump (`2>&1`)**: `./sb` prints diagnostics like
-its stale-binary `WARN:` banner to stderr, and `2>&1` captures them INTO the
-dumped SQL. Because the same polluted dump seeds both up and down migrations,
-the up-vs-down diff looks clean — the invalid SQL only surfaces when the
-migration actually runs (`syntax error at or near "WARN"`). Keep stderr on the
-terminal, and rebuild a stale `./sb` before dumping.
-
-Then:
-1. cat the dumped definition into the **down migration** (this restores the original)
-2. cat it into the **up migration**
-3. Add `CREATE OR REPLACE` prefix and wrap in `BEGIN;`/`END;`
-4. Stage the up/down migration.
-5. Make only the necessary modifications in the up migration - noe easy to review as unstaged changes.
-
-This approach:
-- Preserves exact current behavior in the down migration
-- Ensures surgical changes rather than accidental rewrites
-- Reduces risk of introducing bugs from manual recreation
-- Maintains all edge cases, exception handling, and comments
-
-**CRITICAL**: Never rewrite large functions/procedures from scratch. The `\sf` dump ensures you're modifying the *actual current code*, not an outdated or incomplete version. For large procedures (100+ lines), focus only on the specific lines that need changing.
-
-### Next.js Application (from app/ directory)
-```bash
-cd app && pnpm run dev          # Development server with Turbopack
-cd app && pnpm run build        # Production build
-cd app && pnpm run lint         # ESLint (flat config; @typescript-eslint/no-explicit-any is an error gate)
-cd app && pnpm run format       # Check Prettier
-cd app && pnpm run format:fix   # Fix Prettier issues
-cd app && pnpm run tsc          # Type check without emit
-cd app && pnpm run test         # Run Jest tests
-```
-
-## Deployment Architecture
-
-### Deployment Modes vs. Deployment Slots
-
-**CRITICAL**: These are two SEPARATE concepts that control different aspects:
-
-#### Deployment MODES (Caddy behavior)
-
-Controlled by `CADDY_DEPLOYMENT_MODE` - defines **how Caddy operates**:
-
-- **`development`**: Local development
-  - HTTP only, self-signed internal CA certs
-  - Next.js runs separately on host (`pnpm run dev`) at port 3000 (http://local.statbus.org:3000)
-  - Slot-based ports (e.g., 3010) are for testing containerized production builds to catch advanced timing issues
-  - PostgreSQL available on two separate ports (slot-based):
-    - Port 3014 (offset 1): Plaintext (default, convenient for local psql and SSH tunnels)
-    - Port 3015 (offset 1): TLS+SNI (for testing production-like connections with `TLS=1`)
-
-- **`standalone`**: Single-server production
-  - HTTPS with automatic Let's Encrypt certificates
-  - All services run in Docker
-  - Standard ports: 443 (HTTPS), 5432 (PostgreSQL)
-  - Direct public access, no additional proxy needed
-  - Public domain required (e.g., `statbus.example.com`)
-
-- **`private`**: Behind host-level reverse proxy (multi-tenant cloud)
-  - HTTP only (host-level proxy handles HTTPS)
-  - Trusts X-Forwarded-* headers from proxy
-  - Multiple instances on same host with unique ports
-  - PostgreSQL: plaintext (SSH tunnel provides encryption)
-
-#### Deployment SLOTS (Instance isolation)
-
-Controlled by `DEPLOYMENT_SLOT_CODE` and `DEPLOYMENT_SLOT_PORT_OFFSET` - enables **multiple instances per host**:
-
-- Each slot = separate instance (country/environment)
-- Port calculation: `3000 + (slot_offset × 10)`
-  - Offset 1 (local): 3010 (HTTP), 3011 (HTTPS), 3012 (app), 3013 (rest), 3014 (db), 3015 (db-tls), 3016 (rest-admin)
-  - Offset 2 (ma): 3020 (HTTP), 3021 (HTTPS), 3022 (app), 3023 (rest), 3024 (db), 3025 (db-tls), 3026 (rest-admin)
-  - Offset 3 (no): 3030 (HTTP), 3031 (HTTPS), 3032 (app), 3033 (rest), 3034 (db), 3035 (db-tls), 3036 (rest-admin)
-  - `rest-admin` (offset+6) is PostgREST's admin server, bound **loopback-only** (`127.0.0.1`, `REST_ADMIN_BIND_ADDRESS`). Serves the internal `/ready` signal the post-upgrade health check polls; never public, no Caddy route.
-
-- Slot code used in:
-  - Container names: `statbus-{code}-app`, `statbus-{code}-db`
-  - Database names: `statbus_{code}`
-  - Cookie names: `statbus-{code}`, `statbus-{code}-refresh`
-  - Subdomains: `{code}.statbus.org`
-
-### PostgreSQL Connection Patterns
-
-**Note:** `./sb migrate up` and other server-internal database clients should use `CADDY_DB_BIND_ADDRESS` + `CADDY_DB_PORT` (loopback in private mode), NOT `SITE_DOMAIN`. `SITE_DOMAIN` is the external hostname used via SSH tunnel (private) or public DNS (standalone); Caddy does not expose the DB port on that address in private-mode deployments.
-
-**Local Development** (mode=development):
-```bash
-# Default: plaintext on slot-based port (e.g., 3014 for local slot)
-./sb psql -c "SELECT version();"
-
-# Testing TLS: ./sb psql always selects plaintext. The config helper selects
-# the TLS port (e.g. 3015), SNI, and database credentials for direct psql.
-eval "$(TLS=1 ./sb config show --postgres)"
-psql -c "SELECT version();"
-```
-
-**Remote via SSH Tunnel** (mode=private):
-```bash
-# SSH tunnel: local:3014 → remote:127.0.0.1:3014 → db:5432
-# Plaintext through tunnel (SSH provides encryption)
-ssh statbus_dev@statbus.org "cd statbus && ./sb psql"
-```
-
-**Production** (mode=standalone):
-```bash
-# Direct public access with TLS via Caddy Layer4 proxy
-export PGHOST=statbus.example.com
-export PGPORT=5432
-export PGSSLMODE=require
-export PGSSLNEGOTIATION=direct
-export PGSSLSNI=1
-psql
-```
-
-### Key Configuration Files
-
-- `cli/internal/config/config.go`: Configuration generation and port calculation logic (ported from the retired Crystal `cli/src/manage.cr`)
-- `caddy/templates/*.caddyfile.tmpl`: Mode-specific Caddy templates (rendered by `config.go`)
-- `sb`: Go CLI binary (built from cli/, in .gitignore)
-- `dev.sh`: Development-only commands (test, create-db, etc.)
-- `ops/`: Operations scripts (maintenance, notifications, service files)
-- `.env.config`: **Edit this** for deployment settings
-- `.env`: Generated file, **do not edit** directly
-- `.env.credentials`: Secrets, generated once, keep secure
-
-### SSB-Operated Deployments (cloud + standalone)
-
-SSB runs production StatBus on two host shapes — multi-tenant cloud (`niue.statbus.org`) and dedicated standalone boxes (e.g. `rune.statbus.org`). See `doc/CLOUD.md` for full details on each.
-
-**STATBUS-244: the manually runnable `master-to-X` workflows and deploy-branch transport are retired.** Only a named release candidate may ever reach an installation — master's tip has no tag, no gate, no artifact anyone reviewed, and it changes on every commit. What replaces the retired transport differs by the box's role, never by pushing master anywhere:
-
-- **Dev** — the automatic canary (STATBUS-247): every candidate reaches it without a human. `release-fleet-orchestrator.yaml` dispatches `deploy-to-dev.yaml` directly at the candidate SHA. If a candidate wrecks dev beyond what rollback/park/un-park repairs, `ops/reset-statbus-slot.sh <slot> <wrecking-version>` (STATBUS-250) wipes and reinstalls it at the previous stable release and dismisses the wrecking candidate so it is never re-offered.
-- **Norway (`no`)** — the human canary: a person installs each candidate deliberately, against an observation card, on the `prerelease` channel. No automated push path exists or should exist — that would bypass the exact gate this box is for.
-- **Demo and the ordinary production slots** (`et`, `jo`, `ma`, `ug`, …) — channel-following (STATBUS-248): each box's own upgrade service polls its channel (`stable`); promotion makes the release available, and operators observe or roll the fleet with `./cloud.sh`. No country deploy workflow or deploy branch participates.
-
-**A deliberate one-off deployment to any box** is candidate-addressed, never master-addressed — `./sb upgrade register <version>` then `./sb upgrade schedule <version>` on the box (see "Canonical operator upgrade workflow" above), or cut a fresh candidate.
-
-#### On the server (upgrade service, all boxes)
-
-- CLI writes upgrade request to database and sends NOTIFY
-- The upgrade service backs up the database
-- Checks out the target version
-- Runs pending migrations (or recreates if --recreate)
-- Restarts services with health checks
-- Rolls back automatically on failure
-- Sends callback notification (Slack)
-
-#### Manual Server Access
-
-```bash
-# Multi-tenant slot on niue (one user per slot)
-ssh statbus_<slot> "cd statbus && <command>"          # e.g. statbus_dev
-scp local/file statbus_<slot>:statbus/path/to/file
-
-# Standalone box (one user per host: devops)
-ssh statbus@rune.statbus.org "cd statbus && <command>"
-scp local/file statbus@rune.statbus.org:statbus/path/to/file
-```
-
-**Before deploying**: Ensure remote working directory is clean (no uncommitted changes), or deploy will fail.
-
-## Project Structure
-
-- `migrations/` - Database migrations (YYYYMMDDHHmmSS_description.up.sql/.down.sql)
-- `app/` - Next.js 15 application (App Router, TypeScript, Tailwind, shadcn/ui)
-- `cli/` - Crystal CLI tool for migrations and database management
-- `test/sql/` - pg_regress SQL tests with expected output in `test/expected/`
-- `ops/` - Operations scripts (maintenance, notifications, service files)
-- `doc/` - Architecture and design documentation
-
-## Critical Conventions
-
-### SQL (See `.claude/rules/sql.md` for full details)
-
-**Function Definitions:**
-```sql
-CREATE FUNCTION auth.jwt_verify(token_value text)
-RETURNS auth.jwt_verify_result
-LANGUAGE plpgsql
-SECURITY DEFINER
-SET search_path = public, auth, pg_temp
-AS $jwt_verify$
-DECLARE
-  _jwt_verify_result auth.jwt_verify_result;  -- Variable matches type name
-BEGIN
-  -- Function body
-END;
-$jwt_verify$;
-```
-
-**Key patterns:**
-- Use function name in dollar quotes: `AS $function_name$`
-- Variables match their type names: `_jwt_verify_result auth.jwt_verify_result`
-- Related functions share prefixes: `jwt_verify()`, `jwt_switch_role()`, `jwt_secret()`
-- Format strings use dollar quotes: `format($$SELECT %I$$, table_name)`
-- Temporal logic: chronological order `start <= point AND point < end`
-- Table aliases: explicit `AS`, e.g., `FROM my_table AS mt`
-
-**Naming:**
-- `x_id` = foreign key to table `x`
-- `x_ident` = external identifier (not from DB)
-- `x_at` = TIMESTAMPTZ
-- `x_on` = DATE
-
-### TypeScript/Next.js (See `.claude/rules/frontend.md` for full details)
-
-**Imports:**
-```typescript
-import { NextRequest, NextResponse } from "next/server";
-import { getServerRestClient } from "@/context/RestClientStore";
-import { Pool } from 'pg';
-```
-- Use `@/` for absolute imports from `app/src/`
-- Named exports preferred over default exports
-
-**API Architecture:**
-- **CRITICAL**: Prefer direct browser-to-`/rest` requests over Next.js `/api` routes
-- Why: Easier debugging, enables user integration, transparency, better performance
-- Direct `/rest` shows actual database requests/responses (PostgREST)
-- Users can learn API patterns from browser Network tab for their own integrations
-- Security: JWT tokens map to database roles—NO server-side secrets typically needed
-- Only use `/api` routes for performance optimizations (e.g., bulk upload via COPY) or webhooks
-
-**State Management (Jotai):**
-- **CRITICAL**: Small, independent atoms prevent re-render loops
-- If state can change independently, it MUST be in its own atom
-- Use `atomEffect` for set-if-null patterns, NOT `useEffect`
-- Variables match atom names: `const timeContext = useAtomValue(timeContextAtom)`
-
-**Effects:**
-- ALL effects MUST use `useGuardedEffect` instead of `useEffect`
-- Format: `useGuardedEffect(callback, deps, 'FileName.tsx:purpose')`
-- State machine effects: depend on primitives, not whole state object
-
-**Database Types:**
-- Generated via `./sb types generate`
-- Located in `app/src/lib/database.types.ts`
-- Use: `Tables<'my_table'>`, `Enums<'my_enum'>`
-
-## Performance Optimization Workflow
-
-When optimizing slow database queries:
-
-1. **Enable DEBUG mode** in `.env.config` to get auto_explain logs for queries >100ms
-2. **Preserve test databases** with `PERSIST=true` for investigation while tests run
-3. **Don't start long-running tests** without first preparing hot-patches for iteration
-4. **Analyze auto_explain logs** for:
-   - "Rows Removed by Filter/Join Filter" - high numbers indicate inefficient joins
-   - Nested loops with large row counts - may need indexes or query restructuring
-   - Sequential scans on large tables - may need indexes
-5. **Hot-patch for quick iteration**: Use `CREATE OR REPLACE FUNCTION` directly in psql to test changes without full migration/test cycles
-6. **Common patterns**:
-   - LATERAL JOIN → CTE + regular JOIN for batch operations (O(n²) → O(n))
-   - `IS NOT DISTINCT FROM` with NULLs → COALESCE with sentinels for hash joins
-   - Missing indexes → check if query patterns match existing indexes
-
-**Key commands for performance analysis:**
-```bash
-# View auto_explain logs (queries >100ms)
-docker compose logs db 2>&1 | grep -E "duration: [0-9]{5,}" | head -30
-
-# Find queries with high row removal (inefficient joins)
-docker compose logs db 2>&1 | grep -E "Rows Removed by (Join )?Filter:" | sort | uniq -c | sort -rn | head -20
-
-# Check task timings in worker
-echo "SELECT command, COUNT(*), SUM(duration_ms)::numeric(10,0) as total_ms FROM worker.tasks WHERE state = 'completed' GROUP BY command ORDER BY total_ms DESC;" | ./sb psql
-```
-
-## Development Workflow (CRITICAL)
-
-Follow this iterative cycle for ALL changes, especially bug fixes:
-
-1. **Hypothesize**: State hypothesis in `tmp/journal.md` (use for thought process, not tracked by OpenCode)
-2. **Plan**: Use TodoWrite tool to create tasks for multi-step work (OpenCode tracks these)
-3. **Isolate**: Create/identify reproducing test
-4. **Prototype**: Create non-destructive verification in `tmp/verify_fix.sql`
-5. **Observe**: Run prototype, gather evidence (MANDATORY)
-6. **Analyze**: If successful → proceed. If not → return to step 1
-7. **Implement**: Propose permanent changes only after prototype succeeds
-8. **Validate**: Run full test suite
-9. **Complete**: Mark todos as completed using TodoWrite
-
-**Never skip the prototype step.** A hypothesis is not confirmed until supported by direct observation.
-
-### Task Management with TodoWrite
-
-- Use TodoWrite for multi-step tasks (3+ steps or complex work)
-- Mark tasks as `in_progress` when starting, `completed` when done
-- Only ONE task should be `in_progress` at a time
-- Example: `todowrite({ todos: [{ id: "1", content: "Fix JWT verification", status: "in_progress", priority: "high" }] })`
-
-## Key Tools
-
-- `rg` (ripgrep) - Primary search tool
-- `tree` - Directory structure
-- `head` - Inspect file beginnings
-- `ls` - Check file sizes
-- `ruplacer` - Large-scale find/replace
-- `renamer` - Batch renaming
-
-**Waiting on a GitHub Actions run:** never gate on `gh run watch --exit-status` — it has returned 0 for a FAILED run (observed in practice on another production deployment). Poll `gh run list --json status,conclusion` and branch on the conclusion explicitly, like the deploy-to-*.yaml workflows do.
-
-## Security Model
-
-- JWT secret stored in `auth.secrets` table with RLS
-- `SECURITY DEFINER` functions bypass RLS (can access secrets)
-- `SECURITY INVOKER` functions inherit caller privileges (can use `SET ROLE`)
-- Pattern: verification (DEFINER) separated from role switching (INVOKER)
-
-## Error Handling
-
-**Fail Fast**: Code expected to work should fail immediately with clear errors. Don't mask problems.
-
-**Example:**
-```sql
-IF _jwt_verify_result.is_valid = FALSE THEN
-  RAISE EXCEPTION 'Invalid token: %', _jwt_verify_result.error_message;
-END IF;
-```
-
-**Testing: Avoid DO Blocks for Error Verification**
-
-DO blocks that catch exceptions are **opaque** - they hide actual behavior. If an UPDATE affects 0 rows, no exception fires and the test silently "passes".
-
-```sql
--- BAD: Hides that UPDATE matched 0 rows
-DO $$ BEGIN
-  UPDATE t SET x = 1 WHERE id = currval('seq');  -- Wrong id!
-EXCEPTION WHEN check_violation THEN RAISE NOTICE 'Working'; END $$;
-
--- GOOD: Transparent - see actual errors, verify results
-SAVEPOINT sp;
-\set ON_ERROR_STOP off
-UPDATE t SET x = 1 WHERE id = 1;  -- See actual ERROR
-\set ON_ERROR_STOP on
-ROLLBACK TO SAVEPOINT sp;
-SELECT COUNT(*) FROM t WHERE x = 1;  -- Verify: 0
-```
-
-For deterministic tests: `DELETE FROM t; ALTER SEQUENCE t_id_seq RESTART WITH 1;`
-
-## Common Patterns
-
-**Temporal Table Cleanup:**
-```sql
-IF to_regclass('pg_temp.my_temp_table') IS NOT NULL THEN 
-  DROP TABLE my_temp_table; 
-END IF;
-CREATE TEMP TABLE my_temp_table (...) ON COMMIT DROP;
-```
-
-**Async Action Atom:**
-```typescript
-export const loginAtom = atom(null, async (get, set, credentials) => {
-  set(authStatusCoreAtom); // Trigger refresh
-  await get(authStatusCoreAtom); // Wait for stable state
-  // Now safe to navigate or react
-});
-```
-
-## Notes
-
-- Tickets are Backlog.md files under `.backlog/tasks/`, read with the `backlog` CLI, the `backlog` MCP server (`mcp__backlog__task_view`, `task_edit`, `task_list`, ...), or `rg`. Never guess or open ticket-tracker URLs (no Linear, no YouTrack for STATBUS); never open browser tabs to look up a ticket (owner decision 2026-09-25 after workers opened linear.app tabs in the owner's browser).
-- **Pushing master is always safe (owner, 2026-10-07)**: do not gate an ordinary push on CI being idle, and do not ask first — commit and push, then read the runs CI starts for that SHA. (Release actions are different: a release's evidence is attributed to its own commit SHA.)
-- **Ticket lifecycle (owner decision 2026-10-07)**: a finished ticket is set to `Done` and **left on the board** (`backlog task edit <id> -s "Done"`). `backlog task complete <id>` is the *periodic cleanup* that moves it to `.backlog/completed/` and off the board — do NOT use it to close a ticket you just finished, because the Done column is how the owner sees what is in the current release. Agents wrongly archiving freshly-closed tickets is a real, repeated mistake. A ticket goes to `In Progress` the moment work on it starts — **including the moment it is delegated to a worker** — and to `Done` only once its result has been verified.
-- **Ticket content lives IN the ticket and is authored THROUGH the `backlog` CLI (owner decision 2026-10-07).** Writing prose into the file by hand after the frontmatter produces a ticket whose Description, Acceptance Criteria and Definition of Done render as empty in `backlog task view`/the board — the owner then sees a ticket with no details. Use `backlog task edit <id> -d "<text>" --ac "..." --ac "..."`, check criteria with `--check-ac <n>`, and never leave anything material only in a worker's spawn prompt: the ticket must carry the North Star, what to do, and how you know you are done, because that is what gets read afterwards.
-- Use `tmp/` directory for diagnostic SQL, journals, debug scripts (gitignored)
-- Don't delete files from `tmp/` - they serve as useful logs
-- **The todo list is the plan, and scheduling is part of it (owner decision, 2026-10-08).** When work is planned, write the whole chain into the todos, including what happens after each item finishes: verify the result, land it on master, read the CI for that commit, record the evidence in the ticket through the CLI, mark it Done, and then start the next item in the list. The order of the list is the schedule, so completing an item means executing the next one in sequence. New work is appended at the end; an existing item is edited only when the plan itself changes. Never leave the follow-through implicit in conversation: if it is not in the list, it is not scheduled.
-- Commit messages: `prefix: description` (e.g., `auth: Fix JWT verification`)
-- **Name your paths when committing: all agents share ONE checkout and ONE index (incident, 2026-10-07).** A bare `git commit` commits *everything staged*, by anyone. A coordinator's `git add .backlog` + `git commit` swept 1,358 lines of an in-flight worker's STATBUS-421 export code onto master under a `backlog:` message (the owner-ordered rewrite split it into `1fc09b92a`, the backlog content, and `1e5ac2ccf`, the export implementation). Commit with an explicit pathspec, e.g. `git commit -m "backlog: ..." -- .backlog`, and check `git diff --cached --stat` before committing. Never `git add -A`/`.` in this tree.
-- **The doc/db generator clears before it writes.** `./dev.sh generate-doc-db` empties `doc/db/{table,view,function}/` and rewrites it, so an interrupted run looks like hundreds of deletions. Run it to completion and verify `git status --porcelain -- doc/db | rg '^ D'` is empty before committing; a migration commit must carry the regenerated docs (`.githooks/pre-commit` enforces the pairing).
-- **`backlog task edit --notes` REPLACES the notes; use `--append-notes` to add (2026-10-08).** Successive `--notes` edits wiped 421's implementation notes (the transport decision, the feasibility numbers, the date and fallback rules) and they had to be rebuilt from git history. Ticket content is authored through the CLI, and an addition must never destroy what is already there.
-- For nested `format()`, use named dollar quotes: `$SQL$`, `$jsonb_expr$`
-
-## Full Documentation
-
-- **SQL Conventions (detailed)**: See `.claude/rules/sql.md`
-- **Frontend Conventions (detailed)**: See `.claude/rules/frontend.md`
-- **Multi-Agent Methodology**: See `doc/agentic-methodology.md` (for complex multi-phase tasks)
-- **Data Model**: See `doc/data-model.md`
-- **Authentication**: See `doc/auth-design.md`
-- **Release ladder (what a candidate must prove, what it may skip)**: See `doc/release-ladder.md`
-- **Cloud Deployment**: See `doc/CLOUD.md` for multi-tenant on niue.statbus.org
-- **Single-Instance Deployment**: See `doc/DEPLOYMENT.md` for standalone server setup
-- **Import System**: See `doc/import-system.md`
-- **Integration (API/PostgreSQL)**: See `doc/INTEGRATE.md`
-
-## Engineering Principles
-
-**Never defer known bugs.** If a latent bug is found during investigation, fix it immediately or in the very next step. Silent data corruption (e.g. missing UNIQUE constraints allowing duplicates) wastes huge amounts of user/debugging/support time. No "skip for now" — deferring known bugs is considered a moral deficiency.
-
-**Always add constraints.** If a table can have duplicates that shouldn't exist, add `UNIQUE`. If a function has a race condition, fix it. The codebase has dozens of constraints by design — intentional quality engineering, not over-engineering.
-
-**No anxiety tests (owner principle, 2026-09-25).** A test must check a real system invariant or behavior. A negative test for a possible future bad, keyed to an arbitrary token (e.g. grepping that a retired string never reappears), cannot do what it claims: a known token cannot prevent an unknown bad. It over-fires on harmless mentions, under-fires on the same error under a new name, and its true cost is confusion, review time, and CI coupling. Rejected designs live in tickets and git history; review is the gate. (Origin: the UPGRADE_ROLE guard, deleted per STATBUS-413 option D.)
-
-**Demonstrate that a test is consequential (owner principle, 2026-10-08).** A test written together with its fix proves nothing: nobody ever saw it fail, so nobody knows it can detect the defect, and the missing evidence then gets paid for with heavier end-to-end machinery. The owner called this out to stop exactly that over-engineering. Write the test first and record it failing against the broken state; when that was not done, take the finished test to the parent commit of the fix, record it failing there, then record it passing with the fix. The red-then-green pair is the evidence. A real host observation is only for claims that are genuinely about the host, and then it is one observed run, not a scenario catalogue.
-
-**There are NO flaky tests.** Never dismiss test failures as "flaky" or "transient". Every failure has a real root cause. Common actual causes: concurrent test runs colliding on shared DB resources (left a background test running); actual code bugs introduced by changes; environment issues needing fixing. "Flaky" is a lazy excuse that masks real problems.
+| Task | Read |
+|------|------|
+| Commands, migration procedure, connections, performance | [Development reference](doc/development-reference.md) |
+| SQL conventions and examples | [SQL rules](.claude/rules/sql.md) |
+| Frontend conventions and examples | [Frontend rules](.claude/rules/frontend.md) |
+| Complex multi-agent coordination | [Agentic methodology](doc/agentic-methodology.md) |
+| Data model or authentication | [Data model](doc/data-model.md), [authentication](doc/auth-design.md) |
+| Release gates and recovery tests | [Release ladder](doc/release-ladder.md), [recovery runner](test/install-recovery/README.md) |
+| Cloud or standalone deployment | [Cloud](doc/CLOUD.md), [deployment](doc/DEPLOYMENT.md) |
+| Imports or external integrations | [Import system](doc/import-system.md), [integration](doc/INTEGRATE.md) |
