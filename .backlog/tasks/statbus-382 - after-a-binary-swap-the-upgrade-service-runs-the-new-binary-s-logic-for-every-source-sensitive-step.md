@@ -1,17 +1,16 @@
 ---
 id: STATBUS-382
-title: Every source-sensitive upgrade step runs under the installed target program
+title: Source-sensitive upgrade work runs only in the program installed on disk
 status: In Progress
 assignee: []
 created_date: '2026-09-22 17:01'
-updated_date: '2026-09-29 08:04'
+updated_date: '2026-10-15 16:50'
 labels:
   - owner-decision
   - upgrade
   - recovery
   - cli
-dependencies:
-  - STATBUS-395
+dependencies: []
 priority: high
 type: bug
 ordinal: 24
@@ -20,30 +19,45 @@ ordinal: 24
 ## Description
 
 <!-- SECTION:DESCRIPTION:BEGIN -->
-Before any source-sensitive upgrade step, the supervised service proves that its running program matches the installed program and worktree. A stale or deleted running program hands over or produces one bounded, recorded outcome. After the durable swap, STATBUS-395 owns prompt continuation under the target program.
+### North Star
+An upgrade step whose behaviour depends on code version only ever runs in the program that is installed on disk, never in a stale copy left in memory.
 
-## Evidence, 2026-09-24
+### Zoom out
+The upgrade daemon is a long-running process. When `./sb` on disk is replaced underneath it (by `./sb install`, `install.sh`, a park recovery restoring the source binary, or an operator by hand), the daemon keeps executing the old code it loaded. Most of the time that is harmless. It is not harmless for source-sensitive work: deciding what images the source stack runs, claiming a scheduled upgrade, writing terminal states. Old code there can make decisions the installed version has already fixed, and it can loop.
 
-The merged service gate and stale-program safeguard are anchored at `ops/statbus-upgrade.service:56` and `cli/internal/upgrade/service.go:294` at master `7a9cf707e`. Existing carrier-invariant coverage is at `cli/internal/upgrade/backup_path_carriers_test.go:185-207` at master `7a9cf707e`. Earlier Norway attempt counts, row identity, hashes, profile failure, and the 30.17-second figure remain unverified and are not operative facts.
+So the daemon must know when it is stale and step aside: before taking on new source-sensitive work it checks that it is the installed program, and if not it hands over to the installed one. Recovery of an upgrade already in flight is never blocked by this check, or a half-done upgrade could be stranded. And a failure that will repeat identically is recorded once and stopped, never retried in a loop.
+
+The operator's decisions win over a stale daemon. That part is already shipped and is not reopened here.
+
+### Zoom in
+- **Incident, Norway 2026-09-22:** attempting rc.28 while checkout, on-disk `sb`, settings and containers were rc.20. The running `statbus-upgrade@statbus.service` was a deleted rc.18 executable (`/proc/<pid>/exe` -> `sb (deleted)`). rc.18's source capture ran `docker compose config` without `--profile all`, so the profile-gated `app` service had no image (`restored source compose config has no image for app`), fixed in rc.19 by `a96751064`. The stale daemon retried every 1-2 s (190 attempts, then 360 per 10 min) on row 43727 with `recovery_attempts=0`, and its id-only terminal `UPDATE` could overwrite an operator's dismiss.
+- **Shipped on master (v2026.09.3):** operator-owned candidate transitions are actor-guarded in the database so a stale daemon cannot overwrite an operator decision (`7542854d6`, `5c1cb6046`, merge `8fcc7d8e4`, pg_regress `328_statbus_382_actor_guarded_upgrade_transitions`). `./sb install` restarts the daemon after an inline upgrade (`cli/cmd/install_upgrade.go` `restartUpgradeService`) and when a settings change declares `RestartUpgradeDaemon`. A crash-looping unit is taken over via `upgradeUnitCrashLooping` (STATBUS-039).
+- **Not on master:** branch `next/382-steps-3-4` (4 commits, about 1,300 lines, last 2026-09-24, author jhf) holds the identity gate and an install-side takeover: `cli/internal/upgrade/daemon_fingerprint.go` (sha256 of `/proc/self/exe` vs `./sb`, results `match` / `hash_mismatch` / `disk_binary_missing` / `identity_unavailable`, with a table of every legitimate mismatch source and its disposition) and `cli/cmd/install_stale_daemon.go`. It now conflicts with master in `install.go`, `install_upgrade.go`, `install/state.go` and `upgrade/service.go`, which moved on through STATBUS-447, 452, 507 and 508.
+- **Mechanism on the branch:** on mismatch the daemon exits 42 so systemd restarts it on the disk binary; ungated paths are recovery, rollback and park recovery.
+- **Gap the branch closes:** today a plain `./sb install` that replaces `./sb` but changes no daemon-restart setting leaves a healthy-looking daemon running the old binary until its next restart. Nothing on master compares the running executable with the disk.
+- **Related:** STATBUS-395 owns how fast the post-swap handoff is (the 30 s `RestartSec`). STATBUS-447 owns the install.sh mutex handover.
+
+### Closing review
+- **Memory:** none needed.
+- **Documentation:** the mismatch-source table belongs as the doc comment on the gate, where the branch already has it.
+- **Cleanup:** delete `next/382-steps-3-4` once its design is landed or rejected.
 <!-- SECTION:DESCRIPTION:END -->
-
-## Status 2026-09-24
-
-**In Progress, owner decision:** `8fcc7d8e4` adds `cli/internal/upgrade/service.go`, `statbus382_test.go`, and the actor-guarded upgrade transition migration; #4 existing backup/phase invariant remains. #1 exact installed-program identity test and #2-3 stale-program VM handoff are absent; #5 depends on unimplemented STATBUS-395. **Remaining:** decide the durable handoff mechanism, bind every source-sensitive step to the installed target program, and prove bounded stale/deleted-program outcomes and fresh continuation on VMs.
-
-Baseline: `origin/master` at `373d15fc3`. Criterion disposition and remaining positive targets are above; the acceptance criteria below remain authoritative. An authored but unrun VM scenario is **proof pending**, not met.
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 `new: cli/internal/upgrade/program_identity_test.go::TestSourceSensitiveDispatchRequiresInstalledProgram` proves matching installed program and worktree execute the step while stale and deleted identities do not.
-- [ ] #2 `new: test/install-recovery/scenarios/7-stale-program-register-schedule-service.sh` starts a stale supervised program, installs the fix candidate, then uses the real register, schedule, and service path and observes the source-sensitive step execute under the target version.
-- [ ] #3 `new: test/install-recovery/scenarios/7-stale-program-register-schedule-service.sh` observes any failed handoff exactly once as a bounded recorded outcome with causal program/tree provenance rather than automatic reclaim.
-- [x] #4 `cli/internal/upgrade/backup_path_carriers_test.go::TestFlagInvariant_EveryPhaseAndBackupPathWriterIsAccountedFor_STATBUS232` remains green across the handoff changes.
-- [ ] #5 `new: test/install-recovery/scenarios/7-new-program-handoff.sh` supplies the STATBUS-395 continuation proof after the durable swap.
+- [ ] #1 A daemon whose running executable differs from `./sb` on disk does not claim new source-sensitive work; it hands over to the disk binary, while recovery, rollback and park recovery still run ungated (unit coverage of every mismatch source in the gate table)
+- [ ] #2 On a real supervised box, replacing `./sb` under a running daemon and then scheduling an upgrade shows the claim executed by the disk version, recorded in the upgrade state log or journal
+- [ ] #3 A deterministic failure before claim is recorded once with a failure code and daemon/tree provenance, and the candidate is not automatically reclaimed
+- [x] #4 `TestFlagInvariant_EveryPhaseAndBackupPathWriterIsAccountedFor_STATBUS232` stays green across the change
+- [ ] #5 Owner decision on how the gate lands: rebase `next/382-steps-3-4`, reimplement its design on current master, or drop it with the reason (for example that STATBUS-447/452 already cover the field failure)
 <!-- AC:END -->
 
 ## Implementation Notes
 
 <!-- SECTION:NOTES:BEGIN -->
-Audit after v2026.09.3 (2026-09-29): v2026.09.3 ships actor-guarded upgrade transitions (8fcc7d8e4, migration *_382_actor_guarded_upgrade_transitions). Only AC4 (existing invariant) is proven, green in Go Test 36503468493. AC1-3 and AC5 have no test or scenario yet. AC5 waits for STATBUS-395.
+### Evidence
+- **AC4:** green in Go Test `36503468493` (v2026.09.3).
+- **AC1-3:** not on master. Their implementation exists only on `next/382-steps-3-4`, which conflicts with master as of `cb34436b4`.
+- **AC5:** open; it decides how AC1-3 get built.
+- The former criterion for the fast post-swap handoff moved to STATBUS-395, which owns it. The 382 -> 395 dependency was removed; it formed a cycle.
 <!-- SECTION:NOTES:END -->
