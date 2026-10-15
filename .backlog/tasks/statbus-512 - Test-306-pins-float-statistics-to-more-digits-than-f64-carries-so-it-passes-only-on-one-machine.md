@@ -6,6 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-10-15 21:43'
+updated_date: '2026-10-15 21:43'
 labels:
   - testing
   - jsonb_stats
@@ -35,3 +36,12 @@ jsonb_stats merges float statistics with Chan's parallel formula (`src/merge.rs:
 - [ ] #1 Test 306 produces identical output on amd64 (CI) and arm64 (local), shown by a green CI run and a green local run at the same commit
 - [ ] #2 The other expected files that print float variance are checked against the same rule and fixed where they pin digits beyond f64 precision
 <!-- AC:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+### Closing review
+- Memory: none needed yet; record the f64 precision rule if the fix sets one.
+- Documentation: if the fix rounds in the test, state the rule in the test's own comment where the floats are printed.
+- Cleanup: none.
+<!-- SECTION:NOTES:END -->
