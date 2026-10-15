@@ -35,6 +35,11 @@ Prevention needs one authority for "versions that may live in a retained seed". 
 - **Prevention guard:** `06ec54f40`, `5473e68ea`, shipped in v2026.09.3. `release.MissingSeedLineageMigrations` (`cli/internal/release/seed_lineage.go`) is called from the prerelease preflight (`cli/cmd/release/release.go`, `checkSeedLineageGuardAgainst`) and the tag validator (`cli/cmd/release/release_verify.go`). The refusal names the version, its first commit and original path.
 - **Authority grounding:** Images publishes `statbus-seed:payload-<sha>` only on master push (`.github/workflows/images.yaml`); builds choose a prior seed by walking first-parent ancestors (`cli/cmd/seed_ancestor.go`).
 - **Known edge:** a manual `workflow_dispatch` of Images on a non-master commit could publish a seed outside the first-parent line. Builds never select it, so it is not consumed.
+
+### Closing review
+- **Memory:** none needed.
+- **Documentation:** the authority rationale lives here and in the `seed_lineage.go` doc comment; no separate doc.
+- **Cleanup:** the earlier criterion asking for a test that a decision document exists was removed as a text-presence check (previous wording in Git at `ea170989e`).
 <!-- SECTION:DESCRIPTION:END -->
 
 ## Acceptance Criteria
@@ -50,10 +55,5 @@ Prevention needs one authority for "versions that may live in a retained seed". 
 <!-- SECTION:NOTES:BEGIN -->
 ### Evidence
 - **AC1-3:** shipped in v2026.09.3 (`06ec54f40`, `5473e68ea`); green in Go Test `36503468493`; re-run green locally on master `cb34436b4`, 2026-10-15.
-- **AC4:** open. This is the only remaining work and needs no code.
-
-### Closing review
-- **Memory:** none needed.
-- **Documentation:** the authority rationale lives in this ticket and in the `seed_lineage.go` doc comment; no separate doc.
-- **Cleanup:** the earlier AC5 (a test asserting that a decision document exists) was removed as a text-presence check; the previous wording is in Git history at `ea170989e`.
+- **AC4:** open; the only remaining work, and it needs no code.
 <!-- SECTION:NOTES:END -->
