@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-09-30 13:03'
-updated_date: '2026-10-02 17:23'
+updated_date: '2026-10-15 16:24'
 labels:
   - upgrade
   - recovery
@@ -63,7 +63,7 @@ There is a separate **released containment fix**: `5c1cb6046` is not an ancestor
 - [x] #3 Related serving-version/canary paths are checked for the same display-reference confusion and, where affected, are corrected with behavioral regressions without weakening immutable source proof. The audit explicitly records affected/unaffected verdicts for the version check in `containers.go` (`extractImageTag(s.Image)`), `deriveServingEra` in `service.go` (target tag from `entry.Image`), and the serving-reference equality check in `service.go`.
 - [x] #4 A real LXD reproduction of the old released daemon loop exercises the official installer remedy and records whether it completes the upgrade, parks while serving the source, or refuses. Automatic retries do not continually re-enter maintenance after a deterministic refusal under the fixed program.
 - [x] #5 The product fix is independently reviewed and tested against its built candidate in a real LXD guest before being advertised as a released fix. Existing install/recovery safety invariants remain green.
-- [ ] #6 Demo is repaired through a supported release-addressed path and observed over repeated availability checks and scheduler ticks, with recorded checkout/binary/resident-program/container identities and terminal upgrade state. A momentary HTTP 200 is not sufficient proof. Owner decision 2026-10-01: demo may take the named RC once AC#4/#5 guest proof passes; the owner runs the official `./cloud.sh install demo <rc-version>` personally (verb-first dispatch, `cloud.sh` lines 1033-1050). Agents prepare the proof and the observation card, and do not run the live repair.
+- [ ] #6 Demo runs a release that contains this fix (v2026.10.1 or later), installed through a supported release-addressed path (`./cloud.sh install demo <version>`, run by the owner). Its upgrade row for that version is completed and its upgrade service is no longer retrying the old false refusal.
 <!-- AC:END -->
 
 ## Implementation Notes
@@ -125,4 +125,7 @@ Review and observation receipts: `tmp/review-demo-image-identity.md`, `tmp/demo-
   - The carrier binds the exact reference and immutable ID for app, worker, rest and proxy.
   - The resident program is v2026.10.0-rc.16 at ~/statbus/sb.
   - The health check passed at all 4 sustained checks, with no daemon restart.
+
+### Observation cards removed (2026-10-15, 135d0a315)
+The doc/observations protocol was removed as an invented manual step nobody could follow. AC#6 is restated as the outcome on the box. The old demo runbook remains in git history (`git show 135d0a315^:doc/observations/demo-repair-v2026.10.0-rc.16.md`). Demo currently reports v2026.10.1-rc.01 (ce246ae3) on prerelease.
 <!-- SECTION:NOTES:END -->
