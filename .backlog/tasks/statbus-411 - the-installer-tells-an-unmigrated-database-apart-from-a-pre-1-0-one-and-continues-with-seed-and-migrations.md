@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-09-24 15:59'
-updated_date: '2026-10-15 19:16'
+updated_date: '2026-10-15 20:08'
 labels:
   - release-bug
   - install
@@ -50,7 +50,7 @@ STATBUS-408 is the same rule seen from an interrupted first install; it owns pro
 - [x] #1 A database with no migrations and no application tables, or whose every applied migration is newer than the one that introduced `public.upgrade`, is classified as an unfinished install and continued (`TestDetectWith` fresh-db-incomplete cases)
 - [x] #2 A database without `public.upgrade` that has application tables without migration history, or any migration at or before `20260311174120`, is classified pre-1.0 and refused before anything is written (`TestDetectWith` legacy cases)
 - [x] #3 On a real box, an init-db-only database (an install stopped after Services, the same shape Finland's `./sb restart all` produced) is continued through Seed and Migrations to a serving site (`5-install-interrupted-first-run.sh`, rc.17 LXD PASS, owned by STATBUS-408)
-- [ ] #4 Owner decision: is a real-box proof that a pre-1.0 database with sentinel data is refused and left byte-identical required? No closes this ticket on the unit coverage. Yes adds that scenario as the open criterion.
+- [ ] #4 [Owner] Decide whether a real-box proof that a pre-1.0 database with sentinel data is refused and left unchanged is required, and record it in Implementation Notes. No: check this and set Done. Yes: add that scenario as a new criterion.
 <!-- AC:END -->
 
 ## Implementation Notes
