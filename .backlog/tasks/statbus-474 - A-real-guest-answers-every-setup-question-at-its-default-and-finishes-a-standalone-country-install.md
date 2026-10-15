@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-10-08 15:16'
-updated_date: '2026-10-08 21:08'
+updated_date: '2026-10-15 19:28'
 labels:
   - install
   - installer
@@ -20,11 +20,23 @@ ordinal: 400204
 ## Description
 
 <!-- SECTION:DESCRIPTION:BEGIN -->
-NORTH STAR: the interactive setup questions (mode, domain, country name, country code; STATBUS-400/466) are proven in a real Ubuntu guest through install.sh, not only by unit tests and a PTY run of the binary.
+### North Star
+The interactive setup questions (mode, domain, country name, country code) are proven by a real install in a real Ubuntu guest through `install.sh`, pressing Enter at every default, and the result is a correct standalone country installation.
 
-WHY THIS TICKET EXISTS: STATBUS-400 AC2 named test/install-recovery/scenarios/0-interactive-setup-choices.sh. As written it asked the installer to detect a private laptop and default to development, which the owner decision in STATBUS-465 (commit 054611d1d) reversed: the installer always suggests standalone. 3a87b058e (STATBUS-466) landed the questions and observed them with the real ./sb install on a PTY in a Linux container (tmp/statbus-466-observed/interactive-prompts.txt), stopping at Credentials because that sandbox has no database. No LXD-fleet scenario has driven those questions end to end in a hardened guest. Per doc/install-upgrade-testing.md, only a real run says whether they work there.
+### Zoom out
+Unit tests and a PTY run of the binary prove the questions exist and parse. They do not prove that the published installer, on a hardened guest, asks them in the right order, suggests the right defaults, and ends with a serving site configured for the right country. Per `doc/install-upgrade-testing.md`, only a real run says that. The defaults matter most: an operator who presses Enter everywhere must get a standalone install for the country their domain names, never development values (STATBUS-465 and 466 decided those defaults).
 
-WHAT TO DO: add 0-interactive-setup-choices.sh on the LXD fleet, modelled on 0-interactive-admin-password.sh (expect on a PTY). Drive the Configuration questions with Enter at the mode, a domain whose first label is a country code, and Enter at the country name and code, then finish the install and assert .env.config and the running site.
+### Zoom in
+- **Origin:** STATBUS-400 AC2 named this scenario, but as first written it expected the installer to detect a laptop and default to development, which STATBUS-465 (`054611d1d`) reversed. `3a87b058e` (STATBUS-466) landed the questions and observed them only on a PTY in a container without a database.
+- **Built:** `test/install-recovery/scenarios/0-interactive-setup-choices.sh` (`0385bfbc2`) drives the real `install.sh` on a PTY with expect, matching each question by its words, not its position. It fails on any unexpected question, a failed step or a missing `Installation complete!`. `e1387ff48` maps it to a fresh-install checkpoint in `lxd-backend.sh`.
+- **Proof, real guest, 2026-10-08:** a fresh multipass Ubuntu 26.04 guest through the repository's own `vm-bootstrap.sh`, target master `03f365be5`. Enter at mode gave standalone; domain `et.statbus-test.local`; Enter at country name and code gave Ethiopia / `et`, derived from the domain; Enter at the signer. Each question was asked exactly once. `.env.config` ended with `CADDY_DEPLOYMENT_MODE=standalone`, `DEPLOYMENT_SLOT_NAME=Ethiopia`, `DEPLOYMENT_SLOT_CODE=et`; containers `statbus-et-*`; CA-verified HTTPS 200 after `./sb cert install`. Logs in `tmp/474-local/`.
+- **Side finding:** `STATBUS_URL` defaulted to `http://localhost:3010` on a standalone box; filed and fixed as STATBUS-484 (Done).
+- **Not in the gate:** the scenario still carries `HARNESS_SKIP_DEFAULT`, so release candidates do not run it, and its header still says UNRUN. Adding it to the default LXD catalogue was left as the owner's cost decision.
+
+### Closing review
+- **Memory:** none needed.
+- **Documentation:** none needed.
+- **Cleanup:** update the scenario header from UNRUN to the 2026-10-08 green run, whatever the catalogue decision.
 <!-- SECTION:DESCRIPTION:END -->
 
 ## Acceptance Criteria
@@ -32,6 +44,7 @@ WHAT TO DO: add 0-interactive-setup-choices.sh on the LXD fleet, modelled on 0-i
 - [x] #1 0-interactive-setup-choices.sh presses Enter at the mode question and observes standalone as the default, with all three modes explained
 - [x] #2 With a country-coded domain, the scenario presses Enter at the country name and code, observes the domain-derived suggestions, and the finished install has DEPLOYMENT_SLOT_NAME/DEPLOYMENT_SLOT_CODE set to that country, never StatBus/local
 - [x] #3 The install completes and the site passes its health and HTTPS checks; the observed prompts are recorded in this ticket
+- [ ] #4 Owner decision: add the scenario to the default LXD release catalogue (remove `HARNESS_SKIP_DEFAULT`, about 11 minutes per candidate), or keep it on demand? Either answer closes this ticket.
 <!-- AC:END -->
 
 ## Implementation Notes
