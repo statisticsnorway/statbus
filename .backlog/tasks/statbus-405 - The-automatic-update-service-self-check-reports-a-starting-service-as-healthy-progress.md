@@ -4,7 +4,7 @@ title: The automatic update self-check reports a starting service as healthy pro
 status: Done
 assignee: []
 created_date: '2026-09-24 15:35'
-updated_date: '2026-10-15 19:38'
+updated_date: '2026-10-15 19:39'
 labels:
   - release-bug
   - upgrade
@@ -41,7 +41,7 @@ A systemd service passes through `activating` on its way to `active`. A self-che
 <!-- AC:BEGIN -->
 - [x] #1 While the service is activating the self-check reports progress and no alarm, and reports success only after readiness (`TestActivatingIsStartupProgressUntilReady`)
 - [x] #2 An inactive service produces the alarm followed by the complete install recovery command (`TestInactiveProducesAlarmBeforeRecoveryGuidance`)
-- [x] #3 On a real box, the journal from activation through readiness has no alarm and shows start, ready and started in order (`1-boot-startup-timeout.sh`, PASS in LXD fleet `38740447079` at v2026.10.1)
+- [x] #3 On a real box, the journal from activation through readiness has no alarm and shows `Starting statbus-upgrade@statbus.service`, `Upgrade service started (channel=` and `Started statbus-upgrade@statbus.service` in that order (`1-boot-startup-timeout.sh`, PASS in LXD fleet `38740447079` at v2026.10.1)
 <!-- AC:END -->
 
 ## Implementation Notes
@@ -50,5 +50,4 @@ A systemd service passes through `activating` on its way to `active`. A self-che
 ### Evidence
 - **AC1-2:** green locally on master, 2026-10-15.
 - **AC3:** LXD fleet `38740447079` (v2026.10.1, `3b17af171`), `comparison.tsv`: `1-boot-startup-timeout PASS 379 s`.
-- **Done:** all criteria met.
 <!-- SECTION:NOTES:END -->
