@@ -1,12 +1,12 @@
 ---
 id: STATBUS-392
 title: >-
-  Image-based starts run pulled images directly while source checkouts retain
-  development builds
+  A release installation starts and restarts from published images; only a
+  source checkout builds
 status: In Progress
 assignee: []
 created_date: '2026-09-24 16:42'
-updated_date: '2026-09-29 08:04'
+updated_date: '2026-10-15 19:36'
 labels:
   - release-bug
   - install
@@ -16,35 +16,40 @@ type: bug
 ordinal: 1
 ---
 
-## Status 2026-09-24
+## Description
 
-**To Do.** #1-4 not met: `cli/cmd/service_test.go` and `4-image-start-no-build.sh` are absent; `cli/cmd/service.go:41-57` still chooses a build by development mode. **Remaining:** distinguish image installation from source checkout, retain source builds, and prove a no-build image start within the measured 20% budget.
+<!-- SECTION:DESCRIPTION:BEGIN -->
+### North Star
+Starting or restarting StatBus on a release installation uses the published images and never builds from source; only a source development checkout builds.
 
-Baseline: `origin/master` at `373d15fc3`. Criterion disposition and remaining positive targets are above; the acceptance criteria below remain authoritative. An authored but unrun VM scenario is **proof pending**, not met.
+### Zoom out
+Two kinds of box can both run the web entry point in development mode: a developer's source checkout, where building from source is the point, and a released installation that a country runs in development mode (for example a laptop test). The compose files carry build blocks, so if "development mode" alone decides, a released installation can start a slow, surprising local build during an ordinary start or a recovery. The right question is "is this a source checkout?", answered from the generated `VERSION`: a release tag means published images, anything else means source.
 
-## Goal
+### Zoom in
+- **Finding, Finland triage 2026-09-24 (v2026.09.2):** `./sb start` added `--build` whenever the mode was development, even on an image-based install (`cli/internal/service/service.go:55` then). Install itself avoided it only because its Services step used a plain `up -d`. Whether Finland's box actually hit this path is unknown.
+- **Shipped (v2026.09.3):** `05a4fe9dd`. `startBuildsFromSource` (`cli/cmd/service.go`) returns false unless development mode AND `VERSION` is not a release tag (no `v` prefix, or a `-g` describe suffix). `./sb start` then passes `--no-build`; install startup also uses `--no-build`, and a release image pull no longer falls back to a local build.
+- **Proof, unit:** `TestStartImageBasedDevelopmentSkipsBuild`, `TestStartSourceDevelopmentBuilds` (`cli/cmd/service_start_test.go`), green 2026-10-15.
+- **Gap found 2026-10-15:** `./sb restart` (`cli/cmd/service_restart.go`) still adds `--build` whenever `compose.IsDevelopmentModeInDir` is true; it was not switched to `startBuildsFromSource`. So restarting a released development-mode installation can still build locally.
 
-## Implementation note, 2026-09-24
-
-Review follow-up: six-service failure inventory and terminal filtering changed without changing image-start policy. Go vet, command tests and gofmt passed. VM timing and actual image-start proof remain pending.
-
-The generated release `VERSION=v...` now selects `--no-build` even with development proxy mode, while untagged source development retains `--build`. Install image pull no longer falls back to a local build for a release, and installer startup explicitly uses `--no-build`. Guarded unit tests exercise both decisions. The measured disposable-VM timing scenario and observation of the actual Finland path remain pending, so #3-4 are open and the ticket is not Done.
-
-`./sb start` distinguishes an image-based installation from a source checkout. Image-based development starts use pulled images without a build, while source development checkouts retain their build-before-start behavior.
-
-## Evidence, 2026-09-24
-
-Current `./sb start` selects build solely from development mode (`cli/cmd/service.go:41-57` at master `7a9cf707e`), and compose mode detection reads `CADDY_DEPLOYMENT_MODE` (`cli/internal/compose/compose.go:445-452` at master `7a9cf707e`). Whether a released image installation exercised this path in Finland is unknown.
+### Closing review
+- **Memory:** none needed.
+- **Documentation:** `./sb start --help` states the rule; `./sb restart --help` needs the same line once it follows it.
+- **Cleanup:** none.
+<!-- SECTION:DESCRIPTION:END -->
 
 ## Acceptance Criteria
-
-- [ ] #1 `new: cli/cmd/service_test.go::TestStartImageBasedDevelopmentSkipsBuild` observes no build invocation for an image-based development install.
-- [ ] #2 `new: cli/cmd/service_test.go::TestStartSourceDevelopmentBuilds` observes the existing build invocation for a source checkout.
-- [ ] #3 `new: test/install-recovery/scenarios/4-image-start-no-build.sh` measures an image start against a baseline pull-plus-start run and requires it to stay within 20 percent of that baseline with zero local builds.
-- [ ] #4 `new: test/install-recovery/scenarios/4-image-start-no-build.sh` records whether the image-install path was exercised, rather than claiming an unobserved Finland result.
+<!-- AC:BEGIN -->
+- [x] #1 `./sb start` on a release installation in development mode passes `--no-build` (`TestStartImageBasedDevelopmentSkipsBuild`)
+- [x] #2 `./sb start` in a source development checkout still builds (`TestStartSourceDevelopmentBuilds`)
+- [ ] #3 `./sb restart` follows the same rule: no build on a release installation, build in a source checkout (today it builds whenever the mode is development)
+- [ ] #4 Owner decision: is the original real-box timing scenario (`4-image-start-no-build.sh`, image start within 20% of a pull-plus-start baseline) still wanted, or do the unit tests plus AC3 close this? No closes on AC1-3.
+<!-- AC:END -->
 
 ## Implementation Notes
 
 <!-- SECTION:NOTES:BEGIN -->
-Audit after v2026.09.3 (2026-09-29): v2026.09.3 (05a4fe9dd): image-based starts skip builds. AC1/AC2 are green in Go Test as cli/cmd/service_start_test.go (rename the AC path). Remaining: 4-image-start-no-build.sh (AC3/AC4).
+### Evidence
+- **AC1-2:** green in Go Test (v2026.09.3); re-run green locally on master, 2026-10-15.
+- **AC3:** open; `cli/cmd/service_restart.go` checks `compose.IsDevelopmentModeInDir(dir)` alone before appending `--build` (master `cb34436b4`).
+- **Superseded criteria:** the restyle named `cli/cmd/service_test.go`; the tests landed in `service_start_test.go`. The stale "To Do" status header and 09-24 implementation note were folded into Zoom in.
 <!-- SECTION:NOTES:END -->
