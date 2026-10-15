@@ -4,7 +4,7 @@ title: Source-sensitive upgrade work runs only in the program installed on disk
 status: In Progress
 assignee: []
 created_date: '2026-09-22 17:01'
-updated_date: '2026-10-15 16:50'
+updated_date: '2026-10-15 20:08'
 labels:
   - owner-decision
   - upgrade
@@ -49,7 +49,7 @@ The operator's decisions win over a stale daemon. That part is already shipped a
 - [ ] #2 On a real supervised box, replacing `./sb` under a running daemon and then scheduling an upgrade shows the claim executed by the disk version, recorded in the upgrade state log or journal
 - [ ] #3 A deterministic failure before claim is recorded once with a failure code and daemon/tree provenance, and the candidate is not automatically reclaimed
 - [x] #4 `TestFlagInvariant_EveryPhaseAndBackupPathWriterIsAccountedFor_STATBUS232` stays green across the change
-- [ ] #5 Owner decision on how the gate lands: rebase `next/382-steps-3-4`, reimplement its design on current master, or drop it with the reason (for example that STATBUS-447/452 already cover the field failure)
+- [ ] #5 [Owner] Choose how the identity gate lands: rebase `next/382-steps-3-4`, reimplement its design on current master, or drop it with the reason; record the choice in Implementation Notes. AC1-3 are then built by that route, or removed if dropped.
 <!-- AC:END -->
 
 ## Implementation Notes
