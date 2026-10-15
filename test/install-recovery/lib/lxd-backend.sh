@@ -730,15 +730,23 @@ lxd_capture_failure() {
     out="$LXD_LOG_DIR/lxd-$1-failure-$(date -u +%Y%m%dT%H%M%S).log"
     _lxd_mark "capture $name -> $out"
     {
-        _lxd_host lxc exec "$name" -- sudo -i -u statbus bash -lc 'cd ~/statbus && tail -100 tmp/install-last-run-output.txt; docker compose --profile all ps; docker compose --profile all logs --tail 60' || true
+        # NEVER drop the head of the install log. The failure REASON is written
+        # early (progress lines, the rollback's own "... failed: <reason>"), while
+        # the tail carries only the aftermath. The old `tail -100` threw away the
+        # one line we needed to diagnose rc.01's scheduled source-identity wedge,
+        # and the upgrade daemon's own journal was cut to 100 lines for the same
+        # reason. Capture in full (parity with vm-bootstrap.sh's capture_file); if
+        # a log is ever genuinely enormous, keep BOTH ends behind an explicit,
+        # quantified marker so nothing disappears silently (owner ruling 2026-10-15).
+        _lxd_host lxc exec "$name" -- sudo -i -u statbus bash -lc 'cd ~/statbus && if [ -f tmp/install-last-run-output.txt ]; then total=$(wc -l < tmp/install-last-run-output.txt); if [ "$total" -le 20000 ]; then cat tmp/install-last-run-output.txt; else echo "[capture] install-last-run-output.txt has $total lines; head 10000 and tail 10000 follow, middle omitted by this cap"; head -10000 tmp/install-last-run-output.txt; echo "[capture] ---- middle omitted: $((total-20000)) lines ----"; tail -10000 tmp/install-last-run-output.txt; fi; else echo "[capture] tmp/install-last-run-output.txt is absent"; fi; docker compose --profile all ps; docker compose --profile all logs --tail 500' || true
         # Container ID, image and creation time answer "was the container
         # RECREATED (new ID/CreatedAt) or merely restarted" from the artifact
         # alone, without a live box to inspect (STATBUS-425 review §1h,
         # tmp/crollback-rc16-rootcause.md: only install logs were uploaded,
         # so this exact question was unanswerable after the fact).
         _lxd_host lxc exec "$name" -- docker ps -a --format '{{.ID}} {{.Image}} {{.Names}} {{.CreatedAt}} {{.Status}}' || true
-        _lxd_host lxc exec "$name" -- journalctl --no-pager -n 120 -u docker || true
-        _lxd_host lxc exec "$name" -- journalctl --user --no-pager -n 100 _UID=1001 || true
+        _lxd_host lxc exec "$name" -- journalctl --no-pager -n 1000 -u docker || true
+        _lxd_host lxc exec "$name" -- journalctl --user --no-pager -n 2000 _UID=1001 || true
     } > "$out" 2>&1
     echo "$out"
 }
