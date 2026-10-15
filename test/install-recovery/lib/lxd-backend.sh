@@ -766,7 +766,16 @@ lxd_capture_failure() {
         # so this exact question was unanswerable after the fact).
         _lxd_host lxc exec "$name" -- docker ps -a --format '{{.ID}} {{.Image}} {{.Names}} {{.CreatedAt}} {{.Status}}' || true
         _lxd_host lxc exec "$name" -- journalctl --no-pager -n 1000 -u docker || true
-        _lxd_host lxc exec "$name" -- journalctl --user --no-pager -n 2000 _UID=1001 || true
+        # The statbus user's units (the upgrade daemon above all). As root,
+        # `journalctl --user` reads ROOT's user journal and printed "-- No
+        # entries --" in rc.03's operator capture, so the one actor that failed
+        # the candidate row left no trace. Read the system journal by UID.
+        echo "[capture] ==== statbus user units (system journal, _UID=1001) ===="
+        _lxd_host lxc exec "$name" -- journalctl --no-pager -n 5000 _UID=1001 || true
+        # The rows and every transition, with the actor that wrote it: this is
+        # what says WHO moved a row, independently of any log line.
+        echo "[capture] ==== public.upgrade and upgrade_state_log ===="
+        _lxd_host lxc exec "$name" -- sudo -i -u statbus bash -lc 'cd ~/statbus && ./sb psql -c "SELECT id, commit_version, left(commit_sha, 12) AS sha, state, scheduled_at, started_at, completed_at, superseded_at, recovery_parked_at, backup_path, error FROM public.upgrade ORDER BY id" -c "SELECT l.id, l.upgrade_id, l.old_state, l.new_state, l.actor, l.actor_source, l.application_name, l.backend_pid, l.logged_at, left(l.query, 160) AS query FROM public.upgrade_state_log AS l ORDER BY l.id"' || true
         # Every guest log the scenario registered, whole (fixed argv, no guest
         # shell expansion). This is where a scenario's own failure reason lives.
         local entry label path

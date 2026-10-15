@@ -168,6 +168,26 @@ func Test442PinnedInstallCompletion(t *testing.T) {
 				}
 				return nil
 			}
+			// Every daemon on the box listens on upgrade_apply, including an OLDER
+			// resident daemon that a pinned install is in the middle of replacing.
+			// Install bookkeeping must never send it: rc.03's operator remedy
+			// re-armed its own row through upgrade_schedule, the still-running
+			// v2026.09.2 daemon reacted by rescheduling the just-completed row,
+			// claimed it, met the install's mutex and recorded the candidate
+			// itself as failed. Observe with a separate session, as a daemon does.
+			// A copied ConnConfig carries the original connection's notification
+			// buffer as its OnNotification hook; clear it so this session buffers
+			// its own (otherwise every notification lands on conn, unseen here).
+			listenConfig := conn.Config()
+			listenConfig.OnNotification = nil
+			listen, err := pgx.ConnectConfig(ctx, listenConfig)
+			if err != nil {
+				t.Fatal(err)
+			}
+			t.Cleanup(func() { _ = listen.Close(ctx) })
+			if _, err := listen.Exec(ctx, "LISTEN upgrade_apply"); err != nil {
+				t.Fatal(err)
+			}
 			if mode == "waiting-operator-retired" {
 				operatorTx, beginErr := conn.Begin(ctx)
 				if beginErr != nil {
@@ -243,6 +263,26 @@ func Test442PinnedInstallCompletion(t *testing.T) {
 			} else if err != nil {
 				t.Fatal(err)
 			}
+			// A notification is delivered once its sender commits, which has
+			// happened by the time runInstall returns. Drain everything queued.
+			for {
+				waitCtx, cancel := context.WithTimeout(ctx, 500*time.Millisecond)
+				notification, waitErr := listen.WaitForNotification(waitCtx)
+				drained := waitCtx.Err() != nil
+				cancel()
+				if waitErr != nil || notification == nil {
+					// Only the drain deadline ends the loop; anything else is a
+					// broken observer and must not read as "no notification".
+					if !drained {
+						t.Fatalf("observe upgrade_apply: notification=%v err=%v", notification, waitErr)
+					}
+					break
+				}
+				t.Logf("observed NOTIFY upgrade_apply payload=%s", notification.Payload)
+				if notification.Payload == sha {
+					t.Fatalf("install completion sent NOTIFY upgrade_apply for its own installed SHA %s; a resident daemon would re-run the version just installed", sha)
+				}
+			}
 			want := "superseded"
 			if mode == "legacy-call" || mode == "legacy-schedule-operator" || mode == "normal-candidate" {
 				want = "completed"
@@ -278,7 +318,7 @@ func Test442PinnedInstallCompletion(t *testing.T) {
 			}
 			if strings.HasPrefix(mode, "legacy-") {
 				var events int
-				if err := conn.QueryRow(ctx, `SELECT count(*) FROM public.upgrade_state_log WHERE upgrade_id=(SELECT id FROM public.upgrade WHERE commit_sha=$1) AND new_state IN ('scheduled','completed') AND actor LIKE 'successful pinned install:%' AND actor_source='self-reported'`, sha).Scan(&events); err != nil {
+				if err := conn.QueryRow(ctx, `SELECT count(*) FROM public.upgrade_state_log WHERE upgrade_id=(SELECT id FROM public.upgrade WHERE commit_sha=$1) AND new_state IN ('available','completed') AND actor LIKE 'successful pinned install:%' AND actor_source='self-reported'`, sha).Scan(&events); err != nil {
 					t.Fatal(err)
 				}
 				if events != 2 {

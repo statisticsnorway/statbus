@@ -90,16 +90,22 @@ UPDATE public.upgrade SET state = 'completed', completed_at = now(), log_relativ
 WHERE commit_sha = repeat('a', 40);
 ROLLBACK TO SAVEPOINT terminal_control;
 
-\echo '=== positive successful install uses the existing audited schedule door ==='
+\echo '=== positive successful install re-arms in place to available, never scheduled ==='
+-- Scheduling would stamp scheduled_at, which upgrade_notify_daemon_trigger turns
+-- into NOTIFY upgrade_apply: every resident daemon would re-run the version just
+-- installed (rc.03 operator remedy). scheduled_at must stay NULL throughout.
 SET LOCAL statbus.actor = 'successful pinned ./sb install: pg_regress442';
-SELECT schedule_result, landed_state FROM public.upgrade_schedule(repeat('a', 40), false);
+UPDATE public.upgrade SET state = 'available', superseded_at = NULL
+WHERE commit_sha = repeat('a', 40) AND state = 'superseded'
+RETURNING state, scheduled_at IS NULL AS never_scheduled;
 UPDATE public.upgrade
 SET state = 'completed', completed_at = now(), started_at = now(),
     docker_images_status = 'ready', release_builds_status = 'ready',
     log_relative_file_path = '442-install.log'
-WHERE commit_sha = repeat('a', 40) AND state = 'scheduled';
+WHERE commit_sha = repeat('a', 40) AND state = 'available';
 SELECT EXISTS (SELECT 1 FROM public.upgrade
-               WHERE commit_sha = repeat('a', 40) AND state = 'completed') AS exact_install_completed;
+               WHERE commit_sha = repeat('a', 40) AND state = 'completed'
+                 AND scheduled_at IS NULL) AS exact_install_completed_unscheduled;
 SELECT old_state, new_state, actor, actor_source
 FROM public.upgrade_state_log
 WHERE upgrade_id = (SELECT id FROM public.upgrade WHERE commit_sha = repeat('a', 40))
