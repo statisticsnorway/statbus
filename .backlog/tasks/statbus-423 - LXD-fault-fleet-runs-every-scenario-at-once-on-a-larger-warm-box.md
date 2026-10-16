@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-09-28 08:18'
-updated_date: '2026-10-16 07:59'
+updated_date: '2026-10-16 13:42'
 labels:
   - ci
   - lxd
@@ -46,6 +46,7 @@ The gate runs every scenario on one shared LXD box, forked from installed checkp
 - [ ] #5 A full candidate gate (fault fleet and upgrade arcs) on the new box gives the same verdict per scenario as the preceding candidate's run; both run IDs recorded in Implementation Notes
 - [ ] #6 Dispatch-to-verdict wall time for that run is recorded in Implementation Notes, including the cold ramp
 - [ ] #7 [Owner] Set the wall-time target, given the longest scenario (1,261 s, about 21 minutes, measured 2026-10-15), and record it in Implementation Notes. Under 21 minutes: add "shorten or split `5-install-source-identity-operator`" as a new criterion. 21 minutes or more: the measurement in AC6 decides Done.
+- [ ] #8 The upgrade-arc matrix `max-parallel` is raised from 4 to the host slot count (8), so arcs use slots the faults free; a run shows more than 4 arc guests at once and its arc wall time is recorded in Implementation Notes
 <!-- AC:END -->
 
 ## Implementation Notes
@@ -54,4 +55,12 @@ The gate runs every scenario on one shared LXD box, forked from installed checkp
 ### Evidence
 - 2026-10-16 grounding: fault fleet `38740447079` and arc harness `38740570520` timings from GitHub; scenario seconds from the run's `comparison.tsv` artifact (copied to `tmp/vet/fleet-38740447079/`); limits read from `run-forks.sh`, `admission.sh`, `lxd-backend.sh` and `up.sh` on master `e804329c8`.
 - No work has started; status stays To Do.
+
+### Timing breakdown, v2026.10.2-rc.01 (2026-10-16)
+Runs: orchestrator `38818198690` (75 min), smoke `38818339306`, fault fleet `38819807364`, arcs `38819893048`. Analysis and derived tables: `tmp/lxd-explain/how-it-runs.md`, `arc-phases.txt`, `occupancy.txt`.
+- **Critical path:** smoke 12 min, dev 2 min, then arcs 60 min. The fault fleet (46 min) ends 15 min before the arcs, so arcs set the verdict time.
+- **Arcs:** 35 arcs with 201 min of job time behind GitHub `max-parallel: 4`. After the faults end at 23:36, 4 of the 8 host slots stay idle for 15 min because no more than 4 arc jobs exist. The workflow comment says host admission, not `max-parallel`, bounds guests. Raising it to 8 is estimated to bring the arcs from 60 to about 48 min.
+- **Faults:** dispatched alphabetically. The two 19-min `5-install-source-identity-*` scenarios start at position 20/21 (23:11) and end at 23:30. Longest-first would end the fleet about 16 min sooner. Each spends 5 min waiting for the old v2026.09.2 daemon to mark the false target's images ready, and installs v2026.09.2 from scratch.
+- **Box use:** 6.1 guests running on average over the 54 busy minutes, 8 slots. No CPU load or steal is recorded, so the cost of 2x CPU oversubscription is unknown (AC2).
+- **Fresh install:** every fresh install waits about 76 s before Seed, in `checkSeedRestored` (`cli/cmd/install.go:2904`, 15 x 2 s retry on an empty database, called twice). Seen in both smoke installs and all 15 fresh-install fault scenarios. This also costs real first installs; tracked separately.
 <!-- SECTION:NOTES:END -->
