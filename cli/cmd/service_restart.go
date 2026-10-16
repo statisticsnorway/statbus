@@ -56,16 +56,7 @@ func restartServicesInDirWithLock(dir, profile string, adopted *upgrade.FlagLock
 			if err != nil {
 				return fmt.Errorf("stop: %w", err)
 			}
-			args := []string{"-d", "--wait", "--wait-timeout", "120"}
-			if compose.IsDevelopmentModeInDir(dir) {
-				args = append(args, "--build")
-			}
-			if p == "app" {
-				args = append(args, "app")
-			} else {
-				args = append([]string{"--profile", p}, args...)
-			}
-			start, err := compose.Up(context.Background(), dir, args...)
+			start, err := compose.Up(context.Background(), dir, restartUpArgs(dir, p)...)
 			if err != nil {
 				return err
 			}
@@ -185,4 +176,20 @@ func restartServicesWithLock(dir, profile string, ops restartOperations, adopted
 		return fmt.Errorf("restart %s application services: %w", profile, err)
 	}
 	return nil
+}
+
+// restartUpArgs is the docker compose up invocation that brings a profile back
+// after the stop. It waits for health, unlike ./sb start, and builds by the same
+// rule (startBuildsFromSource): only a source checkout builds.
+func restartUpArgs(dir, profile string) []string {
+	args := []string{"-d", "--wait", "--wait-timeout", "120"}
+	if startBuildsFromSource(dir) {
+		args = append(args, "--build")
+	} else {
+		args = append(args, "--no-build")
+	}
+	if profile == "app" {
+		return append(args, "app")
+	}
+	return append([]string{"--profile", profile}, args...)
 }

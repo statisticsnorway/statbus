@@ -103,6 +103,8 @@ markers refuse before any disruption. An intentionally inactive daemon stays ina
 Waits for stack health and daemon readiness under the upgrade mutex.
 Failed or interrupted restarts retain a barrier: fix the cause and retry this
 same command and profile. No manual systemctl operation is needed.
+Source development checkouts build images from source (--build).
+Release installations use pulled images, including in development mode.
 
 Profiles: all, all_except_app, app`,
 	Args: cobra.MaximumNArgs(1),
