@@ -23,7 +23,7 @@ func TestLXDFleetSupersessionStopsBeforePaidWorkAndIsItsOwnVerdict_STATBUS416(t 
 	again := idx("Recheck newest RC after occupancy wait")
 	ramp := idx("Ramp warm box")
 	driver := idx("Run all fork scenarios (batch-boundary supersession)")
-	if !(first < drain && drain < again && again < ramp && ramp < driver) {
+	if first >= drain || drain >= again || again >= ramp || ramp >= driver {
 		t.Fatalf("order must be freshness < drain < recheck < ramp < driver, got %d %d %d %d %d", first, drain, again, ramp, driver)
 	}
 	for _, i := range []int{first, again} {
@@ -120,12 +120,11 @@ func TestLXDFleetSupersessionStopsBeforePaidWorkAndIsItsOwnVerdict_STATBUS416(t 
 			if err := run(collect); err != nil {
 				t.Fatalf("collector failed: %v", err)
 			}
-			f, err := os.Open(filepath.Join(artifacts, "fleet-status.txt"))
+			status, err := os.ReadFile(filepath.Join(artifacts, "fleet-status.txt"))
 			if err != nil {
 				t.Fatal(err)
 			}
-			defer f.Close()
-			sc := bufio.NewScanner(f)
+			sc := bufio.NewScanner(strings.NewReader(string(status)))
 			sc.Scan()
 			if got := sc.Text(); got != "STATUS="+c.wantStatus {
 				t.Errorf("fleet status = %q, want STATUS=%s", got, c.wantStatus)
