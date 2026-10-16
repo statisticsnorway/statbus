@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-10-16 13:33'
-updated_date: '2026-10-16 13:34'
+updated_date: '2026-10-16 13:38'
 labels:
   - reports
   - statistical_history
@@ -44,4 +44,11 @@ statistical_history holds the period total (hash_partition IS NULL) and, since 7
 - Memory: none needed.
 - Documentation: none; the hash_partition meaning belongs on its column comment if one is missing (check during the fix).
 - Cleanup: none.
+
+### Investigation state (2026-10-16 13:38, paused for the owner's session)
+- **Dev:** statistical_history holds 12 total rows (hash_partition IS NULL) and 267 slot rows at year resolution, 2925 slot rows at year-month. The chart receives both.
+- **Test database** (demo fixture + import + analytics, the same pipeline: derive_statistical_history -> 180 derive_statistical_history_period -> statistical_history_reduce): only total rows remain (135); no slot rows. So the slots that statistical_history_def writes (int4range(hash_slot, hash_slot+1), def line 119) are gone after the run in the test, yet persist on dev.
+- **Open question:** what removes slot rows in the test, or why dev keeps them. Candidates: the period derive's no-partition branch (deletes the whole period, then writes slots), the reduce (deletes only totals), or a reset/cleanup path. Next step: read tasks.info per derive_statistical_history_period in the probe (tmp/354-probe-full.sql; the column is `info`).
+- **Test:** test/sql/354_statbus_513_chart_points_are_period_totals.sql is written but cannot go red until the test database keeps slot rows like dev. Not committed.
+- **Fix itself is clear and small:** add hash_partition IS NULL to both reads in statistical_history_highcharts.
 <!-- SECTION:NOTES:END -->
