@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-09-24 16:42'
-updated_date: '2026-10-15 20:09'
+updated_date: '2026-10-16 14:05'
 labels:
   - release-bug
   - install
@@ -41,7 +41,7 @@ Two kinds of box can both run the web entry point in development mode: a develop
 <!-- AC:BEGIN -->
 - [x] #1 `./sb start` on a release installation in development mode passes `--no-build` (`TestStartImageBasedDevelopmentSkipsBuild`)
 - [x] #2 `./sb start` in a source development checkout still builds (`TestStartSourceDevelopmentBuilds`)
-- [ ] #3 `./sb restart` builds from source only in a source checkout and passes `--no-build` on a release installation, by the same rule as `./sb start` (`startBuildsFromSource`)
+- [x] #3 `./sb restart` builds from source only in a source checkout and passes `--no-build` on a release installation, by the same rule as `./sb start` (`startBuildsFromSource`)
 - [ ] #4 [Owner] Decide whether the real-box timing scenario (`4-image-start-no-build.sh`, image start within 20% of a pull-plus-start baseline) is required, and record it in Implementation Notes. No: check this and set Done after AC3. Yes: add that scenario as a new criterion.
 <!-- AC:END -->
 
@@ -52,4 +52,10 @@ Two kinds of box can both run the web entry point in development mode: a develop
 - **AC1-2:** green in Go Test (v2026.09.3); re-run green locally on master, 2026-10-15.
 - **AC3:** open; `cli/cmd/service_restart.go` checks `compose.IsDevelopmentModeInDir(dir)` alone before appending `--build` (master `cb34436b4`).
 - **Superseded criteria:** the restyle named `cli/cmd/service_test.go`; the tests landed in `service_start_test.go`. The stale "To Do" status header and 09-24 implementation note were folded into Zoom in.
+
+### AC3 (e4af9ef19)
+- `restartUpArgs` (`cli/cmd/service_restart.go`) decides --build/--no-build with `startBuildsFromSource`, the same rule as start. `./sb restart --help` states the rule.
+- **Red, then green:** `TestRestartUpArgsFollowStartBuildRule_STATBUS392` ran against the old rule: VERSION=v2026.10.2 got `--build` for both profile all and profile app, so it failed. With the fix it passes, and the source cases (VERSION=local, `-g` describe) still build. The whole `cli/cmd` package passes locally.
+- No other build decision depends on development mode alone; `rg IsDevelopmentMode` shows only startBuildsFromSource.
+- Waiting: Go Test in CI for e4af9ef19.
 <!-- SECTION:NOTES:END -->
