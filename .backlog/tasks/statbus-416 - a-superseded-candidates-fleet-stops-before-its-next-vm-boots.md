@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-09-25 09:45'
-updated_date: '2026-10-16 14:14'
+updated_date: '2026-10-16 14:31'
 labels:
   - release-bug
   - ci
@@ -59,4 +59,6 @@ Release candidates are tested by long fleets (smoke, the LXD fault fleet, upgrad
 ### AC2 (bbd8ec0fd, 2026-10-16)
 - `TestLXDFleetSupersessionStopsBeforePaidWorkAndIsItsOwnVerdict_STATBUS416` (`cli/cmd/workflow_lxd_supersession_test.go`) pins three things in lxd-fleet.yaml. (1) The step order: freshness check, then the occupancy wait, the recheck, the ramp, the driver; both checks are the shared scenario-superseded action, given this run's tag. (2) The gating: the ramp and the driver need both checks clear. (3) The verdict: it **executes** the workflow's own collector and verdict scripts against the real fleet-status.sh for seven outcomes. Superseded at the first check, after the wait, or at a fork batch boundary gives SUPERSEDED. A failed scenario or ramp gives FAILED. A missing driver status gives ERROR. All of these are not green; only PASSED is green.
 - **Red, then green:** it ran against a workflow with the ramp's after-wait gate removed and the collector's SUPERSEDED branch disabled. It failed with 'Ramp warm box must be gated on steps.after-wait...' and 'fleet status = STATUS=ERROR, want STATUS=SUPERSEDED' (twice). On the real workflow it passes.
+
+- **CI:** Go Test on bbd8ec0fd failed on two golangci-lint findings in the new test (errcheck f.Close, staticcheck De Morgan); the tests themselves passed. Fixed in b35c70ad5, where golangci-lint reports 0 issues locally and Go Test passes in CI. AC2 is done. AC3 (a real supersession) and the [Owner] AC4 remain.
 <!-- SECTION:NOTES:END -->
