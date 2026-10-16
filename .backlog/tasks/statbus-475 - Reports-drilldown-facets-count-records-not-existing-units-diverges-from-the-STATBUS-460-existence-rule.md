@@ -3,10 +3,10 @@ id: STATBUS-475
 title: >-
   Reports drilldown facets count records, not existing units (diverges from the
   STATBUS-460 existence rule)
-status: In Progress
+status: Done
 assignee: []
 created_date: '2026-10-08 16:00'
-updated_date: '2026-10-16 13:34'
+updated_date: '2026-10-16 13:56'
 labels:
   - reports
   - data-model
@@ -42,7 +42,7 @@ The fix moves the rule into the facet derivation itself: each record contributes
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
 - [x] #1 statistical_unit_facet (or its drilldown) counts a unit at valid_on iff it exists by the STATBUS-460 rule; the 458 demo rows are absent from the 2023 drilldown and present in 2024
-- [ ] #2 On dev the drilldown total equals the dashboard card and the Units-over-time chart for 2023-12-31 and 2024-12-31
+- [x] #2 On dev the drilldown total equals the dashboard card and the Units-over-time chart for 2023-12-31 and 2024-12-31
 - [x] #3 pg_regress covers a unit born after its record window starts and a unit that died inside its window, in the drilldown
 - [x] #4 Facet derivation time on the Norway dump is measured before and after and recorded in the ticket
 <!-- AC:END -->
@@ -76,4 +76,7 @@ CI: c459edf82 Images 37844915411 SUCCESS (the seed round trip, effective-ACL dig
 
 ### AC2 status (2026-10-16)
 Card and chart totals on dev agree (see STATBUS-460 notes). The Units-over-time chart carries partition points beside the totals (STATBUS-513); the drilldown comparison is completed together with 513 on dev.
+
+### AC2 verified on dev (2026-10-16 13:40), as admin_user
+- statistical_unit_facet_drilldown(unit_type, valid_on) summed over the region and over the activity dimension: establishment 11 (2023-12-31), 24 (2024-12-31); legal_unit 23/23; enterprise 23/23. Equal to the dashboard cards and to the Units-over-time chart (one point per period, 11/23/23 and 24/23/23).
 <!-- SECTION:NOTES:END -->

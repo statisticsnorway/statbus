@@ -3,10 +3,10 @@ id: STATBUS-460
 title: >-
   Every unit count uses one canonical existence rule (birth and death dates when
   present, valid dates when not)
-status: In Progress
+status: Done
 assignee: []
 created_date: '2026-10-07 22:27'
-updated_date: '2026-10-16 13:34'
+updated_date: '2026-10-16 13:56'
 labels:
   - app
   - dashboard
@@ -44,7 +44,7 @@ The rule: a unit exists at `d` iff `COALESCE(birth_date, valid_from) <= d AND (d
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
 - [x] #1 One canonical SQL definition of 'unit exists at instant d' is documented in the repo and implemented once (for example public.statistical_unit_exists_(unit_type, instant) or an equivalent view), using COALESCE(birth_date, valid_from) <= d, (death_date IS NULL OR death_date > d) and valid_until > d, deduplicated per unit.
-- [ ] #2 The dashboard cards (Establishments, Legal Units, Enterprises) use that definition: on dev at 2023-12-31 they show 11 / 23 / 23 and at 2024-12-31 they show 24 / 23 / 23, matching the Reports chart bar for bar.
+- [x] #2 The dashboard cards (Establishments, Legal Units, Enterprises) use that definition: on dev at 2023-12-31 they show 11 / 23 / 23 and at 2024-12-31 they show 24 / 23 / 23, matching the Reports chart bar for bar.
 - [x] #3 The Statistical Units list and the unit detail pages use the same rule, so a unit born after the selected context instant is not listed for that context.
 - [x] #4 The two data-quality cards that shared the old record-validity predicate (Units Missing Region, Units Missing Activity Category) use the existence rule, so they count what the Statistical Units list shows
 - [x] #5 A pg_regress test covers a unit whose record window is valid_from 2023-01-01 with valid_to infinity and birth_date 2024-11-01: absent from the 2023 count, present in the 2024 count. A second case covers birth_date inside its own window (valid_from 2024-01-01, birth_date 2024-11-01) and IS counted for 2024.
@@ -71,4 +71,9 @@ The rule: a unit exists at `d` iff `COALESCE(birth_date, valid_from) <= d AND (d
 The card query (existence_from <= d < existence_until AND used_for_counting) returns 2023-12-31: establishment 11, legal_unit 23, enterprise 23; 2024-12-31: 24, 23, 23. Exactly the expected values.
 The chart's period totals (statistical_history rows with hash_partition IS NULL) are the same: 11/23/23 and 24/23/23.
 Not yet bar for bar: statistical_history_highcharts also sends one point per hash partition (STATBUS-513), so the chart has extra points beside each total. AC2 is checked when 513 lands on dev.
+
+### AC2 verified on dev (2026-10-16 13:40), as the application role
+- Dashboard cards: 11/23/23 at 2023-12-31, 24/23/23 at 2024-12-31.
+- Reports chart, statistical_history_highcharts('year', ..., countable_count) under SET ROLE admin_user: exactly one point per period, 2023: 11/23/23, 2024: 24/23/23. Bar for bar equal.
+- My earlier 513 note read the chart as superuser and saw the partition slots; an application role does not see them (the totals-only RLS policies), so the chart was right. 513 records this.
 <!-- SECTION:NOTES:END -->
