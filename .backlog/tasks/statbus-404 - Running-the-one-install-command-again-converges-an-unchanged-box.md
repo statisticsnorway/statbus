@@ -4,7 +4,7 @@ title: Running the install command again changes only what an answer changed
 status: In Progress
 assignee: []
 created_date: '2026-09-24 15:35'
-updated_date: '2026-10-15 20:08'
+updated_date: '2026-10-16 14:11'
 labels:
   - release-bug
   - install
@@ -42,8 +42,8 @@ For a changed setting, each generated setting declares which services read it (i
 <!-- AC:BEGIN -->
 - [x] #1 A second run on a ready unchanged box reports every step OK, none RUNNING or DONE, and pulls no image (`0-happy-install.sh` green-box rerun)
 - [x] #2 Image detection recognises present images from Compose JSON `ContainerName` (`TestComposeServicesHaveImagesRequiresEachNamedService`)
-- [ ] #3 Changing only the display name in the installer restarts the app and no other service, and the app then shows the new name (a rerun with only `DEPLOYMENT_SLOT_NAME` changed)
-- [ ] #4 [Owner] Decide whether AC3 is fixed in this ticket or split into its own bug ticket, and record it in Implementation Notes. Here: AC3 stays. Split: file the bug, link it, remove AC3, then set Done.
+- [x] #3 Changing only the display name in the installer restarts the app and no other service, and the app then shows the new name (a rerun with only `DEPLOYMENT_SLOT_NAME` changed)
+- [x] #4 [Owner] Decide whether AC3 is fixed in this ticket or split into its own bug ticket, and record it in Implementation Notes. Here: AC3 stays. Split: file the bug, link it, remove AC3, then set Done.
 <!-- AC:END -->
 
 ## Implementation Notes
@@ -54,4 +54,12 @@ For a changed setting, each generated setting declares which services read it (i
 - **AC2:** green locally on master, 2026-10-15.
 - **AC3:** unmet; defect identified from source on 2026-10-15, not yet reproduced on a box.
 - **Superseded criteria:** the restyle asked for captured Compose v2 and v5 JSON fixtures and a `0-rerun-display-name-change.sh` scenario that were never written.
+
+### AC3 (8510ee36a, 2026-10-16)
+- **Fix:** `DEPLOYMENT_SLOT_NAME` now declares RestartApp. docker-compose.app.yml passes it to the app as PUBLIC_DEPLOYMENT_SLOT_NAME, and app/src/app/layout.tsx renders it per request (force-dynamic).
+- **Red, then green:** `TestDisplayNameChangeRestartsOnlyTheApp_STATBUS404` generates the .env twice, differing only in the display name. The union of the changed keys' restart classes was {} (red) and is exactly {RestartApp} (green).
+- **New invariant test:** `TestComposeInterpolatedKeysRestartTheirConsumer_STATBUS404`. Every generated key a compose file interpolates must declare a restart class. It was red on DEPLOYMENT_SLOT_NAME alone, so no other key has this defect, and it is green with the fix. The config package passes.
+- **Observed locally:** applyPendingRestarts turns RestartApp into `docker compose up -d --no-deps app`. Running exactly that with DEPLOYMENT_SLOT_NAME="Probe 404" changed the title from "Local Development Statbus" to "Probe 404 Statbus" within seconds. db, rest, worker and proxy kept their uptime. Restored afterwards.
+- **AC4:** overtaken. AC3 was fixed in this ticket, which is the 'Here' branch, so no split is needed.
+- Waiting: Go Test in CI for 8510ee36a, then Done.
 <!-- SECTION:NOTES:END -->
