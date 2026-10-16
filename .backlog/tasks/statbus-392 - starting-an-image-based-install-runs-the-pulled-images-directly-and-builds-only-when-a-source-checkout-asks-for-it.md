@@ -58,4 +58,6 @@ Two kinds of box can both run the web entry point in development mode: a develop
 - **Red, then green:** `TestRestartUpArgsFollowStartBuildRule_STATBUS392` ran against the old rule: VERSION=v2026.10.2 got `--build` for both profile all and profile app, so it failed. With the fix it passes, and the source cases (VERSION=local, `-g` describe) still build. The whole `cli/cmd` package passes locally.
 - No other build decision depends on development mode alone; `rg IsDevelopmentMode` shows only startBuildsFromSource.
 - Waiting: Go Test in CI for e4af9ef19.
+
+- **Correction:** the commit is e622a4f9a, not e4af9ef19 as written above. That first commit attempt failed because the new test file was untracked.
 <!-- SECTION:NOTES:END -->
