@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-10-15 21:43'
-updated_date: '2026-10-15 21:43'
+updated_date: '2026-10-16 08:01'
 labels:
   - testing
   - jsonb_stats
@@ -44,4 +44,8 @@ jsonb_stats merges float statistics with Chan's parallel formula (`src/merge.rs:
 - Memory: none needed yet; record the f64 precision rule if the fix sets one.
 - Documentation: if the fix rounds in the test, state the rule in the test's own comment where the floats are printed.
 - Cleanup: none.
+
+### Upstream fix chosen (owner, 2026-10-16)
+The fix goes into jsonb_stats (the owner's extension). The issue and a possible fix are written up in ../jsonb_stats/todo.md for a local agent: the cause is the f64 state shared by all four numeric aggregates (NumFields, src/state.rs), not the stat types. Proposed: exact i128 state for int/nat/dec2 (matching the PL/pgSQL numeric reference and the README's dec2 promise), compensated combine plus significant-digit output for float_agg, one combine path, README correction.
+StatBus side after the jsonb_stats release: bump jsonb_stats_release in postgres/Dockerfile, re-record expected outputs once, check the 10 other files that print variance.
 <!-- SECTION:NOTES:END -->
