@@ -1,7 +1,7 @@
 ```sql
-                                                           Table "public.statistical_history"
-                  Column                  |         Type          | Collation | Nullable | Default | Storage  | Compression | Stats target | Description 
-------------------------------------------+-----------------------+-----------+----------+---------+----------+-------------+--------------+-------------
+                                                                                                                                                                                                                                                                                           Table "public.statistical_history"
+                  Column                  |         Type          | Collation | Nullable | Default | Storage  | Compression | Stats target |                                                                                                                                                                                                                                 Description                                                                                                                                                                                                                                 
+------------------------------------------+-----------------------+-----------+----------+---------+----------+-------------+--------------+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
  resolution                               | history_resolution    |           |          |         | plain    |             |              | 
  year                                     | integer               |           |          |         | plain    |             |              | 
  month                                    | integer               |           |          |         | plain    |             |              | 
@@ -25,7 +25,7 @@
  physical_country_change_count            | integer               |           |          |         | plain    |             |              | 
  physical_address_change_count            | integer               |           |          |         | plain    |             |              | 
  stats_summary                            | jsonb                 |           |          |         | extended |             |              | 
- hash_partition                           | int4range             |           |          |         | extended |             |              | 
+ hash_partition                           | int4range             |           |          |         | extended |             |              | NULL marks the period total: the row the application reads. A range marks a partition slot, the partial count for units whose hash_slot falls in that range; worker.statistical_history_reduce sums the slots into the total. The row level security policies show application roles only the totals, so a reader running as the caller (statistical_history_highcharts, PostgREST) gets one row per period. Worker code running as the table owner sees the slots as well.
 Indexes:
     "idx_history_resolution" btree (resolution) WHERE hash_partition IS NULL
     "idx_statistical_history_hash_partition" btree (hash_partition) WHERE hash_partition IS NOT NULL
