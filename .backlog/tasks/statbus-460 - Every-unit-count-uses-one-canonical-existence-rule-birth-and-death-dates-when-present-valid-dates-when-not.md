@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-10-07 22:27'
-updated_date: '2026-10-15 20:09'
+updated_date: '2026-10-16 13:34'
 labels:
   - app
   - dashboard
@@ -66,4 +66,9 @@ The rule: a unit exists at `d` iff `COALESCE(birth_date, valid_from) <= d AND (d
 - **AC1, AC3-7, DoD 1-3:** `a64f4ad38`; test 351 RED with the old predicate, GREEN with the rule; Fast Tests `37829021787` (116/116). Timing measured 2026-10-08 on the Norway dump.
 - **AC2:** open. Owner condition (2026-10-08): close only after a release candidate containing `a64f4ad38` is observed on dev. That precondition is met as of 2026-10-15 13:08 UTC (v2026.10.1 on dev). Next: open the dev dashboard at time contexts 2023 and 2024 and record the card numbers beside the Reports chart.
 - **History:** the full implementation diary (prototype, timing, AC mapping, CI verdicts, 481 follow-ups) is in Git history of this file, last full version at `03f365be5`.
+
+### AC2 observed on dev (2026-10-16, v2026.10.2-rc.01, read-only, tmp/460-dev-cards.sql)
+The card query (existence_from <= d < existence_until AND used_for_counting) returns 2023-12-31: establishment 11, legal_unit 23, enterprise 23; 2024-12-31: 24, 23, 23. Exactly the expected values.
+The chart's period totals (statistical_history rows with hash_partition IS NULL) are the same: 11/23/23 and 24/23/23.
+Not yet bar for bar: statistical_history_highcharts also sends one point per hash partition (STATBUS-513), so the chart has extra points beside each total. AC2 is checked when 513 lands on dev.
 <!-- SECTION:NOTES:END -->

@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-10-08 16:00'
-updated_date: '2026-10-15 19:52'
+updated_date: '2026-10-16 13:34'
 labels:
   - reports
   - data-model
@@ -73,4 +73,7 @@ SCREEN INVENTORY (what each count-showing screen counts; rule = STATBUS-460 exis
 CI: c459edf82 Images 37844915411 SUCCESS (the seed round trip, effective-ACL digest and restored-seed types check passed with the 475 migration), and Go Test, app build & lint and Harness Selftest succeeded. Fast Tests 37845723194 on a8faa8142 (first-parent descendant; c459edf82's own run 37845546975 was cancelled by that push) ran job 'pg_regress fast suite' = SUCCESS: seed restored (migration 20261008202243), '# All 117 tests passed.' including ok 117 353_statbus_475_drilldown_facets_follow_existence_rule, ok 29 107_load_and_verify_history_functions and ok 14 016. Left In Progress until AC #2 is observed on dev (same as 460).
 
 2026-10-15: v2026.10.1 contains a64f4ad38 (460) and c459edf82 (475) and was deployed to dev on 2026-10-15 13:08 UTC (Deploy to dev run on 3b17af171, success). AC #2 can now be observed: dev drilldown total vs dashboard card vs Units-over-time chart at 2023-12-31 and 2024-12-31.
+
+### AC2 status (2026-10-16)
+Card and chart totals on dev agree (see STATBUS-460 notes). The Units-over-time chart carries partition points beside the totals (STATBUS-513); the drilldown comparison is completed together with 513 on dev.
 <!-- SECTION:NOTES:END -->
