@@ -3,10 +3,10 @@ id: STATBUS-513
 title: >-
   statistical_history: document what hash_partition marks, and test that the
   chart gets one point per period
-status: In Progress
+status: Done
 assignee: []
 created_date: '2026-10-16 13:33'
-updated_date: '2026-10-16 13:57'
+updated_date: '2026-10-16 14:49'
 labels:
   - reports
   - statistical_history
@@ -35,7 +35,7 @@ statistical_history holds the period total (hash_partition IS NULL) and, since 7
 - [x] #1 public.statistical_history.hash_partition carries a comment stating that NULL marks the period total, a range marks a partition slot, and that the RLS policies show application roles only the totals
 - [x] #2 Test 354 calls statistical_history_highcharts as an application role and asserts exactly one point per period per series, equal to that period's total row
 - [x] #3 Test 354 is recorded red when the totals-only policy is lifted (the chart then gets 13 to 25 points per period) and green on master
-- [ ] #4 The fast suite and CI are green with the migration and the test
+- [x] #4 The fast suite and CI are green with the migration and the test
 <!-- AC:END -->
 
 ## Implementation Notes
@@ -59,4 +59,6 @@ statistical_history holds the period total (hash_partition IS NULL) and, since 7
 - **Locally:** the fast suite passes, 118/118, and so does go test ./internal/migrate (the floor check for a comment-only migration above the floor).
 - **Closing review:** Memory: none. Documentation: the column comment carries the meaning, and doc/db is regenerated. Cleanup: none.
 - Waiting: CI for 23175c5fc.
+
+- **CI:** Fast Tests run 38916745879 passed on f46083b0e, which contains 23175c5fc. Go Test passed on 23175c5fc (38911925620). Done.
 <!-- SECTION:NOTES:END -->
