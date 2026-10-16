@@ -26,7 +26,7 @@ The gate runs every scenario on one shared LXD box, forked from installed checkp
 
 ### Zoom in
 - **Measured at filing (rc.12, run `36388841250`):** 25 scenarios, 6,957 s of work, longest 419 s; 6 forks at a time for 29 min; bases built one after another in 4.3 min; about 34 min overall.
-- **Measured now (v2026.10.1, 2026-10-15):** fault fleet `38740447079` took 52 min (13:10-14:02) for 27 scenarios and 11,301 s of work; the longest is now `5-install-source-identity-operator` at 1,261 s. The upgrade arcs (`38740570520`, 13:11-14:07) share the same box since STATBUS-425, so the two gates compete for it.
+- **Latest measurement (v2026.10.2-rc.01, orchestrator `38818198690`, 75 min):** after smoke (12 min) and dev (2 min), the fault fleet (46 min, 27 scenarios, longest 1,142 s) and the upgrade arcs (60 min, 35 arcs behind `max-parallel: 4`) share the box since STATBUS-425. The arcs set the verdict time; breakdown in Implementation Notes.
 - **Current limits:** `run-forks.sh` caps `LXD_PARALLEL` at 1-8 (default 6); host admission allows `LXD_HOST_SLOTS=8` (`ops/lxd-fleet/admission.sh`); each fork is `limits.cpu=2`, `limits.memory=6GiB` (`lib/lxd-backend.sh`); the box is a Hetzner `ccx33` (8 vCPU, 32 GB), hard-coded and checked in `ops/lxd-fleet/up.sh`, which refuses any other type.
 - **Proposal (not started):** a larger type (for example CCX53, 32 vCPU / 128 GB) with a larger Btrfs pool and slots sized to it; build independent bases in parallel with per-base locks; schedule longest-first from the previous run's `comparison.tsv`.
 - **Floor:** with the longest scenario at 1,261 s, a fork phase cannot finish under about 21 minutes, so a 15-minute target needs that scenario shortened or split as well.

@@ -4,6 +4,7 @@ title: A fresh install restores the seed without a fixed 76-second wait
 status: To Do
 assignee: []
 created_date: '2026-10-16 13:43'
+updated_date: '2026-10-16 13:48'
 labels:
   - install
   - performance
@@ -37,6 +38,5 @@ Before restoring the seed, the installer must know the database is fresh: restor
 <!-- AC:BEGIN -->
 - [ ] #1 Write a Go test where the database answers with no data and no migrations: `checkSeedRestored` returns false without sleeping (test measures under 2 s); record it failing on master before the fix
 - [ ] #2 Write a Go test where the database is unreachable for the first attempts: the check keeps retrying and does not return "fresh" until the database answers
-- [ ] #3 The Seed step evaluates its check once per install run (quiesce gate and step share the result), shown by a Go test that counts the check's database probes during one install step sequence
-- [ ] #4 A candidate smoke run after the fix shows "[14/18] Seed RUNNING" within 10 s of "[13/18] Database sessions OK" in `0-happy-install`; run ID recorded in Implementation Notes
+- [ ] #3 A candidate smoke run after the fix shows "[14/18] Seed RUNNING" within 10 s of "[13/18] Database sessions OK" in `0-happy-install`; run ID recorded in Implementation Notes
 <!-- AC:END -->
