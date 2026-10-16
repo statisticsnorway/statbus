@@ -1,10 +1,10 @@
 ---
 id: STATBUS-404
 title: Running the install command again changes only what an answer changed
-status: In Progress
+status: Done
 assignee: []
 created_date: '2026-09-24 15:35'
-updated_date: '2026-10-16 14:11'
+updated_date: '2026-10-16 14:12'
 labels:
   - release-bug
   - install
@@ -62,4 +62,6 @@ For a changed setting, each generated setting declares which services read it (i
 - **Observed locally:** applyPendingRestarts turns RestartApp into `docker compose up -d --no-deps app`. Running exactly that with DEPLOYMENT_SLOT_NAME="Probe 404" changed the title from "Local Development Statbus" to "Probe 404 Statbus" within seconds. db, rest, worker and proxy kept their uptime. Restored afterwards.
 - **AC4:** overtaken. AC3 was fixed in this ticket, which is the 'Here' branch, so no split is needed.
 - Waiting: Go Test in CI for 8510ee36a, then Done.
+
+- **CI:** Go Test passed on 8510ee36a. Done.
 <!-- SECTION:NOTES:END -->

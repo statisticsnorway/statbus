@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-09-24 16:42'
-updated_date: '2026-10-16 14:05'
+updated_date: '2026-10-16 14:12'
 labels:
   - release-bug
   - install
@@ -60,4 +60,6 @@ Two kinds of box can both run the web entry point in development mode: a develop
 - Waiting: Go Test in CI for e4af9ef19.
 
 - **Correction:** the commit is e622a4f9a, not e4af9ef19 as written above. That first commit attempt failed because the new test file was untracked.
+
+- **CI:** Go Test passed on 8510ee36a, which contains e622a4f9a. AC3 is done. Only the [Owner] AC4 decision remains.
 <!-- SECTION:NOTES:END -->
