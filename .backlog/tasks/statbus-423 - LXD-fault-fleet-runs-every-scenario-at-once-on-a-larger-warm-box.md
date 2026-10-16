@@ -46,7 +46,7 @@ The gate runs every scenario on one shared LXD box, forked from installed checkp
 - [ ] #5 A full candidate gate (fault fleet and upgrade arcs) on the new box gives the same verdict per scenario as the preceding candidate's run; both run IDs recorded in Implementation Notes
 - [ ] #6 Dispatch-to-verdict wall time for that run is recorded in Implementation Notes, including the cold ramp
 - [ ] #7 [Owner] Set the wall-time target, given the longest scenario (1,261 s, about 21 minutes, measured 2026-10-15), and record it in Implementation Notes. Under 21 minutes: add "shorten or split `5-install-source-identity-operator`" as a new criterion. 21 minutes or more: the measurement in AC6 decides Done.
-- [ ] #8 The upgrade-arc matrix `max-parallel` is raised from 4 to the host slot count (8), so arcs use slots the faults free; a run shows more than 4 arc guests at once and its arc wall time is recorded in Implementation Notes
+- [ ] #8 The upgrade-arc matrix `max-parallel` is set to the `LXD_HOST_SLOTS` count chosen in AC2, so arcs use slots the faults free; a run shows more than 4 arc guests at once and its arc wall time is recorded in Implementation Notes
 <!-- AC:END -->
 
 ## Implementation Notes
