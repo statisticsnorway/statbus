@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-10-13 13:16'
-updated_date: '2026-10-15 20:16'
+updated_date: '2026-10-16 13:25'
 labels:
   - install
   - uganda
@@ -47,7 +47,7 @@ Some acceptance criteria can only be met by watching the product on a real, unpr
 - [ ] #2 STATBUS-492 criterion 3 is satisfied with an ownership inspection from that box showing no root-owned file in the operator home.
 - [ ] #3 STATBUS-487 criterion 5 is satisfied with the install output from that box, quoted verbatim, showing the Docker cause named with its remedy (or recorded as not applicable if Docker was reachable).
 - [x] #4 Each dependent ticket names this ticket as the source of its observation.
-- [ ] #5 [Owner] Confirm v2026.10.1, or name a later release, as the release the Uganda rerun waits for, and record it in Implementation Notes. The confirmed release lets the rerun be scheduled; AC1-3 are filled from that run.
+- [x] #5 [Owner] Confirm v2026.10.1, or name a later release, as the release the Uganda rerun waits for, and record it in Implementation Notes. The confirmed release lets the rerun be scheduled; AC1-3 are filled from that run.
 <!-- AC:END -->
 
 ## Implementation Notes
@@ -56,4 +56,14 @@ Some acceptance criteria can only be met by watching the product on a real, unpr
 ### Evidence
 - **AC4:** STATBUS-487 and STATBUS-492 each reference STATBUS-497 (checked 2026-10-15).
 - **AC1-3:** open; they wait for the Uganda rerun.
+
+### Release confirmed: v2026.10.2
+The owner promoted v2026.10.2 on 2026-10-16. statbus.org/setup.sh and statbus.org/install.sh serve it, byte-identical to the tag.
+
+### How to run it by hand and capture each criterion
+From the release's own published instructions (ops/setup-ubuntu-lts.sh and install.sh headers at v2026.10.2):
+1. **AC1, preparation.** `sudo -i` (a root login shell; plain sudo is refused). Print the home in effect with `echo "HOME=$HOME"`. Then `curl -fsSL https://statbus.org/setup.sh -o harden.sh && chmod +x harden.sh && ./harden.sh 2>&1 | tee /root/uganda-setup.log`. Keep the HOME line and the log.
+2. **AC2, ownership.** After preparation: `find /home/statbus -xdev -user root`. Expected: no output.
+3. **AC3, install.** As the statbus user: `curl -fsSL https://statbus.org/install.sh | bash 2>&1 | tee ~/uganda-install.log`. If Docker is unreachable, the output must name Docker and its remedy; otherwise AC3 is recorded as not applicable.
+4. Paste the HOME line, the find output and the two logs back. The agent records them here and checks AC1-3.
 <!-- SECTION:NOTES:END -->
