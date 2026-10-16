@@ -645,6 +645,19 @@ sudo ufw enable
 - **Instance management**: Each country can manage their own instance
 - **Database access**: Row Level Security enforced per user
 
+### Where credentials live
+
+Each box keeps every secret in one file, `~/statbus/.env.credentials` (mode 0600, untracked). `.env.config` holds settings only, so it can be read, reviewed and copied between boxes without leaking anything. `./sb config generate` refuses a known secret found in `.env.config` and names the file it belongs in; a rerun of `./sb install` moves a legacy placement once. Values in the process environment win over the file.
+
+| Value | Origin | Purpose |
+|---|---|---|
+| Database passwords, `JWT_SECRET`, `SERVICE_ROLE_KEY`, dashboard login | Generated on the box at first install | Stable identity: a recreate or restore gets the same credentials back |
+| `SEQ_API_KEY` | Copied from `statbus_dev` (cloud slots); otherwise a generated placeholder | Structured logging to Seq; the app requires a value |
+| `SLACK_TOKEN` | Copied from `statbus_dev` | Upgrade and release notifications |
+| `GITHUB_TOKEN` | Installed by hand: a fine-grained, read-only token scoped to the statbus repository | Authenticated release discovery and fetches (5000 calls an hour instead of 60). Per the STATBUS-341 ruling, dev and demo carry it (frequent automated polling). Norway and the country slots stay anonymous, because anonymous is the customer path. |
+
+`cloud.sh` stores no secret. When it needs one for a box, it reads that box's file over SSH, which is the trust boundary. There is no encryption layer yet (owner ruling 2026-09-07, STATBUS-361); it becomes due when more than one box needs a non-generated secret, or when secrets would otherwise travel through chat.
+
 ### Monitoring
 
 Set up monitoring for:
@@ -767,7 +780,7 @@ The high-level shape (concrete walkthrough belongs in the per-host bootstrap pla
 1. Provision the box. Install Ubuntu 24.04 LTS with the desired filesystem (mdadm RAID where applicable; XFS recommended for `/`).
 2. Fetch the setup script of the release you will install (never master; see the STATBUS-488 prepare fetch in [setup-ubuntu-lts.md](setup-ubuntu-lts.md#quick-start)) and run it with `--cloud` as root/sudo — creates the `devops` + `statbus` accounts, installs the CI deploy keys, hardens OS. `--cloud` declares that this box is one of OURS: it is what enables the cloud-only stage (`devops` with passwordless sudo, keys from the SSB GitHub accounts, and the repository deploy keys that let our CI workflows log in). A customer's standalone installation must be prepared WITHOUT it, because none of that belongs on a box that is not ours (STATBUS-501). `SKIP_STAGES="0"` if the network allows HTTP.
 3. Bootstrap StatBus as the service account: `ssh statbus@<host>` then `curl -fsSL https://statbus.org/install.sh | bash -s -- --channel prerelease`.
-4. Author `.env.config` with `CADDY_DEPLOYMENT_MODE=standalone` (this is now the default and may be omitted), `SITE_DOMAIN=<the public domain>` (required — standalone refuses without it), plus `SEQ_API_KEY` / `SLACK_TOKEN` copied from an existing instance for observability continuity. Use `canary` ONLY for a box we deliberately expose to release candidates first (Norway); an ordinary customer standalone is `production`.
+4. Author `.env.config` with `CADDY_DEPLOYMENT_MODE=standalone` (this is now the default and may be omitted), `SITE_DOMAIN=<the public domain>` (required — standalone refuses without it), and put `SEQ_API_KEY` / `SLACK_TOKEN` copied from an existing instance in `.env.credentials` (see [Where credentials live](#where-credentials-live)). Use `canary` ONLY for a box we deliberately expose to release candidates first (Norway); an ordinary customer standalone is `production`.
 
    **Flagged, not settled (STATBUS-244a sweep):** steps 3-4's `prerelease` default predates the topology where Norway is named as THE single human canary (STATBUS-247). A NEW standalone box that is not itself a designated canary would, by that same logic, be an ordinary installation and belong on `stable` (STATBUS-248) — but nobody has ruled on that for a hypothetical future box, so the instruction is left as `prerelease` here rather than changed unilaterally. Confirm the intended role before provisioning the next one.
 5. Retired (STATBUS-244): no `deploy-to-<host>-<slot>.yaml` / `master-to-<host>-<slot>.yaml` pair, no `ops/standalone/deploy/<host>-<slot>` branch. Only a named release candidate may reach an installation; the box's own upgrade service (channel set in step 4) discovers, registers, schedules, and installs on its own.
