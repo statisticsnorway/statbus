@@ -894,7 +894,7 @@ PUBLIC_STATBUS_COMMIT_SHORT=%[23]s
 	// fails that test immediately — the same protection a truly inline
 	// declaration would give, at much lower risk to the highest-blast-radius
 	// function in this package.
-	classes.declare("DEPLOYMENT_SLOT_NAME") // no verified consumer (see func doc)
+	classes.declare("DEPLOYMENT_SLOT_NAME", RestartApp) // docker-compose.app.yml passes it to the app as PUBLIC_DEPLOYMENT_SLOT_NAME (STATBUS-404)
 	classes.declare("DEPLOYMENT_SLOT_CODE", RestartApp, RestartRest, RestartDB, RestartProxyRestart)
 	classes.declare("SITE_DOMAIN", RestartProxyRestart) // Caddy template field .Domain
 	classes.declare("STATBUS_URL")                      // read fresh by runCallback, never cached
