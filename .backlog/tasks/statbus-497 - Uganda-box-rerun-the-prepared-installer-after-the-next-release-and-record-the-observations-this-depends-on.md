@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-10-13 13:16'
-updated_date: '2026-10-16 13:25'
+updated_date: '2026-10-16 14:00'
 labels:
   - install
   - uganda
@@ -66,4 +66,7 @@ From the release's own published instructions (ops/setup-ubuntu-lts.sh and insta
 2. **AC2, ownership.** After preparation: `find /home/statbus -xdev -user root`. Expected: no output.
 3. **AC3, install.** As the statbus user: `curl -fsSL https://statbus.org/install.sh | bash 2>&1 | tee ~/uganda-install.log`. If Docker is unreachable, the output must name Docker and its remedy; otherwise AC3 is recorded as not applicable.
 4. Paste the HOME line, the find output and the two logs back. The agent records them here and checks AC1-3.
+
+### Also read after the install (feeds STATBUS-422 AC4)
+- Open the box's login page and read the footer. It must say `Statbus version v2026.10.2`. A fresh install of a release containing 3df96b7bf is exactly what 422 AC4 asks to observe. Paste the footer line with the logs.
 <!-- SECTION:NOTES:END -->

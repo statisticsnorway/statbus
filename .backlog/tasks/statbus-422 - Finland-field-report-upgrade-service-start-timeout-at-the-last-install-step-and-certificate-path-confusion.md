@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-09-27 10:07'
-updated_date: '2026-10-15 20:09'
+updated_date: '2026-10-16 14:00'
 labels:
   - installer
 dependencies: []
@@ -60,4 +60,8 @@ This ticket is a field report, not a feature. A field report is done when each f
 - **AC6:** open.
 - **Consolidated:** former AC5 and AC6 (both "the footer shows the release on a fresh install") are now AC4. Former AC8 and AC9 (users file) were done by STATBUS-464 and removed here. Former AC2 (`SITE_DOMAIN`) was already asked in v2026.09.2; the domain advice is STATBUS-389.
 - **Installer-log review cluster (2026-10-08):** three defects from Ville's install log became STATBUS-464, 465 and 466; all three are Done.
+
+### AC4 state (2026-10-16)
+- Footer read from outside: dev, demo and no show v2026.10.2-rc.01; et v2026.09.0, jo v2026.08.0, ma v2026.09.3, ug v2026.09.0. No box shows `unknown`. All of these were upgraded, not freshly installed.
+- The fresh install comes from the owner's Uganda install at v2026.10.2 (STATBUS-497). Its footer read is requested there; AC4 closes on that observation.
 <!-- SECTION:NOTES:END -->
