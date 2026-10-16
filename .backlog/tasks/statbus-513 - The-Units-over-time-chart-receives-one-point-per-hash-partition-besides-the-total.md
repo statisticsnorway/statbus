@@ -1,12 +1,12 @@
 ---
 id: STATBUS-513
 title: >-
-  The Units-over-time chart receives one point per hash partition besides the
-  total
+  statistical_history: document what hash_partition marks, and test that the
+  chart gets one point per period
 status: In Progress
 assignee: []
 created_date: '2026-10-16 13:33'
-updated_date: '2026-10-16 13:38'
+updated_date: '2026-10-16 13:57'
 labels:
   - reports
   - statistical_history
@@ -22,19 +22,20 @@ ordinal: 439204
 Each Reports chart series has exactly one point per period: the total for that period.
 
 ### Zoom out
-statistical_history holds the period total (hash_partition IS NULL) and, since 7b94a927f (2026-04-30), per-partition slots used to build it (hash_partition NOT NULL). Every reader except the chart filters on hash_partition IS NULL (statistical_history_def, facet_def, the derive and reduce steps). public.statistical_history_highcharts reads the table by resolution, unit type and year only, so the partition slots reach the chart.
+statistical_history holds the period total (hash_partition IS NULL) and, since 7b94a927f (2026-04-30), the per-partition slots that build it. Its row level security policies show admin_user, regular_user and authenticated only the totals. statistical_history_highcharts is SECURITY INVOKER, so the application gets one point per period. Nothing stated this: the column had no comment, and no test covered the chart.
 
 ### Zoom in
-- **Observed on dev, v2026.10.2-rc.01:** `statistical_history_highcharts('year', 'establishment', NULL, '{countable_count}')` returns 12 points at 2023-01-01: the total 11 and eleven 1s. Every unit type and year has the total plus one point per partition (24-25 points per timestamp).
-- **Cause:** the two reads of public.statistical_history in the function (the merged summary and the series rows) lack `hash_partition IS NULL`. The merged `stats_summary` is therefore also double-counted.
-- **Fix:** add `hash_partition IS NULL` to both reads, in a forward migration from the \\sf dump.
+- **Original report was wrong.** I read the chart on dev as superuser, which bypasses RLS, and saw the total plus one point per slot. Read as admin_user it returns one point per period (2023: 11/23/23, 2024: 24/23/23), equal to the dashboard cards. The chart has no bug.
+- **What was missing:** the meaning of hash_partition at its definition, and a test that pins one point per period on the real path (an application role).
+- **Done here:** migration 20261016134307 adds the column comment, and test 354 runs the demo fixture through import and analytics and checks the chart as test.admin.
 <!-- SECTION:DESCRIPTION:END -->
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 With the fix the test is green, and the merged stats_summary equals the total row's summary
-- [ ] #2 On dev after the next candidate, the chart's countable_count series for 2023 and 2024 equals the dashboard cards (11/23/23 and 24/23/23)
-- [ ] #3 A pg_regress test calls statistical_history_highcharts and asserts exactly one point per timestamp per series, equal to that period's total row
+- [x] #1 public.statistical_history.hash_partition carries a comment stating that NULL marks the period total, a range marks a partition slot, and that the RLS policies show application roles only the totals
+- [x] #2 Test 354 calls statistical_history_highcharts as an application role and asserts exactly one point per period per series, equal to that period's total row
+- [x] #3 Test 354 is recorded red when the totals-only policy is lifted (the chart then gets 13 to 25 points per period) and green on master
+- [ ] #4 The fast suite and CI are green with the migration and the test
 <!-- AC:END -->
 
 ## Implementation Notes
@@ -51,4 +52,11 @@ statistical_history holds the period total (hash_partition IS NULL) and, since 7
 - **Open question:** what removes slot rows in the test, or why dev keeps them. Candidates: the period derive's no-partition branch (deletes the whole period, then writes slots), the reduce (deletes only totals), or a reset/cleanup path. Next step: read tasks.info per derive_statistical_history_period in the probe (tmp/354-probe-full.sql; the column is `info`).
 - **Test:** test/sql/354_statbus_513_chart_points_are_period_totals.sql is written but cannot go red until the test database keeps slot rows like dev. Not committed.
 - **Fix itself is clear and small:** add hash_partition IS NULL to both reads in statistical_history_highcharts.
+
+### Evidence (23175c5fc)
+- **Green:** test 354 passes on master. Each series has 1 point per period: establishment 2023: 12, 2024: 22; legal_unit 23/23; enterprise 23/23. Each equals its total row.
+- **Red:** with statistical_history_admin_user_manage altered to USING (true), as test.admin, the chart gets 13 to 25 points per period (for example establishment 2023: 13 points, minimum value 1, total 12). Probe: tmp/354-red.sql.
+- **Locally:** the fast suite passes, 118/118, and so does go test ./internal/migrate (the floor check for a comment-only migration above the floor).
+- **Closing review:** Memory: none. Documentation: the column comment carries the meaning, and doc/db is regenerated. Cleanup: none.
+- Waiting: CI for 23175c5fc.
 <!-- SECTION:NOTES:END -->
