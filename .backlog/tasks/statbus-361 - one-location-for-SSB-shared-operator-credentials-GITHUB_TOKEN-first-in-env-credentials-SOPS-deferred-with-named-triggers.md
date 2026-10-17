@@ -4,7 +4,7 @@ title: Every secret lives in .env.credentials; .env.config holds none
 status: In Progress
 assignee: []
 created_date: '2026-09-07 13:48'
-updated_date: '2026-10-17 15:25'
+updated_date: '2026-10-17 15:35'
 labels:
   - release-bug
   - ops
@@ -68,4 +68,6 @@ Owner ruling (2026-09-07): no encryption layer yet. SOPS+age is deferred until o
 ### Token, 2026-10-17
 - The owner created a fine-grained token (read-only, public repositories). It authenticates (limit 5000), but the SSB GitHub enterprise refuses repository access with 403 when a fine-grained token's lifetime is over 366 days. The lifetime is being shortened. Nothing installed yet.
 - **Consequence:** the token expires at most yearly. Renewal is an operator chore, and the expiry date is recorded here when it is installed.
+
+- **2026-10-17:** the token was installed on dev and demo, then rolled back. The daemon's git discovery sent it as Bearer, which GitHub's git endpoint refuses (401). Fixed in STATBUS-515 (c0c7bb43e). AC4 is installed and observed once dev and demo run a release containing that fix. The token expires 2027-10-16.
 <!-- SECTION:NOTES:END -->
