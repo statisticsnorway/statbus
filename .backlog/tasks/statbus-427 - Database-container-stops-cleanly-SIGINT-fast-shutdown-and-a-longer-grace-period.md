@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-09-28 21:42'
-updated_date: '2026-10-17 19:51'
+updated_date: '2026-10-17 21:09'
 labels:
   - upgrade
   - db
@@ -44,4 +44,10 @@ Audit after v2026.09.3 (2026-09-29): Not addressed in v2026.09.3.
 - The upgrade arcs (39052368235) did not run their arcs on attempt 1. One fixture branch's Images run (39052458994) failed on the arm64 sb build, because GitHub's runner timed out reaching ghcr.io ('Client.Timeout exceeded while awaiting headers') and action downloads timed out. The wait step then reported the images missing after 40 min. That is a GitHub network failure on the runner, not the candidate. Attempt 2 started 18:35 at the same tag. AC2 is read from the arcs that stop and restart the database.
 
 - **18:35 rerun was the wrong remedy:** a rerun of the arc child refuses, because its parent orchestrator (39051244218) is no longer in progress. The child's notice says to re-dispatch the orchestrator. Done 19:51: orchestrator 39064247283 (workflow_dispatch at v2026.10.3-rc.01). Its covered-subset step skips what is already proven at this commit (smoke, faults), so only the arcs run.
+
+### Ladder green, and what dev shows (2026-10-17 21:08)
+- Re-dispatched orchestrator 39064247283: success. LXD fault fleet 39064463087: success. Upgrade arcs 39064518381: 41 success, 1 skipped. `./sb release covered` reports arcs and smoke covered at e3359068d.
+- **The arc logs do not carry the database server log,** so they can neither show nor refute clean shutdowns. AC2 needs a log that does.
+- **dev, read-only:** the new db container (created 17:05:21 by the rc.01 upgrade) has StopSignal=SIGINT, StopTimeout=120. Its first start logged 'database system was interrupted ... not properly shut down; automatic recovery'. That is the stop of the **old** container, created under v2026.10.2 without these settings, so SIGTERM and then the kill. Expected for the one upgrade that introduces the setting; every box sees it once.
+- **AC2 is observed at dev's next upgrade** (rc.02 or the stable that follows): its db log must show 'received fast shutdown request', 'database system is shut down', and a start with 'was shut down at' and no recovery.
 <!-- SECTION:NOTES:END -->
