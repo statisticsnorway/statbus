@@ -1,9 +1,43 @@
 ---
 id: STATBUS-440
-title: harness process-log-registration lint fails on 3-postswap-mid-tx-kill.sh:89
-status: To Do
+title: 'harness process-log-registration lint fails on 3-postswap-mid-tx-kill.sh:89'
+status: Done
+assignee: []
+created_date: ''
+updated_date: '2026-10-17 16:07'
+labels: []
+dependencies: []
 priority: low
 ---
+
+## Description
+
+<!-- SECTION:DESCRIPTION:BEGIN -->
+### North Star
+The harness lint is green on master, so a red lint is a real finding.
+
+### Zoom out
+The lint checks that every process a harness scenario launches registers its log. This ticket recorded a lint failure on one scenario.
+
+### Zoom in
+- **Found:** `./dev.sh test-harness` failed on `scenarios/3-postswap-mid-tx-kill.sh:89` (log not registered).
+- **Resolved by deletion:** that scenario was deleted in `4a5d45913` (11 legacy scenarios superseded by run-proven arcs). The failing line no longer exists.
+
+### Closing review
+- **Memory:** none. **Documentation:** none. **Cleanup:** none.
+<!-- SECTION:DESCRIPTION:END -->
+
+## Acceptance Criteria
+<!-- AC:BEGIN -->
+- [x] #1 `./dev.sh test-harness` exits 0 on master and the scenario named in the finding no longer exists
+<!-- AC:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+### Closed 2026-10-17
+- `./dev.sh test-harness` exited 0 on master (tmp/harness-440.log). `test/install-recovery/scenarios/3-postswap-mid-tx-kill.sh` was deleted in 4a5d45913.
+<!-- SECTION:NOTES:END -->
 
 ## Issue
 

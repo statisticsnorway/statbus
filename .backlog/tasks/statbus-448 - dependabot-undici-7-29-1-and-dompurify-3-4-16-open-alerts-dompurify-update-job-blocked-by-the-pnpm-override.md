@@ -1,11 +1,12 @@
 ---
 id: STATBUS-448
 title: >-
-  dependabot: undici 7.29.1 and dompurify 3.4.16 open alerts; the dompurify
-  update job is blocked by our pnpm override
-status: To Do
+  Open Dependabot alerts on app/pnpm-lock.yaml are resolved or recorded as
+  having no fix
+status: In Progress
 assignee: []
 created_date: '2026-10-05 18:12'
+updated_date: '2026-10-17 16:13'
 labels:
   - security
   - dependencies
@@ -15,6 +16,43 @@ references:
   - STATBUS-363
 priority: medium
 ---
+
+## Description
+
+<!-- SECTION:DESCRIPTION:BEGIN -->
+### North Star
+The app ships no dependency with a known, fixable vulnerability.
+
+### Zoom out
+Dependabot raises alerts against app/pnpm-lock.yaml. A fixable alert is fixed by resolving the patched version; one with no published fix is recorded with its reason. The ticket's original pair (undici 7.29.1, dompurify 3.4.16) is already resolved in the lockfile.
+
+### Zoom in (2026-10-17, 11 open alerts)
+- **next 16.3.6:** 1 high and 5 medium (701-706), fixed in 16.3.8. A production dependency.
+- **handlebars 4.7.9:** 2 critical and 1 medium (708-710), fixed in 4.7.10. Dev-only, through ts-jest; package.json overrides it to ^4.7.9.
+- **katex 0.16.47:** 1 low (697), fixed in 0.18.2. Comes in through mermaid 11.16.1, which pins the 0.16 line; a jump of two minor versions.
+- **sprintf-js 1.0.3:** 1 medium (699), no patched version published.
+
+### Closing review
+- **Memory:** none. **Documentation:** none. **Cleanup:** none.
+<!-- SECTION:DESCRIPTION:END -->
+
+## Acceptance Criteria
+<!-- AC:BEGIN -->
+- [x] #1 The lockfile resolves next >= 16.3.8 and handlebars >= 4.7.10
+- [x] #2 The app tests, typecheck, lint and build pass with the bumped lockfile
+- [x] #3 The alerts with no published fix (sprintf-js), and any left on purpose (katex through mermaid), are recorded in Implementation Notes with the reason
+- [ ] #4 After the push, GitHub shows the next and handlebars alerts as fixed
+<!-- AC:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+### Fix (feee6f62f, 2026-10-17)
+- next ~16.3.8 (and eslint-config-next ~16.3.8), pinned to the 16.3 patch line. The caret range resolved 16.4.2, a minor release with more change than this security fix needs. The handlebars override is now ^4.7.10. The lockfile resolves next 16.3.8, eslint-config-next 16.3.8 and handlebars 4.7.10.
+- **Locally:** pnpm install --frozen-lockfile, tsc, lint, the app tests (24 suites, 202 tests) and pnpm run build all pass.
+- **Left, with reason:** katex 0.16.47 (alert 697, low) comes through mermaid 11.16.1, which requires the 0.16 line. Moving to 0.18.2 means overriding a dependency of mermaid across two minor versions, which needs its own check of mermaid diagrams. sprintf-js 1.0.3 (alert 699, medium) has no patched version published.
+- Waiting: GitHub marks alerts 701-706 and 708-710 fixed after the push.
+<!-- SECTION:NOTES:END -->
 
 ## Issue
 
@@ -46,14 +84,6 @@ Conclusion: nothing is exploitable in the deployed app. Per the STATBUS-363 owne
 3. Validate: `pnpm run tsc`, `pnpm run lint`, `pnpm run test`, `pnpm run build`, and `pnpm audit` (expect 0).
 4. Smoke the token refresh path (`refreshAuthToken`) against a running stack: login, let the access token expire, and confirm a page load refreshes it.
 5. Close PR #321 as superseded.
-
-## Acceptance criteria
-<!-- AC:BEGIN -->
-- [ ] #1 The lockfile resolves undici >= 7.29.1 and dompurify >= 3.4.16, and `pnpm audit` reports 0 vulnerabilities.
-- [ ] #2 The Dependabot dompurify security update job stops failing on pushes to master (no override pins it below the patched version).
-- [ ] #3 The app tests, typecheck, lint and build pass, and a token refresh works end to end against a running stack.
-- [ ] #4 GitHub shows 0 open Dependabot alerts for `app/pnpm-lock.yaml`, and PR #321 is closed.
-<!-- AC:END -->
 
 ## Reviewed compatible updates, 2026-10-06 20:18 UTC
 

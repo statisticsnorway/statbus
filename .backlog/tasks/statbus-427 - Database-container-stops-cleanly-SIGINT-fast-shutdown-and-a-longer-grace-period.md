@@ -3,10 +3,10 @@ id: STATBUS-427
 title: >-
   Database container stops cleanly: SIGINT fast shutdown and a longer grace
   period
-status: To Do
+status: In Progress
 assignee: []
 created_date: '2026-09-28 21:42'
-updated_date: '2026-09-29 08:05'
+updated_date: '2026-10-17 16:13'
 labels:
   - upgrade
   - db
@@ -23,7 +23,7 @@ Found while fixing rc.16's c-rollback-resurrection (tmp/rollback-db-recreate.md,
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 db service stops with SIGINT and a documented grace period
+- [x] #1 db service stops with SIGINT and a documented grace period
 - [ ] #2 A compose stop with live sessions ends with a clean shutdown (no crash recovery on next start), proven on an LXD fork
 <!-- AC:END -->
 
@@ -31,4 +31,11 @@ Found while fixing rc.16's c-rollback-resurrection (tmp/rollback-db-recreate.md,
 
 <!-- SECTION:NOTES:BEGIN -->
 Audit after v2026.09.3 (2026-09-29): Not addressed in v2026.09.3.
+
+### Fix (91dfe3922, 2026-10-17)
+- postgres/docker-compose.yml db: `stop_signal: SIGINT`, `stop_grace_period: 120s`, with the reason in a comment. postgres is PID 1 (start-postgres.sh execs docker-entrypoint.sh, which execs postgres), so the signal reaches it.
+- **Measured locally, with live sessions (4 client backends plus a pg_sleep(120) session):**
+  - **Before:** `docker compose stop db` logged 'received smart shutdown request' and was killed, exit 137. The next start logged 'database system was not properly shut down; automatic recovery in progress' and 'redo starts'.
+  - **After:** 'received fast shutdown request', then 'database system is shut down' in 0.09 s. The stop took 1 s, exit 0. The next start logged 'database system was shut down at ...', with no recovery.
+- **AC2** (on an LXD fork): the rc ladder for v2026.10.3-rc.01 exercises compose stops in its upgrade and rollback scenarios. Recorded there.
 <!-- SECTION:NOTES:END -->

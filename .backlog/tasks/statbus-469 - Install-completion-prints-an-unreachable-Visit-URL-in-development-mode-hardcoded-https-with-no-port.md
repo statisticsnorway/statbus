@@ -3,10 +3,10 @@ id: STATBUS-469
 title: >-
   Install completion prints an unreachable Visit URL in development mode:
   hardcoded https:// with no port
-status: To Do
+status: In Progress
 assignee: []
 created_date: '2026-10-08 12:15'
-updated_date: '2026-10-15 19:41'
+updated_date: '2026-10-17 16:11'
 labels:
   - installer
   - devx
@@ -31,11 +31,11 @@ CLOSING REVIEW. Memory: none needed. Documentation: none needed; the banner is t
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 The completion banner derives its origin from the mode and the effective configured ports, not from a hardcoded scheme and port.
-- [ ] #2 A development-mode install prints a reachable origin including the port, and prints both the TLS and the plain-HTTP origin so the operator has a working link either way.
-- [ ] #3 A standalone install keeps the portless https://<domain>.
-- [ ] #4 A private-mode install names the external origin as reached through the host proxy, portless, and never presents a slot port as the public URL.
-- [ ] #5 Tests cover at least development and standalone and assert the printed origin per mode.
+- [x] #1 The completion banner derives its origin from the mode and the effective configured ports, not from a hardcoded scheme and port.
+- [x] #2 A development-mode install prints a reachable origin including the port, and prints both the TLS and the plain-HTTP origin so the operator has a working link either way.
+- [x] #3 A standalone install keeps the portless https://<domain>.
+- [x] #4 A private-mode install names the external origin as reached through the host proxy, portless, and never presents a slot port as the public URL.
+- [x] #5 Tests cover at least development and standalone and assert the printed origin per mode.
 <!-- AC:END -->
 
 ## Definition of Done
@@ -49,4 +49,9 @@ CLOSING REVIEW. Memory: none needed. Documentation: none needed; the banner is t
 Owner report 2026-10-08: are we really bound to that, or should we show the port we are bound to? Answer: show the bound port; the install serves 3010/3011 in development mode, so the portless TLS URL is unreachable. Related: STATBUS-465 removes the battery-driven development default that put this field install in development mode at all.
 
 2026-10-15 vetting: not implemented. cli/cmd/install.go still prints `Visit: https://%s` from SITE_DOMAIN with no port or mode (line 1364 on master cb34436b4). No commit references this ticket besides its filing (bfbeea61e). Status set to To Do: the description is already clear and owner-shaped, and nobody is working on it.
+
+### Fix (4baa85852, 2026-10-17)
+- `installVisitOrigins` (cli/cmd/install.go) reads the generated .env: SITE_DOMAIN, CADDY_DEPLOYMENT_MODE, CADDY_HTTP_PORT, CADDY_HTTPS_PORT. Development prints `http://<domain>:<http port>` and `https://<domain>:<https port>`. Standalone and private print `https://<domain>`.
+- **Red, then green:** `TestInstallVisitOriginsFollowModeAndPorts_STATBUS469` ran against the old rule (extracted unchanged), which gave the Finland link `https://local.statbus.org` for development, so it failed. The standalone and private cases already matched. With the fix all three pass. The cmd package passes; golangci-lint reports 0 issues.
+- **Real values:** this machine's development .env has ports 3010/3011, and both origins answer (307 to login). dev and demo are private, with SITE_DOMAIN dev/demo.statbus.org, and their public HTTPS answers through the host proxy.
 <!-- SECTION:NOTES:END -->
