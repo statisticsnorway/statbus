@@ -1359,10 +1359,8 @@ func runInstall() (installErr error) {
 	} else {
 		fmt.Println("Installation complete!")
 		fmt.Println("=====================")
-		if f, err := dotenv.Load(filepath.Join(installDir, ".env.config")); err == nil {
-			if domain, ok := f.Get("SITE_DOMAIN"); ok {
-				fmt.Printf("Visit: https://%s\n", domain)
-			}
+		for _, origin := range installVisitOrigins(installDir) {
+			fmt.Printf("Visit: %s\n", origin)
 		}
 		fmt.Println("To check or repair this installation later, run:")
 		fmt.Println("    " + diskpolicy.RerunCommand())
@@ -4469,5 +4467,31 @@ func restartsAfterSettingsRestore() map[config.RestartClass]bool {
 	return map[config.RestartClass]bool{
 		config.RestartDB: true, config.RestartRest: true, config.RestartWorker: true,
 		config.RestartApp: true, config.RestartProxyRestart: true, config.RestartUpgradeDaemon: true,
+	}
+}
+
+// installVisitOrigins names the origins the completion banner offers, read from
+// the generated .env that the proxy binds to (STATBUS-469). Standalone serves
+// its public HTTPS name itself, and a private slot is reached through the host
+// proxy's portless HTTPS name; neither shows a port. Development serves on its
+// slot ports only, so both the plain and the TLS origin carry their port.
+func installVisitOrigins(installDir string) []string {
+	f, err := dotenv.Load(filepath.Join(installDir, ".env"))
+	if err != nil {
+		return nil
+	}
+	domain, ok := f.Get("SITE_DOMAIN")
+	if !ok || domain == "" {
+		return nil
+	}
+	mode, _ := f.Get("CADDY_DEPLOYMENT_MODE")
+	if mode != "development" {
+		return []string{"https://" + domain}
+	}
+	httpPort, _ := f.Get("CADDY_HTTP_PORT")
+	httpsPort, _ := f.Get("CADDY_HTTPS_PORT")
+	return []string{
+		fmt.Sprintf("http://%s:%s", domain, httpPort),
+		fmt.Sprintf("https://%s:%s", domain, httpsPort),
 	}
 }
