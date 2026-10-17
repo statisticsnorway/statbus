@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-09-28 21:42'
-updated_date: '2026-10-17 18:35'
+updated_date: '2026-10-17 19:51'
 labels:
   - upgrade
   - db
@@ -42,4 +42,6 @@ Audit after v2026.09.3 (2026-09-29): Not addressed in v2026.09.3.
 ### rc.01 ladder (2026-10-17 18:35)
 - Release, Smoke, Hardening, Fast Tests, the dev deploy and the LXD fault fleet (39052318518) pass at v2026.10.3-rc.01, which contains 91dfe3922.
 - The upgrade arcs (39052368235) did not run their arcs on attempt 1. One fixture branch's Images run (39052458994) failed on the arm64 sb build, because GitHub's runner timed out reaching ghcr.io ('Client.Timeout exceeded while awaiting headers') and action downloads timed out. The wait step then reported the images missing after 40 min. That is a GitHub network failure on the runner, not the candidate. Attempt 2 started 18:35 at the same tag. AC2 is read from the arcs that stop and restart the database.
+
+- **18:35 rerun was the wrong remedy:** a rerun of the arc child refuses, because its parent orchestrator (39051244218) is no longer in progress. The child's notice says to re-dispatch the orchestrator. Done 19:51: orchestrator 39064247283 (workflow_dispatch at v2026.10.3-rc.01). Its covered-subset step skips what is already proven at this commit (smoke, faults), so only the arcs run.
 <!-- SECTION:NOTES:END -->
