@@ -4,7 +4,7 @@ title: Every secret lives in .env.credentials; .env.config holds none
 status: In Progress
 assignee: []
 created_date: '2026-09-07 13:48'
-updated_date: '2026-10-17 15:35'
+updated_date: '2026-10-17 17:41'
 labels:
   - release-bug
   - ops
@@ -70,4 +70,6 @@ Owner ruling (2026-09-07): no encryption layer yet. SOPS+age is deferred until o
 - **Consequence:** the token expires at most yearly. Renewal is an operator chore, and the expiry date is recorded here when it is installed.
 
 - **2026-10-17:** the token was installed on dev and demo, then rolled back. The daemon's git discovery sent it as Bearer, which GitHub's git endpoint refuses (401). Fixed in STATBUS-515 (c0c7bb43e). AC4 is installed and observed once dev and demo run a release containing that fix. The token expires 2027-10-16.
+
+- **2026-10-17 17:41: token on dev** (expires 2027-10-16). Discovery is authenticated, the limit is 5000, see STATBUS-515. **Demo** gets it once it runs a stable release with the fix (the next promotion); then AC4 and AC6 are checked.
 <!-- SECTION:NOTES:END -->
