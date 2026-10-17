@@ -3,10 +3,10 @@ id: STATBUS-448
 title: >-
   Open Dependabot alerts on app/pnpm-lock.yaml are resolved or recorded as
   having no fix
-status: In Progress
+status: Done
 assignee: []
 created_date: '2026-10-05 18:12'
-updated_date: '2026-10-17 16:13'
+updated_date: '2026-10-17 16:53'
 labels:
   - security
   - dependencies
@@ -41,7 +41,7 @@ Dependabot raises alerts against app/pnpm-lock.yaml. A fixable alert is fixed by
 - [x] #1 The lockfile resolves next >= 16.3.8 and handlebars >= 4.7.10
 - [x] #2 The app tests, typecheck, lint and build pass with the bumped lockfile
 - [x] #3 The alerts with no published fix (sprintf-js), and any left on purpose (katex through mermaid), are recorded in Implementation Notes with the reason
-- [ ] #4 After the push, GitHub shows the next and handlebars alerts as fixed
+- [x] #4 After the push, GitHub shows the next and handlebars alerts as fixed
 <!-- AC:END -->
 
 ## Implementation Notes
@@ -52,6 +52,8 @@ Dependabot raises alerts against app/pnpm-lock.yaml. A fixable alert is fixed by
 - **Locally:** pnpm install --frozen-lockfile, tsc, lint, the app tests (24 suites, 202 tests) and pnpm run build all pass.
 - **Left, with reason:** katex 0.16.47 (alert 697, low) comes through mermaid 11.16.1, which requires the 0.16 line. Moving to 0.18.2 means overriding a dependency of mermaid across two minor versions, which needs its own check of mermaid diagrams. sprintf-js 1.0.3 (alert 699, medium) has no patched version published.
 - Waiting: GitHub marks alerts 701-706 and 708-710 fixed after the push.
+
+- **GitHub, 2026-10-17 16:53:** alerts 701-706 (next) and 708-710 (handlebars) are 'fixed'. 697 (katex) and 699 (sprintf-js) stay open, as recorded above. CI at 91dfe3922: app build & lint, Go Test and Fast Tests all pass. In v2026.10.3-rc.01. Done.
 <!-- SECTION:NOTES:END -->
 
 ## Issue
