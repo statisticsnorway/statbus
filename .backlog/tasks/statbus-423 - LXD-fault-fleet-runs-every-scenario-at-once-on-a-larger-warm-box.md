@@ -1,12 +1,12 @@
 ---
 id: STATBUS-423
 title: >-
-  A candidate full LXD gate reports its verdict in about a quarter of an hour on
-  a larger, script-provisioned box
+  A candidate's LXD gate runs as one ordered queue on the existing box and keeps
+  every slot busy
 status: To Do
 assignee: []
 created_date: '2026-09-28 08:18'
-updated_date: '2026-10-16 13:55'
+updated_date: '2026-10-17 15:41'
 labels:
   - ci
   - lxd
@@ -19,36 +19,32 @@ ordinal: 372200
 
 <!-- SECTION:DESCRIPTION:BEGIN -->
 ### North Star
-A release candidate's full LXD gate (fault scenarios and upgrade arcs together) reports its verdict in about a quarter of an hour, so candidates move faster without weakening any check.
+A release candidate's whole LXD gate runs as one queue on the existing box, keeping every slot busy, so the verdict comes as fast as the work allows without a larger machine.
 
 ### Zoom out
-The gate runs every scenario on one shared LXD box, forked from installed checkpoints. Its wall time is set by three things: how many forks run at once, how long the longest scenario takes, and how long the base checkpoints take to build. More concurrency only helps while each fork still gets real CPU: timing-sensitive scenarios (startup timeout, concurrent install) can fail falsely when the box is oversubscribed, so concurrency must grow with the box, never ahead of it. The box is created on demand and reaped when idle, so a larger box costs little; its size must be chosen by the provisioning script, never changed by hand.
+The gate's tests are independent jobs on one shared box. When separate limiters each decide part of what runs, none sees the whole queue, so slots sit idle while work waits. One runner that owns the queue, orders it (checkpoints first, smoke-critical jobs early, then longest first) and starts the next job the moment a slot frees, removes that waste. Slot count is then raised only as far as measured contention allows. The owner's principle: fix the architecture rather than buy a faster box.
 
 ### Zoom in
-- **Measured at filing (rc.12, run `36388841250`):** 25 scenarios, 6,957 s of work, longest 419 s; 6 forks at a time for 29 min; bases built one after another in 4.3 min; about 34 min overall.
-- **Latest measurement (v2026.10.2-rc.01, orchestrator `38818198690`, 75 min):** after smoke (12 min) and dev (2 min), the fault fleet (46 min, 27 scenarios, longest 1,142 s) and the upgrade arcs (60 min, 35 arcs behind `max-parallel: 4`) share the box since STATBUS-425. The arcs set the verdict time; breakdown in Implementation Notes.
-- **Current limits:** `run-forks.sh` caps `LXD_PARALLEL` at 1-8 (default 6); host admission allows `LXD_HOST_SLOTS=8` (`ops/lxd-fleet/admission.sh`); each fork is `limits.cpu=2`, `limits.memory=6GiB` (`lib/lxd-backend.sh`); the box is a Hetzner `ccx33` (8 vCPU, 32 GB), hard-coded and checked in `ops/lxd-fleet/up.sh`, which refuses any other type.
-- **Proposal (not started):** a larger type (for example CCX53, 32 vCPU / 128 GB) with a larger Btrfs pool and slots sized to it; build independent bases in parallel with per-base locks; schedule longest-first from the previous run's `comparison.tsv`.
-- **Floor:** with the longest scenario at 1,261 s, a fork phase cannot finish under about 21 minutes, so a 15-minute target needs that scenario shortened or split as well.
+- **Limiters today:** GitHub's arc matrix (`max-parallel: 4`), the fault driver (6 at a time, each new one waiting for the oldest), and host admission (8 slots).
+- **Measured (v2026.10.2-rc.01, orchestrator `38818198690`, 75 min):** smoke 12, dev 2, then faults (46) and arcs (60) in parallel; box 6.1 of 8 slots busy on average; fault start delay from the oldest-first wait 40 min summed (45 in v2026.10.1).
+- **Replay** (`tmp/lxd-explain/simulate.py`, validated out of sample on v2026.10.1, within 2-4 min): parallel phase 54 min today; one queue 45 / 31 / 24 min at 8 / 12 / 16 slots; with STATBUS-514/516/517 waits removed 37 / 25 / 19 min.
+- **Contention:** guest boot takes 16 s median with 4 or fewer guests and 28 s with 7 or more; whole-test durations show no link to load at 8 slots.
+- **Design (owner decision 2026-10-17, option A):** a runner on the box takes a run manifest (candidate, jobs with checkpoint, script, expected duration), builds checkpoints, runs one ordered queue, writes a result file per job as it finishes, and cancels the queue of a superseded candidate. One long GitHub job submits the manifest, follows progress, uploads all logs as one artifact and sets the verdict. Design record: `tmp/lxd-gate-design.md` (T7).
 
 ### Closing review
 - **Memory:** none needed.
-- **Documentation:** `test/install-recovery/README.md` should state the box type and slot count once chosen.
-- **Cleanup:** none.
+- **Documentation:** `test/install-recovery/README.md` and `doc/release-ladder.md` describe the runner, the manifest and how results reach GitHub.
+- **Cleanup:** retire the arc matrix, `run-forks.sh` dispatch and the admission slot files once the runner replaces them.
 <!-- SECTION:DESCRIPTION:END -->
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 `ops/lxd-fleet/up.sh` creates the fleet box on the type chosen in AC10, and recreates an existing box of the old type through its drift handling, with no manual step
-- [ ] #2 Host slots and `LXD_PARALLEL` are sized to the new box so that no fork gets less than its 2 vCPU, shown by the admission settings and one run's CPU steal or load record
-- [ ] #3 Independent checkpoint bases build in parallel, each under its own lock, shown by overlapping base build times in a run's driver log
-- [ ] #4 Forks are scheduled longest-first from the previous run's `comparison.tsv`, shown by the dispatch order in a run's driver log
-- [ ] #5 A full candidate gate (fault fleet and upgrade arcs) on the new box gives the same verdict per scenario as the preceding candidate's run; both run IDs recorded in Implementation Notes
-- [ ] #6 Dispatch-to-verdict wall time for that run is recorded in Implementation Notes, including the cold ramp
-- [ ] #7 [Owner] Set the wall-time target, given the longest scenario (1,261 s, about 21 minutes, measured 2026-10-15), and record it in Implementation Notes. Under 21 minutes: add "shorten or split `5-install-source-identity-operator`" as a new criterion. 21 minutes or more: the measurement in AC6 decides Done.
-- [ ] #8 The upgrade-arc matrix `max-parallel` is set to the `LXD_HOST_SLOTS` count chosen in AC2, so arcs use slots the faults free; a run shows more than 4 arc guests at once and its arc wall time is recorded in Implementation Notes
-- [ ] #9 After `PAR` forks, `run-forks.sh` starts the next fork when any running fork ends, not when the oldest ends, shown by fork start times in a run's driver log following the earliest end
-- [ ] #10 [Owner] Choose the box type after the arc-cap and dispatch changes (AC8, AC9) have run once, using that run's wall time and boot-time-under-load record, and record it in Implementation Notes. A larger type: AC1-AC3 proceed. Keep `ccx33`: AC1 is struck and AC2 sizes slots to the current box.
+- [ ] #1 Write the runner: it reads a run manifest, builds missing checkpoints in dependency order, runs one queue ordered checkpoints, smoke-critical, then longest first, and starts a job when any slot frees; a harness test shows the order and the any-slot start
+- [ ] #2 The runner writes a result file per job as it finishes and cancels queued jobs when a newer candidate arrives; a harness test shows both
+- [ ] #3 Replace the fault dispatch, the arc matrix and host admission with one GitHub job that submits the manifest, follows progress, uploads all logs as one artifact and sets the verdict
+- [ ] #4 A full candidate gate through the runner gives the same verdict per test as the preceding candidate; both run IDs and the dispatch-to-verdict time recorded in Implementation Notes
+- [ ] #5 Record per-run load average and guest boot times in the gate artifact, at the current slot count and at one higher count
+- [ ] #6 [Owner] Choose the slot count for the existing box from those records and note it in Implementation Notes. The runner then uses that count; a count that raises boot times past the scenario timeouts is not chosen
 <!-- AC:END -->
 
 ## Implementation Notes
@@ -84,4 +80,6 @@ Scripts and outputs: `tmp/lxd-explain/intervals.py` (per-guest intervals, `cur.t
   Fault-side changes alone do not shorten the gate, because they hand slots to nobody: the arcs, capped at 4, are the long pole. Raising the arc cap is the first lever; ordering both lanes longest-first adds 5 min. A 16-slot box is the only change near the 15-min target for the parallel phase, and the boot-time result says it must keep 2 vCPU per guest (AC2).
 - **Source-identity 5-min wait (H3):** the false target v2026.09.3 is upgrade row 29 (27 in v2026.10.1). The wait is stable at 280-311 s across both runs. Mechanism, validated by prediction: the box follows the prerelease channel (`HARNESS_UPGRADE_CHANNEL`), so the old v2026.09.2 daemon discovers every tag and verifies pending rows newest first (`ORDER BY committed_at DESC LIMIT 30`) on its main goroutine, as commit `649e97ffc` traced. Two arc journals in rc.01 show each row's verify taking 12-14 s (`Images verified` lines 23:11:43, :56, 23:12:10 and 23:42:59, 23:43:11, :23, :37). Tags that existed then put 24 distinct commits ahead of v2026.09.3 (23 for v2026.10.1). That predicts 288-336 s and 276-322 s; observed 280-311 s and 278-308 s. The wait grows by about 13 s with every newer release. The scenario could narrow what the old box discovers; that changes the proof's realism, so it is an owner call and is not added as a criterion.
 
+### Reshaped 2026-10-17 (owner decision)
+The owner chose architecture over a larger box: one queue runner on the existing box, one long GitHub job (option A), slots set from measured contention. The earlier criteria (larger type via `up.sh`, per-base locks, longest-first in `run-forks.sh`, arc `max-parallel`, wait-any dispatch, box-type choice) are superseded by the runner. The removal of old-version tests, snapshot use and fixture timing moved to STATBUS-516, STATBUS-517 and STATBUS-518.
 <!-- SECTION:NOTES:END -->
