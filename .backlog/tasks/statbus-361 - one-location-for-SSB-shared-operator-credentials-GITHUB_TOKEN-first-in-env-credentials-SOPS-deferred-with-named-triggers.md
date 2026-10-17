@@ -4,7 +4,7 @@ title: Every secret lives in .env.credentials; .env.config holds none
 status: In Progress
 assignee: []
 created_date: '2026-09-07 13:48'
-updated_date: '2026-10-16 14:02'
+updated_date: '2026-10-17 15:25'
 labels:
   - release-bug
   - ops
@@ -64,4 +64,8 @@ Owner ruling (2026-09-07): no encryption layer yet. SOPS+age is deferred until o
 - **AC4 does not hold:** dev's upgrade service runs anonymously. Its egress IP shows the anonymous core budget (limit 60). The STATBUS-341 ruling (2026-09-03) gives dev and demo the token. It was never installed, or it was lost.
 - **AC5 done:** `doc/CLOUD.md` has a "Where credentials live" section with the rule and the table. The standalone step 4, which told operators to put SEQ_API_KEY/SLACK_TOKEN in `.env.config` (which generation now refuses), now points to `.env.credentials`.
 - **AC6 reworded:** what remains for the owner is to put a fine-grained read-only GITHUB_TOKEN into dev's and demo's `.env.credentials`. An agent cannot make a secret. After that, the agent observes AC4 (`curl https://api.github.com/rate_limit` with the token reports limit 5000, and the upgrade service's next discovery succeeds).
+
+### Token, 2026-10-17
+- The owner created a fine-grained token (read-only, public repositories). It authenticates (limit 5000), but the SSB GitHub enterprise refuses repository access with 403 when a fine-grained token's lifetime is over 366 days. The lifetime is being shortened. Nothing installed yet.
+- **Consequence:** the token expires at most yearly. Renewal is an operator chore, and the expiry date is recorded here when it is installed.
 <!-- SECTION:NOTES:END -->
