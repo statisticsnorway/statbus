@@ -10,6 +10,13 @@ services:
     # Rc.63: images are pulled by commit_short, not version_tag.
     image: ghcr.io/statisticsnorway/statbus-db:${COMMIT_SHORT:-local}
     restart: unless-stopped
+    # STATBUS-427: SIGINT is PostgreSQL's fast shutdown (ends sessions, then a
+    # clean checkpoint). The default SIGTERM is smart shutdown, which waits for
+    # every session, so a stop with the app, rest or worker connected ran into
+    # the kill and the next start had to run crash recovery. The grace period
+    # bounds the checkpoint of a large database before Docker kills it.
+    stop_signal: SIGINT
+    stop_grace_period: 120s
     healthcheck:
       test: pg_isready -U postgres -h localhost
       interval: 5s
