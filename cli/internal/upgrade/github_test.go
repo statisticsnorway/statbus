@@ -1,6 +1,7 @@
 package upgrade
 
 import (
+	"encoding/base64"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -120,7 +121,7 @@ func TestGitFetchEnvironmentAuthorizationIsOptional_STATBUS341(t *testing.T) {
 	for _, want := range []string{
 		"GIT_CONFIG_COUNT=1",
 		"GIT_CONFIG_KEY_0=http.extraheader",
-		"GIT_CONFIG_VALUE_0=Authorization: Bearer test-token",
+		"GIT_CONFIG_VALUE_0=Authorization: Basic " + base64.StdEncoding.EncodeToString([]byte("x-access-token:test-token")),
 	} {
 		if !strings.Contains(joined, want) {
 			t.Errorf("fetch environment lacks %q", want)
@@ -204,13 +205,13 @@ esac
 			if calls := strings.Count(got, "count="); calls != tt.wantCalls {
 				t.Fatalf("fetch calls = %d, want %d; trace:\n%s", calls, tt.wantCalls, got)
 			}
-			for _, want := range []string{"key=http.extraheader", "value=Authorization: Bearer secret-test-token"} {
+			for _, want := range []string{"key=http.extraheader", "value=Authorization: Basic " + base64.StdEncoding.EncodeToString([]byte("x-access-token:secret-test-token"))} {
 				if !strings.Contains(got, want) {
 					t.Fatalf("trace lacks %q:\n%s", want, got)
 				}
 			}
 			for _, line := range strings.Split(got, "\n") {
-				if strings.HasPrefix(line, "args=") && strings.Contains(line, "secret-test-token") {
+				if strings.HasPrefix(line, "args=") && (strings.Contains(line, "secret-test-token") || strings.Contains(line, base64.StdEncoding.EncodeToString([]byte("x-access-token:secret-test-token")))) {
 					t.Fatalf("token leaked into git argv:\n%s", got)
 				}
 			}

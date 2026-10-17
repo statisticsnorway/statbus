@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/rand"
 	"database/sql"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -6692,6 +6693,11 @@ func isGitRateLimitFailure(output string) bool {
 	return gitRateLimitFailure.MatchString(output)
 }
 
+// gitFetchEnv authenticates git over HTTPS with GITHUB_TOKEN when one is set.
+// GitHub's git endpoint takes a personal access token as Basic auth with the
+// token as the password; it refuses Bearer with 401 (STATBUS-515). The REST
+// API takes Bearer (githubRequest). The header travels only in this
+// invocation's environment, never in argv or git config files.
 func gitFetchEnv() []string {
 	token := os.Getenv("GITHUB_TOKEN")
 	if token == "" {
@@ -6700,7 +6706,7 @@ func gitFetchEnv() []string {
 	return append(os.Environ(),
 		"GIT_CONFIG_COUNT=1",
 		"GIT_CONFIG_KEY_0=http.extraheader",
-		"GIT_CONFIG_VALUE_0=Authorization: Bearer "+token,
+		"GIT_CONFIG_VALUE_0=Authorization: Basic "+base64.StdEncoding.EncodeToString([]byte("x-access-token:"+token)),
 	)
 }
 
