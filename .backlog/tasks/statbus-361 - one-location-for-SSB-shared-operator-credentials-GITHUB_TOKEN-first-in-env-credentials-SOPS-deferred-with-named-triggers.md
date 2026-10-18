@@ -1,10 +1,10 @@
 ---
 id: STATBUS-361
 title: Every secret lives in .env.credentials; .env.config holds none
-status: In Progress
+status: Done
 assignee: []
 created_date: '2026-09-07 13:48'
-updated_date: '2026-10-17 17:41'
+updated_date: '2026-10-18 12:15'
 labels:
   - release-bug
   - ops
@@ -44,9 +44,9 @@ Owner ruling (2026-09-07): no encryption layer yet. SOPS+age is deferred until o
 - [x] #1 On dev, `grep -E '^(GITHUB_TOKEN|SLACK_TOKEN|SEQ_API_KEY)=' .env.config` prints nothing, and the same keys are set in `.env.credentials`
 - [x] #2 Settings generation exits non-zero naming the key and the file it belongs in when a secret is in `.env.config`, and install reruns migrate legacy placements once (`TestConfigRejectsMisplacedSecrets_STATBUS361`, `TestLegacySecretsMigrateOnce_STATBUS361`, `TestInstallerRerunMigratesDuplicatesOnce_STATBUS361`)
 - [x] #3 STATBUS-341's tests pass with the token read from `.env.credentials`
-- [ ] #4 Dev's upgrade service makes authenticated GitHub calls (5000/h); `no` and `demo` stay anonymous
-- [x] #5 `doc/CLOUD.md` has a "Where credentials live" paragraph with the rule and the table of values
-- [ ] #6 [Owner] Put a fine-grained read-only GITHUB_TOKEN in .env.credentials on dev and demo (STATBUS-341 ruling); the agent then observes AC4
+- [x] #4 `doc/CLOUD.md` has a "Where credentials live" paragraph with the rule and the table of values
+- [x] #5 [Owner] Put a fine-grained read-only GITHUB_TOKEN in .env.credentials on dev and demo (STATBUS-341 ruling); the agent then observes AC4
+- [x] #6 Dev's and demo's upgrade services make authenticated GitHub calls (5000/h) and `no` stays anonymous, per the STATBUS-341 ruling (2026-09-03: dev and demo token, Norway the anonymous sentinel)
 <!-- AC:END -->
 
 ## Implementation Notes
@@ -72,4 +72,11 @@ Owner ruling (2026-09-07): no encryption layer yet. SOPS+age is deferred until o
 - **2026-10-17:** the token was installed on dev and demo, then rolled back. The daemon's git discovery sent it as Bearer, which GitHub's git endpoint refuses (401). Fixed in STATBUS-515 (c0c7bb43e). AC4 is installed and observed once dev and demo run a release containing that fix. The token expires 2027-10-16.
 
 - **2026-10-17 17:41: token on dev** (expires 2027-10-16). Discovery is authenticated, the limit is 5000, see STATBUS-515. **Demo** gets it once it runs a stable release with the fix (the next promotion); then AC4 and AC6 are checked.
+
+### Token on demo (2026-10-18 12:13)
+- Demo is on the prerelease channel and runs v2026.10.3-rc.01 (e3359068, which contains the 515 fix). The token went into .env.credentials (0600), and only statbus-upgrade@statbus_demo was restarted.
+- **Observed:** the daemon's first discovery after the restart was 'Discovery: 306 tag(s) via git', with no 401 or fetch error. Git ls-remote with the daemon's Basic header lists v2026.10.3-rc.01, and the token's REST limit reads 5000. `./sb upgrade check` recorded the v2026.10.3 tag on the existing completed row; nothing was scheduled.
+- **AC5/6:** the owner created the token; it is on dev (2026-10-17 17:41) and on demo (now). Norway was not touched, so it stays anonymous. The token expires 2027-10-16, and renewal is an operator chore.
+- AC4 was restated to the 341 ruling; the earlier text ('demo stays anonymous') contradicted it.
+- **Cleanup:** the local token files were deleted; .env.credentials.bak-361 was removed on dev and demo.
 <!-- SECTION:NOTES:END -->
