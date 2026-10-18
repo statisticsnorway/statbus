@@ -3,10 +3,10 @@ id: STATBUS-512
 title: >-
   Test 306 pins float statistics to more digits than f64 carries, so it passes
   only on one machine
-status: To Do
+status: In Progress
 assignee: []
 created_date: '2026-10-15 21:43'
-updated_date: '2026-10-16 08:01'
+updated_date: '2026-10-18 11:34'
 labels:
   - testing
   - jsonb_stats
@@ -48,4 +48,9 @@ jsonb_stats merges float statistics with Chan's parallel formula (`src/merge.rs:
 ### Upstream fix chosen (owner, 2026-10-16)
 The fix goes into jsonb_stats (the owner's extension). The issue and a possible fix are written up in ../jsonb_stats/todo.md for a local agent: the cause is the f64 state shared by all four numeric aggregates (NumFields, src/state.rs), not the stat types. Proposed: exact i128 state for int/nat/dec2 (matching the PL/pgSQL numeric reference and the README's dec2 promise), compensated combine plus significant-digit output for float_agg, one combine path, README correction.
 StatBus side after the jsonb_stats release: bump jsonb_stats_release in postgres/Dockerfile, re-record expected outputs once, check the 10 other files that print variance.
+
+### jsonb_stats v3.0.0 released (2026-10-18)
+- Tag v3.0.0 = 04cff87 on veridit/jsonb_stats. State is exact (count, sum, sum_sq, min, max as decimals), and derived fields are rounded once, so the results are order- and machine-independent.
+- **Upgrade path:** `ALTER EXTENSION jsonb_stats UPDATE` (sql/jsonb_stats--2.0.0--3.0.0.sql is a no-op for SQL). Stored 2.x summaries are upgraded on read (sum_sq rebuilt from count, sum and sum_sq_diff) and become exact at their next recompute. Note: dev/STATBUS_HANDOFF.md (bb3bc43) predates this; it says there is no ALTER path and stored summaries are rejected. The released README and CHANGELOG supersede it.
+- **Plan:** bump the pin, add a guarded ALTER EXTENSION migration, prove the box-shaped upgrade, re-record the expected outputs, and get CI amd64 identical to arm64.
 <!-- SECTION:NOTES:END -->
