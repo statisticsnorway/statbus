@@ -316,6 +316,7 @@ FROM stats_after sa JOIN stats_before_update sb ON sa.unit_type = sb.unit_type;
            |               |     "type": "float_agg",                +|     "type": "float_agg",                 +
            |               |     "count": 23,                        +|     "count": 23,                         +
            |               |     "stddev": 0.00,                     +|     "stddev": 8521.26,                   +
+           |               |     "sum_sq": 9221172167,               +|     "sum_sq": 6064812935,                +
            |               |     "variance": 0.00,                   +|     "variance": 72611858.66,             +
            |               |     "sum_sq_diff": 0.00,                +|     "sum_sq_diff": 1597460890.43,        +
            |               |     "coefficient_of_variation_pct": 0.00+|     "coefficient_of_variation_pct": 61.14+
@@ -328,6 +329,7 @@ FROM stats_after sa JOIN stats_before_update sb ON sa.unit_type = sb.unit_type;
            |               |     "type": "int_agg",                  +|     "type": "int_agg",                   +
            |               |     "count": 23,                        +|     "count": 23,                         +
            |               |     "stddev": 0.00,                     +|     "stddev": 0.00,                      +
+           |               |     "sum_sq": 12167,                    +|     "sum_sq": 12167,                     +
            |               |     "variance": 0.00,                   +|     "variance": 0.00,                    +
            |               |     "sum_sq_diff": 0.00,                +|     "sum_sq_diff": 0.00,                 +
            |               |     "coefficient_of_variation_pct": 0.00+|     "coefficient_of_variation_pct": 0.00 +

@@ -140,6 +140,7 @@ ORDER BY unit_type, valid_from;
             |          |                  |               |         "type": "float_agg",                +|             | 
             |          |                  |               |         "count": 1,                         +|             | 
             |          |                  |               |         "stddev": null,                     +|             | 
+            |          |                  |               |         "sum_sq": 625000000000000,          +|             | 
             |          |                  |               |         "variance": null,                   +|             | 
             |          |                  |               |         "sum_sq_diff": 0.00,                +|             | 
             |          |                  |               |         "coefficient_of_variation_pct": null+|             | 
@@ -152,6 +153,7 @@ ORDER BY unit_type, valid_from;
             |          |                  |               |         "type": "int_agg",                  +|             | 
             |          |                  |               |         "count": 1,                         +|             | 
             |          |                  |               |         "stddev": null,                     +|             | 
+            |          |                  |               |         "sum_sq": 100,                      +|             | 
             |          |                  |               |         "variance": null,                   +|             | 
             |          |                  |               |         "sum_sq_diff": 0.00,                +|             | 
             |          |                  |               |         "coefficient_of_variation_pct": null+|             | 
@@ -167,6 +169,7 @@ ORDER BY unit_type, valid_from;
             |          |                  |               |         "type": "float_agg",                +|             | 
             |          |                  |               |         "count": 1,                         +|             | 
             |          |                  |               |         "stddev": null,                     +|             | 
+            |          |                  |               |         "sum_sq": 625000000000000,          +|             | 
             |          |                  |               |         "variance": null,                   +|             | 
             |          |                  |               |         "sum_sq_diff": 0.00,                +|             | 
             |          |                  |               |         "coefficient_of_variation_pct": null+|             | 
@@ -179,6 +182,7 @@ ORDER BY unit_type, valid_from;
             |          |                  |               |         "type": "int_agg",                  +|             | 
             |          |                  |               |         "count": 1,                         +|             | 
             |          |                  |               |         "stddev": null,                     +|             | 
+            |          |                  |               |         "sum_sq": 100,                      +|             | 
             |          |                  |               |         "variance": null,                   +|             | 
             |          |                  |               |         "sum_sq_diff": 0.00,                +|             | 
             |          |                  |               |         "coefficient_of_variation_pct": null+|             | 
@@ -194,6 +198,7 @@ ORDER BY unit_type, valid_from;
             |          |                  |               |         "type": "float_agg",                +|             | 
             |          |                  |               |         "count": 1,                         +|             | 
             |          |                  |               |         "stddev": null,                     +|             | 
+            |          |                  |               |         "sum_sq": 625000000000000,          +|             | 
             |          |                  |               |         "variance": null,                   +|             | 
             |          |                  |               |         "sum_sq_diff": 0.00,                +|             | 
             |          |                  |               |         "coefficient_of_variation_pct": null+|             | 
@@ -206,6 +211,7 @@ ORDER BY unit_type, valid_from;
             |          |                  |               |         "type": "int_agg",                  +|             | 
             |          |                  |               |         "count": 1,                         +|             | 
             |          |                  |               |         "stddev": null,                     +|             | 
+            |          |                  |               |         "sum_sq": 100,                      +|             | 
             |          |                  |               |         "variance": null,                   +|             | 
             |          |                  |               |         "sum_sq_diff": 0.00,                +|             | 
             |          |                  |               |         "coefficient_of_variation_pct": null+|             | 
@@ -234,6 +240,7 @@ SELECT jsonb_pretty(public.remove_ephemeral_data_from_hierarchy(public.statistic
                  "type": "float_agg",                        +
                  "count": 1,                                 +
                  "stddev": null,                             +
+                 "sum_sq": 625000000000000,                  +
                  "variance": null,                           +
                  "sum_sq_diff": 0.00,                        +
                  "coefficient_of_variation_pct": null        +
@@ -246,6 +253,7 @@ SELECT jsonb_pretty(public.remove_ephemeral_data_from_hierarchy(public.statistic
                  "type": "int_agg",                          +
                  "count": 1,                                 +
                  "stddev": null,                             +
+                 "sum_sq": 100,                              +
                  "variance": null,                           +
                  "sum_sq_diff": 0.00,                        +
                  "coefficient_of_variation_pct": null        +
@@ -278,6 +286,7 @@ SELECT jsonb_pretty(public.remove_ephemeral_data_from_hierarchy(public.statistic
                          "type": "float_agg",                +
                          "count": 1,                         +
                          "stddev": null,                     +
+                         "sum_sq": 625000000000000,          +
                          "variance": null,                   +
                          "sum_sq_diff": 0.00,                +
                          "coefficient_of_variation_pct": null+
@@ -290,6 +299,7 @@ SELECT jsonb_pretty(public.remove_ephemeral_data_from_hierarchy(public.statistic
                          "type": "int_agg",                  +
                          "count": 1,                         +
                          "stddev": null,                     +
+                         "sum_sq": 100,                      +
                          "variance": null,                   +
                          "sum_sq_diff": 0.00,                +
                          "coefficient_of_variation_pct": null+
@@ -315,6 +325,7 @@ SELECT jsonb_pretty(public.remove_ephemeral_data_from_hierarchy(public.statistic
                          "type": "float_agg",                +
                          "count": 1,                         +
                          "stddev": null,                     +
+                         "sum_sq": 625000000000000,          +
                          "variance": null,                   +
                          "sum_sq_diff": 0.00,                +
                          "coefficient_of_variation_pct": null+
@@ -327,6 +338,7 @@ SELECT jsonb_pretty(public.remove_ephemeral_data_from_hierarchy(public.statistic
                          "type": "int_agg",                  +
                          "count": 1,                         +
                          "stddev": null,                     +
+                         "sum_sq": 100,                      +
                          "variance": null,                   +
                          "sum_sq_diff": 0.00,                +
                          "coefficient_of_variation_pct": null+
@@ -350,6 +362,7 @@ SELECT jsonb_pretty(public.remove_ephemeral_data_from_hierarchy(public.statistic
                          "type": "float_agg",                +
                          "count": 1,                         +
                          "stddev": null,                     +
+                         "sum_sq": 625000000000000,          +
                          "variance": null,                   +
                          "sum_sq_diff": 0.00,                +
                          "coefficient_of_variation_pct": null+
@@ -362,6 +375,7 @@ SELECT jsonb_pretty(public.remove_ephemeral_data_from_hierarchy(public.statistic
                          "type": "int_agg",                  +
                          "count": 1,                         +
                          "stddev": null,                     +
+                         "sum_sq": 100,                      +
                          "variance": null,                   +
                          "sum_sq_diff": 0.00,                +
                          "coefficient_of_variation_pct": null+
@@ -385,6 +399,7 @@ SELECT jsonb_pretty(public.remove_ephemeral_data_from_hierarchy(public.statistic
                          "type": "float_agg",                +
                          "count": 1,                         +
                          "stddev": null,                     +
+                         "sum_sq": 625000000000000,          +
                          "variance": null,                   +
                          "sum_sq_diff": 0.00,                +
                          "coefficient_of_variation_pct": null+
@@ -397,6 +412,7 @@ SELECT jsonb_pretty(public.remove_ephemeral_data_from_hierarchy(public.statistic
                          "type": "int_agg",                  +
                          "count": 1,                         +
                          "stddev": null,                     +
+                         "sum_sq": 100,                      +
                          "variance": null,                   +
                          "sum_sq_diff": 0.00,                +
                          "coefficient_of_variation_pct": null+
@@ -420,6 +436,7 @@ SELECT jsonb_pretty(public.remove_ephemeral_data_from_hierarchy(public.statistic
                          "type": "float_agg",                +
                          "count": 1,                         +
                          "stddev": null,                     +
+                         "sum_sq": 625000000000000,          +
                          "variance": null,                   +
                          "sum_sq_diff": 0.00,                +
                          "coefficient_of_variation_pct": null+
@@ -432,6 +449,7 @@ SELECT jsonb_pretty(public.remove_ephemeral_data_from_hierarchy(public.statistic
                          "type": "int_agg",                  +
                          "count": 1,                         +
                          "stddev": null,                     +
+                         "sum_sq": 100,                      +
                          "variance": null,                   +
                          "sum_sq_diff": 0.00,                +
                          "coefficient_of_variation_pct": null+
@@ -457,6 +475,7 @@ SELECT jsonb_pretty(public.remove_ephemeral_data_from_hierarchy(public.statistic
                          "type": "float_agg",                +
                          "count": 1,                         +
                          "stddev": null,                     +
+                         "sum_sq": 625000000000000,          +
                          "variance": null,                   +
                          "sum_sq_diff": 0.00,                +
                          "coefficient_of_variation_pct": null+
@@ -469,6 +488,7 @@ SELECT jsonb_pretty(public.remove_ephemeral_data_from_hierarchy(public.statistic
                          "type": "int_agg",                  +
                          "count": 1,                         +
                          "stddev": null,                     +
+                         "sum_sq": 100,                      +
                          "variance": null,                   +
                          "sum_sq_diff": 0.00,                +
                          "coefficient_of_variation_pct": null+
@@ -559,6 +579,7 @@ SELECT jsonb_pretty(public.remove_ephemeral_data_from_hierarchy(public.statistic
                      "type": "float_agg",                 +
                      "count": 2,                          +
                      "stddev": 9192388.16,                +
+                     "sum_sq": 769000000000000,           +
                      "variance": 84500000000000.00,       +
                      "sum_sq_diff": 84500000000000.00,    +
                      "coefficient_of_variation_pct": 49.69+
@@ -571,6 +592,7 @@ SELECT jsonb_pretty(public.remove_ephemeral_data_from_hierarchy(public.statistic
                      "type": "int_agg",                   +
                      "count": 2,                          +
                      "stddev": 2.12,                      +
+                     "sum_sq": 149,                       +
                      "variance": 4.50,                    +
                      "sum_sq_diff": 4.50,                 +
                      "coefficient_of_variation_pct": 24.96+
@@ -610,6 +632,7 @@ SELECT jsonb_pretty(public.remove_ephemeral_data_from_hierarchy(public.statistic
                      "type": "float_agg",                 +
                      "count": 1,                          +
                      "stddev": null,                      +
+                     "sum_sq": 625000000000000,           +
                      "variance": null,                    +
                      "sum_sq_diff": 0.00,                 +
                      "coefficient_of_variation_pct": null +
@@ -622,6 +645,7 @@ SELECT jsonb_pretty(public.remove_ephemeral_data_from_hierarchy(public.statistic
                      "type": "int_agg",                   +
                      "count": 1,                          +
                      "stddev": null,                      +
+                     "sum_sq": 100,                       +
                      "variance": null,                    +
                      "sum_sq_diff": 0.00,                 +
                      "coefficient_of_variation_pct": null +
@@ -758,6 +782,7 @@ SELECT jsonb_pretty(
                      "type": "float_agg",                 +
                      "count": 2,                          +
                      "stddev": 9192388.16,                +
+                     "sum_sq": 769000000000000,           +
                      "variance": 84500000000000.00,       +
                      "sum_sq_diff": 84500000000000.00,    +
                      "coefficient_of_variation_pct": 49.69+
@@ -770,6 +795,7 @@ SELECT jsonb_pretty(
                      "type": "int_agg",                   +
                      "count": 2,                          +
                      "stddev": 2.12,                      +
+                     "sum_sq": 149,                       +
                      "variance": 4.50,                    +
                      "sum_sq_diff": 4.50,                 +
                      "coefficient_of_variation_pct": 24.96+
@@ -809,6 +835,7 @@ SELECT jsonb_pretty(
                      "type": "float_agg",                 +
                      "count": 1,                          +
                      "stddev": null,                      +
+                     "sum_sq": 625000000000000,           +
                      "variance": null,                    +
                      "sum_sq_diff": 0.00,                 +
                      "coefficient_of_variation_pct": null +
@@ -821,6 +848,7 @@ SELECT jsonb_pretty(
                      "type": "int_agg",                   +
                      "count": 1,                          +
                      "stddev": null,                      +
+                     "sum_sq": 100,                       +
                      "variance": null,                    +
                      "sum_sq_diff": 0.00,                 +
                      "coefficient_of_variation_pct": null +
@@ -860,6 +888,7 @@ SELECT jsonb_pretty(
                      "type": "float_agg",                 +
                      "count": 1,                          +
                      "stddev": null,                      +
+                     "sum_sq": 625000000000000,           +
                      "variance": null,                    +
                      "sum_sq_diff": 0.00,                 +
                      "coefficient_of_variation_pct": null +
@@ -872,6 +901,7 @@ SELECT jsonb_pretty(
                      "type": "int_agg",                   +
                      "count": 1,                          +
                      "stddev": null,                      +
+                     "sum_sq": 100,                       +
                      "variance": null,                    +
                      "sum_sq_diff": 0.00,                 +
                      "coefficient_of_variation_pct": null +
@@ -1008,6 +1038,7 @@ SELECT jsonb_pretty(
                      "type": "float_agg",                 +
                      "count": 2,                          +
                      "stddev": 9192388.16,                +
+                     "sum_sq": 769000000000000,           +
                      "variance": 84500000000000.00,       +
                      "sum_sq_diff": 84500000000000.00,    +
                      "coefficient_of_variation_pct": 49.69+
@@ -1020,6 +1051,7 @@ SELECT jsonb_pretty(
                      "type": "int_agg",                   +
                      "count": 2,                          +
                      "stddev": 2.12,                      +
+                     "sum_sq": 149,                       +
                      "variance": 4.50,                    +
                      "sum_sq_diff": 4.50,                 +
                      "coefficient_of_variation_pct": 24.96+
@@ -1059,6 +1091,7 @@ SELECT jsonb_pretty(
                      "type": "float_agg",                 +
                      "count": 1,                          +
                      "stddev": null,                      +
+                     "sum_sq": 625000000000000,           +
                      "variance": null,                    +
                      "sum_sq_diff": 0.00,                 +
                      "coefficient_of_variation_pct": null +
@@ -1071,6 +1104,7 @@ SELECT jsonb_pretty(
                      "type": "int_agg",                   +
                      "count": 1,                          +
                      "stddev": null,                      +
+                     "sum_sq": 100,                       +
                      "variance": null,                    +
                      "sum_sq_diff": 0.00,                 +
                      "coefficient_of_variation_pct": null +
@@ -1110,6 +1144,7 @@ SELECT jsonb_pretty(
                      "type": "float_agg",                 +
                      "count": 1,                          +
                      "stddev": null,                      +
+                     "sum_sq": 625000000000000,           +
                      "variance": null,                    +
                      "sum_sq_diff": 0.00,                 +
                      "coefficient_of_variation_pct": null +
@@ -1122,6 +1157,7 @@ SELECT jsonb_pretty(
                      "type": "int_agg",                   +
                      "count": 1,                          +
                      "stddev": null,                      +
+                     "sum_sq": 100,                       +
                      "variance": null,                    +
                      "sum_sq_diff": 0.00,                 +
                      "coefficient_of_variation_pct": null +
@@ -1258,6 +1294,7 @@ SELECT jsonb_pretty(
                      "type": "float_agg",                 +
                      "count": 2,                          +
                      "stddev": 9192388.16,                +
+                     "sum_sq": 769000000000000,           +
                      "variance": 84500000000000.00,       +
                      "sum_sq_diff": 84500000000000.00,    +
                      "coefficient_of_variation_pct": 49.69+
@@ -1270,6 +1307,7 @@ SELECT jsonb_pretty(
                      "type": "int_agg",                   +
                      "count": 2,                          +
                      "stddev": 2.12,                      +
+                     "sum_sq": 149,                       +
                      "variance": 4.50,                    +
                      "sum_sq_diff": 4.50,                 +
                      "coefficient_of_variation_pct": 24.96+
@@ -1309,6 +1347,7 @@ SELECT jsonb_pretty(
                      "type": "float_agg",                 +
                      "count": 1,                          +
                      "stddev": null,                      +
+                     "sum_sq": 625000000000000,           +
                      "variance": null,                    +
                      "sum_sq_diff": 0.00,                 +
                      "coefficient_of_variation_pct": null +
@@ -1321,6 +1360,7 @@ SELECT jsonb_pretty(
                      "type": "int_agg",                   +
                      "count": 1,                          +
                      "stddev": null,                      +
+                     "sum_sq": 100,                       +
                      "variance": null,                    +
                      "sum_sq_diff": 0.00,                 +
                      "coefficient_of_variation_pct": null +
@@ -1360,6 +1400,7 @@ SELECT jsonb_pretty(
                      "type": "float_agg",                 +
                      "count": 1,                          +
                      "stddev": null,                      +
+                     "sum_sq": 625000000000000,           +
                      "variance": null,                    +
                      "sum_sq_diff": 0.00,                 +
                      "coefficient_of_variation_pct": null +
@@ -1372,6 +1413,7 @@ SELECT jsonb_pretty(
                      "type": "int_agg",                   +
                      "count": 1,                          +
                      "stddev": null,                      +
+                     "sum_sq": 100,                       +
                      "variance": null,                    +
                      "sum_sq_diff": 0.00,                 +
                      "coefficient_of_variation_pct": null +

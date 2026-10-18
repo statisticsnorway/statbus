@@ -22,6 +22,9 @@ interface NumericStatAgg {
   min: number;
   max: number;
   mean: number;
+  /** Sum of squares, exact state since jsonb_stats 3.0.0. Absent on a summary
+   *  stored by 2.x until it is recomputed. */
+  sum_sq?: number;
   sum_sq_diff: number;
   variance: number | null;
   stddev: number | null;

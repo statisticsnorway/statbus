@@ -193,6 +193,7 @@ stats_summary     | {                                                           
                   |         "type": "int_agg",                                  +
                   |         "count": 1,                                         +
                   |         "stddev": null,                                     +
+                  |         "sum_sq": 361,                                      +
                   |         "variance": null,                                   +
                   |         "sum_sq_diff": 0.00,                                +
                   |         "coefficient_of_variation_pct": null                +
@@ -214,6 +215,7 @@ stats_summary     | {                                                           
                   |         "type": "int_agg",                                  +
                   |         "count": 1,                                         +
                   |         "stddev": null,                                     +
+                  |         "sum_sq": 361,                                      +
                   |         "variance": null,                                   +
                   |         "sum_sq_diff": 0.00,                                +
                   |         "coefficient_of_variation_pct": null                +
@@ -253,6 +255,7 @@ stats_summary     | {                                                           
                   |         "type": "int_agg",                                  +
                   |         "count": 1,                                         +
                   |         "stddev": null,                                     +
+                  |         "sum_sq": 256,                                      +
                   |         "variance": null,                                   +
                   |         "sum_sq_diff": 0.00,                                +
                   |         "coefficient_of_variation_pct": null                +
@@ -274,6 +277,7 @@ stats_summary     | {                                                           
                   |         "type": "int_agg",                                  +
                   |         "count": 1,                                         +
                   |         "stddev": null,                                     +
+                  |         "sum_sq": 256,                                      +
                   |         "variance": null,                                   +
                   |         "sum_sq_diff": 0.00,                                +
                   |         "coefficient_of_variation_pct": null                +
@@ -295,6 +299,7 @@ stats_summary     | {                                                           
                   |         "type": "int_agg",                                  +
                   |         "count": 1,                                         +
                   |         "stddev": null,                                     +
+                  |         "sum_sq": 25,                                       +
                   |         "variance": null,                                   +
                   |         "sum_sq_diff": 0.00,                                +
                   |         "coefficient_of_variation_pct": null                +
@@ -316,6 +321,7 @@ stats_summary     | {                                                           
                   |         "type": "int_agg",                                  +
                   |         "count": 1,                                         +
                   |         "stddev": null,                                     +
+                  |         "sum_sq": 25,                                       +
                   |         "variance": null,                                   +
                   |         "sum_sq_diff": 0.00,                                +
                   |         "coefficient_of_variation_pct": null                +
@@ -342,6 +348,7 @@ stats_summary       | {                                            +
                     |         "type": "int_agg",                   +
                     |         "count": 3,                          +
                     |         "stddev": 7.37,                      +
+                    |         "sum_sq": 642,                       +
                     |         "variance": 54.33,                   +
                     |         "sum_sq_diff": 108.67,               +
                     |         "coefficient_of_variation_pct": 55.28+
@@ -360,6 +367,7 @@ stats_summary       | {                                            +
                     |         "type": "int_agg",                   +
                     |         "count": 3,                          +
                     |         "stddev": 7.37,                      +
+                    |         "sum_sq": 642,                       +
                     |         "variance": 54.33,                   +
                     |         "sum_sq_diff": 108.67,               +
                     |         "coefficient_of_variation_pct": 55.28+

@@ -430,7 +430,7 @@ SELECT jsonb_pretty(
                              {                                                                                                    +
                                  "stat": {                                                                                        +
                                      "type": "float",                                                                             +
-                                     "value": 0.0                                                                                 +
+                                     "value": 0                                                                                   +
                                  },                                                                                               +
                                  "valid_to": "infinity",                                                                          +
                                  "value_int": null,                                                                               +
@@ -501,7 +501,7 @@ SELECT jsonb_pretty(
                      {                                                                                                            +
                          "stat": {                                                                                                +
                              "type": "float",                                                                                     +
-                             "value": 9000000.0                                                                                   +
+                             "value": 9000000                                                                                     +
                          },                                                                                                       +
                          "valid_to": "infinity",                                                                                  +
                          "value_int": null,                                                                                       +
@@ -704,7 +704,7 @@ SELECT jsonb_pretty(
                      {                                                                                                    +
                          "stat": {                                                                                        +
                              "type": "float",                                                                             +
-                             "value": 4400.0                                                                              +
+                             "value": 4400                                                                                +
                          },                                                                                               +
                          "valid_to": "infinity",                                                                          +
                          "value_int": null,                                                                               +
@@ -1111,7 +1111,7 @@ SELECT jsonb_pretty(
                              {                                                                                                    +
                                  "stat": {                                                                                        +
                                      "type": "float",                                                                             +
-                                     "value": 0.0                                                                                 +
+                                     "value": 0                                                                                   +
                                  },                                                                                               +
                                  "valid_to": "infinity",                                                                          +
                                  "value_int": null,                                                                               +
@@ -1182,7 +1182,7 @@ SELECT jsonb_pretty(
                      {                                                                                                            +
                          "stat": {                                                                                                +
                              "type": "float",                                                                                     +
-                             "value": 9000000.0                                                                                   +
+                             "value": 9000000                                                                                     +
                          },                                                                                                       +
                          "valid_to": "infinity",                                                                                  +
                          "value_int": null,                                                                                       +
@@ -1356,7 +1356,7 @@ SELECT jsonb_pretty(
                      {                                                                                                            +
                          "stat": {                                                                                                +
                              "type": "float",                                                                                     +
-                             "value": 4400.0                                                                                      +
+                             "value": 4400                                                                                        +
                          },                                                                                                       +
                          "valid_to": "infinity",                                                                                  +
                          "value_int": null,                                                                                       +
@@ -1673,7 +1673,7 @@ SELECT jsonb_pretty(
                              {                                                                                                    +
                                  "stat": {                                                                                        +
                                      "type": "float",                                                                             +
-                                     "value": 0.0                                                                                 +
+                                     "value": 0                                                                                   +
                                  },                                                                                               +
                                  "valid_to": "infinity",                                                                          +
                                  "value_int": null,                                                                               +
@@ -1744,7 +1744,7 @@ SELECT jsonb_pretty(
                      {                                                                                                            +
                          "stat": {                                                                                                +
                              "type": "float",                                                                                     +
-                             "value": 9000000.0                                                                                   +
+                             "value": 9000000                                                                                     +
                          },                                                                                                       +
                          "valid_to": "infinity",                                                                                  +
                          "value_int": null,                                                                                       +
@@ -1918,7 +1918,7 @@ SELECT jsonb_pretty(
                      {                                                                                                            +
                          "stat": {                                                                                                +
                              "type": "float",                                                                                     +
-                             "value": 4400.0                                                                                      +
+                             "value": 4400                                                                                        +
                          },                                                                                                       +
                          "valid_to": "infinity",                                                                                  +
                          "value_int": null,                                                                                       +
@@ -2235,7 +2235,7 @@ SELECT jsonb_pretty(
                              {                                                                                                    +
                                  "stat": {                                                                                        +
                                      "type": "float",                                                                             +
-                                     "value": 0.0                                                                                 +
+                                     "value": 0                                                                                   +
                                  },                                                                                               +
                                  "valid_to": "infinity",                                                                          +
                                  "value_int": null,                                                                               +
@@ -2306,7 +2306,7 @@ SELECT jsonb_pretty(
                      {                                                                                                            +
                          "stat": {                                                                                                +
                              "type": "float",                                                                                     +
-                             "value": 9000000.0                                                                                   +
+                             "value": 9000000                                                                                     +
                          },                                                                                                       +
                          "valid_to": "infinity",                                                                                  +
                          "value_int": null,                                                                                       +
@@ -2480,7 +2480,7 @@ SELECT jsonb_pretty(
                      {                                                                                                            +
                          "stat": {                                                                                                +
                              "type": "float",                                                                                     +
-                             "value": 4400.0                                                                                      +
+                             "value": 4400                                                                                        +
                          },                                                                                                       +
                          "valid_to": "infinity",                                                                                  +
                          "value_int": null,                                                                                       +

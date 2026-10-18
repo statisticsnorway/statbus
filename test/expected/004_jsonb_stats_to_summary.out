@@ -107,6 +107,7 @@ FROM entity_stats;
         "type": "int_agg",
         "count": 1,
         "stddev": null,
+        "sum_sq": 1,
         "variance": null,
         "sum_sq_diff": 0.00,
         "coefficient_of_variation_pct": null
@@ -147,6 +148,7 @@ FROM entity_stats;
         "type": "int_agg",
         "count": 3,
         "stddev": 1.00,
+        "sum_sq": 14,
         "variance": 1.00,
         "sum_sq_diff": 2.00,
         "coefficient_of_variation_pct": 50.00
@@ -206,6 +208,7 @@ FROM entity_stats;
         "type": "int_agg",
         "count": 10,
         "stddev": 302.77,
+        "sum_sq": 2850000,
         "variance": 91666.67,
         "sum_sq_diff": 825000.00,
         "coefficient_of_variation_pct": 67.28
@@ -298,6 +301,7 @@ SELECT jsonb_pretty(jsonb_stats_merge(f.agg, s.agg)) FROM first_half f, second_h
         "type": "int_agg",
         "count": 5,
         "stddev": 158.11,
+        "sum_sq": 300000,
         "variance": 25000.00,
         "sum_sq_diff": 100000.00,
         "coefficient_of_variation_pct": 79.06
@@ -329,6 +333,7 @@ SELECT jsonb_pretty(jsonb_stats_merge(f.agg, s.agg)) FROM first_half f, second_h
         "type": "int_agg",
         "count": 5,
         "stddev": 158.11,
+        "sum_sq": 2550000,
         "variance": 25000.00,
         "sum_sq_diff": 100000.00,
         "coefficient_of_variation_pct": 22.59
@@ -359,6 +364,7 @@ SELECT jsonb_pretty(jsonb_stats_merge(f.agg, s.agg)) FROM first_half f, second_h
         "type": "int_agg",
         "count": 10,
         "stddev": 302.77,
+        "sum_sq": 2850000,
         "variance": 91666.67,
         "sum_sq_diff": 825000.00,
         "coefficient_of_variation_pct": 67.28
@@ -387,10 +393,14 @@ SELECT jsonb_pretty(jsonb_stats_merge(f.agg, s.agg)) FROM first_half f, second_h
         "max": 900,
         "min": 0,
         "sum": 4500,
-        "mean": 450,
+        "mean": 450.00,
         "type": "int_agg",
         "count": 10,
-        "sum_sq_diff": 825000
+        "stddev": 302.77,
+        "sum_sq": 2850000,
+        "variance": 91666.67,
+        "sum_sq_diff": 825000.00,
+        "coefficient_of_variation_pct": 67.28
     },
     "str": {
         "type": "str_agg",

@@ -2973,6 +2973,7 @@ stats_summary | {                                             +
               |         "type": "int_agg",                    +
               |         "count": 351,                         +
               |         "stddev": 166.99,                     +
+              |         "sum_sq": 11373536,                   +
               |         "variance": 27884.99,                 +
               |         "sum_sq_diff": 9759746.83,            +
               |         "coefficient_of_variation_pct": 246.27+
@@ -2991,9 +2992,10 @@ stats_summary | {                                             +
               |         "type": "int_agg",                    +
               |         "count": 351,                         +
               |         "stddev": 166.99,                     +
-              |         "variance": 27884.95,                 +
-              |         "sum_sq_diff": 9759731.86,            +
-              |         "coefficient_of_variation_pct": 246.26+
+              |         "sum_sq": 11373536,                   +
+              |         "variance": 27884.99,                 +
+              |         "sum_sq_diff": 9759746.83,            +
+              |         "coefficient_of_variation_pct": 246.27+
               |     }                                         +
               | }
 -[ RECORD 3 ]-+-----------------------------------------------
@@ -3009,9 +3011,10 @@ stats_summary | {                                             +
               |         "type": "int_agg",                    +
               |         "count": 351,                         +
               |         "stddev": 166.99,                     +
-              |         "variance": 27884.95,                 +
-              |         "sum_sq_diff": 9759731.86,            +
-              |         "coefficient_of_variation_pct": 246.26+
+              |         "sum_sq": 11373536,                   +
+              |         "variance": 27884.99,                 +
+              |         "sum_sq_diff": 9759746.83,            +
+              |         "coefficient_of_variation_pct": 246.27+
               |     }                                         +
               | }
 

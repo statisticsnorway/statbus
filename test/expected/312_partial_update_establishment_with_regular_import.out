@@ -262,11 +262,11 @@ JOIN public.user u ON su.last_edit_by_user_id = u.id
 WHERE su.unit_id = (SELECT unit_id FROM updated_unit)
   AND su.unit_type = 'establishment'
 ORDER BY su.valid_from;
- stat_ident | valid_from |  valid_to  |       last_edit_by       |                                                    stats                                                     
-------------+------------+------------+--------------------------+--------------------------------------------------------------------------------------------------------------
- 91000      | 2023-01-01 | 2023-05-31 | test.admin@statbus.org   | {"type": "stats", "turnover": {"type": "float", "value": 1000.0}, "employees": {"type": "int", "value": 10}}
- 91000      | 2023-06-01 | 2023-08-31 | test.regular@statbus.org | {"type": "stats", "turnover": {"type": "float", "value": 3535.0}, "employees": {"type": "int", "value": 10}}
- 91000      | 2023-09-01 | infinity   | test.admin@statbus.org   | {"type": "stats", "turnover": {"type": "float", "value": 1000.0}, "employees": {"type": "int", "value": 10}}
+ stat_ident | valid_from |  valid_to  |       last_edit_by       |                                                   stats                                                    
+------------+------------+------------+--------------------------+------------------------------------------------------------------------------------------------------------
+ 91000      | 2023-01-01 | 2023-05-31 | test.admin@statbus.org   | {"type": "stats", "turnover": {"type": "float", "value": 1000}, "employees": {"type": "int", "value": 10}}
+ 91000      | 2023-06-01 | 2023-08-31 | test.regular@statbus.org | {"type": "stats", "turnover": {"type": "float", "value": 3535}, "employees": {"type": "int", "value": 10}}
+ 91000      | 2023-09-01 | infinity   | test.admin@statbus.org   | {"type": "stats", "turnover": {"type": "float", "value": 1000}, "employees": {"type": "int", "value": 10}}
 (3 rows)
 
 \x auto
@@ -367,6 +367,7 @@ FROM stats_after sa JOIN stats_before_update sb ON sa.unit_type = sb.unit_type;
            |               |     "type": "float_agg",                 +|     "type": "float_agg",                 +
            |               |     "count": 24,                         +|     "count": 24,                         +
            |               |     "stddev": 320.85,                    +|     "stddev": 1412.16,                   +
+           |               |     "sum_sq": 21013250,                  +|     "sum_sq": 135975500,                 +
            |               |     "variance": 102946.17,               +|     "variance": 1994184.75,              +
            |               |     "sum_sq_diff": 2367761.83,           +|     "sum_sq_diff": 45866249.33,          +
            |               |     "coefficient_of_variation_pct": 36.40+|     "coefficient_of_variation_pct": 72.88+
@@ -379,8 +380,9 @@ FROM stats_after sa JOIN stats_before_update sb ON sa.unit_type = sb.unit_type;
            |               |     "type": "int_agg",                   +|     "type": "int_agg",                   +
            |               |     "count": 24,                         +|     "count": 24,                         +
            |               |     "stddev": 3.05,                      +|     "stddev": 3.05,                      +
+           |               |     "sum_sq": 2105,                      +|     "sum_sq": 2105,                      +
            |               |     "variance": 9.33,                    +|     "variance": 9.33,                    +
-           |               |     "sum_sq_diff": 214.62,               +|     "sum_sq_diff": 214.62,               +
+           |               |     "sum_sq_diff": 214.63,               +|     "sum_sq_diff": 214.63,               +
            |               |     "coefficient_of_variation_pct": 34.42+|     "coefficient_of_variation_pct": 34.42+
            |               | }                                         | }
 (2 rows)

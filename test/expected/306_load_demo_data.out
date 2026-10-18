@@ -1098,6 +1098,7 @@ stats_summary | {                                             +
               |         "type": "float_agg",                  +
               |         "count": 50,                          +
               |         "stddev": 1517.97,                    +
+              |         "sum_sq": 165001024,                  +
               |         "variance": 2304235.88,               +
               |         "sum_sq_diff": 112907558.08,          +
               |         "coefficient_of_variation_pct": 148.72+
@@ -1110,6 +1111,7 @@ stats_summary | {                                             +
               |         "type": "int_agg",                    +
               |         "count": 50,                          +
               |         "stddev": 1.82,                       +
+              |         "sum_sq": 275,                        +
               |         "variance": 3.32,                     +
               |         "sum_sq_diff": 162.50,                +
               |         "coefficient_of_variation_pct": 121.41+
@@ -1128,8 +1130,9 @@ stats_summary | {                                             +
               |         "type": "float_agg",                  +
               |         "count": 48,                          +
               |         "stddev": 15741429.18,                +
-              |         "variance": 247792592508865.28,       +
-              |         "sum_sq_diff": 11646251847916668.00,  +
+              |         "sum_sq": 13083002100000000,          +
+              |         "variance": 247792592508865.25,       +
+              |         "sum_sq_diff": 11646251847916666.67,  +
               |         "coefficient_of_variation_pct": 287.72+
               |     },                                        +
               |     "employees": {                            +
@@ -1140,6 +1143,7 @@ stats_summary | {                                             +
               |         "type": "int_agg",                    +
               |         "count": 48,                          +
               |         "stddev": 10.55,                      +
+              |         "sum_sq": 5848,                       +
               |         "variance": 111.31,                   +
               |         "sum_sq_diff": 5231.67,               +
               |         "coefficient_of_variation_pct": 294.43+
@@ -1158,8 +1162,9 @@ stats_summary | {                                             +
               |         "type": "float_agg",                  +
               |         "count": 73,                          +
               |         "stddev": 12983923.04,                +
+              |         "sum_sq": 13083002265001024,          +
               |         "variance": 168582257517595.41,       +
-              |         "sum_sq_diff": 12137922541266870.00,  +
+              |         "sum_sq_diff": 12137922541266869.26,  +
               |         "coefficient_of_variation_pct": 360.86+
               |     },                                        +
               |     "employees": {                            +
@@ -1170,6 +1175,7 @@ stats_summary | {                                             +
               |         "type": "int_agg",                    +
               |         "count": 73,                          +
               |         "stddev": 8.57,                       +
+              |         "sum_sq": 6123,                       +
               |         "variance": 73.43,                    +
               |         "sum_sq_diff": 5287.26,               +
               |         "coefficient_of_variation_pct": 253.26+
@@ -1188,8 +1194,9 @@ stats_summary | {                                             +
               |         "type": "float_agg",                  +
               |         "count": 32,                          +
               |         "stddev": 15972053.77,                +
-              |         "variance": 255106501622353.22,       +
-              |         "sum_sq_diff": 7908301550292950.00,   +
+              |         "sum_sq": 8545189600000000,           +
+              |         "variance": 255106501612903.23,       +
+              |         "sum_sq_diff": 7908301550000000.00,   +
               |         "coefficient_of_variation_pct": 358.02+
               |     },                                        +
               |     "employees": {                            +
@@ -1200,9 +1207,10 @@ stats_summary | {                                             +
               |         "type": "int_agg",                    +
               |         "count": 32,                          +
               |         "stddev": 12.75,                      +
-              |         "variance": 162.55,                   +
-              |         "sum_sq_diff": 5039.13,               +
-              |         "coefficient_of_variation_pct": 259.86+
+              |         "sum_sq": 5809,                       +
+              |         "variance": 162.54,                   +
+              |         "sum_sq_diff": 5038.72,               +
+              |         "coefficient_of_variation_pct": 259.85+
               |     }                                         +
               | }
 
@@ -1301,6 +1309,7 @@ stats_summary | {                                             +
               |         "type": "float_agg",                  +
               |         "count": 25,                          +
               |         "stddev": 0.00,                       +
+              |         "sum_sq": 0,                          +
               |         "variance": 0.00,                     +
               |         "sum_sq_diff": 0.00,                  +
               |         "coefficient_of_variation_pct": null  +
@@ -1313,6 +1322,7 @@ stats_summary | {                                             +
               |         "type": "int_agg",                    +
               |         "count": 25,                          +
               |         "stddev": 0.00,                       +
+              |         "sum_sq": 0,                          +
               |         "variance": 0.00,                     +
               |         "sum_sq_diff": 0.00,                  +
               |         "coefficient_of_variation_pct": null  +
@@ -1331,8 +1341,9 @@ stats_summary | {                                             +
               |         "type": "float_agg",                  +
               |         "count": 48,                          +
               |         "stddev": 15741429.18,                +
-              |         "variance": 247792592508865.28,       +
-              |         "sum_sq_diff": 11646251847916668.00,  +
+              |         "sum_sq": 13083002100000000,          +
+              |         "variance": 247792592508865.25,       +
+              |         "sum_sq_diff": 11646251847916666.67,  +
               |         "coefficient_of_variation_pct": 287.72+
               |     },                                        +
               |     "employees": {                            +
@@ -1343,6 +1354,7 @@ stats_summary | {                                             +
               |         "type": "int_agg",                    +
               |         "count": 48,                          +
               |         "stddev": 10.55,                      +
+              |         "sum_sq": 5848,                       +
               |         "variance": 111.31,                   +
               |         "sum_sq_diff": 5231.67,               +
               |         "coefficient_of_variation_pct": 294.43+
@@ -1361,8 +1373,9 @@ stats_summary | {                                             +
               |         "type": "float_agg",                  +
               |         "count": 48,                          +
               |         "stddev": 15741429.18,                +
-              |         "variance": 247792592508865.28,       +
-              |         "sum_sq_diff": 11646251847916668.00,  +
+              |         "sum_sq": 13083002100000000,          +
+              |         "variance": 247792592508865.25,       +
+              |         "sum_sq_diff": 11646251847916666.67,  +
               |         "coefficient_of_variation_pct": 287.72+
               |     },                                        +
               |     "employees": {                            +
@@ -1373,6 +1386,7 @@ stats_summary | {                                             +
               |         "type": "int_agg",                    +
               |         "count": 48,                          +
               |         "stddev": 10.55,                      +
+              |         "sum_sq": 5848,                       +
               |         "variance": 111.31,                   +
               |         "sum_sq_diff": 5231.67,               +
               |         "coefficient_of_variation_pct": 294.43+
@@ -1461,8 +1475,9 @@ stats_summary | {                                             +
               |         "type": "float_agg",                  +
               |         "count": 23,                          +
               |         "stddev": 21410030.35,                +
-              |         "variance": 458389399604743.06,       +
-              |         "sum_sq_diff": 10084566791304348.00,  +
+              |         "sum_sq": 13083002100000000,          +
+              |         "variance": 458389399604743.08,       +
+              |         "sum_sq_diff": 10084566791304347.83,  +
               |         "coefficient_of_variation_pct": 187.51+
               |     },                                        +
               |     "employees": {                            +
@@ -1473,6 +1488,7 @@ stats_summary | {                                             +
               |         "type": "int_agg",                    +
               |         "count": 23,                          +
               |         "stddev": 14.40,                      +
+              |         "sum_sq": 5848,                       +
               |         "variance": 207.35,                   +
               |         "sum_sq_diff": 4561.74,               +
               |         "coefficient_of_variation_pct": 192.55+
@@ -1491,8 +1507,9 @@ stats_summary | {                                             +
               |         "type": "float_agg",                  +
               |         "count": 23,                          +
               |         "stddev": 21410030.35,                +
-              |         "variance": 458389399604743.06,       +
-              |         "sum_sq_diff": 10084566791304348.00,  +
+              |         "sum_sq": 13083002100000000,          +
+              |         "variance": 458389399604743.08,       +
+              |         "sum_sq_diff": 10084566791304347.83,  +
               |         "coefficient_of_variation_pct": 187.51+
               |     },                                        +
               |     "employees": {                            +
@@ -1503,6 +1520,7 @@ stats_summary | {                                             +
               |         "type": "int_agg",                    +
               |         "count": 23,                          +
               |         "stddev": 14.40,                      +
+              |         "sum_sq": 5848,                       +
               |         "variance": 207.35,                   +
               |         "sum_sq_diff": 4561.74,               +
               |         "coefficient_of_variation_pct": 192.55+
@@ -1591,6 +1609,7 @@ stats_summary | {                                            +
               |         "type": "float_agg",                 +
               |         "count": 25,                         +
               |         "stddev": 1591.83,                   +
+              |         "sum_sq": 165001024,                 +
               |         "variance": 2533920.51,              +
               |         "sum_sq_diff": 60814092.16,          +
               |         "coefficient_of_variation_pct": 77.98+
@@ -1603,6 +1622,7 @@ stats_summary | {                                            +
               |         "type": "int_agg",                   +
               |         "count": 25,                         +
               |         "stddev": 1.44,                      +
+              |         "sum_sq": 275,                       +
               |         "variance": 2.08,                    +
               |         "sum_sq_diff": 50.00,                +
               |         "coefficient_of_variation_pct": 48.11+
@@ -1621,6 +1641,7 @@ stats_summary | {                                            +
               |         "type": "float_agg",                 +
               |         "count": 25,                         +
               |         "stddev": 1591.83,                   +
+              |         "sum_sq": 165001024,                 +
               |         "variance": 2533920.51,              +
               |         "sum_sq_diff": 60814092.16,          +
               |         "coefficient_of_variation_pct": 77.98+
@@ -1633,6 +1654,7 @@ stats_summary | {                                            +
               |         "type": "int_agg",                   +
               |         "count": 25,                         +
               |         "stddev": 1.44,                      +
+              |         "sum_sq": 275,                       +
               |         "variance": 2.08,                    +
               |         "sum_sq_diff": 50.00,                +
               |         "coefficient_of_variation_pct": 48.11+
