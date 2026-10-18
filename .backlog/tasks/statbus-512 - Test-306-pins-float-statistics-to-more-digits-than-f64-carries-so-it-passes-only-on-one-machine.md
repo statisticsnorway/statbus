@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-10-15 21:43'
-updated_date: '2026-10-18 11:34'
+updated_date: '2026-10-18 12:13'
 labels:
   - testing
   - jsonb_stats
@@ -53,4 +53,19 @@ StatBus side after the jsonb_stats release: bump jsonb_stats_release in postgres
 - Tag v3.0.0 = 04cff87 on veridit/jsonb_stats. State is exact (count, sum, sum_sq, min, max as decimals), and derived fields are rounded once, so the results are order- and machine-independent.
 - **Upgrade path:** `ALTER EXTENSION jsonb_stats UPDATE` (sql/jsonb_stats--2.0.0--3.0.0.sql is a no-op for SQL). Stored 2.x summaries are upgraded on read (sum_sq rebuilt from count, sum and sum_sq_diff) and become exact at their next recompute. Note: dev/STATBUS_HANDOFF.md (bb3bc43) predates this; it says there is no ALTER path and stored summaries are rejected. The released README and CHANGELOG supersede it.
 - **Plan:** bump the pin, add a guarded ALTER EXTENSION migration, prove the box-shaped upgrade, re-record the expected outputs, and get CI amd64 identical to arm64.
+
+### Upgrade proof (2026-10-18 11:45, local stack shaped like a box upgrade; tmp/512-proof-local.sh, tmp/512-proof-step4.sh)
+1. **Old image** (2.0.0): the demo fixture was loaded through the real import and analytics jobs, giving 163 statistical_unit rows with summaries and 0 of 163 carrying sum_sq. The merge of enterprise employees gave count 135, sum 2239, sum_sq_diff 8378.95.
+2. **db recreated on the new image** (3.0.0 library, 2.0.0 schema, as the upgrade's db restart does). It reads and merges the stored 2.0.0 summaries with no error, and the merge now carries sum_sq 45513.
+3. **./sb migrate up** applies 20261018113522: extversion becomes 3.0.0. The stored summaries are byte-identical before and after (md5 over every unit's stats_summary). A second run is a no-op.
+4. **Recompute** (timeline_*_refresh, then statistical_unit_refresh): 163 of 163 summaries carry sum_sq. The sample's {10, 23} gives sum_sq 629 = 10² + 23², and sum_sq_diff 84.50, which is exact.
+- **Note:** statistical_unit_refresh alone copies from the timeline tables, so a recompute must start at the timelines. On a box the next import or derive does this per unit.
+
+### Committed d506471b4 (2026-10-18)
+- Pin jsonb_stats_release=v3.0.0. Migration 20261018113522 (guarded ALTER EXTENSION jsonb_stats UPDATE TO '3.0.0'; its down refuses). app types: sum_sq?: number.
+- **Red:** on master (2.0.0) test 306 passes locally on arm64 but failed in CI on amd64 (5bd8ebfa8 history), and the variance digits differ between them.
+- **Green locally (arm64), with 3.0.0:** 16 expected files re-recorded. All 118 fast tests pass; tsc and lint pass.
+- **Review of every changed line:** `tmp/512-verify-exact.py` recomputed sum_sq_diff, mean, variance and stddev with rational arithmetic from count, sum and sum_sq for every numeric aggregate in the new outputs: **1870 values, 0 mismatches**. `tmp/512-residual.py` removed derived fields and number formatting; what remains is only the new sum_sq lines and the 107 HINT that now lists stats_summary.*.sum_sq.
+- **AC2 (the other files that print variance):** the 15 other files are re-recorded under the same exact values. 404 (4xx, not in fast) is left to STATBUS-480.
+- Waiting: Fast Tests on amd64 in CI for d506471b4. Identical output there means AC1 is proven.
 <!-- SECTION:NOTES:END -->
