@@ -3,10 +3,10 @@ id: STATBUS-512
 title: >-
   Test 306 pins float statistics to more digits than f64 carries, so it passes
   only on one machine
-status: In Progress
+status: Done
 assignee: []
 created_date: '2026-10-15 21:43'
-updated_date: '2026-10-18 12:13'
+updated_date: '2026-10-18 12:41'
 labels:
   - testing
   - jsonb_stats
@@ -33,8 +33,8 @@ jsonb_stats merges float statistics with Chan's parallel formula (`src/merge.rs:
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 Test 306 produces identical output on amd64 (CI) and arm64 (local), shown by a green CI run and a green local run at the same commit
-- [ ] #2 The other expected files that print float variance are checked against the same rule and fixed where they pin digits beyond f64 precision
+- [x] #1 Test 306 produces identical output on amd64 (CI) and arm64 (local), shown by a green CI run and a green local run at the same commit
+- [x] #2 The other expected files that print float variance are checked against the same rule and fixed where they pin digits beyond f64 precision
 <!-- AC:END -->
 
 ## Implementation Notes
@@ -68,4 +68,9 @@ StatBus side after the jsonb_stats release: bump jsonb_stats_release in postgres
 - **Review of every changed line:** `tmp/512-verify-exact.py` recomputed sum_sq_diff, mean, variance and stddev with rational arithmetic from count, sum and sum_sq for every numeric aggregate in the new outputs: **1870 values, 0 mismatches**. `tmp/512-residual.py` removed derived fields and number formatting; what remains is only the new sum_sq lines and the 107 HINT that now lists stats_summary.*.sum_sq.
 - **AC2 (the other files that print variance):** the 15 other files are re-recorded under the same exact values. 404 (4xx, not in fast) is left to STATBUS-480.
 - Waiting: Fast Tests on amd64 in CI for d506471b4. Identical output there means AC1 is proven.
+
+### Closed 2026-10-18 12:41
+- **AC1:** Fast Tests run 39127010713 (amd64, CI) passed on 373cd0f80, which contains d506471b4, with the same expected outputs that pass locally on arm64 (118/118). Go Test passed on d506471b4.
+- **AC2:** every fast-suite file that prints statistics was re-recorded under exact values and checked (1870 values, 0 mismatches). 404 (4xx, not in any CI) belongs to STATBUS-480.
+- **Closing review:** Memory: none. Documentation: the migration comment carries the upgrade meaning; jsonb_stats's README covers the rest. Cleanup: the local image tag statbus-db:pre-512 was kept only for the proof.
 <!-- SECTION:NOTES:END -->
