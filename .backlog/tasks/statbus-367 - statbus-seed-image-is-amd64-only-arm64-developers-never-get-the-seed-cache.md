@@ -3,10 +3,10 @@ id: STATBUS-367
 title: >-
   The seed image is one data-only multi-arch manifest, so arm64 developers
   restore it too
-status: In Progress
+status: Done
 assignee: []
 created_date: '2026-09-14 10:14'
-updated_date: '2026-10-20 20:47'
+updated_date: '2026-10-20 20:53'
 labels:
   - release-bug
   - ci
@@ -45,7 +45,7 @@ A fetch that fails must also say why: "not built for this commit" is a different
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
 - [x] #1 The published seed for a post-fix commit is one OCI index whose amd64 and arm64 entries reference one image digest with only the two data layers (observed for `statbus-seed:3b17af17`, 2026-10-15)
-- [ ] #2 `./dev.sh build-sb` on an arm64 Mac at a published commit restores the fetched seed (one pg_restore, no full replay), with no `--platform` in `cli/cmd/seed.go`
+- [x] #2 `./dev.sh build-sb` on an arm64 Mac at a published commit restores the fetched seed (one pg_restore, no full replay), with no `--platform` in `cli/cmd/seed.go`
 - [x] #3 A fetch at an unbuilt commit says the seed is not built; a fetch failing for another reason prints that reason (`TestSeedPullErrorDistinguishesMissingManifest`)
 - [x] #4 [Owner] Decide whether an adversarial review by a different session is still required, and record it in Implementation Notes. No: check this. Yes: add the review as a new criterion.
 <!-- AC:END -->
@@ -61,4 +61,10 @@ A fetch that fails must also say why: "not built for this commit" is a different
 
 ### Owner decision 2026-10-20: no further adversarial review
 The fix is in and tested (AC1, AC3). Remaining: AC2, a practical check of `./dev.sh build-sb` on the arm64 Mac, run by rabbit.
+
+### AC2 observed 2026-10-20 on the arm64 Mac (rabbit)
+Scratch worktree at published commit 4bb58264, own slot s367, so the shared local database was untouched.
+- `./dev.sh build-sb` fetched `statbus-seed:4bb58264` on darwin/arm64 (`Seed fetched from image: migration 20261018113522`), with no `--platform` in `cli/cmd/seed.go`.
+- `./dev.sh create-db` restored it once (`Seed restored to statbus_local (migration 20261018113522)`), then `Checking database migrations ... ok (0 pending)`: no replay. Logs: `tmp/367-build-sb-green.log`, `tmp/367-create-db-green.log`.
+- Found and fixed on the way (43567fdef): create-db-structure rebuilt the database name as `statbus_<slot code>` instead of using POSTGRES_APP_DB, so any slot whose app database has another name failed after the restore (`tmp/367-create-db.log`). Green after the fix: the JWT secret and slot code land in the app database.
 <!-- SECTION:NOTES:END -->
