@@ -1,12 +1,12 @@
 ---
 id: STATBUS-392
 title: >-
-  A release installation starts and restarts from published images; only a
-  source checkout builds
+  sb behaves by how it was built: a release build pulls and runs published
+  images and keeps developer commands out of the way; a source build builds
 status: In Progress
 assignee: []
 created_date: '2026-09-24 16:42'
-updated_date: '2026-10-20 12:24'
+updated_date: '2026-10-20 13:49'
 labels:
   - release-bug
   - install
@@ -20,29 +20,30 @@ ordinal: 1
 
 <!-- SECTION:DESCRIPTION:BEGIN -->
 ### North Star
-Starting or restarting StatBus on a release installation uses the published images and never builds from source; only a source development checkout builds.
+What runs on a release installation is exactly what we published. A developer's source build builds what it changed. The sb binary knows which one it is, and every command follows that one answer.
 
 ### Zoom out
-Two kinds of box can both run the web entry point in development mode: a developer's source checkout, where building from source is the point, and a released installation that a country runs in development mode (for example a laptop test). The compose files carry build blocks, so if "development mode" alone decides, a released installation can start a slow, surprising local build during an ordinary start or a recovery. The right question is "is this a source checkout?", answered from the generated `VERSION`: a release tag means published images, anything else means source.
+The binary carries its build identity: a tagged release (`v2026.10.3-rc.01`) or a source build between tags (`v2026.10.3-23-g34cd535ea`). That is the source of truth (owner, 2026-10-20). Not CADDY_DEPLOYMENT_MODE, which describes how the site is served. A country testing a release on a laptop in development mode is still a release install, and a developer can exercise release behaviour locally by running a release binary.
+
+Compose with both image: and build: (all our services) uses the image if present, pulls if absent, and builds if the pull fails. Install and upgrade already pull first, verify, and then start with --no-build, so a running stack means the images were pulled. Start and restart follow the same rule.
 
 ### Zoom in
-- **Finding, Finland triage 2026-09-24 (v2026.09.2):** `./sb start` added `--build` whenever the mode was development, even on an image-based install (`cli/internal/service/service.go:55` then). Install itself avoided it only because its Services step used a plain `up -d`. Whether Finland's box actually hit this path is unknown.
-- **Shipped (v2026.09.3):** `05a4fe9dd`. `startBuildsFromSource` (`cli/cmd/service.go`) returns false unless development mode AND `VERSION` is not a release tag (no `v` prefix, or a `-g` describe suffix). `./sb start` then passes `--no-build`; install startup also uses `--no-build`, and a release image pull no longer falls back to a local build.
-- **Proof, unit:** `TestStartImageBasedDevelopmentSkipsBuild`, `TestStartSourceDevelopmentBuilds` (`cli/cmd/service_start_test.go`), green 2026-10-15.
-- **Gap found 2026-10-15:** `./sb restart` (`cli/cmd/service_restart.go`) still adds `--build` whenever `compose.IsDevelopmentModeInDir` is true; it was not switched to `startBuildsFromSource`. So restarting a released development-mode installation can still build locally.
+- **History:** the Finland triage (2026-09-24) found `./sb start` forcing --build in development mode. 05a4fe9dd and e622a4f9a answered that with a separate guess (startBuildsFromSource, from VERSION in .env) and a forced --no-build. The owner pushed back (2026-10-20): that tested flags rather than outcomes, and the timing test (old AC4) would have tested Docker Compose, not us.
+- **Images missing on a release box** only happens after a deliberate prune or disk clean-up. A cheap local check (no network) covers it: pull only when missing, and say why.
+- **Command groups:** sb has no grouping or mode-dependent visibility today (checked: no cobra AddGroup/GroupID anywhere). Cobra hides per command; groups are headings. Visibility is decided before help is drawn.
 
 ### Closing review
-- **Memory:** none needed.
-- **Documentation:** `./sb start --help` states the rule; `./sb restart --help` needs the same line once it follows it.
-- **Cleanup:** none.
+- **Memory:** none. **Documentation:** the help text of start, restart and build, and the hint line in the root help. **Cleanup:** remove startBuildsFromSource and its tests.
 <!-- SECTION:DESCRIPTION:END -->
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [x] #1 `./sb start` on a release installation in development mode passes `--no-build` (`TestStartImageBasedDevelopmentSkipsBuild`)
-- [x] #2 `./sb start` in a source development checkout still builds (`TestStartSourceDevelopmentBuilds`)
-- [x] #3 `./sb restart` builds from source only in a source checkout and passes `--no-build` on a release installation, by the same rule as `./sb start` (`startBuildsFromSource`)
-- [ ] #4 [Owner] Decide whether the real-box timing scenario (`4-image-start-no-build.sh`, image start within 20% of a pull-plus-start baseline) is required, and record it in Implementation Notes. No: check this and set Done after AC3. Yes: add that scenario as a new criterion.
+- [ ] #1 One function answers 'release build or source build' from the binary's build identity, and start, restart and command visibility all use it; startBuildsFromSource is removed
+- [ ] #2 A source build: ./sb start and ./sb restart run compose up with --build
+- [ ] #3 A release build: start and restart check locally that this version's images exist; if any is missing they print why, pull, and then start with --no-build; a failed pull stops with the remedy (check the network, or build with ./sb build)
+- [ ] #4 ./sb --help groups commands as Operations and Development. On a release build the Development group is hidden, the help ends with a line naming ./sb help --all, ./sb help --all lists every command, and a hidden command still runs and shows its own --help
+- [ ] #5 The clean LXD install and upgrade scenarios assert that every StatBus service image on the box carries a ghcr.io registry digest (pulled, not built), read from Docker's image records
+- [ ] #6 Go tests and the fast suite pass, and CI passes; old AC4 (real-box timing scenario) is withdrawn by the owner
 <!-- AC:END -->
 
 ## Implementation Notes
@@ -71,4 +72,9 @@ Two kinds of box can both run the web entry point in development mode: a develop
 - **Conclusion:** the original defect (Finland triage) was `--build` forced in development mode. Dropping `--build` was the fix. Adding `--no-build` plus the source-checkout/release decision (startBuildsFromSource, a check on the VERSION string) replaced a self-healing default with 'pull or fail'.
 - **Proposed redesign:** `./sb start` and `./sb restart` run plain `up -d` with no build flag. Remove startBuildsFromSource. Tests assert that neither flag is passed. Developers build explicitly (./dev.sh, docker compose build). AC4 (the real-box timing scenario) is withdrawn: No.
 - **Open (owner):** in a source checkout, `./sb start` would no longer rebuild after a code change. That is acceptable if development builds belong to ./dev.sh.
+
+### Agreed design (owner, 2026-10-20)
+- **1b:** the build identity decides. **2:** release start/restart do a cheap image check, pull only if missing (saying why), then --no-build; a source build uses --build. **3:** Operations and Development groups; Development hidden on release builds; `./sb help --all` shows it, with a hint line in the regular help; a command's own --help always works (cobra).
+- **Test:** the outcome (registry digests on the clean install and upgrade), not flag strings.
+- Earlier AC1-3 (the --no-build design) are superseded by this design; their commits stay in history.
 <!-- SECTION:NOTES:END -->
