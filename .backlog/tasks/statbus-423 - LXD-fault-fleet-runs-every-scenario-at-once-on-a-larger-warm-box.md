@@ -6,12 +6,13 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-09-28 08:18'
-updated_date: '2026-10-20 20:29'
+updated_date: '2026-10-20 20:43'
 labels:
   - ci
   - lxd
 dependencies: []
 priority: medium
+type: enhancement
 ordinal: 372200
 ---
 

@@ -4,12 +4,13 @@ title: Reading applied migrations on a fresh database answers none instead of fa
 status: Done
 assignee: []
 created_date: '2026-10-20 18:07'
-updated_date: '2026-10-20 18:34'
+updated_date: '2026-10-20 20:43'
 labels:
   - migrate
   - install
 dependencies: []
 priority: medium
+type: bug
 ordinal: 446204
 ---
 

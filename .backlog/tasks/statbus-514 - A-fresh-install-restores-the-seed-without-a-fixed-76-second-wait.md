@@ -4,12 +4,13 @@ title: A fresh install restores the seed without a fixed 76-second wait
 status: In Progress
 assignee: []
 created_date: '2026-10-16 13:43'
-updated_date: '2026-10-20 14:52'
+updated_date: '2026-10-20 20:43'
 labels:
   - install
   - performance
 dependencies: []
 priority: medium
+type: bug
 ordinal: 440204
 ---
 

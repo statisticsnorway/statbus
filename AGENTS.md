@@ -30,6 +30,7 @@ STATBUS is SSB's statistical business registry: PostgreSQL 18+, PostgREST 12+, N
 
 - Backlog is the durable ticket tracker. Each ticket's scope, acceptance criteria, status, and evidence live in its Markdown file under `.backlog/tasks/`, not only in todos or agent prompts.
 - Use the Backlog MCP or `backlog` CLI to create and update tickets. Read with either tool or `rg`. Do not hand-edit structured ticket sections, look up tickets in a browser, or guess tracker URLs.
+- Give every ticket a type with `--type`: `bug`, `feature`, `enhancement`, `task`, `chore`, `docs` or `spike`. The board shows it as a coloured tag.
 - Set `In Progress` when work starts, including delegation. After verification, set `Done` with `backlog task edit <id> -s "Done"` and leave it on the board. Do not use `backlog task complete` for newly finished work.
 - Use `--append-notes` to add evidence. `--notes` replaces existing notes. Use `--check-ac <n>` to mark verified criteria.
 

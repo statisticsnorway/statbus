@@ -4,12 +4,13 @@ title: An app image with unchanged app source builds from cache
 status: In Progress
 assignee: []
 created_date: '2026-10-17 15:40'
-updated_date: '2026-10-20 20:31'
+updated_date: '2026-10-20 20:43'
 labels:
   - ci
   - lxd
 dependencies: []
 priority: medium
+type: enhancement
 ordinal: 444204
 ---
 

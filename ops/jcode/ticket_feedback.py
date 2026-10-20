@@ -140,6 +140,9 @@ def review(text):
 AC_BLOCK = re.compile(r"<!-- AC:BEGIN -->(.*?)<!-- AC:END -->", re.S)
 AC_LINE = re.compile(r"^- \[( |x)\] #(\d+) (.*)$", re.M)
 STRUCTURED = {"Description", "Acceptance Criteria", "Definition of Done", "Implementation Notes", "Final Summary"}
+# The ticket type is the board's coloured tag, so the owner sees at a glance what kind of work a ticket is.
+# These are the types configured in .backlog/config.yml (`backlog config get types`).
+TYPES = ("bug", "feature", "enhancement", "task", "chore", "docs", "spike")
 CRITERION_RULES = [
     (re.compile(r"\?"), "asks a question; write the job instead (an owner decision is \"[Owner] Decide ...; record the answer in Implementation Notes\")"),
     (re.compile(r"\b(today|currently|right now|at the moment)\b", re.I), "describes current status; state only the result to reach"),
@@ -151,6 +154,9 @@ CRITERION_RULES = [
 
 def structural_findings(text):
     findings = []
+    ticket_type = re.search(r"(?m)^type:\s*(\S+)\s*$", text)
+    if not ticket_type or ticket_type.group(1).lower() not in TYPES:
+        findings.append(f"Set the ticket type with `backlog task edit <id> --type <type>`, one of: {', '.join(TYPES)}.")
     for heading in re.findall(r"(?m)^## (.+?)\s*$", text):
         if heading not in STRUCTURED:
             findings.append(f"Delete the legacy section \"## {heading}\"; keep its facts only if Zoom in or the notes need them.")

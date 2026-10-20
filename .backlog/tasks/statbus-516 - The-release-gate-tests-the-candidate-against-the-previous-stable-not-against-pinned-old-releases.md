@@ -6,12 +6,13 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-10-17 15:39'
-updated_date: '2026-10-20 11:41'
+updated_date: '2026-10-20 20:43'
 labels:
   - ci
   - lxd
 dependencies: []
 priority: high
+type: task
 ordinal: 442204
 ---
 
