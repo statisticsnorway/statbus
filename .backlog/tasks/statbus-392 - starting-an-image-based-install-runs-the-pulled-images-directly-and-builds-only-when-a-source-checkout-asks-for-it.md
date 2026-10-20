@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-09-24 16:42'
-updated_date: '2026-10-20 13:49'
+updated_date: '2026-10-20 13:50'
 labels:
   - release-bug
   - install
@@ -77,4 +77,6 @@ Compose with both image: and build: (all our services) uses the image if present
 - **1b:** the build identity decides. **2:** release start/restart do a cheap image check, pull only if missing (saying why), then --no-build; a source build uses --build. **3:** Operations and Development groups; Development hidden on release builds; `./sb help --all` shows it, with a hint line in the regular help; a command's own --help always works (cobra).
 - **Test:** the outcome (registry digests on the clean install and upgrade), not flag strings.
 - Earlier AC1-3 (the --no-build design) are superseded by this design; their commits stay in history.
+
+- **Design written up:** doc/sb-build-identity.md.
 <!-- SECTION:NOTES:END -->
