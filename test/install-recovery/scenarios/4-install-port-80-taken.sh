@@ -19,7 +19,9 @@ source "$LIB_DIR/assertions.sh"
 trap 'rc=$?; cleanup_vm "$VM_NAME"; exit $rc' EXIT
 bootstrap_install_test_vm "$VM_NAME" "$INSTALL_TARGET_TAG"
 VM_ROOT_EXEC bash -c 'DEBIAN_FRONTEND=noninteractive apt-get install -y apache2 >/dev/null && systemctl enable --now apache2'
-# No sudoers fixture: the application user must discover Apache via systemd.
+# No sudoers fixture: without sudo the installer may see the listener on port
+# 80 but not its process name; the refusal then names the port and "another
+# program". The scenario asserts the outcome, not a prescribed command.
 VM_ROOT_EXEC bash -c 'ss -ltn "( sport = :80 )" | grep -q LISTEN'
 FIRST_LOG=$(mktemp)
 if install_statbus_at_sha "$VM_NAME" "$TARGET_SHA" "$INSTALL_TARGET_TAG" >"$FIRST_LOG" 2>&1; then
@@ -27,12 +29,18 @@ if install_statbus_at_sha "$VM_NAME" "$TARGET_SHA" "$INSTALL_TARGET_TAG" >"$FIRS
     echo 'port-80 conflict unexpectedly passed' >&2
     exit 1
 fi
-grep -q 'sudo systemctl disable --now apache2' "$FIRST_LOG" || { cat "$FIRST_LOG" >&2; exit 1; }
+if ! REFUSAL_LINE=$(grep -E '^Port 80 is in use by ' "$FIRST_LOG" | tail -1); then
+    cat "$FIRST_LOG" >&2
+    exit 1
+fi
+[ -n "$REFUSAL_LINE" ] || { cat "$FIRST_LOG" >&2; exit 1; }
+echo "operator saw: $REFUSAL_LINE"
 grep -qi 'answers are saved' "$FIRST_LOG" || { cat "$FIRST_LOG" >&2; exit 1; }
 [ "$(VM_EXEC bash -c 'cd ~/statbus && docker compose ps -q | wc -l' | tr -d ' ')" = 0 ] || { echo 'StatBus services started before port preflight' >&2; exit 1; }
 VM_ROOT_EXEC systemctl disable --now apache2
 # Paste the exact command emitted in the refusal, including channel and answer paths.
-RERUN_COMMAND=$(grep '^port 80 is in use by ' "$FIRST_LOG" | tail -1 | sed 's/^.*Then run the same install command again: //')
+RERUN_COMMAND=$(printf '%s\n' "$REFUSAL_LINE" | sed 's/^.*Then run the same install command again: //')
+echo "rerun command: $RERUN_COMMAND"
 [[ "$RERUN_COMMAND" == *'curl -fsSL https://statbus.org/install.sh | env '* && "$RERUN_COMMAND" == *'STATBUS_ENV_CONFIG='* && "$RERUN_COMMAND" == *'STATBUS_USERS_FILE='* && "$RERUN_COMMAND" == *'bash -s -- --channel prerelease --non-interactive'* ]] || { cat "$FIRST_LOG" >&2; exit 1; }
 VM_EXEC bash -c "cd ~ && $RERUN_COMMAND"
 VM_EXEC bash -c "cd ~/statbus && test \"\$(git describe --tags --exact-match HEAD)\" = '$INSTALL_TARGET_TAG'"

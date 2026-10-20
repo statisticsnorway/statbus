@@ -5,14 +5,13 @@ import (
 	"fmt"
 	"net"
 	"os/exec"
-	"path/filepath"
 	"regexp"
 	"strconv"
 	"strings"
 	"time"
 
+	"github.com/statisticsnorway/statbus/cli/internal/config"
 	"github.com/statisticsnorway/statbus/cli/internal/diskpolicy"
-	"github.com/statisticsnorway/statbus/cli/internal/dotenv"
 )
 
 type installPort struct {
@@ -20,21 +19,15 @@ type installPort struct {
 	number int
 }
 
-func selectedInstallPorts(mode string, offset int) []installPort {
-	base := 3000 + offset*10
-	ports := []installPort{{"127.0.0.1", base}, {"127.0.0.1", base + 1}, {"127.0.0.1", base + 2}, {"127.0.0.1", base + 3}, {"127.0.0.1", base + 4}, {"127.0.0.1", base + 5}, {"127.0.0.1", base + 6}}
-	if mode == "standalone" {
-		ports[0] = installPort{"0.0.0.0", 80}
-		ports[1] = installPort{"0.0.0.0", 443}
-		ports[4] = installPort{"127.0.0.1", 5431}
-		ports[5] = installPort{"0.0.0.0", 5432}
-	}
-	return ports
-}
-
 var listenerProgram = regexp.MustCompile(`users:\(\("([^"]+)"`)
 var safePortOwner = regexp.MustCompile(`^[A-Za-z0-9_-]{1,64}$`)
 
+// occupiedPortOwner observes a taken port and names the program holding it
+// when ss can see one. We do not know what runs on the operator's machine,
+// so the check only ever observes: a bind attempt, then ss to confirm a
+// listener, then the process name from ss output — unprivileged first, then
+// through sudo -n, which never asks for a password or stalls an unattended
+// installation. No program is named from a guess or a hardcoded list.
 var occupiedPortOwner = func(port installPort) string {
 	address := net.JoinHostPort(port.host, strconv.Itoa(port.number))
 	listener, err := net.Listen("tcp", address)
@@ -50,19 +43,11 @@ var occupiedPortOwner = func(port installPort) string {
 	if listenErr != nil || !strings.Contains(string(listeners), "LISTEN") {
 		return ""
 	}
-	// Unprivileged ss often masks the process, but systemd reports active units.
-	units, _ := exec.CommandContext(ctx, "systemctl", "list-units", "--type=socket,service", "--state=active", "--no-legend", "--plain").Output()
-	for _, name := range []string{"apache2", "nginx", "caddy"} {
-		if strings.Contains(string(units), name+".service") || strings.Contains(string(units), name+".socket") {
-			return name
-		}
-	}
 	out, _ := exec.CommandContext(ctx, "ss", "-ltnp", filter).Output()
 	if matches := listenerProgram.FindSubmatch(out); len(matches) > 1 {
 		return string(matches[1])
 	}
 	// A non-root user can see the listener but often not its process name.
-	// sudo -n never asks for a password or stalls an unattended installation.
 	out, _ = exec.CommandContext(ctx, "sudo", "-n", "ss", "-ltnp", filter).Output()
 	if matches := listenerProgram.FindSubmatch(out); len(matches) > 1 {
 		return string(matches[1])
@@ -70,23 +55,21 @@ var occupiedPortOwner = func(port installPort) string {
 	return "another program"
 }
 
-// portConflictGuidance is assembled from a numeric port and a process name
-// discovered locally, never from Docker output or an arbitrary exception.
+// portConflictGuidance is the one refusal shape for a taken port
+// (STATBUS-521): an observation — the port, and the listener's program name
+// when ss showed it — and what is ours: StatBus needs this port. It
+// prescribes no command for the other program; stopping or moving it is the
+// operator's call, on their machine, for software we know nothing about.
+//
+// Assembled from a numeric port and a process name discovered locally, never
+// from Docker output or an arbitrary exception.
 func portConflictGuidance(number int, owner string) string {
 	// ss process names can contain arbitrary printable characters. Never pass
 	// an unrecognized owner through the installer diagnostic boundary.
 	if !safePortOwner.MatchString(owner) {
 		owner = "another program"
 	}
-	remedy := fmt.Sprintf("Find the listener with sudo ss -ltnp '( sport = :%d )', then stop that program to free port %d", number, number)
-	if owner != "another program" {
-		if out, err := exec.Command("systemctl", "show", owner+".service", "--property=LoadState", "--value").Output(); err == nil && strings.TrimSpace(string(out)) == "loaded" {
-			remedy = "Free the port with sudo systemctl disable --now " + owner
-		} else {
-			remedy = fmt.Sprintf("Free the port with sudo kill $(sudo lsof -tiTCP:%d -sTCP:LISTEN)", number)
-		}
-	}
-	return fmt.Sprintf("port %d is in use by %s. %s.", number, owner, remedy)
+	return fmt.Sprintf("Port %d is in use by %s. StatBus needs this port. Stop that program or move it to another port.", number, owner)
 }
 
 func ownPublishedPort(statuses []serviceStatus, number int) bool {
@@ -100,19 +83,18 @@ func ownPublishedPort(statuses []serviceStatus, number int) bool {
 	return false
 }
 
+// checkInstallPorts refuses to continue when a port the generated settings
+// bind is held by a program that is not this installation's own services.
+// The ports and addresses checked are the ones the generated .env publishes
+// (config.PlannedHostPortsInDir, the same computation that writes .env), so
+// the check cannot drift from what the services bind (STATBUS-521).
 func checkInstallPorts(dir string) error {
-	cfg, err := dotenv.Load(filepath.Join(dir, ".env.config"))
+	planned, err := config.PlannedHostPortsInDir(dir)
 	if err != nil {
-		return err
+		return fmt.Errorf("the ports to check could not be read from the configuration: %w", err)
 	}
-	mode, _ := cfg.Get("CADDY_DEPLOYMENT_MODE")
-	offset := 1
-	if raw, ok := cfg.Get("DEPLOYMENT_SLOT_PORT_OFFSET"); ok {
-		if parsed, e := strconv.Atoi(raw); e == nil {
-			offset = parsed
-		}
-	}
-	for _, p := range selectedInstallPorts(mode, offset) {
+	for _, plannedPort := range planned {
+		p := installPort{host: plannedPort.Host, number: plannedPort.Port}
 		owner := occupiedPortOwner(p)
 		if owner == "" {
 			continue

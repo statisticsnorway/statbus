@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"syscall"
 	"testing"
@@ -223,6 +224,38 @@ func TestParseServiceStatuses(t *testing.T) {
 	}
 	if got, err := parseServiceStatuses([]byte("  \n")); err != nil || len(got) != 0 {
 		t.Fatalf("empty: %+v %v", got, err)
+	}
+}
+
+// TestParseServiceStatusesRealDockerCapture pins the parser against Docker's
+// own output (STATBUS-521 AC5, the STATBUS-393 middle way): the testdata file
+// is the verbatim stdout of `docker compose ps -a --format json` (Docker
+// Compose v5.6.0) for a throwaway project whose "stopped" service ran `true`
+// to completion and whose "flapping" service crash-loops `false` under
+// `restart: always`.
+func TestParseServiceStatusesRealDockerCapture(t *testing.T) {
+	out, err := os.ReadFile("testdata/docker-compose-ps-stopped-restarting.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	statuses, err := parseServiceStatuses(out)
+	if err != nil {
+		t.Fatal(err)
+	}
+	byService := make(map[string]serviceStatus, len(statuses))
+	for _, s := range statuses {
+		byService[s.Service] = s
+	}
+	if got := byService["stopped"].State; got != "exited" {
+		t.Fatalf("stopped service parsed as %q, want exited", got)
+	}
+	if got := byService["flapping"].State; got != "restarting" {
+		t.Fatalf("crash-looping service parsed as %q, want restarting", got)
+	}
+	problems := servicesNotRunning([]string{"stopped", "flapping"}, statuses)
+	want := []serviceProblem{{Service: "stopped", State: "exited"}, {Service: "flapping", State: "restarting"}}
+	if !reflect.DeepEqual(problems, want) {
+		t.Fatalf("problems = %+v, want %+v", problems, want)
 	}
 }
 

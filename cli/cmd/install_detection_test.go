@@ -715,8 +715,8 @@ func TestSettingsRestoreRefusalShowsCertificateCauseThroughInstallSh(t *testing.
 // TestExit78AllowlistMatchesRealGoSentences drives install.sh's exit-78
 // bucket (port / disk-shortfall / disk-unmeasurable / restart-still-running)
 // with the REAL error strings the Go producers construct, not hand-copied
-// literals — portConflictGuidance's two remedy shapes plus the
-// probe-could-not-check variant, diskpolicy.Evaluate's shortfall sentence,
+// literals — portConflictGuidance's one refusal shape (named listener and
+// 'another program') plus the probe-could-not-check variant, diskpolicy.Evaluate's shortfall sentence,
 // diskpolicy.DockerRoot's unmeasurable sentence, and install.go's two restart
 // sentences (preflight barrier vs. the install.sh bootstrap mutex). Confirms
 // the STATBUS-430 review's full-line anchoring (change A) did not silently
@@ -729,9 +729,8 @@ func TestExit78AllowlistMatchesRealGoSentences(t *testing.T) {
 		name string
 		line string
 	}{
-		{"port systemctl remedy", fmt.Sprintf("%s Your answers are saved. Then run the same install command again: %s", portConflictGuidance(80, "nginx"), rerun)},
-		{"port kill remedy", fmt.Sprintf("%s Your answers are saved. Then run the same install command again: %s", portConflictGuidance(3014, "python3"), rerun)},
-		{"port another-program remedy", fmt.Sprintf("%s Your answers are saved. Then run the same install command again: %s", portConflictGuidance(3014, "another program"), rerun)},
+		{"port named listener", fmt.Sprintf("%s Your answers are saved. Then run the same install command again: %s", portConflictGuidance(80, "nginx"), rerun)},
+		{"port unknown listener", fmt.Sprintf("%s Your answers are saved. Then run the same install command again: %s", portConflictGuidance(3014, "another program"), rerun)},
 		{"port ownership could not be checked", fmt.Sprintf("%s Docker service ownership could not be checked. Your answers are saved. Then run the same install command again: %s", portConflictGuidance(3014, "another program"), rerun)},
 	}
 	shortfall, ok := diskpolicy.Evaluate(diskpolicy.Measurement{Path: "/var/lib/docker", FreeGB: 4})
@@ -903,7 +902,7 @@ func TestFallbackBundleGlobRejectsHostileExistingFile(t *testing.T) {
 func TestExit78AllowlistRejectsSuffixInjection(t *testing.T) {
 	const rerun = "curl -fsSL https://statbus.org/install.sh | bash"
 	injections := []string{
-		"port 80 is in use by nginx. Free the port with sudo systemctl disable --now nginx. Your answers are saved. Then run the same install command again: " + rerun + " EXTRA $(id) secret=hunter2",
+		"Port 80 is in use by nginx. StatBus needs this port. Stop that program or move it to another port. Your answers are saved. Then run the same install command again: " + rerun + " EXTRA $(id) secret=hunter2",
 		"Only 4 GB free on /var/lib/docker. StatBus needs at least 20 GB to install. Free some space, then run the same install command again: " + rerun + " ; rm -rf /",
 		"a restart is still running. Wait for it to finish, then run the same install command again: " + rerun + " FATAL: the database system is shutting down",
 		"the install state could not be determined safely; nothing was changed. Run the same install command again: " + rerun + ". If it stops again, send this file to StatBus support: /tmp/../../etc/passwd",

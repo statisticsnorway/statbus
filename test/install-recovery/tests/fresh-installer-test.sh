@@ -39,7 +39,7 @@ if [ "${EMIT_DNS_ADVICE:-}" = 1 ]; then
     printf '  candidate.example is not confirmed in public DNS, so an automatic public certificate cannot be promised, and local development is recommended for testing until the name is published and inbound port 80 is allowed.\n'
 fi
 if [ "${EMIT_RERUN:-}" = 1 ]; then
-    printf 'port 80 is in use by another program. Your answers are saved. Then run the same install command again: %s\n' "$STATBUS_INSTALL_RERUN_COMMAND"
+    printf 'Port 80 is in use by another program. StatBus needs this port. Stop that program or move it to another port. Your answers are saved. Then run the same install command again: %s\n' "$STATBUS_INSTALL_RERUN_COMMAND"
     exit 78
 fi
 if [ "${EXPECT_RESTART_MARKER:-}" = 1 ]; then
@@ -163,13 +163,15 @@ grep -Fq 'Keep this box as it is and contact StatBus support' "$TMP_ROOT/degrade
 grep -Fq '  The database restore could not be completed; the system is still degraded.' "$TMP_ROOT/degraded-output" || { cat "$TMP_ROOT/degraded-output" >&2; exit 1; }
 if grep -Fq 'Then run the same install command again' "$TMP_ROOT/degraded-output"; then cat "$TMP_ROOT/degraded-output" >&2; exit 1; fi
 echo 'PASS: degraded restore keeps the box and points to support, no rerun advice'
-# Classified port failures have three product remedies. Only a single safe
-# owner token (or the literal fallback) and one of those remedies may cross
-# the wrapper's diagnostic boundary. Exit-78 preflight is tested below.
+# A classified port failure has ONE product shape: the port, the listener's
+# name when ss showed it (else the literal fallback), and what is ours —
+# StatBus needs the port. Only a single safe owner token (or the literal
+# fallback) may cross the wrapper's diagnostic boundary. Exit-78 preflight is
+# tested below.
 for cause in \
-    "port 80 is in use by apache2. Free the port with sudo systemctl disable --now apache2." \
-    "port 443 is in use by python3. Free the port with sudo kill \$(sudo lsof -tiTCP:443 -sTCP:LISTEN)." \
-    "port 3014 is in use by another program. Find the listener with sudo ss -ltnp '( sport = :3014 )', then stop that program to free port 3014."; do
+    "Port 80 is in use by apache2. StatBus needs this port. Stop that program or move it to another port." \
+    "Port 443 is in use by python3. StatBus needs this port. Stop that program or move it to another port." \
+    "Port 3014 is in use by another program. StatBus needs this port. Stop that program or move it to another port."; do
     set +e
     EMIT_PORT_CAUSE="$cause" STATBUS_ENV_CONFIG="$EXPECTED_CONFIG" STATBUS_USERS_FILE="$EXPECTED_USERS" \
         bash "$ROOT/install.sh" --version v2026.09.0-rc.02 --non-interactive > "$TMP_ROOT/port-output" 2>&1
@@ -179,9 +181,9 @@ for cause in \
     grep -Fxq "Cause: $cause" "$TMP_ROOT/port-output" || { cat "$TMP_ROOT/port-output" >&2; exit 1; }
 done
 for cause in \
-    'port 80 is in use by arbitrary text secret=foo' \
-    'port 80 is in use by apache2. Free the port with sudo systemctl disable --now apache2. secret=foo' \
-    'port 80 is in use by apache2. Free the port with sudo systemctl disable --now nginx.'; do
+    'Port 80 is in use by arbitrary text secret=foo' \
+    'Port 80 is in use by apache2. StatBus needs this port. Stop that program or move it to another port. secret=foo' \
+    'port 80 is in use by apache2. Free the port with sudo systemctl disable --now apache2.'; do
     set +e
     EMIT_PORT_CAUSE="$cause" STATBUS_ENV_CONFIG="$EXPECTED_CONFIG" STATBUS_USERS_FILE="$EXPECTED_USERS" \
         bash "$ROOT/install.sh" --version v2026.09.0-rc.02 --non-interactive > "$TMP_ROOT/port-output" 2>&1
@@ -191,7 +193,7 @@ for cause in \
     ! grep -Fq "Cause: $cause" "$TMP_ROOT/port-output" || { cat "$TMP_ROOT/port-output" >&2; exit 1; }
     grep -Fq 'Cause: step 8/17 (Services) failed: this part of installation could not finish' "$TMP_ROOT/port-output"
 done
-echo 'PASS: classified port grammar admits product remedies, rejects arbitrary owner and suffix'
+echo 'PASS: classified port grammar admits the one product refusal, rejects arbitrary owner, suffix, and retired remedy shapes'
 # The real wrapper must leave a freed restart record for Go to inspect.
 mkdir -p "$HOME/statbus/tmp"
 printf '{"trigger":"restart","restart":{"profile":"all"}}\n' > "$HOME/statbus/tmp/upgrade-in-progress.json"
@@ -295,7 +297,7 @@ fi
 echo 'PASS: no-TTY piped install prints exact remedy without catastrophic banner'
 
 for advice in \
-    'port 80 is in use by apache2. Free the port with sudo systemctl disable --now apache2. Your answers are saved. Then run the same install command again: curl -fsSL https://statbus.org/install.sh | bash -s -- --version v2026.09.0-rc.02' \
+    'Port 80 is in use by apache2. StatBus needs this port. Stop that program or move it to another port. Your answers are saved. Then run the same install command again: curl -fsSL https://statbus.org/install.sh | bash -s -- --version v2026.09.0-rc.02' \
     'Only 12 GB free on /var/lib/docker. StatBus needs at least 20 GB to install. Free some space, then run the same install command again: curl -fsSL https://statbus.org/install.sh | bash -s -- --version v2026.09.0-rc.02' \
     'a restart is still running, or its services could not be restored. Wait for it to finish, then run the same install command again: curl -fsSL https://statbus.org/install.sh | bash -s -- --version v2026.09.0-rc.02'; do
     set +e

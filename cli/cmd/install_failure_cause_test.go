@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
-	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -34,7 +33,7 @@ func TestInstallFailureCauseOperatorTextContainsNoInternalDiagnostics(t *testing
 
 func TestClassifyInstallFailure(t *testing.T) {
 	cases := []struct{ name, step, diagnostic, cause, fix string }{
-		{"port", "Services", "Error response from daemon: could not publish host port 80/tcp: bind: address already in use", "port 80 is in use by", ""},
+		{"port", "Services", "Error response from daemon: could not publish host port 80/tcp: bind: address already in use", "Port 80 is in use by", ""},
 		{"disk", "Seed", "write /var/lib/docker/overlay2: no space left on device", "The disk ran out of free space.", "Free space on the installation disk"},
 		{"daemon", "Services", "Cannot connect to the Docker daemon at unix:///var/run/docker.sock. Is the docker daemon running?", "Docker is not running.", "Start Docker"},
 		{"socket", "Services", "permission denied while trying to connect to the Docker daemon socket at unix:///var/run/docker.sock", "The installer cannot access Docker.", "Give this user access"},
@@ -135,11 +134,6 @@ func TestInstallCauseAndFixMatchShellAllowlist(t *testing.T) {
 	}
 	cause, fix := classifyInstallFailure("Upgrade service", errors.New("unrecognized failure"))
 	check(cause, fix)
-	unitDir := t.TempDir()
-	if err := os.WriteFile(filepath.Join(unitDir, "systemctl"), []byte("#!/bin/sh\nif [ \"$2\" = apache2.service ]; then echo loaded; else echo not-found; fi\n"), 0700); err != nil {
-		t.Fatal(err)
-	}
-	t.Setenv("PATH", unitDir+string(os.PathListSeparator)+os.Getenv("PATH"))
 	for _, owner := range []string{"apache2", "python3", "another program", "unexpected text secret=foo", "bad.name"} {
 		check(portConflictGuidance(80, owner), "")
 	}

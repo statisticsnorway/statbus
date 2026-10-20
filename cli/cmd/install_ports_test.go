@@ -11,16 +11,24 @@ import (
 	"github.com/statisticsnorway/statbus/cli/internal/diskpolicy"
 )
 
+// The one refusal shape (STATBUS-521): the port, the listener's name when ss
+// showed it (else "another program"), what is ours (StatBus needs the port),
+// and no command for the other program.
 func TestPortConflictGuidance(t *testing.T) {
+	const tail = ". StatBus needs this port. Stop that program or move it to another port."
 	for _, owner := range []string{"python3", "another program"} {
-		message := portConflictGuidance(80, owner)
-		if !strings.Contains(message, "port 80 is in use by "+owner) || !strings.Contains(message, "sudo ") {
-			t.Fatalf("missing actionable port cause: %s", message)
+		want := "Port 80 is in use by " + owner + tail
+		if got := portConflictGuidance(80, owner); got != want {
+			t.Fatalf("guidance for %q:\n got  %q\n want %q", owner, got, want)
 		}
 	}
+	// A name outside the safe pattern never crosses the diagnostic boundary.
+	if got := portConflictGuidance(80, "bad name $(id)"); got != "Port 80 is in use by another program"+tail {
+		t.Fatalf("unsafe owner not filtered: %q", got)
+	}
 	message := servicePortConflictCause(errors.New("the web server (proxy) could not publish host port 80/tcp; port listener unavailable"))
-	if !strings.Contains(message, "port 80 is in use by") || !strings.Contains(message, "sudo ") {
-		t.Fatalf("service port failure lost actionable cause: %s", message)
+	if !strings.HasPrefix(message, "Port 80 is in use by ") || !strings.HasSuffix(message, tail) {
+		t.Fatalf("service port failure lost the port refusal shape: %s", message)
 	}
 }
 
@@ -51,9 +59,14 @@ func TestOwnPublishedPortRangeAndForeignSlot(t *testing.T) {
 
 func TestCheckInstallPortsOwnAndForeign(t *testing.T) {
 	dir := t.TempDir()
-	if err := os.WriteFile(filepath.Join(dir, ".env.config"), []byte("CADDY_DEPLOYMENT_MODE=development\nDEPLOYMENT_SLOT_CODE=local\nDEPLOYMENT_SLOT_PORT_OFFSET=1\n"), 0600); err != nil {
-		t.Fatal(err)
+	writeConfig := func(mode string) {
+		content := "CADDY_DEPLOYMENT_MODE=" + mode + "\nDEPLOYMENT_SLOT_CODE=local\nDEPLOYMENT_SLOT_PORT_OFFSET=1\n"
+		if err := os.WriteFile(filepath.Join(dir, ".env.config"), []byte(content), 0600); err != nil {
+			t.Fatal(err)
+		}
 	}
+	writeConfig("development")
+	rerun := diskpolicy.RerunCommand()
 	oldProbe, oldOwner := probeServiceStatuses, occupiedPortOwner
 	t.Cleanup(func() { probeServiceStatuses, occupiedPortOwner = oldProbe, oldOwner })
 	occupiedPortOwner = func(port installPort) string {
@@ -69,20 +82,24 @@ func TestCheckInstallPortsOwnAndForeign(t *testing.T) {
 		t.Fatalf("own running proxy rejected: %v", err)
 	}
 	probeServiceStatuses = func(string) ([]serviceStatus, error) { return nil, nil } // Other slot is not this Compose project.
-	if err := checkInstallPorts(dir); err == nil || !strings.Contains(err.Error(), "port 3014 is in use by another program") {
-		t.Fatalf("foreign listener not refused: %v", err)
+	err := checkInstallPorts(dir)
+	want := "Port 3014 is in use by another program. StatBus needs this port. Stop that program or move it to another port. Your answers are saved. Then run the same install command again: " + rerun
+	if err == nil || err.Error() != want {
+		t.Fatalf("foreign listener refusal:\n got  %v\n want %s", err, want)
 	}
+	// When the ownership probe itself fails, the refusal says so: install could
+	// not confirm whether the listener is StatBus's own.
 	probeServiceStatuses = func(string) ([]serviceStatus, error) { return nil, errors.New("compose unavailable") }
-	if err := checkInstallPorts(dir); err == nil || !strings.Contains(err.Error(), "port 3014 is in use by another program") || !strings.Contains(err.Error(), "Docker service ownership could not be checked") || strings.Contains(err.Error(), "compose unavailable") || !strings.Contains(err.Error(), "Your answers are saved") {
-		t.Fatalf("probe failure incorrectly blamed a foreign program: %v", err)
+	err = checkInstallPorts(dir)
+	want = "Port 3014 is in use by another program. StatBus needs this port. Stop that program or move it to another port. Docker service ownership could not be checked. Your answers are saved. Then run the same install command again: " + rerun
+	if err == nil || err.Error() != want {
+		t.Fatalf("probe-failure refusal:\n got  %v\n want %s", err, want)
 	}
 	occupiedPortOwner = func(installPort) string { return "" }
 	if err := checkInstallPorts(dir); err != nil {
 		t.Fatalf("free ports should not require Docker: %v", err)
 	}
-	if err := os.WriteFile(filepath.Join(dir, ".env.config"), []byte("CADDY_DEPLOYMENT_MODE=standalone\nDEPLOYMENT_SLOT_CODE=local\nDEPLOYMENT_SLOT_PORT_OFFSET=1\n"), 0600); err != nil {
-		t.Fatal(err)
-	}
+	writeConfig("standalone")
 	occupiedPortOwner = func(port installPort) string {
 		if port.number == 80 || port.number == 5432 {
 			return "another program"
@@ -96,9 +113,11 @@ func TestCheckInstallPortsOwnAndForeign(t *testing.T) {
 		t.Fatalf("standalone own ports rejected: %v", err)
 	}
 	probeServiceStatuses = func(string) ([]serviceStatus, error) { return nil, nil }
-	if err := checkInstallPorts(dir); err == nil || !strings.Contains(err.Error(), "port 80 is in use by another program") {
+	if err := checkInstallPorts(dir); err == nil || !strings.Contains(err.Error(), "Port 80 is in use by another program") {
 		t.Fatalf("standalone foreign port not refused: %v", err)
 	}
+	// A listener named by ss is reported by name, with and without the
+	// ownership-check variant; no remedy command is prescribed either way.
 	occupiedPortOwner = func(port installPort) string {
 		if port.number == 80 {
 			return "apache2"
@@ -106,37 +125,23 @@ func TestCheckInstallPortsOwnAndForeign(t *testing.T) {
 		return ""
 	}
 	probeServiceStatuses = func(string) ([]serviceStatus, error) { return nil, errors.New("compose unavailable") }
-	bin := t.TempDir()
-	if err := os.WriteFile(filepath.Join(bin, "systemctl"), []byte("#!/bin/sh\necho loaded\n"), 0700); err != nil {
-		t.Fatal(err)
+	err = checkInstallPorts(dir)
+	want = "Port 80 is in use by apache2. StatBus needs this port. Stop that program or move it to another port. Docker service ownership could not be checked. Your answers are saved. Then run the same install command again: " + rerun
+	if err == nil || err.Error() != want {
+		t.Fatalf("named listener with failed ownership probe:\n got  %v\n want %s", err, want)
 	}
-	t.Setenv("PATH", bin+string(os.PathListSeparator)+os.Getenv("PATH"))
-	if err := checkInstallPorts(dir); err == nil || !strings.Contains(err.Error(), "port 80 is in use by apache2. Free the port with sudo systemctl disable --now apache2.") || !strings.Contains(err.Error(), "Your answers are saved. Then run the same install command again: "+diskpolicy.RerunCommand()) {
-		t.Fatalf("Apache remedy lost when Docker probe fails: %v", err)
-	}
-	for _, owner := range []string{"python3", "another program"} {
-		occupiedPortOwner = func(port installPort) string {
-			if port.number == 80 {
-				return owner
-			}
-			return ""
-		}
-		err := checkInstallPorts(dir)
-		if err == nil || !strings.HasPrefix(err.Error(), "port 80 is in use by "+owner+".") || !strings.Contains(err.Error(), "Your answers are saved") {
-			t.Fatalf("probe-error port refusal for %s lost its owner: %v", owner, err)
-		}
+	probeServiceStatuses = func(string) ([]serviceStatus, error) { return nil, nil }
+	err = checkInstallPorts(dir)
+	want = "Port 80 is in use by apache2. StatBus needs this port. Stop that program or move it to another port. Your answers are saved. Then run the same install command again: " + rerun
+	if err == nil || err.Error() != want {
+		t.Fatalf("named listener refusal:\n got  %v\n want %s", err, want)
 	}
 }
 
-func TestOccupiedPortOwnerWithoutSudo(t *testing.T) {
-	standalone := selectedInstallPorts("standalone", 1)
-	if standalone[0].number != 80 || standalone[1].number != 443 || standalone[4].number != 5431 || standalone[5].number != 5432 {
-		t.Fatalf("standalone ports: %+v", standalone)
-	}
-	private := selectedInstallPorts("private", 2)
-	if private[0].number != 3020 || private[4].number != 3024 || private[6].number != 3026 {
-		t.Fatalf("private ports: %+v", private)
-	}
+// The listener's name comes only from ss output: unprivileged `ss -ltnp` when
+// it can see the process, `sudo -n ss -ltnp` when it cannot, never a
+// hardcoded unit list (STATBUS-521).
+func TestOccupiedPortOwnerNamesListenerFromSs(t *testing.T) {
 	if m := listenerProgram.FindStringSubmatch(`users:(("apache2",pid=123,fd=4))`); len(m) != 2 || m[1] != "apache2" {
 		t.Fatalf("owner: %v", m)
 	}
@@ -145,20 +150,31 @@ func TestOccupiedPortOwnerWithoutSudo(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer func() { _ = listener.Close() }()
+	address := listener.Addr().(*net.TCPAddr)
 	bin := t.TempDir()
-	for name, body := range map[string]string{
-		"ss":        "#!/bin/sh\nprintf 'State Recv-Q Send-Q Local Address:Port Peer Address:Port\\nLISTEN 0 128 0.0.0.0:80 0.0.0.0:*\\n'\n",
-		"systemctl": "#!/bin/sh\nprintf 'apache2.service loaded active running Apache Web Server\\n'\n",
-		"sudo":      "#!/bin/sh\nexit 1\n",
-	} {
+	write := func(name, body string) {
 		if err := os.WriteFile(filepath.Join(bin, name), []byte(body), 0700); err != nil {
 			t.Fatal(err)
 		}
 	}
+	const noProcess = `State Recv-Q Send-Q Local Address:Port Peer Address:Port\nLISTEN 0 128 0.0.0.0:80 0.0.0.0:*\n`
+	write("ss", "#!/bin/sh\ncase \" $*\" in\n  *-ltnp*) printf 'State Recv-Q Send-Q Local Address:Port Peer Address:Port Process\\nLISTEN 0 128 0.0.0.0:80 0.0.0.0:* users:((\"apache2\",pid=123,fd=4))\\n' ;;\n  *) printf '"+noProcess+"' ;;\nesac\n")
+	write("sudo", "#!/bin/sh\nexit 1\n")
 	t.Setenv("PATH", bin+string(os.PathListSeparator)+os.Getenv("PATH"))
-	address := listener.Addr().(*net.TCPAddr)
 	if owner := occupiedPortOwner(installPort{"127.0.0.1", address.Port}); owner != "apache2" {
-		t.Fatalf("owner without sudo = %q", owner)
+		t.Fatalf("owner from ss -ltnp = %q", owner)
+	}
+	// Only root's ss can see the process: unprivileged ss shows the listener
+	// without a process, sudo -n ss -ltnp names it.
+	write("ss", "#!/bin/sh\nprintf '"+noProcess+"'\n")
+	write("sudo", "#!/bin/sh\nprintf 'State Recv-Q Send-Q Local Address:Port Peer Address:Port Process\\nLISTEN 0 128 0.0.0.0:80 0.0.0.0:* users:((\"caddy\",pid=9,fd=3))\\n'\n")
+	if owner := occupiedPortOwner(installPort{"127.0.0.1", address.Port}); owner != "caddy" {
+		t.Fatalf("owner from sudo -n ss -ltnp = %q", owner)
+	}
+	// Neither ss can name the process: the listener is real but unnamed.
+	write("sudo", "#!/bin/sh\nexit 1\n")
+	if owner := occupiedPortOwner(installPort{"127.0.0.1", address.Port}); owner != "another program" {
+		t.Fatalf("unnamed listener = %q", owner)
 	}
 	// A port without a listener must not be called occupied just because a
 	// privileged bind or another local error failed.

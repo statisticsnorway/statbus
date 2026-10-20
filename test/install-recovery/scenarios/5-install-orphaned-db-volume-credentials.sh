@@ -84,20 +84,26 @@ VM_ROOT_EXEC bash -c 'cd /tmp; nohup python3 -m http.server 80 >/tmp/http80.log 
 harness_register_log port80-squatter /tmp/http80.log
 set +e
 install_statbus_in_vm "$VM_NAME"
+phase_a_rc=$?
 set -e
+[ "$phase_a_rc" -ne 0 ] || { echo "✗ phase a: install unexpectedly succeeded while port 80 was held" >&2; exit 1; }
 if grep -E '^\[[0-9]+/[0-9]+\] Services +FAILED' "$INSTALL_LOG" >/dev/null; then
     PORT_REFUSED_AT=services
-elif grep -E '^port 80 is in use by ' "$INSTALL_LOG" >/dev/null; then
+elif grep -E '^Port 80 is in use by ' "$INSTALL_LOG" >/dev/null; then
     PORT_REFUSED_AT=preflight
 else
     echo "✗ phase a: neither Services FAILED nor the port preflight refusal was visible" >&2
     exit 1
 fi
-if ! grep -E '^(Cause: )?port 80 is in use by (python3|another program)' "$INSTALL_LOG" >/dev/null || ! grep -E 'sudo (kill|ss|systemctl)' "$INSTALL_LOG" >/dev/null; then
-    echo "✗ phase a: terminal did not name port 80 and a command to free it" >&2
+# The refusal names port 80 and the listener's program (python3 when ss shows
+# it, else 'another program'); install prescribes no command for the squatter
+# (STATBUS-521) — the scenario asserts the outcome, not a remedy command.
+if ! grep -E '^(Cause: )?Port 80 is in use by (python3|another program)' "$INSTALL_LOG" >/dev/null; then
+    echo "✗ phase a: terminal did not name port 80 and its listener" >&2
     exit 1
 fi
-echo "  ✓ phase a: $PORT_REFUSED_AT refused occupied port 80 with actionable cause"
+[ "$(VM_EXEC bash -c 'cd ~/statbus && docker compose ps -q | wc -l' | tr -d ' ')" = 0 ] || { echo '✗ phase a: StatBus services started while port 80 was held' >&2; exit 1; }
+echo "  ✓ phase a: $PORT_REFUSED_AT refused occupied port 80, naming the listener"
 
 # ─────────────────────────────────────────────────────────────────────────
 # Phase b — free port 80, rerun the install: it continues, never "pre-1.0".
