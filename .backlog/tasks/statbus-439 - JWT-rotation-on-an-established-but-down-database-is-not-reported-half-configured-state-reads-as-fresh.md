@@ -1,7 +1,14 @@
 ---
 id: STATBUS-439
-title: JWT rotation on an established-but-down database is not reported (half-configured state reads as fresh)
-status: To Do
+title: >-
+  JWT rotation on an established-but-down database is not reported
+  (half-configured state reads as fresh)
+status: In Progress
+assignee: []
+created_date: ''
+updated_date: '2026-10-20 11:28'
+labels: []
+dependencies: []
 priority: medium
 ---
 
@@ -36,3 +43,16 @@ alone. When the database is unreachable at detect time but a database VOLUME
 for this project exists (or the box has an upgrade-table/program record), the
 box is established and the JWT repair must be reported. The hard reconcile
 itself already works (write + verify); only the report is suppressed.
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+### Investigation 2026-10-20 (no code changed)
+- **Mechanism, confirmed in code:** `runLoadJWT` (cli/cmd/install.go ~3150) reports a repair only when `!freshDatabaseBeforeInstall`. That flag comes from `installStateHasFreshDatabase(state)`, which is true for StateFresh, StateHalfConfigured and StateFreshDBIncomplete. DetectWith (cli/internal/install/state.go) returns StateHalfConfigured as soon as .env.credentials is missing, before it ever looks at the database. And StateFresh as soon as .env.config is missing. So in the orphaned-volume shape (~/statbus deleted, the db volume kept, install.sh run again), the state says 'fresh' while the volume holds an established database with its own jwt_secret.
+- **Password repair in the same run reports correctly,** because it does not consult the state: it compares the live roles with .env.credentials and attributes by missingCredentialKeysBeforeInstall.
+- **Fact for the fix:** a database built by migrations or the seed has no auth.secrets jwt_secret row before the JWT step (checked: statbus_seed has none). The surviving volume's database does.
+- **Fix options:**
+  1. **Volume-existence signal (the ticket's proposal):** record, before any compose up, whether `<COMPOSE_INSTANCE_NAME>-db-data` already existed. When it did, the database is established unless the state is StateFreshDBIncomplete (this installer's own unfinished setup). Keeps the 426 contract: absent, empty and unreadable are all reported on an established db.
+  2. **Content signal:** an established database is one whose jwt_secret row existed before the JWT step. Simpler, but it would not report a deleted row on an established db, which 426 explicitly requires.
+- **Recommendation:** option 1, with the probe in DetectWith's caller and a unit test driving runLoadJWT with state HalfConfigured plus an existing volume (red today), and the LXD scenario 5-install-orphaned-db-volume-credentials asserting the JWT report line in phase c.
+<!-- SECTION:NOTES:END -->
