@@ -44,6 +44,7 @@ assert_harness_https_passes() { echo https >> "$TRACE"; [ "${FAULT:-}" != https 
 assert_step9_completed() { :; }
 assert_step_upgrade_service_completed() { :; }
 assert_systemd_active() { :; }
+assert_service_images_pulled_from_registry() { echo image-digests >> "$TRACE"; [ "${FAULT:-}" != image-digests ]; }
 MOCK
 git -C "$TMP_ROOT" init -q
 git -C "$TMP_ROOT" -c user.name=test -c user.email=test@example.invalid -c commit.gpgsign=false commit --allow-empty -qm baseline
@@ -68,6 +69,7 @@ fi
 grep -Fq 'ORDER BY id DESC LIMIT 1' "$TRACE"
 grep -Fxq health "$TRACE"
 grep -Fxq https "$TRACE"
+grep -Fxq image-digests "$TRACE"
 grep -Fxq operator-settings "$TRACE"
 grep -Fq '/tmp/statbus-install.sh --non-interactive' "$TRACE"
 ! grep -Fq 'https://statbus.org/install.sh' "$TRACE"
@@ -76,7 +78,7 @@ identity_line=$(grep -n 'ORDER BY id DESC LIMIT 1' "$TRACE" | cut -d: -f1)
 operator_line=$(grep -n '^operator-settings$' "$TRACE" | cut -d: -f1)
 [ "$identity_line" -lt "$operator_line" ]
 echo 'PASS: candidate selected, installed, binary/ledger/health checked'
-for assignment in BINARY_VERSION=v2026.08.1 ROW_VERSION=v2026.08.1 ROW_SHA=deadbeef ROW_STATE=failed FAULT=transport FAULT=sql FAULT=empty-row FAULT=health FAULT=https FAULT=operator-settings FAULT=channel-transport FAULT=rerun FAULT=missing-step FAULT=duplicate-step INSTALLED_MODE=development INSTALLED_CHANNEL=local HARNESS_DEPLOYMENT_MODE=development HARNESS_UPGRADE_CHANNEL=prerelease INSTALL_TARGET_TAG=v2026.08.1 INSTALL_TARGET_TAG=not-a-release; do
+for assignment in BINARY_VERSION=v2026.08.1 ROW_VERSION=v2026.08.1 ROW_SHA=deadbeef ROW_STATE=failed FAULT=transport FAULT=sql FAULT=empty-row FAULT=health FAULT=https FAULT=image-digests FAULT=operator-settings FAULT=channel-transport FAULT=rerun FAULT=missing-step FAULT=duplicate-step INSTALLED_MODE=development INSTALLED_CHANNEL=local HARNESS_DEPLOYMENT_MODE=development HARNESS_UPGRADE_CHANNEL=prerelease INSTALL_TARGET_TAG=v2026.08.1 INSTALL_TARGET_TAG=not-a-release; do
     : > "$TRACE"
     if env "$assignment" bash "$SCENARIO" > "$TMP_ROOT/output" 2>&1; then
         echo "FAIL: accepted $assignment" >&2; exit 1
