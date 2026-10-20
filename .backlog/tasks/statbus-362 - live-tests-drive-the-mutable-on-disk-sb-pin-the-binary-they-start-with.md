@@ -1,10 +1,10 @@
 ---
 id: STATBUS-362
 title: Live-database tests drive a pinned sb in their own scratch worktree
-status: In Progress
+status: Done
 assignee: []
 created_date: '2026-09-07 17:26'
-updated_date: '2026-10-15 20:09'
+updated_date: '2026-10-20 20:47'
 labels:
   - harness
   - testing
@@ -45,7 +45,7 @@ These tests are also a distinct tier, so they are selected by what they need (a 
 - [x] #1 No live-database test executes the project `./sb`; each drives a pinned binary built once in its own scratch worktree, and never writes the project `.env`
 - [x] #2 `TestPinnedSBIgnoresProjectBinaryReplacement` proves a mid-run replacement of the project `./sb` does not change the binary under test
 - [x] #3 Live tests are selected by the `livedb` build tag, compiled out of ordinary `go test ./...`, and run as the "Live-database tests" step of Fast Tests (green in `36505196729` and on master `f1e7dcfba`, run `38771500938`, 2026-10-15)
-- [ ] #4 [Owner] Confirm the build tag `livedb`, the tier name "live-database tests" and the 25 claim-based test names in the notes table, or name the changes, and record it in Implementation Notes; then set Done
+- [x] #4 [Owner] Confirm the build tag `livedb`, the tier name "live-database tests" and the 25 claim-based test names in the notes table, or name the changes, and record it in Implementation Notes; then set Done
 <!-- AC:END -->
 
 ## Implementation Notes
@@ -92,4 +92,7 @@ eight corrected names below are Terra's (`tmp/STATBUS-362-naming-judgment.md`).
 | 25 | `TestLiveTerminalRowCleanupMarkerPublishesSourceBinary_STATBUS354` | `TestCleanupAfterTerminalRowRemovesMarkerAndRetainsRow` | Terra-corrected |
 
 2026-10-15 count check: all 25 provisional names in the table exist as test functions on master. The livedb tier now has 38 tests in 25 files; the other 13 were added after the table under their own claim-based names, so the table covers the original 25 renames only.
+
+### Owner decision 2026-10-20: names confirmed as they are
+Build tag `livedb`, the tier name "live-database tests" and the 25 claim-based test names stay as listed.
 <!-- SECTION:NOTES:END -->

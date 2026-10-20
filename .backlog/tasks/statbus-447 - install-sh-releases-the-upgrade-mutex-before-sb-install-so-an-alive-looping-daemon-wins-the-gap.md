@@ -3,10 +3,10 @@ id: STATBUS-447
 title: >-
   install.sh hands the upgrade lock to ./sb install without releasing it, so a
   looping old daemon cannot refuse the repair
-status: In Progress
+status: Done
 assignee: []
 created_date: '2026-10-05 10:20'
-updated_date: '2026-10-20 20:45'
+updated_date: '2026-10-20 20:47'
 labels:
   - install
   - upgrade
@@ -51,7 +51,7 @@ Owner decision (2026-10-05): **remove the race, do not detect and kill.** A coun
 - [x] #3 The STATBUS-436 operator rehearsal passes in a single installer run with no retry (rc.15 and rc.16)
 - [x] #4 cloud.sh prints the signing-key hint only on a signature-verification failure (`cafa33889`)
 - [x] #5 The owner's `./cloud.sh install demo <candidate>` repairs demo in one run: binary, checkout, resident daemon and containers at the candidate, the old loop stopped, `NRestarts` 0 (rc.16, 2026-10-06 08:29:50 UTC, recorded on STATBUS-452)
-- [ ] #6 [Owner] Decide whether the 2026-10-06 rc.16 demo install proves AC5 without the 10-minute page observation, and record it in Implementation Notes. Accepted: check this and set Done. Not accepted: uncheck AC5 and add the 10-minute observation on the next demo install as a new criterion.
+- [x] #6 [Owner] Decide whether the 2026-10-06 rc.16 demo install proves AC5 without the 10-minute page observation, and record it in Implementation Notes. Accepted: check this and set Done. Not accepted: uncheck AC5 and add the 10-minute observation on the next demo install as a new criterion.
 <!-- AC:END -->
 
 ## Implementation Notes
@@ -63,4 +63,7 @@ Owner decision (2026-10-05): **remove the race, do not detect and kill.** A coun
 - **AC4:** `cafa33889` (branch commit `805c244ce`).
 - **AC5:** STATBUS-452 description, 2026-10-06 entry. The original criterion also asked for observation over at least 10 minutes and "a page loads and stays"; the 452 record covers the daemon and loop, not the 10-minute page check.
 - **History:** the full implementation diary (F1 to F7, reviews, worker sessions) is in Git history of this file, last full version at `b0a61de01`.
+
+### Owner decision 2026-10-20: AC5 accepted without the 10-minute page observation
+The rc.16 demo install (2026-10-06) is the proof: one run, NRestarts 0. The fix is in, tested by scenario and green through the release gates. Revisit only if the loop shows up again in real use.
 <!-- SECTION:NOTES:END -->

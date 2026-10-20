@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-09-14 10:14'
-updated_date: '2026-10-15 20:09'
+updated_date: '2026-10-20 20:47'
 labels:
   - release-bug
   - ci
@@ -47,7 +47,7 @@ A fetch that fails must also say why: "not built for this commit" is a different
 - [x] #1 The published seed for a post-fix commit is one OCI index whose amd64 and arm64 entries reference one image digest with only the two data layers (observed for `statbus-seed:3b17af17`, 2026-10-15)
 - [ ] #2 `./dev.sh build-sb` on an arm64 Mac at a published commit restores the fetched seed (one pg_restore, no full replay), with no `--platform` in `cli/cmd/seed.go`
 - [x] #3 A fetch at an unbuilt commit says the seed is not built; a fetch failing for another reason prints that reason (`TestSeedPullErrorDistinguishesMissingManifest`)
-- [ ] #4 [Owner] Decide whether an adversarial review by a different session is still required, and record it in Implementation Notes. No: check this. Yes: add the review as a new criterion.
+- [x] #4 [Owner] Decide whether an adversarial review by a different session is still required, and record it in Implementation Notes. No: check this. Yes: add the review as a new criterion.
 <!-- AC:END -->
 
 ## Implementation Notes
@@ -58,4 +58,7 @@ A fetch that fails must also say why: "not built for this commit" is a different
 - **AC2:** open. Remaining observation: one `./dev.sh build-sb` on this arm64 Mac at a published commit, logging one seed restore. Not run during vetting because it rebuilds the local development database.
 - **AC3:** green locally 2026-10-15.
 - **History:** the 2026-09-14 build-and-hold notes, batch sequencing and 09-22/23 updates are in Git history.
+
+### Owner decision 2026-10-20: no further adversarial review
+The fix is in and tested (AC1, AC3). Remaining: AC2, a practical check of `./dev.sh build-sb` on the arm64 Mac, run by rabbit.
 <!-- SECTION:NOTES:END -->
