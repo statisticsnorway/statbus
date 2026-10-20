@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-09-24 16:42'
-updated_date: '2026-10-20 16:07'
+updated_date: '2026-10-20 19:43'
 labels:
   - release-bug
   - install
@@ -90,4 +90,14 @@ Compose with both image: and build: (all our services) uses the image if present
 
 - **CI (2c5fca659):** Go Test, Fast Tests, Harness Selftest, Images, app build & lint, CodeQL all success. Harness Selftest failed on e65fe668a (the offline happy-install selftest mocks assertions.sh and the new assertion was undefined there); fixed by stubbing it in test/install-recovery/tests/happy-install-test.sh (2c5fca659), verified locally before push.
 - **AC6:** go test ./cmd green locally (tmp/392-green.log) and in CI; fast suite green in CI (Fast Tests). Old AC4 withdrawn by owner.
+
+### Reviewed by rabbit (2026-10-20 19:42)
+- **Commits** e65fe668a and 2c5fca659 by worker piglet (k3-256k). CI: Go Test and Harness Selftest passed on both.
+- **Design followed:** cli/cmd/build_identity.go, where releaseTagPattern ^v[0-9]+\.[0-9]+\.[0-9]+(-rc\.[0-9]+)?$ against the version ldflag is the one answer. cli/cmd/service_up_args.go has the image check behind an injectable seam (config --images, image inspect, pull). startBuildsFromSource is gone, including in install.go's runPullImages.
+- **Red/green:** tmp/392-red.log (the tests fail to build against the old code: applyBuildVisibility undefined), tmp/392-green.log (cmd ok).
+- **Help, observed by hand:**
+  - A source build (v2026.10.3-45-g…) shows Operations and Development.
+  - A release build (stamped v2026.10.3, tmp/sb-release-probe) shows Operations only and ends with "Development commands are hidden on a release install; './sb help --all' lists them."
+  - `help --all` on the release build lists both groups, and `migrate --help` still works.
+- **AC5:** assert_service_images_pulled_from_registry in test/install-recovery/lib/assertions.sh reads RepoDigests from Docker's record. It is wired into 0-happy-install and 0-happy-upgrade and passes in the harness selftest; it is proven when the next candidate's smoke runs it.
 <!-- SECTION:NOTES:END -->

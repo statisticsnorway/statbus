@@ -3,9 +3,10 @@ id: STATBUS-521
 title: >-
   Install observes a taken port and stops, naming the listener when it can see
   it; it prescribes no commands for other people's software
-status: To Do
+status: In Progress
 assignee: []
 created_date: '2026-10-20 19:41'
+updated_date: '2026-10-20 19:42'
 labels:
   - install
   - operator
