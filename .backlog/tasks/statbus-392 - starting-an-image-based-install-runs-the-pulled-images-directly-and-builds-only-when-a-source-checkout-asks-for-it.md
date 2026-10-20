@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-09-24 16:42'
-updated_date: '2026-10-20 13:50'
+updated_date: '2026-10-20 15:27'
 labels:
   - release-bug
   - install
@@ -38,10 +38,10 @@ Compose with both image: and build: (all our services) uses the image if present
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 One function answers 'release build or source build' from the binary's build identity, and start, restart and command visibility all use it; startBuildsFromSource is removed
-- [ ] #2 A source build: ./sb start and ./sb restart run compose up with --build
-- [ ] #3 A release build: start and restart check locally that this version's images exist; if any is missing they print why, pull, and then start with --no-build; a failed pull stops with the remedy (check the network, or build with ./sb build)
-- [ ] #4 ./sb --help groups commands as Operations and Development. On a release build the Development group is hidden, the help ends with a line naming ./sb help --all, ./sb help --all lists every command, and a hidden command still runs and shows its own --help
+- [x] #1 One function answers 'release build or source build' from the binary's build identity, and start, restart and command visibility all use it; startBuildsFromSource is removed
+- [x] #2 A source build: ./sb start and ./sb restart run compose up with --build
+- [x] #3 A release build: start and restart check locally that this version's images exist; if any is missing they print why, pull, and then start with --no-build; a failed pull stops with the remedy (check the network, or build with ./sb build)
+- [x] #4 ./sb --help groups commands as Operations and Development. On a release build the Development group is hidden, the help ends with a line naming ./sb help --all, ./sb help --all lists every command, and a hidden command still runs and shows its own --help
 - [ ] #5 The clean LXD install and upgrade scenarios assert that every StatBus service image on the box carries a ghcr.io registry digest (pulled, not built), read from Docker's image records
 - [ ] #6 Go tests and the fast suite pass, and CI passes; old AC4 (real-box timing scenario) is withdrawn by the owner
 <!-- AC:END -->
@@ -79,4 +79,12 @@ Compose with both image: and build: (all our services) uses the image if present
 - Earlier AC1-3 (the --no-build design) are superseded by this design; their commits stay in history.
 
 - **Design written up:** doc/sb-build-identity.md.
+
+### Build-identity redesign implemented (e65fe668a, 2026-10-20)
+- **AC1:** `isReleaseBuild`/`isReleaseBuildVersion` (cli/cmd/build_identity.go) decides from the version ldflag: a tag (v2026.10.3, v2026.10.3-rc.01) is a release build; a -<n>-g<sha> describe, dev, or empty is a source build. start (service.go), restart (service_restart.go), install's pull fallback (install.go runPullImages, one-line change approved by rabbit after dolphin finished 514) and help visibility (applyBuildVisibility) all use it. startBuildsFromSource and its flag-string tests removed; restartUpArgs moved to service_up_args.go behind the dockerImageOps seam.
+- **AC2:** TestUpArgsSourceBuild_STATBUS392: start = --profile all -d --build, restart adds --wait; source build never touches the image check.
+- **AC3:** TestUpArgsReleaseImagesPresent/ImagesMissingPulls/PullFailureNamesRemedy_STATBUS392: exact argv equality, all-present is silent with no pull, missing prints the prune line and pulls once then --no-build, failed pull error names the network and ./sb build.
+- **AC4:** help_groups_test.go: release root help is exactly the Operations set and ends with the hint line; source root help is Operations+Development and ends with cobra's footer; help --all lists every command; a hidden build command still resolves, is runnable, and renders its own help. Also smoke-tested with real binaries: /tmp/sb-release --help (hint line, no dev commands), help --all (all 8 dev commands incl. release), build --help works; /tmp/sb-dev --help shows both groups. Cobra detail: group headings draw even when empty, so build_identity.go ships a help template that skips empty groups; both groups must stay registered (cobra panics on an unregistered GroupID).
+- **Red/green:** tmp/392-red.log (build failure against the old API) and tmp/392-green.log (go test ./cmd ok, 52.5s). gofmt clean, golangci-lint 0 issues.
+- **AC5 (wired, harness-tested):** assert_service_images_pulled_from_registry in test/install-recovery/lib/assertions.sh asserts a ghcr.io @sha256 RepoDigests entry for statbus-app/worker/db/proxy from docker image inspect (Docker's records, not log greps), wired into 0-happy-install.sh (after assert_systemd_active, no step renumbering per dolphin's 514 constraint) and 0-happy-upgrade.sh. ./dev.sh test-harness green (tmp/392-test-harness.log). Real-fleet proof still owed by a fleet run.
 <!-- SECTION:NOTES:END -->
