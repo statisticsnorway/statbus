@@ -6,12 +6,13 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-10-08 12:15'
-updated_date: '2026-10-20 19:57'
+updated_date: '2026-10-20 20:45'
 labels:
   - installer
   - devx
 dependencies: []
 priority: medium
+type: bug
 ordinal: 395204
 ---
 

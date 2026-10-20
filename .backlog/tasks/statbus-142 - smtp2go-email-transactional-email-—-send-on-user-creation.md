@@ -4,7 +4,7 @@ title: 'smtp2go-email: transactional email — send on user creation'
 status: To Do
 assignee: []
 created_date: '2026-06-23 11:53'
-updated_date: '2026-09-23 15:10'
+updated_date: '2026-10-20 20:45'
 labels:
   - feature-next
   - email
@@ -14,6 +14,7 @@ labels:
 dependencies: []
 documentation:
   - doc/design/smtp2go-email.md
+type: feature
 ordinal: 143000
 ---
 

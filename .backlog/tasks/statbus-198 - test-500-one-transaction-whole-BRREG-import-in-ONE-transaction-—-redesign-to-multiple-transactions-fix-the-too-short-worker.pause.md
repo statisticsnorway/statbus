@@ -6,6 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-08-01 10:44'
+updated_date: '2026-10-20 20:45'
 labels:
   - harness
   - testing
@@ -14,6 +15,7 @@ labels:
   - not-install-upgrade
 dependencies: []
 priority: medium
+type: bug
 ordinal: 198000
 ---
 

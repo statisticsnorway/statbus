@@ -6,13 +6,14 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-10-08 19:24'
-updated_date: '2026-10-12 19:31'
+updated_date: '2026-10-20 20:45'
 labels:
   - sql_saga
   - sql
   - security
 dependencies: []
 priority: medium
+type: bug
 ordinal: 408204
 ---
 

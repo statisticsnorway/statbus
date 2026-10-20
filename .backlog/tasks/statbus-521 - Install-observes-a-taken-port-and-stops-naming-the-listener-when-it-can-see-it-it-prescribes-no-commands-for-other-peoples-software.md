@@ -6,12 +6,13 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-10-20 19:41'
-updated_date: '2026-10-20 20:12'
+updated_date: '2026-10-20 20:45'
 labels:
   - install
   - operator
 dependencies: []
 priority: high
+type: enhancement
 ordinal: 447204
 ---
 

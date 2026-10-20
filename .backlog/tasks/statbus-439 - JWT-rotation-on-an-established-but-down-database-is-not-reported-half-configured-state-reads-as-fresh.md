@@ -6,10 +6,11 @@ title: >-
 status: In Progress
 assignee: []
 created_date: ''
-updated_date: '2026-10-20 19:57'
+updated_date: '2026-10-20 20:45'
 labels: []
 dependencies: []
 priority: medium
+type: bug
 ---
 
 ## Description

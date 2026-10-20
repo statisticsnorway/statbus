@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-07-13 12:08'
-updated_date: '2026-09-29 08:05'
+updated_date: '2026-10-20 20:45'
 labels:
   - feature-next
   - norway
@@ -15,6 +15,7 @@ labels:
   - not-install-upgrade
 dependencies: []
 priority: medium
+type: feature
 ordinal: 175000
 ---
 

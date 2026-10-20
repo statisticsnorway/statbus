@@ -6,11 +6,12 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-09-27 10:07'
-updated_date: '2026-10-16 14:00'
+updated_date: '2026-10-20 20:45'
 labels:
   - installer
 dependencies: []
 priority: high
+type: bug
 ordinal: 371200
 ---
 

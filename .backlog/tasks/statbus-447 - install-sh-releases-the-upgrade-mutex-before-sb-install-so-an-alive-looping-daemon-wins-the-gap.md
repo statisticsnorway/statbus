@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-10-05 10:20'
-updated_date: '2026-10-15 20:16'
+updated_date: '2026-10-20 20:45'
 labels:
   - install
   - upgrade
@@ -17,6 +17,7 @@ references:
   - STATBUS-039
   - STATBUS-436
 priority: high
+type: bug
 ---
 
 ## Description

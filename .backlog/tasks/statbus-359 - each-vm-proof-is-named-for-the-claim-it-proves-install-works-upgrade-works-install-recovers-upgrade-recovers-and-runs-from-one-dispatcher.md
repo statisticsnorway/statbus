@@ -4,13 +4,14 @@ title: One dispatcher runs four VM proof families named for their outcomes
 status: To Do
 assignee: []
 created_date: '2026-09-07 07:56'
-updated_date: '2026-09-29 08:05'
+updated_date: '2026-10-20 20:45'
 labels:
   - harness
   - release
   - naming
 dependencies:
   - STATBUS-362
+type: enhancement
 ordinal: 80
 ---
 

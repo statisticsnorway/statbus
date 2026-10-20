@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-07-14 10:00'
-updated_date: '2026-09-29 08:05'
+updated_date: '2026-10-20 20:45'
 labels:
   - feature-next
   - power-groups
@@ -16,6 +16,7 @@ labels:
   - not-install-upgrade
 dependencies: []
 priority: medium
+type: feature
 ordinal: 180000
 ---
 

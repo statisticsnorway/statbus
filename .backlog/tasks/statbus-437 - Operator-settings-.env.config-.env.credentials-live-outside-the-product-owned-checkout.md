@@ -1,15 +1,18 @@
 ---
 id: STATBUS-437
-title: Operator settings (.env.config, .env.credentials) live outside the product-owned checkout
+title: >-
+  Operator settings (.env.config, .env.credentials) live outside the
+  product-owned checkout
 status: To Do
 assignee: []
 created_date: '2026-10-01 11:39'
-updated_date: '2026-10-01 12:05'
+updated_date: '2026-10-20 20:45'
 labels:
   - install
   - design
 dependencies: []
 priority: medium
+type: enhancement
 ordinal: 385200
 ---
 

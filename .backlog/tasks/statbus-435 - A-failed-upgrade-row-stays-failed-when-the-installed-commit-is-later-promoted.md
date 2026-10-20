@@ -4,11 +4,12 @@ title: Define when installed release metadata supersedes a newer failed upgrade
 status: To Do
 assignee: []
 created_date: '2026-09-29 21:23'
-updated_date: '2026-10-01 13:26'
+updated_date: '2026-10-20 20:45'
 labels:
   - upgrade
 dependencies: []
 priority: high
+type: spike
 ordinal: 384200
 ---
 

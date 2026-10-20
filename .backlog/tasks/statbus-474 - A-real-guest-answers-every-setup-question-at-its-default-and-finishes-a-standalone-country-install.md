@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-10-08 15:16'
-updated_date: '2026-10-15 20:09'
+updated_date: '2026-10-20 20:45'
 labels:
   - install
   - installer
@@ -14,6 +14,7 @@ labels:
 dependencies:
   - STATBUS-466
 priority: medium
+type: task
 ordinal: 400204
 ---
 

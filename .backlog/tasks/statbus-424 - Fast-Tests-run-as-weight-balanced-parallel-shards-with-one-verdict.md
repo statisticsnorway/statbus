@@ -4,11 +4,13 @@ title: Fast Tests run as weight-balanced parallel shards with one verdict
 status: To Do
 assignee: []
 created_date: '2026-09-28 08:18'
+updated_date: '2026-10-20 20:45'
 labels:
   - ci
   - tests
 dependencies: []
 priority: medium
+type: enhancement
 ordinal: 373200
 ---
 
