@@ -3,10 +3,10 @@ id: STATBUS-389
 title: >-
   The installer tells the operator whether an automatic certificate can work for
   the chosen domain
-status: In Progress
+status: Done
 assignee: []
 created_date: '2026-09-24 16:42'
-updated_date: '2026-10-15 20:08'
+updated_date: '2026-10-20 21:17'
 labels:
   - release-bug
   - install
@@ -43,7 +43,7 @@ Which alternative certificate the operator then gets is not this ticket: private
 <!-- AC:BEGIN -->
 - [x] #1 Public DNS is reported as an observation, separate from reachability, and reachability is never claimed unless checked (`TestDomainAssessmentSeparatesDNSFromReachability`)
 - [x] #2 On a real box with a name absent from public DNS, the installer says an automatic certificate cannot be promised and recommends a workable choice (`4-install-standalone-no-public-dns.sh`, rc.17 LXD PASS)
-- [ ] #3 [Owner] Decide whether an outside reachability probe (port 80 tested from the internet) is wanted, and record it in Implementation Notes. No: check this and set Done. Yes: add the probe as a new criterion.
+- [x] #3 [Owner] Decide whether an outside reachability probe (port 80 tested from the internet) is wanted, and record it in Implementation Notes. No: check this and set Done. Yes: add the probe as a new criterion.
 <!-- AC:END -->
 
 ## Implementation Notes
@@ -53,4 +53,7 @@ Which alternative certificate the operator then gets is not this ticket: private
 - **AC1:** green in Go Test `36503468493` (v2026.09.3).
 - **AC2:** rc.17 LXD scenario PASS, recorded in the 2026-09-29 audit (`ea170989e`).
 - **AC3:** open.
+
+### Owner decision 2026-10-20: no outside reachability probe
+StatBus has no external service to probe from. The installer checks what it can see locally (public DNS, the port free, STATBUS-521) and says plainly when an automatic certificate cannot be promised. Operators who enable Let's Encrypt take responsibility for reachability. Caddy's own certificate logs show what happens. Any later work is a new ticket.
 <!-- SECTION:NOTES:END -->
