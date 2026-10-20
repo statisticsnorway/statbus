@@ -1,10 +1,10 @@
 ---
 id: STATBUS-514
 title: A fresh install restores the seed without a fixed 76-second wait
-status: To Do
+status: In Progress
 assignee: []
 created_date: '2026-10-16 13:43'
-updated_date: '2026-10-16 13:48'
+updated_date: '2026-10-20 12:20'
 labels:
   - install
   - performance

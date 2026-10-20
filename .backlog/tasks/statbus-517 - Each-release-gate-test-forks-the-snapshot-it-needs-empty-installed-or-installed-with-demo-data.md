@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-10-17 15:40'
-updated_date: '2026-10-20 12:19'
+updated_date: '2026-10-20 12:24'
 labels:
   - ci
   - lxd
@@ -33,25 +33,25 @@ The gate forks guests from checkpoints. Only a test of a failure during installa
 
 ### Closing review
 - **Memory:** none needed.
-- **Documentation:** `test/install-recovery/README.md` describes the checkpoint tree and which tests use which.
+- **Documentation:** `test/install-recovery/README.md` needs the checkpoint tree (which checkpoint each test forks, who builds it); added in 5f96870f7.
 - **Cleanup:** none.
 <!-- SECTION:DESCRIPTION:END -->
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 Map the 9 install-first faults to `installed-<candidate>` and remove their own first install; each passes in a gate run
-- [ ] #2 Add checkpoint `installed-<candidate>-demo`, built once from `installed-<candidate>`; `arc_prepare_box` forks it instead of loading data, shown by arc logs with no demo load
-- [ ] #3 Add checkpoint `installed-<prev stable>-demo` and move the fault scenarios that load data on the previous stable to it (`0-https-only-egress`, `1-boot-concurrent-install`, `3-postswap-worker-ddl-deadlock`, `5-install-disk-threshold-repair`, `5-install-seed-on-populated`), shown by their logs with no demo load; smoke's `0-happy-upgrade` keeps loading for real
-- [ ] #4 A candidate gate run gives the same verdicts as the preceding candidate and records total guest-minutes against 356 (v2026.10.2-rc.01); run IDs in Implementation Notes
+- [ ] #1 Add checkpoint `installed-<candidate>-demo`, built once from `installed-<candidate>`; `arc_prepare_box` forks it instead of loading data, shown by arc logs with no demo load
+- [ ] #2 Add checkpoint `installed-<prev stable>-demo` and move the fault scenarios that load data on the previous stable to it (`0-https-only-egress`, `1-boot-concurrent-install`, `3-postswap-worker-ddl-deadlock`, `5-install-disk-threshold-repair`, `5-install-seed-on-populated`), shown by their logs with no demo load; smoke's `0-happy-upgrade` keeps loading for real
+- [ ] #3 A candidate gate run gives the same verdicts as the preceding candidate, and its total guest-minutes for the fault fleet plus arcs are below 356 (v2026.10.2-rc.01) by at least the removed first-install and demo-load time (about 40 + 25 guest-min); totals and run IDs in Implementation Notes
+- [ ] #4 Map the 9 install-first faults to `installed-<candidate>-standalone` and remove their own first install; each passes in a gate run
 <!-- AC:END -->
 
 ## Implementation Notes
 
 <!-- SECTION:NOTES:BEGIN -->
-2026-10-20: commit 5f96870f7 implements the change (made by a helper agent dolphin started without the owner's approval; the owner chose to land it). What it does:
+2026-10-20: commit 5f96870f7 implements the change. What it does:
 - Scenarios declare their start in their own file: `# LXD_START=installed-candidate` on the 9 install-first faults; `lxd_checkpoint_for_scenario` reads it and forks `installed-<candidate>-standalone`. The scenario's first candidate install is then answered by the checkpoint after verifying the guest's HEAD (`_lxd_consume_candidate_preinstall`); later installs run for real; a wrong HEAD fails rather than reinstalling.
-- Demo layer: `lxd_demo_ensure` builds `installed-<x>-demo` once (fork parent, one real `populate_with_demo_data`, drained worker, snapshot), claimed atomically like arc A. Candidate arcs and the previous-stable faults that load data fork it; their `populate_with_demo_data` only confirms (`HARNESS_DEMO_PRELOADED`). Smoke's 0-happy-upgrade still loads data for real, so the load stays proven per candidate. `LXD_ARC_DEMO_LAYER=0` restores per-arc loading for diagnosis.
+- Demo layer: `lxd_demo_ensure` builds `installed-<x>-demo` once (fork parent, one real `populate_with_demo_data`, drained worker, snapshot), claimed atomically like arc A. Candidate arcs and the previous-stable faults that load data (0-https-only-egress, 1-boot-concurrent-install, 3-postswap-worker-ddl-deadlock, 5-install-disk-threshold-repair, 5-install-seed-on-populated) fork it; their `populate_with_demo_data` only confirms (`HARNESS_DEMO_PRELOADED`). Smoke's 0-happy-upgrade still loads data for real, so the load stays proven per candidate. `LXD_ARC_DEMO_LAYER=0` restores per-arc loading for diagnosis.
 - README gains a checkpoint-tree table.
-Evidence: new offline contract `tests/lxd-snapshot-layers-test.sh` (fake LXD store, real harness functions) passes, run by dolphin 2026-10-20 12:15 UTC; the commit says it fails on the parent. CI on 5f96870f7: Push on master, Go Test, app build & lint, Harness Selftest, Images, Notify all success; Fast Tests pending at 12:19 UTC.
+Evidence: offline contract `tests/lxd-snapshot-layers-test.sh` (fake LXD store, real harness functions) fails against the parent's backend (tmp/test-517-parent.log: "install-first scenario did not select installed-<candidate>") and passes on 5f96870f7 (tmp/test-517-fixed.log); `./dev.sh test-harness` green (tmp/test-517-harness.log). CI on 5f96870f7: Push on master, Go Test, app build & lint, Harness Selftest, Images, Notify all success.
 Not yet proven: every criterion needs a real gate run, which waits for the next release candidate (no RC until sql_saga 1.2, owner 2026-10-20).
 <!-- SECTION:NOTES:END -->

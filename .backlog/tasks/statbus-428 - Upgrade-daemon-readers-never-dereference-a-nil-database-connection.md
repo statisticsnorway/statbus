@@ -1,10 +1,10 @@
 ---
 id: STATBUS-428
 title: Upgrade daemon readers never dereference a nil database connection
-status: To Do
+status: In Progress
 assignee: []
 created_date: '2026-09-29 00:30'
-updated_date: '2026-09-29 08:05'
+updated_date: '2026-10-20 12:13'
 labels:
   - upgrade
 dependencies: []

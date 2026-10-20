@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-09-24 16:42'
-updated_date: '2026-10-16 14:12'
+updated_date: '2026-10-20 12:24'
 labels:
   - release-bug
   - install
@@ -62,4 +62,13 @@ Two kinds of box can both run the web entry point in development mode: a develop
 - **Correction:** the commit is e622a4f9a, not e4af9ef19 as written above. That first commit attempt failed because the new test file was untracked.
 
 - **CI:** Go Test passed on 8510ee36a, which contains e622a4f9a. AC3 is done. Only the [Owner] AC4 decision remains.
+
+### Owner pushback 2026-10-20: the design is over-engineered
+- **Owner:** a real-box timing test would test Docker Compose, not our code. More importantly, forcing `--no-build` defeats Compose's own behaviour: use the cached image if present, pull it if not, build if the pull fails. That always works. With --no-build, the image must exist or be pullable, or start fails.
+- **Checked locally (tmp/392-compose, a service with both image: and build:, like all of ours):**
+  - Image present: plain `up -d` uses it, no build. `--build` rebuilds it.
+  - Image absent: plain `up -d` pulls, and if that fails, builds. `--no-build` pulls, and if that fails, errors with 'No such image'.
+- **Conclusion:** the original defect (Finland triage) was `--build` forced in development mode. Dropping `--build` was the fix. Adding `--no-build` plus the source-checkout/release decision (startBuildsFromSource, a check on the VERSION string) replaced a self-healing default with 'pull or fail'.
+- **Proposed redesign:** `./sb start` and `./sb restart` run plain `up -d` with no build flag. Remove startBuildsFromSource. Tests assert that neither flag is passed. Developers build explicitly (./dev.sh, docker compose build). AC4 (the real-box timing scenario) is withdrawn: No.
+- **Open (owner):** in a source checkout, `./sb start` would no longer rebuild after a code change. That is acceptable if development builds belong to ./dev.sh.
 <!-- SECTION:NOTES:END -->
