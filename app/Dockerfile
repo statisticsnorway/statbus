@@ -28,8 +28,14 @@ FROM install AS build
 # NEXT_PUBLIC_* vars are no longer inlined at build time.
 # They are injected at request time by layout.tsx via window.__STATBUS_CONFIG__.
 # The ENABLE_EFFECT_GUARD is dev-only and not used in production builds.
+# The build depends only on the app source, so it comes from cache whenever
+# app/ is unchanged. The commit stamp (public/_statbus-build.json, the
+# responding artifact's identity) follows it: COMMIT differs on every commit,
+# and a step that reads it reruns, so placing it after the build keeps the
+# build cached while each image still reports its own commit (STATBUS-518).
+RUN NODE_ENV=production pnpm exec next build
 ARG COMMIT
-RUN node scripts/stamp-app-build.mjs --image "$COMMIT" && NODE_ENV=production pnpm exec next build
+RUN node scripts/stamp-app-build.mjs --image "$COMMIT"
 
 # Run the tests with
 #   docker build --target test -t statbus-app-test .
