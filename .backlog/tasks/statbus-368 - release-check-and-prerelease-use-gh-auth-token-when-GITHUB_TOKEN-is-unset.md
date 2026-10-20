@@ -3,10 +3,10 @@ id: STATBUS-368
 title: >-
   The release gate reads GitHub as the person running it and says which identity
   it used
-status: In Progress
+status: Done
 assignee: []
 created_date: '2026-09-14 11:41'
-updated_date: '2026-10-15 20:09'
+updated_date: '2026-10-20 20:35'
 labels:
   - release-bug
   - release
@@ -44,7 +44,7 @@ Developers here log in with `gh auth login`; nobody exports `GITHUB_TOKEN`. A ga
 - [x] #1 Every GitHub read in the release code resolves its token as `GITHUB_TOKEN`, then `gh auth token`, then anonymous (`TestGitHubAuthPrecedenceAndFallback`)
 - [x] #2 The gate prints which identity it used; on a machine with only `gh auth login` it says "authenticated via gh auth" (observed 2026-10-15)
 - [x] #3 The token never appears in Git argv, errors, logs or diagnostic files (`TestGitHubGitEnvUsesExtraHeaderNotArgv`, `TestAuthenticatedGitFailureRedactsCredentialsBeforeErrorsLogsAndDiagnostics`, `TestCommandOutputRedactsGitStderr`)
-- [ ] #4 [Owner] Accept the single observed authenticated run in place of the original 100 consecutive runs, and record it in Implementation Notes; then set Done. Not accepted: add the 100-run observation as a new criterion.
+- [x] #4 [Owner] Accept the single observed authenticated run in place of the original 100 consecutive runs, and record it in Implementation Notes; then set Done. Not accepted: add the 100-run observation as a new criterion.
 <!-- AC:END -->
 
 ## Implementation Notes
@@ -54,4 +54,7 @@ Developers here log in with `gh auth login`; nobody exports `GITHUB_TOKEN`. A ga
 - **AC1, AC3:** green locally on master, 2026-10-15.
 - **AC2:** `env -u GITHUB_TOKEN ./sb release check` on the owner's workstation, 2026-10-15, line 7: `(GitHub: authenticated via gh auth)`.
 - **History:** the 2026-09-14 build-and-hold notes, batch sequencing and 09-22/23 implementation notes are in Git history.
+
+### Owner decision 2026-10-20 (AC4): accepted, Done
+- The observed authenticated run (2026-10-15, '(GitHub: authenticated via gh auth)') plus the owner's own ./sb release stable on 2026-10-18 ('authenticated via GITHUB_TOKEN') stand in for the original 100 consecutive runs. Authenticated, the limit is 5000/h, so 100 runs would measure GitHub, not our code (owner: over-engineering).
 <!-- SECTION:NOTES:END -->
