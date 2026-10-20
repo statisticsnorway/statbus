@@ -33,7 +33,7 @@ test("partition keeps everything when no running row is identified", () => {
   expect(actionable).toHaveLength(0);
 });
 
-test("each pill selects exactly the rows carrying that badge word", () => {
+test("each pill selects exactly the rows carrying that badge word, and All selects every row", () => {
   const rows = [
     row(1, "completed"),
     row(2, "skipped"),
@@ -44,15 +44,20 @@ test("each pill selects exactly the rows carrying that badge word", () => {
   expect(historyRowsForPill(rows, "skipped").map((r) => r.id)).toEqual([2]);
   expect(historyRowsForPill(rows, "dismissed").map((r) => r.id)).toEqual([3]);
   expect(historyRowsForPill(rows, "superseded").map((r) => r.id)).toEqual([4]);
+  expect(historyRowsForPill(rows, "all").map((r) => r.id)).toEqual([
+    1, 2, 3, 4,
+  ]);
 });
 
-test("every pill label is the display_state word the card shows", () => {
-  // public.display_state(): Completed, Superseded, Skipped, Dismissed.
+test("every pill label is the display_state word the card shows, then All", () => {
+  // public.display_state(): Completed, Superseded, Skipped, Dismissed; All
+  // lists every history row in its original order.
   expect(HISTORY_PILLS.map((p) => p.label)).toEqual([
     "Completed",
     "Superseded",
     "Skipped",
     "Dismissed",
+    "All",
   ]);
   // No compound label the user cannot point at on a card.
   for (const pill of HISTORY_PILLS) {

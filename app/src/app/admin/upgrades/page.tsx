@@ -918,7 +918,9 @@ export default function UpgradesPage() {
                       filteredHistory.map((u) => renderCard(u))
                     ) : (
                       <p className="px-1 text-xs italic text-muted-foreground">
-                        No {historyPill} upgrades.
+                        {historyPill === "all"
+                          ? "No past upgrades."
+                          : `No ${historyPill} upgrades.`}
                       </p>
                     )}
                   </CollapsibleContent>

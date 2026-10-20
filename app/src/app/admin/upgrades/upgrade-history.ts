@@ -6,18 +6,21 @@ export type HistoryPill =
   | "completed"
   | "superseded"
   | "skipped"
-  | "dismissed";
+  | "dismissed"
+  | "all";
 
 // One pill per word that actually appears on a card's state badge
-// (public.display_state(): Completed, Superseded, Skipped, Dismissed). The
-// filter is never a compound the user cannot point at on screen — the earlier
-// "Applied" pill and the skipped+dismissed union both asked the reader to
-// translate between the pill and the badge.
+// (public.display_state(): Completed, Superseded, Skipped, Dismissed), then
+// All, which lists every history row. The filter is never a compound the user
+// cannot point at on screen — the earlier "Applied" pill and the
+// skipped+dismissed union both asked the reader to translate between the pill
+// and the badge.
 export const HISTORY_PILLS: { id: HistoryPill; label: string }[] = [
   { id: "completed", label: "Completed" },
   { id: "superseded", label: "Superseded" },
   { id: "skipped", label: "Skipped" },
   { id: "dismissed", label: "Dismissed" },
+  { id: "all", label: "All" },
 ];
 
 export interface PartitionedUpgrades<T> {
@@ -61,13 +64,14 @@ export function partitionUpgradeRows<T extends { id: number; state: string }>(
   return partitioned;
 }
 
-// Each pill selects exactly the rows whose card carries that word, so
+// Each state pill selects exactly the rows whose card carries that word, so
 // "Completed" is completed only — never skipped, dismissed or superseded. (The
 // old header counted every non-superseded row as "applied", mislabeling
-// skipped/dismissed rows.)
+// skipped/dismissed rows.) "All" keeps every history row in its order.
 export function historyRowsForPill<T extends { state: string }>(
   rows: T[],
   pill: HistoryPill
 ): T[] {
+  if (pill === "all") return rows;
   return rows.filter((r) => r.state === pill);
 }

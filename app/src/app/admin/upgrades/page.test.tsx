@@ -6,7 +6,7 @@
  * data (effects never run, nothing fetches) and the jotai atoms are seeded
  * into an isolated store. Radix Collapsible unmounts closed content, so the
  * assertions target what is actually visible: the Running card's header,
- * meta, disclosures and open-by-default log, plus the History header pills.
+ * meta, disclosures and the log's open state, plus the History header pills.
  * Pill filtering and running-row exclusion are pinned by
  * upgrade-history.test.ts.
  */
@@ -215,6 +215,7 @@ test("serving release renders as one Running card with id, meta, disclosures and
   expect(html).toContain(">Superseded<");
   expect(html).toContain(">Skipped<");
   expect(html).toContain(">Dismissed<");
+  expect(html).toContain(">All<");
   expect(html).not.toContain(">Applied<");
   expect(html).not.toContain("applied ·");
 
