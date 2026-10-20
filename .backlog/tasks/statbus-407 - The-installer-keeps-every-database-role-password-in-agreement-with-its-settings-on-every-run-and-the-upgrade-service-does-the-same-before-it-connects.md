@@ -1,10 +1,10 @@
 ---
 id: STATBUS-407
 title: Database role passwords always match the saved settings
-status: In Progress
+status: Done
 assignee: []
 created_date: '2026-09-24 15:46'
-updated_date: '2026-10-15 20:08'
+updated_date: '2026-10-20 20:53'
 labels:
   - release-bug
   - install
@@ -46,7 +46,7 @@ The settings file is the authority. So whoever is about to connect with a passwo
 - [x] #1 The installer re-applies every login role password from the settings over the local socket before its first password connection, and changes nothing when they agree (`TestRunStartServicesSyncsPasswordsBeforePublishedPorts`, `TestSyncIsNoOpWhenPasswordsAgree`, `TestSyncReappliesOrphanedVolumePasswords`)
 - [x] #2 The upgrade service does the same before its first connection, and a sync failure never stops its boot (`TestDaemonSyncsRolePasswordsBeforeFirstConnect`, `TestSyncRolePasswordsBeforeConnectNeverFailsTheBoot`)
 - [x] #3 On a real box, reinstalling over a surviving volume with regenerated credentials leaves the API steady and ready, users intact and the upgrade service running (`5-install-orphaned-db-volume-credentials.sh`, rc.17 LXD PASS)
-- [ ] #4 [Owner] Decide whether a real-box proof of the upgrade service repairing a password mismatch on its own (no installer first) is required, and record it in Implementation Notes. No: check this and set Done. Yes: add that scenario as a new criterion.
+- [x] #4 [Owner] Decide whether a real-box proof of the upgrade service repairing a password mismatch on its own (no installer first) is required, and record it in Implementation Notes. No: check this and set Done. Yes: add that scenario as a new criterion.
 <!-- AC:END -->
 
 ## Implementation Notes
@@ -56,4 +56,7 @@ The settings file is the authority. So whoever is about to connect with a passwo
 - **AC1-2:** green locally on master, 2026-10-15. AC2's ordering test checks call position in source, not behaviour.
 - **AC3:** rc.17 LXD PASS (2026-09-29 audit, `ea170989e`); earlier phase-b PASS rc.05 run `36130286326`.
 - **Superseded criteria:** the restyle named three test files that were never written (`install_database_credentials_test.go`, `upgrade/database_credentials_test.go`, `databasecredentials/reconcile_test.go`); the tests above landed instead. The stacked rc.03/rc.05/rc.08 progress notes were folded into Zoom in and AC3.
+
+### Owner rule applied 2026-10-20: no extra proof required
+The fix is in, tested (Go and LXD scenario) and green through the release gates. The optional extra real-box proof is not required. Revisit only if the issue appears again in real use.
 <!-- SECTION:NOTES:END -->

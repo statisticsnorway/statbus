@@ -1,10 +1,10 @@
 ---
 id: STATBUS-408
 title: An interrupted first install finishes when the install command is run again
-status: In Progress
+status: Done
 assignee: []
 created_date: '2026-09-24 15:46'
-updated_date: '2026-10-15 20:08'
+updated_date: '2026-10-20 20:53'
 labels:
   - release-bug
   - install
@@ -43,7 +43,7 @@ So a rerun recognises its own unfinished work and continues it. Each step checks
 <!-- AC:BEGIN -->
 - [x] #1 A rerun after a first install stopped at the Services boundary classifies the database as unfinished, reports OK for finished steps and runs Seed and Migrations (`5-install-interrupted-first-run.sh`, rc.17 LXD PASS)
 - [x] #2 The resumed install ends with `public.upgrade` present, the release-signer consent kept and every service running (same scenario)
-- [ ] #3 [Owner] Decide whether the interrupted-first-run scenario must also prove the same database volume was kept (volume identity or a pre-interruption sentinel), and record it in Implementation Notes. No: check this and set Done. Yes: add that assertion as a new criterion.
+- [x] #3 [Owner] Decide whether the interrupted-first-run scenario must also prove the same database volume was kept (volume identity or a pre-interruption sentinel), and record it in Implementation Notes. No: check this and set Done. Yes: add that assertion as a new criterion.
 <!-- AC:END -->
 
 ## Implementation Notes
@@ -52,4 +52,7 @@ So a rerun recognises its own unfinished work and continues it. Each step checks
 ### Evidence
 - **AC1-2:** rc.17 LXD PASS (2026-09-29 audit, `ea170989e`).
 - **Superseded criteria:** the restyle named `state_markers_test.go` cases and `5-install-interrupted-after-database-created.sh` with a sentinel row, none written. The marker cases moved to STATBUS-411 (`TestDetectWith`); the scenario that exists is `5-install-interrupted-first-run.sh`. The 408 -> 411 dependency was removed: 411 is the classification both tickets rely on, already shipped.
+
+### Owner rule applied 2026-10-20: no extra proof required
+The fix is in, tested (Go and LXD scenario) and green through the release gates. The optional extra real-box proof is not required. Revisit only if the issue appears again in real use.
 <!-- SECTION:NOTES:END -->

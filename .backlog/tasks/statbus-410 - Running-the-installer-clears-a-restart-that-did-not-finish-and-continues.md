@@ -1,10 +1,10 @@
 ---
 id: STATBUS-410
 title: 'After an unfinished restart, the install command finishes it or says to wait'
-status: In Progress
+status: Done
 assignee: []
 created_date: '2026-09-24 15:47'
-updated_date: '2026-10-15 20:08'
+updated_date: '2026-10-20 20:53'
 labels:
   - release-bug
   - install
@@ -48,7 +48,7 @@ A restart often fails for a cause outside itself, such as a password mismatch (S
 - [x] #2 When the earlier restart still holds its lock, the installer prints a plain wait message and starts no competing recovery (`5-install-live-upgrade-wait.sh`, rc.17 LXD PASS)
 - [x] #3 Live and interrupted restarts are classified correctly and the saved intent survives (`TestInterruptedAndLiveRestartClassification`, `TestRestartMarkerSurvivesDaemonRecovery`)
 - [x] #4 A retried restart clears the upgrade service's failed and start-limit state before starting it (`TestRestartRetryClearsStartLimitBeforeStarting`)
-- [ ] #5 [Owner] Decide whether a real-box proof of start-limit recovery is required (drive the upgrade service into the start limit with a real cause, fix it, retry, observe it running), and record it in Implementation Notes. No: check this and set Done. Yes: add that scenario as a new criterion.
+- [x] #5 [Owner] Decide whether a real-box proof of start-limit recovery is required (drive the upgrade service into the start limit with a real cause, fix it, retry, observe it running), and record it in Implementation Notes. No: check this and set Done. Yes: add that scenario as a new criterion.
 <!-- AC:END -->
 
 ## Implementation Notes
@@ -58,4 +58,7 @@ A restart often fails for a cause outside itself, such as a password mismatch (S
 - **AC1-2:** rc.17 LXD PASS, fleet `36506437069`; first green rc.05 run `36130286326`.
 - **AC3-4:** green locally on master, 2026-10-15.
 - **Superseded criterion:** the restyle named `5-install-start-limit-recovery.sh`, never written; that is what AC5 asks about. The 410 -> 407 dependency was removed: 407 fixes the usual cause, not a precondition of this behaviour.
+
+### Owner rule applied 2026-10-20: no extra proof required
+The fix is in, tested (Go and LXD scenario) and green through the release gates. The optional extra real-box proof is not required. Revisit only if the issue appears again in real use.
 <!-- SECTION:NOTES:END -->
