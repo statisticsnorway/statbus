@@ -1,5 +1,6 @@
 #!/bin/bash
 # Scenario: 5-install-stage-d-advisory-zombie
+# LXD_START=installed-candidate
 #
 # Validates: Fix 6 Phase 2 PID-liveness probe (terminates dead-PID
 # zombies holding the migrate_up advisory lock with

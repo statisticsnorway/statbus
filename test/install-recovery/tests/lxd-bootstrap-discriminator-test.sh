@@ -16,6 +16,8 @@
 set -euo pipefail
 ROOT=$(git -C "$(dirname "$0")" rev-parse --show-toplevel)
 export LXD_CANDIDATE=v2026.09.3-rc.17 LXD_FORK_PREFIX=s2
+# Fork routing only; the demo layer on top is lxd-snapshot-layers-test.sh.
+export LXD_ARC_DEMO_LAYER=0
 # shellcheck disable=SC1091
 source "$ROOT/test/install-recovery/lib/lxd-backend.sh"
 fail() { echo "FAIL: $*" >&2; exit 1; }

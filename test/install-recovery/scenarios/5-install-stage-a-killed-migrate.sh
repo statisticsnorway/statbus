@@ -1,5 +1,6 @@
 #!/bin/bash
 # Scenario: 5-install-stage-a-killed-migrate
+# LXD_START=installed-candidate
 #
 # Validates: cleanOrphanSessions Phase 1 (statistical_* psql/migrate-sql subprocess
 # sweep) firing in its REAL trigger context — alongside the advisory-lock holder a

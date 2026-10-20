@@ -1,5 +1,6 @@
 #!/bin/bash
 # Scenario: 5-install-stage-b-pool-exhaustion
+# LXD_START=installed-candidate
 #
 # Validates: Fix 3's docker-exec bypass in cleanOrphanSessions when
 # max_connections is saturated. The host-side psql (migrate.PsqlCommand)

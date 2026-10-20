@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 # STATBUS-410: a live restart mutex must block competing installer recovery.
+# LXD_START=installed-candidate
 # Reuses the installed tagged candidate fixture, never runs an actual upgrade.
 set -euo pipefail
 VM_NAME="${1:-statbus-recovery-5-install-live-upgrade-wait}"

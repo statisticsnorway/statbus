@@ -14,6 +14,8 @@ set -euo pipefail
 ROOT=$(cd "$(dirname "$0")/../../.." && pwd)
 TMP=$(mktemp -d); trap 'rm -rf "$TMP"' EXIT
 export LXD_CANDIDATE=v2026.09.3-rc.17 LXD_FORK_PREFIX=s2 HARNESS_ROOT=$ROOT LXD_LOG_DIR=$TMP
+# Arc A selection only; the demo layer on top is lxd-snapshot-layers-test.sh.
+export LXD_ARC_DEMO_LAYER=0
 source "$ROOT/test/install-recovery/lib/lxd-backend.sh"
 fail() { echo "FAIL: $*" >&2; exit 1; }
 source "$ROOT/test/install-recovery/tests/fake-lxc.sh"

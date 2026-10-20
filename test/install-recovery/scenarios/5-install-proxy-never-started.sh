@@ -1,5 +1,6 @@
 #!/bin/bash
 # Scenario: 5-install-proxy-never-started  (services step starts everything)
+# LXD_START=installed-candidate
 #
 # Class:            services-step-db-only-check
 # Class kind:       Reconcile (install brings up every service the mode needs)

@@ -1,5 +1,6 @@
 #!/bin/bash
 # Scenario: 5-install-stage-c-systemd-failed
+# LXD_START=installed-candidate
 #
 # Validates: Fix 4 (`systemctl --user reset-failed + enable+start` in
 # install ladder step 15). Force the upgrade-service unit into `failed`

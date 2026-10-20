@@ -1,5 +1,6 @@
 #!/bin/bash
 # Scenario: 5-install-bool-text-regression
+# LXD_START=installed-candidate
 #
 # Catches Fix 11-class parsing bugs. The setup: install on a fresh VM,
 # wait for the worker to come up and start processing tasks (so it's

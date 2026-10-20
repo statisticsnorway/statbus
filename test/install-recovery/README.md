@@ -326,7 +326,21 @@ A VM left running by `--keep-vm` bills ~€0.17/day until deleted.
 
 The release fault gate is `.github/workflows/lxd-fleet.yaml`, dispatched by `release-fleet-orchestrator.yaml` after the dev canary. It ramps the named Ubuntu 26.04 `statbus-lxd-fleet` host on demand, builds candidate-pinned installed bases from pristine hardened guests using the real installer, and forks the required scenarios from checkpoints. Its `lxd-fleet-comparison` artifact holds `comparison.tsv`, per-scenario logs, and `fleet-status.txt`. The stable-release pre-flight requires a **successful whole LXD workflow at the RC commit** (`WorkflowLXDFleet`), not historical VM per-scenario marks. `SKIP_INSTALL_RECOVERY=1` is the retained operator bypass. A SUPERSEDED child is neutral to orchestration but cannot satisfy promotion. The former 40 GB disk scenario was dropped by owner decision on 2026-09-28 (STATBUS-417): LXD cannot present a real 40 GB filesystem without KVM, the 20/40 GB policy is unit-tested in `cli/internal/diskpolicy`, and smoke installs on real 40 GB VMs every candidate.
 
-`test-smoke.yaml` and `upgrade-arc-harness.yaml` also run on the LXD host (M4). Each candidate-A arc forks smoke's literal `installed-<candidate>-standalone` (missing or unproven fails loud, never a pristine reinstall); the two historical bases fork an exact-SHA checkpoint (`lxd_arc_a_ensure`); `LXD_ARC_A_REUSE=0` restores a fresh per-arc install for diagnosis only; host capacity is bounded by slots (`ops/lxd-fleet/admission.sh`), and `run-arcs.sh` and the workflow's `run-arc` job share `lxd/arc-job.sh`. The local runner and `lib/vm-bootstrap.sh` are retained for manual diagnosis. Each candidate needs its per-commit images built by `images.yaml` before the LXD base build.
+`test-smoke.yaml` and `upgrade-arc-harness.yaml` also run on the LXD host (M4). Each candidate-A arc forks smoke's `installed-<candidate>-standalone` with the demo dataset already loaded (the `-demo` layer below; missing or unproven fails loud, never a pristine reinstall); a historical base forks an exact-SHA checkpoint (`lxd_arc_a_ensure`); `LXD_ARC_A_REUSE=0` restores a fresh per-arc install and `LXD_ARC_DEMO_LAYER=0` a per-arc demo load, both for diagnosis only; host capacity is bounded by slots (`ops/lxd-fleet/admission.sh`), and `run-arcs.sh` and the workflow's `run-arc` job share `lxd/arc-job.sh`. The local runner and `lib/vm-bootstrap.sh` are retained for manual diagnosis. Each candidate needs its per-commit images built by `images.yaml` before the LXD base build.
+
+### Checkpoint tree (STATBUS-517)
+
+Each state is built once per candidate and forked by every test that starts from it. `lxd_checkpoint_for_scenario` reads the choice from the scenario file itself.
+
+| Checkpoint | Built by | Forked by |
+|---|---|---|
+| `hardened-nothing-installed` | smoke / fleet | Install-time faults only: the test of a failure during installation (`0-interactive-*`, `4-install-*`, `5-install-interrupted-*`, `5-install-database-route-interrupted`, `5-install-orphaned-db-volume-credentials`, `5-install-cert-repair-via-cert-install`) |
+| `installed-<candidate>-standalone` | smoke `0-happy-install` | Scenarios declaring `# LXD_START=installed-candidate`: they install cleanly first and then break something (`5-install-stage-a..e`, `5-install-bool-text-regression`, `5-install-proxy-never-started`, `5-install-live-upgrade-wait`, `6-uninstall-reinstall`). The fork answers their first candidate install (HEAD verified); later installs run for real |
+| `installed-<candidate>-demo` | first arc to need it (`lxd_demo_ensure`) | Candidate-A upgrade arcs |
+| `installed-<prev stable>-standalone` | fleet | Upgrade-from-previous-stable faults |
+| `installed-<prev stable>-demo` | fleet (`lxd_demo_ensure`) | Previous-stable faults that call `populate_with_demo_data` (`0-https-only-egress`, `1-boot-concurrent-install`, `3-postswap-worker-ddl-deadlock`, `5-install-disk-threshold-repair`, `5-install-seed-on-populated`) |
+
+A demo layer is its parent forked, `populate_with_demo_data` run once with the worker drained, then snapshotted. A test forking it runs `populate_with_demo_data` as before; the call confirms the drained worker instead of loading twice. Smoke's `0-happy-upgrade` still loads the dataset itself on every candidate, so the load path stays proven.
 
 ```bash
 gh workflow run lxd-fleet.yaml --ref <candidate-tag>

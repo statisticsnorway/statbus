@@ -47,6 +47,17 @@ populate_with_demo_data() {
     local user_email="${DEMO_USER_EMAIL:-test@statbus.org}"
     local max_wait_s="${DEMO_IMPORT_MAX_WAIT_S:-300}"
 
+    # HARNESS_DEMO_PRELOADED=1: the box was forked from a checkpoint that
+    # already holds the demo dataset with a drained worker (the LXD backend's
+    # -demo layer, built by lxd_demo_ensure through this same function). The
+    # data is confirmed, never loaded twice (STATBUS-517).
+    if [ "${HARNESS_DEMO_PRELOADED:-0}" = 1 ]; then
+        echo "  [data] demo dataset preloaded by the forked checkpoint; confirming instead of loading"
+        HARNESS_DEMO_PRELOADED=0
+        wait_for_worker_quiesce "$vm_name" "${DEMO_WORKER_QUIESCE_MAX_WAIT_S:-300}" || return 1
+        return 0
+    fi
+
     echo "  [data] populating $vm_name with samples/demo dataset (USER_EMAIL=$user_email)"
 
     # Run the demo importer. The script lives at samples/demo/import-

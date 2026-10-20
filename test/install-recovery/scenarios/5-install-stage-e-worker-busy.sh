@@ -1,5 +1,6 @@
 #!/bin/bash
 # Scenario: 5-install-stage-e-worker-busy
+# LXD_START=installed-candidate
 #
 # Validates: Fix 8 (worker excluded from advisory_holders count),
 #            Fix 9 (no false-fail on pool busy),

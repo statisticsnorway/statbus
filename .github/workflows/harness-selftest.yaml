@@ -76,6 +76,8 @@ jobs:
         run: bash test/install-recovery/tests/lxd-arc-verdict-test.sh
       - name: LXD exact-SHA arc A checkpoints
         run: bash test/install-recovery/tests/lxd-arc-a-checkpoint-test.sh
+      - name: LXD snapshot layers (installed-candidate start, demo layer)
+        run: bash test/install-recovery/tests/lxd-snapshot-layers-test.sh
       - name: LXD arc always-reap (killed job ownership)
         run: bash test/install-recovery/tests/lxd-arc-reap-test.sh
       - name: LXD stop_running_jobs (finalize job stop)

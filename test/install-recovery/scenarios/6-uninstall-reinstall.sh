@@ -1,5 +1,6 @@
 #!/bin/bash
 # Candidate install, full uninstall, fresh install on the same VM.
+# LXD_START=installed-candidate
 set -euo pipefail
 VM_NAME="${1:-statbus-recovery-6-uninstall-reinstall}"
 LIB_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/lib"

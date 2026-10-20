@@ -350,8 +350,15 @@ lxd_checkpoint_for_scenario() {
         lxd_checkpoint_for_scenario "$delegated"
         return
     fi
+    # LXD_START=installed-candidate: the scenario's first act is a clean,
+    # healthy candidate install it never inspects, then it breaks something.
+    # Fork the candidate's installed checkpoint; lxd_fork marks the first
+    # install as already done (LXD_CANDIDATE_PREINSTALLED, STATBUS-517).
+    if grep -Eq '^# LXD_START=installed-candidate$' "$file"; then
+        printf 'installed-%s-standalone' "$LXD_CANDIDATE"; return
+    fi
     case "$slug" in
-        0-happy-install|0-interactive-admin-password|0-interactive-setup-choices|4-install-*|5-install-cert-repair-via-cert-install|5-install-interrupted-*|5-install-live-upgrade-wait|6-uninstall-reinstall)
+        0-happy-install|0-interactive-admin-password|0-interactive-setup-choices|4-install-*|5-install-cert-repair-via-cert-install|5-install-interrupted-*)
             printf 'hardened-nothing-installed'; return ;;
     esac
     if grep -Eq 'bootstrap_install_test_vm "\$VM_NAME" ""' "$file"; then
@@ -374,6 +381,13 @@ lxd_checkpoint_for_scenario() {
         # lxd_checkpoint_for_scenario's own recursive delegator branch above)
         # leaves the suffix unset and gets the historic unsuffixed name.
         printf 'installed-%s-standalone%s' "$baseline" "${LXD_BASELINE_CHECKPOINT_SUFFIX:-}"
+        # A fault-fleet baseline scenario that loads the demo dataset forks
+        # the layer that already holds it (lxd_demo_ensure);
+        # populate_with_demo_data then only confirms the data
+        # (HARNESS_DEMO_PRELOADED, STATBUS-517). Smoke's suffixed
+        # 0-happy-upgrade keeps loading it for real, so the load itself stays
+        # proven on every candidate.
+        if [ -z "${LXD_BASELINE_CHECKPOINT_SUFFIX:-}" ] && grep -Eq '^[[:space:]]*populate_with_demo_data ' "$file"; then printf -- '-demo'; fi
     else
         printf 'installed-%s-standalone' "$LXD_CANDIDATE"
     fi
@@ -640,6 +654,13 @@ SCRIPT
 }
 lxd_base_for_candidate() {
     local tag=$1 checkpoint=${2:-installed-$1-standalone} base rc
+    # The demo layer sits on its parent installed checkpoint: build or reuse
+    # the parent first, then the layer (STATBUS-517).
+    if [[ "$checkpoint" == installed-*-standalone-demo ]]; then
+        lxd_base_for_candidate "$tag" "${checkpoint%-demo}" || return
+        lxd_demo_ensure "$tag" "${checkpoint%-demo}"
+        return
+    fi
     base=$(_lxd_name "$tag-$checkpoint")
     LXD_BASE_OWNED_BY_THIS_BUILD=0
     if _lxd_build_base_for_candidate "$tag" "$checkpoint"; then
@@ -657,7 +678,7 @@ lxd_fork() {
     local tag=$1 scenario=$2 base name checkpoint provenance
     checkpoint=$(lxd_checkpoint_for_scenario "$scenario") || return
     [[ "$LXD_FORK_PREFIX" =~ ^[a-z][a-z0-9-]{0,12}$ ]] || return 2
-    base=$(_lxd_name "$tag-$checkpoint"); name="$LXD_FORK_PREFIX-${tag//[^a-zA-Z0-9-]/-}-${scenario//[^a-zA-Z0-9-]/-}"
+    base=$(_lxd_checkpoint_base "$tag" "$checkpoint"); name="$LXD_FORK_PREFIX-${tag//[^a-zA-Z0-9-]/-}-${scenario//[^a-zA-Z0-9-]/-}"
     [[ "$scenario" =~ ^[a-zA-Z0-9-]+$ ]] || return 2
     provenance=$(_lxd_host lxc config get "$base" user.statbus.candidate 2>/dev/null || true)
     if [ -n "$provenance" ] && [ "$provenance" != "$tag" ]; then
@@ -667,7 +688,89 @@ lxd_fork() {
     if [ -n "$provenance" ]; then
         _lxd_mark "$base/checkpoint provenance: candidate=$provenance producer=$(_lxd_host lxc config get "$base" user.statbus.producer 2>/dev/null || echo unknown) run_id=$(_lxd_host lxc config get "$base" user.statbus.run_id 2>/dev/null || echo unknown)"
     fi
-    _lxd_fork_from_base "$base" "$name" "$checkpoint"
+    _lxd_fork_from_base "$base" "$name" "$checkpoint" || return
+    # The fork already holds what the scenario's first steps would build:
+    # its own consumers skip exactly that work once (STATBUS-517).
+    #  - installed-<candidate>: the scenario's first clean candidate install
+    #    (install_statbus_in_vm / install_statbus_at_sha consume it).
+    #  - *-demo: the demo dataset (populate_with_demo_data consumes it).
+    if [ "$checkpoint" = "installed-$tag-standalone" ]; then
+        LXD_CANDIDATE_PREINSTALLED=1
+        _lxd_mark "$name starts from the installed candidate; its first install is the checkpoint's"
+    fi
+    if [[ "$checkpoint" == *-demo ]]; then
+        HARNESS_DEMO_PRELOADED=1
+        _lxd_mark "$name starts with the demo dataset loaded"
+    fi
+}
+# _lxd_checkpoint_base <tag> <checkpoint> -> the base instance holding that
+# checkpoint. A demo layer drops "-standalone" so the name stays within LXD's
+# 63-character limit (s2-base-<tag>-installed-<release>-demo).
+_lxd_checkpoint_base() {
+    local tag=$1 checkpoint=$2
+    if [[ "$checkpoint" == installed-*-standalone-demo ]]; then
+        _lxd_name "$tag-${checkpoint%-standalone-demo}-demo"
+    else
+        _lxd_name "$tag-$checkpoint"
+    fi
+}
+# lxd_demo_ensure <tag> <parent-checkpoint>: build (or wait for another job to
+# build) the demo layer on top of an installed checkpoint: the parent forked,
+# populate_with_demo_data run once with the worker drained, then snapshotted.
+# Every test that needs data forks it instead of loading the dataset itself
+# (STATBUS-517). Claim and stale-builder recovery are arc A's: one atomic
+# `lxc copy -c user.statbus.builder=...`, the host-locked reclaim script.
+lxd_demo_ensure() {
+    local tag=$1 parent=$2 base parent_base waited=0 budget=${DEMO_BUILD_WAIT_S:-2400} legacy=${ARC_A_LEGACY_STALE_S:-3600} out builder
+    [[ "$parent" == installed-*-standalone ]] || { echo "Invalid demo parent checkpoint: $parent" >&2; return 2; }
+    base=$(_lxd_checkpoint_base "$tag" "$parent-demo")
+    parent_base=$(_lxd_name "$tag-$parent")
+    builder=${LXD_MARKER_ID:-manual-$LXD_STAGE_ID}
+    _lxd_arc_a_has_checkpoint "$parent_base" || { echo "No checkpoint $parent_base/checkpoint to build the demo layer from" >&2; return 1; }
+    while :; do
+        if _lxd_arc_a_has_checkpoint "$base"; then
+            [ "$(_lxd_host lxc config get "$base" user.statbus.demo_parent)" = "$parent_base" ] || {
+                echo "REFUSE: $base/checkpoint was built from $(_lxd_host lxc config get "$base" user.statbus.demo_parent), expected $parent_base" >&2; return 1; }
+            _lxd_mark "$base/checkpoint exists, reusing demo layer"
+            return 0
+        fi
+        if ! _lxd_host lxc info "$base" >/dev/null 2>&1; then
+            if _lxd_host lxc copy "$parent_base/checkpoint" "$base" -c "user.statbus.builder=$builder" 2>/dev/null; then
+                _lxd_demo_build "$tag" "$base" "$parent_base" && return 0
+                _lxd_host lxc delete "$base" --force || true
+                return 1
+            fi
+            _lxd_host lxc info "$base" >/dev/null 2>&1 || {
+                echo "REFUSE: could not claim $base (lxc copy with builder config failed and nothing was created)" >&2; return 1; }
+        else
+            out=$(_lxd_host flock /root/fleet-run.lock bash -c "$_lxd_arc_a_reclaim_script" _ "$base" "$legacy" 2>/dev/null || true)
+            case "$out" in deleted*) _lxd_mark "demo base $base: $out";; esac
+        fi
+        [ "$waited" -lt "$budget" ] || { echo "demo base $base not ready within ${budget}s" >&2; return 1; }
+        sleep 15; waited=$((waited + 15))
+    done
+}
+_lxd_demo_build() {
+    local tag=$1 base=$2 parent_base=$3 saved_vm=${VM_NAME:-} saved_ip=${VM_IP:-} rc=0 start
+    start=$(date +%s)
+    _lxd_host lxc start "$base" || return
+    _lxd_host lxc exec "$base" -- cloud-init status --wait || true
+    VM_NAME=$base
+    _lxd_ready "$base" || rc=$?
+    if [ "$rc" -eq 0 ]; then
+        # shellcheck source=data-helpers.sh
+        source "$HARNESS_LIB_DIR/data-helpers.sh"
+        HARNESS_DEMO_PRELOADED=0 populate_with_demo_data "$base" || rc=$?
+    fi
+    VM_NAME=$saved_vm VM_IP=$saved_ip
+    [ "$rc" -eq 0 ] || { lxd_capture_failure "$base"; return "$rc"; }
+    _lxd_host lxc stop "$base" || return
+    _lxd_host lxc snapshot "$base" checkpoint || return
+    _lxd_host lxc config set "$base" user.statbus.demo_parent "$parent_base" || return
+    _lxd_host lxc config set "$base" user.statbus.candidate "$tag" || return
+    _lxd_host lxc config set "$base" user.statbus.producer demo || return
+    _lxd_host lxc config set "$base" user.statbus.run_id "${GITHUB_RUN_ID:-manual}" || return
+    _lxd_mark "demo layer $base/checkpoint built from $parent_base in $(($(date +%s)-start))s"
 }
 # _lxd_fork_from_base <base> <name> <checkpoint-kind> [storage-pool] — the
 # mechanical half of lxd_fork (copy checkpoint -> boot -> ready), factored
@@ -1071,6 +1174,16 @@ bootstrap_install_test_vm() {
                 if [ "$a_kind" = smoke ]; then
                     a_base=$(_lxd_name "$LXD_CANDIDATE-installed-$LXD_CANDIDATE-standalone")
                     _lxd_arc_a_check_smoke_base "$LXD_CANDIDATE" "$a_base" || return
+                    # STATBUS-517: every arc loads the same demo dataset onto
+                    # A, so A forks smoke's checkpoint WITH the data (built
+                    # once per candidate by the first arc to need it);
+                    # arc_prepare_box's populate_with_demo_data confirms it.
+                    # LXD_ARC_DEMO_LAYER=0 keeps the per-arc load, diagnosis only.
+                    if [ "${LXD_ARC_DEMO_LAYER:-1}" = 1 ]; then
+                        lxd_demo_ensure "$LXD_CANDIDATE" "installed-$LXD_CANDIDATE-standalone" || return
+                        a_base=$(_lxd_checkpoint_base "$LXD_CANDIDATE" "installed-$LXD_CANDIDATE-standalone-demo")
+                        HARNESS_DEMO_PRELOADED=1
+                    fi
                 else
                     a_base=$(_lxd_arc_a_base "$LXD_CANDIDATE" "$BASE_SHA")
                     lxd_arc_a_ensure "$LXD_CANDIDATE" "$BASE_SHA" || return
@@ -1266,6 +1379,36 @@ _lxd_stage_candidate_install() {
     scp -O "${SSH_OPTS[@]}" "$HARNESS_ROOT/install.sh" "root@$VM_IP:/tmp/statbus-install.sh"
     VM_ROOT_EXEC chmod 0644 /tmp/statbus-install.sh
 }
+# _lxd_consume_candidate_preinstall <name> <sha>: a fork of the installed
+# candidate checkpoint (lxd_fork set LXD_CANDIDATE_PREINSTALLED) already holds
+# the scenario's first clean candidate install. The first install call for that
+# candidate commit is answered by the checkpoint, after verifying the guest's
+# HEAD; every later install call runs for real (STATBUS-517). Returns 0 when
+# consumed, 1 when this call is not the consumable one, 2 when the guest is not
+# at the candidate (the caller fails, never reinstalls over it).
+_lxd_consume_candidate_preinstall() {
+    local name=$1 sha=$2 cand
+    [ "${LXD_CANDIDATE_PREINSTALLED:-0}" = 1 ] || return 1
+    cand=$(git -C "$HARNESS_ROOT" rev-parse "$LXD_CANDIDATE^{commit}") || return 1
+    [ "$sha" = "$cand" ] || return 1
+    LXD_CANDIDATE_PREINSTALLED=0
+    _lxd_arc_a_verify_head "$name" "$sha" || return 2
+    # Later steps re-run the staged installer directly, as after a real install.
+    _lxd_stage_candidate_install || return 2
+    # A later reinstall reads the admin fixture the fresh path would have
+    # pushed; the installed checkpoint's /tmp is gone, so restore it.
+    if ! VM_ROOT_EXEC test -s /tmp/users.yml; then
+        local fixture staging="/root/s2-users-${LXD_STAGE_ID}.yml"
+        fixture=$(mktemp "$LXD_LOG_DIR/s2-users-XXXXXX")
+        printf '%s\n' '- email: test@statbus.org' '  password: test-install-password-2026' '  role: admin_user' '  display_name: Admin' > "$fixture"
+        VM_ROOT_EXEC rm -f /tmp/users.yml
+        _lxd_upload "$fixture" "$staging" && _lxd_push "$staging" "$VM_NAME/tmp/users.yml" || { rm -f "$fixture"; return 2; }
+        _lxd_host rm -f "$staging"; rm -f "$fixture"
+        VM_ROOT_EXEC chmod 0644 /tmp/users.yml
+    fi
+    _lxd_mark "install: candidate ${sha:0:12} preinstalled from checkpoint, not reinstalling"
+    return 0
+}
 _lxd_install_exit() {
     local rc=$1
     if [ "$rc" -ne 0 ]; then
@@ -1275,6 +1418,10 @@ _lxd_install_exit() {
 }
 install_statbus_in_vm() {
     local name=$1 log="$HARNESS_ROOT/tmp/install-recovery-$1-install.log" installed commit rc
+    if [ -z "${2:-}" ]; then
+        rc=0; _lxd_consume_candidate_preinstall "$name" "$(git -C "$HARNESS_ROOT" rev-parse HEAD)" || rc=$?
+        [ "$rc" = 1 ] || return "$rc"
+    fi
     if [ -z "${2:-}" ]; then
         # VM harness's no-version contract: HEAD via the published per-commit
         # image, through install.sh --commit in RESCUE mode. A historical base
@@ -1357,6 +1504,10 @@ install_statbus_at_sha() {
     if [ "${LXD_ARC_A_PREINSTALLED:-}" = "$sha" ] && [ -z "$tag" ]; then
         _lxd_mark "install_statbus_at_sha: A ${sha:0:12} preinstalled from checkpoint, not reinstalling"
         return 0
+    fi
+    if [ -n "$tag" ] && [ "$tag" = "$LXD_CANDIDATE" ]; then
+        rc=0; _lxd_consume_candidate_preinstall "$name" "$sha" || rc=$?
+        [ "$rc" = 1 ] || return "$rc"
     fi
     if [ -n "$tag" ]; then
         [ "$(git -C "$HARNESS_ROOT" rev-parse "$tag^{commit}")" = "$sha" ] || {
