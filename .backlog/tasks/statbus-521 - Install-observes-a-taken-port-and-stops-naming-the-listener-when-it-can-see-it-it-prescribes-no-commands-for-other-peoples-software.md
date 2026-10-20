@@ -43,7 +43,7 @@ Owner, 2026-10-20: we do not know what runs on someone else's machine. A hardcod
 - [x] #3 install.sh's two allowlist regexes match exactly the new message shape (with and without 'Your answers are saved.'), and the existing allowlist tests (install_detection_test.go, install_failure_cause_test.go) assert the new shapes
 - [ ] #4 4-install-port-80-taken.sh asserts the outcome: install exited non-zero, no StatBus container exists, and the printed rerun command, run after Apache is stopped, completes the install. It no longer greps for a prescribed command
 - [x] #5 A Go test feeds the service-state parser a real captured 'docker compose ps -a --format json' output with a stopped and a restarting service and asserts the parsed states (STATBUS-393 AC3 middle way)
-- [ ] #6 Go tests, golangci-lint, ./dev.sh test-harness and the install.sh tests pass, and CI passes
+- [x] #6 Go tests, golangci-lint, ./dev.sh test-harness and the install.sh tests pass, and CI passes
 - [x] #7 The port check reads every port it checks, and the address each is bound to (HTTP, HTTPS, app, API, API admin, database local and TLS), from the generated .env (CADDY_HTTP_PORT, CADDY_HTTPS_PORT, the *_BIND_ADDRESS lines, CADDY_DB_PORT, CADDY_DB_TLS_PORT) instead of its own copy of the port plan; a test asserts that for each mode the checked list equals the ports the generated settings publish
 <!-- AC:END -->
 
