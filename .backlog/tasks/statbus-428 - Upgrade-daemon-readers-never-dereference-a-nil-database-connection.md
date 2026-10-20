@@ -1,10 +1,10 @@
 ---
 id: STATBUS-428
 title: Upgrade daemon readers never dereference a nil database connection
-status: In Progress
+status: Done
 assignee: []
 created_date: '2026-09-29 00:30'
-updated_date: '2026-10-20 12:40'
+updated_date: '2026-10-20 13:50'
 labels:
   - upgrade
 dependencies: []
@@ -45,4 +45,11 @@ Deliberately unguarded: runOneShot entrypoints (RunDismiss/dismissNoSuchRow/regi
 Evidence:
 - red: tmp/428-red.log — TestNilConnQueryReadersReturnNamedError panics with SIGSEGV inside pgx (*Conn).QueryRow at service.go:2901 (ExecuteUpgradeInline) on the pre-fix code.
 - green: tmp/428-green.log — gofmt clean, golangci-lint 0 issues, go test ./internal/upgrade/ ok (150s), including the new nil_conn_readers_test.go driving every guarded reader with nil connections and asserting errors.Is(err, ErrQueryConnUnavailable) / typed classifier verdicts / established fallbacks.
+
+### Reviewed and closed by rabbit (2026-10-20 13:50)
+- **Shape:** one guard per connection (queryConnOrErr, listenConnOrErr) returning named errors (ErrQueryConnUnavailable, the new ErrListenConnUnavailable); readers reached after a failed reconnect go through them. The one-shot entrypoints are deliberately unguarded with a stated reason (connect() fails first).
+- **Red/green verified:** tmp/428-red.log shows a SIGSEGV in pgx (*Conn).QueryRow at ExecuteUpgradeInline on the old code; tmp/428-green.log shows gofmt clean, golangci-lint 0 issues and go test ./internal/upgrade/ ok. The test asserts errors.Is on the named errors, which is a positive assertion.
+- **CI:** Go Test passed on c942b55af.
+- Work by worker tigress (k3-256k), commit c942b55af.
+- **Closing review:** Memory: none. Documentation: comments on the accessors. Cleanup: none.
 <!-- SECTION:NOTES:END -->
