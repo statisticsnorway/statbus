@@ -31,7 +31,7 @@ Arcs upgrade the candidate to synthetic commits (candidate plus a test migration
 
 ### Closing review
 - **Memory:** none needed.
-- **Documentation:** the arc harness header states when fixtures are built.
+- **Documentation:** update the `upgrade-arc-harness.yaml` header, which today says `construct` runs at the start of the arc job; it must say fixtures are built at the gate decision. `app/Dockerfile` states why the stamp follows the build.
 - **Cleanup:** none.
 <!-- SECTION:DESCRIPTION:END -->
 
@@ -39,7 +39,7 @@ Arcs upgrade the candidate to synthetic commits (candidate plus a test migration
 <!-- AC:BEGIN -->
 - [ ] #1 Dispatch the fixture construct and image builds at the gate decision, in parallel with smoke, shown by build start times before smoke ends in a run
 - [ ] #2 A gate run shows fixture images present before the first arc is ready to start; run ID recorded in Implementation Notes
-- [ ] #3 In `app/Dockerfile`, stamp the commit after `next build` instead of before it, so an unchanged `app/` reuses the cached build and each image still reports its own commit; shown by an app build under 30 s for a migration-only fixture
+- [ ] #3 In `app/Dockerfile`, stamp the commit after `next build`; shown by an app build under 30 s for a migration-only fixture
 <!-- AC:END -->
 
 ## Implementation Notes
@@ -48,6 +48,6 @@ Arcs upgrade the candidate to synthetic commits (candidate plus a test migration
 2026-10-20 owner decisions:
 - Build first, stamp after: ARG COMMIT moves after next build in app/Dockerfile, so the expensive build is cached whenever app/ is unchanged and only the small stamp step reruns. Each image still reports its own true commit (/_statbus-build.json; release identity; c-rollback-resurrection-arc checks it). Replaces the earlier 'retag the parent app image' idea, which would report the parent's commit.
 - This speeds up the app image for every commit that leaves app/ unchanged (migration-only, cli, harness, backlog), not just fixtures. Commits that change app/ still rebuild, as they must.
-- Start fixture construct + image builds at the gate decision, in parallel with smoke. Arcs still wait for the images before using them; the run in criterion 3 confirms they are ready in time.
+- Start fixture construct + image builds at the gate decision, in parallel with smoke. Arcs still wait for the images before using them; the run in criterion 2 confirms they are ready in time.
 - Order: stamp-after-build first (testable on any push), then the early start, then the real-run check at the next RC.
 <!-- SECTION:NOTES:END -->
