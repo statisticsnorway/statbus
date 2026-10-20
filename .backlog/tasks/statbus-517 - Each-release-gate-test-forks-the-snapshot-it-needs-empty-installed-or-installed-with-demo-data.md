@@ -3,9 +3,10 @@ id: STATBUS-517
 title: >-
   Each release-gate test forks the snapshot it needs: empty, installed, or
   installed with demo data
-status: To Do
+status: In Progress
 assignee: []
 created_date: '2026-10-17 15:40'
+updated_date: '2026-10-20 12:19'
 labels:
   - ci
   - lxd
@@ -43,3 +44,14 @@ The gate forks guests from checkpoints. Only a test of a failure during installa
 - [ ] #3 Add checkpoint `installed-<prev stable>-demo` and move the 4 data-loading faults to it, shown by their logs with no demo load
 - [ ] #4 A candidate gate run gives the same verdicts as the preceding candidate and records total guest-minutes against 356 (v2026.10.2-rc.01); run IDs in Implementation Notes
 <!-- AC:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+2026-10-20: commit 5f96870f7 implements the change (made by a helper agent dolphin started without the owner's approval; the owner chose to land it). What it does:
+- Scenarios declare their start in their own file: `# LXD_START=installed-candidate` on the 9 install-first faults; `lxd_checkpoint_for_scenario` reads it and forks `installed-<candidate>-standalone`. The scenario's first candidate install is then answered by the checkpoint after verifying the guest's HEAD (`_lxd_consume_candidate_preinstall`); later installs run for real; a wrong HEAD fails rather than reinstalling.
+- Demo layer: `lxd_demo_ensure` builds `installed-<x>-demo` once (fork parent, one real `populate_with_demo_data`, drained worker, snapshot), claimed atomically like arc A. Candidate arcs and the previous-stable faults that load data fork it; their `populate_with_demo_data` only confirms (`HARNESS_DEMO_PRELOADED`). Smoke's 0-happy-upgrade still loads data for real, so the load stays proven per candidate. `LXD_ARC_DEMO_LAYER=0` restores per-arc loading for diagnosis.
+- README gains a checkpoint-tree table.
+Evidence: new offline contract `tests/lxd-snapshot-layers-test.sh` (fake LXD store, real harness functions) passes, run by dolphin 2026-10-20 12:15 UTC; the commit says it fails on the parent. CI on 5f96870f7: Push on master, Go Test, app build & lint, Harness Selftest, Images, Notify all success; Fast Tests pending at 12:19 UTC.
+Not yet proven: every criterion needs a real gate run, which waits for the next release candidate (no RC until sql_saga 1.2, owner 2026-10-20).
+<!-- SECTION:NOTES:END -->
