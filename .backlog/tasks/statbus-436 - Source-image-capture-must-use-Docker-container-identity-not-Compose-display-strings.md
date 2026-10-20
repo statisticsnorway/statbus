@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-09-30 13:03'
-updated_date: '2026-10-15 16:24'
+updated_date: '2026-10-20 11:08'
 labels:
   - upgrade
   - recovery
@@ -128,4 +128,10 @@ Review and observation receipts: `tmp/review-demo-image-identity.md`, `tmp/demo-
 
 ### Observation cards removed (2026-10-15, 135d0a315)
 The doc/observations protocol was removed as an invented manual step nobody could follow. AC#6 is restated as the outcome on the box. The old demo runbook remains in git history (`git show 135d0a315^:doc/observations/demo-repair-v2026.10.0-rc.16.md`). Demo currently reports v2026.10.1-rc.01 (ce246ae3) on prerelease.
+
+### Demo read 2026-10-20 (read-only)
+- Demo runs v2026.10.3. Its upgrade rows for 10.1-rc.01, 10.2 and 10.3 are all 'completed' (2026-10-15, 10-16, 10-18).
+- Upgrade service active, with no restarts in 7 days. Each of the three upgrades logged 'Recording immutable source image identities ... ok', which is exactly the step that used to refuse falsely. There are no refusals.
+- **Gap against AC6's wording:** demo reached these versions through its own upgrade service on the prerelease channel, not through `./cloud.sh install demo <version>`. The outcome AC6 asks for (fix running, row completed, no retry loop) holds three times over.
+- **Owner:** accept the upgrade-service route as AC6's proof (then I check AC6 and set Done), or run the cloud.sh install.
 <!-- SECTION:NOTES:END -->
