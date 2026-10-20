@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-09-24 16:42'
-updated_date: '2026-10-20 15:27'
+updated_date: '2026-10-20 16:07'
 labels:
   - release-bug
   - install
@@ -43,7 +43,7 @@ Compose with both image: and build: (all our services) uses the image if present
 - [x] #3 A release build: start and restart check locally that this version's images exist; if any is missing they print why, pull, and then start with --no-build; a failed pull stops with the remedy (check the network, or build with ./sb build)
 - [x] #4 ./sb --help groups commands as Operations and Development. On a release build the Development group is hidden, the help ends with a line naming ./sb help --all, ./sb help --all lists every command, and a hidden command still runs and shows its own --help
 - [ ] #5 The clean LXD install and upgrade scenarios assert that every StatBus service image on the box carries a ghcr.io registry digest (pulled, not built), read from Docker's image records
-- [ ] #6 Go tests and the fast suite pass, and CI passes; old AC4 (real-box timing scenario) is withdrawn by the owner
+- [x] #6 Go tests and the fast suite pass, and CI passes; old AC4 (real-box timing scenario) is withdrawn by the owner
 <!-- AC:END -->
 
 ## Implementation Notes
@@ -87,4 +87,7 @@ Compose with both image: and build: (all our services) uses the image if present
 - **AC4:** help_groups_test.go: release root help is exactly the Operations set and ends with the hint line; source root help is Operations+Development and ends with cobra's footer; help --all lists every command; a hidden build command still resolves, is runnable, and renders its own help. Also smoke-tested with real binaries: /tmp/sb-release --help (hint line, no dev commands), help --all (all 8 dev commands incl. release), build --help works; /tmp/sb-dev --help shows both groups. Cobra detail: group headings draw even when empty, so build_identity.go ships a help template that skips empty groups; both groups must stay registered (cobra panics on an unregistered GroupID).
 - **Red/green:** tmp/392-red.log (build failure against the old API) and tmp/392-green.log (go test ./cmd ok, 52.5s). gofmt clean, golangci-lint 0 issues.
 - **AC5 (wired, harness-tested):** assert_service_images_pulled_from_registry in test/install-recovery/lib/assertions.sh asserts a ghcr.io @sha256 RepoDigests entry for statbus-app/worker/db/proxy from docker image inspect (Docker's records, not log greps), wired into 0-happy-install.sh (after assert_systemd_active, no step renumbering per dolphin's 514 constraint) and 0-happy-upgrade.sh. ./dev.sh test-harness green (tmp/392-test-harness.log). Real-fleet proof still owed by a fleet run.
+
+- **CI (2c5fca659):** Go Test, Fast Tests, Harness Selftest, Images, app build & lint, CodeQL all success. Harness Selftest failed on e65fe668a (the offline happy-install selftest mocks assertions.sh and the new assertion was undefined there); fixed by stubbing it in test/install-recovery/tests/happy-install-test.sh (2c5fca659), verified locally before push.
+- **AC6:** go test ./cmd green locally (tmp/392-green.log) and in CI; fast suite green in CI (Fast Tests). Old AC4 withdrawn by owner.
 <!-- SECTION:NOTES:END -->
