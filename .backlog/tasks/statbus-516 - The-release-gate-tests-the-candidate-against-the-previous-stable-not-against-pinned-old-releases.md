@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-10-17 15:39'
-updated_date: '2026-10-20 11:37'
+updated_date: '2026-10-20 11:41'
 labels:
   - ci
   - lxd
@@ -51,4 +51,6 @@ A past incident, once understood and fixed, keeps its lesson in a unit test or a
 2026-10-20: worked by a helper agent dolphin started (session_hatchling, stopped 11:36 UTC); dolphin owns this work. It is not the owner's other agent.
 
 2026-10-20 dolphin's helper: commit 41689e94a removes the four pinned tests and wiring (scenarios, arcs, run-arcs.sh + workflow lineage cases incl. SCHEMA_FLOOR_BASE_SHA/PRE_RENAME_BASE_SHA, lxd-backend checkpoint case, lxd-fleet summary, dead adoption helpers in schema-floor-assertions.sh). Self-tests updated: rc10-schema-floor-family, lxd-checkpoint-identity, lxd-default-domain (now self-contained fixture cells), process-log-host-guest (source-proof block removed), scenario-selection (on-demand example now 5-install-cert-repair-via-cert-install). ./dev.sh test-harness green (tmp/test-516-harness.log). Go tests green (tmp/test-516-go.log): TestPhaseBytes_{DecodeNormalizesLegacyThroughChokepoint,IsServiceNewSbRecovery_AcrossSpellings,ReadModifyWriteRewritesLegacyToCanonical,TablesAreDisjoint}, TestCaptureSourceServingImageIdentitiesRejectsMixedContainerTags, ...SurvivesLostComposeDisplay, TestReapplyRollbackDaemonSchemaFloorUsesTargetBinaryAndOrdinaryLedger, TestRollbackSchemaFloorFailureDurablyRoutesDaemonAliveIdle. AC#5 awaits the next candidate gate run.
+
+CI on 41689e94a: Go Test, app build & lint, Harness Selftest, Push on master, Images, Notify all completed/success (checked 2026-10-20 11:41 UTC).
 <!-- SECTION:NOTES:END -->
