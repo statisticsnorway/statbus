@@ -52,10 +52,6 @@ var (
 	// explain that a rotation was caused by a damaged/incomplete credentials
 	// file, without treating an ordinary fresh install as an adoption.
 	missingCredentialKeysBeforeInstall map[string]bool
-	// freshDatabaseBeforeInstall distinguishes the expected first JWT write on a
-	// new database from a repair to an established database. The latter must
-	// always be reported, including absent, empty, and initially unreadable state.
-	freshDatabaseBeforeInstall bool
 )
 
 var databaseIdentityCredentialKeys = []string{
@@ -511,7 +507,6 @@ func runInstall() (installErr error) {
 		return runCmd("git", "statbus-install-test-git-error", mode)
 	}
 	settingsRestoredBeforeDetect = false
-	freshDatabaseBeforeInstall = false
 	previousAnswered, previousAccepted, previousDeclined := signerPromptAnswered, signerPromptAccepted, signerPromptDeclined
 	signerPromptAnswered, signerPromptAccepted, signerPromptDeclined = false, false, false
 	defer func() {
@@ -741,7 +736,6 @@ func runInstall() (installErr error) {
 			}
 			preflightInstallSigner(installDir)
 			detectedState = state
-			freshDatabaseBeforeInstall = installStateHasFreshDatabase(state)
 			logInstallState(installDir, state, detail, adoptedUpgradeLock != nil)
 			// Safe takeover (STATBUS-039): a live flock + a crash-looping
 			// unit is not a progressing upgrade — it is a wedge cycling
@@ -808,7 +802,6 @@ func runInstall() (installErr error) {
 					return fmt.Errorf("re-detect after recovery: %w", derr)
 				}
 				detectedState = state
-				freshDatabaseBeforeInstall = installStateHasFreshDatabase(state)
 				// A stale install-held flag masks first-install provenance at the
 				// initial probe. Only after recovery removes it can Detect see the
 				// unfinished database. Import consent from the answer file now,
@@ -3146,36 +3139,35 @@ func runMigrations(dir string) error {
 	return runCmdDir(dir, sb, "migrate", "up", "--verbose")
 }
 
+// runLoadJWT makes the database's JWT signing secret equal to .env.credentials.
+// A different secret is updated and reported, because every token signed with
+// the old one stops working: users who were signed in must sign in again. A
+// first write (no secret yet) is the ordinary new-database case and says
+// nothing. A database whose secret cannot be read stops the install: install
+// needs that database (STATBUS-439).
 func runLoadJWT(dir string) error {
 	desired, err := desiredJWTSecret(dir)
 	if err != nil {
 		return err
 	}
-	stored, storedErr := readStoredJWTSecret(dir)
+	stored, err := readStoredJWTSecret(dir)
+	if err != nil {
+		return fmt.Errorf("could not read the JWT signing secret from the database: %w", err)
+	}
+	if jwtSecretsMatch(stored, desired) {
+		return nil
+	}
 	if err := writeJWTSecret(dir); err != nil {
 		return err
 	}
-	repaired, err := readStoredJWTSecret(dir)
-	if err != nil || !jwtSecretsMatch(repaired, desired) {
+	updated, err := readStoredJWTSecret(dir)
+	if err != nil || !jwtSecretsMatch(updated, desired) {
 		return fmt.Errorf("JWT signing secret was not reconciled with .env.credentials")
 	}
-	repairedExistingDatabase := !freshDatabaseBeforeInstall && (storedErr != nil || stored != desired)
-	if repairedExistingDatabase {
-		if missingCredentialKeysBeforeInstall["JWT_SECRET"] {
-			fmt.Println("  The JWT signing secret was rotated because .env.credentials was damaged or incomplete; the database now matches the replacement secret.")
-		} else if storedErr != nil {
-			fmt.Printf("  The stored JWT signing secret could not be read before repair (%v); the database now matches .env.credentials.\n", storedErr)
-		} else if stored == "" {
-			fmt.Println("  The stored JWT signing secret was missing or empty; the database now matches .env.credentials.")
-		} else {
-			fmt.Println("  The JWT signing secret differed from .env.credentials; the database now matches it.")
-		}
+	if stored != "" {
+		fmt.Println("  The JWT signing secret in the database differed from .env.credentials and was updated; users who were signed in must sign in again.")
 	}
 	return nil
-}
-
-func installStateHasFreshDatabase(state install.State) bool {
-	return state == install.StateFresh || state == install.StateHalfConfigured || state == install.StateFreshDBIncomplete
 }
 
 var writeJWTSecret = ensureJWTSecret

@@ -194,6 +194,13 @@ USERS_AFTER=$(VM_EXEC bash -c "cd ~/statbus && ./sb psql -X -t -A -c 'SELECT cou
 [ "$USERS_AFTER" -ge "$USERS_BEFORE" ] || { echo "✗ phase c: auth.user shrank ($USERS_BEFORE → $USERS_AFTER)" >&2; exit 1; }
 echo "  ✓ phase c: daemon active, newest upgrade row completed, auth.user intact ($USERS_AFTER)"
 
+# STATBUS-439: the surviving database's JWT signing secret now equals the
+# regenerated .env.credentials (compared by digest, so neither value is printed).
+JWT_DB=$(VM_EXEC bash -c "cd ~/statbus && ./sb psql -X -t -A -c \"SELECT md5(value) FROM auth.secrets WHERE key = 'jwt_secret';\"" | tr -d ' \r\n')
+JWT_FILE=$(VM_EXEC bash -c "cd ~/statbus && printf '%s' \"\$(./sb dotenv -f .env.credentials get JWT_SECRET)\" | md5sum | cut -d' ' -f1" | tr -d ' \r\n')
+[ -n "$JWT_DB" ] && [ "$JWT_DB" = "$JWT_FILE" ] || { echo "✗ phase c: the kept database's JWT secret does not equal .env.credentials" >&2; exit 1; }
+echo "  ✓ phase c: the kept database's JWT secret equals the new .env.credentials"
+
 echo ""
 echo "PASS: 5-install-orphaned-db-volume-credentials"
 echo "  (an install interrupted at step 8 continued on rerun, and a reinstall over a"
