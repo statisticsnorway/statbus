@@ -1,10 +1,12 @@
 ---
 id: STATBUS-399
-title: A private-name installation offers a private certificate and complete trust setup
+title: >-
+  A private-name installation offers a private certificate and complete trust
+  setup
 status: To Do
 assignee: []
 created_date: '2026-09-24 15:35'
-updated_date: '2026-09-26 09:12'
+updated_date: '2026-10-20 21:22'
 labels:
   - owner-decision
   - install
@@ -16,12 +18,6 @@ priority: high
 type: bug
 ordinal: 352000
 ---
-
-## Status 2026-09-24
-
-**To Do, owner decision.** #1-7 not met: no persisted standalone private-certificate choice; `4-install-standalone-no-public-dns.sh` is only an authored scenario and currently cannot establish #2. **Remaining:** choose the certificate/trust policy, then ship the last-choice selector, public-root-only trust command and HTTP browser trust page, persistence, and full HTTPS/PostgreSQL direct-TLS VM proofs.
-
-Baseline: `origin/master` at `373d15fc3`. Criterion disposition and remaining positive targets are above; the acceptance criteria below remain authoritative. An authored but unrun VM scenario is **proof pending**, not met.
 
 ## Description
 
@@ -71,8 +67,13 @@ Certificate expiry, not just absence, must degrade gracefully. Real-world case: 
 3. **Certificate presence AND validity drive the redirect:** uncertified OR expired → serve HTTP with the persistent interstitial/guidance; certified and valid → HTTPS with a temporary redirect. The transition both ways must be automatic (no operator shelling in to fix Caddy while users are locked out).
 4. **The certificate lives in the database with its expiry recorded.** The DB record is the system's knowledge of certificate state: the app warns ahead of expiry (escalating interstitial even while HTTPS still works), the upgrade/install flow can surface it, and the expiry transition triggers the degrade-to-HTTP regeneration. (Caddy still reads files; the DB is the decision record, a sync keeps them in agreement.)
 5. **PostgreSQL over Caddy's L4 proxy requires the certificate** — on expiry that path breaks too. Default posture stands (fix the certificate first); a deliberate relaxation for known-safe local environments may be considered.
-
 <!-- SECTION:DESCRIPTION:END -->
+
+## Status 2026-09-24
+
+**To Do, owner decision.** #1-7 not met: no persisted standalone private-certificate choice; `4-install-standalone-no-public-dns.sh` is only an authored scenario and currently cannot establish #2. **Remaining:** choose the certificate/trust policy, then ship the last-choice selector, public-root-only trust command and HTTP browser trust page, persistence, and full HTTPS/PostgreSQL direct-TLS VM proofs.
+
+Baseline: `origin/master` at `373d15fc3`. Criterion disposition and remaining positive targets are above; the acceptance criteria below remain authoritative. An authored but unrun VM scenario is **proof pending**, not met.
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
@@ -84,3 +85,10 @@ Certificate expiry, not just absence, must degrade gracefully. Real-world case: 
 - [ ] #6 `new: cli/cmd/install_certificate_choice_test.go::TestPrivateChoicePersistsAcrossGenerationAndRerun` proves the choice survives settings generation and installer rerun.
 - [ ] #7 `new: test/install-recovery/scenarios/4-private-certificate-postgres-direct-tls.sh` verifies PostgreSQL with `sslmode=verify-full`, the served root, SNI, and direct TLS negotiation.
 <!-- AC:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+### Owner 2026-10-20: STATBUS-523 belongs to this discussion
+Verify a supplied certificate before serving with it, and try Let's Encrypt against its staging service before production, reporting what failed. To be decided together with the HTTP-first design here.
+<!-- SECTION:NOTES:END -->
