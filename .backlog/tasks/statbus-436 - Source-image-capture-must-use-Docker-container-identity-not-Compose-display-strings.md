@@ -3,10 +3,10 @@ id: STATBUS-436
 title: >-
   Source image capture must use Docker container identity, not Compose display
   strings
-status: In Progress
+status: Done
 assignee: []
 created_date: '2026-09-30 13:03'
-updated_date: '2026-10-20 19:57'
+updated_date: '2026-10-20 20:33'
 labels:
   - upgrade
   - recovery
@@ -63,7 +63,7 @@ There is a separate **released containment fix**: `5c1cb6046` is not an ancestor
 - [x] #3 Related serving-version/canary paths are checked for the same display-reference confusion and, where affected, are corrected with behavioral regressions without weakening immutable source proof. The audit explicitly records affected/unaffected verdicts for the version check in `containers.go` (`extractImageTag(s.Image)`), `deriveServingEra` in `service.go` (target tag from `entry.Image`), and the serving-reference equality check in `service.go`.
 - [x] #4 A real LXD reproduction of the old released daemon loop exercises the official installer remedy and records whether it completes the upgrade, parks while serving the source, or refuses. Automatic retries do not continually re-enter maintenance after a deterministic refusal under the fixed program.
 - [x] #5 The product fix is independently reviewed and tested against its built candidate in a real LXD guest before being advertised as a released fix. Existing install/recovery safety invariants remain green.
-- [ ] #6 Demo runs a release that contains this fix (v2026.10.1 or later), installed through a supported release-addressed path (`./cloud.sh install demo <version>`, run by the owner). Its upgrade row for that version is completed and its upgrade service is no longer retrying the old false refusal.
+- [x] #6 Demo runs a release that contains this fix (v2026.10.1 or later), installed through a supported release-addressed path (`./cloud.sh install demo <version>`, run by the owner). Its upgrade row for that version is completed and its upgrade service is no longer retrying the old false refusal.
 <!-- AC:END -->
 
 ## Implementation Notes
@@ -137,4 +137,7 @@ The doc/observations protocol was removed as an invented manual step nobody coul
 
 ### Status 2026-10-20
 - The criterion's outcome holds on demo three times over (2026-10-20 read above). Demo now runs v2026.10.3 and carries the GitHub token (STATBUS-361). Only the route question is open: accept the upgrade-service route (then Done), or the owner runs ./cloud.sh install demo. This sits in the owner's 'accept evidence already in hand' group.
+
+### Owner decision 2026-10-20 (AC6): accepted
+- Demo reached the fix through its own upgrade service (10.1-rc.01, 10.2 and 10.3 completed; each logged 'Recording immutable source image identities ... ok'; no retries, no restarts in 7 days). The owner accepts the upgrade-service route in place of ./cloud.sh install. Done.
 <!-- SECTION:NOTES:END -->

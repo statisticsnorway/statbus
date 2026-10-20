@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-10-13 13:16'
-updated_date: '2026-10-16 14:00'
+updated_date: '2026-10-20 20:33'
 labels:
   - install
   - uganda
@@ -69,4 +69,7 @@ From the release's own published instructions (ops/setup-ubuntu-lts.sh and insta
 
 ### Also read after the install (feeds STATBUS-422 AC4)
 - Open the box's login page and read the footer. It must say `Statbus version v2026.10.2`. A fresh install of a release containing 3df96b7bf is exactly what 422 AC4 asks to observe. Paste the footer line with the logs.
+
+### Owner 2026-10-20
+- The owner runs the Uganda install by hand after the next release, which follows the sql_saga 1.2 release. The steps above stand, against that release's version.
 <!-- SECTION:NOTES:END -->
