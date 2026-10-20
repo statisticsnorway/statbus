@@ -3,10 +3,10 @@ id: STATBUS-393
 title: >-
   When starting services fails, the installer names every service's state and
   the support file holds every service's logs
-status: In Progress
+status: Done
 assignee: []
 created_date: '2026-09-24 16:42'
-updated_date: '2026-10-15 20:08'
+updated_date: '2026-10-20 19:41'
 labels:
   - release-bug
   - install
@@ -44,7 +44,7 @@ STATBUS-394 owns the later moment: waiting for client services to become ready a
 <!-- AC:BEGIN -->
 - [x] #1 A failed start or final readiness prints all six services by plain name with running, restarting, exited, stopped, absent or inactive (`TestStartEarlyFailuresPrintSixServiceInventory`, `TestVerifyInstallServing`)
 - [x] #2 The support file contains `docker compose ps -a`, per-service logs for db, proxy, rest, app and worker, and the automatic update service journal (`TestWriteBundleSections_Composition`)
-- [ ] #3 [Owner] Decide whether a real-box partial start (a service failing for a reason preflight does not catch) is required beyond the fake-stack tests, and record it in Implementation Notes. No: check this and set Done. Yes: add that scenario as a new criterion.
+- [x] #3 [Owner] Decide whether a real-box partial start (a service failing for a reason preflight does not catch) is required beyond the fake-stack tests, and record it in Implementation Notes. No: check this and set Done. Yes: add that scenario as a new criterion.
 <!-- AC:END -->
 
 ## Implementation Notes
@@ -53,4 +53,10 @@ STATBUS-394 owns the later moment: waiting for client services to become ready a
 ### Evidence
 - **AC1-2:** green in Go Test (v2026.09.3); re-run green locally on master, 2026-10-15.
 - **Superseded criteria:** the 2026-09-24 restyle named two scenarios and a support test that were never written (`5-install-partial-services.sh`, `5-install-api-restart-loop.sh`, `support_test.go`). The tests that did land are cited instead. The restart-loop case belongs to STATBUS-394.
+
+### Owner decision 2026-10-20 (AC3)
+- **No real-box partial-start scenario.** The middle way instead: a Go test feeds the service-state parser a real `docker compose ps -a --format json` output (captured from a box with a stopped and a restarting service), so the parse is pinned against Docker's actual format. That test is filed as part of the port-conflict simplification ticket.
+- **Pushback on the port-80 remedy:** install should observe and stop, not prescribe. See the follow-up ticket.
+
+- **Follow-up filed:** STATBUS-521 carries the middle-way parser test (AC5 there) and the port-message simplification. 393 is Done: AC1-2 shipped and proven, AC3 decided.
 <!-- SECTION:NOTES:END -->

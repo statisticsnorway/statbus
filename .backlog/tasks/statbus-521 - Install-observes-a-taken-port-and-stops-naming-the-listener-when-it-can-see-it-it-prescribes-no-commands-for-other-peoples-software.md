@@ -1,0 +1,45 @@
+---
+id: STATBUS-521
+title: >-
+  Install observes a taken port and stops, naming the listener when it can see
+  it; it prescribes no commands for other people's software
+status: To Do
+assignee: []
+created_date: '2026-10-20 19:41'
+labels:
+  - install
+  - operator
+dependencies: []
+priority: high
+ordinal: 447204
+---
+
+## Description
+
+<!-- SECTION:DESCRIPTION:BEGIN -->
+### North Star
+When a port StatBus needs is taken, install says which port, names the program holding it when it can see one, and stops without changing anything. We take responsibility for what is ours (StatBus needs this port) and hand the operator what they need to take responsibility for theirs.
+
+### Zoom out
+Owner, 2026-10-20: we do not know what runs on someone else's machine. A hardcoded guess (apache2/nginx/caddy) and a prescribed command (`sudo systemctl disable --now <name>`, `sudo kill $(sudo lsof ...)`) can take down a site the operator needs, or hit the wrong program. Install observes and stops; the operator decides.
+
+### Zoom in
+- **Today** (cli/cmd/install_ports.go): occupiedPortOwner tries bind, then ss, then a hardcoded systemd unit list (apache2, nginx, caddy), then `ss -ltnp`, then `sudo -n ss -ltnp`. portConflictGuidance chooses one of three remedies: systemctl disable, kill via lsof, or 'find the listener with ss'. The ownership-probe failure adds 'Docker service ownership could not be checked'. install.sh carries two allowlist regexes (around lines 970 and 1076) matching each shape exactly.
+- **The new message, one shape:** 'Port <n> is in use by <program> (when ss names it; otherwise: another program). StatBus needs this port. Stop that program or move it to another port, then run the same install command again: <rerun>'. 'Your answers are saved.' stays where it applies today.
+- **Kept:** naming the listener when `ss -ltnp` or `sudo -n ss -ltnp` shows it, as a plain observation (owner: yes). The safe-name filter (^[A-Za-z0-9_-]{1,64}$) stays, so an odd name becomes 'another program'.
+- **Removed:** the hardcoded unit list, the systemctl-show LoadState probe, both prescribed commands, and the matching branches of both install.sh regexes.
+- **Also decided here (STATBUS-393 AC3, owner 2026-10-20):** instead of a real-box partial-start scenario, a Go test feeds the service-state parser (currentServiceProblems / probeServiceStatuses, which read `docker compose ps -a --format json`) a real captured output with a stopped and a restarting service, so the parse is pinned against Docker's actual format.
+
+### Closing review
+- **Memory:** none. **Documentation:** the comment on the port check states the rule. **Cleanup:** remove dead remedy helpers.
+<!-- SECTION:DESCRIPTION:END -->
+
+## Acceptance Criteria
+<!-- AC:BEGIN -->
+- [ ] #1 A taken port stops install with one message: the port, the listener's program name when ss shows it (else 'another program'), that StatBus needs the port, and the rerun command. No systemctl, kill or lsof command is printed, and nothing is changed
+- [ ] #2 The hardcoded apache2/nginx/caddy check and the LoadState probe are removed; the listener name comes only from ss output, filtered by the existing safe-name pattern
+- [ ] #3 install.sh's two allowlist regexes match exactly the new message shape (with and without 'Your answers are saved.'), and the existing allowlist tests (install_detection_test.go, install_failure_cause_test.go) assert the new shapes
+- [ ] #4 4-install-port-80-taken.sh asserts the outcome: install exited non-zero, no StatBus container exists, and the printed rerun command, run after Apache is stopped, completes the install. It no longer greps for a prescribed command
+- [ ] #5 A Go test feeds the service-state parser a real captured 'docker compose ps -a --format json' output with a stopped and a restarting service and asserts the parsed states (STATBUS-393 AC3 middle way)
+- [ ] #6 Go tests, golangci-lint, ./dev.sh test-harness and the install.sh tests pass, and CI passes
+<!-- AC:END -->
