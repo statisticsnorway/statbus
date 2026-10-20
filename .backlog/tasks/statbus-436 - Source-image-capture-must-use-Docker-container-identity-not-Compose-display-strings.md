@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-09-30 13:03'
-updated_date: '2026-10-20 11:08'
+updated_date: '2026-10-20 19:57'
 labels:
   - upgrade
   - recovery
@@ -134,4 +134,7 @@ The doc/observations protocol was removed as an invented manual step nobody coul
 - Upgrade service active, with no restarts in 7 days. Each of the three upgrades logged 'Recording immutable source image identities ... ok', which is exactly the step that used to refuse falsely. There are no refusals.
 - **Gap against AC6's wording:** demo reached these versions through its own upgrade service on the prerelease channel, not through `./cloud.sh install demo <version>`. The outcome AC6 asks for (fix running, row completed, no retry loop) holds three times over.
 - **Owner:** accept the upgrade-service route as AC6's proof (then I check AC6 and set Done), or run the cloud.sh install.
+
+### Status 2026-10-20
+- The criterion's outcome holds on demo three times over (2026-10-20 read above). Demo now runs v2026.10.3 and carries the GitHub token (STATBUS-361). Only the route question is open: accept the upgrade-service route (then Done), or the owner runs ./cloud.sh install demo. This sits in the owner's 'accept evidence already in hand' group.
 <!-- SECTION:NOTES:END -->

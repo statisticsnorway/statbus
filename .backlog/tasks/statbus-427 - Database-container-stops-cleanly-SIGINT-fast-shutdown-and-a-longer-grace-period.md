@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-09-28 21:42'
-updated_date: '2026-10-17 21:09'
+updated_date: '2026-10-20 19:57'
 labels:
   - upgrade
   - db
@@ -50,4 +50,7 @@ Audit after v2026.09.3 (2026-09-29): Not addressed in v2026.09.3.
 - **The arc logs do not carry the database server log,** so they can neither show nor refute clean shutdowns. AC2 needs a log that does.
 - **dev, read-only:** the new db container (created 17:05:21 by the rc.01 upgrade) has StopSignal=SIGINT, StopTimeout=120. Its first start logged 'database system was interrupted ... not properly shut down; automatic recovery'. That is the stop of the **old** container, created under v2026.10.2 without these settings, so SIGTERM and then the kill. Expected for the one upgrade that introduces the setting; every box sees it once.
 - **AC2 is observed at dev's next upgrade** (rc.02 or the stable that follows): its db log must show 'received fast shutdown request', 'database system is shut down', and a start with 'was shut down at' and no recovery.
+
+### Status 2026-10-20
+- The ladder is green. AC2 is observed at dev's next upgrade, which waits for the next candidate (blocked on sql_saga 1.2, STATBUS-519).
 <!-- SECTION:NOTES:END -->

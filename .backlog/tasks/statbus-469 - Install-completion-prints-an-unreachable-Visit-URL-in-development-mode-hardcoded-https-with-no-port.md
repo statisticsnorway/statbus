@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-10-08 12:15'
-updated_date: '2026-10-17 16:11'
+updated_date: '2026-10-20 19:57'
 labels:
   - installer
   - devx
@@ -54,4 +54,8 @@ Owner report 2026-10-08: are we really bound to that, or should we show the port
 - `installVisitOrigins` (cli/cmd/install.go) reads the generated .env: SITE_DOMAIN, CADDY_DEPLOYMENT_MODE, CADDY_HTTP_PORT, CADDY_HTTPS_PORT. Development prints `http://<domain>:<http port>` and `https://<domain>:<https port>`. Standalone and private print `https://<domain>`.
 - **Red, then green:** `TestInstallVisitOriginsFollowModeAndPorts_STATBUS469` ran against the old rule (extracted unchanged), which gave the Finland link `https://local.statbus.org` for development, so it failed. The standalone and private cases already matched. With the fix all three pass. The cmd package passes; golangci-lint reports 0 issues.
 - **Real values:** this machine's development .env has ports 3010/3011, and both origins answer (307 to login). dev and demo are private, with SITE_DOMAIN dev/demo.statbus.org, and their public HTTPS answers through the host proxy.
+
+### Observed banners (2026-10-20)
+- **Development:** the shipped installVisitOrigins (v2026.10.3) run against this machine's real development .env prints 'Visit: http://local.statbus.org:3010' and 'Visit: https://local.statbus.org:3011'. Both answer (HTTP 307 to login).
+- **Standalone:** the next candidate's clean LXD install (0-happy-install, standalone mode) prints the banner from the new code. The rc.01 fleet's 'Visit: https://statbus-test.local' lines came from the old v2026.09.2 baseline install inside the arcs, so they do not prove the new code. Recorded at the next candidate.
 <!-- SECTION:NOTES:END -->

@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: ''
-updated_date: '2026-10-20 12:03'
+updated_date: '2026-10-20 19:57'
 labels: []
 dependencies: []
 priority: medium
@@ -52,6 +52,9 @@ The JWT step compares the database's secret with .env.credentials. Different: it
 - **Red:** with the flag as install set it for the orphaned volume (StateHalfConfigured, so fresh), runLoadJWT replaced 'surviving-database-secret' and printed nothing. The three new tests also failed on the old code: a different message, a report on the first write, and a swallowed read error.
 - **Green:** the cmd package passes (golangci-lint 0 issues) and so does internal/install. The harness lint passes. The scenario's digest comparison was checked locally (db and file digests equal).
 - Waiting: Go Test in CI, then AC3 in the next candidate's fault fleet.
+
+### Status 2026-10-20
+- Fix 5372ac832; Go Test passed. AC3 (the LXD orphaned-volume scenario asserts the kept database's JWT secret) runs in the next candidate's fault fleet, which waits for sql_saga 1.2 (STATBUS-519). Note: STATBUS-521's worker is changing phase a of the same scenario (the port message); phase c (the 439 check) stays.
 <!-- SECTION:NOTES:END -->
 
 ## Issue

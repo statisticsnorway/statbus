@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-10-20 11:11'
-updated_date: '2026-10-20 11:19'
+updated_date: '2026-10-20 19:58'
 labels:
   - db
   - sql_saga
@@ -49,4 +49,9 @@ sql_saga v1.2 (tag 835058eb0c8a, 2026-10-20) supports in-place updates from 1.0 
 - **Cause, an upstream sql_saga defect:** the rename-following event trigger rewrites column_names of every XOR key (mutually_exclusive_columns) sorted by name, on any DDL. The constraint keeps the given order, and 1.2's check compares conkey in order. Reproduced on a fresh 1.2 database in 6 statements (tmp/519-repro-fresh12.sql). Five StatBus keys are affected, on dev, demo, Norway and the seed.
 - **Report for the sql_saga agent:** tmp/sql_saga-xor-key-order-defect.md, also copied to ../sql_saga/STATBUS_REPORT_xor_key_order.md (uncommitted). It needs the trigger fixed plus a catalog repair in the 1.0/1.1 to 1.2 path.
 - **Local state:** the pin bump and migration are uncommitted (postgres/Dockerfile, migrations/20261020111102_*). They wait for a fixed tag. The local db container runs the 1.2 image with schema still at 1.1.
+
+### Upstream progress (2026-10-20 19:58)
+- sql_saga has a local fix commit f3c4eba (not yet pushed; 16 commits ahead of origin, plus more in progress): XOR unique keys keep their constraint column order, order-only differences are ignored, and check_integrity reports mispaired FKs with a runnable repair and an upgrade HINT. No tag yet.
+- **Watch:** whether the upgrade path repairs the 1.0/1.1-sorted catalogs automatically or only reports them with a repair. If it only reports, StatBus needs a migration that runs the named repair for its five keys before ALTER EXTENSION. Decide that when the tag exists.
+- **Unchanged:** the pin and migration are uncommitted locally. When the tag exists: rerun tmp/519-proof-local.sh (the rehearsal must print ROLLBACK), commit, CI. Then the next candidate carries jsonb_stats 3.0.0 + sql_saga 1.2.
 <!-- SECTION:NOTES:END -->
