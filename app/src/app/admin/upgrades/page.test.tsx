@@ -150,7 +150,31 @@ function renderPage({
   );
 }
 
-test("serving release renders as one Running card with id, meta, disclosures and open log", () => {
+/** The open state of the first "Log" disclosure in the page (the serving
+ *  release's), read from the trigger Radix renders. */
+function logTriggerState(html: string): string | undefined {
+  return html.match(
+    /data-state="(open|closed)"[^>]*>(?:<svg[\s\S]*?<\/svg>)?Log</
+  )?.[1];
+}
+
+test("the serving release's log opens by itself when its upgrade failed or was rolled back", () => {
+  const failed = makeUpgrade({ ...runningRow, error: "migration 42 failed" });
+  expect(
+    logTriggerState(renderPage({ currentRows: [failed], rows: [failed] }))
+  ).toBe("open");
+  const rolledBack = makeUpgrade({
+    ...runningRow,
+    rolled_back_at: "2026-10-07T09:52:00Z",
+  });
+  expect(
+    logTriggerState(
+      renderPage({ currentRows: [rolledBack], rows: [rolledBack] })
+    )
+  ).toBe("open");
+});
+
+test("serving release renders as one Running card with id, meta, disclosures and a closed log", () => {
   const html = renderPage({
     currentRows: [runningRow],
     rows: [runningRow, olderCompleted, supersededRow, skippedRow],
@@ -178,8 +202,8 @@ test("serving release renders as one Running card with id, meta, disclosures and
   expect(html).not.toContain(">Installs<");
   expect(html).not.toContain("Currently responding app");
 
-  // Log open by default: the content area rendered, fetch pending.
-  expect(html).toContain("Loading...");
+  // Log closed for a healthy serving release: the operator opens it on demand.
+  expect(logTriggerState(html)).toBe("closed");
 
   // Changelog collapsed.
   expect(html).toContain("Changelog");

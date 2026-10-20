@@ -1096,13 +1096,14 @@ function RunningCard({
           )}
         </p>
 
-        {/* The serving release's log is the first thing an operator wants —
-            open by default here (unlike history cards). */}
+        {/* The serving release's log opens by itself only when its upgrade
+            failed or was rolled back, the same rule as history cards; a healthy
+            release keeps the card short and the log one click away. */}
         {row?.started_at && (
           <UpgradeLogViewer
             id={row.id}
             relPath={row.log_relative_file_path}
-            defaultOpen={true}
+            defaultOpen={!!row.error || !!row.rolled_back_at}
           />
         )}
 
