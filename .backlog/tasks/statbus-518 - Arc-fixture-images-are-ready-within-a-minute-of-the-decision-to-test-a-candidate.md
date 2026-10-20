@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-10-17 15:40'
-updated_date: '2026-10-20 19:46'
+updated_date: '2026-10-20 20:29'
 labels:
   - ci
   - lxd
@@ -37,9 +37,8 @@ Arcs upgrade the candidate to synthetic commits (candidate plus a test migration
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 Dispatch the fixture construct and image builds at the gate decision, in parallel with smoke, shown by build start times before smoke ends in a run
-- [ ] #2 A gate run shows fixture images present before the first arc is ready to start; run ID recorded in Implementation Notes
-- [ ] #3 In `app/Dockerfile`, stamp the commit after `next build`; shown by an app build under 30 s for a migration-only fixture
+- [ ] #1 A gate run shows fixture images present before the first arc is ready to start; run ID recorded in Implementation Notes
+- [ ] #2 In `app/Dockerfile`, stamp the commit after `next build`; shown by an app build under 30 s for a migration-only fixture
 <!-- AC:END -->
 
 ## Implementation Notes
@@ -50,4 +49,6 @@ Arcs upgrade the candidate to synthetic commits (candidate plus a test migration
 - This speeds up the app image for every commit that leaves app/ unchanged (migration-only, cli, harness, backlog), not just fixtures. Commits that change app/ still rebuild, as they must.
 - Start fixture construct + image builds at the gate decision, in parallel with smoke. Arcs still wait for the images before using them; the run in criterion 2 confirms they are ready in time.
 - Order: stamp-after-build first (testable on any push), then the early start, then the real-run check at the next RC.
+
+2026-10-20 owner decision: criterion 'dispatch fixtures at the gate decision' moved to STATBUS-423 (the queue runner removes the smoke-then-arcs concurrency ordering that blocks an early start in today's workflows). Remaining here: the stamp-after-build change (d97541322, local proof: second build 2 s with next build CACHED, each image stamps its own commit) and its measurement on real runs.
 <!-- SECTION:NOTES:END -->

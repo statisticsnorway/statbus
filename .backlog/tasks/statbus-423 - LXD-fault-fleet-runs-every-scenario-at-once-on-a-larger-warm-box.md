@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-09-28 08:18'
-updated_date: '2026-10-17 15:41'
+updated_date: '2026-10-20 20:29'
 labels:
   - ci
   - lxd
@@ -45,6 +45,7 @@ The gate's tests are independent jobs on one shared box. When separate limiters 
 - [ ] #4 A full candidate gate through the runner gives the same verdict per test as the preceding candidate; both run IDs and the dispatch-to-verdict time recorded in Implementation Notes
 - [ ] #5 Record per-run load average and guest boot times in the gate artifact, at the current slot count and at one higher count
 - [ ] #6 [Owner] Choose the slot count for the existing box from those records and note it in Implementation Notes. The runner then uses that count; a count that raises boot times past the scenario timeouts is not chosen
+- [ ] #7 Start the arc fixture construct and image builds at the gate decision, in parallel with the runner's checkpoints and smoke jobs; shown by fixture build start times before the first smoke job ends in a run
 <!-- AC:END -->
 
 ## Implementation Notes
@@ -82,4 +83,6 @@ Scripts and outputs: `tmp/lxd-explain/intervals.py` (per-guest intervals, `cur.t
 
 ### Reshaped 2026-10-17 (owner decision)
 The owner chose architecture over a larger box: one queue runner on the existing box, one long GitHub job (option A), slots set from measured contention. The earlier criteria (larger type via `up.sh`, per-base locks, longest-first in `run-forks.sh`, arc `max-parallel`, wait-any dispatch, box-type choice) are superseded by the runner. The removal of old-version tests, snapshot use and fixture timing moved to STATBUS-516, STATBUS-517 and STATBUS-518.
+
+2026-10-20 owner decision: starting arc fixtures at the gate decision moves here from STATBUS-518. Today's workflows make the arc harness share the hetzner-vm-fleet concurrency group with smoke, so an early start there would still wait for smoke; the runner removes that ordering, so it delivers the early start. Not to be designed yet (owner pushed back on starting the runner design now); it stays in the todo list.
 <!-- SECTION:NOTES:END -->
