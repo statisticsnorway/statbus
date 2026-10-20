@@ -97,7 +97,7 @@ assert_health_passes "$VM_NAME"
 # Populate demo data so the DB is non-fresh BEFORE the HEAD "first install" below.
 # That install is a fresh ./sb install (the step-table path, which DOES run the seed
 # step — unlike the upgrade pipeline). On a populated DB, checkSeedRestored's
-# dbHasUserData R5 short-circuit (install.go) SKIPS the Docker-image seed, so the HEAD
+# seedFreshness read (install.go) SKIPS the Docker-image seed, so the HEAD
 # install keeps the v<tag>-level baseline and applies the real pending set → migrate.Up
 # runs → C10 fires. Without this, the HEAD install would re-seed to HEAD level and
 # collapse the delta again.

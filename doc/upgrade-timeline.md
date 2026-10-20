@@ -410,9 +410,10 @@ idempotent refresh → state 8, and the post-swap install fixup the upgrade serv
 order on a fresh box:
 
 1. **Gate** — `checkSeedRestored` (`cli/cmd/install.go:1412`) runs the Seed step **only**
-   against a genuinely fresh DB: no user data **and** no applied migrations. A populated DB
-   short-circuits via `dbHasUserData` (`cli/cmd/install.go:1427`), so a seed restore can
-   never overwrite real data. This same gate is what makes the step a safe no-op when the
+   against a genuinely fresh DB: no user data **and** no applied migrations. `seedFreshness`
+   reads this directly (which tables exist, then whether any holds a row); a populated DB
+   skips the step, and a database that cannot be read stops the install, so a seed restore
+   can never overwrite real data. This same gate is what makes the step a safe no-op when the
    systemd upgrade service runs the install fixup against an already-populated DB.
 2. **Fetch** — `./sb db seed fetch` resolves `commit_short` (from `.env`'s `COMMIT_SHORT`,
    else `git rev-parse --short=8`) and pulls `statbus-seed:<commit_short>`, extracting

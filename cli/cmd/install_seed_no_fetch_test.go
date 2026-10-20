@@ -1,17 +1,16 @@
 package cmd
 
 import (
-	"os"
-	"path/filepath"
 	"testing"
 )
 
 func TestInstallSeedNoFetchSkipsFetchAndRestore(t *testing.T) {
-	dir := t.TempDir()
-	marker := filepath.Join(dir, "invoked")
-	if err := os.WriteFile(filepath.Join(dir, "sb"), []byte("#!/bin/sh\necho invoked >> '"+marker+"'\nexit 1\n"), 0700); err != nil {
-		t.Fatal(err)
-	}
+	// An empty database, so without the override the seed restore would run.
+	dir, sbInvoked := seedFreshnessProject(t, `case "$sql" in
+  *to_regclass*) echo "" ;;
+  *) echo "unexpected query: $sql" >&2; exit 3 ;;
+esac
+`)
 	t.Setenv("STATBUS_DB_SEED_NO_FETCH", "1")
 	if !checkSeedRestored(dir) {
 		t.Fatal("Seed step must be skipped when STATBUS_DB_SEED_NO_FETCH=1")
@@ -19,14 +18,14 @@ func TestInstallSeedNoFetchSkipsFetchAndRestore(t *testing.T) {
 	if err := runSeedRestore(dir); err != nil {
 		t.Fatalf("direct seed invocation with no-fetch control: %v", err)
 	}
-	if _, err := os.Stat(marker); !os.IsNotExist(err) {
-		t.Fatalf("seed fetch/restore invoked despite no-fetch control: marker stat = %v", err)
+	if sbInvoked() {
+		t.Fatal("seed fetch/restore invoked despite no-fetch control")
 	}
 
 	// The override is opt-in; without it the fetch path is still reached.
 	t.Setenv("STATBUS_DB_SEED_NO_FETCH", "0")
 	_ = runSeedRestore(dir)
-	if _, err := os.Stat(marker); err != nil {
-		t.Fatalf("expected seed fetch invocation without override: %v", err)
+	if !sbInvoked() {
+		t.Fatal("expected seed fetch invocation without override")
 	}
 }

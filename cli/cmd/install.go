@@ -12,6 +12,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"slices"
 	"strconv"
 	"strings"
 	"syscall"
@@ -2876,22 +2877,15 @@ func cleanOrphanSessions(dir string) error {
 		sessionsSettleCap, last.describe(), diskpolicy.RerunCommand())
 }
 
-// checkSeedRestored returns true if the database already has migrations
-// OR holds user data (either way, seed restore would be destructive).
-// Returns false only for truly fresh installs where the DB is empty.
+// checkSeedRestored is the Seed step's done-check. The seed restore
+// (pg_restore --clean) is a fast path for a database nothing has touched yet:
+// restoring over existing data or a migrated schema destroys data or collides
+// with the sql_saga objects (STATBUS-018). So the step is done unless the
+// database is fresh, as read by seedFreshness.
 //
-// Intent: the seed is a FAST PATH for fresh installs only. Restoring
-// over an existing database drops objects while migration records survive,
-// leaving the DB in an inconsistent state.
-//
-// R5 classifier (added 2026-05-23 from tcc-near-miss forensics): the
-// migration-tail check alone is insufficient. When an operator pulls a
-// newer tree against a populated DB, the on-disk migration set is
-// ahead of db.migration, so HasPending returns true → migrations-done
-// returns false → and the seed step ran destructively against user
-// data. The dbHasUserData probe below short-circuits BEFORE the
-// migration check: if any user-facing table holds rows, route to
-// migrate-forward regardless of the migration delta.
+// A database that could not be read is not done either: runSeedRestore reads
+// it again and stops the install with that error (STATBUS-514), so the
+// restore never runs over a database whose contents are unknown.
 func checkSeedRestored(dir string) bool {
 	// Explicit operator/harness control: migrate from scratch without fetching
 	// or restoring a seed, even when the database is genuinely empty.
@@ -2899,150 +2893,70 @@ func checkSeedRestored(dir string) bool {
 		fmt.Println("  STATBUS_DB_SEED_NO_FETCH=1 — skipping seed fetch and restore; full migrations will run.")
 		return true
 	}
-
-	// If services aren't running yet, we can't check the DB.
-	// Return true to skip — the Services step must run first.
+	// Services not running yet: the Services step must run first.
 	if !checkDBHealthy(dir) {
 		return true
 	}
-
-	// Services are running. Wait for DB to be healthy, then check
-	// content + migrations. If we can't reach the DB after 30 seconds,
-	// FAIL HARD — don't silently fall through and restore a seed over
-	// an existing database. The dbHasUserData check fires BEFORE the
-	// migration check so populated DBs short-circuit even when their
-	// migration tail is behind.
-	for attempt := 0; attempt < 15; attempt++ {
-		// R5 short-circuit: populated DBs NEVER run seed.
-		if dbHasUserData(dir) {
-			return true
-		}
-		// STATBUS-018: a schema ANY migration has touched already holds the
-		// sql_saga era objects (updatable views + their protected triggers)
-		// that the seed's pg_restore --clean would try to DROP — and the
-		// sql_saga_drop_protection sql_drop event trigger refuses that DROP,
-		// rolling the whole atomic restore back. dbHasUserData catches only
-		// the rows-present half of "populated"; this catches the
-		// schema-present-but-rowless half (the operator pulled a newer tree
-		// against a migrated-but-empty DB). Seed runs ONLY on a schema no
-		// migration has touched.
-		if dbHasAppliedMigrations(dir) {
-			return true
-		}
-		if checkMigrationsDone(dir) {
-			return true // DB has migrations — do NOT restore seed
-		}
-		if attempt < 14 {
-			time.Sleep(2 * time.Second)
-		}
-	}
-
-	// DB is reachable (services running), holds no user data, AND no
-	// migrations are applied. This is a genuinely fresh database — seed
-	// restore is appropriate.
-	return false
+	fresh, err := seedFreshness(dir)
+	return err == nil && !fresh
 }
 
-// dbHasUserData returns true if the application database holds rows in
-// any user-facing table (statistical_unit, legal_unit, establishment,
-// import_job). The probe is conservative: any failure (DB unreachable,
-// table missing on a brand-new DB, psql binary absent) is treated as
-// "no user data" so the fresh-install path still runs the seed step.
-// The R5 classifier in checkSeedRestored guards a destructive action,
-// so the principled posture on probe error is "don't ASSUME populated"
-// — we ASSUME empty when we can't tell, because that lets fresh
-// installs proceed. The downstream migrate-forward path catches the
-// false-negative case: if the DB is populated but the probe failed,
-// the seed restore would still need the tables to exist, and
-// pg_restore --single-transaction --clean --if-exists would either
-// succeed (genuinely empty) or roll back loudly (populated, the
-// runPgRestoreAtomic wrapper from 1f077e545 fails the install).
-//
-// Tables checked: the same four the harness's
-// assert_demo_data_present uses. Adding tables to the demo dataset
-// requires updating both — the cross-reference is documented in
-// data-helpers.sh's populate_with_demo_data and in this comment.
-func dbHasUserData(dir string) bool {
-	psqlPath, prefix, env, err := migrate.PsqlCommand(dir)
-	if err != nil {
-		return false
-	}
-	const probe = `
-SELECT EXISTS (
-  SELECT 1 FROM public.statistical_unit LIMIT 1
-  UNION ALL SELECT 1 FROM public.legal_unit LIMIT 1
-  UNION ALL SELECT 1 FROM public.establishment LIMIT 1
-  UNION ALL SELECT 1 FROM public.import_job LIMIT 1
-);`
-	args := append([]string{}, prefix...)
-	args = append(args, "-t", "-A", "-v", "ON_ERROR_STOP=on", "-c", probe)
-	cmd, buildErr := migrate.Command(dir, psqlPath, args...)
-	if buildErr != nil {
-		return false
-	}
-	cmd.Env = env
-	out, err := cmd.Output()
-	if err != nil {
-		// Table missing (very early install before migrations ran),
-		// connection refused, etc. Treat as "no user data" so the
-		// fresh-install path still triggers the seed step.
-		return false
-	}
-	return strings.TrimSpace(string(out)) == "t"
+// seedFreshnessTables are the tables whose contents decide whether the
+// database is fresh: db.migration (any applied migration means the schema is
+// in use) and the four user-facing tables the harness's
+// assert_demo_data_present checks (any row means real data). Adding tables to
+// the demo dataset requires updating both.
+var seedFreshnessTables = []string{
+	"db.migration",
+	"public.statistical_unit",
+	"public.legal_unit",
+	"public.establishment",
+	"public.import_job",
 }
 
-// dbHasAppliedMigrations reports whether db.migration holds at least one
-// APPLIED row — i.e. whether any migration has touched this schema. It is the
-// STATBUS-018 companion to dbHasUserData: dbHasUserData gates on rows in the
-// user tables, this gates on schema having been migrated at all. The two
-// together mean the seed fast-path (pg_restore --clean) is attempted ONLY on a
-// schema no migration has touched.
+// seedFreshness reports whether the database is fresh: none of
+// seedFreshnessTables holds a row. It decides from one direct read, with no
+// waiting: the first query lists which of the tables exist (to_regclass
+// answers NULL for a missing table or schema instead of failing), the second
+// asks whether any existing one holds a row. A table that does not exist yet
+// holds no rows.
 //
-// The probe is conservative in the same direction dbHasUserData is: any failure
-// (DB unreachable, psql absent, and crucially the db.migration table not
-// existing yet on a brand-new cluster) is treated as "not migrated" → false, so
-// the genuinely-fresh install path still runs the seed step. See
-// interpretAppliedMigrationsProbe for the (output, error) → verdict matrix.
-func dbHasAppliedMigrations(dir string) bool {
-	psqlPath, prefix, env, err := migrate.PsqlCommand(dir)
+// Any query error is returned as an error, never as fresh: the seed restore
+// is destructive, so it runs only on a database that answered empty.
+func seedFreshness(dir string) (bool, error) {
+	quoted := make([]string, len(seedFreshnessTables))
+	for i, t := range seedFreshnessTables {
+		quoted[i] = sqlLiteral(t)
+	}
+	out, err := runInstallSQL(dir, fmt.Sprintf(
+		"SELECT coalesce(string_agg(t, ',' ORDER BY ord), '') FROM unnest(ARRAY[%s]) WITH ORDINALITY AS u(t, ord) WHERE to_regclass(t) IS NOT NULL;",
+		strings.Join(quoted, ",")))
 	if err != nil {
-		return false
+		return false, fmt.Errorf("read which database tables exist: %w", err)
 	}
-	// EXISTS(... LIMIT 1) is O(1). When db.migration does not exist yet
-	// (fresh cluster, before ensureMigrationTable), psql errors with
-	// `relation "db.migration" does not exist` and cmd.Output returns a
-	// non-nil error — interpretAppliedMigrationsProbe maps that to false.
-	const probe = `SELECT EXISTS (SELECT 1 FROM db.migration LIMIT 1);`
-	args := append([]string{}, prefix...)
-	args = append(args, "-t", "-A", "-v", "ON_ERROR_STOP=on", "-c", probe)
-	cmd, buildErr := migrate.Command(dir, psqlPath, args...)
-	if buildErr != nil {
-		return false
+	listed := strings.TrimSpace(out)
+	if listed == "" {
+		return true, nil
 	}
-	cmd.Env = env
-	out, err := cmd.Output()
-	return interpretAppliedMigrationsProbe(string(out), err)
-}
-
-// interpretAppliedMigrationsProbe is the PURE verdict behind
-// dbHasAppliedMigrations, factored out so the STATBUS-018 probe matrix is unit-
-// testable without a live database (the classifyAdvisoryHolder / classifySessions
-// pattern in this package). The matrix:
-//   - missing db.migration table (fresh cluster, pre-ensureMigrationTable):
-//     the probe ERRORS → probeErr != nil → false (schema untouched, seed winnable).
-//   - table present but EMPTY (ensureMigrationTable created it, no migration has
-//     applied yet): probe returns "f" → false (still winnable — no eras exist).
-//   - table present with >= 1 applied row: probe returns "t" → true (a migration
-//     has touched the schema; the seed's --clean would collide with sql_saga).
-//
-// Any unexpected output is treated conservatively as "not migrated" (false), the
-// same fresh-install-favouring default dbHasUserData uses; the downstream
-// migrate-forward path is the safety net if that guess is wrong.
-func interpretAppliedMigrationsProbe(out string, probeErr error) bool {
-	if probeErr != nil {
-		return false
+	var probes []string
+	for _, t := range strings.Split(listed, ",") {
+		if !slices.Contains(seedFreshnessTables, t) {
+			return false, fmt.Errorf("read which database tables exist: unexpected answer %q", listed)
+		}
+		probes = append(probes, "SELECT 1 FROM "+t)
 	}
-	return strings.TrimSpace(out) == "t"
+	out, err = runInstallSQL(dir, "SELECT EXISTS ("+strings.Join(probes, " UNION ALL ")+");")
+	if err != nil {
+		return false, fmt.Errorf("read whether the database holds rows: %w", err)
+	}
+	switch strings.TrimSpace(out) {
+	case "f":
+		return true, nil
+	case "t":
+		return false, nil
+	default:
+		return false, fmt.Errorf("read whether the database holds rows: unexpected answer %q", strings.TrimSpace(out))
+	}
 }
 
 // errSeedUnavailable / errSeedFallback are the two NON-FATAL outcomes of the
@@ -3092,6 +3006,17 @@ func runSeedRestore(dir string) error {
 		return nil
 	}
 
+	// The restore is destructive: run it only on a database that answered
+	// empty. A failed read stops the install here (checkSeedRestored passes an
+	// unreadable database on to this point so the error is reported).
+	fresh, err := seedFreshness(dir)
+	if err != nil {
+		return fmt.Errorf("cannot tell whether the database is fresh, so the seed restore did not run: %w. Check the database (db) container, then run %s", err, diskpolicy.RerunCommand())
+	}
+	if !fresh {
+		return fmt.Errorf("the database holds rows or applied migrations, so the seed restore did not run")
+	}
+
 	sb := filepath.Join(dir, "sb")
 
 	// Fetch seed from the published image.
@@ -3108,8 +3033,8 @@ func runSeedRestore(dir string) error {
 	if err := runCmdDir(dir, sb, "db", "seed", "restore"); err != nil {
 		// LEG 2 — seed image present but pg_restore ERRORED. The fast path is
 		// lost; full migrations (~10x slower) run instead. This is UNEXPECTED
-		// on a genuinely fresh schema (checkSeedRestored now gates seed OFF
-		// once any migration has touched the DB — STATBUS-018), so announce it
+		// on a genuinely fresh schema (seedFreshness gates seed OFF once any
+		// migration has touched the DB — STATBUS-018), so announce it
 		// loudly. Non-fatal, but NEVER reported as DONE.
 		fmt.Println("  ============================================================")
 		fmt.Println("  ⚠ SEED FAST-PATH LOST — seed image present but pg_restore failed.")

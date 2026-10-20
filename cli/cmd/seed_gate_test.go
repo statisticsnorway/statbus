@@ -22,42 +22,6 @@ func TestClassifySeedRestoreErrorFallsBackForIncompatibleCache(t *testing.T) {
 	}
 }
 
-// TestInterpretAppliedMigrationsProbe pins the STATBUS-018 probe matrix for the
-// applied-migrations gate (dbHasAppliedMigrations). The pure verdict is factored
-// out of the psql shell-out so the three DB states are unit-testable without a
-// live database — the classifyAdvisoryHolder / classifySessions pattern in this
-// package. The (output, error) pairs below are exactly what psql produces for
-// each DB state:
-//   - missing db.migration table → psql errors (relation does not exist) → the
-//     probe's cmd.Output returns non-nil → NOT migrated (seed still winnable).
-//   - table present but empty (ensureMigrationTable ran, no migration applied) →
-//     "f" → NOT migrated (no eras yet, seed still winnable).
-//   - table present with >= 1 applied row → "t" → migrated (seed would collide
-//     with the sql_saga updatable-view triggers).
-func TestInterpretAppliedMigrationsProbe(t *testing.T) {
-	cases := []struct {
-		name string
-		out  string
-		err  error
-		want bool
-	}{
-		{"missing table (probe errors) → not migrated", "", errors.New(`ERROR:  relation "db.migration" does not exist`), false},
-		{"empty table → not migrated (seed still winnable)", "f", nil, false},
-		{"has applied row → migrated (seed would collide)", "t", nil, true},
-		{"whitespace around t is tolerated", " t \n", nil, true},
-		{"whitespace around f is tolerated", " f \n", nil, false},
-		{"unexpected output → not migrated (conservative fresh-favouring default)", "banana", nil, false},
-		{"probe error dominates any stale output", "t", errors.New("connection refused"), false},
-	}
-	for _, c := range cases {
-		t.Run(c.name, func(t *testing.T) {
-			if got := interpretAppliedMigrationsProbe(c.out, c.err); got != c.want {
-				t.Errorf("interpretAppliedMigrationsProbe(%q, %v) = %v, want %v", c.out, c.err, got, c.want)
-			}
-		})
-	}
-}
-
 // TestStepRunOutcomeNeverDoneOnError pins the STATBUS-018 loudness invariant:
 // the install loop's reported outcome is NEVER "DONE" for a non-nil restore
 // error. A swallowed seed restore that reads as success is the exact silent
