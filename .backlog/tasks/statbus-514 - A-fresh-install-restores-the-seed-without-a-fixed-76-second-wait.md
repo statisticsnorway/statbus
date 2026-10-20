@@ -4,7 +4,7 @@ title: A fresh install restores the seed without a fixed 76-second wait
 status: In Progress
 assignee: []
 created_date: '2026-10-16 13:43'
-updated_date: '2026-10-20 13:00'
+updated_date: '2026-10-20 14:52'
 labels:
   - install
   - performance
@@ -36,8 +36,8 @@ Before restoring the seed, the installer must know the database is fresh: restor
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 Write a Go test where the database answers with no data and no migrations: `checkSeedRestored` returns false without sleeping (test measures under 2 s); record it failing on master before the fix
-- [ ] #2 Write a Go test where the database query fails: the check returns an error, the Seed step stops, and the database is never reported fresh; record it failing on master before the fix
+- [x] #1 Write a Go test where the database answers with no data and no migrations: `checkSeedRestored` returns false without sleeping (test measures under 2 s); record it failing on master before the fix
+- [x] #2 Write a Go test where the database query fails: the check returns an error, the Seed step stops, and the database is never reported fresh; record it failing on master before the fix
 - [ ] #3 A candidate smoke run after the fix shows "[14/18] Seed RUNNING" within 10 s of "[13/18] Database sessions OK" in `0-happy-install`; run ID recorded in Implementation Notes
 <!-- AC:END -->
 
@@ -51,4 +51,11 @@ Before restoring the seed, the installer must know the database is fresh: restor
 - checkMigrationsDone is dropped from this decision (covered by 'any migration applied', and broken on a fresh database, see below).
 - Tests in cli/cmd/install_seed_freshness_test.go (uncommitted draft, to be cut down to: empty -> fresh at once; user data -> not fresh; applied migration -> not fresh; query error -> error, never fresh), driven by a fake psql on PATH (DOCKER_PSQL=0); shown red on the parent, green after.
 Second defect found (separate ticket to open after 514): listAppliedVersions detects a missing db.migration by matching 'does not exist' in err.Error(), but since 94bfe3350 (2026-09-06) runPsql wraps errors in UpFailure whose message lacks psql output, so HasPending errors on a fresh database. Prototype in tmp/journal.md 2026-10-20 14:27.
+
+2026-10-20 implemented in 3a3fec4db (install.go: seedFreshness replaces the 15 x 2 s loop and the dbHasUserData/dbHasAppliedMigrations/checkMigrationsDone guess-on-error probes; runSeedRestore reads again before restoring and stops on a read error).
+Tests cli/cmd/install_seed_freshness_test.go drive the real Seed step (executeInstallStep) with a fake psql:
+- Red on parent ba00e9294 (tmp/test-514-red.log): empty database took 29.15 s and 29.22 s (no tables / empty tables); unreadable database gave err=<nil> instead of stopping. User rows and applied migrations passed (unchanged behaviour).
+- Green after (tmp/test-514-green.log): all four pass, empty case 1.18 s for both subtests including the fake fetch; go test ./cmd/ ./internal/migrate/ ok (tmp/test-514-cmd-full.log).
+- Real queries checked on the dev database (lists all five tables, answers t) and on a brand-new empty database (empty list).
+AC3 waits for the next candidate's smoke run (no RC until sql_saga 1.2).
 <!-- SECTION:NOTES:END -->
