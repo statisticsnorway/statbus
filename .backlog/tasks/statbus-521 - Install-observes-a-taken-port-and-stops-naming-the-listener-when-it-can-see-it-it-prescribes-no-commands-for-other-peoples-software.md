@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-10-20 19:41'
-updated_date: '2026-10-20 20:45'
+updated_date: '2026-10-20 21:19'
 labels:
   - install
   - operator
@@ -63,4 +63,10 @@ Owner, 2026-10-20: we do not know what runs on someone else's machine. A hardcod
 - Also updated with rabbit's approval: fresh-installer-test.sh (admits new shape, rejects retired remedy shapes incl. the old systemctl line -> generic step line) and scenario 5 phase a (outcome assertions, no sudo command). Scenario 4 prints the operator-facing refusal line and rerun command.
 - AC4: scenario 4 rewired to outcome checks; harness-tested (bash -n, fresh-installer-test locally, ./dev.sh test-harness); LXD fleet run not executed here.
 - Checks: gofmt clean, golangci-lint 0 issues, go test ./cmd/ ./internal/config/ ok, ./dev.sh test-harness exit 0, bash -n install.sh ok, fresh-installer-test.sh all PASS locally.
+
+### Review 2026-10-20 (rabbit)
+- Diff 9ba8f4696 + 805c1b101 read. One refusal: `Port <n> is in use by <program|another program>. StatBus needs this port. Stop that program or move it to another port.`, then the saved-answers rerun line. The systemd unit list and the systemctl/kill/lsof remedies are gone. The ports come from `config.PlannedHostPortsInDir`, the computation that writes .env (AC7, option C).
+- Scenario 4 prints the line the operator saw and the rerun command, then reruns. Scenario 5 phase a asserts install exits non-zero, names port 80's listener and starts no StatBus services. Phase c is untouched.
+- Red `tmp/521-red.log`, green `tmp/521-green.log`. CI green on 882769b57 (Fast Tests, CodeQL, Images, Harness Selftest).
+- Remaining: AC4 in the next candidate's LXD fleet.
 <!-- SECTION:NOTES:END -->
