@@ -3,9 +3,10 @@ id: STATBUS-516
 title: >-
   The release gate tests the candidate against the previous stable, not against
   pinned old releases
-status: To Do
+status: In Progress
 assignee: []
 created_date: '2026-10-17 15:39'
+updated_date: '2026-10-20 11:37'
 labels:
   - ci
   - lxd
@@ -37,9 +38,17 @@ A past incident, once understood and fixed, keeps its lesson in a unit test or a
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 Remove the four tests and their wiring: scenario files, arc files, `lxd/run-arcs.sh`, the checkpoint mapping in `lib/lxd-backend.sh`, `lib/vm-bootstrap.sh`
-- [ ] #2 Update the harness self-tests that name them (`tests/lxd-checkpoint-identity-test.sh`, `tests/rc10-schema-floor-family-test.sh`, `tests/lxd-default-domain-test.sh`) and run them green
-- [ ] #3 Update `test/install-recovery/README.md`, `doc/upgrade-rollback-floor.md` and `doc/diagrams/upgrade-timeline.*` so no doc names the removed tests as coverage
-- [ ] #4 Run the Go tests listed in the Description on the change and record them green in Implementation Notes
+- [x] #1 Remove the four tests and their wiring: scenario files, arc files, `lxd/run-arcs.sh`, the checkpoint mapping in `lib/lxd-backend.sh`, `lib/vm-bootstrap.sh`
+- [x] #2 Update the harness self-tests that name them (`tests/lxd-checkpoint-identity-test.sh`, `tests/rc10-schema-floor-family-test.sh`, `tests/lxd-default-domain-test.sh`) and run them green
+- [x] #3 Update `test/install-recovery/README.md`, `doc/upgrade-rollback-floor.md` and `doc/diagrams/upgrade-timeline.*` so no doc names the removed tests as coverage
+- [x] #4 Run the Go tests listed in the Description on the change and record them green in Implementation Notes
 - [ ] #5 A candidate gate run after the change installs no release older than the previous stable, shown by its fault artifact and arc logs; run IDs recorded in Implementation Notes
 <!-- AC:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+2026-10-20: worked by a helper agent dolphin started (session_hatchling, stopped 11:36 UTC); dolphin owns this work. It is not the owner's other agent.
+
+2026-10-20 dolphin's helper: commit 41689e94a removes the four pinned tests and wiring (scenarios, arcs, run-arcs.sh + workflow lineage cases incl. SCHEMA_FLOOR_BASE_SHA/PRE_RENAME_BASE_SHA, lxd-backend checkpoint case, lxd-fleet summary, dead adoption helpers in schema-floor-assertions.sh). Self-tests updated: rc10-schema-floor-family, lxd-checkpoint-identity, lxd-default-domain (now self-contained fixture cells), process-log-host-guest (source-proof block removed), scenario-selection (on-demand example now 5-install-cert-repair-via-cert-install). ./dev.sh test-harness green (tmp/test-516-harness.log). Go tests green (tmp/test-516-go.log): TestPhaseBytes_{DecodeNormalizesLegacyThroughChokepoint,IsServiceNewSbRecovery_AcrossSpellings,ReadModifyWriteRewritesLegacyToCanonical,TablesAreDisjoint}, TestCaptureSourceServingImageIdentitiesRejectsMixedContainerTags, ...SurvivesLostComposeDisplay, TestReapplyRollbackDaemonSchemaFloorUsesTargetBinaryAndOrdinaryLedger, TestRollbackSchemaFloorFailureDurablyRoutesDaemonAliveIdle. AC#5 awaits the next candidate gate run.
+<!-- SECTION:NOTES:END -->
