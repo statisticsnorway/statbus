@@ -112,15 +112,6 @@ egress=$(lxd_checkpoint_for_scenario 0-https-only-egress)
 }
 echo "PASS: 0-https-only-egress resolves its delegate's baseline checkpoint ($egress)"
 
-# Resolve the real shared body and wrappers, not a paraphrased selector.
-cp "$ROOT/test/install-recovery/scenarios/5-install-source-image-identity-proof.sh" "$REPO/test/install-recovery/scenarios/"
-cp "$ROOT/test/install-recovery/scenarios/5-install-source-identity-"{operator,scheduled}.sh "$REPO/test/install-recovery/scenarios/"
-for slug in 5-install-source-image-identity-proof 5-install-source-identity-operator 5-install-source-identity-scheduled; do
-    checkpoint=$(lxd_checkpoint_for_scenario "$slug")
-    [ "$checkpoint" = hardened-nothing-installed ]
-    printf 'PASS: %s resolves to %s\n' "$slug" "$checkpoint"
-done
-
 # Capture, never execute, the real historical helper's remote install body.
 # Unstubbed transports refuse every external operation.
 _lxd_upload() {

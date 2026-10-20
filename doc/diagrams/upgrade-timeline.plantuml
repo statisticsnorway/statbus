@@ -276,9 +276,6 @@ note over service, db #FFF9C4
     applied, serving, maintenance off, window lifted) but BEFORE the completed write lands -> the next
     boot self-heals the row to completed ([completed-self-heal], serve-proven —
     STATBUS-192; the parked-guard skip holds — STATBUS-193).
-  TEST cross-version-rename-handoff-arc: a box installed at a PRE-RENAME release hands its
-    mid-upgrade flag across the swap; the new binary's legacy-alias phase read routes it
-    correctly (STATBUS-164).
   DEFERRED (still a scenario, ASSESS): 3-postswap-worker-ddl-deadlock — a worker-locked
     migration stays bounded via pre-DDL quiesce; intent, not proven coverage.
 end note

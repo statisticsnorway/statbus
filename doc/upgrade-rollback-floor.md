@@ -588,7 +588,7 @@ These cannot be substituted by local reasoning or live twins. Follow `doc/instal
 
 ### Arc A: healthy first-adoption rollback floor replay
 
-Create `test/install-recovery/arcs/rollback-schema-floor-adoption-arc.sh` or the catalogue-consistent equivalent.
+Retired from the release gate (STATBUS-516, 2026-10-20). It pinned v2026.09.0 as a pre-column source, a state real boxes no longer reach since every supported release carries the floor column. Its lesson stays in `TestReapplyRollbackDaemonSchemaFloorUsesTargetBinaryAndOrdinaryLedger` and `TestRollbackSchemaFloorFailureDurablyRoutesDaemonAliveIdle`. The original plan, kept as history:
 
 - Install source A whose schema max is `20260901212308` and load non-empty sentinel data.
 - Register and schedule target B, the first candidate carrying migration `20260907120000` and S3.

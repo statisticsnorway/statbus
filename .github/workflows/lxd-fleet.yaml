@@ -188,12 +188,6 @@ jobs:
           fleet_status_read "$LXD_FLEET_ARTIFACT_DIR/fleet-status.txt"
           echo "### LXD fault fleet: $FLEET_STATUS" >> "$GITHUB_STEP_SUMMARY"
           {
-            echo 'Both source-identity paths use this same exact-commit full-fleet gate:'
-            # shellcheck disable=SC2016 # Markdown backticks, not shell commands.
-            echo '- operator: `5-install-source-identity-operator` (actual cloud install handler)'
-            # shellcheck disable=SC2016 # Markdown backticks, not shell commands.
-            echo '- scheduled: `5-install-source-identity-scheduled` (scheduled inline install)'
-            echo
             echo '| Scenario | Result | Exit | Checkpoint |'
             echo '| --- | --- | --- | --- |'
             if [ -f "$LXD_FLEET_ARTIFACT_DIR/comparison.tsv" ]; then

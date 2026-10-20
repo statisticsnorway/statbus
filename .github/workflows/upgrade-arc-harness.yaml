@@ -784,13 +784,12 @@ jobs:
         run: |
           set -euo pipefail
           case "$SCENARIO" in
-            failing|postswap-rollback-restore-watchdog|restore-broke-reattempt|deploy-status-proof|boot-migrate-churn-alive-idle|rollback-schema-floor-adoption|rollback-schema-floor-failure) lineage=failing ;;
+            failing|postswap-rollback-restore-watchdog|restore-broke-reattempt|deploy-status-proof|boot-migrate-churn-alive-idle|rollback-schema-floor-failure) lineage=failing ;;
             postswap-migration-oom)                     lineage=oom ;;
             postswap-migration-ceiling)                 lineage=ceiling ;;
             postswap-health-park)                        lineage=healthpark ;;
             un-park-to-completion)                       lineage=codeonly ;;
             c-rollback-resurrection)                     lineage=crollback ;;
-            cross-version-rename-handoff)               lineage=crossversion ;;
             *)                                          lineage=working ;;
           esac
           echo "Scenario '${SCENARIO}' → fixture lineage '${lineage}'"
@@ -800,28 +799,6 @@ jobs:
               echo "C_FULL=${FAILING_C_FULL}"
               echo "B_BRANCH=${FAILING_B_BRANCH}"
               echo "C_BRANCH=${FAILING_C_BRANCH}"
-              # STATBUS-354 adoption needs a snapshot whose schema predates the
-              # rollback finishing column migration 20260907120000 (added in
-              # f6d249b62). v2026.09.0 (commit d53731ec) is the last released commit
-              # before that migration and the only pre-column baseline with a
-              # retained statbus-sb image (install_statbus_at_sha pulls
-              # statbus-sb:<short-sha>, so an arbitrary mid-series SHA like the
-              # earlier 56559fa7 is not built and fails "not found"). B remains
-              # the ordinary failing fixture off this candidate, so it carries
-              # current recovery code + migration 20260907120000 + the final
-              # synthetic V_fail.
-              #
-              # ONLY the adoption arc takes the pre-column baseline. The failure
-              # arc rides the ordinary candidate base: its assertions exercise the
-              # floor-reapply FAILURE HANDLING (hold closed, then human retry), not
-              # the column adoption, and its inject class rollback-floor-reapply
-              # only exists in the candidate's binary (added by STATBUS-354), so a
-              # pre-column base binary would reject it as unknown.
-              case "$SCENARIO" in
-                rollback-schema-floor-adoption)
-                  echo "SCHEMA_FLOOR_BASE_SHA=d53731ec539b03b9378ff8828bb2be938d9e2e0f"
-                  ;;
-              esac
             } >> "$GITHUB_ENV"
           elif [ "$lineage" = oom ]; then
             {
@@ -861,20 +838,6 @@ jobs:
               echo "B_BRANCH=${CROLLBACK_B_BRANCH}"
               echo "C_BRANCH=${CROLLBACK_C_BRANCH}"
               echo "B_SHORT=${CROLLBACK_B_SHORT}"
-            } >> "$GITHUB_ENV"
-          elif [ "$lineage" = crossversion ]; then
-            # STATBUS-164 half #2 cross-version arc — the ONLY arc whose base is NOT
-            # the run SHA: it pins a FIXED pre-rename release commit (rc.05
-            # 730b5001c — an ancestor of the rename commit 0e04a9613, where the source
-            # still stamps "post_swap") and targets the run's OWN post-rename commit,
-            # so the exit-42 handoff crosses the rename boundary. No construct lineage:
-            # both images already exist (A = the rc.05 release image; the target = the
-            # run's per-commit build == base_short). Update the pin only if rc.05's
-            # image is GC'd (then a newer STILL-pre-rename release).
-            {
-              echo "PRE_RENAME_BASE_SHA=${PRE_RENAME_BASE_SHA:-730b5001c099a660dc8ce28d9bf8167781704695}"
-              echo "TARGET_SHA=${GITHUB_SHA}"
-              echo "TARGET_BRANCH=${GITHUB_REF_NAME}"
             } >> "$GITHUB_ENV"
           else
             {

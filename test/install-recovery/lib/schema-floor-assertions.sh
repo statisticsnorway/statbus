@@ -21,31 +21,6 @@ schema_floor_progress_line() {
   printf 'Re-applying rollback daemon schema floor through db.migration: %s' "$1"
 }
 
-legacy_source_era_progress_label() {
-  printf 'legacy source era (pre-capture release)'
-}
-
-assert_schema_floor_adoption_progress() {
-  local log=$1 floor=$2
-  local floor_line legacy_source_era_label
-  floor_line=$(schema_floor_progress_line "$floor")
-  legacy_source_era_label=$(legacy_source_era_progress_label)
-
-  # The adoption arc separately proves the durable terminal and health gate.
-  # Progress is evidence only for the two documented semantics specific to this
-  # pre-capture source: the daemon floor was replayed through db.migration, and
-  # source convergence used the explicitly labeled legacy compatibility path.
-  # Do not pin internal rollback step wording or ordering here.
-  grep -qF "$floor_line" <<<"$log" || {
-    echo "✗ progress log missing semantic schema-floor replay: $floor_line" >&2
-    return 1
-  }
-  grep -qF "$legacy_source_era_label" <<<"$log" || {
-    echo "✗ progress log missing documented source-era label: $legacy_source_era_label" >&2
-    return 1
-  }
-}
-
 assert_schema_floor_retry_order() {
   local log=$1 floor=$2
   local floor_line source_binary_line

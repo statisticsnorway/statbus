@@ -3,9 +3,9 @@
 # The injected error exists only in rollback-time floor reapplication. Forward
 # migration remains genuine. A final V_fail enters built-in rollback.
 #
-# BASE is the ORDINARY candidate base (NOT the pre-column SCHEMA_FLOOR_BASE_SHA):
-# this arc exercises the floor-reapply FAILURE HANDLING, not the column adoption
-# (that is the adoption arc). The inject class rollback-floor-reapply only exists
+# BASE is the ordinary candidate base: this arc exercises the floor-reapply
+# FAILURE HANDLING. The column adoption from a pre-column release is covered by
+# Go tests (STATBUS-516 retired the pinned-release adoption arc). The inject class rollback-floor-reapply only exists
 # in the candidate's binary, so the base binary must carry STATBUS-354 code for
 # inject.Validate to accept it at dispatch time.
 set -euo pipefail
@@ -14,14 +14,12 @@ TICK_WAIT_S="${TICK_WAIT_S:-120}"
 HISTORICAL_FLOOR=20260907120000
 INJECT_CLASS=rollback-floor-reapply
 UPGRADE_UNIT=statbus-upgrade@statbus.service
-# This arc rides the ORDINARY candidate base: BASE_SHA is the standard arc input
-# and SCHEMA_FLOOR_BASE_SHA is not exported for it (only the adoption arc takes
-# the pre-column baseline). B comes from the candidate-based failing lineage and
+# This arc rides the ordinary candidate base (BASE_SHA, the standard arc input).
+# B comes from the candidate-based failing lineage and
 # therefore carries current STATBUS-354 code, the floor migration, and the final
 # V_fail that enters rollback. The rollback-floor-reapply inject class must be
 # recognized by the base binary, so the base must carry STATBUS-354 code.
-BASE_SHA="${SCHEMA_FLOOR_BASE_SHA:-${BASE_SHA:-}}"
-: "${BASE_SHA:?BASE_SHA or SCHEMA_FLOOR_BASE_SHA required}"
+: "${BASE_SHA:?BASE_SHA required}"
 : "${B_FULL:?B_FULL required}"
 : "${B_BRANCH:?B_BRANCH required}"
 LIB_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/lib"

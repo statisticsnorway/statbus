@@ -14,10 +14,6 @@
 # other is the exact drift this driver exists to prevent), then runs each
 # arc against a fresh LXD fork of the candidate's own installed checkpoint.
 #
-# cross-version-rename-handoff is the one arc with NO construct lineage (see
-# the case statement below and the workflow's own comment) — it pins a fixed
-# pre-rename release commit and targets the run's own post-rename commit.
-#
 # Plain per-lineage variables (WORKING_B_FULL, FAILING_B_FULL, ...), never
 # associative arrays: macOS ships bash 3.2 (no `declare -A`), and this driver
 # runs from developer machines as well as CI (same constraint run-forks.sh
@@ -214,13 +210,12 @@ MARKER_HELD=1
 # change to the other.
 arc_lineage_for() {
     case "$1" in
-        failing|postswap-rollback-restore-watchdog|restore-broke-reattempt|deploy-status-proof|boot-migrate-churn-alive-idle|rollback-schema-floor-adoption|rollback-schema-floor-failure) echo failing ;;
+        failing|postswap-rollback-restore-watchdog|restore-broke-reattempt|deploy-status-proof|boot-migrate-churn-alive-idle|rollback-schema-floor-failure) echo failing ;;
         postswap-migration-oom)       echo oom ;;
         postswap-migration-ceiling)   echo ceiling ;;
         postswap-health-park)         echo healthpark ;;
         un-park-to-completion)        echo codeonly ;;
         c-rollback-resurrection)      echo crollback ;;
-        cross-version-rename-handoff) echo crossversion ;;
         *)                            echo working ;;
     esac
 }
@@ -450,9 +445,6 @@ for slug in "${arcs[@]}"; do
                 export B_FULL="$FAILING_B_FULL" B_BRANCH="$FAILING_B_BRANCH"
                 export C_FULL="$FAILING_C_FULL" C_BRANCH="$FAILING_C_BRANCH"
                 export V_VERSION="$FAILING_V"
-                if [ "$slug" = rollback-schema-floor-adoption ]; then
-                    export SCHEMA_FLOOR_BASE_SHA=d53731ec539b03b9378ff8828bb2be938d9e2e0f
-                fi
                 ;;
             oom)
                 export B_FULL="$OOM_B_FULL" B_BRANCH="$OOM_B_BRANCH" V_VERSION="$OOM_V"
@@ -472,10 +464,6 @@ for slug in "${arcs[@]}"; do
                 export B_FULL="$CROLLBACK_B_FULL" B_BRANCH="$CROLLBACK_B_BRANCH" B_SHORT="$CROLLBACK_B_SHORT"
                 export C_FULL="$CROLLBACK_C_FULL" C_BRANCH="$CROLLBACK_C_BRANCH"
                 export V_VERSION_2="$CROLLBACK_V2" V_VERSION_3="$CROLLBACK_V3"
-                ;;
-            crossversion)
-                export PRE_RENAME_BASE_SHA="${PRE_RENAME_BASE_SHA:-730b5001c099a660dc8ce28d9bf8167781704695}"
-                export TARGET_SHA="$BASE_SHA" TARGET_BRANCH="$TAG"
                 ;;
         esac
         # Shared per-arc runner (arc-job.sh, also used by the workflow's

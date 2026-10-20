@@ -8,7 +8,7 @@ set -euo pipefail
 ROOT=$(cd "$(dirname "$0")/../../.." && pwd)
 RUNNER="$ROOT/test/install-recovery/run.sh"
 ON_DEMAND=(
-    5-install-source-image-identity-proof
+    5-install-cert-repair-via-cert-install
 )
 DEFAULT=(
     0-https-only-egress

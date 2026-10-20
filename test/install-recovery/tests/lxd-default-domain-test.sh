@@ -55,10 +55,13 @@ grep -q $'^1-fault\t\t\tPASS\t' "$LXD_FLEET_ARTIFACT_DIR/comparison.tsv"
 [ "$(wc -l < "$LXD_FLEET_ARTIFACT_DIR/comparison.tsv" | tr -d ' ')" = 2 ] || { echo 'FAIL: default suite did not run exactly one fault' >&2; exit 1; }
 echo 'PASS: empty candidate-pinned fault domain fails, populated default suite passes'
 
-# Use the real delegators and real driver, replacing only the expensive shared
-# guest body in this fixture. The body observes the path/tag/process boundary.
-cp "$ROOT/test/install-recovery/scenarios/5-install-source-identity-"{operator,scheduled}.sh "$REPO/test/install-recovery/scenarios/"
-cat > "$REPO/test/install-recovery/scenarios/5-install-source-image-identity-proof.sh" <<'EOF'
+# Two fixture cells delegate to one shared body through the real driver. The
+# body observes the path/tag/process boundary.
+for path in operator scheduled; do
+    printf '#!/usr/bin/env bash\nexport CANDIDATE_PATH=%s\nexec "$(dirname "$0")/cell-body.sh" "${1:-statbus-recovery-5-cell-%s}"\n' "$path" "$path" \
+        > "$REPO/test/install-recovery/scenarios/5-cell-$path.sh"
+done
+cat > "$REPO/test/install-recovery/scenarios/cell-body.sh" <<'EOF'
 #!/usr/bin/env bash
 # HARNESS_SKIP_DEFAULT
 set -euo pipefail
@@ -83,7 +86,7 @@ run_cells() {
     grep -Fxq "STATUS=$expected" "$LXD_FLEET_ARTIFACT_DIR/fleet-status.txt" || { cat "$TMP_ROOT/cells-$number.log" >&2; exit 1; }
     if [ "$expected" = PASSED ]; then [ "$rc" = 0 ]; else [ "$rc" != 0 ]; fi
     for path in operator scheduled; do
-        slug=5-install-source-identity-$path
+        slug=5-cell-$path
         grep -Fq "cell=$path vm=statbus-recovery-$slug tag=v2099.01.0-rc.$number" "$LXD_FLEET_ARTIFACT_DIR/$slug.log"
         if [ "${MISSING_PATH:-}" != "$path" ]; then
             grep -q "^$slug"$'\t' "$LXD_FLEET_ARTIFACT_DIR/comparison.tsv"
@@ -102,6 +105,6 @@ run_cells 5 FAILED
 unset FAIL_PATH
 export MISSING_PATH=operator
 run_cells 6 FAILED
-grep -Fq 'Missing result: 5-install-source-identity-operator' "$TMP_ROOT/cells-6.log"
+grep -Fq 'Missing result: 5-cell-operator' "$TMP_ROOT/cells-6.log"
 unset MISSING_PATH
 echo 'PASS: two default cells have distinct logs/rows; either route failure and missing result refuse aggregate PASS'

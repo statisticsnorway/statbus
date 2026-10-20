@@ -824,7 +824,7 @@ ENVCONFIG
     # states history could have produced. UPGRADE_ROLE is a STATBUS-254
     # (733b0df4d) concept — writing it onto a box about to install a
     # PRE-254 era (BASE_SHA not a descendant of 733b0df4d, e.g.
-    # cross-version-rename-handoff's pinned 730b5001c) builds a box that
+    # rc.05's 730b5001c) builds a box that
     # never existed: that era's own `./sb config generate` still SEEDS
     # UPGRADE_CHANNEL, so the box ends up with BOTH keys and 254's own
     # loud hand-set-channel guard refuses — a harness artifact, not a real

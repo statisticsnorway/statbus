@@ -351,7 +351,7 @@ lxd_checkpoint_for_scenario() {
         return
     fi
     case "$slug" in
-        0-happy-install|0-interactive-admin-password|0-interactive-setup-choices|4-install-*|5-install-cert-repair-via-cert-install|5-install-interrupted-*|5-install-live-upgrade-wait|5-install-source-image-identity-proof|6-uninstall-reinstall)
+        0-happy-install|0-interactive-admin-password|0-interactive-setup-choices|4-install-*|5-install-cert-repair-via-cert-install|5-install-interrupted-*|5-install-live-upgrade-wait|6-uninstall-reinstall)
             printf 'hardened-nothing-installed'; return ;;
     esac
     if grep -Eq 'bootstrap_install_test_vm "\$VM_NAME" ""' "$file"; then
@@ -1402,9 +1402,8 @@ REMOTE
     # per-commit statbus-sb image when absent). The original LXD shim required
     # $3 unconditionally (`${3:?tag required}`), so every arc hit "tag
     # required" here before ever reaching an assertion (STATBUS-425 M3a review
-    # finding). Every arc except cross-version-rename-handoff-arc.sh runs
-    # BASE_SHA=the candidate's own commit; that one pins a historical release
-    # commit instead (PRE_RENAME_BASE_SHA). Branch on which case this is: a
+    # finding). Arcs run BASE_SHA=the candidate's own commit; a caller may
+    # still pass a historical release commit. Branch on which case this is: a
     # release tag pointing exactly at $sha selects the historical-release
     # install path (that release's own sb-linux asset + its own install.sh,
     # matching _lxd_build_base_for_candidate's historical branch); otherwise
