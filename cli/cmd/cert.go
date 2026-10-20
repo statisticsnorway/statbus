@@ -70,8 +70,9 @@ const devSelfSignedCAPath = "caddy/data/caddy/pki/authorities/local/root.crt"
 // ─── Command definitions ────────────────────────────────────────────────
 
 var certCmd = &cobra.Command{
-	Use:   "cert",
-	Short: "Manage TLS certificates (custom PFX/PEM or automatic Let's Encrypt)",
+	Use:     "cert",
+	Short:   "Manage TLS certificates (custom PFX/PEM or automatic Let's Encrypt)",
+	GroupID: operationsGroupID,
 	Long: `Manage the TLS certificate StatBus uses to serve HTTPS.
 
 There are two kinds of certificate StatBus can serve:

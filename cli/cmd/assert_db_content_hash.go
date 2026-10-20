@@ -37,8 +37,9 @@ import (
 // file. Exits 1 with the full REFUSING diagnostic on any mismatch.
 
 var assertDBContentHashCmd = &cobra.Command{
-	Use:   "assert-db-content-hash <db_name> <caller>",
-	Short: "Refuse if <db_name>'s db.migration content_hash disagrees with the on-disk migration files",
+	Use:     "assert-db-content-hash <db_name> <caller>",
+	Short:   "Refuse if <db_name>'s db.migration content_hash disagrees with the on-disk migration files",
+	GroupID: developmentGroupID,
 	Long: `Compare every db.migration.content_hash row in <db_name> against the
 sha256 of the corresponding on-disk migrations/*.up.{sql,psql} file.
 

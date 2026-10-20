@@ -212,6 +212,7 @@ var postUpgradeFixup bool
 var installCmd = &cobra.Command{
 	Use:           "install",
 	Short:         "Install or resume StatBus installation",
+	GroupID:       operationsGroupID,
 	SilenceErrors: true,
 	SilenceUsage:  true,
 	// install is part of the recovery surface — its job is to fix the
@@ -1874,7 +1875,10 @@ func runGenerateEnv(dir string) error {
 func runPullImages(dir string) error {
 	// Try pull first (pre-built from ghcr.io)
 	if err := runCmdDir(dir, "docker", "compose", "--profile", "all", "pull"); err != nil {
-		if !startBuildsFromSource(dir) {
+		// The binary's build identity decides (doc/sb-build-identity.md): a
+		// release install runs only the published images; a source build may
+		// fall back to building what the registry does not have.
+		if isReleaseBuild() {
 			return fmt.Errorf("image pull failure: %w", err)
 		}
 		// Fall back to build for services without pre-built images

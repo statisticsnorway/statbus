@@ -14,8 +14,9 @@ import (
 )
 
 var typesCmd = &cobra.Command{
-	Use:   "types",
-	Short: "TypeScript type generation",
+	Use:     "types",
+	Short:   "TypeScript type generation",
+	GroupID: developmentGroupID,
 }
 
 var typesGenerateCmd = &cobra.Command{

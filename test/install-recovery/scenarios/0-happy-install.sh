@@ -109,6 +109,9 @@ assert_harness_https_passes "$VM_NAME"
 assert_step9_completed "$VM_NAME"
 assert_step_upgrade_service_completed "$VM_NAME"
 assert_systemd_active "$VM_NAME"
+# STATBUS-392 AC5: the installed stack runs the published images (registry
+# digests on every StatBus service image), never quietly built ones.
+assert_service_images_pulled_from_registry "$VM_NAME"
 
 echo "── green-box rerun is entirely quiet ──"
 RERUN_LOG=$(mktemp)

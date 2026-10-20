@@ -12,6 +12,7 @@ import (
 var psqlCmd = &cobra.Command{
 	Use:                "psql [flags for psql]",
 	Short:              "Open a psql shell connected to the StatBus database",
+	GroupID:            operationsGroupID,
 	Long:               "Opens psql with the correct connection settings from .env.\nAll arguments are passed through to psql.",
 	DisableFlagParsing: true,
 	RunE: func(cmd *cobra.Command, args []string) error {

@@ -215,8 +215,9 @@ func confirmAction(prompt string) bool {
 // ── db status ────────────────────────────────────────────────────────────────
 
 var dbCmd = &cobra.Command{
-	Use:   "db",
-	Short: "Database operations (dump, restore, status)",
+	Use:     "db",
+	Short:   "Database operations (dump, restore, status)",
+	GroupID: operationsGroupID,
 }
 
 var dbStatusCmd = &cobra.Command{

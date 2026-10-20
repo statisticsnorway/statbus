@@ -11,6 +11,7 @@ import (
 var testCmd = &cobra.Command{
 	Use:                "test [args...]",
 	Short:              "Run pg_regress tests",
+	GroupID:            developmentGroupID,
 	Long:               "Runs pg_regress tests via dev.sh.\nAll arguments are passed through (e.g., 'all', 'fast', or specific test names).",
 	DisableFlagParsing: true,
 	RunE: func(cmd *cobra.Command, args []string) error {

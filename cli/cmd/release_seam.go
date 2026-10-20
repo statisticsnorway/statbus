@@ -11,4 +11,9 @@ func Verbose() bool { return verbose }
 // Mount attaches an externally constructed command tree to the root command.
 // It exists so command composition happens explicitly at the process
 // entrypoint (main.go) rather than via package-global init() side effects.
-func Mount(c *cobra.Command) { rootCmd.AddCommand(c) }
+// The mounted commands are the release-engineering surface, a Development
+// command (STATBUS-392): hidden from ./sb --help on a release build.
+func Mount(c *cobra.Command) {
+	c.GroupID = developmentGroupID
+	rootCmd.AddCommand(c)
+}

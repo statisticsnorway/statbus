@@ -31,8 +31,9 @@ import (
 // On failure: actionable error on stderr, exit 1.
 
 var assertDBAtHeadCmd = &cobra.Command{
-	Use:   "assert-db-at-head <db_name> <caller>",
-	Short: "Refuse if <db_name>'s db.migration row set doesn't match HEAD's on-disk migrations",
+	Use:     "assert-db-at-head <db_name> <caller>",
+	Short:   "Refuse if <db_name>'s db.migration row set doesn't match HEAD's on-disk migrations",
+	GroupID: developmentGroupID,
 	Long: `Verify that <db_name>'s db.migration table contains exactly the
 set of migration versions present on disk in migrations/*.up.{sql,psql}.
 

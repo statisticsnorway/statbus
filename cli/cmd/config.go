@@ -19,8 +19,9 @@ var (
 )
 
 var configCmd = &cobra.Command{
-	Use:   "config",
-	Short: "Manage StatBus configuration",
+	Use:     "config",
+	Short:   "Manage StatBus configuration",
+	GroupID: operationsGroupID,
 }
 
 // exitPrincipledConfigRefusal (78 = EX_CONFIG, sysexits.h) is the exit code

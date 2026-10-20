@@ -263,6 +263,9 @@ assert_flag_file_absent "$VM_NAME"
 assert_no_orphan_backup "$VM_NAME"
 assert_health_passes "$VM_NAME"
 assert_harness_https_passes "$VM_NAME"
+# STATBUS-392 AC5: the upgraded stack runs the published images (registry
+# digests on every StatBus service image), never quietly built ones.
+assert_service_images_pulled_from_registry "$VM_NAME"
 if [ "${HARNESS_ASSERT_DISK_POLICY:-0}" = 1 ]; then
     POLICY=$(VM_EXEC bash -c 'cd ~/statbus && ./sb dotenv -f .env.config get STATBUS_DISK_MIN_GB && ./sb dotenv -f .env.config get STATBUS_DISK_RECOMMENDED_GB')
     [ "$POLICY" = $'20\n40' ] || { echo "disk policy changed across upgrade/fixup: $POLICY" >&2; exit 1; }

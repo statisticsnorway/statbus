@@ -69,8 +69,9 @@ func runUpgradePsql(sql string, extraArgs ...string) ([]byte, error) {
 }
 
 var upgradeCmd = &cobra.Command{
-	Use:   "upgrade",
-	Short: "Manage software upgrades",
+	Use:     "upgrade",
+	Short:   "Manage software upgrades",
+	GroupID: operationsGroupID,
 	Long: `Manage the upgrade service and software releases.
 
 Look:

@@ -336,6 +336,15 @@ func init() {
 	commitVersion = resolveCommitVersion()
 	rootCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "enable verbose output")
 	rootCmd.Version = versionString()
+	// Help groups (STATBUS-392): Operations is the operator surface,
+	// Development the developer surface, hidden on a release build. Each
+	// command's definition names its GroupID. Both headings are always
+	// registered — cobra refuses a command whose GroupID is unregistered —
+	// and the help template skips a heading with no visible commands.
+	rootCmd.AddGroup(
+		&cobra.Group{ID: operationsGroupID, Title: "Operations:"},
+		&cobra.Group{ID: developmentGroupID, Title: "Development:"},
+	)
 }
 
 // versionString renders --version output from the same typed runtime
@@ -418,5 +427,8 @@ func Execute() error {
 		fmt.Fprintf(os.Stderr, "FATAL: invalid STATBUS_INJECT_* configuration:\n  %v\n", err)
 		os.Exit(exitBinaryUnusable)
 	}
+	// Command visibility follows the build identity (doc/sb-build-identity.md):
+	// a release build keeps developer commands out of the operator's help.
+	applyBuildVisibility(isReleaseBuild())
 	return rootCmd.Execute()
 }

@@ -4,17 +4,14 @@ import (
 	"context"
 	"errors"
 	"os"
-	"path/filepath"
-	"strings"
 
 	"github.com/spf13/cobra"
 	"github.com/statisticsnorway/statbus/cli/internal/compose"
 	"github.com/statisticsnorway/statbus/cli/internal/config"
-	"github.com/statisticsnorway/statbus/cli/internal/dotenv"
 	"github.com/statisticsnorway/statbus/cli/internal/upgrade"
 )
 
-func startServices(profile string, build bool) (result error) {
+func startServices(profile string) (result error) {
 	projDir := config.ProjectDir()
 	guard, err := upgrade.AcquireOperatorStartGuard(projDir, "operator:start")
 	if err != nil {
@@ -22,7 +19,13 @@ func startServices(profile string, build bool) (result error) {
 	}
 	defer func() { result = errors.Join(result, guard.Release()) }()
 
-	start, err := compose.Up(context.Background(), projDir, startComposeArgs(profile, build)...)
+	// The binary's build identity decides: a source build builds, a release
+	// build runs the published images (doc/sb-build-identity.md).
+	args, err := startUpArgs(projDir, profile, isReleaseBuild(), string(commitVersion), liveDockerImageOps{}, os.Stdout)
+	if err != nil {
+		return err
+	}
+	start, err := compose.Up(context.Background(), projDir, args...)
 	if err != nil {
 		return err
 	}
@@ -32,55 +35,32 @@ func startServices(profile string, build bool) (result error) {
 	return start.Run()
 }
 
-func startComposeArgs(profile string, build bool) []string {
-	args := []string{"-d"}
-	if build {
-		args = append(args, "--build")
-	} else {
-		args = append(args, "--no-build")
-	}
-	if profile == "app" {
-		return append(args, "app")
-	}
-	return append([]string{"--profile", profile}, args...)
-}
-
-// A tagged release installation uses published images even if its proxy
-// runs in development mode. A source development checkout builds locally.
-func startBuildsFromSource(dir string) bool {
-	if !compose.IsDevelopmentModeInDir(dir) {
-		return false
-	}
-	f, err := dotenv.Load(filepath.Join(dir, ".env"))
-	if err != nil {
-		return true
-	}
-	version, _ := f.Get("VERSION")
-	return !strings.HasPrefix(version, "v") || strings.Contains(version, "-g")
-}
-
 var startCmd = &cobra.Command{
-	Use:   "start [profile]",
-	Short: "Start services (default: all)",
+	Use:     "start [profile]",
+	Short:   "Start services (default: all)",
+	GroupID: operationsGroupID,
 	Long: `Start StatBus services using docker compose.
 
 Profiles: all, all_except_app, app
-Source development checkouts build images from source (--build).
-Release installations use pulled images, including in development mode.`,
+
+A source build rebuilds images from source (--build). A release build checks
+that this version's published images are present locally, pulls them only if
+they are missing (for example after docker image prune), and starts with
+--no-build. See doc/sb-build-identity.md.`,
 	Args: cobra.MaximumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		profile := "all"
 		if len(args) > 0 {
 			profile = args[0]
 		}
-		build := startBuildsFromSource(config.ProjectDir())
-		return startServices(profile, build)
+		return startServices(profile)
 	},
 }
 
 var stopCmd = &cobra.Command{
-	Use:   "stop [profile]",
-	Short: "Stop services (default: all)",
+	Use:     "stop [profile]",
+	Short:   "Stop services (default: all)",
+	GroupID: operationsGroupID,
 	Long: `Stop StatBus services using docker compose.
 
 Profiles: all, all_except_app, app`,
@@ -95,16 +75,20 @@ Profiles: all, all_except_app, app`,
 }
 
 var restartCmd = &cobra.Command{
-	Use:   "restart [profile]",
-	Short: "Restart services (default: all)",
+	Use:     "restart [profile]",
+	Short:   "Restart services (default: all)",
+	GroupID: operationsGroupID,
 	Long: `Restart StatBus services (stop then start).
 All-stack profiles also reload an active upgrade daemon. Existing upgrade/install
 markers refuse before any disruption. An intentionally inactive daemon stays inactive.
 Waits for stack health and daemon readiness under the upgrade mutex.
 Failed or interrupted restarts retain a barrier: fix the cause and retry this
 same command and profile. No manual systemctl operation is needed.
-Source development checkouts build images from source (--build).
-Release installations use pulled images, including in development mode.
+
+A source build rebuilds images from source (--build). A release build checks
+that this version's published images are present locally, pulls them only if
+they are missing (for example after docker image prune), and starts with
+--no-build. See doc/sb-build-identity.md.
 
 Profiles: all, all_except_app, app`,
 	Args: cobra.MaximumNArgs(1),
@@ -118,30 +102,34 @@ Profiles: all, all_except_app, app`,
 }
 
 var psCmd = &cobra.Command{
-	Use:   "ps",
-	Short: "Show running containers",
+	Use:     "ps",
+	Short:   "Show running containers",
+	GroupID: operationsGroupID,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		return compose.Ps()
 	},
 }
 
 var logsCmd = &cobra.Command{
-	Use:   "logs [services...]",
-	Short: "Follow service logs",
+	Use:     "logs [services...]",
+	Short:   "Follow service logs",
+	GroupID: operationsGroupID,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		return compose.Logs(args...)
 	},
 }
 
 var buildCmd = &cobra.Command{
-	Use:   "build [profile]",
-	Short: "Build service images from source (development only)",
+	Use:     "build [profile]",
+	Short:   "Build service images from source (development only)",
+	GroupID: developmentGroupID,
 	Long: `Build Docker images from local Dockerfiles.
 
 Profiles: all, all_except_app, app
 
-This is for development only — standalone/private deployments
-use pre-built images from ghcr.io (pulled by 'sb start').`,
+This is a development command: a source build uses it (directly, or via
+'sb start'). A release install runs the published ghcr.io images, which
+'sb start' pulls when missing. See doc/sb-build-identity.md.`,
 	Args: cobra.MaximumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		profile := "all"

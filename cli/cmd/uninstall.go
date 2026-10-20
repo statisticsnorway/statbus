@@ -11,8 +11,9 @@ import (
 
 // uninstall delegates to the same standalone script published for curl | bash.
 var uninstallCmd = &cobra.Command{
-	Use:   "uninstall",
-	Short: "Remove this StatBus installation (confirmation required)",
+	Use:     "uninstall",
+	Short:   "Remove this StatBus installation (confirmation required)",
+	GroupID: operationsGroupID,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		path := filepath.Join(os.Getenv("HOME"), "statbus", "uninstall.sh")
 		if _, err := os.Stat(path); err != nil {

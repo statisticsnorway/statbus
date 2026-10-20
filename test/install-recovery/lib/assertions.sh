@@ -572,3 +572,36 @@ assert_deploy_status() {
     echo "  ✗ deploy-status verdict MISMATCH for ${sha:0:8}: got exit=$rc state='$state' (line: '$line'), want exit=$want_exit state=$want_state" >&2
     return 1
 }
+
+# STATBUS-392 AC5: every StatBus service image the running containers use
+# (statbus-app, statbus-worker, statbus-db, statbus-proxy) carries a ghcr.io
+# registry digest in Docker's own image record (RepoDigests). A pulled image
+# has one; a locally built image has none. This is the positive outcome
+# assertion that a clean install/upgrade runs the published images — never a
+# log grep for "pull".
+assert_service_images_pulled_from_registry() {
+    local vm_name="$1"
+    VM_SCRIPT_INLINE assert-service-images <<'EOF'
+#!/bin/bash
+set -euo pipefail
+images="$(docker ps --format '{{.Image}}' | sort -u)"
+for svc in app worker db proxy; do
+    ref="$(printf '%s\n' "$images" | grep -E "(^|/)statbus-${svc}:" | head -1 || true)"
+    if [ -z "$ref" ]; then
+        echo "no running container uses a statbus-${svc} image; running images:" >&2
+        printf '%s\n' "$images" >&2
+        exit 1
+    fi
+    digests="$(docker image inspect -f '{{json .RepoDigests}}' "$ref")"
+    case "$digests" in
+        *ghcr.io/*@sha256:*)
+            echo "  ✓ $ref pulled from registry ($digests)"
+            ;;
+        *)
+            echo "statbus-${svc} image $ref has no ghcr.io registry digest: $digests" >&2
+            exit 1
+            ;;
+    esac
+done
+EOF
+}

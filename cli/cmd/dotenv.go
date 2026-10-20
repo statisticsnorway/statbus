@@ -14,9 +14,10 @@ import (
 var dotenvFile string
 
 var dotenvCmd = &cobra.Command{
-	Use:   "dotenv",
-	Short: "Manage .env files",
-	Long:  "Read and write .env files containing KEY=VALUE environment variables.",
+	Use:     "dotenv",
+	Short:   "Manage .env files",
+	GroupID: developmentGroupID,
+	Long:    "Read and write .env files containing KEY=VALUE environment variables.",
 }
 
 var dotenvGetCmd = &cobra.Command{

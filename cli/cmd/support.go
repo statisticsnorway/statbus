@@ -21,8 +21,9 @@ import (
 // The subcommands below are the "lifeline" toolkit — they must work
 // even when the database is unreachable and the upgrade service is down.
 var supportCmd = &cobra.Command{
-	Use:   "support",
-	Short: "Operator diagnostics (gather support bundle, write admin-UI state)",
+	Use:     "support",
+	Short:   "Operator diagnostics (gather support bundle, write admin-UI state)",
+	GroupID: operationsGroupID,
 	Long: `Diagnostic operations that work without a running database.
 
 Subcommands are the "lifeline" toolkit invoked by install.sh on failure

@@ -23,8 +23,9 @@ var (
 )
 
 var migrateCmd = &cobra.Command{
-	Use:   "migrate",
-	Short: "Manage database migrations",
+	Use:     "migrate",
+	Short:   "Manage database migrations",
+	GroupID: developmentGroupID,
 }
 
 var migrateUpCmd = &cobra.Command{

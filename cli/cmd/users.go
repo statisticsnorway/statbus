@@ -15,8 +15,9 @@ import (
 )
 
 var usersCmd = &cobra.Command{
-	Use:   "users",
-	Short: "Manage StatBus users",
+	Use:     "users",
+	Short:   "Manage StatBus users",
+	GroupID: operationsGroupID,
 }
 
 var usersCreateCmd = &cobra.Command{
