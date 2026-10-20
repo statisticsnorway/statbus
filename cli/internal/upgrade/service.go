@@ -1938,6 +1938,9 @@ func (d *Service) loadLogRelPath(ctx context.Context, id int64) string {
 	if id <= 0 {
 		return ""
 	}
+	if _, err := d.queryConnOrErr("load crash-recovery log path"); err != nil {
+		return "" // same fallback as an unreadable row: the log pointer is operator-facing, not load-bearing
+	}
 	// STATBUS-190: bound the read — this is the FIRST DB read on the recovery
 	// classify path; a paused/frozen DB would otherwise hang it before recovery
 	// even reaches the observed-state verify. The timeout degrades to the existing
@@ -2443,6 +2446,10 @@ func (d *Service) recoverFromFlag(ctx context.Context) (err error) {
 // (journald) already has the narrative. See plan C-head "End-state
 // contract".
 func (d *Service) markImagesFailed(ctx context.Context, id int, sha, reason string) {
+	if _, err := d.queryConnOrErr("mark images failed"); err != nil {
+		log.Printf("%v", err)
+		return
+	}
 	// Atomic WHERE-clause guard.
 	//
 	// Terminal lifecycle states (completed, failed, rolled_back, skipped,
@@ -2581,6 +2588,10 @@ func (d *Service) verifyArtifacts(ctx context.Context) {
 	const registryPrefix = "ghcr.io/statisticsnorway/statbus-"
 	services := []string{"db", "app", "worker", "proxy"}
 
+	if _, err := d.queryConnOrErr("verify artifacts"); err != nil {
+		log.Printf("%v", err)
+		return
+	}
 	rows, err := d.queryConn.Query(ctx, `
 		SELECT id, commit_sha, release_status::text, docker_images_status::text, release_builds_status::text, commit_version, discovered_at
 		  FROM public.upgrade
@@ -2889,6 +2900,9 @@ func (d *Service) ReconcileInterruptedForInline(ctx context.Context, afterRecove
 }
 
 func (d *Service) ExecuteUpgradeInline(ctx context.Context, id int, commitSHA, _ string) error {
+	if _, err := d.queryConnOrErr("execute upgrade inline"); err != nil {
+		return err
+	}
 	// STATBUS-046 slice 3c — images-ready CLAIM GATE (evaluateImageClaimGate,
 	// image_claim_gate.go), identical to executeScheduled's gate. Read-only
 	// pre-claim probe of the row's own state — a caller-supplied `id` is
@@ -3300,7 +3314,11 @@ func (d *Service) Run(ctx context.Context) error {
 	// precedes boot migration and the startup sweep, so a register command may
 	// legitimately create a row while those steps are still running. Rows created
 	// after this boundary are new operator input, not historical shelf residue.
-	if err := d.queryConn.QueryRow(ctx, "SELECT clock_timestamp()").Scan(&d.offChannelSweepCutoff); err != nil {
+	queryConn, connErr := d.queryConnOrErr("capture off-channel sweep cutoff")
+	if connErr != nil {
+		return connErr
+	}
+	if err := queryConn.QueryRow(ctx, "SELECT clock_timestamp()").Scan(&d.offChannelSweepCutoff); err != nil {
 		return fmt.Errorf("capture off-channel sweep cutoff: %w", err)
 	}
 
@@ -3325,10 +3343,14 @@ func (d *Service) Run(ctx context.Context) error {
 	// Notifications are not *processed* until startListenLoop runs in the main
 	// loop below, so registering early only prevents missed wakeups; it does
 	// not let a NOTIFY interleave with recovery.
-	if _, err := d.listenConn.Exec(ctx, "LISTEN upgrade_check"); err != nil {
+	listenConn, listenConnErr := d.listenConnOrErr("register LISTEN channels")
+	if listenConnErr != nil {
+		return listenConnErr
+	}
+	if _, err := listenConn.Exec(ctx, "LISTEN upgrade_check"); err != nil {
 		return fmt.Errorf("LISTEN upgrade_check: %w", err)
 	}
-	if _, err := d.listenConn.Exec(ctx, "LISTEN upgrade_apply"); err != nil {
+	if _, err := listenConn.Exec(ctx, "LISTEN upgrade_apply"); err != nil {
 		return fmt.Errorf("LISTEN upgrade_apply: %w", err)
 	}
 
@@ -3697,7 +3719,9 @@ func (d *Service) Run(ctx context.Context) error {
 			// service has stopped simply stops refreshing it, and the staleness
 			// is the report. Stamping only on change would leave a healthy-looking
 			// row frozen at its last transition forever.
-			StampUnitFloor(ctx, d.queryConn, d.projDir, d.interval)
+			if stampConn, stampErr := d.queryConnOrErr("stamp unit floor"); stampErr == nil {
+				StampUnitFloor(ctx, stampConn, d.projDir, d.interval)
+			}
 			if !d.upgrading {
 				// Belt: reconcile any in_progress row whose final UPDATE was
 				// lost (e.g. stale DB connection during executeUpgrade). Low-
@@ -3975,6 +3999,9 @@ func (d *Service) handleNotification(ctx context.Context, n *pgconn.Notification
 }
 
 func (d *Service) acquireAdvisoryLock(ctx context.Context) error {
+	if _, err := d.queryConnOrErr("acquire advisory lock"); err != nil {
+		return err
+	}
 	var locked bool
 	// advisory lock objid: hashtext('upgrade_daemon') = 959307579
 	err := d.queryConn.QueryRow(ctx, "SELECT pg_try_advisory_lock(hashtext('upgrade_daemon'))").Scan(&locked)
@@ -4111,6 +4138,11 @@ func (d *Service) verifyUpgradeObservedStateEx(ctx context.Context, rowCommitSHA
 	}
 
 	// Check 2: migration coverage — DB ledger vs on-disk
+	// A nil session is the same unreadable-position class as a timed-out read
+	// (STATBUS-428): pgx dereferences a nil *Conn receiver, so name it here.
+	if _, err := d.queryConnOrErr("verify upgrade observed state"); err != nil {
+		return ObservedPositionUnreadable, CauseDBUnreachable, fmt.Sprintf("cannot read the migration ledger: %v", err)
+	}
 	// STATBUS-190: bound the read with the shared classify-path timeout. A paused/
 	// frozen DB makes this query HANG on the live-but-unanswering conn; the timeout
 	// turns that hang into a DeadlineExceeded error that classifies as
@@ -4904,6 +4936,10 @@ func (d *Service) completeInProgressUpgrade(ctx context.Context, strictFinishing
 // syncConfigToSystemInfo writes UPGRADE_* values from .env to system_info.
 // This keeps the admin UI in sync with the config file.
 func (d *Service) syncConfigToSystemInfo(ctx context.Context) {
+	if _, err := d.queryConnOrErr("sync config to system_info"); err != nil {
+		log.Printf("%v", err)
+		return
+	}
 	envPath := filepath.Join(d.projDir, ".env")
 	f, err := dotenv.Load(envPath)
 	if err != nil {
@@ -4964,6 +5000,10 @@ func (d *Service) reportDiskSpace(ctx context.Context) {
 // supersedeOlderReleases marks available releases older than the selected commit as superseded.
 // Ordering is by topological_order then committed_at as fallback.
 func (d *Service) supersedeOlderReleases(ctx context.Context, selectedCommitSHA string) {
+	if _, err := d.queryConnOrErr("supersede older releases"); err != nil {
+		log.Printf("%v", err)
+		return
+	}
 	// Call the shared SQL procedure — single source of truth for both
 	// the service (pgx) and the step-table install path (psql).
 	var superseded int
@@ -4983,6 +5023,10 @@ func (d *Service) supersedeOlderReleases(ctx context.Context, selectedCommitSHA 
 // same version family when a prerelease completes. Safe to call for any row —
 // the procedure is a no-op for non-prereleases.
 func (d *Service) supersedeCompletedPrereleases(ctx context.Context, commitSHA string) {
+	if _, err := d.queryConnOrErr("supersede completed prereleases"); err != nil {
+		log.Printf("%v", err)
+		return
+	}
 	var superseded int
 	err := d.queryConn.QueryRow(ctx,
 		"CALL public.upgrade_supersede_completed_prereleases($1, 0)",
@@ -5463,6 +5507,12 @@ func (d *Service) reconnect(ctx context.Context) error {
 }
 
 func (d *Service) cleanStaleMaintenance(ctx context.Context) {
+	// No session → cannot confirm that no upgrade is in progress → leave the
+	// file (the safe direction, same as the DB-error branch below).
+	if _, err := d.queryConnOrErr("clean stale maintenance marker"); err != nil {
+		log.Printf("%v", err)
+		return
+	}
 	// Same flag-file path the writer (setMaintenance) uses — see the
 	// maintenance path convention in exec.go (STATBUS-089).
 	maintenanceFile := maintenanceFlagHostPath()
@@ -5513,6 +5563,11 @@ func (d *Service) cleanStaleMaintenance(ctx context.Context) {
 // Without it, the unreachable residue is a frozen NSO registry rejecting every
 // write (25006), waiting for a human who cannot SSH in — a travel event.
 func (d *Service) clearStaleReadOnlyWindow(ctx context.Context) {
+	// No session → cannot prove the window stale → leave it engaged.
+	if _, err := d.queryConnOrErr("clear stale read-only window"); err != nil {
+		log.Printf("%v", err)
+		return
+	}
 	// A flag present (or unreadable) means an upgrade may be in flight → leave the
 	// window; it is legitimately engaged and its own terminal will lift it.
 	if flag, err := ReadFlagFile(d.projDir); err != nil || flag != nil {
@@ -5579,6 +5634,10 @@ func (d *Service) ClearStaleReadOnlyWindowIfUnowned(ctx context.Context) {
 }
 
 func (d *Service) checkMissedUpgrades(ctx context.Context) {
+	if _, err := d.queryConnOrErr("check missed upgrades"); err != nil {
+		log.Printf("%v", err)
+		return
+	}
 	var count int
 	err := d.queryConn.QueryRow(ctx,
 		"SELECT COUNT(*) FROM public.upgrade WHERE state = 'scheduled'").Scan(&count)
@@ -5627,6 +5686,9 @@ func manifestSweepTags(tags []GitTag, installedVersion string) []GitTag {
 // is the exact SQL previously inlined in discoverReleases (tagged) and
 // discoverEdge (untagged), so routing discovery through here is behavior-neutral.
 func (d *Service) upsertCandidate(ctx context.Context, sha CommitSHA, meta candidateMeta) (int64, error) {
+	if _, err := d.queryConnOrErr("upsert candidate"); err != nil {
+		return 0, err
+	}
 	if len(meta.tags) > 0 {
 		tag := meta.tags[0]
 		// STATBUS-169 AC#1: never write a false fact. A tag may be recorded on a
@@ -5963,6 +6025,10 @@ func (d *Service) pruneDeletedTags(ctx context.Context, currentTags []GitTag) {
 		gitTagSHAs[t.TagName] = CommitSHA(t.CommitSHA)
 	}
 
+	if _, err := d.queryConnOrErr("prune deleted tags"); err != nil {
+		log.Printf("%v", err)
+		return
+	}
 	rows, err := d.queryConn.Query(ctx,
 		`SELECT id, commit_sha, commit_tags FROM public.upgrade WHERE array_length(commit_tags, 1) > 0`)
 	if err != nil {
@@ -6156,6 +6222,10 @@ func selectStaleBelowInstalled(installed string, candidates []staleCandidate) []
 // (STATBUS-047 A3). Called by discover() AFTER the "last checked" timestamp is
 // recorded, so it never delays the admin-UI check (B1).
 func (d *Service) preDownloadImages(ctx context.Context) {
+	if _, err := d.queryConnOrErr("pre-download images"); err != nil {
+		log.Printf("%v", err)
+		return
+	}
 	// Eligibility filter is SQL; the version DECISION is the pure function.
 	// Close rows before the pull + UPDATE: queryConn is a single *pgx.Conn, so
 	// the result set must be drained/closed before the next query on it.
@@ -6214,6 +6284,10 @@ func (d *Service) preDownloadImages(ctx context.Context) {
 // vs-installed retire. No migration: CalVer ordering (CompareVersions) lives in
 // Go; the proc is left untouched for its peer-supersede job.
 func (d *Service) supersedeBelowInstalled(ctx context.Context) {
+	if _, err := d.queryConnOrErr("supersede below installed"); err != nil {
+		log.Printf("%v", err)
+		return
+	}
 	// queryConn is a single *pgx.Conn — drain/close the SELECT before the UPDATE.
 	// Only tagged rows are eligible: edge commits (no tags) have no CalVer
 	// ordering and are not an upgrade target on the tagged channels.
@@ -6492,6 +6566,9 @@ func (d *Service) onApplyScheduled(ctx context.Context, displayName string) {
 // promoteExistingCandidate calls the one database-owned schedule door (NO insert);
 // shared by the first pass and the post-register re-run in onScheduledNotify.
 func (d *Service) promoteExistingCandidate(ctx context.Context, commitSHA CommitSHA) (scheduleResult, error) {
+	if _, err := d.queryConnOrErr("promote existing candidate"); err != nil {
+		return "", err
+	}
 	var state string
 	var parked bool
 	err := d.queryConn.QueryRow(ctx,
@@ -6568,6 +6645,10 @@ func (d *Service) registerTarget(ctx context.Context, target UpgradeTarget) (Com
 // for refuse paths we have not imagined yet. Single latest-outcome key; occurred_at
 // is DB-authoritative. Best-effort: a signal-write failure must not mask the refusal.
 func (d *Service) recordApplyRefused(ctx context.Context, input, reason string) {
+	if _, err := d.queryConnOrErr("record apply-refused signal"); err != nil {
+		log.Printf("%v", err)
+		return
+	}
 	if _, err := d.queryConn.Exec(ctx,
 		`INSERT INTO public.system_info (key, value, updated_at)
 		 VALUES ('upgrade_apply_refused',
@@ -6582,6 +6663,10 @@ func (d *Service) recordApplyRefused(ctx context.Context, input, reason string) 
 // clearApplyRefused removes the durable apply-refusal signal on the next successful
 // schedule (STATBUS-183 piece 3). Best-effort.
 func (d *Service) clearApplyRefused(ctx context.Context) {
+	if _, err := d.queryConnOrErr("clear apply-refused signal"); err != nil {
+		log.Printf("%v", err)
+		return
+	}
 	if _, err := d.queryConn.Exec(ctx,
 		`DELETE FROM public.system_info WHERE key = 'upgrade_apply_refused'`); err != nil {
 		fmt.Printf("could not clear upgrade_apply_refused signal: %v\n", err)
@@ -7200,6 +7285,9 @@ func (d *Service) RunCheck(ctx context.Context) error {
 // tag on more than one commit is a stale-cache signal the resolver must SEE, not
 // a nondeterministic single pick.
 func (d *Service) CommitSHAsByTag(ctx context.Context, tag ReleaseTag) ([]CommitSHA, error) {
+	if _, err := d.queryConnOrErr("list commit SHAs by tag"); err != nil {
+		return nil, err
+	}
 	rows, err := d.queryConn.Query(ctx,
 		"SELECT DISTINCT commit_sha FROM public.upgrade WHERE $1 = ANY(commit_tags)",
 		string(tag))
@@ -7237,6 +7325,9 @@ func (d *Service) RevParse(_ context.Context, ref string) (CommitSHA, error) {
 
 // TagsAtCommit satisfies CommitLookup.
 func (d *Service) TagsAtCommit(ctx context.Context, sha CommitSHA) ([]string, error) {
+	if _, err := d.queryConnOrErr("list tags at commit"); err != nil {
+		return nil, err
+	}
 	var tags []string
 	err := d.queryConn.QueryRow(ctx,
 		"SELECT commit_tags FROM public.upgrade WHERE commit_sha = $1",
@@ -7455,6 +7546,9 @@ func (d *Service) applyClaimObligationSchemaFloor(ctx context.Context) error {
 // stands on a schema that cannot carry the convergence obligation; the caller
 // owns the floor-apply retry. Every other outcome is final for this attempt.
 func (d *Service) claimScheduledUpgradePass(ctx context.Context, id int) (scheduledUpgradeClaim, error) {
+	if _, err := d.queryConnOrErr("claim scheduled upgrade"); err != nil {
+		return scheduledUpgradeClaim{}, err
+	}
 	var claim scheduledUpgradeClaim
 	claimToken, tokenErr := newClaimToken()
 	if tokenErr != nil {
@@ -7838,6 +7932,9 @@ func (d *Service) executeScheduled(ctx context.Context, artifactsChecked ...bool
 // function is the post-upgrade fixup at runInstallFixup, which sets the
 // --post-upgrade-fixup flag and STATBUS_POST_UPGRADE_FIXUP=1 env var.
 func (d *Service) executeUpgrade(ctx context.Context, claim upgradeClaimSnapshot, displayName string, commitTags []string, invokedBy, trigger string, recreate bool) error {
+	if _, err := d.queryConnOrErr("execute upgrade"); err != nil {
+		return err
+	}
 	id := claim.ID
 	commitSHA := claim.CommitSHA
 	d.upgrading = true
@@ -9342,6 +9439,9 @@ func (d *Service) servingTreeConvergenceObligation(ctx context.Context, id int) 
 	if d.servingTreeObligationForTest != nil {
 		return d.servingTreeObligationForTest(ctx, id)
 	}
+	if _, cerr := d.queryConnOrErr("read serving-tree convergence obligation"); cerr != nil {
+		return false, "", cerr
+	}
 	err = d.queryConn.QueryRow(ctx,
 		`SELECT COALESCE(bool_or(tree_convergence_required), false),
 		        COALESCE((SELECT claimant.state::text FROM public.upgrade AS claimant WHERE claimant.id = $1), '')
@@ -9363,6 +9463,9 @@ func (d *Service) servingTreeConvergenceObligation(ctx context.Context, id int) 
 // proof clears the obligation and returns the not-yet-started candidate to the
 // scheduled queue in one transaction. Failure contains clients and retains the marker.
 func (d *Service) recoverServingTreeConvergence(ctx context.Context, id int, progress *ProgressLog) error {
+	if _, err := d.queryConnOrErr("recover serving-tree convergence"); err != nil {
+		return err
+	}
 	progress.Write("Recovering the displaced park's serving tier against the checked-out tree before retrying source capture ...")
 	if err := d.convergeParkedServingTierToCurrentTree(ctx, progress); err != nil {
 		msg := d.terminateServingTreeConvergenceFailure(ctx, id, err, progress)
@@ -11171,6 +11274,34 @@ func errQueryConnUnavailable(operation string) error {
 	return fmt.Errorf("%s: %w", operation, ErrQueryConnUnavailable)
 }
 
+// ErrListenConnUnavailable names the state where the daemon holds no LISTEN
+// session (d.listenConn == nil) — the same nil-*Conn panic class as
+// ErrQueryConnUnavailable (STATBUS-428).
+var ErrListenConnUnavailable = errors.New("listen connection is not available")
+
+func errListenConnUnavailable(operation string) error {
+	return fmt.Errorf("%s: %w", operation, ErrListenConnUnavailable)
+}
+
+// queryConnOrErr is the ONE guard every d.queryConn reader goes through: the
+// connection, or a named error. pgx v5 dereferences a nil *Conn receiver, so a
+// reader reached after a recovery that could not reconnect must fail with
+// ErrQueryConnUnavailable rather than panic (STATBUS-428).
+func (d *Service) queryConnOrErr(operation string) (*pgx.Conn, error) {
+	if d.queryConn == nil {
+		return nil, errQueryConnUnavailable(operation)
+	}
+	return d.queryConn, nil
+}
+
+// listenConnOrErr is queryConnOrErr's LISTEN-session twin (STATBUS-428).
+func (d *Service) listenConnOrErr(operation string) (*pgx.Conn, error) {
+	if d.listenConn == nil {
+		return nil, errListenConnUnavailable(operation)
+	}
+	return d.listenConn, nil
+}
+
 // isRollbackFinishPending reports whether the row for id is the cleanup-only
 // rollback-finish-pending shape. It runs on the recovery classify path before
 // phase routing, so the read is bounded by recoveryReadTimeout (STATBUS-190): a
@@ -11179,8 +11310,8 @@ func (d *Service) isRollbackFinishPending(ctx context.Context, id int) (bool, er
 	if d.rollbackFinishPendingForTest != nil {
 		return d.rollbackFinishPendingForTest(ctx, id)
 	}
-	if d.queryConn == nil {
-		return false, fmt.Errorf("query connection is not available")
+	if _, err := d.queryConnOrErr(fmt.Sprintf("read rollback-finish-pending state of upgrade %d", id)); err != nil {
+		return false, err
 	}
 	readCtx, cancel := context.WithTimeout(ctx, recoveryReadTimeout)
 	defer cancel()
@@ -11325,7 +11456,11 @@ func (d *Service) finalizePendingRollbacks(ctx context.Context) {
 // first commits, observes no pending row and therefore cannot unlink a newer
 // upgrade's marker through an old open descriptor.
 func (d *Service) finalizePendingRollback(ctx context.Context, id int, label string) (bool, error) {
-	tx, err := d.queryConn.Begin(ctx)
+	conn, cerr := d.queryConnOrErr("finalize pending rollback")
+	if cerr != nil {
+		return false, cerr
+	}
+	tx, err := conn.Begin(ctx)
 	if err != nil {
 		return false, fmt.Errorf("begin rollback finishing transaction: %w", err)
 	}
@@ -11472,6 +11607,9 @@ func (d *Service) UpgradeParkedReason(ctx context.Context, id int) (parked bool,
 func (d *Service) incrementRecoveryAttempts(ctx context.Context, id int) (int, error) {
 	if d.incrementRecoveryAttemptsForTest != nil {
 		return d.incrementRecoveryAttemptsForTest(ctx, id)
+	}
+	if _, err := d.queryConnOrErr("increment recovery attempts"); err != nil {
+		return 0, err
 	}
 	var attempts int
 	if err := d.queryConn.QueryRow(ctx,
@@ -11771,6 +11909,9 @@ const (
 // FROM-subquery captures the PRE-reset reason so the caller can name it in the
 // loud un-park line. Returns whether a parked row was un-parked + that reason.
 func (d *Service) UnparkByID(ctx context.Context, id int) (unparked bool, oldReason string, err error) {
+	if _, cerr := d.queryConnOrErr("unpark upgrade"); cerr != nil {
+		return false, "", cerr
+	}
 	q := fmt.Sprintf(`UPDATE public.upgrade AS u
 	   SET %s
 	  FROM (SELECT recovery_parked_reason AS old_reason FROM public.upgrade WHERE id = $1 LIMIT 1) prev
@@ -11789,6 +11930,9 @@ func (d *Service) UnparkByID(ctx context.Context, id int) (unparked bool, oldRea
 func (d *Service) resumeNewSb(ctx context.Context, flag UpgradeFlag) error {
 	if d.resumeNewSbSkipExternalForTest {
 		return d.resumeNewSbAdvanceHeldPhaseForTest(flag)
+	}
+	if _, err := d.queryConnOrErr(fmt.Sprintf("resumeNewSb: load upgrade %d state", flag.ID)); err != nil {
+		return err
 	}
 	var logRelPath sql.NullString
 	err := d.queryConn.QueryRow(ctx,
@@ -13477,6 +13621,11 @@ const preRestoreStopVerifyBudget = 30 * time.Second
 // against a second install with the filesystem flock and proves the daemon is
 // absent with the same advisory transaction lock claimScheduledUpgrade uses.
 func (d *Service) ReattemptRestore(ctx context.Context, rowID int64) error {
+	// Check before any marker work: with no session the authorization
+	// transaction below cannot begin, so refuse without writing a flag.
+	if _, err := d.queryConnOrErr("reattempt restore"); err != nil {
+		return err
+	}
 	// The restore-broke terminal deliberately removed the original marker so
 	// no daemon could auto-thrash the snapshot. This operator invocation is a
 	// NEW replay claim, so it legitimately creates a marker. Start it as an
@@ -14403,6 +14552,9 @@ func init() {
 // legitimate state, and an unreadable row is "<unreadable>". Two callers in
 // markImagesFailed share it so the diagnostic shape cannot drift.
 func (d *Service) probeRowStateForDiagnostic(ctx context.Context, id int) (state, imgStatus string) {
+	if _, err := d.queryConnOrErr("probe row state for diagnostic"); err != nil {
+		return "<unreadable>", "<unreadable>"
+	}
 	var stateText, imgText string
 	if err := d.queryConn.QueryRow(ctx,
 		"SELECT state::text, docker_images_status::text FROM public.upgrade WHERE id = $1",
