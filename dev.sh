@@ -2007,10 +2007,10 @@ EOF
         # Run migrations
         ./sb migrate up
 
-        # Load secrets after migrations
+        # Load secrets after migrations. PGDATABASE is POSTGRES_APP_DB,
+        # exported by postgres-variables above.
         JWT_SECRET=$(./sb dotenv -f .env.credentials get JWT_SECRET)
         DEPLOYMENT_SLOT_CODE=$(./sb dotenv -f .env.config get DEPLOYMENT_SLOT_CODE)
-        PGDATABASE=statbus_${DEPLOYMENT_SLOT_CODE:-dev}
         ./sb psql -c "INSERT INTO auth.secrets (key, value, description) VALUES ('jwt_secret', '$JWT_SECRET', 'JWT signing secret') ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = clock_timestamp();"
         ./sb psql -c "ALTER DATABASE $PGDATABASE SET app.settings.deployment_slot_code TO '$DEPLOYMENT_SLOT_CODE';"
       ;;
