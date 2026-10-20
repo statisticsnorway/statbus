@@ -1,10 +1,10 @@
 ---
 id: STATBUS-518
 title: An app image with unchanged app source builds from cache
-status: To Do
+status: In Progress
 assignee: []
 created_date: '2026-10-17 15:40'
-updated_date: '2026-10-20 20:30'
+updated_date: '2026-10-20 20:31'
 labels:
   - ci
   - lxd
