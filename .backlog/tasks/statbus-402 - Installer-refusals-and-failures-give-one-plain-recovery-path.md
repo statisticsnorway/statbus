@@ -3,10 +3,10 @@ id: STATBUS-402
 title: >-
   When the installer cannot proceed, the operator gets one plain reason, one fix
   and the exact rerun command
-status: In Progress
+status: Done
 assignee: []
 created_date: '2026-09-24 15:35'
-updated_date: '2026-10-15 20:08'
+updated_date: '2026-10-20 19:50'
 labels:
   - release-bug
   - install
@@ -49,7 +49,7 @@ In both cases operator output is written for an operator. Implementation vocabul
 - [x] #1 A preflight refusal exits 78 and prints the plain reason, one outside fix and the saved rerun command, with no breakdown banner or support bundle (`fresh-installer-test.sh`: no-TTY, port, disk, restart cases)
 - [x] #2 A failure after work began prints the step, cause, outside fix, rerun command and support-file path with a non-78 exit (`fresh-installer-test.sh`: classified cause and database-route cases)
 - [x] #3 Operator-facing output contains no implementation vocabulary while the install log keeps the traces (`TestInstallOperatorOutputContainsNoInternalDiagnostics`, `TestInstallFailureCauseOperatorTextContainsNoInternalDiagnostics`)
-- [ ] #4 [Owner] Decide whether one real-box post-start failure scenario is required beyond the wrapper and Go tests, and record it in Implementation Notes. No: check this and set Done. Yes: add that scenario as a new criterion.
+- [x] #4 [Owner] Decide whether one real-box post-start failure scenario is required beyond the wrapper and Go tests, and record it in Implementation Notes. No: check this and set Done. Yes: add that scenario as a new criterion.
 <!-- AC:END -->
 
 ## Implementation Notes
@@ -58,4 +58,16 @@ In both cases operator output is written for an operator. Implementation vocabul
 ### Evidence
 - **AC1-3:** green locally on master, 2026-10-15 (`tmp/vet/fresh-installer-test.log`).
 - **Superseded criteria:** the 2026-09-24 restyle pointed at two test files that were never written (`installer-post-start-failure-output-test.sh`, `installer-output-vocabulary-test.sh`) and an exit-78 case it said `harness-failure-path-selftest.sh` lacked. The coverage landed in `fresh-installer-test.sh` and the Go tests above instead.
+
+### Owner decision 2026-10-20 (AC4): no new real-box scenario
+- The Go tests (TestInstallOperatorOutputContainsNoInternalDiagnostics, TestInstallFailureCauseOperatorTextContainsNoInternalDiagnostics, TestEveryInstallerRerunHintUsesSavedCommand) plus the wrapper test fresh-installer-test.sh (20 cases, run in CI Harness Selftest) cover it. The existing real-box scenarios (database-route interrupted, port 80, concurrent install) exercise both refusal and post-start failure in principle.
+- **Owner's follow-up:** verify that real fleet runs do not print nonsensical or alarmist messages to the operator. That is an audit of the operator output in the latest fleet's scenario logs, recorded below.
+
+### Audit of real operator output (v2026.10.3-rc.01 fault fleet 39064463087, 41 scenario logs, tmp/402-audit/fleet)
+- **No alarmist or internal text anywhere:** 0 matches for 'SYSTEM UNUSABLE', 'Invariant breached', 'FAILED at line', 'panic:', goroutine traces, 'FATAL:', or 'No such file or directory'. The 10 'catastrophic' matches are the harness's own check lines ('R5 catastrophic-loss NOT triggered'), not operator output.
+- **Post-start failure (5-install-database-route-interrupted), operator saw:** '[18/18] Upgrade service FAILED: This part of installation could not finish.' / 'The installation stopped before it could finish.' / 'Cause: The database route at 127.0.0.1:5431 is unavailable; the web entry point provides this route.' / 'Outside fix: Start or repair the web entry point, then retry the install.' / the exact rerun command / 'If it stops at the same place again, send this file to StatBus support: <bundle>'. Plain, one cause, one fix, rerun, support file.
+- **Concurrent install refusal (1-boot-concurrent-install), operator saw:** 'an installation started at 2026-10-17T19:56:56Z (process 3834) is still running. Wait for it to finish, then run the same install command again', then the diagnostics path.
+- **Disk check (5-install-disk-threshold-repair):** 'Disk space: 42 GB free on /var/lib/docker; the 40 GB recommendation is met.'
+- **Gap noted:** 4-install-port-80-taken keeps its refusal text internal (prints only PASS), so its operator text is not in the fleet log. STATBUS-521 rewrites that message and that scenario.
+- **Closing review:** Memory: none. Documentation: none. Cleanup: none.
 <!-- SECTION:NOTES:END -->
