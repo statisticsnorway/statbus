@@ -28,7 +28,7 @@ The gate forks guests from checkpoints. Only a test of a failure during installa
 - Checkpoints today: `hardened-nothing-installed`, `installed-<prev stable>-standalone`, `installed-<candidate>-standalone`.
 - 9 faults on the empty checkpoint install cleanly first, then break something, and read nothing from that first install (checked 2026-10-17): `5-install-stage-a` to `-e`, `5-install-bool-text-regression`, `5-install-proxy-never-started`, `5-install-live-upgrade-wait`, `6-uninstall-reinstall`. Each pays a full install, 2.5-4 min.
 - All 35 arcs load demo data in `arc_prepare_box` (`lib/arc-helpers.sh`), about 70 s each, about 40 guest-min per candidate; they only assert the data survives. `worker-wedge-mid-derive` creates its own derive work afterwards.
-- 4 faults load demo data on the previous stable: `0-happy-upgrade`, `1-boot-concurrent-install`, `3-postswap-worker-ddl-deadlock`, `5-install-seed-on-populated`.
+- Faults that load demo data on the previous stable: `1-boot-concurrent-install`, `3-postswap-worker-ddl-deadlock`, `5-install-seed-on-populated`, and `0-https-only-egress` and `5-install-disk-threshold-repair`, which delegate to `0-happy-upgrade`. Smoke runs `0-happy-upgrade` itself and keeps loading for real.
 - Owner decision 2026-10-17 (T2, T5 in `tmp/lxd-gate-design.md`).
 
 ### Closing review
@@ -41,7 +41,7 @@ The gate forks guests from checkpoints. Only a test of a failure during installa
 <!-- AC:BEGIN -->
 - [ ] #1 Map the 9 install-first faults to `installed-<candidate>` and remove their own first install; each passes in a gate run
 - [ ] #2 Add checkpoint `installed-<candidate>-demo`, built once from `installed-<candidate>`; `arc_prepare_box` forks it instead of loading data, shown by arc logs with no demo load
-- [ ] #3 Add checkpoint `installed-<prev stable>-demo` and move the 4 data-loading faults to it, shown by their logs with no demo load
+- [ ] #3 Add checkpoint `installed-<prev stable>-demo` and move the fault scenarios that load data on the previous stable to it (`0-https-only-egress`, `1-boot-concurrent-install`, `3-postswap-worker-ddl-deadlock`, `5-install-disk-threshold-repair`, `5-install-seed-on-populated`), shown by their logs with no demo load; smoke's `0-happy-upgrade` keeps loading for real
 - [ ] #4 A candidate gate run gives the same verdicts as the preceding candidate and records total guest-minutes against 356 (v2026.10.2-rc.01); run IDs in Implementation Notes
 <!-- AC:END -->
 
