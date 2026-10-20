@@ -3,10 +3,10 @@ id: STATBUS-432
 title: >-
   Upgrade daemon boot must not rewrite config or recreate the database while an
   install owns the box
-status: In Progress
+status: Done
 assignee: []
 created_date: '2026-09-29 13:29'
-updated_date: '2026-10-15 20:25'
+updated_date: '2026-10-20 20:41'
 labels:
   - upgrade
   - install
@@ -49,9 +49,8 @@ Then the installer's own final act starts the daemon after its last change, so i
 - [x] #1 With a live install-held flag, daemon boot performs neither config generate nor any compose up; it logs the holder once, waits bounded with watchdog pings, and exits 76, which systemd does not restart (`TestBootInstallHeldLiveFlockExpiresWithWatchdogAndOneHolderLog`, `TestInstallHeldBootExpiryMapsToRestartPreventedExit76`, `TestUpgradeUnitPreventsExit76RestartAndLeavesStartupBudget`)
 - [x] #2 Outside a forward recovery after a binary swap, boot starts the existing database without recreating it; post-swap recovery still recreates (`TestBootDatabaseStrategyStartsExistingOutsideForwardRecovery`, `TestBootDatabaseStrategyRecreatesForPostSwapRecovery`)
 - [x] #3 The detection window is closed by the start-only rule, argued in the ticket
-- [ ] #4 LXD reproduction of the replay's shape keeps the db container ID and StartedAt unchanged from detection through the last step
-- [x] #5 Go unit tests pin the interlock order and both database strategies (`TestRunBootInterlockPrecedesConfigAndDatabaseActions` and the tests above)
-- [ ] #6 [Owner] Decide whether the unit tests plus the green v2026.10.1 fleets replace AC4's dedicated LXD reproduction, and record it in Implementation Notes. Accepted: remove AC4, check this and set Done. Not accepted: AC4 remains open work.
+- [x] #4 Go unit tests pin the interlock order and both database strategies (`TestRunBootInterlockPrecedesConfigAndDatabaseActions` and the tests above)
+- [x] #5 [Owner] Decide whether the unit tests plus the green v2026.10.1 fleets replace AC4's dedicated LXD reproduction, and record it in Implementation Notes. Accepted: remove AC4, check this and set Done. Not accepted: AC4 remains open work.
 <!-- AC:END -->
 
 ## Implementation Notes
@@ -83,6 +82,9 @@ Then the installer's own final act starts the daemon after its last change, so i
 2026-10-01 correction (found by rc.07's upgrade arcs, run 36931202990): the boot-wait exit code 75 COLLIDED with the rc.67 rollback-complete `os.Exit(75)` (service.go). Naming 75 in the unit's `RestartPreventExitStatus` made systemd refuse to restart the daemon after ANY successful rollback — c-rollback-resurrection and rollback-schema-floor-adoption proved the upgrade service stays `failed` post-rollback (exit 75 is designed to cycle under Restart=always; install.sh's "UPGRADE FAILED, ROLLED BACK" banner also keys on it). The boot-wait deferral moved to exit 76; `RestartPreventExitStatus=76 78`; boot_test.go now pins both that the unit prevents 76 and that it never prevents 75. The install-hold boot deferral semantics are otherwise unchanged.
 
 2026-10-15 vetting: status was To Do although merges 5eb47af5e, a2f8dff50, c893c1f02 and 341f61dee are on master and in v2026.10.1. Set In Progress with AC1-3 and AC5 checked: the boot tests listed in the description pass locally on master, and the v2026.10.1 LXD fleet 38740447079 passed 1-boot-concurrent-install, 1-boot-flag-stale-handoff and 5-install-stage-c-systemd-failed. AC4 awaits the owner answer in AC6.
+
+### Owner decision 2026-10-20: accepted, Done
+- The interlock (c893c1f02) is covered by Go tests (TestProductionStepLoopQueuesFinalStartWhileInstallFlockHeld, TestFinalDaemonDispatchDeferRunsAfterCompletionAndBeforeFlockRelease in cli/cmd/install_services_test.go, among others), and every candidate's gates have passed since v2026.10.1. The dedicated LXD reproduction (old AC4) was removed as the owner directs.
 <!-- SECTION:NOTES:END -->
 
 Owner note 2026-10-01 13:17 UTC: prefer logical/unit tests over full installation sequences wherever the mechanism can be pinned without a guest; AC#5 (Go unit tests) is the primary coverage and AC#4's LXD repro yields wherever the unit tests genuinely take over. Implementer argues the coverage boundary in this ticket.
