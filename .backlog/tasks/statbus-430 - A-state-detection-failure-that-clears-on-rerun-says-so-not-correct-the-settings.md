@@ -3,10 +3,10 @@ id: STATBUS-430
 title: >-
   A state-detection failure tells the operator to rerun, not to correct the
   settings
-status: In Progress
+status: Done
 assignee: []
 created_date: '2026-09-29 08:24'
-updated_date: '2026-10-15 20:25'
+updated_date: '2026-10-20 20:43'
 labels:
   - install
 dependencies: []
@@ -40,9 +40,9 @@ Why the database was restarting is a separate question. The likely cause, an old
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
 - [x] #1 install.sh shows the state-detection rerun remedy from trusted command and path values, not the settings sentence and not an echoed log line
-- [ ] #2 STATBUS-432's boot interlock (`c893c1f02`) is on master and its boot tests pass, and Implementation Notes record that no correlated trace from the original Finland run exists
+- [x] #2 STATBUS-432's boot interlock (`c893c1f02`) is on master and its boot tests pass, and Implementation Notes record that no correlated trace from the original Finland run exists
 - [x] #3 A test covers the detection-failure message path (`TestStateDetectionFailureRerunsRatherThanBlamesSettings`)
-- [ ] #4 [Owner] Decide whether STATBUS-432's merged interlock is AC2's prevention without a trace from the original Finland run, and record it in Implementation Notes. Accepted: check this and set Done. Not accepted: add an LXD reproduction of the replay as a new criterion.
+- [x] #4 [Owner] Decide whether STATBUS-432's merged interlock is AC2's prevention without a trace from the original Finland run, and record it in Implementation Notes. Accepted: check this and set Done. Not accepted: add an LXD reproduction of the replay as a new criterion.
 <!-- AC:END -->
 
 ## Implementation Notes
@@ -52,4 +52,7 @@ Why the database was restarting is a separate question. The likely cause, an old
 - **AC1, AC3:** merge `0ff6a590c`; test green locally 2026-10-15.
 - **AC2:** open pending the owner answer; STATBUS-432 (`c893c1f02`) is in v2026.10.1.
 - **History:** the 2026-09-29/30 review notes are in Git history.
+
+### Owner decision 2026-10-20: accepted, Done
+- STATBUS-432's interlock (c893c1f02, now Done) is the prevention. No correlated trace from the original Finland run exists. Owner: tickets for things that cannot be reproduced are closed, and revisited if the issue appears again in real use.
 <!-- SECTION:NOTES:END -->
