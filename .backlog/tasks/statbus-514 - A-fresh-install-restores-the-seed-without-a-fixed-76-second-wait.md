@@ -4,7 +4,7 @@ title: A fresh install restores the seed without a fixed 76-second wait
 status: In Progress
 assignee: []
 created_date: '2026-10-16 13:43'
-updated_date: '2026-10-20 12:20'
+updated_date: '2026-10-20 13:00'
 labels:
   - install
   - performance
@@ -40,3 +40,15 @@ Before restoring the seed, the installer must know the database is fresh: restor
 - [ ] #2 Write a Go test where the database is unreachable for the first attempts: the check keeps retrying and does not return "fresh" until the database answers
 - [ ] #3 A candidate smoke run after the fix shows "[14/18] Seed RUNNING" within 10 s of "[13/18] Database sessions OK" in `0-happy-install`; run ID recorded in Implementation Notes
 <!-- AC:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+2026-10-20 owner-approved design (simple version):
+- One direct read replaces the 15 x 2 s loop: a query using to_regclass() asks which of db.migration, statistical_unit, legal_unit, establishment, import_job exist (never errors on a reachable database); then, only for the tables that exist, whether any user table has rows and whether db.migration has any row.
+- Fresh = no user rows and no applied migration -> run the seed restore at once.
+- Any query error stops the Seed step with a clear message (re-run ./sb install continues); never read as fresh. No retry loop, no caching (same rule as STATBUS-439's JWT step).
+- checkMigrationsDone is dropped from this decision (covered by 'any migration applied', and broken on a fresh database, see below).
+- Tests in cli/cmd/install_seed_freshness_test.go (uncommitted draft, to be cut down to: empty -> fresh at once; user data -> not fresh; applied migration -> not fresh; query error -> error, never fresh), driven by a fake psql on PATH (DOCKER_PSQL=0); shown red on the parent, green after.
+Second defect found (separate ticket to open after 514): listAppliedVersions detects a missing db.migration by matching 'does not exist' in err.Error(), but since 94bfe3350 (2026-09-06) runPsql wraps errors in UpFailure whose message lacks psql output, so HasPending errors on a fresh database. Prototype in tmp/journal.md 2026-10-20 14:27.
+<!-- SECTION:NOTES:END -->
