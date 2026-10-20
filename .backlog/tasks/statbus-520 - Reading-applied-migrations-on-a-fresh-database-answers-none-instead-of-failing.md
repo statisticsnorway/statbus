@@ -1,10 +1,10 @@
 ---
 id: STATBUS-520
 title: Reading applied migrations on a fresh database answers none instead of failing
-status: In Progress
+status: Done
 assignee: []
 created_date: '2026-10-20 18:07'
-updated_date: '2026-10-20 18:07'
+updated_date: '2026-10-20 18:34'
 labels:
   - migrate
   - install
@@ -42,9 +42,20 @@ Every caller that asks which migrations are applied gets the true answer on a fr
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 Write a Go test with a fake psql where db.migration does not exist: listAppliedVersions returns no versions and no error, and HasPending reports the on-disk migrations pending; record it failing on master before the fix
-- [ ] #2 Write a Go test where the database cannot be reached: listAppliedVersions returns an error
-- [ ] #3 Write a Go test where db.migration holds versions: listAppliedVersions returns exactly those versions
-- [ ] #4 Run the existence query against a brand-new empty database and against the dev database, and record both answers in Implementation Notes
-- [ ] #5 Remove the error-text branches from listAppliedVersions and contentHashColumnExists, and update listAppliedVersions' comment to state that it asks whether the table exists and returns every query error
+- [x] #1 Write a Go test with a fake psql where db.migration does not exist: listAppliedVersions returns no versions and no error, and HasPending reports the on-disk migrations pending; record it failing on master before the fix
+- [x] #2 Write a Go test where the database cannot be reached: listAppliedVersions returns an error
+- [x] #3 Write a Go test where db.migration holds versions: listAppliedVersions returns exactly those versions
+- [x] #4 Run the existence query against a brand-new empty database and against the dev database, and record both answers in Implementation Notes
+- [x] #5 Remove the error-text branches from listAppliedVersions and contentHashColumnExists, and update listAppliedVersions' comment to state that it asks whether the table exists and returns every query error
 <!-- AC:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+2026-10-20 fixed in 8156ebd45 (cli/internal/migrate/migrate.go): listAppliedVersions asks SELECT to_regclass('db.migration') IS NOT NULL first; f -> empty map, t -> read versions, any query error or other answer -> error. Error-text branches removed there and in contentHashColumnExists; comments updated.
+Tests cli/internal/migrate/applied_versions_test.go (fakePsql, real runPsql boundary):
+- Red before the fix (tmp/test-520-red.log): fresh database gave 'query applied migrations: migration failed (class=1): exit status 3'. Unreachable and recorded-versions tests passed (unchanged behaviour).
+- Green after (tmp/test-520-green.log): all three pass, HasPending reports pending on a fresh database. go test ./internal/migrate ./cmd ./internal/upgrade ok (tmp/test-520-full.log).
+- AC4 real queries: dev database answers t (421 rows in db.migration); a brand-new empty database (seed520_probe, created and dropped) answers f.
+- CI on 8156ebd45: Go Test, Fast Tests (run 39473380172), Harness Selftest, Images, app build, Push on master all success.
+<!-- SECTION:NOTES:END -->
