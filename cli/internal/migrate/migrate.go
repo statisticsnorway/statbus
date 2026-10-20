@@ -788,23 +788,25 @@ DO $$ BEGIN
   END IF;
 END $$;`
 
-// listAppliedVersions queries db.migration for applied version numbers.
-// When the table does not exist yet (fresh database), returns an empty map
-// and no error — callers should treat "no recorded migrations" the same as
-// "table missing", since both mean nothing has been applied.
+// listAppliedVersions returns the version numbers recorded in db.migration.
+// It first asks the database whether db.migration exists (to_regclass answers
+// NULL for a missing table or schema instead of failing): on a fresh database
+// it does not, so nothing is applied and the answer is an empty map. Every
+// query error is returned as an error (STATBUS-520).
 func listAppliedVersions(projDir string) (map[int64]bool, error) {
+	existsOut, err := runPsql(projDir, "SELECT to_regclass('db.migration') IS NOT NULL", "-t", "-A")
+	if err != nil {
+		return nil, fmt.Errorf("check whether db.migration exists: %w", err)
+	}
+	switch strings.TrimSpace(existsOut) {
+	case "f":
+		return map[int64]bool{}, nil
+	case "t":
+	default:
+		return nil, fmt.Errorf("check whether db.migration exists: unexpected answer %q", strings.TrimSpace(existsOut))
+	}
 	appliedOut, err := runPsql(projDir, "SELECT version FROM db.migration ORDER BY version", "-t", "-A")
 	if err != nil {
-		// Distinguish "table/schema doesn't exist yet" from real errors by looking at the message.
-		// psql reports these as `ERROR: relation "db.migration" does not exist` or
-		// `ERROR: schema "db" does not exist`. Both mean "no migrations yet applied".
-		msg := err.Error()
-		if strings.Contains(msg, "db.migration") && strings.Contains(msg, "does not exist") {
-			return map[int64]bool{}, nil
-		}
-		if strings.Contains(msg, `schema "db" does not exist`) {
-			return map[int64]bool{}, nil
-		}
 		return nil, fmt.Errorf("query applied migrations: %w", err)
 	}
 	applied := make(map[int64]bool)
@@ -1623,21 +1625,14 @@ func sha256File(path string) (string, error) {
 }
 
 // contentHashColumnExists probes information_schema for the column.
-// Returns false (no error) when the column hasn't been added yet.
+// Returns false (no error) when the column, the table or the schema does not
+// exist yet: information_schema answers that without failing, so every query
+// error is a real error.
 func contentHashColumnExists(projDir string) (bool, error) {
 	out, err := runPsql(projDir,
 		"SELECT EXISTS (SELECT FROM information_schema.columns WHERE table_schema='db' AND table_name='migration' AND column_name='content_hash')",
 		"-t", "-A")
 	if err != nil {
-		// If db.migration table itself is missing (very fresh DB pre-ensureMigrationTableSQL),
-		// treat as "column doesn't exist".
-		msg := err.Error()
-		if strings.Contains(msg, "db.migration") && strings.Contains(msg, "does not exist") {
-			return false, nil
-		}
-		if strings.Contains(msg, `schema "db" does not exist`) {
-			return false, nil
-		}
 		return false, fmt.Errorf("probe content_hash column: %w", err)
 	}
 	return strings.TrimSpace(out) == "t", nil
