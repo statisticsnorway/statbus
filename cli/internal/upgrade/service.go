@@ -8728,7 +8728,7 @@ func (d *Service) parkForDeterministicFailure(ctx context.Context, id int, displ
 	}
 	progress.Write("Pausing automatic upgrade retries after a deterministic failure ... ok")
 	progress.Write("  Cause: %s", reason)
-	progress.Write("  The service remains available for a later release or a deliberate %s retry.", d.installCommand())
+	d.writeParkedResumeGuidance(progress)
 	if freshlyParked {
 		d.runCallback(displayName, map[string]string{"STATBUS_EVENT": "parked", "STATBUS_PARKED": "1", "STATBUS_PARK_REASON": reason})
 	}
@@ -12286,7 +12286,7 @@ func (d *Service) resumeNewSb(ctx context.Context, flag UpgradeFlag) error {
 			log.Printf("resumeNewSb: PARKED upgrade %d after %d attempt(s) — %s", flag.ID, attempts, reason)
 			progress.Write("Pausing automatic upgrade recovery after %d failed continuation attempt(s) ... ok", attempts)
 			progress.Write("  Cause: %s", reason)
-			progress.Write("  The service remains available for a later release or a deliberate %s retry.", d.installCommand())
+			d.writeParkedResumeGuidance(progress)
 			// STATBUS-204: route this budget park through the operable-box chokepoint too — bring
 			// the source version's services back (era-guarded, starts-only, narrative-only on
 			// refuse/failure) so a same-step-twice park is alive-idle AND operable, not dark. The
