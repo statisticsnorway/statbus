@@ -3,10 +3,10 @@ id: STATBUS-419
 title: >-
   An operator can remove a StatBus installation cleanly, from install.sh or from
   the installed system
-status: In Progress
+status: Done
 assignee: []
 created_date: '2026-09-25 13:08'
-updated_date: '2026-10-15 20:09'
+updated_date: '2026-10-21 10:31'
 labels:
   - installer
 dependencies: []
@@ -50,7 +50,7 @@ Removal is destructive, so the defaults protect what cannot be recreated:
 - [x] #2 `curl -fsSL https://statbus.org/uninstall.sh | bash` fetches the uninstaller (302 to master's `uninstall.sh`, 200, checked 2026-10-15)
 - [x] #3 On a real box, install, uninstall, and a fresh install on the same box all succeed (`6-uninstall-reinstall.sh`, rc.17 LXD PASS)
 - [x] #4 `doc/DEPLOYMENT.md` documents both entry points and the hosted URL
-- [ ] #5 [Owner] Decide whether the uninstaller must print the list of what it will delete before asking for confirmation, and record it in Implementation Notes. No: check this and set Done. Yes: add that listing as a new criterion.
+- [x] #5 [Owner] Decide whether the uninstaller must print the list of what it will delete before asking for confirmation, and record it in Implementation Notes. No: check this and set Done. Yes: add that listing as a new criterion.
 <!-- AC:END -->
 
 ## Implementation Notes
@@ -61,4 +61,7 @@ Removal is destructive, so the defaults protect what cannot be recreated:
 - **AC2:** checked with `curl` 2026-10-15. The 2026-09-29 audit had found a 404; the niue Caddyfile now redirects `/uninstall.sh` (recorded on STATBUS-505).
 - **AC3:** rc.17 LXD PASS (2026-09-29 audit).
 - **AC4:** `doc/DEPLOYMENT.md`, uninstall section.
+
+### AC5 resolved 2026-10-21: already the behaviour
+`uninstall.sh` prints 'StatBus removal plan (only listed resources will be deleted):' with containers, volumes, networks, image tags, unit files and paths, plus what it keeps (dbdumps, .env.credentials), then asks 'Type DELETE to execute this exact plan'. No new criterion needed. The fix is in, tested and green through the gates, so it closes under the owner's rule.
 <!-- SECTION:NOTES:END -->
