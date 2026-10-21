@@ -4,7 +4,7 @@ title: A stuck upgrade tells the operator how to fix it and resume
 status: Done
 assignee: []
 created_date: '2026-09-21 12:03'
-updated_date: '2026-10-21 13:38'
+updated_date: '2026-10-21 13:59'
 labels:
   - release-bug
   - upgrade
@@ -25,12 +25,13 @@ When an upgrade gets stuck, the operator fixes the cause and resumes it, and the
 ### Zoom out
 A parked upgrade keeps the database read-only as a guard against accidents, not a lock. The flow is:
 1. **Stuck:** an upgrade that fails the same way twice parks. Retries stop, the alert fires once, and the cause is recorded. The box serves the version it can prove, or stays behind the maintenance page, read-only.
-2. **Fix:** on the box directly. In the database, the operator's own `./sb psql` session runs `SET default_transaction_read_only = off;`. Everyone else stays read-only.
+2. **Fix:** on the box directly. In the database, `STATBUS_PSQL=recovery ./sb psql` opens a session that can write. Everyone else stays read-only.
 3. **Resume:** `./sb install` stops the upgrade service, takes the upgrade lock, clears the park and runs one fresh attempt. On success it lifts maintenance and read-only and restarts the service. If the same failure returns, the upgrade parks again.
 
 Only `./sb install` clears a park. A newer release replaces the parked upgrade. A database fix survives a forward resume and is lost only if the attempt rolls back to the snapshot.
 
 ### Zoom in
+- **Recovery session:** `STATBUS_PSQL=recovery` (`cli/cmd/psql.go`, `psqlSessionArgs`) sets the read-only default off for that session and names it `sb psql recovery` in pg_stat_activity. The mode is an environment variable so every psql argument passes through unchanged; `STATBUS_` is the operator variable prefix.
 - **Guidance:** the park message (both park sites in `cli/internal/upgrade/service.go`) prints `ParkedResumeGuidance` (`cli/internal/upgrade/install_command.go`): the psql step and the install step, both runnable from any directory, and that a newer release replaces the upgrade.
 - **Docs:** `doc/read-only-upgrade-window.md`, "Fixing a parked upgrade and resuming it".
 - **Un-park:** `./sb install` (`cli/cmd/install_upgrade.go`, `UnparkByID` then `RecoverFromFlag`) stops the unit first and restarts it after a recovery.
@@ -44,9 +45,10 @@ Only `./sb install` clears a park. A newer release replaces the parked upgrade. 
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [x] #1 A parked upgrade's progress log names the resume flow: the operator's own ./sb psql session with default_transaction_read_only off, then ./sb install for one fresh attempt, both runnable from any directory (TestParkedResumeGuidanceNamesTheResumeFlow)
-- [x] #2 ./sb upgrade repair is gone; the Go build, cmd and upgrade tests and lint pass, and CI passes (33af99026)
-- [x] #3 doc/read-only-upgrade-window.md describes stuck, fix, resume as above
+- [x] #1 ./sb upgrade repair is gone; the Go build, cmd and upgrade tests and lint pass, and CI passes (33af99026)
+- [x] #2 doc/read-only-upgrade-window.md describes stuck, fix, resume as above
+- [x] #3 STATBUS_PSQL=recovery ./sb psql writes while the read-only default is on, passes every psql argument through unchanged, and names itself in pg_stat_activity (TestPsqlRecoverySessionWritesThroughTheReadOnlyWindow; observed locally, tmp/psql-recovery-observe.log)
+- [x] #4 A parked upgrade's progress log names the resume flow: STATBUS_PSQL=recovery ./sb psql to fix the database, then ./sb install for one fresh attempt, both runnable from any directory (TestParkedResumeGuidanceNamesTheResumeFlow)
 <!-- AC:END -->
 
 ## Implementation Notes
@@ -63,4 +65,11 @@ The read-only park is a guard against accidents, not a lock. Recording who repai
 - 33af99026. `go test ./cmd/ ./internal/upgrade/ ./internal/installcmd/` ok, golangci-lint 0 issues (`tmp/380-go-test.log`). `TestParkedResumeGuidanceNamesTheResumeFlow` asserts the exact lines.
 - CI for 33af99026: Go Test, Fast Tests, Images, Harness Selftest, app build & lint, Push on master all success.
 - Owner idea to discuss next: `./sb psql --recovery` opening a session already off read-only.
+
+### STATBUS_PSQL=recovery (owner 2026-10-21), 39e7fa8d1
+- Owner asked for a recovery psql session. A --recovery flag would compete with psql's own arguments. An environment variable cannot, so it is STATBUS_PSQL=recovery, using the established STATBUS_ prefix.
+- Red: tmp/psql-recovery-red.log. Green: tmp/psql-recovery-green.log. `go test ./cmd/ ./internal/upgrade/` ok, lint 0 issues.
+- Observed against the local db (tmp/psql-recovery-observe.log). With the read-only default on, an ordinary session refuses CREATE TABLE. The recovery session shows default_transaction_read_only off, application_name 'sb psql recovery', and CREATE TABLE succeeds. An unknown mode is refused by name.
+
+- CI for 39e7fa8d1: Go Test, Images, Harness Selftest, app build & lint, Push on master all success.
 <!-- SECTION:NOTES:END -->
