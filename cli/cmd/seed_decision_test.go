@@ -96,3 +96,38 @@ func TestSeedBuildDecision_FullWhenPrefixMigrationRemoved(t *testing.T) {
 		t.Error("a removed <=V_prev migration must force a full rebuild")
 	}
 }
+
+// STATBUS-526: the extension half of the incremental gate. The prior dump's
+// extension catalog rows are replayed verbatim into the current image, so an
+// extension bump between the two images (sql_saga 1.1 -> 1.3 broke the Images
+// job via the "restore old sql_saga dumps" catalog guard) must force FULL.
+func TestSeedExtensionDecision_IncrementalWhenVersionsMatch(t *testing.T) {
+	prior := &seedMeta{ExtensionVersions: "pg_trgm=1.6,sql_saga=1.3"}
+	if ok, reason := seedExtensionDecision(prior, "pg_trgm=1.6,sql_saga=1.3"); !ok {
+		t.Errorf("matching extension versions must allow incremental; got full: %s", reason)
+	}
+}
+
+func TestSeedExtensionDecision_FullWhenVersionsDiffer(t *testing.T) {
+	prior := &seedMeta{ExtensionVersions: "pg_trgm=1.6,sql_saga=1.1"}
+	ok, reason := seedExtensionDecision(prior, "pg_trgm=1.6,sql_saga=1.3")
+	if ok {
+		t.Error("an extension bump must force a full rebuild")
+	}
+	if reason == "" {
+		t.Error("a forced full rebuild must carry a human-readable reason")
+	}
+}
+
+func TestSeedExtensionDecision_FullWhenPriorLacksVersions(t *testing.T) {
+	if ok, _ := seedExtensionDecision(&seedMeta{}, "pg_trgm=1.6,sql_saga=1.3"); ok {
+		t.Error("a pre-526 prior seed (no extension versions) must force a full rebuild")
+	}
+}
+
+func TestSeedExtensionDecision_FullWhenCurrentUnknown(t *testing.T) {
+	prior := &seedMeta{ExtensionVersions: "pg_trgm=1.6,sql_saga=1.3"}
+	if ok, _ := seedExtensionDecision(prior, ""); ok {
+		t.Error("an unavailable current extension identity must force a full rebuild")
+	}
+}

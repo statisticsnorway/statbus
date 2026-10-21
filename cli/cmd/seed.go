@@ -46,6 +46,17 @@ type seedMeta struct {
 	// <= MigrationVersion and compare (see SeedBuildDecision). `omitempty` so a
 	// pre-116 seed.json without it still parses; absence ⇒ forced full rebuild.
 	MigrationsFingerprint string `json:"migrations_fingerprint,omitempty"`
+	// ExtensionVersions records the image's extension identity at dump time:
+	// the sorted, comma-joined "name=default_version" list from
+	// pg_available_extensions — what CREATE EXTENSION installs on THIS image.
+	// An incremental build restores this seed's dump (extension catalog rows
+	// included) into the current image, which is valid only when both images
+	// install the same extension versions: a bumped extension can refuse old
+	// catalog rows on restore (sql_saga 1.3's "restore old sql_saga dumps per
+	// doc/upgrade.md" guard, STATBUS-526) or misinterpret them. `omitempty` so
+	// a seed.json predating this field parses clean; absence forces a full
+	// rebuild (see seedExtensionDecision).
+	ExtensionVersions string `json:"extension_versions,omitempty"`
 	// IncrementalDepth is how many incremental (restore-prior + delta-migrate)
 	// builds this seed is removed from a full from-empty baseline: 0 for a full
 	// rebuild, prior.IncrementalDepth+1 for an incremental build (STATBUS-116
@@ -609,11 +620,19 @@ func DumpSeed(projDir, commitOverride string, incrementalDepth int) (seedMeta, e
 		return seedMeta{}, fmt.Errorf("compute migrations fingerprint: %w", err)
 	}
 
+	// STATBUS-526: record the image's extension identity so a later build can
+	// refuse an incremental restore across an extension bump.
+	extensionVersions, err := currentExtensionVersions(projDir)
+	if err != nil {
+		return seedMeta{}, fmt.Errorf("query extension versions: %w", err)
+	}
+
 	// Write metadata JSON alongside the dump.
 	meta := seedMeta{
 		MigrationVersion:      migrationVersion,
 		PostRestoreSHA:        postRestoreSHA,
 		MigrationsFingerprint: migrationsFingerprint,
+		ExtensionVersions:     extensionVersions,
 		IncrementalDepth:      incrementalDepth,
 		CommitSHA:             commitSHA,
 		Tags:                  tags,

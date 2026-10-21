@@ -95,6 +95,27 @@ func runSeedBuild(projDir, commit string) error {
 		reason = capNote
 	}
 
+	// STATBUS-526 extension gate: the incremental path restores the prior
+	// dump's extension catalog rows verbatim into THIS image, so it is valid
+	// only when both images install the same extension versions. sql_saga 1.3's
+	// catalog guard refuses rows dumped under an older version ("restore old
+	// sql_saga dumps per doc/upgrade.md"); compare identities before paying the
+	// restore. A query failure degrades to full — full is always correct.
+	if useIncremental {
+		extVersions, extErr := currentExtensionVersions(projDir)
+		if extErr != nil {
+			extVersions = ""
+		}
+		if ok, extReason := seedExtensionDecision(prior, extVersions); !ok {
+			useIncremental = false
+			newDepth = 0
+			reason = extReason
+			if extErr != nil {
+				reason = fmt.Sprintf("%s (query error: %v)", extReason, extErr)
+			}
+		}
+	}
+
 	// LOUD decision log — the operator/CI must always see which path ran and why.
 	fmt.Printf("seed build: prior-present=%v decision-incremental=%v -> PATH=%s\n  reason: %s\n",
 		prior != nil, incremental, seedPathLabel(useIncremental), reason)
@@ -115,7 +136,23 @@ func runSeedBuild(projDir, commit string) error {
 		fmt.Printf("seed build: restoring prior seed %s into %s (depth %d -> %d)\n",
 			priorDump, seedDbName, prior.IncrementalDepth, newDepth)
 		if err := restoreSeedDump(projDir, seedDbName, priorDump); err != nil {
-			return fmt.Errorf("restore prior seed: %w", err)
+			// STATBUS-526 backstop: a prior dump can be unrestorable on this
+			// image even when every gate passed (the gates compare recorded
+			// identities; the restore is where an unforeseen incompatibility
+			// actually surfaces). The single-transaction restore rolled back,
+			// so discard the database and rebuild FULL from empty — always
+			// correct, just slower. Mirrors the stale-restored-prior fallback
+			// (STATBUS-116 Part C) below.
+			fmt.Printf("seed build: prior seed restore FAILED (%v) — discarding it and rebuilding FULL from empty\n", err)
+			if dropErr := migrate.ExecOnDB(projDir, "postgres",
+				fmt.Sprintf("DROP DATABASE IF EXISTS %s WITH (FORCE);", pgQuoteIdent(seedDbName))); dropErr != nil {
+				return fmt.Errorf("drop unrestorable restored seed db: %w", dropErr)
+			}
+			if err := CreateSeedDb(projDir); err != nil {
+				return fmt.Errorf("recreate empty seed db for restore-failure fallback: %w", err)
+			}
+			useIncremental = false
+			newDepth = 0
 		}
 	}
 
@@ -191,6 +228,37 @@ func seedPathLabel(incremental bool) string {
 		return "INCREMENTAL (restore prior + delta-migrate)"
 	}
 	return "FULL (from empty)"
+}
+
+// currentExtensionVersions returns the image's extension identity: the sorted,
+// comma-joined "name=default_version" list from pg_available_extensions — what
+// CREATE EXTENSION installs on this image, independent of any database's
+// extversion. Queries the maintenance DB (any DB sees the same filesystem);
+// works under DOCKER_PSQL=0 in the hermetic seed-builder like DumpSeed does.
+func currentExtensionVersions(projDir string) (string, error) {
+	return migrate.QueryDB(projDir, "postgres",
+		"SELECT string_agg(name || '=' || default_version, ',' ORDER BY name) FROM pg_available_extensions",
+		"-t", "-A")
+}
+
+// seedExtensionDecision is the STATBUS-526 extension half of the incremental
+// gate: restoring the prior seed's dump into the current image replays the
+// prior image's extension catalog rows, valid only when both images install
+// the same extension versions. Falls back to FULL on any uncertainty (a
+// pre-526 seed.json lacking the field, or an unavailable current identity).
+// Pure: unit-testable (TestSeedExtensionDecision_*).
+func seedExtensionDecision(prior *seedMeta, current string) (ok bool, reason string) {
+	if prior.ExtensionVersions == "" {
+		return false, "prior seed predates extension-version recording (STATBUS-526) — full rebuild from empty"
+	}
+	if current == "" {
+		return false, "current image's extension versions unavailable — full rebuild from empty"
+	}
+	if prior.ExtensionVersions != current {
+		return false, fmt.Sprintf("extension versions changed since the prior seed (%s -> %s) — full rebuild from empty",
+			prior.ExtensionVersions, current)
+	}
+	return true, ""
 }
 
 // restoreSeedDump pg_restores dumpPath into dbName using HOST pg_restore
