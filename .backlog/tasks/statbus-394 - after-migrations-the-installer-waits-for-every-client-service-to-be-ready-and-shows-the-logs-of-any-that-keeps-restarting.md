@@ -4,7 +4,7 @@ title: The installer reports success only when every service runs and the API an
 status: In Progress
 assignee: []
 created_date: '2026-09-24 16:42'
-updated_date: '2026-10-21 10:31'
+updated_date: '2026-10-21 11:14'
 labels:
   - release-bug
   - install
@@ -62,4 +62,26 @@ AC5 checks whatever this install set up and prints any issue it finds. HTTP-firs
 
 ### Owner decision 2026-10-21: finalize what we control
 Plain HTTP and a supplied certificate are ours, so a failed check stops install with the reason. An ACME certificate is issued from outside after install (389: the operator owns reachability), so install completes and says plainly that HTTPS is not working yet, and why. Staging-first Let's Encrypt is STATBUS-523, decided with STATBUS-399.
+
+### AC5 evidence (worker, 2026-10-21, commit d19546722)
+- **Implementation:** cli/cmd/install_visit.go adds verifyAdvertisedSite, called from cli/cmd/install.go right after verifyInstallServing, before the completion banner. It probes every origin installVisitOrigins advertises with an http.Client whose DialContext pins <domain>:<port> to 127.0.0.1:<port> (no DNS, no hairpin), ServerName = the domain, system trust store (seam visitSystemRoots for tests), 1-minute budget with 2s retries (Caddy may still be loading the certificate; budget injected in tests).
+- **Classification (plain words):** did not answer / certificate not trusted (unknown authority) / does not cover this name / expired or not yet valid / answered with HTTP status <n>.
+- **Mode decisions (owner 2026-10-21):** certificate setup read from .env.config TLS_CERT_FILE/TLS_KEY_FILE (they never reach .env) plus CADDY_DEPLOYMENT_MODE from .env. Plain HTTP and supplied certificate: failure stops install non-zero via the same return path as verifyInstallServing. ACME (standalone without TLS_CERT_FILE, private): install completes and prints 'HTTPS is not working yet: <origin> <reason>'.
+- **Development mode choice:** development.caddyfile.tmpl serves HTTPS with 'tls internal' (Caddy internal CA), which is in no system trust store, so verifying trust would always fail without naming a real defect — not coherent to treat as ours. Development checks the plain HTTP origin strictly (fatal) and the HTTPS origin for reachability/status without trust verification (fatal), which still catches Caddy not serving.
+- **Go tests:** TestProbeVisitClassifies_STATBUS394 (success with Host-header proof, untrusted, wrong name, expired, no answer, HTTP 500, plain HTTP, dev-mode no-verify), TestVisitChecksFollowCertificateSetup_STATBUS394 (per-mode planning), TestVerifyAdvertisedSite_STATBUS394 (success line, supplied-cert fatal, ACME warning line). Red: tmp/394-red.log (compile-fail before implementation). Green: tmp/394-green.log (all pass, -v).
+- **Harness:** vm-bootstrap.sh provision_harness_certificate and lxd-backend.sh lxd_certificates now install harness-certs/ca.crt into the guest system trust (/usr/local/share/ca-certificates/statbus-harness-ca.crt + update-ca-certificates), so 0-happy-install passes the new check with the supplied harness cert. 4-install-standalone-no-public-dns now asserts install completes with 'Installation complete!' AND the 'HTTPS is not working yet: https://statbus-no-public-dns.invalid ...' line. 5-install-cert-repair comment updated. README coverage table row added.
+- **Gates:** gofmt clean; golangci-lint run ./... 0 issues; go test ./cmd/ ./internal/... all ok; ./dev.sh test-harness PASS; bash -n on edited shell files OK.
+- Not checked: AC5 checkbox and Done — owner reviews first; real-box proof comes with the next candidate's fleet.
+
+- **CI for d19546722 (2026-10-21):** all 7 runs completed success — Go Test (incl. golangci-lint gate), Fast Tests, app build & lint, Push on master, Images, Harness Selftest, Notify cloud services.
+
+### Review 2026-10-21 (rabbit)
+- d19546722 read. `verifyAdvertisedSite` (`cli/cmd/install_visit.go`) runs after `verifyInstallServing` and before 'Installation complete!'. It fetches each `installVisitOrigins` origin with the chosen name dialled to 127.0.0.1. That is reachable in every mode: standalone binds 0.0.0.0:80/443, development and private bind 127.0.0.1, and on niue the host-level Caddy on :443 routes private slots by SNI.
+- How each setup is treated:
+  - Plain HTTP: fatal.
+  - Supplied certificate: verified, fatal.
+  - Automatic (ACME): verified, prints `HTTPS is not working yet: <origin> <reason>` and completes.
+  - Development HTTPS: Caddy's internal CA, so no trust check, but it must answer.
+- Tests: `TestProbeVisitClassifies_STATBUS394`, `TestVisitChecksFollowCertificateSetup_STATBUS394` and `TestVerifyAdvertisedSite_STATBUS394`. Red `tmp/394-red.log`, green `tmp/394-green.log`. CI for d19546722: 7/7 success.
+- Remaining for AC5: the next candidate's fleet. `0-happy-install.sh` passes with the guest trusting the harness CA, and `4-install-standalone-no-public-dns.sh` prints the warning line.
 <!-- SECTION:NOTES:END -->
