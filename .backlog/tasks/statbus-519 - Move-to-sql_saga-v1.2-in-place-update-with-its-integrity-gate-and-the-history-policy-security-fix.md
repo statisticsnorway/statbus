@@ -1,12 +1,12 @@
 ---
 id: STATBUS-519
 title: >-
-  Move to sql_saga v1.2: in-place update with its integrity gate, and the
+  Move to sql_saga v1.3: in-place update with its integrity gate, and the
   history-policy security fix
 status: In Progress
 assignee: []
 created_date: '2026-10-20 11:11'
-updated_date: '2026-10-20 20:45'
+updated_date: '2026-10-21 13:10'
 labels:
   - db
   - sql_saga
@@ -36,9 +36,9 @@ sql_saga v1.2 (tag 835058eb0c8a, 2026-10-20) supports in-place updates from 1.0 
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 postgres/Dockerfile pins sql_saga_release=v1.2, and migration 20261020111102 updates 1.1 to 1.2 in place when the database is at 1.1 (a no-op otherwise); its down refuses
-- [ ] #2 A box-shaped proof on data with temporal tables: the db restarts on the new image at 1.1, the rehearsal (BEGIN; ALTER EXTENSION ... UPDATE; ROLLBACK) prints ROLLBACK, the migration runs, and the verification reads 1.2 | 1.2 | 1 | NULL with check_integrity() passing and 0 detached initial privileges
-- [ ] #3 The app's restricted roles read and write through the temporal views after the update, and a dump of the 1.2 database restores in one transaction
+- [ ] #1 postgres/Dockerfile pins sql_saga_release=v1.3, and migration 20261021130641 updates 1.1 or 1.2 to 1.3 in place (a no-op at 1.3); its down refuses with a restore-the-backup message
+- [ ] #2 A box-shaped proof on data with temporal tables: the db restarts on the 1.3 image at 1.1, the rehearsal (BEGIN; ALTER EXTENSION ... UPDATE TO '1.3'; ROLLBACK) prints ROLLBACK, the migration runs, and verification reads extversion 1.3, native_library_version 1.3, check_integrity() passing and 0 detached initial privileges
+- [ ] #3 The app's restricted roles read and write through the temporal views after the update, and a dump of the 1.3 database restores in one transaction
 - [ ] #4 The fast suite and Go tests pass locally, and CI passes
 <!-- AC:END -->
 

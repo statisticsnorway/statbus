@@ -1,10 +1,10 @@
 ---
 id: STATBUS-380
-title: An operator can make one audited urgent repair while an upgrade stays parked
-status: In Progress
+title: A stuck upgrade tells the operator how to fix it and resume
+status: Done
 assignee: []
 created_date: '2026-09-21 12:03'
-updated_date: '2026-10-15 20:09'
+updated_date: '2026-10-21 13:38'
 labels:
   - release-bug
   - upgrade
@@ -20,32 +20,33 @@ ordinal: 22
 
 <!-- SECTION:DESCRIPTION:BEGIN -->
 ### North Star
-An operator can make one deliberate, reviewed repair to a parked StatBus database, and the box records who did it and why, while the upgrade stays parked and clients stay held.
+When an upgrade gets stuck, the operator fixes the cause and resumes it, and the box tells them how.
 
 ### Zoom out
-A parked upgrade freezes clients by holding the database read-only for them. That hold is a client hold at the `default_transaction_read_only` level, not an administrator boundary, because recovery itself needs maintenance writes. So an administrator can always write, and the only question is whether that write is sanctioned and recorded. Before this ticket the choices were raw admin psql with the read-only exemption (undocumented, easy to get wrong, no audit trail) or `./sb install`, which un-parks and retries immediately and so is no repair pause at all.
+A parked upgrade keeps the database read-only as a guard against accidents, not a lock. The flow is:
+1. **Stuck:** an upgrade that fails the same way twice parks. Retries stop, the alert fires once, and the cause is recorded. The box serves the version it can prove, or stays behind the maintenance page, read-only.
+2. **Fix:** on the box directly. In the database, the operator's own `./sb psql` session runs `SET default_transaction_read_only = off;`. Everyone else stays read-only.
+3. **Resume:** `./sb install` stops the upgrade service, takes the upgrade lock, clears the park and runs one fresh attempt. On success it lifts maintenance and read-only and restarts the service. If the same failure returns, the upgrade parks again.
 
-The product answer is one verb, `./sb upgrade repair --file <sql> --reason <reason> --operator <name>`. It checks the row is genuinely parked, locks it, writes the audit record and runs exactly one reviewed statement, all in one transaction. It refuses multiple statements, transaction control and psql meta-commands, and the upgrade stays parked.
+Only `./sb install` clears a park. A newer release replaces the parked upgrade. A database fix survives a forward resume and is lost only if the attempt rolls back to the snapshot.
 
 ### Zoom in
-- **Origin, 2026-09-21:** reviewing the `c-rollback-resurrection` arc's fixture repair (`feae0fccf`), which wrote during B's parked window with `PGOPTIONS=-c default_transaction_read_only=off`, the owner asked whether that circumvents the invariant. It does not (`doc/upgrade-recovery-model.md`, `doc/read-only-upgrade-window.md`), but it exposed the missing operator path.
-- **Shipped (v2026.09.3):** `4e8899f05` (the audited verb), `4069671b3` (fail closed on repair SQL), `a0781aab7` (refuse a bare `END`). `cli/cmd/upgrade_repair.go`. Documented as the sanctioned path in `doc/upgrade-recovery-model.md` (park section) and `doc/read-only-upgrade-window.md` ("Maintenance writes").
-- **Proof, unit:** `TestParkedRepairSQL_AuditsAndKeepsOneTransaction`, `TestParkedRepairSQL_RejectsMetaCommandsAndTransactionVariants`, `TestUpgradeRepairRequiresAuditInputs` (`cli/cmd/upgrade_repair_test.go`), green 2026-10-15.
-- **Not on a real box:** no scenario or arc parks a real upgrade and runs `./sb upgrade repair`; the park arcs (`postswap-health-park-arc.sh`, `un-park-to-completion-arc.sh`) do not use it.
+- **Guidance:** the park message (both park sites in `cli/internal/upgrade/service.go`) prints `ParkedResumeGuidance` (`cli/internal/upgrade/install_command.go`): the psql step and the install step, both runnable from any directory, and that a newer release replaces the upgrade.
+- **Docs:** `doc/read-only-upgrade-window.md`, "Fixing a parked upgrade and resuming it".
+- **Un-park:** `./sb install` (`cli/cmd/install_upgrade.go`, `UnparkByID` then `RecoverFromFlag`) stops the unit first and restarts it after a recovery.
+- **Removed, owner 2026-10-21:** `./sb upgrade repair` (v2026.09.3: `4e8899f05`, `4069671b3`, `a0781aab7`). It required an operator name and reason, wrote an audit row and allowed one statement. That records and restricts a person who already means to write, and its doc forbade the psql path the read-only design provides.
 
 ### Closing review
 - **Memory:** none needed.
-- **Documentation:** done; the two docs above name the verb.
-- **Cleanup:** the former criterion asking for a test that a policy document records the owner's decision was dropped as a text-presence check; the decision itself is the last criterion.
+- **Documentation:** done in `doc/read-only-upgrade-window.md`.
+- **Cleanup:** none.
 <!-- SECTION:DESCRIPTION:END -->
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [x] #1 One transaction holds the parked-row check, the audit fields and the reviewed statement (`TestParkedRepairSQL_AuditsAndKeepsOneTransaction`)
-- [x] #2 Multiple statements, transaction control and psql meta-commands are refused (`TestParkedRepairSQL_RejectsMetaCommandsAndTransactionVariants`)
-- [x] #3 File, reason and operator are required (`TestUpgradeRepairRequiresAuditInputs`)
-- [ ] #4 A real parked upgrade receives one repair through `./sb upgrade repair`, with one matching audit record, the row still parked, and client writes still held
-- [ ] #5 [Owner] Confirm `./sb upgrade repair` as the approved policy for writing to a parked database, and decide whether AC4's real-box run is required; record both in Implementation Notes. AC4 not required: remove it, check this and set Done.
+- [x] #1 A parked upgrade's progress log names the resume flow: the operator's own ./sb psql session with default_transaction_read_only off, then ./sb install for one fresh attempt, both runnable from any directory (TestParkedResumeGuidanceNamesTheResumeFlow)
+- [x] #2 ./sb upgrade repair is gone; the Go build, cmd and upgrade tests and lint pass, and CI passes (33af99026)
+- [x] #3 doc/read-only-upgrade-window.md describes stuck, fix, resume as above
 <!-- AC:END -->
 
 ## Implementation Notes
@@ -55,4 +56,11 @@ The product answer is one verb, `./sb upgrade repair --file <sql> --reason <reas
 - **AC1-3:** green in Go Test `36503468493` (v2026.09.3); re-run locally 2026-10-15.
 - **AC4:** open; no scenario or arc uses the verb.
 - **AC5:** open.
+
+### Owner decision 2026-10-21: no audited repair verb
+The read-only park is a guard against accidents, not a lock. Recording who repaired and why, and allowing one statement only, is bureaucracy over an operator who already means to write. The flow is: stuck, fix (own psql session off read-only), resume with ./sb install. Removed `./sb upgrade repair` and its tests. The park message and doc name the flow.
+### Evidence 2026-10-21
+- 33af99026. `go test ./cmd/ ./internal/upgrade/ ./internal/installcmd/` ok, golangci-lint 0 issues (`tmp/380-go-test.log`). `TestParkedResumeGuidanceNamesTheResumeFlow` asserts the exact lines.
+- CI for 33af99026: Go Test, Fast Tests, Images, Harness Selftest, app build & lint, Push on master all success.
+- Owner idea to discuss next: `./sb psql --recovery` opening a session already off read-only.
 <!-- SECTION:NOTES:END -->
