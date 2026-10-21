@@ -52,14 +52,14 @@ version it can prove, or stays behind the maintenance page with the database
 read-only.
 
 1. **Fix the cause.** On the box (disk, configuration), fix it directly. In
-   the database, open your own session for writing; everyone else stays
-   read-only:
+   the database, open a recovery session, which can write while everyone else
+   stays read-only:
 
    ```bash
-   cd ~/statbus && ./sb psql
-   SET default_transaction_read_only = off;
-   -- your fix
+   cd ~/statbus && STATBUS_PSQL=recovery ./sb psql
    ```
+
+   psql arguments pass through unchanged, as with plain `./sb psql`.
 
 2. **Resume:** `cd ~/statbus && ./sb install`. It stops the upgrade service and
    takes the upgrade lock, so the two never act at once. It clears the park and

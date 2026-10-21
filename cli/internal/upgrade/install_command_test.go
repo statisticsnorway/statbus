@@ -5,13 +5,13 @@ import (
 	"testing"
 )
 
-// A parked upgrade tells the operator the whole resume flow: open their own
-// psql session for writing, fix, then resume with ./sb install, both runnable
-// from any directory.
+// A parked upgrade tells the operator the whole resume flow: a recovery psql
+// session to fix the database, then ./sb install, both runnable from any
+// directory.
 func TestParkedResumeGuidanceNamesTheResumeFlow(t *testing.T) {
 	got := ParkedResumeGuidance("/home/statbus/statbus")
 	want := []string{
-		"To fix it in the database: run cd /home/statbus/statbus && ./sb psql, then SET default_transaction_read_only = off; in that session before writing.",
+		"To fix it in the database: cd /home/statbus/statbus && STATBUS_PSQL=recovery ./sb psql (a session that can write; everyone else stays read-only).",
 		"Then resume with one fresh attempt: cd /home/statbus/statbus && ./sb install",
 		"A newer release replaces this upgrade without a resume.",
 	}

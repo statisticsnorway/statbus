@@ -22,14 +22,14 @@ func (d *Service) installCommand() string { return InstallCommand(d.projDir) }
 
 // ParkedResumeGuidance is what the operator reads when an upgrade parks: how
 // to fix the cause and resume. A park keeps the database read-only for every
-// session that has not opted out, so a database fix starts by opting the
-// operator's own session out; `./sb install` then clears the park and runs
-// one fresh attempt, and it is the only thing that clears a park. A newer
+// session that has not opted out; `STATBUS_PSQL=recovery ./sb psql` opens the
+// operator's own session for writing. `./sb install` then clears the park and
+// runs one fresh attempt, and it is the only thing that clears a park. A newer
 // release replaces the parked one without either step.
 func ParkedResumeGuidance(projDir string) []string {
-	psql := strings.TrimSuffix(InstallCommand(projDir), " install") + " psql"
+	psql := strings.Replace(InstallCommand(projDir), "&& ./sb install", "&& STATBUS_PSQL=recovery ./sb psql", 1)
 	return []string{
-		"To fix it in the database: run " + psql + ", then SET default_transaction_read_only = off; in that session before writing.",
+		"To fix it in the database: " + psql + " (a session that can write; everyone else stays read-only).",
 		"Then resume with one fresh attempt: " + InstallCommand(projDir),
 		"A newer release replaces this upgrade without a resume.",
 	}
