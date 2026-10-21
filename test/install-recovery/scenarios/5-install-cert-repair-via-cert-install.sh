@@ -106,7 +106,10 @@ install_statbus_at_sha "$VM_NAME" "$TARGET_SHA" "$INSTALL_TARGET_TAG"
 # HARNESS_NO_CUSTOM_CERT=1 means Caddy served its own auto-generated internal
 # cert; standalone health without a public domain cannot be CA-verified yet,
 # so only confirm the box is up (docker-level), not HTTPS correctness — the
-# HTTPS proof comes after the repair below.
+# HTTPS proof comes after the repair below. STATBUS-394 AC5: this first
+# install completes on the automatic-certificate path and prints "HTTPS is
+# not working yet: https://... its certificate is not trusted" rather than
+# failing.
 [ "$(VM_EXEC bash -c 'cd ~/statbus && docker compose ps -q | wc -l' | tr -d ' ')" -gt 0 ] || { echo 'FAIL: no services started' >&2; exit 1; }
 
 echo ""

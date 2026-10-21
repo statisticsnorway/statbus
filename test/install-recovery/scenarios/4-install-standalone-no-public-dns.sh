@@ -23,5 +23,10 @@ install_statbus_at_sha "$VM_NAME" "$TARGET_SHA" "$INSTALL_TARGET_TAG" >"$INSTALL
 grep -Eqi 'not confirmed in public DNS|no public DNS|absent from public DNS' "$INSTALL_LOG" || { cat "$INSTALL_LOG" >&2; echo 'missing public DNS assessment' >&2; exit 1; }
 grep -Eqi 'automatic public certificate cannot be promised' "$INSTALL_LOG" || { cat "$INSTALL_LOG" >&2; echo 'missing certificate recommendation' >&2; exit 1; }
 ! grep -Eqi 'automatic public certificate.*(will|can) (be |now )?issued' "$INSTALL_LOG" || { cat "$INSTALL_LOG" >&2; exit 1; }
+# STATBUS-394 AC5: the automatic certificate is issued from outside after
+# install, so with no public DNS the install still completes, but in place of
+# a plain success it says plainly that HTTPS is not working yet, and why.
+grep -Fq 'Installation complete!' "$INSTALL_LOG" || { cat "$INSTALL_LOG" >&2; echo 'install must complete on the automatic-certificate path' >&2; exit 1; }
+grep -F 'HTTPS is not working yet: https://statbus-no-public-dns.invalid ' "$INSTALL_LOG" || { cat "$INSTALL_LOG" >&2; echo 'missing the honest HTTPS is not working yet line with the reason' >&2; exit 1; }
 rm -f "$INSTALL_LOG"
-echo 'PASS: public DNS absence identified, automatic certificate not promised; private-certificate HTTPS requires STATBUS-399'
+echo 'PASS: public DNS absence identified, automatic certificate not promised; install completed with "HTTPS is not working yet"; private-certificate HTTPS requires STATBUS-399'

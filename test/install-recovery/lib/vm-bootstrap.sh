@@ -762,6 +762,11 @@ openssl x509 -req -in "$dir/domain.csr" -CA "$dir/ca.crt" -CAkey "$dir/ca.key" \
 cat "$dir/domain.pem" "$dir/ca.crt" > "$dir/domain.crt"
 chown -R statbus:statbus "$dir"
 chmod 0600 "$dir/domain.key" "$dir/ca.key"
+# The installer's final site check verifies the supplied harness certificate
+# against the guest's system trust store (STATBUS-394 AC5), so the harness CA
+# must be a system trust anchor, the way a real CA would be on a public box.
+install -m 0644 "$dir/ca.crt" /usr/local/share/ca-certificates/statbus-harness-ca.crt
+update-ca-certificates >/dev/null
 sed -i "/[[:space:]]$HARNESS_DOMAIN\([[:space:]]\|$\)/d" /etc/hosts
 printf '127.0.0.1 %s\n' "$HARNESS_DOMAIN" >> /etc/hosts
 REMOTE

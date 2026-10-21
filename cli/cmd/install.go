@@ -1345,6 +1345,16 @@ func runInstall() (installErr error) {
 		return err
 	}
 
+	// STATBUS-394 AC5: the API answering /ready is not the site answering a
+	// user. Fetch the advertised origins the way a user would (the chosen
+	// name connected to this box, HTTPS verified when the certificate is
+	// ours to verify). Plain HTTP and supplied-certificate failures stop the
+	// install; an automatic ACME certificate that is not issued yet is
+	// reported as "HTTPS is not working yet" and install completes.
+	if _, err := verifyAdvertisedSite(installDir, visitCheckBudget, visitCheckInterval); err != nil {
+		return err
+	}
+
 	fmt.Println()
 	// STATBUS-464: the last word on every install is whether anyone can sign
 	// in, loudly when nobody can or a supplied file's users are absent.
