@@ -3,9 +3,10 @@ id: STATBUS-526
 title: >-
   Incremental seed build must detect extension-version changes (sql_saga 1.3
   broke Images)
-status: In Progress
+status: Done
 assignee: []
 created_date: '2026-10-21 23:08'
+updated_date: '2026-10-21 23:36'
 labels:
   - bug
   - ci
@@ -34,7 +35,15 @@ The incremental path restores the prior dump's extension catalog rows verbatim, 
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 An extension version bump between the prior seed's image and the current image forces a full seed rebuild (no incremental restore), with the reason in the build log
-- [ ] #2 A prior seed restore that fails for any reason falls back loudly to a full rebuild instead of failing the build
-- [ ] #3 seed.json records the image's extension versions; Go tests pass; CI Images job for the STATBUS-519/524 commit goes green
+- [x] #1 An extension version bump between the prior seed's image and the current image forces a full seed rebuild (no incremental restore), with the reason in the build log
+- [x] #2 A prior seed restore that fails for any reason falls back loudly to a full rebuild instead of failing the build
+- [x] #3 seed.json records the image's extension versions; Go tests pass; CI Images job for the STATBUS-519/524 commit goes green
 <!-- AC:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+### Verification 2026-10-21 (frog)
+- Unit tests TestSeedExtensionDecision_* cover match/mismatch/missing-prior/missing-current (cli/cmd/seed_decision_test.go); `go test ./cmd/` and `go build ./... && go vet ./cmd/` pass.
+- CI Images run 39691713860 (commit 59b2bbefe): seed build logged 'prior-present=true decision-incremental=true -> PATH=FULL (from empty), reason: prior seed predates extension-version recording (STATBUS-526)', then a full build dumped the seed at migration 20261021143000 and the job went green. The restore-failure backstop was not needed (the gate fired first).
+<!-- SECTION:NOTES:END -->

@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-10-21 13:38'
-updated_date: '2026-10-21 21:58'
+updated_date: '2026-10-21 23:36'
 labels:
   - bug
   - db
@@ -62,10 +62,10 @@ The ten references and their replacements:
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 The ten admin.*_id_exists CHECKs and the four helper functions are gone; external_ident, tag_for_unit and unit_notes reference legal_unit and establishment through sql_saga regular foreign keys (NO ACTION: sql_saga 1.3 supports no cascading delete action) and person and power_group through plain FOREIGN KEYs ON DELETE CASCADE, each with a COMMENT ON naming it an addendum reference
-- [ ] #2 Deleting a person or power group cascades to its addenda; deleting a legal unit or establishment that still has addenda is refused with an error naming the foreign key; an insert referencing a missing parent is refused (pg_regress test 143)
-- [ ] #3 A pg_dump -Fc of a database with rows in all three tables restores with pg_restore --single-transaction --exit-on-error, and sql_saga.check_integrity() passes on the restored database (pg_regress test 143)
-- [ ] #4 Fast tests, doc/db regeneration and CI pass, together with STATBUS-519
+- [x] #1 The ten admin.*_id_exists CHECKs and the four helper functions are gone; external_ident, tag_for_unit and unit_notes reference legal_unit and establishment through sql_saga regular foreign keys (NO ACTION: sql_saga 1.3 supports no cascading delete action) and person and power_group through plain FOREIGN KEYs ON DELETE CASCADE, each with a COMMENT ON naming it an addendum reference
+- [x] #2 Deleting a person or power group cascades to its addenda; deleting a legal unit or establishment that still has addenda is refused with an error naming the foreign key; an insert referencing a missing parent is refused (pg_regress test 143)
+- [x] #3 A pg_dump -Fc of a database with rows in all three tables restores with pg_restore --single-transaction --exit-on-error, and sql_saga.check_integrity() passes on the restored database (pg_regress test 143)
+- [x] #4 Fast tests, doc/db regeneration and CI pass, together with STATBUS-519
 <!-- AC:END -->
 
 ## Implementation Notes
@@ -86,4 +86,10 @@ Green after fix: 142 asserts 4 refused orphan inserts naming their FK, refused u
 - Green (fresh clone at HEAD): tmp/524-green-143-final.out — DUMP_OK, RESTORE_OK, INTEGRITY_OK, restored counts 1/1/1, both refusals naming the FK, notes 1 -> 0. Note: in the direct-psql capture the LU-delete ERROR appears after a later \echo marker (stdout/stderr buffering artifact of docker exec); the pg_regress-recorded expected file is correctly ordered.
 - Expected output for 143 re-recorded from the runner's results after reading them; `./dev.sh test-isolated 143` passes.
 - `./dev.sh test fast`: all 117 shared tests + isolated 094 and 143 pass (tmp/test-fast-519-524.log).
+
+### CI evidence 2026-10-21 (frog)
+- Landed as a4fa1e04f (+ 59b2bbefe for the STATBUS-526 seed-build gate the 1.3 bump required).
+- CI on 59b2bbefe: Fast Tests success (includes test 143 against the 1.3 image), Images success, Go Test success, app build & lint success.
+- doc/db regenerated with only the four admin_*_id_exists docs deleted; re-run after landing reproduced the identical tree.
+- Red/green: tmp/524-red-143-final.out (parent state: RESTORE_FAILED, legal unit delete silently allowed, power group delete orphans its note) vs tmp/524-green-143-final.out (DUMP_OK, RESTORE_OK, INTEGRITY_OK, counts 1/1/1, both refusals naming the FK, cascade 1 -> 0).
 <!-- SECTION:NOTES:END -->

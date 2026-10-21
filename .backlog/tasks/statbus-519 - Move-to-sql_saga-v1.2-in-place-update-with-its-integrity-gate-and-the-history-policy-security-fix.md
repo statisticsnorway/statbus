@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-10-20 11:11'
-updated_date: '2026-10-21 21:58'
+updated_date: '2026-10-21 23:36'
 labels:
   - db
   - sql_saga
@@ -36,10 +36,10 @@ sql_saga v1.2 (tag 835058eb0c8a, 2026-10-20) supports in-place updates from 1.0 
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 postgres/Dockerfile pins sql_saga_release=v1.3, and migration 20261021130641 updates 1.1 or 1.2 to 1.3 in place (a no-op at 1.3); its down refuses with a restore-the-backup message
-- [ ] #2 A box-shaped proof on data with temporal tables: the db restarts on the 1.3 image at 1.1, the rehearsal (BEGIN; ALTER EXTENSION ... UPDATE TO '1.3'; ROLLBACK) prints ROLLBACK, the migration runs, and verification reads extversion 1.3, native_library_version 1.3, check_integrity() passing and 0 detached initial privileges
-- [ ] #3 The app's restricted roles read and write through the temporal views after the update, and a dump of the 1.3 database restores in one transaction
-- [ ] #4 The fast suite and Go tests pass locally, and CI passes
+- [x] #1 postgres/Dockerfile pins sql_saga_release=v1.3, and migration 20261021130641 updates 1.1 or 1.2 to 1.3 in place (a no-op at 1.3); its down refuses with a restore-the-backup message
+- [x] #2 A box-shaped proof on data with temporal tables: the db restarts on the 1.3 image at 1.1, the rehearsal (BEGIN; ALTER EXTENSION ... UPDATE TO '1.3'; ROLLBACK) prints ROLLBACK, the migration runs, and verification reads extversion 1.3, native_library_version 1.3, check_integrity() passing and 0 detached initial privileges
+- [x] #3 The app's restricted roles read and write through the temporal views after the update, and a dump of the 1.3 database restores in one transaction
+- [x] #4 The fast suite and Go tests pass locally, and CI passes
 <!-- AC:END -->
 
 ## Implementation Notes
@@ -60,4 +60,9 @@ sql_saga v1.2 (tag 835058eb0c8a, 2026-10-20) supports in-place updates from 1.0 
 - Box-shaped proof by duck stands: tmp/519-proof-1.3.log shows the db recreated on the 1.3 image at extversion 1.1, the rehearsal printing ROLLBACK, `./sb migrate up` applying 20261021130641 (and 20261021143000), then extversion 1.3, native_library_version 1.3, check_integrity ok, 0 detached initial privileges, 0 regular FKs naming a helper; restricted_user/regular_user read and write through the temporal views; the 1.3 dump restores in one transaction with check_integrity ok.
 - postgres/Dockerfile pins sql_saga_release=v1.3; migration 20261021130641 updates 1.1/1.2 to 1.3 in place (no-op at 1.3), its down refuses with a restore-the-backup message.
 - `./dev.sh test fast`: all 117 shared tests + isolated 094 and 143 pass (tmp/test-fast-519-524.log).
+
+### CI evidence 2026-10-21 (frog)
+- Landed as a4fa1e04f (db: sql_saga 1.3 and addendum foreign keys) + 59b2bbefe (cli: STATBUS-526 seed-incremental extension gate, needed because the 1.3 bump broke the Images seed-restore).
+- CI on 59b2bbefe (superset of a4fa1e04f): Images, Fast Tests, Go Test, app build & lint, Harness Selftest all success (run 39691713860; Fast Tests exercised-sha=59b2bbefe). The Images seed build logged 'PATH=FULL (from empty), reason: prior seed predates extension-version recording (STATBUS-526)' and dumped the seed at migration 20261021143000.
+- Local: `./dev.sh test fast` all pass (tmp/test-fast-519-524.log); `go test ./...` in cli/ all pass. Proof log: tmp/519-proof-1.3.log.
 <!-- SECTION:NOTES:END -->
