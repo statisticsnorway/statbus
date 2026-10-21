@@ -3,10 +3,10 @@ id: STATBUS-524
 title: >-
   Unit addenda reference their unit through foreign keys, so pg_dump backups
   restore
-status: In Progress
+status: Done
 assignee: []
 created_date: '2026-10-21 13:38'
-updated_date: '2026-10-21 23:36'
+updated_date: '2026-10-21 23:38'
 labels:
   - bug
   - db
@@ -92,4 +92,8 @@ Green after fix: 142 asserts 4 refused orphan inserts naming their FK, refused u
 - CI on 59b2bbefe: Fast Tests success (includes test 143 against the 1.3 image), Images success, Go Test success, app build & lint success.
 - doc/db regenerated with only the four admin_*_id_exists docs deleted; re-run after landing reproduced the identical tree.
 - Red/green: tmp/524-red-143-final.out (parent state: RESTORE_FAILED, legal unit delete silently allowed, power group delete orphans its note) vs tmp/524-green-143-final.out (DUMP_OK, RESTORE_OK, INTEGRITY_OK, counts 1/1/1, both refusals naming the FK, cascade 1 -> 0).
+
+### Reviewed and closed 2026-10-21 (rabbit)
+a4fa1e04f (sql_saga 1.3 + addendum foreign keys) and 59b2bbefe (STATBUS-526 seed gate) reviewed. CI on 59b2bbefe: Images, Fast Tests, Go Test, app build & lint, Harness Selftest all success. a4fa1e04f's Images failure was the seed build restoring a 1.1 seed into the 1.3 image, fixed by 526.
+Test 143 green (tmp/524-green-143-final.out): DUMP_OK, RESTORE_OK, INTEGRITY_OK, restored 1/1/1. A missing legal unit is refused naming external_ident_legal_unit_id_fkey, deleting the legal unit is refused, and deleting the power group removes its note. Red at the parent state: tmp/524-red-143-final.out. Cascade for legal_unit/establishment is requested upstream (sql_saga todo.md).
 <!-- SECTION:NOTES:END -->

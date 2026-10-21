@@ -3,10 +3,10 @@ id: STATBUS-519
 title: >-
   Move to sql_saga v1.3: in-place update with its integrity gate, and the
   history-policy security fix
-status: In Progress
+status: Done
 assignee: []
 created_date: '2026-10-20 11:11'
-updated_date: '2026-10-21 23:36'
+updated_date: '2026-10-21 23:38'
 labels:
   - db
   - sql_saga
@@ -65,4 +65,7 @@ sql_saga v1.2 (tag 835058eb0c8a, 2026-10-20) supports in-place updates from 1.0 
 - Landed as a4fa1e04f (db: sql_saga 1.3 and addendum foreign keys) + 59b2bbefe (cli: STATBUS-526 seed-incremental extension gate, needed because the 1.3 bump broke the Images seed-restore).
 - CI on 59b2bbefe (superset of a4fa1e04f): Images, Fast Tests, Go Test, app build & lint, Harness Selftest all success (run 39691713860; Fast Tests exercised-sha=59b2bbefe). The Images seed build logged 'PATH=FULL (from empty), reason: prior seed predates extension-version recording (STATBUS-526)' and dumped the seed at migration 20261021143000.
 - Local: `./dev.sh test fast` all pass (tmp/test-fast-519-524.log); `go test ./...` in cli/ all pass. Proof log: tmp/519-proof-1.3.log.
+
+### Reviewed and closed 2026-10-21 (rabbit)
+a4fa1e04f (sql_saga 1.3 + addendum foreign keys) and 59b2bbefe (STATBUS-526 seed gate) reviewed. CI on 59b2bbefe: Images, Fast Tests, Go Test, app build & lint, Harness Selftest all success. a4fa1e04f's Images failure was the seed build restoring a 1.1 seed into the 1.3 image, fixed by 526.
 <!-- SECTION:NOTES:END -->
