@@ -1,10 +1,10 @@
 ---
 id: STATBUS-371
-title: A cached seed never holds a migration version the code no longer has
-status: In Progress
+title: A cached seed whose migrations changed is never restored or built on
+status: Done
 assignee: []
 created_date: '2026-09-16 22:34'
-updated_date: '2026-10-15 20:08'
+updated_date: '2026-10-21 11:58'
 labels:
   - release-bug
   - migrations
@@ -20,34 +20,32 @@ ordinal: 9
 
 <!-- SECTION:DESCRIPTION:BEGIN -->
 ### North Star
-A cached database seed never holds a migration version that the code no longer has, so restoring a seed and then migrating always applies each migration exactly once.
+Restoring a cached seed and then migrating gives the same database as a full replay, even when a migration already on master is later renumbered, edited or removed.
 
 ### Zoom out
-A migration version becomes part of history the moment any seed may have recorded it, not when a release ships it. Images publishes a seed for every master push, so a version can sit in a retained seed long before any release candidate contains it. Two defences follow:
-- **Consumption:** a build that finds a cached seed incompatible with its migrations rejects it before restoring and falls back to a full replay.
-- **Prevention:** a release candidate that renumbers or removes a version that may already live in a retained seed is refused. The fix is to restore the original version and add a forward migration.
+The seed is a speed shortcut: a dump at a commit, restored in seconds instead of replaying every migration. It is published for each master push and used by developer builds, CI and the next incremental seed build. No installed box runs untagged master, so master-only migrations reach seeds and laptops, not deployments.
 
-Prevention needs one authority for "versions that may live in a retained seed". It must be immutable history, not mutable registry contents, because deleting or expiring an image would erase the evidence the guard relies on. The chosen authority is every migration version visible on master's first-parent history since the previous release tag: that is exactly where seeds are published and where builds look for them. Older versions are already frozen by the released-migration immutability check.
+Accidents happen. A migration on master can need renumbering or removal before release. The protection sits where the seed is used:
+- **Restore:** a cached seed whose migrations no longer match the checkout is rejected before anything is written, and the build replays every migration.
+- **Seed build:** a prior seed whose migrations changed is not built on; the next seed starts from empty.
+The cost of an accident is a slower build, never a wrong database.
 
 ### Zoom in
-- **Incident, 2026-09-16:** migration `20260903205636` (STATBUS-347) was retimestamped to `20260907120000` in `f6d249b62`. Niue's cached seed still held the old version and its `rollback_finish_pending_at` column. The content-hash check ignored ledger rows with no file, so the cache was accepted, replay re-added the column, and pg_regress failed every commit after rc.11 with `column rollback_finish_pending_at already exists`.
-- **Consumption fix:** `aaaaee881` (fail-closed compatibility check before `pg_restore`), `23b3993ad` (rejected cache falls back to full replay). Niue run `35116209731`: stale cache rejected, full replay, 100/100 passed.
-- **Prevention guard:** `06ec54f40`, `5473e68ea`, shipped in v2026.09.3. `release.MissingSeedLineageMigrations` (`cli/internal/release/seed_lineage.go`) is called from the prerelease preflight (`cli/cmd/release/release.go`, `checkSeedLineageGuardAgainst`) and the tag validator (`cli/cmd/release/release_verify.go`). The refusal names the version, its first commit and original path.
-- **Authority grounding:** Images publishes `statbus-seed:payload-<sha>` only on master push (`.github/workflows/images.yaml`); builds choose a prior seed by walking first-parent ancestors (`cli/cmd/seed_ancestor.go`).
-- **Known edge:** a manual `workflow_dispatch` of Images on a non-master commit could publish a seed outside the first-parent line. Builds never select it, so it is not consumed.
+- **Incident, 2026-09-16:** migration `20260903205636` (STATBUS-347) was retimestamped to `20260907120000` in `f6d249b62`. Niue's cached seed still held the old version. The restore path had no check, so the cache was accepted and diverged.
+- **Fix:** the migrations fingerprint (`seed.json` `migrations_fingerprint`, `migrate.UpMigrationsFingerprintUpTo`, since STATBUS-116) covers version, order and content of every migration up to the seed's version. `aaaaee881` checks it before restore (`validateCachedSeedForRestore`); `23b3993ad` falls back to full replay. `SeedBuildDecision` uses the same fingerprint to choose incremental or full. Niue run `35116209731`: stale cache rejected, full replay, 100/100 passed.
+- **Removed, owner 2026-10-21:** a release-time guard (`06ec54f40`, `5473e68ea`) refused any candidate that renumbered or removed a migration seen on master since the last release, with no override. It added no protection beyond the fingerprint and made an unreleased mistake impossible to fix. Removed in `e6a912a4d`. The released-migration immutability check keeps its declared override (`STATBUS_INTENTIONALLY_FIX_BROKEN_IMMUTABLE_MIGRATION`).
 
 ### Closing review
 - **Memory:** none needed.
-- **Documentation:** the authority rationale lives here and in the `seed_lineage.go` doc comment; no separate doc.
-- **Cleanup:** the earlier criterion asking for a test that a decision document exists was removed as a text-presence check (previous wording in Git at `ea170989e`).
+- **Documentation:** none needed. The fingerprint's doc comment in `cli/internal/migrate/fingerprint.go` states its purpose.
+- **Cleanup:** none.
 <!-- SECTION:DESCRIPTION:END -->
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [x] #1 A release candidate that removes or renumbers a version seen on first-parent history since the previous release is refused, naming the version, first commit and original path (`TestMissingSeedLineageMigrationsRejectsPrereleaseRenumber`, `...RejectsPrereleaseRemoval` in `cli/internal/release/seed_lineage_test.go`)
-- [x] #2 Additions and description-only renames that keep the version pass the guard (`TestMissingSeedLineageMigrationsAllowsAdditionsAndSameVersionRename`)
-- [x] #3 An incompatible cached seed is rejected before restore mutates anything, and the build falls back to full replay where permitted (`TestRunSeedRestoreCmd_ValidatesCacheBeforeRestoreMutation`, `TestClassifySeedRestoreErrorFallsBackForIncompatibleCache` in `cli/cmd/`)
-- [ ] #4 [Owner] Decide whether first-parent master history since the previous release tag is the authority for migration versions a retained seed may hold, and record the answer in Implementation Notes. Confirmed: check this and set Done. Rejected: name the replacement authority as a new criterion.
+- [x] #1 An incompatible cached seed is rejected before restore mutates anything, and the build falls back to full replay where permitted (`TestRunSeedRestoreCmd_ValidatesCacheBeforeRestoreMutation`, `TestClassifySeedRestoreErrorFallsBackForIncompatibleCache` in `cli/cmd/`)
+- [x] #2 A seed build whose prior seed's migrations were edited or removed starts from empty instead of building on it (`TestSeedBuildDecision_FullWhenPrefixMigrationEdited`, `TestSeedBuildDecision_FullWhenPrefixMigrationRemoved` in `cli/cmd/`)
+- [x] #3 No release gate refuses a candidate for renumbering or removing an unreleased migration: the seed lineage guard is removed (`e6a912a4d`), release and migrate tests green
 <!-- AC:END -->
 
 ## Implementation Notes
@@ -56,4 +54,10 @@ Prevention needs one authority for "versions that may live in a retained seed". 
 ### Evidence
 - **AC1-3:** shipped in v2026.09.3 (`06ec54f40`, `5473e68ea`); green in Go Test `36503468493`; re-run green locally on master `cb34436b4`, 2026-10-15.
 - **AC4:** open; the only remaining work, and it needs no code.
+
+### Owner decision 2026-10-21: remove the release guard
+The release-time seed lineage guard encoded that an accident cannot happen, with no escape hatch. Accidents are made rare by tests and practice, and their cost is contained where the seed is used: the fingerprint rejects a mismatched seed before restore and the build replays every migration, and the next seed build starts from empty. Removed in e6a912a4d: `cli/internal/release/seed_lineage.go` with its tests, the calls in `release.go` (prerelease preflight) and `release_verify.go` (tag validator), and its exec inventory entry. Duplicate migration versions stay caught by `migrate.listMigrationFiles` (`TestListMigrationFilesDuplicateStillErrors`).
+### Evidence 2026-10-21
+- `go test ./cmd/release/ ./internal/release/ ./internal/upgrade/ ./internal/migrate/` ok, golangci-lint 0 issues (`tmp/371-remove-guard.log`).
+- `TestSeedBuildDecision_*`, `TestRunSeedRestoreCmd_ValidatesCacheBeforeRestoreMutation` and `TestClassifySeedRestoreErrorFallsBackForIncompatibleCache` green.
 <!-- SECTION:NOTES:END -->
