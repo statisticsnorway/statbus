@@ -4,7 +4,7 @@ title: The installer reports success only when every service runs and the API an
 status: In Progress
 assignee: []
 created_date: '2026-09-24 16:42'
-updated_date: '2026-10-20 21:22'
+updated_date: '2026-10-21 10:31'
 labels:
   - release-bug
   - install
@@ -43,7 +43,7 @@ What makes a client crash-loop is a separate concern: role-password drift is STA
 - [x] #2 A client that keeps restarting past the budget is named in plain words in the terminal, with its own startup error and recent logs in the install log (`TestRestartingClientsReportOwnLogsAfterBoundedReadiness`)
 - [x] #3 On a real standalone box, the advertised site answers CA-verified HTTPS after install (`0-happy-install.sh`, `assert_harness_https_passes`)
 - [x] #4 [Owner] Decide whether the final readiness gate must also probe the advertised `https://<domain>` before printing success, and record it in Implementation Notes. No: check this and set Done. Yes: add that probe as a new criterion.
-- [ ] #5 The final check fetches the advertised site the way a user would, with the name the operator chose, connecting to this box (curl --resolve <domain>:443:127.0.0.1, no reliance on DNS or hairpin routing): over HTTPS with the certificate verified against the system trust store when HTTPS is configured, over HTTP otherwise. 'Installation complete!' is printed only when it answers. Otherwise the terminal names what failed (certificate not issued, certificate not trusted, name not covered, no answer) and install exits non-zero
+- [ ] #5 The final check fetches the advertised site the way a user would, with the chosen name connecting to this box (curl --resolve <domain>:<port>:127.0.0.1, no reliance on DNS or hairpin routing): HTTPS with the certificate verified against the system trust store when HTTPS is configured, plain HTTP otherwise. With plain HTTP or a supplied certificate (TLS_CERT_FILE), a failure stops install non-zero and names what failed: no answer, certificate not trusted, name not covered, or certificate expired. With an automatic (ACME) certificate, install completes and prints 'HTTPS is not working yet: <reason>' in place of a plain success. Go tests cover each outcome. The LXD guest trusts the harness CA so 0-happy-install.sh passes the check with a supplied certificate
 <!-- AC:END -->
 
 ## Implementation Notes
@@ -59,4 +59,7 @@ Install says the site is installed, so install checks that a user can reach it. 
 
 ### Owner 2026-10-20: AC5 scope
 AC5 checks whatever this install set up and prints any issue it finds. HTTP-first and the certificate strategy belong to STATBUS-399 and STATBUS-523, not here.
+
+### Owner decision 2026-10-21: finalize what we control
+Plain HTTP and a supplied certificate are ours, so a failed check stops install with the reason. An ACME certificate is issued from outside after install (389: the operator owns reachability), so install completes and says plainly that HTTPS is not working yet, and why. Staging-first Let's Encrypt is STATBUS-523, decided with STATBUS-399.
 <!-- SECTION:NOTES:END -->
