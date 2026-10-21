@@ -3,10 +3,10 @@ id: STATBUS-390
 title: >-
   A database check that passes during install means the next database step can
   connect too
-status: In Progress
+status: Done
 assignee: []
 created_date: '2026-09-24 16:42'
-updated_date: '2026-10-15 20:08'
+updated_date: '2026-10-21 14:02'
 labels:
   - release-bug
   - install
@@ -46,7 +46,7 @@ The failure to prevent is a check that passes through one route while the next s
 - [x] #1 Every installer and daemon TCP client resolves the same `CADDY_DB_BIND_ADDRESS:CADDY_DB_PORT` route and ignores `SITE_DOMAIN` and ambient `PGHOST`/`PGPORT` (`TestInstallerDatabaseOperationsUseInternalRoute`, `TestResolveIgnoresSiteDomainAndRequiresInternalEndpoint`, `TestRecoveryDSNUsesInternalRoute`)
 - [x] #2 The recovery operations that must survive a broken route use the database local socket (`TestDockerDatabaseCommandsUseLocalSocket`)
 - [x] #3 On a real box with the published database route cut before migrations, the installer fails bounded naming the web entry point, and a rerun completes seed, migrations and readiness (`5-install-database-route-interrupted.sh`, rc.17 LXD `36506437069`, owned by STATBUS-388)
-- [ ] #4 [Owner] Confirm the two-way design (one shared published route plus the named socket exceptions) as the target and record it in Implementation Notes. Confirmed: check this and set Done. Rejected: add the internal-route design as a new criterion.
+- [x] #4 [Owner] Confirm the two-way design (one shared published route plus the named socket exceptions) as the target and record it in Implementation Notes. Confirmed: check this and set Done. Rejected: add the internal-route design as a new criterion.
 <!-- AC:END -->
 
 ## Implementation Notes
@@ -56,4 +56,7 @@ The failure to prevent is a check that passes through one route while the next s
 - **AC1-2:** green in Go Test `36503468493`; re-run green locally on master, 2026-10-15.
 - **Naming:** in the test names, "internal route" means the published `CADDY_DB_BIND_ADDRESS` address as opposed to the public `SITE_DOMAIN`, not the container socket.
 - **Superseded criterion:** the 2026-09-24 restyle had asked for every step to succeed with the published route down. That reverses the design above and was dropped; the original goal (`67735dd8f`) is what this ticket states.
+
+### Owner 2026-10-21: confirmed, Done
+One shared published route plus the three named socket exceptions is the design. Built, tested, and proven on a real box (rc.17 LXD).
 <!-- SECTION:NOTES:END -->
