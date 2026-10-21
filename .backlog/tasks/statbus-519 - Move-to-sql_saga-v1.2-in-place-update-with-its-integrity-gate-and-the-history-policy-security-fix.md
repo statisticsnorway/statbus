@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-10-20 11:11'
-updated_date: '2026-10-21 13:10'
+updated_date: '2026-10-21 21:58'
 labels:
   - db
   - sql_saga
@@ -55,4 +55,9 @@ sql_saga v1.2 (tag 835058eb0c8a, 2026-10-20) supports in-place updates from 1.0 
 - sql_saga has a local fix commit f3c4eba (not yet pushed; 16 commits ahead of origin, plus more in progress): XOR unique keys keep their constraint column order, order-only differences are ignored, and check_integrity reports mispaired FKs with a runnable repair and an upgrade HINT. No tag yet.
 - **Watch:** whether the upgrade path repairs the 1.0/1.1-sorted catalogs automatically or only reports them with a repair. If it only reports, StatBus needs a migration that runs the named repair for its five keys before ALTER EXTENSION. Decide that when the tag exists.
 - **Unchanged:** the pin and migration are uncommitted locally. When the tag exists: rerun tmp/519-proof-local.sh (the rehearsal must print ROLLBACK), commit, CI. Then the next candidate carries jsonb_stats 3.0.0 + sql_saga 1.2.
+
+### Verification 2026-10-21 (frog)
+- Box-shaped proof by duck stands: tmp/519-proof-1.3.log shows the db recreated on the 1.3 image at extversion 1.1, the rehearsal printing ROLLBACK, `./sb migrate up` applying 20261021130641 (and 20261021143000), then extversion 1.3, native_library_version 1.3, check_integrity ok, 0 detached initial privileges, 0 regular FKs naming a helper; restricted_user/regular_user read and write through the temporal views; the 1.3 dump restores in one transaction with check_integrity ok.
+- postgres/Dockerfile pins sql_saga_release=v1.3; migration 20261021130641 updates 1.1/1.2 to 1.3 in place (no-op at 1.3), its down refuses with a restore-the-backup message.
+- `./dev.sh test fast`: all 117 shared tests + isolated 094 and 143 pass (tmp/test-fast-519-524.log).
 <!-- SECTION:NOTES:END -->

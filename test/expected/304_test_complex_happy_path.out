@@ -183,6 +183,7 @@ INSERT INTO public.import_69_a2_lu_upload(
     '01.120', 'S1', 'AS', 'lu69a_p1@example.com', '10', 'TestTag.LU' -- Sector, email, employees, tag unchanged
 );
 CALL worker.process_tasks(p_queue => 'import');
+NOTICE:  sql_saga: disable_temporal_triggers left native temporal foreign keys enabled (they have no sql_saga triggers); they are DEFERRABLE, defer them in this transaction with: SET CONSTRAINTS public.activity_establishment_id_valid, public.activity_legal_unit_id_valid, public.contact_establishment_id_valid, public.contact_legal_unit_id_valid, public.establishment_legal_unit_id_valid, public.legal_relationship_influenced_id_valid, public.legal_relationship_influencing_id_valid, public.location_establishment_id_valid, public.location_legal_unit_id_valid, public.person_for_unit_establishment_id_valid, public.person_for_unit_legal_unit_id_valid, public.power_root_custom_root_legal_unit_id_valid, public.power_root_derived_root_legal_unit_id_valid, public.stat_for_unit_establishment_id_valid, public.stat_for_unit_legal_unit_id_valid DEFERRED
 \echo "Job status for import_69_a2_lu:"
 "Job status for import_69_a2_lu:"
 SELECT slug, state, total_rows, imported_rows, error IS NOT NULL AS has_error, error as error_details FROM public.import_job WHERE slug = 'import_69_a2_lu';
@@ -300,6 +301,7 @@ INSERT INTO public.import_69_a3_lu_upload(
 );
 --SET client_min_messages TO DEBUG1;
 CALL worker.process_tasks(p_queue => 'import');
+NOTICE:  sql_saga: disable_temporal_triggers left native temporal foreign keys enabled (they have no sql_saga triggers); they are DEFERRABLE, defer them in this transaction with: SET CONSTRAINTS public.activity_establishment_id_valid, public.activity_legal_unit_id_valid, public.contact_establishment_id_valid, public.contact_legal_unit_id_valid, public.establishment_legal_unit_id_valid, public.legal_relationship_influenced_id_valid, public.legal_relationship_influencing_id_valid, public.location_establishment_id_valid, public.location_legal_unit_id_valid, public.person_for_unit_establishment_id_valid, public.person_for_unit_legal_unit_id_valid, public.power_root_custom_root_legal_unit_id_valid, public.power_root_derived_root_legal_unit_id_valid, public.stat_for_unit_establishment_id_valid, public.stat_for_unit_legal_unit_id_valid DEFERRED
 --SET client_min_messages TO NOTICE;
 \echo "Job status for import_69_a3_lu:"
 "Job status for import_69_a3_lu:"
@@ -590,6 +592,7 @@ INSERT INTO public.import_69_b2_es_upload(
     '02.120', 'es69b_p1@example.com', '5', 'TestTag.ES.Formal'
 );
 CALL worker.process_tasks(p_queue => 'import');
+NOTICE:  sql_saga: disable_temporal_triggers left native temporal foreign keys enabled (they have no sql_saga triggers); they are DEFERRABLE, defer them in this transaction with: SET CONSTRAINTS public.activity_establishment_id_valid, public.activity_legal_unit_id_valid, public.contact_establishment_id_valid, public.contact_legal_unit_id_valid, public.establishment_legal_unit_id_valid, public.legal_relationship_influenced_id_valid, public.legal_relationship_influencing_id_valid, public.location_establishment_id_valid, public.location_legal_unit_id_valid, public.person_for_unit_establishment_id_valid, public.person_for_unit_legal_unit_id_valid, public.power_root_custom_root_legal_unit_id_valid, public.power_root_derived_root_legal_unit_id_valid, public.stat_for_unit_establishment_id_valid, public.stat_for_unit_legal_unit_id_valid DEFERRED
 \echo "Job status for import_69_b2_es:"
 "Job status for import_69_b2_es:"
 SELECT slug, state, total_rows, imported_rows, error IS NOT NULL AS has_error, error as error_details FROM public.import_job WHERE slug = 'import_69_b2_es';
@@ -704,6 +707,7 @@ INSERT INTO public.import_69_b3_es_upload(
     '02.120', 'es69b_p3_updated@example.com', '7', 'TestTag.ES.Formal.Updated'
 );
 CALL worker.process_tasks(p_queue => 'import');
+NOTICE:  sql_saga: disable_temporal_triggers left native temporal foreign keys enabled (they have no sql_saga triggers); they are DEFERRABLE, defer them in this transaction with: SET CONSTRAINTS public.activity_establishment_id_valid, public.activity_legal_unit_id_valid, public.contact_establishment_id_valid, public.contact_legal_unit_id_valid, public.establishment_legal_unit_id_valid, public.legal_relationship_influenced_id_valid, public.legal_relationship_influencing_id_valid, public.location_establishment_id_valid, public.location_legal_unit_id_valid, public.person_for_unit_establishment_id_valid, public.person_for_unit_legal_unit_id_valid, public.power_root_custom_root_legal_unit_id_valid, public.power_root_derived_root_legal_unit_id_valid, public.stat_for_unit_establishment_id_valid, public.stat_for_unit_legal_unit_id_valid DEFERRED
 \echo "Job status for import_69_b3_es:"
 "Job status for import_69_b3_es:"
 SELECT slug, state, total_rows, imported_rows, error IS NOT NULL AS has_error, error as error_details FROM public.import_job WHERE slug = 'import_69_b3_es';
@@ -957,6 +961,7 @@ INSERT INTO public.import_69_c2_es_upload(
 \echo "Processing import jobs"
 "Processing import jobs"
 CALL worker.process_tasks(p_queue => 'import');
+NOTICE:  sql_saga: disable_temporal_triggers left native temporal foreign keys enabled (they have no sql_saga triggers); they are DEFERRABLE, defer them in this transaction with: SET CONSTRAINTS public.activity_establishment_id_valid, public.activity_legal_unit_id_valid, public.contact_establishment_id_valid, public.contact_legal_unit_id_valid, public.establishment_legal_unit_id_valid, public.legal_relationship_influenced_id_valid, public.legal_relationship_influencing_id_valid, public.location_establishment_id_valid, public.location_legal_unit_id_valid, public.person_for_unit_establishment_id_valid, public.person_for_unit_legal_unit_id_valid, public.power_root_custom_root_legal_unit_id_valid, public.power_root_derived_root_legal_unit_id_valid, public.stat_for_unit_establishment_id_valid, public.stat_for_unit_legal_unit_id_valid DEFERRED
 \echo "Job status for import_69_c2_es:"
 "Job status for import_69_c2_es:"
 SELECT slug, state, total_rows, imported_rows, error IS NOT NULL AS has_error, error as error_details FROM public.import_job WHERE slug = 'import_69_c2_es';
@@ -1070,6 +1075,7 @@ INSERT INTO public.import_69_c3_es_upload(
     '03.120', 'es69c_p3_updated@example.com', '3', 'TestTag.ES.Informal.Updated'
 );
 CALL worker.process_tasks(p_queue => 'import');
+NOTICE:  sql_saga: disable_temporal_triggers left native temporal foreign keys enabled (they have no sql_saga triggers); they are DEFERRABLE, defer them in this transaction with: SET CONSTRAINTS public.activity_establishment_id_valid, public.activity_legal_unit_id_valid, public.contact_establishment_id_valid, public.contact_legal_unit_id_valid, public.establishment_legal_unit_id_valid, public.legal_relationship_influenced_id_valid, public.legal_relationship_influencing_id_valid, public.location_establishment_id_valid, public.location_legal_unit_id_valid, public.person_for_unit_establishment_id_valid, public.person_for_unit_legal_unit_id_valid, public.power_root_custom_root_legal_unit_id_valid, public.power_root_derived_root_legal_unit_id_valid, public.stat_for_unit_establishment_id_valid, public.stat_for_unit_legal_unit_id_valid DEFERRED
 \echo "Job status for import_69_c3_es:"
 "Job status for import_69_c3_es:"
 SELECT slug, state, total_rows, imported_rows, error IS NOT NULL AS has_error, error as error_details FROM public.import_job WHERE slug = 'import_69_c3_es';

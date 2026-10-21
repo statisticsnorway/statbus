@@ -31,15 +31,13 @@ Indexes:
     "ix_external_ident_edit_by_user_id" btree (edit_by_user_id)
 Check constraints:
     "One and only one statistical unit id must be set" CHECK (num_nonnulls(establishment_id, legal_unit_id, enterprise_id, power_group_id, person_id) = 1)
-    "external_ident_establishment_id_check" CHECK (admin.establishment_id_exists(establishment_id))
-    "external_ident_legal_unit_id_check" CHECK (admin.legal_unit_id_exists(legal_unit_id))
-    "external_ident_person_id_check" CHECK (admin.person_id_exists(person_id))
-    "external_ident_power_group_id_check" CHECK (admin.power_group_id_exists(power_group_id))
     "hierarchical_depth_valid" CHECK (shape <> 'hierarchical'::external_ident_shape OR nlevel(idents) = nlevel(labels))
     "shape_data_consistency" CHECK (shape = 'regular'::external_ident_shape AND ident IS NOT NULL AND idents IS NULL AND labels IS NULL OR shape = 'hierarchical'::external_ident_shape AND ident IS NULL AND idents IS NOT NULL AND labels IS NOT NULL)
 Foreign-key constraints:
     "external_ident_edit_by_user_id_fkey" FOREIGN KEY (edit_by_user_id) REFERENCES auth."user"(id) ON DELETE RESTRICT
     "external_ident_enterprise_id_fkey" FOREIGN KEY (enterprise_id) REFERENCES enterprise(id) ON DELETE CASCADE
+    "external_ident_person_id_fkey" FOREIGN KEY (person_id) REFERENCES person(id) ON DELETE CASCADE
+    "external_ident_power_group_id_fkey" FOREIGN KEY (power_group_id) REFERENCES power_group(id) ON DELETE CASCADE
     "external_ident_type_id_fkey" FOREIGN KEY (type_id) REFERENCES external_ident_type(id) ON DELETE RESTRICT
 Policies:
     POLICY "external_ident_admin_user_manage"
@@ -64,6 +62,8 @@ Triggers:
     a_external_ident_log_insert AFTER INSERT ON external_ident REFERENCING NEW TABLE AS new_rows FOR EACH STATEMENT EXECUTE FUNCTION worker.log_base_change()
     a_external_ident_log_update AFTER UPDATE ON external_ident REFERENCING OLD TABLE AS old_rows NEW TABLE AS new_rows FOR EACH STATEMENT EXECUTE FUNCTION worker.log_base_change()
     external_ident_derive_shape_labels BEFORE INSERT OR UPDATE OF type_id ON external_ident FOR EACH ROW EXECUTE FUNCTION external_ident_derive_shape_labels()
+    external_ident_establishment_id_check AFTER INSERT OR UPDATE ON external_ident FROM establishment DEFERRABLE INITIALLY IMMEDIATE FOR EACH ROW EXECUTE FUNCTION sql_saga.regular_fk_check_c('external_ident_establishment_id_fkey', 'public', 'external_ident', '{establishment_id}', '', '', '', 'public', 'establishment', '{id}', 'valid', 'valid_from', 'valid_until', 'SIMPLE', 'NO ACTION', 'NO ACTION', 'regular_to_temporal')
+    external_ident_legal_unit_id_check AFTER INSERT OR UPDATE ON external_ident FROM legal_unit DEFERRABLE INITIALLY IMMEDIATE FOR EACH ROW EXECUTE FUNCTION sql_saga.regular_fk_check_c('external_ident_legal_unit_id_fkey', 'public', 'external_ident', '{legal_unit_id}', '', '', '', 'public', 'legal_unit', '{id}', 'valid', 'valid_from', 'valid_until', 'SIMPLE', 'NO ACTION', 'NO ACTION', 'regular_to_temporal')
     trigger_prevent_external_ident_id_update BEFORE UPDATE OF id ON external_ident FOR EACH ROW EXECUTE FUNCTION admin.prevent_id_update()
 Access method: heap
 

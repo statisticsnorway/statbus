@@ -1,0 +1,70 @@
+-- test-isolation: database-per-test
+--
+-- STATBUS-524 AC#2/#3: a pg_dump -Fc of a database with rows in
+-- external_ident, tag_for_unit and unit_notes restores with pg_restore
+-- --single-transaction --exit-on-error, and sql_saga.check_integrity()
+-- passes on the restored database. Before STATBUS-524 the addendum tables
+-- were guarded by CHECK constraints calling admin.*_id_exists functions;
+-- pg_dump inlines those into CREATE TABLE and does not order table data by
+-- function dependencies, so external_ident (alphabetically before
+-- legal_unit) restored before its parent and the COPY failed.
+--
+-- After the restore block, the original test database asserts the reference
+-- behaviour of the new foreign keys: an insert referencing a missing legal
+-- unit is refused, deleting a legal unit that still has an addendum is
+-- refused (sql_saga regular foreign keys are NO ACTION in 1.3), and
+-- deleting a power group cascades to its unit_notes row (native foreign
+-- key ON DELETE CASCADE).
+--
+-- The fixtures COMMIT (no wrapping transaction) because pg_dump is a
+-- separate connection and cannot see uncommitted rows; the
+-- database-per-test marker gives this test its own throwaway database.
+-- auth.uid() from set_user_from_email does not survive across autocommit
+-- statements, so edit_by_user_id is given explicitly. Shell output is
+-- reduced to fixed markers: the test database name contains a pid and must
+-- not appear in the asserted output.
+\i test/setup.sql
+\echo -- test/setup.sql output suppressed for cleaner test output
+-- test/setup.sql output suppressed for cleaner test output
+\set ECHO none
+\echo -- test/setup.sql done, test output follows
+-- test/setup.sql done, test output follows
+\echo "=== Test 143: STATBUS-524 dump/restore with addendum rows ==="
+"=== Test 143: STATBUS-524 dump/restore with addendum rows ==="
+CALL test.set_user_from_email('test.admin@statbus.org');
+-- Statements interpolate psql variables (captured ids), so their echoed text
+-- would carry run-specific values; only the \echo markers, query results and
+-- ERROR lines below are part of the asserted output.
+\set ECHO none
+        step        | external_idents | tags | notes 
+--------------------+-----------------+------+-------
+ fixtures committed |               1 |    1 |     1
+(1 row)
+
+DUMP_OK
+NOTICE:  database "test_143_restore" does not exist, skipping
+RESTORE_DB_READY
+RESTORE_OK
+INTEGRITY_OK
+restored counts: 1 idents, 1 tags, 1 notes
+CLEANUP_OK
+"--- An insert referencing a missing legal unit is refused ---"
+ERROR:  insert or update on table "public.external_ident" violates foreign key constraint "external_ident_legal_unit_id_fkey"
+DETAIL:  The referenced key is not present in table "public.legal_unit".
+"--- Deleting the legal unit while its addendum exists is refused ---"
+"--- (establishment and its tag removed first, so the legal unit's own addendum is what refuses) ---"
+ERROR:  update or delete on table "public.legal_unit" violates foreign key constraint "external_ident_legal_unit_id_fkey" on table "public.external_ident"
+DETAIL:  The key is still referenced from table "public.external_ident" and no other row of "public.legal_unit" has it.
+"--- Deleting the power group removes its unit_notes row ---"
+ notes_before 
+--------------
+            1
+(1 row)
+
+ notes_after 
+-------------
+           0
+(1 row)
+
+\echo "=== Test 143 done ==="
+"=== Test 143 done ==="

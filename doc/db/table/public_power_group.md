@@ -30,8 +30,11 @@ Foreign-key constraints:
     "power_group_type_id_fkey" FOREIGN KEY (type_id) REFERENCES power_group_type(id)
     "power_group_unit_size_id_fkey" FOREIGN KEY (unit_size_id) REFERENCES unit_size(id)
 Referenced by:
+    TABLE "external_ident" CONSTRAINT "external_ident_power_group_id_fkey" FOREIGN KEY (power_group_id) REFERENCES power_group(id) ON DELETE CASCADE
     TABLE "legal_relationship" CONSTRAINT "legal_relationship_derived_power_group_id_fkey" FOREIGN KEY (derived_power_group_id) REFERENCES power_group(id) ON DELETE SET NULL
     TABLE "power_root" CONSTRAINT "power_root_power_group_id_fkey" FOREIGN KEY (power_group_id) REFERENCES power_group(id) ON DELETE CASCADE
+    TABLE "tag_for_unit" CONSTRAINT "tag_for_unit_power_group_id_fkey" FOREIGN KEY (power_group_id) REFERENCES power_group(id) ON DELETE CASCADE
+    TABLE "unit_notes" CONSTRAINT "unit_notes_power_group_id_fkey" FOREIGN KEY (power_group_id) REFERENCES power_group(id) ON DELETE CASCADE
 Policies:
     POLICY "power_group_admin_user_manage"
       TO admin_user

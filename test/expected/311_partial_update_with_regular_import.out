@@ -37,6 +37,7 @@ SELECT
 \echo "Run worker processing for import jobs - Initial Load"
 "Run worker processing for import jobs - Initial Load"
 CALL worker.process_tasks(p_queue => 'import');
+NOTICE:  sql_saga: disable_temporal_triggers left native temporal foreign keys enabled (they have no sql_saga triggers); they are DEFERRABLE, defer them in this transaction with: SET CONSTRAINTS public.activity_establishment_id_valid, public.activity_legal_unit_id_valid, public.contact_establishment_id_valid, public.contact_legal_unit_id_valid, public.establishment_legal_unit_id_valid, public.legal_relationship_influenced_id_valid, public.legal_relationship_influencing_id_valid, public.location_establishment_id_valid, public.location_legal_unit_id_valid, public.person_for_unit_establishment_id_valid, public.person_for_unit_legal_unit_id_valid, public.power_root_custom_root_legal_unit_id_valid, public.power_root_derived_root_legal_unit_id_valid, public.stat_for_unit_establishment_id_valid, public.stat_for_unit_legal_unit_id_valid DEFERRED
 \echo "Checking import job statuses for Initial Load"
 "Checking import job statuses for Initial Load"
 SELECT slug, state, time_context_ident, total_rows, imported_rows, error IS NOT NULL AS has_error FROM public.import_job WHERE slug = 'import_311_lu_wsd' ORDER BY slug;
@@ -116,6 +117,7 @@ SELECT
 \echo "Run worker processing for import jobs - Partial Update"
 "Run worker processing for import jobs - Partial Update"
 CALL worker.process_tasks(p_queue => 'import');
+NOTICE:  sql_saga: disable_temporal_triggers left native temporal foreign keys enabled (they have no sql_saga triggers); they are DEFERRABLE, defer them in this transaction with: SET CONSTRAINTS public.activity_establishment_id_valid, public.activity_legal_unit_id_valid, public.contact_establishment_id_valid, public.contact_legal_unit_id_valid, public.establishment_legal_unit_id_valid, public.legal_relationship_influenced_id_valid, public.legal_relationship_influencing_id_valid, public.location_establishment_id_valid, public.location_legal_unit_id_valid, public.person_for_unit_establishment_id_valid, public.person_for_unit_legal_unit_id_valid, public.power_root_custom_root_legal_unit_id_valid, public.power_root_derived_root_legal_unit_id_valid, public.stat_for_unit_establishment_id_valid, public.stat_for_unit_legal_unit_id_valid DEFERRED
 \echo "Checking import job status for Partial Update"
 "Checking import job status for Partial Update"
 SELECT slug, state, time_context_ident, total_rows, imported_rows, error IS NOT NULL AS has_error FROM public.import_job WHERE slug = 'import_311_lu_partial_update' ORDER BY slug;

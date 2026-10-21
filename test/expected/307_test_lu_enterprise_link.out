@@ -77,6 +77,7 @@ $$, -- No table variable needed here
 
 -- SC1 Simulate import processing steps
 CALL worker.process_tasks(p_queue => 'import');
+NOTICE:  sql_saga: disable_temporal_triggers left native temporal foreign keys enabled (they have no sql_saga triggers); they are DEFERRABLE, defer them in this transaction with: SET CONSTRAINTS public.activity_establishment_id_valid, public.activity_legal_unit_id_valid, public.contact_establishment_id_valid, public.contact_legal_unit_id_valid, public.establishment_legal_unit_id_valid, public.legal_relationship_influenced_id_valid, public.legal_relationship_influencing_id_valid, public.location_establishment_id_valid, public.location_legal_unit_id_valid, public.person_for_unit_establishment_id_valid, public.person_for_unit_legal_unit_id_valid, public.power_root_custom_root_legal_unit_id_valid, public.power_root_derived_root_legal_unit_id_valid, public.stat_for_unit_establishment_id_valid, public.stat_for_unit_legal_unit_id_valid DEFERRED
 -- SC1 Verifications
 \echo 'SC1: Verifying _data table contents'
 SC1: Verifying _data table contents
@@ -379,6 +380,7 @@ $$, -- No table variable needed here
 
 -- Process LUs
 CALL worker.process_tasks(p_queue => 'import');
+NOTICE:  sql_saga: disable_temporal_triggers left native temporal foreign keys enabled (they have no sql_saga triggers); they are DEFERRABLE, defer them in this transaction with: SET CONSTRAINTS public.activity_establishment_id_valid, public.activity_legal_unit_id_valid, public.contact_establishment_id_valid, public.contact_legal_unit_id_valid, public.establishment_legal_unit_id_valid, public.legal_relationship_influenced_id_valid, public.legal_relationship_influencing_id_valid, public.location_establishment_id_valid, public.location_legal_unit_id_valid, public.person_for_unit_establishment_id_valid, public.person_for_unit_legal_unit_id_valid, public.power_root_custom_root_legal_unit_id_valid, public.power_root_derived_root_legal_unit_id_valid, public.stat_for_unit_establishment_id_valid, public.stat_for_unit_legal_unit_id_valid DEFERRED
 \echo 'SC3: Verifying _data table contents for LUs job (test72_sc3_lus)'
 SC3: Verifying _data table contents for LUs job (test72_sc3_lus)
 SELECT row_id, founding_row_id, tax_ident_raw AS tax_ident, name_raw AS name, valid_from_raw AS valid_from, valid_to_raw AS valid_to, action, state, errors, warnings, merge_status,
@@ -491,6 +493,7 @@ $$, -- No table variable needed here
 
 -- Process ESs
 CALL worker.process_tasks(p_queue => 'import');
+NOTICE:  sql_saga: disable_temporal_triggers left native temporal foreign keys enabled (they have no sql_saga triggers); they are DEFERRABLE, defer them in this transaction with: SET CONSTRAINTS public.activity_establishment_id_valid, public.activity_legal_unit_id_valid, public.contact_establishment_id_valid, public.contact_legal_unit_id_valid, public.establishment_legal_unit_id_valid, public.legal_relationship_influenced_id_valid, public.legal_relationship_influencing_id_valid, public.location_establishment_id_valid, public.location_legal_unit_id_valid, public.person_for_unit_establishment_id_valid, public.person_for_unit_legal_unit_id_valid, public.power_root_custom_root_legal_unit_id_valid, public.power_root_derived_root_legal_unit_id_valid, public.stat_for_unit_establishment_id_valid, public.stat_for_unit_legal_unit_id_valid DEFERRED
 \echo 'SC3: Verifying _data table contents for ESs job (test72_sc3_ests)'
 SC3: Verifying _data table contents for ESs job (test72_sc3_ests)
 SELECT row_id, founding_row_id, tax_ident_raw AS tax_ident, name_raw AS name, valid_from_raw AS valid_from, valid_to_raw AS valid_to, legal_unit_tax_ident_raw AS legal_unit_tax_ident, action, state, errors, warnings, merge_status,
@@ -704,6 +707,7 @@ $$, -- No table variable needed here
 
 -- Process V1
 CALL worker.process_tasks(p_queue => 'import');
+NOTICE:  sql_saga: disable_temporal_triggers left native temporal foreign keys enabled (they have no sql_saga triggers); they are DEFERRABLE, defer them in this transaction with: SET CONSTRAINTS public.activity_establishment_id_valid, public.activity_legal_unit_id_valid, public.contact_establishment_id_valid, public.contact_legal_unit_id_valid, public.establishment_legal_unit_id_valid, public.legal_relationship_influenced_id_valid, public.legal_relationship_influencing_id_valid, public.location_establishment_id_valid, public.location_legal_unit_id_valid, public.person_for_unit_establishment_id_valid, public.person_for_unit_legal_unit_id_valid, public.power_root_custom_root_legal_unit_id_valid, public.power_root_derived_root_legal_unit_id_valid, public.stat_for_unit_establishment_id_valid, public.stat_for_unit_legal_unit_id_valid DEFERRED
 \echo 'SC4: Verifying _data table contents for V1 job (test72_sc4_order_v1)'
 SC4: Verifying _data table contents for V1 job (test72_sc4_order_v1)
 SELECT row_id, founding_row_id, tax_ident_raw AS tax_ident, name_raw AS name, valid_from_raw AS valid_from, valid_to_raw AS valid_to, action, state, errors, warnings, merge_status,
@@ -755,6 +759,7 @@ $$, -- No table variable needed here
 
 -- Process V2
 CALL worker.process_tasks(p_queue => 'import');
+NOTICE:  sql_saga: disable_temporal_triggers left native temporal foreign keys enabled (they have no sql_saga triggers); they are DEFERRABLE, defer them in this transaction with: SET CONSTRAINTS public.activity_establishment_id_valid, public.activity_legal_unit_id_valid, public.contact_establishment_id_valid, public.contact_legal_unit_id_valid, public.establishment_legal_unit_id_valid, public.legal_relationship_influenced_id_valid, public.legal_relationship_influencing_id_valid, public.location_establishment_id_valid, public.location_legal_unit_id_valid, public.person_for_unit_establishment_id_valid, public.person_for_unit_legal_unit_id_valid, public.power_root_custom_root_legal_unit_id_valid, public.power_root_derived_root_legal_unit_id_valid, public.stat_for_unit_establishment_id_valid, public.stat_for_unit_legal_unit_id_valid DEFERRED
 \echo 'SC4: Verifying _data table contents for V2 job (test72_sc4_order_v2)'
 SC4: Verifying _data table contents for V2 job (test72_sc4_order_v2)
 SELECT row_id, founding_row_id, tax_ident_raw AS tax_ident, name_raw AS name, valid_from_raw AS valid_from, valid_to_raw AS valid_to, action, state, errors, warnings, merge_status,
@@ -999,6 +1004,7 @@ $$, -- No table variable needed here
 
 -- Process update
 CALL worker.process_tasks(p_queue => 'import');
+NOTICE:  sql_saga: disable_temporal_triggers left native temporal foreign keys enabled (they have no sql_saga triggers); they are DEFERRABLE, defer them in this transaction with: SET CONSTRAINTS public.activity_establishment_id_valid, public.activity_legal_unit_id_valid, public.contact_establishment_id_valid, public.contact_legal_unit_id_valid, public.establishment_legal_unit_id_valid, public.legal_relationship_influenced_id_valid, public.legal_relationship_influencing_id_valid, public.location_establishment_id_valid, public.location_legal_unit_id_valid, public.person_for_unit_establishment_id_valid, public.person_for_unit_legal_unit_id_valid, public.power_root_custom_root_legal_unit_id_valid, public.power_root_derived_root_legal_unit_id_valid, public.stat_for_unit_establishment_id_valid, public.stat_for_unit_legal_unit_id_valid DEFERRED
 \echo 'SC6.1: Verifying _data table contents for Single Batch Update job (test72_sc6_1_single)'
 SC6.1: Verifying _data table contents for Single Batch Update job (test72_sc6_1_single)
 SELECT row_id, founding_row_id, tax_ident_raw AS tax_ident, name_raw AS name, valid_from_raw AS valid_from, valid_to_raw AS valid_to, action, state, errors, warnings, merge_status,
@@ -1235,6 +1241,7 @@ $$, -- No table variable needed here
 
 -- Process update batch
 CALL worker.process_tasks(p_queue => 'import');
+NOTICE:  sql_saga: disable_temporal_triggers left native temporal foreign keys enabled (they have no sql_saga triggers); they are DEFERRABLE, defer them in this transaction with: SET CONSTRAINTS public.activity_establishment_id_valid, public.activity_legal_unit_id_valid, public.contact_establishment_id_valid, public.contact_legal_unit_id_valid, public.establishment_legal_unit_id_valid, public.legal_relationship_influenced_id_valid, public.legal_relationship_influencing_id_valid, public.location_establishment_id_valid, public.location_legal_unit_id_valid, public.person_for_unit_establishment_id_valid, public.person_for_unit_legal_unit_id_valid, public.power_root_custom_root_legal_unit_id_valid, public.power_root_derived_root_legal_unit_id_valid, public.stat_for_unit_establishment_id_valid, public.stat_for_unit_legal_unit_id_valid DEFERRED
 \echo 'SC7: Verifying _data table contents for Update Batch job (test72_sc7_update_batch)'
 SC7: Verifying _data table contents for Update Batch job (test72_sc7_update_batch)
 SELECT row_id, founding_row_id, tax_ident_raw AS tax_ident, name_raw AS name, valid_from_raw AS valid_from, valid_to_raw AS valid_to, action, state, errors, warnings, merge_status,
@@ -1454,6 +1461,7 @@ $$, -- No table variable needed here
 -- SC9 Simulate import processing steps
 --SET client_min_messages TO DEBUG1;
 CALL worker.process_tasks(p_queue => 'import');
+NOTICE:  sql_saga: disable_temporal_triggers left native temporal foreign keys enabled (they have no sql_saga triggers); they are DEFERRABLE, defer them in this transaction with: SET CONSTRAINTS public.activity_establishment_id_valid, public.activity_legal_unit_id_valid, public.contact_establishment_id_valid, public.contact_legal_unit_id_valid, public.establishment_legal_unit_id_valid, public.legal_relationship_influenced_id_valid, public.legal_relationship_influencing_id_valid, public.location_establishment_id_valid, public.location_legal_unit_id_valid, public.person_for_unit_establishment_id_valid, public.person_for_unit_legal_unit_id_valid, public.power_root_custom_root_legal_unit_id_valid, public.power_root_derived_root_legal_unit_id_valid, public.stat_for_unit_establishment_id_valid, public.stat_for_unit_legal_unit_id_valid DEFERRED
 --SET client_min_messages TO NOTICE;
 -- SC9 Verifications
 \echo 'SC9: Verifying _data table contents'
@@ -1601,6 +1609,7 @@ $$, -- No table variable needed here
 
 -- SC10TB Batch 1: Process
 CALL worker.process_tasks(p_queue => 'import');
+NOTICE:  sql_saga: disable_temporal_triggers left native temporal foreign keys enabled (they have no sql_saga triggers); they are DEFERRABLE, defer them in this transaction with: SET CONSTRAINTS public.activity_establishment_id_valid, public.activity_legal_unit_id_valid, public.contact_establishment_id_valid, public.contact_legal_unit_id_valid, public.establishment_legal_unit_id_valid, public.legal_relationship_influenced_id_valid, public.legal_relationship_influencing_id_valid, public.location_establishment_id_valid, public.location_legal_unit_id_valid, public.person_for_unit_establishment_id_valid, public.person_for_unit_legal_unit_id_valid, public.power_root_custom_root_legal_unit_id_valid, public.power_root_derived_root_legal_unit_id_valid, public.stat_for_unit_establishment_id_valid, public.stat_for_unit_legal_unit_id_valid DEFERRED
 \echo 'SC10 (Two Batches) Batch 1: Verifying _data table contents for job (test72_sc10_tb_lu_b1)'
 SC10 (Two Batches) Batch 1: Verifying _data table contents for job (test72_sc10_tb_lu_b1)
 SELECT row_id, founding_row_id, tax_ident_raw AS tax_ident, name_raw AS name, valid_from_raw AS valid_from, valid_to_raw AS valid_to, action, state, errors, warnings, merge_status,
@@ -1667,6 +1676,7 @@ $$, -- No table variable needed here
 
 -- SC10TB Batch 2: Process
 CALL worker.process_tasks(p_queue => 'import');
+NOTICE:  sql_saga: disable_temporal_triggers left native temporal foreign keys enabled (they have no sql_saga triggers); they are DEFERRABLE, defer them in this transaction with: SET CONSTRAINTS public.activity_establishment_id_valid, public.activity_legal_unit_id_valid, public.contact_establishment_id_valid, public.contact_legal_unit_id_valid, public.establishment_legal_unit_id_valid, public.legal_relationship_influenced_id_valid, public.legal_relationship_influencing_id_valid, public.location_establishment_id_valid, public.location_legal_unit_id_valid, public.person_for_unit_establishment_id_valid, public.person_for_unit_legal_unit_id_valid, public.power_root_custom_root_legal_unit_id_valid, public.power_root_derived_root_legal_unit_id_valid, public.stat_for_unit_establishment_id_valid, public.stat_for_unit_legal_unit_id_valid DEFERRED
 -- SC10TB Batch 2: Verifications
 \echo 'SC10 (Two Batches) Batch 2: Verifying _data table contents after Batch 2 processing'
 SC10 (Two Batches) Batch 2: Verifying _data table contents after Batch 2 processing
@@ -1836,6 +1846,7 @@ $$, -- No table variable needed here
 
 -- SC11SB Process
 CALL worker.process_tasks(p_queue => 'import');
+NOTICE:  sql_saga: disable_temporal_triggers left native temporal foreign keys enabled (they have no sql_saga triggers); they are DEFERRABLE, defer them in this transaction with: SET CONSTRAINTS public.activity_establishment_id_valid, public.activity_legal_unit_id_valid, public.contact_establishment_id_valid, public.contact_legal_unit_id_valid, public.establishment_legal_unit_id_valid, public.legal_relationship_influenced_id_valid, public.legal_relationship_influencing_id_valid, public.location_establishment_id_valid, public.location_legal_unit_id_valid, public.person_for_unit_establishment_id_valid, public.person_for_unit_legal_unit_id_valid, public.power_root_custom_root_legal_unit_id_valid, public.power_root_derived_root_legal_unit_id_valid, public.stat_for_unit_establishment_id_valid, public.stat_for_unit_legal_unit_id_valid DEFERRED
 -- SC11SB Verifications
 \echo 'SC11 (Single Batch): Verifying _data table contents'
 SC11 (Single Batch): Verifying _data table contents

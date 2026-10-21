@@ -969,10 +969,38 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "external_ident_establishment_id_fkey"
+            columns: ["establishment_id"]
+            isOneToOne: false
+            referencedRelation: "establishment"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "external_ident_type_id_fkey"
             columns: ["type_id"]
             isOneToOne: false
             referencedRelation: "external_ident_type"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "external_ident_legal_unit_id_fkey"
+            columns: ["legal_unit_id"]
+            isOneToOne: false
+            referencedRelation: "legal_unit"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "external_ident_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: false
+            referencedRelation: "person"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "external_ident_power_group_id_fkey"
+            columns: ["power_group_id"]
+            isOneToOne: false
+            referencedRelation: "power_group"
             referencedColumns: ["id"]
           },
           {
@@ -990,11 +1018,39 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "external_ident_power_group_id_fkey"
+            columns: ["power_group_id"]
+            isOneToOne: false
+            referencedRelation: "power_group_active"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "external_ident_power_group_id_fkey"
+            columns: ["power_group_id"]
+            isOneToOne: false
+            referencedRelation: "power_group_def"
+            referencedColumns: ["power_group_id"]
+          },
+          {
+            foreignKeyName: "external_ident_power_group_id_fkey"
+            columns: ["power_group_id"]
+            isOneToOne: false
+            referencedRelation: "power_group_membership"
+            referencedColumns: ["power_group_id"]
+          },
+          {
             foreignKeyName: "external_ident_enterprise_id_fkey"
             columns: ["enterprise_id"]
             isOneToOne: false
             referencedRelation: "timeline_enterprise_def"
             referencedColumns: ["enterprise_id"]
+          },
+          {
+            foreignKeyName: "external_ident_power_group_id_fkey"
+            columns: ["power_group_id"]
+            isOneToOne: false
+            referencedRelation: "timeline_power_group_def"
+            referencedColumns: ["power_group_id"]
           },
           {
             foreignKeyName: "external_ident_edit_by_user_id_fkey"
@@ -4809,11 +4865,53 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "tag_for_unit_establishment_id_fkey"
+            columns: ["establishment_id"]
+            isOneToOne: false
+            referencedRelation: "establishment"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tag_for_unit_legal_unit_id_fkey"
+            columns: ["legal_unit_id"]
+            isOneToOne: false
+            referencedRelation: "legal_unit"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tag_for_unit_power_group_id_fkey"
+            columns: ["power_group_id"]
+            isOneToOne: false
+            referencedRelation: "power_group"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "tag_for_unit_tag_id_fkey"
             columns: ["tag_id"]
             isOneToOne: false
             referencedRelation: "tag"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tag_for_unit_power_group_id_fkey"
+            columns: ["power_group_id"]
+            isOneToOne: false
+            referencedRelation: "power_group_active"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tag_for_unit_power_group_id_fkey"
+            columns: ["power_group_id"]
+            isOneToOne: false
+            referencedRelation: "power_group_def"
+            referencedColumns: ["power_group_id"]
+          },
+          {
+            foreignKeyName: "tag_for_unit_power_group_id_fkey"
+            columns: ["power_group_id"]
+            isOneToOne: false
+            referencedRelation: "power_group_membership"
+            referencedColumns: ["power_group_id"]
           },
           {
             foreignKeyName: "tag_for_unit_tag_id_fkey"
@@ -4835,6 +4933,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "timeline_enterprise_def"
             referencedColumns: ["enterprise_id"]
+          },
+          {
+            foreignKeyName: "tag_for_unit_power_group_id_fkey"
+            columns: ["power_group_id"]
+            isOneToOne: false
+            referencedRelation: "timeline_power_group_def"
+            referencedColumns: ["power_group_id"]
           },
           {
             foreignKeyName: "tag_for_unit_edit_by_user_id_fkey"
@@ -5947,11 +6052,60 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "unit_notes_establishment_id_fkey"
+            columns: ["establishment_id"]
+            isOneToOne: false
+            referencedRelation: "establishment"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "unit_notes_legal_unit_id_fkey"
+            columns: ["legal_unit_id"]
+            isOneToOne: false
+            referencedRelation: "legal_unit"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "unit_notes_power_group_id_fkey"
+            columns: ["power_group_id"]
+            isOneToOne: false
+            referencedRelation: "power_group"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "unit_notes_power_group_id_fkey"
+            columns: ["power_group_id"]
+            isOneToOne: false
+            referencedRelation: "power_group_active"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "unit_notes_power_group_id_fkey"
+            columns: ["power_group_id"]
+            isOneToOne: false
+            referencedRelation: "power_group_def"
+            referencedColumns: ["power_group_id"]
+          },
+          {
+            foreignKeyName: "unit_notes_power_group_id_fkey"
+            columns: ["power_group_id"]
+            isOneToOne: false
+            referencedRelation: "power_group_membership"
+            referencedColumns: ["power_group_id"]
+          },
+          {
             foreignKeyName: "unit_notes_enterprise_id_fkey"
             columns: ["enterprise_id"]
             isOneToOne: false
             referencedRelation: "timeline_enterprise_def"
             referencedColumns: ["enterprise_id"]
+          },
+          {
+            foreignKeyName: "unit_notes_power_group_id_fkey"
+            columns: ["power_group_id"]
+            isOneToOne: false
+            referencedRelation: "timeline_power_group_def"
+            referencedColumns: ["power_group_id"]
           },
           {
             foreignKeyName: "unit_notes_edit_by_user_id_fkey"
@@ -8357,6 +8511,7 @@ export type Database = {
           postcode: string | null
           postplace: string | null
           region_id: number | null
+          region_version_id: number | null
           type: Database["public"]["Enums"]["location_type"] | null
           valid_from: string | null
           valid_range: string | null
@@ -8381,6 +8536,7 @@ export type Database = {
           postcode?: string | null
           postplace?: string | null
           region_id?: number | null
+          region_version_id?: number | null
           type?: Database["public"]["Enums"]["location_type"] | null
           valid_from?: string | null
           valid_range?: string | null
@@ -8405,6 +8561,7 @@ export type Database = {
           postcode?: string | null
           postplace?: string | null
           region_id?: number | null
+          region_version_id?: number | null
           type?: Database["public"]["Enums"]["location_type"] | null
           valid_from?: string | null
           valid_range?: string | null
@@ -8441,10 +8598,24 @@ export type Database = {
             referencedColumns: ["id", "valid_range"]
           },
           {
+            foreignKeyName: "location_region_dual_fk"
+            columns: ["region_id", "region_version_id"]
+            isOneToOne: false
+            referencedRelation: "region"
+            referencedColumns: ["id", "version_id"]
+          },
+          {
             foreignKeyName: "location_region_id_fkey"
             columns: ["region_id"]
             isOneToOne: false
             referencedRelation: "region"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "location_region_version_id_fkey"
+            columns: ["region_version_id"]
+            isOneToOne: false
+            referencedRelation: "region_version"
             referencedColumns: ["id"]
           },
           {
@@ -8511,10 +8682,31 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "location_region_dual_fk"
+            columns: ["region_id", "region_version_id"]
+            isOneToOne: false
+            referencedRelation: "region_used_def"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "location_region_id_fkey"
             columns: ["region_id"]
             isOneToOne: false
             referencedRelation: "region_used_def"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "location_region_version_id_fkey"
+            columns: ["region_version_id"]
+            isOneToOne: false
+            referencedRelation: "region_version_enabled"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "location_region_version_id_fkey"
+            columns: ["region_version_id"]
+            isOneToOne: false
+            referencedRelation: "region_version_ordered"
             referencedColumns: ["id"]
           },
           {
@@ -9572,6 +9764,7 @@ export type Database = {
           establishment_id: number | null
           id: number | null
           legal_unit_id: number | null
+          stat: Json | null
           stat_definition_id: number | null
           valid_from: string | null
           valid_range: string | null
@@ -9590,6 +9783,7 @@ export type Database = {
           establishment_id?: number | null
           id?: number | null
           legal_unit_id?: number | null
+          stat?: Json | null
           stat_definition_id?: number | null
           valid_from?: string | null
           valid_range?: string | null
@@ -9608,6 +9802,7 @@ export type Database = {
           establishment_id?: number | null
           id?: number | null
           legal_unit_id?: number | null
+          stat?: Json | null
           stat_definition_id?: number | null
           valid_from?: string | null
           valid_range?: string | null

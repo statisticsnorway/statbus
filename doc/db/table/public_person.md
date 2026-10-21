@@ -28,6 +28,7 @@ Foreign-key constraints:
     "person_country_id_fkey" FOREIGN KEY (country_id) REFERENCES country(id)
     "person_edit_by_user_id_fkey" FOREIGN KEY (edit_by_user_id) REFERENCES auth."user"(id) ON DELETE RESTRICT
 Referenced by:
+    TABLE "external_ident" CONSTRAINT "external_ident_person_id_fkey" FOREIGN KEY (person_id) REFERENCES person(id) ON DELETE CASCADE
     TABLE "person_for_unit" CONSTRAINT "person_for_unit_person_id_fkey" FOREIGN KEY (person_id) REFERENCES person(id) ON DELETE RESTRICT
 Policies:
     POLICY "person_admin_user_manage"

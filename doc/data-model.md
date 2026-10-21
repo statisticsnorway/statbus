@@ -52,14 +52,14 @@ Tables and views for tracking ownership/control relationships between legal unit
 These tables link to any of the four core statistical units:
 
 - `external_ident(id, type_id, ident, idents, labels, establishment_id, legal_unit_id, enterprise_id, power_group_id, edit_by_user_id, person_id, edit_at, shape, edit_comment)` — **base data**
-  - Key FKs: edit_by_user_id, enterprise_id, type_id.
+  - Key FKs: edit_by_user_id, enterprise_id, person_id, power_group_id, type_id.
   - Enums: `shape` (`public.external_ident_shape`).
 - `image(id, type, uploaded_by_user_id, uploaded_at, data)` — **asset**
   - Key FKs: uploaded_by_user_id.
 - `tag_for_unit(id, tag_id, establishment_id, legal_unit_id, enterprise_id, power_group_id, edit_by_user_id, created_at, edit_at, edit_comment)` — **link**
-  - Key FKs: edit_by_user_id, enterprise_id, tag_id.
+  - Key FKs: edit_by_user_id, enterprise_id, power_group_id, tag_id.
 - `unit_notes(id, notes, establishment_id, legal_unit_id, enterprise_id, power_group_id, edit_by_user_id, created_at, edit_at, edit_comment)` — **link**
-  - Key FKs: edit_by_user_id, enterprise_id.
+  - Key FKs: edit_by_user_id, enterprise_id, power_group_id.
 - `enterprise_external_idents(unit_type, external_idents, unit_id, valid_from, valid_to, valid_until)` (temporal)
   - Enums: `unit_type` (`public.statistical_unit_type`).
 

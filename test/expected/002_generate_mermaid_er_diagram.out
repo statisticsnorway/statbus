@@ -1431,6 +1431,28 @@ erDiagram
 		timestamp_with_time_zone old_rollback_finish_pending_at
 		timestamp_with_time_zone new_rollback_finish_pending_at
 	}
+	sql_saga___internal_updatable_view_pending["sql_saga.__internal_updatable_view_pending"] {
+		bigint transaction_id
+		name view_schema
+		name view_name
+		sql_saga_updatable_view_type view_type
+		name table_schema
+		name table_name
+		name era_name
+		name trigger_name
+		text current_func
+		name[] ephemeral_columns
+		text view_clock
+		aclitem[] view_acl
+		text view_comment
+		text[] view_reloptions
+		name[] view_columns
+		text[] view_column_types
+		name view_extension
+		name view_delete_mode
+		jsonb column_facts
+		jsonb trigger_facts
+	}
 	sql_saga_era["sql_saga.era"] {
 		name table_schema
 		name table_name
@@ -1451,6 +1473,7 @@ erDiagram
 		name audit_schema_name
 		name audit_table_name
 		name[] ephemeral_columns
+		text catalog_format
 	}
 	sql_saga_foreign_keys["sql_saga.foreign_keys"] {
 		name foreign_key_name
@@ -1470,6 +1493,13 @@ erDiagram
 		name uk_delete_trigger
 		name fk_index_name
 	}
+	sql_saga_history_policy_sync_guard["sql_saga.history_policy_sync_guard"] {
+		integer backend_pid
+		bigint transaction_id
+		name base_schema
+		name base_table
+		integer nesting_depth
+	}
 	sql_saga_installation["sql_saga.installation"] {
 		text token
 	}
@@ -1482,6 +1512,7 @@ erDiagram
 		name write_history_trigger
 		name truncate_trigger
 		name[] excluded_column_names
+		name[] table_columns_snapshot
 	}
 	sql_saga_system_versioning["sql_saga.system_versioning"] {
 		name table_schema
@@ -1606,6 +1637,8 @@ erDiagram
 	external_ident }o--|| auth_user : external_ident_edit_by_user_id_fkey
 	external_ident }o--o| enterprise : external_ident_enterprise_id_fkey
 	external_ident }|--|| external_ident_type : external_ident_type_id_fkey
+	external_ident }o--o| person : external_ident_person_id_fkey
+	external_ident }o--o| power_group : external_ident_power_group_id_fkey
 	image }o--o| auth_user : image_uploaded_by_user_id_fkey
 	import_data_column }|--|| import_step : import_data_column_step_id_fkey
 	import_definition }o--o| auth_user : import_definition_user_id_fkey
@@ -1692,9 +1725,11 @@ erDiagram
 	tag }o--o| tag : tag_parent_id_fkey
 	tag_for_unit }o--|| auth_user : tag_for_unit_edit_by_user_id_fkey
 	tag_for_unit }o--o| enterprise : tag_for_unit_enterprise_id_fkey
+	tag_for_unit }o--o| power_group : tag_for_unit_power_group_id_fkey
 	tag_for_unit }|--|| tag : tag_for_unit_tag_id_fkey
 	unit_notes }o--|| auth_user : unit_notes_edit_by_user_id_fkey
 	unit_notes }o--o| enterprise : unit_notes_enterprise_id_fkey
+	unit_notes }o--o| power_group : unit_notes_power_group_id_fkey
 	sql_saga_foreign_keys }o--|| sql_saga_unique_keys : foreign_keys_unique_key_name_fkey
 	sql_saga_system_time_era }|--|| sql_saga_era : system_time_era_table_schema_table_name_era_name_fkey
 	sql_saga_system_time_era }|--|| sql_saga_era : system_time_era_table_schema_table_name_era_name_fkey

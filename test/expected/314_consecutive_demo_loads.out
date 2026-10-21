@@ -153,6 +153,7 @@ SELECT
 \echo "Run worker processing for LU source dates job"
 "Run worker processing for LU source dates job"
 CALL worker.process_tasks(p_queue => 'import');
+NOTICE:  sql_saga: disable_temporal_triggers left native temporal foreign keys enabled (they have no sql_saga triggers); they are DEFERRABLE, defer them in this transaction with: SET CONSTRAINTS public.activity_establishment_id_valid, public.activity_legal_unit_id_valid, public.contact_establishment_id_valid, public.contact_legal_unit_id_valid, public.establishment_legal_unit_id_valid, public.legal_relationship_influenced_id_valid, public.legal_relationship_influencing_id_valid, public.location_establishment_id_valid, public.location_legal_unit_id_valid, public.person_for_unit_establishment_id_valid, public.person_for_unit_legal_unit_id_valid, public.power_root_custom_root_legal_unit_id_valid, public.power_root_derived_root_legal_unit_id_valid, public.stat_for_unit_establishment_id_valid, public.stat_for_unit_legal_unit_id_valid DEFERRED
 CALL worker.process_tasks(p_queue => 'analytics');
 \echo "Checking LU source dates job status"
 "Checking LU source dates job status"

@@ -18,6 +18,7 @@
  edit_comment       | character varying(512)   |           |          |         | extended | 
  edit_by_user_id    | integer                  |           |          |         | plain    | 
  edit_at            | timestamp with time zone |           |          |         | plain    | 
+ stat               | jsonb                    |           |          |         | extended | 
 View definition:
  SELECT id,
     stat_definition_id,
@@ -34,7 +35,8 @@ View definition:
     value_bool,
     edit_comment,
     edit_by_user_id,
-    edit_at
+    edit_at,
+    stat
    FROM stat_for_unit;
 Triggers:
     for_portion_of_valid INSTEAD OF INSERT OR DELETE OR UPDATE ON stat_for_unit__for_portion_of_valid FOR EACH ROW EXECUTE FUNCTION sql_saga.for_portion_of_trigger('id')

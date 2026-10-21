@@ -370,7 +370,16 @@ DDL operations (CREATE/ALTER/DROP on tables, views, triggers). Matched by schema
 
 - `sql_saga.__internal_add_system_time_era`
 - `sql_saga.__internal_ddl_command_affects_managed_object`
+- `sql_saga.__internal_history_policy_sync_active`
 - `sql_saga.__internal_reconcile_system_versioning_family`
+- `sql_saga.__internal_refresh_system_time_columns_snapshot`
+- `sql_saga.__internal_refuse_managed_relation_identity_change`
+- `sql_saga.__internal_refuse_managed_schema_rename`
+- `sql_saga.__internal_set_alter_function_resolved`
+- `sql_saga.__internal_sync_history_policies`
+- `sql_saga.__internal_updatable_view_follow_shape`
+- `sql_saga.__internal_updatable_view_prepare_alter_type`
+- `sql_saga.__internal_updatable_view_prepare_drop_column`
 - `sql_saga.add_current_view`
 - `sql_saga.add_era`
 - `sql_saga.add_for_portion_of_view`
@@ -380,6 +389,7 @@ DDL operations (CREATE/ALTER/DROP on tables, views, triggers). Matched by schema
 - `sql_saga.add_system_versioning`
 - `sql_saga.add_temporal_foreign_key`
 - `sql_saga.add_unique_key`
+- `sql_saga.check_integrity`
 - `sql_saga.drop_current_view`
 - `sql_saga.drop_era`
 - `sql_saga.drop_for_portion_of_view`
@@ -393,6 +403,7 @@ DDL operations (CREATE/ALTER/DROP on tables, views, triggers). Matched by schema
 - `sql_saga.drop_unique_key_by_name`
 - `sql_saga.generated_always_as_row_start_end`
 - `sql_saga.health_checks`
+- `sql_saga.rebuild_system_versioning_views`
 - `sql_saga.rename_following`
 - `sql_saga.set_era_ephemeral_columns`
 - `sql_saga.set_system_time_era_excluded_columns`

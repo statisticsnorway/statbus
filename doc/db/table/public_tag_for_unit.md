@@ -23,12 +23,10 @@ Indexes:
     "tag_for_unit_tag_unit_consolidated_key" UNIQUE, btree (tag_id, establishment_id, legal_unit_id, enterprise_id, power_group_id) NULLS NOT DISTINCT
 Check constraints:
     "One and only one statistical unit id must be set" CHECK (num_nonnulls(establishment_id, legal_unit_id, enterprise_id, power_group_id) = 1)
-    "tag_for_unit_establishment_id_check" CHECK (admin.establishment_id_exists(establishment_id))
-    "tag_for_unit_legal_unit_id_check" CHECK (admin.legal_unit_id_exists(legal_unit_id))
-    "tag_for_unit_power_group_id_check" CHECK (admin.power_group_id_exists(power_group_id))
 Foreign-key constraints:
     "tag_for_unit_edit_by_user_id_fkey" FOREIGN KEY (edit_by_user_id) REFERENCES auth."user"(id) ON DELETE RESTRICT
     "tag_for_unit_enterprise_id_fkey" FOREIGN KEY (enterprise_id) REFERENCES enterprise(id) ON DELETE CASCADE
+    "tag_for_unit_power_group_id_fkey" FOREIGN KEY (power_group_id) REFERENCES power_group(id) ON DELETE CASCADE
     "tag_for_unit_tag_id_fkey" FOREIGN KEY (tag_id) REFERENCES tag(id) ON DELETE CASCADE
 Policies:
     POLICY "tag_for_unit_admin_user_manage"
@@ -52,6 +50,8 @@ Triggers:
     a_tag_for_unit_log_delete AFTER DELETE ON tag_for_unit REFERENCING OLD TABLE AS old_rows FOR EACH STATEMENT EXECUTE FUNCTION worker.log_base_change()
     a_tag_for_unit_log_insert AFTER INSERT ON tag_for_unit REFERENCING NEW TABLE AS new_rows FOR EACH STATEMENT EXECUTE FUNCTION worker.log_base_change()
     a_tag_for_unit_log_update AFTER UPDATE ON tag_for_unit REFERENCING OLD TABLE AS old_rows NEW TABLE AS new_rows FOR EACH STATEMENT EXECUTE FUNCTION worker.log_base_change()
+    tag_for_unit_establishment_id_check AFTER INSERT OR UPDATE ON tag_for_unit FROM establishment DEFERRABLE INITIALLY IMMEDIATE FOR EACH ROW EXECUTE FUNCTION sql_saga.regular_fk_check_c('tag_for_unit_establishment_id_fkey', 'public', 'tag_for_unit', '{establishment_id}', '', '', '', 'public', 'establishment', '{id}', 'valid', 'valid_from', 'valid_until', 'SIMPLE', 'NO ACTION', 'NO ACTION', 'regular_to_temporal')
+    tag_for_unit_legal_unit_id_check AFTER INSERT OR UPDATE ON tag_for_unit FROM legal_unit DEFERRABLE INITIALLY IMMEDIATE FOR EACH ROW EXECUTE FUNCTION sql_saga.regular_fk_check_c('tag_for_unit_legal_unit_id_fkey', 'public', 'tag_for_unit', '{legal_unit_id}', '', '', '', 'public', 'legal_unit', '{id}', 'valid', 'valid_from', 'valid_until', 'SIMPLE', 'NO ACTION', 'NO ACTION', 'regular_to_temporal')
     trigger_prevent_tag_for_unit_id_update BEFORE UPDATE OF id ON tag_for_unit FOR EACH ROW EXECUTE FUNCTION admin.prevent_id_update()
 Access method: heap
 
