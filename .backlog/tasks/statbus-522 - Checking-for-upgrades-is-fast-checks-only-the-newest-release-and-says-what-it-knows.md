@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-10-20 20:35'
-updated_date: '2026-10-21 11:56'
+updated_date: '2026-10-21 12:07'
 labels:
   - upgrade
   - release
@@ -56,28 +56,6 @@ Measurements: `tmp/lxd-gate-design.md` ("T4 grounded", "T4 round 2", "T4 round 3
 
 **Not in this ticket:** renaming the stored values and showing "pending" or "building" for real. That needs a published build status and comes with the status endpoint work.
 
-### Zoom in: how we test it
-- **SQL, with the triggers on:**
-  - Discovery retires older available rows and leaves scheduled, in-progress, failed, rolled-back and parked rows as they were, also after repeated passes.
-  - On the stable channel, a newer release candidate does not retire the newest release.
-  - Edge rows: a release candidate promoted to a release (same commit), a missing version, equal commit times.
-  - The migration on old-style rows gives the same result on full replay and on upgrade, and a second run changes nothing.
-- **Go:**
-  - Manifest checking: an empty manifest, the wrong commit, a missing binary, an old five-image manifest, a network error.
-  - The probe with mixed present, absent and unclear answers.
-  - Discovery fetches only the newest release's manifest. A one-row check changes only that row.
-- **Workflow:** the six-image check refuses a commit with one image missing.
-- **Browser:** Check, then Schedule, on a retired release in the history list.
-- **Real box:** an LXD guest with the previous stable's database, several newer release candidates and the candidate's service. One check finishes in under 5 s, from request until the readiness is written, on a healthy network. Pre-download still pulls only the newest ready release.
-
-### Zoom in: order of work
-1. Discovery retires older available rows, plus the migration (SQL tests first).
-2. `release.yaml` checks six images, stops rebuilding, lists six. The box checks manifests.
-3. The shared fast check.
-4. Check and Schedule one release, CLI and admin page.
-5. Clear words.
-6. Real-box timing and the next release candidate's manifest.
-
 ### Closing review
 - **Memory:** none needed.
 - **Documentation:** `doc/upgrade-timeline.md` describes discovery, readiness and the check as built.
@@ -90,11 +68,12 @@ Measurements: `tmp/lxd-gate-design.md` ("T4 grounded", "T4 round 2", "T4 round 3
 - [ ] #2 Add the discovery-only retirement step and the forward migration; the new SQL tests and the existing upgrade SQL tests pass
 - [ ] #3 Make release.yaml check that all six images of the commit can be pulled anonymously before it publishes, stop building images and list all six; a test shows the check refuses a commit with one image missing
 - [ ] #4 Make the box check a fetched manifest (commit, images, binaries; five-image manifests accepted), shown by Go tests for empty, wrong-commit, incomplete and old manifests and a network error
-- [ ] #5 Replace the per-tag manifest sweep and docker manifest inspect with one shared per-row check; Go tests show discovery fetches only the newest release's manifest and that mixed present, absent and unclear probe answers give the right result
+- [ ] #5 Replace the per-tag manifest sweep and docker manifest inspect with one shared per-row check; Go tests show discovery fetches only the newest release's manifest, and that the probes give ready when every image is present, not ready when any is absent, and no change when any answer is unclear
 - [ ] #6 Add ./sb upgrade check <target>, an admin-only function that names one commit, and Check and Schedule buttons for available and retired rows; tests show only that row's readiness changes and the Check then Schedule path works in the browser
-- [ ] #7 Show readiness in plain words in the admin page and CLI without changing the stored values; app and Go tests cover the wording for tagged releases and untagged commits
-- [ ] #8 On an LXD guest with the previous stable's database and several newer release candidates, the candidate's service finishes one check in under 5 s, and the next release candidate's manifest lists six images whose tags the release run did not move; run IDs and timings in Implementation Notes
-- [ ] #9 [Owner] Review the rewritten design, test plan and order of work after the second review, and record approval or changes in Implementation Notes before implementation starts
+- [ ] #7 Show readiness in the admin page and CLI as "not seen yet", "ready" and "not found", and "not applicable" for an untagged commit's release column, without changing the stored values; app and Go tests cover each word
+- [ ] #8 On an LXD guest with the previous stable's database and several newer release candidates, the candidate's service finishes one check in under 5 s from request until the readiness is written, and pre-download pulls only the newest ready release; run and timings in Implementation Notes
+- [ ] #9 The next release candidate's manifest lists six images, and their tags point to the same digests images.yaml published (the release run moved none); run IDs in Implementation Notes
+- [ ] #10 [Owner] Review the design after the second review. Approval starts implementation at criterion 1; requested changes go back into the design first. Record the decision in Implementation Notes
 <!-- AC:END -->
 
 ## Implementation Notes
