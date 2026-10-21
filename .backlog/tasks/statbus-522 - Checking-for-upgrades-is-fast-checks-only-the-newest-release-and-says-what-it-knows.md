@@ -56,7 +56,7 @@ Measurements: `tmp/lxd-gate-design.md` ("T4 grounded", "T4 round 2", "T4 round 3
    - The admin page and CLI show "not seen yet", "ready" and "not found". An untagged commit's release column shows "not applicable".
    - The column comments say the same.
 
-**Not in this ticket:** renaming the stored values and showing "pending" or "building" for real. That needs a published build status and comes with the status endpoint work (todo D).
+**Not in this ticket:** showing "queued", "building" or "build failed" for real. The admin page reads that from www.statbus.org's build status (STATBUS-525), display only; the stored values here stay as they are.
 
 ### Closing review
 - **Memory:** none needed.
