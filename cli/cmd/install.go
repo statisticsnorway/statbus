@@ -1321,6 +1321,7 @@ func runInstall() (installErr error) {
 	// Restart after the step table so the Upgrade service step has also reconciled
 	// the on-disk unit before the daemon loads the new binary and configuration.
 	applyPendingUpgradeDaemonRestart(pendingRestarts, &upgradeDaemonFinalAction)
+	queueStaleDaemonRestart(installDir, &upgradeDaemonFinalAction)
 
 	// STATBUS-468: the signer the install approved must be the signer the
 	// daemon loads. Checked before the completion banner can claim success,
