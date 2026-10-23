@@ -78,13 +78,18 @@ export default function UsersPage() {
   });
   const [searchQuery, setSearchQuery] = useState("");
   const [roleFilter, setRoleFilter] = useState("all");
+  const [statusFilter, setStatusFilter] = useState("current");
 
   const filteredUsers = statbusUsers.filter((user) => {
     const nameMatch = user.display_name
       ?.toLowerCase()
       .includes(searchQuery.toLowerCase());
     const roleMatch = roleFilter === "all" || user.statbus_role === roleFilter;
-    return nameMatch && roleMatch;
+    const isDeleted = user.deleted_at !== null;
+    const statusMatch =
+      statusFilter === "all" ||
+      (statusFilter === "deleted" ? isDeleted : !isDeleted);
+    return nameMatch && roleMatch && statusMatch;
   });
 
   return (
@@ -111,6 +116,16 @@ export default function UsersPage() {
                   {role.label}
                 </SelectItem>
               ))}
+            </SelectContent>
+          </Select>
+          <Select value={statusFilter} onValueChange={setStatusFilter}>
+            <SelectTrigger className="w-[180px]">
+              <SelectValue placeholder="Filter by status" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="current">Current Users</SelectItem>
+              <SelectItem value="deleted">Deleted Users</SelectItem>
+              <SelectItem value="all">All Users</SelectItem>
             </SelectContent>
           </Select>
         </div>
