@@ -4,7 +4,7 @@ title: Source-sensitive upgrade work runs only in the program installed on disk
 status: In Progress
 assignee: []
 created_date: '2026-09-22 17:01'
-updated_date: '2026-10-22 14:40'
+updated_date: '2026-10-23 21:05'
 labels:
   - owner-decision
   - upgrade
@@ -75,4 +75,11 @@ An earlier edit today replaced these criteria with D-only ones; they are restore
 - **AC1 (open):** met by D through ./sb install rather than a gate inside the daemon: a stale daemon is restarted at install exit, so it does not claim work. Evidence: `TestStaleUpgradeDaemonIsRestartedAtInstallExit` (5 cases), 0267851e9. To check when CI is green. The ungated recovery part is unchanged code.
 - **AC2 (open):** still a real claim. Proven by the next candidate's fleet, or by an observation on a box.
 - **AC3 (open, owner to decide):** with D the daemon no longer runs stale code after an install, so the failure this guarded against should not arise. Remove with that reason, or keep.
+
+### Owner direction 2026-10-23 (evening, to confirm next session)
+- Activation has one route: put the new sb in place, run ./sb install. No separate activate command. A hand-copied sb picked up by a later systemd restart is acceptable; no idle self-check in the daemon.
+- During a manual install, a stopped daemon and a daemon held back by the lock behave the same. If the daemon misbehaves, stopped is safer. Proposed shape: once ./sb install holds the lock, it stops the daemon. On success it starts the daemon on the installed sb. On failure the daemon stays stopped until the next successful ./sb install. This replaces the restart-at-exit in 0267851e9, closes the release-before-restart race, and covers the failed-install case.
+- Stopping under the lock cannot interrupt an upgrade: the lock means no upgrade is in flight.
+- The self-upgrade handoff (exit 42) is unchanged.
+- Open: confirm this shape, then implement, test in a real guest, close.
 <!-- SECTION:NOTES:END -->
