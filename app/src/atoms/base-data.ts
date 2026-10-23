@@ -143,7 +143,10 @@ export const baseDataPromiseAtom = atomWithRefresh<Promise<BaseData>>(
       ] = await Promise.all([
         client.from("stat_definition_enabled").select(),
         client.from("external_ident_type_enabled").select(),
-        client.from("user").select().order("last_sign_in_at"), // Consider if all users are needed or just current user's info
+        client
+          .from("user")
+          .select()
+          .order("last_sign_in_at", { ascending: false, nullsFirst: false }), // Consider if all users are needed or just current user's info
         client.from("statistical_unit").select("unit_id").limit(1), // Check existence with minimal data fetch
         client.from("time_context").select("*"), // Fetches all, view is ordered by default
       ]);
