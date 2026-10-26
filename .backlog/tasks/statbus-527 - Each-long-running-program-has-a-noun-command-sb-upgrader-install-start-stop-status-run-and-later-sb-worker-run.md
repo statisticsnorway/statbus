@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: 2026-10-26 11:22
-updated_date: '2026-10-26T22:59:00Z'
+updated_date: '2026-10-26T23:00:00Z'
 labels:
   - cli
   - upgrade
@@ -125,4 +125,8 @@ CI at 659b5e8a5: Harness Selftest success (run 40408398093), Go Test success (40
 Still owed before the release gate: a rung-8 arc subset covering the 12 touched arcs (postswap-mid-tx-kill, postswap-mid-migration-kill, postswap-migration-ceiling, postswap-health-park, rollback-schema-floor-failure, claim-without-notify, boot-migrate-churn-alive-idle, transient-db-backoff, un-park-to-completion, flagless-selfheal-at-target, postswap-converged-selfheal, c-rollback-resurrection) against the candidate, plus 0-happy-upgrade on the per-commit image.
 
 Follow-up on the B3 note above: the superseding Fast Tests run (exercised-sha f60a91780, which descends from 659b5e8a5) completed success at 22:58Z, so the full chain is green: Harness Selftest success at 659b5e8a5 and on every later SHA (3d68fff00, a4f10cf87, ae6b0151f, b578b650d, f60a91780), Fast Tests success at f60a91780. Ticket stays In Progress; AC5/AC8 and the rung-8 arc subset remain open.
+
+2026-10-26 (sheep): final review blocker fixed in 3d68fff00. The H1 resolution fix made the handover's 'sb upgrader start --no-block' no-op on the still-active legacy unit; 'sb upgrader start' now has a hidden --unit flag used only by the handover, which passes --unit <new unit>. Regression: TestUpgraderStartExplicitUnitNamesTheNewUnit (real start command in the both-files/legacy-active staged state starts the NEW unit, legacy untouched), TestUpgraderStartResolvesRunningLegacyUnit (operator path still resolves the running unit), and the ordering test pins the handover step 'sb upgrader start --no-block --unit statbus-upgrader@...'. Red-before: reverting the handover's start to the resolve-based form fails TestHandoffToRenamedUpgraderUnit_OrderingAndLock; the reviewer's overlay probe failed at 6675a68e3 and passes now.
+
+CI: 3d68fff00's own app-build run was cancelled by superseding pushes (STATBUS-530 landed on top). The merged tree is green: b578b650d (contains 3d68fff00) — Go Test, app build & lint, Images, Harness Selftest, Push all success; tip f60a91780 — Push [40414589626], Images [40414589837], Harness Selftest [40414589714], Notify [40414589696], Fast Tests [40415033830] all success. Local: go test ./cmd/ ./internal/... clean, golangci-lint 0 issues, dev.sh test-harness exit 0.
 <!-- SECTION:NOTES:END -->
