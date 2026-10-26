@@ -179,7 +179,11 @@ func showPostgresVars() error {
 		return "", fmt.Errorf("required key %s not found in .env", key)
 	}
 
-	pgHost := getOrDefault("SITE_DOMAIN", "local.statbus.org")
+	// Internal database clients connect to the address the database route
+	// binds (AGENTS.md: CADDY_DB_BIND_ADDRESS/CADDY_DB_PORT), never the
+	// public SITE_DOMAIN — a site name is for users and certificates and
+	// may not even resolve on this host.
+	pgHost := getOrDefault("CADDY_DB_BIND_ADDRESS", "127.0.0.1")
 	pgDatabase, err := getOrFail("POSTGRES_APP_DB")
 	if err != nil {
 		return err

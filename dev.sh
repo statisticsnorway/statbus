@@ -1197,12 +1197,15 @@ esac
 
 case "$action" in
     'postgres-variables' )
-        SITE_DOMAIN=$(./sb dotenv -f .env get SITE_DOMAIN || echo "local.statbus.org")
         CADDY_DEPLOYMENT_MODE=$(./sb dotenv -f .env get CADDY_DEPLOYMENT_MODE || echo "development")
         PGDATABASE=$(./sb dotenv -f .env get POSTGRES_APP_DB)
         PGUSER=${PGUSER:-$(./sb dotenv -f .env get POSTGRES_ADMIN_USER)}
         PGPASSWORD=$(./sb dotenv -f .env get POSTGRES_ADMIN_PASSWORD)
-        PGHOST=$SITE_DOMAIN
+        # Internal database clients connect to the address the database route
+        # binds (AGENTS.md: CADDY_DB_BIND_ADDRESS/CADDY_DB_PORT), never the
+        # public SITE_DOMAIN — a site name is for users and certificates and
+        # may not even resolve on this host.
+        PGHOST=$(./sb dotenv -f .env get CADDY_DB_BIND_ADDRESS || echo "127.0.0.1")
 
         if [ "${TLS:-}" = "1" ] || [ "${TLS:-}" = "true" ]; then
             PGPORT=$(./sb dotenv -f .env get CADDY_DB_TLS_PORT)
@@ -2426,8 +2429,15 @@ EOF
         eval $(./dev.sh postgres-variables)
         SEED_NAME="${POSTGRES_SEED_DB:-statbus_seed}"
 
-        SEED_EXISTS=$(./sb psql -d postgres -t -A -c \
-            "SELECT 1 FROM pg_database WHERE datname = '$SEED_NAME';" 2>/dev/null || echo "0")
+        # An existence check has three outcomes — present, absent, and
+        # unreachable — not two. A failed query exits non-zero with the psql
+        # error; it never masquerades as "absent", or the following create
+        # would collide with the database that is actually still there.
+        if ! SEED_EXISTS=$(./sb psql -d postgres -t -A -c \
+            "SELECT 1 FROM pg_database WHERE datname = '$SEED_NAME';"); then
+            echo "Error: could not check whether seed database '$SEED_NAME' exists (psql failed; see above). Refusing to guess." >&2
+            exit 1
+        fi
         if [ "$SEED_EXISTS" != "1" ]; then
             echo "Seed database '$SEED_NAME' does not exist; nothing to delete."
             exit 0
@@ -3404,6 +3414,10 @@ EOS
         bash "$WORKSPACE/test/install-recovery/tests/harness-failure-path-selftest.sh"
         bash "$WORKSPACE/test/install-recovery/tests/github-token-era-test.sh"
         bash "$WORKSPACE/test/install-recovery/tests/lxd-default-domain-test.sh"
+        # STATBUS-529: dev.sh's own DB-facing contracts (internal bind address,
+        # fail-loud seed existence check).
+        bash "$WORKSPACE/test/dev-postgres-variables-test.sh"
+        bash "$WORKSPACE/test/dev-delete-seed-test.sh"
       ;;
     'test-assert-db-at-head' )
         # Smoke test for the `./sb assert-db-at-head` Cobra subcommand
