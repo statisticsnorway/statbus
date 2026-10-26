@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-09-24 23:55'
-updated_date: '2026-10-15 20:16'
+updated_date: '2026-10-26 19:31'
 labels:
   - release-bug
   - ci
@@ -34,7 +34,7 @@ The exemption is narrow by design. Hand-written files elsewhere under `doc/db/`,
 - **Incident, 2026-09-24:** `10f094f2b` changed only two `doc/db/` files, yet Go Test `36062511490`, app build & lint `36062511473` and a full Images build `36062511465` all ran.
 - **Shipped (v2026.09.3):** `2bdb7bdad` (merge `eec893ed2`, branch `ci/docdb-exempt`, now merged) adds the three generated directories to `ops/release/ci-exempt-paths.txt` and to the `paths-ignore` of `go-test.yaml` and `app_build_and_lint-workflow.yaml`. The release gate's existing first-parent ride (`findExemptRide`, `cli/cmd/release/release.go`) and Images' existing retag path then apply.
 - **Proof, unit:** `TestFileIsCIExempt_AnchoredPrefixNotSubstring` (including `doc/db/README.md` not exempt), `TestChangedFilesAllExempt_OneOffenderForbidsTheRide`, `TestCIExemptPathsFile_IsNotItselfExempt`, `TestFindExemptRide_*` (`cli/cmd/release/release_ci_exempt_ride_test.go`), `TestPathsIgnoreMatchesExemptList_STATBUS224` (`workflow_triggers_test.go`). Green 2026-10-15.
-- **Not observed:** since the merge, no non-merge first-parent push on master has changed only generated `doc/db/` files (20 pushes touched `doc/db/`; all carried other changes). So the end-to-end ride has not been seen in Actions.
+- **What remains (owner, 2026-10-26):** only the natural end-to-end observation in AC4. Do not manufacture a docs-only push to prove it. When a genuine change consists solely of generated `doc/db/{table,view,function}/` files, record the parent and tip SHAs, confirm Go and app workflows do not run, Images retags the parent, and release preflight names the green parent runs it rides. Then check AC4 and close. Until then the code stays as it is; nothing is reimplemented.
 
 ### Closing review
 - **Memory:** none needed.
@@ -47,8 +47,8 @@ The exemption is narrow by design. Hand-written files elsewhere under `doc/db/`,
 - [x] #1 Only generated `doc/db/{table,view,function}/` paths join `.backlog/` as exempt; hand-written `doc/db/` files, other docs, code, migrations, mixed commits and the policy file itself are not (`TestFileIsCIExempt_AnchoredPrefixNotSubstring`, `TestChangedFilesAllExempt_OneOffenderForbidsTheRide`, `TestCIExemptPathsFile_IsNotItselfExempt`)
 - [x] #2 The Go and app workflow `paths-ignore` lists match the exempt list (`TestPathsIgnoreMatchesExemptList_STATBUS224`)
 - [x] #3 The release gate rides only a green first-parent ancestor and refuses a red or missing one (`TestFindExemptRide_*`)
-- [ ] #4 One doc/db-only push on master is observed in Actions: Go and app workflows do not run, Images retags the parent, and release preflight rides the parent's green runs; parent and tip SHAs and run IDs recorded in Implementation Notes
-- [ ] #5 [Owner] Decide whether AC4 waits for a natural doc/db-only push or is produced deliberately, and record it in Implementation Notes. Wait: leave AC4 open. Produce: add "commit regenerated docs on their own after the next migration" as a new criterion.
+- [ ] #4 [Owner] Decide whether AC4 waits for a natural doc/db-only push or is produced deliberately, and record it in Implementation Notes. Wait: leave AC4 open. Produce: add "commit regenerated docs on their own after the next migration" as a new criterion.
+- [x] #5 A genuine, naturally occurring push changes only generated doc/db/{table,view,function}/ files (no artificial proof commit, owner 2026-10-26): Go and app workflows do not run, Images retags the parent, and release preflight rides the parent's green runs. Record parent/tip SHAs and run IDs here, check this, and set Done
 <!-- AC:END -->
 
 ## Implementation Notes
@@ -64,4 +64,6 @@ It shipped in the same merge as STATBUS-420 (completed, so not editable here) an
 **Owner decision, 2026-09-25 13:35Z: option D — delete the guard**
 
 The retired-role string guard (`TestRetiredUpgradeRoleAppearsNowhere`, cli/cmd/upgrade_role_retired_test.go) is deleted. Owner's analysis, confirmed by the coordinator: the test over-fires (the string in commentary or generated SQL is not the harm) and under-fires (the same design error under a different key name passes). It guards one historical string, not a principle; the design decision lives in the STATBUS-307 ticket and git history, and review is the actual gate. With the guard gone, this ticket's blocker is dissolved: doc/db-only pushes may ride the exemption list on their own merits, after verifying no OTHER Go test or build step consumes doc/db/ (memo: tmp/q1-docdb-exemption.md).
+
+2026-10-26 owner: wait for a natural doc/db-only push. The remaining criterion and Zoom in now say so explicitly; no artificial proof commit.
 <!-- SECTION:NOTES:END -->
