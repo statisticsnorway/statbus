@@ -3,9 +3,10 @@ id: STATBUS-530
 title: >-
   Refspec normalization must not erase crashed or parked upgrade recovery
   markers
-status: To Do
+status: In Progress
 assignee: []
-created_date: '2026-10-26 22:28'
+created_date: 2026-10-26 22:28
+updated_date: '2026-10-26T22:32:00Z'
 labels:
   - upgrade
   - cli
