@@ -5,8 +5,8 @@ title: >-
   install|start|stop|status|run, and later sb worker run
 status: In Progress
 assignee: []
-created_date: '2026-10-26 11:22'
-updated_date: '2026-10-26 22:11'
+created_date: 2026-10-26 11:22
+updated_date: '2026-10-26T22:59:00Z'
 labels:
   - cli
   - upgrade
@@ -123,4 +123,6 @@ Validation: bash -n on all 16 edited scripts OK; scenario-helper-resolution-test
 CI at 659b5e8a5: Harness Selftest success (run 40408398093), Go Test success (40408397838), Images success (40408397900), app build and lint success (40408398020), Push on master success (40408397008). Fast Tests run 40408823594 was cancelled by concurrency supersession when 00753cd25 landed 10 minutes later (STATBUS-364 design; the change touches only test/install-recovery shell, orthogonal to the pg_regress suite); the superseding run's result is the operative verdict.
 
 Still owed before the release gate: a rung-8 arc subset covering the 12 touched arcs (postswap-mid-tx-kill, postswap-mid-migration-kill, postswap-migration-ceiling, postswap-health-park, rollback-schema-floor-failure, claim-without-notify, boot-migrate-churn-alive-idle, transient-db-backoff, un-park-to-completion, flagless-selfheal-at-target, postswap-converged-selfheal, c-rollback-resurrection) against the candidate, plus 0-happy-upgrade on the per-commit image.
+
+Follow-up on the B3 note above: the superseding Fast Tests run (exercised-sha f60a91780, which descends from 659b5e8a5) completed success at 22:58Z, so the full chain is green: Harness Selftest success at 659b5e8a5 and on every later SHA (3d68fff00, a4f10cf87, ae6b0151f, b578b650d, f60a91780), Fast Tests success at f60a91780. Ticket stays In Progress; AC5/AC8 and the rung-8 arc subset remain open.
 <!-- SECTION:NOTES:END -->
