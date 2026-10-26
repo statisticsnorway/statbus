@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-06-18 17:05'
-updated_date: '2026-10-20 20:45'
+updated_date: '2026-10-26 13:19'
 labels:
   - feature-next
   - tooling
@@ -60,6 +60,8 @@ Baseline: `origin/master` at `373d15fc3`. Criterion disposition and remaining po
 
 <!-- SECTION:NOTES:BEGIN -->
 Audit after v2026.09.3 (2026-09-29): no work in v2026.09.3 (git log v2026.09.2..v2026.09.3 has no commits for it). Set In Progress by the 2026-09-24 reconcile (b20dc1395); back to To Do until work starts.
+
+2026-10-26 (STATBUS-527): naming decided — the Go worker's long-running command is `sb worker run`. Verbs act on upgrades (`sb upgrade ...`); nouns are long-running programs (`sb upgrader` now, `sb worker` here). Each program's long-running process is started with `run`. systemd manages the upgrader on the host (so it also has install/start/stop/status); Docker manages the worker in its container through `./sb start|stop|restart worker`, so the worker needs only `run`.
 <!-- SECTION:NOTES:END -->
 
 ## Comments
