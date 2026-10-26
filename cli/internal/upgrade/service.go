@@ -312,9 +312,11 @@ func (d *Service) SetLegacyUnitInstance(instance string) {
 //
 // Order (owner direction):
 //  1. `sb upgrader install`  — write + enable the new unit (idempotent).
-//  2. `sb upgrader start --no-block` — start the new unit BEFORE the old one
-//     is touched. Its first boot may lose the daemon advisory lock to this
-//     still-running process; Restart=always retries it past our exit.
+//  2. `sb upgrader start --no-block --unit <new>` — start the new unit BEFORE
+//     the old one is touched. The new unit is named EXPLICITLY: generic
+//     resolution prefers the still-active legacy unit (H1), which is exactly
+//     the wrong answer here. Its first boot may lose the daemon advisory lock
+//     to this still-running process; Restart=always retries it past our exit.
 //  3. `sb upgrader retire-legacy-unit` — disable + delete the old unit.
 //  4. release the lock, then `systemctl --user --no-block stop` THIS unit —
 //     a self-stop must be no-block (a blocking stop waits for our own exit),
@@ -367,7 +369,7 @@ func (d *Service) handoffToRenamedUpgraderUnit() (handedOff bool) {
 		log.Printf("upgrader unit rename: `sb upgrader install` failed: %v (old unit untouched; next boot retries)", err)
 		return false
 	}
-	if err := runUpgraderHandoffStep(d.projDir, fixupEnv, "start", "--no-block"); err != nil {
+	if err := runUpgraderHandoffStep(d.projDir, fixupEnv, "start", "--no-block", "--unit", target); err != nil {
 		log.Printf("upgrader unit rename: `sb upgrader start` failed: %v (old unit untouched; next boot retries)", err)
 		return false
 	}

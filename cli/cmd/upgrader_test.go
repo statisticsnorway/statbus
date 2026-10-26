@@ -939,3 +939,72 @@ func TestUpgraderStatusVerdict(t *testing.T) {
 		})
 	}
 }
+
+// TestUpgraderStartExplicitUnitNamesTheNewUnit (final review): during the
+// rename handover the legacy unit is still active, so generic resolution
+// (H1) answers "legacy" — the handover's start must therefore name the NEW
+// unit explicitly via --unit, or the new unit is never started and the box
+// ends with no upgrader after the legacy one is retired and stopped. This
+// drives the REAL start command in the staged state (both unit files exist,
+// only legacy active).
+func TestUpgraderStartExplicitUnitNamesTheNewUnit(t *testing.T) {
+	upgraderFixture(t, upgraderTestTemplate)
+	f := installFakeSystemd(t)
+	if err := os.WriteFile(legacyUpgraderUserUnitPath(), []byte("old"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(unitfloor.UserUnitPath(), []byte(upgraderTestTemplate), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	legacy := f.unit("statbus-upgrade@test.service")
+	legacy.activeState = "active"
+	legacy.mainPID = 4242
+
+	// The handover's invocation: --unit names the new unit explicitly.
+	origUnit := upgraderStartUnit
+	upgraderStartUnit = "statbus-upgrader@test.service"
+	t.Cleanup(func() { upgraderStartUnit = origUnit })
+	if err := upgraderStartCmd.RunE(nil, nil); err != nil {
+		t.Fatal(err)
+	}
+	newUnit := f.unit("statbus-upgrader@test.service")
+	if newUnit.activeState != "active" {
+		t.Fatal("the handover's start must start the NEW unit")
+	}
+	if legacy.activeState != "active" || legacy.mainPID != 4242 {
+		t.Fatal("the legacy unit must be untouched by the handover's start")
+	}
+}
+
+// TestUpgraderStartResolvesRunningLegacyUnit pins the other half: without
+// --unit, start in the staged state addresses the running legacy unit (H1).
+func TestUpgraderStartResolvesRunningLegacyUnit(t *testing.T) {
+	upgraderFixture(t, upgraderTestTemplate)
+	f := installFakeSystemd(t)
+	if err := os.WriteFile(legacyUpgraderUserUnitPath(), []byte("old"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(unitfloor.UserUnitPath(), []byte(upgraderTestTemplate), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	legacy := f.unit("statbus-upgrade@test.service")
+	legacy.activeState = "active"
+	legacy.mainPID = 4242
+
+	origUnit := upgraderStartUnit
+	upgraderStartUnit = ""
+	t.Cleanup(func() { upgraderStartUnit = origUnit })
+	if err := upgraderStartCmd.RunE(nil, nil); err != nil {
+		t.Fatal(err)
+	}
+	// The legacy unit was already active; the fake records a start on it.
+	found := false
+	for _, c := range f.calls {
+		if strings.Join(c, " ") == "start statbus-upgrade@test.service" {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatalf("start without --unit must address the running legacy unit; calls: %v", f.calls)
+	}
+}

@@ -69,7 +69,7 @@ func TestHandoffToRenamedUpgraderUnit_OrderingAndLock(t *testing.T) {
 
 	want := []string{
 		"sb upgrader install",
-		"sb upgrader start --no-block",
+		"sb upgrader start --no-block --unit statbus-upgrader@test.service",
 		"sb upgrader retire-legacy-unit",
 		"systemctl --no-block stop statbus-upgrade@test.service lockHeld=false",
 	}

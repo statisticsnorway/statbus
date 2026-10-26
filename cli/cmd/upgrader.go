@@ -565,6 +565,12 @@ the handover itself under the upgrade lock.`,
 
 var upgraderStartNoBlock bool
 
+// upgraderStartUnit pins the exact unit to start. Hidden: the ONLY legitimate
+// user is the self-upgrade unit handover, which must start the NEW unit while
+// the legacy unit is still the active one — generic resolution (H1) prefers
+// the running unit, which is exactly the wrong answer there.
+var upgraderStartUnit string
+
 var upgraderStartCmd = &cobra.Command{
 	Use:   "start",
 	Short: "Start the upgrader's systemd unit",
@@ -578,7 +584,10 @@ be retried by Restart=always.`,
 		if upgraderPlatform != "linux" {
 			return fmt.Errorf("the upgrader is managed by systemd, which does not exist on this platform")
 		}
-		instance := resolveUpgraderInstance()
+		instance := upgraderStartUnit
+		if instance == "" {
+			instance = resolveUpgraderInstance()
+		}
 		if instance == "" {
 			return fmt.Errorf("could not determine the upgrader's unit name (USER is unset)")
 		}
@@ -710,6 +719,8 @@ func upgraderStatusVerdict(obs upgraderObservation) error {
 
 func init() {
 	upgraderStartCmd.Flags().BoolVar(&upgraderStartNoBlock, "no-block", false, "submit the start and return without waiting for the start job")
+	upgraderStartCmd.Flags().StringVar(&upgraderStartUnit, "unit", "", "start exactly this unit (hidden; the self-upgrade handover's start of the NEW unit while the legacy one is still active)")
+	_ = upgraderStartCmd.Flags().MarkHidden("unit")
 	upgraderCmd.AddCommand(upgraderRunCmd)
 	upgraderCmd.AddCommand(upgraderInstallCmd)
 	upgraderCmd.AddCommand(upgraderStartCmd)
