@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-09-29 08:24'
-updated_date: '2026-10-20 20:45'
+updated_date: '2026-10-26 14:52'
 labels:
   - install
 dependencies: []
@@ -30,6 +30,8 @@ Owner direction (2026-09-29): operators fix certificates only with `./sb cert in
 
 A second, later step: let the installer accept the certificate up front, through the same code path, so a fresh install is born serving it. The private-certificate choice is STATBUS-399, a separate ticket.
 
+**Owner, 2026-10-26: this ticket lands incrementally and does NOT wait for STATBUS-399.** No HTTP-first or certificate redesign here. The installer must accept the operator's real certificate input through the SAME code path as `./sb cert install`. What is on master today is only half of it: `TLS_CERT_FILE`/`TLS_KEY_FILE` in `.env.config` name paths INSIDE the Caddy container (`/data/custom-certs/...`) and are validated for existence; a host path such as `/home/user/statbus.crt` is refused with a remedy to run `./sb cert install`. There is no installer certificate question and no environment variable carrying the certificate. `install.sh` has no `--cert`/`--key` flags. The harness's `HARNESS_CERT_FRESH` file staging is not a product input.
+
 ### Zoom in
 - **Incident, Finland replay, 2026-09-29:** LXD forks of Ville's exact broken v2026.09.2 state (`tmp/ville-replay-v2026.09.3.md` D3, `tmp/ville-cert-install-replay.md`). `caddy/data/` was `root:root 755`; `./sb cert install` failed with `mkdir custom-certs: permission denied` (`cert.go writeCertAndKey`) on both v2026.09.2 and v2026.09.3, with no guidance. After a one-time ownership fix it worked end to end.
 - **Shipped (v2026.10.0):** merge `8579e6e61` (+ `a0ee1f2ed`). `./sb cert install` repairs an unwritable `custom-certs` through a container (the box's proxy image, alpine fallback, no network) via the shared `cli/internal/hostrepair`, also used by STATBUS-431. Every certificate remedy now names `./sb cert install <full path to certificate> <full path to key>` (`ad7876f0b`, `828b04984`); `doc/DEPLOYMENT.md` renewal uses full paths (`7bd5fd612`).
@@ -49,7 +51,7 @@ A second, later step: let the installer accept the certificate up front, through
 - [x] #2 Every certificate refusal names `./sb cert install` with full paths (`ad7876f0b`, `828b04984`; install.sh `INSTALL_FIX` allowlist)
 - [ ] #3 An explicit LXD run of `5-install-cert-repair-via-cert-install.sh` on a built candidate: a box that has run Services follows the printed remedy as the install user and reaches a ready installation with CA-verified HTTPS
 - [ ] #4 The installer accepts a certificate and key pair, or one PFX/PKCS#12 file with its password from an environment variable, through the same code path as `./sb cert install`, refuses them in private and development modes, and a fresh install is born serving that certificate
-- [ ] #5 [Owner] Decide whether AC4 (installer certificate arguments) stays here or moves to STATBUS-399, and record it in Implementation Notes. Stays: AC4 remains open work here. Moved: remove AC4, check this, and set Done once AC3 passes.
+- [x] #5 [Owner] Decide whether AC4 (installer certificate arguments) stays here or moves to STATBUS-399, and record it in Implementation Notes. Stays: AC4 remains open work here. Moved: remove AC4, check this, and set Done once AC3 passes.
 <!-- AC:END -->
 
 ## Implementation Notes
@@ -60,4 +62,7 @@ A second, later step: let the installer accept the certificate up front, through
 - **AC3:** open; scenario never run (its header, 2026-10-15).
 - **AC4:** open; no installer certificate inputs on master `cb34436b4`.
 - **History:** the 2026-09-29 replay notes, merge notes and 2026-10-01 reconciliation are folded into Zoom in; full text in Git history.
+
+### Owner decision 2026-10-26: AC4 stays here, delegated
+AC4 is implemented now, in 429, with no dependency on STATBUS-399. Installer certificate input goes through loadCertMaterial/the same code as `./sb cert install`. AC3 (the cert-repair scenario) is proven by an explicit harness run or the candidate gate, not by a new one-off script.
 <!-- SECTION:NOTES:END -->
