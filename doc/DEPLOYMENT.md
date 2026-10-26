@@ -761,6 +761,26 @@ Other useful subcommands:
 
 Run `./sb cert install --help` for the full detection rules (PFX vs PEM, content-based not extension-based) and `./sb cert show --help` / `./sb cert remove --help` for their details.
 
+### Installing the certificate up front (fresh installs)
+
+A fresh standalone install can be born serving your certificate instead of installing first and running `./sb cert install` afterwards. The installer runs the SAME code path as `./sb cert install` — same PFX/PEM detection, password handling, file placement under `caddy/data/custom-certs/`, and the same `TLS_CERT_FILE`/`TLS_KEY_FILE` write into `.env.config` — before Caddy is ever started.
+
+Unattended installs take environment variables (forwarded by `install.sh` exactly like `STATBUS_ENV_CONFIG`; relative paths resolve against your working directory):
+
+```bash
+# PEM pair (fullchain + private key)
+export STATBUS_TLS_CERT_FILE=/path/to/fullchain.pem
+export STATBUS_TLS_KEY_FILE=/path/to/privkey.pem
+
+# OR one PFX/PKCS#12 file, with its password
+export STATBUS_TLS_PFX_FILE=/path/to/your-cert.pfx
+export STATBUS_TLS_PFX_PASSWORD='the-password-your-CA-sent'
+
+curl -fsSL https://statbus.org/install.sh | bash
+```
+
+Without `STATBUS_TLS_PFX_PASSWORD`, a PFX password is prompted on a terminal, exactly as `./sb cert install` prompts. Interactive fresh installs in standalone mode are also asked once whether they have a certificate to install; answering no keeps automatic Let's Encrypt. Certificate input is refused in private mode (the upstream proxy owns the certificate) and development mode (Caddy uses its internal CA).
+
 The rest of this section documents the on-disk layout and the manual steps `./sb cert install` performs, for reference and troubleshooting — you should not need to run them by hand.
 
 ### Certificate Requirements

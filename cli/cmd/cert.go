@@ -369,68 +369,27 @@ func expiryAnnotation(notAfter time.Time) string {
 // Two input shapes (PFX or PEM pair) → detected by content, not
 // extension → validated, placed, env-updated, configured, restarted,
 // and probe-verified.
+//
+// Everything up to and including the .env.config update is
+// installCustomCertificate, the SAME core the installer's Certificate
+// step runs (STATBUS-429 AC4). What remains here is the live-box tail
+// only this command needs: regenerate against the running services,
+// restart the proxy, and probe what Caddy serves. The installer
+// instead lets its own Settings/Services steps do that work.
 func runCertInstall(projDir string, args []string) error {
-	mode, siteDomain, _, _, err := readModeAndCertEnv(projDir)
+	_, siteDomain, _, _, err := readModeAndCertEnv(projDir)
 	if err != nil {
 		return err
-	}
-	if mode != "standalone" {
-		return fmt.Errorf("./sb cert install is only supported in standalone deployment mode (current: %q).\n"+
-			"  - private mode: the upstream proxy owns the certificate; install it there.\n"+
-			"  - development mode: Caddy uses its internal CA; no install needed",
-			mode)
 	}
 	if siteDomain == "" {
 		return errors.New("SITE_DOMAIN not set in .env.config — post-install TLS probe needs it. " +
 			"Set SITE_DOMAIN, run `./sb config generate`, then retry")
 	}
 
-	chain, key, baseName, err := loadCertMaterial(args)
+	info, err := installCustomCertificate(projDir, args, nil)
 	if err != nil {
 		return err
 	}
-	if len(chain) == 0 {
-		return errors.New("no certificates parsed from input")
-	}
-	leaf := chain[0]
-	if err := validateCertKeyMatch(leaf, key); err != nil {
-		return fmt.Errorf("certificate/key mismatch: %w\n"+
-			"  The certificate's public key does not match the private key.\n"+
-			"  Most likely cause: PFX or PEM file is malformed, or wrong key paired with wrong cert",
-			err)
-	}
-	fmt.Println("✓ Certificate and key match (public-key check)")
-
-	if len(chain) < 2 {
-		fmt.Println("⚠ Chain has only the leaf certificate — no intermediates.")
-		fmt.Println("  Caddy needs the full chain to serve clients with non-system roots.")
-		fmt.Println("  Continuing, but if browsers report \"certificate not trusted\", re-export the PFX with all intermediates.")
-	} else {
-		fmt.Printf("✓ Chain validated (%d certificates: leaf + %d intermediate(s))\n", len(chain), len(chain)-1)
-	}
-
-	// Print cert details so the operator confirms it's the right one.
-	fmt.Println()
-	info := buildCertInfo(chain)
-	info.Source = "About to install (custom)"
-	info.Path = filepath.Join(customCertHostDir, baseName+".crt")
-	printCertInfo(info)
-	fmt.Println()
-
-	// Place files.
-	hostCertPath, hostKeyPath, err := writeCertAndKey(projDir, baseName, chain, key)
-	if err != nil {
-		return fmt.Errorf("write cert/key files: %w", err)
-	}
-	fmt.Printf("✓ Files placed: %s, %s\n", hostCertPath, hostKeyPath)
-
-	// Update .env.config.
-	containerCertPath := customCertContainerDir + "/" + baseName + ".crt"
-	containerKeyPath := customCertContainerDir + "/" + baseName + ".key"
-	if err := updateEnvConfigCertPaths(projDir, containerCertPath, containerKeyPath); err != nil {
-		return fmt.Errorf("update .env.config: %w", err)
-	}
-	fmt.Printf("✓ .env.config updated (TLS_CERT_FILE=%s, TLS_KEY_FILE=%s)\n", containerCertPath, containerKeyPath)
 
 	// Regenerate Caddy config (in-process, not shell-out).
 	if err := config.Generate(false); err != nil {
@@ -462,6 +421,83 @@ func runCertInstall(projDir string, args []string) error {
 	return nil
 }
 
+// installCustomCertificate is the shared core of `./sb cert install` and
+// the installer's Certificate step (STATBUS-429 AC4): parse the input
+// (PFX or PEM pair, content-detected), validate the cert/key pair, show
+// the operator what is about to be installed, place the files under
+// caddy/data/custom-certs/, and write the resulting container paths into
+// .env.config. It deliberately does NOT regenerate configuration, restart
+// Caddy, or probe the served certificate: `./sb cert install` does that
+// itself against the running box, while the installer's Settings and
+// Services steps do it for a fresh install.
+//
+// pfxPassword, when non-nil, is the PFX password supplied out-of-band
+// (the installer's STATBUS_TLS_PFX_PASSWORD); nil keeps the interactive
+// prompt of `./sb cert install`.
+//
+// Standalone deployment mode only: private and development modes are
+// refused here so BOTH entry points give the same plain reason.
+func installCustomCertificate(projDir string, args []string, pfxPassword *string) (certInfo, error) {
+	mode, _, _, _, err := readModeAndCertEnv(projDir)
+	if err != nil {
+		return certInfo{}, err
+	}
+	if mode != "standalone" {
+		return certInfo{}, fmt.Errorf("a custom certificate can only be installed in standalone deployment mode (current: %q).\n"+
+			"  - private mode: the upstream proxy owns the certificate; install it there.\n"+
+			"  - development mode: Caddy uses its internal CA; a custom certificate is never used",
+			mode)
+	}
+
+	chain, key, baseName, err := loadCertMaterialWithPassword(args, pfxPassword)
+	if err != nil {
+		return certInfo{}, err
+	}
+	if len(chain) == 0 {
+		return certInfo{}, errors.New("no certificates parsed from input")
+	}
+	leaf := chain[0]
+	if err := validateCertKeyMatch(leaf, key); err != nil {
+		return certInfo{}, fmt.Errorf("certificate/key mismatch: %w\n"+
+			"  The certificate's public key does not match the private key.\n"+
+			"  Most likely cause: PFX or PEM file is malformed, or wrong key paired with wrong cert",
+			err)
+	}
+	fmt.Println("✓ Certificate and key match (public-key check)")
+
+	if len(chain) < 2 {
+		fmt.Println("⚠ Chain has only the leaf certificate — no intermediates.")
+		fmt.Println("  Caddy needs the full chain to serve clients with non-system roots.")
+		fmt.Println("  Continuing, but if browsers report \"certificate not trusted\", re-export the PFX with all intermediates.")
+	} else {
+		fmt.Printf("✓ Chain validated (%d certificates: leaf + %d intermediate(s))\n", len(chain), len(chain)-1)
+	}
+
+	// Print cert details so the operator confirms it's the right one.
+	fmt.Println()
+	info := buildCertInfo(chain)
+	info.Source = "About to install (custom)"
+	info.Path = filepath.Join(customCertHostDir, baseName+".crt")
+	printCertInfo(info)
+	fmt.Println()
+
+	// Place files.
+	hostCertPath, hostKeyPath, err := writeCertAndKey(projDir, baseName, chain, key)
+	if err != nil {
+		return certInfo{}, fmt.Errorf("write cert/key files: %w", err)
+	}
+	fmt.Printf("✓ Files placed: %s, %s\n", hostCertPath, hostKeyPath)
+
+	// Update .env.config.
+	containerCertPath := customCertContainerDir + "/" + baseName + ".crt"
+	containerKeyPath := customCertContainerDir + "/" + baseName + ".key"
+	if err := updateEnvConfigCertPaths(projDir, containerCertPath, containerKeyPath); err != nil {
+		return certInfo{}, fmt.Errorf("update .env.config: %w", err)
+	}
+	fmt.Printf("✓ .env.config updated (TLS_CERT_FILE=%s, TLS_KEY_FILE=%s)\n", containerCertPath, containerKeyPath)
+	return info, nil
+}
+
 // loadCertMaterial dispatches on argv shape + file content. Returns
 // the cert chain (leaf first), the private key, and a sanitised
 // base name for output file naming.
@@ -477,6 +513,13 @@ func runCertInstall(projDir string, args []string) error {
 // All decode failures happen BEFORE any file is written to disk;
 // no partial state to clean up.
 func loadCertMaterial(args []string) ([]*x509.Certificate, interface{}, string, error) {
+	return loadCertMaterialWithPassword(args, nil)
+}
+
+// loadCertMaterialWithPassword is loadCertMaterial with an optional
+// out-of-band PFX password (the installer's STATBUS_TLS_PFX_PASSWORD,
+// STATBUS-429 AC4). A nil pfxPassword keeps the interactive prompt.
+func loadCertMaterialWithPassword(args []string, pfxPassword *string) ([]*x509.Certificate, interface{}, string, error) {
 	switch len(args) {
 	case 1:
 		path := args[0]
@@ -485,11 +528,12 @@ func loadCertMaterial(args []string) ([]*x509.Certificate, interface{}, string, 
 			return nil, nil, "", err
 		}
 		// Single file → try PFX first (content-detect), fall back
-		// to PEM. tryDecodePFX prompts for password ONLY when the
-		// input looks like DER (0x30 0x82). For PEM-shaped input,
-		// it returns immediately with a sentinel so we fall
-		// through without bothering the operator for a password.
-		chain, key, decodeErr := decodePFXOrFallback(data)
+		// to PEM. decodePFXOrFallback prompts for a password ONLY
+		// when no password was supplied AND the input looks like DER
+		// (0x30 0x82). For PEM-shaped input, it returns immediately
+		// with a sentinel so we fall through without bothering the
+		// operator for a password.
+		chain, key, decodeErr := decodePFXOrFallback(data, pfxPassword)
 		if decodeErr != nil {
 			return nil, nil, "", decodeErr
 		}
@@ -552,20 +596,27 @@ func readCertFile(path string) ([]byte, error) {
 }
 
 // decodePFXOrFallback inspects the file and either decodes as PFX
-// (prompting for password) or returns (nil, nil, nil) to signal
-// "not a PFX — try PEM next." Returns a non-nil error ONLY when the
-// input clearly IS a PFX but the password is wrong / file is
-// corrupt — in that case we surface a loud, actionable error rather
-// than silently falling through to PEM (which would then fail with
-// a misleading "no PEM blocks found").
-func decodePFXOrFallback(data []byte) ([]*x509.Certificate, interface{}, error) {
+// or returns (nil, nil, nil) to signal "not a PFX — try PEM next."
+// The password comes from pfxPassword when non-nil (the installer's
+// STATBUS_TLS_PFX_PASSWORD), otherwise the operator is prompted.
+// Returns a non-nil error ONLY when the input clearly IS a PFX but
+// the password is wrong / file is corrupt — in that case we surface
+// a loud, actionable error rather than silently falling through to
+// PEM (which would then fail with a misleading "no PEM blocks found").
+func decodePFXOrFallback(data []byte, pfxPassword *string) ([]*x509.Certificate, interface{}, error) {
 	if !looksLikeDER(data) {
 		// Clearly not a PFX (PEM or unknown) — fall through.
 		return nil, nil, nil
 	}
-	pw, err := readPassword("Enter PFX password (leave empty if none): ")
-	if err != nil {
-		return nil, nil, fmt.Errorf("could not read password from terminal: %w", err)
+	var pw string
+	if pfxPassword != nil {
+		pw = *pfxPassword
+	} else {
+		var err error
+		pw, err = readPassword("Enter PFX password (leave empty if none): ")
+		if err != nil {
+			return nil, nil, fmt.Errorf("could not read password from terminal: %w", err)
+		}
 	}
 	chain, key, err := decodePFX(data, pw)
 	if err != nil {

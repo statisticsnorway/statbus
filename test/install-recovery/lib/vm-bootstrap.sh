@@ -1698,7 +1698,7 @@ set -e
 ( umask 077; cat > "\$HOME/install-input.env" <<'CONFIG'
 CADDY_DEPLOYMENT_MODE=${HARNESS_DEPLOYMENT_MODE:-standalone}
 SITE_DOMAIN=${HARNESS_SITE_DOMAIN:-statbus-test.local}
-$(if [ "${HARNESS_DEPLOYMENT_MODE:-standalone}" = standalone ] && [ "${HARNESS_NO_CUSTOM_CERT:-0}" != 1 ]; then printf 'TLS_CERT_FILE=/data/custom-certs/domain.crt\nTLS_KEY_FILE=/data/custom-certs/domain.key'; fi)
+$(if [ "${HARNESS_DEPLOYMENT_MODE:-standalone}" = standalone ] && [ "${HARNESS_NO_CUSTOM_CERT:-0}" != 1 ] && [ "${HARNESS_CERT_THROUGH_INSTALLER:-0}" != 1 ]; then printf 'TLS_CERT_FILE=/data/custom-certs/domain.crt\nTLS_KEY_FILE=/data/custom-certs/domain.key'; fi)
 DEPLOYMENT_SLOT_NAME=Install Test
 DEPLOYMENT_SLOT_CODE=test
 TRUST_GITHUB_USER=jhf
@@ -1712,7 +1712,7 @@ case "\$(umask)" in
     *[4567]) echo "harness: umask \$(umask) strips other-read; the product checkout would be unreadable to the postgres container (STATBUS-369)"; exit 70 ;;
 esac
 export STATBUS_ENV_CONFIG="\$HOME/install-input.env"
-$(if [ "${HARNESS_DEPLOYMENT_MODE:-standalone}" = standalone ] && [ "${HARNESS_NO_CUSTOM_CERT:-0}" != 1 ]; then printf 'export STATBUS_HARNESS_CERT_STAGING="$HOME/harness-certs"'; fi)
+$(if [ "${HARNESS_DEPLOYMENT_MODE:-standalone}" = standalone ] && [ "${HARNESS_NO_CUSTOM_CERT:-0}" != 1 ]; then if [ "${HARNESS_CERT_THROUGH_INSTALLER:-0}" = 1 ]; then printf '# STATBUS-429 AC4: the certificate reaches the box ONLY through the product installer inputs\nexport STATBUS_TLS_CERT_FILE="$HOME/harness-certs/domain.crt"\nexport STATBUS_TLS_KEY_FILE="$HOME/harness-certs/domain.key"'; else printf 'export STATBUS_HARNESS_CERT_STAGING="$HOME/harness-certs"'; fi; fi)
 ${users_export}
 ${install_version_export}
 ${fresh_install_command}

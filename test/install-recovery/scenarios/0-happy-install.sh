@@ -11,6 +11,15 @@
 # on the box. Explicit deployment/trust input preserves an absent ~/statbus until
 # install.sh itself clones it through FRESH. No pre-clone or custom procurement.
 #
+# STATBUS-429 AC4: the supplied TLS certificate reaches the box ONLY through
+# the product's own installer inputs (STATBUS_TLS_CERT_FILE /
+# STATBUS_TLS_KEY_FILE, the harness's existing CA-signed material), never
+# through the answer file's container paths or the harness's manual
+# caddy/data/custom-certs staging. The installer's Certificate step — the
+# same code path as ./sb cert install — must place the files and write
+# .env.config itself, so this scenario proves a fresh install is born
+# serving the supplied certificate.
+#
 # Usage:
 #   ./test/install-recovery/scenarios/0-happy-install.sh <vm_name>
 #
@@ -28,6 +37,8 @@ if [ "$HARNESS_DEPLOYMENT_MODE" != standalone ] || [ "$HARNESS_UPGRADE_CHANNEL" 
     echo "ERROR: 0-happy-install requires standalone mode and the default stable channel" >&2
     exit 1
 fi
+# The certificate goes through the product installer inputs (see header).
+HARNESS_CERT_THROUGH_INSTALLER=1
 
 
 LIB_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/lib"
@@ -68,10 +79,32 @@ bootstrap_install_test_vm "$VM_NAME" "$INSTALL_TARGET_TAG"
 # 2. Install (no wedge)
 install_statbus_at_sha "$VM_NAME" "$TARGET_SHA" "$INSTALL_TARGET_TAG"
 
+# STATBUS-429 AC4: the certificate arrived ONLY through the product inputs,
+# so the installer's Certificate step must have done the whole job. Provenance
+# is provable: the answer file on the box carries no TLS_CERT_FILE, while
+# .env.config ends up with the container paths — only the step (the
+# ./sb cert install code path) writes those.
+INSTALL_CAPTURE="${HARNESS_ROOT:-$REPO_ROOT}/tmp/install-recovery-${VM_NAME}-install.log"
+if VM_EXEC bash -c 'grep -q ^TLS_CERT_FILE= ~/install-input.env'; then
+    echo 'FAIL: answer file carries TLS_CERT_FILE; the installer-input provenance proof is void' >&2
+    exit 1
+fi
+grep -Eq '^\[[0-9]+/[0-9]+\] Certificate +OK' "$INSTALL_CAPTURE" || { echo 'FAIL: the Certificate step did not run OK' >&2; exit 1; }
+grep -Fq '✓ Files placed:' "$INSTALL_CAPTURE" || { echo 'FAIL: the Certificate step did not place the certificate files' >&2; exit 1; }
+grep -Fq '✓ .env.config updated (TLS_CERT_FILE=/data/custom-certs/domain.crt, TLS_KEY_FILE=/data/custom-certs/domain.key)' "$INSTALL_CAPTURE" || { echo 'FAIL: the Certificate step did not write the container paths into .env.config' >&2; exit 1; }
+TLS_CERT=$(VM_EXEC bash -c "cd ~/statbus && ./sb dotenv -f .env.config get TLS_CERT_FILE")
+TLS_KEY=$(VM_EXEC bash -c "cd ~/statbus && ./sb dotenv -f .env.config get TLS_KEY_FILE")
+[ "$TLS_CERT" = /data/custom-certs/domain.crt ] && [ "$TLS_KEY" = /data/custom-certs/domain.key ] || {
+    echo "FAIL: .env.config has TLS_CERT_FILE=$TLS_CERT TLS_KEY_FILE=$TLS_KEY (expected the installer-written container paths)" >&2; exit 1; }
+CERT_OWNER=$(VM_EXEC bash -c "stat -c '%U:%G' ~/statbus/caddy/data/custom-certs ~/statbus/caddy/data/custom-certs/domain.crt ~/statbus/caddy/data/custom-certs/domain.key | sort -u")
+[ "$CERT_OWNER" = "statbus:statbus" ] || { echo "FAIL: custom-certs not placed as the install user: $CERT_OWNER" >&2; exit 1; }
+echo '  ✓ fresh install born serving the supplied certificate through the product inputs (STATBUS-429 AC4)'
+# assert_harness_https_passes below then proves CA-verified HTTPS against
+# exactly that certificate.
+
 # STATBUS-401: unattended configured-file creation still works, without the
 # fixture password in terminal capture, installer log, or support output.
 FIXTURE_PASSWORD=test-install-password-2026
-INSTALL_CAPTURE="${HARNESS_ROOT:-$REPO_ROOT}/tmp/install-recovery-${VM_NAME}-install.log"
 if grep -qF "$FIXTURE_PASSWORD" "$INSTALL_CAPTURE" ||
     VM_EXEC bash -c 'cd ~/statbus && grep -F -q test-install-password-2026 tmp/install-last-run-output.txt tmp/install-logs/*.log tmp/upgrade-logs/*.log 2>/dev/null'; then
     echo 'administrator password leaked to installation output or support log' >&2

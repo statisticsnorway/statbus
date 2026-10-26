@@ -10,6 +10,14 @@
 # It always runs from the user's home directory (via curl | bash).
 # It always targets ~/statbus/ as the installation directory.
 #
+# Optional certificate input (standalone mode only, STATBUS-429): hand the
+# installer your own TLS certificate and the fresh install is born serving
+# it, through the same code path as ./sb cert install:
+#   STATBUS_TLS_CERT_FILE=/path/fullchain.pem STATBUS_TLS_KEY_FILE=/path/privkey.pem
+#   STATBUS_TLS_PFX_FILE=/path/cert.pfx STATBUS_TLS_PFX_PASSWORD=...
+# Relative paths resolve against the caller's working directory, exactly like
+# STATBUS_ENV_CONFIG and STATBUS_USERS_FILE. See doc/DEPLOYMENT.md.
+#
 # Two modes, detected automatically:
 #   Fresh:   ~/statbus/.git doesn't exist → git clone, download binary, ./sb install
 #   Rescue:  ~/statbus/.git exists        → replace binary, ./sb install --version
@@ -123,7 +131,10 @@ fi
 # Explicit unattended input paths are relative to the caller, not the clone.
 # Preserve them through cd and pass them to the Go installer. Validation and
 # importing belong to ./sb install, which also serves direct CLI invocations.
-for input_name in STATBUS_ENV_CONFIG STATBUS_USERS_FILE; do
+# The STATBUS_TLS_* paths name the operator's certificate for the installer's
+# Certificate step (STATBUS-429 AC4); STATBUS_TLS_PFX_PASSWORD is not a path
+# and is inherited through the environment unchanged.
+for input_name in STATBUS_ENV_CONFIG STATBUS_USERS_FILE STATBUS_TLS_CERT_FILE STATBUS_TLS_KEY_FILE STATBUS_TLS_PFX_FILE; do
     input_path="${!input_name:-}"
     if [ -n "$input_path" ]; then
         case "$input_path" in
@@ -135,8 +146,10 @@ for input_name in STATBUS_ENV_CONFIG STATBUS_USERS_FILE; do
 done
 
 # Build the pasteable command only after relative answer paths became absolute.
+# STATBUS_TLS_PFX_PASSWORD is deliberately NOT part of the rerun command: a
+# password does not belong in a printed, pasteable command line.
 _rerun_env_args=""
-for _rerun_env in STATBUS_ENV_CONFIG STATBUS_USERS_FILE STATBUS_INSTALL_VERSION; do
+for _rerun_env in STATBUS_ENV_CONFIG STATBUS_USERS_FILE STATBUS_INSTALL_VERSION STATBUS_TLS_CERT_FILE STATBUS_TLS_KEY_FILE STATBUS_TLS_PFX_FILE; do
     if [ -n "${!_rerun_env:-}" ]; then
         printf -v _rerun_value '%q' "${!_rerun_env}"
         _rerun_env_args="${_rerun_env_args} ${_rerun_env}=${_rerun_value}"

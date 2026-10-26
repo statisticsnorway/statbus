@@ -1515,13 +1515,18 @@ install_statbus_at_sha() {
         }
         VM_EXEC test ! -e /home/statbus/statbus || { echo 'FRESH checkout already exists' >&2; return 70; }
         _lxd_stage_candidate_install
-        VM_SCRIPT_INLINE tagged-install "$tag" "${HARNESS_DEPLOYMENT_MODE:-standalone}" "${HARNESS_SITE_DOMAIN:-statbus-test.local}" "${HARNESS_NO_CUSTOM_CERT:-0}" "${HARNESS_INSTALL_PRERELEASE_CHANNEL:-0}" "${HARNESS_INTERACTIVE_ADMIN:-0}" "$VM_NAME" <<'REMOTE' 2>&1 | tee -a "$log"
+        VM_SCRIPT_INLINE tagged-install "$tag" "${HARNESS_DEPLOYMENT_MODE:-standalone}" "${HARNESS_SITE_DOMAIN:-statbus-test.local}" "${HARNESS_NO_CUSTOM_CERT:-0}" "${HARNESS_INSTALL_PRERELEASE_CHANNEL:-0}" "${HARNESS_INTERACTIVE_ADMIN:-0}" "$VM_NAME" "${HARNESS_CERT_THROUGH_INSTALLER:-0}" <<'REMOTE' 2>&1 | tee -a "$log"
 #!/usr/bin/env bash
 set -e
 [ ! -e "$HOME/statbus" ] || { echo 'harness: FRESH requires absent ~/statbus'; exit 70; }
+# $8=1 (HARNESS_CERT_THROUGH_INSTALLER, STATBUS-429 AC4): the certificate
+# reaches the box ONLY through the product's own installer inputs
+# (STATBUS_TLS_CERT_FILE/STATBUS_TLS_KEY_FILE), never through the answer
+# file's container paths nor the harness's manual file staging — the
+# installer's Certificate step must place it and write .env.config itself.
 ( umask 077; {
     printf 'CADDY_DEPLOYMENT_MODE=%s\nSITE_DOMAIN=%s\n' "$2" "$3"
-    if [ "$2" = standalone ] && [ "$4" != 1 ]; then
+    if [ "$2" = standalone ] && [ "$4" != 1 ] && [ "$8" != 1 ]; then
         printf 'TLS_CERT_FILE=/data/custom-certs/domain.crt\nTLS_KEY_FILE=/data/custom-certs/domain.key\n'
     fi
     printf 'DEPLOYMENT_SLOT_NAME=Install Test\nDEPLOYMENT_SLOT_CODE=test\nTRUST_GITHUB_USER=jhf\n'
@@ -1529,7 +1534,13 @@ set -e
 case "$(umask)" in *[4567]) echo 'harness: umask strips other-read'; exit 70 ;; esac
 export STATBUS_ENV_CONFIG="$HOME/install-input.env"
 export STATBUS_MIN_DISK_GB=5
-if [ "$2" = standalone ] && [ "$4" != 1 ]; then export STATBUS_HARNESS_CERT_STAGING="$HOME/harness-certs"; fi
+if [ "$2" = standalone ] && [ "$4" != 1 ]; then
+    if [ "$8" = 1 ]; then
+        export STATBUS_TLS_CERT_FILE="$HOME/harness-certs/domain.crt" STATBUS_TLS_KEY_FILE="$HOME/harness-certs/domain.key"
+    else
+        export STATBUS_HARNESS_CERT_STAGING="$HOME/harness-certs"
+    fi
+fi
 export STATBUS_INSTALL_VERSION="$1"
 if [ "$6" = 1 ]; then
     unset STATBUS_USERS_FILE

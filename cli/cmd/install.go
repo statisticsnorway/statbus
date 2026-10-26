@@ -232,6 +232,18 @@ pending upgrade. Probes the install state and routes:
   - Live upgrade running    → refuses (points at journalctl).
   - Pre-1.0 database        → refuses (points at the manual upgrade path).
 
+Optional certificate input (standalone mode only): hand the installer your
+own TLS certificate and a fresh install is born serving it, through the same
+code path as ./sb cert install:
+
+  STATBUS_TLS_CERT_FILE=/path/fullchain.pem STATBUS_TLS_KEY_FILE=/path/privkey.pem
+  STATBUS_TLS_PFX_FILE=/path/cert.pfx STATBUS_TLS_PFX_PASSWORD=...
+
+Without STATBUS_TLS_PFX_PASSWORD a PFX password is prompted on a terminal.
+Interactively, a standalone fresh install also asks whether you have a
+certificate; answering no keeps automatic Let's Encrypt. Private and
+development modes refuse certificate input.
+
 For operator installation or repair, use the public installer:
 
   curl -fsSL https://statbus.org/install.sh | bash`,
@@ -1097,6 +1109,19 @@ func runInstall() (installErr error) {
 		// operator answers every question up front and the long pull runs
 		// unattended afterwards.
 		{"Trusted signers", checkSignersDone, runTrustSignersStep},
+		// "Certificate" installs an operator-supplied certificate
+		// (STATBUS-429 AC4) through the SAME code path as
+		// ./sb cert install (installCustomCertificate). It must run
+		// after "Configuration" (.env.config exists, so the deployment
+		// mode is known and TLS_CERT_FILE/TLS_KEY_FILE can be written)
+		// and before "Settings", whose config generation renders the
+		// Caddy templates referencing those paths and validates that
+		// the files exist — and therefore long before "Services" first
+		// starts the proxy. A fresh install is born serving the
+		// supplied certificate. The prompt, like the signer prompt,
+		// happens up front so the long image pull afterwards runs
+		// unattended.
+		{"Certificate", checkInstallCertDone, runInstallCertStep},
 		{"Settings", checkEnvDone, runGenerateEnv},
 		{"Images", checkImagesDone, runPullImages},
 		{"Services", checkServicesDone, runStartServices},
