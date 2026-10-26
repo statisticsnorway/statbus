@@ -3,10 +3,10 @@ id: STATBUS-530
 title: >-
   Refspec normalization must not erase crashed or parked upgrade recovery
   markers
-status: In Progress
+status: Done
 assignee: []
 created_date: 2026-10-26 22:28
-updated_date: '2026-10-26T23:08:00Z'
+updated_date: '2026-10-26T23:51:00Z'
 labels:
   - upgrade
   - cli
@@ -43,7 +43,7 @@ An existing service marker means an upgrade is in progress, parked, or needs rec
 <!-- AC:BEGIN -->
 - [x] #1 A crashed or parked service marker remains byte-identical after refspec normalization; the next ./sb install still performs recovery
 - [x] #2 Regression tests prove the refspec path refuses or skips when a service/recovery marker exists, and still normalizes when no marker exists
-- [ ] #3 Go tests and CI are green at the fix commit, and the 527 reviewer or a code review confirms no other refspec writer uses adopt-and-delete on a service marker
+- [x] #3 Go tests and CI are green at the fix commit, and the 527 reviewer or a code review confirms no other refspec writer uses adopt-and-delete on a service marker
 <!-- AC:END -->
 
 ## Implementation Notes
@@ -56,4 +56,6 @@ Regression evidence (tmp/test-530-red.log, tmp/test-530-green.log): TestRefspecN
 Verification: go test ./cmd/ ./internal/upgrade/ -count=1 ok (73.6s / 249.7s); golangci-lint run ./cmd/... ./internal/upgrade/... 0 issues (tmp/test-530-packages.log, tmp/test-530-lint.log). Code-read for the last AC clause: the only remaining AcquireInstallFlag caller is ./sb install itself (cmd/install.go:422), safe because install.Detect classifies a stale marker before acquiring.
 
 CI at fix commit b578b650d: Go Test, app build & lint, Images, Harness Selftest, Push on master, Notify cloud services all success. The Fast Tests run exercising b578b650d was cancelled as superseded when the backlog-only f60a91780 landed on top; Fast Tests @ exercised-sha=f60a91780 (same code plus ticket notes) completed success. Not setting Done: coordinator review pending per instructions.
+
+2026-10-26: final Opus review found STATBUS-530 correct at b578b650d. Crashed and parked markers stay byte-identical and readable, the flock is released, normalization is skipped when occupied, and the no-marker path normalizes and removes only its own marker. Mutation check: reverting to AcquireInstallFlag makes TestRefspecNormalize_PreservesServiceRecoveryMarker fail. Go Test passed at b578b650d (run 40414537729), Harness Selftest and Images passed at f60a91780, Fast Tests passed at 54299f154 (40417912237). The only remaining AcquireInstallFlag caller is install.go:422, where Detect runs before acquisition.
 <!-- SECTION:NOTES:END -->
