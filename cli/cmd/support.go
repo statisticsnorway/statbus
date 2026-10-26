@@ -19,7 +19,7 @@ import (
 
 // supportCmd is the parent group for diagnostic operations.
 // The subcommands below are the "lifeline" toolkit — they must work
-// even when the database is unreachable and the upgrade service is down.
+// even when the database is unreachable and the upgrader is down.
 var supportCmd = &cobra.Command{
 	Use:     "support",
 	Short:   "Operator diagnostics (gather support bundle, write admin-UI state)",
@@ -57,7 +57,7 @@ The bundle includes:
   - Redacted .env (secrets replaced with ***REDACTED***)
 
 This command works without a running database. It is the "lifeline" tool
-when a server is unresponsive and the upgrade service cannot write its own
+when a server is unresponsive and the upgrader cannot write its own
 bundle.
 
 The --trigger flag identifies the path that asked for the bundle so SSB
@@ -214,7 +214,7 @@ separate key so the admin UI can link an operator to the on-disk path.`,
 		defer func() { _ = conn.Close(context.Background()) }()
 
 		// Upsert three keys atomically. If the install actually succeeded
-		// later, the upgrade-service completion path clears these (that
+		// later, the upgrader's completion path clears these (that
 		// lives in Phase 4 — install success clears install_last_error).
 		const sql = `
 			INSERT INTO public.system_info (key, value) VALUES

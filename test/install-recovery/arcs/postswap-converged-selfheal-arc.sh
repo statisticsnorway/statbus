@@ -43,7 +43,7 @@ source "$LIB_DIR/wedge-helpers.sh"
 source "$LIB_DIR/assertions.sh"
 source "$LIB_DIR/arc-helpers.sh"
 
-UPGRADE_UNIT="statbus-upgrade@statbus.service"
+UPGRADE_UNIT="$(upgrade_unit_name)"
 FLAG_PATH="tmp/upgrade-in-progress.json"
 
 _dump_selfheal_diagnostics() {

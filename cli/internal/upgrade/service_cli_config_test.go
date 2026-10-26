@@ -52,7 +52,7 @@ func TestLoadConfigForCLIResolvesChannel_STATBUS311(t *testing.T) {
 			// boxes that have already regenerated, which are the ones least at
 			// risk.
 			name: "converted box — derived key under its provenance comment",
-			env: "# Upgrade service configuration\n" +
+			env: "# Upgrader configuration\n" +
 				"# Derived from UPGRADE_ROLE=production — set the role in .env.config, not this key.\n" +
 				"UPGRADE_CHANNEL=stable\n" +
 				"UPGRADE_CHECK_INTERVAL=6h\n",

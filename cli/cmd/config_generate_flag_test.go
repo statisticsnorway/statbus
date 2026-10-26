@@ -9,7 +9,7 @@ import (
 	"github.com/statisticsnorway/statbus/cli/internal/upgrade"
 )
 
-// The upgrade service regenerates config through the MIGRATING entry
+// The upgrader regenerates config through the MIGRATING entry
 // (STATBUS-361): a box installed before the credential split carries legacy
 // token placeholders in .env.config, and a strict refusal mid-upgrade
 // crash-loops the service (rc.07 smoke, v2026.09.2 → rc.07). Pin both: the

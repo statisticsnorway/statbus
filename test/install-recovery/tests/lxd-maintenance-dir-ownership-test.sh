@@ -13,7 +13,7 @@
 # never executes. Docker's own bind-mount auto-create then creates the still-
 # missing ~/statbus-maintenance directory as ROOT (the Docker daemon's own
 # uid) the moment `docker compose up` runs in the "Services" step — so the
-# upgrade daemon (runs as statbus) can never write the maintenance flag into
+# upgrader (runs as statbus) can never write the maintenance flag into
 # it. The Hetzner VM harness never hits this: its own install_statbus_at_sha
 # supplies an ANSWER file (STATBUS_ENV_CONFIG) the installer's prompts
 # consume, never a pre-existing .env.config the Configuration step's own

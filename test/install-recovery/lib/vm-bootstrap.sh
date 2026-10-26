@@ -1946,7 +1946,7 @@ upload_sb_to_vm() {
     #   its old inode and exits normally.
     #   cp writes to a FRESH inode at the ./sb path — no ETXTBSY.
     # Without this, a naive `cp /tmp/sb ./sb` in the install script hits
-    # ETXTBSY whenever the statbus-upgrade service is running (Phase 1
+    # ETXTBSY whenever the upgrader is running (Phase 1
     # leaves the service up; Phase 3's script runs while it's still live).
     local swap_rc=0
     ssh "${SSH_OPTS[@]}" -o LogLevel=VERBOSE root@"$ip" '
@@ -2012,7 +2012,7 @@ upload_install_script_to_vm() {
 # Post-mortem helpers:
 #   ssh root@<ip>                         — root shell
 #   ssh statbus@<ip>                      — operator user (has systemd bus)
-#   ssh root@<ip> journalctl --user -u statbus-upgrade@statbus --no-pager
+#   ssh root@<ip> journalctl --user -u statbus-upgrader@statbus --no-pager
 #   hcloud server delete <name>           — delete when done
 
 # dump_stage_tmux_logs — surface detached-tmux per-stage install logs to stdout
@@ -2122,7 +2122,7 @@ printf 'captured\tdocker-compose-ps\tdocker compose --profile all ps -a\t%s\n' "
 sudo -i -u statbus -- bash -c 'cd ~/statbus && docker compose logs --tail 300' > "$capture_dir/docker-compose-logs.txt" 2>&1
 printf 'captured\tdocker-compose-logs\tdocker compose logs --tail 300\t%s\n' "$(wc -c < "$capture_dir/docker-compose-logs.txt" | tr -d ' ')" >> "$index"
 statbus_uid=$(id -u statbus)
-if sudo -u statbus env XDG_RUNTIME_DIR="/run/user/$statbus_uid" DBUS_SESSION_BUS_ADDRESS="unix:path=/run/user/$statbus_uid/bus" journalctl --user --no-pager -n 300 -u statbus-upgrade@statbus.service > "$capture_dir/upgrade-unit-journal.txt" 2>&1; then
+if sudo -u statbus env XDG_RUNTIME_DIR="/run/user/$statbus_uid" DBUS_SESSION_BUS_ADDRESS="unix:path=/run/user/$statbus_uid/bus" journalctl --user --no-pager -n 300 -u "$(upgrade_unit_name)" > "$capture_dir/upgrade-unit-journal.txt" 2>&1; then
     printf 'captured\tupgrade-unit-journal\tstatbus user journal\t%s\n' "$(wc -c < "$capture_dir/upgrade-unit-journal.txt" | tr -d ' ')" >> "$index"
 else
     printf 'missing\tupgrade-unit-journal\tstatbus user journal\tcommand-failed (see upgrade-unit-journal.txt)\n' >> "$index"
@@ -2212,7 +2212,7 @@ dump_latest_upgrade_progress_tail() {
 # scenario log BEFORE set -e fires the EXIT trap and cleanup_vm reaps the VM.
 # Each sub-command is best-effort (|| true); never aborts the caller.
 _dump_unit_diagnostics() {
-    local unit="${1:-statbus-upgrade@statbus.service}"
+    local unit="${1:-$(upgrade_unit_name)}"
     echo "  ── unit diagnostics: $unit ──" >&2
     ssh "${SSH_OPTS[@]}" root@"$VM_IP" \
         "sudo -u statbus XDG_RUNTIME_DIR=/run/user/$STATBUS_UID journalctl --user -xeu '$unit' --no-pager | tail -120" >&2 || true
@@ -2230,7 +2230,7 @@ _dump_unit_diagnostics() {
 # Does NOT call exit — let the caller / set -e decide.
 _vm_unit_op() {
     local op="$1"
-    local unit="${2:-statbus-upgrade@statbus.service}"
+    local unit="${2:-$(upgrade_unit_name)}"
     local wait_s="${3:-5}"
 
     if ! VM_EXEC systemctl --user "$op" "$unit"; then
@@ -2315,7 +2315,7 @@ cleanup_vm() {
         echo "$reason — leaving $vm_name running for post-mortem (€0.0072/hr)"
         echo "  ssh root@$ip"
         echo "  ssh statbus@$ip"
-        echo "  journalctl: ssh root@$ip journalctl --user -u statbus-upgrade@statbus --no-pager -n 200"
+        echo "  journalctl: ssh root@$ip journalctl --user -u statbus-upgrader@statbus --no-pager -n 200"
         echo "  upload logs: /tmp/upload-sb-scp-*.log  /tmp/upload-sb-ssh-*.log"
         echo "  Delete when done: hcloud server delete $vm_name"
         return 0

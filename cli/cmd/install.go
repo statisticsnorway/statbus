@@ -203,7 +203,7 @@ var signerPromptAccepted bool
 var signerPromptDeclined bool
 
 // postUpgradeFixup signals that this install invocation is a post-upgrade
-// fixup spawned by the upgrade service itself. It is NOT a user-facing flag —
+// fixup spawned by the upgrader itself. It is NOT a user-facing flag —
 // operators must never pass it. The service at service.go:executeUpgrade sets
 // both this CLI flag and STATBUS_POST_UPGRADE_FIXUP=1 env var on its child
 // exec; either triggers the mutex bypass in runInstall.
@@ -219,13 +219,14 @@ var installCmd = &cobra.Command{
 	// stale-binary state. stalenessGuard rebuilds + re-execs instead of
 	// hard-failing when this annotation is present. See cli/cmd/root.go.
 	Annotations: map[string]string{"selfheal": "true"},
-	Long: `Unified entrypoint for first-install, repair, and dispatching a
-pending upgrade. Probes the install state and routes:
+	Long: `Sets up or repairs this box at the version on disk.
+
+Probes the install state and routes:
 
   - Fresh directory         → runs the install step-table.
   - Existing install        → idempotent config-refresh (safe to re-run).
   - Scheduled upgrade row   → dispatches the upgrade inline through the
-                              same pipeline the service uses (backup,
+                              same pipeline the upgrader uses (backup,
                               checkout, migrate, restart, health-check,
                               rollback on failure).
   - Crashed upgrade flag    → reconciles, re-probes, re-dispatches.
@@ -244,7 +245,11 @@ Interactively, a standalone fresh install also asks whether you have a
 certificate; answering no keeps automatic Let's Encrypt. Private and
 development modes refuse certificate input.
 
-For operator installation or repair, use the public installer:
+install NEVER changes which version is on disk. To change the version:
+
+  - ./sb upgrade apply <target> — upgrade (or downgrade) this box to an
+                                exact version, performed by the upgrader.
+  - install.sh                — a fresh install of a chosen release:
 
   curl -fsSL https://statbus.org/install.sh | bash`,
 	RunE: func(cmd *cobra.Command, args []string) error {
@@ -310,7 +315,7 @@ func init() {
 	installCmd.Flags().StringVar(&trustGitHubUser, "trust-github-user", "",
 		"Auto-trust this GitHub user's signing key (non-interactive, for scripted installs)")
 	installCmd.Flags().BoolVar(&postUpgradeFixup, "post-upgrade-fixup", false,
-		"Internal: set by the upgrade service when spawning install as a post-upgrade fixup. Operators must not pass this.")
+		"Internal: set by the upgrader when spawning install as a post-upgrade fixup. Operators must not pass this.")
 	// Hide the internal flag from --help; it's a contract between service and child install, not a user-facing knob.
 	_ = installCmd.Flags().MarkHidden("post-upgrade-fixup")
 	rootCmd.AddCommand(installCmd)
@@ -352,9 +357,9 @@ func mergeUpgradeDaemonFinalAction(current, requested upgradeDaemonFinalAction) 
 	return upgradeDaemonNoAction
 }
 
-// acquireOrBypass enforces the install ↔ upgrade-service mutual exclusion.
+// acquireOrBypass enforces the install ↔ upgrader mutual exclusion.
 //
-// Both the upgrade service and `./sb install` acquire the same marker file
+// Both the upgrader and `./sb install` acquire the same marker file
 // (tmp/upgrade-in-progress.json) via acquireFlock — O_CREATE|O_RDWR +
 // flock(LOCK_EX|LOCK_NB); the kernel advisory lock guarantees one holder and
 // auto-releases on fd close, so a crash never leaves a stale lock. The Holder field distinguishes
@@ -362,7 +367,7 @@ func mergeUpgradeDaemonFinalAction(current, requested upgradeDaemonFinalAction) 
 // what cleanup is needed when a writer crashed (DB reconciliation for
 // service, file-removal-only for install).
 //
-// When `bypass` is true, the caller is the upgrade service's own
+// When `bypass` is true, the caller is the upgrader's own
 // post-upgrade fixup — the parent service already holds the flag, so the
 // child install neither acquires nor releases. Otherwise:
 //   - No flag → atomic acquire succeeds; returns a release function the
@@ -381,7 +386,7 @@ func acquireOrBypass(installDir string, bypass bool, adopted *upgrade.FlagLock) 
 		//   1. Flag present → an upgrade is mid-flight and holds it; print the
 		//      holder for the audit log (e.g. a fixup racing an unrelated install).
 		//   2. Flag absent + STATBUS_POST_UPGRADE_FIXUP=1 → the EXPECTED steady
-		//      state: the upgrade service spawned us as its post-completion fixup,
+		//      state: the upgrader spawned us as its post-completion fixup,
 		//      and applyNewSbUpgrading removes the upgrade flag BEFORE running this fixup
 		//      (rune-stuck-fix A, service.go). The absent flag is by design — not
 		//      an anomaly — so proceed quietly, no invariant.
@@ -398,7 +403,7 @@ func acquireOrBypass(installDir string, bypass bool, adopted *upgrade.FlagLock) 
 			// Genuine misuse ONLY — the legitimate post-completion fixup carries
 			// the STATBUS_POST_UPGRADE_FIXUP env signature handled just above. Here
 			// the bare --post-upgrade-fixup flag was passed by hand with no upgrade
-			// in flight; this flag is the upgrade service's contract with its own
+			// in flight; this flag is the upgrader's contract with its own
 			// child and operators must never pass it.
 			log.Printf(
 				"INVARIANT OPPORTUNISTIC_CLEANUP_BEST_EFFORT_LOGGED violated (A17 — unexpected-bypass): --post-upgrade-fixup passed by hand (no STATBUS_POST_UPGRADE_FIXUP env signature) and no upgrade flag found; this flag is internal — do not pass it. Proceeding (install.go:%d, pid=%d)",
@@ -466,12 +471,12 @@ func signerPreflightRequired(dir string, state install.State) bool {
 }
 
 // runInstall is the entry point for `./sb install`. It is safe to run while
-// an upgrade service is active on the same host because of the mutex check
-// below: if the upgrade service has written tmp/upgrade-in-progress.json
+// an upgrader is active on the same host because of the mutex check
+// below: if the upgrader has written tmp/upgrade-in-progress.json
 // (which it does before any destructive step in executeUpgrade), this function
 // refuses to proceed. The only exception is the service's own post-upgrade
 // fixup, which passes --post-upgrade-fixup / STATBUS_POST_UPGRADE_FIXUP=1
-// to signal "I am the upgrade service's own post-completion fixup, not a
+// to signal "I am the upgrader's own post-completion fixup, not a
 // conflicting actor."
 func adoptInheritedMutexes(installDir string) (adoptedInstallLock, adoptedUpgradeLock *upgrade.FlagLock) {
 	installFD, installToken := os.Getenv(upgrade.InstallMutexFDEnv), os.Getenv(upgrade.InstallMutexTokenEnv)
@@ -534,7 +539,7 @@ func runInstall() (installErr error) {
 	previousTrust := trustGitHubUser
 	trustGitHubUser = effectiveTrust
 	defer func() { trustGitHubUser = previousTrust }()
-	// The upgrade service spawns `./sb install` as its post-completion fixup
+	// The upgrader spawns `./sb install` as its post-completion fixup
 	// with --post-upgrade-fixup + STATBUS_POST_UPGRADE_FIXUP=1. Either signal
 	// marks this a fixup child: it bypasses the install↔upgrade mutex (the
 	// service owns it / has already cleared it) and skips state detection,
@@ -542,7 +547,7 @@ func runInstall() (installErr error) {
 	// and the mutex section agree.
 	bypass := postUpgradeFixup || os.Getenv("STATBUS_POST_UPGRADE_FIXUP") == "1"
 
-	// Warn if running as root — the upgrade service is a user-level systemd unit now,
+	// Warn if running as root — the upgrader is a user-level systemd unit now,
 	// running as root would create files owned by root in the project dir.
 	if os.Geteuid() == 0 {
 		return installPreflightRefusal("StatBus must be installed as the application user, not root.\n" +
@@ -644,7 +649,7 @@ func runInstall() (installErr error) {
 		// as it would with no marker at all.
 		log.Printf("could not read the config-refusal marker (%v) — continuing", err)
 	} else if marker != nil {
-		fmt.Println("⚠ The last start of the upgrade service refused its configuration:")
+		fmt.Println("⚠ The last start of the upgrader refused its configuration:")
 		fmt.Println()
 		// The stored message is untrusted data and may span lines. Keep it as
 		// ONE quoted line under a prefix no terminal-filter rule admits, so it
@@ -665,7 +670,7 @@ func runInstall() (installErr error) {
 
 	// === Upgrade mutex acquire ===
 	// Atomically claim tmp/upgrade-in-progress.json (Holder="install") via
-	// acquireOrBypass below so any other actor — running upgrade service,
+	// acquireOrBypass below so any other actor — running the upgrader,
 	// another install — sees us and aborts. ReleaseInstallFlag in defer cleans
 	// up on every exit path. The ONLY caller allowed to bypass is the upgrade
 	// service's own post-completion fixup (service.go:applyNewSbUpgrading →
@@ -676,7 +681,7 @@ func runInstall() (installErr error) {
 
 	// === State detection + dispatch ===
 	// Detect reads the install directory + DB to classify the install state.
-	// In the bypass path the parent upgrade service already knows; skip
+	// In the bypass path the parent the upgrader already knows; skip
 	// detection to avoid probing the DB mid-upgrade.
 	//
 	// Dispatch policy:
@@ -853,7 +858,7 @@ func runInstall() (installErr error) {
 		if _, statErr := os.Stat(cfgPath); statErr == nil && signerPreflightRequired(installDir, detectedState) && !checkInstallSigners(installDir) {
 			if nonInteractive {
 				return installPreflightRefusal("No valid release signer is configured.\n" +
-					"  The upgrade service requires at least one trusted signer that can verify commit signatures.\n" +
+					"  The upgrader requires at least one trusted signer that can verify commit signatures.\n" +
 					"  Run the installer interactively to approve a signer:\n" +
 					"    " + diskpolicy.RerunCommand())
 			}
@@ -900,7 +905,7 @@ func runInstall() (installErr error) {
 	}
 
 	// --- Install-invocation / upgrade row lifecycle ---
-	// Capability separation: install runs the step-table; the upgrade daemon
+	// Capability separation: install runs the step-table; the upgrader
 	// owns public.upgrade (discovery + ledger).
 	//
 	// Log layout by detected state:
@@ -918,7 +923,7 @@ func runInstall() (installErr error) {
 	//                                  new row)
 	//
 	// The daemon / scheduled-upgrade path uses executeUpgrade's own NewUpgradeLog
-	// with a real row id — those calls happen elsewhere in the upgrade service.
+	// with a real row id — those calls happen elsewhere in the upgrader.
 	// Install itself never authors an in_progress row under A20 capability
 	// separation, so upgradeRowID stays 0 for the completion-defer path.
 	var upgradeRowID int64
@@ -1037,7 +1042,7 @@ func runInstall() (installErr error) {
 				// Notify the daemon so it picks up any newly available releases.
 				// Best-effort: periodic discovery tick recovers on drop.
 				if _, err := conn.Exec(context.Background(), "NOTIFY upgrade_check"); err != nil {
-					log.Printf("Could not notify the upgrade service after installation: %v. Its next scheduled check will retry.", err)
+					log.Printf("Could not notify the upgrader after installation: %v. Its next scheduled check will retry.", err)
 				}
 				// Stamp install-invocation tracking in public.system_info.
 				// Mirrors the support.go install_last_error* upsert pattern.
@@ -1094,12 +1099,12 @@ func runInstall() (installErr error) {
 		// Docker then creates the bind-mount sources as root at compose up.
 		{"Directories", checkDirectoriesDone, runEnsureDirectories},
 		// "Trusted signers" writes UPGRADE_TRUSTED_SIGNER_* into .env.config,
-		// but the upgrade daemon reads the GENERATED .env. It therefore runs
+		// but the upgrader reads the GENERATED .env. It therefore runs
 		// BEFORE "Settings", the one step that generates .env, so the signer
 		// is applied through the same path as every other .env.config key:
 		// Settings renders it, Services/"Apply config changes" act on it
 		// (RestartUpgradeDaemon is declared per signer key), and the daemon
-		// started by "Upgrade service" loads it. When it ran after Settings,
+		// started by "Upgrader" loads it. When it ran after Settings,
 		// a fresh install printed "Added ... to .env.config" and then its
 		// daemon reported no trusted signers (STATBUS-468). It needs only the
 		// checkout (git verify-commit HEAD) and .env.config, both present here.
@@ -1193,7 +1198,7 @@ func runInstall() (installErr error) {
 		{"Migrations", checkMigrationsDone, runMigrations},
 		{"JWT secret", checkJWTDone, runLoadJWT},
 		{"Administrator", checkUsersDone, runCreateUsers},
-		{"Upgrade service", checkServiceDone, func(dir string) error {
+		{"Upgrader", checkServiceDone, func(dir string) error {
 			return runInstallService(dir, &upgradeDaemonFinalAction)
 		}},
 	}
@@ -1340,10 +1345,10 @@ func runInstall() (installErr error) {
 	// the loop tail), resume so the system isn't left with clients down.
 	resumeIfQuiesced()
 
-	// The config diff is computed at step 9, but the upgrade daemon must not
+	// The config diff is computed at step 9, but the upgrader must not
 	// restart until the install has finished Seed + Migrations. Its boot-migrate
 	// writes up to DaemonSchemaFloor without owning the install flock.
-	// Restart after the step table so the Upgrade service step has also reconciled
+	// Restart after the step table so the Upgrader step has also reconciled
 	// the on-disk unit before the daemon loads the new binary and configuration.
 	applyPendingUpgradeDaemonRestart(pendingRestarts, &upgradeDaemonFinalAction)
 	queueStaleDaemonRestart(installDir, &upgradeDaemonFinalAction)
@@ -1630,16 +1635,16 @@ func checkUsersDone(dir string) bool {
 	return err == nil && len(missing) == 0
 }
 
-// userUnitPath returns the install destination for the user-level upgrade
-// unit. The unit is copied here VERBATIM by runInstallService (copyFile is a
-// byte copy; the %h/%i/%u specifiers resolve at systemd runtime, not at copy
+// userUnitPath returns the install destination for the user-level upgrader
+// unit. The unit is copied here VERBATIM by writeUpgraderUnitFile (copyFile is
+// a byte copy; the %h/%i/%u specifiers resolve at systemd runtime, not at copy
 // time), so the on-disk file should be byte-identical to the repo template.
 func userUnitPath() string {
 	return unitfloor.UserUnitPath()
 }
 
 // unitFileMatchesRepo reports whether the on-disk user unit is byte-identical
-// to the repo template (<dir>/ops/statbus-upgrade.service). Because the unit
+// to the repo template (<dir>/ops/statbus-upgrader.service). Because the unit
 // is installed verbatim, a byte-compare is the exact drift check: a drifted
 // unit (e.g. rune's stale WatchdogUSec=infinity / TimeoutStartSec=90 vs the
 // repo's 120/120) mismatches and must be reconciled. A missing on-disk unit
@@ -1681,16 +1686,27 @@ func checkServiceDone(dir string) bool {
 	}
 }
 
-// serviceInstance returns the systemd instance name, e.g. "statbus-upgrade@statbus_dev.service"
-// (cloud, user is statbus_<slot>) or "statbus-upgrade@statbus.service" (standalone, user is statbus).
-// The instance suffix after `@` is the deployment user — matches the convention already used
-// by upgrade.go's channel-set restart, and works on both deployment shapes.
+// serviceInstance returns the systemd instance name of the upgrader, e.g.
+// "statbus-upgrader@statbus_dev.service" (cloud, user is statbus_<slot>) or
+// "statbus-upgrader@statbus.service" (standalone, user is statbus).
+// The instance suffix after `@` is the deployment user.
+//
+// STATBUS-527 renamed the unit from statbus-upgrade@. Code that must address
+// whichever unit the box ACTUALLY runs during the transition goes through
+// resolveUpgraderInstance (upgrader.go), never this formatter directly.
 func serviceInstance(_ string) string {
+	return unitfloor.InstanceName(os.Getenv("USER"))
+}
+
+// legacyServiceInstance returns the PRE-STATBUS-527 unit instance name. It
+// exists for the migration code in upgrader.go (and the daemon's post-fixup
+// handoff) — new unit operations must not use it.
+func legacyServiceInstance(_ string) string {
 	u := os.Getenv("USER")
 	if u == "" {
 		return ""
 	}
-	return fmt.Sprintf("statbus-upgrade@%s.service", u)
+	return fmt.Sprintf("%s@%s.service", legacyUpgraderUnitBase, u)
 }
 
 // ── Step runners ──
@@ -2059,7 +2075,7 @@ func applyPendingRestarts(dir string, pending map[config.RestartClass]bool) erro
 	}
 	if pending[config.RestartUpgradeDaemon] {
 		restarted = true
-		fmt.Println("  Upgrade daemon restart deferred until after Migrations and unit reconciliation.")
+		fmt.Println("  Upgrader restart deferred until after Migrations and unit reconciliation.")
 	}
 	if !restarted {
 		fmt.Println("  No config changes require applying.")
@@ -2068,7 +2084,7 @@ func applyPendingRestarts(dir string, pending map[config.RestartClass]bool) erro
 }
 
 // applyPendingUpgradeDaemonRestart performs the step-9 decision only after the
-// install's DDL window closes and the Upgrade service step has reconciled the
+// install's DDL window closes and the Upgrader step has reconciled the
 // unit. The helper only coalesces the final action; lifecycle dispatch remains
 // deferred until after serving verification and completion mutations.
 func applyPendingUpgradeDaemonRestart(pending map[config.RestartClass]bool, action *upgradeDaemonFinalAction) {
@@ -2113,12 +2129,12 @@ func applyPendingUpgradeDaemonRestart(pending map[config.RestartClass]bool, acti
 // lock (a bounded multi-minute recovery delay). The gate and the action now use
 // one detection, so they can never diverge again.
 // installerManagedHomeDirs are the directories the installation itself must
-// own under the install user's home: the upgrade service's maintenance flag
+// own under the install user's home: the upgrader's maintenance flag
 // dir (bind-mounted into the proxy; Caddy's @maintenance matcher) and the
 // pre-upgrade backup root (the systemd upgrade unit expects it). Both are
 // bind-mount sources or service state that Docker would otherwise create as
 // ROOT at compose up (STATBUS-431, proven live by rc.01 smoke run
-// 36851924215: the upgrade daemon's maintenance-flag write failed with
+// 36851924215: the upgrader's maintenance-flag write failed with
 // permission denied on a box whose install skipped every creation site).
 var installerManagedHomeDirs = []string{"statbus-maintenance", "statbus-backups"}
 
@@ -2298,8 +2314,12 @@ func procAlive(pid int) bool { return syscall.Kill(pid, 0) == nil }
 //   - "statbus-migrate-<pid>" alive          → legitimate (a healthy migration
 //     idling between statements); leave alone.
 //   - "statbus-upgrade-daemon-<pid>" dead    → zombie (STATBUS-149).
-//   - "statbus-upgrade-daemon-<pid>" alive   → legitimate (the running upgrade
-//     daemon's own lock connection); leave alone.
+//   - "statbus-upgrade-daemon-<pid>" alive   → legitimate (the running
+//     upgrader's own lock connection); leave alone.
+//
+// The application_name token kept the pre-STATBUS-527 name ON PURPOSE: it is a
+// wire token written by every already-running daemon, and orphan
+// classification must keep matching daemons started by pre-rename binaries.
 //   - malformed tag (Atoi fails, e.g. the "statbus-migrate-sql-<pid>" SUBPROCESS
 //     tag) or any other app_name (worker / psql / PostgREST pool) → leave alone.
 //
@@ -2674,7 +2694,7 @@ func regeneratingZombieError(totalKilled, killAttempts int, last sessionsVerdict
 	return fmt.Errorf(
 		"zombie advisory-lock source is REGENERATING (%d killed across %d attempt(s), still appearing) — "+
 			"not a one-off leak; the underlying source needs investigation (STATBUS-149), not another kill. "+
-			"Last observed: %s. Check `journalctl --user -u 'statbus-upgrade@*'` for the underlying cause, then run %s",
+			"Last observed: %s. Check `journalctl --user -u 'statbus-upgrader@*'` for the underlying cause, then run %s",
 		totalKilled, killAttempts, last.describe(), diskpolicy.RerunCommand())
 }
 
@@ -2913,7 +2933,7 @@ func cleanOrphanSessions(dir string) error {
 	}
 	return fmt.Errorf(
 		"database sessions did not settle within %s after cleanOrphanSessions — %s. "+
-			"Check `journalctl --user -u 'statbus-upgrade@*'` for the underlying cause, then run %s",
+			"Check `journalctl --user -u 'statbus-upgrader@*'` for the underlying cause, then run %s",
 		sessionsSettleCap, last.describe(), diskpolicy.RerunCommand())
 }
 
@@ -3303,7 +3323,7 @@ func checkSignersDone(dir string) bool {
 
 // verifyTrustedSignersApplied is STATBUS-468's end-state check: every signer
 // in .env.config must be in the generated .env, read through the SAME reader
-// the upgrade daemon uses (upgrade.TrustedSignersFromEnv). A disagreement is
+// the upgrader uses (upgrade.TrustedSignersFromEnv). A disagreement is
 // an install failure with the exact fix, never "Added ... to .env.config"
 // followed by a daemon that trusts nobody.
 func verifyTrustedSignersApplied(dir string) error {
@@ -3328,7 +3348,7 @@ func verifyTrustedSignersApplied(dir string) error {
 			continue
 		}
 		if have[strings.TrimPrefix(key, trustedSignerPrefix)] != want {
-			return fmt.Errorf("the trusted signer %s is in .env.config but not in the generated settings the upgrade service reads (%s), so upgrades would be refused", key, errSignerNotApplied)
+			return fmt.Errorf("the trusted signer %s is in .env.config but not in the generated settings the upgrader reads (%s), so upgrades would be refused", key, errSignerNotApplied)
 		}
 	}
 	return nil
@@ -3424,20 +3444,14 @@ func runInstallService(dir string, finalAction *upgradeDaemonFinalAction) error 
 
 	instance := serviceInstance(dir)
 	if instance == "" {
-		return fmt.Errorf("could not determine service instance name (check DEPLOYMENT_SLOT_CODE in .env.config)")
+		return fmt.Errorf("could not determine the upgrader's unit name (USER is unset)")
 	}
 
-	// Install as a user-level systemd service — no root needed.
-	// The service file is copied to ~/.config/systemd/user/ and managed
-	// with systemctl --user. This works on standalone deployments where
-	// the user has no root access.
-	userServiceDir := filepath.Join(os.Getenv("HOME"), ".config", "systemd", "user")
-	if err := os.MkdirAll(userServiceDir, 0755); err != nil {
-		return fmt.Errorf("create systemd user dir: %w", err)
-	}
-
-	serviceFile := filepath.Join(dir, "ops", "statbus-upgrade.service")
-	destFile := filepath.Join(userServiceDir, "statbus-upgrade@.service")
+	// The unit is installed and managed as a user-level systemd unit — no root
+	// needed. The ONE implementation of unit writing/migration/enable lives in
+	// upgrader.go (installUpgraderUnit); this step adds install-specific
+	// behaviour around it: drift re-arm, linger, the database-route probe, and
+	// the deferred start.
 
 	// #4 unit-reconcile re-arm (plan de-risk #2): capture whether the on-disk
 	// unit is about to CHANGE while the unit is already running. A rewritten
@@ -3449,23 +3463,37 @@ func runInstallService(dir string, finalAction *upgradeDaemonFinalAction) error 
 	// here so we can restart only when needed (never churn a healthy,
 	// already-matching unit).
 	unitWasDrifted := !unitFileMatchesRepo(dir)
-	unitWasActive := exec.Command("systemctl", "--user", "is-active", instance).Run() == nil
+	unitWasActive := upgraderUnitActive(resolveUpgraderInstance())
+	insideUnit := postUpgradeFixup || os.Getenv("STATBUS_POST_UPGRADE_FIXUP") == "1"
+	// A migration stops the legacy unit (which may be the active one), so the
+	// new unit must be started afterwards even though "the unit" was active at
+	// entry. In the fixup regime the daemon's own handover starts it instead.
+	migrating := legacyUpgraderUnitPresent() && !insideUnit
 
-	fmt.Printf("  Copying %s → %s\n", filepath.Base(serviceFile), destFile)
-	if err := copyFile(serviceFile, destFile); err != nil {
-		return fmt.Errorf("copy service file: %w", err)
+	// Step 8 proves containers are running, not that Caddy published its
+	// database port. Probe the upgrader's own route before a start can wait for
+	// systemd's timeout. The active upgrader's exit-42 handoff (fixup regime)
+	// must not be blocked by a transient route outage during an in-flight
+	// upgrade, so the probe is skipped there.
+	if !insideUnit {
+		if err := checkUpgradeDatabaseRoute(dir); err != nil {
+			return err
+		}
 	}
 
-	fmt.Println("  Running systemctl --user daemon-reload")
-	if err := runCmd("systemctl", "--user", "daemon-reload"); err != nil {
-		return fmt.Errorf("systemctl --user daemon-reload: %w", err)
+	// The install holds the upgrade lock (acquireOrBypass ran before the step
+	// table), so installUpgraderUnit may stop a legacy unit without acquiring
+	// it again. In the fixup regime the migration is STAGED (the daemon hands
+	// itself over after this install returns) — see migrateLegacyUpgraderUnit.
+	if _, err := installUpgraderUnit(dir, true /* the install holds the lock */, insideUnit); err != nil {
+		return err
 	}
 
 	// Re-arm the timers only at process exit. Starting or restarting here while
 	// the installer holds the STATBUS-432 flock makes the daemon synchronously
 	// wait on its own installer. Record the final action instead; the installer's
 	// final defer submits it with --no-block after completion mutations finish.
-	if unitWasDrifted && unitWasActive && !postUpgradeFixup && os.Getenv("STATBUS_POST_UPGRADE_FIXUP") != "1" {
+	if unitWasDrifted && unitWasActive && !insideUnit {
 		fmt.Printf("  Unit %s drifted from the repo template and was running — restart queued for install exit\n", instance)
 		*finalAction = mergeUpgradeDaemonFinalAction(*finalAction, upgradeDaemonRestart)
 	}
@@ -3475,97 +3503,51 @@ func runInstallService(dir string, finalAction *upgradeDaemonFinalAction) error 
 	fmt.Println("  Enabling linger for user services")
 	// STATBUS-185: warn loudly with a remedy, do NOT hard-fail. The install
 	// can still complete and the box is fully operable while the operator's
-	// session is up; linger is what keeps the upgrade daemon alive AFTER
+	// session is up; linger is what keeps the upgrader alive AFTER
 	// logout. So this is degraded-but-operable, not a wrong state — a hard
 	// fail would abort an otherwise-good install over something the operator
 	// can enable by hand. But it must not be silent: without linger the
-	// daemon dies at logout with no signal.
+	// upgrader dies at logout with no signal.
 	lingerUser := os.Getenv("USER")
 	if err := runCmd("loginctl", "enable-linger", lingerUser); err != nil {
 		fmt.Fprintf(os.Stderr, "  WARNING: `loginctl enable-linger %s` failed: %v\n", lingerUser, err)
-		fmt.Fprintf(os.Stderr, "  The install will continue, but the upgrade daemon will NOT survive your logout — it stops when your login session ends.\n")
+		fmt.Fprintf(os.Stderr, "  The install will continue, but the upgrader will NOT survive your logout — it stops when your login session ends.\n")
 		fmt.Fprintf(os.Stderr, "  Remedy: run `sudo loginctl enable-linger %s` (or as root), then verify with `loginctl show-user %s -p Linger`.\n", lingerUser, lingerUser)
 	}
 
-	// Recovery: if the unit is in `failed` state from a prior crashed
-	// upgrade (e.g. the rune wedge — systemd hit StartLimitBurst after
-	// repeated SIGKILL → restart cycles trying to satisfy
-	// TimeoutStartSec for an at-scale migrate-up), a later start request
-	// won't recover it. Probe ActiveState/Result and run reset-failed
-	// first if needed. Idempotent: on a healthy unit the probe finds
-	// active/inactive and reset is skipped.
-	if probeOut, probeErr := exec.Command("systemctl", "--user", "show",
-		"--property=ActiveState", "--property=Result", instance).Output(); probeErr == nil {
-		probe := string(probeOut)
-		if strings.Contains(probe, "ActiveState=failed") ||
-			strings.Contains(probe, "Result=start-limit-hit") {
-			fmt.Printf("  Unit %s is in failed state — running reset-failed\n", instance)
-			if err := runCmd("systemctl", "--user", "reset-failed", instance); err != nil {
-				return serviceFailureWithJournal("reset-failed", instance, true, err)
-			}
-		}
-	}
-
 	// Item H (plan-rc.66): step 14/14 SDNOTIFY collision. When this
-	// install runs as a child of the active upgrade service (Type=notify
+	// install runs as a child of the active upgrader (Type=notify
 	// unit, parent PID is the main daemon), a child start joins the
 	// existing start job and waits for READY=1 from a new main PID.
 	// systemctl's helper PIDs send READY=1; systemd rejects them as
 	// not-main-PID; start times out at ~47s and terminates the parent.
-	// Skip a child start in that case — the unit declares
-	// SuccessExitStatus=42/RestartForceExitStatus=42/Restart=always so
-	// the parent's exit-42 → systemd auto-restart picks up the new
-	// binary. The is-enabled verification below still fires, and no final
-	// lifecycle action is queued by this child.
-	if postUpgradeFixup || os.Getenv("STATBUS_POST_UPGRADE_FIXUP") == "1" {
-		fmt.Printf("  Enabling %s (start deferred — service is the active main PID, will exit-42 → systemd auto-restart)\n", instance)
-		if err := runCmd("systemctl", "--user", "enable", instance); err != nil {
-			return serviceFailureWithJournal("enable service", instance, true, err)
-		}
-	} else {
-		// Step 8 proves containers are running, not that Caddy published its
-		// database port. Probe the daemon's own route before --now can wait for
-		// systemd's timeout. The active service's exit-42 handoff above must not
-		// be blocked by a transient route outage during an in-flight upgrade.
-		if err := checkUpgradeDatabaseRoute(dir); err != nil {
-			return err
-		}
-		fmt.Printf("  Enabling %s (start queued for install exit)\n", instance)
-		if err := runCmd("systemctl", "--user", "enable", instance); err != nil {
-			return serviceFailureWithJournal("enable service", instance, true, err)
-		}
-		if !unitWasActive {
-			*finalAction = mergeUpgradeDaemonFinalAction(*finalAction, upgradeDaemonStart)
-		}
+	// Skip a child start in that case — under the STATBUS-527 rename the
+	// daemon itself hands over to the new unit after this fixup returns
+	// (Service.handoffToRenamedUpgraderUnit); before the rename the unit
+	// declared SuccessExitStatus=42/RestartForceExitStatus=42/Restart=always
+	// so the parent's exit-42 → systemd auto-restart picked up the new
+	// binary. No final lifecycle action is queued by this child.
+	if insideUnit {
+		fmt.Printf("  %s enabled (start deferred — the running upgrader hands itself over after this install)\n", instance)
+	} else if !unitWasActive || migrating {
+		*finalAction = mergeUpgradeDaemonFinalAction(*finalAction, upgradeDaemonStart)
+		fmt.Printf("  Upgrader start queued for install exit: %s\n", instance)
 	}
 
-	// Verify the boot-enable symlink was actually created. Bug observed on
-	// rune 2026-04-22: `systemctl --user enable --now` exited 0 but the
-	// default.target.wants/ symlink was missing — service ran but wouldn't
-	// start after a reboot. Reproducer: enable invoked when the service was
-	// already started externally (standalone.sh's ensure_service_started
-	// failure-path ran `start` earlier). Fail loudly so the installer
-	// doesn't silently deliver a host that regresses on its next reboot.
-	out, isEnabledErr := exec.Command("systemctl", "--user", "is-enabled", instance).Output()
-	state := strings.TrimSpace(string(out))
-	if state != "enabled" {
-		return fmt.Errorf("enable reported success but is-enabled=%q (err=%v); service will not start on boot — investigate systemctl user-bus / loginctl linger", state, isEnabledErr)
-	}
-
-	fmt.Printf("  Upgrade service installed and enabled: %s (is-enabled=%s)\n", instance, state)
+	fmt.Printf("  Upgrader installed and enabled: %s\n", instance)
 	return nil
 }
 
 var dispatchUpgradeDaemonFinalAction = func(dir string, action upgradeDaemonFinalAction) error {
-	instance := serviceInstance(dir)
+	instance := resolveUpgraderInstance()
 	if instance == "" {
-		return fmt.Errorf("could not determine service instance name for final %s", action)
+		return fmt.Errorf("could not determine the upgrader's unit name for final %s (USER is unset)", action)
 	}
-	fmt.Printf("  Submitting final upgrade daemon %s: %s\n", action, instance)
-	if err := runCmd("systemctl", "--user", "--no-block", string(action), instance); err != nil {
-		return serviceFailureWithJournal(string(action)+" service", instance, true, err)
-	}
-	return nil
+	fmt.Printf("  Submitting final upgrader %s: %s\n", action, instance)
+	// noBlock: the install still holds the upgrade lock until process exit; a
+	// blocking start would deadlock against the booting daemon's bounded wait
+	// on that lock (STATBUS-432).
+	return submitUpgraderAction(instance, string(action), true)
 }
 
 // gitHeadInfo returns the HEAD commit SHA and ISO-8601 commit date, or empty
@@ -4025,7 +4007,7 @@ func runInstallCallback(dir string) {
 // runRootInstall handles `sudo sb install` — ONLY installs the systemd service.
 // Does not touch any project files to avoid creating root-owned files.
 func runRootInstall() error {
-	fmt.Println("StatBus — Installing systemd service (running as root)")
+	fmt.Println("StatBus — Installing the upgrader's systemd unit (running as root)")
 	fmt.Println()
 
 	if runtime.GOOS != "linux" {
@@ -4041,15 +4023,28 @@ func runRootInstall() error {
 
 	instance := serviceInstance(dir)
 	if instance == "" {
-		return fmt.Errorf("could not determine service instance name (check DEPLOYMENT_SLOT_CODE in .env.config)")
+		return fmt.Errorf("could not determine the upgrader's unit name (USER is unset)")
 	}
 
-	serviceFile := filepath.Join(dir, "ops", "statbus-upgrade.service")
-	destFile := "/etc/systemd/system/statbus-upgrade@.service"
+	// STATBUS-527 migration: a system-level unit under the pre-rename name is
+	// removed first, so the box ends with exactly one unit.
+	legacyDest := "/etc/systemd/system/" + legacyUpgraderUnitBase + "@.service"
+	if _, statErr := os.Stat(legacyDest); statErr == nil {
+		legacyInstance := legacyServiceInstance(dir)
+		fmt.Printf("  Removing the pre-rename unit %s\n", legacyInstance)
+		_ = runCmd("systemctl", "stop", legacyInstance)
+		_ = runCmd("systemctl", "disable", legacyInstance)
+		if rmErr := os.Remove(legacyDest); rmErr != nil {
+			return fmt.Errorf("remove legacy unit file %s: %w", legacyDest, rmErr)
+		}
+	}
+
+	serviceFile := filepath.Join(dir, "ops", upgraderUnitBase+".service")
+	destFile := "/etc/systemd/system/" + upgraderUnitBase + "@.service"
 
 	fmt.Printf("  Copying %s → %s\n", filepath.Base(serviceFile), destFile)
 	if err := copyFile(serviceFile, destFile); err != nil {
-		return fmt.Errorf("copy service file: %w", err)
+		return fmt.Errorf("copy unit file: %w", err)
 	}
 
 	fmt.Println("  Running systemctl daemon-reload")
@@ -4062,19 +4057,19 @@ func runRootInstall() error {
 
 	fmt.Printf("  Enabling and starting %s\n", instance)
 	if err := runCmd("systemctl", "enable", "--now", instance); err != nil {
-		return serviceFailureWithJournal("enable service", instance, false, err)
+		return serviceFailureWithJournal("enable the upgrader", instance, false, err)
 	}
 
-	// Mirror the user-service verification above: confirm the boot-enable
-	// symlink exists. See runInstallService for the bug-history comment.
+	// Mirror the user-service verification: confirm the boot-enable
+	// symlink exists. See enableUpgraderUnit for the bug-history comment.
 	out, isEnabledErr := exec.Command("systemctl", "is-enabled", instance).Output()
 	state := strings.TrimSpace(string(out))
 	if state != "enabled" {
-		return fmt.Errorf("enable reported success but is-enabled=%q (err=%v); service will not start on boot", state, isEnabledErr)
+		return fmt.Errorf("enable reported success but is-enabled=%q (err=%v); the upgrader will not start on boot", state, isEnabledErr)
 	}
 
 	fmt.Println()
-	fmt.Printf("  Upgrade service installed and started: %s (is-enabled=%s)\n", instance, state)
+	fmt.Printf("  Upgrader installed and started: %s (is-enabled=%s)\n", instance, state)
 	fmt.Println("  To verify, run: " + diskpolicy.RerunCommand())
 	return nil
 }
@@ -4419,7 +4414,7 @@ func restoreSettingsBeforeDetect(installDir string) error {
 // running box whose .env was regenerated before the step-table snapshot. No
 // diff can say what the running containers were started with, so every
 // service is recreated (the same compose action a changed key triggers) and
-// the upgrade daemon restarts after the step table.
+// the upgrader restarts after the step table.
 func restartsAfterSettingsRestore() map[config.RestartClass]bool {
 	return map[config.RestartClass]bool{
 		config.RestartDB: true, config.RestartRest: true, config.RestartWorker: true,

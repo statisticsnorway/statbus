@@ -422,7 +422,7 @@ func (d *Service) pullImagesForCommitShort(commitShort string) error {
 	return err
 }
 
-// Maintenance flag-file path convention (STATBUS-089). The upgrade service
+// Maintenance flag-file path convention (STATBUS-089). The upgrader
 // writes a flag file on the HOST; the proxy container reads it through a bind
 // mount; Caddy's @maintenance matcher checks it. ALL THREE MUST AGREE:
 //
@@ -440,7 +440,7 @@ const (
 	maintenanceMountTarget = "/statbus-maintenance" // in-container mount point
 )
 
-// maintenanceFlagHostPath is the host path the upgrade service writes/removes
+// maintenanceFlagHostPath is the host path the upgrader writes/removes
 // ($HOME/statbus-maintenance/active).
 func maintenanceFlagHostPath() string {
 	return filepath.Join(os.Getenv("HOME"), maintenanceFlagDir, maintenanceFlagName)
@@ -1486,7 +1486,7 @@ func (d *Service) StartDatabaseRouteServingMustBeStopped(ctx context.Context) er
 }
 
 // startDatabaseAndItsProxy starts the existing database and the Caddy proxy the
-// upgrade service uses to reach it (STATBUS-143), without starting proxy
+// the upgrader uses to reach it (STATBUS-143), without starting proxy
 // dependencies. It uses start, never up -d, so an in-flight upgrade's containers
 // are not recreated with the current binary's image (the rc.66 -> rc.67 lesson).
 func (d *Service) startDatabaseAndItsProxy(ctx context.Context) error {

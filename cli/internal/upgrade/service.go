@@ -120,7 +120,7 @@ func (d *Service) markPgInvariantTerminal(err error, caller string) string {
 // retryBackoff is the sleep duration between bounded-retry attempts on
 // transient DB connection errors (isConnError). Attempt 0 is the initial
 // try (never reached from a retry branch); attempts 1/2/3 back off by
-// 100ms/500ms/1s. Keep tight — the upgrade service's pipeline must not
+// 100ms/500ms/1s. Keep tight — the upgrader's pipeline must not
 // stall the admin UI for long.
 func retryBackoff(attempt int) time.Duration {
 	switch attempt {
@@ -160,7 +160,7 @@ func retryBackoff(attempt int) time.Duration {
 // asserts the invariant statically.
 var step11RestartServices = []string{"app", "worker", "rest", "proxy"}
 
-// Service is the long-running upgrade service.
+// Service is the long-running upgrader.
 type Service struct {
 	projDir    string
 	version    string    // compiled-in version from ldflags (e.g., v2026.03.0-rc.11)
@@ -221,8 +221,8 @@ type Service struct {
 	// failure, since we can't know the binary's true identity.
 	binaryCommit   string
 	stuckLoopFired bool // set to true after SERVICE_STUCK_RETRY_LOOP is emitted, to avoid spam
-	// unitInstance is the systemd unit name for this deployment's upgrade
-	// service (e.g. statbus-upgrade.service), set by cmd via SetUnitInstance
+	// unitInstance is the systemd unit name for this deployment's upgrader
+	// (e.g. statbus-upgrader@<user>.service), set by cmd via SetUnitInstance
 	// where the name is derivable. Used by executeUpgrade to reset the
 	// unit's restart counter at dispatch (STATBUS-039 review finding 2):
 	// NRestarts accumulates across upgrades — every healthy exit-42 handoff
@@ -233,6 +233,13 @@ type Service struct {
 	// non-systemd platforms / unknown unit → the reset is skipped and the
 	// gate stays merely as conservative as pre-039.
 	unitInstance string
+	// legacyUnitInstance is the PRE-STATBUS-527 unit name
+	// (statbus-upgrade@<user>.service), set by cmd via SetLegacyUnitInstance.
+	// Used only by handoffToRenamedUpgraderUnit: when THIS process is the
+	// legacy unit's main process and the new unit file exists, the daemon
+	// starts the new unit and stops itself, completing the rename the
+	// post-upgrade fixup staged.
+	legacyUnitInstance string
 	// STATBUS-338 test seams for the Norway rc.02 preswap fetch path. Production
 	// leaves both nil: fetchCommitObjects delegates to fetchWithStallDetection and
 	// fetchRetryWait uses a context-aware timer. Tests inject only the boundary
@@ -272,13 +279,130 @@ type Service struct {
 }
 
 // SetUnitInstance records the systemd unit name for the deployment's
-// upgrade service. cmd calls this at construction where the unit name is
-// derivable (serviceInstance); internal code must not guess it.
+// upgrader. cmd calls this at construction where the unit name is
+// derivable (serviceInstance / resolveUpgraderInstance); internal code must
+// not guess it.
 func (d *Service) SetUnitInstance(instance string) {
 	d.unitInstance = instance
 }
 
-// NewService creates a new upgrade service.
+// SetLegacyUnitInstance records the PRE-STATBUS-527 unit name so
+// handoffToRenamedUpgraderUnit can recognize "I am the legacy unit's main
+// process" without guessing the name.
+func (d *Service) SetLegacyUnitInstance(instance string) {
+	d.legacyUnitInstance = instance
+}
+
+// handoffToRenamedUpgraderUnit completes the STATBUS-527 unit rename from
+// within the running daemon. The post-upgrade fixup (runInstallFixup →
+// `./sb install --post-upgrade-fixup` → the "Upgrader" step) has written and
+// enabled the new statbus-upgrader@ unit but deliberately left the legacy
+// statbus-upgrade@ unit alone: that step runs as a CHILD of this daemon, and
+// stopping the unit from inside it would SIGKILL the child mid-install
+// (KillMode=control-group). The switch is therefore the daemon's own, and it
+// runs ONLY while this process holds the upgrade lock — so no upgrade can be
+// in flight and the final stop can never interrupt one (a SIGTERM mid-upgrade
+// triggers a rollback: a snapshot restore over the live database).
+//
+// Order (owner direction):
+//  1. `sb upgrader install`  — write + enable the new unit (idempotent).
+//  2. `sb upgrader start --no-block` — start the new unit BEFORE the old one
+//     is touched. Its first boot may lose the daemon advisory lock to this
+//     still-running process; Restart=always retries it past our exit.
+//  3. `sb upgrader retire-legacy-unit` — disable + delete the old unit.
+//  4. release the lock, then `systemctl --user --no-block stop` THIS unit —
+//     a self-stop must be no-block (a blocking stop waits for our own exit),
+//     and an explicit stop never triggers Restart=always.
+//
+// The subcommands ARE the shared implementation (cli/cmd/upgrader.go) — the
+// operator's `sb upgrader install|start` run the same code. A failure at any
+// step aborts the handover with the old unit intact; the next boot retries
+// (Run calls this on every start).
+func (d *Service) handoffToRenamedUpgraderUnit() {
+	if upgraderHandoffPlatform != "linux" || d.legacyUnitInstance == "" {
+		return
+	}
+	// Only the legacy unit's OWN main process hands off: one-shot verbs built
+	// on the same Service must never stop a daemon out from under systemd.
+	out, err := upgraderHandoffSystemctl("show", d.legacyUnitInstance, "-p", "MainPID", "--value")
+	if err != nil || strings.TrimSpace(out) != strconv.Itoa(os.Getpid()) {
+		return
+	}
+	if _, err := os.Stat(unitfloor.UserUnitPath()); err != nil {
+		// The new unit is not installed yet — the fixup may not have run
+		// (crash-recovery boot). `sb upgrader install` below covers it.
+		log.Printf("upgrader unit rename (STATBUS-527): new unit not installed yet; installing during handoff")
+	}
+	target := unitfloor.InstanceName(os.Getenv("USER"))
+	if target == "" || target == d.legacyUnitInstance {
+		return
+	}
+
+	lock, err := AcquireInstallFlag(d.projDir, "upgrader:unit-rename")
+	if err != nil {
+		// An upgrade (or install) is in flight: the handover must not run
+		// beside it. Not an error — the next boot retries.
+		log.Printf("upgrader unit rename (STATBUS-527): handover deferred, the upgrade lock is held (%v)", err)
+		return
+	}
+	defer func() { ReleaseInstallFlag(lock) }()
+
+	fixupEnv := []string{"STATBUS_POST_UPGRADE_FIXUP=1"}
+	if err := runUpgraderHandoffStep(d.projDir, fixupEnv, "install"); err != nil {
+		log.Printf("upgrader unit rename: `sb upgrader install` failed: %v (old unit untouched; next boot retries)", err)
+		return
+	}
+	if err := runUpgraderHandoffStep(d.projDir, fixupEnv, "start", "--no-block"); err != nil {
+		log.Printf("upgrader unit rename: `sb upgrader start` failed: %v (old unit untouched; next boot retries)", err)
+		return
+	}
+	if err := runUpgraderHandoffStep(d.projDir, fixupEnv, "retire-legacy-unit"); err != nil {
+		log.Printf("upgrader unit rename: `sb upgrader retire-legacy-unit` failed: %v (old unit intact; next boot retries)", err)
+		return
+	}
+	// Release BEFORE the self-stop so the new unit's boot never sees the lock
+	// held longer than the handover itself (its STATBUS-432 bounded boot-wait
+	// exits 76 — no restart — past its 30s budget).
+	ReleaseInstallFlag(lock)
+	lock = nil
+	log.Printf("upgrader unit rename (STATBUS-527): %s is installed and starting; stopping %s (this process) now", target, d.legacyUnitInstance)
+	if _, err := upgraderHandoffSystemctl("--no-block", "stop", d.legacyUnitInstance); err != nil {
+		log.Printf("upgrader unit rename: could not stop %s: %v (both units may run briefly; the daemon advisory lock serializes them and the loser exits)", d.legacyUnitInstance, err)
+	}
+}
+
+// upgraderHandoffPlatform / upgraderHandoffSystemctl are the test seams for
+// handoffToRenamedUpgraderUnit: the ordering test
+// (service_upgrader_handoff_test.go) drives it off Linux against a recorded
+// systemd state.
+var upgraderHandoffPlatform = runtime.GOOS
+
+var upgraderHandoffSystemctl = func(args ...string) (string, error) {
+	out, err := exec.Command("systemctl", append([]string{"--user"}, args...)...).CombinedOutput()
+	return string(out), err
+}
+
+// runUpgraderHandoffStep runs one `./sb upgrader <step>` subcommand of the
+// self-upgrade unit handover. The STATBUS_POST_UPGRADE_FIXUP=1 env signature
+// tells the child that THIS upgrader holds the upgrade lock: `upgrader
+// install` then leaves the legacy unit alone and `retire-legacy-unit` skips
+// its own acquisition (cli/cmd/upgrader.go). One call site for all steps so
+// the compose-authority gate sees one launcher combination.
+var runUpgraderHandoffStep = func(projDir string, env []string, args ...string) error {
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+	defer cancel()
+	cmd := exec.CommandContext(ctx, "./sb", append([]string{"upgrader"}, args...)...)
+	cmd.Dir = projDir
+	cmd.Env = append(os.Environ(), env...)
+	prepareCmd(cmd)
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("%w: %s", err, strings.TrimSpace(string(out)))
+	}
+	return nil
+}
+
+// NewService creates a new upgrader service.
 //
 // binaryCommit is the compile-time commit SHA from cli/cmd/root.go's
 // `commit` ldflag. Pass cmd.commit directly from the caller. Leave
@@ -406,7 +530,7 @@ func normalizePhaseBytes(phase string) string {
 }
 
 // UpgradeFlag is written to tmp/upgrade-in-progress.json before destructive
-// steps begin (by either the upgrade service or `./sb install`). The file
+// steps begin (by either the upgrader or `./sb install`). The file
 // doubles as the kernel-enforced mutex: holders take a flock(LOCK_EX) on
 // the open fd and keep it alive for the duration of the work. Kernel
 // auto-release on fd close (graceful exit, crash, or kill) makes stale
@@ -1840,8 +1964,8 @@ func formatContentionError(flag *UpgradeFlag) error {
 		return fmt.Errorf(
 			"an orchestrated upgrade is in progress (%s, invoked_by=%s).\n\n"+
 				"  Wait for it to complete:\n"+
-				"    journalctl --user -u 'statbus-upgrade@*' -f\n\n"+
-				"  Do NOT pass --post-upgrade-fixup — that flag is the upgrade service's\n"+
+				"    journalctl --user -u 'statbus-upgrader@*' -u 'statbus-upgrade@*' -f\n\n"+
+				"  Do NOT pass --post-upgrade-fixup — that flag is the upgrader's\n"+
 				"  internal contract with its own post-upgrade install step. Using it from the\n"+
 				"  command line would corrupt an upgrade that is currently running",
 			flag.Label(), flag.InvokedBy)
@@ -1855,7 +1979,7 @@ func formatContentionError(flag *UpgradeFlag) error {
 // exists call IsFlockHeld (the flock is the sole liveness source).
 //
 // Callers outside this package should treat this as read-only: never remove or modify
-// the flag file. Ownership belongs to the upgrade service (service.go:writeUpgradeFlag
+// the flag file. Ownership belongs to the upgrader (service.go:writeUpgradeFlag
 // and removeUpgradeFlag).
 func ReadFlagFile(projDir string) (*UpgradeFlag, error) {
 	path := filepath.Join(projDir, "tmp", "upgrade-in-progress.json")
@@ -2836,7 +2960,7 @@ func (d *Service) AdoptFlagLock(lock *FlagLock) {
 // writeUpgradeFlag transition is gapless in either case.
 //
 // Concurrency: the claim UPDATE mirrors executeScheduled's claim with the
-// same state guard. If a racing upgrade service claimed the row first,
+// same state guard. If a racing upgrader claimed the row first,
 // RowsAffected() == 0 and we bail cleanly so the operator can re-run once
 // the other path finishes.
 //
@@ -2966,7 +3090,7 @@ func (d *Service) ExecuteUpgradeInline(ctx context.Context, id int, commitSHA, _
 // label string to jump to its site. Add new labels here when adding new terminal
 // transition sites.
 //
-// Search the journal: journalctl -u statbus-upgrade | grep 'upgrade row \[<label>\]'
+// Search the journal: journalctl -u statbus-upgrader | grep 'upgrade row \[<label>\]'
 //
 //	LabelCompletedNormal         — executeUpgrade normal path: health check passed, upgrade finished cleanly
 //	LabelCompletedSelfHeal       — recoverFromFlag: prior binary died mid-upgrade; new binary found app
@@ -3022,7 +3146,7 @@ const completedUpgradeSQL = "UPDATE public.upgrade SET state = 'completed', comp
 // logUpgradeRow prints the full upgrade row snapshot at a terminal state
 // transition. Uses raw %s (never %q) so the JSON is greppable:
 //
-//	journalctl -u statbus-upgrade | grep '"state":"completed"'
+//	journalctl -u statbus-upgrader | grep '"state":"completed"'
 func logUpgradeRow(label string, row string) {
 	fmt.Printf("upgrade row [%s] %s\n", label, row)
 }
@@ -3038,7 +3162,7 @@ const ErrResumeDied = "UPGRADE_DIED_DURING_RESUME"
 // per side, not a shared Go constant, matching this codebase's existing
 // convention for cross-process exit-code contracts (exit 42, the post-swap
 // handoff: documented independently here and in
-// ops/statbus-upgrade.service's SuccessExitStatus=42/RestartForceExitStatus=42).
+// ops/statbus-upgrader.service's SuccessExitStatus=42/RestartForceExitStatus=42).
 // `./sb config generate` selects this exit code for a principled,
 // non-retriable configuration refusal (config.ErrPrincipledRefusal); Run's
 // pre-flight config-generate call below inspects the SUBPROCESS'S exit code
@@ -3064,7 +3188,7 @@ func (d *Service) recoverStartupFlag(ctx context.Context) error {
 	}
 }
 
-// Run starts the upgrade service main loop.
+// Run starts the upgrader's main loop.
 func (d *Service) Run(ctx context.Context) error {
 	d.runningAsService = true
 	if err := loadOperatorCredentials(d.projDir); err != nil {
@@ -3127,7 +3251,7 @@ func (d *Service) Run(ctx context.Context) error {
 	// containers while ./sb install owns the box.
 	bootFlag, err := d.waitForInstallHolderBeforeBoot(ctx)
 	if exitCode, shouldExit := installHeldBootWaitExitCode(err); shouldExit {
-		fmt.Printf("Upgrade daemon boot remains deferred after %s; exiting with non-restarting status %d so systemd does not consume StartLimitBurst\n",
+		fmt.Printf("Upgrader boot remains deferred after %s; exiting with non-restarting status %d so systemd does not consume StartLimitBurst\n",
 			installHeldBootWaitLimit, exitCode)
 		os.Exit(exitCode)
 	}
@@ -3208,7 +3332,7 @@ func (d *Service) Run(ctx context.Context) error {
 		// cleared on any successful start below), print the refusal's own
 		// actionable text (already preserved in `out` since STATBUS-297),
 		// and exit 78 directly — RestartPreventExitStatus=78 on the unit
-		// (ops/statbus-upgrade.service) stops systemd retrying THIS exit
+		// (ops/statbus-upgrader.service) stops systemd retrying THIS exit
 		// code while leaving every other exit's restart policy untouched.
 		if configGenerateIsPrincipledRefusal(err) {
 			refusalText := strings.TrimSpace(out)
@@ -3366,7 +3490,7 @@ func (d *Service) Run(ctx context.Context) error {
 	// recovery: Type=notify + Restart=always + advisory lock + flag still
 	// serialise a genuine crash; "active while it works" is more honest than a
 	// unit stuck `activating` until a start-timeout kill.
-	fmt.Printf("Upgrade service started (channel=%s, interval=%s)\n", d.channel, d.interval)
+	fmt.Printf("Upgrader started (channel=%s, interval=%s)\n", d.channel, d.interval)
 	sdNotify("READY=1") // Tell systemd we're initialized
 
 	// Schema-skew guard (rc.65 structural fix). The binary's column-name
@@ -3532,11 +3656,11 @@ func (d *Service) Run(ctx context.Context) error {
 				// terminal is correct there and it cannot churn (no systemd auto-restart).
 				fmt.Fprintf(os.Stderr,
 					"\n════════════════════════════════════════════════════════════════\n"+
-						"  BOOT MIGRATE FAILED DETERMINISTICALLY (exit %d) — upgrade daemon staying ALIVE\n"+
+						"  BOOT MIGRATE FAILED DETERMINISTICALLY (exit %d) — the upgrader staying ALIVE\n"+
 						"════════════════════════════════════════════════════════════════\n"+
 						"  A pending database migration fails the SAME way on every attempt\n"+
 						"  (a deterministic SQL error). Re-running it cannot help, so this box\n"+
-						"  will NOT restart-loop — the upgrade service keeps serving its normal\n"+
+						"  will NOT restart-loop — the upgrader keeps serving its normal\n"+
 						"  duties and will apply/schedule NO upgrade until this is resolved.\n"+
 						"\n"+
 						"  OPERATOR ACTION — fix or remove the failing migration, then re-run install:\n"+
@@ -3607,6 +3731,12 @@ func (d *Service) Run(ctx context.Context) error {
 
 	// Check for missed scheduled upgrades
 	d.checkMissedUpgrades(ctx)
+
+	// STATBUS-527 boot-time handoff net: if a crash hit between the
+	// post-upgrade fixup staging the unit rename and the handoff at the end
+	// of applyNewSbUpgrading, this boot is the legacy unit's main process
+	// again with the new unit file present — finish the handoff here.
+	d.handoffToRenamedUpgraderUnit()
 
 	// LISTEN + READY=1 + boot-migrate-up were emitted earlier (right after the
 	// advisory lock, before boot-migrate/recoverFromFlag) so the heavy
@@ -3683,7 +3813,7 @@ func (d *Service) Run(ctx context.Context) error {
 	for {
 		select {
 		case <-ctx.Done():
-			fmt.Println("Upgrade service shutting down")
+			fmt.Println("Upgrader shutting down")
 			d.stopListenLoop()
 			return nil
 		case <-heartbeatTicker.C:
@@ -4009,7 +4139,7 @@ func (d *Service) acquireAdvisoryLock(ctx context.Context) error {
 		return fmt.Errorf("advisory lock: %w", err)
 	}
 	if !locked {
-		return fmt.Errorf("another upgrade service is already running (advisory lock held)")
+		return fmt.Errorf("another upgrader is already running (advisory lock held)")
 	}
 	return nil
 }
@@ -4526,7 +4656,7 @@ func (d *Service) completeInProgressUpgrade(ctx context.Context, strictFinishing
 	// terminal-state UPDATE persistently errored. Without it, a stale flag
 	// survives the crash-recovery attempt and the next `./sb install`
 	// misclassifies the state as StateCrashedUpgrade instead of reaching
-	// the step-table that reinstalls the upgrade service.
+	// the step-table that reinstalls the upgrader.
 	// removeUpgradeFlag is idempotent: nil flagLock falls through to
 	// os.Remove, and a second invocation after the explicit call is a
 	// harmless no-op.
@@ -5056,7 +5186,7 @@ func (d *Service) loadConfig() error {
 		// that quietly assumes "stable" here is the same invisible-wrong-channel
 		// failure this design exists to remove, just moved one layer down.
 		//
-		// It still starts: a box with no upgrade service is worse than one on a
+		// It still starts: a box with no upgrader is worse than one on a
 		// conservative channel. But it says so, loudly, naming the fix.
 		d.channel = "stable"
 		fmt.Fprintf(os.Stderr, "WARN: UPGRADE_CHANNEL is missing from .env — assuming %q.\n"+
@@ -7565,7 +7695,7 @@ func (d *Service) claimScheduledUpgradePass(ctx context.Context, id int) (schedu
 		return scheduledUpgradeClaim{}, fmt.Errorf("claim id=%d: acquire upgrade transaction lock: %w", id, lockErr)
 	}
 	if !claimLockHeld {
-		return scheduledUpgradeClaim{}, &OperatorRefusalError{Class: RefusalClaimDaemonOwnsLock, Text: fmt.Sprintf("refusing to claim upgrade id=%d: a running upgrade service owns the upgrade lock and claims scheduled rows itself (within its 30s heartbeat); wait for it, or stop the service before dispatching inline with %s", id, d.installCommand())}
+		return scheduledUpgradeClaim{}, &OperatorRefusalError{Class: RefusalClaimDaemonOwnsLock, Text: fmt.Sprintf("refusing to claim upgrade id=%d: a running upgrader owns the upgrade lock and claims scheduled rows itself (within its 30s heartbeat); wait for it, or stop the upgrader before dispatching inline with %s", id, d.installCommand())}
 	}
 
 	// The claim supports one predecessor schema, so its pg_attribute observation
@@ -8420,9 +8550,9 @@ func (d *Service) executeUpgrade(ctx context.Context, claim upgradeClaimSnapshot
 		d.queryConn = nil
 	}
 	if disconnectErr != nil {
-		progress.Write("  Disconnecting upgrade service from the database ... failed (continuing): %v", disconnectErr)
+		progress.Write("  Disconnecting the upgrader from the database ... failed (continuing): %v", disconnectErr)
 	} else {
-		progress.Write("  Disconnecting upgrade service from the database ... ok")
+		progress.Write("  Disconnecting the upgrader from the database ... ok")
 	}
 
 	// Step 3: Stop application services (proxy stays running for maintenance page).
@@ -10549,7 +10679,7 @@ func (d *Service) applyNewSbUpgrading(ctx context.Context, id int, commitSHA, di
 	// slow box; a large-DB migration runs for ~minutes); the main goroutine is
 	// parked in subprocess or pgx waits with
 	// no opportunity to ping WATCHDOG=1 from the main loop. Without this
-	// goroutine, WatchdogSec=120 s (per ops/statbus-upgrade.service) fires and
+	// goroutine, WatchdogSec=120 s (per ops/statbus-upgrader.service) fires and
 	// systemd SIGABRTs the unit → restart loop → never reaches
 	// `state='completed'`.
 	//
@@ -10818,7 +10948,7 @@ func (d *Service) applyNewSbUpgrading(ctx context.Context, id int, commitSHA, di
 		// upgrade-resume-structural-whole.md piece #2, READY=1 is emitted
 		// BEFORE recoverFromFlag, so the resume is active-phase too. Active-
 		// phase systemd enforces WatchdogSec (=120 s per
-		// ops/statbus-upgrade.service); only WATCHDOG=1 resets that deadline.
+		// ops/statbus-upgrader.service); only WATCHDOG=1 resets that deadline.
 		//
 		// The single gated ticker started at the top of applyNewSbUpgrading
 		// handles the active-phase WATCHDOG=1 heartbeat for the remainder of
@@ -11204,6 +11334,12 @@ func (d *Service) applyNewSbUpgrading(ctx context.Context, id int, commitSHA, di
 	if finishingClean {
 		d.runUpgradeCallback(displayName)
 		progress.Write("%s", finishing.completeLine())
+		// STATBUS-527: LAST action of the upgrade. If the fixup staged the
+		// unit rename (we are the legacy statbus-upgrade@ unit's main process
+		// and the new statbus-upgrader@ unit file now exists), hand over to
+		// the new unit and stop this one. After this the box runs exactly one
+		// upgrader, under the new name.
+		d.handoffToRenamedUpgraderUnit()
 		return nil
 	}
 	progress.Write("Upgrade to %s was recorded as successful, but finishing did not complete; see the failed step(s) above.", displayName)
@@ -13677,7 +13813,7 @@ func (d *Service) ReattemptRestore(ctx context.Context, rowID int64) error {
 		return fmt.Errorf("ReattemptRestore: acquire upgrade transaction lock for row %d: %w", rowID, err)
 	}
 	if !advisoryLockHeld {
-		return &OperatorRefusalError{Class: RefusalRestoreDaemonOwnsLock, Text: fmt.Sprintf("ReattemptRestore: refusing row %d because a running upgrade daemon owns the upgrade lock; stop/quiesce it and re-run %s", rowID, d.installCommand())}
+		return &OperatorRefusalError{Class: RefusalRestoreDaemonOwnsLock, Text: fmt.Sprintf("ReattemptRestore: refusing row %d because a running upgrader owns the upgrade lock; stop it (`sb upgrader stop`) and re-run %s", rowID, d.installCommand())}
 	}
 
 	// Capture the commit label, snapshot identity, log, and recovery_attempts
@@ -14005,7 +14141,7 @@ func (d *Service) rollback(ctx context.Context, id int, version, restoreTargetSH
 	// structurally wrong that warrants stopping the unit.
 	// 75 must NEVER enter the unit's RestartPreventExitStatus: doing so
 	// once (STATBUS-432's boot-wait, before it moved to 76) left every
-	// box's upgrade service down after a successful rollback — the rc.07
+	// box's upgrader down after a successful rollback — the rc.07
 	// upgrade-arc failure. boot_test.go pins the disjointness.
 	progress.Close()
 	os.Exit(75)
@@ -14123,7 +14259,7 @@ func resolveGitRestoreTarget(projDir, previousVersion string) (resolvedVersion, 
 // in by the git checkout. This closes the rc.6→rc.7 class of bug where
 // template-level fixes landed but the binary still ran old Go against them.
 //
-// Does NOT self-replace the running upgrade-service process; that happens
+// Does NOT self-replace the running upgrader process; that happens
 // via the explicit handoff in executeUpgrade (os.Exit(42) under systemd,
 // syscall.Exec inline).
 //
@@ -14446,14 +14582,14 @@ func (d *Service) selfUpdate(ctx context.Context, version string, progress *Prog
 	}
 
 	if swapped {
-		progress.Write("Updating ./sb ... ok; restarting the upgrade service ...")
+		progress.Write("Updating ./sb ... ok; restarting the upgrader ...")
 	} else {
 		// Mid-flow replaceBinaryOnDisk already placed the target binary;
 		// end-of-flow self-update was a pure no-op. Log honestly so the
 		// narrative on disk / in maintenance.html doesn't lie about what
 		// just happened. Restart is still required — the running service
 		// process is still holding the old binary image in memory.
-		progress.Write("Checking ./sb ... already current; restarting the upgrade service ...")
+		progress.Write("Checking ./sb ... already current; restarting the upgrader ...")
 	}
 	progress.Close()
 	// Exit 42 triggers systemd restart on the new binary. One-shot callers

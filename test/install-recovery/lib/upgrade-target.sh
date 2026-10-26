@@ -594,8 +594,8 @@ construct_upgrade_target() {
     # hookless checkout exactly, rather than depending on whatever hook
     # state happens to exist wherever this function is called from.
     GIT_SSH_ARC_OPTS=(-c gpg.format=ssh -c "user.signingkey=$ARC_SIGNING_KEY" -c core.hooksPath=)
-    export GIT_AUTHOR_NAME="statbus-upgrade-arc[bot]" GIT_COMMITTER_NAME="statbus-upgrade-arc[bot]"
-    export GIT_AUTHOR_EMAIL="statbus-upgrade-arc@users.noreply.github.com" GIT_COMMITTER_EMAIL="statbus-upgrade-arc@users.noreply.github.com"
+    export GIT_AUTHOR_NAME="statbus-upgrader-arc[bot]" GIT_COMMITTER_NAME="statbus-upgrader-arc[bot]"
+    export GIT_AUTHOR_EMAIL="statbus-upgrader-arc@users.noreply.github.com" GIT_COMMITTER_EMAIL="statbus-upgrader-arc@users.noreply.github.com"
     # ARC_PUBKEY: "<type> <key>" (2 fields — no trailing comment; allowed_signers
     # takes "<principal> <type> <key>" and a comment field is not standard there).
     # Exported so downstream subshells (e.g. scenario harnesses) see it without

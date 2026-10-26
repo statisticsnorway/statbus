@@ -23,7 +23,7 @@ import (
 type Trigger string
 
 const (
-	// TriggerService — the upgrade service is gathering a bundle as part
+	// TriggerService — the upgrader is gathering a bundle as part
 	// of a failed/rolled_back state transition. Called from
 	// (*Service).writeDiagnosticBundle.
 	TriggerService Trigger = "service"
@@ -34,7 +34,7 @@ const (
 	TriggerInstall Trigger = "install"
 
 	// TriggerAdhoc — an operator invoked `./sb support gather` directly
-	// (the "lifeline" path when the upgrade service is down). Behaves
+	// (the "lifeline" path when the upgrader is down). Behaves
 	// like TriggerInstall with a different header so the triage reader
 	// knows the bundle was operator-initiated, not failure-initiated.
 	TriggerAdhoc Trigger = "adhoc"
@@ -196,7 +196,7 @@ func WriteBundleSections(ctx context.Context, w io.Writer, projDir string, id in
 	bundleSection(w, "container log snapshot (pre-rollback capture)", bundleContainerLogsBody(projDir, logAbsPath))
 	if body, ok := bundleJournalctlBody(ctx); ok {
 		bundleSection(w,
-			fmt.Sprintf("journalctl tail (last %d lines from statbus-upgrade)", bundleJournalctlLines),
+			fmt.Sprintf("journalctl tail (last %d lines from the upgrader)", bundleJournalctlLines),
 			body)
 	}
 	bundleSection(w, fmt.Sprintf("git log -%d", bundleGitLogCount),
@@ -358,10 +358,11 @@ func bundleCommandBody(parent context.Context, dir, name string, args ...string)
 	return header + body
 }
 
-// bundleJournalctlBody returns the tail of the statbus-upgrade unit's
-// journal. (`"", false)` when the binary isn't available — caller skips
-// the section entirely so bundles produced on non-systemd hosts don't
-// carry a pointless empty stub.
+// bundleJournalctlBody returns the tail of the upgrader unit's journal —
+// both unit-name patterns, so a box mid-rename (STATBUS-527) keeps the old
+// unit's history in the same capture. (`"", false)` when the binary isn't
+// available — caller skips the section entirely so bundles produced on
+// non-systemd hosts don't carry a pointless empty stub.
 func bundleJournalctlBody(parent context.Context) (string, bool) {
 	if _, err := exec.LookPath("journalctl"); err != nil {
 		return "", false
@@ -369,7 +370,7 @@ func bundleJournalctlBody(parent context.Context) (string, bool) {
 	ctx, cancel := context.WithTimeout(parent, bundleSectionCmdTimeout)
 	defer cancel()
 	cmd := exec.CommandContext(ctx, "journalctl",
-		"-u", "statbus-upgrade",
+		"-u", "statbus-upgrader", "-u", "statbus-upgrade",
 		"-n", fmt.Sprintf("%d", bundleJournalctlLines),
 		"--no-pager")
 	prepareCmd(cmd)

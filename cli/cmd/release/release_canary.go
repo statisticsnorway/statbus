@@ -238,7 +238,7 @@ func printCanaryExplanation(slot canarySlot, outcome canaryOutcome, probe canary
 			// `./sb upgrade channel` with no argument, which could only ever
 			// have errored; it required one.)
 			fmt.Printf("      If it still does not appear, the release may not be published on this box's channel — check what the RUNNING service follows with\n"+
-				"      `ssh %s \"journalctl --user -u statbus-upgrade@\\$USER | grep 'Upgrade service started' | tail -1\"`.\n", slot.sshTarget)
+				"      `ssh %s \"journalctl --user -u statbus-upgrader@\\$USER -u statbus-upgrade@\\$USER | grep -E '(Upgrader|Upgrader) started' | tail -1\"`.\n", slot.sshTarget)
 		} else {
 			fmt.Printf("      This slot is installed by the release chain, so 'not offered' points at the CHAIN, not at the box.\n")
 			fmt.Printf("      Your next move: look at %s\n", slot.askWho)

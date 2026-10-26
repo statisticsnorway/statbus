@@ -133,7 +133,7 @@ func TestProductionStepLoopQueuesFinalStartWhileInstallFlockHeld(t *testing.T) {
 	action := upgradeDaemonNoAction
 	ran := false
 	s := step{
-		name:  "Upgrade service",
+		name:  "Upgrader",
 		check: func(string) bool { return false },
 		run: func(stepDir string) error {
 			if !upgrade.IsFlockHeld(stepDir) {
@@ -195,18 +195,23 @@ func TestInstallProbesDatabaseRouteBeforeStartingUpgradeUnit(t *testing.T) {
 		t.Fatal(err)
 	}
 	body := funcBody(t, string(src), "func runInstallService(")
-	handoff := strings.Index(body, "if postUpgradeFixup || os.Getenv(\"STATBUS_POST_UPGRADE_FIXUP\") == \"1\" {")
-	start := -1
-	if handoff >= 0 {
-		start = handoff + strings.Index(body[handoff:], "} else {")
-	}
+	// The route probe runs under `if !insideUnit` so the post-upgrade fixup's
+	// active-service handoff is never blocked by a transient route outage, and
+	// it must precede installUpgraderUnit — the shared implementation
+	// (upgrader.go) whose enableUpgraderUnit is the only enable on this path.
+	guard := strings.Index(body, "if !insideUnit {")
 	probe := strings.Index(body, "checkUpgradeDatabaseRoute(dir)")
-	enable := -1
-	if start >= 0 {
-		enable = start + strings.Index(body[start:], `runCmd("systemctl", "--user", "enable", instance)`)
+	core := strings.Index(body, "installUpgraderUnit(dir, true")
+	if guard < 0 || probe < guard || core < probe {
+		t.Fatalf("route probe must sit inside `if !insideUnit` and precede installUpgraderUnit (guard=%d probe=%d core=%d)", guard, probe, core)
 	}
-	if handoff < 0 || start < handoff || probe < start || enable < probe {
-		t.Fatalf("route probe must precede enable but not block active service handoff (handoff=%d start=%d probe=%d enable=%d)", handoff, start, probe, enable)
+	shared, err := os.ReadFile("upgrader.go")
+	if err != nil {
+		t.Fatal(err)
+	}
+	coreBody := funcBody(t, string(shared), "func installUpgraderUnit(")
+	if !strings.Contains(coreBody, "enableUpgraderUnit(instance)") {
+		t.Fatal("installUpgraderUnit must enable the unit through enableUpgraderUnit — the ONE enable implementation")
 	}
 }
 

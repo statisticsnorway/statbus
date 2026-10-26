@@ -13,7 +13,7 @@ import (
 )
 
 // STATBUS-468: the install accepted the recommended signer, printed "Added
-// UPGRADE_TRUSTED_SIGNER_jhf to .env.config", and its upgrade daemon then
+// UPGRADE_TRUSTED_SIGNER_jhf to .env.config", and its upgrader then
 // reported "No trusted signers configured": the signer was written to
 // .env.config AFTER the step that generates .env, and the daemon reads .env.
 
@@ -51,7 +51,7 @@ func TestTrustedSignersStepRunsBeforeSettingsGeneration(t *testing.T) {
 		return -1
 	}
 	if index("Trusted signers") >= index("Settings") {
-		t.Fatalf("Trusted signers (position %d) must run before Settings (position %d), which generates the .env the upgrade daemon reads; order: %v",
+		t.Fatalf("Trusted signers (position %d) must run before Settings (position %d), which generates the .env the upgrader reads; order: %v",
 			index("Trusted signers")+1, index("Settings")+1, names)
 	}
 	if index("Trusted signers") <= index("Repository") || index("Trusted signers") <= index("Configuration") {
@@ -160,7 +160,7 @@ func TestSignerWrittenAfterGenerationIsReportedNotHidden(t *testing.T) {
 		t.Fatalf("fixture did not reproduce the stale .env: %+v", signers)
 	}
 	err := verifyTrustedSignersApplied(dir)
-	if err == nil || !strings.HasPrefix(err.Error(), "the trusted signer UPGRADE_TRUSTED_SIGNER_jhf is in .env.config but not in the generated settings the upgrade service reads") {
+	if err == nil || !strings.HasPrefix(err.Error(), "the trusted signer UPGRADE_TRUSTED_SIGNER_jhf is in .env.config but not in the generated settings the upgrader reads") {
 		t.Fatalf("stale signer not reported: %v", err)
 	}
 	// The operator sees the classified cause and its remedy (install.sh

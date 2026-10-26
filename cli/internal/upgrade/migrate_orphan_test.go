@@ -9,7 +9,7 @@ import (
 	"github.com/statisticsnorway/statbus/cli/internal/migrate"
 )
 
-// #14 (migrate-orphan clean kill): on a migrate TIMEOUT, the upgrade service
+// #14 (migrate-orphan clean kill): on a migrate TIMEOUT, the upgrader
 // pg_terminate_backend's the orphaned in-container psql backend (docker compose
 // exec does NOT forward SIGKILL, so a host-side process-group kill leaves it
 // alive with its txn open — a commit-after-rollback consistency race). These

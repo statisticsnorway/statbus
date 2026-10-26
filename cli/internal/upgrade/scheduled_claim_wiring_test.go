@@ -7,7 +7,7 @@ import (
 )
 
 // TestRunClaimsScheduledOnStartupAndTick is the fast wiring guard for STATBUS-098:
-// the upgrade daemon must claim a pending 'scheduled' row WITHOUT a live NOTIFY,
+// the upgrader must claim a pending 'scheduled' row WITHOUT a live NOTIFY,
 // via (a) a startup scan and (b) the 30s heartbeat tick — not only on a live
 // NOTIFY. A NOTIFY fired while the daemon is down/restarting (e.g. an upgrade's
 // DB-restart reconnect window) is LOST (pg NOTIFY is not durable); without these

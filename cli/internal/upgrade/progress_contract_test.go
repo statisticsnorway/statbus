@@ -268,7 +268,7 @@ func TestRollbackCompletionErrorsRefuseHealthyTerminalForEveryRequiredBoundary(t
 		{name: "database restore", err: rollbackCompletionErrors{databaseRestore: boom}, want: "DB snapshot restore failed"},
 		{name: "services start", err: rollbackCompletionErrors{servicesStart: boom}, want: "services did not come back up"},
 		{name: "database health", err: rollbackCompletionErrors{databaseHealth: boom}, want: "restored database did not become healthy"},
-		{name: "reconnect", err: rollbackCompletionErrors{reconnect: boom}, want: "upgrade service did not reconnect to the restored database"},
+		{name: "reconnect", err: rollbackCompletionErrors{reconnect: boom}, want: "the upgrader did not reconnect to the restored database"},
 		{name: "maintenance", err: rollbackCompletionErrors{maintenance: boom}, want: "maintenance mode did not lift"},
 		{name: "read only", err: rollbackCompletionErrors{readOnly: boom}, want: "SQL writes remained blocked"},
 	} {

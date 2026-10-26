@@ -68,7 +68,7 @@
 # installation diagnostics file the operator is pointed to. The restore
 # re-attempt legend, its success forecast and the degraded-outcome advice are
 # fixed text and pass verbatim.
-/^(⚠ The last start of the upgrade service refused its configuration:|If this run below fixes the config, the marker clears automatically\.|Re-attempting the restore from the retained snapshot \(this is what `\.\/sb install` does here\)\.\.\.|Restore complete — the system is running normally on the previous version\.|  The upgrade that failed has been rolled back\. To move forward:|    • Find a newer release:  \.\/sb upgrade check|    • The version that failed will fail the same way — try a LATER release when one is available\.|  The database restore could not be completed; the system is still degraded\.|  Next: contact SSB support and involve your IT staff\. Keep this box as-is for diagnosis;)$/ {
+/^(⚠ The last start of the upgrader refused its configuration:|If this run below fixes the config, the marker clears automatically\.|Re-attempting the restore from the retained snapshot \(this is what `\.\/sb install` does here\)\.\.\.|Restore complete — the system is running normally on the previous version\.|  The upgrade that failed has been rolled back\. To move forward:|    • Find a newer release:  \.\/sb upgrade check|    • The version that failed will fail the same way — try a LATER release when one is available\.|  The database restore could not be completed; the system is still degraded\.|  Next: contact SSB support and involve your IT staff\. Keep this box as-is for diagnosis;)$/ {
     print
     fflush()
     next

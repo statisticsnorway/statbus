@@ -108,7 +108,7 @@ func TestBootInstallHeldLiveFlockExpiresWithWatchdogAndOneHolderLog(t *testing.T
 	if got := notifications.Load(); got < 1 {
 		t.Fatalf("watchdog notifications = %d, want at least one while flock remained held", got)
 	}
-	if got := strings.Count(log.String(), "Upgrade daemon boot deferred:"); got != 1 {
+	if got := strings.Count(log.String(), "Upgrader boot deferred:"); got != 1 {
 		t.Fatalf("holder-identifying log count = %d, want exactly one; log=%q", got, log.String())
 	}
 	if !strings.Contains(log.String(), "an installation started at 2026-10-01T12:00:00Z") ||
@@ -139,7 +139,7 @@ func TestBootInstallHeldFlockReleaseAllowsContinuation(t *testing.T) {
 	if flag == nil || flag.Holder != HolderInstall {
 		t.Fatalf("released stale marker = %+v, want preserved install metadata", flag)
 	}
-	if got := strings.Count(log.String(), "Upgrade daemon boot deferred:"); got != 1 {
+	if got := strings.Count(log.String(), "Upgrader boot deferred:"); got != 1 {
 		t.Fatalf("release-path holder log count = %d, want exactly one", got)
 	}
 }
@@ -251,7 +251,7 @@ func TestInstallHeldBootExpiryMapsToRestartPreventedExit76(t *testing.T) {
 }
 
 func TestUpgradeUnitPreventsExit76RestartAndLeavesStartupBudget(t *testing.T) {
-	unit, err := os.ReadFile(thisRepoFile(t, "ops/statbus-upgrade.service"))
+	unit, err := os.ReadFile(thisRepoFile(t, "ops/statbus-upgrader.service"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -260,7 +260,7 @@ func TestUpgradeUnitPreventsExit76RestartAndLeavesStartupBudget(t *testing.T) {
 	if len(prevent) != 2 || !strings.Contains(" "+prevent[1]+" ", " 76 ") {
 		t.Fatalf("RestartPreventExitStatus must contain 76, got %q", prevent)
 	}
-	// 75 (rollback-complete) in the prevent list leaves the upgrade service
+	// 75 (rollback-complete) in the prevent list leaves the upgrader
 	// permanently down after every successful rollback — the rc.07 arc
 	// failure. It must never be prevented.
 	if len(prevent) == 2 && strings.Contains(" "+prevent[1]+" ", " 75 ") {

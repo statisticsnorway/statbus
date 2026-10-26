@@ -999,7 +999,7 @@ PUBLIC_STATBUS_COMMIT_SHORT=%[23]s
 	// key the night before a cut.
 	setKV("APT_USE_HTTPS_ONLY", cfg.AptUseHttpsOnly, RestartDB)
 
-	// Upgrade service settings — always written to .env so the service never silently defaults.
+	// Upgrader settings — always written to .env so the service never silently defaults.
 	// Values come from .env.config if present, otherwise sensible defaults.
 	{
 		cfgFile, cfgErr := dotenv.Load(filepath.Join(projDir, ".env.config"))
@@ -1011,7 +1011,7 @@ PUBLIC_STATBUS_COMMIT_SHORT=%[23]s
 			}
 			return fallback
 		}
-		fmt.Fprintf(&b, "\n# Upgrade service configuration\n")
+		fmt.Fprintf(&b, "\n# Upgrader configuration\n")
 		// UPGRADE_CHANNEL is written ONLY here, into the generated .env, never
 		// back into .env.config (STATBUS-307). That one-way flow is what makes
 		// "seeding stops" true: an unremarkable box stores nothing about upgrade
@@ -1035,7 +1035,7 @@ PUBLIC_STATBUS_COMMIT_SHORT=%[23]s
 		// ops/notify-slack.sh for the reference implementation.
 		fmt.Fprintf(&b, "UPGRADE_CALLBACK=%s\n", getOrDefault("UPGRADE_CALLBACK", ""))
 		classes.declare("UPGRADE_CALLBACK") // runCallback() calls dotenv.Load(".env") itself on every invocation — never cached
-		// The upgrade service reads GITHUB_TOKEN directly from .env.credentials.
+		// The upgrader reads GITHUB_TOKEN directly from .env.credentials.
 		// Scheduled logical-backup settings (STATBUS-113) — read by the service's loadConfig().
 		fmt.Fprintf(&b, "BACKUP_ENABLED=%s\n", getOrDefault("BACKUP_ENABLED", "true"))
 		classes.declare("BACKUP_ENABLED", RestartUpgradeDaemon)

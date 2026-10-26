@@ -70,25 +70,23 @@ func runUpgradePsql(sql string, extraArgs ...string) ([]byte, error) {
 
 var upgradeCmd = &cobra.Command{
 	Use:     "upgrade",
-	Short:   "Manage software upgrades",
+	Short:   "Act on software upgrades",
 	GroupID: operationsGroupID,
-	Long: `Manage the upgrade service and software releases.
+	Long: `Act on software upgrades: look, install, or compose the steps yourself.
+The PROGRAM that performs upgrades is the upgrader — see 'sb upgrader'.
 
 Look:
   check       Fetch GitHub releases and register what it finds
   list        Show registered candidates and their status
 
-Install (you ask; the service performs the work):
+Install (you ask; the upgrader performs the work):
   apply       Install EXACTLY this version — register + schedule in one command
   apply-latest Install whichever version is newest on this box's channel
 
 Compose it yourself, when you want the steps apart:
   register    Record a release tag or commit as a candidate (state=available)
   schedule    Queue an ALREADY-REGISTERED candidate to run (fails if not registered)
-  dismiss     Mark a candidate as never to be offered or installed automatically
-
-Run:
-  service     Run the upgrade service (long-running, typically via systemd)`,
+  dismiss     Mark a candidate as never to be offered or installed automatically`,
 }
 
 var upgradeCheckCmd = &cobra.Command{
@@ -97,7 +95,7 @@ var upgradeCheckCmd = &cobra.Command{
 	Long: `Fetches releases from GitHub, prints them, and registers each release
 newer than the running version as an upgrade candidate (state='available')
 through the same path discovery uses. Subsumes the old 'discover' verb — the
-service still auto-discovers on its own poll using the same register path.`,
+upgrader still auto-discovers on its own poll using the same register path.`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		// STATBUS-308: an operator running `check` by hand is often doing so
 		// BECAUSE automatic checking appears to have stopped. If the box cannot
@@ -112,12 +110,12 @@ var upgradeRegisterCmd = &cobra.Command{
 	Use:   "register <target>",
 	Short: "Record a release tag or commit as an upgrade candidate",
 	Long: `Record a target as an upgrade candidate (state='available') and poke the
-upgrade service to prepare it (pull images, verify build artifacts).
+upgrader to prepare it (pull images, verify build artifacts).
 
 The target is a release tag, an 8-char commit_short, OR a full 40-char commit
 SHA — git-resolved to the canonical commit. register is the prerequisite for
 schedule: you cannot schedule a target whose candidate row does not exist.
-Once the service reports the candidate ready, run
+Once the upgrader reports the candidate ready, run
 './sb upgrade schedule <target>' to queue it.
 
 Examples:
@@ -136,8 +134,8 @@ var upgradeApplyCmd = &cobra.Command{
 	Long: `Install EXACTLY the named version — the whole operation in one command.
 
 This is the general verb for "put this version on this box". It registers the
-target if the box does not already know it, then schedules it; the upgrade
-service does the rest, inside its usual backup / migrate / health-check /
+target if the box does not already know it, then schedules it; the upgrader
+does the rest, inside its usual backup / migrate / health-check /
 rollback-on-failure envelope.
 
 The target is a release tag, an 8-character commit_short, or a full 40-character
@@ -327,7 +325,7 @@ var upgradeScheduleCmd = &cobra.Command{
 	Use:   "schedule <target>",
 	Short: "Schedule an already-registered candidate to run",
 	Long: `Promote an already-registered upgrade candidate to 'scheduled'. The
-database trigger then notifies the upgrade service, which runs it.
+database trigger then notifies the upgrader, which runs it.
 
 The target is a release tag, an 8-char commit_short, or a full 40-char commit
 SHA — whichever you registered (git-resolved to the canonical commit). FAILS
@@ -347,8 +345,8 @@ named operator (STATBUS-382): pass --operator "<your name>" when no terminal
 is present to prompt for it.`,
 	Args: cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		// STATBUS-308: scheduling depends on the service to execute it. Queueing
-		// work for a service that is missing or stopped would sit "scheduled"
+		// STATBUS-308: scheduling depends on the upgrader to execute it. Queueing
+		// work for an upgrader that is missing or stopped would sit "scheduled"
 		// forever with nothing saying why — the silent wedge again. Warn, but do
 		// not refuse: the row is still legitimate, and it runs the moment the
 		// operator repairs the box with ./sb install.
@@ -375,7 +373,7 @@ var upgradeApplyLatestCmd = &cobra.Command{
 	Use:   "apply-latest",
 	Short: "Discover and apply the latest available version",
 	Long: `Fetches tags via git, finds the latest version matching the
-configured channel (stable/prerelease), and tells the upgrade service
+configured channel (stable/prerelease), and tells the upgrader
 to upgrade to it immediately.
 
 Used by deploy workflows — all logic is server-side, no workflow
@@ -406,7 +404,7 @@ file changes needed.`,
 		// exactly here.
 		//
 		// UNDER THE UPGRADE MUTEX (STATBUS-323's constraint). Unlike the install
-		// call site, this one is a plain CLI command: the upgrade service may be
+		// call site, this one is a plain CLI command: the upgrader may be
 		// concurrently active, and `git config` mutates repository state. Writing
 		// the refspec while a service upgrade manipulates the same repo would
 		// reintroduce on the upgrade path exactly the race 323 closed on the
@@ -524,7 +522,7 @@ file changes needed.`,
 			return fmt.Errorf("apply-latest schedule %s: %w", latestVersion, err)
 		}
 
-		if w, err := syslog.New(syslog.LOG_INFO, "statbus-upgrade"); err == nil {
+		if w, err := syslog.New(syslog.LOG_INFO, "statbus-upgrader"); err == nil {
 			_ = w.Info(fmt.Sprintf("upgrade apply-latest: registered + scheduled %s (channel=%s, recreate=%v)", latestVersion, channel, recreateFlag)) // best-effort syslog note
 			_ = w.Close()
 		}
@@ -553,7 +551,8 @@ func latestTagForChannel(tagsOutput, channel string) string {
 
 // newUpgradeService builds a Service for the current binary, deriving the
 // service version (a git-checkout-able ref) from the ldflags. Shared by the
-// `service` daemon and the one-shot verbs (register / schedule / check).
+// upgrader daemon (`sb upgrader run`, plus its hidden `sb upgrade service`
+// alias) and the one-shot verbs (register / schedule / check).
 func newUpgradeService(projDir string) *upgrade.Service {
 	// Derive serviceVersion — a valid git ref the service can git-checkout.
 	// version is cmd.version: git-describe output verbatim, which carries the
@@ -588,8 +587,12 @@ func newUpgradeService(projDir string) *upgrade.Service {
 	d := upgrade.NewService(projDir, verbose, serviceVersion, string(commitSHA))
 	// Unit name for the per-dispatch NRestarts reset (STATBUS-039 review
 	// finding 2) — derivable only here in cmd; internal/upgrade must not
-	// guess it.
-	d.SetUnitInstance(serviceInstance(projDir))
+	// guess it. resolveUpgraderInstance addresses the unit this box ACTUALLY
+	// runs, new name or (pre-migration) legacy; the legacy name is also handed
+	// over so the daemon can perform the post-fixup unit handoff
+	// (Service.handoffToRenamedUpgraderUnit, STATBUS-527).
+	d.SetUnitInstance(resolveUpgraderInstance())
+	d.SetLegacyUnitInstance(legacyServiceInstance(projDir))
 
 	// LOAD THE CONFIG (STATBUS-311). Without this every CLI verb ran with
 	// d.channel == "", because loadConfig had only ever been called from Run()
@@ -623,17 +626,15 @@ var upgradeServiceRunE = func(cmd *cobra.Command, args []string) error {
 
 var upgradeServiceCmd = &cobra.Command{
 	Use:   "service",
-	Short: "Run the upgrade service (long-running process)",
-	Long: `Starts the upgrade service which:
-  - Polls GitHub Releases for new versions
-  - Pre-downloads Docker images
-  - Listens for NOTIFY upgrade_check and upgrade_apply
-  - Executes scheduled upgrades with backup and rollback
-
-Typically run via systemd (ops/statbus-upgrade.service).`,
+	Short: "Run the upgrader (long-running process)",
+	Long: `Hidden alias of 'sb upgrader run'. Units installed before STATBUS-527
+(statbus-upgrade@.service) have ExecStart='sb upgrade service'; the alias keeps
+those units working until every supported box has re-run its install and moved
+to statbus-upgrader@.service. Its removal is the STATBUS-527 follow-up (AC9).`,
+	Hidden: true,
 	// systemd entrypoint. If a previous upgrade rolled back leaving cli/
 	// ahead of the binary, stalenessGuard rebuilds + re-execs instead of
-	// crash-looping the service. See cli/cmd/root.go.
+	// crash-looping the upgrader. See cli/cmd/root.go.
 	Annotations: map[string]string{"selfheal": "true"},
 	RunE:        upgradeServiceRunE,
 }
@@ -867,7 +868,7 @@ var trustKeyCmd = &cobra.Command{
 	Long: `Manage SSH public keys trusted for verifying commit signatures.
 
 Keys are stored as UPGRADE_TRUSTED_SIGNER_<name> in .env.config.
-The upgrade service uses these to verify commits before applying upgrades.`,
+The upgrader uses these to verify commits before applying upgrades.`,
 }
 
 var trustKeyListCmd = &cobra.Command{

@@ -325,7 +325,7 @@ then
     exit 1
 fi
 assert_health_passes "$VM_NAME"
-assert_systemd_restart_counter_bounded "$VM_NAME" "statbus-upgrade@statbus.service" 2
+assert_systemd_restart_counter_bounded "$VM_NAME" "$(upgrade_unit_name)" 2
 
 echo ""
 echo "PASS: 1-boot-concurrent-install (probe 2 refused second install; first install completed cleanly)"

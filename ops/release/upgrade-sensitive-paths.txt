@@ -38,7 +38,7 @@ directory | box payload | postgres
 directory | box payload | caddy
 directory | box payload | migrations
 prefix | box payload | docker-compose.
-exact | box payload | ops/statbus-upgrade.service
+exact | box payload | ops/statbus-upgrader.service
 
 exact | shared controller | dev.sh
 exact | shared controller | .github/workflows/release-fleet-orchestrator.yaml

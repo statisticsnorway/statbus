@@ -30,7 +30,7 @@
 # The binary /sb is in .gitignore — placing it doesn't dirty the working tree.
 #
 # Concurrency safety (STATBUS-039): ./sb install's dispatcher handles a
-# running upgrade service ITSELF — a genuinely-progressing upgrade (flag
+# running upgrader ITSELF — a genuinely-progressing upgrade (flag
 # held, unit healthy) makes install REFUSE with a wait-and-retry message; a
 # crash-looping unit (NRestarts >= 3) is taken over with a SIGKILL-class
 # quiesce and the wedged upgrade is recovered. Callers must NOT stop the
@@ -470,7 +470,7 @@ fi
 #
 # OBSERVED on ma, 2026-08-31: `git fetch origin --tags` below died with
 #   cannot lock ref 'refs/remotes/origin/master': is at 3bd85bfae but expected 376a18c38
-# The box's still-running upgrade service fetches THIS SAME REPO on its ~2-minute
+# The box's still-running upgrader fetches THIS SAME REPO on its ~2-minute
 # discovery tick, and the two fetches collided on the ref. et and jo ran minutes
 # earlier with identical commands and simply won their races — the tell that this
 # is a race, not a broken command. It left a genuinely mixed state: the binary was
@@ -483,7 +483,7 @@ fi
 # is the deploy-stop footgun that wedged rune, and this script's own header has
 # forbidden it since. A flag-guarded stop is not good enough either: the guard is
 # TOCTOU, and the window it leaves is precisely "restore a snapshot over a running
-# database". So the bootstrap acquires the SAME advisory lock the upgrade service
+# database". So the bootstrap acquires the SAME advisory lock the upgrader
 # already contends on, and every party blocks or backs off by the existing
 # contract instead of one killing another.
 #

@@ -6,7 +6,7 @@ import (
 	"testing"
 )
 
-// STATBUS-382: an active upgrade daemon whose running program is not the ./sb
+// STATBUS-382: an active upgrader whose running program is not the ./sb
 // this install leaves on disk is restarted at install exit, so the next claim
 // runs the installed code.
 func TestStaleUpgradeDaemonIsRestartedAtInstallExit(t *testing.T) {

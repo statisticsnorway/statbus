@@ -2,7 +2,7 @@
 # Arc: working → working-fixed  (STATBUS-071 §9 (c)) — the MANY who succeeded.
 #
 # The STATBUS-072 re-stamp, proven end-to-end on a real VM via the Albania
-# mechanism (register + schedule → the upgrade SERVICE runs it autonomously; NO
+# mechanism (register + schedule → the upgrader runs it autonomously; NO
 # quiesce, NO ./sb install). Shared mechanics live in lib/arc-helpers.sh.
 #
 # Arc shape (A → B → C, all post-086 commits):
@@ -59,8 +59,8 @@ _dump_working_failure_diagnostics() {
     # captures (log_rel query, row state) last and individually guarded, so a
     # down/unreachable db reports itself as a datum instead of aborting the
     # rest under this file's set -e.
-    echo "── daemon journal (statbus-upgrade@statbus.service, last 400 lines) ──" >&2
-    VM_EXEC bash -c "journalctl --user -u statbus-upgrade@statbus.service --no-pager -n 400 2>/dev/null" >&2 || echo "  (could not read the journal)" >&2
+    echo "── daemon journal ("$(upgrade_unit_name)", last 400 lines) ──" >&2
+    VM_EXEC bash -c "journalctl --user -u "$(upgrade_unit_name)" --no-pager -n 400 2>/dev/null" >&2 || echo "  (could not read the journal)" >&2
     echo "── flag file at exit ──" >&2
     VM_EXEC bash -c "cat ~/statbus/tmp/upgrade-in-progress.json 2>/dev/null || echo '(flag absent)'" >&2 || true
     local log_rel

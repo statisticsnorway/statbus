@@ -64,7 +64,7 @@
 #   backup (pre-swap, service.go:~5105) → warm-up image pull (pre-swap, caches B's
 #   images while disk is healthy) → binary swap → updateFlagNewSbSwapped stamps
 #   phase=new-sb-swapped + BackupPath (service.go:5368) → os.Exit(42) (service.go:5380)
-#   → systemd RestartSec=30 (ops/statbus-upgrade.service) → new binary boots,
+#   → systemd RestartSec=30 (ops/statbus-upgrader.service) → new binary boots,
 #   deferred checkout, reaches CHECK 2.
 # The flag file (tmp/upgrade-in-progress.json) carries phase across the exit-42
 # restart and PERSISTS during the ~30 s RestartSec wait — so polling it for
@@ -128,7 +128,7 @@ source "$LIB_DIR/wedge-helpers.sh"
 source "$LIB_DIR/assertions.sh"
 source "$LIB_DIR/arc-helpers.sh"
 
-UPGRADE_UNIT="statbus-upgrade@statbus.service"
+UPGRADE_UNIT="$(upgrade_unit_name)"
 FILL_FILE="tmp/arc-diskfill.bin"
 # Siren (park-callback) log + the alive-idle settle budget (mirrors the health-park
 # arc — the RestartSec=30 auto-restart hold-off must elapse before "alive-idle" is

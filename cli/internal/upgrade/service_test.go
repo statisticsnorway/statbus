@@ -11,7 +11,7 @@ import (
 )
 
 // TestNoSilentNotesInUpgradeService enforces the Phase 5 fail-fast
-// contract from the plan: the upgrade service must not emit
+// contract from the plan: the upgrader must not emit
 // `Note: ...`, `Notice: ...`, or `Warning: ...` via fmt.Printf for
 // conditions an operator could act on — every such condition must be a
 // named invariant (class=fail-fast, which emits the transcript +
@@ -91,7 +91,7 @@ func TestServiceGo_BranchNamesNamespaceFree(t *testing.T) {
 
 // TestInstallShChecksOutFixedCommitsDetached mirrors the release contract for
 // install.sh: tags name fixed commits, so no local tracking branch is created.
-// `pre-upgrade` remains a real rollback marker owned by the upgrade service.
+// `pre-upgrade` remains a real rollback marker owned by the upgrader.
 func TestInstallShChecksOutFixedCommitsDetached(t *testing.T) {
 	src, err := os.ReadFile(thisRepoFile(t, "install.sh"))
 	if err != nil {

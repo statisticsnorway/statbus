@@ -10,7 +10,7 @@
 # Expected principled behavior:
 #   When the DB container restarts, there's a brief window where the
 #   container is up but PostgreSQL hasn't yet accepted connections.
-#   If the supervised upgrade-service unit starts during that window
+#   If the supervised upgrader unit starts during that window
 #   and tries to take its `pg_advisory_lock(migrate_up)` before the
 #   DB is ready, the lock acquisition fails. The service exits with
 #   the well-known "DB not ready" code (42 per the unit's
@@ -26,10 +26,10 @@
 # Scenario kind: external orchestration (no in-code inject site).
 #   C16 is KindExternal — no `inject.X` call fires for this class.
 #   The scenario orchestrates the race externally:
-#     1. Stop the upgrade-service unit.
+#     1. Stop the upgrader unit.
 #     2. Restart the DB container via `docker compose restart db`.
 #     3. Immediately (before DB is fully accepting connections) start
-#        the upgrade-service unit. The unit's first start should
+#        the upgrader unit. The unit's first start should
 #        observe the "DB not ready" condition and exit 42.
 #     4. Wait `RestartSec` + slack and confirm the unit reaches
 #        `active` state on its automatic restart.
@@ -43,7 +43,7 @@
 #      unit is `active`.
 #   2. Stop the unit cleanly.
 #   3. `docker compose restart db` — restart the DB container.
-#   4. Immediately `systemctl --user start statbus-upgrade@statbus.service`.
+#   4. Immediately `systemctl --user start "$(upgrade_unit_name)"`.
 #      (The "immediately" timing is what produces the Race E window.
 #      If we sleep longer, the DB is fully ready and the race
 #      disappears — the test becomes a no-op.)
@@ -94,14 +94,14 @@ echo "── initial install at $INSTALL_VERSION ──"
 install_statbus_in_vm "$VM_NAME" "$INSTALL_VERSION"
 assert_health_passes "$VM_NAME"
 
-UNIT_STATE_BEFORE=$(VM_EXEC systemctl --user is-active "statbus-upgrade@statbus.service" 2>/dev/null | tr -d ' \r\n' || echo "?")
+UNIT_STATE_BEFORE=$(VM_EXEC systemctl --user is-active "$(upgrade_unit_name)" 2>/dev/null | tr -d ' \r\n' || echo "?")
 if [ "$UNIT_STATE_BEFORE" != "active" ]; then
-    echo "✗ upgrade-service unit not active before race trigger (state=$UNIT_STATE_BEFORE)" >&2
+    echo "✗ upgrader unit not active before race trigger (state=$UNIT_STATE_BEFORE)" >&2
     exit 1
 fi
 echo "  ✓ upgrade-service active before race trigger"
 
-NRESTARTS_BASELINE=$(VM_EXEC systemctl --user show "statbus-upgrade@statbus.service" --property=NRestarts --value 2>/dev/null | tr -d ' \r\n' || echo "0")
+NRESTARTS_BASELINE=$(VM_EXEC systemctl --user show "$(upgrade_unit_name)" --property=NRestarts --value 2>/dev/null | tr -d ' \r\n' || echo "0")
 echo "  baseline NRestarts: $NRESTARTS_BASELINE"
 
 # ─────────────────────────────────────────────────────────────────────────
@@ -111,7 +111,7 @@ echo ""
 echo "── orchestrating Race E: stop unit, restart DB container, immediately start unit ──"
 
 # Step 1: Stop the unit cleanly so its current process exits.
-VM_EXEC bash -c "systemctl --user stop statbus-upgrade@statbus.service"
+VM_EXEC bash -c "systemctl --user stop $(upgrade_unit_name)"
 sleep 2
 
 # Step 2: Restart the DB container. This produces the "DB not yet
@@ -127,8 +127,8 @@ fi
 
 # Step 4: Start the unit. With ZERO grace, this should hit the
 # Race E window — DB container is up but not accepting connections yet.
-echo "  starting upgrade-service unit (this is the race trigger)"
-VM_EXEC bash -c "systemctl --user --no-block start statbus-upgrade@statbus.service"
+echo "  starting upgrader unit (this is the race trigger)"
+VM_EXEC bash -c "systemctl --user --no-block start $(upgrade_unit_name)"
 
 # Step 5: Sleep to let systemd's automatic restart kick in.
 echo "  waiting ${WAIT_S}s for unit's failure → automatic restart → active state"
@@ -140,9 +140,9 @@ sleep "$WAIT_S"
 echo ""
 echo "── observing post-race state ──"
 
-UNIT_STATE_AFTER=$(VM_EXEC systemctl --user is-active "statbus-upgrade@statbus.service" 2>/dev/null | tr -d ' \r\n' || echo "?")
-NRESTARTS_AFTER=$(VM_EXEC systemctl --user show "statbus-upgrade@statbus.service" --property=NRestarts --value 2>/dev/null | tr -d ' \r\n' || echo "?")
-RESULT=$(VM_EXEC systemctl --user show "statbus-upgrade@statbus.service" --property=Result --value 2>/dev/null | tr -d ' \r\n' || echo "?")
+UNIT_STATE_AFTER=$(VM_EXEC systemctl --user is-active "$(upgrade_unit_name)" 2>/dev/null | tr -d ' \r\n' || echo "?")
+NRESTARTS_AFTER=$(VM_EXEC systemctl --user show "$(upgrade_unit_name)" --property=NRestarts --value 2>/dev/null | tr -d ' \r\n' || echo "?")
+RESULT=$(VM_EXEC systemctl --user show "$(upgrade_unit_name)" --property=Result --value 2>/dev/null | tr -d ' \r\n' || echo "?")
 echo "  unit state: $UNIT_STATE_AFTER  Result: $RESULT  NRestarts: $NRESTARTS_AFTER"
 
 RESTART_DELTA=$((NRESTARTS_AFTER - NRESTARTS_BASELINE))
@@ -164,7 +164,7 @@ echo "── convergence checks ──"
 
 if [ "$UNIT_STATE_AFTER" != "active" ]; then
     echo "✗ unit did not reach active state after race trigger (state=$UNIT_STATE_AFTER)" >&2
-    VM_EXEC bash -c "systemctl --user status statbus-upgrade@statbus.service --no-pager" >&2 || true
+    VM_EXEC bash -c "systemctl --user status "$(upgrade_unit_name)" --no-pager" >&2 || true
     exit 1
 fi
 echo "  ✓ unit reached active state (self-healed)"

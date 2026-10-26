@@ -3,7 +3,7 @@
 #
 # Both arcs (working-arc.sh = the MANY who succeed → re-stamp; failing-arc.sh =
 # the FEW who fail → rollback → fresh fix) drive real upgrades through the Albania
-# mechanism (register → schedule → the upgrade SERVICE runs executeUpgrade
+# mechanism (register → schedule → the upgrader runs executeUpgrade
 # autonomously; NO quiesce, NO ./sb install). This file holds everything they
 # share so the two scripts stay thin and can't drift apart.
 #
@@ -58,12 +58,12 @@ trust_arc_signer() {
     echo ""
     echo "── trusting ephemeral arc signer (post-install) ──"
     VM_EXEC bash -c "cd ~/statbus && ./sb dotenv -f .env.config set UPGRADE_TRUSTED_SIGNER_arc \"${SB_ARC_TRUSTED_SIGNER}\" && ./sb config generate >/dev/null"
-    vm_restart_unit "statbus-upgrade@statbus.service"
+    vm_restart_unit "$(upgrade_unit_name)"
     echo "  ✓ arc signer trusted; upgrade unit restarted (loadTrustedSigners re-read .env)"
 }
 
 # arc_prepare_box — bring the box to the shared arc starting line: provision →
-# install A (base_sha, pinned) → health → assert the upgrade daemon is active →
+# install A (base_sha, pinned) → health → assert the upgrader is active →
 # trust the arc signer → populate demo data. After this both arcs capture their
 # own baseline (working: data snapshot; failing: 3-dim fingerprint) and drive B/C.
 arc_prepare_box() {
@@ -79,7 +79,7 @@ arc_prepare_box() {
     # 'activating' transient (a one-shot read here is the same race the rc.08
     # fleet hit in 5-install-stage-c-systemd-failed: 432's no-block final-act
     # start + Type=notify READY delay vs the arc's immediate check).
-    assert_systemd_active "$VM_NAME" || { echo "✗ upgrade-service unit not active after install A" >&2; exit 1; }
+    assert_systemd_active "$VM_NAME" || { echo "✗ upgrader unit not active after install A" >&2; exit 1; }
     echo "  ✓ upgrade-service active (daemon will run the arc)"
 
     trust_arc_signer
@@ -105,12 +105,12 @@ dump_signing_diagnostics() {
     echo "  └─"
 }
 
-# dump_daemon_state <label> — DIAGNOSTIC (BUG-2): the upgrade unit's is-active,
+# dump_daemon_state <label> — DIAGNOSTIC (BUG-2): the upgrader unit's is-active,
 # whether a backend is LISTENing on upgrade_apply, + the recent journal, right
 # before scheduling. Reveals whether the post-B-restart daemon was ready when C
 # was scheduled. Best-effort; never fails the arc.
 dump_daemon_state() {
-    local label="$1" unit="statbus-upgrade@statbus.service"
+    local label="$1" unit="$(upgrade_unit_name)"
     echo "  ┌─ daemon state ($label) ─"
     echo "  │ is-active: $(VM_EXEC systemctl --user is-active "$unit" 2>/dev/null | tr -d ' \r\n' || echo '?')"
     echo "  │ LISTEN upgrade_apply backends: $(VM_EXEC bash -c "cd ~/statbus && echo \"SELECT count(*) FROM pg_stat_activity WHERE query = 'LISTEN upgrade_apply';\" | ./sb psql -t -A" 2>/dev/null | tr -d ' \r\n' || echo '?')"
@@ -386,7 +386,7 @@ assert_fingerprint_matches() {
 # (the legacy daemon-down 'scheduled' synth) with the REAL register+schedule; the
 # crash itself is ALREADY real (STATBUS_INJECT_AT at the product's inject points).
 
-# arc_schedule_daemon_down <sha> — stop the upgrade daemon, then schedule <sha> so
+# arc_schedule_daemon_down <sha> — stop the upgrader, then schedule <sha> so
 # the row sits in a persistent daemon-down 'scheduled' state (RunSchedule, 086),
 # ready for `./sb install` to inline-dispatch. Mirrors the proven claim-without-
 # notify daemon-down→schedule pattern. (register <sha> must have run first, with
@@ -395,9 +395,9 @@ arc_schedule_daemon_down() {
     local sha="$1"
     echo ""
     echo "── stop the daemon + schedule ${sha:0:8} → persistent daemon-down 'scheduled' row ──"
-    VM_EXEC systemctl --user stop "statbus-upgrade@statbus.service" 2>/dev/null || true
+    VM_EXEC systemctl --user stop "$(upgrade_unit_name)" 2>/dev/null || true
     local s
-    s=$(VM_EXEC systemctl --user is-active "statbus-upgrade@statbus.service" 2>/dev/null | tr -d ' \r\n' || echo "inactive")
+    s=$(VM_EXEC systemctl --user is-active "$(upgrade_unit_name)" 2>/dev/null | tr -d ' \r\n' || echo "inactive")
     [ "$s" != "active" ] || { echo "✗ daemon still active after stop — it could claim the row before ./sb install" >&2; exit 1; }
     VM_EXEC bash -c "cd ~/statbus && ./sb upgrade schedule $sha 2>&1 | tail -20"
     local st
@@ -465,7 +465,9 @@ arc_install_dispatch_with_inject() {
 # The load-bearing check is NRestarts stays bounded (the WATCHDOG=1 ticker keeps
 # the unit alive across the stall → the upgrade COMPLETES, never SIGABRT).
 
-ARC_UPGRADE_UNIT="statbus-upgrade@statbus.service"
+# STATBUS-527: the ARC_UPGRADE_UNIT constant is retired — the box migrates from
+# statbus-upgrade@ to statbus-upgrader@ mid-arc (the post-upgrade install moves
+# it), so every read resolves the CURRENT name via upgrade_unit_name.
 
 # arc_install_stall_dropin <inject_class> <release_file> — install a systemd USER
 # dropin that arms the StallHere (Environment), then RESTART the unit so the
@@ -484,13 +486,13 @@ arc_install_stall_dropin() {
     [ -z "$extra_env" ] || extra_line="Environment=${extra_env}"
     echo ""
     echo "── install stall dropin (STATBUS_INJECT_AT=${inject_class}${extra_env:+, ${extra_env}}) + RESTART unit (arms env in the daemon process) ──"
-    VM_EXEC systemctl --user stop "$ARC_UPGRADE_UNIT" 2>/dev/null || true
+    VM_EXEC systemctl --user stop "$(upgrade_unit_name)" 2>/dev/null || true
     local script
     script=$(mktemp /tmp/arc-stall-dropin-XXXXXX.sh)
     cat > "$script" << SCRIPT_EOF
 #!/bin/bash
 set -euo pipefail
-DROPIN_DIR="\$HOME/.config/systemd/user/${ARC_UPGRADE_UNIT}.d"
+DROPIN_DIR="\$HOME/.config/systemd/user/$(upgrade_unit_name).d"
 mkdir -p "\$DROPIN_DIR"
 cat > "\$DROPIN_DIR/inject.conf" << 'DROPIN_EOF'
 [Service]
@@ -505,13 +507,13 @@ SCRIPT_EOF
     upload_install_script_to_vm "$VM_NAME" "$script" /tmp/arc-stall-dropin.sh
     rm -f "$script"
     VM_EXEC bash /tmp/arc-stall-dropin.sh
-    vm_start_unit "$ARC_UPGRADE_UNIT"   # RESTART-FOR-ENV: the daemon process now carries STATBUS_INJECT_AT
+    vm_start_unit "$(upgrade_unit_name)"   # RESTART-FOR-ENV: the daemon process now carries STATBUS_INJECT_AT
     echo "  ✓ dropin installed + unit restarted with the stall env (release file armed: ${release_file})"
 }
 
 # arc_nrestarts — the unit's systemd NRestarts counter (for the bounded-restart assert).
 arc_nrestarts() {
-    VM_EXEC systemctl --user show "$ARC_UPGRADE_UNIT" --property=NRestarts --value 2>/dev/null | tr -d ' \r\n' || echo "?"
+    VM_EXEC systemctl --user show "$(upgrade_unit_name)" --property=NRestarts --value 2>/dev/null | tr -d ' \r\n' || echo "?"
 }
 
 # arc_wait_daemon_steady [budget_s] — the daemon is steady: at most ONE
@@ -610,7 +612,7 @@ arc_dump_ledger() {
 # using the same already-happened-fact comparison style as the caller's own
 # .Created-vs-rolled_back_at check, not a second live race.
 arc_wait_unit_active() {
-    local budget="$1" unit="${2:-$ARC_UPGRADE_UNIT}" after_epoch="${3:-}"
+    local budget="$1" unit="${2:-$(upgrade_unit_name)}" after_epoch="${3:-}"
     local start now elapsed state start_ts start_epoch after_epoch_int
     start=$(date +%s)
     while true; do
@@ -727,7 +729,7 @@ arc_wait_row_state() {
 # PID FRESH here — inside this helper, at kill time — closes that window.
 #
 # Modes (each captures FRESH; that is the whole point — never a stale variable):
-#   daemon-mainpid      the upgrade daemon's CURRENT systemd MainPID (authoritative
+#   daemon-mainpid      the upgrader's CURRENT systemd MainPID (authoritative
 #                       post-handoff PID — a stale variable is exactly the U1 bug).
 #   install-parent      the `./sb install` process (foreground or background).
 #   migrate-subprocess  the `/sb migrate up` child only (leaves the parent alive).
@@ -749,7 +751,7 @@ arc_kill_confirmed() {
     case "$mode" in
         daemon-mainpid)
             local mp
-            mp=$(VM_EXEC systemctl --user show "$ARC_UPGRADE_UNIT" --property=MainPID --value 2>/dev/null | tr -d ' \r\n' || echo "0")
+            mp=$(VM_EXEC systemctl --user show "$(upgrade_unit_name)" --property=MainPID --value 2>/dev/null | tr -d ' \r\n' || echo "0")
             { [ -n "$mp" ] && [ "$mp" != "0" ]; } && pids="$mp"
             ;;
         install-parent)

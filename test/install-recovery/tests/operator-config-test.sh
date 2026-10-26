@@ -50,7 +50,7 @@ esac
 MOCK
 cat > "$TMP_ROOT/bin/journalctl" <<'MOCK'
 #!/bin/bash
-if [ "${FAULT:-}" = daemon ]; then echo 'Upgrade service started (channel=local, interval=1h)'; else echo 'Upgrade service started (channel=stable, interval=1h)'; fi
+if [ "${FAULT:-}" = daemon ]; then echo 'Upgrader started (channel=local, interval=1h)'; else echo 'Upgrader started (channel=stable, interval=1h)'; fi
 MOCK
 cat > "$TMP_ROOT/bin/docker" <<'MOCK'
 #!/bin/bash

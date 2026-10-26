@@ -23,7 +23,7 @@ type Class string
 
 const (
 	// FailFast: site emits the transcript, calls MarkTerminal, and returns
-	// a wrapped error. The wrapper (install.sh or upgrade service) gathers
+	// a wrapped error. The wrapper (install.sh or the upgrader) gathers
 	// the support bundle and propagates.
 	FailFast Class = "fail-fast"
 
@@ -38,7 +38,7 @@ const (
 	// invariant remains as a regression aperture.
 	PanicRegression Class = "panic-regression"
 
-	// BundleOnly: the site runs inside the upgrade service and merely
+	// BundleOnly: the site runs inside the upgrader and merely
 	// records context for the support bundle. Not operator-visible.
 	BundleOnly Class = "bundle-only"
 
@@ -167,7 +167,7 @@ func SetTerminalPathForTest(path string) { terminalPathOverride = path }
 
 // MarkTerminal appends "INVARIANT <name> violated: <observed>\n" to
 // <projDir>/tmp/install-terminal.txt. Both the install.sh wrapper and
-// the upgrade service's failure paths read this file to surface the
+// the upgrader's failure paths read this file to surface the
 // named invariant in the SYSTEM UNUSABLE banner / admin-UI state.
 //
 // Best-effort: filesystem errors are logged to stderr and swallowed —

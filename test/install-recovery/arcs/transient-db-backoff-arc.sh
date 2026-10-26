@@ -76,7 +76,7 @@ source "$LIB_DIR/wedge-helpers.sh"
 source "$LIB_DIR/assertions.sh"
 source "$LIB_DIR/arc-helpers.sh"
 
-UPGRADE_UNIT="statbus-upgrade@statbus.service"
+UPGRADE_UNIT="$(upgrade_unit_name)"
 STALL_RELEASE_FILE="/tmp/arc-db-backoff-stall.release"
 
 _dump_db_backoff_diagnostics() {
@@ -318,7 +318,7 @@ echo "── waiting for postgres itself to accept connections (independent of t
 wait_for_db_ready 60
 ARM2_RESTART_SINCE=$(arm_since)
 VM_EXEC systemctl --user restart "$UPGRADE_UNIT" 2>/dev/null || true
-wait_for_journal "Upgrade service started (channel=" 60 "$ARM2_RESTART_SINCE"
+wait_for_journal "Upgrader started (channel=" 60 "$ARM2_RESTART_SINCE"
 echo "  ✓ fresh daemon boot connected (LoadConfigAndConnect succeeded — service.go:2168's unconditional post-connect banner); the stale PARKed process (with its dead NOTIFY listener) is gone"
 
 crash_at "killed-by-system-after-migrations-before-completion"

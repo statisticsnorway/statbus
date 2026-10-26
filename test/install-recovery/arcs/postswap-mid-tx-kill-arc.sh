@@ -83,7 +83,7 @@ TICK_WAIT_S="${TICK_WAIT_S:-120}"
 STALL_MAX_WAIT_S="${STALL_MAX_WAIT_S:-300}"
 MIDTX_CLASS="killed-by-system-during-migration-tx-before-commit"
 RELEASE_FILE="/tmp/arc-stall-release-midtx"
-UPGRADE_UNIT="statbus-upgrade@statbus.service"
+UPGRADE_UNIT="$(upgrade_unit_name)"
 
 : "${BASE_SHA:?BASE_SHA required}"
 : "${B_FULL:?B_FULL required}"

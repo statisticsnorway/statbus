@@ -60,7 +60,11 @@ var servicePlainNames = map[string]string{
 var installServiceNames = []string{"db", "proxy", "rest", "app", "worker", "upgrade"}
 
 var upgradeUnitState = func() string {
-	out, _ := exec.Command("systemctl", "--user", "is-active", "statbus-upgrade@statbus.service").Output()
+	instance := resolveUpgraderInstance()
+	if instance == "" {
+		return "absent"
+	}
+	out, _ := exec.Command("systemctl", "--user", "is-active", instance).Output()
 	state := strings.TrimSpace(string(out))
 	if state == "" {
 		return "absent"
@@ -589,12 +593,12 @@ func checkUpgradeDatabaseRoute(dir string) error {
 		return nil
 	}
 	if !checkDBHealthy(dir) {
-		return fmt.Errorf("the database (db) is not healthy; the upgrade service cannot reach it: %w", err)
+		return fmt.Errorf("the database (db) is not healthy; the upgrader cannot reach it: %w", err)
 	}
 	if errors.Is(err, syscall.ECONNREFUSED) {
-		return fmt.Errorf("the web server (proxy) is not listening on the database port; the upgrade service cannot reach the database: %w", err)
+		return fmt.Errorf("the web server (proxy) is not listening on the database port; the upgrader cannot reach the database: %w", err)
 	}
-	return fmt.Errorf("the upgrade service cannot reach the database through the web server (proxy); check the database route and login credentials: %w", err)
+	return fmt.Errorf("the upgrader cannot reach the database through the web server (proxy); check the database route and login credentials: %w", err)
 }
 
 // checkDBHealthyFn is the seam behind checkDBHealthy.

@@ -147,7 +147,7 @@ if [ "$sb_needs_rebuild" = true ]; then
         # defense against any stray non-release tags landing in the refs/tags/ space.
         _SB_VERSION=$(git describe --tags --always --match 'v[0-9]*' 2>/dev/null || echo "dev")
         # Full 40-char commit_sha for cmd.commit ldflag — equality-compared
-        # against public.upgrade.commit_sha in the upgrade service's
+        # against public.upgrade.commit_sha in the upgrader's
         # ground-truth check. Display-only trimming happens via
         # upgrade.ShortForDisplay() / commitShort() in Go (rc.63 canonical).
         _SB_COMMIT=$(git rev-parse HEAD 2>/dev/null || echo "unknown")
@@ -3671,7 +3671,7 @@ EOS
         [ $_tsg_fail -eq 0 ] && exit 0 || exit 1
       ;;
     'upgrade-sandbox' )
-      # Isolated upgrade-service test harness on port offset 9 (3090-3094).
+      # Isolated upgrader test harness on port offset 9 (3090-3094).
       # Collision-free with dev/ma/no slots (offsets 1/2/3 = 3010/3020/3030).
       # All credentials are hardcoded in docker/compose/upgrade-sandbox.yml.
       SANDBOX_COMPOSE="${WORKSPACE}/docker/compose/upgrade-sandbox.yml"

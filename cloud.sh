@@ -8,8 +8,8 @@
 # Usage:
 #   ./cloud.sh status              Show version, channel, name, and group for all boxes
 #   ./cloud.sh notify [target]     Tell target boxes to check for updates (non-disruptive)
-#   ./cloud.sh upgrade [target]    Force target boxes to apply latest now (via upgrade service)
-#   ./cloud.sh install <target>    Smart install: tries upgrade service first; full bootstrap if unreachable
+#   ./cloud.sh upgrade [target]    Force target boxes to apply latest now (via upgrader)
+#   ./cloud.sh install <target>    Smart install: tries upgrader first; full bootstrap if unreachable
 #   ./cloud.sh install <target> <version>  Pin to specific version — always full bootstrap
 #   ./cloud.sh install all         Install ALL servers (smart, in sequence)
 #   ./cloud.sh tail <target>       Follow upgrade log; auto-disconnects on completion
@@ -18,11 +18,11 @@
 #
 # Escalation levels:
 #   notify   — gentle. Servers discover new version. Admin chooses when to upgrade.
-#   upgrade  — firm. All servers apply latest NOW via upgrade service (non-disruptive binary).
-#   install  — smart. Tries upgrade service first (fast path); falls back to full bootstrap
+#   upgrade  — firm. All servers apply latest NOW via upgrader (non-disruptive binary).
+#   install  — smart. Tries upgrader first (fast path); falls back to full bootstrap
 #              (stop service, replace binary, re-run install) only if service is unreachable.
 #              Pinning a version always takes the full bootstrap path.
-#   tail     — observe. Streams upgrade service journal; exits automatically on completion.
+#   tail     — observe. Streams upgrader journal; exits automatically on completion.
 #   create   — provision. Creates a deployment slot at a named release.
 #   inspect  — read-only. Shows credentials/URLs for all deployment slots.
 #   wipe     — destructive. Deletes database and recreates. Data is lost.
@@ -259,10 +259,13 @@ assert_verb_target_group() {
 #     source path does `mv sb-linux-amd64 sb`. rename(2) swaps the directory
 #     entry while the running process keeps its old inode; ETXTBSY only
 #     fires on write-in-place, which no path does.
-# The per-slot unit instance is statbus-upgrade@<server>.service (the
+# The per-slot unit instance is statbus-upgrader@<server>.service (the
 # suffix is the deployment user; see cli/cmd/install.go:serviceInstance).
+# STATBUS-527: boxes installed before the rename still run
+# statbus-upgrade@<server>.service until their post-upgrade install migrates
+# them, so remote lookups resolve the base name on the box itself.
 
-# Ensure the user-level upgrade service is running on exit. Idempotent —
+# Ensure the user-level upgrader is running on exit. Idempotent —
 # `systemctl start` on a running unit is a no-op. Used at the end of
 # `cmd_install_one` (and on its error paths) so that any cloud.sh exit
 # leaves the server in a normal "service running" state, not "stopped
@@ -271,7 +274,7 @@ ensure_service_started() {
     local server="$1"
     local instance
     instance=$(service_instance "$server")
-    ssh_entry "$server" "systemctl --user start statbus-upgrade@${instance}.service" 2>&1 || true
+    ssh_entry "$server" "systemctl --user start statbus-upgrader@${instance}.service 2>/dev/null || systemctl --user start statbus-upgrade@${instance}.service" 2>&1 || true
 }
 
 cmd_status() {
@@ -305,7 +308,7 @@ cmd_health_one() {
     result=$(ssh_entry "$server" "
         cd statbus 2>/dev/null || { printf 'NO_DIR|||'; exit; }
         ver=\$(./sb --version 2>/dev/null | head -1 || echo 'UNKNOWN')
-        svc=\$(systemctl --user is-active 'statbus-upgrade@${instance}.service' 2>/dev/null || echo 'unknown')
+        svc=\$(systemctl --user is-active 'statbus-upgrader@${instance}.service' 2>/dev/null || systemctl --user is-active 'statbus-upgrade@${instance}.service' 2>/dev/null || echo 'unknown')
         hb='tmp/upgrade-heartbeat'
         if [ -f \"\$hb\" ]; then
             hb_ts=\$(cat \"\$hb\" | tr -d '[:space:]')
@@ -314,7 +317,7 @@ cmd_health_one() {
             elif [ \"\$age\" -lt 3600 ]; then progress=\"\$((age/60))m ago\"
             else progress=\"stale \$((age/3600))h\"; fi
         else
-            last=\$(journalctl --user -u 'statbus-upgrade@${instance}.service' \
+            last=\$(journalctl --user -u 'statbus-upgrader@${instance}.service' -u 'statbus-upgrade@${instance}.service' \
                 -n 1 -o short-unix --no-pager 2>/dev/null | awk '{print int(\$1)}')
             if [ -n \"\$last\" ] && [ \"\$last\" -gt 0 ] 2>/dev/null; then
                 now=\$(date +%s); age=\$((now - last))
@@ -489,7 +492,7 @@ cmd_migrate_up() {
     exit 1
 }
 
-# cmd_tail_one tails the upgrade service journal for one server and
+# cmd_tail_one tails the upgrader journal for one server and
 # auto-disconnects when a terminal state is logged. Prints the final
 # upgrade status afterwards.
 # Optional $2 = target_version: narrows the exit pattern to that specific
@@ -511,7 +514,7 @@ cmd_tail_one() {
     fi
     echo "--- Tailing upgrade log for $server (auto-disconnect on completion) ---"
     ssh_entry "$server" \
-        "journalctl --user -u 'statbus-upgrade@${instance}.service' -o cat -f -n 50 2>&1 | \
+        "journalctl --user -u 'statbus-upgrader@${instance}.service' -u 'statbus-upgrade@${instance}.service' -o cat -f -n 50 2>&1 | \
          awk '/${awk_pattern}/{print; fflush(); exit} {print; fflush()}'" \
         || true
     echo "--- Log tail disconnected for $server ---"
@@ -562,7 +565,7 @@ cmd_install_one() {
     # stop either (all are atomic renames).
     #
     # ensure_service_started runs at the end (and on the failure-return path)
-    # so a cloud.sh exit always leaves the server with the upgrade service
+    # so a cloud.sh exit always leaves the server with the upgrader
     # running, not stopped.
     local server="$1"
     local version="${2:-}"
@@ -578,7 +581,7 @@ cmd_install_one() {
             2>/dev/null || true)
     fi
 
-    # Fast path: if no version is pinned, try the upgrade service first.
+    # Fast path: if no version is pinned, try the upgrader first.
     # If it accepts the request (exit 0), tail the journal and return.
     # If it fails (service not running, DB down, etc.), fall through to the
     # full bootstrap install below.
@@ -593,9 +596,9 @@ cmd_install_one() {
 
         if [ -z "$remote_commit" ] || [ "$remote_commit" != "$local_commit" ]; then
             echo "Version skew detected: remote=$remote_commit local=$local_commit — skipping fast-path, using bootstrap"
-            # Fall through to bootstrap block (do NOT enter the upgrade-service fast-path)
+            # Fall through to bootstrap block (do NOT enter the upgrader fast-path)
         else
-            echo "Trying upgrade service on $server..."
+            echo "Trying upgrader on $server..."
             # Capture exit code WITHOUT triggering set -e. Pre-fix: a plain
             # `apply_out=$(ssh ...)` assignment is part of the surrounding
             # `set -euo pipefail` scope, so a non-zero SSH exit kills cloud.sh
@@ -626,7 +629,7 @@ cmd_install_one() {
                 cmd_tail_one "$server" "$target_version"
                 return $?
             fi
-            echo "Upgrade service not responsive — falling back to full bootstrap install..."
+            echo "Upgrader not responsive — falling back to full bootstrap install..."
         fi
     fi
 
@@ -700,7 +703,7 @@ cmd_install_one() {
     echo "Regenerating config and restarting app..."
     ssh_entry "$server" "cd statbus && ./sb config generate && docker compose up -d app" 2>&1
 
-    # Always leave the upgrade service running on success, regardless of
+    # Always leave the upgrader running on success, regardless of
     # whether install's own service-install step fired (e.g., when running
     # without root and the user-level path was used).
     ensure_service_started "$server"

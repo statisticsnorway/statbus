@@ -3,7 +3,7 @@
 # LXD_START=installed-candidate
 #
 # Validates: Fix 4 (`systemctl --user reset-failed + enable+start` in
-# install ladder step 15). Force the upgrade-service unit into `failed`
+# install ladder step 15). Force the upgrader unit into `failed`
 # state via StartLimitBurst trip (>10 starts in 600s). On the next
 # install, step 15 should detect ActiveState=failed + Result=start-limit-hit
 # and run reset-failed before enable+start. Without Fix 4 the unit
@@ -46,8 +46,8 @@ simulate_systemd_failed "$VM_NAME"
 # 4. Verify unit is in failed state.
 echo ""
 echo "── verify unit is in failed state ──"
-STATE=$(VM_EXEC systemctl --user is-active statbus-upgrade@statbus.service 2>&1 | head -1 || true)
-RESULT=$(VM_EXEC systemctl --user show statbus-upgrade@statbus.service --property=Result --value 2>/dev/null || true)
+STATE=$(VM_EXEC systemctl --user is-active "$(upgrade_unit_name)" 2>&1 | head -1 || true)
+RESULT=$(VM_EXEC systemctl --user show "$(upgrade_unit_name)" --property=Result --value 2>/dev/null || true)
 echo "  unit state=$STATE result=$RESULT"
 if [ "$STATE" != "failed" ] && [ "$STATE" != "activating" ]; then
     echo "  ⚠ expected failed/activating, got '$STATE' — wedge may not have engaged"

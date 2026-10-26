@@ -37,7 +37,7 @@ COPY . ./
 # Build with the same flags as dev.sh cross-build-sb / cli/Makefile:
 #   -trimpath    — reproducible paths (no host filesystem in the binary)
 #   -s -w        — strip debug symbols + DWARF (smaller binary)
-#   cmd.version  — runtime version string (sb version / sb upgrade service)
+#   cmd.version  — runtime version string (sb version / sb upgrader run)
 #   cmd.commit   — staleness guard (service.go binaryCommit, freshness check)
 #
 # BuildKit cache mount: persist GOCACHE (/root/.cache/go-build) across builds

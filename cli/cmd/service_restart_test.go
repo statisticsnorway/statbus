@@ -38,7 +38,7 @@ func TestRestartOwnsCompleteWorkflow(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			dir := t.TempDir()
 			var calls []string
-			ops := restartOperations{systemd: tc.systemd, unit: "statbus-upgrade@test.service"}
+			ops := restartOperations{systemd: tc.systemd, unit: "statbus-upgrader@test.service"}
 			ops.systemctl = func(args ...string) (string, error) {
 				action := args[0]
 				calls = append(calls, action)
@@ -256,7 +256,7 @@ func TestInstallRefusesRestartBeforeProbes(t *testing.T) {
 	}
 }
 
-// The fixture's app-only restart leaves the upgrade daemon untouched. A live
+// The fixture's app-only restart leaves the upgrader untouched. A live
 // holder must block the installer; after it exits the exact same intent must
 // be restorable without attempting to start an unspecified systemd unit.
 func TestAppRestartLivenessAndStaleRecovery(t *testing.T) {

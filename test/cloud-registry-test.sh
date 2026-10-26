@@ -99,9 +99,9 @@ assert_contains "$output" "no       standalone   anon" "status shows Norway sent
 
 # Finding 1: tail reaches the real transport with the deployment-user unit suffix.
 output=$(run_cloud tail no 2>&1) || fail "tail no should succeed: $output"
-assert_contains "$(cat "$SSH_LOG")" "statbus-upgrade@statbus.service" "tail uses standalone unit"
+assert_contains "$(cat "$SSH_LOG")" "statbus-upgrader@statbus.service" "tail uses standalone unit"
 output=$(run_cloud tail dev 2>&1) || fail "tail dev should succeed: $output"
-assert_contains "$(cat "$SSH_LOG")" "statbus-upgrade@statbus_dev.service" "tail uses cloud unit"
+assert_contains "$(cat "$SSH_LOG")" "statbus-upgrader@statbus_dev.service" "tail uses cloud unit"
 
 # Finding 2: a channel target fails closed if even one registry box is unreadable.
 read_server_metadata() {
@@ -326,7 +326,7 @@ VM_EXEC() {
         'curl -fsSL file:///tmp/statbus-install.sh | bash -s -- --version v2099.01.0-rc.1 --trust-github-user jhf'|\
         "cd statbus && ./sb dotenv -f .env.config set TRUST_GITHUB_USER 'jhf'"|\
         'cd statbus && ./sb config generate && docker compose up -d app'|\
-        'systemctl --user start statbus-upgrade@statbus.service') printf '%s\n' "$3" >> "$PROOF_TRANSPORT_LOG" ;;
+        'systemctl --user start statbus-upgrader@statbus.service 2>/dev/null || systemctl --user start statbus-upgrade@statbus.service') printf '%s\n' "$3" >> "$PROOF_TRANSPORT_LOG" ;;
         *) echo "REFUSE unexpected fixture transport: $3" >&2; return 97 ;;
     esac
     if [ "$3" = 'cd statbus && ./sb config generate && docker compose up -d app' ]; then
@@ -340,7 +340,7 @@ cat > "$TMP/expected-proof-transport" <<'EXPECTED'
 curl -fsSL file:///tmp/statbus-install.sh | bash -s -- --version v2099.01.0-rc.1 --trust-github-user jhf
 cd statbus && ./sb dotenv -f .env.config set TRUST_GITHUB_USER 'jhf'
 cd statbus && ./sb config generate && docker compose up -d app
-systemctl --user start statbus-upgrade@statbus.service
+systemctl --user start statbus-upgrader@statbus.service 2>/dev/null || systemctl --user start statbus-upgrade@statbus.service
 EXPECTED
 assert_eq "$(cat "$TMP/expected-proof-transport")" "$(cat "$PROOF_TRANSPORT_LOG")" 'actual pinned handler and poststep order'
 export TMP REPO_ROOT VM_IP INSTALL_TARGET_TAG INSTALL_LOG PROOF_TRANSPORT_LOG

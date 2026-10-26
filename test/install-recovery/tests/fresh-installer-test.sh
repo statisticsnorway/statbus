@@ -64,7 +64,7 @@ fi
 [ "${EMIT_ROLLBACK:-}" != 1 ] || { printf 'UPGRADE_FAILED_ROLLED_BACK\n'; exit 75; }
 [ "${EMIT_CLASSIFIED:-}" != 1 ] || { printf '[8/17] Services             FAILED: This part of installation could not finish.\nINSTALL_CAUSE: The database rejected its password.\nINSTALL_FIX: Check the saved database credentials and synchronize them with the running database, then retry.\n'; exit 47; }
 [ "${EMIT_DEGRADED_RESTORE:-}" != 1 ] || { printf 'A previous upgrade'"'"'s rollback did not finish restoring the database (row id=17).\n  The database restore could not be completed; the system is still degraded.\n  Next: contact SSB support and involve your IT staff. Keep this box as-is for diagnosis;\n'; exit 1; }
-[ "${EMIT_ROUTE_CAUSE:-}" != 1 ] || { printf '[17/17] Upgrade service      FAILED: This part of installation could not finish.\nINSTALL_CAUSE: The database route at 127.0.0.1:5431 is unavailable; the web entry point provides this route.\nINSTALL_FIX: Start or repair the web entry point, then retry the install.\n'; exit 47; }
+[ "${EMIT_ROUTE_CAUSE:-}" != 1 ] || { printf '[17/17] Upgrader      FAILED: This part of installation could not finish.\nINSTALL_CAUSE: The database route at 127.0.0.1:5431 is unavailable; the web entry point provides this route.\nINSTALL_FIX: Start or repair the web entry point, then retry the install.\n'; exit 47; }
 [ -z "${EMIT_PORT_CAUSE:-}" ] || { printf '[8/17] Services             FAILED: This part of installation could not finish.\nINSTALL_CAUSE: %s\n' "$EMIT_PORT_CAUSE"; exit 47; }
 # The Trusted signers decline as ./sb prints it: the prompt's decline line,
 # then the step failure with its classified cause. The step's position is

@@ -19,10 +19,10 @@ func TestServiceFailureWithJournal(t *testing.T) {
 		name string
 		user bool
 		want string
-	}{{"user", true, "--user -u statbus-upgrade@statbus.service -n 40 --no-pager"}, {"system", false, "-u statbus-upgrade@statbus.service -n 40 --no-pager"}} {
+	}{{"user", true, "--user -u statbus-upgrader@statbus.service -n 40 --no-pager"}, {"system", false, "-u statbus-upgrader@statbus.service -n 40 --no-pager"}} {
 		t.Run(tc.name, func(t *testing.T) {
 			cause := errors.New("start timed out")
-			err := serviceFailureWithJournal("enable service", "statbus-upgrade@statbus.service", tc.user, cause)
+			err := serviceFailureWithJournal("enable service", "statbus-upgrader@statbus.service", tc.user, cause)
 			if !errors.Is(err, cause) || !strings.Contains(err.Error(), tc.want) || !strings.Contains(err.Error(), "service root cause") {
 				t.Fatalf("missing journal or cause: %v", err)
 			}
@@ -31,7 +31,9 @@ func TestServiceFailureWithJournal(t *testing.T) {
 }
 
 // Review round 2: the final drifted-unit restart dispatch must also surface
-// the journal, not only enable/reset-failed.
+// the journal, not only enable/reset-failed. STATBUS-527: the dispatch goes
+// through submitUpgraderAction (upgrader.go), the one start/stop
+// implementation, which routes failures through serviceFailureWithJournal.
 func TestReconcileRestartUsesJournalHelper_STATBUS422(t *testing.T) {
 	src, err := os.ReadFile("install.go")
 	if err != nil {
@@ -42,13 +44,15 @@ func TestReconcileRestartUsesJournalHelper_STATBUS422(t *testing.T) {
 		t.Fatal("reconcile-restart branch not found")
 	}
 	window := string(src)[start : start+900]
-	if !strings.Contains(window, `"--user", "--no-block", string(action), instance`) {
-		t.Fatal("nonblocking final lifecycle invocation missing")
+	if !strings.Contains(window, `submitUpgraderAction(instance, string(action), true)`) {
+		t.Fatal("nonblocking final lifecycle dispatch missing (must be --no-block while the install flock is held)")
 	}
-	if !strings.Contains(window, `serviceFailureWithJournal(string(action)+" service", instance, true, err)`) {
+	shared, err := os.ReadFile("upgrader.go")
+	if err != nil {
+		t.Fatal(err)
+	}
+	action := funcBody(t, string(shared), "func submitUpgraderAction(")
+	if !strings.Contains(action, "serviceFailureWithJournal(") {
 		t.Fatal("final lifecycle failure must go through serviceFailureWithJournal")
-	}
-	if strings.Contains(window, "fmt.Errorf(\"restart %s after unit reconcile") {
-		t.Fatal("stale journal-less restart error remains")
 	}
 }

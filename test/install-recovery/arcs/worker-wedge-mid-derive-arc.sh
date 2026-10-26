@@ -85,8 +85,8 @@ _dump_wedge_failure_diagnostics() {
     VM_EXEC bash -c "cd ~/statbus && docker compose logs --no-color --tail 200 worker 2>&1" >&2 || echo "  (could not read worker logs)" >&2
     echo "── worker restart count (a crash-loop is 264-without-265's signature) ──" >&2
     VM_EXEC bash -c "cd ~/statbus && docker inspect --format '{{.RestartCount}} {{.State.Status}} {{.State.ExitCode}}' \$(docker compose ps -q worker 2>/dev/null) 2>&1" >&2 || echo "  (could not inspect the worker container)" >&2
-    echo "── upgrade daemon journal (last 200 lines) ──" >&2
-    VM_EXEC bash -c "journalctl --user -u statbus-upgrade@statbus.service --no-pager -n 200 2>/dev/null" >&2 || echo "  (could not read the journal)" >&2
+    echo "── upgrader journal (last 200 lines) ──" >&2
+    VM_EXEC bash -c "journalctl --user -u "$(upgrade_unit_name)" --no-pager -n 200 2>/dev/null" >&2 || echo "  (could not read the journal)" >&2
     echo "── lock-holder log ──" >&2
     VM_EXEC bash -c "cat $HOLD_LOG 2>/dev/null || echo '(no holder log)'" >&2 || true
     echo "── flag file at exit ──" >&2

@@ -158,8 +158,8 @@ func TestInstallTerminalWriterShowsEveryInstallState(t *testing.T) {
 	if strings.Count(stored, "\n") != 1 {
 		t.Fatalf("stored refusal must be one line: %q", stored)
 	}
-	refusal := "⚠ The last start of the upgrade service refused its configuration:\n\n" + stored + "\nIf this run below fixes the config, the marker clears automatically.\n"
-	wantRefusal := "⚠ The last start of the upgrade service refused its configuration:\nIf this run below fixes the config, the marker clears automatically.\n"
+	refusal := "⚠ The last start of the upgrader refused its configuration:\n\n" + stored + "\nIf this run below fixes the config, the marker clears automatically.\n"
+	wantRefusal := "⚠ The last start of the upgrader refused its configuration:\nIf this run below fixes the config, the marker clears automatically.\n"
 	if got := runTerminalFilter(t, refusal); got != wantRefusal {
 		t.Fatalf("configuration-refusal banner leaked stored data:\n got:\n%s\nwant:\n%s", got, wantRefusal)
 	}

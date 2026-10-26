@@ -59,7 +59,7 @@ source "$LIB_DIR/assertions.sh"
 source "$LIB_DIR/arc-helpers.sh"
 
 _arc_cleanup() {
-    VM_EXEC bash -c "rm -f $RELEASE_FILE 2>/dev/null; rm -f ~/.config/systemd/user/${ARC_UPGRADE_UNIT}.d/inject.conf 2>/dev/null; systemctl --user daemon-reload 2>/dev/null" 2>/dev/null || true
+    VM_EXEC bash -c "rm -f $RELEASE_FILE 2>/dev/null; rm -f ~/.config/systemd/user/$(upgrade_unit_name).d/inject.conf 2>/dev/null; systemctl --user daemon-reload 2>/dev/null" 2>/dev/null || true
 }
 
 # _dump_after_commit_before_recorded_failure_diagnostics — STATBUS-155 rider
@@ -76,8 +76,8 @@ _dump_after_commit_before_recorded_failure_diagnostics() {
     # query, row state) last and individually guarded, so a down/unreachable
     # db reports itself as a datum instead of aborting the rest under this
     # file's set -e.
-    echo "── daemon journal ($ARC_UPGRADE_UNIT, last 400 lines) ──" >&2
-    VM_EXEC bash -c "journalctl --user -u $ARC_UPGRADE_UNIT --no-pager -n 400 2>/dev/null" >&2 || echo "  (could not read the journal)" >&2
+    echo "── daemon journal ($(upgrade_unit_name), last 400 lines) ──" >&2
+    VM_EXEC bash -c "journalctl --user -u $(upgrade_unit_name) --no-pager -n 400 2>/dev/null" >&2 || echo "  (could not read the journal)" >&2
     echo "── flag file at exit ──" >&2
     VM_EXEC bash -c "cat ~/statbus/tmp/upgrade-in-progress.json 2>/dev/null || echo '(flag absent)'" >&2 || true
     local log_rel
@@ -165,7 +165,7 @@ arc_kill_confirmed "$VM_NAME" migrate-subprocess || exit 1
 # systemd-restart boot path. The restarted daemon's boot-migrate-up finds
 # nothing pending (rollback restored the snapshot) and proceeds cleanly.
 echo "── removing the inject release file + dropin (recovery path must not re-stall) ──"
-VM_EXEC bash -c "rm -f $RELEASE_FILE; rm -f ~/.config/systemd/user/${ARC_UPGRADE_UNIT}.d/inject.conf; systemctl --user daemon-reload 2>/dev/null" || true
+VM_EXEC bash -c "rm -f $RELEASE_FILE; rm -f ~/.config/systemd/user/$(upgrade_unit_name).d/inject.conf; systemctl --user daemon-reload 2>/dev/null" || true
 
 # ── Layer 0 autonomous recovery: parent daemon catches subprocess death →
 #    postSwapFailure → GroundTruthBehind → rollback → restoreDatabase → os.Exit(75)
@@ -191,7 +191,7 @@ assert_demo_data_present "$VM_NAME"
 assert_demo_data_counts_match_snapshot "$VM_NAME" "$DATA_SNAPSHOT"
 assert_flag_file_absent "$VM_NAME"
 # Layer 0: one rollback exit-75 → one systemd restart → clean boot. Allow baseline+3 for headroom.
-assert_systemd_restart_counter_bounded "$VM_NAME" "$ARC_UPGRADE_UNIT" "$((NRESTARTS_BASELINE + 3))"
+assert_systemd_restart_counter_bounded "$VM_NAME" "$(upgrade_unit_name)" "$((NRESTARTS_BASELINE + 3))"
 assert_health_passes "$VM_NAME"
 
 echo ""

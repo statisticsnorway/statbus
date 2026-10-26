@@ -70,7 +70,7 @@ INSTALL_BUDGET_S="${INSTALL_BUDGET_S:-900}"
 TICK_WAIT_S="${TICK_WAIT_S:-120}"
 INJECT_CLASS="killed-by-system-during-individual-migration-execution"
 KILL_MARKER="/tmp/arc-killonce-mid-migration"
-UPGRADE_UNIT="statbus-upgrade@statbus.service"
+UPGRADE_UNIT="$(upgrade_unit_name)"
 
 : "${BASE_SHA:?BASE_SHA required}"
 : "${B_FULL:?B_FULL required}"

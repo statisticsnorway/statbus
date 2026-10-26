@@ -21,11 +21,17 @@
 //
 // THE FLOOR IS DERIVED, NOT ASSUMED. An earlier framing of the ticket named a
 // `statbus-upgrade-check` unit that has never existed in this product — check
-// scheduling is the upgrade service's own internal ticker plus NOTIFY, not a
+// scheduling is the upgrader's own internal ticker plus NOTIFY, not a
 // systemd timer. Inventing a floor from memory is how you end up alerting on a
 // phantom. So the floor here is exactly what the install step-table lays down
-// and nothing more: the templated user unit `statbus-upgrade@.service`, byte
+// and nothing more: the templated user unit `statbus-upgrader@.service`, byte
 // -identical to the repo's copy, with its per-user instance active.
+//
+// STATBUS-527 renamed the unit from `statbus-upgrade@.service`. The floor is
+// the NEW name only: a box still carrying the old unit reports
+// unit-file-missing, the announce points at `./sb install`, and that install
+// migrates the box. Detection deliberately does not treat the legacy unit as
+// satisfying the floor — migration is the repair.
 package unitfloor
 
 import (
@@ -57,7 +63,7 @@ const (
 	// floor breach: an honest inability to look, reported as such rather than
 	// guessed either way.
 	UnknownUser
-	// UnitFileMissing — nothing at ~/.config/systemd/user/statbus-upgrade@.service.
+	// UnitFileMissing — nothing at ~/.config/systemd/user/statbus-upgrader@.service.
 	// This is the demo case: the box cannot follow its channel at all.
 	UnitFileMissing
 	// UnitFileDrifted — present but not byte-identical to the repo template.
@@ -92,7 +98,7 @@ func (s State) String() string {
 // out WHICH file or WHICH unit we mean.
 type Report struct {
 	State    State
-	Instance string // e.g. statbus-upgrade@statbus_dev.service ("" when underivable)
+	Instance string // e.g. statbus-upgrader@statbus_dev.service ("" when underivable)
 	UnitPath string // where the user unit belongs
 	RepoPath string // the template it must match
 }
@@ -146,7 +152,7 @@ func Inspect(dir string) Report {
 func inspectWith(dir, user, goos string, isActive runner) Report {
 	r := Report{
 		UnitPath: UserUnitPath(),
-		RepoPath: filepath.Join(dir, "ops", "statbus-upgrade.service"),
+		RepoPath: RepoTemplatePath(dir),
 	}
 	if goos != "linux" {
 		r.State = NotApplicable
@@ -156,7 +162,7 @@ func inspectWith(dir, user, goos string, isActive runner) Report {
 		r.State = UnknownUser
 		return r
 	}
-	r.Instance = fmt.Sprintf("statbus-upgrade@%s.service", user)
+	r.Instance = InstanceName(user)
 
 	switch fileCheck(dir) {
 	case fileMissing:
@@ -190,7 +196,7 @@ const (
 )
 
 func fileCheck(dir string) fileVerdict {
-	repo, err := os.ReadFile(filepath.Join(dir, "ops", "statbus-upgrade.service"))
+	repo, err := os.ReadFile(RepoTemplatePath(dir))
 	if err != nil {
 		return fileNoTemplate
 	}
@@ -224,12 +230,29 @@ func FileMatchesRepo(dir string) bool {
 	}
 }
 
-// UserUnitPath is the install destination for the user-level upgrade unit. The
+// UserUnitPath is the install destination for the user-level upgrader unit. The
 // unit is copied here verbatim (the %h/%i/%u specifiers resolve at systemd
 // runtime, not at copy time), which is why a byte-compare is the exact drift
 // check.
 func UserUnitPath() string {
-	return filepath.Join(os.Getenv("HOME"), ".config", "systemd", "user", "statbus-upgrade@.service")
+	return filepath.Join(os.Getenv("HOME"), ".config", "systemd", "user", "statbus-upgrader@.service")
+}
+
+// RepoTemplatePath is the repository's unit template the on-disk copy must
+// match byte-for-byte. Renamed from ops/statbus-upgrade.service in STATBUS-527.
+func RepoTemplatePath(dir string) string {
+	return filepath.Join(dir, "ops", "statbus-upgrader.service")
+}
+
+// InstanceName formats the upgrader's per-user unit instance name
+// ("statbus-upgrader@<user>.service"). "" when user is empty. This is the ONE
+// formatter: cli/cmd's serviceInstance delegates here, and the unit template's
+// ExecStartPre assertion (%i == %u) refuses to start if any namer drifts.
+func InstanceName(user string) string {
+	if user == "" {
+		return ""
+	}
+	return fmt.Sprintf("statbus-upgrader@%s.service", user)
 }
 
 func isActiveSystemd(instance string) bool {

@@ -422,7 +422,7 @@ jobs:
     #
     # Verified (STATBUS-211 trace) that skipping it costs nothing: no arc
     # consumes the seed artifact for its B or C leg — both are driven via
-    # `git fetch` + the LIVE upgrade daemon (register/schedule), never a
+    # `git fetch` + the LIVE upgrader (register/schedule), never a
     # Docker image pull. upgrade-arc-harness.yaml's image-wait gate polls
     # only `app worker db proxy sb` (never `seed`) before any arc is allowed
     # to start. Classified by CONSUMPTION, not by which branches happen to

@@ -98,6 +98,12 @@ func TestEveryInvariantHasTriadDocumented(t *testing.T) {
 // starts or restarts it while install owns the flock. A separate final defer
 // submits the lifecycle action with --no-block after completion mutations.
 //
+// STATBUS-527 moved unit writing + enable into the shared installUpgraderUnit
+// (upgrader.go) — the ONE implementation `sb upgrader install` also calls —
+// so this test pins the distribution of the guarantee across both files:
+// runInstallService never starts/restarts a unit itself, the shared core
+// enables but never starts, and the deferred dispatch stays --no-block.
+//
 // Source-level assertion (rather than a mocked runCmd) keeps the test
 // honest about WHERE in the function the gate sits and matches the
 // pattern other install-path guards use.
@@ -107,80 +113,60 @@ func TestRunInstallServiceNeverStartsSynchronously(t *testing.T) {
 		t.Fatalf("read install.go: %v", err)
 	}
 	body := string(src)
-	start := strings.Index(body, "func runInstallService(")
-	if start < 0 {
-		t.Fatal("runInstallService not found in install.go")
+	fn := funcBody(t, body, "func runInstallService(")
+	// funcBody stops at the next top-level "func ", but the deferred-action
+	// dispatcher follows as a `var ... = func(...)`; cut there so its
+	// submitUpgraderAction call is not mistaken for a synchronous start
+	// inside runInstallService.
+	if i := strings.Index(fn, "\nvar dispatchUpgradeDaemonFinalAction"); i >= 0 {
+		fn = fn[:i]
 	}
-	rest := body[start:]
-	end := regexp.MustCompile(`(?m)^}\n`).FindStringIndex(rest)
-	if end == nil {
-		t.Fatal("runInstallService closing brace not found")
-	}
-	fn := rest[:end[1]]
 
-	gateIdx := strings.Index(fn, "if postUpgradeFixup || os.Getenv(\"STATBUS_POST_UPGRADE_FIXUP\") == \"1\" {")
+	// The post-upgrade fixup gate: inside the upgrader's own unit, the step
+	// must not queue a lifecycle action at all (the daemon hands itself over
+	// after the install returns).
+	gateIdx := strings.Index(fn, "if insideUnit {")
 	if gateIdx < 0 {
-		t.Fatal("runInstallService missing post-upgrade handoff gate")
+		t.Fatal("runInstallService missing the insideUnit (post-upgrade fixup) gate")
+	}
+	if !strings.Contains(fn, `postUpgradeFixup || os.Getenv("STATBUS_POST_UPGRADE_FIXUP") == "1"`) {
+		t.Fatal("insideUnit must be derived from the post-upgrade fixup signals")
 	}
 
-	// The gate must come BEFORE the is-enabled verification call
-	// (otherwise the verification fires against an unenabled unit).
-	// Anchor on the exec.Command call, not on bare "is-enabled" text
-	// which may appear in the surrounding doc comment.
-	verifyIdx := strings.Index(fn, `exec.Command("systemctl", "--user", "is-enabled"`)
-	if verifyIdx < 0 {
-		t.Fatal("runInstallService missing is-enabled verification call — test is stale")
-	}
-	if gateIdx > verifyIdx {
-		t.Errorf("postUpgradeFixup gate (idx=%d) must come BEFORE is-enabled verification (idx=%d)",
-			gateIdx, verifyIdx)
-	}
-
-	// Find the gate's true-branch body and assert it only enables.
-	gateBody := fn[gateIdx:]
-	openBrace := strings.Index(gateBody, "{")
-	if openBrace < 0 {
-		t.Fatal("gate body open brace not found")
-	}
-	// Find matching close. Naive depth counter suffices for this snippet.
-	depth := 0
-	closeIdx := -1
-	for i := openBrace; i < len(gateBody); i++ {
-		switch gateBody[i] {
-		case '{':
-			depth++
-		case '}':
-			depth--
-			if depth == 0 {
-				closeIdx = i
-			}
-		}
-		if closeIdx >= 0 {
-			break
-		}
-	}
-	if closeIdx < 0 {
-		t.Fatal("gate body close brace not found")
-	}
-	trueBranch := gateBody[openBrace : closeIdx+1]
-	if !strings.Contains(trueBranch, `"systemctl", "--user", "enable", instance`) {
-		t.Errorf("true branch must call `systemctl --user enable <instance>` (no --now). Body:\n%s", trueBranch)
-	}
-	if strings.Contains(trueBranch, `"--now"`) {
-		t.Errorf("true branch must NOT pass --now (Item H). Body:\n%s", trueBranch)
-	}
-
-	// The cold-install branch must also only enable. Starting while the install
-	// flock is held recreates the rc.04 self-deadlock.
-	remainder := fn[gateIdx+closeIdx : verifyIdx]
-	if !strings.Contains(remainder, `"systemctl", "--user", "enable", instance`) {
-		t.Errorf("cold-install branch must enable the unit before final dispatch")
-	}
-	if strings.Contains(fn, `"--now"`) || strings.Contains(fn, `"restart", instance`) {
+	// runInstallService itself never starts or restarts a unit: it enables
+	// through the shared core and queues the final action for the deferred
+	// --no-block dispatch.
+	if strings.Contains(fn, "submitUpgraderAction(") || strings.Contains(fn, "startUpgraderUnit(") || strings.Contains(fn, `"--now"`) {
 		t.Errorf("runInstallService must not synchronously start/restart while the install flock is held")
 	}
-	if !strings.Contains(body, `"--user", "--no-block", string(action), instance`) {
-		t.Errorf("final nonblocking lifecycle dispatch is missing")
+	if !strings.Contains(fn, "installUpgraderUnit(dir, true") {
+		t.Error("runInstallService must enable the unit through the shared installUpgraderUnit (upgrader.go)")
+	}
+
+	// The shared core enables (never starts); the enable keeps its is-enabled
+	// verification so the rune boot-symlink regression stays loud.
+	shared, err := os.ReadFile(thisRepoFile(t, "cli/cmd/upgrader.go"))
+	if err != nil {
+		t.Fatalf("read upgrader.go: %v", err)
+	}
+	core := funcBody(t, string(shared), "func installUpgraderUnit(")
+	if !strings.Contains(core, "enableUpgraderUnit(instance)") {
+		t.Error("installUpgraderUnit must enable the unit through enableUpgraderUnit")
+	}
+	if strings.Contains(core, "submitUpgraderAction(") || strings.Contains(core, `"--now"`) {
+		t.Error("installUpgraderUnit must never start the unit — starting is `sb upgrader start` or the deferred final action")
+	}
+	enableFn := funcBody(t, string(shared), "func enableUpgraderUnit(")
+	if !strings.Contains(enableFn, `"is-enabled"`) {
+		t.Error("enableUpgraderUnit must verify the boot-enable symlink (is-enabled)")
+	}
+
+	// The deferred final dispatch is --no-block (the install flock is held
+	// until process exit; a blocking start would deadlock the booting daemon's
+	// bounded wait on that lock).
+	dispatch := funcBody(t, body, "var dispatchUpgradeDaemonFinalAction = func(")
+	if !strings.Contains(dispatch, "submitUpgraderAction(instance, string(action), true)") {
+		t.Errorf("final lifecycle dispatch must be submitUpgraderAction(..., noBlock=true)")
 	}
 }
 

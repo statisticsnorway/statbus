@@ -79,7 +79,7 @@ source "$LIB_DIR/assertions.sh"
 source "$LIB_DIR/arc-helpers.sh"
 source "$LIB_DIR/arc-state-assertions.sh"
 
-UPGRADE_UNIT="statbus-upgrade@statbus.service"
+UPGRADE_UNIT="$(upgrade_unit_name)"
 C_ARC_PID=""
 C_ARC_LOG=""
 C_ORIGINAL_LOG=""
@@ -482,7 +482,7 @@ echo ""
 ROLLED_BACK_AT_EPOCH=$(psql_scalar "SELECT extract(epoch from rolled_back_at) FROM public.upgrade WHERE commit_sha = '$C_FULL' ORDER BY id DESC LIMIT 1;")
 [[ "$ROLLED_BACK_AT_EPOCH" =~ ^[0-9]+(\.[0-9]+)?$ ]] || { echo "✗ rolled_back_at is not yet set for C, or did not read as a number (got '$ROLLED_BACK_AT_EPOCH') — arc_to should have already confirmed the 'rolled_back' terminal before this point" >&2; exit 1; }
 echo "── waiting out the daemon's post-rollback restart cycle (budget ${UNIT_ACTIVE_WAIT_BUDGET_S}s) before reading box state ──"
-arc_wait_unit_active "$UNIT_ACTIVE_WAIT_BUDGET_S" "$ARC_UPGRADE_UNIT" "$ROLLED_BACK_AT_EPOCH" || exit 1
+arc_wait_unit_active "$UNIT_ACTIVE_WAIT_BUDGET_S" "$(upgrade_unit_name)" "$ROLLED_BACK_AT_EPOCH" || exit 1
 # Capture the db container's identity now (settled state) and again after a
 # short further settle window: if EnsureDBUp were somehow STILL in flight (or
 # fires a SECOND time on a later heartbeat tick), this catches it as a

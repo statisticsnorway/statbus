@@ -19,7 +19,7 @@ const (
 	// restart the daemon (its own comment: "Under systemd Restart=always
 	// cycles cleanly regardless of code"). The rc.07 upgrade arcs proved the
 	// collision live: naming 75 in the unit's RestartPreventExitStatus left
-	// every box's upgrade service DOWN after any successful rollback. The
+	// every box's upgrader DOWN after any successful rollback. The
 	// boot-wait deferral therefore uses 76, and the two codes must never
 	// share a value (boot_test.go pins both sides).
 	exitInstallHeldBootWait = 76 // RestartPreventExitStatus names it explicitly
@@ -87,7 +87,7 @@ func (d *Service) waitForInstallHolderBeforeBootWithOptions(ctx context.Context,
 			return flag, nil
 		}
 		if !logged {
-			opts.logf("Upgrade daemon boot deferred: %s; waiting up to %s before config generation or container start\n",
+			opts.logf("Upgrader boot deferred: %s; waiting up to %s before config generation or container start\n",
 				LiveInstallHolderRefusal(flag), opts.limit)
 			logged = true
 		}

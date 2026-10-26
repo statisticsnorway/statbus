@@ -40,10 +40,10 @@ func TestClassifyInstallFailure(t *testing.T) {
 		{"image registry", "Images", "failed to resolve reference ghcr.io/statisticsnorway/statbus:latest: lookup ghcr.io: no such host", "A required image could not be downloaded.", "Check registry access"},
 		{"image auth", "Images", "pull access denied for ghcr.io/statisticsnorway/statbus, repository does not exist", "A required image could not be downloaded.", "Check registry access"},
 		{"image fallback", "Images", "image pull failure and local build failure: exit status 1", "A required image could not be downloaded.", "Check registry access"},
-		{"database health", "Services", "the database (db) is not healthy; the upgrade service cannot reach it: context deadline exceeded", "The database did not become reachable after it started.", "Check Docker and database service health"},
+		{"database health", "Services", "the database (db) is not healthy; the upgrader cannot reach it: context deadline exceeded", "The database did not become reachable after it started.", "Check Docker and database service health"},
 		{"database start", "Services", "the database did not become ready within 3m0s", "The database did not become reachable after it started.", "Check Docker and database service health"},
 		{"database password", "Services", "could not make the database passwords match .env.credentials: pq: password authentication failed for user statbus", "The database rejected its password.", "Check the saved database credentials"},
-		{"systemd", "Upgrade service", "systemctl --user daemon-reload: Failed to connect to bus: No medium found", "The user service manager is unavailable.", "Enable linger"},
+		{"systemd", "Upgrader", "systemctl --user daemon-reload: Failed to connect to bus: No medium found", "The user service manager is unavailable.", "Enable linger"},
 		{"git", "Source", "git fetch origin abc failed: fatal: unable to access https://github.com: Could not resolve host", "The source update could not be fetched.", "Check network access"},
 		{"signature", "Trusted signers", "verify commit signature: gpg: BAD signature from unknown key", "The release signature could not be verified.", "Verify the release signer"},
 		{"signer approval", "Trusted signers", "No valid release signer is configured", "The release signature could not be verified.", "Verify the release signer"},
@@ -129,10 +129,10 @@ func TestInstallCauseAndFixMatchShellAllowlist(t *testing.T) {
 		}
 	}
 	for _, host := range []string{"127.0.0.1", "localhost", "[::1]"} {
-		cause, fix := classifyInstallFailure("Upgrade service", errors.New("dial tcp "+host+":5431: connect: connection refused"))
+		cause, fix := classifyInstallFailure("Upgrader", errors.New("dial tcp "+host+":5431: connect: connection refused"))
 		check(cause, fix)
 	}
-	cause, fix := classifyInstallFailure("Upgrade service", errors.New("unrecognized failure"))
+	cause, fix := classifyInstallFailure("Upgrader", errors.New("unrecognized failure"))
 	check(cause, fix)
 	for _, owner := range []string{"apache2", "python3", "another program", "unexpected text secret=foo", "bad.name"} {
 		check(portConflictGuidance(80, owner), "")

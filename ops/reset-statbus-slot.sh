@@ -105,7 +105,7 @@ if [ "$RESET_TARGET" = "$WRECKING_VERSION" ]; then
 fi
 
 echo ""
-echo "This will STOP the upgrade service, STOP all containers, check out"
+echo "This will STOP the upgrader, STOP all containers, check out"
 echo "$RESET_TARGET, run ./sb install (recreating the database), and dismiss"
 echo "$WRECKING_VERSION so it is never auto-installed again."
 echo ""
@@ -119,11 +119,15 @@ ssh "$DEPLOYMENT_USER@$HOST" bash <<RESET_SLOT
     set -e
     cd ~/statbus
 
-    # Step 3: stop the upgrade service FIRST — otherwise the daemon can
+    # Step 3: stop the upgrader FIRST — otherwise the daemon can
     # discover, offer, or act mid-reset while we are tearing the box down
     # underneath it.
-    echo "── stopping the upgrade service ──"
-    systemctl --user stop "statbus-upgrade@\$USER.service"
+    echo "── stopping the upgrader ──"
+    # STATBUS-527: the unit is statbus-upgrader@ since the rename; a box not
+    # yet migrated still runs statbus-upgrade@. Resolve per box.
+    UNIT=statbus-upgrader@$USER.service
+    [ -e ~/.config/systemd/user/statbus-upgrader@.service ] || UNIT=statbus-upgrade@$USER.service
+    systemctl --user stop "$UNIT"
 
     # Step 4: stop the stack.
     echo "── stopping services (./sb stop all) ──"
@@ -151,11 +155,14 @@ ssh "$DEPLOYMENT_USER@$HOST" bash <<RESET_SLOT
 
     # Step 8: restart the service and verify from the RUNNING service, not
     # the file on disk — the same lesson as the fleet correction.
-    echo "── restarting the upgrade service ──"
-    systemctl --user restart "statbus-upgrade@\$USER.service"
+    echo "── restarting the upgrader ──"
+    # The install above migrated the unit if it was still on the old name.
+    UNIT=statbus-upgrader@$USER.service
+    [ -e ~/.config/systemd/user/statbus-upgrader@.service ] || UNIT=statbus-upgrade@$USER.service
+    systemctl --user restart "$UNIT"
 
     echo "── verifying: running channel ──"
-    journalctl --user -u "statbus-upgrade@\$USER.service" --no-pager | grep "channel=" | tail -1
+    journalctl --user -u "statbus-upgrader@\$USER.service" -u "statbus-upgrade@\$USER.service" --no-pager | grep "channel=" | tail -1
 
     echo "── verifying: $WRECKING_VERSION is dismissed and not offered ──"
     ./sb upgrade list

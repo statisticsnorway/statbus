@@ -13,7 +13,7 @@ VM_NAME="${1:-statbus-arc-rollback-floor-failure}"
 TICK_WAIT_S="${TICK_WAIT_S:-120}"
 HISTORICAL_FLOOR=20260907120000
 INJECT_CLASS=rollback-floor-reapply
-UPGRADE_UNIT=statbus-upgrade@statbus.service
+UPGRADE_UNIT="$(upgrade_unit_name)"
 # This arc rides the ordinary candidate base (BASE_SHA, the standard arc input).
 # B comes from the candidate-based failing lineage and
 # therefore carries current STATBUS-354 code, the floor migration, and the final

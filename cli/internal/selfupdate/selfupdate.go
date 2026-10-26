@@ -21,7 +21,7 @@ import (
 // Idempotency shortcut: if the file at currentPath already hashes to the
 // expected SHA-256, Update is a no-op (no download, no rename) and returns
 // swapped=false. This lets the end-of-flow self-update call from the
-// upgrade service be harmless when an earlier step in the flow
+// the upgrader be harmless when an earlier step in the flow
 // (replaceBinaryOnDisk before migrations) has already swapped the binary,
 // and lets the caller pick an honest log phrasing ("already at target"
 // vs "Self-updating binary...").
@@ -47,7 +47,7 @@ func Update(currentPath, downloadURL, expectedSHA256, expectCommit string) (swap
 //
 // Unlike Update, this always performs the download+swap even if the current
 // file already matches — callers use it as the explicit "swap now" primitive
-// (e.g. upgrade service's mid-flow swap between git-checkout and migrate).
+// (e.g. the upgrader's mid-flow swap between git-checkout and migrate).
 //
 // expectCommit (STATBUS-171) is the upgrade target's commit SHA. When non-empty
 // it is passed to `upgrade self-verify --expect-commit`, so the freshly-written

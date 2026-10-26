@@ -38,7 +38,7 @@
 #   - the running containers are named statbus-et-{db,rest,app,worker,proxy};
 #   - the installed binary is the candidate;
 #   - the site answers: health, CA-verified HTTPS on /rest/ and the web app,
-#     and the upgrade service unit is active.
+#     and the upgrader unit is active.
 #   Each mismatch prints the expected and the arrived value.
 #
 # CERTIFICATE (an assumption about the harness, stated here so it is visible):

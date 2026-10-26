@@ -124,7 +124,7 @@ func recoveryDBRouteRefusal(reachErr, startErr error, projDir string) error {
 	}
 	return &upgrade.OperatorRefusalError{
 		Class: upgrade.RefusalRecoveryDBUnreachable,
-		Text: "the database cannot be reached on the upgrade service's own route (CADDY_DB_BIND_ADDRESS:CADDY_DB_PORT), and starting the existing db and proxy containers did not restore it.\n" +
+		Text: "the database cannot be reached on the upgrader's own route (CADDY_DB_BIND_ADDRESS:CADDY_DB_PORT), and starting the existing db and proxy containers did not restore it.\n" +
 			"  Recovery will not recreate containers: the current program could start a different version than the interrupted upgrade.\n" +
 			fmt.Sprintf("  Operator action: check that Docker is running and that both db and proxy are present and healthy, then re-run `%s`", upgrade.InstallCommand(projDir)),
 		Detail: errors.Join(reachErr, startErr),

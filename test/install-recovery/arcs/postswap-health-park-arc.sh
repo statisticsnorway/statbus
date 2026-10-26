@@ -105,7 +105,7 @@ INSTALL_BUDGET_S="${INSTALL_BUDGET_S:-900}"
 # One RestartSec=30 cycle + boot (~2s observed) + margin — the designed
 # auto-restart hold-off after the parking pass's own exit(1), not a bug.
 UNIT_ACTIVE_WAIT_BUDGET_S="${UNIT_ACTIVE_WAIT_BUDGET_S:-90}"
-UPGRADE_UNIT="statbus-upgrade@statbus.service"
+UPGRADE_UNIT="$(upgrade_unit_name)"
 CALLBACK_LOG="/tmp/health-park-callback-log.txt"
 
 : "${BASE_SHA:?BASE_SHA required}"
@@ -195,7 +195,7 @@ row_failure_code_for() {
     VM_EXEC bash -c "cd ~/statbus && echo \"SELECT COALESCE(failure_code::text,'') FROM public.upgrade WHERE commit_sha = '$sha' ORDER BY id DESC LIMIT 1;\" | ./sb psql -t -A" 2>/dev/null | tr -d ' \r\n' || echo "?"
 }
 daemon_pid() {
-    VM_EXEC bash -c 'pgrep -f "sb upgrade service" 2>/dev/null | head -1' 2>/dev/null | tr -d ' \r\n'
+    VM_EXEC bash -c 'pgrep -f "sb (upgrader|upgrader run)" 2>/dev/null | head -1' 2>/dev/null | tr -d ' \r\n'
 }
 wait_for_restart() {
     local budget="$1" prev_pid="${2:-}"
@@ -497,7 +497,7 @@ echo "  ✓ SECOND siren fired (fires-once-per-park-EVENT contract exercised liv
 # daemon could never claim a newly-scheduled C.
 # ─────────────────────────────────────────────────────────────────────────
 echo ""
-echo "── STATBUS-147: assert the upgrade daemon unit is ACTIVE after the re-park (parked-skip made this safe; the daemon must stay reachable to claim the fix release) ──"
+echo "── STATBUS-147: assert the upgrader unit is ACTIVE after the re-park (parked-skip made this safe; the daemon must stay reachable to claim the fix release) ──"
 echo "── waiting out the designed auto-restart hold-off (budget ${UNIT_ACTIVE_WAIT_BUDGET_S}s) before checking alive-idle ──"
 wait_for_unit_active "$UNIT_ACTIVE_WAIT_BUDGET_S" || exit 1
 assert_systemd_active "$VM_NAME" "$UPGRADE_UNIT" "active"

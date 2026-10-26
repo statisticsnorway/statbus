@@ -188,7 +188,7 @@ echo "── waiting for the candidate's images to verify ready (daemon's own di
 wait_for_upgrade_candidate_ready "$VM_NAME" "$HEAD_SHA" 120
 
 echo ""
-echo "── quiescing the upgrade service, THEN scheduling HEAD ──"
+echo "── quiescing the upgrader, THEN scheduling HEAD ──"
 # Quiesce NOW — after register+ready, before schedule: the running upgrade
 # service (NOTIFY listener + poll tick) would otherwise claim the row the
 # instant it's scheduled, before `./sb install` reaches it -> StateNothingScheduled
@@ -258,11 +258,11 @@ echo "── coherence checks ──"
 assert_flag_file_absent "$VM_NAME"
 assert_no_orphan_backup "$VM_NAME"
 
-# Restart counter bounded — the upgrade-service unit must not be in a
+# Restart counter bounded — the upgrader unit must not be in a
 # restart-loop pathology after this install (the wedge could
 # plausibly trip systemd's StartLimitBurst if the migration is killed
 # + retried repeatedly).
-assert_systemd_restart_counter_bounded "$VM_NAME" "statbus-upgrade@statbus.service" 2
+assert_systemd_restart_counter_bounded "$VM_NAME" "$(upgrade_unit_name)" 2
 
 echo ""
 echo "PASS: 3-postswap-worker-ddl-deadlock (install survived worker contention, data intact)"

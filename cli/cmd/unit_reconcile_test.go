@@ -3,15 +3,14 @@ package cmd
 import (
 	"os"
 	"path/filepath"
-	"regexp"
 	"strings"
 	"testing"
 )
 
-// #4 unit-reconcile (plan upgrade-resume-structural-whole.md): the upgrade
+// #4 unit-reconcile (plan upgrade-resume-structural-whole.md): the upgrader's
 // systemd unit is copied VERBATIM (cmd/install.go copyFile: os.ReadFile →
 // os.WriteFile, no templating; the %h/%i/%u specifiers resolve at runtime) to
-// ~/.config/systemd/user/statbus-upgrade@.service. So a drifted on-disk unit
+// ~/.config/systemd/user/statbus-upgrader@.service. So a drifted on-disk unit
 // (e.g. rune's stale WatchdogUSec=infinity / TimeoutStartSec=90 vs the repo's
 // 120/120) is detectable by a byte-compare of the on-disk file vs the repo
 // template. checkServiceDone previously only ran `systemctl --user is-active`,
@@ -19,11 +18,11 @@ import (
 // persisted indefinitely (the gap that left rune on stale timeout config).
 //
 // unitFileMatchesRepo is the pure, systemd-free comparison seam: true iff the
-// on-disk user unit exists AND is byte-identical to <dir>/ops/statbus-upgrade.service.
+// on-disk user unit exists AND is byte-identical to <dir>/ops/statbus-upgrader.service.
 // checkServiceDone ANDs this with is-active (the is-active half needs real
 // systemd, so it's exercised by the Hetzner harness, not here).
 
-// writeUnitFixture lays out a temp repo `ops/statbus-upgrade.service` (the
+// writeUnitFixture lays out a temp repo `ops/statbus-upgrader.service` (the
 // source of truth) and points $HOME at a temp dir. Returns (dir, userUnitPath).
 func writeUnitFixture(t *testing.T, repoContent string) (string, string) {
 	t.Helper()
@@ -31,12 +30,12 @@ func writeUnitFixture(t *testing.T, repoContent string) (string, string) {
 	if err := os.MkdirAll(filepath.Join(dir, "ops"), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(dir, "ops", "statbus-upgrade.service"), []byte(repoContent), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(dir, "ops", "statbus-upgrader.service"), []byte(repoContent), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	home := t.TempDir()
 	t.Setenv("HOME", home)
-	userUnit := filepath.Join(home, ".config", "systemd", "user", "statbus-upgrade@.service")
+	userUnit := filepath.Join(home, ".config", "systemd", "user", "statbus-upgrader@.service")
 	if err := os.MkdirAll(filepath.Dir(userUnit), 0o755); err != nil {
 		t.Fatal(err)
 	}
@@ -46,7 +45,7 @@ func writeUnitFixture(t *testing.T, repoContent string) (string, string) {
 // TestUnitFileMatchesRepo_IdenticalIsMatch: on-disk unit byte-identical to the
 // repo template → match (no reconcile needed).
 func TestUnitFileMatchesRepo_IdenticalIsMatch(t *testing.T) {
-	content := "[Unit]\nDescription=StatBus Upgrade Service\n[Service]\nWatchdogSec=120\nTimeoutStartSec=120\n"
+	content := "[Unit]\nDescription=StatBus Upgrader\n[Service]\nWatchdogSec=120\nTimeoutStartSec=120\n"
 	dir, userUnit := writeUnitFixture(t, content)
 	if err := os.WriteFile(userUnit, []byte(content), 0o755); err != nil {
 		t.Fatal(err)
@@ -62,9 +61,9 @@ func TestUnitFileMatchesRepo_IdenticalIsMatch(t *testing.T) {
 // is rewritten + re-armed. Pre-#4 there was no such compare; this guard is the
 // RED→GREEN proof for the byte-compare seam.
 func TestUnitFileMatchesRepo_DriftIsMismatch(t *testing.T) {
-	repo := "[Unit]\nDescription=StatBus Upgrade Service\n[Service]\nWatchdogSec=120\nTimeoutStartSec=120\n"
+	repo := "[Unit]\nDescription=StatBus Upgrader\n[Service]\nWatchdogSec=120\nTimeoutStartSec=120\n"
 	// Rune's drifted shape: watchdog disabled, shorter start timeout.
-	drifted := "[Unit]\nDescription=StatBus Upgrade Service\n[Service]\nWatchdogSec=infinity\nTimeoutStartSec=90\n"
+	drifted := "[Unit]\nDescription=StatBus Upgrader\n[Service]\nWatchdogSec=infinity\nTimeoutStartSec=90\n"
 	dir, userUnit := writeUnitFixture(t, repo)
 	if err := os.WriteFile(userUnit, []byte(drifted), 0o755); err != nil {
 		t.Fatal(err)
@@ -89,7 +88,8 @@ func TestUnitFileMatchesRepo_MissingDestIsMismatch(t *testing.T) {
 // enabling does not restart an already-running unit, so a drifted-but-
 // running box would keep stale timers. This pins, at the source level, that
 // runInstallService queues a final restart when the unit was drifted AND active,
-// gated off postUpgradeFixup, AFTER daemon-reload. The final dispatcher submits
+// gated off the post-upgrade fixup, with the daemon-reload inside the shared
+// installUpgraderUnit it calls. The final dispatcher submits
 // that restart with --no-block after completion mutations.
 func TestRunInstallService_RestartsOnDriftToArmTimers(t *testing.T) {
 	src, err := os.ReadFile(thisRepoFile(t, "cli/cmd/install.go"))
@@ -97,43 +97,38 @@ func TestRunInstallService_RestartsOnDriftToArmTimers(t *testing.T) {
 		t.Fatalf("read install.go: %v", err)
 	}
 	body := string(src)
-	start := strings.Index(body, "func runInstallService(")
-	if start < 0 {
-		t.Fatal("runInstallService not found in install.go")
-	}
-	rest := body[start:]
-	end := regexp.MustCompile(`(?m)^}\n`).FindStringIndex(rest)
-	if end == nil {
-		t.Fatal("runInstallService closing brace not found")
-	}
-	fn := rest[:end[1]]
+	fn := funcBody(t, body, "func runInstallService(")
 
 	driftIdx := strings.Index(fn, "unitWasDrifted")
 	if driftIdx < 0 {
 		t.Fatal("runInstallService must capture unitWasDrifted (unitFileMatchesRepo) BEFORE the copy " +
 			"to know whether the on-disk unit is changing — needed to decide whether a re-arm restart is required.")
 	}
-	reloadIdx := strings.Index(fn, `"daemon-reload"`)
-	if reloadIdx < 0 {
-		t.Fatal("runInstallService missing daemon-reload — test is stale")
+	coreIdx := strings.Index(fn, "installUpgraderUnit(dir, true")
+	if coreIdx < 0 {
+		t.Fatal("runInstallService must install the unit through the shared installUpgraderUnit (upgrader.go) — test is stale")
 	}
 	// The re-arm action must be gated on drifted AND active AND not-inside-
-	// active-upgrade, and must queue a final restart rather than run it here.
-	guardIdx := strings.Index(fn, "unitWasDrifted && unitWasActive && !postUpgradeFixup")
+	// the-active-upgrade, and must queue a final restart rather than run it here.
+	guardIdx := strings.Index(fn, "unitWasDrifted && unitWasActive && !insideUnit")
 	if guardIdx < 0 {
-		t.Fatal("runInstallService missing the re-arm gate `unitWasDrifted && unitWasActive && !postUpgradeFixup`. " +
+		t.Fatal("runInstallService missing the re-arm gate `unitWasDrifted && unitWasActive && !insideUnit`. " +
 			"Without restarting a drifted-but-running unit, the rewritten WatchdogSec/TimeoutStartSec stay inert " +
 			"(rune would keep 90/infinity). Restarting unconditionally would churn healthy units / kill an in-flight " +
-			"upgrade (postUpgradeFixup), so the gate is load-bearing.")
+			"upgrade (the fixup regime), so the gate is load-bearing.")
 	}
 	restartIdx := strings.Index(fn[guardIdx:], "mergeUpgradeDaemonFinalAction(*finalAction, upgradeDaemonRestart)")
 	if restartIdx < 0 {
 		t.Error("the re-arm gate must queue a final restart to arm the reconciled timers")
 	}
-	// Ordering: the restart gate must come AFTER daemon-reload (a restart
-	// before reload would re-arm the OLD config).
-	if guardIdx < reloadIdx {
-		t.Errorf("the re-arm restart (idx=%d) must come AFTER daemon-reload (idx=%d) — "+
-			"restarting before reload would re-arm the stale config.", guardIdx, reloadIdx)
+	// Ordering: drift capture BEFORE the shared install (which rewrites the
+	// file and daemon-reloads), the re-arm gate AFTER it (a restart queued
+	// before the reload would re-arm the OLD config).
+	if driftIdx > coreIdx {
+		t.Errorf("unitWasDrifted (idx=%d) must be captured BEFORE installUpgraderUnit (idx=%d) rewrites the file", driftIdx, coreIdx)
+	}
+	if guardIdx < coreIdx {
+		t.Errorf("the re-arm restart (idx=%d) must come AFTER installUpgraderUnit (idx=%d) — "+
+			"restarting before the daemon-reload inside it would re-arm the stale config.", guardIdx, coreIdx)
 	}
 }

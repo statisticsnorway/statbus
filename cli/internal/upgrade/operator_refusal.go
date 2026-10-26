@@ -24,7 +24,7 @@ const (
 	// destructive step because the source working tree cannot be resolved.
 	RefusalRestoreGitCorrupt RefusalClass = "restore-git-corrupt"
 	// RefusalRestoreDaemonOwnsLock: a restore re-attempt refused because a
-	// running upgrade daemon still owns the upgrade lock.
+	// running upgrader still owns the upgrade lock.
 	RefusalRestoreDaemonOwnsLock RefusalClass = "restore-daemon-owns-lock"
 	// RefusalClaimImagesBuilding: the scheduled release's images are still
 	// being published.
@@ -33,7 +33,7 @@ const (
 	RefusalClaimImagesFailed RefusalClass = "claim-images-failed"
 	// RefusalClaimTaken: another actor claimed the scheduled row first.
 	RefusalClaimTaken RefusalClass = "claim-taken"
-	// RefusalClaimDaemonOwnsLock: a running upgrade daemon owns the upgrade
+	// RefusalClaimDaemonOwnsLock: a running upgrader owns the upgrade
 	// lock and claims scheduled rows itself.
 	RefusalClaimDaemonOwnsLock RefusalClass = "claim-daemon-owns-lock"
 	// RefusalRecoveryDBUnreachable: crash recovery cannot reach the database on

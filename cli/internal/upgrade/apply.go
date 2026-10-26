@@ -50,7 +50,7 @@ func (d *Service) RunApply(ctx context.Context, input string, recreate bool, ope
 		// Say what will happen next, because "scheduled" is not "installed" and
 		// the gap between them is where an operator otherwise stands and waits
 		// with no idea what they are waiting for.
-		fmt.Printf("\n%s is scheduled on this box. The upgrade service will take it from here:\n", strings.TrimSpace(input))
+		fmt.Printf("\n%s is scheduled on this box. The upgrader will take it from here:\n", strings.TrimSpace(input))
 		fmt.Println("  it backs up the database, applies migrations, restarts, health-checks,")
 		fmt.Println("  and rolls back automatically if any of that fails.")
 		fmt.Println("Follow it with: ./sb upgrade list   (or the service log)")

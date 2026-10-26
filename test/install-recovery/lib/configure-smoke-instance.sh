@@ -19,26 +19,26 @@ for key in STATBUS_URL BROWSER_REST_URL SERVER_REST_URL DEBUG PUBLIC_DEBUG; do
     [ "$actual" = "$expected" ] || { echo "generated configuration mismatch for $generated_key: expected='$expected' actual='$actual'"; exit 1; }
 done
 # Inspect daemon identity, but product commands own ALL lifecycle actions.
-unit=statbus-upgrade@statbus.service
+unit="$(upgrade_unit_name)"
 previous_invocation=$(systemctl --user show "$unit" -p InvocationID --value)
 ./sb restart all
 invocation=$(systemctl --user show "$unit" -p InvocationID --value)
-[ -n "$invocation" ] && [ "$invocation" != "$previous_invocation" ] || { echo 'upgrade service did not start a new invocation'; exit 1; }
+[ -n "$invocation" ] && [ "$invocation" != "$previous_invocation" ] || { echo 'upgrader did not start a new invocation'; exit 1; }
 expected_channel=$(./sb dotenv -f .env get UPGRADE_CHANNEL)
 [ "$expected_channel" = stable ] || { echo "operator phase changed default stable channel to '$expected_channel'"; exit 1; }
 ready=false
 for ((attempt=0; attempt<30; attempt++)); do
-    if journalctl --user "_SYSTEMD_INVOCATION_ID=$invocation" --no-pager | grep -F "Upgrade service started (channel=$expected_channel,"; then
+    if journalctl --user "_SYSTEMD_INVOCATION_ID=$invocation" --no-pager | grep -F "Upgrader started (channel=$expected_channel,"; then
         ready=true
         break
     fi
     sleep 1
 done
-[ "$ready" = true ] || { echo "upgrade service did not report channel=$expected_channel in new invocation $invocation"; exit 1; }
+[ "$ready" = true ] || { echo "upgrader did not report channel=$expected_channel in new invocation $invocation"; exit 1; }
 container=$(docker compose ps -q app)
 [ -n "$container" ] || { echo 'app container missing after configuration restart'; exit 1; }
 for key in PUBLIC_BROWSER_REST_URL PUBLIC_DEBUG SERVER_REST_URL; do
     expected=$(./sb dotenv -f .env get "$key")
     docker inspect --format '{{range .Config.Env}}{{println .}}{{end}}' "$container" | grep -Fx "$key=$expected"
 done
-echo 'PASS: operator settings persisted, generated, and loaded by restarted app and upgrade service'
+echo 'PASS: operator settings persisted, generated, and loaded by restarted app and upgrader'

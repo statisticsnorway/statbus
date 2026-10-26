@@ -27,7 +27,7 @@ cd "$HOME/statbus"
 cat > tmp/upgrade-in-progress.json <<'FLAG'
 {"id":0,"commit_sha":"","started_at":"2026-09-24T12:00:00Z","invoked_by":"operator:restart","trigger":"restart","holder":"install","restart":{"profile":"app","prepared":true,"daemon":false}}
 FLAG
-# An app-only restart never stops the upgrade unit (service_restart.go), so
+# An app-only restart never stops the upgrader unit (service_restart.go), so
 # it cannot carry Daemon=true without a unit to restart. That invalid fixture
 # made the post-holder retry fail at systemctl start "" and retain its marker.
 # -F makes flock exec sleep instead of leaving a child holding the lock after

@@ -162,7 +162,7 @@ jobs:
           VERSION=${{ needs.metadata.outputs.version }}
           # cmd.commit ldflag receives the 40-char canonical commit_sha
           # so it can be equality-compared against public.upgrade.commit_sha
-          # (also 40 chars) in the upgrade service's ground-truth check.
+          # (also 40 chars) in the upgrader's ground-truth check.
           # Display-only sites use ShortForDisplay(commit) — see
           # cli/cmd/root.go's --version printer. The 8-char commit_short
           # is used for Docker image tags (above), not binaries.

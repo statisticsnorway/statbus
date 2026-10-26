@@ -76,7 +76,7 @@ func lastLine(out string) string {
 
 // wantOperations is the operator surface, sorted for comparison.
 func wantOperations() []string {
-	names := []string{"cert", "completion", "config", "db", "help", "install", "logs", "ps", "psql", "restart", "start", "stop", "support", "uninstall", "upgrade", "users"}
+	names := []string{"cert", "completion", "config", "db", "help", "install", "logs", "ps", "psql", "restart", "start", "stop", "support", "uninstall", "upgrade", "upgrader", "users"}
 	sort.Strings(names)
 	return names
 }

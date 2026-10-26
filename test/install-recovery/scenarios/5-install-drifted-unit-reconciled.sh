@@ -8,7 +8,7 @@
 #
 # THE GAP THIS CLOSES:
 #   The upgrade systemd unit is copied VERBATIM to
-#   ~/.config/systemd/user/statbus-upgrade@.service (cmd/install.go copyFile —
+#   ~/.config/systemd/user/statbus-upgrader@.service (writeUpgraderUnitFile copyFile —
 #   byte copy; %h/%i/%u resolve at systemd runtime). checkServiceDone used to
 #   gate ONLY on `systemctl --user is-active`, so a HEALTHY (active) box whose
 #   on-disk unit had DRIFTED from the repo template was never rewritten — the
@@ -61,8 +61,8 @@ source "$LIB_DIR/data-helpers.sh"
 source "$LIB_DIR/wedge-helpers.sh"
 source "$LIB_DIR/assertions.sh"
 
-UNIT="statbus-upgrade@statbus.service"
-UNIT_TEMPLATE_FILE="\$HOME/.config/systemd/user/statbus-upgrade@.service"
+UNIT="$(upgrade_unit_name)"
+UNIT_TEMPLATE_FILE="\$HOME/.config/systemd/user/statbus-upgrader@.service"
 
 trap '
     rc=$?
@@ -110,7 +110,7 @@ echo "── simulating unit drift (WatchdogSec→240, TimeoutStartSec→90) ─
     echo "UNIT='$UNIT'"
     cat <<'DRIFT_SETUP'
 set -e
-U="$HOME/.config/systemd/user/statbus-upgrade@.service"
+U="$HOME/.config/systemd/user/statbus-upgrader@.service"
 sed -i -E 's/^WatchdogSec=.*/WatchdogSec=240/; s/^TimeoutStartSec=.*/TimeoutStartSec=90/' "$U"
 systemctl --user daemon-reload
 systemctl --user restart "$UNIT"
@@ -144,11 +144,11 @@ echo "── unit-reconcile checks (LOAD-BEARING) ──"
 
 # (1) on-disk unit byte-identical to the repo template again.
 # Use ssh-stdin to avoid local $HOME expansion (same issue as the drift-setup above).
-DIFF_OUT=$(echo 'diff -q "$HOME/.config/systemd/user/statbus-upgrade@.service" ~/statbus/ops/statbus-upgrade.service >/dev/null 2>&1 && echo SAME || echo DIFF' |
+DIFF_OUT=$(echo 'diff -q "$HOME/.config/systemd/user/statbus-upgrader@.service" ~/statbus/ops/statbus-upgrader.service >/dev/null 2>&1 && echo SAME || echo DIFF' |
     ssh "${SSH_OPTS[@]}" root@"$VM_IP" "sudo -i -u statbus bash -c 'cd ~/statbus && bash'" 2>/dev/null | tr -d ' \r\n') || DIFF_OUT="?"
 if [ "$DIFF_OUT" != "SAME" ]; then
     echo "✗ on-disk unit still differs from the repo template after install — #4 did not rewrite it" >&2
-    echo 'diff "$HOME/.config/systemd/user/statbus-upgrade@.service" ~/statbus/ops/statbus-upgrade.service' |
+    echo 'diff "$HOME/.config/systemd/user/statbus-upgrader@.service" ~/statbus/ops/statbus-upgrader.service' |
         ssh "${SSH_OPTS[@]}" root@"$VM_IP" "sudo -i -u statbus bash -c 'cd ~/statbus && bash'" >&2 || true
     exit 1
 fi

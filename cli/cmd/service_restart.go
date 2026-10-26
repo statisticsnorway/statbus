@@ -36,7 +36,7 @@ func restartServicesInDir(dir, profile string) error {
 
 func restartServicesInDirWithLock(dir, profile string, adopted *upgrade.FlagLock) error {
 	ops := restartOperations{
-		systemd: runtime.GOOS == "linux", unit: serviceInstance(dir),
+		systemd: runtime.GOOS == "linux", unit: resolveUpgraderInstance(),
 		systemctl: func(args ...string) (string, error) {
 			out, err := exec.Command("systemctl", append([]string{"--user"}, args...)...).CombinedOutput()
 			return string(out), err
@@ -118,7 +118,7 @@ func restartServicesWithLock(dir, profile string, ops restartOperations, adopted
 			}
 			out, err := ops.systemctl("start", unit)
 			if err != nil {
-				result = errors.Join(result, fmt.Errorf("start upgrade service %s: %w: %s", unit, err, strings.TrimSpace(out)))
+				result = errors.Join(result, fmt.Errorf("start the upgrader %s: %w: %s", unit, err, strings.TrimSpace(out)))
 			}
 		}
 		if preserveRecoveryMarker {
@@ -132,11 +132,11 @@ func restartServicesWithLock(dir, profile string, ops restartOperations, adopted
 	}()
 	if prior == nil && profile != "app" && ops.systemd {
 		if ops.unit == "" {
-			return fmt.Errorf("cannot determine upgrade-service unit (USER is unset); no services were stopped")
+			return fmt.Errorf("cannot determine the upgrader's unit name (USER is unset); no services were stopped")
 		}
 		out, err := ops.systemctl("show", ops.unit, "--property=LoadState", "--property=ActiveState")
 		if err != nil {
-			return fmt.Errorf("inspect upgrade service %s: %w: %s; no services were stopped", ops.unit, err, strings.TrimSpace(out))
+			return fmt.Errorf("inspect the upgrader %s: %w: %s; no services were stopped", ops.unit, err, strings.TrimSpace(out))
 		}
 		values := map[string]string{}
 		for _, line := range strings.Split(out, "\n") {
@@ -149,20 +149,20 @@ func restartServicesWithLock(dir, profile string, ops restartOperations, adopted
 		case "loaded":
 			switch values["ActiveState"] {
 			case "active", "activating", "reloading":
-				fmt.Printf("Stopping upgrade service %s under the upgrade mutex.\n", ops.unit)
+				fmt.Printf("Stopping the upgrader %s under the upgrade mutex.\n", ops.unit)
 				startDaemon = true
 			case "inactive": // intentionally stopped: do not resurrect it
 			case "failed":
 				// It was meant to run and stopped by failing (for example the
 				// start-rate limit). Start it again after the restart; the
 				// failed state is cleared right before that start.
-				fmt.Printf("Upgrade service %s had failed; it will be started again after the restart.\n", ops.unit)
+				fmt.Printf("The upgrader %s had failed; it will be started again after the restart.\n", ops.unit)
 				startDaemon = true
 			default:
-				return fmt.Errorf("upgrade service %s has state %q; run %s to repair it before restarting; no services were stopped", ops.unit, values["ActiveState"], upgrade.InstallCommand(dir))
+				return fmt.Errorf("the upgrader %s has state %q; run %s to repair it before restarting; no services were stopped", ops.unit, values["ActiveState"], upgrade.InstallCommand(dir))
 			}
 		default:
-			return fmt.Errorf("cannot restart with upgrade service %s load state %q; no services were stopped", ops.unit, values["LoadState"])
+			return fmt.Errorf("cannot restart with the upgrader %s load state %q; no services were stopped", ops.unit, values["LoadState"])
 		}
 	}
 	if !preserveRecoveryMarker && !prepared {
@@ -175,7 +175,7 @@ func restartServicesWithLock(dir, profile string, ops restartOperations, adopted
 	if startDaemon {
 		out, err := ops.systemctl("stop", unit)
 		if err != nil {
-			return fmt.Errorf("stop upgrade service %s: %w: %s; application services were not stopped", unit, err, strings.TrimSpace(out))
+			return fmt.Errorf("stop the upgrader %s: %w: %s; application services were not stopped", unit, err, strings.TrimSpace(out))
 		}
 	}
 	if err := ops.stack(profile); err != nil {

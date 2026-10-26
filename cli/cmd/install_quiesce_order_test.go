@@ -8,7 +8,7 @@ import (
 
 // STATBUS-323. install.sh must own the repository for the duration of the
 // bootstrap: it takes the upgrade mutex BEFORE its first git operation, because
-// the box's upgrade service fetches the same repo on its ~2-minute discovery
+// the box's upgrader fetches the same repo on its ~2-minute discovery
 // tick.
 //
 // Observed on ma (2026-08-31): `git fetch origin --tags` died with

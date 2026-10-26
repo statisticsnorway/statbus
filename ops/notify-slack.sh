@@ -9,7 +9,7 @@
 # value set only in .env is silently wiped on the next run):
 #   UPGRADE_CALLBACK=./ops/notify-slack.sh
 #
-# Required environment (set by the upgrade service):
+# Required environment (set by the upgrader):
 #   STATBUS_VERSION       — version targeted by this upgrade attempt
 #   STATBUS_FROM_VERSION  — version the server was on going in
 #   STATBUS_SERVER        — hostname of the server

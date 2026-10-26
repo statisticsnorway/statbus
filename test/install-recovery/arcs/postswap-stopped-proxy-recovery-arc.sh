@@ -91,8 +91,8 @@ _dump_stopped_proxy_failure_diagnostics() {
     # db reports itself as a datum instead of aborting the rest under this
     # file's set -e. `docker compose ps -a` needs only docker/SSH, not the db,
     # so it stays in the SSH-only-first group alongside the journal.
-    echo "── daemon journal (statbus-upgrade@statbus.service, last 400 lines) ──" >&2
-    VM_EXEC bash -c "journalctl --user -u statbus-upgrade@statbus.service --no-pager -n 400 2>/dev/null" >&2 || echo "  (could not read the journal)" >&2
+    echo "── daemon journal ("$(upgrade_unit_name)", last 400 lines) ──" >&2
+    VM_EXEC bash -c "journalctl --user -u "$(upgrade_unit_name)" --no-pager -n 400 2>/dev/null" >&2 || echo "  (could not read the journal)" >&2
     echo "── flag file at exit ──" >&2
     VM_EXEC bash -c "cat ~/statbus/tmp/upgrade-in-progress.json 2>/dev/null || echo '(flag absent)'" >&2 || true
     echo "── container state (docker compose ps -a) ──" >&2
@@ -260,7 +260,7 @@ assert_health_passes "$VM_NAME"
 assert_demo_data_present "$VM_NAME"
 assert_demo_data_counts_match_snapshot "$VM_NAME" "$DATA_SNAPSHOT"
 assert_no_orphan_backup "$VM_NAME"
-assert_systemd_active "$VM_NAME" "statbus-upgrade@statbus.service" "active"
+assert_systemd_active "$VM_NAME" "$(upgrade_unit_name)" "active"
 rm -f "$INSTALL_OUT"
 
 echo ""

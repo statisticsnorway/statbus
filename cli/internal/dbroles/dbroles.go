@@ -6,7 +6,7 @@
 // volume survives (for example after ~/statbus was removed and the one install
 // command was run again), .env and the database disagree. PostgREST then
 // restart-loops on `password authentication failed for user "authenticator"`
-// and the upgrade service never connects. Seed and migrations still succeed
+// and the upgrader never connects. Seed and migrations still succeed
 // because they run over the container's local socket, where the admin user is
 // trusted (postgres/pg_hba.conf line 1).
 //

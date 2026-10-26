@@ -604,7 +604,7 @@ install -m 0600 ~/harness-certs/domain.key caddy/data/custom-certs/domain.key
 # Settings step is skipped on every fresh install too (Credentials generates
 # .env first, making checkEnvDone true), and the only mkdir of these
 # directories rode inside it. Docker then creates ~/statbus-maintenance as
-# ROOT at compose up and the upgrade daemon's maintenance-flag write fails
+# ROOT at compose up and the upgrader's maintenance-flag write fails
 # in the OLD binary's pre-swap phase (PhaseOldSbUpgrading — the new binary
 # only takes over after replaceBinaryOnDisk), so no candidate-side code can
 # rescue this guest. Create both directories here as the statbus user,
@@ -837,7 +837,7 @@ lxd_capture_failure() {
         # early (progress lines, the rollback's own "... failed: <reason>"), while
         # the tail carries only the aftermath. The old `tail -100` threw away the
         # one line we needed to diagnose rc.01's scheduled source-identity wedge,
-        # and the upgrade daemon's own journal was cut to 100 lines for the same
+        # and the upgrader's own journal was cut to 100 lines for the same
         # reason. Capture in full (parity with vm-bootstrap.sh's capture_file); if
         # a log is ever genuinely enormous, keep BOTH ends behind an explicit,
         # quantified marker so nothing disappears silently (owner ruling 2026-10-15).
@@ -869,7 +869,7 @@ lxd_capture_failure() {
         # so this exact question was unanswerable after the fact).
         _lxd_host lxc exec "$name" -- docker ps -a --format '{{.ID}} {{.Image}} {{.Names}} {{.CreatedAt}} {{.Status}}' || true
         _lxd_host lxc exec "$name" -- journalctl --no-pager -n 1000 -u docker || true
-        # The statbus user's units (the upgrade daemon above all). As root,
+        # The statbus user's units (the upgrader above all). As root,
         # `journalctl --user` reads ROOT's user journal and printed "-- No
         # entries --" in rc.03's operator capture, so the one actor that failed
         # the candidate row left no trace. Read the system journal by UID.
@@ -1303,7 +1303,7 @@ harness_register_log() {
     case "${2:-}" in /*) LXD_REGISTERED_LOGS+=("$1|$2") ;; esac
 }
 _lxd_unit_op() {
-    local op=$1 unit=${2:-statbus-upgrade@statbus.service} wait_s=${3:-5} state
+    local op=$1 unit=${2:-$(upgrade_unit_name)} wait_s=${3:-5} state
     if ! VM_EXEC systemctl --user "$op" "$unit"; then
         VM_EXEC journalctl --user -u "$unit" --no-pager -n 80 >&2 || true
         return 1
@@ -1455,7 +1455,7 @@ fi
 # reason `./sb install` ever creates either directory. Docker itself then
 # auto-creates the still-missing bind-mount source directory during
 # `docker compose up` (the "Services" step), but as root (the Docker
-# daemon's own uid), not statbus - so the later upgrade daemon (runs as
+# daemon's own uid), not statbus - so the later upgrader (runs as
 # statbus) can never write the maintenance flag into it. The Hetzner VM
 # harness never hits this: its install_statbus_at_sha supplies an ANSWER
 # file (STATBUS_ENV_CONFIG) that the installer's own prompts consume, never

@@ -123,7 +123,7 @@ interface SystemInfoSnapshot {
   observedAt: number;
 }
 
-// STATBUS-308. A box whose upgrade service is missing or stopped cannot follow
+// STATBUS-308. A box whose upgrader is missing or stopped cannot follow
 // its channel, and until now nothing said so: demo sat nine days with a stale
 // page, looking healthy. This banner is the operator-facing half of that.
 //
@@ -188,11 +188,11 @@ function UnitFloorWarning({
 
   const stateMessages: Record<string, string> = {
     "unit-file-missing":
-      "The upgrade service is not installed on this box. It will never take a new release on its own.",
+      "The upgrader is not installed on this box. It will never take a new release on its own.",
     "unit-file-drifted":
-      "The upgrade service is running an outdated unit definition. Its timeouts and watchdog settings are whatever they were when it was installed.",
+      "The upgrader is running an outdated unit definition. Its timeouts and watchdog settings are whatever they were when it was installed.",
     inactive:
-      "The upgrade service is installed but not running, so no checks happen and this page will go stale.",
+      "The upgrader is installed but not running, so no checks happen and this page will go stale.",
   };
 
   return (
@@ -204,7 +204,7 @@ function UnitFloorWarning({
         {stateIsBad && (
           <li>
             {stateMessages[row.value] ??
-              `The upgrade service reports state "${row.value}".`}
+              `The upgrader reports state "${row.value}".`}
             {detail && (
               <span className="block text-xs opacity-80">{detail}</span>
             )}
@@ -214,7 +214,7 @@ function UnitFloorWarning({
           <li>
             No self-check since {checkedAt.toLocaleString()} — expected{" "}
             {formatInterval(intervalSeconds)}. Nothing is currently reporting on
-            this box&apos;s upgrade service.
+            this box&apos;s upgrader.
           </li>
         )}
       </ul>
@@ -568,7 +568,7 @@ export default function UpgradesPage() {
           disabled={checking}
           onClick={async () => {
             // `upgrade_request_check` is fire-and-forget — it just emits
-            // `NOTIFY upgrade_check` for the Go upgrade-service to pick up
+            // `NOTIFY upgrade_check` for the Go upgrader to pick up
             // (see doc/db/function/public_upgrade_request_check().md). The
             // actual GitHub release-feed scan + image-readiness probe runs
             // in the daemon and can take 5-30s (and legitimately longer
@@ -603,7 +603,7 @@ export default function UpgradesPage() {
               checkSafetyTimeoutRef.current = null;
               setActionError(
                 "Discovery did not complete within 5 minutes. " +
-                  "The upgrade daemon may be stuck or unreachable — " +
+                  "The upgrader may be stuck or unreachable — " +
                   "check the host with: `./sb upgrade check`."
               );
             }, 5 * 60_000);
@@ -660,9 +660,9 @@ export default function UpgradesPage() {
                 Checking GitHub for new releases and image readiness...
               </p>
               <p className="text-xs text-blue-800">
-                This can take 10-30 seconds. The upgrade daemon is contacting
-                the GitHub release feed and probing the GHCR image manifests.
-                The page will update automatically when the check completes.
+                This can take 10-30 seconds. The upgrader is contacting the
+                GitHub release feed and probing the GHCR image manifests. The
+                page will update automatically when the check completes.
               </p>
             </div>
           </CardContent>
@@ -733,8 +733,7 @@ export default function UpgradesPage() {
       {upgrades && upgrades.length === 0 && (
         <Card>
           <CardContent className="pt-6 text-center text-muted-foreground">
-            No upgrades discovered yet. The upgrade service will check
-            periodically.
+            No upgrades discovered yet. The upgrader will check periodically.
           </CardContent>
         </Card>
       )}
@@ -1346,7 +1345,7 @@ function UpgradeCard({
                 </Badge>
               </a>
               {/* Two distinct readiness states, both verified against their
-                  respective registries by the upgrade service's discovery
+                  respective registries by the upgrader's discovery
                   cycle. Shown separately so an operator can tell which CI
                   workflow is still running (ci-images.yaml vs release.yaml)
                   and set realistic expectations. */}
@@ -1459,8 +1458,8 @@ function UpgradeCard({
               {new Date(imageWaitSince).toLocaleString()}.
             </p>
             <p className="mt-1 text-xs">
-              The upgrade service keeps this operator request scheduled and will
-              retry when publication finishes.
+              The upgrader keeps this operator request scheduled and will retry
+              when publication finishes.
             </p>
           </div>
         )}

@@ -1476,7 +1476,7 @@ SKIP_APP_BUILD_LINT) apply at the prerelease cut — see
 		//
 		//    Canary checks run AFTER the workflow + artifact gates
 		//    because canary 'completed' state is downstream of those:
-		//    the slot's upgrade-service consumes ghcr images that
+		//    the slot's upgrader consumes ghcr images that
 		//    `images` builds, and the canary delivery paths don't typically
 		//    run until test-hardening + test-install go
 		//    green. Reordering surfaced this — pre-fix canary fired

@@ -88,7 +88,7 @@ source "$LIB_DIR/assertions.sh"
 source "$LIB_DIR/arc-helpers.sh"
 
 _arc_cleanup() {
-    VM_EXEC bash -c "rm -f $RELEASE_FILE 2>/dev/null; rm -f ~/.config/systemd/user/${ARC_UPGRADE_UNIT}.d/inject.conf 2>/dev/null; systemctl --user daemon-reload 2>/dev/null" 2>/dev/null || true
+    VM_EXEC bash -c "rm -f $RELEASE_FILE 2>/dev/null; rm -f ~/.config/systemd/user/$(upgrade_unit_name).d/inject.conf 2>/dev/null; systemctl --user daemon-reload 2>/dev/null" 2>/dev/null || true
 }
 
 # _dump_rollback_restore_watchdog_failure_diagnostics — STATBUS-155 rider
@@ -105,8 +105,8 @@ _dump_rollback_restore_watchdog_failure_diagnostics() {
     # query, row state) last and individually guarded, so a down/unreachable
     # db reports itself as a datum instead of aborting the rest under this
     # file's set -e.
-    echo "── daemon journal ($ARC_UPGRADE_UNIT, last 400 lines) ──" >&2
-    VM_EXEC bash -c "journalctl --user -u $ARC_UPGRADE_UNIT --no-pager -n 400 2>/dev/null" >&2 || echo "  (could not read the journal)" >&2
+    echo "── daemon journal ($(upgrade_unit_name), last 400 lines) ──" >&2
+    VM_EXEC bash -c "journalctl --user -u $(upgrade_unit_name) --no-pager -n 400 2>/dev/null" >&2 || echo "  (could not read the journal)" >&2
     echo "── flag file at exit ──" >&2
     VM_EXEC bash -c "cat ~/statbus/tmp/upgrade-in-progress.json 2>/dev/null || echo '(flag absent)'" >&2 || true
     local log_rel
@@ -136,12 +136,12 @@ echo "════════════════════════�
 row_state()   { VM_EXEC bash -c "cd ~/statbus && echo \"SELECT state FROM public.upgrade WHERE commit_sha = '$B_FULL' ORDER BY id DESC LIMIT 1;\" | ./sb psql -t -A" 2>/dev/null | tr -d ' \r\n' || echo "?"; }
 db_up()       { VM_EXEC bash -c "cd ~/statbus && echo 'SELECT 1;' | ./sb psql -t -A 2>/dev/null" 2>/dev/null | tr -d ' \r\n' || echo ""; }
 progress_has(){ VM_EXEC bash -c "grep -qF \"$1\" ~/statbus/tmp/upgrade-progress.log 2>/dev/null && echo yes || echo no" 2>/dev/null | tr -d ' \r\n' || echo "no"; }
-# journal_watchdog_kills — count systemd WATCHDOG-TIMEOUT kills of the upgrade unit
+# journal_watchdog_kills — count systemd WATCHDOG-TIMEOUT kills of the upgrader unit
 # (the exact RED signature: silence > WatchdogSec → systemd aborts the process).
 # The healthy exit-42 handoff does NOT log this line, so a nonzero count is a real
 # watchdog kill = the cover FAILED.
 journal_watchdog_kills() {
-    VM_EXEC bash -c "journalctl --user -u $ARC_UPGRADE_UNIT --no-pager 2>/dev/null | grep -ciE 'watchdog timeout' || true" 2>/dev/null | tr -d ' \r\n' || echo "0"
+    VM_EXEC bash -c "journalctl --user -u $(upgrade_unit_name) --no-pager 2>/dev/null | grep -ciE 'watchdog timeout' || true" 2>/dev/null | tr -d ' \r\n' || echo "0"
 }
 
 # ── A: install + prepare; capture the clean-slate baseline; register B(=V_fail) ──
@@ -207,7 +207,7 @@ while [ $(( $(date +%s) - HOLD_TS )) -lt "$HOLD_AFTER_STALL_S" ]; do
     if [ "$NR" != "?" ] && [ "$NR_STALL" != "?" ] && [ "$NR" -gt "$NR_STALL" ]; then
         echo "✗ COVER FAILED: NRestarts climbed $NR_STALL → $NR while the restore was parked — the watchdog SIGABRT'd a progressing restore (the STATBUS-031 RED trajectory)." >&2
         echo "  journal (watchdog/abort markers):" >&2
-        VM_EXEC bash -c "journalctl --user -u $ARC_UPGRADE_UNIT --no-pager -n 60 2>/dev/null | grep -iE 'watchdog|abort|SIGABRT|Stopping|Started' | tail -20" >&2 || true
+        VM_EXEC bash -c "journalctl --user -u $(upgrade_unit_name) --no-pager -n 60 2>/dev/null | grep -iE 'watchdog|abort|SIGABRT|Stopping|Started' | tail -20" >&2 || true
         exit 1
     fi
     sleep 5
@@ -223,7 +223,7 @@ echo "[OBSERVE] hold complete: NRestarts=$NR_HOLD_END (stall-baseline=$NR_STALL)
 echo "  ✓ NRestarts FROZEN at $NR_STALL through ${HOLD_AFTER_STALL_S}s of parked restore (> WatchdogSec=120s) — the cover held, no SIGABRT"
 
 WK=$(journal_watchdog_kills)
-[ "$WK" = "0" ] || { echo "✗ COVER FAILED: journal shows $WK 'watchdog timeout' kill(s) of $ARC_UPGRADE_UNIT — the restore was aborted" >&2; exit 1; }
+[ "$WK" = "0" ] || { echo "✗ COVER FAILED: journal shows $WK 'watchdog timeout' kill(s) of $(upgrade_unit_name) — the restore was aborted" >&2; exit 1; }
 echo "  ✓ zero systemd watchdog-timeout kills in the unit journal"
 
 # Anti-vacuity at hold-end (architect ruling). The upgrade ROW lives in the very DB

@@ -306,7 +306,7 @@ ip=$(hcloud server ip statbus-recovery-5-install-bool-text-regression)   # the V
 ssh root@$ip                                   # root shell
 ssh statbus@$ip                                # the statbus service user (cd ~/statbus)
 ssh root@$ip 'sudo -i -u statbus -- ./sb psql -c "SELECT * FROM public.upgrade ORDER BY id DESC LIMIT 3;"'
-ssh root@$ip journalctl --user -u 'statbus-upgrade@*' --no-pager -n 200
+ssh root@$ip journalctl --user -u 'statbus-upgrader@*' -u 'statbus-upgrade@*' --no-pager -n 200
 ```
 
 The manual VM runner writes `tmp/install-recovery-<vm_name>.log` locally; it no longer has a CI matrix that uploads `install-recovery-log-<slug>`. For CI fault evidence, download the `lxd-fleet-comparison` artifact from the LXD child run (instructions below), which includes `comparison.tsv`, `fleet-status.txt` and per-scenario logs. Smoke and arc runs publish their own distinct artifacts.

@@ -477,7 +477,7 @@ func ExecOnDB(projDir, dbName, sql string, extraArgs ...string) error {
 
 // runPsqlFile executes a SQL file via psql.
 // migrateSubprocessAppNamePrefix tags the migration psql SUBPROCESS's backend
-// application_name (task #14). The upgrade service, on a migrate TIMEOUT,
+// application_name (task #14). The upgrader, on a migrate TIMEOUT,
 // pg_terminate_backend's the orphaned in-container backend by matching this
 // prefix (LIKE 'statbus-migrate-sql%') — docker compose exec does NOT forward
 // SIGKILL, so a host-side process-group kill of `./sb migrate` leaves the
@@ -595,12 +595,12 @@ func PsqlWriteArgs(psqlPath string, args, env []string, appName string) ([]strin
 
 func runPsqlFile(projDir string, filePath string) (string, error) {
 	// Harness-only stall site: simulates a migration that runs longer
-	// than the upgrade-service's WatchdogSec budget. When activated via
+	// than the upgrader's WatchdogSec budget. When activated via
 	// STATBUS_INJECT_AT=migration-slower-than-systemd-unit-timeout,
 	// holds here until the harness removes
 	// STATBUS_INJECT_STALL_UNTIL_REMOVED_FILE. Validates the Race B fix
 	// in applyNewSbUpgrading's WATCHDOG=1 ticker (commit `e6df084b7`): with
-	// the migrate subprocess blocked here, the parent upgrade-service
+	// the migrate subprocess blocked here, the parent upgrader
 	// must keep the unit alive via its independent ticker, otherwise
 	// systemd's WatchdogSec=120s fires and triggers a restart loop.
 	// No-op in production. The hold runs BEFORE psql is invoked so
@@ -876,7 +876,7 @@ func DiskVersions(projDir string) ([]int64, error) {
 // Serializes every invocation that goes through migrate.Up(), including:
 //   - direct CLI: `./sb migrate up`
 //   - install's migrations step: install.go → migrate.Up
-//   - upgrade service's executeUpgrade step: spawns `./sb migrate up` as
+//   - the upgrader's executeUpgrade step: spawns `./sb migrate up` as
 //     a subprocess, which also calls this acquire path
 //
 // Uses a separate connection from the psql subprocesses that run the
@@ -1092,7 +1092,7 @@ func runUp(projDir string, migrateTo int64, all bool, verbose bool) (int, error)
 	}
 	for _, m := range pending {
 		// Unconditional per-migration log line. Emitted on stdout so the
-		// upgrade-service journal (via runCommandToLog → MultiWriter) and
+		// upgrader journal (via runCommandToLog → MultiWriter) and
 		// the local terminal both see "migrate is working" without
 		// needing --verbose. Each line also flows through progress.Write
 		// (PrefixWriter) which fires WATCHDOG=1, so per-migration output
@@ -1823,7 +1823,7 @@ func (e *ErrStaleRestoredMigration) Error() string {
 // ExitStaleRestoredMigration (STATBUS-156) is `./sb migrate up`'s dedicated
 // process exit code for ErrStaleRestoredMigration, DISTINCT from and
 // unrelated to the STATBUS-046 A/B/C production exit-code contract in
-// exit_codes.go (that contract is the upgrade daemon's Phase-3 classifier
+// exit_codes.go (that contract is the upgrader's Phase-3 classifier
 // surface; this one is a dev-tooling-only signal for `./dev.sh recreate-seed`,
 // which runs `./sb migrate up` as a separate process and cannot see the Go
 // error type across that boundary). `sb db seed build` doesn't need this — it

@@ -7,7 +7,7 @@ import (
 )
 
 // TestStatbusUpgradeServiceUnit_StartLimitDirectives pins the start-limit
-// cap: ops/statbus-upgrade.service MUST declare StartLimitIntervalSec +
+// cap: ops/statbus-upgrader.service MUST declare StartLimitIntervalSec +
 // StartLimitBurst so a daemon that cannot reach READY=1 (e.g. DB down at boot)
 // surfaces as `failed` within minutes instead of `activating` forever.
 //
@@ -63,7 +63,7 @@ func TestStatbusUpgradeServiceUnit_StartLimitInUnitSection(t *testing.T) {
 
 func readUnitFile(t *testing.T) string {
 	t.Helper()
-	path := thisRepoFile(t, "ops/statbus-upgrade.service")
+	path := thisRepoFile(t, "ops/statbus-upgrader.service")
 	data, err := os.ReadFile(path)
 	if err != nil {
 		t.Fatalf("read %s: %v", path, err)
@@ -85,5 +85,5 @@ func expectKV(t *testing.T, body, key, value string) {
 			return
 		}
 	}
-	t.Errorf("ops/statbus-upgrade.service missing directive %q", want)
+	t.Errorf("ops/statbus-upgrader.service missing directive %q", want)
 }

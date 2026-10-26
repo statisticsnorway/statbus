@@ -160,8 +160,8 @@ _dump_migration_oom_failure_diagnostics() {
     # query, row state) last and individually guarded, so a down/unreachable
     # db reports itself as a datum instead of aborting the rest under this
     # file's set -e.
-    echo "── daemon journal (statbus-upgrade@statbus.service, last 400 lines) ──" >&2
-    VM_EXEC bash -c "journalctl --user -u statbus-upgrade@statbus.service --no-pager -n 400 2>/dev/null" >&2 || echo "  (could not read the journal)" >&2
+    echo "── daemon journal ("$(upgrade_unit_name)", last 400 lines) ──" >&2
+    VM_EXEC bash -c "journalctl --user -u "$(upgrade_unit_name)" --no-pager -n 400 2>/dev/null" >&2 || echo "  (could not read the journal)" >&2
     echo "── flag file at exit ──" >&2
     VM_EXEC bash -c "cat ~/statbus/tmp/upgrade-in-progress.json 2>/dev/null || echo '(flag absent)'" >&2 || true
     local log_rel
@@ -293,7 +293,7 @@ UNVERIFIABLE_SEEN="no"
 BACKOFF_SEEN="no"
 while :; do
     ELAPSED=$(( $(date +%s) - MARKER_START ))
-    JOURNAL_TAIL=$(VM_EXEC bash -c "journalctl --user -u statbus-upgrade@statbus.service --no-pager -n 400 2>/dev/null" || echo "")
+    JOURNAL_TAIL=$(VM_EXEC bash -c "journalctl --user -u "$(upgrade_unit_name)" --no-pager -n 400 2>/dev/null" || echo "")
     if [ "$UNVERIFIABLE_SEEN" = "no" ] && echo "$JOURNAL_TAIL" | grep -q 'observed state is unverifiable'; then
         UNVERIFIABLE_SEEN="yes"
         echo "  ✓ postSwapFailure's unverifiable/forward-retry line observed after ${ELAPSED}s (first pass: db down mid-failure-read, non-terminal)"
@@ -368,9 +368,9 @@ assert_health_passes "$VM_NAME"
 # headroom) but is NOT the load-bearing claim — the actual observed value is
 # logged explicitly so a real run tells us which path fired and lets the
 # bound be tightened later.
-OBSERVED_NRESTARTS=$(VM_EXEC systemctl --user show "statbus-upgrade@statbus.service" --property=NRestarts --value 2>/dev/null | tr -d ' \r\n' || echo "?")
+OBSERVED_NRESTARTS=$(VM_EXEC systemctl --user show "$(upgrade_unit_name)" --property=NRestarts --value 2>/dev/null | tr -d ' \r\n' || echo "?")
 echo "  [OBSERVE] NRestarts = ${OBSERVED_NRESTARTS} (3 expected: handoff + unverifiable-forward-retry crash-exit + rollback's own terminal exit; anything higher is a finding)"
-assert_systemd_restart_counter_bounded "$VM_NAME" "statbus-upgrade@statbus.service" 4
+assert_systemd_restart_counter_bounded "$VM_NAME" "$(upgrade_unit_name)" 4
 
 echo ""
 echo "PASS: postswap-migration-oom (a real, running migration was SIGKILLed via its db container mid-sleep, reproducing the OS-OOM-killer effect deterministically; under the STATBUS-145 atomicity flip the box rolled back autonomously — V_sleep never re-attempted, restored to a byte-identical clean slate — data intact, healthy)"

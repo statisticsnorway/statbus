@@ -79,7 +79,7 @@ var restartCmd = &cobra.Command{
 	Short:   "Restart services (default: all)",
 	GroupID: operationsGroupID,
 	Long: `Restart StatBus services (stop then start).
-All-stack profiles also reload an active upgrade daemon. Existing upgrade/install
+All-stack profiles also reload an active upgrader. Existing upgrade/install
 markers refuse before any disruption. An intentionally inactive daemon stays inactive.
 Waits for stack health and daemon readiness under the upgrade mutex.
 Failed or interrupted restarts retain a barrier: fix the cause and retry this

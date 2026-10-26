@@ -140,7 +140,7 @@ func githubRequest(method, url string) (*http.Request, error) {
 		return nil, err
 	}
 	req.Header.Set("Accept", "application/vnd.github+json")
-	req.Header.Set("User-Agent", "statbus-upgrade-service")
+	req.Header.Set("User-Agent", "statbus-upgrader")
 	if token := os.Getenv("GITHUB_TOKEN"); token != "" {
 		req.Header.Set("Authorization", "Bearer "+token)
 	}

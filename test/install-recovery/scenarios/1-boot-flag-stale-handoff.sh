@@ -8,7 +8,7 @@
 # Source forensics:      tmp/install-state-machine-forensics.md
 #
 # Expected principled behavior:
-#   `./sb install` and the supervised `statbus-upgrade@<slot>.service` unit
+#   `./sb install` and the supervised `statbus-upgrader@<slot>.service` unit
 #   share a filesystem-level mutex: `tmp/upgrade-in-progress.json`. The
 #   contract is "whichever process writes the flag with its own PID must
 #   release it on exit (clean or otherwise)". The forensics surfaced a
@@ -48,10 +48,10 @@
 #   2. Right after `install_statbus_in_vm` returns, immediately
 #      check whether `~/statbus/tmp/upgrade-in-progress.json` exists.
 #      No sleep, no service tick wait — we want the snapshot AT
-#      exit, before the upgrade-service's next poll can clean it up.
+#      exit, before the upgrader's next poll can clean it up.
 #   3. If the flag IS present: assert that its Holder is "install"
 #      and the PID is dead (sanity-check the wedge shape).
-#   4. Wait for the upgrade-service's next tick (default 60s + slack)
+#   4. Wait for the upgrader's next tick (default 60s + slack)
 #      and re-check. The service's R3 clear path should remove the
 #      flag (current code) OR the install should have removed it
 #      itself (post-fix code).
@@ -90,7 +90,7 @@ echo "  Scenario: 1-boot-flag-stale-handoff  (C14 / R3 — clean-exit flag leak)
 echo "  Install version: $INSTALL_VERSION"
 echo ""
 echo "  Expected on current branch (no fix yet): the flag file is left"
-echo "  on disk after a clean install exit; the upgrade-service's R3"
+echo "  on disk after a clean install exit; the upgrader's R3"
 echo "  stale-flag clear path removes it on the next tick. Once the"
 echo "  principled fix lands (install releases the flag on clean"
 echo "  exit), the post-install check should show the flag absent"
@@ -150,7 +150,7 @@ else
 fi
 
 # ─────────────────────────────────────────────────────────────────────────
-# Phase 3 — wait for the upgrade-service's next tick + observe cleanup
+# Phase 3 — wait for the upgrader's next tick + observe cleanup
 # ─────────────────────────────────────────────────────────────────────────
 echo ""
 echo "── waiting ${SERVICE_TICK_WAIT_S}s for upgrade-service tick to run stale-flag clear path ──"
@@ -163,7 +163,7 @@ echo "  post-tick flag state: $POST_TICK_FLAG"
 # Phase 4 — assertions
 #
 # Load-bearing: post-tick the flag MUST be cleared. Either the install
-# released it cleanly (post-fix shape) OR the upgrade-service's R3
+# released it cleanly (post-fix shape) OR the upgrader's R3
 # stale-clear path removed it (current shape). Both converge to flag
 # absent. If the flag is STILL present after a full tick interval,
 # the convergence guarantee is broken.
@@ -174,7 +174,7 @@ echo "── convergence checks ──"
 if [ "$POST_TICK_FLAG" != "CLEARED" ]; then
     echo "✗ flag still present after ${SERVICE_TICK_WAIT_S}s — neither install nor service cleared it" >&2
     VM_EXEC bash -c "cd ~/statbus && cat tmp/upgrade-in-progress.json" >&2 || true
-    VM_EXEC bash -c "systemctl --user status statbus-upgrade@statbus.service --no-pager" >&2 || true
+    VM_EXEC bash -c "systemctl --user status "$(upgrade_unit_name)" --no-pager" >&2 || true
     exit 1
 fi
 echo "  ✓ flag cleared post-tick"

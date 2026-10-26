@@ -10,7 +10,7 @@
 # Expected principled behavior:
 #   The supervised, unattended upgrade path — install at an older
 #   release → populate data → schedule upgrade to a tagged candidate → wait for
-#   the upgrade-service unit's poll tick to dispatch + run
+#   the upgrader unit's poll tick to dispatch + run
 #   executeUpgrade → applyPostSwap to completion — must converge
 #   to a healthy state with data intact. This is the BASELINE
 #   regression net that catches any change that makes the normal
@@ -19,7 +19,7 @@
 #
 #   The unattended path differs from the inline `./sb install` path
 #   used by scenarios 12+/15+/16+/17+/21+/22+/23+/24 in one
-#   important way: the upgrade-service systemd unit dispatches the
+#   important way: the upgrader systemd unit dispatches the
 #   upgrade against the supervised WatchdogSec + TimeoutStopSec
 #   budgets. A regression in the unit's notify-protocol wiring
 #   (e.g., a missed WATCHDOG=1 or READY=1) would show up here
@@ -42,7 +42,7 @@
 #
 # Hetzner-runnability:
 #   READY. No injection site needed. This is the baseline that all
-#   other scenarios assume holds — if it fails, the upgrade-service's
+#   other scenarios assume holds — if it fails, the upgrader's
 #   notify protocol or the inline-vs-supervised dispatch path has
 #   diverged.
 #
@@ -160,15 +160,15 @@ DATA_SNAPSHOT=$(snapshot_demo_data_counts "$VM_NAME")
 echo "  pre-upgrade data snapshot: $DATA_SNAPSHOT"
 assert_demo_data_present "$VM_NAME"
 
-# Verify upgrade-service unit is active before we start.
-UNIT_STATE_BEFORE=$(VM_EXEC systemctl --user is-active "statbus-upgrade@statbus.service" 2>/dev/null | tr -d ' \r\n' || echo "?")
+# Verify upgrader unit is active before we start.
+UNIT_STATE_BEFORE=$(VM_EXEC systemctl --user is-active "$(upgrade_unit_name)" 2>/dev/null | tr -d ' \r\n' || echo "?")
 if [ "$UNIT_STATE_BEFORE" != "active" ]; then
-    echo "✗ upgrade-service unit not active before upgrade trigger (state=$UNIT_STATE_BEFORE)" >&2
+    echo "✗ upgrader unit not active before upgrade trigger (state=$UNIT_STATE_BEFORE)" >&2
     exit 1
 fi
-echo "  ✓ upgrade-service active before trigger"
+echo "  ✓ upgrader unit active before trigger"
 
-NRESTARTS_BASELINE=$(VM_EXEC systemctl --user show "statbus-upgrade@statbus.service" --property=NRestarts --value 2>/dev/null | tr -d ' \r\n' || echo "0")
+NRESTARTS_BASELINE=$(VM_EXEC systemctl --user show "$(upgrade_unit_name)" --property=NRestarts --value 2>/dev/null | tr -d ' \r\n' || echo "0")
 echo "  baseline NRestarts: $NRESTARTS_BASELINE"
 
 # ─────────────────────────────────────────────────────────────────────────
@@ -186,7 +186,7 @@ echo "── keeping $INSTALL_VERSION binary as judge of $INSTALL_TARGET_TAG ─
 #
 # The installed release binary drives register → ready → schedule. The target is
 # a release-shaped tag, matching the operator and Norway prerelease hop.
-# INTENTIONALLY NOT quiesced: the supervised upgrade service claims the row.
+# INTENTIONALLY NOT quiesced: the supervised upgrader claims the row.
 # ─────────────────────────────────────────────────────────────────────────
 echo ""
 echo "── registering $INSTALL_TARGET_TAG as an upgrade candidate ──"
@@ -200,7 +200,7 @@ wait_for_upgrade_candidate_ready "$VM_NAME" "$HEAD_SHA" "$TICK_WAIT_S"
 # Phase 5 — SCHEDULE the ready candidate (./sb upgrade schedule)
 #
 # Promotes the row to 'scheduled'; upgrade_notify_daemon_trigger fires NOTIFY
-# upgrade_apply; the running (unquiesced) upgrade-service unit claims it and runs
+# upgrade_apply; the running (unquiesced) upgrader unit claims it and runs
 # executeUpgrade → applyPostSwap. This is the genuine
 # register→ready→schedule→service-runs→completed real path (criterion-8).
 # ─────────────────────────────────────────────────────────────────────────
@@ -257,6 +257,25 @@ if [ "$FINAL_STATE" != "completed" ]; then
 fi
 echo "  ✓ state='completed'"
 
+# Bounded restarts. The normal upgrade should NOT have triggered any
+# watchdog or start-timeout. STATBUS-527: the unit is still the OLD one here —
+# state='completed' is written before the post-upgrade install and unit
+# handover run — so this reads the same counter as the baseline. The exit-42
+# handoff is the one designed restart inside the delta.
+NRESTARTS_OLD_FINAL=$(VM_EXEC systemctl --user show "statbus-upgrade@statbus.service" --property=NRestarts --value 2>/dev/null | tr -d ' \r\n' || echo "?")
+if [ "$NRESTARTS_OLD_FINAL" = "?" ]; then
+    echo "  ⚠ could not read the old unit's NRestarts after the upgrade — INFRA error; skipping the old-unit bound" >&2
+else
+    RESTART_DELTA=$((NRESTARTS_OLD_FINAL - NRESTARTS_BASELINE))
+    echo "  NRestarts (old unit): baseline=$NRESTARTS_BASELINE final=$NRESTARTS_OLD_FINAL delta=$RESTART_DELTA"
+    if [ "$RESTART_DELTA" -gt 2 ]; then
+        echo "✗ NRestarts grew by $RESTART_DELTA during a happy upgrade — unit was unstable" >&2
+        exit 1
+    fi
+    echo "  ✓ restart counter bounded"
+fi
+
+
 assert_demo_data_present "$VM_NAME"
 assert_demo_data_counts_match_snapshot "$VM_NAME" "$DATA_SNAPSHOT"
 assert_flag_file_absent "$VM_NAME"
@@ -275,16 +294,53 @@ if [ "${HARNESS_ASSERT_DISK_POLICY:-0}" = 1 ]; then
     VM_EXEC bash -c 'mkdir -p "$HOME/statbus-backups"; docker info --format "Docker data: {{.DockerRootDir}}"; df -h "$(docker info --format "{{.DockerRootDir}}")" "$HOME/statbus-backups"'
 fi
 
-# Bounded restarts. The normal upgrade should NOT have triggered any
-# watchdog or start-timeout — NRestarts ought to stay at baseline.
-NRESTARTS_FINAL=$(VM_EXEC systemctl --user show "statbus-upgrade@statbus.service" --property=NRestarts --value 2>/dev/null | tr -d ' \r\n' || echo "?")
-RESTART_DELTA=$((NRESTARTS_FINAL - NRESTARTS_BASELINE))
-echo "  NRestarts: baseline=$NRESTARTS_BASELINE final=$NRESTARTS_FINAL delta=$RESTART_DELTA"
-if [ "$RESTART_DELTA" -gt 2 ]; then
-    echo "✗ NRestarts grew by $RESTART_DELTA during a happy upgrade — unit was unstable" >&2
+# ─────────────────────────────────────────────────────────────────────────
+# STATBUS-527 AC9 — the unit rename landed: the box ends with exactly one
+# upgrader unit, statbus-upgrader@, active and running the installed ./sb;
+# statbus-upgrade@ is gone (no unit file, not loaded). The handover runs at
+# the tail of the post-upgrade install, after state='completed', so poll for
+# it rather than assuming it has already happened.
+# ─────────────────────────────────────────────────────────────────────────
+echo ""
+echo "── upgrader unit rename (statbus-upgrade@ → statbus-upgrader@) ──"
+MIGRATED=0
+for _ in $(seq 1 24); do
+    NEW_STATE=$(VM_EXEC systemctl --user is-active "statbus-upgrader@statbus.service" 2>/dev/null | tr -d ' \r\n' || echo "?")
+    OLD_LOAD=$(VM_EXEC systemctl --user show "statbus-upgrade@statbus.service" --property=LoadState --value 2>/dev/null | tr -d ' \r\n' || echo "?")
+    if [ "$NEW_STATE" = "active" ] && [ "$OLD_LOAD" = "not-found" ]; then
+        MIGRATED=1
+        break
+    fi
+    sleep 5
+done
+if [ "$MIGRATED" != 1 ]; then
+    echo "✗ unit rename did not land: statbus-upgrader@ is '$NEW_STATE', statbus-upgrade@ LoadState='$OLD_LOAD'" >&2
+    VM_EXEC bash -c "systemctl --user list-units 'statbus-*' --no-pager; journalctl --user -u 'statbus-upgrade@*' -u 'statbus-upgrader@*' --no-pager -n 60" >&2 || true
     exit 1
 fi
-echo "  ✓ restart counter bounded"
+echo "  ✓ statbus-upgrader@ is active; statbus-upgrade@ is not loaded"
+VM_EXEC bash -c 'test ! -e ~/.config/systemd/user/statbus-upgrade@.service' \
+    || { echo "✗ legacy unit file statbus-upgrade@.service still exists" >&2; exit 1; }
+VM_EXEC bash -c 'test -e ~/.config/systemd/user/statbus-upgrader@.service' \
+    || { echo "✗ unit file statbus-upgrader@.service missing" >&2; exit 1; }
+echo "  ✓ exactly one unit file remains: statbus-upgrader@.service"
+STATUS_OUT=$(VM_EXEC bash -c 'cd ~/statbus && ./sb upgrader status' 2>&1) \
+    || { echo "✗ ./sb upgrader status failed: $STATUS_OUT" >&2; exit 1; }
+echo "$STATUS_OUT" | sed 's/^/    /'
+echo "$STATUS_OUT" | grep -q "runs the program on disk" \
+    || { echo "✗ sb upgrader status does not confirm the upgrader runs the installed ./sb" >&2; exit 1; }
+echo "  ✓ sb upgrader status reports the installed ./sb"
+
+# The migrated unit starts at NRestarts=0; at most one restart is by design
+# (the handover's first boot can lose the advisory lock to the exiting old
+# daemon and is retried by Restart=always).
+NRESTARTS_FINAL=$(VM_EXEC systemctl --user show "statbus-upgrader@statbus.service" --property=NRestarts --value 2>/dev/null | tr -d ' \r\n' || echo "?")
+echo "  NRestarts (statbus-upgrader@): $NRESTARTS_FINAL"
+if [ "$NRESTARTS_FINAL" = "?" ] || [ "$NRESTARTS_FINAL" -gt 2 ]; then
+    echo "✗ NRestarts on the migrated unit is $NRESTARTS_FINAL — unit was unstable" >&2
+    exit 1
+fi
+echo "  ✓ restart counter bounded on the migrated unit"
 
 echo ""
 echo "PASS: 0-happy-upgrade (supervised unattended path completed cleanly; data intact; unit stable)"

@@ -425,7 +425,7 @@ func TestUsersCase7ConflictsResolveExplicitly(t *testing.T) {
 
 // An established box (someone can sign in) with no explicit file is done:
 // a detected file never resurrects an account an administrator deleted, and
-// a later divergence between the copies cannot fail the upgrade service's
+// a later divergence between the copies cannot fail the upgrader's
 // post-upgrade install. An explicit file's missing entries are created.
 func TestUsersEstablishedBoxStepSemantics(t *testing.T) {
 	home, dir, accounts := provisioningFixture(t, false)

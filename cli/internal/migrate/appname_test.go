@@ -7,7 +7,7 @@ import (
 )
 
 // #14 (migrate-orphan clean kill): the migration psql SUBPROCESS must carry a
-// distinct application_name so that, on a migrate TIMEOUT, the upgrade service
+// distinct application_name so that, on a migrate TIMEOUT, the upgrader
 // can pg_terminate_backend the orphaned in-container backend (docker compose
 // exec does NOT forward SIGKILL, so a host-side process-group kill leaves the
 // in-container psql alive with its txn open). injectPsqlAppName tags it in BOTH

@@ -28,12 +28,12 @@ var configCmd = &cobra.Command{
 // `./sb config generate` uses for a DETERMINISTIC configuration refusal —
 // ambiguous or invalid declared state (config.ErrPrincipledRefusal) that
 // editing .env.config is the only fix for, never a retry. STATBUS-298: the
-// upgrade service's recovery boot (service.go, ~:2103) shells out to this
+// upgrader's recovery boot (service.go, ~:2103) shells out to this
 // exact command and inspects ITS exit code to make the same distinction —
 // the sentinel error cannot cross the process boundary itself, so the exit
 // code IS the contract, mirroring this codebase's existing convention for
 // exit 42 (the post-swap handoff: bare literal, no shared Go constant,
-// documented on both sides — service.go and ops/statbus-upgrade.service's
+// documented on both sides — service.go and ops/statbus-upgrader.service's
 // SuccessExitStatus=42/RestartForceExitStatus=42). 78 is reserved for
 // principled refusals ONLY: any failure a retry could plausibly fix must
 // use a different code, or the unit's RestartPreventExitStatus=78 stops the
@@ -65,7 +65,7 @@ into caddy/config/.`,
 			// The install/upgrade context opts into migrating legacy operator
 			// tokens out of .env.config before strict validation (STATBUS-361):
 			// a box installed before the credential split carries placeholder
-			// or real tokens there, and the upgrade service's recovery-boot
+			// or real tokens there, and the upgrader's recovery-boot
 			// config regeneration must not refuse on them mid-upgrade (rc.07
 			// smoke: the service crash-looped on exactly this).
 			gen = func(verbose bool) error { return config.GenerateForInstallInDir(config.ProjectDir(), verbose) }
@@ -74,7 +74,7 @@ into caddy/config/.`,
 		// STATBUS-298: a principled refusal exits 78 directly — bypassing
 		// cobra's normal RunE-error path (which main.go maps uniformly to
 		// exit 1, indistinguishable from any other failure and, in the
-		// upgrade service's recovery-boot caller, retried by systemd every
+		// upgrader's recovery-boot caller, retried by systemd every
 		// ~30s into the identical, unchanging refusal). Printed here to
 		// match cobra's own "Error: <msg>" convention (root.go leaves
 		// SilenceErrors=false) since os.Exit skips cobra's own print step.

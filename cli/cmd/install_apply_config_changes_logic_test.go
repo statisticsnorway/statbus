@@ -164,7 +164,7 @@ func TestApplyPendingRestarts_DefersDaemonUntilAfterMigrations(t *testing.T) {
 		t.Errorf("step 9 compose calls = %v, want app only", *calls)
 	}
 	action := upgradeDaemonNoAction
-	// The installer calls this only after the Migrations and Upgrade service
+	// The installer calls this only after the Migrations and Upgrader
 	// steps, using the original step-9 diff rather than recomputing .env.
 	applyPendingUpgradeDaemonRestart(pending, &action)
 	if action != upgradeDaemonRestart {
@@ -176,7 +176,7 @@ func TestApplyPendingRestarts_DefersDaemonUntilAfterMigrations(t *testing.T) {
 	}
 }
 
-// The fixup is a child of the active upgrade daemon. Only the parent's exit-42
+// The fixup is a child of the active upgrader. Only the parent's exit-42
 // handoff may restart that daemon, even when regenerated config changed a
 // daemon-classified key.
 func TestDeferredDaemonRestart_FixupUsesParentHandoff(t *testing.T) {

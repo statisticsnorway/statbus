@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# STATBUS-391: exercise the real release-baseline → candidate upgrade service
+# STATBUS-391: exercise the real release-baseline → candidate upgrader
 # and its automatic post-upgrade fixup with the persisted 20/40 GB policy.
 # 0-happy-upgrade owns candidate selection, VM lifetime, and health checks.
 set -euo pipefail

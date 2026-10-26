@@ -119,11 +119,25 @@ assert_upgrade_row_state() {
     return 1
 }
 
-# Verify the systemd upgrade-service unit is in the expected ActiveState.
-# Default unit: statbus-upgrade@statbus.service. Default state: active.
+# STATBUS-527: the upgrader's systemd unit is `statbus-upgrader@statbus.service`
+# — renamed from `statbus-upgrade@statbus.service`. A box installed by a
+# pre-rename release carries the OLD name until its post-upgrade install
+# migrates it, which happens MID-SCENARIO for the upgrade arcs. Resolve per
+# call, never at script start: the new name wins as soon as its unit file
+# exists.
+upgrade_unit_name() {
+    if VM_EXEC bash -c 'test -e ~/.config/systemd/user/statbus-upgrader@.service' 2>/dev/null; then
+        echo "statbus-upgrader@statbus.service"
+    else
+        echo "statbus-upgrade@statbus.service"
+    fi
+}
+
+# Verify the systemd upgrader unit is in the expected ActiveState.
+# Default unit: the box's current one (upgrade_unit_name). Default state: active.
 assert_systemd_active() {
     local vm_name="$1"
-    local unit="${2:-statbus-upgrade@statbus.service}"
+    local unit="${2:-$(upgrade_unit_name)}"
     local expected_state="${3:-active}"
     local actual
 
@@ -268,7 +282,7 @@ assert_step9_completed() {
     assert_step_database_sessions_completed "$@"
 }
 
-# Verify the install ladder ran through the final "Upgrade service" step.
+# Verify the install ladder ran through the final "Upgrader" step.
 # That's where the systemd reset-failed lives. Match by step NAME with
 # wildcard position/total so future ladder changes don't break this.
 assert_step_upgrade_service_completed() {
@@ -279,11 +293,11 @@ assert_step_upgrade_service_completed() {
         echo "  ✗ install log not found: $log_file"
         return 1
     fi
-    if grep -E "^\[[0-9]+/[0-9]+\] Upgrade service\s+(OK|DONE)" "$log_file" >/dev/null; then
-        echo "  ✓ Upgrade service step completed"
+    if grep -E "^\[[0-9]+/[0-9]+\] Upgrader\s+(OK|DONE)" "$log_file" >/dev/null; then
+        echo "  ✓ Upgrader step completed"
         return 0
     fi
-    echo "  ✗ Upgrade service step did NOT complete — install bailed before reaching it"
+    echo "  ✗ Upgrader step did NOT complete — install bailed before reaching it"
     return 1
 }
 
@@ -365,7 +379,7 @@ assert_db_migration_max_version_unchanged() {
 
 # _retry_db_read <label> <command> [args...]
 #
-# Retry a database read across the rollback handoff where the upgrade daemon
+# Retry a database read across the rollback handoff where the upgrader
 # intentionally exits 75 and systemd waits RestartSec=30 before the restored
 # source daemon is ready again. Successful stdout is the helper's ONLY stdout;
 # progress and final diagnostics stay on stderr so command-substitution callers
@@ -528,7 +542,7 @@ assert_demo_data_counts_match_snapshot() {
 #     rationale at the call site.
 assert_systemd_restart_counter_bounded() {
     local vm_name="$1"
-    local unit="${2:-statbus-upgrade@statbus.service}"
+    local unit="${2:-$(upgrade_unit_name)}"
     local max_restarts="${3:-5}"
     local actual
 

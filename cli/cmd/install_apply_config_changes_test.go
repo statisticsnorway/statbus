@@ -29,7 +29,7 @@ import (
 // subprocess args runCreateCreds/runGenerateEnv use, config.Generate, and
 // generateEnvContent — contains it, and none of the 7 steps currently
 // positioned after "Apply config changes" (Backup ownership, Database
-// sessions, Seed, Migrations, JWT secret, Administrator, Upgrade service) do.
+// sessions, Seed, Migrations, JWT secret, Administrator, Upgrader) do.
 // "Trusted signers" is no longer among them: STATBUS-468 moved it BEFORE
 // "Settings", because it writes UPGRADE_TRUSTED_SIGNER_* into .env.config and
 // only a step ahead of the generator gets that key into the .env the upgrade

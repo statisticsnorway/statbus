@@ -248,7 +248,7 @@ var dbDumpCmd = &cobra.Command{
 		fmt.Println("Dumping database ...")
 
 		// dbdump.DumpDatabase is the shared, atomic (.tmp→rename) core, also used
-		// by the upgrade service's scheduled backup (STATBUS-113).
+		// by the upgrader's scheduled backup (STATBUS-113).
 		outPath, err := dbdump.DumpDatabase(projDir)
 		if err != nil {
 			return err

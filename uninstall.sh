@@ -198,12 +198,14 @@ if [[ -f "$DIR/.env" ]]; then
     project=$configured
 fi
 units=()
-for unit in "$HOME/.config/systemd/user/statbus-upgrade@.service" /etc/systemd/system/statbus-upgrade@.service; do
+# Both unit names: statbus-upgrader@ (current) and statbus-upgrade@
+# (pre-STATBUS-527, until the box's install migrated it).
+for unit in "$HOME/.config/systemd/user/statbus-upgrader@.service" "$HOME/.config/systemd/user/statbus-upgrade@.service" /etc/systemd/system/statbus-upgrader@.service /etc/systemd/system/statbus-upgrade@.service; do
     [[ $unit != /etc/* || $USER != statbus_* ]] || continue
     [[ ! -e $unit ]] || units+=("$unit")
 done
 if ((${#units[@]} > 0)) && ! command -v systemctl >/dev/null 2>&1; then
-    echo 'An upgrade unit is installed but systemctl is unavailable; refusing removal.'
+    echo 'An upgrader unit is installed but systemctl is unavailable; refusing removal.'
     exit 1
 fi
 images=()
@@ -285,8 +287,8 @@ if [[ -d $DIR ]]; then
         echo 'Safe checkout removal requires Docker client and server version 25 or newer. Upgrade Docker and retry; no Docker resources or checkout files have been removed.'
         exit 1
     fi
-    if [[ -e /etc/systemd/system/statbus-upgrade@.service && $USER != statbus_* ]] && ! sudo -n true >/dev/null 2>&1; then
-        echo 'Removing the system upgrade unit requires sudo; ask an administrator to run sudo -v and retry.'
+    if [[ ( -e /etc/systemd/system/statbus-upgrader@.service || -e /etc/systemd/system/statbus-upgrade@.service ) && $USER != statbus_* ]] && ! sudo -n true >/dev/null 2>&1; then
+        echo 'Removing the system upgrader unit requires sudo; ask an administrator to run sudo -v and retry.'
         exit 1
     fi
     # On a partial install use Alpine; pull before stopping services.
@@ -334,21 +336,27 @@ if [[ -d $DIR ]]; then
     check_tmp_boundary || exit 1
     refuse_nested_mounts || exit 1
 fi
-user_unit="statbus-upgrade@${USER}.service"
 user_state=inactive
 if command -v systemctl >/dev/null 2>&1; then
-    user_state=$(systemctl --user is-active "$user_unit" 2>/dev/null || true)
+    for user_unit in "statbus-upgrader@${USER}.service" "statbus-upgrade@${USER}.service"; do
+        s=$(systemctl --user is-active "$user_unit" 2>/dev/null || true)
+        [[ -z $s || $s == inactive || $s == unknown ]] || user_state=$s
+    done
 fi
-if ((${#units[@]} > 0)) || [[ -n $user_state && $user_state != inactive && $user_state != unknown ]]; then
-    echo 'Step 1: stopping StatBus upgrade service'
-    if [[ -e $HOME/.config/systemd/user/statbus-upgrade@.service ]] || [[ -n $user_state && $user_state != inactive && $user_state != unknown ]]; then
-        systemctl --user disable --now "$user_unit" >>"$LOG" 2>&1
-        [[ $(systemctl --user is-active "$user_unit" 2>/dev/null || true) == inactive ]] || { echo 'User upgrade service is not inactive; refusing removal.'; exit 1; }
-    fi
-    if [[ $USER != statbus_* && -e /etc/systemd/system/statbus-upgrade@.service ]]; then
-        sudo -n systemctl disable --now "$user_unit" >>"$LOG" 2>&1
-        [[ $(sudo -n systemctl is-active "$user_unit" 2>/dev/null || true) == inactive ]] || { echo 'System upgrade service is not inactive; refusing removal.'; exit 1; }
-    fi
+if ((${#units[@]} > 0)) || [[ $user_state != inactive ]]; then
+    echo 'Step 1: stopping StatBus upgrader'
+    for user_unit in "statbus-upgrader@${USER}.service" "statbus-upgrade@${USER}.service"; do
+        if [[ -e $HOME/.config/systemd/user/${user_unit%%@*}@.service ]] || [[ $(systemctl --user is-active "$user_unit" 2>/dev/null || true) != inactive ]]; then
+            systemctl --user disable --now "$user_unit" >>"$LOG" 2>&1
+            [[ $(systemctl --user is-active "$user_unit" 2>/dev/null || true) == inactive ]] || { echo "User upgrader $user_unit is not inactive; refusing removal."; exit 1; }
+        fi
+    done
+    for user_unit in "statbus-upgrader@${USER}.service" "statbus-upgrade@${USER}.service"; do
+        if [[ $USER != statbus_* && -e /etc/systemd/system/${user_unit%%@*}@.service ]]; then
+            sudo -n systemctl disable --now "$user_unit" >>"$LOG" 2>&1
+            [[ $(sudo -n systemctl is-active "$user_unit" 2>/dev/null || true) == inactive ]] || { echo "System upgrader $user_unit is not inactive; refusing removal."; exit 1; }
+        fi
+    done
 fi
 echo 'Step 2: removing Docker resources'
 if command -v docker >/dev/null 2>&1 && docker info >/dev/null 2>&1; then

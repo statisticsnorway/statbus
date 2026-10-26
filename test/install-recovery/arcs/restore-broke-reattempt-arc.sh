@@ -122,8 +122,8 @@ _dump_restore_broke_reattempt_failure_diagnostics() {
     # query, row state) last and individually guarded, so a down/unreachable
     # db reports itself as a datum instead of aborting the rest under this
     # file's set -e.
-    echo "── daemon journal (statbus-upgrade@statbus.service, last 400 lines) ──" >&2
-    VM_EXEC bash -c "journalctl --user -u statbus-upgrade@statbus.service --no-pager -n 400 2>/dev/null" >&2 || echo "  (could not read the journal)" >&2
+    echo "── daemon journal ("$(upgrade_unit_name)", last 400 lines) ──" >&2
+    VM_EXEC bash -c "journalctl --user -u "$(upgrade_unit_name)" --no-pager -n 400 2>/dev/null" >&2 || echo "  (could not read the journal)" >&2
     echo "── flag file at exit ──" >&2
     VM_EXEC bash -c "cat ~/statbus/tmp/upgrade-in-progress.json 2>/dev/null || echo '(flag absent)'" >&2 || true
     echo "── pre-upgrade git branch on the VM ──" >&2
@@ -477,8 +477,8 @@ echo ""
 echo "═══ PHASE (ii): git-corrupt ABORT restore-broke row + refusing re-attempt ═══"
 
 echo ""
-echo "── restarting the upgrade daemon to register B (verifyArtifacts needs a live daemon) ──"
-vm_start_unit "statbus-upgrade@statbus.service"
+echo "── restarting the upgrader to register B (verifyArtifacts needs a live daemon) ──"
+vm_start_unit "$(upgrade_unit_name)"
 VM_EXEC bash -c "cd ~/statbus && git fetch origin $B_BRANCH && git cat-file -e $B_FULL"
 VM_EXEC bash -c "cd ~/statbus && ./sb upgrade register $B_FULL 2>&1 | tail -20"
 wait_for_upgrade_candidate_ready "$VM_NAME" "$B_FULL" "$TICK_WAIT_S"
@@ -656,14 +656,14 @@ echo "  ✓ phase (ii) COMPLETE: git-corrupt ABORT row (recovery_attempts=1 surv
 # (C) has no daemon-driven SIGKILL — every phase (ii) dispatch runs
 # `./sb install` directly over SSH with the daemon stopped throughout, so
 # there is no systemd-supervised process for Restart=always to react to.
-assert_systemd_restart_counter_bounded "$VM_NAME" "statbus-upgrade@statbus.service" 0
+assert_systemd_restart_counter_bounded "$VM_NAME" "$(upgrade_unit_name)" 0
 
 # STATBUS-180 AC#2's second half: the journal must show NO boot-migrate
 # failure line at all — not just a bounded restart count. Direct evidence the
 # race window (the daemon's boot-migrate hitting a mid-teardown DB) never
 # opened, using the exact error substrings the ticket's own FOUND section
 # quoted from the raced run (29325230294).
-VM_EXEC bash -c "journalctl --user -u statbus-upgrade@statbus.service --no-pager 2>/dev/null | grep -qE 'query applied migrations: exit status|boot migrate up: exit status'" \
+VM_EXEC bash -c "journalctl --user -u "$(upgrade_unit_name)" --no-pager 2>/dev/null | grep -qE 'query applied migrations: exit status|boot migrate up: exit status'" \
     && { echo "✗ daemon journal shows a boot-migrate failure line — the STATBUS-180 race window reopened" >&2; exit 1; }
 echo "  ✓ daemon journal shows no boot-migrate failure line (STATBUS-180 race window closed)"
 

@@ -68,7 +68,7 @@ TICK_WAIT_S="${TICK_WAIT_S:-120}"
 MIDPOINT_WAIT_BUDGET_S="${MIDPOINT_WAIT_BUDGET_S:-60}"
 ORPHAN_GONE_BUDGET_S="${ORPHAN_GONE_BUDGET_S:-30}"
 CEILING_TIMEOUT="${CEILING_TIMEOUT:-20s}"
-UPGRADE_UNIT="statbus-upgrade@statbus.service"
+UPGRADE_UNIT="$(upgrade_unit_name)"
 
 : "${BASE_SHA:?BASE_SHA required}"
 : "${B_FULL:?B_FULL required}"

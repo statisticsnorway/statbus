@@ -13,16 +13,16 @@
 #   app and worker were never created, yet every rerun printed
 #   "[8/17] Services OK". The migration step then died on a raw
 #   "dial tcp 127.0.0.1:5431: connection refused" (the proxy carries the local
-#   database port), and the upgrade service timed out at step 17 for the same
+#   database port), and the upgrader timed out at step 17 for the same
 #   reason.
 #
 # EXPECTED BEHAVIOUR:
 #   A green box loses proxy, app and worker. Running the install again:
 #     - step 8 prints DONE (not OK); its full diagnostic log confirms startup
 #     - all five services are running afterwards
-#     - Migrations and Upgrade service steps pass
+#     - Migrations and Upgrader steps pass
 #     - the final check prints "All services are running and the API is ready."
-#     - the upgrade service is active
+#     - the upgrader is active
 #
 # Usage:
 #   ./test/install-recovery/scenarios/5-install-proxy-never-started.sh <vm_name>

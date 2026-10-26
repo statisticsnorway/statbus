@@ -14,7 +14,7 @@ const (
 	// startup; regenerating .env is the whole act. Also used for keys with
 	// no verified runtime consumer at all (dead legacy .env.example
 	// carryovers, or values read FRESH on every use rather than cached —
-	// e.g. the upgrade daemon's callback/contact readers, which call
+	// e.g. the upgrader's callback/contact readers, which call
 	// dotenv.Load(".env") themselves at the moment they're needed).
 	RestartNone RestartClass = "none"
 	// RestartProxyRestart — the Caddy container (compose service "proxy")
@@ -43,7 +43,7 @@ const (
 	// start — credentials, memory tuning, resource limits.
 	RestartDB RestartClass = "db"
 	// RestartUpgradeDaemon — the host-level systemd unit
-	// (statbus-upgrade@<user>.service), NOT a docker compose service.
+	// (statbus-upgrader@<user>.service), NOT a docker compose service.
 	// Reuses restartUpgradeService (cli/cmd/install_upgrade.go) —
 	// best-effort, silent no-op off Linux or when the unit isn't active.
 	// Used for keys Service.loadConfig()/loadTrustedSigners() cache once at

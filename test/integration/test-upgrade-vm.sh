@@ -177,7 +177,7 @@ multipass exec "$VM_NAME" -- bash -c '
 echo ""
 echo "=== Step 12: Verify systemd service file ==="
 multipass exec "$VM_NAME" -- bash -c '
-    test -f ~/statbus/ops/statbus-upgrade.service && echo "Systemd service: OK" || echo "Systemd service: MISSING"
+    test -f ~/statbus/ops/statbus-upgrader.service && echo "Systemd service: OK" || echo "Systemd service: MISSING"
 '
 
 echo ""

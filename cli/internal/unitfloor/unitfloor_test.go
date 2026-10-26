@@ -18,7 +18,7 @@ func writeRepoTemplate(t *testing.T, body string) string {
 	if err := os.MkdirAll(opsDir, 0o755); err != nil {
 		t.Fatalf("mkdir ops: %v", err)
 	}
-	if err := os.WriteFile(filepath.Join(opsDir, "statbus-upgrade.service"), []byte(body), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(opsDir, "statbus-upgrader.service"), []byte(body), 0o644); err != nil {
 		t.Fatalf("write template: %v", err)
 	}
 	return dir
@@ -36,7 +36,7 @@ func withHome(t *testing.T, unitBody *string) {
 	if err := os.MkdirAll(unitDir, 0o755); err != nil {
 		t.Fatalf("mkdir unit dir: %v", err)
 	}
-	if err := os.WriteFile(filepath.Join(unitDir, "statbus-upgrade@.service"), []byte(*unitBody), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(unitDir, "statbus-upgrader@.service"), []byte(*unitBody), 0o644); err != nil {
 		t.Fatalf("write unit: %v", err)
 	}
 }
@@ -291,7 +291,7 @@ func TestInstanceNameFollowsDeploymentUser(t *testing.T) {
 
 	for _, user := range []string{"statbus", "statbus_dev", "statbus_ma"} {
 		r := inspectWith(dir, user, "linux", alwaysActive())
-		want := "statbus-upgrade@" + user + ".service"
+		want := "statbus-upgrader@" + user + ".service"
 		if r.Instance != want {
 			t.Errorf("user %q: instance = %q, want %q", user, r.Instance, want)
 		}

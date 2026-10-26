@@ -51,11 +51,11 @@ func dispatchInstallStateWithLock(projDir string, state install.State, detail *i
 }
 
 // runInlineUpgradeScheduled dispatches StateScheduledUpgrade through the
-// same executeUpgrade pipeline the upgrade service uses. It is called from
+// same executeUpgrade pipeline the upgrader uses. It is called from
 // runInstall when install.Detect finds a pending scheduled row.
 //
 // The scheduled row is claimed atomically inside ExecuteUpgradeInline (UPDATE
-// with state='scheduled' guard). If a running upgrade service's scheduled
+// with state='scheduled' guard). If a running upgrader's scheduled
 // picker won the race between install.Detect and this call, the claim
 // returns zero rows affected and this function surfaces a clear error — the
 // operator can re-run ./sb install once the other path finishes.
@@ -122,7 +122,7 @@ func runInlineUpgradeScheduledWithLock(projDir string, detail *install.Detail, a
 		// Unit name for the per-dispatch NRestarts reset (STATBUS-039
 		// review finding 2) — the inline path resets too, so the takeover
 		// gate counts only the current upgrade on every dispatch route.
-		svc.SetUnitInstance(serviceInstance(projDir))
+		svc.SetUnitInstance(resolveUpgraderInstance())
 	}
 
 	if err := inlineDispatchLoadConfig(ctx, svc); err != nil {
@@ -188,7 +188,7 @@ func runInlineRestoreReattemptWithLock(projDir string, detail *install.Detail, a
 	// restart the daemon while the winning install still owns that flock.
 	var restartIfEnabled func()
 	if runtime.GOOS == "linux" {
-		instance := serviceInstance(projDir)
+		instance := resolveUpgraderInstance()
 		if instance != "" {
 			restartIfEnabled = stopRestartUpgradeUnit(projDir, instance, adopted != nil)
 			defer func() {
@@ -208,7 +208,7 @@ func runInlineRestoreReattemptWithLock(projDir string, detail *install.Detail, a
 	}
 	defer svc.Close()
 	if runtime.GOOS == "linux" {
-		svc.SetUnitInstance(serviceInstance(projDir))
+		svc.SetUnitInstance(resolveUpgraderInstance())
 	}
 	if err := svc.LoadConfigAndConnect(ctx); err != nil {
 		return fmt.Errorf("load upgrade config: %w", err)
@@ -234,29 +234,32 @@ func runInlineRestoreReattemptWithLock(projDir string, detail *install.Detail, a
 	return nil
 }
 
-// restartUpgradeService kicks the systemd upgrade-service unit after a
-// successful inline upgrade so the long-running service loads the new binary
-// and migrations. Without this, the running service keeps the pre-upgrade
-// code in memory (R3) until someone restarts it manually.
+// restartUpgradeService kicks the upgrader's systemd unit after a
+// successful inline upgrade so the long-running upgrader loads the new binary
+// and migrations. Without this, the running upgrader keeps the pre-upgrade
+// code in memory (R3) until someone restarts it manually. It goes through the
+// shared submitUpgraderAction (upgrader.go) — the same start/stop
+// implementation the `sb upgrader` commands use — and resolves the unit
+// through resolveUpgraderInstance so a pre-527 box's legacy unit is kicked too.
 //
 // Best-effort: non-Linux, non-systemd, and missing-instance cases are silent
-// no-ops. If the service is not currently active we do NOT start it — an
+// no-ops. If the upgrader is not currently active we do NOT start it — an
 // operator may have stopped it deliberately, and `./sb install` should not
 // resurrect it. Restart errors log a warning but do not fail the install.
 func restartUpgradeService(projDir string) {
 	if runtime.GOOS != "linux" {
 		return
 	}
-	instance := serviceInstance(projDir)
+	instance := resolveUpgraderInstance()
 	if instance == "" {
 		return
 	}
-	if err := exec.Command("systemctl", "--user", "is-active", "--quiet", instance).Run(); err != nil {
+	if !upgraderUnitActive(instance) {
 		return // not active — leave it alone
 	}
-	fmt.Printf("Restarting upgrade service %s to pick up new binary/migrations.\n", instance)
-	if err := exec.Command("systemctl", "--user", "restart", instance).Run(); err != nil {
-		fmt.Printf("Warning: systemctl --user restart %s failed: %v (upgrade succeeded; restart the service manually)\n", instance, err)
+	fmt.Printf("Restarting the upgrader (%s) to pick up new binary/migrations.\n", instance)
+	if err := submitUpgraderAction(instance, "restart", false); err != nil {
+		fmt.Printf("Warning: restarting the upgrader failed: %v (upgrade succeeded; start it with ./sb upgrader start)\n", err)
 	}
 }
 
@@ -272,7 +275,7 @@ func restartUpgradeService(projDir string) {
 // recovery may have surfaced a freshly-scheduled row, restored the
 // previous version on disk, or left the install otherwise consistent.
 //
-// PART 1 (engineer audit task #3 Q3): the looping upgrade unit must be
+// PART 1 (engineer audit task #3 Q3): the looping upgrader unit must be
 // stopped before recovery. NO/rune wedged because the systemd unit's
 // auto-restart kept re-running the SAME flag-resume loop every ~2 min;
 // even with the dead PID's flock released, the next restart re-acquired
@@ -320,7 +323,7 @@ func runCrashRecoveryWithLock(projDir string, restartIfRecovered *func(), adopte
 	}
 	defer svc.Close()
 
-	// PART 1: stop the looping upgrade unit before any recovery work.
+	// PART 1: stop the looping upgrader unit before any recovery work.
 	// stopRestartUpgradeUnit captures is-enabled, runs `systemctl --user
 	// stop` + `reset-failed`, and returns a closure that restarts the
 	// unit iff it was enabled when we entered. STATBUS-180: the closure is
@@ -332,7 +335,7 @@ func runCrashRecoveryWithLock(projDir string, restartIfRecovered *func(), adopte
 	var restartIfEnabled func()
 	recovered := false
 	if runtime.GOOS == "linux" {
-		instance := serviceInstance(projDir)
+		instance := resolveUpgraderInstance()
 		if instance != "" {
 			restartIfEnabled = stopRestartUpgradeUnit(projDir, instance, adopted != nil)
 			if restartIfRecovered != nil {
@@ -582,7 +585,7 @@ func runCrashRecoveryWithLock(projDir string, restartIfRecovered *func(), adopte
 		if flag, ferr := upgrade.ReadFlagFile(projDir); ferr == nil && flag != nil && flag.ID != 0 {
 			parked, parkReason, perr := svc.UpgradeParkedReason(ctx, flag.ID)
 			if shouldRestartAfterFailedRecovery(parked, perr) {
-				fmt.Printf("crash recovery: upgrade %d re-parked (%s) — restarting the upgrade daemon alive-idle regardless: parked-skip makes every boot safe by construction, and the daemon must stay reachable to claim the eventual fix release.\n", flag.ID, parkReason)
+				fmt.Printf("crash recovery: upgrade %d re-parked (%s) — restarting the upgrader alive-idle regardless: parked-skip makes every boot safe by construction, and the upgrader must stay reachable to claim the eventual fix release.\n", flag.ID, parkReason)
 				recovered = true
 			}
 		}
@@ -612,7 +615,7 @@ func recoveryBootMigrateRequired(projDir string) (bool, error) {
 
 // shouldRestartAfterFailedRecovery is runCrashRecovery's STATBUS-147 decision,
 // extracted pure so both branches are unit-testable without a live daemon/DB:
-// restart the quiesced upgrade unit despite RecoverFromFlag's error ONLY when
+// restart the quiesced upgrader unit despite RecoverFromFlag's error ONLY when
 // the row is genuinely PARKED (parked-skip makes every future boot alive-idle
 // by construction) and the park-state read itself succeeded. Any other case —
 // not parked, or the read failed — keeps the conservative no-restart arm: a
@@ -622,7 +625,7 @@ func shouldRestartAfterFailedRecovery(parked bool, parkStateReadErr error) bool 
 }
 
 // stopRestartUpgradeUnit is Part 1's primitive. It QUIESCES the (possibly
-// looping) upgrade unit SIGKILL-class and returns a closure that restarts
+// looping) upgrader unit SIGKILL-class and returns a closure that restarts
 // it iff it was enabled at entry. Callers defer the closure to fire only
 // on successful recovery — see runCrashRecovery.
 //
@@ -645,7 +648,7 @@ func shouldRestartAfterFailedRecovery(parked bool, parkStateReadErr error) bool 
 //  2. mask --runtime: a masked unit cannot start, so Restart=always cannot
 //     respawn between our kill and stop. Runtime-scoped: self-clears on
 //     reboot, so a crashed takeover can never leave the box permanently
-//     unable to run its upgrade service.
+//     unable to run its upgrader.
 //  3. kill --signal=SIGKILL: whole-cgroup kill (KillMode default), no
 //     handlers run, kernel releases the flock on fd teardown.
 //  4. poll MainPID==0 (≤10s): verify actually dead before touching state.
@@ -658,7 +661,7 @@ func shouldRestartAfterFailedRecovery(parked bool, parkStateReadErr error) bool 
 // TIMING-BOUNDED invariant for the mask-FAILED fallback (not structural —
 // STATBUS-039 review): without the mask, a respawn fires RestartSec after
 // the kill, and the trailing stop would SIGTERM it. Safety then rests on
-// RestartSec (30s, ops/statbus-upgrade.service) exceeding the kill→poll→
+// RestartSec (30s, ops/statbus-upgrader.service) exceeding the kill→poll→
 // stop window (≤10s) — the pending respawn never fires before stop cancels
 // it. Anyone shortening RestartSec below ~10s voids this bound. Defense in
 // depth only: the correctness serializer against a concurrent destructive
@@ -683,7 +686,7 @@ func stopRestartUpgradeUnit(projDir, instance string, flockHeldByCaller bool) fu
 	if flag, ferr := upgrade.ReadFlagFile(projDir); ferr == nil && flag != nil {
 		who = fmt.Sprintf("%s (holder=%s, started=%s)", instance, flag.Holder, flag.StartedAt.Format(time.RFC3339))
 	}
-	fmt.Printf("Crash recovery: quiescing upgrade unit %s SIGKILL-class (was-enabled=%v) before reconciliation — never SIGTERM (TERM triggers the in-flight upgrade's rollback handler).\n", who, wasEnabled)
+	fmt.Printf("Crash recovery: quiescing upgrader unit %s SIGKILL-class (was-enabled=%v) before reconciliation — never SIGTERM (TERM triggers the in-flight upgrade's rollback handler).\n", who, wasEnabled)
 	if err := exec.Command("systemctl", "--user", "mask", "--runtime", instance).Run(); err != nil {
 		fmt.Printf("Warning: systemctl --user mask --runtime %s failed: %v (proceeding — quiesce is then TIMING-BOUNDED: safe while RestartSec(30s) > kill→stop window(≤10s); the recoveryRollback flock gate covers correctness regardless)\n", instance, err)
 	}
@@ -727,11 +730,11 @@ func stopRestartUpgradeUnit(projDir, instance string, flockHeldByCaller bool) fu
 	}
 	if !wasEnabled {
 		return func() {
-			fmt.Printf("Crash recovery: upgrade unit %s was not enabled at entry — leaving it stopped.\n", instance)
+			fmt.Printf("Crash recovery: upgrader unit %s was not enabled at entry — leaving it stopped.\n", instance)
 		}
 	}
 	return func() {
-		fmt.Printf("Crash recovery: restarting upgrade unit %s (explicit start; restartUpgradeService is is-active-gated and would no-op here).\n", instance)
+		fmt.Printf("Crash recovery: restarting upgrader unit %s (explicit start; restartUpgradeService is is-active-gated and would no-op here).\n", instance)
 		if err := exec.Command("systemctl", "--user", "start", instance).Run(); err != nil {
 			fmt.Printf("Warning: systemctl --user start %s failed: %v (recovery succeeded; restart the service manually)\n", instance, err)
 		}
@@ -771,7 +774,7 @@ func confirmUpgradeDeathViaFlock(projDir string, timeout time.Duration, flockHel
 	}
 }
 
-// upgradeUnitCrashLooping reports whether the upgrade unit is in a crash
+// upgradeUnitCrashLooping reports whether the upgrader unit is in a crash
 // loop: NRestarts at or beyond the threshold. A healthy upgrade restarts
 // the unit ONCE by design (the exit-42 binary-swap handoff; Restart=always
 // catches it) and perhaps once more on a planned resume — three or more
@@ -785,7 +788,7 @@ func upgradeUnitCrashLooping(projDir string) (string, bool) {
 	if runtime.GOOS != "linux" {
 		return "", false
 	}
-	instance := serviceInstance(projDir)
+	instance := resolveUpgraderInstance()
 	if instance == "" {
 		return "", false
 	}
@@ -799,7 +802,7 @@ func upgradeUnitCrashLooping(projDir string) (string, bool) {
 	}
 	const crashLoopThreshold = 3
 	if n >= crashLoopThreshold {
-		fmt.Printf("Upgrade unit %s is crash-looping (NRestarts=%d ≥ %d) — taking over recovery instead of refusing.\n",
+		fmt.Printf("Upgrader unit %s is crash-looping (NRestarts=%d ≥ %d) — taking over recovery instead of refusing.\n",
 			instance, n, crashLoopThreshold)
 		return instance, true
 	}

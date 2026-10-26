@@ -121,7 +121,7 @@ func sdNotify(state string) {
 
 // applyNewSbUpgradingStallThreshold is how long applyNewSbUpgrading's gated watchdog
 // ticker tolerates output-silence before it STOPS pinging WATCHDOG=1 — at
-// which point systemd's WatchdogSec (=120 s per ops/statbus-upgrade.service)
+// which point systemd's WatchdogSec (=120 s per ops/statbus-upgrader.service)
 // trips and SIGABRTs the hung unit. 3 min > the 120 s deadline so the gate's
 // decision (stop pinging) is what lets the watchdog fire, not a race between
 // the two timers: a step that goes silent stops bumping lastAdvanceAt, the

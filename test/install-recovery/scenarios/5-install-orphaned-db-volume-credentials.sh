@@ -18,7 +18,7 @@
 #        statbus-<code>-db-data volume kept the old passwords.
 #     3. Nothing re-applied the passwords: rest restart-looped on
 #        `password authentication failed for user "authenticator"`, and the
-#        upgrade service never connected, timing out at step 17.
+#        upgrader never connected, timing out at step 17.
 #
 # EXPECTED BEHAVIOUR (the operator never runs anything but the install command):
 #   a. install.sh while port 80 is held: Services FAILS or the earlier port
@@ -27,7 +27,7 @@
 #      when Services failed after DB creation it detects fresh-db-incomplete.
 #   c. `docker compose down; rm -rf ~/statbus` (volume KEPT), install.sh again:
 #      step 8 makes the database passwords match the new .env.credentials,
-#      rest runs without restarting, /ready 200, the upgrade service is active,
+#      rest runs without restarting, /ready 200, the upgrader is active,
 #      the newest public.upgrade row is completed, the users are still there.
 #
 # Standalone mode with the site domain only in /etc/hosts (Finland's shape).
@@ -134,7 +134,7 @@ assert_proxy_published_ports
 assert_systemd_active "$VM_NAME"
 VOLUME=$(VM_EXEC bash -c "docker volume ls --format '{{.Name}}' | grep -E '^statbus-.*-db-data\$' | head -1" | tr -d '\r\n')
 [ -n "$VOLUME" ] || { echo "✗ phase b: no database volume was created" >&2; exit 1; }
-echo "  ✓ phase b: proxy published 5431/80/443, upgrade service active, /ready 200"
+echo "  ✓ phase b: proxy published 5431/80/443, upgrader active, /ready 200"
 
 USERS_BEFORE=$(VM_EXEC bash -c "cd ~/statbus && ./sb psql -X -t -A -c 'SELECT count(*) FROM auth.user;'" | tr -d ' \r\n')
 [ "${USERS_BEFORE:-0}" -gt 0 ] || { echo "✗ phase b: no users were created" >&2; exit 1; }
@@ -146,7 +146,7 @@ FINGERPRINT_BEFORE=$(VM_EXEC bash -c "sha256sum ~/statbus/.env.credentials | cut
 # ─────────────────────────────────────────────────────────────────────────
 echo ""
 echo "── phase c: docker compose down, rm -rf ~/statbus (volume kept), install.sh ──"
-VM_EXEC bash -c "systemctl --user disable --now statbus-upgrade@statbus.service 2>/dev/null; cd ~/statbus && docker compose --profile all down"
+VM_EXEC bash -c "systemctl --user disable --now "$(upgrade_unit_name)" 2>/dev/null; cd ~/statbus && docker compose --profile all down"
 VM_ROOT_EXEC bash -c 'rm -rf /home/statbus/statbus'
 VM_EXEC bash -c "docker volume inspect $VOLUME >/dev/null && echo 'volume kept: $VOLUME'"
 : > "$INSTALL_LOG"
@@ -211,4 +211,4 @@ echo ""
 echo "PASS: 5-install-orphaned-db-volume-credentials"
 echo "  (an install interrupted at step 8 continued on rerun, and a reinstall over a"
 echo "   surviving database volume made the role passwords match the new credentials:"
-echo "   rest steady, API ready, upgrade service active)"
+echo "   rest steady, API ready, upgrader active)"

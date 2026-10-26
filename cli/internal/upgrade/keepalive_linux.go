@@ -10,7 +10,7 @@ import (
 )
 
 // newKeepaliveDialer returns a net.Dialer with aggressive TCP keepalive settings
-// tuned for the upgrade service's long-lived PostgreSQL connections:
+// tuned for the upgrader's long-lived PostgreSQL connections:
 //
 //   - TCP_KEEPIDLE  = 30s  (first probe after 30s idle; via net.Dialer.KeepAlive)
 //   - TCP_KEEPINTVL = 10s  (10s between probes; via setsockopt in Control)

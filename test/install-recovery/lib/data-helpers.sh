@@ -278,7 +278,7 @@ cd ~/statbus && echo "SELECT id, state, docker_images_status, release_builds_sta
 echo "--- full candidate backlog (cold-start verify grinds this list) ---"
 cd ~/statbus && echo "SELECT id, commit_version, state, docker_images_status, release_builds_status FROM public.upgrade ORDER BY id;" | ./sb psql 2>&1 || true
 echo "--- service journal (last 120) ---"
-journalctl --user --no-pager -n 120 --unit='statbus-upgrade@*' 2>&1 || journalctl --user --no-pager -n 120 2>&1 || true
+journalctl --user --no-pager -n 120 --unit='statbus-upgrader@*' --unit='statbus-upgrade@*' 2>&1 || journalctl --user --no-pager -n 120 2>&1 || true
 echo "--- live docker manifest inspect from THIS VM ---"
 for svc in db app worker proxy; do
     if out=$(docker manifest inspect "ghcr.io/statisticsnorway/statbus-$svc:$short" 2>&1 >/dev/null); then

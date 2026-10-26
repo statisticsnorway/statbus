@@ -28,7 +28,7 @@ VM_SCRIPT_INLINE saved-restart <<'REMOTE'
 set -euo pipefail
 cd "$HOME/statbus"
 cat > tmp/upgrade-in-progress.json <<'FLAG'
-{"id":0,"commit_sha":"","started_at":"2026-09-24T12:00:00Z","invoked_by":"operator:restart","trigger":"restart","holder":"install","restart":{"profile":"app","prepared":true,"unit":"statbus-upgrade@statbus.service","daemon":true}}
+{"id":0,"commit_sha":"","started_at":"2026-09-24T12:00:00Z","invoked_by":"operator:restart","trigger":"restart","holder":"install","restart":{"profile":"app","prepared":true,"unit":"statbus-upgrader@statbus.service","daemon":true}}
 FLAG
 docker compose stop app
 REMOTE

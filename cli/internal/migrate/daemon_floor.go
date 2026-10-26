@@ -2,7 +2,7 @@ package migrate
 
 // STATBUS-145 slice 1 — the DAEMON SCHEMA FLOOR substrate (zero behavior change).
 //
-// The floor is the migration version the upgrade daemon's schema must reach for
+// The floor is the migration version the upgrader's schema must reach for
 // the daemon ITSELF to operate — query public.upgrade, read the observed state
 // from db.migration, sync public.system_info, and run the release-supersede
 // bookkeeping — BEFORE any upgrade's real migration delta applies. Under the
@@ -55,7 +55,7 @@ package migrate
 // schema-independent rollback-finishing prefix.
 //
 // Prior value: 20260831124944 (STATBUS-308/STATBUS-326's COMMENT ON TABLE
-// public.system_info, documenting that the upgrade service and the install verb
+// public.system_info, documenting that the upgrader and the install verb
 // write their own keys over a superuser connection that bypasses RLS), bumped
 // from 20260828225222 in the same commit that landed it. THIS BUMP IS AN
 // ACKNOWLEDGED FALSE POSITIVE — the King's ruling on STATBUS-326 (2026-08-31):

@@ -49,8 +49,8 @@ _dump_preswap_binary_swap_kill_failure_diagnostics() {
     # query, row state) last and individually guarded, so a down/unreachable
     # db reports itself as a datum instead of aborting the rest under this
     # file's set -e.
-    echo "── daemon journal (statbus-upgrade@statbus.service, last 400 lines) ──" >&2
-    VM_EXEC bash -c "journalctl --user -u statbus-upgrade@statbus.service --no-pager -n 400 2>/dev/null" >&2 || echo "  (could not read the journal)" >&2
+    echo "── daemon journal ("$(upgrade_unit_name)", last 400 lines) ──" >&2
+    VM_EXEC bash -c "journalctl --user -u "$(upgrade_unit_name)" --no-pager -n 400 2>/dev/null" >&2 || echo "  (could not read the journal)" >&2
     echo "── flag file at exit ──" >&2
     VM_EXEC bash -c "cat ~/statbus/tmp/upgrade-in-progress.json 2>/dev/null || echo '(flag absent)'" >&2 || true
     local log_rel
@@ -131,7 +131,7 @@ assert_demo_data_counts_match_snapshot "$VM_NAME" "$DATA_SNAPSHOT"
 assert_flag_file_absent "$VM_NAME"
 assert_no_orphan_backup "$VM_NAME"
 assert_health_passes "$VM_NAME"
-assert_systemd_restart_counter_bounded "$VM_NAME" "statbus-upgrade@statbus.service" 2
+assert_systemd_restart_counter_bounded "$VM_NAME" "$(upgrade_unit_name)" 2
 
 echo ""
 echo "PASS: preswap-binary-swap-kill (PreSwap kill → :822 guard rollback; row $FINAL_STATE with INSTALL_PRECONDITION_FAILED, migrations unchanged, data intact)"

@@ -211,7 +211,7 @@ var classes = map[string]Kind{
 	//     recovery). End state: row=rolled_back via parent's rollback.
 	//
 	//   upgrade-service-parent-killed-after-commit-before-recorded
-	//     Harness SIGKILLs the upgrade-service parent (and the now-
+	//     Harness SIGKILLs the upgrader's parent (and the now-
 	//     orphan migrate subprocess) while the stall is held. Flag
 	//     file remains; row stays in_progress; partial migration
 	//     persists with db.migration row missing. Next ./sb install
@@ -245,7 +245,7 @@ var classes = map[string]Kind{
 	// scenarios that wire the call sites land later.
 	//
 	//   service-startup-slower-than-systemd-unit-timeout
-	//     The upgrade-service's startup phase (boot migrate up + main-
+	//     The upgrader's startup phase (boot migrate up + main-
 	//     loop initialization, pre-READY=1) blows past TimeoutStartSec.
 	//     systemd SIGTERMs; the service has limited time to handle
 	//     gracefully before SIGKILL escalation.
@@ -321,21 +321,21 @@ var classes = map[string]Kind{
 	//
 	//   install-flag-released-without-clean-handoff-detected-as-stale (R3)
 	//     Install exits cleanly but leaves the flag file in place; the
-	//     upgrade-service on its next tick observes a flag with a dead
+	//     upgrader on its next tick observes a flag with a dead
 	//     holder PID and interprets the state as a crashed install,
 	//     clearing the flag. The scenario is pure external orchestration:
 	//     run install to clean exit, then observe the service's
 	//     behavior. KindExternal — no in-code injection site.
 	//
 	//   service-watchdog-timeout-during-db-reconnect-after-container-restart (Race D)
-	//     The upgrade-service's reconnect loop runs without pinging
+	//     The upgrader's reconnect loop runs without pinging
 	//     WATCHDOG=1 to systemd. If the DB container restart drags the
 	//     reconnect past WatchdogSec (~2 min default), systemd SIGABRTs
 	//     the service. The fix is to ping WATCHDOG=1 from inside the
 	//     loop; the scenario validates restart-counter-bounded recovery.
 	//
 	//   advisory-lock-attempted-before-db-ready-after-container-restart (Race E)
-	//     The DB container is just restarting when the upgrade-service
+	//     The DB container is just restarting when the upgrader
 	//     fires up; the service's first advisory-lock attempt fails on
 	//     a not-yet-ready DB and the process exits 42. systemd restarts
 	//     after backoff, the second attempt succeeds. KindExternal —

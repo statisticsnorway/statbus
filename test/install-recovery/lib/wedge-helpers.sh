@@ -109,7 +109,7 @@ WEDGE
 # ─────────────────────────────────────────────────────────────────────────
 simulate_systemd_failed() {
     local vm_name="$1"
-    local unit="${2:-statbus-upgrade@statbus.service}"
+    local unit="${2:-$(upgrade_unit_name)}"
     echo "  [wedge] tripping StartLimitBurst on $unit (12 rapid kill cycles)"
 
     # ssh-STDIN transport (see simulate_pool_exhaustion) — multi-line script via
@@ -306,7 +306,7 @@ SCRIPT
 # ─────────────────────────────────────────────────────────────────────────
 # simulate_sigkill_upgrade_service <vm_name>
 #
-# Stage F: Kill the upgrade-service Go process directly with SIGKILL.
+# Stage F: Kill the upgrader Go process directly with SIGKILL.
 # This bypasses systemd's signal handling entirely — the Go process
 # never gets a SIGTERM, never runs its rollback() defer chain. Mirrors
 # rune's exact failure shape during the original wedge.
@@ -319,15 +319,17 @@ SCRIPT
 # ─────────────────────────────────────────────────────────────────────────
 simulate_sigkill_upgrade_service() {
     local vm_name="$1"
-    echo "  [wedge] SIGKILL'ing upgrade-service Go process on $vm_name"
+    echo "  [wedge] SIGKILL'ing the upgrader's Go process on $vm_name"
 
     VM_SCRIPT_INLINE kill-upgrade-service <<'SCRIPT'
 #!/bin/bash
-# Find the upgrade-service Go process and kill -9 it.
+# Find the upgrader's Go process and kill -9 it. Both command shapes match:
+# `sb upgrader run` (post-STATBUS-527) and its hidden alias `sb upgrade
+# service` (a unit installed by a pre-rename release).
 for i in $(seq 1 30); do
-    PID=$(pgrep -f "sb upgrade service" 2>/dev/null | head -1)
+    PID=$(pgrep -f "sb (upgrader run|upgrader)" 2>/dev/null | head -1)
     if [ -n "$PID" ]; then
-        echo "[wedge] killing upgrade-service PID=$PID"
+        echo "[wedge] killing upgrader PID=$PID"
         kill -9 "$PID" 2>/dev/null || true
         exit 0
     fi
@@ -568,10 +570,10 @@ kill_pid_in_vm() {
 # ─────────────────────────────────────────────────────────────────────────
 # pgrep_upgrade_service_parent <vm_name>
 #
-# Returns the PID of the upgrade-service process (the Go binary's
+# Returns the PID of the upgrader process (the Go binary's
 # `executeUpgrade` parent) running install-dispatched inside the VM. The
 # install-dispatched path lives in `./sb install`'s process, NOT in the
-# systemd `./sb upgrade service`. We look for the most recently started
+# systemd unit. We look for the most recently started
 # `./sb install` process that is NOT a child of bash (i.e. the actual Go
 # binary, not the wrapper shell).
 # ─────────────────────────────────────────────────────────────────────────
@@ -596,10 +598,10 @@ remove_release_file_in_vm() {
 # ─────────────────────────────────────────────────────────────────────────
 # quiesce_upgrade_service <vm_name>
 #
-# Stop both the upgrade service AND its timer so neither a NOTIFY-driven
+# Stop both the upgrader AND its timer so neither a NOTIFY-driven
 # nor a poll/timer-driven claim can race the row's transition to 'scheduled'.
 # Call this immediately BEFORE `./sb upgrade schedule` in every scenario that
-# has a running upgrade service and needs the row to survive for its own
+# has a running upgrader and needs the row to survive for its own
 # dispatch (`./sb install`) instead of the live daemon.
 #
 # Why this matters: `./sb upgrade schedule`'s own UPDATE to state='scheduled'
@@ -614,10 +616,11 @@ remove_release_file_in_vm() {
 # ON CONFLICT DO UPDATE race — that helper is deleted, STATBUS-071 P3; the
 # real `./sb upgrade schedule` producer hits the same trigger the same way.)
 #
-# The timer (statbus-upgrade@statbus.timer) may be absent on some VMs;
+# The timer (statbus-upgrader@statbus.timer, statbus-upgrade@ before the
+# STATBUS-527 rename) may be absent on some VMs;
 # the || true makes the stop idempotent whether or not the unit exists.
 # The service quiesce is SIGKILL-class (NOT a bare stop/SIGTERM — see the body
-# comment): a SIGTERM fires the upgrade daemon's rollback handler. That is the
+# comment): a SIGTERM fires the upgrader's rollback handler. That is the
 # critical gate.
 #
 # Recovery: the step-table's `systemctl --user enable --now <instance>`
@@ -654,11 +657,11 @@ quiesce_upgrade_service() {
     #    both the step-table's `systemctl --user enable --now` (install.go:1806) in recovery
     #    AND a scenario's direct `systemctl --user start` succeed. (unmask ≠ enable: the unit
     #    keeps its prior enabled state, nothing starts it until recovery/the scenario does.)
-    VM_EXEC systemctl --user stop "statbus-upgrade@statbus.timer" 2>/dev/null || true
-    VM_EXEC systemctl --user mask --runtime "statbus-upgrade@statbus.service" 2>/dev/null || true
-    VM_EXEC systemctl --user kill --signal=SIGKILL "statbus-upgrade@statbus.service" 2>/dev/null || true
-    VM_EXEC systemctl --user stop "statbus-upgrade@statbus.service" 2>/dev/null || true
-    VM_EXEC systemctl --user reset-failed "statbus-upgrade@statbus.service" 2>/dev/null || true
-    VM_EXEC systemctl --user unmask --runtime "statbus-upgrade@statbus.service" 2>/dev/null || true
-    echo "  [quiesce] ✓ upgrade service SIGKILL-class quiesced (rollback handler NOT triggered; unit re-enableable)"
+    VM_EXEC systemctl --user stop "statbus-upgrader@statbus.timer" "statbus-upgrade@statbus.timer" 2>/dev/null || true
+    VM_EXEC systemctl --user mask --runtime "$(upgrade_unit_name)" 2>/dev/null || true
+    VM_EXEC systemctl --user kill --signal=SIGKILL "$(upgrade_unit_name)" 2>/dev/null || true
+    VM_EXEC systemctl --user stop "$(upgrade_unit_name)" 2>/dev/null || true
+    VM_EXEC systemctl --user reset-failed "$(upgrade_unit_name)" 2>/dev/null || true
+    VM_EXEC systemctl --user unmask --runtime "$(upgrade_unit_name)" 2>/dev/null || true
+    echo "  [quiesce] ✓ upgrader SIGKILL-class quiesced (rollback handler NOT triggered; unit re-enableable)"
 }

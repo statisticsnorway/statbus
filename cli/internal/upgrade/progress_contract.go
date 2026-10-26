@@ -120,7 +120,7 @@ func (e rollbackCompletionErrors) details() []string {
 		{e.configGenerate, "source configuration generation failed"},
 		{e.servicesStart, "services did not come back up"},
 		{e.databaseHealth, "restored database did not become healthy"},
-		{e.reconnect, "upgrade service did not reconnect to the restored database"},
+		{e.reconnect, "the upgrader did not reconnect to the restored database"},
 		{e.maintenance, "maintenance mode did not lift"},
 		{e.readOnly, "SQL writes remained blocked"},
 	} {

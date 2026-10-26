@@ -86,7 +86,7 @@ var rootCmd = &cobra.Command{
 //  2. commitSHA set but cli/ tree drifted since build — classic stale.
 //
 // Self-heal carve-out: commands annotated `selfheal=true` — the recovery
-// surface (`install`, `upgrade service`, `upgrade apply-latest`) —
+// surface (`install`, `the upgrader`, `upgrade apply-latest`) —
 // rebuild + re-exec instead of hard-failing when (2) fires. A wedged
 // installation must not require the very wedged binary to be hand-rebuilt
 // first. Single-attempt: SelfHealAttemptEnv prevents recursion. Tier-1
@@ -158,7 +158,7 @@ func stalenessGuard(c *cobra.Command, _ []string) {
 	if isMutatingCommand(c) {
 		// Self-heal path: a small set of recovery commands annotated with
 		// "selfheal" exist precisely to fix the situation a stale binary
-		// represents (install, upgrade service, upgrade apply-latest).
+		// represents (install, the upgrader, upgrade apply-latest).
 		// Rather than refuse-and-tell-the-operator-to-rebuild-by-hand,
 		// procure a fresh ./sb (toolchain-free, from the commit-tagged image)
 		// here and re-exec into it. The child marks itself via

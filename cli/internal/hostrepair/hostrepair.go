@@ -7,7 +7,7 @@
 // already uses for backup ownership (healBackupOwnership) and STATBUS-429's
 // cert install uses for caddy/data/custom-certs.
 //
-// Generalized for STATBUS-431: the upgrade daemon must be able to write its
+// Generalized for STATBUS-431: the upgrader must be able to write its
 // maintenance flag even on boxes installed by v2026.09.x installers, whose
 // Settings step was silently skipped on every fresh install since
 // 2026-09-24/25 (checkEnvDone became true as soon as Credentials generated

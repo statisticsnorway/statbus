@@ -61,7 +61,7 @@ _dump_proof_failure_diagnostics() {
     echo "" >&2
     echo "══════════ failure diagnostics (row + journal + sshdo state) ══════════" >&2
     VM_EXEC bash -c "cd ~/statbus && echo \"SELECT id, state, recovery_parked_at IS NOT NULL AS parked, COALESCE(error,'') FROM public.upgrade WHERE commit_sha = '${B_FULL:-}' ORDER BY id;\" | ./sb psql" >&2 || true
-    VM_EXEC bash -c "journalctl --user -u statbus-upgrade@statbus.service --no-pager -n 300 2>/dev/null" >&2 || true
+    VM_EXEC bash -c "journalctl --user -u "$(upgrade_unit_name)" --no-pager -n 300 2>/dev/null" >&2 || true
     echo "── sshdo transport state ──" >&2
     harness_real_ssh "${SSH_OPTS[@]}" root@"$VM_IP" "ls -la /usr/local/bin/sshdo /etc/sshdoers /home/statbus/.ssh/authorized_keys 2>&1; echo '--- sshdoers ---'; cat /etc/sshdoers 2>&1; echo '--- sshdo auth log tail ---'; journalctl -t sshdo -n 40 --no-pager 2>/dev/null || grep -h sshdo /var/log/auth.log 2>/dev/null | tail -40" >&2 || true
     echo "══════════ end failure diagnostics ══════════" >&2

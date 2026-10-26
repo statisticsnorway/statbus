@@ -13,7 +13,7 @@
 #   1. install A, trust the arc signer, populate (arc_prepare_box).
 #   2. register B + wait ready — with the daemon UP (so verifyArtifacts flips
 #      docker_images_status='ready').
-#   3. STOP the upgrade daemon → its LISTEN is gone.
+#   3. STOP the upgrader → its LISTEN is gone.
 #   4. schedule B → the DB trigger fires NOTIFY upgrade_apply, but NO listener →
 #      the NOTIFY is GUARANTEED LOST. Assert the row sits 'scheduled' (unclaimed).
 #   5. START the daemon → the STARTUP-SCAN (STATBUS-098 fix) claims B with NO live
@@ -36,7 +36,7 @@ TICK_WAIT_S="${TICK_WAIT_S:-120}"
 # row → it would hang to UPGRADE_BUDGET_S (1200s = 20min). Normal claim is ~80s (the
 # startup-scan / ≤30s tick); 180s is comfortable headroom yet ≪ 1200s → RED in ~3min.
 CLAIM_BUDGET_S="${CLAIM_BUDGET_S:-180}"
-UNIT="statbus-upgrade@statbus.service"
+UNIT="$(upgrade_unit_name)"
 
 : "${BASE_SHA:?BASE_SHA required}"
 : "${B_FULL:?B_FULL required}"
@@ -105,7 +105,7 @@ wait_for_upgrade_candidate_ready "$VM_NAME" "$B_FULL" "$TICK_WAIT_S"
 
 # ── STOP the daemon → the schedule's NOTIFY will have no listener (lost) ──
 echo ""
-echo "── stopping the upgrade daemon (its NOTIFY listener goes away) ──"
+echo "── stopping the upgrader (its NOTIFY listener goes away) ──"
 VM_EXEC systemctl --user stop "$UNIT" 2>/dev/null || true
 DOWN_STATE=$(VM_EXEC systemctl --user is-active "$UNIT" 2>/dev/null | tr -d ' \r\n' || echo "inactive")
 [ "$DOWN_STATE" != "active" ] || { echo "✗ daemon still active after stop (state=$DOWN_STATE) — cannot guarantee a lost NOTIFY" >&2; exit 1; }
