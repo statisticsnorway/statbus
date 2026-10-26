@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-09-25 09:45'
-updated_date: '2026-10-16 14:31'
+updated_date: '2026-10-26 13:25'
 labels:
   - release-bug
   - ci
@@ -44,7 +44,7 @@ Release candidates are tested by long fleets (smoke, the LXD fault fleet, upgrad
 - [x] #1 Smoke and upgrade-arc scenario jobs check freshness as the first step after checkout, gate every later step (including cleanup) on it, and aggregate a SUPERSEDED verdict (`TestSupersededCandidateStopsBeforeEachVMAndPropagatesFleetVerdict_STATBUS416`)
 - [x] #2 The LXD fault fleet is held to the same rule by a test: freshness before any paid operation and again after the occupancy wait, with a SUPERSEDED verdict distinct from failure
 - [ ] #3 One real supersession is observed: a newer RC is tagged while the older RC's fleet is queued; the older fleet's queued scenarios stop before taking a box, its verdict is SUPERSEDED and the newer fleet proceeds; run IDs recorded in Implementation Notes
-- [ ] #4 [Owner] Decide whether AC3 is forced now or waits for a natural occurrence, and record it in Implementation Notes. Force: add "tag a throwaway RC on top of a queued one" as a new criterion. Wait: leave AC3 open.
+- [x] #4 [Owner] Decide whether AC3 is forced now or waits for a natural occurrence, and record it in Implementation Notes. Force: add "tag a throwaway RC on top of a queued one" as a new criterion. Wait: leave AC3 open.
 <!-- AC:END -->
 
 ## Implementation Notes
@@ -61,4 +61,7 @@ Release candidates are tested by long fleets (smoke, the LXD fault fleet, upgrad
 - **Red, then green:** it ran against a workflow with the ramp's after-wait gate removed and the collector's SUPERSEDED branch disabled. It failed with 'Ramp warm box must be gated on steps.after-wait...' and 'fleet status = STATUS=ERROR, want STATUS=SUPERSEDED' (twice). On the real workflow it passes.
 
 - **CI:** Go Test on bbd8ec0fd failed on two golangci-lint findings in the new test (errcheck f.Close, staticcheck De Morgan); the tests themselves passed. Fixed in b35c70ad5, where golangci-lint reports 0 issues locally and Go Test passes in CI. AC2 is done. AC3 (a real supersession) and the [Owner] AC4 remain.
+
+### Owner decision 2026-10-26: wait for a natural supersession
+Nobody has asked for a forced test, so AC3 stays open until a newer candidate is tagged while an older candidate's fleet is still queued. The 527 candidate following today's candidate may produce it.
 <!-- SECTION:NOTES:END -->
