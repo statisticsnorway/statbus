@@ -19,7 +19,11 @@ for key in STATBUS_URL BROWSER_REST_URL SERVER_REST_URL DEBUG PUBLIC_DEBUG; do
     [ "$actual" = "$expected" ] || { echo "generated configuration mismatch for $generated_key: expected='$expected' actual='$actual'"; exit 1; }
 done
 # Inspect daemon identity, but product commands own ALL lifecycle actions.
-unit="$(upgrade_unit_name)"
+# This script is an EXECUTABLE remote payload (VM_SCRIPT in 0-happy-install,
+# and run standalone by operator-config-test.sh) — the harness libraries are
+# not sourced here, so upgrade_unit_name is unavailable. 0-happy-install
+# installs the candidate, whose unit is always the new name.
+unit=statbus-upgrader@statbus.service
 previous_invocation=$(systemctl --user show "$unit" -p InvocationID --value)
 ./sb restart all
 invocation=$(systemctl --user show "$unit" -p InvocationID --value)
