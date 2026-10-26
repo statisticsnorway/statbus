@@ -11,13 +11,31 @@ cp "$TEST_DIR/../lib/release-baseline.sh" "$HARNESS/lib/"
 cat > "$HARNESS/lib/vm-bootstrap.sh" <<'MOCK'
 bootstrap_install_test_vm() { echo "bootstrap:$*" >> "$TRACE"; }
 install_statbus_in_vm() { echo "WRONG:baseline-install:$*" >> "$TRACE"; }
-install_statbus_at_sha() { echo "candidate-install:$*" >> "$TRACE"; }
+install_statbus_at_sha() {
+    echo "candidate-install:$*" >> "$TRACE"
+    # The Certificate step's evidence in the install capture (STATBUS-429 AC4):
+    # the step ran, placed the files, and wrote the container paths itself.
+    local log="${HARNESS_ROOT:-$TMP_ROOT}/tmp/install-recovery-$1-install.log"
+    mkdir -p "$(dirname "$log")"
+    {
+        printf '[8/19] Certificate         OK\n'
+        printf '✓ Files placed: /home/statbus/statbus/caddy/data/custom-certs/domain.crt, /home/statbus/statbus/caddy/data/custom-certs/domain.key\n'
+        printf '✓ .env.config updated (TLS_CERT_FILE=/data/custom-certs/domain.crt, TLS_KEY_FILE=/data/custom-certs/domain.key)\n'
+    } > "$log"
+}
 cleanup_vm() { echo cleanup >> "$TRACE"; }
 VM_SCRIPT() { echo operator-settings >> "$TRACE"; [ "${FAULT:-}" != operator-settings ]; }
 VM_EXEC() {
     echo "query:$*" >> "$TRACE"
 	case "$*" in
 		*'grep -F -q test-install-password-2026'*) return 1 ;;
+		# STATBUS-429 AC4 provenance: the answer file carries no
+		# TLS_CERT_FILE, and the box reports exactly what the installer's
+		# Certificate step wrote and placed.
+		*'grep -q ^TLS_CERT_FILE= ~/install-input.env'*) return 1 ;;
+		*'get TLS_CERT_FILE'*) echo "/data/custom-certs/domain.crt" ;;
+		*'get TLS_KEY_FILE'*) echo "/data/custom-certs/domain.key" ;;
+		*"stat -c '%U:%G'"*) echo "statbus:statbus" ;;
 		*'/tmp/statbus-install.sh --non-interactive'*)
 			[ "${FAULT:-}" != rerun ] || return 45
 			for n in $(seq 1 17); do
@@ -52,6 +70,7 @@ git -C "$TMP_ROOT" tag v2026.08.1
 git -C "$TMP_ROOT" -c user.name=test -c user.email=test@example.invalid -c commit.gpgsign=false commit --allow-empty -qm candidate
 git -C "$TMP_ROOT" tag v2026.09.0-rc.02
 export TRACE="$TMP_ROOT/trace"
+export TMP_ROOT
 export TARGET_SHA
 auto_sha=$(git -C "$TMP_ROOT" rev-parse HEAD)
 TARGET_SHA="$auto_sha"
