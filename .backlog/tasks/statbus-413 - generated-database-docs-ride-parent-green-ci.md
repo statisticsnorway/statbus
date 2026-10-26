@@ -47,8 +47,8 @@ The exemption is narrow by design. Hand-written files elsewhere under `doc/db/`,
 - [x] #1 Only generated `doc/db/{table,view,function}/` paths join `.backlog/` as exempt; hand-written `doc/db/` files, other docs, code, migrations, mixed commits and the policy file itself are not (`TestFileIsCIExempt_AnchoredPrefixNotSubstring`, `TestChangedFilesAllExempt_OneOffenderForbidsTheRide`, `TestCIExemptPathsFile_IsNotItselfExempt`)
 - [x] #2 The Go and app workflow `paths-ignore` lists match the exempt list (`TestPathsIgnoreMatchesExemptList_STATBUS224`)
 - [x] #3 The release gate rides only a green first-parent ancestor and refuses a red or missing one (`TestFindExemptRide_*`)
-- [ ] #4 [Owner] Decide whether AC4 waits for a natural doc/db-only push or is produced deliberately, and record it in Implementation Notes. Wait: leave AC4 open. Produce: add "commit regenerated docs on their own after the next migration" as a new criterion.
-- [x] #5 A genuine, naturally occurring push changes only generated doc/db/{table,view,function}/ files (no artificial proof commit, owner 2026-10-26): Go and app workflows do not run, Images retags the parent, and release preflight rides the parent's green runs. Record parent/tip SHAs and run IDs here, check this, and set Done
+- [ ] #4 A genuine, naturally occurring push changes only generated doc/db/{table,view,function}/ files (no artificial proof commit, owner 2026-10-26): Go and app workflows do not run, Images retags the parent, and release preflight rides the parent's green runs. Record parent/tip SHAs and run IDs here, check this, and set Done
+- [x] #5 [Owner] Decided 2026-10-26: wait for a natural doc/db-only push; do not manufacture one. Observation is criterion 4
 <!-- AC:END -->
 
 ## Implementation Notes
