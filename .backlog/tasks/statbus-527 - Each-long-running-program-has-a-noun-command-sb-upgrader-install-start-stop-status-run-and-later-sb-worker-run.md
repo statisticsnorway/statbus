@@ -3,10 +3,10 @@ id: STATBUS-527
 title: >-
   Each long-running program has a noun command: sb upgrader
   install|start|stop|status|run, and later sb worker run
-status: To Do
+status: In Progress
 assignee: []
 created_date: '2026-10-26 11:22'
-updated_date: '2026-10-26 11:23'
+updated_date: '2026-10-26 11:31'
 labels:
   - cli
   - upgrade
@@ -67,3 +67,9 @@ Each long-running StatBus program has a noun name, and `sb` has one command grou
 - [ ] #8 `sb upgrade service` still starts the upgrader, as a hidden alias, and a test proves it
 - [ ] #9 [Owner] Decide when the `sb upgrade service` alias is removed. A follow-up ticket for that is filed, and its ID is recorded in this ticket's Implementation Notes
 <!-- AC:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+2026-10-26: delegated to a K3 worker (implementation through real-guest proof); Claude Opus 5.5 reviews when done.
+<!-- SECTION:NOTES:END -->
