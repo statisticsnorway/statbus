@@ -7,6 +7,7 @@ on:
   pull_request:
     paths:
       - 'test/install-recovery/**'
+      - 'test/install/**'
       - 'ops/setup-ubuntu-lts.sh'
       - 'ops/lxd-fleet/**'
       - 'install.sh'
@@ -34,6 +35,11 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y --no-install-recommends openssh-server tmux
       - name: Prove harness failure paths
         run: ./dev.sh test-harness
+      - name: Prove public installer failures stay useful and redacted
+        run: |
+          bash test/install/install-git-errors-test.sh
+          bash test/install/install-git-fetch-compatibility-test.sh
+          bash test/install/install-pull-failure-test.sh
       - name: Prove install mutex handoff is gapless and never steals a healthy hold
         run: bash test/install-recovery/tests/install-gapless-handoff-test.sh
       - name: Prove LXD base pruning selects only superseded candidates
