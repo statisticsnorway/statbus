@@ -2,6 +2,12 @@
 
 *Canonical source of truth for the upgrade/recovery **decision logic**. Lifted into `doc/` from the backlog (2026-06-29) so it sits with its siblings — `doc/upgrade-timeline.md` (when things happen), `doc/upgrade-vocabulary.md` (the names), and `doc/diagrams/` (the pictures). The glossary names these concepts, the diagrams draw them, the code implements them; this is where they reconcile.*
 
+The long-running program this model governs is the **upgrader** — systemd unit
+`statbus-upgrader@$USER.service`, managed through `sb upgrader
+run|install|start|stop|status` (STATBUS-527). `sb upgrader stop` takes the
+upgrade lock and refuses while an upgrade holds it, so a stop never interrupts
+an upgrade.
+
 Status: **shipped model** (ratified as target 2026-06-27; run-proven through the install-recovery arc campaign, culminating in the health-park arc's full green, wave 10, run 29171998401). Enabled by the read-only window (read-only-upgrade-window design · STATBUS-110) + error classification (STATBUS-109). **The window formally supersedes STATBUS-039's "never restore on a guess" (STATBUS-110 AC#3, 2026-07-12)** — see the supersession statement in `doc/read-only-upgrade-window.md` §"Effect on recovery".
 
 ## Principle
@@ -92,7 +98,7 @@ Autonomous everywhere **except two human stops**, both principled and rare:
 
 The canonical statement of the incident that motivated this model (STATBUS-196 AC#4). Two layers, with different fates:
 
-**Layer 1 — the extinct wedge (root cause found and fixed).** During an upgrade, the post-upgrade install fixup re-ran `systemctl enable --now` on the upgrade unit *while that unit was the process running the fixup* — an sd_notify collision that wedged the unit. Three stacked fixes closed it: `61e79e265` lands the terminal row UPDATE *before* the fixup runs, so the vulnerable window no longer exists; `e76505eec` skips `--now` in the fixup when it runs inside an active upgrade; `cb7344dd6` adds the containers-at-target self-heal (`resumeNewSb`'s converged branch) as the net — a box found already serving the target with only the bookkeeping missing gets its row completed instead of being re-driven. This wedge cannot recur: the window is gone, the trigger is guarded, and the net catches the residue.
+**Layer 1 — the extinct wedge (root cause found and fixed).** During an upgrade, the post-upgrade install fixup re-ran `systemctl enable --now` on the upgrader unit *while that unit was the process running the fixup* — an sd_notify collision that wedged the unit. Three stacked fixes closed it: `61e79e265` lands the terminal row UPDATE *before* the fixup runs, so the vulnerable window no longer exists; `e76505eec` skips `--now` in the fixup when it runs inside an active upgrade; `cb7344dd6` adds the containers-at-target self-heal (`resumeNewSb`'s converged branch) as the net — a box found already serving the target with only the bookkeeping missing gets its row completed instead of being re-driven. This wedge cannot recur: the window is gone, the trigger is guarded, and the net catches the residue.
 
 **Layer 2 — the live class (a box that loops forever while nobody is told).** The wedge was one instance of the broader class this model exists to kill: a box stuck in an automatic loop with no terminal, no bound, and no signal to a human. That class is held down by standing machinery, each piece arc-proven: the recovery **attempt budget** + deterministic-failure **park** (§3/§4 — a failing box reaches alive-idle with one siren, never an unbounded loop), the **restart-bound asserts** in the arc harness (NRestarts bounded + frozen — a churn regression fails the run), and the **deploy-status canary** (STATBUS-069: CI polls the box to a *conclusive* verdict — converged, failed, or parked — so a silent hang becomes a red deployment, not an 18-day mystery). Layer 1 is history; layer 2 is the permanent adversary, and every park, budget, and canary rule above is aimed at it.
 

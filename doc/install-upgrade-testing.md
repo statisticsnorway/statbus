@@ -1,5 +1,14 @@
 # The only way to know if install and upgrade work is to run them
 
+The program under test on every box is the **upgrader**: the long-running
+process systemd runs as `statbus-upgrader@$USER.service` (renamed from
+`statbus-upgrade@` in STATBUS-527). It is managed through `sb upgrader
+run|install|start|stop|status` — install's "Upgrader" step, the test harness
+and these commands share one implementation. The 0-happy-upgrade scenario
+proves the rename: after the self-upgrade it asserts only `statbus-upgrader@`
+exists and is active, `statbus-upgrade@` is gone, and `sb upgrader status`
+reports the installed `./sb`.
+
 This is the most important thing to understand before you touch install, upgrade,
 or recovery. Read it once; it governs everything in this area.
 

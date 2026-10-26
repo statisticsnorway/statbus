@@ -77,7 +77,7 @@ partition "Detect — 9-state probe ladder (state.go:104, short-circuit: first m
     :**fresh-install** (StateFresh)\n-> step-table;
     note right
       TEST 0-happy-install: a fresh install (no .env.config) runs the step-table end-to-end and
-      reaches health-pass + step 9 + upgrade-service step + systemd active, with NO injection —
+      reaches health-pass + step 9 + upgrader step + systemd active, with NO injection —
       the baseline the failure scenarios perturb.
     end note
   elseif (upgrade-in-progress marker present AND flock HELD?) then (yes)

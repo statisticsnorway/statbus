@@ -85,9 +85,28 @@ Source: [`diagrams/install-recovery.plantuml`](diagrams/install-recovery.plantum
 These match the `== … ==` bands in the sequence diagram one-to-one. The names are
 stable so other code and docs can cite a precise section.
 
+### Managing the upgrader
+
+The long-running program is the **upgrader**, and `sb upgrader` is its command
+group (`sb upgrade ...` holds the verbs that act ON upgrades):
+
+| Command | What it does |
+|---|---|
+| `sb upgrader run` | The long-running process itself — what the unit starts. |
+| `sb upgrader install` | Write + enable the systemd user unit (migrates a pre-rename `statbus-upgrade@` unit). The "Upgrader" step of `./sb install` is this same code. |
+| `sb upgrader start` | Start the unit. |
+| `sb upgrader stop` | Stop the unit under the upgrade lock; refuses while an upgrade holds it; returns only after the main process exited. |
+| `sb upgrader status` | Read-only: unit state, the program its main process runs, and whether that is the `./sb` on disk. |
+
+The unit was `statbus-upgrade@$USER.service` before STATBUS-527. The first
+install or self-upgrade after the rename migrates a box: write + enable the
+new unit, start it, then disable + delete the old one — under the upgrade
+lock, so a stop never interrupts an upgrade. Old units' `ExecStart=sb upgrade
+service` keeps working through a hidden alias until the follow-up removal.
+
 ### Service boot
 
-systemd starts the single user unit `statbus-upgrade@$USER.service` (`Type=notify`).
+systemd starts the single user unit `statbus-upgrader@$USER.service` (`Type=notify`).
 The boot order is: **cheap, bounded init** (`EnsureDBUp` → connect → advisory lock →
 `LISTEN`) → `sd_notify READY=1` → **boot `migrate up`** (the schema-skew guard,
 service.go:1644) → `recoverFromFlag` (reconciling any flag left behind by a crashed
@@ -322,7 +341,7 @@ authors *no* row — it is a bypass-mode idempotent infra pass, not a row writer
 
 | Path | Entry point | Owns | Respects | When to use |
 |---|---|---|---|---|
-| **Service** (automatic) | `./sb upgrade service` running as systemd user unit `statbus-upgrade@$USER.service` | End-to-end upgrade lifecycle: discover → schedule → execute → recover | Its own advisory lock, the shared **flock** mutex flag | Production norm. Discovers and applies releases on a poll cycle or on `NOTIFY`. |
+| **Upgrader** (automatic) | `./sb upgrader run` running as systemd user unit `statbus-upgrader@$USER.service` | End-to-end upgrade lifecycle: discover → schedule → execute → recover | Its own advisory lock, the shared **flock** mutex flag | Production norm. Discovers and applies releases on a poll cycle or on `NOTIFY`. |
 | **Unified install** | `./sb install` | Single operator entrypoint — probes state and dispatches: fresh → step-table; scheduled row pending → `executeUpgrade` inline; crashed flag → recover + re-detect; live upgrade → refuse; pre-1.0 → refuse. | The shared **flock** mutex flag — step-table path acquires as `Holder="install"`, inline-upgrade path lets `executeUpgrade` write its own `Holder="service"` flag. | First-time install, repair, or dispatching a pending upgrade without waiting for the service tick. |
 | **Cloud tool** | `./cloud.sh install <server>` | Fleet-level remote install: SSH + stop_and_unwedge + run `./sb install` + ensure_service_started | Its own fleet semantics; defers to the shared mutex for per-host safety | Operator updating a remote host from their own machine. |
 
@@ -385,8 +404,8 @@ not at a ladder state. Their scenario coverage (closing the rest of the loop):
 | `Database sessions` step (:561) | `checkSessionsClean` bool::text parse (`'t'` vs `'true'`) | `5-install-bool-text-regression` |
 | `[DDL] QuiesceClients` (:614) | worker `AccessShareLock` vs migration `AccessExclusiveLock` — bounded, no hang | `3-postswap-worker-ddl-deadlock` |
 | `Seed` gate (:562) | populated DB must route to migrate-forward, never destructive seed-restore | `5-install-seed-on-populated` (data-loss grade) |
-| `Upgrade service` step (:567) | unit in `failed` state (StartLimit trip) → `reset-failed` + enable + start | `5-install-stage-c-systemd-failed` |
-| `Upgrade service` step (:567) | drifted on-disk unit on a healthy box → rewrite from template | `5-install-drifted-unit-reconciled` |
+| `Upgrader` step (:567) | unit in `failed` state (StartLimit trip) → `reset-failed` + enable + start | `5-install-stage-c-systemd-failed` |
+| `Upgrader` step (:567) | drifted on-disk unit on a healthy box → rewrite from template | `5-install-drifted-unit-reconciled` |
 
 The inline dispatch for state 7 claims the scheduled row atomically (`UPDATE … WHERE
 state='scheduled' AND started_at IS NULL`) — a racing service or concurrent install that
@@ -405,7 +424,7 @@ the `seed.json` field schema live in
 
 The restore is the **Seed step** of the `./sb install` step-table
 (`cli/cmd/install.go:562`) — the same step-table every install path runs (fresh → state 1,
-idempotent refresh → state 8, and the post-swap install fixup the upgrade service runs
+idempotent refresh → state 8, and the post-swap install fixup the upgrader runs
 **under systemd**, step 13 of [Execute upgrade](#binary-swap-restart--resume)). Runtime
 order on a fresh box:
 
@@ -414,7 +433,7 @@ order on a fresh box:
    reads this directly (which tables exist, then whether any holds a row); a populated DB
    skips the step, and a database that cannot be read stops the install, so a seed restore
    can never overwrite real data. This same gate is what makes the step a safe no-op when the
-   systemd upgrade service runs the install fixup against an already-populated DB.
+   systemd upgrader runs the install fixup against an already-populated DB.
 2. **Fetch** — `./sb db seed fetch` resolves `commit_short` (from `.env`'s `COMMIT_SHORT`,
    else `git rev-parse --short=8`) and pulls `statbus-seed:<commit_short>`, extracting
    `/seed.pg_dump` + `/seed.json` with `docker create` + `docker cp` — the image is never
@@ -430,7 +449,7 @@ order on a fresh box:
    (`cli/internal/migrate/migrate.go:487`) and applies only versions newer than the seed
    (`cli/internal/migrate/migrate.go:740`), then re-runs `post_restore.sql`
    (`cli/internal/migrate/migrate.go:912`).
-5. **Normal service** — the remaining install steps (JWT, users, signers, upgrade service)
+5. **Normal service** — the remaining install steps (JWT, users, signers, upgrader)
    run, and the box enters its normal lifecycle at [Service boot](#service-boot).
 
 The Seed step is non-fatal: if no image is published for the commit, or the daemon is down,
@@ -441,7 +460,7 @@ every migration from zero — slower, identical end state.
 
 ### What the mutex protects against
 
-The upgrade service and `./sb install` both mutate the same things — the `./sb` binary
+The upgrader and `./sb install` both mutate the same things — the `./sb` binary
 file, the git working tree in `~/statbus/`, the `public.upgrade` table, and the DB schema
 via migrations. Running both concurrently would interleave these mutations unpredictably.
 The mutex ensures at most one orchestrated actor mutates state at a time.
@@ -521,7 +540,7 @@ mutually exclusive within a single `./sb install` run: either `acquireOrBypass` 
   never SIGTERM — an in-flight upgrade answers TERM with a rollback). A
   **genuinely-progressing** upgrade (low restart count, or any probe failure —
   conservative) keeps the refusal: wait, or watch
-  `journalctl --user -u 'statbus-upgrade@*' -f`.
+  `journalctl --user -u 'statbus-upgrader@*' -f`.
 - **StateCrashedUpgrade** (flag present, PID dead) → call `RecoverFromFlag` directly (no
   install-flag acquire), then re-`Detect` and re-dispatch. Recovery reads `Holder`:
   `"service"` reconciles the `public.upgrade` row, `"install"` just removes the file.
@@ -550,7 +569,7 @@ Bypass signal set (--post-upgrade-fixup or STATBUS_POST_UPGRADE_FIXUP=1)?
             │
             ├── Live PID, Holder=="service" → "Upgrade in progress: PID X
             │       is running. Wait for it to complete:
-            │         journalctl --user -u 'statbus-upgrade@*' -f"
+            │         journalctl --user -u 'statbus-upgrader@*' -f"
             │
             ├── Live PID, Holder=="install" → "Another ./sb install is
             │       already running: PID X. Wait for it to complete."
@@ -754,7 +773,7 @@ code — identical decisions, no surprise divergence.
 
 ### systemd guardrails (single unit)
 
-`statbus-upgrade@$USER.service` (`ops/statbus-upgrade.service`) is `Type=notify`. Relevant
+`statbus-upgrader@$USER.service` (`ops/statbus-upgrader.service`) is `Type=notify`. Relevant
 knobs:
 
 - `WatchdogSec=120` — the service pings `WATCHDOG=1` from the main goroutine and a
@@ -788,7 +807,7 @@ commit (set via ldflags from `git rev-parse HEAD` at build time) against the wor
 A small set of recovery commands carry `Annotations["selfheal"] = "true"`:
 
 - `install` — the documented operator entrypoint for first-install, repair, dispatch.
-- `upgrade service` — the systemd unit's entrypoint; without self-heal it crash-loops on stale.
+- `upgrader` — the systemd unit's entrypoint; without self-heal it crash-loops on stale.
 - `upgrade apply-latest` — the deploy-workflow target, invoked unattended over SSH.
 
 The rule: **a command that exists to recover from a wedged installation must not require the
@@ -926,7 +945,7 @@ why continuation is safe, not a silent swallow.
 
 | Symptom | What happened | Recovery |
 |---|---|---|
-| "Upgrade in progress: PID X is running. Wait for it to complete." | The upgrade service is genuinely executing an upgrade right now. | Wait. Monitor with `journalctl --user -u 'statbus-upgrade@*' -f`. |
+| "Upgrade in progress: PID X is running. Wait for it to complete." | The upgrader is genuinely executing an upgrade right now. | Wait. Monitor with `journalctl --user -u 'statbus-upgrader@*' -f`. |
 | "Another ./sb install is already running: PID X." | A second operator/script started install while another install was going. | Wait for the other invocation to finish, then retry. |
 | "Prior {upgrade,install} crashed … PID X is no longer alive but the flag file remains." | Holder process died mid-run (OOM, kill, crash). | Re-run `./sb install` — it detects the stale flag (StateCrashedUpgrade), calls `RecoverFromFlag` (service → reconcile DB row; install → just remove file), and continues. No separate recovery command. |
 | "Upgrade flag file present but unreadable" | JSON corruption or incompatible schema. | Inspect `~/statbus/tmp/upgrade-in-progress.json`. If truly garbage, remove it and start the service so `recoverFromFlag` operates cleanly next cycle. |

@@ -61,13 +61,13 @@ read-only.
 
    psql arguments pass through unchanged, as with plain `./sb psql`.
 
-2. **Resume:** `cd ~/statbus && ./sb install`. It stops the upgrade service and
+2. **Resume:** `cd ~/statbus && ./sb install`. It stops the upgrader and
    takes the upgrade lock, so the two never act at once. It clears the park and
    runs one fresh attempt from where the upgrade stands. On success it lifts
    maintenance and the read-only window and restarts the service. If the same
    failure returns, the upgrade parks again.
 
-Only `./sb install` clears a park; the upgrade service never does. A newer
+Only `./sb install` clears a park; the upgrader never does. A newer
 release replaces the parked upgrade without either step. A database fix stays
 when the resumed upgrade goes forward. It is lost only if that attempt ends in a
 rollback, which restores the pre-upgrade snapshot.

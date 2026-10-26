@@ -165,10 +165,10 @@ For direct standalone PostgreSQL access, use the public hostname, port 5432, `PG
 ./sb upgrade register <version>
 ./sb upgrade schedule <version>      # Requires registration
 ./sb install                         # Dispatch now, or let the service run
-./sb upgrade service                 # Usually managed by systemd
+./sb upgrader                 # Usually managed by systemd
 ```
 
-`./sb install` probes installation state and selects first-install, config refresh, repair, recovery, or pending-upgrade execution. For live/crashed upgrades, parked rows, restore reattempts, legacy refusal, and post-upgrade service restart, follow the [upgrade timeline](upgrade-timeline.md) and [recovery model](upgrade-recovery-model.md).
+`./sb install` probes installation state and selects first-install, config refresh, repair, recovery, or pending-upgrade execution. For live/crashed upgrades, parked rows, restore reattempts, legacy refusal, and post-upgrader restart, follow the [upgrade timeline](upgrade-timeline.md) and [recovery model](upgrade-recovery-model.md).
 
 Read [install/upgrade testing](install-upgrade-testing.md) before changing these paths. Run `./dev.sh test-install-recovery [selector]` using the [recovery runner guide](../test/install-recovery/README.md), which documents the shared LXD fleet, credentials, smoke checkpoints, upgrade arcs, and concurrency limits. Release acceptance follows the [release ladder](release-ladder.md).
 

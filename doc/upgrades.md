@@ -1,10 +1,10 @@
 # Upgrade System Guide
 
-This guide covers operating the StatBus upgrade service on a standalone or private-mode server. It explains how upgrades are discovered, scheduled, executed, and rolled back.
+This guide covers operating the StatBus upgrader on a standalone or private-mode server. It explains how upgrades are discovered, scheduled, executed, and rolled back.
 
 ## Overview
 
-The upgrade service is a long-running process (`./sb upgrade service`) that:
+The upgrader is a long-running process (`./sb upgrader`) that:
 
 - Polls GitHub Releases for new StatBus versions
 - Pre-downloads Docker images so upgrades start instantly
@@ -13,7 +13,7 @@ The upgrade service is a long-running process (`./sb upgrade service`) that:
 - Serves a maintenance page to users during the upgrade window
 - Self-updates the `sb` binary after a successful upgrade
 
-It is designed for remote servers where SSH access may be limited. Operators can trigger upgrades from the admin UI or the CLI, and the upgrade service handles the rest.
+It is designed for remote servers where SSH access may be limited. Operators can trigger upgrades from the admin UI or the CLI, and the upgrader handles the rest.
 
 ## Architecture
 
@@ -85,14 +85,14 @@ autopilot.
 
 ### systemd (recommended for production)
 
-The unit file is at `ops/statbus-upgrade.service`. It uses a template (`%i`) so each deployment slot gets its own instance, named after the slot's Linux user (`statbus-upgrade@<user>.service`, e.g. `statbus-upgrade@statbus` on a standalone box, `statbus-upgrade@statbus_demo` on a cloud slot).
+The unit file is at `ops/statbus-upgrader.service`. It uses a template (`%i`) so each deployment slot gets its own instance, named after the slot's Linux user (`statbus-upgrader@<user>.service`, e.g. `statbus-upgrader@statbus` on a standalone box, `statbus-upgrader@statbus_demo` on a cloud slot).
 
-`./sb install` installs and enables it for you, as a **user** unit: it copies the template to `~/.config/systemd/user/statbus-upgrade@.service`, runs `systemctl --user daemon-reload`, enables the instance, and turns on lingering (`loginctl enable-linger`) so it runs without a login session. No `sudo` and no system unit are involved.
+`./sb install` installs and enables it for you, as a **user** unit: it copies the template to `~/.config/systemd/user/statbus-upgrader@.service`, runs `systemctl --user daemon-reload`, enables the instance, and turns on lingering (`loginctl enable-linger`) so it runs without a login session. No `sudo` and no system unit are involved.
 
 View logs (as the slot's user):
 
 ```bash
-journalctl --user -u statbus-upgrade@$USER -f
+journalctl --user -u statbus-upgrader@$USER -f
 ```
 
 The service restarts automatically on failure (`Restart=always`, `RestartSec=30`). Exit code 42 signals a binary self-update -- systemd treats it as a success (`SuccessExitStatus=42`) and restarts the service with the new binary.
@@ -116,9 +116,9 @@ The service restarts automatically on failure (`Restart=always`, `RestartSec=30`
 # Queue an upgrade with a full database recreate instead of migrations
 ./sb upgrade schedule v2026.03.1 --recreate
 
-# Run the upgrade service in the foreground (for debugging)
-./sb upgrade service
-./sb upgrade service --verbose
+# Run the upgrader in the foreground (for debugging)
+./sb upgrader
+./sb upgrader --verbose
 
 # Dispatch a scheduled upgrade inline without going through the service
 # (useful when the service is stopped or you want to run the upgrade
@@ -132,7 +132,7 @@ Version format: `vYYYY.MM.PATCH` (e.g., `v2026.03.1`) or 8-char `commit_short` (
 
 ### Database recreate (`--recreate`)
 
-The `--recreate` flag tells the upgrade service to destroy and recreate the database from scratch instead of running incremental migrations. The full migration history is applied to a fresh database.
+The `--recreate` flag tells the upgrader to destroy and recreate the database from scratch instead of running incremental migrations. The full migration history is applied to a fresh database.
 
 ```bash
 ./sb upgrade register v2026.03.1
@@ -212,7 +212,7 @@ During an upgrade, users see a maintenance page instead of the application.
 
 **How it works:**
 
-1. The upgrade service creates `~/statbus-maintenance/active` (a plain text file).
+1. The upgrader creates `~/statbus-maintenance/active` (a plain text file).
 2. Caddy checks for this file on every request via a `file` matcher in the Caddyfile.
 3. If the file exists, Caddy serves `ops/maintenance/maintenance.html` with HTTP 503.
 4. The `/upgrade-progress.log` path is excluded from maintenance mode -- Caddy serves `tmp/upgrade-progress.log` so the maintenance page can show live progress.
@@ -277,7 +277,7 @@ Key-value store for system-wide settings.
 | `upgrade_check_interval` | `6h` | Check interval |
 | `upgrade_auto_download` | `true` | Auto-download setting |
 
-The upgrade service reads configuration from `.env` (generated from `.env.config`), not from this table. The table provides visibility into the current settings from the admin UI.
+The upgrader reads configuration from `.env` (generated from `.env.config`), not from this table. The table provides visibility into the current settings from the admin UI.
 
 ### Release manifest
 
@@ -301,7 +301,7 @@ The service uses the manifest to verify the git checkout SHA (detecting tag spoo
 
 ## Troubleshooting
 
-### Service won't start: "another upgrade service is already running"
+### Service won't start: "another upgrader is already running"
 
 The service acquires a PostgreSQL advisory lock (`pg_try_advisory_lock(hashtext('upgrade_daemon'))`). If a previous instance crashed without releasing it, the lock is automatically freed when the database connection closes. Check for stale connections:
 
@@ -335,7 +335,7 @@ Without `GITHUB_TOKEN`, the API allows only 60 requests/hour. The service fetche
 
 ```bash
 # In systemd override
-sudo systemctl edit statbus-upgrade@statbus_no
+sudo systemctl edit statbus-upgrader@statbus_no
 # Add:
 # [Service]
 # Environment=GITHUB_TOKEN=ghp_xxxxxxxxxxxxx
@@ -371,7 +371,7 @@ echo "SELECT value FROM public.system_info WHERE key = 'self_update_error'" | ./
 
 ### Database backup/restore
 
-The database data directory is owned by the postgres container user. The upgrade service uses `sudo rsync` for backup and restore. Ensure the service user has passwordless sudo for rsync:
+The database data directory is owned by the postgres container user. The upgrader uses `sudo rsync` for backup and restore. Ensure the service user has passwordless sudo for rsync:
 
 ```bash
 # /etc/sudoers.d/statbus-backup

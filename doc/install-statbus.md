@@ -48,7 +48,7 @@ cd ~/statbus
 - **Existing install with no pending upgrade** — runs the same step-table as an idempotent config-refresh checkpoint. Safe to re-run.
 - **Scheduled upgrade pending** (a row in `public.upgrade` with state=`scheduled`) — dispatches the upgrade inline through the same pipeline the service uses (backup, checkout, migrate, restart, health-check; on failure it classifies and acts — rollback where behind target, park at target — `doc/upgrade-recovery-model.md`).
 - **Stale crashed-upgrade flag** (marker present, flock free) — crash recovery: quiesces the unit, un-parks a parked row, reconciles the flag, re-probes state, and re-dispatches.
-- **Live upgrade running** (flock held) — a genuinely progressing upgrade is refused, with a pointer at `journalctl --user -u 'statbus-upgrade@*' -f`; a crash-LOOPING unit is taken over SIGKILL-class and routed through crash recovery (STATBUS-039).
+- **Live upgrade running** (flock held) — a genuinely progressing upgrade is refused, with a pointer at `journalctl --user -u 'statbus-upgrader@*' -f`; a crash-LOOPING unit is taken over SIGKILL-class and routed through crash recovery (STATBUS-039).
 - **Failed row with a retained snapshot** — replays the restore (the human-gated restore re-attempt, STATBUS-111).
 - **Pre-1.0 database** (no `public.upgrade` table) — refuses and points at the manual upgrade path in `doc/CLOUD.md`.
 
@@ -193,10 +193,10 @@ was updated in the same commit, so operator workflows continue working.
 
 `install.sh` eventually runs `./sb install`, which performs the upgrade-mutex check (see `doc/upgrade-timeline.md#flag-file-mutex-install--service`). If an orchestrated upgrade is in flight, the install aborts with a diagnostic message.
 
-To update a live server without tripping the mutex, stop the upgrade service first:
+To update a live server without tripping the mutex, stop the upgrader first:
 
 ```bash
-systemctl --user stop 'statbus-upgrade@*.service'
+systemctl --user stop 'statbus-upgrader@*.service'
 curl -fsSL https://statbus.org/install.sh | bash -s -- --channel prerelease
 ```
 

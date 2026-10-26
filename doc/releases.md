@@ -95,7 +95,7 @@ The `ci-images.yaml` workflow builds SHA-tagged images on every push to `master`
 - **Tag format**: `sha-<full-40-char-commit-sha>`
 - **Purpose**: cloud deployments pull these images instead of building on each host
 
-These images are used by the candidate-addressed dev deployment workflow and by the upgrade service for SHA-based deployments.
+These images are used by the candidate-addressed dev deployment workflow and by the upgrader for SHA-based deployments.
 
 ## Image Cleanup
 
@@ -147,9 +147,9 @@ git push origin v2026.03.0-rc.1
 
 Wait for the release workflow to complete in GitHub Actions.
 
-### 2. Deploy to a test server via the upgrade service
+### 2. Deploy to a test server via the upgrader
 
-Use the **Deploy via upgrade service** workflow (`.github/workflows/deploy-via-upgrade.yaml`) from the GitHub Actions UI:
+Use the **Deploy via upgrader** workflow (`.github/workflows/deploy-via-upgrade.yaml`) from the GitHub Actions UI:
 
 - **Target**: select the server.
   - Multi-tenant cloud slot: `statbus_<slot>@niue.statbus.org` (e.g. `statbus_dev@niue.statbus.org`).
@@ -163,7 +163,7 @@ This SSHs to the server and sends a PostgreSQL NOTIFY:
 NOTIFY upgrade_apply, 'v2026.03.0-rc.1';
 ```
 
-The upgrade service on the server handles the rest: pull images, stop services, backup database, checkout tag, run migrations, restart, health check.
+The upgrader on the server handles the rest: pull images, stop services, backup database, checkout tag, run migrations, restart, health check.
 
 ### 3. Or deploy manually via SSH
 
@@ -184,7 +184,7 @@ ssh statbus@rune.statbus.org      "cd statbus && ./sb version"
 
 ### Upgrade channels
 
-The upgrade service's behavior depends on the `UPGRADE_CHANNEL` value in `.env` —
+The upgrader's behavior depends on the `UPGRADE_CHANNEL` value in `.env` —
 which is DERIVED from `CADDY_DEPLOYMENT_MODE` in `.env.config` unless that file
 declares an explicit `UPGRADE_CHANNEL`
 directly (STATBUS-254):
@@ -203,7 +203,7 @@ To target a specific version for a one-off upgrade (e.g. pin or downgrade), use 
 
 ## Release Manifest
 
-Each release includes a `release-manifest.json` that the upgrade service downloads to verify deployments. Structure:
+Each release includes a `release-manifest.json` that the upgrader downloads to verify deployments. Structure:
 
 ```json
 {

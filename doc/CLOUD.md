@@ -16,7 +16,7 @@ The StatBus cloud infrastructure hosts multiple country instances on a single se
 - **Isolated databases**: Each country has separate PostgreSQL database and Docker network
 - **Resource sharing**: Efficient use of server CPU, memory, and disk
 - **Independent management**: Each instance can be updated/restarted independently
-- **Channel-based rollout**: operators use `./cloud.sh` for fleet status, notification, install, and upgrade actions; each box's own upgrade service polls its configured channel. Dev is the one exception explicitly driven by the release orchestrator as the automatic canary.
+- **Channel-based rollout**: operators use `./cloud.sh` for fleet status, notification, install, and upgrade actions; each box's own upgrader polls its configured channel. Dev is the one exception explicitly driven by the release orchestrator as the automatic canary.
 
 ## Current Deployments
 
@@ -247,7 +247,7 @@ pk.statbus.org        A/CNAME → niue.statbus.org
 
 #### Step 2 (retired, STATBUS-244): no GitHub deployment key, no workflow files, no deploy branch
 
-The old Steps 2-4 (add a GitHub deployment key, commit `master-to-pk.yaml` + `deploy-to-pk.yaml`, push a deployment branch) are **retired** — only a named release candidate may reach an installation, so a new slot gets no push-triggered path at all. the slot's `private` deployment mode derives the `stable` channel on every config generate (`cli/internal/config/upgrade_channel.go`), so no channel setting is needed; its upgrade service then discovers, registers, schedules, and installs releases on its own, without anyone pushing anything (STATBUS-248). Confirm the channel on the box rather than assuming it — and confirm it by reading the RUNNING service (`journalctl --user -u statbus-upgrade@$USER | grep 'Upgrade service started'`), not the file: the daemon loads its config only at startup, so a file that says `stable` proves nothing until the service has restarted.
+The old Steps 2-4 (add a GitHub deployment key, commit `master-to-pk.yaml` + `deploy-to-pk.yaml`, push a deployment branch) are **retired** — only a named release candidate may reach an installation, so a new slot gets no push-triggered path at all. the slot's `private` deployment mode derives the `stable` channel on every config generate (`cli/internal/config/upgrade_channel.go`), so no channel setting is needed; its upgrader then discovers, registers, schedules, and installs releases on its own, without anyone pushing anything (STATBUS-248). Confirm the channel on the box rather than assuming it — and confirm it by reading the RUNNING service (`journalctl --user -u statbus-upgrader@$USER | grep 'Upgrader started'`), not the file: the daemon loads its config only at startup, so a file that says `stable` proves nothing until the service has restarted.
 
 #### Step 5: Configure Users
 
@@ -284,7 +284,7 @@ sudo caddy validate --config /etc/caddy/Caddyfile
 
 #### Step 7: Test Deployment
 
-Confirm the box's own upgrade service reaches the current stable release on its own — no push involved:
+Confirm the box's own upgrader reaches the current stable release on its own — no push involved:
 
 ```bash
 ssh statbus_pk@niue.statbus.org "cd statbus && ./sb upgrade check"
@@ -399,11 +399,11 @@ cd ~/statbus
 
 ### Deployment model (STATBUS-244/248)
 
-**The manually runnable `master-to-X` workflows and deploy-branch transport are retired.** Only a named release candidate may ever reach an installation — master's tip has no tag, no gate, no artifact anyone reviewed, and it changes on every commit. Operators drive the cloud fleet with `./cloud.sh status`, `./cloud.sh notify`, `./cloud.sh install`, and `./cloud.sh upgrade`; each box's own upgrade service discovers offers from its channel. Which mechanism and channel a box gets depends on its role, never on pushing master anywhere:
+**The manually runnable `master-to-X` workflows and deploy-branch transport are retired.** Only a named release candidate may ever reach an installation — master's tip has no tag, no gate, no artifact anyone reviewed, and it changes on every commit. Operators drive the cloud fleet with `./cloud.sh status`, `./cloud.sh notify`, `./cloud.sh install`, and `./cloud.sh upgrade`; each box's own upgrader discovers offers from its channel. Which mechanism and channel a box gets depends on its role, never on pushing master anywhere:
 
 - **Dev** — `prerelease`, automatic canary (STATBUS-247): every candidate reaches it without a human. `release-fleet-orchestrator.yaml` dispatches `deploy-to-dev.yaml` at the candidate tag and SHA (STATBUS-260). The deploy workflow runs the published operator path, `curl -fsSL https://statbus.org/install.sh | bash -s -- --channel prerelease --non-interactive`, so the candidate's new binary is downloaded before inline dispatch instead of asking the installed binary and daemon to pull their own fix. The orchestrator first proves the tag is still the newest RC; the deploy then compares the channel's resolved tag and the commit left on disk with the requested candidate, reporting a newer mid-run resolution as supersession and refusing to green-light a different candidate.
 - **Norway (`no`, on rune)** — `prerelease`, human canary: a person installs each candidate deliberately. It has no push path and is never included in cloud fleet commands.
-- **Demo and ordinary cloud slots** — `stable`: `demo`, `et`, `jo`, `ma`, `mw`, `ug`, `ua`, and `gh` receive stable-channel offers from their own upgrade services. Promotion makes a release available; operators observe and roll the fleet with `./cloud.sh`, rather than moving a branch. The writer-less `deploy-to-{et,jo,ma,ug}.yaml` listeners were removed after Wave D1 proved the channel path on demo.
+- **Demo and ordinary cloud slots** — `stable`: `demo`, `et`, `jo`, `ma`, `mw`, `ug`, `ua`, and `gh` receive stable-channel offers from their own upgraders. Promotion makes a release available; operators observe and roll the fleet with `./cloud.sh`, rather than moving a branch. The writer-less `deploy-to-{et,jo,ma,ug}.yaml` listeners were removed after Wave D1 proved the channel path on demo.
 
 This channel table is role truth, not a request to normalize every box to `stable`. Dev and Norway must remain on `prerelease`; Norway's production role does not override its human-canary role.
 
@@ -414,7 +414,7 @@ This channel table is role truth, not a request to normalize every box to `stabl
 **On the server, once a version is targeted (any mechanism below):**
 
 1. **CLI** writes upgrade request to database and sends PostgreSQL NOTIFY
-2. **Upgrade service** handles the rest:
+2. **Upgrader** handles the rest:
    - Backs up the database
    - Checks out the target version
    - Runs pending migrations
@@ -426,14 +426,14 @@ View deployment status in GitHub Actions or Slack channel `statbus-utvikling`.
 
 ### Service-Based Deployment (the standard path for demo and the ordinary country slots)
 
-Each instance runs an upgrade service that polls its channel and offers or applies releases according to the box's policy — no push required. Use `./cloud.sh status`, `./cloud.sh notify`, `./cloud.sh upgrade`, or `./cloud.sh install <target>` for normal fleet operations. To trigger a specific version manually (a deliberate one-off, candidate-addressed rather than master-addressed):
+Each instance runs an upgrader that polls its channel and offers or applies releases according to the box's policy — no push required. Use `./cloud.sh status`, `./cloud.sh notify`, `./cloud.sh upgrade`, or `./cloud.sh install <target>` for normal fleet operations. To trigger a specific version manually (a deliberate one-off, candidate-addressed rather than master-addressed):
 
 ```bash
 ssh statbus_ma@niue.statbus.org "cd statbus && ./sb upgrade register v2026.03.1 && ./sb upgrade schedule v2026.03.1"
 ssh statbus_ma@niue.statbus.org "cd statbus && ./sb upgrade check"
 ```
 
-The upgrade service handles: image pull, backup, migrations, restart, health check, and classify-then-act recovery (automatic data-safe rollback behind target; a park awaiting a fix release at target — `doc/upgrade-recovery-model.md`). Progress is visible in the admin UI and via `journalctl --user -u statbus-upgrade@<user>` (run as the slot's user; the service is a user unit).
+The upgrader handles: image pull, backup, migrations, restart, health check, and classify-then-act recovery (automatic data-safe rollback behind target; a park awaiting a fix release at target — `doc/upgrade-recovery-model.md`). Progress is visible in the admin UI and via `journalctl --user -u statbus-upgrader@<user>` (run as the slot's user; the service is a user unit).
 
 ### Managing Host-Level Caddy
 
@@ -525,7 +525,7 @@ tar -xzf backup_ma_config_20240115.tar.gz
 ### Automated Backups
 
 Each instance now takes its **own** scheduled logical backup — built into the
-always-on upgrade service, no crontab or external scheduler to install
+always-on upgrader, no crontab or external scheduler to install
 (STATBUS-113). On the configured cadence the service runs `pg_dump -Fc` into the
 instance's `dbdumps/` and prunes to a retention count, deferring automatically
 whenever an upgrade is in progress. Configure per instance via `.env.config`:
@@ -783,7 +783,7 @@ The high-level shape (concrete walkthrough belongs in the per-host bootstrap pla
 4. Author `.env.config` with `CADDY_DEPLOYMENT_MODE=standalone` (this is now the default and may be omitted), `SITE_DOMAIN=<the public domain>` (required — standalone refuses without it), and put `SEQ_API_KEY` / `SLACK_TOKEN` copied from an existing instance in `.env.credentials` (see [Where credentials live](#where-credentials-live)). Use `canary` ONLY for a box we deliberately expose to release candidates first (Norway); an ordinary customer standalone is `production`.
 
    **Flagged, not settled (STATBUS-244a sweep):** steps 3-4's `prerelease` default predates the topology where Norway is named as THE single human canary (STATBUS-247). A NEW standalone box that is not itself a designated canary would, by that same logic, be an ordinary installation and belong on `stable` (STATBUS-248) — but nobody has ruled on that for a hypothetical future box, so the instruction is left as `prerelease` here rather than changed unilaterally. Confirm the intended role before provisioning the next one.
-5. Retired (STATBUS-244): no `deploy-to-<host>-<slot>.yaml` / `master-to-<host>-<slot>.yaml` pair, no `ops/standalone/deploy/<host>-<slot>` branch. Only a named release candidate may reach an installation; the box's own upgrade service (channel set in step 4) discovers, registers, schedules, and installs on its own.
+5. Retired (STATBUS-244): no `deploy-to-<host>-<slot>.yaml` / `master-to-<host>-<slot>.yaml` pair, no `ops/standalone/deploy/<host>-<slot>` branch. Only a named release candidate may reach an installation; the box's own upgrader (channel set in step 4) discovers, registers, schedules, and installs on its own.
 6. The existing repo `SSH_KEY` pubkey is already populated in `statbus`'s `authorized_keys` by `setup.sh` Stage 7 from the `GITHUB_USERS` list — no extra step needed if those users own the deploy key too.
 
 For migrating an existing slot off niue (as `no` was migrated to rune): also dump the niue slot, restore on the new host, then stop the niue slot's containers and let DNS (CNAME on the public domain pointing at the new host) drive the cutover.

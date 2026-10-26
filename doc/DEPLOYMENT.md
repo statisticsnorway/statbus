@@ -332,7 +332,7 @@ cd "$HOME/statbus"
 ./sb restart all
 ```
 
-`sb restart all` (also `all_except_app`) safely stops an active upgrade daemon,
+`sb restart all` (also `all_except_app`) safely stops an active upgrader,
 waits for the application stack to be healthy, then starts the daemon with the new settings.
 The upgrade mutex remains held until the daemon reports database connection and
 LISTEN readiness. A failed or interrupted restart retains an explicit restart
@@ -368,9 +368,9 @@ The installer:
 
 After installation, follow the on-screen instructions to configure and start STATBUS.
 
-> **If the server already has an upgrade service running**, stop it before re-invoking the installer, or use `./cloud.sh install <server>` which handles this automatically. `./sb install` refuses to proceed if an orchestrated upgrade is in flight (see [upgrade-timeline.md](upgrade-timeline.md#flag-file-mutex-install--service)).
+> **If the server already has an upgrader running**, stop it before re-invoking the installer, or use `./cloud.sh install <server>` which handles this automatically. `./sb install` refuses to proceed if an orchestrated upgrade is in flight (see [upgrade-timeline.md](upgrade-timeline.md#flag-file-mutex-install--service)).
 > ```bash
-> systemctl --user stop 'statbus-upgrade@*.service'
+> systemctl --user stop 'statbus-upgrader@*.service'
 > curl -fsSL https://statbus.org/install.sh | bash -s -- --channel prerelease
 > ```
 
@@ -532,7 +532,7 @@ box — treat it as exactly as sensitive as the dump itself.
 `./sb db restore <file> --to <code>` (remote restore) does not upload the
 companion.
 
-**Built-in scheduled backup** (standalone): the always-on upgrade service takes a
+**Built-in scheduled backup** (standalone): the always-on upgrader takes a
 regular logical backup automatically — no cron, systemd timer, or external
 scheduler to install (it is part of the service you already run). On standalone
 installs this **is** the database backup, so it is enabled by default.
@@ -569,13 +569,23 @@ Tune or disable it in `.env.config` (then `./sb config generate`):
 
 **Update StatBus**:
 
-Updates are handled automatically by the upgrade service. To manually trigger:
+Updates are performed by the upgrader — the long-running program systemd runs
+on the box. It is managed through its own commands:
+
+```bash
+./sb upgrader status                 # Unit state, and whether it runs the ./sb on disk
+./sb upgrader stop                   # Stop it (under the upgrade lock; waits for exit)
+./sb upgrader start                  # Start it
+./sb upgrader install                # Write + enable its systemd unit
+```
+
+To trigger an update manually:
 ```bash
 ./sb upgrade check                   # Fetch new releases and register them as candidates
 ./sb upgrade register v2026.03.1     # Record the target as a candidate (prepares it)
-./sb upgrade schedule v2026.03.1     # Queue it to run (fires NOTIFY; requires running service)
+./sb upgrade schedule v2026.03.1     # Queue it to run (fires NOTIFY; requires the upgrader running)
 ./sb install                         # Alternative: dispatch any scheduled row inline,
-                                     # without waiting for the service tick
+                                     # without waiting for the upgrader's tick
 ```
 
 `./sb install` is the unified entrypoint — safe to run on a healthy install (acts as an idempotent config refresh), and it routes to inline upgrade when a scheduled row is pending. See `doc/upgrade-timeline.md` for the full dispatch ladder.
@@ -952,17 +962,17 @@ chmod 600 caddy/data/custom-certs/domain.key
 
 ## Automatic Upgrades
 
-StatBus includes an upgrade service that automatically checks for new releases, downloads Docker images, and applies upgrades with backup and rollback support.
+StatBus includes an upgrader that automatically checks for new releases, downloads Docker images, and applies upgrades with backup and rollback support.
 
 ### Enabling the Upgrade Service
 
-Enable the upgrade service via systemd:
+Enable the upgrader via systemd:
 
 ```bash
-sudo systemctl enable --now statbus-upgrade@<slot>.service
+sudo systemctl enable --now statbus-upgrader@<slot>.service
 ```
 
-Replace `<slot>` with your deployment slot code (e.g., `local`, `no`, `demo`). The service file is at `ops/statbus-upgrade.service`.
+Replace `<slot>` with your deployment slot code (e.g., `local`, `no`, `demo`). The service file is at `ops/statbus-upgrader.service`.
 
 ### Configuration
 
@@ -992,7 +1002,7 @@ Configure upgrade behavior in `.env.config`, then run `./sb config generate`:
 ./sb upgrade schedule v2026.03.1   # queue it to run
 ```
 
-`schedule` promotes the registered candidate, which fires a `NOTIFY` to the running upgrade service — it executes the upgrade with backup and rollback support.
+`schedule` promotes the registered candidate, which fires a `NOTIFY` to the running upgrader — it executes the upgrade with backup and rollback support.
 
 ### Targeting a specific version
 

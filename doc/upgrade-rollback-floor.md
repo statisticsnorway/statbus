@@ -136,7 +136,7 @@ After the floor command returns success:
 
 The canonical `./sb` remains the target binary until rollback is durably final. This is required because the source binary does not understand the pending protocol. The service containers can run the source application independently of which CLI executable remains at `./sb`.
 
-While the source tree and target binary differ, the service-held rollback marker must keep the existing staleness guard on the recovery carve-out. If the process crashes, `upgrade service` or `install` must execute the target recovery binary, not procure the source binary from the worktree.
+While the source tree and target binary differ, the service-held rollback marker must keep the existing staleness guard on the recovery carve-out. If the process crashes, `upgrader` or `install` must execute the target recovery binary, not procure the source binary from the worktree.
 
 ### Phase E: write pending, reopen, finalize, then publish the source binary
 

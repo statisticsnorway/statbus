@@ -53,7 +53,7 @@ One candidate row per release; `state` walks the lifecycle below. **Three actors
 
 - **CLI** — `./sb upgrade …` (ops / automation)
 - **web** — the admin UI, browser → PostgREST `/rest/upgrade`, RLS-gated to `admin_user`. The Next.js app has **no** server-side writers — every web transition is a direct browser→DB PATCH.
-- **service** — the upgrade daemon (execution + automatic transitions)
+- **service** — the upgrader (execution + automatic transitions)
 
 | state (stored value) | meaning | entered by | message |
 |---|---|---|---|

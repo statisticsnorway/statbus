@@ -176,7 +176,7 @@ The separation is intentional:
 - **`${SERVICE_USER}`** owns `~/statbus/` and runs the Docker Compose stack.
   It has `docker` group membership (so `docker ps` and `docker compose` work
   without sudo) and systemd `--user` linger is enabled so
-  `statbus-upgrade@<slot>.service` keeps running even when nobody's logged in.
+  `statbus-upgrader@<slot>.service` keeps running even when nobody's logged in.
   No sudo.
 
 ## Requirements

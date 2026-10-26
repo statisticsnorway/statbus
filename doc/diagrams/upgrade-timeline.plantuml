@@ -36,7 +36,7 @@ endlegend
 
 participant "Operator / CI" as cici
 participant "systemd (user)" as systemd
-participant "Upgrade Service\nstatbus-upgrade@$USER" as service
+participant "Upgrader\nstatbus-upgrader@$USER" as service
 participant "PostgreSQL\npublic.upgrade + snapshot" as db
 
 == Fresh install — seed restore (first boot, before any upgrade) ==
@@ -49,7 +49,7 @@ note over cici, db
 end note
 
 == Service boot ==
-systemd -> service : start statbus-upgrade@$USER.service (Type=notify, Restart=always)
+systemd -> service : start statbus-upgrader@$USER.service (Type=notify, Restart=always)
 service -> db : advisory lock + LISTEN upgrade channel\n(cheap, bounded init)
 service -> systemd : sd_notify READY=1\n(emitted here — heavy recovery below runs in the ACTIVE phase under WatchdogSec)
 service -> db : boot migrate up — schema to the daemon FLOOR (schema-skew guard; STATBUS-145 --to floor)

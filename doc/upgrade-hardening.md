@@ -7,7 +7,7 @@
 The upgrade system is fully implemented and deployed (Checkpoints 1-9, Steps 10-15 all DONE). Architecture is documented in:
 - `doc/upgrades.md` — service operation, lifecycle, rollback, troubleshooting
 - `doc/releases.md` — CalVer, release pipeline, CI images, image cleanup
-- `doc/DEPLOYMENT.md` — standalone deployment with upgrade service section
+- `doc/DEPLOYMENT.md` — standalone deployment with upgrader section
 - `doc/CLOUD.md` — cloud hybrid transition, deploy-via-NOTIFY
 - `AGENTS.md` — full `./sb` and `./dev.sh` CLI reference
 
@@ -75,7 +75,7 @@ See `doc/upgrades.md` "Testing rollback" section for usage.
 ## Release Sequence
 
 ### Release A: Hardening (RC-13)
-Tag and push after all fixes committed. Upgrade service on dev.statbus.org applies it.
+Tag and push after all fixes committed. Upgrader on dev.statbus.org applies it.
 
 ### Release B: Rollback test (RC-14)
 1. Create sentinel: `touch ~/statbus/tmp/simulate-upgrade-failure`

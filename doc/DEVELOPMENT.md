@@ -672,7 +672,7 @@ Rules they follow, and that any new one must follow:
 
 ### Upgrade System Hardening Tests
 
-To verify the upgrade service's rollback and recovery mechanisms, use these procedures. Each requires tagging deliberate broken RCs, then fixing them.
+To verify the upgrader's rollback and recovery mechanisms, use these procedures. Each requires tagging deliberate broken RCs, then fixing them.
 
 **Test 1: Broken migration → database rollback**
 
