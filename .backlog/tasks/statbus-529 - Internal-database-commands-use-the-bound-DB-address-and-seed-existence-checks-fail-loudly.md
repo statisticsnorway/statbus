@@ -3,10 +3,10 @@ id: STATBUS-529
 title: >-
   Internal database commands use the bound DB address, and seed existence checks
   fail loudly
-status: In Progress
+status: Done
 assignee: []
-created_date: '2026-10-26 20:48'
-updated_date: '2026-10-26 21:33'
+created_date: 2026-10-26 20:48
+updated_date: '2026-10-26T23:34:00Z'
 labels:
   - cli
   - dev
@@ -45,11 +45,13 @@ The first failure was then misreported: `delete-seed` appended `0` after any `./
 <!-- AC:BEGIN -->
 - [x] #1 With SITE_DOMAIN set to an unresolvable name and CADDY_DB_BIND_ADDRESS=127.0.0.1, both dev.sh postgres-variables and sb config show --postgres export PGHOST=127.0.0.1; regression tests prove both
 - [x] #2 A connection/query failure during delete-seed's existence check exits non-zero with the connection error, does not claim the seed is absent, and does not proceed to create; a regression test proves the outcome
-- [ ] #3 ./dev.sh migrate-and-test fast completes in statbus_test without a hosts-file workaround, and release preflight reaches the remaining gates; CI is green at the fix commit
+- [x] #3 ./dev.sh migrate-and-test fast completes in statbus_test without a hosts-file workaround, and release preflight reaches the remaining gates; CI is green at the fix commit
 <!-- AC:END -->
 
 ## Implementation Notes
 
 <!-- SECTION:NOTES:BEGIN -->
 2026-10-26 fix (statbus_test): dev.sh postgres-variables and sb config show --postgres now export PGHOST from CADDY_DB_BIND_ADDRESS; delete-seed's existence check exits non-zero with the psql error and only treats a successful empty result as absent. Regression tests RED against HEAD (PGHOST=unresolvable.statbus.invalid; delete-seed exit 0 + 'nothing to delete' after a failed query), GREEN with the fix: test/dev-postgres-variables-test.sh, test/dev-delete-seed-test.sh (both wired into dev.sh test-harness), cli/cmd/config_postgres_vars_test.go. go test ./cmd/ and bash -n pass. Evidence logs: tmp/test-529-{red,green}-*.log.
+
+2026-10-26 AC3: ./dev.sh migrate-and-test fast completed in statbus_test with no hosts workaround (MIGRATE_RC=0, all 117 shared + 2 isolated tests passed; log tmp/test-migrate-and-test-fast-529.log; stamp c2c311475). Release preflight fully green at final master 54299f154 (log tmp/rc-check-6.log, CHECK_RC=0). CI green at the fix commit c2c311475: Fast Tests, Go Test, app build & lint, Harness Selftest (runs the two new STATBUS-529 shell regressions), Images, CodeQL, Notify all success.
 <!-- SECTION:NOTES:END -->
