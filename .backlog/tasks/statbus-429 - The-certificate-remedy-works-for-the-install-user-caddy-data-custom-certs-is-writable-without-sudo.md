@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-09-29 08:24'
-updated_date: '2026-10-26 15:26'
+updated_date: '2026-10-26 15:59'
 labels:
   - install
 dependencies: []
@@ -77,4 +77,6 @@ AC4 is implemented now, in 429, with no dependency on STATBUS-399. Installer cer
 **Harness:** scenario 0-happy-install now supplies the certificate ONLY through the product inputs (HARNESS_CERT_THROUGH_INSTALLER=1 wired through the tagged-install paths of lxd-backend.sh and vm-bootstrap.sh) and asserts the Certificate step ran, placed the files as the statbus user, and wrote the container paths itself (answer file provably carries no TLS_CERT_FILE); the existing assert_harness_https_passes proves the born-serving outcome on its next fleet run. No LXD/VM run by this agent.
 
 **Open:** AC3 (5-install-cert-repair-via-cert-install.sh keeps HARNESS_SKIP_DEFAULT; still unrun on the fleet). AC4's guest-level proof lands with the next RC gate run of 0-happy-install.
+
+**CI:** f0592df9f (product commit) — Harness Selftest failed on the happy-install offline stub not knowing the new provenance queries; diagnosed, mock extended (046f6849d, tmp/429-harness-selftest.log has all 32 standalone tests green locally). Final CI on 046f6849d: Go Test, Harness Selftest, Fast Tests (SQL suite), app build & lint, Images, Push on master all success.
 <!-- SECTION:NOTES:END -->
