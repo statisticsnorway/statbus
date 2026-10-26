@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-10-26 11:22'
-updated_date: '2026-10-26 12:42'
+updated_date: '2026-10-26 21:08'
 labels:
   - cli
   - upgrade
@@ -57,13 +57,13 @@ Each long-running StatBus program has a noun name, and `sb` has one command grou
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 `sb upgrader run|install|start|stop|status` exist with the behaviour in the Zoom in table. Go tests cover each command, including: `stop` refuses while an upgrade holds the lock, and `stop` returns only after the main process has exited
-- [ ] #2 The unit is `statbus-upgrader@.service`. On a box with the old unit, `./sb install` leaves exactly one unit, the new one, running; a Go test with a recorded systemd state covers the migration
-- [ ] #3 Operator-facing text, help and docs say "the upgrader". Each remaining `statbus-upgrade@` or "upgrade service" reference describes the old unit on purpose
-- [ ] #4 The help for `./sb install` says it sets up or repairs this box at the version on disk, and names `install.sh` and `sb upgrade apply` as the ways to change version
+- [x] #1 `sb upgrader run|install|start|stop|status` exist with the behaviour in the Zoom in table. Go tests cover each command, including: `stop` refuses while an upgrade holds the lock, and `stop` returns only after the main process has exited
+- [x] #2 The unit is `statbus-upgrader@.service`. On a box with the old unit, `./sb install` leaves exactly one unit, the new one, running; a Go test with a recorded systemd state covers the migration
+- [x] #3 Operator-facing text, help and docs say "the upgrader". Each remaining `statbus-upgrade@` or "upgrade service" reference describes the old unit on purpose
+- [x] #4 The help for `./sb install` says it sets up or repairs this box at the version on disk, and names `install.sh` and `sb upgrade apply` as the ways to change version
 - [ ] #5 STATBUS-093 records that the Go worker's long-running command is `sb worker run`
-- [ ] #6 Code review of the diff finds a single implementation of unit writing and of start/stop: the "Upgrade service" step in `./sb install` calls the same functions as `sb upgrader install|start|stop`
-- [ ] #7 `sb upgrade service` still starts the upgrader, as a hidden alias, and a test proves it
+- [x] #6 Code review of the diff finds a single implementation of unit writing and of start/stop: the "Upgrade service" step in `./sb install` calls the same functions as `sb upgrader install|start|stop`
+- [x] #7 `sb upgrade service` still starts the upgrader, as a hidden alias, and a test proves it
 - [ ] #8 [Owner] Decide when the `sb upgrade service` alias is removed. A follow-up ticket for that is filed, and its ID is recorded in this ticket's Implementation Notes
 - [ ] #9 The existing `0-happy-upgrade` scenario, which installs the previous release (old unit) and self-upgrades to the candidate, asserts after the upgrade: only `statbus-upgrader@` exists and is active, `statbus-upgrade@` is gone, and `sb upgrader status` reports the installed `./sb`. Proven by that scenario's run in the candidate's release gate, or the same scenario on the per-commit image; no one-off script. Run ID recorded in Implementation Notes
 <!-- AC:END -->
@@ -74,4 +74,23 @@ Each long-running StatBus program has a noun name, and `sb` has one command grou
 2026-10-26: delegated to a K3 worker (implementation through real-guest proof); Claude Opus 5.5 reviews when done.
 
 2026-10-26 owner: keep the rename (one-time migration, one canonical name). Proof goes through the existing harness (0-happy-upgrade assertions), not a one-off guest run. The switch from the old unit to the new one happens only while the upgrader holds the upgrade lock, so it never stops itself mid-upgrade.
+
+2026-10-26 (K3 recovery worker, sheep): landed on master as 4b458e410 (upgrader: commands + unit rename + migration + alias + harness assertions), 1e043d7ec (docs), 048c44844 (backlog 093 note). Rebased onto 62be92e3a before push.
+
+Recovered the previous K3 worker's saved patch (tmp/396-before-base-update-worktree.diff in the shared checkout), resolved its one conflict in cli/cmd/install.go (help text) preserving STATBUS-429's certificate step, and restored the three unrelated regenerable test/expected files to HEAD.
+
+Verification (this checkout): gofmt clean; go build ./...; go test ./cmd/ ./internal/... all ok; golangci-lint run ./... 0 issues (fixed two findings in the recovered work: ineffectual lock assignment in handoffToRenamedUpgraderUnit, De Morgan in the ordering test); ./dev.sh test-harness exit 0; bash -n on all edited shell files. Fixed replace-all damage: assertions.sh comment ('renamed from' named the resolver instead of the old unit), boot.go 'every box's the upgrader', install_quiesce_order_test.go 'the box's the upgrader', 0-happy-upgrade echo. The recursive upgrade_unit_name body the coordinator warned about was already corrected in the saved patch (body has no self-call; confirmed with coordinator).
+
+AC evidence:
+- AC1: sb upgrader run|install|start|stop|status in cli/cmd/upgrader.go. Tests: TestUpgraderStopRefusesWhileUpgradeHoldsLock (systemd never sees a stop while the lock is held), TestUpgraderStopWaitsForMainProcessExit, TestUpgraderStopFailsWhenProcessSurvives, TestUpgraderStopWithoutUnitIsANoOp, TestUpgraderStart*.
+- AC2: ops/statbus-upgrader.service (renamed); migration in installUpgraderUnit under the upgrade lock, new unit written+enabled before the old is touched. Tests: TestUpgraderInstallMigratesLegacyUnit, TestUpgraderInstallMigrationOrdering (stop runs while the lock is held), TestUpgraderInstallRefusesMigrationWhileUpgradeHoldsLock, TestUpgraderInstallFixupLeavesLegacyAlone, TestHandoffToRenamedUpgraderUnit_* (internal/upgrade).
+- AC3: wording swept; remaining 'statbus-upgrade@'/'upgrade service' references are the legacy-migration code, the deliberate internal protocol tokens (application_name statbus-upgrade-daemon-<pid>, advisory lock key), or doc/archive history.
+- AC4: install help now says it sets up or repairs this box at the version on disk and names install.sh and 'sb upgrade apply' as the version-changing paths.
+- AC6: pinned by TestInstallStepAndHelpersShareTheUpgraderImplementation (install step, final action and restartUpgradeService all call upgrader.go).
+- AC7: 'sb upgrade service' hidden alias sharing upgradeServiceRunE with 'sb upgrader run'; pinned by TestUpgradeServiceAliasIsUpgraderRun.
+- AC5 (093 note) committed in 048c44844. AC8 owner, AC9 real-guest: left for the release gate/owner.
+
+2026-10-26 (K3 recovery worker, sheep) follow-up: Harness Selftest on 048c44844 caught one replace-all miss — configure-smoke-instance.sh is an executable VM_SCRIPT payload (no harness libs sourced), so $(upgrade_unit_name) exited 127. Fixed with the literal statbus-upgrader@statbus.service (0-happy-install always installs the candidate) in cc6dd10fd, verified locally by bash test/install-recovery/tests/operator-config-test.sh (PASS) and bash -n.
+
+CI for the final master SHA cc6dd10fd (gh run list --commit): Push on master success [40397288751], Images success [40397289201], Go Test success [40397289228], app build & lint success [40397289264], Harness Selftest success [40397289306], Fast Tests success [40397836346]. All green.
 <!-- SECTION:NOTES:END -->
