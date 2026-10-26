@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: 2026-10-26 22:28
-updated_date: '2026-10-26T22:43:00Z'
+updated_date: '2026-10-26T23:08:00Z'
 labels:
   - upgrade
   - cli
@@ -54,4 +54,6 @@ Fix commit b578b650d: cli/cmd/upgrade.go refspec normalization extracted into no
 Regression evidence (tmp/test-530-red.log, tmp/test-530-green.log): TestRefspecNormalize_PreservesServiceRecoveryMarker (phases new-sb-swapped crashed and new-sb-upgrading parked) FAILED before the fix — marker file deleted — and PASSES after, byte-identical and still parseable by ReadFlagFile for recovery. TestRefspecNormalize_NormalizesWhenNoMarker proves the no-marker path still normalizes to CanonicalRefspecs and leaves no stale install marker.
 
 Verification: go test ./cmd/ ./internal/upgrade/ -count=1 ok (73.6s / 249.7s); golangci-lint run ./cmd/... ./internal/upgrade/... 0 issues (tmp/test-530-packages.log, tmp/test-530-lint.log). Code-read for the last AC clause: the only remaining AcquireInstallFlag caller is ./sb install itself (cmd/install.go:422), safe because install.Detect classifies a stale marker before acquiring.
+
+CI at fix commit b578b650d: Go Test, app build & lint, Images, Harness Selftest, Push on master, Notify cloud services all success. The Fast Tests run exercising b578b650d was cancelled as superseded when the backlog-only f60a91780 landed on top; Fast Tests @ exercised-sha=f60a91780 (same code plus ticket notes) completed success. Not setting Done: coordinator review pending per instructions.
 <!-- SECTION:NOTES:END -->
