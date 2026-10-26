@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-09-25 09:45'
-updated_date: '2026-10-26 14:18'
+updated_date: '2026-10-26 14:19'
 labels:
   - release-bug
   - ci
@@ -31,7 +31,7 @@ Release candidates are tested by long fleets (smoke, the LXD fault fleet, upgrad
 - **Incident, 2026-09-25:** rc.02's install-recovery run `36104217764` had three failed scenarios by 07:23Z and 12 still queued at 07:30Z; queued scenarios checked out and then rented a Hetzner VM with no freshness check. The orchestrator checked the newest tag only between stages.
 - **Shipped:** `ef32c20c5` (v2026.09.3) adds the shared action `.github/actions/scenario-superseded` (`check.sh`) as the first step after checkout, gates every later step on its output, and aggregates a SUPERSEDED verdict in `test-smoke.yaml` and `upgrade-arc-harness.yaml`. When the fault fleet moved to LXD (`06d2395c2`, 2026-09-28, which also retired `install-recovery-harness.yaml`), `lxd-fleet.yaml` gained the check before any paid operation and again after waiting for box occupancy.
 - **Proof, unit:** `TestSupersededCandidateStopsBeforeEachVMAndPropagatesFleetVerdict_STATBUS416` (`cli/cmd/workflow_harness_domain_validation_test.go`) pins the step order and gating for smoke and arcs. Green 2026-10-15. It does not cover `lxd-fleet.yaml`.
-- **What remains (owner, 2026-10-26):** only the real observation, AC3. Nothing is coded again. There will be no forced test: nobody asked for one. Wait until a newer candidate is tagged while an older candidate's fleet is still queued, which is a normal occurrence when two candidates are cut close together. Then read the older fleet's verdict and the newer fleet's progress, record the run IDs, and close. The candidate carrying STATBUS-527 may produce it if it is tagged while today's candidate's fleet is still running.
+- **What remains (owner, 2026-10-26):** only the real observation, AC4. Nothing is coded again. There will be no forced test: nobody asked for one. Wait until a newer candidate is tagged while an older candidate's fleet is still queued, which is a normal occurrence when two candidates are cut close together. Then read the older fleet's verdict and the newer fleet's progress, record the run IDs, and close. The candidate carrying STATBUS-527 may produce it if it is tagged while today's candidate's fleet is still running.
 - **Observed in CI:** the check runs in every LXD fleet run (for example `38714275075`, `38696133051`, 2026-10-15) but has never fired: none of the 27 LXD fleet runs on record (2026-09-28 to 2026-10-15) logs `SUPERSEDED by`.
 
 ### Closing review
@@ -44,8 +44,8 @@ Release candidates are tested by long fleets (smoke, the LXD fault fleet, upgrad
 <!-- AC:BEGIN -->
 - [x] #1 Smoke and upgrade-arc scenario jobs check freshness as the first step after checkout, gate every later step (including cleanup) on it, and aggregate a SUPERSEDED verdict (`TestSupersededCandidateStopsBeforeEachVMAndPropagatesFleetVerdict_STATBUS416`)
 - [x] #2 The LXD fault fleet is held to the same rule by a test: freshness before any paid operation and again after the occupancy wait, with a SUPERSEDED verdict distinct from failure
-- [x] #3 [Owner] Decide whether AC3 is forced now or waits for a natural occurrence, and record it in Implementation Notes. Force: add "tag a throwaway RC on top of a queued one" as a new criterion. Wait: leave AC3 open.
-- [ ] #4 One real, naturally occurring supersession is observed (no forced test, owner 2026-10-26): a newer RC is tagged while an older RC's fleet is still queued; the older fleet's queued scenarios stop before taking a box, its verdict is SUPERSEDED and the newer fleet proceeds. Record both run IDs here, check this, and set Done. The candidate carrying STATBUS-527 is the likely occasion
+- [x] #3 One real, naturally occurring supersession is observed (no forced test, owner 2026-10-26): a newer RC is tagged while an older RC's fleet is still queued; the older fleet's queued scenarios stop before taking a box, its verdict is SUPERSEDED and the newer fleet proceeds. Record both run IDs here, check this, and set Done. The candidate carrying STATBUS-527 is the likely occasion
+- [ ] #4 [Owner] Decided 2026-10-26: no forced supersession test, nobody asked for one. Wait for a natural occurrence, now criterion 4
 <!-- AC:END -->
 
 ## Implementation Notes

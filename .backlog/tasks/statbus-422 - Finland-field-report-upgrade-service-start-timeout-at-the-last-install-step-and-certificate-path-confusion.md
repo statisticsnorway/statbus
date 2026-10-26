@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-09-27 10:07'
-updated_date: '2026-10-20 20:45'
+updated_date: '2026-10-26 14:19'
 labels:
   - installer
 dependencies: []
@@ -25,6 +25,7 @@ Every problem Finland's operator hit on the 2026-09-24/25 install either is fixe
 This ticket is a field report, not a feature. A field report is done when each finding is traced to a cause and either fixed here or handed to the ticket that owns it. Mixing several features into one ticket hides which part is still open, so findings that grew into their own work moved out (STATBUS-429, 430, 464, 465, 466, 469). What remains here is only what is not owned elsewhere.
 
 ### Zoom in
+- **What remains (owner, 2026-10-26):** AC4, the footer showing the release on a fresh install of the next candidate, and AC6, sending Ville the stable-install instruction. Ville is deliberately LAST: he gets the instruction after every other In Progress ticket has been passed, so he receives one working, current answer rather than another intermediate one. In practice that means after STATBUS-429 (sudo-free `./sb cert install`) is proven and stable, and after 399 is no longer in flight. Until then no instruction is sent.
 - **Report, Ville-Mattis Pilvio, 2026-09-25 (v2026.09.2):** fresh install on `statbus.statfin.eu`; steps 1-16 green, step 17 `Upgrade service FAILED: enable service: exit status 1` after `Job ... failed because a timeout was exceeded`; his `.env.config` had `TLS_CERT_FILE=/home/statbus/statbus.crt` (a host path) and a hand-added `SITE_DOMAIN`.
 - **Step-17 cause, proven:** LXD replay 2026-09-29 (`tmp/ville-replay-v2026.09.3.md`): with a host-path certificate Caddy cannot open the file, the proxy crash-loops, `127.0.0.1:5431` stays unbound, the upgrade service exhausts its 5-minute connect budget and systemd reports exactly that timeout. On v2026.09.3 it is refused with a named cause.
 - **Shipped (merge `afd59955a`, v2026.09.3):** service failures include the unit's journal tail (`serviceFailureWithJournal`, `cli/cmd/install.go`); `TLS_CERT_FILE`/`TLS_KEY_FILE` are validated as container paths with a clear message (`cli/internal/config/config.go`).
@@ -65,4 +66,7 @@ This ticket is a field report, not a feature. A field report is done when each f
 ### AC4 state (2026-10-16)
 - Footer read from outside: dev, demo and no show v2026.10.2-rc.01; et v2026.09.0, jo v2026.08.0, ma v2026.09.3, ug v2026.09.0. No box shows `unknown`. All of these were upgraded, not freshly installed.
 - The fresh install comes from the owner's Uganda install at v2026.10.2 (STATBUS-497). Its footer read is requested there; AC4 closes on that observation.
+
+### Owner decision 2026-10-26: Ville waits for the sweep
+Do not send Ville the stable-install instruction yet. He is contacted after every other In Progress ticket has been passed. No dependency on STATBUS-399 for him (it is the no-public-DNS case); the practical dependency is 429's proven sudo-free `./sb cert install` plus a stable release. AC6 stays open until then.
 <!-- SECTION:NOTES:END -->
