@@ -44,7 +44,7 @@ Release candidates are tested by long fleets (smoke, the LXD fault fleet, upgrad
 <!-- AC:BEGIN -->
 - [x] #1 Smoke and upgrade-arc scenario jobs check freshness as the first step after checkout, gate every later step (including cleanup) on it, and aggregate a SUPERSEDED verdict (`TestSupersededCandidateStopsBeforeEachVMAndPropagatesFleetVerdict_STATBUS416`)
 - [x] #2 The LXD fault fleet is held to the same rule by a test: freshness before any paid operation and again after the occupancy wait, with a SUPERSEDED verdict distinct from failure
-- [x] #3 One real, naturally occurring supersession is observed (no forced test, owner 2026-10-26): a newer RC is tagged while an older RC's fleet is still queued; the older fleet's queued scenarios stop before taking a box, its verdict is SUPERSEDED and the newer fleet proceeds. Record both run IDs here, check this, and set Done. The candidate carrying STATBUS-527 is the likely occasion
+- [ ] #3 One real, naturally occurring supersession is observed (no forced test, owner 2026-10-26): a newer RC is tagged while an older RC's fleet is still queued; the older fleet's queued scenarios stop before taking a box, its verdict is SUPERSEDED and the newer fleet proceeds. Record both run IDs here, check this, and set Done. The candidate carrying STATBUS-527 is the likely occasion
 - [x] #4 [Owner] Decided 2026-10-26: no forced supersession test, nobody asked for one. Wait for a natural occurrence, recorded as criterion 3
 <!-- AC:END -->
 
