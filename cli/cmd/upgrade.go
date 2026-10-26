@@ -369,6 +369,35 @@ func deployedCommitLine(commit string) string {
 	return "deployed_commit=" + commit
 }
 
+// normalizeRefspecsUnderUpgradeMutex runs upgrade.NormalizeRefspecs under the
+// upgrade mutex for `apply-latest`. Contention is not an error: the message
+// names why the mutex was refused and normalization is skipped, because a
+// config tidy-up must never abort the upgrade.
+//
+// The claim is the recovery-aware fresh-only AcquireLifecycleFlag, NEVER
+// AcquireInstallFlag (STATBUS-530; 527 review B1). An existing marker is a
+// crashed or parked upgrade's recovery state — BackupPath and resume
+// direction — kept with the flock free. The adopt-and-delete install flag
+// would overwrite it on acquire and delete it on release, and the next
+// `./sb install` would skip recovery. Refusing skips only housekeeping; the
+// recovery marker survives byte-identical for `./sb install` to act on.
+// ReleaseInstallFlag stays correct: acquisition only ever succeeds by
+// CREATING the marker, so release deletes only this command's own.
+func normalizeRefspecsUnderUpgradeMutex(projDir string) {
+	lock, lerr := upgrade.AcquireLifecycleFlag(projDir, "operator:refspec-normalize")
+	if lerr != nil {
+		fmt.Printf("Skipping refspec normalization: %v\n", lerr)
+		fmt.Println("  Continuing — if the fetch below fails on a missing branch, re-run this after the upgrade finishes.")
+		return
+	}
+	nerr := upgrade.NormalizeRefspecs(projDir)
+	upgrade.ReleaseInstallFlag(lock)
+	if nerr != nil {
+		fmt.Printf("Could not normalize remote.origin.fetch: %v\n", nerr)
+		fmt.Println("  Continuing — the fetch below will report accurately if the refspec is unusable.")
+	}
+}
+
 var upgradeApplyLatestCmd = &cobra.Command{
 	Use:   "apply-latest",
 	Short: "Discover and apply the latest available version",
@@ -416,17 +445,7 @@ file changes needed.`,
 		// fetch below fails with its own accurate message. The report exists so
 		// the two correlate in the log rather than leaving a bare fetch error with
 		// no explanation beside it.
-		if lock, lerr := upgrade.AcquireInstallFlag(projDir, "operator:refspec-normalize"); lerr != nil {
-			fmt.Printf("Skipping refspec normalization: the upgrade mutex is held (%v).\n", lerr)
-			fmt.Println("  Continuing — if the fetch below fails on a missing branch, re-run this after the upgrade finishes.")
-		} else {
-			nerr := upgrade.NormalizeRefspecs(projDir)
-			upgrade.ReleaseInstallFlag(lock)
-			if nerr != nil {
-				fmt.Printf("Could not normalize remote.origin.fetch: %v\n", nerr)
-				fmt.Println("  Continuing — the fetch below will report accurately if the refspec is unusable.")
-			}
-		}
+		normalizeRefspecsUnderUpgradeMutex(projDir)
 
 		var latestVersion string
 
