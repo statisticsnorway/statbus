@@ -1,10 +1,10 @@
 ---
 id: STATBUS-396
 title: Git failures show Git's useful error text with every secret redacted
-status: In Progress
+status: Done
 assignee: []
 created_date: '2026-09-24 16:44'
-updated_date: '2026-10-26 16:26'
+updated_date: '2026-10-26 17:32'
 labels:
   - release-bug
   - cli
@@ -44,7 +44,7 @@ Two failure modes pull in opposite directions. Swallowing Git's output leaves th
 - [x] #3 A network failure keeps `Could not resolve host` and redacts URL credentials (`TestNetworkFailurePreservesMessageAndRedactsURLCredentials`)
 - [x] #4 The three failures through the public installer show the same in terminal and install log (`test/install/install-git-errors-test.sh`)
 - [x] #5 [Owner] Decide whether `test/install/*.sh` runs in a CI workflow (for example Harness Selftest) or stays manual, and record it in Implementation Notes. CI: add the wiring as a new criterion. Manual: check this and set Done.
-- [ ] #6 Harness Selftest runs install-git-errors-test.sh, install-git-fetch-compatibility-test.sh and install-pull-failure-test.sh on every master push, and changes under test/install/** trigger it on pull requests; the workflow is green at the wiring commit
+- [x] #6 Harness Selftest runs install-git-errors-test.sh, install-git-fetch-compatibility-test.sh and install-pull-failure-test.sh on every master push, and changes under test/install/** trigger it on pull requests; the workflow is green at the wiring commit
 <!-- AC:END -->
 
 ## Implementation Notes
@@ -57,4 +57,6 @@ Two failure modes pull in opposite directions. Swallowing Git's output leaves th
 - **History:** the 2026-10-01 implementation and review notes are in Git history.
 
 2026-10-26 owner: put test/install/*.sh into CI; this was an oversight. Wiring added to the existing Harness Selftest workflow. A local invocation was stopped because Docker Desktop was hanging (install.sh calls docker info); GitHub Actions is the verification environment for this change.
+
+AC6 verified: Harness Selftest run 40359265448 completed success at bacc67e6c, including all three test/install/*.sh scripts. Go Test, Fast Tests, app build & lint, Images and Push on master also completed success at that SHA.
 <!-- SECTION:NOTES:END -->
