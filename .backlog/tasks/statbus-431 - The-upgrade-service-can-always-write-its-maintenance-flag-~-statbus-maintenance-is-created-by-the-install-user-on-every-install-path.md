@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-09-29 10:28'
-updated_date: '2026-10-26 15:10'
+updated_date: '2026-10-26 19:18'
 labels:
   - install
 dependencies: []
@@ -67,4 +67,6 @@ Moving `.env.config` out of the checkout is a separate design question, out of s
 
 ### Owner decision 2026-10-26: narrow and finish
 AC5 (generic complete/valid .env.config) dropped as over-engineering. AC6's staged root-owned real box dropped too. Focused tests are green locally: tmp/431-hostrepair-unit.log and tmp/431-maintenance-unit.log. A local Docker practical run follows when the owner's Docker Desktop restart is complete. STATBUS-528 filed for deliberate, on-demand pruning of settings the current version does not read.
+
+2026-10-26 practical attempt: cli/tmp/431-hostrepair-local created an unwritable scratch directory and called the real hostrepair.EnsureWritable through the local proxy container. Docker info responded (server 29.9.2), but the repair did not finish within 120 seconds (tmp/431-hostrepair-practical.log, timeout 124). AC5 stays open; do not claim the practical check passed.
 <!-- SECTION:NOTES:END -->
