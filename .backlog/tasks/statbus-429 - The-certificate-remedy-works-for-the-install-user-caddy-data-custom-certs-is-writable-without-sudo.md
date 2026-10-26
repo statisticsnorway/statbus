@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-09-29 08:24'
-updated_date: '2026-10-26 14:52'
+updated_date: '2026-10-26 15:26'
 labels:
   - install
 dependencies: []
@@ -50,7 +50,7 @@ A second, later step: let the installer accept the certificate up front, through
 - [x] #1 `./sb cert install` succeeds as the install user when `caddy/data` is root-owned, repairing only `custom-certs` through a container without sudo, and fails with a plain remedy when it cannot (`TestEnsureCustomCertsDirWritable_*`, `TestEnsureWritable*`)
 - [x] #2 Every certificate refusal names `./sb cert install` with full paths (`ad7876f0b`, `828b04984`; install.sh `INSTALL_FIX` allowlist)
 - [ ] #3 An explicit LXD run of `5-install-cert-repair-via-cert-install.sh` on a built candidate: a box that has run Services follows the printed remedy as the install user and reaches a ready installation with CA-verified HTTPS
-- [ ] #4 The installer accepts a certificate and key pair, or one PFX/PKCS#12 file with its password from an environment variable, through the same code path as `./sb cert install`, refuses them in private and development modes, and a fresh install is born serving that certificate
+- [x] #4 The installer accepts a certificate and key pair, or one PFX/PKCS#12 file with its password from an environment variable, through the same code path as `./sb cert install`, refuses them in private and development modes, and a fresh install is born serving that certificate
 - [x] #5 [Owner] Decide whether AC4 (installer certificate arguments) stays here or moves to STATBUS-399, and record it in Implementation Notes. Stays: AC4 remains open work here. Moved: remove AC4, check this, and set Done once AC3 passes.
 <!-- AC:END -->
 
@@ -65,4 +65,16 @@ A second, later step: let the installer accept the certificate up front, through
 
 ### Owner decision 2026-10-26: AC4 stays here, delegated
 AC4 is implemented now, in 429, with no dependency on STATBUS-399. Installer certificate input goes through loadCertMaterial/the same code as `./sb cert install`. AC3 (the cert-repair scenario) is proven by an explicit harness run or the candidate gate, not by a new one-off script.
+
+### AC4 implemented, 2026-10-26 (commit f0592df9f, pushed to master)
+
+**Product:** new "Certificate" step in ./sb install (cli/cmd/install_cert.go), positioned after Configuration/Trusted signers and before Settings/Services, so the cert is on disk and .env.config carries the container paths before config generation (validateTLSPaths) and before Caddy ever starts. It calls installCustomCertificate, the extracted shared core of ./sb cert install (cli/cmd/cert.go): same content-detected PFX/PEM parsing (loadCertMaterialWithPassword), same placement into caddy/data/custom-certs with the hostrepair path for root-owned caddy/data, same TLS_CERT_FILE/TLS_KEY_FILE write. No second ./sb process, no reimplementation.
+
+**Inputs:** STATBUS_TLS_CERT_FILE+STATBUS_TLS_KEY_FILE (PEM pair) or STATBUS_TLS_PFX_FILE+STATBUS_TLS_PFX_PASSWORD; install.sh absolutizes/forwards them exactly like STATBUS_ENV_CONFIG/STATBUS_USERS_FILE and carries them (never the password) in the printed rerun command. Interactive standalone fresh installs are asked once (default no = today's behaviour); unattended runs never ask. Private/development modes refuse with the same plain reason ./sb cert install gives; conflicting explicit answers (answer file + env) are refused. Documented in doc/DEPLOYMENT.md and ./sb install --help.
+
+**Unit proof (red/green logs tmp/429-red.log, tmp/429-green.log):** TestInstallCertStep_PEMPair_MatchesCertInstallPath asserts byte-identical outcome to the cert-install core; PFX with env password, wrong password (no partial state), missing key, private/development refusal, no-input no-op, interactive decline/accept, conflict refusal, step position (TestCertificateStepPosition). Gates green: gofmt, golangci-lint (0 issues), go test ./cmd/ ./internal/..., ./dev.sh test-harness, bash -n on install.sh and edited harness files. Fast SQL suite not run here (no DB in this clone); CI covers it.
+
+**Harness:** scenario 0-happy-install now supplies the certificate ONLY through the product inputs (HARNESS_CERT_THROUGH_INSTALLER=1 wired through the tagged-install paths of lxd-backend.sh and vm-bootstrap.sh) and asserts the Certificate step ran, placed the files as the statbus user, and wrote the container paths itself (answer file provably carries no TLS_CERT_FILE); the existing assert_harness_https_passes proves the born-serving outcome on its next fleet run. No LXD/VM run by this agent.
+
+**Open:** AC3 (5-install-cert-repair-via-cert-install.sh keeps HARNESS_SKIP_DEFAULT; still unrun on the fleet). AC4's guest-level proof lands with the next RC gate run of 0-happy-install.
 <!-- SECTION:NOTES:END -->
