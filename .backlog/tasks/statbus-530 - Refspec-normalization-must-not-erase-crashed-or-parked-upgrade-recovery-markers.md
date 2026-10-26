@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: 2026-10-26 22:28
-updated_date: '2026-10-26T22:32:00Z'
+updated_date: '2026-10-26T22:43:00Z'
 labels:
   - upgrade
   - cli
@@ -41,7 +41,17 @@ An existing service marker means an upgrade is in progress, parked, or needs rec
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 A crashed or parked service marker remains byte-identical after refspec normalization; the next ./sb install still performs recovery
-- [ ] #2 Regression tests prove the refspec path refuses or skips when a service/recovery marker exists, and still normalizes when no marker exists
+- [x] #1 A crashed or parked service marker remains byte-identical after refspec normalization; the next ./sb install still performs recovery
+- [x] #2 Regression tests prove the refspec path refuses or skips when a service/recovery marker exists, and still normalizes when no marker exists
 - [ ] #3 Go tests and CI are green at the fix commit, and the 527 reviewer or a code review confirms no other refspec writer uses adopt-and-delete on a service marker
 <!-- AC:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+Fix commit b578b650d: cli/cmd/upgrade.go refspec normalization extracted into normalizeRefspecsUnderUpgradeMutex, now claiming the mutex with the recovery-aware fresh-only upgrade.AcquireLifecycleFlag instead of adopt-and-delete AcquireInstallFlag. Any existing marker refuses; normalization skips (never an error); the crashed/parked service marker survives byte-identical for the next ./sb install. ReleaseInstallFlag remains correct because acquisition only ever creates the marker.
+
+Regression evidence (tmp/test-530-red.log, tmp/test-530-green.log): TestRefspecNormalize_PreservesServiceRecoveryMarker (phases new-sb-swapped crashed and new-sb-upgrading parked) FAILED before the fix — marker file deleted — and PASSES after, byte-identical and still parseable by ReadFlagFile for recovery. TestRefspecNormalize_NormalizesWhenNoMarker proves the no-marker path still normalizes to CanonicalRefspecs and leaves no stale install marker.
+
+Verification: go test ./cmd/ ./internal/upgrade/ -count=1 ok (73.6s / 249.7s); golangci-lint run ./cmd/... ./internal/upgrade/... 0 issues (tmp/test-530-packages.log, tmp/test-530-lint.log). Code-read for the last AC clause: the only remaining AcquireInstallFlag caller is ./sb install itself (cmd/install.go:422), safe because install.Detect classifies a stale marker before acquiring.
+<!-- SECTION:NOTES:END -->
