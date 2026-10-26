@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-10-26 11:22'
-updated_date: '2026-10-26 22:09'
+updated_date: '2026-10-26 22:11'
 labels:
   - cli
   - upgrade
@@ -105,4 +105,22 @@ H1 (high): resolveUpgraderInstance prefers the ACTIVE unit — a running legacy 
 F1: runRootInstall deleted (dead since the user-level unit); crash-recovery restart via shared submitUpgraderAction; service_restart.go keeps its barrier-specific ops seam (outside AC6's install-step sharing scope). F2: 0-happy-upgrade old-unit restart bound gated on LoadState=loaded (no more vacuous pass on a retired unit). F4: 'sb upgrader status' registered read-only and exits non-zero when not installed/not active/different program (TestUpgraderStatusVerdict). F6/F7: wording fixes in DEPLOYMENT.md, the unit template, root.go, install.go.
 
 Pinning tests updated for the new writer and the shared start: install_holder_writers_test.go (7->8), compose_authority_types_test.go (stopRestartUpgradeUnit 7->6, runRootInstall entry removed). B3 (arc harness helper scope) was fixed by the parallel worker in 659b5e8a5.
+
+B3 harness fix evidence (harness worker, 2026-10-26, commit 659b5e8a5 on master):
+
+B3a (6 arcs calling upgrade_unit_name before assertions.sh is sourced, exit 127): postswap-mid-tx-kill, postswap-mid-migration-kill, postswap-migration-ceiling, postswap-health-park, rollback-schema-floor-failure, claim-without-notify now bind the literal statbus-upgrader@statbus.service at top level, correct because every arc base is the candidate's own install.
+
+B3b (cached before the guest exists, legacy-name fallback on candidate bases): the review's five arcs (boot-migrate-churn-alive-idle, transient-db-backoff, un-park-to-completion, flagless-selfheal-at-target, postswap-converged-selfheal) plus c-rollback-resurrection (same class, missed by the review) bind the literal. Audit found two more sites of the same class in scenarios: 1-boot-startup-timeout.sh's DROPIN_DIR (HEAD install; now the literal) and 5-install-drifted-unit-reconciled.sh's UNIT (rename-crossing: release baseline then HEAD; now resolves per call at actual use after provisioning).
+
+B3c (lib/vm-bootstrap.sh:2125 inside the quoted REMOTE heredoc): the guest payload now resolves the unit with the same unit-file test the helper uses (statbus-upgrader@.service present -> new name, else legacy), so the systematic failure capture keeps the upgrader journal again.
+
+Audit: every remaining upgrade_unit_name call site in test/install-recovery resolves per call after provisioning (host side), in a function body, or in the rename-crossing 0-happy-upgrade path. No class remains.
+
+Regression test: tests/scenario-helper-resolution-test.sh (already run by ./dev.sh test-harness and the Harness Selftest workflow) gained STATBUS-527 B3 checks: (1) no top-level upgrade_unit_name call before the file's assertions.sh source line, heredoc-aware; (2) no call inside a quoted guest-executed heredoc; (3) positive: the helper resolves statbus-upgrader@ with the unit file present and statbus-upgrade@ without it; (4) positive: no top-level binding caches the resolved name and at least 12 candidate-literal bindings exist; (5) positive: 0-happy-upgrade keeps per-call resolution across the mid-scenario rename. Proven red on the pre-fix tree (detached worktree at cc6dd10fd): Check 1 flags exactly the six B3a arcs, Check 2 flags vm-bootstrap.sh:2125, Check 4 lists the cached bindings. Green on the fixed tree.
+
+Validation: bash -n on all 16 edited scripts OK; scenario-helper-resolution-test.sh PASS; ./dev.sh test-harness PASS (worker scratch log tmp/test-harness-b3.log); harness-failure-path-selftest, lxd-cleanup-capture-order, lxd-arc-verdict PASS. No LXD/VM runs.
+
+CI at 659b5e8a5: Harness Selftest success (run 40408398093), Go Test success (40408397838), Images success (40408397900), app build and lint success (40408398020), Push on master success (40408397008). Fast Tests run 40408823594 was cancelled by concurrency supersession when 00753cd25 landed 10 minutes later (STATBUS-364 design; the change touches only test/install-recovery shell, orthogonal to the pg_regress suite); the superseding run's result is the operative verdict.
+
+Still owed before the release gate: a rung-8 arc subset covering the 12 touched arcs (postswap-mid-tx-kill, postswap-mid-migration-kill, postswap-migration-ceiling, postswap-health-park, rollback-schema-floor-failure, claim-without-notify, boot-migrate-churn-alive-idle, transient-db-backoff, un-park-to-completion, flagless-selfheal-at-target, postswap-converged-selfheal, c-rollback-resurrection) against the candidate, plus 0-happy-upgrade on the per-commit image.
 <!-- SECTION:NOTES:END -->
