@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-10-26 11:22'
-updated_date: '2026-10-26 21:08'
+updated_date: '2026-10-26 22:09'
 labels:
   - cli
   - upgrade
@@ -93,4 +93,16 @@ AC evidence:
 2026-10-26 (K3 recovery worker, sheep) follow-up: Harness Selftest on 048c44844 caught one replace-all miss — configure-smoke-instance.sh is an executable VM_SCRIPT payload (no harness libs sourced), so $(upgrade_unit_name) exited 127. Fixed with the literal statbus-upgrader@statbus.service (0-happy-install always installs the candidate) in cc6dd10fd, verified locally by bash test/install-recovery/tests/operator-config-test.sh (PASS) and bash -n.
 
 CI for the final master SHA cc6dd10fd (gh run list --commit): Push on master success [40397288751], Images success [40397289201], Go Test success [40397289228], app build & lint success [40397289264], Harness Selftest success [40397289306], Fast Tests success [40397836346]. All green.
+
+2026-10-26 (K3 recovery worker, sheep) — Opus review of cc6dd10fd (tmp/527-opus-review.md in the review checkout) and fixes in ae513a697 + e17709dec:
+
+B1 (release blocker, reviewer's overlay probe proved AcquireInstallFlag+ReleaseInstallFlag deletes a crashed service marker): new fresh-only AcquireLifecycleFlag never adopts/rewrites an existing marker; stop, install-migration, retire-legacy-unit and the daemon handoff use it. Live holder -> the usual wait-and-retry contention message; free-flock crashed/parked marker -> refusal naming ./sb install as the recovery path. Red-before: TestUpgraderStopPreservesCrashedUpgradeMarker and TestUpgraderInstallMigrationPreservesCrashedUpgradeMarker FAIL on the pre-fix sources (marker adopted, stop proceeds), pass after. Handoff marker preservation: TestHandoffToRenamedUpgraderUnit_PreservesRecoveryMarker (crashed new-sb-swapped and parked-style new-sb-upgrading markers stay byte-identical, no steps run).
+
+B2 (release blocker): handoffToRenamedUpgraderUnit now reports handedOff after submitting the self-stop; Run returns before the listen loop and executeScheduled, so the queued SIGTERM cannot kill a freshly claimed upgrade. Regression: TestHandoffToRenamedUpgraderUnit_HandedOffStopsRun (handedOff set, second call a no-op, Run's guard sits between the handoff and the claim path). Red-before: pre-fix sources have no handedOff guard in Run at all (grep count 0).
+
+H1 (high): resolveUpgraderInstance prefers the ACTIVE unit — a running legacy unit wins over the merely-installed new unit file, so stop/status/quiesce address the daemon that actually runs in the staged-handover state. Red-before: TestResolveUpgraderInstanceStagedHandover and TestUpgraderStopStopsTheRunningLegacyUnit FAIL pre-fix (resolved to the inactive new unit), pass after.
+
+F1: runRootInstall deleted (dead since the user-level unit); crash-recovery restart via shared submitUpgraderAction; service_restart.go keeps its barrier-specific ops seam (outside AC6's install-step sharing scope). F2: 0-happy-upgrade old-unit restart bound gated on LoadState=loaded (no more vacuous pass on a retired unit). F4: 'sb upgrader status' registered read-only and exits non-zero when not installed/not active/different program (TestUpgraderStatusVerdict). F6/F7: wording fixes in DEPLOYMENT.md, the unit template, root.go, install.go.
+
+Pinning tests updated for the new writer and the shared start: install_holder_writers_test.go (7->8), compose_authority_types_test.go (stopRestartUpgradeUnit 7->6, runRootInstall entry removed). B3 (arc harness helper scope) was fixed by the parallel worker in 659b5e8a5.
 <!-- SECTION:NOTES:END -->
