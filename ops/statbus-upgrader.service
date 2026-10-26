@@ -66,7 +66,7 @@ SuccessExitStatus=42
 # Exit 75 is NOT in this list on purpose: it is the rc.67 rollback-complete
 # code (cli/internal/upgrade/service.go's os.Exit(75)), and that path needs
 # Restart=always to bring the daemon back — the rc.07 upgrade arcs proved
-# that preventing 75 leaves the upgrade service down after every rollback.
+# that preventing 75 leaves the upgrader down after every rollback.
 #
 # Exit 78 covers an unknown UPGRADE_CHANNEL value, a standalone box with no
 # SITE_DOMAIN, and similar recovery-boot config refusals hit BEFORE the db is

@@ -681,7 +681,7 @@ func runInstall() (installErr error) {
 
 	// === State detection + dispatch ===
 	// Detect reads the install directory + DB to classify the install state.
-	// In the bypass path the parent the upgrader already knows; skip
+	// In the bypass path the parent upgrader already knows the state; skip
 	// detection to avoid probing the DB mid-upgrade.
 	//
 	// Dispatch policy:
@@ -4002,76 +4002,6 @@ func runInstallCallback(dir string) {
 		return
 	}
 	fmt.Printf("  Upgrade callback completed successfully\n")
-}
-
-// runRootInstall handles `sudo sb install` — ONLY installs the systemd service.
-// Does not touch any project files to avoid creating root-owned files.
-func runRootInstall() error {
-	fmt.Println("StatBus — Installing the upgrader's systemd unit (running as root)")
-	fmt.Println()
-
-	if runtime.GOOS != "linux" {
-		return fmt.Errorf("systemd service installation is only supported on Linux")
-	}
-
-	// Find the project directory from the binary location
-	sbPath, err := os.Executable()
-	if err != nil {
-		return fmt.Errorf("find executable: %w", err)
-	}
-	dir := filepath.Dir(sbPath)
-
-	instance := serviceInstance(dir)
-	if instance == "" {
-		return fmt.Errorf("could not determine the upgrader's unit name (USER is unset)")
-	}
-
-	// STATBUS-527 migration: a system-level unit under the pre-rename name is
-	// removed first, so the box ends with exactly one unit.
-	legacyDest := "/etc/systemd/system/" + legacyUpgraderUnitBase + "@.service"
-	if _, statErr := os.Stat(legacyDest); statErr == nil {
-		legacyInstance := legacyServiceInstance(dir)
-		fmt.Printf("  Removing the pre-rename unit %s\n", legacyInstance)
-		_ = runCmd("systemctl", "stop", legacyInstance)
-		_ = runCmd("systemctl", "disable", legacyInstance)
-		if rmErr := os.Remove(legacyDest); rmErr != nil {
-			return fmt.Errorf("remove legacy unit file %s: %w", legacyDest, rmErr)
-		}
-	}
-
-	serviceFile := filepath.Join(dir, "ops", upgraderUnitBase+".service")
-	destFile := "/etc/systemd/system/" + upgraderUnitBase + "@.service"
-
-	fmt.Printf("  Copying %s → %s\n", filepath.Base(serviceFile), destFile)
-	if err := copyFile(serviceFile, destFile); err != nil {
-		return fmt.Errorf("copy unit file: %w", err)
-	}
-
-	fmt.Println("  Running systemctl daemon-reload")
-	if err := runCmd("systemctl", "daemon-reload"); err != nil {
-		return fmt.Errorf("systemctl daemon-reload: %w", err)
-	}
-
-	// No sudoers needed — backup/restore runs rsync inside a Docker container,
-	// which can read/write the named volume without host-level sudo.
-
-	fmt.Printf("  Enabling and starting %s\n", instance)
-	if err := runCmd("systemctl", "enable", "--now", instance); err != nil {
-		return serviceFailureWithJournal("enable the upgrader", instance, false, err)
-	}
-
-	// Mirror the user-service verification: confirm the boot-enable
-	// symlink exists. See enableUpgraderUnit for the bug-history comment.
-	out, isEnabledErr := exec.Command("systemctl", "is-enabled", instance).Output()
-	state := strings.TrimSpace(string(out))
-	if state != "enabled" {
-		return fmt.Errorf("enable reported success but is-enabled=%q (err=%v); the upgrader will not start on boot", state, isEnabledErr)
-	}
-
-	fmt.Println()
-	fmt.Printf("  Upgrader installed and started: %s (is-enabled=%s)\n", instance, state)
-	fmt.Println("  To verify, run: " + diskpolicy.RerunCommand())
-	return nil
 }
 
 // ── Helpers ──

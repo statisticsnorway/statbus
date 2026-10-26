@@ -61,7 +61,10 @@ func TestAllInstallHeldMarkerWritersStampOwner(t *testing.T) {
 	}
 	// 7th: AcquireFreshInstallFlag, the fresh-only claim that serialises the
 	// settings restore before detection (review-detect-env-2 finding 2).
-	if count != 7 {
-		t.Errorf("found %d install-held production marker writers, want 7; audit newly added or removed writers", count)
+	// 8th: AcquireLifecycleFlag, the fresh-only claim for upgrader lifecycle
+	// commands (stop/install-migration/retire/handoff) that never adopts or
+	// rewrites an existing marker (STATBUS-527 review, B1).
+	if count != 8 {
+		t.Errorf("found %d install-held production marker writers, want 8; audit newly added or removed writers", count)
 	}
 }

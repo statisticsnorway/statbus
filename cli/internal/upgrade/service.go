@@ -240,6 +240,12 @@ type Service struct {
 	// starts the new unit and stops itself, completing the rename the
 	// post-upgrade fixup staged.
 	legacyUnitInstance string
+	// handedOff is set by handoffToRenamedUpgraderUnit once the self-stop of
+	// the legacy unit is submitted to systemd. Run must then return instead of
+	// entering its main loop: any upgrade claimed there would be SIGTERMEd
+	// mid-flight by the queued stop, and a SIGTERM mid-upgrade triggers a
+	// rollback — a snapshot restore over the live database (STATBUS-527 B2).
+	handedOff bool
 	// STATBUS-338 test seams for the Norway rc.02 preswap fetch path. Production
 	// leaves both nil: fetchCommitObjects delegates to fetchWithStallDetection and
 	// fetchRetryWait uses a context-aware timer. Tests inject only the boundary
@@ -318,15 +324,23 @@ func (d *Service) SetLegacyUnitInstance(instance string) {
 // operator's `sb upgrader install|start` run the same code. A failure at any
 // step aborts the handover with the old unit intact; the next boot retries
 // (Run calls this on every start).
-func (d *Service) handoffToRenamedUpgraderUnit() {
+//
+// Returns handedOff=true only after the self-stop of this (the legacy) unit is
+// submitted. The caller MUST then make the process exit without further work:
+// returning to Run's main loop could claim a scheduled upgrade that the queued
+// SIGTERM kills mid-flight (STATBUS-527 B2).
+func (d *Service) handoffToRenamedUpgraderUnit() (handedOff bool) {
+	if d.handedOff {
+		return true
+	}
 	if upgraderHandoffPlatform != "linux" || d.legacyUnitInstance == "" {
-		return
+		return false
 	}
 	// Only the legacy unit's OWN main process hands off: one-shot verbs built
 	// on the same Service must never stop a daemon out from under systemd.
 	out, err := upgraderHandoffSystemctl("show", d.legacyUnitInstance, "-p", "MainPID", "--value")
 	if err != nil || strings.TrimSpace(out) != strconv.Itoa(os.Getpid()) {
-		return
+		return false
 	}
 	if _, err := os.Stat(unitfloor.UserUnitPath()); err != nil {
 		// The new unit is not installed yet — the fixup may not have run
@@ -335,30 +349,31 @@ func (d *Service) handoffToRenamedUpgraderUnit() {
 	}
 	target := unitfloor.InstanceName(os.Getenv("USER"))
 	if target == "" || target == d.legacyUnitInstance {
-		return
+		return false
 	}
 
-	lock, err := AcquireInstallFlag(d.projDir, "upgrader:unit-rename")
+	lock, err := AcquireLifecycleFlag(d.projDir, "upgrader:unit-rename")
 	if err != nil {
-		// An upgrade (or install) is in flight: the handover must not run
-		// beside it. Not an error — the next boot retries.
-		log.Printf("upgrader unit rename (STATBUS-527): handover deferred, the upgrade lock is held (%v)", err)
-		return
+		// A live actor holds the lock, or a marker still records a crashed or
+		// parked upgrade's recovery state (B1: never overwrite or delete it).
+		// Not an error — the next boot retries.
+		log.Printf("upgrader unit rename (STATBUS-527): handover deferred (%v)", err)
+		return false
 	}
 	defer func() { ReleaseInstallFlag(lock) }()
 
 	fixupEnv := []string{"STATBUS_POST_UPGRADE_FIXUP=1"}
 	if err := runUpgraderHandoffStep(d.projDir, fixupEnv, "install"); err != nil {
 		log.Printf("upgrader unit rename: `sb upgrader install` failed: %v (old unit untouched; next boot retries)", err)
-		return
+		return false
 	}
 	if err := runUpgraderHandoffStep(d.projDir, fixupEnv, "start", "--no-block"); err != nil {
 		log.Printf("upgrader unit rename: `sb upgrader start` failed: %v (old unit untouched; next boot retries)", err)
-		return
+		return false
 	}
 	if err := runUpgraderHandoffStep(d.projDir, fixupEnv, "retire-legacy-unit"); err != nil {
 		log.Printf("upgrader unit rename: `sb upgrader retire-legacy-unit` failed: %v (old unit intact; next boot retries)", err)
-		return
+		return false
 	}
 	// Release BEFORE the self-stop so the new unit's boot never sees the lock
 	// held longer than the handover itself (its STATBUS-432 bounded boot-wait
@@ -368,7 +383,12 @@ func (d *Service) handoffToRenamedUpgraderUnit() {
 	log.Printf("upgrader unit rename (STATBUS-527): %s is installed and starting; stopping %s (this process) now", target, d.legacyUnitInstance)
 	if _, err := upgraderHandoffSystemctl("--no-block", "stop", d.legacyUnitInstance); err != nil {
 		log.Printf("upgrader unit rename: could not stop %s: %v (both units may run briefly; the daemon advisory lock serializes them and the loser exits)", d.legacyUnitInstance, err)
+		return false
 	}
+	// The stop job is queued with systemd. Mark the handoff so Run exits instead
+	// of entering its main loop (B2), and so a second call is a no-op.
+	d.handedOff = true
+	return true
 }
 
 // upgraderHandoffPlatform / upgraderHandoffSystemctl are the test seams for
@@ -1899,6 +1919,72 @@ func AcquireFreshInstallFlag(projDir, invokedBy string) (*FlagLock, error) {
 		Trigger:   "install",
 		Holder:    HolderInstall,
 	})
+}
+
+// AcquireLifecycleFlag claims the upgrade mutex for an upgrader LIFECYCLE
+// command: `sb upgrader stop`, the migration inside `sb upgrader install`,
+// `sb upgrader retire-legacy-unit`, and the daemon's own unit-rename handoff.
+//
+// Unlike AcquireInstallFlag it NEVER adopts or rewrites an existing marker.
+// The marker is upgrade recovery state: a crashed upgrade's BackupPath and
+// resume direction, or a parked upgrade's deliberate park record, survive
+// with the flock FREE (between restarts, in a StartLimitBurst stop, parked).
+// AcquireInstallFlag would lock that marker, replace its contents with an
+// install flag, and ReleaseInstallFlag would then delete it — the next
+// `./sb install` would see no marker, skip RecoverFromFlag, and the box
+// would sit at a half-applied version with no recovery path (STATBUS-527
+// review, B1). So any existing marker refuses the command:
+//
+//   - flock HELD: a live install or upgrade owns the mutex — the caller gets
+//     the same wait-and-retry contention message install produces;
+//   - flock FREE: a crashed or parked upgrade needs recovery first — the
+//     remedy is `./sb install`, whose Detect classifies the marker BEFORE
+//     anything may overwrite it.
+//
+// Release with ReleaseInstallFlag: correct here because acquisition only ever
+// succeeds by CREATING the marker, so release deletes only this command's own.
+func AcquireLifecycleFlag(projDir, invokedBy string) (*FlagLock, error) {
+	flag := UpgradeFlag{
+		StartedAt: time.Now(),
+		PID:       os.Getpid(),
+		InvokedBy: invokedBy,
+		Trigger:   "install",
+		Holder:    HolderInstall,
+	}
+	data, err := json.MarshalIndent(flag, "", "  ")
+	if err != nil {
+		return nil, fmt.Errorf("marshal lifecycle flag: %w", err)
+	}
+	if err := os.MkdirAll(filepath.Join(projDir, "tmp"), 0755); err != nil {
+		return nil, fmt.Errorf("mkdir tmp: %w", err)
+	}
+	lock, err := createFreshFlagAtomically(projDir, data)
+	if err == nil {
+		return lock, nil
+	}
+	if !errors.Is(err, os.ErrExist) {
+		return nil, fmt.Errorf("create lifecycle flag: %w", err)
+	}
+	path := flagFilePath(projDir)
+	existing, readErr := ReadFlagFile(projDir)
+	if readErr != nil {
+		return nil, fmt.Errorf("upgrade marker %s exists and is unreadable: %w\n  Investigate it manually before touching the upgrader", path, readErr)
+	}
+	if existing == nil {
+		// Lost the race to a remover between link and read: retry as fresh.
+		return AcquireLifecycleFlag(projDir, invokedBy)
+	}
+	if IsFlockHeld(projDir) {
+		return nil, formatContentionError(existing)
+	}
+	holder := existing.Holder
+	if holder == "" {
+		holder = HolderService
+	}
+	return nil, fmt.Errorf(
+		"the upgrade marker still records upgrade %d phase %q (holder=%s): a crashed or parked upgrade's recovery state.\n"+
+			"  Recover it first with %s — refusing to overwrite or delete it",
+		existing.ID, existing.Phase, holder, InstallCommand(projDir))
 }
 
 // ReleaseInstallFlag releases the install flock AND removes the flag file.
@@ -3737,6 +3823,16 @@ func (d *Service) Run(ctx context.Context) error {
 	// of applyNewSbUpgrading, this boot is the legacy unit's main process
 	// again with the new unit file present — finish the handoff here.
 	d.handoffToRenamedUpgraderUnit()
+	if d.handedOff {
+		// The handover queued a self-stop of this (the legacy) unit with
+		// systemd. Returning lets the process exit — entering the main loop
+		// could claim a scheduled upgrade that the queued SIGTERM would kill
+		// mid-flight, and a SIGTERM mid-upgrade triggers a rollback (B2).
+		// Run returning nil exits 0; an explicit stop never restarts
+		// (Restart=always does not apply to a queued stop job).
+		log.Printf("upgrader unit rename (STATBUS-527): handover submitted; exiting instead of entering the main loop")
+		return nil
+	}
 
 	// LISTEN + READY=1 + boot-migrate-up were emitted earlier (right after the
 	// advisory lock, before boot-migrate/recoverFromFlag) so the heavy

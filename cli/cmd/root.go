@@ -86,7 +86,7 @@ var rootCmd = &cobra.Command{
 //  2. commitSHA set but cli/ tree drifted since build — classic stale.
 //
 // Self-heal carve-out: commands annotated `selfheal=true` — the recovery
-// surface (`install`, `the upgrader`, `upgrade apply-latest`) —
+// surface (`install`, `upgrader run` / `upgrade service`, `upgrade apply-latest`) —
 // rebuild + re-exec instead of hard-failing when (2) fires. A wedged
 // installation must not require the very wedged binary to be hand-rebuilt
 // first. Single-attempt: SelfHealAttemptEnv prevents recursion. Tier-1
@@ -158,7 +158,7 @@ func stalenessGuard(c *cobra.Command, _ []string) {
 	if isMutatingCommand(c) {
 		// Self-heal path: a small set of recovery commands annotated with
 		// "selfheal" exist precisely to fix the situation a stale binary
-		// represents (install, the upgrader, upgrade apply-latest).
+		// represents (install, upgrader run / upgrade service, upgrade apply-latest).
 		// Rather than refuse-and-tell-the-operator-to-rebuild-by-hand,
 		// procure a fresh ./sb (toolchain-free, from the commit-tagged image)
 		// here and re-exec into it. The child marks itself via
@@ -323,8 +323,11 @@ var readOnlyCommandPaths = map[string]bool{
 	"sb release verify-artifacts": true, // GitHub API only; no state mutation
 	"sb upgrade list":             true,
 	"sb upgrade check":            true,
-	"sb ps":                       true,
-	"sb logs":                     true,
+	// STATBUS-527 review (F4): status is read-only — it observes the unit and
+	// /proc and writes nothing. The verdict (exit code) is the scriptable part.
+	"sb upgrader status": true,
+	"sb ps":              true,
+	"sb logs":            true,
 }
 
 func isMutatingCommand(c *cobra.Command) bool {

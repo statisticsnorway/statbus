@@ -262,17 +262,30 @@ echo "  ✓ state='completed'"
 # state='completed' is written before the post-upgrade install and unit
 # handover run — so this reads the same counter as the baseline. The exit-42
 # handoff is the one designed restart inside the delta.
-NRESTARTS_OLD_FINAL=$(VM_EXEC systemctl --user show "statbus-upgrade@statbus.service" --property=NRestarts --value 2>/dev/null | tr -d ' \r\n' || echo "?")
-if [ "$NRESTARTS_OLD_FINAL" = "?" ]; then
-    echo "  ⚠ could not read the old unit's NRestarts after the upgrade — INFRA error; skipping the old-unit bound" >&2
-else
-    RESTART_DELTA=$((NRESTARTS_OLD_FINAL - NRESTARTS_BASELINE))
-    echo "  NRestarts (old unit): baseline=$NRESTARTS_BASELINE final=$NRESTARTS_OLD_FINAL delta=$RESTART_DELTA"
-    if [ "$RESTART_DELTA" -gt 2 ]; then
-        echo "✗ NRestarts grew by $RESTART_DELTA during a happy upgrade — unit was unstable" >&2
-        exit 1
+#
+# Review F2: the handover may already have retired the old unit by the time we
+# read this, and `systemctl show` on a not-found unit answers NRestarts=0 —
+# a vacuous pass. Gate the bound on LoadState=loaded so it only runs while the
+# old unit still exists; once it is gone, the new-unit bound below is the one
+# that applies.
+OLD_LOAD_NOW=$(VM_EXEC systemctl --user show "statbus-upgrade@statbus.service" --property=LoadState --value 2>/dev/null | tr -d ' \r\n' || echo "?")
+if [ "$OLD_LOAD_NOW" = "loaded" ]; then
+    NRESTARTS_OLD_FINAL=$(VM_EXEC systemctl --user show "statbus-upgrade@statbus.service" --property=NRestarts --value 2>/dev/null | tr -d ' \r\n' || echo "?")
+    if [ "$NRESTARTS_OLD_FINAL" = "?" ]; then
+        echo "  ⚠ could not read the old unit's NRestarts after the upgrade — INFRA error; skipping the old-unit bound" >&2
+    else
+        RESTART_DELTA=$((NRESTARTS_OLD_FINAL - NRESTARTS_BASELINE))
+        echo "  NRestarts (old unit): baseline=$NRESTARTS_BASELINE final=$NRESTARTS_OLD_FINAL delta=$RESTART_DELTA"
+        if [ "$RESTART_DELTA" -gt 2 ]; then
+            echo "✗ NRestarts grew by $RESTART_DELTA during a happy upgrade — unit was unstable" >&2
+            exit 1
+        fi
+        echo "  ✓ restart counter bounded"
     fi
-    echo "  ✓ restart counter bounded"
+elif [ "$OLD_LOAD_NOW" = "not-found" ]; then
+    echo "  old unit already retired by the handover — the old-unit bound is covered by the new-unit bound below"
+else
+    echo "  ⚠ could not read the old unit's LoadState (got '$OLD_LOAD_NOW') — INFRA error; skipping the old-unit bound" >&2
 fi
 
 

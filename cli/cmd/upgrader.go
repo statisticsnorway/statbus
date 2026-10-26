@@ -98,16 +98,27 @@ func upgraderUnitLoadState(instance string) string {
 
 // resolveUpgraderInstance picks the unit instance name lifecycle operations
 // should address on this box, across the STATBUS-527 rename:
-//   - the new unit whenever its file is installed (post-migration steady state);
+//   - a RUNNING unit always wins over a merely-installed file. The
+//     post-upgrade fixup deliberately writes and enables the new unit while
+//     the legacy unit still runs (the handoff may be deferred or failed), and
+//     stop/status/quiesce must address the daemon that actually runs —
+//     stopping the inactive new unit while the legacy daemon lives would be a
+//     false success (review H1);
+//   - otherwise the new unit whenever its file is installed (post-migration
+//     steady state);
 //   - the legacy unit when only it is installed (pre-migration box);
-//   - with no unit files at all, whichever unit is still active (a
-//     deleted-but-running unit survives in systemd's memory until stopped);
-//   - otherwise the new name (what a fresh install will write).
+//   - with neither file, the new name (what a fresh install will write).
 func resolveUpgraderInstance() string {
 	current := serviceInstance("")
 	legacy := legacyServiceInstance("")
 	if current == "" {
 		return ""
+	}
+	if upgraderUnitActive(current) {
+		return current
+	}
+	if upgraderUnitActive(legacy) {
+		return legacy
 	}
 	newInstalled := upgraderUnitFileExists(unitfloor.UserUnitPath())
 	legacyInstalled := upgraderUnitFileExists(legacyUpgraderUserUnitPath())
@@ -115,12 +126,6 @@ func resolveUpgraderInstance() string {
 	case newInstalled:
 		return current
 	case legacyInstalled:
-		return legacy
-	}
-	if upgraderUnitActive(current) {
-		return current
-	}
-	if upgraderUnitActive(legacy) {
 		return legacy
 	}
 	return current
@@ -337,9 +342,9 @@ func installUpgraderUnit(dir string, lockHeldByCaller, insideUnit bool) (string,
 	migrate := legacyUpgraderUnitPresent() && !insideUnit
 	var lock *upgrade.FlagLock
 	if migrate && !lockHeldByCaller {
-		l, err := upgrade.AcquireInstallFlag(dir, "operator:upgrader-install")
+		l, err := upgrade.AcquireLifecycleFlag(dir, "operator:upgrader-install")
 		if err != nil {
-			return "", fmt.Errorf("cannot migrate the upgrader unit while an upgrade holds the lock: %w", err)
+			return "", fmt.Errorf("cannot migrate the upgrader unit: %w", err)
 		}
 		lock = l
 		defer upgrade.ReleaseInstallFlag(lock)
@@ -602,16 +607,21 @@ var upgraderRetireLegacyCmd = &cobra.Command{
 		if upgraderPlatform != "linux" {
 			return fmt.Errorf("the upgrader is managed by systemd, which does not exist on this platform")
 		}
-		dir := config.ProjectDir()
-		if os.Getenv("STATBUS_POST_UPGRADE_FIXUP") != "1" {
-			lock, err := upgrade.AcquireInstallFlag(dir, "operator:upgrader-retire-legacy")
-			if err != nil {
-				return fmt.Errorf("cannot retire the old upgrader unit while an upgrade holds the lock: %w", err)
-			}
-			defer upgrade.ReleaseInstallFlag(lock)
-		}
-		return retireLegacyUpgraderUnit(dir)
+		return runUpgraderRetireLegacy(config.ProjectDir())
 	},
+}
+
+// runUpgraderRetireLegacy is `sb upgrader retire-legacy-unit` with the cobra
+// shell removed, so tests drive the lock behaviour directly.
+func runUpgraderRetireLegacy(dir string) error {
+	if os.Getenv("STATBUS_POST_UPGRADE_FIXUP") != "1" {
+		lock, err := upgrade.AcquireLifecycleFlag(dir, "operator:upgrader-retire-legacy")
+		if err != nil {
+			return fmt.Errorf("cannot retire the old upgrader unit: %w", err)
+		}
+		defer upgrade.ReleaseInstallFlag(lock)
+	}
+	return retireLegacyUpgraderUnit(dir)
 }
 
 // upgraderStopTimeout refusal and lock behaviour are pinned by
@@ -627,7 +637,14 @@ process has exited.
 
 If an upgrade holds the lock, the stop is refused with a message to wait: a
 stop that interrupted a live upgrade would trigger a rollback — a snapshot
-restore over the live database.`,
+restore over the live database. A crashed or parked upgrade's recovery marker
+also refuses the stop: recover it first with the install command for this box
+('sb install', run from the checkout).
+
+One bounded gap by design: an upgrade claims its row and runs its pre-flight
+checks BEFORE it takes the lock. A stop landing in that short, pre-destructive
+window still SIGTERMs the daemon; nothing has been mutated yet, so the next
+boot simply re-claims the row.`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		if upgraderPlatform != "linux" {
 			return fmt.Errorf("the upgrader is managed by systemd, which does not exist on this platform")
@@ -643,7 +660,7 @@ func runUpgraderStop(dir string) error {
 	if instance == "" {
 		return fmt.Errorf("could not determine the upgrader's unit name (USER is unset)")
 	}
-	lock, err := upgrade.AcquireInstallFlag(dir, "operator:upgrader-stop")
+	lock, err := upgrade.AcquireLifecycleFlag(dir, "operator:upgrader-stop")
 	if err != nil {
 		return fmt.Errorf("the upgrader was not stopped — %w", err)
 	}
@@ -656,12 +673,39 @@ var upgraderStatusCmd = &cobra.Command{
 	Short: "Show the upgrader's unit state and the program it runs",
 	Long: `Read-only: shows the unit's state, the program its main process runs
 (read from /proc/<MainPID>/exe), and whether that program is the ./sb on disk.
-A mismatch means the upgrader is running old code; restart it.`,
+A mismatch means the upgrader is running old code; restart it.
+
+The exit code is the scriptable verdict: 0 when the upgrader is installed,
+active and runs the ./sb on disk (or when there is no systemd to judge,
+e.g. a development laptop); 1 otherwise — not installed, not active, or
+running a different program.`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		dir := config.ProjectDir()
-		fmt.Print(formatUpgraderStatus(dir, observeUpgrader(dir)))
-		return nil
+		obs := observeUpgrader(dir)
+		fmt.Print(formatUpgraderStatus(dir, obs))
+		return upgraderStatusVerdict(obs)
 	},
+}
+
+// upgraderStatusVerdict is the exit-code half of `sb upgrader status` (review
+// F4): scripts and harness assertions get a non-zero exit when the upgrader is
+// not installed, not active, or running a different program than the ./sb on
+// disk. Off Linux (or with an underivable unit name) there is no systemd to
+// judge, so the observation is informational and exits 0.
+func upgraderStatusVerdict(obs upgraderObservation) error {
+	if obs.instance == "" {
+		return nil
+	}
+	if obs.loadState == "not-found" {
+		return fmt.Errorf("the upgrader is not installed (no %s unit)", obs.instance)
+	}
+	if obs.activeState != "active" {
+		return fmt.Errorf("the upgrader is not active (state %q)", obs.activeState)
+	}
+	if obs.exeDeleted || (obs.matchesDisk != nil && !*obs.matchesDisk) {
+		return fmt.Errorf("the upgrader runs a different program than the ./sb on disk; restart it")
+	}
+	return nil
 }
 
 func init() {

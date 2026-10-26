@@ -735,8 +735,10 @@ func stopRestartUpgradeUnit(projDir, instance string, flockHeldByCaller bool) fu
 	}
 	return func() {
 		fmt.Printf("Crash recovery: restarting upgrader unit %s (explicit start; restartUpgradeService is is-active-gated and would no-op here).\n", instance)
-		if err := exec.Command("systemctl", "--user", "start", instance).Run(); err != nil {
-			fmt.Printf("Warning: systemctl --user start %s failed: %v (recovery succeeded; restart the service manually)\n", instance, err)
+		// The shared start primitive (upgrader.go): clears a stale failed
+		// state first so a start-rate-limited unit can recover.
+		if err := submitUpgraderAction(instance, "start", false); err != nil {
+			fmt.Printf("Warning: starting the upgrader failed: %v (recovery succeeded; start it with ./sb upgrader start)\n", err)
 		}
 	}
 }

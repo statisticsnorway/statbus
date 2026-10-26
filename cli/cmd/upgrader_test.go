@@ -703,3 +703,239 @@ func TestInstallStepAndHelpersShareTheUpgraderImplementation(t *testing.T) {
 		t.Error("restartUpgradeService must restart through submitUpgraderAction (upgrader.go)")
 	}
 }
+
+// ── B1: lifecycle commands never overwrite a crashed or parked marker ──────
+
+// seedServiceRecoveryMarker writes a service-holder upgrade marker whose flock
+// is FREE — the on-disk state of a crashed upgrade (between restarts, in a
+// StartLimitBurst stop) or a deliberately parked one. Returns the exact bytes
+// so the test can prove byte-identical preservation.
+func seedServiceRecoveryMarker(t *testing.T, dir, phase string) []byte {
+	t.Helper()
+	if err := os.MkdirAll(filepath.Join(dir, "tmp"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	marker := `{
+  "id": 17,
+  "commit_sha": "0123456789abcdef0123456789abcdef01234567",
+  "started_at": "2026-10-26T12:00:00Z",
+  "invoked_by": "scheduled",
+  "trigger": "scheduled",
+  "holder": "service",
+  "phase": "` + phase + `",
+  "backup_path": "/home/test/statbus/statbus-backups/pre-upgrade-20261026"
+}`
+	if err := os.WriteFile(filepath.Join(dir, "tmp", "upgrade-in-progress.json"), []byte(marker), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	return []byte(marker)
+}
+
+func markerBytesUnchanged(t *testing.T, dir string, want []byte) {
+	t.Helper()
+	got, err := os.ReadFile(filepath.Join(dir, "tmp", "upgrade-in-progress.json"))
+	if err != nil {
+		t.Fatalf("the recovery marker must still exist: %v", err)
+	}
+	if string(got) != string(want) {
+		t.Fatalf("the recovery marker was rewritten:\n got: %s\nwant: %s", got, want)
+	}
+}
+
+// TestUpgraderStopPreservesCrashedUpgradeMarker (B1): a crashed upgrade's
+// marker (flock free, BackupPath recorded) must survive `sb upgrader stop`
+// byte-identically — the stop refuses and systemd never sees a stop. Before
+// the fix, AcquireInstallFlag adopted and rewrote the marker and
+// ReleaseInstallFlag deleted it, erasing the recovery path.
+func TestUpgraderStopPreservesCrashedUpgradeMarker(t *testing.T) {
+	for _, phase := range []string{"new-sb-swapped", "new-sb-upgrading"} {
+		t.Run("phase="+phase, func(t *testing.T) {
+			dir := upgraderFixture(t, upgraderTestTemplate)
+			f := installFakeSystemd(t)
+			u := f.unit("statbus-upgrader@test.service")
+			u.loadState = "loaded"
+			u.activeState = "active"
+			u.mainPID = 4242
+			marker := seedServiceRecoveryMarker(t, dir, phase)
+
+			err := runUpgraderStop(dir)
+			if err == nil {
+				t.Fatal("stop must refuse while a crashed/parked upgrade's marker exists")
+			}
+			if !strings.Contains(err.Error(), "sb install") && !strings.Contains(err.Error(), "install") {
+				t.Fatalf("the refusal must name the recovery path (./sb install), got: %v", err)
+			}
+			if f.called("stop") {
+				t.Fatal("systemd must never see a stop while a recovery marker exists")
+			}
+			if u.activeState != "active" {
+				t.Fatal("the unit must still be active after a refused stop")
+			}
+			markerBytesUnchanged(t, dir, marker)
+		})
+	}
+}
+
+// TestUpgraderInstallMigrationPreservesCrashedUpgradeMarker (B1): the unit
+// migration inside installUpgraderUnit refuses beside a crashed/parked marker
+// and leaves it byte-identical.
+func TestUpgraderInstallMigrationPreservesCrashedUpgradeMarker(t *testing.T) {
+	dir := upgraderFixture(t, upgraderTestTemplate)
+	f := installFakeSystemd(t)
+	if err := os.WriteFile(legacyUpgraderUserUnitPath(), []byte("[Unit]\nDescription=old\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	legacy := f.unit("statbus-upgrade@test.service")
+	legacy.loadState = "loaded"
+	legacy.activeState = "active"
+	legacy.mainPID = 4242
+	marker := seedServiceRecoveryMarker(t, dir, "new-sb-swapped")
+
+	if _, err := installUpgraderUnit(dir, false, false); err == nil {
+		t.Fatal("migration must refuse while a crashed/parked upgrade's marker exists")
+	}
+	if f.called("stop") || f.called("disable") {
+		t.Fatal("a refused migration must never stop or disable the legacy unit")
+	}
+	if legacy.activeState != "active" {
+		t.Fatal("the legacy unit must still be running after a refused migration")
+	}
+	markerBytesUnchanged(t, dir, marker)
+}
+
+// TestUpgraderRetireLegacyPreservesCrashedUpgradeMarker (B1): retire-legacy-unit
+// refuses beside a crashed/parked marker and leaves it byte-identical.
+func TestUpgraderRetireLegacyPreservesCrashedUpgradeMarker(t *testing.T) {
+	dir := upgraderFixture(t, upgraderTestTemplate)
+	f := installFakeSystemd(t)
+	if err := os.WriteFile(legacyUpgraderUserUnitPath(), []byte("[Unit]\nDescription=old\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	legacy := f.unit("statbus-upgrade@test.service")
+	legacy.loadState = "loaded"
+	marker := seedServiceRecoveryMarker(t, dir, "new-sb-swapped")
+
+	if err := runUpgraderRetireLegacy(dir); err == nil {
+		t.Fatal("retire-legacy-unit must refuse while a crashed/parked upgrade's marker exists")
+	}
+	if f.called("disable") {
+		t.Fatal("a refused retire must never disable the legacy unit")
+	}
+	if _, statErr := os.Stat(legacyUpgraderUserUnitPath()); statErr != nil {
+		t.Fatal("a refused retire must leave the legacy unit file in place")
+	}
+	markerBytesUnchanged(t, dir, marker)
+}
+
+// TestUpgraderLifecycleLockFreshRoundTrip: on a marker-free box the lifecycle
+// acquisition creates its own marker and release removes exactly that one.
+func TestUpgraderLifecycleLockFreshRoundTrip(t *testing.T) {
+	dir := upgraderFixture(t, upgraderTestTemplate)
+	installFakeSystemd(t)
+	if err := runUpgraderStop(dir); err != nil {
+		t.Fatal(err)
+	}
+	if upgrade.IsFlockHeld(dir) {
+		t.Fatal("the lifecycle lock must be released after a successful stop")
+	}
+	if flag, _ := readUpgradeMarker(dir); flag != "" {
+		t.Fatalf("the lifecycle marker must be removed afterwards, got %s", flag)
+	}
+}
+
+func readUpgradeMarker(dir string) (string, error) {
+	data, err := os.ReadFile(filepath.Join(dir, "tmp", "upgrade-in-progress.json"))
+	if os.IsNotExist(err) {
+		return "", nil
+	}
+	return string(data), err
+}
+
+// ── H1: the ACTIVE unit wins over a merely-installed file ──────────────────
+
+// TestResolveUpgraderInstanceStagedHandover (H1): the post-upgrade fixup
+// writes+enables the new unit while the legacy unit still runs (handoff
+// deferred or failed). Resolution must address the RUNNING legacy unit, so
+// stop/status/quiesce never hit the inactive new unit and report a false
+// success.
+func TestResolveUpgraderInstanceStagedHandover(t *testing.T) {
+	upgraderFixture(t, upgraderTestTemplate)
+	f := installFakeSystemd(t)
+
+	// Both unit files exist; the legacy unit is the one actually running.
+	if err := os.WriteFile(legacyUpgraderUserUnitPath(), []byte("old"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(unitfloor.UserUnitPath(), []byte(upgraderTestTemplate), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	legacy := f.unit("statbus-upgrade@test.service")
+	legacy.activeState = "active"
+	legacy.mainPID = 4242
+
+	if got := resolveUpgraderInstance(); got != "statbus-upgrade@test.service" {
+		t.Fatalf("staged-handover box must resolve to the RUNNING legacy unit, got %q", got)
+	}
+
+	// Once the handover's start lands, the new unit wins.
+	newUnit := f.unit("statbus-upgrader@test.service")
+	newUnit.activeState = "active"
+	newUnit.mainPID = 4343
+	if got := resolveUpgraderInstance(); got != "statbus-upgrader@test.service" {
+		t.Fatalf("with the new unit active, resolution must prefer it, got %q", got)
+	}
+}
+
+// TestUpgraderStopStopsTheRunningLegacyUnit (H1): in the staged-handover state
+// `sb upgrader stop` stops the RUNNING legacy unit, not the inactive new one.
+func TestUpgraderStopStopsTheRunningLegacyUnit(t *testing.T) {
+	dir := upgraderFixture(t, upgraderTestTemplate)
+	f := installFakeSystemd(t)
+	if err := os.WriteFile(legacyUpgraderUserUnitPath(), []byte("old"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(unitfloor.UserUnitPath(), []byte(upgraderTestTemplate), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	legacy := f.unit("statbus-upgrade@test.service")
+	legacy.activeState = "active"
+	legacy.mainPID = 4242
+
+	if err := runUpgraderStop(dir); err != nil {
+		t.Fatal(err)
+	}
+	if legacy.activeState != "inactive" || legacy.mainPID != 0 {
+		t.Fatalf("the running legacy unit must be stopped (state=%s pid=%d)", legacy.activeState, legacy.mainPID)
+	}
+}
+
+// TestUpgraderStatusVerdict pins the scriptable exit code (review F4): 0 only
+// when the upgrader is installed, active and runs the ./sb on disk.
+func TestUpgraderStatusVerdict(t *testing.T) {
+	match := true
+	mismatch := false
+	cases := []struct {
+		name    string
+		obs     upgraderObservation
+		wantErr bool
+	}{
+		{"no systemd to judge exits 0", upgraderObservation{}, false},
+		{"healthy", upgraderObservation{instance: "statbus-upgrader@test.service", loadState: "loaded", activeState: "active", matchesDisk: &match}, false},
+		{"not installed", upgraderObservation{instance: "statbus-upgrader@test.service", loadState: "not-found"}, true},
+		{"inactive", upgraderObservation{instance: "statbus-upgrader@test.service", loadState: "loaded", activeState: "inactive"}, true},
+		{"different program", upgraderObservation{instance: "statbus-upgrader@test.service", loadState: "loaded", activeState: "active", matchesDisk: &mismatch}, true},
+		{"deleted program", upgraderObservation{instance: "statbus-upgrader@test.service", loadState: "loaded", activeState: "active", exeDeleted: true}, true},
+		{"unreadable comparison stays 0", upgraderObservation{instance: "statbus-upgrader@test.service", loadState: "loaded", activeState: "active"}, false},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			err := upgraderStatusVerdict(tc.obs)
+			if tc.wantErr && err == nil {
+				t.Fatal("want a non-zero verdict")
+			}
+			if !tc.wantErr && err != nil {
+				t.Fatalf("want exit 0, got %v", err)
+			}
+		})
+	}
+}
