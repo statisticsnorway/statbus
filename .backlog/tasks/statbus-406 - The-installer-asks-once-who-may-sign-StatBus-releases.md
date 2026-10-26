@@ -1,10 +1,10 @@
 ---
 id: STATBUS-406
 title: The installer asks once whether to trust the Statistics Norway release signer
-status: In Progress
+status: Done
 assignee: []
 created_date: '2026-09-24 15:35'
-updated_date: '2026-10-15 20:25'
+updated_date: '2026-10-26 13:25'
 labels:
   - release-bug
   - install
@@ -42,7 +42,7 @@ Every StatBus release is signed, and the installer only accepts releases signed 
 - [x] #1 One plain trust question shows the signer and fingerprint before anything is saved (`TestFreshUnattendedConfigThenTrust`; real guest transcript in STATBUS-474)
 - [x] #2 The saved answer satisfies the later Trusted signers step and every rerun, with no second prompt and no additional-signer loop (`TestInteractiveSignerQuestionHasOneOwnerAndNoAdditionalLoop`, `TestTrustGitHubUserRunsBeforeDispatch`)
 - [x] #3 A real interactive install on a PTY asks the signer question exactly once and completes (`0-interactive-setup-choices.sh`, green 2026-10-08, STATBUS-474)
-- [ ] #4 [Owner] Decide whether web-interface management of further release signers is still wanted, and record it in Implementation Notes. Yes: file it as a new ticket, then check this and set Done. No: check this and set Done.
+- [x] #4 [Owner] Decide whether web-interface management of further release signers is still wanted, and record it in Implementation Notes. Yes: file it as a new ticket, then check this and set Done. No: check this and set Done.
 <!-- AC:END -->
 
 ## Implementation Notes
@@ -52,4 +52,7 @@ Every StatBus release is signed, and the installer only accepts releases signed 
 - **AC1-2:** green locally on master, 2026-10-15.
 - **AC3:** the scenario still carries `HARNESS_SKIP_DEFAULT`, so it is not in the default release gate; its one run is the local 2026-10-08 guest recorded on STATBUS-474.
 - **Superseded criterion:** the restyle named `0-interactive-trusted-signer.sh`, never written; `0-interactive-setup-choices.sh` covers it.
+
+### Owner decision 2026-10-26: no web-interface signer management
+Not built unless someone asks for it and there is a need. Adding a signer stays a deliberate command-line act on the box (`./sb upgrade trust-key`).
 <!-- SECTION:NOTES:END -->
