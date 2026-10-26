@@ -61,7 +61,9 @@ source "$LIB_DIR/data-helpers.sh"
 source "$LIB_DIR/wedge-helpers.sh"
 source "$LIB_DIR/assertions.sh"
 
-UNIT="$(upgrade_unit_name)"
+# STATBUS-527: this scenario crosses the unit rename (release baseline install,
+# then HEAD install below), so no cached unit name can be right for both legs.
+# Resolve per call via upgrade_unit_name at every use, after the guest exists.
 UNIT_TEMPLATE_FILE="\$HOME/.config/systemd/user/statbus-upgrader@.service"
 
 trap '
@@ -82,7 +84,7 @@ echo "── initial install at $INSTALL_VERSION ──"
 install_statbus_in_vm "$VM_NAME" "$INSTALL_VERSION"
 assert_health_passes "$VM_NAME"
 
-UNIT_STATE=$(VM_EXEC systemctl --user is-active "$UNIT" 2>/dev/null | tr -d ' \r\n' || echo "?")
+UNIT_STATE=$(VM_EXEC systemctl --user is-active "$(upgrade_unit_name)" 2>/dev/null | tr -d ' \r\n' || echo "?")
 if [ "$UNIT_STATE" != "active" ]; then
     echo "✗ unit not active after install (state=$UNIT_STATE)" >&2
     exit 1
@@ -107,7 +109,7 @@ echo "── simulating unit drift (WatchdogSec→240, TimeoutStartSec→90) ─
 # ($HOME/.config/...) causing sed to target the Mac path (/Users/jhf/...) which
 # does not exist on the VM → sed rc=2. The ssh-stdin heredoc avoids this entirely.
 {
-    echo "UNIT='$UNIT'"
+    echo "UNIT='$(upgrade_unit_name)'"
     cat <<'DRIFT_SETUP'
 set -e
 U="$HOME/.config/systemd/user/statbus-upgrader@.service"
@@ -119,8 +121,8 @@ DRIFT_SETUP
 sleep 3
 
 # RED precondition: the running unit now reports the drifted timers.
-WD_DRIFT=$(VM_EXEC systemctl --user show "$UNIT" --property=WatchdogUSec --value 2>/dev/null | tr -d ' \r\n' || echo "?")
-TS_DRIFT=$(VM_EXEC systemctl --user show "$UNIT" --property=TimeoutStartUSec --value 2>/dev/null | tr -d ' \r\n' || echo "?")
+WD_DRIFT=$(VM_EXEC systemctl --user show "$(upgrade_unit_name)" --property=WatchdogUSec --value 2>/dev/null | tr -d ' \r\n' || echo "?")
+TS_DRIFT=$(VM_EXEC systemctl --user show "$(upgrade_unit_name)" --property=TimeoutStartUSec --value 2>/dev/null | tr -d ' \r\n' || echo "?")
 echo "  drifted running unit: WatchdogUSec=$WD_DRIFT TimeoutStartUSec=$TS_DRIFT"
 # WatchdogSec=240 → systemd reports "4min" (≠ repo 2min); TimeoutStartUSec=90s → "1min 30s".
 if [ "$WD_DRIFT" != "4min" ]; then
@@ -156,8 +158,8 @@ echo "  ✓ on-disk unit byte-identical to repo template (rewritten)"
 
 # (2) the RUNNING unit reports the repo timers — proving the rewrite was
 # re-armed (restarted), not left inert.
-WD_FIXED=$(VM_EXEC systemctl --user show "$UNIT" --property=WatchdogUSec --value 2>/dev/null | tr -d ' \r\n' || echo "?")
-TS_FIXED=$(VM_EXEC systemctl --user show "$UNIT" --property=TimeoutStartUSec --value 2>/dev/null | tr -d ' \r\n' || echo "?")
+WD_FIXED=$(VM_EXEC systemctl --user show "$(upgrade_unit_name)" --property=WatchdogUSec --value 2>/dev/null | tr -d ' \r\n' || echo "?")
+TS_FIXED=$(VM_EXEC systemctl --user show "$(upgrade_unit_name)" --property=TimeoutStartUSec --value 2>/dev/null | tr -d ' \r\n' || echo "?")
 echo "  reconciled running unit: WatchdogUSec=$WD_FIXED TimeoutStartUSec=$TS_FIXED"
 # Repo is WatchdogSec=120 / TimeoutStartSec=120 → systemd reports "2min".
 if [ "$WD_FIXED" != "2min" ]; then

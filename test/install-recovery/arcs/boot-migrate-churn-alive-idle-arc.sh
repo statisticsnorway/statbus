@@ -83,7 +83,12 @@ source "$LIB_DIR/assertions.sh"
 source "$LIB_DIR/arc-helpers.sh"
 source "$LIB_DIR/arc-state-assertions.sh"
 
-UPGRADE_UNIT="$(upgrade_unit_name)"
+# STATBUS-527 B3b: the arc base is the candidate's own install, whose upgrader
+# unit already carries the renamed unit, so bind the literal. Resolving via
+# upgrade_unit_name here would run before arc_prepare_box creates the guest,
+# and its VM_EXEC probe would fall back to the legacy name. Rename-crossing
+# paths resolve per call via upgrade_unit_name after provisioning instead.
+UPGRADE_UNIT="statbus-upgrader@statbus.service"
 FLAG_PATH="tmp/upgrade-in-progress.json"
 
 _dump_churn_failure_diagnostics() {

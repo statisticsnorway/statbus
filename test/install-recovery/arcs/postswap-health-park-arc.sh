@@ -105,7 +105,12 @@ INSTALL_BUDGET_S="${INSTALL_BUDGET_S:-900}"
 # One RestartSec=30 cycle + boot (~2s observed) + margin — the designed
 # auto-restart hold-off after the parking pass's own exit(1), not a bug.
 UNIT_ACTIVE_WAIT_BUDGET_S="${UNIT_ACTIVE_WAIT_BUDGET_S:-90}"
-UPGRADE_UNIT="$(upgrade_unit_name)"
+# STATBUS-527 B3a: the arc base is the candidate's own install, whose upgrader
+# unit already carries the renamed unit, so bind the literal. This line runs
+# before lib/assertions.sh is sourced and before the guest exists, so calling
+# upgrade_unit_name here exits 127 under set -euo pipefail. Rename-crossing
+# paths resolve per call via upgrade_unit_name after provisioning instead.
+UPGRADE_UNIT="statbus-upgrader@statbus.service"
 CALLBACK_LOG="/tmp/health-park-callback-log.txt"
 
 : "${BASE_SHA:?BASE_SHA required}"

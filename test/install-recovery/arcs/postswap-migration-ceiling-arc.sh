@@ -68,7 +68,12 @@ TICK_WAIT_S="${TICK_WAIT_S:-120}"
 MIDPOINT_WAIT_BUDGET_S="${MIDPOINT_WAIT_BUDGET_S:-60}"
 ORPHAN_GONE_BUDGET_S="${ORPHAN_GONE_BUDGET_S:-30}"
 CEILING_TIMEOUT="${CEILING_TIMEOUT:-20s}"
-UPGRADE_UNIT="$(upgrade_unit_name)"
+# STATBUS-527 B3a: the arc base is the candidate's own install, whose upgrader
+# unit already carries the renamed unit, so bind the literal. This line runs
+# before lib/assertions.sh is sourced and before the guest exists, so calling
+# upgrade_unit_name here exits 127 under set -euo pipefail. Rename-crossing
+# paths resolve per call via upgrade_unit_name after provisioning instead.
+UPGRADE_UNIT="statbus-upgrader@statbus.service"
 
 : "${BASE_SHA:?BASE_SHA required}"
 : "${B_FULL:?B_FULL required}"

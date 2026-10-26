@@ -36,7 +36,12 @@ TICK_WAIT_S="${TICK_WAIT_S:-120}"
 # row → it would hang to UPGRADE_BUDGET_S (1200s = 20min). Normal claim is ~80s (the
 # startup-scan / ≤30s tick); 180s is comfortable headroom yet ≪ 1200s → RED in ~3min.
 CLAIM_BUDGET_S="${CLAIM_BUDGET_S:-180}"
-UNIT="$(upgrade_unit_name)"
+# STATBUS-527 B3a: the arc base is the candidate's own install, whose upgrader
+# unit already carries the renamed unit, so bind the literal. This line runs
+# before lib/assertions.sh is sourced and before the guest exists, so calling
+# upgrade_unit_name here exits 127 under set -euo pipefail. Rename-crossing
+# paths resolve per call via upgrade_unit_name after provisioning instead.
+UNIT="statbus-upgrader@statbus.service"
 
 : "${BASE_SHA:?BASE_SHA required}"
 : "${B_FULL:?B_FULL required}"

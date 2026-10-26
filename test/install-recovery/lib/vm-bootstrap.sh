@@ -2122,7 +2122,15 @@ printf 'captured\tdocker-compose-ps\tdocker compose --profile all ps -a\t%s\n' "
 sudo -i -u statbus -- bash -c 'cd ~/statbus && docker compose logs --tail 300' > "$capture_dir/docker-compose-logs.txt" 2>&1
 printf 'captured\tdocker-compose-logs\tdocker compose logs --tail 300\t%s\n' "$(wc -c < "$capture_dir/docker-compose-logs.txt" | tr -d ' ')" >> "$index"
 statbus_uid=$(id -u statbus)
-if sudo -u statbus env XDG_RUNTIME_DIR="/run/user/$statbus_uid" DBUS_SESSION_BUS_ADDRESS="unix:path=/run/user/$statbus_uid/bus" journalctl --user --no-pager -n 300 -u "$(upgrade_unit_name)" > "$capture_dir/upgrade-unit-journal.txt" 2>&1; then
+# STATBUS-527 B3c: this payload executes on the GUEST, where the harness's
+# upgrade_unit_name helper does not exist, so resolve the unit here with the
+# same unit-file test the helper uses (the post-rename file wins when both
+# exist, matching a mid-migration box).
+upgrader_unit=statbus-upgrade@statbus.service
+if [ -e /home/statbus/.config/systemd/user/statbus-upgrader@.service ]; then
+    upgrader_unit=statbus-upgrader@statbus.service
+fi
+if sudo -u statbus env XDG_RUNTIME_DIR="/run/user/$statbus_uid" DBUS_SESSION_BUS_ADDRESS="unix:path=/run/user/$statbus_uid/bus" journalctl --user --no-pager -n 300 -u "$upgrader_unit" > "$capture_dir/upgrade-unit-journal.txt" 2>&1; then
     printf 'captured\tupgrade-unit-journal\tstatbus user journal\t%s\n' "$(wc -c < "$capture_dir/upgrade-unit-journal.txt" | tr -d ' ')" >> "$index"
 else
     printf 'missing\tupgrade-unit-journal\tstatbus user journal\tcommand-failed (see upgrade-unit-journal.txt)\n' >> "$index"

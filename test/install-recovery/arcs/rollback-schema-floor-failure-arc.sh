@@ -13,7 +13,12 @@ VM_NAME="${1:-statbus-arc-rollback-floor-failure}"
 TICK_WAIT_S="${TICK_WAIT_S:-120}"
 HISTORICAL_FLOOR=20260907120000
 INJECT_CLASS=rollback-floor-reapply
-UPGRADE_UNIT="$(upgrade_unit_name)"
+# STATBUS-527 B3a: the arc base is the candidate's own install, whose upgrader
+# unit already carries the renamed unit, so bind the literal. This line runs
+# before lib/assertions.sh is sourced and before the guest exists, so calling
+# upgrade_unit_name here exits 127 under set -euo pipefail. Rename-crossing
+# paths resolve per call via upgrade_unit_name after provisioning instead.
+UPGRADE_UNIT="statbus-upgrader@statbus.service"
 # This arc rides the ordinary candidate base (BASE_SHA, the standard arc input).
 # B comes from the candidate-based failing lineage and
 # therefore carries current STATBUS-354 code, the floor migration, and the final

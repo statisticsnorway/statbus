@@ -78,7 +78,11 @@ source "$LIB_DIR/wedge-helpers.sh"
 source "$LIB_DIR/assertions.sh"
 
 RELEASE_FILE="/tmp/stall-release"
-DROPIN_DIR="\$HOME/.config/systemd/user/$(upgrade_unit_name).d"
+# STATBUS-527 B3b: this scenario installs HEAD, whose upgrader unit carries the
+# renamed unit, so bind the literal. Resolving via upgrade_unit_name here would
+# run before bootstrap_install_test_vm creates the guest, and its VM_EXEC probe
+# would fall back to the legacy name, so the drop-in would never apply.
+DROPIN_DIR="\$HOME/.config/systemd/user/statbus-upgrader@statbus.service.d"
 DROPIN_FILE="$DROPIN_DIR/inject.conf"
 
 trap '

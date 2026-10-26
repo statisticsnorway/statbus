@@ -70,7 +70,12 @@ INSTALL_BUDGET_S="${INSTALL_BUDGET_S:-900}"
 TICK_WAIT_S="${TICK_WAIT_S:-120}"
 INJECT_CLASS="killed-by-system-during-individual-migration-execution"
 KILL_MARKER="/tmp/arc-killonce-mid-migration"
-UPGRADE_UNIT="$(upgrade_unit_name)"
+# STATBUS-527 B3a: the arc base is the candidate's own install, whose upgrader
+# unit already carries the renamed unit, so bind the literal. This line runs
+# before lib/assertions.sh is sourced and before the guest exists, so calling
+# upgrade_unit_name here exits 127 under set -euo pipefail. Rename-crossing
+# paths resolve per call via upgrade_unit_name after provisioning instead.
+UPGRADE_UNIT="statbus-upgrader@statbus.service"
 
 : "${BASE_SHA:?BASE_SHA required}"
 : "${B_FULL:?B_FULL required}"

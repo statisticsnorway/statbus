@@ -128,7 +128,12 @@ source "$LIB_DIR/wedge-helpers.sh"
 source "$LIB_DIR/assertions.sh"
 source "$LIB_DIR/arc-helpers.sh"
 
-UPGRADE_UNIT="$(upgrade_unit_name)"
+# STATBUS-527 B3b: the arc base is the candidate's own install, whose upgrader
+# unit already carries the renamed unit, so bind the literal. Resolving via
+# upgrade_unit_name here would run before arc_prepare_box creates the guest,
+# and its VM_EXEC probe would fall back to the legacy name. Rename-crossing
+# paths resolve per call via upgrade_unit_name after provisioning instead.
+UPGRADE_UNIT="statbus-upgrader@statbus.service"
 FILL_FILE="tmp/arc-diskfill.bin"
 # Siren (park-callback) log + the alive-idle settle budget (mirrors the health-park
 # arc — the RestartSec=30 auto-restart hold-off must elapse before "alive-idle" is
