@@ -3,10 +3,10 @@ id: STATBUS-413
 title: >-
   A push that changes only generated doc/db files rides the parent green runs
   and retags its images
-status: In Progress
+status: Done
 assignee: []
 created_date: '2026-09-24 23:55'
-updated_date: '2026-10-26 19:31'
+updated_date: '2026-10-26 22:15'
 labels:
   - release-bug
   - ci
@@ -47,7 +47,7 @@ The exemption is narrow by design. Hand-written files elsewhere under `doc/db/`,
 - [x] #1 Only generated `doc/db/{table,view,function}/` paths join `.backlog/` as exempt; hand-written `doc/db/` files, other docs, code, migrations, mixed commits and the policy file itself are not (`TestFileIsCIExempt_AnchoredPrefixNotSubstring`, `TestChangedFilesAllExempt_OneOffenderForbidsTheRide`, `TestCIExemptPathsFile_IsNotItselfExempt`)
 - [x] #2 The Go and app workflow `paths-ignore` lists match the exempt list (`TestPathsIgnoreMatchesExemptList_STATBUS224`)
 - [x] #3 The release gate rides only a green first-parent ancestor and refuses a red or missing one (`TestFindExemptRide_*`)
-- [ ] #4 A genuine, naturally occurring push changes only generated doc/db/{table,view,function}/ files (no artificial proof commit, owner 2026-10-26): Go and app workflows do not run, Images retags the parent, and release preflight rides the parent's green runs. Record parent/tip SHAs and run IDs here, check this, and set Done
+- [x] #4 A genuine, naturally occurring push changes only generated doc/db/{table,view,function}/ files (no artificial proof commit, owner 2026-10-26): Go and app workflows do not run, Images retags the parent, and release preflight rides the parent's green runs. Record parent/tip SHAs and run IDs here, check this, and set Done
 - [x] #5 [Owner] Decided 2026-10-26: wait for a natural doc/db-only push; do not manufacture one. Observation is criterion 4
 <!-- AC:END -->
 
@@ -66,4 +66,6 @@ It shipped in the same merge as STATBUS-420 (completed, so not editable here) an
 The retired-role string guard (`TestRetiredUpgradeRoleAppearsNowhere`, cli/cmd/upgrade_role_retired_test.go) is deleted. Owner's analysis, confirmed by the coordinator: the test over-fires (the string in commentary or generated SQL is not the harm) and under-fires (the same design error under a different key name passes). It guards one historical string, not a principle; the design decision lives in the STATBUS-307 ticket and git history, and review is the actual gate. With the guard gone, this ticket's blocker is dissolved: doc/db-only pushes may ride the exemption list on their own merits, after verifying no OTHER Go test or build step consumes doc/db/ (memo: tmp/q1-docdb-exemption.md).
 
 2026-10-26 owner: wait for a natural doc/db-only push. The remaining criterion and Zoom in now say so explicitly; no artificial proof commit.
+
+AC4 observed naturally on 2026-10-26. Parent 00753cd25c01, tip 83ea8f412733 (a genuine generated doc/db/view-only commit from release preparation). At the tip, Go Test and app build & lint did not run. Images run 40409938630 completed success: app, db, worker, sb and proxy each ran the 'Retag parent's images' job; build and manifest were skipped. The independent seed job ran its incremental seed path, which is separate from the AC4 retag assertion. Release preflight in statbus_test/tmp/rc-check-4.log rode parent green runs: Go Test 40409689291 and app build & lint 40409688976, naming the parent and the 1 exempt-only commit. No artificial proof commit was made.
 <!-- SECTION:NOTES:END -->
