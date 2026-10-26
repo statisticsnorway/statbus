@@ -964,15 +964,9 @@ chmod 600 caddy/data/custom-certs/domain.key
 
 StatBus includes an upgrader that automatically checks for new releases, downloads Docker images, and applies upgrades with backup and rollback support.
 
-### Enabling the Upgrade Service
+### Enabling the upgrader
 
-Enable the upgrader via systemd:
-
-```bash
-sudo systemctl enable --now statbus-upgrader@<slot>.service
-```
-
-Replace `<slot>` with your deployment slot code (e.g., `local`, `no`, `demo`). The service file is at `ops/statbus-upgrader.service`.
+`./sb install` installs, enables and starts the upgrader as the user-level systemd unit `statbus-upgrader@$USER.service`; `./sb upgrader install` writes and enables the unit on its own, and `./sb upgrader start|stop|status` manage it. The unit template is at `ops/statbus-upgrader.service`.
 
 ### Configuration
 
