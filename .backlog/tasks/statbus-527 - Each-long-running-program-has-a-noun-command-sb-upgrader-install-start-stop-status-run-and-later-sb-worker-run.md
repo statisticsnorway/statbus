@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-10-26 11:22'
-updated_date: '2026-10-26 11:31'
+updated_date: '2026-10-26 12:42'
 labels:
   - cli
   - upgrade
@@ -61,15 +61,17 @@ Each long-running StatBus program has a noun name, and `sb` has one command grou
 - [ ] #2 The unit is `statbus-upgrader@.service`. On a box with the old unit, `./sb install` leaves exactly one unit, the new one, running; a Go test with a recorded systemd state covers the migration
 - [ ] #3 Operator-facing text, help and docs say "the upgrader". Each remaining `statbus-upgrade@` or "upgrade service" reference describes the old unit on purpose
 - [ ] #4 The help for `./sb install` says it sets up or repairs this box at the version on disk, and names `install.sh` and `sb upgrade apply` as the ways to change version
-- [ ] #5 In a real guest, a box installed by the previous release is upgraded by self-upgrade to a candidate with this change. It ends with only `statbus-upgrader@` active, running the installed `./sb`, and `sb upgrader status` says so. Run ID recorded in Implementation Notes
-- [ ] #6 STATBUS-093 records that the Go worker's long-running command is `sb worker run`
-- [ ] #7 Code review of the diff finds a single implementation of unit writing and of start/stop: the "Upgrade service" step in `./sb install` calls the same functions as `sb upgrader install|start|stop`
-- [ ] #8 `sb upgrade service` still starts the upgrader, as a hidden alias, and a test proves it
-- [ ] #9 [Owner] Decide when the `sb upgrade service` alias is removed. A follow-up ticket for that is filed, and its ID is recorded in this ticket's Implementation Notes
+- [ ] #5 STATBUS-093 records that the Go worker's long-running command is `sb worker run`
+- [ ] #6 Code review of the diff finds a single implementation of unit writing and of start/stop: the "Upgrade service" step in `./sb install` calls the same functions as `sb upgrader install|start|stop`
+- [ ] #7 `sb upgrade service` still starts the upgrader, as a hidden alias, and a test proves it
+- [ ] #8 [Owner] Decide when the `sb upgrade service` alias is removed. A follow-up ticket for that is filed, and its ID is recorded in this ticket's Implementation Notes
+- [ ] #9 The existing `0-happy-upgrade` scenario, which installs the previous release (old unit) and self-upgrades to the candidate, asserts after the upgrade: only `statbus-upgrader@` exists and is active, `statbus-upgrade@` is gone, and `sb upgrader status` reports the installed `./sb`. Proven by that scenario's run in the candidate's release gate, or the same scenario on the per-commit image; no one-off script. Run ID recorded in Implementation Notes
 <!-- AC:END -->
 
 ## Implementation Notes
 
 <!-- SECTION:NOTES:BEGIN -->
 2026-10-26: delegated to a K3 worker (implementation through real-guest proof); Claude Opus 5.5 reviews when done.
+
+2026-10-26 owner: keep the rename (one-time migration, one canonical name). Proof goes through the existing harness (0-happy-upgrade assertions), not a one-off guest run. The switch from the old unit to the new one happens only while the upgrader holds the upgrade lock, so it never stops itself mid-upgrade.
 <!-- SECTION:NOTES:END -->
