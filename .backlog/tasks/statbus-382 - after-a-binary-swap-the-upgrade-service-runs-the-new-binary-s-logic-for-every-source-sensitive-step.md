@@ -4,13 +4,14 @@ title: Source-sensitive upgrade work runs only in the program installed on disk
 status: In Progress
 assignee: []
 created_date: '2026-09-22 17:01'
-updated_date: '2026-10-23 21:05'
+updated_date: '2026-10-26 11:23'
 labels:
   - owner-decision
   - upgrade
   - recovery
   - cli
-dependencies: []
+dependencies:
+  - STATBUS-527
 priority: high
 type: bug
 ordinal: 24
@@ -82,4 +83,10 @@ An earlier edit today replaced these criteria with D-only ones; they are restore
 - Stopping under the lock cannot interrupt an upgrade: the lock means no upgrade is in flight.
 - The self-upgrade handoff (exit 42) is unchanged.
 - Open: confirm this shape, then implement, test in a real guest, close.
+
+### 2026-10-26: naming decided, 382 waits for STATBUS-527
+- The owner chose noun commands for long-running programs: `sb upgrader run|install|start|stop|status` (STATBUS-527), and `sb worker run` after STATBUS-093.
+- 382's shape, unchanged from 2026-10-23: while `./sb install` holds the upgrade lock, it runs `sb upgrader stop`. It runs `sb upgrader start` only after a successful install, so a failed install leaves the upgrader stopped. 382 uses 527's `stop` and `start` rather than its own copy, and replaces the restart at install exit (0267851e9, `install_stale_daemon.go`).
+- Correction to 2026-10-23: a hand-copied `sb` does not change the version. The source code on disk sets the version, and `./sb install` brings `./sb` back in line with it. A version change goes through `install.sh` or `sb upgrade apply`.
+- AC1 and AC3 are settled when this lands: a stale upgrader is stopped under the lock and restarted on the installed `./sb`, so it never claims work. AC2 is the real-guest check.
 <!-- SECTION:NOTES:END -->
