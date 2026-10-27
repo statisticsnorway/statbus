@@ -89,7 +89,7 @@ if VM_EXEC bash -c 'grep -q ^TLS_CERT_FILE= ~/install-input.env'; then
     echo 'FAIL: answer file carries TLS_CERT_FILE; the installer-input provenance proof is void' >&2
     exit 1
 fi
-grep -Eq '^\[[0-9]+/[0-9]+\] Certificate +OK' "$INSTALL_CAPTURE" || { echo 'FAIL: the Certificate step did not run OK' >&2; exit 1; }
+grep -Eq '^\[[0-9]+/[0-9]+\] Certificate +DONE' "$INSTALL_CAPTURE" || { echo 'FAIL: the Certificate step did not run to completion' >&2; exit 1; }
 grep -Fq '✓ Files placed:' "$INSTALL_CAPTURE" || { echo 'FAIL: the Certificate step did not place the certificate files' >&2; exit 1; }
 grep -Fq '✓ .env.config updated (TLS_CERT_FILE=/data/custom-certs/domain.crt, TLS_KEY_FILE=/data/custom-certs/domain.key)' "$INSTALL_CAPTURE" || { echo 'FAIL: the Certificate step did not write the container paths into .env.config' >&2; exit 1; }
 TLS_CERT=$(VM_EXEC bash -c "cd ~/statbus && ./sb dotenv -f .env.config get TLS_CERT_FILE")

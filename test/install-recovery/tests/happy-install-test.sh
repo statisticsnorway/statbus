@@ -18,7 +18,7 @@ install_statbus_at_sha() {
     local log="${HARNESS_ROOT:-$TMP_ROOT}/tmp/install-recovery-$1-install.log"
     mkdir -p "$(dirname "$log")"
     {
-        printf '[8/19] Certificate         OK\n'
+        printf '[8/19] Certificate         DONE\n'
         printf '✓ Files placed: /home/statbus/statbus/caddy/data/custom-certs/domain.crt, /home/statbus/statbus/caddy/data/custom-certs/domain.key\n'
         printf '✓ .env.config updated (TLS_CERT_FILE=/data/custom-certs/domain.crt, TLS_KEY_FILE=/data/custom-certs/domain.key)\n'
     } > "$log"
