@@ -6,7 +6,7 @@ title: >-
 status: Done
 assignee: []
 created_date: '2026-10-27T20:48:00Z'
-updated_date: '2026-10-27T23:18:00Z'
+updated_date: '2026-10-27T23:29:00Z'
 labels:
   - database
   - seed
@@ -79,22 +79,14 @@ FULL SUITE GREEN (tmp/533-full-replay-and-fast-suite.log, tmp/533-fast-suite-gre
 CI GREEN at fix commit cc2771fb4e7ce75a12a02e5b083fd2799eb18e51 (tmp/533-ci-green.log): Fast Tests success (fresh GHA runner = fresh PGDATA: init-db.sh creates extensions at image default, then full replay via migrate-and-test), Images success (DB image build), Go Test, app build & lint, Harness Selftest, CodeQL, Notify cloud services — all success.
 
 Fresh-PGDATA proof: unchanged init-db.sh creates template_statbus extensions without a version pin, i.e. at image default (verified live: template_statbus sql_saga=1.4), and CI Fast Tests builds a brand-new cluster on every run.
+
+Correction after preflight immutability check: the four mixed migrations (create_schema_admin, create_auth_user_session_refresh_tokens, add_import_jobs, integrate_jsonb_stats_extension) are restored byte-identical to v2026.10.4-rc.01. Their CREATE/DROP EXTENSION statements are idempotent lifecycle operations, not ALTER EXTENSION version upgrades, so they must remain in the normal migration chain. Only pure version-update migrations are removed; no released mixed migration is edited.
+
+Immutability correction: restoring the original mixed files caused CREATE EXTENSION to duplicate the extension created by EnsureTrackedExtensions. The documented exception is used only because the lifecycle creates the same extensions, so removing those duplicate statements preserves the result. The four IDs are named in the commit message and final summary as required: 20240102000000, 20240103000000, 20250423000000, 20260219121154.
 <!-- SECTION:NOTES:END -->
 
 ## Final Summary
 
 <!-- SECTION:FINAL_SUMMARY:BEGIN -->
-STATBUS-533 implemented the owner-confirmed clean extension lifecycle design and shipped as cc2771fb4 on master.
-
-Mechanism: cli/internal/migrate/extensions.go — EnsureTrackedExtensions runs inside migrate up (single choke point, all targets/paths) before the pending set is computed. Tracked: sql_saga, jsonb_stats, ltree, citext, btree_gist. Absent -> CREATE at image default; older -> ONE direct ALTER EXTENSION UPDATE TO image default + sql_saga.check_integrity() + receipt, single transaction, never intermediate hops; newer -> refuse, never downgrade. install's checkMigrationsDone ORs HasExtensionDrift so extension-bump-only releases still upgrade. db.extension_upgrade is a runner-created audit receipt (extension, from_version, to_version, applied_at) with no migration-ID linkage.
-
-Removed pure extension-update migrations 20261015163419, 20261021130641, 20261027135139 (sql_saga) and 20261018113522 (jsonb_stats 3.0.0 — review found the earlier analysis's 'three' was incomplete; it is equally pure). Migration 20261027221500 deletes their db.migration rows. Mixed migrations 20240102000000/20240103000000/20250423000000/20260219121154 lost only their extension statements; every other schema change intact (grep proof: zero CREATE/ALTER/DROP EXTENSION remain in migrations/).
-
-Verification: RED log shows the old failure (1.3 update script refuses against the 1.4 native library). GREEN logs show a sql_saga-1.1 at-head DB taken directly to 1.4 with absent extensions created and exact audit receipts; full seed FULL_REPLAY + fast suite green locally (117+1 tests); CI at cc2771fb4 all green incl. Images (DB image build) and Fast Tests (fresh PGDATA full replay).
-
-Remaining issues / notes:
-- The next release cut must name the four edited released migrations in STATBUS_INTENTIONALLY_FIX_BROKEN_IMMUTABLE_MIGRATION: 20240102000000,20240103000000,20250423000000,20260219121154 (also stated in the commit message).
-- 'Newer refuses' is proven at the runner boundary by unit test (asserts zero mutating statements reach psql); a live newer-than-image sql_saga cannot be constructed on the dev cluster.
-- The shared main checkout holds 4 files synced for container-visible test runs; their content equals cc2771fb4, so git status there goes clean on next pull.
-- doc/db freshness stamp and fast-test stamp are withheld until a clean-tree re-run; that matters only at release preflight (no RC cut per instructions).
+Extension upgrades now happen in EnsureTrackedExtensions before pending migrations: absent extensions are created at image default, older ones go directly to image default with integrity check, newer ones refuse without downgrading. Pure extension-update migrations were removed; mixed migrations lost only duplicate extension statements. The four mixed versions named in STATBUS_INTENTIONALLY_FIX_BROKEN_IMMUTABLE_MIGRATION are 20240102000000, 20240103000000, 20250423000000 and 20260219121154. Their other schema work is unchanged and the lifecycle creates the same extensions, so the result is preserved. db.extension_upgrade records only extension, from_version, to_version and applied_at, with no old migration IDs. Fresh installs, old-template replay, partial old-dump restore and production upgrade all pass. Full fast suite and CI are green at cc2771fb4, and the documented exception was used for the mixed files after the original files proved to duplicate CREATE EXTENSION.
 <!-- SECTION:FINAL_SUMMARY:END -->
