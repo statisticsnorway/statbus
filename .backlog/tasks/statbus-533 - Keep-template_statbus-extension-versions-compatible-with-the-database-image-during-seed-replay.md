@@ -3,10 +3,10 @@ id: STATBUS-533
 title: >-
   Keep template_statbus extension versions compatible with the database image
   during seed replay
-status: In Progress
+status: Done
 assignee: []
 created_date: '2026-10-27T20:48:00Z'
-updated_date: '2026-10-27T22:27:00Z'
+updated_date: '2026-10-27T23:18:00Z'
 labels:
   - database
   - seed
@@ -41,10 +41,10 @@ The owner approved removing the old extension-update migrations and their IDs ra
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 [Owner] Approved removal of old extension-update migrations and a separate extension lifecycle step before normal migrations, recorded in Implementation Notes
-- [ ] #2 Before pending migrations are computed, the actual target DB creates an absent extension at image default, directly updates an older one with integrity check, and refuses a newer one without downgrading; old-template replay, partial old-dump restore and production upgrade all pass
-- [ ] #3 Pure extension-update migrations and their db.migration rows are removed. Mixed migrations lose only their extension-upgrade part and keep every other schema change. No registry, satisfied_migrations, at-head exemption or special redo path exists
-- [ ] #4 db.extension_upgrade records only extension, from_version, to_version and applied_at. The full fast suite and CI including the database image build are green at the fix commit
+- [x] #1 [Owner] Approved removal of old extension-update migrations and a separate extension lifecycle step before normal migrations, recorded in Implementation Notes
+- [x] #2 Before pending migrations are computed, the actual target DB creates an absent extension at image default, directly updates an older one with integrity check, and refuses a newer one without downgrading; old-template replay, partial old-dump restore and production upgrade all pass
+- [x] #3 Pure extension-update migrations and their db.migration rows are removed. Mixed migrations lose only their extension-upgrade part and keep every other schema change. No registry, satisfied_migrations, at-head exemption or special redo path exists
+- [x] #4 db.extension_upgrade records only extension, from_version, to_version and applied_at. The full fast suite and CI including the database image build are green at the fix commit
 <!-- AC:END -->
 
 ## Implementation Notes
@@ -71,4 +71,30 @@ GREEN (tmp/533-green-direct-update.log + tmp/533-green-verify.log): scratch DB w
 UNIT (tmp/533-unit-tests.log): fake-psql boundary tests prove absent->create at image default, older->exactly one direct ALTER + integrity check + receipt, newer->refusal with zero mutating statements (never downgrade), equal->untouched; HasExtensionDrift true for absent/older/newer, false at default; compareExtensionVersions ordering incl. refusal on non-numeric.
 
 MIXED (tmp/533-mixed-migration-diff.log): only extension statements removed from the four mixed migrations; grep proves no CREATE/ALTER/DROP EXTENSION remains anywhere in migrations/.
+
+2026-10-27: full fast suite green locally and CI green at cc2771fb4 (Go Test, app build & lint, Images, Harness Selftest, Fast Tests run 40599141928). db.extension_upgrade is runner-created with only id, extension, from_version, to_version, applied_at; no old migration IDs. doc/data-model.md, db-security-report.md, test/sql/015 and expected ER/doc outputs updated accordingly.
+
+FULL SUITE GREEN (tmp/533-full-replay-and-fast-suite.log, tmp/533-fast-suite-green.log): seed rebuilt FULL_REPLAY from zero — the lifecycle step created jsonb_stats 3.0.0 / ltree 1.3 / citext 1.8 at image default before migrations; all 421 migrations incl. the stripped mixed ones and cleanup 20261027221500 applied; fast suite initially flagged db.extension_upgrade in the three schema-inventory tests (002 ER diagram, 008 db-security-report, 015 data-model doc) — fixed by registering the table in the 015 helper patterns and regenerating the three committed artifacts; final run: all 117 shared + isolated tests pass.
+
+CI GREEN at fix commit cc2771fb4e7ce75a12a02e5b083fd2799eb18e51 (tmp/533-ci-green.log): Fast Tests success (fresh GHA runner = fresh PGDATA: init-db.sh creates extensions at image default, then full replay via migrate-and-test), Images success (DB image build), Go Test, app build & lint, Harness Selftest, CodeQL, Notify cloud services — all success.
+
+Fresh-PGDATA proof: unchanged init-db.sh creates template_statbus extensions without a version pin, i.e. at image default (verified live: template_statbus sql_saga=1.4), and CI Fast Tests builds a brand-new cluster on every run.
 <!-- SECTION:NOTES:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+STATBUS-533 implemented the owner-confirmed clean extension lifecycle design and shipped as cc2771fb4 on master.
+
+Mechanism: cli/internal/migrate/extensions.go — EnsureTrackedExtensions runs inside migrate up (single choke point, all targets/paths) before the pending set is computed. Tracked: sql_saga, jsonb_stats, ltree, citext, btree_gist. Absent -> CREATE at image default; older -> ONE direct ALTER EXTENSION UPDATE TO image default + sql_saga.check_integrity() + receipt, single transaction, never intermediate hops; newer -> refuse, never downgrade. install's checkMigrationsDone ORs HasExtensionDrift so extension-bump-only releases still upgrade. db.extension_upgrade is a runner-created audit receipt (extension, from_version, to_version, applied_at) with no migration-ID linkage.
+
+Removed pure extension-update migrations 20261015163419, 20261021130641, 20261027135139 (sql_saga) and 20261018113522 (jsonb_stats 3.0.0 — review found the earlier analysis's 'three' was incomplete; it is equally pure). Migration 20261027221500 deletes their db.migration rows. Mixed migrations 20240102000000/20240103000000/20250423000000/20260219121154 lost only their extension statements; every other schema change intact (grep proof: zero CREATE/ALTER/DROP EXTENSION remain in migrations/).
+
+Verification: RED log shows the old failure (1.3 update script refuses against the 1.4 native library). GREEN logs show a sql_saga-1.1 at-head DB taken directly to 1.4 with absent extensions created and exact audit receipts; full seed FULL_REPLAY + fast suite green locally (117+1 tests); CI at cc2771fb4 all green incl. Images (DB image build) and Fast Tests (fresh PGDATA full replay).
+
+Remaining issues / notes:
+- The next release cut must name the four edited released migrations in STATBUS_INTENTIONALLY_FIX_BROKEN_IMMUTABLE_MIGRATION: 20240102000000,20240103000000,20250423000000,20260219121154 (also stated in the commit message).
+- 'Newer refuses' is proven at the runner boundary by unit test (asserts zero mutating statements reach psql); a live newer-than-image sql_saga cannot be constructed on the dev cluster.
+- The shared main checkout holds 4 files synced for container-visible test runs; their content equals cc2771fb4, so git status there goes clean on next pull.
+- doc/db freshness stamp and fast-test stamp are withheld until a clean-tree re-run; that matters only at release preflight (no RC cut per instructions).
+<!-- SECTION:FINAL_SUMMARY:END -->
