@@ -1492,6 +1492,7 @@ erDiagram
 		name uk_update_trigger
 		name uk_delete_trigger
 		name fk_index_name
+		name uk_truncate_trigger
 	}
 	sql_saga_history_policy_sync_guard["sql_saga.history_policy_sync_guard"] {
 		integer backend_pid
