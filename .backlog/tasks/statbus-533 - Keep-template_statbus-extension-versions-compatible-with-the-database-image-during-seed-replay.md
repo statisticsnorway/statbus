@@ -3,10 +3,10 @@ id: STATBUS-533
 title: >-
   Keep template_statbus extension versions compatible with the database image
   during seed replay
-status: To Do
+status: In Progress
 assignee: []
 created_date: '2026-10-27T20:48:00Z'
-updated_date: '2026-10-27T20:49:00Z'
+updated_date: '2026-10-27T22:02:00Z'
 labels:
   - database
   - seed
@@ -22,30 +22,27 @@ ordinal: 459204
 
 <!-- SECTION:DESCRIPTION:BEGIN -->
 ### North Star
-A database image with a newer sql_saga can rebuild the seed on any existing development volume. The template database's extension version follows the image, so a released migration never runs against an incompatible native library.
+Extension upgrades happen in their own lifecycle step, before normal migrations. Normal migrations contain schema changes only. No migration ever tries to run an old extension update against a newer native library.
 
 ### Zoom out
-STATBUS-531 exposed this remaining design gap: a long-lived `template_statbus` still had sql_saga 1.1 while the image provided 1.4. The era guard correctly chose FULL_REPLAY, but the template fork then reached the released 1.3 migration, whose native-library guard correctly refused the 1.4 libraries. The template was repaired manually with a direct `ALTER EXTENSION sql_saga UPDATE TO '1.4'`. Fresh installs and app-database upgrades work, but the next extension bump would recreate the replay failure on an old volume.
+The owner approved removing the old extension-update migrations and their IDs rather than building a compatibility registry. `db.migration` is for ordinary schema migrations. `db.extension_upgrade` is only an audit receipt for the direct extension upgrade event, with `extension`, `from_version`, `to_version` and `applied_at`. There is no `satisfied_migrations` list, no registry of retired IDs, no at-head exemption and no special redo behavior.
 
 ### Zoom in
-Choose one way to keep the template compatible before migration replay:
-- Align forked database extensions to the image's `pg_available_extensions` defaults after `CREATE DATABASE ... WITH TEMPLATE`, or
-- Have the database container entrypoint upgrade template extensions on boot when the image default is newer, before writers start.
-
-The upstream direct-update path must be preserved: do not hop through older extension versions with a newer native library, and do not edit released STATBUS migrations or weaken upstream guards. Include the case where several extension versions are behind, not only 1.1 -> 1.4.
-
-Evidence: tmp/531-template-version.log, tmp/531-template-repair.log, tmp/531-test-fast.log. Ticket 531 has the full diagnosis.
+- Before pending migrations are computed, the runner handles each tracked extension on the actual target DB: absent means create at the image default; older means go directly to the image default using upstream's update script and integrity check; newer means refuse, never downgrade. Fresh installs, old template replays, partial old-dump restores and production upgrades all use this same step.
+- Pure extension-update migrations are removed entirely. If a migration does extension upgrading AND other work, only the extension-upgrade part is removed; every other schema change in that file stays and runs normally. The split is by responsibility, not by file.
+- `db.migration` and any existing rows for pure extension-update migrations are removed along with the files. There is no compatibility registry and no fake history for those IDs.
+- Future extension bumps update the image pin and use this lifecycle step, not a new migration file.
 
 ### Closing review
-- **Memory:** the template/image version rule is in the chosen definition comment and this ticket.
-- **Documentation:** the migration procedure explains how the container keeps the template compatible.
-- **Cleanup:** no manual template-repair step remains necessary for normal development.
+- **Memory:** the owner-approved split is in this ticket and the runner comments.
+- **Documentation:** the migration procedure says where extension upgrades happen and why normal migrations never contain them.
+- **Cleanup:** no `satisfied_migrations`, retired-ID registry, at-head exemption or special redo path remains.
 <!-- SECTION:DESCRIPTION:END -->
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 [Owner] Choose seed create-db alignment versus container-entrypoint upgrade. Record the choice in Implementation Notes and the chosen definition comment, including what it means for migration replay and application writers
-- [ ] #2 A long-lived template at an older extension version reaches the image's current version before any migration runs, using the upstream direct-update path
-- [ ] #3 Fresh PGDATA, a template several versions behind, and an app database at the previous extension version all complete migration and integrity checks without a manual ALTER EXTENSION step
-- [ ] #4 The full fast suite passes after an extension bump on the long-lived template, and CI including the database image build is green at the fix commit
+- [ ] #1 [Owner] Approved removal of old extension-update migrations and a separate extension lifecycle step before normal migrations, recorded in Implementation Notes
+- [ ] #2 Before pending migrations are computed, the actual target DB creates an absent extension at image default, directly updates an older one with integrity check, and refuses a newer one without downgrading; old-template replay, partial old-dump restore and production upgrade all pass
+- [ ] #3 Pure extension-update migrations and their db.migration rows are removed. Mixed migrations lose only their extension-upgrade part and keep every other schema change. No registry, satisfied_migrations, at-head exemption or special redo path exists
+- [ ] #4 db.extension_upgrade records only extension, from_version, to_version and applied_at. The full fast suite and CI including the database image build are green at the fix commit
 <!-- AC:END -->
