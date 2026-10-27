@@ -15,6 +15,9 @@
 #                       be the country the installer's own list names for "et".
 #   - Country code:     Enter. The suggestion must be "et", accepted at once
 #                       (no not-a-country-code warning, no re-ask).
+#   - Certificate offer: Enter ([no], the default) to continue with automatic
+#                       certificates (STATBUS-429). A supplied certificate may
+#                       instead be installed later with ./sb cert install.
 #   - Release signer:   Enter ([Y/n], default yes) for jhf.
 #   Any other question fails the run: a development question means the mode
 #   default was not standalone, a first-administrator question means the
@@ -41,10 +44,9 @@
 #     and the upgrader unit is active.
 #   Each mismatch prints the expected and the arrived value.
 #
-# CERTIFICATE (an assumption about the harness, stated here so it is visible):
-# the questionnaire does not ask for a certificate (that is STATBUS-399's
-# design), so this install's Caddy starts with automatic ACME for a domain no
-# public CA can reach. install.sh places the harness certificate files in
+# CERTIFICATE: the questionnaire offers an optional certificate (STATBUS-429).
+# This scenario answers its default "no", so the install starts with automatic
+# certificates. install.sh stages the harness certificate files in
 # caddy/data/custom-certs (STATBUS_HARNESS_CERT_STAGING, as every harness
 # standalone install does), and the scenario then selects them with
 # `./sb cert install`, the documented operator step, and only then checks
@@ -53,9 +55,9 @@
 # base issues it for statbus-test.local only; the Hetzner path already issues
 # it for HARNESS_SITE_DOMAIN).
 #
-# STATUS: UNRUN. Written for STATBUS-474 and never executed on a guest. Its
-# first run on the LXD fleet waits on the owner's decision about the scenario
-# catalogue's CI cost.
+# STATUS: proven on a real guest on 2026-10-08 (see ticket). Updated 2026-10-27
+# for STATBUS-429's optional certificate question, which this scenario declines.
+# The LXD fleet's first run still waits on the owner's catalogue decision.
 # HARNESS_SKIP_DEFAULT: on demand only (run.sh and lxd/run-forks.sh skip any
 # scenario containing this marker), so it adds nothing to the default RC
 # fault gate. Remove this marker once a real run has gone green and the owner
@@ -178,11 +180,11 @@ if {[info exists env(SETUP_CHOICES_INSTALLER)]} { set installer $env(SETUP_CHOIC
 match_max 262144
 set prompts_file "$env(HOME)/setup-choices-prompts.txt"
 log_file -noappend "$env(HOME)/setup-choices-transcript.txt"
-array set asked {mode 0 domain 0 name 0 code 0 trust 0}
+array set asked {mode 0 domain 0 name 0 code 0 cert 0 trust 0}
 
 proc asked_summary {} {
     global asked
-    return "mode=$asked(mode) domain=$asked(domain) country-name=$asked(name) country-code=$asked(code) signer=$asked(trust)"
+    return "mode=$asked(mode) domain=$asked(domain) country-name=$asked(name) country-code=$asked(code) certificate-offer=$asked(cert) signer=$asked(trust)"
 }
 proc fail {msg} {
     puts stderr "\nSETUP-CHOICES FAIL: $msg"
@@ -256,10 +258,19 @@ expect {
         record "unexpected administrator question" $expect_out(buffer)
         fail "the first-administrator question was asked although STATBUS_USERS_FILE was supplied"
     }
+    -re {Do you have a certificate to install now\? \(yes/no\) \[([^]\r\n]*)\]: } {
+        incr asked(cert)
+        set buf $expect_out(buffer)
+        record "certificate offer" $buf
+        if {$asked(cert) > 1} { fail "the certificate offer was asked again: Enter did not accept the default ($buf)" }
+        expect_value "certificate default" no $expect_out(1,string)
+        send "\r"
+        exp_continue
+    }
     -re {Trust key\(s\) from github\.com/([A-Za-z0-9-]+)\? \[Y/n\] } {
         incr asked(trust)
         record "release signer" $expect_out(buffer)
-        foreach k {mode domain name code} {
+        foreach k {mode domain name code cert} {
             if {$asked($k) != 1} { fail "the signer question came before every setup question was asked exactly once" }
         }
         expect_value "release signer offered" $want_signer $expect_out(1,string)
@@ -317,9 +328,8 @@ chmod 0600 "$HOME/setup-choices.exp"
     printf '#!/usr/bin/env bash\nset -euo pipefail\ncd "$HOME"\n'
     # No answers file: the point is the interactive questions. The users file
     # is supplied so the first-administrator questions are not part of this run.
-    # The harness certificate is staged the way every harness standalone
-    # install stages it (install.sh places it in caddy/data/custom-certs);
-    # the questionnaire does not select it, `./sb cert install` does, below.
+    # The optional certificate offer is answered with its default "no" below;
+    # the harness certificate is then installed explicitly with ./sb cert install.
     printf 'unset STATBUS_ENV_CONFIG\n'
     printf 'export STATBUS_INSTALL_VERSION=%q STATBUS_USERS_FILE=/tmp/users.yml STATBUS_MIN_DISK_GB=5 GIT_TERMINAL_PROMPT=0\n' "$1"
     printf 'export STATBUS_HARNESS_CERT_STAGING="$HOME/harness-certs"\n'
@@ -402,7 +412,7 @@ EXPECTED_BINARY="sb version $INSTALL_TARGET_TAG (commit ${TARGET_SHA:0:8})"
 echo "  ✓ installed binary: $BINARY_IDENTITY"
 
 echo ""
-echo "── operator installs the certificate (the questionnaire does not ask for one) ──"
+echo "── operator installs the certificate (the questionnaire's offer was declined) ──"
 CERT_LOG=$(mktemp)
 VM_EXEC bash -c "cd ~/statbus && ./sb cert install /home/statbus/harness-certs/domain.crt /home/statbus/harness-certs/domain.key" >"$CERT_LOG" 2>&1 || {
     cat "$CERT_LOG" >&2

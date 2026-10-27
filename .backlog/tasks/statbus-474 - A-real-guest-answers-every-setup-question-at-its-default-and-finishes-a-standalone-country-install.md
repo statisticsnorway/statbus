@@ -5,8 +5,8 @@ title: >-
   standalone country install
 status: In Progress
 assignee: []
-created_date: '2026-10-08 15:16'
-updated_date: '2026-10-20 20:45'
+created_date: 2026-10-08 15:16
+updated_date: '2026-10-27T22:07:00Z'
 labels:
   - install
   - installer
@@ -156,4 +156,6 @@ ONE OBSERVATION FOR THE OWNER (not fixed here; it is not a question this ticket 
 NOT CHANGED: the committed scenario (its header still says STATUS: UNRUN, and HARNESS_SKIP_DEFAULT stays as instructed), the default gate, and product code. The LXD-fleet run named in the precondition chain remains the owner's funding decision. This local run is the observation.
 
 2026-10-15 vetting: the precondition chain above (written before the run) called the LXD-fleet run 'the real run' and said 'Not Done until that run is green'. Superseded: the 2026-10-08 local guest run is the real-guest proof (AC1-3 checked). What remains is only the catalogue decision in AC4; either answer closes the ticket.
+
+2026-10-27: updated the PTY scenario for STATBUS-429's optional certificate question. The driver now records certificate-offer, asserts default no exactly once, requires it before the signer, and keeps the users-file scope explicit. Red: tmp/474-cert-prompt-red.log (old driver failed on the new question). Green: tmp/474-cert-prompt-green.log (default no accepted, every setup question exactly once, Installation complete). Full offline harness selftest passed (tmp/474-harness-green.log). AC4's default-vs-on-demand catalogue decision remains open.
 <!-- SECTION:NOTES:END -->
