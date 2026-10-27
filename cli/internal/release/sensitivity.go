@@ -275,6 +275,81 @@ func dedupeSensitivityRules(rules []sensitivityRule) []sensitivityRule {
 	return out
 }
 
+// DisplayPathspec returns the repository-relative paths an operator should
+// hand to `git log` / `git diff` to inspect exactly the changes a scenario
+// home's coverage check is sensitive to (STATBUS-532). It is computed FROM
+// the same inputs the check itself consults — the checked-in broad policy
+// plus the home-specific rules scenarioSensitivityRules adds — never
+// discovered from the tree and never invented for display.
+//
+// Two deliberate compressions, both honest supersets of what the check
+// matches, so the printed command never hides a change the check would see:
+//
+//   - The broad `cli` payload rule is shown as checked in. For a real
+//     anchor→target decision the evaluator replaces it with the derived
+//     box-command closure (box_closure.go), which only ever NARROWS it, so
+//     the displayed directory covers everything the closure would match.
+//   - Per-scenario own-file rules (one exact path per arc) collapse to the
+//     scenario home directory, which names the same files without one list
+//     entry per scenario. Smoke keeps its two exact files: its domain is
+//     fixed, so the exact list stays short.
+//
+// Prefix rules render as `<path>*`: git's default pathspec matching treats
+// the trailing `*` as a wildcard, which is the policy's anchored-prefix
+// meaning. The result is sorted and deduplicated for a stable command line.
+func DisplayPathspec(projDir string, home Workflow) ([]string, error) {
+	if home != WorkflowArcs && home != WorkflowSmoke {
+		return nil, fmt.Errorf("no display pathspec for %s: only %s and %s run per-scenario checks", home, WorkflowArcs, WorkflowSmoke)
+	}
+	broad, err := loadSensitivityPolicy(projDir)
+	if err != nil {
+		return nil, err
+	}
+
+	rules := append([]sensitivityRule(nil), broad...)
+	switch home {
+	case WorkflowArcs:
+		// A generic arc carries the shared home rules; the two named arcs add
+		// their scenario-specific harness inputs (see scenarioSensitivityRules).
+		for _, name := range []string{"arc", "failing", "deploy-status-proof"} {
+			specific, err := scenarioSensitivityRules(Scenario{Name: name, Home: WorkflowArcs})
+			if err != nil {
+				return nil, err
+			}
+			for _, rule := range specific {
+				if rule.Reason == ReasonOwnScenario {
+					rule = sensitivityRule{Kind: matchDirectory, Path: strings.TrimSuffix(arcDir, "/"), Reason: ReasonOwnScenario}
+				}
+				rules = append(rules, rule)
+			}
+		}
+	case WorkflowSmoke:
+		for _, scenario := range SmokeDomain().Scenarios {
+			specific, err := scenarioSensitivityRules(scenario)
+			if err != nil {
+				return nil, err
+			}
+			rules = append(rules, specific...)
+		}
+	}
+
+	seen := make(map[string]struct{}, len(rules))
+	out := make([]string, 0, len(rules))
+	for _, rule := range rules {
+		p := rule.Path
+		if rule.Kind == matchPrefix {
+			p += "*"
+		}
+		if _, ok := seen[p]; ok {
+			continue
+		}
+		seen[p] = struct{}{}
+		out = append(out, p)
+	}
+	sort.Strings(out)
+	return out, nil
+}
+
 // MatchSensitivePath classifies one repository-relative path for the full
 // scenario identity. It returns at most one, most-specific stable reason.
 func MatchSensitivePath(projDir string, scenario Scenario, changedPath string) (SensitiveChange, bool, error) {

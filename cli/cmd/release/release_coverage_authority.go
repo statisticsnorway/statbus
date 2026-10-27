@@ -66,10 +66,12 @@ type coverageBlockedGroup struct {
 //     answer binds, not how it is fetched.
 //
 //  3. REFUSALS NAME WHAT THEY EXAMINED. Per scenario: a covered-by verdict
-//     names its Anchor; blocked scenarios stay individually named while the
-//     workflow summary names the shared anchor and file count, with each
-//     distinct (anchor, file-set) listed once under --verbose; a not-covered
-//     verdict with no BlockedBy says how many candidates were walked and found
+//     names its Anchor; blocked scenarios are counted in the workflow summary
+//     (named inline when few, under --verbose when many) while the summary
+//     names the shared anchor and changed-file count, and the offered git
+//     commands inspect that anchor→target range with the same hard-coded
+//     pathspec the check itself watches (STATBUS-532); a not-covered verdict
+//     with no BlockedBy says how many candidates were walked and found
 //     nothing; any EvidenceErrors (candidates that could not be read) are named
 //     on their own line, whether or not the scenario ultimately resolved — an
 //     operator auditing a refusal must be able to tell "nothing was there" from
@@ -85,20 +87,20 @@ type coverageBlockedGroup struct {
 // (defense in depth; both current callers already refuse earlier via their
 // own domain derivation, which is itself an error on empty rather than an
 // empty slice, so this branch is a backstop, not the live path).
-func runCoverageAuthority(projDir, rcTag, rcCommit, rcShort string, domain release.Domain) bool {
+func runCoverageAuthority(projDir, rcTag, rcCommit, rcShort string, domain release.Domain) gateVerdict {
 	workflow := domain.Workflow.String()
 	requiredScenarios := domain.Scenarios
 	if len(requiredScenarios) == 0 {
 		fmt.Printf("  ✗ %s: the scenario domain at %s is EMPTY — refusing rather than trivially passing (STATBUS-216)\n", workflow, rcShort)
-		fmt.Println("    A per-scenario coverage decision over zero scenarios is trivially yes. The domain derivation is broken, not the coverage.")
-		return false
+		fmt.Println("    A per-scenario check over zero scenarios is trivially yes. The domain derivation is broken, not the evidence.")
+		return gateFailed
 	}
 
 	evaluator, evalErr := newCoverageEvaluator(projDir, rcCommit)
 	if evalErr != nil {
-		fmt.Printf("  ✗ %s: could not initialize the shared coverage evaluator\n", workflow)
+		fmt.Printf("  ✗ %s: could not initialize the scenario check\n", workflow)
 		fmt.Printf("    Error: %v\n", evalErr)
-		return false
+		return gateFailed
 	}
 
 	results := make([]coverageAuthorityScenario, 0, len(requiredScenarios))
@@ -123,28 +125,50 @@ func runCoverageAuthority(projDir, rcTag, rcCommit, rcShort string, domain relea
 	}
 	passed := len(notCovered) == 0 && len(errored) == 0
 	blockedGroups, blockedCount, blockedAnchors := groupBlockedCoverage(notCovered)
-
-	mark, verb := "✓", "PASSES"
-	if !passed {
-		mark, verb = "✗", "REFUSES"
-	}
 	coveredCount := len(provenHere) + len(coveredBy)
-	switch {
-	case passed || blockedCount == 0:
-		// Green output and non-blocked refusal vocabulary are intentionally
-		// unchanged. STATBUS-346 only reshapes the noisy blocked-by-diff case.
-		fmt.Printf("  %s %s %s: %d/%d scenario(s) covered at %s (%d proven here, %d inherited from a prior anchor)\n",
-			mark, workflow, verb, coveredCount, len(requiredScenarios), rcShort, len(provenHere), len(coveredBy))
-	case len(blockedGroups) == 1:
-		group := blockedGroups[0]
-		fmt.Printf("  ✗ %s REFUSES: %d/%d scenario(s) covered at %s (%d blocked by %s, %d sensitive files changed since it)\n",
-			workflow, coveredCount, len(requiredScenarios), rcShort, blockedCount, group.Anchor, len(group.SensitiveChanges))
-	case len(blockedAnchors) == 1:
-		fmt.Printf("  ✗ %s REFUSES: %d/%d scenario(s) covered at %s (%d blocked by %s, %d distinct sensitive files changed since it across %d file sets)\n",
-			workflow, coveredCount, len(requiredScenarios), rcShort, blockedCount, firstBlockedAnchor(blockedAnchors), countDistinctBlockedPaths(blockedGroups), len(blockedGroups))
-	default:
-		fmt.Printf("  ✗ %s REFUSES: %d/%d scenario(s) covered at %s (%d blocked across %d anchors, %d distinct sensitive files changed since them)\n",
-			workflow, coveredCount, len(requiredScenarios), rcShort, blockedCount, len(blockedAnchors), countDistinctBlockedPaths(blockedGroups))
+
+	// A concluded run at the TARGET commit decides which icon the not-passed
+	// state wears: still running → pending (⏳); concluded non-success → an
+	// observed failure (✗). Checked once per invocation, only when there is
+	// something left to explain, and only against the target commit — an
+	// in-flight or failed run at an older anchor is not actionable here.
+	//
+	// NOT free via the evidence memo: checkWorkflowAtCommit issues its own
+	// unconditional HTTP GET against .../actions/workflows/{workflow}/runs
+	// (see the STATBUS-256 note this comment replaces for the verification).
+	// It is still cheap: one call, at most once per gate invocation, spent
+	// only on the not-passed path.
+	var targetRun *release.WorkflowCheckResult
+	if len(notCovered) > 0 {
+		if r := checkWorkflowAtCommit(workflow, rcCommit); r.Status == release.WorkflowCheckPending || r.Status == release.WorkflowCheckFailed {
+			rc := r
+			targetRun = &rc
+		}
+	}
+
+	if passed {
+		fmt.Printf("  ✓ %s: %d/%d scenarios have passed at %s (%d at this commit, %d inherited from a prior RC)\n",
+			workflow, coveredCount, len(requiredScenarios), rcShort, len(provenHere), len(coveredBy))
+	} else {
+		mark := "⏳"
+		if len(errored) > 0 || (targetRun != nil && targetRun.Status == release.WorkflowCheckFailed) {
+			mark = "✗"
+		}
+		var summary strings.Builder
+		fmt.Fprintf(&summary, "  %s %s: %d/%d scenarios have passed at %s",
+			mark, workflow, coveredCount, len(requiredScenarios), rcShort)
+		anchors := sortedAnchors(blockedAnchors)
+		switch {
+		case blockedCount == 0:
+			// Plain not-covered: no anchor was ever found rideable.
+		case len(anchors) == 1:
+			fmt.Fprintf(&summary, ". Results from %s cannot be reused because %s used by these scenarios changed.",
+				anchors[0], pluralFiles(countDistinctBlockedPaths(blockedGroups)))
+		default:
+			fmt.Fprintf(&summary, ". Results from earlier RCs cannot be reused because files used by these scenarios changed since %s.",
+				strings.Join(anchors, ", "))
+		}
+		fmt.Println(summary.String())
 	}
 
 	// Unreadable candidates are named regardless of how the scenario
@@ -167,76 +191,99 @@ func runCoverageAuthority(projDir, rcTag, rcCommit, rcShort string, domain relea
 		}
 	}
 
-	// STATBUS-256 regression guard (architect, 2026-08-31): if a scenario is
-	// not covered because its run at the target commit is still IN PROGRESS,
-	// telling the operator to trigger another run dispatches a DUPLICATE of
-	// one already going — exactly the anti-pattern 256 removed from the
-	// exempt-ride gate. Checked ONCE per invocation, only when there is
-	// something to refuse (never spent on a clean pass), and only against
-	// the TARGET commit — an in-flight run at an older anchor is not
-	// actionable for THIS gate invocation.
-	//
-	// NOT free via the evidence memo, corrected from the architect's
-	// hypothesis: checkWorkflowAtCommit (workflow_check.go's checkWorkflowAt)
-	// issues its own unconditional HTTP GET against
-	// .../actions/workflows/{workflow}/runs?head_sha=... — it does not read
-	// through runsAtCommitMemoized/jobsForRunMemoized (evidence.go), whose
-	// memo those functions alone populate. Verified by reading both call
-	// paths, not assumed. It is still cheap: one extra call, at most once per
-	// gate invocation, spent only on the refusal path.
-	var targetPending *release.WorkflowCheckResult
-	if len(notCovered) > 0 {
-		if r := checkWorkflowAtCommit(workflow, rcCommit); r.Status == release.WorkflowCheckPending {
-			rc := r
-			targetPending = &rc
-		}
-	}
-
+	// Not-passed scenarios render in plain words by state (STATBUS-532).
+	// Blocked names COLLAPSE: the 2026-10-26 preflight printed all 33 arc
+	// names with a ✗ each plus a repeated changed-file count per scenario.
+	// The count is in the summary; a handful of names fit on one line;
+	// anything longer is listed under --verbose.
+	var blockedNames, inProgress []string
 	for _, r := range notCovered {
 		switch {
 		case r.Verdict.BlockedBy != "":
-			if len(blockedAnchors) == 1 {
-				fmt.Printf("    ✗ %s\n", r.Scenario)
-			} else {
-				fmt.Printf("    ✗ %s (anchor %s)\n", r.Scenario, r.Verdict.BlockedBy)
+			name := r.Scenario
+			if len(blockedAnchors) > 1 {
+				name += " (anchor " + r.Verdict.BlockedBy + ")"
 			}
-		case targetPending != nil:
-			fmt.Printf("    … %s: a run is IN PROGRESS at %s — WAIT for it, do not trigger another\n", r.Scenario, rcShort)
+			blockedNames = append(blockedNames, name)
+		case targetRun != nil && targetRun.Status == release.WorkflowCheckPending:
+			inProgress = append(inProgress, r.Scenario)
 		case r.Verdict.MustRunReason != "":
-			fmt.Printf("    ✗ %s: NOT COVERED — %s\n", r.Scenario, r.Verdict.MustRunReason)
+			fmt.Printf("    ⏳ %s: no result yet — %s\n", r.Scenario, r.Verdict.MustRunReason)
 		default:
-			fmt.Printf("    ✗ %s: NOT COVERED — no evidence found within %d candidate(s) walked\n", r.Scenario, r.Verdict.CandidatesSeen)
+			fmt.Printf("    ⏳ %s: no result yet — no passed run at this commit or any of the %d earlier RC(s) checked\n", r.Scenario, r.Verdict.CandidatesSeen)
 		}
 		for _, e := range r.Verdict.EvidenceErrors {
 			fmt.Printf("        (unreadable candidate: %s)\n", e)
 		}
 	}
+	switch {
+	case len(blockedNames) > 4 && verboseFlag():
+		for _, name := range blockedNames {
+			fmt.Printf("    ⏳ %s\n", name)
+		}
+	case len(blockedNames) > 4:
+		// The summary's count carries them; --verbose lists every name.
+	case len(blockedNames) > 0:
+		fmt.Printf("    ⏳ not passed yet: %s\n", strings.Join(blockedNames, ", "))
+	}
+	switch {
+	case len(inProgress) > 4:
+		fmt.Printf("    … a run is in progress at %s covering these %d scenarios — wait for it, do not trigger another\n", rcShort, len(inProgress))
+	default:
+		for _, name := range inProgress {
+			fmt.Printf("    … %s: a run is in progress at %s — wait for it, do not trigger another\n", name, rcShort)
+		}
+	}
+
+	// The changed files are inspectable, not enumerated: one git command block
+	// per distinct anchor, with the same hard-coded pathspec the check itself
+	// watches (release.DisplayPathspec). --verbose keeps the literal list.
 	for _, group := range blockedGroups {
 		if verboseFlag() {
 			fmt.Printf("    Changed files since %s:\n", group.Anchor)
 			for _, change := range group.SensitiveChanges {
 				fmt.Printf("        %s\n", change)
 			}
-		} else {
-			fmt.Printf("    (%d changed files — re-run with --verbose to list them)\n", len(group.SensitiveChanges))
+		}
+	}
+	if !verboseFlag() {
+		for _, anchor := range sortedAnchors(blockedAnchors) {
+			printReviewCommands(projDir, domain.Workflow, anchor, rcShort)
 		}
 	}
 	for _, r := range errored {
-		fmt.Printf("    ✗ %s: COULD NOT BE EVALUATED: %v\n", r.Scenario, r.Err)
+		fmt.Printf("    ✗ %s: could not be evaluated: %v\n", r.Scenario, r.Err)
 	}
 
-	if !passed {
-		if targetPending != nil {
-			fmt.Printf("    Watch: gh run watch %d\n", targetPending.RunID)
-			fmt.Printf("    URL:   %s\n", targetPending.RunURL)
-			fmt.Println("    Fix: wait for the run to complete, then re-run stable")
-		} else {
-			fmt.Printf("    Trigger: %s\n", release.WorkflowTriggerCommand(workflow, rcTag))
-			fmt.Printf("    Watch:   %s\n", release.WorkflowURL(workflow))
-			fmt.Println("    Fix: run the trigger command above (or dispatch the specific scenario), wait for green, re-run stable")
-		}
+	if passed {
+		return gatePassed
 	}
-	return passed
+	switch {
+	case targetRun != nil && targetRun.Status == release.WorkflowCheckPending:
+		fmt.Printf("    Watch: gh run watch %d\n", targetRun.RunID)
+		fmt.Printf("    URL:   %s\n", targetRun.RunURL)
+		fmt.Println("    Next: wait for the run to complete, then re-run stable")
+		return gatePending
+	case targetRun != nil && targetRun.Status == release.WorkflowCheckFailed:
+		fmt.Printf("    The run at this commit failed (conclusion: %s) — an observed failure, not pending work.\n", targetRun.Detail)
+		fmt.Printf("    See: gh run view %d --log-failed\n", targetRun.RunID)
+		fmt.Printf("    URL: %s\n", targetRun.RunURL)
+		fmt.Println("    Next: fix the cause and push (a new RC follows), then re-run stable;")
+		fmt.Printf("      for a transient failure, retry: gh run rerun --failed %d\n", targetRun.RunID)
+		return gateFailed
+	case len(errored) > 0:
+		fmt.Println("    Next: resolve the evaluation error above, then re-run stable")
+		return gateFailed
+	default:
+		// Nothing has started. Whether a manual trigger is the right nudge
+		// depends on the orchestrator's own state for this RC.
+		predecessor := "its dev-canary step"
+		if domain.Workflow == release.WorkflowSmoke {
+			predecessor = "its smoke step"
+		}
+		printOrchestratorGuidance(workflow, rcTag, rcCommit, predecessor)
+		return gatePending
+	}
 }
 
 // groupBlockedCoverage returns one entry per distinct (anchor, file-set), plus
@@ -288,11 +335,4 @@ func countDistinctBlockedPaths(groups []coverageBlockedGroup) int {
 		}
 	}
 	return len(paths)
-}
-
-func firstBlockedAnchor(anchors map[string]struct{}) string {
-	for anchor := range anchors {
-		return anchor
-	}
-	return ""
 }

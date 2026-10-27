@@ -51,6 +51,22 @@ type canarySlot struct {
 	askWho    string
 }
 
+// display is the operator-facing slot name. The bypass label stays "no" (that
+// is what STATBUS_SKIP_CANARY parses), but the gate says "Norway" — the name
+// the operator knows the box by (STATBUS-532).
+func (s canarySlot) display() string {
+	if s.label == "no" {
+		return "Norway"
+	}
+	return s.label
+}
+
+// devAutoDeployWindow is how long the automatic canary may sit uninstalled
+// before the wait reads as a chain fault. Dev's orchestrator deploy step
+// normally lands within minutes of the RC tag; fifteen minutes leaves room
+// for a slow run without crying fault on ordinary operation (STATBUS-532).
+const devAutoDeployWindow = 15 * time.Minute
+
 // canarySlots is the canary topology: exactly two slots, covering both
 // deployment shapes and both roles.
 //
@@ -143,67 +159,150 @@ func (p canaryProbe) outcome() canaryOutcome {
 }
 
 // checkCanaryGates runs the canary observational gate for every slot,
-// honouring STATBUS_SKIP_CANARY bypasses. Returns true iff every (non-skipped)
-// slot reports a COMPLETED upgrade row for rcCommit.
+// honouring STATBUS_SKIP_CANARY bypasses. Returns gatePassed iff every
+// (non-skipped) slot reports a COMPLETED upgrade row for rcCommit;
+// gatePending when the remaining slots are waiting states; gateFailed when
+// any slot shows an observed failure.
 //
 // STATBUS-245: this adds EXPLANATION, never permission (AC#8). Exactly one
 // outcome passes — completed — and the wait never ages into a pass (AC#7). A
 // gate that timed out into green would silently delete the human canary step
 // that is the whole reason the operator slot exists.
-func checkCanaryGates(rcTag, rcCommit string) bool {
+func checkCanaryGates(rcTag, rcCommit string) gateVerdict {
 	skip := release.ParseSkipLabels(os.Getenv(release.SkipCanaryEnvVar))
-	allOK := true
+	verdict := gatePassed
 	for _, slot := range canarySlots {
 		if skip[slot.label] {
 			fmt.Println(release.FormatSkipLabelsLog(release.SkipCanaryEnvVar, slot.label))
-			fmt.Printf("  ⚠ Canary %-3s — bypass active; upgrade verification NOT confirmed for this slot\n", slot.label)
+			fmt.Printf("  ⚠ Canary %s — bypass active; upgrade verification NOT confirmed for this slot\n", slot.display())
 			continue
 		}
-		if !checkOneCanary(slot, rcTag, rcCommit) {
-			allOK = false
+		if v := checkOneCanary(slot, rcTag, rcCommit); v > verdict {
+			verdict = v
 		}
 	}
-	return allOK
+	return verdict
 }
 
-// checkOneCanary probes one slot and renders the outcome. Returns true only for
-// COMPLETED: a completed install is sufficient for every slot.
-func checkOneCanary(slot canarySlot, rcTag, rcCommit string) bool {
+// probeCanary is the ssh probe held as a package-level seam — the same
+// pattern checkWorkflowAtCommit uses — so a test can supply the box's answer
+// directly. Production never reassigns it.
+var probeCanary = runCanaryProbe
+
+// checkOneCanary probes one slot and renders the outcome in plain words:
+// ⏳ for waiting states (running, not started, or within the slot's normal
+// patience), ✗ only for an observed failure or a decision the box cannot
+// take itself. Returns gatePassed only for COMPLETED: a completed install is
+// sufficient for every slot (STATBUS-245 AC#7/AC#8 — explanation, never
+// permission; gating unchanged by STATBUS-532).
+func checkOneCanary(slot canarySlot, rcTag, rcCommit string) gateVerdict {
 	rcShort := rcCommit
 	if len(rcShort) > 12 {
 		rcShort = rcShort[:12]
 	}
 
-	probe, err := runCanaryProbe(slot, rcCommit)
+	probe, err := probeCanary(slot, rcCommit)
 	if err != nil {
-		fmt.Printf("  ✗ Canary %-3s — PROBE FAILED: could not read the box's state\n", slot.label)
+		fmt.Printf("  ✗ Canary %s — the probe failed: could not read the box's state\n", slot.display())
 		fmt.Printf("      %v\n", err)
 		fmt.Printf("      Your next move: check reachability with `ssh %s` (the gate uses BatchMode=yes, ConnectTimeout=10s, so it never prompts).\n", slot.sshTarget)
 		fmt.Printf("      This is a probe failure, NOT a verdict about the release: the box may be perfectly healthy and simply unreachable from here.\n")
-		fmt.Printf("      Bypass (records that this slot was NOT verified): %s=%s ./sb release stable\n", release.SkipCanaryEnvVar, slot.label)
-		return false
+		fmt.Printf("      Skip this canary check (leaves the slot unverified): %s=%s ./sb release stable\n", release.SkipCanaryEnvVar, slot.label)
+		return gateFailed
 	}
 
 	outcome := probe.outcome()
 	if outcome == canaryCompleted {
-		fmt.Printf("  ✓ Canary %-3s — %s: commit %s installed on %s (at %s)\n",
-			slot.label, outcome, rcShort, slot.dbName, tidyCanaryTimestamp(probe.completedAt))
+		fmt.Printf("  ✓ Canary %s — passed: commit %s installed on %s (at %s)\n",
+			slot.display(), rcShort, slot.dbName, tidyCanaryTimestamp(probe.completedAt))
 		// STATBUS-247/King's ruling (v2026.08.1 promotion): the observation
 		// CARD is discipline, not a promotion gate. A completed install on
 		// every slot (including the operator slot) is sufficient to pass.
 		// Reporting the observation still matters, but it is asked for, not
 		// enforced here.
-		return true
+		return gatePassed
 	}
 
 	// Everything below refuses. The shape differs per outcome on purpose: a
 	// pending human action must not look like a malfunction, and a failure must
 	// never look like patience (AC#3, AC#5).
-	fmt.Printf("  ✗ Canary %-3s — %s (commit %s on %s)\n", slot.label, outcome, rcShort, slot.dbName)
+	verdict := canaryWaitVerdict(slot, outcome, probe)
+	mark := "⏳"
+	if verdict == gateFailed {
+		mark = "✗"
+	}
+	fmt.Printf("  %s Canary %s — %s (commit %s on %s)\n", mark, slot.display(), canaryHeadline(slot, outcome, probe), rcShort, slot.dbName)
 	printCanaryExplanation(slot, outcome, probe, rcTag)
-	fmt.Printf("      Bypass (records that this slot was NOT verified): %s=%s ./sb release stable\n",
+	fmt.Printf("      Skip this canary check (leaves the slot unverified): %s=%s ./sb release stable\n",
 		release.SkipCanaryEnvVar, slot.label)
-	return false
+	return verdict
+}
+
+// canaryWaitVerdict classifies a non-completed outcome as pending work or an
+// observed fault (STATBUS-532). Dev's offer becomes a fault only after the
+// automatic-deploy window — a two-minute wait is the chain working, not
+// broken. Norway's wait is measured against its own 6h discovery rhythm, so
+// "not discovered yet" is its resting state, never a fault by itself.
+func canaryWaitVerdict(slot canarySlot, outcome canaryOutcome, probe canaryProbe) gateVerdict {
+	switch outcome {
+	case canaryAttemptFailed, canarySuperseded, canarySetAside:
+		// A failure needs action; superseded/set-aside need a DECISION the
+		// box cannot take itself. Neither resolves by waiting.
+		return gateFailed
+	case canaryAwaitingOperator:
+		if slot.role == roleAutomatic {
+			if waited, ok := canaryWaitDuration(probe.discoveredAt); ok && waited >= devAutoDeployWindow {
+				return gateFailed
+			}
+		}
+		return gatePending
+	default:
+		return gatePending
+	}
+}
+
+// canaryHeadline is the plain-words state on the gate line (STATBUS-532) —
+// what is actually happening, not an acronym of the probe's row.
+func canaryHeadline(slot canarySlot, outcome canaryOutcome, probe canaryProbe) string {
+	switch outcome {
+	case canaryNotOffered:
+		if slot.role == roleOperator {
+			return "has not discovered this RC"
+		}
+		return "the release chain has not offered this RC yet"
+	case canaryAwaitingOperator:
+		if slot.role == roleOperator {
+			return "waiting for a person to install it"
+		}
+		if waited, ok := canaryWaitDuration(probe.discoveredAt); ok && waited >= devAutoDeployWindow {
+			return fmt.Sprintf("found by the upgrader %s ago, but the release chain has not installed it", humaniseCanaryDuration(waited))
+		}
+		return "found by the upgrader, but not installed by the release chain yet"
+	case canaryOperatorStarted:
+		return "an install is running"
+	case canaryAttemptFailed:
+		return "the install attempt failed"
+	case canarySuperseded:
+		return "the box has moved past this candidate"
+	case canarySetAside:
+		return "this candidate was set aside on the box"
+	default:
+		return string(outcome)
+	}
+}
+
+// canaryWaitDuration is the waiting time behind a psql timestamp, or
+// ok=false when the timestamp is missing, unparseable, or in the future.
+func canaryWaitDuration(ts string) (time.Duration, bool) {
+	t, ok := parseCanaryTimestamp(ts)
+	if !ok {
+		return 0, false
+	}
+	d := time.Since(t)
+	if d < 0 {
+		return 0, false
+	}
+	return d, true
 }
 
 // printCanaryExplanation writes the reader's NEXT MOVE (AC#9). Every branch ends
@@ -226,21 +325,32 @@ func printCanaryExplanation(slot canarySlot, outcome canaryOutcome, probe canary
 
 	switch outcome {
 	case canaryNotOffered:
-		fmt.Printf("      The box has no row for this commit at all — it has not yet DISCOVERED the release.\n")
-		fmt.Print(canaryDiscoveryContext(probe))
 		if slot.role == roleOperator {
-			fmt.Printf("      Your next move: wait for the next discovery tick, or make it check now:\n")
+			// Norway's resting state: the box checks for new releases on its
+			// own interval, so "no row yet" is expected until the next check —
+			// a fault only if the next check ALSO finds nothing (STATBUS-532).
+			interval := strings.TrimSpace(probe.checkInterval)
+			if interval == "" {
+				interval = "<not recorded on this box>"
+			}
+			fmt.Printf("      The box has no upgrade row for this commit. It checks for new releases every %s, so waiting for the next check is expected, not a fault by itself.\n", interval)
+			if last := tidyCanaryTimestamp(probe.lastDiscoveryAt); last != "<unknown>" {
+				fmt.Printf("      It last found a release at %s%s. A check that finds nothing new leaves no record, so that is not the last check.\n",
+					last, canaryWaitedFor(probe.lastDiscoveryAt))
+			} else {
+				fmt.Printf("      It has no record of ever discovering a release — which points at the channel or at connectivity, not at this candidate.\n")
+			}
+			fmt.Printf("      Your next move: wait for its next release check, or make it check now:\n")
 			fmt.Printf("        ssh %s 'cd statbus && ./sb upgrade check && ./sb upgrade list'\n", slot.sshTarget)
 			// Read the RUNNING service, not .env: loadConfig() runs only at
 			// daemon startup, so the file can say one thing while the live
 			// service still follows the old channel — and a grep of the file
-			// then falsely confirms the box is fine. (The old hint here named
-			// `./sb upgrade channel` with no argument, which could only ever
-			// have errored; it required one.)
-			fmt.Printf("      If it still does not appear, the release may not be published on this box's channel — check what the RUNNING service follows with\n"+
-				"      `ssh %s \"journalctl --user -u statbus-upgrader@\\$USER -u statbus-upgrade@\\$USER | grep -E '(Upgrader|Upgrader) started' | tail -1\"`.\n", slot.sshTarget)
+			// then falsely confirms the box is fine.
+			fmt.Printf("      If it still does not appear, check what the running upgrader follows with\n"+
+				"      `ssh %s \"journalctl --user -u statbus-upgrader@\\$USER -u statbus-upgrade@\\$USER | grep -E '(Upgrader|upgrade service) started' | tail -1\"`.\n", slot.sshTarget)
 		} else {
 			fmt.Printf("      This slot is installed by the release chain, so 'not offered' points at the CHAIN, not at the box.\n")
+			fmt.Print(canaryDiscoveryContext(probe))
 			fmt.Printf("      Your next move: look at %s\n", slot.askWho)
 			fmt.Printf("        Then, to see what the box itself knows: ssh %s 'cd statbus && ./sb upgrade list'\n", slot.sshTarget)
 		}
@@ -256,11 +366,18 @@ func printCanaryExplanation(slot canarySlot, outcome canaryOutcome, probe canary
 			fmt.Printf("        The exact command they run on the box — it NAMES this candidate:\n")
 			fmt.Printf("          cd statbus && ./sb upgrade register %s && ./sb upgrade schedule %s\n", target, target)
 			fmt.Printf("        Or, if you have access yourself: %s\n", operatorInstall)
-		} else {
-			// Same row, opposite meaning.
+		} else if d, ok := canaryWaitDuration(probe.discoveredAt); ok && d >= devAutoDeployWindow {
+			// Past the automatic-deploy window: the chain had its chance.
 			fmt.Printf("      THIS IS A FAULT ON THIS SLOT: %s is installed by the release chain, so it should never sit waiting for a person.\n", slot.label)
 			fmt.Printf("      The offer has been sitting unclaimed%s, which means the chain's deploy step did not run or did not reach this box.\n", waited)
 			fmt.Printf("      Your next move: look at %s\n", slot.askWho)
+			fmt.Printf("        To see the box's side: ssh %s 'cd statbus && ./sb upgrade list'\n", slot.sshTarget)
+			fmt.Printf("        To unblock it by hand once you know why: %s\n", operatorInstall)
+		} else {
+			// Within the window the chain is still working: a young offer on
+			// dev is normal operation, not a fault (STATBUS-532).
+			fmt.Printf("      The RC has been available%s but is not installed yet. Dev should install automatically, so this is not yet a fault; investigate if it remains uninstalled beyond the normal deploy window (about %d minutes).\n", waited, int(devAutoDeployWindow.Minutes()))
+			fmt.Printf("      Your next move: inspect the Release Fleet Orchestrator run for this tag before doing anything by hand.\n")
 			fmt.Printf("        To see the box's side: ssh %s 'cd statbus && ./sb upgrade list'\n", slot.sshTarget)
 			fmt.Printf("        To unblock it by hand once you know why: %s\n", operatorInstall)
 		}

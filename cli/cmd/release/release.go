@@ -1319,7 +1319,7 @@ unstamped tests, missing seed/types/db-docs stamps, even being on a
 feature branch — none of it matters. The RC was validated; stable just
 promotes it.
 
-Commit-scope oracles (images, fast-tests, go-test, app-build-lint) are
+Commit-level checks (images, fast-tests, go-test, app-build-lint) are
 gated EARLIER, at the RC cut (prerelease preflight) — a red master
 workflow blocks at the cut, the earliest possible signal, not here.
 Stable RIDES that gating rather than re-checking it (STATBUS-199 D1).
@@ -1421,7 +1421,7 @@ SKIP_APP_BUILD_LINT) apply at the prerelease cut — see
 		fmt.Printf("  ✓ Latest RC %s (target %s) exists\n", latestRC, rcShort)
 		fmt.Printf("  ✓ Stable patch %d is next-in-sequence for %s\n", nextPatch, prefix)
 
-		// 3. Commit-scope oracles (images, fast-tests, go-test, app-build-
+		// 3. Commit-level checks (images, fast-tests, go-test, app-build-
 		//    lint) are gated EARLIER, at the RC cut (prerelease preflight)
 		//    — STATBUS-199 D1. Stable no longer re-checks them; it rides
 		//    that gating. Only checks that genuinely need the RC TAG to
@@ -1429,19 +1429,19 @@ SKIP_APP_BUILD_LINT) apply at the prerelease cut — see
 		//    test-install — their only automatic trigger IS the RC tag
 		//    push, STATBUS-205), VM smoke and upgrade arcs, the LXD fault
 		//    fleet, and canary convergence (below).
-		fmt.Println("  ✓ Commit-scope oracles (images/fast-tests/go-test/app-build-lint) were gated at the RC cut (prerelease preflight) — stable rides the RC's gating.")
-		allPassed := true
+		fmt.Println("  ✓ Commit-level checks (images, Fast Tests, Go Test, app build & lint) passed when the RC was cut.")
+		var verdicts []gateVerdict
 		// test-hardening + test-install (STATBUS-205): both fire only on
 		// the v*-rc.* tag push (+ manual dispatch), so no run can exist
 		// before the RC tag — gating them at prerelease preflight was a
 		// deadlock. They gate here, keyed on the RC's commit, with the RC
 		// tag as the dispatch ref for the Missing remedy.
-		allPassed = checkStableWorkflowGate(release.WorkflowTestHardening, "test-hardening", "SKIP_TEST_HARDENING", latestRC, rcCommit, rcShort) && allPassed
-		allPassed = checkSmokeGate(projDir, latestRC, rcCommit, rcShort) && allPassed
+		verdicts = append(verdicts, checkStableWorkflowGate(release.WorkflowTestHardening, "test-hardening", "SKIP_TEST_HARDENING", latestRC, rcCommit, rcShort))
+		verdicts = append(verdicts, checkSmokeGate(projDir, latestRC, rcCommit, rcShort))
 		// The LXD fleet runs the full fault suite against candidate-pinned bases.
 		// Its only successful conclusion is PASSED, so one whole-workflow
 		// result at this RC commit replaces per-scenario VM job marks.
-		allPassed = checkInstallRecoveryHarnessGate(projDir, latestRC, rcCommit, rcShort) && allPassed
+		verdicts = append(verdicts, checkInstallRecoveryHarnessGate(projDir, latestRC, rcCommit, rcShort))
 		// Upgrade-arc harness (STATBUS-199 D2): the 31 real-dispatch upgrade
 		// arcs (STATBUS-071) — serve-proven writers, park lifecycle, deploy
 		// honesty. Path-sensitive: an RC whose diff against the previous RC
@@ -1449,7 +1449,7 @@ SKIP_APP_BUILD_LINT) apply at the prerelease cut — see
 		// ride the newest prior FULL-SUITE green instead of requiring a
 		// fresh one (the gate computes this itself — never trusts the
 		// workflow's own short-circuit judgment call, only its own diff).
-		allPassed = checkUpgradeArcHarnessGate(projDir, latestRC, rcCommit, rcShort) && allPassed
+		verdicts = append(verdicts, checkUpgradeArcHarnessGate(projDir, latestRC, rcCommit, rcShort))
 
 		// 4. RC release artifacts MUST be present BEFORE the stable tag
 		//    is created. release.yaml (triggered by the RC's tag push)
@@ -1463,8 +1463,7 @@ SKIP_APP_BUILD_LINT) apply at the prerelease cut — see
 		//    create-then-delete dance when release.yaml was still mid-
 		//    build. Moving the gate forward restores the invariant that
 		//    nothing is tagged before everything is checked.
-		allPassed = checkRCArtifactGate(latestRC) && allPassed
-
+		verdicts = append(verdicts, checkRCArtifactGate(latestRC))
 		// 5. Canary observational gates. Verifies that the RC's commit has
 		//    actually deployed AND reached `state='completed'` on every
 		//    canary slot before we tag stable. The check observes; it does
@@ -1488,10 +1487,10 @@ SKIP_APP_BUILD_LINT) apply at the prerelease cut — see
 		//    upstream signals they depend on.
 		//
 		//    Bypass per slot: STATBUS_SKIP_CANARY=<label>[,<label>...].
-		allPassed = checkCanaryGates(latestRC, rcCommit) && allPassed
+		verdicts = append(verdicts, checkCanaryGates(latestRC, rcCommit))
 
-		if !allPassed {
-			return fmt.Errorf("pre-flight checks failed")
+		if err := concludeStablePreflight(cmd, verdicts...); err != nil {
+			return err
 		}
 
 		// 5. Tag at the RC's commit (NOT HEAD). The -s flag is explicit
@@ -1814,46 +1813,53 @@ const (
 // subset input, and its workflow concludes success only when the full suite
 // reports PASSED. A SUPERSEDED run concludes non-success even though the
 // orchestrator treats that status as neutral.
-func checkStableWorkflowGate(workflow, label, skipEnv, rcTag, rcCommit, rcShort string) bool {
+func checkStableWorkflowGate(workflow, label, skipEnv, rcTag, rcCommit, rcShort string) gateVerdict {
 	if os.Getenv(skipEnv) == "1" {
 		fmt.Printf("  ⚠ %s SKIPPED (%s=1)\n", label, skipEnv)
 		fmt.Printf("    Operator bypass — ensure %s ran via CI or by hand on this commit.\n", label)
-		return true
+		return gatePassed
 	}
 	result := checkWorkflowAtCommit(workflow, rcCommit)
 	switch result.Status {
 	case release.WorkflowCheckGreen:
-		fmt.Printf("  ✓ %s green at %s\n", label, rcShort)
+		fmt.Printf("  ✓ %s passed at %s\n", label, rcShort)
 		fmt.Printf("    Run: %s\n", result.RunURL)
-		return true
+		return gatePassed
 	case release.WorkflowCheckPending:
-		fmt.Printf("  ✗ %s is still pending at %s\n", label, rcShort)
+		fmt.Printf("  ⏳ %s is still running at %s\n", label, rcShort)
 		fmt.Printf("    Watch: gh run watch %d\n", result.RunID)
 		fmt.Printf("    URL:   %s\n", result.RunURL)
-		fmt.Println("    Fix: wait for the run to complete, then re-run stable")
-		return false
+		fmt.Println("    Next: wait for the run to complete, then re-run stable")
+		return gatePending
 	case release.WorkflowCheckFailed:
 		fmt.Printf("  ✗ %s failed at %s (conclusion: %s)\n", label, rcShort, result.Detail)
 		fmt.Printf("    See: gh run view %d --log-failed\n", result.RunID)
 		fmt.Printf("    URL: %s\n", result.RunURL)
-		fmt.Println("    Fix:")
+		fmt.Println("    Next:")
 		fmt.Printf("      Retry the failed jobs (if transient): gh run rerun --failed %d\n", result.RunID)
 		fmt.Println("      Or push a fix to master, cut a new RC, then re-run stable")
-		return false
+		return gateFailed
 	case release.WorkflowCheckMissing:
-		fmt.Printf("  ✗ %s has not run for %s\n", label, rcShort)
-		fmt.Printf("    Trigger: %s\n", release.WorkflowTriggerCommand(workflow, rcTag))
-		fmt.Printf("    Watch:   %s\n", release.WorkflowURL(workflow))
-		fmt.Println("    Fix: run the trigger command above, wait for green, re-run stable")
-		return false
+		fmt.Printf("  ⏳ %s has not run for %s\n", label, rcShort)
+		if workflow == release.WorkflowLXDFleet {
+			// The orchestrator owns this dispatch: say which of its steps the
+			// fleet is waiting on, and offer a manual trigger only when the
+			// orchestrator has finished without scheduling it (STATBUS-532).
+			printOrchestratorGuidance(workflow, rcTag, rcCommit, "its dev-canary step")
+		} else {
+			fmt.Printf("    Trigger: %s\n", release.WorkflowTriggerCommand(workflow, rcTag))
+			fmt.Printf("    Watch:   %s\n", release.WorkflowURL(workflow))
+			fmt.Println("    Next: run the trigger command above, wait for green, re-run stable")
+		}
+		return gatePending
 	case release.WorkflowCheckUnknown:
 		fmt.Printf("  ✗ %s status check failed (GitHub API error)\n", label)
 		fmt.Printf("    Detail: %s\n", result.Detail)
 		fmt.Printf("    Fix: %s\n", githubAPIErrorFix(result.Detail))
-		return false
+		return gateFailed
 	}
 	fmt.Printf("  ✗ %s returned unexpected status %q\n", label, result.Status)
-	return false
+	return gateFailed
 }
 
 // checkWorkflowAtCommit and workflowJobsComplete are held as package vars so
@@ -1877,7 +1883,7 @@ var (
 // SUPERSEDED deliberately concludes non-success (neutral to the orchestrator,
 // never promotable by this commit-scoped workflow check). The comparison.tsv
 // artifact remains diagnostic, not an independently indexed per-scenario mark.
-func checkInstallRecoveryHarnessGate(projDir, rcTag, rcCommit, rcShort string) bool {
+func checkInstallRecoveryHarnessGate(projDir, rcTag, rcCommit, rcShort string) gateVerdict {
 	return checkStableWorkflowGate(release.WorkflowLXDFleet, "lxd-fleet", "SKIP_INSTALL_RECOVERY", rcTag, rcCommit, rcShort)
 }
 
@@ -1885,10 +1891,10 @@ func checkInstallRecoveryHarnessGate(projDir, rcTag, rcCommit, rcShort string) b
 // harness gates to the fixed happy-install + happy-upgrade smoke domain. A
 // subset test-smoke run can therefore prove only the mark it actually left.
 // SKIP_TEST_INSTALL remains the operator-facing compatibility bypass.
-func checkSmokeGate(projDir, rcTag, rcCommit, rcShort string) bool {
+func checkSmokeGate(projDir, rcTag, rcCommit, rcShort string) gateVerdict {
 	if os.Getenv("SKIP_TEST_INSTALL") == "1" {
 		fmt.Println("  ⚠ test-smoke: SKIPPED via SKIP_TEST_INSTALL=1 — neither happy-path smoke fact was verified")
-		return true
+		return gatePassed
 	}
 	return runCoverageAuthority(projDir, rcTag, rcCommit, rcShort, release.SmokeDomain())
 }
@@ -1905,19 +1911,19 @@ func checkSmokeGate(projDir, rcTag, rcCommit, rcShort string) bool {
 // but decided ONE ARC AT A TIME rather than requiring one run to cover all
 // of them together). See runCoverageAuthority's doc comment for the three
 // preconditions and the AC#6 independence argument this switch relies on.
-func checkUpgradeArcHarnessGate(projDir, rcTag, rcCommit, rcShort string) bool {
+func checkUpgradeArcHarnessGate(projDir, rcTag, rcCommit, rcShort string) gateVerdict {
 	const skipEnv = "SKIP_UPGRADE_ARCS"
 	if os.Getenv(skipEnv) == "1" {
 		fmt.Printf("  ⚠ upgrade-arc-harness SKIPPED (%s=1)\n", skipEnv)
 		fmt.Println("    Operator bypass — ensure the arc suite ran via CI or by hand on this commit.")
-		return true
+		return gatePassed
 	}
 
 	domain, err := release.ScenariosAt(projDir, rcCommit, release.WorkflowArcs)
 	if err != nil {
 		fmt.Printf("  ✗ upgrade-arc-harness: the arc domain at %s could not be listed\n", rcShort)
 		fmt.Printf("    Error: %v\n", err)
-		return false
+		return gateFailed
 	}
 	return runCoverageAuthority(projDir, rcTag, rcCommit, rcShort, domain)
 }
@@ -1936,10 +1942,10 @@ func checkUpgradeArcHarnessGate(projDir, rcTag, rcCommit, rcShort string) bool {
 // CheckAssets+CheckManifests; if the workflow succeeded but a probe
 // still fails that's a true asset bug worth surfacing per-item.
 //
-// Returns true when ALL artifacts (and the workflow that produced them)
-// are present and green; false otherwise (caller aggregates into
-// allPassed).
-func checkRCArtifactGate(rcTag string) bool {
+// Returns gatePassed when ALL artifacts (and the workflow that produced them)
+// are present and green; gatePending while release.yaml is still building;
+// gateFailed on an observed failure or missing workflow.
+func checkRCArtifactGate(rcTag string) gateVerdict {
 	wf := release.CheckReleaseWorkflowAtTag(rcTag)
 	switch wf.Status {
 	case release.ReleaseWorkflowGreen:
@@ -1971,7 +1977,7 @@ func checkRCArtifactGate(rcTag string) bool {
 			fmt.Printf("  ✓ RC %s artifacts present (%d release assets, %d ghcr manifests)\n",
 				rcTag, assetsOK, manifestsOK)
 			fmt.Printf("    release.yaml: %s\n", wf.RunURL)
-			return true
+			return gatePassed
 		}
 		// Workflow green but probes still failing — rare, but worth a
 		// detailed per-asset breakdown so the operator can investigate.
@@ -1989,37 +1995,37 @@ func checkRCArtifactGate(rcTag string) bool {
 		for _, f := range failures {
 			fmt.Println(f)
 		}
-		fmt.Println("    Fix: retry in ~5 minutes (eventual-consistency on GHCR/Releases),")
+		fmt.Println("    Next: retry in ~5 minutes (eventual-consistency on GHCR/Releases),")
 		fmt.Println("         then if still missing, inspect: ./sb release verify-artifacts --tag " + rcTag)
-		return false
+		return gateFailed
 	case release.ReleaseWorkflowPending:
-		fmt.Printf("  ✗ RC %s release.yaml is still running\n", rcTag)
+		fmt.Printf("  ⏳ RC %s release.yaml is still running\n", rcTag)
 		fmt.Printf("    Watch: gh run watch %d\n", wf.RunID)
 		fmt.Printf("    URL:   %s\n", wf.RunURL)
-		fmt.Println("    Fix: wait for the run to complete, then re-run stable")
-		return false
+		fmt.Println("    Next: wait for the run to complete, then re-run stable")
+		return gatePending
 	case release.ReleaseWorkflowFailed:
 		fmt.Printf("  ✗ RC %s release.yaml failed (conclusion: %s)\n", rcTag, wf.Detail)
 		fmt.Printf("    See: gh run view %d --log-failed\n", wf.RunID)
 		fmt.Printf("    URL: %s\n", wf.RunURL)
-		fmt.Println("    Fix:")
+		fmt.Println("    Next:")
 		fmt.Printf("      Retry the failed jobs (if transient): gh run rerun --failed %d\n", wf.RunID)
 		fmt.Println("      Or push a fix to master, cut a new RC, then re-run stable")
-		return false
+		return gateFailed
 	case release.ReleaseWorkflowMissing:
 		fmt.Printf("  ✗ RC %s release.yaml has not run yet\n", rcTag)
 		fmt.Printf("    Workflow: %s\n", release.ReleaseWorkflowURL())
-		fmt.Println("    Fix: release.yaml is triggered by the RC tag push — confirm the RC tag")
+		fmt.Println("    Next: release.yaml is triggered by the RC tag push — confirm the RC tag")
 		fmt.Println("         was pushed to origin (git push origin " + rcTag + "), then wait")
-		return false
+		return gateFailed
 	case release.ReleaseWorkflowUnknown:
 		fmt.Printf("  ✗ RC %s release.yaml status check failed (GitHub API error)\n", rcTag)
 		fmt.Printf("    Detail: %s\n", wf.Detail)
 		fmt.Printf("    Fix: %s\n", githubAPIErrorFix(wf.Detail))
-		return false
+		return gateFailed
 	}
 	fmt.Printf("  ✗ RC %s release.yaml returned unexpected status %q\n", rcTag, wf.Status)
-	return false
+	return gateFailed
 }
 
 // releaseListCmd lists existing release tags for quick reference.

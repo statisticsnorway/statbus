@@ -36,23 +36,23 @@ func TestReleaseStablePreflightGates(t *testing.T) {
 
 	type gate struct {
 		name string
-		run  func() bool
+		run  func() gateVerdict
 	}
 	gates := []gate{
-		{"test-hardening", func() bool {
+		{"test-hardening", func() gateVerdict {
 			return checkStableWorkflowGate(release.WorkflowTestHardening, "test-hardening", "SKIP_TEST_HARDENING", rcTag, rcCommit, rcShort)
 		}},
-		{"test-smoke", func() bool { return checkSmokeGate(projDir, rcTag, rcCommit, rcShort) }},
-		{"install-recovery-harness", func() bool { return checkInstallRecoveryHarnessGate(projDir, rcTag, rcCommit, rcShort) }},
-		{"upgrade-arc-harness", func() bool { return checkUpgradeArcHarnessGate(projDir, rcTag, rcCommit, rcShort) }},
-		{"rc-artifacts", func() bool { return checkRCArtifactGate(rcTag) }},
-		{"canaries", func() bool { return checkCanaryGates(rcTag, rcCommit) }},
+		{"test-smoke", func() gateVerdict { return checkSmokeGate(projDir, rcTag, rcCommit, rcShort) }},
+		{"install-recovery-harness", func() gateVerdict { return checkInstallRecoveryHarnessGate(projDir, rcTag, rcCommit, rcShort) }},
+		{"upgrade-arc-harness", func() gateVerdict { return checkUpgradeArcHarnessGate(projDir, rcTag, rcCommit, rcShort) }},
+		{"rc-artifacts", func() gateVerdict { return checkRCArtifactGate(rcTag) }},
+		{"canaries", func() gateVerdict { return checkCanaryGates(rcTag, rcCommit) }},
 	}
 	for _, g := range gates {
-		var passed bool
-		out := captureStdout(t, func() { passed = g.run() })
-		t.Logf("--- %s: passed=%v\n%s", g.name, passed, out)
-		if !passed {
+		var verdict gateVerdict
+		out := captureStdout(t, func() { verdict = g.run() })
+		t.Logf("--- %s: verdict=%v\n%s", g.name, verdict, out)
+		if verdict != gatePassed {
 			t.Errorf("gate %s did not pass for %s", g.name, rcTag)
 		}
 	}

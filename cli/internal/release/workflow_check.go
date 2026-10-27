@@ -33,6 +33,12 @@ const (
 	// promotion uses per-scenario coverage from successful matrix jobs. The
 	// LXD fault fleet instead uses one complete workflow result at the RC SHA.
 	WorkflowUpgradeArcHarness = "upgrade-arc-harness.yaml"
+	// WorkflowFleetOrchestrator schedules the fleet workflows for an RC tag
+	// (smoke, then the dev canary, then lxd-fleet and the upgrade arcs).
+	// Stable preflight reads its state to explain why an orchestrator-owned
+	// workflow has not started and whether a manual trigger is warranted
+	// (STATBUS-532).
+	WorkflowFleetOrchestrator = "release-fleet-orchestrator.yaml"
 )
 
 // WorkflowCheckStatus describes the state of a workflow at a commit.
