@@ -6,6 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-10-27T20:48:00Z'
+updated_date: '2026-10-27T20:49:00Z'
 labels:
   - database
   - seed
@@ -43,7 +44,8 @@ Evidence: tmp/531-template-version.log, tmp/531-template-repair.log, tmp/531-tes
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 A long-lived template at an older extension version reaches the image's current version before any migration runs, using the upstream direct-update path; the choice between seed create-db alignment and container-entrypoint upgrade is recorded
-- [ ] #2 Fresh PGDATA, a template several versions behind, and an app database at the previous extension version all complete migration and integrity checks without a manual ALTER EXTENSION step
-- [ ] #3 The full fast suite passes after an extension bump on the long-lived template, and CI including the database image build is green at the fix commit
+- [ ] #1 [Owner] Choose seed create-db alignment versus container-entrypoint upgrade. Record the choice in Implementation Notes and the chosen definition comment, including what it means for migration replay and application writers
+- [ ] #2 A long-lived template at an older extension version reaches the image's current version before any migration runs, using the upstream direct-update path
+- [ ] #3 Fresh PGDATA, a template several versions behind, and an app database at the previous extension version all complete migration and integrity checks without a manual ALTER EXTENSION step
+- [ ] #4 The full fast suite passes after an extension bump on the long-lived template, and CI including the database image build is green at the fix commit
 <!-- AC:END -->
