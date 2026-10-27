@@ -3,10 +3,10 @@ id: STATBUS-469
 title: >-
   Install completion prints an unreachable Visit URL in development mode:
   hardcoded https:// with no port
-status: In Progress
+status: Done
 assignee: []
-created_date: '2026-10-08 12:15'
-updated_date: '2026-10-20 20:45'
+created_date: 2026-10-08 12:15
+updated_date: '2026-10-27T20:46:00Z'
 labels:
   - installer
   - devx
@@ -59,4 +59,6 @@ Owner report 2026-10-08: are we really bound to that, or should we show the port
 ### Observed banners (2026-10-20)
 - **Development:** the shipped installVisitOrigins (v2026.10.3) run against this machine's real development .env prints 'Visit: http://local.statbus.org:3010' and 'Visit: https://local.statbus.org:3011'. Both answer (HTTP 307 to login).
 - **Standalone:** the next candidate's clean LXD install (0-happy-install, standalone mode) prints the banner from the new code. The rc.01 fleet's 'Visit: https://statbus-test.local' lines came from the old v2026.09.2 baseline install inside the arcs, so they do not prove the new code. Recorded at the next candidate.
+
+2026-10-27 owner: accepted as Done from the existing evidence. No additional standalone-banner observation is required.
 <!-- SECTION:NOTES:END -->
