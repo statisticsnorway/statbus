@@ -1,10 +1,10 @@
 ---
 id: STATBUS-531
 title: Upgrade sql_saga from v1.3 to v1.4 and verify temporal behavior
-status: In Progress
+status: Done
 assignee: []
 created_date: '2026-10-27T13:45:00Z'
-updated_date: '2026-10-27T17:45:00Z'
+updated_date: '2026-10-27T18:12:00Z'
 labels:
   - database
   - dependencies
@@ -41,7 +41,7 @@ STATBUS runs sql_saga v1.4, with its fixes verified against our temporal merge a
 - [x] #1 The upstream v1.3..v1.4 changes are reviewed, with behavior and PostgreSQL 18/pgrx compatibility notes recorded in Implementation Notes
 - [x] #2 postgres/Dockerfile pins sql_saga_release=v1.4; any upstream-required STATBUS migration is forward-only and explained
 - [x] #3 Relevant sql_saga/temporal pg_regress tests and the fast suite pass on fresh install and upgrade
-- [ ] #4 CI is green at the change commit, including the database image build, and generated doc/db/types are updated only if their contents changed
+- [x] #4 CI is green at the change commit, including the database image build, and generated doc/db/types are updated only if their contents changed
 <!-- AC:END -->
 
 ## Implementation Notes
@@ -72,4 +72,12 @@ REPAIR (no released migration edited, upstream guard untouched): brought templat
 GREEN EVIDENCE: (1) `./dev.sh migrate-and-test fast` full replay then passed all migrations including 20261027135139; suite initially red on 3 expected-output files, all reviewed as legitimate 1.4 changes: 002 mermaid ER gains the new uk_truncate_trigger (upstream TRUNCATE refusal), 008 db-security-report regenerates for the INVOKER-trampoline/private-worker ACL rework (57 changed lines, all sql_saga.*), 321 import error scenarios differ only in temporal_merge_execute line number 929 -> 941. Non-strict explain/performance baselines refreshed by the run. (2) Rerun `./dev.sh test fast`: all 117 tests passed, EXIT=0 (tmp/531-test-fast-green.log). (3) Direct 1.4 verification rerun against the upgraded dev DB (upgrade half already proven in tmp/531-proof-1.4.log; its 1.3 precondition cannot be re-established because downgrade is refused by design): extension 1.4 == native 1.4, check_integrity ok, 0 of 9 public management functions SECURITY DEFINER (trampolines confirmed), regular_user temporal write through the app view ok, 1.4 dump restores in one transaction with integrity intact and 23 legal_unit rows (tmp/531-verify-1.4-after-repair.log). (4) doc/db regenerated: gains the uk_truncate triggers and a view-deparse alias change; app types unchanged.
 
 DESIGN GAP REPORTED (not fixed here, needs a decision): any extension bump breaks full seed replay on long-lived PGDATA because template_statbus is never re-synced to the image's extension defaults, and released update migrations refuse against a newer native library. Alternatives: (a) seed create-db aligns forked-DB extensions to pg_available_extensions defaults after CREATE DATABASE ... WITH TEMPLATE; (b) the db container entrypoint upgrades template extensions on boot when the image default is newer (writers not yet started); (c) documented manual step per extension bump (what this ticket did). Production upgrade paths are unaffected: fresh installs get 1.4 from CREATE EXTENSION; app DBs at 1.3 go direct to 1.4 via migration 20261027135139.
+
+CI at 905e09be7 all green: Images (db image build + hermetic seed replay on fresh PGDATA), Fast Tests, Go Test, Harness Selftest, app build & lint, Push on master. Local clean-tree `./dev.sh test fast` re-run wrote the freshness stamp at 905e09be7 (tmp/531-test-fast-clean-stamp.log).
 <!-- SECTION:NOTES:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+sql_saga upgraded to v1.4 (postgres/Dockerfile pin) with new forward-only migration 20261027135139 (direct 1.0-1.3 -> 1.4 update; down refuses, restore backup). Blocker was environmental: the dev box's template_statbus still carried sql_saga 1.1, so the FULL_REPLAY seed rebuild reached the released 1.3 migration whose native-library guard correctly refused the 1.4 libraries. Repaired the template with the upstream-prescribed direct ALTER EXTENSION UPDATE TO '1.4'; no released migration edited, guard untouched. Fresh install and 1.3 -> 1.4 incremental upgrade both verified; fast suite green locally (117/117, twice, stamp at 905e09be7) and CI green at 905e09be7 including the Images db build. doc/db, db-security-report, and 3 expected outputs regenerated for legitimate 1.4 changes (uk_truncate triggers, trampoline ACLs, line-number shift); types unchanged. Design gap reported in notes: template_statbus never re-syncs extension versions on image change; three alternatives listed for a future decision.
+<!-- SECTION:FINAL_SUMMARY:END -->
