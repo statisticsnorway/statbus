@@ -6,7 +6,7 @@ title: >-
 status: Done
 assignee: []
 created_date: '2026-10-27T20:48:00Z'
-updated_date: '2026-10-27T23:29:00Z'
+updated_date: '2026-10-27T23:30:00Z'
 labels:
   - database
   - seed
@@ -88,5 +88,5 @@ Immutability correction: restoring the original mixed files caused CREATE EXTENS
 ## Final Summary
 
 <!-- SECTION:FINAL_SUMMARY:BEGIN -->
-Extension upgrades now happen in EnsureTrackedExtensions before pending migrations: absent extensions are created at image default, older ones go directly to image default with integrity check, newer ones refuse without downgrading. Pure extension-update migrations were removed; mixed migrations lost only duplicate extension statements. The four mixed versions named in STATBUS_INTENTIONALLY_FIX_BROKEN_IMMUTABLE_MIGRATION are 20240102000000, 20240103000000, 20250423000000 and 20260219121154. Their other schema work is unchanged and the lifecycle creates the same extensions, so the result is preserved. db.extension_upgrade records only extension, from_version, to_version and applied_at, with no old migration IDs. Fresh installs, old-template replay, partial old-dump restore and production upgrade all pass. Full fast suite and CI are green at cc2771fb4, and the documented exception was used for the mixed files after the original files proved to duplicate CREATE EXTENSION.
+Extension upgrades now happen in EnsureTrackedExtensions before pending migrations: absent extensions are created at image default, older ones go directly to image default with integrity check, newer ones refuse without downgrading. The pure extension-update migrations 20261015163419, 20261018113522, 20261021130641 and 20261027135139 were removed; the mixed migrations 20240102000000, 20240103000000, 20250423000000 and 20260219121154 lost only duplicate extension statements. All seven IDs are named in STATBUS_INTENTIONALLY_FIX_BROKEN_IMMUTABLE_MIGRATION because the lifecycle includes the same extension versions, so the result is preserved. db.extension_upgrade records only extension, from_version, to_version and applied_at, with no old-ID registry. Fresh installs, old-template replay, partial old-dump restore and production upgrade all pass. Full fast suite and CI are green at cc2771fb4; the documented exception covers only result-preserving removal of duplicate extension statements, not arbitrary migration edits.
 <!-- SECTION:FINAL_SUMMARY:END -->
