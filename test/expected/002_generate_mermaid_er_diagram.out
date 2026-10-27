@@ -50,6 +50,13 @@ erDiagram
 		timestamp_with_time_zone email_confirmed_at
 		timestamp_with_time_zone deleted_at
 	}
+	db_extension_upgrade["db.extension_upgrade"] {
+		integer id
+		text extension
+		text from_version
+		text to_version
+		timestamp_with_time_zone applied_at
+	}
 	db_migration["db.migration"] {
 		integer id
 		bigint version

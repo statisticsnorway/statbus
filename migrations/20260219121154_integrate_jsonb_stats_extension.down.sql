@@ -3182,7 +3182,7 @@ ALTER FUNCTION public.statistical_unit_facet_drilldown(statistical_unit_type, lt
 -- 3. Drop the generated stat column
 ALTER TABLE public.stat_for_unit DROP COLUMN IF EXISTS stat;
 
--- 4. Drop the jsonb_stats extension
-DROP EXTENSION IF EXISTS jsonb_stats;
+-- 4. The jsonb_stats extension itself is NOT dropped here: the migrate
+-- runner's extension lifecycle step owns it (STATBUS-533).
 
 END;

@@ -52,8 +52,9 @@ DROP EVENT TRIGGER IF EXISTS schema_change_trigger;
 CREATE EVENT TRIGGER schema_change_trigger ON ddl_command_end
 EXECUTE PROCEDURE admin.notify_schema_change();
 
--- Support fast path (ltree) (a.b.c...) operations.
-CREATE EXTENSION ltree SCHEMA public;
+-- Fast path (ltree) (a.b.c...) operations rely on the ltree extension, which
+-- the migrate runner's extension lifecycle step creates at the image default
+-- before any migration runs (STATBUS-533).
 
 
 -- There is an issue with

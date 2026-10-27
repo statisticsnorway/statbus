@@ -9,9 +9,9 @@ BEGIN
   END IF;
 END$$;
 
--- Enable citext extension for case-insensitive email handling
--- citext is a standard PostgreSQL extension included in all distributions
-CREATE EXTENSION IF NOT EXISTS citext;
+-- Case-insensitive email handling below relies on the citext extension,
+-- which the migrate runner's extension lifecycle step creates at the image
+-- default before any migration runs (STATBUS-533).
 
 -- Create auth schema
 CREATE SCHEMA IF NOT EXISTS auth;

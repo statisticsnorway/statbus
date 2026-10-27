@@ -1561,7 +1561,19 @@ func checkMigrationsDone(dir string) bool {
 		// cleanly). "Done" would hide a real problem.
 		return false
 	}
-	return !pending
+	if pending {
+		return false
+	}
+	// STATBUS-533: an extension-bump release may carry NO new migration
+	// files — extension upgrades are the migrate runner's own lifecycle
+	// step, not migrations. Drift (absent / older / newer vs the image
+	// default) must therefore also route the box through runMigrations,
+	// where migrate up reconciles or refuses loudly.
+	drift, err := migrate.HasExtensionDrift(dir)
+	if err != nil {
+		return false
+	}
+	return !drift
 }
 
 func checkJWTDone(dir string) bool {

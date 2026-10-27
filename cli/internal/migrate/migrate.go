@@ -1035,6 +1035,16 @@ func runUp(projDir string, migrateTo int64, all bool, verbose bool) (int, error)
 		return 0, fmt.Errorf("ensure migration table: %w", err)
 	}
 
+	// STATBUS-533: the extension lifecycle step runs BEFORE pending
+	// migrations are computed, on the actual target DB — absent extension
+	// creates at the image default, older updates directly to it (with
+	// integrity check), newer refuses (never downgrade). Migrations carry
+	// schema changes only and can rely on every tracked extension already
+	// being at the image default.
+	if err := EnsureTrackedExtensions(projDir); err != nil {
+		return 0, err
+	}
+
 	// Content-hash mismatch sweep — runs BEFORE the pending filter so it
 	// catches in-place edits to migrations that are no longer pending.
 	// Hard-fails on immutability violations (released-tag rows whose

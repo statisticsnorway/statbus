@@ -75,6 +75,18 @@ See [SQL conventions](../.claude/rules/sql.md) for naming, temporal predicates, 
 ./sb migrate up
 ```
 
+Migrations contain schema changes only — never `CREATE EXTENSION` or
+`ALTER EXTENSION`. Extension lifecycle is the migrate runner's own step
+(`cli/internal/migrate/extensions.go`, STATBUS-533), executed on the target
+database before the pending-migration set is computed: an absent tracked
+extension is created at the database image's default version, an older one is
+updated directly to it with the extension's integrity check (upstream's
+direct update script, never intermediate hops), and a newer one refuses —
+the runner never downgrades. Each event is written to `db.extension_upgrade`
+as an audit receipt. Bumping an extension means changing the image pin
+(`postgres/Dockerfile`), not adding a migration; this keeps old extension
+update scripts from ever running against a newer native library.
+
 When changing an existing function or procedure:
 
 1. Rebuild a stale `./sb` before dumping. Capture the current definition without stderr:

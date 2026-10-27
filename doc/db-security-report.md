@@ -169,6 +169,8 @@ each role can see and modify.
 - **`auth.secrets`** — RLS ON
 - **`auth.user`** — RLS ON
   - Policies: `admin_all_access` (ALL → PUBLIC), `select_own_user` (SELECT → PUBLIC), `update_own_user` (UPDATE → PUBLIC)
+- **`db.extension_upgrade`** — RLS ON
+  - Policies: `extension_upgrade_authenticated_read` (SELECT → authenticated)
 - **`db.migration`** — RLS ON
   - Policies: `migration_authenticated_read` (SELECT → authenticated)
 

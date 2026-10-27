@@ -1,8 +1,10 @@
 -- Migration 20250227115859: add import jobs
 BEGIN;
 
--- Enable GIST indexes on base types for efficient multirange operations
-CREATE EXTENSION IF NOT EXISTS btree_gist;
+-- GIST indexes on base types (for efficient multirange operations below)
+-- rely on the btree_gist extension, which the migrate runner's extension
+-- lifecycle step creates at the image default before any migration runs
+-- (STATBUS-533).
 
 -- Create a separate schema for all the import related functions that are used internally
 -- by the import job system, but not available through the API.

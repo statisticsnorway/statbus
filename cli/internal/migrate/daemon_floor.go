@@ -109,7 +109,16 @@ package migrate
 // and .completed_at, stating what each records. Comment-only, the same
 // acknowledged false positive as the system_info comment above: no daemon
 // query or write changes shape.
-const DaemonSchemaFloor int64 = 20261015131116
+//
+// 20261027221500 (STATBUS-533): DELETE FROM db.migration of the four retired
+// pure extension-update migration rows, whose files are deleted in the same
+// change. No daemon relation changes shape — db.migration keeps its columns —
+// but the bump is NOT mere paperwork this time: the daemon's observed-state
+// read (MAX(version), the Behind/AtNew verdict) compares db.migration against
+// the on-disk files, so a box that boots a new binary WITHOUT this migration
+// would read its own ledger as ahead-of-disk. Booting to this floor first
+// keeps the daemon's comparison coherent during the transition.
+const DaemonSchemaFloor int64 = 20261027221500
 
 // DaemonRelationNames is the schema surface the daemon's OWN SQL touches — the
 // set whose shape the floor must satisfy. The bump guard flags any migration

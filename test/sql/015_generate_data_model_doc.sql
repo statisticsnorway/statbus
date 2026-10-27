@@ -174,6 +174,7 @@ DECLARE
             '{"schema": "public", "name": "upgrade_state_log", "class": "infrastructure"}'::jsonb,
             '{"schema": "public", "name": "upgrade_retention_caps", "class": "infrastructure"}'::jsonb,
             '{"schema": "db", "name": "migration", "class": "infrastructure"}'::jsonb,
+            '{"schema": "db", "name": "extension_upgrade", "class": "infrastructure"}'::jsonb,
             '{"schema": "lifecycle_callbacks", "name": "registered_callback", "suffix": " and `supported_table`", "class": "infrastructure"}'::jsonb
         )),
         (8, 1, 1, 'Helper Views & Common Patterns', E'The schema includes numerous helper views, often for UI dropdowns or specific data access patterns. They follow consistent naming conventions:', NULL)

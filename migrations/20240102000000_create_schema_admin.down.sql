@@ -6,8 +6,8 @@ BEGIN;
 DROP FUNCTION IF EXISTS from_to_overlaps(anyelement, anyelement, anyelement, anyelement);
 DROP FUNCTION IF EXISTS from_until_overlaps(anyelement, anyelement, anyelement, anyelement);
 
--- Drop the extension and schema
-DROP EXTENSION ltree;
+-- The ltree extension is owned by the migrate runner's extension lifecycle
+-- step (STATBUS-533), so this down migration does not drop it.
 DROP SCHEMA admin CASCADE;
 
 END;

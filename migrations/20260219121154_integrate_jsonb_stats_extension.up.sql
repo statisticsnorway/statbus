@@ -6,8 +6,9 @@ BEGIN;
 -- with compiled Rust extension functions (jsonb_stats_agg, jsonb_stats_merge_agg, etc.)
 -- =============================================================================
 
--- 1. Install the jsonb_stats extension
-CREATE EXTENSION jsonb_stats;
+-- 1. The jsonb_stats extension itself is NOT installed here: the migrate
+-- runner's extension lifecycle step creates or updates every tracked
+-- extension at the image default before any migration runs (STATBUS-533).
 
 -- 2. Add generated `stat` column to stat_for_unit
 -- stat() is STRICT (returns NULL for NULL input), so COALESCE picks the first non-null.

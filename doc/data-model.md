@@ -274,6 +274,7 @@ Handles background processing. A long-running worker process calls `worker.proce
 - `upgrade_retention_caps(release_status, state, time_cap, count_cap, install_purge)` — **infrastructure**
   - Enums: `release_status` (`public.release_status_type`), `state` (`public.upgrade_state`).
 - `migration(id, filename, applied_at, version, description, duration_ms, content_hash)` — **infrastructure**
+- `extension_upgrade(id, applied_at, extension, from_version, to_version)` — **infrastructure**
 - `registered_callback and `supported_table`(label, table_names, priority, generate_procedure, cleanup_procedure)` — **infrastructure**
 
 ## Helper Views & Common Patterns
