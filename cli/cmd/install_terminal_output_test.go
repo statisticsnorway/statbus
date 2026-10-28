@@ -64,6 +64,11 @@ func TestInstallTerminalWriterReceivesEveryStepLine(t *testing.T) {
 		"  the background worker (worker): absent",
 		"  the automatic update service (upgrade): inactive",
 		"INSTALL_SERVICE: the web app (app) has stopped; its recent logs are in the install log.",
+		"HTTPS is not working yet: https://statbus-no-public-dns.invalid did not answer",
+		"HTTPS is not working yet: https://statbus-no-public-dns.invalid its certificate is expired or not yet valid",
+		"HTTPS is not working yet: https://statbus-no-public-dns.invalid its certificate is not trusted (signed by an unknown authority)",
+		"HTTPS is not working yet: https://statbus-no-public-dns.invalid its certificate does not cover this name",
+		"HTTPS is not working yet: https://statbus-no-public-dns.invalid answered with HTTP status 500",
 	} {
 		input.WriteString(line + "\n")
 		want.WriteString(strings.TrimPrefix(line, "INSTALL_SERVICE: ") + "\n")

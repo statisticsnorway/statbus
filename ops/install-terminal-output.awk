@@ -28,6 +28,14 @@
     fflush()
     next
 }
+# STATBUS-394 AC5: an automatic certificate may not be issued yet. The install
+# completes, but the operator must see the honest warning and its fixed reason;
+# hiding it leaves only a misleading success banner and the DNS advice.
+/^HTTPS is not working yet: https:\/\/[A-Za-z0-9.-]+(:[0-9]+)? (did not answer|its certificate is expired or not yet valid|its certificate is not trusted \(signed by an unknown authority\)|its certificate does not cover this name|answered with HTTP status [0-9]+)$/ {
+    print
+    fflush()
+    next
+}
 /^(Installation complete!|All steps complete\.|The previous restart finished\. Continuing installation\.)/ {
     print
     fflush()
