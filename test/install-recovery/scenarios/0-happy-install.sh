@@ -90,8 +90,8 @@ if VM_EXEC bash -c 'grep -q ^TLS_CERT_FILE= ~/install-input.env'; then
     exit 1
 fi
 grep -Eq '^\[[0-9]+/[0-9]+\] Certificate +DONE' "$INSTALL_CAPTURE" || { echo 'FAIL: the Certificate step did not run to completion' >&2; exit 1; }
-grep -Fq '✓ Files placed:' "$INSTALL_CAPTURE" || { echo 'FAIL: the Certificate step did not place the certificate files' >&2; exit 1; }
-grep -Fq '✓ .env.config updated (TLS_CERT_FILE=/data/custom-certs/domain.crt, TLS_KEY_FILE=/data/custom-certs/domain.key)' "$INSTALL_CAPTURE" || { echo 'FAIL: the Certificate step did not write the container paths into .env.config' >&2; exit 1; }
+# The terminal filter intentionally omits the step's file-placement details.
+# Assert the installed state below, then prove CA-verified HTTPS with it.
 TLS_CERT=$(VM_EXEC bash -c "cd ~/statbus && ./sb dotenv -f .env.config get TLS_CERT_FILE")
 TLS_KEY=$(VM_EXEC bash -c "cd ~/statbus && ./sb dotenv -f .env.config get TLS_KEY_FILE")
 [ "$TLS_CERT" = /data/custom-certs/domain.crt ] && [ "$TLS_KEY" = /data/custom-certs/domain.key ] || {
