@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: 2026-10-26 11:22
-updated_date: '2026-10-28T01:09:00Z'
+updated_date: '2026-10-28T02:48:00Z'
 labels:
   - cli
   - upgrade
@@ -61,7 +61,7 @@ Each long-running StatBus program has a noun name, and `sb` has one command grou
 - [x] #2 The unit is `statbus-upgrader@.service`. On a box with the old unit, `./sb install` leaves exactly one unit, the new one, running; a Go test with a recorded systemd state covers the migration
 - [x] #3 Operator-facing text, help and docs say "the upgrader". Each remaining `statbus-upgrade@` or "upgrade service" reference describes the old unit on purpose
 - [x] #4 The help for `./sb install` says it sets up or repairs this box at the version on disk, and names `install.sh` and `sb upgrade apply` as the ways to change version
-- [ ] #5 STATBUS-093 records that the Go worker's long-running command is `sb worker run`
+- [x] #5 STATBUS-093 records that the Go worker's long-running command is `sb worker run`
 - [x] #6 Code review of the diff finds a single implementation of unit writing and of start/stop: the "Upgrade service" step in `./sb install` calls the same functions as `sb upgrader install|start|stop`
 - [x] #7 `sb upgrade service` still starts the upgrader, as a hidden alias, and a test proves it
 - [ ] #8 [Owner] Decide when the `sb upgrade service` alias is removed. A follow-up ticket for that is filed, and its ID is recorded in this ticket's Implementation Notes
@@ -131,4 +131,6 @@ Follow-up on the B3 note above: the superseding Fast Tests run (exercised-sha f6
 CI: 3d68fff00's own app-build run was cancelled by superseding pushes (STATBUS-530 landed on top). The merged tree is green: b578b650d (contains 3d68fff00) — Go Test, app build & lint, Images, Harness Selftest, Push all success; tip f60a91780 — Push [40414589626], Images [40414589837], Harness Selftest [40414589714], Notify [40414589696], Fast Tests [40415033830] all success. Local: go test ./cmd/ ./internal/... clean, golangci-lint 0 issues, dev.sh test-harness exit 0.
 
 AC9 real upgrade evidence: v2026.10.4-rc.02 Test Smoke run 40604286264, 0-happy-upgrade job 122540983899, passed. After upgrading from v2026.10.3, only statbus-upgrader@ is active, statbus-upgrade@ is not loaded, exactly one unit file remains, and sb upgrader status reports the installed ./sb. AC5 (STATBUS-093 documentation) and AC8 (alias-removal decision) remain separate and open.
+
+AC5 verified: STATBUS-093's Implementation Notes already record the 2026-10-26 naming decision that the Go worker's long-running command is 'sb worker run'. AC9's real unit-rename evidence is recorded separately from rc.02 0-happy-upgrade job 122540983899. Only AC8, the owner decision and follow-up ticket for removing the sb upgrade service alias, remains open.
 <!-- SECTION:NOTES:END -->
