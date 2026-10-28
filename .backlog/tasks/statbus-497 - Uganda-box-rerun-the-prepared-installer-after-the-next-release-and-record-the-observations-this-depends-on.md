@@ -5,8 +5,8 @@ title: >-
   observations this depends on
 status: In Progress
 assignee: []
-created_date: '2026-10-13 13:16'
-updated_date: '2026-10-20 20:33'
+created_date: 2026-10-13 13:16
+updated_date: '2026-10-28T09:50:00Z'
 labels:
   - install
   - uganda
@@ -72,4 +72,6 @@ From the release's own published instructions (ops/setup-ubuntu-lts.sh and insta
 
 ### Owner 2026-10-20
 - The owner runs the Uganda install by hand after the next release, which follows the sql_saga 1.2 release. The steps above stand, against that release's version.
+
+2026-10-28 fresh-setup context from the owner: the target is statbus.ubos.org on Ubuntu 26.04, accessed over a nonstandard SSH port, after earlier failed installation attempts. The current target release is v2026.10.4. Before hardening, preserve the detected SSH port, verify a second key-based login before disabling password authentication, and capture the setup and install transcripts for AC1-3 and the third-party installation review. No credentials, private keys, or nonpublic access details are to be recorded in this ticket.
 <!-- SECTION:NOTES:END -->
