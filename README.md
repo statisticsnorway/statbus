@@ -105,14 +105,13 @@ tools and services StatBus runs on.
 
 ```bash
 sudo -i
-
-# the setup script OF THE RELEASE you are going to install
-# (left unset, the version resolves the stable channel)
-VERSION="$(curl -sL https://api.github.com/repos/statisticsnorway/statbus/releases/latest | grep '"tag_name"' | cut -d'"' -f4)"
-curl -fsSL "https://raw.githubusercontent.com/statisticsnorway/statbus/${VERSION}/ops/setup-ubuntu-lts.sh" -o setup.sh
+curl -fsSL https://statbus.org/setup.sh -o setup.sh
 chmod +x setup.sh
 ./setup.sh
 ```
+
+To prepare for a specific version instead of the current stable release, see
+[Server setup](doc/setup-ubuntu-lts.md).
 
 **2. Install StatBus** as the service account that step 1 created:
 
