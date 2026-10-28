@@ -1,10 +1,10 @@
 ---
 id: STATBUS-394
 title: The installer reports success only when every service runs and the API answers
-status: In Progress
+status: Done
 assignee: []
-created_date: '2026-09-24 16:42'
-updated_date: '2026-10-21 11:14'
+created_date: 2026-09-24 16:42
+updated_date: '2026-10-28T02:27:00Z'
 labels:
   - release-bug
   - install
@@ -43,7 +43,7 @@ What makes a client crash-loop is a separate concern: role-password drift is STA
 - [x] #2 A client that keeps restarting past the budget is named in plain words in the terminal, with its own startup error and recent logs in the install log (`TestRestartingClientsReportOwnLogsAfterBoundedReadiness`)
 - [x] #3 On a real standalone box, the advertised site answers CA-verified HTTPS after install (`0-happy-install.sh`, `assert_harness_https_passes`)
 - [x] #4 [Owner] Decide whether the final readiness gate must also probe the advertised `https://<domain>` before printing success, and record it in Implementation Notes. No: check this and set Done. Yes: add that probe as a new criterion.
-- [ ] #5 The final check fetches the advertised site the way a user would, with the chosen name connecting to this box (curl --resolve <domain>:<port>:127.0.0.1, no reliance on DNS or hairpin routing): HTTPS with the certificate verified against the system trust store when HTTPS is configured, plain HTTP otherwise. With plain HTTP or a supplied certificate (TLS_CERT_FILE), a failure stops install non-zero and names what failed: no answer, certificate not trusted, name not covered, or certificate expired. With an automatic (ACME) certificate, install completes and prints 'HTTPS is not working yet: <reason>' in place of a plain success. Go tests cover each outcome. The LXD guest trusts the harness CA so 0-happy-install.sh passes the check with a supplied certificate
+- [x] #5 The final check fetches the advertised site the way a user would, with the chosen name connecting to this box (curl --resolve <domain>:<port>:127.0.0.1, no reliance on DNS or hairpin routing): HTTPS with the certificate verified against the system trust store when HTTPS is configured, plain HTTP otherwise. With plain HTTP or a supplied certificate (TLS_CERT_FILE), a failure stops install non-zero and names what failed: no answer, certificate not trusted, name not covered, or certificate expired. With an automatic (ACME) certificate, install completes and prints 'HTTPS is not working yet: <reason>' in place of a plain success. Go tests cover each outcome. The LXD guest trusts the harness CA so 0-happy-install.sh passes the check with a supplied certificate
 <!-- AC:END -->
 
 ## Implementation Notes
@@ -84,4 +84,6 @@ Plain HTTP and a supplied certificate are ours, so a failed check stops install 
   - Development HTTPS: Caddy's internal CA, so no trust check, but it must answer.
 - Tests: `TestProbeVisitClassifies_STATBUS394`, `TestVisitChecksFollowCertificateSetup_STATBUS394` and `TestVerifyAdvertisedSite_STATBUS394`. Red `tmp/394-red.log`, green `tmp/394-green.log`. CI for d19546722: 7/7 success.
 - Remaining for AC5: the next candidate's fleet. `0-happy-install.sh` passes with the guest trusting the harness CA, and `4-install-standalone-no-public-dns.sh` prints the warning line.
+
+AC5 real candidate evidence: rc.05 LXD Fork Fleet run 40618330397 passed all 24 scenarios. 0-happy-install had already passed with the supplied certificate in rc.03 Test Smoke job 122549573505. On rc.05, 4-install-standalone-no-public-dns PASS (185s) shows the operator-visible line 'HTTPS is not working yet: https://statbus-no-public-dns.invalid did not answer' and completes installation. rc.04 exposed that the terminal filter hid this warning; 00301e024 fixed it with red/green tests tmp/394-terminal-warning-red.log and tmp/394-terminal-warning-green.log. Full CLI tests and ./dev.sh test-harness are green.
 <!-- SECTION:NOTES:END -->
