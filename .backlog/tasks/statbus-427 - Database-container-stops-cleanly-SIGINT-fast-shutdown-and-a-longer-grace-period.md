@@ -6,7 +6,7 @@ title: >-
 status: Done
 assignee: []
 created_date: 2026-09-28 21:42
-updated_date: '2026-10-28T01:09:00Z'
+updated_date: '2026-10-28T08:30:00Z'
 labels:
   - upgrade
   - db
@@ -56,4 +56,6 @@ Audit after v2026.09.3 (2026-09-29): Not addressed in v2026.09.3.
 - The ladder is green. AC2 is observed at dev's next upgrade, which waits for the next candidate (blocked on sql_saga 1.2, STATBUS-519).
 
 AC2 real dev-upgrade evidence at rc.03 (Deploy run 40607897050): statbus-dev-db has StopSignal=SIGINT and StopTimeout=120. After the live-service recreate, its new container started at 2026-10-28T00:18:44.601689712Z and logged 'database system was shut down at 2026-10-28 00:18:43 GMT' before ready, with no not-properly-shut-down or automatic-recovery line. Read-only logs: tmp/427-rc03-dev-db-shutdown.log and tmp/427-rc03-dev-retained-logs.log.
+
+Additional literal AC2 LXD evidence from rc.03 fault-fleet run 40608110641: the no-public-DNS failure capture shows 'received fast shutdown request' at 00:32:22.577, 'database system is shut down' at 00:32:23.247, then a new start at 00:32:23.840 with 'database system was shut down at 00:32:23' and ready. The drifted-unit capture independently shows fast shutdown at 00:25:27.126, clean shutdown at 00:25:27.924, and the next fork start at 00:35:34.202 with 'database system was shut down at 00:25:27' and ready. Neither capture contains not-properly-shut-down, automatic-recovery or redo-start lines. These are LXD forks with live application services. Extract: tmp/427-lxd-next-start-audit.log.
 <!-- SECTION:NOTES:END -->
