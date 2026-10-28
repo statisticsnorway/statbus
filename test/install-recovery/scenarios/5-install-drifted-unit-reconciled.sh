@@ -63,8 +63,7 @@ source "$LIB_DIR/assertions.sh"
 
 # STATBUS-527: this scenario crosses the unit rename (release baseline install,
 # then HEAD install below), so no cached unit name can be right for both legs.
-# Resolve per call via upgrade_unit_name at every use, after the guest exists.
-UNIT_TEMPLATE_FILE="\$HOME/.config/systemd/user/statbus-upgrader@.service"
+# Resolve per call via upgrade_unit_name and choose the matching on-disk file.
 
 trap '
     rc=$?
@@ -104,15 +103,17 @@ echo "── simulating unit drift (WatchdogSec→240, TimeoutStartSec→90) ─
 # 27168472969 it was silently ignored and the running unit kept WatchdogUSec=2min,
 # so the RED precondition never held (while TimeoutStartSec=90 DID apply, proving
 # the edit+reload+restart mechanism is fine — only the WatchdogSec VALUE was wrong).
-# Use ssh-stdin so $HOME expands on the remote VM, not locally.
-# VM_EXEC's printf %q would escape the dollar-sign in UNIT_TEMPLATE_FILE's value
-# ($HOME/.config/...) causing sed to target the Mac path (/Users/jhf/...) which
-# does not exist on the VM → sed rc=2. The ssh-stdin heredoc avoids this entirely.
+# Use ssh-stdin so $HOME and the baseline-appropriate unit path expand on the
+# remote VM, not locally. VM_EXEC's printf %q would escape those dollar signs.
 {
     echo "UNIT='$(upgrade_unit_name)'"
     cat <<'DRIFT_SETUP'
 set -e
-U="$HOME/.config/systemd/user/statbus-upgrader@.service"
+if [ -e "$HOME/.config/systemd/user/statbus-upgrader@.service" ]; then
+    U="$HOME/.config/systemd/user/statbus-upgrader@.service"
+else
+    U="$HOME/.config/systemd/user/statbus-upgrade@.service"
+fi
 sed -i -E 's/^WatchdogSec=.*/WatchdogSec=240/; s/^TimeoutStartSec=.*/TimeoutStartSec=90/' "$U"
 systemctl --user daemon-reload
 systemctl --user restart "$UNIT"

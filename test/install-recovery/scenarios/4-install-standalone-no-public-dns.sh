@@ -6,6 +6,10 @@ set -euo pipefail
 VM_NAME="${1:-statbus-recovery-4-install-standalone-no-public-dns}"
 HARNESS_DEPLOYMENT_MODE=standalone
 HARNESS_SITE_DOMAIN=statbus-no-public-dns.invalid
+# This scenario tests the automatic-certificate path, not the harness CA.
+# Declare that here so the LXD backend cannot silently supply a certificate
+# for statbus-test.local and turn the non-fatal ACME probe into a name mismatch.
+HARNESS_NO_CUSTOM_CERT=1
 LIB_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/lib"
 REPO_ROOT="$(cd "$LIB_DIR/../../.." && pwd)"
 source "$LIB_DIR/release-baseline.sh"
