@@ -5,8 +5,8 @@ title: >-
   owner
 status: In Progress
 assignee: []
-created_date: '2026-09-27 10:07'
-updated_date: '2026-10-26 14:19'
+created_date: 2026-09-27 10:07
+updated_date: '2026-10-28T01:09:00Z'
 labels:
   - installer
 dependencies: []
@@ -46,7 +46,7 @@ This ticket is a field report, not a feature. A field report is done when each f
 - [x] #1 The step-17 timeout is traced to its cause (host-path certificate leaves the database route unbound) by an LXD replay, and v2026.09.3 refuses it with a named cause (`tmp/ville-replay-v2026.09.3.md`)
 - [x] #2 A failed service start shows the unit's journal tail, and host-path certificate settings are refused with the container-path expectation (`TestServiceFailureWithJournal`, `TestReconcileRestartUsesJournalHelper_STATBUS422`, `TestValidateTLSPaths`)
 - [x] #3 The footer shows the release when the configured version's commit matches the served artifact, otherwise `commit <sha8>`, never `unknown` (`running-identity.test.ts`, `footer.test.tsx`, `TestDerivedVersion_ReleaseCheckoutVsDevCheckout`)
-- [ ] #4 A fresh install of a release containing `3df96b7bf` (v2026.10.1 or later) shows that release in the footer, observed on a real box
+- [x] #4 A fresh install of a release containing `3df96b7bf` (v2026.10.1 or later) shows that release in the footer, observed on a real box
 - [x] #5 `doc/DEPLOYMENT.md` documents downloading `install.sh` and `uninstall.sh`, `chmod +x`, and the supported channels (`c5222eb16`)
 - [ ] #6 [Owner] Send Ville the stable-install instruction with his custom certificate now, or record in Implementation Notes that it waits for STATBUS-429 and 399
 <!-- AC:END -->
@@ -69,4 +69,6 @@ This ticket is a field report, not a feature. A field report is done when each f
 
 ### Owner decision 2026-10-26: Ville waits for the sweep
 Do not send Ville the stable-install instruction yet. He is contacted after every other In Progress ticket has been passed. No dependency on STATBUS-399 for him (it is the no-public-DNS case); the practical dependency is 429's proven sudo-free `./sb cert install` plus a stable release. AC6 stays open until then.
+
+AC4 real-box evidence: after rc.03 dev Deploy run 40607897050, a read-only browser visit to https://dev.statbus.org on 2026-10-28 showed the footer exactly 'Statbus version v2026.10.4-rc.03 (18e7d1fe)', not unknown. AC6 remains open.
 <!-- SECTION:NOTES:END -->

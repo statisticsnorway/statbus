@@ -3,10 +3,10 @@ id: STATBUS-392
 title: >-
   sb behaves by how it was built: a release build pulls and runs published
   images and keeps developer commands out of the way; a source build builds
-status: In Progress
+status: Done
 assignee: []
-created_date: '2026-09-24 16:42'
-updated_date: '2026-10-20 19:43'
+created_date: 2026-09-24 16:42
+updated_date: '2026-10-28T01:09:00Z'
 labels:
   - release-bug
   - install
@@ -42,7 +42,7 @@ Compose with both image: and build: (all our services) uses the image if present
 - [x] #2 A source build: ./sb start and ./sb restart run compose up with --build
 - [x] #3 A release build: start and restart check locally that this version's images exist; if any is missing they print why, pull, and then start with --no-build; a failed pull stops with the remedy (check the network, or build with ./sb build)
 - [x] #4 ./sb --help groups commands as Operations and Development. On a release build the Development group is hidden, the help ends with a line naming ./sb help --all, ./sb help --all lists every command, and a hidden command still runs and shows its own --help
-- [ ] #5 The clean LXD install and upgrade scenarios assert that every StatBus service image on the box carries a ghcr.io registry digest (pulled, not built), read from Docker's image records
+- [x] #5 The clean LXD install and upgrade scenarios assert that every StatBus service image on the box carries a ghcr.io registry digest (pulled, not built), read from Docker's image records
 - [x] #6 Go tests and the fast suite pass, and CI passes; old AC4 (real-box timing scenario) is withdrawn by the owner
 <!-- AC:END -->
 
@@ -100,4 +100,6 @@ Compose with both image: and build: (all our services) uses the image if present
   - A release build (stamped v2026.10.3, tmp/sb-release-probe) shows Operations only and ends with "Development commands are hidden on a release install; './sb help --all' lists them."
   - `help --all` on the release build lists both groups, and `migrate --help` still works.
 - **AC5:** assert_service_images_pulled_from_registry in test/install-recovery/lib/assertions.sh reads RepoDigests from Docker's record. It is wired into 0-happy-install and 0-happy-upgrade and passes in the harness selftest; it is proven when the next candidate's smoke runs it.
+
+AC5 real LXD evidence: rc.03 0-happy-install job 122549573505 verified app, worker, db and proxy all carry ghcr.io registry digests. rc.02 0-happy-upgrade job 122540983899 independently verified the same four images after upgrade. Both scenarios actually passed.
 <!-- SECTION:NOTES:END -->

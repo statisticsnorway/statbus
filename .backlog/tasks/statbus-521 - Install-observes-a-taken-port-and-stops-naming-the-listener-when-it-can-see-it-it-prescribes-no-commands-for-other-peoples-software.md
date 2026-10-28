@@ -3,10 +3,10 @@ id: STATBUS-521
 title: >-
   Install observes a taken port and stops, naming the listener when it can see
   it; it prescribes no commands for other people's software
-status: In Progress
+status: Done
 assignee: []
-created_date: '2026-10-20 19:41'
-updated_date: '2026-10-20 21:19'
+created_date: 2026-10-20 19:41
+updated_date: '2026-10-28T01:09:00Z'
 labels:
   - install
   - operator
@@ -41,7 +41,7 @@ Owner, 2026-10-20: we do not know what runs on someone else's machine. A hardcod
 - [x] #1 A taken port stops install with one message: the port, the listener's program name when ss shows it (else 'another program'), that StatBus needs the port, and the rerun command. No systemctl, kill or lsof command is printed, and nothing is changed
 - [x] #2 The hardcoded apache2/nginx/caddy check and the LoadState probe are removed; the listener name comes only from ss output, filtered by the existing safe-name pattern
 - [x] #3 install.sh's two allowlist regexes match exactly the new message shape (with and without 'Your answers are saved.'), and the existing allowlist tests (install_detection_test.go, install_failure_cause_test.go) assert the new shapes
-- [ ] #4 4-install-port-80-taken.sh asserts the outcome: install exited non-zero, no StatBus container exists, and the printed rerun command, run after Apache is stopped, completes the install. It no longer greps for a prescribed command
+- [x] #4 4-install-port-80-taken.sh asserts the outcome: install exited non-zero, no StatBus container exists, and the printed rerun command, run after Apache is stopped, completes the install. It no longer greps for a prescribed command
 - [x] #5 A Go test feeds the service-state parser a real captured 'docker compose ps -a --format json' output with a stopped and a restarting service and asserts the parsed states (STATBUS-393 AC3 middle way)
 - [x] #6 Go tests, golangci-lint, ./dev.sh test-harness and the install.sh tests pass, and CI passes
 - [x] #7 The port check reads every port it checks, and the address each is bound to (HTTP, HTTPS, app, API, API admin, database local and TLS), from the generated .env (CADDY_HTTP_PORT, CADDY_HTTPS_PORT, the *_BIND_ADDRESS lines, CADDY_DB_PORT, CADDY_DB_TLS_PORT) instead of its own copy of the port plan; a test asserts that for each mode the checked list equals the ports the generated settings publish
@@ -69,4 +69,6 @@ Owner, 2026-10-20: we do not know what runs on someone else's machine. A hardcod
 - Scenario 4 prints the line the operator saw and the rerun command, then reruns. Scenario 5 phase a asserts install exits non-zero, names port 80's listener and starts no StatBus services. Phase c is untouched.
 - Red `tmp/521-red.log`, green `tmp/521-green.log`. CI green on 882769b57 (Fast Tests, CodeQL, Images, Harness Selftest).
 - Remaining: AC4 in the next candidate's LXD fleet.
+
+AC4 real LXD evidence: rc.03 LXD Fork Fleet run 40608110641 comparison reports 4-install-port-80-taken PASS (rc=0, 216s). The scenario's non-zero refusal, absent StatBus containers and successful rerun after Apache stops all passed. The fleet's two unrelated fixture failures do not change this individual green result.
 <!-- SECTION:NOTES:END -->

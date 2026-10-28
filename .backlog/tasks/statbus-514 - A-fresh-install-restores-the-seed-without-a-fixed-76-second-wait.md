@@ -1,10 +1,10 @@
 ---
 id: STATBUS-514
 title: A fresh install restores the seed without a fixed 76-second wait
-status: In Progress
+status: Done
 assignee: []
-created_date: '2026-10-16 13:43'
-updated_date: '2026-10-20 20:43'
+created_date: 2026-10-16 13:43
+updated_date: '2026-10-28T01:09:00Z'
 labels:
   - install
   - performance
@@ -39,7 +39,7 @@ Before restoring the seed, the installer must know the database is fresh: restor
 <!-- AC:BEGIN -->
 - [x] #1 Write a Go test where the database answers with no data and no migrations: `checkSeedRestored` returns false without sleeping (test measures under 2 s); record it failing on master before the fix
 - [x] #2 Write a Go test where the database query fails: the check returns an error, the Seed step stops, and the database is never reported fresh; record it failing on master before the fix
-- [ ] #3 A candidate smoke run after the fix shows "[14/18] Seed RUNNING" within 10 s of "[13/18] Database sessions OK" in `0-happy-install`; run ID recorded in Implementation Notes
+- [x] #3 A candidate smoke run after the fix shows "[14/18] Seed RUNNING" within 10 s of "[13/18] Database sessions OK" in `0-happy-install`; run ID recorded in Implementation Notes
 <!-- AC:END -->
 
 ## Implementation Notes
@@ -59,4 +59,6 @@ Tests cli/cmd/install_seed_freshness_test.go drive the real Seed step (executeIn
 - Green after (tmp/test-514-green.log): all four pass, empty case 1.18 s for both subtests including the fake fetch; go test ./cmd/ ./internal/migrate/ ok (tmp/test-514-cmd-full.log).
 - Real queries checked on the dev database (lists all five tables, answers t) and on a brand-new empty database (empty list).
 AC3 waits for the next candidate's smoke run (no RC until sql_saga 1.2).
+
+AC3 candidate smoke evidence: rc.03 Test Smoke run 40607115914, 0-happy-install job 122549573505. Database sessions OK at 00:15:03.9806830; Seed RUNNING at 00:15:06.3923313, 2.41 seconds later. The steps are now 14/19 and 15/19 because later steps were added; the AC's timing requirement is met.
 <!-- SECTION:NOTES:END -->

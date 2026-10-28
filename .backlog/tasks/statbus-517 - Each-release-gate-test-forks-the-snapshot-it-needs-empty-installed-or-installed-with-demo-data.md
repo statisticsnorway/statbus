@@ -5,8 +5,8 @@ title: >-
   installed with demo data
 status: In Progress
 assignee: []
-created_date: '2026-10-17 15:40'
-updated_date: '2026-10-20 20:43'
+created_date: 2026-10-17 15:40
+updated_date: '2026-10-28T01:09:00Z'
 labels:
   - ci
   - lxd
@@ -41,9 +41,9 @@ The gate forks guests from checkpoints. Only a test of a failure during installa
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
 - [ ] #1 Add checkpoint `installed-<candidate>-demo`, built once from `installed-<candidate>`; `arc_prepare_box` forks it instead of loading data, shown by arc logs with no demo load
-- [ ] #2 Add checkpoint `installed-<prev stable>-demo` and move the fault scenarios that load data on the previous stable to it (`0-https-only-egress`, `1-boot-concurrent-install`, `3-postswap-worker-ddl-deadlock`, `5-install-disk-threshold-repair`, `5-install-seed-on-populated`), shown by their logs with no demo load; smoke's `0-happy-upgrade` keeps loading for real
+- [x] #2 Add checkpoint `installed-<prev stable>-demo` and move the fault scenarios that load data on the previous stable to it (`0-https-only-egress`, `1-boot-concurrent-install`, `3-postswap-worker-ddl-deadlock`, `5-install-disk-threshold-repair`, `5-install-seed-on-populated`), shown by their logs with no demo load; smoke's `0-happy-upgrade` keeps loading for real
 - [ ] #3 A candidate gate run gives the same verdicts as the preceding candidate, and its total guest-minutes for the fault fleet plus arcs are below 356 (v2026.10.2-rc.01) by at least the removed first-install and demo-load time (about 40 + 25 guest-min); totals and run IDs in Implementation Notes
-- [ ] #4 Map the 9 install-first faults to `installed-<candidate>-standalone` and remove their own first install; each passes in a gate run
+- [x] #4 Map the 9 install-first faults to `installed-<candidate>-standalone` and remove their own first install; each passes in a gate run
 <!-- AC:END -->
 
 ## Implementation Notes
@@ -55,4 +55,6 @@ The gate forks guests from checkpoints. Only a test of a failure during installa
 - README gains a checkpoint-tree table.
 Evidence: offline contract `tests/lxd-snapshot-layers-test.sh` (fake LXD store, real harness functions) fails against the parent's backend (tmp/test-517-parent.log: "install-first scenario did not select installed-<candidate>") and passes on 5f96870f7 (tmp/test-517-fixed.log); `./dev.sh test-harness` green (tmp/test-517-harness.log). CI on 5f96870f7: Push on master, Go Test, app build & lint, Harness Selftest, Images, Notify all success.
 Not yet proven: every criterion needs a real gate run, which waits for the next release candidate (no RC until sql_saga 1.2, owner 2026-10-20).
+
+Partial candidate evidence at rc.03. AC2: all five previous-stable data scenarios passed in LXD Fork Fleet 40608110641 from installed-v2026.10.3-demo; logs explicitly confirm preloaded data instead of loading (tmp/517-rc03-demo-checkpoints.log). AC4: all nine install-first faults passed from installed-v2026.10.4-rc.03-standalone in the same run. Upgrade Arc Harness 40608201147 is green. AC1 and AC3 remain open pending complete arc/checkpoint and timing evidence; this note does not close them.
 <!-- SECTION:NOTES:END -->

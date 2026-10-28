@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: 2026-10-26 11:22
-updated_date: '2026-10-26T23:00:00Z'
+updated_date: '2026-10-28T01:09:00Z'
 labels:
   - cli
   - upgrade
@@ -65,7 +65,7 @@ Each long-running StatBus program has a noun name, and `sb` has one command grou
 - [x] #6 Code review of the diff finds a single implementation of unit writing and of start/stop: the "Upgrade service" step in `./sb install` calls the same functions as `sb upgrader install|start|stop`
 - [x] #7 `sb upgrade service` still starts the upgrader, as a hidden alias, and a test proves it
 - [ ] #8 [Owner] Decide when the `sb upgrade service` alias is removed. A follow-up ticket for that is filed, and its ID is recorded in this ticket's Implementation Notes
-- [ ] #9 The existing `0-happy-upgrade` scenario, which installs the previous release (old unit) and self-upgrades to the candidate, asserts after the upgrade: only `statbus-upgrader@` exists and is active, `statbus-upgrade@` is gone, and `sb upgrader status` reports the installed `./sb`. Proven by that scenario's run in the candidate's release gate, or the same scenario on the per-commit image; no one-off script. Run ID recorded in Implementation Notes
+- [x] #9 The existing `0-happy-upgrade` scenario, which installs the previous release (old unit) and self-upgrades to the candidate, asserts after the upgrade: only `statbus-upgrader@` exists and is active, `statbus-upgrade@` is gone, and `sb upgrader status` reports the installed `./sb`. Proven by that scenario's run in the candidate's release gate, or the same scenario on the per-commit image; no one-off script. Run ID recorded in Implementation Notes
 <!-- AC:END -->
 
 ## Implementation Notes
@@ -129,4 +129,6 @@ Follow-up on the B3 note above: the superseding Fast Tests run (exercised-sha f6
 2026-10-26 (sheep): final review blocker fixed in 3d68fff00. The H1 resolution fix made the handover's 'sb upgrader start --no-block' no-op on the still-active legacy unit; 'sb upgrader start' now has a hidden --unit flag used only by the handover, which passes --unit <new unit>. Regression: TestUpgraderStartExplicitUnitNamesTheNewUnit (real start command in the both-files/legacy-active staged state starts the NEW unit, legacy untouched), TestUpgraderStartResolvesRunningLegacyUnit (operator path still resolves the running unit), and the ordering test pins the handover step 'sb upgrader start --no-block --unit statbus-upgrader@...'. Red-before: reverting the handover's start to the resolve-based form fails TestHandoffToRenamedUpgraderUnit_OrderingAndLock; the reviewer's overlay probe failed at 6675a68e3 and passes now.
 
 CI: 3d68fff00's own app-build run was cancelled by superseding pushes (STATBUS-530 landed on top). The merged tree is green: b578b650d (contains 3d68fff00) — Go Test, app build & lint, Images, Harness Selftest, Push all success; tip f60a91780 — Push [40414589626], Images [40414589837], Harness Selftest [40414589714], Notify [40414589696], Fast Tests [40415033830] all success. Local: go test ./cmd/ ./internal/... clean, golangci-lint 0 issues, dev.sh test-harness exit 0.
+
+AC9 real upgrade evidence: v2026.10.4-rc.02 Test Smoke run 40604286264, 0-happy-upgrade job 122540983899, passed. After upgrading from v2026.10.3, only statbus-upgrader@ is active, statbus-upgrade@ is not loaded, exactly one unit file remains, and sb upgrader status reports the installed ./sb. AC5 (STATBUS-093 documentation) and AC8 (alias-removal decision) remain separate and open.
 <!-- SECTION:NOTES:END -->

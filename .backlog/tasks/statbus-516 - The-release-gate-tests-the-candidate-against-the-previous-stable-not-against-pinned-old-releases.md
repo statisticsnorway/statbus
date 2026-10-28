@@ -3,10 +3,10 @@ id: STATBUS-516
 title: >-
   The release gate tests the candidate against the previous stable, not against
   pinned old releases
-status: In Progress
+status: Done
 assignee: []
-created_date: '2026-10-17 15:39'
-updated_date: '2026-10-20 20:43'
+created_date: 2026-10-17 15:39
+updated_date: '2026-10-28T01:09:00Z'
 labels:
   - ci
   - lxd
@@ -43,7 +43,7 @@ A past incident, once understood and fixed, keeps its lesson in a unit test or a
 - [x] #2 Update the harness self-tests that name them (`tests/lxd-checkpoint-identity-test.sh`, `tests/rc10-schema-floor-family-test.sh`, `tests/lxd-default-domain-test.sh`, `tests/process-log-host-guest-test.sh`, `tests/scenario-selection-test.sh`) and run them green
 - [x] #3 Update `test/install-recovery/README.md`, `doc/upgrade-rollback-floor.md` and `doc/diagrams/upgrade-timeline.*` so no doc names the removed tests as coverage
 - [x] #4 Run the Go tests listed in the Description on the change and record them green in Implementation Notes
-- [ ] #5 On the first release candidate cut after `41689e94a` (check with `git merge-base --is-ancestor 41689e94a <tag>`), every `historical base`, `historical baseline` and `historical target` line in its fault fleet artifact and arc logs names that candidate's previous stable release and nothing older; record both run IDs in Implementation Notes, then set Done
+- [x] #5 On the first release candidate cut after `41689e94a` (check with `git merge-base --is-ancestor 41689e94a <tag>`), every `historical base`, `historical baseline` and `historical target` line in its fault fleet artifact and arc logs names that candidate's previous stable release and nothing older; record both run IDs in Implementation Notes, then set Done
 <!-- AC:END -->
 
 ## Implementation Notes
@@ -56,4 +56,6 @@ A past incident, once understood and fixed, keeps its lesson in a unit test or a
 CI on 41689e94a: Go Test, app build & lint, Harness Selftest, Push on master, Images, Notify all completed/success (checked 2026-10-20 11:41 UTC).
 
 2026-10-20, waiting: no existing tag contains 41689e94a (newest is v2026.10.3, 2026-10-17), and the fault fleet only runs on a release-candidate tag (`run-forks.sh` refuses other refs). The owner chose to wait for the next ordinary candidate rather than cut one for this check. Baseline for AC5 from v2026.10.2-rc.01 (runs 38819807364, 38819893048): the old logs named `historical baseline v2026.10.1` (8, the previous stable, expected), `historical target v2026.10.1` (1, expected), and `historical base` v2026.09.2 (2), v2026.07.0-rc.05 (1), v2026.09.0 (1), which are the four removed tests.
+
+AC5 candidate evidence at v2026.10.4-rc.03: fault fleet run 40608110641's every historical baseline/target line names previous stable v2026.10.3 and nothing older (tmp/516-rc03-fault-historical-lines.log). Full Upgrade Arc Harness run 40608201147 completed success and its complete workflow log contains no historical base/baseline/target line naming any older release (tmp/516-rc03-arc-full-historical-lines.log).
 <!-- SECTION:NOTES:END -->

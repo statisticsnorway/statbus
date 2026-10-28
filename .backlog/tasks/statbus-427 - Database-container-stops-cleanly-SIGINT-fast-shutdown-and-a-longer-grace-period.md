@@ -3,10 +3,10 @@ id: STATBUS-427
 title: >-
   Database container stops cleanly: SIGINT fast shutdown and a longer grace
   period
-status: In Progress
+status: Done
 assignee: []
-created_date: '2026-09-28 21:42'
-updated_date: '2026-10-20 20:45'
+created_date: 2026-09-28 21:42
+updated_date: '2026-10-28T01:09:00Z'
 labels:
   - upgrade
   - db
@@ -25,7 +25,7 @@ Found while fixing rc.16's c-rollback-resurrection (tmp/rollback-db-recreate.md,
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
 - [x] #1 db service stops with SIGINT and a documented grace period
-- [ ] #2 A compose stop with live sessions ends with a clean shutdown (no crash recovery on next start), proven on an LXD fork
+- [x] #2 A compose stop with live sessions ends with a clean shutdown (no crash recovery on next start), proven on an LXD fork
 <!-- AC:END -->
 
 ## Implementation Notes
@@ -54,4 +54,6 @@ Audit after v2026.09.3 (2026-09-29): Not addressed in v2026.09.3.
 
 ### Status 2026-10-20
 - The ladder is green. AC2 is observed at dev's next upgrade, which waits for the next candidate (blocked on sql_saga 1.2, STATBUS-519).
+
+AC2 real dev-upgrade evidence at rc.03 (Deploy run 40607897050): statbus-dev-db has StopSignal=SIGINT and StopTimeout=120. After the live-service recreate, its new container started at 2026-10-28T00:18:44.601689712Z and logged 'database system was shut down at 2026-10-28 00:18:43 GMT' before ready, with no not-properly-shut-down or automatic-recovery line. Read-only logs: tmp/427-rc03-dev-db-shutdown.log and tmp/427-rc03-dev-retained-logs.log.
 <!-- SECTION:NOTES:END -->

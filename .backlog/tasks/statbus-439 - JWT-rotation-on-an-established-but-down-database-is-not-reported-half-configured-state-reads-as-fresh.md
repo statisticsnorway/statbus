@@ -3,10 +3,10 @@ id: STATBUS-439
 title: >-
   JWT rotation on an established-but-down database is not reported
   (half-configured state reads as fresh)
-status: In Progress
+status: Done
 assignee: []
 created_date: ''
-updated_date: '2026-10-20 20:45'
+updated_date: '2026-10-28T01:09:00Z'
 labels: []
 dependencies: []
 priority: medium
@@ -34,7 +34,7 @@ The JWT step compares the database's secret with .env.credentials. Different: it
 <!-- AC:BEGIN -->
 - [x] #1 runLoadJWT updates a different stored secret and prints that users must sign in again, with no state flag consulted (TestRunLoadJWTUpdatesADifferentSecretAndSaysSo_STATBUS439)
 - [x] #2 A first write prints nothing, and an unreadable database stops install with the read error (TestRunLoadJWTWritesAFirstSecretQuietly_STATBUS439, TestRunLoadJWTStopsWhenTheDatabaseCannotBeRead_STATBUS439)
-- [ ] #3 The LXD scenario 5-install-orphaned-db-volume-credentials asserts that the kept database's secret equals the new .env.credentials, and passes in the next candidate's fault fleet
+- [x] #3 The LXD scenario 5-install-orphaned-db-volume-credentials asserts that the kept database's secret equals the new .env.credentials, and passes in the next candidate's fault fleet
 <!-- AC:END -->
 
 ## Implementation Notes
@@ -56,6 +56,8 @@ The JWT step compares the database's secret with .env.credentials. Different: it
 
 ### Status 2026-10-20
 - Fix 5372ac832; Go Test passed. AC3 (the LXD orphaned-volume scenario asserts the kept database's JWT secret) runs in the next candidate's fault fleet, which waits for sql_saga 1.2 (STATBUS-519). Note: STATBUS-521's worker is changing phase a of the same scenario (the port message); phase c (the 439 check) stays.
+
+AC3 real LXD evidence: rc.03 LXD Fork Fleet run 40608110641 comparison reports 5-install-orphaned-db-volume-credentials PASS (rc=0, 369s). The kept database secret and new .env.credentials assertion passed in the candidate fault fleet.
 <!-- SECTION:NOTES:END -->
 
 ## Issue

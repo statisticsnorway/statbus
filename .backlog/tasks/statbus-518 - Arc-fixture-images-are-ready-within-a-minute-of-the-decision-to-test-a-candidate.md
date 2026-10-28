@@ -1,10 +1,10 @@
 ---
 id: STATBUS-518
 title: An app image with unchanged app source builds from cache
-status: In Progress
+status: Done
 assignee: []
-created_date: '2026-10-17 15:40'
-updated_date: '2026-10-20 20:43'
+created_date: 2026-10-17 15:40
+updated_date: '2026-10-28T01:09:00Z'
 labels:
   - ci
   - lxd
@@ -36,7 +36,7 @@ Arcs upgrade the candidate to synthetic commits (candidate plus a test migration
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 In `app/Dockerfile`, stamp the commit after `next build`; shown by an app build under 30 s for a migration-only fixture in a real candidate run (run ID recorded in Implementation Notes)
+- [x] #1 In `app/Dockerfile`, stamp the commit after `next build`; shown by an app build under 30 s for a migration-only fixture in a real candidate run (run ID recorded in Implementation Notes)
 <!-- AC:END -->
 
 ## Implementation Notes
@@ -49,4 +49,6 @@ Arcs upgrade the candidate to synthetic commits (candidate plus a test migration
 - Order: stamp-after-build first (testable on any push), then the early start, then the real-run check at the next RC.
 
 2026-10-20 owner decision: criterion 'dispatch fixtures at the gate decision' moved to STATBUS-423 (the queue runner removes the smoke-then-arcs concurrency ordering that blocks an early start in today's workflows). Remaining here: the stamp-after-build change (d97541322, local proof: second build 2 s with next build CACHED, each image stamps its own commit) and its measurement on real runs.
+
+AC1 real candidate build: Release run 40606966330, app amd64 job 122548823755, Build and push (amd64) succeeded from 2026-10-28T00:10:11Z to 00:10:15Z (4 seconds), below 30 seconds with the app unchanged by the migration/test-only fixture.
 <!-- SECTION:NOTES:END -->
