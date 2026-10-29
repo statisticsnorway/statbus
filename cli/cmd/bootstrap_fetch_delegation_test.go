@@ -61,7 +61,7 @@ func TestBootstrapFetchNeverCallsTheBoxBinary(t *testing.T) {
 		t.Fatal("could not isolate statbus_git_fetch helper")
 	}
 	helper := helperTail[:helperEnd]
-	if !strings.Contains(helper, `git -C "$STATBUS_DIR" fetch "$@"`) {
+	if !strings.Contains(helper, `git -C "$STATBUS_DIR" fetch --quiet "$@"`) {
 		t.Error("statbus_git_fetch must use plain git in the installation directory")
 	}
 	if strings.Contains(helper, "$STATBUS_DIR/sb") || strings.Contains(helper, "./sb") {

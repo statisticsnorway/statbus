@@ -145,6 +145,11 @@ for input_name in STATBUS_ENV_CONFIG STATBUS_USERS_FILE STATBUS_TLS_CERT_FILE ST
     fi
 done
 
+# Interactive certificate answers arrive after install.sh has cd'd into the
+# checkout. Keep the directory the operator ran this command from, so a
+# relative path they type resolves where they are, not inside ~/statbus.
+export STATBUS_INSTALL_CALLER_PWD="$PWD"
+
 # Build the pasteable command only after relative answer paths became absolute.
 # STATBUS_TLS_PFX_PASSWORD is deliberately NOT part of the rerun command: a
 # password does not belong in a printed, pasteable command line.

@@ -323,16 +323,15 @@ func TestInstallCertStep_InteractiveDecline(t *testing.T) {
 // with a PEM pair and asserts the same outcome as the environment path.
 func TestInstallCertStep_InteractiveAcceptPaths(t *testing.T) {
 	defer func() func() {
-		ni, st, qp := nonInteractive, stdinIsTerminal, questionnairePrompt
-		return func() { nonInteractive, stdinIsTerminal, questionnairePrompt = ni, st, qp }
+		ni, st, qp, yn := nonInteractive, stdinIsTerminal, questionnairePrompt, askCertificateYesNo
+		return func() { nonInteractive, stdinIsTerminal, questionnairePrompt, askCertificateYesNo = ni, st, qp, yn }
 	}()()
 	certPath, keyPath := certStepFixture(t)
 	nonInteractive = false
 	stdinIsTerminal = func() bool { return true }
+	askCertificateYesNo = func(string) bool { return true }
 	questionnairePrompt = func(label, fallback string) string {
 		switch {
-		case strings.Contains(label, "certificate to install"):
-			return "yes"
 		case strings.Contains(label, "Certificate file"):
 			return certPath
 		case strings.Contains(label, "Private key file"):

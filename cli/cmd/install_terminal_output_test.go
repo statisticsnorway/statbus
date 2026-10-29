@@ -57,6 +57,10 @@ func TestInstallTerminalWriterReceivesEveryStepLine(t *testing.T) {
 	}
 	input.WriteString("  Starting every service: database, web server, API, web app, background worker ...\n")
 	want.WriteString("  Starting every service: database, web server, API, web app, background worker ...\n")
+	for _, line := range certificateExplanation {
+		input.WriteString("INSTALL_PROMPT: " + line + "\n")
+		want.WriteString(line + "\n")
+	}
 	for _, line := range []string{
 		"  the database (db): running (healthy)",
 		"  the web server (proxy): restarting",
@@ -102,7 +106,7 @@ func TestInstallTTYPromptTravelsOnTerminalStream(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := "INSTALL_PROMPT:   How will people reach StatBus?\nINSTALL_PROMPT:   Deployment mode [standalone]: \n"
+	want := "\nINSTALL_PROMPT:   How will people reach StatBus?\nINSTALL_PROMPT:   Deployment mode [standalone]: \n"
 	if string(got) != want {
 		t.Fatalf("prompt stream:\n%q\nwant:\n%q", got, want)
 	}

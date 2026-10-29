@@ -106,9 +106,9 @@ func TestInstallShChecksOutFixedCommitsDetached(t *testing.T) {
 	// commit path that replaced it is asserted here in its place, so the count
 	// still matches the number of real paths rather than silently shrinking.
 	wantCheckouts := []string{
-		`git -c advice.detachedHead=false checkout --detach "${COMMIT_SHA}^{commit}"`,
-		`git -c advice.detachedHead=false checkout --detach "${VERSION}^{commit}"`,
-		`git -C "$STATBUS_DIR" -c advice.detachedHead=false checkout --detach "${VERSION}^{commit}"`,
+		`git -c advice.detachedHead=false checkout --quiet --detach "${COMMIT_SHA}^{commit}"`,
+		`git -c advice.detachedHead=false checkout --quiet --detach "${VERSION}^{commit}"`,
+		`git -C "$STATBUS_DIR" -c advice.detachedHead=false checkout --quiet --detach "${VERSION}^{commit}"`,
 	}
 	for _, want := range wantCheckouts {
 		if !strings.Contains(body, want) {

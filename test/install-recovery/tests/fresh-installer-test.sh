@@ -45,6 +45,7 @@ set -eu
 if [ "$1" = --version ]; then echo 'fixture version'; exit 0; fi
 if [ "$1" != install ]; then exit 0; fi
 printf 'sb:%s\n' "$*" >> "$TRACE"
+printf 'sb-caller:%s\n' "${STATBUS_INSTALL_CALLER_PWD:-}" >> "$TRACE"
 if [ "${EMIT_DNS_ADVICE:-}" = 1 ]; then
     printf '  candidate.example is not confirmed in public DNS, so an automatic public certificate cannot be promised, and local development is recommended for testing until the name is published and inbound port 80 is allowed.\n'
 fi
@@ -108,6 +109,7 @@ export EXPECTED_USERS="$TMP_ROOT/inputs with spaces/users.yml"
 (cd "$TMP_ROOT" && STATBUS_ENV_CONFIG='inputs with spaces/config.env' STATBUS_USERS_FILE='inputs with spaces/users.yml' \
     bash "$ROOT/install.sh" --version v2026.09.0-rc.02 --non-interactive --trust-github-user jhf) > "$TMP_ROOT/output"
 grep -Fxq 'sb:install --non-interactive --trust-github-user jhf' "$TRACE"
+grep -Fxq "sb-caller:$TMP_ROOT" "$TRACE"
 grep -Fq 'git:clone --quiet --depth 1 --no-checkout' "$TRACE"
 grep -Fq 'git:-C '"$HOME"'/statbus fetch --quiet --depth 1 origin refs/tags/v2026.09.0-rc.02:refs/tags/v2026.09.0-rc.02' "$TRACE"
 if grep -Eq 'new tag|Previous HEAD position|HEAD is now at|Cloning into' "$TMP_ROOT/output"; then

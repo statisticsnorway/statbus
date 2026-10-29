@@ -29,8 +29,10 @@
 package cmd
 
 import (
+	"bufio"
 	"fmt"
 	"os"
+	"strconv"
 	"strings"
 )
 
@@ -116,7 +118,7 @@ func runInstallCertStep(dir string) error {
 		if !installCertShouldAsk(dir) {
 			return nil
 		}
-		args = askInstallCert()
+		args, pfxPassword = askInstallCert(dir)
 		if args == nil {
 			return nil
 		}
@@ -169,28 +171,126 @@ func refuseConflictingCertConfig(dir string) error {
 		tlsCert, tlsKey, envTLSCertFile, envTLSPFXFile)
 }
 
+// certNotice prints one operator-facing line both to ordinary stdout (direct
+// ./sb use) and, when install.sh captures output, through the marked prompt
+// stream that ops/install-terminal-output.awk keeps. Without the marker the
+// explanation would be filtered out and the operator would see only the final
+// question.
+func certNotice(format string, args ...any) {
+	message := fmt.Sprintf(format, args...)
+	fmt.Println(message)
+	installTTYPrompt("%s", message)
+}
+
+// askCertYesNo uses the installer's [y/N] shape rather than the generic
+// questionnaire's [no] suffix. y/yes is accepted; anything else is no.
+func askCertYesNo(label string) bool {
+	fmt.Printf("%s [y/N]: ", label)
+	installTTYPrompt("%s [y/N]: ", label)
+	line, _ := bufio.NewReader(os.Stdin).ReadString('\n')
+	answer := strings.TrimSpace(line)
+	return strings.EqualFold(answer, "y") || strings.EqualFold(answer, "yes")
+}
+
+// askCertificateYesNo is the seam existing interactive-certificate tests use to
+// answer the yes/no question without a terminal.
+var askCertificateYesNo = askCertYesNo
+
+// certificateExplanation is the fixed text shown before the certificate
+// question. Kept as data so the terminal-filter test proves every line
+// survives install.sh's tee|awk pipeline.
+var certificateExplanation = []string{
+	"  A standalone StatBus can serve your own TLS certificate (from your CA, as a",
+	"  PFX/PKCS#12 file or a PEM certificate + key pair) instead of an automatic",
+	"  Let's Encrypt certificate.",
+}
+
 // askInstallCert is the interactive certificate question: optional, default
-// keeps today's behaviour. It collects paths only; a PFX password is
-// prompted by the shared loader exactly as ./sb cert install prompts.
-// Returns nil when the operator declines or has nothing to give.
-func askInstallCert() []string {
+// keeps today's behaviour. A file path behaves as before. A folder is scanned
+// by content, listed with its usable certificates, and the chosen files then
+// flow through installCustomCertificate. Returns nil when the operator
+// declines or has nothing to give.
+func askInstallCert(dir string) ([]string, *string) {
 	fmt.Println()
-	fmt.Println("  A standalone StatBus can serve your own TLS certificate (from your CA, as a")
-	fmt.Println("  PFX/PKCS#12 file or a PEM certificate + key pair) instead of an automatic")
-	fmt.Println("  Let's Encrypt certificate.")
-	answer := questionnairePrompt("  Do you have a certificate to install now? (yes/no)", "no")
-	if !strings.EqualFold(answer, "yes") && !strings.EqualFold(answer, "y") {
-		fmt.Println("  Continuing with automatic certificates. Install your own later with: ./sb cert install")
-		return nil
+	for _, line := range certificateExplanation {
+		certNotice("%s", line)
 	}
-	certPath := questionnairePrompt("  Certificate file (a PFX/PKCS#12 file, or a PEM fullchain)", "")
+	if !askCertificateYesNo("  Do you have a certificate to install now?") {
+		certNotice("  Continuing with automatic certificates. Install your own later with: ./sb cert install")
+		return nil, nil
+	}
+	certNotice("  Paths may be absolute, start with ~/, or be relative to the directory you ran the installer from.")
+	certPath := questionnairePrompt("  Certificate file or folder (a PFX/PKCS#12 file, a PEM fullchain, or a folder to inspect)", "")
 	if certPath == "" {
-		fmt.Println("  No certificate file given; continuing without one. Install it later with: ./sb cert install")
-		return nil
+		certNotice("  No certificate file given; continuing without one. Install it later with: ./sb cert install")
+		return nil, nil
+	}
+	resolved, isDir, needsKey, err := inspectCertificatePath(certPath)
+	if err != nil {
+		certNotice("  %s", err)
+		return nil, nil
+	}
+	if isDir {
+		return chooseCertificateFromFolder(resolved, dir)
+	}
+	if !needsKey {
+		return []string{resolved}, nil
 	}
 	keyPath := questionnairePrompt("  Private key file (only for a PEM fullchain; leave empty for a PFX file)", "")
 	if keyPath == "" {
-		return []string{certPath}
+		certNotice("  A PEM certificate needs its private key; continuing without a custom certificate.")
+		return nil, nil
 	}
-	return []string{certPath, keyPath}
+	resolvedKey := resolveInstallPath(keyPath)
+	if _, statErr := os.Stat(resolvedKey); statErr != nil {
+		certNotice("  File not found: %s", resolvedKey)
+		return nil, nil
+	}
+	return []string{resolved, resolvedKey}, nil
+}
+
+// chooseCertificateFromFolder asks once for the PFX password when the folder
+// contains PFX files, then presents the content-detected candidates. The
+// password stays in memory only: it is never printed, logged, or persisted.
+func chooseCertificateFromFolder(folder, dir string) ([]string, *string) {
+	_, siteDomain, _, _, err := readModeAndCertEnv(dir)
+	if err != nil {
+		siteDomain = ""
+	}
+	_, hasPFX, err := certFolderFiles(folder)
+	if err != nil {
+		certNotice("  Could not read folder %s: %v", folder, err)
+		return nil, nil
+	}
+	var pfxPassword *string
+	if hasPFX {
+		certNotice("  The folder contains PFX/PKCS#12 files. Their password is only used to read them and is not stored.")
+		certNotice("  PFX password (typing is hidden; leave empty if none):")
+		password, readErr := readPassword("")
+		if readErr == nil {
+			pfxPassword = &password
+		}
+	}
+	choices, notes, err := scanCertificateFolder(folder, siteDomain, pfxPassword)
+	if err != nil {
+		certNotice("  Could not inspect folder %s: %v", folder, err)
+		return nil, nil
+	}
+	if len(choices) == 0 {
+		for _, note := range notes {
+			certNotice("  - %s", note)
+		}
+		certNotice("  No usable certificate with a matching private key was found in %s.", folder)
+		return nil, nil
+	}
+	for _, line := range renderCertificateChoices(choices, notes, siteDomain) {
+		certNotice("%s", line)
+	}
+	answer := questionnairePrompt("  Install which certificate number", "1")
+	number, convErr := strconv.Atoi(strings.TrimSpace(answer))
+	if convErr != nil || number < 1 || number > len(choices) {
+		certNotice("  That is not one of the listed numbers; continuing without a custom certificate.")
+		return nil, nil
+	}
+	return choices[number-1].Args, pfxPassword
 }

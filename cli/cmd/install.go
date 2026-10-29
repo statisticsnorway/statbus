@@ -117,6 +117,11 @@ func installTTYPrompt(format string, args ...any) {
 	if !strings.HasSuffix(message, "\n") {
 		message += "\n"
 	}
+	// Terminate any unmarked partial line already written to stdout (prompt()
+	// writes the question before calling here). Without this the marker would
+	// be glued to that line and the awk filter, which matches the marker at
+	// the start of a record, would drop both.
+	fmt.Print("\n")
 	for _, line := range strings.SplitAfter(message, "\n") {
 		if line == "" {
 			continue
