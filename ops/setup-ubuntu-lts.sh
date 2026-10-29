@@ -217,6 +217,126 @@ pause() {
     fi
 }
 
+# STATBUS-376 D7: the end-of-run summary is derived from what each stage
+# actually did in THIS run. Stages record their outcome in one place as they
+# run; the summary and next steps read that record instead of a static list.
+#   ok       ran and every verification passed
+#   skipped  skipped by the operator, SKIP_STAGES, or a measured condition
+#   failed   ran but a verification or the stage itself failed
+#   na       not part of this run at all (cloud-only work on a standalone box)
+declare -A STAGE_OUTCOME=()
+
+record_stage() {
+    STAGE_OUTCOME[$1]="$2"
+}
+
+stage_outcome() {
+    printf '%s' "${STAGE_OUTCOME[$1]:-not-run}"
+}
+
+stage_label() {
+    case "$1" in
+        0) echo "HTTPS APT sources" ;;
+        1) echo "Base system" ;;
+        2) echo "SSH hardening" ;;
+        3) echo "Automatic security updates" ;;
+        4) echo "Firewall and intrusion detection" ;;
+        5) echo "Docker and core tools" ;;
+        6) echo "devops user" ;;
+        7) echo "StatBus service account" ;;
+        8) echo "CI command allowlist" ;;
+    esac
+}
+
+stage_configured_line() {
+    case "$1" in
+        0) echo "APT sources use HTTPS" ;;
+        1) echo "Base system configured (etckeeper, bash history, locales)" ;;
+        2) echo "SSH hardened (key-only authentication)" ;;
+        3) echo "Automatic security updates enabled" ;;
+        4) echo "CrowdSec intrusion detection and UFW firewall active" ;;
+        5) echo "Docker and core tools installed" ;;
+        6) echo "devops user created (ops/admin)" ;;
+        7) echo "${SERVICE_USER:-statbus} service account created (for StatBus install)" ;;
+        8) echo "CI command allowlist installed from the repo, with a published hash" ;;
+    esac
+}
+
+# Run one stage and record whether it verified. A stage that already recorded
+# skipped or na keeps that outcome; otherwise a failing return code or any
+# verification failure during the stage marks it failed.
+run_stage() {
+    local n="$1" fn="$2" before after rc=0
+    before="${#FAILED_VERIFICATIONS[@]}"
+    "$fn" || rc=$?
+    after="${#FAILED_VERIFICATIONS[@]}"
+    if [[ -n "${STAGE_OUTCOME[$n]:-}" ]]; then
+        return 0
+    fi
+    if [[ "$rc" -ne 0 || "$after" -gt "$before" ]]; then
+        record_stage "$n" failed
+    else
+        record_stage "$n" ok
+    fi
+}
+
+print_run_summary() {
+    local problems=${#FAILED_VERIFICATIONS[@]}
+    local n outcome step=1
+    # STATBUS-502: never print a success headline over a failed run. The failure
+    # list comes FIRST, and the headline follows from it.
+    if [[ "$problems" -gt 0 ]]; then
+        log_error "$problems verification(s) failed across the run:"
+        for outcome in "${FAILED_VERIFICATIONS[@]}"; do
+            echo "  ✗ $outcome"
+        done
+        echo ""
+        log_header "Setup finished WITH PROBLEMS: $problems verification(s) failed"
+    else
+        log_header "Setup Complete!"
+    fi
+
+    echo "Summary of configuration:"
+    for n in 0 1 2 3 4 5 6 7 8; do
+        outcome="$(stage_outcome "$n")"
+        case "$outcome" in
+            na) continue ;;
+            ok) echo "  - $(stage_configured_line "$n")" ;;
+            skipped) echo "  - $(stage_label "$n") (Stage $n): skipped" ;;
+            failed) echo "  - $(stage_label "$n") (Stage $n): failed" ;;
+            *) echo "  - $(stage_label "$n") (Stage $n): not run" ;;
+        esac
+    done
+    echo ""
+
+    echo "Recommended next steps:"
+    if [[ "$(stage_outcome 7)" == "ok" ]]; then
+        echo "  $step. Sign in as '${SERVICE_USER:-statbus}' the way you normally reach this server, and verify SSH key access"
+        step=$(( step + 1 ))
+        echo "  $step. Run the StatBus installer as that user:"
+        step=$(( step + 1 ))
+        echo "       curl -fsSL https://statbus.org/install.sh | bash"
+    fi
+    if [[ "${CLOUD:-false}" == "true" && "$(stage_outcome 6)" == "ok" ]]; then
+        echo "  $step. (ops) Log in as 'devops' for host administration tasks"
+        step=$(( step + 1 ))
+    fi
+    if [[ "$(stage_outcome 4)" == "ok" ]]; then
+        echo "  $step. Review CrowdSec with: cscli metrics"
+        step=$(( step + 1 ))
+        echo "  $step. Check firewall status with: ufw status"
+        step=$(( step + 1 ))
+    fi
+    if [[ "$step" -eq 1 ]]; then
+        echo "  No follow-up from this run."
+    fi
+    echo ""
+
+    if [[ -f /var/run/reboot-required ]]; then
+        log_warn "A reboot is required to complete the setup"
+    fi
+}
+
 # =============================================================================
 # Centralized SSH-key Installer
 # =============================================================================
@@ -721,6 +841,7 @@ stage_https_sources() {
     log_header "Stage 0: HTTPS APT Sources"
 
     if stage_skipped 0; then
+        record_stage 0 skipped
         log_warn "Stage 0 skipped via SKIP_STAGES"
         return 0
     fi
@@ -734,6 +855,7 @@ stage_https_sources() {
     log "Probe: HTTP $([[ $http_ok == true ]] && echo reachable || echo blocked), HTTPS $([[ $https_ok == true ]] && echo reachable || echo blocked)"
 
     if [[ "$http_ok" == "true" ]]; then
+        record_stage 0 skipped
         log "HTTP egress is reachable, HTTPS sources are unnecessary. Skipping Stage 0"
         return 0
     fi
@@ -744,6 +866,7 @@ stage_https_sources() {
     echo ""
 
     if ! ask_yes_no "Switch APT sources to HTTPS?" y; then
+        record_stage 0 skipped
         log "Skipping Stage 0"
         return 0
     fi
@@ -833,6 +956,7 @@ stage_base_system() {
     log_header "Stage 1: Base System Setup"
 
     if stage_skipped 1; then
+        record_stage 1 skipped
         log_warn "Stage 1 skipped via SKIP_STAGES"
         return 0
     fi
@@ -844,6 +968,7 @@ stage_base_system() {
     echo ""
     
     if ! ask_yes_no "Run this stage?" y; then
+        record_stage 1 skipped
         log "Skipping Stage 1"
         return 0
     fi
@@ -928,6 +1053,7 @@ stage_ssh_hardening() {
     log_header "Stage 2: SSH Hardening"
 
     if stage_skipped 2; then
+        record_stage 2 skipped
         log_warn "Stage 2 skipped via SKIP_STAGES"
         return 0
     fi
@@ -943,6 +1069,7 @@ stage_ssh_hardening() {
     echo ""
 
     if ! ask_yes_no "Run this stage?" y; then
+        record_stage 2 skipped
         log "Skipping Stage 2"
         return 0
     fi
@@ -1002,6 +1129,7 @@ stage_auto_updates() {
     log_header "Stage 3: Automatic Updates"
 
     if stage_skipped 3; then
+        record_stage 3 skipped
         log_warn "Stage 3 skipped via SKIP_STAGES"
         return 0
     fi
@@ -1015,6 +1143,7 @@ stage_auto_updates() {
     echo ""
     
     if ! ask_yes_no "Run this stage?" y; then
+        record_stage 3 skipped
         log "Skipping Stage 3"
         return 0
     fi
@@ -1103,6 +1232,7 @@ stage_security_tools() {
     log_header "Stage 4: Security Tools (CrowdSec + UFW)"
 
     if stage_skipped 4; then
+        record_stage 4 skipped
         log_warn "Stage 4 skipped via SKIP_STAGES"
         return 0
     fi
@@ -1119,6 +1249,7 @@ stage_security_tools() {
     echo ""
     
     if ! ask_yes_no "Run this stage?"; then
+        record_stage 4 skipped
         log "Skipping Stage 4"
         return 0
     fi
@@ -1240,6 +1371,7 @@ stage_core_tools() {
     log_header "Stage 5: Core Tools & System Tuning"
 
     if stage_skipped 5; then
+        record_stage 5 skipped
         log_warn "Stage 5 skipped via SKIP_STAGES"
         return 0
     fi
@@ -1252,6 +1384,7 @@ stage_core_tools() {
     echo ""
     
     if ! ask_yes_no "Run this stage?" y; then
+        record_stage 5 skipped
         log "Skipping Stage 5"
         return 0
     fi
@@ -1365,12 +1498,14 @@ stage_user_setup() {
     # explanation, because a customer's installation must never be told about our
     # support access model. Cloud intent lives in --help and doc/CLOUD.md.
     if [[ "${CLOUD:-false}" != "true" ]]; then
+        record_stage 6 na
         return 0
     fi
 
     log_header "Stage 6: User Setup (devops)"
 
     if stage_skipped 6; then
+        record_stage 6 skipped
         log_warn "Stage 6 skipped via SKIP_STAGES"
         return 0
     fi
@@ -1388,6 +1523,7 @@ stage_user_setup() {
     fi
     
     if ! ask_yes_no "Run this stage?"; then
+        record_stage 6 skipped
         log "Skipping Stage 6"
         return 0
     fi
@@ -1489,6 +1625,7 @@ stage_service_account() {
     log_header "Stage 7: StatBus Service Account"
 
     if stage_skipped 7; then
+        record_stage 7 skipped
         log_warn "Stage 7 skipped via SKIP_STAGES"
         return 0
     fi
@@ -1521,6 +1658,7 @@ stage_service_account() {
     fi
 
     if ! ask_yes_no "Run this stage?" y; then
+        record_stage 7 skipped
         log "Skipping Stage 7"
         return 0
     fi
@@ -1570,12 +1708,14 @@ stage_ci_allowlist() {
     # belongs to cloud runs only. Without cloud intent it is not part of the run
     # and says nothing - same rule as stage_user_setup above.
     if [[ "${CLOUD:-false}" != "true" ]]; then
+        record_stage 8 na
         return 0
     fi
 
     log_header "Stage 8: CI Command Allowlist (sshdo)"
 
     if stage_skipped 8; then
+        record_stage 8 skipped
         log_warn "Stage 8 skipped via SKIP_STAGES"
         return 0
     fi
@@ -1730,6 +1870,7 @@ stage_ci_allowlist() {
     fi
 
     if ! ask_yes_no "Run this stage?"; then
+        record_stage 8 skipped
         log "Skipping Stage 8"
         return 0
     fi
@@ -2056,67 +2197,21 @@ main() {
     fi
     echo ""
 
-    # Run stages
-    stage_https_sources
-    stage_base_system
-    stage_ssh_hardening
-    stage_auto_updates
-    stage_security_tools
-    stage_core_tools
-    stage_user_setup
-    stage_service_account
-    stage_ci_allowlist
+    # Run stages, recording each outcome as it happens.
+    run_stage 0 stage_https_sources
+    run_stage 1 stage_base_system
+    run_stage 2 stage_ssh_hardening
+    run_stage 3 stage_auto_updates
+    run_stage 4 stage_security_tools
+    run_stage 5 stage_core_tools
+    run_stage 6 stage_user_setup
+    run_stage 7 stage_service_account
+    run_stage 8 stage_ci_allowlist
 
-    # STATBUS-502: never print a success headline over a failed run, and never
-    # describe work this run did not do. The failure list comes FIRST, and the
-    # headline follows from it.
-    local problems=${#FAILED_VERIFICATIONS[@]}
-    if [[ "$problems" -gt 0 ]]; then
-        log_error "$problems verification(s) failed across the run:"
-        for failed in "${FAILED_VERIFICATIONS[@]}"; do
-            echo "  ✗ $failed"
-        done
-        echo ""
-        log_header "Setup finished WITH PROBLEMS: $problems verification(s) failed"
-    else
-        log_header "Setup Complete!"
-    fi
-
-    echo "Summary of configuration:"
-    echo "  - SSH hardened (key-only authentication)"
-    echo "  - Automatic security updates enabled"
-    echo "  - CrowdSec intrusion detection active"
-    echo "  - UFW firewall enabled"
-    echo "  - Docker installed"
-    # STATBUS-501/502: cloud-only work is mentioned only when THIS run did it.
-    if [[ "${CLOUD:-false}" == "true" ]]; then
-        echo "  - devops user created (ops/admin)"
-    fi
-    echo "  - ${SERVICE_USER:-statbus} service account created (for StatBus install)"
-    if [[ "${CLOUD:-false}" == "true" ]]; then
-        echo "  - CI command allowlist installed from the repo, with a published hash"
-    fi
-    echo ""
-    echo "Recommended next steps:"
-    local step=1
-    echo "  $step. Log in as '${SERVICE_USER:-statbus}' and verify SSH key access"
-    step=$(( step + 1 ))
-    echo "  $step. Run the StatBus installer as that user:"
-    step=$(( step + 1 ))
-    echo "       ssh ${SERVICE_USER:-statbus}@\$(hostname --fqdn)"
-    echo "       curl -fsSL https://statbus.org/install.sh | bash"
-    if [[ "${CLOUD:-false}" == "true" ]]; then
-        echo "  $step. (ops) Log in as 'devops' for host administration tasks"
-        step=$(( step + 1 ))
-    fi
-    echo "  $step. Review CrowdSec with: cscli metrics"
-    step=$(( step + 1 ))
-    echo "  $step. Check firewall status with: ufw status"
-    echo ""
-
-    if [[ -f /var/run/reboot-required ]]; then
-        log_warn "A reboot is required to complete the setup"
-    fi
+    # STATBUS-376 D7/STATBUS-502: the summary and next steps are derived from
+    # the outcomes recorded above, never from a static list of what a full run
+    # would have done.
+    print_run_summary
 
     # STATBUS-207: the only point in main() that turns any verify()
     # failure, from any stage, into a non-zero process exit. Checked AFTER
@@ -2126,7 +2221,7 @@ main() {
     # reaches the caller's (harness's) exit code instead of vanishing into
     # stage output nobody's automation checks. The failure LIST is printed
     # above, before the summary headline (STATBUS-502).
-    if [[ "$problems" -gt 0 ]]; then
+    if [[ "${#FAILED_VERIFICATIONS[@]}" -gt 0 ]]; then
         exit 1
     fi
 }
