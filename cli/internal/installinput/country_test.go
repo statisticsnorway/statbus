@@ -15,6 +15,17 @@ func noHostZone(t *testing.T) {
 	old := HostTimeZone
 	HostTimeZone = func() (string, string) { return "", "" }
 	t.Cleanup(func() { HostTimeZone = old })
+	noHostFQDN(t)
+}
+
+// noHostFQDN removes the test machine's own full name from the domain
+// default, so tests see the same answers on a dotless laptop and on a CI
+// runner whose hostname has a domain.
+func noHostFQDN(t *testing.T) {
+	t.Helper()
+	old := hostnameFQDN
+	hostnameFQDN = func() string { return "" }
+	t.Cleanup(func() { hostnameFQDN = old })
 }
 
 // scripted answers questions by label suffix; "" presses Enter. It records

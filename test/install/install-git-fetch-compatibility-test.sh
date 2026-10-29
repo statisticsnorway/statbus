@@ -35,7 +35,7 @@ set -euo pipefail
 [ "${GIT_TERMINAL_PROMPT:-}" = 0 ]
 [ "${GIT_SSH_COMMAND:-}" = fixture-ssh-command ]
 printf '%s\n' "$*" >> "$TRACE"
-[ "$*" = "-C $HOME/statbus fetch origin --tags" ] || {
+[ "$*" = "-C $HOME/statbus fetch --quiet origin --tags" ] || {
     echo "unexpected git invocation: $*" >&2
     exit 65
 }
@@ -65,7 +65,7 @@ if ! STATBUS_INSTALL_TEST_GIT_FETCH=tags bash "$INSTALLER" >"$tmpdir/tags.out" 2
     cat "$tmpdir/tags.out" >&2
     exit 1
 fi
-grep -Fxq -- "-C $HOME/statbus fetch origin --tags" "$TRACE" || {
+grep -Fxq -- "-C $HOME/statbus fetch --quiet origin --tags" "$TRACE" || {
     echo 'FAIL: plain git did not fetch tags' >&2
     cat "$TRACE" >&2
     exit 1
