@@ -843,7 +843,7 @@ stage_base_system() {
     echo "  - Configure system locales"
     echo ""
     
-    if ! ask_yes_no "Run this stage?"; then
+    if ! ask_yes_no "Run this stage?" y; then
         log "Skipping Stage 1"
         return 0
     fi
@@ -942,7 +942,7 @@ stage_ssh_hardening() {
     echo "and asks you to prove it from a second terminal. Answering no changes nothing."
     echo ""
 
-    if ! ask_yes_no "Run this stage?"; then
+    if ! ask_yes_no "Run this stage?" y; then
         log "Skipping Stage 2"
         return 0
     fi
@@ -1014,7 +1014,7 @@ stage_auto_updates() {
     echo "  - Set notification email: ${ADMIN_EMAIL:-<not configured>}"
     echo ""
     
-    if ! ask_yes_no "Run this stage?"; then
+    if ! ask_yes_no "Run this stage?" y; then
         log "Skipping Stage 3"
         return 0
     fi
@@ -1251,7 +1251,7 @@ stage_core_tools() {
     echo "  - Install Docker CE with compose plugin"
     echo ""
     
-    if ! ask_yes_no "Run this stage?"; then
+    if ! ask_yes_no "Run this stage?" y; then
         log "Skipping Stage 5"
         return 0
     fi
@@ -1513,7 +1513,7 @@ stage_service_account() {
         log_warn "nobody (operator or CI) will be able to SSH in as '$user' until you add keys manually."
     fi
 
-    if ! ask_yes_no "Run this stage?"; then
+    if ! ask_yes_no "Run this stage?" y; then
         log "Skipping Stage 7"
         return 0
     fi
