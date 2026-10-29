@@ -147,4 +147,72 @@ else
 fi
 grep -q 'Answering no changes nothing' <<<"$out" || { echo "FAIL the no-op reassurance is missing"; fail=1; }
 
+# 6. populate_authorized_keys merges, so its final line reports what changed,
+#    counted before and after, never that the file was replaced.
+populate="$(awk '/^populate_authorized_keys\(\)/,/^}$/' "$SCRIPT")"
+key_count="$(awk '/^count_authorized_key_bodies\(\)/,/^}$/' "$SCRIPT")"
+if [[ -z "$key_count" ]]; then
+    echo "FAIL count_authorized_key_bodies is not defined in $SCRIPT"; fail=1
+fi
+if [[ -z "$populate" ]]; then
+    echo "FAIL populate_authorized_keys is not defined in $SCRIPT"; fail=1
+else
+    keys_work="$(mktemp -d)"
+    mkdir -p "$keys_work/bin" "$keys_work/keys" "$keys_work/home/.ssh"
+    cat > "$keys_work/bin/getent" <<'FAKE'
+#!/usr/bin/env bash
+[[ "${1:-}" == "passwd" ]] && echo "statbus:x:1000:1000::${FAKE_HOME}:/bin/bash"
+exit 0
+FAKE
+    cat > "$keys_work/bin/chown" <<'FAKE'
+#!/usr/bin/env bash
+exit 0
+FAKE
+    cat > "$keys_work/bin/curl" <<'FAKE'
+#!/usr/bin/env bash
+url="${!#}"
+source="${url#https://github.com/}"
+source="${source%.keys}"
+file="$KEYS_DIR/$(printf '%s' "$source" | tr '/' '_').keys"
+[[ -f "$file" ]] && cat "$file"
+FAKE
+    chmod +x "$keys_work/bin/"*
+
+    run_populate() { # auth-keys-content fetched-content -> out
+        printf '%s\n' "$1" > "$keys_work/home/.ssh/authorized_keys"
+        printf '%s\n' "$2" > "$keys_work/keys/alice.keys"
+        out="$(FAKE_HOME="$keys_work/home" KEYS_DIR="$keys_work/keys" \
+            PATH="$keys_work/bin:$PATH" bash -c '
+                log() { echo "[INFO] $*"; }
+                log_warn() { echo "[WARN] $*"; }
+                log_success() { echo "[OK] $*"; }
+                eval "$1"
+                populate_authorized_keys statbus alice ""
+            ' _ "$key_count
+$populate" 2>&1)"
+        rc=$?
+    }
+
+    run_populate "ssh-ed25519 AAAATESTKEY1 operator@host" "ssh-ed25519 AAAATESTKEY1 alice@example"
+    if [[ "$rc" -eq 0 ]] \
+        && grep -q 'statbus: 1 key already present, 0 added (1 total in' <<<"$out" \
+        && [[ "$(grep -c 'AAAATESTKEY1' "$keys_work/home/.ssh/authorized_keys")" -eq 1 ]] \
+        && ! grep -qi 'written' <<<"$out"; then
+        echo "PASS a fetched duplicate reports already present, added zero, and stays single"
+    else
+        echo "FAIL duplicate merge report is wrong (rc=$rc): $out"; fail=1
+    fi
+
+    run_populate "ssh-ed25519 AAAAOPERATOR operator@host" "ssh-ed25519 AAAANEWFETCH alice@example"
+    if [[ "$rc" -eq 0 ]] \
+        && grep -q 'statbus: 1 key already present, 1 added (2 total in' <<<"$out" \
+        && grep -q 'AAAAOPERATOR' "$keys_work/home/.ssh/authorized_keys" \
+        && grep -q 'AAAANEWFETCH' "$keys_work/home/.ssh/authorized_keys"; then
+        echo "PASS a new fetched key is added while the operator key remains"
+    else
+        echo "FAIL add merge report is wrong (rc=$rc): $out"; fail=1
+    fi
+    rm -rf "$keys_work"
+fi
+
 exit $fail

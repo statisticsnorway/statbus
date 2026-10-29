@@ -390,6 +390,31 @@ print_run_summary() {
 #   populate_authorized_keys <target_user> "<users_list>" "<deploy_keys_list>"
 #
 # Both list args are whitespace-separated. Empty strings are valid.
+# count_authorized_key_bodies — distinct key bodies (algorithm + base64) in a
+# file, using the same token rules as the merge below. This is the before/after
+# count that says how many keys were already there and how many the merge added.
+count_authorized_key_bodies() {
+    local file="$1"
+    [[ -s "$file" ]] || { echo 0; return 0; }
+    awk '
+        {
+            if ($0 ~ /^[[:space:]]*$/) next
+            stripped = $0
+            sub(/^[[:space:]]*/, "", stripped)
+            if (substr(stripped, 1, 1) == "#") next
+            n = split($0, t, /[[:space:]]+/)
+            algo_idx = 0
+            for (i = 1; i <= n; i++) {
+                if (t[i] ~ /^(ssh-|ecdsa-|sk-)/) { algo_idx = i; break }
+            }
+            if (algo_idx == 0 || algo_idx + 1 > n) next
+            keybody = t[algo_idx] " " t[algo_idx + 1]
+            if (!seen[keybody]++) count++
+        }
+        END { print count + 0 }
+    ' "$file"
+}
+
 populate_authorized_keys() {
     local target_user="$1"
     local users_list="$2"
@@ -405,6 +430,9 @@ populate_authorized_keys() {
     local ssh_dir="$home_dir/.ssh"
     local auth_keys="$ssh_dir/authorized_keys"
     local stage_file="$ssh_dir/.authorized_keys.stage.$$"
+    local before_count after_count added present_word
+
+    before_count="$(count_authorized_key_bodies "$auth_keys")"
 
     # Ensure .ssh dir exists with correct ownership/mode.
     mkdir -p "$ssh_dir"
@@ -492,7 +520,10 @@ populate_authorized_keys() {
     chown "$target_user:$target_user" "$auth_keys"
     chmod 600 "$auth_keys"
 
-    log_success "populate_authorized_keys: $(wc -l < "$auth_keys") key(s) written to $auth_keys"
+    after_count="$(count_authorized_key_bodies "$auth_keys")"
+    added=$(( after_count - before_count ))
+    [[ "$before_count" -eq 1 ]] && present_word="key" || present_word="keys"
+    log_success "${target_user}: ${before_count} ${present_word} already present, ${added} added (${after_count} total in ${auth_keys})"
 }
 
 # STATBUS-501: the deploy keys to install for THIS run. Empty unless cloud
