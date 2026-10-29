@@ -283,3 +283,59 @@ func TestCustomCertificatePair_STATBUS418(t *testing.T) {
 		}
 	}
 }
+
+func TestSuggestedSiteDomain(t *testing.T) {
+	for _, tc := range []struct{ fqdn, want string }{
+		{"statbus.ubos.org", "statbus.ubos.org"},
+		{"  statbus.ubos.org\n", "statbus.ubos.org"},
+		{"statbus", ""},
+		{"", ""},
+		{"not a name.example.org", ""},
+	} {
+		if got := suggestedSiteDomain(tc.fqdn); got != tc.want {
+			t.Errorf("suggestedSiteDomain(%q) = %q, want %q", tc.fqdn, got, tc.want)
+		}
+	}
+}
+
+func TestAskOffersFQDNAsSiteDomainDefault(t *testing.T) {
+	original := hostnameFQDN
+	defer func() { hostnameFQDN = original }()
+
+	for _, tc := range []struct{ fqdn, wantFallback string }{
+		{"statbus.ubos.org", "statbus.ubos.org"},
+		{"statbus", ""},
+	} {
+		hostnameFQDN = func() string { return tc.fqdn }
+		var fallback string
+		content := Ask(func(label, value string) string {
+			if strings.HasSuffix(label, "Domain name") {
+				fallback = value
+				if value == "" {
+					return "local.statbus.org"
+				}
+				return value
+			}
+			if value != "" {
+				return value
+			}
+			switch {
+			case strings.HasSuffix(label, CountryNamePrompt):
+				return "Norway"
+			case strings.HasSuffix(label, CountryCodePrompt):
+				return "no"
+			}
+			return ""
+		})
+		if fallback != tc.wantFallback {
+			t.Errorf("SITE_DOMAIN fallback for %q = %q, want %q", tc.fqdn, fallback, tc.wantFallback)
+		}
+		want := "SITE_DOMAIN=" + tc.wantFallback
+		if tc.wantFallback == "" {
+			want = "SITE_DOMAIN=local.statbus.org"
+		}
+		if !strings.Contains(content, want) {
+			t.Errorf("Ask for %q produced %q, want %q", tc.fqdn, content, want)
+		}
+	}
+}

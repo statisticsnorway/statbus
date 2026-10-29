@@ -5,6 +5,7 @@ package installinput
 import (
 	"fmt"
 	"os"
+	"os/exec"
 	"regexp"
 	"strings"
 
@@ -120,6 +121,32 @@ const (
 
 var deploymentModes = map[string]bool{"development": true, "standalone": true, "private": true}
 
+// hostnameFQDN is the machine's full name as the system resolves it. Setup
+// applies the operator's answer with hostnamectl and /etc/hosts, so this is
+// the same name it verified. A variable so the default is testable.
+var hostnameFQDN = func() string {
+	out, err := exec.Command("hostname", "--fqdn").Output()
+	if err != nil {
+		return ""
+	}
+	return strings.TrimSpace(string(out))
+}
+
+// SuggestedSiteDomain is the host's full name when it has a dot, so the
+// installer offers the address setup already applied instead of asking the
+// operator to type it again. A bare label is not a site address and yields "".
+func SuggestedSiteDomain() string {
+	return suggestedSiteDomain(hostnameFQDN())
+}
+
+func suggestedSiteDomain(fqdn string) string {
+	fqdn = strings.TrimSpace(fqdn)
+	if strings.Contains(fqdn, ".") && !strings.ContainsAny(fqdn, " \t/") {
+		return fqdn
+	}
+	return ""
+}
+
 // Ask runs the deployment questions. Every question explains itself and
 // offers a default where a useful one exists (STATBUS-400). A standalone or
 // private installation serves a country, so it asks for the country name and
@@ -137,7 +164,11 @@ func Ask(prompt func(label, fallback string) string) string {
 			mode = askMode(prompt, f)
 			answer = mode
 		case "SITE_DOMAIN":
-			domain = prompt("  The web address people will use. For local testing, use local.statbus.org.\n  "+f.prompt, f.fallback)
+			fallback := f.fallback
+			if fallback == "" {
+				fallback = SuggestedSiteDomain()
+			}
+			domain = prompt("  The web address people will use. For local testing, use local.statbus.org.\n  "+f.prompt, fallback)
 			answer = domain
 		case "DEPLOYMENT_SLOT_NAME":
 			if mode == "development" {

@@ -30,13 +30,18 @@ ENV_FILE="${HOME}/.setup-ubuntu.env"
 OS_RELEASE_FILE="${OS_RELEASE_FILE:-/etc/os-release}"
 SUPPORTED_UBUNTU_VERSIONS=("24.04" "26.04")
 SCRIPT_VERSION="1.0.0"
-NON_INTERACTIVE=false
+NON_INTERACTIVE="${NON_INTERACTIVE:-false}"
 # Space-separated list of stage numbers to skip (e.g. "0 4"). Honored in both
 # interactive and non-interactive mode. Also settable via --skip-stages.
 SKIP_STAGES="${SKIP_STAGES:-}"
 # STATBUS-491: cloud intent. Only a cloud installation is asked for CI
 # deploy-key sources. Set by --cloud or CLOUD=true.
 CLOUD="${CLOUD:-false}"
+# Planned public name for this server, asked for when `hostname --fqdn` is a
+# bare label. Persisted in the setup config so the installer can offer it.
+SERVER_FQDN="${SERVER_FQDN:-}"
+# /etc/hosts is where the full name is mapped to the loopback address.
+HOSTS_FILE="${HOSTS_FILE:-/etc/hosts}"
 # STATBUS-207: verify() failures, collected across every stage. main() runs
 # every stage to completion regardless (maximal diagnostics — the VM is
 # torn down after this run, so a fail-fast here would hide whatever came
@@ -311,9 +316,13 @@ print_run_summary() {
 
     echo "Recommended next steps:"
     if [[ "$(stage_outcome 7)" == "ok" ]]; then
-        echo "  $step. Sign in as '${SERVICE_USER:-statbus}' the way you normally reach this server, and verify SSH key access"
+        echo "  $step. From this root shell, switch to the service account and run the installer:"
         step=$(( step + 1 ))
-        echo "  $step. Run the StatBus installer as that user:"
+        echo "       sudo -iu ${SERVICE_USER:-statbus}"
+        step=$(( step + 1 ))
+        echo "       curl -fsSL https://statbus.org/install.sh | bash"
+        step=$(( step + 1 ))
+        echo "  $step. Or sign in as '${SERVICE_USER:-statbus}' the way you normally reach this server, verify SSH key access, then run:"
         step=$(( step + 1 ))
         echo "       curl -fsSL https://statbus.org/install.sh | bash"
     fi
@@ -698,8 +707,99 @@ EXTRA_LOCALES="${EXTRA_LOCALES:-}"
 # deployment (distinct from devops, which is the ops/admin user from Stage 6).
 SERVICE_USER="${SERVICE_USER:-statbus}"
 
+# This server's full public name. Asked for when the host name is a bare
+# label; the installer offers it as the default SITE_DOMAIN.
+SERVER_FQDN="${SERVER_FQDN:-}"
+
 EOF
     chmod 600 "$ENV_FILE"
+}
+
+# A plausible DNS name: at least two labels, each starting and ending with a
+# letter or digit, hyphens only inside. The dot is what makes it a full name.
+valid_dns_name() {
+    local name="$1"
+    [[ "$name" == *.* ]] || return 1
+    [[ "$name" =~ ^[A-Za-z0-9]([A-Za-z0-9-]{0,61}[A-Za-z0-9])?(\.[A-Za-z0-9]([A-Za-z0-9-]{0,61}[A-Za-z0-9])?)+$ ]]
+}
+
+# Replace the single 127.0.1.1 line with "<fqdn> <short>", keeping every other
+# line. Ubuntu's convention gives the host its own name on the loopback, which
+# is what makes `hostname --fqdn` resolve without public DNS.
+set_hosts_entry() {
+    local fqdn="$1" short="$2" tmp
+    if [[ ! -f "$HOSTS_FILE" ]]; then
+        log_error "Cannot map the full name: $HOSTS_FILE does not exist."
+        return 1
+    fi
+    tmp="$(mktemp "${HOSTS_FILE}.statbus.XXXXXX")" || return 1
+    if ! awk -v entry="127.0.1.1 $fqdn $short" '
+        $1 == "127.0.1.1" { if (!done++) print entry; next }
+        { print }
+        END { if (!done) print entry }
+    ' "$HOSTS_FILE" > "$tmp"; then
+        rm -f "$tmp"
+        return 1
+    fi
+    cat "$tmp" > "$HOSTS_FILE"
+    rm -f "$tmp"
+}
+
+# Resolve this server's full name before the StatBus stages need a site
+# address. A dotted `hostname --fqdn` is already usable and is left alone.
+# Otherwise the operator supplies the planned address (or SERVER_FQDN does in
+# an unattended run), and the host is given that name the Ubuntu way: the same
+# short name is kept when it already matches, and /etc/hosts gets one
+# 127.0.1.1 line. Refusing before any mutation is deliberate: guessing a name
+# would put a wrong address into certificates and the installer's default.
+configure_server_fqdn() {
+    local current fqdn short current_short
+    current="$(hostname --fqdn 2>/dev/null || true)"
+    if [[ "$current" == *.* ]]; then
+        SERVER_FQDN="$current"
+        log "This server's full name is $current; leaving the host name unchanged."
+        return 0
+    fi
+
+    fqdn="${SERVER_FQDN:-}"
+    if [[ -z "$fqdn" && "$NON_INTERACTIVE" == "true" ]]; then
+        log_error "This server does not know its own full name ('hostname --fqdn' returned '${current:-<empty>}'), and SERVER_FQDN is not set in $ENV_FILE."
+        log_error "Set SERVER_FQDN to the planned public address (for example statbus.example.org) and run this script again. Nothing has been changed."
+        return 1
+    fi
+
+    while ! valid_dns_name "$fqdn"; do
+        if [[ -n "$fqdn" ]]; then
+            log_error "SERVER_FQDN='$fqdn' is not a plausible DNS name with a dot (for example statbus.example.org)."
+        fi
+        if [[ "$NON_INTERACTIVE" == "true" ]]; then
+            return 1
+        fi
+        echo ""
+        log "This server does not know its own full name ('hostname --fqdn' returned '${current:-<empty>}')."
+        echo "  StatBus needs the public address people will use, with a dot, for example statbus.example.org."
+        read -r -p "  Planned full address: " fqdn || return 1
+    done
+
+    short="${fqdn%%.*}"
+    current_short="$(hostname 2>/dev/null || true)"
+    if [[ -z "$current_short" ]]; then
+        current_short="$(hostname -s 2>/dev/null || true)"
+    fi
+    if [[ "$current_short" != "$short" ]]; then
+        log "Setting this server's short name to '$short'..."
+        hostnamectl set-hostname "$short"
+    else
+        log "Keeping this server's short name '$short'."
+    fi
+
+    set_hosts_entry "$fqdn" "$short" || return 1
+    verify "Full host name is $fqdn" "[[ \"\$(hostname --fqdn 2>/dev/null)\" == \"$fqdn\" ]]"
+    SERVER_FQDN="$fqdn"
+    if [[ "$NON_INTERACTIVE" != "true" ]]; then
+        save_env
+    fi
+    return 0
 }
 
 prompt_env_value() {
@@ -2183,6 +2283,13 @@ main() {
     show_banner
     check_prerequisites
     setup_env
+
+    # The full host name is the site address StatBus will use. Resolve it before
+    # any stage runs, but not for a run that will not install StatBus (for
+    # example the firewall-only repair that skips Stages 5 and 7).
+    if ! stage_skipped 5 || ! stage_skipped 7; then
+        configure_server_fqdn || exit 1
+    fi
 
     log_header "Starting Setup Process"
 
