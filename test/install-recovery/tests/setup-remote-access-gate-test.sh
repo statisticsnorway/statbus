@@ -34,6 +34,8 @@ mkdir -p "$FAKE_HOME/.ssh"
 # a real GitHub fetch.
 remote_access_home() { echo "$FAKE_HOME"; }
 hostname() { echo "example.test"; }
+FAKE_SSH_PORTS=""
+ssh_listen_ports() { [[ -n "$FAKE_SSH_PORTS" ]] && printf '%s\n' $FAKE_SSH_PORTS; return 0; }
 log() { echo "[INFO] $*"; }
 log_success() { echo "[OK] $*"; }
 log_error() { echo "[ERROR] $*"; }
@@ -115,5 +117,34 @@ else
     echo "FAIL no-keys-no-users: rc=$rc prompted='$PROMPTED' populated='$POPULATED'"; fail=1
 fi
 grep -q 'GITHUB_USERS' <<<"$out" || { echo "FAIL the refusal does not name GITHUB_USERS"; fail=1; }
+
+# 5. The confirmation tells the operator which port(s) SSH really listens on
+#    and to connect the way they normally reach the server. It must not present
+#    a guessed `ssh -p <port> user@$(hostname -f)` command: socket activation
+#    makes sshd's configured port differ from the listening port, and a NAT may
+#    map another external port again.
+reset; has_key; ANSWER=n; FAKE_SSH_PORTS="713 2222"; export ANSWER FAKE_SSH_PORTS
+run_gate statbus; rc=$?
+if [[ $rc -ne 0 ]]; then
+    echo "PASS unconfirmed access still refuses"
+else
+    echo "FAIL unconfirmed access: expected refusal, got rc=$rc"; fail=1
+fi
+if grep -q 'listening on port(s) 713 2222' <<<"$out"; then
+    echo "PASS the prompt names the ports SSH listens on"
+else
+    echo "FAIL the prompt does not name the listening ports: $out"; fail=1
+fi
+if grep -q 'the way you normally reach this server' <<<"$out"; then
+    echo "PASS the prompt asks for the operator's usual connection details"
+else
+    echo "FAIL the prompt does not ask for the usual connection details: $out"; fail=1
+fi
+if grep -Eq 'ssh (-p [0-9]+ )?[^ ]+@example\.test' <<<"$out"; then
+    echo "FAIL the prompt still presents a guessed ssh command: $out"; fail=1
+else
+    echo "PASS the prompt presents no guessed ssh command"
+fi
+grep -q 'Answering no changes nothing' <<<"$out" || { echo "FAIL the no-op reassurance is missing"; fail=1; }
 
 exit $fail

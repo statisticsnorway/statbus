@@ -374,13 +374,44 @@ deploy_keys_for_this_run() {
 # can be exercised without touching a real home directory.
 remote_access_home() { eval echo "~$1"; }
 
-# The TCP port(s) sshd actually listens on, one per line, from sshd's own
-# effective configuration (`sshd -T`), so a port moved in sshd_config or a
-# drop-in is seen. Empty output means the port could not be determined.
-# Never assume 22: in Uganda the local operator had moved sshd to 713 on the
-# server itself, and a firewall that opened only 22 locked the operator out.
+# The TCP port(s) sshd actually listens on, one per line, from the real
+# listening sockets. Ubuntu 22.10+ socket-activates sshd: ssh.socket's
+# ListenStream decides the port, while sshd_config's Port (what `sshd -T`
+# reports) is ignored, so configuration is only a last-resort fallback. Empty
+# output means the port could not be determined. Never assume 22: in Uganda
+# the local operator had moved sshd to 713 on the server itself, and a
+# firewall that opened only 22 locked the operator out.
 ssh_listen_ports() {
-    sshd -T 2>/dev/null | awk '$1 == "port" && $2 ~ /^[0-9]+$/ {print $2}' | sort -un
+    local ports
+    # The real listeners, named by the process holding each socket. Under
+    # socket activation sshd and systemd share the ssh.socket listener, so
+    # sshd appears here on the port that actually accepts connections.
+    ports="$(
+        ss -H -ltnp 2>/dev/null | awk '
+            index($0, "users:") && index($0, "(\"sshd\",") {
+                n = split($4, parts, ":")
+                if (parts[n] ~ /^[0-9]+$/) print parts[n]
+            }'
+    )"
+    # Before the first connection the socket may be held by systemd alone and
+    # sshd is absent from `ss`; ssh.socket's ListenStream is then the authority.
+    if [[ -z "$ports" ]] && systemctl is-active --quiet ssh.socket 2>/dev/null; then
+        ports="$(
+            systemctl show ssh.socket -p Listen --value 2>/dev/null | awk '
+                { for (i = 1; i <= NF; i++) {
+                      n = split($i, parts, ":")
+                      if (parts[n] ~ /^[0-9]+$/) print parts[n]
+                  } }'
+        )"
+    fi
+    # Last resort: sshd's effective configuration, for a classic sshd whose
+    # socket process information `ss` does not show.
+    if [[ -z "$ports" ]]; then
+        ports="$(sshd -T 2>/dev/null | awk '$1 == "port" && $2 ~ /^[0-9]+$/ {print $2}')"
+    fi
+    if [[ -n "$ports" ]]; then
+        printf '%s\n' "$ports" | sort -un
+    fi
 }
 
 # Allow every port sshd listens on through UFW, and say which. Refuse (return 1,
@@ -422,10 +453,15 @@ ensure_remote_access() {
 
     echo ""
     log "Confirm you can still get in, before password authentication is disabled."
-    local connect_port connect_hint=""
-    connect_port="$(ssh_listen_ports | head -1)"
-    [[ -n "$connect_port" && "$connect_port" != 22 ]] && connect_hint="-p $connect_port "
-    echo "  In a second terminal, connect with: ssh $connect_hint$user@$(hostname -f 2>/dev/null || hostname)"
+    local listen_ports
+    listen_ports="$(ssh_listen_ports | paste -sd ' ' -)"
+    if [[ -n "$listen_ports" ]]; then
+        echo "  SSH is listening on port(s) $listen_ports on this server."
+    else
+        echo "  I could not determine which port SSH is listening on this server."
+    fi
+    echo "  In a second terminal, connect the way you normally reach this server"
+    echo "  (your usual hostname and port; a router or NAT may map a different external port)."
     echo "  Answering no changes nothing: fix the access, then run this script again."
     if ! ask_yes_no "Did that connect?" n; then
         log_error "Remote access was not confirmed, so SSH has not been changed."
