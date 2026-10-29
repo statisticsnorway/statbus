@@ -167,7 +167,10 @@ select_release_baseline_with_migration_delta_from_repo() {
 
     while IFS= read -r candidate; do
         [ -n "$candidate" ] || continue
-        added=$(git -C "$repo" diff --name-only --diff-filter=A "$candidate" "$target_commit" -- 'migrations/*.up.sql' | wc -l | tr -d ' ')
+        # :(top) anchors the pathspec at the repository root. REPO is often a
+        # subdirectory (the LXD fleet's shadow tree), where a plain pathspec
+        # would be relative to it and match nothing.
+        added=$(git -C "$repo" diff --name-only --diff-filter=A "$candidate" "$target_commit" -- ':(top)migrations/*.up.sql' | wc -l | tr -d ' ')
         if [ "$added" -gt 0 ]; then
             echo "  Baseline selection: newest stable below $target (RC fallback) with a migration delta is $candidate ($added migration(s) to apply)" >&2
             printf '%s\n' "$candidate"

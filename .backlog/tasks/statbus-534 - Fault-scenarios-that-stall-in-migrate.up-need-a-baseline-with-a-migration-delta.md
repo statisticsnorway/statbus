@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-10-29T21:50:00Z'
-updated_date: '2026-10-29T21:50:00Z'
+updated_date: '2026-10-29T23:27:00Z'
 labels:
   - harness
   - release
@@ -24,15 +24,17 @@ v2026.10.5-rc.01 adds no migration over v2026.10.4 (installer fixes only). The L
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [x] #1 Scenarios whose fault fires inside migrate.up select the newest stable (RC fallback) below the target that lacks at least one of the target's migrations
-- [x] #2 lxd_checkpoint_for_scenario forks the same release the scenario selects
-- [x] #3 The no-delta diagnostic names the real causes instead of only the seed
-- [x] #4 Red/green: new release-baseline and checkpoint-identity assertions fail on the pre-fix tree and pass after
-- [ ] #5 The fault fleet passes 1-boot-concurrent-install on the next candidate
+- [x] #1 test/install-recovery/tests/release-baseline-test.sh passes the assertion that select_release_baseline_with_migration_delta_from_repo returns v2026.10.3 for v2026.10.5-rc.01, from both the repo root and a subdirectory path
+- [x] #2 test/install-recovery/tests/lxd-checkpoint-identity-test.sh passes: 1-boot-concurrent-install resolves installed-<newest release with a delta>-standalone-demo, matching the scenario's own selection
+- [x] #3 When Migrations is already done, 1-boot-concurrent-install's stderr says Migrations had nothing to apply and names both causes (no delta from the baseline, or a seed already at the target)
+- [x] #4 Both harness tests fail on the pre-fix tree and pass after (logs in tmp/)
+- [ ] #5 In the next RC's LXD fleet, 1-boot-concurrent-install and 3-postswap-worker-ddl-deadlock PASS from a baseline with a migration delta
 <!-- AC:END -->
 
 ## Implementation Notes
 
 <!-- SECTION:NOTES:BEGIN -->
 Root cause journaled in tmp/journal.md. Red on pre-fix tree b8a18d41b: release-baseline-test rank_release_baselines_from_tags: command not found (rc=127); lxd-checkpoint-identity-test FAIL: 1-boot-concurrent-install checkpoint = installed-v2099.01.0-standalone-demo (expected installed-v2099.00.0-standalone-demo). Green after: both PASS, real ledger selects v2026.10.3 for v2026.10.5-rc.01 (2 migrations to apply). Related selftests pass: concurrent-install-observation, lxd-snapshot-layers, lxd-smoke-checkpoint, lxd-arc-a-checkpoint, scenario-helper-resolution. Logs: tmp/test-release-baseline-{red,green}.log, tmp/test-checkpoint-identity-{red,green}.log.
+
+rc.02 LXD fleet run 40966933047: the selector found no delta for ANY release because the scenario runs from the fleet's shadow tree (REPO is a subdirectory) and git diff resolved the 'migrations/*.up.sql' pathspec relative to it. Fixed with ':(top)migrations/*.up.sql'. New release-baseline assertion with REPO_ROOT/test/install-recovery: red on pre-fix tree (got ''), green after (v2026.10.3). Logs tmp/test-release-baseline-subdir-{red,green}.log.
 <!-- SECTION:NOTES:END -->

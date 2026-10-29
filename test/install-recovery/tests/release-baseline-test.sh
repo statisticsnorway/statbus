@@ -53,6 +53,10 @@ got=$(select_release_baseline_with_migration_delta_from_repo "$REPO_ROOT" v2026.
 assert_eq v2026.10.3 "$got" "real ledger: migration-delta baseline for v2026.10.5-rc.01"
 got=$(select_release_baseline_with_migration_delta_from_repo "$REPO_ROOT" v2026.10.4 2>/dev/null)
 assert_eq v2026.10.3 "$got" "real ledger: migration-delta baseline for v2026.10.4 is its own predecessor"
+# The LXD fleet runs scenarios from a shadow tree below the checkout, so REPO is
+# a subdirectory (v2026.10.5-rc.02 fleet run 40966933047 found no delta at all).
+got=$(select_release_baseline_with_migration_delta_from_repo "$REPO_ROOT/test/install-recovery" v2026.10.5-rc.01 2>/dev/null || true)
+assert_eq v2026.10.3 "$got" "real ledger: migration-delta baseline from a subdirectory repo path"
 
 # STATBUS-341: the recovery credential file is private from its first inode and
 # remains private after upload. Pin the security contract locally without ever
