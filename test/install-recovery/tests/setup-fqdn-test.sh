@@ -90,6 +90,11 @@ if [[ "$(grep -c '^127\.0\.1\.1[[:space:]]' "$HOSTS_FILE")" -eq 1 ]]; then
 else
     nope "expected one 127.0.1.1 line: $(cat "$HOSTS_FILE")"
 fi
+if grep -qx 'SERVER_FQDN="statbus.ubos.org"' "$work/.setup-ubuntu.env"; then
+    pass "the chosen full name is saved in the setup configuration"
+else
+    nope "the chosen full name is not saved in the setup configuration"
+fi
 
 # 2. Rerunning is idempotent: the now-dotted FQDN changes nothing.
 before="$(cat "$HOSTS_FILE")"
