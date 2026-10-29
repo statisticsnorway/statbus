@@ -518,11 +518,13 @@ func TestDecodePFX_EncryptedFixture_WrongPassword(t *testing.T) {
 	if err == nil {
 		t.Fatal("decodePFX with wrong password unexpectedly succeeded")
 	}
-	// The library version used by this fixture returns prose rather than wrapping
-	// ErrDecryption. That prose must not be promoted to a typed password verdict.
-	msg := err.Error()
-	if strings.Contains(strings.ToLower(msg), "invalid pfx password") {
-		t.Errorf("prose-only decryption error must not be relabelled as a password sentinel; got: %v", err)
+	// ErrIncorrectPassword is the modern-library verdict for this fixture. It
+	// must be recognised as a password problem, not a corrupt file.
+	if !isPFXPasswordError(err) {
+		t.Errorf("wrong password was not classified as a password error: %v", err)
+	}
+	if !strings.Contains(strings.ToLower(err.Error()), "invalid pfx password") {
+		t.Errorf("wrong password lacks the password refusal wording: %v", err)
 	}
 }
 
@@ -552,8 +554,11 @@ func TestDecodePFX_EncryptedFixture_EmptyPasswordOnEncryptedFails(t *testing.T) 
 	if err == nil {
 		t.Fatal("decodePFX with empty password on encrypted PFX unexpectedly succeeded")
 	}
-	if strings.Contains(strings.ToLower(err.Error()), "invalid pfx password") {
-		t.Errorf("prose-only decryption error must remain a generic decode failure; got: %v", err)
+	if !isPFXPasswordError(err) {
+		t.Errorf("empty password on an encrypted PFX was not classified as a password error: %v", err)
+	}
+	if !strings.Contains(strings.ToLower(err.Error()), "invalid pfx password") {
+		t.Errorf("empty password on an encrypted PFX lacks the password refusal wording: %v", err)
 	}
 }
 

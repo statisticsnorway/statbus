@@ -533,7 +533,7 @@ func loadCertMaterialWithPassword(args []string, pfxPassword *string) ([]*x509.C
 		// (0x30 0x82). For PEM-shaped input, it returns immediately
 		// with a sentinel so we fall through without bothering the
 		// operator for a password.
-		chain, key, decodeErr := decodePFXOrFallback(data, pfxPassword)
+		chain, key, decodeErr := decodePFXOrFallback(data, pfxPassword, path)
 		if decodeErr != nil {
 			return nil, nil, "", decodeErr
 		}
@@ -595,6 +595,16 @@ func readCertFile(path string) ([]byte, error) {
 	return data, nil
 }
 
+// errCertificatePasswordNotAccepted is the one operator cause for a PFX
+// password that did not open any of the attempts. It is deliberately distinct
+// from malformed-input errors so install_failure_cause.go never tells the
+// operator a good file may be corrupt.
+var errCertificatePasswordNotAccepted = errors.New("the certificate password was not accepted")
+
+// readPFXPassword is the terminal seam. Tests replace it; production reads
+// with echo disabled.
+var readPFXPassword = readPassword
+
 // decodePFXOrFallback inspects the file and either decodes as PFX
 // or returns (nil, nil, nil) to signal "not a PFX — try PEM next."
 // The password comes from pfxPassword when non-nil (the installer's
@@ -603,29 +613,48 @@ func readCertFile(path string) ([]byte, error) {
 // the password is wrong / file is corrupt — in that case we surface
 // a loud, actionable error rather than silently falling through to
 // PEM (which would then fail with a misleading "no PEM blocks found").
-func decodePFXOrFallback(data []byte, pfxPassword *string) ([]*x509.Certificate, interface{}, error) {
+func decodePFXOrFallback(data []byte, pfxPassword *string, path string) ([]*x509.Certificate, interface{}, error) {
 	if !looksLikeDER(data) {
 		// Clearly not a PFX (PEM or unknown) — fall through.
 		return nil, nil, nil
 	}
-	var pw string
 	if pfxPassword != nil {
-		pw = *pfxPassword
-	} else {
-		var err error
-		pw, err = readPassword("Enter PFX password (leave empty if none): ")
+		chain, key, err := decodePFX(data, *pfxPassword)
 		if err != nil {
-			return nil, nil, fmt.Errorf("could not read password from terminal: %w", err)
+			if isPFXPasswordError(err) {
+				return nil, nil, fmt.Errorf("%w for %s. Run the same install command again and type the PFX password when asked", errCertificatePasswordNotAccepted, path)
+			}
+			return nil, nil, err
+		}
+		fmt.Println("✓ PFX validated")
+		fmt.Printf("✓ Certificate chain extracted (%d cert(s))\n", len(chain))
+		fmt.Println("✓ Private key extracted")
+		return chain, key, nil
+	}
+
+	var chain []*x509.Certificate
+	var key interface{}
+	for attempt := 1; attempt <= 3; attempt++ {
+		pw, readErr := readPFXPassword("Enter PFX password (type it and press Enter; it will not be shown; leave empty if none): ")
+		if readErr != nil {
+			return nil, nil, fmt.Errorf("could not read password from terminal: %w", readErr)
+		}
+		var decodeErr error
+		chain, key, decodeErr = decodePFX(data, pw)
+		if decodeErr == nil {
+			fmt.Println("✓ PFX validated")
+			fmt.Printf("✓ Certificate chain extracted (%d cert(s))\n", len(chain))
+			fmt.Println("✓ Private key extracted")
+			return chain, key, nil
+		}
+		if !isPFXPasswordError(decodeErr) {
+			return nil, nil, decodeErr
+		}
+		if attempt < 3 {
+			certNotice("That password did not open %s.", path)
 		}
 	}
-	chain, key, err := decodePFX(data, pw)
-	if err != nil {
-		return nil, nil, err
-	}
-	fmt.Println("✓ PFX validated")
-	fmt.Printf("✓ Certificate chain extracted (%d cert(s))\n", len(chain))
-	fmt.Println("✓ Private key extracted")
-	return chain, key, nil
+	return nil, nil, fmt.Errorf("%w for %s after 3 attempts. Run the same install command again and type the PFX password when asked", errCertificatePasswordNotAccepted, path)
 }
 
 // decodePFX is the pure decode primitive: takes bytes + password,
@@ -655,7 +684,7 @@ func decodePFX(data []byte, password string) ([]*x509.Certificate, interface{}, 
 		// failed" wrapper that preserves the upstream detail.
 		if isPFXPasswordError(err) {
 			return nil, nil, fmt.Errorf("invalid PFX password — re-run and enter the password from your CA's email or PFX export\n"+
-				"  (pkcs12 decryption returned: %v)", err)
+				"  (pkcs12 decryption returned: %w)", err)
 		}
 		return nil, nil, fmt.Errorf("PFX decode failed: %w\n"+
 			"  The file may be corrupt or not a valid PKCS#12 PFX archive.\n"+
@@ -678,7 +707,9 @@ func decodePFX(data []byte, password string) ([]*x509.Certificate, interface{}, 
 	return chain, key, nil
 }
 
-func isPFXPasswordError(err error) bool { return errors.Is(err, pkcs12.ErrDecryption) }
+func isPFXPasswordError(err error) bool {
+	return errors.Is(err, pkcs12.ErrDecryption) || errors.Is(err, pkcs12.ErrIncorrectPassword)
+}
 
 // reorderChainLeafFirst puts the leaf cert at index 0 by finding the
 // cert that isn't an issuer of any other cert in the chain.
@@ -1362,6 +1393,13 @@ func sanitiseBaseName(path string) string {
 // password via a here-doc; we just take whatever's on the line).
 func readPassword(prompt string) (string, error) {
 	fmt.Fprint(os.Stderr, prompt)
+	if prompt != "" {
+		// The install pipeline keeps stdout's marked prompt lines and drops
+		// stderr's, so the question must travel there too. installTTYPrompt
+		// ends the line; the caller's wording tells the operator to press
+		// Enter. The answer itself is never echoed or written.
+		installTTYPrompt("%s", prompt)
+	}
 	defer fmt.Fprintln(os.Stderr)
 	if !term.IsTerminal(int(os.Stdin.Fd())) {
 		// Non-interactive — read a line from stdin without

@@ -199,11 +199,9 @@ func TestInstallCertStep_PFX_WrongPassword(t *testing.T) {
 	t.Setenv("STATBUS_TLS_PFX_FILE", "testdata/test-encrypted.pfx")
 	t.Setenv("STATBUS_TLS_PFX_PASSWORD", "WRONG-not-swordfish")
 	err := runInstallCertStep(dir)
-	// The same decode failure ./sb cert install surfaces for this fixture:
-	// the pkcs12 library returns prose ("decryption password incorrect")
-	// rather than wrapping ErrDecryption (pinned by
-	// TestDecodePFX_EncryptedFixture_WrongPassword).
-	if err == nil || !strings.Contains(err.Error(), "password incorrect") {
+	// A supplied password that does not open the file is classified as a
+	// password problem, never as a possibly-corrupt file.
+	if err == nil || !strings.Contains(err.Error(), "certificate password was not accepted") {
 		t.Fatalf("got %v, want the PFX wrong-password refusal", err)
 	}
 	// No partial state: no files placed, .env.config untouched.

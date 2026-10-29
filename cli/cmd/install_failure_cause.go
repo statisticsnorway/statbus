@@ -70,6 +70,7 @@ var installFailureCauses = []installFailureCause{
 	{regexp.MustCompile(`(?i)(git.*(?:fetch|remote).*?(?:failed|fatal:|could not|unable to)|(?:fatal:.*(?:could not read from remote repository|unable to access|couldn't find remote ref)))`), "The source update could not be fetched.", "Check network access and Git repository permissions, then retry."},
 	{regexp.MustCompile(regexp.QuoteMeta(errSignerNotApplied.Error())), "The approved release signer did not reach the settings the update service reads.", "Run cd ~/statbus && ./sb config generate, then retry."},
 	{regexp.MustCompile(`(?i)(signature verification failed|invalid signature|untrusted signer|no valid release signer|trusted release signer.*required|gpg: bad signature|signer approval was declined)`), "The release signature could not be verified.", "Verify the release signer and approve a trusted signer before retrying."},
+	{regexp.MustCompile(`(?i)certificate password was not accepted`), "The certificate password was not accepted.", "Run the same install command again and type the PFX password when asked."},
 	{regexp.MustCompile(`TLS_(?:CERT|KEY)_FILE(?:="|\b).*(?:is not a valid Caddy container path|corresponding host (?:file|path)|must be set together)`), "The custom certificate settings are invalid.", "Run cd ~/statbus && ./sb cert install <full path to certificate> <full path to key> (or a single PFX/PKCS#12 file), then retry."},
 }
 

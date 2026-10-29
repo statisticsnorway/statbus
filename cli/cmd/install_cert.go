@@ -265,7 +265,7 @@ func chooseCertificateFromFolder(folder, dir string) ([]string, *string) {
 	var pfxPassword *string
 	if hasPFX {
 		certNotice("  The folder contains PFX/PKCS#12 files. Their password is only used to read them and is not stored.")
-		certNotice("  PFX password (typing is hidden; leave empty if none):")
+		certNotice("  PFX password (type it and press Enter; it will not be shown; leave empty if none):")
 		password, readErr := readPassword("")
 		if readErr == nil {
 			pfxPassword = &password
