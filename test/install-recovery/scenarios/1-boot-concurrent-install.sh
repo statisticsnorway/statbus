@@ -54,7 +54,9 @@ INSTALL_BUDGET_S="${INSTALL_BUDGET_S:-900}"
 LIB_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/lib"
 REPO_ROOT="$(cd "$LIB_DIR/../../.." && pwd)"
 source "$LIB_DIR/release-baseline.sh"
-INSTALL_VERSION="${INSTALL_VERSION:-$(select_release_baseline_from_repo "$REPO_ROOT")}"
+# The fault needs a real Migrations step: pick the newest release that the
+# target actually adds migrations to (release-baseline.sh).
+INSTALL_VERSION="${INSTALL_VERSION:-$(select_release_baseline_with_migration_delta_from_repo "$REPO_ROOT")}"
 source "$LIB_DIR/vm-bootstrap.sh"
 source "$LIB_DIR/data-helpers.sh"   # populate_with_demo_data (used to non-fresh the DB so the HEAD install skips its seed)
 source "$LIB_DIR/wedge-helpers.sh"
@@ -169,11 +171,11 @@ assert_migration_delta() {
     # the table 17→18; a pinned [13/17] went stale exactly like the rc.05
     # smoke pin). The contract is the step NAME and state, not its position.
     if printf '%s\n' "$log" | grep -Eq '^\[[0-9]+/[0-9]+\] Migrations +OK'; then
-        echo '✗ seed obviated the migration delta: Migrations was skipped' >&2
+        echo "✗ Migrations had nothing to apply: either ${INSTALL_VERSION:-the baseline} adds no migration relative to the target, or the seed restore already brought the database to the target" >&2
         return 1
     fi
     if ! printf '%s\n' "$log" | grep -Eq '^\[[0-9]+/[0-9]+\] Migrations +RUNNING'; then
-        echo '✗ seed obviated the migration delta: Migrations RUNNING line absent' >&2
+        echo '✗ the install log has no Migrations RUNNING line, so the migrate-up stall site was never reached' >&2
         return 1
     fi
 }

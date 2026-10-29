@@ -367,10 +367,17 @@ lxd_checkpoint_for_scenario() {
     if grep -Eq 'INSTALL_VERSION="\$\{INSTALL_VERSION:-\}"' "$file"; then
         printf 'hardened-nothing-installed'; return
     fi
-    if grep -Eq 'select_release_baseline_from_repo|select_release_baseline_from_tags' "$file"; then
-        # Same selector as the scenario, relative to the candidate tag.
+    if grep -Eq 'select_release_baseline_(with_migration_delta_)?from_repo|select_release_baseline_from_tags' "$file"; then
+        # Same selector as the scenario, relative to the candidate tag. A
+        # scenario whose fault fires inside migrate.up selects the newest
+        # release WITH a migration delta to the candidate; the checkpoint must
+        # be that same release or the fork has nothing to migrate.
         source "$HARNESS_ROOT/test/install-recovery/lib/release-baseline.sh"
-        baseline=$(select_release_baseline_from_repo "$HARNESS_ROOT" "$LXD_CANDIDATE") || return
+        if grep -Eq 'select_release_baseline_with_migration_delta_from_repo' "$file"; then
+            baseline=$(select_release_baseline_with_migration_delta_from_repo "$HARNESS_ROOT" "$LXD_CANDIDATE") || return
+        else
+            baseline=$(select_release_baseline_from_repo "$HARNESS_ROOT" "$LXD_CANDIDATE") || return
+        fi
         # review N1: run-smoke.sh's 0-happy-upgrade leg exports an explicit
         # LXD_BASELINE_CHECKPOINT_SUFFIX (never keyed on HARNESS_UPGRADE_CHANNEL
         # — the fault fleet's delegators 5-install-disk-threshold-repair and

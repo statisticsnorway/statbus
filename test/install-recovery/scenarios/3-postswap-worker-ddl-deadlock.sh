@@ -92,7 +92,9 @@ WORKLOAD_DURATION_S="${WORKLOAD_DURATION_S:-900}"     # match install budget
 LIB_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/lib"
 REPO_ROOT="$(cd "$LIB_DIR/../../.." && pwd)"
 source "$LIB_DIR/release-baseline.sh"
-INSTALL_VERSION="${INSTALL_VERSION:-$(select_release_baseline_from_repo "$REPO_ROOT")}"
+# The fault needs a real Migrations step: pick the newest release that the
+# target actually adds migrations to (release-baseline.sh).
+INSTALL_VERSION="${INSTALL_VERSION:-$(select_release_baseline_with_migration_delta_from_repo "$REPO_ROOT")}"
 source "$LIB_DIR/vm-bootstrap.sh"
 source "$LIB_DIR/data-helpers.sh"
 source "$LIB_DIR/wedge-helpers.sh"

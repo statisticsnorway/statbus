@@ -42,6 +42,18 @@ assert_eq v2026.08.1 "$got" "target and future tags are strictly excluded"
 got=$(select_release_baseline_from_repo "$REPO_ROOT" v2026.09.0-rc.04)
 assert_eq v2026.08.1 "$got" "real ledger for v2026.09.0-rc.04"
 
+got=$(printf '%s\n' v2026.09.0-rc.03 v2026.08.1 v2026.08.1-rc.01 v2026.08.0 \
+    | rank_release_baselines_from_tags v2026.09.0-rc.04 | tr '\n' ' ')
+assert_eq 'v2026.08.1 v2026.08.0 v2026.09.0-rc.03 v2026.08.1-rc.01 ' "$got" "baseline preference order"
+
+# v2026.10.5-rc.01 adds no migration over v2026.10.4 (installer fixes only);
+# v2026.10.3 lacks two of its migrations. Scenarios that stall in migrate.up
+# need the latter (LXD fleet run 40948716142).
+got=$(select_release_baseline_with_migration_delta_from_repo "$REPO_ROOT" v2026.10.5-rc.01 2>/dev/null)
+assert_eq v2026.10.3 "$got" "real ledger: migration-delta baseline for v2026.10.5-rc.01"
+got=$(select_release_baseline_with_migration_delta_from_repo "$REPO_ROOT" v2026.10.4 2>/dev/null)
+assert_eq v2026.10.3 "$got" "real ledger: migration-delta baseline for v2026.10.4 is its own predecessor"
+
 # STATBUS-341: the recovery credential file is private from its first inode and
 # remains private after upload. Pin the security contract locally without ever
 # supplying or printing a token value.

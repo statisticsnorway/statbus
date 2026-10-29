@@ -47,6 +47,13 @@ git -C "$REPO" config user.name 'Offline harness selftest'
 git -C "$REPO" config user.email 'selftest@example.invalid'
 git -C "$REPO" add .
 git -C "$REPO" commit -qm 'baseline fixture'
+git -C "$REPO" tag v2099.00.0
+# v2099.01.0 adds the last migration; the candidate adds none (an
+# installer-only release, like v2026.10.5-rc.01 over v2026.10.4).
+mkdir -p "$REPO/migrations"
+echo 'SELECT 1;' > "$REPO/migrations/20990101000000_fixture.up.sql"
+git -C "$REPO" add migrations
+git -C "$REPO" commit -qm 'last migration fixture'
 git -C "$REPO" tag v2099.01.0
 git -C "$REPO" commit -qm 'candidate fixture' --allow-empty
 git -C "$REPO" tag v2099.01.1-rc.1
@@ -111,6 +118,24 @@ egress=$(lxd_checkpoint_for_scenario 0-https-only-egress)
     exit 1
 }
 echo "PASS: 0-https-only-egress resolves its delegate's baseline checkpoint ($egress)"
+
+# The REAL 1-boot-concurrent-install.sh stalls inside migrate.up, so its fork
+# must start from a release the candidate adds migrations to. v2099.01.0 has
+# the candidate's last migration already; v2099.00.0 lacks it. Forking
+# v2099.01.0 left Migrations nothing to do and the stall never engaged
+# (v2026.10.5-rc.01 LXD fleet, run 40948716142).
+cp "$ROOT/test/install-recovery/scenarios/1-boot-concurrent-install.sh" "$REPO/test/install-recovery/scenarios/"
+c10=$(lxd_checkpoint_for_scenario 1-boot-concurrent-install 2>/dev/null)
+[ "$c10" = "installed-v2099.00.0-standalone-demo" ] || {
+    echo "FAIL: 1-boot-concurrent-install checkpoint = $c10 (expected installed-v2099.00.0-standalone-demo, the newest release with a migration delta)" >&2
+    exit 1
+}
+c10_scenario=$(cd "$REPO" && bash -c 'source test/install-recovery/lib/release-baseline.sh; select_release_baseline_with_migration_delta_from_repo "$PWD" v2099.01.1-rc.1' 2>/dev/null)
+[ "installed-$c10_scenario-standalone-demo" = "$c10" ] || {
+    echo "FAIL: scenario baseline $c10_scenario and its fork checkpoint $c10 diverge" >&2
+    exit 1
+}
+echo "PASS: 1-boot-concurrent-install forks the newest release with a migration delta ($c10)"
 
 # Capture, never execute, the real historical helper's remote install body.
 # Unstubbed transports refuse every external operation.

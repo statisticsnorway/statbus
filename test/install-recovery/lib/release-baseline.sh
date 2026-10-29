@@ -114,3 +114,67 @@ select_release_baseline_from_repo() {
     fi
     printf '%s\n' "$baseline"
 }
+
+# rank_release_baselines_from_tags TARGET
+#
+# Reads tag names from stdin and prints every released tag strictly below
+# TARGET in preference order: stables newest first, then RCs newest first.
+# The first line is exactly select_release_baseline_from_tags' choice.
+rank_release_baselines_from_tags() {
+    local target="$1" tag parts
+    _release_tag_parts "$target" >/dev/null || {
+        echo "ERROR: target '$target' is not a released stable/RC tag" >&2
+        return 1
+    }
+    while IFS= read -r tag; do
+        parts=$(_release_tag_parts "$tag" 2>/dev/null) || continue
+        _release_tag_is_before "$tag" "$target" || continue
+        printf '%s %s\n' "$parts" "$tag"
+    done | sort -k4,4nr -k1,1nr -k2,2nr -k3,3nr -k5,5nr | awk '{print $6}'
+}
+
+# select_release_baseline_with_migration_delta_from_repo REPO [TARGET]
+#
+# The baseline for a scenario whose fault fires inside migrate.up: the
+# preferred release (as select_release_baseline_from_repo ranks them) whose
+# tree lacks at least one migrations/*.up.sql that the target commit has.
+# Upgrading from such a baseline runs the Migrations step for real. A
+# candidate that adds no migration over the newest stable (an installer-only
+# release) would otherwise give these scenarios nothing to stall in. TARGET
+# and the untagged-HEAD bound are resolved exactly as in
+# select_release_baseline_from_repo.
+select_release_baseline_with_migration_delta_from_repo() {
+    local repo="$1" target="${2:-}" tags target_commit exact_targets candidate added
+    if [ -n "$target" ]; then
+        tags=$(git -C "$repo" tag --list)
+        target_commit=$(git -C "$repo" rev-parse --verify --quiet "$target^{commit}") || {
+            echo "ERROR: target '$target' is not a tag in $repo" >&2
+            return 1
+        }
+    else
+        target_commit=$(git -C "$repo" rev-parse HEAD)
+        exact_targets=$(git -C "$repo" tag --points-at HEAD \
+            | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+(-rc\.[0-9]+)?$' || true)
+        if [ -n "$exact_targets" ]; then
+            target=$(printf '%s\n' "$exact_targets" \
+                | select_release_baseline_from_tags v9999.99.999999)
+            tags=$(git -C "$repo" tag --list)
+        else
+            target="v9999.99.999999"
+            tags=$(git -C "$repo" tag --merged HEAD)
+        fi
+    fi
+
+    while IFS= read -r candidate; do
+        [ -n "$candidate" ] || continue
+        added=$(git -C "$repo" diff --name-only --diff-filter=A "$candidate" "$target_commit" -- 'migrations/*.up.sql' | wc -l | tr -d ' ')
+        if [ "$added" -gt 0 ]; then
+            echo "  Baseline selection: newest stable below $target (RC fallback) with a migration delta is $candidate ($added migration(s) to apply)" >&2
+            printf '%s\n' "$candidate"
+            return 0
+        fi
+        echo "  Baseline selection: $candidate has no migration delta to $target; trying an older release" >&2
+    done < <(printf '%s\n' "$tags" | rank_release_baselines_from_tags "$target")
+    echo "ERROR: no released stable or RC tag below $target has a migration delta" >&2
+    return 1
+}
