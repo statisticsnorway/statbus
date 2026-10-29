@@ -130,6 +130,8 @@ jobs:
         run: bash test/install-recovery/tests/setup-ssh-port-firewall-test.sh
       - name: Prove setup resolves the server's full name before StatBus install
         run: bash test/install-recovery/tests/setup-fqdn-test.sh
+      - name: Prove every ghcr.io login step retries transient failures (STATBUS-535)
+        run: bash test/ci-ghcr-login-retry-test.sh
       # These standalone harness tests existed but no workflow ran them, so
       # fresh-installer-test.sh went red with STATBUS-487 (d5f7b6503, its fixture
       # docker failed the new `docker info` preflight) and stayed red for a week

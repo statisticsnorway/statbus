@@ -203,7 +203,11 @@ jobs:
           # Fail toward full build on doubt about the THING being copied,
           # not just about the diff: verify the parent's images are
           # actually complete before ever routing to retag.
-          echo "$GH_TOKEN" | docker login ghcr.io -u "$ACTOR" --password-stdin
+          for attempt in 1 2 3 4 5; do
+            echo "$GH_TOKEN" | docker login ghcr.io -u "$ACTOR" --password-stdin && break
+            [ "$attempt" -lt 5 ] || { echo "::error title=ghcr.io login failed::5 attempts" >&2; exit 1; }
+            echo "ghcr.io login attempt $attempt/5 failed; retrying in $((attempt * 10))s" >&2; sleep $((attempt * 10))
+          done
           missing=""
           for svc in app worker db proxy sb; do
             ref="ghcr.io/statisticsnorway/statbus-${svc}:${PARENT_SHORT}"
@@ -269,11 +273,22 @@ jobs:
             [registry."docker.io"]
               mirrors = ["https://mirror.gcr.io"]
 
-      - uses: docker/login-action@v3
-        with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Log in to ghcr.io
+        # Retried: a runner's resolver can time out on the first ghcr.io
+        # lookup, and one miss failed a whole per-commit build (Images run
+        # 40967128256), leaving the upgrade arcs waiting 40 minutes for an
+        # image never pushed. Inline, not a script: fixture branches run this
+        # file over an older product tree (STATBUS-236).
+        env:
+          GHCR_USER: ${{ github.actor }}
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          for attempt in 1 2 3 4 5; do
+            printf '%s\n' "$GHCR_TOKEN" | docker login "$REGISTRY" -u "$GHCR_USER" --password-stdin && exit 0
+            [ "$attempt" -lt 5 ] && { echo "ghcr.io login attempt $attempt/5 failed; retrying in $((attempt * 10))s" >&2; sleep $((attempt * 10)); }
+          done
+          echo "::error title=ghcr.io login failed::5 attempts; registry or runner DNS unavailable" >&2
+          exit 1
 
       - name: Prove app build checkout
         if: matrix.service.name == 'app'
@@ -321,11 +336,22 @@ jobs:
         with:
           fetch-depth: 1
 
-      - uses: docker/login-action@v3
-        with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Log in to ghcr.io
+        # Retried: a runner's resolver can time out on the first ghcr.io
+        # lookup, and one miss failed a whole per-commit build (Images run
+        # 40967128256), leaving the upgrade arcs waiting 40 minutes for an
+        # image never pushed. Inline, not a script: fixture branches run this
+        # file over an older product tree (STATBUS-236).
+        env:
+          GHCR_USER: ${{ github.actor }}
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          for attempt in 1 2 3 4 5; do
+            printf '%s\n' "$GHCR_TOKEN" | docker login "$REGISTRY" -u "$GHCR_USER" --password-stdin && exit 0
+            [ "$attempt" -lt 5 ] && { echo "ghcr.io login attempt $attempt/5 failed; retrying in $((attempt * 10))s" >&2; sleep $((attempt * 10)); }
+          done
+          echo "::error title=ghcr.io login failed::5 attempts; registry or runner DNS unavailable" >&2
+          exit 1
 
       - name: Create multi-arch manifest (commit_short)
         # Rc.63: images tagged by commit_short only. One multi-arch
@@ -366,11 +392,22 @@ jobs:
         with:
           fetch-depth: 1
 
-      - uses: docker/login-action@v3
-        with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Log in to ghcr.io
+        # Retried: a runner's resolver can time out on the first ghcr.io
+        # lookup, and one miss failed a whole per-commit build (Images run
+        # 40967128256), leaving the upgrade arcs waiting 40 minutes for an
+        # image never pushed. Inline, not a script: fixture branches run this
+        # file over an older product tree (STATBUS-236).
+        env:
+          GHCR_USER: ${{ github.actor }}
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          for attempt in 1 2 3 4 5; do
+            printf '%s\n' "$GHCR_TOKEN" | docker login "$REGISTRY" -u "$GHCR_USER" --password-stdin && exit 0
+            [ "$attempt" -lt 5 ] && { echo "ghcr.io login attempt $attempt/5 failed; retrying in $((attempt * 10))s" >&2; sleep $((attempt * 10)); }
+          done
+          echo "::error title=ghcr.io login failed::5 attempts; registry or runner DNS unavailable" >&2
+          exit 1
 
       - name: Retag ${{ matrix.service }} from the parent commit
         # docker buildx imagetools create copies an EXISTING manifest (here,
@@ -461,11 +498,22 @@ jobs:
           buildkitd-config-inline: |
             [registry."docker.io"]
               mirrors = ["https://mirror.gcr.io"]
-      - uses: docker/login-action@v3
-        with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Log in to ghcr.io
+        # Retried: a runner's resolver can time out on the first ghcr.io
+        # lookup, and one miss failed a whole per-commit build (Images run
+        # 40967128256), leaving the upgrade arcs waiting 40 minutes for an
+        # image never pushed. Inline, not a script: fixture branches run this
+        # file over an older product tree (STATBUS-236).
+        env:
+          GHCR_USER: ${{ github.actor }}
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          for attempt in 1 2 3 4 5; do
+            printf '%s\n' "$GHCR_TOKEN" | docker login "$REGISTRY" -u "$GHCR_USER" --password-stdin && exit 0
+            [ "$attempt" -lt 5 ] && { echo "ghcr.io login attempt $attempt/5 failed; retrying in $((attempt * 10))s" >&2; sleep $((attempt * 10)); }
+          done
+          echo "::error title=ghcr.io login failed::5 attempts; registry or runner DNS unavailable" >&2
+          exit 1
       # STATBUS-116 AC#1 — resolve the incremental base (Fork-A ancestor-walk).
       # Walks first-parent ancestry for the closest published seed and injects it
       # as the prior build-context. If none exists (or the walk finds nothing) the

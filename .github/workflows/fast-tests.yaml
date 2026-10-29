@@ -223,11 +223,18 @@ jobs:
         # workflow_run and RC-tag push reuse published images + request the seed;
         # PR/dispatch build locally and seed via FULL_REPLAY.
         if: github.event_name == 'workflow_run' || github.event_name == 'push'
-        uses: docker/login-action@v3
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+        # Retried: a runner's resolver can time out on the first ghcr.io
+        # lookup (Images run 40967128256 lost a whole build to one miss).
+        env:
+          GHCR_USER: ${{ github.actor }}
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          for attempt in 1 2 3 4 5; do
+            printf '%s\n' "$GHCR_TOKEN" | docker login ghcr.io -u "$GHCR_USER" --password-stdin && exit 0
+            [ "$attempt" -lt 5 ] && { echo "ghcr.io login attempt $attempt/5 failed; retrying in $((attempt * 10))s" >&2; sleep $((attempt * 10)); }
+          done
+          echo "::error title=ghcr.io login failed::5 attempts; registry or runner DNS unavailable" >&2
+          exit 1
 
       - name: Start services
         run: |

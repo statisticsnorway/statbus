@@ -80,11 +80,19 @@ jobs:
 
       - uses: docker/setup-buildx-action@v3
 
-      - uses: docker/login-action@v3
-        with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Log in to ghcr.io
+        # Retried: a runner's resolver can time out on the first ghcr.io
+        # lookup (Images run 40967128256 lost a whole build to one miss).
+        env:
+          GHCR_USER: ${{ github.actor }}
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          for attempt in 1 2 3 4 5; do
+            printf '%s\n' "$GHCR_TOKEN" | docker login "$REGISTRY" -u "$GHCR_USER" --password-stdin && exit 0
+            [ "$attempt" -lt 5 ] && { echo "ghcr.io login attempt $attempt/5 failed; retrying in $((attempt * 10))s" >&2; sleep $((attempt * 10)); }
+          done
+          echo "::error title=ghcr.io login failed::5 attempts; registry or runner DNS unavailable" >&2
+          exit 1
 
       - name: Prove app build checkout
         if: matrix.service.name == 'app'
@@ -118,11 +126,19 @@ jobs:
     steps:
       - uses: docker/setup-buildx-action@v3
 
-      - uses: docker/login-action@v3
-        with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Log in to ghcr.io
+        # Retried: a runner's resolver can time out on the first ghcr.io
+        # lookup (Images run 40967128256 lost a whole build to one miss).
+        env:
+          GHCR_USER: ${{ github.actor }}
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          for attempt in 1 2 3 4 5; do
+            printf '%s\n' "$GHCR_TOKEN" | docker login "$REGISTRY" -u "$GHCR_USER" --password-stdin && exit 0
+            [ "$attempt" -lt 5 ] && { echo "ghcr.io login attempt $attempt/5 failed; retrying in $((attempt * 10))s" >&2; sleep $((attempt * 10)); }
+          done
+          echo "::error title=ghcr.io login failed::5 attempts; registry or runner DNS unavailable" >&2
+          exit 1
 
       - name: Create multi-arch manifest (commit_short)
         # Rc.63: images tagged by commit_short only. The release tag
