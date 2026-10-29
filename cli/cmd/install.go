@@ -104,17 +104,25 @@ func installDiagnostic(installDir, format string, args ...any) {
 }
 
 // installTTYPrompt shows only explicit questions when install.sh captures all
-// other output in the support log. Other CLI callers retain ordinary stdout.
+// other output in the support log. It writes a marker onto stdout, the SAME
+// stream install.sh's step lines take, so the terminal filter can print the
+// question after the running step. Writing /dev/tty directly raced that
+// pipeline: the question overtook buffered step lines and appeared mid-step.
+// Other CLI callers retain ordinary stdout and never see the marker.
 func installTTYPrompt(format string, args ...any) {
 	if os.Getenv("STATBUS_INSTALL_PROMPTS_TO_TTY") != "1" {
 		return
 	}
-	f, err := os.OpenFile("/dev/tty", os.O_WRONLY, 0)
-	if err != nil {
-		return
+	message := fmt.Sprintf(format, args...)
+	if !strings.HasSuffix(message, "\n") {
+		message += "\n"
 	}
-	defer func() { _ = f.Close() }()
-	_, _ = fmt.Fprintf(f, format, args...)
+	for _, line := range strings.SplitAfter(message, "\n") {
+		if line == "" {
+			continue
+		}
+		fmt.Printf("INSTALL_PROMPT: %s", line)
+	}
 }
 
 // thisLine returns the caller's source line number. Guard-site transcripts

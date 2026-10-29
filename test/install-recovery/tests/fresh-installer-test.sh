@@ -418,4 +418,28 @@ if grep -Eqi 'warning:|advice|set up to track|is not a commit|detached HEAD stat
     echo 'FAIL: annotated-tag checkout emitted git warning/advice'; cat "$tag_fixture/git-output"; exit 1
 fi
 echo 'PASS: annotated tag checks out detached with no current branch or git warnings/advice'
+
+# The question must come after the step that asked it, on its own line. The fake
+# ./sb writes the same two streams the real one does: a step line, then marked
+# prompt text. Run them through the real tee|awk filter.
+cat > "$TMP_ROOT/bin/fake-prompt-sb" <<'SB'
+#!/bin/bash
+printf '[4/19] Configuration        RUNNING\n'
+printf 'INSTALL_PROMPT:   How will people reach StatBus?\n'
+printf 'INSTALL_PROMPT:   Deployment mode (development/standalone/private) [standalone]: \n'
+SB
+chmod +x "$TMP_ROOT/bin/fake-prompt-sb"
+: > "$TMP_ROOT/prompt-log"
+"$TMP_ROOT/bin/fake-prompt-sb" 2>&1 | tee -a "$TMP_ROOT/prompt-log" | awk -f "$FILTER_SOURCE" > "$TMP_ROOT/prompt-output"
+running_line=$(grep -Fn '[4/19] Configuration        RUNNING' "$TMP_ROOT/prompt-output" | cut -d: -f1)
+prompt_line=$(grep -Fn '  Deployment mode (development/standalone/private) [standalone]:' "$TMP_ROOT/prompt-output" | cut -d: -f1)
+last_line=$(tail -1 "$TMP_ROOT/prompt-output" | sed 's/[[:space:]]*$//')
+if [ -n "$running_line" ] && [ -n "$prompt_line" ] && [ "$running_line" -lt "$prompt_line" ] \
+    && [ "$last_line" = '  Deployment mode (development/standalone/private) [standalone]:' ] \
+    && ! grep -q '^INSTALL_PROMPT:' "$TMP_ROOT/prompt-output"; then
+    echo 'PASS: the question follows the RUNNING step and is the last line on screen'
+else
+    echo 'FAIL: prompt ordering through the terminal filter is wrong'; cat -n "$TMP_ROOT/prompt-output"; exit 1
+fi
+
 echo 'fresh-installer tests: PASS'

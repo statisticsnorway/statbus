@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"regexp"
@@ -83,6 +84,27 @@ func TestInstallTerminalWriterReceivesEveryStepLine(t *testing.T) {
 	}
 	if !bytes.Equal(got, []byte(want.String())) {
 		t.Fatalf("terminal writer:\n%s\nwant:\n%s", got, want.String())
+	}
+}
+
+func TestInstallTTYPromptTravelsOnTerminalStream(t *testing.T) {
+	t.Setenv("STATBUS_INSTALL_PROMPTS_TO_TTY", "1")
+	original := os.Stdout
+	reader, writer, err := os.Pipe()
+	if err != nil {
+		t.Fatal(err)
+	}
+	os.Stdout = writer
+	installTTYPrompt("  How will people reach StatBus?\n  Deployment mode [standalone]: ")
+	_ = writer.Close()
+	os.Stdout = original
+	got, err := io.ReadAll(reader)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := "INSTALL_PROMPT:   How will people reach StatBus?\nINSTALL_PROMPT:   Deployment mode [standalone]: \n"
+	if string(got) != want {
+		t.Fatalf("prompt stream:\n%q\nwant:\n%q", got, want)
 	}
 }
 

@@ -1,6 +1,15 @@
 # This is the only bridge from the Go installer's mixed diagnostic stream to
 # the operator's terminal. Keep Docker, SQL, systemd and invariant output in
 # install-last-run-output.txt, not here. fflush makes each step visible live.
+# Questions are marked by installTTYPrompt and travel the same stream as step
+# lines, so a prompt always lands after the step that asked it. Strip the
+# marker and flush immediately; the prompt must be the last thing on screen.
+/^INSTALL_PROMPT: / {
+    sub(/^INSTALL_PROMPT: /, "")
+    print
+    fflush()
+    next
+}
 /^\[[0-9]+\/[0-9]+\] [A-Za-z][A-Za-z +()-]* +(OK|RUNNING|DONE|FAILED: This part of installation could not finish\.|FAILED — falling back to full migrations|no seed image — full migrations will run)$/ {
     print
     fflush()
