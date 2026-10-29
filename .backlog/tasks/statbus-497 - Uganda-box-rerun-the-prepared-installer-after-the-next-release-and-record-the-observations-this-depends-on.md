@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: 2026-10-13 13:16
-updated_date: '2026-10-28T09:51:00Z'
+updated_date: '2026-10-29T21:28:00Z'
 labels:
   - install
   - uganda
@@ -76,4 +76,10 @@ From the release's own published instructions (ops/setup-ubuntu-lts.sh and insta
 2026-10-28 fresh-setup context from the owner: the target is statbus.ubos.org on Ubuntu 26.04, accessed over a nonstandard SSH port, after earlier failed installation attempts. The current target release is v2026.10.4. Before hardening, preserve the detected SSH port, verify a second key-based login before disabling password authentication, and capture the setup and install transcripts for AC1-3 and the third-party installation review. No credentials, private keys, or nonpublic access details are to be recorded in this ticket.
 
 Clarification: statbus.ubos.org is the local NSO server, not the ug.statbus.org preview slot. It currently has a desktop installation and an existing statbus user. The owner has approval to move to key-only access and remove the graphical workload after access is proven. Sequence: install or confirm the statbus user's authorized key, verify a second SSH login on the existing nonstandard port, keep the original session open during hardening, then disable password access and only afterwards address graphical packages. Private keys and access secrets stay out of the ticket.
+
+2026-10-29 Uganda (statbus.ubos.org, local NSO server, Ubuntu 26.04) live run with v2026.10.4, owner driving, observed via transcript.
+Setup: Stages 1, 2, 3, 5 and 7 ran and verified idempotently; Stage 0 auto-skipped (HTTP egress works); Stage 6 not offered (standalone). Stage 4 (CrowdSec and UFW) was deliberately skipped: sshd is socket-activated, ssh.socket listens on the forwarded port while sshd -T reports a different configured port, so v2026.10.4's Stage 4 would have opened the wrong port. The firewall is therefore still off. Key-only SSH was confirmed from a second terminal after Stage 2.
+Installer: v2026.10.4 reached step 8 (Certificate) and stopped. The PFX password prompt went to stderr and was hidden by the terminal filter, so an Enter was read as an empty password (pkcs12: decryption password incorrect). The PFX itself is valid and covers the site name.
+Fourteen setup and installer findings from this run were fixed, reviewed with red/green evidence and released in v2026.10.5-rc.01 (commits 860860abe..38ccb3003, CI test fixes a87d9d064, all CI green): socket-activated SSH port, required stages default yes, cloud-only Stage 7 wording, summary derived from stage outcomes, missing FQDN detection and installer domain default, reboot attribution, authorized-key counts, copyable next step, optional security note, quiet git fetch and checkout, prompts after the running step, certificate folder chooser with path resolution, visible PFX password prompt with retries.
+Next: after stable promotion, rerun setup with the released script (Stage 4 must open the real SSH port; set the FQDN to statbus.ubos.org), then the regular installer with the PFX certificate. Then fill AC1-3.
 <!-- SECTION:NOTES:END -->
