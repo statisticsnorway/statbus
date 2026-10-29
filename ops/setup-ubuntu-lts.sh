@@ -1493,22 +1493,29 @@ stage_service_account() {
         return 0
     fi
 
-    local user="${SERVICE_USER:-statbus}"
+    local user="${SERVICE_USER:-statbus}" deploy_keys
+    deploy_keys="$(deploy_keys_for_this_run)"
 
     echo "This stage will:"
     echo "  - Create Linux user '$user' with /home/$user as home"
     echo "  - Add '$user' to the docker group"
     echo "  - Populate ~$user/.ssh/authorized_keys (ED25519-only) from GitHub:"
     echo "      Users:       ${GITHUB_USERS:-<not configured>}"
-    echo "      Deploy keys: ${GITHUB_DEPLOY_KEYS:-<not configured>}"
+    if [[ "${CLOUD:-false}" == "true" ]]; then
+        echo "      Deploy keys: ${GITHUB_DEPLOY_KEYS:-<not configured>}"
+    fi
     echo "  - Enable systemd linger so user units survive logout"
     echo ""
-    echo "  Operators (and CI deploy workflows) SSH as '$user' to install"
-    echo "  and operate StatBus. The repo deploy key is required for the"
-    echo "  approved GitHub Actions automation to land on this box."
+    if [[ "${CLOUD:-false}" == "true" ]]; then
+        echo "  Operators (and CI deploy workflows) SSH as '$user' to install"
+        echo "  and operate StatBus. The repo deploy key is required for the"
+        echo "  approved GitHub Actions automation to land on this box."
+    else
+        echo "  Operators SSH as '$user' to install and operate StatBus."
+    fi
     echo ""
 
-    if [[ -z "$GITHUB_USERS" && -z "$GITHUB_DEPLOY_KEYS" ]]; then
+    if [[ -z "$GITHUB_USERS" && -z "$deploy_keys" ]]; then
         log_warn "No GitHub users OR deploy keys configured — SSH keys won't be fetched and"
         log_warn "nobody (operator or CI) will be able to SSH in as '$user' until you add keys manually."
     fi

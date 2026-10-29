@@ -95,4 +95,52 @@ gate_is_invisible() {
 gate_is_invisible stage_user_setup "stage 6 (devops) is invisible without cloud intent"
 gate_is_invisible stage_ci_allowlist "stage 8 (CI allowlist) is invisible without cloud intent"
 
+# 5. Stage 7 runs on a standalone box too, but its CI deploy-key wording is
+#    cloud-only. Run the real stage with a refusing prompt so it prints its
+#    introduction and returns before changing anything.
+stage7="$(awk '/^stage_service_account\(\)/,/^}$/' "$SCRIPT")"
+if [[ -z "$stage7" ]]; then
+    echo "FAIL stage_service_account is not defined in $SCRIPT"; fail=1
+else
+    stage7_text() { # cloud -> intro output
+        CLOUD="$1" SERVICE_USER="statbus" GITHUB_USERS="alice" \
+        GITHUB_DEPLOY_KEYS="acme/statbus" bash -c '
+            log_header() { :; }
+            log() { :; }
+            log_warn() { echo "WARN $*"; }
+            stage_skipped() { return 1; }
+            ask_yes_no() { return 1; }
+            record_stage() { :; }
+            deploy_keys_for_this_run() {
+                [[ "${CLOUD:-false}" == "true" ]] && printf "%s" "$GITHUB_DEPLOY_KEYS"
+            }
+            eval "$1"
+            stage_service_account
+        ' _ "$stage7" 2>&1
+    }
+
+    standalone7="$(stage7_text false)"
+    cloud7="$(stage7_text true)"
+    echo "--- standalone Stage 7 intro ---"; echo "$standalone7"; echo "-------------------------------"
+    echo "--- cloud Stage 7 intro ---"; echo "$cloud7"; echo "--------------------------"
+
+    if grep -q "Operators SSH as 'statbus' to install and operate StatBus." <<<"$standalone7"; then
+        echo "PASS standalone Stage 7 tells operators they sign in as statbus"
+    else
+        echo "FAIL standalone Stage 7 does not tell operators they sign in as statbus"; fail=1
+    fi
+    if grep -qiE 'CI deploy|Deploy keys' <<<"$standalone7"; then
+        echo "FAIL standalone Stage 7 still shows CI deploy-key wording"; fail=1
+    else
+        echo "PASS standalone Stage 7 shows no CI deploy-key wording"
+    fi
+    if grep -q 'CI deploy workflows' <<<"$cloud7" \
+        && grep -q 'Deploy keys: acme/statbus' <<<"$cloud7" \
+        && grep -q 'repo deploy key is required' <<<"$cloud7"; then
+        echo "PASS cloud Stage 7 keeps the CI/deploy-key wording"
+    else
+        echo "FAIL cloud Stage 7 lost the CI/deploy-key wording"; fail=1
+    fi
+fi
+
 exit $fail
