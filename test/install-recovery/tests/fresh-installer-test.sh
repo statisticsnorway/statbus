@@ -13,6 +13,16 @@ cat > "$TMP_ROOT/bin/git" <<'MOCK'
 #!/bin/bash
 set -eu
 printf 'git:%s\n' "$*" >> "$TRACE"
+quiet=0
+case " $* " in *" --quiet "*) quiet=1 ;; esac
+if [ "$quiet" -eq 0 ]; then
+    case " $* " in
+        *" fetch "*) echo ' * [new tag] v2026.10.1-rc.01 -> v2026.10.1-rc.01' ;;
+        *" checkout "*) echo 'Previous HEAD position was bce5bf39b backlog: Record reviewed artifact'
+                        echo 'HEAD is now at 00301e024 fix: show automatic-certificate warnings (STATBUS-394)' ;;
+        *" clone "*) echo "Cloning into 'statbus'..." ;;
+    esac
+fi
 if [ "$1" = clone ]; then
     for destination in "$@"; do :; done
     [ ! -e "$destination" ]
@@ -98,8 +108,8 @@ export EXPECTED_USERS="$TMP_ROOT/inputs with spaces/users.yml"
 (cd "$TMP_ROOT" && STATBUS_ENV_CONFIG='inputs with spaces/config.env' STATBUS_USERS_FILE='inputs with spaces/users.yml' \
     bash "$ROOT/install.sh" --version v2026.09.0-rc.02 --non-interactive --trust-github-user jhf) > "$TMP_ROOT/output"
 grep -Fxq 'sb:install --non-interactive --trust-github-user jhf' "$TRACE"
-grep -Fq 'git:clone --depth 1 --no-checkout' "$TRACE"
-grep -Fq 'git:-C '"$HOME"'/statbus fetch --depth 1 origin refs/tags/v2026.09.0-rc.02:refs/tags/v2026.09.0-rc.02' "$TRACE"
+grep -Fq 'git:clone --quiet --depth 1 --no-checkout' "$TRACE"
+grep -Fq 'git:-C '"$HOME"'/statbus fetch --quiet --depth 1 origin refs/tags/v2026.09.0-rc.02:refs/tags/v2026.09.0-rc.02' "$TRACE"
 echo 'PASS: FRESH clone, explicit relative paths and flags forwarded to sb; implicit filenames ignored'
 STATBUS_ENV_CONFIG="$EXPECTED_CONFIG" STATBUS_USERS_FILE="$EXPECTED_USERS" \
     bash "$ROOT/install.sh" --version v2026.09.0-rc.02 --non-interactive > "$TMP_ROOT/output"
@@ -353,8 +363,8 @@ for shape in env matching default; do
     esac
     bash "$ROOT/install.sh" "${args[@]}" > "$TMP_ROOT/output"
     expected=${STATBUS_INSTALL_VERSION:-v2026.09.0}
-    grep -Fq 'git:clone --depth 1 --no-checkout' "$TRACE"
-    grep -Fq "fetch --depth 1 origin refs/tags/$expected:refs/tags/$expected" "$TRACE"
+    grep -Fq 'git:clone --quiet --depth 1 --no-checkout' "$TRACE"
+    grep -Fq "fetch --quiet --depth 1 origin refs/tags/$expected:refs/tags/$expected" "$TRACE"
     if [ "$shape" = default ]; then grep -Fq '/releases/latest' "$TRACE"; fi
     echo "PASS: version $shape resolves $expected"
 done

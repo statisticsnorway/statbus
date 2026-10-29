@@ -701,7 +701,7 @@ statbus_git_with_retry() {
 
 statbus_git_fetch() {
     statbus_git_with_retry fetch github-fetch-bootstrap \
-        git -C "$STATBUS_DIR" fetch "$@"
+        git -C "$STATBUS_DIR" fetch --quiet "$@"
 }
 
 statbus_git_clone() {
@@ -716,7 +716,7 @@ statbus_git_clone() {
         if [ -e "$destination" ] && [ ! -d "$destination/.git" ]; then
             rm -rf "$destination"
         fi
-        exec git clone "$@"
+        exec git clone --quiet "$@"
     ' bash "$destination" "$@"
 }
 
@@ -856,7 +856,7 @@ if [ -z "${SKIP_BINARY_DOWNLOAD:-}" ]; then
         statbus_git_clone "$STATBUS_DIR" --depth 1 --no-checkout \
             https://github.com/statisticsnorway/statbus.git "$STATBUS_DIR"
         statbus_git_with_retry fetch github-fetch-bootstrap \
-            git -C "$STATBUS_DIR" fetch --depth 1 origin \
+            git -C "$STATBUS_DIR" fetch --quiet --depth 1 origin \
             "refs/tags/${VERSION}:refs/tags/${VERSION}"
         # STATBUS-325: the second `set-branches --add` stood here and is GONE for
         # the same reason as the first. This shallow, no-checkout clone is
