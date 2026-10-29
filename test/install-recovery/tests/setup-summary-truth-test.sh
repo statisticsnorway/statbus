@@ -15,6 +15,10 @@ SCRIPT="${STATBUS_SETUP_SCRIPT:-$ROOT/ops/setup-ubuntu-lts.sh}"
 fail=0
 
 # Load the real summary printer and outcome registry.
+REBOOT_DIR="$(mktemp -d)"
+trap 'rm -rf "$REBOOT_DIR"' EXIT
+export REBOOT_REQUIRED_FILE="$REBOOT_DIR/reboot-required"
+export REBOOT_REQUIRED_PKGS_FILE="$REBOOT_DIR/reboot-required.pkgs"
 source "$SCRIPT"
 SERVICE_USER=statbus
 
@@ -59,6 +63,7 @@ done
 if has "$out" 'Sign in as '"'"'statbus'"'"' the way you normally reach this server' \
     && has "$out" 'Review CrowdSec with: cscli metrics' \
     && has "$out" 'Check firewall status with: ufw status' \
+    && lacks "$out" '$(hostname' \
     && lacks "$out" 'ssh statbus@'; then
     echo "PASS all-ok summary lists configured work and uses normal-access sign-in wording"
 else
@@ -72,6 +77,7 @@ STAGE_OUTCOME[4]=skipped
 out="$(summary)"
 if has "$out" 'Firewall and intrusion detection (Stage 4): skipped' \
     && lacks "$out" 'CrowdSec intrusion detection and UFW firewall active' \
+    && lacks "$out" 'For later (optional):' \
     && lacks "$out" 'cscli metrics' \
     && lacks "$out" 'ufw status'; then
     echo "PASS a skipped Stage 4 appears as skipped and drops its next steps"
@@ -108,6 +114,36 @@ if lacks "$out" 'devops user' \
 else
     echo "FAIL standalone summary leaks or invents work"; echo "$out"; fail=1
 fi
+
+# 3e. A reboot flag that predates this run is Ubuntu's own pending update, not
+#     work this setup did.
+reset_summary
+: > "$REBOOT_REQUIRED_FILE"
+printf 'linux-image-6.8.0-40-generic\n' > "$REBOOT_REQUIRED_PKGS_FILE"
+record_reboot_state
+out="$(summary)"
+if has "$out" 'Ubuntu reports a reboot is pending for updates installed before this run' \
+    && has "$out" 'linux-image-6.8.0-40-generic' \
+    && lacks "$out" 'to complete the setup' \
+    && lacks "$out" 'This run installed updates'; then
+    echo "PASS a pre-existing reboot flag is described as Ubuntu's earlier updates"
+else
+    echo "FAIL pre-existing reboot wording is wrong"; echo "$out"; fail=1
+fi
+
+# 3f. A flag that appeared during this run is this run's update.
+rm -f "$REBOOT_REQUIRED_FILE" "$REBOOT_REQUIRED_PKGS_FILE"
+record_reboot_state
+: > "$REBOOT_REQUIRED_FILE"
+out="$(summary)"
+if has "$out" 'This run installed updates that need a reboot to take effect' \
+    && lacks "$out" 'Ubuntu reports a reboot is pending' \
+    && lacks "$out" 'to complete the setup'; then
+    echo "PASS a newly appeared reboot flag is attributed to this run"
+else
+    echo "FAIL newly appeared reboot wording is wrong"; echo "$out"; fail=1
+fi
+rm -f "$REBOOT_REQUIRED_FILE" "$REBOOT_REQUIRED_PKGS_FILE"
 
 # 4. The general installation guidance names NO channel at all: stable is the
 #    default, and naming our internal channels would invite an ordinary operator

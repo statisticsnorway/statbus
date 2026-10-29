@@ -40,8 +40,12 @@ CLOUD="${CLOUD:-false}"
 # Planned public name for this server, asked for when `hostname --fqdn` is a
 # bare label. Persisted in the setup config so the installer can offer it.
 SERVER_FQDN="${SERVER_FQDN:-}"
-# /etc/hosts is where the full name is mapped to the loopback address.
+# Overridable host files: /etc/hosts is edited for the full name; the reboot
+# flag is observed so the summary can say who caused the pending reboot.
 HOSTS_FILE="${HOSTS_FILE:-/etc/hosts}"
+REBOOT_REQUIRED_FILE="${REBOOT_REQUIRED_FILE:-/var/run/reboot-required}"
+REBOOT_REQUIRED_PKGS_FILE="${REBOOT_REQUIRED_PKGS_FILE:-/var/run/reboot-required.pkgs}"
+REBOOT_REQUIRED_AT_START=false
 # STATBUS-207: verify() failures, collected across every stage. main() runs
 # every stage to completion regardless (maximal diagnostics — the VM is
 # torn down after this run, so a fail-fast here would hide whatever came
@@ -285,6 +289,17 @@ run_stage() {
     fi
 }
 
+# Called once at the start of a run, before any stage can install updates, so
+# the summary can tell Ubuntu's pre-existing pending reboot from one this run
+# created. The flag's mere presence at the END says nothing about who caused it.
+record_reboot_state() {
+    if [[ -f "$REBOOT_REQUIRED_FILE" ]]; then
+        REBOOT_REQUIRED_AT_START=true
+    else
+        REBOOT_REQUIRED_AT_START=false
+    fi
+}
+
 print_run_summary() {
     local problems=${#FAILED_VERIFICATIONS[@]}
     local n outcome step=1
@@ -316,13 +331,9 @@ print_run_summary() {
 
     echo "Recommended next steps:"
     if [[ "$(stage_outcome 7)" == "ok" ]]; then
-        echo "  $step. From this root shell, switch to the service account and run the installer:"
+        echo "  $step. Sign in as '${SERVICE_USER:-statbus}' the way you normally reach this server, and verify SSH key access"
         step=$(( step + 1 ))
-        echo "       sudo -iu ${SERVICE_USER:-statbus}"
-        step=$(( step + 1 ))
-        echo "       curl -fsSL https://statbus.org/install.sh | bash"
-        step=$(( step + 1 ))
-        echo "  $step. Or sign in as '${SERVICE_USER:-statbus}' the way you normally reach this server, verify SSH key access, then run:"
+        echo "  $step. Run the StatBus installer as that user:"
         step=$(( step + 1 ))
         echo "       curl -fsSL https://statbus.org/install.sh | bash"
     fi
@@ -341,8 +352,15 @@ print_run_summary() {
     fi
     echo ""
 
-    if [[ -f /var/run/reboot-required ]]; then
-        log_warn "A reboot is required to complete the setup"
+    if [[ -f "$REBOOT_REQUIRED_FILE" ]]; then
+        if [[ "$REBOOT_REQUIRED_AT_START" == "true" ]]; then
+            log_warn "Ubuntu reports a reboot is pending for updates installed before this run. Reboot at a convenient time."
+            if [[ -s "$REBOOT_REQUIRED_PKGS_FILE" ]]; then
+                log_warn "Packages waiting on that reboot: $(tr '\n' ' ' < "$REBOOT_REQUIRED_PKGS_FILE")"
+            fi
+        else
+            log_warn "This run installed updates that need a reboot to take effect. Reboot at a convenient time."
+        fi
     fi
 }
 
@@ -2282,6 +2300,7 @@ main() {
 
     show_banner
     check_prerequisites
+    record_reboot_state
     setup_env
 
     # The full host name is the site address StatBus will use. Resolve it before
