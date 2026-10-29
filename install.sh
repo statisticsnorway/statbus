@@ -791,12 +791,12 @@ elif [ -n "$COMMIT_SHA" ]; then
         echo "  Then run: $STATBUS_INSTALL_RERUN_COMMAND" >&2
         exit 1
     fi
-    git -c advice.detachedHead=false checkout --detach "${COMMIT_SHA}^{commit}"
+    git -c advice.detachedHead=false checkout --quiet --detach "${COMMIT_SHA}^{commit}"
     # Drop the legacy statbus/ namespace from the rollback state branch (mirrors edge).
     git branch -D statbus/pre-upgrade 2>/dev/null || true
     # VERSION = bare commit_short (8-char), the rc.63 convention shared with edge.
     VERSION="$(git rev-parse --short=8 HEAD)"
-    echo "Commit version: $VERSION"
+    echo "Checked out commit $VERSION."
     procure_sb_from_commit_image "$VERSION"
     # Fully resolved — skip the release download-and-checkout block below.
     SKIP_BINARY_DOWNLOAD=1
@@ -841,11 +841,12 @@ if [ -z "${SKIP_BINARY_DOWNLOAD:-}" ]; then
         # An installation is fixed at a commit; the tag names that commit and
         # `git describe --exact-match HEAD` reads the tag back. A detached HEAD
         # is therefore the correct release state, not a branch to track.
-        git -c advice.detachedHead=false checkout --detach "${VERSION}^{commit}"
+        git -c advice.detachedHead=false checkout --quiet --detach "${VERSION}^{commit}"
         # Item M (plan-rc.66): drop the legacy statbus/ namespace from the
         # rollback state branch. Idempotent — swallows the "branch not found"
         # error on hosts that never had the legacy name.
         git branch -D statbus/pre-upgrade 2>/dev/null || true
+        echo "Checked out $VERSION (commit $(git rev-parse --short=8 HEAD))."
     else
         # FRESH: git clone creates the directory
         echo "Cloning StatBus repository..."
@@ -864,7 +865,8 @@ if [ -z "${SKIP_BINARY_DOWNLOAD:-}" ]; then
         # canonical, supplying the wildcard and the seed branch together.
         #
         # Keep the release at its fixed tag commit without detached-HEAD advice.
-        git -C "$STATBUS_DIR" -c advice.detachedHead=false checkout --detach "${VERSION}^{commit}"
+        git -C "$STATBUS_DIR" -c advice.detachedHead=false checkout --quiet --detach "${VERSION}^{commit}"
+        echo "Checked out $VERSION (commit $(git rev-parse --short=8 HEAD))."
         mv "${HOME}/sb.tmp" "${STATBUS_DIR}/sb"
         cd "$STATBUS_DIR"
         echo "Installed program: $(./sb --version)"
