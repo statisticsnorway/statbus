@@ -302,7 +302,7 @@ record_reboot_state() {
 
 print_run_summary() {
     local problems=${#FAILED_VERIFICATIONS[@]}
-    local n outcome step=1
+    local n outcome
     # STATBUS-502: never print a success headline over a failed run. The failure
     # list comes FIRST, and the headline follows from it.
     if [[ "$problems" -gt 0 ]]; then
@@ -329,28 +329,26 @@ print_run_summary() {
     done
     echo ""
 
-    echo "Recommended next steps:"
     if [[ "$(stage_outcome 7)" == "ok" ]]; then
-        echo "  $step. Sign in as '${SERVICE_USER:-statbus}' the way you normally reach this server, and verify SSH key access"
-        step=$(( step + 1 ))
-        echo "  $step. Run the StatBus installer as that user:"
-        step=$(( step + 1 ))
-        echo "       curl -fsSL https://statbus.org/install.sh | bash"
-    fi
-    if [[ "${CLOUD:-false}" == "true" && "$(stage_outcome 6)" == "ok" ]]; then
-        echo "  $step. (ops) Log in as 'devops' for host administration tasks"
-        step=$(( step + 1 ))
-    fi
-    if [[ "$(stage_outcome 4)" == "ok" ]]; then
-        echo "  $step. Review CrowdSec with: cscli metrics"
-        step=$(( step + 1 ))
-        echo "  $step. Check firewall status with: ufw status"
-        step=$(( step + 1 ))
-    fi
-    if [[ "$step" -eq 1 ]]; then
+        echo "Next step: install StatBus as '${SERVICE_USER:-statbus}'."
+        echo "  From this root shell:"
+        echo "    sudo -iu ${SERVICE_USER:-statbus}"
+        echo "    curl -fsSL https://statbus.org/install.sh | bash"
+        echo "  Or sign in as '${SERVICE_USER:-statbus}' the way you normally reach this server, verify SSH key access, then run:"
+        echo "    curl -fsSL https://statbus.org/install.sh | bash"
+    else
         echo "  No follow-up from this run."
     fi
     echo ""
+
+    # Reference only: these inspect controls the run installed, and are not a
+    # to-do. They mean nothing when Stage 4 did not run.
+    if [[ "$(stage_outcome 4)" == "ok" ]]; then
+        echo "For later (optional):"
+        echo "  See what the intrusion detection has blocked:  cscli metrics"
+        echo "  Inspect the firewall rules:                    ufw status"
+        echo ""
+    fi
 
     if [[ -f "$REBOOT_REQUIRED_FILE" ]]; then
         if [[ "$REBOOT_REQUIRED_AT_START" == "true" ]]; then

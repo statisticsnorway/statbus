@@ -60,12 +60,17 @@ for line in 'APT sources use HTTPS' \
             'CI command allowlist installed'; do
     has "$out" "$line" || { echo "FAIL all-ok summary is missing: $line"; fail=1; }
 done
-if has "$out" 'Sign in as '"'"'statbus'"'"' the way you normally reach this server' \
-    && has "$out" 'Review CrowdSec with: cscli metrics' \
-    && has "$out" 'Check firewall status with: ufw status' \
+if has "$out" 'Next step: install StatBus as '"'"'statbus'"'"'.' \
+    && has "$out" 'sudo -iu statbus' \
+    && has "$out" 'the way you normally reach this server' \
+    && has "$out" 'curl -fsSL https://statbus.org/install.sh | bash' \
+    && has "$out" 'For later (optional):' \
+    && has "$out" 'See what the intrusion detection has blocked:  cscli metrics' \
+    && has "$out" 'Inspect the firewall rules:                    ufw status' \
+    && ! grep -Eq '^[[:space:]]*[0-9]+\.[[:space:]]' <<<"$out" \
     && lacks "$out" '$(hostname' \
     && lacks "$out" 'ssh statbus@'; then
-    echo "PASS all-ok summary lists configured work and uses normal-access sign-in wording"
+    echo "PASS all-ok summary has one install next step and an unnumbered optional reference"
 else
     echo "FAIL all-ok summary does not match what ran"; echo "$out"; fail=1
 fi
