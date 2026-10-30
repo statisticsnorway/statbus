@@ -1,10 +1,10 @@
 ---
 id: STATBUS-382
 title: Source-sensitive upgrade work runs only in the program installed on disk
-status: In Progress
+status: To Do
 assignee: []
-created_date: '2026-09-22 17:01'
-updated_date: '2026-10-26 11:23'
+created_date: 2026-09-22 17:01
+updated_date: '2026-10-30T15:11:00Z'
 labels:
   - owner-decision
   - upgrade
@@ -89,4 +89,6 @@ An earlier edit today replaced these criteria with D-only ones; they are restore
 - 382's shape, unchanged from 2026-10-23: while `./sb install` holds the upgrade lock, it runs `sb upgrader stop`. It runs `sb upgrader start` only after a successful install, so a failed install leaves the upgrader stopped. 382 uses 527's `stop` and `start` rather than its own copy, and replaces the restart at install exit (0267851e9, `install_stale_daemon.go`).
 - Correction to 2026-10-23: a hand-copied `sb` does not change the version. The source code on disk sets the version, and `./sb install` brings `./sb` back in line with it. A version change goes through `install.sh` or `sb upgrade apply`.
 - AC1 and AC3 are settled when this lands: a stale upgrader is stopped under the lock and restarted on the installed `./sb`, so it never claims work. AC2 is the real-guest check.
+
+2026-10-30 (owner): back to To Do. It waited for STATBUS-527, which is Done; it starts after v2026.10.6-rc.01 passes its gate, so the candidate is not delayed by an upgrader change.
 <!-- SECTION:NOTES:END -->
