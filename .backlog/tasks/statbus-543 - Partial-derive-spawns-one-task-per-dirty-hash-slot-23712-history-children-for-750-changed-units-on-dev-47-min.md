@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-10-30T12:27:00Z'
-updated_date: '2026-10-30T13:48:00Z'
+updated_date: '2026-10-30T13:56:00Z'
 labels:
   - derive
   - performance
@@ -52,4 +52,7 @@ Journal in tmp/journal.md; doc/db regenerated; derive-pipeline docs checked for 
 - Next: facet def nested loop on text facet_key (925 of 950 ms per child) folded into this ticket; then clean timing rerun.
 
 13:48 commit 2b8590d97: migration 20261030133114 (history period DELETE: hash_partition compared to singleton ranges, month = / IS NULL). 303 now captures both period DELETE plans (enable_seqscan off, as postgres): Index Scan using statistical_history_partition_{year,month}_key. Old predicate gives Bitmap Heap Scan with lower(hash_partition) filter (tmp/543-explain-old-shape.log). 204 green with it.
+
+13:56 commit c9dbad627: migration 20261030135034, statistical_history_facet_def stats_by_facet AS MATERIALIZED (inlined CTE was nested-looped and re-aggregated per row): 954 -> 37 ms per 256-slot child, 0 differing rows vs stored data (tmp/543-facet-try.log). 204 green.
+Clean rerun of dev job 38 on dev copy with all three fixes (job 45, tmp/543-clone-final.log): total 3m03s. history 1536 children avg 48 ms (63 s); history_facet 1536 avg 68 ms (64 s); facet_reduce 34 s. Before: dev 47 min; local old code 22.5 min (history step alone 16m49s); spawn fix only 7m42s.
 <!-- SECTION:NOTES:END -->
