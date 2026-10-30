@@ -3,6 +3,15 @@
 # shellcheck disable=SC2024 # LOG is in the invoking user's home; sudo is only for the command.
 set -eo pipefail
 exec 2>&1
+# The StatBus release this script belongs to, stamped by the release workflow
+# (release.yaml, "Stage the install scripts"); a git copy keeps the placeholder.
+# One version: the release tag (STATBUS-537).
+STATBUS_RELEASE="@STATBUS_RELEASE@"
+if [[ $STATBUS_RELEASE == "@STATBUS_RELEASE@" ]]; then
+    echo 'StatBus uninstaller: development copy (not a release)'
+else
+    echo "StatBus uninstaller $STATBUS_RELEASE"
+fi
 DIR="${HOME}/statbus"
 LOG="${HOME}/statbus-uninstall.log"
 KEEP_DUMPS=1

@@ -9,6 +9,7 @@ on:
       - 'test/install-recovery/**'
       - 'test/install/**'
       - 'ops/setup-ubuntu-lts.sh'
+      - 'ops/release/**'
       - 'ops/lxd-fleet/**'
       - 'install.sh'
       - '.github/actions/**'
@@ -130,6 +131,8 @@ jobs:
         run: bash test/install-recovery/tests/setup-ssh-port-firewall-test.sh
       - name: Prove setup resolves the server's full name before StatBus install
         run: bash test/install-recovery/tests/setup-fqdn-test.sh
+      - name: Prove published scripts state the release they belong to (STATBUS-537)
+        run: bash test/install-recovery/tests/release-script-stamp-test.sh
       - name: Prove every ghcr.io login step retries transient failures (STATBUS-535)
         run: bash test/ci-ghcr-login-retry-test.sh
       # These standalone harness tests existed but no workflow ran them, so

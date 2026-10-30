@@ -43,6 +43,19 @@
 #
 set -euo pipefail
 
+# The StatBus release this installer belongs to. The release workflow stamps the
+# tag here when it publishes the script (release.yaml, "Stage the install
+# scripts"); a copy taken straight from git keeps the placeholder. It names the
+# installer only: which release gets installed is still chosen by --version,
+# --channel or the latest stable, and the announcement below shows both when
+# they differ. One version: the release tag (STATBUS-537).
+STATBUS_RELEASE="@STATBUS_RELEASE@"
+if [ "$STATBUS_RELEASE" = "@STATBUS_RELEASE@" ]; then
+    echo "StatBus installer: development copy (not a release)"
+else
+    echo "StatBus installer $STATBUS_RELEASE"
+fi
+
 # STATBUS-324: git must never stop and ask this box for a username.
 #
 # OBSERVED on gh, 2026-08-31: the `git fetch` further down died with
@@ -805,6 +818,12 @@ elif [ -n "$COMMIT_SHA" ]; then
     procure_sb_from_commit_image "$VERSION"
     # Fully resolved — skip the release download-and-checkout block below.
     SKIP_BINARY_DOWNLOAD=1
+fi
+
+# A released installer may install another release (--version, --channel, or a
+# newer stable); say so, so the operator always sees what gets installed.
+if [ "$STATBUS_RELEASE" != "@STATBUS_RELEASE@" ] && [ "$VERSION" != "$STATBUS_RELEASE" ]; then
+    echo "This is the $STATBUS_RELEASE installer; it installs $VERSION."
 fi
 
 BINARY_URL="https://github.com/statisticsnorway/statbus/releases/download/${VERSION}/sb-${OS}-${ARCH}"

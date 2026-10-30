@@ -29,7 +29,11 @@ set -o pipefail
 ENV_FILE="${HOME}/.setup-ubuntu.env"
 OS_RELEASE_FILE="${OS_RELEASE_FILE:-/etc/os-release}"
 SUPPORTED_UBUNTU_VERSIONS=("24.04" "26.04")
-SCRIPT_VERSION="1.0.0"
+# The StatBus release this copy belongs to. The release workflow stamps the tag
+# here when it publishes the script (release.yaml, "Stage the install scripts");
+# a copy taken straight from git keeps the placeholder and says so. One version:
+# the release tag (STATBUS-537).
+STATBUS_RELEASE="@STATBUS_RELEASE@"
 NON_INTERACTIVE="${NON_INTERACTIVE:-false}"
 # Space-separated list of stage numbers to skip (e.g. "0 4"). Honored in both
 # interactive and non-interactive mode. Also settable via --skip-stages.
@@ -2215,7 +2219,11 @@ show_banner() {
   Ubuntu 24.04 / 26.04 LTS Server Setup Script
 EOF
     echo -e "${NC}"
-    echo "  Version: $SCRIPT_VERSION"
+    if [[ "$STATBUS_RELEASE" == "@STATBUS_RELEASE@" ]]; then
+        echo "  StatBus: development copy (not a release)"
+    else
+        echo "  StatBus: $STATBUS_RELEASE"
+    fi
     echo "  Config:  $ENV_FILE"
     echo ""
 }

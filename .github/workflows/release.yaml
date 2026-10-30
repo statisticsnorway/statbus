@@ -223,11 +223,14 @@ jobs:
       # redirects point at releases/latest/download/<name>. Fetching master stays
       # possible by hand, from GitHub, for anyone who deliberately wants it.
       - name: Stage the install scripts as release assets
+        # STATBUS-537: one version. Each published script carries the release
+        # tag in its STATBUS_RELEASE line, so its banner names the release it
+        # belongs to. A placeholder left behind fails the release.
+        env:
+          RELEASE_TAG: ${{ needs.metadata.outputs.version_tag }}
         run: |
-          cp install.sh dist/install.sh
-          cp uninstall.sh dist/uninstall.sh
-          cp ops/setup-ubuntu-lts.sh dist/setup-ubuntu-lts.sh
-          chmod +x dist/install.sh dist/uninstall.sh dist/setup-ubuntu-lts.sh
+          set -euo pipefail
+          bash ops/release/stamp-release-scripts.sh "$RELEASE_TAG" dist
           ls -l dist/
 
       - name: Detect migrations
