@@ -276,6 +276,53 @@ func TestInstallTerminalWriterShowsEveryInstallState(t *testing.T) {
 	}
 }
 
+// TestInstallTerminalWriterShowsFinalProof feeds a representative end-of-install
+// transcript, with the real lines those Printf sites produce, through the
+// operator terminal filter. The final proof (services ready, advertised sites
+// answering, visit addresses and the rerun command) is what lets the operator
+// stop checking by hand, so every line must reach the screen in order.
+func TestInstallTerminalWriterShowsFinalProof(t *testing.T) {
+	transcript := "User accounts: 1\n" +
+		"  Recorded installed version v2026.10.5 in upgrade table\n" +
+		"All services are running and the API is ready.\n" +
+		"The advertised site https://statbus.example answers.\n" +
+		"The advertised site http://statbus.example:8080 answers.\n" +
+		"The advertised site https://statbus.example:8443 answers.\n" +
+		"Installation complete!\n" +
+		"=====================\n" +
+		"Visit: https://statbus.example\n" +
+		"Visit: http://statbus.example:8080\n" +
+		"Visit: https://statbus.example:8443\n" +
+		"To check or repair this installation later, run:\n" +
+		"    cd ~/statbus && ./sb install\n"
+	want := "User accounts: 1\n" +
+		"  Recorded installed version v2026.10.5 in upgrade table\n" +
+		"All services are running and the API is ready.\n" +
+		"The advertised site https://statbus.example answers.\n" +
+		"The advertised site http://statbus.example:8080 answers.\n" +
+		"The advertised site https://statbus.example:8443 answers.\n" +
+		"Installation complete!\n" +
+		"=====================\n" +
+		"Visit: https://statbus.example\n" +
+		"Visit: http://statbus.example:8080\n" +
+		"Visit: https://statbus.example:8443\n" +
+		"To check or repair this installation later, run:\n" +
+		"    cd ~/statbus && ./sb install\n"
+	if got := runTerminalFilter(t, transcript); got != want {
+		t.Fatalf("final proof hidden or altered:\n got:\n%s\nwant:\n%s", got, want)
+	}
+	for _, hostile := range []string{
+		"Visit: javascript:alert(1)",
+		"The advertised site not-a-url answers.",
+		"    cd /srv/statbus && rm -rf /",
+		"====================",
+	} {
+		if got := runTerminalFilter(t, hostile+"\n"); got != "" {
+			t.Fatalf("non-proof line reached the terminal: %q", got)
+		}
+	}
+}
+
 func runTerminalFilter(t *testing.T, input string) string {
 	t.Helper()
 	cmd := exec.Command("awk", "-f", "../../ops/install-terminal-output.awk")

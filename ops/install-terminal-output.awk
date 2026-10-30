@@ -58,6 +58,42 @@
     print
     fflush()
 }
+# The final proof (install_services.go verifyInstallServing, install_visit.go
+# verifyAdvertisedSite, and the completion banner in install.go): services and
+# API ready, each advertised origin that answered, the banner underline, every
+# visit address built by installVisitOrigins, and the fixed rerun legend with
+# the indented `cd <checkout> && ./sb install` command below it. Only those
+# grammars pass; any other command text stays in the install log.
+/^All services are running and the API is ready\.$/ {
+    print
+    fflush()
+    next
+}
+/^The advertised site https?:\/\/[A-Za-z0-9.-]+(:[0-9]+)? answers\.$/ {
+    print
+    fflush()
+    next
+}
+/^=====================$/ {
+    print
+    fflush()
+    next
+}
+/^Visit: https?:\/\/[A-Za-z0-9.-]+(:[0-9]+)?$/ {
+    print
+    fflush()
+    next
+}
+/^To check or repair this installation later, run:$/ {
+    print
+    fflush()
+    next
+}
+/^    cd [A-Za-z0-9_.\/~+-]+ && \.\/sb install$/ {
+    print
+    fflush()
+    next
+}
 # STATBUS-464 user provisioning: which users file was used, how many accounts
 # exist, and the loud no-sign-in warning. Fixed grammar from install_users.go;
 # never a password (the file content stays out of every output line).
