@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-10-30T17:22:00Z'
-updated_date: '2026-10-30T17:29:00Z'
+updated_date: '2026-10-30T17:33:00Z'
 labels: []
 dependencies: []
 priority: high
@@ -34,14 +34,16 @@ images.yaml copies the previous commit's images onto a commit that changes only 
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 On a CI-exempt-only push, images.yaml builds and publishes statbus-sb for that commit (both arches, manifest) and retags only app, worker, db and proxy from the parent
-- [ ] #2 After the change lands, a real backlog-only push to master produces statbus-sb:<that commit> whose 'sb --version' states that commit (run ID and output recorded)
+- [x] #1 On a CI-exempt-only push, images.yaml builds and publishes statbus-sb for that commit (both arches, manifest) and retags only app, worker, db and proxy from the parent
+- [x] #2 After the change lands, a real backlog-only push to master produces statbus-sb:<that commit> whose 'sb --version' states that commit (run ID and output recorded)
 - [ ] #3 The next release candidate's LXD fleet runs the seven 5-install-* scenarios that failed on rc.01 without exit 69 (run ID recorded)
-- [ ] #4 A workflow test pins the split: sb is built on every push, including exempt-only pushes, and the retag matrix holds only app, worker, db and proxy
+- [x] #4 A workflow test pins the split: sb is built on every push, including exempt-only pushes, and the retag matrix holds only app, worker, db and proxy
 <!-- AC:END -->
 
 ## Implementation Notes
 
 <!-- SECTION:NOTES:BEGIN -->
 Implementation 3bf64c11a: images.yaml now builds statbus-sb for every commit. New build-sb (both arches) -> manifest-sb jobs carry no exempt gate; retag matrix is exactly [app, worker, db, proxy]; decide-exempt-only no longer requires the parent's sb; seed waits for manifest-sb before pulling statbus-sb:<commit>. Build/manifest steps are single-sourced with YAML anchors. New test cli/cmd/workflow_images_sb_commit_test.go parses images.yaml and pins the split. RED against HEAD de4c03d98 (tmp/test-547-red.log: retag includes sb, build gated on exempt); GREEN after (tmp/test-547-green.log). Normal-push Images run 41098632829 (3bf64c11a): build-sb amd64+arm64 success, manifest-sb success, retag skipped, seed success. go test ./cmd/ -run Workflow and go vet ./cmd/ pass; actionlint + yaml.safe_load clean.
+
+Exempt-only verification (eef8a466c, ticket-only commit on top of b270f9431): Images run 41099222146 succeeded. Jobs: decide-exempt-only success (exempt=true), build/manifest SKIPPED, retag app+worker+db+proxy success, build-sb amd64+arm64 success, manifest-sb success, seed success. docker run --rm ghcr.io/statisticsnorway/statbus-sb:eef8a466 --version -> 'sb version eef8a466 (commit eef8a466)'. Manifest lists amd64+arm64. AC3 (next RC LXD fleet, seven 5-install-* scenarios without exit 69) left to the coordinator.
 <!-- SECTION:NOTES:END -->
