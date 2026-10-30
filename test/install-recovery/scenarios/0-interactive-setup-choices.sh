@@ -15,7 +15,7 @@
 #                       be the country the installer's own list names for "et".
 #   - Country code:     Enter. The suggestion must be "et", accepted at once
 #                       (no not-a-country-code warning, no re-ask).
-#   - Certificate offer: Enter ([no], the default) to continue with automatic
+#   - Certificate offer: Enter ([y/N], the default no) to continue with automatic
 #                       certificates (STATBUS-429). A supplied certificate may
 #                       instead be installed later with ./sb cert install.
 #   - Release signer:   Enter ([Y/n], default yes) for jhf.
@@ -256,26 +256,36 @@ expect {
         record "unexpected administrator question" $expect_out(buffer)
         fail "the first-administrator question was asked although STATBUS_USERS_FILE was supplied"
     }
-    -re {Do you have a certificate to install now\? \(yes/no\) \[([^]\r\n]*)\]: } {
+    -re {Do you have a certificate to install now\? \[([yYnN]/[yYnN])\]: } {
         incr asked(cert)
         set buf $expect_out(buffer)
         record "certificate offer" $buf
         if {$asked(cert) > 1} { fail "the certificate offer was asked again: Enter did not accept the default ($buf)" }
-        expect_value "certificate default" no $expect_out(1,string)
+        # The capital letter is the default: y/N means Enter declines.
+        expect_value "certificate default" y/N $expect_out(1,string)
         send "\r"
-        exp_continue
+        # The Certificate step follows Trusted signers in the step table, so
+        # the offer normally arrives after the signer answer; the questions
+        # are done once both have been answered.
+        if {$asked(trust) == 0} { exp_continue }
     }
     -re {Trust key\(s\) from github\.com/([A-Za-z0-9-]+)\? \[Y/n\] } {
         incr asked(trust)
         record "release signer" $expect_out(buffer)
-        foreach k {mode domain name code cert} {
+        foreach k {mode domain name code} {
             if {$asked($k) != 1} { fail "the signer question came before every setup question was asked exactly once" }
         }
         expect_value "release signer offered" $want_signer $expect_out(1,string)
         send "\r"
+        if {$asked(cert) == 0} { exp_continue }
     }
     -re {\[[0-9]+/[0-9]+\] Trusted signers +(OK|DONE)} {
-        fail "the Trusted signers step finished without asking which release signer to trust"
+        if {$asked(trust) == 0} { fail "the Trusted signers step finished without asking which release signer to trust" }
+        exp_continue
+    }
+    -re {\[[0-9]+/[0-9]+\] Certificate +(OK|DONE)} {
+        if {$asked(cert) == 0} { fail "the Certificate step finished without offering to install a certificate" }
+        exp_continue
     }
     -re {\[[0-9]+/[0-9]+\] [^\r\n]*FAILED[^\r\n]*} {
         fail "an installer step failed before the questions were finished: $expect_out(0,string)"
