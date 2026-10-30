@@ -50,10 +50,14 @@ set -euo pipefail
 # --channel or the latest stable, and the announcement below shows both when
 # they differ. One version: the release tag (STATBUS-537).
 STATBUS_RELEASE="@STATBUS_RELEASE@"
-if [ "$STATBUS_RELEASE" = "@STATBUS_RELEASE@" ]; then
-    echo "StatBus installer: development copy (not a release)"
-else
-    echo "StatBus installer $STATBUS_RELEASE"
+# The STATBUS_INSTALL_TEST_CLASSIFY_PULL path is a pure function whose stdout
+# is the classification alone; the banner belongs to an operator run.
+if [ -z "${STATBUS_INSTALL_TEST_CLASSIFY_PULL:-}" ]; then
+    if [ "$STATBUS_RELEASE" = "@STATBUS_RELEASE@" ]; then
+        echo "StatBus installer: development copy (not a release)"
+    else
+        echo "StatBus installer $STATBUS_RELEASE"
+    fi
 fi
 
 # STATBUS-324: git must never stop and ask this box for a username.

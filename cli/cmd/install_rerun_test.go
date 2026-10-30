@@ -42,6 +42,13 @@ func TestRerunCommandPreservesInvocationOptions(t *testing.T) {
 				t.Fatalf("wrapper parsing: %v: %s", err, output)
 			}
 			got := string(output)
+			// STATBUS-537: install.sh announces the release it belongs to on
+			// stdout before parsing arguments, so the sourced prefix carries
+			// that one line. The saved command must still start at the
+			// beginning of the next line; any other extra output still fails.
+			if first, rest, ok := strings.Cut(got, "\n"); ok && strings.HasPrefix(first, "StatBus installer") {
+				got = rest
+			}
 			if !strings.HasPrefix(got, "curl -fsSL https://statbus.org/install.sh | ") || strings.Contains(got, "./sb install") {
 				t.Errorf("not directory independent: %q", got)
 			}
