@@ -3,10 +3,10 @@ id: STATBUS-474
 title: >-
   A real guest answers every setup question at its default and finishes a
   standalone country install
-status: In Progress
+status: Done
 assignee: []
 created_date: 2026-10-08 15:16
-updated_date: '2026-10-30T15:53:00Z'
+updated_date: '2026-10-30T19:32:00Z'
 labels:
   - install
   - installer
@@ -164,4 +164,6 @@ AC4 decided 2026-10-30 (owner): the scenario joins the default LXD release gate;
 2026-10-30: all four criteria checked. Stays In Progress until the first gate run with the scenario in the default catalogue is green; that run ID and its wall-clock effect are recorded here, then Done.
 
 2026-10-30 first default-gate run (v2026.10.6-rc.01, LXD fleet 41076193713): FAIL, cause in the driver, not the product. 2907d8da7 changed the certificate offer to '[y/N]:'; the driver waited for '(yes/no) [no]:'. Fixed in f87c6f71e (matches [y/N], y/N default, product step order signers then certificate). New offline regression test test/install-recovery/tests/setup-choices-driver-test.sh reads the prompt from cli/cmd/install_cert.go and runs the real driver; red on the old scenario (tmp/test-474-driver-red.log), green now (tmp/test-474-driver-green.log); runs in Harness Selftest. Done waits for a green gate run on rc.02.
+
+Gate evidence: rc.02 LXD fleet 41108121046 (v2026.10.6-rc.02, default set, 28 scenarios): 0-interactive-setup-choices PASS, rc 0, 266 s on checkpoint hardened-nothing-installed. Whole fleet wall clock 18:34:42-19:02:22 = 27m40s, inside the ~25-29 min baseline, so adding the scenario did not lengthen the run (it runs concurrently on the LXD box). rc.01 failure of this scenario was the driver's stale prompt (fixed f87c6f71e).
 <!-- SECTION:NOTES:END -->
