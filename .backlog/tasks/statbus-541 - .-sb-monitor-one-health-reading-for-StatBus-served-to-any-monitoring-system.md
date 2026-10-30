@@ -4,7 +4,7 @@ title: './sb monitor: one health reading for StatBus, served to any monitoring s
 status: In Progress
 assignee: []
 created_date: '2026-10-30T11:50:00Z'
-updated_date: '2026-10-30T15:30:00Z'
+updated_date: '2026-10-30T19:33:00Z'
 labels:
   - monitoring
   - operations
@@ -86,4 +86,6 @@ Commits: ea8242cbe (engine+CLI), 19e3d3911 (upgrader tick), 8b3f542c5 (Caddy rou
 AC9: added the operator paragraph under 'Ongoing Management' in doc/DEPLOYMENT.md (Health and monitoring: ./sb monitor, status/--live, Nagios exit codes, template zabbix/uptime, public /monitor). Removed the earlier duplicate paragraph from doc/upgrades.md so the operator docs carry exactly one pointer. Commit: docs: point operators at ./sb monitor and its templates (STATBUS-541 AC9).
 
 Backups probe fix 2026-10-30 (defect, dev evidence on v2026.10.6-rc.01 https://dev.statbus.org/monitor, 15:11 UTC: 503 overall critical, backups 'newest backup 3218h ago'). Root cause: BackupsProbe read ~/statbus-backups (volume snapshots of ./sb db backup create plus an old 2026-09-18 upgrade folder) while the upgrader's scheduled dump (maybeRunBackup -> dbdump.DumpDatabase) writes <projDir>/dbdumps/<slot>_<ts>.pg_dump; dev had dev_20261030_000248.pg_dump from that morning. Fix: probe now reports dbdump.NewestDumpModTime(projectDir), i.e. the newest *.pg_dump in dbdump.DumpsDir, which is the artifact BACKUP_ENABLED/BACKUP_INTERVAL govern and a restore uses. Cadence thresholds and 'no backups yet' unchanged; comment states what is measured and why. Regression test TestBackupsProbeReadsScheduledDumpNotVolumeBackups (temp project dir with a 1h-old dump, temp HOME whose statbus-backups holds only an old directory). RED on pre-fix code in an isolated copy: 'probe reported no backup' (tmp/test-541-backups-red.log). GREEN: go test ./internal/monitor/ ./cmd/ -run 'Monitor|Backup' -count=1 ok; go vet ./internal/monitor/ clean (tmp/test-541-backups-green.log). Commit 9a5727fd259dff0c4c68177b583ab2e1695e293f pushed to origin master. CI on exact SHA: Go Test 41078758678, app build & lint 41078758566, Images 41078758599, Harness Selftest 41078758609, CodeQL 41078757502, Notify cloud services 41078758540, Fast Tests 41079283679 (rerun; 41078766249 was superseded/cancelled) - all success.
+
+Dev on v2026.10.6-rc.02 (2026-10-30 19:32 UTC): https://dev.statbus.org/monitor answers 200, status ok; backups 'newest backup 19h ago' (fix 9a5727fd2 live; rc.01 showed 3218h and 503). All 7 checks ok. The maintenance-window reading for AC4 is still to be observed.
 <!-- SECTION:NOTES:END -->
