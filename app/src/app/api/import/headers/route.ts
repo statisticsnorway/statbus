@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
 import Papa from "papaparse";
-import ExcelJS from "exceljs";
 
 const SYSTEM_COLUMNS = new Set(["row_id", "errors", "warnings", "row_number"]);
 
@@ -28,25 +27,10 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: "No data found in file" }, { status: 400 });
       }
       headers = (result.data[0] as string[]).map((h) => h.trim()).filter(Boolean);
-    } else if (name.endsWith(".xlsx") || name.endsWith(".xls")) {
-      const arrayBuffer = await file.arrayBuffer();
-      const workbook = new ExcelJS.Workbook();
-      await workbook.xlsx.load(arrayBuffer);
-      const worksheet = workbook.worksheets[0];
-      if (!worksheet) {
-        return NextResponse.json({ error: "No worksheet found" }, { status: 400 });
-      }
-      const row = worksheet.getRow(1);
-      headers = [];
-      row.eachCell({ includeEmpty: false }, (cell) => {
-        const val = cell.value;
-        if (val !== null && val !== undefined) {
-          headers.push(String(val).trim());
-        }
-      });
     } else {
+      // Excel upload support (feat/excel-import-export) is not on master.
       return NextResponse.json(
-        { error: "Unsupported file type. Use .csv, .tsv, .xlsx, or .xls" },
+        { error: "Unsupported file type. Use .csv, .tsv or .txt" },
         { status: 400 },
       );
     }

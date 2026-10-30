@@ -116,7 +116,7 @@ export function SourceColumnsStep({
         <input
           id="file-upload"
           type="file"
-          accept=".csv,.tsv,.txt,.xlsx,.xls"
+          accept=".csv,.tsv,.txt"
           className="hidden"
           onChange={handleFileChange}
         />
