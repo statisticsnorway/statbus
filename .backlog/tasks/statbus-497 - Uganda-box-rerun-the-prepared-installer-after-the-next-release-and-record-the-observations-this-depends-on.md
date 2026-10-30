@@ -1,12 +1,12 @@
 ---
 id: STATBUS-497
 title: >-
-  Uganda box: rerun the prepared installer after the next release and record the
-  observations this depends on
+  Real-box proof for fixes only a real box can confirm: preparation on the plain
+  manual box, SSH and firewall rerun on Uganda
 status: In Progress
 assignee: []
 created_date: 2026-10-13 13:16
-updated_date: '2026-10-30T12:22:00Z'
+updated_date: '2026-10-30T13:35:00Z'
 labels:
   - install
   - uganda
@@ -21,33 +21,30 @@ ordinal: 423204
 
 <!-- SECTION:DESCRIPTION:BEGIN -->
 ### North Star
-The Uganda installation becomes the real-box proof for three fixes that only a real box can confirm, so those fixes close on observation instead of on reasoning.
+Fixes that only a real machine can confirm close on observation, not on reasoning.
 
 ### Zoom out
-Some acceptance criteria can only be met by watching the product on a real, unprepared machine: what a published instruction does in a real root login shell, what the home directory looks like after preparation, what an operator actually reads when Docker is missing. Uganda hit these problems first, and the owner will rerun the installer there after the next release. This ticket schedules that rerun and says exactly what to collect, so the dependent tickets each have a named source for their last criterion. It is a task, not a fix, so it stays open until the rerun is done.
+Some criteria can only be met by watching the product on a real, unprepared machine: what the published preparation does in a root login shell, what the operator home looks like afterwards, and what Stage 2 and Stage 4 do on a server with a non-standard SSH port and an existing firewall. Uganda (statbus.ubos.org) hit these first. Owner decisions 2026-10-30: Uganda is handed over, so its installer is not rerun; the preparation proof comes from a fresh preparation of the plain manual box (ops/manual-box.sh, walkthrough steps 2-4); Uganda reruns only setup Stages 2 and 4 after the next release, which changes nothing there.
 
 ### Zoom in
-- **Origin, 2026-10-13:** filed on the owner's instruction so the Uganda rerun is tracked, not remembered.
-- **What to collect on the rerun:**
-  1. **STATBUS-492 criterion 1:** a transcript of the published preparation instruction running in a root login shell, showing the `HOME` in effect.
-  2. **STATBUS-492 criterion 3:** an ownership inspection showing no root-owned file anywhere in the operator home after a fresh preparation.
-  3. **STATBUS-487 criterion 5:** the install's operator output, verbatim, naming Docker and its remedy rather than the unmeasurable-disk sentence (only if Docker is unreachable on that box).
-- **Where things stand:** STATBUS-487 and 492 are marked Done although those observation criteria are still unchecked; this ticket is where they will be satisfied. The release the rerun waits for is v2026.10.1 (stable, 2026-10-15) or later.
-- **Related:** STATBUS-486 (removing the restore-time workaround) is part of the release path, not part of the rerun.
+- **Origin, 2026-10-13:** filed so the Uganda rerun is tracked, not remembered.
+- **Done already:** STATBUS-487 criterion 5 is not applicable (Docker was reachable on Uganda, v2026.10.5 installed 19/19). The 2026-10-30 Uganda read-only check found only Caddy runtime files root-owned (Implementation Notes).
+- **Still to observe, after the next release:**
+  1. Plain box: STATBUS-492 criteria 1 and 3 (root login shell with HOME, no root-owned file in the operator home after preparation).
+  2. Uganda: setup.sh --skip-stages "0 1 3 5 6 7 8" closes STATBUS-539 AC7 and STATBUS-540 AC4.
 
 ### Closing review
-- **Memory:** none needed.
-- **Documentation:** none needed.
-- **Cleanup:** none.
+- **Memory:** none. **Documentation:** none. **Cleanup:** none.
 <!-- SECTION:DESCRIPTION:END -->
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 STATBUS-492 criterion 1 is satisfied with a real transcript from the box: the preparation ran in a root login shell and the HOME in effect is recorded.
-- [ ] #2 STATBUS-492 criterion 3 is satisfied with an ownership inspection from that box showing no root-owned file in the operator home.
-- [x] #3 STATBUS-487 criterion 5 is satisfied with the install output from that box, quoted verbatim, showing the Docker cause named with its remedy (or recorded as not applicable if Docker was reachable).
-- [x] #4 Each dependent ticket names this ticket as the source of its observation.
-- [x] #5 [Owner] Confirm v2026.10.1, or name a later release, as the release the Uganda rerun waits for, and record it in Implementation Notes. The confirmed release lets the rerun be scheduled; AC1-3 are filled from that run.
+- [x] #1 STATBUS-487 criterion 5 is satisfied with the install output from that box, quoted verbatim, showing the Docker cause named with its remedy (or recorded as not applicable if Docker was reachable).
+- [x] #2 Each dependent ticket names this ticket as the source of its observation.
+- [x] #3 [Owner] Confirm v2026.10.1, or name a later release, as the release the Uganda rerun waits for, and record it in Implementation Notes. The confirmed release lets the rerun be scheduled; AC1-3 are filled from that run.
+- [ ] #4 Plain manual box, fresh preparation with the next release: the session log shows a root login shell with HOME=/root (STATBUS-492 criterion 1)
+- [ ] #5 Plain manual box, right after setup and before install: find /home/statbus -xdev -user root prints nothing (STATBUS-492 criterion 3)
+- [ ] #6 Uganda, next release: setup Stages 2 and 4 rerun; the results are recorded in STATBUS-539 AC7 and STATBUS-540 AC4
 <!-- AC:END -->
 
 ## Implementation Notes

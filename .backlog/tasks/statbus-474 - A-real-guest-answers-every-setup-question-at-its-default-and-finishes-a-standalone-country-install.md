@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: 2026-10-08 15:16
-updated_date: '2026-10-30T12:52:00Z'
+updated_date: '2026-10-30T13:36:00Z'
 labels:
   - install
   - installer
@@ -160,4 +160,6 @@ NOT CHANGED: the committed scenario (its header still says STATUS: UNRUN, and HA
 2026-10-27: updated the PTY scenario for STATBUS-429's optional certificate question. The driver now records certificate-offer, asserts default no exactly once, requires it before the signer, and keeps the users-file scope explicit. Red: tmp/474-cert-prompt-red.log (old driver failed on the new question). Green: tmp/474-cert-prompt-green.log (default no accepted, every setup question exactly once, Installation complete). Full offline harness selftest passed (tmp/474-harness-green.log). AC4's default-vs-on-demand catalogue decision remains open.
 
 AC4 decided 2026-10-30 (owner): the scenario joins the default LXD release gate; on demand means never. Commit b98e9e86a removes the skip marker and rewrites the header (it also clears the stale UNRUN status, the Closing-review cleanup). Default selection 27 -> 28 (run.sh --print-selected lists it). The first gate run and its wall-clock effect are recorded on the next RC.
+
+2026-10-30: all four criteria checked. Stays In Progress until the first gate run with the scenario in the default catalogue is green; that run ID and its wall-clock effect are recorded here, then Done.
 <!-- SECTION:NOTES:END -->
