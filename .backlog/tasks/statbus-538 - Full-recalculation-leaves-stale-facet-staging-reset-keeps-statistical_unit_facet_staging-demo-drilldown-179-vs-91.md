@@ -3,10 +3,10 @@ id: STATBUS-538
 title: >-
   Full recalculation leaves stale facet staging; reset() keeps
   statistical_unit_facet_staging (demo drilldown 179 vs 91)
-status: Done
+status: In Progress
 assignee: []
 created_date: '2026-10-30T08:48:00Z'
-updated_date: '2026-10-30T10:36:00Z'
+updated_date: '2026-10-30T11:49:00Z'
 labels:
   - derive
   - facets
@@ -31,7 +31,43 @@ Demo 2026-10-30: drilldown showed 179 enterprises in Zambezia (218 total) while 
 - [x] #4 Full collect_changes rebuilds every facet/history staging slot and removes stale ones without any caller TRUNCATE
 - [x] #5 Test 346 no longer relies on TRUNCATE; asserts facet totals equal statistical_unit counts
 - [x] #6 Demo repaired and verified: facet counts equal statistical_unit counts
+- [ ] #7 No payload.full_refresh: full refresh is derived in each step from NULL ids / -infinity..infinity
+- [ ] #8 worker.enqueue_derive_statistical_unit_all() exists, documented via COMMENT ON incl. migration usage; no-op returning NULL on empty base tables
+- [ ] #9 enqueue_derive_statistical_unit_all upgrades an already pending drain-mode collect_changes (test proves full rebuild still happens)
+- [ ] #10 Tests 355 and 346 use the function; fast suite green locally; doc/db regenerated; doc/migration-call-tree-prohibition.md points to the function
+- [ ] #11 Migration 20261030085731 verified on restored demo dump: facets == truth after the migration alone
 <!-- AC:END -->
+
+## Implementation Plan
+
+<!-- SECTION:PLAN:BEGIN -->
+## Phase 2 design (agreed with user 2026-10-30 11:48)
+
+Rewrite the UNRELEASED migration `20261030085731_statbus_538_full_refresh_rebuilds_facet_caches_and_reset_clears_facet_staging` in place (no tag contains a09c2d25c; dev's newest applied is 20261027221500, checked 11:43). Old released migrations stay untouched.
+
+### One convention for "everything" (single source of truth, no flag)
+- Ids: NULL `*_id_ranges` = all units. Time: `valid_from = -infinity`, `valid_until = infinity` = all time.
+- `worker.command_collect_changes` direct mode passes NULL ids and the unbounded range THROUGH unchanged: it does NOT expand NULL ids into explicit id lists and does NOT narrow time to the units' span.
+- Each step decides from its own arguments:
+  - `worker.derive_statistical_unit`: NULL ids -> existing `v_is_full_refresh` branch (now reachable).
+  - Report derives (`derive_statistical_unit_facet`, `derive_statistical_history`, `derive_statistical_history_facet`): `valid_from = -infinity AND valid_until = infinity` -> drop own per-slot cache, rebuild every slot. `get_statistical_history_periods` already maps infinite bounds to the data range.
+- Remove `payload.full_refresh` entirely.
+- Drain (trigger) mode unchanged.
+
+### New function `worker.enqueue_derive_statistical_unit_all()` RETURNS bigint
+- No arguments. Scoped recalculation stays with `collect_changes` payloads.
+- If establishment, legal_unit, enterprise, power_group are all empty: no-op, RETURN NULL (keeps seed/test template free of phantom tasks; this is the rc48 BLOCK F guard moved inside).
+- Else upsert the pending `collect_changes` (dedup index `idx_tasks_collect_changes_dedup`) to payload `{"command":"collect_changes","establishment_id_ranges":null,"legal_unit_id_ranges":null,"enterprise_id_ranges":null,"power_group_id_ranges":null,"valid_ranges":"{[-infinity,infinity)}"}` with ON CONFLICT DO UPDATE (a pending drain-mode task is upgraded, not swallowed; drain mode would also drain base_change_log, full covers it). `pg_notify('worker_tasks','analytics')`. RETURN task id.
+- COMMENT ON FUNCTION: meaning, empty-db no-op, and migration usage: `SELECT worker.enqueue_derive_statistical_unit_all();` (schedules only; satisfies doc/migration-call-tree-prohibition.md).
+- Check whether `worker.reset_abandoned_processing_tasks` should call it (it emits the all-NULL payload today).
+
+### Kept from phase 1
+- `public.reset()` also truncates `statistical_unit_facet_staging`; GRANT TRUNCATE to admin_user.
+- Migration ends with `SELECT worker.enqueue_derive_statistical_unit_all();` to repair existing installs.
+
+### Mechanism (why a SELECT in a migration is correct)
+Migration only inserts a task row + pg_notify inside its transaction (atomic with schema; NOTIFY delivered at commit). Upgrade: worker stopped during migrate, picks pending tasks up via queue discovery at startup. Empty-db guard keeps the seed dump free of pending tasks.
+<!-- SECTION:PLAN:END -->
 
 ## Implementation Notes
 
