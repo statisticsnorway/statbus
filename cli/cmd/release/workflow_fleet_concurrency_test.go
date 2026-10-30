@@ -35,6 +35,10 @@ func TestFleetAdmissionRecordedParentDecision_STATBUS365(t *testing.T) {
 	}{
 		{name: "tag push in progress", event: "push", wantOK: true, wantReason: "Admitted orchestrator parent"},
 		{name: "manual redispatch in progress", event: "workflow_dispatch", wantOK: true, wantReason: "Admitted orchestrator parent"},
+		// rc.02 (2026-10-30): the API still reported the live orchestrator
+		// 41103857639 as "queued" while its smoke job was dispatching children.
+		{name: "tag push run reported queued while dispatching", event: "push", mutate: func(v map[string]any) { v["status"] = "queued" }, wantOK: true, wantReason: "Admitted orchestrator parent"},
+		{name: "tag push completed", event: "push", mutate: func(v map[string]any) { v["status"] = "completed" }, wantReason: "Stale or invalid orchestrator parent"},
 		{name: "manual redispatch completed", event: "workflow_dispatch", mutate: func(v map[string]any) { v["status"] = "completed" }, wantReason: "Stale or invalid orchestrator parent"},
 		{name: "manual redispatch wrong sha", event: "workflow_dispatch", mutate: func(v map[string]any) { v["head_sha"] = "wrong" }, wantReason: "Stale or invalid orchestrator parent"},
 		{name: "wrong path", event: "push", mutate: func(v map[string]any) { v["path"] = ".github/workflows/other.yaml" }, wantReason: "Stale or invalid orchestrator parent"},
@@ -339,7 +343,7 @@ func TestPaidFleetSharedAdmissionAndManualCompatibility_STATBUS350(t *testing.T)
 		t.Fatal("dispatcher must add parent run ID to classified paid workflows")
 	}
 	admit, _ := os.ReadFile(thisRepoFile(t, ".github/actions/orchestrator-fleet-admission/admit.sh"))
-	for _, required := range []string{".status == \"in_progress\"", "(.event == \"push\" or .event == \"workflow_dispatch\")", ".head_sha == $sha", ".path == \".github/workflows/release-fleet-orchestrator.yaml\"", "tag push or manual re-dispatch", "CANDIDATE_REF", "git rev-parse HEAD"} {
+	for _, required := range []string{"(.event == \"push\" or .event == \"workflow_dispatch\")", ".head_sha == $sha", ".path == \".github/workflows/release-fleet-orchestrator.yaml\"", "tag push or manual re-dispatch", "CANDIDATE_REF", "git rev-parse HEAD"} {
 		if !strings.Contains(string(admit), required) {
 			t.Errorf("shared admission missing %q", required)
 		}
