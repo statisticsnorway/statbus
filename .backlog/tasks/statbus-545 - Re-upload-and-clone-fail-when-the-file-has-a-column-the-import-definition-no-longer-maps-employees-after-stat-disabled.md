@@ -6,7 +6,7 @@ title: >-
 status: Done
 assignee: []
 created_date: '2026-10-30T14:30:00Z'
-updated_date: '2026-10-30T18:07:00Z'
+updated_date: '2026-10-30T23:17:00Z'
 labels:
   - import
   - upload
@@ -69,4 +69,6 @@ Fast Tests 41085353965 green on 5f96c5f96 (includes 0163e8739). UI/message polis
 Fast Tests 41094001047 green on 3dacfef58 (plus Go Test, app build & lint, Images, Harness Selftest). AC#2 (re-upload through api/import/upload in the browser) is not yet observed in a real run.
 
 AC#2 observed in a real browser run on rc.02 code (9c6f74444): new job 51 statbus_545_reupload (definition establishment_for_lu_job_provided). samples/norway/establishment/underenheter-selection-web-import.csv was uploaded through the Upload Establishments page. COPY succeeded, state waiting_for_review, total_rows 1305. Job warning: employees_raw (351 values) is ignored. tax_ident_raw and legal_unit_tax_ident_raw are also ignored (1305 values each) because this dev copy has the tax_ident type disabled. Before the fix, this upload failed in the COPY.
+
+Released in v2026.10.6-rc.02 (tag at 9c6f74444, includes 0163e8739 and 3dacfef58). The ErrorDisplay Copy button crashed on plain http, because navigator.clipboard is undefined outside secure contexts; this was fixed in the same release (app/src/lib/copy-to-clipboard.ts).
 <!-- SECTION:NOTES:END -->
