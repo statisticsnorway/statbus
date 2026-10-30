@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-10-30T17:22:00Z'
-updated_date: '2026-10-30T17:22:00Z'
+updated_date: '2026-10-30T17:29:00Z'
 labels: []
 dependencies: []
 priority: high
@@ -39,3 +39,9 @@ images.yaml copies the previous commit's images onto a commit that changes only 
 - [ ] #3 The next release candidate's LXD fleet runs the seven 5-install-* scenarios that failed on rc.01 without exit 69 (run ID recorded)
 - [ ] #4 A workflow test pins the split: sb is built on every push, including exempt-only pushes, and the retag matrix holds only app, worker, db and proxy
 <!-- AC:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+Implementation 3bf64c11a: images.yaml now builds statbus-sb for every commit. New build-sb (both arches) -> manifest-sb jobs carry no exempt gate; retag matrix is exactly [app, worker, db, proxy]; decide-exempt-only no longer requires the parent's sb; seed waits for manifest-sb before pulling statbus-sb:<commit>. Build/manifest steps are single-sourced with YAML anchors. New test cli/cmd/workflow_images_sb_commit_test.go parses images.yaml and pins the split. RED against HEAD de4c03d98 (tmp/test-547-red.log: retag includes sb, build gated on exempt); GREEN after (tmp/test-547-green.log). Normal-push Images run 41098632829 (3bf64c11a): build-sb amd64+arm64 success, manifest-sb success, retag skipped, seed success. go test ./cmd/ -run Workflow and go vet ./cmd/ pass; actionlint + yaml.safe_load clean.
+<!-- SECTION:NOTES:END -->
