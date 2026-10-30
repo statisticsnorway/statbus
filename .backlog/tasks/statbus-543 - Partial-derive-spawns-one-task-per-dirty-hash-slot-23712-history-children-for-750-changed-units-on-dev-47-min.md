@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-10-30T12:27:00Z'
-updated_date: '2026-10-30T13:56:00Z'
+updated_date: '2026-10-30T14:01:00Z'
 labels:
   - derive
   - performance
@@ -55,4 +55,6 @@ Journal in tmp/journal.md; doc/db regenerated; derive-pipeline docs checked for 
 
 13:56 commit c9dbad627: migration 20261030135034, statistical_history_facet_def stats_by_facet AS MATERIALIZED (inlined CTE was nested-looped and re-aggregated per row): 954 -> 37 ms per 256-slot child, 0 differing rows vs stored data (tmp/543-facet-try.log). 204 green.
 Clean rerun of dev job 38 on dev copy with all three fixes (job 45, tmp/543-clone-final.log): total 3m03s. history 1536 children avg 48 ms (63 s); history_facet 1536 avg 68 ms (64 s); facet_reduce 34 s. Before: dev 47 min; local old code 22.5 min (history step alone 16m49s); spawn fix only 7m42s.
+
+14:01 Expected-output review (independent read-only agent): 204, 110, 111, 203, 309, 310, 314, 317 and 2b8590d97 (303) all VERIFIED, no derived value changed; 538 checks from 355 survive in 204 (stronger: staging count asserted). Follow-ups: full suite via CI on final SHA; singleton-row invariant now enforced by CHECK statistical_history_hash_partition_is_one_slot (migration 20261030135909; dev copy 302,136 per-slot rows, 0 violations); testing locally, then push.
 <!-- SECTION:NOTES:END -->

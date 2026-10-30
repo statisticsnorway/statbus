@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-10-30T08:48:00Z'
-updated_date: '2026-10-30T11:54:00Z'
+updated_date: '2026-10-30T14:01:00Z'
 labels:
   - derive
   - facets
@@ -83,4 +83,6 @@ Upgrade-path verification on real demo data: restored dbdumps/demo_20261030_0937
 Demo re-check 10:36: the drilldown RPC statistical_unit_facet_drilldown(enterprise, current_date) returns 02:4, 04:91, 08:8, 09:2, 11:6 (tmp/demo-drilldown-rpc.log), previously 8/179/16/4/11. Facet==truth per region, 0 stale staging rows, 0 stale history partitions, history countable 2026 = 113/113/8. Demo UI not viewed (login required in agent browser).
 
 Phase 2 progress 11:55 (uncommitted in working tree): migration 20261030085731 up/down rewritten (enqueue_derive_statistical_unit_all, NULL ids + -inf..inf convention, no full_refresh, crash recovery calls the function, full mode drains base_change_log); redone on seed via ./sb migrate redo --target seed, template rebuilt with ./dev.sh create-test-template. Tests 355 and 346 updated, pass, expected accepted. doc/migration-call-tree-prohibition.md updated. Remaining: fast suite (bg 231083rci4, log tmp/test-538b-fast.log), doc/db regen, demo-dump verification, commit, CI, Done.
+
+14:01 Test 355 was folded into test 204 (commit 2a915aac2) per owner request to avoid separate test files; all 355 checks verified present in 204 by an independent review. Closing waits for Fast Tests green on a SHA containing c9dbad627.
 <!-- SECTION:NOTES:END -->
