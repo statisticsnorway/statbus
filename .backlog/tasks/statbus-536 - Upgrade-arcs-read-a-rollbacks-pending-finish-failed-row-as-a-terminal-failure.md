@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-10-30T00:57:00Z'
-updated_date: '2026-10-30T00:57:00Z'
+updated_date: '2026-10-30T01:22:00Z'
 labels:
   - harness
   - release
@@ -44,4 +44,6 @@ v2026.10.5-rc.03 Upgrade Arc Harness run 40977271679, job 123810110780 (postswap
 
 <!-- SECTION:NOTES:BEGIN -->
 Red on pre-fix arc: 'FAIL: rollback with final transition pending: row_state=failed, want finishing_rollback' (tmp/test-arc-row-state-red.log). Green after (tmp/test-arc-row-state-green.log). 35 state reads in 31 files now select UPGRADE_ROW_STATE_SQL. Offline arc selftests (arc-state-assertions, arc-wait-unit-active, arc-crollback-version-guard, arc-fingerprint-path-scope, lxd-arc-verdict, lxd-arc-lineage-parity, lxd-arc-base-identity, concurrent-install-observation, scenario-helper-resolution, c-rollback-resurrection-fixture, rc10-schema-floor-family) all pass.
+
+Fast Tests run 40983372897 failed the new step: the job's app DB is never migrated ('relation public.upgrade does not exist'). The test now clones POSTGRES_SEED_DB (built at HEAD by migrate-and-test) into a throwaway arc_row_state_<pid> DB, asserts public.upgrade exists, and drops it on exit. Re-verified: red on b29876300's arc (row_state='failed'), green now (tmp/test-arc-row-state-{red2,green2}.log); no scratch DB left behind.
 <!-- SECTION:NOTES:END -->

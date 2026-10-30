@@ -8,8 +8,9 @@
 # 40977271679) read state='failed' (rollback_finish_pending_at set) and failed
 # while the row reached rolled_back in the same second. This test runs the
 # REAL row_state definition from that arc against the local development
-# database (VM_EXEC is a local shim). The fixture row uses a reserved all-f
-# commit SHA and is deleted on exit.
+# database (VM_EXEC is a local shim). It works in a throwaway database cloned
+# from the migrated seed (POSTGRES_SEED_DB), so neither the app nor the seed
+# database is written, and drops it on exit.
 set -euo pipefail
 ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)
 ARC="$ROOT/test/install-recovery/arcs/postswap-rollback-restore-watchdog-arc.sh"
@@ -20,6 +21,14 @@ if ! echo 'SELECT 1;' | ./sb psql -t -A >/dev/null 2>&1; then
     [ "${ARC_ROW_STATE_REQUIRE_DB:-0}" = 1 ] && { echo "FAIL: no database reachable via ./sb psql" >&2; exit 1; }
     echo "SKIP: no local database (./sb psql)"; exit 0
 fi
+SEED_DB=$(./sb dotenv -f .env get POSTGRES_SEED_DB)
+SCRATCH_DB="arc_row_state_$$"
+echo "CREATE DATABASE $SCRATCH_DB TEMPLATE $SEED_DB;" | PGDATABASE=postgres ./sb psql -q -v ON_ERROR_STOP=1 >/dev/null
+cleanup() { echo "DROP DATABASE IF EXISTS $SCRATCH_DB;" | PGDATABASE=postgres ./sb psql -q >/dev/null 2>&1 || true; }
+trap cleanup EXIT
+export PGDATABASE=$SCRATCH_DB
+[ "$(echo "SELECT to_regclass('public.upgrade') IS NOT NULL;" | ./sb psql -t -A)" = t ] || {
+    echo "FAIL: $SEED_DB has no public.upgrade; the seed is not migrated" >&2; exit 1; }
 # shellcheck source=../lib/assertions.sh
 source "$ROOT/test/install-recovery/lib/assertions.sh"
 
@@ -44,8 +53,6 @@ INSERT INTO public.upgrade (commit_sha, committed_at, summary, state, scheduled_
 VALUES ('$FIXTURE_SHA', now(), 'arc row-state fixture', '$state', now(), now()$extra_vals);
 SQL
 }
-cleanup() { echo "DELETE FROM public.upgrade WHERE commit_sha = '$FIXTURE_SHA';" | ./sb psql -q -t -A >/dev/null 2>&1 || true; }
-trap cleanup EXIT
 
 # The arc's own terminal decision after release.
 arc_verdict() {
