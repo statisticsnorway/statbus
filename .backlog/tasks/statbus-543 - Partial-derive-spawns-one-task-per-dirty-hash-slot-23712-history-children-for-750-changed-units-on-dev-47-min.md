@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-10-30T12:27:00Z'
-updated_date: '2026-10-30T12:28:00Z'
+updated_date: '2026-10-30T13:48:00Z'
 labels:
   - derive
   - performance
@@ -41,3 +41,15 @@ Journal in tmp/journal.md; doc/db regenerated; derive-pipeline docs checked for 
 - [ ] #5 [Owner] Per-child slowdown (69 -> 235 ms) reproduced locally and its cause recorded in tmp/journal.md; fixed here or a follow-up ticket filed
 - [ ] #6 [Owner] Per-child slowdown (69 -> 235 ms) reproduced locally from a dev dump by re-running the import, cause recorded in tmp/journal.md, fixed here or a follow-up filed
 <!-- AC:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+13:46 progress.
+- Commit 2a915aac2: dirty derives spawn one child per partition range (migration 20261030125747); test 204 extended (red: children_span_partition_ranges f x3, green t x3); test 355 (STATBUS-538) folded into 204 and deleted. e0170f82a: 7 expected files where only the analytics completed-task count dropped (110,111,203,309,310,314,317); CI Fast Tests 41060820618 had failed on exactly those.
+- Local repro on dev copy (dbdumps/dev_20261030_132822.pg_dump), rerun of job 38 (988 dirty slots): old code 23,712 history children, history step 16m49s; fixed 1,536 children, 57 s; total 7m42s (tmp/543-clone-{old,fixed}.log).
+- Slowdown cause: derive_statistical_history_period year-month DELETE seq-scanned statistical_history (lower(hash_partition), month IS NOT DISTINCT FROM): 144 ms -> 0.15 ms with migration 20261030133114 (compare column to singleton ranges, month = / IS NULL). Plans captured in 303 explain set with enable_seqscan off.
+- Next: facet def nested loop on text facet_key (925 of 950 ms per child) folded into this ticket; then clean timing rerun.
+
+13:48 commit 2b8590d97: migration 20261030133114 (history period DELETE: hash_partition compared to singleton ranges, month = / IS NULL). 303 now captures both period DELETE plans (enable_seqscan off, as postgres): Index Scan using statistical_history_partition_{year,month}_key. Old predicate gives Bitmap Heap Scan with lower(hash_partition) filter (tmp/543-explain-old-shape.log). 204 green with it.
+<!-- SECTION:NOTES:END -->
