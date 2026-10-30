@@ -594,14 +594,16 @@ ssh_listen_ports() {
     fi
 }
 
-# Allow every port sshd listens on through UFW, and say which. Port 22 is always
-# allowed as well: it is the convention for this service, and with nothing
-# listening there nothing is exposed (owner ruling 2026-10-30). Refuse (return 1,
-# no firewall change) when the ports cannot be determined: guessing is how an
-# operator gets locked out of their own server, and 22 alone may not be where
-# sshd listens.
+# Allow SSH through UFW: the Ubuntu OpenSSH app profile, always (it is the
+# convention for this service, and with nothing listening on 22 nothing is
+# exposed), plus every other port sshd really listens on as "Custom SSH". Rules
+# this function created for a port sshd no longer listens on are removed, so a
+# moved SSH port does not leave a stale opening; rules without that comment are
+# never touched (owner ruling 2026-10-30). Refuse (return 1, no firewall change)
+# when the ports cannot be determined: guessing is how an operator gets locked
+# out of their own server, and OpenSSH alone may not be where sshd listens.
 ufw_allow_ssh_ports() {
-    local ports port
+    local ports port stale stale_port
     ports="$(ssh_listen_ports)"
     if [[ -z "$ports" ]]; then
         log_error "Could not determine which port SSH listens on ('sshd -T' gave no port)."
@@ -609,15 +611,29 @@ ufw_allow_ssh_ports() {
         log_error "Check that sshd is installed and its configuration is valid (sudo sshd -t), then run this stage again."
         return 1
     fi
+    # Only our own openings are candidates for removal: the "Custom SSH" comment
+    # marks a rule this function added for a port sshd listened on.
+    stale="$(
+        ufw status 2>/dev/null | awk '
+            /# Custom SSH[[:space:]]*$/ {
+                n = split($1, parts, "/")
+                if (n == 2 && parts[2] == "tcp" && parts[1] ~ /^[0-9]+$/) print parts[1]
+            }' | sort -un
+    )"
+    for stale_port in $stale; do
+        if ! printf '%s\n' $ports | grep -qx "$stale_port"; then
+            log "Removing UFW rule for port $stale_port/tcp, which sshd no longer listens on."
+            ufw delete allow "$stale_port/tcp"
+        fi
+    done
+    log "Allowing SSH through UFW with the Ubuntu OpenSSH profile (port 22)."
+    ufw allow OpenSSH
     for port in $ports; do
-        # 22 is allowed once, below, so a box whose sshd listens on 22 does not
-        # get a duplicate rule.
+        # OpenSSH already covers 22; adding a port rule here would duplicate it.
         [[ "$port" = "22" ]] && continue
         log "Allowing SSH on port $port/tcp (the port sshd listens on)."
         ufw allow "$port/tcp" comment 'Custom SSH'
     done
-    log "Allowing SSH on port 22/tcp (the standard SSH port)."
-    ufw allow 22/tcp comment 'SSH'
 }
 
 ensure_remote_access() {
@@ -1544,11 +1560,11 @@ stage_security_tools() {
     verify "SSHD collection installed" "cscli collections list | grep sshd"
     verify "UFW active" "ufw status | grep 'Status: active'"
     local ssh_port
+    verify "OpenSSH allowed in UFW" "ufw status | grep -E '^OpenSSH[[:space:]]+ALLOW'"
     for ssh_port in $(ssh_listen_ports); do
         [[ "$ssh_port" = "22" ]] && continue
         verify "SSH port $ssh_port allowed in UFW" "ufw status | grep -E '^$ssh_port/tcp[[:space:]]+ALLOW'"
     done
-    verify "SSH port 22 allowed in UFW" "ufw status | grep -E '^22/tcp[[:space:]]+ALLOW'"
     verify "HTTP allowed in UFW" "ufw status | grep '80/tcp'"
     verify "HTTPS allowed in UFW" "ufw status | grep '443/tcp'"
     verify "PostgreSQL allowed in UFW" "ufw status | grep '5432/tcp'"

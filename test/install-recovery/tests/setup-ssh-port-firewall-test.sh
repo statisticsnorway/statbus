@@ -7,10 +7,11 @@
 # Owner ruling (2026-10-15): the script must read the port sshd really listens
 # on and allow THAT port, loudly; when it cannot tell, it must refuse rather
 # than guess. Never a silent assumption of 22.
-# Owner ruling (2026-10-30, STATBUS-539): 22/tcp is always allowed as well, as
-# the convention for this service, while every other port sshd listens on is
-# still allowed. Rules for 22 carry the comment "SSH"; the other ports carry
-# "Custom SSH", so an operator can tell the standard rule from the custom one.
+# Owner ruling (2026-10-30, STATBUS-539): the Ubuntu OpenSSH app profile is
+# always allowed (the convention for this service, and harmless when nothing
+# listens on 22), and every other port sshd listens on is allowed with the
+# comment "Custom SSH". A rule this script created for a port sshd no longer
+# listens on is removed; rules without that comment are never touched.
 #
 # This drives the real functions from ops/setup-ubuntu-lts.sh against fake
 # `ss`, `systemctl` and `sshd`, plus a recording `ufw`, so it proves behaviour,
@@ -61,9 +62,15 @@ case "${1:-}" in
 esac
 exit 0
 FAKE
-# Recording ufw: logs every invocation.
+# Recording ufw: mutating calls are logged; `status` prints FAKE_UFW_STATUS.
 cat > "$work/bin/ufw" <<'FAKE'
 #!/usr/bin/env bash
+case "${1:-}" in
+    status)
+        [ -n "${FAKE_UFW_STATUS:-}" ] && printf '%s\n' "$FAKE_UFW_STATUS"
+        exit 0
+        ;;
+esac
 printf '%s\n' "$*" >> "$UFW_LOG"
 FAKE
 chmod +x "$work/bin/sshd" "$work/bin/ss" "$work/bin/systemctl" "$work/bin/ufw"
@@ -74,7 +81,7 @@ if ! grep -q '^ufw_allow_ssh_ports()' "$SCRIPT"; then
 fi
 
 fakes_reset() { # no real socket information in this case
-    export FAKE_SS_OUT="" FAKE_SSH_SOCKET_ACTIVE=0 FAKE_SSH_SOCKET_LISTEN=""
+    export FAKE_SS_OUT="" FAKE_SSH_SOCKET_ACTIVE=0 FAKE_SSH_SOCKET_LISTEN="" FAKE_UFW_STATUS=""
 }
 
 run_ufw() { # label -> runs ufw_allow_ssh_ports, sets rc and out
@@ -104,23 +111,19 @@ run_ports() { # sets out to ssh_listen_ports output and rc to its status
     rc=$?
 }
 
-# 1. Uganda: sshd on 713 only. Port 713 and the standard port 22 must both be
-#    opened, exactly once each.
+# 1. Uganda: sshd on 713 only. OpenSSH and 713/tcp must both be opened, and no
+#    22/tcp rule may be added.
 run_case uganda "713"
-if [ "$rc" -eq 0 ] && grep -qx 'allow 713/tcp comment Custom SSH' "$UFW_LOG"; then
-    pass "sshd on 713: ufw allows 713/tcp as a custom SSH port"
+expected=$(printf '%s\n' 'allow OpenSSH' 'allow 713/tcp comment Custom SSH')
+if [ "$rc" -eq 0 ] && [ "$(cat "$UFW_LOG")" = "$expected" ]; then
+    pass "sshd on 713: ufw allows OpenSSH and 713/tcp as a custom SSH port"
 else
-    nope "sshd on 713: expected 'allow 713/tcp comment Custom SSH' (rc=$rc), ufw saw: $(tr '\n' ';' < "$UFW_LOG") out: $out"
+    nope "sshd on 713: expected OpenSSH then 'allow 713/tcp comment Custom SSH' (rc=$rc), ufw saw: $(tr '\n' ';' < "$UFW_LOG") out: $out"
 fi
-if [ "$(grep -cx 'allow 22/tcp comment SSH' "$UFW_LOG")" -eq 1 ]; then
-    pass "sshd on 713: the standard port 22/tcp is allowed exactly once"
+if grep -q '^allow 22/tcp' "$UFW_LOG"; then
+    nope "sshd on 713: a 22/tcp rule must not be added, ufw saw: $(tr '\n' ';' < "$UFW_LOG")"
 else
-    nope "sshd on 713: expected 'allow 22/tcp comment SSH' once, ufw saw: $(tr '\n' ';' < "$UFW_LOG")"
-fi
-if grep -qx 'allow 22/tcp comment Custom SSH' "$UFW_LOG"; then
-    nope "sshd on 713: the standard port 22 must carry the 'SSH' comment, not 'Custom SSH'"
-else
-    pass "sshd on 713: port 22 keeps the standard 'SSH' comment"
+    pass "sshd on 713: no 22/tcp rule is added"
 fi
 if grep -q '713' <<<"$out"; then
     pass "sshd on 713: the port is named to the operator"
@@ -130,18 +133,19 @@ fi
 
 # 2. The ordinary box: sshd on 22.
 run_case standard "22"
-if [ "$rc" -eq 0 ] && [ "$(grep -cx 'allow 22/tcp comment SSH' "$UFW_LOG")" -eq 1 ] && [ "$(wc -l < "$UFW_LOG")" -eq 1 ]; then
-    pass "sshd on 22: ufw allows 22/tcp exactly once"
+if [ "$rc" -eq 0 ] && [ "$(cat "$UFW_LOG")" = 'allow OpenSSH' ]; then
+    pass "sshd on 22: ufw allows only OpenSSH"
 else
-    nope "sshd on 22: expected exactly one 'allow 22/tcp comment SSH' (rc=$rc), ufw saw: $(tr '\n' ';' < "$UFW_LOG")"
+    nope "sshd on 22: expected only 'allow OpenSSH' (rc=$rc), ufw saw: $(tr '\n' ';' < "$UFW_LOG")"
 fi
 
-# 3. Several listening ports: every one stays reachable, and 22 stays unique.
+# 3. Several listening ports: every custom one stays reachable, no 22/tcp rule.
 run_case several "22 2222"
-if [ "$rc" -eq 0 ] && [ "$(grep -cx 'allow 22/tcp comment SSH' "$UFW_LOG")" -eq 1 ] && grep -qx 'allow 2222/tcp comment Custom SSH' "$UFW_LOG"; then
-    pass "sshd on 22 and 2222: both are allowed"
+expected=$(printf '%s\n' 'allow OpenSSH' 'allow 2222/tcp comment Custom SSH')
+if [ "$rc" -eq 0 ] && [ "$(cat "$UFW_LOG")" = "$expected" ]; then
+    pass "sshd on 22 and 2222: OpenSSH and 2222 are allowed"
 else
-    nope "sshd on 22 and 2222: expected both allowed (rc=$rc), ufw saw: $(tr '\n' ';' < "$UFW_LOG")"
+    nope "sshd on 22 and 2222: expected OpenSSH and 2222 allowed (rc=$rc), ufw saw: $(tr '\n' ';' < "$UFW_LOG")"
 fi
 
 # 4. Port unknown: refuse, and touch nothing in the firewall.
@@ -167,10 +171,11 @@ else
     nope "socket-activated: expected exactly '713' (rc=$rc), got: '$out'"
 fi
 run_ufw socket
-if [ "$rc" -eq 0 ] && grep -qx 'allow 713/tcp comment Custom SSH' "$UFW_LOG" && grep -qx 'allow 22/tcp comment SSH' "$UFW_LOG"; then
-    pass "socket-activated: ufw allows 713/tcp and 22/tcp"
+expected=$(printf '%s\n' 'allow OpenSSH' 'allow 713/tcp comment Custom SSH')
+if [ "$rc" -eq 0 ] && [ "$(cat "$UFW_LOG")" = "$expected" ]; then
+    pass "socket-activated: ufw allows OpenSSH and 713/tcp"
 else
-    nope "socket-activated: expected 713/tcp and 22/tcp allowed (rc=$rc), ufw saw: $(tr '\n' ';' < "$UFW_LOG")"
+    nope "socket-activated: expected OpenSSH and 713/tcp allowed (rc=$rc), ufw saw: $(tr '\n' ';' < "$UFW_LOG")"
 fi
 
 # 6. Socket-activated but idle: no connection yet, so ss shows only systemd
@@ -213,8 +218,50 @@ else
     nope "multiple listeners: expected '22 713 2222' (rc=$rc), got: '$out'"
 fi
 
-# 9. The stage itself must use the helper before it enables the firewall, and
-#    must not still open OpenSSH/22 by assumption.
+# 9. A "Custom SSH" rule for a port sshd no longer listens on is removed, the
+#    rule for the port it does listen on stays, and the IPv6 and IPv4 rows of
+#    one port are removed once.
+fakes_reset
+export FAKE_SSHD_PORTS=713
+export FAKE_UFW_STATUS='Status: active
+
+To                         Action      From
+--                         ------      ----
+OpenSSH                    ALLOW       Anywhere
+713/tcp                    ALLOW       Anywhere                   # Custom SSH
+4713/tcp                   ALLOW       Anywhere                   # Custom SSH
+713/tcp (v6)               ALLOW       Anywhere (v6)              # Custom SSH
+4713/tcp (v6)              ALLOW       Anywhere (v6)              # Custom SSH'
+run_ufw cleanup
+expected=$(printf '%s\n' 'delete allow 4713/tcp' 'allow OpenSSH' 'allow 713/tcp comment Custom SSH')
+if [ "$rc" -eq 0 ] && [ "$(cat "$UFW_LOG")" = "$expected" ]; then
+    pass "sshd moved off 4713: its Custom SSH rule is deleted, 713 stays"
+else
+    nope "sshd moved off 4713: expected the stale rule deleted then 713 allowed (rc=$rc), ufw saw: $(tr '\n' ';' < "$UFW_LOG")"
+fi
+
+# 10. A rule without our "Custom SSH" comment is never touched, even when it
+#     sits on a port sshd no longer listens on (4713 with the old "SSH" comment
+#     is exactly what a previous run left behind).
+fakes_reset
+export FAKE_SSHD_PORTS=713
+export FAKE_UFW_STATUS='Status: active
+
+To                         Action      From
+--                         ------      ----
+OpenSSH                    ALLOW       Anywhere
+713/tcp                    ALLOW       Anywhere                   # Custom SSH
+4713/tcp                   ALLOW       Anywhere
+4713/tcp                   ALLOW       Anywhere                   # SSH'
+run_ufw uncommented
+expected=$(printf '%s\n' 'allow OpenSSH' 'allow 713/tcp comment Custom SSH')
+if [ "$rc" -eq 0 ] && [ "$(cat "$UFW_LOG")" = "$expected" ]; then
+    pass "rules without the Custom SSH comment are left alone"
+else
+    nope "rules without the Custom SSH comment must not be deleted (rc=$rc), ufw saw: $(tr '\n' ';' < "$UFW_LOG")"
+fi
+
+# 11. The stage itself must use the helper before it enables the firewall.
 stage="$(awk '/^stage_security_tools\(\)/,/^}$/' "$SCRIPT")"
 helper_line=$(grep -n 'ufw_allow_ssh_ports' <<<"$stage" | head -1 | cut -d: -f1)
 enable_line=$(grep -n 'ufw enable' <<<"$stage" | head -1 | cut -d: -f1)
@@ -224,14 +271,14 @@ else
     nope "stage 4 must call ufw_allow_ssh_ports before 'ufw enable' (helper=${helper_line:-missing} enable=${enable_line:-missing})"
 fi
 if grep -q 'ufw allow OpenSSH' <<<"$stage"; then
-    nope "stage 4 still opens OpenSSH (port 22) by assumption"
+    nope "stage 4 opens OpenSSH directly instead of through ufw_allow_ssh_ports"
 else
-    pass "stage 4 no longer assumes OpenSSH/22"
+    pass "stage 4 opens SSH only through ufw_allow_ssh_ports"
 fi
-if grep -q 'SSH port 22 allowed in UFW' <<<"$stage"; then
-    pass "stage 4 verifies that port 22 is allowed"
+if grep -q 'OpenSSH allowed in UFW' <<<"$stage"; then
+    pass "stage 4 verifies that OpenSSH is allowed"
 else
-    nope "stage 4 does not verify 'SSH port 22 allowed in UFW'"
+    nope "stage 4 does not verify 'OpenSSH allowed in UFW'"
 fi
 
 exit $fail
