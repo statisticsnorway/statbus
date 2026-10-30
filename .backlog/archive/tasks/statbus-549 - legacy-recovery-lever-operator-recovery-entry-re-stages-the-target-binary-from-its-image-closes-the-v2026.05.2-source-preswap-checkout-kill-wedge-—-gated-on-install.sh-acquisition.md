@@ -1,5 +1,5 @@
 ---
-id: STATBUS-061
+id: STATBUS-549
 title: >-
   legacy-recovery-lever: operator recovery entry re-stages the target binary
   from its image (closes the v2026.05.2-source preswap-checkout-kill wedge) —

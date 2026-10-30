@@ -1,5 +1,5 @@
 ---
-id: STATBUS-060
+id: STATBUS-548
 title: >-
   defer-checkout-procure: move the upgrade git-checkout into applyPostSwap +
   extract the sb binary from its prebuilt image (closes the
