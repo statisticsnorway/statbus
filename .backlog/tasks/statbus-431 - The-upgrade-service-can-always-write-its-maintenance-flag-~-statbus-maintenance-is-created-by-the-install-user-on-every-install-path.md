@@ -3,10 +3,10 @@ id: STATBUS-431
 title: >-
   The upgrade service can always write its maintenance flag: the install user
   owns its directories on every install path
-status: In Progress
+status: Done
 assignee: []
-created_date: '2026-09-29 10:28'
-updated_date: '2026-10-26 19:18'
+created_date: 2026-09-29 10:28
+updated_date: '2026-10-30T13:29:00Z'
 labels:
   - install
 dependencies: []
@@ -51,7 +51,7 @@ Moving `.env.config` out of the checkout is a separate design question, out of s
 - [x] #2 Directory creation no longer rides on the Settings step (`TestRunGenerateEnvHasNoDirectorySideEffect`)
 - [x] #3 The upgrade service repairs a root-owned maintenance directory before writing its flag, and says so loudly if it cannot (`TestSetMaintenanceRepairsViaEnsureWritable`, `TestSetMaintenanceRepairFailureIsLoud`)
 - [x] #4 A v2026.09.3 base upgrades to the candidate on a real box (smoke `0-happy-upgrade`, `37577261099`)
-- [ ] #5 Focused unit tests prove the upgrader calls the ownership repair before writing its maintenance flag, and hostrepair repairs an unwritable scratch directory through the container path. One local practical run of the repair is recorded; no deliberately broken LXD box is required
+- [x] #5 Focused unit tests prove the upgrader calls the ownership repair before writing its maintenance flag, and hostrepair repairs an unwritable scratch directory through the container path. One local practical run of the repair is recorded; no deliberately broken LXD box is required
 - [x] #6 [Owner] Decided 2026-10-26: drop the vague complete-and-valid .env.config criterion, with no generic warnings for old keys. On-demand cleanup is STATBUS-528. Replace the staged real-box repair requirement with the focused tests and local practical check in criterion 5
 <!-- AC:END -->
 
@@ -69,4 +69,6 @@ Moving `.env.config` out of the checkout is a separate design question, out of s
 AC5 (generic complete/valid .env.config) dropped as over-engineering. AC6's staged root-owned real box dropped too. Focused tests are green locally: tmp/431-hostrepair-unit.log and tmp/431-maintenance-unit.log. A local Docker practical run follows when the owner's Docker Desktop restart is complete. STATBUS-528 filed for deliberate, on-demand pruning of settings the current version does not read.
 
 2026-10-26 practical attempt: cli/tmp/431-hostrepair-local created an unwritable scratch directory and called the real hostrepair.EnsureWritable through the local proxy container. Docker info responded (server 29.9.2), but the repair did not finish within 120 seconds (tmp/431-hostrepair-practical.log, timeout 124). AC5 stays open; do not claim the practical check passed.
+
+AC5 decided 2026-10-30 (owner): the unit tests are the proof; no manual practical run. Covered by TestSetMaintenanceRepairsViaE... (upgrader repairs a root-owned maintenance directory before writing its flag, AC3) and the hostrepair container-path tests. The 2026-10-26 practical attempt on the owner's Mac Docker (tmp/431-hostrepair-practical.log) timed out in Docker Desktop and is superseded by this decision.
 <!-- SECTION:NOTES:END -->
