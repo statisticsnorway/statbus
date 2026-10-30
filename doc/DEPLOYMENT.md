@@ -509,6 +509,19 @@ After editing, regenerate:
 ./sb logs rest    # PostgREST logs
 ```
 
+**Health and monitoring**: `./sb monitor` reports one health reading for the
+box (services, API, site and certificate, disk, backups, upgrader, worker
+tasks). Run `./sb monitor` for the full explanation, `./sb monitor status` for
+the upgrader's cached reading (refreshed every 60 seconds), or `./sb monitor
+status --live` to measure now. The text output is already a Nagios/Icinga
+plugin, and the exit code is 0 ok, 1 warning or upgrading, 2 critical, 3
+unknown. `./sb monitor template zabbix` prints a Zabbix 7 template with the
+agent `UserParameter` in its header; `./sb monitor template uptime` prints the
+public `https://<SITE_DOMAIN>/monitor` URL and the statuses Uptime Kuma,
+UptimeRobot and similar monitors should expect (200 for ok, warning or
+upgrading; 503 for critical or unknown). `/monitor` stays reachable during
+maintenance.
+
 **Database Backup and Restore**:
 ```bash
 ./sb db dump                    # Backup to dbdumps/ (manual, on-demand)
