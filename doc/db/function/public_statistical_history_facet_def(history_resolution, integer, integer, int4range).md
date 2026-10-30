@@ -57,10 +57,13 @@ BEGIN
         WHERE public.unit_existence_from(lvp.valid_from, lvp.birth_date) <= v_prev_stop
           AND v_prev_stop < public.unit_existence_until(lvp.valid_until, lvp.death_date)
     ),
-    -- PERF: pre-aggregate per-(slot, facet) stats for fast hash join.
-    -- hash_slot is a pure function of (unit_type, unit_id) so every lvc row
-    -- already has the slot it belongs to.
-    stats_by_facet AS (
+    -- PERF: pre-aggregate per-(slot, facet) stats once. MATERIALIZED because
+    -- the CTE is referenced once and would otherwise be inlined: with CTE row
+    -- estimates of 1-3 the planner joins it by nested loop and re-runs the
+    -- jsonb_stats_merge_agg aggregate for every demographics row (STATBUS-543:
+    -- 925 of 950 ms for a 256-slot child). hash_slot is a pure function of
+    -- (unit_type, unit_id) so every lvc row already has the slot it belongs to.
+    stats_by_facet AS MATERIALIZED (
         SELECT
             hash_slot,
             unit_type::text || '|' ||
