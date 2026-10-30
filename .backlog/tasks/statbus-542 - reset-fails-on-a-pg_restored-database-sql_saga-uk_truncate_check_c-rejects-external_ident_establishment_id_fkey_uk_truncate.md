@@ -1,10 +1,10 @@
 ---
 id: STATBUS-542
 title: ./sb db restore runs the extension step (EnsureTrackedExtensions)
-status: In Progress
+status: Done
 assignee: []
 created_date: '2026-10-30T11:57:00Z'
-updated_date: '2026-10-30T12:21:00Z'
+updated_date: '2026-10-30T12:46:00Z'
 labels:
   - sql_saga
   - reset
@@ -40,4 +40,6 @@ No doc change beyond code comments; journal in tmp/journal.md.
 12:15 Investigation: reset() on a restored database works through every official path on statbus_local: ./sb db restore of demo dump; then ./sb migrate up (extension step + 538 migration); worker drained; process_tasks in same session; FK check fired first in same tx (logs tmp/542-*.log). Stopped worker's plain pg_restore also passed. The original failure came only from a hand-built scratch DB (CREATE DATABASE + single pg_restore + early 538 draft applied with psql -f), dropped before diagnosis; not a product defect. Real gap found: restoreLocal never runs the extension lifecycle step, so a dump from an older sql_saga would run against a newer library without ALTER EXTENSION UPDATE + check_integrity(). Scope changed to closing that gap.
 
 12:21 Fix: restoreLocal Phase 0 creates sql_saga at the dump's version (newest sql_saga receipt in db.extension_upgrade, else retired update-migration rows in db.migration, else 1.0); Phase 5 runs migrate.EnsureTrackedExtensions after data+ACLs. Red: tmp/542-restore-dev.log (era check), tmp/542-unit-red.log. Green: tmp/542-restore-dev-green.log (Phase 0 1.1, sql_saga 1.1->1.4), tmp/542-ext-after-dev.log, tmp/542-restore-demo_20261007_140004.log (1.0->1.4), tmp/542-restore-demo_20261030_093705.log (1.4 no-op); reset() t after each; tmp/542-unit-green.log.
+
+CI: Go Test run 41056420655 success at aa9f33041 (contains 6693a33a1).
 <!-- SECTION:NOTES:END -->
