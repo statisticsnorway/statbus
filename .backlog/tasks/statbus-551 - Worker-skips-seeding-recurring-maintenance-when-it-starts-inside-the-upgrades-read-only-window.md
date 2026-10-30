@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-10-30T19:31:00Z'
-updated_date: '2026-10-30T23:37:00Z'
+updated_date: '2026-10-30T23:41:00Z'
 labels:
   - worker
   - upgrade
@@ -22,20 +22,21 @@ ordinal: 474204
 North Star: a worker start always leaves every recurring maintenance command with a pending row, whatever the database's read-only state at that moment.
 
 ### Zoom out
-Every startup step that writes (seed, crash recovery, anything added later) shares the upgrade's read-only window; the window ends seconds later, so an exemption or a retry closes it. Impact today: a box whose recurring rows were already missing stays unrepaired until the next worker restart; healthy boxes get a false ERROR line on every upgrade.
+An upgrade sets the database read-only (default_transaction_read_only = on) so a rollback can never lose a write, and starts the new worker before it lifts that window. Every startup step that writes meets the window. Crash recovery is the one step exempt from it (STATBUS-265). The recurring-task seed (STATBUS-263) is ordinary work, so it waits for the window to end instead of being exempt (owner's decision, 2026-10-30). Impact before the fix: a box whose recurring rows were already missing stayed unrepaired until the next worker restart, and healthy boxes logged a false ERROR on every upgrade.
 
 ### Zoom in
-rc.02 LXD fleet 41108121046, 0-https-only-egress capture (tmp/rc02-lxd-art/lxd-fleet-comparison/lxd-s2-*-0-https-only-egress-failure-*.log): the new worker started at 18:43:52, the upgrade unblocked SQL writes at 18:43:56. Worker log: 'Failed to seed recurring maintenance tasks: cannot execute INSERT in a read-only transaction. Maintenance may not recur until the next worker start.' Crash recovery (reset abandoned processing tasks) is exempt from the read-only guard (STATBUS-265, SET default_transaction_read_only = off then RESET); the seed in cli/src/worker.cr (STATBUS-263, worker.seed_recurring_tasks()) runs after the RESET and is not exempt.
+rc.02 LXD fleet 41108121046, 0-https-only-egress capture: the new worker started at 18:43:52, the upgrade unblocked SQL writes at 18:43:56, and the worker logged 'Failed to seed recurring maintenance tasks: cannot execute INSERT in a read-only transaction. Maintenance may not recur until the next worker start.' Fix (ae0fdbde9): cli/src/worker.cr seed_recurring_tasks_when_writable runs the seed in its own fiber on a fresh connection. On SQLSTATE 25006 it logs one INFO line and retries every 5 s until the seed succeeds or the worker shuts down; any other error is logged as ERROR. Test: test/worker-seed-read-only-test.sh, run by Fast Tests against the commit's worker image (WORKER_IN_CONTAINER=1).
 
 ### Closing review
-The worker startup comment in cli/src/worker.cr states which startup writes are exempt and why; no memory or doc change expected beyond that.
+The seed's comment in cli/src/worker.cr states why it waits rather than being exempt. No memory or doc change needed.
 <!-- SECTION:DESCRIPTION:END -->
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
 - [x] #1 A test reproduces the skip: worker started with default_transaction_read_only=on, then writes unblocked; recurring tasks missing before start are still absent afterwards (red)
 - [x] #2 After the fix the same test ends with every recurring command pending, and a scan of the worker log finds no 'Failed to seed recurring maintenance tasks' line
-- [ ] #3 Fast Tests green, and an LXD upgrade scenario capture shows the worker log without the seed failure
+- [ ] #3 Fast Tests green on ae0fdbde9 or later, with the step 'Worker started read-only restores recurring tasks once writable (STATBUS-551)' passing (run ID recorded)
+- [ ] #4 The rc.03 LXD fleet passes, and an upgrade scenario's captured worker log shows the read-only INFO line and no 'Failed to seed recurring maintenance tasks' line (run ID and capture recorded)
 <!-- AC:END -->
 
 ## Implementation Notes
