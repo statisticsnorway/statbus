@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-10-30T19:31:00Z'
-updated_date: '2026-10-30T19:38:00Z'
+updated_date: '2026-10-30T23:22:00Z'
 labels:
   - worker
   - upgrade
@@ -42,4 +42,6 @@ The worker startup comment in cli/src/worker.cr states which startup writes are 
 
 <!-- SECTION:NOTES:BEGIN -->
 Prototype (rolled back, statbus_seed on the test container, tmp/551-proto.log): with default_transaction_read_only=on, seed_recurring_tasks() fails with the field error; with the scoped exemption crash recovery uses (SET ... = off, then RESET), after removing task_cleanup's pending row the seed recreates exactly that row. Proposed fix: run the seed inside that existing exemption in cli/src/worker.cr, before the RESET. Awaiting owner go-ahead.
+
+2026-10-30 23:20 owner discussion: preferred design is the owner's: the worker detects that the database is read-only and waits, instead of widening the read-only exemption. At startup, if the seed hits the read-only window, log one plain INFO line (database read-only for an upgrade; recurring jobs restored once writable) and retry every few seconds in a separate fiber, so normal startup and queue processing are not blocked; stop retrying only on shutdown. The guard keeps one exemption (crash recovery). Awaiting owner go-ahead to build.
 <!-- SECTION:NOTES:END -->
