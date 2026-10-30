@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: 2026-10-08 15:16
-updated_date: '2026-10-27T22:07:00Z'
+updated_date: '2026-10-30T12:52:00Z'
 labels:
   - install
   - installer
@@ -45,7 +45,7 @@ Unit tests and a PTY run of the binary prove the questions exist and parse. They
 - [x] #1 0-interactive-setup-choices.sh presses Enter at the mode question and observes standalone as the default, with all three modes explained
 - [x] #2 With a country-coded domain, the scenario presses Enter at the country name and code, observes the domain-derived suggestions, and the finished install has DEPLOYMENT_SLOT_NAME/DEPLOYMENT_SLOT_CODE set to that country, never StatBus/local
 - [x] #3 The install completes and the site passes its health and HTTPS checks; the observed prompts are recorded in this ticket
-- [ ] #4 [Owner] Decide whether `0-interactive-setup-choices.sh` joins the default LXD release set (remove `HARNESS_SKIP_DEFAULT`, about 11 minutes per candidate) or stays on demand, and record it in Implementation Notes; then set Done
+- [x] #4 [Owner] Decide whether `0-interactive-setup-choices.sh` joins the default LXD release set (remove `HARNESS_SKIP_DEFAULT`, about 11 minutes per candidate) or stays on demand, and record it in Implementation Notes; then set Done
 <!-- AC:END -->
 
 ## Implementation Notes
@@ -158,4 +158,6 @@ NOT CHANGED: the committed scenario (its header still says STATUS: UNRUN, and HA
 2026-10-15 vetting: the precondition chain above (written before the run) called the LXD-fleet run 'the real run' and said 'Not Done until that run is green'. Superseded: the 2026-10-08 local guest run is the real-guest proof (AC1-3 checked). What remains is only the catalogue decision in AC4; either answer closes the ticket.
 
 2026-10-27: updated the PTY scenario for STATBUS-429's optional certificate question. The driver now records certificate-offer, asserts default no exactly once, requires it before the signer, and keeps the users-file scope explicit. Red: tmp/474-cert-prompt-red.log (old driver failed on the new question). Green: tmp/474-cert-prompt-green.log (default no accepted, every setup question exactly once, Installation complete). Full offline harness selftest passed (tmp/474-harness-green.log). AC4's default-vs-on-demand catalogue decision remains open.
+
+AC4 decided 2026-10-30 (owner): the scenario joins the default LXD release gate; on demand means never. Commit b98e9e86a removes the skip marker and rewrites the header (it also clears the stale UNRUN status, the Closing-review cleanup). Default selection 27 -> 28 (run.sh --print-selected lists it). The first gate run and its wall-clock effect are recorded on the next RC.
 <!-- SECTION:NOTES:END -->
