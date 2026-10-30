@@ -785,6 +785,13 @@ cat /tmp/restore-data-other.list /tmp/restore-post.list /tmp/restore-acl.list > 
 		return fmt.Errorf("build TOC list: %w", err)
 	}
 
+	// Phase 0: sql_saga at the dump's own version (see preinstallDumpSqlSaga).
+	sqlSagaVersion, err := preinstallDumpSqlSaga(projDir, dbName)
+	if err != nil {
+		return err
+	}
+	fmt.Printf("Phase 0: sql_saga created at the dump's version %s\n", sqlSagaVersion)
+
 	// Phase 1: pre-data WITHOUT ACLs (deferred to Phase 3).
 	fmt.Println("Phase 1: Restoring schema (pre-data, no ACLs) ...")
 	phase1, buildErr := composeCommand(projDir, "exec", "-T", "db",
@@ -873,6 +880,12 @@ cat /tmp/restore-data-other.list /tmp/restore-post.list /tmp/restore-acl.list > 
 	reAddCmd.Stderr = os.Stderr
 	if err := reAddCmd.Run(); err != nil {
 		return fmt.Errorf("phase 4 (re-add constraints) failed: %w", err)
+	}
+
+	// Phase 5: extensions to the image default, after data and ACLs (Phase 3).
+	fmt.Println("Phase 5: Extension lifecycle step ...")
+	if err := reconcileRestoredExtensions(projDir); err != nil {
+		return err
 	}
 
 	// Reload JWT secret from credentials
