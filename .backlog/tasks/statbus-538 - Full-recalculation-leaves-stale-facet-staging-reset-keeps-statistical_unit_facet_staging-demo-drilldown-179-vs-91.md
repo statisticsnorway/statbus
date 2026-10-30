@@ -3,10 +3,10 @@ id: STATBUS-538
 title: >-
   Full recalculation leaves stale facet staging; reset() keeps
   statistical_unit_facet_staging (demo drilldown 179 vs 91)
-status: In Progress
+status: Done
 assignee: []
 created_date: '2026-10-30T08:48:00Z'
-updated_date: '2026-10-30T08:53:00Z'
+updated_date: '2026-10-30T10:34:00Z'
 labels:
   - derive
   - facets
@@ -25,11 +25,11 @@ Demo 2026-10-30: drilldown showed 179 enterprises in Zambezia (218 total) while 
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 Regression test fails on current master: import, reset(), import into different hash slots, facets != statistical_unit counts
-- [ ] #2 Regression test fails on current master: stale staging rows + full collect_changes (NULL ids, -infinity..infinity) with no TRUNCATE leaves facets != truth
-- [ ] #3 reset() clears statistical_unit_facet_staging (via forward migration)
-- [ ] #4 Full collect_changes rebuilds every facet/history staging slot and removes stale ones without any caller TRUNCATE
-- [ ] #5 Test 346 no longer relies on TRUNCATE; asserts facet totals equal statistical_unit counts
+- [x] #1 Regression test fails on current master: import, reset(), import into different hash slots, facets != statistical_unit counts
+- [x] #2 Regression test fails on current master: stale staging rows + full collect_changes (NULL ids, -infinity..infinity) with no TRUNCATE leaves facets != truth
+- [x] #3 reset() clears statistical_unit_facet_staging (via forward migration)
+- [x] #4 Full collect_changes rebuilds every facet/history staging slot and removes stale ones without any caller TRUNCATE
+- [x] #5 Test 346 no longer relies on TRUNCATE; asserts facet totals equal statistical_unit counts
 - [x] #6 Demo repaired and verified: facet counts equal statistical_unit counts
 <!-- AC:END -->
 
@@ -37,4 +37,8 @@ Demo 2026-10-30: drilldown showed 179 enterprises in Zambezia (218 total) while 
 
 <!-- SECTION:NOTES:BEGIN -->
 Demo repaired 2026-10-30 09:48 via tmp/demo-repair.sql (BEGIN; TRUNCATE statistical_unit_facet_staging; worker.spawn collect_changes all-NULL; COMMIT) = the workaround from migration 20261008202243. Task 169302 tree: 14141 completed, 0 failed. tmp/demo-verify.log: facet == statistical_unit per unit_type x region (enterprise 04: 91/91), 0 stale staging rows. Earlier full collect_changes WITHOUT truncate (task 154883, 14406 children, all completed) left facets unchanged (tmp/demo-after.log) - proves the defect.
+
+Fix a09c2d25c (migration 20261030085731). Before fix: tmp/test-355-before-fix.out, facets 14 vs truth 7 after reset+reimport, 28 vs 7 after full collect_changes without TRUNCATE. After: all matches t (test/expected/355). 346 now asserts facet totals = statistical_unit (t); analytics task count 2172->1742 since full refresh spawns wide ranges. ./dev.sh test fast: All 118 tests passed (tmp/test-538-fast.log). doc/db regenerated: 5 function docs, no deletions. Old migrations left unchanged. Pending: CI for a09c2d25c.
+
+CI: Fast Tests run 41040045995 success (pg_regress fast suite) at 8afd44ea9, which contains a09c2d25c. Earlier Fast Tests runs on a09c2d25c..c7ab9a2c8 were cancelled by superseding pushes; Go Test, Images, app build & lint, Harness Selftest succeeded on a09c2d25c itself. Open design follow-up (not blocking): derive full refresh from valid_from=-infinity/valid_until=infinity instead of payload.full_refresh, to keep one source of truth; awaiting user decision.
 <!-- SECTION:NOTES:END -->
