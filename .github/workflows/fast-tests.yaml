@@ -325,6 +325,9 @@ jobs:
       - name: Arc upgrade-state reader against the real schema (STATBUS-536)
         run: ARC_ROW_STATE_REQUIRE_DB=1 bash test/install-recovery/tests/arc-row-state-pending-finish-test.sh
 
+      - name: Worker started read-only restores recurring tasks once writable (STATBUS-551)
+        run: WORKER_IN_CONTAINER=1 bash test/worker-seed-read-only-test.sh
+
       - name: Show regression diffs on failure
         if: failure() && steps.sql_tests.outcome == 'failure'
         run: |

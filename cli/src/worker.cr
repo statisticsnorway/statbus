@@ -525,7 +525,7 @@ module Statbus
               exit(1)
             end
 
-            # ── SEED THE RECURRING MAINTENANCE TASKS (STATBUS-263) ──
+            # ── SEED THE RECURRING MAINTENANCE TASKS (STATBUS-263, STATBUS-551) ──
             #
             # A recurring command exists only while it has a pending row. Under
             # the old design each handler scheduled its own next occurrence as
@@ -542,27 +542,11 @@ module Statbus
             # unless something seeds the row. Startup is the right place because
             # it is the one moment guaranteed to come around again.
             #
-            # LOUD, NOT SILENT: only genuinely absent rows are reported, so this
-            # says nothing on a healthy box and names the repair on a wedged
-            # one. A silent seed would hide exactly the fault it fixes.
-            begin
-              seeded = db.query_all "SELECT command FROM worker.seed_recurring_tasks() WHERE task_id IS NOT NULL", as: String
-              unless seeded.empty?
-                @log.warn do
-                  "Seeded missing recurring maintenance task(s): #{seeded.join(", ")}. " \
-                  "A recurring command with no pending row cannot run again on its own, so it had " \
-                  "stopped recurring entirely — most likely a handler that failed before it could " \
-                  "reschedule itself (the pre-STATBUS-263 design). Cleanup resumes from now; a long " \
-                  "gap means a correspondingly large first batch."
-                end
-              end
-            rescue ex
-              # Not fatal: the worker can process tasks without maintenance
-              # recurrence, and refusing to start would trade a degraded box for
-              # a dead one. But it must not pass unremarked — the whole point of
-              # this ticket is that silent maintenance failure is the actual bug.
-              @log.error { "Failed to seed recurring maintenance tasks: #{ex.message}. Maintenance may not recur until the next worker start." }
-            end
+            # The seed waits out a read-only database rather than being exempt
+            # from it: an upgrade starts this worker before it lifts its
+            # read-only window, and the seed is ordinary work that can run a
+            # minute later. See seed_recurring_tasks_when_writable.
+            seed_recurring_tasks_when_writable
 
             # Now that we have the lock, start the queue discovery and timer checking
             start_queue_discovery
@@ -853,6 +837,68 @@ module Statbus
         end
       end
 
+    end
+
+    # SQLSTATE 25006 read_only_sql_transaction: the database refused a write
+    # because default_transaction_read_only is on.
+    READ_ONLY_SQL_TRANSACTION = "25006"
+    RECURRING_SEED_RETRY      = 5.seconds
+
+    # Seeds the recurring maintenance tasks (worker.seed_recurring_tasks) once
+    # the database accepts writes, in its own fiber so startup and queue
+    # processing do not wait for it.
+    #
+    # An upgrade sets ALTER DATABASE ... default_transaction_read_only = on and
+    # starts this worker before it lifts the setting (STATBUS-551: rc.02 LXD run
+    # 41108121046, worker up 18:43:52, writes unblocked 18:43:56). While the
+    # database is read-only the seed logs one INFO line and retries every
+    # RECURRING_SEED_RETRY on a fresh connection: a session takes its
+    # default_transaction_read_only from the database setting when it connects,
+    # so only a new connection sees the window lifted. It stops on success, on
+    # shutdown, or on any other error, which is logged as an ERROR because the
+    # repair then did not happen.
+    #
+    # Only genuinely absent rows are seeded and reported (WARN), so a healthy
+    # box says nothing and a box that had lost a recurring row names the repair.
+    private def seed_recurring_tasks_when_writable
+      fiber = spawn do
+        waiting_logged = false
+        until @shutdown
+          begin
+            seeded = DB.connect(@config.connection_string("worker")) do |db|
+              db.query_all "SELECT command FROM worker.seed_recurring_tasks() WHERE task_id IS NOT NULL", as: String
+            end
+            if waiting_logged
+              @log.info { "Database is writable again; recurring maintenance tasks checked." }
+            end
+            unless seeded.empty?
+              @log.warn do
+                "Seeded missing recurring maintenance task(s): #{seeded.join(", ")}. " \
+                "A recurring command with no pending row cannot run again on its own, so it had " \
+                "stopped recurring entirely — most likely a handler that failed before it could " \
+                "reschedule itself (the pre-STATBUS-263 design). Cleanup resumes from now; a long " \
+                "gap means a correspondingly large first batch."
+              end
+            end
+            break
+          rescue ex : PQ::PQError
+            if ex.field_message(:code) == READ_ONLY_SQL_TRANSACTION
+              unless waiting_logged
+                @log.info { "Database is read-only (an upgrade in progress); recurring maintenance tasks will be checked once it accepts writes." }
+                waiting_logged = true
+              end
+              wait_with_shutdown_check(RECURRING_SEED_RETRY)
+            else
+              @log.error { "Failed to seed recurring maintenance tasks: #{ex.message}. Maintenance may not recur until the next worker start." }
+              break
+            end
+          rescue ex
+            @log.error { "Failed to seed recurring maintenance tasks: #{ex.message}. Maintenance may not recur until the next worker start." }
+            break
+          end
+        end
+      end
+      @active_fibers << fiber
     end
 
     # Helper method to wait while checking for shutdown
