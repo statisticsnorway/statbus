@@ -328,6 +328,12 @@ var readOnlyCommandPaths = map[string]bool{
 	"sb upgrader status": true,
 	"sb ps":              true,
 	"sb logs":            true,
+	// STATBUS-541: monitor reads the cached health reading and, with --live,
+	// only runs read-only probes. The verdict (exit code) is the scriptable
+	// part for monitoring agents.
+	"sb monitor":          true,
+	"sb monitor status":   true,
+	"sb monitor template": true,
 }
 
 func isMutatingCommand(c *cobra.Command) bool {

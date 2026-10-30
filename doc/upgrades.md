@@ -206,6 +206,10 @@ Re-dispatch through the normal scheduling path -- never by editing the table by 
 
 `schedule` atomically resets the row (including any park marker) and queues it; the service claims it on its next tick, or run the install entrypoint to dispatch immediately. The **Retry** button in the admin UI at `/admin/upgrades` does the same thing.
 
+## Monitoring
+
+`./sb monitor` is the one health reading for this box: services, API, site and certificate, disk, backups, upgrader and worker tasks. Run `./sb monitor` for the full explanation, `./sb monitor status` for the cached reading (the upgrader refreshes it every 60 seconds), or `./sb monitor status --live` to measure now. The text output is already a Nagios/Icinga plugin, and the exit code is 0 ok, 1 warning or upgrading, 2 critical, 3 unknown. `./sb monitor template zabbix` prints a Zabbix 7 template with the agent `UserParameter` in its header; `./sb monitor template uptime` prints the public `https://<SITE_DOMAIN>/monitor` URL and the statuses Uptime Kuma, UptimeRobot and similar monitors should expect (200 for ok, warning or upgrading; 503 for critical or unknown). `/monitor` is served from `tmp/monitor.json` and stays reachable during maintenance.
+
 ## Maintenance Mode
 
 During an upgrade, users see a maintenance page instead of the application.
