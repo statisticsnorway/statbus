@@ -48,7 +48,7 @@ Out of scope: Nagios template (the plugin contract is built in), Prometheus, ema
 - [ ] #6 ./sb monitor template zabbix prints a template that imports into Zabbix 7 without errors
 - [x] #7 ./sb monitor template uptime prints the /monitor URL for this site and the expected HTTP status
 - [ ] #8 During an upgrade the reading shows status upgrading (exit 1) and returns to ok afterwards, observed on a real upgrade run
-- [ ] #9 The operator docs carry one paragraph that points at ./sb monitor and its templates
+- [x] #9 The operator docs carry one paragraph that points at ./sb monitor and its templates
 <!-- AC:END -->
 
 ## Implementation Notes
@@ -82,4 +82,6 @@ Intermediate red runs diagnosed:
 Final local run: go test ./... -count=1 (tmp/test-541-green.log) passes every package except cmd/release TestRealRepo_NotShallow_STATBUS239, which fails only because this shared checkout is shallow (CI's full clone passes it: final Go Test green). go vet ./... and golangci-lint run ./... are clean.
 
 Commits: ea8242cbe (engine+CLI), 19e3d3911 (upgrader tick), 8b3f542c5 (Caddy route), 0c511a012 (one-shot refresh gate), 44940b9cf (lint fixes).
+
+AC9: added the operator paragraph under 'Ongoing Management' in doc/DEPLOYMENT.md (Health and monitoring: ./sb monitor, status/--live, Nagios exit codes, template zabbix/uptime, public /monitor). Removed the earlier duplicate paragraph from doc/upgrades.md so the operator docs carry exactly one pointer. Commit: docs: point operators at ./sb monitor and its templates (STATBUS-541 AC9).
 <!-- SECTION:NOTES:END -->
