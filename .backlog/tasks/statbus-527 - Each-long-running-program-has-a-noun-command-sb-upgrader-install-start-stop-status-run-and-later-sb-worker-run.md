@@ -3,10 +3,10 @@ id: STATBUS-527
 title: >-
   Each long-running program has a noun command: sb upgrader
   install|start|stop|status|run, and later sb worker run
-status: In Progress
+status: Done
 assignee: []
 created_date: 2026-10-26 11:22
-updated_date: '2026-10-28T02:48:00Z'
+updated_date: '2026-10-30T12:33:00Z'
 labels:
   - cli
   - upgrade
@@ -64,7 +64,7 @@ Each long-running StatBus program has a noun name, and `sb` has one command grou
 - [x] #5 STATBUS-093 records that the Go worker's long-running command is `sb worker run`
 - [x] #6 Code review of the diff finds a single implementation of unit writing and of start/stop: the "Upgrade service" step in `./sb install` calls the same functions as `sb upgrader install|start|stop`
 - [x] #7 `sb upgrade service` still starts the upgrader, as a hidden alias, and a test proves it
-- [ ] #8 [Owner] Decide when the `sb upgrade service` alias is removed. A follow-up ticket for that is filed, and its ID is recorded in this ticket's Implementation Notes
+- [x] #8 [Owner] Decide when the `sb upgrade service` alias is removed. A follow-up ticket for that is filed, and its ID is recorded in this ticket's Implementation Notes
 - [x] #9 The existing `0-happy-upgrade` scenario, which installs the previous release (old unit) and self-upgrades to the candidate, asserts after the upgrade: only `statbus-upgrader@` exists and is active, `statbus-upgrade@` is gone, and `sb upgrader status` reports the installed `./sb`. Proven by that scenario's run in the candidate's release gate, or the same scenario on the per-commit image; no one-off script. Run ID recorded in Implementation Notes
 <!-- AC:END -->
 
@@ -133,4 +133,6 @@ CI: 3d68fff00's own app-build run was cancelled by superseding pushes (STATBUS-5
 AC9 real upgrade evidence: v2026.10.4-rc.02 Test Smoke run 40604286264, 0-happy-upgrade job 122540983899, passed. After upgrading from v2026.10.3, only statbus-upgrader@ is active, statbus-upgrade@ is not loaded, exactly one unit file remains, and sb upgrader status reports the installed ./sb. AC5 (STATBUS-093 documentation) and AC8 (alias-removal decision) remain separate and open.
 
 AC5 verified: STATBUS-093's Implementation Notes already record the 2026-10-26 naming decision that the Go worker's long-running command is 'sb worker run'. AC9's real unit-rename evidence is recorded separately from rc.02 0-happy-upgrade job 122540983899. Only AC8, the owner decision and follow-up ticket for removing the sb upgrade service alias, remains open.
+
+AC8 decided 2026-10-30 (owner): the hidden 'sb upgrade service' alias is removed in the release after the next one, so every box upgrades through a release that already installs statbus-upgrader@.service. Follow-up ticket: STATBUS-544.
 <!-- SECTION:NOTES:END -->
