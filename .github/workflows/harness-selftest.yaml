@@ -155,6 +155,7 @@ jobs:
             c-rollback-resurrection-fixture-test.sh \
             concurrent-install-observation-test.sh \
             db-query-retry-test.sh \
+            demo-data-counts-settled-test.sh \
             dev-seed-restore-test.sh \
             fresh-installer-test.sh \
             happy-install-test.sh \

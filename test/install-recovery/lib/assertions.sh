@@ -517,6 +517,14 @@ assert_demo_data_present() {
 # zero data drift across the recovery window (e.g., the failure
 # injection wedged the upgrade BEFORE any user-visible data could
 # change). Differing counts surface as a one-line diff.
+#
+# The snapshot includes statistical_history, which the worker derives. A
+# migration may schedule a full rebuild (worker.enqueue_derive_statistical_unit_all),
+# which deletes the per-slot rows and writes them again once the new worker
+# runs. The comparison is therefore against the settled state: a differing
+# first reading waits for worker.tasks to drain, then reads again, and only a
+# difference that survives the drain fails. rc.02 (LXD run 41108121046) read
+# statistical_history=674 of 1430 in the middle of such a rebuild.
 assert_demo_data_counts_match_snapshot() {
     local vm_name="$1"
     local expected="$2"
@@ -524,6 +532,18 @@ assert_demo_data_counts_match_snapshot() {
     actual=$(snapshot_demo_data_counts "$vm_name")
     if [ "$actual" = "$expected" ]; then
         echo "  ✓ demo-data counts match snapshot ($actual)"
+        return 0
+    fi
+    echo "  … demo-data counts differ while the worker may be deriving ($actual); waiting for worker.tasks to drain"
+    if ! wait_for_worker_quiesce "$vm_name" "${DEMO_WORKER_QUIESCE_MAX_WAIT_S:-300}"; then
+        echo "  ✗ demo-data counts drifted and the worker did not drain"
+        echo "    expected: $expected"
+        echo "    actual:   $actual"
+        return 1
+    fi
+    actual=$(snapshot_demo_data_counts "$vm_name")
+    if [ "$actual" = "$expected" ]; then
+        echo "  ✓ demo-data counts match snapshot after the worker drained ($actual)"
         return 0
     fi
     echo "  ✗ demo-data counts drifted"
