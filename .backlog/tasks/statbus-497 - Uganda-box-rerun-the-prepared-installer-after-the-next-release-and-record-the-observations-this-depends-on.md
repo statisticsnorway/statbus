@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: 2026-10-13 13:16
-updated_date: '2026-10-30T11:53:00Z'
+updated_date: '2026-10-30T11:59:00Z'
 labels:
   - install
   - uganda
@@ -45,7 +45,7 @@ Some acceptance criteria can only be met by watching the product on a real, unpr
 <!-- AC:BEGIN -->
 - [ ] #1 STATBUS-492 criterion 1 is satisfied with a real transcript from the box: the preparation ran in a root login shell and the HOME in effect is recorded.
 - [ ] #2 STATBUS-492 criterion 3 is satisfied with an ownership inspection from that box showing no root-owned file in the operator home.
-- [ ] #3 STATBUS-487 criterion 5 is satisfied with the install output from that box, quoted verbatim, showing the Docker cause named with its remedy (or recorded as not applicable if Docker was reachable).
+- [x] #3 STATBUS-487 criterion 5 is satisfied with the install output from that box, quoted verbatim, showing the Docker cause named with its remedy (or recorded as not applicable if Docker was reachable).
 - [x] #4 Each dependent ticket names this ticket as the source of its observation.
 - [x] #5 [Owner] Confirm v2026.10.1, or name a later release, as the release the Uganda rerun waits for, and record it in Implementation Notes. The confirmed release lets the rerun be scheduled; AC1-3 are filled from that run.
 <!-- AC:END -->
@@ -91,4 +91,6 @@ Next: after stable promotion, rerun setup with the released script (Stage 4 must
 - Pending: external sign-in after forwarding, setup rerun with the next release.
 
 2026-10-30 10:05 UTC: owner signed in at https://statbus.ubos.org as the first administrator from his laptop (SSH tunnel to the box plus a temporary hosts entry), and reached the getting-started onboarding page. The installation is verified end to end; only the public route (UBOS forwarding to 10.10.10.58) remains.
+
+2026-10-30 AC3 (STATBUS-487 criterion 5): not applicable on this box. The v2026.10.5 setup log (tmp/uganda-session.log) shows Docker installed, running, Compose installed and 'Docker usable by statbus', then the installer ran 19/19 steps without a Docker refusal. Docker was reachable, so there was no Docker-cause message to observe. AC1 (root login shell + HOME) and AC2 (find /home/statbus -xdev -user root) were not captured in this session's log: setup ran from a root prompt but no HOME line was printed, and no ownership scan was run.
 <!-- SECTION:NOTES:END -->
