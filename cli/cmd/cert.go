@@ -1400,7 +1400,8 @@ func readPassword(prompt string) (string, error) {
 		installTTYPromptAnswer("%s", prompt)
 	}
 	defer fmt.Fprintln(os.Stderr)
-	if !term.IsTerminal(int(os.Stdin.Fd())) {
+	fd := int(os.Stdin.Fd())
+	if !term.IsTerminal(fd) {
 		// Non-interactive — read a line from stdin without
 		// trying to disable echo (would error on non-tty fd).
 		var line string
@@ -1410,9 +1411,19 @@ func readPassword(prompt string) (string, error) {
 		}
 		return line, nil
 	}
-	bytes, err := term.ReadPassword(int(os.Stdin.Fd()))
+	state, err := term.MakeRaw(fd)
 	if err != nil {
 		return "", err
 	}
-	return string(bytes), nil
+	echo, closeEcho := passwordTerminalWriter()
+	value, readErr := readMaskedLine(os.Stdin, echo)
+	closeEcho()
+	restoreErr := term.Restore(fd, state)
+	if readErr != nil {
+		return "", readErr
+	}
+	if restoreErr != nil {
+		return "", restoreErr
+	}
+	return value, nil
 }

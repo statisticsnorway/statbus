@@ -220,6 +220,9 @@ func TestUsersCase4InteractiveAdminIsCreatedSavedAndReused(t *testing.T) {
 	oldAsk := askAdministratorPasswordFn
 	askAdministratorPasswordFn = func() (string, error) { return password, nil }
 	t.Cleanup(func() { askAdministratorPasswordFn = oldAsk })
+	oldUse := askUseOfferedAdministratorPasswordFn
+	askUseOfferedAdministratorPasswordFn = func(string) bool { return false }
+	t.Cleanup(func() { askUseOfferedAdministratorPasswordFn = oldUse })
 
 	if err := validateUsersInput(dir); err != nil {
 		t.Fatalf("interactive preflight with no file must allow the prompt: %v", err)

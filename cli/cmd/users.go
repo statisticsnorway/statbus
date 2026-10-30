@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -38,6 +39,81 @@ Each entry in .users.yml should have:
 		}
 		return applyUsersYML(projDir)
 	},
+}
+
+var usersShowPasswordCmd = &cobra.Command{
+	Use:   "show-password <email>",
+	Short: "Print a saved user's password to the terminal",
+	Long: `Reads ~/statbus.users.yml, or the installation's .users.yml as a
+fallback, and prints the saved password for one user to the controlling
+terminal. Nothing goes to stdout or stderr, so the password never enters the
+install log or a support bundle.`,
+	Args: cobra.ExactArgs(1),
+	RunE: func(cmd *cobra.Command, args []string) error {
+		return showSavedUserPassword(args[0])
+	},
+}
+
+// savedUserPassword finds one user's saved password, preferring the
+// operator-home file the installer writes and falling back to the
+// installation's .users.yml. Email matching ignores case.
+func savedUserPassword(email string) (string, error) {
+	email = strings.TrimSpace(email)
+	var paths []string
+	if homePath, err := operatorUsersFilePath(); err == nil {
+		paths = append(paths, homePath)
+	}
+	if projectPath := filepath.Join(config.ProjectDir(), ".users.yml"); len(paths) == 0 || projectPath != paths[0] {
+		paths = append(paths, projectPath)
+	}
+
+	var existing, unreadable []string
+	for _, path := range paths {
+		data, err := os.ReadFile(path)
+		if err != nil {
+			if errors.Is(err, os.ErrNotExist) {
+				continue
+			}
+			return "", fmt.Errorf("cannot read %s: %w", path, err)
+		}
+		existing = append(existing, path)
+		users, err := parseUsersYAML(string(data))
+		if err != nil {
+			unreadable = append(unreadable, fmt.Sprintf("%s: %v", path, err))
+			continue
+		}
+		for _, u := range users {
+			if strings.EqualFold(u.email, email) {
+				return u.password, nil
+			}
+		}
+	}
+	if len(existing) == 0 {
+		return "", fmt.Errorf("no saved users file was found at %s", strings.Join(paths, " or "))
+	}
+	if len(unreadable) == len(existing) {
+		return "", fmt.Errorf("the saved users file cannot be read: %s", strings.Join(unreadable, "; "))
+	}
+	return "", fmt.Errorf("user %s was not found in %s", email, strings.Join(existing, " or "))
+}
+
+// showSavedUserPassword writes the saved password to the controlling terminal
+// only. install.sh tees stdout and stderr into the install log, so this
+// command refuses rather than write a secret into that captured stream.
+func showSavedUserPassword(email string) error {
+	password, err := savedUserPassword(email)
+	if err != nil {
+		return err
+	}
+	tty, err := openPasswordTerminal()
+	if err != nil {
+		return fmt.Errorf("cannot show the password: no controlling terminal is available")
+	}
+	defer func() { _ = tty.Close() }()
+	if _, err := fmt.Fprintln(tty, password); err != nil {
+		return fmt.Errorf("cannot write the password to the terminal: %w", err)
+	}
+	return nil
 }
 
 // applyUsersYML reads .users.yml and upserts each entry via
@@ -273,6 +349,6 @@ ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = clock_times
 }
 
 func init() {
-	usersCmd.AddCommand(usersCreateCmd)
+	usersCmd.AddCommand(usersCreateCmd, usersShowPasswordCmd)
 	rootCmd.AddCommand(usersCmd)
 }

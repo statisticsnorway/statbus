@@ -3,11 +3,13 @@ package cmd
 import (
 	"bufio"
 	"context"
+	"crypto/rand"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"log"
+	"math/big"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -3239,13 +3241,23 @@ func runCreateUsers(dir string) error {
 	if email == "" || name == "" {
 		return fmt.Errorf("enter both an email and a name; run the same install command again")
 	}
-	password, err := askAdministratorPasswordFn()
-	if err != nil {
-		return err
+	offered := newAdministratorPasswordFn()
+	useOffered := askUseOfferedAdministratorPasswordFn(email)
+	var password string
+	if useOffered {
+		password = offered
+	} else {
+		password, err = askAdministratorPasswordFn()
+		if err != nil {
+			return err
+		}
 	}
 	admin := userEntry{email: email, displayName: name, password: password, role: "admin_user"}
 	if err := createInstallUsers(dir, []userEntry{admin}); err != nil {
 		return err
+	}
+	if useOffered {
+		showAdministratorPassword(email, password)
 	}
 	fmt.Printf("  Created administrator %s.\n", email)
 	// A failure to save is reported loudly but does not stop the install: the
@@ -3263,31 +3275,154 @@ var questionnairePrompt = prompt
 // first-administrator questions (visible email/name, hidden password).
 var administratorPrompt = prompt
 
-// askAdministratorPasswordFn is the seam for the hidden-password prompt.
+// askAdministratorPasswordFn is the seam for the hidden-password prompt the
+// operator chooses instead of the generated password.
 var askAdministratorPasswordFn = func() (string, error) { return askAdministratorPassword(readAdministratorPassword) }
 
-// readAdministratorPassword disables terminal echo before publishing the prompt.
-// A PTY client may send input as soon as it sees the prompt, before ReadPassword
-// would otherwise disable echo, leaking the secret into install.sh's capture.
-func readAdministratorPassword(label string) (string, error) {
-	return readAdministratorPasswordWithReader(label, term.ReadPassword)
+// newAdministratorPasswordFn is the seam for the offered first-administrator
+// password.
+var newAdministratorPasswordFn = randomAdministratorPassword
+
+// askUseOfferedAdministratorPasswordFn is the seam for the offer to use the
+// random password instead of typing one twice.
+var askUseOfferedAdministratorPasswordFn = askUseOfferedAdministratorPassword
+
+// administratorPasswordLength matches the other generated credentials in
+// cli/internal/config (postgres roles, dashboard), so the first administrator
+// gets the same strength.
+const administratorPasswordLength = 20
+
+// randomAdministratorPassword returns a cryptographically random
+// alphanumeric password, the shape config.randomString produces for the
+// installer's other credentials.
+func randomAdministratorPassword() string {
+	const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789"
+	result := make([]byte, administratorPasswordLength)
+	for i := range result {
+		n, err := rand.Int(rand.Reader, big.NewInt(int64(len(chars))))
+		if err != nil {
+			panic(fmt.Sprintf("crypto/rand failed: %v", err))
+		}
+		result[i] = chars[n.Int64()]
+	}
+	return string(result)
 }
 
-func readAdministratorPasswordWithReader(label string, read func(int) ([]byte, error)) (string, error) {
+// openPasswordTerminal reaches the controlling terminal directly. install.sh
+// tees stdout and stderr into the support log, so a secret must never travel
+// there. Replaced in tests with a buffer.
+var openPasswordTerminal = func() (io.WriteCloser, error) {
+	return os.OpenFile("/dev/tty", os.O_WRONLY, 0)
+}
+
+func passwordTerminalWriter() (io.Writer, func()) {
+	tty, err := openPasswordTerminal()
+	if err != nil {
+		return io.Discard, func() {}
+	}
+	return tty, func() { _ = tty.Close() }
+}
+
+// askUseOfferedAdministratorPassword asks the [Y/n] question, defaulting to
+// yes: an unattended Enter accepts the strong generated password.
+func askUseOfferedAdministratorPassword(email string) bool {
+	question := fmt.Sprintf("  A password has been generated for %s. Use it? [Y/n] ", email)
+	fmt.Print(question)
+	installTTYPromptAnswer("%s", question)
+	line, _ := bufio.NewReader(os.Stdin).ReadString('\n')
+	switch strings.ToLower(strings.TrimSpace(line)) {
+	case "", "y", "yes":
+		return true
+	}
+	return false
+}
+
+// showAdministratorPassword writes the offered password only to
+// the controlling terminal. Without one, it never prints the secret anywhere
+// (stdout and stderr reach the install log and support bundles) and states
+// only where the password is saved and how to show it.
+func showAdministratorPassword(email, password string) {
+	guide := fmt.Sprintf("  Keep it in a password manager. It is saved in ~/%s (readable only by statbus). Show it again with: ./sb users show-password %s\n", operatorUsersFileName, email)
+	tty, err := openPasswordTerminal()
+	if err != nil {
+		fmt.Print(guide)
+		return
+	}
+	defer func() { _ = tty.Close() }()
+	_, _ = fmt.Fprintf(tty, "  Password: %s\n", password)
+	_, _ = fmt.Fprint(tty, guide)
+}
+
+// errPasswordInterrupted is Ctrl-C during a masked password read.
+var errPasswordInterrupted = errors.New("password entry interrupted")
+
+// readMaskedLine reads one line from a terminal in raw mode. Each byte echoes
+// one '*' (the owner accepts revealing the length); Backspace or DEL erases
+// one; Enter ends the line; Ctrl-C aborts. The caller prints the prompt and
+// the trailing newline, and restores the terminal mode.
+func readMaskedLine(r io.Reader, echo io.Writer) (string, error) {
+	line := make([]byte, 0, 32)
+	one := make([]byte, 1)
+	for {
+		n, err := r.Read(one)
+		if n == 1 {
+			switch b := one[0]; {
+			case b == '\r' || b == '\n':
+				return string(line), nil
+			case b == 3:
+				return "", errPasswordInterrupted
+			case b == 127 || b == 8:
+				if len(line) > 0 {
+					line = line[:len(line)-1]
+					if _, werr := echo.Write([]byte("\b \b")); werr != nil {
+						return "", werr
+					}
+				}
+			case b < 32:
+				// Ignore other control bytes.
+			default:
+				line = append(line, b)
+				if _, werr := echo.Write([]byte("*")); werr != nil {
+					return "", werr
+				}
+			}
+		}
+		if err != nil {
+			if err == io.EOF {
+				return string(line), nil
+			}
+			return "", err
+		}
+	}
+}
+
+// readAdministratorPassword puts the terminal in raw mode before publishing
+// the prompt: a PTY client may send input as soon as it sees the prompt, and
+// disabling echo only afterwards would leak the secret into install.sh's
+// capture. Characters echo as '*' through the controlling terminal.
+func readAdministratorPassword(label string) (string, error) {
 	fd := int(os.Stdin.Fd())
-	state, err := disableAdministratorPasswordEcho(fd)
+	if !term.IsTerminal(fd) {
+		return "", fmt.Errorf("stdin is not a terminal")
+	}
+	state, err := term.MakeRaw(fd)
 	if err != nil {
 		return "", err // Do not prompt on a terminal whose echo cannot be disabled.
 	}
-	defer func() { _ = term.Restore(fd, state) }()
 	fmt.Print(label)
 	installTTYPromptAnswer("%s", label)
-	value, err := read(fd)
-	if restoreErr := term.Restore(fd, state); restoreErr != nil {
+	echo, closeEcho := passwordTerminalWriter()
+	value, readErr := readMaskedLine(os.Stdin, echo)
+	closeEcho()
+	restoreErr := term.Restore(fd, state)
+	fmt.Println()
+	if readErr != nil {
+		return "", readErr
+	}
+	if restoreErr != nil {
 		return "", restoreErr
 	}
-	fmt.Println()
-	return string(value), err
+	return value, nil
 }
 
 func askAdministratorPassword(read func(string) (string, error)) (string, error) {
