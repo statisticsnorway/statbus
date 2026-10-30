@@ -36,6 +36,8 @@ Indexes:
     "statistical_history_partition_month_key" UNIQUE, btree (hash_partition, resolution, year, month, unit_type) WHERE resolution = 'year-month'::history_resolution AND hash_partition IS NOT NULL
     "statistical_history_partition_year_key" UNIQUE, btree (hash_partition, resolution, year, unit_type) WHERE resolution = 'year'::history_resolution AND hash_partition IS NOT NULL
     "statistical_history_year_key" UNIQUE, btree (resolution, year, unit_type) WHERE resolution = 'year'::history_resolution AND hash_partition IS NULL
+Check constraints:
+    "statistical_history_hash_partition_is_one_slot" CHECK (hash_partition IS NULL OR upper(hash_partition) = (lower(hash_partition) + 1))
 Policies:
     POLICY "statistical_history_admin_user_manage"
       TO admin_user
