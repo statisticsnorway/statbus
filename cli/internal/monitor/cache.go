@@ -133,7 +133,7 @@ func atomicWrite(projectDir, name string, data []byte) error {
 		return fmt.Errorf("create temporary %s: %w", name, err)
 	}
 	tempPath := file.Name()
-	defer os.Remove(tempPath) // no-op after a successful rename
+	defer func() { _ = os.Remove(tempPath) }() // no-op after a successful rename
 	if _, err := file.Write(data); err != nil {
 		_ = file.Close()
 		return fmt.Errorf("write %s: %w", name, err)

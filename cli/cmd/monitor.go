@@ -56,8 +56,8 @@ var monitorCmd = &cobra.Command{
 	Run: func(command *cobra.Command, _ []string) {
 		// The shared help template lists usage and commands but not Long, so
 		// print the explanation the ticket requires before the command list.
-		fmt.Fprintln(command.OutOrStdout(), command.Long)
-		fmt.Fprintln(command.OutOrStdout())
+		_, _ = fmt.Fprintln(command.OutOrStdout(), command.Long)
+		_, _ = fmt.Fprintln(command.OutOrStdout())
 		_ = command.Help()
 	},
 }
@@ -93,21 +93,21 @@ var monitorTemplateCmd = &cobra.Command{
 	RunE: func(command *cobra.Command, args []string) error {
 		out := command.OutOrStdout()
 		if len(args) == 0 {
-			fmt.Fprintln(out, "Platforms:")
-			fmt.Fprintln(out, "  zabbix   Zabbix 7 template (agent UserParameter)")
-			fmt.Fprintln(out, "  uptime   HTTP URL for Uptime Kuma, UptimeRobot and similar")
+			_, _ = fmt.Fprintln(out, "Platforms:")
+			_, _ = fmt.Fprintln(out, "  zabbix   Zabbix 7 template (agent UserParameter)")
+			_, _ = fmt.Fprintln(out, "  uptime   HTTP URL for Uptime Kuma, UptimeRobot and similar")
 			return nil
 		}
 		switch args[0] {
 		case "zabbix":
-			fmt.Fprint(out, monitor.ZabbixTemplate())
+			_, _ = fmt.Fprint(out, monitor.ZabbixTemplate())
 			return nil
 		case "uptime":
 			domain, err := monitorSiteDomain(config.ProjectDir())
 			if err != nil {
 				return err
 			}
-			fmt.Fprint(out, monitor.UptimeTemplate(domain))
+			_, _ = fmt.Fprint(out, monitor.UptimeTemplate(domain))
 			return nil
 		default:
 			return fmt.Errorf("unknown template %q; the platforms are zabbix and uptime", args[0])
@@ -121,23 +121,23 @@ var monitorTemplateCmd = &cobra.Command{
 func runMonitorStatus(ctx context.Context, projectDir string, live bool, format string,
 	probes monitor.Probes, now time.Time, out, errOut io.Writer) int {
 	if format != "text" && format != "json" {
-		fmt.Fprintf(errOut, "unknown format %q; the formats are text and json\n", format)
+		_, _ = fmt.Fprintf(errOut, "unknown format %q; the formats are text and json\n", format)
 		return exitUsage
 	}
 	reading, fromCache := loadMonitorReading(ctx, projectDir, live, probes, now)
 	if !live && !fromCache {
-		fmt.Fprintln(errOut, "No cached reading found; ran the checks now.")
+		_, _ = fmt.Fprintln(errOut, "No cached reading found; ran the checks now.")
 	}
 	switch format {
 	case "json":
 		data, err := json.MarshalIndent(reading, "", "  ")
 		if err != nil {
-			fmt.Fprintf(errOut, "encode reading: %v\n", err)
+			_, _ = fmt.Fprintf(errOut, "encode reading: %v\n", err)
 			return exitBinaryUnusable
 		}
-		fmt.Fprintln(out, string(data))
+		_, _ = fmt.Fprintln(out, string(data))
 	default:
-		fmt.Fprint(out, monitor.RenderText(reading, now))
+		_, _ = fmt.Fprint(out, monitor.RenderText(reading, now))
 	}
 	return reading.Status.ExitCode()
 }
