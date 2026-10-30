@@ -7,6 +7,8 @@ DECLARE
     v_source_job public.import_job;
     v_new_job public.import_job;
     v_source_upload_table_exists BOOLEAN;
+    v_source_columns text[];
+    v_column_list text;
 BEGIN
     -- 1. Get the source job record
     SELECT * INTO v_source_job FROM public.import_job WHERE id = p_source_job_id;
@@ -49,9 +51,20 @@ BEGIN
     SELECT to_regclass('public.' || v_source_job.upload_table_name) IS NOT NULL INTO v_source_upload_table_exists;
 
     -- 4. If it exists, copy data from old upload table to new upload table.
+    -- The definition may have changed since the source job was created (for
+    -- example a statistical variable disabled), so the source can have columns
+    -- the new job does not map. They are kept as ignored columns
+    -- (admin.import_job_keep_ignored_columns, STATBUS-545), then the rows are
+    -- copied column by name.
     IF v_source_upload_table_exists THEN
         RAISE DEBUG '[Job Clone] Copying data from % to %', v_source_job.upload_table_name, v_new_job.upload_table_name;
-        EXECUTE format('INSERT INTO public.%I SELECT * FROM public.%I', v_new_job.upload_table_name, v_source_job.upload_table_name);
+        SELECT array_agg(c.column_name::text ORDER BY c.ordinal_position) INTO v_source_columns
+        FROM information_schema.columns AS c
+        WHERE c.table_schema = 'public' AND c.table_name = v_source_job.upload_table_name;
+        PERFORM admin.import_job_keep_ignored_columns(v_new_job.id, v_source_columns);
+        SELECT string_agg(format('%I', col), ', ') INTO v_column_list FROM unnest(v_source_columns) AS col;
+        EXECUTE format('INSERT INTO public.%I (%s) SELECT %s FROM public.%I',
+                       v_new_job.upload_table_name, v_column_list, v_column_list, v_source_job.upload_table_name);
         
         -- The AFTER INSERT trigger on the new upload table will automatically set the
         -- new job's state to 'upload_completed', which in turn will enqueue it for processing.

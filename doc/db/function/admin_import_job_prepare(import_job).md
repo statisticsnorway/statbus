@@ -17,6 +17,7 @@ DECLARE
     snapshot JSONB := job.definition_snapshot;
     null_values TEXT[];
     null_case_expr TEXT;
+    ignored_columns TEXT[] := ARRAY[]::TEXT[];
 BEGIN
     RAISE DEBUG '[Job %] Preparing data: Moving from % to %', job.id, job.upload_table_name, job.data_table_name;
 
@@ -96,6 +97,20 @@ BEGIN
         RETURN;
     END IF;
 
+    -- Ignored columns (purpose 'ignored', STATBUS-545): uploaded columns the
+    -- definition does not map. Their values are copied as is to <column>_raw
+    -- for display; no import step reads them.
+    FOR item_rec IN
+        SELECT dc->>'column_name' AS data_column, left(dc->>'column_name', -length('_raw')) AS upload_column
+        FROM jsonb_array_elements(snapshot->'import_data_column_list') AS dc
+        WHERE dc->>'purpose' = 'ignored'
+        ORDER BY 1
+    LOOP
+        insert_columns_list := array_append(insert_columns_list, format('%I', item_rec.data_column));
+        select_expressions_list := array_append(select_expressions_list, format('%I', item_rec.upload_column));
+        ignored_columns := ignored_columns || item_rec.data_column;
+    END LOOP;
+
     insert_columns := array_to_string(insert_columns_list, ', ');
     select_clause := array_to_string(select_expressions_list, ', ');
 
@@ -110,6 +125,30 @@ BEGIN
         BEGIN
             EXECUTE format($$SELECT count(*) FROM public.%I$$, job.data_table_name) INTO data_table_count;
             RAISE DEBUG '[Job %] Rows in data table % after prepare: %', job.id, job.data_table_name, data_table_count;
+        END;
+
+        -- A warning on every row with a value in an ignored column, keyed by
+        -- the data column like other row warnings, and one warning per ignored
+        -- column on the job, keyed the same way.
+        DECLARE
+            v_ignored text;
+            v_count bigint;
+            v_column_warning jsonb := '{}'::jsonb;
+        BEGIN
+            FOREACH v_ignored IN ARRAY ignored_columns LOOP
+                EXECUTE format(
+                    $$UPDATE public.%1$I SET warnings = COALESCE(warnings, '{}'::jsonb)
+                          || jsonb_build_object(%2$L, 'Not imported: the import definition does not map this column')
+                      WHERE NULLIF(trim(%3$I), '') IS NOT NULL$$,
+                    job.data_table_name, v_ignored, v_ignored);
+                GET DIAGNOSTICS v_count = ROW_COUNT;
+                v_column_warning := v_column_warning || jsonb_build_object(v_ignored,
+                    format('Column %s is not part of the import definition; %s values were not imported.',
+                           left(v_ignored, -length('_raw')), v_count));
+            END LOOP;
+            IF v_column_warning <> '{}'::jsonb THEN
+                UPDATE public.import_job SET warning = v_column_warning WHERE id = job.id;
+            END IF;
         END;
     EXCEPTION
         WHEN OTHERS THEN

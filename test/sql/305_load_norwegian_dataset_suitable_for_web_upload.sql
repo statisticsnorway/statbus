@@ -168,7 +168,12 @@ SELECT unit_type
 SELECT id AS lu_job_id FROM public.import_job WHERE slug = 'import_lu_web_example_current' \gset
 SELECT slug, description, note, time_context_ident, default_valid_from, default_valid_to, default_data_source_code, upload_table_name, data_table_name, priority, analysis_batch_size, processing_batch_size   , analysis_completed_pct , analysis_rows_per_sec , current_step_code , current_step_priority , max_analysis_priority , total_analysis_steps_weighted , completed_analysis_steps_weighted     , total_rows , imported_rows , import_completed_pct , import_rows_per_sec , last_progress_update , state        , error , review, edit_comment FROM public.import_job_clone(:lu_job_id, 'import_lu_clone');
 
--- Clone establishment job
+-- Clone establishment job. STATBUS-545: the statistical variable employees is
+-- disabled after the original job ran, so the current definition no longer maps
+-- the file's employees column. The clone keeps it: in the upload table as is,
+-- in the data table as the display-only column employees_raw with purpose
+-- ignored, with a warning on every row that has a value and one on the column.
+UPDATE public.stat_definition SET enabled = false WHERE code = 'employees';
 SELECT id AS es_job_id FROM public.import_job WHERE slug = 'import_es_web_example_current' \gset
 SELECT slug, description, note, time_context_ident, default_valid_from, default_valid_to, default_data_source_code, upload_table_name, data_table_name, priority, analysis_batch_size, processing_batch_size   , analysis_completed_pct , analysis_rows_per_sec , current_step_code , current_step_priority , max_analysis_priority , total_analysis_steps_weighted , completed_analysis_steps_weighted     , total_rows , imported_rows , import_completed_pct , import_rows_per_sec , last_progress_update , state        , error , review, edit_comment FROM public.import_job_clone(:es_job_id, 'import_es_clone');
 
@@ -196,11 +201,34 @@ SELECT COUNT(*) FROM (
 ) AS t;
 
 \echo " -> ES upload table diff (should be 0)"
+-- Compared by column name: the clone keeps employees as a column added after
+-- the definition's columns (STATBUS-545), so positions differ.
 SELECT COUNT(*) FROM (
-    TABLE public.:"original_es_upload_table"
+    SELECT to_jsonb(o) FROM public.:"original_es_upload_table" AS o
     EXCEPT
-    TABLE public.:"cloned_es_upload_table"
+    SELECT to_jsonb(c) FROM public.:"cloned_es_upload_table" AS c
 ) AS t;
+
+\echo "STATBUS-545: the cloned establishment job keeps the employees column it no longer maps"
+SELECT
+    EXISTS (SELECT 1 FROM information_schema.columns
+            WHERE table_schema = 'public'
+              AND table_name = (SELECT upload_table_name FROM public.import_job WHERE slug = 'import_es_clone')
+              AND column_name = 'employees') AS upload_has_employees,
+    EXISTS (SELECT 1 FROM information_schema.columns
+            WHERE table_schema = 'public'
+              AND table_name = (SELECT data_table_name FROM public.import_job WHERE slug = 'import_es_clone')
+              AND column_name = 'employees_raw') AS data_has_employees_raw,
+    (SELECT dc->>'purpose' FROM public.import_job AS j,
+            jsonb_array_elements(j.definition_snapshot->'import_data_column_list') AS dc
+      WHERE j.slug = 'import_es_clone' AND dc->>'column_name' = 'employees_raw') AS employees_raw_purpose,
+    NOT EXISTS (SELECT 1 FROM public.import_job AS j,
+                jsonb_array_elements(j.definition_snapshot->'import_mapping_list') AS m
+                WHERE j.slug = 'import_es_clone' AND m->'target_data_column'->>'column_name' = 'employees_raw') AS employees_raw_has_no_mapping,
+    (SELECT warning ? 'employees_raw' FROM public.import_job WHERE slug = 'import_es_clone') AS job_column_warning;
+SELECT
+    (SELECT count(*) FROM public.import_es_clone_data WHERE NULLIF(trim(employees_raw), '') IS NOT NULL) AS rows_with_employees,
+    (SELECT count(*) FROM public.import_es_clone_data WHERE warnings ? 'employees_raw') AS rows_warned_employees_raw;
 
 \echo "Checking import job statuses for cloned jobs"
 SELECT ij.slug,

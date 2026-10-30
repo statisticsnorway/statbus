@@ -200,6 +200,12 @@ export default function ImportJobDataPage() {
   );
 
   const tableName = job?.data_table_name;
+  // Job-level warnings keyed by data column (import_job.warning); see the
+  // column header rendering below.
+  const jobColumnWarnings = React.useMemo<Record<string, string>>(
+    () => (job?.warning as Record<string, string> | null) ?? {},
+    [job?.warning]
+  );
 
   const tableDataSWRKey = React.useMemo(() => {
     if (!tableName) return null;
@@ -448,11 +454,25 @@ export default function ImportJobDataPage() {
         .replace(/_/g, " ")
         .replace(/\b\w/g, (c) => c.toUpperCase());
 
+      // import_job.warning is keyed by data column, like the row warnings. A
+      // column the definition does not map (purpose 'ignored', STATBUS-545)
+      // carries its warning here; the header shows it and greys the column.
+      const columnWarning =
+        jobColumnWarnings[rawKey] ?? jobColumnWarnings[baseKey];
+
       const columnDef: ColumnDef<ImportJobDataRow> = {
         id: baseKey, // Default ID, will be overridden for filters
-        header: ({ column }) => (
-          <DataTableColumnHeader column={column} title={headerText} />
-        ),
+        header: ({ column }) =>
+          columnWarning ? (
+            <div className="text-gray-400" title={columnWarning}>
+              <DataTableColumnHeader column={column} title={headerText} />
+              <div className="text-xs font-normal text-amber-600 whitespace-normal">
+                {columnWarning}
+              </div>
+            </div>
+          ) : (
+            <DataTableColumnHeader column={column} title={headerText} />
+          ),
         cell: ({ row }) => {
           const plainValue = hasPlain
             ? row.original[baseKey as keyof ImportJobDataRow]
@@ -642,7 +662,7 @@ export default function ImportJobDataPage() {
     });
 
     return finalColumns;
-  }, [tableData?.data, externalIdentTypes]);
+  }, [tableData?.data, externalIdentTypes, jobColumnWarnings]);
 
   const table = useReactTable({
     data: tableData?.data ?? [],

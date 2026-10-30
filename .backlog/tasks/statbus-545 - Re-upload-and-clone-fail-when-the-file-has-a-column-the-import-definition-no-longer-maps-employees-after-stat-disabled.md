@@ -3,10 +3,10 @@ id: STATBUS-545
 title: >-
   Re-upload and clone fail when the file has a column the import definition no
   longer maps (employees after stat disabled)
-status: To Do
+status: In Progress
 assignee: []
 created_date: '2026-10-30T14:30:00Z'
-updated_date: '2026-10-30T14:32:00Z'
+updated_date: '2026-10-30T15:37:00Z'
 labels:
   - import
   - upload
@@ -55,4 +55,10 @@ Document the behaviour in doc/import-system.md; regenerate doc/db; check the UI 
 
 <!-- SECTION:NOTES:BEGIN -->
 14:32 Design decision (owner): the data column for a file header the definition no longer maps is marked with a new import_data_column_purpose value 'ignored' (owner rejected 'unmapped_input'). It lives only in the job's definition_snapshot import_data_column_list as {column_name: <col>_raw, purpose: ignored, column_type: TEXT}; the shared import_data_column table is untouched. Meaning: a column from the uploaded file that this job keeps and shows but never processes. Import steps select by purpose, so they skip it; the job page shows it greyed with the column warning on its header; download includes it so round trips keep it; no <col> data column exists. Invariant: an 'ignored' column has no mapping, asserted where the snapshot is built and in test 305.
+
+15:12 RED: test 305 extended (disable stat employees, then clone the establishment job): import_job_clone fails with 'INSERT has more expressions than target columns' (tmp/test-545-red.keep.log).
+
+15:25 GREEN on test 305: clone succeeds; upload keeps employees; data has employees_raw purpose ignored, no mapping; job warning keyed employees_raw; 351/351 rows with a value carry warning employees_raw. ES upload-table equality now compared by column name (0 differences). Clone return value unchanged (clone rows identical to the previous expected output). Other diff lines are NOTICEs from disabling employees in the test (index drop/rebuild, one fewer cascaded view).
+
+15:37 Independent review (read-only agent): 305 diff, both migrations (authorization, idempotence, %I safety, clone-by-name, prepare), every import_data_column_list reader filters by purpose/step_id, frontend: PASS. Blockers found and fixed: test 008 definer registry + doc/db-security-report.md, test 002 ER (import_job.warning), doc/data-model.md (015). Correction to the 15:25 note: disabling employees does not drop a cascaded view; only the NOTICE grouping changed. Local: 002, 008, 015, 305 ok.
 <!-- SECTION:NOTES:END -->

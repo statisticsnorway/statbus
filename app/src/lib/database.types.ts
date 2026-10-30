@@ -1385,6 +1385,7 @@ export type Database = {
           updated_at: string
           upload_table_name: string
           user_id: number | null
+          warning: Json | null
           warning_count: number
         },
         Insert: {
@@ -1433,6 +1434,7 @@ export type Database = {
           updated_at?: string
           upload_table_name: string
           user_id?: number | null
+          warning?: Json | null
           warning_count?: number
         },
         Update: {
@@ -1481,6 +1483,7 @@ export type Database = {
           updated_at?: string
           upload_table_name?: string
           user_id?: number | null
+          warning?: Json | null
           warning_count?: number
         },
         Relationships: [
@@ -14611,6 +14614,13 @@ export type Database = {
         }
         Returns: unknown
       },
+      import_job_accept_upload_columns: {
+        Args: {
+          p_job_id?: number
+          p_column_names?: string[]
+        }
+        Returns: string[]
+      },
       import_job_clone: {
         Args: {
           p_source_job_id?: number
@@ -16085,7 +16095,8 @@ export type Database = {
           | "source_input"
           | "internal"
           | "pk_id"
-          | "metadata",
+          | "metadata"
+          | "ignored",
       import_data_state: 
           | "pending"
           | "analysing"
@@ -16423,7 +16434,8 @@ export const Constants = {
         "source_input",
         "internal",
         "pk_id",
-        "metadata"
+        "metadata",
+        "ignored"
       ],
       import_data_state: [
         "pending",

@@ -306,6 +306,7 @@ DDL (CREATE/DROP TABLE), session context manipulation.
 
 - `admin.import_job_cleanup`
 - `admin.import_job_generate`
+- `admin.import_job_keep_ignored_columns`
 - `admin.reset_import_job_user_context`
 - `admin.set_import_job_user_context`
 - `admin.set_optimal_import_session_settings`

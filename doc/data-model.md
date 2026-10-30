@@ -134,7 +134,7 @@ Enumerated types used across the schema, with their possible values.
 - **`public.external_ident_shape`**: `regular`, `hierarchical`
 - **`public.hierarchy_scope`**: `all`, `tree`, `details`
 - **`public.history_resolution`**: `year`, `year-month`
-- **`public.import_data_column_purpose`**: `source_input`, `internal`, `pk_id`, `metadata`
+- **`public.import_data_column_purpose`**: `source_input`, `internal`, `pk_id`, `metadata`, `ignored`
 - **`public.import_data_state`**: `pending`, `analysing`, `analysed`, `processing`, `processed`, `error`
 - **`public.import_job_state`**: `waiting_for_upload`, `upload_completed`, `preparing_data`, `analysing_data`, `waiting_for_review`, `approved`, `rejected`, `processing_data`, `failed`, `finished`
 - **`public.import_mode`**: `legal_unit`, `establishment_formal`, `establishment_informal`, `generic_unit`, `legal_relationship`
@@ -230,7 +230,7 @@ Handles the ingestion of data from external files.
 - `import_mapping(id, source_value, definition_id, source_column_id, target_data_column_id, created_at, updated_at, source_expression, is_ignored, target_data_column_purpose)` — **transient**
   - Key FKs: definition_id, source_column_id, target_data_column_id, target_data_column_id, target_data_column_purpose.
   - Enums: `source_expression` (`public.import_source_expression`), `target_data_column_purpose` (`public.import_data_column_purpose`).
-- `import_job(id, slug, time_context_ident, default_data_source_code, upload_table_name, data_table_name, current_step_code, definition_id, user_id, created_at, updated_at, preparing_data_at, analysis_start_at, analysis_stop_at, changes_approved_at, changes_rejected_at, processing_start_at, processing_stop_at, expires_at, description, note, default_valid_from, default_valid_to, priority, analysis_batch_size, processing_batch_size, definition_snapshot, analysis_completed_pct, analysis_rows_per_sec, current_step_priority, max_analysis_priority, total_analysis_steps_weighted, completed_analysis_steps_weighted, total_rows, imported_rows, import_completed_pct, import_rows_per_sec, last_progress_update, state, error, review, edit_comment, error_count, warning_count, unique_units, truncate_overlong)` — **transient**
+- `import_job(id, slug, time_context_ident, default_data_source_code, upload_table_name, data_table_name, current_step_code, definition_id, user_id, created_at, updated_at, preparing_data_at, analysis_start_at, analysis_stop_at, changes_approved_at, changes_rejected_at, processing_start_at, processing_stop_at, expires_at, description, note, default_valid_from, default_valid_to, priority, analysis_batch_size, processing_batch_size, definition_snapshot, analysis_completed_pct, analysis_rows_per_sec, current_step_priority, max_analysis_priority, total_analysis_steps_weighted, completed_analysis_steps_weighted, total_rows, imported_rows, import_completed_pct, import_rows_per_sec, last_progress_update, state, error, review, edit_comment, error_count, warning_count, unique_units, truncate_overlong, warning)` — **transient**
   - Key FKs: definition_id, user_id.
   - Enums: `state` (`public.import_job_state`).
 

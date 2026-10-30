@@ -341,6 +341,7 @@ erDiagram
 		integer warning_count
 		boolean unique_units
 		boolean truncate_overlong
+		jsonb warning
 	}
 	import_mapping["import_mapping"] {
 		integer id

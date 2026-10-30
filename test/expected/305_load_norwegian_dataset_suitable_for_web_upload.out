@@ -3029,7 +3029,25 @@ SELECT slug, description, note, time_context_ident, default_valid_from, default_
  import_lu_clone | Clone of job #1: Import Legal Units - Web Example (Current Year) | Import job for legal units from samples/norway/legal_unit/enheter-selection-web-import.csv using legal_unit_job_provided definition. | r_year_curr        | 2026-01-01         | infinity         | nlr                      | import_lu_clone_upload | import_lu_clone_data |          |               32768 |                  8000 |                   0.00 |                       |                   |                       |                   100 |                               |                                 0 |            |             0 |                 0.00 |                     |                      | waiting_for_upload |       | f      | Test data load (01_load_web_examples.sql)
 (1 row)
 
--- Clone establishment job
+-- Clone establishment job. STATBUS-545: the statistical variable employees is
+-- disabled after the original job ran, so the current definition no longer maps
+-- the file's employees column. The clone keeps it: in the upload table as is,
+-- in the data table as the display-only column employees_raw with purpose
+-- ignored, with a warning on every row that has a value and one on the column.
+UPDATE public.stat_definition SET enabled = false WHERE code = 'employees';
+NOTICE:  Dropped index su_ei_person_ident_idx
+NOTICE:  Dropped index su_ei_stat_ident_idx
+NOTICE:  Dropped index su_ei_tax_ident_idx
+NOTICE:  Dropped index su_s_employees_idx
+NOTICE:  Dropped index su_s_turnover_idx
+NOTICE:  Dropped index su_ss_employees_count_idx
+NOTICE:  Dropped index su_ss_employees_sum_idx
+NOTICE:  Dropped index su_ss_turnover_count_idx
+NOTICE:  Dropped index su_ss_turnover_sum_idx
+NOTICE:  Created btree index su_ei_tax_ident_idx for external_ident_type
+NOTICE:  Created btree index su_ei_stat_ident_idx for external_ident_type
+NOTICE:  Created btree index su_ei_person_ident_idx for external_ident_type
+NOTICE:  Created indices for stat_definition turnover
 SELECT id AS es_job_id FROM public.import_job WHERE slug = 'import_es_web_example_current' \gset
 SELECT slug, description, note, time_context_ident, default_valid_from, default_valid_to, default_data_source_code, upload_table_name, data_table_name, priority, analysis_batch_size, processing_batch_size   , analysis_completed_pct , analysis_rows_per_sec , current_step_code , current_step_priority , max_analysis_priority , total_analysis_steps_weighted , completed_analysis_steps_weighted     , total_rows , imported_rows , import_completed_pct , import_rows_per_sec , last_progress_update , state        , error , review, edit_comment FROM public.import_job_clone(:es_job_id, 'import_es_clone');
       slug       |                             description                             |                                                                           note                                                                            | time_context_ident | default_valid_from | default_valid_to | default_data_source_code |   upload_table_name    |   data_table_name    | priority | analysis_batch_size | processing_batch_size | analysis_completed_pct | analysis_rows_per_sec | current_step_code | current_step_priority | max_analysis_priority | total_analysis_steps_weighted | completed_analysis_steps_weighted | total_rows | imported_rows | import_completed_pct | import_rows_per_sec | last_progress_update |       state        | error | review |               edit_comment                
@@ -3076,14 +3094,47 @@ SELECT COUNT(*) FROM (
 
 \echo " -> ES upload table diff (should be 0)"
 " -> ES upload table diff (should be 0)"
+-- Compared by column name: the clone keeps employees as a column added after
+-- the definition's columns (STATBUS-545), so positions differ.
 SELECT COUNT(*) FROM (
-    TABLE public.:"original_es_upload_table"
+    SELECT to_jsonb(o) FROM public.:"original_es_upload_table" AS o
     EXCEPT
-    TABLE public.:"cloned_es_upload_table"
+    SELECT to_jsonb(c) FROM public.:"cloned_es_upload_table" AS c
 ) AS t;
  count 
 -------
      0
+(1 row)
+
+\echo "STATBUS-545: the cloned establishment job keeps the employees column it no longer maps"
+"STATBUS-545: the cloned establishment job keeps the employees column it no longer maps"
+SELECT
+    EXISTS (SELECT 1 FROM information_schema.columns
+            WHERE table_schema = 'public'
+              AND table_name = (SELECT upload_table_name FROM public.import_job WHERE slug = 'import_es_clone')
+              AND column_name = 'employees') AS upload_has_employees,
+    EXISTS (SELECT 1 FROM information_schema.columns
+            WHERE table_schema = 'public'
+              AND table_name = (SELECT data_table_name FROM public.import_job WHERE slug = 'import_es_clone')
+              AND column_name = 'employees_raw') AS data_has_employees_raw,
+    (SELECT dc->>'purpose' FROM public.import_job AS j,
+            jsonb_array_elements(j.definition_snapshot->'import_data_column_list') AS dc
+      WHERE j.slug = 'import_es_clone' AND dc->>'column_name' = 'employees_raw') AS employees_raw_purpose,
+    NOT EXISTS (SELECT 1 FROM public.import_job AS j,
+                jsonb_array_elements(j.definition_snapshot->'import_mapping_list') AS m
+                WHERE j.slug = 'import_es_clone' AND m->'target_data_column'->>'column_name' = 'employees_raw') AS employees_raw_has_no_mapping,
+    (SELECT warning ? 'employees_raw' FROM public.import_job WHERE slug = 'import_es_clone') AS job_column_warning;
+ upload_has_employees | data_has_employees_raw | employees_raw_purpose | employees_raw_has_no_mapping | job_column_warning 
+----------------------+------------------------+-----------------------+------------------------------+--------------------
+ t                    | t                      | ignored               | t                            | t
+(1 row)
+
+SELECT
+    (SELECT count(*) FROM public.import_es_clone_data WHERE NULLIF(trim(employees_raw), '') IS NOT NULL) AS rows_with_employees,
+    (SELECT count(*) FROM public.import_es_clone_data WHERE warnings ? 'employees_raw') AS rows_warned_employees_raw;
+ rows_with_employees | rows_warned_employees_raw 
+---------------------+---------------------------
+                 351 |                       351
 (1 row)
 
 \echo "Checking import job statuses for cloned jobs"
@@ -3184,14 +3235,14 @@ reset_unit
 (1 row)
 ROLLBACK TO SAVEPOINT before_reset;
 SELECT jsonb_pretty(public.reset(confirmed := true, scope := 'data'::public.reset_scope)) AS reset_data;
+NOTICE:  drop cascades to view temp_stat_source_view_employees
 NOTICE:  drop cascades to view temp_lu_source_view
-NOTICE:  drop cascades to 8 other objects
+NOTICE:  drop cascades to 7 other objects
 DETAIL:  drop cascades to view temp_loc_source_view_physical_location
 drop cascades to view temp_loc_source_view_postal_location
 drop cascades to view temp_act_source_view_primary_activity
 drop cascades to view temp_act_source_view_secondary_activity
 drop cascades to view temp_contact_source_view
-drop cascades to view temp_stat_source_view_employees
 drop cascades to view temp_stat_source_view_turnover
 drop cascades to view temp_es_source_view
 reset_data
@@ -3251,14 +3302,14 @@ reset_data
 (1 row)
 ROLLBACK TO SAVEPOINT before_reset;
 SELECT jsonb_pretty(public.reset(confirmed := true, scope := 'data'::public.reset_scope)) AS reset_data;
+NOTICE:  drop cascades to view temp_stat_source_view_employees
 NOTICE:  drop cascades to view temp_lu_source_view
-NOTICE:  drop cascades to 8 other objects
+NOTICE:  drop cascades to 7 other objects
 DETAIL:  drop cascades to view temp_loc_source_view_physical_location
 drop cascades to view temp_loc_source_view_postal_location
 drop cascades to view temp_act_source_view_primary_activity
 drop cascades to view temp_act_source_view_secondary_activity
 drop cascades to view temp_contact_source_view
-drop cascades to view temp_stat_source_view_employees
 drop cascades to view temp_stat_source_view_turnover
 drop cascades to view temp_es_source_view
 reset_data
@@ -3318,14 +3369,14 @@ reset_data
 (1 row)
 ROLLBACK TO SAVEPOINT before_reset;
 SELECT jsonb_pretty(public.reset(confirmed := true, scope := 'getting-started'::public.reset_scope)) AS reset_getting_started;
+NOTICE:  drop cascades to view temp_stat_source_view_employees
 NOTICE:  drop cascades to view temp_lu_source_view
-NOTICE:  drop cascades to 8 other objects
+NOTICE:  drop cascades to 7 other objects
 DETAIL:  drop cascades to view temp_loc_source_view_physical_location
 drop cascades to view temp_loc_source_view_postal_location
 drop cascades to view temp_act_source_view_primary_activity
 drop cascades to view temp_act_source_view_secondary_activity
 drop cascades to view temp_contact_source_view
-drop cascades to view temp_stat_source_view_employees
 drop cascades to view temp_stat_source_view_turnover
 drop cascades to view temp_es_source_view
 reset_getting_started
@@ -3439,23 +3490,20 @@ reset_getting_started
 (1 row)
 ROLLBACK TO SAVEPOINT before_reset;
 SELECT jsonb_pretty(public.reset(confirmed := true, scope := 'all'::public.reset_scope)) AS reset_all;
+NOTICE:  drop cascades to view temp_stat_source_view_employees
 NOTICE:  drop cascades to view temp_lu_source_view
-NOTICE:  drop cascades to 8 other objects
+NOTICE:  drop cascades to 7 other objects
 DETAIL:  drop cascades to view temp_loc_source_view_physical_location
 drop cascades to view temp_loc_source_view_postal_location
 drop cascades to view temp_act_source_view_primary_activity
 drop cascades to view temp_act_source_view_secondary_activity
 drop cascades to view temp_contact_source_view
-drop cascades to view temp_stat_source_view_employees
 drop cascades to view temp_stat_source_view_turnover
 drop cascades to view temp_es_source_view
 NOTICE:  Dropped index su_ei_person_ident_idx
 NOTICE:  Dropped index su_ei_stat_ident_idx
 NOTICE:  Dropped index su_ei_tax_ident_idx
-NOTICE:  Dropped index su_s_employees_idx
 NOTICE:  Dropped index su_s_turnover_idx
-NOTICE:  Dropped index su_ss_employees_count_idx
-NOTICE:  Dropped index su_ss_employees_sum_idx
 NOTICE:  Dropped index su_ss_turnover_count_idx
 NOTICE:  Dropped index su_ss_turnover_sum_idx
 NOTICE:  Created btree index su_ei_tax_ident_idx for external_ident_type

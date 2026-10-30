@@ -361,6 +361,22 @@ export async function POST(request: NextRequest) {
         throw new Error("CSV header row contains only system columns.");
       }
 
+      // A file downloaded from an earlier job can carry columns this job's
+      // definition no longer maps (e.g. a disabled statistical variable). They
+      // are kept as ignored columns (STATBUS-545) so the COPY below succeeds;
+      // see public.import_job_accept_upload_columns.
+      const headerNames = rawHeaders
+        .filter(h => !isDownloadSystemColumn(h))
+        .map(h => h.replace(/^"|"$/g, '').trim());
+      const accepted = await pgClient.query(
+        'SELECT public.import_job_accept_upload_columns($1, $2::text[]) AS added',
+        [job.id, headerNames]
+      );
+      const addedColumns: string[] = accepted.rows[0]?.added ?? [];
+      if (addedColumns.length > 0) {
+        logger.info({ jobId: job.id, addedColumns }, `Kept columns the import definition does not map`);
+      }
+
       const columns = headers.join(', ');
       const copyCommand = `COPY ${job.upload_table_name} (${columns}) FROM STDIN WITH (FORMAT csv, HEADER true, DELIMITER ',')`;
       logger.info({ jobId: job.id, jobSlug: job.slug, command: copyCommand }, `Executing COPY command`);
