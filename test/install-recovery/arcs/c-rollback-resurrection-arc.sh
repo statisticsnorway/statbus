@@ -427,7 +427,7 @@ echo "  ✓ original C log and durable claim → scheduled → claim audit prove
 #    the 154 state-log records exactly one in_progress→superseded (parked→NULL). ──
 echo ""
 echo "── assert STATBUS-159 displacement: B superseded with its story intact ──"
-B_STATE=$(psql_scalar "SELECT state FROM public.upgrade WHERE commit_sha = '$B_FULL' ORDER BY id DESC LIMIT 1;")
+B_STATE=$(psql_scalar "SELECT $UPGRADE_ROW_STATE_SQL FROM public.upgrade WHERE commit_sha = '$B_FULL' ORDER BY id DESC LIMIT 1;")
 [ "$B_STATE" = "superseded" ] || { echo "✗ B did not land 'superseded' after C's claim displaced it (got '$B_STATE')" >&2; exit 1; }
 B_PARKED=$(psql_scalar "SELECT (recovery_parked_at IS NOT NULL) FROM public.upgrade WHERE commit_sha = '$B_FULL' ORDER BY id DESC LIMIT 1;")
 [ "$B_PARKED" = "f" ] || { echo "✗ B's recovery_parked_at was not cleared by the displacement (parked='$B_PARKED')" >&2; exit 1; }
@@ -522,7 +522,7 @@ case "$RECREATED_AFTER_ROLLBACK" in
 esac
 echo ""
 echo "── assert C rolled back onto B: C rolled_back, box's DB + tree back on B ──"
-C_STATE=$(psql_scalar "SELECT state FROM public.upgrade WHERE commit_sha = '$C_FULL' ORDER BY id DESC LIMIT 1;")
+C_STATE=$(psql_scalar "SELECT $UPGRADE_ROW_STATE_SQL FROM public.upgrade WHERE commit_sha = '$C_FULL' ORDER BY id DESC LIMIT 1;")
 [ "$C_STATE" = "rolled_back" ] || { echo "✗ C is not 'rolled_back' (got '$C_STATE')" >&2; exit 1; }
 V3_APPLIED=$(psql_scalar "SELECT count(*) FROM db.migration WHERE version = ${V_VERSION_3};")
 [ "$V3_APPLIED" = "0" ] || { echo "✗ C's failing V3 (${V_VERSION_3}) is recorded in db.migration (count=$V3_APPLIED) — it must have rolled back, not applied" >&2; exit 1; }
@@ -564,9 +564,9 @@ echo "  ✓ install exited 0 (papered over nothing, resurrected nothing)"
 echo ""
 echo "── real-path end state: B still superseded, C still rolled_back, no terminal→completed, truth still told ──"
 # Door check: B stays superseded through install (no reconciler / no upsert resurrected it).
-B_STATE_FINAL=$(psql_scalar "SELECT state FROM public.upgrade WHERE commit_sha = '$B_FULL' ORDER BY id DESC LIMIT 1;")
+B_STATE_FINAL=$(psql_scalar "SELECT $UPGRADE_ROW_STATE_SQL FROM public.upgrade WHERE commit_sha = '$B_FULL' ORDER BY id DESC LIMIT 1;")
 [ "$B_STATE_FINAL" = "superseded" ] || { echo "✗ B is no longer 'superseded' after install (got '$B_STATE_FINAL') — a door resurrected it" >&2; exit 1; }
-C_STATE_FINAL=$(psql_scalar "SELECT state FROM public.upgrade WHERE commit_sha = '$C_FULL' ORDER BY id DESC LIMIT 1;")
+C_STATE_FINAL=$(psql_scalar "SELECT $UPGRADE_ROW_STATE_SQL FROM public.upgrade WHERE commit_sha = '$C_FULL' ORDER BY id DESC LIMIT 1;")
 [ "$C_STATE_FINAL" = "rolled_back" ] || { echo "✗ C is no longer 'rolled_back' after install (got '$C_STATE_FINAL')" >&2; exit 1; }
 # NO terminal→completed transition anywhere on B's row (the state-log audits every write).
 TERM_TO_COMPLETED=$(psql_scalar "SELECT count(*) FROM public.upgrade_state_log WHERE upgrade_id = (SELECT id FROM public.upgrade WHERE commit_sha = '$B_FULL' ORDER BY id DESC LIMIT 1) AND old_state IN ('superseded','failed','rolled_back','skipped','dismissed') AND new_state = 'completed';")

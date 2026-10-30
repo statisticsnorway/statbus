@@ -128,7 +128,7 @@ echo "════════════════════════�
 # row_state / row_error — same transport-aware shape as the oom arc's readers
 # (harmless here too: the db is never externally touched by this arc, but a
 # psql call can still transiently fail during the daemon's own restart).
-row_state() { VM_EXEC bash -c "cd ~/statbus && echo \"SELECT state FROM public.upgrade WHERE commit_sha = '$B_FULL' ORDER BY id DESC LIMIT 1;\" | ./sb psql -t -A" 2>/dev/null | tr -d ' \r\n' || echo "(db-down/?)"; }
+row_state() { VM_EXEC bash -c "cd ~/statbus && echo \"SELECT $UPGRADE_ROW_STATE_SQL FROM public.upgrade WHERE commit_sha = '$B_FULL' ORDER BY id DESC LIMIT 1;\" | ./sb psql -t -A" 2>/dev/null | tr -d ' \r\n' || echo "(db-down/?)"; }
 row_error() { VM_EXEC bash -c "cd ~/statbus && echo \"SELECT COALESCE(error,'') FROM public.upgrade WHERE commit_sha = '$B_FULL' ORDER BY id DESC LIMIT 1;\" | ./sb psql -t -A" 2>/dev/null | tr -d '\r' || echo ""; }
 
 # ── A: install + prepare (bootstrap → install A → health → trust arc → populate) ──

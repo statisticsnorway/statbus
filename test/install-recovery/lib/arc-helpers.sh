@@ -401,7 +401,7 @@ arc_schedule_daemon_down() {
     [ "$s" != "active" ] || { echo "✗ daemon still active after stop — it could claim the row before ./sb install" >&2; exit 1; }
     VM_EXEC bash -c "cd ~/statbus && ./sb upgrade schedule $sha 2>&1 | tail -20"
     local st
-    st=$(VM_EXEC bash -c "cd ~/statbus && echo \"SELECT state FROM public.upgrade WHERE commit_sha = '$sha' ORDER BY id DESC LIMIT 1;\" | ./sb psql -t -A" 2>/dev/null | tr -d ' \r\n' || echo "?")
+    st=$(VM_EXEC bash -c "cd ~/statbus && echo \"SELECT $UPGRADE_ROW_STATE_SQL FROM public.upgrade WHERE commit_sha = '$sha' ORDER BY id DESC LIMIT 1;\" | ./sb psql -t -A" 2>/dev/null | tr -d ' \r\n' || echo "?")
     [ "$st" = "scheduled" ] || { echo "✗ expected B 'scheduled' (daemon down), got '$st'" >&2; exit 1; }
     echo "  ✓ daemon down + B 'scheduled' — the persistent row ./sb install will inline-dispatch"
 }
@@ -699,7 +699,7 @@ arc_wait_row_state() {
     start=$(date +%s)
     while true; do
         now=$(date +%s); elapsed=$((now - start))
-        st=$(VM_EXEC bash -c "cd ~/statbus && echo \"SELECT state FROM public.upgrade WHERE commit_sha = '$sha' ORDER BY id DESC LIMIT 1;\" | ./sb psql -t -A" 2>/dev/null | tr -d ' \r\n' || echo "?")
+        st=$(VM_EXEC bash -c "cd ~/statbus && echo \"SELECT $UPGRADE_ROW_STATE_SQL FROM public.upgrade WHERE commit_sha = '$sha' ORDER BY id DESC LIMIT 1;\" | ./sb psql -t -A" 2>/dev/null | tr -d ' \r\n' || echo "?")
         if [ "$st" = "$want" ]; then echo "  ✓ row ${sha:0:8} reached '$want' (t+${elapsed}s)"; return 0; fi
         if [ "$want" = "in_progress" ]; then
             case "$st" in

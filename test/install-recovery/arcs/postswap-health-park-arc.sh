@@ -540,7 +540,7 @@ VM_EXEC bash -c "cd ~/statbus && echo \"SELECT id, state, recovery_parked_at IS 
 # the shell). psql failures read as "?" → a loud miss, never a false pass.
 psql_scalar() { VM_EXEC bash -c "cd ~/statbus && echo \"$1\" | ./sb psql -t -A" 2>/dev/null | tr -d ' \r\n' || echo "?"; }
 
-B_STATE=$(psql_scalar "SELECT state FROM public.upgrade WHERE commit_sha = '$B_FULL' ORDER BY id DESC LIMIT 1;")
+B_STATE=$(psql_scalar "SELECT $UPGRADE_ROW_STATE_SQL FROM public.upgrade WHERE commit_sha = '$B_FULL' ORDER BY id DESC LIMIT 1;")
 [ "$B_STATE" = "superseded" ] || { echo "✗ STATBUS-159: B did not land 'superseded' after C's claim displaced it (got '$B_STATE') — the park was not displaced-at-claim" >&2; exit 1; }
 
 B_PARKED=$(psql_scalar "SELECT (recovery_parked_at IS NOT NULL) FROM public.upgrade WHERE commit_sha = '$B_FULL' ORDER BY id DESC LIMIT 1;")

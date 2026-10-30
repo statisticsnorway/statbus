@@ -166,7 +166,7 @@ arc_install_dispatch_with_inject "$INJECT_CLASS"
 echo ""
 echo "── verifying RED state (flag Resuming; row in_progress; DB + ALL containers, incl. proxy, genuinely up) ──"
 VM_EXEC bash -c "ls -la ~/statbus/tmp/upgrade-in-progress.json" >/dev/null || { echo "✗ expected flag file present after the kill" >&2; exit 1; }
-ROW_STATE_RED=$(_probe "cd ~/statbus && echo \"SELECT state FROM public.upgrade WHERE commit_sha = '${B_FULL}' ORDER BY id DESC LIMIT 1;\" | ./sb psql -t -A")
+ROW_STATE_RED=$(_probe "cd ~/statbus && echo \"SELECT $UPGRADE_ROW_STATE_SQL FROM public.upgrade WHERE commit_sha = '${B_FULL}' ORDER BY id DESC LIMIT 1;\" | ./sb psql -t -A")
 [ "$ROW_STATE_RED" = "in_progress" ] || { echo "✗ expected row in_progress after the kill, got '$ROW_STATE_RED'" >&2; exit 1; }
 # The inject fires DURING the resume's start-services (container restart), so the
 # proxy reaching "running" is an EVENTUAL state — the resume's orphaned

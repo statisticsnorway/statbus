@@ -121,7 +121,7 @@ proxy_present() {
     esac
 }
 row_state() {
-    _probe "cd ~/statbus && echo \"SELECT state FROM public.upgrade WHERE commit_sha = '${B_FULL}' ORDER BY id DESC LIMIT 1;\" | ./sb psql -t -A"
+    _probe "cd ~/statbus && echo \"SELECT $UPGRADE_ROW_STATE_SQL FROM public.upgrade WHERE commit_sha = '${B_FULL}' ORDER BY id DESC LIMIT 1;\" | ./sb psql -t -A"
 }
 
 # run_install <out-file> — attempts ./sb install, never fails the arc itself

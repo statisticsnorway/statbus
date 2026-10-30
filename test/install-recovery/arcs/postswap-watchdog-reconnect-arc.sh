@@ -91,7 +91,7 @@ echo "  Arc: postswap-watchdog-reconnect  (C15 — stall-dispatch; WATCHDOG=1 ti
 echo "  A=${BASE_SHA:0:8}  B=${B_FULL:0:8}  stall-hold=${STALL_HOLD_S}s (> WatchdogSec=120s)"
 echo "════════════════════════════════════════════════════════════════"
 
-row_state() { VM_EXEC bash -c "cd ~/statbus && echo \"SELECT state FROM public.upgrade WHERE commit_sha = '$B_FULL' ORDER BY id DESC LIMIT 1;\" | ./sb psql -t -A" 2>/dev/null | tr -d ' \r\n' || echo "?"; }
+row_state() { VM_EXEC bash -c "cd ~/statbus && echo \"SELECT $UPGRADE_ROW_STATE_SQL FROM public.upgrade WHERE commit_sha = '$B_FULL' ORDER BY id DESC LIMIT 1;\" | ./sb psql -t -A" 2>/dev/null | tr -d ' \r\n' || echo "?"; }
 
 # ── A: install + prepare; register B (daemon up) ──
 arc_prepare_box

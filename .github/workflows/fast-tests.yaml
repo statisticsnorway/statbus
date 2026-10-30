@@ -322,6 +322,9 @@ jobs:
           set -euxo pipefail
           ./dev.sh test-livedb
 
+      - name: Arc upgrade-state reader against the real schema (STATBUS-536)
+        run: ARC_ROW_STATE_REQUIRE_DB=1 bash test/install-recovery/tests/arc-row-state-pending-finish-test.sh
+
       - name: Show regression diffs on failure
         if: failure() && steps.sql_tests.outcome == 'failure'
         run: |

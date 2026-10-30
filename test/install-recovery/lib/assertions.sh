@@ -84,6 +84,18 @@ assert_health_passes() {
 # The argument is optional ONLY so this stays callable from a context that
 # genuinely has no commit in hand; passing one is the correct use, and every
 # in-tree caller does.
+# UPGRADE_ROW_STATE_SQL — the upgrade row's state as a harness observes it.
+# A rollback writes state='failed' with rollback_finish_pending_at set, then
+# moves the row to 'rolled_back' once the lock is released
+# (LabelFailedRollbackPendingFinish in cli/internal/upgrade/service.go; the
+# chk_upgrade_rollback_finish_pending_requires_failed constraint). That row is
+# still on its way to rolled_back, so it reads as 'finishing_rollback' here;
+# only a 'failed' row without the pending mark is a terminal failure. Every
+# poll that reads upgrade state uses this expression, so a poll that lands in
+# that brief window keeps waiting (v2026.10.5-rc.03 arc run 40977271679 broke
+# on it while the row reached rolled_back in the same second).
+UPGRADE_ROW_STATE_SQL="CASE WHEN state = 'failed' AND rollback_finish_pending_at IS NOT NULL THEN 'finishing_rollback' ELSE state::text END"
+
 assert_upgrade_row_state() {
     local vm_name="$1"
     local expected_state="$2"
@@ -106,7 +118,7 @@ assert_upgrade_row_state() {
     local _rc=0
     actual=$(ssh "${SSH_OPTS[@]}" root@"$VM_IP" \
         "sudo -i -u statbus bash -c 'cd ~/statbus && ./sb psql -t -A'" \
-        2>/dev/null <<< "SELECT state FROM public.upgrade $where ORDER BY id DESC LIMIT 1;" | tr -d ' ') || _rc=$?
+        2>/dev/null <<< "SELECT $UPGRADE_ROW_STATE_SQL FROM public.upgrade $where ORDER BY id DESC LIMIT 1;" | tr -d ' ') || _rc=$?
     if [ "$_rc" -ne 0 ]; then
         echo "  ⚠ could not query public.upgrade on VM (rc=$_rc) — INFRA error; skipping" >&2
         return 0

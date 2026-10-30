@@ -129,7 +129,7 @@ echo "════════════════════════�
 # the highest id, and upgrade discovery registers candidate rows at any
 # moment — so the assert silently starts reporting on a row the scenario
 # never touched. Mirrors this arc's own diagnostic query.
-row_state()      { VM_EXEC bash -c "cd ~/statbus && echo \"SELECT state FROM public.upgrade WHERE commit_sha = '$B_FULL' ORDER BY id DESC LIMIT 1;\" | ./sb psql -t -A" 2>/dev/null | tr -d ' \r\n' || echo "(db-down/?)"; }
+row_state()      { VM_EXEC bash -c "cd ~/statbus && echo \"SELECT $UPGRADE_ROW_STATE_SQL FROM public.upgrade WHERE commit_sha = '$B_FULL' ORDER BY id DESC LIMIT 1;\" | ./sb psql -t -A" 2>/dev/null | tr -d ' \r\n' || echo "(db-down/?)"; }
 # STATBUS-228: added with the inverted assertions below — this arc previously
 # only claimed a backup_path in PROSE (the pre-197 premise) and never read the
 # column. A claim nothing reads is how the stale premise survived a month.

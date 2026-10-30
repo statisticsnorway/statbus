@@ -101,7 +101,7 @@ echo "  A=${BASE_SHA:0:8}  B=${B_FULL:0:8}  backoff-budget=${BACKOFF_BUDGET}"
 echo "════════════════════════════════════════════════════════════════"
 
 # ── local helpers ────────────────────────────────────────────────────────────
-row_state_for() { VM_EXEC bash -c "cd ~/statbus && echo \"SELECT state FROM public.upgrade WHERE commit_sha = '$1' ORDER BY id DESC LIMIT 1;\" | ./sb psql -t -A" 2>/dev/null | tr -d ' \r\n' || echo "?"; }
+row_state_for() { VM_EXEC bash -c "cd ~/statbus && echo \"SELECT $UPGRADE_ROW_STATE_SQL FROM public.upgrade WHERE commit_sha = '$1' ORDER BY id DESC LIMIT 1;\" | ./sb psql -t -A" 2>/dev/null | tr -d ' \r\n' || echo "?"; }
 row_error_for() { VM_EXEC bash -c "cd ~/statbus && echo \"SELECT COALESCE(error,'') FROM public.upgrade WHERE commit_sha = '$1' ORDER BY id DESC LIMIT 1;\" | ./sb psql -t -A" 2>/dev/null | tr -d '\r' || echo "?"; }
 # journal_has <plain-substr> <since> — yes|no: did the daemon journal SINCE <since>
 # contain <substr>? ARM-SCOPED (grep -F, no quotes/$ in substr): the unit journal

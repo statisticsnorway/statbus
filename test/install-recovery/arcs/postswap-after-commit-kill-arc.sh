@@ -97,7 +97,7 @@ echo "  Arc: postswap-after-commit-kill  (doc-017 §3 — committed-but-unrecord
 echo "  A=${BASE_SHA:0:8}  B=${B_FULL:0:8}  V=${V_VERSION}  inject=${INJECT_CLASS}"
 echo "════════════════════════════════════════════════════════════════"
 
-row_state()     { VM_EXEC bash -c "cd ~/statbus && echo \"SELECT state FROM public.upgrade WHERE commit_sha = '$B_FULL' ORDER BY id DESC LIMIT 1;\" | ./sb psql -t -A" 2>/dev/null | tr -d ' \r\n' || echo "?"; }
+row_state()     { VM_EXEC bash -c "cd ~/statbus && echo \"SELECT $UPGRADE_ROW_STATE_SQL FROM public.upgrade WHERE commit_sha = '$B_FULL' ORDER BY id DESC LIMIT 1;\" | ./sb psql -t -A" 2>/dev/null | tr -d ' \r\n' || echo "?"; }
 table_exists()  { VM_EXEC bash -c "cd ~/statbus && echo \"SELECT (to_regclass('$FIXTURE_TABLE') IS NOT NULL);\" | ./sb psql -t -A" 2>/dev/null | tr -d ' \r\n' || echo "?"; }
 migration_max() { VM_EXEC bash -c "cd ~/statbus && echo 'SELECT COALESCE(MAX(version),0) FROM db.migration;' | ./sb psql -t -A" 2>/dev/null | tr -d ' \r\n' || echo "?"; }
 

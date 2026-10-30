@@ -295,7 +295,7 @@ echo "── convergence checks ──"
 # to 'completed'), and (b) no debris (no row stuck in_progress/failed).
 HEAD_ROW_STATE=$(ssh "${SSH_OPTS[@]}" root@"$VM_IP" \
     "sudo -i -u statbus bash -c 'cd ~/statbus && ./sb psql -t -A'" \
-    2>/dev/null <<< "SELECT state FROM public.upgrade WHERE commit_sha = '$HEAD_SHA';" | tr -d ' \r\n')
+    2>/dev/null <<< "SELECT $UPGRADE_ROW_STATE_SQL FROM public.upgrade WHERE commit_sha = '$HEAD_SHA';" | tr -d ' \r\n')
 if [ "$HEAD_ROW_STATE" != "completed" ]; then
     echo "✗ HEAD upgrade row (commit_sha=$HEAD_SHA) state='$HEAD_ROW_STATE', expected 'completed'"; exit 1
 fi

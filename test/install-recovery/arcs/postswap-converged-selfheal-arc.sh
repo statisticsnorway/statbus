@@ -74,7 +74,7 @@ echo "════════════════════════�
 # [completed-self-heal] at t+6s, but a plain-newest poll read a discovery 'available' candidate and
 # timed out at 600s — a WRONG-ROW read, not a product gap). B_FULL is this arc's single upgrade
 # target; its row's commit_sha == B_FULL (mirrors flagless-selfheal-at-target's row_state_for).
-row_state()   { VM_EXEC bash -c "cd ~/statbus && echo \"SELECT state FROM public.upgrade WHERE commit_sha = '$B_FULL' ORDER BY id DESC LIMIT 1;\" | ./sb psql -t -A" 2>/dev/null | tr -d ' \r\n' || echo "(db-down/?)"; }
+row_state()   { VM_EXEC bash -c "cd ~/statbus && echo \"SELECT $UPGRADE_ROW_STATE_SQL FROM public.upgrade WHERE commit_sha = '$B_FULL' ORDER BY id DESC LIMIT 1;\" | ./sb psql -t -A" 2>/dev/null | tr -d ' \r\n' || echo "(db-down/?)"; }
 row_error()   { VM_EXEC bash -c "cd ~/statbus && echo \"SELECT COALESCE(error,'') FROM public.upgrade WHERE commit_sha = '$B_FULL' ORDER BY id DESC LIMIT 1;\" | ./sb psql -t -A" 2>/dev/null | tr -d '\r' || echo "?"; }
 flag_present(){ VM_EXEC bash -c "test -f ~/statbus/$FLAG_PATH && echo yes || echo no" 2>/dev/null | tr -d ' \r\n' || echo "no"; }
 arm_since()   { VM_EXEC bash -c "date '+%Y-%m-%d %H:%M:%S'" 2>/dev/null | tr -d '\r'; }

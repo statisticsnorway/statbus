@@ -121,7 +121,7 @@ echo "════════════════════════�
 
 # STATBUS-293: filtered to B — an unfiltered probe reads whatever row has the
 # highest id, and discovery registers candidate rows at any moment.
-upgrade_state() { VM_EXEC bash -c "cd ~/statbus && echo \"SELECT state FROM public.upgrade WHERE commit_sha = '$B_FULL' ORDER BY id DESC LIMIT 1;\" | ./sb psql -t -A" 2>/dev/null | tr -d ' \r\n' || echo "?"; }
+upgrade_state() { VM_EXEC bash -c "cd ~/statbus && echo \"SELECT $UPGRADE_ROW_STATE_SQL FROM public.upgrade WHERE commit_sha = '$B_FULL' ORDER BY id DESC LIMIT 1;\" | ./sb psql -t -A" 2>/dev/null | tr -d ' \r\n' || echo "?"; }
 
 # abandoned_processing_count — rows in 'processing' whose claiming backend is
 # GONE. This is the wedge, asked directly and without a threshold: a task claims
