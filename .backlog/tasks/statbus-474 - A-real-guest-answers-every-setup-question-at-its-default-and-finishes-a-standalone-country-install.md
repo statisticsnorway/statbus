@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: 2026-10-08 15:16
-updated_date: '2026-10-30T13:36:00Z'
+updated_date: '2026-10-30T15:53:00Z'
 labels:
   - install
   - installer
@@ -162,4 +162,6 @@ NOT CHANGED: the committed scenario (its header still says STATUS: UNRUN, and HA
 AC4 decided 2026-10-30 (owner): the scenario joins the default LXD release gate; on demand means never. Commit b98e9e86a removes the skip marker and rewrites the header (it also clears the stale UNRUN status, the Closing-review cleanup). Default selection 27 -> 28 (run.sh --print-selected lists it). The first gate run and its wall-clock effect are recorded on the next RC.
 
 2026-10-30: all four criteria checked. Stays In Progress until the first gate run with the scenario in the default catalogue is green; that run ID and its wall-clock effect are recorded here, then Done.
+
+2026-10-30 first default-gate run (v2026.10.6-rc.01, LXD fleet 41076193713): FAIL, cause in the driver, not the product. 2907d8da7 changed the certificate offer to '[y/N]:'; the driver waited for '(yes/no) [no]:'. Fixed in f87c6f71e (matches [y/N], y/N default, product step order signers then certificate). New offline regression test test/install-recovery/tests/setup-choices-driver-test.sh reads the prompt from cli/cmd/install_cert.go and runs the real driver; red on the old scenario (tmp/test-474-driver-red.log), green now (tmp/test-474-driver-green.log); runs in Harness Selftest. Done waits for a green gate run on rc.02.
 <!-- SECTION:NOTES:END -->
