@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: 2026-10-13 13:16
-updated_date: '2026-10-30T11:59:00Z'
+updated_date: '2026-10-30T12:11:00Z'
 labels:
   - install
   - uganda
@@ -93,4 +93,6 @@ Next: after stable promotion, rerun setup with the released script (Stage 4 must
 2026-10-30 10:05 UTC: owner signed in at https://statbus.ubos.org as the first administrator from his laptop (SSH tunnel to the box plus a temporary hosts entry), and reached the getting-started onboarding page. The installation is verified end to end; only the public route (UBOS forwarding to 10.10.10.58) remains.
 
 2026-10-30 AC3 (STATBUS-487 criterion 5): not applicable on this box. The v2026.10.5 setup log (tmp/uganda-session.log) shows Docker installed, running, Compose installed and 'Docker usable by statbus', then the installer ran 19/19 steps without a Docker refusal. Docker was reachable, so there was no Docker-cause message to observe. AC1 (root login shell + HOME) and AC2 (find /home/statbus -xdev -user root) were not captured in this session's log: setup ran from a root prompt but no HOME line was printed, and no ownership scan was run.
+
+2026-10-30 plan for the next release (owner decision): on statbus.ubos.org, rerun only the SSH and firewall stages as root: `sudo -i`, then `curl -fsSL https://statbus.org/setup.sh -o setup.sh && bash setup.sh --skip-stages "0 1 3 5 6 7 8"`. Expected and safe: Stage 2 rewrites the same hardening.conf and restarts ssh (port 713 is configured elsewhere and survives; answering n changes nothing); Stage 4 sees the bouncer registered and leaves its key, ufw skips existing rules, the Zabbix and IPv6 rules are never touched (only 'Custom SSH' rules for ports sshd no longer uses are removed); CrowdSec reloads, the bouncer restarts, ufw reloads, existing sessions survive; apt may upgrade crowdsec. This run closes STATBUS-539 AC7 (Stage 4 result on this box) and STATBUS-540 AC4 ('Did that connect? [y/n]' re-asks on Enter). STATBUS-537 AC5 (scripts print their tag) is box-neutral and is checked on the plain manual box (ops/manual-box.sh). The refused-key repair path is not exercised here (the key is now valid); it is covered by setup tests.
 <!-- SECTION:NOTES:END -->
