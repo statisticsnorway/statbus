@@ -34,14 +34,26 @@ on:
 # paths (today: .backlog/ — board activity), rebuilding from source proves
 # nothing a byte-for-byte copy of the parent's already-published images
 # wouldn't also prove. `decide-exempt-only` below makes that call; on a
-# match, `retag` copies each service's existing multi-arch manifest to the
-# new SHA in seconds (`docker buildx imagetools create --tag <new> <parent>`)
-# instead of `build` running the full multi-platform matrix. The invariant —
-# every commit has images at its SHA — holds unconditionally either way;
-# only the COST of holding it changes. FAILS TOWARD FULL BUILD on any doubt:
-# an unreachable/all-zero parent commit, a missing or empty exempt-paths
-# list, any non-exempt file in the diff, or the parent's own images not
-# actually being complete in the registry all route to the full build path.
+# match, `retag` copies app, worker, db and proxy's existing multi-arch
+# manifests to the new SHA in seconds (`docker buildx imagetools create
+# --tag <new> <parent>`) instead of `build` running the full multi-platform
+# matrix for them.
+#
+# sb is the exception and is BUILT on every push (build-sb -> manifest-sb,
+# ~1 minute for both arches), never retagged. sb bakes its commit in at build
+# time (`-X cmd.commit`, cli/Dockerfile.sb) and compares it with the checkout
+# before any mutating command (cli/internal/freshness). A copied sb image
+# names the parent commit; on an installed box with a depth-1 checkout that
+# parent is unknown, `git diff` exits 128, the guard calls the binary stale,
+# self-heal fetches the same copied image, and the command stops with exit 69
+# (STATBUS-547 field case: rc.01 on a backlog-only commit). Retagging sb would
+# publish a program that misstates its own identity in --version, the UI
+# footer and support bundles. The invariant — every commit's sb contains THAT
+# commit — therefore holds unconditionally, while app/worker/db/proxy may be
+# byte-for-byte copies. FAILS TOWARD FULL BUILD on any doubt: an
+# unreachable/all-zero parent commit, a missing or empty exempt-paths list,
+# any non-exempt file in the diff, or app/worker/db/proxy not actually being
+# complete in the registry at the parent all route to the full build path.
 permissions:
   packages: write
 
@@ -202,14 +214,17 @@ jobs:
 
           # Fail toward full build on doubt about the THING being copied,
           # not just about the diff: verify the parent's images are
-          # actually complete before ever routing to retag.
+          # actually complete before ever routing to retag. sb is absent
+          # from this list on purpose: it is never copied (build-sb builds
+          # it for every commit, STATBUS-547), so a missing parent sb must
+          # not force a 20-minute full build of the other four.
           for attempt in 1 2 3 4 5; do
             echo "$GH_TOKEN" | docker login ghcr.io -u "$ACTOR" --password-stdin && break
             [ "$attempt" -lt 5 ] || { echo "::error title=ghcr.io login failed::5 attempts" >&2; exit 1; }
             echo "ghcr.io login attempt $attempt/5 failed; retrying in $((attempt * 10))s" >&2; sleep $((attempt * 10))
           done
           missing=""
-          for svc in app worker db proxy sb; do
+          for svc in app worker db proxy; do
             ref="ghcr.io/statisticsnorway/statbus-${svc}:${PARENT_SHORT}"
             if ! docker manifest inspect "$ref" >/dev/null 2>&1; then
               missing="${missing} statbus-${svc}:${PARENT_SHORT}"
@@ -228,7 +243,10 @@ jobs:
   build:
     needs: [describe, decide-exempt-only]
     # STATBUS-219: skip the full build ONLY on a verified exempt-only push
-    # (see decide-exempt-only above; retag covers this case instead).
+    # (see decide-exempt-only above; retag covers these four services
+    # instead). sb is deliberately NOT in this matrix: it is built by
+    # build-sb below on every push, because a copied sb names the wrong
+    # commit (STATBUS-547).
     # Explicit result checks, not a bare if: — decide-exempt-only is a
     # direct need now, so a bare if: here would implicitly AND success()
     # over it and this job would need auditing the same way every other
@@ -246,16 +264,14 @@ jobs:
           - {name: worker, context: ./cli, file: ./cli/Dockerfile}
           - {name: db, context: ./postgres, file: ./postgres/Dockerfile}
           - {name: proxy, context: ./caddy, file: ./caddy/Dockerfile}
-          # statbus-sb: minimal distroless image carrying only the sb binary.
-          # Makes sb commit-addressable alongside the service images so that
-          # "a commit is installable iff its images built" includes sb.
-          # Build context is ./cli — sb needs only cli/ source + go.mod (both under cli/).
-          - {name: sb, context: ./cli, file: ./cli/Dockerfile.sb}
         platform:
           - {runner: ubuntu-24.04, arch: amd64}
           - {runner: ubuntu-24.04-arm, arch: arm64}
     runs-on: ${{ matrix.platform.runner }}
-    steps:
+    # Anchored so build-sb below runs the identical steps. Only the matrix
+    # and the job-level gate differ: build is skipped on an exempt-only
+    # push, build-sb never is.
+    steps: &image-build-steps
       - uses: actions/checkout@v4
         with:
           # We don't `git describe` here anymore (parity is guaranteed by
@@ -314,6 +330,34 @@ jobs:
           cache-from: type=registry,ref=${{ env.REGISTRY }}/${{ env.ORG }}/statbus-${{ matrix.service.name }}:buildcache-${{ matrix.platform.arch }}
           cache-to: type=registry,ref=${{ env.REGISTRY }}/${{ env.ORG }}/statbus-${{ matrix.service.name }}:buildcache-${{ matrix.platform.arch }},mode=max
 
+  build-sb:
+    name: Build statbus-sb (every push)
+    # STATBUS-547: sb carries its commit inside the binary (-X cmd.commit)
+    # and the freshness guard compares that with the checkout, so a commit
+    # must never be served a copied sb. This job therefore has NO
+    # exempt-only gate: it builds sb for this commit on normal and on
+    # exempt-only pushes alike (both arches, ~1 minute). It needs only
+    # describe, not decide-exempt-only: the decision cannot (and must not)
+    # change whether sb matches its own commit.
+    needs: [describe]
+    if: >-
+      ${{ !cancelled() &&
+          needs.describe.result == 'success' }}
+    strategy:
+      fail-fast: false
+      matrix:
+        service:
+          # statbus-sb: minimal distroless image carrying only the sb binary.
+          # Makes sb commit-addressable alongside the service images so that
+          # "a commit is installable iff its images built" includes sb.
+          # Build context is ./cli — sb needs only cli/ source + go.mod (both under cli/).
+          - {name: sb, context: ./cli, file: ./cli/Dockerfile.sb}
+        platform:
+          - {runner: ubuntu-24.04, arch: amd64}
+          - {runner: ubuntu-24.04-arm, arch: arm64}
+    runs-on: ${{ matrix.platform.runner }}
+    steps: *image-build-steps
+
   manifest:
     needs: [describe, build]
     # Only meaningful after a real build — a skipped/failed build has
@@ -322,7 +366,8 @@ jobs:
     # 'skipped' as well as 'success'/'failure'; a bare if: would implicitly
     # AND success() over it and silently skip this job on every exempt push
     # too, which is correct here by coincidence but for the wrong reason —
-    # say it directly instead.
+    # say it directly instead. sb's manifest is published by manifest-sb
+    # below, which is never skipped (STATBUS-547).
     if: >-
       ${{ !cancelled() &&
           needs.describe.result == 'success' &&
@@ -330,8 +375,9 @@ jobs:
     runs-on: ubuntu-24.04
     strategy:
       matrix:
-        service: [app, worker, db, proxy, sb]
-    steps:
+        service: [app, worker, db, proxy]
+    # Anchored so manifest-sb below runs the identical steps.
+    steps: &image-manifest-steps
       - uses: actions/checkout@v4
         with:
           fetch-depth: 1
@@ -372,6 +418,23 @@ jobs:
           DST="${{ env.REGISTRY }}/${{ env.ORG }}/statbus-${{ matrix.service }}:${{ needs.describe.outputs.commit_short }}"
           ops/release/verify-public-image.sh "$DST" "$DST"
 
+  manifest-sb:
+    name: Publish statbus-sb manifest (every push)
+    # STATBUS-547: merges the per-arch sb images build-sb just pushed for
+    # THIS commit and publishes the multi-arch tag. Runs on every push, for
+    # the same reason build-sb does: sb must name its own commit whether or
+    # not the rest of the images were copied from the parent.
+    needs: [describe, build-sb]
+    if: >-
+      ${{ !cancelled() &&
+          needs.describe.result == 'success' &&
+          needs['build-sb'].result == 'success' }}
+    runs-on: ubuntu-24.04
+    strategy:
+      matrix:
+        service: [sb]
+    steps: *image-manifest-steps
+
   retag:
     name: Retag parent's images (exempt-only push)
     needs: [describe, decide-exempt-only]
@@ -386,7 +449,9 @@ jobs:
     timeout-minutes: 10
     strategy:
       matrix:
-        service: [app, worker, db, proxy, sb]
+        # sb is deliberately absent: it is built for every commit by
+        # build-sb, never copied from the parent (STATBUS-547).
+        service: [app, worker, db, proxy]
     steps:
       - uses: actions/checkout@v4
         with:
@@ -468,26 +533,30 @@ jobs:
     # building cleanly, so the skip is unconditional for the whole
     # test/upgrade-arc-* prefix, not just the branches currently red.
     #
-    # STATBUS-219/345: needs BOTH manifest and retag now — exactly one of the
-    # two actually runs on any given push (build->manifest on a normal
+    # STATBUS-219/345/547: seed pulls sb from statbus-sb:<commit>, so it must
+    # wait for manifest-sb (which runs on EVERY push) plus whichever path
+    # published the other four images. STATBUS-219/345: exactly one of
+    # manifest and retag runs on any given push (build->manifest on a normal
     # push, retag on a verified exempt-only push; decide-exempt-only's own
     # BEFORE_SHA check already fails toward full build — i.e. toward
     # manifest, not retag — for a workflow_dispatch run, since
     # github.event.before does not exist for that event type; this
     # includes the upgrade-arc-harness fixture-branch dispatches, which
     # keep running the full build path unchanged). seed proceeds once
-    # EITHER succeeded INCLUDING its anonymous/digest postcondition, refuses
-    # if either genuinely FAILED, and refuses if
-    # somehow BOTH were skipped (a bug state — neither build path ran, so
-    # there is nothing for seed to pull sb from).
+    # manifest-sb succeeded AND either of manifest/retag succeeded
+    # INCLUDING its anonymous/digest postcondition, refuses if any of them
+    # genuinely FAILED, and refuses if somehow BOTH manifest and retag were
+    # skipped (a bug state — neither path ran). A failed manifest-sb refuses
+    # too: without it there is no sb for seed to pull.
     if: >-
       ${{ !startsWith(github.ref_name, 'test/upgrade-arc-') &&
           !cancelled() &&
           needs.describe.result == 'success' &&
+          needs['manifest-sb'].result == 'success' &&
           (needs.manifest.result == 'success' || needs.manifest.result == 'skipped') &&
           (needs.retag.result == 'success' || needs.retag.result == 'skipped') &&
           !(needs.manifest.result == 'skipped' && needs.retag.result == 'skipped') }}
-    needs: [describe, manifest, retag]
+    needs: [describe, manifest, manifest-sb, retag]
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
