@@ -48,19 +48,9 @@ BEGIN
                   AND state IN ('pending', 'interrupted')
             ) THEN
                 RAISE LOG 'Crash recovery: base_change_log_has_pending=TRUE but base_change_log is empty. Spawning full refresh.';
-                -- NULL-means-everything direct-mode payload. Keys present,
-                -- values NULL → command_collect_changes synthesises ids from
-                -- base tables and runs the full phase tree.
-                PERFORM worker.spawn(
-                    p_command => 'collect_changes',
-                    p_payload => jsonb_build_object(
-                        'establishment_id_ranges', NULL,
-                        'legal_unit_id_ranges',    NULL,
-                        'enterprise_id_ranges',    NULL,
-                        'power_group_id_ranges',   NULL,
-                        'valid_ranges',            NULL
-                    )
-                );
+                -- The changes lost with the crash are unknown: derive all
+                -- units over all time.
+                PERFORM worker.enqueue_derive_statistical_unit_all();
             END IF;
             UPDATE worker.base_change_log_has_pending SET has_pending = FALSE;
         END IF;

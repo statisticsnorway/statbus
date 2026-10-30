@@ -17,7 +17,7 @@ DECLARE
     v_phase2_id BIGINT;
     v_payload JSONB;
     v_direct_mode BOOLEAN;
-    v_full_refresh BOOLEAN;
+    v_all_units BOOLEAN;
 BEGIN
     v_direct_mode :=
         p_payload ? 'establishment_id_ranges'
@@ -25,22 +25,36 @@ BEGIN
         OR p_payload ? 'enterprise_id_ranges'
         OR p_payload ? 'power_group_id_ranges';
 
-    -- STATBUS-538: a full refresh is the direct-mode payload naming every
-    -- unit kind with NULL (all ids) and no valid_ranges (all time). It is
-    -- passed on as payload.full_refresh so each report derive rebuilds its
-    -- whole per-slot cache, including slots whose units no longer exist.
-    v_full_refresh := v_direct_mode
+    -- STATBUS-538: "everything" is one convention, carried through unchanged
+    -- so every step decides from its own arguments: NULL for all four
+    -- *_id_ranges means all units (worker.derive_statistical_unit's full
+    -- branch), and valid_from = -infinity, valid_until = infinity means all
+    -- time (the report derives then rebuild their whole per-slot cache).
+    -- worker.enqueue_derive_statistical_unit_all() schedules exactly this.
+    v_all_units := v_direct_mode
         AND NULLIF(p_payload->>'establishment_id_ranges', '') IS NULL
         AND NULLIF(p_payload->>'legal_unit_id_ranges', '') IS NULL
         AND NULLIF(p_payload->>'enterprise_id_ranges', '') IS NULL
-        AND NULLIF(p_payload->>'power_group_id_ranges', '') IS NULL
-        AND NULLIF(p_payload->>'valid_ranges', '') IS NULL;
+        AND NULLIF(p_payload->>'power_group_id_ranges', '') IS NULL;
 
-    IF v_direct_mode THEN
+    IF v_all_units THEN
+        -- All units: ids stay NULL, time defaults to all time. The full
+        -- derive covers every logged change, so the log is drained too.
+        v_est_ids := NULL;
+        v_lu_ids := NULL;
+        v_ent_ids := NULL;
+        v_pg_ids := NULL;
+        v_valid_range := COALESCE(
+            NULLIF(p_payload->>'valid_ranges', '')::datemultirange,
+            '{[-infinity,infinity)}'::datemultirange
+        );
+        DELETE FROM worker.base_change_log;
+        UPDATE worker.base_change_log_has_pending SET has_pending = FALSE;
+    ELSIF v_direct_mode THEN
         -- Caller supplied explicit ranges. A NULL / JSON-null value for a
         -- given key means "all ids of that kind" — synthesise from base
-        -- tables. The established NULL-means-everything convention
-        -- (cf. worker.derive_statistical_unit.v_is_full_refresh).
+        -- tables, because worker.derive_statistical_unit reads a NULL kind
+        -- next to explicit kinds as none.
         v_est_ids := COALESCE(
             NULLIF(p_payload->>'establishment_id_ranges', '')::int4multirange,
             COALESCE(
@@ -87,7 +101,8 @@ BEGIN
         UPDATE worker.base_change_log_has_pending SET has_pending = FALSE;
     END IF;
 
-    IF v_est_ids != '{}'::int4multirange
+    IF v_all_units
+       OR v_est_ids != '{}'::int4multirange
        OR v_lu_ids != '{}'::int4multirange
        OR v_ent_ids != '{}'::int4multirange
        OR v_pg_ids != '{}'::int4multirange THEN
@@ -98,12 +113,21 @@ BEGIN
         WHERE state = 'processing' AND worker_pid = pg_backend_pid()
         ORDER BY id DESC LIMIT 1;
 
-        p_info := jsonb_build_object(
-            'affected_establishment_count', (SELECT COALESCE(sum(upper(r) - lower(r)), 0) FROM unnest(v_est_ids) AS r),
-            'affected_legal_unit_count', (SELECT COALESCE(sum(upper(r) - lower(r)), 0) FROM unnest(v_lu_ids) AS r),
-            'affected_enterprise_count', (SELECT COALESCE(sum(upper(r) - lower(r)), 0) FROM unnest(v_ent_ids) AS r),
-            'affected_power_group_count', (SELECT COALESCE(sum(upper(r) - lower(r)), 0) FROM unnest(v_pg_ids) AS r)
-        );
+        IF v_all_units THEN
+            p_info := jsonb_build_object(
+                'affected_establishment_count', (SELECT count(*) FROM public.establishment),
+                'affected_legal_unit_count', (SELECT count(*) FROM public.legal_unit),
+                'affected_enterprise_count', (SELECT count(*) FROM public.enterprise),
+                'affected_power_group_count', (SELECT count(*) FROM public.power_group)
+            );
+        ELSE
+            p_info := jsonb_build_object(
+                'affected_establishment_count', (SELECT COALESCE(sum(upper(r) - lower(r)), 0) FROM unnest(v_est_ids) AS r),
+                'affected_legal_unit_count', (SELECT COALESCE(sum(upper(r) - lower(r)), 0) FROM unnest(v_lu_ids) AS r),
+                'affected_enterprise_count', (SELECT COALESCE(sum(upper(r) - lower(r)), 0) FROM unnest(v_ent_ids) AS r),
+                'affected_power_group_count', (SELECT COALESCE(sum(upper(r) - lower(r)), 0) FROM unnest(v_pg_ids) AS r)
+            );
+        END IF;
 
         IF v_valid_range = '{}'::datemultirange THEN
             SELECT COALESCE(range_agg(vr)::datemultirange, '{}'::datemultirange)
@@ -120,8 +144,7 @@ BEGIN
 
         v_payload := jsonb_build_object(
             'valid_from', v_valid_from,
-            'valid_until', v_valid_until,
-            'full_refresh', v_full_refresh
+            'valid_until', v_valid_until
         );
 
         v_phase1_id := worker.spawn(

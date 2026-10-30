@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-10-30T08:48:00Z'
-updated_date: '2026-10-30T11:49:00Z'
+updated_date: '2026-10-30T11:54:00Z'
 labels:
   - derive
   - facets
@@ -81,4 +81,6 @@ CI: Fast Tests run 41040045995 success (pg_regress fast suite) at 8afd44ea9, whi
 Upgrade-path verification on real demo data: restored dbdumps/demo_20261030_093705.pg_dump (broken state) into scratch DB statbus_538_verify. Before: enterprise region 04 facet 179 vs truth 91, 721 stale staging rows (tmp/538-verify-before.log). Applied migration 20261030085731 .up.sql as the upgrade would (it re-queued the full collect_changes), ran worker.process_tasks(analytics), no TRUNCATE by caller. After: every region facet == truth (04: 91/91), 0 stale staging rows, 0 failed tasks (tmp/538-verify-after.log). All unit types: facet == countable truth (est 8, lu 113, ent 113); history_facet countable_count 2026 equals the same (exists_count 10/144/144 equals all-units-now). 0 stale history partitions. reset(true,'data') then leaves facet staging empty (tmp/538-verify-all.log). Correction: dashboard 113 was the correct countable count; my earlier '142' was wrong (31 units are not used_for_counting). Scratch DBs dropped.
 
 Demo re-check 10:36: the drilldown RPC statistical_unit_facet_drilldown(enterprise, current_date) returns 02:4, 04:91, 08:8, 09:2, 11:6 (tmp/demo-drilldown-rpc.log), previously 8/179/16/4/11. Facet==truth per region, 0 stale staging rows, 0 stale history partitions, history countable 2026 = 113/113/8. Demo UI not viewed (login required in agent browser).
+
+Phase 2 progress 11:55 (uncommitted in working tree): migration 20261030085731 up/down rewritten (enqueue_derive_statistical_unit_all, NULL ids + -inf..inf convention, no full_refresh, crash recovery calls the function, full mode drains base_change_log); redone on seed via ./sb migrate redo --target seed, template rebuilt with ./dev.sh create-test-template. Tests 355 and 346 updated, pass, expected accepted. doc/migration-call-tree-prohibition.md updated. Remaining: fast suite (bg 231083rci4, log tmp/test-538b-fast.log), doc/db regen, demo-dump verification, commit, CI, Done.
 <!-- SECTION:NOTES:END -->

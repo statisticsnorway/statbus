@@ -26,11 +26,12 @@ BEGIN
     SELECT array_agg(dirty_hash_slot ORDER BY dirty_hash_slot) INTO v_dirty_hash_slots
     FROM public.statistical_unit_facet_dirty_hash_slots;
 
-    -- Full rebuild when collect_changes requested a full refresh
-    -- (STATBUS-538), or when no per-slot rows exist yet (fresh install).
-    -- A full refresh drops every per-slot row first, so slots and periods
-    -- without units do not survive into the reduce.
-    IF COALESCE((payload->>'full_refresh')::boolean, false) THEN
+    -- Full rebuild when the request covers all time, valid_from = -infinity
+    -- and valid_until = infinity (STATBUS-538, see
+    -- worker.enqueue_derive_statistical_unit_all), or when no per-slot rows
+    -- exist yet (fresh install). A full rebuild drops every per-slot row
+    -- first, so slots and periods without units do not survive the reduce.
+    IF v_valid_from = '-infinity'::date AND v_valid_until = 'infinity'::date THEN
         DELETE FROM public.statistical_history WHERE hash_partition IS NOT NULL;
         v_dirty_hash_slots := NULL;
     ELSIF NOT EXISTS (SELECT 1 FROM public.statistical_history WHERE hash_partition IS NOT NULL LIMIT 1) THEN

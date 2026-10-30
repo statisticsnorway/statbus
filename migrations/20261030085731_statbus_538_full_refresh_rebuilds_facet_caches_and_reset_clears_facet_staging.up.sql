@@ -1,5 +1,6 @@
--- Migration 20261030085731: STATBUS-538 a full refresh rebuilds the report
--- caches; reset() clears statistical_unit_facet_staging.
+-- Migration 20261030085731: STATBUS-538 a full derive rebuilds the report
+-- caches; reset() clears statistical_unit_facet_staging; one scheduling
+-- function for "derive everything".
 --
 -- statistical_unit_facet_staging, statistical_history (per-slot rows) and
 -- statistical_history_facet_partitions are per-hash_slot caches reduced into
@@ -7,12 +8,18 @@
 -- paths left slots whose units no longer exist in the caches, so the reduce
 -- kept counting them (demo 2026-10-30: 179 enterprises in a region with 91):
 --   * reset() truncated the units but not statistical_unit_facet_staging.
---   * collect_changes with all *_id_ranges NULL (all units, all time) only
---     dirtied the slots of existing units; each derive went full only when
---     its cache was empty, which callers forced with TRUNCATE.
--- Now collect_changes passes full_refresh to the report derives, which then
--- drop and rebuild their whole cache. reset() also clears facet staging.
--- Finally a full refresh is scheduled to repair caches on existing installs.
+--   * collect_changes with all *_id_ranges NULL expanded them into the ids of
+--     existing units and narrowed time to their span, so only slots of
+--     existing units were recomputed. Callers forced a full rebuild with
+--     TRUNCATE.
+--
+-- One convention for "everything", carried through unchanged so each step
+-- decides from its own arguments (no flag, single source of truth):
+--   * ids:  NULL *_id_ranges = all units -> derive_statistical_unit full branch
+--   * time: valid_from = -infinity, valid_until = infinity = all time -> the
+--           report derives drop and rebuild their whole per-slot cache.
+-- worker.enqueue_derive_statistical_unit_all() schedules exactly this; it is
+-- the one call for migrations, crash recovery and operators.
 BEGIN;
 
 CREATE OR REPLACE PROCEDURE worker.command_collect_changes(IN p_payload jsonb, INOUT p_info jsonb DEFAULT NULL::jsonb)
@@ -33,7 +40,7 @@ DECLARE
     v_phase2_id BIGINT;
     v_payload JSONB;
     v_direct_mode BOOLEAN;
-    v_full_refresh BOOLEAN;
+    v_all_units BOOLEAN;
 BEGIN
     v_direct_mode :=
         p_payload ? 'establishment_id_ranges'
@@ -41,22 +48,36 @@ BEGIN
         OR p_payload ? 'enterprise_id_ranges'
         OR p_payload ? 'power_group_id_ranges';
 
-    -- STATBUS-538: a full refresh is the direct-mode payload naming every
-    -- unit kind with NULL (all ids) and no valid_ranges (all time). It is
-    -- passed on as payload.full_refresh so each report derive rebuilds its
-    -- whole per-slot cache, including slots whose units no longer exist.
-    v_full_refresh := v_direct_mode
+    -- STATBUS-538: "everything" is one convention, carried through unchanged
+    -- so every step decides from its own arguments: NULL for all four
+    -- *_id_ranges means all units (worker.derive_statistical_unit's full
+    -- branch), and valid_from = -infinity, valid_until = infinity means all
+    -- time (the report derives then rebuild their whole per-slot cache).
+    -- worker.enqueue_derive_statistical_unit_all() schedules exactly this.
+    v_all_units := v_direct_mode
         AND NULLIF(p_payload->>'establishment_id_ranges', '') IS NULL
         AND NULLIF(p_payload->>'legal_unit_id_ranges', '') IS NULL
         AND NULLIF(p_payload->>'enterprise_id_ranges', '') IS NULL
-        AND NULLIF(p_payload->>'power_group_id_ranges', '') IS NULL
-        AND NULLIF(p_payload->>'valid_ranges', '') IS NULL;
+        AND NULLIF(p_payload->>'power_group_id_ranges', '') IS NULL;
 
-    IF v_direct_mode THEN
+    IF v_all_units THEN
+        -- All units: ids stay NULL, time defaults to all time. The full
+        -- derive covers every logged change, so the log is drained too.
+        v_est_ids := NULL;
+        v_lu_ids := NULL;
+        v_ent_ids := NULL;
+        v_pg_ids := NULL;
+        v_valid_range := COALESCE(
+            NULLIF(p_payload->>'valid_ranges', '')::datemultirange,
+            '{[-infinity,infinity)}'::datemultirange
+        );
+        DELETE FROM worker.base_change_log;
+        UPDATE worker.base_change_log_has_pending SET has_pending = FALSE;
+    ELSIF v_direct_mode THEN
         -- Caller supplied explicit ranges. A NULL / JSON-null value for a
         -- given key means "all ids of that kind" — synthesise from base
-        -- tables. The established NULL-means-everything convention
-        -- (cf. worker.derive_statistical_unit.v_is_full_refresh).
+        -- tables, because worker.derive_statistical_unit reads a NULL kind
+        -- next to explicit kinds as none.
         v_est_ids := COALESCE(
             NULLIF(p_payload->>'establishment_id_ranges', '')::int4multirange,
             COALESCE(
@@ -103,7 +124,8 @@ BEGIN
         UPDATE worker.base_change_log_has_pending SET has_pending = FALSE;
     END IF;
 
-    IF v_est_ids != '{}'::int4multirange
+    IF v_all_units
+       OR v_est_ids != '{}'::int4multirange
        OR v_lu_ids != '{}'::int4multirange
        OR v_ent_ids != '{}'::int4multirange
        OR v_pg_ids != '{}'::int4multirange THEN
@@ -114,12 +136,21 @@ BEGIN
         WHERE state = 'processing' AND worker_pid = pg_backend_pid()
         ORDER BY id DESC LIMIT 1;
 
-        p_info := jsonb_build_object(
-            'affected_establishment_count', (SELECT COALESCE(sum(upper(r) - lower(r)), 0) FROM unnest(v_est_ids) AS r),
-            'affected_legal_unit_count', (SELECT COALESCE(sum(upper(r) - lower(r)), 0) FROM unnest(v_lu_ids) AS r),
-            'affected_enterprise_count', (SELECT COALESCE(sum(upper(r) - lower(r)), 0) FROM unnest(v_ent_ids) AS r),
-            'affected_power_group_count', (SELECT COALESCE(sum(upper(r) - lower(r)), 0) FROM unnest(v_pg_ids) AS r)
-        );
+        IF v_all_units THEN
+            p_info := jsonb_build_object(
+                'affected_establishment_count', (SELECT count(*) FROM public.establishment),
+                'affected_legal_unit_count', (SELECT count(*) FROM public.legal_unit),
+                'affected_enterprise_count', (SELECT count(*) FROM public.enterprise),
+                'affected_power_group_count', (SELECT count(*) FROM public.power_group)
+            );
+        ELSE
+            p_info := jsonb_build_object(
+                'affected_establishment_count', (SELECT COALESCE(sum(upper(r) - lower(r)), 0) FROM unnest(v_est_ids) AS r),
+                'affected_legal_unit_count', (SELECT COALESCE(sum(upper(r) - lower(r)), 0) FROM unnest(v_lu_ids) AS r),
+                'affected_enterprise_count', (SELECT COALESCE(sum(upper(r) - lower(r)), 0) FROM unnest(v_ent_ids) AS r),
+                'affected_power_group_count', (SELECT COALESCE(sum(upper(r) - lower(r)), 0) FROM unnest(v_pg_ids) AS r)
+            );
+        END IF;
 
         IF v_valid_range = '{}'::datemultirange THEN
             SELECT COALESCE(range_agg(vr)::datemultirange, '{}'::datemultirange)
@@ -136,8 +167,7 @@ BEGIN
 
         v_payload := jsonb_build_object(
             'valid_from', v_valid_from,
-            'valid_until', v_valid_until,
-            'full_refresh', v_full_refresh
+            'valid_until', v_valid_until
         );
 
         v_phase1_id := worker.spawn(
@@ -268,12 +298,13 @@ BEGIN
     SELECT array_agg(dirty_hash_slot ORDER BY dirty_hash_slot) INTO v_dirty_hash_slots
     FROM public.statistical_unit_facet_dirty_hash_slots;
 
-    -- Full rebuild when collect_changes requested a full refresh
-    -- (STATBUS-538), or when the staging cache is empty (fresh install,
-    -- unclean shutdown of the UNLOGGED table). A full refresh drops the whole
-    -- cache first: slots whose units no longer exist are never dirty and
-    -- would otherwise keep counting in the reduce.
-    IF COALESCE((payload->>'full_refresh')::boolean, false) THEN
+    -- Full rebuild when the request covers all time, valid_from = -infinity
+    -- and valid_until = infinity (STATBUS-538, see
+    -- worker.enqueue_derive_statistical_unit_all), or when the staging cache
+    -- is empty (fresh install, unclean shutdown of the UNLOGGED table). A
+    -- full rebuild drops the whole cache first: slots whose units no longer
+    -- exist are never dirty and would otherwise keep counting in the reduce.
+    IF v_valid_from = '-infinity'::date AND v_valid_until = 'infinity'::date THEN
         DELETE FROM public.statistical_unit_facet_staging;
         v_dirty_hash_slots := NULL;
     ELSIF NOT EXISTS (SELECT 1 FROM public.statistical_unit_facet_staging LIMIT 1) THEN
@@ -346,11 +377,12 @@ BEGIN
     SELECT array_agg(dirty_hash_slot ORDER BY dirty_hash_slot) INTO v_dirty_hash_slots
     FROM public.statistical_unit_facet_dirty_hash_slots;
 
-    -- Full rebuild when collect_changes requested a full refresh
-    -- (STATBUS-538), or when no per-slot rows exist yet (fresh install).
-    -- A full refresh drops every per-slot row first, so slots and periods
-    -- without units do not survive into the reduce.
-    IF COALESCE((payload->>'full_refresh')::boolean, false) THEN
+    -- Full rebuild when the request covers all time, valid_from = -infinity
+    -- and valid_until = infinity (STATBUS-538, see
+    -- worker.enqueue_derive_statistical_unit_all), or when no per-slot rows
+    -- exist yet (fresh install). A full rebuild drops every per-slot row
+    -- first, so slots and periods without units do not survive the reduce.
+    IF v_valid_from = '-infinity'::date AND v_valid_until = 'infinity'::date THEN
         DELETE FROM public.statistical_history WHERE hash_partition IS NOT NULL;
         v_dirty_hash_slots := NULL;
     ELSIF NOT EXISTS (SELECT 1 FROM public.statistical_history WHERE hash_partition IS NOT NULL LIMIT 1) THEN
@@ -440,11 +472,13 @@ BEGIN
     SELECT array_agg(dirty_hash_slot ORDER BY dirty_hash_slot) INTO v_dirty_hash_slots
     FROM public.statistical_unit_facet_dirty_hash_slots;
 
-    -- Full rebuild when collect_changes requested a full refresh
-    -- (STATBUS-538), or when the per-slot cache is empty (fresh install).
-    -- A full refresh drops the whole cache first, so slots and periods
-    -- without units do not survive into the reduce.
-    IF COALESCE((payload->>'full_refresh')::boolean, false) THEN
+    -- Full rebuild when the request covers all time, valid_from = -infinity
+    -- and valid_until = infinity (STATBUS-538, see
+    -- worker.enqueue_derive_statistical_unit_all), or when the per-slot cache
+    -- is empty (fresh install). A full rebuild drops the whole cache first,
+    -- so slots and periods without units do not survive into the reduce.
+    IF (payload->>'valid_from')::date = '-infinity'::date
+       AND (payload->>'valid_until')::date = 'infinity'::date THEN
         DELETE FROM public.statistical_history_facet_partitions;
         v_dirty_hash_slots := NULL;
     ELSIF NOT EXISTS (SELECT 1 FROM public.statistical_history_facet_partitions LIMIT 1) THEN
@@ -959,32 +993,117 @@ END;
 $function$
 ;
 
-GRANT TRUNCATE ON public.statistical_unit_facet_staging TO admin_user;
-
--- Repair caches left stale by earlier resets: one full refresh through the
--- worker pipeline (doc/migration-call-tree-prohibition.md).
-DO $statbus_538_full_refresh$
+CREATE OR REPLACE FUNCTION worker.enqueue_derive_statistical_unit_all()
+ RETURNS bigint
+ LANGUAGE plpgsql
+AS $function$
+DECLARE
+    v_task_id bigint;
 BEGIN
-    IF EXISTS (
+    -- An empty database has nothing to derive. Scheduling nothing keeps the
+    -- seed and test template, built by migrating an empty database, free of a
+    -- pending task.
+    IF NOT EXISTS (
         SELECT 1 FROM public.establishment
         UNION ALL SELECT 1 FROM public.legal_unit
         UNION ALL SELECT 1 FROM public.enterprise
         UNION ALL SELECT 1 FROM public.power_group
         LIMIT 1
     ) THEN
-        PERFORM worker.spawn(
-            p_command => 'collect_changes',
-            p_payload => jsonb_build_object(
-                'establishment_id_ranges', NULL,
-                'legal_unit_id_ranges',    NULL,
-                'enterprise_id_ranges',    NULL,
-                'power_group_id_ranges',   NULL,
-                'valid_ranges',            NULL
-            )
-        );
-        PERFORM pg_notify('worker_tasks', 'analytics');
+        RETURN NULL;
     END IF;
+
+    -- One pending collect_changes is allowed (idx_tasks_collect_changes_dedup).
+    -- A pending drain-mode task is upgraded to the full request: the full
+    -- derive covers every change the log holds.
+    INSERT INTO worker.tasks (command, payload)
+    VALUES ('collect_changes', jsonb_build_object(
+        'command',                 'collect_changes',
+        'establishment_id_ranges', NULL,
+        'legal_unit_id_ranges',    NULL,
+        'enterprise_id_ranges',    NULL,
+        'power_group_id_ranges',   NULL,
+        'valid_ranges',            '{[-infinity,infinity)}'
+    ))
+    ON CONFLICT (command)
+    WHERE command = 'collect_changes' AND state = 'pending'::worker.task_state
+    DO UPDATE SET payload = EXCLUDED.payload
+    RETURNING id INTO v_task_id;
+
+    PERFORM pg_notify('worker_tasks', 'analytics');
+    RETURN v_task_id;
 END;
-$statbus_538_full_refresh$;
+$function$
+;
+
+CREATE OR REPLACE FUNCTION worker.reset_abandoned_processing_tasks()
+ RETURNS integer
+ LANGUAGE plpgsql
+AS $function$
+DECLARE
+    v_reset_count int := 0;
+    v_task RECORD;
+    v_stale_pid INT;
+    v_has_pending BOOLEAN;
+    v_change_log_count BIGINT;
+BEGIN
+    FOR v_stale_pid IN
+        SELECT pid FROM pg_stat_activity
+        WHERE application_name = 'worker'
+          AND pid <> pg_backend_pid()
+          AND datname = current_database()
+    LOOP
+        RAISE LOG 'Terminating stale worker PID %', v_stale_pid;
+        PERFORM pg_terminate_backend(v_stale_pid);
+    END LOOP;
+
+    FOR v_task IN
+        SELECT id FROM worker.tasks WHERE state = 'processing'::worker.task_state FOR UPDATE
+    LOOP
+        UPDATE worker.tasks
+        SET state = 'interrupted'::worker.task_state,
+            worker_pid = NULL,
+            process_start_at = NULL,
+            error = NULL,
+            process_duration_ms = NULL
+        WHERE id = v_task.id;
+
+        v_reset_count := v_reset_count + 1;
+    END LOOP;
+
+    SELECT has_pending INTO v_has_pending
+    FROM worker.base_change_log_has_pending;
+
+    IF v_has_pending THEN
+        SELECT count(*) INTO v_change_log_count
+        FROM worker.base_change_log;
+
+        IF v_change_log_count = 0 THEN
+            IF NOT EXISTS (
+                SELECT 1 FROM worker.tasks
+                WHERE command = 'collect_changes'
+                  AND state IN ('pending', 'interrupted')
+            ) THEN
+                RAISE LOG 'Crash recovery: base_change_log_has_pending=TRUE but base_change_log is empty. Spawning full refresh.';
+                -- The changes lost with the crash are unknown: derive all
+                -- units over all time.
+                PERFORM worker.enqueue_derive_statistical_unit_all();
+            END IF;
+            UPDATE worker.base_change_log_has_pending SET has_pending = FALSE;
+        END IF;
+    END IF;
+
+    RETURN v_reset_count;
+END;
+$function$
+;
+
+COMMENT ON FUNCTION worker.enqueue_derive_statistical_unit_all() IS
+'Schedules a derive of all units over all time: one collect_changes with every *_id_ranges NULL (all units) and valid_ranges {[-infinity,infinity)} (all time). The derive rebuilds statistical_unit and drops and rebuilds every report cache, so stale rows from any past defect are removed. Returns the task id, or NULL when establishment, legal_unit, enterprise and power_group are all empty (nothing to derive, and the seed stays free of pending tasks). Upgrades a pending collect_changes to this full request. Use it from a migration that must recalculate derived data: `SELECT worker.enqueue_derive_statistical_unit_all();` It only schedules: the worker runs the derive after the migration commits (doc/migration-call-tree-prohibition.md). For a scoped derive, spawn collect_changes with explicit *_id_ranges and valid_ranges.';
+
+GRANT TRUNCATE ON public.statistical_unit_facet_staging TO admin_user;
+
+-- Repair caches left stale by earlier resets.
+SELECT worker.enqueue_derive_statistical_unit_all();
 
 END;

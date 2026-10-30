@@ -128,20 +128,11 @@ SELECT
     (SELECT count(*) FROM public.data_source_used)          AS data_source_used_count;
 
 -- ============================================================
--- PHASE 3: Rebuild — apply rc.48 direct-mode full refresh
+-- PHASE 3: Rebuild — the full derive a migration schedules
 -- ============================================================
 
-\echo "Apply rc.48 rebuild: spawn collect_changes with all-NULL id_ranges (direct-mode full refresh)"
-SELECT worker.spawn(
-    p_command => 'collect_changes',
-    p_payload => jsonb_build_object(
-        'establishment_id_ranges', NULL,
-        'legal_unit_id_ranges',    NULL,
-        'enterprise_id_ranges',    NULL,
-        'power_group_id_ranges',   NULL,
-        'valid_ranges',            NULL
-    )
-) IS NOT NULL AS task_queued;
+\echo "Apply the rebuild a migration schedules: worker.enqueue_derive_statistical_unit_all()"
+SELECT worker.enqueue_derive_statistical_unit_all() IS NOT NULL AS task_queued;
 
 \echo "Run worker processing for rebuild"
 CALL worker.process_tasks(p_queue => 'analytics');

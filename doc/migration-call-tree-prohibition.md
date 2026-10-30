@@ -4,7 +4,7 @@
 
 **Migrations MUST NOT call any function or worker-task command in the `collect_changes` transitive closure directly.** Anything downstream of `collect_changes` is worker-pipeline-only.
 
-The only correct way to schedule work in this tree from a migration is the EXISTS-guarded `worker.spawn('collect_changes', ...) + pg_notify` block (the canonical "trigger the base change, let the worker flush it" pattern). The EXISTS guard isn't optional — it's what keeps the seed/test_template fixtures clean (empty base tables → no spawn → no phantom task in `pg_dump`).
+The only correct way to schedule work in this tree from a migration is `SELECT worker.enqueue_derive_statistical_unit_all();` (STATBUS-538). It schedules a derive of all units over all time and lets the worker run it after the migration commits. It does nothing on an empty database, which keeps the seed/test_template fixtures free of a pending task.
 
 ## Why
 
@@ -56,42 +56,24 @@ These are the "machine room" functions that the handlers dispatch to. Calling an
 
 ## The required pattern (the solution)
 
-Inside a migration's `BEGIN; ... COMMIT;` block, use this exact shape to trigger a full rebuild:
+Inside a migration's `BEGIN; ... COMMIT;` block:
 
 ```sql
-DO $name$
-BEGIN
-    IF EXISTS (
-        SELECT 1 FROM public.establishment
-        UNION ALL SELECT 1 FROM public.legal_unit
-        UNION ALL SELECT 1 FROM public.enterprise
-        UNION ALL SELECT 1 FROM public.power_group
-        LIMIT 1
-    ) THEN
-        PERFORM worker.spawn(
-            p_command => 'collect_changes',
-            p_payload => jsonb_build_object(
-                'establishment_id_ranges', NULL,
-                'legal_unit_id_ranges',    NULL,
-                'enterprise_id_ranges',    NULL,
-                'power_group_id_ranges',   NULL,
-                'valid_ranges',            NULL
-            )
-        );
-        PERFORM pg_notify('worker_tasks', 'analytics');
-    END IF;
-END
-$name$;
+-- Rebuild all derived data after this migration commits; no-op on an empty database.
+SELECT worker.enqueue_derive_statistical_unit_all();
 ```
 
-Why each element is load-bearing:
-- **EXISTS guard on the four base tables** — fresh seed/test_template fixtures have empty base tables → spawn skipped → seed dump captures zero pending tasks → no test baseline drift.
-- **`collect_changes` with NULL id-ranges** — the handler synthesises full id-sets from base tables at spawn-time → drives a chunked rebuild through the existing worker pipeline → feasible at production scale.
-- **`pg_notify('worker_tasks', 'analytics')`** — wakes the worker daemon immediately instead of waiting for the 30s idle tick.
-- **Migration commits fast** — schema + data state stay atomic; the rebuild runs asynchronously post-commit via the worker.
+What the function does, and why each part matters:
+- **Empty-database guard.** When establishment, legal_unit, enterprise and power_group are all empty it schedules nothing and returns NULL. The seed and test template are built by migrating an empty database, so their dumps hold no pending task and test baselines do not drift. An empty database has nothing to derive.
+- **One `collect_changes` meaning "everything".** Every `*_id_ranges` is NULL (all units) and `valid_ranges` is `{[-infinity,infinity)}` (all time). `collect_changes` passes both on unchanged, and each step decides from its own arguments: `derive_statistical_unit` takes its full branch on NULL ids, and the report derives drop and rebuild their whole per-slot cache on unbounded time. No caller TRUNCATE is needed.
+- **Upgrades a pending task.** Only one pending `collect_changes` may exist. If a trigger left a drain-mode one, it is replaced by the full request, which covers every logged change.
+- **Scheduling only.** The task row and `pg_notify('worker_tasks', 'analytics')` commit atomically with the migration (NOTIFY is delivered at commit). During an upgrade the worker is stopped while migrations run, and it picks pending tasks up at startup. The derive runs chunked and in parallel in the worker, so the migration commits in milliseconds.
+
+For a scoped derive, spawn `collect_changes` with explicit `*_id_ranges` and `valid_ranges`.
 
 ## Precedents
 
+- **`migrations/20261030085731_statbus_538_full_refresh_rebuilds_facet_caches_and_reset_clears_facet_staging.up.sql`** — introduces `worker.enqueue_derive_statistical_unit_all()`. Earlier migrations below inline the same guard and spawn.
 - **`migrations/20260520204526_fix_derive_statistical_unit_orphan_dirty_hash_slots.up.sql:297-372`** — full inline documentation of the pattern + its constraints.
 - **`migrations/20260422000000_rc42_post_upgrade_rebuild.up.sql`** (BLOCK F) — first occurrence.
 

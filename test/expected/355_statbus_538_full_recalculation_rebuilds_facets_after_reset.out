@@ -89,6 +89,15 @@ SELECT (SELECT count(*) FROM public.legal_unit) AS legal_units,
            0 |                 0
 (1 row)
 
+\echo "Empty database: enqueue_derive_statistical_unit_all schedules nothing"
+"Empty database: enqueue_derive_statistical_unit_all schedules nothing"
+SELECT worker.enqueue_derive_statistical_unit_all() AS task_id,
+       (SELECT count(*) FROM worker.tasks WHERE command = 'collect_changes' AND state = 'pending') AS pending_collect_changes;
+ task_id | pending_collect_changes 
+---------+-------------------------
+         |                       0
+(1 row)
+
 \echo "=== 3. Second import: new ids, other hash slots ==="
 "=== 3. Second import: new ids, other hash slots ==="
 INSERT INTO public.import_job (definition_id, slug, description, edit_comment, review)
@@ -128,21 +137,30 @@ WHERE NOT EXISTS (SELECT 1 FROM public.statistical_unit AS su WHERE su.hash_slot
 ON CONFLICT DO NOTHING;
 RESET ROLE;
 CALL test.set_user_from_email('test.admin@statbus.org');
-\echo "=== 6. Full recalculation (all ids NULL, all time), no TRUNCATE ==="
-"=== 6. Full recalculation (all ids NULL, all time), no TRUNCATE ==="
-SELECT worker.spawn(
-    p_command => 'collect_changes',
-    p_payload => jsonb_build_object(
-        'establishment_id_ranges', NULL,
-        'legal_unit_id_ranges',    NULL,
-        'enterprise_id_ranges',    NULL,
-        'power_group_id_ranges',   NULL,
-        'valid_ranges',            NULL
-    )
-) IS NOT NULL AS task_queued;
+\echo "=== 6. Full recalculation via worker.enqueue_derive_statistical_unit_all(), no TRUNCATE ==="
+"=== 6. Full recalculation via worker.enqueue_derive_statistical_unit_all(), no TRUNCATE ==="
+\echo "A drain-mode collect_changes is already pending, as a change trigger leaves it."
+"A drain-mode collect_changes is already pending, as a change trigger leaves it."
+SET LOCAL ROLE postgres;
+INSERT INTO worker.tasks (command, payload)
+VALUES ('collect_changes', '{"command":"collect_changes"}'::jsonb);
+RESET ROLE;
+CALL test.set_user_from_email('test.admin@statbus.org');
+SELECT worker.enqueue_derive_statistical_unit_all() IS NOT NULL AS task_queued;
  task_queued 
 -------------
  t
+(1 row)
+
+\echo "The pending task is upgraded to the full request (one pending task, all units, all time)"
+"The pending task is upgraded to the full request (one pending task, all units, all time)"
+SELECT count(*) AS pending_collect_changes,
+       bool_and(payload ? 'legal_unit_id_ranges' AND payload->'legal_unit_id_ranges' = 'null'::jsonb) AS all_units,
+       bool_and(payload->>'valid_ranges' = '{[-infinity,infinity)}') AS all_time
+FROM worker.tasks WHERE command = 'collect_changes' AND state = 'pending';
+ pending_collect_changes | all_units | all_time 
+-------------------------+-----------+----------
+                       1 | t         | t
 (1 row)
 
 \o /dev/null

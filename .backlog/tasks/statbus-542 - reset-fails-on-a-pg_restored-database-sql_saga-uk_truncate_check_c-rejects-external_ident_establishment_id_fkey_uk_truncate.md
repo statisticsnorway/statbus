@@ -3,10 +3,10 @@ id: STATBUS-542
 title: >-
   reset() fails on a pg_restored database: sql_saga uk_truncate_check_c rejects
   external_ident_establishment_id_fkey_uk_truncate
-status: To Do
+status: In Progress
 assignee: []
 created_date: '2026-10-30T11:57:00Z'
-updated_date: '2026-10-30T11:57:00Z'
+updated_date: '2026-10-30T11:59:00Z'
 labels:
   - sql_saga
   - reset

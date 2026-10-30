@@ -61,6 +61,10 @@ SELECT public.reset(true, 'data');
 SELECT (SELECT count(*) FROM public.legal_unit) AS legal_units,
        (SELECT count(*) FROM public.statistical_unit) AS statistical_units;
 
+\echo "Empty database: enqueue_derive_statistical_unit_all schedules nothing"
+SELECT worker.enqueue_derive_statistical_unit_all() AS task_id,
+       (SELECT count(*) FROM worker.tasks WHERE command = 'collect_changes' AND state = 'pending') AS pending_collect_changes;
+
 \echo "=== 3. Second import: new ids, other hash slots ==="
 INSERT INTO public.import_job (definition_id, slug, description, edit_comment, review)
 SELECT id, 'import_355_second', 'Test 355 second load', 'test 355', false
@@ -89,17 +93,21 @@ ON CONFLICT DO NOTHING;
 RESET ROLE;
 CALL test.set_user_from_email('test.admin@statbus.org');
 
-\echo "=== 6. Full recalculation (all ids NULL, all time), no TRUNCATE ==="
-SELECT worker.spawn(
-    p_command => 'collect_changes',
-    p_payload => jsonb_build_object(
-        'establishment_id_ranges', NULL,
-        'legal_unit_id_ranges',    NULL,
-        'enterprise_id_ranges',    NULL,
-        'power_group_id_ranges',   NULL,
-        'valid_ranges',            NULL
-    )
-) IS NOT NULL AS task_queued;
+\echo "=== 6. Full recalculation via worker.enqueue_derive_statistical_unit_all(), no TRUNCATE ==="
+\echo "A drain-mode collect_changes is already pending, as a change trigger leaves it."
+SET LOCAL ROLE postgres;
+INSERT INTO worker.tasks (command, payload)
+VALUES ('collect_changes', '{"command":"collect_changes"}'::jsonb);
+RESET ROLE;
+CALL test.set_user_from_email('test.admin@statbus.org');
+
+SELECT worker.enqueue_derive_statistical_unit_all() IS NOT NULL AS task_queued;
+
+\echo "The pending task is upgraded to the full request (one pending task, all units, all time)"
+SELECT count(*) AS pending_collect_changes,
+       bool_and(payload ? 'legal_unit_id_ranges' AND payload->'legal_unit_id_ranges' = 'null'::jsonb) AS all_units,
+       bool_and(payload->>'valid_ranges' = '{[-infinity,infinity)}') AS all_time
+FROM worker.tasks WHERE command = 'collect_changes' AND state = 'pending';
 \o /dev/null
 CALL worker.process_tasks(p_queue => 'analytics');
 \o
