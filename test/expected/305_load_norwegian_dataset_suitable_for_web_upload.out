@@ -3137,6 +3137,21 @@ SELECT
                  351 |                       351
 (1 row)
 
+-- The warning names the lifecycle cause: employees is a disabled statistical variable.
+SELECT DISTINCT warnings->>'employees_raw' AS row_warning
+FROM public.import_es_clone_data WHERE warnings ? 'employees_raw';
+                     row_warning                     
+-----------------------------------------------------
+ Ignored: statistical variable employees is disabled
+(1 row)
+
+SELECT warning->>'employees_raw' AS job_column_warning_text
+FROM public.import_job WHERE slug = 'import_es_clone';
+                     job_column_warning_text                      
+------------------------------------------------------------------
+ Ignored: statistical variable employees is disabled (351 values)
+(1 row)
+
 \echo "Checking import job statuses for cloned jobs"
 "Checking import job statuses for cloned jobs"
 SELECT ij.slug,

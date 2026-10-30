@@ -229,6 +229,11 @@ SELECT
 SELECT
     (SELECT count(*) FROM public.import_es_clone_data WHERE NULLIF(trim(employees_raw), '') IS NOT NULL) AS rows_with_employees,
     (SELECT count(*) FROM public.import_es_clone_data WHERE warnings ? 'employees_raw') AS rows_warned_employees_raw;
+-- The warning names the lifecycle cause: employees is a disabled statistical variable.
+SELECT DISTINCT warnings->>'employees_raw' AS row_warning
+FROM public.import_es_clone_data WHERE warnings ? 'employees_raw';
+SELECT warning->>'employees_raw' AS job_column_warning_text
+FROM public.import_job WHERE slug = 'import_es_clone';
 
 \echo "Checking import job statuses for cloned jobs"
 SELECT ij.slug,

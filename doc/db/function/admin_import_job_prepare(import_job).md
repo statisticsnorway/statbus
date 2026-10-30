@@ -129,21 +129,44 @@ BEGIN
 
         -- A warning on every row with a value in an ignored column, keyed by
         -- the data column like other row warnings, and one warning per ignored
-        -- column on the job, keyed the same way.
+        -- column on the job, keyed the same way. A column usually becomes
+        -- ignored through the lifecycle: its statistical variable or
+        -- identifier type was disabled after the file was made. The warning
+        -- names that cause, so the user sees a lifecycle change, not a fault.
         DECLARE
             v_ignored text;
+            v_column text;
+            v_reason text;
+            v_ident_code text;
             v_count bigint;
             v_column_warning jsonb := '{}'::jsonb;
         BEGIN
             FOREACH v_ignored IN ARRAY ignored_columns LOOP
+                v_column := left(v_ignored, -length('_raw'));
+                -- An identifier column is <code> or <prefix>_<code>, e.g.
+                -- tax_ident and legal_unit_tax_ident for the type tax_ident.
+                SELECT eit.code INTO v_ident_code
+                FROM public.external_ident_type AS eit
+                WHERE NOT eit.enabled
+                  AND v_column ~ ('(^|_)' || eit.code || '$')
+                ORDER BY length(eit.code) DESC
+                LIMIT 1;
+                v_reason := CASE
+                    WHEN EXISTS (SELECT 1 FROM public.stat_definition AS sd
+                                  WHERE sd.code = v_column AND NOT sd.enabled)
+                        THEN format('Ignored: statistical variable %s is disabled', v_column)
+                    WHEN v_ident_code IS NOT NULL
+                        THEN format('Ignored: identifier type %s is disabled', v_ident_code)
+                    ELSE 'Ignored: not in the import definition'
+                END;
                 EXECUTE format(
                     $$UPDATE public.%1$I SET warnings = COALESCE(warnings, '{}'::jsonb)
-                          || jsonb_build_object(%2$L, 'Ignored: not in the import definition')
+                          || jsonb_build_object(%2$L, %4$L)
                       WHERE NULLIF(trim(%3$I), '') IS NOT NULL$$,
-                    job.data_table_name, v_ignored, v_ignored);
+                    job.data_table_name, v_ignored, v_ignored, v_reason);
                 GET DIAGNOSTICS v_count = ROW_COUNT;
                 v_column_warning := v_column_warning || jsonb_build_object(v_ignored,
-                    format('Ignored: not in the import definition (%s values)', v_count));
+                    format('%s (%s values)', v_reason, v_count));
             END LOOP;
             IF v_column_warning <> '{}'::jsonb THEN
                 UPDATE public.import_job SET warning = v_column_warning WHERE id = job.id;
