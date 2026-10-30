@@ -150,16 +150,10 @@ export default function EditDefinitionPage() {
     }
   };
 
-  const handleAddColumn = async (columnName: string) => {
-    try {
-      await doAddSourceColumn({ definitionId: definition.id, columnName });
-      await refreshAll();
-    } catch (err) {
-      toast({
-        title: `Failed to add column: ${err instanceof Error ? err.message : String(err)}`,
-        variant: "destructive",
-      });
-    }
+  const handleAddColumn = async (columnName: string, ignored: boolean) => {
+    // Errors propagate: the step offers "Add as ignored" for unreadable names.
+    await doAddSourceColumn({ definitionId: definition.id, columnName, ignored });
+    await refreshAll();
   };
 
   const handleRemoveColumn = async (sourceColumnId: number) => {
@@ -213,6 +207,13 @@ export default function EditDefinitionPage() {
       {step === 1 && (
         <EditSourceColumnsStep
           sourceColumns={sourceColumns}
+          ignoredSourceColumnIds={
+            new Set(
+              mappings
+                .filter((m) => m.is_ignored && m.source_column_id !== null)
+                .map((m) => m.source_column_id as number),
+            )
+          }
           onAddColumn={handleAddColumn}
           onRemoveColumn={handleRemoveColumn}
           onBack={() => setStep(0)}

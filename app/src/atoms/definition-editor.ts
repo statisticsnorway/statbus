@@ -282,18 +282,41 @@ export const updateDefinitionAtom = atom(
   },
 );
 
-// Add a source column to an existing definition and auto-match
+// Add a source column after the existing ones. `ignored` accepts the column
+// on purpose without importing it; otherwise it maps to <name>_raw and the
+// database refuses a name no step of the definition reads.
 export const addSourceColumnAtom = atom(
   null,
   async (
     _get,
     _set,
-    params: { definitionId: number; columnName: string },
+    params: { definitionId: number; columnName: string; ignored?: boolean },
   ): Promise<void> => {
-    await callRpc("import_definition_create_source_and_mappings", {
+    await callRpc("import_definition_add_source_column", {
       p_definition_id: params.definitionId,
-      p_source_columns: [params.columnName],
+      p_column_name: params.columnName,
+      p_ignored: params.ignored ?? false,
     });
+  },
+);
+
+// Copy any definition, including a system one, into a new custom definition
+// that can then be edited. Returns the new definition's slug.
+export const copyDefinitionAtom = atom(
+  null,
+  async (
+    _get,
+    _set,
+    params: { definitionId: number; name: string },
+  ): Promise<string> => {
+    const res = await fetchWithAuthRefresh(`/rest/rpc/import_definition_copy`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ p_definition_id: params.definitionId, p_name: params.name }),
+    });
+    const body = await res.json().catch(() => ({ message: res.statusText }));
+    if (!res.ok) throw new Error(body.message || `Copy failed: ${res.status}`);
+    return (body as Tables<"import_definition">).slug;
   },
 );
 

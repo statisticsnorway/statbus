@@ -11,7 +11,9 @@ import type { Tables } from "@/lib/database.types";
 
 interface EditSourceColumnsStepProps {
   sourceColumns: Tables<"import_source_column">[];
-  onAddColumn: (columnName: string) => Promise<void>;
+  /** Source column ids the definition accepts but does not import. */
+  ignoredSourceColumnIds: Set<number>;
+  onAddColumn: (columnName: string, ignored: boolean) => Promise<void>;
   onRemoveColumn: (sourceColumnId: number) => Promise<void>;
   onBack: () => void;
   onNext: () => void;
@@ -19,6 +21,7 @@ interface EditSourceColumnsStepProps {
 
 export function EditSourceColumnsStep({
   sourceColumns,
+  ignoredSourceColumnIds,
   onAddColumn,
   onRemoveColumn,
   onBack,
@@ -28,6 +31,23 @@ export function EditSourceColumnsStep({
   const [isDragging, setIsDragging] = useState(false);
   const [addingColumn, setAddingColumn] = useState(false);
   const [removingId, setRemovingId] = useState<number | null>(null);
+  // A column no step reads: offer to accept it as ignored.
+  const [unreadable, setUnreadable] = useState<{ name: string; message: string } | null>(null);
+
+  // Adds a column; when the definition cannot read it, keeps it for the
+  // "Add as ignored" choice instead of failing silently.
+  const tryAdd = useCallback(
+    async (name: string): Promise<boolean> => {
+      try {
+        await onAddColumn(name, false);
+        return true;
+      } catch (err) {
+        setUnreadable({ name, message: err instanceof Error ? err.message : String(err) });
+        return false;
+      }
+    },
+    [onAddColumn],
+  );
 
   const extractHeaders = useCallback(
     async (file: File) => {
@@ -46,15 +66,17 @@ export function EditSourceColumnsStep({
         const headers = json.headers as string[];
         const existing = new Set(sourceColumns.map((c) => c.column_name));
         const newHeaders = headers.filter((h) => !existing.has(h));
+        let added = 0;
         for (const h of newHeaders) {
-          await onAddColumn(h);
+          if (await tryAdd(h)) added++;
+          else break;
         }
-        toast({ title: `Added ${newHeaders.length} new column(s) from file` });
+        toast({ title: `Added ${added} new column(s) from file` });
       } catch {
         toast({ title: "Failed to read file", variant: "destructive" });
       }
     },
-    [sourceColumns, onAddColumn],
+    [sourceColumns, tryAdd],
   );
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -79,8 +101,7 @@ export function EditSourceColumnsStep({
     }
     setAddingColumn(true);
     try {
-      await onAddColumn(name);
-      setManualInput("");
+      if (await tryAdd(name)) setManualInput("");
     } finally {
       setAddingColumn(false);
     }
@@ -153,6 +174,30 @@ export function EditSourceColumnsStep({
         </div>
       </div>
 
+      {unreadable && (
+        <div className="rounded border border-amber-300 bg-amber-50 p-3 text-sm text-amber-800 space-y-2">
+          <p>
+            <span className="font-mono">{unreadable.name}</span>: {unreadable.message}
+          </p>
+          <div className="flex gap-2">
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={async () => {
+                await onAddColumn(unreadable.name, true);
+                setUnreadable(null);
+                setManualInput("");
+              }}
+            >
+              Add as ignored
+            </Button>
+            <Button size="sm" variant="ghost" onClick={() => setUnreadable(null)}>
+              Cancel
+            </Button>
+          </div>
+        </div>
+      )}
+
       {sourceColumns.length > 0 && (
         <div className="space-y-2">
           <Label>Source columns ({sourceColumns.length})</Label>
@@ -162,7 +207,14 @@ export function EditSourceColumnsStep({
                 key={col.id}
                 className="flex items-center justify-between bg-muted/50 rounded px-3 py-1.5 text-sm"
               >
-                <span className="font-mono">{col.column_name}</span>
+                <span className="font-mono">
+                  {col.column_name}
+                  {ignoredSourceColumnIds.has(col.id) && (
+                    <span className="ml-2 rounded border border-amber-300 bg-amber-50 px-1.5 text-xs text-amber-700">
+                      Ignored
+                    </span>
+                  )}
+                </span>
                 <button
                   type="button"
                   onClick={() => handleRemove(col)}

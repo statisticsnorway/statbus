@@ -6,7 +6,7 @@ import { useSetAtom } from "jotai";
 import { useGuardedEffect } from "@/hooks/use-guarded-effect";
 import { usePermission } from "@/atoms/auth";
 import { createImportJobFromDefinitionAtom } from "@/atoms/import";
-import { deleteDefinitionAtom } from "@/atoms/definition-editor";
+import { deleteDefinitionAtom, copyDefinitionAtom } from "@/atoms/definition-editor";
 import { getBrowserRestClient } from "@/context/RestClientStore";
 import { getUploadPath } from "@/lib/import-mode-paths";
 import { Button } from "@/components/ui/button";
@@ -26,7 +26,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { Plus, Pencil, Trash2, Play } from "lucide-react";
+import { Plus, Pencil, Trash2, Play, Copy } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import type { Tables } from "@/lib/database.types";
 import { MODE_LABELS } from "./components/labels";
@@ -41,6 +41,8 @@ export default function DefinitionsPage() {
   const [loading, setLoading] = useState(true);
   const [creatingJobFor, setCreatingJobFor] = useState<number | null>(null);
   const [deletingId, setDeletingId] = useState<number | null>(null);
+  const [copyingId, setCopyingId] = useState<number | null>(null);
+  const doCopy = useSetAtom(copyDefinitionAtom);
 
   const loadDefinitions = async () => {
     try {
@@ -95,6 +97,24 @@ export default function DefinitionsPage() {
       });
     } finally {
       setCreatingJobFor(null);
+    }
+  };
+
+  // System definitions are read-only: copy one to adapt it to a changed file.
+  const handleCopy = async (def: Tables<"import_definition">) => {
+    const name = prompt("Name of the copy", `${def.name} (copy)`);
+    if (!name) return;
+    setCopyingId(def.id);
+    try {
+      const slug = await doCopy({ definitionId: def.id, name });
+      router.push(`/import/definitions/${slug}/edit`);
+    } catch (err) {
+      toast({
+        title: `Failed to copy: ${err instanceof Error ? err.message : String(err)}`,
+        variant: "destructive",
+      });
+    } finally {
+      setCopyingId(null);
     }
   };
 
@@ -202,6 +222,19 @@ export default function DefinitionsPage() {
                           )}
                         </Button>
                       )}
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleCopy(def)}
+                        disabled={copyingId === def.id}
+                        title="Copy to a new editable definition"
+                      >
+                        {copyingId === def.id ? (
+                          <Spinner className="h-4 w-4" />
+                        ) : (
+                          <Copy className="h-4 w-4" />
+                        )}
+                      </Button>
                       {def.custom && (
                         <>
                           <Button
