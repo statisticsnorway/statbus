@@ -84,6 +84,30 @@
     fflush()
     next
 }
+# Public DNS proof from install_visit.go publicDNSLines: the site's public
+# answer matched this server (also when the address is the box's NAT outbound
+# address, which still needs port forwarding), a mismatch warning, or the one
+# unavailable-resolver line. Addresses and names only; free text is fixed.
+/^Public DNS: [A-Za-z0-9.-]+ points to [0-9A-Fa-f:.]+ \(this server\)\.$/ {
+    print
+    fflush()
+    next
+}
+/^Make sure ports 443 and 80 on [0-9A-Fa-f:.]+ are forwarded to this server\.$/ {
+    print
+    fflush()
+    next
+}
+/^WARNING: Public DNS sends [A-Za-z0-9.-]+ to [0-9A-Fa-f:.]+, which is not this server \((this server is [0-9A-Fa-f:.]+(, reaching the internet as [0-9A-Fa-f:.]+)?|reaching the internet as [0-9A-Fa-f:.]+)\)\. Visitors will not reach StatBus until DNS or port forwarding sends 443 and 80 here\.$/ {
+    print
+    fflush()
+    next
+}
+/^Public DNS for [A-Za-z0-9.-]+ could not be checked: .+\.$/ {
+    print
+    fflush()
+    next
+}
 /^To check or repair this installation later, run:$/ {
     print
     fflush()
