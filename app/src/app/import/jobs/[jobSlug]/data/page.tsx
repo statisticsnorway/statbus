@@ -29,7 +29,17 @@ import {
 } from "@tanstack/react-table";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { ChevronRight, ThumbsUp, ThumbsDown } from "lucide-react";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import {
+  ChevronRight,
+  ThumbsUp,
+  ThumbsDown,
+  TriangleAlert,
+} from "lucide-react";
 import { ProgressDownloadButton } from "@/components/progress-download-button";
 import { useGuardedEffect } from "@/hooks/use-guarded-effect";
 import { useAtomValue, useSetAtom } from "jotai";
@@ -464,16 +474,47 @@ export default function ImportJobDataPage() {
         id: baseKey, // Default ID, will be overridden for filters
         header: ({ column }) =>
           columnWarning ? (
-            <div className="text-gray-400" title={columnWarning}>
+            <div className="flex items-center gap-1">
               <DataTableColumnHeader column={column} title={headerText} />
-              <div className="text-xs font-normal text-amber-600 whitespace-normal">
-                {columnWarning}
-              </div>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <button
+                    type="button"
+                    className="rounded p-0.5 text-amber-600 hover:bg-amber-100"
+                    aria-label={`Warning for ${headerText}`}
+                  >
+                    <TriangleAlert className="h-4 w-4 shrink-0" />
+                  </button>
+                </PopoverTrigger>
+                <PopoverContent className="w-72 border-amber-300 bg-amber-50 text-sm text-amber-800">
+                  {columnWarning}
+                </PopoverContent>
+              </Popover>
             </div>
           ) : (
             <DataTableColumnHeader column={column} title={headerText} />
           ),
         cell: ({ row }) => {
+          // An ignored column's values were not imported: show them in the
+          // warning style, with the column warning as tooltip.
+          if (columnWarning) {
+            const ignoredValue = row.original[rawKey as keyof ImportJobDataRow];
+            if (
+              ignoredValue === undefined ||
+              ignoredValue === null ||
+              ignoredValue === ""
+            ) {
+              return null;
+            }
+            return (
+              <span
+                className="inline-block rounded border border-amber-300 bg-amber-50 px-1.5 text-xs text-amber-700"
+                title={columnWarning}
+              >
+                {String(ignoredValue)}
+              </span>
+            );
+          }
           const plainValue = hasPlain
             ? row.original[baseKey as keyof ImportJobDataRow]
             : undefined;

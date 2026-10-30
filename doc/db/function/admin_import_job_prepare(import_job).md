@@ -138,13 +138,12 @@ BEGIN
             FOREACH v_ignored IN ARRAY ignored_columns LOOP
                 EXECUTE format(
                     $$UPDATE public.%1$I SET warnings = COALESCE(warnings, '{}'::jsonb)
-                          || jsonb_build_object(%2$L, 'Not imported: the import definition does not map this column')
+                          || jsonb_build_object(%2$L, 'Ignored: not in the import definition')
                       WHERE NULLIF(trim(%3$I), '') IS NOT NULL$$,
                     job.data_table_name, v_ignored, v_ignored);
                 GET DIAGNOSTICS v_count = ROW_COUNT;
                 v_column_warning := v_column_warning || jsonb_build_object(v_ignored,
-                    format('Column %s is not part of the import definition; %s values were not imported.',
-                           left(v_ignored, -length('_raw')), v_count));
+                    format('Ignored: not in the import definition (%s values)', v_count));
             END LOOP;
             IF v_column_warning <> '{}'::jsonb THEN
                 UPDATE public.import_job SET warning = v_column_warning WHERE id = job.id;

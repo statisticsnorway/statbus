@@ -2,6 +2,7 @@
 
 import React, { useState } from "react";
 import { cn } from "@/lib/utils";
+import { copyToClipboard } from "@/lib/copy-to-clipboard";
 import { ChevronDown, ChevronRight, Copy, Check } from "lucide-react";
 
 interface ErrorDisplayProps {
@@ -45,16 +46,23 @@ function formatFieldName(field: string): string {
 
 /**
  * Displays import errors or warnings in a readable format.
- * 
+ *
  * - Compact by default, showing truncated error message
  * - Expandable on click to show full details
  * - Copy button to copy full error text
  */
-export function ErrorDisplay({ errors, variant = "errors", className }: ErrorDisplayProps) {
+export function ErrorDisplay({
+  errors,
+  variant = "errors",
+  className,
+}: ErrorDisplayProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   const [copied, setCopied] = useState(false);
 
-  if (!errors || (typeof errors === "object" && Object.keys(errors).length === 0)) {
+  if (
+    !errors ||
+    (typeof errors === "object" && Object.keys(errors).length === 0)
+  ) {
     return null;
   }
 
@@ -98,7 +106,7 @@ export function ErrorDisplay({ errors, variant = "errors", className }: ErrorDis
 
   const handleCopy = async (e: React.MouseEvent) => {
     e.stopPropagation();
-    await navigator.clipboard.writeText(copyText);
+    if (!(await copyToClipboard(copyText))) return;
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
@@ -123,7 +131,10 @@ export function ErrorDisplay({ errors, variant = "errors", className }: ErrorDis
       {!isExpanded && (
         <div className="px-2 py-1 flex items-center gap-1">
           <ChevronRight className={cn("h-3 w-3 flex-shrink-0", labelColor)} />
-          <span className={cn("font-medium truncate", textColor)} title={firstError}>
+          <span
+            className={cn("font-medium truncate", textColor)}
+            title={firstError}
+          >
             {firstError}
           </span>
           {hasMore && (
@@ -291,11 +302,15 @@ export function JobErrorDisplay({ error, className }: JobErrorDisplayProps) {
       {/* Additional fields */}
       {Object.keys(additionalFields).length > 0 && (
         <div className="space-y-2">
-          <div className="text-sm font-medium text-gray-700">Additional Details</div>
+          <div className="text-sm font-medium text-gray-700">
+            Additional Details
+          </div>
           <div className="space-y-1">
             {Object.entries(additionalFields).map(([key, value]) => (
               <div key={key} className="text-sm">
-                <span className="font-medium text-gray-600">{formatFieldName(key)}: </span>
+                <span className="font-medium text-gray-600">
+                  {formatFieldName(key)}:{" "}
+                </span>
                 <span className="text-gray-800">{value}</span>
               </div>
             ))}
@@ -318,7 +333,8 @@ export function JobErrorDisplay({ error, className }: JobErrorDisplayProps) {
             {showContext ? "Hide" : "Show"} Technical Details
             {callStack.length > 0 && (
               <span className="text-gray-400 font-normal">
-                ({callStack.length} function{callStack.length !== 1 ? "s" : ""} in call stack)
+                ({callStack.length} function{callStack.length !== 1 ? "s" : ""}{" "}
+                in call stack)
               </span>
             )}
           </button>
@@ -328,10 +344,15 @@ export function JobErrorDisplay({ error, className }: JobErrorDisplayProps) {
               {/* Simplified call stack */}
               {callStack.length > 0 && (
                 <div className="p-3 bg-gray-50 border border-gray-200 rounded-md">
-                  <div className="text-xs font-medium text-gray-500 mb-2">Call Stack</div>
+                  <div className="text-xs font-medium text-gray-500 mb-2">
+                    Call Stack
+                  </div>
                   <div className="space-y-1 font-mono text-xs">
                     {callStack.map((func, idx) => (
-                      <div key={idx} className="flex items-center gap-2 text-gray-700">
+                      <div
+                        key={idx}
+                        className="flex items-center gap-2 text-gray-700"
+                      >
                         <span className="text-gray-400">{idx + 1}.</span>
                         <span>{func}</span>
                       </div>
@@ -342,7 +363,9 @@ export function JobErrorDisplay({ error, className }: JobErrorDisplayProps) {
 
               {/* Full context */}
               <div className="p-3 bg-gray-50 border border-gray-200 rounded-md">
-                <div className="text-xs font-medium text-gray-500 mb-2">Full Context</div>
+                <div className="text-xs font-medium text-gray-500 mb-2">
+                  Full Context
+                </div>
                 <pre className="text-xs text-gray-600 whitespace-pre-wrap break-words overflow-auto max-h-48">
                   {context}
                 </pre>
@@ -355,8 +378,15 @@ export function JobErrorDisplay({ error, className }: JobErrorDisplayProps) {
   );
 }
 
-export function ErrorBadges({ errors, variant = "errors", className }: ErrorDisplayProps) {
-  if (!errors || (typeof errors === "object" && Object.keys(errors).length === 0)) {
+export function ErrorBadges({
+  errors,
+  variant = "errors",
+  className,
+}: ErrorDisplayProps) {
+  if (
+    !errors ||
+    (typeof errors === "object" && Object.keys(errors).length === 0)
+  ) {
     return null;
   }
 
