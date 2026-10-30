@@ -3,10 +3,10 @@ id: STATBUS-543
 title: >-
   Partial derive spawns one task per dirty hash slot: 23,712 history children
   for 750 changed units on dev (47 min)
-status: In Progress
+status: Done
 assignee: []
 created_date: '2026-10-30T12:27:00Z'
-updated_date: '2026-10-30T14:03:00Z'
+updated_date: '2026-10-30T14:24:00Z'
 labels:
   - derive
   - performance
@@ -34,12 +34,11 @@ Journal in tmp/journal.md; doc/db regenerated; derive-pipeline docs checked for 
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 A test fails before the fix: with N dirty slots spread over more ranges than partition_count_target allows, child count per period exceeds the number of ranges containing a dirty slot
-- [ ] #2 After the fix the dirty branch spawns one child per partition range containing a dirty slot, for history, history_facet and unit_facet
-- [ ] #3 Derived history/facet results equal a full rebuild after a partial change (test)
-- [ ] #4 Fast Tests green in CI for the commit
-- [ ] #5 [Owner] Per-child slowdown (69 -> 235 ms) reproduced locally and its cause recorded in tmp/journal.md; fixed here or a follow-up ticket filed
-- [ ] #6 [Owner] Per-child slowdown (69 -> 235 ms) reproduced locally from a dev dump by re-running the import, cause recorded in tmp/journal.md, fixed here or a follow-up filed
+- [x] #1 A test fails before the fix: with N dirty slots spread over more ranges than partition_count_target allows, child count per period exceeds the number of ranges containing a dirty slot
+- [x] #2 After the fix the dirty branch spawns one child per partition range containing a dirty slot, for history, history_facet and unit_facet
+- [x] #3 Derived history/facet results equal a full rebuild after a partial change (test)
+- [x] #4 Fast Tests green in CI for the commit
+- [x] #5 [Owner] Per-child slowdown (69 -> 235 ms) reproduced locally and its cause recorded in tmp/journal.md; fixed here or a follow-up ticket filed
 <!-- AC:END -->
 
 ## Implementation Notes
@@ -59,4 +58,6 @@ Clean rerun of dev job 38 on dev copy with all three fixes (job 45, tmp/543-clon
 14:01 Expected-output review (independent read-only agent): 204, 110, 111, 203, 309, 310, 314, 317 and 2b8590d97 (303) all VERIFIED, no derived value changed; 538 checks from 355 survive in 204 (stronger: staging count asserted). Follow-ups: full suite via CI on final SHA; singleton-row invariant now enforced by CHECK statistical_history_hash_partition_is_one_slot (migration 20261030135909; dev copy 302,136 per-slot rows, 0 violations); testing locally, then push.
 
 14:03 commit be3fe321b: CHECK statistical_history_hash_partition_is_one_slot; 204 green; doc/db table doc updated. Final SHA for CI.
+
+14:24 CI: Fast Tests run 41069072304 success at bd2125c3b (contains be3fe321b, all 543 commits). AC3: test 204 asserts history/facet consistency and facet==truth; facet def change verified 0 differing rows on dev data. AC5: slowdown cause (year-month DELETE seq scan) recorded in tmp/journal.md 13:23, fixed in 20261030133114; facet nested loop fixed in 20261030135034. Result: dev import analytics 47 min -> 3m03s locally on dev data.
 <!-- SECTION:NOTES:END -->

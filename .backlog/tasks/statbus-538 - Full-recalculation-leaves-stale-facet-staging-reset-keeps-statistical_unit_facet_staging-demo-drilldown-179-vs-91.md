@@ -3,10 +3,10 @@ id: STATBUS-538
 title: >-
   Full recalculation leaves stale facet staging; reset() keeps
   statistical_unit_facet_staging (demo drilldown 179 vs 91)
-status: In Progress
+status: Done
 assignee: []
 created_date: '2026-10-30T08:48:00Z'
-updated_date: '2026-10-30T14:01:00Z'
+updated_date: '2026-10-30T14:24:00Z'
 labels:
   - derive
   - facets
@@ -31,11 +31,11 @@ Demo 2026-10-30: drilldown showed 179 enterprises in Zambezia (218 total) while 
 - [x] #4 Full collect_changes rebuilds every facet/history staging slot and removes stale ones without any caller TRUNCATE
 - [x] #5 Test 346 no longer relies on TRUNCATE; asserts facet totals equal statistical_unit counts
 - [x] #6 Demo repaired and verified: facet counts equal statistical_unit counts
-- [ ] #7 No payload.full_refresh: full refresh is derived in each step from NULL ids / -infinity..infinity
-- [ ] #8 worker.enqueue_derive_statistical_unit_all() exists, documented via COMMENT ON incl. migration usage; no-op returning NULL on empty base tables
-- [ ] #9 enqueue_derive_statistical_unit_all upgrades an already pending drain-mode collect_changes (test proves full rebuild still happens)
-- [ ] #10 Tests 355 and 346 use the function; fast suite green locally; doc/db regenerated; doc/migration-call-tree-prohibition.md points to the function
-- [ ] #11 Migration 20261030085731 verified on restored demo dump: facets == truth after the migration alone
+- [x] #7 No payload.full_refresh: full refresh is derived in each step from NULL ids / -infinity..infinity
+- [x] #8 worker.enqueue_derive_statistical_unit_all() exists, documented via COMMENT ON incl. migration usage; no-op returning NULL on empty base tables
+- [x] #9 enqueue_derive_statistical_unit_all upgrades an already pending drain-mode collect_changes (test proves full rebuild still happens)
+- [x] #10 Tests 355 and 346 use the function; fast suite green locally; doc/db regenerated; doc/migration-call-tree-prohibition.md points to the function
+- [x] #11 Migration 20261030085731 verified on restored demo dump: facets == truth after the migration alone
 <!-- AC:END -->
 
 ## Implementation Plan
@@ -85,4 +85,6 @@ Demo re-check 10:36: the drilldown RPC statistical_unit_facet_drilldown(enterpri
 Phase 2 progress 11:55 (uncommitted in working tree): migration 20261030085731 up/down rewritten (enqueue_derive_statistical_unit_all, NULL ids + -inf..inf convention, no full_refresh, crash recovery calls the function, full mode drains base_change_log); redone on seed via ./sb migrate redo --target seed, template rebuilt with ./dev.sh create-test-template. Tests 355 and 346 updated, pass, expected accepted. doc/migration-call-tree-prohibition.md updated. Remaining: fast suite (bg 231083rci4, log tmp/test-538b-fast.log), doc/db regen, demo-dump verification, commit, CI, Done.
 
 14:01 Test 355 was folded into test 204 (commit 2a915aac2) per owner request to avoid separate test files; all 355 checks verified present in 204 by an independent review. Closing waits for Fast Tests green on a SHA containing c9dbad627.
+
+14:24 CI: Fast Tests run 41069072304 success at bd2125c3b, which contains every 538 commit (38bba3333 phase 2) and the later 543 commits. AC10 note: test 355 later folded into 204 (2a915aac2), verified by independent review.
 <!-- SECTION:NOTES:END -->
