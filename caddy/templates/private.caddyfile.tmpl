@@ -114,6 +114,28 @@ http://{{.Domain}} {
         file_server
     }
 
+    # STATBUS-541: the public health reading. Always accessible, including
+    # during maintenance. JSON only; 503 when the upgrader's marker says
+    # critical or unknown, 200 for ok, warning and upgrading.
+    handle /monitor {
+        root * /statbus-tmp
+        @monitor_unhealthy {
+            # Relative to this handler's root (/statbus-tmp): the marker is
+            # written next to monitor.json by the upgrader.
+            file monitor.critical
+        }
+        handle @monitor_unhealthy {
+            rewrite * /monitor.json
+            file_server {
+                status 503
+            }
+        }
+        handle {
+            rewrite * /monitor.json
+            file_server
+        }
+    }
+
     # Maintenance mode: the upgrader creates /statbus-maintenance/active
     # All other routes return the maintenance page with 503
     @maintenance {
@@ -121,6 +143,7 @@ http://{{.Domain}} {
         not path /maintenance.html
         not path /upgrade-progress.log
         not path /upgrade-logs/*
+        not path /monitor
     }
     handle @maintenance {
         root * /maintenance-page

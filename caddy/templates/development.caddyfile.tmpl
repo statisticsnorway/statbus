@@ -128,6 +128,28 @@ http://127.0.0.1:19999 {
 
 # Shared routing configuration for both HTTP and HTTPS
 (statbus_routes) {
+    # STATBUS-541: the public health reading. Always accessible, including
+    # during maintenance. JSON only; 503 when the upgrader's marker says
+    # critical or unknown, 200 for ok, warning and upgrading.
+    handle /monitor {
+        root * /statbus-tmp
+        @monitor_unhealthy {
+            # Relative to this handler's root (/statbus-tmp): the marker is
+            # written next to monitor.json by the upgrader.
+            file monitor.critical
+        }
+        handle @monitor_unhealthy {
+            rewrite * /monitor.json
+            file_server {
+                status 503
+            }
+        }
+        handle {
+            rewrite * /monitor.json
+            file_server
+        }
+    }
+
     # Per-upgrade log files and support bundles under tmp/upgrade-logs/ —
     # served directly by Caddy so admin UI can fetch log/bundle content
     # regardless of app state. Upgrade service writes to tmp/upgrade-logs/
