@@ -17,6 +17,7 @@ import (
 	"time"
 
 	"github.com/statisticsnorway/statbus/cli/internal/compose"
+	"github.com/statisticsnorway/statbus/cli/internal/dbdump"
 	"github.com/statisticsnorway/statbus/cli/internal/diskpolicy"
 	"github.com/statisticsnorway/statbus/cli/internal/dotenv"
 	"github.com/statisticsnorway/statbus/cli/internal/migrate"
@@ -266,9 +267,16 @@ func DiskProbe(projectDir string) func(context.Context) (DiskResult, error) {
 	}
 }
 
-// BackupsProbe reports the newest archive in ~/statbus-backups and the
-// configured cadence. A missing directory is "no backups yet"; an unreadable
-// one is an inability to measure.
+// BackupsProbe reports the newest scheduled dump and the configured cadence.
+//
+// The backup that BACKUP_ENABLED / BACKUP_INTERVAL describe is the upgrader's
+// periodic logical dump: dbdump.DumpDatabase writes
+// <projectDir>/dbdumps/<slot>_<ts>.pg_dump and the service re-runs it every
+// interval. That dump is what a restore actually uses, so this check measures
+// it via dbdump.NewestDumpModTime — not ~/statbus-backups, which holds only
+// the volume snapshots of `sb db backup create` and upgrade snapshots and can
+// be arbitrarily old. No dump yet is "no backups yet"; without the dumps
+// directory there is nothing to measure and the result is likewise empty.
 func BackupsProbe(projectDir string) func(context.Context) (BackupResult, error) {
 	return func(ctx context.Context) (BackupResult, error) {
 		result := BackupResult{Enabled: true, Interval: 24 * time.Hour}
@@ -282,29 +290,7 @@ func BackupsProbe(projectDir string) func(context.Context) (BackupResult, error)
 				}
 			}
 		}
-		home, err := os.UserHomeDir()
-		if err != nil {
-			return BackupResult{}, err
-		}
-		entries, err := os.ReadDir(filepath.Join(home, "statbus-backups"))
-		if os.IsNotExist(err) {
-			return result, nil
-		}
-		if err != nil {
-			return BackupResult{}, err
-		}
-		for _, entry := range entries {
-			if entry.IsDir() {
-				continue
-			}
-			info, err := entry.Info()
-			if err != nil {
-				continue
-			}
-			if info.ModTime().After(result.Newest) {
-				result.Newest = info.ModTime()
-			}
-		}
+		result.Newest, _ = dbdump.NewestDumpModTime(projectDir)
 		return result, nil
 	}
 }
