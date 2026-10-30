@@ -56,7 +56,7 @@ func TestAdministratorPasswordPipeRefusesBeforePrompt(t *testing.T) {
 	oldStdin, oldStdout := os.Stdin, os.Stdout
 	os.Stdin, os.Stdout = stdin, output
 	defer func() { os.Stdin, os.Stdout = oldStdin, oldStdout }()
-	_, err = readAdministratorPassword("  Password (typing is hidden): ")
+	_, err = readAdministratorPassword("  Password (shown as *): ")
 	_ = output.Close()
 	printed, readErr := io.ReadAll(stdout)
 	if readErr != nil {

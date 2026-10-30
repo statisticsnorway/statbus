@@ -9,7 +9,8 @@ spawn -noecho bash /tmp/statbus-install.sh
 expect {
     -re {Email \[\]: } { send -- "interactive-admin@statbus.org\r"; incr matched; exp_continue }
     -re {Name \[\]: } { send -- "Interactive Admin\r"; incr matched; exp_continue }
-    -re {Password \(typing is hidden\): } { send -- "$password\r"; incr matched; exp_continue }
+    -re {Use it\? \[Y/n\] } { send -- "n\r"; exp_continue }
+    -re {Password \(shown as \*\): } { send -- "$password\r"; incr matched; exp_continue }
     -re {Password again: } { send -- "$password\r"; incr matched; exp_continue }
     timeout { puts stderr "timed out waiting for private administrator prompts"; exit 1 }
     eof {}

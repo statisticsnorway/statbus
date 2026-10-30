@@ -3427,7 +3427,7 @@ func readAdministratorPassword(label string) (string, error) {
 
 func askAdministratorPassword(read func(string) (string, error)) (string, error) {
 	for {
-		first, err := read("  Password (typing is hidden): ")
+		first, err := read("  Password (shown as *): ")
 		if err != nil {
 			return "", fmt.Errorf("could not read the password privately; run the same install command again")
 		}
