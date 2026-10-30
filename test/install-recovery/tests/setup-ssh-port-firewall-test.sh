@@ -7,6 +7,10 @@
 # Owner ruling (2026-10-15): the script must read the port sshd really listens
 # on and allow THAT port, loudly; when it cannot tell, it must refuse rather
 # than guess. Never a silent assumption of 22.
+# Owner ruling (2026-10-30, STATBUS-539): 22/tcp is always allowed as well, as
+# the convention for this service, while every other port sshd listens on is
+# still allowed. Rules for 22 carry the comment "SSH"; the other ports carry
+# "Custom SSH", so an operator can tell the standard rule from the custom one.
 #
 # This drives the real functions from ops/setup-ubuntu-lts.sh against fake
 # `ss`, `systemctl` and `sshd`, plus a recording `ufw`, so it proves behaviour,
@@ -100,17 +104,23 @@ run_ports() { # sets out to ssh_listen_ports output and rc to its status
     rc=$?
 }
 
-# 1. Uganda: sshd on 713 only. Port 713 must be opened; 22 must not be.
+# 1. Uganda: sshd on 713 only. Port 713 and the standard port 22 must both be
+#    opened, exactly once each.
 run_case uganda "713"
-if [ "$rc" -eq 0 ] && [ "$(cat "$UFW_LOG")" = "allow 713/tcp comment SSH" ]; then
-    pass "sshd on 713: ufw allows exactly 713/tcp"
+if [ "$rc" -eq 0 ] && grep -qx 'allow 713/tcp comment Custom SSH' "$UFW_LOG"; then
+    pass "sshd on 713: ufw allows 713/tcp as a custom SSH port"
 else
-    nope "sshd on 713: expected only 'allow 713/tcp comment SSH' (rc=$rc), ufw saw: $(tr '\n' ';' < "$UFW_LOG") out: $out"
+    nope "sshd on 713: expected 'allow 713/tcp comment Custom SSH' (rc=$rc), ufw saw: $(tr '\n' ';' < "$UFW_LOG") out: $out"
 fi
-if grep -Eq 'OpenSSH|(^| )22/tcp' "$UFW_LOG"; then
-    nope "sshd on 713: port 22 / OpenSSH must not be opened, ufw saw: $(tr '\n' ';' < "$UFW_LOG")"
+if [ "$(grep -cx 'allow 22/tcp comment SSH' "$UFW_LOG")" -eq 1 ]; then
+    pass "sshd on 713: the standard port 22/tcp is allowed exactly once"
 else
-    pass "sshd on 713: port 22 is not opened instead"
+    nope "sshd on 713: expected 'allow 22/tcp comment SSH' once, ufw saw: $(tr '\n' ';' < "$UFW_LOG")"
+fi
+if grep -qx 'allow 22/tcp comment Custom SSH' "$UFW_LOG"; then
+    nope "sshd on 713: the standard port 22 must carry the 'SSH' comment, not 'Custom SSH'"
+else
+    pass "sshd on 713: port 22 keeps the standard 'SSH' comment"
 fi
 if grep -q '713' <<<"$out"; then
     pass "sshd on 713: the port is named to the operator"
@@ -120,15 +130,15 @@ fi
 
 # 2. The ordinary box: sshd on 22.
 run_case standard "22"
-if [ "$rc" -eq 0 ] && grep -qx 'allow 22/tcp comment SSH' "$UFW_LOG"; then
-    pass "sshd on 22: ufw allows 22/tcp"
+if [ "$rc" -eq 0 ] && [ "$(grep -cx 'allow 22/tcp comment SSH' "$UFW_LOG")" -eq 1 ] && [ "$(wc -l < "$UFW_LOG")" -eq 1 ]; then
+    pass "sshd on 22: ufw allows 22/tcp exactly once"
 else
-    nope "sshd on 22: expected 'allow 22/tcp comment SSH' (rc=$rc), ufw saw: $(tr '\n' ';' < "$UFW_LOG")"
+    nope "sshd on 22: expected exactly one 'allow 22/tcp comment SSH' (rc=$rc), ufw saw: $(tr '\n' ';' < "$UFW_LOG")"
 fi
 
-# 3. Several listening ports: every one stays reachable.
+# 3. Several listening ports: every one stays reachable, and 22 stays unique.
 run_case several "22 2222"
-if [ "$rc" -eq 0 ] && grep -qx 'allow 22/tcp comment SSH' "$UFW_LOG" && grep -qx 'allow 2222/tcp comment SSH' "$UFW_LOG"; then
+if [ "$rc" -eq 0 ] && [ "$(grep -cx 'allow 22/tcp comment SSH' "$UFW_LOG")" -eq 1 ] && grep -qx 'allow 2222/tcp comment Custom SSH' "$UFW_LOG"; then
     pass "sshd on 22 and 2222: both are allowed"
 else
     nope "sshd on 22 and 2222: expected both allowed (rc=$rc), ufw saw: $(tr '\n' ';' < "$UFW_LOG")"
@@ -157,10 +167,10 @@ else
     nope "socket-activated: expected exactly '713' (rc=$rc), got: '$out'"
 fi
 run_ufw socket
-if [ "$rc" -eq 0 ] && [ "$(cat "$UFW_LOG")" = "allow 713/tcp comment SSH" ]; then
-    pass "socket-activated: ufw allows exactly 713/tcp"
+if [ "$rc" -eq 0 ] && grep -qx 'allow 713/tcp comment Custom SSH' "$UFW_LOG" && grep -qx 'allow 22/tcp comment SSH' "$UFW_LOG"; then
+    pass "socket-activated: ufw allows 713/tcp and 22/tcp"
 else
-    nope "socket-activated: expected only 'allow 713/tcp comment SSH' (rc=$rc), ufw saw: $(tr '\n' ';' < "$UFW_LOG")"
+    nope "socket-activated: expected 713/tcp and 22/tcp allowed (rc=$rc), ufw saw: $(tr '\n' ';' < "$UFW_LOG")"
 fi
 
 # 6. Socket-activated but idle: no connection yet, so ss shows only systemd
@@ -217,6 +227,11 @@ if grep -q 'ufw allow OpenSSH' <<<"$stage"; then
     nope "stage 4 still opens OpenSSH (port 22) by assumption"
 else
     pass "stage 4 no longer assumes OpenSSH/22"
+fi
+if grep -q 'SSH port 22 allowed in UFW' <<<"$stage"; then
+    pass "stage 4 verifies that port 22 is allowed"
+else
+    nope "stage 4 does not verify 'SSH port 22 allowed in UFW'"
 fi
 
 exit $fail

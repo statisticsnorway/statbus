@@ -594,9 +594,12 @@ ssh_listen_ports() {
     fi
 }
 
-# Allow every port sshd listens on through UFW, and say which. Refuse (return 1,
+# Allow every port sshd listens on through UFW, and say which. Port 22 is always
+# allowed as well: it is the convention for this service, and with nothing
+# listening there nothing is exposed (owner ruling 2026-10-30). Refuse (return 1,
 # no firewall change) when the ports cannot be determined: guessing is how an
-# operator gets locked out of their own server.
+# operator gets locked out of their own server, and 22 alone may not be where
+# sshd listens.
 ufw_allow_ssh_ports() {
     local ports port
     ports="$(ssh_listen_ports)"
@@ -607,9 +610,14 @@ ufw_allow_ssh_ports() {
         return 1
     fi
     for port in $ports; do
+        # 22 is allowed once, below, so a box whose sshd listens on 22 does not
+        # get a duplicate rule.
+        [[ "$port" = "22" ]] && continue
         log "Allowing SSH on port $port/tcp (the port sshd listens on)."
-        ufw allow "$port/tcp" comment 'SSH'
+        ufw allow "$port/tcp" comment 'Custom SSH'
     done
+    log "Allowing SSH on port 22/tcp (the standard SSH port)."
+    ufw allow 22/tcp comment 'SSH'
 }
 
 ensure_remote_access() {
@@ -1379,6 +1387,48 @@ EOF
 # Stage 4: Security Tools (CrowdSec + UFW)
 # =============================================================================
 
+# Prove the firewall bouncer's key is one the local API actually accepts, and
+# repair it when it is not. The key's presence in the bouncer configuration is
+# not proof: a key kept from an earlier install passes that check while CrowdSec
+# no longer knows it, so the bouncer runs inert and is refused with "access
+# forbidden" (Uganda, statbus.ubos.org, 2026-10-30). Registration is the proof;
+# when the bouncer is absent from the list, any stale entry by that name is
+# deleted, a fresh key is created, written to $config, and never printed, and
+# the bouncer is restarted so it reads the key.
+ensure_bouncer_registered() {
+    local config="${1:-${BOUNCER_CONFIG:-/etc/crowdsec/bouncers/crowdsec-firewall-bouncer.yaml}}"
+    local name="${BOUNCER_NAME:-statbus-firewall-bouncer}"
+    local bouncers key
+    if [[ ! -f "$config" ]]; then
+        log_error "Bouncer configuration $config is missing, so no API key can be stored."
+        return 1
+    fi
+    bouncers="$(cscli bouncers list -o raw 2>/dev/null)" || bouncers=""
+    if [[ -z "$bouncers" ]]; then
+        # Older cscli builds may not know `-o raw`; the table form still names
+        # every registered bouncer.
+        bouncers="$(cscli bouncers list 2>/dev/null)" || bouncers=""
+    fi
+    if grep -qw "$name" <<<"$bouncers"; then
+        log "Bouncer $name is registered with the local API."
+        return 0
+    fi
+    log "Bouncer $name is not registered with the local API; creating a new API key..."
+    cscli bouncers delete "$name" >/dev/null 2>&1 || true
+    key="$(cscli bouncers add "$name" -o raw 2>/dev/null | grep -v '^[[:space:]]*$' | tail -1)"
+    if [[ -z "$key" ]]; then
+        log_error "Could not create a bouncer API key; the bouncer would be inert."
+        return 1
+    fi
+    if grep -Eq '^api_key:' "$config"; then
+        sed -i "s|^api_key:.*|api_key: ${key}|" "$config"
+    else
+        printf 'api_key: %s\n' "$key" >> "$config"
+    fi
+    log_success "Bouncer API key written to $config"
+    systemctl restart crowdsec-firewall-bouncer 2>/dev/null || true
+}
+
 stage_security_tools() {
     log_header "Stage 4: Security Tools (CrowdSec + UFW)"
 
@@ -1439,25 +1489,12 @@ stage_security_tools() {
     apt_install "crowdsec firewall bouncer" crowdsec-firewall-bouncer-nftables
 
     # The bouncer needs an API key to talk to the local API, and its package only
-    # creates one when the configuration already exists. If it is still missing
-    # (an older package, or a configuration kept from a previous run), create it
-    # here so that "installed" can never quietly mean "inert".
+    # creates one when the configuration already exists. Prove the key is one the
+    # local API accepts, and replace a stale one, so that "installed" can never
+    # quietly mean "inert".
     BOUNCER_NAME="statbus-firewall-bouncer"
     BOUNCER_CONFIG="/etc/crowdsec/bouncers/crowdsec-firewall-bouncer.yaml"
-    if [[ -f "$BOUNCER_CONFIG" ]] && ! grep -Eq '^api_key:[[:space:]]*[^[:space:]]' "$BOUNCER_CONFIG"; then
-        log "No bouncer API key present; creating one for $BOUNCER_NAME..."
-        bouncer_key="$(cscli bouncers add "$BOUNCER_NAME" -o raw 2>/dev/null | grep -v '^[[:space:]]*$' | tail -1)"
-        if [[ -n "$bouncer_key" ]]; then
-            if grep -Eq '^api_key:' "$BOUNCER_CONFIG"; then
-                sed -i "s|^api_key:.*|api_key: ${bouncer_key}|" "$BOUNCER_CONFIG"
-            else
-                printf 'api_key: %s\n' "$bouncer_key" >> "$BOUNCER_CONFIG"
-            fi
-            log_success "Bouncer API key written to $BOUNCER_CONFIG"
-        else
-            log_error "Could not create a bouncer API key; the bouncer would be inert."
-        fi
-    fi
+    ensure_bouncer_registered "$BOUNCER_CONFIG"
 
     log "Installing CrowdSec collections..."
     cscli collections install crowdsecurity/sshd
@@ -1501,12 +1538,17 @@ stage_security_tools() {
     # ticking a box for a control that cannot work (STATBUS-498).
     verify "Firewall bouncer has an API key" "grep -Eq '^api_key:[[:space:]]*[^[:space:]]' /etc/crowdsec/bouncers/crowdsec-firewall-bouncer.yaml"
     verify "Firewall bouncer registered with the local API" "cscli bouncers list 2>/dev/null | grep -q statbus-firewall-bouncer"
+    # Registered is not the same as running: a bouncer that keeps restarting
+    # bans nothing, which is how the stale key showed up in Uganda.
+    verify "Firewall bouncer running" "systemctl is-active crowdsec-firewall-bouncer"
     verify "SSHD collection installed" "cscli collections list | grep sshd"
     verify "UFW active" "ufw status | grep 'Status: active'"
     local ssh_port
     for ssh_port in $(ssh_listen_ports); do
+        [[ "$ssh_port" = "22" ]] && continue
         verify "SSH port $ssh_port allowed in UFW" "ufw status | grep -E '^$ssh_port/tcp[[:space:]]+ALLOW'"
     done
+    verify "SSH port 22 allowed in UFW" "ufw status | grep -E '^22/tcp[[:space:]]+ALLOW'"
     verify "HTTP allowed in UFW" "ufw status | grep '80/tcp'"
     verify "HTTPS allowed in UFW" "ufw status | grep '443/tcp'"
     verify "PostgreSQL allowed in UFW" "ufw status | grep '5432/tcp'"

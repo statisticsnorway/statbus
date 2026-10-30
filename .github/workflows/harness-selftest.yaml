@@ -111,6 +111,8 @@ jobs:
         run: bash test/install-recovery/tests/setup-auto-reboot-test.sh
       - name: Prove the security stage installs CrowdSec before the bouncer and requires a working key (STATBUS-498)
         run: bash test/install-recovery/tests/setup-crowdsec-bouncer-order-test.sh
+      - name: Prove the security stage re-registers a bouncer whose key CrowdSec refuses (STATBUS-539)
+        run: bash test/install-recovery/tests/setup-crowdsec-bouncer-key-test.sh
       - name: Prove the Docker stage grants and verifies access for the account that will use it (STATBUS-500)
         run: bash test/install-recovery/tests/setup-docker-access-test.sh
       - name: Prove cloud configuration is applied only with cloud intent (STATBUS-501)

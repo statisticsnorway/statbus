@@ -23,7 +23,9 @@ line_of() { grep -nE "$1" <<<"$stage" | head -1 | cut -d: -f1; }
 crowdsec_only=$(line_of 'apt_install "crowdsec" crowdsec$')
 bouncer=$(line_of 'apt_install "crowdsec firewall bouncer" crowdsec-firewall-bouncer-nftables$')
 wait_for_config=$(line_of 'Waiting for the CrowdSec configuration')
-key=$(line_of 'cscli bouncers add')
+# STATBUS-539 moved the key logic into ensure_bouncer_registered; the stage's
+# call to it still has to come after the bouncer package is installed.
+key=$(line_of 'ensure_bouncer_registered')
 api_verify=$(line_of 'Firewall bouncer has an API key')
 reg_verify=$(line_of 'Firewall bouncer registered with the local API')
 
