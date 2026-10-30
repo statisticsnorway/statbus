@@ -8200,7 +8200,12 @@ func (d *Service) executeUpgrade(ctx context.Context, claim upgradeClaimSnapshot
 		d.upgrading = false
 		d.monitorUpgrading.Store(false)
 		stopMonitorUpgrading()
-		d.startMonitorRefresh(context.Background())
+		// Only the long-running service refreshes here; a one-shot caller has
+		// no ticker to recover from, and a refresh goroutine outliving a
+		// one-shot upgrade would outlive the process it serves.
+		if d.runningAsService {
+			d.startMonitorRefresh(context.Background())
+		}
 	}()
 	d.activeClaimToken = claim.ClaimToken
 	defer func() { d.activeClaimToken = "" }()
