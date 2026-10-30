@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-10-30T14:30:00Z'
-updated_date: '2026-10-30T15:37:00Z'
+updated_date: '2026-10-30T17:35:00Z'
 labels:
   - import
   - upload
@@ -41,14 +41,14 @@ Document the behaviour in doc/import-system.md; regenerate doc/db; check the UI 
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 Test 305 (extended, no new file): disable a statistical variable used by an imported job, clone the job: the clone succeeds and its upload table keeps the column; fails before the fix
+- [x] #1 Test 305 (extended, no new file): disable a statistical variable used by an imported job, clone the job: the clone succeeds and its upload table keeps the column; fails before the fix
 - [ ] #2 Re-upload through api/import/upload of a file with that column succeeds; the COPY no longer errors
-- [ ] #3 Job page shows the column warning on the column header
-- [ ] #4 Fast Tests green in CI for the commit
-- [ ] #5 Data table has a display-only <col>_raw column that no import step reads, and no mapped <col> column
-- [ ] #6 Each row with a value in that column has a warning keyed <col>_raw
-- [ ] #7 The column has one warning keyed <col>_raw, and imported values are otherwise identical to the original job
-- [ ] #8 The data column is marked purpose 'ignored' in the job's definition_snapshot, has no mapping, and no import step reads it
+- [x] #3 Job page shows the column warning on the column header
+- [x] #4 Fast Tests green in CI for the commit
+- [x] #5 Data table has a display-only <col>_raw column that no import step reads, and no mapped <col> column
+- [x] #6 Each row with a value in that column has a warning keyed <col>_raw
+- [x] #7 The column has one warning keyed <col>_raw, and imported values are otherwise identical to the original job
+- [x] #8 The data column is marked purpose 'ignored' in the job's definition_snapshot, has no mapping, and no import step reads it
 <!-- AC:END -->
 
 ## Implementation Notes
@@ -61,4 +61,10 @@ Document the behaviour in doc/import-system.md; regenerate doc/db; check the UI 
 15:25 GREEN on test 305: clone succeeds; upload keeps employees; data has employees_raw purpose ignored, no mapping; job warning keyed employees_raw; 351/351 rows with a value carry warning employees_raw. ES upload-table equality now compared by column name (0 differences). Clone return value unchanged (clone rows identical to the previous expected output). Other diff lines are NOTICEs from disabling employees in the test (index drop/rebuild, one fewer cascaded view).
 
 15:37 Independent review (read-only agent): 305 diff, both migrations (authorization, idempotence, %I safety, clone-by-name, prepare), every import_data_column_list reader filters by purpose/step_id, frontend: PASS. Blockers found and fixed: test 008 definer registry + doc/db-security-report.md, test 002 ER (import_job.warning), doc/data-model.md (015). Correction to the 15:25 note: disabling employees does not drop a cascaded view; only the NOTICE grouping changed. Local: 002, 008, 015, 305 ok.
+
+Fast Tests 41085353965 green on 5f96c5f96 (includes 0163e8739). UI/message polish in progress: unified wording 'Ignored: ... Remove the column from the file, or enable it in the definition.'; ⚠ header icon + amber values. Pending decision: drop per-row warning in favour of a single notice.
+
+3dacfef58: messages shortened to 'Ignored: not in the import definition' (row) / '... (N values)' (job); header ⚠ is a clickable popover (no hover needed), ignored values in amber; Copy works on plain http via clipboard fallback. Verified visually on job 50 (statbus_545_visual3). Test 305 passes locally.
+
+Fast Tests 41094001047 green on 3dacfef58 (plus Go Test, app build & lint, Images, Harness Selftest). AC#2 (re-upload through api/import/upload in the browser) is not yet observed in a real run.
 <!-- SECTION:NOTES:END -->
