@@ -48,7 +48,16 @@ BEGIN
         )
     LOOP
         IF v_dirty_hash_slots IS NOT NULL THEN
-            FOR i IN 1..COALESCE(array_length(v_dirty_hash_slots, 1), 0) LOOP
+            -- One child per partition range holding a dirty slot, the same
+            -- ranges as the full rebuild (STATBUS-543).
+            FOR v_hash_partition IN
+                SELECT DISTINCT int4range(
+                    (d.slot / v_hash_partition_size) * v_hash_partition_size,
+                    LEAST((d.slot / v_hash_partition_size) * v_hash_partition_size + v_hash_partition_size, 16384)
+                )
+                FROM unnest(v_dirty_hash_slots) AS d(slot)
+                ORDER BY 1
+            LOOP
                 PERFORM worker.spawn(
                     p_command => 'derive_statistical_history_facet_period',
                     p_payload => jsonb_build_object(
@@ -56,7 +65,7 @@ BEGIN
                         'resolution', v_period.resolution::text,
                         'year', v_period.year,
                         'month', v_period.month,
-                        'hash_partition', int4range(v_dirty_hash_slots[i], v_dirty_hash_slots[i] + 1)::text
+                        'hash_partition', v_hash_partition::text
                     ),
                     p_parent_id => v_task_id
                 );

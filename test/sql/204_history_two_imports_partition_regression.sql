@@ -269,6 +269,24 @@ ROLLBACK TO SAVEPOINT diag;
 
 \set ON_ERROR_STOP on
 
+\echo "--- STATBUS-543: every hash-partitioned child spans one partition range of 16384/partition_count_target slots, also in the dirty (partial) derive [as postgres] ---"
+SET LOCAL ROLE postgres;
+WITH s AS (SELECT GREATEST(1, 16384 / public.get_partition_count_target()) AS size)
+SELECT t.command,
+       count(*) > 0 AS spawned,
+       bool_and(
+           lower(r) % s.size = 0
+           AND upper(r) = LEAST(lower(r) + s.size, 16384)
+       ) AS children_span_partition_ranges
+FROM worker.tasks AS t
+CROSS JOIN s
+CROSS JOIN LATERAL (SELECT NULLIF(t.payload->>'hash_partition', '')::int4range AS r) AS p
+WHERE t.command IN ('derive_statistical_history_period',
+                    'derive_statistical_history_facet_period',
+                    'derive_statistical_unit_facet_partition')
+GROUP BY t.command
+ORDER BY t.command;
+
 \echo "--- Consistency: root (hash_partition IS NULL) aggregate must equal SUM of per-partition rows [as postgres, bypass RLS] ---"
 SELECT
     a.unit_type,
@@ -291,5 +309,109 @@ LEFT JOIN (
 ORDER BY a.unit_type;
 RESET ROLE;
 CALL test.set_user_from_email('test.admin@statbus.org');
+
+-- ===================================================================
+-- STATBUS-538: reset(), reimport and full recalculation keep the facet
+-- caches equal to statistical_unit. statistical_unit_facet is the reduce of
+-- statistical_unit_facet_staging, a per-hash_slot cache: for every
+-- unit_type x region at a date, facet count = countable statistical_unit rows.
+-- ===================================================================
+CREATE TEMP VIEW facet_vs_truth AS
+WITH truth AS (
+  SELECT unit_type, COALESCE(subpath(physical_region_path, 0, 1)::text, '-') AS region, COUNT(*)::int AS n
+  FROM public.statistical_unit
+  WHERE valid_from <= CURRENT_DATE AND CURRENT_DATE < valid_until AND used_for_counting
+  GROUP BY 1, 2
+), facet AS (
+  SELECT unit_type, COALESCE(subpath(physical_region_path, 0, 1)::text, '-') AS region, SUM(count)::int AS n
+  FROM public.statistical_unit_facet
+  WHERE valid_from <= CURRENT_DATE AND CURRENT_DATE < valid_until
+  GROUP BY 1, 2
+)
+SELECT unit_type, region, t.n AS truth_count, f.n AS facet_count, t.n IS NOT DISTINCT FROM f.n AS matches
+FROM truth AS t FULL JOIN facet AS f USING (unit_type, region)
+ORDER BY unit_type, region;
+
+\echo "--- STATBUS-538: after two imports, facets equal statistical_unit ---"
+SELECT * FROM facet_vs_truth;
+
+\echo "--- STATBUS-538: reset(true, 'data') empties units and the facet staging ---"
+\o /dev/null
+SELECT public.reset(true, 'data');
+\o
+SET LOCAL ROLE postgres;
+SELECT (SELECT count(*) FROM public.legal_unit) AS legal_units,
+       (SELECT count(*) FROM public.statistical_unit) AS statistical_units,
+       (SELECT count(*) FROM public.statistical_unit_facet_staging) AS facet_staging_rows;
+RESET ROLE;
+CALL test.set_user_from_email('test.admin@statbus.org');
+
+\echo "--- STATBUS-538: empty database, enqueue_derive_statistical_unit_all schedules nothing ---"
+SELECT worker.enqueue_derive_statistical_unit_all() AS task_id,
+       (SELECT count(*) FROM worker.tasks WHERE command = 'collect_changes' AND state = 'pending') AS pending_collect_changes;
+
+\echo "--- STATBUS-538: reimport LU A + Establishment A (new ids, other hash slots) ---"
+INSERT INTO public.import_job (definition_id, slug, description, edit_comment)
+SELECT id, 'import_204_lu_a_again', 'Reimport LU A after reset', 'test 204'
+FROM public.import_definition WHERE slug = 'legal_unit_source_dates';
+\copy public.import_204_lu_a_again_upload(valid_from,valid_to,tax_ident,name,birth_date,death_date,physical_address_part1,physical_postcode,physical_postplace,physical_region_code,physical_country_iso_2,postal_address_part1,postal_postcode,postal_postplace,postal_region_code,postal_country_iso_2,primary_activity_category_code,secondary_activity_category_code,sector_code,legal_form_code) FROM 'test/data/204_regression_lu_a.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
+\o /dev/null
+CALL worker.process_tasks(p_queue => 'import');
+\o
+INSERT INTO public.import_job (definition_id, slug, description, edit_comment)
+SELECT id, 'import_204_est_a_again', 'Reimport Establishment A after reset', 'test 204'
+FROM public.import_definition WHERE slug = 'establishment_for_lu_source_dates';
+\copy public.import_204_est_a_again_upload(valid_from, valid_to, tax_ident, legal_unit_tax_ident, name, birth_date, death_date, physical_address_part1, physical_postcode, physical_postplace, physical_region_code, physical_country_iso_2, postal_address_part1, postal_postcode, postal_postplace, postal_region_code, postal_country_iso_2, primary_activity_category_code, secondary_activity_category_code, data_source_code, unit_size_code, employees, turnover) FROM 'test/data/204_regression_est_a.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
+\o /dev/null
+CALL worker.process_tasks(p_queue => 'import');
+CALL worker.process_tasks(p_queue => 'analytics');
+\o
+
+\echo "--- STATBUS-538: after reset + reimport, facets equal statistical_unit ---"
+SELECT * FROM facet_vs_truth;
+
+\echo "--- STATBUS-538: staging rows for slots without units (as a pre-538 reset left them) ---"
+-- These rows stand for units that vanished without a change-log entry. The
+-- staging table is worker-owned, so this setup runs as postgres.
+SET LOCAL ROLE postgres;
+INSERT INTO public.statistical_unit_facet_staging
+SELECT (s.hash_slot + 1) % 16384, s.valid_from, s.valid_to, s.valid_until, s.unit_type,
+       s.physical_region_path, s.primary_activity_category_path, s.sector_path,
+       s.legal_form_id, s.physical_country_id, s.status_id, s.count, s.stats_summary
+FROM public.statistical_unit_facet_staging AS s
+WHERE NOT EXISTS (SELECT 1 FROM public.statistical_unit AS su WHERE su.hash_slot = (s.hash_slot + 1) % 16384)
+ON CONFLICT DO NOTHING;
+\echo "A drain-mode collect_changes is already pending, as a change trigger leaves it."
+INSERT INTO worker.tasks (command, payload)
+VALUES ('collect_changes', '{"command":"collect_changes"}'::jsonb);
+RESET ROLE;
+CALL test.set_user_from_email('test.admin@statbus.org');
+
+\echo "--- STATBUS-538: worker.enqueue_derive_statistical_unit_all() upgrades the pending task to all units, all time ---"
+SELECT worker.enqueue_derive_statistical_unit_all() IS NOT NULL AS task_queued;
+SELECT count(*) AS pending_collect_changes,
+       bool_and(payload ? 'legal_unit_id_ranges' AND payload->'legal_unit_id_ranges' = 'null'::jsonb) AS all_units,
+       bool_and(payload->>'valid_ranges' = '{[-infinity,infinity)}') AS all_time
+FROM worker.tasks WHERE command = 'collect_changes' AND state = 'pending';
+\o /dev/null
+CALL worker.process_tasks(p_queue => 'analytics');
+\o
+
+\echo "--- STATBUS-538: after full recalculation, facets equal statistical_unit ---"
+SELECT * FROM facet_vs_truth;
+
+\echo "--- STATBUS-538: after full recalculation, history facets equal statistical_unit for the current year ---"
+WITH truth AS (
+  SELECT unit_type, COUNT(*)::int AS n FROM public.statistical_unit
+  WHERE valid_from <= CURRENT_DATE AND CURRENT_DATE < valid_until AND used_for_counting
+  GROUP BY 1
+), hist AS (
+  SELECT unit_type, SUM(exists_count)::int AS n FROM public.statistical_history_facet
+  WHERE resolution = 'year' AND year = EXTRACT(YEAR FROM CURRENT_DATE)::int
+  GROUP BY 1
+)
+SELECT unit_type, t.n AS truth_count, h.n AS history_facet_count, t.n IS NOT DISTINCT FROM h.n AS matches
+FROM truth AS t FULL JOIN hist AS h USING (unit_type)
+ORDER BY unit_type;
 
 ROLLBACK;
