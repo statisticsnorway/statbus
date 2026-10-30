@@ -186,7 +186,7 @@ func certNotice(format string, args ...any) {
 // questionnaire's [no] suffix. y/yes is accepted; anything else is no.
 func askCertYesNo(label string) bool {
 	fmt.Printf("%s [y/N]: ", label)
-	installTTYPrompt("%s [y/N]: ", label)
+	installTTYPromptAnswer("%s [y/N]: ", label)
 	line, _ := bufio.NewReader(os.Stdin).ReadString('\n')
 	answer := strings.TrimSpace(line)
 	return strings.EqualFold(answer, "y") || strings.EqualFold(answer, "yes")

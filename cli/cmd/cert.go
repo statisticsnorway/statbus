@@ -1395,10 +1395,9 @@ func readPassword(prompt string) (string, error) {
 	fmt.Fprint(os.Stderr, prompt)
 	if prompt != "" {
 		// The install pipeline keeps stdout's marked prompt lines and drops
-		// stderr's, so the question must travel there too. installTTYPrompt
-		// ends the line; the caller's wording tells the operator to press
-		// Enter. The answer itself is never echoed or written.
-		installTTYPrompt("%s", prompt)
+		// stderr's, so the question must travel there too. The marked answer
+		// line keeps the cursor after the question.
+		installTTYPromptAnswer("%s", prompt)
 	}
 	defer fmt.Fprintln(os.Stderr)
 	if !term.IsTerminal(int(os.Stdin.Fd())) {

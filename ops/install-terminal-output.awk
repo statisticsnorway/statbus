@@ -4,6 +4,15 @@
 # Questions are marked by installTTYPrompt and travel the same stream as step
 # lines, so a prompt always lands after the step that asked it. Strip the
 # marker and flush immediately; the prompt must be the last thing on screen.
+# The question's final line (the part the operator answers after) is marked
+# INSTALL_PROMPT_ANSWER and printed without a newline, so the answer lands on
+# the same line as the question instead of on the next, empty line.
+/^INSTALL_PROMPT_ANSWER: / {
+    sub(/^INSTALL_PROMPT_ANSWER: /, "")
+    printf "%s", $0
+    fflush()
+    next
+}
 /^INSTALL_PROMPT: / {
     sub(/^INSTALL_PROMPT: /, "")
     print
@@ -74,7 +83,7 @@
     fflush()
     next
 }
-/^(Recovery finished\. Checking the installation again\.|The database could not be checked\. Continuing with installation repair\.|Restoring generated settings before checking the installation\.)$/ {
+/^(Recovery finished\. Checking the installation again\.|No StatBus database is running yet; continuing with the installation\.|Restoring generated settings before checking the installation\.)$/ {
     print
     fflush()
     next

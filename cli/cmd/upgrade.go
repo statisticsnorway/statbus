@@ -858,7 +858,7 @@ func trustSignerInteractive(username string, f *dotenv.File, reader *bufio.Reade
 	}
 
 	fmt.Printf("\nTrust key(s) from github.com/%s? [Y/n] ", username)
-	installTTYPrompt("\nTrust key(s) from github.com/%s? [Y/n] ", username)
+	installTTYPromptAnswer("\nTrust key(s) from github.com/%s? [Y/n] ", username)
 	answer, _ := reader.ReadString('\n')
 	answer = strings.TrimSpace(strings.ToLower(answer))
 	if answer == "n" || answer == "no" {

@@ -110,6 +110,19 @@ func installDiagnostic(installDir, format string, args ...any) {
 // pipeline: the question overtook buffered step lines and appeared mid-step.
 // Other CLI callers retain ordinary stdout and never see the marker.
 func installTTYPrompt(format string, args ...any) {
+	installTTYPromptLines(false, format, args...)
+}
+
+// installTTYPromptAnswer marks the final line of a question as the line the
+// operator answers on. The terminal filter prints that line without a newline,
+// so the typed answer appears after the question on the same line. A notice
+// that merely precedes a question keeps the ordinary marker and its line
+// ending.
+func installTTYPromptAnswer(format string, args ...any) {
+	installTTYPromptLines(true, format, args...)
+}
+
+func installTTYPromptLines(answer bool, format string, args ...any) {
 	if os.Getenv("STATBUS_INSTALL_PROMPTS_TO_TTY") != "1" {
 		return
 	}
@@ -122,8 +135,19 @@ func installTTYPrompt(format string, args ...any) {
 	// be glued to that line and the awk filter, which matches the marker at
 	// the start of a record, would drop both.
 	fmt.Print("\n")
-	for _, line := range strings.SplitAfter(message, "\n") {
+	lines := strings.SplitAfter(message, "\n")
+	last := -1
+	for i, line := range lines {
+		if line != "" {
+			last = i
+		}
+	}
+	for i, line := range lines {
 		if line == "" {
+			continue
+		}
+		if answer && i == last {
+			fmt.Printf("INSTALL_PROMPT_ANSWER: %s\n", strings.TrimSuffix(line, "\n"))
 			continue
 		}
 		fmt.Printf("INSTALL_PROMPT: %s", line)
@@ -752,7 +776,7 @@ func runInstall() (installErr error) {
 			}
 			preflightInstallSigner(installDir)
 			installDiagnostic(installDir, "State detection failed because the database is unavailable: %v", derr)
-			fmt.Println("The database could not be checked. Continuing with installation repair.")
+			fmt.Println("No StatBus database is running yet; continuing with the installation.")
 		} else {
 			// Cleanup and signer trust still precede dispatch (which can return
 			// early for scheduled/crashed upgrades), but only after classification.
@@ -3257,7 +3281,7 @@ func readAdministratorPasswordWithReader(label string, read func(int) ([]byte, e
 	}
 	defer func() { _ = term.Restore(fd, state) }()
 	fmt.Print(label)
-	installTTYPrompt("%s", label)
+	installTTYPromptAnswer("%s", label)
 	value, err := read(fd)
 	if restoreErr := term.Restore(fd, state); restoreErr != nil {
 		return "", restoreErr
@@ -4046,7 +4070,7 @@ func checkPrerequisites() error {
 
 func prompt(label, defaultVal string) string {
 	fmt.Printf("%s [%s]: ", label, defaultVal)
-	installTTYPrompt("%s [%s]: ", label, defaultVal)
+	installTTYPromptAnswer("%s [%s]: ", label, defaultVal)
 	reader := bufio.NewReader(os.Stdin)
 	line, _ := reader.ReadString('\n')
 	line = strings.TrimSpace(line)

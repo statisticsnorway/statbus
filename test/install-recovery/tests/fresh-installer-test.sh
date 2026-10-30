@@ -428,7 +428,7 @@ cat > "$TMP_ROOT/bin/fake-prompt-sb" <<'SB'
 #!/bin/bash
 printf '[4/19] Configuration        RUNNING\n'
 printf 'INSTALL_PROMPT:   How will people reach StatBus?\n'
-printf 'INSTALL_PROMPT:   Deployment mode (development/standalone/private) [standalone]: \n'
+printf 'INSTALL_PROMPT_ANSWER:   Deployment mode (development/standalone/private) [standalone]: \n'
 SB
 chmod +x "$TMP_ROOT/bin/fake-prompt-sb"
 : > "$TMP_ROOT/prompt-log"

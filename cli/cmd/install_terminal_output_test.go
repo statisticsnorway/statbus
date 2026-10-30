@@ -99,16 +99,48 @@ func TestInstallTTYPromptTravelsOnTerminalStream(t *testing.T) {
 		t.Fatal(err)
 	}
 	os.Stdout = writer
-	installTTYPrompt("  How will people reach StatBus?\n  Deployment mode [standalone]: ")
+	installTTYPromptAnswer("  How will people reach StatBus?\n  Deployment mode [standalone]: ")
 	_ = writer.Close()
 	os.Stdout = original
 	got, err := io.ReadAll(reader)
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := "\nINSTALL_PROMPT:   How will people reach StatBus?\nINSTALL_PROMPT:   Deployment mode [standalone]: \n"
+	want := "\nINSTALL_PROMPT:   How will people reach StatBus?\nINSTALL_PROMPT_ANSWER:   Deployment mode [standalone]: \n"
 	if string(got) != want {
 		t.Fatalf("prompt stream:\n%q\nwant:\n%q", got, want)
+	}
+	const screen = "  How will people reach StatBus?\n  Deployment mode [standalone]: "
+	if filtered := runTerminalFilter(t, string(got)); filtered != screen {
+		t.Fatalf("question on screen:\n%q\nwant:\n%q", filtered, screen)
+	}
+}
+
+// TestInstallAnswerPromptLeavesCursorAfterQuestion pipes the prompt a real
+// installer question writes through the operator terminal filter. The operator
+// answers on the same line as the question, so the screen text must end with
+// the question and no newline: a trailing newline puts the typed answer on the
+// next, empty line (Uganda, v2026.10.5 field evidence).
+func TestInstallAnswerPromptLeavesCursorAfterQuestion(t *testing.T) {
+	t.Setenv("STATBUS_INSTALL_PROMPTS_TO_TTY", "1")
+	stdinR, stdinW, err := os.Pipe()
+	if err != nil {
+		t.Fatal(err)
+	}
+	oldStdin := os.Stdin
+	os.Stdin = stdinR
+	if _, err := stdinW.WriteString("\n"); err != nil {
+		t.Fatal(err)
+	}
+	_ = stdinW.Close()
+	output := captureStdout(t, func() {
+		askCertYesNo("  Do you have a certificate to install now?")
+	})
+	os.Stdin = oldStdin
+	const want = "  Do you have a certificate to install now? [y/N]: "
+	got := runTerminalFilter(t, output)
+	if got != want {
+		t.Fatalf("screen text after the question:\n%q\nwant:\n%q", got, want)
 	}
 }
 
@@ -172,7 +204,7 @@ func TestInstallTerminalWriterShowsEveryInstallState(t *testing.T) {
 			}
 		})
 	}
-	literals := "  The database is up to date.\n  Database updates will be applied.\n  The database and installed program differ. Repair will reconcile them.\nRecovery finished. Checking the installation again.\nThe database could not be checked. Continuing with installation repair.\nRestoring generated settings before checking the installation.\n"
+	literals := "  The database is up to date.\n  Database updates will be applied.\n  The database and installed program differ. Repair will reconcile them.\nRecovery finished. Checking the installation again.\nNo StatBus database is running yet; continuing with the installation.\nRestoring generated settings before checking the installation.\n"
 	if got := runTerminalFilter(t, literals); got != literals {
 		t.Fatalf("fixed state lines hidden or duplicated:\n got:\n%s\nwant:\n%s", got, literals)
 	}
