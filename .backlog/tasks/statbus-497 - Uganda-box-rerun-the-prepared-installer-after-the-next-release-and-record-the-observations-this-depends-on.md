@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: 2026-10-13 13:16
-updated_date: '2026-10-29T21:28:00Z'
+updated_date: '2026-10-30T10:05:00Z'
 labels:
   - install
   - uganda
@@ -82,4 +82,13 @@ Setup: Stages 1, 2, 3, 5 and 7 ran and verified idempotently; Stage 0 auto-skipp
 Installer: v2026.10.4 reached step 8 (Certificate) and stopped. The PFX password prompt went to stderr and was hidden by the terminal filter, so an Enter was read as an empty password (pkcs12: decryption password incorrect). The PFX itself is valid and covers the site name.
 Fourteen setup and installer findings from this run were fixed, reviewed with red/green evidence and released in v2026.10.5-rc.01 (commits 860860abe..38ccb3003, CI test fixes a87d9d064, all CI green): socket-activated SSH port, required stages default yes, cloud-only Stage 7 wording, summary derived from stage outcomes, missing FQDN detection and installer domain default, reboot attribution, authorized-key counts, copyable next step, optional security note, quiet git fetch and checkout, prompts after the running step, certificate folder chooser with path resolution, visible PFX password prompt with retries.
 Next: after stable promotion, rerun setup with the released script (Stage 4 must open the real SSH port; set the FQDN to statbus.ubos.org), then the regular installer with the PFX certificate. Then fill AC1-3.
+
+2026-10-30 Uganda install with v2026.10.5 (owner-driven, regular scripts):
+- Setup: all stages run; Stage 4 allowed 713/tcp correctly but its bouncer check failed on a stale CrowdSec key (fixed by hand, product fix STATBUS-539). Firewall now OpenSSH, 713/tcp Custom SSH, 80, 443, 5432, Zabbix 10050 from 10.10.10.253.
+- Installer: 19/19 steps; custom PFX certificate (*.ubos.org) installed; first administrator created; upgrader enabled; version v2026.10.5 recorded.
+- On the box: ./sb ps shows app, db (healthy), proxy, rest, worker up; curl -I -L https://statbus.ubos.org (TLS verified, no -k) gives 307 -> /login then 200 from Next.js via Caddy.
+- Not yet reachable from outside: public DNS for statbus.ubos.org is 196.0.117.82, which answers as Microsoft-HTTPAPI/2.0 (404). The box is 10.10.10.58; the name resolves locally to 127.0.1.1 via /etc/hosts. UBOS IT must forward 443 and 80 (or proxy the name) to 10.10.10.58. Installer public-DNS warning queued so this is visible at install time.
+- Pending: reboot (kernel update), external sign-in after forwarding, setup rerun with the next release.
+
+2026-10-30 10:05 UTC: owner signed in at https://statbus.ubos.org as the first administrator from his laptop (SSH tunnel to the box plus a temporary hosts entry), and reached the getting-started onboarding page. The installation is verified end to end; only the public route (UBOS forwarding to 10.10.10.58) remains.
 <!-- SECTION:NOTES:END -->
