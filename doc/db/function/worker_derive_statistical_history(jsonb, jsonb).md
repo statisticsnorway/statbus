@@ -26,8 +26,14 @@ BEGIN
     SELECT array_agg(dirty_hash_slot ORDER BY dirty_hash_slot) INTO v_dirty_hash_slots
     FROM public.statistical_unit_facet_dirty_hash_slots;
 
-    -- Bail to full rebuild if no history rows exist yet (fresh install, post-reset).
-    IF NOT EXISTS (SELECT 1 FROM public.statistical_history WHERE hash_partition IS NOT NULL LIMIT 1) THEN
+    -- Full rebuild when collect_changes requested a full refresh
+    -- (STATBUS-538), or when no per-slot rows exist yet (fresh install).
+    -- A full refresh drops every per-slot row first, so slots and periods
+    -- without units do not survive into the reduce.
+    IF COALESCE((payload->>'full_refresh')::boolean, false) THEN
+        DELETE FROM public.statistical_history WHERE hash_partition IS NOT NULL;
+        v_dirty_hash_slots := NULL;
+    ELSIF NOT EXISTS (SELECT 1 FROM public.statistical_history WHERE hash_partition IS NOT NULL LIMIT 1) THEN
         v_dirty_hash_slots := NULL;
     END IF;
 

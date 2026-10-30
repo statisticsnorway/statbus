@@ -17,12 +17,24 @@ DECLARE
     v_phase2_id BIGINT;
     v_payload JSONB;
     v_direct_mode BOOLEAN;
+    v_full_refresh BOOLEAN;
 BEGIN
     v_direct_mode :=
         p_payload ? 'establishment_id_ranges'
         OR p_payload ? 'legal_unit_id_ranges'
         OR p_payload ? 'enterprise_id_ranges'
         OR p_payload ? 'power_group_id_ranges';
+
+    -- STATBUS-538: a full refresh is the direct-mode payload naming every
+    -- unit kind with NULL (all ids) and no valid_ranges (all time). It is
+    -- passed on as payload.full_refresh so each report derive rebuilds its
+    -- whole per-slot cache, including slots whose units no longer exist.
+    v_full_refresh := v_direct_mode
+        AND NULLIF(p_payload->>'establishment_id_ranges', '') IS NULL
+        AND NULLIF(p_payload->>'legal_unit_id_ranges', '') IS NULL
+        AND NULLIF(p_payload->>'enterprise_id_ranges', '') IS NULL
+        AND NULLIF(p_payload->>'power_group_id_ranges', '') IS NULL
+        AND NULLIF(p_payload->>'valid_ranges', '') IS NULL;
 
     IF v_direct_mode THEN
         -- Caller supplied explicit ranges. A NULL / JSON-null value for a
@@ -108,7 +120,8 @@ BEGIN
 
         v_payload := jsonb_build_object(
             'valid_from', v_valid_from,
-            'valid_until', v_valid_until
+            'valid_until', v_valid_until,
+            'full_refresh', v_full_refresh
         );
 
         v_phase1_id := worker.spawn(

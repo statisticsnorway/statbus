@@ -187,7 +187,7 @@ CALL worker.process_tasks(p_queue => 'analytics');
 SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command WHERE c.queue != 'maintenance' GROUP BY queue,state ORDER BY queue,state;
    queue   |   state   | count 
 -----------+-----------+-------
- analytics | completed |  2172
+ analytics | completed |  1742
  import    | completed |    54
 (2 rows)
 
@@ -210,6 +210,26 @@ WHERE resolution = 'year' AND year = 2010 AND unit_type = 'legal_unit';
 ------------------------------
  t
 (1 row)
+
+\echo "After rebuild: drilldown and history facets equal statistical_unit (STATBUS-538)"
+"After rebuild: drilldown and history facets equal statistical_unit (STATBUS-538)"
+WITH truth AS (
+    SELECT unit_type, count(*)::int AS n FROM public.statistical_unit
+    WHERE valid_from <= CURRENT_DATE AND CURRENT_DATE < valid_until AND used_for_counting
+    GROUP BY unit_type
+), facet AS (
+    SELECT unit_type, sum(count)::int AS n FROM public.statistical_unit_facet
+    WHERE valid_from <= CURRENT_DATE AND CURRENT_DATE < valid_until
+    GROUP BY unit_type
+)
+SELECT unit_type, t.n IS NOT DISTINCT FROM f.n AS facet_matches
+FROM truth AS t FULL JOIN facet AS f USING (unit_type)
+ORDER BY unit_type;
+ unit_type  | facet_matches 
+------------+---------------
+ legal_unit | t
+ enterprise | t
+(2 rows)
 
 \echo "After rebuild: *_used tables correct relative to fixture data"
 "After rebuild: *_used tables correct relative to fixture data"

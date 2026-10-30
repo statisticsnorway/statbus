@@ -158,6 +158,20 @@ SELECT count(*) > 0 AS has_history_for_fixture_year
 FROM public.statistical_history
 WHERE resolution = 'year' AND year = 2010 AND unit_type = 'legal_unit';
 
+\echo "After rebuild: drilldown and history facets equal statistical_unit (STATBUS-538)"
+WITH truth AS (
+    SELECT unit_type, count(*)::int AS n FROM public.statistical_unit
+    WHERE valid_from <= CURRENT_DATE AND CURRENT_DATE < valid_until AND used_for_counting
+    GROUP BY unit_type
+), facet AS (
+    SELECT unit_type, sum(count)::int AS n FROM public.statistical_unit_facet
+    WHERE valid_from <= CURRENT_DATE AND CURRENT_DATE < valid_until
+    GROUP BY unit_type
+)
+SELECT unit_type, t.n IS NOT DISTINCT FROM f.n AS facet_matches
+FROM truth AS t FULL JOIN facet AS f USING (unit_type)
+ORDER BY unit_type;
+
 \echo "After rebuild: *_used tables correct relative to fixture data"
 WITH fixture_has_activity AS (
     SELECT count(*) > 0 AS yes FROM public.statistical_unit

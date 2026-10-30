@@ -75,6 +75,7 @@ BEGIN
             public.timesegments_years,
             public.statistical_unit,
             public.statistical_unit_facet,
+            public.statistical_unit_facet_staging,
             public.statistical_unit_facet_dirty_hash_slots,
             public.statistical_history,
             public.statistical_history_facet,

@@ -25,8 +25,15 @@ BEGIN
     SELECT array_agg(dirty_hash_slot ORDER BY dirty_hash_slot) INTO v_dirty_hash_slots
     FROM public.statistical_unit_facet_dirty_hash_slots;
 
-    -- Bail to full rebuild if the staging table is empty (fresh install, post-reset).
-    IF NOT EXISTS (SELECT 1 FROM public.statistical_unit_facet_staging LIMIT 1) THEN
+    -- Full rebuild when collect_changes requested a full refresh
+    -- (STATBUS-538), or when the staging cache is empty (fresh install,
+    -- unclean shutdown of the UNLOGGED table). A full refresh drops the whole
+    -- cache first: slots whose units no longer exist are never dirty and
+    -- would otherwise keep counting in the reduce.
+    IF COALESCE((payload->>'full_refresh')::boolean, false) THEN
+        DELETE FROM public.statistical_unit_facet_staging;
+        v_dirty_hash_slots := NULL;
+    ELSIF NOT EXISTS (SELECT 1 FROM public.statistical_unit_facet_staging LIMIT 1) THEN
         v_dirty_hash_slots := NULL;
     END IF;
 
