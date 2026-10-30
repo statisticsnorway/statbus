@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-10-30T19:31:00Z'
-updated_date: '2026-10-30T19:31:00Z'
+updated_date: '2026-10-30T19:38:00Z'
 labels:
   - worker
   - upgrade
@@ -37,3 +37,9 @@ The worker startup comment in cli/src/worker.cr states which startup writes are 
 - [ ] #2 After the fix the same test ends with every recurring command pending, and a scan of the worker log finds no 'Failed to seed recurring maintenance tasks' line
 - [ ] #3 Fast Tests green, and an LXD upgrade scenario capture shows the worker log without the seed failure
 <!-- AC:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+Prototype (rolled back, statbus_seed on the test container, tmp/551-proto.log): with default_transaction_read_only=on, seed_recurring_tasks() fails with the field error; with the scoped exemption crash recovery uses (SET ... = off, then RESET), after removing task_cleanup's pending row the seed recreates exactly that row. Proposed fix: run the seed inside that existing exemption in cli/src/worker.cr, before the RESET. Awaiting owner go-ahead.
+<!-- SECTION:NOTES:END -->
