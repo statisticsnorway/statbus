@@ -15,18 +15,21 @@ BEGIN
                  v_resolution, v_year, v_month, v_hash_partition;
 
     IF v_hash_partition IS NOT NULL THEN
-        -- Range-overlap DELETE on the slot value: stored rows are singletons
-        -- whose lower(hash_partition) equals the slot, so this matches every
-        -- stored row whose slot falls in the spawn's slot range. Works for
-        -- any spawn shape (singleton dirty children OR wide full-rebuild
-        -- children) because storage geometry is uniform per-slot.
+        -- Stored per-slot rows hold singleton ranges [s,s+1). Ranges sort by
+        -- lower bound, so comparing the column with the singleton ranges of
+        -- the spawn's first and past-the-end slots selects exactly the rows
+        -- whose slot lies in the spawn's range, and lets the partition unique
+        -- keys (hash_partition, resolution, year[, month], unit_type) bound
+        -- the scan. month is matched by equality, or IS NULL for the year
+        -- resolution, so the month key can use it (STATBUS-543: the former
+        -- lower(hash_partition) and month IS NOT DISTINCT FROM filters
+        -- scanned the whole table for every year-month child).
         DELETE FROM public.statistical_history
          WHERE resolution = v_resolution
            AND year = v_year
-           AND month IS NOT DISTINCT FROM v_month
-           AND hash_partition IS NOT NULL
-           AND lower(hash_partition) >= lower(v_hash_partition)
-           AND lower(hash_partition) <  upper(v_hash_partition);
+           AND ((v_month IS NULL AND month IS NULL) OR month = v_month)
+           AND hash_partition >= int4range(lower(v_hash_partition), lower(v_hash_partition) + 1)
+           AND hash_partition <  int4range(upper(v_hash_partition), upper(v_hash_partition) + 1);
 
         INSERT INTO public.statistical_history
         SELECT h.*

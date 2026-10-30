@@ -1,0 +1,7 @@
+                                                                                            QUERY PLAN                                                                                            
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ Delete on statistical_history
+   ->  Index Scan using statistical_history_partition_month_key on statistical_history
+         Index Cond: ((hash_partition >= '[0,1)'::int4range) AND (hash_partition < '[256,257)'::int4range) AND (resolution = 'year-month'::history_resolution) AND (year = 2020) AND (month = 3))
+(3 rows)
+
