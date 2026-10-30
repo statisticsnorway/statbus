@@ -3,10 +3,10 @@ id: STATBUS-545
 title: >-
   Re-upload and clone fail when the file has a column the import definition no
   longer maps (employees after stat disabled)
-status: In Progress
+status: Done
 assignee: []
 created_date: '2026-10-30T14:30:00Z'
-updated_date: '2026-10-30T17:35:00Z'
+updated_date: '2026-10-30T18:07:00Z'
 labels:
   - import
   - upload
@@ -42,7 +42,7 @@ Document the behaviour in doc/import-system.md; regenerate doc/db; check the UI 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
 - [x] #1 Test 305 (extended, no new file): disable a statistical variable used by an imported job, clone the job: the clone succeeds and its upload table keeps the column; fails before the fix
-- [ ] #2 Re-upload through api/import/upload of a file with that column succeeds; the COPY no longer errors
+- [x] #2 Re-upload through api/import/upload of a file with that column succeeds; the COPY no longer errors
 - [x] #3 Job page shows the column warning on the column header
 - [x] #4 Fast Tests green in CI for the commit
 - [x] #5 Data table has a display-only <col>_raw column that no import step reads, and no mapped <col> column
@@ -67,4 +67,6 @@ Fast Tests 41085353965 green on 5f96c5f96 (includes 0163e8739). UI/message polis
 3dacfef58: messages shortened to 'Ignored: not in the import definition' (row) / '... (N values)' (job); header ⚠ is a clickable popover (no hover needed), ignored values in amber; Copy works on plain http via clipboard fallback. Verified visually on job 50 (statbus_545_visual3). Test 305 passes locally.
 
 Fast Tests 41094001047 green on 3dacfef58 (plus Go Test, app build & lint, Images, Harness Selftest). AC#2 (re-upload through api/import/upload in the browser) is not yet observed in a real run.
+
+AC#2 observed in a real browser run on rc.02 code (9c6f74444): new job 51 statbus_545_reupload (definition establishment_for_lu_job_provided). samples/norway/establishment/underenheter-selection-web-import.csv was uploaded through the Upload Establishments page. COPY succeeded, state waiting_for_review, total_rows 1305. Job warning: employees_raw (351 values) is ignored. tax_ident_raw and legal_unit_tax_ident_raw are also ignored (1305 values each) because this dev copy has the tax_ident type disabled. Before the fix, this upload failed in the COPY.
 <!-- SECTION:NOTES:END -->
