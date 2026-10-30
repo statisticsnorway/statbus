@@ -57,11 +57,9 @@
 #
 # STATUS: proven on a real guest on 2026-10-08 (see ticket). Updated 2026-10-27
 # for STATBUS-429's optional certificate question, which this scenario declines.
-# The LXD fleet's first run still waits on the owner's catalogue decision.
-# HARNESS_SKIP_DEFAULT: on demand only (run.sh and lxd/run-forks.sh skip any
-# scenario containing this marker), so it adds nothing to the default RC
-# fault gate. Remove this marker once a real run has gone green and the owner
-# has funded it in the default catalogue. Run it explicitly with:
+# In the default release gate since 2026-10-30 (owner decision, STATBUS-474):
+# it is the only scenario that proves the installer's own defaults, so it runs
+# for every candidate. Run it alone with:
 #   test/install-recovery/lxd/run-forks.sh <candidate-tag> --scenario 0-interactive-setup-choices
 #
 # Usage:
