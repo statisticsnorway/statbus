@@ -6,6 +6,8 @@
 # published scripts work on a default box.
 #
 #   ops/manual-box.sh up       create the server (or show it if it exists)
+#   ops/manual-box.sh ssh      log in as root in a logged tmux session
+#                              (reattaches if the session is already open)
 #   ops/manual-box.sh rebuild  wipe it back to a blank Ubuntu 26.04 (same IP)
 #   ops/manual-box.sh down     delete it (billing stops)
 #   ops/manual-box.sh status   show it, with its creation time
@@ -57,13 +59,33 @@ show() {
 Server:  $name ($type, $image, $location), created $created
 Address: $ip
 
-Log the session so it can be read alongside you:
-  tmux new -s $name
-  tmux pipe-pane -o -t $name 'cat >> $log'
-  ssh root@$ip
-
+Log in:            ops/manual-box.sh ssh
+Session log:       $log
 Delete when done:  ops/manual-box.sh down
 EOF
+}
+
+# One tmux session per box, named after it. Everything the terminal shows is
+# appended to the session log so the coordinating agent can read along. The
+# session waits briefly before ssh starts so the log captures the login too.
+# Leaving ssh ends the session; running `ssh` again opens a new one and keeps
+# appending to the same log.
+connect() {
+    local ip=$1
+    mkdir -p "$(dirname "$log")"
+    if ! tmux has-session -t "=$name" 2>/dev/null; then
+        printf '\n===== %s session start %s =====\n' "$name" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$log"
+        tmux new-session -d -s "$name" \
+            "sleep 0.5; exec ssh -o StrictHostKeyChecking=accept-new root@$ip"
+        # pipe-pane takes a pane target: '=name:' is the exact session's
+        # current window and pane ('=name' alone is rejected).
+        tmux pipe-pane -o -t "=$name:" "cat >> '$log'"
+    fi
+    if [ -n "${TMUX:-}" ]; then
+        tmux switch-client -t "=$name"
+    else
+        tmux attach-session -t "=$name"
+    fi
 }
 
 case "${1:-}" in
@@ -77,6 +99,12 @@ up)
     require_ours "$server"
     wait_for_ssh "$(jq -er '.public_net.ipv4.ip' <<<"$server")"
     show "$server"
+    ;;
+ssh|connect)
+    server=$(describe)
+    [ -n "$server" ] || { echo "No server '$name'; run: ops/manual-box.sh up" >&2; exit 1; }
+    require_ours "$server"
+    connect "$(jq -er '.public_net.ipv4.ip' <<<"$server")"
     ;;
 rebuild)
     server=$(describe)
@@ -102,7 +130,7 @@ status)
     show "$server"
     ;;
 *)
-    sed -n '2,15p' "$0" | sed 's/^# \{0,1\}//'
+    sed -n '2,17p' "$0" | sed 's/^# \{0,1\}//'
     exit 2
     ;;
 esac
