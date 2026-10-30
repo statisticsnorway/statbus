@@ -10,6 +10,8 @@
 #                              (reattaches if the session is already open)
 #   ops/manual-box.sh cert     after setup: hand the box a test certificate the
 #                              way an NSO would (a PFX in the statbus home)
+#   ops/manual-box.sh guide    print the test walkthrough (setup, certificate,
+#                              install, health, uninstall)
 #   ops/manual-box.sh rebuild  wipe it back to a blank Ubuntu 26.04 (same IP)
 #   ops/manual-box.sh down     delete it (billing stops)
 #   ops/manual-box.sh status   show it, with its creation time
@@ -64,7 +66,33 @@ Address: $ip
 Log in:            ops/manual-box.sh ssh
 Session log:       $log
 Delete when done:  ops/manual-box.sh down
+
+Test walkthrough (ops/manual-box.sh guide prints it again):
+$(guide_text)
 EOF
+}
+
+# The operator walkthrough for a manual test run, so the box carries its own
+# instructions. Each step is what a real operator does, plus the checks that
+# turn the run into ticket evidence. The site name and certificate details
+# are the ones 'cert' produces.
+guide_text() {
+    cat <<GUIDE
+  1. Log in:         ops/manual-box.sh ssh      (you are root)
+  2. Root shell:     sudo -i; echo "HOME=\$HOME login=\$(shopt -q login_shell && echo yes || echo no)"
+  3. Setup:          curl -fsSL https://statbus.org/setup.sh -o setup.sh && bash setup.sh
+                     Full name of this server: $cert_domain
+  4. Ownership:      find /home/statbus -xdev -user root    (expect no output)
+  5. Certificate:    on your laptop: ops/manual-box.sh cert
+  6. Install:        sudo -iu statbus
+                     curl -fsSL https://statbus.org/install.sh | bash
+                     Domain: $cert_domain
+                     Certificate: yes, pick ~/Documents/certificate-from-it,
+                     password $cert_password
+  7. Health:         cd ~/statbus && ./sb monitor status; curl -s https://$cert_domain/monitor
+  8. Uninstall:      (as statbus) curl -fsSL https://statbus.org/uninstall.sh | bash
+  Start over:        ops/manual-box.sh rebuild
+GUIDE
 }
 
 # One tmux session per box, named after it. Everything the terminal shows is
@@ -132,10 +160,7 @@ echo "Trusted:  the test CA is in this box's trust store"
 REMOTE
     cat <<EOF
 
-Use it like an operator:
-  setup:   when asked for the server's full name, enter $domain
-  install: answer yes to the certificate question, then pick the folder
-           ~/Documents/certificate-from-it and give the password above.
+Use it like an operator: step 6 of the walkthrough (ops/manual-box.sh guide).
 EOF
 }
 
@@ -161,7 +186,10 @@ cert)
     server=$(describe)
     [ -n "$server" ] || { echo "No server '$name'; run: ops/manual-box.sh up" >&2; exit 1; }
     require_ours "$server"
-    give_certificate "$(jq -er '.public_net.ipv4.ip' <<<"$server")" "${2:-$cert_domain}"
+    give_certificate "$(jq -er '.public_net.ipv4.ip' <<<"$server")" "$cert_domain"
+    ;;
+guide)
+    guide_text
     ;;
 rebuild)
     server=$(describe)
@@ -187,7 +215,7 @@ status)
     show "$server"
     ;;
 *)
-    sed -n '2,18p' "$0" | sed 's/^# \{0,1\}//'
+    sed -n '2,20p' "$0" | sed 's/^# \{0,1\}//'
     exit 2
     ;;
 esac
