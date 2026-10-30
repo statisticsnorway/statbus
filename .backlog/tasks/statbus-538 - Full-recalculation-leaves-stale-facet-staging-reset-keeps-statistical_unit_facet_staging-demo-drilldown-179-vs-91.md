@@ -6,7 +6,7 @@ title: >-
 status: Done
 assignee: []
 created_date: '2026-10-30T08:48:00Z'
-updated_date: '2026-10-30T10:34:00Z'
+updated_date: '2026-10-30T10:36:00Z'
 labels:
   - derive
   - facets
@@ -41,4 +41,6 @@ Demo repaired 2026-10-30 09:48 via tmp/demo-repair.sql (BEGIN; TRUNCATE statisti
 Fix a09c2d25c (migration 20261030085731). Before fix: tmp/test-355-before-fix.out, facets 14 vs truth 7 after reset+reimport, 28 vs 7 after full collect_changes without TRUNCATE. After: all matches t (test/expected/355). 346 now asserts facet totals = statistical_unit (t); analytics task count 2172->1742 since full refresh spawns wide ranges. ./dev.sh test fast: All 118 tests passed (tmp/test-538-fast.log). doc/db regenerated: 5 function docs, no deletions. Old migrations left unchanged. Pending: CI for a09c2d25c.
 
 CI: Fast Tests run 41040045995 success (pg_regress fast suite) at 8afd44ea9, which contains a09c2d25c. Earlier Fast Tests runs on a09c2d25c..c7ab9a2c8 were cancelled by superseding pushes; Go Test, Images, app build & lint, Harness Selftest succeeded on a09c2d25c itself. Open design follow-up (not blocking): derive full refresh from valid_from=-infinity/valid_until=infinity instead of payload.full_refresh, to keep one source of truth; awaiting user decision.
+
+Upgrade-path verification on real demo data: restored dbdumps/demo_20261030_093705.pg_dump (broken state) into scratch DB statbus_538_verify. Before: enterprise region 04 facet 179 vs truth 91, 721 stale staging rows (tmp/538-verify-before.log). Applied migration 20261030085731 .up.sql as the upgrade would (it re-queued the full collect_changes), ran worker.process_tasks(analytics), no TRUNCATE by caller. After: every region facet == truth (04: 91/91), 0 stale staging rows, 0 failed tasks (tmp/538-verify-after.log). All unit types: facet == countable truth (est 8, lu 113, ent 113); history_facet countable_count 2026 equals the same (exists_count 10/144/144 equals all-units-now). 0 stale history partitions. reset(true,'data') then leaves facet staging empty (tmp/538-verify-all.log). Correction: dashboard 113 was the correct countable count; my earlier '142' was wrong (31 units are not used_for_counting). Scratch DBs dropped.
 <!-- SECTION:NOTES:END -->
