@@ -324,6 +324,7 @@ func TestInstallCertStep_InteractiveAcceptPaths(t *testing.T) {
 		ni, st, qp, yn := nonInteractive, stdinIsTerminal, questionnairePrompt, askCertificateYesNo
 		return func() { nonInteractive, stdinIsTerminal, questionnairePrompt, askCertificateYesNo = ni, st, qp, yn }
 	}()()
+	pickerHome(t)
 	certPath, keyPath := certStepFixture(t)
 	nonInteractive = false
 	stdinIsTerminal = func() bool { return true }

@@ -23,6 +23,157 @@ type certChoice struct {
 	NotYetValid bool
 }
 
+// The name-only search that feeds the installer's certificate picker
+// (tmp/picker-proto/PROPOSAL.md). It reads directory entries and file
+// metadata, never file contents, so it needs no password and touches no
+// secret. Only the folder chooser inspects contents afterwards.
+const (
+	certCandidateMaxSize  = 200 * 1024
+	certSearchHomeDepth   = 4
+	certSearchEtcSSLDepth = 2
+)
+
+// certSearchExtensions are the file-name suffixes a certificate can arrive
+// with. The search never trusts them as proof of content.
+var certSearchExtensions = []string{".pfx", ".p12", ".pem", ".crt", ".cer"}
+
+// certSearchSkippedNames are directory names that never hold an operator's
+// certificate but can be large (or unreadable) to walk.
+var certSearchSkippedNames = map[string]bool{
+	".git":         true,
+	".cache":       true,
+	"node_modules": true,
+}
+
+// certSearchRoot is one place the picker looks, and how many directory levels
+// below it may descend. A file directly inside the root is at level 0.
+type certSearchRoot struct {
+	Path     string
+	MaxDepth int
+}
+
+// certCandidateFolder is one folder holding name-matched certificate files.
+// Newest is the latest modification time among its candidates, which orders
+// the list: the certificate an operator just copied in comes first.
+type certCandidateFolder struct {
+	Path   string
+	Files  []string
+	Newest time.Time
+}
+
+// certCandidateRoots is the seam the picker tests use to keep the search
+// inside a temporary home instead of the machine's real /etc/ssl.
+var certCandidateRoots = func(home string) []certSearchRoot {
+	return []certSearchRoot{
+		{Path: home, MaxDepth: certSearchHomeDepth},
+		{Path: "/etc/ssl", MaxDepth: certSearchEtcSSLDepth},
+	}
+}
+
+// findCertificateCandidates is the seam askInstallCert uses; tests replace it
+// (or certCandidateRoots) to control where the list comes from.
+var findCertificateCandidates = func(home string) []certCandidateFolder {
+	return findCertCandidates(certCandidateRoots(home), filepath.Join(home, "statbus"))
+}
+
+// findCertCandidates collects the folders under roots that hold a certificate
+// by name, skipping installDir (the checkout's own test certificates are not
+// the operator's) and the well-known noise directories. Unreadable folders are
+// skipped silently: the operator asked for a list, not for a filesystem audit.
+func findCertCandidates(roots []certSearchRoot, installDir string) []certCandidateFolder {
+	byFolder := map[string]*certCandidateFolder{}
+	for _, root := range roots {
+		if root.Path == "" {
+			continue
+		}
+		collectCertCandidates(root.Path, 0, root.MaxDepth, installDir, byFolder)
+	}
+	folders := make([]certCandidateFolder, 0, len(byFolder))
+	for _, folder := range byFolder {
+		sort.Strings(folder.Files)
+		folders = append(folders, *folder)
+	}
+	sort.Slice(folders, func(i, j int) bool {
+		if !folders[i].Newest.Equal(folders[j].Newest) {
+			return folders[i].Newest.After(folders[j].Newest)
+		}
+		return folders[i].Path < folders[j].Path
+	})
+	return folders
+}
+
+// collectCertCandidates walks one directory tree. depth counts levels below
+// the root; a directory at maxDepth is still scanned, but not descended into.
+func collectCertCandidates(dir string, depth, maxDepth int, installDir string, byFolder map[string]*certCandidateFolder) {
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return
+	}
+	for _, entry := range entries {
+		path := filepath.Join(dir, entry.Name())
+		if entry.IsDir() {
+			if depth >= maxDepth || certSearchSkippedNames[entry.Name()] || path == installDir {
+				continue
+			}
+			collectCertCandidates(path, depth+1, maxDepth, installDir, byFolder)
+			continue
+		}
+		if !certCandidateName(entry.Name()) {
+			continue
+		}
+		info, statErr := os.Stat(path) // follows a symlink to the real certificate
+		if statErr != nil || info.IsDir() || info.Size() >= certCandidateMaxSize {
+			continue
+		}
+		folder := byFolder[dir]
+		if folder == nil {
+			folder = &certCandidateFolder{Path: dir}
+			byFolder[dir] = folder
+		}
+		folder.Files = append(folder.Files, entry.Name())
+		if info.ModTime().After(folder.Newest) {
+			folder.Newest = info.ModTime()
+		}
+	}
+}
+
+// certCandidateName reports whether a file name carries a certificate suffix.
+func certCandidateName(name string) bool {
+	ext := strings.ToLower(filepath.Ext(name))
+	for _, candidate := range certSearchExtensions {
+		if ext == candidate {
+			return true
+		}
+	}
+	return false
+}
+
+// displayCertPath shortens a path under home to ~/..., keeping the list short
+// enough to fit a terminal and hiding which user's home it was.
+func displayCertPath(path, home string) string {
+	if home == "" {
+		return path
+	}
+	if path == home {
+		return "~"
+	}
+	if strings.HasPrefix(path, home+string(filepath.Separator)) {
+		return "~/" + filepath.ToSlash(strings.TrimPrefix(path, home+string(filepath.Separator)))
+	}
+	return path
+}
+
+// renderCertificateFolderChoices is the numbered list: newest folder first,
+// its candidate file names, then the escape hatch to type any path.
+func renderCertificateFolderChoices(folders []certCandidateFolder, home string) []string {
+	lines := []string{"  Certificates found:"}
+	for i, folder := range folders {
+		lines = append(lines, fmt.Sprintf("  %d) %s   %s", i+1, displayCertPath(folder.Path, home), strings.Join(folder.Files, ", ")))
+	}
+	lines = append(lines, fmt.Sprintf("  %d) Another file or folder (type a path)", len(folders)+1))
+	return lines
+}
+
 // resolveInstallPath turns an interactive answer into an absolute path.
 // Absolute paths are kept; ~ and ~/... expand to the install user's home;
 // anything relative resolves against the directory the operator ran the

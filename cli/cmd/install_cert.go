@@ -196,6 +196,11 @@ func askCertYesNo(label string) bool {
 // answer the yes/no question without a terminal.
 var askCertificateYesNo = askCertYesNo
 
+// chooseCertFolder is the seam the picker tests use to observe which folder the
+// picker hands to the existing content-based folder chooser. Production always
+// runs chooseCertificateFromFolder, unchanged.
+var chooseCertFolder = chooseCertificateFromFolder
+
 // certificateExplanation is the fixed text shown before the certificate
 // question. Kept as data so the terminal-filter test proves every line
 // survives install.sh's tee|awk pipeline.
@@ -210,6 +215,13 @@ var certificateExplanation = []string{
 // by content, listed with its usable certificates, and the chosen files then
 // flow through installCustomCertificate. Returns nil when the operator
 // declines or has nothing to give.
+//
+// After "yes" the installer first lists the folders under ~ and /etc/ssl that
+// hold certificate files by name (tmp/picker-proto/PROPOSAL.md). The list is a
+// suggestion, not a scan: it never reads contents, so it needs no password,
+// and the operator can always type another path instead. Choosing a folder
+// runs chooseCertificateFromFolder, unchanged, which does the content checks
+// and asks for a PFX password at most once.
 func askInstallCert(dir string) ([]string, *string) {
 	fmt.Println()
 	for _, line := range certificateExplanation {
@@ -219,6 +231,30 @@ func askInstallCert(dir string) ([]string, *string) {
 		certNotice("  Continuing with automatic certificates. Install your own later with: ./sb cert install")
 		return nil, nil
 	}
+	home, _ := os.UserHomeDir()
+	folders := findCertificateCandidates(home)
+	if len(folders) == 0 {
+		certNotice("  No certificate files found under ~ or /etc/ssl.")
+		return askInstallCertPath(dir)
+	}
+	for _, line := range renderCertificateFolderChoices(folders, home) {
+		certNotice("%s", line)
+	}
+	answer := questionnairePrompt("  Use which", "1")
+	number, convErr := strconv.Atoi(strings.TrimSpace(answer))
+	switch {
+	case convErr == nil && number >= 1 && number <= len(folders):
+		return chooseCertFolder(folders[number-1].Path, dir)
+	case convErr == nil && number == len(folders)+1:
+		return askInstallCertPath(dir)
+	}
+	certNotice("  That is not one of the listed numbers; type a path instead.")
+	return askInstallCertPath(dir)
+}
+
+// askInstallCertPath is the path question the installer has always asked: an
+// absolute path, ~/..., or a path relative to where the installer was started.
+func askInstallCertPath(dir string) ([]string, *string) {
 	certNotice("  Paths may be absolute, start with ~/, or be relative to the directory you ran the installer from.")
 	certPath := questionnairePrompt("  Certificate file or folder (a PFX/PKCS#12 file, a PEM fullchain, or a folder to inspect)", "")
 	if certPath == "" {
@@ -231,7 +267,7 @@ func askInstallCert(dir string) ([]string, *string) {
 		return nil, nil
 	}
 	if isDir {
-		return chooseCertificateFromFolder(resolved, dir)
+		return chooseCertFolder(resolved, dir)
 	}
 	if !needsKey {
 		return []string{resolved}, nil
