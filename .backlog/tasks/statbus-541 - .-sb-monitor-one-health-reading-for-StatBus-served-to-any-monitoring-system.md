@@ -4,7 +4,7 @@ title: './sb monitor: one health reading for StatBus, served to any monitoring s
 status: In Progress
 assignee: []
 created_date: '2026-10-30T11:50:00Z'
-updated_date: '2026-10-30T12:32:00Z'
+updated_date: '2026-10-30T12:34:00Z'
 labels:
   - monitoring
   - operations
@@ -21,11 +21,11 @@ ordinal: 467204
 An NSO's monitoring knows whether StatBus itself is healthy, using one answer StatBus gives in a form any monitor can read, with nothing to build on their side.
 
 ### Zoom out
-Monitoring systems connect to a host in two ways: a command run by an agent on the box (Zabbix agent, Nagios/Icinga plugins: exit code 0/1/2/3 plus a status line) or an HTTP URL they poll (Zabbix HTTP agent, Uptime Kuma, UptimeRobot). StatBus already judges its own health in the installer's final proof, ./sb ps, disk policy and the upgrader. Ready-made integration beats documentation: N NSOs writing their own checks gives N partial ones. The upgrader service already runs on every box under systemd with a periodic tick, and Caddy already serves files from ~/statbus/tmp (/upgrade-progress.log), including during maintenance. Owner decisions 2026-10-30: one final design (no staged versions), cached reading by default, /monitor public, no email for now.
+Monitoring systems connect to a host in two ways: a command run by an agent on the box (Zabbix agent, Nagios/Icinga plugins: exit code 0/1/2/3 plus a status line) or an HTTP URL they poll (Zabbix HTTP agent, Uptime Kuma, UptimeRobot). StatBus already judges its own health in the installer's final proof, ./sb ps, disk policy and the upgrader. Ready-made integration beats documentation: N NSOs writing their own checks gives N partial ones. The reading is computed by what already runs on every box and served by what already answers on the site, so StatBus adds no new daemon or port to monitor. Owner decisions 2026-10-30: one final design (no staged versions), cached reading by default, /monitor public, no email for now.
 
 ### Zoom in
 Field case: Uganda (statbus.ubos.org) runs Zabbix (agent 10050 from 10.10.10.253).
-Design (approved):
+Design (approved). The upgrader service already runs on every box under systemd with a periodic tick, and Caddy already serves files from ~/statbus/tmp (/upgrade-progress.log), including during maintenance; the design reuses both.
 1. Check engine: services (5 running, db healthy), api (PostgREST ready), site (SITE_DOMAIN answers over HTTPS; certificate days left), disk (diskpolicy), backups (age of newest in ~/statbus-backups), upgrader (unit active, no failed or parked upgrade), worker (failed tasks in the last hour; stuck). Fixed thresholds as commented constants. Status per check and overall: ok (exit 0), warning (1), critical (2), unknown (3), and upgrading (overall only, exit 1: a planned upgrade is visible but not an outage).
 2. CLI: bare ./sb monitor prints help (what is checked, subcommands, one example per platform, and that text output plus exit codes is already a Nagios/Icinga plugin). ./sb monitor status [--live] [--format text|json]: text's first line is the Nagios-shaped summary (StatBus WARNING - disk 82% used), then one line per check; exit code is the worst status (0/1/2/3).
 3. Cache by default: the upgrader runs the checks every 60 s and writes ~/statbus/tmp/monitor.json atomically with checked_at and version. status reads it; a reading older than 3 minutes is unknown. --live runs the checks now. No service running: status says so and runs live.
@@ -48,6 +48,7 @@ Out of scope: Nagios template (the plugin contract is built in), Prometheus, ema
 - [ ] #6 ./sb monitor template zabbix prints a template that imports into Zabbix 7 without errors
 - [x] #7 ./sb monitor template uptime prints the /monitor URL for this site and the expected HTTP status
 - [ ] #8 During an upgrade the reading shows status upgrading (exit 1) and returns to ok afterwards, observed on a real upgrade run
+- [ ] #9 The operator docs carry one paragraph that points at ./sb monitor and its templates
 <!-- AC:END -->
 
 ## Implementation Notes
