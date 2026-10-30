@@ -189,6 +189,11 @@ apt_install() {
     }
 }
 
+# Ask a yes/no question. The optional default is "y", "n", or "none": "none"
+# means the question has no default, so its hint is [y/n] and an empty answer
+# re-asks instead of being taken as one. Use it where the operator must
+# actually decide, such as confirming they can still log in over SSH.
+# NON_INTERACTIVE answers yes without asking.
 ask_yes_no() {
     local prompt="$1"
     local default="${2:-n}"
@@ -199,9 +204,14 @@ ask_yes_no() {
 
     local yn_hint="[y/N]"
     [[ "$default" == "y" ]] && yn_hint="[Y/n]"
+    [[ "$default" == "none" ]] && yn_hint="[y/n]"
 
     while true; do
         read -r -p "$prompt $yn_hint: " answer
+        if [[ -z "$answer" && "$default" == "none" ]]; then
+            echo "Please type yes or no; this needs an explicit answer."
+            continue
+        fi
         answer="${answer:-$default}"
         case "${answer,,}" in
             y|yes) return 0 ;;
@@ -667,7 +677,7 @@ ensure_remote_access() {
     echo "  In a second terminal, connect the way you normally reach this server"
     echo "  (your usual hostname and port; a router or NAT may map a different external port)."
     echo "  Answering no changes nothing: fix the access, then run this script again."
-    if ! ask_yes_no "Did that connect?" n; then
+    if ! ask_yes_no "Did that connect?" none; then
         log_error "Remote access was not confirmed, so SSH has not been changed."
         return 1
     fi
