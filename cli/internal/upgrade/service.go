@@ -20,6 +20,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"syscall"
 	"time"
 
@@ -186,11 +187,22 @@ type Service struct {
 	backupRetention int           // BACKUP_RETENTION_COUNT — dumps kept per prefix (default 7)
 	backupMu        sync.Mutex    // single-flight guard: never two backups at once
 	// pinnedVer removed — use "skip" in the UI instead of a channel that hides all releases
-	upgrading      bool               // true during executeUpgrade; prevents ticker/notify from using nil conn
-	cachedURL      string             // cached health check URL (derived from .env at startup)
-	cachedReadyURL string             // cached PostgREST admin /ready URL (derived from .env; warmup gate before the RPC probe)
-	listenCancel   context.CancelFunc // cancels the listenLoop goroutine
-	listenDone     chan struct{}      // closed when the active listenLoop goroutine exits
+	upgrading bool // true during executeUpgrade; prevents ticker/notify from using nil conn
+	// STATBUS-541: the health reading the public /monitor route and ./sb monitor
+	// status serve. monitorMu makes the 60 s refresh single-flight; a second
+	// tick while the first is still measuring is skipped rather than queued.
+	// monitorWriteMu serializes writes so a periodic reading cannot interleave
+	// with the upgrading reading's marker updates.
+	monitorMu      sync.Mutex
+	monitorWriteMu sync.Mutex
+	// monitorUpgrading mirrors upgrading for the monitor writer goroutine
+	// without racing that goroutine's reads against the upgrade pipeline's
+	// writes to upgrading.
+	monitorUpgrading atomic.Bool
+	cachedURL        string             // cached health check URL (derived from .env at startup)
+	cachedReadyURL   string             // cached PostgREST admin /ready URL (derived from .env; warmup gate before the RPC probe)
+	listenCancel     context.CancelFunc // cancels the listenLoop goroutine
+	listenDone       chan struct{}      // closed when the active listenLoop goroutine exits
 	// listenWg retired in favour of listenDone: we need to tolerate a leaked
 	// goroutine after a force-close timeout (task #40 / #37 root cause), and
 	// sync.WaitGroup's counter would go negative on the leaked goroutine's
@@ -3872,6 +3884,13 @@ func (d *Service) Run(ctx context.Context) error {
 	backupTicker := time.NewTicker(d.backupInterval)
 	defer backupTicker.Stop()
 
+	// STATBUS-541: refresh the health reading the CLI and the public /monitor
+	// route serve. The work happens in a goroutine (probes include HTTP and
+	// Docker calls); this ticker case only starts it.
+	monitorTicker := time.NewTicker(monitorTickInterval)
+	defer monitorTicker.Stop()
+	d.startMonitorRefresh(ctx)
+
 	// STATBUS-328 arm 1: retire rows that were never on this box's channel,
 	// BEFORE the first discovery. Ordering matters for what an operator sees:
 	// discover() may register new rows and print what it found, and a sweep
@@ -3979,6 +3998,10 @@ func (d *Service) Run(ctx context.Context) error {
 			// guards (enabled / upgrade-in-progress skip / single-flight / due
 			// check) live in maybeRunBackup.
 			go d.maybeRunBackup(ctx)
+		case <-monitorTicker.C:
+			// STATBUS-541: refresh the cached health reading. Non-blocking and
+			// single-flight; write errors are logged, never fatal.
+			d.startMonitorRefresh(ctx)
 		case n := <-notifyCh:
 			if !d.upgrading {
 				d.handleNotification(ctx, n)
@@ -8166,7 +8189,19 @@ func (d *Service) executeUpgrade(ctx context.Context, claim upgradeClaimSnapshot
 	id := claim.ID
 	commitSHA := claim.CommitSHA
 	d.upgrading = true
-	defer func() { d.upgrading = false }()
+	d.monitorUpgrading.Store(true)
+	// STATBUS-541: from here until this function returns, the public reading
+	// says upgrading, so pollers see a planned upgrade rather than a failure
+	// while containers restart. The goroutine refreshes checked_at every
+	// minute; it never touches queryConn. On return the next refresh writes a
+	// fresh normal reading immediately, before the cache can look stale.
+	stopMonitorUpgrading := d.startUpgradingReading(ctx)
+	defer func() {
+		d.upgrading = false
+		d.monitorUpgrading.Store(false)
+		stopMonitorUpgrading()
+		d.startMonitorRefresh(context.Background())
+	}()
 	d.activeClaimToken = claim.ClaimToken
 	defer func() { d.activeClaimToken = "" }()
 
