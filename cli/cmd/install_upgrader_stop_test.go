@@ -32,6 +32,31 @@ func TestInstallUpgraderStopLinesReachTheOperator(t *testing.T) {
 	}
 }
 
+// rc.04 gate (smoke 41158823385, 0-happy-install): a green-box rerun must
+// report every step OK. The install stops the upgrader before the steps, so
+// the Upgrader step sees the unit inactive; that step is done when this
+// install stopped a correct unit itself, and still runs when the upgrader was
+// simply not running.
+func TestUpgraderStepDoneWhenThisInstallStoppedIt(t *testing.T) {
+	cases := []struct {
+		state   unitfloor.State
+		stopped bool
+		want    bool
+	}{
+		{unitfloor.OK, false, true},
+		{unitfloor.Inactive, true, true},
+		{unitfloor.Inactive, false, false},
+		{unitfloor.UnitFileDrifted, true, false},
+		{unitfloor.UnitFileMissing, true, false},
+		{unitfloor.NotApplicable, false, true},
+	}
+	for _, c := range cases {
+		if got := upgraderStepDone(c.state, c.stopped); got != c.want {
+			t.Errorf("upgraderStepDone(%v, stopped=%v) = %v, want %v", c.state, c.stopped, got, c.want)
+		}
+	}
+}
+
 func TestInstallStopsUpgraderUnderLockAndStartsItOnlyOnSuccess(t *testing.T) {
 	cases := []struct {
 		name        string

@@ -1039,10 +1039,12 @@ func runInstall() (installErr error) {
 	// STATBUS-382: the install holds the upgrade lock from here on, so the
 	// upgrader is stopped before any step runs and started again only when
 	// the install succeeds (stopUpgraderForInstall).
+	upgraderStoppedByThisInstall = false
 	if stopped, err := stopUpgraderForInstall(bypass); err != nil {
 		return err
 	} else if stopped {
 		upgraderStoppedForInstall = true
+		upgraderStoppedByThisInstall = true
 		upgradeDaemonFinalAction = mergeUpgradeDaemonFinalAction(upgradeDaemonFinalAction, upgradeDaemonStart)
 	}
 
@@ -1743,15 +1745,32 @@ func checkServiceDone(dir string) bool {
 	// done, an underivable instance is NOT done (install should still try), and
 	// anything short of file-correct-and-active is not done.
 	r := unitfloor.Inspect(dir)
-	switch r.State {
+	return upgraderStepDone(r.State, upgraderStoppedByThisInstall)
+}
+
+// upgraderStepDone decides the Upgrader step's done-check from the unit's
+// state (unitfloor) and whether this install stopped the upgrader itself.
+func upgraderStepDone(state unitfloor.State, stoppedByThisInstall bool) bool {
+	switch state {
 	case unitfloor.NotApplicable:
 		return true // Skip on non-Linux
 	case unitfloor.OK:
 		return true
+	case unitfloor.Inactive:
+		// STATBUS-382: this install stopped a correct, running unit itself
+		// (stopUpgraderForInstall) and queued its start for install exit, so
+		// the unit is as it should be; a box whose upgrader was not running
+		// still runs the step and gets it started.
+		return stoppedByThisInstall
 	default:
 		return false
 	}
 }
+
+// upgraderStoppedByThisInstall records that runInstall stopped a running
+// upgrader under the upgrade lock (stopUpgraderForInstall); checkServiceDone
+// reads it so a quiet rerun reports the Upgrader step OK.
+var upgraderStoppedByThisInstall bool
 
 // serviceInstance returns the systemd instance name of the upgrader, e.g.
 // "statbus-upgrader@statbus_dev.service" (cloud, user is statbus_<slot>) or
