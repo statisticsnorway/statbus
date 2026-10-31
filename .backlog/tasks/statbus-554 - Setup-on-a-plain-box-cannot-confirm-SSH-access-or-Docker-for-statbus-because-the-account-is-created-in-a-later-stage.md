@@ -6,7 +6,7 @@ title: >-
 status: Done
 assignee: []
 created_date: '2026-10-31T01:48:00Z'
-updated_date: '2026-10-31T13:18:00Z'
+updated_date: '2026-10-31T13:31:00Z'
 labels:
   - setup
   - install
@@ -74,4 +74,6 @@ Pending for AC5: the same on the released rc.06 setup.sh.
 
 2026-10-31 rc.06 (v2026.10.6-rc.06 at bb2c18599) gate green: Release Fleet Orchestrator 41200440118, Test Smoke 41200539247, LXD Fork Fleet 41201654999, Upgrade Arc Harness 41201705069, Test Hardening 41200440083 (--only-stages service-account), Fast Tests 41200440122, dev deploy 41201494411. Smoke log: both LXD bases ran setup once with --skip-stages security-tools, 'Stage 3 of 9: StatBus service account', 'Setup Complete!', hardening complete in 92 s / 95 s, no retry.
 Released script on a freshly rebuilt plain Hetzner box (no statbus, no Docker): the release asset setup-ubuntu-lts.sh stamped v2026.10.6-rc.06, --non-interactive --skip-stages security-tools: 'StatBus: v2026.10.6-rc.06', 'Setup Complete!', EXIT=0 (tmp/554-box-4-released.log). Rerun: EXIT=0, sha256 snapshot of /etc and /home/statbus plus statbus id/groups identical (diff rc 0, tmp/554-box-5-released-rerun.log).
+
+2026-10-31 owner decision: option A is the correct design. A stage's requirements are declared in the STAGES table and a selection is checked against them before any stage runs; it does what it says, declaratively. No box-inspecting precondition checks (option B).
 <!-- SECTION:NOTES:END -->
