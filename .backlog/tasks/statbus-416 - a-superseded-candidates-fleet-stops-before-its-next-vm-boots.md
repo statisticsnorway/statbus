@@ -5,8 +5,8 @@ title: >-
   before taking another box
 status: In Progress
 assignee: []
-created_date: '2026-09-25 09:45'
-updated_date: '2026-10-26 14:19'
+created_date: 2026-09-25 09:45
+updated_date: '2026-10-31T11:58:00Z'
 labels:
   - release-bug
   - ci
@@ -65,4 +65,6 @@ Release candidates are tested by long fleets (smoke, the LXD fault fleet, upgrad
 
 ### Owner decision 2026-10-26: wait for a natural supersession
 Nobody has asked for a forced test, so AC3 stays open until a newer candidate is tagged while an older candidate's fleet is still queued. The 527 candidate following today's candidate may produce it.
+
+2026-10-31 check for a natural supersession tonight: none occurred. rc.04's orchestrator 41158720297 failed at 02:18:50Z (smoke, 382 quiet-rerun) and never started an LXD fleet; rc.05 was tagged 02:58Z after it ended. rc.03's fleet 41149641777 finished 00:40:57Z before rc.04 was tagged. AC3 stays open, waiting as agreed.
 <!-- SECTION:NOTES:END -->
