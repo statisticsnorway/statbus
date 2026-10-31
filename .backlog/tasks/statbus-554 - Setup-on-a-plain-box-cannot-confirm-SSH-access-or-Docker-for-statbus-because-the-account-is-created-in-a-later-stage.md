@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-10-31T01:48:00Z'
-updated_date: '2026-10-31T01:49:00Z'
+updated_date: '2026-10-31T01:52:00Z'
 labels:
   - setup
   - install
@@ -37,3 +37,9 @@ Documentation needed: the setup script's stage comments state where the service 
 - [ ] #2 The service account exists before every stage that uses it (Stage 2 key install and confirmation, Stage 5 docker grant and check); the same test is green
 - [ ] #3 A plain-box run of the released setup.sh finishes with exit 0 and no failed verification (log recorded)
 <!-- AC:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+Why the gate never caught it: test/install-recovery/lib/lxd-backend.sh runs setup with SKIP_STAGES=4 and, when that exits non-zero, retries with SKIP_STAGES='1 3 4 5 6 7 8' (stages 0 and 2 only), described as a Stage 0 verifier workaround. On a plain base the first run fails here (stage 2, stage 5), stage 7 creates statbus, and the retry then passes stage 2. So every LXD base hides this defect. The fix should also remove that retry so the gate asserts setup succeeds in one run.
+<!-- SECTION:NOTES:END -->
