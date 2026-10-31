@@ -26,10 +26,10 @@ line_of() { grep -nE "$1" "$SCRIPT" | head -1 | cut -d: -f1; }
 present() { if [[ -n "$2" ]]; then echo "PASS $1"; else echo "FAIL $1 (not found)"; fail=1; fi; }
 before() { if [[ -n "$2" && -n "$3" && "$2" -lt "$3" ]]; then echo "PASS $1"; else echo "FAIL $1 (${2:-missing} vs ${3:-missing})"; fail=1; fi; }
 
-reset_summary() { # outcomes for stages 0..8, default all ok
-    local n
+reset_summary() { # every stage's outcome ok
+    local slug
     STAGE_OUTCOME=()
-    for n in 0 1 2 3 4 5 6 7 8; do STAGE_OUTCOME[$n]=ok; done
+    for slug in "${STAGE_SLUGS[@]}"; do STAGE_OUTCOME[$slug]=ok; done
     FAILED_VERIFICATIONS=()
     CLOUD=true
 }
@@ -78,44 +78,44 @@ fi
 # 3b. A stage skipped by the operator appears as skipped, and its achievements
 #     and next steps are absent.
 reset_summary
-STAGE_OUTCOME[4]=skipped
+STAGE_OUTCOME[security-tools]=skipped
 out="$(summary)"
-if has "$out" 'Firewall and intrusion detection (Stage 4): skipped' \
+if has "$out" 'Firewall and intrusion detection (security-tools): skipped' \
     && lacks "$out" 'CrowdSec intrusion detection and UFW firewall active' \
     && lacks "$out" 'For later (optional):' \
     && lacks "$out" 'cscli metrics' \
     && lacks "$out" 'ufw status'; then
-    echo "PASS a skipped Stage 4 appears as skipped and drops its next steps"
+    echo "PASS a skipped security-tools appears as skipped and drops its next steps"
 else
-    echo "FAIL skipped Stage 4 summary is not derived from the recorded outcome"; echo "$out"; fail=1
+    echo "FAIL skipped security-tools summary is not derived from the recorded outcome"; echo "$out"; fail=1
 fi
 
 # 3c. A failed stage appears as failed, not configured.
 reset_summary
-STAGE_OUTCOME[5]=failed
+STAGE_OUTCOME[core-tools]=failed
 FAILED_VERIFICATIONS=('Docker installed')
 out="$(summary)"
-if has "$out" 'Docker and core tools (Stage 5): failed' \
+if has "$out" 'Docker and core tools (core-tools): failed' \
     && lacks "$out" 'Docker and core tools installed' \
     && has "$out" 'Setup finished WITH PROBLEMS'; then
-    echo "PASS a failed Stage 5 appears as failed and is not claimed as configured"
+    echo "PASS a failed core-tools appears as failed and is not claimed as configured"
 else
-    echo "FAIL failed Stage 5 summary is not derived from the recorded outcome"; echo "$out"; fail=1
+    echo "FAIL failed core-tools summary is not derived from the recorded outcome"; echo "$out"; fail=1
 fi
 
 # 3d. Standalone: cloud-only stages are absent from the summary entirely, and a
 #     skipped service-account stage drops the installer next step.
 reset_summary
 CLOUD=false
-STAGE_OUTCOME[6]=na
-STAGE_OUTCOME[8]=na
-STAGE_OUTCOME[7]=skipped
+STAGE_OUTCOME[user-setup]=na
+STAGE_OUTCOME[ci-allowlist]=na
+STAGE_OUTCOME[service-account]=skipped
 out="$(summary)"
 if lacks "$out" 'devops user' \
     && lacks "$out" 'CI command allowlist' \
-    && has "$out" 'StatBus service account (Stage 7): skipped' \
+    && has "$out" 'StatBus service account (service-account): skipped' \
     && lacks "$out" 'install.sh | bash'; then
-    echo "PASS standalone summary omits cloud-only stages and skipped Stage 7 next steps"
+    echo "PASS standalone summary omits cloud-only stages and skipped service-account next steps"
 else
     echo "FAIL standalone summary leaks or invents work"; echo "$out"; fail=1
 fi

@@ -90,4 +90,25 @@ refuses "--only-stages and --skip-stages together are refused" \
     --only-stages ssh-hardening --skip-stages security-tools
 refuses "an empty --only-stages is refused" --only-stages ""
 
+# A stage's required stages must stay selected; the refusal names what to add.
+requires_refusal() { # <label> <must name> <args...>
+    local label="$1" name="$2"
+    shift 2
+    setup "$@"
+    local rc=$?
+    if [[ "$rc" -ne 0 && -z "$(ran_stages)" ]] && grep -q "requires $name" "$WORK/out"; then
+        echo "PASS $label"
+    else
+        echo "FAIL $label: exit $rc, ran '$(ran_stages)', no 'requires $name' in:"
+        sed 's/^/    /' "$WORK/out"
+        fail=1
+    fi
+}
+requires_refusal "--only-stages without a required stage is refused, naming it" \
+    service-account --only-stages "ssh-hardening security-tools"
+requires_refusal "--skip-stages of a stage others require is refused, naming it" \
+    service-account --skip-stages service-account
+selects "--only-stages with the required stage runs both" \
+    "service-account ssh-hardening security-tools" --only-stages "ssh-hardening security-tools service-account"
+
 exit $fail

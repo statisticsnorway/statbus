@@ -755,7 +755,7 @@ requires one box code.
 
 The unified `FLEET_REGISTRY=()` near the top of `cloud.sh` has one `code|group|ssh_target|public_domain` entry per box. Add a new host by appending one entry; channel and display name are always read from the box.
 
-**Direct `./sb`** — when you want to run a specific operation on the host itself. Log in as the `statbus` service account (created by Stage 7 of `setup-ubuntu-lts.sh`):
+**Direct `./sb`** — when you want to run a specific operation on the host itself. Log in as the `statbus` service account (created by the `service-account` stage of `setup-ubuntu-lts.sh`):
 
 ```bash
 # rune-no example
@@ -778,13 +778,13 @@ For host-level administration (journalctl, apt, systemctl system units, etc.) lo
 The high-level shape (concrete walkthrough belongs in the per-host bootstrap plan; see [hetzner-bootstrap.md](hetzner-bootstrap.md) for Hetzner rescue → Ubuntu):
 
 1. Provision the box. Install Ubuntu 24.04 LTS with the desired filesystem (mdadm RAID where applicable; XFS recommended for `/`).
-2. Fetch the setup script of the release you will install (never master; see the STATBUS-488 prepare fetch in [setup-ubuntu-lts.md](setup-ubuntu-lts.md#quick-start)) and run it with `--cloud` as root/sudo — creates the `devops` + `statbus` accounts, installs the CI deploy keys, hardens OS. `--cloud` declares that this box is one of OURS: it is what enables the cloud-only stage (`devops` with passwordless sudo, keys from the SSB GitHub accounts, and the repository deploy keys that let our CI workflows log in). A customer's standalone installation must be prepared WITHOUT it, because none of that belongs on a box that is not ours (STATBUS-501). `SKIP_STAGES="0"` if the network allows HTTP.
+2. Fetch the setup script of the release you will install (never master; see the STATBUS-488 prepare fetch in [setup-ubuntu-lts.md](setup-ubuntu-lts.md#quick-start)) and run it with `--cloud` as root/sudo — creates the `devops` + `statbus` accounts, installs the CI deploy keys, hardens OS. `--cloud` declares that this box is one of OURS: it is what enables the cloud-only stage (`devops` with passwordless sudo, keys from the SSB GitHub accounts, and the repository deploy keys that let our CI workflows log in). A customer's standalone installation must be prepared WITHOUT it, because none of that belongs on a box that is not ours (STATBUS-501). The `https-sources` stage changes nothing where the network allows HTTP.
 3. Bootstrap StatBus as the service account: `ssh statbus@<host>` then `curl -fsSL https://statbus.org/install.sh | bash -s -- --channel prerelease`.
 4. Author `.env.config` with `CADDY_DEPLOYMENT_MODE=standalone` (this is now the default and may be omitted), `SITE_DOMAIN=<the public domain>` (required — standalone refuses without it), and put `SEQ_API_KEY` / `SLACK_TOKEN` copied from an existing instance in `.env.credentials` (see [Where credentials live](#where-credentials-live)). Use `canary` ONLY for a box we deliberately expose to release candidates first (Norway); an ordinary customer standalone is `production`.
 
    **Flagged, not settled (STATBUS-244a sweep):** steps 3-4's `prerelease` default predates the topology where Norway is named as THE single human canary (STATBUS-247). A NEW standalone box that is not itself a designated canary would, by that same logic, be an ordinary installation and belong on `stable` (STATBUS-248) — but nobody has ruled on that for a hypothetical future box, so the instruction is left as `prerelease` here rather than changed unilaterally. Confirm the intended role before provisioning the next one.
 5. Retired (STATBUS-244): no `deploy-to-<host>-<slot>.yaml` / `master-to-<host>-<slot>.yaml` pair, no `ops/standalone/deploy/<host>-<slot>` branch. Only a named release candidate may reach an installation; the box's own upgrader (channel set in step 4) discovers, registers, schedules, and installs on its own.
-6. The existing repo `SSH_KEY` pubkey is already populated in `statbus`'s `authorized_keys` by `setup.sh` Stage 7 from the `GITHUB_USERS` list — no extra step needed if those users own the deploy key too.
+6. The existing repo `SSH_KEY` pubkey is already populated in `statbus`'s `authorized_keys` by the `setup.sh` `service-account` stage from the `GITHUB_USERS` list — no extra step needed if those users own the deploy key too.
 
 For migrating an existing slot off niue (as `no` was migrated to rune): also dump the niue slot, restore on the new host, then stop the niue slot's containers and let DNS (CNAME on the public domain pointing at the new host) drive the cutover.
 

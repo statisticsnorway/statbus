@@ -49,8 +49,9 @@ chmod +x setup.sh
 - **Configurable** — settings saved to `~/.setup-ubuntu.env`, reused on
   subsequent runs.
 - **Non-interactive mode** — `--non-interactive` for automation.
-- **Per-stage skip** — `SKIP_STAGES` env var or `--skip-stages` flag to
-  short-circuit specific stages in either mode.
+- **Choose stages by name** — `--only-stages` runs just the named stages,
+  `--skip-stages` runs all but the named ones (also `ONLY_STAGES` /
+  `SKIP_STAGES`). Every stage is safe to rerun.
 - **Cloud intent** — `--cloud` (or `CLOUD=true`) declares a cloud
   installation. Only then is the CI question "GitHub repo deploy-key
   sources" (`GITHUB_DEPLOY_KEYS`) asked; a plain standalone preparation
@@ -58,16 +59,26 @@ chmod +x setup.sh
 
 ## Stages
 
-| # | Stage | What it does |
-|---|-------|--------------|
-| 0 | HTTPS APT Sources *(optional)* | Switch to HTTPS mirror for networks that block HTTP |
-| 1 | Base System | etckeeper, eternal bash history, locale configuration |
-| 2 | SSH Hardening | Disable password auth, root password login, empty passwords |
-| 3 | Auto Updates | unattended-upgrades with nightly schedule, email notifications |
-| 4 | Security Tools *(optional)* | CrowdSec IDS + firewall bouncer, UFW firewall |
-| 5 | Core Tools | neovim, htop, ripgrep, Docker CE + compose plugin |
-| 6 | User Setup *(cloud-only; needs `--cloud`)* | `devops` user (ops/admin), GitHub SSH keys, Homebrew, helix/bottom/zellij |
-| 7 | StatBus Service Account | `${SERVICE_USER}` (default `statbus`): docker group, SSH keys, systemd linger |
+Stages have permanent names. They run in this order, and the screen shows the
+position only for orientation ("Stage 3 of 9: StatBus service account"). A
+stage that acts on something another stage creates requires that stage.
+
+| Name | Requires | What it does |
+|------|----------|--------------|
+| `https-sources` | | Switch to an HTTPS mirror when the network blocks HTTP (decides by probing) |
+| `base-system` | | etckeeper, eternal bash history, locale configuration |
+| `service-account` | | `${SERVICE_USER}` (default `statbus`): SSH keys, systemd linger |
+| `ssh-hardening` | `service-account` | Confirm remote access, then disable password auth, root password login, empty passwords |
+| `auto-updates` | | unattended-upgrades with nightly schedule, email notifications |
+| `security-tools` *(optional)* | | CrowdSec IDS + firewall bouncer, UFW firewall |
+| `core-tools` | `service-account` | neovim, htop, ripgrep, tmux, Docker CE + compose plugin; Docker access for `${SERVICE_USER}` |
+| `user-setup` *(cloud-only; needs `--cloud`)* | `core-tools` | `devops` user (ops/admin), GitHub SSH keys, Docker access |
+| `ci-allowlist` *(cloud-only; needs `SSHDOERS_REF`)* | | `/etc/sshdoers` from the repo, with a published hash |
+
+The order puts each stage after the ones it requires, so a full run succeeds on
+a plain box. The stage table at the top of `ops/setup-ubuntu-lts.sh` is the
+single source for names, order, requirements and the configuration each stage
+reads.
 
 ## Configuration
 
@@ -78,7 +89,7 @@ On first run, you'll be prompted for:
 | `ADMIN_EMAIL` | Email for unattended-upgrades notifications |
 | `GITHUB_USERS` | Space-separated GitHub usernames for SSH key fetching (populates both `devops` and the service account) |
 | `EXTRA_LOCALES` | Extra locales to enable, e.g. `sq_AL nb_NO` (a `.UTF-8` suffix is accepted). Declaring `nb_NO` also adds `no_NO.UTF-8 nb_NO.UTF-8` to `/etc/locale.alias` (unless a `no_NO.UTF-8` alias already exists), so a Mac's forwarded `LC_ALL=no_NO.UTF-8` stops printing a setlocale warning on every SSH login. For other client locales the box lacks, declare that locale here. |
-| `SERVICE_USER` | Username for the Stage 7 service account (default: `statbus`) |
+| `SERVICE_USER` | Username for the service account (`service-account` stage; default: `statbus`) |
 
 Configuration is saved to `~/.setup-ubuntu.env` and reused on subsequent runs.
 
@@ -97,23 +108,29 @@ EOF
 ./setup.sh --non-interactive
 ```
 
-### Skipping specific stages
+### Choosing stages
 
-Both interactive and non-interactive runs honor `SKIP_STAGES` and
-`--skip-stages`:
+A full run is the default and is always safe: every stage is idempotent, so
+rerunning one on a box where it is already done changes nothing. Choose stages
+for what this box should have, not to avoid a stage.
 
 ```bash
-# Skip stage 0 (keep HTTP APT sources) — typical for Hetzner dedicated hosts
-SKIP_STAGES="0" ./setup.sh --non-interactive
+# Run just some stages, e.g. after a fix in them. A stage's required stages
+# must be named too (service-account for ssh-hardening).
+./setup.sh --non-interactive --only-stages "service-account ssh-hardening security-tools"
 
-# Equivalent CLI form
-./setup.sh --non-interactive --skip-stages "0"
+# Leave out a stage this box should not have, e.g. the firewall on a private
+# network that has its own.
+./setup.sh --non-interactive --skip-stages security-tools
 
-# Skip multiple
-SKIP_STAGES="0 4" ./setup.sh --non-interactive
+# Environment form
+SKIP_STAGES="security-tools" ./setup.sh --non-interactive
 ```
 
-Stages to skip are a space-separated list of the numbers from the Stages table.
+Both options take a space-separated list of names from the Stages table. The
+script refuses, before any stage runs and listing the valid names: both options
+together, an unknown name, a stage number, or a selection that leaves out a
+stage another selected stage requires.
 
 ## Post-Setup
 
@@ -125,19 +142,19 @@ After running:
    ssh "${SERVICE_USER:-statbus}@<host>"
    ```
    This must work before the install phase can proceed.
-2. **Test SSH as `devops`** — confirm ops access too. This applies to OUR boxes only: Stage 6 is cloud-only, so a customer standalone prepared without `--cloud` has no `devops` account, and none is expected (STATBUS-501).
+2. **Test SSH as `devops`** — confirm ops access too. This applies to OUR boxes only: `user-setup` is cloud-only, so a customer standalone prepared without `--cloud` has no `devops` account, and none is expected (STATBUS-501).
 3. **Install StatBus** as the service account (see
    [install-statbus.md](install-statbus.md)):
    ```bash
    ssh "${SERVICE_USER:-statbus}@<host>"
    curl -fsSL https://statbus.org/install.sh | bash -s -- --channel prerelease
    ```
-4. **Review CrowdSec** (if Stage 4 ran): `cscli metrics`, `cscli decisions list`
-5. **Check firewall** (if Stage 4 ran): `ufw status`
+4. **Review CrowdSec** (if `security-tools` ran): `cscli metrics`, `cscli decisions list`
+5. **Check firewall** (if `security-tools` ran): `ufw status`
 
 ## What Gets Set Up
 
-### APT Sources (Stage 0)
+### APT Sources (`https-sources`)
 - Probes outbound HTTP and HTTPS first (bounded, 8s max each) and prints the finding
 - HTTP reachable: asks nothing and changes nothing
 - HTTP blocked: says so and offers to switch to the HTTPS mirror (`mirrors.edge.kernel.org`), default yes
@@ -152,7 +169,7 @@ After running:
 - Default: deny incoming, allow outgoing
 - Allowed: SSH (22), HTTP (80), HTTPS (443), PostgreSQL (5432)
 
-> **Note**: Skip Stage 4 if your server is on a private network with existing firewall infrastructure.
+> **Note**: Skip `security-tools` if your server is on a private network with existing firewall infrastructure.
 
 ### Intrusion Detection (CrowdSec)
 - SSH brute-force protection
@@ -167,8 +184,8 @@ After running:
 
 | User | Created by | Role | Groups | sudo |
 |------|-----------|------|--------|------|
-| `devops` | Stage 6 (cloud-only, `--cloud`) | Ops/admin | `devops`, `docker` | yes (passwordless) |
-| `${SERVICE_USER}` (default `statbus`) | Stage 7 | StatBus deployment | `<user>`, `docker` | no |
+| `devops` | `user-setup` (cloud-only, `--cloud`) | Ops/admin | `devops`, `docker` | yes (passwordless) |
+| `${SERVICE_USER}` (default `statbus`) | `service-account`; Docker access from `core-tools` | StatBus deployment | `<user>`, `docker` | no |
 
 The separation is intentional:
 - **`devops`** is how you administer the host (journalctl, apt, systemctl,
@@ -193,11 +210,11 @@ interactive and non-interactive mode.
 
 When using this script to prepare a server for STATBUS deployment:
 
-1. **Stage 0 (HTTPS Sources)** — Decides itself by probing HTTP egress; it only
+1. **`https-sources`** — Decides itself by probing HTTP egress; it only
    acts (default yes) when HTTP is blocked.
-2. **Stages 1-3, 5-7** — Essential setup, run all of them.
-3. **Stage 4 (Security Tools)** — Run on public-internet hosts; skip on hosts
+2. **`security-tools`** — Run on public-internet hosts; skip on hosts
    behind an external firewall with its own IDS.
+3. **Every other stage** — Essential setup; run them all.
 
 After setup finishes, continue with the install phase as the service account:
 

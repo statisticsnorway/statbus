@@ -35,9 +35,12 @@ SUPPORTED_UBUNTU_VERSIONS=("24.04" "26.04")
 # the release tag (STATBUS-537).
 STATBUS_RELEASE="@STATBUS_RELEASE@"
 NON_INTERACTIVE="${NON_INTERACTIVE:-false}"
-# Space-separated list of stage numbers to skip (e.g. "0 4"). Honored in both
-# interactive and non-interactive mode. Also settable via --skip-stages.
-SKIP_STAGES="${SKIP_STAGES:-}"
+# Stage selection by name (see STAGES below). ONLY_STAGES runs just the named
+# stages; SKIP_STAGES runs every stage but the named ones, for a stage this box
+# should not have. At most one of them; also settable via --only-stages and
+# --skip-stages. Both apply in interactive and non-interactive mode. ONLY_STAGES
+# is left unset when not given, so an empty value can be refused as a mistake.
+SKIP_STAGES="${SKIP_STAGES-}"
 # STATBUS-491: cloud intent. Only a cloud installation is asked for CI
 # deploy-key sources. Set by --cloud or CLOUD=true.
 CLOUD="${CLOUD:-false}"
@@ -221,17 +224,117 @@ ask_yes_no() {
     done
 }
 
-# stage_skipped <N> — return 0 if stage N appears in SKIP_STAGES.
-# Used at the top of each stage so both interactive and non-interactive
-# runs can honor a "skip this one" instruction.
-stage_skipped() {
-    local n="$1"
-    # SKIP_STAGES is space-separated; add spaces on both sides to anchor
-    # matching so "1" doesn't match "10" etc.
-    case " ${SKIP_STAGES} " in
-        *" $n "*) return 0 ;;
-        *) return 1 ;;
-    esac
+# =============================================================================
+# Stages (STATBUS-554)
+# =============================================================================
+#
+# One row per stage, in run order. Everything else reads this table: the run
+# order, the screen header ("Stage 3 of 9: ..."), the summary, the .env keys a
+# run needs, which stages an option may name, and which stages a selection must
+# include. Operators name stages by slug; the position is shown only for
+# orientation, so a stage can move without changing what any command means.
+#
+# Columns are separated by spaces; a list inside a column by commas; "-" is an
+# empty column. The summary line may name @SERVICE_USER@.
+# requires: stages that create something this stage acts on. A full run
+# satisfies them by order; --only-stages/--skip-stages must keep them selected
+# (every stage is idempotent, so rerunning a required stage is safe).
+#   service-account creates the account ssh-hardening keys for and core-tools
+#   grants Docker; core-tools installs the docker group user-setup joins.
+# env: .env keys the stage reads; "-" means none. The preamble requires the
+# union over the selected stages only (STATBUS-259), so an allowlist-only run
+# needs no /root/.setup-ubuntu.env.
+#
+#  slug            function               requires         env                        label | summary line when it verified
+STAGES=(
+  "https-sources   stage_https_sources    -                -                          HTTPS APT sources|APT sources use HTTPS"
+  "base-system     stage_base_system      -                EXTRA_LOCALES              Base system|Base system configured (etckeeper, bash history, locales)"
+  "service-account stage_service_account  -                GITHUB_USERS,SERVICE_USER  StatBus service account|@SERVICE_USER@ service account created (for StatBus install)"
+  "ssh-hardening   stage_ssh_hardening    service-account  -                          SSH hardening|SSH hardened (key-only authentication)"
+  "auto-updates    stage_auto_updates     -                ADMIN_EMAIL                Automatic security updates|Automatic security updates enabled"
+  "security-tools  stage_security_tools   -                -                          Firewall and intrusion detection|CrowdSec intrusion detection and UFW firewall active"
+  "core-tools      stage_core_tools       service-account  -                          Docker and core tools|Docker and core tools installed"
+  "user-setup      stage_user_setup       core-tools       GITHUB_USERS               devops user|devops user created (ops/admin)"
+  "ci-allowlist    stage_ci_allowlist     -                -                          CI command allowlist|CI command allowlist installed from the repo, with a published hash"
+)
+
+# Parsed views of the table, filled once by load_stages. STAGE_SELECTED starts
+# as every stage (a run without options); select_stages narrows it.
+STAGE_SLUGS=()
+declare -A STAGE_FN=() STAGE_REQUIRES=() STAGE_ENV=() STAGE_LABEL=() STAGE_DONE_LINE=() STAGE_POSITION=()
+STAGE_SELECTED=()
+
+load_stages() {
+    local row slug fn requires env text i=0
+    for row in "${STAGES[@]}"; do
+        read -r slug fn requires env text <<<"$row"
+        i=$((i + 1))
+        STAGE_SLUGS+=("$slug")
+        STAGE_FN[$slug]="$fn"
+        [[ "$requires" == "-" ]] && requires=""
+        [[ "$env" == "-" ]] && env=""
+        STAGE_REQUIRES[$slug]="${requires//,/ }"
+        STAGE_ENV[$slug]="${env//,/ }"
+        STAGE_LABEL[$slug]="${text%%|*}"
+        STAGE_DONE_LINE[$slug]="${text#*|}"
+        STAGE_POSITION[$slug]="$i"
+    done
+    STAGE_SELECTED=("${STAGE_SLUGS[@]}")
+}
+load_stages
+
+# Refuse a selection before any stage runs: a number, an unknown name, both
+# options at once, an empty list, or a selection missing a stage another
+# selected stage requires. Every refusal lists the valid names.
+refuse_selection() {
+    log_error "$1"
+    echo "Stages, in run order:" >&2
+    local slug
+    for slug in "${STAGE_SLUGS[@]}"; do
+        printf '  %-16s %s\n' "$slug" "${STAGE_LABEL[$slug]}" >&2
+    done
+    exit 1
+}
+
+select_stages() {
+    local name slug required
+    if [[ -n "${ONLY_STAGES+x}" && -n "${SKIP_STAGES:-}" ]]; then
+        refuse_selection "Use --only-stages or --skip-stages, not both."
+    fi
+    if [[ -n "${ONLY_STAGES+x}" && -z "$ONLY_STAGES" ]]; then
+        refuse_selection "--only-stages names no stage."
+    fi
+    for name in ${ONLY_STAGES:-} ${SKIP_STAGES:-}; do
+        [[ -n "${STAGE_FN[$name]+_}" ]] && continue
+        if [[ "$name" =~ ^[0-9]+$ ]]; then
+            refuse_selection "Stage numbers are not accepted ('$name'): stages are named, because a number changes meaning when a stage moves."
+        fi
+        refuse_selection "Unknown stage '$name'."
+    done
+    STAGE_SELECTED=()
+    for slug in "${STAGE_SLUGS[@]}"; do
+        if [[ -n "${ONLY_STAGES+x}" ]]; then
+            [[ " $ONLY_STAGES " == *" $slug "* ]] || continue
+        elif [[ " ${SKIP_STAGES:-} " == *" $slug "* ]]; then
+            continue
+        fi
+        STAGE_SELECTED+=("$slug")
+    done
+    for slug in "${STAGE_SELECTED[@]}"; do
+        for required in ${STAGE_REQUIRES[$slug]}; do
+            stage_selected "$required" && continue
+            refuse_selection "$slug requires $required, which this selection leaves out: add $required (stages are safe to rerun)."
+        done
+    done
+}
+
+stage_selected() {
+    [[ " ${STAGE_SELECTED[*]} " == *" $1 "* ]]
+}
+
+# Screen header for a stage: "Stage 3 of 9: StatBus service account".
+stage_header() {
+    log_header "Stage ${STAGE_POSITION[$1]} of ${#STAGE_SLUGS[@]}: ${STAGE_LABEL[$1]}"
 }
 
 pause() {
@@ -244,9 +347,12 @@ pause() {
 # actually did in THIS run. Stages record their outcome in one place as they
 # run; the summary and next steps read that record instead of a static list.
 #   ok       ran and every verification passed
-#   skipped  skipped by the operator, SKIP_STAGES, or a measured condition
+#   skipped  left out by --skip-stages/--only-stages, by the operator's answer,
+#            or by a measured condition
 #   failed   ran but a verification or the stage itself failed
 #   na       not part of this run at all (cloud-only work on a standalone box)
+# Keyed by stage slug. A stage function records skipped or na itself under its
+# own slug; run_stage records ok or failed.
 declare -A STAGE_OUTCOME=()
 
 record_stage() {
@@ -257,49 +363,31 @@ stage_outcome() {
     printf '%s' "${STAGE_OUTCOME[$1]:-not-run}"
 }
 
-stage_label() {
-    case "$1" in
-        0) echo "HTTPS APT sources" ;;
-        1) echo "Base system" ;;
-        2) echo "SSH hardening" ;;
-        3) echo "Automatic security updates" ;;
-        4) echo "Firewall and intrusion detection" ;;
-        5) echo "Docker and core tools" ;;
-        6) echo "devops user" ;;
-        7) echo "StatBus service account" ;;
-        8) echo "CI command allowlist" ;;
-    esac
+stage_done_line() {
+    local line="${STAGE_DONE_LINE[$1]}"
+    printf '%s' "${line//@SERVICE_USER@/${SERVICE_USER:-statbus}}"
 }
 
-stage_configured_line() {
-    case "$1" in
-        0) echo "APT sources use HTTPS" ;;
-        1) echo "Base system configured (etckeeper, bash history, locales)" ;;
-        2) echo "SSH hardened (key-only authentication)" ;;
-        3) echo "Automatic security updates enabled" ;;
-        4) echo "CrowdSec intrusion detection and UFW firewall active" ;;
-        5) echo "Docker and core tools installed" ;;
-        6) echo "devops user created (ops/admin)" ;;
-        7) echo "${SERVICE_USER:-statbus} service account created (for StatBus install)" ;;
-        8) echo "CI command allowlist installed from the repo, with a published hash" ;;
-    esac
-}
-
-# Run one stage and record whether it verified. A stage that already recorded
-# skipped or na keeps that outcome; otherwise a failing return code or any
-# verification failure during the stage marks it failed.
+# Run one selected stage and record whether it verified. A stage that already
+# recorded skipped or na keeps that outcome; otherwise a failing return code or
+# any verification failure during the stage marks it failed. A stage left out of
+# the selection is recorded skipped without being called.
 run_stage() {
-    local n="$1" fn="$2" before after rc=0
+    local slug="$1" before after rc=0
+    if ! stage_selected "$slug"; then
+        record_stage "$slug" skipped
+        return 0
+    fi
     before="${#FAILED_VERIFICATIONS[@]}"
-    "$fn" || rc=$?
+    "${STAGE_FN[$slug]}" || rc=$?
     after="${#FAILED_VERIFICATIONS[@]}"
-    if [[ -n "${STAGE_OUTCOME[$n]:-}" ]]; then
+    if [[ -n "${STAGE_OUTCOME[$slug]:-}" ]]; then
         return 0
     fi
     if [[ "$rc" -ne 0 || "$after" -gt "$before" ]]; then
-        record_stage "$n" failed
+        record_stage "$slug" failed
     else
-        record_stage "$n" ok
+        record_stage "$slug" ok
     fi
 }
 
@@ -316,7 +404,7 @@ record_reboot_state() {
 
 print_run_summary() {
     local problems=${#FAILED_VERIFICATIONS[@]}
-    local n outcome
+    local outcome slug
     # STATBUS-502: never print a success headline over a failed run. The failure
     # list comes FIRST, and the headline follows from it.
     if [[ "$problems" -gt 0 ]]; then
@@ -331,19 +419,19 @@ print_run_summary() {
     fi
 
     echo "Summary of configuration:"
-    for n in 0 1 2 3 4 5 6 7 8; do
-        outcome="$(stage_outcome "$n")"
+    for slug in "${STAGE_SLUGS[@]}"; do
+        outcome="$(stage_outcome "$slug")"
         case "$outcome" in
             na) continue ;;
-            ok) echo "  - $(stage_configured_line "$n")" ;;
-            skipped) echo "  - $(stage_label "$n") (Stage $n): skipped" ;;
-            failed) echo "  - $(stage_label "$n") (Stage $n): failed" ;;
-            *) echo "  - $(stage_label "$n") (Stage $n): not run" ;;
+            ok) echo "  - $(stage_done_line "$slug")" ;;
+            skipped) echo "  - ${STAGE_LABEL[$slug]} ($slug): skipped" ;;
+            failed) echo "  - ${STAGE_LABEL[$slug]} ($slug): failed" ;;
+            *) echo "  - ${STAGE_LABEL[$slug]} ($slug): not run" ;;
         esac
     done
     echo ""
 
-    if [[ "$(stage_outcome 7)" == "ok" ]]; then
+    if [[ "$(stage_outcome service-account)" == "ok" ]]; then
         echo "Next step: install StatBus as '${SERVICE_USER:-statbus}'."
         echo "  From this root shell:"
         echo "    sudo -iu ${SERVICE_USER:-statbus}"
@@ -356,8 +444,8 @@ print_run_summary() {
     echo ""
 
     # Reference only: these inspect controls the run installed, and are not a
-    # to-do. They mean nothing when Stage 4 did not run.
-    if [[ "$(stage_outcome 4)" == "ok" ]]; then
+    # to-do. They mean nothing when security-tools did not run.
+    if [[ "$(stage_outcome security-tools)" == "ok" ]]; then
         echo "For later (optional):"
         echo "  See what the intrusion detection has blocked:  cscli metrics"
         echo "  Inspect the firewall rules:                    ufw status"
@@ -689,60 +777,20 @@ ensure_remote_access() {
 # Per-Stage Input Declarations (STATBUS-259)
 # =============================================================================
 #
-# Each stage declares which .env keys it actually reads, so the preamble can
-# require only the UNION over the NON-SKIPPED stages — never inferred from
-# shared logic, never assumed from what some OTHER stage needs. This is what
-# lets a stage-8-only run (--skip-stages "0 1 2 3 4 5 6 7") proceed without
-# /root/.setup-ubuntu.env: Stage 8 needs SSHDOERS_REF/SSHDOERS_HOST (declared
-# below, validated inside the stage itself) and no .env variable at all, so
-# the union over {8} is empty.
-#
-# CONSERVATIVE DEFAULT, load-bearing: a stage NUMBER ABSENT from this map
-# requires EVERYTHING (ALL_ENV_VARS below). A newly added stage that forgets
-# to declare itself therefore fails TOO STRICT — it demands the full legacy
-# set, exactly today's behavior — never too permissive: it can never silently
-# skip a variable it actually needed. Relaxing a stage's requirement (to a
-# narrower list, or to none) is opt-in and explicit: add its number as a key.
-#
-# Presence, not truthiness, is what selects the conservative default: an
-# empty value for a PRESENT key ("declared, needs nothing") must read
-# differently from an ABSENT key ("undeclared, needs everything"). Tested
-# with `${STAGE_ENV_REQUIREMENTS[$n]+_}`, never with `-z`/`-n` on the value.
-declare -A STAGE_ENV_REQUIREMENTS=(
-    [0]=""                                                # HTTPS APT Sources
-    [1]="EXTRA_LOCALES"                                   # Base System
-    [2]=""                                                # SSH Hardening
-    [3]="ADMIN_EMAIL"                                     # Automatic Updates
-    [4]=""                                                # Security Tools
-    [5]=""                                                # Core Tools
-    [6]="GITHUB_USERS"                                   # User Setup (cloud-only stage)
-    [7]="GITHUB_USERS SERVICE_USER"                       # StatBus Service Account
-    [8]=""                                                # CI Command Allowlist —
-                                                           # SSHDOERS_REF/SSHDOERS_HOST
-                                                           # only; validated inside the
-                                                           # stage, not .env variables.
-)
+# Each stage declares the .env keys it reads in the env column of STAGES, so
+# the preamble requires only the UNION over the SELECTED stages, never what
+# some other stage needs. An allowlist-only run (--only-stages ci-allowlist)
+# therefore needs no /root/.setup-ubuntu.env: ci-allowlist reads SSHDOERS_REF
+# and SSHDOERS_HOST from the environment, validated inside the stage.
 
-# ALL_ENV_VARS — the full legacy set, applied as the conservative default for
-# any stage number absent from STAGE_ENV_REQUIREMENTS above.
-ALL_ENV_VARS="ADMIN_EMAIL GITHUB_USERS GITHUB_DEPLOY_KEYS EXTRA_LOCALES SERVICE_USER"
-
-# required_env_vars — prints the UNION of declared requirements over the
-# stages that are NOT skipped (SKIP_STAGES / stage_skipped), one per line,
-# sorted and de-duplicated. A stage contributes NOTHING once skipped,
-# regardless of what it would otherwise require.
+# required_env_vars prints the union of the selected stages' env columns, one
+# per line, sorted and de-duplicated.
 required_env_vars() {
     local -A seen=()
-    local n var
-    for n in 0 1 2 3 4 5 6 7 8; do
-        stage_skipped "$n" && continue
-        if [[ "${STAGE_ENV_REQUIREMENTS[$n]+_}" != "_" ]]; then
-            # Undeclared stage number: conservative default, require everything.
-            for var in $ALL_ENV_VARS; do seen["$var"]=1; done
-            continue
-        fi
-        for var in ${STAGE_ENV_REQUIREMENTS[$n]}; do
-            [[ -n "$var" ]] && seen["$var"]=1
+    local slug var
+    for slug in "${STAGE_SELECTED[@]}"; do
+        for var in ${STAGE_ENV[$slug]}; do
+            seen["$var"]=1
         done
     done
     if [[ ${#seen[@]} -gt 0 ]]; then
@@ -787,9 +835,9 @@ GITHUB_DEPLOY_KEYS="${GITHUB_DEPLOY_KEYS:-}"
 # The script adds .UTF-8 automatically. C.UTF-8 and en_US.UTF-8 are always included.
 EXTRA_LOCALES="${EXTRA_LOCALES:-}"
 
-# Username for the StatBus deployment service account created by Stage 7.
+# Username for the StatBus deployment service account created by service-account.
 # This is the user operators will ssh as to run ./sb install and operate the
-# deployment (distinct from devops, which is the ops/admin user from Stage 6).
+# deployment (distinct from devops, which is the ops/admin user from user-setup).
 SERVICE_USER="${SERVICE_USER:-statbus}"
 
 # This server's full public name. Asked for when the host name is a bare
@@ -912,8 +960,8 @@ setup_env() {
 
     # STATBUS-259: only require $ENV_FILE at all if some NON-SKIPPED stage in
     # THIS run actually declares a need for it (required_env_vars above) —
-    # never inferred from what a full run would need. A stage-8-only run
-    # (--skip-stages "0 1 2 3 4 5 6 7") declares nothing, so $required is
+    # never inferred from what a full run would need. An allowlist-only run
+    # (--only-stages ci-allowlist) declares nothing, so $required is
     # empty and this function does not demand the file.
     local required
     required="$(required_env_vars)"
@@ -941,7 +989,7 @@ setup_env() {
     else
         if [[ -z "$required" ]]; then
             # STATBUS-259: no non-skipped stage in this run needs $ENV_FILE —
-            # e.g. a stage-8-only run. Proceed without it.
+            # e.g. an allowlist-only run. Proceed without it.
             log "No non-skipped stage in this run requires $ENV_FILE — skipping configuration setup"
             return 0
         fi
@@ -974,14 +1022,14 @@ setup_env() {
     fi
     prompt_env_value "EXTRA_LOCALES" "Extra locales to enable without .UTF-8 suffix (e.g., 'sq_AL nb_NO'):"
     SERVICE_USER="${SERVICE_USER:-statbus}"
-    prompt_env_value "SERVICE_USER" "Deployment service-account username for Stage 7 (default: statbus):"
+    prompt_env_value "SERVICE_USER" "Deployment service-account username (default: statbus):"
 
     save_env
     log_success "Configuration saved to $ENV_FILE"
 }
 
 # =============================================================================
-# Stage 0: HTTPS APT Sources
+# https-sources: HTTPS APT Sources
 # =============================================================================
 
 # Enable each EXTRA_LOCALES entry in locale.gen. Accepts "nb_NO" or
@@ -1023,13 +1071,7 @@ apt_http_sources() {
 }
 
 stage_https_sources() {
-    log_header "Stage 0: HTTPS APT Sources"
-
-    if stage_skipped 0; then
-        record_stage 0 skipped
-        log_warn "Stage 0 skipped via SKIP_STAGES"
-        return 0
-    fi
+    stage_header https-sources
 
     # STATBUS-493: measure the network instead of asking the operator to guess.
     # Bounded probe: at most 5s connect / 8s total per URL.
@@ -1040,8 +1082,8 @@ stage_https_sources() {
     log "Probe: HTTP $([[ $http_ok == true ]] && echo reachable || echo blocked), HTTPS $([[ $https_ok == true ]] && echo reachable || echo blocked)"
 
     if [[ "$http_ok" == "true" ]]; then
-        record_stage 0 skipped
-        log "HTTP egress is reachable, HTTPS sources are unnecessary. Skipping Stage 0"
+        record_stage https-sources skipped
+        log "HTTP egress is reachable, HTTPS sources are unnecessary. Skipping this stage"
         return 0
     fi
 
@@ -1051,8 +1093,8 @@ stage_https_sources() {
     echo ""
 
     if ! ask_yes_no "Switch APT sources to HTTPS?" y; then
-        record_stage 0 skipped
-        log "Skipping Stage 0"
+        record_stage https-sources skipped
+        log "Skipping https-sources"
         return 0
     fi
 
@@ -1123,7 +1165,7 @@ stage_https_sources() {
     # next triage never needs a live VM (the VM is torn down after every
     # harness run — the log is the only oracle).
     echo ""
-    log "Verifying Stage 0..."
+    log "Verifying https-sources..."
     if ! verify "HTTPS sources configured (no http:// URI remains)" "! apt_http_sources"; then
         log_error "Actual apt source URIs on this image (diagnose without a live VM):"
         apt_http_sources | sed 's/^/    /'
@@ -1134,17 +1176,11 @@ stage_https_sources() {
 }
 
 # =============================================================================
-# Stage 1: Base System Setup
+# base-system: Base System Setup
 # =============================================================================
 
 stage_base_system() {
-    log_header "Stage 1: Base System Setup"
-
-    if stage_skipped 1; then
-        record_stage 1 skipped
-        log_warn "Stage 1 skipped via SKIP_STAGES"
-        return 0
-    fi
+    stage_header base-system
 
     echo "This stage will:"
     echo "  - Install etckeeper for /etc version control"
@@ -1153,8 +1189,8 @@ stage_base_system() {
     echo ""
     
     if ! ask_yes_no "Run this stage?" y; then
-        record_stage 1 skipped
-        log "Skipping Stage 1"
+        record_stage base-system skipped
+        log "Skipping base-system"
         return 0
     fi
     
@@ -1217,7 +1253,7 @@ EOF
     
     # Verification
     echo ""
-    log "Verifying Stage 1..."
+    log "Verifying base-system..."
     verify "etckeeper installed" "which etckeeper"
     verify "etckeeper initialized" "test -d /etc/.git"
     verify "Bash history config present" "grep -q 'bash_eternal_history' /etc/bash.bashrc"
@@ -1231,17 +1267,11 @@ EOF
 }
 
 # =============================================================================
-# Stage 2: SSH Hardening
+# ssh-hardening: SSH Hardening
 # =============================================================================
 
 stage_ssh_hardening() {
-    log_header "Stage 2: SSH Hardening"
-
-    if stage_skipped 2; then
-        record_stage 2 skipped
-        log_warn "Stage 2 skipped via SKIP_STAGES"
-        return 0
-    fi
+    stage_header ssh-hardening
 
     echo "This stage will:"
     echo "  - Disable root password login (key-only)"
@@ -1254,8 +1284,8 @@ stage_ssh_hardening() {
     echo ""
 
     if ! ask_yes_no "Run this stage?" y; then
-        record_stage 2 skipped
-        log "Skipping Stage 2"
+        record_stage ssh-hardening skipped
+        log "Skipping ssh-hardening"
         return 0
     fi
 
@@ -1293,7 +1323,7 @@ EOF
     
     # Verification
     echo ""
-    log "Verifying Stage 2..."
+    log "Verifying ssh-hardening..."
     verify "Hardening config exists" "test -f /etc/ssh/sshd_config.d/hardening.conf"
     verify "SSH config valid" "sshd -t"
     verify "SSH service running" "systemctl is-active ssh || systemctl is-active sshd"
@@ -1307,17 +1337,11 @@ EOF
 }
 
 # =============================================================================
-# Stage 3: Automatic Updates
+# auto-updates: Automatic Updates
 # =============================================================================
 
 stage_auto_updates() {
-    log_header "Stage 3: Automatic Updates"
-
-    if stage_skipped 3; then
-        record_stage 3 skipped
-        log_warn "Stage 3 skipped via SKIP_STAGES"
-        return 0
-    fi
+    stage_header auto-updates
 
     echo "This stage will:"
     echo "  - Install unattended-upgrades"
@@ -1328,8 +1352,8 @@ stage_auto_updates() {
     echo ""
     
     if ! ask_yes_no "Run this stage?" y; then
-        record_stage 3 skipped
-        log "Skipping Stage 3"
+        record_stage auto-updates skipped
+        log "Skipping auto-updates"
         return 0
     fi
     
@@ -1399,7 +1423,7 @@ EOF
     
     # Verification
     echo ""
-    log "Verifying Stage 3..."
+    log "Verifying auto-updates..."
     verify "unattended-upgrades installed" "pkg_installed unattended-upgrades"
     verify "Auto-upgrades config exists" "test -f /etc/apt/apt.conf.d/20auto-upgrades"
     verify "Unattended-upgrades config exists" "test -f /etc/apt/apt.conf.d/50unattended-upgrades"
@@ -1410,7 +1434,7 @@ EOF
 }
 
 # =============================================================================
-# Stage 4: Security Tools (CrowdSec + UFW)
+# security-tools: Security Tools (CrowdSec + UFW)
 # =============================================================================
 
 # Prove the firewall bouncer's key is one the local API actually accepts, and
@@ -1456,13 +1480,7 @@ ensure_bouncer_registered() {
 }
 
 stage_security_tools() {
-    log_header "Stage 4: Security Tools (CrowdSec + UFW)"
-
-    if stage_skipped 4; then
-        record_stage 4 skipped
-        log_warn "Stage 4 skipped via SKIP_STAGES"
-        return 0
-    fi
+    stage_header security-tools
 
     echo "This stage will:"
     echo "  - Install CrowdSec intrusion detection"
@@ -1476,8 +1494,8 @@ stage_security_tools() {
     echo ""
     
     if ! ask_yes_no "Run this stage?"; then
-        record_stage 4 skipped
-        log "Skipping Stage 4"
+        record_stage security-tools skipped
+        log "Skipping security-tools"
         return 0
     fi
     
@@ -1552,7 +1570,7 @@ stage_security_tools() {
     
     # Verification
     echo ""
-    log "Verifying Stage 4..."
+    log "Verifying security-tools..."
     verify "CrowdSec installed" "which crowdsec"
     verify "CrowdSec running" "systemctl is-active crowdsec"
     # The nftables bouncer installs as `crowdsec-firewall-bouncer-nftables`. Anchor
@@ -1583,17 +1601,11 @@ stage_security_tools() {
 }
 
 # =============================================================================
-# Stage 5: Core Tools & System Tuning
+# core-tools: Core Tools & System Tuning
 # =============================================================================
 
 stage_core_tools() {
-    log_header "Stage 5: Core Tools & System Tuning"
-
-    if stage_skipped 5; then
-        record_stage 5 skipped
-        log_warn "Stage 5 skipped via SKIP_STAGES"
-        return 0
-    fi
+    stage_header core-tools
 
     echo "This stage will:"
     echo "  - Install tools: neovim, htop, net-tools, jnettop, git, acl, ripgrep, aptitude, tmux"
@@ -1603,14 +1615,14 @@ stage_core_tools() {
     echo ""
     
     if ! ask_yes_no "Run this stage?" y; then
-        record_stage 5 skipped
-        log "Skipping Stage 5"
+        record_stage core-tools skipped
+        log "Skipping core-tools"
         return 0
     fi
     
     log "Installing core tools..."
     # tmux (STATBUS-227 follow-up): replaces zellij's session-survival role
-    # now that the Homebrew comfort layer (Stage 6) is gone — apt-managed,
+    # now that the Homebrew comfort layer (once in user-setup) is gone — apt-managed,
     # patched by unattended-upgrades, same principle as the rest of this
     # list. Plain install: no auto-attach profile.d hook. An operator opts
     # in with `tmux` / `tmux attach` like any other server; this is a
@@ -1665,30 +1677,27 @@ EOF
     apt_retry "update" update -qq
     apt_install "docker" docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
 
-    # STATBUS-500: the account that will RUN StatBus needs the socket NOW, not two
-    # stages later, and this stage's checks cannot see the difference: which docker,
-    # systemctl is-active docker and docker compose version are all true for root
-    # while an ordinary user is refused. That gap blocked a real installation in
-    # Uganda: Docker installed, daemon running, socket permission denied.
+    # STATBUS-500: the account that will RUN StatBus needs the socket, and this
+    # stage's other checks cannot see the difference: which docker, systemctl
+    # is-active docker and docker compose version are all true for root while an
+    # ordinary user is refused. That gap blocked a real installation in Uganda.
+    # service-account runs before this stage (STAGES requires it), so the
+    # account exists here; the access check below fails if it does not.
     docker_user="${SERVICE_USER:-statbus}"
-    if id "$docker_user" >/dev/null 2>&1; then
-        # A case match, not a grep in a pipeline: this file runs under pipefail and
-        # a grep exiting early can fail the pipeline it matched (STATBUS-227).
-        case " $(id -nG "$docker_user") " in
-            *" docker "*) log "$docker_user already has docker access" ;;
-            *)
-                log "Adding $docker_user to the docker group"
-                usermod -aG docker "$docker_user"
-                log_warn "$docker_user needs a NEW login session before it can use Docker; a fresh process (and runuser below) sees the group immediately"
-                ;;
-        esac
-    else
-        log_warn "$docker_user does not exist yet (it is created in a later stage); docker access is granted there"
-    fi
+    # A case match, not a grep in a pipeline: this file runs under pipefail and
+    # a grep exiting early can fail the pipeline it matched (STATBUS-227).
+    case " $(id -nG "$docker_user" 2>/dev/null) " in
+        *" docker "*) log "$docker_user already has docker access" ;;
+        *)
+            log "Adding $docker_user to the docker group"
+            usermod -aG docker "$docker_user"
+            log_warn "$docker_user needs a NEW login session before it can use Docker; a fresh process (and runuser below) sees the group immediately"
+            ;;
+    esac
     
     # Verification
     echo ""
-    log "Verifying Stage 5..."
+    log "Verifying core-tools..."
     verify "neovim installed" "which nvim"
     verify "htop installed" "which htop"
     verify "ripgrep installed" "which rg"
@@ -1707,7 +1716,7 @@ EOF
 }
 
 # =============================================================================
-# Stage 6: User Setup (devops)
+# user-setup: User Setup (devops)
 # =============================================================================
 
 stage_user_setup() {
@@ -1717,17 +1726,11 @@ stage_user_setup() {
     # explanation, because a customer's installation must never be told about our
     # support access model. Cloud intent lives in --help and doc/CLOUD.md.
     if [[ "${CLOUD:-false}" != "true" ]]; then
-        record_stage 6 na
+        record_stage user-setup na
         return 0
     fi
 
-    log_header "Stage 6: User Setup (devops)"
-
-    if stage_skipped 6; then
-        record_stage 6 skipped
-        log_warn "Stage 6 skipped via SKIP_STAGES"
-        return 0
-    fi
+    stage_header user-setup
 
     echo "This stage will:"
     echo "  - Create 'devops' user with passwordless sudo"
@@ -1742,8 +1745,8 @@ stage_user_setup() {
     fi
     
     if ! ask_yes_no "Run this stage?"; then
-        record_stage 6 skipped
-        log "Skipping Stage 6"
+        record_stage user-setup skipped
+        log "Skipping user-setup"
         return 0
     fi
     
@@ -1773,17 +1776,13 @@ DEVOPS_KEYPAIR
 
     chown -R devops:devops /home/devops/.ssh
 
-    # Grant devops Docker API access. The docker-ce package from Stage 5 creates
-    # the `docker` group but does not populate it — an easy thing to miss, and
+    # Grant devops Docker API access. The docker-ce package from core-tools (which
+    # this stage requires) creates the `docker` group but does not populate it;
     # without this membership `docker ps` as devops fails with "permission denied
     # on /var/run/docker.sock", which defeats the whole "log in as devops and
     # operate the box" path that the StatBus docs prescribe.
-    if getent group docker >/dev/null; then
-        log "Adding devops to docker group..."
-        usermod -aG docker devops
-    else
-        log_warn "docker group missing (Stage 5 may have been skipped) — not adding devops to it"
-    fi
+    log "Adding devops to docker group..."
+    usermod -aG docker devops
 
     # STATBUS-227 / doc-032: the Homebrew comfort layer that used to live
     # here (Homebrew itself, build-essential, helix, bottom, zellij + its
@@ -1794,26 +1793,24 @@ DEVOPS_KEYPAIR
     # unattended-upgrades this script just configured, and it left a full
     # compiler toolchain — build-essential — on a hardened host), it
     # duplicated apt (helix/bottom are a second editor and monitor on top
-    # of the neovim/htop Stage 5 already installs), and it was killing
+    # of the neovim/htop core-tools already installs), and it was killing
     # rented test machines during the heaviest part of setup (STATBUS-227:
     # two arc-suite VMs went unresponsive mid-Homebrew-pour at rc.03). The
     # apt toolkit (neovim, htop, ripgrep, git, net-tools, jnettop, acl,
-    # aptitude — Stage 5) remains: an operator diagnosing a box needs an
+    # aptitude — core-tools) remains: an operator diagnosing a box needs an
     # editor, a monitor and a grep, and those are small, apt-managed, and
     # patched by the mechanism this script already installs. Full ruling:
-    # .backlog/docs/doc-032. tmux joined that same apt toolkit in Stage 5
+    # .backlog/docs/doc-032. tmux joined that same apt toolkit in core-tools
     # (King-directed follow-up) to replace zellij's session-survival role —
     # plain install, no auto-attach hook; an operator opts in manually.
 
     # Verification
     echo ""
-    log "Verifying Stage 6..."
+    log "Verifying user-setup..."
     verify "devops user exists" "id devops"
     verify "devops has passwordless sudo" "test -f /etc/sudoers.d/devops"
     verify "devops SSH directory exists" "test -d /home/devops/.ssh"
-    if getent group docker >/dev/null; then
-        verify "devops is in docker group" "id -nG devops | tr ' ' '\n' | grep -x docker"
-    fi
+    verify "devops is in docker group" "id -nG devops | tr ' ' '\n' | grep -x docker"
 
     if [[ -n "$GITHUB_USERS" || -n "$GITHUB_DEPLOY_KEYS" ]]; then
         verify "SSH authorized_keys populated" "test -s /home/devops/.ssh/authorized_keys"
@@ -1823,11 +1820,11 @@ DEVOPS_KEYPAIR
 }
 
 # =============================================================================
-# Stage 7: StatBus Service Account
+# service-account: StatBus Service Account
 # =============================================================================
 #
 # Creates the Linux user that StatBus will be installed under and operated as.
-# Separate from devops (Stage 6) on purpose:
+# Separate from devops (user-setup) on purpose:
 #   - devops is the ops/admin user. It has passwordless sudo and is how you
 #     do host-level maintenance (journalctl, apt, systemctl, etc.).
 #   - SERVICE_USER (default: statbus) owns the ~/statbus/ install tree and
@@ -1841,20 +1838,13 @@ DEVOPS_KEYPAIR
 # or /home/devops). We want /home/<SERVICE_USER>/statbus/ and nothing else.
 
 stage_service_account() {
-    log_header "Stage 7: StatBus Service Account"
-
-    if stage_skipped 7; then
-        record_stage 7 skipped
-        log_warn "Stage 7 skipped via SKIP_STAGES"
-        return 0
-    fi
+    stage_header service-account
 
     local user="${SERVICE_USER:-statbus}" deploy_keys
     deploy_keys="$(deploy_keys_for_this_run)"
 
     echo "This stage will:"
     echo "  - Create Linux user '$user' with /home/$user as home"
-    echo "  - Add '$user' to the docker group"
     echo "  - Populate ~$user/.ssh/authorized_keys (ED25519-only) from GitHub:"
     echo "      Users:       ${GITHUB_USERS:-<not configured>}"
     if [[ "${CLOUD:-false}" == "true" ]]; then
@@ -1877,8 +1867,8 @@ stage_service_account() {
     fi
 
     if ! ask_yes_no "Run this stage?" y; then
-        record_stage 7 skipped
-        log "Skipping Stage 7"
+        record_stage service-account skipped
+        log "Skipping service-account"
         return 0
     fi
 
@@ -1889,13 +1879,6 @@ stage_service_account() {
         useradd -m -s /bin/bash -c "StatBus service account" "$user"
     fi
 
-    if getent group docker >/dev/null; then
-        log "Adding '$user' to docker group..."
-        usermod -aG docker "$user"
-    else
-        log_warn "docker group missing (Stage 5 may have been skipped) — not adding '$user' to it"
-    fi
-
     log "Populating SSH keys for '$user'..."
     populate_authorized_keys "$user" "$GITHUB_USERS" "$(deploy_keys_for_this_run)"
 
@@ -1904,11 +1887,8 @@ stage_service_account() {
 
     # Verification
     echo ""
-    log "Verifying Stage 7..."
+    log "Verifying service-account..."
     verify "$user user exists" "id $user"
-    if getent group docker >/dev/null; then
-        verify "$user is in docker group" "id -nG $user | tr ' ' '\n' | grep -x docker"
-    fi
     verify "$user .ssh dir exists with correct mode" "test -d /home/$user/.ssh"
     if [[ -n "$GITHUB_USERS" || -n "$GITHUB_DEPLOY_KEYS" ]]; then
         verify "$user authorized_keys populated" "test -s /home/$user/.ssh/authorized_keys"
@@ -1919,7 +1899,7 @@ stage_service_account() {
 }
 
 # =============================================================================
-# Stage 8: CI Command Allowlist (sshdo)
+# ci-allowlist: CI Command Allowlist (sshdo)
 # =============================================================================
 
 stage_ci_allowlist() {
@@ -1927,17 +1907,11 @@ stage_ci_allowlist() {
     # belongs to cloud runs only. Without cloud intent it is not part of the run
     # and says nothing - same rule as stage_user_setup above.
     if [[ "${CLOUD:-false}" != "true" ]]; then
-        record_stage 8 na
+        record_stage ci-allowlist na
         return 0
     fi
 
-    log_header "Stage 8: CI Command Allowlist (sshdo)"
-
-    if stage_skipped 8; then
-        record_stage 8 skipped
-        log_warn "Stage 8 skipped via SKIP_STAGES"
-        return 0
-    fi
+    stage_header ci-allowlist
 
     # STATBUS-259. /etc/sshdoers is the byte-pinned allowlist every inbound CI
     # ssh command is checked against — the fleet's access policy. It was
@@ -1955,15 +1929,15 @@ stage_ci_allowlist() {
     # stage of the one that already exists, so an allowlist change becomes a
     # reviewed commit plus a stage re-run instead of a privileged session.
     #
-    # RUN THIS STAGE ALONE with the existing skip mechanism — no new flag:
-    #   sudo ./harden.sh --non-interactive --skip-stages "0 1 2 3 4 5 6 7"
+    # RUN THIS STAGE ALONE:
+    #   sudo ./harden.sh --non-interactive --only-stages ci-allowlist
 
-    # STATBUS-280. Stage 8 is OPT-IN. rc.10's smoke legs failed the default
+    # STATBUS-280. ci-allowlist is OPT-IN. rc.10's smoke legs failed the default
     # sequence deterministically: almost no installation has a CI door, so an
     # unset SSHDOERS_REF here means the stage was NEVER REQUESTED — the
     # majority and correct case — categorically different from a stage whose
     # absence is always a gap. Every acceptance before the smoke legs ran a
-    # MODIFIED invocation (stage-8-only, or stage-3-only); none ran the
+    # MODIFIED invocation (allowlist-only, or auto-updates-only); none ran the
     # unmodified default every real external operator actually runs, and
     # that default hit a REQUIRED refusal demanding a fleet-only variable — a
     # product-must-not-know-doors violation reaching an external box through
@@ -1981,7 +1955,8 @@ stage_ci_allowlist() {
     # without a ref to check it at.
     local ref="${SSHDOERS_REF:-}"
     if [[ -z "$ref" ]]; then
-        log_warn "Stage 8 not run: no CI command door declared for this host. To install one, set SSHDOERS_REF."
+        log_warn "ci-allowlist not run: no CI command door declared for this host. To install one, set SSHDOERS_REF."
+        record_stage ci-allowlist skipped
         return 0
     fi
 
@@ -2012,7 +1987,7 @@ stage_ci_allowlist() {
     if [[ -z "$host" ]]; then
         log_error "Cannot determine the host name for the allowlist (hostname --fqdn gave nothing)."
         log_error "Set SSHDOERS_HOST=<host> explicitly and re-run this stage."
-        FAILED_VERIFICATIONS+=("Stage 8: host name for the allowlist could not be determined")
+        FAILED_VERIFICATIONS+=("ci-allowlist: host name for the allowlist could not be determined")
         return 0
     fi
 
@@ -2067,13 +2042,13 @@ stage_ci_allowlist() {
         log_error "Checked: $url"
         log_error "Set SSHDOERS_HOST=<the correct directory under ops/> and/or SSHDOERS_REF=<a commit"
         log_error "where it exists>, then re-run this stage."
-        FAILED_VERIFICATIONS+=("Stage 8: nothing at ops/${host}/sshdoers for ref ${ref} (HTTP 404)")
+        FAILED_VERIFICATIONS+=("ci-allowlist: nothing at ops/${host}/sshdoers for ref ${ref} (HTTP 404)")
         return 0
     elif [[ "$host_dir_status" != "200" ]]; then
         log_error "Could not verify whether ops/${host}/ exists (HTTP $host_dir_status) — this is not a statement about the host."
         log_error "Checked: $url"
         log_error "Retry, or check network connectivity / GitHub rate limits, then re-run this stage."
-        FAILED_VERIFICATIONS+=("Stage 8: could not verify ops/${host}/ (HTTP ${host_dir_status})")
+        FAILED_VERIFICATIONS+=("ci-allowlist: could not verify ops/${host}/ (HTTP ${host_dir_status})")
         return 0
     fi
 
@@ -2084,13 +2059,13 @@ stage_ci_allowlist() {
         log_error "/usr/local/bin/sshdo is missing or not executable — refusing to install an allowlist nothing enforces."
         log_error "An allowlist without its enforcer looks configured while permitting everything the forced command allows."
         log_error "Install sshdo first (ops/${host}/sshdo holds the canonical copy), then re-run this stage."
-        FAILED_VERIFICATIONS+=("Stage 8: sshdo enforcer absent")
+        FAILED_VERIFICATIONS+=("ci-allowlist: sshdo enforcer absent")
         return 0
     fi
 
     if ! ask_yes_no "Run this stage?"; then
-        record_stage 8 skipped
-        log "Skipping Stage 8"
+        record_stage ci-allowlist skipped
+        log "Skipping ci-allowlist"
         return 0
     fi
 
@@ -2101,7 +2076,7 @@ stage_ci_allowlist() {
     if ! curl -fsSL "$url" -o "$staged"; then
         log_error "Could not fetch $url"
         log_error "Nothing was changed. Check the host name, the ref, and network reachability."
-        FAILED_VERIFICATIONS+=("Stage 8: allowlist fetch failed for $host@$ref")
+        FAILED_VERIFICATIONS+=("ci-allowlist: allowlist fetch failed for $host@$ref")
         return 0
     fi
 
@@ -2113,7 +2088,7 @@ stage_ci_allowlist() {
     # commit-addressed entry.
     if [[ ! -s "$staged" ]]; then
         log_error "The fetched allowlist is EMPTY — refusing to install it."
-        FAILED_VERIFICATIONS+=("Stage 8: fetched allowlist was empty")
+        FAILED_VERIFICATIONS+=("ci-allowlist: fetched allowlist was empty")
         return 0
     fi
     local missing=""
@@ -2122,7 +2097,7 @@ stage_ci_allowlist() {
     if [[ -n "$missing" ]]; then
         log_error "The fetched allowlist is missing required grammar: $missing"
         log_error "That is what a truncated or wrong-file fetch looks like. Refusing to install it."
-        FAILED_VERIFICATIONS+=("Stage 8: fetched allowlist missing grammar ($missing)")
+        FAILED_VERIFICATIONS+=("ci-allowlist: fetched allowlist missing grammar ($missing)")
         return 0
     fi
 
@@ -2143,7 +2118,7 @@ stage_ci_allowlist() {
     # than assuming. `sshdo --check` counts "No such user" into its error total
     # and exits non-zero for it (verified: exit 9 against this repo's own
     # allowlist on a machine without the slot accounts). On a freshly-provisioned
-    # host, where Stage 8 may run before every slot user exists, a perfectly
+    # host, where ci-allowlist may run before every slot user exists, a perfectly
     # valid allowlist would then be REJECTED and provisioning would stop for a
     # condition of the HOST rather than a fault in the FILE.
     #
@@ -2155,7 +2130,7 @@ stage_ci_allowlist() {
         log_error "sshdo --check found INVALID CONFIG in the fetched allowlist — refusing to install it."
         log_error "Installing a config sshdo cannot parse denies every CI command on this host, and"
         log_error "the refusal an operator sees blames a missing entry rather than the file."
-        FAILED_VERIFICATIONS+=("Stage 8: sshdo --check reported invalid config")
+        FAILED_VERIFICATIONS+=("ci-allowlist: sshdo --check reported invalid config")
         return 0
     fi
     if printf '%s\n' "$check_out" | grep '^warning: No such user' >/dev/null; then
@@ -2236,7 +2211,7 @@ stage_ci_allowlist() {
 
     # Verification
     echo ""
-    log "Verifying Stage 8..."
+    log "Verifying ci-allowlist..."
     verify "/etc/sshdoers exists" "test -s /etc/sshdoers"
     verify "/etc/sshdoers kept the mode this stage installed it with" \
         "test \"\$(stat -c '%a' /etc/sshdoers)\" = \"${mode#0}\" -o \"\$(stat -c '%a' /etc/sshdoers)\" = \"$mode\""
@@ -2348,13 +2323,16 @@ main() {
                 NON_INTERACTIVE=true
                 shift
                 ;;
-            --skip-stages)
-                if [[ -z "${2:-}" ]]; then
-                    log_error "--skip-stages requires an argument (e.g. --skip-stages \"0 4\")"
-                    exit 1
+            --only-stages|--skip-stages)
+                if [[ $# -lt 2 ]]; then
+                    refuse_selection "$1 needs a list of stage names (e.g. $1 \"ssh-hardening security-tools\")."
                 fi
-                SKIP_STAGES="$2"
+                if [[ "$1" == --only-stages ]]; then ONLY_STAGES="$2"; else SKIP_STAGES="$2"; fi
                 shift 2
+                ;;
+            --only-stages=*)
+                ONLY_STAGES="${1#*=}"
+                shift
                 ;;
             --skip-stages=*)
                 SKIP_STAGES="${1#*=}"
@@ -2370,24 +2348,23 @@ main() {
                 echo ""
                 echo "Options:"
                 echo "  --non-interactive          Run all stages without prompting (requires .env file)"
-                echo "  --skip-stages \"N [N ...]\"  Skip the given stages (space-separated numbers)."
-                echo "                              Also settable via SKIP_STAGES env var."
+                echo "  --only-stages \"NAME ...\"   Run just the named stages (also ONLY_STAGES)."
+                echo "  --skip-stages \"NAME ...\"   Run every stage but the named ones, for a stage this"
+                echo "                              box should not have (also SKIP_STAGES)."
+                echo "                              Every stage is safe to rerun. A stage's required"
+                echo "                              stages must stay selected."
                 echo "  --cloud                    Cloud installation: also ask for CI deploy-key"
                 echo "                              sources (GITHUB_DEPLOY_KEYS). Also CLOUD=true."
                 echo "  --help, -h                 Show this help message"
                 echo ""
-                echo "Stages:"
-                echo "  0  HTTPS APT Sources (optional)"
-                echo "  1  Base System (etckeeper, bash history, locales)"
-                echo "  2  SSH Hardening"
-                echo "  3  Automatic Updates"
-                echo "  4  Security Tools (CrowdSec + UFW, optional)"
-                echo "  5  Core Tools (docker, neovim, htop, ...)"
-                echo "  6  User Setup (devops user, SSH keys)"
-                echo "  7  StatBus Service Account (statbus user)"
-                echo "  8  CI Command Allowlist (sshdo /etc/sshdoers + published hash)"
+                echo "Stages, in run order:"
+                local slug
+                for slug in "${STAGE_SLUGS[@]}"; do
+                    printf '  %-16s %s%s\n' "$slug" "${STAGE_LABEL[$slug]}" \
+                        "${STAGE_REQUIRES[$slug]:+ (requires ${STAGE_REQUIRES[$slug]})}"
+                done
                 echo ""
-                echo "Stage 8 environment:"
+                echo "ci-allowlist environment:"
                 echo "  SSHDOERS_HOST=<host>  Which ops/<host>/sshdoers to install"
                 echo "                        (default: first label of hostname --fqdn)"
                 echo "  SSHDOERS_REF=<commit>  REQUIRED. The commit the reviewed allowlist"
@@ -2404,40 +2381,34 @@ main() {
     done
 
     show_banner
+    select_stages
     check_prerequisites
     record_reboot_state
     setup_env
 
     # The full host name is the site address StatBus will use. Resolve it before
     # any stage runs, but not for a run that will not install StatBus (for
-    # example the firewall-only repair that skips Stages 5 and 7).
-    if ! stage_skipped 5 || ! stage_skipped 7; then
+    # example the firewall-only repair that runs just security-tools).
+    if stage_selected core-tools || stage_selected service-account; then
         configure_server_fqdn || exit 1
     fi
 
     log_header "Starting Setup Process"
 
-    if [[ -n "$SKIP_STAGES" ]]; then
-        log "SKIP_STAGES=\"$SKIP_STAGES\" — those stages will be short-circuited"
-    fi
+    log "Stages in this run: ${STAGE_SELECTED[*]}"
     if [[ "$NON_INTERACTIVE" == "true" ]]; then
-        log "Running in non-interactive mode — all non-skipped stages will be executed"
+        log "Running in non-interactive mode: every stage in this run will be executed"
     else
-        echo "You will be prompted before each non-skipped stage."
+        echo "You will be prompted before each stage in this run."
         echo "Answer 'y' to run a stage, 'n' to skip it."
     fi
     echo ""
 
-    # Run stages, recording each outcome as it happens.
-    run_stage 0 stage_https_sources
-    run_stage 1 stage_base_system
-    run_stage 2 stage_ssh_hardening
-    run_stage 3 stage_auto_updates
-    run_stage 4 stage_security_tools
-    run_stage 5 stage_core_tools
-    run_stage 6 stage_user_setup
-    run_stage 7 stage_service_account
-    run_stage 8 stage_ci_allowlist
+    # Run stages in table order, recording each outcome as it happens.
+    local slug
+    for slug in "${STAGE_SLUGS[@]}"; do
+        run_stage "$slug"
+    done
 
     # STATBUS-376 D7/STATBUS-502: the summary and next steps are derived from
     # the outcomes recorded above, never from a static list of what a full run

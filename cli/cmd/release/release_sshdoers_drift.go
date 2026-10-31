@@ -17,7 +17,7 @@ import (
 //
 // /etc/sshdoers on each host is the byte-pinned allowlist every inbound CI ssh
 // command is checked against. The repo carries the source (ops/<host>/sshdoers)
-// and Stage 8 of ops/setup-ubuntu-lts.sh installs it byte for byte, publishing
+// and the ci-allowlist stage of ops/setup-ubuntu-lts.sh installs it byte for byte, publishing
 // a world-readable /etc/sshdoers.sha256 beside it. Nothing else synced the two
 // before that stage existed, so the live policy could differ from the reviewed
 // copy silently, in either direction.
@@ -36,7 +36,7 @@ import (
 
 const (
 	// sshdoersReadUserEnv overrides the account used to read the published hash.
-	// The default is the ops account Stage 6 creates on every host.
+	// The default is the ops account the user-setup stage creates on every host.
 	sshdoersReadUserEnv  = "SSHDOERS_READ_USER"
 	sshdoersReadUser     = "devops"
 	sshdoersSkipEnv      = "SKIP_SSHDOERS"
@@ -169,8 +169,8 @@ func checkSshdoersDrift(projDir string) bool {
 			fmt.Println("    is unverified for this release.")
 			fmt.Println("    Fix, in the order most likely to resolve it:")
 			fmt.Printf("      - is %s reachable, and does your key let you in as %s?\n", h.Address, sshdoersReadUserFor())
-			fmt.Printf("      - has Stage 8 ever run there? %s only exists after it has\n", sshdoersLiveHashPath)
-			fmt.Println("        (ops/setup-ubuntu-lts.sh, stage 8 — STATBUS-259)")
+			fmt.Printf("      - has the ci-allowlist stage ever run there? %s only exists after it has\n", sshdoersLiveHashPath)
+			fmt.Println("        (ops/setup-ubuntu-lts.sh --only-stages ci-allowlist, STATBUS-259)")
 			fmt.Printf("      - override the account with %s=<user> if devops is not the right one\n", sshdoersReadUserEnv)
 			fmt.Printf("      - genuinely unreachable and the release cannot wait: %s=1 (bypass, prints loudly)\n", sshdoersSkipEnv)
 			allPassed = false
@@ -190,7 +190,7 @@ func checkSshdoersDrift(projDir string) bool {
 			fmt.Println("      REPO is authoritative for INTENT. It is what was reviewed and")
 			fmt.Println("        agreed; it is what the next stage run will install.")
 			fmt.Println("    So: read the live file, decide deliberately which entries belong,")
-			fmt.Println("    commit that to the repo copy, and re-run Stage 8 so the two agree.")
+			fmt.Println("    commit that to the repo copy, and re-run the ci-allowlist stage so the two agree.")
 			fmt.Println("    Do NOT simply re-run the stage to make this pass — that would erase")
 			fmt.Println("    whatever the live file has that the repo lacks, and an entry that")
 			fmt.Println("    disappears is a workflow that stops working.")

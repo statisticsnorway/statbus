@@ -1,7 +1,7 @@
 # yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
 name: Test Hardening
 
-# Hardening checks at release-candidate time. Validates that Stage 7
+# Hardening checks at release-candidate time. Validates that service-account
 # (service account setup) and the install path (./sb install → stack up)
 # are solid before publishing a stable release.
 #
@@ -24,17 +24,18 @@ env:
   ORG: statisticsnorway
 
 jobs:
-  setup-script-stage-7:
-    # Verify that setup-ubuntu-lts.sh Stage 7 creates the statbus service
-    # account correctly when run non-interactively. We don't run stages 0-6
-    # on the runner itself (they'd reconfigure SSH, apt sources, etc — noisy
-    # and potentially fragile). Just Stage 7 via SKIP_STAGES.
+  setup-script-service-account:
+    # Verify that setup-ubuntu-lts.sh's service-account stage creates the
+    # statbus account correctly when run non-interactively. The other stages
+    # are not run on the runner itself (they would reconfigure SSH, apt
+    # sources, Docker, etc); the full run order is proven on a plain box by the
+    # LXD gate. Docker access for the account is core-tools' work, not this one.
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@v4
 
-      - name: Run setup.sh Stage 7 only (service-account creation)
+      - name: Run setup.sh service-account only
         run: |
           set -euxo pipefail
           # Seed the env file so --non-interactive has what it needs.
@@ -46,16 +47,13 @@ jobs:
           SERVICE_USER="statbus"
           EOF
           sudo chmod +x ops/setup-ubuntu-lts.sh
-          sudo -H SKIP_STAGES="0 1 2 3 4 5 6" ops/setup-ubuntu-lts.sh --non-interactive
+          sudo -H ops/setup-ubuntu-lts.sh --non-interactive --only-stages service-account
 
-      - name: Verify Stage 7 outcomes
+      - name: Verify service-account outcomes
         run: |
           set -euxo pipefail
           # User exists with /home/statbus
           getent passwd statbus | grep -q ':/home/statbus:'
-          # docker group present and statbus is in it
-          getent group docker >/dev/null
-          id -nG statbus | tr ' ' '\n' | grep -qx docker
           # .ssh dir created with correct mode
           sudo test -d /home/statbus/.ssh
           # Linger enabled

@@ -51,11 +51,9 @@ for push_attempt in 1 2 3; do
     sleep 1
 done
 remote "lxc exec '$name' -- bash -c 'printf \"ADMIN_EMAIL=test@statbus.org\\nGITHUB_USERS=jhf\\nEXTRA_LOCALES=\\nCADDY_PLUGINS=\\n\" > /root/.setup-ubuntu.env; mkdir -p /run/sshd'"
-remote "lxc exec '$name' -- env SKIP_STAGES=4 bash /root/setup.sh --non-interactive" || {
-    remote "lxc exec '$name' -- rm -f /etc/apt/sources.list.d/ubuntu.sources.bak"
-    remote "lxc exec '$name' -- env SKIP_STAGES='1 3 4 5 6 7 8' bash /root/setup.sh --non-interactive"
-}
-remote "lxc exec '$name' -- bash -c 'usermod -aG docker statbus; loginctl enable-linger statbus; echo '\''export XDG_RUNTIME_DIR=/run/user/\$(id -u)'\'' >> /home/statbus/.profile'"
+# One run; see the same step in test/install-recovery/lib/lxd-backend.sh.
+remote "lxc exec '$name' -- bash /root/setup.sh --non-interactive --skip-stages security-tools"
+remote "lxc exec '$name' -- bash -c 'echo '\''export XDG_RUNTIME_DIR=/run/user/\$(id -u)'\'' >> /home/statbus/.profile'"
 # Certificate helper follows provision_harness_certificate in vm-bootstrap.sh.
 remote "lxc exec '$name' -- env HARNESS_DOMAIN=statbus-test.local bash -s" <<'CERT'
 set -euo pipefail

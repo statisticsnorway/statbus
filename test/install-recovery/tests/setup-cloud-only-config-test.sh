@@ -62,11 +62,13 @@ else
     echo "FAIL only $gated_sites fetch site(s) use the gate"; fail=1
 fi
 
-# 3. Contract: a standalone run must not have to carry the variable at all.
-if grep -Eq '\[7\]="[^"]*GITHUB_DEPLOY_KEYS' "$SCRIPT"; then
-    echo "FAIL stage 7 still declares GITHUB_DEPLOY_KEYS as required"; fail=1
+# 3. Contract: a standalone run must not have to carry the variable at all. A
+#    full run requires exactly these keys, read from the stage table.
+required="$(bash -c 'source "$1"; required_env_vars | paste -sd " " -' _ "$SCRIPT" 2>/dev/null)"
+if [[ "$required" == "ADMIN_EMAIL EXTRA_LOCALES GITHUB_USERS SERVICE_USER" ]]; then
+    echo "PASS a full run requires ADMIN_EMAIL EXTRA_LOCALES GITHUB_USERS SERVICE_USER, not GITHUB_DEPLOY_KEYS"
 else
-    echo "PASS stage 7 does not require GITHUB_DEPLOY_KEYS"
+    echo "FAIL a full run requires '$required'"; fail=1
 fi
 
 # 4. Contract: a cloud-only stage is INVISIBLE without cloud intent. The gate
@@ -77,7 +79,7 @@ gate_is_invisible() {
     local fn="$1" label="$2" text gate header body start
     text="$(awk "/^${fn}\\(\\)/,/^}$/" "$SCRIPT")"
     gate="$(grep -n 'CLOUD:-false' <<<"$text" | head -1 | cut -d: -f1)"
-    header="$(grep -n 'log_header "Stage' <<<"$text" | head -1 | cut -d: -f1)"
+    header="$(grep -n 'stage_header ' <<<"$text" | head -1 | cut -d: -f1)"
     if [[ -n "$gate" && -n "$header" && "$gate" -lt "$header" ]]; then
         echo "PASS $label: the gate precedes the header"
     else
@@ -92,8 +94,8 @@ gate_is_invisible() {
     fi
 }
 
-gate_is_invisible stage_user_setup "stage 6 (devops) is invisible without cloud intent"
-gate_is_invisible stage_ci_allowlist "stage 8 (CI allowlist) is invisible without cloud intent"
+gate_is_invisible stage_user_setup "user-setup (devops) is invisible without cloud intent"
+gate_is_invisible stage_ci_allowlist "ci-allowlist is invisible without cloud intent"
 
 # 5. Stage 7 runs on a standalone box too, but its CI deploy-key wording is
 #    cloud-only. Run the real stage with a refusing prompt so it prints its
@@ -105,10 +107,9 @@ else
     stage7_text() { # cloud -> intro output
         CLOUD="$1" SERVICE_USER="statbus" GITHUB_USERS="alice" \
         GITHUB_DEPLOY_KEYS="acme/statbus" bash -c '
-            log_header() { :; }
+            stage_header() { :; }
             log() { :; }
             log_warn() { echo "WARN $*"; }
-            stage_skipped() { return 1; }
             ask_yes_no() { return 1; }
             record_stage() { :; }
             deploy_keys_for_this_run() {

@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# Host-only, noninteractive subset of ops/setup-ubuntu-lts.sh stages 2-4.
+# Host-only, noninteractive subset of ops/setup-ubuntu-lts.sh's ssh-hardening,
+# auto-updates and security-tools stages.
 # Run from a client with a proven root public-key SSH session. Do not harden
 # the disposable guests here: scenario hardening is deliberately independent.
 set -euo pipefail
@@ -26,9 +27,9 @@ set -euo pipefail
 mkdir -p /etc/ssh/sshd_config.d
 config=/etc/ssh/sshd_config.d/00-statbus-lxd-fleet.conf
 # An early drop-in wins on Ubuntu's first-value-wins OpenSSH config. Match
-# setup-ubuntu-lts.sh stage 2 without changing the unrelated host settings.
+# setup-ubuntu-lts.sh ssh-hardening without changing the unrelated host settings.
 cat > "$config.stage" <<'EOF'
-# STATBUS-417 LXD host: key-only SSH (setup-ubuntu-lts.sh stage 2).
+# STATBUS-417 LXD host: key-only SSH (setup-ubuntu-lts.sh ssh-hardening).
 PermitRootLogin prohibit-password
 PubkeyAuthentication yes
 PasswordAuthentication no
@@ -72,7 +73,7 @@ if (( ${#missing[@]} )); then
     apt-get update -qq
     apt-get install -y "${missing[@]}" </dev/null >/dev/null
 fi
-# Stage 3's security-update cadence, without its interactive email/reboot
+# auto-updates' security-update cadence, without its interactive email/reboot
 # policy: these short-lived fleet hosts must not reboot underneath forks.
 cat > /etc/apt/apt.conf.d/20auto-upgrades <<'EOF'
 APT::Periodic::Update-Package-Lists "1";
@@ -87,7 +88,7 @@ Unattended-Upgrade::Allowed-Origins {
 Unattended-Upgrade::Automatic-Reboot "false";
 EOF
 systemctl enable --now apt-daily.timer apt-daily-upgrade.timer >/dev/null
-# Same intrusion stack as setup-ubuntu-lts.sh stage 4. The installer only
+# Same intrusion stack as setup-ubuntu-lts.sh security-tools. The installer only
 # adds CrowdSec's apt repository and is skipped on subsequent ramps.
 if ! command -v crowdsec >/dev/null 2>&1; then
     curl -fsSL https://install.crowdsec.net | bash

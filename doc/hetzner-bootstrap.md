@@ -188,8 +188,8 @@ handles the OS hardening + account creation:
 VERSION="${VERSION:-$(curl -sL https://api.github.com/repos/statisticsnorway/statbus/releases/latest | grep '"tag_name"' | cut -d'"' -f4)}"
 curl -fsSL "https://raw.githubusercontent.com/statisticsnorway/statbus/${VERSION}/ops/setup-ubuntu-lts.sh" -o setup.sh
 chmod +x setup.sh
-# Skip Stage 0 on Hetzner — HTTP APT sources work fine here.
-SKIP_STAGES="0" ./setup.sh
+# https-sources probes the network and changes nothing where HTTP works.
+./setup.sh
 ```
 
 See [setup-ubuntu-lts.md](setup-ubuntu-lts.md) for the full stage

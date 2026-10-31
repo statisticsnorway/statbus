@@ -106,7 +106,7 @@ func TestUnreachableHostFailsWithGuidance_STATBUS259(t *testing.T) {
 	for _, want := range []struct{ needle, why string }{
 		{"could not be read", "the operator must know the read failed rather than the hashes matching"},
 		{"This is not a pass", "the message must say what the failure means, since a reader could otherwise take it for a warning"},
-		{"Stage 8", "the most common cause on a fresh host is that the stage has never run there"},
+		{"--only-stages ci-allowlist", "the most common cause on a fresh host is that the stage has never run there, and the message names the command that runs it"},
 		{sshdoersReadUserEnv, "the account is overridable and the message must say so"},
 		{sshdoersSkipEnv, "the genuinely-unreachable escape must be named, or someone will invent a worse one"},
 	} {

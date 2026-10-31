@@ -24,7 +24,7 @@ line_of() { grep -nE "$1" <<<"$stage" | head -1 | cut -d: -f1; }
 grant=$(line_of 'usermod -aG docker')
 access_verify=$(line_of 'verify "Docker usable by')
 runuser=$(line_of 'runuser -u')
-verify_block=$(line_of 'Verifying Stage 5')
+verify_block=$(line_of 'Verifying core-tools')
 
 present() { if [[ -n "$2" ]]; then echo "PASS $1"; else echo "FAIL $1 (not found)"; fail=1; fi; }
 before() { if [[ -n "$2" && -n "$3" && "$2" -lt "$3" ]]; then echo "PASS $1"; else echo "FAIL $1 (${2:-missing} vs ${3:-missing})"; fail=1; fi; }

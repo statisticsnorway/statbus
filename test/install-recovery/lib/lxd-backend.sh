@@ -534,14 +534,11 @@ _lxd_build_base_for_candidate() {
     _lxd_push "$host_staging" "$base/root/setup.sh" || return
     _lxd_host rm -f "$host_staging"
     _lxd_host lxc exec "$base" -- bash -c 'printf "ADMIN_EMAIL=test@statbus.org\nGITHUB_USERS=jhf\nEXTRA_LOCALES=\nCADDY_PLUGINS=\n" > /root/.setup-ubuntu.env; mkdir -p /run/sshd' || return
-    _lxd_mark "hardening start $base (SKIP_STAGES=4 as VM harness)"
-    _lxd_host lxc exec "$base" -- env SKIP_STAGES=4 bash /root/setup.sh --non-interactive || {
-        # The prototype's Stage 0 verifier mistakenly inspected its own backup.
-        # Retry only failed setup stages, never suppress an unexplained error.
-        _lxd_host lxc exec "$base" -- bash -c 'rm -f /etc/apt/sources.list.d/ubuntu.sources.bak; mkdir -p /run/sshd' || return
-        _lxd_host lxc exec "$base" -- env SKIP_STAGES='1 3 4 5 6 7 8' bash /root/setup.sh --non-interactive || return
-    }
-    _lxd_host lxc exec "$base" -- bash -c 'usermod -aG docker statbus; loginctl enable-linger statbus; echo "export XDG_RUNTIME_DIR=/run/user/1001" >> /home/statbus/.profile; systemctl is-active docker' || return
+    _lxd_mark "hardening start $base (--skip-stages security-tools, as VM harness)"
+    # One run. The stages are ordered so a plain box verifies on its first run
+    # (STATBUS-554); a failure here is a product defect, not something to retry.
+    _lxd_host lxc exec "$base" -- bash /root/setup.sh --non-interactive --skip-stages security-tools || return
+    _lxd_host lxc exec "$base" -- bash -c 'echo "export XDG_RUNTIME_DIR=/run/user/1001" >> /home/statbus/.profile; systemctl is-active docker' || return
     _lxd_host lxc exec "$base" -- apt-get update -qq || return
     lxd_certificates "$base" || return
     _lxd_mark "hardening complete $base in $(($(date +%s)-start))s"

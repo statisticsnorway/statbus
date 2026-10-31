@@ -207,15 +207,15 @@ The script configures:
 - Docker CE + Compose plugin
 - `devops` user (ops/admin) with passwordless sudo, docker group, and GitHub
   SSH keys
-- **`statbus` service account** (Stage 7) — this is the user StatBus itself
+- **`statbus` service account** (`service-account` stage) — this is the user StatBus itself
   will be installed under and operated as. Docker group membership; SSH keys
   from the same GitHub users; systemd `--user` linger enabled
 
 **For STATBUS deployments:**
-- **Skip Stage 0** if your network allows HTTP (use `SKIP_STAGES="0"`). Our
-  recommendation on Hetzner dedicated / standard cloud hosts.
-- **Skip Stage 4** only if your server is on a private network with existing
-  firewall infrastructure.
+- `https-sources` decides by probing: it changes nothing where HTTP is
+  reachable, so it needs no skip.
+- **Skip `security-tools`** (`--skip-stages security-tools`) only if your
+  server is on a private network with existing firewall infrastructure.
 
 See [setup-ubuntu-lts.md](setup-ubuntu-lts.md) for full details.
 For Hetzner physical hosts booted in rescue mode, also see

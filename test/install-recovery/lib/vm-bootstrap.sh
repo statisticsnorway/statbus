@@ -950,7 +950,7 @@ EOF'
         || true
     ssh "${SSH_OPTS[@]}" root@"$ip" "
         rm -f /tmp/harden.exit /tmp/harden.log
-        tmux new-session -d -s harden 'SKIP_STAGES="${HARNESS_HARDENING_SKIP_STAGES-4}" bash /tmp/setup.sh --non-interactive > /tmp/harden.log 2>&1; echo \$? > /tmp/harden.exit'
+        tmux new-session -d -s harden 'SKIP_STAGES="${HARNESS_HARDENING_SKIP_STAGES-security-tools}" bash /tmp/setup.sh --non-interactive > /tmp/harden.log 2>&1; echo \$? > /tmp/harden.exit'
     "
     harness_register_log harden /tmp/harden.log "$ip"
     local max_iter=$(( ${LONG_CMD_MAX_MIN:-45} * 60 / 15 )) i=0 seen=0
