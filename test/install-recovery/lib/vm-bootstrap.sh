@@ -950,7 +950,7 @@ EOF'
         || true
     ssh "${SSH_OPTS[@]}" root@"$ip" "
         rm -f /tmp/harden.exit /tmp/harden.log
-        tmux new-session -d -s harden 'SKIP_STAGES="${HARNESS_HARDENING_SKIP_STAGES-security-tools}" bash /tmp/setup.sh --non-interactive > /tmp/harden.log 2>&1; echo \$? > /tmp/harden.exit'
+        tmux new-session -d -s harden 'bash /tmp/setup.sh --non-interactive > /tmp/harden.log 2>&1; echo \$? > /tmp/harden.exit'
     "
     harness_register_log harden /tmp/harden.log "$ip"
     local max_iter=$(( ${LONG_CMD_MAX_MIN:-45} * 60 / 15 )) i=0 seen=0
@@ -1387,8 +1387,8 @@ apply_https_only_egress() {
 
     echo "Applying HTTPS-only egress policy (allow loopback/private destinations; reject public TCP/80 on IPv4 and IPv6)"
 
-    # This scenario enables setup-ubuntu-lts.sh stage 4. That stage installs the
-    # CrowdSec nftables bouncer and configures UFW, so use the same nftables
+    # Every harness base runs the full setup, so security-tools has installed
+    # the CrowdSec nftables bouncer and configured UFW: use the same nftables
     # mechanism as the hardened box rather than bringing a parallel firewall.
     if ! VM_EXEC bash -c 'command -v nft >/dev/null 2>&1'; then
         echo "ERROR: hardened VM has no nft command after CrowdSec/UFW security setup" >&2

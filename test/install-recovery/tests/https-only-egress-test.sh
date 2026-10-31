@@ -193,7 +193,6 @@ for backend in vm-bootstrap lxd-backend; do
 done
 
 grep -q 'HARNESS_HTTPS_ONLY_EGRESS=1' "$SCENARIO"
-grep -Fq 'HARNESS_HARDENING_SKIP_STAGES=""' "$SCENARIO"
 # STATBUS-485: the scenario runs in the default fault set; an on-demand marker
 # would park it where no gate sees it again.
 ! grep -Fq 'HARNESS_SKIP_DEFAULT' "$SCENARIO" \

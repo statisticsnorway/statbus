@@ -333,9 +333,11 @@ The release fault gate is `.github/workflows/lxd-fleet.yaml`, dispatched by `rel
 
 Each state is built once per candidate and forked by every test that starts from it. `lxd_checkpoint_for_scenario` reads the choice from the scenario file itself.
 
+The root is `hardened-nothing-installed` (STATBUS-556): the smoke ramp job builds it before both smoke jobs start, from a fresh `ubuntu:26.04` guest (the current point release) and the full `setup-ubuntu-lts.sh` an operator runs, every stage included, with no stage selection. Every `installed-*` base is a copy of its checkpoint plus that install; nothing else runs setup.
+
 | Checkpoint | Built by | Forked by |
 |---|---|---|
-| `hardened-nothing-installed` | smoke / fleet | Install-time faults only: the test of a failure during installation (`0-interactive-*`, `4-install-*`, `5-install-interrupted-*`, `5-install-database-route-interrupted`, `5-install-orphaned-db-volume-credentials`, `5-install-cert-repair-via-cert-install`) |
+| `hardened-nothing-installed` | smoke ramp | Every installed base (copied), and install-time faults: the test of a failure during installation (`0-interactive-*`, `4-install-*`, `5-install-interrupted-*`, `5-install-database-route-interrupted`, `5-install-orphaned-db-volume-credentials`, `5-install-cert-repair-via-cert-install`) |
 | `installed-<candidate>-standalone` | smoke `0-happy-install` | Scenarios declaring `# LXD_START=installed-candidate`: they install cleanly first and then break something (`5-install-stage-a..e`, `5-install-bool-text-regression`, `5-install-proxy-never-started`, `5-install-live-upgrade-wait`, `6-uninstall-reinstall`). The fork answers their first candidate install (HEAD verified); later installs run for real |
 | `installed-<candidate>-demo` | first arc to need it (`lxd_demo_ensure`) | Candidate-A upgrade arcs |
 | `installed-<prev stable>-standalone` | fleet | Upgrade-from-previous-stable faults |

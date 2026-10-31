@@ -476,6 +476,40 @@ CONFIG
     _lxd_host lxc exec "$VM_NAME" -- chmod 0644 /tmp/users.yml
     rm -f "$fixture"
 }
+# The candidate's hardened base (STATBUS-556): a fresh guest from the current
+# ubuntu:26.04 image, the full setup an operator runs with every stage, and a
+# checkpoint. Every installed base and scenario copies this checkpoint.
+_lxd_harden_fresh_guest() {
+    local base=$1 start=$2 host_staging
+    _lxd_mark "launch $base ubuntu:26.04 nesting=true cpu=2 memory=6GiB"
+    _lxd_host lxc launch ubuntu:26.04 "$base" --config security.nesting=true --config limits.cpu=2 --config limits.memory=6GiB || return
+    LXD_BASE_OWNED_BY_THIS_BUILD=1
+    # First boot's cloud-init re-renders /etc/apt/sources.list.d/ubuntu.sources
+    # LATE. https-sources rewrites http:// URIs to HTTPS and immediately
+    # verifies; when cloud-init's render lands after that, verification sees
+    # the restored http:// URIs and fails ("HTTPS sources configured", rc.03
+    # smoke 0-happy-install, run 36883001232). Wait BEFORE hardening. `|| true`
+    # tolerates a degraded-but-finished cloud-init.
+    _lxd_host lxc exec "$base" -- cloud-init status --wait || true
+    # Per-invocation host staging name (STATBUS-425 round-3 review C2).
+    host_staging="/root/s2-setup-${LXD_STAGE_ID}.sh"
+    _lxd_upload "$HARNESS_ROOT/ops/setup-ubuntu-lts.sh" "$host_staging" || return
+    _lxd_push "$host_staging" "$base/root/setup.sh" || return
+    _lxd_host rm -f "$host_staging"
+    _lxd_host lxc exec "$base" -- bash -c 'printf "ADMIN_EMAIL=test@statbus.org\nGITHUB_USERS=jhf\nEXTRA_LOCALES=\nCADDY_PLUGINS=\n" > /root/.setup-ubuntu.env; mkdir -p /run/sshd' || return
+    _lxd_mark "hardening start $base (full setup, every stage)"
+    # One run of the setup an operator runs, every stage. The stages are
+    # ordered so a plain box verifies on its first run (STATBUS-554); a failure
+    # here is a product defect, not something to retry or skip.
+    _lxd_host lxc exec "$base" -- bash /root/setup.sh --non-interactive || return
+    _lxd_host lxc exec "$base" -- bash -c 'echo "export XDG_RUNTIME_DIR=/run/user/1001" >> /home/statbus/.profile; systemctl is-active docker' || return
+    _lxd_host lxc exec "$base" -- apt-get update -qq || return
+    lxd_certificates "$base" || return
+    _lxd_mark "hardening complete $base in $(($(date +%s)-start))s"
+    _lxd_host lxc exec "$base" -- test ! -e /home/statbus/statbus || return
+    _lxd_host lxc stop "$base" || return
+    _lxd_host lxc snapshot "$base" checkpoint
+}
 _lxd_build_base_for_candidate() {
     local tag=$1 checkpoint=${2:-installed-$1-standalone} base start fixture channel host_staging
     [[ "$tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+-rc\.[0-9]+$ ]] || { echo "Invalid candidate tag: $tag" >&2; return 2; }
@@ -511,43 +545,21 @@ _lxd_build_base_for_candidate() {
         echo "REFUSE: unsnapshotted base $base exists. Inspect or delete explicitly before retry." >&2; return 1
     fi
     start=$(date +%s)
-    _lxd_mark "launch $base ubuntu:26.04 nesting=true cpu=2 memory=6GiB"
-    _lxd_host lxc launch ubuntu:26.04 "$base" --config security.nesting=true --config limits.cpu=2 --config limits.memory=6GiB || return
-    LXD_BASE_OWNED_BY_THIS_BUILD=1
-    # First boot's cloud-init re-renders /etc/apt/sources.list.d/ubuntu.sources
-    # LATE. Hardening's Stage 0 rewrites http:// URIs to HTTPS and immediately
-    # verifies; when cloud-init's render lands after that sed, verification
-    # sees the restored http:// URIs and fails ("HTTPS sources configured",
-    # rc.03 smoke 0-happy-install, run 36883001232). The arc path already
-    # waits (cloud-init status --wait below); the base path must wait BEFORE
-    # hardening, not after. `|| true` matches the arc path's tolerance of a
-    # degraded-but-finished cloud-init.
-    _lxd_host lxc exec "$base" -- cloud-init status --wait || true
-    # STATBUS-425 round-3 review C2: install and upgrade smoke legs build
-    # DIFFERENT bases concurrently (max-parallel: 2) but were sharing this
-    # fixed host staging name; a same-moment scp of both legs could interleave
-    # writes to /root/s2-setup.sh and hand a partially written script to
-    # whichever leg's `lxc file push` won the race. Per-invocation name,
-    # removed after push.
-    host_staging="/root/s2-setup-${LXD_STAGE_ID}.sh"
-    _lxd_upload "$HARNESS_ROOT/ops/setup-ubuntu-lts.sh" "$host_staging" || return
-    _lxd_push "$host_staging" "$base/root/setup.sh" || return
-    _lxd_host rm -f "$host_staging"
-    _lxd_host lxc exec "$base" -- bash -c 'printf "ADMIN_EMAIL=test@statbus.org\nGITHUB_USERS=jhf\nEXTRA_LOCALES=\nCADDY_PLUGINS=\n" > /root/.setup-ubuntu.env; mkdir -p /run/sshd' || return
-    _lxd_mark "hardening start $base (--skip-stages security-tools, as VM harness)"
-    # One run. The stages are ordered so a plain box verifies on its first run
-    # (STATBUS-554); a failure here is a product defect, not something to retry.
-    _lxd_host lxc exec "$base" -- bash /root/setup.sh --non-interactive --skip-stages security-tools || return
-    _lxd_host lxc exec "$base" -- bash -c 'echo "export XDG_RUNTIME_DIR=/run/user/1001" >> /home/statbus/.profile; systemctl is-active docker' || return
-    _lxd_host lxc exec "$base" -- apt-get update -qq || return
-    lxd_certificates "$base" || return
-    _lxd_mark "hardening complete $base in $(($(date +%s)-start))s"
     if [ "$checkpoint" = hardened-nothing-installed ]; then
-        _lxd_host lxc exec "$base" -- test ! -e /home/statbus/statbus || return
-        _lxd_host lxc stop "$base" || return
-        _lxd_host lxc snapshot "$base" checkpoint || return
-        return 0
+        _lxd_harden_fresh_guest "$base" "$start"
+        return
     fi
+    # STATBUS-556: every installed base is the candidate's hardened base plus
+    # an install. Copy its checkpoint (building it first when this is the
+    # candidate's first base) instead of hardening another guest.
+    local hard
+    hard=$(_lxd_name "$tag-hardened-nothing-installed")
+    _lxd_build_base_for_candidate "$tag" hardened-nothing-installed || return
+    _lxd_mark "copy $hard/checkpoint -> $base"
+    _lxd_host lxc copy "$hard/checkpoint" "$base" || return
+    LXD_BASE_OWNED_BY_THIS_BUILD=1
+    _lxd_host lxc start "$base" || return
+    _lxd_host lxc exec "$base" -- cloud-init status --wait || true
     local install_tag=${checkpoint#installed-}
     # review B3: a non-stable identity carries a "-pre" suffix (see
     # run-smoke.sh's prerelease checkpoint name) so it cannot collide with
@@ -1224,8 +1236,8 @@ apply_https_only_egress() {
 
     echo "Applying HTTPS-only egress policy (allow loopback/private destinations; reject public TCP/80 on IPv4 and IPv6)"
 
-    # This scenario enables setup-ubuntu-lts.sh stage 4. That stage installs the
-    # CrowdSec nftables bouncer and configures UFW, so use the same nftables
+    # Every harness base runs the full setup, so security-tools has installed
+    # the CrowdSec nftables bouncer and configured UFW: use the same nftables
     # mechanism as the hardened box rather than bringing a parallel firewall.
     if ! VM_EXEC bash -c 'command -v nft >/dev/null 2>&1'; then
         echo "ERROR: hardened VM has no nft command after CrowdSec/UFW security setup" >&2

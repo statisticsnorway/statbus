@@ -88,7 +88,7 @@ jobs:
     name: Ramp hardened LXD fleet host
     needs: [select]
     runs-on: ubuntu-24.04
-    timeout-minutes: 15
+    timeout-minutes: 25
     outputs:
       ip: ${{ steps.ramp.outputs.ip }}
     steps:
@@ -131,6 +131,14 @@ jobs:
           ip=$(tail -n 1 "$RUNNER_TEMP/lxd-up.log")
           [[ "$ip" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]
           echo "ip=$ip" >> "$GITHUB_OUTPUT"
+
+      - name: Build the candidate's hardened base once for both smoke jobs
+        # STATBUS-556: one fresh guest per candidate, the full setup with every
+        # stage, snapshotted. Both smoke jobs, the fault fleet and the arcs
+        # copy this checkpoint; nothing else runs setup.
+        env:
+          LXD_HOST: root@${{ steps.ramp.outputs.ip }}
+        run: bash test/install-recovery/lxd/run-smoke.sh '${{ github.ref_name }}' hardened-base
 
   smoke:
     name: ${{ matrix.scenario }}

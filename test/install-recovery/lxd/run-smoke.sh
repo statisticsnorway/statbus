@@ -2,10 +2,10 @@
 # Smoke owns the checkpoint catalog consumed by fault forks and upgrade arcs.
 set -euo pipefail
 ROOT=$(git -C "$(dirname "$0")" rev-parse --show-toplevel)
-TAG=${1:?usage: run-smoke.sh <candidate-rc-tag> <0-happy-install|0-happy-upgrade>}
+TAG=${1:?usage: run-smoke.sh <candidate-rc-tag> <hardened-base|0-happy-install|0-happy-upgrade>}
 SCENARIO=${2:?smoke scenario required}
 [[ "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+-rc\.[0-9]+$ ]] || exit 2
-case "$SCENARIO" in 0-happy-install|0-happy-upgrade) ;; *) echo "Unknown smoke scenario: $SCENARIO" >&2; exit 2 ;; esac
+case "$SCENARIO" in hardened-base|0-happy-install|0-happy-upgrade) ;; *) echo "Unknown smoke scenario: $SCENARIO" >&2; exit 2 ;; esac
 [ "$(git -C "$ROOT" rev-parse HEAD)" = "$(git -C "$ROOT" rev-parse "$TAG^{commit}")" ] || {
     echo "REFUSE: smoke checkout must be pinned to $TAG" >&2; exit 2;
 }
@@ -22,6 +22,12 @@ MARKER_ID=$(lxd_marker_id "$TAG" "smoke-${SCENARIO}")
 lxd_marker_acquire_wait "$LXD_HOST" "$MARKER_ID"
 trap 'lxd_marker_release "$LXD_HOST" "$MARKER_ID"' EXIT
 case "$SCENARIO" in
+    hardened-base)
+        # STATBUS-556: the smoke ramp job builds the candidate's hardened base
+        # once, before both smoke scenarios start; every other base copies it.
+        lxd_base_for_candidate "$TAG" hardened-nothing-installed
+        exit
+        ;;
     0-happy-install)
         lxd_base_for_candidate "$TAG" hardened-nothing-installed
         # The scenario's own real tagged install captures a provisional

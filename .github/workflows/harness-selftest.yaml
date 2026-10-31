@@ -115,6 +115,8 @@ jobs:
         run: bash test/install-recovery/tests/setup-stage-order-test.sh
       - name: Prove setup stages are chosen by name and bad selections are refused before any stage runs (STATBUS-554)
         run: bash test/install-recovery/tests/setup-stage-selection-test.sh
+      - name: Prove the test fleet hardens one base with every setup stage and installed bases copy it (STATBUS-556)
+        run: bash test/install-recovery/tests/lxd-hardened-base-once-test.sh
       - name: Prove the setup script enables automatic reboots and announces the configured hour (STATBUS-496)
         run: bash test/install-recovery/tests/setup-auto-reboot-test.sh
       - name: Prove the security stage installs CrowdSec before the bouncer and requires a working key (STATBUS-498)
