@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-10-31T01:48:00Z'
-updated_date: '2026-10-31T11:18:00Z'
+updated_date: '2026-10-31T11:27:00Z'
 labels:
   - setup
   - install
@@ -51,4 +51,8 @@ Documentation: setup-ubuntu-lts.md describes slugs, --only-stages, --skip-stages
 
 <!-- SECTION:NOTES:BEGIN -->
 Why the gate never caught it: test/install-recovery/lib/lxd-backend.sh runs setup with SKIP_STAGES=4 and, when that exits non-zero, retries with SKIP_STAGES='1 3 4 5 6 7 8' (stages 0 and 2 only), described as a Stage 0 verifier workaround. On a plain base the first run fails here (stage 2, stage 5), stage 7 creates statbus, and the retry then passes stage 2. So every LXD base hides this defect. The fix should also remove that retry so the gate asserts setup succeeds in one run.
+
+2026-10-31 red (before fix, setup script at b24aa359b):
+- test/install-recovery/tests/setup-stage-order-test.sh drives main() with stand-in stages on a box without statbus or Docker: 'ssh-hardening ran before statbus existed', 'core-tools ran before statbus existed', order 'https-sources base-system ssh-hardening auto-updates security-tools core-tools user-setup service-account ci-allowlist', exit 1 (tmp/554-red-order.log). Same two failures as the plain Hetzner box.
+- test/install-recovery/tests/setup-stage-selection-test.sh: 8/8 FAIL (tmp/554-red-selection.log): --only-stages unknown, --skip-stages security-tools runs it, --skip-stages 4 accepted, refusals do not list stage names.
 <!-- SECTION:NOTES:END -->
