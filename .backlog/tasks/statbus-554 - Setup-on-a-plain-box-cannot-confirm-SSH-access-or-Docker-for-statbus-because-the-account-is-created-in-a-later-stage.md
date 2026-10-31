@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-10-31T01:48:00Z'
-updated_date: '2026-10-31T11:53:00Z'
+updated_date: '2026-10-31T11:56:00Z'
 labels:
   - setup
   - install
@@ -40,8 +40,8 @@ Documentation: setup-ubuntu-lts.md describes slugs, --only-stages, --skip-stages
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 A test runs the stages in their order on a box without statbus and every stage passes its checks (red on today's order, green after)
-- [ ] #2 A full second run on the same box changes nothing and passes every check (idempotence)
+- [x] #1 A test runs the stages in their order on a box without statbus and every stage passes its checks (red on today's order, green after)
+- [x] #2 A full second run on the same box changes nothing and passes every check (idempotence)
 - [ ] #3 --only-stages and --skip-stages take slugs; both together, an unknown slug, or a number are refused naming the valid slugs; a stage whose required stage has not run is refused naming it (tests)
 - [ ] #4 Every caller and doc uses slugs; the LXD base runs setup once with no retry, and the Hardening workflow runs service-account by slug; the gate is green
 - [ ] #5 On the plain Hetzner box the released setup.sh exits 0 on its first run, and a second run changes nothing (logs recorded)
@@ -62,4 +62,11 @@ Why the gate never caught it: test/install-recovery/lib/lxd-backend.sh runs setu
 - Callers by name: LXD base (lxd-backend.sh, ops/lxd-fleet/base.sh) run setup once with --skip-stages security-tools, retry and manual usermod/linger removed; vm-bootstrap default security-tools; Hardening workflow --only-stages service-account; release preflight text; docs.
 - Green: setup-stage-order and setup-stage-selection (11/11) pass; all setup-*-test.sh on ubuntu:24.04 pass except setup-choices-driver (container lacks expect; passes on macOS); all lxd-*-test.sh pass on macOS; go test ./cmd/release ok (tmp/554-green-linux.log).
 - Noted, not changed: the LXD backend ignores HARNESS_HARDENING_SKIP_STAGES, so 0-https-only-egress on LXD still skips security-tools.
+
+2026-10-31 plain Hetzner box (statbus-manual, Ubuntu 26.04, no statbus, no Docker), setup.sh at 29ee29832, --non-interactive --skip-stages security-tools:
+- First run: 'Stage 3 of 9: StatBus service account' before 'Stage 4 of 9: SSH hardening' and 'Stage 7 of 9: Docker and core tools'; 'Setup Complete!', no verification failed, EXIT=0 (tmp/554-box-1-first.log). Same box and config failed at c1153315a with 2 verifications (01:41 UTC).
+- Second full run: EXIT=0, no new etckeeper commit (tmp/554-box-2-rerun.log).
+- Third full run with a sha256 snapshot of every file in /etc and /home/statbus plus statbus' id and groups, before vs after: identical, diff rc 0, EXIT=0 (tmp/554-box-3-idempotence.log).
+- Fail-fast seen first: without SERVER_FQDN on a bare hostname, the run stops before any stage, nothing changed (as designed, STATBUS-503).
+Pending for AC5: the same on the released rc.06 setup.sh.
 <!-- SECTION:NOTES:END -->
