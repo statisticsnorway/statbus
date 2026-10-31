@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - hibiscus
 created_date: '2026-10-31T03:54:00Z'
-updated_date: '2026-10-31T14:30:00Z'
+updated_date: '2026-10-31T16:05:00Z'
 labels:
   - derive
   - performance
@@ -39,8 +39,8 @@ Record the cause in tmp/journal.md; doc/db regenerated if a function changes; no
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
 - [ ] #1 The slow child is reproduced on its own (EXPLAIN ANALYZE of the child's statements on 401's data) and the cause recorded in tmp/journal.md
-- [ ] #2 After the fix test 401 completes under DB_MEM_LIMIT 4G, its derive children each finish in seconds, and the run's wall time is recorded
-- [ ] #3 401's expected output is then re-blessed with every hunk explained, under the same two-review process as STATBUS-480
+- [x] #2 After the fix test 401 completes under DB_MEM_LIMIT 4G, its derive children each finish in seconds, and the run's wall time is recorded
+- [x] #3 401's expected output is then re-blessed with every hunk explained, under the same two-review process as STATBUS-480
 <!-- AC:END -->
 
 ## Implementation Notes
@@ -68,4 +68,8 @@ Record the cause in tmp/journal.md; doc/db regenerated if a function changes; no
 2026-10-31 hibiscus, cause found. Not 543's logic: PL/pgSQL switches statistical_history_def to a generic plan from the 6th execution in a session. The worker runs many history children per session. Without the partition range and period values the generic plan estimates ~5-11 units (actual 2388), and chooses a seq scan and nested-loop joins that discard 7.8M rows. Same child in one session (tmp/555-repeat-same-session.log): calls 1-5 = 67-106 ms, calls 6-10 = 4.2-4.9 s. Before 543 children were tiny, so the bad plan cost little; 543 made each child cover a partition range, which exposed it. Prototype removing the optional OR (tmp/555/B-generic.log): index used but still nested loops, 4.4 s, so the date parameters keep the generic estimate wrong. Fix: migration 20261031135820, ALTER FUNCTION statistical_history_def SET plan_cache_mode = force_custom_plan, with COMMENT ON. Survey of all child commands, 8 calls per session (tmp/555/repeat-all.txt): only derive_statistical_history_period flips. Test: test_concurrent_worker now replays every child command 8 times in one session and records first vs last into test/expected/performance/test_concurrent_worker_repeated_calls.perf, exiting 1 on a ratio above 3x. RED on the pre-fix db: 81.4 -> 3606.6 ms (44.31x). GREEN on the same db after the migration: 58.2 -> 62.8 ms (1.08x). End to end, selection (tmp/555-fixed-selection.log): worker 35.8 s (was 105.7 s), history children avg 55.9 ms (was 2091 ms). Fast suite 117/117 locally (tmp/test-555-fast.log). Waiting for rc.07 cut, then commit; then 401 under 4G.
 
 Pushed c3ed0beff; Fast Tests 41209646223 success. Going into v2026.10.6-rc.07 (rabbit cutting). Remaining: AC#2 401 under 4G after the fix; AC#3 401 expected re-bless if it changes.
+
+AC#2: test 401 at DB_MEM_LIMIT=4G (statbus_test, master 02b801d4d = rc.07 + backlog, container Memory=4294967296) completed in 144.6 s (wall 159 s with migrate), peak ~3.35 GiB, OOMKilled=false (tmp/test-555-401-4g.log, tmp/mon-555-401-4g.log). Before the fix: OOM at 4G after ~80 min, and 68 min then OOM at 8G. 401 fails only on 3 explained hunks (tmp/555-401-4g.diff): import_job_process tasks 97->103 and the import completed count 99->105 (x3), +6 = 610c42995 (STATBUS-461, +1 task per analysis batch, 6 batches), as classified in statbus_test/tmp/480-review.md. No analysis_status drift and no history or facet changes. Expected re-blessed from that run; the read-only reviewer is checking.
+
+AC#3: 401 expected re-blessed from the 4G run. Read-only reviewer cow APPROVED: all 4 hunks come from 610c42995 (STATBUS-461 date_consistency step, +3 tasks per job: discovery, one batch and completion, x 2 single-batch jobs = +6). No analysis_status drift, and the crash-truncated analytics tail is byte-identical. Correction to the 480 review rationale: '+1 task x 6 batches' was wrong; 2 jobs x 3 tasks is right, and the attribution stands.
 <!-- SECTION:NOTES:END -->
