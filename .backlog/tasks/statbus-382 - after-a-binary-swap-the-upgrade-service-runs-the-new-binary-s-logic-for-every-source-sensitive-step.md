@@ -1,10 +1,10 @@
 ---
 id: STATBUS-382
 title: Source-sensitive upgrade work runs only in the program installed on disk
-status: In Progress
+status: Done
 assignee: []
 created_date: 2026-09-22 17:01
-updated_date: '2026-10-31T02:37:00Z'
+updated_date: '2026-10-31T03:53:00Z'
 labels:
   - owner-decision
   - upgrade
@@ -79,4 +79,6 @@ Implemented (owner's design): cli/cmd/install_upgrader_stop.go stopUpgraderForIn
 AC4 real box (2026-10-31 01:45-01:47 UTC, Hetzner statbus-manual, plain Ubuntu 26.04, setup + install.sh --commit c1153315a, standalone with PFX via STATBUS_TLS_PFX_FILE). Logs: tmp/382-guest-{0-before,1-swap,2-fail,3-recover}.log. (1) After fresh install: sb upgrader status = active, runs the program on disk (PID 30207). (2) Replaced ./sb under it: status reports 'Program: .../sb (deleted)', DIFFERENT. ./sb install --non-interactive printed 'Stopping the upgrader while the installation runs; it starts again when the installation succeeds.' and 'The upgrader has stopped.' before [1/19], then 'Submitting final upgrader start'; exit 0; 25 s later status = active, PID 33327, runs the program on disk (verdict 0). (3) Forced failure (caddy/config chmod 000): stopped first, [9/19] Settings FAILED, printed 'The upgrader stays stopped until the installation finishes successfully: cd /home/statbus/statbus && ./sb install'; exit 1; status inactive. (4) After restoring permissions, ./sb install exit 0, final start submitted, status active PID 37352 on the program on disk. Ships in rc.04; Done after its gate.
 
 rc.04 gate (v2026.10.6-rc.04 at bdfbfe1f5) failed at smoke 0-happy-install (41158823385): its green-box rerun printed '[19/19] Upgrader RUNNING ... DONE' (18/19 OK) because install now stops the upgrader before the steps and the Upgrader step's done-check saw the unit inactive. My real-box run showed that RUNNING line too; I had not checked it against the quiet-rerun contract. Fix 9ea14f495: the step is done when the unit file matches and either the unit is active or this install stopped it itself (upgraderStepDone, unit-tested: Inactive+stopped=done, Inactive alone=not done, drifted/missing=not done). Real box at 9ea14f495 (tmp/382-guest-4-quiet-rerun.log): fresh install, then a rerun printed 'Stopping the upgrader...' and all 19 steps OK, 'Submitting final upgrader start', upgrader active on the program on disk. Ships in rc.05.
+
+rc.05 gate green (v2026.10.6-rc.05 at b6164e846, contains c1153315a + 9ea14f495): orchestrator 41162301010 success, smoke 41162395533 (0-happy-install quiet rerun now passes), LXD fleet 41163101352, upgrade arcs 41163150076, Release, Fast Tests, Hardening all success. Done.
 <!-- SECTION:NOTES:END -->

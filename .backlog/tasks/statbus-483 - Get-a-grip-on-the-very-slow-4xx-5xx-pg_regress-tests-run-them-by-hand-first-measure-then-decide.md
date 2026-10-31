@@ -5,8 +5,8 @@ title: >-
   measure, then decide
 status: To Do
 assignee: []
-created_date: '2026-10-08 20:31'
-updated_date: '2026-10-20 20:45'
+created_date: 2026-10-08 20:31
+updated_date: '2026-10-31T03:53:00Z'
 labels: []
 dependencies: []
 type: spike
@@ -25,6 +25,7 @@ NORTH STAR: we know how slow the 4xx and 5xx pg_regress suites really are on a r
 - [ ] #2 The ticket states which tests are feasible to automate and which are not, with the measured reason
 - [ ] #3 A non-gating automation design is proposed and approved by the owner: either a sharded non-blocking GitHub matrix (noting that GitHub-hosted jobs are capped at six hours) or an off-Actions schedule on a box, chosen explicitly
 - [ ] #4 STATBUS-480's stale 404 expectation is repaired as part of the first run or alongside it
+- [ ] #5 Decide and record which CI workflow runs the 4xx tests (or that they are deliberately manual), and make that true (moved from STATBUS-480 AC2)
 <!-- AC:END -->
 
 ## Definition of Done
