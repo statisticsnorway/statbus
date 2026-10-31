@@ -4,7 +4,7 @@ title: 'Retire the db-seed branch: the seed ships as the statbus-seed image'
 status: In Progress
 assignee: []
 created_date: '2026-10-30T23:21:00Z'
-updated_date: '2026-10-31T00:35:00Z'
+updated_date: '2026-10-31T02:10:00Z'
 labels: []
 dependencies: []
 type: chore
@@ -41,4 +41,6 @@ Confirm with rg that nothing reads the branch, that refspec_test covers a box wi
 Grounding 2026-10-31: the branch has been retired since 9ee422652 (2026-06-02, 'the image is the sole seed source'). It was still named in CanonicalRefspecs, which every install and upgrade writes to remote.origin.fetch; the upgrade check runs git fetch with that config. Reproduced in a scratch repo: with the line present and the branch absent, fetch fails with 'couldn't find remote ref refs/heads/db-seed' (exit 128); with the wildcard only, fetch succeeds. So the order is fixed, the same as STATBUS-248: (1) drop the line (done), (2) release it so boxes normalize, (3) only then delete the branch. Done in 14ecf9e42: red tmp/553-red.log (the new test fails on the old list), green tmp/553-green.log (go test ./internal/upgrade ok, go test ./cmd refspec ok, go build ok). Stale comments corrected in .gitignore, install.sh, cli/cmd/seed.go and install-recovery scenario 5; rg check in tmp/553-rg.log. REMAINING, after release: once the stable release that includes 14ecf9e42 is installed on every box, delete the branch and the worktree (AC #3, #4). Do not delete earlier, because boxes still carrying the line would stop discovering upgrades.
 
 CI: Go Test 41150713984 success on 14ecf9e42. rabbit confirmed: goes into rc.04; rabbit pings when a stable containing it is on every box, then AC #3/#4.
+
+14ecf9e42 is in v2026.10.6-rc.04 (tag at bdfbfe1f5). AC #3 waits for the stable release built from it to be installed on every box.
 <!-- SECTION:NOTES:END -->
