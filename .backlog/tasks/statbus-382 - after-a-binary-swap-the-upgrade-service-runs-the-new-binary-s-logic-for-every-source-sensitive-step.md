@@ -26,7 +26,7 @@ An upgrade step whose behaviour depends on code version only ever runs in the pr
 ### Zoom out
 The upgrade daemon is a long-running process. When `./sb` on disk is replaced underneath it (by `./sb install`, `install.sh`, a park recovery restoring the source binary, or an operator by hand), the daemon keeps executing the old code it loaded. Most of the time that is harmless. It is not harmless for source-sensitive work: deciding what images the source stack runs, claiming a scheduled upgrade, writing terminal states. Old code there can make decisions the installed version has already fixed, and it can loop.
 
-So the installed program must be the one that runs. The one route that replaces `./sb` is `./sb install`, so it stops the upgrader as soon as it holds the upgrade lock, before it changes anything, and starts it again on the installed `./sb` only when it succeeds. The lock means no upgrade is in flight, so the stop never interrupts recovery of a half-done upgrade. A failed install leaves the upgrader stopped, which is safer than a stale one, until the next successful install. The upgrader's own self-upgrade already hands over to the new program by exit 42.
+So the installed program must be the one that runs. Every route that replaces `./sb` ends in `./sb install` (install.sh runs it; a hand-copied `./sb` is brought in line by it), so `./sb install` stops the upgrader as soon as it holds the upgrade lock, before it changes anything, and starts it again on the installed `./sb` only when it succeeds. The lock means no upgrade is in flight, so the stop never interrupts recovery of a half-done upgrade. A failed install leaves the upgrader stopped, which is safer than a stale one, until the next successful install. The upgrader's own self-upgrade already hands over to the new program by exit 42.
 
 The operator's decisions win over a stale daemon. That part is already shipped and is not reopened here.
 
@@ -58,14 +58,14 @@ The operator's decisions win over a stale daemon. That part is already shipped a
 - `TestFlagInvariant_EveryPhaseAndBackupPathWriterIsAccountedFor_STATBUS232` green in Go Test `36503468493` (v2026.09.3) and across 0267851e9.
 - The fast post-swap handoff moved to STATBUS-395, which owns it.
 
-### Owner direction 2026-10-23 (evening, to confirm next session)
+### Owner direction 2026-10-23
 - Activation has one route: put the new sb in place, run ./sb install. No separate activate command. A hand-copied sb picked up by a later systemd restart is acceptable; no idle self-check in the daemon.
 - During a manual install, a stopped daemon and a daemon held back by the lock behave the same. If the daemon misbehaves, stopped is safer. Proposed shape: once ./sb install holds the lock, it stops the daemon. On success it starts the daemon on the installed sb. On failure the daemon stays stopped until the next successful ./sb install. This replaces the restart-at-exit in 0267851e9, closes the release-before-restart race, and covers the failed-install case.
 - Stopping under the lock cannot interrupt an upgrade: the lock means no upgrade is in flight.
 - The self-upgrade handoff (exit 42) is unchanged.
 - Approved for build by the owner on 2026-10-31; built, tested on a real box (see below).
 
-### 2026-10-26: naming decided, 382 waits for STATBUS-527
+### 2026-10-26: naming decided
 - The owner chose noun commands for long-running programs: `sb upgrader run|install|start|stop|status` (STATBUS-527), and `sb worker run` after STATBUS-093.
 - 382's shape, unchanged from 2026-10-23: while `./sb install` holds the upgrade lock, it runs `sb upgrader stop`. It runs `sb upgrader start` only after a successful install, so a failed install leaves the upgrader stopped. 382 uses 527's `stop` and `start` rather than its own copy, and replaces the restart at install exit (0267851e9, `install_stale_daemon.go`).
 - Correction to 2026-10-23: a hand-copied `sb` does not change the version. The source code on disk sets the version, and `./sb install` brings `./sb` back in line with it. A version change goes through `install.sh` or `sb upgrade apply`.
