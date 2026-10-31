@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: 2026-10-13 13:16
-updated_date: '2026-10-30T13:35:00Z'
+updated_date: '2026-10-31T11:59:00Z'
 labels:
   - install
   - uganda
@@ -94,4 +94,6 @@ Next: after stable promotion, rerun setup with the released script (Stage 4 must
 2026-10-30 plan for the next release (owner decision): on statbus.ubos.org, rerun only the SSH and firewall stages as root: `sudo -i`, then `curl -fsSL https://statbus.org/setup.sh -o setup.sh && bash setup.sh --skip-stages "0 1 3 5 6 7 8"`. Expected and safe: Stage 2 rewrites the same hardening.conf and restarts ssh (port 713 is configured elsewhere and survives; answering n changes nothing); Stage 4 sees the bouncer registered and leaves its key, ufw skips existing rules, the Zabbix and IPv6 rules are never touched (only 'Custom SSH' rules for ports sshd no longer uses are removed); CrowdSec reloads, the bouncer restarts, ufw reloads, existing sessions survive; apt may upgrade crowdsec. This run closes STATBUS-539 AC7 (Stage 4 result on this box) and STATBUS-540 AC4 ('Did that connect? [y/n]' re-asks on Enter). STATBUS-537 AC5 (scripts print their tag) is box-neutral and is checked on the plain manual box (ops/manual-box.sh). The refused-key repair path is not exercised here (the key is now valid); it is covered by setup tests.
 
 2026-10-30 12:21 UTC read-only check on statbus.ubos.org (owner, logged): HOME=/root USER=root login=yes, so the current root shell is a login shell (this does not prove how the original preparation ran). find /home/statbus -xdev -user root found 6 entries, all under ~/statbus/caddy/data/caddy (the directory itself, ocsp/, the OCSP staple for wildcard_.ubos.org, instance.uuid, locks/, last_clean.json). The Caddy proxy container writes these at runtime as root into the caddy/data bind mount (see ensureCustomCertsDirWritable in cli/cmd/cert.go; uninstall.sh removes them through a root container). They are not left by the preparation, and nothing else in the operator home is root-owned. AC1 and AC2 stay open: owner decision is to prove them on a fresh preparation of the plain manual box (ops/manual-box.sh), with the ownership scan right after setup and before install.
+
+2026-10-31 STATBUS-554 renames setup stages by slug (numbers are refused from that release on). The Uganda rerun planned 2026-10-30 becomes, once the release carrying 29ee29832 is stable: sudo -i, then curl -fsSL https://statbus.org/setup.sh -o setup.sh && bash setup.sh --only-stages "service-account ssh-hardening security-tools". service-account is included because ssh-hardening requires it; rerunning it on Uganda only confirms the existing statbus account, keys and linger (idempotent, proven on the plain box in STATBUS-554). Everything else in the 2026-10-30 note still holds.
 <!-- SECTION:NOTES:END -->
