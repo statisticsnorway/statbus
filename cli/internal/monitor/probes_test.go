@@ -54,7 +54,7 @@ func TestBackupsProbeReadsScheduledDumpNotVolumeBackups(t *testing.T) {
 		t.Fatalf("newest = %s ago, want the 1h-old scheduled dump", got)
 	}
 
-	check := backupsCheck(context.Background(), BackupsProbe(projectDir))
+	check := backupsCheck(context.Background(), BackupsProbe(projectDir), time.Now())
 	if check.Status != StatusOK {
 		t.Fatalf("backups check = %s (%s), want ok", check.Status, check.Detail)
 	}

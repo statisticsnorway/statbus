@@ -24,7 +24,7 @@ func fixtureProbes(now time.Time) Probes {
 			return DiskResult{FreeGB: 100, MinimumGB: 20, RecommendedGB: 40}, nil
 		},
 		Backups: func(context.Context) (BackupResult, error) {
-			return BackupResult{Enabled: true, Newest: time.Now().Add(-time.Hour), Interval: 24 * time.Hour}, nil
+			return BackupResult{Enabled: true, Newest: now.Add(-time.Hour), Interval: 24 * time.Hour}, nil
 		},
 		Upgrader: func(context.Context) (UpgraderResult, error) {
 			return UpgraderResult{Applicable: true, Active: true}, nil
@@ -213,7 +213,7 @@ func TestCheckFixtures(t *testing.T) {
 			name: "backup late",
 			probe: func(p *Probes) {
 				p.Backups = func(context.Context) (BackupResult, error) {
-					return BackupResult{Enabled: true, Newest: time.Now().Add(-27 * time.Hour), Interval: 24 * time.Hour}, nil
+					return BackupResult{Enabled: true, Newest: now.Add(-27 * time.Hour), Interval: 24 * time.Hour}, nil
 				}
 			},
 			check:  CheckBackups,
@@ -224,7 +224,7 @@ func TestCheckFixtures(t *testing.T) {
 			name: "backup stopped",
 			probe: func(p *Probes) {
 				p.Backups = func(context.Context) (BackupResult, error) {
-					return BackupResult{Enabled: true, Newest: time.Now().Add(-60 * time.Hour), Interval: 24 * time.Hour}, nil
+					return BackupResult{Enabled: true, Newest: now.Add(-60 * time.Hour), Interval: 24 * time.Hour}, nil
 				}
 			},
 			check:  CheckBackups,

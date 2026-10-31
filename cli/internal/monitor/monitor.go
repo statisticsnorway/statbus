@@ -215,7 +215,7 @@ func Run(ctx context.Context, probes Probes) Reading {
 		apiCheck(ctx, probes.API),
 		siteCheck(ctx, probes.Site),
 		diskCheck(ctx, probes.Disk),
-		backupsCheck(ctx, probes.Backups),
+		backupsCheck(ctx, probes.Backups, now),
 		upgraderCheck(ctx, probes.Upgrader),
 		workerCheck(ctx, probes.Worker),
 	}
@@ -319,7 +319,10 @@ func diskCheck(ctx context.Context, probe func(context.Context) (DiskResult, err
 	}
 }
 
-func backupsCheck(ctx context.Context, probe func(context.Context) (BackupResult, error)) Check {
+// backupsCheck measures the newest backup's age at the reading's own instant
+// (now), the same clock CheckedAt records, so a reading is reproducible from
+// its probes and its timestamp.
+func backupsCheck(ctx context.Context, probe func(context.Context) (BackupResult, error), now time.Time) Check {
 	if probe == nil {
 		return unknownCheck(CheckBackups, "not measured")
 	}
@@ -337,7 +340,7 @@ func backupsCheck(ctx context.Context, probe func(context.Context) (BackupResult
 	if interval <= 0 {
 		interval = 24 * time.Hour
 	}
-	age := time.Since(result.Newest)
+	age := now.Sub(result.Newest)
 	if age < 0 {
 		age = 0
 	}
