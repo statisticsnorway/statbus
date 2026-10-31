@@ -3,11 +3,11 @@ id: STATBUS-555
 title: >-
   Test 401: history derive children take ~50 s each (200-700x dev) and the run
   is OOM-killed in statistical_history_facet_reduce
-status: In Progress
+status: Done
 assignee:
   - hibiscus
 created_date: '2026-10-31T03:54:00Z'
-updated_date: '2026-10-31T16:05:00Z'
+updated_date: '2026-10-31T16:25:00Z'
 labels:
   - derive
   - performance
@@ -38,7 +38,7 @@ Record the cause in tmp/journal.md; doc/db regenerated if a function changes; no
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 The slow child is reproduced on its own (EXPLAIN ANALYZE of the child's statements on 401's data) and the cause recorded in tmp/journal.md
+- [x] #1 The slow child is reproduced on its own (EXPLAIN ANALYZE of the child's statements on 401's data) and the cause recorded in tmp/journal.md
 - [x] #2 After the fix test 401 completes under DB_MEM_LIMIT 4G, its derive children each finish in seconds, and the run's wall time is recorded
 - [x] #3 401's expected output is then re-blessed with every hunk explained, under the same two-review process as STATBUS-480
 <!-- AC:END -->
@@ -72,4 +72,6 @@ Pushed c3ed0beff; Fast Tests 41209646223 success. Going into v2026.10.6-rc.07 (r
 AC#2: test 401 at DB_MEM_LIMIT=4G (statbus_test, master 02b801d4d = rc.07 + backlog, container Memory=4294967296) completed in 144.6 s (wall 159 s with migrate), peak ~3.35 GiB, OOMKilled=false (tmp/test-555-401-4g.log, tmp/mon-555-401-4g.log). Before the fix: OOM at 4G after ~80 min, and 68 min then OOM at 8G. 401 fails only on 3 explained hunks (tmp/555-401-4g.diff): import_job_process tasks 97->103 and the import completed count 99->105 (x3), +6 = 610c42995 (STATBUS-461, +1 task per analysis batch, 6 batches), as classified in statbus_test/tmp/480-review.md. No analysis_status drift and no history or facet changes. Expected re-blessed from that run; the read-only reviewer is checking.
 
 AC#3: 401 expected re-blessed from the 4G run. Read-only reviewer cow APPROVED: all 4 hunks come from 610c42995 (STATBUS-461 date_consistency step, +3 tasks per job: discovery, one batch and completion, x 2 single-batch jobs = +6). No analysis_status drift, and the crash-truncated analytics tail is byte-identical. Correction to the 480 review rationale: '+1 task x 6 batches' was wrong; 2 jobs x 3 tasks is right, and the attribution stands.
+
+Fast Tests 41218280651 success on 4ab621894 (401 re-bless). The cause was reproduced on its own and recorded in tmp/journal.md (AC#1: same child, calls 1-5 vs 6-10 in one session; generic plan via auto_explain). statbus_test restored to DB_MEM_LIMIT=8G and clean; 401's perf recording from the 4G run is kept in statbus_test/tmp/555-401-4g.perf, not committed.
 <!-- SECTION:NOTES:END -->
