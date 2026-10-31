@@ -58,6 +58,12 @@
     print
     fflush()
 }
+# STATBUS-382: install stops the upgrader under the upgrade lock and says
+# whether a failed install leaves it stopped (install_upgrader_stop.go).
+/^(Stopping the upgrader while the installation runs; it starts again when the installation succeeds\.|The upgrader stays stopped until the installation finishes successfully: cd [A-Za-z0-9_.\/~+-]+ && \.\/sb install)$/ {
+    print
+    fflush()
+}
 # The final proof (install_services.go verifyInstallServing, install_visit.go
 # verifyAdvertisedSite, and the completion banner in install.go): services and
 # API ready, each advertised origin that answered, the banner underline, every

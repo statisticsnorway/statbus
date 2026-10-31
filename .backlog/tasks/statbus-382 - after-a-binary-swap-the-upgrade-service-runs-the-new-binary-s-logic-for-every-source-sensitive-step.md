@@ -1,10 +1,10 @@
 ---
 id: STATBUS-382
 title: Source-sensitive upgrade work runs only in the program installed on disk
-status: To Do
+status: In Progress
 assignee: []
 created_date: 2026-09-22 17:01
-updated_date: '2026-10-30T15:11:00Z'
+updated_date: '2026-10-31T01:17:00Z'
 labels:
   - owner-decision
   - upgrade
@@ -47,11 +47,11 @@ The operator's decisions win over a stale daemon. That part is already shipped a
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 A daemon whose running executable differs from `./sb` on disk does not claim new source-sensitive work; it hands over to the disk binary, while recovery, rollback and park recovery still run ungated (unit coverage of every mismatch source in the gate table)
-- [ ] #2 On a real supervised box, replacing `./sb` under a running daemon and then scheduling an upgrade shows the claim executed by the disk version, recorded in the upgrade state log or journal
-- [ ] #3 A deterministic failure before claim is recorded once with a failure code and daemon/tree provenance, and the candidate is not automatically reclaimed
-- [x] #4 `TestFlagInvariant_EveryPhaseAndBackupPathWriterIsAccountedFor_STATBUS232` stays green across the change
-- [x] #5 [Owner] Choose how the identity gate lands: rebase `next/382-steps-3-4`, reimplement its design on current master, or drop it with the reason; record the choice in Implementation Notes. AC1-3 are then built by that route, or removed if dropped.
+- [x] #1 `TestFlagInvariant_EveryPhaseAndBackupPathWriterIsAccountedFor_STATBUS232` stays green across the change
+- [x] #2 [Owner] Choose how the identity gate lands: rebase `next/382-steps-3-4`, reimplement its design on current master, or drop it with the reason; record the choice in Implementation Notes. AC1-3 are then built by that route, or removed if dropped.
+- [x] #3 While ./sb install holds the upgrade lock it stops the upgrader before any install step runs, and a successful install starts it again on the installed ./sb (Go test through runInstall with a recorded systemd: red before, green after)
+- [x] #4 A failed install leaves the upgrader stopped and says so, and the next successful ./sb install starts it (same test); the upgrader's own post-upgrade install and boxes without systemd never stop it
+- [ ] #5 On a real box: replace ./sb under a running upgrader, run ./sb install, and the upgrader comes back running the ./sb on disk (sb upgrader status); a forced failing install leaves it stopped (commands and output recorded)
 <!-- AC:END -->
 
 ## Implementation Notes
@@ -91,4 +91,8 @@ An earlier edit today replaced these criteria with D-only ones; they are restore
 - AC1 and AC3 are settled when this lands: a stale upgrader is stopped under the lock and restarted on the installed `./sb`, so it never claims work. AC2 is the real-guest check.
 
 2026-10-30 (owner): back to To Do. It waited for STATBUS-527, which is Done; it starts after v2026.10.6-rc.01 passes its gate, so the candidate is not delayed by an upgrader change.
+
+2026-10-31 00:24 owner approved building the stop-under-lock shape (recorded 2026-10-23/26) now, for rc.04. ACs 1-3 rewritten to that shape; the dropped in-daemon identity gate is no longer the route. Implementation replaces the restart-at-exit in install_stale_daemon.go (0267851e9).
+
+Implemented (owner's design): cli/cmd/install_upgrader_stop.go stopUpgraderForInstall, called in runInstall right after the upgrade lock is held and before any step: a running upgrader is stopped (stopUpgraderUnitAndWait) and a start is queued for install exit. On success the existing final-action dispatch starts it on the installed ./sb; on failure nothing is dispatched and the install prints 'The upgrader stays stopped until the installation finishes successfully: cd <checkout> && ./sb install' (passed to the screen by ops/install-terminal-output.awk). Bypass (the upgrader's own post-upgrade install) and non-Linux never stop it. Replaces the restart-at-exit (install_stale_daemon.go staleDaemonFinalAction / queueStaleDaemonRestart removed; sameFileContent kept for sb upgrader status). Test TestInstallStopsUpgraderUnderLockAndStartsItOnlyOnSuccess drives runInstall with a recorded systemd: red before (tmp/test-382-red.log: 'upgrader stopped = false, want true' for the running cases), green after with the upgrader inactive when steps run, start dispatched only on success, notice only on failure (tmp/test-382-green.log, full ./cmd suite ok). TestInstallUpgraderStopLinesReachTheOperator: both lines pass the screen filter (old filter drops them). AC5 real box next.
 <!-- SECTION:NOTES:END -->

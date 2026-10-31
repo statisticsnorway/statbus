@@ -400,9 +400,7 @@ type upgraderObservation struct {
 }
 
 // observeUpgrader reads the upgrader's state from systemd and /proc. Read-only.
-// Off Linux it reports a not-applicable observation. install_stale_daemon.go's
-// observeRunningDaemon is a thin adapter over this, so install and
-// `sb upgrader status` never disagree about what runs.
+// Off Linux it reports a not-applicable observation.
 var observeUpgrader = func(dir string) upgraderObservation {
 	obs := upgraderObservation{}
 	if runtime.GOOS != "linux" {

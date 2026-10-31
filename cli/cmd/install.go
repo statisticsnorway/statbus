@@ -1020,14 +1020,31 @@ func runInstall() (installErr error) {
 	}()
 
 	var upgradeDaemonFinalAction upgradeDaemonFinalAction
+	var upgraderStoppedForInstall bool
 	defer func() {
-		if installErr != nil || upgradeDaemonFinalAction == upgradeDaemonNoAction {
+		if installErr != nil {
+			if upgraderStoppedForInstall {
+				fmt.Println(upgraderStoppedForInstallNotice(installDir))
+			}
+			return
+		}
+		if upgradeDaemonFinalAction == upgradeDaemonNoAction {
 			return
 		}
 		if err := dispatchUpgradeDaemonFinalAction(installDir, upgradeDaemonFinalAction); err != nil {
 			installErr = err
 		}
 	}()
+
+	// STATBUS-382: the install holds the upgrade lock from here on, so the
+	// upgrader is stopped before any step runs and started again only when
+	// the install succeeds (stopUpgraderForInstall).
+	if stopped, err := stopUpgraderForInstall(bypass); err != nil {
+		return err
+	} else if stopped {
+		upgraderStoppedForInstall = true
+		upgradeDaemonFinalAction = mergeUpgradeDaemonFinalAction(upgradeDaemonFinalAction, upgradeDaemonStart)
+	}
 
 	if !bypass && version != "dev" {
 		defer func() {
@@ -1390,7 +1407,6 @@ func runInstall() (installErr error) {
 	// Restart after the step table so the Upgrader step has also reconciled
 	// the on-disk unit before the daemon loads the new binary and configuration.
 	applyPendingUpgradeDaemonRestart(pendingRestarts, &upgradeDaemonFinalAction)
-	queueStaleDaemonRestart(installDir, &upgradeDaemonFinalAction)
 
 	// STATBUS-468: the signer the install approved must be the signer the
 	// daemon loads. Checked before the completion banner can claim success,
