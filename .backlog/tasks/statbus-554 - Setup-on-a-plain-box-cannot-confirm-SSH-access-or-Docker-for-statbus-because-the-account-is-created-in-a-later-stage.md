@@ -1,12 +1,12 @@
 ---
 id: STATBUS-554
 title: >-
-  Setup on a plain box cannot confirm SSH access or Docker for statbus, because
-  the account is created in a later stage
-status: To Do
+  Setup stages are named by slug, run idempotently, and the service account is
+  created before the stages that use it
+status: In Progress
 assignee: []
 created_date: '2026-10-31T01:48:00Z'
-updated_date: '2026-10-31T01:52:00Z'
+updated_date: '2026-10-31T11:18:00Z'
 labels:
   - setup
   - install
@@ -19,23 +19,32 @@ ordinal: 477204
 ## Description
 
 <!-- SECTION:DESCRIPTION:BEGIN -->
-North Star: setup.sh on a plain Ubuntu box finishes with every check green on its first run, ready for the operator's install.
+North Star: setup.sh on a plain Ubuntu box finishes with every check green on its first run; running it again changes nothing; operators name stages by meaning, never by position.
 
 ### Zoom out
-Stages 2 (SSH access confirmation, STATBUS-495/540) and 5 (Docker usable by the service account, STATBUS-500) act on the service account statbus, but Stage 7 creates it. Uganda and every LXD scenario already had statbus (the harness creates it, vm-bootstrap.sh), so neither ever met a plain box. On a plain box the first run therefore skips SSH hardening and fails the Docker check, exit 1; a second run would pass. STATBUS-500 AC5 expected this check to pass on the next real preparation.
+Stages are identified by number, so moving one changes the meaning of every number after it, and the order cannot be fixed without relabelling. Today ssh-hardening (2) and core-tools (5) act on the statbus account that service-account (7) creates later, so a plain box fails its first run. Uganda and every LXD scenario already had statbus, and the LXD base reruns stages 0 and 2 after a failure, so the gate never saw it.
+
+Design (owner, 2026-10-31):
+- Stages have permanent slugs: https-sources, base-system, service-account, ssh-hardening, auto-updates, security-tools, core-tools, user-setup, ci-allowlist. Run order is a list of slugs; service-account runs right after base-system. The screen shows position only for orientation ("Stage 3 of 9: SSH hardening"), computed from the list.
+- Every stage is idempotent: a second full run changes nothing and passes its checks. A full run is the default.
+- --only-stages <slugs> runs just those (e.g. Uganda: ssh-hardening security-tools). --skip-stages <slugs> stays only for stages this box should not have (security-tools on a private network, https-sources where HTTP is allowed, security-tools on LXD guests). user-setup (cloud only) and ci-allowlist (needs sshdoers settings) keep reporting not applicable on their own. Both options together, an unknown slug, or a number are refused with the list of slugs.
+- Dependencies: each stage declares the slugs it requires (ssh-hardening and core-tools require service-account). A stage checks its precondition on the box itself; under --only-stages or --skip-stages, a missing precondition is refused naming the stage to run, never run implicitly.
+- All callers and docs switch in the same change: LXD base (lxd-backend.sh, ops/lxd-fleet/base.sh, its retry removed), vm-bootstrap.sh, 0-https-only-egress, test-hardening.yaml (service-account only), DEPLOYMENT, CLOUD, hetzner-bootstrap, setup-ubuntu-lts, host-firewall, comments naming stage numbers (release_sshdoers_drift.go, ops/niue/sshdoers), and the Uganda command in STATBUS-497.
 
 ### Zoom in
-Plain Hetzner cx33, Ubuntu 26.04 (statbus-manual), setup.sh at c1153315a, non-interactive, SKIP_STAGES=4, 2026-10-31 01:41 UTC. Log: '[ERROR] populate_authorized_keys: user statbus has no home directory', 'Could not install keys for statbus. Nothing has been changed', then 'WARN statbus does not exist yet (it is created in a later stage)', and the summary '2 verification(s) failed: Remote access confirmed before hardening; Docker usable by statbus'. After the run statbus exists (uid 1000, docker group, 1 authorized key).
+Plain Hetzner cx33, Ubuntu 26.04 (statbus-manual), setup.sh at c1153315a, non-interactive, SKIP_STAGES=4, 2026-10-31 01:41 UTC: 'populate_authorized_keys: user statbus has no home directory', 'statbus does not exist yet (it is created in a later stage)', summary '2 verification(s) failed: Remote access confirmed before hardening; Docker usable by statbus', exit 1. Reproduced at 9ea14f495 (02:34 UTC). rc.04 smoke 41158823385 shows the same two failures on the LXD base, hidden by its retry.
 
 ### Closing review
-Documentation needed: the setup script's stage comments state where the service account is created and why that comes before the stages that use it. No memory change.
+Documentation: setup-ubuntu-lts.md describes slugs, --only-stages, --skip-stages and dependencies; the stage list comment in the script states why order matters. No memory change.
 <!-- SECTION:DESCRIPTION:END -->
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 A test reproduces it: stages run in order on a box without statbus, and Stage 2 or Stage 5 acts on a missing account (red)
-- [ ] #2 The service account exists before every stage that uses it (Stage 2 key install and confirmation, Stage 5 docker grant and check); the same test is green
-- [ ] #3 A plain-box run of the released setup.sh finishes with exit 0 and no failed verification (log recorded)
+- [ ] #1 A test runs the stages in their order on a box without statbus and every stage passes its checks (red on today's order, green after)
+- [ ] #2 A full second run on the same box changes nothing and passes every check (idempotence)
+- [ ] #3 --only-stages and --skip-stages take slugs; both together, an unknown slug, or a number are refused naming the valid slugs; a stage whose required stage has not run is refused naming it (tests)
+- [ ] #4 Every caller and doc uses slugs; the LXD base runs setup once with no retry, and the Hardening workflow runs service-account by slug; the gate is green
+- [ ] #5 On the plain Hetzner box the released setup.sh exits 0 on its first run, and a second run changes nothing (logs recorded)
 <!-- AC:END -->
 
 ## Implementation Notes
