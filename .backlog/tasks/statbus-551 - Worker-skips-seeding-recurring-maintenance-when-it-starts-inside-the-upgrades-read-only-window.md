@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-10-30T19:31:00Z'
-updated_date: '2026-10-31T00:08:00Z'
+updated_date: '2026-10-31T01:03:00Z'
 labels:
   - worker
   - upgrade
@@ -49,4 +49,6 @@ Prototype (rolled back, statbus_seed on the test container, tmp/551-proto.log): 
 Implemented (owner's design): worker.cr seed_recurring_tasks_when_writable runs the seed in its own fiber on a fresh connection; on SQLSTATE 25006 it logs one INFO line and retries every 5 s until writable or shutdown; other errors stay ERROR. No new read-only exemption. Test test/worker-seed-read-only-test.sh runs the real worker against an isolated copy of statbus_test_template with task_cleanup's pending row removed and the DB read-only, lifts read-only after 6 s: red on the current worker (tmp/test-551-red.log: 'Failed to seed ... read-only', row absent; also red on the compose image b6d81049 via WORKER_IN_CONTAINER=1, tmp/test-551-container-old-image.log), green after (tmp/test-551-green.log: INFO read-only line, then 'Seeded missing recurring maintenance task(s): task_cleanup', no 'Failed to seed' line). Healthy box (nothing missing, writable): no seed lines at all (tmp/test-551-healthy.log). Fast Tests runs the test against the commit's worker image.
 
 AC3: Fast Tests 41146791423 at 600a2257b (contains ae0fdbde9) success; step 'Worker started read-only restores recurring tasks once writable (STATBUS-551)' success, against the commit's worker image. Earlier runs on ae0fdbde9 (41145863986) and 74f5e6f8b (41146225140) were cancelled by newer pushes, not failed. In v2026.10.6-rc.03 (600a2257b); AC4 waits for its LXD fleet.
+
+rc.03 gate green (2026-10-31 01:01 UTC): orchestrator 41148532815, LXD fleet 41149641777 (28/28 PASS), upgrade arcs 41149719409, Release 41148532827, Fast Tests 41148532812, Hardening 41148532823. AC4 evidence so far: passing LXD scenarios do not capture container logs (only failures do), so the fleet artifact holds no worker log. Dev canary upgraded to rc.03 (worker started 00:19:51): its worker log has 0 'Failed to seed' lines and all three recurring commands are pending (detect_stuck_tasks, import_job_cleanup, task_cleanup); the worker started after the window had lifted, so no read-only INFO line either. AC4 as written (INFO line in an upgrade capture) depends on the worker starting inside the window; owner to decide whether the dev evidence plus the Fast Tests step closes it.
 <!-- SECTION:NOTES:END -->
