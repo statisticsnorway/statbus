@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-10-30T19:31:00Z'
-updated_date: '2026-10-30T23:41:00Z'
+updated_date: '2026-10-31T00:08:00Z'
 labels:
   - worker
   - upgrade
@@ -35,7 +35,7 @@ The seed's comment in cli/src/worker.cr states why it waits rather than being ex
 <!-- AC:BEGIN -->
 - [x] #1 A test reproduces the skip: worker started with default_transaction_read_only=on, then writes unblocked; recurring tasks missing before start are still absent afterwards (red)
 - [x] #2 After the fix the same test ends with every recurring command pending, and a scan of the worker log finds no 'Failed to seed recurring maintenance tasks' line
-- [ ] #3 Fast Tests green on ae0fdbde9 or later, with the step 'Worker started read-only restores recurring tasks once writable (STATBUS-551)' passing (run ID recorded)
+- [x] #3 Fast Tests green on ae0fdbde9 or later, with the step 'Worker started read-only restores recurring tasks once writable (STATBUS-551)' passing (run ID recorded)
 - [ ] #4 The rc.03 LXD fleet passes, and an upgrade scenario's captured worker log shows the read-only INFO line and no 'Failed to seed recurring maintenance tasks' line (run ID and capture recorded)
 <!-- AC:END -->
 
@@ -47,4 +47,6 @@ Prototype (rolled back, statbus_seed on the test container, tmp/551-proto.log): 
 2026-10-30 23:20 owner discussion: preferred design is the owner's: the worker detects that the database is read-only and waits, instead of widening the read-only exemption. At startup, if the seed hits the read-only window, log one plain INFO line (database read-only for an upgrade; recurring jobs restored once writable) and retry every few seconds in a separate fiber, so normal startup and queue processing are not blocked; stop retrying only on shutdown. The guard keeps one exemption (crash recovery). Awaiting owner go-ahead to build.
 
 Implemented (owner's design): worker.cr seed_recurring_tasks_when_writable runs the seed in its own fiber on a fresh connection; on SQLSTATE 25006 it logs one INFO line and retries every 5 s until writable or shutdown; other errors stay ERROR. No new read-only exemption. Test test/worker-seed-read-only-test.sh runs the real worker against an isolated copy of statbus_test_template with task_cleanup's pending row removed and the DB read-only, lifts read-only after 6 s: red on the current worker (tmp/test-551-red.log: 'Failed to seed ... read-only', row absent; also red on the compose image b6d81049 via WORKER_IN_CONTAINER=1, tmp/test-551-container-old-image.log), green after (tmp/test-551-green.log: INFO read-only line, then 'Seeded missing recurring maintenance task(s): task_cleanup', no 'Failed to seed' line). Healthy box (nothing missing, writable): no seed lines at all (tmp/test-551-healthy.log). Fast Tests runs the test against the commit's worker image.
+
+AC3: Fast Tests 41146791423 at 600a2257b (contains ae0fdbde9) success; step 'Worker started read-only restores recurring tasks once writable (STATBUS-551)' success, against the commit's worker image. Earlier runs on ae0fdbde9 (41145863986) and 74f5e6f8b (41146225140) were cancelled by newer pushes, not failed. In v2026.10.6-rc.03 (600a2257b); AC4 waits for its LXD fleet.
 <!-- SECTION:NOTES:END -->
