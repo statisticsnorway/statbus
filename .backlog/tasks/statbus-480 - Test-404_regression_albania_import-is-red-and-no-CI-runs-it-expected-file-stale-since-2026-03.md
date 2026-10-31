@@ -1,12 +1,12 @@
 ---
 id: STATBUS-480
 title: >-
-  Test 404_regression_albania_import is red and no CI runs it (expected file
-  stale since 2026-03)
+  Test 404 and the other 4xx tests had stale expected output; re-blessed with
+  every hunk explained
 status: Done
 assignee: []
 created_date: 2026-10-08 16:57
-updated_date: '2026-10-31T03:53:00Z'
+updated_date: '2026-10-31T03:54:00Z'
 labels:
   - test
 dependencies: []
@@ -20,10 +20,14 @@ ordinal: 406204
 <!-- SECTION:DESCRIPTION:BEGIN -->
 NORTH STAR: every pg_regress test in test/sql is both correct and run somewhere, so a red test is a signal rather than noise.
 
-FOUND during STATBUS-477 family A (2026-10-08). test/sql/404_regression_albania_import.sql fails against its test/expected file with 232 diff lines. The failure is IDENTICAL on a clone of master without 477 (statbus_477a_prefix, master at 20261008161441) and with 477 family A applied, so it is not a 477 regression. The expected file was last changed 2026-02-24 (3865fd3ba). The test SQL changed later (cc4b43670 2026-03-13, 1052fcd10 2026-03-18: the settings INSERT now names region_version_id) without re-blessing, and the run also now prints the person_ident index notices (Dropped/Created index su_ei_person_ident_idx), because test/setup.sql enables person_ident.
+### Zoom out
+A test that no suite runs can go stale unnoticed: 404 failed against its expected file for seven months because nothing ran the 4xx tests.
 
-WHICH SUITE: dev.sh 'fast' excludes every 4xx and 5xx test (dev.sh test selector, 'Run all tests except 4xx/5xx (large imports)'). 404 runs only under './dev.sh test all' or './dev.sh test benchmarks' (4xx only), or by name.
-WHICH CI: none. The only CI workflow that runs pg_regress is .github/workflows/fast-tests.yaml ('./dev.sh migrate-and-test fast'), which excludes 4xx. No workflow in .github/workflows runs 'test all' or 'test benchmarks', and .claude/team/tester.md says never to run 'test all'. So 404, and every other 4xx test, is run by nothing automatically. That is the worse half of this ticket: a test that nothing runs cannot protect anything, and its staleness went unnoticed for seven months.
+### Zoom in
+FOUND during STATBUS-477 family A (2026-10-08). test/sql/404_regression_albania_import.sql failed against its test/expected file with 232 diff lines, identically with and without 477, so not a 477 regression. The expected file was last changed 2026-02-24 (3865fd3ba); the test SQL changed later (cc4b43670, 1052fcd10) without re-blessing, and test/setup.sql's person_ident adds index notices. dev.sh 'fast' excludes every 4xx and 5xx test, and no CI workflow runs 'test all' or 'test benchmarks'.
+
+### Closing review
+No memory or documentation update needed. Which CI runs the 4xx tests is now STATBUS-483; test 401's slow derive is STATBUS-555.
 <!-- SECTION:DESCRIPTION:END -->
 
 ## Acceptance Criteria
