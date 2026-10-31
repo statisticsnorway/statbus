@@ -3,10 +3,10 @@ id: STATBUS-554
 title: >-
   Setup stages are named by slug, run idempotently, and the service account is
   created before the stages that use it
-status: In Progress
+status: Done
 assignee: []
 created_date: '2026-10-31T01:48:00Z'
-updated_date: '2026-10-31T11:58:00Z'
+updated_date: '2026-10-31T13:18:00Z'
 labels:
   - setup
   - install
@@ -42,9 +42,9 @@ Documentation: setup-ubuntu-lts.md describes slugs, --only-stages, --skip-stages
 <!-- AC:BEGIN -->
 - [x] #1 A test runs the stages in their order on a box without statbus and every stage passes its checks (red on today's order, green after)
 - [x] #2 A full second run on the same box changes nothing and passes every check (idempotence)
-- [ ] #3 --only-stages and --skip-stages take slugs; both together, an unknown slug, or a number are refused naming the valid slugs; a stage whose required stage has not run is refused naming it (tests)
-- [ ] #4 Every caller and doc uses slugs; the LXD base runs setup once with no retry, and the Hardening workflow runs service-account by slug; the gate is green
-- [ ] #5 On the plain Hetzner box the released setup.sh exits 0 on its first run, and a second run changes nothing (logs recorded)
+- [x] #3 --only-stages and --skip-stages take slugs; both together, an unknown slug, or a number are refused naming the valid slugs; a stage whose required stage has not run is refused naming it (tests)
+- [x] #4 Every caller and doc uses slugs; the LXD base runs setup once with no retry, and the Hardening workflow runs service-account by slug; the gate is green
+- [x] #5 On the plain Hetzner box the released setup.sh exits 0 on its first run, and a second run changes nothing (logs recorded)
 <!-- AC:END -->
 
 ## Implementation Notes
@@ -71,4 +71,7 @@ Why the gate never caught it: test/install-recovery/lib/lxd-backend.sh runs setu
 Pending for AC5: the same on the released rc.06 setup.sh.
 
 2026-10-31 CI on 29ee29832: Harness Selftest 41198731026 success (runs setup-stage-order and setup-stage-selection), Go Test 41198731000 success, Images 41198731054 success, app build & lint 41198731015 success. Hardening workflow (--only-stages service-account) runs at the RC tag.
+
+2026-10-31 rc.06 (v2026.10.6-rc.06 at bb2c18599) gate green: Release Fleet Orchestrator 41200440118, Test Smoke 41200539247, LXD Fork Fleet 41201654999, Upgrade Arc Harness 41201705069, Test Hardening 41200440083 (--only-stages service-account), Fast Tests 41200440122, dev deploy 41201494411. Smoke log: both LXD bases ran setup once with --skip-stages security-tools, 'Stage 3 of 9: StatBus service account', 'Setup Complete!', hardening complete in 92 s / 95 s, no retry.
+Released script on a freshly rebuilt plain Hetzner box (no statbus, no Docker): the release asset setup-ubuntu-lts.sh stamped v2026.10.6-rc.06, --non-interactive --skip-stages security-tools: 'StatBus: v2026.10.6-rc.06', 'Setup Complete!', EXIT=0 (tmp/554-box-4-released.log). Rerun: EXIT=0, sha256 snapshot of /etc and /home/statbus plus statbus id/groups identical (diff rc 0, tmp/554-box-5-released-rerun.log).
 <!-- SECTION:NOTES:END -->
