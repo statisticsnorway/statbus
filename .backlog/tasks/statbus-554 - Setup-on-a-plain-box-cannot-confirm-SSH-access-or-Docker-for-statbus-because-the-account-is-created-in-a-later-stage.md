@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-10-31T01:48:00Z'
-updated_date: '2026-10-31T11:27:00Z'
+updated_date: '2026-10-31T11:53:00Z'
 labels:
   - setup
   - install
@@ -55,4 +55,11 @@ Why the gate never caught it: test/install-recovery/lib/lxd-backend.sh runs setu
 2026-10-31 red (before fix, setup script at b24aa359b):
 - test/install-recovery/tests/setup-stage-order-test.sh drives main() with stand-in stages on a box without statbus or Docker: 'ssh-hardening ran before statbus existed', 'core-tools ran before statbus existed', order 'https-sources base-system ssh-hardening auto-updates security-tools core-tools user-setup service-account ci-allowlist', exit 1 (tmp/554-red-order.log). Same two failures as the plain Hetzner box.
 - test/install-recovery/tests/setup-stage-selection-test.sh: 8/8 FAIL (tmp/554-red-selection.log): --only-stages unknown, --skip-stages security-tools runs it, --skip-stages 4 accepted, refusals do not list stage names.
+
+2026-10-31 fix 29ee29832 (on red tests 4298c382a):
+- One declarative STAGES table in ops/setup-ubuntu-lts.sh (slug, function, requires, env, label|summary line) drives order, 'Stage N of M' headers, summary, required .env keys, option validation and requirement checks. Owner choice pending A/B; built as A: requirements checked against the selection before any stage runs (refusal names the stage to add).
+- service-account moved after base-system; its docker-group grant removed (core-tools grants, user-setup requires core-tools).
+- Callers by name: LXD base (lxd-backend.sh, ops/lxd-fleet/base.sh) run setup once with --skip-stages security-tools, retry and manual usermod/linger removed; vm-bootstrap default security-tools; Hardening workflow --only-stages service-account; release preflight text; docs.
+- Green: setup-stage-order and setup-stage-selection (11/11) pass; all setup-*-test.sh on ubuntu:24.04 pass except setup-choices-driver (container lacks expect; passes on macOS); all lxd-*-test.sh pass on macOS; go test ./cmd/release ok (tmp/554-green-linux.log).
+- Noted, not changed: the LXD backend ignores HARNESS_HARDENING_SKIP_STAGES, so 0-https-only-egress on LXD still skips security-tools.
 <!-- SECTION:NOTES:END -->
