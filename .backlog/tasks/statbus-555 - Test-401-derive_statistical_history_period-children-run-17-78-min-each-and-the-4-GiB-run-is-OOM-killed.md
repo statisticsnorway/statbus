@@ -3,11 +3,11 @@ id: STATBUS-555
 title: >-
   Test 401: history derive children take ~50 s each (200-700x dev) and the run
   is OOM-killed in statistical_history_facet_reduce
-status: Done
+status: In Progress
 assignee:
   - hibiscus
 created_date: '2026-10-31T03:54:00Z'
-updated_date: '2026-10-31T16:29:00Z'
+updated_date: '2026-10-31T16:38:00Z'
 labels:
   - derive
   - performance
@@ -39,8 +39,8 @@ Record the cause in tmp/journal.md; doc/db regenerated if a function changes; no
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
 - [x] #1 The slow child is reproduced on its own (EXPLAIN ANALYZE of the child's statements on 401's data) and the cause recorded in tmp/journal.md
-- [x] #2 After the fix test 401 completes under DB_MEM_LIMIT 4G, its derive children each finish in seconds, and the run's wall time is recorded
-- [x] #3 401's expected output is then re-blessed with every hunk explained, under the same two-review process as STATBUS-480
+- [ ] #2 After the fix test 401 completes under DB_MEM_LIMIT 4G, its derive children each finish in seconds, and the run's wall time is recorded
+- [ ] #3 401's expected output is then re-blessed with every hunk explained, under the same two-review process as STATBUS-480
 <!-- AC:END -->
 
 ## Implementation Notes
@@ -78,4 +78,6 @@ Fast Tests 41218280651 success on 4ab621894 (401 re-bless). The cause was reprod
 Final loop over the whole result at 69c802fda (tmp/555-final-selection.log): selection through the real worker 40.0 s, history children avg 66.6 ms; the repeated-call check runs at the end and reports every command between 0.14x and 1.69x, none flagged, exit 0. Migration down and up on seed (./sb migrate redo 20261031135820) leaves plan_cache_mode set and the comment present. CI on 4ab621894: Fast Tests, Go Test, app build & lint and Images all success. The 401 re-bless is in the next RC (after the rc.07 tag); the fix itself is in rc.07. Scratch test_concurrent_* databases dropped.
 
 Independent check of reviewer cow's verdict: (1) the committed diff 4ab621894 equals the reviewed diff line for line (14 changed lines: 97->103 rows plus 6 task rows, and 99->105 x3). (2) 401 loads the 2024 BRREG definitions (test/sql/401 lines 39-40), and 610c42995 added date_consistency to both, so the attribution holds. (3) 610's own 303 change 376->400 (+24 for 8 jobs) confirms +3 per single-batch job. (4) No GOOD/OK/SLOW line changed; expected status stays ES OK/GOOD, LU OK/GOOD (lines 359-360). (5) The tail after the analytics section has the same length.
+
+Recheck 2026-10-31 16:37 (statbus_test at 2377212b5, 4 GiB): 401 did NOT pass. The history period children are fixed (76 done, max 183 ms), but the db was OOM-killed at 16:36:56 during derive_statistical_history_facet_period 2026-05 [4096,8192), which had run ~4.7 min (its 73 siblings avg 182 ms). That child alone takes 216 ms; all 76 replayed in one session stay at ~1.2 GiB. So a second, intermittent memory problem remains in the facet phase at 4 GiB. My earlier 'passes at 4G' was overstated: that run completed but exited 1 against the old expected. AC#2 and AC#3 reopened. Reproduction with per-backend sampling running (statbus_test/tmp/run-555-401-facet-oom.sh). The second independent review of the 401 bless (AC#3) is in progress.
 <!-- SECTION:NOTES:END -->
