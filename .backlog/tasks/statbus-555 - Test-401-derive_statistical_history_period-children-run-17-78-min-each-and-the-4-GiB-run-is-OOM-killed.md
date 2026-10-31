@@ -7,7 +7,7 @@ status: Done
 assignee:
   - hibiscus
 created_date: '2026-10-31T03:54:00Z'
-updated_date: '2026-10-31T16:25:00Z'
+updated_date: '2026-10-31T16:28:00Z'
 labels:
   - derive
   - performance
@@ -74,4 +74,6 @@ AC#2: test 401 at DB_MEM_LIMIT=4G (statbus_test, master 02b801d4d = rc.07 + back
 AC#3: 401 expected re-blessed from the 4G run. Read-only reviewer cow APPROVED: all 4 hunks come from 610c42995 (STATBUS-461 date_consistency step, +3 tasks per job: discovery, one batch and completion, x 2 single-batch jobs = +6). No analysis_status drift, and the crash-truncated analytics tail is byte-identical. Correction to the 480 review rationale: '+1 task x 6 batches' was wrong; 2 jobs x 3 tasks is right, and the attribution stands.
 
 Fast Tests 41218280651 success on 4ab621894 (401 re-bless). The cause was reproduced on its own and recorded in tmp/journal.md (AC#1: same child, calls 1-5 vs 6-10 in one session; generic plan via auto_explain). statbus_test restored to DB_MEM_LIMIT=8G and clean; 401's perf recording from the 4G run is kept in statbus_test/tmp/555-401-4g.perf, not committed.
+
+Final loop over the whole result at 69c802fda (tmp/555-final-selection.log): selection through the real worker 40.0 s, history children avg 66.6 ms; the repeated-call check runs at the end and reports every command between 0.14x and 1.69x, none flagged, exit 0. Migration down and up on seed (./sb migrate redo 20261031135820) leaves plan_cache_mode set and the comment present. CI on 4ab621894: Fast Tests, Go Test, app build & lint and Images all success. The 401 re-bless is in the next RC (after the rc.07 tag); the fix itself is in rc.07. Scratch test_concurrent_* databases dropped.
 <!-- SECTION:NOTES:END -->
