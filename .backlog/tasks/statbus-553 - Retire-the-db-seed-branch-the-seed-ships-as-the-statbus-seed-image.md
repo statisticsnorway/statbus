@@ -1,10 +1,10 @@
 ---
 id: STATBUS-553
 title: 'Retire the db-seed branch: the seed ships as the statbus-seed image'
-status: To Do
+status: In Progress
 assignee: []
 created_date: '2026-10-30T23:21:00Z'
-updated_date: '2026-10-30T23:22:00Z'
+updated_date: '2026-10-31T00:32:00Z'
 labels: []
 dependencies: []
 type: chore
@@ -29,7 +29,14 @@ Confirm with rg that nothing reads the branch, that refspec_test covers a box wi
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 CanonicalRefspecs no longer lists db-seed, and NormalizeRefspecs rewrites installed boxes that carry the line (refspec_test covers a box with old db-seed lines)
-- [ ] #2 No code, CI or doc reads the db-seed branch (rg check recorded)
-- [ ] #3 [Owner] decides whether to delete the db-seed branch, recorded in this ticket's notes. Yes: origin/db-seed, the local branch and the statbus-db-seed worktree are removed. No: they stay.
+- [x] #1 CanonicalRefspecs is the branch wildcard only, and NormalizeRefspecs rewrites a box carrying the old db-seed line to that wildcard (TestNormalizeRemovesRetiredSeedBranchRefspec)
+- [x] #2 No code, CI or doc reads the db-seed branch; only tests name it, as old state to remove
+- [ ] #3 A stable release containing 14ecf9e42 is installed on every box: SSB-operated slots (dev, demo, no and the other production slots) report that version
+- [ ] #4 Then origin/db-seed, the local db-seed branch and the /Users/jhf/ssb/statbus-db-seed worktree are deleted, and a fetch on a box afterwards succeeds
 <!-- AC:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+Grounding 2026-10-31: the branch has been retired since 9ee422652 (2026-06-02, 'the image is the sole seed source'). It was still named in CanonicalRefspecs, which every install and upgrade writes to remote.origin.fetch; the upgrade check runs git fetch with that config. Reproduced in a scratch repo: with the line present and the branch absent, fetch fails with 'couldn't find remote ref refs/heads/db-seed' (exit 128); with the wildcard only, fetch succeeds. So the order is fixed, the same as STATBUS-248: (1) drop the line (done), (2) release it so boxes normalize, (3) only then delete the branch. Done in 14ecf9e42: red tmp/553-red.log (the new test fails on the old list), green tmp/553-green.log (go test ./internal/upgrade ok, go test ./cmd refspec ok, go build ok). Stale comments corrected in .gitignore, install.sh, cli/cmd/seed.go and install-recovery scenario 5; rg check in tmp/553-rg.log. REMAINING, after release: once the stable release that includes 14ecf9e42 is installed on every box, delete the branch and the worktree (AC #3, #4). Do not delete earlier, because boxes still carrying the line would stop discovering upgrades.
+<!-- SECTION:NOTES:END -->
