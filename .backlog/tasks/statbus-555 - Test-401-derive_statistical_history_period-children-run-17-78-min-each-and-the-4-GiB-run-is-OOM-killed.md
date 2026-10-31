@@ -3,10 +3,11 @@ id: STATBUS-555
 title: >-
   Test 401: history derive children take ~50 s each (200-700x dev) and the run
   is OOM-killed in statistical_history_facet_reduce
-status: To Do
-assignee: []
+status: In Progress
+assignee:
+  - hibiscus
 created_date: '2026-10-31T03:54:00Z'
-updated_date: '2026-10-31T12:00:00Z'
+updated_date: '2026-10-31T14:17:00Z'
 labels:
   - derive
   - performance
@@ -63,4 +64,6 @@ Record the cause in tmp/journal.md; doc/db regenerated if a function changes; no
 - Evidence: statbus_test/tmp/test-480-401-8g.log, tmp/mon-401-8g.log, tmp/test-480-401.log (4G). Leftover test DB dropped; no code or expected-file changes for 401.
 
 2026-10-31 hibiscus: likely a regression from STATBUS-543. History period children took ~221 ms each on the same selection data in April (tmp/test_concurrent_44233.log), against ~50 s now. Suggests comparing one child's plan before/after 543 before any memory work.
+
+2026-10-31 hibiscus, cause found. Not 543's logic: PL/pgSQL switches statistical_history_def to a generic plan from the 6th execution in a session. The worker runs many history children per session. Without the partition range and period values the generic plan estimates ~5-11 units (actual 2388), and chooses a seq scan and nested-loop joins that discard 7.8M rows. Same child in one session (tmp/555-repeat-same-session.log): calls 1-5 = 67-106 ms, calls 6-10 = 4.2-4.9 s. Before 543 children were tiny, so the bad plan cost little; 543 made each child cover a partition range, which exposed it. Prototype removing the optional OR (tmp/555/B-generic.log): index used but still nested loops, 4.4 s, so the date parameters keep the generic estimate wrong. Fix: migration 20261031135820, ALTER FUNCTION statistical_history_def SET plan_cache_mode = force_custom_plan, with COMMENT ON. Survey of all child commands, 8 calls per session (tmp/555/repeat-all.txt): only derive_statistical_history_period flips. Test: test_concurrent_worker now replays every child command 8 times in one session and records first vs last into test/expected/performance/test_concurrent_worker_repeated_calls.perf, exiting 1 on a ratio above 3x. RED on the pre-fix db: 81.4 -> 3606.6 ms (44.31x). GREEN on the same db after the migration: 58.2 -> 62.8 ms (1.08x). End to end, selection (tmp/555-fixed-selection.log): worker 35.8 s (was 105.7 s), history children avg 55.9 ms (was 2091 ms). Fast suite 117/117 locally (tmp/test-555-fast.log). Waiting for rc.07 cut, then commit; then 401 under 4G.
 <!-- SECTION:NOTES:END -->

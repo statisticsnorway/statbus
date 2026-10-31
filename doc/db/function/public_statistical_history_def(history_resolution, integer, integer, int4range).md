@@ -2,6 +2,7 @@
 CREATE OR REPLACE FUNCTION public.statistical_history_def(p_resolution history_resolution, p_year integer, p_month integer, p_hash_partition int4range DEFAULT NULL::int4range)
  RETURNS SETOF statistical_history_type
  LANGUAGE plpgsql
+ SET plan_cache_mode TO 'force_custom_plan'
 AS $function$
 DECLARE
     v_curr_start date;

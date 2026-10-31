@@ -22,6 +22,7 @@ import threading
 from pathlib import Path
 
 import psycopg2
+import psycopg2.extras
 
 # ============================================================================
 # Configuration
@@ -544,7 +545,9 @@ def run_concurrent_test(timeout_seconds=300, debug=True):
     if not failed:
         run_hierarchy_benchmarks()
 
-    success = returncode == 0 and not failed and consistent
+    plans_stable = run_repeated_call_benchmarks() if not failed else True
+
+    success = returncode == 0 and not failed and consistent and plans_stable
     if success:
         log_print(f"\n{GREEN}{'='*60}")
         log_print(f"  SUCCESS: Worker processed all tasks in {elapsed:.1f}s; counts consistent")
@@ -776,6 +779,75 @@ def run_hierarchy_benchmarks():
     log_print(f"  Benchmark results written to: {perf_file.relative_to(WORKSPACE)}")
 
 
+# A worker fiber keeps one database session and runs one task after another in
+# it. From the sixth execution PL/pgSQL may switch a statement to a generic plan
+# that ignores the parameter values; for a command whose best plan depends on
+# those values, every later task then runs slower (STATBUS-555: the history
+# period child went from 60 ms to 3.5 s). A single EXPLAIN in a fresh session
+# never sees that plan, so each child command is replayed here as the worker
+# runs it: eight calls in one session with the payload of a completed task.
+REPEATED_CALLS = 8
+REPEATED_CALL_MAX_RATIO = 3.0
+
+
+def run_repeated_call_benchmarks():
+    """Record first-call vs last-call time per child command in one session.
+
+    Returns False when a command's last call is more than
+    REPEATED_CALL_MAX_RATIO times slower than its first.
+    """
+    perf_dir = WORKSPACE / "test" / "expected" / "performance"
+    perf_dir.mkdir(parents=True, exist_ok=True)
+    perf_file = perf_dir / "test_concurrent_worker_repeated_calls.perf"
+
+    log_print(f"\n{BLUE}Replaying each child command {REPEATED_CALLS} times in one session...{NC}")
+
+    conn = get_conn()
+    conn.autocommit = False
+    rows = []
+    with conn.cursor() as cur:
+        cur.execute("""
+            SELECT DISTINCT ON (t.command) t.command, c.handler_procedure, t.payload
+              FROM worker.tasks AS t
+              JOIN worker.command_registry AS c USING (command)
+             WHERE t.state = 'completed' AND t.parent_id IS NOT NULL
+             ORDER BY t.command, t.id DESC
+        """)
+        commands = cur.fetchall()
+        conn.rollback()
+        for command, procedure, payload in commands:
+            times_ms = []
+            for _ in range(REPEATED_CALLS):
+                start = time.perf_counter()
+                cur.execute(f"CALL {procedure}(%s::jsonb)", (psycopg2.extras.Json(payload),))
+                times_ms.append((time.perf_counter() - start) * 1000)
+            conn.rollback()
+            first, last = times_ms[0], times_ms[-1]
+            ratio = last / first if first > 0 else 0.0
+            rows.append((command, first, last, ratio))
+    conn.close()
+
+    flipped = [r for r in rows if r[3] > REPEATED_CALL_MAX_RATIO]
+    lines = [
+        f"# Repeated calls of each child command in one session ({REPEATED_CALLS} calls)",
+        f"# Flag: last call more than {REPEATED_CALL_MAX_RATIO}x the first (a generic plan worse than the custom one)",
+        "",
+        f"{'command':<45} {'first_ms':>10} {'last_ms':>10} {'ratio':>7}",
+    ]
+    for command, first, last, ratio in sorted(rows):
+        flag = "  FLIPPED" if ratio > REPEATED_CALL_MAX_RATIO else ""
+        lines.append(f"{command:<45} {first:>10.1f} {last:>10.1f} {ratio:>7.2f}{flag}")
+        log_print(f"  {command:<45} first {first:>8.1f} ms  last {last:>8.1f} ms  x{ratio:.2f}{flag}")
+    with open(perf_file, "w") as f:
+        f.write("\n".join(lines) + "\n")
+    log_print(f"  Repeated-call results written to: {perf_file.relative_to(WORKSPACE)}")
+
+    if flipped:
+        log_print(f"{RED}  {len(flipped)} command(s) slow down on repeated calls: "
+                  f"{', '.join(r[0] for r in flipped)}{NC}", "error")
+    return not flipped
+
+
 def list_test_databases():
     """List existing test databases"""
     conn = get_conn(dbname="postgres")
@@ -863,6 +935,8 @@ if __name__ == "__main__":
                         help="Drop ALL test_concurrent_* databases and exit")
     parser.add_argument("--timing", metavar="DBNAME",
                         help="Show pipeline timing from an existing test database and exit")
+    parser.add_argument("--repeated-calls", metavar="DBNAME",
+                        help="Replay each child command in one session on an existing test database, record first vs last call, and exit")
     parser.add_argument("--debug", action="store_true", default=True,
                         help="Enable debug logging in worker (default: true)")
     parser.add_argument("--no-debug", action="store_true",
@@ -881,6 +955,10 @@ if __name__ == "__main__":
         TEST_DB = args.timing
         show_timing(args.timing)
         sys.exit(0)
+
+    if args.repeated_calls:
+        TEST_DB = args.repeated_calls
+        sys.exit(0 if run_repeated_call_benchmarks() else 1)
 
     log_print(f"{BLUE}Log file: {LOG_FILE}{NC}")
 
