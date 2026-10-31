@@ -626,6 +626,12 @@ CALL worker.process_tasks(p_queue => 'import', p_max_priority => 4);
 "Processing establishment imports (priorities 5-8)"
 -- Notice that 'WARNING:  Could not find primary_activity_category_code' is expected due to data quality issues, but should not hinder the import process.
 CALL worker.process_tasks(p_queue => 'import');
+NOTICE:  sql_saga: disable_temporal_triggers left native temporal foreign keys enabled (they have no sql_saga triggers); they are DEFERRABLE, defer them in this transaction with: SET CONSTRAINTS public.activity_establishment_id_valid, public.activity_legal_unit_id_valid, public.contact_establishment_id_valid, public.contact_legal_unit_id_valid, public.establishment_legal_unit_id_valid, public.legal_relationship_influenced_id_valid, public.legal_relationship_influencing_id_valid, public.location_establishment_id_valid, public.location_legal_unit_id_valid, public.person_for_unit_establishment_id_valid, public.person_for_unit_legal_unit_id_valid, public.power_root_custom_root_legal_unit_id_valid, public.power_root_derived_root_legal_unit_id_valid, public.stat_for_unit_establishment_id_valid, public.stat_for_unit_legal_unit_id_valid DEFERRED
+NOTICE:  sql_saga: disable_temporal_triggers left native temporal foreign keys enabled (they have no sql_saga triggers); they are DEFERRABLE, defer them in this transaction with: SET CONSTRAINTS public.activity_establishment_id_valid, public.activity_legal_unit_id_valid, public.contact_establishment_id_valid, public.contact_legal_unit_id_valid, public.establishment_legal_unit_id_valid, public.legal_relationship_influenced_id_valid, public.legal_relationship_influencing_id_valid, public.location_establishment_id_valid, public.location_legal_unit_id_valid, public.person_for_unit_establishment_id_valid, public.person_for_unit_legal_unit_id_valid, public.power_root_custom_root_legal_unit_id_valid, public.power_root_derived_root_legal_unit_id_valid, public.stat_for_unit_establishment_id_valid, public.stat_for_unit_legal_unit_id_valid DEFERRED
+NOTICE:  sql_saga: disable_temporal_triggers left native temporal foreign keys enabled (they have no sql_saga triggers); they are DEFERRABLE, defer them in this transaction with: SET CONSTRAINTS public.activity_establishment_id_valid, public.activity_legal_unit_id_valid, public.contact_establishment_id_valid, public.contact_legal_unit_id_valid, public.establishment_legal_unit_id_valid, public.legal_relationship_influenced_id_valid, public.legal_relationship_influencing_id_valid, public.location_establishment_id_valid, public.location_legal_unit_id_valid, public.person_for_unit_establishment_id_valid, public.person_for_unit_legal_unit_id_valid, public.power_root_custom_root_legal_unit_id_valid, public.power_root_derived_root_legal_unit_id_valid, public.stat_for_unit_establishment_id_valid, public.stat_for_unit_legal_unit_id_valid DEFERRED
+NOTICE:  sql_saga: disable_temporal_triggers left native temporal foreign keys enabled (they have no sql_saga triggers); they are DEFERRABLE, defer them in this transaction with: SET CONSTRAINTS public.activity_establishment_id_valid, public.activity_legal_unit_id_valid, public.contact_establishment_id_valid, public.contact_legal_unit_id_valid, public.establishment_legal_unit_id_valid, public.legal_relationship_influenced_id_valid, public.legal_relationship_influencing_id_valid, public.location_establishment_id_valid, public.location_legal_unit_id_valid, public.person_for_unit_establishment_id_valid, public.person_for_unit_legal_unit_id_valid, public.power_root_custom_root_legal_unit_id_valid, public.power_root_derived_root_legal_unit_id_valid, public.stat_for_unit_establishment_id_valid, public.stat_for_unit_legal_unit_id_valid DEFERRED
+NOTICE:  sql_saga: disable_temporal_triggers left native temporal foreign keys enabled (they have no sql_saga triggers); they are DEFERRABLE, defer them in this transaction with: SET CONSTRAINTS public.activity_establishment_id_valid, public.activity_legal_unit_id_valid, public.contact_establishment_id_valid, public.contact_legal_unit_id_valid, public.establishment_legal_unit_id_valid, public.legal_relationship_influenced_id_valid, public.legal_relationship_influencing_id_valid, public.location_establishment_id_valid, public.location_legal_unit_id_valid, public.person_for_unit_establishment_id_valid, public.person_for_unit_legal_unit_id_valid, public.power_root_custom_root_legal_unit_id_valid, public.power_root_derived_root_legal_unit_id_valid, public.stat_for_unit_establishment_id_valid, public.stat_for_unit_legal_unit_id_valid DEFERRED
+NOTICE:  sql_saga: disable_temporal_triggers left native temporal foreign keys enabled (they have no sql_saga triggers); they are DEFERRABLE, defer them in this transaction with: SET CONSTRAINTS public.activity_establishment_id_valid, public.activity_legal_unit_id_valid, public.contact_establishment_id_valid, public.contact_legal_unit_id_valid, public.establishment_legal_unit_id_valid, public.legal_relationship_influenced_id_valid, public.legal_relationship_influencing_id_valid, public.location_establishment_id_valid, public.location_legal_unit_id_valid, public.person_for_unit_establishment_id_valid, public.person_for_unit_legal_unit_id_valid, public.power_root_custom_root_legal_unit_id_valid, public.power_root_derived_root_legal_unit_id_valid, public.stat_for_unit_establishment_id_valid, public.stat_for_unit_legal_unit_id_valid DEFERRED
 -- ============================================================================
 -- PHASE 3: VERIFICATION (in transaction for consistent reads)
 -- ============================================================================
@@ -1011,7 +1017,31 @@ select queue,t.command,state,error from worker.tasks as t join worker.command_re
  import | import_job_process | completed | 
  import | import_job_process | completed | 
  import | import_job_process | completed | 
-(376 rows)
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+(400 rows)
 
 select slug, state, error is not null as failed, time_context_ident, default_valid_from, default_valid_to, total_rows, imported_rows, import_completed_pct, error as error_details from public.import_job WHERE slug LIKE 'import_%_h' ORDER BY slug;
        slug       |  state   | failed | time_context_ident | default_valid_from | default_valid_to | total_rows | imported_rows | import_completed_pct | error_details 
@@ -1132,7 +1162,7 @@ SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registr
    queue   |   state   | count 
 -----------+-----------+-------
  analytics | pending   |     1
- import    | completed |   384
+ import    | completed |   408
 (2 rows)
 
 COMMIT;
@@ -1145,7 +1175,7 @@ SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registr
    queue   |   state   | count 
 -----------+-----------+-------
  analytics | completed |  1214
- import    | completed |   384
+ import    | completed |   408
 (2 rows)
 
 COMMIT;
@@ -1158,7 +1188,7 @@ SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registr
    queue   |   state   | count 
 -----------+-----------+-------
  analytics | completed |  1214
- import    | completed |   384
+ import    | completed |   408
 (2 rows)
 
 \echo Overview of statistical units, but not details, there are too many units.
