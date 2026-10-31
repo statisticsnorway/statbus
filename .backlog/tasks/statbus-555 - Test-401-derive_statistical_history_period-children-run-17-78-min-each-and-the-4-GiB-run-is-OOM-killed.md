@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-10-31T03:54:00Z'
-updated_date: '2026-10-31T04:00:00Z'
+updated_date: '2026-10-31T12:00:00Z'
 labels:
   - derive
   - performance
@@ -61,4 +61,6 @@ Record the cause in tmp/journal.md; doc/db regenerated if a function changes; no
 - Correction to this ticket title and Zoom in: the "17+ min / 78 min single child" readings came from worker.tasks.created_at, not process_start_at. No child ran that long. Both the 4G and 8G runs spend ~60-68 min serially in ~76 history-period children (~50 s each), then OOM at the reduce step. The 4G run's per-child rows are gone (DB dropped), but its log shows the analytics CALL terminated by signal 9 at 01:53:57 after 78 min, consistent with the same serial phase plus reduce.
 - Facet period children are fast: derive_statistical_history_facet_period 76 completed, avg 182 ms, max 233 ms.
 - Evidence: statbus_test/tmp/test-480-401-8g.log, tmp/mon-401-8g.log, tmp/test-480-401.log (4G). Leftover test DB dropped; no code or expected-file changes for 401.
+
+2026-10-31 hibiscus: likely a regression from STATBUS-543. History period children took ~221 ms each on the same selection data in April (tmp/test_concurrent_44233.log), against ~50 s now. Suggests comparing one child's plan before/after 543 before any memory work.
 <!-- SECTION:NOTES:END -->
