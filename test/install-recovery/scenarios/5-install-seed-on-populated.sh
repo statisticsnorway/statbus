@@ -20,7 +20,7 @@
 #   harness drives the VM to (populated DB + new migrations on disk that
 #   the DB has not yet applied), HasPending returns true, checkMigrationsDone
 #   returns false, checkSeedRestored returns false, and the step-table
-#   dispatches runSeedRestore. runSeedRestore fetches origin/db-seed and
+#   dispatches runSeedRestore. runSeedRestore fetches the statbus-seed image and
 #   runs pg_restore, silently destroying the existing rows. The architectural
 #   fix (DB-content classifier before seed dispatch) is a separate arc; this
 #   scenario surfaces the bug empirically when run.

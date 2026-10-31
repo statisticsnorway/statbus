@@ -9,15 +9,13 @@ import (
 // CanonicalRefspecs is what remote.origin.fetch must be on every box, however
 // that box was born and however many times install has run.
 //
-// The db-seed entry is redundant under the wildcard above it — refs/heads/*
-// already matches refs/heads/db-seed. It is kept because it is the canonical
-// set the product declares, and because an explicit line is what a reader (and
-// a grep) finds when asking whether this box fetches the seed branch. A
-// duplicate fetch of one ref costs nothing; an ambiguous declaration costs an
-// afternoon.
+// Only the branch wildcard. Every explicit branch line is a fetch that fails
+// with "couldn't find remote ref" the day that branch is deleted, so retired
+// transports (the per-slot deploy branches, STATBUS-248; the db-seed branch,
+// replaced by the statbus-seed image, STATBUS-553) are removed here first and
+// their branches deleted only after every box has normalized.
 var CanonicalRefspecs = []string{
 	"+refs/heads/*:refs/remotes/origin/*",
-	"+refs/heads/db-seed:refs/remotes/origin/db-seed",
 }
 
 // NormalizeRefspecs rewrites remote.origin.fetch to exactly CanonicalRefspecs.

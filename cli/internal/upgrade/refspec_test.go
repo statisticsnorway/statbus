@@ -132,14 +132,33 @@ func TestNormalizeRemovesStaleDevopsRefspecs(t *testing.T) {
 	}
 }
 
+// STATBUS-553: every box installed before this change carries the db-seed line
+// that CanonicalRefspecs used to declare. The seed ships as the statbus-seed
+// image since 9ee422652, and once origin/db-seed is deleted Git refuses every
+// fetch with "couldn't find remote ref refs/heads/db-seed". Normalization must
+// leave exactly the wildcard.
+func TestNormalizeRemovesRetiredSeedBranchRefspec(t *testing.T) {
+	dir := newRepoWithRefspecs(t,
+		"+refs/heads/*:refs/remotes/origin/*",
+		"+refs/heads/db-seed:refs/remotes/origin/db-seed",
+	)
+
+	if err := NormalizeRefspecs(dir); err != nil {
+		t.Fatalf("normalize: %v", err)
+	}
+	got := refspecsOf(t, dir)
+	if len(got) != 1 || got[0] != "+refs/heads/*:refs/remotes/origin/*" {
+		t.Fatalf("refspecs = %q, want only the wildcard", got)
+	}
+}
+
 // STATBUS-248: the retired deploy transport left an explicit per-slot refspec
 // on live boxes. Once the corresponding remote branch is deleted, Git refuses
 // every fetch with "couldn't find remote ref". Normalization must remove that
-// latent fetch failure and leave exactly the two canonical lines.
+// latent fetch failure and leave exactly the canonical lines.
 func TestNormalizeRemovesRetiredCloudDeployRefspec(t *testing.T) {
 	dir := newRepoWithRefspecs(t,
 		CanonicalRefspecs[0],
-		CanonicalRefspecs[1],
 		"+refs/heads/ops/cloud/deploy/dev:refs/remotes/origin/ops/cloud/deploy/dev",
 	)
 

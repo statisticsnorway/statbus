@@ -548,10 +548,9 @@ func DumpSeed(projDir, commitOverride string, incrementalDepth int) (seedMeta, e
 	}
 
 	// Compute post_restore.sql fingerprint so seed.json carries the
-	// "what fixups will the next restore apply" identity. `./sb db seed
-	// sync` uses this together with migration_version to decide whether
-	// the new schema state actually differs from what's already on
-	// db-seed (fast-path) or needs a full pg_dump rebuild.
+	// "what fixups will the next restore apply" identity. The seed cache
+	// check (seed_cache.go) compares it with the checkout's post_restore.sql
+	// and refuses a cached seed built against different fixups.
 	postRestoreSHA, err := postRestoreFileSHA(projDir)
 	if err != nil {
 		return seedMeta{}, fmt.Errorf("hash post_restore.sql: %w", err)

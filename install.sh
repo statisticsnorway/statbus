@@ -846,8 +846,6 @@ if [ -z "${SKIP_BINARY_DOWNLOAD:-}" ]; then
         echo "Installed program: $(./sb --version)"
         echo ""
         echo "Checking out $VERSION..."
-        # Ensure db-seed is in origin's refspec so the subsequent
-        # `./sb db seed fetch` (during `./sb install`) can populate the
         # STATBUS-325: the `git remote set-branches --add origin db-seed` that
         # stood here is GONE, and so is the comment claiming it was idempotent.
         # It was not: --add appends unconditionally, so every rescue run left one

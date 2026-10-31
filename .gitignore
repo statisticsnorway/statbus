@@ -92,7 +92,7 @@ cli/dist/
 *.pfx
 !cli/cmd/testdata/*.pfx
 
-### DB seed cache — fetched from origin/db-seed branch on first dev.sh run ###
+### DB seed cache — extracted from the statbus-seed:<commit> image by ./sb db seed fetch ###
 # Intent: speeds up create-db from ~294 migrations to one pg_restore (~2 seconds)
 /.db-seed/
 # Legacy directory name (pre-rc.66 rename); kept ignored so a workspace
