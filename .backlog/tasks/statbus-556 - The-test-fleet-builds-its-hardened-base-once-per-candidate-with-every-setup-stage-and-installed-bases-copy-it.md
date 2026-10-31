@@ -3,10 +3,10 @@ id: STATBUS-556
 title: >-
   The test fleet builds its hardened base once per candidate, with every setup
   stage, and installed bases copy it
-status: In Progress
+status: Done
 assignee: []
 created_date: '2026-10-31T13:44:00Z'
-updated_date: '2026-10-31T13:55:00Z'
+updated_date: '2026-10-31T15:49:00Z'
 labels:
   - harness
   - release-gate
@@ -42,7 +42,7 @@ Documentation: test/install-recovery/README.md describes the base layering (hard
 <!-- AC:BEGIN -->
 - [x] #1 An offline test shows an installed base is a copy of the hardened snapshot and runs no setup of its own (red before, green after)
 - [x] #2 An offline test shows the hardened base runs setup with no stage skipped, and no harness file passes --skip-stages, --only-stages or SKIP_STAGES to setup (red before, green after)
-- [ ] #3 The smoke ramp job builds the hardened base before the two smoke jobs start; the rc gate log shows exactly one 'hardening start' per candidate, with every stage run, and the gate is green
+- [x] #3 The smoke ramp job builds the hardened base before the two smoke jobs start; the rc gate log shows exactly one 'hardening start' per candidate, with every stage run, and the gate is green
 <!-- AC:END -->
 
 ## Implementation Notes
@@ -56,4 +56,7 @@ Documentation: test/install-recovery/README.md describes the base layering (hard
 - Stage skips removed: lxd-backend.sh, vm-bootstrap.sh (HARNESS_HARDENING_SKIP_STAGES), ops/lxd-fleet/base.sh, 0-https-only-egress.sh and its test assertion. README checkpoint tree updated.
 - Green: lxd-hardened-base-once-test 5/5 PASS; all 27 lxd-*/https-only-egress*/scenario-selection/vm-image-selection tests exit 0 (tmp/556-green.log).
 - Real builder on the LXD host (tmp/556-real-builder.sh, throwaway prefix p556, deleted after): hardened base launched and fully set up in 100 s ('Setup Complete!', security-tools: CrowdSec running, bouncer registered and running); installed base 'copy p556-...-hardened-nothing-installed/checkpoint -> p556-...-installed-v2026-10-5-standalone', no second setup, v2026.10.5 installed in 65 s, snapshot; total 238 s (tmp/556-real-builder.log).
+
+2026-10-31 rc.07 (v2026.10.6-rc.07 at c4cd50549) gate green: Release Fleet Orchestrator 41212132861, Test Smoke 41212223309, LXD Fork Fleet 41213121368, Upgrade Arc Harness 41213189911, Test Hardening 41212132827, Fast Tests 41212132961, dev deploy 41212947301.
+Smoke 41212223309 log, counted: 1 'launch ... ubuntu:26.04' and 1 'hardening start s2-base-v2026-10-6-rc-07-hardened-nothing-installed (full setup, every stage)', in the 'Ramp hardened LXD fleet host' job; 'Stage 6 of 9: Firewall and intrusion detection' ran; 'Setup Complete!'; hardening complete in 105 s. Every other base is a copy: hardened -> installed-v2026-10-5-standalone-pre, hardened -> 0-happy-install fork, installed-...-pre -> 0-happy-upgrade fork. The fleet (28 scenarios) and arcs forked those checkpoints and passed, now on boxes running CrowdSec and UFW.
 <!-- SECTION:NOTES:END -->
