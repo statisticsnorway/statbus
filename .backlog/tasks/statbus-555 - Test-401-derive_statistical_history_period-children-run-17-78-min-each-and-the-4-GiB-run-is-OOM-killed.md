@@ -7,7 +7,7 @@ status: Done
 assignee:
   - hibiscus
 created_date: '2026-10-31T03:54:00Z'
-updated_date: '2026-10-31T16:28:00Z'
+updated_date: '2026-10-31T16:29:00Z'
 labels:
   - derive
   - performance
@@ -76,4 +76,6 @@ AC#3: 401 expected re-blessed from the 4G run. Read-only reviewer cow APPROVED: 
 Fast Tests 41218280651 success on 4ab621894 (401 re-bless). The cause was reproduced on its own and recorded in tmp/journal.md (AC#1: same child, calls 1-5 vs 6-10 in one session; generic plan via auto_explain). statbus_test restored to DB_MEM_LIMIT=8G and clean; 401's perf recording from the 4G run is kept in statbus_test/tmp/555-401-4g.perf, not committed.
 
 Final loop over the whole result at 69c802fda (tmp/555-final-selection.log): selection through the real worker 40.0 s, history children avg 66.6 ms; the repeated-call check runs at the end and reports every command between 0.14x and 1.69x, none flagged, exit 0. Migration down and up on seed (./sb migrate redo 20261031135820) leaves plan_cache_mode set and the comment present. CI on 4ab621894: Fast Tests, Go Test, app build & lint and Images all success. The 401 re-bless is in the next RC (after the rc.07 tag); the fix itself is in rc.07. Scratch test_concurrent_* databases dropped.
+
+Independent check of reviewer cow's verdict: (1) the committed diff 4ab621894 equals the reviewed diff line for line (14 changed lines: 97->103 rows plus 6 task rows, and 99->105 x3). (2) 401 loads the 2024 BRREG definitions (test/sql/401 lines 39-40), and 610c42995 added date_consistency to both, so the attribution holds. (3) 610's own 303 change 376->400 (+24 for 8 jobs) confirms +3 per single-batch job. (4) No GOOD/OK/SLOW line changed; expected status stays ES OK/GOOD, LU OK/GOOD (lines 359-360). (5) The tail after the analytics section has the same length.
 <!-- SECTION:NOTES:END -->
