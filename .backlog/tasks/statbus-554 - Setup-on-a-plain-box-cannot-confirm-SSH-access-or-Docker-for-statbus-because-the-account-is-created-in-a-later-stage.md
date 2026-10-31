@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-10-31T01:48:00Z'
-updated_date: '2026-10-31T11:56:00Z'
+updated_date: '2026-10-31T11:58:00Z'
 labels:
   - setup
   - install
@@ -69,4 +69,6 @@ Why the gate never caught it: test/install-recovery/lib/lxd-backend.sh runs setu
 - Third full run with a sha256 snapshot of every file in /etc and /home/statbus plus statbus' id and groups, before vs after: identical, diff rc 0, EXIT=0 (tmp/554-box-3-idempotence.log).
 - Fail-fast seen first: without SERVER_FQDN on a bare hostname, the run stops before any stage, nothing changed (as designed, STATBUS-503).
 Pending for AC5: the same on the released rc.06 setup.sh.
+
+2026-10-31 CI on 29ee29832: Harness Selftest 41198731026 success (runs setup-stage-order and setup-stage-selection), Go Test 41198731000 success, Images 41198731054 success, app build & lint 41198731015 success. Hardening workflow (--only-stages service-account) runs at the RC tag.
 <!-- SECTION:NOTES:END -->
