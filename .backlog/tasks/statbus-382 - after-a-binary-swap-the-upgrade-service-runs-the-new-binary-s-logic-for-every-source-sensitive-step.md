@@ -4,7 +4,7 @@ title: Source-sensitive upgrade work runs only in the program installed on disk
 status: In Progress
 assignee: []
 created_date: 2026-09-22 17:01
-updated_date: '2026-10-31T01:47:00Z'
+updated_date: '2026-10-31T01:49:00Z'
 labels:
   - owner-decision
   - upgrade
@@ -36,46 +36,30 @@ The operator's decisions win over a stale daemon. That part is already shipped a
 - **Not on master:** branch `next/382-steps-3-4` (4 commits, about 1,300 lines, last 2026-09-24, author jhf) holds the identity gate and an install-side takeover: `cli/internal/upgrade/daemon_fingerprint.go` (sha256 of `/proc/self/exe` vs `./sb`, results `match` / `hash_mismatch` / `disk_binary_missing` / `identity_unavailable`, with a table of every legitimate mismatch source and its disposition) and `cli/cmd/install_stale_daemon.go`. It now conflicts with master in `install.go`, `install_upgrade.go`, `install/state.go` and `upgrade/service.go`, which moved on through STATBUS-447, 452, 507 and 508.
 - **Mechanism on the branch:** on mismatch the daemon exits 42 so systemd restarts it on the disk binary; ungated paths are recovery, rollback and park recovery.
 - **Gap the branch closes:** today a plain `./sb install` that replaces `./sb` but changes no daemon-restart setting leaves a healthy-looking daemon running the old binary until its next restart. Nothing on master compares the running executable with the disk.
-- **Decision (owner, 2026-10-22): D.** `./sb install` restarts the daemon at install exit when its running program (`/proc/<MainPID>/exe`) is not the `./sb` on disk (`cli/cmd/install_stale_daemon.go`, 0267851e9). Self-upgrade already hands over by exit 42, so only a manual install left a stale daemon. The branch's in-daemon gate and churn takeover answered the same cause and were dropped; its failure reporting is on master as `reportInstallFailure`. Both 382 branches deleted 2026-10-22 (tips in tmp/382-deleted-branches.txt).
+- **Decision (owner, 2026-10-23/26, built 2026-10-31):** once `./sb install` holds the upgrade lock it stops the upgrader, before any step; a successful install starts it on the installed `./sb`, and a failed install leaves it stopped and names the rerun command (`cli/cmd/install_upgrader_stop.go`, c1153315a). This replaced the restart-at-exit of 0267851e9 (`install_stale_daemon.go`, removed). Self-upgrade still hands over by exit 42. The in-daemon gate on the old branch was dropped; both 382 branches deleted 2026-10-22 (tips in tmp/382-deleted-branches.txt).
 - **Related:** STATBUS-395 owns how fast the post-swap handoff is (the 30 s `RestartSec`). STATBUS-447 owns the install.sh mutex handover.
 
 ### Closing review
 - **Memory:** none needed.
-- **Documentation:** the decision is the doc comment on `staleDaemonFinalAction`.
+- **Documentation:** the decision is the doc comment on `stopUpgraderForInstall` (`cli/cmd/install_upgrader_stop.go`).
 - **Cleanup:** done, both 382 branches deleted.
 <!-- SECTION:DESCRIPTION:END -->
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
 - [x] #1 `TestFlagInvariant_EveryPhaseAndBackupPathWriterIsAccountedFor_STATBUS232` stays green across the change
-- [x] #2 [Owner] Choose how the identity gate lands: rebase `next/382-steps-3-4`, reimplement its design on current master, or drop it with the reason; record the choice in Implementation Notes. AC1-3 are then built by that route, or removed if dropped.
-- [x] #3 While ./sb install holds the upgrade lock it stops the upgrader before any install step runs, and a successful install starts it again on the installed ./sb (Go test through runInstall with a recorded systemd: red before, green after)
-- [x] #4 A failed install leaves the upgrader stopped and says so, and the next successful ./sb install starts it (same test); the upgrader's own post-upgrade install and boxes without systemd never stop it
-- [x] #5 On a real box: replace ./sb under a running upgrader, run ./sb install, and the upgrader comes back running the ./sb on disk (sb upgrader status); a forced failing install leaves it stopped (commands and output recorded)
+- [x] #2 While ./sb install holds the upgrade lock it stops the upgrader before any install step runs, and a successful install starts it again on the installed ./sb (Go test through runInstall with a recorded systemd: red before, green after)
+- [x] #3 A failed install leaves the upgrader stopped and says so, and the next successful ./sb install starts it (same test); the upgrader's own post-upgrade install and boxes without systemd never stop it
+- [x] #4 On a real box: replace ./sb under a running upgrader, run ./sb install, and the upgrader comes back running the ./sb on disk (sb upgrader status); a forced failing install leaves it stopped (commands and output recorded)
 <!-- AC:END -->
 
 ## Implementation Notes
 
 <!-- SECTION:NOTES:BEGIN -->
-### Evidence
-- **AC4:** green in Go Test `36503468493` (v2026.09.3).
-- **AC1-3:** not on master. Their implementation exists only on `next/382-steps-3-4`, which conflicts with master as of `cb34436b4`.
-- **AC5:** open; it decides how AC1-3 get built.
-- The former criterion for the fast post-swap handoff moved to STATBUS-395, which owns it. The 382 -> 395 dependency was removed; it formed a cycle.
-
-### Owner decision 2026-10-22: D
-./sb install restarts a stale daemon at the source of the problem; no in-daemon gate. Branch contents reviewed (4 commits, 1,333 lines) and dropped; see Zoom in.
-### Evidence
-- 0267851e9. Red tmp/382-red.log (undefined symbols), green tmp/382-green.log (5 cases). `go test ./cmd/ ./internal/upgrade/` ok, lint 0 issues.
-- Branches deleted locally (no remote copies); tips recorded in tmp/382-deleted-branches.txt.
-
-### Criteria under D (2026-10-22, corrected)
-An earlier edit today replaced these criteria with D-only ones; they are restored here, each settled by its own reason.
-- **AC5 (checked):** owner chose D, 2026-10-22. ./sb install restarts the daemon when its running program is not ./sb on disk; the in-daemon gate is dropped.
-- **AC4 (checked):** stays checked; the invariant test passes with 0267851e9.
-- **AC1 (open):** met by D through ./sb install rather than a gate inside the daemon: a stale daemon is restarted at install exit, so it does not claim work. Evidence: `TestStaleUpgradeDaemonIsRestartedAtInstallExit` (5 cases), 0267851e9. To check when CI is green. The ungated recovery part is unchanged code.
-- **AC2 (open):** still a real claim. Proven by the next candidate's fleet, or by an observation on a box.
-- **AC3 (open, owner to decide):** with D the daemon no longer runs stale code after an install, so the failure this guarded against should not arise. Remove with that reason, or keep.
+### History (route to the shipped design)
+- 2026-10-22: the in-daemon identity gate on branch `next/382-steps-3-4` was reviewed (4 commits, 1,333 lines) and dropped; both branches deleted (tips in tmp/382-deleted-branches.txt). Interim fix 0267851e9 restarted a stale upgrader at install exit.
+- `TestFlagInvariant_EveryPhaseAndBackupPathWriterIsAccountedFor_STATBUS232` green in Go Test `36503468493` (v2026.09.3) and across 0267851e9.
+- The fast post-swap handoff moved to STATBUS-395, which owns it.
 
 ### Owner direction 2026-10-23 (evening, to confirm next session)
 - Activation has one route: put the new sb in place, run ./sb install. No separate activate command. A hand-copied sb picked up by a later systemd restart is acceptable; no idle self-check in the daemon.
