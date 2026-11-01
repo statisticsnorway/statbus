@@ -85,14 +85,17 @@ assert_health_passes() {
 # The expected set is read from worker.command_registry — the same source
 # worker.seed_recurring_tasks() seeds from — so a newly declared recurring
 # command is covered without a second list to keep in step.
+#
+# An unreadable probe fails the assertion: a green run must mean this box's
+# schedule was observed, never that the check could not look.
 assert_recurring_maintenance_tasks() {
     local vm_name="$1"
     local expected missing count _rc=0 failed=0
 
     expected=$(VM_EXEC bash -c "cd ~/statbus && echo \"SELECT command FROM worker.command_registry WHERE schedule_interval IS NOT NULL ORDER BY command;\" | ./sb psql -t -A" 2>/dev/null | tr -d '\r') || _rc=$?
     if [ "$_rc" -ne 0 ]; then
-        echo "  ⚠ could not read worker.command_registry on VM (VM_EXEC rc=$_rc) — INFRA error; skipping" >&2
-        return 0
+        echo "  ✗ could not read worker.command_registry on VM (VM_EXEC rc=$_rc)"
+        return 1
     fi
     if [ -z "$expected" ]; then
         echo "  ✗ no recurring maintenance commands declared in worker.command_registry"
@@ -102,8 +105,8 @@ assert_recurring_maintenance_tasks() {
     _rc=0
     missing=$(VM_EXEC bash -c "cd ~/statbus && echo \"SELECT cr.command FROM worker.command_registry AS cr WHERE cr.schedule_interval IS NOT NULL AND NOT EXISTS (SELECT 1 FROM worker.tasks AS t WHERE t.command = cr.command AND t.state = 'pending'::worker.task_state) ORDER BY cr.command;\" | ./sb psql -t -A" 2>/dev/null | tr -d '\r') || _rc=$?
     if [ "$_rc" -ne 0 ]; then
-        echo "  ⚠ could not read worker.tasks on VM (VM_EXEC rc=$_rc) — INFRA error; skipping" >&2
-        return 0
+        echo "  ✗ could not read worker.tasks on VM (VM_EXEC rc=$_rc)"
+        return 1
     fi
     if [ -n "$missing" ]; then
         echo "  ✗ recurring maintenance command(s) with no pending row: $(echo "$missing" | tr '\n' ' ')"
@@ -117,12 +120,12 @@ assert_recurring_maintenance_tasks() {
     _rc=0
     count=$(VM_EXEC bash -c "cd ~/statbus && docker compose logs --no-color worker 2>/dev/null | grep -F -c 'Failed to seed recurring maintenance tasks' || true" 2>/dev/null | tr -d ' \r\n') || _rc=$?
     if [ "$_rc" -ne 0 ]; then
-        echo "  ⚠ could not read the worker log on VM (VM_EXEC rc=$_rc) — INFRA error; skipping" >&2
-        return 0
+        echo "  ✗ could not read the worker log on VM (VM_EXEC rc=$_rc)"
+        return 1
     fi
     if ! [[ "$count" =~ ^[0-9]+$ ]]; then
-        echo "  ⚠ could not parse the worker log scan ('$count') — INFRA error; skipping" >&2
-        return 0
+        echo "  ✗ could not read the worker log scan result ('$count')"
+        return 1
     fi
     if [ "$count" -gt 0 ]; then
         echo "  ✗ worker log has $count 'Failed to seed recurring maintenance tasks' line(s)"

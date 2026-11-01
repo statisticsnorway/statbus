@@ -13,13 +13,22 @@ VM_NAME=test-vm
 
 # The guest answers each probe from a fixture file: the registry's recurring
 # commands, the commands missing a pending row, and the count of seed-failure
-# lines in the worker log.
+# lines in the worker log. FAIL_PROBE makes one probe unreadable.
 VM_EXEC() {
     local cmd="$*"
     case "$cmd" in
-        *'NOT EXISTS'*) cat "$FIXTURE/missing" ;;
-        *'worker.command_registry WHERE schedule_interval'*) cat "$FIXTURE/expected" ;;
-        *'docker compose logs'*) cat "$FIXTURE/failed-lines" ;;
+        *'NOT EXISTS'*)
+            [ "${FAIL_PROBE:-}" != tasks ] || return 1
+            cat "$FIXTURE/missing"
+            ;;
+        *'worker.command_registry WHERE schedule_interval'*)
+            [ "${FAIL_PROBE:-}" != registry ] || return 1
+            cat "$FIXTURE/expected"
+            ;;
+        *'docker compose logs'*)
+            [ "${FAIL_PROBE:-}" != logs ] || return 1
+            cat "$FIXTURE/failed-lines"
+            ;;
         *) echo "unexpected VM_EXEC: $cmd" >&2; return 90 ;;
     esac
 }
@@ -66,3 +75,33 @@ if assert_recurring_maintenance_tasks "$VM_NAME" > "$FIXTURE/out4"; then
 fi
 grep -q 'no recurring maintenance commands declared' "$FIXTURE/out4"
 echo 'PASS: an empty recurring family fails instead of passing vacuously'
+
+# 5. An unreadable probe fails closed, naming what could not be read — never a
+#    green run on a schedule nobody actually observed.
+printf '%s\n' detect_stuck_tasks import_job_cleanup task_cleanup > "$FIXTURE/expected"
+: > "$FIXTURE/missing"
+echo 0 > "$FIXTURE/failed-lines"
+for probe in registry tasks logs; do
+    case "$probe" in
+        registry) what='worker.command_registry' ;;
+        tasks) what='worker.tasks' ;;
+        logs) what='the worker log' ;;
+    esac
+    FAIL_PROBE="$probe"
+    if assert_recurring_maintenance_tasks "$VM_NAME" > "$FIXTURE/out-$probe"; then
+        echo "FAIL: $what unreadable was accepted" >&2
+        exit 1
+    fi
+    grep -q "could not read $what" "$FIXTURE/out-$probe"
+    echo "PASS: $what unreadable fails the assertion"
+done
+unset FAIL_PROBE
+
+# 6. A non-numeric log scan result is an unreadable log, not zero failures.
+printf 'not-a-count\n' > "$FIXTURE/failed-lines"
+if assert_recurring_maintenance_tasks "$VM_NAME" > "$FIXTURE/out6"; then
+    echo 'FAIL: a non-numeric log scan result was accepted' >&2
+    exit 1
+fi
+grep -q 'could not read the worker log scan result' "$FIXTURE/out6"
+echo 'PASS: a non-numeric log scan result fails the assertion'
