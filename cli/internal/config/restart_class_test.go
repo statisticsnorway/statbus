@@ -285,3 +285,56 @@ func TestBatchClassifiedKeysHaveZeroComposeConsumers(t *testing.T) {
 		}
 	}
 }
+
+// TestDbMemoryTuningReachesTheDatabaseContainer pins the path from
+// DB_MEM_LIMIT to the running server: config generate derives the PostgreSQL
+// memory settings (computeDbMemory) and writes them as DB_* keys, and
+// postgres/start-postgres.sh turns each DB_* variable it reads into a
+// `-c name=value` argument. That only works if postgres/docker-compose.yml
+// puts every one of those keys into the db container's environment. A key
+// left out makes start-postgres.sh use its fallback, sized for 8 GiB, so a
+// smaller DB_MEM_LIMIT container ran with shared_buffers=2GB and was
+// OOM-killed (STATBUS-555).
+func TestDbMemoryTuningReachesTheDatabaseContainer(t *testing.T) {
+	_, thisFile, _, ok := runtime.Caller(0)
+	if !ok {
+		t.Fatal("runtime.Caller failed")
+	}
+	repoRoot := filepath.Join(filepath.Dir(thisFile), "..", "..", "..")
+
+	script, err := os.ReadFile(filepath.Join(repoRoot, "postgres", "start-postgres.sh"))
+	if err != nil {
+		t.Fatalf("read start-postgres.sh: %v", err)
+	}
+	read := regexp.MustCompile(`\$\{(DB_[A-Z_]+):-`).FindAllStringSubmatch(string(script), -1)
+	keys := map[string]bool{}
+	for _, m := range read {
+		keys[m[1]] = true
+	}
+	if len(keys) == 0 {
+		t.Fatal("start-postgres.sh reads no DB_* variable; this test has nothing to check")
+	}
+
+	compose, err := os.ReadFile(filepath.Join(repoRoot, "postgres", "docker-compose.yml"))
+	if err != nil {
+		t.Fatalf("read postgres/docker-compose.yml: %v", err)
+	}
+	env := regexp.MustCompile(`(?m)^\s+(DB_[A-Z_]+):\s*\$\{(DB_[A-Z_]+)`).FindAllStringSubmatch(string(compose), -1)
+	passed := map[string]bool{}
+	for _, m := range env {
+		if m[1] == m[2] {
+			passed[m[1]] = true
+		}
+	}
+
+	var sorted []string
+	for k := range keys {
+		sorted = append(sorted, k)
+	}
+	sort.Strings(sorted)
+	for _, k := range sorted {
+		if !passed[k] {
+			t.Errorf("start-postgres.sh reads %s, but postgres/docker-compose.yml does not pass it to the db container (want `%s: ${%s...}` under environment:)", k, k, k)
+		}
+	}
+}

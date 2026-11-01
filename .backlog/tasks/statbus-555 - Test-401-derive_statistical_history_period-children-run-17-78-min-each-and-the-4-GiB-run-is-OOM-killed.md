@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - hibiscus
 created_date: '2026-10-31T03:54:00Z'
-updated_date: '2026-11-01T14:12:00Z'
+updated_date: '2026-11-01T15:00:00Z'
 labels:
   - derive
   - performance
@@ -39,7 +39,7 @@ Record the cause in tmp/journal.md; doc/db regenerated if a function changes; no
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
 - [x] #1 The slow child is reproduced on its own (EXPLAIN ANALYZE of the child's statements on 401's data) and the cause recorded in tmp/journal.md
-- [ ] #2 After the fix test 401 completes under DB_MEM_LIMIT 4G, its derive children each finish in seconds, and the run's wall time is recorded
+- [x] #2 After the fix test 401 completes under DB_MEM_LIMIT 4G, its derive children each finish in seconds, and the run's wall time is recorded
 - [ ] #3 401's expected output is then re-blessed with every hunk explained, under the same two-review process as STATBUS-480
 <!-- AC:END -->
 
@@ -82,4 +82,6 @@ Independent check of reviewer cow's verdict: (1) the committed diff 4ab621894 eq
 Recheck 2026-10-31 16:37 (statbus_test at 2377212b5, 4 GiB): 401 did NOT pass. The history period children are fixed (76 done, max 183 ms), but the db was OOM-killed at 16:36:56 during derive_statistical_history_facet_period 2026-05 [4096,8192), which had run ~4.7 min (its 73 siblings avg 182 ms). That child alone takes 216 ms; all 76 replayed in one session stay at ~1.2 GiB. So a second, intermittent memory problem remains in the facet phase at 4 GiB. My earlier 'passes at 4G' was overstated: that run completed but exited 1 against the old expected. AC#2 and AC#3 reopened. Reproduction with per-backend sampling running (statbus_test/tmp/run-555-401-facet-oom.sh). The second independent review of the 401 bless (AC#3) is in progress.
 
 2026-11-01 hibiscus. Cause of the 4 GiB OOM found; not fixed yet. postgres/docker-compose.yml never passes DB_SHARED_BUFFERS, DB_WORK_MEM, DB_TEMP_BUFFERS, DB_MAINTENANCE_WORK_MEM etc. to the db container, so start-postgres.sh starts Postgres with its 8G-sized fallbacks (shared_buffers 2GB, work_mem 256MB, temp_buffers 1GB) whatever DB_MEM_LIMIT is. statbus_test at DB_MEM_LIMIT=4G: the container memory limit is 4294967296, the generated .env says shared_buffers 1GB, the running postgres cmdline has shared_buffers=2GB. During the facet reduce the cgroup held shmem 1.87->2.15 GB + anon ~580 MB + file ~2.5 GB, and the reduce's MERGE fills the 2 GB pool. The wiring has been missing since memory sizing was added (3105271af, Sep 2025). Facet children are not the cause (replayed in one session: max 291 ms, ~4 MB), and there is no lock contention (one active backend, no ungranted locks). Scratch DBs in statbus_test dropped; it is back at 8G and clean.
+
+2026-11-01 wiring fix. Red: TestDbMemoryTuningReachesTheDatabaseContainer failed for all 9 DB_* keys start-postgres.sh reads (tmp/555-wiring-red.log). Fix: postgres/docker-compose.yml passes them to the db container with :? guards. Green: cli/internal/config and cli/cmd pass. Upgrades are safe: the upgrade runs ./sb config generate with the new binary before restarting the db (service.go StepConfigGenerate). Real stack (statbus_test): at DB_MEM_LIMIT=4G postgres now runs shared_buffers=1GB, work_mem=128MB, temp_buffers=512MB, maintenance_work_mem=512MB (before: 2GB/256MB/1GB/1GB). 401 at 4G: completes, 0 OOM samples, max 2.70 GiB, 315 s; data identical to expected; only the analysis speed bucket changes GOOD->OK (770-957 rows/s), which is not blessable. 401 at 8G (its standard): ok, exit 0, 164 s, matches the re-blessed expected exactly.
 <!-- SECTION:NOTES:END -->

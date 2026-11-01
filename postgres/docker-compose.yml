@@ -37,6 +37,19 @@ services:
       JWT_EXP: ${ACCESS_JWT_EXPIRY:?ACCESS_JWT_EXPIRY must be set in the generated .env}
       DEPLOYMENT_SLOT_CODE: ${DEPLOYMENT_SLOT_CODE:?DEPLOYMENT_SLOT_CODE must be set in the generated .env}
       DEBUG: ${DEBUG:?DEBUG must be set in the generated .env}
+      # PostgreSQL memory tuning, derived from DB_MEM_LIMIT by `./sb config
+      # generate` (computeDbMemory) and turned into `-c` arguments by
+      # start-postgres.sh. Without them postgres starts with settings sized
+      # for 8 GiB whatever the container limit is (STATBUS-555).
+      DB_SHARED_BUFFERS: ${DB_SHARED_BUFFERS:?DB_SHARED_BUFFERS must be set in the generated .env}
+      DB_MAINTENANCE_WORK_MEM: ${DB_MAINTENANCE_WORK_MEM:?DB_MAINTENANCE_WORK_MEM must be set in the generated .env}
+      DB_EFFECTIVE_CACHE_SIZE: ${DB_EFFECTIVE_CACHE_SIZE:?DB_EFFECTIVE_CACHE_SIZE must be set in the generated .env}
+      DB_WORK_MEM: ${DB_WORK_MEM:?DB_WORK_MEM must be set in the generated .env}
+      DB_TEMP_BUFFERS: ${DB_TEMP_BUFFERS:?DB_TEMP_BUFFERS must be set in the generated .env}
+      DB_WAL_BUFFERS: ${DB_WAL_BUFFERS:?DB_WAL_BUFFERS must be set in the generated .env}
+      DB_MAX_CONNECTIONS: ${DB_MAX_CONNECTIONS:?DB_MAX_CONNECTIONS must be set in the generated .env}
+      DB_MAX_WAL_SIZE: ${DB_MAX_WAL_SIZE:?DB_MAX_WAL_SIZE must be set in the generated .env}
+      DB_MIN_WAL_SIZE: ${DB_MIN_WAL_SIZE:?DB_MIN_WAL_SIZE must be set in the generated .env}
     volumes:
       - statbus-db-data:/var/lib/postgresql/data
       - ./postgresql.conf:/etc/postgresql/postgresql.conf:ro
