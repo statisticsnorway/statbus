@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - hibiscus
 created_date: '2026-10-31T03:54:00Z'
-updated_date: '2026-10-31T16:38:00Z'
+updated_date: '2026-11-01T14:12:00Z'
 labels:
   - derive
   - performance
@@ -80,4 +80,6 @@ Final loop over the whole result at 69c802fda (tmp/555-final-selection.log): sel
 Independent check of reviewer cow's verdict: (1) the committed diff 4ab621894 equals the reviewed diff line for line (14 changed lines: 97->103 rows plus 6 task rows, and 99->105 x3). (2) 401 loads the 2024 BRREG definitions (test/sql/401 lines 39-40), and 610c42995 added date_consistency to both, so the attribution holds. (3) 610's own 303 change 376->400 (+24 for 8 jobs) confirms +3 per single-batch job. (4) No GOOD/OK/SLOW line changed; expected status stays ES OK/GOOD, LU OK/GOOD (lines 359-360). (5) The tail after the analytics section has the same length.
 
 Recheck 2026-10-31 16:37 (statbus_test at 2377212b5, 4 GiB): 401 did NOT pass. The history period children are fixed (76 done, max 183 ms), but the db was OOM-killed at 16:36:56 during derive_statistical_history_facet_period 2026-05 [4096,8192), which had run ~4.7 min (its 73 siblings avg 182 ms). That child alone takes 216 ms; all 76 replayed in one session stay at ~1.2 GiB. So a second, intermittent memory problem remains in the facet phase at 4 GiB. My earlier 'passes at 4G' was overstated: that run completed but exited 1 against the old expected. AC#2 and AC#3 reopened. Reproduction with per-backend sampling running (statbus_test/tmp/run-555-401-facet-oom.sh). The second independent review of the 401 bless (AC#3) is in progress.
+
+2026-11-01 hibiscus. Cause of the 4 GiB OOM found; not fixed yet. postgres/docker-compose.yml never passes DB_SHARED_BUFFERS, DB_WORK_MEM, DB_TEMP_BUFFERS, DB_MAINTENANCE_WORK_MEM etc. to the db container, so start-postgres.sh starts Postgres with its 8G-sized fallbacks (shared_buffers 2GB, work_mem 256MB, temp_buffers 1GB) whatever DB_MEM_LIMIT is. statbus_test at DB_MEM_LIMIT=4G: the container memory limit is 4294967296, the generated .env says shared_buffers 1GB, the running postgres cmdline has shared_buffers=2GB. During the facet reduce the cgroup held shmem 1.87->2.15 GB + anon ~580 MB + file ~2.5 GB, and the reduce's MERGE fills the 2 GB pool. The wiring has been missing since memory sizing was added (3105271af, Sep 2025). Facet children are not the cause (replayed in one session: max 291 ms, ~4 MB), and there is no lock contention (one active backend, no ungranted locks). Scratch DBs in statbus_test dropped; it is back at 8G and clean.
 <!-- SECTION:NOTES:END -->
