@@ -3,11 +3,11 @@ id: STATBUS-555
 title: >-
   Test 401: history derive children take ~50 s each (200-700x dev) and the run
   is OOM-killed in statistical_history_facet_reduce
-status: In Progress
+status: Done
 assignee:
   - hibiscus
 created_date: '2026-10-31T03:54:00Z'
-updated_date: '2026-11-01T15:06:00Z'
+updated_date: '2026-11-01T18:18:00Z'
 labels:
   - derive
   - performance
@@ -86,4 +86,6 @@ Recheck 2026-10-31 16:37 (statbus_test at 2377212b5, 4 GiB): 401 did NOT pass. T
 2026-11-01 wiring fix. Red: TestDbMemoryTuningReachesTheDatabaseContainer failed for all 9 DB_* keys start-postgres.sh reads (tmp/555-wiring-red.log). Fix: postgres/docker-compose.yml passes them to the db container with :? guards. Green: cli/internal/config and cli/cmd pass. Upgrades are safe: the upgrade runs ./sb config generate with the new binary before restarting the db (service.go StepConfigGenerate). Real stack (statbus_test): at DB_MEM_LIMIT=4G postgres now runs shared_buffers=1GB, work_mem=128MB, temp_buffers=512MB, maintenance_work_mem=512MB (before: 2GB/256MB/1GB/1GB). 401 at 4G: completes, 0 OOM samples, max 2.70 GiB, 315 s; data identical to expected; only the analysis speed bucket changes GOOD->OK (770-957 rows/s), which is not blessable. 401 at 8G (its standard): ok, exit 0, 164 s, matches the re-blessed expected exactly.
 
 AC#3 second independent review: cricket APPROVE. All 4 hunks (14 lines) come from 610c42995, by the same arithmetic as cow: 2 jobs x 1 batch x 3 tasks per step = +6. No other line changed; no data change; status buckets unchanged at 8G. Two reviews done, as in STATBUS-480. Follow-up noted by cricket: the analysis status buckets are timing-derived, so 401's expected matches at the standard 8 GiB (verified on f4f6c98cb) and not at 4 GiB (GOOD->OK). 401 runs at 8G; the default becomes 8G in STATBUS-557.
+
+Released in v2026.11.0-rc.01 (c65d1802a). Gate green: orchestrator 41330516530, smoke 41330619252, LXD fleet 41331822237, arcs 41331898761 (all upgrade/rollback arcs pass with the :? DB_* guards), Fast Tests 41330516467, dev deploy 41331689739.
 <!-- SECTION:NOTES:END -->
