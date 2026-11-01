@@ -358,7 +358,7 @@ lxd_checkpoint_for_scenario() {
         printf 'installed-%s-standalone' "$LXD_CANDIDATE"; return
     fi
     case "$slug" in
-        0-happy-install|0-interactive-admin-password|0-interactive-setup-choices|4-install-*|5-install-cert-repair-via-cert-install|5-install-interrupted-*)
+        0-happy-install|0-interactive-admin-password|0-interactive-setup-choices|4-install-*|5-install-interrupted-*)
             printf 'hardened-nothing-installed'; return ;;
     esac
     if grep -Eq 'bootstrap_install_test_vm "\$VM_NAME" ""' "$file"; then
