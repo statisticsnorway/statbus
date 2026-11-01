@@ -3,10 +3,11 @@ id: STATBUS-198
 title: >-
   One source of truth for running the BRREG import: the loader script, the
   measuring runner, no test 500
-status: To Do
-assignee: []
+status: In Progress
+assignee:
+  - hibiscus
 created_date: 2026-08-01 10:44
-updated_date: '2026-10-31T13:29:00Z'
+updated_date: '2026-11-01T15:46:00Z'
 labels:
   - harness
   - testing
@@ -53,6 +54,8 @@ rg shows no reference to test 500, and no second copy of the job-creation and lo
 
 <!-- SECTION:NOTES:BEGIN -->
 2026-10-31, rewritten with the owner: the original premise (one transaction) was wrong, so this ticket now carries the cleanup to one source of truth. Grounding: test_concurrent_worker selection run on 2026-04-29 took 494 s (tmp/test_concurrent_44233.log); downloads runs on 2026-02-08, one success and one crash (server closed the connection), with an older script.
+
+2026-11-01 owner approved: (1) the runner uses the loader's job names; _concurrent goes. (2) samples/norway/brreg/brreg-import-selection.sh and brreg-import-downloads-from-tmp.sh stay the only job creation and CSV load, gaining an option to target a database; without it they behave as today, for cloud.sh import. (3) test/test_concurrent_worker.{sh,py} is renamed test/import_benchmark.{sh,py}, keeping --dataset/--repeated-calls/--timing; its recording becomes test/expected/performance/import_benchmark_repeated_calls.perf. Test 500 and its expected are removed; 401 stays (correctness, in-repo data, 8G).
 <!-- SECTION:NOTES:END -->
 
 ## Status 2026-09-24
