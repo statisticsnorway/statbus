@@ -22,6 +22,10 @@ assert_harness_https_passes() {
 # containers are "started", which is well before Caddy + app are actually
 # serving). Standalone uses CA-verified HTTPS on 443. Other modes retain
 # their slot HTTP binding; override via HEALTH_PORT if needed.
+#
+# A box is healthy only while its recurring maintenance schedule is intact, so
+# the startup-seed contract is asserted here too: every upgrade scenario and
+# the arcs all end through this shared check (STATBUS-551 AC5).
 assert_health_passes() {
     local vm_name="$1"
     local mode="${HARNESS_DEPLOYMENT_MODE:-standalone}"
@@ -53,7 +57,8 @@ assert_health_passes() {
         http_code=$(VM_EXEC bash -c "curl -s -m 3 ${curl_options} '${url}' -o /dev/null -w '%{http_code}'" 2>/dev/null || echo "000")
         if echo "$http_code" | grep "^[23]" >/dev/null; then
             echo "  ✓ health check passed (attempt $i, code=$http_code, ${i}×5s)"
-            return 0
+            assert_recurring_maintenance_tasks "$vm_name"
+            return $?
         fi
         echo "  … waiting for app on $vm_name:$port (attempt $i/60, code=$http_code)"
         # Periodic diagnostic so we can see WHY connections are refused.
@@ -67,6 +72,66 @@ assert_health_passes() {
     done
     echo "  ✗ health check FAILED after 60 attempts (5 min budget exhausted)"
     return 1
+}
+
+# assert_recurring_maintenance_tasks <vm_name>
+#
+# Every command the worker's startup seed is responsible for must have its next
+# occurrence pending, and the worker log must carry no seed failure. Recurrence
+# is a property of the COMMAND (worker.command_registry.schedule_interval), and
+# the runner schedules the next run after each one; with no pending row a
+# recurring command never runs again on its own (STATBUS-263, STATBUS-551).
+#
+# The expected set is read from worker.command_registry — the same source
+# worker.seed_recurring_tasks() seeds from — so a newly declared recurring
+# command is covered without a second list to keep in step.
+assert_recurring_maintenance_tasks() {
+    local vm_name="$1"
+    local expected missing count _rc=0 failed=0
+
+    expected=$(VM_EXEC bash -c "cd ~/statbus && echo \"SELECT command FROM worker.command_registry WHERE schedule_interval IS NOT NULL ORDER BY command;\" | ./sb psql -t -A" 2>/dev/null | tr -d '\r') || _rc=$?
+    if [ "$_rc" -ne 0 ]; then
+        echo "  ⚠ could not read worker.command_registry on VM (VM_EXEC rc=$_rc) — INFRA error; skipping" >&2
+        return 0
+    fi
+    if [ -z "$expected" ]; then
+        echo "  ✗ no recurring maintenance commands declared in worker.command_registry"
+        return 1
+    fi
+
+    _rc=0
+    missing=$(VM_EXEC bash -c "cd ~/statbus && echo \"SELECT cr.command FROM worker.command_registry AS cr WHERE cr.schedule_interval IS NOT NULL AND NOT EXISTS (SELECT 1 FROM worker.tasks AS t WHERE t.command = cr.command AND t.state = 'pending'::worker.task_state) ORDER BY cr.command;\" | ./sb psql -t -A" 2>/dev/null | tr -d '\r') || _rc=$?
+    if [ "$_rc" -ne 0 ]; then
+        echo "  ⚠ could not read worker.tasks on VM (VM_EXEC rc=$_rc) — INFRA error; skipping" >&2
+        return 0
+    fi
+    if [ -n "$missing" ]; then
+        echo "  ✗ recurring maintenance command(s) with no pending row: $(echo "$missing" | tr '\n' ' ')"
+        failed=1
+    else
+        echo "  ✓ every recurring maintenance command has a pending row ($(echo "$expected" | tr '\n' ' '))"
+    fi
+
+    # The seed waits out an upgrade's read-only window instead of widening the
+    # exemption (STATBUS-551). A failure line means a start gave up on seeding.
+    _rc=0
+    count=$(VM_EXEC bash -c "cd ~/statbus && docker compose logs --no-color worker 2>/dev/null | grep -F -c 'Failed to seed recurring maintenance tasks' || true" 2>/dev/null | tr -d ' \r\n') || _rc=$?
+    if [ "$_rc" -ne 0 ]; then
+        echo "  ⚠ could not read the worker log on VM (VM_EXEC rc=$_rc) — INFRA error; skipping" >&2
+        return 0
+    fi
+    if ! [[ "$count" =~ ^[0-9]+$ ]]; then
+        echo "  ⚠ could not parse the worker log scan ('$count') — INFRA error; skipping" >&2
+        return 0
+    fi
+    if [ "$count" -gt 0 ]; then
+        echo "  ✗ worker log has $count 'Failed to seed recurring maintenance tasks' line(s)"
+        failed=1
+    else
+        echo "  ✓ worker log has no 'Failed to seed recurring maintenance tasks' line"
+    fi
+
+    return "$failed"
 }
 
 # Verify a public.upgrade row is in the expected state.

@@ -587,6 +587,9 @@ echo "  ✓ B superseded, C rolled_back, zero terminal→completed; box runs B (
 echo ""
 echo "── source app health remains green after C rollback and install ──"
 assert_direct_auth_status_healthy "after C rolled back and install refused resurrection"
+# This arc ends on a rollback, not on assert_health_passes, so the shared
+# startup-seed end state is asserted here explicitly (STATBUS-551 AC5).
+assert_recurring_maintenance_tasks "$VM_NAME"
 [ "$(psql_scalar 'SELECT count(*) FROM public.upgrade WHERE tree_convergence_required;')" = 0 ] || { echo "✗ durable convergence obligation was not cleared" >&2; exit 1; }
 VM_SCRIPT_INLINE crollback-confirm-source-daemon "$UPGRADE_UNIT" "$B_SHORT" <<'CONFIRM_SOURCE_DAEMON'
 set -euo pipefail

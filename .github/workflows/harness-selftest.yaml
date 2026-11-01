@@ -181,3 +181,5 @@ jobs:
             bash "test/install-recovery/tests/$t"
             echo "::endgroup::"
           done
+      - name: Prove the upgrade end state asserts every recurring maintenance task (STATBUS-551)
+        run: bash test/install-recovery/tests/recurring-maintenance-tasks-test.sh
