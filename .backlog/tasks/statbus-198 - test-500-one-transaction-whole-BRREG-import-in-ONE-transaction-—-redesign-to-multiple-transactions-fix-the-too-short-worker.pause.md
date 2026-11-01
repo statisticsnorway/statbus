@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - hibiscus
 created_date: 2026-08-01 10:44
-updated_date: '2026-11-01T15:46:00Z'
+updated_date: '2026-11-01T16:32:00Z'
 labels:
   - harness
   - testing
@@ -44,10 +44,10 @@ rg shows no reference to test 500, and no second copy of the job-creation and lo
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 The BRREG loader scripts (downloads and selection) can target a given database, and remain the way ./cloud.sh import loads an installation
-- [ ] #2 test_concurrent_worker calls those loader scripts instead of its own job creation and copy code, for both --dataset selection and --dataset downloads
-- [ ] #3 Test 500 and its expected output are removed, and docs and conventions point to test_concurrent_worker for the full import
-- [ ] #4 A selection run of test_concurrent_worker after the change completes and prints the timing table
+- [x] #1 The BRREG loader scripts (downloads and selection) can target a given database, and remain the way ./cloud.sh import loads an installation
+- [x] #2 test_concurrent_worker calls those loader scripts instead of its own job creation and copy code, for both --dataset selection and --dataset downloads
+- [x] #3 Test 500 and its expected output are removed, and docs and conventions point to test_concurrent_worker for the full import
+- [x] #4 A selection run of test_concurrent_worker after the change completes and prints the timing table
 <!-- AC:END -->
 
 ## Implementation Notes
@@ -56,6 +56,8 @@ rg shows no reference to test 500, and no second copy of the job-creation and lo
 2026-10-31, rewritten with the owner: the original premise (one transaction) was wrong, so this ticket now carries the cleanup to one source of truth. Grounding: test_concurrent_worker selection run on 2026-04-29 took 494 s (tmp/test_concurrent_44233.log); downloads runs on 2026-02-08, one success and one crash (server closed the connection), with an older script.
 
 2026-11-01 owner approved: (1) the runner uses the loader's job names; _concurrent goes. (2) samples/norway/brreg/brreg-import-selection.sh and brreg-import-downloads-from-tmp.sh stay the only job creation and CSV load, gaining an option to target a database; without it they behave as today, for cloud.sh import. (3) test/test_concurrent_worker.{sh,py} is renamed test/import_benchmark.{sh,py}, keeping --dataset/--repeated-calls/--timing; its recording becomes test/expected/performance/import_benchmark_repeated_calls.perf. Test 500 and its expected are removed; 401 stays (correctness, in-repo data, 8G).
+
+Done 2026-11-01. (1) Both BRREG loader scripts take --database NAME, through one sb_psql helper that stops on the first error (ON_ERROR_STOP); without it they load the deployment's own db as before, for ./cloud.sh import. Downloads smoke into a scratch db: exit 0, jobs import_hovedenhet_2025 1,134,476 rows, import_underenhet_2025 823,768, import_roller_2025 33,710; statbus_local untouched. (2) test/test_concurrent_worker.{sh,py} renamed test/import_benchmark.{sh,py}; it loads selection and downloads through those scripts instead of its own copy; the _concurrent job names are gone; databases and logs are import_benchmark_*. (3) Test 500 and its expected removed; test/CONVENTIONS.md points to import_benchmark --dataset downloads. (4) Selection run (tmp/198-benchmark-selection-3.log): exit 0, worker 156 s, counts consistent (checks A/B/C pass), timing table printed with '4 serialised analytics cycle(s), one per finished import job'. The loader finishes 3 jobs one after another, so analytics run per job as on a real install (was 1 cycle when the runner created all jobs at once). Repeated-call check: one transaction per call, as the worker runs; commands run fewer than 8 times are not replayed (replaying statistical_history_facet_reduce 8 times OOM-killed the 8 GiB db); all replayed commands are 0.36x-1.49x.
 <!-- SECTION:NOTES:END -->
 
 ## Status 2026-09-24

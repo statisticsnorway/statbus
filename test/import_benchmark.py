@@ -1,13 +1,15 @@
 #!/usr/bin/env python3
 """
-Test concurrent worker processing with isolated database.
+Benchmark the BRREG import through the real worker, in an isolated database.
 
-1. Creates isolated DB from test template (POSTGRES_TEST_DB or statbus_test_template)
-2. Loads test data (like test 401) via psql
-3. Runs the real Crystal worker binary with --stop-when-idle
-4. Reports results from worker stdout and final task states
+1. Creates an isolated DB from the test template (POSTGRES_TEST_DB or statbus_test_template)
+2. Loads the dataset with its loader script (samples/norway/brreg/), the same
+   script ./cloud.sh import runs on an installation
+3. Runs the real worker binary with --stop-when-idle
+4. Reports the time per command, checks counts, records benchmarks, and replays
+   each child command repeatedly to catch plans that degrade after the 5th call
 
-Run with: ./test/test_concurrent_worker.sh [-t TIMEOUT]
+Run with: ./test/import_benchmark.sh [--dataset selection|downloads] [-t TIMEOUT]
 """
 
 import os
@@ -51,7 +53,7 @@ def setup_logging():
     global LOG_FILE
     tmp_dir = WORKSPACE / "tmp"
     tmp_dir.mkdir(exist_ok=True)
-    LOG_FILE = tmp_dir / f"test_concurrent_{os.getpid()}.log"
+    LOG_FILE = tmp_dir / f"import_benchmark_{os.getpid()}.log"
 
     # Create logger
     logger = logging.getLogger("concurrent_worker")
@@ -161,7 +163,7 @@ def run_psql_file(filepath, dbname=None):
 def create_isolated_db():
     """Create isolated test database from template"""
     global TEST_DB
-    TEST_DB = f"test_concurrent_{os.getpid()}"
+    TEST_DB = f"import_benchmark_{os.getpid()}"
 
     log_print(f"{BLUE}Creating isolated database: {TEST_DB}{NC}")
 
@@ -209,19 +211,19 @@ def drop_isolated_db(force=False):
 
 
 def drop_all_test_databases():
-    """Drop ALL test_concurrent_* databases"""
+    """Drop ALL import_benchmark_* databases"""
     conn = get_conn(dbname="postgres")
     conn.autocommit = True
     with conn.cursor() as cur:
         cur.execute("""
             SELECT datname FROM pg_database
-            WHERE datname LIKE 'test_concurrent_%'
+            WHERE datname LIKE 'import_benchmark_%'
             ORDER BY datname
         """)
         dbs = [row[0] for row in cur.fetchall()]
 
         if not dbs:
-            log_print("No test_concurrent_* databases found.")
+            log_print("No import_benchmark_* databases found.")
             conn.close()
             return
 
@@ -247,132 +249,59 @@ def drop_all_test_databases():
 DATASETS = {
     "selection": {
         "description": "BRREG selection (~29K rows, like test 401)",
-        "definition_year": "2024",
-        "lu_slug": "import_hovedenhet_concurrent",
-        "es_slug": "import_underenhet_concurrent",
-        "lu_csv": "samples/norway/legal_unit/enheter-selection.csv",
-        "es_csv": "samples/norway/establishment/underenheter-selection.csv",
-        "roller_csv": "samples/norway/legal_relationship/roller-selection.csv",
-        "roller_slug": "import_roller_concurrent",
+        "loader": "samples/norway/brreg/brreg-import-selection.sh",
+        "files": [
+            "samples/norway/legal_unit/enheter-selection.csv",
+            "samples/norway/establishment/underenheter-selection.csv",
+            "samples/norway/legal_relationship/roller-selection.csv",
+        ],
+        "slug_like": "import_%_selection",
     },
     "downloads": {
-        "description": "BRREG full downloads (~1M rows, like test 403)",
-        "definition_year": "2025",
-        "lu_slug": "import_hovedenhet_2025",
-        "es_slug": "import_underenhet_2025",
-        "lu_csv": "tmp/enheter.csv",
-        "es_csv": "tmp/underenheter_filtered.csv",
-        "roller_csv": "tmp/roller_legal_relationships.csv",
-        "roller_slug": "import_roller_2025",
+        "description": "BRREG full downloads (~2.4M rows, the files in tmp/)",
+        "loader": "samples/norway/brreg/brreg-import-downloads-from-tmp.sh",
+        "files": [
+            "tmp/enheter.csv",
+            "tmp/underenheter_filtered.csv",
+        ],
+        "slug_like": "import_%_2025",
     },
 }
 
 
 def setup_test_data(dataset="selection"):
-    """Setup test data from the specified dataset."""
+    """Load the dataset through its loader script, the same one ./cloud.sh
+    import runs on an installation, into this run's isolated database."""
     ds = DATASETS[dataset]
-    year = ds["definition_year"]
 
     log_print(f"\n{BLUE}Setting up test data: {ds['description']}...{NC}")
 
-    # Check that CSV files exist
-    for label, path in [("LU", ds["lu_csv"]), ("ES", ds["es_csv"]), ("Roller", ds["roller_csv"])]:
+    for path in ds["files"]:
         full_path = WORKSPACE / path
         if not full_path.exists():
-            log_print(f"{RED}ERROR: {label} CSV not found: {full_path}{NC}", "error")
+            log_print(f"{RED}ERROR: CSV not found: {full_path}{NC}", "error")
             if dataset == "downloads":
-                log_print(f"  Download from BRREG and place in tmp/", "error")
+                log_print("  Download with samples/norway/brreg/download-to-tmp.sh", "error")
             sys.exit(1)
         size_mb = full_path.stat().st_size / (1024 * 1024)
-        log_print(f"  {label} CSV: {path} ({size_mb:.1f} MB)")
+        log_print(f"  {path} ({size_mb:.1f} MB)")
 
-    # Run setup files via psql
+    # The loader needs a user to own the jobs; test/setup.sql creates
+    # test.admin@statbus.org in the isolated database.
     log_print("  Running test/setup.sql...")
     run_psql_file("test/setup.sql")
 
-    log_print("  Running samples/norway/getting-started.sql...")
-    run_psql_file("samples/norway/getting-started.sql")
-
-    log_print(f"  Running import definition for hovedenhet ({year})...")
-    run_psql_file(f"samples/norway/brreg/create-import-definition-hovedenhet-{year}.sql")
-
-    log_print(f"  Running import definition for underenhet ({year})...")
-    run_psql_file(f"samples/norway/brreg/create-import-definition-underenhet-{year}.sql")
-
-    # Create import jobs
-    log_print("  Creating import jobs...")
-    run_psql(f"""
-BEGIN;
-
-CALL test.set_user_from_email('test.admin@statbus.org');
-
--- Create LU import job (uploaded FIRST = higher priority)
-WITH def_he AS (
-  SELECT id FROM public.import_definition WHERE slug = 'brreg_hovedenhet_{year}'
-)
-INSERT INTO public.import_job (definition_id, slug, default_valid_from, default_valid_to, description, user_id)
-SELECT def_he.id, '{ds["lu_slug"]}', '2025-01-01'::date, 'infinity'::date, 'Concurrent test LU',
-       (SELECT id FROM public.user WHERE email = 'test.admin@statbus.org')
-FROM def_he
-ON CONFLICT (slug) DO NOTHING;
-
-COMMIT;
-""")
-
-    # Load LU data FIRST (priority by upload order)
-    log_print(f"  Loading LU CSV data ({ds['lu_csv']})...")
-    run_psql(f"\\copy public.{ds['lu_slug']}_upload FROM '{ds['lu_csv']}' WITH CSV HEADER")
-
-    # Create ES import job SECOND
-    run_psql(f"""
-BEGIN;
-
-CALL test.set_user_from_email('test.admin@statbus.org');
-
--- Create ES import job (uploaded SECOND = lower priority)
-WITH def_ue AS (
-  SELECT id FROM public.import_definition WHERE slug = 'brreg_underenhet_{year}'
-)
-INSERT INTO public.import_job (definition_id, slug, default_valid_from, default_valid_to, description, user_id)
-SELECT def_ue.id, '{ds["es_slug"]}', '2025-01-01'::date, 'infinity'::date, 'Concurrent test ES',
-       (SELECT id FROM public.user WHERE email = 'test.admin@statbus.org')
-FROM def_ue
-ON CONFLICT (slug) DO NOTHING;
-
-COMMIT;
-""")
-
-    # Load ES data SECOND
-    log_print(f"  Loading ES CSV data ({ds['es_csv']})...")
-    run_psql(f"\\copy public.{ds['es_slug']}_upload FROM '{ds['es_csv']}' WITH CSV HEADER")
-
-    # Load roller (legal relationships) THIRD
-    log_print("  Seeding legal relationship types...")
-    run_psql_file("samples/norway/brreg/seed-legal-rel-types.sql")
-
-    log_print("  Creating import definition for roller...")
-    run_psql_file("samples/norway/brreg/create-import-definition-roller-2025.sql")
-
-    log_print("  Creating roller import job...")
-    run_psql(f"""
-BEGIN;
-
-CALL test.set_user_from_email('test.admin@statbus.org');
-
-WITH def_ro AS (
-  SELECT id FROM public.import_definition WHERE slug = 'brreg_roller_2025'
-)
-INSERT INTO public.import_job (definition_id, slug, default_valid_from, default_valid_to, description, user_id)
-SELECT def_ro.id, '{ds["roller_slug"]}', '2025-01-01'::date, 'infinity'::date, 'Concurrent test Roller',
-       (SELECT id FROM public.user WHERE email = 'test.admin@statbus.org')
-FROM def_ro
-ON CONFLICT (slug) DO NOTHING;
-
-COMMIT;
-""")
-
-    log_print(f"  Loading roller CSV data ({ds['roller_csv']})...")
-    run_psql(f"\\copy public.{ds['roller_slug']}_upload FROM '{ds['roller_csv']}' WITH CSV HEADER")
+    log_print(f"  Running {ds['loader']} --database {TEST_DB}...")
+    env = os.environ.copy()
+    env["USER_EMAIL"] = "test.admin@statbus.org"
+    result = subprocess.run(
+        [str(WORKSPACE / ds["loader"]), "--database", TEST_DB],
+        cwd=WORKSPACE, env=env, text=True, capture_output=True,
+    )
+    log.debug(result.stdout)
+    if result.returncode != 0:
+        log_print(f"{RED}Loader failed ({result.returncode}):{NC}\n{result.stdout[-2000:]}\n{result.stderr[-2000:]}", "error")
+        sys.exit(1)
 
     # Show task state
     log_print(f"\n{BLUE}Test data loaded. Task states:{NC}")
@@ -389,14 +318,15 @@ COMMIT;
         cur.execute("""
             SELECT slug, state, total_rows
             FROM public.import_job
-            WHERE slug LIKE 'import_%_concurrent'
-               OR slug LIKE 'import_%_2025'
+            WHERE slug LIKE %s
             ORDER BY slug
-        """)
+        """, (ds["slug_like"],))
         log_print(f"\n{BLUE}Import jobs:{NC}")
         for row in cur.fetchall():
             log_print(f"  {row[0]}: state={row[1]}, rows={row[2]}")
     conn.close()
+
+
 
 
 # ============================================================================
@@ -525,7 +455,13 @@ def run_concurrent_test(timeout_seconds=300, debug=True):
         """)
         timing_rows = cur.fetchall()
         if timing_rows:
-            log_print(f"\n  {BLUE}Pipeline timing breakdown:{NC}")
+            # The loader creates one job per file and the worker finishes them
+            # one after another, so analytics run once per finished job
+            # (serialised cycles), as on a real installation. Before
+            # STATBUS-198 the runner created all jobs at once: one cycle.
+            cur.execute("SELECT count(*) FROM worker.tasks WHERE command = 'derive_statistical_unit'")
+            cycles = cur.fetchone()[0]
+            log_print(f"\n  {BLUE}Pipeline timing breakdown ({cycles} serialised analytics cycle(s), one per finished import job):{NC}")
             log_print(f"    {'Command':<50} {'#':>4} {'Total':>8} {'Min':>8} {'Max':>8} {'Avg':>8}")
             log_print(f"    {'-'*50} {'----':>4} {'--------':>8} {'--------':>8} {'--------':>8} {'--------':>8}")
             for row in timing_rows:
@@ -693,7 +629,7 @@ def run_hierarchy_benchmarks():
     """Run EXPLAIN ANALYZE benchmarks for hierarchy functions and write to perf file."""
     perf_dir = WORKSPACE / "test" / "expected" / "performance"
     perf_dir.mkdir(parents=True, exist_ok=True)
-    perf_file = perf_dir / "test_concurrent_worker_hierarchy.perf"
+    perf_file = perf_dir / "import_benchmark_hierarchy.perf"
 
     log_print(f"\n{BLUE}Running hierarchy function benchmarks...{NC}")
 
@@ -798,7 +734,7 @@ def run_repeated_call_benchmarks():
     """
     perf_dir = WORKSPACE / "test" / "expected" / "performance"
     perf_dir.mkdir(parents=True, exist_ok=True)
-    perf_file = perf_dir / "test_concurrent_worker_repeated_calls.perf"
+    perf_file = perf_dir / "import_benchmark_repeated_calls.perf"
 
     log_print(f"\n{BLUE}Replaying each child command {REPEATED_CALLS} times in one session...{NC}")
 
@@ -806,22 +742,35 @@ def run_repeated_call_benchmarks():
     conn.autocommit = False
     rows = []
     with conn.cursor() as cur:
+        # Only commands this run executed at least REPEATED_CALLS times: a
+        # plan can only switch to generic from the sixth execution, so a
+        # command run a handful of times per import (the reduce steps) never
+        # reaches it, and replaying their whole-table work eight times only
+        # measures memory pressure.
         cur.execute("""
             SELECT DISTINCT ON (t.command) t.command, c.handler_procedure, t.payload
               FROM worker.tasks AS t
               JOIN worker.command_registry AS c USING (command)
              WHERE t.state = 'completed' AND t.parent_id IS NOT NULL
+               AND t.command IN (
+                     SELECT command FROM worker.tasks
+                      WHERE state = 'completed'
+                      GROUP BY command HAVING count(*) >= %s)
              ORDER BY t.command, t.id DESC
-        """)
+        """, (REPEATED_CALLS,))
         commands = cur.fetchall()
         conn.rollback()
         for command, procedure, payload in commands:
             times_ms = []
             for _ in range(REPEATED_CALLS):
+                # One transaction per call, rolled back, as the worker commits
+                # each task: the plan cache lives in the session, so repeated
+                # calls still reach the generic plan, while row versions and
+                # locks do not pile up in one transaction and skew the timing.
                 start = time.perf_counter()
                 cur.execute(f"CALL {procedure}(%s::jsonb)", (psycopg2.extras.Json(payload),))
                 times_ms.append((time.perf_counter() - start) * 1000)
-            conn.rollback()
+                conn.rollback()
             first, last = times_ms[0], times_ms[-1]
             ratio = last / first if first > 0 else 0.0
             rows.append((command, first, last, ratio))
@@ -831,6 +780,7 @@ def run_repeated_call_benchmarks():
     lines = [
         f"# Repeated calls of each child command in one session ({REPEATED_CALLS} calls)",
         f"# Flag: last call more than {REPEATED_CALL_MAX_RATIO}x the first (a generic plan worse than the custom one)",
+        "# Commands run fewer than REPEATED_CALLS times in the import are not replayed.",
         "",
         f"{'command':<45} {'first_ms':>10} {'last_ms':>10} {'ratio':>7}",
     ]
@@ -855,7 +805,7 @@ def list_test_databases():
         cur.execute("""
             SELECT datname, pg_size_pretty(pg_database_size(datname))
             FROM pg_database
-            WHERE datname LIKE 'test_concurrent_%'
+            WHERE datname LIKE 'import_benchmark_%'
             ORDER BY datname
         """)
         rows = cur.fetchall()
@@ -864,7 +814,7 @@ def list_test_databases():
             for row in rows:
                 print(f"  {row[0]} ({row[1]})")
         else:
-            print("No test_concurrent_* databases found.")
+            print("No import_benchmark_* databases found.")
     conn.close()
 
 
@@ -895,7 +845,13 @@ def show_timing(dbname):
         """)
         timing_rows = cur.fetchall()
         if timing_rows:
-            log_print(f"\n  {BLUE}Pipeline timing breakdown:{NC}")
+            # The loader creates one job per file and the worker finishes them
+            # one after another, so analytics run once per finished job
+            # (serialised cycles), as on a real installation. Before
+            # STATBUS-198 the runner created all jobs at once: one cycle.
+            cur.execute("SELECT count(*) FROM worker.tasks WHERE command = 'derive_statistical_unit'")
+            cycles = cur.fetchone()[0]
+            log_print(f"\n  {BLUE}Pipeline timing breakdown ({cycles} serialised analytics cycle(s), one per finished import job):{NC}")
             log_print(f"    {'Command':<50} {'#':>4} {'Total':>8} {'Min':>8} {'Max':>8} {'Avg':>8}")
             log_print(f"    {'-'*50} {'----':>4} {'--------':>8} {'--------':>8} {'--------':>8} {'--------':>8}")
             for row in timing_rows:
@@ -932,7 +888,7 @@ if __name__ == "__main__":
                             f"{k} ({v['description']})" for k, v in DATASETS.items()
                         ) + " (default: selection)")
     parser.add_argument("--cleanup-all", action="store_true",
-                        help="Drop ALL test_concurrent_* databases and exit")
+                        help="Drop ALL import_benchmark_* databases and exit")
     parser.add_argument("--timing", metavar="DBNAME",
                         help="Show pipeline timing from an existing test database and exit")
     parser.add_argument("--repeated-calls", metavar="DBNAME",

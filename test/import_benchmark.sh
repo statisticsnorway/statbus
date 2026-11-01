@@ -1,13 +1,13 @@
 #!/bin/bash
-# Test concurrent worker processing with isolated database
+# Benchmark the BRREG import through the real worker, in an isolated database
 #
 # Usage:
-#   ./test/test_concurrent_worker.sh [-n THREADS] [-t TASKS]
-#   ./test/test_concurrent_worker.sh --list           # List previous test DBs
-#   ./test/test_concurrent_worker.sh --cleanup        # Delete DB after run
+#   ./test/import_benchmark.sh [--dataset selection|downloads] [-t TIMEOUT]
+#   ./test/import_benchmark.sh --list           # List previous benchmark DBs
+#   ./test/import_benchmark.sh --cleanup        # Delete DB after run
 #
 # Databases are RETAINED by default for comparison across runs.
-# Each run creates test_concurrent_<PID> which you can inspect later.
+# Each run creates import_benchmark_<PID> which you can inspect later.
 
 set -euo pipefail
 
@@ -42,4 +42,4 @@ source "$VENV_DIR/bin/activate"
 python3 -c "import psycopg2" 2>/dev/null || pip install -q psycopg2-binary
 
 # Run the test with unbuffered output for real-time monitoring
-exec python3 -u "$WORKSPACE/test/test_concurrent_worker.py" "$@"
+exec python3 -u "$WORKSPACE/test/import_benchmark.py" "$@"

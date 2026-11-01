@@ -169,7 +169,7 @@ When in doubt, refer to the shell script that corresponds to the type of import 
 Different import processes may use different versions of the import definitions, which correspond to the format of the source data files. It's crucial to use the correct definition for the given data.
 
 -   **Selection Imports**: These typically use a stable, well-defined format for a given period. As of this writing, selection imports (like those in `test/sql/310_..._selection.sql`) use the `brreg_..._2024` import definitions.
--   **Full/Current Imports**: These imports handle the latest available data format from the source. As of this writing, full downloads (like those in `test/sql/311_..._downloads.sql` and the `brreg-import-downloads-from-tmp.sh` script) use the `brreg_..._2025` import definitions.
+-   **Full/Current Imports**: These imports handle the latest available data format from the source. As of this writing, full downloads (the `brreg-import-downloads-from-tmp.sh` script) use the `brreg_..._2025` import definitions. The full download is not a pg_regress test; run it with `./test/import_benchmark.sh --dataset downloads`, which loads it through that script into an isolated database and runs the real worker.
 
 Always ensure the test or script creating an `import_job` references the `import_definition` that matches the format of the data being loaded.
 
