@@ -3,10 +3,10 @@ id: STATBUS-551
 title: >-
   Worker skips seeding recurring maintenance when it starts inside the upgrade's
   read-only window
-status: Done
+status: In Progress
 assignee: []
 created_date: '2026-10-30T19:31:00Z'
-updated_date: '2026-11-01T15:18:00Z'
+updated_date: '2026-11-01T15:22:00Z'
 labels:
   - worker
   - upgrade
@@ -37,6 +37,7 @@ The seed's comment in cli/src/worker.cr states why it waits rather than being ex
 - [x] #2 After the fix the same test ends with every recurring command pending, and a scan of the worker log finds no 'Failed to seed recurring maintenance tasks' line
 - [x] #3 Fast Tests green on ae0fdbde9 or later, with the step 'Worker started read-only restores recurring tasks once writable (STATBUS-551)' passing (run ID recorded)
 - [x] #4 The rc.03 LXD fleet passes, and an upgrade scenario's captured worker log shows the read-only INFO line and no 'Failed to seed recurring maintenance tasks' line (run ID and capture recorded)
+- [ ] #5 Every upgrade scenario ends by asserting that every recurring maintenance command the worker seeds is present in worker.tasks, and that the worker log has no 'Failed to seed recurring maintenance tasks' line (shared post-upgrade assertion; offline harness test red without the seed, green with it; passes in the next RC's gate)
 <!-- AC:END -->
 
 ## Implementation Notes
@@ -53,4 +54,6 @@ AC3: Fast Tests 41146791423 at 600a2257b (contains ae0fdbde9) success; step 'Wor
 rc.03 gate green (2026-10-31 01:01 UTC): orchestrator 41148532815, LXD fleet 41149641777 (28/28 PASS), upgrade arcs 41149719409, Release 41148532827, Fast Tests 41148532812, Hardening 41148532823. AC4 evidence so far: passing LXD scenarios do not capture container logs (only failures do), so the fleet artifact holds no worker log. Dev canary upgraded to rc.03 (worker started 00:19:51): its worker log has 0 'Failed to seed' lines and all three recurring commands are pending (detect_stuck_tasks, import_job_cleanup, task_cleanup); the worker started after the window had lifted, so no read-only INFO line either. AC4 as written (INFO line in an upgrade capture) depends on the worker starting inside the window; owner to decide whether the dev evidence plus the Fast Tests step closes it.
 
 2026-11-01 owner decision: close on the evidence. The fix runs in production code (dev since rc.03: no 'Failed to seed recurring maintenance tasks' line, the three recurring jobs pending), the red/green test runs in Fast Tests on every commit, and every gate since rc.03 passed the upgrade scenarios. AC4's LXD worker-log capture is not required; the read-only window is short and was not hit in passing scenarios. Whether upgrade scenarios should assert the end state permanently (all recurring maintenance tasks present after the upgrade) is tracked as a separate proposal, not as part of this ticket.
+
+2026-11-01 owner: instead of a new ticket, add the cheap end-state check here and finish it now: assert the recurring tasks exist after every upgrade scenario and scan the worker log for the failure line. Delegated.
 <!-- SECTION:NOTES:END -->
