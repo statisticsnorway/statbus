@@ -3,10 +3,10 @@ id: STATBUS-551
 title: >-
   Worker skips seeding recurring maintenance when it starts inside the upgrade's
   read-only window
-status: In Progress
+status: Done
 assignee: []
 created_date: '2026-10-30T19:31:00Z'
-updated_date: '2026-11-01T16:04:00Z'
+updated_date: '2026-11-01T18:18:00Z'
 labels:
   - worker
   - upgrade
@@ -37,7 +37,7 @@ The seed's comment in cli/src/worker.cr states why it waits rather than being ex
 - [x] #2 After the fix the same test ends with every recurring command pending, and a scan of the worker log finds no 'Failed to seed recurring maintenance tasks' line
 - [x] #3 Fast Tests green on ae0fdbde9 or later, with the step 'Worker started read-only restores recurring tasks once writable (STATBUS-551)' passing (run ID recorded)
 - [x] #4 The rc.03 LXD fleet passes, and an upgrade scenario's captured worker log shows the read-only INFO line and no 'Failed to seed recurring maintenance tasks' line (run ID and capture recorded)
-- [ ] #5 Every upgrade scenario ends by asserting that every recurring maintenance command the worker seeds is present in worker.tasks, and that the worker log has no 'Failed to seed recurring maintenance tasks' line (shared post-upgrade assertion; offline harness test red without the seed, green with it; passes in the next RC's gate)
+- [x] #5 Every upgrade scenario ends by asserting that every recurring maintenance command the worker seeds is present in worker.tasks, and that the worker log has no 'Failed to seed recurring maintenance tasks' line (shared post-upgrade assertion; offline harness test red without the seed, green with it; passes in the next RC's gate)
 <!-- AC:END -->
 
 ## Implementation Notes
@@ -62,4 +62,6 @@ AC5 implementation (ec0d1f01e, fail-closed follow-up 742e2c60c, pushed by coordi
 Offline test test/install-recovery/tests/recurring-maintenance-tasks-test.sh, run by Harness Selftest: green tmp/551-recurring-green.log (8 PASS: complete schedule passes; missing row fails naming import_job_cleanup; seed-failure line fails; empty registry fails; registry/tasks/log unreadable fail; non-numeric scan fails; rc=0). Red against parent d7c0067c3's assertions.sh: tmp/551-recurring-red.log 'assert_recurring_maintenance_tasks: command not found', rc=1. Red for the fail-closed fix against ec0d1f01e: tmp/551-recurring-infra-red.log 'INFRA error; skipping' then 'FAIL: worker.command_registry unreadable was accepted', rc=1. All 8 assertion-touching install-recovery selftests pass.
 
 CI on pushed HEAD 742e2c60c: Harness Selftest run 41323938618 completed success; step 'Prove the upgrade end state asserts every recurring maintenance task (STATBUS-551)' success. AC5 left unchecked for the coordinator after the next RC gate.
+
+2026-11-01 v2026.11.0-rc.01 (c65d1802a) gate green: orchestrator 41330516530, Test Smoke 41330619252, LXD Fork Fleet 41331822237, Upgrade Arc Harness 41331898761, Fast Tests 41330516467, Hardening 41330516462, dev deploy 41331689739. The new end-state check ran on real boxes: smoke log 4x and arc log 70x '✓ every recurring maintenance command has a pending row' plus '✓ worker log has no Failed to seed recurring maintenance tasks line', with no ✗ (the fleet keeps per-scenario logs in its artifact; it also passed).
 <!-- SECTION:NOTES:END -->
