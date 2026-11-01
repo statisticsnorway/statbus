@@ -3,11 +3,11 @@ id: STATBUS-198
 title: >-
   One source of truth for running the BRREG import: the loader script, the
   measuring runner, no test 500
-status: In Progress
+status: Done
 assignee:
   - hibiscus
 created_date: 2026-08-01 10:44
-updated_date: '2026-11-01T16:32:00Z'
+updated_date: '2026-11-01T16:53:00Z'
 labels:
   - harness
   - testing
@@ -58,6 +58,8 @@ rg shows no reference to test 500, and no second copy of the job-creation and lo
 2026-11-01 owner approved: (1) the runner uses the loader's job names; _concurrent goes. (2) samples/norway/brreg/brreg-import-selection.sh and brreg-import-downloads-from-tmp.sh stay the only job creation and CSV load, gaining an option to target a database; without it they behave as today, for cloud.sh import. (3) test/test_concurrent_worker.{sh,py} is renamed test/import_benchmark.{sh,py}, keeping --dataset/--repeated-calls/--timing; its recording becomes test/expected/performance/import_benchmark_repeated_calls.perf. Test 500 and its expected are removed; 401 stays (correctness, in-repo data, 8G).
 
 Done 2026-11-01. (1) Both BRREG loader scripts take --database NAME, through one sb_psql helper that stops on the first error (ON_ERROR_STOP); without it they load the deployment's own db as before, for ./cloud.sh import. Downloads smoke into a scratch db: exit 0, jobs import_hovedenhet_2025 1,134,476 rows, import_underenhet_2025 823,768, import_roller_2025 33,710; statbus_local untouched. (2) test/test_concurrent_worker.{sh,py} renamed test/import_benchmark.{sh,py}; it loads selection and downloads through those scripts instead of its own copy; the _concurrent job names are gone; databases and logs are import_benchmark_*. (3) Test 500 and its expected removed; test/CONVENTIONS.md points to import_benchmark --dataset downloads. (4) Selection run (tmp/198-benchmark-selection-3.log): exit 0, worker 156 s, counts consistent (checks A/B/C pass), timing table printed with '4 serialised analytics cycle(s), one per finished import job'. The loader finishes 3 jobs one after another, so analytics run per job as on a real install (was 1 cycle when the runner created all jobs at once). Repeated-call check: one transaction per call, as the worker runs; commands run fewer than 8 times are not replayed (replaying statistical_history_facet_reduce 8 times OOM-killed the 8 GiB db); all replayed commands are 0.36x-1.49x.
+
+CI on 436c13bd2: Fast Tests run 41327272725 success; Harness Selftest, Images, Go Test, app build & lint all success.
 <!-- SECTION:NOTES:END -->
 
 ## Status 2026-09-24
