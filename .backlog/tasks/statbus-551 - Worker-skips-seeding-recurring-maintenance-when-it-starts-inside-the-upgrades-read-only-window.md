@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-10-30T19:31:00Z'
-updated_date: '2026-11-01T15:22:00Z'
+updated_date: '2026-11-01T16:04:00Z'
 labels:
   - worker
   - upgrade
@@ -56,4 +56,10 @@ rc.03 gate green (2026-10-31 01:01 UTC): orchestrator 41148532815, LXD fleet 411
 2026-11-01 owner decision: close on the evidence. The fix runs in production code (dev since rc.03: no 'Failed to seed recurring maintenance tasks' line, the three recurring jobs pending), the red/green test runs in Fast Tests on every commit, and every gate since rc.03 passed the upgrade scenarios. AC4's LXD worker-log capture is not required; the read-only window is short and was not hit in passing scenarios. Whether upgrade scenarios should assert the end state permanently (all recurring maintenance tasks present after the upgrade) is tracked as a separate proposal, not as part of this ticket.
 
 2026-11-01 owner: instead of a new ticket, add the cheap end-state check here and finish it now: assert the recurring tasks exist after every upgrade scenario and scan the worker log for the failure line. Delegated.
+
+AC5 implementation (ec0d1f01e, fail-closed follow-up 742e2c60c, pushed by coordinator with the rc.08 prep): test/install-recovery/lib/assertions.sh adds assert_recurring_maintenance_tasks. It reads the expected set from worker.command_registry WHERE schedule_interval IS NOT NULL - the same source worker.seed_recurring_tasks() seeds from, so no second list can drift - and asserts every such command has a pending worker.tasks row, then scans 'docker compose logs worker' for 'Failed to seed recurring maintenance tasks'. Unreadable probes fail (return 1, naming worker.command_registry / worker.tasks / the worker log / a non-numeric scan), never skip. The check runs from the shared assert_health_passes, which every upgrade scenario and 39 arcs end through, plus an explicit call in c-rollback-resurrection-arc (the only arc that does not call health).
+
+Offline test test/install-recovery/tests/recurring-maintenance-tasks-test.sh, run by Harness Selftest: green tmp/551-recurring-green.log (8 PASS: complete schedule passes; missing row fails naming import_job_cleanup; seed-failure line fails; empty registry fails; registry/tasks/log unreadable fail; non-numeric scan fails; rc=0). Red against parent d7c0067c3's assertions.sh: tmp/551-recurring-red.log 'assert_recurring_maintenance_tasks: command not found', rc=1. Red for the fail-closed fix against ec0d1f01e: tmp/551-recurring-infra-red.log 'INFRA error; skipping' then 'FAIL: worker.command_registry unreadable was accepted', rc=1. All 8 assertion-touching install-recovery selftests pass.
+
+CI on pushed HEAD 742e2c60c: Harness Selftest run 41323938618 completed success; step 'Prove the upgrade end state asserts every recurring maintenance task (STATBUS-551)' success. AC5 left unchecked for the coordinator after the next RC gate.
 <!-- SECTION:NOTES:END -->
