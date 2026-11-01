@@ -3,10 +3,10 @@ id: STATBUS-429
 title: >-
   An operator installs a certificate with ./sb cert install as the install user,
   without sudo
-status: In Progress
+status: Done
 assignee: []
 created_date: 2026-09-29 08:24
-updated_date: '2026-10-28T01:09:00Z'
+updated_date: '2026-11-01T16:18:00Z'
 labels:
   - install
 dependencies: []
@@ -49,7 +49,7 @@ A second, later step: let the installer accept the certificate up front, through
 <!-- AC:BEGIN -->
 - [x] #1 `./sb cert install` succeeds as the install user when `caddy/data` is root-owned, repairing only `custom-certs` through a container without sudo, and fails with a plain remedy when it cannot (`TestEnsureCustomCertsDirWritable_*`, `TestEnsureWritable*`)
 - [x] #2 Every certificate refusal names `./sb cert install` with full paths (`ad7876f0b`, `828b04984`; install.sh `INSTALL_FIX` allowlist)
-- [ ] #3 An explicit LXD run of `5-install-cert-repair-via-cert-install.sh` on a built candidate: a box that has run Services follows the printed remedy as the install user and reaches a ready installation with CA-verified HTTPS
+- [x] #3 An explicit LXD run of `5-install-cert-repair-via-cert-install.sh` on a built candidate: a box that has run Services follows the printed remedy as the install user and reaches a ready installation with CA-verified HTTPS
 - [x] #4 The installer accepts a certificate and key pair, or one PFX/PKCS#12 file with its password from an environment variable, through the same code path as `./sb cert install`, refuses them in private and development modes, and a fresh install is born serving that certificate
 - [x] #5 [Owner] Decide whether AC4 (installer certificate arguments) stays here or moves to STATBUS-399, and record it in Implementation Notes. Stays: AC4 remains open work here. Moved: remove AC4, check this, and set Done once AC3 passes.
 <!-- AC:END -->
@@ -81,4 +81,6 @@ AC4 is implemented now, in 429, with no dependency on STATBUS-399. Installer cer
 **CI:** f0592df9f (product commit) — Harness Selftest failed on the happy-install offline stub not knowing the new provenance queries; diagnosed, mock extended (046f6849d, tmp/429-harness-selftest.log has all 32 standalone tests green locally). Final CI on 046f6849d: Go Test, Harness Selftest, Fast Tests (SQL suite), app build & lint, Images, Push on master all success.
 
 AC4 real-box evidence: v2026.10.4-rc.03 Test Smoke run 40607115914, 0-happy-install job 122549573505, passed. The installer accepted the certificate only through STATBUS_TLS_* product inputs; the scenario verified the container paths, file ownership and CA-verified HTTPS. rc.02's failure was an assertion against filtered terminal output, fixed in 18e7d1fed; rc.03 is the green run. AC3 remains open.
+
+2026-11-01 owner decision: AC3 closed without an LXD run. What the scenario would add beyond the unit tests is only that a real container can chown the bind-mounted custom-certs directory and Caddy then serves the new certificate. The repair decision, its call and its failure remedy are unit-tested (TestEnsureCustomCertsDirWritable_*, TestEnsureWritable*); Albania renewed an expired certificate in production with ./sb cert install as the install user and it served. The never-run scenario 5-install-cert-repair-via-cert-install is removed (8fcb42f09 and the follow-up); every scenario is now in the default set.
 <!-- SECTION:NOTES:END -->
