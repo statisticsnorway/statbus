@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-11-02T21:15:00Z'
-updated_date: '2026-11-02T21:15:00Z'
+updated_date: '2026-11-02T21:24:00Z'
 labels: []
 dependencies: []
 type: feature
@@ -42,3 +42,12 @@ Confirm every derivation that combines a variable over time applies its behaviou
 - [ ] #5 [Owner] Decide frequency's exact role for a flow (reporting period that sets add versus spread, or more). Recorded in this ticket's notes; it fixes the COMMENT ON for frequency and the rule the derivations apply.
 - [ ] #6 [Owner] Decide whether string and bool variables get a fourth behaviour (state: count units per value at a date) or are implied by type. Recorded in this ticket's notes; a fourth value adds it to the behaviour enum, otherwise type decides.
 <!-- AC:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+2026-11-02 PROPOSITIONS (owner not committed yet):
+1. Finer periods: a flow appears from its own frequency upwards; a coarser view combines finer values: a flow adds them up (four quarters make the year), a stock shows the last value in the period (the level at its end). Proportional spreading into finer periods only as an explicit, labelled estimate.
+2. Frequency is the reporting period of a variable. Owner's intent: it guides edits, so an interactive update is snapped to the nearest period of that frequency (a yearly turnover edit covers a whole year) instead of creating sub-period slices; it also sets the finest resolution a flow is shown at. The validity interval says what span a value covers, so a part-year value (unit born in July) is the turnover for that part; the import can warn when an interval is longer than the frequency.
+3. Behaviour (stock, flow, ratio) is chosen only for numeric variables; string and bool follow from type and behave like a stock of counts per value.
+<!-- SECTION:NOTES:END -->
