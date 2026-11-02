@@ -33,6 +33,13 @@ ssh_key='jorgen@veridit.no'
 label=statbus-purpose=manual-box
 log="$ROOT/tmp/$name-session.log"
 
+# ssh forwards LANG and LC_* (the default SendEnv), and a plain Ubuntu box has
+# only C.UTF-8 and en_US.UTF-8, so a laptop locale such as nb_NO.UTF-8 makes
+# every remote shell warn "cannot change locale". C.UTF-8 exists on every
+# Ubuntu box; this script's ssh sessions use it.
+export LANG=C.UTF-8 LC_ALL=C.UTF-8
+unset LANGUAGE
+
 describe() { hcloud server describe "$name" -o json 2>/dev/null || true; }
 
 # A same-name server that is not labelled as ours is someone else's: refuse.
@@ -106,7 +113,7 @@ connect() {
     if ! tmux has-session -t "=$name" 2>/dev/null; then
         printf '\n===== %s session start %s =====\n' "$name" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$log"
         tmux new-session -d -s "$name" \
-            "sleep 0.5; exec ssh -o StrictHostKeyChecking=accept-new root@$ip"
+            "sleep 0.5; exec env LANG=C.UTF-8 LC_ALL=C.UTF-8 ssh -o StrictHostKeyChecking=accept-new root@$ip"
         # pipe-pane takes a pane target: '=name:' is the exact session's
         # current window and pane ('=name' alone is rejected).
         tmux pipe-pane -o -t "=$name:" "cat >> '$log'"
