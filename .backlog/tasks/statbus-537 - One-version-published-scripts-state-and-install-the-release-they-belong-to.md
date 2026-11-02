@@ -1,10 +1,10 @@
 ---
 id: STATBUS-537
 title: 'One version: published scripts state and install the release they belong to'
-status: In Progress
+status: Done
 assignee: []
 created_date: '2026-10-30T08:39:00Z'
-updated_date: '2026-10-30T09:37:00Z'
+updated_date: '2026-11-02T14:11:00Z'
 labels:
   - release
   - installer
@@ -42,7 +42,7 @@ A draft implementation is in tmp/537-draft.patch (apply with git apply).
 - [x] #2 Each stamped script's banner prints the tag; an unstamped copy prints development copy (not a release); SCRIPT_VERSION is gone
 - [x] #3 A stamped install.sh whose resolved version differs prints 'This is the <tag> installer; it installs <version>.' and nothing extra when they match; version selection is otherwise unchanged
 - [x] #4 test/install-recovery/tests/release-script-stamp-test.sh passes: stamps scratch copies and checks all three banners show the tag and the git copies say development copy; it fails against the pre-fix scripts and runs in Harness Selftest
-- [ ] #5 The next released setup.sh, install.sh and uninstall.sh fetched from statbus.org print that release's tag
+- [x] #5 The next released setup.sh, install.sh and uninstall.sh fetched from statbus.org print that release's tag
 <!-- AC:END -->
 
 ## Implementation Notes
@@ -72,4 +72,6 @@ AC3 observed manually (tmp/test-537-ac3.log): stamped v2026.10.5 installer with 
 Other verification: all test/install-recovery/tests/setup-*.sh pass; fresh-installer-test.sh and happy-install-test.sh pass; install-git-errors/fetch and install-pull-failure pass (install-git-errors locally needs docker and refused at the docker preflight on this Mac, but passed in CI run 41032684281). bash -n clean on install.sh, uninstall.sh, ops/setup-ubuntu-lts.sh, ops/release/stamp-release-scripts.sh and the new test; both edited workflows parse as YAML.
 
 AC5 (published statbus.org scripts show the next release's tag) needs a release and is left to the coordinator.
+
+AC5 verified 2026-11-02 after stable v2026.11.0 promotion (c65d1802a). Fetched https://statbus.org/{setup,install,uninstall}.sh (copies + sha256 in tmp/537/). Observed banners: setup.sh 'StatBus: v2026.11.0'; install.sh 'StatBus installer v2026.11.0'; uninstall.sh (first 14 lines only, no removal) 'StatBus uninstaller v2026.11.0'.
 <!-- SECTION:NOTES:END -->
