@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-11-02T13:15:00Z'
-updated_date: '2026-11-02T22:56:00Z'
+updated_date: '2026-11-02T23:04:00Z'
 labels: []
 dependencies: []
 type: bug
@@ -78,4 +78,6 @@ Dense months grow with periods x combinations; a sparse or interval form grows w
 2026-11-02 night N5: stats_summary (count/sum/sum_sq per variable, generic via jsonb_each) as a difference table too: 1,510 rows. A defect found in TODAY's history facet, proven: a unit's stats count in a period only if a unit of the same cell exists at either period end in the SAME HASH SLOT (stats_by_facet is per slot, LEFT JOINed onto per-slot demographic rows). Reproducing that per-slot gate in the prototype matches today exactly (70,946 cells, 0 differ). Gating per cell instead (slot-independent), today undercounts in 800 cells: years 51 cells, 87 units, 1,648 of 253,941 employees; months 749 cells, 1,271 units. Whether a unit counts depends on the hash of unrelated units. Details tmp/558-night/semantics.md. Separate question for STATBUS-560: should a period's stats include units not existing at its end at all (today yes)?
 
 2026-11-02 night N6-N8: report tmp/558-night/report.md. Drilldown-shaped queries, identical answers: monthly stock series 72 ms dense vs 1.6 ms sparse; region-filtered 24 vs 2.0 ms; region x activity breakdown at a date 1.7 vs 2.3 ms; births/deaths per year 5.0 vs 1.8 ms. Size 571 MB + 342 MB cache vs 5.4 MB. Incremental update of one unit's region change: MERGE of 2 rows in 3.6 ms, equals a full rebuild. Full build about 0.5 s. Open: scale on the full download, the stats slot-gate defect fix, owner decisions (adopt sparse design, change semantics for moving units, stats population per STATBUS-560).
+
+2026-11-02 night: repeated on the selection import (33,876 units, 1 year): rebuilt dense shape equals today exactly (17,962 year + 197,582 month rows, 0 differ). Sparse 53,886 rows vs 215,544 (4x; the gain grows with history length, 30x on 10 years). Full sparse build ~1.1 s vs 6.5-11 s per cycle for today's history facet reduce alone.
 <!-- SECTION:NOTES:END -->
