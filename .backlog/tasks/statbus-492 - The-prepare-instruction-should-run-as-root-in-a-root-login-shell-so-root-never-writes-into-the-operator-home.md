@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: 2026-10-13 12:29
-updated_date: '2026-11-02T14:35:00Z'
+updated_date: '2026-11-02T14:40:00Z'
 labels:
   - install
   - hardening
@@ -38,4 +38,6 @@ Commit 1d45774a6. Docs: doc/DEPLOYMENT.md and doc/setup-ubuntu-lts.md now say 's
 Criteria 1 and 3 need a real box and are deferred to STATBUS-497 (the Uganda rerun), which will paste the transcript and the ownership inspection. Marked Done under the owner instruction of 2026-10-13 that landed work with green tests closes, with box observations carried by 497.
 
 2026-11-02 defect found on statbus-manual with released v2026.11.0 setup.sh: ssh root@box, sudo -i (HOME=/root login=yes user=root) was refused with 'Refusing to run with HOME=/root (the home of root)'. Cause: sudo from root sets SUDO_USER=root, and the guard compared HOME with ~SUDO_USER, which is root's own home. Fix: the guard applies only when the invoking user is not root. Test red before the fix (tmp/492/guard-test-red.log: FAIL sudo -i from root refused rc=1), green after (tmp/492/guard-test-green.log). Neighbouring setup tests green. Workaround until the next release: run setup.sh directly from the root login, without sudo -i.
+
+CI for fix 20d510e84: Harness Selftest 41463436032 completed success (runs setup-plain-sudo-guard-test.sh). Remaining: ship in the next RC and observe sudo -i from a root login on the test box.
 <!-- SECTION:NOTES:END -->
