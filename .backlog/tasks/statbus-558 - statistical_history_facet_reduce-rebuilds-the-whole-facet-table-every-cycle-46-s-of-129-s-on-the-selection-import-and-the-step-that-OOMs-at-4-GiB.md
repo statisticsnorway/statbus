@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-11-02T13:15:00Z'
-updated_date: '2026-11-02T14:39:00Z'
+updated_date: '2026-11-02T14:42:00Z'
 labels: []
 dependencies: []
 type: bug
@@ -42,7 +42,7 @@ STEPS
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 The over-count of April is reproduced by a small SQL test and its cause written here
+- [x] #1 The over-count of April is reproduced by a small SQL test and its cause written here
 - [ ] #2 Owner has reviewed and agreed the cause before the fix is coded
 - [ ] #3 Both facet reduces touch only combinations in the new or removed set; the reproduction test passes
 - [ ] #4 A migration that fixes a counting bug can trigger the full rebuild; documented at the reduce's definition
@@ -53,4 +53,9 @@ STEPS
 
 <!-- SECTION:NOTES:BEGIN -->
 2026-11-02 step 1 lead: a capture hole WAS found and reproduced after the April switch. Test 324 (ec3eca714, 2026-05-20) shows orphan cleanup in worker.derive_statistical_unit ran before the change sets were built, so deleted units' hash slots never entered statistical_unit_facet_dirty_hash_slots; their stale partition rows survived and the target over-counted. That is a deletion-side miss, exactly what over-counts. It has since been fixed (orphan slots are now marked dirty). So the April 31-vs-24 is plausibly this hole, not a flaw in the scoped design. Next: confirm by running 324's scenario against the March scoped reduce, before and after the orphan fix.
+
+2026-11-02 step 1 REPRODUCED (scripts tmp/558-repro-{prefix,fixed,body}.sql, logs tmp/558-repro-*.log; scratch db from statbus_test_template, dropped). Scenario of test 324: demo 23 LUs, delete 3 LUs + their enterprises, drain analytics, compare statistical_unit_facet sum at CURRENT_DATE with statistical_unit truth.
+A) March scoped reduce + derive_statistical_unit before 33b3c8bf5: legal_unit truth 20, facet 21 -> over-count. The second reduce ran in mode 'full' (no dirty slots at all) and still over-counted: the stale rows sit in the per-slot staging, which nothing re-derives, so the global reduce faithfully sums them. The global MERGE of e69785896 therefore could not have fixed this either; the one-time full rebuild in that migration is what repaired demo.
+B) March scoped reduce + today's derive_statistical_unit: truth 20, facet 20, both unit types match; reduce mode 'scoped', rows_deleted 12.
+Cause: the capture hole (deleted units' slots never marked dirty), fixed 2026-05-20, not the scoped design. The owner's design is correct once the dirty set includes removed units.
 <!-- SECTION:NOTES:END -->
