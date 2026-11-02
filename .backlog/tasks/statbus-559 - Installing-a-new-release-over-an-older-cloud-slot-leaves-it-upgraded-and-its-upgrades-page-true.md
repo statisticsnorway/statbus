@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-11-02T15:12:00Z'
-updated_date: '2026-11-02T20:29:00Z'
+updated_date: '2026-11-02T20:48:00Z'
 labels:
   - bug
 dependencies: []
@@ -63,4 +63,6 @@ v2026.11.1-rc.02 (14d4ae73b) gate: Smoke 41496104420, Fast Tests 41495914064, Ha
 Manual-box findings 2026-11-02 (owner run of v2026.11.0 install.sh): (1) as root it ran on and created /root/.statbus-uninstall.lock before ./sb refused; (2) fresh install printed 'fatal: not a git repository' and 'Checked out v2026.11.0 (commit ).' because rev-parse ran before cd into the new checkout; (3) the guide gave no country answer; (4) a typo could not be corrected. Fixed (1)-(3) in 6da990385: red tmp/559/root-refusal-red.log (root run reached docker info and curl, created the lock), green tmp/559/root-refusal-green.log; red tmp/559/fresh-commit-red.log, green tmp/559/fresh-commit-green.log; tmp/559/un-green.log. (4) delegated to worker hamster (answer review before writing). Also 70bbd20ed: manual-box ssh uses C.UTF-8.
 
 Interactive answer review (owner option A, rabbit worker 2026-11-02): commit 4790b5ed7 pushed to master. After the last question ./sb install prints 'These answers will be used for this installation:' with plain labels (Deployment mode, Domain name, Country name, Country code) and asks 'Use these answers? [Y/n]'; Enter/y accepts, n asks all questions again with the previous answers as the defaults. Nothing is written before acceptance (.env.config is still written only after the questions). installinput.Ask now takes optional previous answers; installinput.ReviewLines/AnswerValues build the summary and the fallbacks. Summary lines go through installTTYPrompt so install.sh's terminal filter shows them. Non-interactive/STATBUS_ENV_CONFIG paths unchanged. Red/green: tmp/559-review-red.log (parent tree: 'asked 4 questions, want 8 (the review must ask them all again)') and tmp/559-review-green.log (go test ./internal/installinput/... ./cmd/... all ok). Harness: setup-choices scenario expect driver answers the review and asserts the summary values, and setup-choices-driver-test.sh stand-in prints it; both PASS locally (scenario-selection-test also PASS). cli/cmd/install.go commit also carries rabbit's diskpolicy.RootRefusal hunk as requested.
+
+CI for interactive answer review: 4790b5ed7 Go Test failed only on errcheck in the new test (unchecked answers.Close), fixed in b97f666c1. For b97f666c1: Go Test, Harness Selftest, Images, app build & lint, Notify cloud services, Push on master all success; its Fast Tests run (exercised-sha=b97f666c1) was cancelled by the newer 8fea12e54, and the change is Go-only with no SQL, so the Go Test suite covers it. Local golangci-lint (staticcheck, errcheck, ineffassign, nilness) 0 issues on ./cmd/... ./internal/installinput/....
 <!-- SECTION:NOTES:END -->
