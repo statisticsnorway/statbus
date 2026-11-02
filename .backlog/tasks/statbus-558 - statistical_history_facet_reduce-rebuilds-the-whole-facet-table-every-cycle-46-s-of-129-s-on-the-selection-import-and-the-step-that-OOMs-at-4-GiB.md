@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-11-02T13:15:00Z'
-updated_date: '2026-11-02T21:45:00Z'
+updated_date: '2026-11-02T22:34:00Z'
 labels: []
 dependencies: []
 type: bug
@@ -70,4 +70,6 @@ Cause: the capture hole (deleted units' slots never marked dirty), fixed 2026-05
 - 1.18 units per facet row; 478,226 rows hold 0 or 1 unit.
 - statistical_unit_facet (validity intervals, slightly fewer dimensions) for the same data: 6,084 rows.
 Dense months grow with periods x combinations; a sparse or interval form grows with the number of changes. The one order-of-magnitude saving found: store a month only when it has a change, and carry stock forward on display (10-100x fewer rows and writes, more with longer history). Everything else measured is a factor of 2 or less. Next if the owner wants it: prototype the display query from sparse months on this database and time it against today's direct read. Database kept: test_402_import_jobs_for_norway_history_29961.
+
+2026-11-02 difference-table direction (owner exploring, not committed): stock as +1/-1 changes per combination and date, running sum on read. Counts prototyped on the 10-year database: 6,079 rows vs 526,437, all 137 months equal, region breakdown 1.9 ms vs 3.0 ms. Statistics need jsonb_stats to subtract: proposal written to ../jsonb_stats/todo.md (stats_delta companion type with count/sum/sum_sq of any sign, negate, delta_agg with moving-aggregate support, min/max left out since STATBUS reads only sum). Change detection stays coefficient_of_variation_pct (owner's measure), not a z-score. Next here: extend the prototype to every history facet column and year rows, compare with today's table, time the drilldown.
 <!-- SECTION:NOTES:END -->
