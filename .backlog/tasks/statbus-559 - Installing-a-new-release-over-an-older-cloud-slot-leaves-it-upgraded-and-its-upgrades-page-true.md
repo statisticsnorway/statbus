@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-11-02T15:12:00Z'
-updated_date: '2026-11-02T15:12:00Z'
+updated_date: '2026-11-02T16:03:00Z'
 labels:
   - bug
 dependencies: []
@@ -36,3 +36,22 @@ Found 2026-11-02 installing v2026.11.0 on niue cloud slots ug and ma (logs tmp/c
 - [ ] #5 The upgrade service stamps unit_floor_state when it starts, so a page read right after a successful install shows no 'not running' warning. Covered by a test
 - [ ] #6 ug, mw and ua reach the stable release with ./cloud.sh install, ug's statbus-maintenance belongs to statbus_ug afterwards, and ma's v2026.10.5 row shows superseded
 <!-- AC:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+AC1/AC2/AC3 evidence (worker, 2026-11-02):
+- AC1 red: tmp/559-ac1-red.log — live probes against v2026.03.0 shape fail 'column state does not exist' and v2026.09.0 shape fails 'column rollback_finish_pending_at does not exist'.
+- AC1 green: tmp/559-ac1-green.log, tmp/559-ac1-pending.log — QueryScheduledUpgrade/QueryReattemptableRestore use to_jsonb(u)->>'state' / ->>'rollback_finish_pending_at' with the pre-state-machine fallback; modern pending rows remain excluded (TestInstallDetectsPendingRollbackAsCrashedNotReattempt).
+- AC3 red: tmp/559-ac3-red.log — Go refusal and install.sh fallback both still printed 'nothing was changed' with the swap flag set.
+- AC3 green: tmp/559-ac3-green.log — Go says program+checkout are at the target and services/database unchanged; install.sh repeats it.
+- AC2: test/install-recovery/scenarios/0-install-over-v2026-09-0-schema.sh, default LXD/fault set, LXD_BASELINE=v2026.09.0 forks installed-v2026.09.0-standalone, runs install.sh --version <candidate> over it, asserts old schema first (no rollback_finish_pending_at) then candidate binary/schema/row/health. Offline: bash -n, shellcheck (baseline warnings only), scenario-selection-test PASS, lxd-checkpoint-identity-test PASS, scenario-helper-resolution-test PASS, install-at-sha/fresh-installer/happy-install PASS.
+- Full verification on combined tree: go build/vet PASS; go test ./internal/install/... ./cmd/... PASS (tmp/559-final-unit.log); STATBUS_LIVEDB_TEST_TIER=1 go test -tags livedb ./internal/install PASS (5 tests, tmp/559-final-livedb.log).
+- Commits: 58e1634a1 (AC1 probes + AC2 scenario + install.sh AC3; live test state.go), 3e97a489c (giraffe AC4 commit also captured the installDetectionRefusal hunks left unstaged in the shared cli/cmd/install.go; no separate AC3 Go commit exists). Pushed to master. CI: per-commit images + LXD fault fleet must run the new scenario green; guest run still required for AC2's real proof.
+
+CI at 1c7adbf0f: Go Test, Harness Selftest, Images, app build & lint, CodeQL, Notify cloud services all success. LXD fault fleet is tag-dispatched, not a push trigger: the next gate run must show 0-install-over-v2026-09-0-schema PASS (it is in the default scenario set).
+
+AC4 evidence (giraffe, 2026-11-02): commits 3e97a489c (install supersedes parked in_progress attempts for other commits), c540527ee (452 historical parked-row expectation). A successful install now retires parked rows too: state='superseded', superseded_at set, original error retained with the displacement note ' — superseded by the successful install of <version>', recovery_parked_at and recovery_parked_reason cleared (required by chk_upgrade_parked_requires_in_progress; upgrade_state_log retains old_parked_at/old_recovery_parked_reason as history). Unparked attempts keep error untouched, same as before. Test452KissNormalInstallRetiresAttempts/parked: red before (tmp/559-ac4-red.log, stayed in_progress, no state-log row) and green after (tmp/559-ac4-green.log), including row evidence and the in_progress>superseded state-log assertion. Test452KissHistoricalRepairNormalInstall/parked-row updated and green (tmp/559-history-green.log). ./dev.sh test-livedb green end to end: cli/internal/upgrade 359s, cli/internal/install 367s, cli/cmd 21s, livedocker probes PASS (tmp/559-test-livedb-final.log). Install.go SQL write disposition updated in terminal_rewind_audit_test.go. On-disk marker question: ma has no tmp/upgrade-in-progress.json for row 28881 (read-only check), and a planted flag would make install Detect report StateCrashedUpgrade (flag present, flock free), which un-parks and resumes that row before success bookkeeping, so this path cannot see a live marker; no flag removal was added. Read-only ma observation: row 28881 still in_progress/parked before the fix, no flag file present. AC5 evidence (giraffe): commit 1c7adbf0f. Upgrade service now calls StampUnitFloor once after acquireAdvisoryLock (first DB-backed point in Run), before READY and the poll loop. Tests TestStartupUnitFloorStampPublishesOnceConnected and TestRunStampsUnitFloorAtStartup: red at parent 58e1634a1 in an isolated worktree (tmp/559-ac5-red.log, seam absent) and green (tmp/559-ac5-green.log). go vet (cmd, internal/upgrade, internal/install) clean, go build ./... clean, full cli/internal/upgrade unit suite green (tmp/559-test-upgrade-full.log). Read-only ma: unit_floor_state=inactive, updated_at 14:21:12 (install stamp), confirming the 6h-tick gap; fix will correct at next service boot. CI for c540527ee: Go Test, Push on master, app build & lint, Harness Selftest, Images, Notify cloud services all success; Fast Tests still in progress at 15:56Z. ACs not checked; ticket not closed.
+
+CI for c540527ee (checked 2026-11-02T16:02Z): Go Test, Push on master, app build & lint, Harness Selftest, Images, Notify cloud services, and Fast Tests @ exercised-sha=c540527ee all conclusion=success. Fast Tests jobs: fast suite, daemon floor oracle, live-database tests, STATBUS-536 reader, STATBUS-551 worker all success.
+<!-- SECTION:NOTES:END -->
