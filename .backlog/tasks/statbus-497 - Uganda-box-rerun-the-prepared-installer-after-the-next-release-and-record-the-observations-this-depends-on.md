@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: 2026-10-13 13:16
-updated_date: '2026-11-01T15:16:00Z'
+updated_date: '2026-11-02T14:36:00Z'
 labels:
   - install
   - uganda
@@ -43,7 +43,7 @@ Some criteria can only be met by watching the product on a real, unprepared mach
 - [x] #2 Each dependent ticket names this ticket as the source of its observation.
 - [x] #3 [Owner] Confirm v2026.10.1, or name a later release, as the release the Uganda rerun waits for, and record it in Implementation Notes. The confirmed release lets the rerun be scheduled; AC1-3 are filled from that run.
 - [ ] #4 Plain manual box, fresh preparation with the next release: the session log shows a root login shell with HOME=/root (STATBUS-492 criterion 1)
-- [ ] #5 Plain manual box, right after setup and before install: find /home/statbus -xdev -user root prints nothing (STATBUS-492 criterion 3)
+- [x] #5 Plain manual box, right after setup and before install: find /home/statbus -xdev -user root prints nothing (STATBUS-492 criterion 3)
 - [ ] #6 Uganda, next release: setup Stages 2 and 4 rerun; the results are recorded in STATBUS-539 AC7 and STATBUS-540 AC4
 <!-- AC:END -->
 
@@ -98,4 +98,6 @@ Next: after stable promotion, rerun setup with the released script (Stage 4 must
 2026-10-31 STATBUS-554 renames setup stages by slug (numbers are refused from that release on). The Uganda rerun planned 2026-10-30 becomes, once the release carrying 29ee29832 is stable: sudo -i, then curl -fsSL https://statbus.org/setup.sh -o setup.sh && bash setup.sh --only-stages "service-account ssh-hardening security-tools". service-account is included because ssh-hardening requires it; rerunning it on Uganda only confirms the existing statbus account, keys and linger (idempotent, proven on the plain box in STATBUS-554). Everything else in the 2026-10-30 note still holds.
 
 2026-11-01 owner decision: the owner runs the Uganda setup rerun himself (decided earlier, confirmed today) and shares the log; rabbit reviews it against STATBUS-539 AC7 and STATBUS-540 AC4.
+
+AC5 verified 2026-11-02 on statbus-manual after the released v2026.11.0 setup, before install: 'find /home/statbus -xdev -user root' printed nothing (tmp/497-ac5-find.log). AC4: the logged root login shows HOME=/root login=yes user=root, but the walkthrough's sudo -i step was refused by the STATBUS-492 guard defect (fixed in 20d510e84, 492 AC4). Setup ran from the direct root login instead. AC4 closes when the next release runs from sudo -i on the box.
 <!-- SECTION:NOTES:END -->
