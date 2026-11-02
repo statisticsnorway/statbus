@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: 2026-09-25 13:08
-updated_date: '2026-11-02T21:27:00Z'
+updated_date: '2026-11-02T21:52:00Z'
 labels:
   - installer
 dependencies: []
@@ -78,4 +78,6 @@ Removal is destructive, so the defaults protect what cannot be recreated:
 - Scenario 6 now: install -> one copy only inside checkout -> login -> interactive uninstall (Enter, Enter, Y, DELETE) -> ~/statbus gone, both home files 0600 -> reinstall -> home files gone, credentials sha unchanged, login succeeds again.
 - Doubt for rabbit/owner: with dbdumps kept by default, the checkout directory still remains ('Only selected backups remain'), contradicting '~/statbus is always removed completely'. Proposed follow-up (not implemented, needs OK): move kept dumps to ~/statbus-dbdumps so the checkout always goes.
 - Note: go test ./... in cli fails only in TestNoGoPackageDirectoryIsGitignored_STATBUS352 because of the shared-checkout scratch dir cli/tmp/verify557/ (another worker, untracked); ./cmd/... is green.
+
+Replayed after rc.03: code commit dfe262b0b (was 90ebd4457), ticket evidence a9f2eba96 (was 3703c3fd7), both on origin/master. CI for tip aaedebceb1b6c620b757a7864826ce62f20a712a (includes both): Go Test success, Harness Selftest success, app build & lint success, Images success, CodeQL success, Notify cloud services success (gh run list, 2026-11-02T21:52Z). Push hold released.
 <!-- SECTION:NOTES:END -->
