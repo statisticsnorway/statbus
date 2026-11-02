@@ -226,6 +226,23 @@ func installPreflightRefusal(message string) error {
 	return &installPreflightRefusalError{err: errors.New(message)}
 }
 
+// installSwappedProgramEnv is set by install.sh after it has placed the target
+// program and checked out the target release, immediately before it runs
+// ./sb install. A state-detection stop at that point did not leave the box
+// untouched: only the delivery moved, not the running services or the database.
+const installSwappedProgramEnv = "STATBUS_INSTALL_PROGRAM_AND_CHECKOUT_SWAPPED"
+
+// installDetectionRefusal tells the operator what a detection stop did and did
+// not change. install.sh has already swapped the program and checkout by the
+// time it calls ./sb install, so claiming "nothing was changed" there is false
+// and hides the fact that the box is already carrying the target release.
+func installDetectionRefusal(bundlePath string) error {
+	if os.Getenv(installSwappedProgramEnv) == "1" {
+		return fmt.Errorf("the install state could not be determined safely. The program and checkout are already at the target; the running services and the database were not changed. Run the same install command again: %s. If it stops again, send this file to StatBus support: %s", diskpolicy.RerunCommand(), bundlePath)
+	}
+	return fmt.Errorf("the install state could not be determined safely; nothing was changed. Run the same install command again: %s. If it stops again, send this file to StatBus support: %s", diskpolicy.RerunCommand(), bundlePath)
+}
+
 type stdinNotTerminalError struct{}
 
 func (stdinNotTerminalError) Error() string { return installinput.StdinNotTerminalMessage }
@@ -767,7 +784,7 @@ func runInstall() (installErr error) {
 					installDiagnostic(installDir, "Could not create support bundle for detection: %v", bundleErr)
 					bundlePath = filepath.Join(installDir, "tmp", "install-last-run-output.txt")
 				}
-				return &installPreflightRefusalError{err: fmt.Errorf("the install state could not be determined safely; nothing was changed. Run the same install command again: %s. If it stops again, send this file to StatBus support: %s", diskpolicy.RerunCommand(), bundlePath)}
+				return &installPreflightRefusalError{err: installDetectionRefusal(bundlePath)}
 			}
 			// Only a positively identified database connection failure permits
 			// repair through the step table. Unknown errors fail closed above.
@@ -3962,9 +3979,23 @@ func completeInstallUpgradeRow(installDir string, conn *pgx.Conn, logRelPath str
 	if err := repairOvertakenCompletedAttempts(ctx, tx, installDir, sha, auditLog); err != nil {
 		return fmt.Errorf("repair attributable overtaken completions after successful install: %w", err)
 	}
+	// STATBUS-559: a successful install of a newer release IS the fix a park
+	// waits for, so it supersedes parked attempts for other commits too. A
+	// parked row leaves in_progress, so chk_upgrade_parked_requires_in_progress
+	// requires clearing the park marker; the state log retains old_parked_at and
+	// old_recovery_parked_reason as history, and the displacement note joins the
+	// retained error exactly as the claim ladder displaces a park (STATBUS-159).
+	// Unparked attempts keep their error untouched.
 	retired, err := tx.Exec(ctx, `UPDATE public.upgrade
-		SET state = 'superseded', superseded_at = clock_timestamp()
-		WHERE state = 'in_progress' AND recovery_parked_at IS NULL AND commit_sha <> $1`, sha)
+		SET state = 'superseded',
+		    superseded_at = clock_timestamp(),
+		    error = CASE WHEN recovery_parked_at IS NOT NULL
+		                 THEN COALESCE(error, '') || $2
+		                 ELSE error END,
+		    recovery_parked_at = NULL,
+		    recovery_parked_reason = NULL
+		WHERE state = 'in_progress' AND commit_sha <> $1`, sha,
+		fmt.Sprintf(" — superseded by the successful install of %s", version))
 	if err != nil {
 		return fmt.Errorf("retire interrupted attempts after successful install: %w", err)
 	}

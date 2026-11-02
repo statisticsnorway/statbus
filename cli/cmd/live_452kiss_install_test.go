@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/statisticsnorway/statbus/cli/internal/dotenv"
 	"github.com/statisticsnorway/statbus/cli/internal/install"
@@ -133,14 +134,50 @@ func Test452KissNormalInstallRetiresAttempts(t *testing.T) {
 				t.Fatal(err)
 			}
 			want := "superseded"
-			if mode == "parked" || mode == "failed" || mode == "dev" || mode == "bypass" {
+			if mode == "failed" || mode == "dev" || mode == "bypass" {
 				want = "in_progress"
 			}
 			if state != want {
 				t.Errorf("%s orphan=%s want=%s", mode, state, want)
 			}
-			if backup != "452-retained-backup" || rowError != "452 retained error" {
-				t.Errorf("retirement altered evidence backup=%q error=%q", backup, rowError)
+			if backup != "452-retained-backup" {
+				t.Errorf("retirement altered evidence backup=%q", backup)
+			}
+			if mode == "parked" {
+				// STATBUS-559: a successful install of a newer release IS the fix
+				// a park waits for. The superseded row keeps its original error,
+				// gains the displacement note, and the state log retains the park
+				// marker it carried while in_progress.
+				if !strings.Contains(rowError, "452 retained error") || !strings.Contains(rowError, "superseded by the successful install") {
+					t.Errorf("parked retirement lost its history or displacement note: error=%q", rowError)
+				}
+				var parkedAt *time.Time
+				var parkedReason *string
+				if err := conn.QueryRow(ctx, "SELECT recovery_parked_at, recovery_parked_reason FROM public.upgrade WHERE id=$1", id).Scan(&parkedAt, &parkedReason); err != nil {
+					t.Fatal(err)
+				}
+				if parkedAt != nil || parkedReason != nil {
+					t.Errorf("superseded parked row kept park columns at=%v reason=%v", parkedAt, parkedReason)
+				}
+				var oldState, newState string
+				var oldParked *time.Time
+				var oldReason, oldError *string
+				if err := conn.QueryRow(ctx, `SELECT old_state::text,new_state::text,old_parked_at,old_recovery_parked_reason,old_error
+					FROM public.upgrade_state_log WHERE upgrade_id=$1 AND new_state='superseded'
+					ORDER BY id DESC LIMIT 1`, id).Scan(&oldState, &newState, &oldParked, &oldReason, &oldError); err != nil {
+					t.Fatalf("state log does not record the parked supersession: %v", err)
+				}
+				if oldState != "in_progress" || newState != "superseded" {
+					t.Errorf("state log transition = %s>%s, want in_progress>superseded", oldState, newState)
+				}
+				if oldParked == nil || oldReason == nil || *oldReason != "452 original park" {
+					t.Errorf("state log lost the park history: parked_at=%v reason=%v", oldParked, oldReason)
+				}
+				if oldError == nil || *oldError != "452 retained error" {
+					t.Errorf("state log lost the original error: %v", oldError)
+				}
+			} else if rowError != "452 retained error" {
+				t.Errorf("retirement altered evidence error=%q", rowError)
 			}
 			if mode == "new-row" || mode == "older-install" {
 				var source *string

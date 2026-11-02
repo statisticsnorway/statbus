@@ -207,13 +207,21 @@ var rewindAudit = map[siteKey]rewindDisposition{
 
 	// STATBUS-452: successful-install and overtaken-attempt terminal bookkeeping.
 	{"cli/cmd/install.go", "UPDATE", "state,superseded_at"}: {
-		Class: classSuccessPathOnly, Count: 2,
-		Why: "B retires other unparked interrupted attempts only in the normal successful install transaction, " +
-			"under its owned filesystem mutex after all ordinary install steps succeeded. Failed/dev/bypass " +
-			"paths do not enter this hook, and no snapshot restore follows this success bookkeeping. " +
-			"Any later upgrade captures these dispositions in its own new snapshot. " +
-			"The second site is STATBUS-509's re-arm (superseded -> available) of the exact installed row in that " +
-			"same success transaction, immediately completed by the upsert; it has the same success-only scope.",
+		Class: classSuccessPathOnly, Count: 1,
+		Why: "STATBUS-509's re-arm (superseded -> available) of the exact installed row runs in the normal " +
+			"successful install transaction, under its owned filesystem mutex after all ordinary install steps " +
+			"succeeded, immediately completed by the upsert. Failed/dev/bypass paths do not enter this hook, " +
+			"and no snapshot restore follows this success bookkeeping.",
+	},
+	{"cli/cmd/install.go", "UPDATE", "error,recovery_parked_at,recovery_parked_reason,state,superseded_at"}: {
+		Class: classSuccessPathOnly, Count: 1,
+		Why: "STATBUS-452/559 retires other interrupted attempts, now including parked ones, only in the normal " +
+			"successful install transaction, under its owned filesystem mutex after all ordinary install steps " +
+			"succeeded. A successful install is the fix a park waits for, so the park columns are cleared and the " +
+			"original error plus a displacement note are retained on the row; upgrade_state_log records the " +
+			"pre-transition park marker as history. Failed/dev/bypass paths do not enter this hook, and no " +
+			"snapshot restore follows this success bookkeeping. Any later upgrade captures these dispositions " +
+			"in its own new snapshot.",
 	},
 	{"cli/cmd/install_ledger_repair.go", "UPDATE", "completed_at,state,superseded_at"}: {
 		Class: classSuccessPathOnly, Count: 1,
