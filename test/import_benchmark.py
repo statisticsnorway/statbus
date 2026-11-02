@@ -723,6 +723,9 @@ def run_hierarchy_benchmarks():
 # never sees that plan, so each child command is replayed here as the worker
 # runs it: eight calls in one session with the payload of a completed task.
 REPEATED_CALLS = 8
+# PostgreSQL's plan cache considers a generic plan from the sixth execution
+# in a session; a command the import runs fewer times never meets one.
+GENERIC_PLAN_FROM_CALL = 6
 REPEATED_CALL_MAX_RATIO = 3.0
 
 
@@ -742,8 +745,8 @@ def run_repeated_call_benchmarks():
     conn.autocommit = False
     rows = []
     with conn.cursor() as cur:
-        # Only commands this run executed at least REPEATED_CALLS times: a
-        # plan can only switch to generic from the sixth execution, so a
+        # Only commands this run executed at least GENERIC_PLAN_FROM_CALL
+        # times: a plan can only switch to generic from then on, so a
         # command run a handful of times per import (the reduce steps) never
         # reaches it, and replaying their whole-table work eight times only
         # measures memory pressure.
@@ -757,7 +760,7 @@ def run_repeated_call_benchmarks():
                       WHERE state = 'completed'
                       GROUP BY command HAVING count(*) >= %s)
              ORDER BY t.command, t.id DESC
-        """, (REPEATED_CALLS,))
+        """, (GENERIC_PLAN_FROM_CALL,))
         commands = cur.fetchall()
         conn.rollback()
         for command, procedure, payload in commands:
@@ -780,7 +783,7 @@ def run_repeated_call_benchmarks():
     lines = [
         f"# Repeated calls of each child command in one session ({REPEATED_CALLS} calls)",
         f"# Flag: last call more than {REPEATED_CALL_MAX_RATIO}x the first (a generic plan worse than the custom one)",
-        "# Commands run fewer than REPEATED_CALLS times in the import are not replayed.",
+        f"# Commands run fewer than {GENERIC_PLAN_FROM_CALL} times in the import are not replayed.",
         "",
         f"{'command':<45} {'first_ms':>10} {'last_ms':>10} {'ratio':>7}",
     ]
