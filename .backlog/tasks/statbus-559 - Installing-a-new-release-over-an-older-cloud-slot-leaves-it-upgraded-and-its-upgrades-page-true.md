@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-11-02T15:12:00Z'
-updated_date: '2026-11-02T17:34:00Z'
+updated_date: '2026-11-02T20:10:00Z'
 labels:
   - bug
 dependencies: []
@@ -56,4 +56,6 @@ AC4 evidence (giraffe, 2026-11-02): commits 3e97a489c (install supersedes parked
 CI for c540527ee (checked 2026-11-02T16:02Z): Go Test, Push on master, app build & lint, Harness Selftest, Images, Notify cloud services, and Fast Tests @ exercised-sha=c540527ee all conclusion=success. Fast Tests jobs: fast suite, daemon floor oracle, live-database tests, STATBUS-536 reader, STATBUS-551 worker all success.
 
 v2026.11.1-rc.01 (3be5dc48b) gate: Smoke 41482136521, Arcs 41484453979, Hardening 41481885103, Fast Tests 41481885137, dev deploy 41484075554 all success. LXD Fork Fleet 41484330908 failed on one scenario only: 0-install-over-v2026-09-0-schema stopped at line 42 sourcing test/install-recovery/release-baseline.sh (LIB_DIR lacked /lib), before any step ran; the v2026.09.0 base itself was built fine. Reproduced locally (tmp/559/scenario-source-red.log), fixed in c7fe69c94 (LIB_DIR follows 0-happy-upgrade's convention), local run now reaches the tag check (tmp/559/scenario-source-green.log). All 26 other LXD scenarios PASS. Next: v2026.11.1-rc.02.
+
+v2026.11.1-rc.02 (14d4ae73b) gate: Smoke 41496104420, Fast Tests 41495914064, Hardening 41495914056, dev deploy 41497484014 success. LXD Fork Fleet 41497892833: 26/27 PASS; 0-install-over-v2026-09-0-schema ERROR again before any guest step: 'no migrations found at v2026.09.0'. Cause: in the LXD shadow tree REPO_ROOT is a subdirectory of the repo, so git ls-tree <rev> migrations/ is path-relative and empty (release-baseline.sh already anchors with :(top)). Fixed in aaedbc3d4 (ls-tree -r --full-tree ':(top)migrations/'). Rehearsed in a shadow tree built exactly like run-forks.sh: fixed copy reaches bootstrap with base schema 20260901212308 and target 20261031135820 (tmp/559/shadow-rehearsal-green.log); rc.02's copy reproduces the CI error (tmp/559/shadow-rehearsal-red-rc02.log). Next: rc.03.
 <!-- SECTION:NOTES:END -->
