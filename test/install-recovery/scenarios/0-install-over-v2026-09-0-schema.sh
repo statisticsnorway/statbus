@@ -37,7 +37,7 @@ HARNESS_DEPLOYMENT_MODE="${HARNESS_DEPLOYMENT_MODE:-standalone}"
 HARNESS_UPGRADE_CHANNEL="${HARNESS_UPGRADE_CHANNEL:-stable}"
 INSTALL_BASE_VERSION="${INSTALL_BASE_VERSION:-v2026.09.0}"
 
-LIB_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+LIB_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/lib"
 REPO_ROOT="$(cd "$LIB_DIR/../../.." && pwd)"
 source "$LIB_DIR/release-baseline.sh"
 
