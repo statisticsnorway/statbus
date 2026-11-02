@@ -29,6 +29,14 @@ if [ "$1" = clone ]; then
     mkdir -p "$destination/.git" "$destination/ops"
     cp "$FILTER_SOURCE" "$destination/ops/install-terminal-output.awk"
 fi
+# Like real git: rev-parse answers inside a checkout (-C dir or the current
+# directory) and fails outside one, so the reported commit comes from the
+# checkout that was just made.
+if [ "$1" = rev-parse ] || { [ "$1" = -C ] && [ "${3:-}" = rev-parse ]; }; then
+    dir=.; [ "$1" = -C ] && dir=$2
+    [ -d "$dir/.git" ] || { echo 'fatal: not a git repository (or any of the parent directories): .git' >&2; exit 128; }
+    echo 0a1b2c3d
+fi
 MOCK
 cat > "$TMP_ROOT/bin/curl" <<'MOCK'
 #!/bin/bash
@@ -115,7 +123,8 @@ grep -Fq 'git:-C '"$HOME"'/statbus fetch --quiet --depth 1 origin refs/tags/v202
 if grep -Eq 'new tag|Previous HEAD position|HEAD is now at|Cloning into' "$TMP_ROOT/output"; then
     echo 'FAIL: git chatter reached the installer output'; cat "$TMP_ROOT/output"; exit 1
 fi
-grep -Fq 'Checked out v2026.09.0-rc.02 (commit ' "$TMP_ROOT/output"
+grep -Fxq 'Checked out v2026.09.0-rc.02 (commit 0a1b2c3d).' "$TMP_ROOT/output" || {
+    echo 'FAIL: the fresh checkout line does not name the checked-out commit'; grep -F 'Checked out' "$TMP_ROOT/output"; exit 1; }
 echo 'PASS: FRESH clone, explicit relative paths and flags forwarded to sb; implicit filenames ignored'
 STATBUS_ENV_CONFIG="$EXPECTED_CONFIG" STATBUS_USERS_FILE="$EXPECTED_USERS" \
     bash "$ROOT/install.sh" --version v2026.09.0-rc.02 --non-interactive > "$TMP_ROOT/output"

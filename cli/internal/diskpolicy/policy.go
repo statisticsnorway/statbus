@@ -98,6 +98,16 @@ func RerunCommand() string {
 // TestInstallShRefusesEachDockerCauseBeforeAnyWork).
 const DockerSetupGuide = "https://github.com/statisticsnorway/statbus/blob/master/doc/setup-ubuntu-lts.md"
 
+// RootRefusal is the one sentence for an install started as root. StatBus runs
+// as its application user (the setup script creates statbus): its files, its
+// Docker access and its user-level upgrade service all belong to that user, so
+// a root install would leave root-owned files the service cannot use.
+// install.sh prints it before any download or checkout and ./sb install
+// prints it too; TestInstallShRefusesRootBeforeAnyWork pins both.
+func RootRefusal(rerun string) string {
+	return fmt.Sprintf("StatBus is installed as its application user, not root. Switch to that user with sudo -iu statbus (or the user the setup script created), then run the same install command again: %s", rerun)
+}
+
 // dockerDeniedQuote extracts the daemon's own permission sentence, restricted to
 // a fixed shape so nothing arbitrary can ride it across the install-log boundary.
 var dockerDeniedQuote = regexp.MustCompile(`(?i)permission denied while trying to connect to the docker (?:api|daemon socket) at unix:///[A-Za-z0-9_./-]+`)

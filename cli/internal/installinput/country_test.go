@@ -140,6 +140,26 @@ func TestStandaloneCountryAnswers(t *testing.T) {
 	}
 }
 
+// The manual test box's documented answer (ops/manual-box.sh guide): a box
+// that serves no real country uses United Nations, whose code un is in the
+// country list, so the code is suggested and kept without a warning.
+func TestUnitedNationsIsAnAcceptedInstallationCountry(t *testing.T) {
+	noHostZone(t)
+	s := &scripted{answers: map[string][]string{
+		"Deployment mode (development/standalone/private)": {""},
+		"Domain name":     {"statbus-manual.statbus-test.local"},
+		CountryNamePrompt: {"United Nations"},
+		CountryCodePrompt: {""},
+	}}
+	content := Ask(s.prompt)
+	if get(t, content, "DEPLOYMENT_SLOT_NAME") != "United Nations" || get(t, content, "DEPLOYMENT_SLOT_CODE") != "un" {
+		t.Fatalf("United Nations answers not kept:\n%s", content)
+	}
+	if advice := CountryCodeAdvice("un", "United Nations"); advice != "" {
+		t.Errorf("un for United Nations draws a warning: %s", advice)
+	}
+}
+
 // Standalone, operator presses Enter on everything after the domain. With a
 // real signal the defaults are a country's; never StatBus or local.
 func TestStandalonePressEnterUsesRealSignals(t *testing.T) {

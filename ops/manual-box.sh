@@ -94,6 +94,9 @@ guide_text() {
   6. Install:        sudo -iu statbus
                      curl -fsSL https://statbus.org/install.sh | bash
                      Domain: $cert_domain
+                     Country name: United Nations, country code: un
+                     (a test box serves no real country; un is in the
+                     country list, so the installer accepts it without a note)
                      Certificate: yes, pick ~/Documents/certificate-from-it,
                      password $cert_password
   7. Health:         cd ~/statbus && ./sb monitor status; curl -s https://$cert_domain/monitor

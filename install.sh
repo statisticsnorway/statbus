@@ -339,6 +339,14 @@ fi
 echo "StatBus Installer"
 echo "================="
 
+# StatBus is installed as its application user; the sentence is identical to
+# diskpolicy.RootRefusal, which ./sb install also prints. Checked first, before
+# any lock, download or checkout, so a root run leaves nothing behind.
+if [ "$(id -u)" = 0 ]; then
+    echo "StatBus is installed as its application user, not root. Switch to that user with sudo -iu statbus (or the user the setup script created), then run the same install command again: ${STATBUS_INSTALL_RERUN_COMMAND}" >&2
+    exit 1
+fi
+
 # ── DOCKER PREFLIGHT (STATBUS-487) ───────────────────────────────────────────
 #
 # OBSERVED on the owner's Uganda box, 2026-10-13: Docker was installed and its
@@ -892,7 +900,7 @@ if [ -z "${SKIP_BINARY_DOWNLOAD:-}" ]; then
         #
         # Keep the release at its fixed tag commit without detached-HEAD advice.
         git -C "$STATBUS_DIR" -c advice.detachedHead=false checkout --quiet --detach "${VERSION}^{commit}"
-        echo "Checked out $VERSION (commit $(git rev-parse --short=8 HEAD))."
+        echo "Checked out $VERSION (commit $(git -C "$STATBUS_DIR" rev-parse --short=8 HEAD))."
         mv "${HOME}/sb.tmp" "${STATBUS_DIR}/sb"
         cd "$STATBUS_DIR"
         echo "Installed program: $(./sb --version)"

@@ -65,6 +65,13 @@ type dockerPreflightRun struct {
 // no docker on PATH at all. git and curl are stubs that record any call.
 func runInstallShWithDocker(t *testing.T, dockerScript string) dockerPreflightRun {
 	t.Helper()
+	return runInstallShWithDockerAndID(t, dockerScript, "")
+}
+
+// runInstallShWithDockerAndID is runInstallShWithDocker with an optional fake
+// id (idScript == "" keeps the real one), so a test can present uid 0.
+func runInstallShWithDockerAndID(t *testing.T, dockerScript, idScript string) dockerPreflightRun {
+	t.Helper()
 	home := t.TempDir()
 	stubs := t.TempDir()
 	trace := filepath.Join(t.TempDir(), "trace")
@@ -79,7 +86,14 @@ func runInstallShWithDocker(t *testing.T, dockerScript string) dockerPreflightRu
 			t.Fatal(err)
 		}
 	}
-	base := installShPathWithout(t, "docker", "git", "curl")
+	omit := []string{"docker", "git", "curl"}
+	if idScript != "" {
+		if err := os.WriteFile(filepath.Join(stubs, "id"), []byte(idScript), 0o700); err != nil {
+			t.Fatal(err)
+		}
+		omit = append(omit, "id")
+	}
+	base := installShPathWithout(t, omit...)
 	cmd := exec.Command("bash", thisRepoFile(t, "install.sh"))
 	cmd.Dir = home
 	cmd.Env = []string{
@@ -189,5 +203,28 @@ func TestExit78AllowlistCarriesDockerSentences(t *testing.T) {
 				t.Errorf("arbitrary text trailed the Docker sentence across the boundary:\n%s", trailing)
 			}
 		})
+	}
+}
+
+// An install started as root is refused by install.sh before any lock,
+// download or checkout, with the same sentence ./sb install prints. id is
+// faked to report uid 0; Docker works, so only the root rule can stop it.
+func TestInstallShRefusesRootBeforeAnyWork(t *testing.T) {
+	run := runInstallShWithDockerAndID(t, "echo /var/lib/docker\nexit 0\n", "#!/bin/sh\n[ \"$1\" = -u ] && { echo 0; exit 0; }\nexec /usr/bin/id \"$@\"\n")
+	if run.exitCode == 0 {
+		t.Fatalf("install.sh ran as root:\n%s", run.output)
+	}
+	want := diskpolicy.RootRefusal(publicRerun)
+	if !strings.Contains(run.output, want+"\n") {
+		t.Errorf("install.sh did not print the root sentence\n  want: %s\n  got:\n%s", want, run.output)
+	}
+	trace, _ := os.ReadFile(run.trace)
+	if len(strings.TrimSpace(string(trace))) != 0 {
+		t.Errorf("work started before the root refusal:\n%s", trace)
+	}
+	for _, name := range []string{"statbus", ".statbus-uninstall.lock"} {
+		if _, err := os.Stat(filepath.Join(run.home, name)); err == nil {
+			t.Errorf("~/%s was created before the root refusal", name)
+		}
 	}
 }
