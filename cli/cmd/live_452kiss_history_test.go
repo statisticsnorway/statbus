@@ -183,7 +183,9 @@ func Test452KissHistoricalRepairNormalInstall(t *testing.T) {
 			}
 			want := "completed"
 			if mode == "parked-row" {
-				want = "in_progress"
+				// STATBUS-559: a successful install supersedes a parked attempt
+				// too, without inventing a completion timestamp.
+				want = "superseded"
 				if completed != nil {
 					t.Error("parked timestamp changed")
 				}
