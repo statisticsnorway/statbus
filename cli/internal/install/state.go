@@ -434,13 +434,22 @@ func parseSchemaHistoryCounts(out string, history SchemaHistory) (SchemaHistory,
 
 func (defaultProbe) QueryScheduledUpgrade(projDir string) (*ScheduledRow, error) {
 	// Oldest pending row wins; the scheduler enforces at-most-one.
-	// Use commit_sha as the version fallback — the version column was
-	// added by migration 20260415183106 and may not exist on servers
-	// that haven't run it yet.
+	//
+	// This runs BEFORE migrations, so it must resolve on every schema the
+	// installer accepts. The state column was added by migration 20260414180000
+	// and the version column by 20260415183106; on v2026.03.x, scheduled_at
+	// alone is the accept signal and the display version does not exist yet.
+	// Read state through the row's JSON so a missing column is NULL (fall back
+	// to the pre-state-machine shape) instead of a 42703 that stops install.
 	sql := `SELECT id, commit_sha, commit_sha
-              FROM public.upgrade
-             WHERE state = 'scheduled' AND started_at IS NULL
-             ORDER BY id ASC LIMIT 1`
+              FROM public.upgrade u
+             WHERE COALESCE(
+                     to_jsonb(u)->>'state',
+                     CASE WHEN u.scheduled_at IS NOT NULL AND u.started_at IS NULL
+                          THEN 'scheduled' ELSE 'available' END
+                   ) = 'scheduled'
+               AND u.started_at IS NULL
+             ORDER BY u.id ASC LIMIT 1`
 	out, err := runQuery(projDir, 10*time.Second, sql)
 	if err != nil {
 		return nil, err
@@ -499,11 +508,29 @@ func parseScheduledUpgradeRow(out string) (*ScheduledRow, error) {
 // Invariant: backup_path-set ⟹ post-swap ⟹ flag held until terminal. So the
 // probe needs no structural discriminator; state='failed' AND backup_path
 // present is exactly the restore-broke set.
+// The probe runs BEFORE migrations, so it must resolve on every schema the
+// installer accepts. Two columns it would like to name did not exist on older
+// releases: state (20260414180000) and rollback_finish_pending_at
+// (20260907120000). Both are read through the row's JSON below:
+//   - a missing state is derived from the old shape's own failure signal
+//     (error set, rollback not completed), matching the state migration's
+//     backfill;
+//   - a missing pending marker is NULL, i.e. no rollback can be pending on a
+//     schema that has no such state, so every failed row with a retained
+//     snapshot stays re-attemptable.
+//
+// This keeps the decision in SQL, never in error-text parsing.
 func (defaultProbe) QueryReattemptableRestore(projDir string) (int64, string, bool, error) {
 	out, err := runQuery(projDir, 10*time.Second,
-		`SELECT id, backup_path FROM public.upgrade
-		  WHERE state = 'failed' AND backup_path IS NOT NULL
-		    AND rollback_finish_pending_at IS NULL
+		`SELECT id, backup_path FROM public.upgrade u
+		  WHERE COALESCE(
+		          to_jsonb(u)->>'state',
+		          CASE WHEN to_jsonb(u)->>'error' IS NOT NULL
+		                     AND to_jsonb(u)->>'rollback_completed_at' IS NULL
+		               THEN 'failed' ELSE 'available' END
+		        ) = 'failed'
+		    AND backup_path IS NOT NULL
+		    AND to_jsonb(u)->>'rollback_finish_pending_at' IS NULL
 		  ORDER BY id DESC`)
 	if err != nil {
 		return 0, "", false, err

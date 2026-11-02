@@ -74,6 +74,7 @@ Every entry leads with its **plain goal** — read it as **die HERE → the oper
 |---|---|---|
 | `0-happy-install` | A fresh VM installs the candidate via its real `install.sh`, tagged binary asset and published commit images. Binary version, newest `public.upgrade` row and health must match the candidate. | No wedge; `install-works` (STATBUS-359), release-ladder rung 4 |
 | `0-happy-upgrade` | A normal unattended upgrade (v2026.05.2 → HEAD via the upgrade service) completes, data intact, with no watchdog or unexpected restart firing. | Supervised unit notify path (READY=1 / WATCHDOG=1) the inline scenarios miss; load-bearing: state=`completed`, NRestarts delta ≤ 2 |
+| `0-install-over-v2026-09-0-schema` | A box installed at v2026.09.0 has `install.sh --version <candidate>` run over it; the install completes, the binary and database schema reach the candidate, and the box serves. No wedge: a real old-schema box is the input. | Pre-migration state probes must resolve on a schema that predates `rollback_finish_pending_at` / `state` (STATBUS-559); asserts the old schema first, then the candidate's binary, schema, upgrade row and health |
 
 ### 1-boot — pre-READY / startup
 

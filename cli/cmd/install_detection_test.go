@@ -917,3 +917,63 @@ func TestExit78AllowlistRejectsSuffixInjection(t *testing.T) {
 		})
 	}
 }
+
+// STATBUS-559: install.sh places the target program and checks out the target
+// BEFORE it runs ./sb install, so a state-detection refusal at that point did
+// NOT leave the box untouched. The refusal must say what was changed; only a
+// direct ./sb install (no swap) may still say nothing was changed.
+func TestDetectionRefusalReportsSwappedProgramAndCheckout(t *testing.T) {
+	_ = withRunInstallDetectionHooks(t)
+	t.Setenv("STATBUS_INSTALL_PROGRAM_AND_CHECKOUT_SWAPPED", "1")
+	detectInstallState = func(string, string) (install.State, *install.Detail, error) {
+		return 0, nil, errors.New("query reattemptable restore: column does not exist")
+	}
+	writeDetectionSupportBundle = func(string) (string, error) { return "", nil }
+	runInstallStepTableTestHook = func() error { t.Fatal("step table reached after a detection failure"); return nil }
+
+	err := runInstall()
+	if err == nil {
+		t.Fatal("runInstall succeeded after a detection failure")
+	}
+	for _, want := range []string{
+		"the install state could not be determined safely",
+		"The program and checkout are already at the target",
+		"the running services and the database were not changed",
+		"Run the same install command again: " + diskpolicy.RerunCommand(),
+	} {
+		if !strings.Contains(err.Error(), want) {
+			t.Errorf("error missing %q:\n%s", want, err)
+		}
+	}
+	if strings.Contains(err.Error(), "nothing was changed") {
+		t.Errorf("a run that already swapped the program still claims nothing was changed:\n%s", err)
+	}
+}
+
+// The shell fallback must repeat the truthful sentence, not re-print the
+// generic "nothing was changed" line from the log.
+func TestInstallShDetectionRefusalReportsSwappedProgramAndCheckout(t *testing.T) {
+	const rerun = "curl -fsSL https://statbus.org/install.sh | bash -s -- --version v2026.11.0"
+	installDir := withRunInstallDetectionHooks(t)
+	t.Setenv("STATBUS_INSTALL_PROGRAM_AND_CHECKOUT_SWAPPED", "1")
+	bundlePath := filepath.Join(installDir, "support-bundle-20261102-120000.txt")
+	if err := os.WriteFile(bundlePath, []byte("bundle"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	line := "the install state could not be determined safely. The program and checkout are already at the target; the running services and the database were not changed. Run the same install command again: " + rerun +
+		". If it stops again, send this file to StatBus support: " + bundlePath + "\n"
+	got := installShFailureTailIn(t, installDir, rerun, line, 78)
+	for _, want := range []string{
+		"The program and checkout are already at the target",
+		"the running services and the database were not changed",
+		"Run the same install command again: " + rerun,
+		"If it stops again, send this file to StatBus support: " + bundlePath,
+	} {
+		if !strings.Contains(got, want) {
+			t.Errorf("operator output missing %q:\n%s", want, got)
+		}
+	}
+	if strings.Contains(got, "nothing was changed") {
+		t.Errorf("install.sh still claims nothing was changed after the swap:\n%s", got)
+	}
+}

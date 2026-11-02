@@ -357,6 +357,13 @@ lxd_checkpoint_for_scenario() {
     if grep -Eq '^# LXD_START=installed-candidate$' "$file"; then
         printf 'installed-%s-standalone' "$LXD_CANDIDATE"; return
     fi
+    # An explicit released baseline, declared by the scenario itself. Used when
+    # the baseline predates the installer-input seam (e.g. v2026.09.0), so the
+    # harness's historical-release builder must create it before the fork.
+    baseline=$(sed -nE 's/^# LXD_BASELINE=(v[0-9]+\.[0-9]+\.[0-9]+(-rc\.[0-9]+)?)$/\1/p' "$file" | head -n 1)
+    if [ -n "$baseline" ]; then
+        printf 'installed-%s-standalone' "$baseline"; return
+    fi
     case "$slug" in
         0-happy-install|0-interactive-admin-password|0-interactive-setup-choices|4-install-*|5-install-interrupted-*)
             printf 'hardened-nothing-installed'; return ;;

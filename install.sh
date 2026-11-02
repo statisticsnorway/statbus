@@ -919,6 +919,11 @@ fi
 # only reflects invariants fired during THIS install, not ghosts from before.
 rm -f "$STATBUS_DIR/tmp/install-terminal.txt" 2>/dev/null || true
 
+# STATBUS-559: the program and checkout now carry the target release. ./sb
+# install runs from here; if state detection refuses, the refusal must say what
+# was already changed instead of claiming nothing was.
+export STATBUS_INSTALL_PROGRAM_AND_CHECKOUT_SWAPPED=1
+
 # Hand the exact held descriptor to the matching target binary. Pre-existing
 # recovery/restart intent is carried verbatim only to capable target receivers.
 statbus_repo_lock_prepare_handoff
@@ -1031,7 +1036,7 @@ if [ "$sb_rc" -eq 78 ]; then
         grep -E '^cannot check disk space at (Docker storage: Docker root unavailable|[A-Za-z0-9_./~+-]+: measurement unavailable)$' "$install_output" | tail -1
     elif grep -Eq "^a restart is still running(, or its services could not be restored)?\\. Wait for it to finish, then run the same install command again: ${_statbus_rerun_ere}\$" "$install_output"; then
         grep -E "^a restart is still running(, or its services could not be restored)?\\. Wait for it to finish, then run the same install command again: ${_statbus_rerun_ere}\$" "$install_output" | tail -1
-    elif grep -Eq '^the install state could not be determined safely; nothing was changed\. Run the same install command again: ' "$install_output"; then
+    elif grep -Eq '^the install state could not be determined safely[.;] ' "$install_output"; then
         # STATBUS-430: a state-detection probe failed for a reason OTHER than
         # a proven database outage (e.g. a DB restart mid binary-swap catches
         # it as "the database system is shutting down"). This is caught
@@ -1040,17 +1045,24 @@ if [ "$sb_rc" -eq 78 ]; then
         # "Correct the settings" sentence below. It is not necessarily
         # transient either: the same refusal covers malformed flag JSON,
         # permission-denied reads and unexpected probe output, none of which
-        # self-heals on rerun. Nothing was changed either way; the remedy is
-        # rerun, then support if it recurs — this is not evidence the
-        # settings are wrong.
+        # self-heals on rerun.
+        #
+        # STATBUS-559: this script already swapped the program and checked out
+        # the target before calling ./sb install, so nothing-changed would be
+        # false. Say what was changed; running services and the database were
+        # left alone. The target version is not echoed from the log.
         #
         # We do NOT echo the raw log line here (unlike the bucket above):
         # its trailing support-bundle path is validated below with the same
         # case-pattern technique the generic fallback uses, so it is
         # constructed from trusted shell values, never printed verbatim from
         # the log.
-        echo "the install state could not be determined safely; nothing was changed. Run the same install command again: $STATBUS_INSTALL_RERUN_COMMAND"
-        detect_bundle=$(grep -E '^the install state could not be determined safely; ' "$install_output" | tail -1 | sed -E 's/^.*send this file to StatBus support: //' || true)
+        if [ "${STATBUS_INSTALL_PROGRAM_AND_CHECKOUT_SWAPPED:-}" = 1 ]; then
+            echo "the install state could not be determined safely. The program and checkout are already at the target; the running services and the database were not changed. Run the same install command again: $STATBUS_INSTALL_RERUN_COMMAND"
+        else
+            echo "the install state could not be determined safely; nothing was changed. Run the same install command again: $STATBUS_INSTALL_RERUN_COMMAND"
+        fi
+        detect_bundle=$(grep -E '^the install state could not be determined safely[.;] ' "$install_output" | tail -1 | sed -E 's/^.*send this file to StatBus support: //' || true)
         case "$detect_bundle" in
             "$STATBUS_DIR"/support-bundle-[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]-[0-9][0-9][0-9][0-9][0-9][0-9].txt|"$STATBUS_DIR"/tmp/install-last-run-output.txt)
                 if [ -f "$detect_bundle" ]; then echo "If it stops again, send this file to StatBus support: $detect_bundle"; fi ;;

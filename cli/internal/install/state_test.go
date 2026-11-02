@@ -427,14 +427,16 @@ func TestStateString(t *testing.T) {
 // TestReattemptableRestoreQueryExcludesPendingByColumn pins STATBUS-347: the
 // cleanup-only rollback row is excluded IN SQL on rollback_finish_pending_at,
 // never by parsing `error` text in Go. A reader that has to recognise a prefix
-// is a reader that can be fooled by a typo; the column cannot.
+// is a reader that can be fooled by a typo; the column cannot. The lookup goes
+// through the row's JSON (STATBUS-559) so the same query also resolves on
+// schemas that predate the column, where no rollback can be pending.
 func TestReattemptableRestoreQueryExcludesPendingByColumn(t *testing.T) {
 	src, err := os.ReadFile("state.go")
 	if err != nil {
 		t.Fatal(err)
 	}
 	body := extractFuncSource(t, string(src), "func (defaultProbe) QueryReattemptableRestore(")
-	if !strings.Contains(body, "rollback_finish_pending_at IS NULL") {
+	if !strings.Contains(body, "to_jsonb(u)->>'rollback_finish_pending_at' IS NULL") {
 		t.Fatal("QueryReattemptableRestore no longer excludes rollback_finish_pending_at rows in SQL; a healthy restored box could be replayed")
 	}
 	if strings.Contains(string(src), "IsRollbackFinishPendingError") {

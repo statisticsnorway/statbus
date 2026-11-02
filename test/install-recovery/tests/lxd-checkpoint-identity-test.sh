@@ -172,3 +172,19 @@ grep -Fq 'git clone --quiet --depth 50 --branch v2099.01.0' "$TMP/helper-body"
 grep -Fq 'cp /tmp/env-config .env.config' "$TMP/helper-body"
 grep -Fq './sb install --non-interactive --trust-github-user jhf' "$TMP/helper-body"
 echo 'PASS: actual historical helper chooses released binary/checkout with fresh private/prerelease answers (captured, not executed)'
+
+# STATBUS-559: a scenario that must start from a specific released baseline
+# (v2026.09.0 predates the installer-input seam) declares it in its header.
+# The fork must resolve that exact installed checkpoint so the harness builds
+# it through the historical-release path instead of forking a pristine guest.
+cat > "$REPO/test/install-recovery/scenarios/0-install-over-v2026-09-0-schema.sh" <<'SCENARIO'
+#!/usr/bin/env bash
+# LXD_BASELINE=v2099.01.0
+bootstrap_install_test_vm "$VM_NAME" "$INSTALL_BASE_VERSION"
+SCENARIO
+explicit_base=$(lxd_checkpoint_for_scenario 0-install-over-v2026-09-0-schema)
+[ "$explicit_base" = "installed-v2099.01.0-standalone" ] || {
+    echo "FAIL: explicit LXD_BASELINE checkpoint = $explicit_base (expected installed-v2099.01.0-standalone)" >&2
+    exit 1
+}
+echo "PASS: an explicit LXD_BASELINE resolves to its installed baseline checkpoint ($explicit_base)"
