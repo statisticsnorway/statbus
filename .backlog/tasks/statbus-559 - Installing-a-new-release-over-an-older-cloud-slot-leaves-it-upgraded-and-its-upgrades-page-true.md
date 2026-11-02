@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-11-02T15:12:00Z'
-updated_date: '2026-11-02T22:34:00Z'
+updated_date: '2026-11-02T22:49:00Z'
 labels:
   - bug
 dependencies: []
@@ -67,4 +67,6 @@ Interactive answer review (owner option A, rabbit worker 2026-11-02): commit 479
 CI for interactive answer review: 4790b5ed7 Go Test failed only on errcheck in the new test (unchecked answers.Close), fixed in b97f666c1. For b97f666c1: Go Test, Harness Selftest, Images, app build & lint, Notify cloud services, Push on master all success; its Fast Tests run (exercised-sha=b97f666c1) was cancelled by the newer 8fea12e54, and the change is Go-only with no SQL, so the Go Test suite covers it. Local golangci-lint (staticcheck, errcheck, ineffassign, nilness) 0 issues on ./cmd/... ./internal/installinput/....
 
 v2026.11.1-rc.03 (068d5c93a) gate so far: Release 41531148478, Fast Tests 41531148396, Hardening 41531148543, Smoke 41531391105, dev deploy 41532826997, LXD Fork Fleet 41533051284 all success. AC2 proven: 0-install-over-v2026-09-0-schema PASS (249 s) from checkpoint installed-v2026.09.0-standalone: 'install.sh --version v2026.11.1-rc.03 completed over a real v2026.09.0 database', CA-verified HTTPS /rest/ 200. Red baseline is the ug incident on v2026.11.0 (rollback_finish_pending_at missing). Arcs pending. Next: owner runs cloud.sh install on ug, mw, ua; ma for the parked row and banner.
+
+v2026.11.1-rc.03 gate complete, all green: Release 41531148478, Fast Tests 41531148396, Hardening 41531148543, Smoke 41531391105, dev deploy 41532826997, LXD Fork Fleet 41533051284, Upgrade Arc Harness 41533182923. Remaining: AC6 real slots (owner runs cloud.sh install ug/mw/ua/ma on rc.03).
 <!-- SECTION:NOTES:END -->
