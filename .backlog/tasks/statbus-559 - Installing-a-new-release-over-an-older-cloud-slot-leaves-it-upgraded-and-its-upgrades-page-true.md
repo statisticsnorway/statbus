@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-11-02T15:12:00Z'
-updated_date: '2026-11-02T20:48:00Z'
+updated_date: '2026-11-02T22:34:00Z'
 labels:
   - bug
 dependencies: []
@@ -30,7 +30,7 @@ Found 2026-11-02 installing v2026.11.0 on niue cloud slots ug and ma (logs tmp/c
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
 - [ ] #1 Install state detection works on every schema the installer accepts: on a database without rollback_finish_pending_at it proceeds (no rollback can be pending there). A test runs the probe against a schema lacking the column, red before the fix and green after
-- [ ] #2 A gate scenario installs the candidate with install.sh --version over a real v2026.09.0 box and the install completes; red against v2026.11.0, green with the fix
+- [x] #2 A gate scenario installs the candidate with install.sh --version over a real v2026.09.0 box and the install completes; red against v2026.11.0, green with the fix
 - [ ] #3 When ./sb install stops after install.sh swapped the program and checked out the target, the message says what was changed instead of 'nothing was changed'
 - [ ] #4 A successful install supersedes parked in_progress attempts for other commits; the row keeps its error and park reason and the state log records the transition. The 452 live install test covers it, red before and green after
 - [ ] #5 The upgrade service stamps unit_floor_state when it starts, so a page read right after a successful install shows no 'not running' warning. Covered by a test
@@ -65,4 +65,6 @@ Manual-box findings 2026-11-02 (owner run of v2026.11.0 install.sh): (1) as root
 Interactive answer review (owner option A, rabbit worker 2026-11-02): commit 4790b5ed7 pushed to master. After the last question ./sb install prints 'These answers will be used for this installation:' with plain labels (Deployment mode, Domain name, Country name, Country code) and asks 'Use these answers? [Y/n]'; Enter/y accepts, n asks all questions again with the previous answers as the defaults. Nothing is written before acceptance (.env.config is still written only after the questions). installinput.Ask now takes optional previous answers; installinput.ReviewLines/AnswerValues build the summary and the fallbacks. Summary lines go through installTTYPrompt so install.sh's terminal filter shows them. Non-interactive/STATBUS_ENV_CONFIG paths unchanged. Red/green: tmp/559-review-red.log (parent tree: 'asked 4 questions, want 8 (the review must ask them all again)') and tmp/559-review-green.log (go test ./internal/installinput/... ./cmd/... all ok). Harness: setup-choices scenario expect driver answers the review and asserts the summary values, and setup-choices-driver-test.sh stand-in prints it; both PASS locally (scenario-selection-test also PASS). cli/cmd/install.go commit also carries rabbit's diskpolicy.RootRefusal hunk as requested.
 
 CI for interactive answer review: 4790b5ed7 Go Test failed only on errcheck in the new test (unchecked answers.Close), fixed in b97f666c1. For b97f666c1: Go Test, Harness Selftest, Images, app build & lint, Notify cloud services, Push on master all success; its Fast Tests run (exercised-sha=b97f666c1) was cancelled by the newer 8fea12e54, and the change is Go-only with no SQL, so the Go Test suite covers it. Local golangci-lint (staticcheck, errcheck, ineffassign, nilness) 0 issues on ./cmd/... ./internal/installinput/....
+
+v2026.11.1-rc.03 (068d5c93a) gate so far: Release 41531148478, Fast Tests 41531148396, Hardening 41531148543, Smoke 41531391105, dev deploy 41532826997, LXD Fork Fleet 41533051284 all success. AC2 proven: 0-install-over-v2026-09-0-schema PASS (249 s) from checkpoint installed-v2026.09.0-standalone: 'install.sh --version v2026.11.1-rc.03 completed over a real v2026.09.0 database', CA-verified HTTPS /rest/ 200. Red baseline is the ug incident on v2026.11.0 (rollback_finish_pending_at missing). Arcs pending. Next: owner runs cloud.sh install on ug, mw, ua; ma for the parked row and banner.
 <!-- SECTION:NOTES:END -->
