@@ -65,7 +65,10 @@ BEGIN
                         'resolution', v_period.resolution::text,
                         'year', v_period.year,
                         'month', v_period.month,
-                        'hash_partition', v_hash_partition::text
+                        'hash_partition', v_hash_partition::text,
+                        -- The child records the combinations its rewrite changes,
+                        -- for the scoped reduce (worker.statistical_history_facet_changed).
+                        'record_changes', true
                     ),
                     p_parent_id => v_task_id
                 );
@@ -96,7 +99,11 @@ BEGIN
         END IF;
     END LOOP;
 
-    p_info := jsonb_build_object('child_count', v_child_count);
+    -- mode tells worker.statistical_history_facet_reduce how to reduce: 'dirty'
+    -- recomputes the combinations the children recorded, 'full' the whole cache.
+    p_info := jsonb_build_object(
+        'child_count', v_child_count,
+        'mode', CASE WHEN v_dirty_hash_slots IS NOT NULL THEN 'dirty' ELSE 'full' END);
 END;
 $procedure$
 ```

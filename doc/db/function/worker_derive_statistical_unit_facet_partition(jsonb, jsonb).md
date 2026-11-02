@@ -12,8 +12,18 @@ DECLARE
     -- derive_statistical_history_facet_period which passes scalar bounds.
     v_from  integer := lower(v_hash_partition);
     v_until integer := upper(v_hash_partition);
+    v_record_changes boolean := COALESCE((payload->>'record_changes')::boolean, false);
     v_row_count bigint;
 BEGIN
+    -- The slice as it was, so the combinations this rewrite changes, including
+    -- the removed ones, can be recorded for the scoped reduce.
+    IF v_record_changes THEN
+        IF to_regclass('pg_temp._unit_facet_slice_before') IS NOT NULL THEN DROP TABLE _unit_facet_slice_before; END IF;
+        CREATE TEMP TABLE _unit_facet_slice_before ON COMMIT DROP AS
+        SELECT * FROM public.statistical_unit_facet_staging
+         WHERE hash_slot >= v_from AND hash_slot < v_until;
+    END IF;
+
     DELETE FROM public.statistical_unit_facet_staging
      WHERE hash_slot >= v_from AND hash_slot < v_until;
 
@@ -39,6 +49,31 @@ BEGIN
              su.physical_region_path, su.primary_activity_category_path,
              su.sector_path, su.legal_form_id, su.physical_country_id, su.status_id;
     GET DIAGNOSTICS v_row_count := ROW_COUNT;
+
+    -- A combination changed when any of its rows in the slice was added,
+    -- altered or removed: the symmetric difference of before and after.
+    -- Inserted in key order, so concurrent children wait on each other's
+    -- uncommitted keys in the same order and cannot deadlock.
+    IF v_record_changes THEN
+        INSERT INTO worker.statistical_unit_facet_changed
+        SELECT DISTINCT d.valid_from, d.valid_to, d.valid_until, d.unit_type,
+               d.physical_region_path, d.primary_activity_category_path,
+               d.sector_path, d.legal_form_id, d.physical_country_id, d.status_id
+        FROM (
+            (SELECT * FROM _unit_facet_slice_before
+             EXCEPT ALL
+             SELECT * FROM public.statistical_unit_facet_staging
+              WHERE hash_slot >= v_from AND hash_slot < v_until)
+            UNION ALL
+            (SELECT * FROM public.statistical_unit_facet_staging
+              WHERE hash_slot >= v_from AND hash_slot < v_until
+             EXCEPT ALL
+             SELECT * FROM _unit_facet_slice_before)
+        ) AS d
+        ORDER BY 1, 2, 3, 4, 5, 6, 7, 8, 9, 10
+        ON CONFLICT DO NOTHING;
+    END IF;
+
     p_info := jsonb_build_object('rows_inserted', v_row_count);
 END;
 $procedure$

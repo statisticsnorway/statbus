@@ -1,27 +1,21 @@
--- Test 318: Facet drift self-healing under collapsed global MERGE reduce
+-- Test 318: Facet drift self-healing under a reduce over the whole cache
 --
--- Phase 3 of the counting-bug investigation. The previous Path B in
--- worker.statistical_unit_facet_reduce had a structurally incomplete
--- DELETE step (only reaches target rows whose dim+temporal IS IN
--- pre_dirty_dims). Stale rows could accumulate and not self-heal.
+-- A full reduce (mode 'full': after a full derive, or a direct CALL as here)
+-- merges the whole cache into each facet table, so a target row the cache
+-- does not support is removed, however it got there. A dirty-mode reduce only
+-- revisits recorded combinations (STATBUS-558, test 355); stale rows from a
+-- past counting defect are repaired by a full rebuild, which the migration
+-- fixing the defect schedules.
 --
 -- This test:
 --   1. Loads a small demo dataset and runs the derive pipeline.
 --   2. Verifies target = truth at CURRENT_DATE.
 --   3. Injects a synthetic stale row into statistical_unit_facet (and
---      statistical_history_facet) — simulating drift that Path B would
---      have missed.
+--      statistical_history_facet) that no cache row supports.
 --   4. Calls worker.statistical_unit_facet_reduce and
---      worker.statistical_history_facet_reduce directly (no pipeline).
---   5. Asserts the synthetic rows are GONE — proving the new collapsed
---      MERGE is self-healing regardless of whether the dim+temporal of
---      the stale row was ever in pre_dirty_dims.
---
--- Under the BUGGY rc.42 Path B (≤128 dirty), the synthetic row would
--- survive: pre_dirty_dims wouldn't include the synthetic dim_tuple
--- (no staging row matches it), so the gating filter in the DELETE
--- step `WHERE dim_tuple IN pre_dirty_dims` excludes it. The fix uses
--- WHEN NOT MATCHED BY SOURCE THEN DELETE which is dim-tuple-agnostic.
+--      worker.statistical_history_facet_reduce directly (no pipeline),
+--      which reduce in full mode.
+--   5. Asserts the synthetic rows are GONE.
 
 BEGIN;
 
