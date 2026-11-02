@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-11-02T15:12:00Z'
-updated_date: '2026-11-02T20:10:00Z'
+updated_date: '2026-11-02T20:27:00Z'
 labels:
   - bug
 dependencies: []
@@ -35,6 +35,7 @@ Found 2026-11-02 installing v2026.11.0 on niue cloud slots ug and ma (logs tmp/c
 - [ ] #4 A successful install supersedes parked in_progress attempts for other commits; the row keeps its error and park reason and the state log records the transition. The 452 live install test covers it, red before and green after
 - [ ] #5 The upgrade service stamps unit_floor_state when it starts, so a page read right after a successful install shows no 'not running' warning. Covered by a test
 - [ ] #6 ug, mw and ua reach the stable release with ./cloud.sh install, ug's statbus-maintenance belongs to statbus_ug afterwards, and ma's v2026.10.5 row shows superseded
+- [ ] #7 Found on the manual box 2026-11-02 with v2026.11.0: install.sh refuses root before any lock, download or checkout, with the same sentence ./sb install prints (TestInstallShRefusesRootBeforeAnyWork red before, green after); a fresh install names the checked-out commit (fresh-installer-test red 'commit )' before, green after); the manual-box guide gives the country answers (United Nations / un, TestUnitedNationsIsAnAcceptedInstallationCountry); the questionnaire shows the answers and lets the operator redo them before anything is written
 <!-- AC:END -->
 
 ## Implementation Notes
@@ -58,4 +59,6 @@ CI for c540527ee (checked 2026-11-02T16:02Z): Go Test, Push on master, app build
 v2026.11.1-rc.01 (3be5dc48b) gate: Smoke 41482136521, Arcs 41484453979, Hardening 41481885103, Fast Tests 41481885137, dev deploy 41484075554 all success. LXD Fork Fleet 41484330908 failed on one scenario only: 0-install-over-v2026-09-0-schema stopped at line 42 sourcing test/install-recovery/release-baseline.sh (LIB_DIR lacked /lib), before any step ran; the v2026.09.0 base itself was built fine. Reproduced locally (tmp/559/scenario-source-red.log), fixed in c7fe69c94 (LIB_DIR follows 0-happy-upgrade's convention), local run now reaches the tag check (tmp/559/scenario-source-green.log). All 26 other LXD scenarios PASS. Next: v2026.11.1-rc.02.
 
 v2026.11.1-rc.02 (14d4ae73b) gate: Smoke 41496104420, Fast Tests 41495914064, Hardening 41495914056, dev deploy 41497484014 success. LXD Fork Fleet 41497892833: 26/27 PASS; 0-install-over-v2026-09-0-schema ERROR again before any guest step: 'no migrations found at v2026.09.0'. Cause: in the LXD shadow tree REPO_ROOT is a subdirectory of the repo, so git ls-tree <rev> migrations/ is path-relative and empty (release-baseline.sh already anchors with :(top)). Fixed in aaedbc3d4 (ls-tree -r --full-tree ':(top)migrations/'). Rehearsed in a shadow tree built exactly like run-forks.sh: fixed copy reaches bootstrap with base schema 20260901212308 and target 20261031135820 (tmp/559/shadow-rehearsal-green.log); rc.02's copy reproduces the CI error (tmp/559/shadow-rehearsal-red-rc02.log). Next: rc.03.
+
+Manual-box findings 2026-11-02 (owner run of v2026.11.0 install.sh): (1) as root it ran on and created /root/.statbus-uninstall.lock before ./sb refused; (2) fresh install printed 'fatal: not a git repository' and 'Checked out v2026.11.0 (commit ).' because rev-parse ran before cd into the new checkout; (3) the guide gave no country answer; (4) a typo could not be corrected. Fixed (1)-(3) in 6da990385: red tmp/559/root-refusal-red.log (root run reached docker info and curl, created the lock), green tmp/559/root-refusal-green.log; red tmp/559/fresh-commit-red.log, green tmp/559/fresh-commit-green.log; tmp/559/un-green.log. (4) delegated to worker hamster (answer review before writing). Also 70bbd20ed: manual-box ssh uses C.UTF-8.
 <!-- SECTION:NOTES:END -->
