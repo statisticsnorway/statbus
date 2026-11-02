@@ -1,13 +1,16 @@
 #!/usr/bin/env bash
 # A plain Ubuntu 26.04 server for testing setup.sh, install.sh and
 # uninstall.sh by hand, exactly as an operator would on a fresh machine.
-# Nothing is pre-configured: default hostname, root login with the owner's
-# key, no StatBus user, no firewall, no DNS name. The point is to prove the
-# published scripts work on a default box.
+# It starts the way a stock Ubuntu cloud image does: the operator logs in as
+# the sudo user "ubuntu" with their key, and root cannot log in over SSH.
+# Nothing else is pre-configured: default hostname, no StatBus user, no
+# firewall, no DNS name. The point is to prove the published scripts work on
+# a default box, along the path most operators take (ubuntu, then sudo).
 #
 #   ops/manual-box.sh up       create the server (or show it if it exists)
-#   ops/manual-box.sh ssh      log in as root in a logged tmux session
-#                              (reattaches if the session is already open)
+#   ops/manual-box.sh ssh [user]
+#                              log in (as ubuntu by default) in a logged tmux
+#                              session; reattaches if that session is open
 #   ops/manual-box.sh cert     after setup: hand the box a test certificate the
 #                              way an NSO would (a PFX in the statbus home)
 #   ops/manual-box.sh guide    print the test walkthrough (setup, certificate,
@@ -32,6 +35,9 @@ location=hel1
 ssh_key='jorgen@veridit.no'
 label=statbus-purpose=manual-box
 log="$ROOT/tmp/$name-session.log"
+# The login user of a stock Ubuntu cloud image. Setup later adds devops and
+# statbus; the guide reaches statbus with sudo -iu, as an operator would.
+login_user=ubuntu
 
 # ssh forwards LANG and LC_* (the default SendEnv), and a plain Ubuntu box has
 # only C.UTF-8 and en_US.UTF-8, so a laptop locale such as nb_NO.UTF-8 makes
@@ -41,6 +47,25 @@ export LANG=C.UTF-8 LC_ALL=C.UTF-8
 unset LANGUAGE
 
 describe() { hcloud server describe "$name" -o json 2>/dev/null || true; }
+
+# Hetzner's Ubuntu image has only root with the chosen key. This cloud-init
+# makes it look like a stock Ubuntu cloud image instead: an "ubuntu" user with
+# passwordless sudo and the same key, and no root login over SSH.
+stock_ubuntu_user_data() {
+    local key
+    key=$(hcloud ssh-key describe "$ssh_key" -o json | jq -er '.public_key')
+    cat <<EOF
+#cloud-config
+users:
+  - name: $login_user
+    groups: [sudo]
+    shell: /bin/bash
+    sudo: "ALL=(ALL) NOPASSWD:ALL"
+    ssh_authorized_keys:
+      - $key
+disable_root: true
+EOF
+}
 
 # A same-name server that is not labelled as ours is someone else's: refuse.
 require_ours() {
@@ -53,12 +78,12 @@ wait_for_ssh() {
     local ip=$1 i
     ssh-keygen -R "$ip" >/dev/null 2>&1 || true
     for ((i = 0; i < 90; i++)); do
-        if ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new -o ConnectTimeout=5 "root@$ip" true 2>/dev/null; then
+        if ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new -o ConnectTimeout=5 "$login_user@$ip" 'sudo -n true' 2>/dev/null; then
             return 0
         fi
         sleep 2
     done
-    echo "SSH did not answer on $ip within 3 minutes" >&2
+    echo "SSH as $login_user (with sudo) did not answer on $ip within 3 minutes" >&2
     exit 1
 }
 
@@ -70,7 +95,7 @@ show() {
 Server:  $name ($type, $image, $location), created $created
 Address: $ip
 
-Log in:            ops/manual-box.sh ssh
+Log in:            ops/manual-box.sh ssh   (as $login_user; ssh statbus after setup)
 Session log:       $log
 Delete when done:  ops/manual-box.sh down
 
@@ -85,13 +110,14 @@ EOF
 # are the ones 'cert' produces.
 guide_text() {
     cat <<GUIDE
-  1. Log in:         ops/manual-box.sh ssh      (you are root)
+  1. Log in:         ops/manual-box.sh ssh      (you are $login_user, a sudo user)
   2. Root shell:     sudo -i; echo "HOME=\$HOME login=\$(shopt -q login_shell && echo yes || echo no)"
   3. Setup:          curl -fsSL https://statbus.org/setup.sh -o setup.sh && bash setup.sh
                      Full name of this server: $cert_domain
   4. Ownership:      find /home/statbus -xdev -user root    (expect no output)
   5. Certificate:    on your laptop: ops/manual-box.sh cert
-  6. Install:        sudo -iu statbus
+  6. Install:        leave the root shell (exit), then: sudo -iu statbus
+                     (or log in directly: ops/manual-box.sh ssh statbus)
                      curl -fsSL https://statbus.org/install.sh | bash
                      Domain: $cert_domain
                      Country name: United Nations, country code: un
@@ -105,26 +131,26 @@ guide_text() {
 GUIDE
 }
 
-# One tmux session per box, named after it. Everything the terminal shows is
-# appended to the session log so the coordinating agent can read along. The
-# session waits briefly before ssh starts so the log captures the login too.
-# Leaving ssh ends the session; running `ssh` again opens a new one and keeps
-# appending to the same log.
+# One tmux session per box and login user, named after both. Everything the
+# terminal shows is appended to the one session log, so the coordinating agent
+# can read along. The session waits briefly before ssh starts so the log
+# captures the login too. Leaving ssh ends the session; running `ssh` again
+# opens a new one and keeps appending to the same log.
 connect() {
-    local ip=$1
+    local ip=$1 user=$2 session="$name-$2"
     mkdir -p "$(dirname "$log")"
-    if ! tmux has-session -t "=$name" 2>/dev/null; then
-        printf '\n===== %s session start %s =====\n' "$name" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$log"
-        tmux new-session -d -s "$name" \
-            "sleep 0.5; exec env LANG=C.UTF-8 LC_ALL=C.UTF-8 ssh -o StrictHostKeyChecking=accept-new root@$ip"
+    if ! tmux has-session -t "=$session" 2>/dev/null; then
+        printf '\n===== %s session start as %s %s =====\n' "$name" "$user" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$log"
+        tmux new-session -d -s "$session" \
+            "sleep 0.5; exec env LANG=C.UTF-8 LC_ALL=C.UTF-8 ssh -o StrictHostKeyChecking=accept-new $user@$ip"
         # pipe-pane takes a pane target: '=name:' is the exact session's
         # current window and pane ('=name' alone is rejected).
-        tmux pipe-pane -o -t "=$name:" "cat >> '$log'"
+        tmux pipe-pane -o -t "=$session:" "cat >> '$log'"
     fi
     if [ -n "${TMUX:-}" ]; then
-        tmux switch-client -t "=$name"
+        tmux switch-client -t "=$session"
     else
-        tmux attach-session -t "=$name"
+        tmux attach-session -t "=$session"
     fi
 }
 
@@ -140,7 +166,7 @@ cert_password=manual-box-test
 give_certificate() {
     local ip=$1 domain=$2
     [[ "$domain" =~ ^[a-zA-Z0-9.-]+$ ]] || { echo "Not a host name: $domain" >&2; exit 1; }
-    ssh -o BatchMode=yes "root@$ip" "DOMAIN='$domain' PASSWORD='$cert_password' bash -s" <<'REMOTE'
+    ssh -o BatchMode=yes "$login_user@$ip" "sudo DOMAIN='$domain' PASSWORD='$cert_password' bash -s" <<'REMOTE'
 set -euo pipefail
 if ! id statbus >/dev/null 2>&1; then
     echo "There is no statbus user yet. Run setup first; the certificate goes into its home." >&2
@@ -179,7 +205,8 @@ up)
     server=$(describe)
     if [ -z "$server" ]; then
         hcloud server create --name "$name" --type "$type" --image "$image" \
-            --location "$location" --ssh-key "$ssh_key" --label "$label" >/dev/null
+            --location "$location" --ssh-key "$ssh_key" --label "$label" \
+            --user-data-from-file <(stock_ubuntu_user_data) >/dev/null
         server=$(describe)
     fi
     require_ours "$server"
@@ -187,10 +214,11 @@ up)
     show "$server"
     ;;
 ssh|connect)
+    [[ "${2:-$login_user}" =~ ^[a-z_][a-z0-9_-]*$ ]] || { echo "Not a user name: ${2:-}" >&2; exit 1; }
     server=$(describe)
     [ -n "$server" ] || { echo "No server '$name'; run: ops/manual-box.sh up" >&2; exit 1; }
     require_ours "$server"
-    connect "$(jq -er '.public_net.ipv4.ip' <<<"$server")"
+    connect "$(jq -er '.public_net.ipv4.ip' <<<"$server")" "${2:-$login_user}"
     ;;
 cert)
     server=$(describe)
@@ -205,7 +233,8 @@ rebuild)
     server=$(describe)
     [ -n "$server" ] || { echo "No server '$name'; run: ops/manual-box.sh up" >&2; exit 1; }
     require_ours "$server"
-    hcloud server rebuild "$name" --image "$image" >/dev/null
+    hcloud server rebuild "$name" --image "$image" \
+        --user-data-from-file <(stock_ubuntu_user_data) >/dev/null
     wait_for_ssh "$(jq -er '.public_net.ipv4.ip' <<<"$server")"
     show "$server"
     ;;
