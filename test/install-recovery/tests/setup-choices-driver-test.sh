@@ -30,12 +30,14 @@ sed -n '/^cat > "\$HOME\/setup-choices.exp" <<.EXPECT.$/,/^EXPECT$/p' "$SCENARIO
 [ -s "$WORK/setup-choices.exp" ] || { echo "FAIL could not extract the expect driver from $SCENARIO"; exit 1; }
 
 # The certificate question as the product prints it: askInstallCert's label,
-# formatted by askCertYesNo ("%s [y/N]: ").
+# the [y/N] shape askCertYesNo passes to askCertQuestion, and that helper's
+# Printf format.
 label=$(grep -o 'askCertificateYesNo("[^"]*")' "$ROOT/cli/cmd/install_cert.go" | head -1 | sed 's/^askCertificateYesNo("//; s/")$//')
-format=$(sed -n '/^func askCertYesNo/,/^}/p' "$ROOT/cli/cmd/install_cert.go" | grep -o 'fmt.Printf("[^"]*"' | head -1 | sed 's/^fmt.Printf("//; s/"$//')
-[ -n "$label" ] && [ -n "$format" ] || { echo "FAIL could not read the certificate prompt from cli/cmd/install_cert.go"; exit 1; }
+shape=$(sed -n '/^func askCertYesNo/,/^}/p' "$ROOT/cli/cmd/install_cert.go" | grep -o 'askCertQuestion(label, "[^"]*"' | head -1 | sed 's/^askCertQuestion(label, "//; s/"$//')
+format=$(sed -n '/^func askCertQuestion/,/^}/p' "$ROOT/cli/cmd/install_cert.go" | grep -o 'fmt.Printf("[^"]*"' | head -1 | sed 's/^fmt.Printf("//; s/"$//')
+[ -n "$label" ] && [ -n "$shape" ] && [ -n "$format" ] || { echo "FAIL could not read the certificate prompt from cli/cmd/install_cert.go"; exit 1; }
 # shellcheck disable=SC2059 # the format is the product's own Printf format
-cert_prompt=$(printf "$format" "$label")
+cert_prompt=$(printf "$format" "$label" "$shape")
 
 cat > "$WORK/installer.sh" <<EOF
 #!/usr/bin/env bash
