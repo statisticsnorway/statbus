@@ -66,9 +66,11 @@ if [ "$TARGET_SHA" != "$(git -C "$REPO_ROOT" rev-parse HEAD)" ]; then
 fi
 
 # Derive each release's last migration from its own tree; never hard-code a
-# version that a backport could silently invalidate.
+# version that a backport could silently invalidate. :(top) anchors the
+# pathspec at the repository root: under the LXD fleet REPO_ROOT is the shadow
+# tree, a subdirectory where a plain pathspec matches nothing.
 last_migration() {
-    git -C "$REPO_ROOT" ls-tree --name-only "$1" migrations/ \
+    git -C "$REPO_ROOT" ls-tree -r --full-tree --name-only "$1" -- ':(top)migrations/' \
         | sed -nE 's#^migrations/([0-9]{14})_.*\.up\.sql$#\1#p' \
         | sort | tail -1
 }
