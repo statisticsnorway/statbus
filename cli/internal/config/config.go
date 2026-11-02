@@ -25,28 +25,13 @@ import (
 
 	"github.com/statisticsnorway/statbus/cli/internal/dotenv"
 	"github.com/statisticsnorway/statbus/cli/internal/installcmd"
+	"github.com/statisticsnorway/statbus/cli/internal/project"
 )
 
 // ProjectDir walks up from cwd looking for the .statbus marker file.
 // Falls back to cwd if not found.
 func ProjectDir() string {
-	dir, err := os.Getwd()
-	if err != nil {
-		return "."
-	}
-	for {
-		if _, err := os.Stat(filepath.Join(dir, ".statbus")); err == nil {
-			return dir
-		}
-		parent := filepath.Dir(dir)
-		if parent == dir {
-			break
-		}
-		dir = parent
-	}
-	// Fall back to cwd
-	cwd, _ := os.Getwd()
-	return cwd
+	return project.Dir()
 }
 
 // Credentials holds values from .env.credentials.
@@ -82,16 +67,25 @@ type ConfigEnv struct {
 	// Build-time only; never worker-active. Dumped by `./sb db seed
 	// dump` into the published statbus-seed image. Slot-independent
 	// (one seed per workspace, not per deployment slot).
-	PostgresSeedDB       string
-	PostgresAppUser      string
-	PostgresNotifyUser   string
-	AccessJwtExpiry      string
-	RefreshJwtExpiry     string
-	CaddyDeploymentMode  string
-	SiteDomain           string
-	Debug                string
-	NextPublicDebug      string
+	PostgresSeedDB      string
+	PostgresAppUser     string
+	PostgresNotifyUser  string
+	AccessJwtExpiry     string
+	RefreshJwtExpiry    string
+	CaddyDeploymentMode string
+	SiteDomain          string
+	Debug               string
+	NextPublicDebug     string
+	// DbMemLimit is the database's container memory limit. STATBUS-557: unless
+	// .env.config declares one explicitly, it is derived on every generate from
+	// the memory Docker reports and the deployment mode, and written only to
+	// the generated .env. DbMemLimitSource records which of the two it is;
+	// DbMemDetectedBytes and DbMemDetectErr feed the installer's one-line
+	// report. See db_mem.go.
 	DbMemLimit           string
+	DbMemLimitSource     dbMemLimitSource
+	DbMemDetectedBytes   int64
+	DbMemDetectErr       error
 	TlsCertFile          string
 	TlsKeyFile           string
 	AptUseHttpsOnly      string
@@ -376,6 +370,17 @@ func loadOrGenerateConfig(projDir string, verbose bool) (*ConfigEnv, error) {
 	if statErr != nil && !configCreated {
 		return nil, fmt.Errorf("stat config: %w", statErr)
 	}
+	// The raw bytes are needed to tell the exact line gen() used to write
+	// DB_MEM_LIMIT apart from an operator statement; dotenv's parsed value
+	// drops the inline comment that distinguishes them. See db_mem.go.
+	var rawConfig []byte
+	if !configCreated {
+		var readErr error
+		rawConfig, readErr = os.ReadFile(cfgPath)
+		if readErr != nil {
+			return nil, fmt.Errorf("read config: %w", readErr)
+		}
+	}
 	f, err := dotenv.Load(cfgPath)
 	if err != nil {
 		return nil, fmt.Errorf("load config: %w", err)
@@ -462,6 +467,16 @@ func loadOrGenerateConfig(projDir string, verbose bool) (*ConfigEnv, error) {
 	}
 	siteDomain := gen("SITE_DOMAIN", slotCode+".statbus.org")
 
+	// DB_MEM_LIMIT is derived on every generate, never written to .env.config
+	// (STATBUS-557). Installations born before it carry the exact line gen()
+	// used to write; that line is a derived value, so it is removed rather
+	// than mistaken for an operator's decision. Any other declaration stays.
+	if hasLegacyAutoDbMemLimit(string(rawConfig)) {
+		f.Delete("DB_MEM_LIMIT")
+	}
+	operatorDbMemLimit, hasOperatorDbMemLimit := f.Get("DB_MEM_LIMIT")
+	dbMemLimit, dbMemLimitSource, dbMemDetectedBytes, dbMemDetectErr := resolveDbMemLimit(mode, operatorDbMemLimit, hasOperatorDbMemLimit)
+
 	offset, _ := strconv.Atoi(offsetStr)
 	basePort := 3000
 	httpPort := basePort + (offset * 10)
@@ -501,7 +516,10 @@ func loadOrGenerateConfig(projDir string, verbose bool) (*ConfigEnv, error) {
 		SiteDomain:               siteDomain,
 		Debug:                    gen("DEBUG", "false"),
 		NextPublicDebug:          gen("PUBLIC_DEBUG", "false"),
-		DbMemLimit:               gen("DB_MEM_LIMIT", "4G"),
+		DbMemLimit:               dbMemLimit,
+		DbMemLimitSource:         dbMemLimitSource,
+		DbMemDetectedBytes:       dbMemDetectedBytes,
+		DbMemDetectErr:           dbMemDetectErr,
 		TlsCertFile:              gen("TLS_CERT_FILE", ""),
 		TlsKeyFile:               gen("TLS_KEY_FILE", ""),
 		AptUseHttpsOnly:          gen("APT_USE_HTTPS_ONLY", "false"),
@@ -1325,6 +1343,13 @@ func generateInDir(projDir, gitDir string, verbose bool) error {
 	cfg, err := loadOrGenerateConfig(projDir, verbose)
 	if err != nil {
 		return err
+	}
+	// STATBUS-557: the installer's Settings step reports what it measured and
+	// what it allocated for the database, in one line. See dbMemLimitReport.
+	// The isolated render behind GeneratedFilesMatch has projDir != gitDir and
+	// is a done-check, not a generate, so it stays quiet.
+	if projDir == gitDir {
+		fmt.Println(dbMemLimitReport(cfg))
 	}
 
 	creds, err := loadOrGenerateCredentials(projDir, verbose)

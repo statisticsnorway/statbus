@@ -135,6 +135,25 @@ This section covers deploying StatBus for a single country or organization.
 - **Disk**: 20 GB free minimum on both Docker storage and the backup filesystem; 40 GB free recommended for getting started. Plan more capacity as data grows.
 - **Network**: Public IP address with open ports 80, 443, 5432
 
+**Database memory** is sized from the host, not fixed. Every
+`./sb config generate` (and therefore every `./sb install`, whose Settings
+step runs it) measures the memory available to Docker
+(`docker info --format '{{.MemTotal}}'`) and derives `DB_MEM_LIMIT`:
+standalone allocates the total minus max(2 GiB, 25%) for the OS and other
+containers; private slots allocate min(8 GiB, 50%); development slots allocate
+min(4 GiB, 25%), so development can run deliberately small. The result is a
+whole number of GiB, rounded down, with a floor of 1G. The run prints one
+line, for example `DB memory: detected 16 GiB, mode standalone, allocated 12G`.
+Re-running after a resize picks up the new size. If the measurement fails,
+the installer uses 4G and says so.
+
+To pin the value instead, set `DB_MEM_LIMIT` in `.env.config`; it is kept and
+the installer reports it as an operator override. One legacy form is treated
+as derived rather than as an operator statement: the exact line
+`DB_MEM_LIMIT=4G` that older versions wrote automatically is removed and
+re-derived. To pin 4G on purpose, mark the line, for example
+`DB_MEM_LIMIT=4G # pinned`.
+
 **Software Requirements**:
 - Docker 24.0+
 - Docker Compose 2.20+

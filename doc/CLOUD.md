@@ -113,6 +113,13 @@ Clients worldwide
 - **Disk**: 500+ GB SSD
 - **Network**: Public IP with open ports 80, 443, 5432
 
+Private (cloud) instances derive their database memory limit on every
+`./sb config generate`/`./sb install`: min(8 GiB, 50% of the memory available
+to Docker), rounded down to whole GiB. That matches the 8 GB per-instance
+recommendation above and keeps the other half of a shared host available.
+Re-running after adding RAM re-derives it; to pin an instance's value, set
+`DB_MEM_LIMIT` in its `.env.config`. See doc/DEPLOYMENT.md, Database memory.
+
 ### Software Requirements
 
 - Docker 24.0+

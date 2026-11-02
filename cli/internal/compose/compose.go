@@ -11,7 +11,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/statisticsnorway/statbus/cli/internal/config"
+	"github.com/statisticsnorway/statbus/cli/internal/project"
 	"github.com/statisticsnorway/statbus/cli/internal/testguard"
 )
 
@@ -169,13 +169,13 @@ func run(projDir string, args ...string) error {
 // Run executes a docker compose command with the given args.
 // Inherits stdin/stdout/stderr for interactive use.
 func Run(args ...string) error {
-	return run(config.ProjectDir(), args...)
+	return run(project.Dir(), args...)
 }
 
 // RunWithProfile executes docker compose with a --profile flag.
 func RunWithProfile(profile string, args ...string) error {
 	fullArgs := append([]string{"--profile", profile}, args...)
-	return run(config.ProjectDir(), fullArgs...)
+	return run(project.Dir(), fullArgs...)
 }
 
 // Stop brings down services.
@@ -454,7 +454,7 @@ func probeServiceState(projDir, svc string) (serviceStateView, error) {
 
 // IsDevelopmentMode checks the CADDY_DEPLOYMENT_MODE from .env.
 func IsDevelopmentMode() bool {
-	return IsDevelopmentModeInDir(config.ProjectDir())
+	return IsDevelopmentModeInDir(project.Dir())
 }
 
 // IsDevelopmentModeInDir reads the mode of the project being operated on,
