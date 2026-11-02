@@ -1,12 +1,12 @@
 ---
 id: STATBUS-558
 title: >-
-  statistical_history_facet_reduce rebuilds the whole facet table every cycle:
-  46 s of 129 s on the selection import, and the step that OOMs at 4 GiB
+  Facet reduce: restore scoped reduce that tracks removed combinations, plus a
+  full rebuild as repair after counting fixes
 status: In Progress
 assignee: []
 created_date: '2026-11-02T13:15:00Z'
-updated_date: '2026-11-02T13:15:00Z'
+updated_date: '2026-11-02T14:38:00Z'
 labels: []
 dependencies: []
 type: bug
@@ -16,12 +16,35 @@ ordinal: 481204
 ## Description
 
 <!-- SECTION:DESCRIPTION:BEGIN -->
-Survey 2026-11-02 (tmp/survey-findings.md, plan tmp/survey-facet-merge-plan.txt): 4 calls, 45.6 s, max 20.6 s, all in one MERGE. HashAggregate over all 214k statistical_history_facet_partitions rows spills (5 batches, 38 MB disk), Sort 139k, Merge Full Join with a full scan+sort of the 89k target. Since e69785896 (2026-04-30) the reduce is a global MERGE with NOT MATCHED BY SOURCE DELETE: the earlier dirty-slot Path B could not delete stale target rows whose dims were not in pre_dirty_dims, causing over-counts. The dirty slots are now read for logging only. To be understood before coding, with the owner: what the partition hashing and period restriction guarantee, which target rows a cycle can change, and how to restrict the merge to them while keeping self-healing. The unit facet reduce has the same shape.
+WHAT WE ARE DOING (agreed with owner 2026-11-02)
+Restore the owner's design for statistical_history_facet_reduce and statistical_unit_facet_reduce: before the per-slot children rewrite dirty slots, capture the facet combinations those slots held (the removed part), and reduce only combinations in the new or old set, deleting rows left without support. Add the full rebuild (worker.enqueue_derive_statistical_unit_all, all units, all time) as the repair, run by any migration that fixes a counting bug and available to operators.
+
+WHY
+Survey 2026-11-02 (tmp/survey-findings.md, tmp/survey-facet-merge-plan.txt): history facet reduce is 45.6 s of 129 s on the selection import (4 calls, max 20.6 s), one global MERGE: HashAggregate over all 214k partition rows spills (38 MB), Merge Full Join over the whole 89k target. Same step OOMs at 4 GiB (STATBUS-555).
+
+HISTORY
+- ff2b1ef49 (2026-03-25, migration 20260324232001): owner's design, pre_dirty_dims snapshot tables + scoped reduce.
+- e69785896 (2026-04-30, 20260429233218): demo over-count 31 vs truth 24; both reduces made global. Cause was hypothesised ('e.g. partial-contributor scenario'), never reproduced.
+- 176be9036 (2026-05-07, 20260507115831): pre_dirty_dims tables dropped as dead.
+Unit-level change detection (worker.log_base_change) already logs old and new rows; the facet-level removed part is what was lost.
+
+OPEN QUESTION: why did the scoped reduce over-count? Candidates: (1) capture hole: slot dirtied after the snapshot, full rebuild without snapshot, or period outside the import's validity; (2) target already stale from an earlier bug and never fully rebuilt (scoped reduce never revisits it).
+
+HOW WE WORK (resource plan)
+hibiscus only, no workers, no worktrees. Code on shared master, commit by path. Databases: statbus-local-db container only; reproduction as a small SQL test (./dev.sh test, own db), timing with import_benchmark --dataset selection into one scratch db, dropped after. One heavy run at a time. Downloads dataset waits until this is fixed. statbus_local data and statbus-test containers untouched.
+
+STEPS
+1. Reproduce the April over-count with a small SQL test against the scoped design. [NEXT]
+2. Owner reviews the cause before code is called understood.
+3. Migration restoring the scoped reduce with removed-part capture, closing the hole found in 1; full rebuild as repair, documented at the definition.
+4. Measure selection import before/after, then one 4 GiB run.
 <!-- SECTION:DESCRIPTION:END -->
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 The cause is written down and agreed with the owner before code
-- [ ] #2 The reduce touches only rows a cycle can change, and stays correct for the stale-row case that e69785896 fixed (regression test)
-- [ ] #3 Selection import: facet reduce time and the 4 GiB run are measured before and after
+- [ ] #1 The over-count of April is reproduced by a small SQL test and its cause written here
+- [ ] #2 Owner has reviewed and agreed the cause before the fix is coded
+- [ ] #3 Both facet reduces touch only combinations in the new or removed set; the reproduction test passes
+- [ ] #4 A migration that fixes a counting bug can trigger the full rebuild; documented at the reduce's definition
+- [ ] #5 Selection import facet reduce time measured before/after, and one 4 GiB run
 <!-- AC:END -->
