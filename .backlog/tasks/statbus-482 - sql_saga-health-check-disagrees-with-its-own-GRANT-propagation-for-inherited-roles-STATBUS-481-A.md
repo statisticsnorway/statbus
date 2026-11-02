@@ -3,10 +3,10 @@ id: STATBUS-482
 title: >-
   sql_saga health check disagrees with its own GRANT propagation for inherited
   roles (STATBUS-481 A)
-status: To Do
+status: Done
 assignee: []
-created_date: '2026-10-08 19:24'
-updated_date: '2026-10-20 20:45'
+created_date: 2026-10-08 19:24
+updated_date: '2026-11-02T15:17:00Z'
 labels:
   - sql_saga
   - sql
@@ -25,9 +25,9 @@ NORTH STAR: sql_saga's privilege health check accepts every state its own GRANT 
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 The owner has chosen the shape (inheritance-aware check, or exact propagation) and it is recorded here
-- [ ] #2 sql_saga's own test suite covers an inherited role: GRANT on a base table to a role that inherits another grantee, then an unrelated REVOKE succeeds
-- [ ] #3 statbus pins the new sql_saga release in postgres/Dockerfile and test 352 still passes (view ACL = table ACL; an unrelated REVOKE succeeds; a REVOKE that breaks a view ACL is still refused)
+- [x] #1 The owner has chosen the shape (inheritance-aware check, or exact propagation) and it is recorded here
+- [x] #2 sql_saga's own test suite covers an inherited role: GRANT on a base table to a role that inherits another grantee, then an unrelated REVOKE succeeds
+- [x] #3 statbus pins the new sql_saga release in postgres/Dockerfile and test 352 still passes (view ACL = table ACL; an unrelated REVOKE succeeds; a REVOKE that breaks a view ACL is still refused)
 <!-- AC:END -->
 
 ## Implementation Notes
@@ -56,4 +56,6 @@ AMENDMENTS REQUIRED BEFORE IMPLEMENTATION: (1) reject D1 - do NOT set mirror_fn 
 NEW DEFECTS FOUND IN TODAY'S CODE, not in the plan: F11 an unrelated REVOKE on any object silently strips PUBLIC EXECUTE from the as-of functions of every system-versioned table in the database, even tables never granted; F12 parallel pg_restore (-j N) of an otherwise-healthy dump fails today; F13 default-privilege-hardened databases materialise EXECUTE per grantee today; F14 owner-rights _with_history views and as-of functions bypass RLS (pre-existing). NOT VERIFIED: the plan's ~1-1.5 ms scoped managed-family timing (no scoped-check prototype exists, so it is a lower bound), behaviour on any PG major other than 18.3, and whether F11 also contributed to the downstream incident sequence. Awaiting the owner's approval of the amended design before any source change.
 
 BLOCKING, recorded 2026-10-12 on the owner's instruction: the next statbus release candidate waits on this ticket landing AND on STATBUS-486 (removing statbus's restore-time workaround: the session_replication_role suppression from 3ce591f16), in that order. The owner is following this up with another agent. Plan A was agreed on 2026-10-12: machinery first, candidate afterwards, so nothing is tagged while the workaround is still needed.
+
+Closed 2026-11-02 on sql_saga's answer and a local check. AC1: the shape chosen upstream is neither option: sql_saga af8998c (2026-10-15) removed GRANT propagation and the REVOKE check; for-portion-of views are security_invoker and granted to PUBLIC, so the base table decides access, and __internal_ddl_command_affects_managed_object ignores GRANT/REVOKE/ALTER DEFAULT PRIVILEGES. AC2: sql_saga sql/017_acl_gate.sql reproduces the statbus case (inherited role plus unrelated REVOKE ... ON FUNCTION ... FROM PUBLIC); the sql_saga agent ran it green 2026-11-02. AC3: statbus pins v1.4 (postgres/Dockerfile, 905e09be7, STATBUS-531); test 352 was intentionally removed by 42739f5f9 (v1.1 move) because view ACLs no longer mirror tables. Local DB at 1.4: views carry {security_invoker=on} with PUBLIC grants, and the original failing statement REVOKE ALL ON FUNCTION public.upgrade_schedule(text, boolean) FROM PUBLIC succeeds (rolled back; tmp/482/unrelated-revoke-v1.4.log). dev slot also reports extversion 1.4.
 <!-- SECTION:NOTES:END -->
