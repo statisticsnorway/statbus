@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-11-02T13:15:00Z'
-updated_date: '2026-11-02T16:29:00Z'
+updated_date: '2026-11-02T21:45:00Z'
 labels: []
 dependencies: []
 type: bug
@@ -62,4 +62,12 @@ Cause: the capture hole (deleted units' slots never marked dirty), fixed 2026-05
 2026-11-02 owner agreed the cause and step 3, for both facets (unit and history): restore the scoped reduce with removed-combination capture for both, regression test covering both, one-time full rebuild.
 
 2026-11-02 step 3 attempt 1 (dad613ea0) REVERTED in 3be5dc48b, before v2026.11.1-rc.01. Correct (test 355 and the fast suite passed: both facets equal a full recompute after a region move and after deleting 3 LUs; truth 23=23 then 20=20), but too slow: selection benchmark worker time 600 s against 129 s, 2 of 4 analytics cycles. The history facet reduce in dirty mode never finished: 59,820 recorded combinations looked up in 214k partition rows on 12 COALESCE keys. The first import job changes most combinations, so 'dirty' is not small. The task stayed 'processing' with no live query (unexplained). Unchecked AC 3 and 4 again. Next, decided with owner: A) fall back to full above a share of the cache, or B) record changed periods and recompute whole periods on the cache's unique key; prototype with EXPLAIN and timings before code. Notes tmp/journal.md.
+
+2026-11-02 cube shape on 10 years of Norway history (test 402 database, 2015-2024, yearly snapshots dated 1 January, so partly synthetic history):
+- statistical_unit: 6,696 rows (1.06-1.31 versions per unit).
+- statistical_history_facet: 526,437 rows (43,534 year, 482,903 month over 137 months).
+- Month rows equal to the previous month with no events: 477,072 of 482,903 (98.8%); selection data: 91%.
+- 1.18 units per facet row; 478,226 rows hold 0 or 1 unit.
+- statistical_unit_facet (validity intervals, slightly fewer dimensions) for the same data: 6,084 rows.
+Dense months grow with periods x combinations; a sparse or interval form grows with the number of changes. The one order-of-magnitude saving found: store a month only when it has a change, and carry stock forward on display (10-100x fewer rows and writes, more with longer history). Everything else measured is a factor of 2 or less. Next if the owner wants it: prototype the display query from sparse months on this database and time it against today's direct read. Database kept: test_402_import_jobs_for_norway_history_29961.
 <!-- SECTION:NOTES:END -->
