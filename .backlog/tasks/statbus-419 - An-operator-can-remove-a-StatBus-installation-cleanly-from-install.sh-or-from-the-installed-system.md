@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: 2026-09-25 13:08
-updated_date: '2026-11-02T21:16:00Z'
+updated_date: '2026-11-02T21:27:00Z'
 labels:
   - installer
 dependencies: []
@@ -68,4 +68,14 @@ Removal is destructive, so the defaults protect what cannot be recreated:
 `uninstall.sh` prints 'StatBus removal plan (only listed resources will be deleted):' with containers, volumes, networks, image tags, unit files and paths, plus what it keeps (dbdumps, .env.credentials), then asks 'Type DELETE to execute this exact plan'. No new criterion needed. The fix is in, tested and green through the gates, so it closes under the owner's rule.
 
 2026-11-02 manual box, v2026.11.0, sudo -iu statbus: uninstall.sh stopped at 'Step 1: stopping StatBus upgrader' with 'Failed to connect to user scope bus ... XDG_RUNTIME_DIR not defined' before deleting anything. Same cause as STATBUS-559's install failure (fixed in sb by 8fea12e54). The plan also showed 'Keep: /home/statbus/statbus/.env.credentials', leaving ~/statbus behind, while users existed twice (~/statbus.users.yml and ~/statbus/.users.yml) and were never asked about. Owner decided the one-place design above.
+
+2026-11-02 AC6/AC7 implementation (lobster), commit 90ebd4457 (local; push held for rc.03):
+- Install (cli/cmd/install_users.go, one call before the step table in install.go): adoptOperatorUserState moves ~/statbus.users.yml and ~/statbus.env.credentials into the checkout (rename, 0600), before Credentials/Administrator read them. Identical duplicate at the destination is removed (one copy); different contents refuse, naming both paths. STATBUS_USERS_FILE is copy-only and never moved. persistInteractiveAdministrator now writes only <checkout>/.users.yml.
+- Credentials reuse: because the move happens before the Credentials step, checkCredsDone is satisfied and config.GenerateInDir keeps the existing secrets. This is what keeps a surviving DB volume consistent; cli/internal/dbroles is the backstop when the volume outlives the credentials.
+- Uninstall (uninstall.sh, used by ./sb uninstall): asks 'Keep the users? [Y/n]' and 'Keep the credentials? [Y/n]' (keep by default); unattended keeps neither. Kept files move to ~/statbus.users.yml / ~/statbus.env.credentials at 0600, refusing a different existing file before anything is stopped. The plan lists 'Move to ...'. .env.credentials is no longer excluded from deletion, so the checkout is removed completely (a kept dbdumps/ still keeps the empty directory, see doubt below).
+- AC7: uninstall.sh exports XDG_RUNTIME_DIR=${STATBUS_USER_RUNTIME_DIR_BASE:-/run/user}/<uid> when unset and the directory belongs to the user, before any systemctl --user call (same rule as cli/cmd/user_runtime_dir.go).
+- Tests red then green (tmp/419-red.log, tmp/419-go-cmd.log, tmp/419-go-all.log): 5 new adopt tests, updated interactive-admin single-copy test, 4 uninstall.sh tests (interactive keep on a PTY, overwrite refusal, unattended removes, XDG supplied to systemctl), terminal-filter move line. gofmt/vet/build clean; go test ./cmd/... PASS; harness scenario-selection and release-script-stamp selftests PASS.
+- Scenario 6 now: install -> one copy only inside checkout -> login -> interactive uninstall (Enter, Enter, Y, DELETE) -> ~/statbus gone, both home files 0600 -> reinstall -> home files gone, credentials sha unchanged, login succeeds again.
+- Doubt for rabbit/owner: with dbdumps kept by default, the checkout directory still remains ('Only selected backups remain'), contradicting '~/statbus is always removed completely'. Proposed follow-up (not implemented, needs OK): move kept dumps to ~/statbus-dbdumps so the checkout always goes.
+- Note: go test ./... in cli fails only in TestNoGoPackageDirectoryIsGitignored_STATBUS352 because of the shared-checkout scratch dir cli/tmp/verify557/ (another worker, untracked); ./cmd/... is green.
 <!-- SECTION:NOTES:END -->
