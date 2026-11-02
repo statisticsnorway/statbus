@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"os"
@@ -29,17 +30,120 @@ import (
 // silently preferring one. An explicit path beats a detected home file, which
 // is then named as not used.
 
-// operatorUsersFileName is the ONE name for the operator-home users file. The
-// interactive first-administrator path writes it and the detection path reads
-// it, so the next install finds what this one created.
+// operatorUsersFileName is the ONE name for the operator-home users file. An
+// uninstall writes it when the users are kept; a reinstall moves it back into
+// the checkout. While installed, the live copy is the checkout's .users.yml
+// (STATBUS-419 AC6).
 const operatorUsersFileName = "statbus.users.yml"
 
+// operatorCredentialsFileName is the ONE name for the operator-home
+// credentials file an uninstall writes when the credentials are kept. While
+// installed, the live copy is the checkout's .env.credentials.
+const operatorCredentialsFileName = "statbus.env.credentials"
+
 func operatorUsersFilePath() (string, error) {
+	return operatorHomeFilePath(operatorUsersFileName)
+}
+
+func operatorCredentialsFilePath() (string, error) {
+	return operatorHomeFilePath(operatorCredentialsFileName)
+}
+
+func operatorHomeFilePath(name string) (string, error) {
 	home, err := os.UserHomeDir()
 	if err != nil {
-		return "", fmt.Errorf("cannot locate the home directory for %s: %w", operatorUsersFileName, err)
+		return "", fmt.Errorf("cannot locate the home directory for %s: %w", name, err)
 	}
-	return filepath.Join(home, operatorUsersFileName), nil
+	return filepath.Join(home, name), nil
+}
+
+// adoptOperatorUserState moves the files StatBus keeps for an uninstalled
+// system into the checkout before any install step uses them, so an installed
+// StatBus has exactly one copy of each (STATBUS-419 AC6).
+//
+// A file left at ~/statbus.users.yml or ~/statbus.env.credentials is what an
+// uninstall that kept it wrote; it is MOVED, never copied, so no second copy
+// remains in the home. The credentials move happens before the Credentials
+// step, which then sees them as already present instead of generating new
+// secrets. That matters when a database volume survived: postgres/init-db.sh
+// set the role passwords from the old .env.credentials, and dbroles reconciles
+// a mismatch only for a volume that is still there.
+//
+// STATBUS_USERS_FILE is the operator's own input: it is copied into the
+// installation by importUsersSourceIntoProject and is never moved or deleted.
+func adoptOperatorUserState(dir string) error {
+	usersPath, err := operatorUsersFilePath()
+	if err != nil {
+		return err
+	}
+	if !explicitUsersFileIs(usersPath) {
+		if err := adoptOperatorFile(usersPath, filepath.Join(dir, ".users.yml"), "users"); err != nil {
+			return err
+		}
+	}
+	credentialsPath, err := operatorCredentialsFilePath()
+	if err != nil {
+		return err
+	}
+	return adoptOperatorFile(credentialsPath, filepath.Join(dir, ".env.credentials"), "credentials")
+}
+
+// explicitUsersFileIs reports whether STATBUS_USERS_FILE names this exact
+// file, in which case the operator owns it and the installer only copies it.
+func explicitUsersFileIs(path string) bool {
+	explicit := os.Getenv(installinput.UsersFile)
+	if explicit == "" {
+		return false
+	}
+	if abs, err := filepath.Abs(explicit); err == nil {
+		explicit = abs
+	}
+	if filepath.Clean(explicit) == path {
+		return true
+	}
+	explicitInfo, err := os.Stat(explicit)
+	if err != nil {
+		return false
+	}
+	pathInfo, err := os.Stat(path)
+	return err == nil && os.SameFile(explicitInfo, pathInfo)
+}
+
+// adoptOperatorFile moves one operator-home file into the checkout. An
+// existing checkout copy of the same content wins and the home duplicate is
+// removed; a different checkout copy is a contradiction the installer cannot
+// resolve silently, so it refuses and names both paths.
+func adoptOperatorFile(homePath, projectPath, description string) error {
+	info, err := os.Lstat(homePath)
+	if errors.Is(err, os.ErrNotExist) {
+		return nil
+	}
+	if err != nil {
+		return fmt.Errorf("cannot inspect %s: %w", homePath, err)
+	}
+	if !info.Mode().IsRegular() {
+		return fmt.Errorf("%s is not a regular file. Move it inside %s and run the same install command again", homePath, filepath.Dir(projectPath))
+	}
+	homeData, err := os.ReadFile(homePath)
+	if err != nil {
+		return fmt.Errorf("cannot read %s: %w", homePath, err)
+	}
+	if projectData, projectErr := os.ReadFile(projectPath); projectErr == nil {
+		if !bytes.Equal(homeData, projectData) {
+			return fmt.Errorf("the %s files %s and %s differ. Keep one and remove or rename the other, then run the same install command again", description, homePath, projectPath)
+		}
+		return os.Remove(homePath)
+	} else if !errors.Is(projectErr, os.ErrNotExist) {
+		return fmt.Errorf("cannot read %s: %w", projectPath, projectErr)
+	}
+	if err := os.Rename(homePath, projectPath); err != nil {
+		return fmt.Errorf("cannot move %s to %s: %w", homePath, projectPath, err)
+	}
+	if err := os.Chmod(projectPath, 0600); err != nil {
+		return fmt.Errorf("cannot secure %s: %w", projectPath, err)
+	}
+	fmt.Printf("  Moved %s to %s (one copy).\n", homePath, projectPath)
+	return nil
 }
 
 type usersSourceKind int
@@ -294,34 +398,29 @@ func missingFileUsers(dir string, users []userEntry) ([]userEntry, error) {
 }
 
 // persistInteractiveAdministrator records the typed administrator in the
-// operator-home users file (mode 0600, STATBUS-437) and the installation's
-// .users.yml, so the next install reuses it instead of asking again and the
-// identity survives a fresh checkout. The password is written only to these
-// sanctioned files, never to the terminal or a log.
+// installation's .users.yml (mode 0600), the only copy while StatBus is
+// installed. A later install reuses it instead of asking again; an uninstall
+// that keeps the users moves it to ~/statbus.users.yml. The password is
+// written only to this sanctioned file, never to the terminal or a log.
 func persistInteractiveAdministrator(dir string, admin userEntry) error {
-	homePath, err := operatorUsersFilePath()
-	if err != nil {
-		return err
-	}
+	projectPath := filepath.Join(dir, ".users.yml")
 	content := "# Written by the StatBus installer after the first administrator was created.\n# A later install reuses this file instead of asking again. Keep it private.\n" + usersYAMLEntry(admin)
 	if roundTrip, err := parseUsersYAML(content); err != nil || !sameUsers(roundTrip, []userEntry{admin}) {
-		return fmt.Errorf("the administrator was created, but its details cannot be saved in %s; create that file by hand so a later install reuses them", homePath)
+		return fmt.Errorf("the administrator was created, but its details cannot be saved in %s; create that file by hand so a later install reuses them", projectPath)
 	}
-	for _, path := range []string{homePath, filepath.Join(dir, ".users.yml")} {
-		f, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0600)
-		if err != nil {
-			if errors.Is(err, os.ErrExist) {
-				return fmt.Errorf("the administrator was created, but %s appeared during installation and was not overwritten", path)
-			}
-			return fmt.Errorf("the administrator was created, but %s could not be written", path)
+	f, err := os.OpenFile(projectPath, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0600)
+	if err != nil {
+		if errors.Is(err, os.ErrExist) {
+			return fmt.Errorf("the administrator was created, but %s appeared during installation and was not overwritten", projectPath)
 		}
-		_, writeErr := f.WriteString(content)
-		closeErr := f.Close()
-		if writeErr != nil || closeErr != nil {
-			return fmt.Errorf("the administrator was created, but %s could not be written", path)
-		}
+		return fmt.Errorf("the administrator was created, but %s could not be written", projectPath)
 	}
-	fmt.Printf("  Saved the administrator to %s (mode 0600) so a later install reuses it.\n", homePath)
+	_, writeErr := f.WriteString(content)
+	closeErr := f.Close()
+	if writeErr != nil || closeErr != nil {
+		return fmt.Errorf("the administrator was created, but %s could not be written", projectPath)
+	}
+	fmt.Printf("  Saved the administrator to %s (mode 0600) so a later install reuses it.\n", projectPath)
 	return nil
 }
 

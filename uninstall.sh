@@ -15,7 +15,21 @@ fi
 DIR="${HOME}/statbus"
 LOG="${HOME}/statbus-uninstall.log"
 KEEP_DUMPS=1
+KEEP_USERS=1
 KEEP_CREDENTIALS=1
+# STATBUS-419 AC7: `sudo -iu statbus` starts no systemd session, so the login
+# does not set XDG_RUNTIME_DIR and `systemctl --user` cannot reach the user's
+# manager even though it is running (setup enables linger). Supply this user's
+# own runtime directory when it exists and belongs to this user, the same rule
+# as cli/cmd/user_runtime_dir.go. The base is overridable for the shell tests.
+runtime_dir_base=${STATBUS_USER_RUNTIME_DIR_BASE:-/run/user}
+if [[ -z ${XDG_RUNTIME_DIR:-} ]]; then
+    uid=$(id -u 2>/dev/null || true)
+    runtime_owner=$(stat -c %u "$runtime_dir_base/$uid" 2>/dev/null || stat -f %u "$runtime_dir_base/$uid" 2>/dev/null || true)
+    if [[ -n $uid && -d $runtime_dir_base/$uid && $runtime_owner == "$uid" ]]; then
+        export XDG_RUNTIME_DIR="$runtime_dir_base/$uid"
+    fi
+fi
 if [[ ${STATBUS_UNINSTALL_CONFIRM:-} != yes-delete-everything ]] && (exec 3</dev/tty) 2>/dev/null; then
     exec 3</dev/tty
     INTERACTIVE=1
@@ -28,14 +42,17 @@ if [[ $INTERACTIVE == 0 ]]; then
         exit 1
     fi
     KEEP_DUMPS=0
+    KEEP_USERS=0
     KEEP_CREDENTIALS=0
 fi
 if [[ $INTERACTIVE == 1 ]]; then
-    echo 'Remove this StatBus installation? Backups and credentials are kept by default.'
+    echo 'Remove this StatBus installation? Backups, users and credentials are kept by default.'
+    read -r -u 3 -p 'Keep the users? [Y/n] ' answer
+    [[ $answer != [nN]* ]] || KEEP_USERS=0
+    read -r -u 3 -p 'Keep the credentials? [Y/n] ' answer
+    [[ $answer != [nN]* ]] || KEEP_CREDENTIALS=0
     read -r -u 3 -p 'Delete database dumps too? [y/N] ' answer
     [[ $answer != [yY]* ]] || KEEP_DUMPS=0
-    read -r -u 3 -p 'Delete credentials too? [y/N] ' answer
-    [[ $answer != [yY]* ]] || KEEP_CREDENTIALS=0
 fi
 # Keep the exclusion inode outside the tree being removed, through final unlink.
 command -v perl >/dev/null 2>&1 || { echo 'perl is required for the uninstall mutex.'; exit 1; }
@@ -273,10 +290,54 @@ if [[ -d $DIR ]]; then
     shopt -s dotglob nullglob
     for path in "$DIR"/*; do
         [[ $KEEP_DUMPS == 1 && $path == "$DIR/dbdumps" ]] && continue
-        [[ $KEEP_CREDENTIALS == 1 && $path == "$DIR/.env.credentials" ]] && continue
         [[ $path == "$DIR/tmp" ]] && continue
         remaining+=("$path")
     done
+fi
+# A kept users or credentials file is moved OUT of the checkout before any
+# teardown, so the checkout is removed completely (STATBUS-419 AC6). A
+# different file already sitting at the home target is never overwritten:
+# refuse before anything is stopped or deleted.
+check_keep_target() {
+    local src=$1 dst=$2 label=$3
+    [[ -e $src || -L $src ]] || return 0
+    if [[ -L $src || ! -f $src ]]; then
+        echo "Refusing to keep the $label: $src is not a regular file."
+        return 1
+    fi
+    if [[ -e $dst || -L $dst ]]; then
+        if [[ -L $dst || ! -f $dst ]] || ! cmp -s -- "$src" "$dst"; then
+            echo "Refusing to overwrite $dst: a different $label file already exists there. Move it aside, then retry removal."
+            return 1
+        fi
+    fi
+}
+move_out_kept() {
+    local src=$1 dst=$2 label=$3
+    [[ -e $src || -L $src ]] || return 0
+    if [[ -L $src || ! -f $src ]]; then
+        echo "Refusing to keep the $label: $src is not a regular file."
+        return 1
+    fi
+    if [[ -e $dst || -L $dst ]]; then
+        if [[ -L $dst || ! -f $dst ]] || ! cmp -s -- "$src" "$dst"; then
+            echo "Refusing to overwrite $dst: a different $label file already exists there. Move it aside, then retry removal."
+            return 1
+        fi
+        rm -f -- "$src"
+        echo "Kept the existing $dst: it already matches $src."
+        return 0
+    fi
+    chmod 0600 "$src" || return 1
+    mv -- "$src" "$dst" || { echo "Cannot move $src to $dst; nothing has been deleted."; return 1; }
+    chmod 0600 "$dst"
+    echo "Moved $src to $dst (mode 0600)."
+}
+if [[ $KEEP_USERS == 1 ]]; then
+    check_keep_target "$DIR/.users.yml" "$HOME/statbus.users.yml" users || exit 1
+fi
+if [[ $KEEP_CREDENTIALS == 1 ]]; then
+    check_keep_target "$DIR/.env.credentials" "$HOME/statbus.env.credentials" credentials || exit 1
 fi
 # Every checkout deletion uses a nonrecursive private bind of HOME. Binding
 # the parent omits mounts even on the checkout root; cd pins the directory,
@@ -334,8 +395,9 @@ for image in "${retained_images[@]}"; do echo "  Keep shared image tag (used by 
 for unit in "${units[@]}"; do echo "  Unit file: $unit"; done
 for path in "${remaining[@]}"; do echo "  Path (recursively): $path"; done
 [[ ! -d $DIR/tmp ]] || echo "  Path (recursively, last): $DIR/tmp"
+if [[ $KEEP_USERS == 1 && ( -e $DIR/.users.yml || -L $DIR/.users.yml ) ]]; then echo "  Move to $HOME/statbus.users.yml: $DIR/.users.yml"; fi
+if [[ $KEEP_CREDENTIALS == 1 && ( -e $DIR/.env.credentials || -L $DIR/.env.credentials ) ]]; then echo "  Move to $HOME/statbus.env.credentials: $DIR/.env.credentials"; fi
 [[ $KEEP_DUMPS == 0 || ! -e $DIR/dbdumps ]] || echo "  Keep: $DIR/dbdumps"
-[[ $KEEP_CREDENTIALS == 0 || ! -e $DIR/.env.credentials ]] || echo "  Keep: $DIR/.env.credentials"
 if [[ $INTERACTIVE == 1 ]]; then
     read -r -u 3 -p 'Type DELETE to execute this exact plan: ' answer
     [[ $answer == DELETE ]] || { echo 'Removal cancelled.'; exit 1; }
@@ -344,6 +406,12 @@ fi
 if [[ -d $DIR ]]; then
     check_tmp_boundary || exit 1
     refuse_nested_mounts || exit 1
+fi
+if [[ $KEEP_USERS == 1 ]]; then
+    move_out_kept "$DIR/.users.yml" "$HOME/statbus.users.yml" users || exit 1
+fi
+if [[ $KEEP_CREDENTIALS == 1 ]]; then
+    move_out_kept "$DIR/.env.credentials" "$HOME/statbus.env.credentials" credentials || exit 1
 fi
 user_state=inactive
 if command -v systemctl >/dev/null 2>&1; then
@@ -428,8 +496,7 @@ if [[ -d $DIR ]]; then
     unexpected=()
     retained=()
     for path in "$DIR"/*; do
-        if [[ $KEEP_DUMPS == 1 && $path == "$DIR/dbdumps" ]] ||
-            [[ $KEEP_CREDENTIALS == 1 && $path == "$DIR/.env.credentials" ]]; then
+        if [[ $KEEP_DUMPS == 1 && $path == "$DIR/dbdumps" ]]; then
             retained+=("$path")
         else
             unexpected+=("$path")
@@ -441,7 +508,7 @@ if [[ -d $DIR ]]; then
         exit 1
     fi
     if ((${#retained[@]} > 0)); then
-        echo 'Only selected backups or credentials remain; keeping the checkout directory:'
+        echo 'Only selected backups remain; keeping the checkout directory:'
         printf '  %s\n' "${retained[@]}"
     elif ! rmdir "$DIR"; then
         echo 'Cannot remove the empty checkout directory; check its permissions or any new files and retry.'

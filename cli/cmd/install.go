@@ -1155,6 +1155,12 @@ func runInstall() (installErr error) {
 	if runInstallStepTableTestHook != nil {
 		return runInstallStepTableTestHook()
 	}
+	// STATBUS-419 AC6: a file an uninstall kept in the operator's home moves
+	// into the checkout before the Credentials or Administrator steps read
+	// it, so exactly one copy exists while StatBus is installed.
+	if err := adoptOperatorUserState(installDir); err != nil {
+		return installPreflightRefusal(err.Error())
+	}
 	oldCaddySnapshot := snapshotCaddyConfig(installDir)
 	wasAlreadyRunning := checkServicesDone(installDir)
 	var pendingRestarts map[config.RestartClass]bool

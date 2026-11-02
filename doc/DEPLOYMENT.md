@@ -7,11 +7,24 @@ in [Quick Install](#quick-install), or run `./sb uninstall` from `~/statbus`.
 The hosted alternative is `curl -fsSL https://statbus.org/uninstall.sh | bash`.
 All entry points use the same standalone script. It lists every selected
 Docker resource, unit file, and checkout path before asking for `DELETE`.
-Interactive removal keeps `~/statbus/dbdumps/` and
-`~/statbus/.env.credentials` by default. Non-interactive removal deletes
-both and requires `STATBUS_UNINSTALL_CONFIRM=yes-delete-everything`.
-Before reinstalling, copy any preserved dumps and credentials outside
-`~/statbus`: the fresh installer replaces a non-Git checkout directory.
+Interactive removal asks `Keep the users? [Y/n]` and
+`Keep the credentials? [Y/n]` (both kept by default), and keeps
+`~/statbus/dbdumps/` unless you delete the dumps too. A kept users file moves
+to `~/statbus.users.yml` and a kept credentials file to
+`~/statbus.env.credentials`, both mode `0600`; the plan lists each move. The
+uninstaller refuses to overwrite a different file already at either home path,
+before it stops or deletes anything. Because both files leave the checkout,
+`~/statbus` itself is removed completely. A kept `dbdumps/` directory alone
+keeps the empty checkout directory; non-interactive removal deletes dumps,
+users and credentials and requires
+`STATBUS_UNINSTALL_CONFIRM=yes-delete-everything`.
+
+The next install moves `~/statbus.users.yml` and
+`~/statbus.env.credentials` back into the checkout, so the same administrator
+and the same generated secrets are reused and no second copy is left in the
+home. Do not edit the home copies while StatBus is installed. A credentials
+file supplied through the installer's configuration is still read as an
+input.
 
 Details go to `~/statbus-uninstall.log`. The service account needs Docker
 access, not sudo, to remove container-owned checkout files. The uninstaller
@@ -442,8 +455,9 @@ which one in its output:
    file it did not use.
 3. Otherwise, in a terminal, it asks for the first administrator, prints
    `Created administrator <email>.` and saves that entry to
-   `~/statbus.users.yml` (mode `0600`, never printed), so a later install,
-   even on a fresh checkout, reuses it instead of asking again.
+   `~/statbus/.users.yml` (mode `0600`, never printed), so a later install
+   reuses it instead of asking again. A reinstall after a keep-uninstall moves
+   the kept `~/statbus.users.yml` back into the checkout.
 
 An unattended run (`--non-interactive`, or no terminal) with none of these
 stops before changing anything and names both remedies. Every install ends

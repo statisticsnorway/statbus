@@ -233,10 +233,11 @@ func TestUsersCase4InteractiveAdminIsCreatedSavedAndReused(t *testing.T) {
 		t.Fatal(err)
 	}
 	homeFile := filepath.Join(home, "statbus.users.yml")
+	projectFile := filepath.Join(dir, ".users.yml")
 	for _, want := range []string{
 		"  Create the first administrator. Everyone else is invited from the web interface.",
 		"  Created administrator first-admin@example.org.",
-		"  Saved the administrator to " + homeFile + " (mode 0600) so a later install reuses it.",
+		"  Saved the administrator to " + projectFile + " (mode 0600) so a later install reuses it.",
 	} {
 		if !strings.Contains(out, want+"\n") {
 			t.Errorf("missing %q in:\n%s", want, out)
@@ -248,25 +249,37 @@ func TestUsersCase4InteractiveAdminIsCreatedSavedAndReused(t *testing.T) {
 	if len(accounts.created) != 1 || accounts.created[0].role != "admin_user" {
 		t.Fatalf("created %+v", accounts.created)
 	}
-	for _, path := range []string{homeFile, filepath.Join(dir, ".users.yml")} {
-		st, err := os.Stat(path)
-		if err != nil || st.Mode().Perm() != 0600 {
-			t.Fatalf("%s not saved at 0600: %v %v", path, st, err)
-		}
-		data, _ := os.ReadFile(path)
-		users, err := parseUsersYAML(string(data))
-		if err != nil || len(users) != 1 || users[0] != (userEntry{email: "first-admin@example.org", displayName: `First O'Admin "Q"`, password: password, role: "admin_user"}) {
-			t.Fatalf("%s does not round-trip the administrator: %+v %v", path, users, err)
-		}
+	// STATBUS-419 AC6: while installed the administrator lives only in the
+	// checkout; no second copy in the home.
+	if _, statErr := os.Stat(homeFile); !os.IsNotExist(statErr) {
+		t.Fatalf("administrator also written to %s: %v", homeFile, statErr)
+	}
+	st, statErr := os.Stat(projectFile)
+	if statErr != nil || st.Mode().Perm() != 0600 {
+		t.Fatalf("%s not saved at 0600: %v %v", projectFile, st, statErr)
+	}
+	data, _ := os.ReadFile(projectFile)
+	users, parseErr := parseUsersYAML(string(data))
+	if parseErr != nil || len(users) != 1 || users[0] != (userEntry{email: "first-admin@example.org", displayName: `First O'Admin "Q"`, password: password, role: "admin_user"}) {
+		t.Fatalf("%s does not round-trip the administrator: %+v %v", projectFile, users, parseErr)
 	}
 
-	// The next install on a fresh checkout (project dir gone, home file kept),
-	// unattended: it is detected, reused, and nothing is asked.
+	// Uninstall kept the file: the checkout is gone and the same content sits
+	// at ~/statbus.users.yml. The next install moves it back in and reuses it.
+	if err := os.Rename(projectFile, homeFile); err != nil {
+		t.Fatal(err)
+	}
 	nextDir := t.TempDir()
 	nonInteractive = true
 	stdinIsTerminal = func() bool { return false }
 	accounts.emails = map[string]bool{}
 	accounts.created = nil
+	if err := adoptOperatorUserState(nextDir); err != nil {
+		t.Fatalf("next install could not move the kept administrator in: %v", err)
+	}
+	if _, statErr := os.Stat(homeFile); !os.IsNotExist(statErr) {
+		t.Fatalf("kept file survived the move: %v", statErr)
+	}
 	if err := validateUsersInput(nextDir); err != nil {
 		t.Fatalf("next install did not find the saved administrator: %v", err)
 	}
@@ -274,7 +287,7 @@ func TestUsersCase4InteractiveAdminIsCreatedSavedAndReused(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(out, "  Found "+homeFile+" with 1 users; using it.\n") || strings.Contains(out, "Email") {
+	if !strings.Contains(out, "  Found "+filepath.Join(nextDir, ".users.yml")+" with 1 users; using it.\n") || strings.Contains(out, "Email") {
 		t.Fatalf("next install did not reuse the saved file:\n%s", out)
 	}
 	if len(accounts.created) != 1 || accounts.created[0].password != password {
@@ -345,6 +358,7 @@ func TestUsersLinesPassTheTerminalFilter(t *testing.T) {
 		"  Create the first administrator. Everyone else is invited from the web interface.",
 		"  Created administrator admin@example.org.",
 		"  Saved the administrator to /home/statbus/statbus.users.yml (mode 0600) so a later install reuses it.",
+		"  Moved /home/statbus/statbus.users.yml to /home/statbus/statbus/.users.yml (one copy).",
 		"User accounts: 0",
 		"⚠ USERS: no user account exists, so nobody can sign in. Place the users file at /home/statbus/statbus/.users.yml, then run: cd /home/statbus/statbus && ./sb users create",
 	}
@@ -457,5 +471,121 @@ func TestUsersEstablishedBoxStepSemantics(t *testing.T) {
 	}
 	if !checkUsersDone(dir) {
 		t.Fatal("not done after creating them")
+	}
+}
+
+// STATBUS-419 AC6: an installed StatBus keeps exactly one copy of the users
+// and credentials files, inside the checkout. A file left in the operator's
+// home (by uninstall's keep, or by an older installer) is moved in, not
+// copied, so no second copy remains.
+func TestAdoptOperatorUserStateMovesHomeFilesIntoCheckout(t *testing.T) {
+	home, dir, _ := provisioningFixture(t, false)
+	homeUsers := filepath.Join(home, "statbus.users.yml")
+	homeCreds := filepath.Join(home, "statbus.env.credentials")
+	writeUsersFile(t, homeUsers, usersFixtureContent)
+	writeUsersFile(t, homeCreds, "GITHUB_TOKEN=kept-token\n")
+
+	var err error
+	out := captureStdout(t, func() { err = adoptOperatorUserState(dir) })
+	if err != nil {
+		t.Fatalf("adopt: %v", err)
+	}
+	for _, gone := range []string{homeUsers, homeCreds} {
+		if _, statErr := os.Stat(gone); !os.IsNotExist(statErr) {
+			t.Fatalf("%s survived the move: %v", gone, statErr)
+		}
+	}
+	for path, want := range map[string]string{
+		filepath.Join(dir, ".users.yml"):       usersFixtureContent,
+		filepath.Join(dir, ".env.credentials"): "GITHUB_TOKEN=kept-token\n",
+	} {
+		data, readErr := os.ReadFile(path)
+		if readErr != nil || string(data) != want {
+			t.Fatalf("%s: %q %v", path, data, readErr)
+		}
+		st, statErr := os.Stat(path)
+		if statErr != nil || st.Mode().Perm() != 0600 {
+			t.Fatalf("%s mode: %v %v", path, st, statErr)
+		}
+	}
+	for _, want := range []string{"  Moved " + homeUsers + " to " + filepath.Join(dir, ".users.yml")} {
+		if !strings.Contains(out, want) {
+			t.Errorf("missing %q in:\n%s", want, out)
+		}
+	}
+}
+
+// Two different copies cannot be reconciled by the installer: refuse and
+// leave both untouched, naming both paths.
+func TestAdoptOperatorUserStateRefusesDifferentCheckoutCopy(t *testing.T) {
+	home, dir, _ := provisioningFixture(t, false)
+	homeUsers := filepath.Join(home, "statbus.users.yml")
+	writeUsersFile(t, homeUsers, usersFixtureContent)
+	writeUsersFile(t, filepath.Join(dir, ".users.yml"), twoUsersContent)
+	if err := adoptOperatorUserState(dir); err == nil ||
+		!strings.Contains(err.Error(), homeUsers) || !strings.Contains(err.Error(), filepath.Join(dir, ".users.yml")) {
+		t.Fatalf("different copies not refused with both paths: %v", err)
+	}
+	if _, err := os.Stat(homeUsers); err != nil {
+		t.Fatalf("home file lost on refusal: %v", err)
+	}
+	if data, _ := os.ReadFile(filepath.Join(dir, ".users.yml")); string(data) != twoUsersContent {
+		t.Fatalf("checkout file changed on refusal: %q", data)
+	}
+}
+
+// An identical leftover copy is the same content in two places; the checkout
+// copy is authoritative and the home duplicate is removed.
+func TestAdoptOperatorUserStateRemovesIdenticalDuplicate(t *testing.T) {
+	home, dir, _ := provisioningFixture(t, false)
+	homeUsers := filepath.Join(home, "statbus.users.yml")
+	writeUsersFile(t, homeUsers, usersFixtureContent)
+	writeUsersFile(t, filepath.Join(dir, ".users.yml"), usersFixtureContent)
+	if err := adoptOperatorUserState(dir); err != nil {
+		t.Fatalf("adopt: %v", err)
+	}
+	if _, err := os.Stat(homeUsers); !os.IsNotExist(err) {
+		t.Fatalf("identical home duplicate survived: %v", err)
+	}
+	if data, _ := os.ReadFile(filepath.Join(dir, ".users.yml")); string(data) != usersFixtureContent {
+		t.Fatalf("checkout copy changed: %q", data)
+	}
+}
+
+// STATBUS_USERS_FILE is the operator's own input: it is copied into the
+// installation but never moved or deleted.
+func TestAdoptOperatorUserStateLeavesExplicitUsersFile(t *testing.T) {
+	home, dir, _ := provisioningFixture(t, true)
+	explicit := filepath.Join(home, "statbus.users.yml")
+	writeUsersFile(t, explicit, usersFixtureContent)
+	writeUsersFile(t, filepath.Join(home, "statbus.env.credentials"), "GITHUB_TOKEN=kept-token\n")
+	t.Setenv(installinput.UsersFile, explicit)
+	if err := adoptOperatorUserState(dir); err != nil {
+		t.Fatalf("adopt: %v", err)
+	}
+	if data, err := os.ReadFile(explicit); err != nil || string(data) != usersFixtureContent {
+		t.Fatalf("explicit input was moved or changed: %q %v", data, err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, ".users.yml")); !os.IsNotExist(err) {
+		t.Fatalf("explicit input was not left for the copy step: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, ".env.credentials")); err != nil {
+		t.Fatalf("credentials were not moved in: %v", err)
+	}
+}
+
+// Credentials move in before the Credentials step, so a reinstall on a box
+// whose database volume survived keeps the secrets the volume was made with.
+func TestAdoptOperatorUserStateRunsBeforeCredentialsStep(t *testing.T) {
+	home, dir, _ := provisioningFixture(t, false)
+	writeUsersFile(t, filepath.Join(home, "statbus.env.credentials"), "GITHUB_TOKEN=kept-token\n")
+	if checkCredsDone(dir) {
+		t.Fatal("credentials reported done before the move")
+	}
+	if err := adoptOperatorUserState(dir); err != nil {
+		t.Fatal(err)
+	}
+	if !checkCredsDone(dir) {
+		t.Fatal("moved credentials did not satisfy the Credentials step")
 	}
 }

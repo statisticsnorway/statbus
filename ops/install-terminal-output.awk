@@ -127,7 +127,7 @@
 # STATBUS-464 user provisioning: which users file was used, how many accounts
 # exist, and the loud no-sign-in warning. Fixed grammar from install_users.go;
 # never a password (the file content stays out of every output line).
-/^  (Using STATBUS_USERS_FILE [^ ]+ with [0-9]+ users\.|Not using [^ ]+: STATBUS_USERS_FILE was given explicitly and takes precedence\.|Found [^ ]+ with [0-9]+ users; using it\.|Created [0-9]+ users from [^ ]+; [0-9]+ already existed and were left unchanged\.|Create the first administrator\. Everyone else is invited from the web interface\.|Created administrator [^ ]+\.|Saved the administrator to [^ ]+ \(mode 0600\) so a later install reuses it\.)$/ {
+/^  (Using STATBUS_USERS_FILE [^ ]+ with [0-9]+ users\.|Not using [^ ]+: STATBUS_USERS_FILE was given explicitly and takes precedence\.|Found [^ ]+ with [0-9]+ users; using it\.|Created [0-9]+ users from [^ ]+; [0-9]+ already existed and were left unchanged\.|Create the first administrator\. Everyone else is invited from the web interface\.|Created administrator [^ ]+\.|Saved the administrator to [^ ]+ \(mode 0600\) so a later install reuses it\.|Moved [^ ]+ to [^ ]+ \(one copy\)\.)$/ {
     print
     fflush()
     next

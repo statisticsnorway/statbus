@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -1131,5 +1132,265 @@ esac
 	}
 	if _, err := os.Stat(filepath.Join(home, "removed-image")); !os.IsNotExist(err) {
 		t.Fatalf("shared helper removed: %v", err)
+	}
+}
+
+// writeUninstallDockerMock writes a Docker stand-in that performs the helper's
+// deletions on the real tree, so a test can assert what the script removed
+// without a daemon.
+func writeUninstallDockerMock(t *testing.T, bin string) {
+	t.Helper()
+	mock := `#!/bin/sh
+case "$1" in
+  version) echo 27.5.1 ;;
+  run)
+    case "$*" in
+      *uninstall-preflight*) exit 0 ;;
+      *'rm -rf -- ./tmp'*) rm -rf -- "$HOME/statbus/tmp" ;;
+      *'rm -rf -- "./'*)
+        for last; do :; done
+        rm -rf -- "$HOME/statbus/$last" ;;
+    esac ;;
+esac
+exit 0
+`
+	if err := os.WriteFile(filepath.Join(bin, "docker"), []byte(mock), 0700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(bin, "sudo"), []byte("#!/bin/sh\nshift\nexec \"$@\"\n"), 0700); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// runUninstallOnPTY runs uninstall.sh with a controlling terminal and feeds
+// its prompts, so the interactive keep questions are exercised as an operator
+// meets them.
+func runUninstallOnPTY(t *testing.T, home, path, answers string) (string, error) {
+	t.Helper()
+	script, err := filepath.Abs("../../uninstall.sh")
+	if err != nil {
+		t.Fatal(err)
+	}
+	ptyScript := filepath.Join(t.TempDir(), "run-uninstall-pty.py")
+	code := `import os, pty, sys
+answers = open(sys.argv[1], "rb").read()
+pid, fd = pty.fork()
+if pid == 0:
+    env = dict(os.environ)
+    env["HOME"] = sys.argv[2]
+    env["PATH"] = sys.argv[3]
+    env.pop("STATBUS_UNINSTALL_CONFIRM", None)
+    os.execvpe("bash", ["bash", sys.argv[4]], env)
+os.write(fd, answers)
+out = b""
+while True:
+    try:
+        data = os.read(fd, 4096)
+    except OSError:
+        break
+    if not data:
+        break
+    out += data
+_, status = os.waitpid(pid, 0)
+sys.stdout.buffer.write(out)
+sys.exit(os.waitstatus_to_exitcode(status))
+`
+	if err := os.WriteFile(ptyScript, []byte(code), 0600); err != nil {
+		t.Fatal(err)
+	}
+	answerPath := filepath.Join(t.TempDir(), "answers")
+	if err := os.WriteFile(answerPath, []byte(answers), 0600); err != nil {
+		t.Fatal(err)
+	}
+	cmd := exec.Command("python3", ptyScript, answerPath, home, path, script)
+	var out strings.Builder
+	cmd.Stdout = &out
+	cmd.Stderr = &out
+	err = cmd.Run()
+	return out.String(), err
+}
+
+// STATBUS-419 AC6: keeping the users and credentials moves them out to the
+// operator's home (mode 0600), then removes the whole checkout.
+func TestUninstallKeepsUsersAndCredentialsAtHome(t *testing.T) {
+	home := t.TempDir()
+	dir := filepath.Join(home, "statbus")
+	if err := os.MkdirAll(filepath.Join(dir, "tmp"), 0700); err != nil {
+		t.Fatal(err)
+	}
+	users := "- display_name: Ada\n  email: ada@example.org\n  password: ada-secret\n  role: admin_user\n"
+	for path, content := range map[string]string{
+		filepath.Join(dir, ".users.yml"):       users,
+		filepath.Join(dir, ".env.credentials"): "GITHUB_TOKEN=kept-token\n",
+	} {
+		if err := os.WriteFile(path, []byte(content), 0600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	bin := ensureBinDir(t, home)
+	writeUninstallDockerMock(t, bin)
+	out, err := runUninstallOnPTY(t, home, binPath(home), "\n\nY\nDELETE\n")
+	if err != nil {
+		t.Fatalf("interactive removal: %v\n%s", err, out)
+	}
+	if _, statErr := os.Stat(dir); !os.IsNotExist(statErr) {
+		t.Fatalf("checkout survived: %v\n%s", statErr, out)
+	}
+	for path, want := range map[string]string{
+		filepath.Join(home, "statbus.users.yml"):       users,
+		filepath.Join(home, "statbus.env.credentials"): "GITHUB_TOKEN=kept-token\n",
+	} {
+		data, readErr := os.ReadFile(path)
+		if readErr != nil || string(data) != want {
+			t.Fatalf("%s: %q %v\n%s", path, data, readErr, out)
+		}
+		st, statErr := os.Stat(path)
+		if statErr != nil || st.Mode().Perm() != 0600 {
+			t.Fatalf("%s mode: %v %v", path, st, statErr)
+		}
+	}
+	for _, want := range []string{
+		"Keep the users? [Y/n]",
+		"Keep the credentials? [Y/n]",
+		"Move to " + filepath.Join(home, "statbus.users.yml") + ": " + filepath.Join(dir, ".users.yml"),
+		"Move to " + filepath.Join(home, "statbus.env.credentials") + ": " + filepath.Join(dir, ".env.credentials"),
+	} {
+		if !strings.Contains(out, want) {
+			t.Errorf("missing %q in:\n%s", want, out)
+		}
+	}
+}
+
+// A kept file never overwrites a different file already in the home, and the
+// refusal happens before anything is deleted.
+func TestUninstallRefusesToOverwriteDifferentHomeUserFile(t *testing.T) {
+	home := t.TempDir()
+	dir := filepath.Join(home, "statbus")
+	if err := os.MkdirAll(filepath.Join(dir, "tmp"), 0700); err != nil {
+		t.Fatal(err)
+	}
+	writeUninstallDockerMock(t, ensureBinDir(t, home))
+	if err := os.WriteFile(filepath.Join(dir, ".users.yml"), []byte("- email: new@example.org\n"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	homeUsers := filepath.Join(home, "statbus.users.yml")
+	if err := os.WriteFile(homeUsers, []byte("- email: old@example.org\n"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	out, err := runUninstallOnPTY(t, home, binPath(home), "\n\nY\nDELETE\n")
+	if err == nil || !strings.Contains(out, "Refusing") || !strings.Contains(out, homeUsers) {
+		t.Fatalf("different home file not refused: %v\n%s", err, out)
+	}
+	if data, readErr := os.ReadFile(homeUsers); readErr != nil || string(data) != "- email: old@example.org\n" {
+		t.Fatalf("home file changed: %q %v", data, readErr)
+	}
+	if _, statErr := os.Stat(filepath.Join(dir, ".users.yml")); statErr != nil {
+		t.Fatalf("checkout changed on refusal: %v\n%s", statErr, out)
+	}
+	if strings.Contains(out, "Step 2") {
+		t.Fatalf("teardown ran after refusal:\n%s", out)
+	}
+}
+
+func ensureBinDir(t *testing.T, home string) string {
+	t.Helper()
+	bin := filepath.Join(home, "bin")
+	if err := os.MkdirAll(bin, 0700); err != nil {
+		t.Fatal(err)
+	}
+	return bin
+}
+
+func binPath(home string) string {
+	return filepath.Join(home, "bin") + ":" + os.Getenv("PATH")
+}
+
+// Unattended removal keeps neither file, so no home copy is created.
+func TestUninstallUnattendedRemovesHomeUserState(t *testing.T) {
+	home := t.TempDir()
+	dir := filepath.Join(home, "statbus")
+	if err := os.MkdirAll(filepath.Join(dir, "tmp"), 0700); err != nil {
+		t.Fatal(err)
+	}
+	for _, name := range []string{".users.yml", ".env.credentials"} {
+		if err := os.WriteFile(filepath.Join(dir, name), []byte("x\n"), 0600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	bin := ensureBinDir(t, home)
+	writeUninstallDockerMock(t, bin)
+	script, _ := filepath.Abs("../../uninstall.sh")
+	cmd := exec.Command("bash", script)
+	cmd.Env = append(os.Environ(), "HOME="+home, "PATH="+binPath(home), "STATBUS_UNINSTALL_CONFIRM=yes-delete-everything")
+	if out, err := cmd.CombinedOutput(); err != nil {
+		t.Fatalf("unattended removal: %v\n%s", err, out)
+	}
+	if _, statErr := os.Stat(dir); !os.IsNotExist(statErr) {
+		t.Fatalf("checkout survived: %v", statErr)
+	}
+	for _, path := range []string{filepath.Join(home, "statbus.users.yml"), filepath.Join(home, "statbus.env.credentials")} {
+		if _, statErr := os.Stat(path); !os.IsNotExist(statErr) {
+			t.Fatalf("unattended removal kept %s", path)
+		}
+	}
+}
+
+// STATBUS-419 AC7: after `sudo -iu statbus` there is no XDG_RUNTIME_DIR; the
+// script supplies this user's own /run/user/<uid> so the user systemd manager
+// (and the upgrader stop) is reachable.
+func TestUninstallSuppliesUserRuntimeDirToSystemctl(t *testing.T) {
+	home := t.TempDir()
+	base := filepath.Join(home, "runtime")
+	uid := fmt.Sprint(os.Getuid())
+	if err := os.MkdirAll(filepath.Join(base, uid), 0700); err != nil {
+		t.Fatal(err)
+	}
+	unitDir := filepath.Join(home, ".config", "systemd", "user")
+	if err := os.MkdirAll(unitDir, 0700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(unitDir, "statbus-upgrader@.service"), []byte("[Unit]\n"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	bin := ensureBinDir(t, home)
+	systemctl := `#!/bin/sh
+printf '%s\n' "${XDG_RUNTIME_DIR:-}" >> "$HOME/systemctl-runtime"
+case "$*" in
+  *is-active*) echo inactive ;;
+esac
+exit 0
+`
+	if err := os.WriteFile(filepath.Join(bin, "systemctl"), []byte(systemctl), 0700); err != nil {
+		t.Fatal(err)
+	}
+	script, _ := filepath.Abs("../../uninstall.sh")
+	cmd := exec.Command("bash", script)
+	var env []string
+	for _, entry := range os.Environ() {
+		if !strings.HasPrefix(entry, "XDG_RUNTIME_DIR=") {
+			env = append(env, entry)
+		}
+	}
+	cmd.Env = append(env, "HOME="+home, "PATH="+binPath(home),
+		"STATBUS_UNINSTALL_CONFIRM=yes-delete-everything", "STATBUS_USER_RUNTIME_DIR_BASE="+base)
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("removal with a user unit: %v\n%s", err, out)
+	}
+	captured, err := os.ReadFile(filepath.Join(home, "systemctl-runtime"))
+	if err != nil {
+		t.Fatalf("systemctl was not reached: %v\n%s", err, out)
+	}
+	lines := strings.Fields(string(captured))
+	if len(lines) == 0 {
+		t.Fatal("systemctl saw no XDG_RUNTIME_DIR")
+	}
+	for _, line := range lines {
+		if line != filepath.Join(base, uid) {
+			t.Fatalf("systemctl saw XDG_RUNTIME_DIR=%q, want %q\n%s", line, filepath.Join(base, uid), out)
+		}
+	}
+	if !strings.Contains(string(out), "Step 1: stopping StatBus upgrader") {
+		t.Fatalf("did not reach the upgrader stop:\n%s", out)
 	}
 }
