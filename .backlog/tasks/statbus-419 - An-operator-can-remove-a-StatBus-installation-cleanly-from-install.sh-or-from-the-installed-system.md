@@ -3,10 +3,10 @@ id: STATBUS-419
 title: >-
   An operator can remove a StatBus installation cleanly, from install.sh or from
   the installed system
-status: Done
+status: In Progress
 assignee: []
-created_date: '2026-09-25 13:08'
-updated_date: '2026-10-21 10:31'
+created_date: 2026-09-25 13:08
+updated_date: '2026-11-02T21:16:00Z'
 labels:
   - installer
 dependencies: []
@@ -51,6 +51,8 @@ Removal is destructive, so the defaults protect what cannot be recreated:
 - [x] #3 On a real box, install, uninstall, and a fresh install on the same box all succeed (`6-uninstall-reinstall.sh`, rc.17 LXD PASS)
 - [x] #4 `doc/DEPLOYMENT.md` documents both entry points and the hosted URL
 - [x] #5 [Owner] Decide whether the uninstaller must print the list of what it will delete before asking for confirmation, and record it in Implementation Notes. No: check this and set Done. Yes: add that listing as a new criterion.
+- [ ] #6 Owner decision 2026-11-02: a file StatBus creates lives in one place. While installed, users and credentials live only inside ~/statbus (.users.yml, .env.credentials); install moves a kept ~/statbus.users.yml and ~/statbus.env.credentials into the checkout (no second copy in the home). Uninstall asks 'Keep the users? [Y/n]' and 'Keep the credentials? [Y/n]'; a kept file is moved out to ~/statbus.users.yml or ~/statbus.env.credentials (mode 0600), and ~/statbus is always removed completely. uninstall.sh and ./sb uninstall behave the same; a test covers install, uninstall with both kept, and a fresh install that picks both up
+- [ ] #7 uninstall.sh run after sudo -iu statbus stops the user upgrader: it supplies XDG_RUNTIME_DIR=/run/user/<uid> when unset and that directory belongs to the user (observed failing on the manual box 2026-11-02 with v2026.11.0)
 <!-- AC:END -->
 
 ## Implementation Notes
@@ -64,4 +66,6 @@ Removal is destructive, so the defaults protect what cannot be recreated:
 
 ### AC5 resolved 2026-10-21: already the behaviour
 `uninstall.sh` prints 'StatBus removal plan (only listed resources will be deleted):' with containers, volumes, networks, image tags, unit files and paths, plus what it keeps (dbdumps, .env.credentials), then asks 'Type DELETE to execute this exact plan'. No new criterion needed. The fix is in, tested and green through the gates, so it closes under the owner's rule.
+
+2026-11-02 manual box, v2026.11.0, sudo -iu statbus: uninstall.sh stopped at 'Step 1: stopping StatBus upgrader' with 'Failed to connect to user scope bus ... XDG_RUNTIME_DIR not defined' before deleting anything. Same cause as STATBUS-559's install failure (fixed in sb by 8fea12e54). The plan also showed 'Keep: /home/statbus/statbus/.env.credentials', leaving ~/statbus behind, while users existed twice (~/statbus.users.yml and ~/statbus/.users.yml) and were never asked about. Owner decided the one-place design above.
 <!-- SECTION:NOTES:END -->
