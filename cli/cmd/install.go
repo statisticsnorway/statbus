@@ -603,11 +603,9 @@ func runInstall() (installErr error) {
 	// and the mutex section agree.
 	bypass := postUpgradeFixup || os.Getenv("STATBUS_POST_UPGRADE_FIXUP") == "1"
 
-	// Warn if running as root — the upgrader is a user-level systemd unit now,
-	// running as root would create files owned by root in the project dir.
+	// The application user owns the installation; see diskpolicy.RootRefusal.
 	if os.Geteuid() == 0 {
-		return installPreflightRefusal("StatBus must be installed as the application user, not root.\n" +
-			"Switch to that user, then run:\n    " + diskpolicy.RerunCommand())
+		return installPreflightRefusal(diskpolicy.RootRefusal(diskpolicy.RerunCommand()))
 	}
 
 	// Self-identifying banner: the post-completion fixup is a legitimately
@@ -1946,25 +1944,37 @@ func runCreateConfig(dir string) error {
 		}
 	} else {
 		fmt.Println()
-		mode := ""
-		// The suggested mode is installinput.SuggestedMode for every host;
-		// no hardware or checkout signal is consulted (STATBUS-465).
-		content, err = installinput.Validate(installinput.Ask(func(label, fallback string) string {
-			answer := questionnairePrompt(label, fallback)
-			if strings.HasSuffix(label, "Domain name") {
-				for attempts := 0; answer == "" && attempts < 3; attempts++ {
-					fmt.Println("  Please enter the web address people will use. For local testing, use local.statbus.org.")
-					answer = questionnairePrompt(label, fallback)
+		// One typo used to be permanent: the answers went straight to
+		// .env.config. They are shown for acceptance first, and rejecting the
+		// review asks every question again with the previous answers as the
+		// defaults, so only the wrong one needs retyping. Nothing is written
+		// before acceptance.
+		previous := map[string]string{}
+		for {
+			mode := ""
+			// The suggested mode is installinput.SuggestedMode for every host;
+			// no hardware or checkout signal is consulted (STATBUS-465).
+			content, err = installinput.Validate(installinput.Ask(func(label, fallback string) string {
+				answer := questionnairePrompt(label, fallback)
+				if strings.HasSuffix(label, "Domain name") {
+					for attempts := 0; answer == "" && attempts < 3; attempts++ {
+						fmt.Println("  Please enter the web address people will use. For local testing, use local.statbus.org.")
+						answer = questionnairePrompt(label, fallback)
+					}
 				}
+				if strings.HasSuffix(label, "Deployment mode (development/standalone/private)") {
+					mode = answer
+				}
+				if strings.HasSuffix(label, "Domain name") && mode == "standalone" && answer != "" {
+					showInstallDomainAdvice(answer)
+				}
+				return answer
+			}, previous))
+			if err != nil || confirmQuestionnaireAnswersFn(content) {
+				break
 			}
-			if strings.HasSuffix(label, "Deployment mode (development/standalone/private)") {
-				mode = answer
-			}
-			if strings.HasSuffix(label, "Domain name") && mode == "standalone" && answer != "" {
-				showInstallDomainAdvice(answer)
-			}
-			return answer
-		}))
+			previous = installinput.AnswerValues(content)
+		}
 	}
 	if err != nil {
 		return err
@@ -3322,6 +3332,35 @@ func runCreateUsers(dir string) error {
 
 // questionnairePrompt is the seam for the interactive deployment questions.
 var questionnairePrompt = prompt
+
+// confirmQuestionnaireAnswers shows the answers the installation will be
+// configured with and asks for acceptance; Enter or y accepts. Any other
+// answer sends the operator back through the questions with these answers as
+// the defaults. Nothing is written before acceptance.
+func confirmQuestionnaireAnswers(content string) bool {
+	// install.sh captures ordinary output into the support log, so the
+	// summary is marked the way the certificate notice is: the operator must
+	// be able to read the values being accepted.
+	notice := func(message string) {
+		fmt.Println(message)
+		installTTYPrompt("%s", message)
+	}
+	fmt.Println()
+	notice("  These answers will be used for this installation:")
+	for _, line := range installinput.ReviewLines(content) {
+		notice(fmt.Sprintf("    %s: %s", line.Label, line.Value))
+	}
+	fmt.Println()
+	fmt.Print("  Use these answers? [Y/n]: ")
+	installTTYPromptAnswer("%s", "  Use these answers? [Y/n]: ")
+	answer, _ := bufio.NewReader(os.Stdin).ReadString('\n')
+	answer = strings.ToLower(strings.TrimSpace(answer))
+	return answer == "" || answer == "y" || answer == "yes"
+}
+
+// confirmQuestionnaireAnswersFn is the seam the interactive tests use to
+// accept or reject the review without a terminal.
+var confirmQuestionnaireAnswersFn = confirmQuestionnaireAnswers
 
 // administratorPrompt and askAdministratorPasswordFn are the seams for the
 // first-administrator questions (visible email/name, hidden password).

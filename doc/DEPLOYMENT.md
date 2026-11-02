@@ -299,6 +299,13 @@ starting with a letter, at most 20 characters. A `development` installation asks
 the same keys as "Display name" and "Deployment code (short, lowercase)" and may
 invent them (defaults `StatBus` and `local`).
 
+After the last question the installer shows every answer and asks
+`Use these answers? [Y/n]`. Enter or `y` accepts; `n` asks all the questions again
+with the previous answers as the defaults, so a mistyped answer is corrected by
+typing only that answer and pressing Enter at the rest. Nothing is written to
+`.env.config` before acceptance. The review exists only in interactive mode; an
+answers file (`STATBUS_ENV_CONFIG`) is validated as before.
+
 `TLS_CERT_FILE` and `TLS_KEY_FILE` are optional and must be given together; they select the custom-certificate path (see Custom TLS Certificates below) and are never asked interactively.
 
 Keep this input outside `~/statbus`, which the installer clones itself. Protect

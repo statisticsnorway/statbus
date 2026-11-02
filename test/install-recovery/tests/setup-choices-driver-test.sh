@@ -51,6 +51,13 @@ echo "  Suggested from the domain et.statbus-test.local; press Enter to accept i
 read -r -p "  Country name [Ethiopia]: " a
 echo "  Suggested from Ethiopia; press Enter to accept it."
 read -r -p "  Country code [et]: " a
+echo "  These answers will be used for this installation:"
+echo "    Deployment mode: standalone"
+echo "    Domain name: et.statbus-test.local"
+echo "    Country name: Ethiopia"
+echo "    Country code: et"
+read -r -p "  Use these answers? [Y/n]: " a
+[ -z "\$a" ] || { echo "review answer was '\$a', expected Enter"; exit 3; }
 echo "[4/19] Configuration        DONE"
 echo "[7/19] Trusted signers      RUNNING"
 read -r -p "Trust key(s) from github.com/jhf? [Y/n] " a
@@ -67,7 +74,7 @@ HOME="$WORK" SETUP_CHOICES_INSTALLER="$WORK/installer.sh" \
     expect "$WORK/setup-choices.exp" et.statbus-test.local Ethiopia et jhf 20 20 >"$WORK/run.log" 2>&1
 rc=$?
 summary=$(grep -o 'SETUP-CHOICES questions asked: .*' "$WORK/run.log" | tail -1)
-if [ "$rc" -eq 0 ] && [ "$summary" = "SETUP-CHOICES questions asked: mode=1 domain=1 country-name=1 country-code=1 certificate-offer=1 signer=1" ]; then
+if [ "$rc" -eq 0 ] && [ "$summary" = "SETUP-CHOICES questions asked: mode=1 domain=1 country-name=1 country-code=1 review=1 certificate-offer=1 signer=1" ]; then
     echo "PASS the driver answers every setup question once, including the certificate offer '$cert_prompt'"
     exit 0
 fi

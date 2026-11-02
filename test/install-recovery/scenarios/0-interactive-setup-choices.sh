@@ -15,6 +15,9 @@
 #                       be the country the installer's own list names for "et".
 #   - Country code:     Enter. The suggestion must be "et", accepted at once
 #                       (no not-a-country-code warning, no re-ask).
+#   - Review:           Enter ([Y/n], the default yes) to accept the answers
+#                       the installer shows. Every setup question must have
+#                       been asked exactly once before it.
 #   - Certificate offer: Enter ([y/N], the default no) to continue with automatic
 #                       certificates (STATBUS-429). A supplied certificate may
 #                       instead be installed later with ./sb cert install.
@@ -178,11 +181,11 @@ if {[info exists env(SETUP_CHOICES_INSTALLER)]} { set installer $env(SETUP_CHOIC
 match_max 262144
 set prompts_file "$env(HOME)/setup-choices-prompts.txt"
 log_file -noappend "$env(HOME)/setup-choices-transcript.txt"
-array set asked {mode 0 domain 0 name 0 code 0 cert 0 trust 0}
+array set asked {mode 0 domain 0 name 0 code 0 review 0 cert 0 trust 0}
 
 proc asked_summary {} {
     global asked
-    return "mode=$asked(mode) domain=$asked(domain) country-name=$asked(name) country-code=$asked(code) certificate-offer=$asked(cert) signer=$asked(trust)"
+    return "mode=$asked(mode) domain=$asked(domain) country-name=$asked(name) country-code=$asked(code) review=$asked(review) certificate-offer=$asked(cert) signer=$asked(trust)"
 }
 proc fail {msg} {
     puts stderr "\nSETUP-CHOICES FAIL: $msg"
@@ -245,6 +248,22 @@ expect {
             fail "the country-code suggestion is not from $want_name; the question showed: $buf"
         }
         expect_value "suggested country code" $want_code $expect_out(1,string)
+        send "\r"
+        exp_continue
+    }
+    -re {Use these answers\? \[Y/n\]: } {
+        incr asked(review)
+        set buf $expect_out(buffer)
+        record "answer review" $buf
+        if {$asked(review) > 1} { fail "the answer review was asked again: Enter did not accept the answers ($buf)" }
+        foreach k {mode domain name code} {
+            if {$asked($k) != 1} { fail "the answer review came before every setup question was asked exactly once" }
+        }
+        # The operator accepts values they can read: the summary shows each
+        # answer in plain words, not only the question that asked for it.
+        foreach shown [list "Deployment mode: standalone" "Domain name: $domain" "Country name: $want_name" "Country code: $want_code"] {
+            if {[string first $shown $buf] < 0} { fail "the answer summary does not show '$shown'; it showed: $buf" }
+        }
         send "\r"
         exp_continue
     }

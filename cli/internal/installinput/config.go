@@ -151,7 +151,14 @@ func suggestedSiteDomain(fqdn string) string {
 // offers a default where a useful one exists (STATBUS-400). A standalone or
 // private installation serves a country, so it asks for the country name and
 // country code (STATBUS-466); development may invent both.
-func Ask(prompt func(label, fallback string) string) string {
+//
+// previous optionally carries the answers from a review the operator rejected,
+// so pressing Enter keeps them and only the wrong answer is retyped.
+func Ask(prompt func(label, fallback string) string, previous ...map[string]string) string {
+	kept := map[string]string{}
+	if len(previous) > 0 && previous[0] != nil {
+		kept = previous[0]
+	}
 	var b strings.Builder
 	var mode, domain, name string
 	for _, f := range fields {
@@ -161,27 +168,34 @@ func Ask(prompt func(label, fallback string) string) string {
 		var answer string
 		switch f.key {
 		case "CADDY_DEPLOYMENT_MODE":
-			mode = askMode(prompt, f)
+			// Only a validated earlier answer is offered; a rejected one
+			// still gets the one suggestion every run has.
+			fallback := f.fallback
+			if deploymentModes[kept[f.key]] {
+				fallback = kept[f.key]
+			}
+			mode = askMode(prompt, f, fallback)
 			answer = mode
 		case "SITE_DOMAIN":
 			fallback := f.fallback
 			if fallback == "" {
 				fallback = SuggestedSiteDomain()
 			}
+			fallback = keptOr(kept, f.key, fallback)
 			domain = prompt("  The web address people will use. For local testing, use local.statbus.org.\n  "+f.prompt, fallback)
 			answer = domain
 		case "DEPLOYMENT_SLOT_NAME":
 			if mode == "development" {
-				name = prompt("  A name people will recognize in the web interface. A development installation may invent one.\n  "+DevelopmentNamePrompt, "StatBus")
+				name = prompt("  A name people will recognize in the web interface. A development installation may invent one.\n  "+DevelopmentNamePrompt, keptOr(kept, f.key, "StatBus"))
 			} else {
-				name = askCountryName(prompt, domain)
+				name = askCountryName(prompt, domain, kept[f.key])
 			}
 			answer = name
 		case "DEPLOYMENT_SLOT_CODE":
 			if mode == "development" {
-				answer = askDevelopmentCode(prompt, domain)
+				answer = askDevelopmentCode(prompt, domain, kept[f.key])
 			} else {
-				answer = askCountryCode(prompt, name, domain)
+				answer = askCountryCode(prompt, name, domain, kept[f.key])
 			}
 		}
 		fmt.Fprintf(&b, "%s=%s\n", f.key, answer)
@@ -189,23 +203,34 @@ func Ask(prompt func(label, fallback string) string) string {
 	return b.String()
 }
 
-func askMode(prompt func(label, fallback string) string, f field) string {
+// keptOr offers an earlier answer as the default when there is one.
+func keptOr(kept map[string]string, key, fallback string) string {
+	if value := strings.TrimSpace(kept[key]); value != "" {
+		return value
+	}
+	return fallback
+}
+
+func askMode(prompt func(label, fallback string) string, f field, fallback string) string {
 	label := "  How will people reach StatBus?\n    development: testing on this computer only\n    standalone: this computer serves the public website on ports 80 and 443\n    private: another web server forwards visitors to StatBus\n  " + f.prompt
 	answer := ""
 	for attempt := 0; attempt < askAttempts; attempt++ {
-		answer = strings.ToLower(strings.TrimSpace(prompt(label, f.fallback)))
+		answer = strings.ToLower(strings.TrimSpace(prompt(label, fallback)))
 		if deploymentModes[answer] {
 			return answer
 		}
-		label = "  Please answer development, standalone or private. Press Enter for " + f.fallback + ".\n  " + f.prompt
+		label = "  Please answer development, standalone or private. Press Enter for " + fallback + ".\n  " + f.prompt
 	}
 	return answer
 }
 
-func askCountryName(prompt func(label, fallback string) string, domain string) string {
+func askCountryName(prompt func(label, fallback string) string, domain, previous string) string {
 	suggestion, reason := SuggestCountry(domain)
 	intro := "  Which country does this installation serve? Its name is shown in the web interface, for example Norway."
-	if suggestion != "" {
+	if previous != "" {
+		suggestion = previous
+		intro += "\n  Press Enter to keep the earlier answer."
+	} else if suggestion != "" {
 		intro += "\n  Suggested " + reason + "; press Enter to accept it."
 	}
 	label := intro + "\n  " + CountryNamePrompt
@@ -217,10 +242,13 @@ func askCountryName(prompt func(label, fallback string) string, domain string) s
 	return answer
 }
 
-func askCountryCode(prompt func(label, fallback string) string, countryName, domain string) string {
+func askCountryCode(prompt func(label, fallback string) string, countryName, domain, previous string) string {
 	suggestion := SuggestCountryCode(countryName, domain)
 	label := "  The country's code: two or three lowercase letters, used in container names and the subdomain, for example no for Norway."
-	if suggestion != "" {
+	if previous != "" {
+		suggestion = previous
+		label += "\n  Press Enter to keep the earlier answer."
+	} else if suggestion != "" {
 		label += "\n  Suggested from " + countryName + "; press Enter to accept it."
 	}
 	label += "\n  " + CountryCodePrompt
@@ -256,10 +284,13 @@ func askCountryCode(prompt func(label, fallback string) string, countryName, dom
 
 // askDevelopmentCode keeps development permissive: the first domain label
 // when it is a usable code (local for local.statbus.org), else local.
-func askDevelopmentCode(prompt func(label, fallback string) string, domain string) string {
+func askDevelopmentCode(prompt func(label, fallback string) string, domain, previous string) string {
 	suggestion := strings.ToLower(strings.Split(domain, ".")[0])
 	if !slotCode.MatchString(suggestion) {
 		suggestion = "local"
+	}
+	if previous != "" {
+		suggestion = previous
 	}
 	label := "  A short lowercase name for this installation, used in container names. A development installation may invent one.\n  " + DevelopmentCodePrompt
 	answer := ""
@@ -271,6 +302,61 @@ func askDevelopmentCode(prompt func(label, fallback string) string, domain strin
 		label = "  The code must be " + slotCodeShape + ". Press Enter for " + suggestion + ".\n  " + DevelopmentCodePrompt
 	}
 	return answer
+}
+
+// AnswerLine is one answered field in the review summary before acceptance.
+type AnswerLine struct{ Label, Value string }
+
+// ReviewLines names each answered field in plain words. The questions
+// themselves explain a choice; the summary the operator accepts names the
+// answer, so nothing is written from a mistyped value unseen.
+func ReviewLines(content string) []AnswerLine {
+	values := AnswerValues(content)
+	development := values["CADDY_DEPLOYMENT_MODE"] == "development"
+	lines := make([]AnswerLine, 0, len(fields))
+	for _, f := range fields {
+		if f.installationOnly || f.optional {
+			continue
+		}
+		value, ok := values[f.key]
+		if !ok {
+			continue
+		}
+		label := f.prompt
+		switch f.key {
+		case "CADDY_DEPLOYMENT_MODE":
+			label = "Deployment mode"
+		case "SITE_DOMAIN":
+			label = "Domain name"
+		case "DEPLOYMENT_SLOT_NAME":
+			if development {
+				label = DevelopmentNamePrompt
+			} else {
+				label = CountryNamePrompt
+			}
+		case "DEPLOYMENT_SLOT_CODE":
+			if development {
+				label = "Deployment code"
+			} else {
+				label = CountryCodePrompt
+			}
+		}
+		lines = append(lines, AnswerLine{Label: label, Value: value})
+	}
+	return lines
+}
+
+// AnswerValues returns the answered fields by key, for offering them as the
+// defaults when the operator answers the questions again.
+func AnswerValues(content string) map[string]string {
+	parsed := dotenv.FromString(content)
+	values := make(map[string]string, len(fields))
+	for _, f := range fields {
+		if value, ok := parsed.Get(f.key); ok {
+			values[f.key] = value
+		}
+	}
+	return values
 }
 
 func TrustQuestion() (string, string) {

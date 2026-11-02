@@ -33,10 +33,13 @@ func runInteractiveConfiguration(t *testing.T, answers map[string]string) questi
 	t.Setenv(installinput.EnvConfig, "")
 	t.Setenv(installinput.UsersFile, "")
 	oldNonInteractive, oldPrompt, oldLookup := nonInteractive, questionnairePrompt, installDomainLookup
+	oldConfirm := confirmQuestionnaireAnswersFn
 	t.Cleanup(func() {
-		nonInteractive, questionnairePrompt, installDomainLookup = oldNonInteractive, oldPrompt, oldLookup
+		nonInteractive, questionnairePrompt, installDomainLookup, confirmQuestionnaireAnswersFn = oldNonInteractive, oldPrompt, oldLookup, oldConfirm
 	})
 	nonInteractive = false
+	// These tests answer the questions once; the review accepts that pass.
+	confirmQuestionnaireAnswersFn = func(content string) bool { return true }
 	installDomainLookup = func(context.Context, string) ([]net.IP, error) { return nil, errors.New("offline test") }
 	run := questionnaireRun{fallbacks: map[string]string{}}
 	questionnairePrompt = func(label, fallback string) string {
