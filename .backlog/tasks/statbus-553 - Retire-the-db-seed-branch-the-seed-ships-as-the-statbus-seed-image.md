@@ -4,7 +4,7 @@ title: 'Retire the db-seed branch: the seed ships as the statbus-seed image'
 status: In Progress
 assignee: []
 created_date: '2026-10-30T23:21:00Z'
-updated_date: '2026-10-31T02:58:00Z'
+updated_date: '2026-11-02T15:17:00Z'
 labels: []
 dependencies: []
 type: chore
@@ -45,4 +45,6 @@ CI: Go Test 41150713984 success on 14ecf9e42. rabbit confirmed: goes into rc.04;
 14ecf9e42 is in v2026.10.6-rc.04 (tag at bdfbfe1f5). AC #3 waits for the stable release built from it to be installed on every box.
 
 rc.04 failed its gate (STATBUS-382, unrelated). 14ecf9e42 is in v2026.10.6-rc.05 (tag at b6164e846). AC #3 waits for the stable release built from that line to be installed on every box.
+
+2026-11-02 owner: parked until the next stable release has propagated to every box; then delete origin/db-seed, the local branch and the statbus-db-seed worktree (AC 3, 4).
 <!-- SECTION:NOTES:END -->

@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-11-02T13:15:00Z'
-updated_date: '2026-11-02T14:42:00Z'
+updated_date: '2026-11-02T15:10:00Z'
 labels: []
 dependencies: []
 type: bug
@@ -43,7 +43,7 @@ STEPS
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
 - [x] #1 The over-count of April is reproduced by a small SQL test and its cause written here
-- [ ] #2 Owner has reviewed and agreed the cause before the fix is coded
+- [x] #2 Owner has reviewed and agreed the cause before the fix is coded
 - [ ] #3 Both facet reduces touch only combinations in the new or removed set; the reproduction test passes
 - [ ] #4 A migration that fixes a counting bug can trigger the full rebuild; documented at the reduce's definition
 - [ ] #5 Selection import facet reduce time measured before/after, and one 4 GiB run
@@ -58,4 +58,6 @@ STEPS
 A) March scoped reduce + derive_statistical_unit before 33b3c8bf5: legal_unit truth 20, facet 21 -> over-count. The second reduce ran in mode 'full' (no dirty slots at all) and still over-counted: the stale rows sit in the per-slot staging, which nothing re-derives, so the global reduce faithfully sums them. The global MERGE of e69785896 therefore could not have fixed this either; the one-time full rebuild in that migration is what repaired demo.
 B) March scoped reduce + today's derive_statistical_unit: truth 20, facet 20, both unit types match; reduce mode 'scoped', rows_deleted 12.
 Cause: the capture hole (deleted units' slots never marked dirty), fixed 2026-05-20, not the scoped design. The owner's design is correct once the dirty set includes removed units.
+
+2026-11-02 owner agreed the cause and step 3, for both facets (unit and history): restore the scoped reduce with removed-combination capture for both, regression test covering both, one-time full rebuild.
 <!-- SECTION:NOTES:END -->
