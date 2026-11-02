@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-11-02T13:15:00Z'
-updated_date: '2026-11-02T22:34:00Z'
+updated_date: '2026-11-02T22:56:00Z'
 labels: []
 dependencies: []
 type: bug
@@ -72,4 +72,10 @@ Cause: the capture hole (deleted units' slots never marked dirty), fixed 2026-05
 Dense months grow with periods x combinations; a sparse or interval form grows with the number of changes. The one order-of-magnitude saving found: store a month only when it has a change, and carry stock forward on display (10-100x fewer rows and writes, more with longer history). Everything else measured is a factor of 2 or less. Next if the owner wants it: prototype the display query from sparse months on this database and time it against today's direct read. Database kept: test_402_import_jobs_for_norway_history_29961.
 
 2026-11-02 difference-table direction (owner exploring, not committed): stock as +1/-1 changes per combination and date, running sum on read. Counts prototyped on the 10-year database: 6,079 rows vs 526,437, all 137 months equal, region breakdown 1.9 ms vs 3.0 ms. Statistics need jsonb_stats to subtract: proposal written to ../jsonb_stats/todo.md (stats_delta companion type with count/sum/sum_sq of any sign, negate, delta_agg with moving-aggregate support, min/max left out since STATBUS reads only sum). Change detection stays coefficient_of_variation_pct (owner's measure), not a z-score. Next here: extend the prototype to every history facet column and year rows, compare with today's table, time the drilldown.
+
+2026-11-02 night N2-N4 (owner asleep; scratch schema n558 in test_402_import_jobs_for_norway_history_29961; scripts and logs tmp/558-night/): a sparse form of the history cube, stock as +1/-1 per cell and date (6,082 rows) plus flows only for (unit, period) pairs with an event (11,331 rows), built from statistical_unit in about 0.5 s. Rebuilt into the dense shape it equals public.statistical_history_facet exactly: year 43,534 rows and year-month 482,903 rows, every column, 0 rows differ either way. 17,413 rows replace 526,437 (30x). stats_summary not yet included (N5).
+
+2026-11-02 night N5: stats_summary (count/sum/sum_sq per variable, generic via jsonb_each) as a difference table too: 1,510 rows. A defect found in TODAY's history facet, proven: a unit's stats count in a period only if a unit of the same cell exists at either period end in the SAME HASH SLOT (stats_by_facet is per slot, LEFT JOINed onto per-slot demographic rows). Reproducing that per-slot gate in the prototype matches today exactly (70,946 cells, 0 differ). Gating per cell instead (slot-independent), today undercounts in 800 cells: years 51 cells, 87 units, 1,648 of 253,941 employees; months 749 cells, 1,271 units. Whether a unit counts depends on the hash of unrelated units. Details tmp/558-night/semantics.md. Separate question for STATBUS-560: should a period's stats include units not existing at its end at all (today yes)?
+
+2026-11-02 night N6-N8: report tmp/558-night/report.md. Drilldown-shaped queries, identical answers: monthly stock series 72 ms dense vs 1.6 ms sparse; region-filtered 24 vs 2.0 ms; region x activity breakdown at a date 1.7 vs 2.3 ms; births/deaths per year 5.0 vs 1.8 ms. Size 571 MB + 342 MB cache vs 5.4 MB. Incremental update of one unit's region change: MERGE of 2 rows in 3.6 ms, equals a full rebuild. Full build about 0.5 s. Open: scale on the full download, the stats slot-gate defect fix, owner decisions (adopt sparse design, change semantics for moving units, stats population per STATBUS-560).
 <!-- SECTION:NOTES:END -->
