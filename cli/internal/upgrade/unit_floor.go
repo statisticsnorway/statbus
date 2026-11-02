@@ -79,6 +79,29 @@ func StampUnitFloor(ctx context.Context, conn *pgx.Conn, projDir string, interva
 	}
 }
 
+// stampUnitFloorAtStartup publishes the observed floor once the service owns a
+// database session (STATBUS-559). Install stamps the floor before its deferred
+// service start, so that stamp necessarily describes the unit as not running;
+// the next stamp would otherwise wait for the poll tick (six hours by default),
+// and the admin page would warn "the upgrader is installed but not running"
+// while it runs. Stamp every boot, not only on a state change, for the same
+// reason the tick does: updated_at going stale is how a dead service reports
+// its own absence.
+//
+// Best-effort like StampUnitFloor: no connection means nothing to publish, and
+// a failed write only delays a UI correction.
+func (d *Service) stampUnitFloorAtStartup(ctx context.Context) {
+	conn, err := d.queryConnOrErr("stamp unit floor at startup")
+	if err != nil {
+		return
+	}
+	stamp := StampUnitFloor
+	if d.stampUnitFloorForTest != nil {
+		stamp = d.stampUnitFloorForTest
+	}
+	stamp(ctx, conn, d.projDir, d.interval)
+}
+
 // announceUnitFloor writes a floor breach to the journal (STATBUS-308).
 //
 // WHAT THIS CAN AND CANNOT SEE. A running service cannot report its own

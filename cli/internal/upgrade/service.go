@@ -292,8 +292,11 @@ type Service struct {
 	servingTreeObligationForTest     func(context.Context, int) (bool, string, error)
 	upgradeParkedReasonForTest       func(context.Context, int) (bool, string, error)
 	incrementRecoveryAttemptsForTest func(context.Context, int) (int, error)
-	resumeNewSbSkipExternalForTest   bool
-	resumeNewSbPhaseAdvancedForTest  func(UpgradeFlag) error
+	// Narrow test seam for the STATBUS-559 startup stamp boundary. Production
+	// leaves it nil and writes public.system_info through StampUnitFloor.
+	stampUnitFloorForTest           func(context.Context, *pgx.Conn, string, time.Duration)
+	resumeNewSbSkipExternalForTest  bool
+	resumeNewSbPhaseAdvancedForTest func(UpgradeFlag) error
 }
 
 // SetUnitInstance records the systemd unit name for the deployment's
@@ -3532,6 +3535,14 @@ func (d *Service) Run(ctx context.Context) error {
 	if err := d.acquireAdvisoryLock(ctx); err != nil {
 		return err
 	}
+
+	// STATBUS-559: publish the observed unit floor as soon as the service owns a
+	// database session. Install stamps the floor BEFORE its deferred service
+	// start, so that stamp describes the unit at the one moment it certainly is
+	// not running; the poll tick that would correct it is hours away. Stamping
+	// here makes the admin page true from the moment the unit is up. The tick
+	// remains the staleness clock for a service that later dies.
+	d.stampUnitFloorAtStartup(ctx)
 
 	// Capture the off-channel repair boundary BEFORE READY=1, using the database
 	// clock that also stamps public.upgrade.discovered_at. READY deliberately
