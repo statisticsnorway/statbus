@@ -185,16 +185,33 @@ func certNotice(format string, args ...any) {
 // askCertYesNo uses the installer's [y/N] shape rather than the generic
 // questionnaire's [no] suffix. y/yes is accepted; anything else is no.
 func askCertYesNo(label string) bool {
-	fmt.Printf("%s [y/N]: ", label)
-	installTTYPromptAnswer("%s [y/N]: ", label)
+	return askCertQuestion(label, "[y/N]")
+}
+
+// askCertDefaultYesNo is askCertYesNo with the default reversed, for a
+// confirmation whose suggested answer is yes: Enter, y and yes all accept.
+func askCertDefaultYesNo(label string) bool {
+	return askCertQuestion(label, "[Y/n]")
+}
+
+func askCertQuestion(label, shape string) bool {
+	fmt.Printf("%s %s: ", label, shape)
+	installTTYPromptAnswer("%s %s: ", label, shape)
 	line, _ := bufio.NewReader(os.Stdin).ReadString('\n')
-	answer := strings.TrimSpace(line)
-	return strings.EqualFold(answer, "y") || strings.EqualFold(answer, "yes")
+	answer := strings.ToLower(strings.TrimSpace(line))
+	if shape == "[Y/n]" && answer == "" {
+		return true
+	}
+	return answer == "y" || answer == "yes"
 }
 
 // askCertificateYesNo is the seam existing interactive-certificate tests use to
 // answer the yes/no question without a terminal.
 var askCertificateYesNo = askCertYesNo
+
+// askCertificateDefaultYes is the seam for confirming the only usable
+// certificate found in a folder.
+var askCertificateDefaultYes = askCertDefaultYesNo
 
 // chooseCertFolder is the seam the picker tests use to observe which folder the
 // picker hands to the existing content-based folder chooser. Production always
@@ -216,8 +233,8 @@ var certificateExplanation = []string{
 // flow through installCustomCertificate. Returns nil when the operator
 // declines or has nothing to give.
 //
-// After "yes" the installer first lists the folders under ~ and /etc/ssl that
-// hold certificate files by name (tmp/picker-proto/PROPOSAL.md). The list is a
+// After "yes" the installer first lists the folders under ~ that hold
+// certificate files by name (tmp/picker-proto/PROPOSAL.md). The list is a
 // suggestion, not a scan: it never reads contents, so it needs no password,
 // and the operator can always type another path instead. Choosing a folder
 // runs chooseCertificateFromFolder, unchanged, which does the content checks
@@ -234,7 +251,7 @@ func askInstallCert(dir string) ([]string, *string) {
 	home, _ := os.UserHomeDir()
 	folders := findCertificateCandidates(home)
 	if len(folders) == 0 {
-		certNotice("  No certificate files found under ~ or /etc/ssl.")
+		certNotice("  No certificate files found under ~.")
 		return askInstallCertPath(dir)
 	}
 	for _, line := range renderCertificateFolderChoices(folders, home) {
@@ -301,8 +318,10 @@ func chooseCertificateFromFolder(folder, dir string) ([]string, *string) {
 	var pfxPassword *string
 	if hasPFX {
 		certNotice("  The folder contains PFX/PKCS#12 files. Their password is only used to read them and is not stored.")
-		certNotice("  PFX password (type it and press Enter; it will not be shown; leave empty if none):")
-		password, readErr := readPassword("")
+		// readPassword disables terminal echo before the prompt reaches the
+		// screen and ends the line on the terminal afterwards, so the masked
+		// stars cannot run into the choices printed next (STATBUS-422).
+		password, readErr := readPassword("  PFX password (type it and press Enter; it will not be shown; leave empty if none): ")
 		if readErr == nil {
 			pfxPassword = &password
 		}
@@ -319,7 +338,20 @@ func chooseCertificateFromFolder(folder, dir string) ([]string, *string) {
 		certNotice("  No usable certificate with a matching private key was found in %s.", folder)
 		return nil, nil
 	}
-	for _, line := range renderCertificateChoices(choices, notes, siteDomain) {
+	for _, line := range renderCertificateNotes(notes) {
+		certNotice("%s", line)
+	}
+	if len(choices) == 1 {
+		// One usable certificate is not a list: confirm it, with the same
+		// information a numbered line carries (STATBUS-422).
+		certNotice("%s", certificateChoiceLine(choices[0], siteDomain))
+		if !askCertificateDefaultYes("  Install this certificate?") {
+			certNotice("  Continuing without a custom certificate.")
+			return nil, nil
+		}
+		return choices[0].Args, pfxPassword
+	}
+	for _, line := range renderCertificateChoices(choices, nil, siteDomain) {
 		certNotice("%s", line)
 	}
 	answer := questionnairePrompt("  Install which certificate number", "1")

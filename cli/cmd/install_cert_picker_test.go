@@ -14,7 +14,7 @@ import (
 )
 
 // pickerHome creates an empty temporary HOME and restricts the picker search to
-// it. The real /etc/ssl is not part of any test fixture.
+// it.
 func pickerHome(t *testing.T) string {
 	t.Helper()
 	home := t.TempDir()
@@ -215,7 +215,7 @@ func TestInstallCertPickerEmptyHomeFallsThrough(t *testing.T) {
 	if strings.Contains(out, "Certificates found:") {
 		t.Fatalf("empty home must not render a picker list:\n%s", out)
 	}
-	if !strings.Contains(out, "No certificate files found under ~ or /etc/ssl.") {
+	if !strings.Contains(out, "No certificate files found under ~.") {
 		t.Fatalf("missing not-found notice:\n%s", out)
 	}
 	if !pickerLabelAsked(*labels, "Certificate file") {

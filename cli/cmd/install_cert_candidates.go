@@ -28,9 +28,8 @@ type certChoice struct {
 // metadata, never file contents, so it needs no password and touches no
 // secret. Only the folder chooser inspects contents afterwards.
 const (
-	certCandidateMaxSize  = 200 * 1024
-	certSearchHomeDepth   = 4
-	certSearchEtcSSLDepth = 2
+	certCandidateMaxSize = 200 * 1024
+	certSearchHomeDepth  = 4
 )
 
 // certSearchExtensions are the file-name suffixes a certificate can arrive
@@ -62,12 +61,12 @@ type certCandidateFolder struct {
 }
 
 // certCandidateRoots is the seam the picker tests use to keep the search
-// inside a temporary home instead of the machine's real /etc/ssl.
+// inside a temporary home. Only the install user's home is searched: /etc/ssl
+// is the system trust store, whose public root CA files are never an
+// operator's installable certificate and key (STATBUS-422). An operator with a
+// certificate elsewhere types its path through "Another file or folder".
 var certCandidateRoots = func(home string) []certSearchRoot {
-	return []certSearchRoot{
-		{Path: home, MaxDepth: certSearchHomeDepth},
-		{Path: "/etc/ssl", MaxDepth: certSearchEtcSSLDepth},
-	}
+	return []certSearchRoot{{Path: home, MaxDepth: certSearchHomeDepth}}
 }
 
 // findCertificateCandidates is the seam askInstallCert uses; tests replace it
@@ -398,40 +397,56 @@ func rankCertificateChoices(choices []certChoice, siteDomain string) {
 	})
 }
 
+// certificateChoiceLine describes one usable certificate: the files to read,
+// its name and alternative names, when it expires, and whether it covers the
+// configured site. It carries no numbering, so the single-candidate question
+// and the numbered list say exactly the same thing about a certificate.
+func certificateChoiceLine(choice certChoice, siteDomain string) string {
+	leaf := choice.Leaf
+	sans := strings.Join(leaf.DNSNames, ", ")
+	if sans == "" {
+		sans = "(none)"
+	}
+	coverage := "SITE_DOMAIN not set"
+	if siteDomain != "" {
+		if choice.Covers {
+			coverage = "covers " + siteDomain
+		} else {
+			coverage = "does not cover " + siteDomain
+		}
+	}
+	flags := ""
+	if choice.Expired {
+		flags += " EXPIRED"
+	}
+	if choice.NotYetValid {
+		flags += " not valid yet"
+	}
+	return fmt.Sprintf("%s  CN=%s  SANs: %s  expires %s  %s%s",
+		strings.Join(choice.Args, " + "), leaf.Subject.CommonName, sans,
+		leaf.NotAfter.Format("2006-01-02"), coverage, flags)
+}
+
+// renderCertificateNotes renders the files the folder scan could not offer.
+func renderCertificateNotes(notes []string) []string {
+	lines := make([]string, 0, len(notes))
+	for _, note := range notes {
+		lines = append(lines, "  - "+note)
+	}
+	return lines
+}
+
 // renderCertificateChoices is the operator-facing list. The first choice is
 // the default. Notes are shown after the numbered choices, never hidden.
 func renderCertificateChoices(choices []certChoice, notes []string, siteDomain string) []string {
 	var lines []string
 	for i, choice := range choices {
-		leaf := choice.Leaf
-		sans := strings.Join(leaf.DNSNames, ", ")
-		if sans == "" {
-			sans = "(none)"
-		}
-		coverage := "SITE_DOMAIN not set"
-		if siteDomain != "" {
-			if choice.Covers {
-				coverage = "covers " + siteDomain
-			} else {
-				coverage = "does not cover " + siteDomain
-			}
-		}
 		flags := ""
 		if i == 0 {
-			flags += " [default]"
+			flags = " [default]"
 		}
-		if choice.Expired {
-			flags += " EXPIRED"
-		}
-		if choice.NotYetValid {
-			flags += " not valid yet"
-		}
-		lines = append(lines, fmt.Sprintf("%d) %s  CN=%s  SANs: %s  expires %s  %s%s",
-			i+1, strings.Join(choice.Args, " + "), leaf.Subject.CommonName, sans,
-			leaf.NotAfter.Format("2006-01-02"), coverage, flags))
+		lines = append(lines, fmt.Sprintf("%d) %s%s", i+1, certificateChoiceLine(choice, siteDomain), flags))
 	}
-	for _, note := range notes {
-		lines = append(lines, "  - "+note)
-	}
+	lines = append(lines, renderCertificateNotes(notes)...)
 	return lines
 }

@@ -1387,23 +1387,27 @@ func sanitiseBaseName(path string) string {
 	return out
 }
 
-// readPassword prompts on stderr and reads a password from stdin
-// without echo. Falls back to a non-echoing read on stderr if
-// stdin isn't a terminal (script-driven install: operator piped
-// password via a here-doc; we just take whatever's on the line).
+// The terminal primitives behind readPassword, kept as seams so a test without
+// a PTY can observe the order of the raw-mode switch and the prompt.
+var (
+	terminalIsTerminal = term.IsTerminal
+	makeRawTerminal    = term.MakeRaw
+	restoreTerminal    = term.Restore
+)
+
+// readPassword prompts on stderr and reads a password from stdin without echo.
+// Falls back to a plain line read when stdin isn't a terminal (script-driven
+// install: operator piped the password via a here-doc).
 func readPassword(prompt string) (string, error) {
 	fmt.Fprint(os.Stderr, prompt)
-	if prompt != "" {
-		// The install pipeline keeps stdout's marked prompt lines and drops
-		// stderr's, so the question must travel there too. The marked answer
-		// line keeps the cursor after the question.
-		installTTYPromptAnswer("%s", prompt)
-	}
-	defer fmt.Fprintln(os.Stderr)
 	fd := int(os.Stdin.Fd())
-	if !term.IsTerminal(fd) {
-		// Non-interactive — read a line from stdin without
-		// trying to disable echo (would error on non-tty fd).
+	if !terminalIsTerminal(fd) {
+		// No echo to disable here, so the marker may be published before the
+		// read. install.sh keeps marked prompt lines and drops stderr's.
+		if prompt != "" {
+			installTTYPromptAnswer("%s", prompt)
+		}
+		defer fmt.Fprintln(os.Stderr)
 		var line string
 		_, err := fmt.Fscanln(os.Stdin, &line)
 		if err != nil {
@@ -1411,14 +1415,35 @@ func readPassword(prompt string) (string, error) {
 		}
 		return line, nil
 	}
-	state, err := term.MakeRaw(fd)
+	return readMaskedPasswordOnTerminal(prompt)
+}
+
+// readMaskedPasswordOnTerminal owns the whole terminal interaction of a masked
+// prompt: echo is disabled first, then the prompt travels on the marked answer
+// line, the answer is read as stars through the controlling terminal, the
+// terminal mode is restored, and a line ending goes to the terminal itself.
+//
+// The order matters under install.sh: its terminal filter prints marked
+// prompts asynchronously, so a prompt published before raw mode can reach the
+// screen only after the read has begun. In raw mode its newline no longer
+// returns the carriage, and without a terminal line ending the next visible
+// line starts beside the masked stars (STATBUS-422).
+func readMaskedPasswordOnTerminal(prompt string) (string, error) {
+	fd := int(os.Stdin.Fd())
+	state, err := makeRawTerminal(fd)
 	if err != nil {
-		return "", err
+		return "", err // Do not prompt on a terminal whose echo cannot be disabled.
+	}
+	if prompt != "" {
+		// stdout carries the marked prompt to install.sh's terminal filter;
+		// the answer marker leaves the cursor after the question.
+		installTTYPromptAnswer("%s", prompt)
 	}
 	echo, closeEcho := passwordTerminalWriter()
 	value, readErr := readMaskedLine(os.Stdin, echo)
 	closeEcho()
-	restoreErr := term.Restore(fd, state)
+	restoreErr := restoreTerminal(fd, state)
+	endPasswordLineOnTerminal()
 	if readErr != nil {
 		return "", readErr
 	}
@@ -1426,4 +1451,16 @@ func readPassword(prompt string) (string, error) {
 		return "", restoreErr
 	}
 	return value, nil
+}
+
+// endPasswordLineOnTerminal writes the line ending to the controlling
+// terminal. install.sh's filter drops unmarked stdout, so fmt.Println would
+// end the line only in the install log, not on the operator's screen.
+func endPasswordLineOnTerminal() {
+	tty, err := openPasswordTerminal()
+	if err != nil {
+		return
+	}
+	_, _ = fmt.Fprintln(tty)
+	_ = tty.Close()
 }

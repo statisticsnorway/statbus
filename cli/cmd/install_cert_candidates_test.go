@@ -185,6 +185,18 @@ func TestResolveInstallPath(t *testing.T) {
 	}
 }
 
+// TestCertCandidateRootsSearchOnlyHome: /etc/ssl holds the system trust store,
+// whose public root CA files are never an operator's installable certificate
+// and key. Listing them buried the operator's own certificate under ~
+// (STATBUS-422). An operator whose certificate lives elsewhere types its path.
+func TestCertCandidateRootsSearchOnlyHome(t *testing.T) {
+	home := t.TempDir()
+	roots := certCandidateRoots(home)
+	if len(roots) != 1 || roots[0].Path != home {
+		t.Fatalf("candidate roots = %+v, want only the install user's home %q", roots, home)
+	}
+}
+
 func TestCertificateFileNeedsKeyByContent(t *testing.T) {
 	dir := t.TempDir()
 	from := time.Now().Add(-time.Hour)
