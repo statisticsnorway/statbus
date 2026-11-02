@@ -83,7 +83,7 @@ func TestInteractiveReviewCorrectsATypoBeforeWriting(t *testing.T) {
 	os.Stdin = answers
 	t.Cleanup(func() {
 		os.Stdin = oldStdin
-		answers.Close()
+		_ = answers.Close()
 	})
 	if _, err := answersW.WriteString("n\n\n"); err != nil {
 		t.Fatal(err)
