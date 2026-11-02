@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-11-02T13:15:00Z'
-updated_date: '2026-11-02T15:58:00Z'
+updated_date: '2026-11-02T15:10:00Z'
 labels: []
 dependencies: []
 type: bug
@@ -44,8 +44,8 @@ STEPS
 <!-- AC:BEGIN -->
 - [x] #1 The over-count of April is reproduced by a small SQL test and its cause written here
 - [x] #2 Owner has reviewed and agreed the cause before the fix is coded
-- [x] #3 Both facet reduces touch only combinations in the new or removed set; the reproduction test passes
-- [x] #4 A migration that fixes a counting bug can trigger the full rebuild; documented at the reduce's definition
+- [ ] #3 Both facet reduces touch only combinations in the new or removed set; the reproduction test passes
+- [ ] #4 A migration that fixes a counting bug can trigger the full rebuild; documented at the reduce's definition
 - [ ] #5 Selection import facet reduce time measured before/after, and one 4 GiB run
 <!-- AC:END -->
 
@@ -60,8 +60,4 @@ B) March scoped reduce + today's derive_statistical_unit: truth 20, facet 20, bo
 Cause: the capture hole (deleted units' slots never marked dirty), fixed 2026-05-20, not the scoped design. The owner's design is correct once the dirty set includes removed units.
 
 2026-11-02 owner agreed the cause and step 3, for both facets (unit and history): restore the scoped reduce with removed-combination capture for both, regression test covering both, one-time full rebuild.
-
-2026-11-02 step 3 prototype (migration 20261102151943 applied to a scratch db from statbus_test_template, script tmp/558-verify-scoped.sql, log tmp/558-verify-scoped.log). Design: each per-slot child, in dirty mode, keeps its slice before the rewrite and records in worker.statistical_{unit,history}_facet_changed every combination whose rows differ before/after (removed included). Reduce reads the sibling derive's info.mode: 'dirty' recomputes only recorded combinations (no support left -> delete); 'full' or direct CALL keeps the global merge. One-time enqueue_derive_statistical_unit_all; the full-rebuild rule is in COMMENT ON both reduces. Result, compared after each step with a full recompute of each cache: baseline full mode 0 missing/0 stale; region move: dirty mode, unit 12 / history 180 combinations, 0/0, truth 23=23; delete 3 LUs: dirty, 0/0, truth 20=20 for legal_unit and enterprise.
-
-2026-11-02 step 3 landed: migration 20261102151943 (both facets), test 355 (region move + delete 3 LUs, both facets equal a full recompute after each, dirty mode, truth 23=23 then 20=20). Fast suite: 115/118 ok; the 3 failures were expected regenerations (002 and 015 docs gain the 2 worker tables; 318 'global' renamed 'full'), reblessed, re-run ok. Explain/perf drift discarded per test/expected/README.md. The full-rebuild rule is in COMMENT ON both reduces; the migration schedules one full rebuild. Syncthing conflict copies in doc/db moved to tmp/558-syncthing-conflicts.
 <!-- SECTION:NOTES:END -->

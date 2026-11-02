@@ -245,10 +245,6 @@ Handles background processing. A long-running worker process calls `worker.proce
 - `queue_registry(queue, description, default_concurrency)` — **infrastructure**
 - `base_change_log(valid_ranges, establishment_ids, legal_unit_ids, enterprise_ids, power_group_ids)` — **infrastructure**
 - `base_change_log_has_pending(has_pending)` — **infrastructure**
-- `statistical_unit_facet_changed(unit_type, physical_region_path, primary_activity_category_path, sector_path, legal_form_id, physical_country_id, status_id, valid_from, valid_to, valid_until)` (temporal) — **infrastructure**
-  - Enums: `unit_type` (`public.statistical_unit_type`).
-- `statistical_history_facet_changed(unit_type, primary_activity_category_path, secondary_activity_category_path, sector_path, physical_region_path, legal_form_id, physical_country_id, unit_size_id, status_id, resolution, year, month)` — **infrastructure**
-  - Enums: `resolution` (`public.history_resolution`), `unit_type` (`public.statistical_unit_type`).
 - `worker_task(id, command, command_description, parent_id, created_at, process_start_at, process_stop_at, completed_at, scheduled_at, priority, state, depth, child_mode, process_duration_ms, completion_duration_ms, error, worker_pid, payload, info, queue)`
   - Enums: `child_mode` (`worker.child_mode`), `state` (`worker.task_state`).
 

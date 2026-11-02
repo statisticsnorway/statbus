@@ -53,10 +53,7 @@ BEGIN
                 p_command => 'derive_statistical_unit_facet_partition',
                 p_payload => jsonb_build_object(
                     'command', 'derive_statistical_unit_facet_partition',
-                    'hash_partition', v_hash_partition::text,
-                    -- The child records the combinations its rewrite changes,
-                    -- for the scoped reduce (worker.statistical_unit_facet_changed).
-                    'record_changes', true
+                    'hash_partition', v_hash_partition::text
                 ),
                 p_parent_id => v_task_id
             );
@@ -84,11 +81,7 @@ BEGIN
         END LOOP;
     END IF;
 
-    -- mode tells worker.statistical_unit_facet_reduce how to reduce: 'dirty'
-    -- recomputes the combinations the children recorded, 'full' the whole cache.
-    p_info := jsonb_build_object(
-        'child_count', v_child_count,
-        'mode', CASE WHEN v_dirty_hash_slots IS NOT NULL THEN 'dirty' ELSE 'full' END);
+    p_info := jsonb_build_object('child_count', v_child_count);
 END;
 $procedure$
 ```

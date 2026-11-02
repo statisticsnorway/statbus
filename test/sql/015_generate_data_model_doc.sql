@@ -157,8 +157,6 @@ DECLARE
             '{"schema": "worker", "name": "queue_registry", "class": "infrastructure"}'::jsonb,
             '{"schema": "worker", "name": "base_change_log", "class": "infrastructure"}'::jsonb,
             '{"schema": "worker", "name": "base_change_log_has_pending", "class": "infrastructure"}'::jsonb,
-            '{"schema": "worker", "name": "statistical_unit_facet_changed", "class": "infrastructure"}'::jsonb,
-            '{"schema": "worker", "name": "statistical_history_facet_changed", "class": "infrastructure"}'::jsonb,
             '{"schema": "public", "name": "worker_task", "type": "VIEW"}'::jsonb
         )),
         (7, 1, 1, 'Auth & System Tables/Views', NULL, jsonb_build_array(
