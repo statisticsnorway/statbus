@@ -426,6 +426,9 @@ func Execute() error {
 		fmt.Fprintf(os.Stderr, "WARN: could not disable git credential prompts: %v\n"+
 			"  A failed git fetch may ask for a username instead of naming the network error.\n", err)
 	}
+	// systemctl --user needs the user's runtime directory, which sudo -iu
+	// does not set; see ensureUserRuntimeDir.
+	ensureUserRuntimeDir()
 
 	// Validate harness-only fault-injection env vars before any subcommand
 	// dispatches. A misconfigured combination (typoed class, stall file
