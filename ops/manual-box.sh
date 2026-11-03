@@ -15,8 +15,12 @@
 #                              the "second terminal" login check setup asks
 #                              for: logs in as user (statbus by default), runs
 #                              id, logs out; no tmux, nothing else changes
-#   ops/manual-box.sh cert     after setup: hand the box a test certificate the
-#                              way an NSO would (a PFX in the statbus home)
+#   ops/manual-box.sh cert [pfx|pem]
+#                              after setup: hand the box a test certificate the
+#                              way an NSO would, into ~statbus/Documents/
+#                              certificate-from-it: pfx (default) is a
+#                              password-protected PFX as Windows exports it;
+#                              pem is a fullchain.pem plus privkey.pem pair
 #   ops/manual-box.sh guide    print the test walkthrough (setup, certificate,
 #                              install, health, uninstall)
 #   ops/manual-box.sh rebuild  wipe it back to a blank Ubuntu 26.04 (same IP)
@@ -129,7 +133,8 @@ guide_text() {
                      At "Did that connect?": on your laptop run
                      ops/manual-box.sh try-ssh statbus, then answer y
   4. Ownership:      find /home/statbus -xdev -user root    (expect no output)
-  5. Certificate:    on your laptop: ops/manual-box.sh cert
+  5. Certificate:    on your laptop: ops/manual-box.sh cert      (a Windows-style PFX)
+                     or: ops/manual-box.sh cert pem          (fullchain.pem + privkey.pem)
   6. Install:        leave the root shell (exit), then: sudo -iu statbus
                      (or log in directly: ops/manual-box.sh ssh statbus)
                      curl -fsSL https://statbus.org/install.sh | bash
@@ -178,9 +183,9 @@ connect() {
 cert_domain=statbus-manual.statbus-test.local
 cert_password=manual-box-test
 give_certificate() {
-    local ip=$1 domain=$2
+    local ip=$1 domain=$2 format=$3
     [[ "$domain" =~ ^[a-zA-Z0-9.-]+$ ]] || { echo "Not a host name: $domain" >&2; exit 1; }
-    ssh -o BatchMode=yes "$login_user@$ip" "sudo DOMAIN='$domain' PASSWORD='$cert_password' bash -s" <<'REMOTE'
+    ssh -o BatchMode=yes "$login_user@$ip" "sudo DOMAIN='$domain' PASSWORD='$cert_password' FORMAT='$format' bash -s" <<'REMOTE'
 set -euo pipefail
 if ! id statbus >/dev/null 2>&1; then
     echo "There is no statbus user yet. Run setup first; the certificate goes into its home." >&2
@@ -188,8 +193,15 @@ if ! id statbus >/dev/null 2>&1; then
 fi
 home=$(getent passwd statbus | cut -d: -f6)
 work=$(mktemp -d); trap 'rm -rf "$work"' EXIT
-openssl req -x509 -newkey rsa:2048 -nodes -days 30 -sha256 \
-    -subj '/CN=StatBus manual-box test CA' -keyout "$work/ca.key" -out "$work/ca.crt" 2>/dev/null
+# One test CA per box, kept under /root, so a PFX and a PEM pair handed out by
+# separate runs both chain to the CA in the trust store.
+ca_dir=/root/statbus-manual-box-test-ca
+if [ ! -s "$ca_dir/ca.key" ]; then
+    install -d -m 0700 "$ca_dir"
+    openssl req -x509 -newkey rsa:2048 -nodes -days 30 -sha256 \
+        -subj '/CN=StatBus manual-box test CA' -keyout "$ca_dir/ca.key" -out "$ca_dir/ca.crt" 2>/dev/null
+fi
+cp "$ca_dir/ca.key" "$ca_dir/ca.crt" "$work/"
 openssl req -newkey rsa:2048 -nodes -sha256 -subj "/CN=*.${DOMAIN#*.}" \
     -keyout "$work/site.key" -out "$work/site.csr" 2>/dev/null
 printf 'subjectAltName=DNS:%s,DNS:*.%s\nextendedKeyUsage=serverAuth\n' "$DOMAIN" "${DOMAIN#*.}" > "$work/ext"
@@ -197,15 +209,25 @@ openssl x509 -req -in "$work/site.csr" -CA "$work/ca.crt" -CAkey "$work/ca.key" 
     -days 30 -sha256 -extfile "$work/ext" -out "$work/site.crt" 2>/dev/null
 dest="$home/Documents/certificate-from-it"
 install -d -o statbus -g statbus -m 0755 "$home/Documents" "$dest"
-pfx="$dest/wildcard_${DOMAIN#*.}.pfx"
-openssl pkcs12 -export -inkey "$work/site.key" -in "$work/site.crt" -certfile "$work/ca.crt" \
-    -passout "pass:$PASSWORD" -out "$pfx"
-chown statbus:statbus "$pfx"; chmod 0600 "$pfx"
+if [ "$FORMAT" = pem ]; then
+    # The pair most Linux CA tools hand out: the site certificate followed by
+    # its chain, and the private key in its own file.
+    cat "$work/site.crt" "$work/ca.crt" > "$dest/fullchain.pem"
+    install -m 0600 "$work/site.key" "$dest/privkey.pem"
+    chown statbus:statbus "$dest/fullchain.pem" "$dest/privkey.pem"; chmod 0644 "$dest/fullchain.pem"
+    placed="$dest/fullchain.pem and $dest/privkey.pem"
+else
+    pfx="$dest/wildcard_${DOMAIN#*.}.pfx"
+    openssl pkcs12 -export -inkey "$work/site.key" -in "$work/site.crt" -certfile "$work/ca.crt" \
+        -passout "pass:$PASSWORD" -out "$pfx"
+    chown statbus:statbus "$pfx"; chmod 0600 "$pfx"
+    placed="$pfx"
+fi
 install -m 0644 "$work/ca.crt" /usr/local/share/ca-certificates/statbus-manual-box-test-ca.crt
 update-ca-certificates >/dev/null 2>&1
-echo "Placed:   $pfx"
+echo "Placed:   $placed"
 echo "Covers:   $DOMAIN and *.${DOMAIN#*.} (valid 30 days)"
-echo "Password: $PASSWORD"
+[ "$FORMAT" = pem ] || echo "Password: $PASSWORD"
 echo "Trusted:  the test CA is in this box's trust store"
 REMOTE
     cat <<EOF
@@ -254,10 +276,15 @@ try-ssh)
     fi
     ;;
 cert)
+    format=${2:-pfx}
+    case "$format" in
+        pfx|pem) ;;
+        *) echo "Usage: ops/manual-box.sh cert [pfx|pem]   (pfx is a Windows-style PFX export; pem is fullchain.pem + privkey.pem)" >&2; exit 2 ;;
+    esac
     server=$(describe)
     [ -n "$server" ] || { echo "No server '$name'; run: ops/manual-box.sh up" >&2; exit 1; }
     require_ours "$server"
-    give_certificate "$(jq -er '.public_net.ipv4.ip' <<<"$server")" "$cert_domain"
+    give_certificate "$(jq -er '.public_net.ipv4.ip' <<<"$server")" "$cert_domain" "$format"
     ;;
 guide)
     guide_text
