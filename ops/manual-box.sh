@@ -202,11 +202,16 @@ if [ ! -s "$ca_dir/ca.key" ]; then
         -subj '/CN=StatBus manual-box test CA' -keyout "$ca_dir/ca.key" -out "$ca_dir/ca.crt" 2>/dev/null
 fi
 cp "$ca_dir/ca.key" "$ca_dir/ca.crt" "$work/"
-openssl req -newkey rsa:2048 -nodes -sha256 -subj "/CN=*.${DOMAIN#*.}" \
-    -keyout "$work/site.key" -out "$work/site.csr" 2>/dev/null
-printf 'subjectAltName=DNS:%s,DNS:*.%s\nextendedKeyUsage=serverAuth\n' "$DOMAIN" "${DOMAIN#*.}" > "$work/ext"
-openssl x509 -req -in "$work/site.csr" -CA "$work/ca.crt" -CAkey "$work/ca.key" -CAcreateserial \
-    -days 30 -sha256 -extfile "$work/ext" -out "$work/site.crt" 2>/dev/null
+# One site certificate per box too: `cert` and `cert pem` export the same
+# certificate in two formats, as an NSO given both files would have it.
+if [ ! -s "$ca_dir/site.key" ]; then
+    openssl req -newkey rsa:2048 -nodes -sha256 -subj "/CN=*.${DOMAIN#*.}" \
+        -keyout "$ca_dir/site.key" -out "$ca_dir/site.csr" 2>/dev/null
+    printf 'subjectAltName=DNS:%s,DNS:*.%s\nextendedKeyUsage=serverAuth\n' "$DOMAIN" "${DOMAIN#*.}" > "$ca_dir/ext"
+    openssl x509 -req -in "$ca_dir/site.csr" -CA "$ca_dir/ca.crt" -CAkey "$ca_dir/ca.key" -CAcreateserial \
+        -days 30 -sha256 -extfile "$ca_dir/ext" -out "$ca_dir/site.crt" 2>/dev/null
+fi
+cp "$ca_dir/site.key" "$ca_dir/site.crt" "$work/"
 dest="$home/Documents/certificate-from-it"
 install -d -o statbus -g statbus -m 0755 "$home/Documents" "$dest"
 if [ "$FORMAT" = pem ]; then
