@@ -45,6 +45,20 @@ fi
 exit "${SSH_EXIT:-0}"
 STUB
 chmod +x "$BIN/ssh"
+# The operator checkout's tags name a commit's release. This double answers
+# `git ... tag --points-at <commit>` from STATUS_TAGS (tag=commit pairs) and
+# hands every other git command to the real git.
+REAL_GIT=$(command -v git)
+cat >"$BIN/git" <<STUB
+#!/bin/bash
+if [[ " \$* " = *" tag --points-at "* ]]; then
+    commit=\${!#}
+    for pair in \${STATUS_TAGS:-}; do [ "\${pair#*=}" = "\$commit" ] && printf '%s\n' "\${pair%%=*}"; done
+    exit 0
+fi
+exec "$REAL_GIT" "\$@"
+STUB
+chmod +x "$BIN/git"
 cat >"$TMP/sb" <<'STUB'
 #!/bin/bash
 printf '%s\n' "$*" >>"$SB_LOG"
@@ -172,24 +186,31 @@ assert_contains "$output" "dev " "status shows readable rows"
 assert_contains "$output" "no " "status shows unreadable row"
 assert_contains "$output" "METADATA READ FAILED" "status marks unreadable row"
 
-# The VERSION column is what the box SERVES (the commit its running containers
+# The VERSION column is what the box SERVES (the release its running containers
 # were started from), not the sb program on disk. Observed 2026-11-03 on ug:
 # sb was v2026.11.0 after a stopped install while every container still ran
-# d53731ec (v2026.09.0), and status reported v2026.11.0.
+# d53731ec (v2026.09.0), and status reported v2026.11.0. A healthy row carries
+# nothing extra; a note at the end of the row appears only when something is
+# wrong, and names releases by tag.
 status_with_serving() {
     SSH_MALFORMED_CODE="$2" SSH_MALFORMED_TEXT="sb version v2026.11.0 (commit c65d1802)|stable|$2 name" \
         STATUS_SERVING="$1" run_cloud status "$2" 2>&1
 }
+STATUS_TAGS="v2026.09.0=d53731ec v2026.09.0-rc.14=d53731ec v2026.11.0-rc.01=c65d1802 v2026.11.0=c65d1802"
+export STATUS_TAGS
 output=$(status_with_serving 'c65d1802' ma) || fail "status ma should succeed: $output"
-assert_contains "$output" "SERVING" "status has a serving column"
-assert_contains "$output" "ma       cloud        anon    v2026.11.0 (c65d1802)           stable       c65d1802                 ma name" "status row shows program and serving commit"
-assert_not_contains "$output" "MISMATCH" "a box serving its program's commit is not flagged"
+assert_not_contains "$output" "SERVING" "no separate serving column"
+assert_contains "$output" "ma       cloud        anon    v2026.11.0 (c65d1802)           stable       ma name" "a healthy row shows the served release and nothing else"
+assert_not_contains "$output" "←" "a healthy row has no note"
 output=$(status_with_serving 'd53731ec' ug) || fail "status ug should succeed: $output"
-assert_contains "$output" "d53731ec MISMATCH" "status flags the program and the serving commit disagreeing"
+assert_contains "$output" "ug       cloud        anon    v2026.09.0 (d53731ec)           stable       ug name" "VERSION is the release being served, by tag"
+assert_contains "$output" "← sb program is v2026.11.0 (c65d1802): an install did not finish" "the note names the program release"
 output=$(status_with_serving 'c65d1802 d53731ec' ug) || fail "status ug should succeed: $output"
-assert_contains "$output" "MIXED c65d1802 d53731ec" "status flags containers on different commits"
+assert_contains "$output" "← containers run different releases: v2026.11.0 (c65d1802), v2026.09.0 (d53731ec)" "mixed containers are named by tag"
 output=$(status_with_serving '' ug) || fail "status ug should succeed: $output"
-assert_contains "$output" "NOTHING RUNNING" "status flags a box with no running StatBus containers"
+assert_contains "$output" "← no StatBus containers are running" "a stopped box is flagged"
+output=$(status_with_serving '0a1b2c3d' ug) || fail "status ug should succeed: $output"
+assert_contains "$output" "untagged (0a1b2c3d)" "a commit without a release tag says so"
 
 # Finding 3: preserve the retired standalone install/upgrade command contract.
 output=$(run_cloud install no --version vX 2>&1) || fail "pinned install should succeed: $output"

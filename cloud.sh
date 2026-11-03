@@ -282,12 +282,9 @@ cmd_status() {
     targets=$(resolve_target_codes "$target")
     echo "StatBus Fleet Status"
     echo "===================="
-    # VERSION is the sb program on the box; SERVING is the commit its running
-    # containers were started from. They differ when an install stopped after
-    # swapping the program, so both are shown and a difference is flagged.
-    printf "  %-8s %-12s %-7s %-31s %-12s %-24s %s\n" "CODE" "GROUP" "AUTH" "VERSION" "CHANNEL" "SERVING" "NAME"
+    printf "  %-8s %-12s %-7s %-31s %-12s %s\n" "CODE" "GROUP" "AUTH" "VERSION" "CHANNEL" "NAME"
     for server in $targets; do
-        local metadata version channel name group auth
+        local metadata program channel name group auth serving version note
         group=$(entry_group "$server")
         auth=$(entry_auth "$server")
         if ! metadata=$(read_server_metadata "$server" 2>/dev/null); then
@@ -295,11 +292,12 @@ cmd_status() {
             failed=1
             continue
         fi
-        IFS='|' read -r version channel name <<< "$metadata"
-        version="${version#sb version }"
-        version="${version/ (commit / (}"
-        printf "  %-8s %-12s %-7s %-31s %-12s %-24s %s\n" "$server" "$group" "$auth" "$version" "$channel" \
-            "$(serving_note "$server" "$version")" "$name"
+        IFS='|' read -r program channel name <<< "$metadata"
+        program=$(sed -n 's/.*(commit \([0-9a-f]\{8\}\)).*/\1/p' <<<"$program")
+        serving=$(read_serving_commits "$server" 2>/dev/null) || serving=UNREADABLE
+        IFS='|' read -r version note <<< "$(status_version_and_note "$program" "$serving")"
+        printf "  %-8s %-12s %-7s %-31s %-12s %s%s\n" "$server" "$group" "$auth" "$version" "$channel" "$name" \
+            "${note:+   ← $note}"
     done
     [ "$failed" -eq 0 ]
 }
@@ -318,31 +316,45 @@ read_serving_commits() {
         done | sed -n "s#^.*/statbus-[a-z]*:\([0-9a-f]\{8\}\)\$#\1#p" | sort -u'
 }
 
-# serving_note is what the box actually serves, set beside the program version
-# so the two cannot be confused. The sb program can be at the target while the
-# containers still run the old release (an install that stopped after the
-# program swap, observed on ug 2026-11-03); status must say so.
-serving_note() {
-    local server="$1" version="$2" commits count program
-    if ! commits=$(read_serving_commits "$server" 2>/dev/null); then
-        printf 'UNREADABLE'
+# release_label names a commit by the release it is, from this checkout's tags:
+# the stable tag when there is one (v2026.11.0 over its v2026.11.0-rc.01),
+# else the newest candidate tag, else "untagged". Always with the commit.
+release_label() {
+    local commit="$1" tags tag
+    tags=$(git -C "$SCRIPT_DIR" tag --points-at "$commit" 2>/dev/null | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+(-rc\.[0-9]+)?$' || true)
+    tag=$(grep -v -- '-rc\.' <<<"$tags" | sort -V | tail -1)
+    [ -n "$tag" ] || tag=$(sort -V <<<"$tags" | tail -1)
+    printf '%s (%s)' "${tag:-untagged}" "$commit"
+}
+
+# status_version_and_note is "VERSION|NOTE" for one box. VERSION is what the
+# box serves: the release its running containers were started from, which is
+# what users get. The sb program on disk can be ahead of it: an install that
+# stopped after swapping the program left ug serving v2026.09.0 while sb said
+# v2026.11.0 (2026-11-03). NOTE is empty on a healthy box and otherwise says
+# what is wrong, naming releases by tag.
+status_version_and_note() {
+    local program="$1" serving="$2" count labels commit
+    if [ "$serving" = UNREADABLE ]; then
+        printf '%s|%s' "$(release_label "$program")" "could not read the running containers; the version shown is the sb program"
         return
     fi
-    count=$(printf '%s' "$commits" | grep -c . || true)
+    count=$(printf '%s' "$serving" | grep -c . || true)
     if [ "$count" -eq 0 ]; then
-        printf 'NOTHING RUNNING'
+        printf '%s|%s' "$(release_label "$program")" "no StatBus containers are running; the version shown is the sb program"
         return
     fi
     if [ "$count" -gt 1 ]; then
-        printf 'MIXED %s' "$(tr '\n' ' ' <<<"$commits" | xargs)"
+        labels=$(while IFS= read -r commit; do release_label "$commit"; echo; done <<<"$serving" \
+            | sort -rV | paste -sd, - | sed 's/,/, /g')
+        printf '%s|%s' "$(release_label "$program")" "containers run different releases: $labels"
         return
     fi
-    program=$(sed -n 's/.*(\([0-9a-f]\{8\}\)).*/\1/p' <<<"$version")
-    if [ -n "$program" ] && [ "$program" != "$commits" ]; then
-        printf '%s MISMATCH' "$commits"
+    if [ -n "$program" ] && [ "$program" != "$serving" ]; then
+        printf '%s|%s' "$(release_label "$serving")" "sb program is $(release_label "$program"): an install did not finish"
         return
     fi
-    printf '%s' "$commits"
+    printf '%s|' "$(release_label "$serving")"
 }
 
 # cmd_health_one gathers upgrade-subsystem health for one server in a single
