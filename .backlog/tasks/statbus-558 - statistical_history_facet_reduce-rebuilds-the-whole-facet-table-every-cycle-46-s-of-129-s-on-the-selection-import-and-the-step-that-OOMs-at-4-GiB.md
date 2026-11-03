@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-11-02T13:15:00Z'
-updated_date: '2026-11-03T15:03:00Z'
+updated_date: '2026-11-03T15:07:00Z'
 labels: []
 dependencies: []
 type: bug
@@ -88,4 +88,6 @@ Dense months grow with periods x combinations; a sparse or interval form grows w
 2026-11-03 prototype v2 (jsonb_stats 3.1-dev 2c4ee13 from mosquito, in a separate throwaway container js31-proto so statbus-local-db's shared .so is untouched; 10-year Norway data copied in): one event table, entry/exit with labels birth/death/move/record, value changes as exit+entry with count 0, statistics as jsonb_stats_to_delta/negate/delta_agg. 6,928 rows, 1.5 MB, for everything incl. stats. Stock (exists and countable) equals today in every year and month cell, 0 differ, no extra cells. Births 1,924 = today. Births <= entries holds in every cell. Entries minus moves vs today's added: +15 per year (+2 per month), the same +15/+2 on exits: units that enter and leave within one period, which today does not count (correction A). Moves 402 recorded in both cells (correction B). Scripts tmp/558-night/v2-*.sql.
 
 2026-11-03 owner decisions via mosquito: (1) births, deaths and moves are tracked as unit counts only (separate label column on our side), not inside each variable; jsonb_stats gets no labels or sub-keys. (2) A unit born and dead within one period counts as a birth and a death. jsonb_stats final shape (commit 950380d): to_agg = stock fields + coefficient_of_variation_pct; with a period also in/out {count,sum} + change_pct; churn_pct dropped.
+
+2026-11-03 owner approved installing jsonb_stats 3.1-dev (950380d) in statbus-local-db for the trial. Done: .so and extension files copied in; 3.0.0 files backed up in tmp/558-mig/js30-backup (restore after the trial). statbus_local stays at extension version 3.0.0 and works (merge_agg checked); 3.1.0 is now the default version available to databases that ALTER EXTENSION UPDATE.
 <!-- SECTION:NOTES:END -->
