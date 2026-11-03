@@ -1604,6 +1604,22 @@ stage_security_tools() {
 # core-tools: Core Tools & System Tuning
 # =============================================================================
 
+# user_manager_has_docker_group succeeds when the user's running systemd user
+# manager (which starts the StatBus upgrader) holds the docker group, or when no
+# manager runs (it then starts later with the current groups).
+user_manager_has_docker_group() {
+    local user="$1" uid pid docker_gid
+    uid="$(id -u "$user")" || return 1
+    pid="$(systemctl show -p MainPID --value "user@${uid}.service" 2>/dev/null)"
+    [[ -n "$pid" && "$pid" != 0 ]] || return 0
+    docker_gid="$(getent group docker | cut -d: -f3)"
+    [[ -n "$docker_gid" ]] || return 1
+    case " $(sed -n 's/^Groups:[[:space:]]*//p' "/proc/$pid/status" 2>/dev/null) " in
+        *" $docker_gid "*) return 0 ;;
+        *) return 1 ;;
+    esac
+}
+
 stage_core_tools() {
     stage_header core-tools
 
@@ -1691,7 +1707,18 @@ EOF
         *)
             log "Adding $docker_user to the docker group"
             usermod -aG docker "$docker_user"
-            log_warn "$docker_user needs a NEW login session before it can use Docker; a fresh process (and runuser below) sees the group immediately"
+            # The account's systemd user manager was started by
+            # `loginctl enable-linger` in the service-account stage, before
+            # this grant, so it and every service it starts (the StatBus
+            # upgrader) still lack the group: "permission denied ...
+            # docker.sock" (manual box, 2026-11-03). Restart that manager so
+            # its services start with the group. Logins are separate sessions
+            # and get the group at their next login.
+            docker_uid="$(id -u "$docker_user")"
+            if systemctl is-active --quiet "user@${docker_uid}.service"; then
+                log "Restarting $docker_user's systemd user manager so its services can use Docker"
+                systemctl restart "user@${docker_uid}.service"
+            fi
             ;;
     esac
     
@@ -1711,6 +1738,10 @@ EOF
     # member sees the group in a fresh process, which is what runuser gives us, so
     # this is a real check rather than a restatement of the daemon being up.
     verify "Docker usable by ${SERVICE_USER:-statbus}" "runuser -u ${SERVICE_USER:-statbus} -- docker info"
+    # runuser is a fresh process, so it passes even while the account's systemd
+    # user manager still runs without the group. The upgrader is started by that
+    # manager, so check the manager's own groups too.
+    verify "${SERVICE_USER:-statbus}'s user services can use Docker" "user_manager_has_docker_group ${SERVICE_USER:-statbus}"
     
     pause
 }
