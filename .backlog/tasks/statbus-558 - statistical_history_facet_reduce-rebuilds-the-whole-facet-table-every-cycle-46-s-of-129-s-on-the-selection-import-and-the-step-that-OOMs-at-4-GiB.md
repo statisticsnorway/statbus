@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-11-02T13:15:00Z'
-updated_date: '2026-11-02T23:04:00Z'
+updated_date: '2026-11-03T14:56:00Z'
 labels: []
 dependencies: []
 type: bug
@@ -82,4 +82,6 @@ Dense months grow with periods x combinations; a sparse or interval form grows w
 2026-11-02 night: repeated on the selection import (33,876 units, 1 year): rebuilt dense shape equals today exactly (17,962 year + 197,582 month rows, 0 differ). Sparse 53,886 rows vs 215,544 (4x; the gain grows with history length, 30x on 10 years). Full sparse build ~1.1 s vs 6.5-11 s per cycle for today's history facet reduce alone.
 
 2026-11-02 night: scale proxy (selection units replicated 32x = 1,084,032 unit rows, about the full download; disk 96% full so no second real import): sparse stock build 1.8 s, 17,962 rows, 3 MB. Stock rows grow with distinct (cell, date) events, not with units; replicas share dates so this is a best case for row count. Flows at that scale not measured.
+
+2026-11-03 owner decision (item 1): design A, the sparse form (stock as +1/-1 per cell and date, flows only where something happened, statistics as jsonb_stats deltas, jsonb_stats 3.1 stats_delta). Replaces the dense statistical_history_facet, its per-slot partitions cache and the reduce. Owner: be careful with the design, and model births and deaths in a sensible, generic way (with mosquito's proposal: birth/death as a label on entry/exit, per-kind flows as sub-keys).
 <!-- SECTION:NOTES:END -->
