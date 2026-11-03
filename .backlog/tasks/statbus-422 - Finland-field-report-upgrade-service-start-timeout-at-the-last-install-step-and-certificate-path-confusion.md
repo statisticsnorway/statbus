@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: 2026-09-27 10:07
-updated_date: '2026-11-02T21:22:00Z'
+updated_date: '2026-11-03T22:06:00Z'
 labels:
   - installer
 dependencies: []
@@ -84,4 +84,29 @@ AC4 real-box evidence: after rc.03 dev Deploy run 40607897050, a read-only brows
 - fceefda17 — picker fixes and tests (Go Test, Harness Selftest initially red on the prompt-derivation grep).
 - db04a509a — setup-choices selftest now derives the certificate prompt from askCertYesNo/askCertQuestion; local run PASS ("... [y/N]: ").
 - CI on db04a509a: Go Test success, Harness Selftest success, app build & lint success, Images success, CodeQL success, Notify success. The Fast Tests run for that SHA was cancelled by the branch concurrency group when e2da5967d landed; the Go suite and harness that cover this change are green.
+
+### Certificate picker: wrong answer retries, every dead end says what happens next (acf07e3a3)
+- askInstallCertPath now asks up to certAttempts (3, matching installinput's askAttempts) and re-asks after a missing path, an unreadable/empty folder, or a PEM certificate without its key. The retry prompt is 'Try another file or folder, or press Enter to continue without a certificate.'; Enter, or the third wrong answer, continues without a certificate.
+- Every final dead end prints one sentence through certContinueWithout: 'Continuing with automatic certificates. Install your own later with: ./sb cert install' (decline, empty answer, after retries, declined single certificate, number not in the folder list). No path leaves the choice silently.
+- A folder chosen from the ~ list that holds nothing usable now offers the path question instead of ending the choice; a declined single certificate still ends it. certFolderRetry carries that distinction, so the shared chooseCertificateFromFolder signature (and its other tests) is unchanged. PFX password is still asked at most once per folder.
+- Tests (red before in tmp/422-retry-red.log, green in tmp/422-retry-green.log): (a) TestInstallCertPathEmptyFolderThenEnterContinues, (b) TestInstallCertPathWrongPathThenValidFolder, (c) TestInstallCertPathThreeWrongAnswersContinues.
+- Verification: gofmt clean, go vet ./cmd, go build ./...; go test ./cmd/ -run 'Cert|Picker' -count=1 green (tmp/422-cert-picker-green.log); full go test ./cmd/ green in 68.6s (tmp/422-cmd-full.log); test/install-recovery/tests/setup-choices-driver-test.sh PASS (tmp/422-setup-choices-driver.log).
+- One line changed outside the two declared test files: install_cert_folder_choice_test.go asserted the old declined wording 'Continuing without a custom certificate.'; it now asserts the shared sentence, as the ticket's one-sentence rule requires.
+
+### Certificate folder: one leaf, one choice (6d8ea5f5f)
+- scanCertificateFolder now merges choices whose leaf certificate is byte-identical (same leaf.Raw). The manual box exports a site certificate as both a PEM pair and a PFX; that folder offered two identical numbered choices.
+- The password-free copy (PEM pair) is kept when both are present, else the first; the other file is named on the line as 'also in a-site.pfx' (certChoice.AlsoIn). Different certificates still list separately. PFX choices carry NeedsPassword.
+- With one merged choice the existing single-certificate 'Install this certificate? [Y/n]' path applies unchanged.
+- Tests (red tmp/422-dedupe-red.log: 2 choices for one leaf; green tmp/422-dedupe-green.log): TestScanCertificateFolderListsOneChoicePerLeaf (PFX sorts first, PEM pair kept, also-in named) and TestScanCertificateFolderKeepsDifferentCertificates.
+- Verification after 2122d747b: gofmt clean, go vet ./cmd, go build ./...; go test ./cmd/ -run 'Cert|Picker|Candidate|ScanCertificate' -count=1 green; full go test ./cmd/ green in 84.9s (tmp/422-cmd-full-2.log); setup-choices-driver-test.sh PASS (tmp/422-setup-choices-driver-2.log).
+- readPassword and the makeRawTerminal seam were left untouched.
+
+### Certificate picker is ONE pick of certificates, not folders (4258dc6dd)
+- Replaced the owner-rejected two-step folder picker. After 'Do you have a certificate to install now? y' the installer lists installable certificates from the same home name search: each PEM certificate file paired with its matching key in the same folder (public-key match; CN, SANs, expiry and site coverage shown), then each PFX/P12 by file name. The best PEM pair is the default; PFX files follow. 'N) Another file or folder (type a path)' remains.
+- Exactly one candidate shows its line and asks 'Install this certificate? [Y/n]', with no password and no numbered list. Choosing a PFX asks its password once, shows the certificate it contains, then installs it. A typed path still uses the folder scan, retries and the shared continuing sentence from acf07e3a3.
+- Same-certificate deduplication: mergeDuplicateCertificates (6d8ea5f5f) still collapses identical leaves, PEM pair wins. A password-protected PFX cannot be compared without asking, so it stays a separate entry; a password-free PFX collapses into its PEM pair.
+- Refactor: pemPairChoices shares the PEM pairing between the folder scan and the picker; scanCertificateFolder behaviour and its tests are unchanged.
+- Tests (red tmp/422-onepick-red.log; green tmp/422-onepick-green.log): TestInstallCertPickerOnePickListsCertificates (PEM pair + same password-free PFX -> one candidate, Y/n, no password, no second numbered question), TestInstallCertPickerPEMPairPlusDifferentPFX (two candidates; choosing the PFX with password RightPass returns [pfx], one password read, CN shown, no 'Install which certificate number'), plus updated Another-file-or-folder and invalid-number tests.
+- Verification: gofmt clean, go vet ./cmd, go build ./...; go test ./cmd/ -run 'Cert|Picker' -count=1 green; setup-choices-driver-test.sh PASS (tmp/422-setup-choices-driver-3.log). Full go test ./cmd/ has ONE failure unrelated to this work: TestRestartsAfterSettingsRestoreCoverEveryService (install_detection_test.go:655) because 68271b0ad made applyPendingRestarts call composeRestartService, which that test does not fake (tmp/422-cmd-full-3.log). Reported to the coordinator; install.go is not in this worker's files.
+- Documentation: no product docs describe the folder list (searched doc/, cli/, ops/); the tracked DEPLOYMENT.md text about the up-front certificate flow remains accurate. tmp/picker-proto/PROPOSAL.md is ignored and still describes the old folder list.
 <!-- SECTION:NOTES:END -->
