@@ -1,0 +1,157 @@
+-- STATBUS-563: history statistics must not depend on the hash of unrelated units.
+--
+-- public.statistical_history_def / public.statistical_history_facet_def attach
+-- stats_summary to the period's demographic rows by LEFT JOINing the per-slot
+-- aggregation (latest version overlapping the period, used_for_counting) onto
+-- the rows produced from stock_at_end_of_curr / stock_at_end_of_prev. A unit
+-- that overlaps the period but does not EXIST at either end of it (the
+-- STATBUS-460 existence rule, which follows birth_date and death_date) produces
+-- no demographic row. Its statistics are therefore dropped unless some other
+-- unit that happens to fall in the same hash_slot exists at a period end and
+-- keeps the slot alive.
+--
+-- Fixture: two legal units with employees, deliberately in different hash slots
+-- (asserted below).
+--   563000001 exists at both period ends (valid from 2020, no birth/death).
+--   563000002 overlaps 2024 only, born 2024-03-01 and dead 2024-09-30, so it
+--             exists at neither 2023-12-31 nor 2024-12-31. The import allows
+--             this: date_consistency only rejects birth_date >= valid_until
+--             and death_date <= valid_from (doc/import-system.md).
+--
+-- The documented population for a period is the latest version overlapping it
+-- with used_for_counting (the lvc CTE of statistical_history_def). That
+-- population includes both units for 2024, so both the totals of
+-- statistical_history and the facet cell of 563000002 must add up to 10 + 7
+-- employees and 2 units, independent of where the units hash.
+--
+-- This test pins the CORRECT values: on the pre-fix code the actual columns show
+-- 10 / 1 and stats_match_documented_population = false, and the diff against
+-- this expected file is the regression.
+
+BEGIN;
+
+\i test/setup.sql
+
+\echo "Test 364 (STATBUS-563): history stats do not depend on hash slots"
+
+CALL test.set_user_from_email('test.admin@statbus.org');
+
+\o /dev/null
+\set ECHO none
+\i samples/demo/getting-started.sql
+\o
+\set ECHO all
+
+INSERT INTO public.import_job (definition_id, slug, description, edit_comment, review)
+SELECT id, 'import_563', 'Test 364 two legal units, one born and dead inside 2024', 'Test 364 (STATBUS-563)', false
+FROM public.import_definition WHERE slug = 'legal_unit_source_dates';
+INSERT INTO public.import_563_upload(valid_from, valid_to, tax_ident, name, birth_date, death_date, employees) VALUES
+    ('2020-01-01', 'infinity', '563000001', 'Present at every period end', NULL, NULL, '10'),
+    ('2024-01-01', 'infinity', '563000002', 'Born and dead inside 2024', '2024-03-01', '2024-09-30', '7');
+
+CALL worker.process_tasks(p_queue => 'import');
+CALL worker.process_tasks(p_queue => 'analytics');
+
+\echo
+\echo "364.0 the import finished"
+SELECT slug, state, total_rows, imported_rows FROM public.import_job WHERE slug = 'import_563';
+
+\echo
+\echo "364.1 the two legal units and their existence windows; 563000002 overlaps 2024 but exists at neither end of it"
+SELECT su.external_idents->>'tax_ident' AS tax_ident, su.unit_id, su.name,
+       su.valid_from, su.valid_to, su.birth_date, su.death_date,
+       public.existence_from(su) AS existence_from, public.existence_until(su) AS existence_until,
+       su.used_for_counting, su.hash_slot
+FROM public.statistical_unit AS su
+WHERE su.unit_type = 'legal_unit'
+  AND su.external_idents->>'tax_ident' IN ('563000001', '563000002')
+ORDER BY tax_ident;
+
+\echo
+\echo "364.2 the units are in different hash slots, so 563000002 cannot be rescued by a slot-mate"
+SELECT count(DISTINCT su.hash_slot) = 2 AS in_different_hash_slots
+FROM public.statistical_unit AS su
+WHERE su.unit_type = 'legal_unit'
+  AND su.external_idents->>'tax_ident' IN ('563000001', '563000002');
+
+-- The documented population, computed independently from public.statistical_unit
+-- by the same rule as the lvc CTE in statistical_history_def: the latest version
+-- overlapping the period, used_for_counting.
+CREATE TEMP VIEW documented_population_2024 AS
+WITH latest_versions_curr AS (
+    SELECT DISTINCT ON (su.unit_id, su.unit_type) su.*
+    FROM public.statistical_unit AS su
+    WHERE su.unit_type = 'legal_unit'
+      AND su.valid_from <= '2024-12-31'::date
+      AND su.valid_to >= '2024-01-01'::date
+      AND su.external_idents->>'tax_ident' IN ('563000001', '563000002')
+    ORDER BY su.unit_id, su.unit_type, su.valid_from DESC, su.valid_until DESC
+)
+SELECT
+    sum((lvc.stats_summary->'employees'->>'sum')::numeric) AS employees_sum,
+    sum((lvc.stats_summary->'employees'->>'count')::integer) AS employees_count
+FROM latest_versions_curr AS lvc
+WHERE lvc.used_for_counting;
+
+\echo
+\echo "364.3 statistical_history for 2024 equals the documented population, not only the units existing at the period end"
+SELECT e.employees_sum AS expected_employees_sum,
+       (h.stats_summary->'employees'->>'sum')::numeric AS actual_employees_sum,
+       e.employees_count AS expected_employees_count,
+       (h.stats_summary->'employees'->>'count')::integer AS actual_employees_count,
+       e.employees_sum = (h.stats_summary->'employees'->>'sum')::numeric
+         AND e.employees_count = (h.stats_summary->'employees'->>'count')::integer
+         AS stats_match_documented_population
+FROM documented_population_2024 AS e
+CROSS JOIN public.statistical_history AS h
+WHERE h.resolution = 'year' AND h.year = 2024 AND h.unit_type = 'legal_unit' AND h.hash_partition IS NULL;
+
+\echo
+\echo "364.4 the facet cell holding 563000002 also equals the documented population for that cell"
+WITH latest_versions_curr AS (
+    SELECT DISTINCT ON (su.unit_id, su.unit_type) su.*
+    FROM public.statistical_unit AS su
+    WHERE su.unit_type = 'legal_unit'
+      AND su.valid_from <= '2024-12-31'::date
+      AND su.valid_to >= '2024-01-01'::date
+      AND su.external_idents->>'tax_ident' IN ('563000001', '563000002')
+    ORDER BY su.unit_id, su.unit_type, su.valid_from DESC, su.valid_until DESC
+),
+expected AS (
+    SELECT
+        lvc.primary_activity_category_path,
+        lvc.secondary_activity_category_path,
+        lvc.sector_path,
+        lvc.legal_form_id,
+        lvc.physical_region_path,
+        lvc.physical_country_id,
+        lvc.unit_size_id,
+        lvc.status_id,
+        sum((lvc.stats_summary->'employees'->>'sum')::numeric) AS employees_sum,
+        sum((lvc.stats_summary->'employees'->>'count')::integer) AS employees_count,
+        bool_or(lvc.external_idents->>'tax_ident' = '563000002') AS contains_gated_unit
+    FROM latest_versions_curr AS lvc
+    WHERE lvc.used_for_counting
+    GROUP BY 1, 2, 3, 4, 5, 6, 7, 8
+)
+SELECT e.employees_sum AS expected_employees_sum,
+       (f.stats_summary->'employees'->>'sum')::numeric AS actual_employees_sum,
+       e.employees_count AS expected_employees_count,
+       (f.stats_summary->'employees'->>'count')::integer AS actual_employees_count,
+       e.employees_sum = (f.stats_summary->'employees'->>'sum')::numeric
+         AND e.employees_count = (f.stats_summary->'employees'->>'count')::integer
+         AS facet_stats_match_documented_population
+FROM expected AS e
+LEFT JOIN public.statistical_history_facet AS f
+  ON f.resolution = 'year' AND f.year = 2024 AND f.unit_type = 'legal_unit'
+ AND COALESCE(f.primary_activity_category_path::text, '') = COALESCE(e.primary_activity_category_path::text, '')
+ AND COALESCE(f.secondary_activity_category_path::text, '') = COALESCE(e.secondary_activity_category_path::text, '')
+ AND COALESCE(f.sector_path::text, '') = COALESCE(e.sector_path::text, '')
+ AND COALESCE(f.legal_form_id, -1) = COALESCE(e.legal_form_id, -1)
+ AND COALESCE(f.physical_region_path::text, '') = COALESCE(e.physical_region_path::text, '')
+ AND COALESCE(f.physical_country_id, -1) = COALESCE(e.physical_country_id, -1)
+ AND COALESCE(f.unit_size_id, -1) = COALESCE(e.unit_size_id, -1)
+ AND COALESCE(f.status_id, -1) = COALESCE(e.status_id, -1)
+WHERE e.contains_gated_unit;
+
+ROLLBACK;
