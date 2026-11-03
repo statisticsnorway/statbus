@@ -35,6 +35,10 @@ if [[ "$*" = *"config show"* ]]; then
     [ -n "$code" ] || code=no
     printf 'sb version test (commit local)|%s|%s name\n' "$channel" "$code"
 fi
+# The serving probe: the short commits of the running containers, one per line.
+if [[ "$*" = *"statbus-serving-commits"* ]]; then
+    for commit in ${STATUS_SERVING-local}; do printf '%s\n' "$commit"; done
+fi
 if [[ "$*" = *"curl -fsSL"* ]] && [ -n "${SSH_INSTALL_OUTPUT:-}" ]; then
     printf '%s\n' "$SSH_INSTALL_OUTPUT"
 fi
@@ -167,6 +171,25 @@ set -e
 assert_contains "$output" "dev " "status shows readable rows"
 assert_contains "$output" "no " "status shows unreadable row"
 assert_contains "$output" "METADATA READ FAILED" "status marks unreadable row"
+
+# The VERSION column is what the box SERVES (the commit its running containers
+# were started from), not the sb program on disk. Observed 2026-11-03 on ug:
+# sb was v2026.11.0 after a stopped install while every container still ran
+# d53731ec (v2026.09.0), and status reported v2026.11.0.
+status_with_serving() {
+    SSH_MALFORMED_CODE="$2" SSH_MALFORMED_TEXT="sb version v2026.11.0 (commit c65d1802)|stable|$2 name" \
+        STATUS_SERVING="$1" run_cloud status "$2" 2>&1
+}
+output=$(status_with_serving 'c65d1802' ma) || fail "status ma should succeed: $output"
+assert_contains "$output" "SERVING" "status has a serving column"
+assert_contains "$output" "ma       cloud        anon    v2026.11.0 (c65d1802)           stable       c65d1802                 ma name" "status row shows program and serving commit"
+assert_not_contains "$output" "MISMATCH" "a box serving its program's commit is not flagged"
+output=$(status_with_serving 'd53731ec' ug) || fail "status ug should succeed: $output"
+assert_contains "$output" "d53731ec MISMATCH" "status flags the program and the serving commit disagreeing"
+output=$(status_with_serving 'c65d1802 d53731ec' ug) || fail "status ug should succeed: $output"
+assert_contains "$output" "MIXED c65d1802 d53731ec" "status flags containers on different commits"
+output=$(status_with_serving '' ug) || fail "status ug should succeed: $output"
+assert_contains "$output" "NOTHING RUNNING" "status flags a box with no running StatBus containers"
 
 # Finding 3: preserve the retired standalone install/upgrade command contract.
 output=$(run_cloud install no --version vX 2>&1) || fail "pinned install should succeed: $output"

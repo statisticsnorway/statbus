@@ -282,7 +282,10 @@ cmd_status() {
     targets=$(resolve_target_codes "$target")
     echo "StatBus Fleet Status"
     echo "===================="
-    printf "  %-8s %-12s %-7s %-31s %-12s %s\n" "CODE" "GROUP" "AUTH" "VERSION" "CHANNEL" "NAME"
+    # VERSION is the sb program on the box; SERVING is the commit its running
+    # containers were started from. They differ when an install stopped after
+    # swapping the program, so both are shown and a difference is flagged.
+    printf "  %-8s %-12s %-7s %-31s %-12s %-24s %s\n" "CODE" "GROUP" "AUTH" "VERSION" "CHANNEL" "SERVING" "NAME"
     for server in $targets; do
         local metadata version channel name group auth
         group=$(entry_group "$server")
@@ -295,9 +298,51 @@ cmd_status() {
         IFS='|' read -r version channel name <<< "$metadata"
         version="${version#sb version }"
         version="${version/ (commit / (}"
-        printf "  %-8s %-12s %-7s %-31s %-12s %s\n" "$server" "$group" "$auth" "$version" "$channel" "$name"
+        printf "  %-8s %-12s %-7s %-31s %-12s %-24s %s\n" "$server" "$group" "$auth" "$version" "$channel" \
+            "$(serving_note "$server" "$version")" "$name"
     done
     [ "$failed" -eq 0 ]
+}
+
+# read_serving_commits prints the short commit each running StatBus container
+# was started from, one distinct commit per line. It reads the container's own
+# record of its requested image (Config.Image, e.g. statbus-app:c65d1802),
+# which a moved or overwritten tag cannot change: the same identity the
+# upgrade service trusts (STATBUS-436). The marker comment names the probe.
+read_serving_commits() {
+    # shellcheck disable=SC2016 # This script is evaluated on the remote box.
+    ssh_entry "$1" '# statbus-serving-commits
+        cd statbus 2>/dev/null || exit 1
+        for id in $(docker compose ps -q app worker proxy db 2>/dev/null); do
+            docker inspect -f "{{.Config.Image}}" "$id" 2>/dev/null
+        done | sed -n "s#^.*/statbus-[a-z]*:\([0-9a-f]\{8\}\)\$#\1#p" | sort -u'
+}
+
+# serving_note is what the box actually serves, set beside the program version
+# so the two cannot be confused. The sb program can be at the target while the
+# containers still run the old release (an install that stopped after the
+# program swap, observed on ug 2026-11-03); status must say so.
+serving_note() {
+    local server="$1" version="$2" commits count program
+    if ! commits=$(read_serving_commits "$server" 2>/dev/null); then
+        printf 'UNREADABLE'
+        return
+    fi
+    count=$(printf '%s' "$commits" | grep -c . || true)
+    if [ "$count" -eq 0 ]; then
+        printf 'NOTHING RUNNING'
+        return
+    fi
+    if [ "$count" -gt 1 ]; then
+        printf 'MIXED %s' "$(tr '\n' ' ' <<<"$commits" | xargs)"
+        return
+    fi
+    program=$(sed -n 's/.*(\([0-9a-f]\{8\}\)).*/\1/p' <<<"$version")
+    if [ -n "$program" ] && [ "$program" != "$commits" ]; then
+        printf '%s MISMATCH' "$commits"
+        return
+    fi
+    printf '%s' "$commits"
 }
 
 # cmd_health_one gathers upgrade-subsystem health for one server in a single
