@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-11-02T13:15:00Z'
-updated_date: '2026-11-03T21:41:00Z'
+updated_date: '2026-11-03T22:32:00Z'
 labels: []
 dependencies: []
 type: bug
@@ -108,4 +108,6 @@ Dense months grow with periods x combinations; a sparse or interval form grows w
 2026-11-03 statistics on jsonb_stats 3.1 (tmp/558-compare/04-stats-incremental.*, js31-proto): stock stats at year ends from summed stats_delta equal jsonb_stats_merge_agg of existing units, 38,968 cells, 0 differ; incremental per dirty slot (60 slots, 120 keys re-summed, ~60 ms) equals a full rebuild including stats_delta, 0 differ. jsonb_stats 3.1 as it stands (to_delta, negate, delta_agg, delta_to_agg) covers the design; no reversal function needed.
 
 2026-11-03 BRREG selection data (33,876 units, 12 periods): full delta build (counts) ~0.9 s, one cycle of 45 dirty slots ~0.25 s, incremental = full rebuild (0 differ). Master spends 391 s (history facet) + 141 s (statistical_history) of task time on the same benchmark; not like for like (real pipeline over several cycles, stats included), so the real comparison needs the migration. mosquito confirmed: v3.1.0 stays untagged until the owner decides.
+
+2026-11-03 night, owner's views design (tmp/558-shd/): statistical_history_delta(_facet) tables (+ flow tables) behind VIEWS named statistical_history and statistical_history_facet with today's columns (history view adds unit_size_change_count, status_change_count). 10-year Norway: facet view = today's table on all 32 non-stats columns (526,437 rows, 0 differ); history view = today's on all 22 (447 rows, 0 differ); history view = facet view summed (0 differ). Stats differ (261/411 history rows, up to 13%): the view equals the period-end stock exactly; today's table does not equal its own definition because of the hash-slot gate, STATBUS-563 (failing test committed locally, ac264f089). Tables ~11 MB vs today's 1.08 GB, built in ~0.8 s. Full Norway (3,139,134 units, rune backup 2026-11-03, rc.04, jsonb_stats 3.1.0) restored into statbus_local; trial running.
 <!-- SECTION:NOTES:END -->
