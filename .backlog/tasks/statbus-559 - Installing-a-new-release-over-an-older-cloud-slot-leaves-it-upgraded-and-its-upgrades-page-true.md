@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-11-02T15:12:00Z'
-updated_date: '2026-11-02T22:49:00Z'
+updated_date: '2026-11-03T15:04:00Z'
 labels:
   - bug
 dependencies: []
@@ -29,13 +29,13 @@ Found 2026-11-02 installing v2026.11.0 on niue cloud slots ug and ma (logs tmp/c
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 Install state detection works on every schema the installer accepts: on a database without rollback_finish_pending_at it proceeds (no rollback can be pending there). A test runs the probe against a schema lacking the column, red before the fix and green after
+- [x] #1 Install state detection works on every schema the installer accepts: on a database without rollback_finish_pending_at it proceeds (no rollback can be pending there). A test runs the probe against a schema lacking the column, red before the fix and green after
 - [x] #2 A gate scenario installs the candidate with install.sh --version over a real v2026.09.0 box and the install completes; red against v2026.11.0, green with the fix
-- [ ] #3 When ./sb install stops after install.sh swapped the program and checked out the target, the message says what was changed instead of 'nothing was changed'
-- [ ] #4 A successful install supersedes parked in_progress attempts for other commits; the row keeps its error and park reason and the state log records the transition. The 452 live install test covers it, red before and green after
-- [ ] #5 The upgrade service stamps unit_floor_state when it starts, so a page read right after a successful install shows no 'not running' warning. Covered by a test
+- [x] #3 When ./sb install stops after install.sh swapped the program and checked out the target, the message says what was changed instead of 'nothing was changed'
+- [x] #4 A successful install supersedes parked in_progress attempts for other commits; the row keeps its error and park reason and the state log records the transition. The 452 live install test covers it, red before and green after
+- [x] #5 The upgrade service stamps unit_floor_state when it starts, so a page read right after a successful install shows no 'not running' warning. Covered by a test
 - [ ] #6 ug, mw and ua reach the stable release with ./cloud.sh install, ug's statbus-maintenance belongs to statbus_ug afterwards, and ma's v2026.10.5 row shows superseded
-- [ ] #7 Found on the manual box 2026-11-02 with v2026.11.0: install.sh refuses root before any lock, download or checkout, with the same sentence ./sb install prints (TestInstallShRefusesRootBeforeAnyWork red before, green after); a fresh install names the checked-out commit (fresh-installer-test red 'commit )' before, green after); the manual-box guide gives the country answers (United Nations / un, TestUnitedNationsIsAnAcceptedInstallationCountry); the questionnaire shows the answers and lets the operator redo them before anything is written
+- [x] #7 Found on the manual box 2026-11-02 with v2026.11.0: install.sh refuses root before any lock, download or checkout, with the same sentence ./sb install prints (TestInstallShRefusesRootBeforeAnyWork red before, green after); a fresh install names the checked-out commit (fresh-installer-test red 'commit )' before, green after); the manual-box guide gives the country answers (United Nations / un, TestUnitedNationsIsAnAcceptedInstallationCountry); the questionnaire shows the answers and lets the operator redo them before anything is written
 <!-- AC:END -->
 
 ## Implementation Notes
@@ -69,4 +69,6 @@ CI for interactive answer review: 4790b5ed7 Go Test failed only on errcheck in t
 v2026.11.1-rc.03 (068d5c93a) gate so far: Release 41531148478, Fast Tests 41531148396, Hardening 41531148543, Smoke 41531391105, dev deploy 41532826997, LXD Fork Fleet 41533051284 all success. AC2 proven: 0-install-over-v2026-09-0-schema PASS (249 s) from checkpoint installed-v2026.09.0-standalone: 'install.sh --version v2026.11.1-rc.03 completed over a real v2026.09.0 database', CA-verified HTTPS /rest/ 200. Red baseline is the ug incident on v2026.11.0 (rollback_finish_pending_at missing). Arcs pending. Next: owner runs cloud.sh install on ug, mw, ua; ma for the parked row and banner.
 
 v2026.11.1-rc.03 gate complete, all green: Release 41531148478, Fast Tests 41531148396, Hardening 41531148543, Smoke 41531391105, dev deploy 41532826997, LXD Fork Fleet 41533051284, Upgrade Arc Harness 41533182923. Remaining: AC6 real slots (owner runs cloud.sh install ug/mw/ua/ma on rc.03).
+
+2026-11-03 ACs checked on evidence shipped in v2026.11.1-rc.03 (gate all green, runs listed above): AC1 live old-schema probe test red/green (58e1634a1, tmp/559-ac1-*.log) plus LXD 0-install-over-v2026-09-0-schema PASS; AC3 tmp/559-ac3-red/green.log; AC4 Test452KissNormalInstallRetiresAttempts/parked red/green (3e97a489c); AC5 TestRunStampsUnitFloorAtStartup red/green (1c7adbf0f); AC7 TestInstallShRefusesRootBeforeAnyWork, fresh-installer-test commit line, TestUnitedNationsIsAnAcceptedInstallationCountry, answer-review test (4790b5ed7), all red/green. Open: AC6 (real slots). Side observation: ua upgraded itself from v2026.09.0 to v2026.11.0 through its own upgrade service (row 1861 completed 2026-11-03 10:47Z), so the old-schema defect hits ./sb install only, not the service path.
 <!-- SECTION:NOTES:END -->
