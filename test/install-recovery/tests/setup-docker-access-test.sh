@@ -34,13 +34,25 @@ present "the Docker stage verifies access as that account, not as root" "$access
 present "the access verification runs as the service account (runuser)" "$runuser"
 before  "the grant happens before the stage declares itself verified" "$grant" "$verify_block"
 
-# The account's systemd user manager starts at enable-linger, before the grant,
-# and keeps its groups; the upgrader it starts then hit "permission denied ...
+# The account's systemd user manager starts at enable-linger, and keeps the
+# groups it started with; the upgrader it starts then hit "permission denied ...
 # docker.sock" while runuser (a fresh process) passed (manual box, 2026-11-03).
+# So linger is enabled in this stage after the grant, and service-account no
+# longer enables it. A manager already running without the group (a box
+# prepared by an older setup) is restarted, and the stage verifies the running
+# manager has the group.
+service_stage="$(awk '/^stage_service_account\(\)/,/^}$/' "$SCRIPT")"
+linger=$(line_of 'loginctl enable-linger')
 restart_manager=$(line_of 'systemctl restart "user@')
 manager_verify=$(line_of 'user_manager_has_docker_group')
-present "the grant restarts the account's systemd user manager" "$restart_manager"
-before  "the user manager restarts after the grant" "$grant" "$restart_manager"
+present "the Docker stage enables linger for the service account" "$linger"
+before  "linger is enabled after the docker grant" "$grant" "$linger"
+if grep -q 'loginctl enable-linger' <<<"$service_stage"; then
+    echo "FAIL service-account still enables linger before Docker exists"; fail=1
+else
+    echo "PASS service-account leaves linger to the Docker stage"
+fi
+present "a manager already running without the group is restarted" "$restart_manager"
 present "the stage verifies the user manager itself has the docker group" "$manager_verify"
 
 # The helper reads the manager's real groups: run it against faked /proc data.

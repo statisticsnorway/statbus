@@ -67,11 +67,11 @@ stage that acts on something another stage creates requires that stage.
 |------|----------|--------------|
 | `https-sources` | | Switch to an HTTPS mirror when the network blocks HTTP (decides by probing) |
 | `base-system` | | etckeeper, eternal bash history, locale configuration |
-| `service-account` | | `${SERVICE_USER}` (default `statbus`): SSH keys, systemd linger |
+| `service-account` | | `${SERVICE_USER}` (default `statbus`): SSH keys |
 | `ssh-hardening` | `service-account` | Confirm remote access, then disable password auth, root password login, empty passwords |
 | `auto-updates` | | unattended-upgrades with nightly schedule, email notifications |
 | `security-tools` *(optional)* | | CrowdSec IDS + firewall bouncer, UFW firewall |
-| `core-tools` | `service-account` | neovim, htop, ripgrep, tmux, Docker CE + compose plugin; Docker access for `${SERVICE_USER}` |
+| `core-tools` | `service-account` | neovim, htop, ripgrep, tmux, Docker CE + compose plugin; Docker access for `${SERVICE_USER}`, then its systemd linger (so the upgrader runs with Docker access) |
 | `user-setup` *(cloud-only; needs `--cloud`)* | `core-tools` | `devops` user (ops/admin), GitHub SSH keys, Docker access |
 | `ci-allowlist` *(cloud-only; needs `SSHDOERS_REF`)* | | `/etc/sshdoers` from the repo, with a published hash |
 

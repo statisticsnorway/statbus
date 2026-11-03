@@ -1628,6 +1628,8 @@ stage_core_tools() {
     echo "  - Set neovim as default editor"
     echo "  - Configure memory/swap settings for server workloads"
     echo "  - Install Docker CE with compose plugin"
+    echo "  - Give the ${SERVICE_USER:-statbus} account Docker access, then enable its systemd"
+    echo "    linger so its user services (the StatBus upgrader) run with that access"
     echo ""
     
     if ! ask_yes_no "Run this stage?" y; then
@@ -1707,13 +1709,12 @@ EOF
         *)
             log "Adding $docker_user to the docker group"
             usermod -aG docker "$docker_user"
-            # The account's systemd user manager was started by
-            # `loginctl enable-linger` in the service-account stage, before
-            # this grant, so it and every service it starts (the StatBus
-            # upgrader) still lack the group: "permission denied ...
-            # docker.sock" (manual box, 2026-11-03). Restart that manager so
-            # its services start with the group. Logins are separate sessions
-            # and get the group at their next login.
+            # A systemd user manager keeps the groups it started with. On a box
+            # prepared by an older setup it was started (by linger, in the
+            # service-account stage) before this grant, so the StatBus upgrader
+            # it starts lacks the group: "permission denied ... docker.sock"
+            # (manual box, 2026-11-03). Restart that manager so its services
+            # start with the group. Logins get the group at their next login.
             docker_uid="$(id -u "$docker_user")"
             if systemctl is-active --quiet "user@${docker_uid}.service"; then
                 log "Restarting $docker_user's systemd user manager so its services can use Docker"
@@ -1721,6 +1722,12 @@ EOF
             fi
             ;;
     esac
+
+    # Linger starts the account's systemd user manager and keeps it running
+    # without a login, so the StatBus upgrader runs. It is enabled here, after
+    # the docker grant, so the manager starts with Docker access.
+    log "Enabling systemd --user linger for '$docker_user' (so its user services run with Docker access)..."
+    loginctl enable-linger "$docker_user"
     
     # Verification
     echo ""
@@ -1738,6 +1745,7 @@ EOF
     # member sees the group in a fresh process, which is what runuser gives us, so
     # this is a real check rather than a restatement of the daemon being up.
     verify "Docker usable by ${SERVICE_USER:-statbus}" "runuser -u ${SERVICE_USER:-statbus} -- docker info"
+    verify "${SERVICE_USER:-statbus} linger enabled" "loginctl show-user ${SERVICE_USER:-statbus} -p Linger 2>/dev/null | grep 'Linger=yes'"
     # runuser is a fresh process, so it passes even while the account's systemd
     # user manager still runs without the group. The upgrader is started by that
     # manager, so check the manager's own groups too.
@@ -1881,7 +1889,6 @@ stage_service_account() {
     if [[ "${CLOUD:-false}" == "true" ]]; then
         echo "      Deploy keys: ${GITHUB_DEPLOY_KEYS:-<not configured>}"
     fi
-    echo "  - Enable systemd linger so user units survive logout"
     echo ""
     if [[ "${CLOUD:-false}" == "true" ]]; then
         echo "  Operators (and CI deploy workflows) SSH as '$user' to install"
@@ -1913,8 +1920,8 @@ stage_service_account() {
     log "Populating SSH keys for '$user'..."
     populate_authorized_keys "$user" "$GITHUB_USERS" "$(deploy_keys_for_this_run)"
 
-    log "Enabling systemd --user linger for '$user' (so systemctl --user services persist)..."
-    loginctl enable-linger "$user"
+    # Linger (which starts the account's systemd user manager) is enabled in
+    # core-tools, after the account gets Docker access; see stage_core_tools.
 
     # Verification
     echo ""
@@ -1924,8 +1931,6 @@ stage_service_account() {
     if [[ -n "$GITHUB_USERS" || -n "$GITHUB_DEPLOY_KEYS" ]]; then
         verify "$user authorized_keys populated" "test -s /home/$user/.ssh/authorized_keys"
     fi
-    verify "$user linger enabled" "loginctl show-user $user -p Linger 2>/dev/null | grep 'Linger=yes'"
-
     pause
 }
 

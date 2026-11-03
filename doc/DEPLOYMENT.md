@@ -240,8 +240,9 @@ The script configures:
 - `devops` user (ops/admin) with passwordless sudo, docker group, and GitHub
   SSH keys
 - **`statbus` service account** (`service-account` stage) — this is the user StatBus itself
-  will be installed under and operated as. Docker group membership; SSH keys
-  from the same GitHub users; systemd `--user` linger enabled
+  will be installed under and operated as. SSH keys from the same GitHub
+  users; Docker group membership and systemd `--user` linger come from the
+  `core-tools` stage, linger after Docker access so the upgrader has it
 
 **For STATBUS deployments:**
 - `https-sources` decides by probing: it changes nothing where HTTP is
