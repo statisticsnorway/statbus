@@ -12,6 +12,8 @@ on:
       - 'ops/release/**'
       - 'ops/lxd-fleet/**'
       - 'install.sh'
+      - 'uninstall.sh'
+      - 'ops/manual-box.sh'
       - '.github/actions/**'
       - '.github/workflows/harness-selftest.yaml'
       - 'dev.sh'
@@ -145,6 +147,8 @@ jobs:
         run: bash test/install-recovery/tests/setup-fqdn-test.sh
       - name: Prove published scripts state the release they belong to (STATBUS-537)
         run: bash test/install-recovery/tests/release-script-stamp-test.sh
+      - name: Prove a manual-box session survives an edit to its script
+        run: bash test/install-recovery/tests/manual-box-rewrite-test.sh
       - name: Prove every ghcr.io login step retries transient failures (STATBUS-535)
         run: bash test/ci-ghcr-login-retry-test.sh
       # These standalone harness tests existed but no workflow ran them, so
