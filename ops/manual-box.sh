@@ -21,8 +21,8 @@
 #                              install, health, uninstall)
 #   ops/manual-box.sh rebuild  wipe it back to a blank Ubuntu 26.04 (same IP)
 #   ops/manual-box.sh down     delete it (billing stops)
-#   ops/manual-box.sh status   (or info) the box: address, logins, ssh commands,
-#                              session log, then the walkthrough
+#   ops/manual-box.sh status   (or info) the box: address, live logins, ssh
+#                              commands and session log
 #
 # Cost: cx33 (4 cores, 8 GB) is about EUR 0.017 per hour, billed hourly.
 # Delete it when the session is over.
@@ -111,12 +111,8 @@ Logins now:   ${logins:-none answer yet}
 
 Log in:       ops/manual-box.sh ssh [user]      (logged tmux session, default $login_user)
 Plain ssh:    ssh <user>@$ip
-Login check:  ops/manual-box.sh try-ssh statbus (when setup asks "Did that connect?")
 Session log:  $log
-Delete:       ops/manual-box.sh down
-
-Test walkthrough (ops/manual-box.sh guide prints it again):
-$(guide_text)
+Walkthrough:  ops/manual-box.sh guide
 EOF
 }
 
