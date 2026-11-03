@@ -11,6 +11,10 @@
 #   ops/manual-box.sh ssh [user]
 #                              log in (as ubuntu by default) in a logged tmux
 #                              session; reattaches if that session is open
+#   ops/manual-box.sh try-ssh [user]
+#                              the "second terminal" login check setup asks
+#                              for: logs in as user (statbus by default), runs
+#                              id, logs out; no tmux, nothing else changes
 #   ops/manual-box.sh cert     after setup: hand the box a test certificate the
 #                              way an NSO would (a PFX in the statbus home)
 #   ops/manual-box.sh guide    print the test walkthrough (setup, certificate,
@@ -96,6 +100,8 @@ Server:  $name ($type, $image, $location), created $created
 Address: $ip
 
 Log in:            ops/manual-box.sh ssh   (as $login_user; ssh statbus after setup)
+Plain ssh:         ssh $login_user@$ip     (ssh statbus@$ip after setup)
+Login check:       ops/manual-box.sh try-ssh statbus   (when setup asks "Did that connect?")
 Session log:       $log
 Delete when done:  ops/manual-box.sh down
 
@@ -114,6 +120,8 @@ guide_text() {
   2. Root shell:     sudo -i
   3. Setup:          curl -fsSL https://statbus.org/setup.sh -o setup.sh && bash setup.sh
                      Full name of this server: $cert_domain
+                     At "Did that connect?": on your laptop run
+                     ops/manual-box.sh try-ssh statbus, then answer y
   4. Ownership:      find /home/statbus -xdev -user root    (expect no output)
   5. Certificate:    on your laptop: ops/manual-box.sh cert
   6. Install:        leave the root shell (exit), then: sudo -iu statbus
@@ -219,6 +227,25 @@ ssh|connect)
     [ -n "$server" ] || { echo "No server '$name'; run: ops/manual-box.sh up" >&2; exit 1; }
     require_ours "$server"
     connect "$(jq -er '.public_net.ipv4.ip' <<<"$server")" "${2:-$login_user}"
+    ;;
+try-ssh)
+    # Setup's SSH stage asks the operator to prove a new login works from a
+    # second terminal before it disables passwords. This is that login: a
+    # fresh ssh as the user, no tmux, so the open walkthrough session is left
+    # alone. BatchMode: a key that does not work fails instead of prompting.
+    user=${2:-statbus}
+    [[ "$user" =~ ^[a-z_][a-z0-9_-]*$ ]] || { echo "Not a user name: $user" >&2; exit 1; }
+    server=$(describe)
+    [ -n "$server" ] || { echo "No server '$name'; run: ops/manual-box.sh up" >&2; exit 1; }
+    require_ours "$server"
+    ip=$(jq -er '.public_net.ipv4.ip' <<<"$server")
+    echo "ssh $user@$ip"
+    if ssh -o BatchMode=yes -o ConnectTimeout=10 "$user@$ip" 'echo "Logged in as $(id -un) on $(hostname)"'; then
+        echo "That connected: answer y."
+    else
+        echo "That did not connect: answer n, and fix the access first." >&2
+        exit 1
+    fi
     ;;
 cert)
     server=$(describe)
