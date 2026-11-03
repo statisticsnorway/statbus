@@ -145,7 +145,17 @@ func writeUpgraderUnitFile(dir string) error {
 	serviceFile := filepath.Join(dir, "ops", upgraderUnitBase+".service")
 	destFile := unitfloor.UserUnitPath()
 	fmt.Printf("  Copying %s → %s\n", filepath.Base(serviceFile), destFile)
-	if err := copyFile(serviceFile, destFile); err != nil {
+	// A unit is configuration, not a program: 0644. systemd warns on every
+	// reload about an executable unit file. WriteFile keeps an existing file's
+	// mode, so the mode is set explicitly to repair one written 0755 before.
+	data, err := os.ReadFile(serviceFile)
+	if err != nil {
+		return fmt.Errorf("copy unit file: %w", err)
+	}
+	if err := os.WriteFile(destFile, data, 0o644); err != nil {
+		return fmt.Errorf("copy unit file: %w", err)
+	}
+	if err := os.Chmod(destFile, 0o644); err != nil {
 		return fmt.Errorf("copy unit file: %w", err)
 	}
 	fmt.Println("  Running systemctl --user daemon-reload")

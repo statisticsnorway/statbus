@@ -132,3 +132,28 @@ func TestRunInstallService_RestartsOnDriftToArmTimers(t *testing.T) {
 			"restarting before the daemon-reload inside it would re-arm the stale config.", guardIdx, coreIdx)
 	}
 }
+
+// The user unit is configuration, not a program: systemd warns "Configuration
+// file ... is marked executable. Please remove executable permission bits" on
+// every reload when it is 0755 (seen on ug, 2026-11-03). writeUpgraderUnitFile
+// writes it 0644, also over an existing 0755 file.
+func TestWriteUpgraderUnitFileIsNotExecutable(t *testing.T) {
+	dir, userUnit := writeUnitFixture(t, "[Unit]\nDescription=StatBus Upgrader\n")
+	if err := os.WriteFile(userUnit, []byte("old"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	saved := upgraderSystemctl
+	upgraderSystemctl = func(...string) (string, error) { return "", nil }
+	t.Cleanup(func() { upgraderSystemctl = saved })
+
+	if err := writeUpgraderUnitFile(dir); err != nil {
+		t.Fatal(err)
+	}
+	info, err := os.Stat(userUnit)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if mode := info.Mode().Perm(); mode != 0o644 {
+		t.Fatalf("unit file mode = %o, want 644", mode)
+	}
+}
