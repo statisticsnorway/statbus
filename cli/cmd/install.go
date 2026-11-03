@@ -3502,7 +3502,7 @@ func readAdministratorPassword(label string) (string, error) {
 	if !term.IsTerminal(fd) {
 		return "", fmt.Errorf("stdin is not a terminal")
 	}
-	state, err := term.MakeRaw(fd)
+	state, err := makePasswordRaw(fd)
 	if err != nil {
 		return "", err // Do not prompt on a terminal whose echo cannot be disabled.
 	}

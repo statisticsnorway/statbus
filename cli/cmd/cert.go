@@ -1391,7 +1391,7 @@ func sanitiseBaseName(path string) string {
 // a PTY can observe the order of the raw-mode switch and the prompt.
 var (
 	terminalIsTerminal = term.IsTerminal
-	makeRawTerminal    = term.MakeRaw
+	makeRawTerminal    = makePasswordRaw
 	restoreTerminal    = term.Restore
 )
 
