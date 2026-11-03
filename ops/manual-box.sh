@@ -111,7 +111,7 @@ EOF
 guide_text() {
     cat <<GUIDE
   1. Log in:         ops/manual-box.sh ssh      (you are $login_user, a sudo user)
-  2. Root shell:     sudo -i; echo "HOME=\$HOME login=\$(shopt -q login_shell && echo yes || echo no)"
+  2. Root shell:     sudo -i
   3. Setup:          curl -fsSL https://statbus.org/setup.sh -o setup.sh && bash setup.sh
                      Full name of this server: $cert_domain
   4. Ownership:      find /home/statbus -xdev -user root    (expect no output)
