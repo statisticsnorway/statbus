@@ -125,7 +125,7 @@ var seedFetchCmd = &cobra.Command{
 				"(COMMIT_SHORT unset or 'local', and git rev-parse unavailable); " +
 				"no published seed image to fetch")
 		}
-		imageRef := "ghcr.io/statisticsnorway/statbus-seed:" + commitShort
+		imageRef := seedImageRef(commitShort)
 
 		if err := os.MkdirAll(seedDir, 0755); err != nil {
 			return fmt.Errorf("create .db-seed directory: %w", err)
@@ -176,6 +176,12 @@ func resolveSeedCommitShort(projDir string) string {
 		}
 	}
 	return ""
+}
+
+// seedImageRef is the published seed image for a commit_short. The install
+// step announces it and `sb db seed fetch` pulls it, so both name one image.
+func seedImageRef(commitShort string) string {
+	return "ghcr.io/statisticsnorway/statbus-seed:" + commitShort
 }
 
 // extractSeedFromImage copies /seed.pg_dump and /seed.json out of the seed

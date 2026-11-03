@@ -3220,8 +3220,8 @@ func runSeedRestore(dir string) error {
 
 	sb := filepath.Join(dir, "sb")
 
-	// Fetch seed from the published image.
-	fmt.Println("  Fetching seed from the seed image (statbus-seed:<commit_short>)...")
+	// Fetch seed from the published image, named by the tag `sb db seed fetch` pulls.
+	fmt.Printf("  Fetching seed from the seed image %s ...\n", seedImageRef(resolveSeedCommitShort(dir)))
 	if err := runCmdDir(dir, sb, "db", "seed", "fetch"); err != nil {
 		// LEG 1 — no seed image for this commit (fresh repos / private forks).
 		// Calm + expected: full migrations run next and do the real work.

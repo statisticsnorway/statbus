@@ -3,6 +3,7 @@ package cmd
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 )
@@ -125,5 +126,32 @@ func TestSeedStepStopsWhenTheDatabaseCannotBeRead(t *testing.T) {
 	}
 	if sbInvoked() {
 		t.Fatal("the seed restore must not run over a database that could not be read")
+	}
+}
+
+// The Seed step names the seed image it fetches: the tag `./sb db seed fetch`
+// pulls, from the installation's COMMIT_SHORT.
+func TestSeedStepNamesTheSeedImageItFetches(t *testing.T) {
+	dir, _ := seedFreshnessProject(t, `case "$sql" in
+  *to_regclass*) echo "" ;;
+  *) echo "unexpected query: $sql" >&2; exit 3 ;;
+esac
+`)
+	f, err := os.OpenFile(filepath.Join(dir, ".env"), os.O_APPEND|os.O_WRONLY, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := f.WriteString("COMMIT_SHORT=6de3d275\n"); err != nil {
+		t.Fatal(err)
+	}
+	f.Close()
+	out := captureStdout(t, func() {
+		if _, err := executeInstallStep(seedStep, dir, func() {}); err != nil {
+			t.Fatalf("seed step: %v", err)
+		}
+	})
+	want := "  Fetching seed from the seed image ghcr.io/statisticsnorway/statbus-seed:6de3d275 ...\n"
+	if !strings.Contains(out, want) {
+		t.Fatalf("seed step output:\n%s\nwant the line:\n%s", out, want)
 	}
 }
