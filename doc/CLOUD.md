@@ -760,7 +760,7 @@ entry ran. `inspect all` is refused because inspection is one fleet-wide cloud
 report, so use `inspect cloud`. `ssh all` is refused because an interactive shell
 requires one box code.
 
-The unified `FLEET_REGISTRY=()` near the top of `cloud.sh` has one `code|group|ssh_target|public_domain` entry per box. Add a new host by appending one entry; channel and display name are always read from the box.
+The unified `FLEET_REGISTRY=()` near the top of `cloud.sh` has one `code|group|ssh_target|public_domain|auth` entry per box. Add a new host by appending one entry; channel and display name are always read from the box. `./sb db download <code>` reads the same registry, so a standalone box needs no separate host table.
 
 **Direct `./sb`** — when you want to run a specific operation on the host itself. Log in as the `statbus` service account (created by the `service-account` stage of `setup-ubuntu-lts.sh`):
 

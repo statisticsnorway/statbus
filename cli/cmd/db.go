@@ -22,6 +22,7 @@ import (
 	"github.com/statisticsnorway/statbus/cli/internal/config"
 	"github.com/statisticsnorway/statbus/cli/internal/dbdump"
 	"github.com/statisticsnorway/statbus/cli/internal/dotenv"
+	"github.com/statisticsnorway/statbus/cli/internal/fleet"
 	"github.com/statisticsnorway/statbus/cli/internal/upgrade"
 )
 
@@ -305,21 +306,29 @@ var dbDownloadCmd = &cobra.Command{
 	Long: `Download a database dump from a remote StatBus deployment via SSH.
 
 The code corresponds to the deployment slot (e.g., "no", "dev", "demo").
-Connects to statbus_{code}@niue.statbus.org and streams a pg_dump.`,
+Resolves the slot's box from the fleet registry in cloud.sh, so multi-tenant
+niue slots and standalone hosts (Norway on rune.statbus.org) both work, and
+streams a pg_dump.`,
 	Args: cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		projDir := config.ProjectDir()
 		code := args[0]
-		sshUser := "statbus_" + code
-		sshHost := "niue.statbus.org"
-		remoteDB := "statbus_" + code
+		slot, err := resolveFleetSlot(projDir, code)
+		if err != nil {
+			return err
+		}
+		sshUser, sshHost, err := slot.SSHUserHost()
+		if err != nil {
+			return err
+		}
+		remoteDB := slot.Database()
 
 		// Check SSH connectivity
 		fmt.Printf("Checking SSH connectivity to %s@%s ...\n", sshUser, sshHost)
 		sshCheck := exec.Command("ssh",
 			"-o", "ConnectTimeout=10",
 			"-o", "BatchMode=yes",
-			fmt.Sprintf("%s@%s", sshUser, sshHost),
+			slot.SSHTarget,
 			"echo ok")
 		if out, err := sshCheck.CombinedOutput(); err != nil {
 			return fmt.Errorf("SSH connection failed: %w\n%s", err, string(out))
@@ -336,8 +345,8 @@ Connects to statbus_{code}@niue.statbus.org and streams a pg_dump.`,
 		fmt.Printf("Downloading %s from %s@%s ...\n", remoteDB, sshUser, sshHost)
 
 		sshCmd := exec.Command("ssh",
-			fmt.Sprintf("%s@%s", sshUser, sshHost),
-			fmt.Sprintf("cd statbus && docker compose exec -T db pg_dump -Fc --no-owner --exclude-table-data=auth.secrets -U postgres %s", remoteDB))
+			slot.SSHTarget,
+			fmt.Sprintf("cd %s && docker compose exec -T db pg_dump -Fc --no-owner --exclude-table-data=auth.secrets -U postgres %s", fleet.RemoteWorkdir, remoteDB))
 
 		outFile, err := os.Create(outPath)
 		if err != nil {
@@ -367,11 +376,27 @@ Connects to statbus_{code}@niue.statbus.org and streams a pg_dump.`,
 		// STATBUS-456: fetch the log companion too, streamed straight off the
 		// box (no remote temp file). A failed/empty stream leaves NO companion
 		// file and never fails the download.
-		downloadLogsCompanion(projDir, outPath, sshUser, sshHost, remoteDB)
+		downloadLogsCompanion(projDir, outPath, slot)
 
 		warnIfManyDumps(dumpsDir)
 		return nil
 	},
+}
+
+// resolveFleetSlot maps a slot code to the box that hosts it. cloud.sh's
+// FLEET_REGISTRY is the one table that knows both the multi-tenant niue slots
+// and the standalone boxes (STATBUS-562: `no` moved to rune, so synthesizing
+// statbus_no@niue reached a user that no longer exists). The code also names
+// the remote database, so it must remain a plain identifier.
+func resolveFleetSlot(projDir, code string) (fleet.Slot, error) {
+	if err := validateIdentifier(code, "slot code"); err != nil {
+		return fleet.Slot{}, err
+	}
+	registry, err := fleet.Load(projDir)
+	if err != nil {
+		return fleet.Slot{}, err
+	}
+	return registry.Lookup(code)
 }
 
 // downloadLogsCompanion streams the remote tmp/upgrade-logs/ (regular files
@@ -379,7 +404,7 @@ Connects to statbus_{code}@niue.statbus.org and streams a pg_dump.`,
 // the remote database references into <stem>.logs.tar.gz beside the dump. The
 // remote side produces the tar stream; nothing is staged on the box. A
 // zero-byte or failed stream is cleaned up and reported, not fatal.
-func downloadLogsCompanion(projDir, dumpPath, sshUser, sshHost, remoteDB string) {
+func downloadLogsCompanion(projDir, dumpPath string, slot fleet.Slot) {
 	companionPath := dbdump.LogsCompanionPathFor(dumpPath, false) // remote streams gzip
 	fmt.Println("Downloading log companion ...")
 
@@ -392,19 +417,20 @@ func downloadLogsCompanion(projDir, dumpPath, sshUser, sshHost, remoteDB string)
 	// The SQL is double-quoted here; it contains single quotes but no $, "
 	// or backticks. The script goes over stdin (bash -s), so no outer
 	// quoting layer is needed.
-	remoteScript := fmt.Sprintf(`cd statbus
+	remoteDB := slot.Database()
+	remoteScript := fmt.Sprintf(`cd %[1]s
 { find tmp/upgrade-logs -mindepth 1 -type f 2>/dev/null
-  docker compose exec -T db psql -U postgres -d %[1]s -At -c "%[2]s" \
+  docker compose exec -T db psql -U postgres -d %[2]s -At -c "%[3]s" \
     | tr -d '\r' \
     | sed -e 's#^tmp/install-logs/##' -e 's#^install-logs/##' \
     | grep -E '^[A-Za-z0-9._-]+$' \
     | sed -e 's#^#tmp/install-logs/#'
 } | sort -u | tar -czf - --ignore-failed-read --files-from -
 `,
-		remoteDB, strings.TrimSpace(dbdump.ReferencedInstallLogsSQL))
+		fleet.RemoteWorkdir, remoteDB, strings.TrimSpace(dbdump.ReferencedInstallLogsSQL))
 
 	sshCmd := exec.Command("ssh",
-		fmt.Sprintf("%s@%s", sshUser, sshHost),
+		slot.SSHTarget,
 		"bash", "-s")
 
 	outFile, err := os.Create(companionPath)
@@ -1002,12 +1028,15 @@ END $$;
 }
 
 func restoreRemote(projDir string, dumpFile string, code string) error {
-	if err := validateIdentifier(code, "slot code"); err != nil {
+	slot, err := resolveFleetSlot(projDir, code)
+	if err != nil {
 		return err
 	}
-	sshUser := "statbus_" + code
-	sshHost := "niue.statbus.org"
-	remoteDB := "statbus_" + code
+	sshUser, sshHost, err := slot.SSHUserHost()
+	if err != nil {
+		return err
+	}
+	remoteDB := slot.Database()
 
 	fmt.Printf("Restore %s to remote %s (%s@%s)\n", filepath.Base(dumpFile), remoteDB, sshUser, sshHost)
 	if !restoreYes && !confirmAction("This will DROP and recreate the REMOTE database. Continue?") {
@@ -1027,20 +1056,20 @@ func restoreRemote(projDir string, dumpFile string, code string) error {
 	}
 
 	// Upload dump file via scp
-	remotePath := fmt.Sprintf("statbus/dbdumps/%s", filepath.Base(dumpFile))
+	remotePath := fmt.Sprintf("%s/dbdumps/%s", fleet.RemoteWorkdir, filepath.Base(dumpFile))
 	fmt.Printf("Uploading %s ...\n", filepath.Base(dumpFile))
 
 	// Ensure remote dbdumps/ directory exists
 	mkdirCmd := exec.Command("ssh",
-		fmt.Sprintf("%s@%s", sshUser, sshHost),
-		"mkdir -p statbus/dbdumps")
+		slot.SSHTarget,
+		fmt.Sprintf("mkdir -p %s/dbdumps", fleet.RemoteWorkdir))
 	mkdirCmd.Stderr = os.Stderr
 	if err := mkdirCmd.Run(); err != nil {
 		return fmt.Errorf("create remote dbdumps directory: %w", err)
 	}
 
 	scpCmd := exec.Command("scp", dumpFile,
-		fmt.Sprintf("%s@%s:%s", sshUser, sshHost, remotePath))
+		fmt.Sprintf("%s:%s", slot.SSHTarget, remotePath))
 	scpCmd.Stdout = os.Stdout
 	scpCmd.Stderr = os.Stderr
 	if err := scpCmd.Run(); err != nil {
@@ -1049,7 +1078,7 @@ func restoreRemote(projDir string, dumpFile string, code string) error {
 
 	// Build the remote restore script as a heredoc
 	remoteScript := fmt.Sprintf(`set -e
-cd statbus
+cd %[7]s
 
 echo "Stopping worker and rest ..."
 docker compose stop worker rest || true
@@ -1153,18 +1182,18 @@ docker compose exec -T db psql -U postgres -c \
 
 echo "Restarting worker and rest ..."
 if ! ./sb start all_except_app; then
-    echo "WARNING: services remain stopped; run: ssh %[5]s@%[6]s \"cd statbus && ./sb install\" for recovery diagnosis before retrying: ssh %[5]s@%[6]s \"cd statbus && ./sb start all_except_app\"" >&2
+    echo "WARNING: services remain stopped; run: ssh %[5]s@%[6]s \"cd %[7]s && ./sb install\" for recovery diagnosis before retrying: ssh %[5]s@%[6]s \"cd %[7]s && ./sb start all_except_app\"" >&2
 fi
 
 echo "Cleaning up uploaded dump ..."
 rm -f dbdumps/%[2]s
 
 echo "Restore complete"
-`, remoteDB, filepath.Base(dumpFile), code, pgx.Identifier{remoteDB}.Sanitize(), sshUser, sshHost)
+`, remoteDB, filepath.Base(dumpFile), code, pgx.Identifier{remoteDB}.Sanitize(), sshUser, sshHost, fleet.RemoteWorkdir)
 
 	fmt.Println("Running remote restore ...")
 	sshRestore := exec.Command("ssh",
-		fmt.Sprintf("%s@%s", sshUser, sshHost),
+		slot.SSHTarget,
 		"bash", "-s")
 	sshRestore.Stdin = strings.NewReader(remoteScript)
 	sshRestore.Stdout = os.Stdout
