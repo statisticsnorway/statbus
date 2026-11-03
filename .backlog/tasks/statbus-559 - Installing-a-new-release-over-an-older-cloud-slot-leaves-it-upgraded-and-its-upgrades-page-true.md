@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-11-02T15:12:00Z'
-updated_date: '2026-11-03T16:42:00Z'
+updated_date: '2026-11-03T17:38:00Z'
 labels:
   - bug
 dependencies: []
@@ -73,4 +73,6 @@ v2026.11.1-rc.03 gate complete, all green: Release 41531148478, Fast Tests 41531
 2026-11-03 ACs checked on evidence shipped in v2026.11.1-rc.03 (gate all green, runs listed above): AC1 live old-schema probe test red/green (58e1634a1, tmp/559-ac1-*.log) plus LXD 0-install-over-v2026-09-0-schema PASS; AC3 tmp/559-ac3-red/green.log; AC4 Test452KissNormalInstallRetiresAttempts/parked red/green (3e97a489c); AC5 TestRunStampsUnitFloorAtStartup red/green (1c7adbf0f); AC7 TestInstallShRefusesRootBeforeAnyWork, fresh-installer-test commit line, TestUnitedNationsIsAnAcceptedInstallationCountry, answer-review test (4790b5ed7), all red/green. Open: AC6 (real slots). Side observation: ua upgraded itself from v2026.09.0 to v2026.11.0 through its own upgrade service (row 1861 completed 2026-11-03 10:47Z), so the old-schema defect hits ./sb install only, not the service path.
 
 2026-11-03 cloud.sh status reported ug as v2026.11.0 (the sb program) while every container still ran d53731ec (v2026.09.0). Fixed: status adds a SERVING column read from each running container's Config.Image and flags MISMATCH (program vs serving), MIXED, NOTHING RUNNING, UNREADABLE. test/cloud-registry-test.sh red before (tmp/559/cloud-status-red.log: missing serving column), green after (tmp/559/cloud-status-green.log). Real fleet run tmp/559/cloud-status-real.log: ug 'd53731ec MISMATCH', all other slots serve their program's commit.
+
+2026-11-03 AC6, ug: owner ran ./cloud.sh install ug v2026.11.1-rc.03 (tmp/cloud-install-ug.log, 'ug install complete'). Before: sb v2026.11.0 but containers d53731ec (v2026.09.0), schema 20260901212308, ~/statbus-maintenance owned by root, v2026.10.5/v2026.11.0 rows failed on the maintenance flag. After: Directories step DONE and ~/statbus-maintenance owned by statbus_ug; migrations applied (schema 20261031135820); all containers 068d5c93; upgrade row 36389 completed v2026.11.1-rc.03 and the failed v2026.11.0/v2026.10.5/v2026.10.4 rows superseded with their errors kept; unit_floor_state ok; upgrader@ active, retired upgrade@ inactive; ./cloud.sh status ug 'v2026.11.1-rc.03 (068d5c93)' with no note; https://ug.statbus.org answers. Remaining for AC6: mw (v2026.09.0), and ma's parked row.
 <!-- SECTION:NOTES:END -->
