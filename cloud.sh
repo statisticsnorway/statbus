@@ -461,11 +461,32 @@ cmd_upgrade() {
     done
 }
 
+# refresh_local_sb brings this checkout's ./sb to HEAD through dev.sh, which
+# owns the rebuild rule (missing, edited cli/ sources, or built from an older
+# commit with cli/ changes since) and procures or builds it. dev.sh's no-op
+# `help` command runs that refresh and nothing else that matters here.
+# An sb outside a source checkout (no dev.sh beside it: the release binary the
+# gate's operator-install proof stages) is the binary under test and is used
+# exactly as it is.
+refresh_local_sb() {
+    [ -x "$SCRIPT_DIR/dev.sh" ] || return 0
+    if [ -x "$SCRIPT_DIR/sb" ] && (cd "$SCRIPT_DIR" && ./sb committed-drift) >/dev/null 2>&1 \
+        && [ -z "$(cd "$SCRIPT_DIR" && find cli -name '*.go' -newer ./sb -print -quit 2>/dev/null)" ]; then
+        return 0
+    fi
+    echo "Refreshing the local ./sb to this checkout's HEAD..."
+    (cd "$SCRIPT_DIR" && ./dev.sh help >/dev/null) || { echo "Error: could not refresh ./sb; run ./dev.sh build-sb" >&2; return 1; }
+}
+
 cmd_install() {
     local target="$1"
     local version="${2:-}"
     local targets
     targets=$(resolve_target_servers "$target")
+    # install runs this checkout's ./sb (release checks, version comparison).
+    # Bring it to HEAD first, the same way every dev.sh command does, so a
+    # binary built before the last pull never runs here or warns "stale".
+    refresh_local_sb || return 1
 
     if [ "$target" = "all" ] || is_channel "$target" || is_group "$target"; then
         echo "Installing $target servers${version:+ (pinned to $version)}"

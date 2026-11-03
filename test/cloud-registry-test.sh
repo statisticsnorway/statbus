@@ -61,6 +61,13 @@ STUB
 chmod +x "$BIN/git"
 cat >"$TMP/sb" <<'STUB'
 #!/bin/bash
+# committed-drift is the freshness probe cloud.sh asks before using ./sb; it
+# is answered from SB_DRIFT and kept out of SB_LOG, which records real use.
+if [ "$1" = committed-drift ]; then
+    printf 'probe\n' >>"$SB_LOG.probe"
+    [ -z "${SB_DRIFT:-}" ]
+    exit
+fi
 printf '%s\n' "$*" >>"$SB_LOG"
 case "$1 $2" in
   "--version ") echo "sb version test (commit local)" ;;
@@ -68,6 +75,12 @@ case "$1 $2" in
 esac
 STUB
 chmod +x "$TMP/sb"
+# dev.sh owns the ./sb refresh; this double records that cloud.sh asked for it.
+cat >"$TMP/dev.sh" <<'STUB'
+#!/bin/bash
+printf 'dev.sh %s\n' "$*" >>"$OPS_LOG"
+STUB
+chmod +x "$TMP/dev.sh"
 cat >"$TMP/ops/create-new-statbus-installation.sh" <<'STUB'
 #!/bin/bash
 printf 'create %s\n' "$1" >>"$OPS_LOG"
@@ -216,6 +229,14 @@ assert_contains "$output" "untagged (0a1b2c3d)" "a commit without a release tag 
 output=$(run_cloud install no --version vX 2>&1) || fail "pinned install should succeed: $output"
 assert_eq "release verify-artifacts --tag vX" "$(cat "$SB_LOG")" "install --version value reaches release verify-artifacts"
 assert_contains "$(cat "$SSH_LOG")" "bash -s -- --version vX" "install --version value reaches transport"
+assert_not_contains "$(cat "$OPS_LOG")" "dev.sh" "a fresh ./sb is used as it is"
+
+# A ./sb built before the last pull is refreshed through dev.sh before install
+# uses it, instead of running stale and warning (observed 2026-11-03 on
+# ./cloud.sh install ma: "WARN: ./sb is stale: built from 068d5c93").
+output=$(SB_DRIFT=1 run_cloud install no --version vX 2>&1) || fail "install with a stale ./sb should succeed: $output"
+assert_contains "$(cat "$OPS_LOG")" "dev.sh help" "a stale ./sb is refreshed through dev.sh"
+assert_contains "$output" "Refreshing the local ./sb" "the refresh is announced"
 
 set +e
 output=$(SSH_EXIT=47 SSH_INSTALL_OUTPUT='database route unavailable' run_cloud install no --version vX 2>&1); rc=$?
