@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-11-02T13:15:00Z'
-updated_date: '2026-11-03T21:39:00Z'
+updated_date: '2026-11-03T21:41:00Z'
 labels: []
 dependencies: []
 type: bug
@@ -106,4 +106,6 @@ Dense months grow with periods x combinations; a sparse or interval form grows w
 2026-11-03 incremental recalculation prototype (tmp/558-compare/03-incremental.sql/.log, 10-year Norway): per-slot delta rows (about 3x statistical_unit rows) summed into the delta facet. One simulated cycle (30 region moves, 10 deletions, 5 deaths; 45 dirty slots): recompute those slots and re-sum only the 116 stock and 230 flow keys they touched before or touch now, ~82 ms; result equals a full rebuild exactly (0 differ). No subtraction needed: re-summing per key replaces it, so jsonb_stats needs no delta reversal for this, only summing stats_delta.
 
 2026-11-03 statistics on jsonb_stats 3.1 (tmp/558-compare/04-stats-incremental.*, js31-proto): stock stats at year ends from summed stats_delta equal jsonb_stats_merge_agg of existing units, 38,968 cells, 0 differ; incremental per dirty slot (60 slots, 120 keys re-summed, ~60 ms) equals a full rebuild including stats_delta, 0 differ. jsonb_stats 3.1 as it stands (to_delta, negate, delta_agg, delta_to_agg) covers the design; no reversal function needed.
+
+2026-11-03 BRREG selection data (33,876 units, 12 periods): full delta build (counts) ~0.9 s, one cycle of 45 dirty slots ~0.25 s, incremental = full rebuild (0 differ). Master spends 391 s (history facet) + 141 s (statistical_history) of task time on the same benchmark; not like for like (real pipeline over several cycles, stats included), so the real comparison needs the migration. mosquito confirmed: v3.1.0 stays untagged until the owner decides.
 <!-- SECTION:NOTES:END -->
