@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-11-02T15:12:00Z'
-updated_date: '2026-11-03T15:04:00Z'
+updated_date: '2026-11-03T16:42:00Z'
 labels:
   - bug
 dependencies: []
@@ -71,4 +71,6 @@ v2026.11.1-rc.03 (068d5c93a) gate so far: Release 41531148478, Fast Tests 415311
 v2026.11.1-rc.03 gate complete, all green: Release 41531148478, Fast Tests 41531148396, Hardening 41531148543, Smoke 41531391105, dev deploy 41532826997, LXD Fork Fleet 41533051284, Upgrade Arc Harness 41533182923. Remaining: AC6 real slots (owner runs cloud.sh install ug/mw/ua/ma on rc.03).
 
 2026-11-03 ACs checked on evidence shipped in v2026.11.1-rc.03 (gate all green, runs listed above): AC1 live old-schema probe test red/green (58e1634a1, tmp/559-ac1-*.log) plus LXD 0-install-over-v2026-09-0-schema PASS; AC3 tmp/559-ac3-red/green.log; AC4 Test452KissNormalInstallRetiresAttempts/parked red/green (3e97a489c); AC5 TestRunStampsUnitFloorAtStartup red/green (1c7adbf0f); AC7 TestInstallShRefusesRootBeforeAnyWork, fresh-installer-test commit line, TestUnitedNationsIsAnAcceptedInstallationCountry, answer-review test (4790b5ed7), all red/green. Open: AC6 (real slots). Side observation: ua upgraded itself from v2026.09.0 to v2026.11.0 through its own upgrade service (row 1861 completed 2026-11-03 10:47Z), so the old-schema defect hits ./sb install only, not the service path.
+
+2026-11-03 cloud.sh status reported ug as v2026.11.0 (the sb program) while every container still ran d53731ec (v2026.09.0). Fixed: status adds a SERVING column read from each running container's Config.Image and flags MISMATCH (program vs serving), MIXED, NOTHING RUNNING, UNREADABLE. test/cloud-registry-test.sh red before (tmp/559/cloud-status-red.log: missing serving column), green after (tmp/559/cloud-status-green.log). Real fleet run tmp/559/cloud-status-real.log: ug 'd53731ec MISMATCH', all other slots serve their program's commit.
 <!-- SECTION:NOTES:END -->
