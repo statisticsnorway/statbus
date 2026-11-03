@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: 2026-09-25 13:08
-updated_date: '2026-11-02T22:10:00Z'
+updated_date: '2026-11-03T20:01:00Z'
 labels:
   - installer
 dependencies: []
@@ -82,4 +82,6 @@ Removal is destructive, so the defaults protect what cannot be recreated:
 Replayed after rc.03: code commit dfe262b0b (was 90ebd4457), ticket evidence a9f2eba96 (was 3703c3fd7), both on origin/master. CI for tip aaedebceb1b6c620b757a7864826ce62f20a712a (includes both): Go Test success, Harness Selftest success, app build & lint success, Images success, CodeQL success, Notify cloud services success (gh run list, 2026-11-02T21:52Z). Push hold released.
 
 CI for 3df6bdc36d7b462eaf8ab533910ace895c085d20 (final ticket-evidence commit): Fast Tests success, Harness Selftest success, Images success, CodeQL success, Notify cloud services success (2026-11-02T22:10Z). Code commit dfe262b0b was covered green by the aaedebceb tip run (Go Test, app build & lint, Harness Selftest, Images, CodeQL, Notify).
+
+v2026.11.1-rc.04 (6de3d2757) gate all green: Orchestrator 41694665449, Release 41694665586, Fast Tests 41694665437, Hardening 41694665619, Smoke 41694992526, dev deploy 41697559548, LXD Fork Fleet 41698073420, Upgrade Arc Harness 41698438796. First release containing AC6/AC7 (dfe262b0b); real-box check is the owner's manual-box walkthrough on rc.04.
 <!-- SECTION:NOTES:END -->

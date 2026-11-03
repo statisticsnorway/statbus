@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-11-02T15:12:00Z'
-updated_date: '2026-11-03T18:00:00Z'
+updated_date: '2026-11-03T20:01:00Z'
 labels:
   - bug
 dependencies: []
@@ -81,4 +81,6 @@ v2026.11.1-rc.03 gate complete, all green: Release 41531148478, Fast Tests 41531
 2026-11-03 AC6, ma: ./cloud.sh install ma v2026.11.1-rc.03 complete (tmp/cloud-install-ma.log). Parked row 28881 (v2026.10.5) superseded, park cleared, error kept with ' — superseded by the successful install of v2026.11.1-rc.03'; upgrade_state_log records in_progress -> superseded with old_parked_at set. Row 31960 completed rc.03; unit_floor_state ok; status 'v2026.11.1-rc.03 (068d5c93)' with no note. Fixed from today's runs, each red/green: cloud.sh install refreshes a stale local ./sb through dev.sh (447495464, tmp/559/cloud-sb-refresh-*.log); the upgrader keeps NOTIFY_SOCKET so children no longer trigger systemd's 'reception only permitted for main PID' (c3e758fdb, tmp/notify-*.log); the user unit file is written 0644 so systemd stops warning 'marked executable' (421b8ad85, tmp/unit-mode-*.log). The last two ship in the next RC.
 
 2026-11-03 AC6 complete. mw: ./cloud.sh install mw v2026.11.1-rc.03 (tmp/cloud-install-mw.log) over a real v2026.09.0 schema: Directories OK, Migrations DONE (schema 20261031135820), row 1806 completed rc.03. ./cloud.sh status: ug, ma, mw all 'v2026.11.1-rc.03 (068d5c93)' with no note. All seven ACs checked; Done after the owner's go.
+
+v2026.11.1-rc.04 (6de3d2757) gate all green: Orchestrator 41694665449, Release 41694665586, Fast Tests 41694665437, Hardening 41694665619, Smoke 41694992526, dev deploy 41697559548, LXD Fork Fleet 41698073420, Upgrade Arc Harness 41698438796. Contains the systemd notify-socket and unit-file 0644 fixes from the fleet runs.
 <!-- SECTION:NOTES:END -->
