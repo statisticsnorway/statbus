@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-11-02T13:15:00Z'
-updated_date: '2026-11-03T17:29:00Z'
+updated_date: '2026-11-03T17:35:00Z'
 labels: []
 dependencies: []
 type: bug
@@ -92,4 +92,6 @@ Dense months grow with periods x combinations; a sparse or interval form grows w
 2026-11-03 owner approved installing jsonb_stats 3.1-dev (950380d) in statbus-local-db for the trial. Done: .so and extension files copied in; 3.0.0 files backed up in tmp/558-mig/js30-backup (restore after the trial). statbus_local stays at extension version 3.0.0 and works (merge_agg checked); 3.1.0 is now the default version available to databases that ALTER EXTENSION UPDATE.
 
 2026-11-03 design restated with owner, in tmp/558-mig/design.md (the reference for the next session): table statistical_history_facet_delta, one row per combination and date where something happened. Integer columns exists_in/out, countable_in/out, births, deaths, moved_in/out, and today's attribute-change counts; CHECK births <= exists_in etc. One jsonb column stats_delta (jsonb_stats 3.1 stats_delta: per variable in/out count/sum/sum_sq, value changes as out+in). jsonb_stats carries statistics only. statistical_history kept (owner: it does its job). statistical_history_facet and its partitions cache replaced. Incremental update: recompute the affected (combination, date) rows from statistical_unit, no subtraction. Both earlier prototypes used a withdrawn format (rows split by kind and label); their numbers are indicative only. Next: prototype this format, then the real migration.
+
+2026-11-03 owner direction: statistical_history_facet keeps its name and columns as a VIEW over statistical_history_facet_delta; statistical_history_facet_partitions and the six facet functions/worker steps go. Open: gross and change counts per event (recommended: churn within a period becomes visible, in - out = net stock change, months add to the year) or by comparing period ends (today); owner's first reading: per event seems an improvement, to confirm after looking at consequences. All in tmp/558-mig/design.md, the reference for the next session.
 <!-- SECTION:NOTES:END -->
