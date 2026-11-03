@@ -4,7 +4,7 @@ title: 'One version: published scripts state and install the release they belong
 status: Done
 assignee: []
 created_date: '2026-10-30T08:39:00Z'
-updated_date: '2026-11-02T14:11:00Z'
+updated_date: '2026-11-03T23:46:00Z'
 labels:
   - release
   - installer
@@ -30,7 +30,6 @@ Design:
 - Banners: setup prints "StatBus: <tag>"; install.sh prints "StatBus installer <tag>"; uninstall.sh prints "StatBus uninstaller <tag>". An unstamped git copy prints "development copy (not a release)". SCRIPT_VERSION is removed.
 - install.sh's choice of version is unchanged (default latest stable, --version, --channel). When a stamped installer installs a different release it prints "This is the <tag> installer; it installs <version>."
 - Out of scope: binding the installer to its own release; changing setup's next-step command.
-A draft implementation is in tmp/537-draft.patch (apply with git apply).
 
 ### Closing review
 - **Memory:** none. **Documentation:** the STATBUS_RELEASE comments in the scripts and the release.yaml step. **Cleanup:** SCRIPT_VERSION removed.
@@ -74,4 +73,6 @@ Other verification: all test/install-recovery/tests/setup-*.sh pass; fresh-insta
 AC5 (published statbus.org scripts show the next release's tag) needs a release and is left to the coordinator.
 
 AC5 verified 2026-11-02 after stable v2026.11.0 promotion (c65d1802a). Fetched https://statbus.org/{setup,install,uninstall}.sh (copies + sha256 in tmp/537/). Observed banners: setup.sh 'StatBus: v2026.11.0'; install.sh 'StatBus installer v2026.11.0'; uninstall.sh (first 14 lines only, no removal) 'StatBus uninstaller v2026.11.0'.
+
+- **2026-11-03 follow-up:** an installed copy (~/statbus/uninstall.sh, install.sh, ops/setup-ubuntu-lts.sh) said 'development copy' on the manual box with rc.04. It now names the release from VERSION in the installation's .env when that is a release tag (`a8ae06c04`, then `9b3a9d461` reading .env instead of git so no work starts before install.sh's refusals). release-script-stamp-test red before (`tmp/stamp-checkout-red.log`), green after; `TestInstallSh*` green. In v2026.11.1-rc.05.
 <!-- SECTION:NOTES:END -->

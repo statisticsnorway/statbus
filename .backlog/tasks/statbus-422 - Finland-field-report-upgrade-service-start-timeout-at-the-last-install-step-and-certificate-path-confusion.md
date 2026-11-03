@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: 2026-09-27 10:07
-updated_date: '2026-11-03T22:06:00Z'
+updated_date: '2026-11-03T23:46:00Z'
 labels:
   - installer
 dependencies: []
@@ -25,7 +25,6 @@ Every problem Finland's operator hit on the 2026-09-24/25 install either is fixe
 This ticket is a field report, not a feature. A field report is done when each finding is traced to a cause and either fixed here or handed to the ticket that owns it. Mixing several features into one ticket hides which part is still open, so findings that grew into their own work moved out (STATBUS-429, 430, 464, 465, 466, 469). What remains here is only what is not owned elsewhere.
 
 ### Zoom in
-- **What remains (owner, 2026-10-26):** AC4, the footer showing the release on a fresh install of the next candidate, and AC6, sending Ville the stable-install instruction. Ville is deliberately LAST: he gets the instruction after every other In Progress ticket has been passed, so he receives one working, current answer rather than another intermediate one. In practice that means after STATBUS-429 (sudo-free `./sb cert install`) is proven and stable, and after 399 is no longer in flight. Until then no instruction is sent.
 - **Report, Ville-Mattis Pilvio, 2026-09-25 (v2026.09.2):** fresh install on `statbus.statfin.eu`; steps 1-16 green, step 17 `Upgrade service FAILED: enable service: exit status 1` after `Job ... failed because a timeout was exceeded`; his `.env.config` had `TLS_CERT_FILE=/home/statbus/statbus.crt` (a host path) and a hand-added `SITE_DOMAIN`.
 - **Step-17 cause, proven:** LXD replay 2026-09-29 (`tmp/ville-replay-v2026.09.3.md`): with a host-path certificate Caddy cannot open the file, the proxy crash-loops, `127.0.0.1:5431` stays unbound, the upgrade service exhausts its 5-minute connect budget and systemd reports exactly that timeout. On v2026.09.3 it is refused with a named cause.
 - **Shipped (merge `afd59955a`, v2026.09.3):** service failures include the unit's journal tail (`serviceFailureWithJournal`, `cli/cmd/install.go`); `TLS_CERT_FILE`/`TLS_KEY_FILE` are validated as container paths with a clear message (`cli/internal/config/config.go`).
@@ -70,7 +69,7 @@ This ticket is a field report, not a feature. A field report is done when each f
 ### Owner decision 2026-10-26: Ville waits for the sweep
 Do not send Ville the stable-install instruction yet. He is contacted after every other In Progress ticket has been passed. No dependency on STATBUS-399 for him (it is the no-public-DNS case); the practical dependency is 429's proven sudo-free `./sb cert install` plus a stable release. AC6 stays open until then.
 
-AC4 real-box evidence: after rc.03 dev Deploy run 40607897050, a read-only browser visit to https://dev.statbus.org on 2026-10-28 showed the footer exactly 'Statbus version v2026.10.4-rc.03 (18e7d1fe)', not unknown. AC6 remains open.
+AC4 partial evidence (an upgraded box, not a fresh install): after rc.03 dev Deploy run 40607897050, a read-only browser visit to https://dev.statbus.org on 2026-10-28 showed the footer exactly 'Statbus version v2026.10.4-rc.03 (18e7d1fe)', not unknown. AC6 remains open.
 
 2026-10-30 (owner): AC6 reworded. Ville waits until the owner has tried the installer's certificate picker on the plain manual box (ops/manual-box.sh cert, walkthrough step 6) with the next release; then the coordinator drafts the message for the owner to send. No dependency on STATBUS-399; STATBUS-429's sudo-free cert install is already in v2026.10.5.
 
@@ -109,4 +108,7 @@ AC4 real-box evidence: after rc.03 dev Deploy run 40607897050, a read-only brows
 - Tests (red tmp/422-onepick-red.log; green tmp/422-onepick-green.log): TestInstallCertPickerOnePickListsCertificates (PEM pair + same password-free PFX -> one candidate, Y/n, no password, no second numbered question), TestInstallCertPickerPEMPairPlusDifferentPFX (two candidates; choosing the PFX with password RightPass returns [pfx], one password read, CN shown, no 'Install which certificate number'), plus updated Another-file-or-folder and invalid-number tests.
 - Verification: gofmt clean, go vet ./cmd, go build ./...; go test ./cmd/ -run 'Cert|Picker' -count=1 green; setup-choices-driver-test.sh PASS (tmp/422-setup-choices-driver-3.log). Full go test ./cmd/ has ONE failure unrelated to this work: TestRestartsAfterSettingsRestoreCoverEveryService (install_detection_test.go:655) because 68271b0ad made applyPendingRestarts call composeRestartService, which that test does not fake (tmp/422-cmd-full-3.log). Reported to the coordinator; install.go is not in this worker's files.
 - Documentation: no product docs describe the folder list (searched doc/, cli/, ops/); the tracked DEPLOYMENT.md text about the up-front certificate flow remains accurate. tmp/picker-proto/PROPOSAL.md is ignored and still describes the old folder list.
+
+- **What remains (owner, 2026-10-26):** AC4, the footer showing the release on a fresh install of the next candidate, and AC6, sending Ville the stable-install instruction. Ville is deliberately LAST: he gets the instruction after every other In Progress ticket has been passed, so he receives one working, current answer rather than another intermediate one. In practice that means after STATBUS-429 (sudo-free `./sb cert install`) is proven and stable, and after 399 is no longer in flight. Until then no instruction is sent.
+- **2026-11-03, picker noise:** `10404842f`. Giving the home folder listed every ordinary file (.bashrc, the uninstall lock) as 'no PEM certificate or private key found' (manual box, rc.04). Now only files with a certificate extension or a PEM header are reported. `TestScanCertificateFolderReportsOnlyCertificateLookingFiles` red before (`tmp/picker-notes-red.log` in statbus_test), green after; full `go test ./cmd` green. In v2026.11.1-rc.05.
 <!-- SECTION:NOTES:END -->
