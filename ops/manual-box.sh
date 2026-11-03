@@ -21,7 +21,8 @@
 #                              install, health, uninstall)
 #   ops/manual-box.sh rebuild  wipe it back to a blank Ubuntu 26.04 (same IP)
 #   ops/manual-box.sh down     delete it (billing stops)
-#   ops/manual-box.sh status   show it, with its creation time
+#   ops/manual-box.sh status   (or info) the box: address, logins, ssh commands,
+#                              session log, then the walkthrough
 #
 # Cost: cx33 (4 cores, 8 GB) is about EUR 0.017 per hour, billed hourly.
 # Delete it when the session is over.
@@ -92,18 +93,27 @@ wait_for_ssh() {
 }
 
 show() {
-    local server=$1 ip created
+    local server=$1 ip created logins user
     ip=$(jq -er '.public_net.ipv4.ip' <<<"$server")
     created=$(jq -r '.created' <<<"$server")
+    # Which accounts take this key right now (ubuntu always; devops and
+    # statbus once setup has created them). A quick BatchMode probe each.
+    logins=""
+    for user in "$login_user" devops statbus; do
+        if ssh -o BatchMode=yes -o ConnectTimeout=5 -o StrictHostKeyChecking=accept-new "$user@$ip" true 2>/dev/null; then
+            logins="${logins:+$logins, }$user"
+        fi
+    done
     cat <<EOF
-Server:  $name ($type, $image, $location), created $created
-Address: $ip
+Box:          $name, $ip ($type, $image, $location), created $created
+Site name:    $cert_domain (not in DNS; the test certificate covers it)
+Logins now:   ${logins:-none answer yet}
 
-Log in:            ops/manual-box.sh ssh   (as $login_user; ssh statbus after setup)
-Plain ssh:         ssh $login_user@$ip     (ssh statbus@$ip after setup)
-Login check:       ops/manual-box.sh try-ssh statbus   (when setup asks "Did that connect?")
-Session log:       $log
-Delete when done:  ops/manual-box.sh down
+Log in:       ops/manual-box.sh ssh [user]      (logged tmux session, default $login_user)
+Plain ssh:    ssh <user>@$ip
+Login check:  ops/manual-box.sh try-ssh statbus (when setup asks "Did that connect?")
+Session log:  $log
+Delete:       ops/manual-box.sh down
 
 Test walkthrough (ops/manual-box.sh guide prints it again):
 $(guide_text)
@@ -274,14 +284,16 @@ down)
     ssh-keygen -R "$ip" >/dev/null 2>&1 || true
     echo "Deleted $name ($ip). Billing has stopped."
     ;;
-status)
+status|info)
     server=$(describe)
     [ -n "$server" ] || { echo "No server '$name'."; exit 0; }
     require_ours "$server"
     show "$server"
     ;;
 *)
-    sed -n '2,20p' "$0" | sed 's/^# \{0,1\}//'
+    # The header comment is the help: every line up to the first non-comment.
+    awk 'NR == 1 { next } /^#/ { sub(/^# ?/, ""); print; next } { exit }' "$0" \
+        | sed '/^Cost:/,$d'
     exit 2
     ;;
 esac
