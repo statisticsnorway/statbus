@@ -26,6 +26,9 @@ type certChoice struct {
 	NeedsPassword bool
 	// AlsoIn names the other files in the folder that hold the same leaf.
 	AlsoIn []string
+	// PFX marks a choice whose contents are still behind a password: the
+	// picker shows it by file name and opens it only once it is chosen.
+	PFX bool
 }
 
 // The name-only search that feeds the installer's certificate picker
@@ -304,16 +307,6 @@ func scanCertificateFolder(folder, siteDomain string, pfxPassword *string) (choi
 	if err != nil {
 		return nil, nil, err
 	}
-	type certFile struct {
-		path  string
-		chain []*x509.Certificate
-	}
-	type keyFile struct {
-		path string
-		key  interface{}
-	}
-	var certFiles []certFile
-	var keyFiles []keyFile
 
 	pw := ""
 	if pfxPassword != nil {
@@ -322,8 +315,7 @@ func scanCertificateFolder(folder, siteDomain string, pfxPassword *string) (choi
 	for _, path := range files {
 		data, readErr := os.ReadFile(path)
 		if readErr != nil {
-			notes = append(notes, fmt.Sprintf("%s: could not read", filepath.Base(path)))
-			continue
+			continue // pemPairChoices reports the unreadable file
 		}
 		if looksLikeDER(data) {
 			chain, key, decodeErr := decodePFX(data, pw)
@@ -335,26 +327,57 @@ func scanCertificateFolder(folder, siteDomain string, pfxPassword *string) (choi
 				notes = append(notes, fmt.Sprintf("%s: no certificate and private key inside", filepath.Base(path)))
 				continue
 			}
-			choices = append(choices, certChoice{Args: []string{path}, Leaf: chain[0], ChainLength: len(chain), NeedsPassword: true})
+			choices = append(choices, certChoice{Args: []string{path}, Leaf: chain[0], ChainLength: len(chain), NeedsPassword: true, PFX: true})
 			continue
-		}
-		certs, key := loosePEMContents(data)
-		if len(certs) > 0 {
-			if key != nil && validateCertKeyMatch(certs[0], key) == nil {
-				choices = append(choices, certChoice{Args: []string{path}, Leaf: certs[0], ChainLength: len(certs)})
-				keyFiles = append(keyFiles, keyFile{path: path, key: key})
-			} else {
-				certFiles = append(certFiles, certFile{path: path, chain: certs})
-			}
-		} else if key != nil {
-			keyFiles = append(keyFiles, keyFile{path: path, key: key})
-		} else {
-			notes = append(notes, fmt.Sprintf("%s: no PEM certificate or private key found", filepath.Base(path)))
 		}
 	}
 
-	// Pair certificate-only PEM files with a matching key elsewhere in the
-	// folder. Only a public-key match offers a pair.
+	pemChoices, pemNotes := pemPairChoices(files)
+	choices = append(choices, pemChoices...)
+	notes = append(notes, pemNotes...)
+
+	choices = mergeDuplicateCertificates(choices)
+	rankCertificateChoices(choices, siteDomain)
+	return choices, notes, nil
+}
+
+// pemPairChoices pairs the PEM files in files: a file holding a certificate
+// and its matching key is one choice, and a certificate-only file pairs with a
+// matching key file in the same folder. Only a public-key match offers a pair.
+// Files that cannot be offered are notes.
+func pemPairChoices(files []string) (choices []certChoice, notes []string) {
+	type certFile struct {
+		path  string
+		chain []*x509.Certificate
+	}
+	type keyFile struct {
+		path string
+		key  interface{}
+	}
+	var certFiles []certFile
+	var keyFiles []keyFile
+	for _, path := range files {
+		data, err := os.ReadFile(path)
+		if err != nil {
+			notes = append(notes, fmt.Sprintf("%s: could not read", filepath.Base(path)))
+			continue
+		}
+		if looksLikeDER(data) {
+			continue // the caller handles PFX files
+		}
+		certs, key := loosePEMContents(data)
+		switch {
+		case len(certs) > 0 && key != nil && validateCertKeyMatch(certs[0], key) == nil:
+			choices = append(choices, certChoice{Args: []string{path}, Leaf: certs[0], ChainLength: len(certs)})
+			keyFiles = append(keyFiles, keyFile{path: path, key: key})
+		case len(certs) > 0:
+			certFiles = append(certFiles, certFile{path: path, chain: certs})
+		case key != nil:
+			keyFiles = append(keyFiles, keyFile{path: path, key: key})
+		default:
+			notes = append(notes, fmt.Sprintf("%s: no PEM certificate or private key found", filepath.Base(path)))
+		}
+	}
 	for _, cert := range certFiles {
 		paired := ""
 		for _, key := range keyFiles {
@@ -369,10 +392,49 @@ func scanCertificateFolder(folder, siteDomain string, pfxPassword *string) (choi
 		}
 		choices = append(choices, certChoice{Args: []string{cert.path, paired}, Leaf: cert.chain[0], ChainLength: len(cert.chain)})
 	}
+	return choices, notes
+}
 
-	choices = mergeDuplicateCertificates(choices)
-	rankCertificateChoices(choices, siteDomain)
-	return choices, notes, nil
+// scanInstallCertCandidates is the picker's list: every installable
+// certificate under the name-search folders, one entry per certificate. PEM
+// pairs carry the leaf and are described by CN, SANs and expiry; PFX files are
+// listed by name because their contents need the password. A PFX that opens
+// with no password is still shown by name, but its leaf lets the same
+// certificate collapse to the PEM pair that needs no password.
+func scanInstallCertCandidates(home, siteDomain string) []certChoice {
+	var pemChoices, pfxChoices []certChoice
+	for _, folder := range findCertificateCandidates(home) {
+		paths := make([]string, 0, len(folder.Files))
+		for _, name := range folder.Files {
+			paths = append(paths, filepath.Join(folder.Path, name))
+		}
+		pem, _ := pemPairChoices(paths)
+		pemChoices = append(pemChoices, pem...)
+		for _, path := range paths {
+			data, err := os.ReadFile(path)
+			if err != nil || !looksLikeDER(data) {
+				continue
+			}
+			choice := certChoice{Args: []string{path}, ChainLength: 1, NeedsPassword: true, PFX: true}
+			if chain, key, decodeErr := decodePFX(data, ""); decodeErr == nil && key != nil && len(chain) > 0 {
+				choice.Leaf = chain[0]
+				choice.ChainLength = len(chain)
+			}
+			pfxChoices = append(pfxChoices, choice)
+		}
+	}
+	choices := mergeDuplicateCertificates(append(pemChoices, pfxChoices...))
+	// The best PEM pair is the default; PFX files follow it.
+	var pem, pfx []certChoice
+	for _, choice := range choices {
+		if choice.PFX {
+			pfx = append(pfx, choice)
+			continue
+		}
+		pem = append(pem, choice)
+	}
+	rankCertificateChoices(pem, siteDomain)
+	return append(pem, pfx...)
 }
 
 // mergeDuplicateCertificates lists one choice per leaf. The manual box exports
@@ -384,6 +446,11 @@ func mergeDuplicateCertificates(choices []certChoice) []certChoice {
 	merged := make([]certChoice, 0, len(choices))
 	position := make(map[string]int, len(choices))
 	for _, choice := range choices {
+		if choice.Leaf == nil {
+			// A PFX behind a password has no leaf to compare yet.
+			merged = append(merged, choice)
+			continue
+		}
 		key := string(choice.Leaf.Raw)
 		i, seen := position[key]
 		if !seen {
@@ -498,4 +565,29 @@ func renderCertificateChoices(choices []certChoice, notes []string, siteDomain s
 	}
 	lines = append(lines, renderCertificateNotes(notes)...)
 	return lines
+}
+
+// renderInstallCertCandidates is the picker's numbered list. The first entry is
+// the default, and the last entry is the escape hatch to type any path.
+func renderInstallCertCandidates(choices []certChoice, siteDomain string) []string {
+	lines := []string{"  Certificates found:"}
+	for i, choice := range choices {
+		flag := ""
+		if i == 0 {
+			flag = " [default]"
+		}
+		lines = append(lines, fmt.Sprintf("  %d) %s%s", i+1, installCertChoiceLine(choice, siteDomain), flag))
+	}
+	lines = append(lines, fmt.Sprintf("  %d) Another file or folder (type a path)", len(choices)+1))
+	return lines
+}
+
+// installCertChoiceLine describes one picker entry. A PEM pair is described by
+// its certificate. A PFX is described by its file name: its certificate is not
+// read until the operator chooses it and supplies the password.
+func installCertChoiceLine(choice certChoice, siteDomain string) string {
+	if !choice.PFX {
+		return certificateChoiceLine(choice, siteDomain)
+	}
+	return strings.Join(choice.Args, " + ") + "  PFX; its password is asked when chosen"
 }

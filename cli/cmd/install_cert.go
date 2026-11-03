@@ -32,6 +32,7 @@ import (
 	"bufio"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 )
@@ -256,17 +257,15 @@ var certificateExplanation = []string{
 }
 
 // askInstallCert is the interactive certificate question: optional, default
-// keeps today's behaviour. A file path behaves as before. A folder is scanned
-// by content, listed with its usable certificates, and the chosen files then
-// flow through installCustomCertificate. Returns nil when the operator
-// declines or has nothing to give.
+// keeps today's behaviour. After "yes" it lists the installable certificates
+// found under ~ in ONE pick: each PEM pair is described by its certificate and
+// needs no password, each PFX by its file name. The chosen input then flows
+// through installCustomCertificate. Returns nil when the operator declines or
+// has nothing to give.
 //
-// After "yes" the installer first lists the folders under ~ that hold
-// certificate files by name (tmp/picker-proto/PROPOSAL.md). The list is a
-// suggestion, not a scan: it never reads contents, so it needs no password,
-// and the operator can always type another path instead. Choosing a folder
-// runs chooseCertificateFromFolder, unchanged, which does the content checks
-// and asks for a PFX password at most once.
+// A typed path behaves as before: a file is used directly, and a typed folder
+// runs chooseCertificateFromFolder, which content-checks the folder and asks
+// for a PFX password at most once.
 func askInstallCert(dir string) ([]string, *string) {
 	fmt.Println()
 	for _, line := range certificateExplanation {
@@ -277,29 +276,80 @@ func askInstallCert(dir string) ([]string, *string) {
 		return nil, nil
 	}
 	home, _ := os.UserHomeDir()
-	folders := findCertificateCandidates(home)
-	if len(folders) == 0 {
-		certNotice("  No certificate files found under ~.")
+	siteDomain := certSiteDomain(dir)
+	choices := scanInstallCertCandidates(home, siteDomain)
+	if len(choices) == 0 {
+		if len(findCertificateCandidates(home)) == 0 {
+			certNotice("  No certificate files found under ~.")
+		} else {
+			certNotice("  No certificate with a matching private key was found under ~.")
+		}
 		return askInstallCertPath(dir)
 	}
-	for _, line := range renderCertificateFolderChoices(folders, home) {
+	if len(choices) == 1 {
+		// One installable certificate is a confirmation, not a list.
+		certNotice("%s", installCertChoiceLine(choices[0], siteDomain))
+		if !askCertificateDefaultYes("  Install this certificate?") {
+			certContinueWithout()
+			return nil, nil
+		}
+		return installCertChoice(choices[0], siteDomain, dir)
+	}
+	for _, line := range renderInstallCertCandidates(choices, siteDomain) {
 		certNotice("%s", line)
 	}
 	answer := questionnairePrompt("  Use which", "1")
 	number, convErr := strconv.Atoi(strings.TrimSpace(answer))
 	switch {
-	case convErr == nil && number >= 1 && number <= len(folders):
-		args, password := finishCertFolderChoice(folders[number-1].Path, dir)
-		if args != nil || !certFolderRetry {
-			return args, password
-		}
-		certRetryHint()
-		return askInstallCertPath(dir)
-	case convErr == nil && number == len(folders)+1:
+	case convErr == nil && number >= 1 && number <= len(choices):
+		return installCertChoice(choices[number-1], siteDomain, dir)
+	case convErr == nil && number == len(choices)+1:
 		return askInstallCertPath(dir)
 	}
 	certNotice("  That is not one of the listed numbers; type a path instead.")
 	return askInstallCertPath(dir)
+}
+
+// certSiteDomain reads the configured site name for the coverage line. A
+// configuration that cannot be read leaves it empty, exactly as the folder
+// chooser does.
+func certSiteDomain(dir string) string {
+	_, siteDomain, _, _, err := readModeAndCertEnv(dir)
+	if err != nil {
+		return ""
+	}
+	return siteDomain
+}
+
+// installCertChoice turns a picked candidate into certificate input. A PFX is
+// opened once with the operator's password and its certificate is shown before
+// the install; a PEM pair needs nothing further.
+func installCertChoice(choice certChoice, siteDomain, dir string) ([]string, *string) {
+	if !choice.PFX {
+		return choice.Args, nil
+	}
+	password, err := readPassword("  PFX password (type it and press Enter; it will not be shown; leave empty if none): ")
+	if err != nil {
+		certNotice("  Could not read the PFX password.")
+		certRetryHint()
+		return askInstallCertPath(dir)
+	}
+	data, readErr := os.ReadFile(choice.Args[0])
+	if readErr != nil {
+		certNotice("  Could not read %s: %v", choice.Args[0], readErr)
+		certRetryHint()
+		return askInstallCertPath(dir)
+	}
+	chain, key, decodeErr := decodePFX(data, password)
+	if decodeErr != nil || key == nil || len(chain) == 0 {
+		certNotice("  %s: could not open with that password", filepath.Base(choice.Args[0]))
+		certRetryHint()
+		return askInstallCertPath(dir)
+	}
+	shown := []certChoice{{Args: choice.Args, Leaf: chain[0], ChainLength: len(chain)}}
+	rankCertificateChoices(shown, siteDomain)
+	certNotice("%s", certificateChoiceLine(shown[0], siteDomain))
+	return choice.Args, &password
 }
 
 // askInstallCertPath is the path question the installer has always asked: an

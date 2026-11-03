@@ -1,7 +1,7 @@
-// install_cert_picker_test.go: the name-only certificate picker that runs
-// after "Do you have a certificate to install now? y" (tmp/picker-proto/
-// PROPOSAL.md). The tests keep the search inside a temporary HOME so they
-// describe the operator's list, not the machine running them.
+// install_cert_picker_test.go: the one-pick certificate list that runs after
+// "Do you have a certificate to install now? y", plus the typed-path retry.
+// The tests keep the search inside a temporary HOME so they describe the
+// operator's list, not the machine running them.
 package cmd
 
 import (
@@ -95,73 +95,124 @@ func pickerLabelAsked(labels []string, substring string) bool {
 	return false
 }
 
-// TestInstallCertPickerListsFoldersNewestFirst: the rendered list names the
-// folders that hold candidates, newest first, and leaves out the install
-// directory, the noise folders, oversized files and non-certificate names.
-func TestInstallCertPickerListsFoldersNewestFirst(t *testing.T) {
+// TestInstallCertPickerOnePickListsCertificates: the picker lists installable
+// certificates themselves, not folders. The same certificate as a PEM pair and
+// as a (password-free) PFX is one candidate, the PEM pair; a single candidate
+// asks the Y/n question with no password and no numbered list.
+func TestInstallCertPickerOnePickListsCertificates(t *testing.T) {
 	home := pickerHome(t)
-	now := time.Now()
-	pickerWrite(t, filepath.Join(home, "Downloads", "old.crt"), now.Add(-48*time.Hour), []byte("old"))
-	pickerWrite(t, filepath.Join(home, "Documents", "x", "cert.pfx"), now, []byte("new"))
-	pickerWrite(t, filepath.Join(home, "statbus", "certs", "skip.pem"), now, []byte("skip"))
-	pickerWrite(t, filepath.Join(home, ".git", "objects", "hidden.pem"), now, []byte("skip"))
-	pickerWrite(t, filepath.Join(home, ".cache", "cached.pem"), now, []byte("skip"))
-	pickerWrite(t, filepath.Join(home, "node_modules", "pkg", "cert.p12"), now, []byte("skip"))
-	pickerWrite(t, filepath.Join(home, "Documents", "big.pfx"), now, make([]byte, certCandidateMaxSize))
-	pickerWrite(t, filepath.Join(home, "Documents", "notes.txt"), now, []byte("notes"))
+	folder := filepath.Join(home, "Downloads")
+	cert, key := testCertificate(t, "statbus.example.org", []string{"statbus.example.org"}, time.Now().Add(-time.Hour), time.Now().Add(24*time.Hour))
+	bundle := filepath.Join(folder, "fullchain.pem")
+	pickerWrite(t, bundle, time.Now(), append(certPEM(t, cert), keyPEM(t, key)...))
+	writePFX(t, filepath.Join(folder, "site.pfx"), cert, key, "")
+	asked := stubCertificateDefaultYes(t, true)
+	labels := pickerAnswerSequence(t)
 
-	labels := pickerPrompts(t, map[string]string{"Use which": "1"})
-	var chosen string
-	chooseCertFolder = func(folder, dir string) ([]string, *string) {
-		chosen = folder
-		return nil, nil
-	}
+	var args []string
+	out := pickerCapture(t, func() { args, _ = askInstallCert(t.TempDir()) })
 
-	out := pickerCapture(t, func() { askInstallCert(t.TempDir()) })
-
-	documents := "~/Documents/x"
-	downloads := "~/Downloads"
-	if !strings.Contains(out, "Certificates found:") {
-		t.Fatalf("no picker list in output:\n%s", out)
+	if len(args) != 1 || args[0] != bundle {
+		t.Fatalf("one certificate produced %q, want [%q]", args, bundle)
 	}
-	for _, want := range []string{documents, "cert.pfx", downloads, "old.crt", "Another file or folder (type a path)"} {
-		if !strings.Contains(out, want) {
-			t.Fatalf("list is missing %q:\n%s", want, out)
-		}
+	if *asked != "  Install this certificate?" {
+		t.Fatalf("question = %q, want the single-certificate confirmation", *asked)
 	}
-	for _, unwanted := range []string{"statbus", "skip.pem", "big.pfx", "notes.txt", ".git", ".cache", "node_modules"} {
+	for _, unwanted := range []string{"Use which", "Install which certificate number", "PFX password"} {
 		if strings.Contains(out, unwanted) {
-			t.Fatalf("list must not mention %q:\n%s", unwanted, out)
+			t.Fatalf("one pick must not ask %q:\n%s", unwanted, out)
 		}
 	}
-	if strings.Index(out, documents) > strings.Index(out, downloads) {
-		t.Fatalf("newest folder must come first:\n%s", out)
+	if !strings.Contains(out, "CN=statbus.example.org") {
+		t.Fatalf("the PEM pair is not described by its certificate:\n%s", out)
 	}
-	if !pickerLabelAsked(*labels, "Use which") {
-		t.Fatalf("picker did not ask 'Use which'; labels: %q", *labels)
-	}
-	if chosen != filepath.Join(home, "Documents", "x") {
-		t.Fatalf("choosing 1 handed %q to the folder chooser, want %q", chosen, filepath.Join(home, "Documents", "x"))
+	if !strings.Contains(out, "also in site.pfx") {
+		t.Fatalf("the duplicate PFX is not named on the line:\n%s", out)
 	}
 	if pickerLabelAsked(*labels, "Certificate file") {
-		t.Fatalf("choosing a listed folder must not ask for a path again; labels: %q", *labels)
+		t.Fatalf("one pick must not ask for a path; labels: %q", *labels)
 	}
+	for _, unwanted := range []string{"Use which", "Install which certificate number"} {
+		if pickerLabelAsked(*labels, unwanted) {
+			t.Fatalf("one pick must not ask %q; labels: %q", unwanted, *labels)
+		}
+	}
+}
+
+// TestInstallCertPickerPEMPairPlusDifferentPFX: two different certificates are
+// two candidates; choosing the PFX asks its password once, shows the
+// certificate it contains, and installs it, with no second numbered question.
+func TestInstallCertPickerPEMPairPlusDifferentPFX(t *testing.T) {
+	home := pickerHome(t)
+	folder := filepath.Join(home, "Downloads")
+	pemCert, pemKey := testCertificate(t, "pem.example.org", []string{"pem.example.org"}, time.Now().Add(-time.Hour), time.Now().Add(24*time.Hour))
+	bundle := filepath.Join(folder, "fullchain.pem")
+	pickerWrite(t, bundle, time.Now(), append(certPEM(t, pemCert), keyPEM(t, pemKey)...))
+	pfxCert, pfxKey := testCertificate(t, "pfx.example.org", []string{"pfx.example.org"}, time.Now().Add(-time.Hour), time.Now().Add(24*time.Hour))
+	pfx := filepath.Join(folder, "other.pfx")
+	writePFX(t, pfx, pfxCert, pfxKey, "RightPass")
+
+	labels := pickerAnswerSequence(t, "2")
+	stdinReader, stdinWriter, err := os.Pipe()
+	if err != nil {
+		t.Fatal(err)
+	}
+	originalStdin := os.Stdin
+	os.Stdin = stdinReader
+	if _, err := stdinWriter.WriteString("RightPass\n"); err != nil {
+		t.Fatal(err)
+	}
+	_ = stdinWriter.Close()
+
+	var args []string
+	var password *string
+	out := pickerCapture(t, func() { args, password = askInstallCert(t.TempDir()) })
+	os.Stdin = originalStdin
+
+	if len(args) != 1 || args[0] != pfx {
+		t.Fatalf("choosing the PFX produced %q, want [%q]", args, pfx)
+	}
+	if password == nil || *password != "RightPass" {
+		t.Fatalf("password = %v, want one read of RightPass", password)
+	}
+	if !strings.Contains(out, "CN=pfx.example.org") {
+		t.Fatalf("the chosen PFX's certificate was not shown:\n%s", out)
+	}
+	if got := pickerCountLabels(*labels, "Use which"); got != 1 {
+		t.Fatalf("Use which asked %d times, want 1:\n%s", got, out)
+	}
+	for _, unwanted := range []string{"Install which certificate number"} {
+		if strings.Contains(out, unwanted) || pickerLabelAsked(*labels, unwanted) {
+			t.Fatalf("a second numbered question was asked (%q):\n%s", unwanted, out)
+		}
+	}
+	if !strings.Contains(out, bundle) || !strings.Contains(out, "other.pfx") {
+		t.Fatalf("both candidates are not listed:\n%s", out)
+	}
+}
+
+// pickerTwoPEMPairs writes two different PEM pairs into the home and returns
+// their folder.
+func pickerTwoPEMPairs(t *testing.T, home string) string {
+	t.Helper()
+	folder := filepath.Join(home, "Downloads")
+	for _, name := range []string{"first.example.org", "second.example.org"} {
+		cert, key := testCertificate(t, name, []string{name}, time.Now().Add(-time.Hour), time.Now().Add(24*time.Hour))
+		pickerWrite(t, filepath.Join(folder, name+".pem"), time.Now(), append(certPEM(t, cert), keyPEM(t, key)...))
+	}
+	return folder
 }
 
 // TestInstallCertPickerAnotherFileOrFolder: the last option is today's path
 // question, unchanged.
 func TestInstallCertPickerAnotherFileOrFolder(t *testing.T) {
 	home := pickerHome(t)
-	cert, key := testCertificate(t, "picker.example.org", []string{"picker.example.org"}, time.Now().Add(-time.Hour), time.Now().Add(24*time.Hour))
+	pickerTwoPEMPairs(t, home)
+	cert, key := testCertificate(t, "typed.example.org", []string{"typed.example.org"}, time.Now().Add(-time.Hour), time.Now().Add(24*time.Hour))
 	bundle := filepath.Join(t.TempDir(), "fullchain.pem")
 	pickerWrite(t, bundle, time.Now(), append(certPEM(t, cert), keyPEM(t, key)...))
-	pickerWrite(t, filepath.Join(home, "Downloads", "old.crt"), time.Now(), []byte("old"))
 
-	labels := pickerPrompts(t, map[string]string{"Use which": "2", "Certificate file": bundle})
-	chooseCertFolder = func(folder, dir string) ([]string, *string) {
-		t.Fatalf("typing a path must not call the folder chooser with %q", folder)
-		return nil, nil
-	}
+	labels := pickerAnswerSequence(t, "3", bundle)
 
 	var args []string
 	pickerCapture(t, func() { args, _ = askInstallCert(t.TempDir()) })
@@ -178,12 +229,12 @@ func TestInstallCertPickerAnotherFileOrFolder(t *testing.T) {
 // the list says so and still lets the operator type a path.
 func TestInstallCertPickerInvalidNumberFallsBackToPath(t *testing.T) {
 	home := pickerHome(t)
-	cert, key := testCertificate(t, "picker.example.org", []string{"picker.example.org"}, time.Now().Add(-time.Hour), time.Now().Add(24*time.Hour))
+	pickerTwoPEMPairs(t, home)
+	cert, key := testCertificate(t, "typed.example.org", []string{"typed.example.org"}, time.Now().Add(-time.Hour), time.Now().Add(24*time.Hour))
 	bundle := filepath.Join(t.TempDir(), "fullchain.pem")
 	pickerWrite(t, bundle, time.Now(), append(certPEM(t, cert), keyPEM(t, key)...))
-	pickerWrite(t, filepath.Join(home, "Downloads", "old.crt"), time.Now(), []byte("old"))
 
-	labels := pickerPrompts(t, map[string]string{"Use which": "99", "Certificate file": bundle})
+	labels := pickerAnswerSequence(t, "99", bundle)
 
 	var args []string
 	out := pickerCapture(t, func() { args, _ = askInstallCert(t.TempDir()) })
