@@ -82,15 +82,18 @@ has "git install says development copy" "development copy (not a release)" "$out
 out="$(cd "$work" && banner_of "$work/repo/uninstall.sh" | bash 2>&1)"
 has "git uninstaller says development copy" "development copy (not a release)" "$out"
 
-# An installed box keeps its scripts in ~/statbus, a git checkout at the
-# release tag. Run from there, a script names that tag, like the published copy.
-mkdir -p "$work/box/ops"
+# An installed box keeps its scripts in ~/statbus, whose generated .env names
+# the release it runs. Run from there, a script names that release, like the
+# published copy. A development VERSION (git describe) is not a release.
+mkdir -p "$work/box/ops" "$work/devbox"
 cp "$ROOT/install.sh" "$ROOT/uninstall.sh" "$work/box/"
 cp "$ROOT/ops/setup-ubuntu-lts.sh" "$work/box/ops/"
-git -C "$work/box" init -q
-git -C "$work/box" add -A
-git -C "$work/box" -c user.name=t -c user.email=t@t -c commit.gpgsign=false commit -qm box
-git -C "$work/box" -c tag.gpgsign=false tag "$TAG"
+printf 'VERSION=%s\nCOMMIT_SHORT=6de3d275\n' "$TAG" > "$work/box/.env"
+cp "$ROOT/uninstall.sh" "$work/devbox/"
+printf 'VERSION=%s-3-g6de3d275\n' "$TAG" > "$work/devbox/.env"
+banner_of "$work/devbox/uninstall.sh" > "$work/devbox/banner.sh"
+out="$(bash "$work/devbox/banner.sh" 2>&1)"
+has "an installation at a development VERSION says development copy" "development copy (not a release)" "$out"
 out="$(bash "$work/box/ops/setup-ubuntu-lts.sh" --help 2>&1)"
 has "checkout setup at a tag names it" "StatBus: $TAG" "$out"
 out="$(bash "$work/box/install.sh" --bogus 2>&1)"
