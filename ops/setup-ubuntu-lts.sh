@@ -34,6 +34,9 @@ SUPPORTED_UBUNTU_VERSIONS=("24.04" "26.04")
 # a copy taken straight from git keeps the placeholder and says so. One version:
 # the release tag (STATBUS-537).
 STATBUS_RELEASE="@STATBUS_RELEASE@"
+# A copy in an installed checkout (~/statbus) is a git copy at a release tag;
+# it names that tag, as the published copy does.
+[[ $STATBUS_RELEASE != "@STATBUS_RELEASE@" ]] || STATBUS_RELEASE=$(git -C "$(dirname "${BASH_SOURCE[0]:-.}")" describe --tags --exact-match --match 'v[0-9]*' 2>/dev/null || echo "@STATBUS_RELEASE@")
 NON_INTERACTIVE="${NON_INTERACTIVE:-false}"
 # Stage selection by name (see STAGES below). ONLY_STAGES runs just the named
 # stages; SKIP_STAGES runs every stage but the named ones, for a stage this box

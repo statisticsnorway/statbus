@@ -7,6 +7,9 @@ exec 2>&1
 # (release.yaml, "Stage the install scripts"); a git copy keeps the placeholder.
 # One version: the release tag (STATBUS-537).
 STATBUS_RELEASE="@STATBUS_RELEASE@"
+# A copy in an installed checkout (~/statbus) is a git copy at a release tag;
+# it names that tag, as the published copy does.
+[[ $STATBUS_RELEASE != "@STATBUS_RELEASE@" ]] || STATBUS_RELEASE=$(git -C "$(dirname "${BASH_SOURCE[0]:-.}")" describe --tags --exact-match --match 'v[0-9]*' 2>/dev/null || echo "@STATBUS_RELEASE@")
 if [[ $STATBUS_RELEASE == "@STATBUS_RELEASE@" ]]; then
     echo 'StatBus uninstaller: development copy (not a release)'
 else

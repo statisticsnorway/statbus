@@ -50,6 +50,9 @@ set -euo pipefail
 # --channel or the latest stable, and the announcement below shows both when
 # they differ. One version: the release tag (STATBUS-537).
 STATBUS_RELEASE="@STATBUS_RELEASE@"
+# A copy in an installed checkout (~/statbus) is a git copy at a release tag;
+# it names that tag, as the published copy does.
+[[ $STATBUS_RELEASE != "@STATBUS_RELEASE@" ]] || STATBUS_RELEASE=$(git -C "$(dirname "${BASH_SOURCE[0]:-.}")" describe --tags --exact-match --match 'v[0-9]*' 2>/dev/null || echo "@STATBUS_RELEASE@")
 # The STATBUS_INSTALL_TEST_CLASSIFY_PULL path is a pure function whose stdout
 # is the classification alone; the banner belongs to an operator run.
 if [ -z "${STATBUS_INSTALL_TEST_CLASSIFY_PULL:-}" ]; then

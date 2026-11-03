@@ -73,13 +73,31 @@ banner_of() { awk '/^DIR=/{exit} {print}' "$1"; }
 out="$(banner_of "$work/dist/uninstall.sh" | bash 2>&1)"
 has "stamped uninstaller names the release" "StatBus uninstaller $TAG" "$out"
 
-# The git copies keep the placeholder and say they are not a release.
-out="$(bash "$ROOT/ops/setup-ubuntu-lts.sh" --help 2>&1)"
+# Unstamped copies outside a tagged checkout say they are not a release. The
+# scratch copies stand in for git copies: CI also runs this at a release tag.
+out="$(bash "$work/repo/ops/setup-ubuntu-lts.sh" --help 2>&1)"
 has "git setup says development copy" "development copy (not a release)" "$out"
-out="$(bash "$ROOT/install.sh" --bogus 2>&1)"
+out="$(bash "$work/repo/install.sh" --bogus 2>&1)"
 has "git install says development copy" "development copy (not a release)" "$out"
-out="$(banner_of "$ROOT/uninstall.sh" | bash 2>&1)"
+out="$(cd "$work" && banner_of "$work/repo/uninstall.sh" | bash 2>&1)"
 has "git uninstaller says development copy" "development copy (not a release)" "$out"
+
+# An installed box keeps its scripts in ~/statbus, a git checkout at the
+# release tag. Run from there, a script names that tag, like the published copy.
+mkdir -p "$work/box/ops"
+cp "$ROOT/install.sh" "$ROOT/uninstall.sh" "$work/box/"
+cp "$ROOT/ops/setup-ubuntu-lts.sh" "$work/box/ops/"
+git -C "$work/box" init -q
+git -C "$work/box" add -A
+git -C "$work/box" -c user.name=t -c user.email=t@t -c commit.gpgsign=false commit -qm box
+git -C "$work/box" -c tag.gpgsign=false tag "$TAG"
+out="$(bash "$work/box/ops/setup-ubuntu-lts.sh" --help 2>&1)"
+has "checkout setup at a tag names it" "StatBus: $TAG" "$out"
+out="$(bash "$work/box/install.sh" --bogus 2>&1)"
+has "checkout install at a tag names it" "StatBus installer $TAG" "$out"
+banner_of "$work/box/uninstall.sh" > "$work/box/banner.sh"
+out="$(bash "$work/box/banner.sh" 2>&1)"
+has "checkout uninstaller at a tag names it" "StatBus uninstaller $TAG" "$out"
 
 # Anything that is not a release tag is refused before any file is written.
 out="$(cd "$work/repo" && bash "$STAMPER" 1.2.3 "$work/refused" 2>&1)"
