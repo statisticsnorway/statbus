@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-11-02T13:15:00Z'
-updated_date: '2026-11-03T17:59:00Z'
+updated_date: '2026-11-03T21:32:00Z'
 labels: []
 dependencies: []
 type: bug
@@ -100,4 +100,6 @@ Dense months grow with periods x combinations; a sparse or interval form grows w
 2026-11-03 cost on master, BRREG selection benchmark (tmp/558-benchmark-selection-master.log, 4 analytics fibers), summed task time: derive_statistical_history_facet_period 358 s (6,842 tasks) + statistical_history_facet_reduce 33 s = 391 s; derive_statistical_history_period 141 s; statistical_unit_refresh_batch 79 s; everything else < 10 s each. The history facet is 63% of analytics worker time, and no app page reads it (pages read statistical_history and statistical_unit_facet; statistical_history_drilldown has no app caller). Proposed to owner: remove it (decision F1 pending).
 
 2026-11-03 statistical_unit_facet already holds the stock timeline: history facet countable_count at every period end equals SUM(count) of suf rows covering that date, 287,250 cells, 0 differ (tmp/558-suf/). The delta table's stock part is suf in event form (derivative of intervals). What suf lacks: secondary activity and unit size dims, exists_* counts, and the flows (births, deaths, added/removed, change counts). Today's history facet stats_summary is a stock, not a flow, so reproducing it needs no jsonb_stats 3.1.
+
+2026-11-03 evening, owner idea: statistical_unit + statistical_history_delta (no dims) + statistical_history_delta_facet replace statistical_history and statistical_history_facet. Evidence (tmp/558-compare/, 10-year Norway): the night delta facet (n558.stock_delta 6,082 + n558.flow 11,331 rows) summed over dims reproduces statistical_history's final rows for all 444 periods, all 22 columns, in 163 ms. Same questions vs today: monthly Oslo stock HF 183 ms / UF 14 ms / delta 12 ms; employees per year end HF 203 ms / UF 9 ms; births and region changes per year HF 12 ms / delta 8 ms; answers identical. Open: incremental recalculation per dirty slot (per-unit event layer, not prototyped); per-event vs period-end flows; stats stock in delta form uses jsonb_stats 3.1 stats_delta, which stays untagged until this prototype shows what is needed.
 <!-- SECTION:NOTES:END -->
