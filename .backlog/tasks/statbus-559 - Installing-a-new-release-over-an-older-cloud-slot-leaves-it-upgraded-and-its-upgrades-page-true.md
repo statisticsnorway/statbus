@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-11-02T15:12:00Z'
-updated_date: '2026-11-03T17:48:00Z'
+updated_date: '2026-11-03T18:00:00Z'
 labels:
   - bug
 dependencies: []
@@ -34,7 +34,7 @@ Found 2026-11-02 installing v2026.11.0 on niue cloud slots ug and ma (logs tmp/c
 - [x] #3 When ./sb install stops after install.sh swapped the program and checked out the target, the message says what was changed instead of 'nothing was changed'
 - [x] #4 A successful install supersedes parked in_progress attempts for other commits; the row keeps its error and park reason and the state log records the transition. The 452 live install test covers it, red before and green after
 - [x] #5 The upgrade service stamps unit_floor_state when it starts, so a page read right after a successful install shows no 'not running' warning. Covered by a test
-- [ ] #6 ug, mw and ua reach the stable release with ./cloud.sh install, ug's statbus-maintenance belongs to statbus_ug afterwards, and ma's v2026.10.5 row shows superseded
+- [x] #6 ug, mw and ua reach the stable release with ./cloud.sh install, ug's statbus-maintenance belongs to statbus_ug afterwards, and ma's v2026.10.5 row shows superseded
 - [x] #7 Found on the manual box 2026-11-02 with v2026.11.0: install.sh refuses root before any lock, download or checkout, with the same sentence ./sb install prints (TestInstallShRefusesRootBeforeAnyWork red before, green after); a fresh install names the checked-out commit (fresh-installer-test red 'commit )' before, green after); the manual-box guide gives the country answers (United Nations / un, TestUnitedNationsIsAnAcceptedInstallationCountry); the questionnaire shows the answers and lets the operator redo them before anything is written
 <!-- AC:END -->
 
@@ -79,4 +79,6 @@ v2026.11.1-rc.03 gate complete, all green: Release 41531148478, Fast Tests 41531
 2026-11-03 AC6, ma: ./cloud.sh install ma v2026.11.1-rc.03 (tmp/cloud-install-ma.log) complete. Parked row 28881 (v2026.10.5) now superseded, park cleared, error kept with the supersede note; upgrade_state_log records in_progress -> superseded with old_parked_at set. Row 31960 completed v2026.11.1-rc.03; unit_floor_state ok; ./cloud.sh status ma 'v2026.11.1-rc.03 (068d5c93)' with no note. Also fixed today from these runs: cloud.sh install refreshes a stale local ./sb through dev.sh (447495464, test red/green tmp/559/cloud-sb-refresh-*.log); the upgrader keeps NOTIFY_SOCKET to itself so children no longer trigger systemd's 'reception only permitted for main PID' (c3e758fdb, TestTakeNotifySocketKeepsItFromChildren red/green tmp/notify-*.log); install writes the user unit file 0644 is still open (systemd warns 'marked executable').
 
 2026-11-03 AC6, ma: ./cloud.sh install ma v2026.11.1-rc.03 complete (tmp/cloud-install-ma.log). Parked row 28881 (v2026.10.5) superseded, park cleared, error kept with ' — superseded by the successful install of v2026.11.1-rc.03'; upgrade_state_log records in_progress -> superseded with old_parked_at set. Row 31960 completed rc.03; unit_floor_state ok; status 'v2026.11.1-rc.03 (068d5c93)' with no note. Fixed from today's runs, each red/green: cloud.sh install refreshes a stale local ./sb through dev.sh (447495464, tmp/559/cloud-sb-refresh-*.log); the upgrader keeps NOTIFY_SOCKET so children no longer trigger systemd's 'reception only permitted for main PID' (c3e758fdb, tmp/notify-*.log); the user unit file is written 0644 so systemd stops warning 'marked executable' (421b8ad85, tmp/unit-mode-*.log). The last two ship in the next RC.
+
+2026-11-03 AC6 complete. mw: ./cloud.sh install mw v2026.11.1-rc.03 (tmp/cloud-install-mw.log) over a real v2026.09.0 schema: Directories OK, Migrations DONE (schema 20261031135820), row 1806 completed rc.03. ./cloud.sh status: ug, ma, mw all 'v2026.11.1-rc.03 (068d5c93)' with no note. All seven ACs checked; Done after the owner's go.
 <!-- SECTION:NOTES:END -->
