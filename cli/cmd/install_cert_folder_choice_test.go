@@ -71,7 +71,7 @@ func TestCertificateFolderSingleChoiceDeclinedContinuesWithoutCertificate(t *tes
 	if args != nil {
 		t.Fatalf("declining produced %q, want no certificate", args)
 	}
-	if !strings.Contains(out, "Continuing without a custom certificate.") {
+	if !strings.Contains(out, "Continuing with automatic certificates. Install your own later with: ./sb cert install") {
 		t.Fatalf("declining did not say what happens next:\n%s", out)
 	}
 }

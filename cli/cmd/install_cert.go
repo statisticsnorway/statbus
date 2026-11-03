@@ -218,6 +218,34 @@ var askCertificateDefaultYes = askCertDefaultYesNo
 // runs chooseCertificateFromFolder, unchanged.
 var chooseCertFolder = chooseCertificateFromFolder
 
+// certAttempts bounds the certificate path question the way the questionnaire
+// bounds its own answers (askAttempts in cli/internal/installinput): a closed
+// stdin cannot loop forever, and an operator who has nothing to give after
+// three answers continues without a custom certificate.
+const certAttempts = 3
+
+// certContinueWithout is the one closing sentence every certificate dead end
+// prints: the install goes on with automatic certificates, and the operator can
+// add their own afterwards. One wording, so no path can leave the choice
+// silent about what happens next.
+func certContinueWithout() {
+	certNotice("  Continuing with automatic certificates. Install your own later with: ./sb cert install")
+}
+
+// certRetryHint is what a retryable dead end says instead: another answer can
+// still supply a certificate, and Enter ends the choice.
+func certRetryHint() {
+	certNotice("  Try another file or folder, or press Enter to continue without a certificate.")
+}
+
+// certFolderRetry is set by chooseCertificateFromFolder when it returns no
+// certificate because the folder held nothing usable (read failure, no
+// certificate with a matching key), as opposed to the operator declining the
+// one usable certificate. The path question offers another answer in the
+// first case and stops in the second. The test seam leaves it false, so a
+// seam-driven nil still means the operator declined.
+var certFolderRetry bool
+
 // certificateExplanation is the fixed text shown before the certificate
 // question. Kept as data so the terminal-filter test proves every line
 // survives install.sh's tee|awk pipeline.
@@ -245,7 +273,7 @@ func askInstallCert(dir string) ([]string, *string) {
 		certNotice("%s", line)
 	}
 	if !askCertificateYesNo("  Do you have a certificate to install now?") {
-		certNotice("  Continuing with automatic certificates. Install your own later with: ./sb cert install")
+		certContinueWithout()
 		return nil, nil
 	}
 	home, _ := os.UserHomeDir()
@@ -261,7 +289,12 @@ func askInstallCert(dir string) ([]string, *string) {
 	number, convErr := strconv.Atoi(strings.TrimSpace(answer))
 	switch {
 	case convErr == nil && number >= 1 && number <= len(folders):
-		return chooseCertFolder(folders[number-1].Path, dir)
+		args, password := finishCertFolderChoice(folders[number-1].Path, dir)
+		if args != nil || !certFolderRetry {
+			return args, password
+		}
+		certRetryHint()
+		return askInstallCertPath(dir)
 	case convErr == nil && number == len(folders)+1:
 		return askInstallCertPath(dir)
 	}
@@ -271,41 +304,78 @@ func askInstallCert(dir string) ([]string, *string) {
 
 // askInstallCertPath is the path question the installer has always asked: an
 // absolute path, ~/..., or a path relative to where the installer was started.
+// A path that cannot supply a certificate does not end the choice: the question
+// is asked again, up to certAttempts times, and Enter continues without one.
 func askInstallCertPath(dir string) ([]string, *string) {
 	certNotice("  Paths may be absolute, start with ~/, or be relative to the directory you ran the installer from.")
-	certPath := questionnairePrompt("  Certificate file or folder (a PFX/PKCS#12 file, a PEM fullchain, or a folder to inspect)", "")
-	if certPath == "" {
-		certNotice("  No certificate file given; continuing without one. Install it later with: ./sb cert install")
-		return nil, nil
+	for attempt := 0; attempt < certAttempts; attempt++ {
+		certPath := questionnairePrompt("  Certificate file or folder (a PFX/PKCS#12 file, a PEM fullchain, or a folder to inspect)", "")
+		if certPath == "" {
+			certContinueWithout()
+			return nil, nil
+		}
+		args, password, retry := certificateFromAnswer(certPath, dir)
+		if args != nil {
+			return args, password
+		}
+		if !retry {
+			certContinueWithout()
+			return nil, nil
+		}
+		if attempt < certAttempts-1 {
+			certRetryHint()
+		}
 	}
+	certContinueWithout()
+	return nil, nil
+}
+
+// certificateFromAnswer turns one path answer into certificate arguments.
+// retry reports that the answer was understood but supplied no usable
+// certificate, so another answer is worth asking for.
+func certificateFromAnswer(certPath, dir string) (args []string, password *string, retry bool) {
 	resolved, isDir, needsKey, err := inspectCertificatePath(certPath)
 	if err != nil {
 		certNotice("  %s", err)
-		return nil, nil
+		return nil, nil, true
 	}
 	if isDir {
-		return chooseCertFolder(resolved, dir)
+		args, password = finishCertFolderChoice(resolved, dir)
+		if args != nil {
+			return args, password, false
+		}
+		return nil, nil, certFolderRetry
 	}
 	if !needsKey {
-		return []string{resolved}, nil
+		return []string{resolved}, nil, false
 	}
 	keyPath := questionnairePrompt("  Private key file (only for a PEM fullchain; leave empty for a PFX file)", "")
 	if keyPath == "" {
-		certNotice("  A PEM certificate needs its private key; continuing without a custom certificate.")
-		return nil, nil
+		certNotice("  A PEM certificate needs its private key.")
+		return nil, nil, true
 	}
 	resolvedKey := resolveInstallPath(keyPath)
 	if _, statErr := os.Stat(resolvedKey); statErr != nil {
 		certNotice("  File not found: %s", resolvedKey)
-		return nil, nil
+		return nil, nil, true
 	}
-	return []string{resolved, resolvedKey}, nil
+	return []string{resolved, resolvedKey}, nil, false
+}
+
+// finishCertFolderChoice runs the folder chooser. certFolderRetry afterwards
+// says whether no certificate came back because the folder held nothing usable
+// (another answer is worth asking for) or because the operator declined the one
+// certificate it held (the choice ends).
+func finishCertFolderChoice(folder, dir string) ([]string, *string) {
+	certFolderRetry = false
+	return chooseCertFolder(folder, dir)
 }
 
 // chooseCertificateFromFolder asks once for the PFX password when the folder
 // contains PFX files, then presents the content-detected candidates. The
 // password stays in memory only: it is never printed, logged, or persisted.
 func chooseCertificateFromFolder(folder, dir string) ([]string, *string) {
+	certFolderRetry = false
 	_, siteDomain, _, _, err := readModeAndCertEnv(dir)
 	if err != nil {
 		siteDomain = ""
@@ -313,6 +383,7 @@ func chooseCertificateFromFolder(folder, dir string) ([]string, *string) {
 	_, hasPFX, err := certFolderFiles(folder)
 	if err != nil {
 		certNotice("  Could not read folder %s: %v", folder, err)
+		certFolderRetry = true
 		return nil, nil
 	}
 	var pfxPassword *string
@@ -329,6 +400,7 @@ func chooseCertificateFromFolder(folder, dir string) ([]string, *string) {
 	choices, notes, err := scanCertificateFolder(folder, siteDomain, pfxPassword)
 	if err != nil {
 		certNotice("  Could not inspect folder %s: %v", folder, err)
+		certFolderRetry = true
 		return nil, nil
 	}
 	if len(choices) == 0 {
@@ -336,6 +408,7 @@ func chooseCertificateFromFolder(folder, dir string) ([]string, *string) {
 			certNotice("  - %s", note)
 		}
 		certNotice("  No usable certificate with a matching private key was found in %s.", folder)
+		certFolderRetry = true
 		return nil, nil
 	}
 	for _, line := range renderCertificateNotes(notes) {
@@ -346,7 +419,7 @@ func chooseCertificateFromFolder(folder, dir string) ([]string, *string) {
 		// information a numbered line carries (STATBUS-422).
 		certNotice("%s", certificateChoiceLine(choices[0], siteDomain))
 		if !askCertificateDefaultYes("  Install this certificate?") {
-			certNotice("  Continuing without a custom certificate.")
+			certContinueWithout()
 			return nil, nil
 		}
 		return choices[0].Args, pfxPassword
@@ -357,7 +430,8 @@ func chooseCertificateFromFolder(folder, dir string) ([]string, *string) {
 	answer := questionnairePrompt("  Install which certificate number", "1")
 	number, convErr := strconv.Atoi(strings.TrimSpace(answer))
 	if convErr != nil || number < 1 || number > len(choices) {
-		certNotice("  That is not one of the listed numbers; continuing without a custom certificate.")
+		certNotice("  That is not one of the listed numbers.")
+		certContinueWithout()
 		return nil, nil
 	}
 	return choices[number-1].Args, pfxPassword

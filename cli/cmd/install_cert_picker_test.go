@@ -225,3 +225,131 @@ func TestInstallCertPickerEmptyHomeFallsThrough(t *testing.T) {
 		t.Fatalf("typed path produced %q, want [%q]", args, bundle)
 	}
 }
+
+// pickerAnswerSequence answers the questionnaire's questions in order, so a
+// flow that asks the path question more than once can be exercised. It also
+// accepts the initial certificate offer, which every test here answers yes.
+func pickerAnswerSequence(t *testing.T, answers ...string) *[]string {
+	t.Helper()
+	var labels []string
+	savedPrompt, savedYesNo := questionnairePrompt, askCertificateYesNo
+	questionnairePrompt = func(label, fallback string) string {
+		labels = append(labels, label)
+		if len(answers) == 0 {
+			return fallback
+		}
+		answer := answers[0]
+		answers = answers[1:]
+		return answer
+	}
+	askCertificateYesNo = func(string) bool { return true }
+	t.Cleanup(func() { questionnairePrompt, askCertificateYesNo = savedPrompt, savedYesNo })
+	return &labels
+}
+
+// pickerCountLabels counts how often a question label was asked.
+func pickerCountLabels(labels []string, substring string) int {
+	count := 0
+	for _, label := range labels {
+		if strings.Contains(label, substring) {
+			count++
+		}
+	}
+	return count
+}
+
+// pickerFullchain writes a PEM file holding a certificate and its key and
+// returns its path.
+func pickerFullchain(t *testing.T, name string) string {
+	t.Helper()
+	cert, key := testCertificate(t, name, []string{name}, time.Now().Add(-time.Hour), time.Now().Add(24*time.Hour))
+	bundle := filepath.Join(t.TempDir(), "fullchain.pem")
+	pickerWrite(t, bundle, time.Now(), append(certPEM(t, cert), keyPEM(t, key)...))
+	return bundle
+}
+
+const pickerRetryHint = "  Try another file or folder, or press Enter to continue without a certificate."
+
+// TestInstallCertPathEmptyFolderThenEnterContinues: a typed folder that holds
+// no usable certificate says so and offers another answer; pressing Enter then
+// continues without a certificate and says what happens next.
+func TestInstallCertPathEmptyFolderThenEnterContinues(t *testing.T) {
+	pickerHome(t)
+	empty := t.TempDir()
+
+	labels := pickerAnswerSequence(t, empty, "")
+	var args []string
+	out := pickerCapture(t, func() { args, _ = askInstallCert(t.TempDir()) })
+
+	if args != nil {
+		t.Fatalf("continuing without a certificate produced %q", args)
+	}
+	for _, want := range []string{
+		"No usable certificate with a matching private key was found in " + empty + ".",
+		pickerRetryHint,
+		"Continuing with automatic certificates. Install your own later with: ./sb cert install",
+	} {
+		if !strings.Contains(out, want) {
+			t.Fatalf("output is missing %q:\n%s", want, out)
+		}
+	}
+	if got := pickerCountLabels(*labels, "Certificate file or folder"); got != 2 {
+		t.Fatalf("path question asked %d times, want 2:\n%s", got, out)
+	}
+}
+
+// TestInstallCertPathWrongPathThenValidFolder: a wrong path does not end the
+// choice; the next answer, a folder holding one usable certificate, installs
+// that certificate.
+func TestInstallCertPathWrongPathThenValidFolder(t *testing.T) {
+	pickerHome(t)
+	folder := t.TempDir()
+	bundle := pickerFullchain(t, "retry.example.org")
+	if err := os.Rename(bundle, filepath.Join(folder, "fullchain.pem")); err != nil {
+		t.Fatal(err)
+	}
+	bundle = filepath.Join(folder, "fullchain.pem")
+	stubCertificateDefaultYes(t, true)
+	missing := filepath.Join(t.TempDir(), "not-there.pem")
+
+	labels := pickerAnswerSequence(t, missing, folder)
+	var args []string
+	out := pickerCapture(t, func() { args, _ = askInstallCert(t.TempDir()) })
+
+	if len(args) != 1 || args[0] != bundle {
+		t.Fatalf("typed answers produced %q, want [%q]", args, bundle)
+	}
+	for _, want := range []string{"file not found: " + missing, pickerRetryHint} {
+		if !strings.Contains(out, want) {
+			t.Fatalf("output is missing %q:\n%s", want, out)
+		}
+	}
+	if got := pickerCountLabels(*labels, "Certificate file or folder"); got != 2 {
+		t.Fatalf("path question asked %d times, want 2:\n%s", got, out)
+	}
+}
+
+// TestInstallCertPathThreeWrongAnswersContinues: the retry is bounded. After
+// three unusable answers the install continues without a certificate and says
+// so.
+func TestInstallCertPathThreeWrongAnswersContinues(t *testing.T) {
+	pickerHome(t)
+	missing := func(name string) string { return filepath.Join(t.TempDir(), name) }
+	labels := pickerAnswerSequence(t, missing("one.pem"), missing("two.pem"), missing("three.pem"))
+
+	var args []string
+	out := pickerCapture(t, func() { args, _ = askInstallCert(t.TempDir()) })
+
+	if args != nil {
+		t.Fatalf("three wrong answers produced %q, want no certificate", args)
+	}
+	if !strings.Contains(out, "Continuing with automatic certificates. Install your own later with: ./sb cert install") {
+		t.Fatalf("output does not say what happens next:\n%s", out)
+	}
+	if got := strings.Count(out, pickerRetryHint); got != 2 {
+		t.Fatalf("retry hint printed %d times, want 2 (before attempts two and three):\n%s", got, out)
+	}
+	if got := pickerCountLabels(*labels, "Certificate file or folder"); got != 3 {
+		t.Fatalf("path question asked %d times, want 3:\n%s", got, out)
+	}
+}
