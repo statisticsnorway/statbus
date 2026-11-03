@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: 2026-09-27 10:07
-updated_date: '2026-10-30T13:36:00Z'
+updated_date: '2026-11-02T21:22:00Z'
 labels:
   - installer
 dependencies: []
@@ -73,4 +73,15 @@ Do not send Ville the stable-install instruction yet. He is contacted after ever
 AC4 real-box evidence: after rc.03 dev Deploy run 40607897050, a read-only browser visit to https://dev.statbus.org on 2026-10-28 showed the footer exactly 'Statbus version v2026.10.4-rc.03 (18e7d1fe)', not unknown. AC6 remains open.
 
 2026-10-30 (owner): AC6 reworded. Ville waits until the owner has tried the installer's certificate picker on the plain manual box (ops/manual-box.sh cert, walkthrough step 6) with the next release; then the coordinator drafts the message for the owner to send. No dependency on STATBUS-399; STATBUS-429's sudo-free cert install is already in v2026.10.5.
+
+### Picker defects from the manual-box run (v2026.11.0, install.sh + terminal filter), fixed in fceefda17
+- **No /etc/ssl search:** certCandidateRoots now searches only the install user's home; the system trust store's ~150 public root CA .pem files are never an installable certificate+key. Notice is now "No certificate files found under ~." "Another file or folder (type a path)" still accepts any path. Red before: TestCertCandidateRootsSearchOnlyHome saw [{home 4} {/etc/ssl 2}]; green after.
+- **PFX password layout:** chooseCertificateFromFolder now asks through readPassword with the prompt text; readPassword disables echo first, publishes the prompt on the marked answer line, reads masked stars via the controlling terminal, restores the mode, then writes the line ending to the terminal itself (newline to /dev/tty, since the filter drops unmarked stdout). Red before: TestPFXPasswordPromptFollowsRawModeAndEndsLineOnTerminal and TestCertificateFolderPFXPasswordEndsLineBeforeChoices; green after.
+- **Single usable certificate:** shown as one line (path, CN, SANs, expiry, coverage) with "Install this certificate? [Y/n]" (Enter/y installs, n continues without a custom certificate); two or more keep the numbered list and "Install which certificate number". Red before: TestCertificateFolderSingleChoiceAsksConfirmation and ...Declined...; green after; TestCertificateFolderTwoChoicesKeepNumberedList covers the list.
+- **Verification:** gofmt clean, go vet ./cmd, go build ./..., targeted tests green (tmp/422-tests-green.log), full ./cmd package green in 68s (tmp/422-cmd-full.log), pre-fix runs red in tmp/422-red-before.log (worktree at 977060062 with the new tests).
+
+### Commits and CI (picker work)
+- fceefda17 — picker fixes and tests (Go Test, Harness Selftest initially red on the prompt-derivation grep).
+- db04a509a — setup-choices selftest now derives the certificate prompt from askCertYesNo/askCertQuestion; local run PASS ("... [y/N]: ").
+- CI on db04a509a: Go Test success, Harness Selftest success, app build & lint success, Images success, CodeQL success, Notify success. The Fast Tests run for that SHA was cancelled by the branch concurrency group when e2da5967d landed; the Go suite and harness that cover this change are green.
 <!-- SECTION:NOTES:END -->
