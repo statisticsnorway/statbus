@@ -15,12 +15,13 @@
 #                              the "second terminal" login check setup asks
 #                              for: logs in as user (statbus by default), runs
 #                              id, logs out; no tmux, nothing else changes
-#   ops/manual-box.sh cert [pfx|pem]
+#   ops/manual-box.sh cert [pfx|pem|check]
 #                              after setup: hand the box a test certificate the
 #                              way an NSO would, into ~statbus/Documents/
 #                              certificate-from-it: pfx (default) is a
 #                              password-protected PFX as Windows exports it;
-#                              pem is a fullchain.pem plus privkey.pem pair
+#                              pem is a fullchain.pem plus privkey.pem pair;
+#                              check shows the certificate the site serves now
 #   ops/manual-box.sh guide    print the test walkthrough (setup, certificate,
 #                              install, health, uninstall)
 #   ops/manual-box.sh rebuild  wipe it back to a blank Ubuntu 26.04 (same IP)
@@ -284,11 +285,27 @@ cert)
     format=${2:-pfx}
     case "$format" in
         pfx|pem) ;;
-        *) echo "Usage: ops/manual-box.sh cert [pfx|pem]   (pfx is a Windows-style PFX export; pem is fullchain.pem + privkey.pem)" >&2; exit 2 ;;
+        check) ;;
+        *) echo "Usage: ops/manual-box.sh cert [pfx|pem|check]   (pfx is a Windows-style PFX export; pem is fullchain.pem + privkey.pem; check shows what the site serves)" >&2; exit 2 ;;
     esac
     server=$(describe)
     [ -n "$server" ] || { echo "No server '$name'; run: ops/manual-box.sh up" >&2; exit 1; }
     require_ours "$server"
+    if [ "$format" = check ]; then
+        # Asked on the box itself: the site name is not in DNS, so only the
+        # box resolves it (setup put it in /etc/hosts) and trusts the test CA.
+        ssh -o BatchMode=yes "$login_user@$(jq -er '.public_net.ipv4.ip' <<<"$server")" "DOMAIN='$cert_domain' bash -s" <<'REMOTE'
+cert=$(echo | openssl s_client -connect 127.0.0.1:443 -servername "$DOMAIN" 2>/dev/null | openssl x509 -noout -subject -issuer -enddate 2>/dev/null)
+if [ -z "$cert" ]; then
+    echo "https://$DOMAIN serves no certificate (nothing answers on 443, or the TLS handshake fails)."
+    exit 1
+fi
+printf '%s\n' "$cert" | sed -e 's/^subject=/Serves:   /' -e 's/^issuer=/Issuer:   /' -e 's/^notAfter=/Expires:  /'
+code=$(curl -sS -o /dev/null -w '%{http_code}' --max-time 10 "https://$DOMAIN/" 2>/dev/null)
+echo "HTTPS:    https://$DOMAIN/ answers HTTP ${code:-none} with a trusted certificate"
+REMOTE
+        exit $?
+    fi
     give_certificate "$(jq -er '.public_net.ipv4.ip' <<<"$server")" "$cert_domain" "$format"
     ;;
 guide)
