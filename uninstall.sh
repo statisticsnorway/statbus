@@ -57,7 +57,7 @@ if [[ $INTERACTIVE == 1 ]]; then
     [[ $answer != [nN]* ]] || KEEP_USERS=0
     read -r -u 3 -p 'Keep the credentials? [Y/n] ' answer
     [[ $answer != [nN]* ]] || KEEP_CREDENTIALS=0
-    read -r -u 3 -p 'Delete database dumps too? [y/N] ' answer
+    read -r -u 3 -p 'Delete database dumps and backups too? [y/N] ' answer
     [[ $answer != [yY]* ]] || KEEP_DUMPS=0
 fi
 # Keep the exclusion inode outside the tree being removed, through final unlink.
@@ -300,6 +300,15 @@ if [[ -d $DIR ]]; then
         remaining+=("$path")
     done
 fi
+# The install also creates two folders beside the checkout (installerManagedHomeDirs
+# in cli/cmd/install.go): ~/statbus-maintenance, the maintenance page switch,
+# and ~/statbus-backups, the pre-upgrade snapshots. The backups go with the dumps.
+home_dirs=()
+for path in "$HOME/statbus-maintenance" "$HOME/statbus-backups"; do
+    [[ -e $path || -L $path ]] || continue
+    [[ $KEEP_DUMPS == 1 && $path == "$HOME/statbus-backups" ]] && continue
+    home_dirs+=("$path")
+done
 # A kept users or credentials file is moved OUT of the checkout before any
 # teardown, so the checkout is removed completely (STATBUS-419 AC6). A
 # different file already sitting at the home target is never overwritten:
@@ -401,6 +410,8 @@ for image in "${retained_images[@]}"; do echo "  Keep shared image tag (used by 
 for unit in "${units[@]}"; do echo "  Unit file: $unit"; done
 for path in "${remaining[@]}"; do echo "  Path (recursively): $path"; done
 [[ ! -d $DIR/tmp ]] || echo "  Path (recursively, last): $DIR/tmp"
+for path in "${home_dirs[@]}"; do echo "  Path (recursively): $path"; done
+[[ $KEEP_DUMPS == 0 || ! -e $HOME/statbus-backups ]] || echo "  Keep: $HOME/statbus-backups"
 if [[ $KEEP_USERS == 1 && ( -e $DIR/.users.yml || -L $DIR/.users.yml ) ]]; then echo "  Move to $HOME/statbus.users.yml: $DIR/.users.yml"; fi
 if [[ $KEEP_CREDENTIALS == 1 && ( -e $DIR/.env.credentials || -L $DIR/.env.credentials ) ]]; then echo "  Move to $HOME/statbus.env.credentials: $DIR/.env.credentials"; fi
 [[ $KEEP_DUMPS == 0 || ! -e $DIR/dbdumps ]] || echo "  Keep: $DIR/dbdumps"
@@ -484,6 +495,17 @@ if [[ -d $DIR/tmp ]]; then
     refuse_nested_mounts || exit 1
     docker run --rm --network none --user 0:0 --entrypoint /bin/sh --mount "$DOCKER_BIND" "$CLEANUP_IMAGE" -c 'cd /home-root/statbus && test "$(stat -c %d:%i .)" = "$1" && rm -rf -- ./tmp' sh "$checkout_inode" >>"$LOG" 2>&1
 fi
+# Snapshots hold database files owned by the container's users, so the Docker
+# helper removes them through the same private HOME bind. rm -rf removes a
+# symlink itself, never its target.
+for path in "${home_dirs[@]}"; do
+    if [[ $USE_DOCKER == 1 ]]; then
+        docker run --rm --network none --user 0:0 --entrypoint /bin/sh --mount "$DOCKER_BIND" "$CLEANUP_IMAGE" -c 'cd /home-root && rm -rf -- "./$1"' sh "${path##*/}" >>"$LOG" 2>&1
+    else
+        rm -rf -- "$path" >>"$LOG" 2>&1
+    fi
+    [[ ! -e $path && ! -L $path ]] || { echo "Cannot remove $path; ask an administrator to remove it, then retry removal."; exit 1; }
+done
 if [[ $USE_DOCKER == 1 ]]; then
     for image in "${images[@]}"; do
         if [[ $image == "$CLEANUP_IMAGE" ]]; then

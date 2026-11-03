@@ -1147,6 +1147,9 @@ case "$1" in
     case "$*" in
       *uninstall-preflight*) exit 0 ;;
       *'rm -rf -- ./tmp'*) rm -rf -- "$HOME/statbus/tmp" ;;
+      *'cd /home-root && rm -rf -- "./'*)
+        for last; do :; done
+        rm -rf -- "$HOME/$last" ;;
       *'rm -rf -- "./'*)
         for last; do :; done
         rm -rf -- "$HOME/statbus/$last" ;;
@@ -1392,5 +1395,60 @@ exit 0
 	}
 	if !strings.Contains(string(out), "Step 1: stopping StatBus upgrader") {
 		t.Fatalf("did not reach the upgrader stop:\n%s", out)
+	}
+}
+
+// The install creates ~/statbus-maintenance (the maintenance page switch) and
+// ~/statbus-backups (pre-upgrade snapshots) next to the checkout. Removal takes
+// the maintenance folder always, and the backups with the database dumps; when
+// the dumps are kept, the backups are kept too and the plan says so.
+func TestUninstallRemovesTheInstallsHomeFolders(t *testing.T) {
+	for _, tc := range []struct {
+		name        string
+		answers     string
+		keepBackups bool
+	}{
+		{"delete the dumps", "n\nn\ny\nDELETE\n", false},
+		{"keep the dumps", "n\nn\n\nDELETE\n", true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			home := t.TempDir()
+			dir := filepath.Join(home, "statbus")
+			for _, sub := range []string{filepath.Join(dir, "tmp"), filepath.Join(home, "statbus-maintenance"), filepath.Join(home, "statbus-backups", "pre-upgrade-active")} {
+				if err := os.MkdirAll(sub, 0700); err != nil {
+					t.Fatal(err)
+				}
+			}
+			if err := os.WriteFile(filepath.Join(home, "statbus-maintenance", "active"), []byte("upgrade\n"), 0600); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.WriteFile(filepath.Join(home, "statbus-backups", "v2026.11.0-pre.tar.gz"), []byte("archive"), 0600); err != nil {
+				t.Fatal(err)
+			}
+			writeUninstallDockerMock(t, ensureBinDir(t, home))
+			out, err := runUninstallOnPTY(t, home, binPath(home), tc.answers)
+			if err != nil {
+				t.Fatalf("interactive removal: %v\n%s", err, out)
+			}
+			for path, wantKept := range map[string]bool{
+				dir: false,
+				filepath.Join(home, "statbus-maintenance"): false,
+				filepath.Join(home, "statbus-backups"):     tc.keepBackups,
+			} {
+				_, statErr := os.Stat(path)
+				if kept := statErr == nil; kept != wantKept {
+					t.Errorf("%s kept=%v, want kept=%v\n%s", path, kept, wantKept, out)
+				}
+			}
+			wantPlan := "  Path (recursively): " + filepath.Join(home, "statbus-backups")
+			if tc.keepBackups {
+				wantPlan = "  Keep: " + filepath.Join(home, "statbus-backups")
+			}
+			for _, want := range []string{"  Path (recursively): " + filepath.Join(home, "statbus-maintenance"), wantPlan} {
+				if !strings.Contains(out, want) {
+					t.Errorf("plan is missing %q:\n%s", want, out)
+				}
+			}
+		})
 	}
 }

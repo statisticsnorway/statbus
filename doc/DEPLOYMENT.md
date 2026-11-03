@@ -272,7 +272,11 @@ Supported channels are `stable` (the default, latest stable release) and
 `prerelease` (latest release candidate). To choose the latter, run
 `./install.sh --channel prerelease` instead. Keep the downloaded uninstaller
 outside `~/statbus`; to remove the installation later, run
-`cd "$HOME" && ./uninstall.sh` as the same service user.
+`cd "$HOME" && ./uninstall.sh` as the same service user. It removes
+`~/statbus` and `~/statbus-maintenance`. It asks whether to keep the users
+and credentials (moved to `~/statbus.users.yml` and `~/statbus.env.credentials`)
+and whether to delete the database dumps and the pre-upgrade backups in
+`~/statbus-backups`.
 
 This is an interactive install. The hosted alternative,
 `curl -fsSL https://statbus.org/install.sh | bash`, reconnects standard input
