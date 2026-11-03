@@ -31,6 +31,11 @@
 #
 # Cost: cx33 (4 cores, 8 GB) is about EUR 0.017 per hour, billed hourly.
 # Delete it when the session is over.
+
+# The whole script is one block, so bash reads it completely before running:
+# an ssh session lasts hours, and editing this file meanwhile (a commit, a
+# pull) changes nothing for the running copy. The block ends in exit.
+{
 set -euo pipefail
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
 # shellcheck disable=SC1090
@@ -342,3 +347,5 @@ status|info)
     exit 2
     ;;
 esac
+exit
+}
