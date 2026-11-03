@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"bytes"
 	"crypto/x509"
 	"encoding/pem"
 	"fmt"
@@ -375,7 +376,9 @@ func pemPairChoices(files []string) (choices []certChoice, notes []string) {
 		case key != nil:
 			keyFiles = append(keyFiles, keyFile{path: path, key: key})
 		default:
-			notes = append(notes, fmt.Sprintf("%s: no PEM certificate or private key found", filepath.Base(path)))
+			if looksLikeCertificateFile(path, data) {
+				notes = append(notes, fmt.Sprintf("%s: no PEM certificate or private key found", filepath.Base(path)))
+			}
 		}
 	}
 	for _, cert := range certFiles {
@@ -393,6 +396,20 @@ func pemPairChoices(files []string) (choices []certChoice, notes []string) {
 		choices = append(choices, certChoice{Args: []string{cert.path, paired}, Leaf: cert.chain[0], ChainLength: len(cert.chain)})
 	}
 	return choices, notes
+}
+
+// looksLikeCertificateFile reports whether a file the picker cannot use is
+// worth a note: it has a certificate extension or a PEM header. A folder the
+// operator names is often the home folder, whose ordinary files are not
+// certificates and need no explanation.
+func looksLikeCertificateFile(path string, data []byte) bool {
+	ext := strings.ToLower(filepath.Ext(path))
+	for _, certExt := range append(certSearchExtensions, ".key") {
+		if ext == certExt {
+			return true
+		}
+	}
+	return bytes.Contains(data, []byte("-----BEGIN "))
 }
 
 // scanInstallCertCandidates is the picker's list: every installable

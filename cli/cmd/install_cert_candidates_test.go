@@ -320,3 +320,33 @@ func TestScanCertificateFolderKeepsDifferentCertificates(t *testing.T) {
 		t.Fatalf("different certificates must not be merged: %+v", choices)
 	}
 }
+
+// A folder given to the picker is often the home folder. Ordinary files there
+// (.bashrc, logs, locks) are not certificates and are not reported; a file
+// that looks like one (a certificate extension or a PEM header) and cannot be
+// used is reported.
+func TestScanCertificateFolderReportsOnlyCertificateLookingFiles(t *testing.T) {
+	dir := t.TempDir()
+	for name, content := range map[string]string{
+		".bashrc":                 "alias ll='ls -l'\n",
+		".statbus-uninstall.lock": "",
+		"statbus-uninstall.log":   "Step 1\n",
+		"broken.crt":              "not a certificate\n",
+		"damaged-key.txt":         "-----BEGIN PRIVATE KEY-----\nnot base64\n-----END PRIVATE KEY-----\n",
+	} {
+		if err := os.WriteFile(filepath.Join(dir, name), []byte(content), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	_, notes, err := scanCertificateFolder(dir, "statbus.ubos.org", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := []string{
+		"broken.crt: no PEM certificate or private key found",
+		"damaged-key.txt: no PEM certificate or private key found",
+	}
+	if strings.Join(notes, "\n") != strings.Join(want, "\n") {
+		t.Fatalf("notes:\n%s\nwant:\n%s", strings.Join(notes, "\n"), strings.Join(want, "\n"))
+	}
+}
