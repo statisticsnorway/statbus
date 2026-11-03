@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 # STATBUS-490: the configuration prompts must say what each answer is for.
 # The notification email prompt must say a blank answer is fine and means no
-# unattended-upgrade notifications; the GitHub usernames prompt must say it is
-# operator/DevOps SSH access to the box, unrelated to StatBus data. A blank
+# unattended-upgrade notifications; the GitHub usernames prompt must name the
+# accounts that receive the keys (the devops admin account and the StatBus
+# service account), so an operator knows the service account is covered. A blank
 # email answer must let the configuration step complete and save an empty value.
 #
 # Stages StatBus always needs default to yes ([Y/n]); optional or
@@ -35,10 +36,10 @@ else
 fi
 
 ssh_prompt="$(grep -i 'GitHub usernames' <<<"$transcript" | head -1)"
-if grep -qi 'operator' <<<"$ssh_prompt" && grep -qi 'DevOps' <<<"$ssh_prompt" && grep -qi 'not .*StatBus data' <<<"$ssh_prompt"; then
-    echo "PASS SSH prompt names operator/DevOps access, unrelated to StatBus data: $ssh_prompt"
+if grep -qi 'devops admin account' <<<"$ssh_prompt" && grep -qi 'StatBus service account' <<<"$ssh_prompt"; then
+    echo "PASS SSH prompt names the accounts that receive the keys: $ssh_prompt"
 else
-    echo "FAIL SSH prompt does not name its purpose: ${ssh_prompt:-<none>}"; fail=1
+    echo "FAIL SSH prompt does not name the accounts that receive the keys: ${ssh_prompt:-<none>}"; fail=1
 fi
 
 if [[ $rc -eq 0 ]] && grep -q '^ADMIN_EMAIL=""' "$home/.setup-ubuntu.env" 2>/dev/null; then

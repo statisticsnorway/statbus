@@ -1012,7 +1012,7 @@ setup_env() {
     fi
 
     prompt_env_value "ADMIN_EMAIL" "Email address for system notifications (unattended-upgrades). Optional: leave blank for no unattended-upgrade notification emails:"
-    prompt_env_value "GITHUB_USERS" "GitHub usernames for SSH key fetching (space-separated, ED25519-only). This is operator/DevOps SSH access to the box for hardening and administration, not anything to do with StatBus data:"
+    prompt_env_value "GITHUB_USERS" "GitHub usernames whose SSH keys may log in (space-separated, ED25519 keys only). Their keys are installed for the devops admin account and the StatBus service account, so these people can administer this server and install StatBus:"
     # STATBUS-501: the deploy-key source is cloud-only, and it is gated HERE,
     # where both the default and the question live. A standalone run leaves it
     # empty and is never asked about it.
