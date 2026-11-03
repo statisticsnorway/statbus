@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-11-02T13:15:00Z'
-updated_date: '2026-11-03T17:35:00Z'
+updated_date: '2026-11-03T17:50:00Z'
 labels: []
 dependencies: []
 type: bug
@@ -94,4 +94,6 @@ Dense months grow with periods x combinations; a sparse or interval form grows w
 2026-11-03 design restated with owner, in tmp/558-mig/design.md (the reference for the next session): table statistical_history_facet_delta, one row per combination and date where something happened. Integer columns exists_in/out, countable_in/out, births, deaths, moved_in/out, and today's attribute-change counts; CHECK births <= exists_in etc. One jsonb column stats_delta (jsonb_stats 3.1 stats_delta: per variable in/out count/sum/sum_sq, value changes as out+in). jsonb_stats carries statistics only. statistical_history kept (owner: it does its job). statistical_history_facet and its partitions cache replaced. Incremental update: recompute the affected (combination, date) rows from statistical_unit, no subtraction. Both earlier prototypes used a withdrawn format (rows split by kind and label); their numbers are indicative only. Next: prototype this format, then the real migration.
 
 2026-11-03 owner direction: statistical_history_facet keeps its name and columns as a VIEW over statistical_history_facet_delta; statistical_history_facet_partitions and the six facet functions/worker steps go. Open: gross and change counts per event (recommended: churn within a period becomes visible, in - out = net stock change, months add to the year) or by comparing period ends (today); owner's first reading: per event seems an improvement, to confirm after looking at consequences. All in tmp/558-mig/design.md, the reference for the next session.
+
+2026-11-03 grounding (tmp/558-mig/existing.md): the app never calls statistical_history_drilldown (only API, integrators, test 107), so the view must keep column meaning for the API. worker.enqueue_derive_statistical_history_facet_period is dead (its ON CONFLICT index is gone; calling it errors). The history-facet reduce also owns the dirty-slot TRUNCATE and the is_deriving_reports notify; the replacement must take both over. Correction to design.md: the incremental path was wrongly said to know changed units from base_change_log; at this step only dirty hash slots and the date range are known, and statistical_unit holds only new versions. Incremental scope is open (D2); preferred candidate is a per-slot-range delta like statistical_history.
 <!-- SECTION:NOTES:END -->
