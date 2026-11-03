@@ -2166,6 +2166,19 @@ func composeApplyServiceDefault(dir, service string) error {
 
 var composeApplyService = composeApplyServiceDefault
 
+// composeRestartService restarts a running service so it rereads files it
+// loads at start, such as Caddy's /etc/caddy, the same command cert.go uses
+// after placing a certificate. A seam like composeApplyService.
+var composeRestartService = func(dir, service string) error {
+	cmd, err := compose.CommandContext(context.Background(), dir, "restart", service)
+	if err != nil {
+		return err
+	}
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	return cmd.Run()
+}
+
 // applyPendingRestarts applies only compose classes at step 9. The daemon is
 // deferred to after the step table because its boot-migrate is a DDL writer.
 // Order among compose services remains db first, then rest/worker/app/proxy.
@@ -2190,6 +2203,15 @@ func applyPendingRestarts(dir string, pending map[config.RestartClass]bool) erro
 		fmt.Printf("  Applying config change to %s (recreate)...\n", a.service)
 		if err := composeApplyService(dir, a.service); err != nil {
 			return fmt.Errorf("docker compose up -d --no-deps %s: %w", a.service, err)
+		}
+		// The proxy class is "Caddy must restart" (config.RestartProxyRestart).
+		// `up -d` only replaces the container when its compose definition
+		// changed; a change to caddy/config/*.caddyfile alone (a custom
+		// certificate) leaves it running with the old config, so restart it.
+		if a.class == config.RestartProxyRestart {
+			if err := composeRestartService(dir, a.service); err != nil {
+				return fmt.Errorf("docker compose restart %s: %w", a.service, err)
+			}
 		}
 	}
 	if pending[config.RestartUpgradeDaemon] {

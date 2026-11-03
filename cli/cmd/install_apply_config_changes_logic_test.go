@@ -144,7 +144,12 @@ func withFakeComposeApplyService(t *testing.T) *[]string {
 		calls = append(calls, service)
 		return nil
 	}
-	t.Cleanup(func() { composeApplyService = orig })
+	origRestart := composeRestartService
+	composeRestartService = func(dir, service string) error {
+		calls = append(calls, "restart "+service)
+		return nil
+	}
+	t.Cleanup(func() { composeApplyService, composeRestartService = orig, origRestart })
 	return &calls
 }
 
@@ -337,7 +342,7 @@ func TestApplyPendingRestarts_OrderIsDeterministicDBFirst(t *testing.T) {
 	if err := applyPendingRestarts("/tmp/does-not-matter", pending); err != nil {
 		t.Fatalf("applyPendingRestarts: %v", err)
 	}
-	want := []string{"db", "app", "proxy"}
+	want := []string{"db", "app", "proxy", "restart proxy"}
 	if !reflect.DeepEqual(*calls, want) {
 		t.Errorf("composeApplyService order = %v, want %v", *calls, want)
 	}
@@ -367,5 +372,24 @@ healthy, unchanged box would restart db/rest/worker/app/proxy on every
 idempotent `+"`./sb install`"+` refresh — dropping every live connection and
 bouncing every container for no reason. STATBUS-332 exists specifically to
 replace that behavior with DETECT-WHAT-CHANGED.`, *calls)
+	}
+}
+
+// A Caddy-only change (the custom certificate, written only into
+// caddy/config/*.caddyfile) leaves the proxy container definition unchanged,
+// so `docker compose up -d proxy` keeps the running Caddy and its old config.
+// The proxy class means "the proxy must restart": up applies .env changes
+// (ports), then a restart rereads /etc/caddy. Observed on the manual box
+// 2026-11-03: the picked certificate was configured but Caddy kept asking
+// Let's Encrypt and the install stopped at "the advertised site is not
+// serving".
+func TestApplyPendingRestarts_ProxyIsRestartedNotJustUpped(t *testing.T) {
+	calls := withFakeComposeApplyService(t)
+	pending := map[config.RestartClass]bool{config.RestartProxyRestart: true, config.RestartDB: true}
+	if err := applyPendingRestarts(t.TempDir(), pending); err != nil {
+		t.Fatal(err)
+	}
+	if want := []string{"db", "proxy", "restart proxy"}; !reflect.DeepEqual(*calls, want) {
+		t.Errorf("compose calls = %v, want %v", *calls, want)
 	}
 }
