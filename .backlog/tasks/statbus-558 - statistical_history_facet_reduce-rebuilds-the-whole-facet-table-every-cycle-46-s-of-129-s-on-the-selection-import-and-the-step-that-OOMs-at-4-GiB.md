@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-11-02T13:15:00Z'
-updated_date: '2026-11-03T22:53:00Z'
+updated_date: '2026-11-03T23:16:00Z'
 labels: []
 dependencies: []
 type: bug
@@ -112,4 +112,6 @@ Dense months grow with periods x combinations; a sparse or interval form grows w
 2026-11-03 night, owner's views design (tmp/558-shd/): statistical_history_delta(_facet) tables (+ flow tables) behind VIEWS named statistical_history and statistical_history_facet with today's columns (history view adds unit_size_change_count, status_change_count). 10-year Norway: facet view = today's table on all 32 non-stats columns (526,437 rows, 0 differ); history view = today's on all 22 (447 rows, 0 differ); history view = facet view summed (0 differ). Stats differ (261/411 history rows, up to 13%): the view equals the period-end stock exactly; today's table does not equal its own definition because of the hash-slot gate, STATBUS-563 (failing test committed locally, ac264f089). Tables ~11 MB vs today's 1.08 GB, built in ~0.8 s. Full Norway (3,139,134 units, rune backup 2026-11-03, rc.04, jsonb_stats 3.1.0) restored into statbus_local; trial running.
 
 2026-11-03 full Norway trial (statbus_local = rune backup, 3,139,134 units, jsonb_stats 3.1.0; tmp/558-shd/README.md): delta tables built from statistical_unit in ~3 min in one session (stock 19 s, flows 162 s), 525 MB, vs rune's full recalculation 2026-11-02 history steps 183 s + facet 800 s wall with 4 fibers (~16.5 min) and 4.7 GB + 21 GB tables. Views give identical answers: whole 2026 facet 395,106 rows, all 32 non-stats columns, 0 differ; employees end June 2026 Oslo 1,773,441 both. Period queries: Q1 37->5 ms, Q2 516->44 ms, Q5 34->16 ms faster; Q3 628->1,042 ms and Q4 948->3,162 ms slower (stock computed per period on read). Flows build (6.3M unit-period pairs) is the main cost.
+
+2026-11-03 night: (1) stats parity with the owner's existing rule (latest version overlapping the period, used_for_counting) in delta form: valid-version stock of stats + units whose versions all ended inside the period. 10-year Norway: history view = rule on employees count/sum/sum_sq, 447 rows, 0 differ; facet 2020 = rule on all 534 cells with stats, same 3,700 rows as today's table. Today's tables differ from the rule only by the STATBUS-563 undercount (history 305/411 rows lower, facet 2020 10/534 lower, never higher). (2) incremental recalculation of all delta tables (stock, stats valid-stock, stats ended-in-period, all 18 flow columns) per dirty slot: 75 dirty slots, 841 keys re-summed, ~255 ms, equals a full rebuild for every kind (0 differ), and the edits changed every kind. tmp/558-shd/README.md.
 <!-- SECTION:NOTES:END -->
