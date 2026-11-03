@@ -204,7 +204,7 @@ assert_contains "$output" "ma       cloud        anon    v2026.11.0 (c65d1802)  
 assert_not_contains "$output" "←" "a healthy row has no note"
 output=$(status_with_serving 'd53731ec' ug) || fail "status ug should succeed: $output"
 assert_contains "$output" "ug       cloud        anon    v2026.09.0 (d53731ec)           stable       ug name" "VERSION is the release being served, by tag"
-assert_contains "$output" "← sb program is v2026.11.0 (c65d1802): an install did not finish" "the note names the program release"
+assert_contains "$output" "← sb program is v2026.11.0 (c65d1802), the containers run v2026.09.0 (d53731ec)" "the note states both releases, not a guessed cause"
 output=$(status_with_serving 'c65d1802 d53731ec' ug) || fail "status ug should succeed: $output"
 assert_contains "$output" "← containers run different releases: v2026.11.0 (c65d1802), v2026.09.0 (d53731ec)" "mixed containers are named by tag"
 output=$(status_with_serving '' ug) || fail "status ug should succeed: $output"

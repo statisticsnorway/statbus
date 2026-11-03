@@ -351,7 +351,7 @@ status_version_and_note() {
         return
     fi
     if [ -n "$program" ] && [ "$program" != "$serving" ]; then
-        printf '%s|%s' "$(release_label "$serving")" "sb program is $(release_label "$program"): an install did not finish"
+        printf '%s|%s' "$(release_label "$serving")" "sb program is $(release_label "$program"), the containers run $(release_label "$serving")"
         return
     fi
     printf '%s|' "$(release_label "$serving")"
