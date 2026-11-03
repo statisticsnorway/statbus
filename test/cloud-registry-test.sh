@@ -75,10 +75,12 @@ case "$1 $2" in
 esac
 STUB
 chmod +x "$TMP/sb"
-# dev.sh owns the ./sb refresh; this double records that cloud.sh asked for it.
+# dev.sh owns the ./sb build; this double records that cloud.sh asked for it
+# and, like the real script, refuses a command it does not have.
 cat >"$TMP/dev.sh" <<'STUB'
 #!/bin/bash
 printf 'dev.sh %s\n' "$*" >>"$OPS_LOG"
+case "$1" in build-sb) exit 0 ;; *) echo "Error: Unknown command '$1'" >&2; exit 1 ;; esac
 STUB
 chmod +x "$TMP/dev.sh"
 cat >"$TMP/ops/create-new-statbus-installation.sh" <<'STUB'
@@ -235,7 +237,7 @@ assert_not_contains "$(cat "$OPS_LOG")" "dev.sh" "a fresh ./sb is used as it is"
 # uses it, instead of running stale and warning (observed 2026-11-03 on
 # ./cloud.sh install ma: "WARN: ./sb is stale: built from 068d5c93").
 output=$(SB_DRIFT=1 run_cloud install no --version vX 2>&1) || fail "install with a stale ./sb should succeed: $output"
-assert_contains "$(cat "$OPS_LOG")" "dev.sh help" "a stale ./sb is refreshed through dev.sh"
+assert_contains "$(cat "$OPS_LOG")" "dev.sh build-sb" "a stale ./sb is rebuilt with dev.sh build-sb"
 assert_contains "$output" "Refreshing the local ./sb" "the refresh is announced"
 
 set +e

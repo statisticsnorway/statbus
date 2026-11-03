@@ -461,10 +461,9 @@ cmd_upgrade() {
     done
 }
 
-# refresh_local_sb brings this checkout's ./sb to HEAD through dev.sh, which
-# owns the rebuild rule (missing, edited cli/ sources, or built from an older
-# commit with cli/ changes since) and procures or builds it. dev.sh's no-op
-# `help` command runs that refresh and nothing else that matters here.
+# refresh_local_sb brings this checkout's ./sb to HEAD with `./dev.sh build-sb`
+# when it is stale: missing, older than an edited cli/ source, or built from an
+# older commit with cli/ changes since (./sb committed-drift).
 # An sb outside a source checkout (no dev.sh beside it: the release binary the
 # gate's operator-install proof stages) is the binary under test and is used
 # exactly as it is.
@@ -475,7 +474,7 @@ refresh_local_sb() {
         return 0
     fi
     echo "Refreshing the local ./sb to this checkout's HEAD..."
-    (cd "$SCRIPT_DIR" && ./dev.sh help >/dev/null) || { echo "Error: could not refresh ./sb; run ./dev.sh build-sb" >&2; return 1; }
+    (cd "$SCRIPT_DIR" && ./dev.sh build-sb) || { echo "Error: could not refresh ./sb; run ./dev.sh build-sb" >&2; return 1; }
 }
 
 cmd_install() {
