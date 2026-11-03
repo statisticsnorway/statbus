@@ -648,9 +648,11 @@ func TestRestartsAfterSettingsRestoreCoverEveryService(t *testing.T) {
 		}
 	}
 	applied := map[string]bool{}
-	orig := composeApplyService
+	restarted := map[string]bool{}
+	orig, origRestart := composeApplyService, composeRestartService
 	composeApplyService = func(_, service string) error { applied[service] = true; return nil }
-	defer func() { composeApplyService = orig }()
+	composeRestartService = func(_, service string) error { restarted[service] = true; return nil }
+	defer func() { composeApplyService, composeRestartService = orig, origRestart }()
 	if err := applyPendingRestarts(t.TempDir(), got); err != nil {
 		t.Fatal(err)
 	}
@@ -658,6 +660,9 @@ func TestRestartsAfterSettingsRestoreCoverEveryService(t *testing.T) {
 		if !applied[s] {
 			t.Errorf("service %s not recreated", s)
 		}
+	}
+	if !restarted["proxy"] {
+		t.Error("proxy not restarted, so a restored Caddy config would not be loaded")
 	}
 }
 
