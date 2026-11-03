@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: 2026-09-25 13:08
-updated_date: '2026-11-03T20:01:00Z'
+updated_date: '2026-11-03T23:07:00Z'
 labels:
   - installer
 dependencies: []
@@ -53,6 +53,7 @@ Removal is destructive, so the defaults protect what cannot be recreated:
 - [x] #5 [Owner] Decide whether the uninstaller must print the list of what it will delete before asking for confirmation, and record it in Implementation Notes. No: check this and set Done. Yes: add that listing as a new criterion.
 - [ ] #6 Owner decision 2026-11-02: a file StatBus creates lives in one place. While installed, users and credentials live only inside ~/statbus (.users.yml, .env.credentials); install moves a kept ~/statbus.users.yml and ~/statbus.env.credentials into the checkout (no second copy in the home). Uninstall asks 'Keep the users? [Y/n]' and 'Keep the credentials? [Y/n]'; a kept file is moved out to ~/statbus.users.yml or ~/statbus.env.credentials (mode 0600), and ~/statbus is always removed completely. uninstall.sh and ./sb uninstall behave the same; a test covers install, uninstall with both kept, and a fresh install that picks both up
 - [ ] #7 uninstall.sh run after sudo -iu statbus stops the user upgrader: it supplies XDG_RUNTIME_DIR=/run/user/<uid> when unset and that directory belongs to the user (observed failing on the manual box 2026-11-02 with v2026.11.0)
+- [ ] #8 Uninstall removes what the install created beside the checkout: ~/statbus-maintenance always, ~/statbus-backups (pre-upgrade backups) together with the database dumps; the plan lists both, or 'Keep: ~/statbus-backups' when the dumps are kept (observed left behind on the manual box 2026-11-03 with rc.04)
 <!-- AC:END -->
 
 ## Implementation Notes
@@ -84,4 +85,6 @@ Replayed after rc.03: code commit dfe262b0b (was 90ebd4457), ticket evidence a9f
 CI for 3df6bdc36d7b462eaf8ab533910ace895c085d20 (final ticket-evidence commit): Fast Tests success, Harness Selftest success, Images success, CodeQL success, Notify cloud services success (2026-11-02T22:10Z). Code commit dfe262b0b was covered green by the aaedebceb tip run (Go Test, app build & lint, Harness Selftest, Images, CodeQL, Notify).
 
 v2026.11.1-rc.04 (6de3d2757) gate all green: Orchestrator 41694665449, Release 41694665586, Fast Tests 41694665437, Hardening 41694665619, Smoke 41694992526, dev deploy 41697559548, LXD Fork Fleet 41698073420, Upgrade Arc Harness 41698438796. First release containing AC6/AC7 (dfe262b0b); real-box check is the owner's manual-box walkthrough on rc.04.
+
+- **AC8 (2026-11-03):** `46aae5c38`. `TestUninstallRemovesTheInstallsHomeFolders` red before the fix (`tmp/uninstall-home-folders-red.log` in statbus_test: both folders kept, plan lines missing), green after; full `TestUninstall*` green. Box observation pending with rc.05.
 <!-- SECTION:NOTES:END -->
