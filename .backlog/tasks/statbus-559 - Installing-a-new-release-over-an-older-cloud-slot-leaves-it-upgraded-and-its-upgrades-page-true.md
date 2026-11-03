@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-11-02T15:12:00Z'
-updated_date: '2026-11-03T17:47:00Z'
+updated_date: '2026-11-03T17:48:00Z'
 labels:
   - bug
 dependencies: []
@@ -77,4 +77,6 @@ v2026.11.1-rc.03 gate complete, all green: Release 41531148478, Fast Tests 41531
 2026-11-03 AC6, ug: owner ran ./cloud.sh install ug v2026.11.1-rc.03 (tmp/cloud-install-ug.log, 'ug install complete'). Before: sb v2026.11.0 but containers d53731ec (v2026.09.0), schema 20260901212308, ~/statbus-maintenance owned by root, v2026.10.5/v2026.11.0 rows failed on the maintenance flag. After: Directories step DONE and ~/statbus-maintenance owned by statbus_ug; migrations applied (schema 20261031135820); all containers 068d5c93; upgrade row 36389 completed v2026.11.1-rc.03 and the failed v2026.11.0/v2026.10.5/v2026.10.4 rows superseded with their errors kept; unit_floor_state ok; upgrader@ active, retired upgrade@ inactive; ./cloud.sh status ug 'v2026.11.1-rc.03 (068d5c93)' with no note; https://ug.statbus.org answers. Remaining for AC6: mw (v2026.09.0), and ma's parked row.
 
 2026-11-03 AC6, ma: ./cloud.sh install ma v2026.11.1-rc.03 (tmp/cloud-install-ma.log) complete. Parked row 28881 (v2026.10.5) now superseded, park cleared, error kept with the supersede note; upgrade_state_log records in_progress -> superseded with old_parked_at set. Row 31960 completed v2026.11.1-rc.03; unit_floor_state ok; ./cloud.sh status ma 'v2026.11.1-rc.03 (068d5c93)' with no note. Also fixed today from these runs: cloud.sh install refreshes a stale local ./sb through dev.sh (447495464, test red/green tmp/559/cloud-sb-refresh-*.log); the upgrader keeps NOTIFY_SOCKET to itself so children no longer trigger systemd's 'reception only permitted for main PID' (c3e758fdb, TestTakeNotifySocketKeepsItFromChildren red/green tmp/notify-*.log); install writes the user unit file 0644 is still open (systemd warns 'marked executable').
+
+2026-11-03 AC6, ma: ./cloud.sh install ma v2026.11.1-rc.03 complete (tmp/cloud-install-ma.log). Parked row 28881 (v2026.10.5) superseded, park cleared, error kept with ' — superseded by the successful install of v2026.11.1-rc.03'; upgrade_state_log records in_progress -> superseded with old_parked_at set. Row 31960 completed rc.03; unit_floor_state ok; status 'v2026.11.1-rc.03 (068d5c93)' with no note. Fixed from today's runs, each red/green: cloud.sh install refreshes a stale local ./sb through dev.sh (447495464, tmp/559/cloud-sb-refresh-*.log); the upgrader keeps NOTIFY_SOCKET so children no longer trigger systemd's 'reception only permitted for main PID' (c3e758fdb, tmp/notify-*.log); the user unit file is written 0644 so systemd stops warning 'marked executable' (421b8ad85, tmp/unit-mode-*.log). The last two ship in the next RC.
 <!-- SECTION:NOTES:END -->
