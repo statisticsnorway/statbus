@@ -106,8 +106,28 @@ import (
 // deadline. (NOTE: the ticker is still a blind 30 s timer — plan piece #3
 // progress-gates it so a hung step stops the pings; until then it keeps the
 // unit alive across any long step, advancing or not.)
+// notifySocket is systemd's notify socket, taken by the upgrader at startup
+// (takeNotifySocket). Only the unit's main process may send to it: systemd
+// rejects others with "Got notification message from PID …, but reception
+// only permitted for main PID" (seen on ug, 2026-11-03, from a child ./sb that
+// had inherited NOTIFY_SOCKET).
+var notifySocket string
+
+// takeNotifySocket moves NOTIFY_SOCKET from the environment into
+// notifySocket, so this process keeps talking to systemd while the children
+// it starts (./sb, docker, git) inherit nothing and send nothing.
+func takeNotifySocket() {
+	if socket := os.Getenv("NOTIFY_SOCKET"); socket != "" {
+		notifySocket = socket
+		_ = os.Unsetenv("NOTIFY_SOCKET")
+	}
+}
+
 func sdNotify(state string) {
-	socket := os.Getenv("NOTIFY_SOCKET")
+	socket := notifySocket
+	if socket == "" {
+		socket = os.Getenv("NOTIFY_SOCKET")
+	}
 	if socket == "" {
 		return
 	}

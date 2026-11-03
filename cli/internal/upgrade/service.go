@@ -3294,6 +3294,8 @@ func (d *Service) recoverStartupFlag(ctx context.Context) error {
 // Run starts the upgrader's main loop.
 func (d *Service) Run(ctx context.Context) error {
 	d.runningAsService = true
+	// Only this process talks to systemd; see takeNotifySocket.
+	takeNotifySocket()
 	if err := loadOperatorCredentials(d.projDir); err != nil {
 		return fmt.Errorf("load operator credentials: %w", err)
 	}

@@ -3,6 +3,7 @@ package upgrade
 import (
 	"net"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -117,4 +118,52 @@ func TestSdNotifyWatchdog_WritesPayload(t *testing.T) {
 func TestSdNotify_NoOpWithoutSocket(t *testing.T) {
 	t.Setenv("NOTIFY_SOCKET", "")
 	sdNotify("WATCHDOG=1")
+}
+
+// The upgrader process alone talks to systemd. Once the service has taken the
+// notify socket, its own messages still arrive, but a child process (./sb,
+// docker, git) inherits no NOTIFY_SOCKET: systemd only accepts the main PID
+// and logged "Got notification message from PID …, but reception only
+// permitted for main PID" on ug, 2026-11-03.
+func TestTakeNotifySocketKeepsItFromChildren(t *testing.T) {
+	dir, err := os.MkdirTemp("/tmp", "ns")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = os.RemoveAll(dir) }()
+	socketPath := filepath.Join(dir, "n.sock")
+	addr, err := net.ResolveUnixAddr("unixgram", socketPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	conn, err := net.ListenUnixgram("unixgram", addr)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = conn.Close() }()
+	t.Setenv("NOTIFY_SOCKET", socketPath)
+	t.Cleanup(func() { notifySocket = "" })
+
+	takeNotifySocket()
+
+	if got := os.Getenv("NOTIFY_SOCKET"); got != "" {
+		t.Fatalf("NOTIFY_SOCKET still in the environment children inherit: %q", got)
+	}
+	out, err := exec.Command("sh", "-c", `printf %s "${NOTIFY_SOCKET-unset}"`).Output()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(out) != "unset" {
+		t.Fatalf("a child process saw NOTIFY_SOCKET=%q", out)
+	}
+	sdNotify("READY=1")
+	_ = conn.SetReadDeadline(time.Now().Add(2 * time.Second))
+	buf := make([]byte, 64)
+	n, _, err := conn.ReadFromUnix(buf)
+	if err != nil {
+		t.Fatalf("the service's own message did not arrive: %v", err)
+	}
+	if got := string(buf[:n]); got != "READY=1" {
+		t.Errorf("payload = %q, want READY=1", got)
+	}
 }
