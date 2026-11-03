@@ -144,7 +144,9 @@ esac
 	if _, err := f.WriteString("COMMIT_SHORT=6de3d275\n"); err != nil {
 		t.Fatal(err)
 	}
-	f.Close()
+	if err := f.Close(); err != nil {
+		t.Fatal(err)
+	}
 	out := captureStdout(t, func() {
 		if _, err := executeInstallStep(seedStep, dir, func() {}); err != nil {
 			t.Fatalf("seed step: %v", err)
