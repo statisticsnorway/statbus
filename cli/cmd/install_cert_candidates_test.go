@@ -260,3 +260,63 @@ func TestAskCertYesNoUsesInstallerShape(t *testing.T) {
 		}
 	}
 }
+
+// TestScanCertificateFolderListsOneChoicePerLeaf: the manual box hands out the
+// same site certificate as a PEM pair and as a PFX, so a folder holding both
+// offered the operator two identical choices. One leaf is one choice, and the
+// PEM pair is kept because it needs no password; the PFX is named on the line.
+func TestScanCertificateFolderListsOneChoicePerLeaf(t *testing.T) {
+	folder := t.TempDir()
+	cert, key := testCertificate(t, "statbus.example.org", []string{"statbus.example.org"}, time.Now().Add(-time.Hour), time.Now().Add(365*24*time.Hour))
+	// The PFX sorts first, so keeping the PEM pair proves the preference, not
+	// the encounter order.
+	writePFX(t, filepath.Join(folder, "a-site.pfx"), cert, key, "RightPass")
+	if err := os.WriteFile(filepath.Join(folder, "z-site.pem"), certPEM(t, cert), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(folder, "z-site.key"), keyPEM(t, key), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	pw := "RightPass"
+
+	choices, notes, err := scanCertificateFolder(folder, "statbus.example.org", &pw)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(choices) != 1 {
+		t.Fatalf("choices = %d, want 1 (one leaf): %+v notes=%v", len(choices), choices, notes)
+	}
+	choice := choices[0]
+	if strings.Join(choice.Args, " ") != filepath.Join(folder, "z-site.pem")+" "+filepath.Join(folder, "z-site.key") {
+		t.Fatalf("kept %v, want the PEM pair", choice.Args)
+	}
+	if strings.Join(choice.AlsoIn, ",") != "a-site.pfx" {
+		t.Fatalf("also-in = %v, want [a-site.pfx]", choice.AlsoIn)
+	}
+	line := certificateChoiceLine(choice, "statbus.example.org")
+	if !strings.Contains(line, "also in a-site.pfx") {
+		t.Fatalf("choice line does not name the duplicate file: %q", line)
+	}
+}
+
+// TestScanCertificateFolderKeepsDifferentCertificates: merging is by leaf, so
+// certificates that merely share a folder still list separately.
+func TestScanCertificateFolderKeepsDifferentCertificates(t *testing.T) {
+	folder := t.TempDir()
+	first, firstKey := testCertificate(t, "first.example.org", []string{"first.example.org"}, time.Now().Add(-time.Hour), time.Now().Add(30*24*time.Hour))
+	second, secondKey := testCertificate(t, "second.example.org", []string{"second.example.org"}, time.Now().Add(-time.Hour), time.Now().Add(60*24*time.Hour))
+	writePFX(t, filepath.Join(folder, "first.pfx"), first, firstKey, "pw")
+	writePFX(t, filepath.Join(folder, "second.pfx"), second, secondKey, "pw")
+	pw := "pw"
+
+	choices, _, err := scanCertificateFolder(folder, "", &pw)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(choices) != 2 {
+		t.Fatalf("choices = %d, want 2 (different leaves): %+v", len(choices), choices)
+	}
+	if strings.Contains(strings.Join(renderCertificateChoices(choices, nil, ""), "\n"), "also in") {
+		t.Fatalf("different certificates must not be merged: %+v", choices)
+	}
+}

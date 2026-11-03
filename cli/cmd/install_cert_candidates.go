@@ -21,6 +21,11 @@ type certChoice struct {
 	Covers      bool
 	Expired     bool
 	NotYetValid bool
+	// NeedsPassword marks a choice read through a PFX password, so a
+	// password-free copy of the same leaf is preferred when duplicates merge.
+	NeedsPassword bool
+	// AlsoIn names the other files in the folder that hold the same leaf.
+	AlsoIn []string
 }
 
 // The name-only search that feeds the installer's certificate picker
@@ -330,7 +335,7 @@ func scanCertificateFolder(folder, siteDomain string, pfxPassword *string) (choi
 				notes = append(notes, fmt.Sprintf("%s: no certificate and private key inside", filepath.Base(path)))
 				continue
 			}
-			choices = append(choices, certChoice{Args: []string{path}, Leaf: chain[0], ChainLength: len(chain)})
+			choices = append(choices, certChoice{Args: []string{path}, Leaf: chain[0], ChainLength: len(chain), NeedsPassword: true})
 			continue
 		}
 		certs, key := loosePEMContents(data)
@@ -365,8 +370,48 @@ func scanCertificateFolder(folder, siteDomain string, pfxPassword *string) (choi
 		choices = append(choices, certChoice{Args: []string{cert.path, paired}, Leaf: cert.chain[0], ChainLength: len(cert.chain)})
 	}
 
+	choices = mergeDuplicateCertificates(choices)
 	rankCertificateChoices(choices, siteDomain)
 	return choices, notes, nil
+}
+
+// mergeDuplicateCertificates lists one choice per leaf. The manual box exports
+// the same site certificate as a PEM pair and as a PFX, so a folder holding
+// both used to offer the operator two identical choices. The PEM pair is kept
+// because it needs no password; the other file is named in AlsoIn so it is not
+// hidden. Two different certificates are never merged.
+func mergeDuplicateCertificates(choices []certChoice) []certChoice {
+	merged := make([]certChoice, 0, len(choices))
+	position := make(map[string]int, len(choices))
+	for _, choice := range choices {
+		key := string(choice.Leaf.Raw)
+		i, seen := position[key]
+		if !seen {
+			position[key] = len(merged)
+			merged = append(merged, choice)
+			continue
+		}
+		kept := merged[i]
+		if kept.NeedsPassword && !choice.NeedsPassword {
+			also := []string{certificateFileName(kept)}
+			also = append(also, kept.AlsoIn...)
+			choice.AlsoIn = append(also, choice.AlsoIn...)
+			merged[i] = choice
+			continue
+		}
+		kept.AlsoIn = append(kept.AlsoIn, certificateFileName(choice))
+		merged[i] = kept
+	}
+	return merged
+}
+
+// certificateFileName is the file an operator recognises a choice by: the
+// certificate file, not the separate key file of a PEM pair.
+func certificateFileName(choice certChoice) string {
+	if len(choice.Args) == 0 {
+		return ""
+	}
+	return filepath.Base(choice.Args[0])
 }
 
 // rankCertificateChoices puts the best usable certificate first: it covers the
@@ -422,9 +467,13 @@ func certificateChoiceLine(choice certChoice, siteDomain string) string {
 	if choice.NotYetValid {
 		flags += " not valid yet"
 	}
-	return fmt.Sprintf("%s  CN=%s  SANs: %s  expires %s  %s%s",
+	line := fmt.Sprintf("%s  CN=%s  SANs: %s  expires %s  %s%s",
 		strings.Join(choice.Args, " + "), leaf.Subject.CommonName, sans,
 		leaf.NotAfter.Format("2006-01-02"), coverage, flags)
+	if len(choice.AlsoIn) > 0 {
+		line += "  also in " + strings.Join(choice.AlsoIn, ", ")
+	}
+	return line
 }
 
 // renderCertificateNotes renders the files the folder scan could not offer.
