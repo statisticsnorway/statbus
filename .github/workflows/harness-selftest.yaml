@@ -14,7 +14,7 @@ on:
       - 'install.sh'
       - 'uninstall.sh'
       - 'ops/manual-box.sh'
-      - 'ops/niue/rc/**'
+      - 'ops/rc/**'
       - '.github/actions/**'
       - '.github/workflows/harness-selftest.yaml'
       - 'dev.sh'

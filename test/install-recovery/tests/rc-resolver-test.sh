@@ -39,7 +39,7 @@ chmod +x "$work/bin/curl"
 run() { # run <resolver> <tags> [args...]
     local resolver=$1 tags=$2
     shift 2
-    RELEASE_TAGS=$tags TMPDIR="$work/tmp" PATH="$work/bin:$PATH" bash "$ROOT/ops/niue/rc/$resolver" "$@" </dev/null 2>&1
+    RELEASE_TAGS=$tags TMPDIR="$work/tmp" PATH="$work/bin:$PATH" bash "$ROOT/ops/rc/$resolver" "$@" </dev/null 2>&1
 }
 mkdir -p "$work/tmp"
 

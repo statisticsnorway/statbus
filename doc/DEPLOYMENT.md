@@ -262,15 +262,25 @@ ubuntu) and run the StatBus installer:
 ```bash
 ssh statbus@<your-host>
 cd "$HOME"
-curl -fsSL https://raw.githubusercontent.com/statisticsnorway/statbus/master/install.sh -o install.sh
-curl -fsSL https://raw.githubusercontent.com/statisticsnorway/statbus/master/uninstall.sh -o uninstall.sh
+curl -fsSL https://statbus.org/install.sh -o install.sh
+curl -fsSL https://statbus.org/uninstall.sh -o uninstall.sh
 chmod +x install.sh uninstall.sh
 ./install.sh --channel stable
 ```
 
-Supported channels are `stable` (the default, latest stable release) and
-`prerelease` (latest release candidate). To choose the latter, run
-`./install.sh --channel prerelease` instead. Keep the downloaded uninstaller
+statbus.org serves the latest stable release's own scripts. To test the
+newest release candidate instead, use the `/rc/` shortcuts; each runs that
+candidate's own script, and `install.sh` installs that candidate:
+
+```bash
+# as root (sudo -i):
+curl -fsSL https://statbus.org/rc/setup.sh -o setup.sh && chmod +x setup.sh && ./setup.sh
+# as the service account:
+curl -fsSL https://statbus.org/rc/install.sh | bash
+curl -fsSL https://statbus.org/rc/uninstall.sh | bash
+```
+
+Keep the downloaded uninstaller
 outside `~/statbus`; to remove the installation later, run
 `cd "$HOME" && ./uninstall.sh` as the same service user. It removes
 `~/statbus` and `~/statbus-maintenance`. It asks whether to keep the users

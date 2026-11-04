@@ -111,7 +111,9 @@ chmod +x setup.sh
 ```
 
 To prepare for a specific version instead of the current stable release, see
-[Server setup](doc/setup-ubuntu-lts.md).
+[Server setup](doc/setup-ubuntu-lts.md). To test the newest release candidate,
+use `https://statbus.org/rc/setup.sh` here and `https://statbus.org/rc/install.sh`
+in step 2.
 
 **2. Install StatBus** as the service account that step 1 created:
 

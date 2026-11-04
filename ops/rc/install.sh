@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 # statbus.org/rc/install.sh runs the newest release candidate's own install.sh
-# and installs that candidate. niue's Caddy serves this file unchanged for
-# every candidate (STATBUS-570); its source is ops/niue/rc/ in the StatBus
-# repository. statbus.org/install.sh serves the latest stable instead.
+# and installs that candidate. niue's Caddy redirects /rc/<name>.sh to this
+# directory on master (STATBUS-570), so a pushed change is live at once; the
+# code it runs is always the candidate's tagged script.
+# statbus.org/install.sh serves the latest stable instead.
 #   curl -fsSL https://statbus.org/rc/install.sh | bash
 # The body is one function called on the last line, so a download cut short
 # runs nothing.

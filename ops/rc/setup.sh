@@ -1,13 +1,14 @@
 #!/usr/bin/env bash
-# statbus.org/rc/uninstall.sh runs the newest release candidate's own
-# uninstall.sh. niue's Caddy serves this file unchanged for every candidate
-# (STATBUS-570); its source is ops/niue/rc/ in the StatBus repository.
-# statbus.org/uninstall.sh serves the latest stable instead.
-#   curl -fsSL https://statbus.org/rc/uninstall.sh | bash
+# statbus.org/rc/setup.sh runs the newest release candidate's own setup script
+# (setup-ubuntu-lts.sh). niue's Caddy redirects /rc/<name>.sh to this
+# directory on master (STATBUS-570), so a pushed change is live at once; the
+# code it runs is always the candidate's tagged script.
+# statbus.org/setup.sh serves the latest stable instead.
+#   curl -fsSL https://statbus.org/rc/setup.sh | bash
 # The body is one function called on the last line, so a download cut short
 # runs nothing.
-ASSET=uninstall.sh
-STABLE=https://statbus.org/uninstall.sh
+ASSET=setup-ubuntu-lts.sh
+STABLE=https://statbus.org/setup.sh
 PIN_VERSION=0
 
 statbus_rc_main() {
