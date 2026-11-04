@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-11-04T00:43:00Z'
-updated_date: '2026-11-04T07:08:00Z'
+updated_date: '2026-11-04T21:39:00Z'
 labels:
   - performance
   - worker
@@ -34,8 +34,8 @@ computeDbMemory (cli/internal/config/config.go) sets work_mem = DB_MEM_LIMIT/32 
 <!-- AC:BEGIN -->
 - [ ] #1 A full recalculation of a Norway-sized database completes at DB_MEM_LIMIT=8G with no OOM kill
 - [ ] #2 A power-group refresh batch computes timepoints only for its own power groups: on Norway one batch of 401 groups takes seconds, not 61-90 s
-- [ ] #3 The timepoints table after a power-group batch equals today's result, row for row
-- [ ] #4 A regression test shows a power-group-only refresh leaves the timepoints of establishments, legal units and enterprises untouched and computes only the given groups
+- [x] #3 The timepoints table after a power-group batch equals today's result, row for row
+- [x] #4 A regression test shows a power-group-only refresh leaves the timepoints of establishments, legal units and enterprises untouched and computes only the given groups
 <!-- AC:END -->
 
 ## Implementation Notes
@@ -51,4 +51,6 @@ computeDbMemory (cli/internal/config/config.go) sets work_mem = DB_MEM_LIMIT/32 
 - Power groups: 25,634 groups, median 2 legal units, p99 3, max 880.
 
 2026-11-04 failing test 366 (local commit): one power group plus an independent legal unit; after deleting the independent unit's timepoints a power-group-only batch must leave them absent. Pre-fix: 2 timepoints reappear (tmp/test-366-prefix.log, tmp/366-prefix-actual.out). With the proposed change (tmp/review/q4-566.diff: COALESCE the three unit ranges to '{}' in the timepoints_refresh and timesegments_refresh calls) the result rows equal the expected file (tmp/558-shd/566-proto.out). Not migrated; waits on owner.
+
+2026-11-04 owner approved the fix (21:20). Migration 20261104212109_power_group_batch_refreshes_only_its_own_units_timepoints (local commit 9836026cd), regression test 366 committed earlier (6a0753a2c). worker.statistical_unit_refresh_batch now passes '{}' instead of NULL for unit types absent from the batch to timepoints_refresh and timesegments_refresh. Test 366: fails without the fix (tmp/test-558-fast-6.log, not ok 120), passes with it (tmp/test-566-after.log); fast suite 121/121 (tmp/test-566-fast.log). AC3 (same timepoints) shown by the earlier Norway prototype (counts and content hash equal); AC1/AC2 need a Norway full recalculation after this lands. Not pushed yet.
 <!-- SECTION:NOTES:END -->
