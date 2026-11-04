@@ -13,17 +13,14 @@ collect_changes                          depth 0, serial children
 ├── derive_units_phase                   depth 1, serial children
 │   ├── derive_statistical_unit          depth 2, concurrent children
 │   │   └── statistical_unit_refresh_batch × N    depth 3, leaves
+│   ├── derive_history_delta             depth 2, concurrent children
+│   │   └── derive_history_delta_range × N        depth 3, leaves (one per hash range)
 │   └── statistical_unit_flush_staging   depth 2, leaf
 └── derive_reports_phase                 depth 1, serial children
-    ├── derive_statistical_history        depth 2, concurrent children
-    │   └── derive_statistical_history_period × N  depth 3, leaves
-    ├── statistical_history_reduce        depth 2, leaf
     ├── derive_statistical_unit_facet     depth 2, concurrent children
     │   └── derive_statistical_unit_facet_partition × N  depth 3, leaves
     ├── statistical_unit_facet_reduce     depth 2, leaf
-    ├── derive_statistical_history_facet  depth 2, concurrent children
-    │   └── derive_statistical_history_facet_period × N  depth 3, leaves
-    └── statistical_history_facet_reduce  depth 2, leaf
+    └── history_delta_reduce              depth 2, leaf
 ```
 
 Task states: `pending` → `processing` → `waiting` → `completed` (or `failed`).
@@ -164,20 +161,20 @@ The gap bridge: `derive_reports_phase` becomes active when `pending` AND `derive
 ```
 ├── derive_units_phase: completed
 └── derive_reports_phase: waiting
-    ├── derive_statistical_history: waiting (concurrent)
-    │   ├── period_1: completed
-    │   ├── period_2: processing
+    ├── derive_statistical_unit_facet: waiting (concurrent)
+    │   ├── partition_1: completed
+    │   ├── partition_2: processing
     │   └── ...
-    ├── statistical_history_reduce: pending
+    ├── statistical_unit_facet_reduce: pending
     └── ...
 ```
 
 | | Units | Reports |
 |-|-------|---------|
 | active | false | true |
-| step | — | `derive_statistical_history_period` |
-| total | — | N (period children) |
-| UI shows | hidden | "derive_statistical_history_period 45%" |
+| step | — | `derive_statistical_unit_facet_partition` |
+| total | — | N (partition children) |
+| UI shows | hidden | "derive_statistical_unit_facet_partition 45%" |
 
 ### 8. All done
 

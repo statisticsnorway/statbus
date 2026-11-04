@@ -3,6 +3,15 @@
 This document describes how STATBUS derives statistical tables from imported
 data. It covers the task flow, structured concurrency model, and queue layout.
 
+> **STATBUS-558 (November 2026):** `statistical_history` and
+> `statistical_history_facet` are views over two sparse delta tables,
+> `history_stock_delta` (per cell and month) and `history_flow_delta` (per cell
+> and period). Step ③a `derive_history_delta` runs before the flush, one
+> concurrent child per hash range staging the refreshed units' new minus old
+> contributions; step ⑦ `history_delta_reduce` adds the staged rows in. The
+> per-period history steps (⑤, ⑤b, ⑦, ⑦b of the earlier diagram) are gone.
+> Sections below that describe them are kept as history and say so.
+
 > **Recent changes (April 30, 2026):**
 > - **Phase 2 (`cdbc9c0ec`)** — `statistical_history` per-partition rows are
 >   now stored per-slot as singleton `int4range(slot, slot+1)`. Decouples
@@ -179,6 +188,17 @@ parallel on the child fibers.
                                                      │ (parent completes, serial fiber resumes)
                                                      ▼
                                   ┌─────────────────────────────────────────────┐
+                            ③a    │ derive_history_delta                PARENT  │
+                                  │  staging = new versions, statistical_unit   │
+                                  │  = old ones. One child per hash range       │
+                                  │  holding a refreshed unit (all ranges on a  │
+                                  │  rebuild): derive_history_delta_range       │
+                                  │  stages new minus old per unit, with        │
+                                  │  unit_ids. Identical rows cancel.           │
+                                  └──────────────────┬──────────────────────────┘
+                                                     │
+                                                     ▼
+                                  ┌─────────────────────────────────────────────┐
                              ③    │ statistical_unit_flush_staging      SERIAL  │
                                   │  Merges UNLOGGED staging table into         │
                                   │  main statistical_unit table.               │
@@ -192,30 +212,6 @@ parallel on the child fibers.
                                   ┌─────────────────────────────────────────────┐
                              ④    │ derive_reports                      SERIAL  │
                                   │  Starts the reporting chain.                │
-                                  │  Enqueues → derive_statistical_history      │
-                                  └──────────────────┬──────────────────────────┘
-                                                     │
-                                                     ▼
-                                  ┌─────────────────────────────────────────────┐
-                             ⑤    │ derive_statistical_history          PARENT  │
-                                  │                                             │
-                                  │  Enqueues → derive_statistical_unit_facet   │
-                                  │  Enqueues → statistical_history_reduce      │
-                                  │                                             │
-                                  │  Spawns period children (parallel):         │
-                                  │  ┌──────────┐ ┌──────────┐ ┌──────────┐   │
-                                  │  │ year '24 │ │ mo '24-1 │ │ mo '24-2 │...│
-                                  │  └──────────┘ └──────────┘ └──────────┘   │
-                                  │  derive_statistical_history_period          │
-                                  │                                             │
-                                  │  Parent "waiting" → children → done         │
-                                  └──────────────────┬──────────────────────────┘
-                                                     │
-                                                     ▼
-                                  ┌─────────────────────────────────────────────┐
-                            ⑤b    │ statistical_history_reduce          SERIAL  │
-                                  │  Aggregates partition entries into root      │
-                                  │  entries for statistical_history.            │
                                   └──────────────────┬──────────────────────────┘
                                                      │
                                                      ▼
@@ -227,9 +223,6 @@ parallel on the child fibers.
                                   │  │ part 0   │ │ part 1   │ │ part N   │...│
                                   │  └──────────┘ └──────────┘ └──────────┘   │
                                   │  derive_statistical_unit_facet_partition    │
-                                  │                                             │
-                                  │  Enqueues → statistical_unit_facet_reduce   │
-                                  │  Enqueues → derive_statistical_history_facet│
                                   │                                             │
                                   │  Parent "waiting" → children → done         │
                                   └──────────────────┬──────────────────────────┘
@@ -243,24 +236,11 @@ parallel on the child fibers.
                                                      │
                                                      ▼
                                   ┌─────────────────────────────────────────────┐
-                             ⑦    │ derive_statistical_history_facet    PARENT  │
-                                  │                                             │
-                                  │  Enqueues → statistical_history_facet_reduce│
-                                  │                                             │
-                                  │  Spawns period children (parallel):         │
-                                  │  ┌──────────┐ ┌──────────┐ ┌──────────┐   │
-                                  │  │ year '24 │ │ mo '24-1 │ │ mo '24-2 │...│
-                                  │  └──────────┘ └──────────┘ └──────────┘   │
-                                  │  derive_statistical_history_facet_period    │
-                                  │                                             │
-                                  │  Parent "waiting" → children → done         │
-                                  └──────────────────┬──────────────────────────┘
-                                                     │
-                                                     ▼
-                                  ┌─────────────────────────────────────────────┐
-                            ⑦b    │ statistical_history_facet_reduce    SERIAL  │
-                                  │  Aggregates partition entries into root      │
-                                  │  entries for statistical_history_facet.      │
+                             ⑦    │ history_delta_reduce                SERIAL  │
+                                  │  Adds the staged history deltas into        │
+                                  │  history_stock_delta / history_flow_delta,  │
+                                  │  refreshes history_period, clears the dirty │
+                                  │  hash slots, notifies reports done.         │
                                   └──────────────────┬──────────────────────────┘
                                                      │
                                                      ▼
@@ -269,7 +249,7 @@ parallel on the child fibers.
                                   transitioning true → false, invalidates caches.
 ```
 
-**Reading the diagram:** Each numbered step (①–⑦b) is a serial task that
+**Reading the diagram:** Each numbered step (①–⑦) is a serial task that
 runs to completion before the next one starts. Steps marked PARENT spawn
 concurrent children that run in parallel on the concurrent fibers; the serial
 fiber blocks until all children finish. This is structured concurrency —
@@ -303,13 +283,15 @@ The three derived tables have different data models:
 
 | Table                      | Keyed by                               | Natural partition |
 |----------------------------|----------------------------------------|-------------------|
-| `statistical_history`      | `(resolution, year, month, unit_type)` | period            |
-| `statistical_history_facet`| `(resolution, year, month, ...dims)`   | period            |
+| `history_stock_delta`      | `(...dims, on_month)`                  | `(unit_type, unit_id)` via staging |
+| `history_flow_delta`       | `(resolution, year, month, ...dims)`   | `(unit_type, unit_id)` via staging |
 | `statistical_unit_facet`   | `(valid_from, valid_until, ...dims)`   | `(unit_type, unit_id)` |
 
-`statistical_history` and `statistical_history_facet` use period-based keys
-(`year`, `month`), so each period child touches **disjoint rows** — perfect
-for parallel splitting.
+The history delta children write signed per-unit rows to UNLOGGED staging,
+one hash range each, and `history_delta_reduce` adds them in. Every unit
+belongs to one range, so any split of the hash space gives the same sums.
+`statistical_history` and `statistical_history_facet` are views over these
+tables.
 
 `statistical_unit_facet` uses **date ranges** (`valid_from`, `valid_until`).
 A facet row with `valid_from=2020, valid_until=2025` would overlap **65
@@ -444,17 +426,14 @@ All commands, their queue assignments, and pipeline phase:
 | analytics   | `derive_units_phase`                      | phase       | 1     | `is_deriving_stat_units`    | Serial wrapper for unit derivation |
 | analytics   | `derive_statistical_unit`                 | parent      | 2     | `is_deriving_stat_units`    | Spawns concurrent batch children |
 | analytics   | `statistical_unit_refresh_batch`          | child       | 3     | `is_deriving_stat_units`    | Parallel batch processing    |
+| analytics   | `derive_history_delta`                    | parent      | 2     | `is_deriving_stat_units`    | Before the flush: spawns one child per hash range |
+| analytics   | `derive_history_delta_range`              | child       | 3     | `is_deriving_stat_units`    | Stages new minus old history deltas of one range |
 | analytics   | `statistical_unit_flush_staging`          | leaf        | 2     | `is_deriving_stat_units`    | Merge staging → main table   |
 | analytics   | `derive_reports_phase`                    | phase       | 1     | `is_deriving_reports`       | Serial wrapper for reports   |
-| analytics   | `derive_statistical_history`              | parent      | 2     | `is_deriving_reports`       | Spawns concurrent period children |
-| analytics   | `derive_statistical_history_period`       | child       | 3     | `is_deriving_reports`       | Per-period aggregation       |
-| analytics   | `statistical_history_reduce`              | leaf        | 2     | `is_deriving_reports`       | Aggregate history partitions |
 | analytics   | `derive_statistical_unit_facet`           | parent      | 2     | `is_deriving_reports`       | Spawns concurrent partition children |
 | analytics   | `derive_statistical_unit_facet_partition` | child       | 3     | `is_deriving_reports`       | Per-partition facet compute  |
 | analytics   | `statistical_unit_facet_reduce`           | leaf        | 2     | `is_deriving_reports`       | Merge partitions → main      |
-| analytics   | `derive_statistical_history_facet`        | parent      | 2     | `is_deriving_reports`       | Spawns concurrent period children |
-| analytics   | `derive_statistical_history_facet_period` | child       | 3     | `is_deriving_reports`       | Per-period facet aggregation |
-| analytics   | `statistical_history_facet_reduce`        | leaf        | 2     | `is_deriving_reports`       | Terminal — notifies complete |
+| analytics   | `history_delta_reduce`                    | leaf        | 2     | `is_deriving_reports`       | Terminal — adds staged history deltas, notifies complete |
 | analytics   | `derive_reports`                          | (legacy)    | —     | —                           | No-op stub for old task refs |
 | import      | `import_job`                              | parent      | 0     | —                           | Wrapper per import job       |
 | import      | `import_job_process`                      | serial child| 1     | —                           | One state transition at a time |
