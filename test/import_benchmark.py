@@ -502,8 +502,8 @@ def check_consistency():
 
     Three layers of check (STATBUS-558: the history tables are sparse deltas,
     statistical_history and statistical_history_facet are views over them):
-      A. Incremental == rebuild: the stored history_stock_delta and
-         history_flow_delta rows, maintained cycle by cycle, equal a full
+      A. Incremental == rebuild: the stored statistical_history_facet_stock_delta and
+         statistical_history_facet_flow_delta rows, maintained cycle by cycle, equal a full
          rebuild from statistical_unit (computed in a rolled-back transaction),
          unit_ids included. Fails when a cycle staged a wrong delta or missed one.
       B. Ground-truth: sh.exists_count == COUNT(DISTINCT unit_id) from
@@ -526,12 +526,12 @@ def check_consistency():
                                COALESCE((e.value->'in'->>'sum')::numeric, 0) - COALESCE((e.value->'out'->>'sum')::numeric, 0) AS s
                           FROM jsonb_each(COALESCE(stats_delta, '{}') - 'type'::text) AS e) AS x
                  WHERE x.n <> 0 OR x.s <> 0), unit_ids::text
-          FROM public.history_stock_delta
+          FROM public.statistical_history_facet_stock_delta
         UNION ALL
         SELECT 'flow', unit_type::text, primary_activity_category_path::text, secondary_activity_category_path::text,
                sector_path::text, legal_form_id, physical_region_path::text, physical_country_id, unit_size_id,
                status_id, resolution::text || year || '-' || COALESCE(month, 0), NULL, NULL, flows::text, unit_ids::text
-          FROM public.history_flow_delta
+          FROM public.statistical_history_facet_flow_delta
     """
 
     conn = get_conn()
@@ -541,19 +541,19 @@ def check_consistency():
 
             # --- Layer C: staging drained ---
             cur.execute("""
-                SELECT (SELECT count(*) FROM public.history_stock_delta_staging)
-                     + (SELECT count(*) FROM public.history_flow_delta_staging)
+                SELECT (SELECT count(*) FROM public.statistical_history_facet_stock_delta_staging)
+                     + (SELECT count(*) FROM public.statistical_history_facet_flow_delta_staging)
             """)
             orphan_count = cur.fetchone()[0]
 
             # --- Layer A: incremental == rebuild (rolled back) ---
             cur.execute(f"CREATE TEMP TABLE bench_incremental AS {rows_sql}")
             cur.execute("""
-                TRUNCATE public.history_stock_delta, public.history_flow_delta,
-                         public.history_stock_delta_staging, public.history_flow_delta_staging
+                TRUNCATE public.statistical_history_facet_stock_delta, public.statistical_history_facet_flow_delta,
+                         public.statistical_history_facet_stock_delta_staging, public.statistical_history_facet_flow_delta_staging
             """)
-            cur.execute("CALL worker.history_delta_range('[0,16384)'::int4range, true)")
-            cur.execute("CALL worker.history_delta_apply()")
+            cur.execute("CALL worker.statistical_history_facet_delta_stage_partition('[0,16384)'::int4range, true)")
+            cur.execute("CALL worker.statistical_history_facet_delta_apply()")
             cur.execute(f"CREATE TEMP TABLE bench_rebuilt AS {rows_sql}")
             cur.execute("""
                 SELECT 'only_incremental', * FROM (SELECT * FROM bench_incremental EXCEPT ALL SELECT * FROM bench_rebuilt) AS a

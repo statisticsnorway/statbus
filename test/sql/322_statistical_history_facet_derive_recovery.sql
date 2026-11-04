@@ -1,9 +1,9 @@
 -- Test 322: statistical_history_facet recovery from empty delta tables.
 --
--- statistical_history_facet is a view over public.history_stock_delta and
--- public.history_flow_delta (STATBUS-558). When those tables are empty while
+-- statistical_history_facet is a view over public.statistical_history_facet_stock_delta and
+-- public.statistical_history_facet_flow_delta (STATBUS-558). When those tables are empty while
 -- statistical_unit has rows (a lost or truncated derived state), the next
--- ordinary cycle of worker.derive_history_delta rebuilds them from
+-- ordinary cycle of worker.derive_statistical_history_facet_delta rebuilds them from
 -- statistical_unit instead of adding a few staged deltas onto nothing.
 --
 -- This test:
@@ -69,7 +69,7 @@ FROM _pipeline_snapshot;
 \echo
 \echo "=== STEP 2: TRUNCATE the delta tables ==="
 SET ROLE postgres;
-TRUNCATE public.history_stock_delta, public.history_flow_delta;
+TRUNCATE public.statistical_history_facet_stock_delta, public.statistical_history_facet_flow_delta;
 RESET ROLE;
 CALL test.set_user_from_email('test.admin@statbus.org');
 SELECT count(*) AS facet_rows_while_empty FROM public.statistical_history_facet;
@@ -84,7 +84,7 @@ VALUES ('2220794', 'The Office Corp renamed', '2025-01-01', 'infinity');
 CALL worker.process_tasks(p_queue => 'import');
 CALL worker.process_tasks(p_queue => 'analytics');
 SELECT t.info->>'rebuild' AS last_history_cycle_rebuilt
-FROM worker.tasks AS t WHERE t.command = 'derive_history_delta' ORDER BY t.id DESC LIMIT 1;
+FROM worker.tasks AS t WHERE t.command = 'derive_statistical_history_facet_delta' ORDER BY t.id DESC LIMIT 1;
 
 \echo
 \echo "=== STEP 4: the view equals the snapshot in every column but name_change_count ==="

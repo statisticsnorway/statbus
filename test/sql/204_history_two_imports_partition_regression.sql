@@ -83,7 +83,7 @@ ORDER BY unit_type;
 
 \echo "--- Stock delta rows after import 1: the units each row counts ---"
 SELECT unit_type, on_month, exists_delta, countable_delta, unit_ids
-FROM public.history_stock_delta
+FROM public.statistical_history_facet_stock_delta
 WHERE unit_type IN ('legal_unit', 'establishment', 'enterprise')
 ORDER BY unit_type, on_month, unit_ids;
 
@@ -156,7 +156,7 @@ ORDER BY unit_type;
 
 \echo "--- Stock delta rows after import 2: the units each row counts ---"
 SELECT unit_type, on_month, exists_delta, countable_delta, unit_ids
-FROM public.history_stock_delta
+FROM public.statistical_history_facet_stock_delta
 WHERE unit_type IN ('legal_unit', 'establishment', 'enterprise')
 ORDER BY unit_type, on_month, unit_ids;
 
@@ -186,27 +186,27 @@ SELECT command, state, COUNT(*) AS task_count
 FROM worker.tasks
 WHERE command IN ('collect_changes', 'derive_units_phase', 'derive_reports_phase',
                   'derive_statistical_unit', 'statistical_unit_flush_staging',
-                  'derive_history_delta', 'derive_history_delta_range', 'history_delta_reduce')
+                  'derive_statistical_history_facet_delta', 'derive_statistical_history_facet_delta_partition', 'statistical_history_facet_delta_reduce')
 GROUP BY command, state
 ORDER BY command, state;
 
-\echo "--- derive_history_delta tasks (the spawner; info.child_count reports fan-out) ---"
+\echo "--- derive_statistical_history_facet_delta tasks (the spawner; info.child_count reports fan-out) ---"
 SELECT state, info->>'rebuild' AS rebuild, (info->>'child_count')::int AS child_count,
        payload->>'valid_from' AS valid_from, payload->>'valid_until' AS valid_until
 FROM worker.tasks
-WHERE command = 'derive_history_delta'
+WHERE command = 'derive_statistical_history_facet_delta'
 ORDER BY id;
 
 \echo "--- STATBUS-543: every hash-partitioned child spans one partition range of 16384/partition_count_target slots, also in the dirty (partial) derive [as postgres] ---"
--- derive_history_delta spawns before the flush adjusts partition_count_target, so its children are
+-- derive_statistical_history_facet_delta spawns before the flush adjusts partition_count_target, so its children are
 -- checked against the range size it recorded; the facet children against the current target.
 WITH child AS (
     SELECT t.command,
            COALESCE(NULLIF(t.payload->>'hash_partition', ''), t.payload->>'hash_range')::int4range AS r,
            COALESCE((parent.info->>'range_size')::int, GREATEST(1, 16384 / public.get_partition_count_target())) AS size
     FROM worker.tasks AS t
-    LEFT JOIN worker.tasks AS parent ON parent.id = t.parent_id AND parent.command = 'derive_history_delta'
-    WHERE t.command IN ('derive_history_delta_range', 'derive_statistical_unit_facet_partition')
+    LEFT JOIN worker.tasks AS parent ON parent.id = t.parent_id AND parent.command = 'derive_statistical_history_facet_delta'
+    WHERE t.command IN ('derive_statistical_history_facet_delta_partition', 'derive_statistical_unit_facet_partition')
 )
 SELECT command,
        count(*) > 0 AS spawned,
@@ -224,7 +224,7 @@ SELECT h.resolution, h.unit_type,
                                      AND p.curr_stop < public.unit_existence_until(su.valid_until, su.death_date)
                                      AND su.valid_from <= p.curr_stop AND p.curr_stop < su.valid_until)) AS consistent
 FROM public.statistical_history AS h
-JOIN public.history_period AS p ON p.resolution = h.resolution AND p.year = h.year AND p.month IS NOT DISTINCT FROM h.month
+JOIN public.statistical_history_period AS p ON p.resolution = h.resolution AND p.year = h.year AND p.month IS NOT DISTINCT FROM h.month
 WHERE h.year = 2021 AND h.unit_type IN ('legal_unit', 'establishment', 'enterprise')
 GROUP BY 1, 2
 ORDER BY 1, 2;

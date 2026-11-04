@@ -123,7 +123,7 @@ ORDER BY child.priority, child.id;
 \echo "=== 7. Verify serial children of derive_reports_phase ==="
 
 -- derive_reports_phase should have serial children in order:
--- derive_statistical_unit_facet, statistical_unit_facet_reduce, history_delta_reduce
+-- derive_statistical_unit_facet, statistical_unit_facet_reduce, statistical_history_facet_delta_reduce
 SELECT
     child.command,
     child.state,

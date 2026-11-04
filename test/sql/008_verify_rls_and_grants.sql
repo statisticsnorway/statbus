@@ -53,8 +53,8 @@ DECLARE
     -- Tables that are intentionally exempt from RLS because they are internal
     -- staging/working tables not exposed via PostgREST.
     v_exempt_tables TEXT[] := ARRAY[
-        'history_flow_delta_staging',
-        'history_stock_delta_staging',
+        'statistical_history_facet_flow_delta_staging',
+        'statistical_history_facet_stock_delta_staging',
         'statistical_unit_facet_dirty_hash_slots',
         'statistical_unit_facet_staging',
         'statistical_unit_staging'
@@ -105,8 +105,8 @@ DECLARE
     v_worker_funcs TEXT[] := ARRAY[
         'admin.disable_temporal_triggers',
         'admin.enable_temporal_triggers',
-        'worker.derive_history_delta',
-        'worker.derive_history_delta_range',
+        'worker.derive_statistical_history_facet_delta',
+        'worker.derive_statistical_history_facet_delta_partition',
         'worker.derive_reports',
         'worker.derive_reports_phase',
         'worker.derive_statistical_unit',
@@ -114,7 +114,7 @@ DECLARE
         'worker.derive_statistical_unit_facet',
         'worker.derive_statistical_unit_facet_partition',
         'worker.derive_used_tables',
-        'worker.history_delta_reduce',
+        'worker.statistical_history_facet_delta_reduce',
         'worker.notify_task_changed',
         'worker.statistical_unit_facet_reduce',
         'worker.statistical_unit_flush_staging',

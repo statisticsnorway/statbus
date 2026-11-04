@@ -126,10 +126,10 @@ WHERE command IN ('task_cleanup', 'import_job_cleanup') AND state = 'pending';
 -- model is wrong. A quiet no-op would surface later as a maintenance task that
 -- simply never runs — the precise failure mode this whole ticket is about.
 SAVEPOINT sp_not_recurring;
--- expected to fail: derive_history_delta_range is event-driven,
+-- expected to fail: derive_statistical_history_facet_delta_partition is event-driven,
 -- so it has no schedule_interval and must not be schedulable as recurring
 \set ON_ERROR_STOP off
-SELECT worker.ensure_recurring_task('derive_history_delta_range');
+SELECT worker.ensure_recurring_task('derive_statistical_history_facet_delta_partition');
 \set ON_ERROR_STOP on
 ROLLBACK TO SAVEPOINT sp_not_recurring;
 

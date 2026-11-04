@@ -281,9 +281,9 @@ COMMIT;
 -- PHASE 3B: ANALYTICS (enabled for performance testing)
 -- ============================================================================
 -- The analytics derivation runs in two phases:
--- 1. units: derive_statistical_unit, derive_history_delta (one concurrent child per hash range,
+-- 1. units: derive_statistical_unit, derive_statistical_history_facet_delta (one concurrent child per hash range,
 --    staging new minus old history deltas), statistical_unit_flush_staging
--- 2. reports: derive_statistical_unit_facet + reduce, then history_delta_reduce (STATBUS-558)
+-- 2. reports: derive_statistical_unit_facet + reduce, then statistical_history_facet_delta_reduce (STATBUS-558)
 
 BEGIN;
 

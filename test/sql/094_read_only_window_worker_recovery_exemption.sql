@@ -118,7 +118,7 @@ BEGIN;
 -- was wedged in. Everything in this transaction is rolled back, so the function's
 -- own side effects cannot leak into later tests.
 INSERT INTO worker.tasks (id, command, state, worker_pid, process_start_at)
-VALUES (999265001, 'derive_history_delta_range', 'processing', 424242, now());
+VALUES (999265001, 'derive_statistical_history_facet_delta_partition', 'processing', 424242, now());
 
 SELECT state AS seeded_state FROM worker.tasks WHERE id = 999265001;
 

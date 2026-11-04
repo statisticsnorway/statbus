@@ -108,8 +108,8 @@ SELECT
 
 \echo "Simulate rc.42 migration wipe: TRUNCATE derived tables"
 -- statistical_history and statistical_history_facet are views over these (STATBUS-558).
-TRUNCATE public.history_stock_delta;
-TRUNCATE public.history_flow_delta;
+TRUNCATE public.statistical_history_facet_stock_delta;
+TRUNCATE public.statistical_history_facet_flow_delta;
 TRUNCATE public.activity_category_used;
 TRUNCATE public.region_used;
 TRUNCATE public.sector_used;

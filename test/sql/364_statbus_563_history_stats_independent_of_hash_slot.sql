@@ -8,9 +8,9 @@
 -- statistics dropped unless a slot-mate kept the slot alive.
 --
 -- The delta tables carry each counted version's stats on their own: the stock
--- of summaries valid at the period end (history_stock_delta.stats_delta) plus
+-- of summaries valid at the period end (statistical_history_facet_stock_delta.stats_delta) plus
 -- the summaries of versions that ended inside the period
--- (history_flow_delta.stats_ended). No row depends on another unit.
+-- (statistical_history_facet_flow_delta.stats_ended). No row depends on another unit.
 --
 -- Fixture: two legal units with employees, deliberately in different hash slots
 -- (asserted below).

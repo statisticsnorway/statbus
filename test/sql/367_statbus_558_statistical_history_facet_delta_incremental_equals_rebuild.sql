@@ -1,9 +1,9 @@
 -- STATBUS-558: the history delta tables after incremental cycles equal a full rebuild.
 --
--- public.history_stock_delta and public.history_flow_delta are maintained per
--- cycle: worker.derive_history_delta stages, per hash range, the new versions
+-- public.statistical_history_facet_stock_delta and public.statistical_history_facet_flow_delta are maintained per
+-- cycle: worker.derive_statistical_history_facet_delta stages, per hash range, the new versions
 -- of the refreshed units minus their old versions, and
--- worker.history_delta_reduce adds the staged rows in. A full rebuild
+-- worker.statistical_history_facet_delta_reduce adds the staged rows in. A full rebuild
 -- (worker.enqueue_derive_statistical_unit_all) recomputes both tables from
 -- statistical_unit alone. The two must hold the same rows: every cell, date,
 -- count, flow, stats value and unit_ids list.
@@ -74,20 +74,20 @@ SELECT 'stock' AS kind,
                  d.legal_form_id, d.physical_region_path, d.physical_country_id, d.unit_size_id, d.status_id,
                  d.on_month, d.exists_delta, d.countable_delta,
                  pg_temp.stats_net(d.stats_delta), d.unit_ids) AS row_text
-FROM public.history_stock_delta AS d
+FROM public.statistical_history_facet_stock_delta AS d
 UNION ALL
 SELECT 'flow',
        concat_ws('|', f.resolution, f.year, f.month, f.unit_type, f.primary_activity_category_path,
                  f.secondary_activity_category_path, f.sector_path, f.legal_form_id, f.physical_region_path,
                  f.physical_country_id, f.unit_size_id, f.status_id, f.flows,
                  pg_temp.stats_net(f.stats_ended), f.unit_ids)
-FROM public.history_flow_delta AS f;
+FROM public.statistical_history_facet_flow_delta AS f;
 
 \echo
 \echo "367.0 the first cycle added every unit (statistical_unit was still empty, so nothing to rebuild) and every task completed"
 SELECT t.command, t.state, t.info->>'rebuild' AS rebuild
 FROM worker.tasks AS t
-WHERE t.command = 'derive_history_delta'
+WHERE t.command = 'derive_statistical_history_facet_delta'
 ORDER BY t.id;
 SELECT count(*) FILTER (WHERE t.state <> 'completed') AS not_completed
 FROM worker.tasks AS t
@@ -142,7 +142,7 @@ INSERT INTO snapshot SELECT 'after_delete', kind, row_text FROM stored_rows;
 \echo "367.4 the first load and the three change cycles were all incremental (no rebuild), and every task completed"
 SELECT t.info->>'rebuild' AS rebuild, count(*) AS cycles
 FROM worker.tasks AS t
-WHERE t.command = 'derive_history_delta'
+WHERE t.command = 'derive_statistical_history_facet_delta'
 GROUP BY 1 ORDER BY 1;
 SELECT count(*) FILTER (WHERE t.state <> 'completed') AS not_completed
 FROM worker.tasks AS t
@@ -163,12 +163,12 @@ FROM pairs AS p ORDER BY p.curr;
 \echo
 \echo "367.6 no row lists the deleted legal unit or its enterprise; the moved unit is listed under its new region from 2024"
 SELECT k.kind, k.unit_type, k.on_month, k.year, k.unit_ids
-FROM (SELECT 'stock' AS kind, unit_type, on_month, NULL::int AS year, unit_ids FROM public.history_stock_delta
-      UNION ALL SELECT 'flow', unit_type, NULL, year, unit_ids FROM public.history_flow_delta) AS k
+FROM (SELECT 'stock' AS kind, unit_type, on_month, NULL::int AS year, unit_ids FROM public.statistical_history_facet_stock_delta
+      UNION ALL SELECT 'flow', unit_type, NULL, year, unit_ids FROM public.statistical_history_facet_flow_delta) AS k
 WHERE (k.unit_type = 'legal_unit' AND (SELECT lu_id FROM _victim) = ANY (k.unit_ids))
    OR (k.unit_type = 'enterprise' AND (SELECT ent_id FROM _victim) = ANY (k.unit_ids));
 SELECT d.physical_region_path, d.on_month, d.exists_delta
-FROM public.history_stock_delta AS d
+FROM public.statistical_history_facet_stock_delta AS d
 WHERE d.unit_type = 'legal_unit'
   AND (SELECT su.unit_id FROM public.statistical_unit AS su
         WHERE su.unit_type = 'legal_unit' AND su.external_idents->>'tax_ident' = '2220794' LIMIT 1) = ANY (d.unit_ids)
@@ -189,7 +189,7 @@ SELECT
                            EXCEPT ALL SELECT kind, row_text FROM snapshot WHERE label = 'after_delete') AS x) AS only_in_rebuild,
     (SELECT count(*) FROM (SELECT kind, row_text FROM snapshot WHERE label = 'after_delete'
                            EXCEPT ALL SELECT kind, row_text FROM snapshot WHERE label = 'rebuilt') AS x) AS only_in_incremental;
-SELECT (SELECT t.info->>'rebuild' FROM worker.tasks AS t WHERE t.command = 'derive_history_delta' ORDER BY t.id DESC LIMIT 1) AS last_cycle_rebuilt;
+SELECT (SELECT t.info->>'rebuild' FROM worker.tasks AS t WHERE t.command = 'derive_statistical_history_facet_delta' ORDER BY t.id DESC LIMIT 1) AS last_cycle_rebuilt;
 
 \echo
 \echo "367.8 a unit valid from -infinity counts from the first period to its end (review finding 1)"
@@ -197,17 +197,17 @@ SELECT (SELECT t.info->>'rebuild' FROM worker.tasks AS t WHERE t.command = 'deri
 -- 2020-12-31 with 5 employees; it must be in the stock of every period up to 2020 and leave in 2021.
 SAVEPOINT unbounded;
 SET LOCAL ROLE postgres;
-TRUNCATE public.history_stock_delta, public.history_flow_delta,
-         public.history_stock_delta_staging, public.history_flow_delta_staging;
+TRUNCATE public.statistical_history_facet_stock_delta, public.statistical_history_facet_flow_delta,
+         public.statistical_history_facet_stock_delta_staging, public.statistical_history_facet_flow_delta_staging;
 DELETE FROM public.statistical_unit;
 INSERT INTO public.statistical_unit (unit_type, unit_id, valid_from, valid_to, valid_until, name, used_for_counting,
                                      hash_slot, stats_summary)
 VALUES ('legal_unit', 9001, '-infinity', '2020-12-31', '2021-01-01', 'Unbounded start', true, 1,
         '{"type": "stats_agg", "employees": {"type": "int_agg", "count": 1, "sum": 5, "sum_sq": 25, "min": 5, "max": 5}}'::jsonb),
        ('legal_unit', 9002, '2019-01-01', 'infinity', 'infinity', 'Anchor', true, 2, NULL);
-CALL worker.history_delta_range('[0,16384)'::int4range, true, 'public.statistical_unit', 'public.statistical_unit');
-CALL worker.history_delta_apply();
-CALL public.history_period_refresh();
+CALL worker.statistical_history_facet_delta_stage_partition('[0,16384)'::int4range, true, 'public.statistical_unit', 'public.statistical_unit');
+CALL worker.statistical_history_facet_delta_apply();
+CALL public.statistical_history_period_refresh();
 SELECT h.year, h.exists_count, h.countable_count, (h.stats_summary->'employees'->>'sum')::numeric AS employees_sum
 FROM public.statistical_history AS h
 WHERE h.resolution = 'year' AND h.unit_type = 'legal_unit'
