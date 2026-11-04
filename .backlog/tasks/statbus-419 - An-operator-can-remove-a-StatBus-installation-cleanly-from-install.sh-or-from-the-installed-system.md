@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: 2026-09-25 13:08
-updated_date: '2026-11-03T23:07:00Z'
+updated_date: '2026-11-04T12:26:00Z'
 labels:
   - installer
 dependencies: []
@@ -87,4 +87,6 @@ CI for 3df6bdc36d7b462eaf8ab533910ace895c085d20 (final ticket-evidence commit): 
 v2026.11.1-rc.04 (6de3d2757) gate all green: Orchestrator 41694665449, Release 41694665586, Fast Tests 41694665437, Hardening 41694665619, Smoke 41694992526, dev deploy 41697559548, LXD Fork Fleet 41698073420, Upgrade Arc Harness 41698438796. First release containing AC6/AC7 (dfe262b0b); real-box check is the owner's manual-box walkthrough on rc.04.
 
 - **AC8 (2026-11-03):** `46aae5c38`. `TestUninstallRemovesTheInstallsHomeFolders` red before the fix (`tmp/uninstall-home-folders-red.log` in statbus_test: both folders kept, plan lines missing), green after; full `TestUninstall*` green. Box observation pending with rc.05.
+
+- **2026-11-04 `f9d7f2d8f`:** ~/.statbus-uninstall.lock was left in the home after a full removal (seen on the manual box). uninstall.sh now unlinks it as its last operation while still holding the flock. TestUninstallLeavesNoLockFileBehind red (tmp/uninstall-lock-red.log: home held .statbus-uninstall.lock), green; TestUninstall* green.
 <!-- SECTION:NOTES:END -->

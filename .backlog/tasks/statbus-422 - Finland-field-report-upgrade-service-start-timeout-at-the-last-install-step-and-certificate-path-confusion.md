@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: 2026-09-27 10:07
-updated_date: '2026-11-03T23:46:00Z'
+updated_date: '2026-11-04T12:26:00Z'
 labels:
   - installer
 dependencies: []
@@ -111,4 +111,6 @@ AC4 partial evidence (an upgraded box, not a fresh install): after rc.03 dev Dep
 
 - **What remains (owner, 2026-10-26):** AC4, the footer showing the release on a fresh install of the next candidate, and AC6, sending Ville the stable-install instruction. Ville is deliberately LAST: he gets the instruction after every other In Progress ticket has been passed, so he receives one working, current answer rather than another intermediate one. In practice that means after STATBUS-429 (sudo-free `./sb cert install`) is proven and stable, and after 399 is no longer in flight. Until then no instruction is sent.
 - **2026-11-03, picker noise:** `10404842f`. Giving the home folder listed every ordinary file (.bashrc, the uninstall lock) as 'no PEM certificate or private key found' (manual box, rc.04). Now only files with a certificate extension or a PEM header are reported. `TestScanCertificateFolderReportsOnlyCertificateLookingFiles` red before (`tmp/picker-notes-red.log` in statbus_test), green after; full `go test ./cmd` green. In v2026.11.1-rc.05.
+
+- **2026-11-04, rc.07 box run -> `f9d7f2d8f` (rc.08):** home search found nothing, the operator then ran manual-box cert (PFX into ~/Documents/certificate-from-it) and answered '.' three times; a typed folder was only inspected directly, so the subfolder was never searched. Now a typed folder whose certificates sit in subfolders is searched like the home and offered in the same one pick (pickInstallCert shared with the home search). TestInstallCertPathTypedFolderSearchesBelow reproduces the sequence: red (tmp/cert-typed-folder-red.log: produced []), green (tmp/cert-typed-folder-green.log); all Cert|Picker tests green.
 <!-- SECTION:NOTES:END -->

@@ -4,7 +4,7 @@ title: The installer reports success only when every service runs and the API an
 status: Done
 assignee: []
 created_date: 2026-09-24 16:42
-updated_date: '2026-10-28T02:27:00Z'
+updated_date: '2026-11-04T12:26:00Z'
 labels:
   - release-bug
   - install
@@ -86,4 +86,6 @@ Plain HTTP and a supplied certificate are ours, so a failed check stops install 
 - Remaining for AC5: the next candidate's fleet. `0-happy-install.sh` passes with the guest trusting the harness CA, and `4-install-standalone-no-public-dns.sh` prints the warning line.
 
 AC5 real candidate evidence: rc.05 LXD Fork Fleet run 40618330397 passed all 24 scenarios. 0-happy-install had already passed with the supplied certificate in rc.03 Test Smoke job 122549573505. On rc.05, 4-install-standalone-no-public-dns PASS (185s) shows the operator-visible line 'HTTPS is not working yet: https://statbus-no-public-dns.invalid did not answer' and completes installation. rc.04 exposed that the terminal filter hid this warning; 00301e024 fixed it with red/green tests tmp/394-terminal-warning-red.log and tmp/394-terminal-warning-green.log. Full CLI tests and ./dev.sh test-harness are green.
+
+- **2026-11-04, rc.07 box run -> `f9d7f2d8f` (rc.08):** the final site check waited a silent 60 s for an automatic certificate on statbus-manual.statbus-test.local, which can never get one. Now the check decides first: a name that is not public, or public DNS that does not reach this server (by local or outbound address), is checked once and the reason is named on the HTTPS line; otherwise the wait is announced ('Waiting up to 1 minute for <origin> to get its automatic certificate ...'). TestAdvertisedSiteWaitsOnlyWhenACertificateCanArrive red (tmp/visit-wait-red.log: waited 1m0.12s and 1m0.38s; no announcement), green (tmp/visit-wait-green.log). Terminal filter passes both lines (TestInstallTerminalWriterReceivesEveryStepLine). Also: the rerun line under 'To check or repair this installation later' was dropped by the filter since the command became the curl pipe; it now passes in an exact grammar (TestInstallTerminalWriterShowsFinalProof, hostile variants still filtered), and 'Recorded installed version' (written after the banner) stays in the install log.
 <!-- SECTION:NOTES:END -->
