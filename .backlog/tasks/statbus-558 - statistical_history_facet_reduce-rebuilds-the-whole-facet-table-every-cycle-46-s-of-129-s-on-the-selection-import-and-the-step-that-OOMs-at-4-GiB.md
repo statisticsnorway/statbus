@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-11-02T13:15:00Z'
-updated_date: '2026-11-04T08:27:00Z'
+updated_date: '2026-11-04T09:31:00Z'
 labels: []
 dependencies: []
 type: bug
@@ -124,4 +124,11 @@ Dense months grow with periods x combinations; a sparse or interval form grows w
 2026-11-04 Norway reads: computing the window CTEs once (MATERIALIZED) was rejected; it blocks filter pushdown (Q2 0.1 -> 4.7 s). Storing only the year resolution of the facet view costs 134 MB and 14 s to build; a whole-year read over every cell then takes 39 ms (view 6.3 s, today's table 0.53 s). Months stay as views, about 400 MB in total against today's 3,488 MB. Owner to choose. Full recalculation OOM at 8G is ticketed as STATBUS-566; the stale stored facet is STATBUS-565 (failing test 365).
 
 2026-11-04 report shapes (owner: all years, or months of one year). The app's report reads only statistical_history: table 0.1 ms, view 0.7-1.1 ms on 10-year and Norway. Facet (not read by the app) on Norway: filtered all-years 25 vs 52 ms, filtered months 27 vs 373 ms, one year by activity 47 vs 2,282 ms, months by region 180 vs 9,679 ms. tmp/558-shd/20b-report-shapes-fair.log.
+
+2026-11-04 Q2 measured (tmp/558-shd/21-q2-rollup-vs-raw.log, 21b-q2-norway.log). Norway best-of-3 ms, table / view / year-or-month roll-up / raw count-only / raw facet_def:
+- all years, region+activity filter: 29 / 66 / 25 / 177 / OOM
+- months of one year, same filter: 26 / 84 / 163 / 1,898 / OOM
+- one year by activity: 66 / 2,343 / 48 / 1,018 / 79,223
+- months of one year by region: 658 / 10,941 / 398 / 12,957 / OOM
+All sources give the view's answers (values_differ 0). Raw facet_def over a year of months on full Norway is OOM-killed at 8G. Roll-ups on Norway: year 136 MB, 20 s build; month 991 MB, 116 s. Delta is never worse than raw except months-by-region (10.9 s vs 13.0 s raw count-only). Proposed: delta tables + views + stored year roll-up (option B); awaiting owner.
 <!-- SECTION:NOTES:END -->
