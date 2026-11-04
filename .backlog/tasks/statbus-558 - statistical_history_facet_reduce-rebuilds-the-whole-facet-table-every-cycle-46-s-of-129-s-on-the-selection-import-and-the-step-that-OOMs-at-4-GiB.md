@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-11-02T13:15:00Z'
-updated_date: '2026-11-04T10:32:00Z'
+updated_date: '2026-11-04T10:44:00Z'
 labels: []
 dependencies: []
 type: enhancement
@@ -205,4 +205,6 @@ All sources give the view's answers (values_differ 0). Raw facet_def over a year
 2026-11-04 open item, incremental update (tmp/558-shd/24-per-range-cost.log, 24b-slot-cell-index.log). When the history step runs, statistical_unit holds only new versions, so the old contribution of changed units must come from somewhere. Norway: (a) delta per hash-slot range: 16 ranges 1.23M rows (3.0x the 411,994 global rows), 64 ranges 1.78M, 256 ranges 2.28M, 16,384 slots 3.07M; (a') slot-to-cell index without dates 3.05M rows, then recompute affected cells wholly (median 1 unit per cell, p99 97, max 13,379); (b) write the negated old delta when statistical_unit_refresh replaces a unit's rows: no extra stored rows, touches the unit refresh step, not prototyped. To decide before the migration.
 
 2026-11-04 10:30 owner: the design (delta tables + compatibility views + fast read functions) is sensible but not adopted; prototyping continues because the pieces are connected. Incremental: prototype (b) first; also consider intarray provenance (measured: 3,140,238 unit references, 20 MB of arrays on Norway; tmp/558-shd/25-intarray-size.log). The earlier description (scoped reduce restore, reverted in 3be5dc48b) is superseded by this design; its history stays in these notes.
+
+2026-11-04 incremental options (b) and (c) prototyped on the 10-year db (tmp/558-shd/26b-option-b.log, 26c-option-c.log, 26d-option-c-norway-size.log). Same edit cycle as before: 75 changed units, 690 touched keys. Both equal a full rebuild in all four kinds (stock, stats valid, stats ended, flow). (b) adds the changed units' new contribution and subtracts their old one, taken where statistical_unit_flush_staging replaces the rows: no extra stored rows, about 375 ms with unoptimised prototype functions; hooks into the unit flush. (c) keeps a per-unit contribution layer and unit_ids int[] (intarray) on each summed row: the old contribution is read back from the store, the unit refresh is untouched, about 310 ms; a provenance check showed the moved enterprise's new cell lists exactly the unit statistical_unit puts there. Cost of (c) on Norway: about 12.5M per-unit rows (3.14M stock, 3.14M stats, 6.26M flow), against statistical_unit's 3.14M rows. Owner to choose.
 <!-- SECTION:NOTES:END -->
