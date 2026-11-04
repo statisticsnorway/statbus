@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-11-02T13:15:00Z'
-updated_date: '2026-11-04T11:38:00Z'
+updated_date: '2026-11-04T18:41:00Z'
 labels: []
 dependencies: []
 type: enhancement
@@ -213,4 +213,6 @@ All sources give the view's answers (values_differ 0). Raw facet_def over a year
 2026-11-04 option (b) capture point checked (tmp/558-shd/27-capture-trigger.log, 10-year db, rolled back). Three paths write statistical_unit: flush_staging (DELETE + MERGE), the orphan cleanup in derive_statistical_unit (DELETE), and the full refresh (TRUNCATE + INSERT). Statement triggers with transition tables on statistical_unit saw the old and new rows of every DELETE and MERGE (update and insert branches). TRUNCATE carries no old rows, so the full refresh must rebuild the delta tables fully. Capturing at the table covers every writer, which removes (b)'s risk of a path skipping the hook.
 
 2026-11-04 prototype on full Norway of the owner's direction: no capture, split by hash range, unit_ids (tmp/558-shd/28a-preflush-setup.sql, 28b-preflush-reduce.sql, 28c-concurrency.sh and logs). Before statistical_unit_flush_staging, staging holds the changed units' new versions and statistical_unit their old ones, so a step split by hash range computes new minus old with no capture. Cycle: 1,134 legal units (region moves, 114 deletions, ended versions, employees +7) across 254 of 256 hash ranges. Per-range step wall time: 24.8 s at concurrency 1, 13.0 s at 2, 7.5 s at 4, 5.2 s at 8, with identical output (9,531 rows). Reduce into the stored sums with unit_ids maintained: about 0.9 s. Over all 288,324 units in the 1,196 touched cells, the stored sums after the reduce equal a fresh build in stock, stats valid, stats ended and flow, 0 differ, unit_ids included; the cycle changed 5,083 keys. Deleted units here came from staging; in the pipeline they are removed in derive_statistical_unit before the flush, so that step must emit their subtraction.
+
+2026-11-04 build (hibiscus), LOCAL ONLY, not pushed, awaiting owner approval. Commits 507156f12 (migration+doc/db), cbc7320b7 (tests), 7d6026602 (docs), 588562e46 (review fixes + speedups). Principles + measurements: tmp/558-build/principles.md. Import benchmark selection: wall 136.1 -> 93.6 s; history task time 173 -> 19 s; tasks 3,942 -> 709; incremental == rebuild 0 divergent. Norway (3.14M units): 537 MB vs 3.5 GB (+21 GB cache); full rebuild 9.0 min at concurrency 8; incremental 437 units: staging 33.5/24.3/13.7/9.4 s at 1/2/4/8 + reduce 2.1 s, equal to independent path; parity history 48/48 all columns, facet 2026 3.23M rows equal except today's 296 stale May rows (STATBUS-565). Reads: chart year 0.85->1.37 s, drilldown region 0.61->0.19 s, drilldown all months 16.9->27.9 s (open). Fast suite 121 ok, only 366 (STATBUS-566, separate) failing; 401/402 ok. Two agent reviews done; applied: -infinity start bug (test 367.8), zero flow rows, no sync refresh in migration, stale docs/tests; not applied: flow-table rebuild trigger, COMMENT ON for procedures.
 <!-- SECTION:NOTES:END -->
