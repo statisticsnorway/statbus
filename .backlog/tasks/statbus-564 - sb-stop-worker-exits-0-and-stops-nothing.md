@@ -23,3 +23,9 @@ ordinal: 487204
 - [ ] #1 ./sb stop worker stops the worker container and leaves the others running
 - [ ] #2 ./sb stop with a name that is neither a profile nor a service fails with a clear message and a non-zero exit
 <!-- AC:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+North Star: sb stop <name> stops the named service or profile and never exits 0 having stopped nothing. Zoom out: reject unknown names instead of silently matching no compose service; check sb start/restart for the same profile-vs-service gap. Closing review: no memory needed; update the stop/start help text with the accepted names; no cleanup.
+<!-- SECTION:NOTES:END -->
