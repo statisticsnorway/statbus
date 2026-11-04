@@ -15,13 +15,15 @@
 #                              the "second terminal" login check setup asks
 #                              for: logs in as user (statbus by default), runs
 #                              id, logs out; no tmux, nothing else changes
-#   ops/manual-box.sh cert [pfx|pem|check]
+#   ops/manual-box.sh cert [pfx|pem|check|remove]
 #                              after setup: hand the box a test certificate the
 #                              way an NSO would, into ~statbus/Documents/
 #                              certificate-from-it: pfx (default) is a
 #                              password-protected PFX as Windows exports it;
 #                              pem is a fullchain.pem plus privkey.pem pair;
-#                              check shows the certificate the site serves now
+#                              check shows the certificate the site serves now;
+#                              remove takes the handed-out files away again, so
+#                              an install can start with no certificate to find
 #   ops/manual-box.sh guide    print the test walkthrough (setup, certificate,
 #                              install, health, uninstall)
 #   ops/manual-box.sh rebuild  wipe it back to a blank Ubuntu 26.04 (same IP)
@@ -298,8 +300,8 @@ cert)
     format=${2:-pfx}
     case "$format" in
         pfx|pem) ;;
-        check) ;;
-        *) echo "Usage: ops/manual-box.sh cert [pfx|pem|check]   (pfx is a Windows-style PFX export; pem is fullchain.pem + privkey.pem; check shows what the site serves)" >&2; exit 2 ;;
+        check|remove) ;;
+        *) echo "Usage: ops/manual-box.sh cert [pfx|pem|check|remove]   (pfx is a Windows-style PFX export; pem is fullchain.pem + privkey.pem; check shows what the site serves; remove takes the handed-out files away)" >&2; exit 2 ;;
     esac
     server=$(describe)
     [ -n "$server" ] || { echo "No server '$name'; run: ops/manual-box.sh up" >&2; exit 1; }
@@ -316,6 +318,24 @@ fi
 printf '%s\n' "$cert" | sed -e 's/^subject=/Serves:   /' -e 's/^issuer=/Issuer:   /' -e 's/^notAfter=/Expires:  /'
 code=$(curl -sS -o /dev/null -w '%{http_code}' --max-time 10 "https://$DOMAIN/" 2>/dev/null)
 echo "HTTPS:    https://$DOMAIN/ answers HTTP ${code:-none} with a trusted certificate"
+REMOTE
+        exit $?
+    fi
+    if [ "$format" = remove ]; then
+        # Only the folder `cert` hands out. The test CA stays in the trust
+        # store and under /root, so a later `cert` gives the same certificate
+        # and an installed copy keeps verifying.
+        ssh -o BatchMode=yes "$login_user@$(jq -er '.public_net.ipv4.ip' <<<"$server")" 'sudo bash -s' <<'REMOTE'
+set -euo pipefail
+home=$(getent passwd statbus | cut -d: -f6)
+[ -n "$home" ] || { echo "There is no statbus user."; exit 0; }
+dest="$home/Documents/certificate-from-it"
+if [ -d "$dest" ]; then
+    rm -rf -- "$dest"
+    echo "Removed:  $dest"
+else
+    echo "Nothing to remove: $dest does not exist."
+fi
 REMOTE
         exit $?
     fi
