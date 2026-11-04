@@ -7,7 +7,10 @@ CREATE OR REPLACE FUNCTION public.statistical_history_drilldown(unit_type statis
 AS $function$
     -- Use a params intermediary to avoid conflicts
     -- between columns and parameters, leading to tautologies. i.e. 'sh.resolution = resolution' is always true.
-    WITH params AS (
+    -- NOT MATERIALIZED: params is referenced by several CTEs, which would otherwise materialise it and hide
+    -- the parameter values from the planner. Inlined, the filters reach the statistical_history_facet view
+    -- and it computes only the asked periods and cells.
+    WITH params AS NOT MATERIALIZED (
         SELECT
             unit_type AS param_unit_type,
             resolution AS param_resolution,

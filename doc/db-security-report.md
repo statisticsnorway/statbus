@@ -53,6 +53,14 @@ each role can see and modify.
   - Policies: `external_ident_type_admin_user_manage` (ALL → admin_user), `external_ident_type_authenticated_read` (SELECT → authenticated), `external_ident_type_regular_user_read` (SELECT → regular_user)
 - **`foreign_participation`** — RLS ON
   - Policies: `foreign_participation_admin_user_manage` (ALL → admin_user), `foreign_participation_authenticated_read` (SELECT → authenticated), `foreign_participation_regular_user_read` (SELECT → regular_user)
+- **`history_flow_delta`** — RLS ON
+  - Policies: `history_flow_delta_admin_user_manage` (ALL → admin_user), `history_flow_delta_authenticated_read` (SELECT → authenticated), `history_flow_delta_regular_user_read` (SELECT → regular_user)
+- **`history_flow_delta_staging`** — RLS OFF (exempt: internal staging table)
+- **`history_period`** — RLS ON
+  - Policies: `history_period_admin_user_manage` (ALL → admin_user), `history_period_authenticated_read` (SELECT → authenticated), `history_period_regular_user_read` (SELECT → regular_user)
+- **`history_stock_delta`** — RLS ON
+  - Policies: `history_stock_delta_admin_user_manage` (ALL → admin_user), `history_stock_delta_authenticated_read` (SELECT → authenticated), `history_stock_delta_regular_user_read` (SELECT → regular_user)
+- **`history_stock_delta_staging`** — RLS OFF (exempt: internal staging table)
 - **`image`** — RLS ON
   - Policies: `image_admin_user_manage` (ALL → admin_user), `image_authenticated_read` (SELECT → authenticated), `image_regular_user_manage` (ALL → regular_user)
 - **`import_data_column`** — RLS ON
@@ -115,11 +123,6 @@ each role can see and modify.
   - Policies: `stat_definition_admin_user_manage` (ALL → admin_user), `stat_definition_authenticated_read` (SELECT → authenticated), `stat_definition_regular_user_read` (SELECT → regular_user)
 - **`stat_for_unit`** — RLS ON
   - Policies: `stat_for_unit_admin_user_manage` (ALL → admin_user), `stat_for_unit_authenticated_read` (SELECT → authenticated), `stat_for_unit_regular_user_manage` (ALL → regular_user)
-- **`statistical_history`** — RLS ON
-  - Policies: `statistical_history_admin_user_manage` (ALL → admin_user), `statistical_history_authenticated_read` (SELECT → authenticated), `statistical_history_regular_user_read` (SELECT → regular_user)
-- **`statistical_history_facet`** — RLS ON
-  - Policies: `statistical_history_facet_admin_user_manage` (ALL → admin_user), `statistical_history_facet_authenticated_read` (SELECT → authenticated), `statistical_history_facet_regular_user_read` (SELECT → regular_user)
-- **`statistical_history_facet_partitions`** — RLS OFF (exempt: internal staging table)
 - **`statistical_unit`** — RLS ON
   - Policies: `statistical_unit_admin_user_manage` (ALL → admin_user), `statistical_unit_authenticated_read` (SELECT → authenticated), `statistical_unit_regular_user_read` (SELECT → regular_user)
 - **`statistical_unit_facet`** — RLS ON
@@ -252,6 +255,8 @@ auto-updatable) also require INSERT.
 - **`sector_used_def`**: admin_user: INSERT, SELECT; authenticated: INSERT, SELECT; regular_user: INSERT, SELECT
 - **`stat_definition_enabled`**: admin_user: INSERT, SELECT; authenticated: INSERT, SELECT; regular_user: INSERT, SELECT
 - **`stat_definition_ordered`**: admin_user: INSERT, SELECT; authenticated: INSERT, SELECT; regular_user: INSERT, SELECT
+- **`statistical_history`**: admin_user: SELECT; authenticated: SELECT; regular_user: SELECT
+- **`statistical_history_facet`**: admin_user: SELECT; authenticated: SELECT; regular_user: SELECT
 - **`statistical_unit_def`**: admin_user: INSERT, SELECT; authenticated: INSERT, SELECT; regular_user: INSERT, SELECT
 - **`statistical_unit_facet_def`**: admin_user: SELECT; authenticated: SELECT; regular_user: SELECT
 - **`status_custom`**: admin_user: INSERT, SELECT; authenticated: INSERT, SELECT; regular_user: INSERT, SELECT
@@ -319,20 +324,17 @@ Write to RLS-protected tables, DDL, worker orchestration.
 
 - `admin.disable_temporal_triggers`
 - `admin.enable_temporal_triggers`
+- `worker.derive_history_delta`
+- `worker.derive_history_delta_range`
 - `worker.derive_reports`
 - `worker.derive_reports_phase`
-- `worker.derive_statistical_history`
-- `worker.derive_statistical_history_facet`
-- `worker.derive_statistical_history_facet_period`
-- `worker.derive_statistical_history_period`
 - `worker.derive_statistical_unit`
 - `worker.derive_statistical_unit_facet`
 - `worker.derive_statistical_unit_facet_partition`
 - `worker.derive_units_phase`
 - `worker.derive_used_tables`
+- `worker.history_delta_reduce`
 - `worker.notify_task_changed`
-- `worker.statistical_history_facet_reduce`
-- `worker.statistical_history_reduce`
 - `worker.statistical_unit_facet_reduce`
 - `worker.statistical_unit_flush_staging`
 - `worker.statistical_unit_refresh_batch`

@@ -77,9 +77,11 @@ BEGIN
             public.statistical_unit_facet,
             public.statistical_unit_facet_staging,
             public.statistical_unit_facet_dirty_hash_slots,
-            public.statistical_history,
-            public.statistical_history_facet,
-            public.statistical_history_facet_partitions;
+            public.history_stock_delta,
+            public.history_flow_delta,
+            public.history_stock_delta_staging,
+            public.history_flow_delta_staging,
+            public.history_period;
 
         result := result
             || jsonb_build_object('activity', jsonb_build_object('deleted_count', _activity_count))

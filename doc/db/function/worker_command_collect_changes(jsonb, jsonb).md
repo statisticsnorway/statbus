@@ -169,6 +169,13 @@ BEGIN
         );
 
         PERFORM worker.spawn(
+            p_command => 'derive_history_delta',
+            p_payload => v_payload,
+            p_parent_id => v_phase1_id,
+            p_child_mode => 'serial'
+        );
+
+        PERFORM worker.spawn(
             p_command => 'statistical_unit_flush_staging',
             p_payload => v_payload,
             p_parent_id => v_phase1_id,
@@ -195,20 +202,6 @@ BEGIN
         );
 
         PERFORM worker.spawn(
-            p_command => 'derive_statistical_history',
-            p_payload => v_payload,
-            p_parent_id => v_phase2_id,
-            p_child_mode => 'serial'
-        );
-
-        PERFORM worker.spawn(
-            p_command => 'statistical_history_reduce',
-            p_payload => v_payload,
-            p_parent_id => v_phase2_id,
-            p_child_mode => 'serial'
-        );
-
-        PERFORM worker.spawn(
             p_command => 'derive_statistical_unit_facet',
             p_payload => v_payload,
             p_parent_id => v_phase2_id,
@@ -223,14 +216,7 @@ BEGIN
         );
 
         PERFORM worker.spawn(
-            p_command => 'derive_statistical_history_facet',
-            p_payload => v_payload,
-            p_parent_id => v_phase2_id,
-            p_child_mode => 'serial'
-        );
-
-        PERFORM worker.spawn(
-            p_command => 'statistical_history_facet_reduce',
+            p_command => 'history_delta_reduce',
             p_payload => v_payload,
             p_parent_id => v_phase2_id,
             p_child_mode => 'serial'
