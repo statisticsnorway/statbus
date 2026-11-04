@@ -24,7 +24,7 @@
     fflush()
     next
 }
-/^  (Starting every service:|All services are running\.|Fetching seed |No seed image available|Restoring seed|Pausing application traffic|Application traffic |The database held older passwords|the web server \(proxy\) has missing published ports|the database \(db\) has missing published ports|the API service \(rest\) has missing published ports|the web app \(app\) has missing published ports|the background worker \(worker\) has missing published ports|Database updates will be applied\.|The database is up to date\.|Creating |Configuring |Applying |Downloading |Installing |Checking |Waiting |Running |Copying |Enabling |Recorded installed version )/ {
+/^  (Starting every service:|All services are running\.|Fetching seed |No seed image available|Restoring seed|Pausing application traffic|Application traffic |The database held older passwords|the web server \(proxy\) has missing published ports|the database \(db\) has missing published ports|the API service \(rest\) has missing published ports|the web app \(app\) has missing published ports|the background worker \(worker\) has missing published ports|Database updates will be applied\.|The database is up to date\.|Creating |Configuring |Applying |Downloading |Installing |Checking |Waiting |Running |Copying |Enabling )/ {
     print
     fflush()
     next
@@ -49,7 +49,13 @@
 # STATBUS-394 AC5: an automatic certificate may not be issued yet. The install
 # completes, but the operator must see the honest warning and its fixed reason;
 # hiding it leaves only a misleading success banner and the DNS advice.
-/^HTTPS is not working yet: https:\/\/[A-Za-z0-9.-]+(:[0-9]+)? (did not answer|its certificate is expired or not yet valid|its certificate is not trusted \(signed by an unknown authority\)|its certificate does not cover this name|answered with HTTP status [0-9]+)$/ {
+/^HTTPS is not working yet: https:\/\/[A-Za-z0-9.-]+(:[0-9]+)? (did not answer|its certificate is expired or not yet valid|its certificate is not trusted \(signed by an unknown authority\)|its certificate does not cover this name|answered with HTTP status [0-9]+)(; ([A-Za-z0-9.-]+ is not a public name, so no automatic certificate can be issued for it|public DNS does not send [A-Za-z0-9.-]+ to this server, so no automatic certificate can be issued yet))?$/ {
+    print
+    fflush()
+    next
+}
+# The site check announces a wait before it starts, so the minute is never silent.
+/^Waiting up to [0-9]+ (minute|minutes|seconds) for https:\/\/[A-Za-z0-9.-]+(:[0-9]+)? to get its automatic certificate \.\.\.$/ {
     print
     fflush()
     next
@@ -120,6 +126,15 @@
     next
 }
 /^    cd [A-Za-z0-9_.\/~+-]+ && \.\/sb install$/ {
+    print
+    fflush()
+    next
+}
+# The rerun command install.sh hands to ./sb install
+# (STATBUS_INSTALL_RERUN_COMMAND): the statbus.org pipe, optionally the
+# carried-over STATBUS_* path variables, then the operator's own options.
+# Only plain words pass: no ;, |, &, $, quotes or backquotes after the pipe.
+/^    curl -fsSL https:\/\/statbus\.org\/(rc\/)?install\.sh \| (env( STATBUS_[A-Z_]+=[A-Za-z0-9_.\/~+-]+)+ )?bash( -s --( [A-Za-z0-9_.\/=+-]+)+)?$/ {
     print
     fflush()
     next

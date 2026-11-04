@@ -419,8 +419,13 @@ func looksLikeCertificateFile(path string, data []byte) bool {
 // with no password is still shown by name, but its leaf lets the same
 // certificate collapse to the PEM pair that needs no password.
 func scanInstallCertCandidates(home, siteDomain string) []certChoice {
+	return installCertChoices(findCertificateCandidates(home), siteDomain)
+}
+
+// installCertChoices turns the folders a search found into the picker's list.
+func installCertChoices(folders []certCandidateFolder, siteDomain string) []certChoice {
 	var pemChoices, pfxChoices []certChoice
-	for _, folder := range findCertificateCandidates(home) {
+	for _, folder := range folders {
 		paths := make([]string, 0, len(folder.Files))
 		for _, name := range folder.Files {
 			paths = append(paths, filepath.Join(folder.Path, name))

@@ -6,6 +6,7 @@ package cmd
 // against the system trust store when the certificate is ours to verify.
 
 import (
+	"context"
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rand"
@@ -354,6 +355,76 @@ func TestVerifyAdvertisedSite_STATBUS394(t *testing.T) {
 		})
 		if err == nil || !strings.Contains(err.Error(), httpOrigin+" did not answer") {
 			t.Fatalf("err = %v, want the fatal origin named", err)
+		}
+	})
+}
+
+// An automatic certificate needs a public name that public DNS sends to this
+// server. Without one (a .local test name, or DNS pointing elsewhere) waiting
+// cannot help: the site is checked once and the reason is named at once. With
+// one, the wait is announced before it starts, so the minute is never silent.
+func TestAdvertisedSiteWaitsOnlyWhenACertificateCanArrive(t *testing.T) {
+	writeEnv := func(t *testing.T, domain string) string {
+		t.Helper()
+		dir := t.TempDir()
+		env := "CADDY_DEPLOYMENT_MODE=standalone\nSITE_DOMAIN=" + domain + "\n"
+		if err := os.WriteFile(filepath.Join(dir, ".env"), []byte(env), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		return dir
+	}
+	acme := func(t *testing.T, domain string) string {
+		origin := "https://" + domain + ":" + silentPort(t)
+		withVisitChecksSeam(t, []visitCheck{{origin: origin, verifyTLS: true, fatal: false}})
+		return origin
+	}
+	// This server is 198.51.100.7 and reaches the internet as that address.
+	stubDNS := func(t *testing.T, ips []net.IP, err error) {
+		oldLookup, oldOutbound, oldLocal := publicDNSLookup, publicOutboundIP, interfaceAddresses
+		t.Cleanup(func() { publicDNSLookup, publicOutboundIP, interfaceAddresses = oldLookup, oldOutbound, oldLocal })
+		publicDNSLookup = func(context.Context, string) ([]net.IP, error) { return ips, err }
+		publicOutboundIP = func(context.Context) (net.IP, error) { return net.ParseIP("198.51.100.7"), nil }
+		interfaceAddresses = func() ([]net.IP, error) { return []net.IP{net.ParseIP("198.51.100.7")}, nil }
+	}
+
+	t.Run("a name that is not public is reported at once", func(t *testing.T) {
+		dir := writeEnv(t, "statbus-manual.statbus-test.local")
+		origin := acme(t, "statbus-manual.statbus-test.local")
+		start := time.Now()
+		out := captureStdout(t, func() { _, _ = verifyAdvertisedSite(dir, time.Minute, time.Second) })
+		if elapsed := time.Since(start); elapsed > 15*time.Second {
+			t.Fatalf("waited %s for a certificate that cannot be issued", elapsed)
+		}
+		want := "HTTPS is not working yet: " + origin + " did not answer; statbus-manual.statbus-test.local is not a public name, so no automatic certificate can be issued for it\n"
+		if !strings.Contains(out, want) {
+			t.Fatalf("output = %q, want %q", out, want)
+		}
+	})
+	t.Run("public DNS that does not reach this server is reported at once", func(t *testing.T) {
+		dir := writeEnv(t, "statbus.example.org")
+		origin := acme(t, "statbus.example.org")
+		stubDNS(t, []net.IP{net.ParseIP("192.0.2.10")}, nil)
+		start := time.Now()
+		out := captureStdout(t, func() { _, _ = verifyAdvertisedSite(dir, time.Minute, time.Second) })
+		if elapsed := time.Since(start); elapsed > 15*time.Second {
+			t.Fatalf("waited %s for a certificate that cannot be issued", elapsed)
+		}
+		want := "HTTPS is not working yet: " + origin + " did not answer; public DNS does not send statbus.example.org to this server, so no automatic certificate can be issued yet\n"
+		if !strings.Contains(out, want) {
+			t.Fatalf("output = %q, want %q", out, want)
+		}
+	})
+	t.Run("a certificate that can arrive is waited for, and the wait is announced first", func(t *testing.T) {
+		dir := writeEnv(t, "statbus.example.org")
+		origin := acme(t, "statbus.example.org")
+		stubDNS(t, []net.IP{net.ParseIP("198.51.100.7")}, nil)
+		out := captureStdout(t, func() { _, _ = verifyAdvertisedSite(dir, 2*time.Second, 500*time.Millisecond) })
+		announce := "Waiting up to 2 seconds for " + origin + " to get its automatic certificate ...\n"
+		if !strings.HasPrefix(out, announce) {
+			t.Fatalf("output = %q, want it to start with %q", out, announce)
+		}
+		if waitPhrase(visitCheckBudget) != "1 minute" {
+			t.Fatalf("the install's budget reads %q, want \"1 minute\"", waitPhrase(visitCheckBudget))
 		}
 	})
 }

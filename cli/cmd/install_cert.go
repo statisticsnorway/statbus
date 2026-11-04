@@ -277,15 +277,23 @@ func askInstallCert(dir string) ([]string, *string) {
 	}
 	home, _ := os.UserHomeDir()
 	siteDomain := certSiteDomain(dir)
-	choices := scanInstallCertCandidates(home, siteDomain)
+	folders := findCertificateCandidates(home)
+	choices := installCertChoices(folders, siteDomain)
 	if len(choices) == 0 {
-		if len(findCertificateCandidates(home)) == 0 {
+		if len(folders) == 0 {
 			certNotice("  No certificate files found under ~.")
 		} else {
 			certNotice("  No certificate with a matching private key was found under ~.")
 		}
 		return askInstallCertPath(dir)
 	}
+	return pickInstallCert(choices, siteDomain, dir)
+}
+
+// pickInstallCert offers the installable certificates a search found: one is
+// a confirmation, several are one numbered pick with "another file or folder"
+// last. The home search and a typed folder present their finds the same way.
+func pickInstallCert(choices []certChoice, siteDomain, dir string) ([]string, *string) {
 	if len(choices) == 1 {
 		// One installable certificate is a confirmation, not a list.
 		certNotice("%s", installCertChoiceLine(choices[0], siteDomain))
@@ -390,6 +398,23 @@ func certificateFromAnswer(certPath, dir string) (args []string, password *strin
 		return nil, nil, true
 	}
 	if isDir {
+		// A folder whose certificates sit in subfolders (the home, "." or
+		// "~", with ~/Documents/certificate-from-it below) is searched the
+		// way the home is, and its finds are offered in the same one pick.
+		siteDomain := certSiteDomain(dir)
+		folders := findCertificateCandidates(resolved)
+		holdsDirectly := false
+		for _, folder := range folders {
+			if folder.Path == resolved {
+				holdsDirectly = true
+			}
+		}
+		if !holdsDirectly {
+			if choices := installCertChoices(folders, siteDomain); len(choices) > 0 {
+				args, password = pickInstallCert(choices, siteDomain, dir)
+				return args, password, false
+			}
+		}
 		args, password = finishCertFolderChoice(resolved, dir)
 		if args != nil {
 			return args, password, false

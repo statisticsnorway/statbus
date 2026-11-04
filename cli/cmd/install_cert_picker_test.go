@@ -404,3 +404,48 @@ func TestInstallCertPathThreeWrongAnswersContinues(t *testing.T) {
 		t.Fatalf("path question asked %d times, want 3:\n%s", got, out)
 	}
 }
+
+// TestInstallCertPathTypedFolderSearchesBelow: the manual-box run on rc.07.
+// The home search found nothing, the operator then copied a certificate into
+// ~/Documents/certificate-from-it and answered "." (the home). A typed folder
+// is searched the way the home is, subfolders included, so the certificate
+// copied in the meantime is found and offered.
+func TestInstallCertPathTypedFolderSearchesBelow(t *testing.T) {
+	home := pickerHome(t)
+	stubCertificateDefaultYes(t, true)
+	pickerWrite(t, filepath.Join(home, ".bashrc"), time.Now(), []byte("alias ll='ls -l'\n"))
+
+	// The first search (home) runs before the certificate arrives.
+	var copied string
+	answers := []string{home}
+	labels := pickerAnswerSequence(t, answers...)
+	savedFind := findCertificateCandidates
+	findCertificateCandidates = func(root string) []certCandidateFolder {
+		if copied == "" {
+			bundle := pickerFullchain(t, "statbus-manual.statbus-test.local")
+			copied = filepath.Join(home, "Documents", "certificate-from-it", "fullchain.pem")
+			if err := os.MkdirAll(filepath.Dir(copied), 0o755); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.Rename(bundle, copied); err != nil {
+				t.Fatal(err)
+			}
+			return nil
+		}
+		return savedFind(root)
+	}
+	t.Cleanup(func() { findCertificateCandidates = savedFind })
+
+	var args []string
+	out := pickerCapture(t, func() { args, _ = askInstallCert(t.TempDir()) })
+
+	if len(args) != 1 || args[0] != copied {
+		t.Fatalf("typed home folder produced %q, want [%q]:\n%s", args, copied, out)
+	}
+	if strings.Contains(out, "No usable certificate") || strings.Contains(out, ".bashrc") {
+		t.Fatalf("the found certificate was preceded by a not-found report:\n%s", out)
+	}
+	if got := pickerCountLabels(*labels, "Certificate file or folder"); got != 1 {
+		t.Fatalf("path question asked %d times, want 1:\n%s", got, out)
+	}
+}

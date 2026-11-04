@@ -1452,3 +1452,32 @@ func TestUninstallRemovesTheInstallsHomeFolders(t *testing.T) {
 		})
 	}
 }
+
+// A completed removal leaves the home as the operator had it, plus only what
+// they chose to keep and the removal log: the install/uninstall lock file
+// (~/.statbus-uninstall.lock) is removed once nothing holds it.
+func TestUninstallLeavesNoLockFileBehind(t *testing.T) {
+	home := t.TempDir()
+	dir := filepath.Join(home, "statbus")
+	if err := os.MkdirAll(filepath.Join(dir, "tmp"), 0700); err != nil {
+		t.Fatal(err)
+	}
+	writeUninstallDockerMock(t, ensureBinDir(t, home))
+	script, _ := filepath.Abs("../../uninstall.sh")
+	cmd := exec.Command("bash", script)
+	cmd.Env = append(os.Environ(), "HOME="+home, "PATH="+binPath(home), "STATBUS_UNINSTALL_CONFIRM=yes-delete-everything")
+	if out, err := cmd.CombinedOutput(); err != nil {
+		t.Fatalf("unattended removal: %v\n%s", err, out)
+	}
+	entries, err := os.ReadDir(home)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var left []string
+	for _, entry := range entries {
+		left = append(left, entry.Name())
+	}
+	if got := strings.Join(left, " "); got != "bin statbus-uninstall.log" {
+		t.Fatalf("home after removal holds %q, want only the test's bin and statbus-uninstall.log", got)
+	}
+}

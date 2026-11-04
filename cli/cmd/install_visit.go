@@ -97,6 +97,21 @@ func verifyAdvertisedSite(installDir string, budget, interval time.Duration) (wa
 	if len(checks) == 0 {
 		return nil, nil
 	}
+	// Waiting is only for an automatic certificate that can still arrive.
+	// When none can (the reason is named), every origin is checked once.
+	noCertificateReason := ""
+	for _, c := range checks {
+		if !c.fatal {
+			noCertificateReason = acmeCannotIssueReason(installDir)
+			if noCertificateReason == "" {
+				fmt.Printf("Waiting up to %s for %s to get its automatic certificate ...\n", waitPhrase(budget), c.origin)
+			}
+			break
+		}
+	}
+	if noCertificateReason != "" {
+		budget = 0
+	}
 	type failure struct {
 		check  visitCheck
 		reason string
@@ -130,6 +145,9 @@ func verifyAdvertisedSite(installDir string, budget, interval time.Duration) (wa
 		if f.check.fatal {
 			fatalReasons = append(fatalReasons, problem)
 		} else {
+			if noCertificateReason != "" {
+				problem += "; " + noCertificateReason
+			}
 			warnings = append(warnings, problem)
 		}
 	}
@@ -140,6 +158,51 @@ func verifyAdvertisedSite(installDir string, budget, interval time.Duration) (wa
 		return warnings, fmt.Errorf("the advertised site is not serving: %s", strings.Join(fatalReasons, "; "))
 	}
 	return warnings, nil
+}
+
+// acmeCannotIssueReason says why an automatic certificate cannot arrive for
+// the site name, or "" when it can (or when that cannot be told, so the wait
+// stays). Let's Encrypt validates a public name by connecting to the address
+// public DNS gives for it, so a name that is not public, or whose public
+// address is neither this server nor the address it reaches the internet as,
+// gets no certificate however long the installer waits.
+func acmeCannotIssueReason(installDir string) string {
+	env, err := dotenv.Load(filepath.Join(installDir, ".env"))
+	if err != nil {
+		return ""
+	}
+	domain, _ := env.Get("SITE_DOMAIN")
+	domain = strings.TrimSpace(domain)
+	if domain == "" {
+		return ""
+	}
+	if !publicDomainName(domain) {
+		return domain + " is not a public name, so no automatic certificate can be issued for it"
+	}
+	ctx := context.Background()
+	ips, lookupErr := publicDNSLookup(ctx, domain)
+	if lookupErr != nil || len(ips) == 0 {
+		return ""
+	}
+	local, _ := interfaceAddresses()
+	outbound, outboundErr := publicOutboundIP(ctx)
+	for _, ip := range ips {
+		if containsIP(local, ip) || (outboundErr == nil && outbound != nil && ip.Equal(outbound)) {
+			return ""
+		}
+	}
+	return "public DNS does not send " + domain + " to this server, so no automatic certificate can be issued yet"
+}
+
+// waitPhrase renders a wait budget for the operator: "1 minute", "90 seconds".
+func waitPhrase(budget time.Duration) string {
+	if budget%time.Minute == 0 {
+		if budget == time.Minute {
+			return "1 minute"
+		}
+		return fmt.Sprintf("%d minutes", int(budget/time.Minute))
+	}
+	return fmt.Sprintf("%d seconds", int(budget.Round(time.Second)/time.Second))
 }
 
 // publicDNSLookup asks a public resolver directly, never the local system
