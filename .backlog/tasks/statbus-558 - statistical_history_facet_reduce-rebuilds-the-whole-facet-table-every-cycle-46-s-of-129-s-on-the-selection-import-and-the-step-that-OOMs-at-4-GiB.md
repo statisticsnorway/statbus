@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-11-02T13:15:00Z'
-updated_date: '2026-11-04T10:04:00Z'
+updated_date: '2026-11-04T10:17:00Z'
 labels: []
 dependencies: []
 type: bug
@@ -133,4 +133,6 @@ Dense months grow with periods x combinations; a sparse or interval form grows w
 All sources give the view's answers (values_differ 0). Raw facet_def over a year of months on full Norway is OOM-killed at 8G. Roll-ups on Norway: year 136 MB, 20 s build; month 991 MB, 116 s. Delta is never worse than raw except months-by-region (10.9 s vs 13.0 s raw count-only). Proposed: delta tables + views + stored year roll-up (option B); awaiting owner.
 
 2026-11-04 Q2d: aggregate the deltas first (tmp/558-shd/22-q2d-aggregate-first.log). Because the sums are linear, a report grouped by one dimension sums exists_delta (and stats_delta) up to the period end grouped by that dimension instead of expanding every cell's running sum. Same answers as the view (0 differ). Norway: one year by activity 2,325 -> 68 ms (today's table 66); months of one year by region 9,750 -> 192 ms (today's table 658); employees one year by activity 3,058 -> 96 ms. Starting from the year roll-up of the previous year: 159 ms. So the slow shapes come from the view's per-cell window, not from the delta format, and a stored month roll-up is not needed for speed.
+
+2026-11-04 Q2f: aggregate-first as a plain view (tmp/558-shd/23-q2f-aggregate-first-view.log). Same answers as the window view in all 5 shapes on both dbs. Norway best of 3 ms (window view / plain view / function-style direct / today's table): all years filtered 64/62/-/29; months filtered 82/607/-/26; one year by activity 2,476/290/68/66; months by region 10,690/1,844/192/658. The view must repeat each delta row for every period ending after it before grouping, and Postgres cannot push the reader's GROUP BY inside, so fast reads need a function that groups by the asked dimension first. Proposed: delta tables + compatibility views (statistical_history, statistical_history_facet) + function readers (statistical_history_drilldown rewritten). Sizes on Norway: delta_facet 270 MB, facet_flow 255 MB, stats_valid_facet 87 MB, about 612 MB in total, against 3,488 MB + 264 MB today plus the 21 GB per-slot cache on rune.
 <!-- SECTION:NOTES:END -->
