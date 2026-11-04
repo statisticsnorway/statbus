@@ -14,6 +14,7 @@ on:
       - 'install.sh'
       - 'uninstall.sh'
       - 'ops/manual-box.sh'
+      - 'ops/niue/rc/**'
       - '.github/actions/**'
       - '.github/workflows/harness-selftest.yaml'
       - 'dev.sh'
@@ -151,6 +152,8 @@ jobs:
         run: bash test/install-recovery/tests/manual-box-rewrite-test.sh
       - name: Prove the manual-box guide installs the newest release with its own scripts
         run: bash test/install-recovery/tests/manual-box-guide-test.sh
+      - name: Prove statbus.org/rc/ runs the newest candidate's own scripts (STATBUS-570)
+        run: bash test/install-recovery/tests/rc-resolver-test.sh
       - name: Prove every ghcr.io login step retries transient failures (STATBUS-535)
         run: bash test/ci-ghcr-login-retry-test.sh
       # These standalone harness tests existed but no workflow ran them, so
