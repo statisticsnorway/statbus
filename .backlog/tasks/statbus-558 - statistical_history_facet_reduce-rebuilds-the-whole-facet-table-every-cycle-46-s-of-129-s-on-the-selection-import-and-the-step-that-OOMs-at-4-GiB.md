@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-11-02T13:15:00Z'
-updated_date: '2026-11-04T10:46:00Z'
+updated_date: '2026-11-04T10:55:00Z'
 labels: []
 dependencies: []
 type: enhancement
@@ -209,4 +209,6 @@ All sources give the view's answers (values_differ 0). Raw facet_def over a year
 2026-11-04 incremental options (b) and (c) prototyped on the 10-year db (tmp/558-shd/26b-option-b.log, 26c-option-c.log, 26d-option-c-norway-size.log). Same edit cycle as before: 75 changed units, 690 touched keys. Both equal a full rebuild in all four kinds (stock, stats valid, stats ended, flow). (b) adds the changed units' new contribution and subtracts their old one, taken where statistical_unit_flush_staging replaces the rows: no extra stored rows, about 375 ms with unoptimised prototype functions; hooks into the unit flush. (c) keeps a per-unit contribution layer and unit_ids int[] (intarray) on each summed row: the old contribution is read back from the store, the unit refresh is untouched, about 310 ms; a provenance check showed the moved enterprise's new cell lists exactly the unit statistical_unit puts there. Cost of (c) on Norway: about 12.5M per-unit rows (3.14M stock, 3.14M stats, 6.26M flow), against statistical_unit's 3.14M rows. Owner to choose.
 
 2026-11-04 correction: option (b)'s incremental step took about 290 ms (114 + 173 ms in 26b-option-b.log), not 375 ms. Row counts matched a full rebuild: stock 6,079, stats valid 769, stats ended 28, flow 11,326, 0 differ in either direction.
+
+2026-11-04 option (b) capture point checked (tmp/558-shd/27-capture-trigger.log, 10-year db, rolled back). Three paths write statistical_unit: flush_staging (DELETE + MERGE), the orphan cleanup in derive_statistical_unit (DELETE), and the full refresh (TRUNCATE + INSERT). Statement triggers with transition tables on statistical_unit saw the old and new rows of every DELETE and MERGE (update and insert branches). TRUNCATE carries no old rows, so the full refresh must rebuild the delta tables fully. Capturing at the table covers every writer, which removes (b)'s risk of a path skipping the hook.
 <!-- SECTION:NOTES:END -->
