@@ -3,10 +3,10 @@ id: STATBUS-566
 title: >-
   Each power-group refresh batch recomputes timepoints for every unit in the
   database
-status: To Do
+status: In Progress
 assignee: []
 created_date: '2026-11-04T00:43:00Z'
-updated_date: '2026-11-04T07:03:00Z'
+updated_date: '2026-11-04T07:08:00Z'
 labels:
   - performance
   - worker
@@ -49,4 +49,6 @@ computeDbMemory (cli/internal/config/config.go) sets work_mem = DB_MEM_LIMIT/32 
 - Memory: that full-scan query is what grows each backend by ~1-1.5 GiB; 4 in parallel exceed 8G. work_mem only changes how much each spills.
 - Prototype: passing '{}' for the three unit ranges gives the same timepoints table (all four unit types, row count and content hash equal, 0 power-group rows differ) and timepoints_refresh drops from 65.7 s to 0.003 s.
 - Power groups: 25,634 groups, median 2 legal units, p99 3, max 880.
+
+2026-11-04 failing test 366 (local commit): one power group plus an independent legal unit; after deleting the independent unit's timepoints a power-group-only batch must leave them absent. Pre-fix: 2 timepoints reappear (tmp/test-366-prefix.log, tmp/366-prefix-actual.out). With the proposed change (tmp/review/q4-566.diff: COALESCE the three unit ranges to '{}' in the timepoints_refresh and timesegments_refresh calls) the result rows equal the expected file (tmp/558-shd/566-proto.out). Not migrated; waits on owner.
 <!-- SECTION:NOTES:END -->
