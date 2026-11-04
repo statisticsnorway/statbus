@@ -23,14 +23,15 @@ BEGIN
     -- Stock: +1/-1 at each version's existence window (today: latest version overlapping the period,
     -- existing at its end; versions of one unit do not overlap, so the sums agree), countable likewise.
     -- Dates are bucketed to their month (on_month, see its column comment): exact at every month end, and
-    -- a unit's changes within one month collapse into one row, or cancel.
+    -- a unit's changes within one month collapse into one row, or cancel. A version without a known start
+    -- (-infinity) enters at on_month -infinity, before every period; an open end (infinity) never leaves.
     INSERT INTO pg_temp.hd_stock
     SELECT v.unit_id, p_sign, v.unit_type, v.primary_activity_category_path, v.secondary_activity_category_path,
            v.sector_path, v.legal_form_id, v.physical_region_path, v.physical_country_id, v.unit_size_id, v.status_id,
            date_trunc('month', x.d)::date, sum(x.ne)::int, sum(x.nc)::int, NULL::jsonb
       FROM hd_v AS v
      CROSS JOIN LATERAL (VALUES (v.ef, 1, v.used_for_counting::int), (v.eu, -1, -v.used_for_counting::int)) AS x(d, ne, nc)
-     WHERE v.ef < v.eu AND isfinite(x.d)
+     WHERE v.ef < v.eu AND x.d <> 'infinity'::date
      GROUP BY 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12
     HAVING sum(x.ne) <> 0 OR sum(x.nc) <> 0;
     -- Stats valid: a counted version's summary holds from valid_from until valid_until. Within one month a
@@ -43,7 +44,7 @@ BEGIN
       FROM hd_v AS v
      CROSS JOIN LATERAL (VALUES (v.valid_from, public.jsonb_stats_to_delta(v.stats_summary)),
                                 (v.valid_until, public.jsonb_stats_negate(public.jsonb_stats_to_delta(v.stats_summary)))) AS x(d, sd)
-     WHERE v.used_for_counting AND isfinite(x.d)
+     WHERE v.used_for_counting AND x.d <> 'infinity'::date
      GROUP BY 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12
     HAVING EXISTS (SELECT 1 FROM jsonb_each(public.jsonb_stats_delta_agg(x.sd) - 'type'::text) AS e
                     WHERE e.value->'in' IS DISTINCT FROM e.value->'out');
@@ -65,8 +66,10 @@ BEGIN
     CREATE INDEX ON hd_ep (unit_type, unit_id);
     ANALYZE hd_ep;
 
-    -- Flows: the unit at prev_stop (p) and curr_stop (c), as statistical_history_facet_def compares them.
+    -- Flows: the unit at prev_stop (p) and curr_stop (c), as the former statistical_history_facet_def compared
+    -- them. A period in which the unit changed nothing (all 18 counts zero) stores no row.
     INSERT INTO pg_temp.hd_flow
+    SELECT * FROM (
     SELECT ep.unit_id, p_sign, ep.resolution, ep.year, ep.month, ep.unit_type,
            COALESCE(c.primary_activity_category_path, p.primary_activity_category_path),
            COALESCE(c.secondary_activity_category_path, p.secondary_activity_category_path),
@@ -104,7 +107,10 @@ BEGIN
                             AND l.valid_from <= ep.curr_stop AND l.valid_to >= ep.curr_start
                           ORDER BY l.valid_from DESC, l.valid_until DESC LIMIT 1) AS l ON true
      CROSS JOIN LATERAL (SELECT COALESCE(p.used_for_counting AND c.used_for_counting, false) AS both) AS b
-     WHERE c.unit_id IS NOT NULL OR p.unit_id IS NOT NULL;
+     WHERE c.unit_id IS NOT NULL OR p.unit_id IS NOT NULL) AS r(unit_id, sign, resolution, year, month, unit_type,
+         primary_activity_category_path, secondary_activity_category_path, sector_path, legal_form_id,
+         physical_region_path, physical_country_id, unit_size_id, status_id, flows, stats_ended)
+     WHERE r.flows <> array_fill(0, ARRAY[18]);
 
     -- Stats ended: the latest counted version overlapping a period counts for the period's stats; when it
     -- ended inside the period it is not in the stock at the period end, so it is added here.

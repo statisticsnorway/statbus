@@ -87,7 +87,7 @@ FROM public.history_stock_delta
 WHERE unit_type IN ('legal_unit', 'establishment', 'enterprise')
 ORDER BY unit_type, on_month, unit_ids;
 
-\echo "--- ALL statistical_history rows after import 1 (any year/resolution) ---"
+\echo "--- statistical_history year rows after import 1 ---"
 SELECT resolution, year, unit_type, exists_count
 FROM public.statistical_history
 WHERE unit_type IN ('legal_unit', 'establishment', 'enterprise') AND resolution = 'year'
@@ -160,7 +160,7 @@ FROM public.history_stock_delta
 WHERE unit_type IN ('legal_unit', 'establishment', 'enterprise')
 ORDER BY unit_type, on_month, unit_ids;
 
-\echo "--- ALL statistical_history rows after import 2 (any year/resolution) ---"
+\echo "--- statistical_history year rows after import 2 ---"
 SELECT resolution, year, unit_type, exists_count
 FROM public.statistical_history
 WHERE unit_type IN ('legal_unit', 'establishment', 'enterprise') AND resolution = 'year'
@@ -215,22 +215,19 @@ FROM child
 GROUP BY command
 ORDER BY command;
 
-\echo "--- Consistency: the 2021 history total equals the units counted in the stock deltas up to 2021-12-31 ---"
-SELECT
-    h.unit_type,
-    h.exists_count AS history_exists_count,
-    d.delta_sum AS stock_delta_sum,
-    h.exists_count = d.delta_sum AS consistent
+\echo "--- Consistency: every 2021 history total (year and months) equals the units existing at the period end in statistical_unit ---"
+SELECT h.resolution, h.unit_type,
+       count(*) AS periods,
+       bool_and(h.exists_count = (SELECT count(DISTINCT su.unit_id) FROM public.statistical_unit AS su
+                                   WHERE su.unit_type = h.unit_type
+                                     AND public.unit_existence_from(su.valid_from, su.birth_date) <= p.curr_stop
+                                     AND p.curr_stop < public.unit_existence_until(su.valid_until, su.death_date)
+                                     AND su.valid_from <= p.curr_stop AND p.curr_stop < su.valid_until)) AS consistent
 FROM public.statistical_history AS h
-JOIN (
-    SELECT unit_type, SUM(exists_delta)::integer AS delta_sum
-    FROM public.history_stock_delta
-    WHERE on_month <= '2021-12-31'
-    GROUP BY unit_type
-) AS d USING (unit_type)
-WHERE h.resolution = 'year' AND h.year = 2021
-  AND h.unit_type IN ('legal_unit', 'establishment', 'enterprise')
-ORDER BY h.unit_type;
+JOIN public.history_period AS p ON p.resolution = h.resolution AND p.year = h.year AND p.month IS NOT DISTINCT FROM h.month
+WHERE h.year = 2021 AND h.unit_type IN ('legal_unit', 'establishment', 'enterprise')
+GROUP BY 1, 2
+ORDER BY 1, 2;
 RESET ROLE;
 CALL test.set_user_from_email('test.admin@statbus.org');
 

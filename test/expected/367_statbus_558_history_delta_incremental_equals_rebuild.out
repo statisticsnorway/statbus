@@ -10,12 +10,15 @@ NOTICE:  identifier "pg_regress/367_statbus_558_history_delta_incremental_equals
 -- count, flow, stats value and unit_ids list.
 --
 -- Fixture: the demo legal units and establishments, imported and derived
--- (first cycle rebuilds, since the tables start empty). Then three incremental
+-- (the first cycle adds every unit incrementally: statistical_unit is still
+-- empty when it runs, so there is nothing to rebuild from). Then three incremental
 -- cycles, each a different kind of change:
 --   A. a region move from 2024-01-01 (a unit leaves one cell and enters another),
 --   B. a new legal unit (a unit enters),
 --   C. a legal unit deleted with its establishments' links (units leave
 --      through worker.derive_statistical_unit's orphan cleanup).
+-- 367.8 adds a unit with no known start (valid_from -infinity), which must
+-- count from the first period.
 -- After each cycle the stored rows are snapshotted; a final rebuild then must
 -- reproduce the last snapshot exactly.
 BEGIN;
@@ -187,7 +190,7 @@ FROM pairs AS p ORDER BY p.curr;
    snapshot   | rows_added_or_changed | rows_removed_or_changed 
 --------------+-----------------------+-------------------------
  after_delete |                     0 |                       6
- after_move   |                    14 |                      12
+ after_move   |                    10 |                       4
  after_new    |                     6 |                       0
 (3 rows)
 
@@ -237,7 +240,7 @@ FROM snapshot WHERE label IN ('rebuilt', 'after_delete')
 GROUP BY kind ORDER BY kind;
  kind  | rebuilt_rows | incremental_rows 
 -------+--------------+------------------
- flow  |          309 |              309
+ flow  |          157 |              157
  stock |          172 |              172
 (2 rows)
 
@@ -257,4 +260,43 @@ SELECT (SELECT t.info->>'rebuild' FROM worker.tasks AS t WHERE t.command = 'deri
  true
 (1 row)
 
+\echo
+
+\echo "367.8 a unit valid from -infinity counts from the first period to its end (review finding 1)"
+"367.8 a unit valid from -infinity counts from the first period to its end (review finding 1)"
+-- Crafted statistical_unit rows, as derive would write them: unit 9001 has no known start and ends
+-- 2020-12-31 with 5 employees; it must be in the stock of every period up to 2020 and leave in 2021.
+SAVEPOINT unbounded;
+SET LOCAL ROLE postgres;
+TRUNCATE public.history_stock_delta, public.history_flow_delta,
+         public.history_stock_delta_staging, public.history_flow_delta_staging;
+DELETE FROM public.statistical_unit;
+INSERT INTO public.statistical_unit (unit_type, unit_id, valid_from, valid_to, valid_until, name, used_for_counting,
+                                     hash_slot, stats_summary)
+VALUES ('legal_unit', 9001, '-infinity', '2020-12-31', '2021-01-01', 'Unbounded start', true, 1,
+        '{"type": "stats_agg", "employees": {"type": "int_agg", "count": 1, "sum": 5, "sum_sq": 25, "min": 5, "max": 5}}'::jsonb),
+       ('legal_unit', 9002, '2019-01-01', 'infinity', 'infinity', 'Anchor', true, 2, NULL);
+CALL worker.history_delta_range('[0,16384)'::int4range, true, 'public.statistical_unit', 'public.statistical_unit');
+CALL worker.history_delta_apply();
+CALL public.history_period_refresh();
+SELECT h.year, h.exists_count, h.countable_count, (h.stats_summary->'employees'->>'sum')::numeric AS employees_sum
+FROM public.statistical_history AS h
+WHERE h.resolution = 'year' AND h.unit_type = 'legal_unit'
+ORDER BY h.year;
+ year | exists_count | countable_count | employees_sum 
+------+--------------+-----------------+---------------
+ 2016 |            1 |               1 |             5
+ 2017 |            1 |               1 |             5
+ 2018 |            1 |               1 |             5
+ 2019 |            2 |               2 |             5
+ 2020 |            2 |               2 |             5
+ 2021 |            1 |               1 |              
+ 2022 |            1 |               1 |              
+ 2023 |            1 |               1 |              
+ 2024 |            1 |               1 |              
+ 2025 |            1 |               1 |              
+ 2026 |            1 |               1 |              
+(11 rows)
+
+ROLLBACK TO SAVEPOINT unbounded;
 ROLLBACK;

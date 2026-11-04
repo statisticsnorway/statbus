@@ -331,6 +331,8 @@ on subsequent measurements. Re-measure on the next 2M-row test cycle.
 
 ### Bottleneck ranking (total self-time across 19 pipeline runs)
 
+Historical, before STATBUS-558: the `statistical_history*` steps below no longer exist.
+
 | Step | Total self (s) | Avg self (s) | Max self (s) | Role |
 |---|---|---|---|---|
 | `statistical_unit_flush_staging` | 2702 | 142 | 734 | Serial MERGE staging→main |
@@ -360,7 +362,7 @@ recomputed. Non-dirty slots' staging is reused as-is (the cache).
 
 At the reduce level (after Phase 3, migration `159b8c9e8`): both
 `worker.statistical_unit_facet_reduce` and `worker.statistical_history_facet_reduce`
-collapse to a single global MERGE shape with `WHEN NOT MATCHED BY SOURCE THEN
+(the latter removed by STATBUS-558) collapse to a single global MERGE shape with `WHEN NOT MATCHED BY SOURCE THEN
 DELETE`. The previous three-path adaptive strategy (scoped MERGE for ≤128 dirty,
 full MERGE for >128, TRUNCATE+INSERT for full refresh) had a structural cleanup
 gap in the scoped path (Path B's DELETE was gated by `dim_tuple IN

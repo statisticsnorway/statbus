@@ -154,14 +154,15 @@ BEGIN
     -- Stock: +1/-1 at each version's existence window (today: latest version overlapping the period,
     -- existing at its end; versions of one unit do not overlap, so the sums agree), countable likewise.
     -- Dates are bucketed to their month (on_month, see its column comment): exact at every month end, and
-    -- a unit's changes within one month collapse into one row, or cancel.
+    -- a unit's changes within one month collapse into one row, or cancel. A version without a known start
+    -- (-infinity) enters at on_month -infinity, before every period; an open end (infinity) never leaves.
     INSERT INTO pg_temp.hd_stock
     SELECT v.unit_id, p_sign, v.unit_type, v.primary_activity_category_path, v.secondary_activity_category_path,
            v.sector_path, v.legal_form_id, v.physical_region_path, v.physical_country_id, v.unit_size_id, v.status_id,
            date_trunc('month', x.d)::date, sum(x.ne)::int, sum(x.nc)::int, NULL::jsonb
       FROM hd_v AS v
      CROSS JOIN LATERAL (VALUES (v.ef, 1, v.used_for_counting::int), (v.eu, -1, -v.used_for_counting::int)) AS x(d, ne, nc)
-     WHERE v.ef < v.eu AND isfinite(x.d)
+     WHERE v.ef < v.eu AND x.d <> 'infinity'::date
      GROUP BY 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12
     HAVING sum(x.ne) <> 0 OR sum(x.nc) <> 0;
     -- Stats valid: a counted version's summary holds from valid_from until valid_until. Within one month a
@@ -174,7 +175,7 @@ BEGIN
       FROM hd_v AS v
      CROSS JOIN LATERAL (VALUES (v.valid_from, public.jsonb_stats_to_delta(v.stats_summary)),
                                 (v.valid_until, public.jsonb_stats_negate(public.jsonb_stats_to_delta(v.stats_summary)))) AS x(d, sd)
-     WHERE v.used_for_counting AND isfinite(x.d)
+     WHERE v.used_for_counting AND x.d <> 'infinity'::date
      GROUP BY 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12
     HAVING EXISTS (SELECT 1 FROM jsonb_each(public.jsonb_stats_delta_agg(x.sd) - 'type'::text) AS e
                     WHERE e.value->'in' IS DISTINCT FROM e.value->'out');
@@ -196,8 +197,10 @@ BEGIN
     CREATE INDEX ON hd_ep (unit_type, unit_id);
     ANALYZE hd_ep;
 
-    -- Flows: the unit at prev_stop (p) and curr_stop (c), as statistical_history_facet_def compares them.
+    -- Flows: the unit at prev_stop (p) and curr_stop (c), as the former statistical_history_facet_def compared
+    -- them. A period in which the unit changed nothing (all 18 counts zero) stores no row.
     INSERT INTO pg_temp.hd_flow
+    SELECT * FROM (
     SELECT ep.unit_id, p_sign, ep.resolution, ep.year, ep.month, ep.unit_type,
            COALESCE(c.primary_activity_category_path, p.primary_activity_category_path),
            COALESCE(c.secondary_activity_category_path, p.secondary_activity_category_path),
@@ -235,7 +238,10 @@ BEGIN
                             AND l.valid_from <= ep.curr_stop AND l.valid_to >= ep.curr_start
                           ORDER BY l.valid_from DESC, l.valid_until DESC LIMIT 1) AS l ON true
      CROSS JOIN LATERAL (SELECT COALESCE(p.used_for_counting AND c.used_for_counting, false) AS both) AS b
-     WHERE c.unit_id IS NOT NULL OR p.unit_id IS NOT NULL;
+     WHERE c.unit_id IS NOT NULL OR p.unit_id IS NOT NULL) AS r(unit_id, sign, resolution, year, month, unit_type,
+         primary_activity_category_path, secondary_activity_category_path, sector_path, legal_form_id,
+         physical_region_path, physical_country_id, unit_size_id, status_id, flows, stats_ended)
+     WHERE r.flows <> array_fill(0, ARRAY[18]);
 
     -- Stats ended: the latest counted version overlapping a period counts for the period's stats; when it
     -- ended inside the period it is not in the stock at the period end, so it is added here.
@@ -359,8 +365,15 @@ $history_delta_remove_units$;
 -- ===================================================================== apply
 -- Adds the staged rows into the tables and empties the staging. Membership in unit_ids is counted, so the
 -- result does not depend on how many cycles were staged before one apply, nor on their order.
+-- A row with no stats keeps stats NULL (delta_agg over no summaries would store an empty stats_delta,
+-- which every read then parses); the stats columns stay NULL until a summary arrives.
 CREATE PROCEDURE worker.history_delta_apply()
-LANGUAGE plpgsql AS $history_delta_apply$
+LANGUAGE plpgsql
+-- The MERGEs join a cycle's staged sums (small) to the whole delta table (large) on an exact text key;
+-- a merge join sorts the whole table by that key every cycle (9.8 s on Norway for 500 staged rows),
+-- a hash join reads it once (1.2 s). The planner picks the merge join on its cost estimate, so it is off.
+SET enable_mergejoin = off
+AS $history_delta_apply$
 BEGIN
     LOCK TABLE public.history_stock_delta_staging, public.history_flow_delta_staging IN EXCLUSIVE MODE;
 
@@ -369,7 +382,7 @@ BEGIN
     SELECT unit_type, primary_activity_category_path, secondary_activity_category_path, sector_path, legal_form_id,
            physical_region_path, physical_country_id, unit_size_id, status_id, on_month,
            sum(exists_delta)::int AS exists_delta, sum(countable_delta)::int AS countable_delta,
-           public.jsonb_stats_delta_agg(stats_delta) AS stats_delta,
+           public.jsonb_stats_delta_agg(stats_delta) FILTER (WHERE stats_delta IS NOT NULL) AS stats_delta,
            array_agg(unit_id ORDER BY unit_id) FILTER (WHERE sign > 0) AS plus_ids,
            array_agg(unit_id ORDER BY unit_id) FILTER (WHERE sign < 0) AS minus_ids
       FROM public.history_stock_delta_staging
@@ -392,8 +405,9 @@ BEGIN
     WHEN MATCHED THEN UPDATE SET
         exists_delta = t.exists_delta + s.exists_delta,
         countable_delta = t.countable_delta + s.countable_delta,
-        stats_delta = public.jsonb_stats_delta_merge(COALESCE(t.stats_delta, '{"type": "stats_delta"}'),
-                                                     COALESCE(s.stats_delta, '{"type": "stats_delta"}')),
+        stats_delta = CASE WHEN t.stats_delta IS NULL THEN s.stats_delta
+                           WHEN s.stats_delta IS NULL THEN t.stats_delta
+                           ELSE public.jsonb_stats_delta_merge(t.stats_delta, s.stats_delta) END,
         unit_ids = worker.unit_ids_apply(t.unit_ids, s.plus_ids, s.minus_ids)
     WHEN NOT MATCHED THEN INSERT VALUES (s.unit_type, s.primary_activity_category_path, s.secondary_activity_category_path,
         s.sector_path, s.legal_form_id, s.physical_region_path, s.physical_country_id, s.unit_size_id, s.status_id,
@@ -405,7 +419,7 @@ BEGIN
     SELECT resolution, year, month, unit_type, primary_activity_category_path, secondary_activity_category_path,
            sector_path, legal_form_id, physical_region_path, physical_country_id, unit_size_id, status_id,
            public.int_array_sum(flows) AS flows,
-           public.jsonb_stats_delta_agg(stats_ended) AS stats_ended,
+           public.jsonb_stats_delta_agg(stats_ended) FILTER (WHERE stats_ended IS NOT NULL) AS stats_ended,
            array_agg(unit_id ORDER BY unit_id) FILTER (WHERE sign > 0) AS plus_ids,
            array_agg(unit_id ORDER BY unit_id) FILTER (WHERE sign < 0) AS minus_ids
       FROM public.history_flow_delta_staging
@@ -427,8 +441,9 @@ BEGIN
       AND t.status_id IS NOT DISTINCT FROM s.status_id
     WHEN MATCHED THEN UPDATE SET
         flows = public.int_array_add(t.flows, s.flows),
-        stats_ended = public.jsonb_stats_delta_merge(COALESCE(t.stats_ended, '{"type": "stats_delta"}'),
-                                                     COALESCE(s.stats_ended, '{"type": "stats_delta"}')),
+        stats_ended = CASE WHEN t.stats_ended IS NULL THEN s.stats_ended
+                           WHEN s.stats_ended IS NULL THEN t.stats_ended
+                           ELSE public.jsonb_stats_delta_merge(t.stats_ended, s.stats_ended) END,
         unit_ids = worker.unit_ids_apply(t.unit_ids, s.plus_ids, s.minus_ids)
     WHEN NOT MATCHED THEN INSERT VALUES (s.resolution, s.year, s.month, s.unit_type, s.primary_activity_category_path,
         s.secondary_activity_category_path, s.sector_path, s.legal_form_id, s.physical_region_path,
@@ -603,7 +618,7 @@ BEGIN
 END;
 $history_period_refresh$;
 
-CALL public.history_period_refresh();
+-- Filled by the history_delta_reduce of the rebuild this migration enqueues; the tables start empty.
 
 -- ===================================================================== views with today's names
 CREATE VIEW public.statistical_history_facet WITH (security_invoker = on) AS
@@ -658,22 +673,31 @@ SELECT resolution, year, month, unit_type, primary_activity_category_path, secon
  GROUP BY 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12
 HAVING bool_or(has_row);
 
--- Without dimensions: aggregate the deltas per unit type first (sums are linear), then the running sum.
+-- Without dimensions: the deltas are aggregated per unit type and month first (sums are linear), then per
+-- period: the stock at a period end is the sum of the months up to it, joined on the few aggregated rows
+-- rather than per period over the delta table. Flows are grouped by period directly.
 CREATE VIEW public.statistical_history WITH (security_invoker = on) AS
-WITH per_date AS (
+WITH per_month AS (
     SELECT d.unit_type, d.on_month, sum(d.exists_delta) AS exists_delta, sum(d.countable_delta) AS countable_delta,
            public.jsonb_stats_delta_agg(d.stats_delta) AS stats_delta
       FROM public.history_stock_delta AS d GROUP BY 1, 2
 ), stock AS (
-    SELECT unit_type, on_month, sum(exists_delta) OVER w AS exists_count, sum(countable_delta) OVER w AS countable_count,
-           public.jsonb_stats_delta_agg(stats_delta) OVER w AS stats_stock, lead(on_month) OVER w AS next_date
-      FROM per_date WINDOW w AS (PARTITION BY unit_type ORDER BY on_month)
+    SELECT p.resolution, p.year, p.month, m.unit_type, sum(m.exists_delta) AS exists_count,
+           sum(m.countable_delta) AS countable_count, public.jsonb_stats_delta_agg(m.stats_delta) AS stats_stock
+      FROM public.history_period AS p
+      JOIN per_month AS m ON m.on_month <= p.curr_stop
+     GROUP BY 1, 2, 3, 4
 ), flow AS (
-    SELECT f.resolution, f.year, f.month, f.unit_type, public.int_array_sum(f.flows) AS flows,
+    SELECT f.resolution, f.year, f.month, f.unit_type,
+           ARRAY[sum(f.flows[1]), sum(f.flows[2]), sum(f.flows[3]), sum(f.flows[4]), sum(f.flows[5]), sum(f.flows[6]),
+                 sum(f.flows[7]), sum(f.flows[8]), sum(f.flows[9]), sum(f.flows[10]), sum(f.flows[11]), sum(f.flows[12]),
+                 sum(f.flows[13]), sum(f.flows[14]), sum(f.flows[15]), sum(f.flows[16]), sum(f.flows[17]),
+                 sum(f.flows[18])]::integer[] AS flows,
            public.jsonb_stats_delta_agg(f.stats_ended) AS stats_ended
       FROM public.history_flow_delta AS f GROUP BY 1, 2, 3, 4
 )
-SELECT p.resolution, p.year, p.month, t.unit_type,
+SELECT COALESCE(s.resolution, f.resolution) AS resolution, COALESCE(s.year, f.year) AS year,
+       COALESCE(s.month, f.month) AS month, COALESCE(s.unit_type, f.unit_type) AS unit_type,
        COALESCE(s.exists_count, 0)::integer AS exists_count,
        COALESCE(f.flows[1], 0) AS exists_change, COALESCE(f.flows[2], 0) AS exists_added_count,
        COALESCE(f.flows[3], 0) AS exists_removed_count,
@@ -692,12 +716,15 @@ SELECT p.resolution, p.year, p.month, t.unit_type,
            COALESCE(s.stats_stock, '{"type": "stats_delta"}'), COALESCE(f.stats_ended, '{"type": "stats_delta"}'))),
            '{}'::jsonb) AS stats_summary,
        NULL::int4range AS hash_partition
-  FROM public.history_period AS p
- CROSS JOIN (SELECT DISTINCT unit_type FROM per_date) AS t
-  LEFT JOIN stock AS s ON s.unit_type = t.unit_type AND s.on_month <= p.curr_stop
-       AND (s.next_date IS NULL OR p.curr_stop < s.next_date)
-  LEFT JOIN flow AS f ON f.unit_type = t.unit_type AND f.resolution = p.resolution AND f.year = p.year
-       AND f.month IS NOT DISTINCT FROM p.month
+  FROM stock AS s
+  FULL JOIN (SELECT f.* FROM flow AS f
+              WHERE EXISTS (SELECT 1 FROM public.history_period AS p
+                             WHERE p.resolution = f.resolution AND p.year = f.year
+                               AND COALESCE(p.month, 0) = COALESCE(f.month, 0))) AS f
+    ON f.unit_type = s.unit_type AND f.resolution = s.resolution AND f.year = s.year
+   AND COALESCE(f.month, 0) = COALESCE(s.month, 0)
+ -- A period shows when units exist at its end or changed in it; the stock's stats come along either way
+ -- (a unit that died in the period has count 0 but its stats still hold for the period).
  WHERE COALESCE(s.exists_count, 0) <> 0 OR COALESCE(s.countable_count, 0) <> 0 OR f.unit_type IS NOT NULL;
 
 -- ===================================================================== pipeline
