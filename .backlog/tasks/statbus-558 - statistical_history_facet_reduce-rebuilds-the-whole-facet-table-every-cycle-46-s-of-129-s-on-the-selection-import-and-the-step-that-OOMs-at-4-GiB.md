@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-11-02T13:15:00Z'
-updated_date: '2026-11-04T10:17:00Z'
+updated_date: '2026-11-04T10:21:00Z'
 labels: []
 dependencies: []
 type: bug
@@ -135,4 +135,6 @@ All sources give the view's answers (values_differ 0). Raw facet_def over a year
 2026-11-04 Q2d: aggregate the deltas first (tmp/558-shd/22-q2d-aggregate-first.log). Because the sums are linear, a report grouped by one dimension sums exists_delta (and stats_delta) up to the period end grouped by that dimension instead of expanding every cell's running sum. Same answers as the view (0 differ). Norway: one year by activity 2,325 -> 68 ms (today's table 66); months of one year by region 9,750 -> 192 ms (today's table 658); employees one year by activity 3,058 -> 96 ms. Starting from the year roll-up of the previous year: 159 ms. So the slow shapes come from the view's per-cell window, not from the delta format, and a stored month roll-up is not needed for speed.
 
 2026-11-04 Q2f: aggregate-first as a plain view (tmp/558-shd/23-q2f-aggregate-first-view.log). Same answers as the window view in all 5 shapes on both dbs. Norway best of 3 ms (window view / plain view / function-style direct / today's table): all years filtered 64/62/-/29; months filtered 82/607/-/26; one year by activity 2,476/290/68/66; months by region 10,690/1,844/192/658. The view must repeat each delta row for every period ending after it before grouping, and Postgres cannot push the reader's GROUP BY inside, so fast reads need a function that groups by the asked dimension first. Proposed: delta tables + compatibility views (statistical_history, statistical_history_facet) + function readers (statistical_history_drilldown rewritten). Sizes on Norway: delta_facet 270 MB, facet_flow 255 MB, stats_valid_facet 87 MB, about 612 MB in total, against 3,488 MB + 264 MB today plus the 21 GB per-slot cache on rune.
+
+2026-11-04 open item, incremental update (tmp/558-shd/24-per-range-cost.log, 24b-slot-cell-index.log). When the history step runs, statistical_unit holds only new versions, so the old contribution of changed units must come from somewhere. Norway: (a) delta per hash-slot range: 16 ranges 1.23M rows (3.0x the 411,994 global rows), 64 ranges 1.78M, 256 ranges 2.28M, 16,384 slots 3.07M; (a') slot-to-cell index without dates 3.05M rows, then recompute affected cells wholly (median 1 unit per cell, p99 97, max 13,379); (b) write the negated old delta when statistical_unit_refresh replaces a unit's rows: no extra stored rows, touches the unit refresh step, not prototyped. To decide before the migration.
 <!-- SECTION:NOTES:END -->
