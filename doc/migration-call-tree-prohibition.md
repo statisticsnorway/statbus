@@ -29,14 +29,14 @@ These map 1:1 to handler procedures in `worker.command_registry`. A migration th
 | `collect_changes` | `worker.command_collect_changes` |
 | `derive_units_phase` | `worker.derive_units_phase` |
 | `derive_statistical_unit` | `worker.derive_statistical_unit` |
-| `derive_history_delta` | `worker.derive_history_delta` |
-| `derive_history_delta_range` | `worker.derive_history_delta_range` |
+| `derive_statistical_history_facet_delta` | `worker.derive_statistical_history_facet_delta` |
+| `derive_statistical_history_facet_delta_partition` | `worker.derive_statistical_history_facet_delta_partition` |
 | `statistical_unit_flush_staging` | `worker.statistical_unit_flush_staging` |
 | `derive_used_tables` | `worker.derive_used_tables` |
 | `derive_reports_phase` | `worker.derive_reports_phase` |
 | `derive_statistical_unit_facet` | `worker.derive_statistical_unit_facet` |
 | `statistical_unit_facet_reduce` | `worker.statistical_unit_facet_reduce` |
-| `history_delta_reduce` | `worker.history_delta_reduce` |
+| `statistical_history_facet_delta_reduce` | `worker.statistical_history_facet_delta_reduce` |
 
 ### PG functions in the tree (must not be called from a migration)
 
@@ -44,7 +44,7 @@ These are the "machine room" functions that the handlers dispatch to. Calling an
 
 - `public.statistical_history_facet_derive` ← **today's culprit** (removed by STATBUS-558)
 - `public.statistical_history_derive` (removed by STATBUS-558)
-- `worker.history_delta_range`, `worker.history_delta_apply`, `worker.history_delta_remove_units`
+- `worker.statistical_history_facet_delta_stage_partition`, `worker.statistical_history_facet_delta_apply`, `worker.statistical_history_facet_delta_remove_units`
 - `public.statistical_unit_facet_derive`
 - `public.statistical_unit_flush_staging`
 - `public.activity_category_used_derive`
@@ -65,7 +65,7 @@ SELECT worker.enqueue_derive_statistical_unit_all();
 
 What the function does, and why each part matters:
 - **Empty-database guard.** When establishment, legal_unit, enterprise and power_group are all empty it schedules nothing and returns NULL. The seed and test template are built by migrating an empty database, so their dumps hold no pending task and test baselines do not drift. An empty database has nothing to derive.
-- **One `collect_changes` meaning "everything".** Every `*_id_ranges` is NULL (all units) and `valid_ranges` is `{[-infinity,infinity)}` (all time). `collect_changes` passes both on unchanged, and each step decides from its own arguments: `derive_statistical_unit` takes its full branch on NULL ids, `derive_statistical_unit_facet` drops and rebuilds its per-slot cache on unbounded time, and `derive_history_delta` rebuilds the history delta tables. No caller TRUNCATE is needed.
+- **One `collect_changes` meaning "everything".** Every `*_id_ranges` is NULL (all units) and `valid_ranges` is `{[-infinity,infinity)}` (all time). `collect_changes` passes both on unchanged, and each step decides from its own arguments: `derive_statistical_unit` takes its full branch on NULL ids, `derive_statistical_unit_facet` drops and rebuilds its per-slot cache on unbounded time, and `derive_statistical_history_facet_delta` rebuilds the history delta tables. No caller TRUNCATE is needed.
 - **Upgrades a pending task.** Only one pending `collect_changes` may exist. If a trigger left a drain-mode one, it is replaced by the full request, which covers every logged change.
 - **Scheduling only.** The task row and `pg_notify('worker_tasks', 'analytics')` commit atomically with the migration (NOTIFY is delivered at commit). During an upgrade the worker is stopped while migrations run, and it picks pending tasks up at startup. The derive runs chunked and in parallel in the worker, so the migration commits in milliseconds.
 

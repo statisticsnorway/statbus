@@ -168,12 +168,12 @@ steps into a serial subtree. `collect_changes` pre-spawns the entire tree:
 collect_changes (depth=0, serial)
 ├── derive_units_phase (depth=1, serial)
 │   ├── derive_statistical_unit (depth=2, concurrent children at depth=3)
-│   ├── derive_history_delta (depth=2, concurrent children at depth=3)
+│   ├── derive_statistical_history_facet_delta (depth=2, concurrent children at depth=3)
 │   └── statistical_unit_flush_staging (depth=2, leaf)
 └── derive_reports_phase (depth=1, serial)
     ├── derive_statistical_unit_facet (depth=2, concurrent children at depth=3)
     ├── statistical_unit_facet_reduce (depth=2, leaf)
-    └── history_delta_reduce (depth=2, leaf, terminal)
+    └── statistical_history_facet_delta_reduce (depth=2, leaf, terminal)
 ```
 
 No mixed child_modes — each parent is purely serial or purely concurrent.

@@ -5,10 +5,10 @@ data. It covers the task flow, structured concurrency model, and queue layout.
 
 > **STATBUS-558 (November 2026):** `statistical_history` and
 > `statistical_history_facet` are views over two sparse delta tables,
-> `history_stock_delta` (per cell and month) and `history_flow_delta` (per cell
-> and period). Step ③a `derive_history_delta` runs before the flush, one
+> `statistical_history_facet_stock_delta` (per cell and month) and `statistical_history_facet_flow_delta` (per cell
+> and period). Step ③a `derive_statistical_history_facet_delta` runs before the flush, one
 > concurrent child per hash range staging the refreshed units' new minus old
-> contributions; step ⑦ `history_delta_reduce` adds the staged rows in. The
+> contributions; step ⑦ `statistical_history_facet_delta_reduce` adds the staged rows in. The
 > per-period history steps (⑤, ⑤b, ⑦, ⑦b of the earlier diagram) are gone.
 > Sections below that describe them are kept as history and say so.
 
@@ -188,13 +188,15 @@ parallel on the child fibers.
                                                      │ (parent completes, serial fiber resumes)
                                                      ▼
                                   ┌─────────────────────────────────────────────┐
-                            ③a    │ derive_history_delta                PARENT  │
+                            ③a    │ derive_statistical_history_facet_delta      │
+                                  │                                     PARENT  │
                                   │  staging = new versions, statistical_unit   │
                                   │  = old ones. One child per hash range       │
                                   │  holding a refreshed unit (all ranges on a  │
-                                  │  rebuild): derive_history_delta_range       │
-                                  │  stages new minus old per unit, with        │
-                                  │  unit_ids. Identical rows cancel.           │
+                                  │  rebuild):                                  │
+                                  │  derive_statistical_history_facet_delta_    │
+                                  │  partition stages new minus old per unit,   │
+                                  │  with unit_ids. Identical rows cancel.      │
                                   └──────────────────┬──────────────────────────┘
                                                      │
                                                      ▼
@@ -236,11 +238,14 @@ parallel on the child fibers.
                                                      │
                                                      ▼
                                   ┌─────────────────────────────────────────────┐
-                             ⑦    │ history_delta_reduce                SERIAL  │
+                             ⑦    │ statistical_history_facet_delta_reduce      │
+                                  │                                     SERIAL  │
                                   │  Adds the staged history deltas into        │
-                                  │  history_stock_delta / history_flow_delta,  │
-                                  │  refreshes history_period, clears the dirty │
-                                  │  hash slots, notifies reports done.         │
+                                  │  statistical_history_facet_stock_delta and  │
+                                  │  statistical_history_facet_flow_delta,      │
+                                  │  refreshes statistical_history_period,      │
+                                  │  clears the dirty hash slots, notifies      │
+                                  │  reports done.                              │
                                   └──────────────────┬──────────────────────────┘
                                                      │
                                                      ▼
@@ -283,12 +288,12 @@ The three derived tables have different data models:
 
 | Table                      | Keyed by                               | Natural partition |
 |----------------------------|----------------------------------------|-------------------|
-| `history_stock_delta`      | `(...dims, on_month)`                  | `(unit_type, unit_id)` via staging |
-| `history_flow_delta`       | `(resolution, year, month, ...dims)`   | `(unit_type, unit_id)` via staging |
+| `statistical_history_facet_stock_delta`      | `(...dims, on_month)`                  | `(unit_type, unit_id)` via staging |
+| `statistical_history_facet_flow_delta`       | `(resolution, year, month, ...dims)`   | `(unit_type, unit_id)` via staging |
 | `statistical_unit_facet`   | `(valid_from, valid_until, ...dims)`   | `(unit_type, unit_id)` |
 
 The history delta children write signed per-unit rows to UNLOGGED staging,
-one hash range each, and `history_delta_reduce` adds them in. Every unit
+one hash range each, and `statistical_history_facet_delta_reduce` adds them in. Every unit
 belongs to one range, so any split of the hash space gives the same sums.
 `statistical_history` and `statistical_history_facet` are views over these
 tables.
@@ -428,14 +433,14 @@ All commands, their queue assignments, and pipeline phase:
 | analytics   | `derive_units_phase`                      | phase       | 1     | `is_deriving_stat_units`    | Serial wrapper for unit derivation |
 | analytics   | `derive_statistical_unit`                 | parent      | 2     | `is_deriving_stat_units`    | Spawns concurrent batch children |
 | analytics   | `statistical_unit_refresh_batch`          | child       | 3     | `is_deriving_stat_units`    | Parallel batch processing    |
-| analytics   | `derive_history_delta`                    | parent      | 2     | `is_deriving_stat_units`    | Before the flush: spawns one child per hash range |
-| analytics   | `derive_history_delta_range`              | child       | 3     | `is_deriving_stat_units`    | Stages new minus old history deltas of one range |
+| analytics   | `derive_statistical_history_facet_delta`                    | parent      | 2     | `is_deriving_stat_units`    | Before the flush: spawns one child per hash range |
+| analytics   | `derive_statistical_history_facet_delta_partition`              | child       | 3     | `is_deriving_stat_units`    | Stages new minus old history deltas of one range |
 | analytics   | `statistical_unit_flush_staging`          | leaf        | 2     | `is_deriving_stat_units`    | Merge staging → main table   |
 | analytics   | `derive_reports_phase`                    | phase       | 1     | `is_deriving_reports`       | Serial wrapper for reports   |
 | analytics   | `derive_statistical_unit_facet`           | parent      | 2     | `is_deriving_reports`       | Spawns concurrent partition children |
 | analytics   | `derive_statistical_unit_facet_partition` | child       | 3     | `is_deriving_reports`       | Per-partition facet compute  |
 | analytics   | `statistical_unit_facet_reduce`           | leaf        | 2     | `is_deriving_reports`       | Merge partitions → main      |
-| analytics   | `history_delta_reduce`                    | leaf        | 2     | `is_deriving_reports`       | Terminal — adds staged history deltas, notifies complete |
+| analytics   | `statistical_history_facet_delta_reduce`                    | leaf        | 2     | `is_deriving_reports`       | Terminal — adds staged history deltas, notifies complete |
 | analytics   | `derive_reports`                          | (legacy)    | —     | —                           | No-op stub for old task refs |
 | import      | `import_job`                              | parent      | 0     | —                           | Wrapper per import job       |
 | import      | `import_job_process`                      | serial child| 1     | —                           | One state transition at a time |

@@ -368,10 +368,10 @@ export const COMMAND_LABELS: Record<string, string> = {
   'derive_units_phase': 'Deriving statistical units',
   'derive_statistical_unit': 'Refreshing statistical units',
   'statistical_unit_flush_staging': 'Flushing staging data',
-  'derive_history_delta': 'Computing history changes',
+  'derive_statistical_history_facet_delta': 'Computing history changes',
   'derive_reports_phase': 'Deriving reports',
   'derive_reports': 'Computing reports',
   'derive_statistical_unit_facet': 'Computing search facets',
   'statistical_unit_facet_reduce': 'Merging search facets',
-  'history_delta_reduce': 'Merging history changes',
+  'statistical_history_facet_delta_reduce': 'Merging history changes',
 };

@@ -13,14 +13,14 @@ collect_changes                          depth 0, serial children
 ├── derive_units_phase                   depth 1, serial children
 │   ├── derive_statistical_unit          depth 2, concurrent children
 │   │   └── statistical_unit_refresh_batch × N    depth 3, leaves
-│   ├── derive_history_delta             depth 2, concurrent children
-│   │   └── derive_history_delta_range × N        depth 3, leaves (one per hash range)
+│   ├── derive_statistical_history_facet_delta             depth 2, concurrent children
+│   │   └── derive_statistical_history_facet_delta_partition × N        depth 3, leaves (one per hash range)
 │   └── statistical_unit_flush_staging   depth 2, leaf
 └── derive_reports_phase                 depth 1, serial children
     ├── derive_statistical_unit_facet     depth 2, concurrent children
     │   └── derive_statistical_unit_facet_partition × N  depth 3, leaves
     ├── statistical_unit_facet_reduce     depth 2, leaf
-    └── history_delta_reduce              depth 2, leaf
+    └── statistical_history_facet_delta_reduce              depth 2, leaf
 ```
 
 Task states: `pending` → `processing` → `waiting` → `completed` (or `failed`).
