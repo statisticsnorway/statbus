@@ -1,52 +1,118 @@
 ---
 id: STATBUS-558
 title: >-
-  Facet reduce: restore scoped reduce that tracks removed combinations, plus a
-  full rebuild as repair after counting fixes
+  History reports from sparse delta tables: compatibility views and fast read
+  functions replace the dense history facet
 status: In Progress
 assignee: []
 created_date: '2026-11-02T13:15:00Z'
-updated_date: '2026-11-04T10:21:00Z'
+updated_date: '2026-11-04T10:32:00Z'
 labels: []
 dependencies: []
-type: bug
+type: enhancement
 ordinal: 481204
 ---
 
 ## Description
 
 <!-- SECTION:DESCRIPTION:BEGIN -->
-WHAT WE ARE DOING (agreed with owner 2026-11-02)
-Restore the owner's design for statistical_history_facet_reduce and statistical_unit_facet_reduce: before the per-slot children rewrite dirty slots, capture the facet combinations those slots held (the removed part), and reduce only combinations in the new or old set, deleting rows left without support. Add the full rebuild (worker.enqueue_derive_statistical_unit_all, all units, all time) as the repair, run by any migration that fixes a counting bug and available to operators.
+### North Star
+The history reports answer from a store whose size follows the number of changes, not the number of periods. A change to a few units updates in seconds, and every answer equals what today's definition (`statistical_history_facet_def`) gives.
 
-WHY
-Survey 2026-11-02 (tmp/survey-findings.md, tmp/survey-facet-merge-plan.txt): history facet reduce is 45.6 s of 129 s on the selection import (4 calls, max 20.6 s), one global MERGE: HashAggregate over all 214k partition rows spills (38 MB), Merge Full Join over the whole 89k target. Same step OOMs at 4 GiB (STATBUS-555).
+### Zoom out
+**Today:** `statistical_history_facet` is dense: every period times every cell.
+- Norway (3,139,134 units): 3,232,696 rows, 3,488 MB.
+- `statistical_history`: 264 MB.
+- Rune's per-slot cache: 21 GB.
+- Rune's derive: 183 s + 800 s wall with 4 workers. It OOMs at 4 GiB (STATBUS-555).
+- Defects found on the way: stats depend on the hash slot (STATBUS-563); the stored facet goes stale when only change counts move (STATBUS-565).
 
-HISTORY
-- ff2b1ef49 (2026-03-25, migration 20260324232001): owner's design, pre_dirty_dims snapshot tables + scoped reduce.
-- e69785896 (2026-04-30, 20260429233218): demo over-count 31 vs truth 24; both reduces made global. Cause was hypothesised ('e.g. partial-contributor scenario'), never reproduced.
-- 176be9036 (2026-05-07, 20260507115831): pre_dirty_dims tables dropped as dead.
-Unit-level change detection (worker.log_base_change) already logs old and new rows; the facet-level removed part is what was lost.
+**Design (owner 2026-11-04: sensible; not adopted until prototyping is finished):**
+1. **Delta tables.** Each row is a change at a date, not a total:
+   - `statistical_history_delta_facet`: existing and countable units +N/-N per cell and date.
+   - `statistical_history_delta_facet_flow`: births, deaths, added, removed and change counts per cell and period.
+   - `stats_valid_facet`: `stats_delta` per cell and date.
+   - `stats_ended_facet`, and the same tables without the cell dimensions for the totals.
+   - Norway: 411,994 + 805,004 + 411,991 rows, about 612 MB.
+2. **Compatibility views** with today's names and columns: `statistical_history` and `statistical_history_facet`, for the API, integrators and parity checks.
+3. **Fast read functions** that filter the deltas, group them by the asked dimension, and sum. A total is the sum of its changes, so no running total per cell is needed. `statistical_history_drilldown` is rewritten this way.
 
-OPEN QUESTION: why did the scoped reduce over-count? Candidates: (1) capture hole: slot dirtied after the snapshot, full rebuild without snapshot, or period outside the import's validity; (2) target already stale from an earlier bug and never fully rebuilt (scoped reduce never revisits it).
+Example rows (Norway, enterprises, region 03.01, activity J):
+```
+delta_facet:  J.63.9.9.0 | 03.01 | legal_form 59 | 2026-05-07 | exists_delta 19 | countable_delta 19
+flow:         2026-05 | J.63.9.9.0 | 03.01 | exists_change 32 | added 32 | removed 0 | births 0
+stats_valid:  J.58.1.3.0 | 03.01 | 2026-05-07 | {"employees": {"in": {"sum": 4743, "count": 67, "sum_sq": 943185}}}
+```
 
-HOW WE WORK (resource plan)
-hibiscus only, no workers, no worktrees. Code on shared master, commit by path. Databases: statbus-local-db container only; reproduction as a small SQL test (./dev.sh test, own db), timing with import_benchmark --dataset selection into one scratch db, dropped after. One heavy run at a time. Downloads dataset waits until this is fixed. statbus_local data and statbus-test containers untouched.
+### Zoom in
+**Parity (the consistency gate).** Same answers as today, every row and column:
+- 10-year Norway (2015-2026) and full Norway (May 2026: 395,106 facet rows, 0 differ).
+- Stats follow the existing rule (latest version overlapping the period, used_for_counting). Today's stored stats are lower only through STATBUS-563.
 
-STEPS
-1. Reproduce the April over-count with a small SQL test against the scoped design. [NEXT]
-2. Owner reviews the cause before code is called understood.
-3. Migration restoring the scoped reduce with removed-part capture, closing the hole found in 1; full rebuild as repair, documented at the definition.
-4. Measure selection import before/after, then one 4 GiB run.
+**Reads.** Reports show all years, or the months of one year (owner). Norway, best of 3, ms:
+
+| Report shape | Today's table | Window view | Plain summing view | Read function | Raw `statistical_unit` (count only) |
+|---|---|---|---|---|---|
+| History, all years (app) | 0.1 | 0.8 | | | |
+| Facet, all years, region+activity | 29 | 64 | 62 | | 177 |
+| Facet, months of one year, filtered | 26 | 82 | 607 | | 1,898 |
+| Facet, one year by activity | 66 | 2,476 | 290 | 68 | 1,018 |
+| Facet, months of one year by region | 658 | 10,690 | 1,844 | 192 | 12,957 |
+
+Notes on the table:
+- **Raw with today's full definition:** one year by activity takes 79 s. A year of months on full Norway is OOM-killed at 8G.
+- **Why views can't match functions:** a view repeats each delta row for every period ending after it before the reader's GROUP BY, and Postgres cannot move the grouping inside. Functions group first.
+- **Roll-ups:** stored year/month roll-ups are not needed. Year: 136 MB, 20 s. Month: 991 MB, 116 s, nearly as dense as today.
+- **Columnar:** no help; the cost was query shape, not scan width. Citus columnar is also append-only.
+
+**Build and update.**
+- Full build on Norway about 3.5 min in one session.
+- Incremental (10-year): 75 dirty slots, 841 keys re-summed, about 255 ms, equal to a full rebuild.
+
+**Open: how the update finds a changed unit's old contribution.** When the history step runs, `statistical_unit` holds only the new versions. Norway measurements:
+
+| Option | Extra stored | Notes |
+|---|---|---|
+| (a) delta per hash-slot range | 16 ranges 1.23M rows (3x), 64: 1.78M, 256: 2.28M, 16,384: 3.07M (7.5x) | the pattern `statistical_history` uses today |
+| (a') slot-to-cell index, no dates | 3.05M rows | then recompute affected cells wholly (median 1 unit per cell, p99 97, max 13,379) |
+| (b) write the negated old delta when `statistical_unit_refresh` replaces a unit's rows | none | touches the unit refresh step; to prototype first (owner) |
+| (c) provenance: `unit_ids int[]` per delta row (intarray, owner) | 3,140,238 unit references, 20 MB of arrays; median 1 unit per row, p99 93, max 13,356 | subtract a unit exactly; tests can assert which units make up a cell. intarray 1.5 is in our image, not installed |
+
+**Hand-offs the new last step takes over:**
+- the dirty-slot TRUNCATE;
+- the `is_deriving_reports` notify;
+- command names in `worker.command_registry` and the app labels.
+
+**Removed:**
+- `statistical_history_facet` (table), `statistical_history_facet_partitions`, `statistical_history` (table);
+- `statistical_history_facet_def` and `_derive`;
+- the history and history-facet derive, period and reduce worker steps;
+- `worker.enqueue_derive_statistical_history_facet_period` (dead today).
+
+**Tests that change:** 008, 094, 096, 107, 204, 318, 322, 325, 346, 364.
+
+Evidence: tmp/558-shd/ (README.md, scripts 01-25 with logs).
+
+### Closing review
+- **Memory:** none.
+- **Documentation:**
+  - `COMMENT ON` for each delta table and read function;
+  - doc/data-model.md, doc/derive-pipeline.md, doc/worker-notifications.md, doc/worker-structured-concurrency.md, doc/migration-call-tree-prohibition.md.
+- **Cleanup:**
+  - drop the `shd` and `n558` scratch schemas;
+  - drop test_402_import_jobs_for_norway_history_29961;
+  - restore statbus_local from dbdumps/local_20261103_230055.pg_dump and delete the Norway dump;
+  - remove the js31-proto container.
 <!-- SECTION:DESCRIPTION:END -->
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [x] #1 The over-count of April is reproduced by a small SQL test and its cause written here
-- [x] #2 Owner has reviewed and agreed the cause before the fix is coded
-- [ ] #3 Both facet reduces touch only combinations in the new or removed set; the reproduction test passes
-- [ ] #4 A migration that fixes a counting bug can trigger the full rebuild; documented at the reduce's definition
-- [ ] #5 Selection import facet reduce time measured before/after, and one 4 GiB run
+- [x] #1 The two compatibility views equal today's statistical_history and statistical_history_facet_def on 10-year and full Norway, every row and column
+- [ ] #2 The read functions answer the report shapes (all years; months of one year; breakdown by one dimension) on full Norway at most as slow as today's stored table
+- [ ] #3 The incremental update after unit edits equals a full rebuild, with the chosen way of finding a changed unit's old contribution, prototyped and measured against the alternatives
+- [ ] #4 Full rebuild and incremental cycle are measured on full Norway against today's pipeline
+- [ ] #5 Owner adopts the design before the migration is written
+- [ ] #6 Migration, worker step and tests 008, 094, 096, 107, 204, 318, 322, 325, 346, 364 pass
 <!-- AC:END -->
 
 ## Implementation Notes
@@ -137,4 +203,6 @@ All sources give the view's answers (values_differ 0). Raw facet_def over a year
 2026-11-04 Q2f: aggregate-first as a plain view (tmp/558-shd/23-q2f-aggregate-first-view.log). Same answers as the window view in all 5 shapes on both dbs. Norway best of 3 ms (window view / plain view / function-style direct / today's table): all years filtered 64/62/-/29; months filtered 82/607/-/26; one year by activity 2,476/290/68/66; months by region 10,690/1,844/192/658. The view must repeat each delta row for every period ending after it before grouping, and Postgres cannot push the reader's GROUP BY inside, so fast reads need a function that groups by the asked dimension first. Proposed: delta tables + compatibility views (statistical_history, statistical_history_facet) + function readers (statistical_history_drilldown rewritten). Sizes on Norway: delta_facet 270 MB, facet_flow 255 MB, stats_valid_facet 87 MB, about 612 MB in total, against 3,488 MB + 264 MB today plus the 21 GB per-slot cache on rune.
 
 2026-11-04 open item, incremental update (tmp/558-shd/24-per-range-cost.log, 24b-slot-cell-index.log). When the history step runs, statistical_unit holds only new versions, so the old contribution of changed units must come from somewhere. Norway: (a) delta per hash-slot range: 16 ranges 1.23M rows (3.0x the 411,994 global rows), 64 ranges 1.78M, 256 ranges 2.28M, 16,384 slots 3.07M; (a') slot-to-cell index without dates 3.05M rows, then recompute affected cells wholly (median 1 unit per cell, p99 97, max 13,379); (b) write the negated old delta when statistical_unit_refresh replaces a unit's rows: no extra stored rows, touches the unit refresh step, not prototyped. To decide before the migration.
+
+2026-11-04 10:30 owner: the design (delta tables + compatibility views + fast read functions) is sensible but not adopted; prototyping continues because the pieces are connected. Incremental: prototype (b) first; also consider intarray provenance (measured: 3,140,238 unit references, 20 MB of arrays on Norway; tmp/558-shd/25-intarray-size.log). The earlier description (scoped reduce restore, reverted in 3be5dc48b) is superseded by this design; its history stays in these notes.
 <!-- SECTION:NOTES:END -->
