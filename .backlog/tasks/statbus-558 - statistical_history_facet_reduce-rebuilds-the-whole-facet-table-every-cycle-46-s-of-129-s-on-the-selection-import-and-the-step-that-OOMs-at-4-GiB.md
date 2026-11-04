@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-11-02T13:15:00Z'
-updated_date: '2026-11-04T22:07:00Z'
+updated_date: '2026-11-04T23:21:00Z'
 labels: []
 dependencies: []
 type: enhancement
@@ -217,4 +217,6 @@ All sources give the view's answers (values_differ 0). Raw facet_def over a year
 2026-11-04 build (hibiscus), LOCAL ONLY, not pushed, awaiting owner approval. Commits 507156f12 (migration+doc/db), cbc7320b7 (tests), 7d6026602 (docs), 588562e46 (review fixes + speedups). Principles + measurements: tmp/558-build/principles.md. Import benchmark selection: wall 136.1 -> 93.6 s; history task time 173 -> 19 s; tasks 3,942 -> 709; incremental == rebuild 0 divergent. Norway (3.14M units): 537 MB vs 3.5 GB (+21 GB cache); full rebuild 9.0 min at concurrency 8; incremental 437 units: staging 33.5/24.3/13.7/9.4 s at 1/2/4/8 + reduce 2.1 s, equal to independent path; parity history 48/48 all columns, facet 2026 3.23M rows equal except today's 296 stale May rows (STATBUS-565). Reads: chart year 0.85->1.37 s, drilldown region 0.61->0.19 s, drilldown all months 16.9->27.9 s (open). Fast suite 121 ok, only 366 (STATBUS-566, separate) failing; 401/402 ok. Two agent reviews done; applied: -infinity start bug (test 367.8), zero flow rows, no sync refresh in migration, stale docs/tests; not applied: flow-table rebuild trigger, COMMENT ON for procedures.
 
 2026-11-04 21:59 owner approved naming (my earlier history_* names were chosen without him): subject statistical_history + _facet breakdown + _stock_delta/_flow_delta content + role last (_staging, _partition, _reduce), as in the statistical_unit family. Tables statistical_history_facet_stock_delta / statistical_history_facet_flow_delta (+ _staging), statistical_history_period; commands derive_statistical_history_facet_delta, derive_statistical_history_facet_delta_partition, statistical_history_facet_delta_reduce. Rename done in the (unreleased) migration, tests, docs, app labels; reasoning in tmp/558-build/principles.md section 13.
+
+2026-11-04 night: two gaps fixed, failing test first (test 879e10194, fix 9cdd1fc0b). (A) rows staged for a cycle whose flush failed were added by that cycle's reduce and staged again by the next (test 368 pre-fix: moved unit -2/+2, 10 rows differ from a rebuild; a failed rebuild cycle emptied the readers' tables and the next cycle did not rebuild, 8 rows differ). Now each staged row carries its cycle's generation; the flush marks it counting in the same transaction as its MERGE, only when the cycle's history step completed; the reduce adds only those; a rebuild replaces the tables inside the reduce and repeats until it lands. (B) staging was UNLOGGED; crash recovery empties unlogged tables (prototype in scratch container: 3 -> 0 rows, logged 3 -> 3); now logged. Post-fix 368: 0 differ in both cases; fast suite 122/122; 401, 402 pass.
 <!-- SECTION:NOTES:END -->
