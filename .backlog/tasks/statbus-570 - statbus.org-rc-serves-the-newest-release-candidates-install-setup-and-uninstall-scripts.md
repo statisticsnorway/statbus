@@ -3,9 +3,10 @@ id: STATBUS-570
 title: >-
   statbus.org/rc/ serves the newest release candidate's install, setup and
   uninstall scripts
-status: To Do
+status: In Progress
 assignee: []
 created_date: '2026-11-04T08:19:00Z'
+updated_date: '2026-11-04T08:21:00Z'
 labels:
   - installer
   - release
@@ -28,7 +29,13 @@ Each /rc/ path serves a small fixed resolver from niue (it never changes per rel
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 The resolvers for install, setup and uninstall are in the repository, each picks the newest v*-rc.* release (cross-month order included), runs that release's own script with the operator's arguments, and refuses with a clear message when no candidate is published; a test proves it with a GitHub double
+- [x] #1 The resolvers for install, setup and uninstall are in the repository, each picks the newest v*-rc.* release (cross-month order included), runs that release's own script with the operator's arguments, and refuses with a clear message when no candidate is published; a test proves it with a GitHub double
 - [ ] #2 On niue, statbus.org/rc/install.sh, /rc/setup.sh and /rc/uninstall.sh serve the resolvers (backup, caddy validate, reload); from outside, each returns 200 and running /rc/install.sh --help style banner names the newest candidate
 - [ ] #3 doc/DEPLOYMENT.md and the manual-box guide use the /rc/ form for candidates
 <!-- AC:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+- **AC1 (2026-11-04):** resolvers in ops/niue/rc/ (install, setup, uninstall; one shared body). rc-resolver-test.sh: first run red on a real defect (EXIT trap read a function-local temp path: 'script: unbound variable', tmp/rc-resolver-1.log), green after (tmp/rc-resolver-green.log): newest of v2026.10.6-rc.12/v2026.11.1-rc.05/rc.06 plus stable tags is rc.06; install gets --version rc.06 plus the operator's args; no candidate refuses naming statbus.org/install.sh; temp script removed. Against real GitHub: install banner 'StatBus installer v2026.11.1-rc.06', setup 'StatBus: v2026.11.1-rc.06'. CI: harness-selftest step.
+<!-- SECTION:NOTES:END -->
