@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
-# The manual box tests the newest release, usually a candidate. The guide's
-# setup, install and uninstall commands fetch that release's own scripts and
-# install that release; statbus.org's shortcuts serve the latest stable.
-# Doubles: gh lists the newest release; no server is needed for the guide.
+# The manual box tests the newest release candidate. The guide's setup,
+# install and uninstall commands use statbus.org/rc/ (STATBUS-570), which runs
+# that candidate's own scripts; the guide names the candidate they resolve to.
+# Double: gh lists the newest prerelease; no server is needed for the guide.
 set -uo pipefail
 ROOT="$(cd "$(dirname "$0")/../../.." && pwd)"
 work="$(mktemp -d "${TMPDIR:-/tmp}/manual-box-guide.XXXXXX")"
@@ -11,19 +11,22 @@ mkdir -p "$work/bin"
 echo 'HCLOUD_TOKEN=test-token-not-a-secret' > "$work/creds"
 cat > "$work/bin/gh" <<'EOF'
 #!/usr/bin/env bash
+# Like gh: release list --json ... -q <jq> applies the jq filter to the list.
 [ "$1 $2" = "release list" ] || { echo "gh double: unexpected $*" >&2; exit 64; }
-echo v2026.11.1-rc.06
+filter=""
+while [ $# -gt 0 ]; do case "$1" in -q) filter=$2; shift 2 ;; *) shift ;; esac; done
+printf '%s' '[{"tagName":"v2026.12.0","isPrerelease":false},{"tagName":"v2026.11.1-rc.06","isPrerelease":true},{"tagName":"v2026.11.1-rc.05","isPrerelease":true}]' \
+    | jq -r "$filter"
 EOF
 chmod +x "$work/bin/gh"
 
 out="$(PATH="$work/bin:$PATH" STATBUS_CREDENTIALS_FILE="$work/creds" bash "$ROOT/ops/manual-box.sh" guide 2>&1)"
-base=https://github.com/statisticsnorway/statbus/releases/download/v2026.11.1-rc.06
 fail=0
 for want in \
-    "Release:           v2026.11.1-rc.06" \
-    "curl -fsSL $base/setup-ubuntu-lts.sh -o setup.sh && bash setup.sh" \
-    "curl -fsSL $base/install.sh | bash -s -- --version v2026.11.1-rc.06" \
-    "curl -fsSL $base/uninstall.sh | bash"; do
+    "Release:           v2026.11.1-rc.06 (the newest candidate; statbus.org/rc/ runs it)" \
+    "curl -fsSL https://statbus.org/rc/setup.sh -o setup.sh && bash setup.sh" \
+    "curl -fsSL https://statbus.org/rc/install.sh | bash" \
+    "curl -fsSL https://statbus.org/rc/uninstall.sh | bash"; do
     if grep -Fq -- "$want" <<<"$out"; then
         echo "PASS guide shows: $want"
     else
