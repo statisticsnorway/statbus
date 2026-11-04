@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-11-02T13:15:00Z'
-updated_date: '2026-11-03T23:33:00Z'
+updated_date: '2026-11-04T00:09:00Z'
 labels: []
 dependencies: []
 type: bug
@@ -116,4 +116,6 @@ Dense months grow with periods x combinations; a sparse or interval form grows w
 2026-11-03 night: (1) stats parity with the owner's existing rule (latest version overlapping the period, used_for_counting) in delta form: valid-version stock of stats + units whose versions all ended inside the period. 10-year Norway: history view = rule on employees count/sum/sum_sq, 447 rows, 0 differ; facet 2020 = rule on all 534 cells with stats, same 3,700 rows as today's table. Today's tables differ from the rule only by the STATBUS-563 undercount (history 305/411 rows lower, facet 2020 10/534 lower, never higher). (2) incremental recalculation of all delta tables (stock, stats valid-stock, stats ended-in-period, all 18 flow columns) per dirty slot: 75 dirty slots, 841 keys re-summed, ~255 ms, equals a full rebuild for every kind (0 differ), and the edits changed every kind. tmp/558-shd/README.md.
 
 2026-11-03 night: views rewritten as window running sums (tmp/558-shd/11-views-window.sql). 10-year Norway, every row and column: facet view = today's table (482,903 month + 43,534 year rows, all 32 non-stats columns, 0 differ); history view = today's (447 rows, 22 columns, 0 differ); stats = the owner's existing rule (history 447 rows, facet 482,816 rows with stats, 0 differ). Today's tables are lower on stats only through STATBUS-563 (legal units 2015: 3,410 today vs 4,593 by the rule). Reads: 137-month series 38 ms vs 979 ms today; one-year breakdown 12 vs 13 ms; yearly totals 5 vs 10 ms.
+
+2026-11-04 night: today's full recalculation on this Mac (full Norway, 8G DB limit) did not finish: statistical_unit_refresh_batch did 3,137 of 3,165 batches in 4,273 s wall (rune: 3,575 s), then the power-group batches (401 groups each) made Docker OOM-kill Postgres 15 times; the worker kept resetting the same 8 batches. Worker stopped. No local timing of the history steps; rune's 2026-11-02 run stays the reference. Separate defect found: ./sb stop worker exits 0 and stops nothing (STATBUS-564).
 <!-- SECTION:NOTES:END -->
