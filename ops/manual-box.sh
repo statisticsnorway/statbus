@@ -129,12 +129,19 @@ EOF
 # The operator walkthrough for a manual test run, so the box carries its own
 # instructions. Each step is what a real operator does, plus the checks that
 # turn the run into ticket evidence. The site name and certificate details
-# are the ones 'cert' produces.
+# are the ones 'cert' produces. The box tests the newest release, usually a
+# candidate, so every command fetches that release's own scripts and installs
+# that release; statbus.org's shortcuts serve the latest stable instead.
 guide_text() {
+    local release base
+    release=$(gh release list --limit 1 --exclude-drafts --json tagName -q '.[0].tagName') \
+        || { echo "Cannot list releases with gh; run gh auth login." >&2; exit 1; }
+    base=https://github.com/statisticsnorway/statbus/releases/download/$release
     cat <<GUIDE
+  Release:           $release (the newest; statbus.org serves the latest stable)
   1. Log in:         ops/manual-box.sh ssh      (you are $login_user, a sudo user)
   2. Root shell:     sudo -i
-  3. Setup:          curl -fsSL https://statbus.org/setup.sh -o setup.sh && bash setup.sh
+  3. Setup:          curl -fsSL $base/setup-ubuntu-lts.sh -o setup.sh && bash setup.sh
                      Full name of this server: $cert_domain
                      At "Did that connect?": on your laptop run
                      ops/manual-box.sh try-ssh statbus, then answer y
@@ -143,7 +150,7 @@ guide_text() {
                      or: ops/manual-box.sh cert pem          (fullchain.pem + privkey.pem)
   6. Install:        leave the root shell (exit), then: sudo -iu statbus
                      (or log in directly: ops/manual-box.sh ssh statbus)
-                     curl -fsSL https://statbus.org/install.sh | bash
+                     curl -fsSL $base/install.sh | bash -s -- --version $release
                      Domain: $cert_domain
                      Country name: United Nations, country code: un
                      (a test box serves no real country; un is in the
@@ -151,7 +158,7 @@ guide_text() {
                      Certificate: yes, pick ~/Documents/certificate-from-it,
                      password $cert_password
   7. Health:         cd ~/statbus && ./sb monitor status; curl -s https://$cert_domain/monitor
-  8. Uninstall:      (as statbus) curl -fsSL https://statbus.org/uninstall.sh | bash
+  8. Uninstall:      (as statbus) curl -fsSL $base/uninstall.sh | bash
   Start over:        ops/manual-box.sh rebuild
 GUIDE
 }

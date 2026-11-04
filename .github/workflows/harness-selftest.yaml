@@ -149,6 +149,8 @@ jobs:
         run: bash test/install-recovery/tests/release-script-stamp-test.sh
       - name: Prove a manual-box session survives an edit to its script
         run: bash test/install-recovery/tests/manual-box-rewrite-test.sh
+      - name: Prove the manual-box guide installs the newest release with its own scripts
+        run: bash test/install-recovery/tests/manual-box-guide-test.sh
       - name: Prove every ghcr.io login step retries transient failures (STATBUS-535)
         run: bash test/ci-ghcr-login-retry-test.sh
       # These standalone harness tests existed but no workflow ran them, so
