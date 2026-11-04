@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-11-02T13:15:00Z'
-updated_date: '2026-11-04T00:21:00Z'
+updated_date: '2026-11-04T00:45:00Z'
 labels: []
 dependencies: []
 type: bug
@@ -120,4 +120,6 @@ Dense months grow with periods x combinations; a sparse or interval form grows w
 2026-11-04 night: today's full recalculation on this Mac (full Norway, 8G DB limit) did not finish: statistical_unit_refresh_batch did 3,137 of 3,165 batches in 4,273 s wall (rune: 3,575 s), then the power-group batches (401 groups each) made Docker OOM-kill Postgres 15 times; the worker kept resetting the same 8 batches. Worker stopped. No local timing of the history steps; rune's 2026-11-02 run stays the reference. Separate defect found: ./sb stop worker exits 0 and stops nothing (STATBUS-564).
 
 2026-11-04 full Norway, window views: history view = today's table (48 rows, all columns and stats, 0 differ). Facet view vs stored table: 3,232,696 rows, 296 differ, all May 2026; today's own statistical_history_facet_def for May 2026 on the same data equals the view (395,106 rows, 0 differ), so the stored table is stale there (STATBUS-565). Reads on Norway: single questions faster (Q1 48->10 ms, Q2 466->278, Q5 38->15), whole-period reads over all cells slower (Q3 757->2,079 ms, Q4 803->6,709 ms).
+
+2026-11-04 Norway reads: computing the window CTEs once (MATERIALIZED) was rejected; it blocks filter pushdown (Q2 0.1 -> 4.7 s). Storing only the year resolution of the facet view costs 134 MB and 14 s to build; a whole-year read over every cell then takes 39 ms (view 6.3 s, today's table 0.53 s). Months stay as views, about 400 MB in total against today's 3,488 MB. Owner to choose. Full recalculation OOM at 8G is ticketed as STATBUS-566; the stale stored facet is STATBUS-565 (failing test 365).
 <!-- SECTION:NOTES:END -->
