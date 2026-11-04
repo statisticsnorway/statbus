@@ -21,7 +21,7 @@ On a restore of Norway's 2026-11-03 backup (rc.04, last full derive on rune 2026
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
 - [ ] #1 The cause of the 296 stale May-2026 rows is identified and written in this ticket
-- [ ] #2 Either fixed in the current pipeline or confirmed obsolete because STATBUS-558 replaces the table, with the owner's decision recorded
+- [ ] #2 After a full derive, statistical_history_facet equals statistical_history_facet_def for every period on the restored Norway data (0 differing rows)
 <!-- AC:END -->
 
 ## Implementation Notes
