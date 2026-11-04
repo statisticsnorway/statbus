@@ -92,21 +92,41 @@ CREATE UNIQUE INDEX statistical_history_facet_flow_delta_key ON public.statistic
     physical_region_path, physical_country_id, unit_size_id, status_id) NULLS NOT DISTINCT;
 
 -- Staging: signed per-unit rows written by the concurrent per-range children, summed by the reduce.
-CREATE UNLOGGED TABLE public.statistical_history_facet_stock_delta_staging (
+-- Logged, like statistical_unit_staging: crash recovery empties an unlogged table, and rows staged for a
+-- flush that has committed must still be added after a restart.
+CREATE TABLE public.statistical_history_facet_stock_delta_staging (
     unit_id integer NOT NULL, sign smallint NOT NULL,
     unit_type public.statistical_unit_type NOT NULL,
     primary_activity_category_path public.ltree, secondary_activity_category_path public.ltree,
     sector_path public.ltree, legal_form_id integer, physical_region_path public.ltree,
     physical_country_id integer, unit_size_id integer, status_id integer,
-    on_month date NOT NULL, exists_delta integer NOT NULL, countable_delta integer NOT NULL, stats_delta jsonb);
-CREATE UNLOGGED TABLE public.statistical_history_facet_flow_delta_staging (
+    on_month date NOT NULL, exists_delta integer NOT NULL, countable_delta integer NOT NULL, stats_delta jsonb,
+    generation bigint NOT NULL);
+CREATE TABLE public.statistical_history_facet_flow_delta_staging (
     unit_id integer NOT NULL, sign smallint NOT NULL,
     resolution public.history_resolution NOT NULL, year integer NOT NULL, month integer,
     unit_type public.statistical_unit_type NOT NULL,
     primary_activity_category_path public.ltree, secondary_activity_category_path public.ltree,
     sector_path public.ltree, legal_form_id integer, physical_region_path public.ltree,
     physical_country_id integer, unit_size_id integer, status_id integer,
-    flows integer[] NOT NULL, stats_ended jsonb);
+    flows integer[] NOT NULL, stats_ended jsonb,
+    generation bigint NOT NULL);
+
+-- Which staged rows count. Rows are staged from statistical_unit_staging (new versions) and
+-- statistical_unit (old versions) before the flush; they are true only once that flush has committed.
+CREATE TABLE worker.statistical_history_facet_delta_state (
+    flushed_generation bigint NOT NULL DEFAULT 0,
+    rebuild_generation bigint,
+    rebuild_needed boolean NOT NULL DEFAULT false
+);
+CREATE UNIQUE INDEX statistical_history_facet_delta_state_single_row ON worker.statistical_history_facet_delta_state ((true));
+INSERT INTO worker.statistical_history_facet_delta_state DEFAULT VALUES;
+COMMENT ON TABLE worker.statistical_history_facet_delta_state IS 'One row: which staged history delta rows count. A cycle''s rows carry its generation (the derive_statistical_history_facet_delta task id); they count once the flush of that cycle has committed.';
+COMMENT ON COLUMN worker.statistical_history_facet_delta_state.flushed_generation IS 'Generation of the last cycle whose history staging completed and whose statistical_unit_flush_staging committed (set by that flush, in its transaction). Staged rows with generation <= flushed_generation are true and are added by the reduce; rows above it belong to a cycle whose flush never committed, and the next cycle replaces them (its units are still in statistical_unit_staging).';
+COMMENT ON COLUMN worker.statistical_history_facet_delta_state.rebuild_generation IS 'Generation of a rebuild cycle not yet added. Its reduce replaces the delta tables in one transaction, so readers keep the previous rows until the rebuilt ones commit. While set, every cycle rebuilds.';
+COMMENT ON COLUMN worker.statistical_history_facet_delta_state.rebuild_needed IS 'Set when statistical_unit_flush_staging ran in a task tree without a history step (a tree spawned before this design, or a direct call), so units moved without their deltas; the next cycle rebuilds.';
+COMMENT ON COLUMN public.statistical_history_facet_stock_delta_staging.generation IS 'The cycle that staged the row (see worker.statistical_history_facet_delta_state). 0 for rows that are true when they commit: the subtraction of units deleted from statistical_unit in the same transaction.';
+COMMENT ON COLUMN public.statistical_history_facet_flow_delta_staging.generation IS 'As statistical_history_facet_stock_delta_staging.generation.';
 
 -- Membership after a reduce: a unit stays or enters when its count (1 if present, +1 per add, -1 per
 -- removal) is positive.
@@ -264,14 +284,17 @@ LANGUAGE plpgsql AS $statistical_history_facet_delta_contribution_begin$
 BEGIN
     IF to_regclass('pg_temp.hd_stock') IS NOT NULL THEN DROP TABLE pg_temp.hd_stock; END IF;
     CREATE TEMP TABLE hd_stock (LIKE public.statistical_history_facet_stock_delta_staging);
+    ALTER TABLE hd_stock DROP COLUMN generation;
     IF to_regclass('pg_temp.hd_flow') IS NOT NULL THEN DROP TABLE pg_temp.hd_flow; END IF;
     CREATE TEMP TABLE hd_flow (LIKE public.statistical_history_facet_flow_delta_staging);
+    ALTER TABLE hd_flow DROP COLUMN generation;
 END;
 $statistical_history_facet_delta_contribution_begin$;
 
--- Move hd_stock / hd_flow to the staging tables with their sign applied. A unit's old row that reappears
--- identical among its new rows cancels first, so units refreshed without change stage nothing.
-CREATE PROCEDURE worker.statistical_history_facet_delta_contribution_stage()
+-- Move hd_stock / hd_flow to the staging tables with their sign applied, tagged with p_generation. A unit's
+-- old row that reappears identical among its new rows cancels first, so units refreshed without change
+-- stage nothing.
+CREATE PROCEDURE worker.statistical_history_facet_delta_contribution_stage(p_generation bigint)
 LANGUAGE plpgsql AS $statistical_history_facet_delta_contribution_stage$
 BEGIN
     INSERT INTO public.statistical_history_facet_stock_delta_staging
@@ -283,12 +306,12 @@ BEGIN
                           exists_delta, countable_delta, stats_delta FROM pg_temp.hd_stock WHERE sign < 0)
     SELECT unit_id, 1, unit_type, primary_activity_category_path, secondary_activity_category_path, sector_path,
            legal_form_id, physical_region_path, physical_country_id, unit_size_id, status_id, on_month,
-           exists_delta, countable_delta, stats_delta
+           exists_delta, countable_delta, stats_delta, p_generation
       FROM (SELECT * FROM plus EXCEPT ALL SELECT * FROM minus) AS a
     UNION ALL
     SELECT unit_id, -1, unit_type, primary_activity_category_path, secondary_activity_category_path, sector_path,
            legal_form_id, physical_region_path, physical_country_id, unit_size_id, status_id, on_month,
-           -exists_delta, -countable_delta, public.jsonb_stats_negate(stats_delta)
+           -exists_delta, -countable_delta, public.jsonb_stats_negate(stats_delta), p_generation
       FROM (SELECT * FROM minus EXCEPT ALL SELECT * FROM plus) AS r;
 
     INSERT INTO public.statistical_history_facet_flow_delta_staging
@@ -300,14 +323,14 @@ BEGIN
                           physical_country_id, unit_size_id, status_id, flows, stats_ended FROM pg_temp.hd_flow WHERE sign < 0)
     SELECT unit_id, 1, resolution, year, month, unit_type, primary_activity_category_path,
            secondary_activity_category_path, sector_path, legal_form_id, physical_region_path,
-           physical_country_id, unit_size_id, status_id, flows, stats_ended
+           physical_country_id, unit_size_id, status_id, flows, stats_ended, p_generation
       FROM (SELECT * FROM plus EXCEPT ALL SELECT * FROM minus) AS a
     UNION ALL
     SELECT unit_id, -1, resolution, year, month, unit_type, primary_activity_category_path,
            secondary_activity_category_path, sector_path, legal_form_id, physical_region_path,
            physical_country_id, unit_size_id, status_id,
            (SELECT array_agg(-f ORDER BY i) FROM unnest(flows) WITH ORDINALITY AS z(f, i)),
-           public.jsonb_stats_negate(stats_ended)
+           public.jsonb_stats_negate(stats_ended), p_generation
       FROM (SELECT * FROM minus EXCEPT ALL SELECT * FROM plus) AS r;
     TRUNCATE pg_temp.hd_stock, pg_temp.hd_flow;
 END;
@@ -316,11 +339,14 @@ $statistical_history_facet_delta_contribution_stage$;
 -- ===================================================================== per-range step
 -- One hash range. The units in p_new (statistical_unit_staging) are the units this cycle refreshed:
 -- incrementally, their versions in p_old (statistical_unit) are subtracted and their new versions added.
--- For a rebuild the delta tables are emptied by the reduce, and every unit is added as it will stand after
--- the flush: refreshed units from p_new, the others from p_old.
+-- For a rebuild the delta tables are replaced by the reduce, and every unit is added as it will stand after
+-- the flush: refreshed units from p_new, the others from p_old. Rows are tagged with p_generation: the
+-- worker passes its cycle's, so the rows count once that cycle's flush commits; 0 makes them count at the
+-- next apply, for a caller whose p_old and p_new are already final.
 CREATE PROCEDURE worker.statistical_history_facet_delta_stage_partition(p_hash_range int4range, p_rebuild boolean,
                                           p_old regclass DEFAULT 'public.statistical_unit',
-                                          p_new regclass DEFAULT 'public.statistical_unit_staging')
+                                          p_new regclass DEFAULT 'public.statistical_unit_staging',
+                                          p_generation bigint DEFAULT 0)
 LANGUAGE plpgsql AS $statistical_history_facet_delta_stage_partition$
 BEGIN
     CALL worker.statistical_history_facet_delta_contribution_begin();
@@ -344,12 +370,13 @@ BEGIN
         CALL worker.statistical_history_facet_delta_contribution(p_old, (-1)::smallint);
         CALL worker.statistical_history_facet_delta_contribution(p_new, 1::smallint);
     END IF;
-    CALL worker.statistical_history_facet_delta_contribution_stage();
+    CALL worker.statistical_history_facet_delta_contribution_stage(p_generation);
 END;
 $statistical_history_facet_delta_stage_partition$;
 
 -- Units removed from statistical_unit outside the flush (worker.derive_statistical_unit deletes the rows of
--- units whose base row is gone): stage the subtraction of their versions before the rows are deleted.
+-- units whose base row is gone): stage the subtraction of their versions before the rows are deleted. The
+-- rows commit with that DELETE, so they are true at once (generation 0).
 CREATE PROCEDURE worker.statistical_history_facet_delta_remove_units(p_unit_type public.statistical_unit_type, p_unit_ids integer[],
                                                  p_old regclass DEFAULT 'public.statistical_unit')
 LANGUAGE plpgsql AS $statistical_history_facet_delta_remove_units$
@@ -358,24 +385,34 @@ BEGIN
     IF to_regclass('pg_temp.hd_units') IS NOT NULL THEN DROP TABLE pg_temp.hd_units; END IF;
     CREATE TEMP TABLE hd_units AS SELECT p_unit_type AS unit_type, id AS unit_id FROM unnest(p_unit_ids) AS id;
     CALL worker.statistical_history_facet_delta_contribution(p_old, (-1)::smallint);
-    CALL worker.statistical_history_facet_delta_contribution_stage();
+    CALL worker.statistical_history_facet_delta_contribution_stage(0);
 END;
 $statistical_history_facet_delta_remove_units$;
 
 -- ===================================================================== apply
--- Adds the staged rows into the tables and empties the staging. Membership in unit_ids is counted, so the
--- result does not depend on how many cycles were staged before one apply, nor on their order.
+-- Adds the staged rows that count (generation <= flushed_generation, see
+-- worker.statistical_history_facet_delta_state) into the tables and removes them from staging; rows of a
+-- cycle whose flush has not committed stay. With p_replace (a rebuild's rows), the tables are emptied first
+-- in the same transaction, so readers see the previous rows until the rebuilt ones commit.
+-- Membership in unit_ids is counted, so the result does not depend on how many cycles were staged before
+-- one apply, nor on their order.
 -- A row with no stats keeps stats NULL (delta_agg over no summaries would store an empty stats_delta,
 -- which every read then parses); the stats columns stay NULL until a summary arrives.
-CREATE PROCEDURE worker.statistical_history_facet_delta_apply()
+CREATE PROCEDURE worker.statistical_history_facet_delta_apply(p_replace boolean DEFAULT false)
 LANGUAGE plpgsql
 -- The MERGEs join a cycle's staged sums (small) to the whole delta table (large) on an exact text key;
 -- a merge join sorts the whole table by that key every cycle (9.8 s on Norway for 500 staged rows),
 -- a hash join reads it once (1.2 s). The planner picks the merge join on its cost estimate, so it is off.
 SET enable_mergejoin = off
 AS $statistical_history_facet_delta_apply$
+DECLARE
+    v_up_to bigint := (SELECT flushed_generation FROM worker.statistical_history_facet_delta_state);
 BEGIN
     LOCK TABLE public.statistical_history_facet_stock_delta_staging, public.statistical_history_facet_flow_delta_staging IN EXCLUSIVE MODE;
+    IF p_replace THEN
+        DELETE FROM public.statistical_history_facet_stock_delta;
+        DELETE FROM public.statistical_history_facet_flow_delta;
+    END IF;
 
     IF to_regclass('pg_temp.hd_sum') IS NOT NULL THEN DROP TABLE pg_temp.hd_sum; END IF;
     CREATE TEMP TABLE hd_sum AS
@@ -386,6 +423,7 @@ BEGIN
            array_agg(unit_id ORDER BY unit_id) FILTER (WHERE sign > 0) AS plus_ids,
            array_agg(unit_id ORDER BY unit_id) FILTER (WHERE sign < 0) AS minus_ids
       FROM public.statistical_history_facet_stock_delta_staging
+     WHERE generation <= v_up_to
      GROUP BY 1, 2, 3, 4, 5, 6, 7, 8, 9, 10;
 
     -- The dimensions are nullable, and IS NOT DISTINCT FROM cannot drive a hash join; their row as text
@@ -423,6 +461,7 @@ BEGIN
            array_agg(unit_id ORDER BY unit_id) FILTER (WHERE sign > 0) AS plus_ids,
            array_agg(unit_id ORDER BY unit_id) FILTER (WHERE sign < 0) AS minus_ids
       FROM public.statistical_history_facet_flow_delta_staging
+     WHERE generation <= v_up_to
      GROUP BY 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12;
 
     MERGE INTO public.statistical_history_facet_flow_delta AS t
@@ -451,7 +490,13 @@ BEGIN
         worker.unit_ids_apply('{}', s.plus_ids, s.minus_ids));
     DELETE FROM public.statistical_history_facet_flow_delta WHERE cardinality(unit_ids) = 0;
 
-    TRUNCATE public.statistical_history_facet_stock_delta_staging, public.statistical_history_facet_flow_delta_staging;
+    IF EXISTS (SELECT 1 FROM public.statistical_history_facet_stock_delta_staging WHERE generation > v_up_to)
+       OR EXISTS (SELECT 1 FROM public.statistical_history_facet_flow_delta_staging WHERE generation > v_up_to) THEN
+        DELETE FROM public.statistical_history_facet_stock_delta_staging WHERE generation <= v_up_to;
+        DELETE FROM public.statistical_history_facet_flow_delta_staging WHERE generation <= v_up_to;
+    ELSE
+        TRUNCATE public.statistical_history_facet_stock_delta_staging, public.statistical_history_facet_flow_delta_staging;
+    END IF;
 END;
 $statistical_history_facet_delta_apply$;
 
@@ -497,18 +542,21 @@ AS $derive_statistical_history_facet_delta_partition$
 DECLARE
     v_hash_range int4range := (payload->>'hash_range')::int4range;
     v_rebuild boolean := COALESCE((payload->>'rebuild')::boolean, false);
+    v_generation bigint := (payload->>'generation')::bigint;
 BEGIN
-    CALL worker.statistical_history_facet_delta_stage_partition(p_hash_range => v_hash_range, p_rebuild => v_rebuild);
+    CALL worker.statistical_history_facet_delta_stage_partition(p_hash_range => v_hash_range, p_rebuild => v_rebuild,
+                                                               p_generation => v_generation);
     p_info := jsonb_build_object('hash_range', v_hash_range::text, 'rebuild', v_rebuild);
 END;
 $derive_statistical_history_facet_delta_partition$;
 
 -- Runs after derive_statistical_unit has filled statistical_unit_staging and before the flush. Spawns one
--- concurrent child per hash range holding a refreshed unit; on an all-units derive (all ids NULL), or
--- when the delta tables are empty while statistical_unit has rows, one child per hash range of all units
--- with rebuild = true. Ranges are sized by public.partition_count_target_for the units this cycle covers
+-- concurrent child per hash range holding a refreshed unit; on a rebuild, one child per hash range of all
+-- units. Ranges are sized by public.partition_count_target_for the units this cycle covers
 -- (statistical_unit before the flush, or the staged units on a first load), as the flush then sets
 -- partition_count_target; any split is exact, since each unit is in one range.
+-- The children tag their rows with this task's id as generation; the rows count once this cycle's flush
+-- commits (worker.statistical_history_facet_delta_state).
 CREATE PROCEDURE worker.derive_statistical_history_facet_delta(IN payload jsonb, INOUT p_info jsonb DEFAULT NULL::jsonb)
  LANGUAGE plpgsql
  SECURITY DEFINER
@@ -516,20 +564,44 @@ CREATE PROCEDURE worker.derive_statistical_history_facet_delta(IN payload jsonb,
 AS $derive_statistical_history_facet_delta$
 DECLARE
     v_task_id bigint;
+    v_state worker.statistical_history_facet_delta_state;
     v_rebuild boolean;
     v_range_size integer;
     v_range int4range;
     v_child_count integer := 0;
+    v_discarded bigint := 0;
 BEGIN
     SELECT id INTO v_task_id FROM worker.tasks
      WHERE state = 'processing' AND worker_pid = pg_backend_pid()
      ORDER BY id DESC LIMIT 1;
+    SELECT * INTO v_state FROM worker.statistical_history_facet_delta_state FOR UPDATE;
 
-    -- An all-time derive (valid_from = -infinity, valid_until = infinity: worker.enqueue_derive_statistical_unit_all)
-    -- rebuilds, and so does a first cycle that finds the tables empty while statistical_unit has rows.
+    -- Rebuild on an all-time derive (valid_from = -infinity, valid_until = infinity:
+    -- worker.enqueue_derive_statistical_unit_all), while an earlier rebuild is not yet added, when units
+    -- were flushed without their deltas, and on a cycle that finds the tables empty while statistical_unit
+    -- has rows.
     v_rebuild := ((payload->>'valid_from')::date = '-infinity'::date AND (payload->>'valid_until')::date = 'infinity'::date)
+        OR v_state.rebuild_generation IS NOT NULL
+        OR v_state.rebuild_needed
         OR (NOT EXISTS (SELECT 1 FROM public.statistical_history_facet_stock_delta LIMIT 1)
             AND EXISTS (SELECT 1 FROM public.statistical_unit LIMIT 1));
+
+    IF v_rebuild THEN
+        -- The rebuild's rows replace the tables, so no earlier staged row is needed.
+        SELECT (SELECT count(*) FROM public.statistical_history_facet_stock_delta_staging)
+             + (SELECT count(*) FROM public.statistical_history_facet_flow_delta_staging) INTO v_discarded;
+        TRUNCATE public.statistical_history_facet_stock_delta_staging, public.statistical_history_facet_flow_delta_staging;
+        UPDATE worker.statistical_history_facet_delta_state
+           SET rebuild_generation = v_task_id, rebuild_needed = false;
+    ELSE
+        -- Rows of a cycle whose flush never committed: its units are still in statistical_unit_staging
+        -- and are staged again below, against the same statistical_unit.
+        WITH s AS (DELETE FROM public.statistical_history_facet_stock_delta_staging
+                    WHERE generation > v_state.flushed_generation RETURNING 1),
+             f AS (DELETE FROM public.statistical_history_facet_flow_delta_staging
+                    WHERE generation > v_state.flushed_generation RETURNING 1)
+        SELECT (SELECT count(*) FROM s) + (SELECT count(*) FROM f) INTO v_discarded;
+    END IF;
 
     v_range_size := GREATEST(1, 16384 / public.partition_count_target_for(GREATEST(
         (SELECT count(*) FROM public.statistical_unit),
@@ -546,40 +618,54 @@ BEGIN
         PERFORM worker.spawn(
             p_command => 'derive_statistical_history_facet_delta_partition',
             p_payload => jsonb_build_object('command', 'derive_statistical_history_facet_delta_partition',
-                                            'hash_range', v_range::text, 'rebuild', v_rebuild),
+                                            'hash_range', v_range::text, 'rebuild', v_rebuild,
+                                            'generation', v_task_id),
             p_parent_id => v_task_id);
         v_child_count := v_child_count + 1;
     END LOOP;
 
-    -- A rebuild starts from empty tables and an empty staging (rows staged by a cycle that never
-    -- reached its reduce are covered by the rebuild).
-    IF v_rebuild THEN
-        TRUNCATE public.statistical_history_facet_stock_delta, public.statistical_history_facet_flow_delta,
-                 public.statistical_history_facet_stock_delta_staging, public.statistical_history_facet_flow_delta_staging;
-    END IF;
-    p_info := jsonb_build_object('child_count', v_child_count, 'rebuild', v_rebuild, 'range_size', v_range_size);
+    p_info := jsonb_build_object('child_count', v_child_count, 'rebuild', v_rebuild, 'range_size', v_range_size,
+                                 'unflushed_rows_discarded', v_discarded);
 END;
 $derive_statistical_history_facet_delta$;
 
--- Last step of the reports phase: adds the staged deltas into the tables, refreshes the period list, and
--- clears the dirty hash slots every report derive of this cycle has read.
+-- Last step of the reports phase: adds the staged deltas that count into the tables (a rebuild's replace
+-- them), refreshes the period list, and clears the dirty hash slots every report derive of this cycle has
+-- read.
 CREATE PROCEDURE worker.statistical_history_facet_delta_reduce(IN payload jsonb, INOUT p_info jsonb DEFAULT NULL::jsonb)
  LANGUAGE plpgsql
  SECURITY DEFINER
  SET search_path TO 'public', 'worker', 'pg_temp'
 AS $statistical_history_facet_delta_reduce_cmd$
 DECLARE
+    v_state worker.statistical_history_facet_delta_state;
     v_stock_staged bigint;
     v_flow_staged bigint;
+    v_applied text;
 BEGIN
-    SELECT count(*) INTO v_stock_staged FROM public.statistical_history_facet_stock_delta_staging;
-    SELECT count(*) INTO v_flow_staged FROM public.statistical_history_facet_flow_delta_staging;
-    CALL worker.statistical_history_facet_delta_apply();
+    SELECT * INTO v_state FROM worker.statistical_history_facet_delta_state FOR UPDATE;
+    SELECT count(*) INTO v_stock_staged FROM public.statistical_history_facet_stock_delta_staging
+     WHERE generation <= v_state.flushed_generation;
+    SELECT count(*) INTO v_flow_staged FROM public.statistical_history_facet_flow_delta_staging
+     WHERE generation <= v_state.flushed_generation;
+    IF v_state.rebuild_generation IS NULL THEN
+        CALL worker.statistical_history_facet_delta_apply();
+        v_applied := 'added';
+    ELSIF v_state.rebuild_generation <= v_state.flushed_generation THEN
+        CALL worker.statistical_history_facet_delta_apply(p_replace => true);
+        UPDATE worker.statistical_history_facet_delta_state SET rebuild_generation = NULL;
+        v_applied := 'replaced';
+    ELSE
+        -- The rebuild cycle's flush has not committed: the tables keep their rows, and the next cycle
+        -- rebuilds again.
+        v_applied := 'rebuild not flushed';
+    END IF;
     CALL public.statistical_history_period_refresh();
     TRUNCATE public.statistical_unit_facet_dirty_hash_slots;
     PERFORM pg_notify('worker_status',
         json_build_object('type', 'is_deriving_reports', 'status', false)::text);
-    p_info := jsonb_build_object('stock_rows_staged', v_stock_staged, 'flow_rows_staged', v_flow_staged);
+    p_info := jsonb_build_object('stock_rows_staged', v_stock_staged, 'flow_rows_staged', v_flow_staged,
+                                 'applied', v_applied);
 END;
 $statistical_history_facet_delta_reduce_cmd$;
 
@@ -726,6 +812,53 @@ SELECT COALESCE(s.resolution, f.resolution) AS resolution, COALESCE(s.year, f.ye
  -- A period shows when units exist at its end or changed in it; the stock's stats come along either way
  -- (a unit that died in the period has count 0 but its stats still hold for the period).
  WHERE COALESCE(s.exists_count, 0) <> 0 OR COALESCE(s.countable_count, 0) <> 0 OR f.unit_type IS NOT NULL;
+
+-- ===================================================================== flush
+-- The flush moves the staged versions into statistical_unit. In the same transaction it marks this cycle's
+-- staged history rows as counting: they were computed against the statistical_unit the flush replaces. The
+-- cycle's history step is the derive_statistical_history_facet_delta sibling under the same
+-- derive_units_phase; its rows count when it completed (every range staged). When it failed, or the tree
+-- has none, the units move without their deltas and the next cycle rebuilds.
+CREATE OR REPLACE PROCEDURE worker.statistical_unit_flush_staging(IN payload jsonb, INOUT p_info jsonb DEFAULT NULL::jsonb)
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public', 'worker', 'pg_temp'
+AS $procedure$
+DECLARE
+    v_staging_count bigint;
+    v_history_task worker.tasks;
+BEGIN
+    -- Clean up obsolete years
+    DELETE FROM public.timesegments_years AS ty
+    WHERE NOT EXISTS (
+        SELECT 1 FROM public.timesegments AS t
+        WHERE t.valid_from >= make_date(ty.year, 1, 1)
+          AND t.valid_from < make_date(ty.year + 1, 1, 1)
+        LIMIT 1
+    );
+
+    -- Auto-tune partition count target based on current data size
+    CALL admin.adjust_partition_count_target();
+
+    SELECT h.* INTO v_history_task
+      FROM worker.tasks AS me
+      JOIN worker.tasks AS h ON h.parent_id = me.parent_id AND h.command = 'derive_statistical_history_facet_delta'
+     WHERE me.state = 'processing' AND me.worker_pid = pg_backend_pid() AND me.command = 'statistical_unit_flush_staging'
+     ORDER BY h.id DESC LIMIT 1;
+    IF v_history_task.state = 'completed' THEN
+        UPDATE worker.statistical_history_facet_delta_state SET flushed_generation = v_history_task.id;
+    ELSIF EXISTS (SELECT 1 FROM public.statistical_unit_staging) THEN
+        UPDATE worker.statistical_history_facet_delta_state SET rebuild_needed = true;
+    END IF;
+
+    SELECT count(*) INTO v_staging_count FROM public.statistical_unit_staging;
+    CALL public.statistical_unit_flush_staging();
+    PERFORM pg_notify('worker_status',
+        json_build_object('type', 'is_deriving_statistical_units', 'status', false)::text);
+    p_info := jsonb_build_object('rows_flushed', v_staging_count,
+                                 'history_generation_flushed', CASE WHEN v_history_task.state = 'completed' THEN v_history_task.id END);
+END;
+$procedure$;
 
 -- ===================================================================== pipeline
 -- collect_changes: derive_statistical_history_facet_delta before the flush, statistical_history_facet_delta_reduce last in the reports phase.

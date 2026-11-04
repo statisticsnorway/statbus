@@ -694,6 +694,7 @@ erDiagram
 		integer status_id
 		integer[] flows
 		jsonb stats_ended
+		bigint generation
 	}
 	statistical_history_facet_stock_delta["statistical_history_facet_stock_delta"] {
 		statistical_unit_type unit_type
@@ -727,6 +728,7 @@ erDiagram
 		integer exists_delta
 		integer countable_delta
 		jsonb stats_delta
+		bigint generation
 	}
 	statistical_history_period["statistical_history_period"] {
 		history_resolution resolution
@@ -1571,6 +1573,11 @@ erDiagram
 		text queue
 		text description
 		integer default_concurrency
+	}
+	worker_statistical_history_facet_delta_state["worker.statistical_history_facet_delta_state"] {
+		bigint flushed_generation
+		bigint rebuild_generation
+		boolean rebuild_needed
 	}
 	worker_tasks["worker.tasks"] {
 		bigint id

@@ -1,10 +1,16 @@
 ```sql
-CREATE OR REPLACE PROCEDURE worker.statistical_history_facet_delta_apply()
+CREATE OR REPLACE PROCEDURE worker.statistical_history_facet_delta_apply(IN p_replace boolean DEFAULT false)
  LANGUAGE plpgsql
  SET enable_mergejoin TO 'off'
 AS $procedure$
+DECLARE
+    v_up_to bigint := (SELECT flushed_generation FROM worker.statistical_history_facet_delta_state);
 BEGIN
     LOCK TABLE public.statistical_history_facet_stock_delta_staging, public.statistical_history_facet_flow_delta_staging IN EXCLUSIVE MODE;
+    IF p_replace THEN
+        DELETE FROM public.statistical_history_facet_stock_delta;
+        DELETE FROM public.statistical_history_facet_flow_delta;
+    END IF;
 
     IF to_regclass('pg_temp.hd_sum') IS NOT NULL THEN DROP TABLE pg_temp.hd_sum; END IF;
     CREATE TEMP TABLE hd_sum AS
@@ -15,6 +21,7 @@ BEGIN
            array_agg(unit_id ORDER BY unit_id) FILTER (WHERE sign > 0) AS plus_ids,
            array_agg(unit_id ORDER BY unit_id) FILTER (WHERE sign < 0) AS minus_ids
       FROM public.statistical_history_facet_stock_delta_staging
+     WHERE generation <= v_up_to
      GROUP BY 1, 2, 3, 4, 5, 6, 7, 8, 9, 10;
 
     -- The dimensions are nullable, and IS NOT DISTINCT FROM cannot drive a hash join; their row as text
@@ -52,6 +59,7 @@ BEGIN
            array_agg(unit_id ORDER BY unit_id) FILTER (WHERE sign > 0) AS plus_ids,
            array_agg(unit_id ORDER BY unit_id) FILTER (WHERE sign < 0) AS minus_ids
       FROM public.statistical_history_facet_flow_delta_staging
+     WHERE generation <= v_up_to
      GROUP BY 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12;
 
     MERGE INTO public.statistical_history_facet_flow_delta AS t
@@ -80,7 +88,13 @@ BEGIN
         worker.unit_ids_apply('{}', s.plus_ids, s.minus_ids));
     DELETE FROM public.statistical_history_facet_flow_delta WHERE cardinality(unit_ids) = 0;
 
-    TRUNCATE public.statistical_history_facet_stock_delta_staging, public.statistical_history_facet_flow_delta_staging;
+    IF EXISTS (SELECT 1 FROM public.statistical_history_facet_stock_delta_staging WHERE generation > v_up_to)
+       OR EXISTS (SELECT 1 FROM public.statistical_history_facet_flow_delta_staging WHERE generation > v_up_to) THEN
+        DELETE FROM public.statistical_history_facet_stock_delta_staging WHERE generation <= v_up_to;
+        DELETE FROM public.statistical_history_facet_flow_delta_staging WHERE generation <= v_up_to;
+    ELSE
+        TRUNCATE public.statistical_history_facet_stock_delta_staging, public.statistical_history_facet_flow_delta_staging;
+    END IF;
 END;
 $procedure$
 ```

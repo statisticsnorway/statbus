@@ -12,10 +12,10 @@ DROP VIEW public.statistical_history_facet;
 DROP PROCEDURE worker.statistical_history_facet_delta_reduce(jsonb, jsonb);
 DROP PROCEDURE worker.derive_statistical_history_facet_delta(jsonb, jsonb);
 DROP PROCEDURE worker.derive_statistical_history_facet_delta_partition(jsonb, jsonb);
-DROP PROCEDURE worker.statistical_history_facet_delta_apply();
+DROP PROCEDURE worker.statistical_history_facet_delta_apply(boolean);
 DROP PROCEDURE worker.statistical_history_facet_delta_remove_units(public.statistical_unit_type, integer[], regclass);
-DROP PROCEDURE worker.statistical_history_facet_delta_stage_partition(int4range, boolean, regclass, regclass);
-DROP PROCEDURE worker.statistical_history_facet_delta_contribution_stage();
+DROP PROCEDURE worker.statistical_history_facet_delta_stage_partition(int4range, boolean, regclass, regclass, bigint);
+DROP PROCEDURE worker.statistical_history_facet_delta_contribution_stage(bigint);
 DROP PROCEDURE worker.statistical_history_facet_delta_contribution_begin();
 DROP PROCEDURE worker.statistical_history_facet_delta_contribution(regclass, smallint);
 DROP FUNCTION worker.unit_ids_apply(integer[], integer[], integer[]);
@@ -27,6 +27,7 @@ DROP TABLE public.statistical_history_facet_stock_delta_staging;
 DROP TABLE public.statistical_history_facet_flow_delta_staging;
 DROP TABLE public.statistical_history_facet_stock_delta;
 DROP TABLE public.statistical_history_facet_flow_delta;
+DROP TABLE worker.statistical_history_facet_delta_state;
 
 CREATE TYPE public.statistical_history_type AS (resolution history_resolution, year integer, month integer, unit_type statistical_unit_type, exists_count integer, exists_change integer, exists_added_count integer, exists_removed_count integer, countable_count integer, countable_change integer, countable_added_count integer, countable_removed_count integer, births integer, deaths integer, name_change_count integer, primary_activity_category_change_count integer, secondary_activity_category_change_count integer, sector_change_count integer, legal_form_change_count integer, physical_region_change_count integer, physical_country_change_count integer, physical_address_change_count integer, stats_summary jsonb, hash_partition int4range);
 CREATE TYPE public.statistical_history_facet_type AS (resolution history_resolution, year integer, month integer, unit_type statistical_unit_type, primary_activity_category_path ltree, secondary_activity_category_path ltree, sector_path ltree, legal_form_id integer, physical_region_path ltree, physical_country_id integer, unit_size_id integer, status_id integer, exists_count integer, exists_change integer, exists_added_count integer, exists_removed_count integer, countable_count integer, countable_change integer, countable_added_count integer, countable_removed_count integer, births integer, deaths integer, name_change_count integer, primary_activity_category_change_count integer, secondary_activity_category_change_count integer, sector_change_count integer, legal_form_change_count integer, physical_region_change_count integer, physical_country_change_count integer, physical_address_change_count integer, unit_size_change_count integer, status_change_count integer, stats_summary jsonb);
@@ -2621,6 +2622,35 @@ AS $function$
     FROM params;
 $function$
 ;
+
+-- worker.statistical_unit_flush_staging as before (it marked no history generation).
+CREATE OR REPLACE PROCEDURE worker.statistical_unit_flush_staging(IN payload jsonb, INOUT p_info jsonb DEFAULT NULL::jsonb)
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public', 'worker', 'pg_temp'
+AS $procedure$
+DECLARE
+    v_staging_count bigint;
+BEGIN
+    -- Clean up obsolete years
+    DELETE FROM public.timesegments_years AS ty
+    WHERE NOT EXISTS (
+        SELECT 1 FROM public.timesegments AS t
+        WHERE t.valid_from >= make_date(ty.year, 1, 1)
+          AND t.valid_from < make_date(ty.year + 1, 1, 1)
+        LIMIT 1
+    );
+
+    -- Auto-tune partition count target based on current data size
+    CALL admin.adjust_partition_count_target();
+
+    SELECT count(*) INTO v_staging_count FROM public.statistical_unit_staging;
+    CALL public.statistical_unit_flush_staging();
+    PERFORM pg_notify('worker_status',
+        json_build_object('type', 'is_deriving_statistical_units', 'status', false)::text);
+    p_info := jsonb_build_object('rows_flushed', v_staging_count);
+END;
+$procedure$;
 
 -- Rebuild the dense tables after the downgrade commits; no-op on an empty database.
 SELECT worker.enqueue_derive_statistical_unit_all();

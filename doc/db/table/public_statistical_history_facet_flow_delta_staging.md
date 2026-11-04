@@ -1,7 +1,7 @@
 ```sql
-                                      Unlogged table "public.statistical_history_facet_flow_delta_staging"
-              Column              |         Type          | Collation | Nullable | Default | Storage  | Compression | Stats target | Description 
-----------------------------------+-----------------------+-----------+----------+---------+----------+-------------+--------------+-------------
+                                                                   Table "public.statistical_history_facet_flow_delta_staging"
+              Column              |         Type          | Collation | Nullable | Default | Storage  | Compression | Stats target |                         Description                          
+----------------------------------+-----------------------+-----------+----------+---------+----------+-------------+--------------+--------------------------------------------------------------
  unit_id                          | integer               |           | not null |         | plain    |             |              | 
  sign                             | smallint              |           | not null |         | plain    |             |              | 
  resolution                       | history_resolution    |           | not null |         | plain    |             |              | 
@@ -18,6 +18,7 @@
  status_id                        | integer               |           |          |         | plain    |             |              | 
  flows                            | integer[]             |           | not null |         | extended |             |              | 
  stats_ended                      | jsonb                 |           |          |         | extended |             |              | 
+ generation                       | bigint                |           | not null |         | plain    |             |              | As statistical_history_facet_stock_delta_staging.generation.
 Not-null constraints:
     "statistical_history_facet_flow_delta_staging_unit_id_not_null" NOT NULL "unit_id"
     "statistical_history_facet_flow_delta_staging_sign_not_null" NOT NULL "sign"
@@ -25,6 +26,7 @@ Not-null constraints:
     "statistical_history_facet_flow_delta_staging_year_not_null" NOT NULL "year"
     "statistical_history_facet_flow_delta_staging_unit_type_not_null" NOT NULL "unit_type"
     "statistical_history_facet_flow_delta_staging_flows_not_null" NOT NULL "flows"
+    "statistical_history_facet_flow_delta_stagin_generation_not_null" NOT NULL "generation"
 Access method: heap
 
 ```

@@ -3813,6 +3813,7 @@ export type Database = {
       statistical_history_facet_flow_delta_staging: {
         Row: {
           flows: number[]
+          generation: number
           legal_form_id: number | null
           month: number | null
           physical_country_id: number | null
@@ -3831,6 +3832,7 @@ export type Database = {
         },
         Insert: {
           flows: number[]
+          generation: number
           legal_form_id?: number | null
           month?: number | null
           physical_country_id?: number | null
@@ -3849,6 +3851,7 @@ export type Database = {
         },
         Update: {
           flows?: number[]
+          generation?: number
           legal_form_id?: number | null
           month?: number | null
           physical_country_id?: number | null
@@ -3922,6 +3925,7 @@ export type Database = {
         Row: {
           countable_delta: number
           exists_delta: number
+          generation: number
           legal_form_id: number | null
           on_month: string
           physical_country_id: number | null
@@ -3939,6 +3943,7 @@ export type Database = {
         Insert: {
           countable_delta: number
           exists_delta: number
+          generation: number
           legal_form_id?: number | null
           on_month: string
           physical_country_id?: number | null
@@ -3956,6 +3961,7 @@ export type Database = {
         Update: {
           countable_delta?: number
           exists_delta?: number
+          generation?: number
           legal_form_id?: number | null
           on_month?: string
           physical_country_id?: number | null

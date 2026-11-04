@@ -1,5 +1,5 @@
 ```sql
-CREATE OR REPLACE PROCEDURE worker.statistical_history_facet_delta_stage_partition(IN p_hash_range int4range, IN p_rebuild boolean, IN p_old regclass DEFAULT 'statistical_unit'::regclass, IN p_new regclass DEFAULT 'statistical_unit_staging'::regclass)
+CREATE OR REPLACE PROCEDURE worker.statistical_history_facet_delta_stage_partition(IN p_hash_range int4range, IN p_rebuild boolean, IN p_old regclass DEFAULT 'statistical_unit'::regclass, IN p_new regclass DEFAULT 'statistical_unit_staging'::regclass, IN p_generation bigint DEFAULT 0)
  LANGUAGE plpgsql
 AS $procedure$
 BEGIN
@@ -24,7 +24,7 @@ BEGIN
         CALL worker.statistical_history_facet_delta_contribution(p_old, (-1)::smallint);
         CALL worker.statistical_history_facet_delta_contribution(p_new, 1::smallint);
     END IF;
-    CALL worker.statistical_history_facet_delta_contribution_stage();
+    CALL worker.statistical_history_facet_delta_contribution_stage(p_generation);
 END;
 $procedure$
 ```
