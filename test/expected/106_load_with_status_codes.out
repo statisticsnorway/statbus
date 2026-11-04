@@ -109,7 +109,7 @@ CALL worker.process_tasks(p_queue => 'analytics');
 SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command WHERE c.queue != 'maintenance' GROUP BY queue,state ORDER BY queue,state;
    queue   |   state   | count 
 -----------+-----------+-------
- analytics | completed |  1300
+ analytics | completed |    17
  import    | completed |   108
 (2 rows)
 
@@ -573,8 +573,6 @@ SELECT jsonb_pretty(public.remove_ephemeral_data_from_hierarchy(public.statistic
              "stats_summary": {                           +
                  "type": "stats_agg",                     +
                  "turnover": {                            +
-                     "max": 25000000,                     +
-                     "min": 12000000,                     +
                      "sum": 37000000,                     +
                      "mean": 18500000.00,                 +
                      "type": "float_agg",                 +
@@ -586,8 +584,6 @@ SELECT jsonb_pretty(public.remove_ephemeral_data_from_hierarchy(public.statistic
                      "coefficient_of_variation_pct": 49.69+
                  },                                       +
                  "employees": {                           +
-                     "max": 10,                           +
-                     "min": 7,                            +
                      "sum": 17,                           +
                      "mean": 8.50,                        +
                      "type": "int_agg",                   +
@@ -626,8 +622,6 @@ SELECT jsonb_pretty(public.remove_ephemeral_data_from_hierarchy(public.statistic
              "stats_summary": {                           +
                  "type": "stats_agg",                     +
                  "turnover": {                            +
-                     "max": 25000000,                     +
-                     "min": 25000000,                     +
                      "sum": 25000000,                     +
                      "mean": 25000000.00,                 +
                      "type": "float_agg",                 +
@@ -639,8 +633,6 @@ SELECT jsonb_pretty(public.remove_ephemeral_data_from_hierarchy(public.statistic
                      "coefficient_of_variation_pct": null +
                  },                                       +
                  "employees": {                           +
-                     "max": 10,                           +
-                     "min": 10,                           +
                      "sum": 10,                           +
                      "mean": 10.00,                       +
                      "type": "int_agg",                   +
@@ -776,8 +768,6 @@ SELECT jsonb_pretty(
              "stats_summary": {                           +
                  "type": "stats_agg",                     +
                  "turnover": {                            +
-                     "max": 25000000,                     +
-                     "min": 12000000,                     +
                      "sum": 37000000,                     +
                      "mean": 18500000.00,                 +
                      "type": "float_agg",                 +
@@ -789,8 +779,6 @@ SELECT jsonb_pretty(
                      "coefficient_of_variation_pct": 49.69+
                  },                                       +
                  "employees": {                           +
-                     "max": 10,                           +
-                     "min": 7,                            +
                      "sum": 17,                           +
                      "mean": 8.50,                        +
                      "type": "int_agg",                   +
@@ -829,8 +817,6 @@ SELECT jsonb_pretty(
              "stats_summary": {                           +
                  "type": "stats_agg",                     +
                  "turnover": {                            +
-                     "max": 25000000,                     +
-                     "min": 25000000,                     +
                      "sum": 25000000,                     +
                      "mean": 25000000.00,                 +
                      "type": "float_agg",                 +
@@ -842,8 +828,6 @@ SELECT jsonb_pretty(
                      "coefficient_of_variation_pct": null +
                  },                                       +
                  "employees": {                           +
-                     "max": 10,                           +
-                     "min": 10,                           +
                      "sum": 10,                           +
                      "mean": 10.00,                       +
                      "type": "int_agg",                   +
@@ -882,8 +866,6 @@ SELECT jsonb_pretty(
              "stats_summary": {                           +
                  "type": "stats_agg",                     +
                  "turnover": {                            +
-                     "max": 25000000,                     +
-                     "min": 25000000,                     +
                      "sum": 25000000,                     +
                      "mean": 25000000.00,                 +
                      "type": "float_agg",                 +
@@ -895,8 +877,6 @@ SELECT jsonb_pretty(
                      "coefficient_of_variation_pct": null +
                  },                                       +
                  "employees": {                           +
-                     "max": 10,                           +
-                     "min": 10,                           +
                      "sum": 10,                           +
                      "mean": 10.00,                       +
                      "type": "int_agg",                   +
@@ -1032,8 +1012,6 @@ SELECT jsonb_pretty(
              "stats_summary": {                           +
                  "type": "stats_agg",                     +
                  "turnover": {                            +
-                     "max": 25000000,                     +
-                     "min": 12000000,                     +
                      "sum": 37000000,                     +
                      "mean": 18500000.00,                 +
                      "type": "float_agg",                 +
@@ -1045,8 +1023,6 @@ SELECT jsonb_pretty(
                      "coefficient_of_variation_pct": 49.69+
                  },                                       +
                  "employees": {                           +
-                     "max": 10,                           +
-                     "min": 7,                            +
                      "sum": 17,                           +
                      "mean": 8.50,                        +
                      "type": "int_agg",                   +
@@ -1085,8 +1061,6 @@ SELECT jsonb_pretty(
              "stats_summary": {                           +
                  "type": "stats_agg",                     +
                  "turnover": {                            +
-                     "max": 25000000,                     +
-                     "min": 25000000,                     +
                      "sum": 25000000,                     +
                      "mean": 25000000.00,                 +
                      "type": "float_agg",                 +
@@ -1098,8 +1072,6 @@ SELECT jsonb_pretty(
                      "coefficient_of_variation_pct": null +
                  },                                       +
                  "employees": {                           +
-                     "max": 10,                           +
-                     "min": 10,                           +
                      "sum": 10,                           +
                      "mean": 10.00,                       +
                      "type": "int_agg",                   +
@@ -1138,8 +1110,6 @@ SELECT jsonb_pretty(
              "stats_summary": {                           +
                  "type": "stats_agg",                     +
                  "turnover": {                            +
-                     "max": 25000000,                     +
-                     "min": 25000000,                     +
                      "sum": 25000000,                     +
                      "mean": 25000000.00,                 +
                      "type": "float_agg",                 +
@@ -1151,8 +1121,6 @@ SELECT jsonb_pretty(
                      "coefficient_of_variation_pct": null +
                  },                                       +
                  "employees": {                           +
-                     "max": 10,                           +
-                     "min": 10,                           +
                      "sum": 10,                           +
                      "mean": 10.00,                       +
                      "type": "int_agg",                   +
@@ -1288,8 +1256,6 @@ SELECT jsonb_pretty(
              "stats_summary": {                           +
                  "type": "stats_agg",                     +
                  "turnover": {                            +
-                     "max": 25000000,                     +
-                     "min": 12000000,                     +
                      "sum": 37000000,                     +
                      "mean": 18500000.00,                 +
                      "type": "float_agg",                 +
@@ -1301,8 +1267,6 @@ SELECT jsonb_pretty(
                      "coefficient_of_variation_pct": 49.69+
                  },                                       +
                  "employees": {                           +
-                     "max": 10,                           +
-                     "min": 7,                            +
                      "sum": 17,                           +
                      "mean": 8.50,                        +
                      "type": "int_agg",                   +
@@ -1341,8 +1305,6 @@ SELECT jsonb_pretty(
              "stats_summary": {                           +
                  "type": "stats_agg",                     +
                  "turnover": {                            +
-                     "max": 25000000,                     +
-                     "min": 25000000,                     +
                      "sum": 25000000,                     +
                      "mean": 25000000.00,                 +
                      "type": "float_agg",                 +
@@ -1354,8 +1316,6 @@ SELECT jsonb_pretty(
                      "coefficient_of_variation_pct": null +
                  },                                       +
                  "employees": {                           +
-                     "max": 10,                           +
-                     "min": 10,                           +
                      "sum": 10,                           +
                      "mean": 10.00,                       +
                      "type": "int_agg",                   +
@@ -1394,8 +1354,6 @@ SELECT jsonb_pretty(
              "stats_summary": {                           +
                  "type": "stats_agg",                     +
                  "turnover": {                            +
-                     "max": 25000000,                     +
-                     "min": 25000000,                     +
                      "sum": 25000000,                     +
                      "mean": 25000000.00,                 +
                      "type": "float_agg",                 +
@@ -1407,8 +1365,6 @@ SELECT jsonb_pretty(
                      "coefficient_of_variation_pct": null +
                  },                                       +
                  "employees": {                           +
-                     "max": 10,                           +
-                     "min": 10,                           +
                      "sum": 10,                           +
                      "mean": 10.00,                       +
                      "type": "int_agg",                   +

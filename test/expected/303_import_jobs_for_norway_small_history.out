@@ -5083,7 +5083,7 @@ Check the state of all tasks after running analytics.
 SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command WHERE c.queue != 'maintenance' GROUP BY queue,state ORDER BY queue,state;
    queue   |   state   | count 
 -----------+-----------+-------
- analytics | completed |  1209
+ analytics | completed |    19
  import    | completed |   408
 (2 rows)
 
@@ -5095,7 +5095,7 @@ Check the state of all tasks after running analytics.
 SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command WHERE c.queue != 'maintenance' GROUP BY queue,state ORDER BY queue,state;
    queue   |   state   | count 
 -----------+-----------+-------
- analytics | completed |  1209
+ analytics | completed |    19
  import    | completed |   408
 (2 rows)
 
@@ -9071,26 +9071,6 @@ EXPLAIN (COSTS FALSE) SELECT * FROM public.timeline_legal_unit_def;
 EXPLAIN (COSTS FALSE) SELECT * FROM public.timeline_enterprise_def;
 \o test/expected/explain/303_import_jobs_for_norway_small_history-statistical_unit_def.txt
 EXPLAIN (COSTS FALSE) SELECT * FROM public.statistical_unit_def;
--- The DELETE of worker.derive_statistical_history_period, one statement per
--- resolution. Sequential scans are disabled so the plan shows whether the
--- partition unique keys can bound the DELETE independent of table size
--- (STATBUS-543: a year-month DELETE that no index could serve scanned all of
--- statistical_history). They run as postgres, like the worker, because RLS
--- for API roles only exposes the hash_partition IS NULL summary rows.
-SET LOCAL ROLE postgres;
-SET enable_seqscan = off;
-\o test/expected/explain/303_import_jobs_for_norway_small_history-history_period_delete_year.txt
-EXPLAIN (COSTS FALSE) DELETE FROM public.statistical_history
- WHERE resolution = 'year' AND year = 2020
-   AND ((NULL::integer IS NULL AND month IS NULL) OR month = NULL::integer)
-   AND hash_partition >= int4range(0, 1) AND hash_partition < int4range(256, 257);
-\o test/expected/explain/303_import_jobs_for_norway_small_history-history_period_delete_year_month.txt
-EXPLAIN (COSTS FALSE) DELETE FROM public.statistical_history
- WHERE resolution = 'year-month' AND year = 2020
-   AND ((3 IS NULL AND month IS NULL) OR month = 3)
-   AND hash_partition >= int4range(0, 1) AND hash_partition < int4range(256, 257);
-RESET enable_seqscan;
-RESET ROLE;
 \o
 RESET client_min_messages;
 \i test/rollback_unless_persist_is_specified.sql

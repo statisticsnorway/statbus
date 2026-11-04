@@ -212,7 +212,9 @@ simulate_worker_busy() {
 for i in $(seq 1 $N); do
     # column list: (command, payload) only — no 'queue' column exists in worker.tasks.
     # payload MUST include {"command":"..."} to satisfy the consistent_command_in_payload CHECK.
-    ./sb psql -c "INSERT INTO worker.tasks (command, payload) VALUES ('statistical_history_reduce', '{\"command\":\"statistical_history_reduce\"}'::jsonb);" >/dev/null 2>&1
+    # The history reduce of the installed version: history_delta_reduce from STATBUS-558,
+    # statistical_history_reduce before it.
+    ./sb psql -c "INSERT INTO worker.tasks (command, payload) SELECT c.command, jsonb_build_object('command', c.command) FROM worker.command_registry AS c WHERE c.command IN ('history_delta_reduce', 'statistical_history_reduce') ORDER BY c.command LIMIT 1;" >/dev/null 2>&1
 done
 echo "[wedge] queued $N tasks; worker should pick up"
 sleep 3
@@ -235,8 +237,9 @@ WEDGE
 # the injection fires.
 #
 # Mechanism: an in-VM background bash loop (kept in a detached tmux
-# session so transient ssh drops don't kill it) inserts a
-# statistical_history_reduce task into worker.tasks every 2 s. The
+# session so transient ssh drops don't kill it) inserts a history reduce
+# task (history_delta_reduce, or statistical_history_reduce on versions
+# before STATBUS-558) into worker.tasks every 2 s. The
 # worker picks them up via its analytics queue and runs the reduce —
 # each takes seconds, so the queue depth stays positive. The
 # corresponding stop primitive removes the marker file the loop checks
@@ -274,7 +277,7 @@ cat > /tmp/continuous-workload-loop.sh << LOOP
 cd ~/statbus
 elapsed=0
 while [ -f /tmp/continuous-workload.run ] && [ "\$elapsed" -lt $duration_s ]; do
-    ./sb psql -c "INSERT INTO worker.tasks (command, payload) VALUES ('statistical_history_reduce', jsonb_build_object('command', 'statistical_history_reduce'));" >/dev/null 2>&1 || true
+    ./sb psql -c "INSERT INTO worker.tasks (command, payload) SELECT c.command, jsonb_build_object('command', c.command) FROM worker.command_registry AS c WHERE c.command IN ('history_delta_reduce', 'statistical_history_reduce') ORDER BY c.command LIMIT 1;" >/dev/null 2>&1 || true
     sleep $insert_interval_s
     elapsed=\$((elapsed + $insert_interval_s))
 done

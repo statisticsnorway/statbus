@@ -2,9 +2,10 @@
 --
 -- Class-of-bugs home for invariants over the pipeline:
 --   public.legal_unit  →  worker.derive_statistical_unit (derive)
---                      →  statistical_history_facet_partitions (per-LU contributions)
---                      →  worker.statistical_history_facet_reduce (MERGE)
---                      →  public.statistical_history_facet (final 10/9-col-unique target)
+--                      →  history_*_delta_staging (per-unit contributions)
+--                      →  worker.history_delta_reduce (MERGE into history_stock_delta /
+--                         history_flow_delta, unique over every dimension NULLS NOT DISTINCT)
+--                      →  public.statistical_history_facet (view, STATBUS-558)
 --
 -- Current invariant: dimensional + NULL-semantics coherence between source
 -- GROUP BY and target partial unique indexes. Divergence trips MERGE INSERT
@@ -75,7 +76,7 @@ CALL worker.process_tasks(p_queue => 'analytics');
 SELECT c.queue, t.state, t.command, COUNT(*) as task_count
   FROM worker.tasks t
   JOIN worker.command_registry c ON t.command = c.command
-  WHERE t.command IN ('statistical_unit_facet_derive', 'statistical_history_facet_reduce')
+  WHERE t.command IN ('statistical_unit_facet_derive', 'history_delta_reduce')
   GROUP BY c.queue, t.state, t.command
   ORDER BY t.command, t.state;
 
@@ -83,7 +84,7 @@ SELECT c.queue, t.state, t.command, COUNT(*) as task_count
 SELECT command, error
   FROM worker.tasks
   WHERE error IS NOT NULL
-  AND command IN ('statistical_unit_facet_derive', 'statistical_history_facet_reduce')
+  AND command IN ('statistical_unit_facet_derive', 'history_delta_reduce')
   ORDER BY created_at DESC
   LIMIT 1;
 

@@ -55,9 +55,9 @@
 #   2. Populate via populate_with_demo_data.
 #   3. Start continuous worker workload via
 #      start_continuous_worker_workload — the helper enqueues
-#      statistical_history_reduce tasks every 2s, which the worker
+#      history reduce tasks every 2s, which the worker
 #      picks up and runs. Each reduce holds AccessShareLock on
-#      statistical_history-related tables for seconds. The workload
+#      history-related tables for seconds. The workload
 #      duration is extended to WORKLOAD_DURATION_S (900s default —
 #      longer than the install's normal budget so the worker is
 #      reliably busy across the entire upgrade window).
@@ -144,7 +144,7 @@ assert_demo_data_present "$VM_NAME"
 # Phase 3 — start continuous worker workload
 #
 # The harness's start_continuous_worker_workload enqueues
-# statistical_history_reduce tasks every WORKLOAD_INSERT_INTERVAL_S
+# history reduce tasks every WORKLOAD_INSERT_INTERVAL_S
 # seconds (default 2s) into worker.tasks. The worker picks them up via
 # its analytics queue and runs the reduce — each takes seconds and
 # holds AccessShareLock on statistical_history-related tables for the

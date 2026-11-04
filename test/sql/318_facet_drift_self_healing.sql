@@ -8,12 +8,10 @@
 -- This test:
 --   1. Loads a small demo dataset and runs the derive pipeline.
 --   2. Verifies target = truth at CURRENT_DATE.
---   3. Injects a synthetic stale row into statistical_unit_facet (and
---      statistical_history_facet) — simulating drift that Path B would
---      have missed.
---   4. Calls worker.statistical_unit_facet_reduce and
---      worker.statistical_history_facet_reduce directly (no pipeline).
---   5. Asserts the synthetic rows are GONE — proving the new collapsed
+--   3. Injects a synthetic stale row into statistical_unit_facet —
+--      simulating drift that Path B would have missed.
+--   4. Calls worker.statistical_unit_facet_reduce directly (no pipeline).
+--   5. Asserts the synthetic row is GONE — proving the new collapsed
 --      MERGE is self-healing regardless of whether the dim+temporal of
 --      the stale row was ever in pre_dirty_dims.
 --
@@ -22,6 +20,10 @@
 -- (no staging row matches it), so the gating filter in the DELETE
 -- step `WHERE dim_tuple IN pre_dirty_dims` excludes it. The fix uses
 -- WHEN NOT MATCHED BY SOURCE THEN DELETE which is dim-tuple-agnostic.
+--
+-- statistical_history_facet is a view over additive delta tables since
+-- STATBUS-558; its recovery from drift is the full rebuild, pinned in
+-- test 319.
 
 BEGIN;
 
@@ -90,51 +92,16 @@ VALUES
      NULL::ltree, NULL::ltree, NULL::ltree, NULL::int, NULL::int, NULL::int,
      99, '{}'::jsonb);
 
-INSERT INTO public.statistical_history_facet
-    (resolution, year, month, unit_type,
-     primary_activity_category_path, secondary_activity_category_path,
-     sector_path, legal_form_id, physical_region_path,
-     physical_country_id, unit_size_id, status_id,
-     exists_count, exists_change, exists_added_count, exists_removed_count,
-     countable_count, countable_change, countable_added_count, countable_removed_count,
-     births, deaths,
-     name_change_count, primary_activity_category_change_count,
-     secondary_activity_category_change_count, sector_change_count,
-     legal_form_change_count, physical_region_change_count,
-     physical_country_change_count, physical_address_change_count,
-     unit_size_change_count, status_change_count,
-     stats_summary)
-VALUES
-    -- Synthetic stale row: future year, no real units.
-    ('year'::history_resolution, 2099, NULL, 'enterprise',
-     NULL::ltree, NULL::ltree, NULL::ltree, NULL::int, NULL::ltree,
-     NULL::int, NULL::int, NULL::int,
-     99, 0, 0, 0,
-     0, 0, 0, 0,
-     0, 0,
-     0, 0,
-     0, 0,
-     0, 0,
-     0, 0,
-     0, 0,
-     '{}'::jsonb);
-
-\echo "Post-inject: synthetic rows present in both target tables"
+\echo "Post-inject: synthetic row present in the target table"
 SELECT 'unit_facet' AS tbl,
        COUNT(*) AS synthetic_rows
 FROM public.statistical_unit_facet
-WHERE valid_from = '2099-01-01'::date AND count = 99
-UNION ALL
-SELECT 'history_facet',
-       COUNT(*)
-FROM public.statistical_history_facet
-WHERE year = 2099 AND exists_count = 99;
+WHERE valid_from = '2099-01-01'::date AND count = 99;
 
 \echo
-\echo "=== STEP 3: Run the new collapsed reduces directly ==="
+\echo "=== STEP 3: Run the collapsed reduce directly ==="
 \echo "(simulates a normal pipeline drain triggering reduce)"
 CALL worker.statistical_unit_facet_reduce('{}'::jsonb);
-CALL worker.statistical_history_facet_reduce('{}'::jsonb);
 
 \echo
 \echo "=== STEP 4: Assert synthetic rows are GONE (self-healing) ==="
@@ -142,13 +109,7 @@ SELECT 'unit_facet' AS tbl,
        COUNT(*) AS synthetic_rows_after_reduce,
        CASE WHEN COUNT(*) = 0 THEN 'PASS' ELSE 'FAIL' END AS verdict
 FROM public.statistical_unit_facet
-WHERE valid_from = '2099-01-01'::date AND count = 99
-UNION ALL
-SELECT 'history_facet',
-       COUNT(*),
-       CASE WHEN COUNT(*) = 0 THEN 'PASS' ELSE 'FAIL' END
-FROM public.statistical_history_facet
-WHERE year = 2099 AND exists_count = 99;
+WHERE valid_from = '2099-01-01'::date AND count = 99;
 
 \echo
 \echo "=== STEP 5: Assert facet_sum still equals truth post-reduce ==="

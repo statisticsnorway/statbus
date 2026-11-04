@@ -1,14 +1,16 @@
 -- STATBUS-563: history statistics must not depend on the hash of unrelated units.
 --
--- public.statistical_history_def / public.statistical_history_facet_def attach
--- stats_summary to the period's demographic rows by LEFT JOINing the per-slot
--- aggregation (latest version overlapping the period, used_for_counting) onto
--- the rows produced from stock_at_end_of_curr / stock_at_end_of_prev. A unit
--- that overlaps the period but does not EXIST at either end of it (the
--- STATBUS-460 existence rule, which follows birth_date and death_date) produces
--- no demographic row. Its statistics are therefore dropped unless some other
--- unit that happens to fall in the same hash_slot exists at a period end and
--- keeps the slot alive.
+-- The dense statistical_history_def / statistical_history_facet_def (removed
+-- by STATBUS-558) attached stats_summary to the period's demographic rows by
+-- LEFT JOINing a per-slot aggregation onto the rows of units existing at a
+-- period end. A unit that overlaps the period but exists at neither end (the
+-- STATBUS-460 existence rule, which follows birth_date and death_date) had its
+-- statistics dropped unless a slot-mate kept the slot alive.
+--
+-- The delta tables carry each counted version's stats on their own: the stock
+-- of summaries valid at the period end (history_stock_delta.stats_delta) plus
+-- the summaries of versions that ended inside the period
+-- (history_flow_delta.stats_ended). No row depends on another unit.
 --
 -- Fixture: two legal units with employees, deliberately in different hash slots
 -- (asserted below).
@@ -19,14 +21,13 @@
 --             and death_date <= valid_from (doc/import-system.md).
 --
 -- The documented population for a period is the latest version overlapping it
--- with used_for_counting (the lvc CTE of statistical_history_def). That
+-- with used_for_counting. That
 -- population includes both units for 2024, so both the totals of
 -- statistical_history and the facet cell of 563000002 must add up to 10 + 7
 -- employees and 2 units, independent of where the units hash.
 --
--- This test pins the CORRECT values: on the pre-fix code the actual columns show
--- 10 / 1 and stats_match_documented_population = false, and the diff against
--- this expected file is the regression.
+-- This test pins the CORRECT values: on the dense tables the actual columns
+-- showed 10 / 1 and stats_match_documented_population = false.
 
 BEGIN;
 
@@ -75,7 +76,7 @@ WHERE su.unit_type = 'legal_unit'
   AND su.external_idents->>'tax_ident' IN ('563000001', '563000002');
 
 -- The documented population, computed independently from public.statistical_unit
--- by the same rule as the lvc CTE in statistical_history_def: the latest version
+-- by the documented rule: the latest version
 -- overlapping the period, used_for_counting.
 CREATE TEMP VIEW documented_population_2024 AS
 WITH latest_versions_curr AS (

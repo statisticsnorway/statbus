@@ -500,70 +500,78 @@ def run_concurrent_test(timeout_seconds=300, debug=True):
 def check_consistency():
     """Verify post-run statistical_history is internally and externally consistent.
 
-    Three layers of check:
-      A. Internal: NULL summary exists/countable_count == SUM(per-partition).
-         Fails when reduce skipped a partition or partition rows were silently
-         overwritten/duplicated.
+    Three layers of check (STATBUS-558: the history tables are sparse deltas,
+    statistical_history and statistical_history_facet are views over them):
+      A. Incremental == rebuild: the stored history_stock_delta and
+         history_flow_delta rows, maintained cycle by cycle, equal a full
+         rebuild from statistical_unit (computed in a rolled-back transaction),
+         unit_ids included. Fails when a cycle staged a wrong delta or missed one.
       B. Ground-truth: sh.exists_count == COUNT(DISTINCT unit_id) from
          statistical_unit at the corresponding year-end. Catches stale rows.
-      C. Orphan partitions: any hash_partition outside [0, 16384) is a leftover
-         from prior incompatible runs.
+      C. Staging drained: no staged delta row is left after the last reduce.
 
     Returns (consistent: bool, summary: str). Logs detail per layer.
     """
     log_print(f"\n  {BLUE}Consistency checks:{NC}")
 
+    rows_sql = """
+        SELECT 'stock', unit_type::text, primary_activity_category_path::text, secondary_activity_category_path::text,
+               sector_path::text, legal_form_id, physical_region_path::text, physical_country_id, unit_size_id,
+               status_id, on_month::text, exists_delta, countable_delta,
+               -- stats as net in - out per variable (a side absent from the delta counts as 0): the gross
+               -- flows depend on the path of changes, the net is the stock the row contributes.
+               (SELECT string_agg(x.key || ':' || x.n || ',' || x.s, ';' ORDER BY x.key)
+                  FROM (SELECT e.key,
+                               COALESCE((e.value->'in'->>'count')::numeric, 0) - COALESCE((e.value->'out'->>'count')::numeric, 0) AS n,
+                               COALESCE((e.value->'in'->>'sum')::numeric, 0) - COALESCE((e.value->'out'->>'sum')::numeric, 0) AS s
+                          FROM jsonb_each(COALESCE(stats_delta, '{}') - 'type'::text) AS e) AS x
+                 WHERE x.n <> 0 OR x.s <> 0), unit_ids::text
+          FROM public.history_stock_delta
+        UNION ALL
+        SELECT 'flow', unit_type::text, primary_activity_category_path::text, secondary_activity_category_path::text,
+               sector_path::text, legal_form_id, physical_region_path::text, physical_country_id, unit_size_id,
+               status_id, resolution::text || year || '-' || COALESCE(month, 0), NULL, NULL, flows::text, unit_ids::text
+          FROM public.history_flow_delta
+    """
+
     conn = get_conn()
     try:
         with conn.cursor() as cur:
-            cur.execute("SET ROLE postgres")  # need to see hash_partition rows that RLS would hide
+            cur.execute("SET ROLE postgres")  # staging tables have no grants for API roles
 
-            # --- Layer C: orphan partitions outside [0, 16384) ---
+            # --- Layer C: staging drained ---
             cur.execute("""
-                SELECT count(*) FROM public.statistical_history
-                WHERE hash_partition IS NOT NULL
-                  AND (lower(hash_partition) < 0 OR upper(hash_partition) > 16384)
+                SELECT (SELECT count(*) FROM public.history_stock_delta_staging)
+                     + (SELECT count(*) FROM public.history_flow_delta_staging)
             """)
             orphan_count = cur.fetchone()[0]
 
-            # --- Layer A: NULL summary == SUM(partitions) ---
+            # --- Layer A: incremental == rebuild (rolled back) ---
+            cur.execute(f"CREATE TEMP TABLE bench_incremental AS {rows_sql}")
             cur.execute("""
-                WITH agg AS (
-                    SELECT resolution, year, month, unit_type,
-                           exists_count AS summary_exists, countable_count AS summary_countable
-                    FROM public.statistical_history
-                    WHERE hash_partition IS NULL
-                ), parts AS (
-                    SELECT resolution, year, month, unit_type,
-                           SUM(exists_count)::int AS parts_exists,
-                           SUM(countable_count)::int AS parts_countable
-                    FROM public.statistical_history
-                    WHERE hash_partition IS NOT NULL
-                    GROUP BY resolution, year, month, unit_type
-                )
-                SELECT a.resolution, a.year, a.month, a.unit_type,
-                       a.summary_exists, COALESCE(p.parts_exists, 0),
-                       a.summary_countable, COALESCE(p.parts_countable, 0)
-                FROM agg AS a
-                LEFT JOIN parts AS p
-                  ON a.resolution = p.resolution AND a.year = p.year AND a.unit_type = p.unit_type
-                 AND a.month IS NOT DISTINCT FROM p.month
-                WHERE a.summary_exists IS DISTINCT FROM COALESCE(p.parts_exists, 0)
-                   OR a.summary_countable IS DISTINCT FROM COALESCE(p.parts_countable, 0)
-                ORDER BY a.resolution, a.year, a.month NULLS FIRST, a.unit_type
+                TRUNCATE public.history_stock_delta, public.history_flow_delta,
+                         public.history_stock_delta_staging, public.history_flow_delta_staging
+            """)
+            cur.execute("CALL worker.history_delta_range('[0,16384)'::int4range, true)")
+            cur.execute("CALL worker.history_delta_apply()")
+            cur.execute(f"CREATE TEMP TABLE bench_rebuilt AS {rows_sql}")
+            cur.execute("""
+                SELECT 'only_incremental', * FROM (SELECT * FROM bench_incremental EXCEPT ALL SELECT * FROM bench_rebuilt) AS a
+                UNION ALL
+                SELECT 'only_rebuild', * FROM (SELECT * FROM bench_rebuilt EXCEPT ALL SELECT * FROM bench_incremental) AS b
             """)
             internal_divergent = cur.fetchall()
+            conn.rollback()
+            cur.execute("SET ROLE postgres")
 
             # --- Layer B: ground-truth via statistical_unit at year-end ---
-            # Truth predicate matches statistical_history_def's stock_at_end_of_curr CTE:
-            #   slice covers year-end AND birth_date <= year-end AND (death_date IS NULL OR death_date > year-end).
-            # The slice-only naive form (valid_from/valid_until) overcounts units whose
-            # temporal slice happens to cover the year-end but whose birth_date is later —
-            # statistical_history excludes those, correctly.
+            # Truth predicate: the existence rule (STATBUS-460) at the year-end, as the
+            # history stock counts it: slice covers year-end AND birth_date <= year-end
+            # AND (death_date IS NULL OR death_date > year-end).
             cur.execute("""
                 WITH years AS (
                     SELECT DISTINCT year FROM public.statistical_history
-                    WHERE resolution = 'year' AND hash_partition IS NULL
+                    WHERE resolution = 'year'
                 )
                 SELECT y.year, sh.unit_type, sh.exists_count, sh.countable_count,
                     (SELECT COUNT(DISTINCT su.unit_id)
@@ -583,7 +591,7 @@ def check_consistency():
                          AND su.used_for_counting) AS truth_countable
                 FROM years AS y
                 JOIN public.statistical_history AS sh
-                  ON sh.resolution = 'year' AND sh.year = y.year AND sh.hash_partition IS NULL
+                  ON sh.resolution = 'year' AND sh.year = y.year
                 ORDER BY y.year, sh.unit_type
             """)
             truth_rows = cur.fetchall()
@@ -597,18 +605,17 @@ def check_consistency():
 
     # Layer C report
     if orphan_count == 0:
-        log_print(f"    {GREEN}C orphan-partitions: 0 rows outside [0,16384) — pass{NC}")
+        log_print(f"    {GREEN}C staging drained: 0 staged history rows left — pass{NC}")
     else:
-        log_print(f"    {RED}C orphan-partitions: {orphan_count} rows outside [0,16384) — FAIL{NC}", "error")
+        log_print(f"    {RED}C staging not drained: {orphan_count} staged history rows left — FAIL{NC}", "error")
 
     # Layer A report
     if not internal_divergent:
-        log_print(f"    {GREEN}A NULL-summary == SUM(partitions): 0 divergent — pass{NC}")
+        log_print(f"    {GREEN}A incremental == rebuild: 0 divergent delta rows — pass{NC}")
     else:
-        log_print(f"    {RED}A NULL-summary != SUM(partitions): {len(internal_divergent)} divergent — FAIL{NC}", "error")
-        log_print(f"      {'res':<10} {'year':>4} {'month':>5} {'unit_type':<12} {'sum_exists':>10} {'parts':>6} {'sum_countable':>13} {'parts':>6}")
+        log_print(f"    {RED}A incremental != rebuild: {len(internal_divergent)} divergent delta rows — FAIL{NC}", "error")
         for r in internal_divergent[:10]:
-            log_print(f"      {r[0]:<10} {r[1]:>4} {str(r[2] or '-'):>5} {r[3]:<12} {r[4]:>10} {r[5]:>6} {r[6]:>13} {r[7]:>6}")
+            log_print(f"      {r}")
 
     # Layer B report
     if not truth_divergent:
@@ -619,7 +626,7 @@ def check_consistency():
         for r in truth_divergent[:10]:
             log_print(f"      {r[0]:>4} {r[1]:<12} {r[2]:>10} {r[4]:>6} {r[3]:>13} {r[5]:>6}")
 
-    summary = (f"orphans={orphan_count} "
+    summary = (f"staged_left={orphan_count} "
                f"internal_divergent={len(internal_divergent)} "
                f"truth_divergent={len(truth_divergent)}")
     return consistent, summary

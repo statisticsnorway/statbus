@@ -77,25 +77,21 @@ ORDER BY unit_type, unit_id;
 \echo "--- statistical_history year=2021 after import 1 (expect exists_count=1 per unit_type) ---"
 SELECT unit_type, exists_count, countable_count
 FROM public.statistical_history
-WHERE resolution = 'year' AND year = 2021 AND hash_partition IS NULL
+WHERE resolution = 'year' AND year = 2021
   AND unit_type IN ('legal_unit', 'establishment', 'enterprise')
 ORDER BY unit_type;
 
-\echo "--- Per-partition rows after import 1 (year=2021) [as postgres, bypass RLS] ---"
-SET LOCAL ROLE postgres;
-SELECT unit_type, hash_partition, exists_count
-FROM public.statistical_history
-WHERE resolution = 'year' AND year = 2021 AND hash_partition IS NOT NULL
-  AND unit_type IN ('legal_unit', 'establishment', 'enterprise')
-ORDER BY unit_type, lower(hash_partition);
-
-\echo "--- ALL statistical_history rows after import 1 (any year/resolution) [as postgres] ---"
-SELECT resolution, year, unit_type, hash_partition, exists_count
-FROM public.statistical_history
+\echo "--- Stock delta rows after import 1: the units each row counts ---"
+SELECT unit_type, on_month, exists_delta, countable_delta, unit_ids
+FROM public.history_stock_delta
 WHERE unit_type IN ('legal_unit', 'establishment', 'enterprise')
-ORDER BY resolution, year, unit_type, lower(hash_partition) NULLS FIRST;
-RESET ROLE;
-CALL test.set_user_from_email('test.admin@statbus.org');
+ORDER BY unit_type, on_month, unit_ids;
+
+\echo "--- ALL statistical_history rows after import 1 (any year/resolution) ---"
+SELECT resolution, year, unit_type, exists_count
+FROM public.statistical_history
+WHERE unit_type IN ('legal_unit', 'establishment', 'enterprise') AND resolution = 'year'
+ORDER BY resolution, year, unit_type;
 
 \echo "--- statistical_unit coverage after import 1 (year range) ---"
 SELECT unit_type, MIN(valid_from) AS min_from, MAX(valid_until) AS max_until, COUNT(*) AS row_count
@@ -154,25 +150,21 @@ ORDER BY unit_type, unit_id;
 \echo "--- statistical_history year=2021 after import 2 (expect exists_count=2 per unit_type; master bug: 1) ---"
 SELECT unit_type, exists_count, countable_count
 FROM public.statistical_history
-WHERE resolution = 'year' AND year = 2021 AND hash_partition IS NULL
+WHERE resolution = 'year' AND year = 2021
   AND unit_type IN ('legal_unit', 'establishment', 'enterprise')
 ORDER BY unit_type;
 
-\echo "--- Per-partition rows after import 2 (year=2021) [as postgres, bypass RLS] ---"
-SET LOCAL ROLE postgres;
-SELECT unit_type, hash_partition, exists_count
-FROM public.statistical_history
-WHERE resolution = 'year' AND year = 2021 AND hash_partition IS NOT NULL
-  AND unit_type IN ('legal_unit', 'establishment', 'enterprise')
-ORDER BY unit_type, lower(hash_partition);
-
-\echo "--- ALL statistical_history rows after import 2 (any year/resolution) [as postgres] ---"
-SELECT resolution, year, unit_type, hash_partition, exists_count
-FROM public.statistical_history
+\echo "--- Stock delta rows after import 2: the units each row counts ---"
+SELECT unit_type, on_month, exists_delta, countable_delta, unit_ids
+FROM public.history_stock_delta
 WHERE unit_type IN ('legal_unit', 'establishment', 'enterprise')
-ORDER BY resolution, year, unit_type, lower(hash_partition) NULLS FIRST;
-RESET ROLE;
-CALL test.set_user_from_email('test.admin@statbus.org');
+ORDER BY unit_type, on_month, unit_ids;
+
+\echo "--- ALL statistical_history rows after import 2 (any year/resolution) ---"
+SELECT resolution, year, unit_type, exists_count
+FROM public.statistical_history
+WHERE unit_type IN ('legal_unit', 'establishment', 'enterprise') AND resolution = 'year'
+ORDER BY resolution, year, unit_type;
 
 \echo "--- statistical_unit coverage after import 2 (year range) ---"
 SELECT unit_type, MIN(valid_from) AS min_from, MAX(valid_until) AS max_until, COUNT(*) AS row_count
@@ -188,125 +180,57 @@ FROM public.statistical_unit
 WHERE unit_type IN ('legal_unit', 'establishment', 'enterprise')
 ORDER BY unit_type, unit_id, valid_from;
 
-\echo "--- RAW statistical_history_def(year, 2021, NULL) output — root-entry (hash_partition IS NULL) ---"
-SELECT unit_type, hash_partition, exists_count, countable_count
-FROM public.statistical_history_def('year'::public.history_resolution, 2021, NULL)
-WHERE unit_type IN ('legal_unit', 'establishment', 'enterprise')
-ORDER BY unit_type, lower(hash_partition) NULLS FIRST;
-
-\echo "--- RAW statistical_history_def(year, 2021, '[0,16384)'::int4range) output — full hash range ---"
-SELECT unit_type, hash_partition, exists_count, countable_count
-FROM public.statistical_history_def('year'::public.history_resolution, 2021, NULL, '[0,16384)'::int4range)
-WHERE unit_type IN ('legal_unit', 'establishment', 'enterprise')
-ORDER BY unit_type, lower(hash_partition) NULLS FIRST;
-
 \echo "--- Worker task summary across the full run [as postgres, bypass RLS] ---"
 SET LOCAL ROLE postgres;
-\set ON_ERROR_STOP off
-SAVEPOINT diag;
 SELECT command, state, COUNT(*) AS task_count
 FROM worker.tasks
-WHERE command IN ('collect_changes', 'command_collect_changes',
-                  'derive_units_phase', 'derive_reports_phase',
+WHERE command IN ('collect_changes', 'derive_units_phase', 'derive_reports_phase',
                   'derive_statistical_unit', 'statistical_unit_flush_staging',
-                  'derive_statistical_history', 'derive_statistical_history_period',
-                  'statistical_history_reduce')
+                  'derive_history_delta', 'derive_history_delta_range', 'history_delta_reduce')
 GROUP BY command, state
 ORDER BY command, state;
-ROLLBACK TO SAVEPOINT diag;
 
-\echo "--- derive_statistical_history tasks (the spawner; info.child_count reports fan-out) [as postgres] ---"
-SAVEPOINT diag;
-SELECT id, state, info, payload->>'valid_from' AS valid_from, payload->>'valid_until' AS valid_until
+\echo "--- derive_history_delta tasks (the spawner; info.child_count reports fan-out) ---"
+SELECT state, info->>'rebuild' AS rebuild, (info->>'child_count')::int AS child_count,
+       payload->>'valid_from' AS valid_from, payload->>'valid_until' AS valid_until
 FROM worker.tasks
-WHERE command = 'derive_statistical_history'
+WHERE command = 'derive_history_delta'
 ORDER BY id;
-ROLLBACK TO SAVEPOINT diag;
-
-\echo "--- derive_statistical_history_period task distribution by hash_partition [as postgres] ---"
-SAVEPOINT diag;
-SELECT payload->>'resolution' AS resolution,
-       NULLIF(payload->>'hash_partition', '')::int4range AS hash_partition,
-       state,
-       COUNT(*) AS task_count,
-       SUM((info->>'rows_inserted')::bigint) AS total_rows_inserted
-FROM worker.tasks
-WHERE command = 'derive_statistical_history_period'
-GROUP BY 1,2,3
-ORDER BY resolution, lower(NULLIF(payload->>'hash_partition', '')::int4range) NULLS FIRST;
-ROLLBACK TO SAVEPOINT diag;
-
-\echo "--- year=2021 hash_partition spawns specifically [as postgres] ---"
-SAVEPOINT diag;
-SELECT id, state,
-       NULLIF(payload->>'hash_partition', '')::int4range AS hash_partition,
-       info->>'rows_inserted' AS inserted
-FROM worker.tasks
-WHERE command = 'derive_statistical_history_period'
-  AND payload->>'resolution' = 'year'
-  AND (payload->>'year')::int = 2021
-ORDER BY lower(NULLIF(payload->>'hash_partition', '')::int4range) NULLS FIRST;
-ROLLBACK TO SAVEPOINT diag;
-
-\echo "--- Any failed/error tasks in the analytics pipeline [as postgres] ---"
-SAVEPOINT diag;
-SELECT id, command, state, LEFT(COALESCE(error, ''), 200) AS error_short, payload
-FROM worker.tasks
-WHERE state = 'failed'
-  AND (command LIKE 'derive_%' OR command LIKE 'statistical_%')
-ORDER BY id
-LIMIT 20;
-ROLLBACK TO SAVEPOINT diag;
-
-\echo "--- statistical_unit snapshot at read time used by derive_statistical_history (proxy: full table as postgres) ---"
-SAVEPOINT diag;
-SELECT unit_type, COUNT(*) AS row_count,
-       array_agg(DISTINCT hash_slot ORDER BY hash_slot) AS distinct_slots
-FROM public.statistical_unit
-GROUP BY unit_type
-ORDER BY unit_type;
-ROLLBACK TO SAVEPOINT diag;
-
-\set ON_ERROR_STOP on
 
 \echo "--- STATBUS-543: every hash-partitioned child spans one partition range of 16384/partition_count_target slots, also in the dirty (partial) derive [as postgres] ---"
-SET LOCAL ROLE postgres;
-WITH s AS (SELECT GREATEST(1, 16384 / public.get_partition_count_target()) AS size)
-SELECT t.command,
+-- derive_history_delta spawns before the flush adjusts partition_count_target, so its children are
+-- checked against the range size it recorded; the facet children against the current target.
+WITH child AS (
+    SELECT t.command,
+           COALESCE(NULLIF(t.payload->>'hash_partition', ''), t.payload->>'hash_range')::int4range AS r,
+           COALESCE((parent.info->>'range_size')::int, GREATEST(1, 16384 / public.get_partition_count_target())) AS size
+    FROM worker.tasks AS t
+    LEFT JOIN worker.tasks AS parent ON parent.id = t.parent_id AND parent.command = 'derive_history_delta'
+    WHERE t.command IN ('derive_history_delta_range', 'derive_statistical_unit_facet_partition')
+)
+SELECT command,
        count(*) > 0 AS spawned,
-       bool_and(
-           lower(r) % s.size = 0
-           AND upper(r) = LEAST(lower(r) + s.size, 16384)
-       ) AS children_span_partition_ranges
-FROM worker.tasks AS t
-CROSS JOIN s
-CROSS JOIN LATERAL (SELECT NULLIF(t.payload->>'hash_partition', '')::int4range AS r) AS p
-WHERE t.command IN ('derive_statistical_history_period',
-                    'derive_statistical_history_facet_period',
-                    'derive_statistical_unit_facet_partition')
-GROUP BY t.command
-ORDER BY t.command;
+       bool_and(lower(r) % size = 0 AND upper(r) = LEAST(lower(r) + size, 16384)) AS children_span_partition_ranges
+FROM child
+GROUP BY command
+ORDER BY command;
 
-\echo "--- Consistency: root (hash_partition IS NULL) aggregate must equal SUM of per-partition rows [as postgres, bypass RLS] ---"
+\echo "--- Consistency: the 2021 history total equals the units counted in the stock deltas up to 2021-12-31 ---"
 SELECT
-    a.unit_type,
-    a.aggregate_exists_count,
-    COALESCE(p.partitions_sum, 0) AS per_partition_sum,
-    a.aggregate_exists_count = COALESCE(p.partitions_sum, 0) AS consistent
-FROM (
-    SELECT unit_type, exists_count AS aggregate_exists_count
-    FROM public.statistical_history
-    WHERE resolution = 'year' AND year = 2021 AND hash_partition IS NULL
-      AND unit_type IN ('legal_unit', 'establishment', 'enterprise')
-) AS a
-LEFT JOIN (
-    SELECT unit_type, SUM(exists_count)::integer AS partitions_sum
-    FROM public.statistical_history
-    WHERE resolution = 'year' AND year = 2021 AND hash_partition IS NOT NULL
-      AND unit_type IN ('legal_unit', 'establishment', 'enterprise')
+    h.unit_type,
+    h.exists_count AS history_exists_count,
+    d.delta_sum AS stock_delta_sum,
+    h.exists_count = d.delta_sum AS consistent
+FROM public.statistical_history AS h
+JOIN (
+    SELECT unit_type, SUM(exists_delta)::integer AS delta_sum
+    FROM public.history_stock_delta
+    WHERE on_month <= '2021-12-31'
     GROUP BY unit_type
-) AS p USING (unit_type)
-ORDER BY a.unit_type;
+) AS d USING (unit_type)
+WHERE h.resolution = 'year' AND h.year = 2021
+  AND h.unit_type IN ('legal_unit', 'establishment', 'enterprise')
+ORDER BY h.unit_type;
 RESET ROLE;
 CALL test.set_user_from_email('test.admin@statbus.org');
 

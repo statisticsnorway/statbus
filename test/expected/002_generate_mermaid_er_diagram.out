@@ -249,6 +249,82 @@ erDiagram
 		timestamp_with_time_zone created_at
 		timestamp_with_time_zone updated_at
 	}
+	history_flow_delta["history_flow_delta"] {
+		history_resolution resolution
+		integer year
+		integer month
+		statistical_unit_type unit_type
+		ltree primary_activity_category_path
+		ltree secondary_activity_category_path
+		ltree sector_path
+		integer legal_form_id
+		ltree physical_region_path
+		integer physical_country_id
+		integer unit_size_id
+		integer status_id
+		integer[] flows
+		jsonb stats_ended
+		integer[] unit_ids
+	}
+	history_flow_delta_staging["history_flow_delta_staging"] {
+		integer unit_id
+		smallint sign
+		history_resolution resolution
+		integer year
+		integer month
+		statistical_unit_type unit_type
+		ltree primary_activity_category_path
+		ltree secondary_activity_category_path
+		ltree sector_path
+		integer legal_form_id
+		ltree physical_region_path
+		integer physical_country_id
+		integer unit_size_id
+		integer status_id
+		integer[] flows
+		jsonb stats_ended
+	}
+	history_period["history_period"] {
+		history_resolution resolution
+		integer year
+		integer month
+		date prev_stop
+		date curr_start
+		date curr_stop
+	}
+	history_stock_delta["history_stock_delta"] {
+		statistical_unit_type unit_type
+		ltree primary_activity_category_path
+		ltree secondary_activity_category_path
+		ltree sector_path
+		integer legal_form_id
+		ltree physical_region_path
+		integer physical_country_id
+		integer unit_size_id
+		integer status_id
+		date on_month
+		integer exists_delta
+		integer countable_delta
+		jsonb stats_delta
+		integer[] unit_ids
+	}
+	history_stock_delta_staging["history_stock_delta_staging"] {
+		integer unit_id
+		smallint sign
+		statistical_unit_type unit_type
+		ltree primary_activity_category_path
+		ltree secondary_activity_category_path
+		ltree sector_path
+		integer legal_form_id
+		ltree physical_region_path
+		integer physical_country_id
+		integer unit_size_id
+		integer status_id
+		date on_month
+		integer exists_delta
+		integer countable_delta
+		jsonb stats_delta
+	}
 	image["image"] {
 		integer id
 		bytea data
@@ -659,103 +735,6 @@ erDiagram
 		integer edit_by_user_id
 		timestamp_with_time_zone edit_at
 		jsonb stat
-	}
-	statistical_history["statistical_history"] {
-		history_resolution resolution
-		integer year
-		integer month
-		statistical_unit_type unit_type
-		integer exists_count
-		integer exists_change
-		integer exists_added_count
-		integer exists_removed_count
-		integer countable_count
-		integer countable_change
-		integer countable_added_count
-		integer countable_removed_count
-		integer births
-		integer deaths
-		integer name_change_count
-		integer primary_activity_category_change_count
-		integer secondary_activity_category_change_count
-		integer sector_change_count
-		integer legal_form_change_count
-		integer physical_region_change_count
-		integer physical_country_change_count
-		integer physical_address_change_count
-		jsonb stats_summary
-		int4range hash_partition
-	}
-	statistical_history_facet["statistical_history_facet"] {
-		history_resolution resolution
-		integer year
-		integer month
-		statistical_unit_type unit_type
-		ltree primary_activity_category_path
-		ltree secondary_activity_category_path
-		ltree sector_path
-		integer legal_form_id
-		ltree physical_region_path
-		integer physical_country_id
-		integer unit_size_id
-		integer status_id
-		integer exists_count
-		integer exists_change
-		integer exists_added_count
-		integer exists_removed_count
-		integer countable_count
-		integer countable_change
-		integer countable_added_count
-		integer countable_removed_count
-		integer births
-		integer deaths
-		integer name_change_count
-		integer primary_activity_category_change_count
-		integer secondary_activity_category_change_count
-		integer sector_change_count
-		integer legal_form_change_count
-		integer physical_region_change_count
-		integer physical_country_change_count
-		integer physical_address_change_count
-		integer unit_size_change_count
-		integer status_change_count
-		jsonb stats_summary
-	}
-	statistical_history_facet_partitions["statistical_history_facet_partitions"] {
-		integer hash_slot
-		history_resolution resolution
-		integer year
-		integer month
-		statistical_unit_type unit_type
-		ltree primary_activity_category_path
-		ltree secondary_activity_category_path
-		ltree sector_path
-		integer legal_form_id
-		ltree physical_region_path
-		integer physical_country_id
-		integer unit_size_id
-		integer status_id
-		integer exists_count
-		integer exists_change
-		integer exists_added_count
-		integer exists_removed_count
-		integer countable_count
-		integer countable_change
-		integer countable_added_count
-		integer countable_removed_count
-		integer births
-		integer deaths
-		integer name_change_count
-		integer primary_activity_category_change_count
-		integer secondary_activity_category_change_count
-		integer sector_change_count
-		integer legal_form_change_count
-		integer physical_region_change_count
-		integer physical_country_change_count
-		integer physical_address_change_count
-		integer unit_size_change_count
-		integer status_change_count
-		jsonb stats_summary
 	}
 	statistical_unit["statistical_unit"] {
 		statistical_unit_type unit_type

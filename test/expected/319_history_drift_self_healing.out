@@ -1,22 +1,15 @@
--- Test 319: statistical_history drift self-healing under reduce.
+-- Test 319: statistical_history drift self-healing by a full rebuild.
 --
--- statistical_history stores BOTH per-slot rows (hash_partition =
--- int4range(slot, slot+1)) AND a NULL-summary rollup (hash_partition IS NULL)
--- in the same persistent table. worker.statistical_history_reduce produces the
--- NULL summary by:
---   1. DELETE FROM statistical_history WHERE hash_partition IS NULL;
---   2. INSERT … SELECT … SUM(...) FROM statistical_history WHERE hash_partition IS NOT NULL
---      GROUP BY (resolution, year, month, unit_type);
+-- statistical_history is a view over public.history_stock_delta and
+-- public.history_flow_delta (STATBUS-558). Incremental cycles add staged
+-- deltas into those tables, so drift in a stored delta row would persist. The
+-- recovery is the full rebuild: worker.enqueue_derive_statistical_unit_all
+-- makes worker.derive_history_delta truncate both tables and recompute them
+-- from statistical_unit alone.
 --
--- This contract IS the self-healing mechanism for the rollup: any stale
--- NULL-summary content (from a prior buggy run, manual data poke, or future
--- regression) is wiped and rebuilt on every reduce. This test pins that
--- contract.
---
--- Mirrors test/sql/318_facet_drift_self_healing.sql in spirit (synthetic
--- stale row, run reduce, assert gone). The shape differs because
--- statistical_history's rollup lives in the same table as its per-slot rows
--- rather than in a separate target table fed from staging.
+-- This test pins that contract: inject a stale delta row and corrupt an
+-- existing one, run the full rebuild, and assert statistical_history equals
+-- the baseline taken after the first derive.
 BEGIN;
 \i test/setup.sql
 \echo -- test/setup.sql output suppressed for cleaner test output
@@ -51,140 +44,92 @@ SELECT
 CALL worker.process_tasks(p_queue => 'import');
 NOTICE:  sql_saga: disable_temporal_triggers left native temporal foreign keys enabled (they have no sql_saga triggers); they are DEFERRABLE, defer them in this transaction with: SET CONSTRAINTS public.activity_establishment_id_valid, public.activity_legal_unit_id_valid, public.contact_establishment_id_valid, public.contact_legal_unit_id_valid, public.establishment_legal_unit_id_valid, public.legal_relationship_influenced_id_valid, public.legal_relationship_influencing_id_valid, public.location_establishment_id_valid, public.location_legal_unit_id_valid, public.person_for_unit_establishment_id_valid, public.person_for_unit_legal_unit_id_valid, public.power_root_custom_root_legal_unit_id_valid, public.power_root_derived_root_legal_unit_id_valid, public.stat_for_unit_establishment_id_valid, public.stat_for_unit_legal_unit_id_valid DEFERRED
 CALL worker.process_tasks(p_queue => 'analytics');
-SET ROLE postgres;  -- statistical_history rows with hash_partition IS NOT NULL are RLS-hidden from admin_user
-\echo "=== STEP 1: Post-derive baseline — NULL summary equals SUM(per-slot) and matches ground truth ==="
-"=== STEP 1: Post-derive baseline — NULL summary equals SUM(per-slot) and matches ground truth ==="
-\x off
-WITH years AS (
-    SELECT DISTINCT year FROM public.statistical_history
-    WHERE resolution = 'year' AND hash_partition IS NULL
-), per_slot_sum AS (
-    SELECT resolution, year, unit_type,
-           SUM(exists_count)::int AS parts_exists,
-           SUM(countable_count)::int AS parts_countable
-    FROM public.statistical_history
-    WHERE resolution = 'year' AND hash_partition IS NOT NULL
-    GROUP BY resolution, year, unit_type
-)
-SELECT y.year, sh.unit_type,
-       sh.exists_count AS null_summary_exists,
-       p.parts_exists,
-       sh.exists_count = p.parts_exists AS layer_a_matches
-FROM years y
-JOIN public.statistical_history sh
-  ON sh.resolution = 'year' AND sh.year = y.year AND sh.hash_partition IS NULL
-JOIN per_slot_sum p
-  ON p.resolution = sh.resolution AND p.year = sh.year AND p.unit_type = sh.unit_type
-ORDER BY y.year, sh.unit_type;
- year | unit_type  | null_summary_exists | parts_exists | layer_a_matches 
-------+------------+---------------------+--------------+-----------------
- 2023 | legal_unit |                  23 |           23 | t
- 2023 | enterprise |                  23 |           23 | t
- 2024 | legal_unit |                  23 |           23 | t
- 2024 | enterprise |                  23 |           23 | t
- 2025 | legal_unit |                  23 |           23 | t
- 2025 | enterprise |                  23 |           23 | t
- 2026 | legal_unit |                  23 |           23 | t
- 2026 | enterprise |                  23 |           23 | t
-(8 rows)
-
-\echo
-
-\echo "=== STEP 2: Inject synthetic stale values into NULL-summary rows ==="
-"=== STEP 2: Inject synthetic stale values into NULL-summary rows ==="
-\echo "Pretend a prior bug or manual poke left the rollup wildly wrong."
-"Pretend a prior bug or manual poke left the rollup wildly wrong."
-\echo "This mimics the kind of latent stale state Phase 2 + Phase 3"
-"This mimics the kind of latent stale state Phase 2 + Phase 3"
-\echo "ensure get fixed on the next reduce."
-"ensure get fixed on the next reduce."
-UPDATE public.statistical_history
-   SET exists_count = 99999,
-       countable_count = 99999,
-       exists_change = -99999,
-       countable_change = -99999,
-       exists_added_count = 99999,
-       exists_removed_count = 99999,
-       countable_added_count = 99999,
-       countable_removed_count = 99999
- WHERE resolution = 'year'
-   AND hash_partition IS NULL;
-\echo "Post-inject: NULL summary rows now show 99999 across the board"
-"Post-inject: NULL summary rows now show 99999 across the board"
-SELECT resolution, year, unit_type, exists_count, countable_count
-FROM public.statistical_history
-WHERE resolution = 'year' AND hash_partition IS NULL
+\echo "=== STEP 1: Post-derive baseline of statistical_history (year resolution) ==="
+"=== STEP 1: Post-derive baseline of statistical_history (year resolution) ==="
+CREATE TEMP TABLE baseline ON COMMIT DROP AS
+SELECT resolution, year, month, unit_type, exists_count, countable_count, exists_change, countable_change,
+       births, deaths, stats_summary
+FROM public.statistical_history;
+SELECT year, unit_type, exists_count, countable_count
+FROM baseline WHERE resolution = 'year'
 ORDER BY year, unit_type;
- resolution | year | unit_type  | exists_count | countable_count 
-------------+------+------------+--------------+-----------------
- year       | 2023 | legal_unit |        99999 |           99999
- year       | 2023 | enterprise |        99999 |           99999
- year       | 2024 | legal_unit |        99999 |           99999
- year       | 2024 | enterprise |        99999 |           99999
- year       | 2025 | legal_unit |        99999 |           99999
- year       | 2025 | enterprise |        99999 |           99999
- year       | 2026 | legal_unit |        99999 |           99999
- year       | 2026 | enterprise |        99999 |           99999
+ year | unit_type  | exists_count | countable_count 
+------+------------+--------------+-----------------
+ 2023 | legal_unit |           23 |              23
+ 2023 | enterprise |           23 |              23
+ 2024 | legal_unit |           23 |              23
+ 2024 | enterprise |           23 |              23
+ 2025 | legal_unit |           23 |              23
+ 2025 | enterprise |           23 |              23
+ 2026 | legal_unit |           23 |              23
+ 2026 | enterprise |           23 |              23
 (8 rows)
 
 \echo
 
-\echo "=== STEP 3: Run statistical_history_reduce directly ==="
-"=== STEP 3: Run statistical_history_reduce directly ==="
-\echo "(simulates a normal pipeline drain triggering reduce — DELETE NULL + re-INSERT)"
-"(simulates a normal pipeline drain triggering reduce — DELETE NULL + re-INSERT)"
-CALL worker.statistical_history_reduce('{}'::jsonb);
-        p_info        
-----------------------
- {"rows_reduced": 90}
+\echo "=== STEP 2: Inject drift into the delta tables ==="
+"=== STEP 2: Inject drift into the delta tables ==="
+\echo "A stale stock row for a unit that does not exist, and a corrupted flow row."
+"A stale stock row for a unit that does not exist, and a corrupted flow row."
+SET ROLE postgres;
+INSERT INTO public.history_stock_delta (unit_type, on_month, exists_delta, countable_delta, stats_delta, unit_ids)
+VALUES ('enterprise', '2024-03-01', 99999, 99999, NULL, ARRAY[-1]);
+UPDATE public.history_flow_delta
+   SET flows = array_fill(-99999, ARRAY[18])
+ WHERE ctid = (SELECT ctid FROM public.history_flow_delta
+                WHERE resolution = 'year' AND unit_type = 'legal_unit' ORDER BY year LIMIT 1);
+RESET ROLE;
+\echo "Post-inject: rows of statistical_history that differ from the baseline"
+"Post-inject: rows of statistical_history that differ from the baseline"
+SELECT count(*) AS drifted_rows
+FROM (SELECT resolution, year, month, unit_type, exists_count, countable_count, exists_change, countable_change,
+             births, deaths, stats_summary FROM public.statistical_history
+      EXCEPT ALL SELECT * FROM baseline) AS d;
+ drifted_rows 
+--------------
+           31
 (1 row)
 
 \echo
 
-\echo "=== STEP 4: Assert NULL-summary rows are restored to SUM(per-slot) ==="
-"=== STEP 4: Assert NULL-summary rows are restored to SUM(per-slot) ==="
-\echo "No row should still carry the synthetic 99999."
-"No row should still carry the synthetic 99999."
-SELECT 'sh_year_null_summary_synthetic_remaining' AS check_name,
-       COUNT(*) AS rows,
-       CASE WHEN COUNT(*) = 0 THEN 'PASS' ELSE 'FAIL' END AS verdict
-FROM public.statistical_history
-WHERE resolution = 'year'
-  AND hash_partition IS NULL
-  AND (exists_count = 99999
-       OR countable_count = 99999
-       OR exists_change = -99999
-       OR countable_change = -99999);
-                check_name                | rows | verdict 
-------------------------------------------+------+---------
- sh_year_null_summary_synthetic_remaining |    0 | PASS
+\echo "=== STEP 3: Full rebuild ==="
+"=== STEP 3: Full rebuild ==="
+SELECT worker.enqueue_derive_statistical_unit_all() IS NOT NULL AS rebuild_scheduled;
+ rebuild_scheduled 
+-------------------
+ t
+(1 row)
+
+CALL worker.process_tasks(p_queue => 'analytics');
+SELECT t.info->>'rebuild' AS last_history_cycle_rebuilt
+FROM worker.tasks AS t WHERE t.command = 'derive_history_delta' ORDER BY t.id DESC LIMIT 1;
+ last_history_cycle_rebuilt 
+----------------------------
+ true
 (1 row)
 
 \echo
 
-\echo "=== STEP 5: Assert NULL summary == SUM(per-slot) (Layer A invariant) ==="
-"=== STEP 5: Assert NULL summary == SUM(per-slot) (Layer A invariant) ==="
-WITH per_slot_sum AS (
-    SELECT resolution, year, unit_type,
-           SUM(exists_count)::int AS parts_exists,
-           SUM(countable_count)::int AS parts_countable
-    FROM public.statistical_history
-    WHERE resolution = 'year' AND hash_partition IS NOT NULL
-    GROUP BY resolution, year, unit_type
-)
-SELECT 'sh_layer_a_divergent_rows' AS check_name,
-       COUNT(*) AS rows,
-       CASE WHEN COUNT(*) = 0 THEN 'PASS' ELSE 'FAIL' END AS verdict
-FROM public.statistical_history sh
-LEFT JOIN per_slot_sum p
-  ON p.resolution = sh.resolution AND p.year = sh.year AND p.unit_type = sh.unit_type
-WHERE sh.resolution = 'year' AND sh.hash_partition IS NULL
-  AND (sh.exists_count IS DISTINCT FROM COALESCE(p.parts_exists, 0)
-    OR sh.countable_count IS DISTINCT FROM COALESCE(p.parts_countable, 0));
-        check_name         | rows | verdict 
----------------------------+------+---------
- sh_layer_a_divergent_rows |    0 | PASS
+\echo "=== STEP 4: statistical_history equals the baseline again ==="
+"=== STEP 4: statistical_history equals the baseline again ==="
+SELECT
+  (SELECT count(*) FROM (SELECT resolution, year, month, unit_type, exists_count, countable_count, exists_change,
+                                countable_change, births, deaths, stats_summary FROM public.statistical_history
+                         EXCEPT ALL SELECT * FROM baseline) AS d) AS only_after_rebuild,
+  (SELECT count(*) FROM (SELECT * FROM baseline
+                         EXCEPT ALL SELECT resolution, year, month, unit_type, exists_count, countable_count,
+                                exists_change, countable_change, births, deaths, stats_summary
+                                FROM public.statistical_history) AS d) AS only_in_baseline;
+ only_after_rebuild | only_in_baseline 
+--------------------+------------------
+                  0 |                0
 (1 row)
 
-\x auto
+SELECT count(*) AS stale_rows_left
+FROM public.history_stock_delta WHERE -1 = ANY (unit_ids);
+ stale_rows_left 
+-----------------
+               0
+(1 row)
+
 ROLLBACK;

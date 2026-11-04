@@ -129,10 +129,12 @@ DECLARE
             '{"schema": "public", "name": "statistical_unit_facet", "class": "derived"}'::jsonb,
             '{"schema": "public", "name": "statistical_unit_facet_dirty_hash_slots", "class": "derived"}'::jsonb
         )),
-        (4, 2, 4, 'Derivations to create statistical_history for reporting and statistical_history_facet for drilldown.', NULL, jsonb_build_array(
-            '{"schema": "public", "name": "statistical_history", "class": "derived"}'::jsonb,
-            '{"schema": "public", "name": "statistical_history_facet", "class": "derived"}'::jsonb,
-            '{"schema": "public", "name": "statistical_history_facet_partitions", "class": "derived"}'::jsonb
+        (4, 2, 4, 'Derivations to create statistical_history for reporting and statistical_history_facet for drilldown.', 'Sparse delta tables hold only changes: `history_stock_delta` per cell and month (entries, exits and stats of units), `history_flow_delta` per cell and period (change counts). `statistical_history` and `statistical_history_facet` are views summing them up to each period in `history_period`. Maintained per hash range before the unit flush, and added in by the reduce (STATBUS-558).', jsonb_build_array(
+            '{"schema": "public", "name": "history_stock_delta", "class": "derived"}'::jsonb,
+            '{"schema": "public", "name": "history_flow_delta", "class": "derived"}'::jsonb,
+            '{"schema": "public", "name": "history_period", "class": "derived"}'::jsonb,
+            '{"schema": "public", "name": "statistical_history", "type": "VIEW"}'::jsonb,
+            '{"schema": "public", "name": "statistical_history_facet", "type": "VIEW"}'::jsonb
         )),
         (4, 2, 5, 'Pipeline Weights', 'Configuration for pipeline step ordering and progress tracking.', jsonb_build_array(
             '{"schema": "worker", "name": "pipeline_step_weight", "class": "infrastructure"}'::jsonb,

@@ -53,7 +53,8 @@ DECLARE
     -- Tables that are intentionally exempt from RLS because they are internal
     -- staging/working tables not exposed via PostgREST.
     v_exempt_tables TEXT[] := ARRAY[
-        'statistical_history_facet_partitions',
+        'history_flow_delta_staging',
+        'history_stock_delta_staging',
         'statistical_unit_facet_dirty_hash_slots',
         'statistical_unit_facet_staging',
         'statistical_unit_staging'
@@ -104,20 +105,17 @@ DECLARE
     v_worker_funcs TEXT[] := ARRAY[
         'admin.disable_temporal_triggers',
         'admin.enable_temporal_triggers',
+        'worker.derive_history_delta',
+        'worker.derive_history_delta_range',
         'worker.derive_reports',
         'worker.derive_reports_phase',
-        'worker.derive_statistical_history',
-        'worker.derive_statistical_history_facet',
-        'worker.derive_statistical_history_facet_period',
-        'worker.derive_statistical_history_period',
         'worker.derive_statistical_unit',
         'worker.derive_units_phase',
         'worker.derive_statistical_unit_facet',
         'worker.derive_statistical_unit_facet_partition',
         'worker.derive_used_tables',
+        'worker.history_delta_reduce',
         'worker.notify_task_changed',
-        'worker.statistical_history_facet_reduce',
-        'worker.statistical_history_reduce',
         'worker.statistical_unit_facet_reduce',
         'worker.statistical_unit_flush_staging',
         'worker.statistical_unit_refresh_batch'

@@ -140,9 +140,10 @@ ORDER BY child.priority, child.id;
             command             |  state  | depth 
 --------------------------------+---------+-------
  derive_statistical_unit        | pending |     2
+ derive_history_delta           | pending |     2
  statistical_unit_flush_staging | pending |     2
  derive_used_tables             | pending |     2
-(3 rows)
+(4 rows)
 
 \echo "=== 7. Verify serial children of derive_reports_phase ==="
 "=== 7. Verify serial children of derive_reports_phase ==="
@@ -161,15 +162,12 @@ WHERE child.parent_id = (
     ORDER BY id DESC LIMIT 1
 )
 ORDER BY child.priority, child.id;
-             command              |  state  | depth 
-----------------------------------+---------+-------
- derive_statistical_history       | pending |     2
- statistical_history_reduce       | pending |     2
- derive_statistical_unit_facet    | pending |     2
- statistical_unit_facet_reduce    | pending |     2
- derive_statistical_history_facet | pending |     2
- statistical_history_facet_reduce | pending |     2
-(6 rows)
+            command            |  state  | depth 
+-------------------------------+---------+-------
+ derive_statistical_unit_facet | pending |     2
+ statistical_unit_facet_reduce | pending |     2
+ history_delta_reduce          | pending |     2
+(3 rows)
 
 -- ============================================================================
 -- PART 3: Process remaining tasks and verify info propagation
@@ -188,7 +186,7 @@ GROUP BY state
 ORDER BY state;
    state   | cnt 
 -----------+-----
- completed |  12
+ completed |  10
 (1 row)
 
 \echo "=== 10. Verify info bubbled up to collect_changes ==="
@@ -205,12 +203,12 @@ SELECT
     -- Verify new keys bubbled up from children (Info Principle)
     info ? 'effective_legal_unit_count' AS has_eff_lu,
     info ? 'effective_enterprise_count' AS has_eff_en,
-    info ? 'rows_reduced' AS has_rows_reduced
+    info ? 'stock_rows_staged' AS has_history_rows_staged
 FROM worker.tasks
 WHERE command = 'collect_changes'
 ORDER BY id DESC LIMIT 1;
-     command     | has_info | has_lu_count | has_ent_count | has_eff_lu | has_eff_en | has_rows_reduced 
------------------+----------+--------------+---------------+------------+------------+------------------
+     command     | has_info | has_lu_count | has_ent_count | has_eff_lu | has_eff_en | has_history_rows_staged 
+-----------------+----------+--------------+---------------+------------+------------+-------------------------
  collect_changes | t        | t            | t             | t          | t          | t
 (1 row)
 
