@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-11-03T22:24:00Z'
-updated_date: '2026-11-03T22:30:00Z'
+updated_date: '2026-11-04T21:18:00Z'
 labels: []
 dependencies: []
 priority: high
@@ -17,7 +17,7 @@ ordinal: 486204
 ## Description
 
 <!-- SECTION:DESCRIPTION:BEGIN -->
-statistical_history_def and statistical_history_facet_def attach stats_summary per (hash_slot[, cell]) via LEFT JOIN onto demographic rows: stats of the latest version overlapping a period count only if some unit in the same hash slot (and, for the facet, the same cell) exists at prev_stop or curr_stop. A unit that does not exist at either end (born mid-period after prev_stop and dead before curr_stop, or whose version overlaps the period before its birth date) is dropped unless an unrelated slot-mate keeps the slot alive. Whether it counts depends on the hash of other units, not on the data. Proven on 10-year Norway (test 402 db): facet 800 cells undercounted (tmp/558-night/03g-slotgate.sql); statistical_history 329 of 447 rows differ from the same rule without the slot gate (tmp/558-shd/03-stats-explain.sql). Found during STATBUS-558; the fix lands with 558's redesign.
+STATBUS-558
 <!-- SECTION:DESCRIPTION:END -->
 
 ## Acceptance Criteria
@@ -36,4 +36,6 @@ Fixture: legal unit 563000001 (valid 2020-01-01..infinity, 10 employees, exists 
 Observed on current code (test 364 fails): documented population for 2024 = 17 employees / 2 units; statistical_history actual = 10 / 1 (stats_match_documented_population = f); statistical_history_facet actual = 10 / 1 (facet_stats_match_documented_population = f). The expected file pins the correct post-fix values 17 / 2 / t, so the diff shows exactly the mismatch.
 
 Run: ./dev.sh test 364_statbus_563_history_stats_independent_of_hash_slot. Output in tmp/test-563.log.
+
+2026-11-04 owner decision: resolved by STATBUS-558, not fixed separately in today's code. 558 replaces statistical_history_def/statistical_history_facet_def; each unit's stats live on its own delta rows, so no hash-slot dependency. The 558 views already pass test 364 (17 employees / 2 units for 2024; local commits 507156f12, cbc7320b7). Accepted: 558 changes today's numbers where today undercounts (10-year db: 6 of 12 yearly employee cells higher, never lower). Close as Done when STATBUS-558 reaches maturity (merged and verified).
 <!-- SECTION:NOTES:END -->
