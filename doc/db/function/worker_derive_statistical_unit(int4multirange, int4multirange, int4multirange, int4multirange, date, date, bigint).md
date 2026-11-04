@@ -86,7 +86,7 @@ BEGIN
                 DELETE FROM public.timesegments WHERE unit_type = 'enterprise' AND unit_id = ANY(v_orphan_enterprise_ids);
                 DELETE FROM public.timeline_enterprise WHERE enterprise_id = ANY(v_orphan_enterprise_ids);
                 -- The history deltas lose the unit's contribution here; the flush never sees it again.
-                CALL worker.history_delta_remove_units(p_unit_type => 'enterprise', p_unit_ids => v_orphan_enterprise_ids);
+                CALL worker.statistical_history_facet_delta_remove_units(p_unit_type => 'enterprise', p_unit_ids => v_orphan_enterprise_ids);
                 DELETE FROM public.statistical_unit WHERE unit_type = 'enterprise' AND unit_id = ANY(v_orphan_enterprise_ids);
                 INSERT INTO public.statistical_unit_facet_dirty_hash_slots (dirty_hash_slot)
                 SELECT DISTINCT public.hash_slot('enterprise', id)
@@ -100,7 +100,7 @@ BEGIN
                 DELETE FROM public.timepoints WHERE unit_type = 'legal_unit' AND unit_id = ANY(v_orphan_legal_unit_ids);
                 DELETE FROM public.timesegments WHERE unit_type = 'legal_unit' AND unit_id = ANY(v_orphan_legal_unit_ids);
                 DELETE FROM public.timeline_legal_unit WHERE legal_unit_id = ANY(v_orphan_legal_unit_ids);
-                CALL worker.history_delta_remove_units(p_unit_type => 'legal_unit', p_unit_ids => v_orphan_legal_unit_ids);
+                CALL worker.statistical_history_facet_delta_remove_units(p_unit_type => 'legal_unit', p_unit_ids => v_orphan_legal_unit_ids);
                 DELETE FROM public.statistical_unit WHERE unit_type = 'legal_unit' AND unit_id = ANY(v_orphan_legal_unit_ids);
                 INSERT INTO public.statistical_unit_facet_dirty_hash_slots (dirty_hash_slot)
                 SELECT DISTINCT public.hash_slot('legal_unit', id)
@@ -114,7 +114,7 @@ BEGIN
                 DELETE FROM public.timepoints WHERE unit_type = 'establishment' AND unit_id = ANY(v_orphan_establishment_ids);
                 DELETE FROM public.timesegments WHERE unit_type = 'establishment' AND unit_id = ANY(v_orphan_establishment_ids);
                 DELETE FROM public.timeline_establishment WHERE establishment_id = ANY(v_orphan_establishment_ids);
-                CALL worker.history_delta_remove_units(p_unit_type => 'establishment', p_unit_ids => v_orphan_establishment_ids);
+                CALL worker.statistical_history_facet_delta_remove_units(p_unit_type => 'establishment', p_unit_ids => v_orphan_establishment_ids);
                 DELETE FROM public.statistical_unit WHERE unit_type = 'establishment' AND unit_id = ANY(v_orphan_establishment_ids);
                 INSERT INTO public.statistical_unit_facet_dirty_hash_slots (dirty_hash_slot)
                 SELECT DISTINCT public.hash_slot('establishment', id)
@@ -128,7 +128,7 @@ BEGIN
                 DELETE FROM public.timepoints WHERE unit_type = 'power_group' AND unit_id = ANY(v_orphan_power_group_ids);
                 DELETE FROM public.timesegments WHERE unit_type = 'power_group' AND unit_id = ANY(v_orphan_power_group_ids);
                 DELETE FROM public.timeline_power_group WHERE power_group_id = ANY(v_orphan_power_group_ids);
-                CALL worker.history_delta_remove_units(p_unit_type => 'power_group', p_unit_ids => v_orphan_power_group_ids);
+                CALL worker.statistical_history_facet_delta_remove_units(p_unit_type => 'power_group', p_unit_ids => v_orphan_power_group_ids);
                 DELETE FROM public.statistical_unit WHERE unit_type = 'power_group' AND unit_id = ANY(v_orphan_power_group_ids);
                 INSERT INTO public.statistical_unit_facet_dirty_hash_slots (dirty_hash_slot)
                 SELECT DISTINCT public.hash_slot('power_group', id)

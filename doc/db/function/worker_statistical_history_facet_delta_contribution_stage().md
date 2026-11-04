@@ -1,9 +1,9 @@
 ```sql
-CREATE OR REPLACE PROCEDURE worker.history_contribution_stage()
+CREATE OR REPLACE PROCEDURE worker.statistical_history_facet_delta_contribution_stage()
  LANGUAGE plpgsql
 AS $procedure$
 BEGIN
-    INSERT INTO public.history_stock_delta_staging
+    INSERT INTO public.statistical_history_facet_stock_delta_staging
     WITH plus AS (SELECT unit_id, unit_type, primary_activity_category_path, secondary_activity_category_path, sector_path,
                          legal_form_id, physical_region_path, physical_country_id, unit_size_id, status_id, on_month,
                          exists_delta, countable_delta, stats_delta FROM pg_temp.hd_stock WHERE sign > 0),
@@ -20,7 +20,7 @@ BEGIN
            -exists_delta, -countable_delta, public.jsonb_stats_negate(stats_delta)
       FROM (SELECT * FROM minus EXCEPT ALL SELECT * FROM plus) AS r;
 
-    INSERT INTO public.history_flow_delta_staging
+    INSERT INTO public.statistical_history_facet_flow_delta_staging
     WITH plus AS (SELECT unit_id, resolution, year, month, unit_type, primary_activity_category_path,
                          secondary_activity_category_path, sector_path, legal_form_id, physical_region_path,
                          physical_country_id, unit_size_id, status_id, flows, stats_ended FROM pg_temp.hd_flow WHERE sign > 0),

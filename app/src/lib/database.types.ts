@@ -1124,249 +1124,6 @@ export type Database = {
         },
         Relationships: []
       },
-      history_flow_delta: {
-        Row: {
-          flows: number[]
-          legal_form_id: number | null
-          month: number | null
-          physical_country_id: number | null
-          physical_region_path: string | null
-          primary_activity_category_path: string | null
-          resolution: Database["public"]["Enums"]["history_resolution"]
-          secondary_activity_category_path: string | null
-          sector_path: string | null
-          stats_ended: Json | null
-          status_id: number | null
-          unit_ids: number[]
-          unit_size_id: number | null
-          unit_type: Database["public"]["Enums"]["statistical_unit_type"]
-          year: number
-        },
-        Insert: {
-          flows: number[]
-          legal_form_id?: number | null
-          month?: number | null
-          physical_country_id?: number | null
-          physical_region_path?: string | null
-          primary_activity_category_path?: string | null
-          resolution: Database["public"]["Enums"]["history_resolution"]
-          secondary_activity_category_path?: string | null
-          sector_path?: string | null
-          stats_ended?: Json | null
-          status_id?: number | null
-          unit_ids: number[]
-          unit_size_id?: number | null
-          unit_type: Database["public"]["Enums"]["statistical_unit_type"]
-          year: number
-        },
-        Update: {
-          flows?: number[]
-          legal_form_id?: number | null
-          month?: number | null
-          physical_country_id?: number | null
-          physical_region_path?: string | null
-          primary_activity_category_path?: string | null
-          resolution?: Database["public"]["Enums"]["history_resolution"]
-          secondary_activity_category_path?: string | null
-          sector_path?: string | null
-          stats_ended?: Json | null
-          status_id?: number | null
-          unit_ids?: number[]
-          unit_size_id?: number | null
-          unit_type?: Database["public"]["Enums"]["statistical_unit_type"]
-          year?: number
-        },
-        Relationships: []
-      },
-      history_flow_delta_staging: {
-        Row: {
-          flows: number[]
-          legal_form_id: number | null
-          month: number | null
-          physical_country_id: number | null
-          physical_region_path: string | null
-          primary_activity_category_path: string | null
-          resolution: Database["public"]["Enums"]["history_resolution"]
-          secondary_activity_category_path: string | null
-          sector_path: string | null
-          sign: number
-          stats_ended: Json | null
-          status_id: number | null
-          unit_id: number
-          unit_size_id: number | null
-          unit_type: Database["public"]["Enums"]["statistical_unit_type"]
-          year: number
-        },
-        Insert: {
-          flows: number[]
-          legal_form_id?: number | null
-          month?: number | null
-          physical_country_id?: number | null
-          physical_region_path?: string | null
-          primary_activity_category_path?: string | null
-          resolution: Database["public"]["Enums"]["history_resolution"]
-          secondary_activity_category_path?: string | null
-          sector_path?: string | null
-          sign: number
-          stats_ended?: Json | null
-          status_id?: number | null
-          unit_id: number
-          unit_size_id?: number | null
-          unit_type: Database["public"]["Enums"]["statistical_unit_type"]
-          year: number
-        },
-        Update: {
-          flows?: number[]
-          legal_form_id?: number | null
-          month?: number | null
-          physical_country_id?: number | null
-          physical_region_path?: string | null
-          primary_activity_category_path?: string | null
-          resolution?: Database["public"]["Enums"]["history_resolution"]
-          secondary_activity_category_path?: string | null
-          sector_path?: string | null
-          sign?: number
-          stats_ended?: Json | null
-          status_id?: number | null
-          unit_id?: number
-          unit_size_id?: number | null
-          unit_type?: Database["public"]["Enums"]["statistical_unit_type"]
-          year?: number
-        },
-        Relationships: []
-      },
-      history_period: {
-        Row: {
-          curr_start: string
-          curr_stop: string
-          month: number | null
-          prev_stop: string
-          resolution: Database["public"]["Enums"]["history_resolution"]
-          year: number
-        },
-        Insert: {
-          curr_start: string
-          curr_stop: string
-          month?: number | null
-          prev_stop: string
-          resolution: Database["public"]["Enums"]["history_resolution"]
-          year: number
-        },
-        Update: {
-          curr_start?: string
-          curr_stop?: string
-          month?: number | null
-          prev_stop?: string
-          resolution?: Database["public"]["Enums"]["history_resolution"]
-          year?: number
-        },
-        Relationships: []
-      },
-      history_stock_delta: {
-        Row: {
-          countable_delta: number
-          exists_delta: number
-          legal_form_id: number | null
-          on_month: string
-          physical_country_id: number | null
-          physical_region_path: string | null
-          primary_activity_category_path: string | null
-          secondary_activity_category_path: string | null
-          sector_path: string | null
-          stats_delta: Json | null
-          status_id: number | null
-          unit_ids: number[]
-          unit_size_id: number | null
-          unit_type: Database["public"]["Enums"]["statistical_unit_type"]
-        },
-        Insert: {
-          countable_delta: number
-          exists_delta: number
-          legal_form_id?: number | null
-          on_month: string
-          physical_country_id?: number | null
-          physical_region_path?: string | null
-          primary_activity_category_path?: string | null
-          secondary_activity_category_path?: string | null
-          sector_path?: string | null
-          stats_delta?: Json | null
-          status_id?: number | null
-          unit_ids: number[]
-          unit_size_id?: number | null
-          unit_type: Database["public"]["Enums"]["statistical_unit_type"]
-        },
-        Update: {
-          countable_delta?: number
-          exists_delta?: number
-          legal_form_id?: number | null
-          on_month?: string
-          physical_country_id?: number | null
-          physical_region_path?: string | null
-          primary_activity_category_path?: string | null
-          secondary_activity_category_path?: string | null
-          sector_path?: string | null
-          stats_delta?: Json | null
-          status_id?: number | null
-          unit_ids?: number[]
-          unit_size_id?: number | null
-          unit_type?: Database["public"]["Enums"]["statistical_unit_type"]
-        },
-        Relationships: []
-      },
-      history_stock_delta_staging: {
-        Row: {
-          countable_delta: number
-          exists_delta: number
-          legal_form_id: number | null
-          on_month: string
-          physical_country_id: number | null
-          physical_region_path: string | null
-          primary_activity_category_path: string | null
-          secondary_activity_category_path: string | null
-          sector_path: string | null
-          sign: number
-          stats_delta: Json | null
-          status_id: number | null
-          unit_id: number
-          unit_size_id: number | null
-          unit_type: Database["public"]["Enums"]["statistical_unit_type"]
-        },
-        Insert: {
-          countable_delta: number
-          exists_delta: number
-          legal_form_id?: number | null
-          on_month: string
-          physical_country_id?: number | null
-          physical_region_path?: string | null
-          primary_activity_category_path?: string | null
-          secondary_activity_category_path?: string | null
-          sector_path?: string | null
-          sign: number
-          stats_delta?: Json | null
-          status_id?: number | null
-          unit_id: number
-          unit_size_id?: number | null
-          unit_type: Database["public"]["Enums"]["statistical_unit_type"]
-        },
-        Update: {
-          countable_delta?: number
-          exists_delta?: number
-          legal_form_id?: number | null
-          on_month?: string
-          physical_country_id?: number | null
-          physical_region_path?: string | null
-          primary_activity_category_path?: string | null
-          secondary_activity_category_path?: string | null
-          sector_path?: string | null
-          sign?: number
-          stats_delta?: Json | null
-          status_id?: number | null
-          unit_id?: number
-          unit_size_id?: number | null
-          unit_type?: Database["public"]["Enums"]["statistical_unit_type"]
-        },
-        Relationships: []
-      },
       image: {
         Row: {
           data: string
@@ -3998,6 +3755,249 @@ export type Database = {
             referencedColumns: ["id"]
           }
         ]
+      },
+      statistical_history_facet_flow_delta: {
+        Row: {
+          flows: number[]
+          legal_form_id: number | null
+          month: number | null
+          physical_country_id: number | null
+          physical_region_path: string | null
+          primary_activity_category_path: string | null
+          resolution: Database["public"]["Enums"]["history_resolution"]
+          secondary_activity_category_path: string | null
+          sector_path: string | null
+          stats_ended: Json | null
+          status_id: number | null
+          unit_ids: number[]
+          unit_size_id: number | null
+          unit_type: Database["public"]["Enums"]["statistical_unit_type"]
+          year: number
+        },
+        Insert: {
+          flows: number[]
+          legal_form_id?: number | null
+          month?: number | null
+          physical_country_id?: number | null
+          physical_region_path?: string | null
+          primary_activity_category_path?: string | null
+          resolution: Database["public"]["Enums"]["history_resolution"]
+          secondary_activity_category_path?: string | null
+          sector_path?: string | null
+          stats_ended?: Json | null
+          status_id?: number | null
+          unit_ids: number[]
+          unit_size_id?: number | null
+          unit_type: Database["public"]["Enums"]["statistical_unit_type"]
+          year: number
+        },
+        Update: {
+          flows?: number[]
+          legal_form_id?: number | null
+          month?: number | null
+          physical_country_id?: number | null
+          physical_region_path?: string | null
+          primary_activity_category_path?: string | null
+          resolution?: Database["public"]["Enums"]["history_resolution"]
+          secondary_activity_category_path?: string | null
+          sector_path?: string | null
+          stats_ended?: Json | null
+          status_id?: number | null
+          unit_ids?: number[]
+          unit_size_id?: number | null
+          unit_type?: Database["public"]["Enums"]["statistical_unit_type"]
+          year?: number
+        },
+        Relationships: []
+      },
+      statistical_history_facet_flow_delta_staging: {
+        Row: {
+          flows: number[]
+          legal_form_id: number | null
+          month: number | null
+          physical_country_id: number | null
+          physical_region_path: string | null
+          primary_activity_category_path: string | null
+          resolution: Database["public"]["Enums"]["history_resolution"]
+          secondary_activity_category_path: string | null
+          sector_path: string | null
+          sign: number
+          stats_ended: Json | null
+          status_id: number | null
+          unit_id: number
+          unit_size_id: number | null
+          unit_type: Database["public"]["Enums"]["statistical_unit_type"]
+          year: number
+        },
+        Insert: {
+          flows: number[]
+          legal_form_id?: number | null
+          month?: number | null
+          physical_country_id?: number | null
+          physical_region_path?: string | null
+          primary_activity_category_path?: string | null
+          resolution: Database["public"]["Enums"]["history_resolution"]
+          secondary_activity_category_path?: string | null
+          sector_path?: string | null
+          sign: number
+          stats_ended?: Json | null
+          status_id?: number | null
+          unit_id: number
+          unit_size_id?: number | null
+          unit_type: Database["public"]["Enums"]["statistical_unit_type"]
+          year: number
+        },
+        Update: {
+          flows?: number[]
+          legal_form_id?: number | null
+          month?: number | null
+          physical_country_id?: number | null
+          physical_region_path?: string | null
+          primary_activity_category_path?: string | null
+          resolution?: Database["public"]["Enums"]["history_resolution"]
+          secondary_activity_category_path?: string | null
+          sector_path?: string | null
+          sign?: number
+          stats_ended?: Json | null
+          status_id?: number | null
+          unit_id?: number
+          unit_size_id?: number | null
+          unit_type?: Database["public"]["Enums"]["statistical_unit_type"]
+          year?: number
+        },
+        Relationships: []
+      },
+      statistical_history_facet_stock_delta: {
+        Row: {
+          countable_delta: number
+          exists_delta: number
+          legal_form_id: number | null
+          on_month: string
+          physical_country_id: number | null
+          physical_region_path: string | null
+          primary_activity_category_path: string | null
+          secondary_activity_category_path: string | null
+          sector_path: string | null
+          stats_delta: Json | null
+          status_id: number | null
+          unit_ids: number[]
+          unit_size_id: number | null
+          unit_type: Database["public"]["Enums"]["statistical_unit_type"]
+        },
+        Insert: {
+          countable_delta: number
+          exists_delta: number
+          legal_form_id?: number | null
+          on_month: string
+          physical_country_id?: number | null
+          physical_region_path?: string | null
+          primary_activity_category_path?: string | null
+          secondary_activity_category_path?: string | null
+          sector_path?: string | null
+          stats_delta?: Json | null
+          status_id?: number | null
+          unit_ids: number[]
+          unit_size_id?: number | null
+          unit_type: Database["public"]["Enums"]["statistical_unit_type"]
+        },
+        Update: {
+          countable_delta?: number
+          exists_delta?: number
+          legal_form_id?: number | null
+          on_month?: string
+          physical_country_id?: number | null
+          physical_region_path?: string | null
+          primary_activity_category_path?: string | null
+          secondary_activity_category_path?: string | null
+          sector_path?: string | null
+          stats_delta?: Json | null
+          status_id?: number | null
+          unit_ids?: number[]
+          unit_size_id?: number | null
+          unit_type?: Database["public"]["Enums"]["statistical_unit_type"]
+        },
+        Relationships: []
+      },
+      statistical_history_facet_stock_delta_staging: {
+        Row: {
+          countable_delta: number
+          exists_delta: number
+          legal_form_id: number | null
+          on_month: string
+          physical_country_id: number | null
+          physical_region_path: string | null
+          primary_activity_category_path: string | null
+          secondary_activity_category_path: string | null
+          sector_path: string | null
+          sign: number
+          stats_delta: Json | null
+          status_id: number | null
+          unit_id: number
+          unit_size_id: number | null
+          unit_type: Database["public"]["Enums"]["statistical_unit_type"]
+        },
+        Insert: {
+          countable_delta: number
+          exists_delta: number
+          legal_form_id?: number | null
+          on_month: string
+          physical_country_id?: number | null
+          physical_region_path?: string | null
+          primary_activity_category_path?: string | null
+          secondary_activity_category_path?: string | null
+          sector_path?: string | null
+          sign: number
+          stats_delta?: Json | null
+          status_id?: number | null
+          unit_id: number
+          unit_size_id?: number | null
+          unit_type: Database["public"]["Enums"]["statistical_unit_type"]
+        },
+        Update: {
+          countable_delta?: number
+          exists_delta?: number
+          legal_form_id?: number | null
+          on_month?: string
+          physical_country_id?: number | null
+          physical_region_path?: string | null
+          primary_activity_category_path?: string | null
+          secondary_activity_category_path?: string | null
+          sector_path?: string | null
+          sign?: number
+          stats_delta?: Json | null
+          status_id?: number | null
+          unit_id?: number
+          unit_size_id?: number | null
+          unit_type?: Database["public"]["Enums"]["statistical_unit_type"]
+        },
+        Relationships: []
+      },
+      statistical_history_period: {
+        Row: {
+          curr_start: string
+          curr_stop: string
+          month: number | null
+          prev_stop: string
+          resolution: Database["public"]["Enums"]["history_resolution"]
+          year: number
+        },
+        Insert: {
+          curr_start: string
+          curr_stop: string
+          month?: number | null
+          prev_stop: string
+          resolution: Database["public"]["Enums"]["history_resolution"]
+          year: number
+        },
+        Update: {
+          curr_start?: string
+          curr_stop?: string
+          month?: number | null
+          prev_stop?: string
+          resolution?: Database["public"]["Enums"]["history_resolution"]
+          year?: number
+        },
+        Relationships: []
       },
       statistical_unit: {
         Row: {

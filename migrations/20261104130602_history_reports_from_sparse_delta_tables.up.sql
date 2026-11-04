@@ -3,8 +3,8 @@
 -- statistical_history and statistical_history_facet held one row per cell per period, rebuilt per
 -- period and hash slot (3.5 GB plus a 21 GB per-slot cache on Norway). They become views with the same
 -- columns over two sparse delta tables that hold only changes:
---   public.history_stock_delta  per (cell, month): entries and exits of units, and their stats
---   public.history_flow_delta   per (cell, period): the change counts between period ends
+--   public.statistical_history_facet_stock_delta  per (cell, month): entries and exits of units, and their stats
+--   public.statistical_history_facet_flow_delta   per (cell, period): the change counts between period ends
 -- A period's stock is the sum of the deltas up to its end.
 --
 -- The deltas are maintained in the derive pipeline before statistical_unit_flush_staging: at that point
@@ -47,7 +47,7 @@ DROP TYPE public.statistical_history_facet_type;
 -- ===================================================================== delta tables and their maintenance
 -- ===================================================================== tables
 -- Stock deltas per (cell, month). Summed up to a period end they give the stock at that end.
-CREATE TABLE public.history_stock_delta (
+CREATE TABLE public.statistical_history_facet_stock_delta (
     unit_type public.statistical_unit_type NOT NULL,
     primary_activity_category_path public.ltree,
     secondary_activity_category_path public.ltree,
@@ -63,13 +63,13 @@ CREATE TABLE public.history_stock_delta (
     stats_delta jsonb,
     unit_ids integer[] NOT NULL
 );
-CREATE UNIQUE INDEX history_stock_delta_key ON public.history_stock_delta (unit_type, primary_activity_category_path,
+CREATE UNIQUE INDEX statistical_history_facet_stock_delta_key ON public.statistical_history_facet_stock_delta (unit_type, primary_activity_category_path,
     secondary_activity_category_path, sector_path, legal_form_id, physical_region_path, physical_country_id,
     unit_size_id, status_id, on_month) NULLS NOT DISTINCT;
-CREATE INDEX ON public.history_stock_delta (unit_type, on_month);
+CREATE INDEX ON public.statistical_history_facet_stock_delta (unit_type, on_month);
 
 -- Flow deltas per (cell, period).
-CREATE TABLE public.history_flow_delta (
+CREATE TABLE public.statistical_history_facet_flow_delta (
     resolution public.history_resolution NOT NULL,
     year integer NOT NULL,
     month integer,
@@ -86,20 +86,20 @@ CREATE TABLE public.history_flow_delta (
     stats_ended jsonb,
     unit_ids integer[] NOT NULL
 );
-COMMENT ON COLUMN public.history_flow_delta.flows IS 'In order: exists_change, exists_added_count, exists_removed_count, countable_change, countable_added_count, countable_removed_count, births, deaths, name, primary_activity_category, secondary_activity_category, sector, legal_form, physical_region, physical_country, physical_address, unit_size, status change counts.';
-CREATE UNIQUE INDEX history_flow_delta_key ON public.history_flow_delta (resolution, year, month, unit_type,
+COMMENT ON COLUMN public.statistical_history_facet_flow_delta.flows IS 'In order: exists_change, exists_added_count, exists_removed_count, countable_change, countable_added_count, countable_removed_count, births, deaths, name, primary_activity_category, secondary_activity_category, sector, legal_form, physical_region, physical_country, physical_address, unit_size, status change counts.';
+CREATE UNIQUE INDEX statistical_history_facet_flow_delta_key ON public.statistical_history_facet_flow_delta (resolution, year, month, unit_type,
     primary_activity_category_path, secondary_activity_category_path, sector_path, legal_form_id,
     physical_region_path, physical_country_id, unit_size_id, status_id) NULLS NOT DISTINCT;
 
 -- Staging: signed per-unit rows written by the concurrent per-range children, summed by the reduce.
-CREATE UNLOGGED TABLE public.history_stock_delta_staging (
+CREATE UNLOGGED TABLE public.statistical_history_facet_stock_delta_staging (
     unit_id integer NOT NULL, sign smallint NOT NULL,
     unit_type public.statistical_unit_type NOT NULL,
     primary_activity_category_path public.ltree, secondary_activity_category_path public.ltree,
     sector_path public.ltree, legal_form_id integer, physical_region_path public.ltree,
     physical_country_id integer, unit_size_id integer, status_id integer,
     on_month date NOT NULL, exists_delta integer NOT NULL, countable_delta integer NOT NULL, stats_delta jsonb);
-CREATE UNLOGGED TABLE public.history_flow_delta_staging (
+CREATE UNLOGGED TABLE public.statistical_history_facet_flow_delta_staging (
     unit_id integer NOT NULL, sign smallint NOT NULL,
     resolution public.history_resolution NOT NULL, year integer NOT NULL, month integer,
     unit_type public.statistical_unit_type NOT NULL,
@@ -131,8 +131,8 @@ CREATE AGGREGATE public.int_array_sum(integer[]) (SFUNC = public.int_array_add, 
 -- Contribution of the unit versions in table p_source (statistical_unit rows) restricted to the units in
 -- pg_temp.hd_units (unit_type, unit_id). Writes unsigned per-unit rows to pg_temp.hd_stock / pg_temp.hd_flow
 -- tagged with p_sign. Each kind depends only on one unit's own versions, so per-unit rows are exact.
-CREATE PROCEDURE worker.history_contribution(p_source regclass, p_sign smallint)
-LANGUAGE plpgsql AS $history_contribution$
+CREATE PROCEDURE worker.statistical_history_facet_delta_contribution(p_source regclass, p_sign smallint)
+LANGUAGE plpgsql AS $statistical_history_facet_delta_contribution$
 BEGIN
     IF to_regclass('pg_temp.hd_v') IS NOT NULL THEN DROP TABLE pg_temp.hd_v; END IF;
     EXECUTE format($SQL$
@@ -257,24 +257,24 @@ BEGIN
      WHERE NOT EXISTS (SELECT 1 FROM hd_v AS w WHERE w.unit_type = v.unit_type AND w.unit_id = v.unit_id
                           AND w.valid_from > v.valid_from AND w.valid_from <= ep.curr_stop);
 END;
-$history_contribution$;
+$statistical_history_facet_delta_contribution$;
 
-CREATE PROCEDURE worker.history_contribution_begin()
-LANGUAGE plpgsql AS $history_contribution_begin$
+CREATE PROCEDURE worker.statistical_history_facet_delta_contribution_begin()
+LANGUAGE plpgsql AS $statistical_history_facet_delta_contribution_begin$
 BEGIN
     IF to_regclass('pg_temp.hd_stock') IS NOT NULL THEN DROP TABLE pg_temp.hd_stock; END IF;
-    CREATE TEMP TABLE hd_stock (LIKE public.history_stock_delta_staging);
+    CREATE TEMP TABLE hd_stock (LIKE public.statistical_history_facet_stock_delta_staging);
     IF to_regclass('pg_temp.hd_flow') IS NOT NULL THEN DROP TABLE pg_temp.hd_flow; END IF;
-    CREATE TEMP TABLE hd_flow (LIKE public.history_flow_delta_staging);
+    CREATE TEMP TABLE hd_flow (LIKE public.statistical_history_facet_flow_delta_staging);
 END;
-$history_contribution_begin$;
+$statistical_history_facet_delta_contribution_begin$;
 
 -- Move hd_stock / hd_flow to the staging tables with their sign applied. A unit's old row that reappears
 -- identical among its new rows cancels first, so units refreshed without change stage nothing.
-CREATE PROCEDURE worker.history_contribution_stage()
-LANGUAGE plpgsql AS $history_contribution_stage$
+CREATE PROCEDURE worker.statistical_history_facet_delta_contribution_stage()
+LANGUAGE plpgsql AS $statistical_history_facet_delta_contribution_stage$
 BEGIN
-    INSERT INTO public.history_stock_delta_staging
+    INSERT INTO public.statistical_history_facet_stock_delta_staging
     WITH plus AS (SELECT unit_id, unit_type, primary_activity_category_path, secondary_activity_category_path, sector_path,
                          legal_form_id, physical_region_path, physical_country_id, unit_size_id, status_id, on_month,
                          exists_delta, countable_delta, stats_delta FROM pg_temp.hd_stock WHERE sign > 0),
@@ -291,7 +291,7 @@ BEGIN
            -exists_delta, -countable_delta, public.jsonb_stats_negate(stats_delta)
       FROM (SELECT * FROM minus EXCEPT ALL SELECT * FROM plus) AS r;
 
-    INSERT INTO public.history_flow_delta_staging
+    INSERT INTO public.statistical_history_facet_flow_delta_staging
     WITH plus AS (SELECT unit_id, resolution, year, month, unit_type, primary_activity_category_path,
                          secondary_activity_category_path, sector_path, legal_form_id, physical_region_path,
                          physical_country_id, unit_size_id, status_id, flows, stats_ended FROM pg_temp.hd_flow WHERE sign > 0),
@@ -311,19 +311,19 @@ BEGIN
       FROM (SELECT * FROM minus EXCEPT ALL SELECT * FROM plus) AS r;
     TRUNCATE pg_temp.hd_stock, pg_temp.hd_flow;
 END;
-$history_contribution_stage$;
+$statistical_history_facet_delta_contribution_stage$;
 
 -- ===================================================================== per-range step
 -- One hash range. The units in p_new (statistical_unit_staging) are the units this cycle refreshed:
 -- incrementally, their versions in p_old (statistical_unit) are subtracted and their new versions added.
 -- For a rebuild the delta tables are emptied by the reduce, and every unit is added as it will stand after
 -- the flush: refreshed units from p_new, the others from p_old.
-CREATE PROCEDURE worker.history_delta_range(p_hash_range int4range, p_rebuild boolean,
+CREATE PROCEDURE worker.statistical_history_facet_delta_stage_partition(p_hash_range int4range, p_rebuild boolean,
                                           p_old regclass DEFAULT 'public.statistical_unit',
                                           p_new regclass DEFAULT 'public.statistical_unit_staging')
-LANGUAGE plpgsql AS $history_delta_range$
+LANGUAGE plpgsql AS $statistical_history_facet_delta_stage_partition$
 BEGIN
-    CALL worker.history_contribution_begin();
+    CALL worker.statistical_history_facet_delta_contribution_begin();
     IF to_regclass('pg_temp.hd_units') IS NOT NULL THEN DROP TABLE pg_temp.hd_units; END IF;
     IF to_regclass('pg_temp.hd_refreshed') IS NOT NULL THEN DROP TABLE pg_temp.hd_refreshed; END IF;
     EXECUTE format($SQL$CREATE TEMP TABLE hd_refreshed AS SELECT DISTINCT unit_type, unit_id FROM %1$s
@@ -335,47 +335,47 @@ BEGIN
                                AND NOT EXISTS (SELECT 1 FROM pg_temp.hd_refreshed AS r
                                                 WHERE r.unit_type = o.unit_type AND r.unit_id = o.unit_id)$SQL$,
                        p_old, lower(p_hash_range), upper(p_hash_range));
-        CALL worker.history_contribution(p_old, 1::smallint);
+        CALL worker.statistical_history_facet_delta_contribution(p_old, 1::smallint);
         DROP TABLE pg_temp.hd_units;
         CREATE TEMP TABLE hd_units AS SELECT * FROM pg_temp.hd_refreshed;
-        CALL worker.history_contribution(p_new, 1::smallint);
+        CALL worker.statistical_history_facet_delta_contribution(p_new, 1::smallint);
     ELSE
         CREATE TEMP TABLE hd_units AS SELECT * FROM pg_temp.hd_refreshed;
-        CALL worker.history_contribution(p_old, (-1)::smallint);
-        CALL worker.history_contribution(p_new, 1::smallint);
+        CALL worker.statistical_history_facet_delta_contribution(p_old, (-1)::smallint);
+        CALL worker.statistical_history_facet_delta_contribution(p_new, 1::smallint);
     END IF;
-    CALL worker.history_contribution_stage();
+    CALL worker.statistical_history_facet_delta_contribution_stage();
 END;
-$history_delta_range$;
+$statistical_history_facet_delta_stage_partition$;
 
 -- Units removed from statistical_unit outside the flush (worker.derive_statistical_unit deletes the rows of
 -- units whose base row is gone): stage the subtraction of their versions before the rows are deleted.
-CREATE PROCEDURE worker.history_delta_remove_units(p_unit_type public.statistical_unit_type, p_unit_ids integer[],
+CREATE PROCEDURE worker.statistical_history_facet_delta_remove_units(p_unit_type public.statistical_unit_type, p_unit_ids integer[],
                                                  p_old regclass DEFAULT 'public.statistical_unit')
-LANGUAGE plpgsql AS $history_delta_remove_units$
+LANGUAGE plpgsql AS $statistical_history_facet_delta_remove_units$
 BEGIN
-    CALL worker.history_contribution_begin();
+    CALL worker.statistical_history_facet_delta_contribution_begin();
     IF to_regclass('pg_temp.hd_units') IS NOT NULL THEN DROP TABLE pg_temp.hd_units; END IF;
     CREATE TEMP TABLE hd_units AS SELECT p_unit_type AS unit_type, id AS unit_id FROM unnest(p_unit_ids) AS id;
-    CALL worker.history_contribution(p_old, (-1)::smallint);
-    CALL worker.history_contribution_stage();
+    CALL worker.statistical_history_facet_delta_contribution(p_old, (-1)::smallint);
+    CALL worker.statistical_history_facet_delta_contribution_stage();
 END;
-$history_delta_remove_units$;
+$statistical_history_facet_delta_remove_units$;
 
 -- ===================================================================== apply
 -- Adds the staged rows into the tables and empties the staging. Membership in unit_ids is counted, so the
 -- result does not depend on how many cycles were staged before one apply, nor on their order.
 -- A row with no stats keeps stats NULL (delta_agg over no summaries would store an empty stats_delta,
 -- which every read then parses); the stats columns stay NULL until a summary arrives.
-CREATE PROCEDURE worker.history_delta_apply()
+CREATE PROCEDURE worker.statistical_history_facet_delta_apply()
 LANGUAGE plpgsql
 -- The MERGEs join a cycle's staged sums (small) to the whole delta table (large) on an exact text key;
 -- a merge join sorts the whole table by that key every cycle (9.8 s on Norway for 500 staged rows),
 -- a hash join reads it once (1.2 s). The planner picks the merge join on its cost estimate, so it is off.
 SET enable_mergejoin = off
-AS $history_delta_apply$
+AS $statistical_history_facet_delta_apply$
 BEGIN
-    LOCK TABLE public.history_stock_delta_staging, public.history_flow_delta_staging IN EXCLUSIVE MODE;
+    LOCK TABLE public.statistical_history_facet_stock_delta_staging, public.statistical_history_facet_flow_delta_staging IN EXCLUSIVE MODE;
 
     IF to_regclass('pg_temp.hd_sum') IS NOT NULL THEN DROP TABLE pg_temp.hd_sum; END IF;
     CREATE TEMP TABLE hd_sum AS
@@ -385,12 +385,12 @@ BEGIN
            public.jsonb_stats_delta_agg(stats_delta) FILTER (WHERE stats_delta IS NOT NULL) AS stats_delta,
            array_agg(unit_id ORDER BY unit_id) FILTER (WHERE sign > 0) AS plus_ids,
            array_agg(unit_id ORDER BY unit_id) FILTER (WHERE sign < 0) AS minus_ids
-      FROM public.history_stock_delta_staging
+      FROM public.statistical_history_facet_stock_delta_staging
      GROUP BY 1, 2, 3, 4, 5, 6, 7, 8, 9, 10;
 
     -- The dimensions are nullable, and IS NOT DISTINCT FROM cannot drive a hash join; their row as text
     -- (NULL renders empty, '' renders quoted) is an exact key that can, so the MERGE stays linear.
-    MERGE INTO public.history_stock_delta AS t
+    MERGE INTO public.statistical_history_facet_stock_delta AS t
     USING hd_sum AS s
        ON t.unit_type = s.unit_type AND t.on_month = s.on_month
       AND ROW(t.primary_activity_category_path, t.secondary_activity_category_path, t.sector_path, t.legal_form_id, t.physical_region_path, t.physical_country_id, t.unit_size_id, t.status_id)::text = ROW(s.primary_activity_category_path, s.secondary_activity_category_path, s.sector_path, s.legal_form_id, s.physical_region_path, s.physical_country_id, s.unit_size_id, s.status_id)::text
@@ -412,7 +412,7 @@ BEGIN
     WHEN NOT MATCHED THEN INSERT VALUES (s.unit_type, s.primary_activity_category_path, s.secondary_activity_category_path,
         s.sector_path, s.legal_form_id, s.physical_region_path, s.physical_country_id, s.unit_size_id, s.status_id,
         s.on_month, s.exists_delta, s.countable_delta, s.stats_delta, worker.unit_ids_apply('{}', s.plus_ids, s.minus_ids));
-    DELETE FROM public.history_stock_delta WHERE cardinality(unit_ids) = 0;
+    DELETE FROM public.statistical_history_facet_stock_delta WHERE cardinality(unit_ids) = 0;
 
     IF to_regclass('pg_temp.hd_fsum') IS NOT NULL THEN DROP TABLE pg_temp.hd_fsum; END IF;
     CREATE TEMP TABLE hd_fsum AS
@@ -422,10 +422,10 @@ BEGIN
            public.jsonb_stats_delta_agg(stats_ended) FILTER (WHERE stats_ended IS NOT NULL) AS stats_ended,
            array_agg(unit_id ORDER BY unit_id) FILTER (WHERE sign > 0) AS plus_ids,
            array_agg(unit_id ORDER BY unit_id) FILTER (WHERE sign < 0) AS minus_ids
-      FROM public.history_flow_delta_staging
+      FROM public.statistical_history_facet_flow_delta_staging
      GROUP BY 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12;
 
-    MERGE INTO public.history_flow_delta AS t
+    MERGE INTO public.statistical_history_facet_flow_delta AS t
     USING hd_fsum AS s
        ON t.resolution = s.resolution AND t.year = s.year AND t.month IS NOT DISTINCT FROM s.month
       AND t.unit_type = s.unit_type
@@ -449,17 +449,17 @@ BEGIN
         s.secondary_activity_category_path, s.sector_path, s.legal_form_id, s.physical_region_path,
         s.physical_country_id, s.unit_size_id, s.status_id, s.flows, s.stats_ended,
         worker.unit_ids_apply('{}', s.plus_ids, s.minus_ids));
-    DELETE FROM public.history_flow_delta WHERE cardinality(unit_ids) = 0;
+    DELETE FROM public.statistical_history_facet_flow_delta WHERE cardinality(unit_ids) = 0;
 
-    TRUNCATE public.history_stock_delta_staging, public.history_flow_delta_staging;
+    TRUNCATE public.statistical_history_facet_stock_delta_staging, public.statistical_history_facet_flow_delta_staging;
 END;
-$history_delta_apply$;
+$statistical_history_facet_delta_apply$;
 
 
 -- ===================================================================== worker commands
 -- The partition count for a number of units. Thresholds tuned for the 16384-slot space: few partitions for
 -- small datasets, more as the unit count grows. admin.adjust_partition_count_target stores it for the
--- current statistical_unit; worker.derive_history_delta sizes its ranges with it before the flush.
+-- current statistical_unit; worker.derive_statistical_history_facet_delta sizes its ranges with it before the flush.
 CREATE FUNCTION public.partition_count_target_for(p_unit_count bigint) RETURNS integer
 LANGUAGE sql IMMUTABLE PARALLEL SAFE AS $partition_count_target_for$
     SELECT CASE
@@ -488,20 +488,20 @@ BEGIN
 END;
 $procedure$;
 
--- Children of derive_history_delta: one hash range each, run concurrently.
-CREATE PROCEDURE worker.derive_history_delta_range(IN payload jsonb, INOUT p_info jsonb DEFAULT NULL::jsonb)
+-- Children of derive_statistical_history_facet_delta: one hash range each, run concurrently.
+CREATE PROCEDURE worker.derive_statistical_history_facet_delta_partition(IN payload jsonb, INOUT p_info jsonb DEFAULT NULL::jsonb)
  LANGUAGE plpgsql
  SECURITY DEFINER
  SET search_path TO 'public', 'worker', 'pg_temp'
-AS $derive_history_delta_range$
+AS $derive_statistical_history_facet_delta_partition$
 DECLARE
     v_hash_range int4range := (payload->>'hash_range')::int4range;
     v_rebuild boolean := COALESCE((payload->>'rebuild')::boolean, false);
 BEGIN
-    CALL worker.history_delta_range(p_hash_range => v_hash_range, p_rebuild => v_rebuild);
+    CALL worker.statistical_history_facet_delta_stage_partition(p_hash_range => v_hash_range, p_rebuild => v_rebuild);
     p_info := jsonb_build_object('hash_range', v_hash_range::text, 'rebuild', v_rebuild);
 END;
-$derive_history_delta_range$;
+$derive_statistical_history_facet_delta_partition$;
 
 -- Runs after derive_statistical_unit has filled statistical_unit_staging and before the flush. Spawns one
 -- concurrent child per hash range holding a refreshed unit; on an all-units derive (all ids NULL), or
@@ -509,11 +509,11 @@ $derive_history_delta_range$;
 -- with rebuild = true. Ranges are sized by public.partition_count_target_for the units this cycle covers
 -- (statistical_unit before the flush, or the staged units on a first load), as the flush then sets
 -- partition_count_target; any split is exact, since each unit is in one range.
-CREATE PROCEDURE worker.derive_history_delta(IN payload jsonb, INOUT p_info jsonb DEFAULT NULL::jsonb)
+CREATE PROCEDURE worker.derive_statistical_history_facet_delta(IN payload jsonb, INOUT p_info jsonb DEFAULT NULL::jsonb)
  LANGUAGE plpgsql
  SECURITY DEFINER
  SET search_path TO 'public', 'worker', 'pg_temp'
-AS $derive_history_delta$
+AS $derive_statistical_history_facet_delta$
 DECLARE
     v_task_id bigint;
     v_rebuild boolean;
@@ -528,7 +528,7 @@ BEGIN
     -- An all-time derive (valid_from = -infinity, valid_until = infinity: worker.enqueue_derive_statistical_unit_all)
     -- rebuilds, and so does a first cycle that finds the tables empty while statistical_unit has rows.
     v_rebuild := ((payload->>'valid_from')::date = '-infinity'::date AND (payload->>'valid_until')::date = 'infinity'::date)
-        OR (NOT EXISTS (SELECT 1 FROM public.history_stock_delta LIMIT 1)
+        OR (NOT EXISTS (SELECT 1 FROM public.statistical_history_facet_stock_delta LIMIT 1)
             AND EXISTS (SELECT 1 FROM public.statistical_unit LIMIT 1));
 
     v_range_size := GREATEST(1, 16384 / public.partition_count_target_for(GREATEST(
@@ -544,8 +544,8 @@ BEGIN
          ORDER BY 1
     LOOP
         PERFORM worker.spawn(
-            p_command => 'derive_history_delta_range',
-            p_payload => jsonb_build_object('command', 'derive_history_delta_range',
+            p_command => 'derive_statistical_history_facet_delta_partition',
+            p_payload => jsonb_build_object('command', 'derive_statistical_history_facet_delta_partition',
                                             'hash_range', v_range::text, 'rebuild', v_rebuild),
             p_parent_id => v_task_id);
         v_child_count := v_child_count + 1;
@@ -554,51 +554,51 @@ BEGIN
     -- A rebuild starts from empty tables and an empty staging (rows staged by a cycle that never
     -- reached its reduce are covered by the rebuild).
     IF v_rebuild THEN
-        TRUNCATE public.history_stock_delta, public.history_flow_delta,
-                 public.history_stock_delta_staging, public.history_flow_delta_staging;
+        TRUNCATE public.statistical_history_facet_stock_delta, public.statistical_history_facet_flow_delta,
+                 public.statistical_history_facet_stock_delta_staging, public.statistical_history_facet_flow_delta_staging;
     END IF;
     p_info := jsonb_build_object('child_count', v_child_count, 'rebuild', v_rebuild, 'range_size', v_range_size);
 END;
-$derive_history_delta$;
+$derive_statistical_history_facet_delta$;
 
 -- Last step of the reports phase: adds the staged deltas into the tables, refreshes the period list, and
 -- clears the dirty hash slots every report derive of this cycle has read.
-CREATE PROCEDURE worker.history_delta_reduce(IN payload jsonb, INOUT p_info jsonb DEFAULT NULL::jsonb)
+CREATE PROCEDURE worker.statistical_history_facet_delta_reduce(IN payload jsonb, INOUT p_info jsonb DEFAULT NULL::jsonb)
  LANGUAGE plpgsql
  SECURITY DEFINER
  SET search_path TO 'public', 'worker', 'pg_temp'
-AS $history_delta_reduce_cmd$
+AS $statistical_history_facet_delta_reduce_cmd$
 DECLARE
     v_stock_staged bigint;
     v_flow_staged bigint;
 BEGIN
-    SELECT count(*) INTO v_stock_staged FROM public.history_stock_delta_staging;
-    SELECT count(*) INTO v_flow_staged FROM public.history_flow_delta_staging;
-    CALL worker.history_delta_apply();
-    CALL public.history_period_refresh();
+    SELECT count(*) INTO v_stock_staged FROM public.statistical_history_facet_stock_delta_staging;
+    SELECT count(*) INTO v_flow_staged FROM public.statistical_history_facet_flow_delta_staging;
+    CALL worker.statistical_history_facet_delta_apply();
+    CALL public.statistical_history_period_refresh();
     TRUNCATE public.statistical_unit_facet_dirty_hash_slots;
     PERFORM pg_notify('worker_status',
         json_build_object('type', 'is_deriving_reports', 'status', false)::text);
     p_info := jsonb_build_object('stock_rows_staged', v_stock_staged, 'flow_rows_staged', v_flow_staged);
 END;
-$history_delta_reduce_cmd$;
+$statistical_history_facet_delta_reduce_cmd$;
 
 INSERT INTO worker.command_registry (command, handler_procedure, description, queue) VALUES
-    ('derive_history_delta', 'worker.derive_history_delta',
+    ('derive_statistical_history_facet_delta', 'worker.derive_statistical_history_facet_delta',
      'Spawn one history delta child per hash range of the units refreshed this cycle (or of all units for a rebuild)', 'analytics'),
-    ('derive_history_delta_range', 'worker.derive_history_delta_range',
+    ('derive_statistical_history_facet_delta_partition', 'worker.derive_statistical_history_facet_delta_partition',
      'Stage the history deltas of one hash range: new versions in statistical_unit_staging minus old ones in statistical_unit', 'analytics'),
-    ('history_delta_reduce', 'worker.history_delta_reduce',
-     'Add the staged history deltas into history_stock_delta and history_flow_delta', 'analytics');
+    ('statistical_history_facet_delta_reduce', 'worker.statistical_history_facet_delta_reduce',
+     'Add the staged history deltas into statistical_history_facet_stock_delta and statistical_history_facet_flow_delta', 'analytics');
 INSERT INTO worker.pipeline_step_weight (step, weight, seq, phase) VALUES
-    ('derive_history_delta', 10, 2, 'is_deriving_statistical_units'),
-    ('history_delta_reduce', 2, 9, 'is_deriving_reports');
+    ('derive_statistical_history_facet_delta', 10, 2, 'is_deriving_statistical_units'),
+    ('statistical_history_facet_delta_reduce', 2, 9, 'is_deriving_reports');
 UPDATE worker.pipeline_step_weight SET seq = 3 WHERE step = 'statistical_unit_flush_staging';
 
 -- ===================================================================== periods and views
 -- The periods the reports show, as get_statistical_history_periods() gives them for the current data.
--- Kept as a table because the function scans statistical_unit; history_delta_reduce refreshes it.
-CREATE TABLE public.history_period (
+-- Kept as a table because the function scans statistical_unit; statistical_history_facet_delta_reduce refreshes it.
+CREATE TABLE public.statistical_history_period (
     resolution public.history_resolution NOT NULL,
     year integer NOT NULL,
     month integer,
@@ -606,19 +606,19 @@ CREATE TABLE public.history_period (
     curr_start date NOT NULL,
     curr_stop date NOT NULL
 );
-CREATE UNIQUE INDEX history_period_key ON public.history_period (resolution, year, month) NULLS NOT DISTINCT;
-COMMENT ON TABLE public.history_period IS 'The periods statistical_history and statistical_history_facet show: get_statistical_history_periods() for the current data, refreshed by worker.history_delta_reduce.';
+CREATE UNIQUE INDEX statistical_history_period_key ON public.statistical_history_period (resolution, year, month) NULLS NOT DISTINCT;
+COMMENT ON TABLE public.statistical_history_period IS 'The periods statistical_history and statistical_history_facet show: get_statistical_history_periods() for the current data, refreshed by worker.statistical_history_facet_delta_reduce.';
 
-CREATE PROCEDURE public.history_period_refresh()
-LANGUAGE plpgsql AS $history_period_refresh$
+CREATE PROCEDURE public.statistical_history_period_refresh()
+LANGUAGE plpgsql AS $statistical_history_period_refresh$
 BEGIN
-    DELETE FROM public.history_period;
-    INSERT INTO public.history_period (resolution, year, month, prev_stop, curr_start, curr_stop)
+    DELETE FROM public.statistical_history_period;
+    INSERT INTO public.statistical_history_period (resolution, year, month, prev_stop, curr_start, curr_stop)
     SELECT resolution, year, month, prev_stop, curr_start, curr_stop FROM public.get_statistical_history_periods();
 END;
-$history_period_refresh$;
+$statistical_history_period_refresh$;
 
--- Filled by the history_delta_reduce of the rebuild this migration enqueues; the tables start empty.
+-- Filled by the statistical_history_facet_delta_reduce of the rebuild this migration enqueues; the tables start empty.
 
 -- ===================================================================== views with today's names
 CREATE VIEW public.statistical_history_facet WITH (security_invoker = on) AS
@@ -628,7 +628,7 @@ WITH stock AS (
            sum(d.exists_delta) OVER w AS exists_count, sum(d.countable_delta) OVER w AS countable_count,
            public.jsonb_stats_delta_agg(d.stats_delta) OVER w AS stats_stock,
            lead(d.on_month) OVER w AS next_date
-      FROM public.history_stock_delta AS d
+      FROM public.statistical_history_facet_stock_delta AS d
     WINDOW w AS (PARTITION BY d.unit_type, d.primary_activity_category_path, d.secondary_activity_category_path,
                  d.sector_path, d.legal_form_id, d.physical_region_path, d.physical_country_id, d.unit_size_id,
                  d.status_id ORDER BY d.on_month)
@@ -637,14 +637,14 @@ WITH stock AS (
            s.sector_path, s.legal_form_id, s.physical_region_path, s.physical_country_id, s.unit_size_id, s.status_id,
            (s.exists_count <> 0 OR s.countable_count <> 0) AS has_row, s.exists_count, s.countable_count,
            NULL::integer[] AS flows, s.stats_stock AS stats
-      FROM public.history_period AS p
+      FROM public.statistical_history_period AS p
       JOIN stock AS s ON s.on_month <= p.curr_stop AND (s.next_date IS NULL OR p.curr_stop < s.next_date)
     UNION ALL
     SELECT f.resolution, f.year, f.month, f.unit_type, f.primary_activity_category_path, f.secondary_activity_category_path,
            f.sector_path, f.legal_form_id, f.physical_region_path, f.physical_country_id, f.unit_size_id, f.status_id,
            EXISTS (SELECT 1 FROM unnest(f.flows) AS x WHERE x <> 0), 0, 0, f.flows, f.stats_ended
-      FROM public.history_flow_delta AS f
-      JOIN public.history_period AS p ON p.resolution = f.resolution AND p.year = f.year AND p.month IS NOT DISTINCT FROM f.month
+      FROM public.statistical_history_facet_flow_delta AS f
+      JOIN public.statistical_history_period AS p ON p.resolution = f.resolution AND p.year = f.year AND p.month IS NOT DISTINCT FROM f.month
 )
 SELECT resolution, year, month, unit_type, primary_activity_category_path, secondary_activity_category_path,
        sector_path, legal_form_id, physical_region_path, physical_country_id, unit_size_id, status_id,
@@ -680,11 +680,11 @@ CREATE VIEW public.statistical_history WITH (security_invoker = on) AS
 WITH per_month AS (
     SELECT d.unit_type, d.on_month, sum(d.exists_delta) AS exists_delta, sum(d.countable_delta) AS countable_delta,
            public.jsonb_stats_delta_agg(d.stats_delta) AS stats_delta
-      FROM public.history_stock_delta AS d GROUP BY 1, 2
+      FROM public.statistical_history_facet_stock_delta AS d GROUP BY 1, 2
 ), stock AS (
     SELECT p.resolution, p.year, p.month, m.unit_type, sum(m.exists_delta) AS exists_count,
            sum(m.countable_delta) AS countable_count, public.jsonb_stats_delta_agg(m.stats_delta) AS stats_stock
-      FROM public.history_period AS p
+      FROM public.statistical_history_period AS p
       JOIN per_month AS m ON m.on_month <= p.curr_stop
      GROUP BY 1, 2, 3, 4
 ), flow AS (
@@ -694,7 +694,7 @@ WITH per_month AS (
                  sum(f.flows[13]), sum(f.flows[14]), sum(f.flows[15]), sum(f.flows[16]), sum(f.flows[17]),
                  sum(f.flows[18])]::integer[] AS flows,
            public.jsonb_stats_delta_agg(f.stats_ended) AS stats_ended
-      FROM public.history_flow_delta AS f GROUP BY 1, 2, 3, 4
+      FROM public.statistical_history_facet_flow_delta AS f GROUP BY 1, 2, 3, 4
 )
 SELECT COALESCE(s.resolution, f.resolution) AS resolution, COALESCE(s.year, f.year) AS year,
        COALESCE(s.month, f.month) AS month, COALESCE(s.unit_type, f.unit_type) AS unit_type,
@@ -718,7 +718,7 @@ SELECT COALESCE(s.resolution, f.resolution) AS resolution, COALESCE(s.year, f.ye
        NULL::int4range AS hash_partition
   FROM stock AS s
   FULL JOIN (SELECT f.* FROM flow AS f
-              WHERE EXISTS (SELECT 1 FROM public.history_period AS p
+              WHERE EXISTS (SELECT 1 FROM public.statistical_history_period AS p
                              WHERE p.resolution = f.resolution AND p.year = f.year
                                AND COALESCE(p.month, 0) = COALESCE(f.month, 0))) AS f
     ON f.unit_type = s.unit_type AND f.resolution = s.resolution AND f.year = s.year
@@ -728,7 +728,7 @@ SELECT COALESCE(s.resolution, f.resolution) AS resolution, COALESCE(s.year, f.ye
  WHERE COALESCE(s.exists_count, 0) <> 0 OR COALESCE(s.countable_count, 0) <> 0 OR f.unit_type IS NOT NULL;
 
 -- ===================================================================== pipeline
--- collect_changes: derive_history_delta before the flush, history_delta_reduce last in the reports phase.
+-- collect_changes: derive_statistical_history_facet_delta before the flush, statistical_history_facet_delta_reduce last in the reports phase.
 CREATE OR REPLACE PROCEDURE worker.command_collect_changes(IN p_payload jsonb, INOUT p_info jsonb DEFAULT NULL::jsonb)
  LANGUAGE plpgsql
  SET search_path TO 'public', 'worker', 'pg_temp'
@@ -899,7 +899,7 @@ BEGIN
         );
 
         PERFORM worker.spawn(
-            p_command => 'derive_history_delta',
+            p_command => 'derive_statistical_history_facet_delta',
             p_payload => v_payload,
             p_parent_id => v_phase1_id,
             p_child_mode => 'serial'
@@ -946,7 +946,7 @@ BEGIN
         );
 
         PERFORM worker.spawn(
-            p_command => 'history_delta_reduce',
+            p_command => 'statistical_history_facet_delta_reduce',
             p_payload => v_payload,
             p_parent_id => v_phase2_id,
             p_child_mode => 'serial'
@@ -1054,7 +1054,7 @@ BEGIN
                 DELETE FROM public.timesegments WHERE unit_type = 'enterprise' AND unit_id = ANY(v_orphan_enterprise_ids);
                 DELETE FROM public.timeline_enterprise WHERE enterprise_id = ANY(v_orphan_enterprise_ids);
                 -- The history deltas lose the unit's contribution here; the flush never sees it again.
-                CALL worker.history_delta_remove_units(p_unit_type => 'enterprise', p_unit_ids => v_orphan_enterprise_ids);
+                CALL worker.statistical_history_facet_delta_remove_units(p_unit_type => 'enterprise', p_unit_ids => v_orphan_enterprise_ids);
                 DELETE FROM public.statistical_unit WHERE unit_type = 'enterprise' AND unit_id = ANY(v_orphan_enterprise_ids);
                 INSERT INTO public.statistical_unit_facet_dirty_hash_slots (dirty_hash_slot)
                 SELECT DISTINCT public.hash_slot('enterprise', id)
@@ -1068,7 +1068,7 @@ BEGIN
                 DELETE FROM public.timepoints WHERE unit_type = 'legal_unit' AND unit_id = ANY(v_orphan_legal_unit_ids);
                 DELETE FROM public.timesegments WHERE unit_type = 'legal_unit' AND unit_id = ANY(v_orphan_legal_unit_ids);
                 DELETE FROM public.timeline_legal_unit WHERE legal_unit_id = ANY(v_orphan_legal_unit_ids);
-                CALL worker.history_delta_remove_units(p_unit_type => 'legal_unit', p_unit_ids => v_orphan_legal_unit_ids);
+                CALL worker.statistical_history_facet_delta_remove_units(p_unit_type => 'legal_unit', p_unit_ids => v_orphan_legal_unit_ids);
                 DELETE FROM public.statistical_unit WHERE unit_type = 'legal_unit' AND unit_id = ANY(v_orphan_legal_unit_ids);
                 INSERT INTO public.statistical_unit_facet_dirty_hash_slots (dirty_hash_slot)
                 SELECT DISTINCT public.hash_slot('legal_unit', id)
@@ -1082,7 +1082,7 @@ BEGIN
                 DELETE FROM public.timepoints WHERE unit_type = 'establishment' AND unit_id = ANY(v_orphan_establishment_ids);
                 DELETE FROM public.timesegments WHERE unit_type = 'establishment' AND unit_id = ANY(v_orphan_establishment_ids);
                 DELETE FROM public.timeline_establishment WHERE establishment_id = ANY(v_orphan_establishment_ids);
-                CALL worker.history_delta_remove_units(p_unit_type => 'establishment', p_unit_ids => v_orphan_establishment_ids);
+                CALL worker.statistical_history_facet_delta_remove_units(p_unit_type => 'establishment', p_unit_ids => v_orphan_establishment_ids);
                 DELETE FROM public.statistical_unit WHERE unit_type = 'establishment' AND unit_id = ANY(v_orphan_establishment_ids);
                 INSERT INTO public.statistical_unit_facet_dirty_hash_slots (dirty_hash_slot)
                 SELECT DISTINCT public.hash_slot('establishment', id)
@@ -1096,7 +1096,7 @@ BEGIN
                 DELETE FROM public.timepoints WHERE unit_type = 'power_group' AND unit_id = ANY(v_orphan_power_group_ids);
                 DELETE FROM public.timesegments WHERE unit_type = 'power_group' AND unit_id = ANY(v_orphan_power_group_ids);
                 DELETE FROM public.timeline_power_group WHERE power_group_id = ANY(v_orphan_power_group_ids);
-                CALL worker.history_delta_remove_units(p_unit_type => 'power_group', p_unit_ids => v_orphan_power_group_ids);
+                CALL worker.statistical_history_facet_delta_remove_units(p_unit_type => 'power_group', p_unit_ids => v_orphan_power_group_ids);
                 DELETE FROM public.statistical_unit WHERE unit_type = 'power_group' AND unit_id = ANY(v_orphan_power_group_ids);
                 INSERT INTO public.statistical_unit_facet_dirty_hash_slots (dirty_hash_slot)
                 SELECT DISTINCT public.hash_slot('power_group', id)
@@ -1294,9 +1294,9 @@ BEGIN
     PERFORM admin.add_rls_regular_user_can_read('public.legal_form_used'::regclass);
     PERFORM admin.add_rls_regular_user_can_read('public.country_used'::regclass);
     PERFORM admin.add_rls_regular_user_can_read('public.statistical_unit_facet'::regclass);
-    PERFORM admin.add_rls_regular_user_can_read('public.history_stock_delta'::regclass);
-    PERFORM admin.add_rls_regular_user_can_read('public.history_flow_delta'::regclass);
-    PERFORM admin.add_rls_regular_user_can_read('public.history_period'::regclass);
+    PERFORM admin.add_rls_regular_user_can_read('public.statistical_history_facet_stock_delta'::regclass);
+    PERFORM admin.add_rls_regular_user_can_read('public.statistical_history_facet_flow_delta'::regclass);
+    PERFORM admin.add_rls_regular_user_can_read('public.statistical_history_period'::regclass);
     --
     -- ########### add_rls_regular_user_can_edit ###########
     PERFORM admin.add_rls_regular_user_can_edit('public.image'::regclass);
@@ -1399,11 +1399,11 @@ BEGIN
             public.statistical_unit_facet,
             public.statistical_unit_facet_staging,
             public.statistical_unit_facet_dirty_hash_slots,
-            public.history_stock_delta,
-            public.history_flow_delta,
-            public.history_stock_delta_staging,
-            public.history_flow_delta_staging,
-            public.history_period;
+            public.statistical_history_facet_stock_delta,
+            public.statistical_history_facet_flow_delta,
+            public.statistical_history_facet_stock_delta_staging,
+            public.statistical_history_facet_flow_delta_staging,
+            public.statistical_history_period;
 
         result := result
             || jsonb_build_object('activity', jsonb_build_object('deleted_count', _activity_count))
@@ -2134,22 +2134,22 @@ $function$
 
 -- ===================================================================== access
 -- The delta tables and periods are read like the other derived tables; the views run as the caller.
-SELECT admin.add_rls_regular_user_can_read('public.history_stock_delta'::regclass);
-SELECT admin.add_rls_regular_user_can_read('public.history_flow_delta'::regclass);
-SELECT admin.add_rls_regular_user_can_read('public.history_period'::regclass);
+SELECT admin.add_rls_regular_user_can_read('public.statistical_history_facet_stock_delta'::regclass);
+SELECT admin.add_rls_regular_user_can_read('public.statistical_history_facet_flow_delta'::regclass);
+SELECT admin.add_rls_regular_user_can_read('public.statistical_history_period'::regclass);
 GRANT SELECT ON public.statistical_history, public.statistical_history_facet TO authenticated, regular_user, admin_user;
 -- public.reset runs as the caller (admin_user) and empties the staging with the other derived tables.
-GRANT TRUNCATE ON public.history_stock_delta_staging, public.history_flow_delta_staging TO admin_user;
+GRANT TRUNCATE ON public.statistical_history_facet_stock_delta_staging, public.statistical_history_facet_flow_delta_staging TO admin_user;
 
-COMMENT ON TABLE public.history_stock_delta IS 'Stock changes per cell and month (on_month): +1/-1 when a unit enters/leaves the cell (exists_delta; countable_delta when it is used for counting) and the stats of counted versions entering and leaving (stats_delta, jsonb_stats stats_delta). The stock at a month end is the sum up to it. unit_ids lists the units contributing to the row. Maintained by worker.derive_history_delta and worker.history_delta_reduce.';
-COMMENT ON TABLE public.history_flow_delta IS 'Change counts per cell and period, comparing each unit at the previous and current period end (flows, in the order of the statistical_history_facet columns exists_change .. status_change_count), and the stats of units whose latest overlapping version ended inside the period (stats_ended). unit_ids lists the contributing units.';
-COMMENT ON COLUMN public.history_stock_delta.unit_ids IS 'Units contributing to this row, sorted. A unit leaves when its contribution is removed; the row is deleted when no unit remains.';
-COMMENT ON COLUMN public.history_stock_delta.on_month IS 'First day of the month in which the change takes effect. Every report period ends on a month end, and a change on any day of a month is in the stock at that month''s end, so bucketing by month gives the same stock at every period end as the exact dates. It keeps one row per cell and month however many changes fall inside the month, and a unit''s changes that undo each other within a month leave no row.';
-COMMENT ON TABLE public.history_stock_delta_staging IS 'Signed per-unit rows staged by worker.derive_history_delta_range children for this cycle; worker.history_delta_reduce adds them into history_stock_delta.';
-COMMENT ON TABLE public.history_flow_delta_staging IS 'Signed per-unit rows staged by worker.derive_history_delta_range children for this cycle; worker.history_delta_reduce adds them into history_flow_delta.';
-COMMENT ON VIEW public.statistical_history IS 'Totals per period and unit type, from history_stock_delta and history_flow_delta. stats_summary is the stock read from deltas (jsonb_stats_delta_to_agg): exact count, sum and sum_sq; no min/max, since those cannot be undone when a unit leaves.';
+COMMENT ON TABLE public.statistical_history_facet_stock_delta IS 'Stock changes per cell and month (on_month): +1/-1 when a unit enters/leaves the cell (exists_delta; countable_delta when it is used for counting) and the stats of counted versions entering and leaving (stats_delta, jsonb_stats stats_delta). The stock at a month end is the sum up to it. unit_ids lists the units contributing to the row. Maintained by worker.derive_statistical_history_facet_delta and worker.statistical_history_facet_delta_reduce.';
+COMMENT ON TABLE public.statistical_history_facet_flow_delta IS 'Change counts per cell and period, comparing each unit at the previous and current period end (flows, in the order of the statistical_history_facet columns exists_change .. status_change_count), and the stats of units whose latest overlapping version ended inside the period (stats_ended). unit_ids lists the contributing units.';
+COMMENT ON COLUMN public.statistical_history_facet_stock_delta.unit_ids IS 'Units contributing to this row, sorted. A unit leaves when its contribution is removed; the row is deleted when no unit remains.';
+COMMENT ON COLUMN public.statistical_history_facet_stock_delta.on_month IS 'First day of the month in which the change takes effect. Every report period ends on a month end, and a change on any day of a month is in the stock at that month''s end, so bucketing by month gives the same stock at every period end as the exact dates. It keeps one row per cell and month however many changes fall inside the month, and a unit''s changes that undo each other within a month leave no row.';
+COMMENT ON TABLE public.statistical_history_facet_stock_delta_staging IS 'Signed per-unit rows staged by worker.derive_statistical_history_facet_delta_partition children for this cycle; worker.statistical_history_facet_delta_reduce adds them into statistical_history_facet_stock_delta.';
+COMMENT ON TABLE public.statistical_history_facet_flow_delta_staging IS 'Signed per-unit rows staged by worker.derive_statistical_history_facet_delta_partition children for this cycle; worker.statistical_history_facet_delta_reduce adds them into statistical_history_facet_flow_delta.';
+COMMENT ON VIEW public.statistical_history IS 'Totals per period and unit type, from statistical_history_facet_stock_delta and statistical_history_facet_flow_delta. stats_summary is the stock read from deltas (jsonb_stats_delta_to_agg): exact count, sum and sum_sq; no min/max, since those cannot be undone when a unit leaves.';
 COMMENT ON COLUMN public.statistical_history.hash_partition IS 'Always NULL: every row is a period total. Kept so readers of the former table, which filtered hash_partition IS NULL to get the totals, read the same rows.';
-COMMENT ON VIEW public.statistical_history_facet IS 'Counts and stats per period and cell, from history_stock_delta and history_flow_delta. stats_summary as in statistical_history: exact count, sum and sum_sq, no min/max.';
+COMMENT ON VIEW public.statistical_history_facet IS 'Counts and stats per period and cell, from statistical_history_facet_stock_delta and statistical_history_facet_flow_delta. stats_summary as in statistical_history: exact count, sum and sum_sq, no min/max.';
 
 -- Rebuild the history deltas from statistical_unit after this migration commits; no-op on an empty database.
 SELECT worker.enqueue_derive_statistical_unit_all();

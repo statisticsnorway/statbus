@@ -1,5 +1,5 @@
 ```sql
-CREATE OR REPLACE PROCEDURE worker.history_contribution(IN p_source regclass, IN p_sign smallint)
+CREATE OR REPLACE PROCEDURE worker.statistical_history_facet_delta_contribution(IN p_source regclass, IN p_sign smallint)
  LANGUAGE plpgsql
 AS $procedure$
 BEGIN

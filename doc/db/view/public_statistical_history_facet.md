@@ -51,7 +51,7 @@ View definition:
             sum(d.countable_delta) OVER w AS countable_count,
             jsonb_stats_delta_agg(d.stats_delta) OVER w AS stats_stock,
             lead(d.on_month) OVER w AS next_date
-           FROM history_stock_delta d
+           FROM statistical_history_facet_stock_delta d
           WINDOW w AS (PARTITION BY d.unit_type, d.primary_activity_category_path, d.secondary_activity_category_path, d.sector_path, d.legal_form_id, d.physical_region_path, d.physical_country_id, d.unit_size_id, d.status_id ORDER BY d.on_month)
         ), parts AS (
          SELECT p.resolution,
@@ -71,7 +71,7 @@ View definition:
             s.countable_count,
             NULL::integer[] AS flows,
             s.stats_stock AS stats
-           FROM history_period p
+           FROM statistical_history_period p
              JOIN stock s ON s.on_month <= p.curr_stop AND (s.next_date IS NULL OR p.curr_stop < s.next_date)
         UNION ALL
          SELECT f.resolution,
@@ -93,8 +93,8 @@ View definition:
             0,
             f.flows,
             f.stats_ended
-           FROM history_flow_delta f
-             JOIN history_period p ON p.resolution = f.resolution AND p.year = f.year AND NOT p.month IS DISTINCT FROM f.month
+           FROM statistical_history_facet_flow_delta f
+             JOIN statistical_history_period p ON p.resolution = f.resolution AND p.year = f.year AND NOT p.month IS DISTINCT FROM f.month
         )
  SELECT resolution,
     year,
@@ -136,4 +136,4 @@ Options: security_invoker=on
 
 ```
 
-**Comment:** Counts and stats per period and cell, from history_stock_delta and history_flow_delta. stats_summary as in statistical_history: exact count, sum and sum_sq, no min/max.
+**Comment:** Counts and stats per period and cell, from statistical_history_facet_stock_delta and statistical_history_facet_flow_delta. stats_summary as in statistical_history: exact count, sum and sum_sq, no min/max.

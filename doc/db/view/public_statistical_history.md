@@ -33,7 +33,7 @@ View definition:
             sum(d.exists_delta) AS exists_delta,
             sum(d.countable_delta) AS countable_delta,
             jsonb_stats_delta_agg(d.stats_delta) AS stats_delta
-           FROM history_stock_delta d
+           FROM statistical_history_facet_stock_delta d
           GROUP BY d.unit_type, d.on_month
         ), stock AS (
          SELECT p.resolution,
@@ -43,7 +43,7 @@ View definition:
             sum(m.exists_delta) AS exists_count,
             sum(m.countable_delta) AS countable_count,
             jsonb_stats_delta_agg(m.stats_delta) AS stats_stock
-           FROM history_period p
+           FROM statistical_history_period p
              JOIN per_month m ON m.on_month <= p.curr_stop
           GROUP BY p.resolution, p.year, p.month, m.unit_type
         ), flow AS (
@@ -53,7 +53,7 @@ View definition:
             f_1.unit_type,
             ARRAY[sum(f_1.flows[1])::integer, sum(f_1.flows[2])::integer, sum(f_1.flows[3])::integer, sum(f_1.flows[4])::integer, sum(f_1.flows[5])::integer, sum(f_1.flows[6])::integer, sum(f_1.flows[7])::integer, sum(f_1.flows[8])::integer, sum(f_1.flows[9])::integer, sum(f_1.flows[10])::integer, sum(f_1.flows[11])::integer, sum(f_1.flows[12])::integer, sum(f_1.flows[13])::integer, sum(f_1.flows[14])::integer, sum(f_1.flows[15])::integer, sum(f_1.flows[16])::integer, sum(f_1.flows[17])::integer, sum(f_1.flows[18])::integer] AS flows,
             jsonb_stats_delta_agg(f_1.stats_ended) AS stats_ended
-           FROM history_flow_delta f_1
+           FROM statistical_history_facet_flow_delta f_1
           GROUP BY f_1.resolution, f_1.year, f_1.month, f_1.unit_type
         )
  SELECT COALESCE(s.resolution, f.resolution) AS resolution,
@@ -89,11 +89,11 @@ View definition:
             f_1.stats_ended
            FROM flow f_1
           WHERE (EXISTS ( SELECT 1
-                   FROM history_period p
+                   FROM statistical_history_period p
                   WHERE p.resolution = f_1.resolution AND p.year = f_1.year AND COALESCE(p.month, 0) = COALESCE(f_1.month, 0)))) f ON f.unit_type = s.unit_type AND f.resolution = s.resolution AND f.year = s.year AND COALESCE(f.month, 0) = COALESCE(s.month, 0)
   WHERE COALESCE(s.exists_count, 0::numeric) <> 0::numeric OR COALESCE(s.countable_count, 0::numeric) <> 0::numeric OR f.unit_type IS NOT NULL;
 Options: security_invoker=on
 
 ```
 
-**Comment:** Totals per period and unit type, from history_stock_delta and history_flow_delta. stats_summary is the stock read from deltas (jsonb_stats_delta_to_agg): exact count, sum and sum_sq; no min/max, since those cannot be undone when a unit leaves.
+**Comment:** Totals per period and unit type, from statistical_history_facet_stock_delta and statistical_history_facet_flow_delta. stats_summary is the stock read from deltas (jsonb_stats_delta_to_agg): exact count, sum and sum_sq; no min/max, since those cannot be undone when a unit leaves.

@@ -1,9 +1,9 @@
 ```sql
-CREATE OR REPLACE PROCEDURE worker.history_delta_range(IN p_hash_range int4range, IN p_rebuild boolean, IN p_old regclass DEFAULT 'statistical_unit'::regclass, IN p_new regclass DEFAULT 'statistical_unit_staging'::regclass)
+CREATE OR REPLACE PROCEDURE worker.statistical_history_facet_delta_stage_partition(IN p_hash_range int4range, IN p_rebuild boolean, IN p_old regclass DEFAULT 'statistical_unit'::regclass, IN p_new regclass DEFAULT 'statistical_unit_staging'::regclass)
  LANGUAGE plpgsql
 AS $procedure$
 BEGIN
-    CALL worker.history_contribution_begin();
+    CALL worker.statistical_history_facet_delta_contribution_begin();
     IF to_regclass('pg_temp.hd_units') IS NOT NULL THEN DROP TABLE pg_temp.hd_units; END IF;
     IF to_regclass('pg_temp.hd_refreshed') IS NOT NULL THEN DROP TABLE pg_temp.hd_refreshed; END IF;
     EXECUTE format($SQL$CREATE TEMP TABLE hd_refreshed AS SELECT DISTINCT unit_type, unit_id FROM %1$s
@@ -15,16 +15,16 @@ BEGIN
                                AND NOT EXISTS (SELECT 1 FROM pg_temp.hd_refreshed AS r
                                                 WHERE r.unit_type = o.unit_type AND r.unit_id = o.unit_id)$SQL$,
                        p_old, lower(p_hash_range), upper(p_hash_range));
-        CALL worker.history_contribution(p_old, 1::smallint);
+        CALL worker.statistical_history_facet_delta_contribution(p_old, 1::smallint);
         DROP TABLE pg_temp.hd_units;
         CREATE TEMP TABLE hd_units AS SELECT * FROM pg_temp.hd_refreshed;
-        CALL worker.history_contribution(p_new, 1::smallint);
+        CALL worker.statistical_history_facet_delta_contribution(p_new, 1::smallint);
     ELSE
         CREATE TEMP TABLE hd_units AS SELECT * FROM pg_temp.hd_refreshed;
-        CALL worker.history_contribution(p_old, (-1)::smallint);
-        CALL worker.history_contribution(p_new, 1::smallint);
+        CALL worker.statistical_history_facet_delta_contribution(p_old, (-1)::smallint);
+        CALL worker.statistical_history_facet_delta_contribution(p_new, 1::smallint);
     END IF;
-    CALL worker.history_contribution_stage();
+    CALL worker.statistical_history_facet_delta_contribution_stage();
 END;
 $procedure$
 ```

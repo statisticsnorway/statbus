@@ -2,31 +2,31 @@
 -- Every definition below is the one the up migration replaced, as \sf and pg_dump -s printed it.
 BEGIN;
 
-DELETE FROM worker.pipeline_step_weight WHERE step IN ('derive_history_delta', 'history_delta_reduce');
-DELETE FROM worker.tasks WHERE command IN ('derive_history_delta', 'derive_history_delta_range', 'history_delta_reduce');
-DELETE FROM worker.command_registry WHERE command IN ('derive_history_delta', 'derive_history_delta_range', 'history_delta_reduce');
+DELETE FROM worker.pipeline_step_weight WHERE step IN ('derive_statistical_history_facet_delta', 'statistical_history_facet_delta_reduce');
+DELETE FROM worker.tasks WHERE command IN ('derive_statistical_history_facet_delta', 'derive_statistical_history_facet_delta_partition', 'statistical_history_facet_delta_reduce');
+DELETE FROM worker.command_registry WHERE command IN ('derive_statistical_history_facet_delta', 'derive_statistical_history_facet_delta_partition', 'statistical_history_facet_delta_reduce');
 UPDATE worker.pipeline_step_weight SET seq = 2 WHERE step = 'statistical_unit_flush_staging';
 
 DROP VIEW public.statistical_history;
 DROP VIEW public.statistical_history_facet;
-DROP PROCEDURE worker.history_delta_reduce(jsonb, jsonb);
-DROP PROCEDURE worker.derive_history_delta(jsonb, jsonb);
-DROP PROCEDURE worker.derive_history_delta_range(jsonb, jsonb);
-DROP PROCEDURE worker.history_delta_apply();
-DROP PROCEDURE worker.history_delta_remove_units(public.statistical_unit_type, integer[], regclass);
-DROP PROCEDURE worker.history_delta_range(int4range, boolean, regclass, regclass);
-DROP PROCEDURE worker.history_contribution_stage();
-DROP PROCEDURE worker.history_contribution_begin();
-DROP PROCEDURE worker.history_contribution(regclass, smallint);
+DROP PROCEDURE worker.statistical_history_facet_delta_reduce(jsonb, jsonb);
+DROP PROCEDURE worker.derive_statistical_history_facet_delta(jsonb, jsonb);
+DROP PROCEDURE worker.derive_statistical_history_facet_delta_partition(jsonb, jsonb);
+DROP PROCEDURE worker.statistical_history_facet_delta_apply();
+DROP PROCEDURE worker.statistical_history_facet_delta_remove_units(public.statistical_unit_type, integer[], regclass);
+DROP PROCEDURE worker.statistical_history_facet_delta_stage_partition(int4range, boolean, regclass, regclass);
+DROP PROCEDURE worker.statistical_history_facet_delta_contribution_stage();
+DROP PROCEDURE worker.statistical_history_facet_delta_contribution_begin();
+DROP PROCEDURE worker.statistical_history_facet_delta_contribution(regclass, smallint);
 DROP FUNCTION worker.unit_ids_apply(integer[], integer[], integer[]);
 DROP AGGREGATE public.int_array_sum(integer[]);
 DROP FUNCTION public.int_array_add(integer[], integer[]);
-DROP PROCEDURE public.history_period_refresh();
-DROP TABLE public.history_period;
-DROP TABLE public.history_stock_delta_staging;
-DROP TABLE public.history_flow_delta_staging;
-DROP TABLE public.history_stock_delta;
-DROP TABLE public.history_flow_delta;
+DROP PROCEDURE public.statistical_history_period_refresh();
+DROP TABLE public.statistical_history_period;
+DROP TABLE public.statistical_history_facet_stock_delta_staging;
+DROP TABLE public.statistical_history_facet_flow_delta_staging;
+DROP TABLE public.statistical_history_facet_stock_delta;
+DROP TABLE public.statistical_history_facet_flow_delta;
 
 CREATE TYPE public.statistical_history_type AS (resolution history_resolution, year integer, month integer, unit_type statistical_unit_type, exists_count integer, exists_change integer, exists_added_count integer, exists_removed_count integer, countable_count integer, countable_change integer, countable_added_count integer, countable_removed_count integer, births integer, deaths integer, name_change_count integer, primary_activity_category_change_count integer, secondary_activity_category_change_count integer, sector_change_count integer, legal_form_change_count integer, physical_region_change_count integer, physical_country_change_count integer, physical_address_change_count integer, stats_summary jsonb, hash_partition int4range);
 CREATE TYPE public.statistical_history_facet_type AS (resolution history_resolution, year integer, month integer, unit_type statistical_unit_type, primary_activity_category_path ltree, secondary_activity_category_path ltree, sector_path ltree, legal_form_id integer, physical_region_path ltree, physical_country_id integer, unit_size_id integer, status_id integer, exists_count integer, exists_change integer, exists_added_count integer, exists_removed_count integer, countable_count integer, countable_change integer, countable_added_count integer, countable_removed_count integer, births integer, deaths integer, name_change_count integer, primary_activity_category_change_count integer, secondary_activity_category_change_count integer, sector_change_count integer, legal_form_change_count integer, physical_region_change_count integer, physical_country_change_count integer, physical_address_change_count integer, unit_size_change_count integer, status_change_count integer, stats_summary jsonb);
