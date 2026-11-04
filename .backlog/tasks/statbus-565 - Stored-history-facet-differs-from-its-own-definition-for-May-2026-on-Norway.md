@@ -4,7 +4,7 @@ title: Stored history facet differs from its own definition for May 2026 on Norw
 status: To Do
 assignee: []
 created_date: '2026-11-04T00:21:00Z'
-updated_date: '2026-11-04T00:21:00Z'
+updated_date: '2026-11-04T00:34:00Z'
 labels: []
 dependencies: []
 priority: medium
@@ -20,7 +20,7 @@ On a restore of Norway's 2026-11-03 backup (rc.04, last full derive on rune 2026
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 The cause of the 296 stale May-2026 rows is identified and written in this ticket
+- [x] #1 The cause of the 296 stale May-2026 rows is identified and written in this ticket
 - [ ] #2 After a full derive, statistical_history_facet equals statistical_history_facet_def for every period on the restored Norway data (0 differing rows)
 <!-- AC:END -->
 
@@ -28,4 +28,6 @@ On a restore of Norway's 2026-11-03 backup (rc.04, last full derive on rune 2026
 
 <!-- SECTION:NOTES:BEGIN -->
 North Star: the stored history facet always equals its definition run on the current statistical_unit. Zoom out: check whether other months on other boxes show the same pattern (one month stale after a full derive). Closing review: no memory; no docs unless the cause is in the reduce; cleanup none.
+
+2026-11-04 cause found (tmp/558-shd/17-565-guard.sql, 565-guard.log): worker.statistical_history_facet_reduce updates a matched row only WHEN MATCHED AND (target.exists_count <> source.exists_count OR target.stats_summary IS DISTINCT FROM source.stats_summary). All 296 stale May-2026 rows have the same exists_count and stats_summary as the definition and differ only in exists_change/exists_added_count, name_change_count, physical_address_change_count. So a row whose only change is in its change counts is never rewritten. Fix in the current pipeline: compare every column in the guard (or the whole row). STATBUS-558 replaces this reduce; the owner decides whether to fix it separately.
 <!-- SECTION:NOTES:END -->
