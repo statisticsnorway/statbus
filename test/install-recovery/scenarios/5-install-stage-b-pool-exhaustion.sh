@@ -78,9 +78,13 @@ echo ""
 echo "── re-run install (Fix 3 docker-exec bypass) ──"
 install_statbus_in_vm "$VM_NAME" "$INSTALL_VERSION"
 
-# 6. Assertions
+# 6. Assertions. The install steps are read from the install's own output; the
+# health check also reads the database (recurring tasks), which needs a free
+# connection, so the wedge's sessions are ended first. The upgrader restarted
+# by the install connects as a superuser and can take the last reserved slot.
 assert_step9_completed "$VM_NAME"
 assert_step_upgrade_service_completed "$VM_NAME"
+release_pool_exhaustion "$VM_NAME"
 assert_health_passes "$VM_NAME"
 
 echo ""

@@ -99,6 +99,26 @@ WEDGE
     rm -f "$_wedge"
 }
 
+# release_pool_exhaustion <vm_name>
+#
+# Ends the sessions simulate_pool_exhaustion opened, so the checks that follow
+# observe the box rather than the wedge: the recurring-task check reads the
+# database and needs a free connection. The backends are ended by a superuser
+# connection inside the container (peer auth, reserved slot), which works while
+# the pool is still full; their client processes then exit on their own.
+release_pool_exhaustion() {
+    local vm_name="$1"
+    echo "  [wedge] releasing the idle psql sessions on $vm_name"
+    local _release
+    _release=$(mktemp)
+    cat > "$_release" <<'RELEASE'
+docker compose exec -T db psql -U postgres -t -A -c "SELECT count(pg_terminate_backend(pid)) FROM pg_stat_activity WHERE query = 'SELECT pg_sleep(3600);'"
+RELEASE
+    ssh "${SSH_OPTS[@]}" root@"$VM_IP" "sudo -i -u statbus bash -c 'cd ~/statbus && bash'" < "$_release" \
+        | sed 's/^/  [wedge] sessions ended: /'
+    rm -f "$_release"
+}
+
 # ─────────────────────────────────────────────────────────────────────────
 # simulate_systemd_failed <vm_name>
 #
