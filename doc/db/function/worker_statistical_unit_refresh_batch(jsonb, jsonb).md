@@ -114,16 +114,20 @@ BEGIN
             v_effective_en_count, v_batch_en_count;
     END IF;
 
+    -- A batch names exactly the units it refreshes. A unit type absent from the
+    -- payload is passed as the empty multirange, which timepoints_calculate reads
+    -- as "none of this type"; NULL there means every unit in the database
+    -- (STATBUS-566).
     CALL public.timepoints_refresh(
-        p_establishment_id_ranges => v_establishment_id_ranges,
-        p_legal_unit_id_ranges => v_legal_unit_id_ranges,
-        p_enterprise_id_ranges => v_enterprise_id_ranges,
+        p_establishment_id_ranges => COALESCE(v_establishment_id_ranges, '{}'::int4multirange),
+        p_legal_unit_id_ranges => COALESCE(v_legal_unit_id_ranges, '{}'::int4multirange),
+        p_enterprise_id_ranges => COALESCE(v_enterprise_id_ranges, '{}'::int4multirange),
         p_power_group_id_ranges => COALESCE(v_power_group_id_ranges, '{}'::int4multirange)
     );
     CALL public.timesegments_refresh(
-        p_establishment_id_ranges => v_establishment_id_ranges,
-        p_legal_unit_id_ranges => v_legal_unit_id_ranges,
-        p_enterprise_id_ranges => v_enterprise_id_ranges,
+        p_establishment_id_ranges => COALESCE(v_establishment_id_ranges, '{}'::int4multirange),
+        p_legal_unit_id_ranges => COALESCE(v_legal_unit_id_ranges, '{}'::int4multirange),
+        p_enterprise_id_ranges => COALESCE(v_enterprise_id_ranges, '{}'::int4multirange),
         p_power_group_id_ranges => COALESCE(v_power_group_id_ranges, '{}'::int4multirange)
     );
     -- timesegments_years_refresh_concurrent removed: years are now maintained
