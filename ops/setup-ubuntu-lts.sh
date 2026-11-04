@@ -4,9 +4,10 @@
 # setup-ubuntu-lts.sh
 # Ubuntu LTS Server Setup Script
 #
-# Usage (in a root login shell, sudo -i; plain sudo is refused):
-#   curl -fsSL https://statbus.org/setup.sh | bash                  # latest stable
-#   curl -fsSL https://statbus.org/rc/setup.sh | bash               # newest candidate
+# Usage (in a root login shell, sudo -i; plain sudo is refused). The latest
+# stable release, the newest candidate, or a specific release:
+#   curl -fsSL https://statbus.org/setup.sh | bash
+#   curl -fsSL https://statbus.org/rc/setup.sh | bash
 #   curl -fsSL https://github.com/statisticsnorway/statbus/releases/download/<tag>/setup-ubuntu-lts.sh | bash
 # Piped, the answers are read from the terminal.
 #

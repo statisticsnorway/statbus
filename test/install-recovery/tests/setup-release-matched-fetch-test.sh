@@ -1,53 +1,59 @@
 #!/usr/bin/env bash
-# STATBUS-488: the prepare path must fetch ops/setup-ubuntu-lts.sh from the
-# release being installed, resolved the way install.sh resolves it (an explicit
-# tag, or the stable channel via /releases/latest), never from master.
-#
-# Every operator document that shows the prepare fetch marks it with the line
-# "# STATBUS-488 prepare fetch". This test runs each marked snippet against a
-# stubbed curl and checks the URL it produces for a named release and for the
-# stable channel. It also checks that no prepare fetch in the operator docs
-# still names master.
+# STATBUS-488: an operator prepares a box with the setup script of the release
+# being installed, never from master. STATBUS-571: every operator document
+# shows that as a piped command from a released source:
+#   https://statbus.org/setup.sh        latest stable release's asset
+#   https://statbus.org/rc/setup.sh     newest candidate's asset (ops/rc resolver)
+#   https://github.com/statisticsnorway/statbus/releases/download/<tag>/setup-ubuntu-lts.sh
+# This test reads every setup command in the operator documents and requires
+# each to be one of those, piped to bash. It then checks the two shortcuts
+# land on release assets: statbus.org/setup.sh is redirected by niue's Caddy
+# to releases/latest/download (checked live when the network allows), and the
+# /rc/ resolver downloads releases/download/<tag>/setup-ubuntu-lts.sh.
 set -uo pipefail
 ROOT="$(cd "$(dirname "$0")/../../.." && pwd)"
-DOCS=(doc/setup-ubuntu-lts.md doc/DEPLOYMENT.md doc/hetzner-bootstrap.md ops/setup-ubuntu-lts.sh)
+DOCS=(README.md doc/setup-ubuntu-lts.md doc/DEPLOYMENT.md doc/hetzner-bootstrap.md ops/setup-ubuntu-lts.sh ops/manual-box.sh)
 fail=0
-RAW=https://raw.githubusercontent.com/statisticsnorway/statbus
+pass() { echo "PASS $1"; }
+nope() { echo "FAIL $1"; fail=1; }
 
-# Stub curl: record every URL; answer the releases API like GitHub does.
-CURL_LOG="$(mktemp)"
-curl() {
-    local a url=""
-    for a in "$@"; do [[ "$a" == http* ]] && url="$a"; done
-    echo "$url" >> "$CURL_LOG"
-    if [[ "$url" == *api.github.com*releases/latest* ]]; then
-        printf '{\n  "tag_name": "v2026.09.1",\n}\n'
-    fi
-    return 0
-}
-# The channel resolution must be the same call install.sh makes.
-API_LATEST='https://api.github.com/repos/statisticsnorway/statbus/releases/latest'
-grep -q "curl -sL $API_LATEST" "$ROOT/install.sh" || { echo "FAIL install.sh no longer resolves stable via $API_LATEST"; fail=1; }
-
+released='(https://statbus\.org/(rc/)?setup\.sh|https://github\.com/statisticsnorway/statbus/releases/download/(v[0-9]{4}\.[0-9]{2}\.[0-9]+(-rc\.[0-9]+)?|<tag>)/setup-ubuntu-lts\.sh)'
 for doc in "${DOCS[@]}"; do
     file="$ROOT/$doc"
-    if grep -nE 'statbus/(refs/heads/)?master/ops/setup-ubuntu-lts\.sh' "$file"; then
-        echo "FAIL $doc still fetches the setup script from master"; fail=1
+    # Every command line that fetches the setup script.
+    lines=$(grep -nE 'curl[^|]*(setup\.sh|setup-ubuntu-lts\.sh)' "$file" | grep -v 'statbus.org/rc/install\|install\.sh')
+    if [ -z "$lines" ]; then
+        nope "$doc shows no setup command"
+        continue
     fi
-    snippet="$(awk '/# STATBUS-488 prepare fetch/{on=1} on{print} on&&/ops\/setup-ubuntu-lts\.sh/{exit}' "$file" | sed -E 's/^#   ?//')"
-    if [[ -z "$snippet" ]]; then
-        echo "FAIL $doc has no marked prepare fetch"; fail=1; continue
+    bad=$(grep -vE "curl -fsSL $released \| ([A-Z_]+=\"[^\"]*\" )?bash( -s -- .*)?\$" <<<"$lines" | sed -E 's/^([0-9]+):\s*#?\s*/\1: /')
+    if [ -z "$bad" ]; then
+        pass "$doc: every setup command is piped from a released source"
+    else
+        nope "$doc: setup command not piped from a released source:"
+        printf '    %s\n' "$bad"
     fi
-    grep -q "curl -sL $API_LATEST" <<<"$snippet" || { echo "FAIL $doc does not resolve the channel like install.sh"; fail=1; }
-    for mode in named stable; do
-        : > "$CURL_LOG"
-        ( if [[ $mode == named ]]; then VERSION=v2026.03.0; else unset VERSION; fi
-          set +u; eval "$snippet" >/dev/null 2>&1 )
-        got="$(tail -1 "$CURL_LOG")"
-        if [[ $mode == named ]]; then tag=v2026.03.0; else tag=v2026.09.1; fi
-        want="$RAW/$tag/ops/setup-ubuntu-lts.sh"
-        if [[ "$got" == "$want" ]]; then echo "PASS $doc $mode -> $got"; else echo "FAIL $doc $mode -> '$got' want '$want'"; fail=1; fi
-    done
+    if grep -nE 'statbus/(refs/heads/)?master/ops/setup-ubuntu-lts\.sh|-o (setup|harden)\.sh' "$file"; then
+        nope "$doc still downloads the setup script to a file or from master"
+    fi
 done
-rm -f "$CURL_LOG"
+
+# The /rc/ resolver fetches the candidate's own release asset.
+if grep -q 'ASSET=setup-ubuntu-lts.sh' "$ROOT/ops/rc/setup.sh" \
+    && grep -q 'releases/download/$tag/$ASSET' "$ROOT/ops/rc/setup.sh"; then
+    pass "statbus.org/rc/setup.sh runs the candidate's release asset"
+else
+    nope "statbus.org/rc/setup.sh runs the candidate's release asset"
+fi
+
+# statbus.org/setup.sh is a redirect on niue; check it live when reachable.
+if loc=$(curl -fsS -o /dev/null -w '%{redirect_url}' --max-time 10 https://statbus.org/setup.sh 2>/dev/null); then
+    if [ "$loc" = https://github.com/statisticsnorway/statbus/releases/latest/download/setup-ubuntu-lts.sh ]; then
+        pass "statbus.org/setup.sh redirects to the latest release's asset"
+    else
+        nope "statbus.org/setup.sh redirects to '$loc'"
+    fi
+else
+    echo "SKIP statbus.org/setup.sh not reachable from here"
+fi
 exit $fail
