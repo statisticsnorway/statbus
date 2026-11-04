@@ -142,7 +142,7 @@ guide_text() {
   Release:           $release (the newest candidate; statbus.org/rc/ runs it)
   1. Log in:         ops/manual-box.sh ssh      (you are $login_user, a sudo user)
   2. Root shell:     sudo -i
-  3. Setup:          curl -fsSL https://statbus.org/rc/setup.sh -o setup.sh && bash setup.sh
+  3. Setup:          curl -fsSL https://statbus.org/rc/setup.sh | bash
                      Full name of this server: $cert_domain
                      At "Did that connect?": on your laptop run
                      ops/manual-box.sh try-ssh statbus, then answer y

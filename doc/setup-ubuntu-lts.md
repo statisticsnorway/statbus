@@ -20,25 +20,24 @@ This script is the **first of two phases** in a fresh StatBus install:
 ## Quick Start
 
 ```bash
-# Open a root login shell (HOME=/root, clean environment). Plain
-# `sudo ./setup.sh` from your own home is refused: root must not write
-# root-owned files into a non-root home.
+# Open a root login shell (HOME=/root, clean environment). Setup run with
+# plain sudo from your own home is refused: root must not write root-owned
+# files into a non-root home.
 sudo -i
 
-# Download
-# STATBUS-488 prepare fetch: use the setup script of the release you install.
-# Set VERSION to the tag you will install (e.g. VERSION=v2026.03.0, then pass the
-# same --version to install.sh); left unset it resolves the stable channel the
-# same way install.sh does.
-VERSION="${VERSION:-$(curl -sL https://api.github.com/repos/statisticsnorway/statbus/releases/latest | grep '"tag_name"' | cut -d'"' -f4)}"
-curl -fsSL "https://raw.githubusercontent.com/statisticsnorway/statbus/${VERSION}/ops/setup-ubuntu-lts.sh" -o setup.sh
-chmod +x setup.sh
+# The latest stable release's setup (prompts for configuration, then each stage)
+curl -fsSL https://statbus.org/setup.sh | bash
 
-# Releases before v2026.09.2 ship the script as ops/setup-ubuntu-lts-24.sh.
+# The newest release candidate's setup
+curl -fsSL https://statbus.org/rc/setup.sh | bash
 
-# Run (will prompt for configuration, then each stage)
-./setup.sh
+# A specific release (then pass the same --version to install.sh); releases
+# before v2026.10.1 do not carry the script as a release asset
+curl -fsSL https://github.com/statisticsnorway/statbus/releases/download/v2026.11.0/setup-ubuntu-lts.sh | bash
 ```
+
+Piped, setup reads its answers from your terminal. Options go after
+`bash -s --`, as in the examples below.
 
 ## Features
 
@@ -105,7 +104,7 @@ EXTRA_LOCALES="sq_AL nb_NO"
 SERVICE_USER="statbus"
 EOF
 
-./setup.sh --non-interactive
+curl -fsSL https://statbus.org/setup.sh | bash -s -- --non-interactive
 ```
 
 ### Choosing stages
@@ -117,14 +116,14 @@ for what this box should have, not to avoid a stage.
 ```bash
 # Run just some stages, e.g. after a fix in them. A stage's required stages
 # must be named too (service-account for ssh-hardening).
-./setup.sh --non-interactive --only-stages "service-account ssh-hardening security-tools"
+curl -fsSL https://statbus.org/setup.sh | bash -s -- --non-interactive --only-stages "service-account ssh-hardening security-tools"
 
 # Leave out a stage this box should not have, e.g. the firewall on a private
 # network that has its own.
-./setup.sh --non-interactive --skip-stages security-tools
+curl -fsSL https://statbus.org/setup.sh | bash -s -- --non-interactive --skip-stages security-tools
 
 # Environment form
-SKIP_STAGES="security-tools" ./setup.sh --non-interactive
+curl -fsSL https://statbus.org/setup.sh | SKIP_STAGES="security-tools" bash -s -- --non-interactive
 ```
 
 Both options take a space-separated list of names from the Stages table. The

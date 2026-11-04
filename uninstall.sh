@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
-# Standalone StatBus removal: curl -fsSL https://statbus.org/uninstall.sh | bash
 # shellcheck disable=SC2024 # LOG is in the invoking user's home; sudo is only for the command.
+{ # The whole script is one block, read completely before any of it runs: a download cut short (curl | bash) runs nothing. It ends with exit.
+# Standalone StatBus removal: curl -fsSL https://statbus.org/uninstall.sh | bash
 set -eo pipefail
 exec 2>&1
 # The StatBus release this script belongs to, stamped by the release workflow
@@ -544,3 +545,5 @@ if [[ -d $DIR ]]; then
     fi
 fi
 echo "Removal complete. Details: $LOG"
+exit
+}

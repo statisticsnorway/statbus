@@ -98,16 +98,14 @@ See **[User Guide](doc/USAGE.md)** for detailed instructions.
 StatBus server setup supports Ubuntu 24.04 LTS and Ubuntu 26.04 LTS. Two steps:
 harden the server, then install StatBus on it.
 
-**1. Harden the server.** Do this in a **root login shell** (plain
-`sudo ./setup.sh` from your own home is refused: root must not write root-owned
-files into a non-root home). This creates the service account and installs the
-tools and services StatBus runs on.
+**1. Harden the server.** Do this in a **root login shell** (`sudo -i`; setup
+run with plain `sudo` from your own home is refused: root must not write
+root-owned files into a non-root home). This creates the service account and
+installs the tools and services StatBus runs on.
 
 ```bash
 sudo -i
-curl -fsSL https://statbus.org/setup.sh -o setup.sh
-chmod +x setup.sh
-./setup.sh
+curl -fsSL https://statbus.org/setup.sh | bash
 ```
 
 To prepare for a specific version instead of the current stable release, see

@@ -1,21 +1,17 @@
 #!/bin/bash
+{ # The whole script is one block, read completely before any of it runs: a download cut short (curl | bash) runs nothing. It ends with exit.
 #
 # setup-ubuntu-lts.sh
 # Ubuntu LTS Server Setup Script
 #
-# Usage:
-#   sudo -i      # root login shell (HOME=/root); plain sudo is refused
-#   # STATBUS-488 prepare fetch: use the setup script of the release you install.
-#   # Set VERSION to the tag you will install (e.g. VERSION=v2026.03.0, then pass the
-#   # same --version to install.sh); left unset it resolves the stable channel the
-#   # same way install.sh does.
-#   VERSION="${VERSION:-$(curl -sL https://api.github.com/repos/statisticsnorway/statbus/releases/latest | grep '"tag_name"' | cut -d'"' -f4)}"
-#   curl -fsSL "https://raw.githubusercontent.com/statisticsnorway/statbus/${VERSION}/ops/setup-ubuntu-lts.sh" -o harden.sh
-#   chmod +x harden.sh
-#   ./harden.sh
+# Usage (in a root login shell, sudo -i; plain sudo is refused):
+#   curl -fsSL https://statbus.org/setup.sh | bash                  # latest stable
+#   curl -fsSL https://statbus.org/rc/setup.sh | bash               # newest candidate
+#   curl -fsSL https://github.com/statisticsnorway/statbus/releases/download/<tag>/setup-ubuntu-lts.sh | bash
+# Piped, the answers are read from the terminal.
 #
-# Non-interactive mode (uses .env values, runs all stages):
-#   ./harden.sh --non-interactive
+# Non-interactive mode (uses the config file values, runs all stages):
+#   curl -fsSL https://statbus.org/setup.sh | bash -s -- --non-interactive
 #
 # Configuration is stored in ~/.setup-ubuntu.env
 #
@@ -1972,7 +1968,7 @@ stage_ci_allowlist() {
     # reviewed commit plus a stage re-run instead of a privileged session.
     #
     # RUN THIS STAGE ALONE:
-    #   sudo ./harden.sh --non-interactive --only-stages ci-allowlist
+    #   curl -fsSL https://statbus.org/setup.sh | bash -s -- --non-interactive --only-stages ci-allowlist
 
     # STATBUS-280. ci-allowlist is OPT-IN. rc.10's smoke legs failed the default
     # sequence deterministically: almost no installation has a CI door, so an
@@ -2352,7 +2348,7 @@ check_supported_os() {
 }
 
 main() {
-    # STATBUS-492: plain `sudo ./setup.sh` keeps HOME at the invoking user's
+    # STATBUS-492: plain `sudo` keeps HOME at the invoking user's
     # home, so root would write root-owned files there. Require a login shell.
     # When the invoking user is root itself (`ssh root@box`, then `sudo -i`),
     # HOME is root's own home and there is no operator home to protect.
@@ -2424,6 +2420,19 @@ main() {
         esac
     done
 
+    # Piped from curl, standard input is this script itself, so answers are
+    # read from the operator's terminal instead. With no terminal (cron, ssh
+    # without -t, CI) an interactive run cannot ask anything: refuse and name
+    # the unattended form.
+    if [[ "$NON_INTERACTIVE" != "true" && ! -t 0 ]]; then
+        if (: </dev/tty) 2>/dev/null; then
+            exec </dev/tty
+        else
+            log_error "No terminal to ask the setup questions on. Run unattended with --non-interactive and the answers in $ENV_FILE (see doc/setup-ubuntu-lts.md)."
+            exit 1
+        fi
+    fi
+
     show_banner
     select_stages
     check_prerequisites
@@ -2472,6 +2481,11 @@ main() {
     fi
 }
 
-if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
-    main "$@"
+# Sourced (the tests load the functions): stop here and keep the caller's
+# shell. Run as a file or piped from curl (BASH_SOURCE[0] is empty): run main.
+if [[ -n "${BASH_SOURCE[0]}" && "${BASH_SOURCE[0]}" != "$0" ]]; then
+    return 0
 fi
+main "$@"
+exit
+}

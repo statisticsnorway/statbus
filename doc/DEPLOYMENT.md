@@ -2,9 +2,9 @@
 
 ## Removing an installation
 
-Run `./uninstall.sh` from the service user's home after downloading it as shown
-in [Quick Install](#quick-install), or run `./sb uninstall` from `~/statbus`.
-The hosted alternative is `curl -fsSL https://statbus.org/uninstall.sh | bash`.
+As the service user, run `curl -fsSL https://statbus.org/uninstall.sh | bash`
+(for a candidate install, `https://statbus.org/rc/uninstall.sh`), or run
+`./sb uninstall` from `~/statbus`.
 All entry points use the same standalone script. It lists every selected
 Docker resource, unit file, and checkout path before asking for `DELETE`.
 Interactive removal asks `Keep the users? [Y/n]` and
@@ -221,15 +221,11 @@ supported. This is step 1 of a two-phase install:
 
 ```bash
 sudo -i   # root login shell: HOME=/root, clean environment
-# STATBUS-488 prepare fetch: use the setup script of the release you install.
-# Set VERSION to the tag you will install (e.g. VERSION=v2026.03.0, then pass the
-# same --version to install.sh); left unset it resolves the stable channel the
-# same way install.sh does.
-VERSION="${VERSION:-$(curl -sL https://api.github.com/repos/statisticsnorway/statbus/releases/latest | grep '"tag_name"' | cut -d'"' -f4)}"
-curl -fsSL "https://raw.githubusercontent.com/statisticsnorway/statbus/${VERSION}/ops/setup-ubuntu-lts.sh" -o setup.sh
-chmod +x setup.sh
-./setup.sh
+curl -fsSL https://statbus.org/setup.sh | bash
 ```
+
+That is the latest stable release's setup; [setup-ubuntu-lts.md](setup-ubuntu-lts.md)
+shows the forms for the newest candidate and for a specific release.
 
 The script configures:
 - HTTPS APT sources (optional, for networks that block HTTP)
@@ -261,11 +257,7 @@ ubuntu) and run the StatBus installer:
 
 ```bash
 ssh statbus@<your-host>
-cd "$HOME"
-curl -fsSL https://statbus.org/install.sh -o install.sh
-curl -fsSL https://statbus.org/uninstall.sh -o uninstall.sh
-chmod +x install.sh uninstall.sh
-./install.sh --channel stable
+curl -fsSL https://statbus.org/install.sh | bash
 ```
 
 statbus.org serves the latest stable release's own scripts. To test the
@@ -274,24 +266,26 @@ candidate's own script, and `install.sh` installs that candidate:
 
 ```bash
 # as root (sudo -i):
-curl -fsSL https://statbus.org/rc/setup.sh -o setup.sh && chmod +x setup.sh && ./setup.sh
+curl -fsSL https://statbus.org/rc/setup.sh | bash
 # as the service account:
 curl -fsSL https://statbus.org/rc/install.sh | bash
 curl -fsSL https://statbus.org/rc/uninstall.sh | bash
 ```
 
-Keep the downloaded uninstaller
-outside `~/statbus`; to remove the installation later, run
-`cd "$HOME" && ./uninstall.sh` as the same service user. It removes
+Every script is run the same way, piped from its URL, so it is always the
+current release's; nothing is kept on disk to go stale. Piped, each script
+reads its answers from your terminal, and a download cut short runs nothing.
+Options go after `bash -s --`, for example `| bash -s -- --version v2026.11.0`.
+
+To remove the installation later, run
+`curl -fsSL https://statbus.org/uninstall.sh | bash` as the same service user. It removes
 `~/statbus` and `~/statbus-maintenance`. It asks whether to keep the users
 and credentials (moved to `~/statbus.users.yml` and `~/statbus.env.credentials`)
 and whether to delete the database dumps and the pre-upgrade backups in
 `~/statbus-backups`.
 
-This is an interactive install. The hosted alternative,
-`curl -fsSL https://statbus.org/install.sh | bash`, reconnects standard input
-to the controlling terminal before asking its questions. Without a terminal,
-use the unattended form below.
+This is an interactive install. Without a terminal, use the unattended form
+below.
 
 #### Unattended install
 

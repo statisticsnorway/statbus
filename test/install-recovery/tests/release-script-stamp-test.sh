@@ -69,7 +69,8 @@ if [ "$rc" -ne 0 ]; then pass "stamped install refuses an unknown option"; else 
 has "stamped install names the release" "StatBus installer $TAG" "$out"
 
 # uninstall: run only the part before DIR=, so no removal code executes.
-banner_of() { awk '/^DIR=/{exit} {print}' "$1"; }
+# The script is one block (STATBUS-571), so the cut part is closed with '}'.
+banner_of() { awk '/^DIR=/{exit} {print}' "$1"; echo '}'; }
 out="$(banner_of "$work/dist/uninstall.sh" | bash 2>&1)"
 has "stamped uninstaller names the release" "StatBus uninstaller $TAG" "$out"
 

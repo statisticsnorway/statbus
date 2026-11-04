@@ -181,15 +181,10 @@ setup script, which detects Ubuntu 24.04 or 26.04 from `/etc/os-release` and
 handles the OS hardening + account creation:
 
 ```bash
-# STATBUS-488 prepare fetch: use the setup script of the release you install.
-# Set VERSION to the tag you will install (e.g. VERSION=v2026.03.0, then pass the
-# same --version to install.sh); left unset it resolves the stable channel the
-# same way install.sh does.
-VERSION="${VERSION:-$(curl -sL https://api.github.com/repos/statisticsnorway/statbus/releases/latest | grep '"tag_name"' | cut -d'"' -f4)}"
-curl -fsSL "https://raw.githubusercontent.com/statisticsnorway/statbus/${VERSION}/ops/setup-ubuntu-lts.sh" -o setup.sh
-chmod +x setup.sh
-# https-sources probes the network and changes nothing where HTTP works.
-./setup.sh
+# The latest stable release's setup; https-sources probes the network and
+# changes nothing where HTTP works. For the newest candidate use
+# https://statbus.org/rc/setup.sh; for a specific release, see setup-ubuntu-lts.md.
+curl -fsSL https://statbus.org/setup.sh | bash
 ```
 
 See [setup-ubuntu-lts.md](setup-ubuntu-lts.md) for the full stage

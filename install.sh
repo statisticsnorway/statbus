@@ -1,4 +1,5 @@
 #!/bin/bash
+{ # The whole script is one block, read completely before any of it runs: a download cut short (curl | bash) runs nothing. It ends with exit.
 # StatBus installer
 #
 # This is the ONE command for both fresh installs and rescue/upgrade:
@@ -1231,3 +1232,5 @@ fi
 echo "==============================================================================="
 
 exit "$sb_rc"
+exit
+}

@@ -24,7 +24,7 @@ out="$(PATH="$work/bin:$PATH" STATBUS_CREDENTIALS_FILE="$work/creds" bash "$ROOT
 fail=0
 for want in \
     "Release:           v2026.11.1-rc.06 (the newest candidate; statbus.org/rc/ runs it)" \
-    "curl -fsSL https://statbus.org/rc/setup.sh -o setup.sh && bash setup.sh" \
+    "curl -fsSL https://statbus.org/rc/setup.sh | bash" \
     "curl -fsSL https://statbus.org/rc/install.sh | bash" \
     "curl -fsSL https://statbus.org/rc/uninstall.sh | bash"; do
     if grep -Fq -- "$want" <<<"$out"; then

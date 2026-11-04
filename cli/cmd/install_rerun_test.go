@@ -33,7 +33,8 @@ func TestRerunCommandPreservesInvocationOptions(t *testing.T) {
 			if !ok {
 				t.Fatal("rerun export missing")
 			}
-			script := prefix + marker + "printf '%s' \"$STATBUS_INSTALL_RERUN_COMMAND\"\n"
+			// install.sh is one block (STATBUS-571); the cut prefix closes it.
+			script := prefix + marker + "printf '%s' \"$STATBUS_INSTALL_RERUN_COMMAND\"\nexit\n}\n"
 			command := exec.Command("bash", append([]string{"-s", "--"}, tc.args...)...)
 			command.Stdin = strings.NewReader(script)
 			command.Env = append(os.Environ(), tc.env...)
