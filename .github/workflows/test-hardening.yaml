@@ -56,8 +56,10 @@ jobs:
           getent passwd statbus | grep -q ':/home/statbus:'
           # .ssh dir created with correct mode
           sudo test -d /home/statbus/.ssh
-          # Linger enabled
-          loginctl show-user statbus -p Linger | grep -q 'Linger=yes'
+          # Linger is core-tools' work, enabled after the Docker grant so the
+          # user manager starts with the docker group (STATBUS-500). The order
+          # is proven by test/install-recovery/tests/setup-docker-access-test.sh
+          # and the LXD gate's full setup run.
 
   install-stack:
     # Exercise ./sb install + docker compose up in development mode. This
