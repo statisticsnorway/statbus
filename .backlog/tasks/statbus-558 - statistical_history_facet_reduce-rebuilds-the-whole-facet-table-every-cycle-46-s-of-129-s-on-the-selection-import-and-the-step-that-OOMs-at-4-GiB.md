@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-11-02T13:15:00Z'
-updated_date: '2026-11-04T09:31:00Z'
+updated_date: '2026-11-04T10:04:00Z'
 labels: []
 dependencies: []
 type: bug
@@ -131,4 +131,6 @@ Dense months grow with periods x combinations; a sparse or interval form grows w
 - one year by activity: 66 / 2,343 / 48 / 1,018 / 79,223
 - months of one year by region: 658 / 10,941 / 398 / 12,957 / OOM
 All sources give the view's answers (values_differ 0). Raw facet_def over a year of months on full Norway is OOM-killed at 8G. Roll-ups on Norway: year 136 MB, 20 s build; month 991 MB, 116 s. Delta is never worse than raw except months-by-region (10.9 s vs 13.0 s raw count-only). Proposed: delta tables + views + stored year roll-up (option B); awaiting owner.
+
+2026-11-04 Q2d: aggregate the deltas first (tmp/558-shd/22-q2d-aggregate-first.log). Because the sums are linear, a report grouped by one dimension sums exists_delta (and stats_delta) up to the period end grouped by that dimension instead of expanding every cell's running sum. Same answers as the view (0 differ). Norway: one year by activity 2,325 -> 68 ms (today's table 66); months of one year by region 9,750 -> 192 ms (today's table 658); employees one year by activity 3,058 -> 96 ms. Starting from the year roll-up of the previous year: 159 ms. So the slow shapes come from the view's per-cell window, not from the delta format, and a stored month roll-up is not needed for speed.
 <!-- SECTION:NOTES:END -->
