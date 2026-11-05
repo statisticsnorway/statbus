@@ -20,7 +20,6 @@ DROP PROCEDURE worker.statistical_history_facet_delta_contribution_stage(bigint)
 DROP PROCEDURE worker.statistical_history_facet_delta_contribution_begin();
 DROP PROCEDURE worker.statistical_history_facet_delta_contribution(regclass, smallint);
 DROP FUNCTION worker.unit_ids_apply(integer[], integer[], integer[]);
-DROP AGGREGATE public.int_array_sum(integer[]);
 DROP FUNCTION public.int_array_add(integer[], integer[]);
 DROP PROCEDURE public.statistical_history_period_refresh();
 DROP TABLE public.statistical_history_period;

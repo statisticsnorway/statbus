@@ -54,7 +54,10 @@ BEGIN
     CREATE TEMP TABLE hd_fsum AS
     SELECT resolution, year, month, unit_type, primary_activity_category_path, secondary_activity_category_path,
            sector_path, legal_form_id, physical_region_path, physical_country_id, unit_size_id, status_id,
-           public.int_array_sum(flows) AS flows,
+           ARRAY[sum(flows[1]), sum(flows[2]), sum(flows[3]), sum(flows[4]), sum(flows[5]), sum(flows[6]),
+                 sum(flows[7]), sum(flows[8]), sum(flows[9]), sum(flows[10]), sum(flows[11]), sum(flows[12]),
+                 sum(flows[13]), sum(flows[14]), sum(flows[15]), sum(flows[16]), sum(flows[17]),
+                 sum(flows[18])]::integer[] AS flows,
            public.jsonb_stats_delta_agg(stats_ended) FILTER (WHERE stats_ended IS NOT NULL) AS stats_ended,
            array_agg(unit_id ORDER BY unit_id) FILTER (WHERE sign > 0) AS plus_ids,
            array_agg(unit_id ORDER BY unit_id) FILTER (WHERE sign < 0) AS minus_ids
