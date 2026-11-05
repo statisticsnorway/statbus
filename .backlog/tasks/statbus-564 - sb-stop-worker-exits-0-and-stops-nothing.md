@@ -1,10 +1,10 @@
 ---
 id: STATBUS-564
 title: sb stop worker exits 0 and stops nothing
-status: To Do
+status: In Progress
 assignee: []
 created_date: '2026-11-04T00:08:00Z'
-updated_date: '2026-11-04T00:08:00Z'
+updated_date: '2026-11-05T13:21:00Z'
 labels: []
 dependencies: []
 priority: medium
@@ -20,12 +20,14 @@ ordinal: 487204
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 ./sb stop worker stops the worker container and leaves the others running
-- [ ] #2 ./sb stop with a name that is neither a profile nor a service fails with a clear message and a non-zero exit
+- [x] #1 ./sb stop worker stops the worker container and leaves the others running
+- [x] #2 ./sb stop with a name that is neither a profile nor a service fails with a clear message and a non-zero exit
 <!-- AC:END -->
 
 ## Implementation Notes
 
 <!-- SECTION:NOTES:BEGIN -->
 North Star: sb stop <name> stops the named service or profile and never exits 0 having stopped nothing. Zoom out: reject unknown names instead of silently matching no compose service; check sb start/restart for the same profile-vs-service gap. Closing review: no memory needed; update the stop/start help text with the accepted names; no cleanup.
+
+Fixed in 9086602cf. Shared resolver compose.ResolveTarget (cli/internal/compose/target.go) defines profiles all, all_except_app, app and services db, worker, rest, app, proxy; start, stop and restart all use it and refuse unknown names before any docker call. stop/start/restart help now list both sets. start previously ran 'docker compose --profile <name> up' for every name (a service matched nothing); restart had its own profile-only switch and built '--profile <name> down'. Red run tmp/564-red.log (5 failing tests), green run tmp/564-green.log; go vet ./... and go test ./... green in tmp/564-vet.log and tmp/564-go-test.log. Tests: TestStopServiceStopsOnlyThatService, TestStopProfileKeepsDownBehaviour, TestStopUnknownTargetRefusesBeforeDocker, TestStartServiceStartsOnlyThatService, TestStartUnknownTargetRefusesBeforeDocker, TestRestartServiceUsesServiceArgs, TestRestartUnknownTargetRefusesBeforeAnyWork, TestServiceCommandsDocumentAcceptedTargets.
 <!-- SECTION:NOTES:END -->
