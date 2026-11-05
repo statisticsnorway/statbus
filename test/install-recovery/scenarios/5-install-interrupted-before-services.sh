@@ -41,7 +41,11 @@ DEPLOYMENT_SLOT_CODE=test
 TRUST_GITHUB_USER=jhf
 CONFIG
 )
-setsid bash -c 'cd "$HOME"; export STATBUS_ENV_CONFIG="$HOME/install-input.env" STATBUS_USERS_FILE=/tmp/users.yml STATBUS_INSTALL_VERSION="$1" STATBUS_MIN_DISK_GB=5 STATBUS_HARNESS_CERT_STAGING="$HOME/harness-certs"; bash /tmp/statbus-install.sh --non-interactive' bash "$version" > "$HOME/first-install.log" 2>&1 &
+# A job started with & from this non-interactive shell inherits SIGINT as
+# ignored, and bash cannot reset a signal ignored on entry. sb then survived
+# the interrupt while docker compose died, so rc.11 saw an image-pull failure
+# instead of a Ctrl-C. perl restores the default the operator's terminal gives.
+setsid perl -e '$SIG{INT} = "DEFAULT"; exec @ARGV or die "exec: $!"' bash -c 'cd "$HOME"; export STATBUS_ENV_CONFIG="$HOME/install-input.env" STATBUS_USERS_FILE=/tmp/users.yml STATBUS_INSTALL_VERSION="$1" STATBUS_MIN_DISK_GB=5 STATBUS_HARNESS_CERT_STAGING="$HOME/harness-certs"; bash /tmp/statbus-install.sh --non-interactive' bash "$version" > "$HOME/first-install.log" 2>&1 &
 echo $! > "$HOME/first-install.pid"
 REMOTE
 harness_register_log interrupt-before-services /home/statbus/first-install.log "$IP"
