@@ -449,3 +449,48 @@ func TestInstallCertPathTypedFolderSearchesBelow(t *testing.T) {
 		t.Fatalf("path question asked %d times, want 1:\n%s", got, out)
 	}
 }
+
+// A single certificate is shown as "  Found: <certificate>" before "Install
+// this certificate?", in the indented column of the other certificate lines,
+// whether the home search or a typed folder found it, and before as well as
+// after the PFX password opened it (the rc.10 box showed both lines flush
+// left with no label).
+func TestInstallCertSingleFindIsLabelledAndIndented(t *testing.T) {
+	home := pickerHome(t)
+	stubCertificateDefaultYes(t, true)
+	folder := filepath.Join(home, "Documents", "certificate-from-it")
+	cert, key := testCertificate(t, "statbus.example.org", []string{"statbus.example.org"}, time.Now().Add(-time.Hour), time.Now().Add(24*time.Hour))
+	pfx := filepath.Join(folder, "site.pfx")
+	if err := os.MkdirAll(folder, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	writePFX(t, pfx, cert, key, "RightPass")
+	pickerAnswerSequence(t)
+	stdinReader, stdinWriter, err := os.Pipe()
+	if err != nil {
+		t.Fatal(err)
+	}
+	originalStdin := os.Stdin
+	os.Stdin = stdinReader
+	t.Cleanup(func() { os.Stdin = originalStdin })
+	if _, err := stdinWriter.WriteString("RightPass\n"); err != nil {
+		t.Fatal(err)
+	}
+	_ = stdinWriter.Close()
+
+	out := pickerCapture(t, func() { _, _ = askInstallCert(t.TempDir()) })
+	var found []string
+	for _, line := range strings.Split(out, "\n") {
+		if strings.Contains(line, pfx) {
+			found = append(found, line)
+		}
+	}
+	if len(found) != 2 {
+		t.Fatalf("want the certificate shown before and after its password, got:\n%s", out)
+	}
+	for _, line := range found {
+		if !strings.HasPrefix(line, "  Found: "+pfx) {
+			t.Fatalf("certificate line %q does not start with \"  Found: \" and the file", line)
+		}
+	}
+}

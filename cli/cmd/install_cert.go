@@ -296,7 +296,7 @@ func askInstallCert(dir string) ([]string, *string) {
 func pickInstallCert(choices []certChoice, siteDomain, dir string) ([]string, *string) {
 	if len(choices) == 1 {
 		// One installable certificate is a confirmation, not a list.
-		certNotice("%s", installCertChoiceLine(choices[0], siteDomain))
+		certNotice("  Found: %s", installCertChoiceLine(choices[0], siteDomain))
 		if !askCertificateDefaultYes("  Install this certificate?") {
 			certContinueWithout()
 			return nil, nil
@@ -356,7 +356,7 @@ func installCertChoice(choice certChoice, siteDomain, dir string) ([]string, *st
 	}
 	shown := []certChoice{{Args: choice.Args, Leaf: chain[0], ChainLength: len(chain)}}
 	rankCertificateChoices(shown, siteDomain)
-	certNotice("%s", certificateChoiceLine(shown[0], siteDomain))
+	certNotice("  Found: %s", certificateChoiceLine(shown[0], siteDomain))
 	return choice.Args, &password
 }
 
@@ -492,7 +492,7 @@ func chooseCertificateFromFolder(folder, dir string) ([]string, *string) {
 	if len(choices) == 1 {
 		// One usable certificate is not a list: confirm it, with the same
 		// information a numbered line carries (STATBUS-422).
-		certNotice("%s", certificateChoiceLine(choices[0], siteDomain))
+		certNotice("  Found: %s", certificateChoiceLine(choices[0], siteDomain))
 		if !askCertificateDefaultYes("  Install this certificate?") {
 			certContinueWithout()
 			return nil, nil
