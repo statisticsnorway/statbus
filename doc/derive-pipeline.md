@@ -292,11 +292,17 @@ The three derived tables have different data models:
 | `statistical_history_facet_flow_delta`       | `(resolution, year, month, ...dims)`   | `(unit_type, unit_id)` via staging |
 | `statistical_unit_facet`   | `(valid_from, valid_until, ...dims)`   | `(unit_type, unit_id)` |
 
-The history delta children write signed per-unit rows to UNLOGGED staging,
-one hash range each, and `statistical_history_facet_delta_reduce` adds them in. Every unit
+The history delta children write signed per-unit rows to logged staging tables
+(crash recovery must keep rows staged for a flush that has committed), one hash
+range each, and `statistical_history_facet_delta_reduce` adds them in. Every unit
 belongs to one range, so any split of the hash space gives the same sums.
+Each staged row carries its cycle's generation; the flush marks that generation
+as counting in its own transaction, so a cycle whose flush never committed is
+staged again by the next cycle instead of being added twice
+(`worker.statistical_history_facet_delta_state`).
 `statistical_history` and `statistical_history_facet` are views over these
-tables.
+tables; `statistical_history_drilldown` and `statistical_history_for` (used by
+the chart) read the delta tables directly.
 
 `statistical_unit_facet` uses **date ranges** (`valid_from`, `valid_until`).
 A facet row with `valid_from=2020, valid_until=2025` would overlap **65
