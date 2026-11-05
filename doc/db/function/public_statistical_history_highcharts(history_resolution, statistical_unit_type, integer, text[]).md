@@ -61,10 +61,7 @@ BEGIN
     -- for the actual numeric data extraction in the `series` payload.
     SELECT COALESCE(public.jsonb_stats_merge_agg(sh.stats_summary), '{}'::jsonb)
     INTO v_merged_summary
-    FROM public.statistical_history sh
-    WHERE sh.resolution = p_resolution
-      AND sh.unit_type  = p_unit_type
-      AND (p_year IS NULL OR sh.year = p_year);
+    FROM public.statistical_history_for(p_resolution, p_unit_type, p_year) AS sh;
 
     -- Build v_catalog_summary from schema. One synthetic-value pass per enabled stat
     -- yields the canonical leaf-bearing shape that `jsonb_stats_merge_agg` would
@@ -241,10 +238,7 @@ BEGIN
             sector_change_count, legal_form_change_count, physical_region_change_count,
             physical_country_change_count, physical_address_change_count,
             stats_summary
-        FROM public.statistical_history
-        WHERE resolution = p_resolution
-          AND unit_type  = p_unit_type
-          AND (p_year IS NULL OR year = p_year)
+        FROM public.statistical_history_for(p_resolution, p_unit_type, p_year)
     ),
     static_pairs AS (
                   SELECT 'countable_count'                          AS code, jsonb_build_array(ts_epoch_ms, countable_count)                          AS pair, ts_epoch_ms FROM base WHERE 'countable_count'                          = ANY(v_static_codes)

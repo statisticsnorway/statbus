@@ -15816,6 +15816,14 @@ export type Database = {
         }
         Returns: Json
       },
+      statistical_history_for: {
+        Args: {
+          p_resolution?: Database["public"]["Enums"]["history_resolution"]
+          p_unit_type?: Database["public"]["Enums"]["statistical_unit_type"]
+          p_year?: number
+        }
+        Returns: Database["public"]["Views"]["statistical_history"]["Row"][]
+      },
       statistical_history_highcharts: {
         Args: {
           p_resolution?: Database["public"]["Enums"]["history_resolution"]
