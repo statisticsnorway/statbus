@@ -12,7 +12,8 @@ data. It covers the task flow, structured concurrency model, and queue layout.
 > per-period history steps (⑤, ⑤b, ⑦, ⑦b of the earlier diagram) are gone.
 > Sections below that describe them are kept as history and say so.
 
-> **Recent changes (April 30, 2026):**
+> **Recent changes (April 30, 2026), before STATBUS-558:** the `statistical_history*` tables and steps
+> named here were replaced by the history delta steps.
 > - **Phase 2 (`cdbc9c0ec`)** — `statistical_history` per-partition rows are
 >   now stored per-slot as singleton `int4range(slot, slot+1)`. Decouples
 >   cached per-slot rows from `partition_count_target` changes.
