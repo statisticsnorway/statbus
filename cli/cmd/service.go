@@ -12,6 +12,9 @@ import (
 )
 
 func startServices(profile string) (result error) {
+	if _, err := compose.ResolveTarget(profile); err != nil {
+		return err
+	}
 	projDir := config.ProjectDir()
 	guard, err := upgrade.AcquireOperatorStartGuard(projDir, "operator:start")
 	if err != nil {
@@ -36,12 +39,15 @@ func startServices(profile string) (result error) {
 }
 
 var startCmd = &cobra.Command{
-	Use:     "start [profile]",
+	Use:     "start [profile|service]",
 	Short:   "Start services (default: all)",
 	GroupID: operationsGroupID,
 	Long: `Start StatBus services using docker compose.
 
+A profile brings up its whole selection. A service starts only that container.
+
 Profiles: all, all_except_app, app
+Services: db, worker, rest, app, proxy
 
 A source build rebuilds images from source (--build). A release build checks
 that this version's published images are present locally, pulls them only if
@@ -58,12 +64,15 @@ they are missing (for example after docker image prune), and starts with
 }
 
 var stopCmd = &cobra.Command{
-	Use:     "stop [profile]",
+	Use:     "stop [profile|service]",
 	Short:   "Stop services (default: all)",
 	GroupID: operationsGroupID,
 	Long: `Stop StatBus services using docker compose.
 
-Profiles: all, all_except_app, app`,
+A profile stops its whole selection. A service stops only that container.
+
+Profiles: all, all_except_app, app
+Services: db, worker, rest, app, proxy`,
 	Args: cobra.MaximumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		profile := "all"
@@ -75,7 +84,7 @@ Profiles: all, all_except_app, app`,
 }
 
 var restartCmd = &cobra.Command{
-	Use:     "restart [profile]",
+	Use:     "restart [profile|service]",
 	Short:   "Restart services (default: all)",
 	GroupID: operationsGroupID,
 	Long: `Restart StatBus services (stop then start).
@@ -90,7 +99,8 @@ that this version's published images are present locally, pulls them only if
 they are missing (for example after docker image prune), and starts with
 --no-build. See doc/sb-build-identity.md.
 
-Profiles: all, all_except_app, app`,
+Profiles: all, all_except_app, app
+Services: db, worker, rest, app, proxy`,
 	Args: cobra.MaximumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		profile := "all"

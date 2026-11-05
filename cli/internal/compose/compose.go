@@ -178,13 +178,14 @@ func RunWithProfile(profile string, args ...string) error {
 	return run(project.Dir(), fullArgs...)
 }
 
-// Stop brings down services.
-func Stop(profile string) error {
-	args := []string{"down", "--remove-orphans"}
-	if profile == "app" {
-		return Run(append(args, "app")...)
+// Stop stops a service or brings down a profile. ResolveTarget rejects names
+// compose would silently match nothing for (STATBUS-564).
+func Stop(name string) error {
+	target, err := ResolveTarget(name)
+	if err != nil {
+		return err
 	}
-	return RunWithProfile(profile, args...)
+	return Run(target.StopArgs()...)
 }
 
 // Ps shows running containers.

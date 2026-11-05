@@ -17,26 +17,24 @@ import (
 // uses liveDockerImageOps.
 type dockerImageOps interface {
 	// Images lists the image references this version's compose model expects
-	// for the profile.
-	Images(dir, profile string) ([]string, error)
+	// for the target (a profile or a service name).
+	Images(dir, target string) ([]string, error)
 	// Present reports whether the image exists locally. The check is cheap
 	// and never touches the network.
 	Present(dir, image string) (bool, error)
-	// Pull pulls the profile's images from the registry.
-	Pull(dir, profile string) error
+	// Pull pulls the target's images from the registry.
+	Pull(dir, target string) error
 }
 
 type liveDockerImageOps struct{}
 
-func (liveDockerImageOps) Images(dir, profile string) ([]string, error) {
-	args := []string{}
-	if profile != "app" {
-		args = append(args, "--profile", profile)
+func (liveDockerImageOps) Images(dir, target string) ([]string, error) {
+	resolved, err := compose.ResolveTarget(target)
+	if err != nil {
+		return nil, err
 	}
-	args = append(args, "config", "--images")
-	if profile == "app" {
-		args = append(args, "app")
-	}
+	args := append(resolved.UpPrefix(), "config", "--images")
+	args = append(args, resolved.UpServiceArgs()...)
 	cmd, err := compose.CommandContext(context.Background(), dir, args...)
 	if err != nil {
 		return nil, err
@@ -72,13 +70,13 @@ func (liveDockerImageOps) Present(dir, image string) (bool, error) {
 	return true, nil
 }
 
-func (liveDockerImageOps) Pull(dir, profile string) error {
-	args := []string{"pull"}
-	if profile == "app" {
-		args = append(args, "app")
-	} else {
-		args = append([]string{"--profile", profile}, args...)
+func (liveDockerImageOps) Pull(dir, target string) error {
+	resolved, err := compose.ResolveTarget(target)
+	if err != nil {
+		return err
 	}
+	args := append(resolved.UpPrefix(), "pull")
+	args = append(args, resolved.UpServiceArgs()...)
 	cmd, err := compose.CommandContext(context.Background(), dir, args...)
 	if err != nil {
 		return err
@@ -108,12 +106,16 @@ func restartUpArgs(dir, profile string, release bool, version string, docker doc
 //     exist. All present (the normal case): --no-build. Any missing (only
 //     after a deliberate prune or disk clean-up): say why, pull, then
 //     --no-build. A failed pull stops with the remedy.
-func composeUpArgsForBuild(dir, profile string, base []string, release bool, version string, docker dockerImageOps, out io.Writer) ([]string, error) {
+func composeUpArgsForBuild(dir, target string, base []string, release bool, version string, docker dockerImageOps, out io.Writer) ([]string, error) {
+	resolved, err := compose.ResolveTarget(target)
+	if err != nil {
+		return nil, err
+	}
 	args := append([]string{}, base...)
 	if !release {
 		args = append(args, "--build")
 	} else {
-		images, err := docker.Images(dir, profile)
+		images, err := docker.Images(dir, target)
 		if err != nil {
 			return nil, fmt.Errorf("list the images for %s: %w", version, err)
 		}
@@ -131,15 +133,15 @@ func composeUpArgsForBuild(dir, profile string, base []string, release bool, ver
 			// The message explains why a start suddenly pulls; a failed write
 			// must not stop the pull itself.
 			_, _ = fmt.Fprintf(out, "Images for %s were missing locally (removed by a prune?); pulling them, then starting.\n", version)
-			if err := docker.Pull(dir, profile); err != nil {
+			if err := docker.Pull(dir, target); err != nil {
 				return nil, fmt.Errorf("could not pull the images for %s: %w\n"+
 					"Check the network and run the command again, or build locally with ./sb build", version, err)
 			}
 		}
 		args = append(args, "--no-build")
 	}
-	if profile == "app" {
-		return append(args, "app"), nil
-	}
-	return append([]string{"--profile", profile}, args...), nil
+	final := append([]string{}, resolved.UpPrefix()...)
+	final = append(final, args...)
+	final = append(final, resolved.UpServiceArgs()...)
+	return final, nil
 }

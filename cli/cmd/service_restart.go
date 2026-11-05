@@ -42,13 +42,11 @@ func restartServicesInDirWithLock(dir, profile string, adopted *upgrade.FlagLock
 			return string(out), err
 		},
 		stack: func(p string) error {
-			stopArgs := []string{"down", "--remove-orphans"}
-			if p != "app" {
-				stopArgs = append([]string{"--profile", p}, stopArgs...)
-			} else {
-				stopArgs = append(stopArgs, "app")
+			target, err := compose.ResolveTarget(p)
+			if err != nil {
+				return err
 			}
-			stop, err := compose.CommandContext(context.Background(), dir, stopArgs...)
+			stop, err := compose.CommandContext(context.Background(), dir, target.StopArgs()...)
 			if err == nil {
 				stop.Stdin, stop.Stdout, stop.Stderr = os.Stdin, os.Stdout, os.Stderr
 				err = stop.Run()
@@ -88,10 +86,8 @@ func restartServicesWith(dir, profile string, ops restartOperations) (result err
 
 func restartServicesWithLock(dir, profile string, ops restartOperations, adopted *upgrade.FlagLock) (result error) {
 	defer adopted.Close() // Refusal and early failures retain the original marker.
-	switch profile {
-	case "all", "all_except_app", "app":
-	default:
-		return fmt.Errorf("unknown restart profile %q; expected all, all_except_app or app", profile)
+	if _, err := compose.ResolveTarget(profile); err != nil {
+		return err
 	}
 	lock, prior, preserveRecoveryMarker, err := upgrade.AcquireRestartFlagWithLock(dir, profile, adopted)
 	if err != nil {
