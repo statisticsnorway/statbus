@@ -40,8 +40,8 @@ A unit refresh costs in proportion to the units it refreshes, so imports and ful
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
 - [ ] #1 A profile of one representative refresh_batch on the BRREG downloads database names the statements that take most of its time, with EXPLAIN ANALYZE output
-- [ ] #2 Batch time against batch size is measured, showing whether cost grows with the batch or with the database
-- [ ] #3 A proposed change is measured on the downloads benchmark against this ticket's 10,320 s baseline, with the benchmark's consistency checks passing
+- [ ] #2 A proposed change is measured on the downloads benchmark against this ticket's 10,320 s baseline, with the benchmark's consistency checks passing
+- [ ] #3 Batch time is recorded in Implementation Notes for at least three batch sizes on the downloads database, with the timings
 <!-- AC:END -->
 
 ## Implementation Notes
