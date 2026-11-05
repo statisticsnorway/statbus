@@ -213,8 +213,13 @@ for i in $(seq 1 $N); do
     # column list: (command, payload) only — no 'queue' column exists in worker.tasks.
     # payload MUST include {"command":"..."} to satisfy the consistent_command_in_payload CHECK.
     # The history reduce of the installed version: statistical_history_facet_delta_reduce from STATBUS-558,
-    # statistical_history_reduce before it.
-    ./sb psql -c "INSERT INTO worker.tasks (command, payload) SELECT c.command, jsonb_build_object('command', c.command) FROM worker.command_registry AS c WHERE c.command IN ('statistical_history_facet_delta_reduce', 'statistical_history_reduce') ORDER BY c.command LIMIT 1;" >/dev/null 2>&1
+    # statistical_history_reduce before it. Exactly one task is queued per iteration; the scenario's
+    # premise is a busy worker, so a version with neither command stops here.
+    out=$(./sb psql -c "INSERT INTO worker.tasks (command, payload) SELECT c.command, jsonb_build_object('command', c.command) FROM worker.command_registry AS c WHERE c.command IN ('statistical_history_facet_delta_reduce', 'statistical_history_reduce') ORDER BY c.command LIMIT 1;" 2>&1)
+    case "$out" in
+        *"INSERT 0 1"*) ;;
+        *) echo "[wedge] queued no history reduce task: $out" >&2; exit 1 ;;
+    esac
 done
 echo "[wedge] queued $N tasks; worker should pick up"
 sleep 3
@@ -275,6 +280,13 @@ touch /tmp/continuous-workload.run
 cat > /tmp/continuous-workload-loop.sh << LOOP
 #!/bin/bash
 cd ~/statbus
+# The workload is the installed version's history reduce (see simulate_worker_busy); a version with
+# neither command would make the scenario's premise vacuous, so it ends the loop with that reason.
+if ! ./sb psql -tAc "SELECT 1 FROM worker.command_registry WHERE command IN ('statistical_history_facet_delta_reduce', 'statistical_history_reduce')" 2>/dev/null | grep -q 1; then
+    echo 'no history reduce command registered' > /tmp/continuous-workload.exit
+    rm -f /tmp/continuous-workload.run
+    exit 1
+fi
 elapsed=0
 while [ -f /tmp/continuous-workload.run ] && [ "\$elapsed" -lt $duration_s ]; do
     ./sb psql -c "INSERT INTO worker.tasks (command, payload) SELECT c.command, jsonb_build_object('command', c.command) FROM worker.command_registry AS c WHERE c.command IN ('statistical_history_facet_delta_reduce', 'statistical_history_reduce') ORDER BY c.command LIMIT 1;" >/dev/null 2>&1 || true
@@ -321,8 +333,14 @@ done
 # Tear down the tmux session regardless — if the loop did not exit cleanly we
 # still do not want a stale session hanging around.
 tmux kill-session -t continuous-workload 2>/dev/null || true
+# The loop writes 'done' when it ran its course; any other reason means the workload never ran.
+exit_reason=$(cat /tmp/continuous-workload.exit 2>/dev/null || echo 'no exit sentinel')
 rm -f /tmp/continuous-workload.exit /tmp/continuous-workload-loop.sh
-echo "  [wedge] continuous workload stopped (elapsed=${elapsed}s)"
+echo "  [wedge] continuous workload stopped (elapsed=${elapsed}s, exit=${exit_reason})"
+if [ "$exit_reason" != done ] && [ "$exit_reason" != 'no exit sentinel' ]; then
+    echo "  [wedge] continuous workload did not run: ${exit_reason}" >&2
+    exit 1
+fi
 SCRIPT
 }
 

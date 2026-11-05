@@ -105,7 +105,7 @@ SELECT e.employees_sum AS expected_employees_sum,
          AS stats_match_documented_population
 FROM documented_population_2024 AS e
 CROSS JOIN public.statistical_history AS h
-WHERE h.resolution = 'year' AND h.year = 2024 AND h.unit_type = 'legal_unit' AND h.hash_partition IS NULL;
+WHERE h.resolution = 'year' AND h.year = 2024 AND h.unit_type = 'legal_unit';
 
 \echo
 \echo "364.4 the facet cell holding 563000002 also equals the documented population for that cell"
