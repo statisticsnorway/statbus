@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-11-02T13:15:00Z'
-updated_date: '2026-11-05T15:41:00Z'
+updated_date: '2026-11-05T16:50:00Z'
 labels: []
 dependencies: []
 type: enhancement
@@ -236,4 +236,10 @@ AC5 is the owner's: he asked for the migration to be built while adoption was pe
 - Adopted: a move counts on both sides (left the old cell, entered the new cell), plus a moved count. Then stock = running sum of (entered - left): Norway 411,601/411,601 cell-months equal, 10-year 6,359/6,359.
 - Adopted: one table keyed by cell + month replaces stock_delta + flow_delta (Norway ~410k rows vs 1.22M in two; serial unoptimised build ~2 min).
 - Open: the table name (owner discussing facet_change vs facet_delta).
+
+2026-11-05 16:50 owner decisions:
+- Births/deaths rule C: a birth counts when a counted version's existence starts at its birth_date and the unit did not exist just before (existence = GREATEST(valid_from, birth_date), STATBUS-460); deaths mirror it. Units whose birth_date precedes their first valid_from enter the stock as 'added' only. Late-arriving data is flagged at import: STATBUS-573.
+- Raw delta tables stay readable by regular_user/authenticated (unit_ids reveal nothing beyond statistical_unit, which those roles read; tests line rows up against units). Documented at the table comments.
+- Rewrite into one table now, before shipping (owner 16:14). Prototype tmp/558-onetable: 10-year and Norway stock and stats equal the committed views in every period (0 differ); Norway 411,994 rows / 174 MB vs 1,216,605 rows / 668 MB.
+- Independent review (tmp/review-558-final): db side production quality, no blocker; tests/docs side blocked only on the superseded design. Findings fixed in the rewrite.
 <!-- SECTION:NOTES:END -->
