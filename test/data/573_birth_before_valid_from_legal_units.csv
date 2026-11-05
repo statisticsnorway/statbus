@@ -1,0 +1,12 @@
+valid_from,valid_to,tax_ident,name,birth_date,death_date
+2023-05-07,infinity,573000001,W01 Born earlier in the year of valid_from,2023-03-01,
+2023-05-07,infinity,573000002,W02 Born the year before valid_from,2022-11-01,
+2023-05-07,infinity,573000003,W03 Born on valid_from,2023-05-07,
+2023-05-07,infinity,573000004,W04 Born after valid_from,2023-06-01,
+2023-05-07,2023-08-31,573000005,W05 First piece born earlier,2023-03-01,
+2023-09-01,infinity,573000005,W05 Second piece,2023-03-01,
+2023-09-01,infinity,573000006,W06 Second piece listed first,2023-02-01,
+2023-05-07,2023-08-31,573000006,W06 First piece listed second,2023-02-01,
+2023-05-07,infinity,573000007,W07 No birth date,,
+2023-03-01,infinity,573000008,W08 Exists from birth,2023-03-01,
+2023-06-01,infinity,573000010,W10 Learned late,2023-03-01,
