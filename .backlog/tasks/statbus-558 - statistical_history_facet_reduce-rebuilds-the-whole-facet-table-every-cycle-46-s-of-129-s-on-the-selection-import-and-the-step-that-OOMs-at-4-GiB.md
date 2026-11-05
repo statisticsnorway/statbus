@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-11-02T13:15:00Z'
-updated_date: '2026-11-05T16:50:00Z'
+updated_date: '2026-11-05T17:50:00Z'
 labels: []
 dependencies: []
 type: enhancement
@@ -17,9 +17,23 @@ ordinal: 481204
 
 <!-- SECTION:DESCRIPTION:BEGIN -->
 ### North Star
-The history reports answer from a store whose size follows the number of changes, not the number of periods. A change to a few units updates in seconds, and every answer equals what today's definition (`statistical_history_facet_def`) gives.
+The history reports answer from a store whose size follows the number of changes, not the number of periods. A change to a few units updates in seconds. Stock and stats equal what today's definition (`statistical_history_facet_def`) gives; changes are counted from each unit's versions, so a year is the sum of its months.
 
 ### Zoom out
+A history report is a sum of changes. Store each change once, per cell and month, and sum it up for any period on read, so storage and update cost follow the changes, not the periods.
+
+### Zoom in
+**Design (adopted by the owner 2026-11-05 15:41-16:48, notes of that day):**
+1. **One delta table, `statistical_history_facet_delta`.** One row per cell (unit_type and the facet dimensions) and month (`on_month`), counted from each unit's versions in time order:
+   - `exists_added_count` / `exists_removed_count` and `countable_added_count` / `countable_removed_count` at the ends of a unit's existence or counting;
+   - `exists_moved_in_count` / `exists_moved_out_count` (and countable) when a continuous version changes cell; a move counts on both sides;
+   - `births` / `deaths` (rule C: existence starts at birth_date, ends at death_date) and the 10 `*_change_count` columns;
+   - `stats_delta` (stock of stats), `stats_ended_month` / `stats_ended_year` (versions ending inside a period), `unit_ids` (provenance).
+   - The stock at a month end is the running sum of added - removed + moved_in - moved_out; a year's changes are the sum of its months.
+   - Norway: 411,994 rows, 174 MB.
+2. **Compatibility views** with today's names and columns, plus the four move columns: `statistical_history` and `statistical_history_facet`, for the API, integrators and parity checks.
+3. **Fast read functions** that filter the deltas, group them by the asked dimension, and sum: `statistical_history_for` (chart) and `statistical_history_drilldown`.
+
 **Today:** `statistical_history_facet` is dense: every period times every cell.
 - Norway (3,139,134 units): 3,232,696 rows, 3,488 MB.
 - `statistical_history`: 264 MB.
@@ -27,26 +41,8 @@ The history reports answer from a store whose size follows the number of changes
 - Rune's derive: 183 s + 800 s wall with 4 workers. It OOMs at 4 GiB (STATBUS-555).
 - Defects found on the way: stats depend on the hash slot (STATBUS-563); the stored facet goes stale when only change counts move (STATBUS-565).
 
-**Design (owner 2026-11-04: sensible; not adopted until prototyping is finished):**
-1. **Delta tables.** Each row is a change at a date, not a total:
-   - `statistical_history_delta_facet`: existing and countable units +N/-N per cell and date.
-   - `statistical_history_delta_facet_flow`: births, deaths, added, removed and change counts per cell and period.
-   - `stats_valid_facet`: `stats_delta` per cell and date.
-   - `stats_ended_facet`, and the same tables without the cell dimensions for the totals.
-   - Norway: 411,994 + 805,004 + 411,991 rows, about 612 MB.
-2. **Compatibility views** with today's names and columns: `statistical_history` and `statistical_history_facet`, for the API, integrators and parity checks.
-3. **Fast read functions** that filter the deltas, group them by the asked dimension, and sum. A total is the sum of its changes, so no running total per cell is needed. `statistical_history_drilldown` is rewritten this way.
-
-Example rows (Norway, enterprises, region 03.01, activity J):
-```
-delta_facet:  J.63.9.9.0 | 03.01 | legal_form 59 | 2026-05-07 | exists_delta 19 | countable_delta 19
-flow:         2026-05 | J.63.9.9.0 | 03.01 | exists_change 32 | added 32 | removed 0 | births 0
-stats_valid:  J.58.1.3.0 | 03.01 | 2026-05-07 | {"employees": {"in": {"sum": 4743, "count": 67, "sum_sq": 943185}}}
-```
-
-### Zoom in
-**Parity (the consistency gate).** Same answers as today, every row and column:
-- 10-year Norway (2015-2026) and full Norway (May 2026: 395,106 facet rows, 0 differ).
+**Parity (the consistency gate).** The same stock (exists_count, countable_count) and stats as today, every period and cell; change counts are counted per unit version, so they differ from today's period-end comparison where that hid changes (each difference explained, notes 2026-11-05):
+- 10-year Norway (2015-2026) and full Norway.
 - Stats follow the existing rule (latest version overlapping the period, used_for_counting). Today's stored stats are lower only through STATBUS-563.
 
 **Reads.** Reports show all years, or the months of one year (owner). Norway, best of 3, ms:
@@ -69,14 +65,7 @@ Notes on the table:
 - Full build on Norway about 3.5 min in one session.
 - Incremental (10-year): 75 dirty slots, 841 keys re-summed, about 255 ms, equal to a full rebuild.
 
-**Open: how the update finds a changed unit's old contribution.** When the history step runs, `statistical_unit` holds only the new versions. Norway measurements:
-
-| Option | Extra stored | Notes |
-|---|---|---|
-| (a) delta per hash-slot range | 16 ranges 1.23M rows (3x), 64: 1.78M, 256: 2.28M, 16,384: 3.07M (7.5x) | the pattern `statistical_history` uses today |
-| (a') slot-to-cell index, no dates | 3.05M rows | then recompute affected cells wholly (median 1 unit per cell, p99 97, max 13,379) |
-| (b) write the negated old delta when `statistical_unit_refresh` replaces a unit's rows | none | touches the unit refresh step; to prototype first (owner) |
-| (c) provenance: `unit_ids int[]` per delta row (intarray, owner) | 3,140,238 unit references, 20 MB of arrays; median 1 unit per row, p99 93, max 13,356 | subtract a unit exactly; tests can assert which units make up a cell. intarray 1.5 is in our image, not installed |
+**Incremental update (chosen, AC3):** before the flush, one concurrent child per hash range stages the refreshed units' new rows minus their old rows (still in `statistical_unit`), tagged with the cycle's generation; the reduce adds the rows whose flush committed. Units deleted outside the flush are subtracted before their rows go. A rebuild replaces the table in the reduce's transaction.
 
 **Hand-offs the new last step takes over:**
 - the dirty-slot TRUNCATE;
@@ -107,14 +96,14 @@ Evidence: tmp/558-shd/ (README.md, scripts 01-25 with logs).
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [x] #1 The two compatibility views equal today's statistical_history and statistical_history_facet_def on 10-year and full Norway, every row and column
-- [x] #2 The read functions answer the report shapes (all years; months of one year; breakdown by one dimension) on full Norway at most as slow as today's stored table
-- [x] #3 The incremental update after unit edits equals a full rebuild, with the chosen way of finding a changed unit's old contribution, prototyped and measured against the alternatives
-- [x] #4 Full rebuild and incremental cycle are measured on full Norway against today's pipeline
-- [ ] #5 Owner adopts the design before the migration is written
-- [x] #6 Migration, worker step and tests 008, 094, 096, 107, 204, 318, 322, 325, 346, 364 pass
-- [ ] #7 Released per-commit image upgrades a guest with data to this migration and the history rebuild completes (install/upgrade testing)
-- [ ] #8 Owner reviews the local commits; pushed, CI green for the pushed SHA
+- [x] #1 On 10-year and full Norway the views give the dense statistical_history and statistical_history_facet's stock (exists_count, countable_count) and stats_summary for every period and cell; change counts are counted per unit version, and every difference from the dense tables is explained
+- [x] #2 On full Norway the read functions answer the report shapes (all years; months of one year; breakdown by one dimension) at most as slow as the dense stored table
+- [ ] #3 The incremental update after unit edits equals a full rebuild (tests 367 and 368, and the import benchmark's check A), with the chosen way of finding a changed unit's old contribution prototyped and measured against the alternatives
+- [x] #4 Full rebuild and incremental cycle on full Norway take less time than the dense-table pipeline's history steps
+- [x] #5 Migration, worker step and tests 008, 094, 096, 107, 204, 318, 322, 325, 346, 364 pass
+- [ ] #6 Released per-commit image upgrades a guest with data to this migration and the history rebuild completes (install/upgrade testing)
+- [ ] #7 [Owner] reviews the local commits; then pushed, with CI green for the pushed SHA
+- [ ] #8 [Owner] adopts the design before push; recorded in this ticket's notes (2026-11-05 15:41-16:48: one table, per-version counting, moves both sides, births rule C). Adoption lets the push go ahead; rejection returns the design to prototyping
 <!-- AC:END -->
 
 ## Implementation Notes
@@ -242,4 +231,17 @@ AC5 is the owner's: he asked for the migration to be built while adoption was pe
 - Raw delta tables stay readable by regular_user/authenticated (unit_ids reveal nothing beyond statistical_unit, which those roles read; tests line rows up against units). Documented at the table comments.
 - Rewrite into one table now, before shipping (owner 16:14). Prototype tmp/558-onetable: 10-year and Norway stock and stats equal the committed views in every period (0 differ); Norway 411,994 rows / 174 MB vs 1,216,605 rows / 668 MB.
 - Independent review (tmp/review-558-final): db side production quality, no blocker; tests/docs side blocked only on the superseded design. Findings fixed in the rewrite.
+
+2026-11-05 17:45 one-table rewrite committed locally: 54bc2a08c (migration: public.statistical_history_facet_delta + staging, contribution over existence windows, MERGE apply, views/for/drilldown on one table; review fixes db1-db4, db6), 493f13428 (tests 008/015/107/121/204/319/322/325/346/364-368 + benchmark one table, Layer A every column + net of every stats field, explicit transaction), cdb22c96f (docs). Evidence: fast suite 122/122 (tmp/558-onetable/test-fast-2.log), 303/401/402 ok, tsc ok, import_benchmark selection 83.8 s worker, checks A/B/C pass (tmp/558-onetable/bench-selection.log). Expected-output value changes explained: 107/322 show the cell a unit moved out of (moved_out 1, stock 0), per the both-sides move rule; 319 drift count 32 (corrupted month also shows in its year). Norway re-migrate + rebuild + parity running.
+
+2026-11-05 17:45 ACs 1, 2, 4 restated as results for the one-table design (change counts are now counted per unit version, so the dense tables are matched on stock and stats); unchecked until the Norway run on the one-table build confirms them. AC 3 and 6 rechecked: 367/368 and the fast suite pass on the one-table build.
+
+2026-11-05 17:50 Norway (statbus_local, 3,139,134 units) on the one-table build 54bc2a08c. Logs tmp/558-onetable/20-norway-remigrate.log, 23-compare-fixed.log, 24-check.log, 26-norway-incremental.log; journal entry same time.
+- Migration: down 0.4 s, up 9.0 s. Full rebuild: 256 ranges at concurrency 8 in 76.9 s + replace apply 31.6 s = 1.8 min; 411,899 rows, 197 MB (two-table: 2.4 min, 1.22 M rows, 668 MB; dense on rune: about 984 s of history steps).
+- Incremental: 437 units move region, 203 ranges, 720 staged rows; 20.2/10.7/5.7/4.1 s at concurrency 1/2/4/8, apply 0.54 s. Equals the independent subtract-old/add-new path: 0 of 412,423 rows differ.
+- statistical_history vs the two-table views: 48/48 rows, stock and stats 0 differ. Flows: one value differs, establishment births May 2026 4 -> 1: units 589650, 601093, 601705 have birth_date 2026-05-01 and valid_from 2026-05-07, so their existence starts at valid_from and rule C counts them as added only (STATBUS-573); 594826 (birth 2026-05-22) is the birth. Year = sum of months and net change = added - removed + moved_in - moved_out in all 4 years.
+- statistical_history_facet, 2026 year + months 5 and 11 (1,185,556 cells): stock 0 differ; 238 extra cells, all stock 0 (cells units moved out of); stats differ only as empty stats '{"type":"stats_agg"}' -> '{}' (884,376 cells, review finding 1), 0 other.
+- Reads: chart (statistical_history_for) year 159 ms, months 125 ms; highcharts months 293 ms; drilldown enterprise year 597 ms, legal_unit months 624 ms; dense table: chart 0.85/1.31 s, drill 2.88/16.9 s.
+
+AC1 scope: full Norway checked on the committed build (above); the 10-year database was checked on the one-table prototype (tmp/558-onetable/02-compare, 09-10y.log: stock and stats 0 differ every period), whose SQL the migration takes over; tests 107/367/368 cover the committed build on small data.
 <!-- SECTION:NOTES:END -->
