@@ -77,10 +77,8 @@ BEGIN
             public.statistical_unit_facet,
             public.statistical_unit_facet_staging,
             public.statistical_unit_facet_dirty_hash_slots,
-            public.statistical_history_facet_stock_delta,
-            public.statistical_history_facet_flow_delta,
-            public.statistical_history_facet_stock_delta_staging,
-            public.statistical_history_facet_flow_delta_staging,
+            public.statistical_history_facet_delta,
+            public.statistical_history_facet_delta_staging,
             public.statistical_history_period;
 
         result := result

@@ -115,12 +115,9 @@ each role can see and modify.
   - Policies: `stat_definition_admin_user_manage` (ALL → admin_user), `stat_definition_authenticated_read` (SELECT → authenticated), `stat_definition_regular_user_read` (SELECT → regular_user)
 - **`stat_for_unit`** — RLS ON
   - Policies: `stat_for_unit_admin_user_manage` (ALL → admin_user), `stat_for_unit_authenticated_read` (SELECT → authenticated), `stat_for_unit_regular_user_manage` (ALL → regular_user)
-- **`statistical_history_facet_flow_delta`** — RLS ON
-  - Policies: `statistical_history_facet_flow_delta_admin_user_manage` (ALL → admin_user), `statistical_history_facet_flow_delta_authenticated_read` (SELECT → authenticated), `statistical_history_facet_flow_delta_regular_user_read` (SELECT → regular_user)
-- **`statistical_history_facet_flow_delta_staging`** — RLS OFF (exempt: internal staging table)
-- **`statistical_history_facet_stock_delta`** — RLS ON
-  - Policies: `statistical_history_facet_stock_delta_admin_user_manage` (ALL → admin_user), `statistical_history_facet_stock_delta_authenticated_read` (SELECT → authenticated), `statistical_history_facet_stock_delta_regular_user_read` (SELECT → regular_user)
-- **`statistical_history_facet_stock_delta_staging`** — RLS OFF (exempt: internal staging table)
+- **`statistical_history_facet_delta`** — RLS ON
+  - Policies: `statistical_history_facet_delta_admin_user_manage` (ALL → admin_user), `statistical_history_facet_delta_authenticated_read` (SELECT → authenticated), `statistical_history_facet_delta_regular_user_read` (SELECT → regular_user)
+- **`statistical_history_facet_delta_staging`** — RLS OFF (exempt: internal staging table)
 - **`statistical_history_period`** — RLS ON
   - Policies: `statistical_history_period_admin_user_manage` (ALL → admin_user), `statistical_history_period_authenticated_read` (SELECT → authenticated), `statistical_history_period_regular_user_read` (SELECT → regular_user)
 - **`statistical_unit`** — RLS ON

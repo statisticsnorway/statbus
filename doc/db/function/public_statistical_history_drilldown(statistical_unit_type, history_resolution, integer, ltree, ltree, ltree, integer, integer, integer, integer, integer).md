@@ -20,7 +20,7 @@ AS $function$
     ),
     -- The asked periods.
     period AS MATERIALIZED (
-        SELECT p.resolution, p.year, p.month, p.curr_stop
+        SELECT p.resolution, p.year, p.month, p.curr_start, p.curr_stop
           FROM public.statistical_history_period AS p, params
          WHERE (param_resolution IS NULL OR p.resolution = param_resolution)
            AND (param_year IS NULL OR p.year = param_year)
@@ -31,8 +31,16 @@ AS $function$
     -- cannot reach any period.
     stock AS MATERIALIZED (
         SELECT d.primary_activity_category_path, d.sector_path, d.legal_form_id, d.physical_region_path,
-               d.physical_country_id, d.status_id, d.on_month, d.exists_delta, d.countable_delta
-          FROM public.statistical_history_facet_stock_delta AS d, params
+               d.physical_country_id, d.status_id, d.on_month,
+               d.exists_added_count - d.exists_removed_count + d.exists_moved_in_count - d.exists_moved_out_count AS exists_delta,
+               d.countable_added_count - d.countable_removed_count + d.countable_moved_in_count - d.countable_moved_out_count AS countable_delta,
+               d.exists_added_count, d.exists_removed_count, d.countable_added_count, d.countable_removed_count,
+               d.births, d.deaths, d.name_change_count, d.primary_activity_category_change_count,
+               d.secondary_activity_category_change_count, d.sector_change_count, d.legal_form_change_count,
+               d.physical_region_change_count, d.physical_country_change_count, d.physical_address_change_count,
+               d.unit_size_change_count, d.status_change_count,
+               d.stats_delta, CASE WHEN param_resolution = 'year' THEN d.stats_ended_year ELSE d.stats_ended_month END AS stats_ended
+          FROM public.statistical_history_facet_delta AS d, params
          WHERE d.unit_type = ANY (ARRAY(SELECT unnest(param_unit_types) FROM params))
            AND d.on_month <= (SELECT max(curr_stop) FROM period)
            AND (param_region_path IS NULL OR d.physical_region_path IS NOT NULL AND d.physical_region_path OPERATOR(public.<@) param_region_path)
@@ -55,46 +63,27 @@ AS $function$
           FROM stock AS s JOIN month_periods AS mp USING (on_month)
          WHERE s.countable_delta <> 0
     ),
+    -- The changes of each asked period: the sum of its months.
     flow AS MATERIALIZED (
-        SELECT f.year, f.month,
-               sum(f.flows[1])::bigint AS exists_change, sum(f.flows[2])::bigint AS exists_added_count,
-               sum(f.flows[3])::bigint AS exists_removed_count, sum(f.flows[4])::bigint AS countable_change,
-               sum(f.flows[5])::bigint AS countable_added_count, sum(f.flows[6])::bigint AS countable_removed_count,
-               sum(f.flows[7])::bigint AS births, sum(f.flows[8])::bigint AS deaths,
-               sum(f.flows[9])::bigint AS name_change_count, sum(f.flows[10])::bigint AS primary_activity_category_change_count,
-               sum(f.flows[11])::bigint AS secondary_activity_category_change_count, sum(f.flows[12])::bigint AS sector_change_count,
-               sum(f.flows[13])::bigint AS legal_form_change_count, sum(f.flows[14])::bigint AS physical_region_change_count,
-               sum(f.flows[15])::bigint AS physical_country_change_count, sum(f.flows[16])::bigint AS physical_address_change_count,
-               sum(f.flows[17])::bigint AS unit_size_change_count, sum(f.flows[18])::bigint AS status_change_count,
-               public.jsonb_stats_delta_agg(f.stats_ended) FILTER (WHERE f.stats_ended IS NOT NULL) AS stats_ended
-          FROM public.statistical_history_facet_flow_delta AS f
-          JOIN period AS p ON p.resolution = f.resolution AND p.year = f.year AND COALESCE(p.month, 0) = COALESCE(f.month, 0)
-             , params
-         -- One index range per asked resolution and year; the month is matched in the join.
-         WHERE f.resolution = ANY (ARRAY(SELECT DISTINCT resolution FROM period))
-           AND f.year = ANY (ARRAY(SELECT DISTINCT year FROM period))
-           AND f.unit_type = ANY (ARRAY(SELECT unnest(param_unit_types) FROM params))
-           AND (param_region_path IS NULL OR f.physical_region_path IS NOT NULL AND f.physical_region_path OPERATOR(public.<@) param_region_path)
-           AND (param_activity_category_path IS NULL OR f.primary_activity_category_path IS NOT NULL AND f.primary_activity_category_path OPERATOR(public.<@) param_activity_category_path)
-           AND (param_sector_path IS NULL OR f.sector_path IS NOT NULL AND f.sector_path OPERATOR(public.<@) param_sector_path)
-           AND (param_legal_form_id IS NULL OR f.legal_form_id IS NOT NULL AND f.legal_form_id = param_legal_form_id)
-           AND (param_status_id IS NULL OR f.status_id IS NOT NULL AND f.status_id = param_status_id)
-           AND (param_country_id IS NULL OR f.physical_country_id IS NOT NULL AND f.physical_country_id = param_country_id)
+        SELECT p.year, p.month,
+               sum(s.exists_delta)::bigint AS exists_change, sum(s.exists_added_count)::bigint AS exists_added_count,
+               sum(s.exists_removed_count)::bigint AS exists_removed_count, sum(s.countable_delta)::bigint AS countable_change,
+               sum(s.countable_added_count)::bigint AS countable_added_count, sum(s.countable_removed_count)::bigint AS countable_removed_count,
+               sum(s.births)::bigint AS births, sum(s.deaths)::bigint AS deaths,
+               sum(s.name_change_count)::bigint AS name_change_count, sum(s.primary_activity_category_change_count)::bigint AS primary_activity_category_change_count,
+               sum(s.secondary_activity_category_change_count)::bigint AS secondary_activity_category_change_count, sum(s.sector_change_count)::bigint AS sector_change_count,
+               sum(s.legal_form_change_count)::bigint AS legal_form_change_count, sum(s.physical_region_change_count)::bigint AS physical_region_change_count,
+               sum(s.physical_country_change_count)::bigint AS physical_country_change_count, sum(s.physical_address_change_count)::bigint AS physical_address_change_count,
+               sum(s.unit_size_change_count)::bigint AS unit_size_change_count, sum(s.status_change_count)::bigint AS status_change_count,
+               public.jsonb_stats_delta_agg(s.stats_ended) FILTER (WHERE s.stats_ended IS NOT NULL) AS stats_ended
+          FROM period AS p
+          JOIN stock AS s ON s.on_month BETWEEN p.curr_start AND p.curr_stop
          GROUP BY 1, 2
     ),
     -- Stats of the stock: per month first, then per period end.
     stats_month AS MATERIALIZED (
-        SELECT d.on_month, public.jsonb_stats_delta_agg(d.stats_delta) AS stats_delta
-          FROM public.statistical_history_facet_stock_delta AS d, params
-         WHERE d.stats_delta IS NOT NULL
-           AND d.unit_type = ANY (ARRAY(SELECT unnest(param_unit_types) FROM params))
-           AND d.on_month <= (SELECT max(curr_stop) FROM period)
-           AND (param_region_path IS NULL OR d.physical_region_path IS NOT NULL AND d.physical_region_path OPERATOR(public.<@) param_region_path)
-           AND (param_activity_category_path IS NULL OR d.primary_activity_category_path IS NOT NULL AND d.primary_activity_category_path OPERATOR(public.<@) param_activity_category_path)
-           AND (param_sector_path IS NULL OR d.sector_path IS NOT NULL AND d.sector_path OPERATOR(public.<@) param_sector_path)
-           AND (param_legal_form_id IS NULL OR d.legal_form_id IS NOT NULL AND d.legal_form_id = param_legal_form_id)
-           AND (param_status_id IS NULL OR d.status_id IS NOT NULL AND d.status_id = param_status_id)
-           AND (param_country_id IS NULL OR d.physical_country_id IS NOT NULL AND d.physical_country_id = param_country_id)
+        SELECT s.on_month, public.jsonb_stats_delta_agg(s.stats_delta) AS stats_delta
+          FROM stock AS s WHERE s.stats_delta IS NOT NULL
          GROUP BY 1
     ),
     count_month AS MATERIALIZED (
@@ -130,10 +119,10 @@ AS $function$
              , COALESCE(f.physical_address_change_count, 0)::integer AS physical_address_change_count
              , COALESCE(f.unit_size_change_count, 0)::integer AS unit_size_change_count
              , COALESCE(f.status_change_count, 0)::integer AS status_change_count
-             , COALESCE(public.jsonb_stats_delta_to_agg(
+             , COALESCE(public.jsonb_stats_delta_to_agg(public.jsonb_stats_delta_nullif_zero(
                    CASE WHEN sp.stats_stock IS NULL THEN f.stats_ended
                         WHEN f.stats_ended IS NULL THEN sp.stats_stock
-                        ELSE public.jsonb_stats_delta_merge(sp.stats_stock, f.stats_ended) END), '{"type": "stats_agg"}'::jsonb) AS stats_summary
+                        ELSE public.jsonb_stats_delta_merge(sp.stats_stock, f.stats_ended) END)), '{}'::jsonb) AS stats_summary
           FROM stock_period AS sp
           LEFT JOIN flow AS f ON f.year = sp.year AND f.month IS NOT DISTINCT FROM sp.month
          WHERE sp.exists_count <> 0 OR sp.countable_count <> 0 OR f.year IS NOT NULL

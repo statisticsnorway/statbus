@@ -20,13 +20,11 @@ DROP PROCEDURE worker.statistical_history_facet_delta_contribution_stage(bigint)
 DROP PROCEDURE worker.statistical_history_facet_delta_contribution_begin();
 DROP PROCEDURE worker.statistical_history_facet_delta_contribution(regclass, smallint);
 DROP FUNCTION worker.unit_ids_apply(integer[], integer[], integer[]);
-DROP FUNCTION public.int_array_add(integer[], integer[]);
+DROP FUNCTION public.jsonb_stats_delta_nullif_zero(jsonb);
 DROP PROCEDURE public.statistical_history_period_refresh();
 DROP TABLE public.statistical_history_period;
-DROP TABLE public.statistical_history_facet_stock_delta_staging;
-DROP TABLE public.statistical_history_facet_flow_delta_staging;
-DROP TABLE public.statistical_history_facet_stock_delta;
-DROP TABLE public.statistical_history_facet_flow_delta;
+DROP TABLE public.statistical_history_facet_delta_staging;
+DROP TABLE public.statistical_history_facet_delta;
 DROP TABLE worker.statistical_history_facet_delta_state;
 
 CREATE TYPE public.statistical_history_type AS (resolution history_resolution, year integer, month integer, unit_type statistical_unit_type, exists_count integer, exists_change integer, exists_added_count integer, exists_removed_count integer, countable_count integer, countable_change integer, countable_added_count integer, countable_removed_count integer, births integer, deaths integer, name_change_count integer, primary_activity_category_change_count integer, secondary_activity_category_change_count integer, sector_change_count integer, legal_form_change_count integer, physical_region_change_count integer, physical_country_change_count integer, physical_address_change_count integer, stats_summary jsonb, hash_partition int4range);

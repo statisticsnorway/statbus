@@ -1,17 +1,17 @@
--- Migration 20261104130602: history reports from sparse delta tables (STATBUS-558)
+-- Migration 20261104130602: history reports from a sparse delta table (STATBUS-558)
 --
 -- statistical_history and statistical_history_facet held one row per cell per period, rebuilt per
 -- period and hash slot (3.5 GB plus a 21 GB per-slot cache on Norway). They become views with the same
--- columns over two sparse delta tables that hold only changes:
---   public.statistical_history_facet_stock_delta  per (cell, month): entries and exits of units, and their stats
---   public.statistical_history_facet_flow_delta   per (cell, period): the change counts between period ends
--- A period's stock is the sum of the deltas up to its end.
+-- columns over one sparse table, public.statistical_history_facet_delta, that holds per (cell, month)
+-- only what changed: units entering and leaving the cell, moves between cells, births, deaths, the change
+-- counts of each unit's versions, and their stats. Every column adds up: a period's stock is the sum of
+-- the rows up to its end, a period's changes the sum of its months, and a year the sum of its months.
 --
--- The deltas are maintained in the derive pipeline before statistical_unit_flush_staging: at that point
+-- The rows are maintained in the derive pipeline before statistical_unit_flush_staging: at that point
 -- statistical_unit_staging holds the refreshed units' new versions and statistical_unit their old ones,
 -- so one child per hash range (concurrent) stages new minus old, and the reduce adds the staged rows in.
--- A full derive rebuilds the tables with the same children. unit_ids on every delta row lists the units
--- that contribute to it, so tests can state exactly which units make up a cell.
+-- A full derive rebuilds the table with the same children. unit_ids on every row lists the units that
+-- contribute to it, so tests can state exactly which units make up a cell.
 BEGIN;
 
 -- ===================================================================== remove the dense model
@@ -44,10 +44,13 @@ DROP TABLE public.statistical_history_facet_partitions;
 DROP TYPE public.statistical_history_type;
 DROP TYPE public.statistical_history_facet_type;
 
--- ===================================================================== delta tables and their maintenance
+-- ===================================================================== delta table and its maintenance
 -- ===================================================================== tables
--- Stock deltas per (cell, month). Summed up to a period end they give the stock at that end.
-CREATE TABLE public.statistical_history_facet_stock_delta (
+-- What changed per (cell, month). A cell is a unit type and the eight facet dimensions; on_month is the
+-- first day of the month the change falls in. Every column is a sum over the units that changed there, so
+-- the rows of any months and cells add up: the stock at a period end is the sum of the rows up to it,
+-- a period's changes the sum of its months.
+CREATE TABLE public.statistical_history_facet_delta (
     unit_type public.statistical_unit_type NOT NULL,
     primary_activity_category_path public.ltree,
     secondary_activity_category_path public.ltree,
@@ -58,59 +61,46 @@ CREATE TABLE public.statistical_history_facet_stock_delta (
     unit_size_id integer,
     status_id integer,
     on_month date NOT NULL,
-    exists_delta integer NOT NULL,
-    countable_delta integer NOT NULL,
+    exists_added_count integer NOT NULL,
+    exists_removed_count integer NOT NULL,
+    countable_added_count integer NOT NULL,
+    countable_removed_count integer NOT NULL,
+    exists_moved_in_count integer NOT NULL,
+    exists_moved_out_count integer NOT NULL,
+    countable_moved_in_count integer NOT NULL,
+    countable_moved_out_count integer NOT NULL,
+    births integer NOT NULL,
+    deaths integer NOT NULL,
+    name_change_count integer NOT NULL,
+    primary_activity_category_change_count integer NOT NULL,
+    secondary_activity_category_change_count integer NOT NULL,
+    sector_change_count integer NOT NULL,
+    legal_form_change_count integer NOT NULL,
+    physical_region_change_count integer NOT NULL,
+    physical_country_change_count integer NOT NULL,
+    physical_address_change_count integer NOT NULL,
+    unit_size_change_count integer NOT NULL,
+    status_change_count integer NOT NULL,
     stats_delta jsonb,
+    stats_ended_month jsonb,
+    stats_ended_year jsonb,
     unit_ids integer[] NOT NULL
 );
-CREATE UNIQUE INDEX statistical_history_facet_stock_delta_key ON public.statistical_history_facet_stock_delta (unit_type, primary_activity_category_path,
+CREATE UNIQUE INDEX statistical_history_facet_delta_key ON public.statistical_history_facet_delta (unit_type, primary_activity_category_path,
     secondary_activity_category_path, sector_path, legal_form_id, physical_region_path, physical_country_id,
     unit_size_id, status_id, on_month) NULLS NOT DISTINCT;
-CREATE INDEX ON public.statistical_history_facet_stock_delta (unit_type, on_month);
-
--- Flow deltas per (cell, period).
-CREATE TABLE public.statistical_history_facet_flow_delta (
-    resolution public.history_resolution NOT NULL,
-    year integer NOT NULL,
-    month integer,
-    unit_type public.statistical_unit_type NOT NULL,
-    primary_activity_category_path public.ltree,
-    secondary_activity_category_path public.ltree,
-    sector_path public.ltree,
-    legal_form_id integer,
-    physical_region_path public.ltree,
-    physical_country_id integer,
-    unit_size_id integer,
-    status_id integer,
-    flows integer[] NOT NULL,
-    stats_ended jsonb,
-    unit_ids integer[] NOT NULL
-);
-COMMENT ON COLUMN public.statistical_history_facet_flow_delta.flows IS 'In order: exists_change, exists_added_count, exists_removed_count, countable_change, countable_added_count, countable_removed_count, births, deaths, name, primary_activity_category, secondary_activity_category, sector, legal_form, physical_region, physical_country, physical_address, unit_size, status change counts.';
-CREATE UNIQUE INDEX statistical_history_facet_flow_delta_key ON public.statistical_history_facet_flow_delta (resolution, year, month, unit_type,
-    primary_activity_category_path, secondary_activity_category_path, sector_path, legal_form_id,
-    physical_region_path, physical_country_id, unit_size_id, status_id) NULLS NOT DISTINCT;
+CREATE INDEX ON public.statistical_history_facet_delta (unit_type, on_month);
 
 -- Staging: signed per-unit rows written by the concurrent per-range children, summed by the reduce.
 -- Logged, like statistical_unit_staging: crash recovery empties an unlogged table, and rows staged for a
 -- flush that has committed must still be added after a restart.
-CREATE TABLE public.statistical_history_facet_stock_delta_staging (
-    unit_id integer NOT NULL, sign smallint NOT NULL,
-    unit_type public.statistical_unit_type NOT NULL,
-    primary_activity_category_path public.ltree, secondary_activity_category_path public.ltree,
-    sector_path public.ltree, legal_form_id integer, physical_region_path public.ltree,
-    physical_country_id integer, unit_size_id integer, status_id integer,
-    on_month date NOT NULL, exists_delta integer NOT NULL, countable_delta integer NOT NULL, stats_delta jsonb,
-    generation bigint NOT NULL);
-CREATE TABLE public.statistical_history_facet_flow_delta_staging (
-    unit_id integer NOT NULL, sign smallint NOT NULL,
-    resolution public.history_resolution NOT NULL, year integer NOT NULL, month integer,
-    unit_type public.statistical_unit_type NOT NULL,
-    primary_activity_category_path public.ltree, secondary_activity_category_path public.ltree,
-    sector_path public.ltree, legal_form_id integer, physical_region_path public.ltree,
-    physical_country_id integer, unit_size_id integer, status_id integer,
-    flows integer[] NOT NULL, stats_ended jsonb,
-    generation bigint NOT NULL);
+CREATE TABLE public.statistical_history_facet_delta_staging (
+    unit_id integer NOT NULL,
+    sign smallint NOT NULL,
+    LIKE public.statistical_history_facet_delta,
+    generation bigint NOT NULL
+);
+ALTER TABLE public.statistical_history_facet_delta_staging DROP COLUMN unit_ids;
 
 -- Which staged rows count. Rows are staged from statistical_unit_staging (new versions) and
 -- statistical_unit (old versions) before the flush; they are true only once that flush has committed.
@@ -123,10 +113,9 @@ CREATE UNIQUE INDEX statistical_history_facet_delta_state_single_row ON worker.s
 INSERT INTO worker.statistical_history_facet_delta_state DEFAULT VALUES;
 COMMENT ON TABLE worker.statistical_history_facet_delta_state IS 'One row: which staged history delta rows count. A cycle''s rows carry its generation (the derive_statistical_history_facet_delta task id); they count once the flush of that cycle has committed.';
 COMMENT ON COLUMN worker.statistical_history_facet_delta_state.flushed_generation IS 'Generation of the last cycle whose history staging completed and whose statistical_unit_flush_staging committed (set by that flush, in its transaction). Staged rows with generation <= flushed_generation are true and are added by the reduce; rows above it belong to a cycle whose flush never committed, and the next cycle replaces them (its units are still in statistical_unit_staging).';
-COMMENT ON COLUMN worker.statistical_history_facet_delta_state.rebuild_generation IS 'Generation of a rebuild cycle not yet added. Its reduce replaces the delta tables in one transaction, so readers keep the previous rows until the rebuilt ones commit. While set, every cycle rebuilds.';
+COMMENT ON COLUMN worker.statistical_history_facet_delta_state.rebuild_generation IS 'Generation of a rebuild cycle not yet added. Its reduce replaces public.statistical_history_facet_delta in one transaction, so readers keep the previous rows until the rebuilt ones commit. While set, every cycle rebuilds.';
 COMMENT ON COLUMN worker.statistical_history_facet_delta_state.rebuild_needed IS 'Set when statistical_unit_flush_staging ran in a task tree without a history step (a tree spawned before this design, or a direct call), so units moved without their deltas; the next cycle rebuilds.';
-COMMENT ON COLUMN public.statistical_history_facet_stock_delta_staging.generation IS 'The cycle that staged the row (see worker.statistical_history_facet_delta_state). 0 for rows that are true when they commit: the subtraction of units deleted from statistical_unit in the same transaction.';
-COMMENT ON COLUMN public.statistical_history_facet_flow_delta_staging.generation IS 'As statistical_history_facet_stock_delta_staging.generation.';
+COMMENT ON COLUMN public.statistical_history_facet_delta_staging.generation IS 'The cycle that staged the row (see worker.statistical_history_facet_delta_state). 0 for rows that are true when they commit: the subtraction of units deleted from statistical_unit in the same transaction.';
 
 -- Membership after a reduce: a unit stays or enters when its count (1 if present, +1 per add, -1 per
 -- removal) is positive.
@@ -139,206 +128,279 @@ LANGUAGE sql IMMUTABLE PARALLEL SAFE AS $unit_ids_apply$
          GROUP BY id HAVING sum(n) > 0) AS y
 $unit_ids_apply$;
 
--- Element-wise sum of two integer arrays; a missing element counts as 0. Used to add a cycle's flows to a stored
--- row. Many rows are summed with one sum() per element instead: 2x faster on Norway's 6.2 M staged flow rows.
-CREATE FUNCTION public.int_array_add(a integer[], b integer[]) RETURNS integer[]
-LANGUAGE sql IMMUTABLE STRICT PARALLEL SAFE AS $int_array_add$
-    SELECT array_agg(COALESCE(x, 0) + COALESCE(y, 0) ORDER BY i) FROM unnest(a, b) WITH ORDINALITY AS z(x, y, i)
-$int_array_add$;
+-- A stats delta that changes no stock: NULL. jsonb_stats_delta_agg returns '{"type": "stats_delta"}' even
+-- over no input, and a summary added and removed again leaves in = out for every variable; both add
+-- nothing to any sum. Storing them as NULL keeps "no stats" one value, so a row is kept only for what it
+-- changes, and readers render a cell without stats as '{}' as the dense tables did.
+CREATE FUNCTION public.jsonb_stats_delta_nullif_zero(p_delta jsonb) RETURNS jsonb
+LANGUAGE sql IMMUTABLE PARALLEL SAFE AS $jsonb_stats_delta_nullif_zero$
+    SELECT CASE WHEN p_delta IS NULL
+                  OR NOT EXISTS (SELECT 1 FROM jsonb_each(p_delta - 'type') AS e
+                                  WHERE e.value->'in' IS DISTINCT FROM e.value->'out')
+                THEN NULL ELSE p_delta END
+$jsonb_stats_delta_nullif_zero$;
+COMMENT ON FUNCTION public.jsonb_stats_delta_nullif_zero(jsonb) IS 'NULL for a stats delta that changes no stock (no variable, or in equal to out for every variable), the delta otherwise. public.statistical_history_facet_delta stores no stats change as NULL.';
 
 -- ===================================================================== contribution
 -- Contribution of the unit versions in table p_source (statistical_unit rows) restricted to the units in
--- pg_temp.hd_units (unit_type, unit_id). Writes unsigned per-unit rows to pg_temp.hd_stock / pg_temp.hd_flow
--- tagged with p_sign. Each kind depends only on one unit's own versions, so per-unit rows are exact.
+-- pg_temp.hd_units (unit_type, unit_id). Writes unsigned per-unit rows to pg_temp.hd_rows tagged with
+-- p_sign. Every row depends only on one unit's own versions, so per-unit rows are exact, and a unit's old
+-- rows subtracted and new rows added give the table as a rebuild would.
+--
+-- A unit exists from public.unit_existence_from(valid_from, birth_date) until
+-- public.unit_existence_until(valid_until, death_date) (STATBUS-460), version by version. Consecutive
+-- existence windows that touch are one continuous existence. What each window contributes, in the month
+-- its edge falls in:
+--   start, not continuing   exists_added_count in its cell; countable_added_count when counted;
+--                           births when counted and existence starts at birth_date
+--   start, continuing       when the cell differs from the previous window's: exists_moved_in_count, and
+--                           countable_moved_in_count when both are counted; countable_added_count when it
+--                           is counted and the previous was not; the change counts of each attribute that
+--                           differs, when both are counted (as the dense tables counted them)
+--   end, not continued      exists_removed_count in its cell; countable_removed_count when counted;
+--                           deaths when counted and existence ends at death_date
+--   end, continued          when the next window's cell differs: exists_moved_out_count, and
+--                           countable_moved_out_count when both are counted; countable_removed_count when
+--                           it is counted and the next is not
+-- So the stock of a cell at a month end is the sum up to it of added - removed + moved_in - moved_out.
+-- Stats follow the counted versions' valid_from/valid_until: stats_delta adds the summary when a version
+-- starts and removes it when it ends. A counted version that ends inside a period is still the unit's
+-- latest version overlapping that period, and its stats count for the period: stats_ended_month and
+-- stats_ended_year hold them in the month the version ends, for month and year periods.
+-- Dates are bucketed to their month (on_month, see its column comment); a window without a known start
+-- (-infinity) starts at on_month -infinity, before every period; an open end (infinity) never ends.
 CREATE PROCEDURE worker.statistical_history_facet_delta_contribution(p_source regclass, p_sign smallint)
 LANGUAGE plpgsql AS $statistical_history_facet_delta_contribution$
 BEGIN
     IF to_regclass('pg_temp.hd_v') IS NOT NULL THEN DROP TABLE pg_temp.hd_v; END IF;
     EXECUTE format($SQL$
     CREATE TEMP TABLE hd_v AS
-    SELECT s.unit_type, s.unit_id, s.valid_from, s.valid_to, s.valid_until, s.birth_date, s.death_date,
-           s.used_for_counting, s.name, s.stats_summary,
+    SELECT s.unit_type, s.unit_id, s.valid_from, s.valid_until, s.birth_date, s.death_date,
+           s.used_for_counting AS counted, s.name, s.stats_summary,
            s.primary_activity_category_path, s.secondary_activity_category_path, s.sector_path, s.legal_form_id,
            s.physical_region_path, s.physical_country_id, s.unit_size_id, s.status_id,
            (s.physical_address_part1, s.physical_address_part2, s.physical_address_part3,
             s.physical_postcode, s.physical_postplace)::text AS addr,
            public.unit_existence_from(s.valid_from, s.birth_date) AS ef,
-           public.unit_existence_until(s.valid_until, s.death_date) AS eu
+           public.unit_existence_until(s.valid_until, s.death_date) AS eu,
+           lead(s.valid_from) OVER (PARTITION BY s.unit_type, s.unit_id ORDER BY s.valid_from) AS next_valid_from
       FROM %1$s AS s
       JOIN pg_temp.hd_units AS u ON u.unit_type = s.unit_type AND u.unit_id = s.unit_id
-    $SQL$, p_source);
-    CREATE INDEX ON hd_v (unit_type, unit_id, valid_from);
-    ANALYZE hd_v;
+    $SQL$, p_source);  -- a regclass renders as its quoted, schema-qualified name
 
-    -- Stock: +1/-1 at each version's existence window (today: latest version overlapping the period,
-    -- existing at its end; versions of one unit do not overlap, so the sums agree), countable likewise.
-    -- Dates are bucketed to their month (on_month, see its column comment): exact at every month end, and
-    -- a unit's changes within one month collapse into one row, or cancel. A version without a known start
-    -- (-infinity) enters at on_month -infinity, before every period; an open end (infinity) never leaves.
-    INSERT INTO pg_temp.hd_stock
-    SELECT v.unit_id, p_sign, v.unit_type, v.primary_activity_category_path, v.secondary_activity_category_path,
-           v.sector_path, v.legal_form_id, v.physical_region_path, v.physical_country_id, v.unit_size_id, v.status_id,
-           date_trunc('month', x.d)::date, sum(x.ne)::int, sum(x.nc)::int, NULL::jsonb
-      FROM hd_v AS v
-     CROSS JOIN LATERAL (VALUES (v.ef, 1, v.used_for_counting::int), (v.eu, -1, -v.used_for_counting::int)) AS x(d, ne, nc)
-     WHERE v.ef < v.eu AND x.d <> 'infinity'::date
-     GROUP BY 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12
-    HAVING sum(x.ne) <> 0 OR sum(x.nc) <> 0;
-    -- Stats valid: a counted version's summary holds from valid_from until valid_until. Within one month a
-    -- unit's leaving and re-entering summaries are added; a row where every key's in and out flows are
-    -- equal changes no stock and is not kept.
-    INSERT INTO pg_temp.hd_stock
-    SELECT v.unit_id, p_sign, v.unit_type, v.primary_activity_category_path, v.secondary_activity_category_path,
-           v.sector_path, v.legal_form_id, v.physical_region_path, v.physical_country_id, v.unit_size_id, v.status_id,
-           date_trunc('month', x.d)::date, 0, 0, public.jsonb_stats_delta_agg(x.sd)
-      FROM hd_v AS v
+    -- The existence windows in order, with their neighbours. A version whose window is empty (born after it
+    -- ended, or died before it began) is no existence and takes no part.
+    IF to_regclass('pg_temp.hd_w') IS NOT NULL THEN DROP TABLE pg_temp.hd_w; END IF;
+    CREATE TEMP TABLE hd_w AS
+    SELECT v.*,
+           lag(v.eu) OVER w IS NOT DISTINCT FROM v.ef AS continues,
+           lead(v.ef) OVER w IS NOT DISTINCT FROM v.eu AS continued,
+           lag(v.cell) OVER w AS prev_cell, lead(v.cell) OVER w AS next_cell,
+           lag(v.counted) OVER w AS prev_counted, lead(v.counted) OVER w AS next_counted,
+           lag(v.name) OVER w AS prev_name,
+           lag(v.primary_activity_category_path) OVER w AS prev_primary_activity_category_path,
+           lag(v.secondary_activity_category_path) OVER w AS prev_secondary_activity_category_path,
+           lag(v.sector_path) OVER w AS prev_sector_path, lag(v.legal_form_id) OVER w AS prev_legal_form_id,
+           lag(v.physical_region_path) OVER w AS prev_physical_region_path,
+           lag(v.physical_country_id) OVER w AS prev_physical_country_id, lag(v.addr) OVER w AS prev_addr,
+           lag(v.unit_size_id) OVER w AS prev_unit_size_id, lag(v.status_id) OVER w AS prev_status_id
+      FROM (SELECT hd_v.*,
+                   ROW(hd_v.primary_activity_category_path, hd_v.secondary_activity_category_path, hd_v.sector_path,
+                       hd_v.legal_form_id, hd_v.physical_region_path, hd_v.physical_country_id, hd_v.unit_size_id,
+                       hd_v.status_id)::text AS cell
+              FROM pg_temp.hd_v WHERE hd_v.ef < hd_v.eu) AS v
+    WINDOW w AS (PARTITION BY v.unit_type, v.unit_id ORDER BY v.ef);
+
+    -- One row per event: (kind, count) or (kind, stats delta), in the cell and month it belongs to.
+    IF to_regclass('pg_temp.hd_ev') IS NOT NULL THEN DROP TABLE pg_temp.hd_ev; END IF;
+    CREATE TEMP TABLE hd_ev AS
+    -- Start of a window, in its cell.
+    SELECT w.unit_type, w.unit_id, w.primary_activity_category_path, w.secondary_activity_category_path, w.sector_path,
+           w.legal_form_id, w.physical_region_path, w.physical_country_id, w.unit_size_id, w.status_id,
+           date_trunc('month', w.ef)::date AS on_month, e.kind, 1 AS n, NULL::jsonb AS sd
+      FROM pg_temp.hd_w AS w
+     CROSS JOIN LATERAL (VALUES
+            ('exists_added_count', NOT w.continues),
+            ('countable_added_count', w.counted AND NOT (w.continues AND w.prev_counted)),
+            ('births', w.counted AND NOT w.continues AND w.ef = w.birth_date),
+            ('exists_moved_in_count', w.continues AND w.prev_cell IS DISTINCT FROM w.cell),
+            ('countable_moved_in_count', w.continues AND w.prev_cell IS DISTINCT FROM w.cell AND w.prev_counted AND w.counted),
+            ('name_change_count', w.continues AND w.prev_counted AND w.counted AND w.name IS DISTINCT FROM w.prev_name),
+            ('primary_activity_category_change_count', w.continues AND w.prev_counted AND w.counted
+                 AND w.primary_activity_category_path IS DISTINCT FROM w.prev_primary_activity_category_path),
+            ('secondary_activity_category_change_count', w.continues AND w.prev_counted AND w.counted
+                 AND w.secondary_activity_category_path IS DISTINCT FROM w.prev_secondary_activity_category_path),
+            ('sector_change_count', w.continues AND w.prev_counted AND w.counted AND w.sector_path IS DISTINCT FROM w.prev_sector_path),
+            ('legal_form_change_count', w.continues AND w.prev_counted AND w.counted AND w.legal_form_id IS DISTINCT FROM w.prev_legal_form_id),
+            ('physical_region_change_count', w.continues AND w.prev_counted AND w.counted
+                 AND w.physical_region_path IS DISTINCT FROM w.prev_physical_region_path),
+            ('physical_country_change_count', w.continues AND w.prev_counted AND w.counted
+                 AND w.physical_country_id IS DISTINCT FROM w.prev_physical_country_id),
+            ('physical_address_change_count', w.continues AND w.prev_counted AND w.counted AND w.addr IS DISTINCT FROM w.prev_addr),
+            ('unit_size_change_count', w.continues AND w.prev_counted AND w.counted AND w.unit_size_id IS DISTINCT FROM w.prev_unit_size_id),
+            ('status_change_count', w.continues AND w.prev_counted AND w.counted AND w.status_id IS DISTINCT FROM w.prev_status_id)
+           ) AS e(kind, applies)
+     WHERE e.applies
+    UNION ALL
+    -- End of a window, in its cell.
+    SELECT w.unit_type, w.unit_id, w.primary_activity_category_path, w.secondary_activity_category_path, w.sector_path,
+           w.legal_form_id, w.physical_region_path, w.physical_country_id, w.unit_size_id, w.status_id,
+           date_trunc('month', w.eu)::date, e.kind, 1, NULL::jsonb
+      FROM pg_temp.hd_w AS w
+     CROSS JOIN LATERAL (VALUES
+            ('exists_removed_count', NOT w.continued),
+            ('countable_removed_count', w.counted AND NOT (w.continued AND w.next_counted)),
+            ('deaths', w.counted AND NOT w.continued AND w.eu = w.death_date),
+            ('exists_moved_out_count', w.continued AND w.next_cell IS DISTINCT FROM w.cell),
+            ('countable_moved_out_count', w.continued AND w.next_cell IS DISTINCT FROM w.cell AND w.counted AND w.next_counted)
+           ) AS e(kind, applies)
+     WHERE e.applies AND w.eu <> 'infinity'::date
+    UNION ALL
+    -- Stats of a counted version, from valid_from until valid_until.
+    SELECT v.unit_type, v.unit_id, v.primary_activity_category_path, v.secondary_activity_category_path, v.sector_path,
+           v.legal_form_id, v.physical_region_path, v.physical_country_id, v.unit_size_id, v.status_id,
+           date_trunc('month', x.d)::date, 'stats_delta', 0, x.sd
+      FROM pg_temp.hd_v AS v
      CROSS JOIN LATERAL (VALUES (v.valid_from, public.jsonb_stats_to_delta(v.stats_summary)),
                                 (v.valid_until, public.jsonb_stats_negate(public.jsonb_stats_to_delta(v.stats_summary)))) AS x(d, sd)
-     WHERE v.used_for_counting AND x.d <> 'infinity'::date
-     GROUP BY 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12
-    HAVING EXISTS (SELECT 1 FROM jsonb_each(public.jsonb_stats_delta_agg(x.sd) - 'type'::text) AS e
-                    WHERE e.value->'in' IS DISTINCT FROM e.value->'out');
-
-    -- Calendar periods holding any of the unit's edges, independent of the data's date range.
-    IF to_regclass('pg_temp.hd_ep') IS NOT NULL THEN DROP TABLE pg_temp.hd_ep; END IF;
-    CREATE TEMP TABLE hd_ep AS
-    SELECT DISTINCT v.unit_type, v.unit_id, p.resolution, p.year, p.month, p.curr_start, p.curr_stop, p.prev_stop
-      FROM hd_v AS v
-     CROSS JOIN LATERAL (VALUES (v.valid_from), (v.valid_until), (v.birth_date), (v.death_date), (v.ef), (v.eu)) AS e(d)
+     WHERE v.counted AND v.stats_summary IS NOT NULL AND x.d <> 'infinity'::date
+    UNION ALL
+    -- Stats of a counted version that ends inside a month (valid_until is not the 1st), when no later
+    -- version starts by that month's end; likewise for the year.
+    SELECT v.unit_type, v.unit_id, v.primary_activity_category_path, v.secondary_activity_category_path, v.sector_path,
+           v.legal_form_id, v.physical_region_path, v.physical_country_id, v.unit_size_id, v.status_id,
+           date_trunc('month', v.valid_until)::date, e.kind, 0, public.jsonb_stats_to_delta(v.stats_summary)
+      FROM pg_temp.hd_v AS v
      CROSS JOIN LATERAL (VALUES
-            ('year'::public.history_resolution, extract(year FROM e.d)::int, NULL::int,
-             make_date(extract(year FROM e.d)::int, 1, 1), make_date(extract(year FROM e.d)::int, 12, 31),
-             make_date(extract(year FROM e.d)::int - 1, 12, 31)),
-            ('year-month'::public.history_resolution, extract(year FROM e.d)::int, extract(month FROM e.d)::int,
-             date_trunc('month', e.d)::date, (date_trunc('month', e.d) + interval '1 month' - interval '1 day')::date,
-             (date_trunc('month', e.d) - interval '1 day')::date)) AS p(resolution, year, month, curr_start, curr_stop, prev_stop)
-     WHERE e.d IS NOT NULL AND isfinite(e.d);
-    CREATE INDEX ON hd_ep (unit_type, unit_id);
-    ANALYZE hd_ep;
+            ('stats_ended_month', extract(day FROM v.valid_until) <> 1
+                AND (v.next_valid_from IS NULL
+                     OR v.next_valid_from > (date_trunc('month', v.valid_until) + interval '1 month - 1 day')::date)),
+            ('stats_ended_year', NOT (extract(month FROM v.valid_until) = 1 AND extract(day FROM v.valid_until) = 1)
+                AND (v.next_valid_from IS NULL
+                     OR v.next_valid_from > make_date(extract(year FROM v.valid_until)::int, 12, 31)))
+           ) AS e(kind, applies)
+     WHERE e.applies AND v.counted AND v.stats_summary IS NOT NULL AND isfinite(v.valid_until);
 
-    -- Flows: the unit at prev_stop (p) and curr_stop (c), as the former statistical_history_facet_def compared
-    -- them. A period in which the unit changed nothing (all 18 counts zero) stores no row.
-    INSERT INTO pg_temp.hd_flow
-    SELECT * FROM (
-    SELECT ep.unit_id, p_sign, ep.resolution, ep.year, ep.month, ep.unit_type,
-           COALESCE(c.primary_activity_category_path, p.primary_activity_category_path),
-           COALESCE(c.secondary_activity_category_path, p.secondary_activity_category_path),
-           COALESCE(c.sector_path, p.sector_path), COALESCE(c.legal_form_id, p.legal_form_id),
-           COALESCE(c.physical_region_path, p.physical_region_path), COALESCE(c.physical_country_id, p.physical_country_id),
-           COALESCE(c.unit_size_id, p.unit_size_id), COALESCE(c.status_id, p.status_id),
-           ARRAY[(c.unit_id IS NOT NULL)::int - (p.unit_id IS NOT NULL)::int,
-                 (c.unit_id IS NOT NULL AND p.unit_id IS NULL)::int,
-                 (p.unit_id IS NOT NULL AND c.unit_id IS NULL)::int,
-                 COALESCE(c.used_for_counting, false)::int - COALESCE(p.used_for_counting, false)::int,
-                 (COALESCE(c.used_for_counting, false) AND NOT COALESCE(p.used_for_counting, false))::int,
-                 (COALESCE(p.used_for_counting, false) AND NOT COALESCE(c.used_for_counting, false))::int,
-                 (COALESCE(l.used_for_counting, false) AND COALESCE(l.birth_date BETWEEN ep.curr_start AND ep.curr_stop, false))::int,
-                 (COALESCE(l.used_for_counting, false) AND COALESCE(l.death_date BETWEEN ep.curr_start AND ep.curr_stop, false))::int,
-                 (b.both AND c.name IS DISTINCT FROM p.name)::int,
-                 (b.both AND c.primary_activity_category_path IS DISTINCT FROM p.primary_activity_category_path)::int,
-                 (b.both AND c.secondary_activity_category_path IS DISTINCT FROM p.secondary_activity_category_path)::int,
-                 (b.both AND c.sector_path IS DISTINCT FROM p.sector_path)::int,
-                 (b.both AND c.legal_form_id IS DISTINCT FROM p.legal_form_id)::int,
-                 (b.both AND c.physical_region_path IS DISTINCT FROM p.physical_region_path)::int,
-                 (b.both AND c.physical_country_id IS DISTINCT FROM p.physical_country_id)::int,
-                 (b.both AND c.addr IS DISTINCT FROM p.addr)::int,
-                 (b.both AND c.unit_size_id IS DISTINCT FROM p.unit_size_id)::int,
-                 (b.both AND c.status_id IS DISTINCT FROM p.status_id)::int],
-           NULL::jsonb
-      FROM hd_ep AS ep
-      LEFT JOIN hd_v AS c ON c.unit_type = ep.unit_type AND c.unit_id = ep.unit_id
-           AND c.valid_from <= ep.curr_stop AND ep.curr_stop < c.valid_until
-           AND c.ef <= ep.curr_stop AND ep.curr_stop < c.eu
-      LEFT JOIN hd_v AS p ON p.unit_type = ep.unit_type AND p.unit_id = ep.unit_id
-           AND p.valid_from <= ep.prev_stop AND ep.prev_stop < p.valid_until
-           AND p.ef <= ep.prev_stop AND ep.prev_stop < p.eu
-      LEFT JOIN LATERAL (SELECT l.used_for_counting, l.birth_date, l.death_date FROM hd_v AS l
-                          WHERE l.unit_type = ep.unit_type AND l.unit_id = ep.unit_id
-                            AND l.valid_from <= ep.curr_stop AND l.valid_to >= ep.curr_start
-                          ORDER BY l.valid_from DESC, l.valid_until DESC LIMIT 1) AS l ON true
-     CROSS JOIN LATERAL (SELECT COALESCE(p.used_for_counting AND c.used_for_counting, false) AS both) AS b
-     WHERE c.unit_id IS NOT NULL OR p.unit_id IS NOT NULL) AS r(unit_id, sign, resolution, year, month, unit_type,
-         primary_activity_category_path, secondary_activity_category_path, sector_path, legal_form_id,
-         physical_region_path, physical_country_id, unit_size_id, status_id, flows, stats_ended)
-     WHERE r.flows <> array_fill(0, ARRAY[18]);
-
-    -- Stats ended: the latest counted version overlapping a period counts for the period's stats; when it
-    -- ended inside the period it is not in the stock at the period end, so it is added here.
-    INSERT INTO pg_temp.hd_flow
-    SELECT v.unit_id, p_sign, ep.resolution, ep.year, ep.month, v.unit_type, v.primary_activity_category_path,
-           v.secondary_activity_category_path, v.sector_path, v.legal_form_id, v.physical_region_path,
-           v.physical_country_id, v.unit_size_id, v.status_id,
-           array_fill(0, ARRAY[18]), public.jsonb_stats_to_delta(v.stats_summary)
-      FROM hd_ep AS ep
-      JOIN hd_v AS v ON v.unit_type = ep.unit_type AND v.unit_id = ep.unit_id
-       AND v.used_for_counting AND v.valid_from <= ep.curr_stop
-       AND ep.curr_start < v.valid_until AND v.valid_until <= ep.curr_stop
-     WHERE NOT EXISTS (SELECT 1 FROM hd_v AS w WHERE w.unit_type = v.unit_type AND w.unit_id = v.unit_id
-                          AND w.valid_from > v.valid_from AND w.valid_from <= ep.curr_stop);
+    INSERT INTO pg_temp.hd_rows (unit_id, sign, unit_type, primary_activity_category_path, secondary_activity_category_path,
+           sector_path, legal_form_id, physical_region_path, physical_country_id, unit_size_id, status_id, on_month,
+           exists_added_count, exists_removed_count, countable_added_count, countable_removed_count,
+           exists_moved_in_count, exists_moved_out_count, countable_moved_in_count, countable_moved_out_count,
+           births, deaths, name_change_count, primary_activity_category_change_count,
+           secondary_activity_category_change_count, sector_change_count, legal_form_change_count,
+           physical_region_change_count, physical_country_change_count, physical_address_change_count,
+           unit_size_change_count, status_change_count, stats_delta, stats_ended_month, stats_ended_year)
+    SELECT r.unit_id, r.sign, r.unit_type, r.primary_activity_category_path, r.secondary_activity_category_path,
+           r.sector_path, r.legal_form_id, r.physical_region_path, r.physical_country_id, r.unit_size_id, r.status_id,
+           r.on_month, r.c1, r.c2, r.c3, r.c4, r.c5, r.c6, r.c7, r.c8, r.c9, r.c10, r.c11, r.c12, r.c13, r.c14, r.c15,
+           r.c16, r.c17, r.c18, r.c19, r.c20, r.sd, r.sem, r.sey
+      FROM (
+        SELECT unit_id, p_sign, unit_type, primary_activity_category_path, secondary_activity_category_path,
+               sector_path, legal_form_id, physical_region_path, physical_country_id, unit_size_id, status_id, on_month,
+               count(*) FILTER (WHERE kind = 'exists_added_count')::int AS a,
+               count(*) FILTER (WHERE kind = 'exists_removed_count')::int,
+               count(*) FILTER (WHERE kind = 'countable_added_count')::int,
+               count(*) FILTER (WHERE kind = 'countable_removed_count')::int,
+               count(*) FILTER (WHERE kind = 'exists_moved_in_count')::int,
+               count(*) FILTER (WHERE kind = 'exists_moved_out_count')::int,
+               count(*) FILTER (WHERE kind = 'countable_moved_in_count')::int,
+               count(*) FILTER (WHERE kind = 'countable_moved_out_count')::int,
+               count(*) FILTER (WHERE kind = 'births')::int,
+               count(*) FILTER (WHERE kind = 'deaths')::int,
+               count(*) FILTER (WHERE kind = 'name_change_count')::int,
+               count(*) FILTER (WHERE kind = 'primary_activity_category_change_count')::int,
+               count(*) FILTER (WHERE kind = 'secondary_activity_category_change_count')::int,
+               count(*) FILTER (WHERE kind = 'sector_change_count')::int,
+               count(*) FILTER (WHERE kind = 'legal_form_change_count')::int,
+               count(*) FILTER (WHERE kind = 'physical_region_change_count')::int,
+               count(*) FILTER (WHERE kind = 'physical_country_change_count')::int,
+               count(*) FILTER (WHERE kind = 'physical_address_change_count')::int,
+               count(*) FILTER (WHERE kind = 'unit_size_change_count')::int,
+               count(*) FILTER (WHERE kind = 'status_change_count')::int,
+               public.jsonb_stats_delta_nullif_zero(public.jsonb_stats_delta_agg(sd) FILTER (WHERE kind = 'stats_delta')) AS sd,
+               public.jsonb_stats_delta_nullif_zero(public.jsonb_stats_delta_agg(sd) FILTER (WHERE kind = 'stats_ended_month')) AS sem,
+               public.jsonb_stats_delta_nullif_zero(public.jsonb_stats_delta_agg(sd) FILTER (WHERE kind = 'stats_ended_year')) AS sey,
+               count(*) FILTER (WHERE n <> 0) AS events
+          FROM pg_temp.hd_ev
+         GROUP BY unit_id, unit_type, primary_activity_category_path, secondary_activity_category_path, sector_path,
+                  legal_form_id, physical_region_path, physical_country_id, unit_size_id, status_id, on_month
+    ) AS r(unit_id, sign, unit_type, primary_activity_category_path, secondary_activity_category_path,
+           sector_path, legal_form_id, physical_region_path, physical_country_id, unit_size_id, status_id, on_month,
+           c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20, sd, sem, sey, events)
+     WHERE r.events > 0 OR r.sd IS NOT NULL OR r.sem IS NOT NULL OR r.sey IS NOT NULL;
 END;
 $statistical_history_facet_delta_contribution$;
 
 CREATE PROCEDURE worker.statistical_history_facet_delta_contribution_begin()
 LANGUAGE plpgsql AS $statistical_history_facet_delta_contribution_begin$
 BEGIN
-    IF to_regclass('pg_temp.hd_stock') IS NOT NULL THEN DROP TABLE pg_temp.hd_stock; END IF;
-    CREATE TEMP TABLE hd_stock (LIKE public.statistical_history_facet_stock_delta_staging);
-    ALTER TABLE hd_stock DROP COLUMN generation;
-    IF to_regclass('pg_temp.hd_flow') IS NOT NULL THEN DROP TABLE pg_temp.hd_flow; END IF;
-    CREATE TEMP TABLE hd_flow (LIKE public.statistical_history_facet_flow_delta_staging);
-    ALTER TABLE hd_flow DROP COLUMN generation;
+    IF to_regclass('pg_temp.hd_rows') IS NOT NULL THEN DROP TABLE pg_temp.hd_rows; END IF;
+    CREATE TEMP TABLE hd_rows (LIKE public.statistical_history_facet_delta_staging);
+    ALTER TABLE hd_rows DROP COLUMN generation;
 END;
 $statistical_history_facet_delta_contribution_begin$;
 
--- Move hd_stock / hd_flow to the staging tables with their sign applied, tagged with p_generation. A unit's
--- old row that reappears identical among its new rows cancels first, so units refreshed without change
--- stage nothing.
+-- Move pg_temp.hd_rows to public.statistical_history_facet_delta_staging with its sign applied, tagged
+-- with p_generation. A unit's old row that reappears identical among its new rows cancels first, so
+-- units refreshed without change stage nothing.
 CREATE PROCEDURE worker.statistical_history_facet_delta_contribution_stage(p_generation bigint)
 LANGUAGE plpgsql AS $statistical_history_facet_delta_contribution_stage$
 BEGIN
-    INSERT INTO public.statistical_history_facet_stock_delta_staging
+    INSERT INTO public.statistical_history_facet_delta_staging (unit_id, sign, unit_type, primary_activity_category_path,
+           secondary_activity_category_path, sector_path, legal_form_id, physical_region_path, physical_country_id,
+           unit_size_id, status_id, on_month, exists_added_count, exists_removed_count, countable_added_count,
+           countable_removed_count, exists_moved_in_count, exists_moved_out_count, countable_moved_in_count,
+           countable_moved_out_count, births, deaths, name_change_count, primary_activity_category_change_count,
+           secondary_activity_category_change_count, sector_change_count, legal_form_change_count,
+           physical_region_change_count, physical_country_change_count, physical_address_change_count,
+           unit_size_change_count, status_change_count, stats_delta, stats_ended_month, stats_ended_year, generation)
     WITH plus AS (SELECT unit_id, unit_type, primary_activity_category_path, secondary_activity_category_path, sector_path,
-                         legal_form_id, physical_region_path, physical_country_id, unit_size_id, status_id, on_month,
-                         exists_delta, countable_delta, stats_delta FROM pg_temp.hd_stock WHERE sign > 0),
+           legal_form_id, physical_region_path, physical_country_id, unit_size_id, status_id, on_month,
+           exists_added_count, exists_removed_count, countable_added_count, countable_removed_count,
+           exists_moved_in_count, exists_moved_out_count, countable_moved_in_count, countable_moved_out_count,
+           births, deaths, name_change_count, primary_activity_category_change_count,
+           secondary_activity_category_change_count, sector_change_count, legal_form_change_count,
+           physical_region_change_count, physical_country_change_count, physical_address_change_count,
+           unit_size_change_count, status_change_count, stats_delta, stats_ended_month, stats_ended_year
+                    FROM pg_temp.hd_rows WHERE sign > 0),
          minus AS (SELECT unit_id, unit_type, primary_activity_category_path, secondary_activity_category_path, sector_path,
-                          legal_form_id, physical_region_path, physical_country_id, unit_size_id, status_id, on_month,
-                          exists_delta, countable_delta, stats_delta FROM pg_temp.hd_stock WHERE sign < 0)
+           legal_form_id, physical_region_path, physical_country_id, unit_size_id, status_id, on_month,
+           exists_added_count, exists_removed_count, countable_added_count, countable_removed_count,
+           exists_moved_in_count, exists_moved_out_count, countable_moved_in_count, countable_moved_out_count,
+           births, deaths, name_change_count, primary_activity_category_change_count,
+           secondary_activity_category_change_count, sector_change_count, legal_form_change_count,
+           physical_region_change_count, physical_country_change_count, physical_address_change_count,
+           unit_size_change_count, status_change_count, stats_delta, stats_ended_month, stats_ended_year
+                     FROM pg_temp.hd_rows WHERE sign < 0),
+         added AS (SELECT * FROM plus EXCEPT ALL SELECT * FROM minus),
+         removed AS (SELECT * FROM minus EXCEPT ALL SELECT * FROM plus)
     SELECT unit_id, 1, unit_type, primary_activity_category_path, secondary_activity_category_path, sector_path,
            legal_form_id, physical_region_path, physical_country_id, unit_size_id, status_id, on_month,
-           exists_delta, countable_delta, stats_delta, p_generation
-      FROM (SELECT * FROM plus EXCEPT ALL SELECT * FROM minus) AS a
+           exists_added_count, exists_removed_count, countable_added_count, countable_removed_count,
+           exists_moved_in_count, exists_moved_out_count, countable_moved_in_count, countable_moved_out_count,
+           births, deaths, name_change_count, primary_activity_category_change_count,
+           secondary_activity_category_change_count, sector_change_count, legal_form_change_count,
+           physical_region_change_count, physical_country_change_count, physical_address_change_count,
+           unit_size_change_count, status_change_count, stats_delta, stats_ended_month, stats_ended_year, p_generation
+      FROM added
     UNION ALL
     SELECT unit_id, -1, unit_type, primary_activity_category_path, secondary_activity_category_path, sector_path,
            legal_form_id, physical_region_path, physical_country_id, unit_size_id, status_id, on_month,
-           -exists_delta, -countable_delta, public.jsonb_stats_negate(stats_delta), p_generation
-      FROM (SELECT * FROM minus EXCEPT ALL SELECT * FROM plus) AS r;
-
-    INSERT INTO public.statistical_history_facet_flow_delta_staging
-    WITH plus AS (SELECT unit_id, resolution, year, month, unit_type, primary_activity_category_path,
-                         secondary_activity_category_path, sector_path, legal_form_id, physical_region_path,
-                         physical_country_id, unit_size_id, status_id, flows, stats_ended FROM pg_temp.hd_flow WHERE sign > 0),
-         minus AS (SELECT unit_id, resolution, year, month, unit_type, primary_activity_category_path,
-                          secondary_activity_category_path, sector_path, legal_form_id, physical_region_path,
-                          physical_country_id, unit_size_id, status_id, flows, stats_ended FROM pg_temp.hd_flow WHERE sign < 0)
-    SELECT unit_id, 1, resolution, year, month, unit_type, primary_activity_category_path,
-           secondary_activity_category_path, sector_path, legal_form_id, physical_region_path,
-           physical_country_id, unit_size_id, status_id, flows, stats_ended, p_generation
-      FROM (SELECT * FROM plus EXCEPT ALL SELECT * FROM minus) AS a
-    UNION ALL
-    SELECT unit_id, -1, resolution, year, month, unit_type, primary_activity_category_path,
-           secondary_activity_category_path, sector_path, legal_form_id, physical_region_path,
-           physical_country_id, unit_size_id, status_id,
-           (SELECT array_agg(-f ORDER BY i) FROM unnest(flows) WITH ORDINALITY AS z(f, i)),
-           public.jsonb_stats_negate(stats_ended), p_generation
-      FROM (SELECT * FROM minus EXCEPT ALL SELECT * FROM plus) AS r;
-    TRUNCATE pg_temp.hd_stock, pg_temp.hd_flow;
+           -exists_added_count, -exists_removed_count, -countable_added_count, -countable_removed_count,
+           -exists_moved_in_count, -exists_moved_out_count, -countable_moved_in_count, -countable_moved_out_count,
+           -births, -deaths, -name_change_count, -primary_activity_category_change_count,
+           -secondary_activity_category_change_count, -sector_change_count, -legal_form_change_count,
+           -physical_region_change_count, -physical_country_change_count, -physical_address_change_count,
+           -unit_size_change_count, -status_change_count, public.jsonb_stats_negate(stats_delta),
+           public.jsonb_stats_negate(stats_ended_month), public.jsonb_stats_negate(stats_ended_year), p_generation
+      FROM removed;
+    TRUNCATE pg_temp.hd_rows;
 END;
 $statistical_history_facet_delta_contribution_stage$;
 
 -- ===================================================================== per-range step
 -- One hash range. The units in p_new (statistical_unit_staging) are the units this cycle refreshed:
 -- incrementally, their versions in p_old (statistical_unit) are subtracted and their new versions added.
--- For a rebuild the delta tables are replaced by the reduce, and every unit is added as it will stand after
+-- For a rebuild the delta table is replaced by the reduce, and every unit is added as it will stand after
 -- the flush: refreshed units from p_new, the others from p_old. Rows are tagged with p_generation: the
 -- worker passes its cycle's, so the rows count once that cycle's flush commits; 0 makes them count at the
 -- next apply, for a caller whose p_old and p_new are already final.
@@ -390,16 +452,14 @@ $statistical_history_facet_delta_remove_units$;
 
 -- ===================================================================== apply
 -- Adds the staged rows that count (generation <= flushed_generation, see
--- worker.statistical_history_facet_delta_state) into the tables and removes them from staging; rows of a
--- cycle whose flush has not committed stay. With p_replace (a rebuild's rows), the tables are emptied first
--- in the same transaction, so readers see the previous rows until the rebuilt ones commit.
--- Membership in unit_ids is counted, so the result does not depend on how many cycles were staged before
--- one apply, nor on their order.
--- A row with no stats keeps stats NULL (delta_agg over no summaries would store an empty stats_delta,
--- which every read then parses); the stats columns stay NULL until a summary arrives.
+-- worker.statistical_history_facet_delta_state) into public.statistical_history_facet_delta and removes
+-- them from staging; rows of a cycle whose flush has not committed stay. With p_replace (a rebuild's
+-- rows), the table is emptied first in the same transaction, so readers see the previous rows until the
+-- rebuilt ones commit. Membership in unit_ids is counted, so the result does not depend on how many cycles
+-- were staged before one apply, nor on their order.
 CREATE PROCEDURE worker.statistical_history_facet_delta_apply(p_replace boolean DEFAULT false)
 LANGUAGE plpgsql
--- The MERGEs join a cycle's staged sums (small) to the whole delta table (large) on an exact text key;
+-- The MERGE joins a cycle's staged sums (small) to the whole delta table (large) on an exact text key;
 -- a merge join sorts the whole table by that key every cycle (9.8 s on Norway for 500 staged rows),
 -- a hash join reads it once (1.2 s). The planner picks the merge join on its cost estimate, so it is off.
 SET enable_mergejoin = off
@@ -407,27 +467,39 @@ AS $statistical_history_facet_delta_apply$
 DECLARE
     v_up_to bigint := (SELECT flushed_generation FROM worker.statistical_history_facet_delta_state);
 BEGIN
-    LOCK TABLE public.statistical_history_facet_stock_delta_staging, public.statistical_history_facet_flow_delta_staging IN EXCLUSIVE MODE;
+    LOCK TABLE public.statistical_history_facet_delta_staging IN EXCLUSIVE MODE;
     IF p_replace THEN
-        DELETE FROM public.statistical_history_facet_stock_delta;
-        DELETE FROM public.statistical_history_facet_flow_delta;
+        DELETE FROM public.statistical_history_facet_delta;
     END IF;
 
     IF to_regclass('pg_temp.hd_sum') IS NOT NULL THEN DROP TABLE pg_temp.hd_sum; END IF;
     CREATE TEMP TABLE hd_sum AS
     SELECT unit_type, primary_activity_category_path, secondary_activity_category_path, sector_path, legal_form_id,
            physical_region_path, physical_country_id, unit_size_id, status_id, on_month,
-           sum(exists_delta)::int AS exists_delta, sum(countable_delta)::int AS countable_delta,
-           public.jsonb_stats_delta_agg(stats_delta) FILTER (WHERE stats_delta IS NOT NULL) AS stats_delta,
+           sum(exists_added_count)::int AS exists_added_count, sum(exists_removed_count)::int AS exists_removed_count,
+           sum(countable_added_count)::int AS countable_added_count, sum(countable_removed_count)::int AS countable_removed_count,
+           sum(exists_moved_in_count)::int AS exists_moved_in_count, sum(exists_moved_out_count)::int AS exists_moved_out_count,
+           sum(countable_moved_in_count)::int AS countable_moved_in_count, sum(countable_moved_out_count)::int AS countable_moved_out_count,
+           sum(births)::int AS births, sum(deaths)::int AS deaths, sum(name_change_count)::int AS name_change_count,
+           sum(primary_activity_category_change_count)::int AS primary_activity_category_change_count,
+           sum(secondary_activity_category_change_count)::int AS secondary_activity_category_change_count,
+           sum(sector_change_count)::int AS sector_change_count, sum(legal_form_change_count)::int AS legal_form_change_count,
+           sum(physical_region_change_count)::int AS physical_region_change_count,
+           sum(physical_country_change_count)::int AS physical_country_change_count,
+           sum(physical_address_change_count)::int AS physical_address_change_count,
+           sum(unit_size_change_count)::int AS unit_size_change_count, sum(status_change_count)::int AS status_change_count,
+           public.jsonb_stats_delta_nullif_zero(public.jsonb_stats_delta_agg(stats_delta)) AS stats_delta,
+           public.jsonb_stats_delta_nullif_zero(public.jsonb_stats_delta_agg(stats_ended_month)) AS stats_ended_month,
+           public.jsonb_stats_delta_nullif_zero(public.jsonb_stats_delta_agg(stats_ended_year)) AS stats_ended_year,
            array_agg(unit_id ORDER BY unit_id) FILTER (WHERE sign > 0) AS plus_ids,
            array_agg(unit_id ORDER BY unit_id) FILTER (WHERE sign < 0) AS minus_ids
-      FROM public.statistical_history_facet_stock_delta_staging
+      FROM public.statistical_history_facet_delta_staging
      WHERE generation <= v_up_to
      GROUP BY 1, 2, 3, 4, 5, 6, 7, 8, 9, 10;
 
     -- The dimensions are nullable, and IS NOT DISTINCT FROM cannot drive a hash join; their row as text
     -- (NULL renders empty, '' renders quoted) is an exact key that can, so the MERGE stays linear.
-    MERGE INTO public.statistical_history_facet_stock_delta AS t
+    MERGE INTO public.statistical_history_facet_delta AS t
     USING hd_sum AS s
        ON t.unit_type = s.unit_type AND t.on_month = s.on_month
       AND ROW(t.primary_activity_category_path, t.secondary_activity_category_path, t.sector_path, t.legal_form_id, t.physical_region_path, t.physical_country_id, t.unit_size_id, t.status_id)::text = ROW(s.primary_activity_category_path, s.secondary_activity_category_path, s.sector_path, s.legal_form_id, s.physical_region_path, s.physical_country_id, s.unit_size_id, s.status_id)::text
@@ -440,68 +512,62 @@ BEGIN
       AND t.unit_size_id IS NOT DISTINCT FROM s.unit_size_id
       AND t.status_id IS NOT DISTINCT FROM s.status_id
     WHEN MATCHED THEN UPDATE SET
-        exists_delta = t.exists_delta + s.exists_delta,
-        countable_delta = t.countable_delta + s.countable_delta,
-        stats_delta = CASE WHEN t.stats_delta IS NULL THEN s.stats_delta
+        exists_added_count = t.exists_added_count + s.exists_added_count,
+        exists_removed_count = t.exists_removed_count + s.exists_removed_count,
+        countable_added_count = t.countable_added_count + s.countable_added_count,
+        countable_removed_count = t.countable_removed_count + s.countable_removed_count,
+        exists_moved_in_count = t.exists_moved_in_count + s.exists_moved_in_count,
+        exists_moved_out_count = t.exists_moved_out_count + s.exists_moved_out_count,
+        countable_moved_in_count = t.countable_moved_in_count + s.countable_moved_in_count,
+        countable_moved_out_count = t.countable_moved_out_count + s.countable_moved_out_count,
+        births = t.births + s.births,
+        deaths = t.deaths + s.deaths,
+        name_change_count = t.name_change_count + s.name_change_count,
+        primary_activity_category_change_count = t.primary_activity_category_change_count + s.primary_activity_category_change_count,
+        secondary_activity_category_change_count = t.secondary_activity_category_change_count + s.secondary_activity_category_change_count,
+        sector_change_count = t.sector_change_count + s.sector_change_count,
+        legal_form_change_count = t.legal_form_change_count + s.legal_form_change_count,
+        physical_region_change_count = t.physical_region_change_count + s.physical_region_change_count,
+        physical_country_change_count = t.physical_country_change_count + s.physical_country_change_count,
+        physical_address_change_count = t.physical_address_change_count + s.physical_address_change_count,
+        unit_size_change_count = t.unit_size_change_count + s.unit_size_change_count,
+        status_change_count = t.status_change_count + s.status_change_count,
+        stats_delta = public.jsonb_stats_delta_nullif_zero(CASE WHEN t.stats_delta IS NULL THEN s.stats_delta
                            WHEN s.stats_delta IS NULL THEN t.stats_delta
-                           ELSE public.jsonb_stats_delta_merge(t.stats_delta, s.stats_delta) END,
+                           ELSE public.jsonb_stats_delta_merge(t.stats_delta, s.stats_delta) END),
+        stats_ended_month = public.jsonb_stats_delta_nullif_zero(CASE WHEN t.stats_ended_month IS NULL THEN s.stats_ended_month
+                           WHEN s.stats_ended_month IS NULL THEN t.stats_ended_month
+                           ELSE public.jsonb_stats_delta_merge(t.stats_ended_month, s.stats_ended_month) END),
+        stats_ended_year = public.jsonb_stats_delta_nullif_zero(CASE WHEN t.stats_ended_year IS NULL THEN s.stats_ended_year
+                           WHEN s.stats_ended_year IS NULL THEN t.stats_ended_year
+                           ELSE public.jsonb_stats_delta_merge(t.stats_ended_year, s.stats_ended_year) END),
         unit_ids = worker.unit_ids_apply(t.unit_ids, s.plus_ids, s.minus_ids)
-    WHEN NOT MATCHED THEN INSERT VALUES (s.unit_type, s.primary_activity_category_path, s.secondary_activity_category_path,
-        s.sector_path, s.legal_form_id, s.physical_region_path, s.physical_country_id, s.unit_size_id, s.status_id,
-        s.on_month, s.exists_delta, s.countable_delta, s.stats_delta, worker.unit_ids_apply('{}', s.plus_ids, s.minus_ids));
-    DELETE FROM public.statistical_history_facet_stock_delta WHERE cardinality(unit_ids) = 0;
-
-    IF to_regclass('pg_temp.hd_fsum') IS NOT NULL THEN DROP TABLE pg_temp.hd_fsum; END IF;
-    CREATE TEMP TABLE hd_fsum AS
-    SELECT resolution, year, month, unit_type, primary_activity_category_path, secondary_activity_category_path,
-           sector_path, legal_form_id, physical_region_path, physical_country_id, unit_size_id, status_id,
-           ARRAY[sum(flows[1]), sum(flows[2]), sum(flows[3]), sum(flows[4]), sum(flows[5]), sum(flows[6]),
-                 sum(flows[7]), sum(flows[8]), sum(flows[9]), sum(flows[10]), sum(flows[11]), sum(flows[12]),
-                 sum(flows[13]), sum(flows[14]), sum(flows[15]), sum(flows[16]), sum(flows[17]),
-                 sum(flows[18])]::integer[] AS flows,
-           public.jsonb_stats_delta_agg(stats_ended) FILTER (WHERE stats_ended IS NOT NULL) AS stats_ended,
-           array_agg(unit_id ORDER BY unit_id) FILTER (WHERE sign > 0) AS plus_ids,
-           array_agg(unit_id ORDER BY unit_id) FILTER (WHERE sign < 0) AS minus_ids
-      FROM public.statistical_history_facet_flow_delta_staging
-     WHERE generation <= v_up_to
-     GROUP BY 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12;
-
-    MERGE INTO public.statistical_history_facet_flow_delta AS t
-    USING hd_fsum AS s
-       ON t.resolution = s.resolution AND t.year = s.year AND t.month IS NOT DISTINCT FROM s.month
-      AND t.unit_type = s.unit_type
-      AND ROW(t.month, t.primary_activity_category_path, t.secondary_activity_category_path, t.sector_path, t.legal_form_id, t.physical_region_path, t.physical_country_id, t.unit_size_id, t.status_id)::text
-        = ROW(s.month, s.primary_activity_category_path, s.secondary_activity_category_path, s.sector_path, s.legal_form_id, s.physical_region_path, s.physical_country_id, s.unit_size_id, s.status_id)::text
-      AND t.primary_activity_category_path IS NOT DISTINCT FROM s.primary_activity_category_path
-      AND t.secondary_activity_category_path IS NOT DISTINCT FROM s.secondary_activity_category_path
-      AND t.sector_path IS NOT DISTINCT FROM s.sector_path
-      AND t.legal_form_id IS NOT DISTINCT FROM s.legal_form_id
-      AND t.physical_region_path IS NOT DISTINCT FROM s.physical_region_path
-      AND t.physical_country_id IS NOT DISTINCT FROM s.physical_country_id
-      AND t.unit_size_id IS NOT DISTINCT FROM s.unit_size_id
-      AND t.status_id IS NOT DISTINCT FROM s.status_id
-    WHEN MATCHED THEN UPDATE SET
-        flows = public.int_array_add(t.flows, s.flows),
-        stats_ended = CASE WHEN t.stats_ended IS NULL THEN s.stats_ended
-                           WHEN s.stats_ended IS NULL THEN t.stats_ended
-                           ELSE public.jsonb_stats_delta_merge(t.stats_ended, s.stats_ended) END,
-        unit_ids = worker.unit_ids_apply(t.unit_ids, s.plus_ids, s.minus_ids)
-    WHEN NOT MATCHED THEN INSERT VALUES (s.resolution, s.year, s.month, s.unit_type, s.primary_activity_category_path,
-        s.secondary_activity_category_path, s.sector_path, s.legal_form_id, s.physical_region_path,
-        s.physical_country_id, s.unit_size_id, s.status_id, s.flows, s.stats_ended,
+    WHEN NOT MATCHED THEN INSERT (unit_type, primary_activity_category_path, secondary_activity_category_path,
+        sector_path, legal_form_id, physical_region_path, physical_country_id, unit_size_id, status_id, on_month,
+        exists_added_count, exists_removed_count, countable_added_count, countable_removed_count,
+        exists_moved_in_count, exists_moved_out_count, countable_moved_in_count, countable_moved_out_count,
+        births, deaths, name_change_count, primary_activity_category_change_count,
+        secondary_activity_category_change_count, sector_change_count, legal_form_change_count,
+        physical_region_change_count, physical_country_change_count, physical_address_change_count,
+        unit_size_change_count, status_change_count, stats_delta, stats_ended_month, stats_ended_year, unit_ids)
+      VALUES (s.unit_type, s.primary_activity_category_path, s.secondary_activity_category_path,
+        s.sector_path, s.legal_form_id, s.physical_region_path, s.physical_country_id, s.unit_size_id, s.status_id, s.on_month,
+        s.exists_added_count, s.exists_removed_count, s.countable_added_count, s.countable_removed_count,
+        s.exists_moved_in_count, s.exists_moved_out_count, s.countable_moved_in_count, s.countable_moved_out_count,
+        s.births, s.deaths, s.name_change_count, s.primary_activity_category_change_count,
+        s.secondary_activity_category_change_count, s.sector_change_count, s.legal_form_change_count,
+        s.physical_region_change_count, s.physical_country_change_count, s.physical_address_change_count,
+        s.unit_size_change_count, s.status_change_count, s.stats_delta, s.stats_ended_month, s.stats_ended_year,
         worker.unit_ids_apply('{}', s.plus_ids, s.minus_ids));
-    DELETE FROM public.statistical_history_facet_flow_delta WHERE cardinality(unit_ids) = 0;
+    DELETE FROM public.statistical_history_facet_delta WHERE cardinality(unit_ids) = 0;
 
-    IF EXISTS (SELECT 1 FROM public.statistical_history_facet_stock_delta_staging WHERE generation > v_up_to)
-       OR EXISTS (SELECT 1 FROM public.statistical_history_facet_flow_delta_staging WHERE generation > v_up_to) THEN
-        DELETE FROM public.statistical_history_facet_stock_delta_staging WHERE generation <= v_up_to;
-        DELETE FROM public.statistical_history_facet_flow_delta_staging WHERE generation <= v_up_to;
+    IF EXISTS (SELECT 1 FROM public.statistical_history_facet_delta_staging WHERE generation > v_up_to) THEN
+        DELETE FROM public.statistical_history_facet_delta_staging WHERE generation <= v_up_to;
     ELSE
-        TRUNCATE public.statistical_history_facet_stock_delta_staging, public.statistical_history_facet_flow_delta_staging;
+        TRUNCATE public.statistical_history_facet_delta_staging;
     END IF;
 END;
 $statistical_history_facet_delta_apply$;
-
 
 -- ===================================================================== worker commands
 -- The partition count for a number of units. Thresholds tuned for the 16384-slot space: few partitions for
@@ -585,24 +651,21 @@ BEGIN
     v_rebuild := ((payload->>'valid_from')::date = '-infinity'::date AND (payload->>'valid_until')::date = 'infinity'::date)
         OR v_state.rebuild_generation IS NOT NULL
         OR v_state.rebuild_needed
-        OR (NOT EXISTS (SELECT 1 FROM public.statistical_history_facet_stock_delta LIMIT 1)
+        OR (NOT EXISTS (SELECT 1 FROM public.statistical_history_facet_delta LIMIT 1)
             AND EXISTS (SELECT 1 FROM public.statistical_unit LIMIT 1));
 
     IF v_rebuild THEN
         -- The rebuild's rows replace the tables, so no earlier staged row is needed.
-        SELECT (SELECT count(*) FROM public.statistical_history_facet_stock_delta_staging)
-             + (SELECT count(*) FROM public.statistical_history_facet_flow_delta_staging) INTO v_discarded;
-        TRUNCATE public.statistical_history_facet_stock_delta_staging, public.statistical_history_facet_flow_delta_staging;
+        SELECT count(*) INTO v_discarded FROM public.statistical_history_facet_delta_staging;
+        TRUNCATE public.statistical_history_facet_delta_staging;
         UPDATE worker.statistical_history_facet_delta_state
            SET rebuild_generation = v_task_id, rebuild_needed = false;
     ELSE
         -- Rows of a cycle whose flush never committed: its units are still in statistical_unit_staging
         -- and are staged again below, against the same statistical_unit.
-        WITH s AS (DELETE FROM public.statistical_history_facet_stock_delta_staging
-                    WHERE generation > v_state.flushed_generation RETURNING 1),
-             f AS (DELETE FROM public.statistical_history_facet_flow_delta_staging
+        WITH s AS (DELETE FROM public.statistical_history_facet_delta_staging
                     WHERE generation > v_state.flushed_generation RETURNING 1)
-        SELECT (SELECT count(*) FROM s) + (SELECT count(*) FROM f) INTO v_discarded;
+        SELECT count(*) INTO v_discarded FROM s;
     END IF;
 
     v_range_size := GREATEST(1, 16384 / public.partition_count_target_for(GREATEST(
@@ -641,14 +704,11 @@ CREATE PROCEDURE worker.statistical_history_facet_delta_reduce(IN payload jsonb,
 AS $statistical_history_facet_delta_reduce_cmd$
 DECLARE
     v_state worker.statistical_history_facet_delta_state;
-    v_stock_staged bigint;
-    v_flow_staged bigint;
+    v_staged bigint;
     v_applied text;
 BEGIN
     SELECT * INTO v_state FROM worker.statistical_history_facet_delta_state FOR UPDATE;
-    SELECT count(*) INTO v_stock_staged FROM public.statistical_history_facet_stock_delta_staging
-     WHERE generation <= v_state.flushed_generation;
-    SELECT count(*) INTO v_flow_staged FROM public.statistical_history_facet_flow_delta_staging
+    SELECT count(*) INTO v_staged FROM public.statistical_history_facet_delta_staging
      WHERE generation <= v_state.flushed_generation;
     IF v_state.rebuild_generation IS NULL THEN
         CALL worker.statistical_history_facet_delta_apply();
@@ -666,8 +726,7 @@ BEGIN
     TRUNCATE public.statistical_unit_facet_dirty_hash_slots;
     PERFORM pg_notify('worker_status',
         json_build_object('type', 'is_deriving_reports', 'status', false)::text);
-    p_info := jsonb_build_object('stock_rows_staged', v_stock_staged, 'flow_rows_staged', v_flow_staged,
-                                 'applied', v_applied);
+    p_info := jsonb_build_object('rows_staged', v_staged, 'applied', v_applied);
 END;
 $statistical_history_facet_delta_reduce_cmd$;
 
@@ -677,7 +736,7 @@ INSERT INTO worker.command_registry (command, handler_procedure, description, qu
     ('derive_statistical_history_facet_delta_partition', 'worker.derive_statistical_history_facet_delta_partition',
      'Stage the history deltas of one hash range: new versions in statistical_unit_staging minus old ones in statistical_unit', 'analytics'),
     ('statistical_history_facet_delta_reduce', 'worker.statistical_history_facet_delta_reduce',
-     'Add the staged history deltas into statistical_history_facet_stock_delta and statistical_history_facet_flow_delta', 'analytics');
+     'Add the staged history deltas into statistical_history_facet_delta', 'analytics');
 INSERT INTO worker.pipeline_step_weight (step, weight, seq, phase) VALUES
     ('derive_statistical_history_facet_delta', 10, 2, 'is_deriving_statistical_units'),
     ('statistical_history_facet_delta_reduce', 2, 9, 'is_deriving_reports');
@@ -705,168 +764,275 @@ BEGIN
     SELECT resolution, year, month, prev_stop, curr_start, curr_stop FROM public.get_statistical_history_periods();
 END;
 $statistical_history_period_refresh$;
+COMMENT ON PROCEDURE public.statistical_history_period_refresh() IS 'Replaces public.statistical_history_period with the periods of the current data. Called by worker.statistical_history_facet_delta_reduce; not an API endpoint.';
+REVOKE EXECUTE ON PROCEDURE public.statistical_history_period_refresh() FROM PUBLIC;
 
--- Filled by the statistical_history_facet_delta_reduce of the rebuild this migration enqueues; the tables start empty.
+-- Filled by the statistical_history_facet_delta_reduce of the rebuild this migration enqueues; the table starts empty.
 
 -- ===================================================================== views with today's names
+-- Per cell and period. The stock at a period end is the running sum of the cell's rows up to it (the row
+-- in force at curr_stop); the changes of a period are the sum of its months. Stock and changes are
+-- stacked and grouped, as the dimensions are nullable and a FULL JOIN on them cannot use a hash join.
 CREATE VIEW public.statistical_history_facet WITH (security_invoker = on) AS
-WITH stock AS (
+WITH run AS (
     SELECT d.unit_type, d.primary_activity_category_path, d.secondary_activity_category_path, d.sector_path,
            d.legal_form_id, d.physical_region_path, d.physical_country_id, d.unit_size_id, d.status_id, d.on_month,
-           sum(d.exists_delta) OVER w AS exists_count, sum(d.countable_delta) OVER w AS countable_count,
+           sum(d.exists_added_count - d.exists_removed_count + d.exists_moved_in_count - d.exists_moved_out_count) OVER w AS exists_count,
+           sum(d.countable_added_count - d.countable_removed_count + d.countable_moved_in_count - d.countable_moved_out_count) OVER w AS countable_count,
            public.jsonb_stats_delta_agg(d.stats_delta) OVER w AS stats_stock,
-           lead(d.on_month) OVER w AS next_date
-      FROM public.statistical_history_facet_stock_delta AS d
+           lead(d.on_month) OVER w AS next_month
+      FROM public.statistical_history_facet_delta AS d
     WINDOW w AS (PARTITION BY d.unit_type, d.primary_activity_category_path, d.secondary_activity_category_path,
                  d.sector_path, d.legal_form_id, d.physical_region_path, d.physical_country_id, d.unit_size_id,
                  d.status_id ORDER BY d.on_month)
 ), parts AS (
-    SELECT p.resolution, p.year, p.month, s.unit_type, s.primary_activity_category_path, s.secondary_activity_category_path,
-           s.sector_path, s.legal_form_id, s.physical_region_path, s.physical_country_id, s.unit_size_id, s.status_id,
-           (s.exists_count <> 0 OR s.countable_count <> 0) AS has_row, s.exists_count, s.countable_count,
-           NULL::integer[] AS flows, s.stats_stock AS stats
+    SELECT p.resolution, p.year, p.month, r.unit_type, r.primary_activity_category_path, r.secondary_activity_category_path,
+           r.sector_path, r.legal_form_id, r.physical_region_path, r.physical_country_id, r.unit_size_id, r.status_id,
+           (r.exists_count <> 0 OR r.countable_count <> 0) AS has_row, r.exists_count, r.countable_count,
+           0 AS exists_added_count, 0 AS exists_removed_count, 0 AS countable_added_count, 0 AS countable_removed_count,
+           0 AS exists_moved_in_count, 0 AS exists_moved_out_count, 0 AS countable_moved_in_count, 0 AS countable_moved_out_count,
+           0 AS births, 0 AS deaths, 0 AS name_change_count, 0 AS primary_activity_category_change_count,
+           0 AS secondary_activity_category_change_count, 0 AS sector_change_count, 0 AS legal_form_change_count,
+           0 AS physical_region_change_count, 0 AS physical_country_change_count, 0 AS physical_address_change_count,
+           0 AS unit_size_change_count, 0 AS status_change_count, r.stats_stock AS stats
       FROM public.statistical_history_period AS p
-      JOIN stock AS s ON s.on_month <= p.curr_stop AND (s.next_date IS NULL OR p.curr_stop < s.next_date)
+      JOIN run AS r ON r.on_month <= p.curr_stop AND (r.next_month IS NULL OR p.curr_stop < r.next_month)
     UNION ALL
-    SELECT f.resolution, f.year, f.month, f.unit_type, f.primary_activity_category_path, f.secondary_activity_category_path,
-           f.sector_path, f.legal_form_id, f.physical_region_path, f.physical_country_id, f.unit_size_id, f.status_id,
-           EXISTS (SELECT 1 FROM unnest(f.flows) AS x WHERE x <> 0), 0, 0, f.flows, f.stats_ended
-      FROM public.statistical_history_facet_flow_delta AS f
-      JOIN public.statistical_history_period AS p ON p.resolution = f.resolution AND p.year = f.year AND p.month IS NOT DISTINCT FROM f.month
+    SELECT p.resolution, p.year, p.month, d.unit_type, d.primary_activity_category_path, d.secondary_activity_category_path,
+           d.sector_path, d.legal_form_id, d.physical_region_path, d.physical_country_id, d.unit_size_id, d.status_id,
+           (d.exists_added_count <> 0 OR d.exists_removed_count <> 0 OR d.countable_added_count <> 0
+            OR d.countable_removed_count <> 0 OR d.exists_moved_in_count <> 0 OR d.exists_moved_out_count <> 0
+            OR d.births <> 0 OR d.deaths <> 0 OR d.name_change_count <> 0
+            OR d.primary_activity_category_change_count <> 0 OR d.secondary_activity_category_change_count <> 0
+            OR d.sector_change_count <> 0 OR d.legal_form_change_count <> 0 OR d.physical_region_change_count <> 0
+            OR d.physical_country_change_count <> 0 OR d.physical_address_change_count <> 0
+            OR d.unit_size_change_count <> 0 OR d.status_change_count <> 0),
+           0, 0,
+           d.exists_added_count, d.exists_removed_count, d.countable_added_count, d.countable_removed_count,
+           d.exists_moved_in_count, d.exists_moved_out_count, d.countable_moved_in_count, d.countable_moved_out_count,
+           d.births, d.deaths, d.name_change_count, d.primary_activity_category_change_count,
+           d.secondary_activity_category_change_count, d.sector_change_count, d.legal_form_change_count,
+           d.physical_region_change_count, d.physical_country_change_count, d.physical_address_change_count,
+           d.unit_size_change_count, d.status_change_count,
+           CASE p.resolution WHEN 'year' THEN d.stats_ended_year ELSE d.stats_ended_month END
+      FROM public.statistical_history_period AS p
+      JOIN public.statistical_history_facet_delta AS d ON d.on_month BETWEEN p.curr_start AND p.curr_stop
 )
 SELECT resolution, year, month, unit_type, primary_activity_category_path, secondary_activity_category_path,
        sector_path, legal_form_id, physical_region_path, physical_country_id, unit_size_id, status_id,
        sum(exists_count)::integer AS exists_count,
-       COALESCE(sum(flows[1]), 0)::integer AS exists_change,
-       COALESCE(sum(flows[2]), 0)::integer AS exists_added_count,
-       COALESCE(sum(flows[3]), 0)::integer AS exists_removed_count,
+       (sum(exists_added_count) - sum(exists_removed_count) + sum(exists_moved_in_count) - sum(exists_moved_out_count))::integer AS exists_change,
+       sum(exists_added_count)::integer AS exists_added_count,
+       sum(exists_removed_count)::integer AS exists_removed_count,
        sum(countable_count)::integer AS countable_count,
-       COALESCE(sum(flows[4]), 0)::integer AS countable_change,
-       COALESCE(sum(flows[5]), 0)::integer AS countable_added_count,
-       COALESCE(sum(flows[6]), 0)::integer AS countable_removed_count,
-       COALESCE(sum(flows[7]), 0)::integer AS births,
-       COALESCE(sum(flows[8]), 0)::integer AS deaths,
-       COALESCE(sum(flows[9]), 0)::integer AS name_change_count,
-       COALESCE(sum(flows[10]), 0)::integer AS primary_activity_category_change_count,
-       COALESCE(sum(flows[11]), 0)::integer AS secondary_activity_category_change_count,
-       COALESCE(sum(flows[12]), 0)::integer AS sector_change_count,
-       COALESCE(sum(flows[13]), 0)::integer AS legal_form_change_count,
-       COALESCE(sum(flows[14]), 0)::integer AS physical_region_change_count,
-       COALESCE(sum(flows[15]), 0)::integer AS physical_country_change_count,
-       COALESCE(sum(flows[16]), 0)::integer AS physical_address_change_count,
-       COALESCE(sum(flows[17]), 0)::integer AS unit_size_change_count,
-       COALESCE(sum(flows[18]), 0)::integer AS status_change_count,
-       COALESCE(public.jsonb_stats_delta_to_agg(public.jsonb_stats_delta_agg(stats)), '{}'::jsonb) AS stats_summary
+       (sum(countable_added_count) - sum(countable_removed_count) + sum(countable_moved_in_count) - sum(countable_moved_out_count))::integer AS countable_change,
+       sum(countable_added_count)::integer AS countable_added_count,
+       sum(countable_removed_count)::integer AS countable_removed_count,
+       sum(births)::integer AS births,
+       sum(deaths)::integer AS deaths,
+       sum(name_change_count)::integer AS name_change_count,
+       sum(primary_activity_category_change_count)::integer AS primary_activity_category_change_count,
+       sum(secondary_activity_category_change_count)::integer AS secondary_activity_category_change_count,
+       sum(sector_change_count)::integer AS sector_change_count,
+       sum(legal_form_change_count)::integer AS legal_form_change_count,
+       sum(physical_region_change_count)::integer AS physical_region_change_count,
+       sum(physical_country_change_count)::integer AS physical_country_change_count,
+       sum(physical_address_change_count)::integer AS physical_address_change_count,
+       sum(unit_size_change_count)::integer AS unit_size_change_count,
+       sum(status_change_count)::integer AS status_change_count,
+       COALESCE(public.jsonb_stats_delta_to_agg(public.jsonb_stats_delta_nullif_zero(public.jsonb_stats_delta_agg(stats))),
+                '{}'::jsonb) AS stats_summary,
+       sum(exists_moved_in_count)::integer AS exists_moved_in_count,
+       sum(exists_moved_out_count)::integer AS exists_moved_out_count,
+       sum(countable_moved_in_count)::integer AS countable_moved_in_count,
+       sum(countable_moved_out_count)::integer AS countable_moved_out_count
   FROM parts
  GROUP BY 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12
 HAVING bool_or(has_row);
 
--- Without dimensions: the deltas are aggregated per unit type and month first (sums are linear), then per
--- period: the stock at a period end is the sum of the months up to it, joined on the few aggregated rows
--- rather than per period over the delta table. Flows are grouped by period directly.
+-- Per unit type and period. The rows are summed per unit type and month first (sums are linear), then per
+-- period: the stock at a period end is the sum of the months up to it, the changes the sum of its months.
 CREATE VIEW public.statistical_history WITH (security_invoker = on) AS
 WITH per_month AS (
-    SELECT d.unit_type, d.on_month, sum(d.exists_delta) AS exists_delta, sum(d.countable_delta) AS countable_delta,
-           public.jsonb_stats_delta_agg(d.stats_delta) AS stats_delta
-      FROM public.statistical_history_facet_stock_delta AS d GROUP BY 1, 2
+    SELECT d.unit_type, d.on_month,
+           sum(d.exists_added_count - d.exists_removed_count + d.exists_moved_in_count - d.exists_moved_out_count) AS exists_net,
+           sum(d.countable_added_count - d.countable_removed_count + d.countable_moved_in_count - d.countable_moved_out_count) AS countable_net,
+           sum(d.exists_added_count) AS exists_added_count, sum(d.exists_removed_count) AS exists_removed_count,
+           sum(d.countable_added_count) AS countable_added_count, sum(d.countable_removed_count) AS countable_removed_count,
+           sum(d.exists_moved_in_count) AS exists_moved_in_count, sum(d.exists_moved_out_count) AS exists_moved_out_count,
+           sum(d.countable_moved_in_count) AS countable_moved_in_count, sum(d.countable_moved_out_count) AS countable_moved_out_count,
+           sum(d.births) AS births, sum(d.deaths) AS deaths, sum(d.name_change_count) AS name_change_count,
+           sum(d.primary_activity_category_change_count) AS primary_activity_category_change_count,
+           sum(d.secondary_activity_category_change_count) AS secondary_activity_category_change_count,
+           sum(d.sector_change_count) AS sector_change_count, sum(d.legal_form_change_count) AS legal_form_change_count,
+           sum(d.physical_region_change_count) AS physical_region_change_count,
+           sum(d.physical_country_change_count) AS physical_country_change_count,
+           sum(d.physical_address_change_count) AS physical_address_change_count,
+           public.jsonb_stats_delta_agg(d.stats_delta) FILTER (WHERE d.stats_delta IS NOT NULL) AS stats_delta,
+           public.jsonb_stats_delta_agg(d.stats_ended_month) FILTER (WHERE d.stats_ended_month IS NOT NULL) AS stats_ended_month,
+           public.jsonb_stats_delta_agg(d.stats_ended_year) FILTER (WHERE d.stats_ended_year IS NOT NULL) AS stats_ended_year
+      FROM public.statistical_history_facet_delta AS d GROUP BY 1, 2
 ), stock AS (
-    SELECT p.resolution, p.year, p.month, m.unit_type, sum(m.exists_delta) AS exists_count,
-           sum(m.countable_delta) AS countable_count, public.jsonb_stats_delta_agg(m.stats_delta) AS stats_stock
+    SELECT p.resolution, p.year, p.month, m.unit_type, sum(m.exists_net) AS exists_count,
+           sum(m.countable_net) AS countable_count,
+           public.jsonb_stats_delta_agg(m.stats_delta) FILTER (WHERE m.stats_delta IS NOT NULL) AS stats_stock
       FROM public.statistical_history_period AS p
       JOIN per_month AS m ON m.on_month <= p.curr_stop
      GROUP BY 1, 2, 3, 4
-), flow AS (
-    SELECT f.resolution, f.year, f.month, f.unit_type,
-           ARRAY[sum(f.flows[1]), sum(f.flows[2]), sum(f.flows[3]), sum(f.flows[4]), sum(f.flows[5]), sum(f.flows[6]),
-                 sum(f.flows[7]), sum(f.flows[8]), sum(f.flows[9]), sum(f.flows[10]), sum(f.flows[11]), sum(f.flows[12]),
-                 sum(f.flows[13]), sum(f.flows[14]), sum(f.flows[15]), sum(f.flows[16]), sum(f.flows[17]),
-                 sum(f.flows[18])]::integer[] AS flows,
-           public.jsonb_stats_delta_agg(f.stats_ended) AS stats_ended
-      FROM public.statistical_history_facet_flow_delta AS f GROUP BY 1, 2, 3, 4
+), change AS (
+    SELECT p.resolution, p.year, p.month, m.unit_type,
+           sum(m.exists_net) AS exists_change, sum(m.exists_added_count) AS exists_added_count,
+           sum(m.exists_removed_count) AS exists_removed_count, sum(m.countable_net) AS countable_change,
+           sum(m.countable_added_count) AS countable_added_count, sum(m.countable_removed_count) AS countable_removed_count,
+           sum(m.exists_moved_in_count) AS exists_moved_in_count, sum(m.exists_moved_out_count) AS exists_moved_out_count,
+           sum(m.countable_moved_in_count) AS countable_moved_in_count, sum(m.countable_moved_out_count) AS countable_moved_out_count,
+           sum(m.births) AS births, sum(m.deaths) AS deaths, sum(m.name_change_count) AS name_change_count,
+           sum(m.primary_activity_category_change_count) AS primary_activity_category_change_count,
+           sum(m.secondary_activity_category_change_count) AS secondary_activity_category_change_count,
+           sum(m.sector_change_count) AS sector_change_count, sum(m.legal_form_change_count) AS legal_form_change_count,
+           sum(m.physical_region_change_count) AS physical_region_change_count,
+           sum(m.physical_country_change_count) AS physical_country_change_count,
+           sum(m.physical_address_change_count) AS physical_address_change_count,
+           public.jsonb_stats_delta_agg(CASE p.resolution WHEN 'year' THEN m.stats_ended_year ELSE m.stats_ended_month END)
+               FILTER (WHERE CASE p.resolution WHEN 'year' THEN m.stats_ended_year ELSE m.stats_ended_month END IS NOT NULL) AS stats_ended
+      FROM public.statistical_history_period AS p
+      JOIN per_month AS m ON m.on_month BETWEEN p.curr_start AND p.curr_stop
+     GROUP BY 1, 2, 3, 4
 )
-SELECT COALESCE(s.resolution, f.resolution) AS resolution, COALESCE(s.year, f.year) AS year,
-       COALESCE(s.month, f.month) AS month, COALESCE(s.unit_type, f.unit_type) AS unit_type,
-       COALESCE(s.exists_count, 0)::integer AS exists_count,
-       COALESCE(f.flows[1], 0) AS exists_change, COALESCE(f.flows[2], 0) AS exists_added_count,
-       COALESCE(f.flows[3], 0) AS exists_removed_count,
-       COALESCE(s.countable_count, 0)::integer AS countable_count,
-       COALESCE(f.flows[4], 0) AS countable_change, COALESCE(f.flows[5], 0) AS countable_added_count,
-       COALESCE(f.flows[6], 0) AS countable_removed_count,
-       COALESCE(f.flows[7], 0) AS births, COALESCE(f.flows[8], 0) AS deaths,
-       COALESCE(f.flows[9], 0) AS name_change_count,
-       COALESCE(f.flows[10], 0) AS primary_activity_category_change_count,
-       COALESCE(f.flows[11], 0) AS secondary_activity_category_change_count,
-       COALESCE(f.flows[12], 0) AS sector_change_count, COALESCE(f.flows[13], 0) AS legal_form_change_count,
-       COALESCE(f.flows[14], 0) AS physical_region_change_count,
-       COALESCE(f.flows[15], 0) AS physical_country_change_count,
-       COALESCE(f.flows[16], 0) AS physical_address_change_count,
-       COALESCE(public.jsonb_stats_delta_to_agg(public.jsonb_stats_delta_merge(
-           COALESCE(s.stats_stock, '{"type": "stats_delta"}'), COALESCE(f.stats_ended, '{"type": "stats_delta"}'))),
-           '{}'::jsonb) AS stats_summary,
-       NULL::int4range AS hash_partition
+SELECT s.resolution, s.year, s.month, s.unit_type,
+       s.exists_count::integer AS exists_count,
+       COALESCE(c.exists_change, 0)::integer AS exists_change,
+       COALESCE(c.exists_added_count, 0)::integer AS exists_added_count,
+       COALESCE(c.exists_removed_count, 0)::integer AS exists_removed_count,
+       s.countable_count::integer AS countable_count,
+       COALESCE(c.countable_change, 0)::integer AS countable_change,
+       COALESCE(c.countable_added_count, 0)::integer AS countable_added_count,
+       COALESCE(c.countable_removed_count, 0)::integer AS countable_removed_count,
+       COALESCE(c.births, 0)::integer AS births, COALESCE(c.deaths, 0)::integer AS deaths,
+       COALESCE(c.name_change_count, 0)::integer AS name_change_count,
+       COALESCE(c.primary_activity_category_change_count, 0)::integer AS primary_activity_category_change_count,
+       COALESCE(c.secondary_activity_category_change_count, 0)::integer AS secondary_activity_category_change_count,
+       COALESCE(c.sector_change_count, 0)::integer AS sector_change_count,
+       COALESCE(c.legal_form_change_count, 0)::integer AS legal_form_change_count,
+       COALESCE(c.physical_region_change_count, 0)::integer AS physical_region_change_count,
+       COALESCE(c.physical_country_change_count, 0)::integer AS physical_country_change_count,
+       COALESCE(c.physical_address_change_count, 0)::integer AS physical_address_change_count,
+       COALESCE(public.jsonb_stats_delta_to_agg(public.jsonb_stats_delta_nullif_zero(
+           CASE WHEN s.stats_stock IS NULL THEN c.stats_ended
+                WHEN c.stats_ended IS NULL THEN s.stats_stock
+                ELSE public.jsonb_stats_delta_merge(s.stats_stock, c.stats_ended) END)), '{}'::jsonb) AS stats_summary,
+       NULL::int4range AS hash_partition,
+       COALESCE(c.exists_moved_in_count, 0)::integer AS exists_moved_in_count,
+       COALESCE(c.exists_moved_out_count, 0)::integer AS exists_moved_out_count,
+       COALESCE(c.countable_moved_in_count, 0)::integer AS countable_moved_in_count,
+       COALESCE(c.countable_moved_out_count, 0)::integer AS countable_moved_out_count
   FROM stock AS s
-  FULL JOIN (SELECT f.* FROM flow AS f
-              WHERE EXISTS (SELECT 1 FROM public.statistical_history_period AS p
-                             WHERE p.resolution = f.resolution AND p.year = f.year
-                               AND COALESCE(p.month, 0) = COALESCE(f.month, 0))) AS f
-    ON f.unit_type = s.unit_type AND f.resolution = s.resolution AND f.year = s.year
-   AND COALESCE(f.month, 0) = COALESCE(s.month, 0)
- -- A period shows when units exist at its end or changed in it; the stock's stats come along either way
- -- (a unit that died in the period has count 0 but its stats still hold for the period).
- WHERE COALESCE(s.exists_count, 0) <> 0 OR COALESCE(s.countable_count, 0) <> 0 OR f.unit_type IS NOT NULL;
+  LEFT JOIN change AS c ON c.unit_type = s.unit_type AND c.resolution = s.resolution AND c.year = s.year
+   AND COALESCE(c.month, 0) = COALESCE(s.month, 0)
+ -- A period shows when units exist at its end or something changed in it; the stock's stats come along
+ -- either way (a unit that died in the period has count 0 but its stats still hold for the period).
+ WHERE s.exists_count <> 0 OR s.countable_count <> 0
+    OR c.exists_added_count <> 0 OR c.exists_removed_count <> 0 OR c.countable_added_count <> 0
+    OR c.countable_removed_count <> 0 OR c.births <> 0 OR c.deaths <> 0 OR c.name_change_count <> 0
+    OR c.primary_activity_category_change_count <> 0 OR c.secondary_activity_category_change_count <> 0
+    OR c.sector_change_count <> 0 OR c.legal_form_change_count <> 0 OR c.physical_region_change_count <> 0
+    OR c.physical_country_change_count <> 0 OR c.physical_address_change_count <> 0
+    OR c.exists_moved_in_count <> 0 OR c.stats_ended IS NOT NULL;
 
--- The statistical_history rows of one resolution and unit type (optionally one year), aggregated first from the
--- deltas of that unit type only: per month, then per asked period end. The view computes every unit type and
+-- The statistical_history rows of one resolution and unit type (optionally one year), aggregated first from
+-- the rows of that unit type only: per month, then per asked period. The view computes every unit type and
 -- period before the filter applies; readers that know their filter call this instead.
 CREATE FUNCTION public.statistical_history_for(p_resolution history_resolution, p_unit_type statistical_unit_type, p_year integer DEFAULT NULL)
- RETURNS SETOF public.statistical_history
+ RETURNS TABLE (resolution history_resolution, year integer, month integer, unit_type statistical_unit_type,
+                exists_count integer, exists_change integer, exists_added_count integer, exists_removed_count integer,
+                countable_count integer, countable_change integer, countable_added_count integer,
+                countable_removed_count integer, births integer, deaths integer, name_change_count integer,
+                primary_activity_category_change_count integer, secondary_activity_category_change_count integer,
+                sector_change_count integer, legal_form_change_count integer, physical_region_change_count integer,
+                physical_country_change_count integer, physical_address_change_count integer, stats_summary jsonb,
+                exists_moved_in_count integer, exists_moved_out_count integer, countable_moved_in_count integer,
+                countable_moved_out_count integer)
  LANGUAGE sql STABLE
  SET search_path TO 'public', 'pg_temp'
 AS $statistical_history_for$
     WITH period AS MATERIALIZED (
-        SELECT p.resolution, p.year, p.month, p.curr_stop FROM public.statistical_history_period AS p
+        SELECT p.year, p.month, p.curr_start, p.curr_stop FROM public.statistical_history_period AS p
          WHERE p.resolution = p_resolution AND (p_year IS NULL OR p.year = p_year)
     ), per_month AS MATERIALIZED (
-        SELECT d.on_month, sum(d.exists_delta) AS exists_delta, sum(d.countable_delta) AS countable_delta,
-               public.jsonb_stats_delta_agg(d.stats_delta) FILTER (WHERE d.stats_delta IS NOT NULL) AS stats_delta
-          FROM public.statistical_history_facet_stock_delta AS d
+        SELECT d.on_month,
+               sum(d.exists_added_count - d.exists_removed_count + d.exists_moved_in_count - d.exists_moved_out_count) AS exists_net,
+               sum(d.countable_added_count - d.countable_removed_count + d.countable_moved_in_count - d.countable_moved_out_count) AS countable_net,
+               sum(d.exists_added_count) AS exists_added_count, sum(d.exists_removed_count) AS exists_removed_count,
+               sum(d.countable_added_count) AS countable_added_count, sum(d.countable_removed_count) AS countable_removed_count,
+               sum(d.exists_moved_in_count) AS exists_moved_in_count, sum(d.exists_moved_out_count) AS exists_moved_out_count,
+               sum(d.countable_moved_in_count) AS countable_moved_in_count, sum(d.countable_moved_out_count) AS countable_moved_out_count,
+               sum(d.births) AS births, sum(d.deaths) AS deaths, sum(d.name_change_count) AS name_change_count,
+               sum(d.primary_activity_category_change_count) AS primary_activity_category_change_count,
+               sum(d.secondary_activity_category_change_count) AS secondary_activity_category_change_count,
+               sum(d.sector_change_count) AS sector_change_count, sum(d.legal_form_change_count) AS legal_form_change_count,
+               sum(d.physical_region_change_count) AS physical_region_change_count,
+               sum(d.physical_country_change_count) AS physical_country_change_count,
+               sum(d.physical_address_change_count) AS physical_address_change_count,
+               public.jsonb_stats_delta_agg(d.stats_delta) FILTER (WHERE d.stats_delta IS NOT NULL) AS stats_delta,
+               public.jsonb_stats_delta_agg(CASE p_resolution WHEN 'year' THEN d.stats_ended_year ELSE d.stats_ended_month END)
+                   FILTER (WHERE CASE p_resolution WHEN 'year' THEN d.stats_ended_year ELSE d.stats_ended_month END IS NOT NULL) AS stats_ended
+          FROM public.statistical_history_facet_delta AS d
          WHERE d.unit_type = p_unit_type AND d.on_month <= (SELECT max(curr_stop) FROM period)
          GROUP BY 1
-    ), stock AS MATERIALIZED (
-        SELECT p.year, p.month, sum(m.exists_delta) AS exists_count, sum(m.countable_delta) AS countable_count,
-               public.jsonb_stats_delta_agg(m.stats_delta) FILTER (WHERE m.stats_delta IS NOT NULL) AS stats_stock
+    ), summed AS MATERIALIZED (
+        SELECT p.year, p.month,
+               sum(m.exists_net) AS exists_count, sum(m.countable_net) AS countable_count,
+               public.jsonb_stats_delta_agg(m.stats_delta) FILTER (WHERE m.stats_delta IS NOT NULL) AS stats_stock,
+               sum(m.exists_net) FILTER (WHERE m.on_month >= p.curr_start) AS exists_change,
+               sum(m.exists_added_count) FILTER (WHERE m.on_month >= p.curr_start) AS exists_added_count,
+               sum(m.exists_removed_count) FILTER (WHERE m.on_month >= p.curr_start) AS exists_removed_count,
+               sum(m.countable_net) FILTER (WHERE m.on_month >= p.curr_start) AS countable_change,
+               sum(m.countable_added_count) FILTER (WHERE m.on_month >= p.curr_start) AS countable_added_count,
+               sum(m.countable_removed_count) FILTER (WHERE m.on_month >= p.curr_start) AS countable_removed_count,
+               sum(m.exists_moved_in_count) FILTER (WHERE m.on_month >= p.curr_start) AS exists_moved_in_count,
+               sum(m.exists_moved_out_count) FILTER (WHERE m.on_month >= p.curr_start) AS exists_moved_out_count,
+               sum(m.countable_moved_in_count) FILTER (WHERE m.on_month >= p.curr_start) AS countable_moved_in_count,
+               sum(m.countable_moved_out_count) FILTER (WHERE m.on_month >= p.curr_start) AS countable_moved_out_count,
+               sum(m.births) FILTER (WHERE m.on_month >= p.curr_start) AS births,
+               sum(m.deaths) FILTER (WHERE m.on_month >= p.curr_start) AS deaths,
+               sum(m.name_change_count) FILTER (WHERE m.on_month >= p.curr_start) AS name_change_count,
+               sum(m.primary_activity_category_change_count) FILTER (WHERE m.on_month >= p.curr_start) AS primary_activity_category_change_count,
+               sum(m.secondary_activity_category_change_count) FILTER (WHERE m.on_month >= p.curr_start) AS secondary_activity_category_change_count,
+               sum(m.sector_change_count) FILTER (WHERE m.on_month >= p.curr_start) AS sector_change_count,
+               sum(m.legal_form_change_count) FILTER (WHERE m.on_month >= p.curr_start) AS legal_form_change_count,
+               sum(m.physical_region_change_count) FILTER (WHERE m.on_month >= p.curr_start) AS physical_region_change_count,
+               sum(m.physical_country_change_count) FILTER (WHERE m.on_month >= p.curr_start) AS physical_country_change_count,
+               sum(m.physical_address_change_count) FILTER (WHERE m.on_month >= p.curr_start) AS physical_address_change_count,
+               public.jsonb_stats_delta_agg(m.stats_ended) FILTER (WHERE m.on_month >= p.curr_start AND m.stats_ended IS NOT NULL) AS stats_ended
           FROM period AS p JOIN per_month AS m ON m.on_month <= p.curr_stop
          GROUP BY 1, 2
-    ), flow AS MATERIALIZED (
-        SELECT f.year, f.month,
-               ARRAY[sum(f.flows[1]), sum(f.flows[2]), sum(f.flows[3]), sum(f.flows[4]), sum(f.flows[5]), sum(f.flows[6]),
-                     sum(f.flows[7]), sum(f.flows[8]), sum(f.flows[9]), sum(f.flows[10]), sum(f.flows[11]), sum(f.flows[12]),
-                     sum(f.flows[13]), sum(f.flows[14]), sum(f.flows[15]), sum(f.flows[16]), sum(f.flows[17]),
-                     sum(f.flows[18])]::integer[] AS flows,
-               public.jsonb_stats_delta_agg(f.stats_ended) FILTER (WHERE f.stats_ended IS NOT NULL) AS stats_ended
-          FROM public.statistical_history_facet_flow_delta AS f
-          JOIN period AS p ON p.year = f.year AND COALESCE(p.month, 0) = COALESCE(f.month, 0)
-         WHERE f.resolution = p_resolution AND f.unit_type = p_unit_type
-           AND (p_year IS NULL OR f.year = p_year)
-         GROUP BY 1, 2
     )
-    SELECT p_resolution, COALESCE(s.year, f.year), COALESCE(s.month, f.month), p_unit_type,
-           COALESCE(s.exists_count, 0)::integer,
-           COALESCE(f.flows[1], 0), COALESCE(f.flows[2], 0), COALESCE(f.flows[3], 0),
-           COALESCE(s.countable_count, 0)::integer,
-           COALESCE(f.flows[4], 0), COALESCE(f.flows[5], 0), COALESCE(f.flows[6], 0),
-           COALESCE(f.flows[7], 0), COALESCE(f.flows[8], 0), COALESCE(f.flows[9], 0),
-           COALESCE(f.flows[10], 0), COALESCE(f.flows[11], 0), COALESCE(f.flows[12], 0), COALESCE(f.flows[13], 0),
-           COALESCE(f.flows[14], 0), COALESCE(f.flows[15], 0), COALESCE(f.flows[16], 0),
-           COALESCE(public.jsonb_stats_delta_to_agg(public.jsonb_stats_delta_merge(
-               COALESCE(s.stats_stock, '{"type": "stats_delta"}'), COALESCE(f.stats_ended, '{"type": "stats_delta"}'))),
-               '{}'::jsonb),
-           NULL::int4range
-      FROM stock AS s
-      FULL JOIN flow AS f ON f.year = s.year AND COALESCE(f.month, 0) = COALESCE(s.month, 0)
-     WHERE COALESCE(s.exists_count, 0) <> 0 OR COALESCE(s.countable_count, 0) <> 0 OR f.year IS NOT NULL
+    SELECT p_resolution, s.year, s.month, p_unit_type,
+           s.exists_count::integer, COALESCE(s.exists_change, 0)::integer, COALESCE(s.exists_added_count, 0)::integer,
+           COALESCE(s.exists_removed_count, 0)::integer, s.countable_count::integer,
+           COALESCE(s.countable_change, 0)::integer, COALESCE(s.countable_added_count, 0)::integer,
+           COALESCE(s.countable_removed_count, 0)::integer, COALESCE(s.births, 0)::integer, COALESCE(s.deaths, 0)::integer,
+           COALESCE(s.name_change_count, 0)::integer, COALESCE(s.primary_activity_category_change_count, 0)::integer,
+           COALESCE(s.secondary_activity_category_change_count, 0)::integer, COALESCE(s.sector_change_count, 0)::integer,
+           COALESCE(s.legal_form_change_count, 0)::integer, COALESCE(s.physical_region_change_count, 0)::integer,
+           COALESCE(s.physical_country_change_count, 0)::integer, COALESCE(s.physical_address_change_count, 0)::integer,
+           COALESCE(public.jsonb_stats_delta_to_agg(public.jsonb_stats_delta_nullif_zero(
+               CASE WHEN s.stats_stock IS NULL THEN s.stats_ended
+                    WHEN s.stats_ended IS NULL THEN s.stats_stock
+                    ELSE public.jsonb_stats_delta_merge(s.stats_stock, s.stats_ended) END)), '{}'::jsonb),
+           COALESCE(s.exists_moved_in_count, 0)::integer, COALESCE(s.exists_moved_out_count, 0)::integer,
+           COALESCE(s.countable_moved_in_count, 0)::integer, COALESCE(s.countable_moved_out_count, 0)::integer
+      FROM summed AS s
+     WHERE s.exists_count <> 0 OR s.countable_count <> 0
+        OR s.exists_added_count <> 0 OR s.exists_removed_count <> 0 OR s.countable_added_count <> 0
+        OR s.countable_removed_count <> 0 OR s.births <> 0 OR s.deaths <> 0 OR s.name_change_count <> 0
+        OR s.primary_activity_category_change_count <> 0 OR s.secondary_activity_category_change_count <> 0
+        OR s.sector_change_count <> 0 OR s.legal_form_change_count <> 0 OR s.physical_region_change_count <> 0
+        OR s.physical_country_change_count <> 0 OR s.physical_address_change_count <> 0
+        OR s.exists_moved_in_count <> 0 OR s.stats_ended IS NOT NULL
+     ORDER BY s.year, s.month NULLS FIRST
 $statistical_history_for$;
-COMMENT ON FUNCTION public.statistical_history_for(history_resolution, statistical_unit_type, integer) IS 'The rows of statistical_history for one resolution and unit type, optionally one year: the same rows and columns, computed from the deltas of that unit type only.';
+COMMENT ON FUNCTION public.statistical_history_for(history_resolution, statistical_unit_type, integer) IS 'The rows of statistical_history for one resolution and unit type, optionally one year: the same values, computed from the rows of that unit type only. Returns its own column list (not the view''s row type), so columns added to the view later do not change it.';
 
 -- ===================================================================== flush
 -- The flush moves the staged versions into statistical_unit. In the same transaction it marks this cycle's
@@ -1482,8 +1648,7 @@ BEGIN
     PERFORM admin.add_rls_regular_user_can_read('public.legal_form_used'::regclass);
     PERFORM admin.add_rls_regular_user_can_read('public.country_used'::regclass);
     PERFORM admin.add_rls_regular_user_can_read('public.statistical_unit_facet'::regclass);
-    PERFORM admin.add_rls_regular_user_can_read('public.statistical_history_facet_stock_delta'::regclass);
-    PERFORM admin.add_rls_regular_user_can_read('public.statistical_history_facet_flow_delta'::regclass);
+    PERFORM admin.add_rls_regular_user_can_read('public.statistical_history_facet_delta'::regclass);
     PERFORM admin.add_rls_regular_user_can_read('public.statistical_history_period'::regclass);
     --
     -- ########### add_rls_regular_user_can_edit ###########
@@ -1587,10 +1752,8 @@ BEGIN
             public.statistical_unit_facet,
             public.statistical_unit_facet_staging,
             public.statistical_unit_facet_dirty_hash_slots,
-            public.statistical_history_facet_stock_delta,
-            public.statistical_history_facet_flow_delta,
-            public.statistical_history_facet_stock_delta_staging,
-            public.statistical_history_facet_flow_delta_staging,
+            public.statistical_history_facet_delta,
+            public.statistical_history_facet_delta_staging,
             public.statistical_history_period;
 
         result := result
@@ -2336,7 +2499,7 @@ AS $function$
     ),
     -- The asked periods.
     period AS MATERIALIZED (
-        SELECT p.resolution, p.year, p.month, p.curr_stop
+        SELECT p.resolution, p.year, p.month, p.curr_start, p.curr_stop
           FROM public.statistical_history_period AS p, params
          WHERE (param_resolution IS NULL OR p.resolution = param_resolution)
            AND (param_year IS NULL OR p.year = param_year)
@@ -2347,8 +2510,16 @@ AS $function$
     -- cannot reach any period.
     stock AS MATERIALIZED (
         SELECT d.primary_activity_category_path, d.sector_path, d.legal_form_id, d.physical_region_path,
-               d.physical_country_id, d.status_id, d.on_month, d.exists_delta, d.countable_delta
-          FROM public.statistical_history_facet_stock_delta AS d, params
+               d.physical_country_id, d.status_id, d.on_month,
+               d.exists_added_count - d.exists_removed_count + d.exists_moved_in_count - d.exists_moved_out_count AS exists_delta,
+               d.countable_added_count - d.countable_removed_count + d.countable_moved_in_count - d.countable_moved_out_count AS countable_delta,
+               d.exists_added_count, d.exists_removed_count, d.countable_added_count, d.countable_removed_count,
+               d.births, d.deaths, d.name_change_count, d.primary_activity_category_change_count,
+               d.secondary_activity_category_change_count, d.sector_change_count, d.legal_form_change_count,
+               d.physical_region_change_count, d.physical_country_change_count, d.physical_address_change_count,
+               d.unit_size_change_count, d.status_change_count,
+               d.stats_delta, CASE WHEN param_resolution = 'year' THEN d.stats_ended_year ELSE d.stats_ended_month END AS stats_ended
+          FROM public.statistical_history_facet_delta AS d, params
          WHERE d.unit_type = ANY (ARRAY(SELECT unnest(param_unit_types) FROM params))
            AND d.on_month <= (SELECT max(curr_stop) FROM period)
            AND (param_region_path IS NULL OR d.physical_region_path IS NOT NULL AND d.physical_region_path OPERATOR(public.<@) param_region_path)
@@ -2371,46 +2542,27 @@ AS $function$
           FROM stock AS s JOIN month_periods AS mp USING (on_month)
          WHERE s.countable_delta <> 0
     ),
+    -- The changes of each asked period: the sum of its months.
     flow AS MATERIALIZED (
-        SELECT f.year, f.month,
-               sum(f.flows[1])::bigint AS exists_change, sum(f.flows[2])::bigint AS exists_added_count,
-               sum(f.flows[3])::bigint AS exists_removed_count, sum(f.flows[4])::bigint AS countable_change,
-               sum(f.flows[5])::bigint AS countable_added_count, sum(f.flows[6])::bigint AS countable_removed_count,
-               sum(f.flows[7])::bigint AS births, sum(f.flows[8])::bigint AS deaths,
-               sum(f.flows[9])::bigint AS name_change_count, sum(f.flows[10])::bigint AS primary_activity_category_change_count,
-               sum(f.flows[11])::bigint AS secondary_activity_category_change_count, sum(f.flows[12])::bigint AS sector_change_count,
-               sum(f.flows[13])::bigint AS legal_form_change_count, sum(f.flows[14])::bigint AS physical_region_change_count,
-               sum(f.flows[15])::bigint AS physical_country_change_count, sum(f.flows[16])::bigint AS physical_address_change_count,
-               sum(f.flows[17])::bigint AS unit_size_change_count, sum(f.flows[18])::bigint AS status_change_count,
-               public.jsonb_stats_delta_agg(f.stats_ended) FILTER (WHERE f.stats_ended IS NOT NULL) AS stats_ended
-          FROM public.statistical_history_facet_flow_delta AS f
-          JOIN period AS p ON p.resolution = f.resolution AND p.year = f.year AND COALESCE(p.month, 0) = COALESCE(f.month, 0)
-             , params
-         -- One index range per asked resolution and year; the month is matched in the join.
-         WHERE f.resolution = ANY (ARRAY(SELECT DISTINCT resolution FROM period))
-           AND f.year = ANY (ARRAY(SELECT DISTINCT year FROM period))
-           AND f.unit_type = ANY (ARRAY(SELECT unnest(param_unit_types) FROM params))
-           AND (param_region_path IS NULL OR f.physical_region_path IS NOT NULL AND f.physical_region_path OPERATOR(public.<@) param_region_path)
-           AND (param_activity_category_path IS NULL OR f.primary_activity_category_path IS NOT NULL AND f.primary_activity_category_path OPERATOR(public.<@) param_activity_category_path)
-           AND (param_sector_path IS NULL OR f.sector_path IS NOT NULL AND f.sector_path OPERATOR(public.<@) param_sector_path)
-           AND (param_legal_form_id IS NULL OR f.legal_form_id IS NOT NULL AND f.legal_form_id = param_legal_form_id)
-           AND (param_status_id IS NULL OR f.status_id IS NOT NULL AND f.status_id = param_status_id)
-           AND (param_country_id IS NULL OR f.physical_country_id IS NOT NULL AND f.physical_country_id = param_country_id)
+        SELECT p.year, p.month,
+               sum(s.exists_delta)::bigint AS exists_change, sum(s.exists_added_count)::bigint AS exists_added_count,
+               sum(s.exists_removed_count)::bigint AS exists_removed_count, sum(s.countable_delta)::bigint AS countable_change,
+               sum(s.countable_added_count)::bigint AS countable_added_count, sum(s.countable_removed_count)::bigint AS countable_removed_count,
+               sum(s.births)::bigint AS births, sum(s.deaths)::bigint AS deaths,
+               sum(s.name_change_count)::bigint AS name_change_count, sum(s.primary_activity_category_change_count)::bigint AS primary_activity_category_change_count,
+               sum(s.secondary_activity_category_change_count)::bigint AS secondary_activity_category_change_count, sum(s.sector_change_count)::bigint AS sector_change_count,
+               sum(s.legal_form_change_count)::bigint AS legal_form_change_count, sum(s.physical_region_change_count)::bigint AS physical_region_change_count,
+               sum(s.physical_country_change_count)::bigint AS physical_country_change_count, sum(s.physical_address_change_count)::bigint AS physical_address_change_count,
+               sum(s.unit_size_change_count)::bigint AS unit_size_change_count, sum(s.status_change_count)::bigint AS status_change_count,
+               public.jsonb_stats_delta_agg(s.stats_ended) FILTER (WHERE s.stats_ended IS NOT NULL) AS stats_ended
+          FROM period AS p
+          JOIN stock AS s ON s.on_month BETWEEN p.curr_start AND p.curr_stop
          GROUP BY 1, 2
     ),
     -- Stats of the stock: per month first, then per period end.
     stats_month AS MATERIALIZED (
-        SELECT d.on_month, public.jsonb_stats_delta_agg(d.stats_delta) AS stats_delta
-          FROM public.statistical_history_facet_stock_delta AS d, params
-         WHERE d.stats_delta IS NOT NULL
-           AND d.unit_type = ANY (ARRAY(SELECT unnest(param_unit_types) FROM params))
-           AND d.on_month <= (SELECT max(curr_stop) FROM period)
-           AND (param_region_path IS NULL OR d.physical_region_path IS NOT NULL AND d.physical_region_path OPERATOR(public.<@) param_region_path)
-           AND (param_activity_category_path IS NULL OR d.primary_activity_category_path IS NOT NULL AND d.primary_activity_category_path OPERATOR(public.<@) param_activity_category_path)
-           AND (param_sector_path IS NULL OR d.sector_path IS NOT NULL AND d.sector_path OPERATOR(public.<@) param_sector_path)
-           AND (param_legal_form_id IS NULL OR d.legal_form_id IS NOT NULL AND d.legal_form_id = param_legal_form_id)
-           AND (param_status_id IS NULL OR d.status_id IS NOT NULL AND d.status_id = param_status_id)
-           AND (param_country_id IS NULL OR d.physical_country_id IS NOT NULL AND d.physical_country_id = param_country_id)
+        SELECT s.on_month, public.jsonb_stats_delta_agg(s.stats_delta) AS stats_delta
+          FROM stock AS s WHERE s.stats_delta IS NOT NULL
          GROUP BY 1
     ),
     count_month AS MATERIALIZED (
@@ -2446,10 +2598,10 @@ AS $function$
              , COALESCE(f.physical_address_change_count, 0)::integer AS physical_address_change_count
              , COALESCE(f.unit_size_change_count, 0)::integer AS unit_size_change_count
              , COALESCE(f.status_change_count, 0)::integer AS status_change_count
-             , COALESCE(public.jsonb_stats_delta_to_agg(
+             , COALESCE(public.jsonb_stats_delta_to_agg(public.jsonb_stats_delta_nullif_zero(
                    CASE WHEN sp.stats_stock IS NULL THEN f.stats_ended
                         WHEN f.stats_ended IS NULL THEN sp.stats_stock
-                        ELSE public.jsonb_stats_delta_merge(sp.stats_stock, f.stats_ended) END), '{"type": "stats_agg"}'::jsonb) AS stats_summary
+                        ELSE public.jsonb_stats_delta_merge(sp.stats_stock, f.stats_ended) END)), '{}'::jsonb) AS stats_summary
           FROM stock_period AS sp
           LEFT JOIN flow AS f ON f.year = sp.year AND f.month IS NOT DISTINCT FROM sp.month
          WHERE sp.exists_count <> 0 OR sp.countable_count <> 0 OR f.year IS NOT NULL
@@ -2619,23 +2771,48 @@ AS $function$
 $function$;
 
 -- ===================================================================== access
--- The delta tables and periods are read like the other derived tables; the views run as the caller.
-SELECT admin.add_rls_regular_user_can_read('public.statistical_history_facet_stock_delta'::regclass);
-SELECT admin.add_rls_regular_user_can_read('public.statistical_history_facet_flow_delta'::regclass);
+-- The delta table and periods are read like the other derived tables, raw rows included: unit_ids reveal
+-- nothing beyond statistical_unit, which the same roles read, and tests line rows up against units. The
+-- views run as the caller.
+SELECT admin.add_rls_regular_user_can_read('public.statistical_history_facet_delta'::regclass);
 SELECT admin.add_rls_regular_user_can_read('public.statistical_history_period'::regclass);
 GRANT SELECT ON public.statistical_history, public.statistical_history_facet TO authenticated, regular_user, admin_user;
 -- public.reset runs as the caller (admin_user) and empties the staging with the other derived tables.
-GRANT TRUNCATE ON public.statistical_history_facet_stock_delta_staging, public.statistical_history_facet_flow_delta_staging TO admin_user;
+GRANT TRUNCATE ON public.statistical_history_facet_delta_staging TO admin_user;
 
-COMMENT ON TABLE public.statistical_history_facet_stock_delta IS 'Stock changes per cell and month (on_month): +1/-1 when a unit enters/leaves the cell (exists_delta; countable_delta when it is used for counting) and the stats of counted versions entering and leaving (stats_delta, jsonb_stats stats_delta). The stock at a month end is the sum up to it. unit_ids lists the units contributing to the row. Maintained by worker.derive_statistical_history_facet_delta and worker.statistical_history_facet_delta_reduce.';
-COMMENT ON TABLE public.statistical_history_facet_flow_delta IS 'Change counts per cell and period, comparing each unit at the previous and current period end (flows, in the order of the statistical_history_facet columns exists_change .. status_change_count), and the stats of units whose latest overlapping version ended inside the period (stats_ended). unit_ids lists the contributing units.';
-COMMENT ON COLUMN public.statistical_history_facet_stock_delta.unit_ids IS 'Units contributing to this row, sorted. A unit leaves when its contribution is removed; the row is deleted when no unit remains.';
-COMMENT ON COLUMN public.statistical_history_facet_stock_delta.on_month IS 'First day of the month in which the change takes effect. Every report period ends on a month end, and a change on any day of a month is in the stock at that month''s end, so bucketing by month gives the same stock at every period end as the exact dates. It keeps one row per cell and month however many changes fall inside the month, and a unit''s changes that undo each other within a month leave no row.';
-COMMENT ON TABLE public.statistical_history_facet_stock_delta_staging IS 'Signed per-unit rows staged by worker.derive_statistical_history_facet_delta_partition children for this cycle; worker.statistical_history_facet_delta_reduce adds them into statistical_history_facet_stock_delta.';
-COMMENT ON TABLE public.statistical_history_facet_flow_delta_staging IS 'Signed per-unit rows staged by worker.derive_statistical_history_facet_delta_partition children for this cycle; worker.statistical_history_facet_delta_reduce adds them into statistical_history_facet_flow_delta.';
-COMMENT ON VIEW public.statistical_history IS 'Totals per period and unit type, from statistical_history_facet_stock_delta and statistical_history_facet_flow_delta. stats_summary is the stock read from deltas (jsonb_stats_delta_to_agg): exact count, sum and sum_sq; no min/max, since those cannot be undone when a unit leaves.';
+COMMENT ON TABLE public.statistical_history_facet_delta IS 'What changed per cell (unit_type and the facet dimensions) and month (on_month), counted from each unit''s versions. Every column adds up: the stock of a cell at a month end is the sum up to it of exists_added_count - exists_removed_count + exists_moved_in_count - exists_moved_out_count (countable_* likewise), the changes of a period are the sum of its months, and a year is the sum of its months. Maintained by worker.derive_statistical_history_facet_delta and worker.statistical_history_facet_delta_reduce; read through statistical_history, statistical_history_facet, statistical_history_for and statistical_history_drilldown.';
+COMMENT ON COLUMN public.statistical_history_facet_delta.on_month IS 'First day of the month in which the change takes effect. Every report period ends on a month end, and a change on any day of a month is in the stock at that month''s end, so bucketing by month gives the same stock at every period end as the exact dates. It keeps one row per cell and month however many changes fall inside the month, and changes of a unit that undo each other within a month leave no row.';
+COMMENT ON COLUMN public.statistical_history_facet_delta.exists_added_count IS 'Units that start to exist in this cell: their existence (public.unit_existence_from/until, STATBUS-460) begins without continuing an earlier one.';
+COMMENT ON COLUMN public.statistical_history_facet_delta.exists_removed_count IS 'Units that stop existing in this cell: their existence ends without a following one.';
+COMMENT ON COLUMN public.statistical_history_facet_delta.countable_added_count IS 'Units that start to be counted (used_for_counting) in this cell without having been counted just before.';
+COMMENT ON COLUMN public.statistical_history_facet_delta.countable_removed_count IS 'Units that stop being counted in this cell without being counted just after.';
+COMMENT ON COLUMN public.statistical_history_facet_delta.exists_moved_in_count IS 'Units that continue to exist and enter this cell from another (any facet dimension changed). A move counts on both sides, so the stock of every cell follows it.';
+COMMENT ON COLUMN public.statistical_history_facet_delta.exists_moved_out_count IS 'Units that continue to exist and leave this cell for another.';
+COMMENT ON COLUMN public.statistical_history_facet_delta.countable_moved_in_count IS 'Counted units that stay counted and enter this cell from another.';
+COMMENT ON COLUMN public.statistical_history_facet_delta.countable_moved_out_count IS 'Counted units that stay counted and leave this cell for another.';
+COMMENT ON COLUMN public.statistical_history_facet_delta.births IS 'Counted units whose existence starts at their birth_date in this month: born here, as the data records it. A unit whose first version starts after its birth_date enters as exists_added_count only (STATBUS-573 flags such imports).';
+COMMENT ON COLUMN public.statistical_history_facet_delta.deaths IS 'Counted units whose existence ends at their death_date in this month.';
+COMMENT ON COLUMN public.statistical_history_facet_delta.name_change_count IS 'Counted versions whose name differs from the counted version just before, continuously; counted in the new version''s cell. The other *_change_count columns likewise for their attribute.';
+COMMENT ON COLUMN public.statistical_history_facet_delta.stats_delta IS 'The stats of the counted versions starting (in) and ending (out) here, as a jsonb_stats stats_delta; the stock of stats at a month end is their sum up to it. NULL when the month changes no stats.';
+COMMENT ON COLUMN public.statistical_history_facet_delta.stats_ended_month IS 'Stats of counted versions that end inside this month with no later version starting in it: the unit''s latest version overlapping a month period, which that month''s stats include although it is not in the stock at the month end.';
+COMMENT ON COLUMN public.statistical_history_facet_delta.stats_ended_year IS 'As stats_ended_month, for year periods: versions ending inside the year with no later version starting in it, stored in the month they end.';
+COMMENT ON COLUMN public.statistical_history_facet_delta.unit_ids IS 'Units contributing to this row, sorted. A unit leaves when its contribution is removed; the row is deleted when no unit remains.';
+COMMENT ON TABLE public.statistical_history_facet_delta_staging IS 'Signed per-unit rows staged by worker.derive_statistical_history_facet_delta_partition children for this cycle; worker.statistical_history_facet_delta_reduce adds them into public.statistical_history_facet_delta.';
+COMMENT ON VIEW public.statistical_history IS 'Totals per period and unit type, from public.statistical_history_facet_delta. Changes are counted from each unit''s versions, so a year equals the sum of its months; exists_change is the net change of the stock (added - removed + moved_in - moved_out). stats_summary is the stock read from deltas (jsonb_stats_delta_to_agg): exact count, sum and sum_sq; no min/max, since those cannot be undone when a unit leaves.';
 COMMENT ON COLUMN public.statistical_history.hash_partition IS 'Always NULL: every row is a period total. Kept so readers of the former table, which filtered hash_partition IS NULL to get the totals, read the same rows.';
-COMMENT ON VIEW public.statistical_history_facet IS 'Counts and stats per period and cell, from statistical_history_facet_stock_delta and statistical_history_facet_flow_delta. stats_summary as in statistical_history: exact count, sum and sum_sq, no min/max.';
+COMMENT ON VIEW public.statistical_history_facet IS 'Counts, changes and stats per period and cell, from public.statistical_history_facet_delta. Per cell, a move is moved_out of the old cell and moved_in to the new one; stats_summary as in statistical_history.';
+
+COMMENT ON FUNCTION worker.unit_ids_apply(integer[], integer[], integer[]) IS 'Membership of public.statistical_history_facet_delta.unit_ids after a reduce: the ids in p_ids plus those added in p_plus, less those removed in p_minus, counted so a unit added and removed in staged cycles nets out in any order.';
+COMMENT ON PROCEDURE worker.statistical_history_facet_delta_contribution(regclass, smallint) IS 'Appends to pg_temp.hd_rows the history delta rows of the units in pg_temp.hd_units, read from p_source (statistical_unit or its staging), signed p_sign. Rows are counted from each unit''s versions in time order: added and removed at the ends of its existence, moved between cells when a continuous version changes cell, births and deaths at birth_date and death_date, change counts per changed attribute, and stats for the counted versions.';
+COMMENT ON PROCEDURE worker.statistical_history_facet_delta_contribution_begin() IS 'Creates the empty session buffer pg_temp.hd_rows that worker.statistical_history_facet_delta_contribution appends to and worker.statistical_history_facet_delta_contribution_stage moves to staging.';
+COMMENT ON PROCEDURE worker.statistical_history_facet_delta_contribution_stage(bigint) IS 'Moves pg_temp.hd_rows into public.statistical_history_facet_delta_staging with their signs applied, tagged with p_generation. Identical old and new rows of a unit cancel first, so a unit refreshed without change stages nothing.';
+COMMENT ON PROCEDURE worker.statistical_history_facet_delta_stage_partition(int4range, boolean, regclass, regclass, bigint) IS 'Stages the history deltas of one hash range. Incrementally: the refreshed units'' versions in p_old are subtracted and their versions in p_new added. On a rebuild: every unit is added as it stands after the flush. Rows count once generation p_generation is flushed (0: at the next apply).';
+COMMENT ON PROCEDURE worker.statistical_history_facet_delta_remove_units(statistical_unit_type, integer[], regclass) IS 'Stages the subtraction of the history deltas of units about to be deleted from statistical_unit outside the flush. The rows commit with that delete, so they carry generation 0 and count at the next apply.';
+COMMENT ON PROCEDURE worker.statistical_history_facet_delta_apply(boolean) IS 'Adds the staged rows that count (generation <= flushed_generation) into public.statistical_history_facet_delta and removes them from staging. With p_replace the table is first emptied in the same transaction (a rebuild), so readers see the previous rows until the new ones commit. The result does not depend on how many cycles were staged before one apply, nor on their order.';
+COMMENT ON FUNCTION public.partition_count_target_for(bigint) IS 'The number of hash partitions for a number of units: few for small datasets, more as they grow. Used by admin.adjust_partition_count_target and to size the ranges of worker.derive_statistical_history_facet_delta.';
+COMMENT ON PROCEDURE worker.derive_statistical_history_facet_delta_partition(jsonb, jsonb) IS 'Worker command: stages the history deltas of the hash range in payload (worker.statistical_history_facet_delta_stage_partition), for the cycle in payload.generation.';
+COMMENT ON PROCEDURE worker.derive_statistical_history_facet_delta(jsonb, jsonb) IS 'Worker command run after derive_statistical_unit and before the flush: decides between an incremental cycle and a rebuild, discards staged rows of cycles whose flush never committed, and spawns one derive_statistical_history_facet_delta_partition child per hash range holding a refreshed unit (all units on a rebuild).';
+COMMENT ON PROCEDURE worker.statistical_history_facet_delta_reduce(jsonb, jsonb) IS 'Worker command ending the reports phase: adds the staged deltas that count into public.statistical_history_facet_delta (a flushed rebuild replaces it), refreshes public.statistical_history_period, and clears the dirty hash slots.';
 
 -- Rebuild the history deltas from statistical_unit after this migration commits; no-op on an empty database.
 SELECT worker.enqueue_derive_statistical_unit_all();

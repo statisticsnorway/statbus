@@ -49,8 +49,7 @@ BEGIN
     PERFORM admin.add_rls_regular_user_can_read('public.legal_form_used'::regclass);
     PERFORM admin.add_rls_regular_user_can_read('public.country_used'::regclass);
     PERFORM admin.add_rls_regular_user_can_read('public.statistical_unit_facet'::regclass);
-    PERFORM admin.add_rls_regular_user_can_read('public.statistical_history_facet_stock_delta'::regclass);
-    PERFORM admin.add_rls_regular_user_can_read('public.statistical_history_facet_flow_delta'::regclass);
+    PERFORM admin.add_rls_regular_user_can_read('public.statistical_history_facet_delta'::regclass);
     PERFORM admin.add_rls_regular_user_can_read('public.statistical_history_period'::regclass);
     --
     -- ########### add_rls_regular_user_can_edit ###########
