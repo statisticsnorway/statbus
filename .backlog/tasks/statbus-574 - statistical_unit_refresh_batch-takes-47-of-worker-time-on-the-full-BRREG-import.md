@@ -31,7 +31,12 @@ A unit refresh costs in proportion to the units it refreshes, so imports and ful
 - Norway production full recalculation on 2026-11-02 (rune, read-only task history): unit refresh about 78% of 4,835 s wall.
 - STATBUS-566 removed one cause (power-group batches recomputed every unit's timepoints); this ticket is the remaining cost.
 
-**Scope.** Profile one representative batch (EXPLAIN ANALYZE of its statements, per-statement time, rows touched), find where time grows faster than the batch, and propose a change with measurements. Not part of STATBUS-558 (owner 2026-11-05 16:08: investigated by someone else).
+Not part of STATBUS-558 (owner 2026-11-05 16:08: investigated by someone else).
+
+### Closing review
+- **Memory:** none expected.
+- **Documentation:** doc/derive-pipeline.md timing table if the refresh changes.
+- **Cleanup:** drop the import_benchmark_43190 database when the profile is done.
 <!-- SECTION:DESCRIPTION:END -->
 
 ## Acceptance Criteria
