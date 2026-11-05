@@ -1,12 +1,12 @@
 ---
 id: STATBUS-574
 title: >-
-  statistical_unit_refresh_batch takes 47% of worker time on the full BRREG
+  statistical_unit_refresh_batch takes 47% of summed task time on the full BRREG
   import
 status: To Do
 assignee: []
 created_date: '2026-11-05T17:53:00Z'
-updated_date: '2026-11-05T17:53:00Z'
+updated_date: '2026-11-05T17:54:00Z'
 labels:
   - performance
   - worker
@@ -31,8 +31,6 @@ A unit refresh costs in proportion to the units it refreshes, so imports and ful
 - Norway production full recalculation on 2026-11-02 (rune, read-only task history): unit refresh about 78% of 4,835 s wall.
 - STATBUS-566 removed one cause (power-group batches recomputed every unit's timepoints); this ticket is the remaining cost.
 
-Not part of STATBUS-558 (owner 2026-11-05 16:08: investigated by someone else).
-
 ### Closing review
 - **Memory:** none expected.
 - **Documentation:** doc/derive-pipeline.md timing table if the refresh changes.
@@ -45,3 +43,9 @@ Not part of STATBUS-558 (owner 2026-11-05 16:08: investigated by someone else).
 - [ ] #2 Batch time against batch size is measured, showing whether cost grows with the batch or with the database
 - [ ] #3 A proposed change is measured on the downloads benchmark against this ticket's 10,320 s baseline, with the benchmark's consistency checks passing
 <!-- AC:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+2026-11-05 Owner 16:08: profiled separately from STATBUS-558, by someone else.
+<!-- SECTION:NOTES:END -->
