@@ -4,9 +4,10 @@ This document describes how STATBUS derives statistical tables from imported
 data. It covers the task flow, structured concurrency model, and queue layout.
 
 > **STATBUS-558 (November 2026):** `statistical_history` and
-> `statistical_history_facet` are views over two sparse delta tables,
-> `statistical_history_facet_stock_delta` (per cell and month) and `statistical_history_facet_flow_delta` (per cell
-> and period). Step ③a `derive_statistical_history_facet_delta` runs before the flush, one
+> `statistical_history_facet` are views over one sparse delta table,
+> `statistical_history_facet_delta` (per cell and month: units added, removed and moved,
+> births, deaths, change counts and stats, counted from each unit's versions). Step ③a
+> `derive_statistical_history_facet_delta` runs before the flush, one
 > concurrent child per hash range staging the refreshed units' new minus old
 > contributions; step ⑦ `statistical_history_facet_delta_reduce` adds the staged rows in. The
 > per-period history steps (⑤, ⑤b, ⑦, ⑦b of the earlier diagram) are gone.
@@ -242,8 +243,7 @@ parallel on the child fibers.
                              ⑦    │ statistical_history_facet_delta_reduce      │
                                   │                                     SERIAL  │
                                   │  Adds the staged history deltas into        │
-                                  │  statistical_history_facet_stock_delta and  │
-                                  │  statistical_history_facet_flow_delta,      │
+                                  │  statistical_history_facet_delta,           │
                                   │  refreshes statistical_history_period,      │
                                   │  clears the dirty hash slots, notifies      │
                                   │  reports done.                              │
@@ -289,11 +289,10 @@ The three derived tables have different data models:
 
 | Table                      | Keyed by                               | Natural partition |
 |----------------------------|----------------------------------------|-------------------|
-| `statistical_history_facet_stock_delta`      | `(...dims, on_month)`                  | `(unit_type, unit_id)` via staging |
-| `statistical_history_facet_flow_delta`       | `(resolution, year, month, ...dims)`   | `(unit_type, unit_id)` via staging |
+| `statistical_history_facet_delta`            | `(...dims, on_month)`                  | `(unit_type, unit_id)` via staging |
 | `statistical_unit_facet`   | `(valid_from, valid_until, ...dims)`   | `(unit_type, unit_id)` |
 
-The history delta children write signed per-unit rows to logged staging tables
+The history delta children write signed per-unit rows to a logged staging table
 (crash recovery must keep rows staged for a flush that has committed), one hash
 range each, and `statistical_history_facet_delta_reduce` adds them in. Every unit
 belongs to one range, so any split of the hash space gives the same sums.
@@ -302,8 +301,10 @@ as counting in its own transaction, so a cycle whose flush never committed is
 staged again by the next cycle instead of being added twice
 (`worker.statistical_history_facet_delta_state`).
 `statistical_history` and `statistical_history_facet` are views over these
-tables; `statistical_history_drilldown` and `statistical_history_for` (used by
-the chart) read the delta tables directly.
+rows; `statistical_history_drilldown` and `statistical_history_for` (used by
+the chart) read the delta table directly. Every column adds up over months: the
+stock at a month end is the running sum of added - removed + moved_in - moved_out,
+and a year's changes are the sum of its months.
 
 `statistical_unit_facet` uses **date ranges** (`valid_from`, `valid_until`).
 A facet row with `valid_from=2020, valid_until=2025` would overlap **65
