@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-11-02T13:15:00Z'
-updated_date: '2026-11-05T11:05:00Z'
+updated_date: '2026-11-05T15:41:00Z'
 labels: []
 dependencies: []
 type: enhancement
@@ -230,4 +230,10 @@ AC3 chosen way: pre-flush, per hash range, new versions (statistical_unit_stagin
 AC4 Norway: full rebuild 70 s staging (concurrency 8) + 73 s apply = 2.4 min, vs Rune's history steps 183 s + facet 800 s wall (~16.5 min) on 2026-11-02. Incremental cycle (437 units move region): 22.6/12.2/7.5/4.8 s at concurrency 1/2/4/8 + 1.5 s apply. Today's incremental history cost measured on the BRREG selection benchmark: history task time 173 s -> 19.2 s.
 AC6 fast suite 122/122 incl. 008, 094, 096, 107, 204, 318, 322, 325, 346, 364, 365, 366, 367, 368 (tmp/test-agg-fast.log); 303, 401, 402 pass on the official jsonb_stats v3.1.0 build.
 AC5 is the owner's: he asked for the migration to be built while adoption was pending (2026-11-04); adoption is the decision before push.
+
+2026-11-05 owner decisions (one-table redesign, after prototypes tmp/558-churn/01-05):
+- Adopted: count changes from each unit's timeline (each version vs the one before it), not period-end comparison. Years are the exact sum of months. Explained diffs vs today: all are gaps hidden by year-end comparison (e.g. legal unit 59, 2017).
+- Adopted: a move counts on both sides (left the old cell, entered the new cell), plus a moved count. Then stock = running sum of (entered - left): Norway 411,601/411,601 cell-months equal, 10-year 6,359/6,359.
+- Adopted: one table keyed by cell + month replaces stock_delta + flow_delta (Norway ~410k rows vs 1.22M in two; serial unoptimised build ~2 min).
+- Open: the table name (owner discussing facet_change vs facet_delta).
 <!-- SECTION:NOTES:END -->
