@@ -14861,13 +14861,6 @@ export type Database = {
         }
         Returns: unknown
       },
-      jsonb_stats_compare: {
-        Args: {
-          a?: Json
-          b?: Json
-        }
-        Returns: Json
-      },
       jsonb_stats_delta_combine: {
         Args: {
           state1?: unknown
@@ -14986,12 +14979,6 @@ export type Database = {
           x?: Json
         }
         Returns: Json
-      },
-      jsonb_stats_values: {
-        Args: {
-          x?: Json
-        }
-        Returns: Record<string, unknown>[]
       },
       lca: {
         Args: {
