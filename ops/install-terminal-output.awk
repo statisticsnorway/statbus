@@ -164,7 +164,7 @@
     fflush()
     next
 }
-/^(Recovery finished\. Checking the installation again\.|No StatBus database is running yet; continuing with the installation\.|Restoring generated settings before checking the installation\.)$/ {
+/^(Recovery finished\. Checking the installation again\.|No StatBus database is running yet; continuing with the installation\.|Restoring generated settings before checking the installation\.|The previous install was interrupted; continuing it\.)$/ {
     print
     fflush()
     next

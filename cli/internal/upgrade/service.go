@@ -2294,7 +2294,7 @@ func (d *Service) recoverFromFlag(ctx context.Context) (err error) {
 			return removeErr
 		}
 		if removed {
-			logRecover("A previous install exited without finishing cleanup; cleared its leftover marker. (detail: stale install flag, invoked_by=%s)", held.InvokedBy)
+			logRecover("Cleared the marker of an install that was interrupted. (detail: stale install flag, invoked_by=%s)", held.InvokedBy)
 		}
 		return nil
 	}

@@ -139,7 +139,12 @@ func TestUnparkRemovesFlagOnlyWhenRetreated_STATBUS229(t *testing.T) {
 	if removeIdx < unparkIdx {
 		t.Error("STATBUS-229: the removal must come AFTER the successful un-park — the flag is how ./sb install discovers the parked box in the first place")
 	}
-	recoverIdx := strings.Index(text, "RecoverFromFlag(")
+	// The upgrade path's call: an interrupted install's own marker is settled
+	// by an earlier, separate RecoverFromFlag (STATBUS-572) before any of this.
+	recoverIdx := strings.Index(text, "if err := svc.RecoverFromFlag(ctx); err != nil {\n\t\trecoveryErr :=")
+	if recoverIdx < 0 {
+		t.Fatal("could not locate the upgrade path's RecoverFromFlag call — re-anchor this pin")
+	}
 	if recoverIdx >= 0 && removeIdx > recoverIdx {
 		t.Error("STATBUS-229: the removal must come BEFORE RecoverFromFlag — that ordering IS the fix; afterwards, recovery has already rolled the attempt back")
 	}

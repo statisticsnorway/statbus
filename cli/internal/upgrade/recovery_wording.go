@@ -37,6 +37,12 @@ func recoveryOpeningLine(flag UpgradeFlag, holder string) string {
 	if flag.Phase == PhaseNewSbSwapped {
 		return ""
 	}
+	// An install's own marker is not an upgrade; its branch in recoverFromFlag
+	// says what it found (an install still running, or one that was
+	// interrupted and is now continued).
+	if holder == HolderInstall {
+		return ""
+	}
 	return fmt.Sprintf(
 		"Recovering an interrupted upgrade — found a %s marker for %s. (detail: id=%d, invoked_by=%s)",
 		holder, flag.Label(), flag.ID, flag.InvokedBy)

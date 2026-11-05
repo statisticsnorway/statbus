@@ -323,6 +323,24 @@ func runCrashRecoveryWithLock(projDir string, restartIfRecovered *func(), adopte
 	}
 	defer svc.Close()
 
+	// An install's own marker (holder install, not a restart) whose process is
+	// gone is the trace of an interrupted INSTALL: Ctrl-C, a dropped session,
+	// a reboot. Nothing was being upgraded, and on a first install no
+	// container or database may exist yet. It is settled here, before any
+	// upgrade recovery work (config regeneration, database route, migrations):
+	// RecoverFromFlag removes it under the marker's own flock, which needs no
+	// database. The install then continues where it stopped.
+	if flag, ferr := upgrade.ReadFlagFile(projDir); ferr == nil && flag != nil &&
+		flag.Holder == upgrade.HolderInstall && flag.Trigger != "restart" {
+		if err := svc.RecoverFromFlag(ctx); err != nil {
+			return fmt.Errorf("crash recovery: %w", err)
+		}
+		if after, aerr := upgrade.ReadFlagFile(projDir); aerr == nil && after == nil {
+			fmt.Println("The previous install was interrupted; continuing it.")
+			return nil
+		}
+	}
+
 	// PART 1: stop the looping upgrader unit before any recovery work.
 	// stopRestartUpgradeUnit captures is-enabled, runs `systemctl --user
 	// stop` + `reset-failed`, and returns a closure that restarts the

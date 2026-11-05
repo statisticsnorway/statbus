@@ -4478,9 +4478,13 @@ func logInstallState(projDir string, state install.State, detail *install.Detail
 			fmt.Println("An upgrade is already running. Wait for it to finish, then retry if needed.")
 		}
 	case install.StateCrashedUpgrade:
-		if adoptedUpgradeLock {
+		switch {
+		case detail.Flag != nil && detail.Flag.Holder == upgrade.HolderInstall && detail.Flag.Trigger != "restart":
+			// An interrupted install's own marker; recovery says what it does
+			// with it ("The previous install was interrupted; continuing it.").
+		case adoptedUpgradeLock:
 			fmt.Println("Continuing the upgrade on the new binary after the planned handoff.")
-		} else {
+		default:
 			fmt.Println("The previous upgrade stopped unexpectedly. Recovery will run now.")
 		}
 	case install.StateHalfConfigured:

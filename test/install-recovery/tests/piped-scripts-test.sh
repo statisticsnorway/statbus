@@ -91,7 +91,8 @@ for script in ops/setup-ubuntu-lts.sh install.sh uninstall.sh; do
     ran=""
     for cut in 15 40 120 $((lines / 4)) $((lines / 2)) $((lines * 3 / 4)) $((lines - 3)); do
         head -n "$cut" "$ROOT/$script" > "$work/cut.sh"
-        out=$(cd "$work/home" && HOME="$work/home" bash < "$work/cut.sh" 2>&1); rc=$?
+        # LC_ALL=C: bash's own parse error is recognised by its English text.
+        out=$(cd "$work/home" && HOME="$work/home" LC_ALL=C bash < "$work/cut.sh" 2>&1); rc=$?
         if [ "$rc" != 2 ] || grep -v 'syntax error\|unexpected end of file\|^bash: line' <<<"$out" | grep -q .; then
             ran="$ran $cut(exit $rc)"
         fi
