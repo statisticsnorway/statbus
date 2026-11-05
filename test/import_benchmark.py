@@ -500,12 +500,14 @@ def run_concurrent_test(timeout_seconds=300, debug=True):
 def check_consistency():
     """Verify post-run statistical_history is internally and externally consistent.
 
-    Three layers of check (STATBUS-558: the history tables are sparse deltas,
-    statistical_history and statistical_history_facet are views over them):
-      A. Incremental == rebuild: the stored statistical_history_facet_stock_delta and
-         statistical_history_facet_flow_delta rows, maintained cycle by cycle, equal a full
-         rebuild from statistical_unit (computed in a rolled-back transaction),
-         unit_ids included. Fails when a cycle staged a wrong delta or missed one.
+    Three layers of check (STATBUS-558: the history table is a sparse delta table,
+    statistical_history and statistical_history_facet are views over it):
+      A. Incremental == rebuild: the stored statistical_history_facet_delta rows,
+         maintained cycle by cycle, equal a full rebuild from statistical_unit
+         (computed in a rolled-back transaction), every column and unit_ids included.
+         Stats compare as the net (in - out) of every numeric field and category
+         count per variable, which is what a row adds to the stock. Fails when a
+         cycle staged a wrong delta or missed one.
       B. Ground-truth: sh.exists_count == COUNT(DISTINCT unit_id) from
          statistical_unit at the corresponding year-end. Catches stale rows.
       C. Staging drained: no staged delta row is left after the last reduce.
@@ -514,43 +516,59 @@ def check_consistency():
     """
     log_print(f"\n  {BLUE}Consistency checks:{NC}")
 
+    # The net (in - out) of every numeric field and category count of a stats delta, as text.
+    # The gross in and out depend on the path of changes; the net is what the row adds to the stock.
+    stats_net_sql = """
+        CREATE FUNCTION pg_temp.stats_net(d jsonb) RETURNS text LANGUAGE sql IMMUTABLE AS $stats_net$
+            SELECT string_agg(x.key || '.' || x.field || '=' || x.net, ',' ORDER BY x.key, x.field)
+            FROM (SELECT e.key, f.field,
+                         COALESCE((e.value->'in'->>f.field)::numeric, 0) - COALESCE((e.value->'out'->>f.field)::numeric, 0) AS net
+                  FROM jsonb_each(COALESCE(d, '{}') - 'type'::text) AS e
+                  CROSS JOIN LATERAL (SELECT jsonb_object_keys(COALESCE(e.value->'in', '{}') || COALESCE(e.value->'out', '{}')) AS field) AS f
+                  WHERE jsonb_typeof(COALESCE(e.value->'in'->f.field, e.value->'out'->f.field)) = 'number'
+                  UNION ALL
+                  SELECT e.key, f.field || '.' || c.k,
+                         COALESCE((e.value->'in'->f.field->>c.k)::numeric, 0) - COALESCE((e.value->'out'->f.field->>c.k)::numeric, 0)
+                  FROM jsonb_each(COALESCE(d, '{}') - 'type'::text) AS e
+                  CROSS JOIN LATERAL (SELECT jsonb_object_keys(COALESCE(e.value->'in', '{}') || COALESCE(e.value->'out', '{}')) AS field) AS f
+                  CROSS JOIN LATERAL (SELECT jsonb_object_keys(COALESCE(e.value->'in'->f.field, '{}') || COALESCE(e.value->'out'->f.field, '{}')) AS k
+                                      WHERE jsonb_typeof(COALESCE(e.value->'in'->f.field, e.value->'out'->f.field)) = 'object') AS c) AS x
+            WHERE x.net <> 0
+        $stats_net$
+    """
+
     rows_sql = """
-        SELECT 'stock', unit_type::text, primary_activity_category_path::text, secondary_activity_category_path::text,
+        SELECT unit_type::text, primary_activity_category_path::text, secondary_activity_category_path::text,
                sector_path::text, legal_form_id, physical_region_path::text, physical_country_id, unit_size_id,
-               status_id, on_month::text, exists_delta, countable_delta,
-               -- stats as net in - out per variable (a side absent from the delta counts as 0): the gross
-               -- flows depend on the path of changes, the net is the stock the row contributes.
-               (SELECT string_agg(x.key || ':' || x.n || ',' || x.s, ';' ORDER BY x.key)
-                  FROM (SELECT e.key,
-                               COALESCE((e.value->'in'->>'count')::numeric, 0) - COALESCE((e.value->'out'->>'count')::numeric, 0) AS n,
-                               COALESCE((e.value->'in'->>'sum')::numeric, 0) - COALESCE((e.value->'out'->>'sum')::numeric, 0) AS s
-                          FROM jsonb_each(COALESCE(stats_delta, '{}') - 'type'::text) AS e) AS x
-                 WHERE x.n <> 0 OR x.s <> 0), unit_ids::text
-          FROM public.statistical_history_facet_stock_delta
-        UNION ALL
-        SELECT 'flow', unit_type::text, primary_activity_category_path::text, secondary_activity_category_path::text,
-               sector_path::text, legal_form_id, physical_region_path::text, physical_country_id, unit_size_id,
-               status_id, resolution::text || year || '-' || COALESCE(month, 0), NULL, NULL, flows::text, unit_ids::text
-          FROM public.statistical_history_facet_flow_delta
+               status_id, on_month::text,
+               concat_ws('|', exists_added_count, exists_removed_count, countable_added_count, countable_removed_count,
+                         exists_moved_in_count, exists_moved_out_count, countable_moved_in_count, countable_moved_out_count,
+                         births, deaths, name_change_count, primary_activity_category_change_count,
+                         secondary_activity_category_change_count, sector_change_count, legal_form_change_count,
+                         physical_region_change_count, physical_country_change_count, physical_address_change_count,
+                         unit_size_change_count, status_change_count) AS counts,
+               pg_temp.stats_net(stats_delta) AS stats, pg_temp.stats_net(stats_ended_month) AS stats_ended_month,
+               pg_temp.stats_net(stats_ended_year) AS stats_ended_year, unit_ids::text
+          FROM public.statistical_history_facet_delta
     """
 
     conn = get_conn()
+    # Layer A empties and rebuilds the live delta table, then rolls back: it must run inside one
+    # transaction, whatever the connection default.
+    conn.autocommit = False
     try:
         with conn.cursor() as cur:
-            cur.execute("SET ROLE postgres")  # staging tables have no grants for API roles
+            cur.execute("SET ROLE postgres")  # the staging table has no grants for API roles
 
             # --- Layer C: staging drained ---
-            cur.execute("""
-                SELECT (SELECT count(*) FROM public.statistical_history_facet_stock_delta_staging)
-                     + (SELECT count(*) FROM public.statistical_history_facet_flow_delta_staging)
-            """)
+            cur.execute("SELECT count(*) FROM public.statistical_history_facet_delta_staging")
             orphan_count = cur.fetchone()[0]
 
             # --- Layer A: incremental == rebuild (rolled back) ---
+            cur.execute(stats_net_sql)
             cur.execute(f"CREATE TEMP TABLE bench_incremental AS {rows_sql}")
             cur.execute("""
-                TRUNCATE public.statistical_history_facet_stock_delta, public.statistical_history_facet_flow_delta,
-                         public.statistical_history_facet_stock_delta_staging, public.statistical_history_facet_flow_delta_staging
+                TRUNCATE public.statistical_history_facet_delta, public.statistical_history_facet_delta_staging
             """)
             cur.execute("CALL worker.statistical_history_facet_delta_stage_partition('[0,16384)'::int4range, true)")
             cur.execute("CALL worker.statistical_history_facet_delta_apply()")

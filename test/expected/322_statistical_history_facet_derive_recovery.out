@@ -1,7 +1,7 @@
 -- Test 322: statistical_history_facet recovery from empty delta tables.
 --
--- statistical_history_facet is a view over public.statistical_history_facet_stock_delta and
--- public.statistical_history_facet_flow_delta (STATBUS-558). When those tables are empty while
+-- statistical_history_facet is a view over public.statistical_history_facet_delta
+-- (STATBUS-558). When that table is empty while
 -- statistical_unit has rows (a lost or truncated derived state), the next
 -- ordinary cycle of worker.derive_statistical_history_facet_delta rebuilds them from
 -- statistical_unit instead of adding a few staged deltas onto nothing.
@@ -68,7 +68,7 @@ SELECT 'pipeline_snapshot_rows' AS step, COUNT(*) AS row_count
 FROM _pipeline_snapshot;
           step          | row_count 
 ------------------------+-----------
- pipeline_snapshot_rows |      1980
+ pipeline_snapshot_rows |      1992
 (1 row)
 
 \echo
@@ -78,7 +78,7 @@ FROM _pipeline_snapshot;
 \echo "=== STEP 2: TRUNCATE the delta tables ==="
 "=== STEP 2: TRUNCATE the delta tables ==="
 SET ROLE postgres;
-TRUNCATE public.statistical_history_facet_stock_delta, public.statistical_history_facet_flow_delta;
+TRUNCATE public.statistical_history_facet_delta;
 RESET ROLE;
 CALL test.set_user_from_email('test.admin@statbus.org');
 SELECT count(*) AS facet_rows_while_empty FROM public.statistical_history_facet;

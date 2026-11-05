@@ -1,12 +1,12 @@
--- STATBUS-558: the history delta tables after incremental cycles equal a full rebuild.
+-- STATBUS-558: the history delta table after incremental cycles equals a full rebuild.
 --
--- public.statistical_history_facet_stock_delta and public.statistical_history_facet_flow_delta are maintained per
--- cycle: worker.derive_statistical_history_facet_delta stages, per hash range, the new versions
+-- public.statistical_history_facet_delta is maintained per cycle:
+-- worker.derive_statistical_history_facet_delta stages, per hash range, the new versions
 -- of the refreshed units minus their old versions, and
 -- worker.statistical_history_facet_delta_reduce adds the staged rows in. A full rebuild
--- (worker.enqueue_derive_statistical_unit_all) recomputes both tables from
--- statistical_unit alone. The two must hold the same rows: every cell, date,
--- count, flow, stats value and unit_ids list.
+-- (worker.enqueue_derive_statistical_unit_all) recomputes the table from
+-- statistical_unit alone. The two must hold the same rows: every cell, month,
+-- count, stats value and unit_ids list.
 --
 -- Fixture: the demo legal units and establishments, imported and derived
 -- (the first cycle adds every unit incrementally: statistical_unit is still
@@ -48,7 +48,7 @@ FROM public.import_definition WHERE slug = 'establishment_for_lu_source_dates';
 CALL worker.process_tasks(p_queue => 'import');
 CALL worker.process_tasks(p_queue => 'analytics');
 
--- The stored rows of both tables. A stats_delta keeps gross in and out flows, which depend on the
+-- The stored rows. A stats_delta keeps gross in and out flows, which depend on the
 -- path of changes; the stock a row contributes is in minus out, so rows are compared by that net,
 -- per variable and field (count, sum, sum_sq, or each category count).
 CREATE TEMP TABLE snapshot (label text, kind text, row_text text) ON COMMIT DROP;
@@ -69,19 +69,18 @@ CREATE FUNCTION pg_temp.stats_net(d jsonb) RETURNS text LANGUAGE sql IMMUTABLE A
     WHERE x.net <> 0
 $stats_net$;
 CREATE TEMP VIEW stored_rows AS
-SELECT 'stock' AS kind,
-       concat_ws('|', d.unit_type, d.primary_activity_category_path, d.secondary_activity_category_path, d.sector_path,
+SELECT d.unit_type::text AS kind,
+       concat_ws('|', d.primary_activity_category_path, d.secondary_activity_category_path, d.sector_path,
                  d.legal_form_id, d.physical_region_path, d.physical_country_id, d.unit_size_id, d.status_id,
-                 d.on_month, d.exists_delta, d.countable_delta,
-                 pg_temp.stats_net(d.stats_delta), d.unit_ids) AS row_text
-FROM public.statistical_history_facet_stock_delta AS d
-UNION ALL
-SELECT 'flow',
-       concat_ws('|', f.resolution, f.year, f.month, f.unit_type, f.primary_activity_category_path,
-                 f.secondary_activity_category_path, f.sector_path, f.legal_form_id, f.physical_region_path,
-                 f.physical_country_id, f.unit_size_id, f.status_id, f.flows,
-                 pg_temp.stats_net(f.stats_ended), f.unit_ids)
-FROM public.statistical_history_facet_flow_delta AS f;
+                 d.on_month, d.exists_added_count, d.exists_removed_count, d.countable_added_count,
+                 d.countable_removed_count, d.exists_moved_in_count, d.exists_moved_out_count,
+                 d.countable_moved_in_count, d.countable_moved_out_count, d.births, d.deaths, d.name_change_count,
+                 d.primary_activity_category_change_count, d.secondary_activity_category_change_count,
+                 d.sector_change_count, d.legal_form_change_count, d.physical_region_change_count,
+                 d.physical_country_change_count, d.physical_address_change_count, d.unit_size_change_count,
+                 d.status_change_count, pg_temp.stats_net(d.stats_delta), pg_temp.stats_net(d.stats_ended_month),
+                 pg_temp.stats_net(d.stats_ended_year), d.unit_ids) AS row_text
+FROM public.statistical_history_facet_delta AS d;
 
 \echo
 \echo "367.0 the first cycle added every unit (statistical_unit was still empty, so nothing to rebuild) and every task completed"
@@ -162,13 +161,13 @@ FROM pairs AS p ORDER BY p.curr;
 
 \echo
 \echo "367.6 no row lists the deleted legal unit or its enterprise; the moved unit is listed under its new region from 2024"
-SELECT k.kind, k.unit_type, k.on_month, k.year, k.unit_ids
-FROM (SELECT 'stock' AS kind, unit_type, on_month, NULL::int AS year, unit_ids FROM public.statistical_history_facet_stock_delta
-      UNION ALL SELECT 'flow', unit_type, NULL, year, unit_ids FROM public.statistical_history_facet_flow_delta) AS k
+SELECT k.unit_type, k.on_month, k.unit_ids
+FROM public.statistical_history_facet_delta AS k
 WHERE (k.unit_type = 'legal_unit' AND (SELECT lu_id FROM _victim) = ANY (k.unit_ids))
    OR (k.unit_type = 'enterprise' AND (SELECT ent_id FROM _victim) = ANY (k.unit_ids));
-SELECT d.physical_region_path, d.on_month, d.exists_delta
-FROM public.statistical_history_facet_stock_delta AS d
+SELECT d.physical_region_path, d.on_month, d.exists_added_count, d.exists_removed_count,
+       d.exists_moved_in_count, d.exists_moved_out_count, d.physical_region_change_count
+FROM public.statistical_history_facet_delta AS d
 WHERE d.unit_type = 'legal_unit'
   AND (SELECT su.unit_id FROM public.statistical_unit AS su
         WHERE su.unit_type = 'legal_unit' AND su.external_idents->>'tax_ident' = '2220794' LIMIT 1) = ANY (d.unit_ids)
@@ -197,8 +196,7 @@ SELECT (SELECT t.info->>'rebuild' FROM worker.tasks AS t WHERE t.command = 'deri
 -- 2020-12-31 with 5 employees; it must be in the stock of every period up to 2020 and leave in 2021.
 SAVEPOINT unbounded;
 SET LOCAL ROLE postgres;
-TRUNCATE public.statistical_history_facet_stock_delta, public.statistical_history_facet_flow_delta,
-         public.statistical_history_facet_stock_delta_staging, public.statistical_history_facet_flow_delta_staging;
+TRUNCATE public.statistical_history_facet_delta, public.statistical_history_facet_delta_staging;
 DELETE FROM public.statistical_unit;
 INSERT INTO public.statistical_unit (unit_type, unit_id, valid_from, valid_to, valid_until, name, used_for_counting,
                                      hash_slot, stats_summary)

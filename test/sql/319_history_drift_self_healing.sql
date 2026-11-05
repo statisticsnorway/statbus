@@ -1,11 +1,10 @@
 -- Test 319: statistical_history drift self-healing by a full rebuild.
 --
--- statistical_history is a view over public.statistical_history_facet_stock_delta and
--- public.statistical_history_facet_flow_delta (STATBUS-558). Incremental cycles add staged
--- deltas into those tables, so drift in a stored delta row would persist. The
--- recovery is the full rebuild: worker.enqueue_derive_statistical_unit_all
--- makes worker.derive_statistical_history_facet_delta truncate both tables and recompute them
--- from statistical_unit alone.
+-- statistical_history is a view over public.statistical_history_facet_delta (STATBUS-558).
+-- Incremental cycles add staged deltas into that table, so drift in a stored delta row would
+-- persist. The recovery is the full rebuild: worker.enqueue_derive_statistical_unit_all makes
+-- worker.statistical_history_facet_delta_reduce replace the table with one recomputed from
+-- statistical_unit alone.
 --
 -- This test pins that contract: inject a stale delta row and corrupt an
 -- existing one, run the full rebuild, and assert statistical_history equals
@@ -51,15 +50,20 @@ FROM baseline WHERE resolution = 'year'
 ORDER BY year, unit_type;
 
 \echo
-\echo "=== STEP 2: Inject drift into the delta tables ==="
-\echo "A stale stock row for a unit that does not exist, and a corrupted flow row."
+\echo "=== STEP 2: Inject drift into the delta table ==="
+\echo "A stale row for a unit that does not exist, and a corrupted row."
 SET ROLE postgres;
-INSERT INTO public.statistical_history_facet_stock_delta (unit_type, on_month, exists_delta, countable_delta, stats_delta, unit_ids)
-VALUES ('enterprise', '2024-03-01', 99999, 99999, NULL, ARRAY[-1]);
-UPDATE public.statistical_history_facet_flow_delta
-   SET flows = array_fill(-99999, ARRAY[18])
- WHERE ctid = (SELECT ctid FROM public.statistical_history_facet_flow_delta
-                WHERE resolution = 'year' AND unit_type = 'legal_unit' ORDER BY year LIMIT 1);
+INSERT INTO public.statistical_history_facet_delta (unit_type, on_month, exists_added_count, exists_removed_count,
+    countable_added_count, countable_removed_count, exists_moved_in_count, exists_moved_out_count,
+    countable_moved_in_count, countable_moved_out_count, births, deaths, name_change_count,
+    primary_activity_category_change_count, secondary_activity_category_change_count, sector_change_count,
+    legal_form_change_count, physical_region_change_count, physical_country_change_count,
+    physical_address_change_count, unit_size_change_count, status_change_count, unit_ids)
+VALUES ('enterprise', '2024-03-01', 99999, 0, 99999, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, ARRAY[-1]);
+UPDATE public.statistical_history_facet_delta
+   SET births = -99999, name_change_count = -99999
+ WHERE ctid = (SELECT ctid FROM public.statistical_history_facet_delta
+                WHERE unit_type = 'legal_unit' AND isfinite(on_month) ORDER BY on_month LIMIT 1);
 RESET ROLE;
 
 \echo "Post-inject: rows of statistical_history that differ from the baseline"
@@ -86,6 +90,6 @@ SELECT
                                 exists_change, countable_change, births, deaths, stats_summary
                                 FROM public.statistical_history) AS d) AS only_in_baseline;
 SELECT count(*) AS stale_rows_left
-FROM public.statistical_history_facet_stock_delta WHERE -1 = ANY (unit_ids);
+FROM public.statistical_history_facet_delta WHERE -1 = ANY (unit_ids);
 
 ROLLBACK;

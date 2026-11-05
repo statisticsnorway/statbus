@@ -3,8 +3,8 @@
 -- Class-of-bugs home for invariants over the pipeline:
 --   public.legal_unit  →  worker.derive_statistical_unit (derive)
 --                      →  statistical_history_facet_*_delta_staging (per-unit contributions)
---                      →  worker.statistical_history_facet_delta_reduce (MERGE into statistical_history_facet_stock_delta /
---                         statistical_history_facet_flow_delta, unique over every dimension NULLS NOT DISTINCT)
+--                      →  worker.statistical_history_facet_delta_reduce (MERGE into statistical_history_facet_delta,
+--                         unique over every dimension and month NULLS NOT DISTINCT)
 --                      →  public.statistical_history_facet (view, STATBUS-558)
 --
 -- Current invariant: dimensional + NULL-semantics coherence between source

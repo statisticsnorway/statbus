@@ -81,9 +81,9 @@ WHERE resolution = 'year' AND year = 2021
   AND unit_type IN ('legal_unit', 'establishment', 'enterprise')
 ORDER BY unit_type;
 
-\echo "--- Stock delta rows after import 1: the units each row counts ---"
-SELECT unit_type, on_month, exists_delta, countable_delta, unit_ids
-FROM public.statistical_history_facet_stock_delta
+\echo "--- Delta rows after import 1: the units each row counts ---"
+SELECT unit_type, on_month, exists_added_count, exists_removed_count, countable_added_count, countable_removed_count, unit_ids
+FROM public.statistical_history_facet_delta
 WHERE unit_type IN ('legal_unit', 'establishment', 'enterprise')
 ORDER BY unit_type, on_month, unit_ids;
 
@@ -154,9 +154,9 @@ WHERE resolution = 'year' AND year = 2021
   AND unit_type IN ('legal_unit', 'establishment', 'enterprise')
 ORDER BY unit_type;
 
-\echo "--- Stock delta rows after import 2: the units each row counts ---"
-SELECT unit_type, on_month, exists_delta, countable_delta, unit_ids
-FROM public.statistical_history_facet_stock_delta
+\echo "--- Delta rows after import 2: the units each row counts ---"
+SELECT unit_type, on_month, exists_added_count, exists_removed_count, countable_added_count, countable_removed_count, unit_ids
+FROM public.statistical_history_facet_delta
 WHERE unit_type IN ('legal_unit', 'establishment', 'enterprise')
 ORDER BY unit_type, on_month, unit_ids;
 

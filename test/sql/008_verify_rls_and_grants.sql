@@ -53,8 +53,7 @@ DECLARE
     -- Tables that are intentionally exempt from RLS because they are internal
     -- staging/working tables not exposed via PostgREST.
     v_exempt_tables TEXT[] := ARRAY[
-        'statistical_history_facet_flow_delta_staging',
-        'statistical_history_facet_stock_delta_staging',
+        'statistical_history_facet_delta_staging',
         'statistical_unit_facet_dirty_hash_slots',
         'statistical_unit_facet_staging',
         'statistical_unit_staging'

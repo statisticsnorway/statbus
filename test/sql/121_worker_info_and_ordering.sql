@@ -168,7 +168,7 @@ SELECT
     -- Verify new keys bubbled up from children (Info Principle)
     info ? 'effective_legal_unit_count' AS has_eff_lu,
     info ? 'effective_enterprise_count' AS has_eff_en,
-    info ? 'stock_rows_staged' AS has_history_rows_staged
+    info ? 'rows_staged' AS has_history_rows_staged
 FROM worker.tasks
 WHERE command = 'collect_changes'
 ORDER BY id DESC LIMIT 1;

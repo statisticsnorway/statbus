@@ -1,5 +1,5 @@
 -- STATBUS-558: a cycle that stops after staging history deltas but before the flush leaves the
--- history delta tables, after the next cycle, equal to a full rebuild.
+-- history delta table, after the next cycle, equal to a full rebuild.
 --
 -- worker.derive_statistical_history_facet_delta_partition children stage, per refreshed unit,
 -- its new versions (statistical_unit_staging) minus its old ones (statistical_unit), and commit.
@@ -33,7 +33,7 @@ FROM public.import_definition WHERE slug = 'legal_unit_source_dates';
 CALL worker.process_tasks(p_queue => 'import');
 CALL worker.process_tasks(p_queue => 'analytics');
 
--- Stored rows of both tables, stats compared by their net (in minus out) per variable and field.
+-- Stored rows, stats compared by their net (in minus out) per variable and field.
 CREATE FUNCTION pg_temp.stats_net(d jsonb) RETURNS text LANGUAGE sql IMMUTABLE AS $stats_net$
     SELECT string_agg(x.key || '.' || x.field || '=' || x.net, ',' ORDER BY x.key, x.field)
     FROM (SELECT e.key, f.field,
@@ -44,17 +44,18 @@ CREATE FUNCTION pg_temp.stats_net(d jsonb) RETURNS text LANGUAGE sql IMMUTABLE A
     WHERE x.net <> 0
 $stats_net$;
 CREATE TEMP VIEW stored_rows AS
-SELECT 'stock' AS kind,
-       concat_ws('|', d.unit_type, d.primary_activity_category_path, d.secondary_activity_category_path, d.sector_path,
+SELECT d.unit_type::text AS kind,
+       concat_ws('|', d.primary_activity_category_path, d.secondary_activity_category_path, d.sector_path,
                  d.legal_form_id, d.physical_region_path, d.physical_country_id, d.unit_size_id, d.status_id,
-                 d.on_month, d.exists_delta, d.countable_delta, pg_temp.stats_net(d.stats_delta), d.unit_ids) AS row_text
-FROM public.statistical_history_facet_stock_delta AS d
-UNION ALL
-SELECT 'flow',
-       concat_ws('|', f.resolution, f.year, f.month, f.unit_type, f.primary_activity_category_path,
-                 f.secondary_activity_category_path, f.sector_path, f.legal_form_id, f.physical_region_path,
-                 f.physical_country_id, f.unit_size_id, f.status_id, f.flows, pg_temp.stats_net(f.stats_ended), f.unit_ids)
-FROM public.statistical_history_facet_flow_delta AS f;
+                 d.on_month, d.exists_added_count, d.exists_removed_count, d.countable_added_count,
+                 d.countable_removed_count, d.exists_moved_in_count, d.exists_moved_out_count,
+                 d.countable_moved_in_count, d.countable_moved_out_count, d.births, d.deaths, d.name_change_count,
+                 d.primary_activity_category_change_count, d.secondary_activity_category_change_count,
+                 d.sector_change_count, d.legal_form_change_count, d.physical_region_change_count,
+                 d.physical_country_change_count, d.physical_address_change_count, d.unit_size_change_count,
+                 d.status_change_count, pg_temp.stats_net(d.stats_delta), pg_temp.stats_net(d.stats_ended_month),
+                 pg_temp.stats_net(d.stats_ended_year), d.unit_ids) AS row_text
+FROM public.statistical_history_facet_delta AS d;
 CREATE TEMP TABLE snapshot (label text, kind text, row_text text) ON COMMIT DROP;
 
 \echo
@@ -106,7 +107,7 @@ WHERE t.id > (SELECT max(id) FROM worker.tasks WHERE command = 'collect_changes'
 ORDER BY t.id;
 SET LOCAL ROLE postgres;
 SELECT (SELECT count(*) FROM public.statistical_unit_staging) > 0 AS unit_staging_still_holds_the_move,
-       (SELECT count(*) FROM public.statistical_history_facet_stock_delta_staging) > 0 AS history_rows_staged;
+       (SELECT count(*) FROM public.statistical_history_facet_delta_staging) > 0 AS history_rows_staged;
 RESET ROLE;
 CALL test.set_user_from_email('test.admin@statbus.org');
 
@@ -126,15 +127,15 @@ CALL worker.process_tasks(p_queue => 'import');
 CALL worker.process_tasks(p_queue => 'analytics');
 SET LOCAL ROLE postgres;
 SELECT (SELECT count(*) FROM public.statistical_unit_staging) AS unit_staging_rows,
-       (SELECT count(*) FROM public.statistical_history_facet_stock_delta_staging)
-     + (SELECT count(*) FROM public.statistical_history_facet_flow_delta_staging) AS history_staging_rows;
+       (SELECT count(*) FROM public.statistical_history_facet_delta_staging) AS history_staging_rows;
 RESET ROLE;
 CALL test.set_user_from_email('test.admin@statbus.org');
 
 \echo
 \echo "368.3 the moved unit counts once: it leaves its old region and enters the new one in 2024-01"
-SELECT d.physical_region_path, d.on_month, d.exists_delta, d.countable_delta
-FROM public.statistical_history_facet_stock_delta AS d
+SELECT d.physical_region_path, d.on_month, d.exists_added_count, d.exists_removed_count,
+       d.exists_moved_in_count, d.exists_moved_out_count, d.countable_moved_in_count, d.countable_moved_out_count
+FROM public.statistical_history_facet_delta AS d
 WHERE d.unit_type = 'legal_unit'
   AND (SELECT su.unit_id FROM public.statistical_unit AS su
         WHERE su.unit_type = 'legal_unit' AND su.external_idents->>'tax_ident' = '2220794' LIMIT 1) = ANY (d.unit_ids)
@@ -158,7 +159,7 @@ SELECT
 
 \echo
 \echo "368.5 a rebuild cycle whose flush fails: the next cycle rebuilds again, and readers keep the last good rows meanwhile"
-SELECT count(*) AS stock_rows_before FROM public.statistical_history_facet_stock_delta \gset
+SELECT count(*) AS delta_rows_before FROM public.statistical_history_facet_delta \gset
 SET LOCAL ROLE postgres;
 UPDATE worker.command_registry SET handler_procedure = 'pg_temp.flush_that_fails'
  WHERE command = 'statistical_unit_flush_staging';
@@ -174,7 +175,7 @@ SELECT worker.enqueue_derive_statistical_unit_all() IS NOT NULL AS rebuild_sched
 CALL pg_temp.process_analytics_quietly();
 SELECT (SELECT t.info->>'rebuild' FROM worker.tasks AS t WHERE t.command = 'derive_statistical_history_facet_delta'
          ORDER BY t.id DESC LIMIT 1) AS failed_cycle_was_a_rebuild,
-       (SELECT count(*) FROM public.statistical_history_facet_stock_delta) = :stock_rows_before AS readers_keep_the_last_good_rows;
+       (SELECT count(*) FROM public.statistical_history_facet_delta) = :delta_rows_before AS readers_keep_the_last_good_rows;
 
 SET LOCAL ROLE postgres;
 UPDATE worker.command_registry SET handler_procedure = 'worker.statistical_unit_flush_staging'
@@ -202,11 +203,9 @@ SELECT
                            EXCEPT ALL SELECT kind, row_text FROM snapshot WHERE label = 'rebuilt') AS x) AS only_in_incremental;
 
 \echo
-\echo "368.6 the staged rows survive a database crash: the staging tables are logged (an unlogged table is emptied by crash recovery)"
+\echo "368.6 the staged rows survive a database crash: the staging table is logged (an unlogged table is emptied by crash recovery)"
 SELECT c.relname, c.relpersistence
 FROM pg_class AS c
-WHERE c.oid IN ('public.statistical_history_facet_stock_delta_staging'::regclass,
-                'public.statistical_history_facet_flow_delta_staging'::regclass)
-ORDER BY c.relname;
+WHERE c.oid = 'public.statistical_history_facet_delta_staging'::regclass;
 
 ROLLBACK;
