@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-11-02T13:15:00Z'
-updated_date: '2026-11-04T23:21:00Z'
+updated_date: '2026-11-05T01:56:00Z'
 labels: []
 dependencies: []
 type: enhancement
@@ -219,4 +219,6 @@ All sources give the view's answers (values_differ 0). Raw facet_def over a year
 2026-11-04 21:59 owner approved naming (my earlier history_* names were chosen without him): subject statistical_history + _facet breakdown + _stock_delta/_flow_delta content + role last (_staging, _partition, _reduce), as in the statistical_unit family. Tables statistical_history_facet_stock_delta / statistical_history_facet_flow_delta (+ _staging), statistical_history_period; commands derive_statistical_history_facet_delta, derive_statistical_history_facet_delta_partition, statistical_history_facet_delta_reduce. Rename done in the (unreleased) migration, tests, docs, app labels; reasoning in tmp/558-build/principles.md section 13.
 
 2026-11-04 night: two gaps fixed, failing test first (test 879e10194, fix 9cdd1fc0b). (A) rows staged for a cycle whose flush failed were added by that cycle's reduce and staged again by the next (test 368 pre-fix: moved unit -2/+2, 10 rows differ from a rebuild; a failed rebuild cycle emptied the readers' tables and the next cycle did not rebuild, 8 rows differ). Now each staged row carries its cycle's generation; the flush marks it counting in the same transaction as its MERGE, only when the cycle's history step completed; the reduce adds only those; a rebuild replaces the tables inside the reduce and repeats until it lands. (B) staging was UNLOGGED; crash recovery empties unlogged tables (prototype in scratch container: 3 -> 0 rows, logged 3 -> 3); now logged. Post-fix 368: 0 differ in both cases; fast suite 122/122; 401, 402 pass.
+
+2026-11-05 night (local commits, nothing pushed): direct-read statistical_history_drilldown (9639e6332) and statistical_history_for for the chart (ce0337c29); per-element flow sums in the apply (b624aad37); jsonb_stats v3.1.0 pinned (97fc36809) and local DB on the official build, types without 3.2 functions (3dc273ba9). Norway re-migrated and rebuilt: rebuild 70 s + 73 s apply (logged staging); incremental 437-unit move 4.8 s at c=8 + 1.5 s apply, equal to an independent calculation; parity unchanged (history 48/48, facet 2026 differs only in the 296 STATBUS-565 rows). Reads today -> 558: chart year 0.85 -> 0.77 s, chart months 1.31 -> 0.74 s, drilldown year 2.88 -> 0.73 s, drilldown months 16.9 -> 1.09 s, region 0.61 -> 0.17 s. Fast suite 122/122, 303/401/402 pass. Answers to the owner's questions: tmp/558-build/morning-answers.md.
 <!-- SECTION:NOTES:END -->
