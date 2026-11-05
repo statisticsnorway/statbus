@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: 2026-09-25 13:08
-updated_date: '2026-11-04T12:26:00Z'
+updated_date: '2026-11-05T16:08:00Z'
 labels:
   - installer
 dependencies: []
@@ -54,6 +54,8 @@ Removal is destructive, so the defaults protect what cannot be recreated:
 - [ ] #6 Owner decision 2026-11-02: a file StatBus creates lives in one place. While installed, users and credentials live only inside ~/statbus (.users.yml, .env.credentials); install moves a kept ~/statbus.users.yml and ~/statbus.env.credentials into the checkout (no second copy in the home). Uninstall asks 'Keep the users? [Y/n]' and 'Keep the credentials? [Y/n]'; a kept file is moved out to ~/statbus.users.yml or ~/statbus.env.credentials (mode 0600), and ~/statbus is always removed completely. uninstall.sh and ./sb uninstall behave the same; a test covers install, uninstall with both kept, and a fresh install that picks both up
 - [ ] #7 uninstall.sh run after sudo -iu statbus stops the user upgrader: it supplies XDG_RUNTIME_DIR=/run/user/<uid> when unset and that directory belongs to the user (observed failing on the manual box 2026-11-02 with v2026.11.0)
 - [ ] #8 Uninstall removes what the install created beside the checkout: ~/statbus-maintenance always, ~/statbus-backups (pre-upgrade backups) together with the database dumps; the plan lists both, or 'Keep: ~/statbus-backups' when the dumps are kept (observed left behind on the manual box 2026-11-03 with rc.04)
+- [ ] #9 Kept database dumps live outside the checkout, like users and credentials (owner decision 2026-11-05). Uninstall asks about dumps and backups only when ~/statbus/dbdumps holds a dump or ~/statbus-backups holds a backup, and names what it found; with nothing to keep it asks nothing and removes the empty folders. Kept dumps move to ~/statbus.dbdumps/ (never overwriting a different file), so ~/statbus is removed completely
+- [ ] #10 A fresh install moves ~/statbus.dbdumps/ back into ~/statbus/dbdumps/ and ends with a hint naming the restore command for the kept dumps; it never restores by itself. The install never deletes files it did not create: a kept ~/statbus/dbdumps left by an older uninstall is moved out first instead of being removed with a failed clone (observed: statbus_git_clone removed any ~/statbus without .git, deleting kept dumps, since v2026.09.0)
 <!-- AC:END -->
 
 ## Implementation Notes
