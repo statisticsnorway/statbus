@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-11-02T13:15:00Z'
-updated_date: '2026-11-05T01:56:00Z'
+updated_date: '2026-11-05T11:05:00Z'
 labels: []
 dependencies: []
 type: enhancement
@@ -108,11 +108,13 @@ Evidence: tmp/558-shd/ (README.md, scripts 01-25 with logs).
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
 - [x] #1 The two compatibility views equal today's statistical_history and statistical_history_facet_def on 10-year and full Norway, every row and column
-- [ ] #2 The read functions answer the report shapes (all years; months of one year; breakdown by one dimension) on full Norway at most as slow as today's stored table
-- [ ] #3 The incremental update after unit edits equals a full rebuild, with the chosen way of finding a changed unit's old contribution, prototyped and measured against the alternatives
-- [ ] #4 Full rebuild and incremental cycle are measured on full Norway against today's pipeline
+- [x] #2 The read functions answer the report shapes (all years; months of one year; breakdown by one dimension) on full Norway at most as slow as today's stored table
+- [x] #3 The incremental update after unit edits equals a full rebuild, with the chosen way of finding a changed unit's old contribution, prototyped and measured against the alternatives
+- [x] #4 Full rebuild and incremental cycle are measured on full Norway against today's pipeline
 - [ ] #5 Owner adopts the design before the migration is written
-- [ ] #6 Migration, worker step and tests 008, 094, 096, 107, 204, 318, 322, 325, 346, 364 pass
+- [x] #6 Migration, worker step and tests 008, 094, 096, 107, 204, 318, 322, 325, 346, 364 pass
+- [ ] #7 Released per-commit image upgrades a guest with data to this migration and the history rebuild completes (install/upgrade testing)
+- [ ] #8 Owner reviews the local commits; pushed, CI green for the pushed SHA
 <!-- AC:END -->
 
 ## Implementation Notes
@@ -221,4 +223,11 @@ All sources give the view's answers (values_differ 0). Raw facet_def over a year
 2026-11-04 night: two gaps fixed, failing test first (test 879e10194, fix 9cdd1fc0b). (A) rows staged for a cycle whose flush failed were added by that cycle's reduce and staged again by the next (test 368 pre-fix: moved unit -2/+2, 10 rows differ from a rebuild; a failed rebuild cycle emptied the readers' tables and the next cycle did not rebuild, 8 rows differ). Now each staged row carries its cycle's generation; the flush marks it counting in the same transaction as its MERGE, only when the cycle's history step completed; the reduce adds only those; a rebuild replaces the tables inside the reduce and repeats until it lands. (B) staging was UNLOGGED; crash recovery empties unlogged tables (prototype in scratch container: 3 -> 0 rows, logged 3 -> 3); now logged. Post-fix 368: 0 differ in both cases; fast suite 122/122; 401, 402 pass.
 
 2026-11-05 night (local commits, nothing pushed): direct-read statistical_history_drilldown (9639e6332) and statistical_history_for for the chart (ce0337c29); per-element flow sums in the apply (b624aad37); jsonb_stats v3.1.0 pinned (97fc36809) and local DB on the official build, types without 3.2 functions (3dc273ba9). Norway re-migrated and rebuilt: rebuild 70 s + 73 s apply (logged staging); incremental 437-unit move 4.8 s at c=8 + 1.5 s apply, equal to an independent calculation; parity unchanged (history 48/48, facet 2026 differs only in the 296 STATBUS-565 rows). Reads today -> 558: chart year 0.85 -> 0.77 s, chart months 1.31 -> 0.74 s, drilldown year 2.88 -> 0.73 s, drilldown months 16.9 -> 1.09 s, region 0.61 -> 0.17 s. Fast suite 122/122, 303/401/402 pass. Answers to the owner's questions: tmp/558-build/morning-answers.md.
+
+2026-11-05 acceptance evidence (local commits up to 36693e46a, nothing pushed):
+AC2 read functions vs today's stored tables, full Norway (tmp/558-build/68-norway-reads-final.log): chart all years 0.85 -> 0.77 s; chart months of 2026 1.31 -> 0.74 s; drilldown year 2026 (every breakdown: region, activity, sector, legal form, status, country) 2.88 -> 0.73 s; drilldown months of 2026 16.9 -> 1.09 s; drilldown one region 0.61 -> 0.17 s. Same answers: drilldown identical JSON to the view-based function in 6 cases incl. filters (51-drill-cmp.log); chart same md5 in 3 calls. Not a read function: counting the whole 2026 facet view is slower (0.20 -> 3.0 s); no app reader does that.
+AC3 chosen way: pre-flush, per hash range, new versions (statistical_unit_staging) minus old (statistical_unit); alternatives prototyped and measured earlier (capture-old option b, intarray per-unit layer; notes 2026-11-04). Incremental equals rebuild: test 367 (three cycles + rebuild, unit_ids included), test 368 (failed flush, failed rebuild), import benchmark check; Norway 437-unit move equals an independent subtract-old/add-new calculation, 0/0 rows differ (76-norway-inc-check.sql).
+AC4 Norway: full rebuild 70 s staging (concurrency 8) + 73 s apply = 2.4 min, vs Rune's history steps 183 s + facet 800 s wall (~16.5 min) on 2026-11-02. Incremental cycle (437 units move region): 22.6/12.2/7.5/4.8 s at concurrency 1/2/4/8 + 1.5 s apply. Today's incremental history cost measured on the BRREG selection benchmark: history task time 173 s -> 19.2 s.
+AC6 fast suite 122/122 incl. 008, 094, 096, 107, 204, 318, 322, 325, 346, 364, 365, 366, 367, 368 (tmp/test-agg-fast.log); 303, 401, 402 pass on the official jsonb_stats v3.1.0 build.
+AC5 is the owner's: he asked for the migration to be built while adoption was pending (2026-11-04); adoption is the decision before push.
 <!-- SECTION:NOTES:END -->
