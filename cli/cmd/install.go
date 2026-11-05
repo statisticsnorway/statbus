@@ -872,22 +872,39 @@ func runInstall() (installErr error) {
 				}
 				state, detail, derr = detectInstallState(installDir, version)
 				if derr != nil {
-					return fmt.Errorf("re-detect after recovery: %w", derr)
-				}
-				detectedState = state
-				// A stale install-held flag masks first-install provenance at the
-				// initial probe. Only after recovery removes it can Detect see the
-				// unfinished database. Import consent from the answer file now,
-				// under the same marker-and-state gate as ordinary repair.
-				if !signerPreflightRequired(installDir, state) {
-					if err := importPendingSignerConsent(installDir); err != nil {
-						return &installPreflightRefusalError{err: err}
+					// Same rule as the first look: only a positively identified
+					// "no database" continues, through the step table, which
+					// starts it. An install interrupted before Services has no
+					// database container yet (STATBUS-572).
+					if !errors.Is(derr, install.ErrDatabaseUnavailable) {
+						return fmt.Errorf("re-detect after recovery: %w", derr)
+					}
+					if !signerPreflightRequired(installDir, install.StateDBUnreachable) {
+						if err := importPendingSignerConsent(installDir); err != nil {
+							return &installPreflightRefusalError{err: err}
+						}
 					}
 					preflightInstallSigner(installDir)
+					installDiagnostic(installDir, "State after recovery: database unavailable: %v", derr)
+					fmt.Println("No StatBus database is running yet; continuing with the installation.")
+					state, detail = install.StateDBUnreachable, &install.Detail{CurrentVersion: version, TargetVersion: version}
+					detectedState = state
+				} else {
+					detectedState = state
+					// A stale install-held flag masks first-install provenance at the
+					// initial probe. Only after recovery removes it can Detect see the
+					// unfinished database. Import consent from the answer file now,
+					// under the same marker-and-state gate as ordinary repair.
+					if !signerPreflightRequired(installDir, state) {
+						if err := importPendingSignerConsent(installDir); err != nil {
+							return &installPreflightRefusalError{err: err}
+						}
+						preflightInstallSigner(installDir)
+					}
+					installDiagnostic(installDir, "State after recovery: %s (target=%s)", state, detail.TargetVersion)
+					fmt.Println("Recovery finished. Checking the installation again.")
+					logInstallState(installDir, state, detail, false)
 				}
-				installDiagnostic(installDir, "State after recovery: %s (target=%s)", state, detail.TargetVersion)
-				fmt.Println("Recovery finished. Checking the installation again.")
-				logInstallState(installDir, state, detail, false)
 			}
 			if handled, err := dispatchInstallStateWithLock(installDir, state, detail, adoptedInstallLock); handled {
 				if state == install.StateScheduledUpgrade || state == install.StateRestoreReattemptable {

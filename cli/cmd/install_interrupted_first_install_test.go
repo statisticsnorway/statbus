@@ -1,11 +1,13 @@
 package cmd
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 
+	"github.com/statisticsnorway/statbus/cli/internal/install"
 	"github.com/statisticsnorway/statbus/cli/internal/upgrade"
 )
 
@@ -54,5 +56,41 @@ func TestCrashRecoveryClearsAnInterruptedInstallsMarkerWithoutADatabase(t *testi
 	}
 	if strings.Contains(out, "proxy") || strings.Contains(out, "upgrade") {
 		t.Fatalf("an interrupted install was described as an upgrade problem:\n%s", out)
+	}
+}
+
+// After an interrupted first install's marker is cleared, the installer looks
+// at the box again. With no database container yet (Ctrl-C before Services)
+// that look finds no database, exactly as the first look of a fresh install
+// does, and the same run continues with the steps. The manual box, rc.10:
+// "The previous install was interrupted; continuing it." was followed by
+// "the installer could not finish" (re-detect: database unavailable), and only
+// a second run continued.
+func TestInterruptedInstallContinuesInTheSameRunWhenNoDatabaseExists(t *testing.T) {
+	dir := withRunInstallDetectionHooks(t)
+	probes := 0
+	detectInstallState = func(string, string) (install.State, *install.Detail, error) {
+		probes++
+		if probes == 1 {
+			return install.StateCrashedUpgrade, &install.Detail{Flag: &upgrade.UpgradeFlag{Holder: upgrade.HolderInstall, Trigger: "install"}}, nil
+		}
+		return 0, nil, fmt.Errorf("probe database reachability: %w", install.ErrDatabaseUnavailable)
+	}
+	recoverCrashedInstall = func(string, *func()) error { return nil }
+	checkInstallSigners = func(string) bool { return true }
+	steps := 0
+	runInstallStepTableTestHook = func() error { steps++; return nil }
+	_ = dir
+
+	out := captureStdout(t, func() {
+		if err := runInstall(); err != nil {
+			t.Fatalf("the interrupted install did not continue in the same run: %v", err)
+		}
+	})
+	if steps != 1 {
+		t.Fatalf("step table ran %d times, want 1:\n%s", steps, out)
+	}
+	if !strings.Contains(out, "No StatBus database is running yet; continuing with the installation.") {
+		t.Fatalf("output = %q, want the no-database continuation line", out)
 	}
 }
