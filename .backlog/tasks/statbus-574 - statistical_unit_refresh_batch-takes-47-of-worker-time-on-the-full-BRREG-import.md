@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-11-05T17:53:00Z'
-updated_date: '2026-11-06T11:18:00Z'
+updated_date: '2026-11-06T11:20:00Z'
 labels:
   - performance
   - worker
@@ -68,4 +68,6 @@ Design: one source of truth kept. timeline_legal_unit_def's body became the SQL 
 Rolled-back checks on import_benchmark_43190: batch 22285 view 2,335 ms -> 69 ms (333 rows, EXCEPT ALL 0/0); full-refresh slice 1..65536 25.4/22.5 s -> 12.8/12.6 s (65,536 rows, 0/0); 8 repeated partial refreshes via EXECUTE USING 78-137 ms and static 91-124 ms (generic plan not a risk). Down/up round trip restores definitions. Not yet: full fast suite green after the 370 fixture fix, the 9-batch equality check of the whole migration (tmp/574impl/verify-migration.sql) and the downloads benchmark (AC2), waiting for laptop load to drop.
 
 2026-11-06 11:18 Fast suite 123/123 on the branch (tmp/test-574-fast-3.log), including 370.
+
+2026-11-06 11:20 Whole migration on the downloads database (rolled back, tmp/574impl/verify-*.log): 9 retained batches give identical rows in all four timelines and statistical_unit_staging (missing 0, extra 0). Whole-batch time original -> new, ms: 22285 3747->1060, 8857 3495->349, 51670 2715->79, 48599 270->146, 13783 3325->308, 18387 2906->536, 21760 3718->1004, 22129 3678->1034, 5564 3445->331 (sum 27,604 -> 4,845, -82%). Single runs on a loaded laptop.
 <!-- SECTION:NOTES:END -->
