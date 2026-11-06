@@ -24,7 +24,9 @@ BEGIN
 
         -- Inline the timeline_power_group_def view logic but use pgm_temp
         INSERT INTO public.timeline_power_group
-        WITH aggregation AS (
+        -- MATERIALIZED: aggregate the batch's power groups once; inlined into
+        -- the LEFT JOIN below it is re-evaluated per power-group row.
+        WITH aggregation AS MATERIALIZED (
             SELECT
                 tpg.power_group_id,
                 tpg.valid_from,

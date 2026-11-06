@@ -6,17 +6,16 @@ DECLARE
     v_unit_ids INT[];
 BEGIN
     IF p_unit_id_ranges IS NULL THEN
-        -- Full refresh: GUC not set, view scans everything
+        -- Full refresh: the view (timeline_legal_unit_def_for(NULL)) in ranges of unit ids.
         ANALYZE public.timesegments, public.legal_unit, public.activity, public.location, public.contact, public.stat_for_unit, public.timeline_establishment;
         CALL public.timeline_refresh('timeline_legal_unit', 'legal_unit', p_unit_id_ranges);
     ELSE
-        -- Partial refresh: set GUC so the view self-filters its CTEs
+        -- Partial refresh: the batch's ids go to timeline_legal_unit_def_for, which reads only their rows.
         v_unit_ids := public.int4multirange_to_array(p_unit_id_ranges);
-        PERFORM set_config('statbus.filter_unit_ids',
-                           array_to_string(v_unit_ids, ','), true);
-        CALL public.timeline_refresh('timeline_legal_unit', 'legal_unit', p_unit_id_ranges);
-        -- Clear GUC (also auto-clears on transaction end, but be explicit)
-        PERFORM set_config('statbus.filter_unit_ids', '', true);
+        DELETE FROM public.timeline_legal_unit
+         WHERE unit_type = 'legal_unit' AND unit_id = ANY(v_unit_ids);
+        INSERT INTO public.timeline_legal_unit
+        SELECT * FROM public.timeline_legal_unit_def_for(v_unit_ids);
     END IF;
 END;
 $procedure$

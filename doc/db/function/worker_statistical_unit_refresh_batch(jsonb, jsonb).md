@@ -75,11 +75,13 @@ BEGIN
             '{}'::int4multirange
         );
 
+        -- Only the batch's legal units can become effective, so the scan starts
+        -- from their establishments (index on legal_unit_id).
         SELECT range_agg(int4range(es.legal_unit_id, es.legal_unit_id, '[]'))
           INTO v_propagated_lu_ranges
           FROM public.establishment AS es
          WHERE es.id <@ COALESCE(v_changed_est_ranges, '{}'::int4multirange)
-           AND es.legal_unit_id IS NOT NULL;
+           AND es.legal_unit_id = ANY(v_legal_unit_ids);
 
         v_effective_lu := NULLIF(
             v_legal_unit_id_ranges * (
@@ -92,7 +94,7 @@ BEGIN
         SELECT range_agg(int4range(lu.enterprise_id, lu.enterprise_id, '[]'))
           INTO v_propagated_en_ranges
           FROM public.legal_unit AS lu
-         WHERE lu.id <@ COALESCE(v_effective_lu, '{}'::int4multirange)
+         WHERE lu.id = ANY(COALESCE(public.int4multirange_to_array(v_effective_lu), '{}'::int[]))
            AND lu.enterprise_id IS NOT NULL;
 
         v_effective_en := NULLIF(
