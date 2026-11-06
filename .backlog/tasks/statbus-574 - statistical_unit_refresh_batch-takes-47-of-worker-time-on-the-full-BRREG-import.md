@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-11-05T17:53:00Z'
-updated_date: '2026-11-06T11:25:00Z'
+updated_date: '2026-11-06T14:02:00Z'
 labels:
   - performance
   - worker
@@ -40,7 +40,7 @@ A unit refresh costs in proportion to the units it refreshes, so imports and ful
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
 - [x] #1 A profile of one representative refresh_batch on the BRREG downloads database names the statements that take most of its time, with EXPLAIN ANALYZE output
-- [ ] #2 A proposed change is measured on the downloads benchmark against this ticket's 10,320 s baseline, with the benchmark's consistency checks passing
+- [x] #2 A proposed change is measured on the downloads benchmark against this ticket's 10,320 s baseline, with the benchmark's consistency checks passing
 - [x] #3 Batch time is recorded in Implementation Notes for at least three batch sizes on the downloads database, with the timings
 <!-- AC:END -->
 
@@ -72,4 +72,6 @@ Rolled-back checks on import_benchmark_43190: batch 22285 view 2,335 ms -> 69 ms
 2026-11-06 11:20 Whole migration on the downloads database (rolled back, tmp/574impl/verify-*.log): 9 retained batches give identical rows in all four timelines and statistical_unit_staging (missing 0, extra 0). Whole-batch time original -> new, ms: 22285 3747->1060, 8857 3495->349, 51670 2715->79, 48599 270->146, 13783 3325->308, 18387 2906->536, 21760 3718->1004, 22129 3678->1034, 5564 3445->331 (sum 27,604 -> 4,845, -82%). Single runs on a loaded laptop.
 
 2026-11-06 11:25 Tests 303, 401, 402 pass (tmp/test-574-{303,401,402}.log). Selection benchmark (tmp/574impl/bench-selection.log): worker 89.2 s (558 baseline 83.8 s; this selection's batches are small and the laptop was loaded, load5 ~30-70), refresh_batch 72 tasks 19.8 s vs 21.1 s, checks A, B, C pass. The selection is too small to show the LU-scan cost; the downloads benchmark is the measure (AC2).
+
+2026-11-06 14:02 AC2: full BRREG downloads benchmark on local master 67488988e (tmp/574impl/bench-downloads.log, database import_benchmark_40149): consistency checks A, B, C pass. statistical_unit_refresh_batch summed 10,320 s -> 4,007 s (-61%; 7,828 -> 4,777 tasks, avg 1,318 -> 839 ms). All tasks 21,932 -> 17,063 s (-22%). Worker wall 7,810 -> 6,737 s (-14%): the serial import step (import_job_process 6,090 s, +11% under daytime laptop load 37-150) is now the longest path. Below last night's 7,000-8,600 s saving estimate: 6,313 s saved.
 <!-- SECTION:NOTES:END -->
