@@ -598,7 +598,8 @@ SELECT year
 FROM public.statistical_history_facet
 WHERE resolution = 'year'
   AND year <= 2024
-ORDER BY year,unit_type;
+ORDER BY year, unit_type, primary_activity_category_path, secondary_activity_category_path, sector_path,
+         legal_form_id, physical_region_path, physical_country_id, unit_size_id, status_id;
 
 \echo "Test yearly facet data"
 SELECT year
@@ -619,7 +620,8 @@ SELECT year
 FROM public.statistical_history_facet
 WHERE resolution = 'year'
   AND year <= 2024
-ORDER BY year,unit_type;
+ORDER BY year, unit_type, primary_activity_category_path, secondary_activity_category_path, sector_path,
+         legal_form_id, physical_region_path, physical_country_id, unit_size_id, status_id;
 
 \echo "Test yearly facet stats"
 SELECT year
@@ -628,7 +630,8 @@ SELECT year
 FROM public.statistical_history_facet
 WHERE resolution = 'year'
   AND year <= 2024
-ORDER BY year,unit_type;
+ORDER BY year, unit_type, primary_activity_category_path, secondary_activity_category_path, sector_path,
+         legal_form_id, physical_region_path, physical_country_id, unit_size_id, status_id;
 
 \echo "Test monthly facet data for 2019"
 SELECT year, month
@@ -647,7 +650,8 @@ SELECT year, month
      , countable_removed_count
 FROM public.statistical_history_facet
 WHERE resolution = 'year-month' AND year = 2019
-ORDER BY year,month,unit_type;
+ORDER BY year, month, unit_type, primary_activity_category_path, secondary_activity_category_path, sector_path,
+         legal_form_id, physical_region_path, physical_country_id, unit_size_id, status_id;
 
 \echo "Test monthly facet data for 2019"
 SELECT year, month
@@ -667,7 +671,8 @@ SELECT year, month
      , physical_country_change_count
 FROM public.statistical_history_facet
 WHERE resolution = 'year-month' AND year = 2019
-ORDER BY year,month,unit_type;
+ORDER BY year, month, unit_type, primary_activity_category_path, secondary_activity_category_path, sector_path,
+         legal_form_id, physical_region_path, physical_country_id, unit_size_id, status_id;
 
 \echo "Test monthly facet data"
 SELECT year, month
@@ -675,7 +680,8 @@ SELECT year, month
      , jsonb_pretty(stats_summary) AS stats_summary
 FROM public.statistical_history_facet
 WHERE resolution = 'year-month' AND year = 2019
-ORDER BY year,month,unit_type;
+ORDER BY year, month, unit_type, primary_activity_category_path, secondary_activity_category_path, sector_path,
+         legal_form_id, physical_region_path, physical_country_id, unit_size_id, status_id;
 
 \a
 \echo "Test yearly drilldown - enterprise"

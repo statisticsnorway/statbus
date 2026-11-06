@@ -8435,7 +8435,8 @@ SELECT year
 FROM public.statistical_history_facet
 WHERE resolution = 'year'
   AND year <= 2024
-ORDER BY year,unit_type;
+ORDER BY year, unit_type, primary_activity_category_path, secondary_activity_category_path, sector_path,
+         legal_form_id, physical_region_path, physical_country_id, unit_size_id, status_id;
  year |   unit_type   | primary_activity_category_path | secondary_activity_category_path |     sector_path      | physical_region_path | exists_count | exists_change | exists_added_count | exists_removed_count | countable_count | countable_change | countable_added_count | countable_removed_count 
 ------+---------------+--------------------------------+----------------------------------+----------------------+----------------------+--------------+---------------+--------------------+----------------------+-----------------+------------------+-----------------------+-------------------------
  2010 | establishment | H.49.4.1.0                     |                                  |                      | 11.21                |            1 |             1 |                  1 |                    0 |               1 |                1 |                     1 |                       0
@@ -8456,8 +8457,8 @@ ORDER BY year,unit_type;
  2015 | establishment | H.49.4.1.0                     |                                  |                      | 11.21                |            1 |             0 |                  0 |                    0 |               1 |                0 |                     0 |                       0
  2015 | legal_unit    | H.49.4.1.0                     |                                  | innl.a_ikke_fin.2100 | 11.21                |            1 |             0 |                  0 |                    0 |               1 |                0 |                     0 |                       0
  2015 | enterprise    | H.49.4.1.0                     |                                  | innl.a_ikke_fin.2100 | 11.21                |            1 |             0 |                  0 |                    0 |               1 |                0 |                     0 |                       0
- 2016 | establishment | H.49.4.1.0                     |                                  |                      | 11.21                |            1 |             1 |                  0 |                    0 |               1 |                1 |                     0 |                       0
  2016 | establishment | H.49.4.1.0                     |                                  |                      | 11.21                |            0 |            -1 |                  0 |                    0 |               0 |               -1 |                     0 |                       0
+ 2016 | establishment | H.49.4.1.0                     |                                  |                      | 11.21                |            1 |             1 |                  0 |                    0 |               1 |                1 |                     0 |                       0
  2016 | legal_unit    | H.49.4.1.0                     |                                  | innl.a_ikke_fin.2100 | 11.21                |            1 |             0 |                  0 |                    0 |               1 |                0 |                     0 |                       0
  2016 | enterprise    | H.49.4.1.0                     |                                  | innl.a_ikke_fin.2100 | 11.21                |            1 |             0 |                  0 |                    0 |               1 |                0 |                     0 |                       0
  2017 | establishment | H.49.4.1.0                     |                                  |                      | 11.21                |            1 |             0 |                  0 |                    0 |               1 |                0 |                     0 |                       0
@@ -8466,8 +8467,8 @@ ORDER BY year,unit_type;
  2018 | establishment | H.49.4.1.0                     |                                  |                      | 11.21                |            1 |             0 |                  0 |                    0 |               1 |                0 |                     0 |                       0
  2018 | legal_unit    | H.49.4.1.0                     |                                  | innl.a_ikke_fin.2100 | 11.21                |            1 |             0 |                  0 |                    0 |               1 |                0 |                     0 |                       0
  2018 | enterprise    | H.49.4.1.0                     |                                  | innl.a_ikke_fin.2100 | 11.21                |            1 |             0 |                  0 |                    0 |               1 |                0 |                     0 |                       0
- 2019 | establishment | H.49.4.1.0                     |                                  |                      | 11.21                |            1 |             1 |                  0 |                    0 |               1 |                1 |                     0 |                       0
  2019 | establishment | H.49.4.1.0                     |                                  |                      | 11.21                |            0 |            -1 |                  0 |                    0 |               0 |               -1 |                     0 |                       0
+ 2019 | establishment | H.49.4.1.0                     |                                  |                      | 11.21                |            1 |             1 |                  0 |                    0 |               1 |                1 |                     0 |                       0
  2019 | legal_unit    | H.49.4.1.0                     |                                  | innl.a_ikke_fin.2100 | 11.21                |            1 |             0 |                  0 |                    0 |               1 |                0 |                     0 |                       0
  2019 | enterprise    | H.49.4.1.0                     |                                  | innl.a_ikke_fin.2100 | 11.21                |            1 |             0 |                  0 |                    0 |               1 |                0 |                     0 |                       0
  2020 | establishment | H.49.4.1.0                     |                                  |                      | 11.21                |            0 |            -1 |                  0 |                    0 |               0 |               -1 |                     0 |                       0
@@ -8508,7 +8509,8 @@ SELECT year
 FROM public.statistical_history_facet
 WHERE resolution = 'year'
   AND year <= 2024
-ORDER BY year,unit_type;
+ORDER BY year, unit_type, primary_activity_category_path, secondary_activity_category_path, sector_path,
+         legal_form_id, physical_region_path, physical_country_id, unit_size_id, status_id;
  year |   unit_type   | primary_activity_category_path | secondary_activity_category_path |     sector_path      | physical_region_path | count | births | deaths | primary_activity_category_change_count | secondary_activity_category_change_count | sector_change_count | legal_form_change_count | physical_region_change_count | physical_country_change_count 
 ------+---------------+--------------------------------+----------------------------------+----------------------+----------------------+-------+--------+--------+----------------------------------------+------------------------------------------+---------------------+-------------------------+------------------------------+-------------------------------
  2010 | establishment | H.49.4.1.0                     |                                  |                      | 11.21                |     1 |      1 |      0 |                                      0 |                                        0 |                   0 |                       0 |                            0 |                             0
@@ -8529,8 +8531,8 @@ ORDER BY year,unit_type;
  2015 | establishment | H.49.4.1.0                     |                                  |                      | 11.21                |     1 |      0 |      0 |                                      0 |                                        0 |                   0 |                       0 |                            0 |                             0
  2015 | legal_unit    | H.49.4.1.0                     |                                  | innl.a_ikke_fin.2100 | 11.21                |     1 |      0 |      0 |                                      0 |                                        0 |                   0 |                       0 |                            0 |                             0
  2015 | enterprise    | H.49.4.1.0                     |                                  | innl.a_ikke_fin.2100 | 11.21                |     1 |      0 |      0 |                                      0 |                                        0 |                   0 |                       0 |                            0 |                             0
- 2016 | establishment | H.49.4.1.0                     |                                  |                      | 11.21                |     1 |      0 |      0 |                                      0 |                                        0 |                   0 |                       0 |                            0 |                             0
  2016 | establishment | H.49.4.1.0                     |                                  |                      | 11.21                |     0 |      0 |      0 |                                      0 |                                        0 |                   0 |                       0 |                            0 |                             0
+ 2016 | establishment | H.49.4.1.0                     |                                  |                      | 11.21                |     1 |      0 |      0 |                                      0 |                                        0 |                   0 |                       0 |                            0 |                             0
  2016 | legal_unit    | H.49.4.1.0                     |                                  | innl.a_ikke_fin.2100 | 11.21                |     1 |      0 |      0 |                                      0 |                                        0 |                   0 |                       0 |                            0 |                             0
  2016 | enterprise    | H.49.4.1.0                     |                                  | innl.a_ikke_fin.2100 | 11.21                |     1 |      0 |      0 |                                      0 |                                        0 |                   0 |                       0 |                            0 |                             0
  2017 | establishment | H.49.4.1.0                     |                                  |                      | 11.21                |     1 |      0 |      0 |                                      0 |                                        0 |                   0 |                       0 |                            0 |                             0
@@ -8539,8 +8541,8 @@ ORDER BY year,unit_type;
  2018 | establishment | H.49.4.1.0                     |                                  |                      | 11.21                |     1 |      0 |      0 |                                      0 |                                        0 |                   0 |                       0 |                            0 |                             0
  2018 | legal_unit    | H.49.4.1.0                     |                                  | innl.a_ikke_fin.2100 | 11.21                |     1 |      0 |      0 |                                      0 |                                        0 |                   0 |                       0 |                            0 |                             0
  2018 | enterprise    | H.49.4.1.0                     |                                  | innl.a_ikke_fin.2100 | 11.21                |     1 |      0 |      0 |                                      0 |                                        0 |                   0 |                       0 |                            0 |                             0
- 2019 | establishment | H.49.4.1.0                     |                                  |                      | 11.21                |     1 |      0 |      0 |                                      0 |                                        0 |                   0 |                       0 |                            0 |                             0
  2019 | establishment | H.49.4.1.0                     |                                  |                      | 11.21                |     0 |      0 |      0 |                                      0 |                                        0 |                   0 |                       0 |                            0 |                             0
+ 2019 | establishment | H.49.4.1.0                     |                                  |                      | 11.21                |     1 |      0 |      0 |                                      0 |                                        0 |                   0 |                       0 |                            0 |                             0
  2019 | legal_unit    | H.49.4.1.0                     |                                  | innl.a_ikke_fin.2100 | 11.21                |     1 |      0 |      0 |                                      0 |                                        0 |                   0 |                       0 |                            0 |                             0
  2019 | enterprise    | H.49.4.1.0                     |                                  | innl.a_ikke_fin.2100 | 11.21                |     1 |      0 |      0 |                                      0 |                                        0 |                   0 |                       0 |                            0 |                             0
  2020 | establishment | H.49.4.1.0                     |                                  |                      | 11.21                |     0 |      0 |      0 |                                      0 |                                        0 |                   0 |                       0 |                            0 |                             0
@@ -8569,7 +8571,8 @@ SELECT year
 FROM public.statistical_history_facet
 WHERE resolution = 'year'
   AND year <= 2024
-ORDER BY year,unit_type;
+ORDER BY year, unit_type, primary_activity_category_path, secondary_activity_category_path, sector_path,
+         legal_form_id, physical_region_path, physical_country_id, unit_size_id, status_id;
  year |   unit_type   |                stats_summary                 
 ------+---------------+----------------------------------------------
  2010 | establishment | {                                           +
@@ -9023,6 +9026,8 @@ ORDER BY year,unit_type;
       |               |     }                                       +
       |               | }
  2016 | establishment | {                                           +
+      |               | }
+ 2016 | establishment | {                                           +
       |               |     "type": "stats_agg",                    +
       |               |     "turnover": {                           +
       |               |         "sum": 12000000,                    +
@@ -9046,8 +9051,6 @@ ORDER BY year,unit_type;
       |               |         "sum_sq_diff": 0.00,                +
       |               |         "coefficient_of_variation_pct": null+
       |               |     }                                       +
-      |               | }
- 2016 | establishment | {                                           +
       |               | }
  2016 | legal_unit    | {                                           +
       |               |     "type": "stats_agg",                    +
@@ -9250,6 +9253,8 @@ ORDER BY year,unit_type;
       |               |     }                                       +
       |               | }
  2019 | establishment | {                                           +
+      |               | }
+ 2019 | establishment | {                                           +
       |               |     "type": "stats_agg",                    +
       |               |     "turnover": {                           +
       |               |         "sum": 60000000,                    +
@@ -9273,8 +9278,6 @@ ORDER BY year,unit_type;
       |               |         "sum_sq_diff": 0.00,                +
       |               |         "coefficient_of_variation_pct": null+
       |               |     }                                       +
-      |               | }
- 2019 | establishment | {                                           +
       |               | }
  2019 | legal_unit    | {                                           +
       |               |     "type": "stats_agg",                    +
@@ -9723,7 +9726,8 @@ SELECT year, month
      , countable_removed_count
 FROM public.statistical_history_facet
 WHERE resolution = 'year-month' AND year = 2019
-ORDER BY year,month,unit_type;
+ORDER BY year, month, unit_type, primary_activity_category_path, secondary_activity_category_path, sector_path,
+         legal_form_id, physical_region_path, physical_country_id, unit_size_id, status_id;
  year | month |   unit_type   | primary_activity_category_path | secondary_activity_category_path |     sector_path      | physical_region_path | exists_count | exists_change | exists_added_count | exists_removed_count | countable_count | countable_change | countable_added_count | countable_removed_count 
 ------+-------+---------------+--------------------------------+----------------------------------+----------------------+----------------------+--------------+---------------+--------------------+----------------------+-----------------+------------------+-----------------------+-------------------------
  2019 |     1 | establishment | H.49.4.1.0                     |                                  |                      | 11.21                |            0 |            -1 |                  0 |                    0 |               0 |               -1 |                     0 |                       0
@@ -9784,7 +9788,8 @@ SELECT year, month
      , physical_country_change_count
 FROM public.statistical_history_facet
 WHERE resolution = 'year-month' AND year = 2019
-ORDER BY year,month,unit_type;
+ORDER BY year, month, unit_type, primary_activity_category_path, secondary_activity_category_path, sector_path,
+         legal_form_id, physical_region_path, physical_country_id, unit_size_id, status_id;
  year | month |   unit_type   | primary_activity_category_path | secondary_activity_category_path |     sector_path      | physical_region_path | count | births | deaths | primary_activity_category_change_count | secondary_activity_category_change_count | sector_change_count | legal_form_change_count | physical_region_change_count | physical_country_change_count 
 ------+-------+---------------+--------------------------------+----------------------------------+----------------------+----------------------+-------+--------+--------+----------------------------------------+------------------------------------------+---------------------+-------------------------+------------------------------+-------------------------------
  2019 |     1 | establishment | H.49.4.1.0                     |                                  |                      | 11.21                |     0 |      0 |      0 |                                      0 |                                        0 |                   0 |                       0 |                            0 |                             0
@@ -9833,7 +9838,8 @@ SELECT year, month
      , jsonb_pretty(stats_summary) AS stats_summary
 FROM public.statistical_history_facet
 WHERE resolution = 'year-month' AND year = 2019
-ORDER BY year,month,unit_type;
+ORDER BY year, month, unit_type, primary_activity_category_path, secondary_activity_category_path, sector_path,
+         legal_form_id, physical_region_path, physical_country_id, unit_size_id, status_id;
  year | month |   unit_type   |                stats_summary                 
 ------+-------+---------------+----------------------------------------------
  2019 |     1 | establishment | {                                           +
