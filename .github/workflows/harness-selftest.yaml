@@ -110,6 +110,8 @@ jobs:
         run: bash test/install-recovery/tests/setup-apt-retry-test.sh
       - name: Prove the SSH stage confirms remote access before disabling password auth (STATBUS-495)
         run: bash test/install-recovery/tests/setup-remote-access-gate-test.sh
+      - name: Prove setup retries the GitHub SSH key fetch and names an unreachable GitHub (STATBUS-573)
+        run: bash test/install-recovery/tests/setup-github-keys-retry-test.sh
       - name: Prove the SSH access confirmation needs an explicit yes or no (STATBUS-540)
         run: bash test/install-recovery/tests/setup-explicit-confirm-test.sh
       - name: Prove the setup-choices driver answers the installer's questions as printed today (STATBUS-474)

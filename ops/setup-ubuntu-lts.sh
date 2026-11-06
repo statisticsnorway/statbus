@@ -493,6 +493,31 @@ print_run_summary() {
 #   populate_authorized_keys <target_user> "<users_list>" "<deploy_keys_list>"
 #
 # Both list args are whitespace-separated. Empty strings are valid.
+
+# fetch_github_keys <url> — print the keys GitHub publishes at <url>.
+#
+# GitHub answering nothing, an error or a timeout for a moment is not the same
+# as a user without keys: the rc.12 gate (2026-11-05, GitHub degraded) got an
+# empty answer once and left the account with no key. The fetch is retried a
+# bounded number of times (GITHUB_KEYS_FETCH_ATTEMPTS, with a growing pause of
+# GITHUB_KEYS_FETCH_DELAY_S); success means GitHub answered, even with no keys.
+# Returns 1 when GitHub never answered, so the caller can say so.
+GITHUB_KEYS_FETCH_ATTEMPTS="${GITHUB_KEYS_FETCH_ATTEMPTS:-4}"
+GITHUB_KEYS_FETCH_DELAY_S="${GITHUB_KEYS_FETCH_DELAY_S:-5}"
+fetch_github_keys() {
+    local url="$1" attempt body
+    for (( attempt=1; attempt<=GITHUB_KEYS_FETCH_ATTEMPTS; attempt++ )); do
+        if body="$(curl -sS -L --fail --connect-timeout 10 --max-time 30 "$url" 2>/dev/null)"; then
+            printf '%s\n' "$body"
+            return 0
+        fi
+        [[ $attempt -lt $GITHUB_KEYS_FETCH_ATTEMPTS ]] || break
+        log_warn "GitHub did not answer for $url (attempt $attempt/$GITHUB_KEYS_FETCH_ATTEMPTS); trying again"
+        sleep $(( attempt * GITHUB_KEYS_FETCH_DELAY_S ))
+    done
+    return 1
+}
+
 # count_authorized_key_bodies — distinct key bodies (algorithm + base64) in a
 # file, using the same token rules as the merge below. This is the before/after
 # count that says how many keys were already there and how many the merge added.
@@ -547,18 +572,20 @@ populate_authorized_keys() {
     # operator-added entries that aren't tracked here.
     : > "$stage_file"
 
-    local source url keys key
+    local source url keys key fetch_failed=0 found
     for source in $users_list; do
         if [[ "$source" == */* ]]; then
             log_warn "populate_authorized_keys: '$source' looks like a deploy-key (org/repo) but appears in users list — moving it to GITHUB_DEPLOY_KEYS is recommended"
         fi
         url="https://github.com/${source}.keys"
         log "Fetching ED25519 keys from $url"
-        keys="$(curl -sL --fail "$url" 2>/dev/null || true)"
-        if [[ -z "$keys" ]]; then
-            log_warn "No keys returned from $url"
+        if ! keys="$(fetch_github_keys "$url")"; then
+            log_error "Could not reach GitHub for the SSH keys of $source ($url). Run this script again when GitHub answers."
+            verify "SSH keys of $source fetched from GitHub" "false"
+            fetch_failed=1
             continue
         fi
+        found=0
         while IFS= read -r key; do
             [[ -z "$key" ]] && continue
             # Match ssh-ed25519 only — anchor to start, allow optional
@@ -566,8 +593,10 @@ populate_authorized_keys() {
             # so `ssh-ed25519abcd` (would not occur, but defensively) fails.
             if [[ "$key" =~ (^|[[:space:]])ssh-ed25519[[:space:]] ]]; then
                 printf '%s # %s\n' "$key" "$url" >> "$stage_file"
+                found=1
             fi
         done <<< "$keys"
+        [[ $found == 1 ]] || log_warn "GitHub user $source has no ED25519 key at $url; add one there to log in as ${target_user}."
     done
 
     for source in $deploy_keys_list; do
@@ -576,8 +605,13 @@ populate_authorized_keys() {
         fi
         url="https://github.com/${source}.keys"
         log "Fetching ED25519 deploy keys from $url"
-        keys="$(curl -sL --fail "$url" 2>/dev/null || true)"
-        if [[ -z "$keys" ]]; then
+        if ! keys="$(fetch_github_keys "$url")"; then
+            log_error "Could not reach GitHub for the deploy keys of $source ($url). Run this script again when GitHub answers."
+            verify "SSH keys of $source fetched from GitHub" "false"
+            fetch_failed=1
+            continue
+        fi
+        if [[ -z "${keys//[[:space:]]/}" ]]; then
             log_warn "No deploy keys returned from $url (repo public + deploy-keys readable?)"
             continue
         fi
@@ -627,6 +661,7 @@ populate_authorized_keys() {
     added=$(( after_count - before_count ))
     [[ "$before_count" -eq 1 ]] && present_word="key" || present_word="keys"
     log_success "${target_user}: ${before_count} ${present_word} already present, ${added} added (${after_count} total in ${auth_keys})"
+    [[ $fetch_failed == 0 ]]
 }
 
 # STATBUS-501: the deploy keys to install for THIS run. Empty unless cloud

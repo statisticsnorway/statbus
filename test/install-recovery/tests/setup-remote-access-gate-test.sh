@@ -151,6 +151,8 @@ grep -q 'Answering no changes nothing' <<<"$out" || { echo "FAIL the no-op reass
 #    counted before and after, never that the file was replaced.
 populate="$(awk '/^populate_authorized_keys\(\)/,/^}$/' "$SCRIPT")"
 key_count="$(awk '/^count_authorized_key_bodies\(\)/,/^}$/' "$SCRIPT")"
+# populate_authorized_keys fetches each user's keys through fetch_github_keys.
+fetch_keys="$(awk '/^fetch_github_keys\(\)/,/^}$/' "$SCRIPT")"
 if [[ -z "$key_count" ]]; then
     echo "FAIL count_authorized_key_bodies is not defined in $SCRIPT"; fail=1
 fi
@@ -186,9 +188,13 @@ FAKE
                 log() { echo "[INFO] $*"; }
                 log_warn() { echo "[WARN] $*"; }
                 log_success() { echo "[OK] $*"; }
+                log_error() { echo "[ERROR] $*"; }
+                verify() { eval "$2" &>/dev/null; }
+                GITHUB_KEYS_FETCH_ATTEMPTS=1 GITHUB_KEYS_FETCH_DELAY_S=0
                 eval "$1"
                 populate_authorized_keys statbus alice ""
             ' _ "$key_count
+$fetch_keys
 $populate" 2>&1)"
         rc=$?
     }
