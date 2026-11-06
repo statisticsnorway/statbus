@@ -112,4 +112,28 @@ SELECT (SELECT count(*) FROM full_refresh) AS expected_rows,
        (SELECT count(*) FROM (SELECT * FROM full_refresh EXCEPT ALL SELECT * FROM public.timeline_legal_unit) AS d) AS missing,
        (SELECT count(*) FROM (SELECT * FROM public.timeline_legal_unit EXCEPT ALL SELECT * FROM full_refresh) AS d) AS extra;
 
+-- A worker session refreshes many batches. After a few executions PostgreSQL
+-- may switch a PL/pgSQL statement to a generic plan, built without the batch's
+-- ids; force_generic_plan makes that happen at once. The refresh must still
+-- read only its own units' timesegments.
+ANALYZE public.timesegments;
+SET LOCAL enable_seqscan = off;
+SET LOCAL plan_cache_mode = force_generic_plan;
+SELECT coalesce(seq_tup_read, 0) + coalesce(idx_tup_fetch, 0) AS rows_read_before
+FROM pg_stat_xact_user_tables WHERE relid = 'public.timesegments'::regclass \gset
+
+CALL public.timeline_legal_unit_refresh(p_unit_id_ranges => :'batch_ranges'::int4multirange);
+
+SELECT coalesce(seq_tup_read, 0) + coalesce(idx_tup_fetch, 0) - :rows_read_before AS rows_read
+FROM pg_stat_xact_user_tables WHERE relid = 'public.timesegments'::regclass \gset
+RESET plan_cache_mode;
+RESET enable_seqscan;
+
+\echo
+\echo "370.4 with a generic plan the partial refresh still reads only its own units' timesegments"
+SELECT count(*) AS batch_segments,
+       :rows_read <= 3 * count(*) AS reads_only_batch_segments
+FROM public.timesegments AS t
+WHERE t.unit_type = 'legal_unit' AND t.unit_id IN (SELECT id FROM batch);
+
 ROLLBACK;
