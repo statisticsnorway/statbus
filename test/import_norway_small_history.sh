@@ -3,9 +3,11 @@
 # This test replicates the functionality in test/sql/50_import_jobs_for_norway_small_history.sql
 # but uses the REST API instead of direct SQL connections.
 #
-# Usage: ./test/import_norway_small_history.sh [create|delete]
+# Usage: ./test/import_norway_small_history.sh [create|delete] [--isolated [--cleanup]]
 #   create: Set up and import Norway small history data (default)
 #   delete: Clean up by removing imported data and definitions
+#   --isolated: own database from the test template, own PostgREST, worker run to idle (create only);
+#               the database import_norway_small_history_<pid> is retained unless --cleanup
 
 set -euo pipefail
 
@@ -60,7 +62,7 @@ fi
 
 # Run the Python test script
 echo "Running Norway small history import test (action: $ACTION)..."
-python "$WORKSPACE/test/import_norway_small_history.py" "$ACTION"
+python "$WORKSPACE/test/import_norway_small_history.py" "$@"
 
 # Deactivate virtual environment
 deactivate

@@ -7,6 +7,11 @@ but uses the REST API instead of direct SQL connections.
 Run with `./test/import_norway_small_history.sh [create|delete]` that uses venv.
   create: Set up and import Norway small history data (default)
   delete: Clean up by removing imported data and definitions
+
+With --isolated, the run touches no shared database: it creates its own database from the test template
+(import_norway_small_history_<pid>), starts its own PostgREST container on a free loopback port against
+that database, imports through the REST API as usual, and runs the worker with --stop-when-idle in place of
+the SSE status stream (which needs the app). The database is retained for inspection unless --cleanup.
 """
 
 import os
@@ -49,6 +54,154 @@ def load_env_vars():
 load_env_vars()
 # Extract host and port from API_PUBLIC_URL
 API_BASE_URL = os.environ.get("API_PUBLIC_URL", "http://127.0.0.1:3000")
+# --isolated: the PostgREST container serves /rest/... at its root, so requests drop the /rest prefix.
+REST_PREFIX_STRIP = False
+
+
+def api_url(endpoint: str) -> str:
+    """URL for an endpoint written as /rest/..., for Caddy (default) or a bare PostgREST (--isolated)."""
+    if REST_PREFIX_STRIP and endpoint.startswith("/rest/"):
+        return f"{API_BASE_URL}{endpoint[len('/rest'):]}"
+    return f"{API_BASE_URL}{endpoint}"
+
+
+# ============================================================================
+# --isolated: own database, own PostgREST, worker run to idle
+# ============================================================================
+
+ISOLATED_DB: Optional[str] = None
+ISOLATED_REST_CONTAINER: Optional[str] = None
+TEMPLATE_DB = os.environ.get("POSTGRES_TEST_DB", "statbus_test_template")
+
+
+def sb_psql(sql: str, dbname: str) -> str:
+    """Run SQL through ./sb psql on dbname; fail on any error."""
+    result = subprocess.run([str(WORKSPACE / "sb"), "psql", "-d", dbname, "-v", "ON_ERROR_STOP=1", "-At"],
+                            input=sql, text=True, capture_output=True, cwd=WORKSPACE)
+    if result.returncode != 0:
+        raise RuntimeError(f"psql on {dbname} failed: {result.stderr.strip()}")
+    return result.stdout
+
+
+def free_loopback_port() -> int:
+    import socket
+    with socket.socket() as sock:
+        sock.bind(("127.0.0.1", 0))
+        return sock.getsockname()[1]
+
+
+def isolated_setup() -> None:
+    """Create the database from the template, load the JWT secret and test users, start PostgREST on it."""
+    global ISOLATED_DB, ISOLATED_REST_CONTAINER, API_BASE_URL, REST_PREFIX_STRIP
+    ISOLATED_DB = f"import_norway_small_history_{os.getpid()}"
+    log_info(f"Creating isolated database {ISOLATED_DB} from {TEMPLATE_DB}")
+    # Serialised with the benchmark and the test runner, which also open the template (same lock key).
+    sb_psql(f"""SELECT pg_advisory_lock(59328);
+ALTER DATABASE {TEMPLATE_DB} WITH ALLOW_CONNECTIONS = true;
+CREATE DATABASE "{ISOLATED_DB}" WITH TEMPLATE {TEMPLATE_DB};
+ALTER DATABASE {TEMPLATE_DB} WITH ALLOW_CONNECTIONS = false;
+SELECT pg_advisory_unlock(59328);""", "postgres")
+    jwt_secret = os.environ["JWT_SECRET"]
+    slot = os.environ["DEPLOYMENT_SLOT_CODE"]
+    sb_psql(f"""INSERT INTO auth.secrets (key, value, description) VALUES ('jwt_secret', '{jwt_secret}', 'JWT signing secret')
+ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = clock_timestamp();
+ALTER DATABASE "{ISOLATED_DB}" SET app.settings.deployment_slot_code TO '{slot}';""", ISOLATED_DB)
+    with open(WORKSPACE / "test" / "setup.sql") as f:
+        sb_psql(f.read(), ISOLATED_DB)
+
+    port = free_loopback_port()
+    ISOLATED_REST_CONTAINER = f"statbus-nsh-rest-{os.getpid()}"
+    network = f"{os.environ['COMPOSE_INSTANCE_NAME']}_default"
+    env = {
+        "PGRST_DB_URI": f"postgres://authenticator:{os.environ['POSTGRES_AUTHENTICATOR_PASSWORD']}@db:5432/{ISOLATED_DB}",
+        "PGRST_DB_SCHEMAS": os.environ.get("PGRST_DB_SCHEMAS", "public"),
+        "PGRST_DB_ANON_ROLE": "anon",
+        "PGRST_DB_USE_LEGACY_GUCS": "false",
+        "PGRST_JWT_SECRET": jwt_secret,
+        "PGRST_APP_SETTINGS_ACCESS_JWT_EXP": os.environ["ACCESS_JWT_EXPIRY"],
+        "PGRST_APP_SETTINGS_REFRESH_JWT_EXP": os.environ["REFRESH_JWT_EXPIRY"],
+        "PGRST_DB_AGGREGATES_ENABLED": "true",
+        "PGRST_JWT_AUD": "statbus",
+        "PGRST_APP_SETTINGS_DEPLOYMENT_SLOT_CODE": slot,
+        "PGRST_DB_CONFIG": "true",
+        "PGRST_DB_PRE_REQUEST": "auth.check_api_key_revocation",
+    }
+    cmd = ["docker", "run", "-d", "--rm", "--name", ISOLATED_REST_CONTAINER, "--network", network,
+           "-p", f"127.0.0.1:{port}:3000"]
+    for key, value in env.items():
+        cmd += ["-e", f"{key}={value}"]
+    cmd += ["postgrest/postgrest:v14.14"]
+    result = subprocess.run(cmd, text=True, capture_output=True)
+    if result.returncode != 0:
+        raise RuntimeError(f"Starting PostgREST failed: {result.stderr.strip()}")
+    API_BASE_URL = f"http://127.0.0.1:{port}"
+    REST_PREFIX_STRIP = True
+    deadline = time.time() + 60
+    while time.time() < deadline:
+        try:
+            if requests.get(api_url("/rest/rpc/auth_status"), timeout=2).status_code == 200:
+                log_success(f"PostgREST {ISOLATED_REST_CONTAINER} serving {ISOLATED_DB} at {API_BASE_URL}")
+                return
+        except requests.RequestException:
+            pass
+        time.sleep(1)
+    raise RuntimeError(f"PostgREST on {API_BASE_URL} did not become ready in 60 s")
+
+
+def isolated_authorize(session: requests.Session) -> None:
+    """Caddy turns the statbus cookie into a bearer token; a bare PostgREST needs the header itself."""
+    token = session.cookies.get("statbus")
+    if not token:
+        raise RuntimeError("Login set no statbus cookie")
+    session.headers["Authorization"] = f"Bearer {token}"
+
+
+def isolated_run_worker(timeout_seconds: int = 1800) -> bool:
+    """Run the worker on the isolated database until every queue is idle."""
+    binary = WORKSPACE / "cli" / "bin" / "statbus"
+    cmd = [str(binary), "worker", "--stop-when-idle", "--database", ISOLATED_DB]
+    log_info(f"Running worker: {' '.join(cmd)}")
+    start = time.time()
+    result = subprocess.run(cmd, cwd=WORKSPACE, text=True, capture_output=True, timeout=timeout_seconds)
+    log_info(f"Worker exited with code {result.returncode} after {time.time() - start:.1f} s")
+    if result.returncode != 0:
+        log_error(f"Worker failed:\n{result.stdout[-4000:]}\n{result.stderr[-4000:]}")
+        return False
+    failed = sb_psql("SELECT count(*) FROM worker.tasks WHERE state = 'failed';", ISOLATED_DB).strip()
+    pending = sb_psql("""SELECT count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON c.command = t.command
+WHERE c.queue <> 'maintenance' AND t.state IN ('pending', 'processing', 'waiting');""", ISOLATED_DB).strip()
+    log_info(f"Tasks failed: {failed}, unfinished outside maintenance: {pending}")
+    return failed == "0" and pending == "0"
+
+
+def isolated_verify_history() -> bool:
+    """The history views agree with statistical_unit at every year end (the import benchmark's check B)."""
+    divergent = sb_psql("""
+WITH years AS (SELECT DISTINCT year FROM public.statistical_history WHERE resolution = 'year')
+SELECT y.year, sh.unit_type, sh.exists_count,
+       (SELECT count(DISTINCT su.unit_id) FROM public.statistical_unit AS su
+         WHERE su.unit_type = sh.unit_type
+           AND su.valid_from <= make_date(y.year, 12, 31) AND make_date(y.year, 12, 31) < su.valid_until
+           AND COALESCE(su.birth_date, su.valid_from) <= make_date(y.year, 12, 31)
+           AND (su.death_date IS NULL OR make_date(y.year, 12, 31) < su.death_date)) AS truth
+FROM years AS y JOIN public.statistical_history AS sh ON sh.resolution = 'year' AND sh.year = y.year;""",
+                        ISOLATED_DB)
+    rows = [line.split("|") for line in divergent.strip().splitlines() if line]
+    bad = [r for r in rows if r[2] != r[3]]
+    log_info(f"History year rows checked against statistical_unit: {len(rows)}, divergent: {len(bad)}")
+    for r in bad[:10]:
+        log_error(f"  year {r[0]} {r[1]}: history {r[2]}, statistical_unit {r[3]}")
+    return len(rows) > 0 and not bad
+
+
+def isolated_teardown(drop_db: bool) -> None:
+    if ISOLATED_REST_CONTAINER:
+        subprocess.run(["docker", "rm", "-f", ISOLATED_REST_CONTAINER], capture_output=True)
+    if ISOLATED_DB and drop_db:
+        sb_psql(f'DROP DATABASE IF EXISTS "{ISOLATED_DB}" WITH (FORCE);', "postgres")
+        log_info(f"Dropped {ISOLATED_DB}")
+    elif ISOLATED_DB:
+        log_info(f"Database retained: {ISOLATED_DB} (inspect with ./sb psql -d {ISOLATED_DB})")
 
 # Test users from setup.sql
 ADMIN_EMAIL = "test.admin@statbus.org"
@@ -98,7 +251,7 @@ def api_login(session: requests.Session, email: str, password: str) -> Optional[
     
     try:
         response = session.post(
-            f"{API_BASE_URL}/rest/rpc/login",
+            api_url("/rest/rpc/login"),
             json={"email": email, "password": password},
             headers={"Content-Type": "application/json"}
         )
@@ -145,7 +298,7 @@ def api_request(session: requests.Session, method: str, endpoint: str,
                 params: Optional[Dict] = None, expected_status: Optional[int] = None,
                 headers: Optional[Dict] = None) -> Optional[Any]:
     """Make an API request and return the response data if successful"""
-    url = f"{API_BASE_URL}{endpoint}"
+    url = api_url(endpoint)
     debug_info(f"Making {method} request to {url}")
     
     if data:
@@ -290,468 +443,44 @@ def api_request(session: requests.Session, method: str, endpoint: str,
 
 
 def setup_import_definitions(session: requests.Session) -> bool:
-    """Set up import definitions for Norway data"""
+    """Create the BRREG import definitions, as test 303 does, from the shipped sample SQL.
+
+    A definition links import steps (import.link_steps_to_definition) and generates its data columns in
+    lifecycle callbacks; neither is exposed through the REST API, so the definitions are created by running
+    samples/norway/brreg/create-import-definition-*-2024.sql through ./sb psql on the database the API serves.
+    """
     log_info("Setting up import definitions...")
-    
-    # Check if import definitions already exist
-    definitions = api_request(session, "GET", "/rest/import_definition?slug=in.(brreg_hovedenhet_2024,brreg_underenhet_2024)")
-    
-    # Create a dictionary of existing definitions by slug for quick lookup
-    existing_definitions = {}
-    if definitions:
-        for definition in definitions:
-            existing_definitions[definition["slug"]] = definition
-            log_info(f"Found existing definition: {definition['slug']} (valid: {definition['valid']})")
-    
-    # First, check if data source exists or create it
-    data_sources = api_request(session, "GET", "/rest/data_source?code=eq.brreg")
-    data_source_id = None
-    
-    if data_sources and len(data_sources) > 0:
-        data_source_id = data_sources[0]["id"]
-        log_success("Found existing BRREG data source")
-    else:
-        # Create data source
-        data_source = {
-            "code": "brreg",
-            "name": "Brønnøysundregistrene",
-            "active": True,
-            "custom": True
-        }
-        result = api_request(session, "POST", "/rest/data_source", data=data_source)
-        if result:
-            data_source_id = result[0]["id"] if isinstance(result, list) else result["id"]
-            log_success("Created BRREG data source")
-        else:
-            log_error("Failed to create BRREG data source")
-            return False
-    
-    # Get import targets
-    targets = api_request(session, "GET", "/rest/import_target")
-    if not targets or len(targets) == 0:
-        log_error("No import targets found")
-        return False
-    
-    # Find the legal unit target
-    legal_unit_target = None
-    for target in targets:
-        table_name = target.get("table_name", "").lower()
-        if "legal" in table_name or "lu" in table_name:
-            legal_unit_target = target
-            break
-    
-    if not legal_unit_target:
-        log_error("Import target for legal units not found in available targets")
-        log_info("Available targets:")
-        for i, target in enumerate(targets):
-            log_info(f"  {i+1}. {target.get('table_name')} (ID: {target.get('id')})")
-        return False
-    
-    legal_unit_target_id = legal_unit_target["id"]
-    log_success(f"Using import target '{legal_unit_target.get('table_name')}' (ID: {legal_unit_target_id}) for legal units")
-    
-    # Find the establishment target
-    establishment_target = None
-    for target in targets:
-        table_name = target.get("table_name", "").lower()
-        if "establishment" in table_name or "est" in table_name or "es" in table_name:
-            establishment_target = target
-            break
-    
-    if not establishment_target:
-        log_error("Import target for establishments not found in available targets")
-        log_info("Available targets:")
-        for i, target in enumerate(targets):
-            log_info(f"  {i+1}. {target.get('table_name')} (ID: {target.get('id')})")
-        return False
-    
-    establishment_target_id = establishment_target["id"]
-    log_success(f"Using import target '{establishment_target.get('table_name')}' (ID: {establishment_target_id}) for establishments")
-    
-    # Function to ensure a definition exists and is in draft mode
-    def ensure_definition(slug, name, target_id):
-        if slug in existing_definitions:
-            definition = existing_definitions[slug]
-            definition_id = definition["id"]
-            log_success(f"Found existing {name} definition (ID: {definition_id})")
-            
-            # Set to draft mode if needed
-            if not definition.get("draft", False):
-                update_result = api_request(session, "PATCH", f"/rest/import_definition?id=eq.{definition_id}", 
-                                          data={"draft": True, "valid": False}, expected_status=204)
-                if update_result is not None:
-                    log_success(f"Set existing {name} definition to draft mode")
-                else:
-                    log_warning(f"Failed to set existing {name} definition to draft mode")
-        else:
-            # Create new definition
-            new_def = {
-                "slug": slug,
-                "name": name,
-                "target_id": target_id,
-                "data_source_id": data_source_id,
-                "note": f"Import definition for {name}",
-                "draft": True,
-                "valid": False
-            }
-            
-            result = api_request(session, "POST", "/rest/import_definition", data=new_def)
-            if not result:
-                log_error(f"Failed to create {name} import definition")
-                return None
-            
-            # Extract ID from response
-            if isinstance(result, list) and len(result) > 0:
-                definition_id = result[0]["id"]
-            elif isinstance(result, dict) and "id" in result:
-                definition_id = result["id"]
-            else:
-                # Try to get by querying
-                created_def = api_request(session, "GET", f"/rest/import_definition?slug=eq.{slug}")
-                if created_def and len(created_def) > 0:
-                    definition_id = created_def[0]["id"]
-                else:
-                    log_error(f"Could not get ID for created {name} definition")
-                    return None
-            
-            log_success(f"Created {name} import definition with ID: {definition_id}")
-        
-        return definition_id
-    
-    # Function to ensure source columns exist
-    def ensure_source_columns(definition_id, columns):
-        # Get existing source columns
-        existing_columns = api_request(session, "GET", f"/rest/import_source_column?definition_id=eq.{definition_id}")
-        existing_col_dict = {col["column_name"]: col["id"] for col in existing_columns} if existing_columns else {}
-        
-        # Create any missing columns
-        for i, col_info in enumerate(columns):
-            col_name = col_info["column_name"]
-            if col_name not in existing_col_dict:
-                new_col = {
-                    "definition_id": definition_id,
-                    "column_name": col_name,
-                    "priority": col_info["priority"]
-                }
-                result = api_request(session, "POST", "/rest/import_source_column", data=new_col)
-                if result:
-                    log_success(f"Created source column: {col_name}")
-                    # Update dictionary with new ID
-                    if isinstance(result, list) and len(result) > 0:
-                        existing_col_dict[col_name] = result[0]["id"]
-                    elif isinstance(result, dict) and "id" in result:
-                        existing_col_dict[col_name] = result["id"]
-                else:
-                    log_warning(f"Failed to create source column: {col_name}")
-        
-        # If we added columns, refresh the list
-        if len(existing_col_dict) < len(columns):
-            updated_columns = api_request(session, "GET", f"/rest/import_source_column?definition_id=eq.{definition_id}")
-            if updated_columns:
-                existing_col_dict = {col["column_name"]: col["id"] for col in updated_columns}
-        
-        return existing_col_dict
-    
-    # Function to ensure mappings exist
-    def ensure_mappings(definition_id, target_id, source_col_dict, mapping_pairs):
-        # Get target columns
-        target_columns = api_request(session, "GET", f"/rest/import_target_column?target_id=eq.{target_id}")
-        if not target_columns:
-            log_error(f"Could not get target columns for target_id {target_id}")
-            return False
-        
-        # Create target column dictionary
-        target_col_dict = {col["column_name"]: col["id"] for col in target_columns}
-        
-        # Get temporal column IDs
-        valid_from_id = target_col_dict.get("valid_from")
-        valid_to_id = target_col_dict.get("valid_to")
-        
-        if not valid_from_id or not valid_to_id:
-            log_error(f"Could not find temporal column IDs for target_id {target_id}")
-            log_info(f"Available target columns: {', '.join([col['column_name'] for col in target_columns])}")
-            return False
-        
-        # Get existing mappings
-        existing_mappings = api_request(session, "GET", f"/rest/import_mapping?definition_id=eq.{definition_id}")
-        
-        # Create a set of existing mappings for quick lookup
-        existing_mapping_set = set()
-        if existing_mappings:
-            for mapping in existing_mappings:
-                source_id = mapping.get("source_column_id")
-                target_id = mapping.get("target_column_id")
-                if source_id and target_id:
-                    existing_mapping_set.add(f"{source_id}:{target_id}")
-                elif mapping.get("source_expression") == "default" and target_id:
-                    # For temporal columns with default expression
-                    existing_mapping_set.add(f"default:{target_id}")
-        
-        # First ensure temporal columns are mapped
-        temporal_mappings = [
-            {"source_column_id": None,
-             "target_column_id": valid_from_id,
-             "source_expression": "default",
-             "definition_id": definition_id},
-            {"source_column_id": None,
-             "target_column_id": valid_to_id,
-             "source_expression": "default",
-             "definition_id": definition_id}
-        ]
-        
-        for mapping in temporal_mappings:
-            target_id = mapping["target_column_id"]
-            mapping_key = f"default:{target_id}"
-            
-            if mapping_key not in existing_mapping_set:
-                result = api_request(session, "POST", "/rest/import_mapping", data=mapping)
-                if result:
-                    log_success(f"Created temporal mapping for column ID {target_id}")
-                    existing_mapping_set.add(mapping_key)
-                else:
-                    # Try once more with delay
-                    time.sleep(1)
-                    result = api_request(session, "POST", "/rest/import_mapping", data=mapping)
-                    if result:
-                        log_success(f"Created temporal mapping for column ID {target_id} on retry")
-                        existing_mapping_set.add(mapping_key)
-                    else:
-                        log_error(f"Failed to create temporal mapping for column ID {target_id}")
-                        return False
-        
-        # Now create regular column mappings
-        for source_name, target_name in mapping_pairs:
-            source_id = source_col_dict.get(source_name)
-            
-            if not source_id:
-                log_warning(f"Source column '{source_name}' not found")
-                continue
-                
-            # Handle NULL target mappings (columns that should be ignored)
-            if target_name is None:
-                mapping_key = f"{source_id}:null"
-                
-                if mapping_key not in existing_mapping_set:
-                    mapping = {
-                        "definition_id": definition_id,
-                        "source_column_id": source_id,
-                        "target_column_id": None
-                    }
-                    
-                    result = api_request(session, "POST", "/rest/import_mapping", data=mapping)
-                    if result:
-                        log_success(f"Created NULL mapping for source column: {source_name}")
-                        existing_mapping_set.add(mapping_key)
-                    else:
-                        log_warning(f"Failed to create NULL mapping for source column: {source_name}")
-            else:
-                # Regular mapping with target column
-                target_id = target_col_dict.get(target_name)
-                
-                if not target_id:
-                    log_warning(f"Target column '{target_name}' not found")
-                    continue
-                    
-                mapping_key = f"{source_id}:{target_id}"
-                
-                if mapping_key not in existing_mapping_set:
-                    mapping = {
-                        "definition_id": definition_id,
-                        "source_column_id": source_id,
-                        "target_column_id": target_id
-                    }
-                    
-                    result = api_request(session, "POST", "/rest/import_mapping", data=mapping)
-                    if result:
-                        log_success(f"Created mapping: {source_name} -> {target_name}")
-                        existing_mapping_set.add(mapping_key)
-                    else:
-                        log_warning(f"Failed to create mapping: {source_name} -> {target_name}")
-        
+    slugs = "brreg_hovedenhet_2024,brreg_underenhet_2024"
+    definitions = api_request(session, "GET", f"/rest/import_definition?slug=in.({slugs})")
+    if definitions and len(definitions) == 2 and all(d.get("valid") for d in definitions):
+        log_success("Import definitions already exist and are valid")
         return True
-    
-    # Process hovedenhet (legal unit) definition
-    hovedenhet_def_id = ensure_definition(
-        "brreg_hovedenhet_2024", 
-        "BRREG Hovedenhet 2024", 
-        legal_unit_target_id
-    )
-    
-    if not hovedenhet_def_id:
-        return False
-    
-    # Define source columns for hovedenhet with target mappings - order is important and must match priority
-    hovedenhet_columns = [
-        {"column_name": "organisasjonsnummer", "priority": 1, "target_name": "tax_ident"},
-        {"column_name": "navn", "priority": 2, "target_name": "name"},
-        {"column_name": "organisasjonsform.kode", "priority": 3, "target_name": "legal_form_code"},
-        {"column_name": "organisasjonsform.beskrivelse", "priority": 4, "target_name": None},
-        {"column_name": "naeringskode1.kode", "priority": 5, "target_name": "primary_activity_category_code"},
-        {"column_name": "naeringskode1.beskrivelse", "priority": 6, "target_name": None},
-        {"column_name": "naeringskode2.kode", "priority": 7, "target_name": "secondary_activity_category_code"},
-        {"column_name": "naeringskode2.beskrivelse", "priority": 8, "target_name": None},
-        {"column_name": "naeringskode3.kode", "priority": 9, "target_name": None},
-        {"column_name": "naeringskode3.beskrivelse", "priority": 10, "target_name": None},
-        {"column_name": "hjelpeenhetskode.kode", "priority": 11, "target_name": None},
-        {"column_name": "hjelpeenhetskode.beskrivelse", "priority": 12, "target_name": None},
-        {"column_name": "harRegistrertAntallAnsatte", "priority": 13, "target_name": None},
-        {"column_name": "antallAnsatte", "priority": 14, "target_name": "employees"},
-        {"column_name": "registreringsdatoAntallAnsatteEnhetsregisteret", "priority": 15, "target_name": None},
-        {"column_name": "registreringsdatoantallansatteNAVAaregisteret", "priority": 16, "target_name": None},
-        {"column_name": "hjemmeside", "priority": 17, "target_name": "web_address"},
-        {"column_name": "epostadresse", "priority": 18, "target_name": None},
-        {"column_name": "telefon", "priority": 19, "target_name": None},
-        {"column_name": "mobil", "priority": 20, "target_name": None},
-        {"column_name": "postadresse.adresse", "priority": 21, "target_name": "postal_address_part1"},
-        {"column_name": "postadresse.poststed", "priority": 22, "target_name": "postal_postplace"},
-        {"column_name": "postadresse.postnummer", "priority": 23, "target_name": "postal_postcode"},
-        {"column_name": "postadresse.kommune", "priority": 24, "target_name": None},
-        {"column_name": "postadresse.kommunenummer", "priority": 25, "target_name": "postal_region_code"},
-        {"column_name": "postadresse.land", "priority": 26, "target_name": None},
-        {"column_name": "postadresse.landkode", "priority": 27, "target_name": "postal_country_iso_2"},
-        {"column_name": "forretningsadresse.adresse", "priority": 28, "target_name": "physical_address_part1"},
-        {"column_name": "forretningsadresse.poststed", "priority": 29, "target_name": "physical_postplace"},
-        {"column_name": "forretningsadresse.postnummer", "priority": 30, "target_name": "physical_postcode"},
-        {"column_name": "forretningsadresse.kommune", "priority": 31, "target_name": None},
-        {"column_name": "forretningsadresse.kommunenummer", "priority": 32, "target_name": "physical_region_code"},
-        {"column_name": "forretningsadresse.land", "priority": 33, "target_name": None},
-        {"column_name": "forretningsadresse.landkode", "priority": 34, "target_name": "physical_country_iso_2"},
-        {"column_name": "institusjonellSektorkode.kode", "priority": 35, "target_name": "sector_code"},
-        {"column_name": "institusjonellSektorkode.beskrivelse", "priority": 36, "target_name": None},
-        {"column_name": "sisteInnsendteAarsregnskap", "priority": 37, "target_name": None},
-        {"column_name": "registreringsdatoenhetsregisteret", "priority": 38, "target_name": None},
-        {"column_name": "stiftelsesdato", "priority": 39, "target_name": "birth_date"},
-        {"column_name": "registrertIMvaRegisteret", "priority": 40, "target_name": None},
-        {"column_name": "registreringsdatoMerverdiavgiftsregisteret", "priority": 41, "target_name": None},
-        {"column_name": "registreringsdatoMerverdiavgiftsregisteretEnhetsregisteret", "priority": 42, "target_name": None},
-        {"column_name": "frivilligMvaRegistrertBeskrivelser", "priority": 43, "target_name": None},
-        {"column_name": "registreringsdatoFrivilligMerverdiavgiftsregisteret", "priority": 44, "target_name": None},
-        {"column_name": "registrertIFrivillighetsregisteret", "priority": 45, "target_name": None},
-        {"column_name": "registreringsdatoFrivillighetsregisteret", "priority": 46, "target_name": None},
-        {"column_name": "registrertIForetaksregisteret", "priority": 47, "target_name": None},
-        {"column_name": "registreringsdatoForetaksregisteret", "priority": 48, "target_name": None},
-        {"column_name": "registrertIStiftelsesregisteret", "priority": 49, "target_name": None},
-        {"column_name": "registrertIPartiregisteret", "priority": 50, "target_name": None},
-        {"column_name": "registreringsdatoPartiregisteret", "priority": 51, "target_name": None},
-        {"column_name": "konkurs", "priority": 52, "target_name": None},
-        {"column_name": "konkursdato", "priority": 53, "target_name": None},
-        {"column_name": "underAvvikling", "priority": 54, "target_name": None},
-        {"column_name": "underAvviklingDato", "priority": 55, "target_name": None},
-        {"column_name": "underTvangsavviklingEllerTvangsopplosning", "priority": 56, "target_name": None},
-        {"column_name": "tvangsopplostPgaManglendeDagligLederDato", "priority": 57, "target_name": None},
-        {"column_name": "tvangsopplostPgaManglendeRevisorDato", "priority": 58, "target_name": None},
-        {"column_name": "tvangsopplostPgaManglendeRegnskapDato", "priority": 59, "target_name": None},
-        {"column_name": "tvangsopplostPgaMangelfulltStyreDato", "priority": 60, "target_name": None},
-        {"column_name": "tvangsavvikletPgaManglendeSlettingDato", "priority": 61, "target_name": None},
-        {"column_name": "overordnetEnhet", "priority": 62, "target_name": None},
-        {"column_name": "nedleggelsesdato", "priority": 63, "target_name": "death_date"},
-        {"column_name": "maalform", "priority": 64, "target_name": None},
-        {"column_name": "vedtektsdato", "priority": 65, "target_name": None},
-        {"column_name": "vedtektsfestetFormaal", "priority": 66, "target_name": None},
-        {"column_name": "aktivitet", "priority": 67, "target_name": None},
-        {"column_name": "registreringsnummerIHjemlandet", "priority": 68, "target_name": None},
-        {"column_name": "paategninger", "priority": 69, "target_name": None}
-    ]
-    
-    # Create source columns first
-    hovedenhet_source_cols = ensure_source_columns(hovedenhet_def_id, hovedenhet_columns)
-    
-    # Extract mapping pairs from the combined structure
-    hovedenhet_mapping_pairs = [
-        (col["column_name"], col["target_name"]) 
-        for col in hovedenhet_columns
-    ]
-    
-    if not ensure_mappings(hovedenhet_def_id, legal_unit_target_id, hovedenhet_source_cols, hovedenhet_mapping_pairs):
-        return False
-    
-    # Set hovedenhet definition to valid
-    update_result = api_request(session, "PATCH", f"/rest/import_definition?id=eq.{hovedenhet_def_id}", 
-                              data={"draft": False, "valid": True})
-    if update_result is not None:
-        log_success("Set hovedenhet definition to valid")
-    else:
-        log_warning("Failed to set hovedenhet definition to valid")
-    
-    # Process underenhet (establishment) definition
-    underenhet_def_id = ensure_definition(
-        "brreg_underenhet_2024", 
-        "BRREG Underenhet 2024", 
-        establishment_target_id
-    )
-    
-    if not underenhet_def_id:
-        return False
-    
-    # Define source columns for underenhet with target mappings - order is important and must match priority
-    underenhet_columns = [
-        {"column_name": "organisasjonsnummer", "priority": 1, "target_name": "tax_ident"},
-        {"column_name": "navn", "priority": 2, "target_name": "name"},
-        {"column_name": "organisasjonsform.kode", "priority": 3, "target_name": None},
-        {"column_name": "organisasjonsform.beskrivelse", "priority": 4, "target_name": None},
-        {"column_name": "naeringskode1.kode", "priority": 5, "target_name": "primary_activity_category_code"},
-        {"column_name": "naeringskode1.beskrivelse", "priority": 6, "target_name": None},
-        {"column_name": "naeringskode2.kode", "priority": 7, "target_name": "secondary_activity_category_code"},
-        {"column_name": "naeringskode2.beskrivelse", "priority": 8, "target_name": None},
-        {"column_name": "naeringskode3.kode", "priority": 9, "target_name": None},
-        {"column_name": "naeringskode3.beskrivelse", "priority": 10, "target_name": None},
-        {"column_name": "hjelpeenhetskode.kode", "priority": 11, "target_name": None},
-        {"column_name": "hjelpeenhetskode.beskrivelse", "priority": 12, "target_name": None},
-        {"column_name": "harRegistrertAntallAnsatte", "priority": 13, "target_name": None},
-        {"column_name": "antallAnsatte", "priority": 14, "target_name": "employees"},
-        {"column_name": "hjemmeside", "priority": 15, "target_name": "web_address"},
-        {"column_name": "postadresse.adresse", "priority": 16, "target_name": "postal_address_part1"},
-        {"column_name": "postadresse.poststed", "priority": 17, "target_name": "postal_postplace"},
-        {"column_name": "postadresse.postnummer", "priority": 18, "target_name": "postal_postcode"},
-        {"column_name": "postadresse.kommune", "priority": 19, "target_name": None},
-        {"column_name": "postadresse.kommunenummer", "priority": 20, "target_name": "postal_region_code"},
-        {"column_name": "postadresse.land", "priority": 21, "target_name": None},
-        {"column_name": "postadresse.landkode", "priority": 22, "target_name": "postal_country_iso_2"},
-        {"column_name": "beliggenhetsadresse.adresse", "priority": 23, "target_name": "physical_address_part1"},
-        {"column_name": "beliggenhetsadresse.poststed", "priority": 24, "target_name": "physical_postplace"},
-        {"column_name": "beliggenhetsadresse.postnummer", "priority": 25, "target_name": "physical_postcode"},
-        {"column_name": "beliggenhetsadresse.kommune", "priority": 26, "target_name": None},
-        {"column_name": "beliggenhetsadresse.kommunenummer", "priority": 27, "target_name": "physical_region_code"},
-        {"column_name": "beliggenhetsadresse.land", "priority": 28, "target_name": None},
-        {"column_name": "beliggenhetsadresse.landkode", "priority": 29, "target_name": "physical_country_iso_2"},
-        {"column_name": "registreringsdatoIEnhetsregisteret", "priority": 30, "target_name": None},
-        {"column_name": "frivilligMvaRegistrertBeskrivelser", "priority": 31, "target_name": None},
-        {"column_name": "registrertIMvaregisteret", "priority": 32, "target_name": None},
-        {"column_name": "oppstartsdato", "priority": 33, "target_name": "birth_date"},
-        {"column_name": "datoEierskifte", "priority": 34, "target_name": None},
-        {"column_name": "overordnetEnhet", "priority": 35, "target_name": "legal_unit_tax_ident"},
-        {"column_name": "nedleggelsesdato", "priority": 36, "target_name": "death_date"}
-    ]
-    
-    # Create source columns first
-    underenhet_source_cols = ensure_source_columns(underenhet_def_id, underenhet_columns)
-    
-    # Extract mapping pairs from the combined structure
-    underenhet_mapping_pairs = [
-        (col["column_name"], col["target_name"]) 
-        for col in underenhet_columns
-    ]
-    
-    if not ensure_mappings(underenhet_def_id, establishment_target_id, underenhet_source_cols, underenhet_mapping_pairs):
-        return False
-    
-    # Set underenhet definition to valid
-    update_result = api_request(session, "PATCH", f"/rest/import_definition?id=eq.{underenhet_def_id}", 
-                              data={"draft": False, "valid": True})
-    if update_result is not None:
-        log_success("Set underenhet definition to valid")
-    else:
-        log_warning("Failed to set underenhet definition to valid")
-    
-    # Verify import definitions are valid
-    definitions = api_request(session, "GET", "/rest/import_definition?slug=in.(brreg_hovedenhet_2024,brreg_underenhet_2024)")
-    
+
+    data_sources = api_request(session, "GET", "/rest/data_source?code=eq.brreg")
+    if not data_sources:
+        result = api_request(session, "POST", "/rest/data_source",
+                             data={"code": "brreg", "name": "Brønnøysundregistrene", "enabled": True, "custom": True})
+        if result is None:
+            log_error("Failed to create the BRREG data source")
+            return False
+        log_success("Created BRREG data source")
+
+    dbname = ISOLATED_DB or os.environ.get("POSTGRES_APP_DB")
+    for name in ("hovedenhet", "underenhet"):
+        path = WORKSPACE / "samples" / "norway" / "brreg" / f"create-import-definition-{name}-2024.sql"
+        try:
+            with open(path) as f:
+                sb_psql(f.read(), dbname)
+        except RuntimeError as e:
+            log_error(f"Creating the {name} definition from {path.name} failed: {e}")
+            return False
+
+    definitions = api_request(session, "GET", f"/rest/import_definition?slug=in.({slugs})")
     if definitions and len(definitions) == 2 and all(d.get("valid") for d in definitions):
         log_success("Import definitions created and validated successfully")
         return True
-    else:
-        log_warning("Import definitions may not be fully valid")
-        return False
+    log_error(f"Import definitions not valid after creation: {definitions}")
+    return False
 
 def create_import_jobs(session: requests.Session) -> bool:
     """Create import jobs for Norway data"""
@@ -870,12 +599,6 @@ def create_import_jobs(session: requests.Session) -> bool:
             "note": f"This job handles the import of BRREG Underenhet small history test data for {year}."
         }
         
-        # Debug the target table structure to help diagnose issues
-        debug_info(f"Getting target table structure for underenhet definition (ID: {underenhet_def_id})")
-        target_info = api_request(session, "GET", f"/rest/import_target?id=eq.{2}")
-        if target_info:
-            debug_info(f"Target table info: {json.dumps(target_info, indent=2)}")
-        
         try:
             result = api_request(session, "POST", "/rest/import_job", data=underenhet_job, expected_status=201)
             
@@ -980,7 +703,7 @@ def upload_data_files(session: requests.Session) -> bool:
             }
             
             # Construct the URL for the upload
-            upload_url = f"{API_BASE_URL}/rest/{upload_table_name}"
+            upload_url = api_url(f"/rest/{upload_table_name}")
             log_info(f"Posting to URL: {upload_url}")
             
             # Debug the request
@@ -1882,12 +1605,31 @@ def parse_args():
     parser = argparse.ArgumentParser(description='Import or delete Norway small history data')
     parser.add_argument('action', choices=['create', 'delete'], 
                         help='Action to perform: create (import data) or delete (clean up)')
+    parser.add_argument('--isolated', action='store_true',
+                        help='Use an own database from the test template, an own PostgREST and the worker run to idle')
+    parser.add_argument('--cleanup', action='store_true',
+                        help='With --isolated: drop the database afterwards (default: retain it for inspection)')
     return parser.parse_args()
 
 def main():
-    """Main test sequence"""
-    # Parse command line arguments
+    """Main test sequence. Returns True on success."""
     args = parse_args()
+    if not args.isolated:
+        return run(args)
+    if args.action != "create":
+        log_error("--isolated runs create only: its database is new and holds nothing to delete")
+        return False
+    ok = False
+    try:
+        isolated_setup()
+        ok = run(args)
+    finally:
+        isolated_teardown(drop_db=args.cleanup)
+    return ok
+
+
+def run(args):
+    """The import sequence against API_BASE_URL. Returns True on success."""
     action = args.action
     
     if action == "create":
@@ -1902,23 +1644,25 @@ def main():
     
     # Check if the server is reachable
     try:
-        response = requests.get(f"{API_BASE_URL}/rest/rpc/auth_status", timeout=5)
+        response = requests.get(api_url("/rest/rpc/auth_status"), timeout=5)
         log_info(f"Server is reachable. Status: {response.status_code}")
     except requests.RequestException as e:
         log_error(f"Server is not reachable at {API_BASE_URL}: {e}", 
                  lambda: print(f"{RED}Please check if the server is running and the CADDY_HTTP_BIND_ADDRESS environment variable is correct.{NC}"))
-        return
+        return False
     
     # Login as admin
     admin_id = api_login(session, ADMIN_EMAIL, ADMIN_PASSWORD)
     if not admin_id:
         log_error(f"Admin login failed for {ADMIN_EMAIL}, cannot proceed with tests", 
                  lambda: print(f"{RED}Please verify the admin credentials and server configuration.{NC}"))
-        return
+        return False
+    if args.isolated:
+        isolated_authorize(session)
     
     if action == "create":
-        # Create test users first (only for 'create' action)
-        if not create_test_users():
+        # Create test users first (only for 'create' action); --isolated loaded them with the database.
+        if not args.isolated and not create_test_users():
             log_warning("Failed to create test users, proceeding anyway...")
             # Don't exit, maybe they already exist
             
@@ -1926,7 +1670,7 @@ def main():
         log_info("Setting up Statbus for Norway...")
         try:
             # Check if Norway setup is already done by checking for activity categories
-            categories = api_request(session, "GET", "/rest/activity_category_available_custom?limit=1")
+            categories = api_request(session, "GET", "/rest/activity_category_enabled_custom?limit=1")
             
             if categories and len(categories) > 0:
                 log_success("Norway setup already completed")
@@ -1938,14 +1682,20 @@ def main():
                 standards = api_request(session, "GET", "/rest/activity_category_standard?code=eq.nace_v2.1")
                 if not standards or len(standards) == 0:
                     log_error("NACE v2.1 standard not found")
-                    return
+                    return False
                 
                 nace_id = standards[0]["id"]
                 
-                # Update settings to use this standard
+                # Settings as samples/norway/settings.sql: NACE v2.1, Norway, the initial region version.
+                countries = api_request(session, "GET", "/rest/country?iso_2=eq.NO&select=id")
+                region_versions = api_request(session, "GET", "/rest/region_version?code=eq.initial&select=id")
+                if not countries or not region_versions:
+                    log_error("Country NO or region version 'initial' not found")
+                    return False
                 settings_update = {
                     "activity_category_standard_id": nace_id,
-                    "only_one_setting": True
+                    "country_id": countries[0]["id"],
+                    "region_version_id": region_versions[0]["id"],
                 }
                 
                 # Check if settings exist
@@ -1973,7 +1723,7 @@ def main():
                 
                 if not activity_file.exists():
                     log_error(f"Activity category file not found: {activity_file}")
-                    return
+                    return False
                 
                 with open(activity_file, 'rb') as f:
                     files = {'file': (activity_file.name, f, 'text/csv')}
@@ -1983,12 +1733,12 @@ def main():
                         csv_content = f.read()
                     
                     response = session.post(
-                        f"{API_BASE_URL}/rest/activity_category_available_custom",
+                        api_url("/rest/activity_category_enabled_custom"),
                         headers={"Content-Type": "text/csv"},
                         data=csv_content
                     )
                     
-                    if response.status_code == 200:
+                    if response.status_code in (200, 201):
                         log_success("Uploaded activity categories successfully")
                     else:
                         log_warning(f"Failed to upload activity categories: {response.status_code} - {response.text}")
@@ -1999,19 +1749,19 @@ def main():
                 
                 if not regions_file.exists():
                     log_error(f"Regions file not found: {regions_file}")
-                    return
+                    return False
                 
                 with open(regions_file, 'r') as f:
                     csv_content = f.read()
                     
                     # Use the REST endpoint for direct batch insert of regions
                     response = session.post(
-                        f"{API_BASE_URL}/rest/region_upload",
+                        api_url("/rest/region_upload"),
                         headers={"Content-Type": "text/csv"},
                         data=csv_content
                     )
                     
-                    if response.status_code == 200:
+                    if response.status_code in (200, 201):
                         log_success("Uploaded regions successfully")
                     else:
                         log_warning(f"Failed to upload regions: {response.status_code} - {response.text}")
@@ -2022,19 +1772,19 @@ def main():
                 
                 if not sectors_file.exists():
                     log_error(f"Sectors file not found: {sectors_file}")
-                    return
+                    return False
                 
                 with open(sectors_file, 'r') as f:
                     csv_content = f.read()
                     
                     # Use the REST endpoint for direct batch insert of sectors
                     response = session.post(
-                        f"{API_BASE_URL}/rest/sector_custom_only",
+                        api_url("/rest/sector_custom_only"),
                         headers={"Content-Type": "text/csv"},
                         data=csv_content
                     )
                     
-                    if response.status_code == 200:
+                    if response.status_code in (200, 201):
                         log_success("Uploaded sectors successfully")
                     else:
                         log_warning(f"Failed to upload sectors: {response.status_code} - {response.text}")
@@ -2045,25 +1795,25 @@ def main():
                 
                 if not legal_forms_file.exists():
                     log_error(f"Legal forms file not found: {legal_forms_file}")
-                    return
+                    return False
                 
                 with open(legal_forms_file, 'r') as f:
                     csv_content = f.read()
                     
                     # Use the REST endpoint for direct batch insert of legal forms
                     response = session.post(
-                        f"{API_BASE_URL}/rest/legal_form_custom_only",
+                        api_url("/rest/legal_form_custom_only"),
                         headers={"Content-Type": "text/csv"},
                         data=csv_content
                     )
                     
-                    if response.status_code == 200:
+                    if response.status_code in (200, 201):
                         log_success("Uploaded legal forms successfully")
                     else:
                         log_warning(f"Failed to upload legal forms: {response.status_code} - {response.text}")
                 
                 # Verify setup was completed
-                categories = api_request(session, "GET", "/rest/activity_category_available_custom?limit=1")
+                categories = api_request(session, "GET", "/rest/activity_category_enabled_custom?limit=1")
                 if categories and len(categories) > 0:
                     log_success("Norway setup completed successfully")
                 else:
@@ -2074,59 +1824,62 @@ def main():
         # Setup import definitions
         if not setup_import_definitions(session):
             log_error("Failed to set up import definitions")
-            return
+            return False
         
         # Create import jobs
         if not create_import_jobs(session):
             log_error("Failed to create import jobs")
-            return
+            return False
         
         # Upload data files
         if not upload_data_files(session):
             log_error("Failed to upload data files")
-            return
+            return False
         
-        # Wait for background processing of import jobs
-        if not wait_for_worker_processing_of_import_jobs(session):
-            log_error("Failed to process import jobs")
-            return
-        
-        # Wait for worker to finish deriving statistical units and reports
-        if not wait_for_worker_derive(session):
-            log_warning("Failed to wait for worker derivation to complete")
-            # Continue anyway as this is not critical
+        if args.isolated:
+            # No app, so no SSE status stream: the worker runs until every queue is idle.
+            if not isolated_run_worker():
+                log_error("Worker did not finish the import and derive cleanly")
+                return False
+            jobs = api_request(session, "GET", "/rest/import_job?slug=like.import_*_sht&select=slug,state")
+            not_finished = [j for j in (jobs or []) if j["state"] != "finished"]
+            if not jobs or not_finished:
+                log_error(f"Import jobs not finished: {not_finished or 'none found'}")
+                return False
+            log_success(f"All {len(jobs)} import jobs finished")
+        else:
+            # Wait for background processing of import jobs
+            if not wait_for_worker_processing_of_import_jobs(session):
+                log_error("Failed to process import jobs")
+                return False
+
+            # Wait for worker to finish deriving statistical units and reports
+            if not wait_for_worker_derive(session):
+                log_warning("Failed to wait for worker derivation to complete")
+                # Continue anyway as this is not critical
         
         # Verify imported data
         if not verify_imported_data(session):
             log_error("Failed to verify imported data")
-            return
+            return False
+        if args.isolated and not isolated_verify_history():
+            log_error("History does not match statistical_unit")
+            return False
         
         # Print summary
         print(f"\n{GREEN}=== Norway Small History Import Test Completed Successfully ==={NC}\n")
+        return True
     
     elif action == "delete":
         # Delete imported data
         if not delete_imported_data(session):
             log_error("Failed to delete imported data")
-            return
+            return False
         
         # Print summary
         print(f"\n{GREEN}=== Norway Small History Cleanup Completed Successfully ==={NC}\n")
+        return True
+    return False
 
 if __name__ == "__main__":
-    # If no arguments provided, show usage
-    if len(sys.argv) < 2:
-        print(f"{RED}Error: Missing required parameter (create or delete){NC}")
-        print(f"Usage: {sys.argv[0]} [create|delete]")
-        print(f"  create: Set up and import Norway small history data")
-        print(f"  delete: Clean up by removing imported data and definitions")
-        sys.exit(1)
-    
-    # Validate action parameter
-    action = sys.argv[1].lower()
-    if action not in ["create", "delete"]:
-        print(f"{RED}Error: Invalid parameter. Must be 'create' or 'delete'{NC}")
-        print(f"Usage: {sys.argv[0]} [create|delete]")
-        sys.exit(1)
-    
-    main()
+    sys.exit(0 if main() else 1)
