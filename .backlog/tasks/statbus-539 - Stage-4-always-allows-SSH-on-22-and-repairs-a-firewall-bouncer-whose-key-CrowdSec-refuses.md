@@ -3,10 +3,10 @@ id: STATBUS-539
 title: >-
   Stage 4 always allows SSH on 22 and repairs a firewall bouncer whose key
   CrowdSec refuses
-status: In Progress
+status: Done
 assignee: []
 created_date: '2026-10-30T09:22:00Z'
-updated_date: '2026-10-30T09:33:00Z'
+updated_date: '2026-11-06T17:21:00Z'
 labels:
   - setup
   - security
@@ -46,7 +46,7 @@ Uganda, statbus.ubos.org, 2026-10-30, v2026.10.5 setup:
 - [x] #4 test/install-recovery/tests/setup-crowdsec-bouncer-key-test.sh passes: with a fake cscli whose bouncer list lacks statbus-firewall-bouncer while api_key is set, Stage 4's key step re-registers statbus-firewall-bouncer (delete then add), writes the new key without printing it, and restarts the bouncer; with the bouncer already registered, the key is left untouched
 - [x] #5 Stage 4 verification requires crowdsec-firewall-bouncer to be active as well as registered
 - [x] #6 Both tests fail against v2026.10.5's setup script and pass after (logs in tmp/)
-- [ ] #7 Rerunning the released setup's Stage 4 on statbus.ubos.org leaves statbus-firewall-bouncer valid and active, OpenSSH and 713/tcp (Custom SSH) allowed, and no 22/tcp or 4713/tcp rule
+- [x] #7 Rerunning the released setup's Stage 4 on statbus.ubos.org leaves statbus-firewall-bouncer valid and active, OpenSSH and 713/tcp (Custom SSH) allowed, and no 22/tcp or 4713/tcp rule
 <!-- AC:END -->
 
 ## Implementation Notes
@@ -61,4 +61,6 @@ Owner ruling revised 2026-10-30 09:25 UTC: standard port via the 'OpenSSH' ufw a
 Uganda firewall after the owner's manual clean-up (2026-10-30 09:26 UTC): OpenSSH, 80/tcp # HTTP, 443/tcp # HTTPS, 5432/tcp # PostgreSQL, 713/tcp # Custom SSH, 10050/tcp from 10.10.10.253 # Allow Zabbix Server, plus v6 counterparts. No 22/tcp or 4713/tcp. This is the target state the released Stage 4 must reproduce (AC7).
 
 Implemented and pushed in 82e189f6c and 253621935 (revised owner ruling): ufw_allow_ssh_ports always runs 'ufw allow OpenSSH', allows every other sshd port as 'Custom SSH', and deletes 'Custom SSH' rules for ports sshd no longer listens on (rules without that comment are untouched). The stale-key repair lives in ensure_bouncer_registered: prove registration via 'cscli bouncers list', else delete + 'cscli bouncers add -o raw' + write api_key (never printed) + restart; Stage 4 verifies 'Firewall bouncer running'. Tests: setup-ssh-port-firewall-test.sh rewritten (OpenSSH/custom comments, stale 4713 deleted, uncommented 4713 kept) and new setup-crowdsec-bouncer-key-test.sh, both wired into harness-selftest.yaml. Red against v2026.10.5 in tmp/test-539-red.log, green in tmp/test-539-green.log (run in ubuntu:24.04 because macOS bash 3.2/BSD sed differ); all 18 setup-*.sh pass; bash -n clean. CI on 253621935: Harness Selftest and Go Test red only from the STATBUS-537 installer banner ('StatBus installer: development copy (not a release)') breaking install-pull-failure-test.sh and cli/cmd install_rerun_test.go; notified rabbit, nothing in this commit.
+
+AC7 observed 2026-11-06 17:20 UTC on statbus.ubos.org, released setup (v2026.11.1-rc.15) piped from statbus.org/rc/setup.sh, --only-stages 'service-account ssh-hardening security-tools': SSH stage passed all checks on port 713; security-tools upgraded crowdsec-firewall-bouncer 0.0.36->0.0.38, 'Bouncer statbus-firewall-bouncer is registered with the local API', all 13 checks passed. ufw status afterwards: OpenSSH, 80, 443, 5432, 713/tcp # Custom SSH, 10050 from 10.10.10.253 (and v6); no 22/tcp, no 4713/tcp. cscli bouncers list: statbus-firewall-bouncer 127.0.0.1 Valid, pulled 20:19:42+03:00, v0.0.38. Log: tmp/uganda-setup-rerun.log.
 <!-- SECTION:NOTES:END -->

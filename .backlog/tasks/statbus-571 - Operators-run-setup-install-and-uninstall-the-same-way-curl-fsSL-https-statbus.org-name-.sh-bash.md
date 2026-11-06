@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-11-04T10:27:00Z'
-updated_date: '2026-11-04T10:44:00Z'
+updated_date: '2026-11-06T17:21:00Z'
 labels:
   - installer
   - setup
@@ -44,4 +44,6 @@ Found 2026-11-04: `curl -fsSL https://statbus.org/setup.sh | bash` does nothing 
 - **Change:** each script is one `{ ... exit; }` block (opening brace on line 2, so LINENO in install.sh's ERR trap still names the file line, checked). setup: main runs when executed or piped and returns when sourced (tests source it); interactive runs read from /dev/tty when stdin is not a terminal, refuse without one. All automated callers (LXD base, vm-bootstrap, test-hardening) pass --non-interactive.
 - **Regression:** setup-*.sh, install-*.sh, fresh-installer, release-script-stamp (banner_of closes the block) green; setup-crowdsec-bouncer-key and setup-explicit-confirm give identical results to HEAD on macOS (pre-existing macOS-only failures: script -c; they run green on Linux CI); go test ./cmd green (install_rerun_test closes the block); shellcheck: same 3 pre-existing setup warnings as HEAD.
 - **AC4:** README, DEPLOYMENT (removal, setup, quick install), setup-ubuntu-lts.md (stable, rc, pinned asset URL; options after bash -s --), hetzner-bootstrap.md, setup's header comment and the manual-box guide show only the piped form. Pinned setup is the release asset URL (first carried by v2026.10.1).
+
+2026-11-06 17:20 UTC: the piped form ran on Uganda (curl -fsSL https://statbus.org/rc/setup.sh | bash -s -- --only-stages ...) with v2026.11.1-rc.15 and completed. The stable v2026.11.0 setup did nothing when piped (its main guard predates 684444096), so a piped stable setup works only once this release is stable (tmp/583-piped-setup-stable-vs-rc15.log).
 <!-- SECTION:NOTES:END -->
