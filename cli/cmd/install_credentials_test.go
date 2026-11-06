@@ -98,7 +98,7 @@ func TestStandaloneGenerateLegacyPointsToConfigMigrate_STATBUS584(t *testing.T) 
 	}
 	err := config.GenerateInDir(dir, false)
 	abs, _ := filepath.Abs(dir)
-	if err == nil || !strings.Contains(err.Error(), "Run cd "+abs+" && ./sb config migrate to move it.") {
+	if err == nil || !strings.Contains(err.Error(), "Run cd "+abs+" && ./sb config migrate to move it") {
 		t.Fatalf("standalone legacy guidance: %v", err)
 	}
 	got, readErr := os.ReadFile(cfg)

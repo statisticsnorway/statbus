@@ -559,7 +559,7 @@ func TestPlainGenerateRejectsFreshSecret_STATBUS361(t *testing.T) {
 		t.Fatal(err)
 	}
 	err := GenerateInDir(dir, false)
-	if err == nil || !strings.Contains(err.Error(), "GITHUB_TOKEN in .env.config is a secret and belongs in .env.credentials. Run cd "+dir+" && ./sb config migrate to move it.") {
+	if err == nil || !strings.Contains(err.Error(), "GITHUB_TOKEN in .env.config is a secret and belongs in .env.credentials. Run cd "+dir+" && ./sb config migrate to move it") {
 		t.Fatalf("plain config generation must reject the misplaced secret, got %v", err)
 	}
 	config, err := os.ReadFile(configPath)
@@ -582,7 +582,7 @@ func TestPlainGenerateNamesEveryLegacySecretAndTheMigrateCommand_STATBUS584(t *t
 	if err == nil {
 		t.Fatal("strict generation accepted secrets in .env.config")
 	}
-	want := "SLACK_TOKEN and SEQ_API_KEY in .env.config are secrets and belong in .env.credentials. Run cd " + dir + " && ./sb config migrate to move them."
+	want := "SLACK_TOKEN and SEQ_API_KEY in .env.config are secrets and belong in .env.credentials. Run cd " + dir + " && ./sb config migrate to move them"
 	if err.Error() != want {
 		t.Fatalf("refusal =\n%q\nwant\n%q", err.Error(), want)
 	}

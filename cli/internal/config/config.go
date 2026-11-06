@@ -1298,7 +1298,7 @@ func misplacedSecretsError(projDir string, keys []string) error {
 	if abs, err := filepath.Abs(projDir); err == nil {
 		dir = abs
 	}
-	return fmt.Errorf("%s in .env.config %s in .env.credentials. Run cd %s && ./sb config migrate to move %s.", names, verb, dir, pronoun)
+	return fmt.Errorf("%s in .env.config %s in .env.credentials. Run cd %s && ./sb config migrate to move %s", names, verb, dir, pronoun)
 }
 
 // MigrateSecrets is the one migration of operator secrets out of .env.config
