@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-11-06T20:18:00Z'
-updated_date: '2026-11-06T20:18:00Z'
+updated_date: '2026-11-06T20:45:00Z'
 labels:
   - upgrade
 dependencies: []
@@ -31,4 +31,6 @@ rc.17 gate: Upgrade Arc Harness 42276884758, arc postswap-migration-ceiling. The
 
 <!-- SECTION:NOTES:BEGIN -->
 Red (tmp/rc17-reconnect-red.log): TestReconnectKeepsTheDaemonLock (livedb) fails 'reconnect while the old session is still busy: re-acquire lock after reconnect: another upgrader is already running'. Fix: reconnect keeps the previous queryConn PID; reacquireAdvisoryLock ends that backend and retries within 15 s when it is the holder, and refuses any other holder as before. Green (tmp/rc17-reconnect-green.log). go test ./internal/upgrade ok; livedb suite: only TestCaptureContainerLogs_PathComputation fails, identically at f8971e2c8 (pre-existing: unit-test docker guard refuses real docker), unrelated.
+
+Also fixed in 1-line follow-up (next commit after 360b1a253): the livedb suite's only other failure, TestCaptureContainerLogs_PathComputation, failed identically at f8971e2c8: captureContainerLogs skipped the per-service file when the docker command could not be constructed, contrary to its comment ('one file per service'). It now writes the '# capture failed' placeholder there too (tmp/capture-livedb-green.log).
 <!-- SECTION:NOTES:END -->
