@@ -3,10 +3,10 @@ id: STATBUS-573
 title: >-
   Import warns when a unit's birth date precedes its first valid_from within the
   same year
-status: To Do
+status: In Progress
 assignee: []
 created_date: '2026-11-05T16:49:00Z'
-updated_date: '2026-11-05T16:50:00Z'
+updated_date: '2026-11-06T10:02:00Z'
 labels:
   - import
   - history

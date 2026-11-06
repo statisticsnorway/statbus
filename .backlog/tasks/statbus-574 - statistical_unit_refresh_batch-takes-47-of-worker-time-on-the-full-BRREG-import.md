@@ -3,10 +3,10 @@ id: STATBUS-574
 title: >-
   statistical_unit_refresh_batch takes 47% of summed task time on the full BRREG
   import
-status: To Do
+status: In Progress
 assignee: []
 created_date: '2026-11-05T17:53:00Z'
-updated_date: '2026-11-05T17:54:00Z'
+updated_date: '2026-11-06T10:02:00Z'
 labels:
   - performance
   - worker

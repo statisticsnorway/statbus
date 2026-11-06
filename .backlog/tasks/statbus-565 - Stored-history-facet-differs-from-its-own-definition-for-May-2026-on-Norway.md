@@ -1,10 +1,10 @@
 ---
 id: STATBUS-565
 title: Stored history facet differs from its own definition for May 2026 on Norway
-status: To Do
+status: In Progress
 assignee: []
 created_date: '2026-11-04T00:21:00Z'
-updated_date: '2026-11-04T21:19:00Z'
+updated_date: '2026-11-06T10:02:00Z'
 labels: []
 dependencies: []
 priority: medium
