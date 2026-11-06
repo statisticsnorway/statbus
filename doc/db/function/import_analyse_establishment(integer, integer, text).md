@@ -10,7 +10,7 @@ DECLARE
     v_update_count INT := 0;
     v_sql TEXT;
     v_error_keys_to_clear_arr TEXT[] := ARRAY['name_raw', 'sector_code_raw', 'unit_size_code_raw', 'birth_date_raw', 'death_date_raw', 'status_code_raw', 'establishment'];
-    v_warning_keys_arr TEXT[] := ARRAY['sector_code_raw', 'unit_size_code_raw', 'birth_date_raw', 'death_date_raw'];
+    v_warning_keys_arr TEXT[] := ARRAY['sector_code_raw', 'unit_size_code_raw', 'birth_date_raw', 'death_date_raw', 'valid_from_raw'];
 BEGIN
     RAISE DEBUG '[Job %] analyse_establishment (Batch): Starting analysis for batch_seq %', p_job_id, p_batch_seq;
 
@@ -140,10 +140,13 @@ BEGIN
                                      jsonb_build_object('unit_size_code_raw', CASE WHEN NULLIF(l.unit_size_code, '') IS NOT NULL AND l.resolved_unit_size_id IS NULL THEN l.unit_size_code ELSE NULL END) ||
                                      jsonb_build_object('birth_date_raw', CASE
                                          WHEN NULLIF(l.birth_date, '') IS NOT NULL AND l.birth_date_error_msg IS NOT NULL THEN l.birth_date
+                                         ELSE NULL END) ||
+                                     -- STATBUS-580: the birth date is the fact; valid_from is the field to correct.
+                                     jsonb_build_object('valid_from_raw', CASE
                                          WHEN l.born_before_timeline THEN
-                                             'Born ' || l.resolved_typed_birth_date || ', but the unit''s first period starts ' || l.valid_from
-                                             || ' in the same year, so history counts it as added in ' || to_char(l.valid_from, 'YYYY-MM')
-                                             || ', not as born. If the unit existed from its birth, set valid_from to the birth date.'
+                                             'After the birth date ' || l.resolved_typed_birth_date || ' in the same year. If the unit existed from birth, set valid_from to '
+                                             || l.resolved_typed_birth_date || '. Why: history counts the unit as added in ' || to_char(l.valid_from, 'FMMonth YYYY')
+                                             || ', not as born, so it is missing from the births of ' || to_char(l.valid_from, 'YYYY') || '.'
                                          ELSE NULL END) ||
                                      jsonb_build_object('death_date_raw', CASE WHEN NULLIF(l.death_date, '') IS NOT NULL AND l.death_date_error_msg IS NOT NULL THEN l.death_date ELSE NULL END)
                                     )
