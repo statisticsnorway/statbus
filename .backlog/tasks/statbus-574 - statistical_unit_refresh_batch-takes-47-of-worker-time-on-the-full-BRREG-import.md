@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-11-05T17:53:00Z'
-updated_date: '2026-11-06T10:53:00Z'
+updated_date: '2026-11-06T11:18:00Z'
 labels:
   - performance
   - worker
@@ -66,4 +66,6 @@ AC1 and AC3 verified. AC2 full benchmark/consistency validation remains unverifi
 2026-11-06 10:53 Implemented on branch statbus-574-unit-refresh-profile (local): test 5aba434cd+59c4353e3 (370: a partial LU refresh reads at most 3 passes over its own units' timesegments, rows equal a full refresh; f on the pre-fix definitions tmp/574impl/370-prefix-v3.out, t after), migration 3aaf21508 (20261106101527).
 Design: one source of truth kept. timeline_legal_unit_def's body became the SQL function timeline_legal_unit_def_for(p_unit_ids) (inlined, ids constant-folded), the view is its NULL case; the GUC statbus.filter_unit_ids is gone. Partial refresh: DELETE + INSERT from the function. Also ES->LU propagation bounded to the batch's LUs, LU->EN with = ANY, MATERIALIZED power-group aggregation.
 Rolled-back checks on import_benchmark_43190: batch 22285 view 2,335 ms -> 69 ms (333 rows, EXCEPT ALL 0/0); full-refresh slice 1..65536 25.4/22.5 s -> 12.8/12.6 s (65,536 rows, 0/0); 8 repeated partial refreshes via EXECUTE USING 78-137 ms and static 91-124 ms (generic plan not a risk). Down/up round trip restores definitions. Not yet: full fast suite green after the 370 fixture fix, the 9-batch equality check of the whole migration (tmp/574impl/verify-migration.sql) and the downloads benchmark (AC2), waiting for laptop load to drop.
+
+2026-11-06 11:18 Fast suite 123/123 on the branch (tmp/test-574-fast-3.log), including 370.
 <!-- SECTION:NOTES:END -->
