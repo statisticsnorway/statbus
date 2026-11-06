@@ -236,7 +236,7 @@ shows the forms for the newest candidate and for a specific release.
 The script configures:
 - HTTPS APT sources (optional, for networks that block HTTP)
 - SSH key-only authentication (no passwords)
-- Automatic security updates
+- Automatic nightly updates, Docker included (containers restart at night)
 - CrowdSec intrusion detection and UFW firewall (optional for private networks)
 - Docker CE + Compose plugin
 - `devops` user (ops/admin) with passwordless sudo, docker group, and GitHub

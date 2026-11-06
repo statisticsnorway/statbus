@@ -68,7 +68,7 @@ stage that acts on something another stage creates requires that stage.
 | `base-system` | | etckeeper, eternal bash history, locale configuration |
 | `service-account` | | `${SERVICE_USER}` (default `statbus`): SSH keys |
 | `ssh-hardening` | `service-account` | Confirm remote access, then disable password auth, root password login, empty passwords |
-| `auto-updates` | | unattended-upgrades with nightly schedule, email notifications |
+| `auto-updates` | | unattended-upgrades with nightly schedule (Ubuntu and Docker packages, reboot at 03:15 when needed), email notifications |
 | `security-tools` *(optional)* | | CrowdSec IDS + firewall bouncer, UFW firewall |
 | `core-tools` | `service-account` | neovim, htop, ripgrep, tmux, Docker CE + compose plugin; Docker access for `${SERVICE_USER}`, then its systemd linger (so the upgrader runs with Docker access) |
 | `user-setup` *(cloud-only; needs `--cloud`)* | `core-tools` | `devops` user (ops/admin), GitHub SSH keys, Docker access |
