@@ -1,7 +1,7 @@
 # History reports and derive pipeline: measured before/after (November 2026)
 
 Release-notes evidence for STATBUS-558 (history reports from one sparse delta table), STATBUS-563, 565 and 566,
-and the STATBUS-573 import warning. Every number is measured unless marked **estimate**. Each row names its source:
+and the STATBUS-573 import warning and STATBUS-574 unit refresh. Every number is measured unless marked **estimate**. Each row names its source:
 logs under `tmp/` are local working files of the measuring agent; the summaries are also in the ticket notes.
 
 ## Datasets
@@ -82,10 +82,28 @@ Rows whose birth date is earlier than `valid_from` in the same year, on the row 
 get a warning naming both dates. Cost: BRREG selection worker 88.7 s and 84.5 s against 83.8 s without it, within
 run-to-run variation (`tmp/573/bench-selection*.log`). Norway 2026 has 35 establishments of this kind.
 
-## 7. Next: unit refresh (STATBUS-574, investigation only)
+## 7. Unit refresh (STATBUS-574)
 
 `statistical_unit_refresh_batch` was 10,320 s of 21,932 s summed task time (47%) on the BRREG downloads import.
-Rolled-back prototypes on that database: the legal-unit timeline step scans all 1,134,475 legal-unit timesegments
-for every batch. A dedicated indexed partial path cut batch medians by 72-89% (e.g. 3,541 -> 383 ms), legal-unit
-batches of 1,000 units from 6.1 s to 0.31 s, with identical output on 9 batches compared row by row.
-**Estimate:** 7,000-8,600 s of the 10,320 s. Not implemented. Report `tmp/574/report.md`.
+Every partial legal-unit timeline refresh read all 1,134,475 legal-unit timesegments: its filter came from a
+setting, `(ids IS NULL OR unit_id = ANY(ids))`, which the planner cannot use as an index condition. The query is
+now the SQL function `timeline_legal_unit_def_for(p_unit_ids)`; the view `timeline_legal_unit_def` is its NULL
+case, and a partial refresh passes the batch's ids. Also: propagation from establishments starts from the batch's
+legal units, and the power-group aggregation is computed once per batch.
+
+| Measurement (downloads database, rolled back) | Before | After | Source |
+|---|---|---|---|
+| Batch 22285 legal-unit timeline (333 units) | 2,335 ms | **69 ms** | `tmp/574impl/proto1.log` |
+| Full-refresh slice, units 1..65,536 | 25.4 s | **12.8 s** | `tmp/574impl/proto2.log` |
+| 9 retained batches, whole `statistical_unit_refresh_batch` | 27,604 ms | **4,845 ms** (-82%) | `tmp/574impl/verify-times.log` |
+| Same 9 batches, rows of the four timelines and staging | | identical (missing 0, extra 0) | `tmp/574impl/verify-compare2.log` |
+
+Per batch, ms: 22285 3,747 -> 1,060; 8857 3,495 -> 349; 51670 (power groups) 2,715 -> 79; 48599 270 -> 146;
+13783 3,325 -> 308; 18387 2,906 -> 536; 21760 3,718 -> 1,004; 22129 3,678 -> 1,034; 5564 3,445 -> 331.
+
+Whole BRREG downloads import on the landed code: **to be measured** (run started 2026-11-06 11:52, database
+`import_benchmark_40149`, log `tmp/574impl/bench-downloads.log`). Baseline: worker 7,810 s, refresh_batch 10,320 s.
+
+Tests: 370 (a partial refresh reads only its units' timesegments, also with a generic plan; rows equal a full
+refresh). Selection import: 89.2 s against 83.8 s, within run-to-run variation on a loaded laptop; its batches
+are too small to show the effect.
