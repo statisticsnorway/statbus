@@ -3,10 +3,10 @@ id: STATBUS-572
 title: >-
   An install interrupted at any point continues when the same command is run
   again
-status: In Progress
+status: Done
 assignee: []
 created_date: '2026-11-05T11:36:00Z'
-updated_date: '2026-11-05T13:55:00Z'
+updated_date: '2026-11-06T15:17:00Z'
 labels:
   - installer
 dependencies: []
@@ -27,7 +27,7 @@ Manual box, rc.09, 2026-11-05: Ctrl-C during [10/19] Images of a first install (
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
 - [x] #1 An install marker (holder install, not a restart) with no live process is cleared by the next install run before any upgrade recovery work, without needing a database or containers, and the run says 'The previous install was interrupted; continuing it.' and continues; no upgrade wording and no outside fix are shown
-- [ ] #2 LXD scenario 5-install-interrupted-before-services: SIGINT a real first install at Images RUNNING, rerun the same command, it continues to serving web and API
+- [x] #2 LXD scenario 5-install-interrupted-before-services: SIGINT a real first install at Images RUNNING, rerun the same command, it continues to serving web and API
 - [ ] #3 [Owner] On the manual box, Ctrl-C during an install then the same command again finishes the install
 <!-- AC:END -->
 
@@ -39,4 +39,6 @@ Manual box, rc.09, 2026-11-05: Ctrl-C during [10/19] Images of a first install (
 - **2026-11-05 rc.10 box run:** the marker was cleared ('The previous install was interrupted; continuing it.') but the same run then stopped: the re-detect after recovery treated 'database unavailable' (no db container yet, Ctrl-C before Services) as fatal ('the installer could not finish'); a second run continued. Fix: the re-detect applies the first look's rule, a positively identified 'no database' continues to the step table in the same run ('No StatBus database is running yet; continuing with the installation.'). TestInterruptedInstallContinuesInTheSameRunWhenNoDatabaseExists red (tmp/interrupted-same-run-red.log: 're-detect after recovery: ... database unavailable'), green; go test ./... green. The LXD scenario already requires the single rerun to exit 0.
 
 rc.11 LXD gate (run 42030136824): 5-install-interrupted-before-services failed. Cause was the harness, not the product: the first install was launched with & from a non-interactive shell, so SIGINT arrived ignored and bash cannot reset it. docker compose died, sb survived and reported 'A required image could not be downloaded', exited normally and removed its marker, so the rerun had no interrupted install to continue (it still finished). With a real terminal Ctrl-C, sb dies and leaves the marker that this ticket's recovery settles. Fix da14dbcea: perl restores SIGINT's default before exec. Linux prototype tmp/sigint-launch-proto.log: old launch SURVIVED SIGINT, new launch died on SIGINT. Re-proven in the rc.12 gate.
+
+rc.13 gate (LXD fleet 42219827905): 5-install-interrupted-before-services PASS, a first install interrupted before any container existed was continued by the same command to serving web and API. Owner 2026-11-06 15:17: close on this evidence; the manual-box Ctrl-C (AC3) is not required.
 <!-- SECTION:NOTES:END -->
