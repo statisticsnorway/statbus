@@ -13104,14 +13104,15 @@ func captureContainerLogs(projDir string, progress *ProgressLog, services []stri
 		ctx, cancel := context.WithTimeout(context.Background(), 8*time.Second)
 		cmd, buildErr := commandContext(ctx, projDir, "docker", "compose", "logs",
 			"--tail", "500", "--no-color", svc)
+		path := filepath.Join(dirAbs, svc+".log")
 		if buildErr != nil {
 			cancel()
 			progress.Write("Warning: could not construct container log command for %s: %v", svc, buildErr)
+			_ = os.WriteFile(path, []byte(fmt.Sprintf("# capture failed: %v\n", buildErr)), 0644) // best-effort diagnostic placeholder
 			continue
 		}
 		out, err := cmd.CombinedOutput()
 		cancel()
-		path := filepath.Join(dirAbs, svc+".log")
 		if err != nil && len(out) == 0 {
 			_ = os.WriteFile(path, []byte(fmt.Sprintf("# capture failed: %v\n", err)), 0644) // best-effort diagnostic placeholder
 			continue
