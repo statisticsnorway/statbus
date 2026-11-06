@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-11-05T16:49:00Z'
-updated_date: '2026-11-06T10:02:00Z'
+updated_date: '2026-11-06T10:04:00Z'
 labels:
   - import
   - history
@@ -18,17 +18,11 @@ ordinal: 492204
 ## Description
 
 <!-- SECTION:DESCRIPTION:BEGIN -->
-## North Star
-A statistician reading births for a year sees every unit born in that year, counted in the month it was born, consistent with the stock.
+History counts a birth only when a counted version's existence starts at its birth_date (existence from = GREATEST(valid_from, birth_date), STATBUS-460; births rule C, owner decision 2026-11-05 under STATBUS-558). Data that arrives late breaks that, so a statistician reading births for a year misses units born that year. The fix belongs at import, where the user can still correct the row.
 
-## Zoom out
-History counts a birth only when a counted version's existence starts at its birth_date (existence from = GREATEST(valid_from, birth_date), STATBUS-460; births rule C, owner decision 2026-11-05 under STATBUS-558). When data arrives late, a unit born 2026-03-01 is imported with valid_from 2026-05-07: it enters the stock in May as 'added' and is never counted as a birth. Norway 2026: 35 establishments, e.g. 73598, 74463, 74674. The fix belongs at import, not in history.
+Example: a unit born 2026-03-01 is imported with valid_from 2026-05-07. It enters the stock in May as added and is never counted as a birth (Norway 2026: 35 establishments, e.g. 73598, 74463, 74674). The import marks the row that starts the unit's timeline with a warning naming both dates, so the operator can set valid_from to the birth date. History then counts the birth in its month: the delta table subtracts the unit's old contribution and adds the new one.
 
-## Zoom in
-The import marks such a row with a warning naming both dates, so the operator can set valid_from to the birth date. History then counts the birth in its month exactly: the delta tables subtract the unit's old contribution and add the new one.
-
-## Closing review
-Document the warning in doc/import-system.md. No memory or cleanup expected.
+doc/import-system.md describes the warning.
 <!-- SECTION:DESCRIPTION:END -->
 
 ## Acceptance Criteria
