@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-11-06T17:22:00Z'
-updated_date: '2026-11-06T17:22:00Z'
+updated_date: '2026-11-06T17:23:00Z'
 labels:
   - bug
 dependencies: []
@@ -22,7 +22,13 @@ Found on Uganda 2026-11-06: docker-ce, docker-ce-cli, docker-ce-rootless-extras 
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 The auto-updates stage allows Docker's own repository (Docker:${distro_codename}) in Unattended-Upgrade::Allowed-Origins, and its description says Docker is updated at night too
-- [ ] #2 setup-auto-reboot-test.sh (or a sibling) fails against the current stage and passes after
+- [x] #1 The auto-updates stage allows Docker's own repository (Docker:${distro_codename}) in Unattended-Upgrade::Allowed-Origins, and its description says Docker is updated at night too
+- [x] #2 setup-auto-reboot-test.sh (or a sibling) fails against the current stage and passes after
 - [ ] #3 On Uganda, rerunning the auto-updates stage writes the new configuration and unattended-upgrade --dry-run lists the Docker packages
 <!-- AC:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+d40af04c3 + docs. setup-auto-reboot-test.sh: red before (tmp/583-auto-updates-red.log: Docker not an allowed origin, stage silent about it), green after (tmp/583-auto-updates-green.log). Nearby setup tests pass (stage-order, summary-truth, prompt-purpose, release-matched-fetch, piped-scripts). AC3 = Uganda rerun of auto-updates with the next candidate.
+<!-- SECTION:NOTES:END -->
