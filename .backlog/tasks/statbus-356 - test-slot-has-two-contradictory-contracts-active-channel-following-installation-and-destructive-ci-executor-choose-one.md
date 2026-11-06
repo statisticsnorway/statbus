@@ -3,10 +3,10 @@ id: STATBUS-356
 title: >-
   test slot has two contradictory contracts: active channel-following
   installation and destructive CI executor; choose one and enforce it
-status: To Do
+status: Done
 assignee: []
-created_date: '2026-09-04 19:52'
-updated_date: '2026-09-29 08:05'
+created_date: 2026-09-04 19:52
+updated_date: '2026-11-06T19:09:00Z'
 labels:
   - owner-decision
   - ops
@@ -91,4 +91,8 @@ Classification: OPEN. Evidence: test slot contradictory role and failed service 
 
 <!-- SECTION:NOTES:BEGIN -->
 Audit after v2026.09.3 (2026-09-29): The destructive-CI half is resolved in v2026.09.3 by removing pg_regress.yaml (STATBUS-420, 2bdb7bdad). Remaining: declare test.statbus.org's role (doc/CLOUD.md:31 still lists it as active), repair or quiesce it accordingly, and fix the two clobbering tags.
+
+Resolved 2026-11-06 (owner: retire test.statbus.org). Role chosen: retired, neither serving nor CI. (1) Destructive CI half already gone: pg_regress.yaml removed (STATBUS-420), ops/niue/sshdoers holds no statbus_test/continous-integration-test entry. (2) niue observed before: no statbus-test containers, statbus-upgrade@statbus_test enabled+failed, DNS for test.statbus.org gone (curl: could not resolve). Ran systemctl --user disable --now + reset-failed: now enabled=disabled active=inactive (tmp/356-niue-quiesce.log). No user, checkout or volume deleted; leftover volumes are caddy_data, caddy_logs, db-config (no DB data). (3) Tags: v2026.03.0-rc.43 f3a7f117->4691336898, v2026.03.0-rc.47 51ea48e0->dfd223494 replaced with origin's (old rebaseline residue); git fetch --tags --prune-tags --dry-run now has 0 rejects. (4) One registry: cloud.sh FLEET_REGISTRY. doc/CLOUD.md Current Deployments table now equals it (test moved to Decommissioned; gh offset 11 and mw offset 12 added, read from their .env.config). test/cloud-registry-test.sh asserts table == registry: red before (doc had test, lacked gh/mw; tmp/356-registry-red.log), green after (tmp/356-registry-green.log). Commits 12e20b88c, ce9669a78 (test now runs in Harness Selftest; it ran in no workflow before).
+
+CI: Harness Selftest 42275538708 on ce9669a78 green, including step 'Prove cloud.sh targets the registered fleet and doc/CLOUD.md lists the same slots (STATBUS-356)'. Go Test, Images, app build green.
 <!-- SECTION:NOTES:END -->
