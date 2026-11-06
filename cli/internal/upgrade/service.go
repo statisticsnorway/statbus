@@ -28,6 +28,7 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/statisticsnorway/statbus/cli/internal/compose"
+	"github.com/statisticsnorway/statbus/cli/internal/config"
 	"github.com/statisticsnorway/statbus/cli/internal/dbdump"
 	"github.com/statisticsnorway/statbus/cli/internal/dbroute"
 	"github.com/statisticsnorway/statbus/cli/internal/diskpolicy"
@@ -3416,7 +3417,13 @@ func (d *Service) Run(ctx context.Context) error {
 	// fingerprint that carried no cause, because the one byte that named it was
 	// discarded HERE. config generate refuses with a precise, actionable
 	// message; this is the line that decided nobody would read it.
-	if out, err := runCommandOutput(d.projDir, "./sb", "config", "generate", "--migrate-legacy-secrets"); err != nil {
+	// A box installed before the credential split carries legacy tokens in
+	// .env.config (STATBUS-361); they are moved by the same function as
+	// ./sb config migrate (STATBUS-584) before the strict generate below.
+	if _, err := config.MigrateSecrets(d.projDir); err != nil {
+		return fmt.Errorf("move secrets to .env.credentials: %w", err)
+	}
+	if out, err := runCommandOutput(d.projDir, "./sb", "config", "generate"); err != nil {
 		// STATBUS-298: a principled refusal (config.ErrPrincipledRefusal,
 		// selected as exit 78/EX_CONFIG by configGenerateCmd.RunE in
 		// cli/cmd/config.go — the sentinel cannot cross this subprocess
@@ -10901,11 +10908,16 @@ func (d *Service) applyNewSbUpgrading(ctx context.Context, id int, commitSHA, di
 	}()
 
 	// Regenerate config via the NEW binary. VERSION comes from git describe
-	// --tags --always against the just-checked-out HEAD. The migrating variant
-	// because a pre-split box carries legacy token placeholders/values in
-	// .env.config (STATBUS-361); refusing here would crash-loop the upgrade.
+	// --tags --always against the just-checked-out HEAD. A pre-split box
+	// carries legacy token placeholders/values in .env.config (STATBUS-361);
+	// refusing here would crash-loop the upgrade, so they are moved first by
+	// the same function as ./sb config migrate (STATBUS-584).
 	d.markStep(StepConfigGenerate)
-	if err := runCommandToLog(projDir, 2*time.Minute, progress.File(), "config-generate", progress.bump, "./sb", "config", "generate", "--migrate-legacy-secrets"); err != nil {
+	if _, err := config.MigrateSecrets(projDir); err != nil {
+		return d.parkForDeterministicFailure(ctx, id, displayName, restoreTargetSHA, commitSHA, backupPath, nil,
+			fmt.Sprintf("moving secrets to .env.credentials failed at %s: %v", displayName, err), progress)
+	}
+	if err := runCommandToLog(projDir, 2*time.Minute, progress.File(), "config-generate", progress.bump, "./sb", "config", "generate"); err != nil {
 		// STATBUS-046 slice 2: config generate renders templates from .env.config
 		// (no network/DB), so a NON-TIMEOUT failure is deterministic (B) — PARK on
 		// FIRST with a named reason instead of burning three deaths. A timeout is

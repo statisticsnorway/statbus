@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/statisticsnorway/statbus/cli/internal/config"
 	"github.com/statisticsnorway/statbus/cli/internal/install"
 	"github.com/statisticsnorway/statbus/cli/internal/migrate"
 	"github.com/statisticsnorway/statbus/cli/internal/upgrade"
@@ -613,9 +614,15 @@ func runCrashRecoveryWithLock(projDir string, restartIfRecovered *func(), adopte
 	return nil
 }
 
+// regenerateCrashRecoveryConfig moves legacy secrets with the same function as
+// ./sb config migrate (STATBUS-584), then regenerates through the installed
+// ./sb, whose strict generate would otherwise refuse them.
 func regenerateCrashRecoveryConfig(projDir string, run func(string, string, ...string) error) error {
+	if _, err := config.MigrateSecrets(projDir); err != nil {
+		return err
+	}
 	sb := filepath.Join(projDir, "sb")
-	return run(projDir, sb, "config", "generate", "--migrate-legacy-secrets")
+	return run(projDir, sb, "config", "generate")
 }
 
 // An install-held marker only needs its stale mutex cleared. Boot-migrating

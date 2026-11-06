@@ -28,19 +28,36 @@ func TestLegacyReleaseConfigGenerationEntryPoints_STATBUS445(t *testing.T) {
 			name: "settings-step",
 			run: func(t *testing.T, dir string, _ bool) {
 				t.Helper()
-				if err := config.GenerateForInstallInDir(dir, false); err != nil {
+				if err := migrateThenGenerateFixture(dir); err != nil {
 					t.Fatal(err)
 				}
 			},
 		},
 		{
-			name: "service-command",
+			// The operator's commands: ./sb config migrate, then ./sb config generate.
+			name: "config-migrate-then-generate",
 			run: func(t *testing.T, dir string, _ bool) {
 				t.Helper()
 				withWorkingDir(t, dir, func() {
-					previous := migrateLegacySecrets
-					migrateLegacySecrets = true
-					t.Cleanup(func() { migrateLegacySecrets = previous })
+					if err := configMigrateCmd.RunE(configMigrateCmd, nil); err != nil {
+						t.Fatal(err)
+					}
+					if err := configGenerateCmd.RunE(configGenerateCmd, nil); err != nil {
+						t.Fatal(err)
+					}
+				})
+			},
+		},
+		{
+			// An upgrader from an earlier release calls the new ./sb with
+			// the hidden flag; it runs the same migration.
+			name: "earlier-upgrader-flag",
+			run: func(t *testing.T, dir string, _ bool) {
+				t.Helper()
+				withWorkingDir(t, dir, func() {
+					previous := configGenerateMigratesSecrets
+					configGenerateMigratesSecrets = true
+					t.Cleanup(func() { configGenerateMigratesSecrets = previous })
 					if err := configGenerateCmd.RunE(configGenerateCmd, nil); err != nil {
 						t.Fatal(err)
 					}
@@ -52,10 +69,12 @@ func TestLegacyReleaseConfigGenerationEntryPoints_STATBUS445(t *testing.T) {
 			run: func(t *testing.T, dir string, _ bool) {
 				t.Helper()
 				if err := regenerateCrashRecoveryConfig(dir, func(gotDir, executable string, args ...string) error {
-					if gotDir != dir || executable != filepath.Join(dir, "sb") || !slices.Equal(args, []string{"config", "generate", "--migrate-legacy-secrets"}) {
+					if gotDir != dir || executable != filepath.Join(dir, "sb") || !slices.Equal(args, []string{"config", "generate"}) {
 						t.Fatalf("unexpected crash-recovery command: dir=%q executable=%q args=%q", gotDir, executable, args)
 					}
-					return config.GenerateForInstallInDir(dir, false)
+					// regenerateCrashRecoveryConfig has already moved the
+					// secrets; the installed ./sb runs the strict generate.
+					return config.GenerateInDir(dir, false)
 				}); err != nil {
 					t.Fatal(err)
 				}
@@ -67,10 +86,10 @@ func TestLegacyReleaseConfigGenerationEntryPoints_STATBUS445(t *testing.T) {
 				t.Helper()
 				err := config.GenerateInDir(dir, false)
 				if hasLegacySecrets {
-					if err == nil || !strings.Contains(err.Error(), "in .env.config is a secret") {
+					if err == nil || !strings.Contains(err.Error(), "./sb config migrate") {
 						t.Fatalf("strict generation must refuse legacy secrets, got %v", err)
 					}
-					if err := config.GenerateForInstallInDir(dir, false); err != nil {
+					if err := migrateThenGenerateFixture(dir); err != nil {
 						t.Fatalf("migrate before strict generation: %v", err)
 					}
 					err = config.GenerateInDir(dir, false)
@@ -190,4 +209,13 @@ func withWorkingDir(t *testing.T, dir string, fn func()) {
 		}
 	}()
 	fn()
+}
+
+// migrateThenGenerateFixture is what the installer and the upgrader do on a
+// rerun: config.MigrateSecrets (./sb config migrate), then strict generation.
+func migrateThenGenerateFixture(dir string) error {
+	if _, err := config.MigrateSecrets(dir); err != nil {
+		return err
+	}
+	return config.GenerateInDir(dir, false)
 }

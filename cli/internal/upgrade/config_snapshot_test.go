@@ -64,7 +64,7 @@ func TestOperatorConfigSnapshotRestoresLegacyPlacementAfterTargetMigration(t *te
 			if err := snapshotOperatorConfig(projDir, backupPath); err != nil {
 				t.Fatal(err)
 			}
-			if err := statbusconfig.GenerateForInstallInDir(projDir, false); err != nil {
+			if err := migrateThenGenerateFixture(projDir); err != nil {
 				t.Fatal(err)
 			}
 			migratedConfig, err := os.ReadFile(filepath.Join(projDir, ".env.config"))
@@ -123,7 +123,7 @@ func TestForwardCompletionKeepsMigratedConfig(t *testing.T) {
 	if err := snapshotOperatorConfig(projDir, backupPath); err != nil {
 		t.Fatal(err)
 	}
-	if err := statbusconfig.GenerateForInstallInDir(projDir, false); err != nil {
+	if err := migrateThenGenerateFixture(projDir); err != nil {
 		t.Fatal(err)
 	}
 	configAfter, err := os.ReadFile(filepath.Join(projDir, ".env.config"))
@@ -604,4 +604,13 @@ func mustRemove(t *testing.T, path string) {
 	if err := os.Remove(path); err != nil {
 		t.Fatal(err)
 	}
+}
+
+// migrateThenGenerateFixture is what the installer and the upgrader do on a
+// rerun: statbusconfig.MigrateSecrets (./sb config migrate), then strict generation.
+func migrateThenGenerateFixture(dir string) error {
+	if _, err := statbusconfig.MigrateSecrets(dir); err != nil {
+		return err
+	}
+	return statbusconfig.GenerateInDir(dir, false)
 }

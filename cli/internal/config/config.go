@@ -24,7 +24,6 @@ import (
 	"time"
 
 	"github.com/statisticsnorway/statbus/cli/internal/dotenv"
-	"github.com/statisticsnorway/statbus/cli/internal/installcmd"
 	"github.com/statisticsnorway/statbus/cli/internal/project"
 )
 
@@ -385,15 +384,17 @@ func loadOrGenerateConfig(projDir string, verbose bool) (*ConfigEnv, error) {
 	if err != nil {
 		return nil, fmt.Errorf("load config: %w", err)
 	}
-	for _, key := range []string{"GITHUB_TOKEN", "SLACK_TOKEN", "SEQ_API_KEY"} {
+	// Generation never rewrites the operator's files; MigrateSecrets (./sb
+	// config migrate) is what moves a secret. Every one found is named at
+	// once (STATBUS-584), so the operator is not refused once per secret.
+	var misplaced []string
+	for _, key := range legacySecretKeys {
 		if _, found := f.Get(key); found {
-			if _, err := os.Stat(filepath.Join(projDir, ".env")); err == nil {
-				return nil, fmt.Errorf("%s in .env.config is a secret; run %s to migrate it to .env.credentials", key, installcmd.Local(projDir))
-			} else if !os.IsNotExist(err) {
-				return nil, fmt.Errorf("stat generated config: %w", err)
-			}
-			return nil, fmt.Errorf("%s in .env.config is a secret; move it to .env.credentials", key)
+			misplaced = append(misplaced, key)
 		}
+	}
+	if len(misplaced) > 0 {
+		return nil, misplacedSecretsError(projDir, misplaced)
 	}
 	if configCreated {
 		for _, line := range strings.Split(configCreationHeader, "\n") {
@@ -1280,28 +1281,43 @@ func GenerateInDir(projDir string, verbose bool) error {
 	return generateInDir(projDir, projDir, verbose)
 }
 
-// GenerateForInstallInDir upgrades legacy operator secret placement on install
-// reruns before applying the strict config-generation validation.
-func GenerateForInstallInDir(projDir string, verbose bool) error {
-	if err := migrateLegacySecrets(projDir); err != nil {
-		return err
+// legacySecretKeys are the operator secrets older installations kept in
+// .env.config. They belong in .env.credentials (STATBUS-361); generation
+// refuses them in .env.config and MigrateSecrets moves them.
+var legacySecretKeys = []string{"GITHUB_TOKEN", "SLACK_TOKEN", "SEQ_API_KEY"}
+
+// misplacedSecretsError names every misplaced secret and the command that
+// moves them, for this checkout.
+func misplacedSecretsError(projDir string, keys []string) error {
+	names, verb, pronoun := keys[0], "is a secret and belongs", "it"
+	if len(keys) > 1 {
+		names = strings.Join(keys[:len(keys)-1], ", ") + " and " + keys[len(keys)-1]
+		verb, pronoun = "are secrets and belong", "them"
 	}
-	return GenerateInDir(projDir, verbose)
+	dir := projDir
+	if abs, err := filepath.Abs(projDir); err == nil {
+		dir = abs
+	}
+	return fmt.Errorf("%s in .env.config %s in .env.credentials. Run cd %s && ./sb config migrate to move %s.", names, verb, dir, pronoun)
 }
 
-// migrateLegacySecrets moves old operator tokens on the installer path.
-// Save credentials first so a failed config write never loses a token.
-func migrateLegacySecrets(projDir string) error {
+// MigrateSecrets is the one migration of operator secrets out of .env.config
+// into .env.credentials (mode 0600). `./sb config migrate` runs it, and so do
+// the installer and the upgrader before they generate settings, so every path
+// moves secrets the same way. It returns the keys it moved (an empty legacy
+// entry is a placeholder and is only dropped); a second run moves nothing.
+// Credentials are saved first, so a failed config write never loses a token.
+func MigrateSecrets(projDir string) ([]string, error) {
 	config, err := dotenv.Load(filepath.Join(projDir, ".env.config"))
 	if err != nil {
-		return err
+		return nil, err
 	}
 	credentials, err := dotenv.Load(filepath.Join(projDir, ".env.credentials"))
 	if err != nil {
-		return err
+		return nil, err
 	}
-	var moved []string
-	for _, key := range []string{"GITHUB_TOKEN", "SLACK_TOKEN", "SEQ_API_KEY"} {
+	var moved, report []string
+	for _, key := range legacySecretKeys {
 		value, found := config.Get(key)
 		if !found {
 			continue
@@ -1312,28 +1328,29 @@ func migrateLegacySecrets(projDir string) error {
 			// without writing credentials, so generated defaults still apply
 			// (an empty SEQ_API_KEY would defeat the placeholder and break
 			// compose's :? requirement — review round 2).
-			moved = append(moved, key+" (empty placeholder dropped)")
+			report = append(report, key+" (empty placeholder dropped)")
 			continue
 		}
 		if _, present := credentials.Get(key); !present {
 			credentials.Set(key, value)
 		}
 		moved = append(moved, key)
+		report = append(report, key)
 	}
-	if len(moved) == 0 {
-		return nil
+	if len(report) == 0 {
+		return nil, nil
 	}
 	if err := credentials.Save(); err != nil {
-		return fmt.Errorf("save migrated credentials: %w", err)
+		return nil, fmt.Errorf("save migrated credentials: %w", err)
 	}
 	if err := os.Chmod(filepath.Join(projDir, ".env.credentials"), 0600); err != nil {
-		return fmt.Errorf("protect migrated credentials: %w", err)
+		return nil, fmt.Errorf("protect migrated credentials: %w", err)
 	}
 	if err := config.Save(); err != nil {
-		return fmt.Errorf("save config after credential migration: %w", err)
+		return nil, fmt.Errorf("save config after credential migration: %w", err)
 	}
-	fmt.Fprintf(os.Stderr, "Moved %s from .env.config to .env.credentials.\n", strings.Join(moved, ", "))
-	return nil
+	fmt.Fprintf(os.Stderr, "Moved %s from .env.config to .env.credentials.\n", strings.Join(report, ", "))
+	return moved, nil
 }
 
 // generateInDir renders into projDir while resolving VERSION/COMMIT_SHORT from

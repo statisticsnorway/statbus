@@ -165,7 +165,10 @@ func Setup(packageName string) (cleanup func(), err error) {
 }
 
 func generateFixtureConfig(projectDir string) (string, error) {
-	return run(projectDir, filepath.Join(projectDir, "sb"), "config", "generate", "--migrate-legacy-secrets")
+	if out, err := run(projectDir, filepath.Join(projectDir, "sb"), "config", "migrate"); err != nil {
+		return out, err
+	}
+	return run(projectDir, filepath.Join(projectDir, "sb"), "config", "generate")
 }
 
 func ProjectDir() string { return os.Getenv(projectDirEnv) }

@@ -14,8 +14,13 @@ import (
 )
 
 var (
-	configShowPostgres   bool
-	migrateLegacySecrets bool
+	configShowPostgres bool
+	// configGenerateMigratesSecrets backs the hidden --migrate-legacy-secrets
+	// flag. It exists only so an upgrader from a release before STATBUS-584,
+	// which calls the newly installed ./sb with that flag mid-upgrade, keeps
+	// working; it runs the same config.MigrateSecrets as ./sb config migrate.
+	// New callers run ./sb config migrate first.
+	configGenerateMigratesSecrets bool
 )
 
 var configCmd = &cobra.Command{
@@ -60,17 +65,12 @@ derives all computed values (ports, memory tuning, URLs), writes .env,
 and renders Caddyfile templates from caddy/templates/*.caddyfile.tmpl
 into caddy/config/.`,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		gen := config.Generate
-		if migrateLegacySecrets {
-			// The install/upgrade context opts into migrating legacy operator
-			// tokens out of .env.config before strict validation (STATBUS-361):
-			// a box installed before the credential split carries placeholder
-			// or real tokens there, and the upgrader's recovery-boot
-			// config regeneration must not refuse on them mid-upgrade (rc.07
-			// smoke: the service crash-looped on exactly this).
-			gen = func(verbose bool) error { return config.GenerateForInstallInDir(config.ProjectDir(), verbose) }
+		if configGenerateMigratesSecrets {
+			if _, err := config.MigrateSecrets(config.ProjectDir()); err != nil {
+				return err
+			}
 		}
-		err := gen(verbose)
+		err := config.Generate(verbose)
 		// STATBUS-298: a principled refusal exits 78 directly — bypassing
 		// cobra's normal RunE-error path (which main.go maps uniformly to
 		// exit 1, indistinguishable from any other failure and, in the
@@ -97,6 +97,31 @@ into caddy/config/.`,
 			upgrade.ClearConfigRefusalMarker(config.ProjectDir())
 		}
 		return err
+	},
+}
+
+// configMigrateCmd moves operator secrets that older installations kept in
+// .env.config into .env.credentials. It is the one place that edits those
+// files for that purpose (config.MigrateSecrets); ./sb install and the
+// upgrader run the same function before they generate settings, and
+// ./sb config generate never edits them and points here instead.
+var configMigrateCmd = &cobra.Command{
+	Use:   "migrate",
+	Short: "Move secrets from .env.config to .env.credentials",
+	Long: `Moves operator secrets that older installations kept in .env.config
+(GITHUB_TOKEN, SLACK_TOKEN, SEQ_API_KEY) into .env.credentials, which is
+readable only by this user. Says what it moved; running it again moves
+nothing. Run ./sb config generate afterwards.`,
+	Args: cobra.NoArgs,
+	RunE: func(cmd *cobra.Command, args []string) error {
+		moved, err := config.MigrateSecrets(config.ProjectDir())
+		if err != nil {
+			return err
+		}
+		if len(moved) == 0 {
+			fmt.Println("No secrets to move: .env.config holds none.")
+		}
+		return nil
 	},
 }
 
@@ -226,9 +251,11 @@ func showPostgresVars() error {
 }
 
 func init() {
-	configGenerateCmd.Flags().BoolVar(&migrateLegacySecrets, "migrate-legacy-secrets", false, "migrate legacy operator tokens from .env.config to .env.credentials before validating (install/upgrade context only)")
+	configGenerateCmd.Flags().BoolVar(&configGenerateMigratesSecrets, "migrate-legacy-secrets", false, "run ./sb config migrate first (kept for upgraders from earlier releases)")
+	_ = configGenerateCmd.Flags().MarkHidden("migrate-legacy-secrets")
 	configShowCmd.Flags().BoolVar(&configShowPostgres, "postgres", false, "output PostgreSQL connection variables in shell-evaluable format")
 	configCmd.AddCommand(configGenerateCmd)
+	configCmd.AddCommand(configMigrateCmd)
 	configCmd.AddCommand(configShowCmd)
 	rootCmd.AddCommand(configCmd)
 }

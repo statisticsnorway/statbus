@@ -27,7 +27,7 @@ func TestCrashRecoveryConfigGenerationMigratesLegacySecrets(t *testing.T) {
 	if want := filepath.Join(projDir, "sb"); gotName != want {
 		t.Fatalf("command name = %q, want %q", gotName, want)
 	}
-	if want := []string{"config", "generate", "--migrate-legacy-secrets"}; !reflect.DeepEqual(gotArgs, want) {
+	if want := []string{"config", "generate"}; !reflect.DeepEqual(gotArgs, want) {
 		t.Fatalf("command args = %q, want %q", gotArgs, want)
 	}
 }

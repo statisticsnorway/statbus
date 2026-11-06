@@ -517,7 +517,7 @@ func TestLegacySecretsMigrateOnce_STATBUS361(t *testing.T) {
 	if err := os.WriteFile(configPath, []byte("CADDY_DEPLOYMENT_MODE=development\nGITHUB_TOKEN=older-token\nGITHUB_TOKEN=legacy-token\nSLACK_TOKEN=legacy-slack\nSEQ_API_KEY=legacy-seq\n"), 0600); err != nil {
 		t.Fatal(err)
 	}
-	if err := migrateLegacySecrets(dir); err != nil {
+	if _, err := MigrateSecrets(dir); err != nil {
 		t.Fatal(err)
 	}
 	config, err := os.ReadFile(configPath)
@@ -540,7 +540,7 @@ func TestLegacySecretsMigrateOnce_STATBUS361(t *testing.T) {
 	if _, err := loadOrGenerateConfig(dir, false); err != nil {
 		t.Fatalf("migrated config rejected: %v", err)
 	}
-	if err := migrateLegacySecrets(dir); err != nil {
+	if _, err := MigrateSecrets(dir); err != nil {
 		t.Fatal(err)
 	}
 	again, err := os.ReadFile(credentialsPath)
@@ -559,12 +559,61 @@ func TestPlainGenerateRejectsFreshSecret_STATBUS361(t *testing.T) {
 		t.Fatal(err)
 	}
 	err := GenerateInDir(dir, false)
-	if err == nil || !strings.Contains(err.Error(), "GITHUB_TOKEN in .env.config is a secret; move it to .env.credentials") {
+	if err == nil || !strings.Contains(err.Error(), "GITHUB_TOKEN in .env.config is a secret and belongs in .env.credentials. Run cd "+dir+" && ./sb config migrate to move it.") {
 		t.Fatalf("plain config generation must reject the misplaced secret, got %v", err)
 	}
 	config, err := os.ReadFile(configPath)
 	if err != nil || !strings.Contains(string(config), "GITHUB_TOKEN=fresh-token") {
 		t.Fatalf("plain generation moved the secret: %s, %v", config, err)
+	}
+}
+
+// STATBUS-584: strict generation names EVERY legacy secret it finds and the
+// one command that moves them. Before, it named only the first, so an
+// operator fixing them by hand met one refusal per secret.
+func TestPlainGenerateNamesEveryLegacySecretAndTheMigrateCommand_STATBUS584(t *testing.T) {
+	dir := t.TempDir()
+	configPath := filepath.Join(dir, ".env.config")
+	original := "CADDY_DEPLOYMENT_MODE=development\nSLACK_TOKEN=slack\nSEQ_API_KEY=seq\n"
+	if err := os.WriteFile(configPath, []byte(original), 0600); err != nil {
+		t.Fatal(err)
+	}
+	err := GenerateInDir(dir, false)
+	if err == nil {
+		t.Fatal("strict generation accepted secrets in .env.config")
+	}
+	want := "SLACK_TOKEN and SEQ_API_KEY in .env.config are secrets and belong in .env.credentials. Run cd " + dir + " && ./sb config migrate to move them."
+	if err.Error() != want {
+		t.Fatalf("refusal =\n%q\nwant\n%q", err.Error(), want)
+	}
+	if got, _ := os.ReadFile(configPath); string(got) != original {
+		t.Fatalf("strict generation rewrote .env.config: %q", got)
+	}
+}
+
+// STATBUS-584: MigrateSecrets is the one migration, shared by ./sb config
+// migrate, the installer and the upgrader. It reports what it moved, and a
+// second run moves nothing.
+func TestMigrateSecretsReportsWhatItMovedOnce_STATBUS584(t *testing.T) {
+	dir := t.TempDir()
+	configPath := filepath.Join(dir, ".env.config")
+	if err := os.WriteFile(configPath, []byte("CADDY_DEPLOYMENT_MODE=development\nSLACK_TOKEN=slack\nSEQ_API_KEY=seq\n"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	moved, err := MigrateSecrets(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Join(moved, ",") != "SLACK_TOKEN,SEQ_API_KEY" {
+		t.Fatalf("moved = %v, want SLACK_TOKEN,SEQ_API_KEY", moved)
+	}
+	// Strict generation no longer finds a secret in .env.config.
+	if _, err := loadOrGenerateConfig(dir, false); err != nil {
+		t.Fatalf("strict settings read after the migration: %v", err)
+	}
+	moved, err = MigrateSecrets(dir)
+	if err != nil || len(moved) != 0 {
+		t.Fatalf("second migration moved %v (%v), want nothing", moved, err)
 	}
 }
 
@@ -583,7 +632,7 @@ func TestStrictGenerationRefusalDoesNotShadowLegacySecret_STATBUS445(t *testing.
 		t.Fatalf("strict refusal created credentials before validating config: %v", err)
 	}
 
-	if err := migrateLegacySecrets(dir); err != nil {
+	if _, err := MigrateSecrets(dir); err != nil {
 		t.Fatal(err)
 	}
 	credentials, err := dotenv.Load(filepath.Join(dir, ".env.credentials"))
@@ -615,7 +664,7 @@ func TestInstallerGenerationMigratesLegacySecret_STATBUS361(t *testing.T) {
 	if err := os.MkdirAll(filepath.Join(dir, "ops", "maintenance"), 0755); err != nil {
 		t.Fatal(err)
 	}
-	if err := GenerateForInstallInDir(dir, false); err != nil {
+	if err := migrateThenGenerate(dir); err != nil {
 		t.Fatal(err)
 	}
 	config, err := os.ReadFile(configPath)
@@ -626,7 +675,7 @@ func TestInstallerGenerationMigratesLegacySecret_STATBUS361(t *testing.T) {
 	if err != nil || !strings.Contains(string(credentials), "GITHUB_TOKEN=legacy-token") {
 		t.Fatalf("installer did not preserve last legacy value: %s, %v", credentials, err)
 	}
-	if err := GenerateForInstallInDir(dir, false); err != nil {
+	if err := migrateThenGenerate(dir); err != nil {
 		t.Fatal(err)
 	}
 	again, err := os.ReadFile(filepath.Join(dir, ".env.credentials"))
@@ -643,7 +692,7 @@ func TestExistingCredentialWinsDuringMigration_STATBUS361(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(dir, ".env.credentials"), []byte("GITHUB_TOKEN=existing-token\n"), 0600); err != nil {
 		t.Fatal(err)
 	}
-	if err := migrateLegacySecrets(dir); err != nil {
+	if _, err := MigrateSecrets(dir); err != nil {
 		t.Fatal(err)
 	}
 	credentials, err := os.ReadFile(filepath.Join(dir, ".env.credentials"))
@@ -919,7 +968,7 @@ func TestLegacyEmptyPlaceholderDroppedNotMigrated_STATBUS361(t *testing.T) {
 	if err := os.WriteFile(dir+"/.env.config", []byte("CADDY_DEPLOYMENT_MODE=development\nSITE_DOMAIN=test.local\nSEQ_API_KEY=\nSLACK_TOKEN=real-slack\n"), 0600); err != nil {
 		t.Fatal(err)
 	}
-	if err := migrateLegacySecrets(dir); err != nil {
+	if _, err := MigrateSecrets(dir); err != nil {
 		t.Fatal(err)
 	}
 	creds, err := dotenv.Load(dir + "/.env.credentials")
@@ -946,4 +995,13 @@ func TestLegacyEmptyPlaceholderDroppedNotMigrated_STATBUS361(t *testing.T) {
 	if c.SeqAPIKey == "" {
 		t.Fatal("generated SEQ placeholder must survive the legacy-empty case")
 	}
+}
+
+// migrateThenGenerate is what the installer and the upgrader do on a rerun:
+// MigrateSecrets (./sb config migrate), then strict generation.
+func migrateThenGenerate(dir string) error {
+	if _, err := MigrateSecrets(dir); err != nil {
+		return err
+	}
+	return GenerateInDir(dir, false)
 }
