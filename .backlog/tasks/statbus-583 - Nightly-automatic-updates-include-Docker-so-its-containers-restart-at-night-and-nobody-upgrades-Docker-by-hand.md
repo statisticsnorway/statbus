@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-11-06T17:22:00Z'
-updated_date: '2026-11-06T17:25:00Z'
+updated_date: '2026-11-06T17:27:00Z'
 labels:
   - bug
 dependencies: []
@@ -36,4 +36,6 @@ d40af04c3 + docs. setup-auto-reboot-test.sh: red before (tmp/583-auto-updates-re
 Owner 2026-11-06 17:24: every box prepared with setup has had no automatic Docker updates since the script was written. Rerun the auto-updates stage as root on each: curl -fsSL https://statbus.org/setup.sh | bash -s -- --only-stages auto-updates (statbus.org/rc/setup.sh until this release is stable). Then unattended-upgrade --dry-run -d lists the Docker packages. Albania: we have no access, so the owner sends instructions once the release is out.
 
 Owner 2026-11-06 17:24: rerunning on every box is not in our control (Albania has its own operator), so it is not a criterion. What we control is the instruction. Reruns we do ourselves are tracked as work, not as criteria: Uganda (AC3), then rune.
+
+doc/DEPLOYMENT.md paragraph 'Servers prepared before v2026.11.1: turn on nightly Docker updates' (command + check). AC4 completes when the stable release notes carry the same paragraph.
 <!-- SECTION:NOTES:END -->
