@@ -4291,6 +4291,47 @@ func (d *Service) acquireAdvisoryLock(ctx context.Context) error {
 	return nil
 }
 
+// reacquireAdvisoryLockBudget bounds how long reconnect waits for the
+// daemon's own previous backend to exit and release the lock.
+const reacquireAdvisoryLockBudget = 15 * time.Second
+
+// reacquireAdvisoryLock takes the daemon lock on the new session after a
+// reconnect. When the lock is held by previousPID, the daemon's own session
+// that reconnect just closed, that backend is ended and the lock is retried
+// until it is released, within reacquireAdvisoryLockBudget. A holder with any
+// other PID is another upgrader and is refused as acquireAdvisoryLock does.
+func (d *Service) reacquireAdvisoryLock(ctx context.Context, previousPID uint32) error {
+	deadline := time.Now().Add(reacquireAdvisoryLockBudget)
+	for {
+		err := d.acquireAdvisoryLock(ctx)
+		if err == nil || previousPID == 0 {
+			return err
+		}
+		var holder int64
+		if qErr := d.queryConn.QueryRow(ctx, `SELECT COALESCE((SELECT pid FROM pg_locks
+			WHERE locktype = 'advisory' AND objid = hashtext('upgrade_daemon')::oid AND granted
+			LIMIT 1), 0)`).Scan(&holder); qErr != nil {
+			return errors.Join(err, fmt.Errorf("read the lock holder: %w", qErr))
+		}
+		switch {
+		case holder == 0:
+			// Released between the two queries; take it on the next pass.
+		case holder != int64(previousPID):
+			return err
+		case time.Now().After(deadline):
+			return fmt.Errorf("the daemon's previous database session (pid %d) still holds the upgrader lock after %s", previousPID, reacquireAdvisoryLockBudget)
+		default:
+			// A failed terminate is logged; the next pass rechecks the holder.
+			_ = d.execObserved(ctx, "end the daemon's previous database session", "SELECT pg_terminate_backend($1)", int64(previousPID))
+		}
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-time.After(200 * time.Millisecond):
+		}
+	}
+}
+
 // verifyBinaryObservedState is Check 1 of the observed-state verification
 // (extracted as a pure function for testability — no DB access, no migration-
 // version check). Tri-state (STATBUS-039 review finding 1):
@@ -5761,17 +5802,25 @@ func (d *Service) ensureConnected(ctx context.Context) error {
 }
 
 func (d *Service) reconnect(ctx context.Context) error {
+	// The daemon's session advisory lock lives on queryConn's backend. Closing
+	// the client does not end that backend at once: a busy or loaded server
+	// reads the Terminate late, and until it exits the lock is still held by
+	// the daemon's OWN previous session. Its PID is kept so the re-acquire
+	// below tells that apart from another upgrader (rc.17 arc
+	// postswap-migration-ceiling, Upgrade Arc Harness 42276884758; STATBUS-586).
+	var previousPID uint32
 	if d.listenConn != nil {
 		_ = d.listenConn.Close(context.Background())
 	}
 	if d.queryConn != nil {
+		previousPID = d.queryConn.PgConn().PID()
 		_ = d.queryConn.Close(context.Background())
 	}
 	if err := d.connect(ctx); err != nil {
 		return err
 	}
 	// Re-acquire advisory lock on new session
-	if err := d.acquireAdvisoryLock(ctx); err != nil {
+	if err := d.reacquireAdvisoryLock(ctx, previousPID); err != nil {
 		return fmt.Errorf("re-acquire lock after reconnect: %w", err)
 	}
 	if _, err := d.listenConn.Exec(ctx, "LISTEN upgrade_check"); err != nil {
