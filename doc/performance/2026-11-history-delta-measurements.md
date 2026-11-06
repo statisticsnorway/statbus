@@ -65,6 +65,22 @@ Sources: before `tmp/558-build/13-norway-reads-before.log` (script `13-norway-re
   `statistical_unit` in all 465 rows. The dense table was lower through STATBUS-563.
 - Sources: `tmp/558-onetable/23-compare-fixed.log`, `24-check.log`, `30-10y.log`, `32-10y-explain.log`.
 
+## 4a. Changed rule: when a unit counts as born
+
+History counts a birth only when a unit's existence starts at its birth date: existence starts at the later of
+`valid_from` and `birth_date` (owner decision 2026-11-05, rule C). A unit whose first `valid_from` is later than
+its `birth_date` enters the stock as added in the month of `valid_from`, and is not counted as born. Deaths
+follow the same rule at the other end.
+
+On Norway this changes one number: establishment births in May 2026 go from 4 to 1. Units 589650, 601093 and
+601705 have `birth_date` 2026-05-01 and `valid_from` 2026-05-07, so they count as added in May. Unit 594826,
+born 2026-05-22 inside its first period, is the one birth.
+
+The import now warns on such rows (STATBUS-580), under `valid_from`, the field to correct: "After the birth date
+2026-05-01 in the same year. If the unit existed from birth, set valid_from to 2026-05-01. Why: history counts
+the unit as added in May 2026, not as born, so it is missing from the births of 2026." The row still imports.
+Correcting `valid_from` and importing again moves the unit into the births of its month.
+
 ## 5. Defects fixed on the way
 
 | Ticket | Defect | Effect of the fix | Measured |
