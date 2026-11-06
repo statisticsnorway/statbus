@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-11-05T17:53:00Z'
-updated_date: '2026-11-06T10:02:00Z'
+updated_date: '2026-11-06T00:22:00Z'
 labels:
   - performance
   - worker
@@ -48,4 +48,6 @@ A unit refresh costs in proportion to the units it refreshes, so imports and ful
 
 <!-- SECTION:NOTES:BEGIN -->
 2026-11-05 Owner 16:08: profiled separately from STATBUS-558, by someone else.
+
+2026-11-06 00:23 Owner 23:49: investigate locally overnight on branch statbus-574-unit-refresh-profile (off statbus-558-history-delta), serialized with other local load; research first, no merge without owner.
 <!-- SECTION:NOTES:END -->
