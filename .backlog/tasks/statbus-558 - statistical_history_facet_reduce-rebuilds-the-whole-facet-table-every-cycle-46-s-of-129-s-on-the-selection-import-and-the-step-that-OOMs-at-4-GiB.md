@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-11-02T13:15:00Z'
-updated_date: '2026-11-06T09:56:00Z'
+updated_date: '2026-11-06T11:52:00Z'
 labels: []
 dependencies: []
 type: enhancement
@@ -250,4 +250,6 @@ AC1 scope: full Norway checked on the committed build (above); the 10-year datab
 2026-11-06 09:45 Release numbers recorded in doc/performance/2026-11-history-delta-measurements.md (owner request): Norway history storage 26 GB on rune -> 233 MB; selection import worker 136.1 -> 83.8 s, history steps 175.5 -> 20.3 s; Norway reads with the same calls: chart 0.85/1.31 -> 0.29/0.31 s, drilldown 2.88/16.9 -> 0.57/0.71 s; facet view count 0.20 -> 2.67 s (no app reader).
 
 2026-11-06 09:56 Independent expected-file review (worker palmtree, tmp/review-expected/report.md): every hunk of 493f13428 and the 573 branch classified; value changes in 107, 319 (32), 322 (1992), 367, 368 each derived independently from fixtures; no wrong value, no t->f, no lost row. Two robustness findings fixed: 107 facet queries now order by every cell dimension (7559f5838, reorder only); 324 shows victim names and enterprise legal-unit counts instead of allocated enterprise ids (20232ff52).
+
+2026-11-06 11:52 Landed in local master 67488988e (fast-forward, owner 11:41: land the whole set, then one release with one full recalculation). Not pushed. Fast suite on that tip 124/124 (tmp/test-stack-fast.log).
 <!-- SECTION:NOTES:END -->

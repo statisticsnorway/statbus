@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-11-03T22:24:00Z'
-updated_date: '2026-11-04T21:18:00Z'
+updated_date: '2026-11-06T11:52:00Z'
 labels: []
 dependencies: []
 priority: high
@@ -38,4 +38,6 @@ Observed on current code (test 364 fails): documented population for 2024 = 17 e
 Run: ./dev.sh test 364_statbus_563_history_stats_independent_of_hash_slot. Output in tmp/test-563.log.
 
 2026-11-04 owner decision: resolved by STATBUS-558, not fixed separately in today's code. 558 replaces statistical_history_def/statistical_history_facet_def; each unit's stats live on its own delta rows, so no hash-slot dependency. The 558 views already pass test 364 (17 employees / 2 units for 2024; local commits 507156f12, cbc7320b7). Accepted: 558 changes today's numbers where today undercounts (10-year db: 6 of 12 yearly employee cells higher, never lower). Close as Done when STATBUS-558 reaches maturity (merged and verified).
+
+2026-11-06 11:52 Landed in local master 67488988e (fast-forward, owner 11:41: land the whole set, then one release with one full recalculation). Not pushed. Fast suite on that tip 124/124 (tmp/test-stack-fast.log).
 <!-- SECTION:NOTES:END -->

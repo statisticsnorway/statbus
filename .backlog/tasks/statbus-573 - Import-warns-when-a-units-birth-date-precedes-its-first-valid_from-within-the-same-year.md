@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-11-05T16:49:00Z'
-updated_date: '2026-11-06T10:03:00Z'
+updated_date: '2026-11-06T11:52:00Z'
 labels:
   - import
   - history
@@ -42,4 +42,6 @@ doc/import-system.md describes the warning.
 2026-11-06 09:56 Rebased onto statbus-558-history-delta 20232ff52 (commits now ad9092de0 test, 2e2d5d9f3 fix). Test 324 no longer prints allocated enterprise ids (558 commit 20232ff52, independent review finding 12), so this branch no longer changes 324; the earlier note's commit ids and 324 acceptance are superseded.
 
 2026-11-06 10:03 Back to In Progress (owner): implemented and tested on the local branch, but not yet reviewed with the owner, landed or pushed. Done after landing, push and CI.
+
+2026-11-06 11:52 Landed in local master 67488988e (fast-forward, owner 11:41: land the whole set, then one release with one full recalculation). Not pushed. Fast suite on that tip 124/124 (tmp/test-stack-fast.log).
 <!-- SECTION:NOTES:END -->

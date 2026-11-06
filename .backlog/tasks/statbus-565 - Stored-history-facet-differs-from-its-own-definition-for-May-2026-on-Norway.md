@@ -4,7 +4,7 @@ title: Stored history facet differs from its own definition for May 2026 on Norw
 status: In Progress
 assignee: []
 created_date: '2026-11-04T00:21:00Z'
-updated_date: '2026-11-06T10:02:00Z'
+updated_date: '2026-11-06T11:52:00Z'
 labels: []
 dependencies: []
 priority: medium
@@ -34,4 +34,6 @@ North Star: the stored history facet always equals its definition run on the cur
 2026-11-04 failing test 365 (local commit): one legal unit renamed from 2024-06-01 with the same employees. Pre-fix: stored 2024 name_change_count 0 vs definition 1, 2 of 84 legal-unit rows differ (tmp/test-365-prefix.log, tmp/365-prefix-actual.out). Prototype fix (tmp/558-shd/565-reduce-fixed.sql): guard compares the full tuple of value columns with IS DISTINCT FROM; test 365 then shows 0 differing rows (tmp/558-shd/565-proto.out). Not migrated; waits on owner (fix now vs replaced by STATBUS-558).
 
 2026-11-04 owner decision: resolved by STATBUS-558, no separate fix to worker.statistical_history_facet_reduce. 558 removes the reduce and the stored facet table; statistical_history_facet is a view over history_flow_delta, where every change count is staged and added, so a change that leaves exists_count and stats unchanged is no longer lost. Evidence on the 558 build: test 365 (rename shows name_change_count 1 for 2024 and June 2024, local commit cbc7320b7); full Norway facet 2026 equals today's stored rows except exactly these 296 stale May rows. Close as Done when STATBUS-558 lands (merged, release gates pass).
+
+2026-11-06 11:52 Landed in local master 67488988e (fast-forward, owner 11:41: land the whole set, then one release with one full recalculation). Not pushed. Fast suite on that tip 124/124 (tmp/test-stack-fast.log).
 <!-- SECTION:NOTES:END -->
