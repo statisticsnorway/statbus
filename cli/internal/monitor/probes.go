@@ -252,7 +252,7 @@ func DiskProbe(projectDir string) func(context.Context) (DiskResult, error) {
 			return DiskResult{}, err
 		}
 		path := projectDir
-		if root, rootErr := diskpolicy.DockerRoot(ctx, projectDir); rootErr == nil {
+		if root, rootErr := diskpolicy.DockerRootReporting(ctx, projectDir, func(string) {}); rootErr == nil && root != "" {
 			path = root
 		}
 		measurement, err := diskpolicy.Measure(path)

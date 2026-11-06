@@ -54,6 +54,45 @@ func TestDockerRootUnavailableFailsClosed(t *testing.T) {
 	}
 }
 
+// STATBUS-585: Docker Desktop (a development Mac) reports a storage folder
+// that exists only inside its VM. A development installation says so in one
+// line and continues without measuring it; standalone and private
+// installations still refuse, because there an unmeasurable Docker root
+// means something is wrong.
+func TestDockerRootInsideDockerDesktopVM(t *testing.T) {
+	bin := t.TempDir()
+	if err := os.WriteFile(filepath.Join(bin, "docker"), []byte("#!/bin/sh\nprintf '/var/lib/docker-in-vm-585\\n'\n"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("PATH", bin+string(os.PathListSeparator)+os.Getenv("PATH"))
+	for _, tc := range []struct {
+		mode      string
+		continues bool
+	}{{"development", true}, {"standalone", false}, {"private", false}} {
+		t.Run(tc.mode, func(t *testing.T) {
+			dir := t.TempDir()
+			if err := os.WriteFile(filepath.Join(dir, ".env.config"), []byte("CADDY_DEPLOYMENT_MODE="+tc.mode+"\n"), 0o600); err != nil {
+				t.Fatal(err)
+			}
+			var said []string
+			root, err := DockerRootReporting(context.Background(), dir, func(line string) { said = append(said, line) })
+			if !tc.continues {
+				if err == nil || err.Error() != genericDockerRootLine {
+					t.Fatalf("%s must refuse an unmeasurable Docker root, got root=%q err=%v", tc.mode, root, err)
+				}
+				return
+			}
+			if err != nil || root != "" {
+				t.Fatalf("development must continue without a root, got root=%q err=%v", root, err)
+			}
+			want := "Docker's storage (/var/lib/docker-in-vm-585) is inside Docker's own VM, so its free space is not measured on this development machine."
+			if len(said) != 1 || said[0] != want {
+				t.Fatalf("development said %q, want one line %q", said, want)
+			}
+		})
+	}
+}
+
 func TestDiskRefusalRetainsOperatorRerun(t *testing.T) {
 	command := "curl -fsSL https://statbus.org/install.sh | env STATBUS_ENV_CONFIG=/home/operator/answers bash -s -- --channel prerelease --non-interactive"
 	t.Setenv("STATBUS_INSTALL_RERUN_COMMAND", command)

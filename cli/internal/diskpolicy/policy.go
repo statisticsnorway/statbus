@@ -158,7 +158,19 @@ func currentUserName() string {
 }
 
 // DockerRoot refuses to guess a storage location when Docker cannot report it.
+// See DockerRootReporting for the one development exception.
 func DockerRoot(ctx context.Context, dir string) (string, error) {
+	return DockerRootReporting(ctx, dir, func(line string) { fmt.Println(line) })
+}
+
+// DockerRootReporting is DockerRoot with the one exception a development
+// machine needs (STATBUS-585): Docker Desktop reports a storage folder that
+// exists only inside its own VM, so it cannot be measured from the host. When
+// .env.config says CADDY_DEPLOYMENT_MODE=development, that is reported in one
+// line and the root is returned empty, which CheckWith skips. Standalone and
+// private installations keep the refusal: there an unmeasurable Docker root
+// means the installation cannot trust its disk check.
+func DockerRootReporting(ctx context.Context, dir string, report func(string)) (string, error) {
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 	// STATBUS-487: a Docker cause must be named, never masked by the disk
@@ -186,9 +198,25 @@ func DockerRoot(ctx context.Context, dir string) (string, error) {
 	root := strings.TrimSpace(string(output))
 	info, statErr := os.Stat(root)
 	if statErr != nil || !info.IsDir() {
+		if os.IsNotExist(statErr) && deploymentMode(dir) == "development" {
+			report(fmt.Sprintf("Docker's storage (%s) is inside Docker's own VM, so its free space is not measured on this development machine.", root))
+			return "", nil
+		}
 		return "", fmt.Errorf("cannot check disk space at Docker storage: Docker root unavailable")
 	}
 	return root, nil
+}
+
+// deploymentMode reads CADDY_DEPLOYMENT_MODE from .env.config; empty when the
+// file or the key is missing (a fresh installation is never development by
+// default).
+func deploymentMode(dir string) string {
+	file, err := dotenv.Load(filepath.Join(dir, ".env.config"))
+	if err != nil {
+		return ""
+	}
+	mode, _ := file.Get("CADDY_DEPLOYMENT_MODE")
+	return strings.TrimSpace(mode)
 }
 
 // CheckWith is the common decision and measurement path for install, fixup and upgrade.

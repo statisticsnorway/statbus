@@ -36,7 +36,13 @@ exit 1
 FAKE_GIT
 chmod +x "$tmpdir/bin/git"
 export PATH="$tmpdir/bin:$PATH"
+# The scratch HOME hides ~/.docker, where Docker Desktop records its active
+# context; keep pointing at the developer's own, so docker info answers on a
+# Mac as it does on Linux.
+export DOCKER_CONFIG="${DOCKER_CONFIG:-$HOME/.docker}"
 export HOME="$tmpdir/home"
+real_diagnostics="$REPO_ROOT/tmp/install-last-run-output.txt"
+real_diagnostics_before="$(cat "$real_diagnostics" 2>/dev/null)"
 
 assert_contains() {
     local file="$1" text="$2" name="$3"
@@ -60,8 +66,13 @@ run_case() {
     local mode="$1" message="$2" secret="${3:-}"
     local terminal="$tmpdir/$mode.terminal"
     local install_log="$HOME/statbus/tmp/install-last-run-output.txt"
+    # The installer writes its diagnostics into the checkout it runs from. Run
+    # from a scratch checkout under this test's HOME (what ./sb recognises as
+    # a checkout: .git, docker-compose.yml, cli/), never from the repository.
+    mkdir -p "$HOME/statbus/.git" "$HOME/statbus/cli"
+    : > "$HOME/statbus/docker-compose.yml"
     set +e
-    (cd "$REPO_ROOT" && \
+    (cd "$HOME/statbus" && \
         STATBUS_INJECT_AT=preswap-fetch-returns-error \
         STATBUS_INSTALL_TEST_GIT_ERROR="$mode" \
         STATBUS_INSTALL_TEST_RUN_GO_INSTALLER=1 \
@@ -92,5 +103,15 @@ run_case() {
 run_case authentication "fatal: Authentication failed" fixture-auth-secret
 run_case missing-ref "fatal: couldn't find remote ref fixture-missing-ref"
 run_case network "Could not resolve host" fixture-network-secret
+
+# STATBUS-585: these fixture failures belong to the scratch checkout above.
+# The repository's own diagnostics file is what a developer reads after a
+# real install on this machine; it must not gain fixture lines.
+if [ "$(cat "$real_diagnostics" 2>/dev/null)" != "$real_diagnostics_before" ]; then
+    echo "FAIL: the test wrote into $real_diagnostics" >&2
+    diff <(printf '%s\n' "$real_diagnostics_before") "$real_diagnostics" >&2 || true
+    exit 1
+fi
+echo "PASS: the repository's own install diagnostics file is untouched"
 
 echo "install Git error tests: PASS"
