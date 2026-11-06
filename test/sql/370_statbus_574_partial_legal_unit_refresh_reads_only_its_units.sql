@@ -1,0 +1,109 @@
+-- STATBUS-574: a partial legal-unit timeline refresh reads the timesegments of
+-- its own units and produces the same rows as a full refresh.
+--
+-- public.timeline_legal_unit_refresh(p_unit_id_ranges) rebuilds
+-- timeline_legal_unit for the named legal units; a NULL range rebuilds all.
+-- Its row source filters timesegments on the batch's unit ids, so the work of
+-- one batch follows the batch, not the size of the register. On the BRREG
+-- downloads database a batch of 1,000 legal units took 6.1 s when every
+-- legal-unit segment was read and 0.31 s when only the batch's were.
+--
+-- The read check runs with enable_seqscan off: it asserts that the filter on
+-- the batch's ids can drive an index scan, which is what lets the planner read
+-- only those rows on a large table. Rows read are counted from
+-- pg_stat_xact_user_tables, which reports this transaction's own reads.
+--
+-- Fixture: the two Norwegian legal units over time (several versions, with
+-- establishments and stats, test/data/03_*) plus 200 single-version legal units.
+
+BEGIN;
+
+\i test/setup.sql
+
+\echo "Test 370 (STATBUS-574): a partial legal-unit refresh reads only its units"
+
+CALL test.set_user_from_email('test.admin@statbus.org');
+
+\o /dev/null
+\set ECHO none
+\i samples/norway/getting-started.sql
+\o
+\set ECHO all
+
+INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment)
+SELECT (SELECT id FROM public.import_definition WHERE slug = 'legal_unit_source_dates'),
+       'import_370_lu', 'Test 370 legal units over time', 'test/data/03_norwegian-legal-units-over-time.csv', 'Test 370';
+\copy public.import_370_lu_upload(valid_from,valid_to,tax_ident,name,birth_date,death_date,physical_address_part1,physical_postcode,physical_postplace,physical_region_code,physical_country_iso_2,postal_address_part1,postal_postcode,postal_postplace,postal_region_code,postal_country_iso_2,primary_activity_category_code,secondary_activity_category_code,sector_code,legal_form_code,data_source_code) FROM 'test/data/03_norwegian-legal-units-over-time.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
+CALL worker.process_tasks(p_queue => 'import');
+
+INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment)
+SELECT (SELECT id FROM public.import_definition WHERE slug = 'establishment_for_lu_source_dates'),
+       'import_370_es', 'Test 370 establishments over time', 'test/data/03_norwegian-establishments-over-time.csv', 'Test 370';
+\copy public.import_370_es_upload(valid_from, valid_to, tax_ident,legal_unit_tax_ident,name,birth_date,death_date,physical_address_part1,physical_postcode,physical_postplace,physical_region_code,physical_country_iso_2,postal_address_part1,postal_postcode,postal_postplace,postal_region_code,postal_country_iso_2,primary_activity_category_code,secondary_activity_category_code,data_source_code,unit_size_code,employees,turnover) FROM 'test/data/03_norwegian-establishments-over-time.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
+CALL worker.process_tasks(p_queue => 'import');
+
+INSERT INTO public.enterprise (short_name, edit_by_user_id, edit_comment)
+SELECT 'T370_' || n, (SELECT id FROM auth.user LIMIT 1), 'Test 370 enterprise ' || n
+FROM generate_series(1, 200) AS n;
+
+INSERT INTO public.legal_unit (valid_from, name, enterprise_id, primary_for_enterprise, status_id, edit_by_user_id, edit_comment)
+SELECT '2020-01-01'::date, 'T370 unit ' || e.short_name, e.id, true,
+       (SELECT id FROM public.status WHERE code = 'active' LIMIT 1), (SELECT id FROM auth.user LIMIT 1), 'Test 370'
+FROM public.enterprise AS e
+WHERE e.short_name LIKE 'T370\_%';
+
+CALL worker.process_tasks(p_queue => 'analytics');
+
+\echo
+\echo "370.0 fixture: legal units, and the legal-unit timesegments of the two units over time"
+SELECT (SELECT count(DISTINCT id) FROM public.legal_unit) AS legal_units,
+       (SELECT count(*) FROM public.timesegments WHERE unit_type = 'legal_unit') AS legal_unit_segments,
+       (SELECT count(*) FROM public.timesegments AS t JOIN public.legal_unit AS lu ON lu.id = t.unit_id
+         WHERE t.unit_type = 'legal_unit' AND lu.name LIKE 'KRAN%') AS segments_of_units_over_time;
+
+CREATE TEMP TABLE full_refresh ON COMMIT DROP AS
+SELECT * FROM public.timeline_legal_unit;
+
+CREATE TEMP TABLE batch ON COMMIT DROP AS
+SELECT DISTINCT lu.id
+FROM public.legal_unit AS lu
+WHERE lu.name LIKE 'KRAN%' OR lu.name = 'T370 unit T370_1';
+
+SELECT public.array_to_int4multirange(array_agg(id ORDER BY id)) AS batch_ranges FROM batch \gset
+
+DELETE FROM public.timeline_legal_unit WHERE unit_id IN (SELECT id FROM batch);
+
+SET LOCAL enable_seqscan = off;
+SELECT coalesce(seq_tup_read, 0) + coalesce(idx_tup_fetch, 0) AS rows_read_before
+FROM pg_stat_xact_user_tables WHERE relid = 'public.timesegments'::regclass \gset
+
+CALL public.timeline_legal_unit_refresh(p_unit_id_ranges => :'batch_ranges'::int4multirange);
+
+SELECT coalesce(seq_tup_read, 0) + coalesce(idx_tup_fetch, 0) - :rows_read_before AS rows_read
+FROM pg_stat_xact_user_tables WHERE relid = 'public.timesegments'::regclass \gset
+RESET enable_seqscan;
+
+\echo
+\echo "370.1 the partial refresh read at most three passes over its own units' timesegments"
+SELECT count(*) AS batch_segments,
+       :rows_read <= 3 * count(*) AS reads_only_batch_segments
+FROM public.timesegments AS t
+WHERE t.unit_type = 'legal_unit' AND t.unit_id IN (SELECT id FROM batch);
+
+\echo
+\echo "370.2 the partial refresh produced the full refresh's rows for its units"
+SELECT (SELECT count(*) FROM full_refresh WHERE unit_id IN (SELECT id FROM batch)) AS expected_rows,
+       (SELECT count(*) FROM public.timeline_legal_unit WHERE unit_id IN (SELECT id FROM batch)) AS refreshed_rows,
+       (SELECT count(*) FROM (SELECT * FROM full_refresh EXCEPT ALL SELECT * FROM public.timeline_legal_unit) AS d) AS missing,
+       (SELECT count(*) FROM (SELECT * FROM public.timeline_legal_unit EXCEPT ALL SELECT * FROM full_refresh) AS d) AS extra;
+
+CALL public.timeline_legal_unit_refresh(p_unit_id_ranges => NULL);
+
+\echo
+\echo "370.3 a full refresh (NULL range) reproduces every row"
+SELECT (SELECT count(*) FROM full_refresh) AS expected_rows,
+       (SELECT count(*) FROM public.timeline_legal_unit) AS refreshed_rows,
+       (SELECT count(*) FROM (SELECT * FROM full_refresh EXCEPT ALL SELECT * FROM public.timeline_legal_unit) AS d) AS missing,
+       (SELECT count(*) FROM (SELECT * FROM public.timeline_legal_unit EXCEPT ALL SELECT * FROM full_refresh) AS d) AS extra;
+
+ROLLBACK;
