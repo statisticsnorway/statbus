@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-11-06T17:22:00Z'
-updated_date: '2026-11-06T17:27:00Z'
+updated_date: '2026-11-06T21:45:00Z'
 labels:
   - bug
 dependencies: []
@@ -38,4 +38,6 @@ Owner 2026-11-06 17:24: every box prepared with setup has had no automatic Docke
 Owner 2026-11-06 17:24: rerunning on every box is not in our control (Albania has its own operator), so it is not a criterion. What we control is the instruction. Reruns we do ourselves are tracked as work, not as criteria: Uganda (AC3), then rune.
 
 doc/DEPLOYMENT.md paragraph 'Servers prepared before v2026.11.1: turn on nightly Docker updates' (command + check). AC4 completes when the stable release notes carry the same paragraph.
+
+rc.18 gate GREEN: Release Fleet Orchestrator 42290374739 for v2026.11.1-rc.18 (360b1a253); Upgrade Arc Harness 42292586368 incl. postswap-migration-ceiling success; LXD Fork Fleet 42292492037. Still open: AC3 Uganda rerun (owner), AC4 release-notes paragraph at promote.
 <!-- SECTION:NOTES:END -->

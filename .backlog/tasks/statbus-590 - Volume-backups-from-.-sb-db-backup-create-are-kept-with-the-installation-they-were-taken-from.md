@@ -3,10 +3,10 @@ id: STATBUS-590
 title: >-
   Snapshot archives from ./sb db snapshot create are kept with the installation
   they were taken from
-status: In Progress
+status: Done
 assignee: []
 created_date: '2026-11-06T18:30:00Z'
-updated_date: '2026-11-06T19:24:00Z'
+updated_date: '2026-11-06T21:44:00Z'
 labels:
   - cli
   - backup
@@ -51,4 +51,6 @@ Filed by hibiscus against the pre-574 names; rewritten against the snapshot comm
 
 <!-- SECTION:NOTES:BEGIN -->
 Implemented b28b204af. Red (tmp/590-red.log): snapshotCreatePaths/resolveSnapshotArchive/snapshotPurgeSelection absent; list read ~/statbus-upgrade-snapshots. Green (tmp/590-green.log): TestSnapshotCreateWritesUnderProjectDbdumps, TestSnapshotListShowsOnlyThisSlot, TestSnapshotRestoreResolvesOnlyThisSlot (refuses ma_* with 'taken from slot ma ... this installation is slot ug'), TestSnapshotPurgeSelectsOnlyThisSlot; each asserts temp HOME empty. Full cli/cmd suite ok. .gitignore: dbdumps/*.snapshot.tar.gz and dbdumps/staging/ ignored (tmp/590-gitignore-red.log showed them untracked, green empty). Mac end-to-end on slot test (tmp/590-mac-e2e.log): create wrote dbdumps/test_20261106_202138.snapshot.tar.gz (575.5 MB), list showed it, ~/statbus-upgrade-snapshots not created, purge --keep 0 deleted it, db healthy after. doc/upgrades.md retention section corrected (the -pre.tar.gz archiving it described was removed in STATBUS-112).
+
+rc.18 gate GREEN: Release Fleet Orchestrator 42290374739 for v2026.11.1-rc.18 (360b1a253); Upgrade Arc Harness 42292586368 incl. postswap-migration-ceiling success; LXD Fork Fleet 42292492037.
 <!-- SECTION:NOTES:END -->

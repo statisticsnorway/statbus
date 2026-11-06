@@ -6,7 +6,7 @@ title: >-
 status: Done
 assignee: []
 created_date: '2026-11-06T17:28:00Z'
-updated_date: '2026-11-06T18:18:00Z'
+updated_date: '2026-11-06T21:45:00Z'
 labels:
   - bug
 dependencies: []
@@ -32,4 +32,6 @@ Reported by hibiscus 2026-11-06 (owner request 17:22, decision 17:26; evidence /
 
 <!-- SECTION:NOTES:BEGIN -->
 Owner 2026-11-06 18:17: fix the test-log inconsistency now. Commit above. diskpolicy.DockerRootReporting: development + VM-only root -> one line, continue; standalone/private refuse (TestDockerRootInsideDockerDesktopVM, red tmp/585-red.log, green tmp/585-green.log). install-git-errors-test.sh appended fixture lines to the repository's tmp/install-last-run-output.txt (red tmp/585-test-log-red.log); now runs from a scratch checkout under its HOME and asserts the repository file is unchanged (green tmp/585-test-log-green.log).
+
+rc.18 gate GREEN: Release Fleet Orchestrator 42290374739 for v2026.11.1-rc.18 (360b1a253); Upgrade Arc Harness 42292586368 incl. postswap-migration-ceiling success; LXD Fork Fleet 42292492037. (first gate containing it; rc.17 gate failed on the unrelated STATBUS-586).
 <!-- SECTION:NOTES:END -->

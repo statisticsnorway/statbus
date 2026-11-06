@@ -6,7 +6,7 @@ title: >-
 status: Done
 assignee: []
 created_date: '2026-11-06T17:28:00Z'
-updated_date: '2026-11-06T18:08:00Z'
+updated_date: '2026-11-06T21:44:00Z'
 labels:
   - bug
 dependencies: []
@@ -35,4 +35,6 @@ Reported by hibiscus 2026-11-06 (owner request 17:22; evidence /Users/jhf/ssb/st
 Owner 2026-11-06 17:51: moving secrets is config maintenance, so it gets its own command, ./sb config migrate, with one shared implementation used by the installer and upgrader (single source of truth). config generate never edits operator files; its refusal names every secret and the migrate command. Hibiscus told.
 
 2352e682d. config.MigrateSecrets is the one migration: ./sb config migrate, the installer (generateInstallerConfig), install crash recovery (regenerateCrashRecoveryConfig) and the upgrader (recovery boot and post-swap target regeneration) call it; the --migrate-legacy-secrets flag is hidden and kept only for upgraders from earlier releases (runs the same function). Refusal names every secret: 'SLACK_TOKEN and SEQ_API_KEY in .env.config are secrets and belong in .env.credentials. Run cd <dir> && ./sb config migrate to move them.' Tests red (tmp/584-red.log) then green (tmp/584-green.log, tmp/584-green-cmd.log: config, cmd, upgrade ok). Mac end-to-end with the built ./sb: tmp/584-mac-e2e.log.
+
+rc.18 gate GREEN: Release Fleet Orchestrator 42290374739 for v2026.11.1-rc.18 (360b1a253); Upgrade Arc Harness 42292586368 incl. postswap-migration-ceiling success; LXD Fork Fleet 42292492037. (first gate containing it; rc.17 gate failed on the unrelated STATBUS-586).
 <!-- SECTION:NOTES:END -->
