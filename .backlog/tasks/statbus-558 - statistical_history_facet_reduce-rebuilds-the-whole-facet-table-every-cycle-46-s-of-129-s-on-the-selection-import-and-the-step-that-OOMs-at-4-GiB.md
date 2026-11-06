@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-11-02T13:15:00Z'
-updated_date: '2026-11-06T11:52:00Z'
+updated_date: '2026-11-06T19:16:00Z'
 labels: []
 dependencies: []
 type: enhancement
@@ -98,7 +98,7 @@ Evidence: tmp/558-shd/ (README.md, scripts 01-25 with logs).
 <!-- AC:BEGIN -->
 - [x] #1 On 10-year and full Norway the views give the dense statistical_history and statistical_history_facet's stock (exists_count, countable_count) and stats_summary for every period and cell; change counts are counted per unit version, and every difference from the dense tables is explained
 - [x] #2 On full Norway the read functions answer the report shapes (all years; months of one year; breakdown by one dimension) at most as slow as the dense stored table
-- [ ] #3 The incremental update after unit edits equals a full rebuild (tests 367 and 368, and the import benchmark's check A), with the chosen way of finding a changed unit's old contribution prototyped and measured against the alternatives
+- [x] #3 The incremental update after unit edits equals a full rebuild (tests 367 and 368, and the import benchmark's check A), with the chosen way of finding a changed unit's old contribution prototyped and measured against the alternatives
 - [x] #4 Full rebuild and incremental cycle on full Norway take less time than the dense-table pipeline's history steps
 - [x] #5 Migration, worker step and tests 008, 094, 096, 107, 204, 318, 322, 325, 346, 364 pass
 - [ ] #6 Released per-commit image upgrades a guest with data to this migration and the history rebuild completes (install/upgrade testing)
@@ -252,4 +252,6 @@ AC1 scope: full Norway checked on the committed build (above); the 10-year datab
 2026-11-06 09:56 Independent expected-file review (worker palmtree, tmp/review-expected/report.md): every hunk of 493f13428 and the 573 branch classified; value changes in 107, 319 (32), 322 (1992), 367, 368 each derived independently from fixtures; no wrong value, no t->f, no lost row. Two robustness findings fixed: 107 facet queries now order by every cell dimension (7559f5838, reorder only); 324 shows victim names and enterprise legal-unit counts instead of allocated enterprise ids (20232ff52).
 
 2026-11-06 11:52 Landed in local master 67488988e (fast-forward, owner 11:41: land the whole set, then one release with one full recalculation). Not pushed. Fast suite on that tip 124/124 (tmp/test-stack-fast.log).
+
+2026-11-06 19:15 rebased local master onto origin/master ce9669a78 (after v2026.11.1-rc.17); tip 3e4b68ea6, 80 commits ahead, 0 merges, combined patch identical to before the rebase. Fast suite: all 124 shared + 2 isolated tests pass (tmp/test-rebased-fast.log). Not pushed. AC3: tests 367 (incremental equals rebuild after unit edits) and 368 (after a failed flush) pass; import benchmark check A on the full BRREG downloads: 0 divergent delta rows (tmp/574impl/bench-downloads.log). The old contribution is read from statistical_unit before the flush (option b, measured against the alternatives in the 2026-11-04 notes, tmp/558-shd/24-per-range-cost.log). Norway incremental cycle, 437 units: 4.1 s staging + 0.54 s apply. Open: AC6 = rune upgrade run U (owner 18:12), AC7 = owner review then push+CI, AC8 = owner adoption.
 <!-- SECTION:NOTES:END -->
