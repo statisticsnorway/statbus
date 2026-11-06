@@ -34,7 +34,7 @@ A unit refresh costs in proportion to the units it refreshes, so imports and ful
 ### Closing review
 - **Memory:** none expected.
 - **Documentation:** doc/derive-pipeline.md timing table if the refresh changes.
-- **Cleanup:** drop the import_benchmark_43190 database when the profile is done.
+- **Cleanup:** drop the import_benchmark_43190 (baseline) and import_benchmark_40149 (AC2 run) databases after the release notes are written.
 <!-- SECTION:DESCRIPTION:END -->
 
 ## Acceptance Criteria
@@ -61,7 +61,7 @@ Validation: nine retained batches have identical positive-count row snapshots, E
 
 Prioritize LU then propagation. MATERIALIZED PG aggregation also helps, but PG accounts for only 27.596 s historically. Conditional ratio-transfer estimate: 7000-8600 s saved from 10320 s, not a measured full-import or wall-time saving. Import-phase cardinality/plans/contention differ from final-state replay, so implementation and full benchmark/consistency checks remain necessary. Sources: tmp/574/population.log:18-20, tmp/574/projection.txt, tmp/574/report.md:69-79. All database changes rolled back, original definition unchanged, retained DB preserved (tmp/574/final-state.log, tmp/574/definition-check.log).
 
-AC1 and AC3 verified. AC2 full benchmark/consistency validation remains unverified. Status remains In Progress.
+AC1 and AC3 verified (AC2 verified 2026-11-06 14:02, below).
 
 2026-11-06 10:53 Implemented on branch statbus-574-unit-refresh-profile (local): test 5aba434cd+59c4353e3 (370: a partial LU refresh reads at most 3 passes over its own units' timesegments, rows equal a full refresh; f on the pre-fix definitions tmp/574impl/370-prefix-v3.out, t after), migration 3aaf21508 (20261106101527).
 Design: one source of truth kept. timeline_legal_unit_def's body became the SQL function timeline_legal_unit_def_for(p_unit_ids) (inlined, ids constant-folded), the view is its NULL case; the GUC statbus.filter_unit_ids is gone. Partial refresh: DELETE + INSERT from the function. Also ES->LU propagation bounded to the batch's LUs, LU->EN with = ANY, MATERIALIZED power-group aggregation.
