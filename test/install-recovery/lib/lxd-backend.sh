@@ -635,6 +635,9 @@ install -m 0600 ~/harness-certs/domain.key caddy/data/custom-certs/domain.key
 # statbus-owned), so this base is fleet-faithful. The v2026.10+ Directories
 # step makes this unnecessary for installs it performs itself; the harness
 # guard stays until the gate has proven green with it.
+# The baseline is a historical release, so its snapshot folder is the
+# pre-STATBUS-574 ~/statbus-backups; the candidate under test moves it to
+# ~/statbus-upgrade-snapshots (0-happy-upgrade asserts that).
 install -d -m 0755 ~/statbus-maintenance
 install -d -m 0755 ~/statbus-backups
 # Same content as vm-bootstrap.sh's env-config fixture for a current-era box.
@@ -1473,8 +1476,8 @@ fi
 # .../statbus-maintenance/active: permission denied"): pre-planting
 # .env.config here makes install.go's checkConfigDone() (".env.config
 # exists") return true on the VERY FIRST run, so its "Configuration" step
-# (runCreateConfig, which os.MkdirAll()s ~/statbus-maintenance and
-# ~/statbus-backups AS THIS USER, statbus) never runs at all - the ONLY
+# (runCreateConfig, which os.MkdirAll()s ~/statbus-maintenance and the
+# snapshot folder AS THIS USER, statbus) never runs at all - the ONLY
 # reason `./sb install` ever creates either directory. Docker itself then
 # auto-creates the still-missing bind-mount source directory during
 # `docker compose up` (the "Services" step), but as root (the Docker
@@ -1496,7 +1499,7 @@ fi
 # just this harness) is filed as STATBUS-431; keep this mkdir here until
 # that lands product-side.
 install -d -m 0755 "$HOME/statbus-maintenance"
-install -d -m 0755 "$HOME/statbus-backups"
+install -d -m 0755 "$HOME/statbus-upgrade-snapshots"
 cp /tmp/env-config "$HOME/statbus/.env.config"
 if [ -f /tmp/env-credentials ]; then
     install -m 0600 /tmp/env-credentials "$HOME/statbus/.env.credentials"
@@ -1641,7 +1644,8 @@ fi
 # file, same root cause) - pre-planting .env.config short-circuits install.go's
 # "Configuration" step, which is the only place ~/statbus-maintenance and
 # ~/statbus-backups get created AS statbus. Recreate that ownership here.
-# Harness workaround only - product gap filed as STATBUS-431.
+# Harness workaround only - product gap filed as STATBUS-431. This block runs a
+# historical release, whose snapshot folder is the pre-STATBUS-574 name.
 install -d -m 0755 ~/statbus-maintenance
 install -d -m 0755 ~/statbus-backups
 cp /tmp/env-config .env.config
@@ -1678,7 +1682,7 @@ fi
 # comment above (install_statbus_in_vm) for the root cause. Same fix here.
 # Harness workaround only - product gap filed as STATBUS-431.
 install -d -m 0755 "$HOME/statbus-maintenance"
-install -d -m 0755 "$HOME/statbus-backups"
+install -d -m 0755 "$HOME/statbus-upgrade-snapshots"
 cp /tmp/env-config "$HOME/statbus/.env.config"
 if [ -f /tmp/env-credentials ]; then
     install -m 0600 /tmp/env-credentials "$HOME/statbus/.env.credentials"

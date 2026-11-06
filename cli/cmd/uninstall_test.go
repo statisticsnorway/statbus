@@ -1401,12 +1401,12 @@ exit 0
 }
 
 // The install creates ~/statbus-maintenance (the maintenance page switch) and
-// ~/statbus-backups (pre-upgrade snapshots) next to the checkout. Removal takes
-// the maintenance folder always, and the backups with the database dumps; when
-// the dumps are kept, the backups are kept too and the plan says so.
+// ~/statbus-upgrade-snapshots (the upgrade snapshots) next to the checkout. A
+// box installed before STATBUS-574 may still hold its snapshots in
+// ~/statbus-backups. Removal takes all of them, and the plan lists each one.
 func TestUninstallRemovesTheInstallsHomeFolders(t *testing.T) {
-	// The upgrade snapshots (~/statbus-backups) only fit the installation being
-	// removed, so they go whether or not the database backups are kept.
+	// The upgrade snapshots only fit the installation being removed, so they
+	// go whether or not the database backups are kept.
 	for _, tc := range []struct{ name, answers string }{
 		{"keep the database backup", "n\nn\n\nDELETE\n"},
 		{"delete the database backup", "n\nn\nn\nDELETE\n"},
@@ -1414,14 +1414,17 @@ func TestUninstallRemovesTheInstallsHomeFolders(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			home := t.TempDir()
 			dir := filepath.Join(home, "statbus")
-			for _, sub := range []string{filepath.Join(dir, "tmp"), filepath.Join(dir, "dbdumps"), filepath.Join(home, "statbus-maintenance"), filepath.Join(home, "statbus-backups", "pre-upgrade-active")} {
+			snapshots := filepath.Join(home, "statbus-upgrade-snapshots")
+			legacySnapshots := filepath.Join(home, "statbus-backups")
+			for _, sub := range []string{filepath.Join(dir, "tmp"), filepath.Join(dir, "dbdumps"), filepath.Join(home, "statbus-maintenance"), filepath.Join(snapshots, "pre-upgrade-active"), filepath.Join(legacySnapshots, "pre-upgrade-active")} {
 				if err := os.MkdirAll(sub, 0700); err != nil {
 					t.Fatal(err)
 				}
 			}
 			for path, body := range map[string]string{
 				filepath.Join(home, "statbus-maintenance", "active"):            "upgrade\n",
-				filepath.Join(home, "statbus-backups", "v2026.11.0-pre.tar.gz"): "archive",
+				filepath.Join(snapshots, "snapshot-2026-11-06T10-00-00.tar.gz"): "archive",
+				filepath.Join(legacySnapshots, "v2026.11.0-pre.tar.gz"):         "archive",
 				filepath.Join(dir, "dbdumps", "un_20261105_121219.pg_dump"):     "dump",
 			} {
 				if err := os.WriteFile(path, []byte(body), 0600); err != nil {
@@ -1433,12 +1436,12 @@ func TestUninstallRemovesTheInstallsHomeFolders(t *testing.T) {
 			if err != nil {
 				t.Fatalf("interactive removal: %v\n%s", err, out)
 			}
-			for _, path := range []string{dir, filepath.Join(home, "statbus-maintenance"), filepath.Join(home, "statbus-backups")} {
+			for _, path := range []string{dir, filepath.Join(home, "statbus-maintenance"), snapshots, legacySnapshots} {
 				if _, statErr := os.Stat(path); !os.IsNotExist(statErr) {
 					t.Errorf("%s survived the removal: %v\n%s", path, statErr, out)
 				}
 			}
-			for _, want := range []string{"  Path (recursively): " + filepath.Join(home, "statbus-maintenance"), "  Path (recursively): " + filepath.Join(home, "statbus-backups")} {
+			for _, want := range []string{"  Path (recursively): " + filepath.Join(home, "statbus-maintenance"), "  Path (recursively): " + snapshots, "  Path (recursively): " + legacySnapshots} {
 				if !strings.Contains(out, want) {
 					t.Errorf("plan is missing %q:\n%s", want, out)
 				}
@@ -1515,16 +1518,16 @@ func uninstallPrompts(out string) []string {
 func TestUninstallKeepsBackupsOutsideTheCheckout(t *testing.T) {
 	home := t.TempDir()
 	dir := filepath.Join(home, "statbus")
-	for _, sub := range []string{filepath.Join(dir, "tmp"), filepath.Join(dir, "dbdumps"), filepath.Join(home, "statbus-backups", "pre-upgrade-active")} {
+	for _, sub := range []string{filepath.Join(dir, "tmp"), filepath.Join(dir, "dbdumps"), filepath.Join(home, "statbus-upgrade-snapshots", "pre-upgrade-active")} {
 		if err := os.MkdirAll(sub, 0o700); err != nil {
 			t.Fatal(err)
 		}
 	}
 	for path, body := range map[string]string{
-		filepath.Join(dir, "dbdumps", ".gitkeep"):                         "",
-		filepath.Join(dir, "dbdumps", "un_20261105_121219.pg_dump"):       "dump",
-		filepath.Join(dir, "dbdumps", "un_20261105_121219.logs.tar.gz"):   "logs",
-		filepath.Join(home, "statbus-backups", "pre-upgrade-active", "x"): "snapshot",
+		filepath.Join(dir, "dbdumps", ".gitkeep"):                                   "",
+		filepath.Join(dir, "dbdumps", "un_20261105_121219.pg_dump"):                 "dump",
+		filepath.Join(dir, "dbdumps", "un_20261105_121219.logs.tar.gz"):             "logs",
+		filepath.Join(home, "statbus-upgrade-snapshots", "pre-upgrade-active", "x"): "snapshot",
 	} {
 		if err := os.WriteFile(path, []byte(body), 0o644); err != nil {
 			t.Fatal(err)
@@ -1545,7 +1548,7 @@ func TestUninstallKeepsBackupsOutsideTheCheckout(t *testing.T) {
 			t.Fatalf("%s: %q %v\n%s", name, data, readErr, out)
 		}
 	}
-	for _, gone := range []string{dir, filepath.Join(home, "statbus-backups")} {
+	for _, gone := range []string{dir, filepath.Join(home, "statbus-upgrade-snapshots")} {
 		if _, statErr := os.Stat(gone); !os.IsNotExist(statErr) {
 			t.Fatalf("%s survived the removal: %v\n%s", gone, statErr, out)
 		}
@@ -1570,7 +1573,7 @@ func TestUninstallKeepsBackupsOutsideTheCheckout(t *testing.T) {
 func TestUninstallAsksAboutBackupsOnlyWhenThereAreSome(t *testing.T) {
 	home := t.TempDir()
 	dir := filepath.Join(home, "statbus")
-	for _, sub := range []string{filepath.Join(dir, "tmp"), filepath.Join(dir, "dbdumps"), filepath.Join(home, "statbus-backups")} {
+	for _, sub := range []string{filepath.Join(dir, "tmp"), filepath.Join(dir, "dbdumps"), filepath.Join(home, "statbus-upgrade-snapshots")} {
 		if err := os.MkdirAll(sub, 0o700); err != nil {
 			t.Fatal(err)
 		}
@@ -1587,7 +1590,7 @@ func TestUninstallAsksAboutBackupsOnlyWhenThereAreSome(t *testing.T) {
 	if got := uninstallPrompts(out); strings.Join(got, "|") != strings.Join(wantPrompts, "|") {
 		t.Fatalf("prompts = %q, want %q\n%s", got, wantPrompts, out)
 	}
-	for _, gone := range []string{dir, filepath.Join(home, "statbus-backups"), filepath.Join(home, "statbus.dbdumps")} {
+	for _, gone := range []string{dir, filepath.Join(home, "statbus-upgrade-snapshots"), filepath.Join(home, "statbus.dbdumps")} {
 		if _, statErr := os.Stat(gone); !os.IsNotExist(statErr) {
 			t.Fatalf("%s exists after the removal: %v\n%s", gone, statErr, out)
 		}

@@ -44,7 +44,7 @@ func retreatFixture(t *testing.T, retreated bool) string {
 		Trigger:    "scheduled",
 		Holder:     upgrade.HolderService,
 		Phase:      upgrade.PhaseNewSbSwapped,
-		BackupPath: "/home/statbus/statbus-backups/pre-upgrade-active",
+		BackupPath: "/home/statbus/statbus-upgrade-snapshots/pre-upgrade-active",
 		Step:       "image-pull",
 	}
 	if retreated {

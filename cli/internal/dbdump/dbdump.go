@@ -2,8 +2,8 @@
 // (pg_dump -Fc) backup of the StatBus database and pruning the dump
 // directory by retention count.
 //
-// It exists as a NEUTRAL package — imported by BOTH cli/cmd (the `sb db dump`
-// / `sb db dumps purge` cobra commands) AND cli/internal/upgrade (the always-on
+// It exists as a NEUTRAL package — imported by BOTH cli/cmd (the `sb db backup create`
+// / `sb db backup purge` cobra commands) AND cli/internal/upgrade (the always-on
 // service's scheduled-backup runner, STATBUS-113). The cores cannot live in
 // cli/cmd because cmd imports internal/upgrade (10 files) — the service calling
 // back into cmd would be an import cycle. dbdump imports neither, so both sides
@@ -45,7 +45,7 @@ func DumpsDir(projDir string) string {
 // file. Any failure (pg_dump error, empty output) removes the .tmp and returns
 // an error — a partial/empty dump is NEVER published under the final name, so a
 // killed or preempted run leaves at most a discardable .tmp, never a corrupt
-// restore source. The command itself is unchanged from the original `sb db dump`:
+// restore source. The command itself is unchanged from the original `sb db dump` (now `sb db backup create`):
 //
 //	docker compose exec -T db pg_dump -Fc --no-owner \
 //	    --exclude-table-data=auth.secrets -U postgres <db>

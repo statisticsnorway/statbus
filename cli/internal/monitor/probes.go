@@ -273,9 +273,9 @@ func DiskProbe(projectDir string) func(context.Context) (DiskResult, error) {
 // periodic logical dump: dbdump.DumpDatabase writes
 // <projectDir>/dbdumps/<slot>_<ts>.pg_dump and the service re-runs it every
 // interval. That dump is what a restore actually uses, so this check measures
-// it via dbdump.NewestDumpModTime — not ~/statbus-backups, which holds only
-// the volume snapshots of `sb db backup create` and upgrade snapshots and can
-// be arbitrarily old. No dump yet is "no backups yet"; without the dumps
+// it via dbdump.NewestDumpModTime — not ~/statbus-upgrade-snapshots, which
+// holds only the upgrade snapshots (`sb db snapshot create` and the
+// upgrader's pre-upgrade copy) and can be arbitrarily old. No dump yet is "no backups yet"; without the dumps
 // directory there is nothing to measure and the result is likewise empty.
 func BackupsProbe(projectDir string) func(context.Context) (BackupResult, error) {
 	return func(ctx context.Context) (BackupResult, error) {

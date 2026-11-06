@@ -55,7 +55,7 @@ fi
 # The database backups (the daily pg_dump files in ~/statbus/dbdumps) are the
 # installation's data in portable form; a kept backup moves to KEPT_DUMPS, where
 # the next install takes it back (STATBUS-419 AC9). The upgrade snapshots in
-# ~/statbus-backups only fit the installation being removed and always go.
+# ~/statbus-upgrade-snapshots only fit the installation being removed and always go.
 KEPT_DUMPS="$HOME/statbus.dbdumps"
 DUMP_COUNT=0
 if [[ -d $DIR/dbdumps && ! -L $DIR/dbdumps ]]; then
@@ -326,10 +326,11 @@ if [[ -d $DIR ]]; then
 fi
 # The install also creates two folders beside the checkout (installerManagedHomeDirs
 # in cli/cmd/install.go): ~/statbus-maintenance, the maintenance page switch,
-# and ~/statbus-backups, the upgrade snapshots. Both always go: a snapshot
-# can only roll back the installation being removed.
+# and ~/statbus-upgrade-snapshots, the upgrade snapshots. A box installed
+# before STATBUS-574 may still keep its snapshots in ~/statbus-backups. All of
+# them go: a snapshot can only roll back the installation being removed.
 home_dirs=()
-for path in "$HOME/statbus-maintenance" "$HOME/statbus-backups"; do
+for path in "$HOME/statbus-maintenance" "$HOME/statbus-upgrade-snapshots" "$HOME/statbus-backups"; do
     [[ -e $path || -L $path ]] || continue
     home_dirs+=("$path")
 done

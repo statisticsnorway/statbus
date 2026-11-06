@@ -80,8 +80,11 @@ assert_deny "./sb release prerelease foreground" \
 assert_deny "./sb db restore foreground" \
   "$(payload_fg './sb db restore dbdumps/statbus_local.dump')"
 
-assert_deny "./sb db dump foreground" \
-  "$(payload_fg './sb db dump')"
+assert_deny "./sb db backup create foreground" \
+  "$(payload_fg './sb db backup create')"
+
+assert_deny "./sb db snapshot restore foreground" \
+  "$(payload_fg './sb db snapshot restore snapshot-2026-11-06T10-00-00')"
 
 assert_deny "pnpm run build foreground" \
   "$(payload_fg 'cd app && pnpm run build')"

@@ -125,6 +125,12 @@
     fflush()
     next
 }
+# The upgrade snapshot folder move (STATBUS-574, cli/internal/upgrade/snapshot_root.go).
+/^  (Moved the upgrade snapshots from ~\/statbus-backups to ~\/statbus-upgrade-snapshots\.|Left [A-Za-z0-9_., -]+ in ~\/statbus-backups: ~\/statbus-upgrade-snapshots already has one\. Remove ~\/statbus-backups when it is no longer needed\.|Keeping ~\/statbus-backups in place for now: .+\. The upgrader moves it to ~\/statbus-upgrade-snapshots when that upgrade is finished\.)$/ {
+    print
+    fflush()
+    next
+}
 # Database backups an uninstall kept (cli/cmd/install_kept_backups.go): the
 # move back into the checkout, and how to restore the newest one.
 /^  Moved the [0-9]+ kept backups? from [A-Za-z0-9_.\/~+-]+ to [A-Za-z0-9_.\/~+-]+\.$/ {

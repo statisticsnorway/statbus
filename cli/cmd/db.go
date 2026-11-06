@@ -168,7 +168,7 @@ func warnIfManyDumps(dir string) {
 		return
 	}
 	if len(entries) >= 3 {
-		fmt.Fprintf(os.Stderr, "Warning: %d dump files in %s — consider running 'sb db dumps purge'\n", len(entries), dir)
+		fmt.Fprintf(os.Stderr, "Warning: %d dump files in %s — consider running 'sb db backup purge'\n", len(entries), dir)
 	}
 }
 
@@ -217,7 +217,7 @@ func confirmAction(prompt string) bool {
 
 var dbCmd = &cobra.Command{
 	Use:     "db",
-	Short:   "Database operations (dump, restore, status)",
+	Short:   "Database operations (backup, restore, snapshot, status)",
 	GroupID: operationsGroupID,
 }
 
@@ -234,11 +234,21 @@ var dbStatusCmd = &cobra.Command{
 	},
 }
 
-// ── db dump ──────────────────────────────────────────────────────────────────
+// ── db backup ────────────────────────────────────────────────────────────────
+
+// backupCmd groups the database backups: the portable pg_dump files in
+// <checkout>/dbdumps that the upgrader writes on BACKUP_INTERVAL, that an
+// uninstall keeps, and that ./sb db restore loads (STATBUS-574). The raw
+// volume copies the upgrader takes before each upgrade are the upgrade
+// snapshots under ./sb db snapshot instead.
+var backupCmd = &cobra.Command{
+	Use:   "backup",
+	Short: "Manage database backups (pg_dump files in dbdumps/)",
+}
 
 var dbDumpCmd = &cobra.Command{
-	Use:   "dump",
-	Short: "Dump the local database to a file",
+	Use:   "create",
+	Short: "Back up the local database to dbdumps/",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		projDir := config.ProjectDir()
 
@@ -457,16 +467,11 @@ func downloadLogsCompanion(projDir, dumpPath string, slot fleet.Slot) {
 	fmt.Printf("Logs:  %s (%s)\n", companionPath, humanSize(info.Size()))
 }
 
-// ── db dumps list ────────────────────────────────────────────────────────────
-
-var dumpsCmd = &cobra.Command{
-	Use:   "dumps",
-	Short: "Manage database dump files",
-}
+// ── db backup list ───────────────────────────────────────────────────────────
 
 var dumpsListCmd = &cobra.Command{
 	Use:   "list",
-	Short: "List database dump files",
+	Short: "List database backups in dbdumps/",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		projDir := config.ProjectDir()
 		dumpsDir := filepath.Join(projDir, "dbdumps")
@@ -501,11 +506,11 @@ var dumpsListCmd = &cobra.Command{
 	},
 }
 
-// ── db dumps purge ───────────────────────────────────────────────────────────
+// ── db backup purge ──────────────────────────────────────────────────────────
 
 var dumpsPurgeCmd = &cobra.Command{
 	Use:   "purge [keep_count]",
-	Short: "Delete old dump files, keeping newest N per source (default: 1)",
+	Short: "Delete old database backups, keeping newest N per source (default: 1)",
 	Args:  cobra.MaximumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		projDir := config.ProjectDir()
@@ -1205,7 +1210,7 @@ echo "Restore complete"
 	return nil
 }
 
-// ── db backup ─────────────────────────────────────────────────────────────────
+// ── db snapshot ──────────────────────────────────────────────────────────────
 
 // backupTimestamp returns a filename-safe ISO-ish timestamp: 2006-01-02T15-04-05.
 func backupTimestamp() string {
@@ -1225,15 +1230,16 @@ func loadVolumeName(projDir string) (string, error) {
 	return name + "-db-data", nil
 }
 
-// backupsDir returns ~/statbus-backups, creating it if needed.
-func backupsDir() (string, error) {
+// snapshotsDir returns the upgrade snapshot folder
+// (~/statbus-upgrade-snapshots, upgrade.SnapshotRoot), creating it if needed.
+func snapshotsDir() (string, error) {
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return "", fmt.Errorf("determine home directory: %w", err)
 	}
-	dir := filepath.Join(home, "statbus-backups")
+	dir := upgrade.SnapshotRoot(home)
 	if err := os.MkdirAll(dir, 0755); err != nil {
-		return "", fmt.Errorf("create backups directory: %w", err)
+		return "", fmt.Errorf("create upgrade snapshot folder: %w", err)
 	}
 	return dir, nil
 }
@@ -1281,26 +1287,26 @@ func dockerComposeStart(projDir string, profileOrService string) (result error) 
 	return cmd.Run()
 }
 
-var backupCmd = &cobra.Command{
-	Use:   "backup",
-	Short: "Manage volume-level database backups",
-	Long: `Manage volume-level database backups via rsync.
+var snapshotCmd = &cobra.Command{
+	Use:   "snapshot",
+	Short: "Manage upgrade snapshots (raw copies of the database volume)",
+	Long: `Manage upgrade snapshots: raw copies of the PostgreSQL data folder in the
+Docker volume, the kind the upgrader takes before each upgrade so it can roll
+back. A snapshot only fits this installation. For a portable copy, use
+./sb db backup instead.
 
-These backups copy the raw PostgreSQL data directory from the Docker named volume,
-providing a complete snapshot that can be restored without pg_dump/pg_restore.
-
-Backups are stored as tar.gz archives in ~/statbus-backups/.
+Archives are stored as tar.gz files in ~/statbus-upgrade-snapshots/.
 
 Subcommands:
-  create    Create a new backup (stops db briefly)
-  restore   Restore a backup to the Docker volume
-  list      List available backup archives
+  create    Create a new snapshot archive (stops db briefly)
+  restore   Restore a snapshot archive to the Docker volume
+  list      List snapshot archives
   purge     Delete old archives`,
 }
 
 var backupCreateCmd = &cobra.Command{
 	Use:   "create",
-	Short: "Create a volume-level backup of the database",
+	Short: "Create an upgrade snapshot archive of the database volume",
 	Long: `Stop the database, rsync the Docker volume to a local directory,
 restart the database, then archive to a tar.gz file.
 
@@ -1313,7 +1319,7 @@ The database will be briefly unavailable during the rsync.`,
 			return err
 		}
 
-		bkDir, err := backupsDir()
+		bkDir, err := snapshotsDir()
 		if err != nil {
 			return err
 		}
@@ -1341,7 +1347,7 @@ The database will be briefly unavailable during the rsync.`,
 			"apk add --no-cache rsync >/dev/null 2>&1 && rsync -a --delete /source/ /backup/",
 		)
 		if buildErr != nil {
-			return fmt.Errorf("construct backup rsync container: %w", buildErr)
+			return fmt.Errorf("construct snapshot rsync container: %w", buildErr)
 		}
 		rsyncCmd.Dir = projDir
 		rsyncCmd.Stdout = os.Stdout
@@ -1361,7 +1367,7 @@ The database will be briefly unavailable during the rsync.`,
 		}
 
 		// Step 4: Archive to tar.gz
-		archiveName := fmt.Sprintf("backup-%s.tar.gz", ts)
+		archiveName := fmt.Sprintf("snapshot-%s.tar.gz", ts)
 		archivePath := filepath.Join(bkDir, archiveName)
 		fmt.Printf("Archiving to %s ...\n", archiveName)
 		tarCmd := exec.Command("tar", "-czf", archivePath,
@@ -1387,11 +1393,11 @@ The database will be briefly unavailable during the rsync.`,
 
 var backupRestoreCmd = &cobra.Command{
 	Use:   "restore <name>",
-	Short: "Restore a volume-level backup",
-	Long: `Stop all services, extract the backup archive, rsync to the Docker volume,
+	Short: "Restore an upgrade snapshot archive",
+	Long: `Stop all services, extract the snapshot archive, rsync to the Docker volume,
 then restart all services.
 
-The name can be a full filename (backup-2026-03-27T14-30-00.tar.gz),
+The name can be a full filename (snapshot-2026-03-27T14-30-00.tar.gz),
 a basename without extension, or just the timestamp portion.`,
 	Args: cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
@@ -1403,7 +1409,7 @@ a basename without extension, or just the timestamp portion.`,
 			return err
 		}
 
-		bkDir, err := backupsDir()
+		bkDir, err := snapshotsDir()
 		if err != nil {
 			return err
 		}
@@ -1472,8 +1478,9 @@ a basename without extension, or just the timestamp portion.`,
 	},
 }
 
-// resolveBackupArchive finds the archive file matching a user-provided name.
-// Accepts: full filename, basename without .tar.gz, or just a timestamp.
+// resolveBackupArchive finds the snapshot archive matching a user-provided
+// name. Accepts: full filename, basename without .tar.gz, or just a timestamp
+// (snapshot-<ts>.tar.gz; archives made before STATBUS-574 are backup-<ts>.tar.gz).
 func resolveBackupArchive(bkDir, name string) (string, error) {
 	// Try exact path first
 	if filepath.IsAbs(name) {
@@ -1494,20 +1501,22 @@ func resolveBackupArchive(bkDir, name string) (string, error) {
 		return candidate, nil
 	}
 
-	// Try with backup- prefix and .tar.gz suffix
-	candidate = filepath.Join(bkDir, "backup-"+name+".tar.gz")
-	if _, err := os.Stat(candidate); err == nil {
-		return candidate, nil
+	// Try with the snapshot- (or pre-574 backup-) prefix and .tar.gz suffix
+	for _, prefix := range []string{"snapshot-", "backup-"} {
+		candidate = filepath.Join(bkDir, prefix+name+".tar.gz")
+		if _, err := os.Stat(candidate); err == nil {
+			return candidate, nil
+		}
 	}
 
-	return "", fmt.Errorf("backup archive not found: %s\nRun 'sb db backup list' to see available backups", name)
+	return "", fmt.Errorf("snapshot archive not found: %s\nRun './sb db snapshot list' to see the archives", name)
 }
 
 var backupListCmd = &cobra.Command{
 	Use:   "list",
-	Short: "List available backup archives",
+	Short: "List upgrade snapshot archives",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		bkDir, err := backupsDir()
+		bkDir, err := snapshotsDir()
 		if err != nil {
 			return err
 		}
@@ -1517,12 +1526,12 @@ var backupListCmd = &cobra.Command{
 			return err
 		}
 		if len(entries) == 0 {
-			fmt.Printf("No backup archives found in %s\n", bkDir)
+			fmt.Printf("No snapshot archives found in %s\n", bkDir)
 			return nil
 		}
 
 		sort.Strings(entries)
-		fmt.Printf("Backup archives in %s:\n\n", bkDir)
+		fmt.Printf("Snapshot archives in %s:\n\n", bkDir)
 		for _, path := range entries {
 			info, err := os.Stat(path)
 			if err != nil {
@@ -1541,9 +1550,9 @@ var backupListCmd = &cobra.Command{
 
 var backupPurgeCmd = &cobra.Command{
 	Use:   "purge",
-	Short: "Delete old backup archives, keeping newest N (default 7)",
+	Short: "Delete old snapshot archives, keeping newest N (default 7)",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		bkDir, err := backupsDir()
+		bkDir, err := snapshotsDir()
 		if err != nil {
 			return err
 		}
@@ -1553,7 +1562,7 @@ var backupPurgeCmd = &cobra.Command{
 			return err
 		}
 		if len(entries) == 0 {
-			fmt.Println("No backup archives to purge")
+			fmt.Println("No snapshot archives to purge")
 			return nil
 		}
 
@@ -1602,21 +1611,21 @@ func init() {
 	dbRestoreCmd.Flags().StringVar(&restoreTo, "to", "", "remote deployment slot code to restore to (e.g., dev, no, demo)")
 	dbRestoreCmd.Flags().BoolVar(&restoreYes, "yes", false, "skip confirmation prompt")
 
-	dumpsCmd.AddCommand(dumpsListCmd)
-	dumpsCmd.AddCommand(dumpsPurgeCmd)
+	backupCmd.AddCommand(dbDumpCmd)
+	backupCmd.AddCommand(dumpsListCmd)
+	backupCmd.AddCommand(dumpsPurgeCmd)
 
 	backupPurgeCmd.Flags().IntVar(&backupKeep, "keep", 7, "number of newest archives to keep")
-	backupCmd.AddCommand(backupCreateCmd)
-	backupCmd.AddCommand(backupRestoreCmd)
-	backupCmd.AddCommand(backupListCmd)
-	backupCmd.AddCommand(backupPurgeCmd)
+	snapshotCmd.AddCommand(backupCreateCmd)
+	snapshotCmd.AddCommand(backupRestoreCmd)
+	snapshotCmd.AddCommand(backupListCmd)
+	snapshotCmd.AddCommand(backupPurgeCmd)
 
 	dbCmd.AddCommand(dbStatusCmd)
-	dbCmd.AddCommand(dbDumpCmd)
-	dbCmd.AddCommand(dbDownloadCmd)
-	dbCmd.AddCommand(dumpsCmd)
-	dbCmd.AddCommand(dbRestoreCmd)
 	dbCmd.AddCommand(backupCmd)
+	dbCmd.AddCommand(dbDownloadCmd)
+	dbCmd.AddCommand(dbRestoreCmd)
+	dbCmd.AddCommand(snapshotCmd)
 
 	rootCmd.AddCommand(dbCmd)
 }

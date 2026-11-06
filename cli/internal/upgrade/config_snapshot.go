@@ -93,6 +93,9 @@ func snapshotOperatorConfig(projDir, backupPath string) error {
 }
 
 func restoreOperatorConfig(projDir, backupPath string) error {
+	// A path recorded before the STATBUS-574 folder move names the same
+	// snapshot under ~/statbus-upgrade-snapshots (snapshot_root.go).
+	backupPath = resolveRecordedSnapshot(backupPath)
 	snapshotPath := operatorConfigSnapshotPath(backupPath)
 	snapshotInfo, err := os.Lstat(snapshotPath)
 	if err != nil {

@@ -85,7 +85,7 @@ var dockerRun = func(mountDir, shellCmd, image string, pullNever bool) ([]byte, 
 }
 
 // shellWord renders s as a shell word: bare when it is a plain portable name
-// (the product constants statbus-maintenance, statbus-backups, custom-certs —
+// (the product constants statbus-maintenance, statbus-upgrade-snapshots, custom-certs —
 // keeping the STATBUS-429 R2 pinned argv byte-identical), single-quoted
 // otherwise. Never interpolate an unquoted unsafe name into a root shell.
 func shellWord(s string) string {

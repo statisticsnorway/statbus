@@ -170,7 +170,7 @@ An upgrade runs in two halves split by a binary swap — the OLD binary does the
 1. **Pre-flight** (no marker yet) -- downgrade/platform/disk/signature checks; reject cleanly before anything destructive.
 2. **Marker + warm-up** -- the `upgrade-in-progress` marker is written (from here a crash is resumable); images pre-pulled.
 3. **Read-only window ON** -- external writes are blocked for the destructive phase (an accident-guard; `doc/read-only-upgrade-window.md`). Maintenance page ON; app/worker/rest stopped; **database stopped**.
-4. **Snapshot** -- the stopped volume is rsync'd to `~/statbus-backups/pre-upgrade-active/` (atomic dir-rename commit; this is the rollback artifact).
+4. **Snapshot** -- the stopped volume is rsync'd to `~/statbus-upgrade-snapshots/pre-upgrade-active/` (atomic dir-rename commit; this is the rollback artifact).
 5. **Fetch + binary swap** -- the target's git objects are fetched (no checkout yet), the new `./sb` lands on disk, and the process exits so the NEW binary takes over.
 6. **New binary's pipeline** -- checkout of the exact target, boot migration of the daemon's own small floor only, then the guarded resume: the upgrade's migration delta applies exactly once, services start, the health check must pass, maintenance turns OFF, the read-only window lifts, and the row reaches `completed`. Once the window is OFF the box is serving on purpose and recovery completes it, never rolls it back.
 
@@ -378,6 +378,6 @@ The database data directory is owned by the postgres container user. The upgrade
 statbus_no ALL=(ALL) NOPASSWD: /usr/bin/rsync
 ```
 
-### Backup archive retention
+### Snapshot archive retention
 
-After each successful upgrade, the pre-upgrade backup is compressed to `~/statbus-backups/<version>-pre.tar.gz`. The service keeps the 3 most recent archives and deletes older ones automatically.
+After each successful upgrade, the upgrade snapshot is compressed to `~/statbus-upgrade-snapshots/<version>-pre.tar.gz`. The service keeps the 3 most recent archives and deletes older ones automatically.

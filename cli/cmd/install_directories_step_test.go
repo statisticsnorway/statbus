@@ -21,9 +21,9 @@ func TestCheckDirectoriesDone(t *testing.T) {
 		t.Fatal(err)
 	}
 	if checkDirectoriesDone("") {
-		t.Fatal("done with statbus-backups missing")
+		t.Fatal("done with statbus-upgrade-snapshots missing")
 	}
-	if err := os.MkdirAll(filepath.Join(home, "statbus-backups"), 0o755); err != nil {
+	if err := os.MkdirAll(filepath.Join(home, "statbus-upgrade-snapshots"), 0o755); err != nil {
 		t.Fatal(err)
 	}
 	if !checkDirectoriesDone("") {
@@ -31,19 +31,19 @@ func TestCheckDirectoriesDone(t *testing.T) {
 	}
 
 	// A file where a directory belongs is not done.
-	if err := os.RemoveAll(filepath.Join(home, "statbus-backups")); err != nil {
+	if err := os.RemoveAll(filepath.Join(home, "statbus-upgrade-snapshots")); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(home, "statbus-backups"), []byte("x"), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(home, "statbus-upgrade-snapshots"), []byte("x"), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	if checkDirectoriesDone("") {
-		t.Fatal("done with statbus-backups as a regular file")
+		t.Fatal("done with statbus-upgrade-snapshots as a regular file")
 	}
-	if err := os.Remove(filepath.Join(home, "statbus-backups")); err != nil {
+	if err := os.Remove(filepath.Join(home, "statbus-upgrade-snapshots")); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.MkdirAll(filepath.Join(home, "statbus-backups"), 0o755); err != nil {
+	if err := os.MkdirAll(filepath.Join(home, "statbus-upgrade-snapshots"), 0o755); err != nil {
 		t.Fatal(err)
 	}
 
@@ -100,7 +100,7 @@ func TestRunGenerateEnvHasNoDirectorySideEffect(t *testing.T) {
 		t.Fatal("runGenerateEnv not found")
 	}
 	body := strings.SplitN(parts[1], "\nfunc ", 2)[0]
-	for _, forbidden := range []string{"statbus-maintenance", "statbus-backups", "MkdirAll"} {
+	for _, forbidden := range []string{"statbus-maintenance", "statbus-upgrade-snapshots", "statbus-backups", "MkdirAll"} {
 		if strings.Contains(body, forbidden) {
 			t.Errorf("runGenerateEnv contains %q — directory creation belongs to the Directories step (STATBUS-431)", forbidden)
 		}

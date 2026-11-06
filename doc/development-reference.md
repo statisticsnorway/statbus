@@ -31,9 +31,9 @@ Task-specific commands and procedures. Start with [AGENTS.md](../AGENTS.md) and 
 ./sb users create                    # From .users.yml
 ./sb types generate
 ./sb db status
-./sb db dump                         # Save under dbdumps/
+./sb db backup create                # Save a backup under dbdumps/
 ./sb db download <code>
-./sb db dumps list
+./sb db backup list
 ```
 
 Read dotenv values with `./sb dotenv -f <file> get KEY`. For deployment changes, edit `.env.config` and regenerate `.env` rather than editing the generated file. `set KEY VALUE` writes a value, and `set KEY +DEFAULT` writes only when absent.
@@ -41,7 +41,7 @@ Read dotenv values with `./sb dotenv -f <file> get KEY`. For deployment changes,
 The following can remove or overwrite data. Confirm the target and authorization first:
 
 ```bash
-./sb db dumps purge [N]              # Keep newest N dumps per source
+./sb db backup purge [N]             # Keep newest N backups per source
 ./sb db restore <file>
 ./sb db restore <file> --to <slot>    # Remote restore
 ./sb migrate down                    # Migration rollback

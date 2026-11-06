@@ -971,7 +971,7 @@ func runInstall() (installErr error) {
 	if rootErr != nil {
 		return &installPreflightRefusalError{err: rootErr}
 	}
-	if err := diskpolicy.Check(installDir, dockerRoot, filepath.Join(home, "statbus-backups")); err != nil {
+	if err := diskpolicy.Check(installDir, dockerRoot, upgrade.SnapshotRoot(home)); err != nil {
 		return &installPreflightRefusalError{err: err}
 	}
 
@@ -1193,7 +1193,7 @@ func runInstall() (installErr error) {
 		{"Program", checkBinaryDone, runInstallBinary},
 		{"Configuration", checkConfigDone, runCreateConfig},
 		{"Credentials", checkCredsDone, runCreateCreds},
-		// Directories owns ~/statbus-maintenance and ~/statbus-backups. It must
+		// Directories owns ~/statbus-maintenance and ~/statbus-upgrade-snapshots. It must
 		// not ride on Configuration's or Settings' done-checks (STATBUS-431):
 		// those proxies (".env.config exists", "generated files match") can be
 		// satisfied by other steps while the directories are never created, and
@@ -2295,22 +2295,28 @@ func applyPendingUpgradeDaemonRestart(pending map[config.RestartClass]bool, acti
 // installerManagedHomeDirs are the directories the installation itself must
 // own under the install user's home: the upgrader's maintenance flag
 // dir (bind-mounted into the proxy; Caddy's @maintenance matcher) and the
-// pre-upgrade backup root (the systemd upgrade unit expects it). Both are
+// upgrade snapshot folder (upgrade.SnapshotRootName). Both are
 // bind-mount sources or service state that Docker would otherwise create as
 // ROOT at compose up (STATBUS-431, proven live by rc.01 smoke run
 // 36851924215: the upgrader's maintenance-flag write failed with
 // permission denied on a box whose install skipped every creation site).
-var installerManagedHomeDirs = []string{"statbus-maintenance", "statbus-backups"}
+var installerManagedHomeDirs = []string{"statbus-maintenance", upgrade.SnapshotRootName}
 
 // checkDirectoriesDone is outcome-based on purpose (STATBUS-431): true iff
 // every managed home directory exists, is a directory, is owned by the
 // install user, and passes a real write probe. It never consults proxy
 // artifacts (.env.config/.env presence), so no other step's side effects can
-// mark this one done.
-func checkDirectoriesDone(_ string) bool {
+// mark this one done. A pre-rename ~/statbus-backups that may move now
+// (STATBUS-574) also leaves the step to do.
+func checkDirectoriesDone(dir string) bool {
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return false
+	}
+	if upgrade.SnapshotRootMovePending(home) {
+		if allowed, _ := upgrade.SnapshotRootMoveAllowed(dir); allowed {
+			return false
+		}
 	}
 	for _, name := range installerManagedHomeDirs {
 		dir := filepath.Join(home, name)
@@ -2333,10 +2339,29 @@ func checkDirectoriesDone(_ string) bool {
 // shared container mechanism (hostrepair, the STATBUS-429 pattern) without
 // sudo. Failures are fatal to the step — never log.Printf-and-continue,
 // which is how the swallowed runGenerateEnv mkdirs hid this class for a week.
+//
+// It first carries a pre-rename ~/statbus-backups to the upgrade snapshot
+// folder (upgrade.MigrateSnapshotRoot) unless the upgrade marker records an
+// upgrade: that upgrade's recovery restores the snapshot where it was
+// recorded, and the upgrader finishes the move once the marker is gone.
 func runEnsureDirectories(dir string) error {
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return fmt.Errorf("cannot determine home directory (HOME unset?): %w", err)
+	}
+	if !upgrade.SnapshotRootMovePending(home) {
+		// Nothing to carry over.
+	} else if allowed, why := upgrade.SnapshotRootMoveAllowed(dir); allowed {
+		move, err := upgrade.MigrateSnapshotRoot(home)
+		for _, line := range move.Lines(home) {
+			fmt.Println(line)
+		}
+		if err != nil {
+			return fmt.Errorf("directories step: %w", err)
+		}
+	} else {
+		fmt.Printf("  Keeping ~/%s in place for now: %s. The upgrader moves it to ~/%s when that upgrade is finished.\n",
+			upgrade.LegacySnapshotRootName, why, upgrade.SnapshotRootName)
 	}
 	for _, name := range installerManagedHomeDirs {
 		if err := hostrepair.EnsureWritable(dir, filepath.Join(home, name)); err != nil {
@@ -2347,7 +2372,7 @@ func runEnsureDirectories(dir string) error {
 }
 
 // checkBackupOwnershipDone returns true iff every pre-upgrade-* dir
-// in ~/statbus-backups/ is owned by the deploy user. False (need to
+// in the upgrade snapshot folder is owned by the deploy user. False (need to
 // heal) iff at least one is owned by someone else — typically the
 // in-container postgres user (uid 70 on alpine-postgres, uid 101
 // on debian-postgres) leaking through the rsync container's bind
@@ -2360,7 +2385,7 @@ func checkBackupOwnershipDone(_ string) bool {
 	if err != nil {
 		return true
 	}
-	root := filepath.Join(home, "statbus-backups")
+	root := upgrade.SnapshotRoot(home)
 	entries, err := os.ReadDir(root)
 	if err != nil {
 		// Backup root doesn't exist yet → nothing to heal.
@@ -2391,7 +2416,7 @@ func checkBackupOwnershipDone(_ string) bool {
 }
 
 // healBackupOwnership chowns every pre-upgrade-* dir under
-// ~/statbus-backups/ to the deploy user via a single alpine container.
+// the upgrade snapshot folder to the deploy user via a single alpine container.
 // The container runs as root and can change ownership; the host-side
 // process (statbus_<slot>) cannot, because the dirs are currently
 // owned by the in-container postgres user that leaked through the
@@ -2410,7 +2435,7 @@ func healBackupOwnership(_ string) error {
 	if err != nil {
 		return fmt.Errorf("cannot determine home directory (HOME unset?): %w", err)
 	}
-	root := filepath.Join(home, "statbus-backups")
+	root := upgrade.SnapshotRoot(home)
 	if _, err := os.Stat(root); err != nil {
 		// Nothing to heal — backup root missing or unreadable.
 		return nil

@@ -14,7 +14,7 @@ func installerDiskLocations(t *testing.T) []diskpolicy.Measurement {
 	t.Helper()
 	root := t.TempDir()
 	docker := filepath.Join(root, "docker-data")
-	backups := filepath.Join(root, "statbus-backups")
+	backups := filepath.Join(root, "statbus-upgrade-snapshots")
 	for _, path := range []string{docker, backups} {
 		if err := os.Mkdir(path, 0700); err != nil {
 			t.Fatal(err)

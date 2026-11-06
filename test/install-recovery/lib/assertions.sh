@@ -271,7 +271,7 @@ assert_systemd_active() {
 }
 
 # Verify there are NO ORPHAN pre-upgrade-* backup directories left in
-# ~/statbus-backups/. An orphan is a LEGACY per-stamp dir (pre-upgrade-<stamp>
+# ~/statbus-upgrade-snapshots/ (upgrade.SnapshotRootName). An orphan is a LEGACY per-stamp dir (pre-upgrade-<stamp>
 # or pre-upgrade-<stamp>.tmp) the executeUpgrade-layer cleanup should have
 # reaped after recovery.
 #
@@ -295,13 +295,36 @@ assert_no_orphan_backup() {
     # APPEND a second "0" → count="0\n0" != "0" → false-fail on the (correct) zero-
     # orphan result. `|| true` makes the expected no-match a clean exit; `tr -d ' \n'`
     # strips the trailing newline so count is exactly "0" / "N".
-    count=$(VM_EXEC bash -c 'ls -d ~/statbus-backups/pre-upgrade-* 2>/dev/null | grep -vE "/pre-upgrade-(active|syncing)$" | grep -c . || true' 2>/dev/null | tr -d ' \n' || echo "0")
+    count=$(VM_EXEC bash -c 'ls -d ~/statbus-upgrade-snapshots/pre-upgrade-* 2>/dev/null | grep -vE "/pre-upgrade-(active|syncing)$" | grep -c . || true' 2>/dev/null | tr -d ' \n' || echo "0")
     if [ "$count" = "0" ]; then
-        echo "  ✓ no orphan (legacy per-stamp) pre-upgrade-* backups in ~/statbus-backups/ (managed active/syncing excluded)"
+        echo "  ✓ no orphan (legacy per-stamp) pre-upgrade-* backups in ~/statbus-upgrade-snapshots/ (managed active/syncing excluded)"
         return 0
     fi
-    echo "  ✗ orphan backup(s) found ($count): $(VM_EXEC bash -c 'ls -d ~/statbus-backups/pre-upgrade-* 2>/dev/null | grep -vE "/pre-upgrade-(active|syncing)$"' 2>/dev/null | tr '\n' ' ')"
+    echo "  ✗ orphan backup(s) found ($count): $(VM_EXEC bash -c 'ls -d ~/statbus-upgrade-snapshots/pre-upgrade-* 2>/dev/null | grep -vE "/pre-upgrade-(active|syncing)$"' 2>/dev/null | tr '\n' ' ')"
     return 1
+}
+
+# Verify the upgrade snapshots live in ~/statbus-upgrade-snapshots after the
+# candidate ran (STATBUS-574): the snapshot a pre-rename release took under
+# ~/statbus-backups was moved there, the legacy folder is gone, and every
+# snapshot path recorded in public.upgrade points into the new folder.
+assert_upgrade_snapshots_moved() {
+    local vm_name="$1"
+    local legacy_rows
+    if ! VM_EXEC bash -c 'test -d ~/statbus-upgrade-snapshots/pre-upgrade-active'; then
+        echo "  ✗ ~/statbus-upgrade-snapshots/pre-upgrade-active is missing: $(VM_EXEC bash -c 'ls -la ~/statbus-upgrade-snapshots ~/statbus-backups 2>&1' | tr '\n' ' ')"
+        return 1
+    fi
+    if VM_EXEC bash -c 'test -e ~/statbus-backups'; then
+        echo "  ✗ ~/statbus-backups is still there: $(VM_EXEC bash -c 'ls -la ~/statbus-backups 2>&1' | tr '\n' ' ')"
+        return 1
+    fi
+    legacy_rows=$(VM_EXEC bash -c "cd ~/statbus && echo \"SELECT count(*) FROM public.upgrade WHERE backup_path LIKE '%/statbus-backups/%';\" | ./sb psql -tA" 2>/dev/null | tr -d ' \r\n')
+    if [ "$legacy_rows" != "0" ]; then
+        echo "  ✗ $legacy_rows upgrade row(s) still record a snapshot under ~/statbus-backups (got '$legacy_rows')"
+        return 1
+    fi
+    echo "  ✓ upgrade snapshots live in ~/statbus-upgrade-snapshots and every recorded path points there"
 }
 
 # Verify a specific migration version is recorded as applied.

@@ -299,7 +299,7 @@ var readOnlyCommandPaths = map[string]bool{
 	"sb psql":                  true, // opens an interactive session; doesn't issue mutating SQL itself
 	"sb cert show":             true, // reads cert from disk + optional TLS probe; no state mutation
 	"sb db status":             true,
-	"sb db dumps list":         true,
+	"sb db backup list":        true,
 	"sb db seed status":        true,
 	"sb db seed fetch":         true, // fetches the artifact; doesn't mutate the DB
 	// STATBUS-330: install.sh's fetch delegation target. Read-only in the sense

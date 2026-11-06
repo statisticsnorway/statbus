@@ -198,13 +198,13 @@ func relPath(abs string) string {
 // ─── Backup-ownership heal step (task #68) ───────────────────────────────
 
 // TestCheckBackupOwnership_NoRoot: backup root missing → returns true
-// (nothing to heal). Pins the bare-host case where ~/statbus-backups/
+// (nothing to heal). Pins the bare-host case where ~/statbus-upgrade-snapshots/
 // doesn't exist yet (fresh deploy, no upgrade has run).
 func TestCheckBackupOwnership_NoRoot(t *testing.T) {
 	tmp := t.TempDir()
 	t.Setenv("HOME", tmp)
 	if !checkBackupOwnershipDone("") {
-		t.Error("missing ~/statbus-backups/ should be 'done' (nothing to heal)")
+		t.Error("missing ~/statbus-upgrade-snapshots/ should be 'done' (nothing to heal)")
 	}
 }
 
@@ -213,11 +213,11 @@ func TestCheckBackupOwnership_NoRoot(t *testing.T) {
 func TestCheckBackupOwnership_EmptyRoot(t *testing.T) {
 	tmp := t.TempDir()
 	t.Setenv("HOME", tmp)
-	if err := os.MkdirAll(filepath.Join(tmp, "statbus-backups"), 0o755); err != nil {
+	if err := os.MkdirAll(filepath.Join(tmp, "statbus-upgrade-snapshots"), 0o755); err != nil {
 		t.Fatal(err)
 	}
 	if !checkBackupOwnershipDone("") {
-		t.Error("empty ~/statbus-backups/ should be 'done'")
+		t.Error("empty ~/statbus-upgrade-snapshots/ should be 'done'")
 	}
 }
 
@@ -226,7 +226,7 @@ func TestCheckBackupOwnership_EmptyRoot(t *testing.T) {
 func TestCheckBackupOwnership_DeployUserOwnedDirs(t *testing.T) {
 	tmp := t.TempDir()
 	t.Setenv("HOME", tmp)
-	root := filepath.Join(tmp, "statbus-backups")
+	root := filepath.Join(tmp, "statbus-upgrade-snapshots")
 	if err := os.MkdirAll(root, 0o755); err != nil {
 		t.Fatal(err)
 	}
@@ -250,7 +250,7 @@ func TestCheckBackupOwnership_DeployUserOwnedDirs(t *testing.T) {
 func TestCheckBackupOwnership_IgnoresNonBackupEntries(t *testing.T) {
 	tmp := t.TempDir()
 	t.Setenv("HOME", tmp)
-	root := filepath.Join(tmp, "statbus-backups")
+	root := filepath.Join(tmp, "statbus-upgrade-snapshots")
 	if err := os.MkdirAll(root, 0o755); err != nil {
 		t.Fatal(err)
 	}

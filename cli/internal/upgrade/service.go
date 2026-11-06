@@ -3842,6 +3842,10 @@ func (d *Service) Run(ctx context.Context) error {
 	// firing indicts a broken terminal OFF flip — see clearStaleReadOnlyWindow).
 	d.clearStaleReadOnlyWindow(ctx)
 
+	// STATBUS-574: carry a pre-rename ~/statbus-backups to
+	// ~/statbus-upgrade-snapshots once recovery has finished with it.
+	migrateSnapshotRoot(ctx, d.projDir, os.Getenv("HOME"), d.queryConn)
+
 	// Check for missed scheduled upgrades
 	d.checkMissedUpgrades(ctx)
 
@@ -3999,6 +4003,8 @@ func (d *Service) Run(ctx context.Context) error {
 				d.discover(ctx)
 				d.executeScheduled(ctx)
 				d.reportDiskSpace(ctx)
+				// STATBUS-574: move a pre-rename snapshot folder before reconcile reads the paths.
+				migrateSnapshotRoot(ctx, d.projDir, os.Getenv("HOME"), d.queryConn)
 				d.reconcileBackupDir(ctx) // reconcile before prune: avoids BACKUP_MISSING for just-pruned rows
 				d.pruneBackups(ctx, 3)
 				d.pruneUpgradeLogs(20)               // keep the 20 newest upgrade-log + bundle pairs
@@ -8310,7 +8316,7 @@ func (d *Service) executeUpgrade(ctx context.Context, claim upgradeClaimSnapshot
 	if ValidateVersion(displayName) && ValidateVersion(d.version) {
 		if ord, ordered := CompareVersions(displayName, d.version); ordered && ord < 0 {
 			// TODO: pick code — downgrade precondition; consider adding ErrInstallPreconditionFailed
-			msg := fmt.Sprintf("Version %s is older than current version %s. Downgrades are not supported. To restore a previous state, use: ./sb db backup restore <name>", displayName, d.version)
+			msg := fmt.Sprintf("Version %s is older than current version %s. Downgrades are not supported. To restore a previous state, use: ./sb db snapshot restore <name>", displayName, d.version)
 			d.failUpgrade(ctx, id, msg, progress)
 			return fmt.Errorf("%s", msg)
 		}

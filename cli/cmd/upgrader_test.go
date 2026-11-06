@@ -723,7 +723,7 @@ func seedServiceRecoveryMarker(t *testing.T, dir, phase string) []byte {
   "trigger": "scheduled",
   "holder": "service",
   "phase": "` + phase + `",
-  "backup_path": "/home/test/statbus/statbus-backups/pre-upgrade-20261026"
+  "backup_path": "/home/test/statbus-upgrade-snapshots/pre-upgrade-20261026"
 }`
 	if err := os.WriteFile(filepath.Join(dir, "tmp", "upgrade-in-progress.json"), []byte(marker), 0o644); err != nil {
 		t.Fatal(err)

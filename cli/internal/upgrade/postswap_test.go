@@ -37,7 +37,7 @@ func TestUpgradeFlagJSONRoundTrip_NewSbSwapped(t *testing.T) {
 		Holder:     HolderService,
 		Phase:      PhaseNewSbSwapped,
 		Recreate:   true,
-		BackupPath: "/home/x/statbus-backups/pre-upgrade-20260422T010203Z",
+		BackupPath: "/home/x/statbus-upgrade-snapshots/pre-upgrade-20260422T010203Z",
 	}
 
 	data, err := json.Marshal(original)

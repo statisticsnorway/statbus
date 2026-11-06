@@ -507,7 +507,7 @@ ssh statbus_ma@niue.statbus.org
 cd ~/statbus
 
 # Backup database
-./sb db dump
+./sb db backup create
 
 # Backup configuration
 tar -czf backup_ma_config_$(date +%Y%m%d).tar.gz .env.config .env.credentials .users.yml

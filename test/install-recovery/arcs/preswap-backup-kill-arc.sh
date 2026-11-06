@@ -77,7 +77,7 @@ echo "════════════════════════�
 # never touched. Mirrors this arc's own diagnostic query.
 upgrade_state() { VM_EXEC bash -c "cd ~/statbus && echo \"SELECT $UPGRADE_ROW_STATE_SQL FROM public.upgrade WHERE commit_sha = '$B_FULL' ORDER BY id DESC LIMIT 1;\" | ./sb psql -t -A" 2>/dev/null | tr -d ' \r\n' || echo "?"; }
 sb_version()    { VM_EXEC bash -c "cd ~/statbus && ./sb --version 2>/dev/null | head -1" 2>/dev/null | tr -d '\r' || echo ""; }
-dir_present()   { VM_EXEC bash -c "test -d ~/statbus-backups/$1 && echo yes || echo no" 2>/dev/null | tr -d ' \r\n' || echo "no"; }
+dir_present()   { VM_EXEC bash -c "test -d ~/statbus-upgrade-snapshots/$1 && echo yes || echo no" 2>/dev/null | tr -d ' \r\n' || echo "no"; }
 
 # ── A: install + prepare; register B; schedule daemon-down; dispatch with the kill ──
 arc_prepare_box
@@ -100,7 +100,7 @@ echo ""
 echo "── verifying C3 RED state (mid-backup: syncing present, no active) ──"
 VM_EXEC bash -c "ls -la ~/statbus/tmp/upgrade-in-progress.json" >/dev/null || { echo "✗ expected flag file present after the kill" >&2; exit 1; }
 # (DB stopped for the consistent backup, upstream of the kill → row-state deferred to convergence.)
-[ "$(dir_present pre-upgrade-syncing)" = "yes" ] || { echo "✗ no pre-upgrade-syncing dir — kill fired before rsync, or the active→syncing rename-aside didn't happen" >&2; VM_EXEC bash -c "ls -la ~/statbus-backups/ 2>/dev/null" >&2 || true; exit 1; }
+[ "$(dir_present pre-upgrade-syncing)" = "yes" ] || { echo "✗ no pre-upgrade-syncing dir — kill fired before rsync, or the active→syncing rename-aside didn't happen" >&2; VM_EXEC bash -c "ls -la ~/statbus-upgrade-snapshots/ 2>/dev/null" >&2 || true; exit 1; }
 [ "$(dir_present pre-upgrade-active)" = "no" ] || { echo "✗ pre-upgrade-active present at the kill point — the syncing→active commit should NOT have run yet" >&2; exit 1; }
 echo "  ✓ pre-upgrade-syncing present, no -active (caught pre-commit; partial is restore-invisible)"
 SB_DURING=$(sb_version)

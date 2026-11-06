@@ -53,11 +53,11 @@ VM_EXEC bash -c "cd ~/statbus && git fetch origin $B_BRANCH && git cat-file -e $
 VM_EXEC bash -c "cd ~/statbus && ./sb upgrade register $B_FULL 2>&1 | tail -20"
 wait_for_upgrade_candidate_ready "$VM_NAME" "$B_FULL" "$TICK_WAIT_S"
 
-# backupRoot() is $HOME/statbus-backups. Snapshot every top-level entry, not
+# backupRoot() is $HOME/statbus-upgrade-snapshots. Snapshot every top-level entry, not
 # only pre-upgrade-active: this catches partial/syncing state, legacy artifacts,
 # and upgrade-logs-* alike. The log sibling is created only after a real backup
 # commits, so no new entry of any kind is legitimate at this preswap failure.
-BACKUP_ROOT_BEFORE=$(VM_EXEC bash -c "if [ -d ~/statbus-backups ]; then printf '%s\\n' __PRESENT__; find ~/statbus-backups -mindepth 1 -maxdepth 1 -printf '%f\\n' | LC_ALL=C sort; else printf '%s\\n' __ABSENT__; fi")
+BACKUP_ROOT_BEFORE=$(VM_EXEC bash -c "if [ -d ~/statbus-upgrade-snapshots ]; then printf '%s\\n' __PRESENT__; find ~/statbus-upgrade-snapshots -mindepth 1 -maxdepth 1 -printf '%f\\n' | LC_ALL=C sort; else printf '%s\\n' __ABSENT__; fi")
 
 arc_schedule_daemon_down "$B_FULL"
 arc_install_dispatch_with_inject "$INJECT_CLASS" &
@@ -84,9 +84,9 @@ RO_SHOW_OFF=$(VM_EXEC bash -c "cd ~/statbus && echo 'SHOW default_transaction_re
 [ "$RO_SHOW_OFF" = "off" ] || { echo "✗ returned fetch error left default_transaction_read_only='$RO_SHOW_OFF' (expected off)" >&2; exit 1; }
 VM_EXEC bash -c "cd ~/statbus && printf '%s\\n' 'CREATE TABLE public._statbus339_rw_probe (n integer);' 'INSERT INTO public._statbus339_rw_probe VALUES (339);' 'DROP TABLE public._statbus339_rw_probe;' | ./sb psql -v ON_ERROR_STOP=1" >/dev/null
 
-BACKUP_ROOT_AFTER=$(VM_EXEC bash -c "if [ -d ~/statbus-backups ]; then printf '%s\\n' __PRESENT__; find ~/statbus-backups -mindepth 1 -maxdepth 1 -printf '%f\\n' | LC_ALL=C sort; else printf '%s\\n' __ABSENT__; fi")
+BACKUP_ROOT_AFTER=$(VM_EXEC bash -c "if [ -d ~/statbus-upgrade-snapshots ]; then printf '%s\\n' __PRESENT__; find ~/statbus-upgrade-snapshots -mindepth 1 -maxdepth 1 -printf '%f\\n' | LC_ALL=C sort; else printf '%s\\n' __ABSENT__; fi")
 [ "$BACKUP_ROOT_AFTER" = "$BACKUP_ROOT_BEFORE" ] || { printf '✗ backup root changed before preswap fetch failure\n--- before ---\n%s\n--- after ---\n%s\n' "$BACKUP_ROOT_BEFORE" "$BACKUP_ROOT_AFTER" >&2; exit 1; }
-VM_EXEC bash -c "test ! -e ~/statbus-backups/pre-upgrade-active && test ! -e ~/statbus-backups/pre-upgrade-syncing"
+VM_EXEC bash -c "test ! -e ~/statbus-upgrade-snapshots/pre-upgrade-active && test ! -e ~/statbus-upgrade-snapshots/pre-upgrade-syncing"
 assert_health_passes "$VM_NAME"
 assert_demo_data_counts_match_snapshot "$VM_NAME" "$DATA_SNAPSHOT"
 

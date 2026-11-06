@@ -16,8 +16,9 @@ All three are kept by default. A kept users file moves to
 plan lists each move. The uninstaller refuses to overwrite a different file
 already at a home path, before it stops or deletes anything. Because the kept
 files leave the checkout, `~/statbus` itself is removed completely. The
-upgrade snapshots in `~/statbus-backups` are always removed: a snapshot can
-only roll back the installation being removed. Non-interactive removal deletes
+upgrade snapshots in `~/statbus-upgrade-snapshots` (and a pre-rename
+`~/statbus-backups`) are always removed: a snapshot can only roll back the
+installation being removed. Non-interactive removal deletes
 database backups, users and credentials and requires
 `STATBUS_UNINSTALL_CONFIRM=yes-delete-everything`.
 
@@ -284,10 +285,10 @@ Options go after `bash -s --`, for example `| bash -s -- --version v2026.11.0`.
 
 To remove the installation later, run
 `curl -fsSL https://statbus.org/uninstall.sh | bash` as the same service user. It removes
-`~/statbus` and `~/statbus-maintenance`. It asks whether to keep the users
-and credentials (moved to `~/statbus.users.yml` and `~/statbus.env.credentials`)
-and whether to delete the database dumps and the pre-upgrade backups in
-`~/statbus-backups`.
+`~/statbus`, `~/statbus-maintenance` and the upgrade snapshots in
+`~/statbus-upgrade-snapshots`. It asks whether to keep the users and
+credentials (moved to `~/statbus.users.yml` and `~/statbus.env.credentials`)
+and, when there are any, the database backups (moved to `~/statbus.dbdumps/`).
 
 This is an interactive install. Without a terminal, use the unattended form
 below.
@@ -577,14 +578,31 @@ upgrading; 503 for critical or unknown). `/monitor` stays reachable during
 maintenance.
 
 **Database Backup and Restore**:
+
+StatBus keeps two kinds of database copy, each named for what it is
+(STATBUS-574):
+
+- A **backup** is a portable `pg_dump` file in `~/statbus/dbdumps/`. The
+  upgrader writes one every `BACKUP_INTERVAL`, you can take one at any time,
+  an uninstall can keep them, and `./sb db restore` loads one into any
+  installation.
+- An **upgrade snapshot** is a raw copy of the database volume in
+  `~/statbus-upgrade-snapshots/`, taken by the upgrader before each upgrade so
+  it can roll back. It only fits the installation it came from. Boxes
+  installed before the rename kept these in `~/statbus-backups`; the install
+  and the upgrader move that folder once no upgrade is in progress.
+
 ```bash
-./sb db dump                    # Backup to dbdumps/ (manual, on-demand)
-./sb db dumps list              # List available dumps
-./sb db dumps purge <N>         # Keep newest N dumps per source, delete the rest
-./sb db restore <file>          # Restore from dump
+./sb db backup create           # Backup to dbdumps/ (manual, on-demand)
+./sb db backup list             # List available backups
+./sb db backup purge <N>        # Keep newest N backups per source, delete the rest
+./sb db restore <file>          # Restore from a backup
+./sb db snapshot list           # Upgrade snapshot archives in ~/statbus-upgrade-snapshots/
+./sb db snapshot create         # Archive the database volume (stops db briefly)
+./sb db snapshot restore <name> # Put a snapshot archive back into this installation
 ```
 
-**Upgrade logs travel with the dump** (STATBUS-456): `./sb db dump` and
+**Upgrade logs travel with the backup** (STATBUS-456): `./sb db backup create` and
 `./sb db download <code>` also write a companion archive
 `dbdumps/<stem>.logs.tar.zst` (gzip when the `zstd` binary is unavailable)
 beside the `.pg_dump`. It carries `tmp/upgrade-logs/` (minus the `latest`
@@ -592,8 +610,8 @@ symlink) plus only the `tmp/install-logs/` files the dumped database actually
 references, so a restored copy can show the logs its `public.upgrade` rows
 point at. `./sb db restore <file>` unpacks the companion into `tmp/`,
 merging with what is already on disk; when no companion exists the restore
-still succeeds and prints that logs were not included. `db dumps list` shows
-whether a dump carries its logs, and `db dumps purge` deletes dump and
+still succeeds and prints that logs were not included. `db backup list` shows
+whether a backup carries its logs, and `db backup purge` deletes dump and
 companion as one unit. The companion contains log content from the source
 box — treat it as exactly as sensitive as the dump itself.
 `./sb db restore <file> --to <code>` (remote restore) does not upload the
@@ -626,7 +644,7 @@ Tune or disable it in `.env.config` (then `./sb config generate`):
 | `BACKUP_RETENTION_COUNT` | `7` | Dumps kept per source prefix; older ones are pruned. |
 
 > Note: the scheduled backup pauses while the service is stopped. If you take the
-> service down for an extended period, run `./sb db dump` manually; the next
+> service down for an extended period, run `./sb db backup create` manually; the next
 > service start also catches up an overdue backup.
 
 **Apply Migrations**:

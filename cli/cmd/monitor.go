@@ -38,7 +38,7 @@ var monitorCmd = &cobra.Command{
 		"  api        PostgREST answers its readiness endpoint\n" +
 		"  site       SITE_DOMAIN answers over HTTPS; certificate days left\n" +
 		"  disk       free space against the saved disk policy\n" +
-		"  backups    age of the newest archive in ~/statbus-backups\n" +
+		"  backups    age of the newest daily database backup in dbdumps/\n" +
 		"  upgrader   unit active, no failed or parked upgrade\n" +
 		"  worker     failed tasks in the last hour; stuck tasks\n\n" +
 		"Subcommands:\n" +

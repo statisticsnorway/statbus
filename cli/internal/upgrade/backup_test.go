@@ -11,12 +11,12 @@ import (
 
 // scopedBackupRoot points the Service at a per-test backup root by
 // pinning $HOME to a temp dir. Returns the resolved backup root path
-// (~/statbus-backups inside the temp).
+// (~/statbus-upgrade-snapshots inside the temp).
 func scopedBackupRoot(t *testing.T) string {
 	t.Helper()
 	home := t.TempDir()
 	t.Setenv("HOME", home)
-	root := filepath.Join(home, "statbus-backups")
+	root := SnapshotRoot(home)
 	if err := os.MkdirAll(root, 0755); err != nil {
 		t.Fatal(err)
 	}

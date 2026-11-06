@@ -125,7 +125,7 @@ Immediately effective. The next discovery cycle will reject any commits signed o
 
 1. Remove the compromised key: `./sb upgrade trust-key remove <name>` on all servers
 2. Audit: check recent upgrades for commits signed by the compromised key
-3. If suspicious commits found: restore from backup (`./sb db backup restore <name>`)
+3. If suspicious commits found: restore the upgrade snapshot taken before it (`./sb db snapshot restore <name>`) or a database backup (`./sb db restore <file>`)
 4. Revoke the key on GitHub (rotate the developer's SSH key)
 5. Re-add the developer with their new key: `./sb upgrade trust-key add <username>`
 

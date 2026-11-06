@@ -91,7 +91,7 @@ is_long() {
     './sb install|\./sb\s+install\b'
     './sb upgrade apply|\./sb\s+upgrade\s+apply\b'
     './sb release prerelease|\./sb\s+release\s+prerelease\b'
-    './sb db restore/dump|\./sb\s+db\s+(restore|dump)\b'
+    './sb db restore/backup create/snapshot|\./sb\s+db\s+(restore|backup\s+create|snapshot\s+(create|restore))\b'
     'pnpm run build/test|\bpnpm\s+(run\s+(build|test)|install|ci)\b'
     'docker compose logs -f|\bdocker\s+compose\s+logs\b.*\s-f\b'
     'tail -f|\btail\s+-f\b'

@@ -12,9 +12,9 @@ import (
 
 // TestBackupsProbeReadsScheduledDumpNotVolumeBackups pins what the backups
 // check measures: the upgrader's scheduled logical dump in <projectDir>/dbdumps
-// (the artifact BACKUP_ENABLED/BACKUP_INTERVAL govern), not ~/statbus-backups.
+// (the artifact BACKUP_ENABLED/BACKUP_INTERVAL govern), not ~/statbus-upgrade-snapshots.
 // StatBus-541 follow-up: dev.statbus.org answered 503 with "newest backup 3218h
-// ago" while a fresh dump existed in dbdumps, because the old ~/statbus-backups
+// ago" while a fresh dump existed in dbdumps, because the snapshot folder (then ~/statbus-backups)
 // directory was the only thing read.
 func TestBackupsProbeReadsScheduledDumpNotVolumeBackups(t *testing.T) {
 	projectDir := t.TempDir()
@@ -34,7 +34,7 @@ func TestBackupsProbeReadsScheduledDumpNotVolumeBackups(t *testing.T) {
 	// A stale volume-backup directory must not influence the reading.
 	home := t.TempDir()
 	t.Setenv("HOME", home)
-	oldDir := filepath.Join(home, "statbus-backups", "upgrade-20260918")
+	oldDir := filepath.Join(home, "statbus-upgrade-snapshots", "upgrade-20260918")
 	if err := os.MkdirAll(oldDir, 0o755); err != nil {
 		t.Fatal(err)
 	}

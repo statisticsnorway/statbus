@@ -305,7 +305,7 @@ FORENSICS
 #
 # Mirrors the product's backupDatabase (cli/internal/upgrade/exec.go:424):
 #   1. stop the db container (quiesce PGDATA for a consistent file-level copy);
-#   2. rsync the named PGDATA volume into ~/statbus-backups/pre-upgrade-active
+#   2. rsync the named PGDATA volume into ~/statbus-upgrade-snapshots/pre-upgrade-active
 #      (= backupRoot()/backupActiveName, exec.go:244/263 — the exact dir
 #      pickLatestBackup returns and restoreDatabase rsyncs back into the volume);
 #   3. start the db again and wait for it to accept connections.
@@ -349,7 +349,7 @@ if [ -z "$vol" ]; then
     echo "  ✗ seed_pre_upgrade_snapshot: no *-db-data docker volume found" >&2
     exit 1
 fi
-dest="$HOME/statbus-backups/pre-upgrade-active"
+dest="$HOME/statbus-upgrade-snapshots/pre-upgrade-active"
 mkdir -p "$dest"
 echo "    volume=$vol dest=$dest"
 # Quiesce the DB for a consistent file-level copy (mirrors backupDatabase,

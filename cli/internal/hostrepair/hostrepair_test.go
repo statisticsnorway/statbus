@@ -122,7 +122,7 @@ func TestEnsureWritableRepairsUnwritableDir(t *testing.T) {
 	if !strings.HasPrefix(argv, wantPrefix) {
 		t.Errorf("docker argv = %q, want prefix %q", argv, wantPrefix)
 	}
-	if strings.Contains(argv, "-R") || strings.Contains(argv, "statbus-backups") {
+	if strings.Contains(argv, "-R") || strings.Contains(argv, "statbus-upgrade-snapshots") {
 		t.Errorf("repair must never be recursive or touch siblings: %q", argv)
 	}
 	if !Writable(target) {
@@ -142,7 +142,7 @@ func TestEnsureWritableFallsBackToAlpine(t *testing.T) {
 		t.Fatal(err)
 	}
 	home := t.TempDir()
-	target := filepath.Join(home, "statbus-backups")
+	target := filepath.Join(home, "statbus-upgrade-snapshots")
 	if err := os.Chmod(home, 0o555); err != nil {
 		t.Fatal(err)
 	}
@@ -255,7 +255,7 @@ func TestEnsureWritableFreshDirNeedsNoDocker(t *testing.T) {
 // TestShellWord: product constants stay bare (pinned argv compatibility),
 // unsafe names are single-quoted.
 func TestShellWord(t *testing.T) {
-	for _, safe := range []string{"statbus-maintenance", "statbus-backups", "custom-certs", "a.b_c-1"} {
+	for _, safe := range []string{"statbus-maintenance", "statbus-upgrade-snapshots", "custom-certs", "a.b_c-1"} {
 		if got := shellWord(safe); got != safe {
 			t.Errorf("shellWord(%q) = %q, want bare", safe, got)
 		}

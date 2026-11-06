@@ -560,7 +560,7 @@ func (d *Service) dbVolumeName() string {
 // dirs from before the migration may still be present and are reaped by the
 // reconcile orphan pass.
 func (d *Service) backupRoot() string {
-	return filepath.Join(os.Getenv("HOME"), "statbus-backups")
+	return SnapshotRoot(os.Getenv("HOME"))
 }
 
 // Managed backup dir names (CHANGE 2 / task #12). The persistent rsync snapshot
@@ -830,7 +830,7 @@ func (d *Service) backupDatabase(progress *ProgressLog, stamp string) (databaseB
 	// postgres user, which lands as messagebus/uid 101 on Debian/Ubuntu
 	// hosts via UID coincidence). Without this:
 	//   - statbus_<slot> can't traverse the 0700 messagebus-owned dir →
-	//     pruneBackups can't remove old backups → ~/statbus-backups/
+	//     pruneBackups can't remove old backups → ~/statbus-upgrade-snapshots/
 	//     accumulates indefinitely (observed on jo: 9 backup dirs going
 	//     back to March 2026).
 	//   - The post-install archive step (tar | gzip) fails with
@@ -1056,6 +1056,9 @@ func (d *Service) restoreDatabase(progress *ProgressLog, backupPath string) erro
 		progress.Write("Checking for this upgrade's database snapshot ... ok (none recorded; leaving the live volume unchanged)")
 		return nil
 	}
+	// A path recorded before the STATBUS-574 folder move names the same
+	// snapshot under ~/statbus-upgrade-snapshots (snapshot_root.go).
+	backupPath = resolveRecordedSnapshot(backupPath)
 	if info, statErr := os.Stat(backupPath); statErr != nil || !info.IsDir() {
 		progress.Write("Checking this upgrade's database snapshot ... failed: %s is missing (stat: %v); refusing to substitute another backup.",
 			homeRelativePath(backupPath), statErr)
@@ -2026,7 +2029,9 @@ func (d *Service) reconcileBackupDir(ctx context.Context) {
 		if err := rows.Scan(&id, &path); err != nil {
 			continue
 		}
-		referenced[path] = id
+		// A path recorded before the STATBUS-574 folder move counts for the
+		// moved snapshot, so it is never mistaken for an orphan.
+		referenced[resolveRecordedSnapshot(path)] = id
 	}
 	if err := rows.Err(); err != nil {
 		fmt.Printf("BACKUP_RECONCILE_SKIP: row scan error: %v\n", err)

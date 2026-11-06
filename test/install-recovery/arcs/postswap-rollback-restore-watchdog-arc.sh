@@ -73,7 +73,7 @@ RELEASE_FILE="/tmp/arc-restore-stall-release"
 # operation before the restore-db-stall-watchdog boundary at :972. The later
 # :981/:984 failed/ok line resolves it, so seeing this marker while the release
 # file exists proves restoreDatabase reached the parked pre-rsync boundary.
-RESTORE_MARKER="Restoring database from ~/statbus-backups/pre-upgrade-active ..."
+RESTORE_MARKER="Restoring database from ~/statbus-upgrade-snapshots/pre-upgrade-active ..."
 
 : "${BASE_SHA:?BASE_SHA required}"
 : "${B_FULL:?B_FULL required}"

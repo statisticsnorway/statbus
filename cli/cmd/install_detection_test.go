@@ -748,7 +748,7 @@ func TestExit78AllowlistMatchesRealGoSentences(t *testing.T) {
 	}{"disk shortfall", shortfall})
 	real = append(real,
 		struct{ name, line string }{"disk unmeasurable (Docker root)", "cannot check disk space at Docker storage: Docker root unavailable"},
-		struct{ name, line string }{"disk unmeasurable (measurement)", "cannot check disk space at /home/statbus/statbus-backups: measurement unavailable"},
+		struct{ name, line string }{"disk unmeasurable (measurement)", "cannot check disk space at /home/statbus/statbus-upgrade-snapshots: measurement unavailable"},
 		struct{ name, line string }{"restart preflight barrier", fmt.Sprintf("a restart is still running, or its services could not be restored. Wait for it to finish, then run the same install command again: %s", rerun)},
 		struct{ name, line string }{"restart bootstrap mutex", fmt.Sprintf("a restart is still running. Wait for it to finish, then run the same install command again: %s", rerun)},
 	)

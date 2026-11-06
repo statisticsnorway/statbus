@@ -164,7 +164,8 @@ echo "PASS: self-test confirms a mkdir removed from the last block's own scope i
 # ~/statbus-maintenance ownership (runs 36851924215 and 36877708943, both
 # "write maintenance flag ... permission denied" in the OLD binary's pre-swap
 # phase). Pin it: the heredoc must create ~/statbus-maintenance (and
-# ~/statbus-backups) BEFORE writing .env.config.
+# ~/statbus-backups, the snapshot folder of the historical release it
+# installs; the candidate later moves it, STATBUS-574) BEFORE writing .env.config.
 
 python3 - "$FILE" <<'PY'
 import re, sys

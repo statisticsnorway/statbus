@@ -304,7 +304,7 @@ if [ "${HARNESS_ASSERT_DISK_POLICY:-0}" = 1 ]; then
     VM_EXEC bash -c 'cd ~/statbus && ./sb install --non-interactive'
     POLICY=$(VM_EXEC bash -c 'cd ~/statbus && ./sb dotenv -f .env.config get STATBUS_DISK_MIN_GB && ./sb dotenv -f .env.config get STATBUS_DISK_RECOMMENDED_GB')
     [ "$POLICY" = $'20\n40' ] || { echo "disk policy changed on rerun: $POLICY" >&2; exit 1; }
-    VM_EXEC bash -c 'mkdir -p "$HOME/statbus-backups"; docker info --format "Docker data: {{.DockerRootDir}}"; df -h "$(docker info --format "{{.DockerRootDir}}")" "$HOME/statbus-backups"'
+    VM_EXEC bash -c 'mkdir -p "$HOME/statbus-upgrade-snapshots"; docker info --format "Docker data: {{.DockerRootDir}}"; df -h "$(docker info --format "{{.DockerRootDir}}")" "$HOME/statbus-upgrade-snapshots"'
 fi
 
 # ─────────────────────────────────────────────────────────────────────────
@@ -354,6 +354,27 @@ if [ "$NRESTARTS_FINAL" = "?" ] || [ "$NRESTARTS_FINAL" -gt 2 ]; then
     exit 1
 fi
 echo "  ✓ restart counter bounded on the migrated unit"
+
+# STATBUS-574: the baseline release took its snapshot under ~/statbus-backups;
+# the candidate moves the folder to ~/statbus-upgrade-snapshots once the
+# upgrade marker is gone (post-upgrade install or the upgrader's next tick)
+# and points the recorded snapshot paths there.
+echo ""
+echo "── upgrade snapshot folder (~/statbus-backups → ~/statbus-upgrade-snapshots) ──"
+SNAPSHOTS_MOVED=0
+for _ in $(seq 1 30); do
+    if assert_upgrade_snapshots_moved "$VM_NAME" >/dev/null 2>&1; then
+        SNAPSHOTS_MOVED=1
+        break
+    fi
+    sleep 10
+done
+if [ "$SNAPSHOTS_MOVED" != 1 ]; then
+    assert_upgrade_snapshots_moved "$VM_NAME" || true
+    VM_EXEC bash -c "journalctl --user -u 'statbus-upgrader@*' --no-pager -n 40" >&2 || true
+    exit 1
+fi
+assert_upgrade_snapshots_moved "$VM_NAME"
 
 echo ""
 echo "PASS: 0-happy-upgrade (supervised unattended path completed cleanly; data intact; unit stable)"

@@ -299,6 +299,11 @@ var rewindAudit = map[siteKey]rewindDisposition{
 		Class: classSuccessPathOnly, Count: 1,
 		Why: "The fresh-install record, written by install rather than by an upgrade. No upgrade window exists around it.",
 	},
+	{"cli/internal/upgrade/snapshot_root.go", "UPDATE", "backup_path"}: {
+		Class: classSuccessPathOnly, Count: 1,
+		Why: "STATBUS-574 points a pre-rename recorded snapshot path at the moved folder. It runs only while the marker " +
+			"records no upgrade (boot after recovery, idle tick), so no snapshot-to-restore window is open around it.",
+	},
 	{"cli/internal/upgrade/exec.go", "UPDATE", "backup_path"}: {
 		Class: classSelfHealing, Count: 1,
 		Why: "reconcileBackupDir NULLs a backup_path whose directory is gone. Re-derived by reconciliation itself " +
